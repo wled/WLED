@@ -4083,3 +4083,79 @@ uint16_t WS2812FX::mode_aurora(void) {
   
   return FRAMETIME;
 }
+
+/*
+ * New awesome Hive 51 Light Installation effect.
+ * Random Strobing Segments
+ */
+uint16_t WS2812FX::mode_hive_51(void) {
+  const uint8_t N_LEDS_PER_EDGE = 10;
+
+  uint32_t cycleTime = 750 + (255 - SEGMENT.speed)*150; // total cycle time in ms
+  uint32_t perc = now % cycleTime; // current time step in active cycle in ms
+  uint16_t prog = (perc * 10) / cycleTime; // current progress in active cycle (0 = start, 65535 = end)
+  
+  uint8_t nActiveEdges = SEGLEN / N_LEDS_PER_EDGE / 3; // set 1/3 of the edges to active
+  // check if active edges are set
+  if (!SEGENV.data || sizeof(SEGENV.data) != nActiveEdges) {
+    if(!SEGENV.allocateData(nActiveEdges)) {
+      // return if memory cannot be allocated
+      return 0;
+    }
+  }
+
+  bool isValidData = true;
+  if (SEGENV.step == prog) {
+    // do not update LEDs
+    for (uint8_t ii = 0; ii < nActiveEdges; ii ++) {
+      if (SEGENV.data[ii] > SEGLEN / N_LEDS_PER_EDGE - 1) {
+        isValidData = false;
+        ii = nActiveEdges;
+        break;
+      }
+      for (uint8_t jj = 0; jj < nActiveEdges; jj ++) {
+        if (ii != jj) {
+          if (SEGENV.data[ii] == SEGENV.data[jj]) {
+            isValidData = false;
+            ii = jj = nActiveEdges;
+            break;
+          }
+        }
+      }
+    }
+  }
+  if (SEGENV.step == (uint8_t) (prog - 1) || !isValidData) {
+    // update active segments to next random value
+    for (uint8_t ii = 0; ii < nActiveEdges ; ii++) {
+      bool duplicates;
+      do {
+        duplicates = false;
+        SEGENV.data[ii] = random8(0, SEGLEN / N_LEDS_PER_EDGE - 1);
+        for (uint8_t jj = 0; jj < ii; jj++) {
+          if (SEGENV.data[ii] == SEGENV.data[jj]) {
+            duplicates = true;
+            break;
+          }
+        }
+      } while (duplicates);
+    }
+  }
+  else {
+    // this should not happen
+    return 0;
+  }
+
+  // set LED colors
+  for (uint16_t ii = 0; ii < SEGLEN; ii++) { 
+    // set all LEDs to secondary color
+    setPixelColor(ii, BLACK);
+  }
+  for (uint8_t ii = 0; ii < sizeof(SEGENV.data); ii++) { // cycle through active edges
+    for (uint8_t jj = 0; jj < N_LEDS_PER_EDGE; jj++) {
+      setPixelColor(SEGENV.data[ii] * N_LEDS_PER_EDGE + jj, WHITE);
+    }
+  }
+
+  SEGENV.step = prog; // update step counter
+  return FRAMETIME;
+}
