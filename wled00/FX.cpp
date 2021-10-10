@@ -4278,19 +4278,30 @@ uint16_t WS2812FX::mode_HIVE_rotate(void) {
         // edges 0 for first 30 steps
         uint8_t diff = 0;
         bool dir;
-        if (std::find(std::begin(EDGES_0), std::end(EDGES_0), ii) != std::end(EDGES_0)) {
+        if (uint8_t index = std::find(std::begin(EDGES_0), std::end(EDGES_0), ii) != std::end(EDGES_0)) {
             diff = prog;
-            dir = EDGES_0_DIR[std::find(std::begin(EDGES_0), std::end(EDGES_0), ii)];
-        } else if (std::find(std::begin(EDGES_1), std::end(EDGES_1), ii) != std::end(EDGES_1)) {
+            bool dirs[]= EDGES_0_DIR;
+            dir = dirs[index];
+        } else if (uint8_t index = std::find(std::begin(EDGES_1), std::end(EDGES_1), ii) != std::end(EDGES_1)) {
             diff = prog - N_LEDS_PER_EDGE;
-        } else if (std::find(std::begin(EDGES_2), std::end(EDGES_2), ii) != std::end(EDGES_2)) {
+            bool dirs[]= EDGES_1_DIR;
+            dir = dirs[index];
+        } else if (uint8_t index = std::find(std::begin(EDGES_2), std::end(EDGES_2), ii) != std::end(EDGES_2)) {
             diff = prog - 2 * N_LEDS_PER_EDGE;
-        } else if (std::find(std::begin(EDGES_3), std::end(EDGES_3), ii) != std::end(EDGES_3)) {
+            bool dirs[]= EDGES_2_DIR;
+            dir = dirs[index];
+        } else if (uint8_t index = std::find(std::begin(EDGES_3), std::end(EDGES_3), ii) != std::end(EDGES_3)) {
             diff = prog - 3 * N_LEDS_PER_EDGE;
-        } else if (std::find(std::begin(EDGES_4), std::end(EDGES_4), ii) != std::end(EDGES_4)) {
+            bool dirs[]= EDGES_3_DIR;
+            dir = dirs[index];
+        } else if (uint8_t index = std::find(std::begin(EDGES_4), std::end(EDGES_4), ii) != std::end(EDGES_4)) {
             diff = prog - 4 * N_LEDS_PER_EDGE;
-        } else if (std::find(std::begin(EDGES_5), std::end(EDGES_5), ii) != std::end(EDGES_5)) {
+            bool dirs[]= EDGES_4_DIR;
+            dir = dirs[index];
+        } else if (uint8_t index = std::find(std::begin(EDGES_5), std::end(EDGES_5), ii) != std::end(EDGES_5)) {
             diff = prog - 5 * N_LEDS_PER_EDGE;
+            bool dirs[]= EDGES_5_DIR;
+            dir = dirs[index];
         } else {
             for (uint8_t jj = 0; jj < N_LEDS_PER_EDGE; jj++) {
                 setPixelColor(ii + jj, BLACK);
