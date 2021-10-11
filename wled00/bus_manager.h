@@ -24,6 +24,10 @@
   #define DEBUG_PRINTF(x...)
 #endif
 
+#define GET_BIT(var,bit)    (((var)>>(bit))&0x01)
+#define SET_BIT(var,bit)    ((var)|=(uint16_t)(0x0001<<(bit)))
+#define UNSET_BIT(var,bit)  ((var)&=(~(uint16_t)(0x0001<<(bit))))
+
 //temporary struct for passing bus configuration to bus
 struct BusConfig {
   uint8_t type = TYPE_WS2812_RGB;
@@ -32,10 +36,12 @@ struct BusConfig {
   uint8_t colorOrder = COL_ORDER_GRB;
   bool reversed = false;
   uint8_t skipAmount;
+  bool refreshReq;
   uint8_t pins[5] = {LEDPIN, 255, 255, 255, 255};
-  BusConfig(uint8_t busType, uint8_t* ppins, uint16_t pstart, uint16_t len = 1, uint8_t pcolorOrder = COL_ORDER_GRB, bool rev = false, uint8_t skip=0) {
-    type = busType; count = len; start = pstart;
-    colorOrder = pcolorOrder; reversed = rev; skipAmount = skip;
+  BusConfig(uint8_t busType, uint8_t* ppins, uint16_t pstart, uint16_t len = 1, uint8_t pcolorOrder = COL_ORDER_GRB, bool rev = false, uint8_t skip = 0) {
+    refreshReq = (bool) GET_BIT(busType,7);
+    type = busType & 0x7F;  // bit 7 may be/is hacked to include refresh info (1=refresh in off state, 0=no refresh)
+    count = len; start = pstart; colorOrder = pcolorOrder; reversed = rev; skipAmount = skip;
     uint8_t nPins = 1;
     if (type >= TYPE_NET_DDP_RGB && type < 96) nPins = 4; //virtual network bus. 4 "pins" store IP address
     else if (type > 47) nPins = 2;
@@ -120,6 +126,10 @@ class Bus {
     return false;
   }
 
+  inline bool isOffRefreshRequired() {
+    return _needsRefresh;
+  }
+
   bool reversed = false;
 
   protected:
@@ -127,6 +137,7 @@ class Bus {
   uint8_t _bri = 255;
   uint16_t _start = 0;
   bool _valid = false;
+  bool _needsRefresh = false;
 };
 
 
@@ -143,6 +154,7 @@ class BusDigital : public Bus {
       _pins[1] = bc.pins[1];
     }
     reversed = bc.reversed;
+    _needsRefresh = bc.refreshReq || bc.type == TYPE_TM1814;
     _skip = bc.skipAmount;    //sacrificial pixels
     _len = bc.count + _skip;
     _iType = PolyBus::getI(bc.type, _pins, nr);
@@ -204,7 +216,7 @@ class BusDigital : public Bus {
   }
 
   inline bool isRgbw() {
-    return (_type == TYPE_SK6812_RGBW || _type == TYPE_TM1814);
+    return Bus::isRgbw(_type);
   }
 
   inline uint8_t skippedLeds() {
@@ -216,7 +228,7 @@ class BusDigital : public Bus {
   }
 
   void cleanup() {
-    DEBUG_PRINTLN("Digital Cleanup");
+    DEBUG_PRINTLN(F("Digital Cleanup."));
     PolyBus::cleanup(_busPtr, _iType);
     _iType = I_NONE;
     _valid = false;
@@ -326,7 +338,7 @@ class BusPwm : public Bus {
   }
 
   bool isRgbw() {
-    return (_type > TYPE_ONOFF && _type <= TYPE_ANALOG_5CH && _type != TYPE_ANALOG_3CH);
+    return Bus::isRgbw(_type);
   }
 
   inline void cleanup() {
@@ -481,7 +493,7 @@ class BusManager {
   static uint32_t memUsage(BusConfig &bc) {
     uint8_t type = bc.type;
     uint16_t len = bc.count;
-    if (type < 32) {
+    if (type > 15 && type < 32) {
       #ifdef ESP8266
         if (bc.pins[0] == 3) { //8266 DMA uses 5x the mem
           if (type > 29) return len*20; //RGBW
@@ -496,7 +508,7 @@ class BusManager {
     }
     if (type > 31 && type < 48)   return 5;
     if (type == 44 || type == 45) return len*4; //RGBW
-    return len*3;
+    return len*3; //RGB
   }
   
   int add(BusConfig &bc) {
@@ -513,7 +525,7 @@ class BusManager {
 
   //do not call this method from system context (network callback)
   void removeAll() {
-    //Serial.println("Removing all.");
+    DEBUG_PRINTLN(F("Removing all."));
     //prevents crashes due to deleting busses while in use. 
     while (!canAllShow()) yield();
     for (uint8_t i = 0; i < numBusses; i++) delete busses[i];
@@ -571,16 +583,6 @@ class BusManager {
     uint16_t len = 0;
     for (uint8_t i=0; i<numBusses; i++ ) len += busses[i]->getLength();
     return len;
-  }
-
-  // a workaround
-  static inline bool isRgbw(uint8_t type) {
-    return Bus::isRgbw(type);
-  }
-
-  //Return true if the strip requires a refresh to stay off.
-  static bool isOffRefreshRequred(uint8_t type) {
-    return type == TYPE_TM1814;
   }
 
   private:

@@ -2,6 +2,13 @@
 
 ### Builds after release 0.12.0
 
+#### Build 2110110
+
+-   Version bump to 0.13.0-b4 "Toki"
+-   Added option for bus refresh if off (PR #2259)
+-   New auto segment logic
+-   Fixed current calculations for virtual or non-linear configs (PR #2262)
+
 #### Build 2110060
 
 -   Added virtual network DDP busses (PR #2245)

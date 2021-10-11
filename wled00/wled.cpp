@@ -209,25 +209,23 @@ void WLED::loop()
   if (doInitBusses) {
     doInitBusses = false;
     DEBUG_PRINTLN(F("Re-init busses."));
+    bool aligned = strip.checkSegmentAlignment(); //see if old segments match old bus(ses)
     busses.removeAll();
     uint32_t mem = 0;
-    strip.isRgbw = false;
+    ledCount = 1;
     for (uint8_t i = 0; i < WLED_MAX_BUSSES; i++) {
       if (busConfigs[i] == nullptr) break;
-      
-      if (busConfigs[i]->adjustBounds(ledCount)) {
-        mem += busses.memUsage(*busConfigs[i]);
-        if (mem <= MAX_LED_MEMORY) {
-          busses.add(*busConfigs[i]);
-          //RGBW mode is enabled if at least one of the strips is RGBW
-          strip.isRgbw = (strip.isRgbw || BusManager::isRgbw(busConfigs[i]->type));
-          //refresh is required to remain off if at least one of the strips requires the refresh.
-          strip.isOffRefreshRequred |= BusManager::isOffRefreshRequred(busConfigs[i]->type);
-        }
+      mem += BusManager::memUsage(*busConfigs[i]);
+      if (mem <= MAX_LED_MEMORY) {
+        uint16_t totalNew = busConfigs[i]->start + busConfigs[i]->count;
+        if (totalNew > ledCount && totalNew <= MAX_LEDS) ledCount = totalNew; //total is end of last bus (where start + len is max.)
+        busses.add(*busConfigs[i]);
       }
       delete busConfigs[i]; busConfigs[i] = nullptr;
     }
-    strip.finalizeInit(ledCount);
+    strip.finalizeInit();
+    if (aligned) strip.makeAutoSegments();
+    else strip.fixInvalidSegments();
     yield();
     serializeConfig();
   }
@@ -407,11 +405,8 @@ void WLED::setup()
 void WLED::beginStrip()
 {
   // Initialize NeoPixel Strip and button
-
-  if (ledCount > MAX_LEDS || ledCount == 0)
-    ledCount = 30;
-
-  strip.finalizeInit(ledCount);
+  strip.finalizeInit(); // busses created during deserializeConfig()
+  strip.makeAutoSegments();
   strip.setBrightness(0);
   strip.setShowCallback(handleOverlayDraw);
 

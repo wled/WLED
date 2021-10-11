@@ -90,7 +90,6 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
       }
     }
 
-    strip.isRgbw = false;
     uint8_t colorOrder, type, skip;
     uint16_t length, start;
     uint8_t pins[5] = {255, 255, 255, 255, 255};
@@ -105,6 +104,7 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
       char ls[4] = "LS"; ls[2] = 48+s; ls[3] = 0; //strip start LED
       char cv[4] = "CV"; cv[2] = 48+s; cv[3] = 0; //strip reverse
       char sl[4] = "SL"; sl[2] = 48+s; sl[3] = 0; //skip 1st LED
+      char rf[4] = "RF"; rf[2] = 48+s; rf[3] = 0; //refresh required
       if (!request->hasArg(lp)) {
         DEBUG_PRINTLN(F("No data.")); break;
       }
@@ -114,24 +114,21 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
         pins[i] = (request->arg(lp).length() > 0) ? request->arg(lp).toInt() : 255;
       }
       type = request->arg(lt).toInt();
-      strip.isRgbw = strip.isRgbw || BusManager::isRgbw(type);
+      type |= request->hasArg(rf) << 7; // off refresh override
       skip = request->hasArg(sl) ? LED_SKIP_AMOUNT : 0;
 
+      colorOrder = request->arg(co).toInt();
+      start = (request->hasArg(ls)) ? request->arg(ls).toInt() : t;
       if (request->hasArg(lc) && request->arg(lc).toInt() > 0) {
-        length = request->arg(lc).toInt();
+        t += length = request->arg(lc).toInt();
       } else {
         break;  // no parameter
       }
 
-      colorOrder = request->arg(co).toInt();
-      start = (request->hasArg(ls)) ? request->arg(ls).toInt() : 0;
-
+      // actual finalization is done in WLED::loop() (removing old busses and adding new)
       if (busConfigs[s] != nullptr) delete busConfigs[s];
       busConfigs[s] = new BusConfig(type, pins, start, length, colorOrder, request->hasArg(cv), skip);
-      if (!doInitBusses) ledCount = 1;
       doInitBusses = true;
-      uint16_t totalNew = start + length;
-      if (totalNew > ledCount && totalNew <= MAX_LEDS) ledCount = totalNew; //total is end of last bus (where start + len is max.)
     }
 
     // upate other pins
@@ -181,7 +178,7 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
 
     fadeTransition = request->hasArg(F("TF"));
     t = request->arg(F("TD")).toInt();
-    if (t > 0) transitionDelay = t;
+    if (t >= 0) transitionDelay = t;
     transitionDelayDefault = t;
     strip.paletteFade = request->hasArg(F("PF"));
 
@@ -506,9 +503,6 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
         DEBUG_PRINTLN(value);
       }
     }
-    #ifdef WLED_DEBUG
-    serializeJson(um,Serial); DEBUG_PRINTLN();
-    #endif
     usermods.readFromConfig(um);  // force change of usermod parameters
   }
 
@@ -535,11 +529,10 @@ bool updateVal(const String* req, const char* key, byte* val, byte minv, byte ma
     int out = getNumVal(req, pos+1);
     if (out == 0)
     {
-      if (req->charAt(pos+4) == '-')
-      {
-        *val = (*val <= minv)? maxv : *val -1;
+      if (req->charAt(pos+4) == '-') {
+        *val = min((int)maxv, max((int)minv, (int)(*val -1)));
       } else {
-        *val = (*val >= maxv)? minv : *val +1;
+        *val = min((int)maxv, max((int)minv, (int)(*val +1)));
       }
     } else {
       out += *val;
@@ -581,7 +574,7 @@ bool handleSet(AsyncWebServerRequest *request, const String& req, bool apply)
     if (t < strip.getMaxSegments()) selectedSeg = t;
   }
 
-  WS2812FX::Segment& mainseg = strip.getSegment(selectedSeg);
+  WS2812FX::Segment& selseg = strip.getSegment(selectedSeg);
   pos = req.indexOf(F("SV=")); //segment selected
   if (pos > 0) {
     byte t = getNumVal(&req, pos);
@@ -591,13 +584,13 @@ bool handleSet(AsyncWebServerRequest *request, const String& req, bool apply)
         strip.getSegment(i).setOption(SEG_OPTION_SELECTED, 0);
       }
     }
-    mainseg.setOption(SEG_OPTION_SELECTED, t);
+    selseg.setOption(SEG_OPTION_SELECTED, t);
   }
 
-  uint16_t startI = mainseg.start;
-  uint16_t stopI = mainseg.stop;
-  uint8_t grpI = mainseg.grouping;
-  uint16_t spcI = mainseg.spacing;
+  uint16_t startI = selseg.start;
+  uint16_t stopI  = selseg.stop;
+  uint8_t  grpI   = selseg.grouping;
+  uint16_t spcI   = selseg.spacing;
   pos = req.indexOf(F("&S=")); //segment start
   if (pos > 0) {
     startI = getNumVal(&req, pos);
@@ -617,8 +610,35 @@ bool handleSet(AsyncWebServerRequest *request, const String& req, bool apply)
   }
   strip.setSegment(selectedSeg, startI, stopI, grpI, spcI);
 
+  pos = req.indexOf(F("RV=")); //Segment reverse
+  if (pos > 0) selseg.setOption(SEG_OPTION_REVERSED, req.charAt(pos+3) != '0');
+
+  pos = req.indexOf(F("MI=")); //Segment mirror
+  if (pos > 0) selseg.setOption(SEG_OPTION_MIRROR, req.charAt(pos+3) != '0');
+
+  pos = req.indexOf(F("SB=")); //Segment brightness/opacity
+  if (pos > 0) {
+    byte segbri = getNumVal(&req, pos);
+    selseg.setOption(SEG_OPTION_ON, segbri, selectedSeg);
+    if (segbri) {
+      selseg.setOpacity(segbri, selectedSeg);
+    }
+  }
+
+  pos = req.indexOf(F("SW=")); //segment power
+  if (pos > 0) {
+    switch (getNumVal(&req, pos)) {
+      case 0: selseg.setOption(SEG_OPTION_ON, false); break;
+      case 1: selseg.setOption(SEG_OPTION_ON, true); break;
+      default: selseg.setOption(SEG_OPTION_ON, !selseg.getOption(SEG_OPTION_ON)); break;
+    }
+  }
+
   pos = req.indexOf(F("PS=")); //saves current in preset
   if (pos > 0) savePreset(getNumVal(&req, pos));
+
+  byte presetCycleMin = 1;
+  byte presetCycleMax = 5;
 
   pos = req.indexOf(F("P1=")); //sets first preset for cycle
   if (pos > 0) presetCycleMin = getNumVal(&req, pos);
@@ -707,7 +727,7 @@ bool handleSet(AsyncWebServerRequest *request, const String& req, bool apply)
       strip.applyToAllSelected = true;
       strip.setColor(2, t[0], t[1], t[2], t[3]);
     } else {
-      strip.getSegment(selectedSeg).setColor(2,((t[0] << 16) + (t[1] << 8) + t[2] + (t[3] << 24)), selectedSeg);
+      selseg.setColor(2,((t[0] << 16) + (t[1] << 8) + t[2] + (t[3] << 24)), selectedSeg); // defined above (SS=)
     }
   }
 
@@ -810,24 +830,6 @@ bool handleSet(AsyncWebServerRequest *request, const String& req, bool apply)
 
   pos = req.indexOf(F("TT="));
   if (pos > 0) transitionDelay = getNumVal(&req, pos);
-
-  //Segment reverse
-  pos = req.indexOf(F("RV="));
-  if (pos > 0) strip.getSegment(selectedSeg).setOption(SEG_OPTION_REVERSED, req.charAt(pos+3) != '0');
-
-  //Segment reverse
-  pos = req.indexOf(F("MI="));
-  if (pos > 0) strip.getSegment(selectedSeg).setOption(SEG_OPTION_MIRROR, req.charAt(pos+3) != '0');
-
-  //Segment brightness/opacity
-  pos = req.indexOf(F("SB="));
-  if (pos > 0) {
-    byte segbri = getNumVal(&req, pos);
-    strip.getSegment(selectedSeg).setOption(SEG_OPTION_ON, segbri, selectedSeg);
-    if (segbri) {
-      strip.getSegment(selectedSeg).setOpacity(segbri, selectedSeg);
-    }
-  }
 
   //set time (unix timestamp)
   pos = req.indexOf(F("ST="));

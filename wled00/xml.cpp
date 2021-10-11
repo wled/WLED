@@ -380,6 +380,7 @@ void getSettingsJS(byte subPage, char* dest)
       char ls[4] = "LS"; ls[2] = 48+s; ls[3] = 0; //strip start LED
       char cv[4] = "CV"; cv[2] = 48+s; cv[3] = 0; //strip reverse
       char sl[4] = "SL"; sl[2] = 48+s; sl[3] = 0; //skip 1st LED
+      char rf[4] = "RF"; rf[2] = 48+s; rf[3] = 0; //off refresh
       oappend(SET_F("addLEDs(1);"));
       uint8_t pins[5];
       uint8_t nPins = bus->getPins(pins);
@@ -393,6 +394,7 @@ void getSettingsJS(byte subPage, char* dest)
       sappend('v',ls,bus->getStart());
       sappend('c',cv,bus->reversed);
       sappend('c',sl,bus->skippedLeds());
+      sappend('c',rf,bus->isOffRefreshRequired());
     }
     sappend('v',SET_F("MA"),strip.ablMilliampsMax);
     sappend('v',SET_F("LA"),strip.milliampsPerLed);

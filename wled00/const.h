@@ -240,10 +240,10 @@
 
 #define NTP_PACKET_SIZE 48
 
-// maximum number of LEDs - more than 1500 LEDs (or 500 DMA "LEDPIN 3" driven ones) will cause a low memory condition on ESP8266
+//maximum number of rendered LEDs - this does not have to match max. physical LEDs, e.g. if there are virtual busses 
 #ifndef MAX_LEDS
 #ifdef ESP8266
-#define MAX_LEDS 1664 // can't rely on memory limit to limit this to 1600 LEDs
+#define MAX_LEDS 1664 //can't rely on memory limit to limit this to 1600 LEDs
 #else
 #define MAX_LEDS 8192
 #endif
