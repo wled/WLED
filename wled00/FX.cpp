@@ -4234,18 +4234,6 @@ uint16_t WS2812FX::mode_HIVE_strobing_segments(void) {
     return FRAMETIME;
 }
 
-#define EDGES_0 \
-    { 0, 70, 140 }
-#define EDGES_1 \
-    { 10, 80, 150 }
-#define EDGES_2 \
-    { 20, 90, 160 }
-#define EDGES_3 \
-    { 30, 100, 170 }
-#define EDGES_4 \
-    { 40, 110, 180 }
-#define EDGES_5 \
-    { 50, 120, 190 }
 
 #define EDGES_0_DIR \
     { true, false, true }
@@ -4268,51 +4256,68 @@ uint16_t WS2812FX::mode_HIVE_strobing_segments(void) {
  * Random Strobing Segments
  */
 uint16_t WS2812FX::mode_HIVE_rotate(void) {
-
     // TODO: reverse counter-clockwise edges
     uint32_t cycleTime = 250 + (255 - SEGMENT.speed) * 150;    // total cycle time in ms
     uint32_t perc = now % cycleTime;                           // current time step in active cycle in ms
     uint16_t prog = (perc * 6 * N_LEDS_PER_EDGE) / cycleTime;  // current progress in active cycle (0 = start, 60 = end)
+    int edges_0[] = {0, 70, 140};
+    int edges_1[] = {10, 80, 150};
+    int edges_2[] = {20, 90, 160};
+    int edges_3[] = {30, 100, 170};
+    int edges_4[] = {40, 110, 180};
+    int edges_5[] = {50, 120, 190};
 
     for (uint16_t ii = 0; ii < SEGLEN; ii += N_LEDS_PER_EDGE) {
         // edges 0 for first 30 steps
-        uint8_t diff = 0;
-        bool dir;
-        if (uint8_t index = std::find(std::begin(EDGES_0), std::end(EDGES_0), ii) != std::end(EDGES_0)) {
+        int diff = 0;
+        bool dir, isActive = true;
+        int index0 = std::distance(edges_0, std::find(std::begin(edges_0), std::end(edges_0), ii));
+        int index1 = std::distance(edges_1, std::find(std::begin(edges_1), std::end(edges_1), ii));
+        int index2 = std::distance(edges_2, std::find(std::begin(edges_2), std::end(edges_2), ii));
+        int index3 = std::distance(edges_3, std::find(std::begin(edges_3), std::end(edges_3), ii));
+        int index4 = std::distance(edges_4, std::find(std::begin(edges_4), std::end(edges_4), ii));
+        int index5 = std::distance(edges_5, std::find(std::begin(edges_5), std::end(edges_5), ii));
+        if (index0 != sizeof(edges_0) / sizeof(*edges_0)) {
             diff = prog;
-            bool dirs[]= EDGES_0_DIR;
-            dir = dirs[index];
-        } else if (uint8_t index = std::find(std::begin(EDGES_1), std::end(EDGES_1), ii) != std::end(EDGES_1)) {
+            bool dirs[] = EDGES_0_DIR;
+            dir = dirs[index0];
+        } else if (index1 != sizeof(edges_1) / sizeof(*edges_1)) {
             diff = prog - N_LEDS_PER_EDGE;
-            bool dirs[]= EDGES_1_DIR;
-            dir = dirs[index];
-        } else if (uint8_t index = std::find(std::begin(EDGES_2), std::end(EDGES_2), ii) != std::end(EDGES_2)) {
-            diff = prog - 2 * N_LEDS_PER_EDGE;
-            bool dirs[]= EDGES_2_DIR;
-            dir = dirs[index];
-        } else if (uint8_t index = std::find(std::begin(EDGES_3), std::end(EDGES_3), ii) != std::end(EDGES_3)) {
-            diff = prog - 3 * N_LEDS_PER_EDGE;
-            bool dirs[]= EDGES_3_DIR;
-            dir = dirs[index];
-        } else if (uint8_t index = std::find(std::begin(EDGES_4), std::end(EDGES_4), ii) != std::end(EDGES_4)) {
-            diff = prog - 4 * N_LEDS_PER_EDGE;
-            bool dirs[]= EDGES_4_DIR;
-            dir = dirs[index];
-        } else if (uint8_t index = std::find(std::begin(EDGES_5), std::end(EDGES_5), ii) != std::end(EDGES_5)) {
-            diff = prog - 5 * N_LEDS_PER_EDGE;
-            bool dirs[]= EDGES_5_DIR;
-            dir = dirs[index];
+            bool dirs[] = EDGES_1_DIR;
+            dir = dirs[index1];
+        } else if (index2 != sizeof(edges_2) / sizeof(*edges_2)) {
+            diff = prog - (2 * N_LEDS_PER_EDGE);
+            bool dirs[] = EDGES_2_DIR;
+            dir = dirs[index2];
+        } else if (index3 != sizeof(edges_3) / sizeof(*edges_3)) {
+            diff = prog - (3 * N_LEDS_PER_EDGE);
+            bool dirs[] = EDGES_3_DIR;
+            dir = dirs[index3];
+        } else if (index4 != sizeof(edges_4) / sizeof(*edges_4)) {
+            diff = prog - (4 * N_LEDS_PER_EDGE);
+            bool dirs[] = EDGES_4_DIR;
+            dir = dirs[index4];
+        } else if (index5 != sizeof(edges_5) / sizeof(*edges_5)) {
+            diff = prog - (5 * N_LEDS_PER_EDGE);
+            bool dirs[] = EDGES_5_DIR;
+            dir = dirs[index5];
+        } else {
+            isActive = false;
+        }
+        if (isActive) {
+            for (uint8_t jj = 0; jj < N_LEDS_PER_EDGE; jj++) {
+                diff -= 1;
+                diff = diff < 0 ? diff + 6 * N_LEDS_PER_EDGE : diff;
+                float blend = diff;
+                blend *= 255.0f / (N_LEDS_PER_EDGE * 6.0f - 1);
+                // setPixelColor(ii + jj, WHITE);
+                setPixelColor(ii + jj, color_from_palette(255U - blend, false, false, 255U));
+                // setPixelColor(ii + jj, color_blend(BLACK, WHITE, 255U - blend, false);
+            }
         } else {
             for (uint8_t jj = 0; jj < N_LEDS_PER_EDGE; jj++) {
                 setPixelColor(ii + jj, BLACK);
             }
-            continue;
-        }
-        for (uint8_t jj = 0; jj < N_LEDS_PER_EDGE; jj++) {
-            diff -= jj;
-            diff %= 6 * N_LEDS_PER_EDGE;
-            diff = diff < 0 ? diff + 6 * N_LEDS_PER_EDGE : diff;
-            setPixelColor(ii + jj, color_from_palette(((float) diff) / 6 / N_LEDS_PER_EDGE * 256, false, false, 255U));
         }
     }
 
