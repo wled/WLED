@@ -352,29 +352,30 @@ AEST/AEDT</option><option value="12">NZST/NZDT</option><option value="13">
 North Korea</option><option value="14">IST (India)</option><option value="15">
 CA-Saskatchewan</option><option value="16">ACST</option><option value="17">
 ACST/ACDT</option><option value="18">HST (Hawaii)</option><option value="19">
-NOVT (Novosibirsk)</option></select><br>UTC offset: <input name="UO" 
-type="number" min="-65500" max="65500" required> seconds (max. 18 hours)<br>
-Current local time is <span class="times">unknown</span>.<br>Latitude (N): 
-<input name="LT" type="number" min="-66.6" max="66.6" step="0.01">
- Longitude (E): <input name="LN" type="number" min="-180" max="180" step="0.01">
-<div id="sun" class="times"></div><h3>Clock</h3>Clock Overlay: <select 
-name="OL" onchange="Cs()"><option value="0" id="cn" selected="selected">None
-</option><option value="1" id="ca">Analog Clock</option><option value="2">
-Single Digit Clock</option><option value="3" id="cc">Cronixie Clock</option>
-</select><br><div id="coc">First LED: <input name="O1" type="number" min="0" 
-max="255" required> Last LED: <input name="O2" type="number" min="0" max="255" 
-required><br><div id="cac">12h LED: <input name="OM" type="number" min="0" 
-max="255" required><br>Show 5min marks: <input type="checkbox" name="O5"><br>
-</div>Seconds (as trail): <input type="checkbox" name="OS"><br></div><div 
-id="ccc">Cronixie Display: <input name="CX" maxlength="6"><br>
-Cronixie Backlight: <input type="checkbox" name="CB"><br></div>Countdown Mode: 
-<input type="checkbox" name="CE"><br>Countdown Goal:<br>Year: 20 <input 
-name="CY" type="number" min="0" max="99" required> Month: <input name="CI" 
-type="number" min="1" max="12" required> Day: <input name="CD" type="number" 
-min="1" max="31" required><br>Hour: <input name="CH" type="number" min="0" 
-max="23" required> Minute: <input name="CM" type="number" min="0" max="59" 
-required> Second: <input name="CS" type="number" min="0" max="59" required><br>
-<h3>Macro presets</h3><b>Macros have moved!</b><br><i>
+NOVT (Novosibirsk)</option><option value="20">AKST/AKDT (Anchorage)</option>
+</select><br>UTC offset: <input name="UO" type="number" min="-65500" 
+max="65500" required> seconds (max. 18 hours)<br>Current local time is <span 
+class="times">unknown</span>.<br>Latitude (N): <input name="LT" type="number" 
+min="-66.6" max="66.6" step="0.01"> Longitude (E): <input name="LN" 
+type="number" min="-180" max="180" step="0.01"><div id="sun" class="times">
+</div><h3>Clock</h3>Clock Overlay: <select name="OL" onchange="Cs()"><option 
+value="0" id="cn" selected="selected">None</option><option value="1" id="ca">
+Analog Clock</option><option value="2">Single Digit Clock</option><option 
+value="3" id="cc">Cronixie Clock</option></select><br><div id="coc">First LED: 
+<input name="O1" type="number" min="0" max="255" required> Last LED: <input 
+name="O2" type="number" min="0" max="255" required><br><div id="cac">12h LED: 
+<input name="OM" type="number" min="0" max="255" required><br>Show 5min marks: 
+<input type="checkbox" name="O5"><br></div>Seconds (as trail): <input 
+type="checkbox" name="OS"><br></div><div id="ccc">Cronixie Display: <input 
+name="CX" maxlength="6"><br>Cronixie Backlight: <input type="checkbox" 
+name="CB"><br></div>Countdown Mode: <input type="checkbox" name="CE"><br>
+Countdown Goal:<br>Year: 20 <input name="CY" type="number" min="0" max="99" 
+required> Month: <input name="CI" type="number" min="1" max="12" required> Day: 
+<input name="CD" type="number" min="1" max="31" required><br>Hour: <input 
+name="CH" type="number" min="0" max="23" required> Minute: <input name="CM" 
+type="number" min="0" max="59" required> Second: <input name="CS" type="number" 
+min="0" max="59" required><br><h3>Macro presets</h3><b>Macros have moved!</b>
+<br><i>
 Presets now also can be used as macros to save both JSON and HTTP API commands.
 <br>Just enter the preset id below!</i> <i>
 Use 0 for the default action instead of a preset</i><br>Alexa On/Off Preset: 
