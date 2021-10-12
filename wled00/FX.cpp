@@ -4139,7 +4139,10 @@ uint16_t WS2812FX::mode_aurora(void) {
     return FRAMETIME;
 }
 
-#define N_LEDS_PER_EDGE 10
+#define N_LEDS_PER_EDGE 10  // if != 10, correct DELTA in next line
+#define HEXAGON_CORRECTION_FACTOR \
+    { 0.89683481, 0.96869989, 1.02748279, 1.06629153, 1.07988476, 1.06629153, 1.02748279, 0.96869989, 0.89683481, 1.0014972 }
+// correction factor assumes a led spacing of 16.67 mm and a total edge length of 170 mm
 
 /*
  * New awesome Hive 51 Light Installation effect.
@@ -4234,85 +4237,116 @@ uint16_t WS2812FX::mode_HIVE_strobing_segments(void) {
     return FRAMETIME;
 }
 
+#define EDGES_HEX_0 \
+    { 0, 70, 140 }
+#define EDGES_HEX_1 \
+    { 10, 80, 150 }
+#define EDGES_HEX_2 \
+    { 20, 90, 160 }
+#define EDGES_HEX_3 \
+    { 30, 100, 170 }
+#define EDGES_HEX_4 \
+    { 40, 110, 180 }
+#define EDGES_HEX_5 \
+    { 50, 120, 190 }
 
-#define EDGES_0_DIR \
-    { true, false, true }
-#define EDGES_1_DIR \
-    { true, false, true }
-#define EDGES_2_DIR \
-    { true, false, true }
-#define EDGES_3_DIR \
-    { true, false, true }
-#define EDGES_4_DIR \
-    { true, false, true }
-#define EDGES_5_DIR \
-    { true, false, true }
-
-#define SLOPE 30
-#define ROTATION_COLOR WHITE
+#define EDGES_HEX_DIR_0 \
+    { true, true, true }
+#define EDGES_HEX_DIR_1 \
+    { true, true, true }
+#define EDGES_HEX_DIR_2 \
+    { true, true, true }
+#define EDGES_HEX_DIR_3 \
+    { true, true, true }
+#define EDGES_HEX_DIR_4 \
+    { true, true, true }
+#define EDGES_HEX_DIR_5 \
+    { true, true, true }
 
 /*
  * New awesome Hive 51 Light Installation effect.
- * Random Strobing Segments
+ * Rotating hives
  */
 uint16_t WS2812FX::mode_HIVE_rotate(void) {
+    std::vector<std::vector<int>> edges = {EDGES_HEX_0, EDGES_HEX_1, EDGES_HEX_2, EDGES_HEX_3, EDGES_HEX_4, EDGES_HEX_5};
+    std::vector<std::vector<bool>> edge_dirs = {EDGES_HEX_DIR_0, EDGES_HEX_DIR_1, EDGES_HEX_DIR_2, EDGES_HEX_DIR_3, EDGES_HEX_DIR_4, EDGES_HEX_DIR_5};
+    return WS2812FX::HIVE_rotate(false, edges, edge_dirs);
+}
+
+/*
+ * New awesome Hive 51 Light Installation effect.
+ * Reverse rotating hives
+ */
+uint16_t WS2812FX::mode_HIVE_rotate_rev(void) {
+    std::vector<std::vector<int>> edges = {EDGES_HEX_0, EDGES_HEX_1, EDGES_HEX_2, EDGES_HEX_3, EDGES_HEX_4, EDGES_HEX_5};
+    std::vector<std::vector<bool>> edge_dirs = {EDGES_HEX_DIR_0, EDGES_HEX_DIR_1, EDGES_HEX_DIR_2, EDGES_HEX_DIR_3, EDGES_HEX_DIR_4, EDGES_HEX_DIR_5};
+    return WS2812FX::HIVE_rotate(true, edges, edge_dirs);
+}
+
+uint16_t WS2812FX::HIVE_rotate(bool rev, std::vector<std::vector<int>> edges, std::vector<std::vector<bool>> edge_dirs) {
     // TODO: reverse counter-clockwise edges
     uint32_t cycleTime = 250 + (255 - SEGMENT.speed) * 150;    // total cycle time in ms
     uint32_t perc = now % cycleTime;                           // current time step in active cycle in ms
     uint16_t prog = (perc * 6 * N_LEDS_PER_EDGE) / cycleTime;  // current progress in active cycle (0 = start, 60 = end)
-    int edges_0[] = {0, 70, 140};
-    int edges_1[] = {10, 80, 150};
-    int edges_2[] = {20, 90, 160};
-    int edges_3[] = {30, 100, 170};
-    int edges_4[] = {40, 110, 180};
-    int edges_5[] = {50, 120, 190};
+    if (rev) {
+        prog = (6 * N_LEDS_PER_EDGE) - prog;
+    }
 
     for (uint16_t ii = 0; ii < SEGLEN; ii += N_LEDS_PER_EDGE) {
         // edges 0 for first 30 steps
         int diff = 0;
         bool dir, isActive = true;
-        int index0 = std::distance(edges_0, std::find(std::begin(edges_0), std::end(edges_0), ii));
-        int index1 = std::distance(edges_1, std::find(std::begin(edges_1), std::end(edges_1), ii));
-        int index2 = std::distance(edges_2, std::find(std::begin(edges_2), std::end(edges_2), ii));
-        int index3 = std::distance(edges_3, std::find(std::begin(edges_3), std::end(edges_3), ii));
-        int index4 = std::distance(edges_4, std::find(std::begin(edges_4), std::end(edges_4), ii));
-        int index5 = std::distance(edges_5, std::find(std::begin(edges_5), std::end(edges_5), ii));
-        if (index0 != sizeof(edges_0) / sizeof(*edges_0)) {
+        int index0 = std::find(edges.at(0).begin(), edges.at(0).end(), ii) - edges.at(0).begin();
+        int index1 = std::find(edges.at(1).begin(), edges.at(1).end(), ii) - edges.at(1).begin();
+        int index2 = std::find(edges.at(2).begin(), edges.at(2).end(), ii) - edges.at(2).begin();
+        int index3 = std::find(edges.at(3).begin(), edges.at(3).end(), ii) - edges.at(3).begin();
+        int index4 = std::find(edges.at(4).begin(), edges.at(4).end(), ii) - edges.at(4).begin();
+        int index5 = std::find(edges.at(5).begin(), edges.at(5).end(), ii) - edges.at(5).begin();
+        if (index0 != -1) {
             diff = prog;
-            bool dirs[] = EDGES_0_DIR;
-            dir = dirs[index0];
-        } else if (index1 != sizeof(edges_1) / sizeof(*edges_1)) {
+            dir = edge_dirs.at(0).at(index0);
+        } else if (index1 != -1) {
             diff = prog - N_LEDS_PER_EDGE;
-            bool dirs[] = EDGES_1_DIR;
-            dir = dirs[index1];
-        } else if (index2 != sizeof(edges_2) / sizeof(*edges_2)) {
+            dir = edge_dirs.at(1).at(index1);
+        } else if (index2 != -1) {
             diff = prog - (2 * N_LEDS_PER_EDGE);
-            bool dirs[] = EDGES_2_DIR;
-            dir = dirs[index2];
-        } else if (index3 != sizeof(edges_3) / sizeof(*edges_3)) {
+            dir = edge_dirs.at(2).at(index2);
+        } else if (index3 != -1) {
             diff = prog - (3 * N_LEDS_PER_EDGE);
-            bool dirs[] = EDGES_3_DIR;
-            dir = dirs[index3];
-        } else if (index4 != sizeof(edges_4) / sizeof(*edges_4)) {
+            dir = edge_dirs.at(3).at(index3);
+        } else if (index4 != -1) {
             diff = prog - (4 * N_LEDS_PER_EDGE);
-            bool dirs[] = EDGES_4_DIR;
-            dir = dirs[index4];
-        } else if (index5 != sizeof(edges_5) / sizeof(*edges_5)) {
+            dir = edge_dirs.at(4).at(index4);
+        } else if (index5 != -1) {
             diff = prog - (5 * N_LEDS_PER_EDGE);
-            bool dirs[] = EDGES_5_DIR;
-            dir = dirs[index5];
+            dir = edge_dirs.at(5).at(index5);
         } else {
             isActive = false;
         }
         if (isActive) {
+            if (!dir) {
+                dir -= N_LEDS_PER_EDGE;
+            }
             for (uint8_t jj = 0; jj < N_LEDS_PER_EDGE; jj++) {
-                diff -= 1;
+                // only for N_LEDS_PER_EDGE == 10
+                if (dir) {
+                    diff--;  // modulo 10, to prevent accessing array index out of bounds
+                } else {
+                    diff++;
+                }
+                if (rev) {
+                    diff = -diff;
+                }
                 diff = diff < 0 ? diff + 6 * N_LEDS_PER_EDGE : diff;
                 float blend = diff;
                 blend *= 255.0f / (N_LEDS_PER_EDGE * 6.0f - 1);
+
                 // setPixelColor(ii + jj, WHITE);
                 setPixelColor(ii + jj, color_from_palette(255U - blend, false, false, 255U));
                 // setPixelColor(ii + jj, color_blend(BLACK, WHITE, 255U - blend, false);
+                if (rev) {
+                    diff = -diff;
+                }
             }
         } else {
             for (uint8_t jj = 0; jj < N_LEDS_PER_EDGE; jj++) {
@@ -4322,4 +4356,73 @@ uint16_t WS2812FX::mode_HIVE_rotate(void) {
     }
 
     return FRAMETIME;
+}
+
+/*
+ * Helper function for displaying predefined frames
+ * frame_size = 0 auto-detects the sze of the frame
+ * frames saved as {r1, g1, b1, r2, g2, b2, ...} or {r1, g1, b1, w1, r2, g2, b2, w2, ...}
+ */
+uint16_t WS2812FX::display_frame(byte *frame, uint16_t frame_size = 0, bool is_rgbw = false) {
+    uint8_t channels = is_rgbw ? 4 : 3;
+    frame_size = frame_size == 0 ? sizeof(frame) / sizeof(*frame) / channels : frame_size;
+    for (uint16_t ii = 0; ii < channels * MIN(SEGLEN, frame_size); ii += channels) {
+        if (is_rgbw) {
+            setPixelColor(ii, frame[ii], frame[ii + 1], frame[ii + 2], frame[ii + 3]);
+        } else {
+            setPixelColor(ii, frame[ii], frame[ii + 1], frame[ii + 2], 255U);
+        }
+    }
+    if (SEGLEN > frame_size) {
+        for (uint16_t ii = frame_size; ii < SEGLEN; ii++) {
+            setPixelColor(ii, BLACK);
+        }
+    }
+    return FRAMETIME;
+}
+
+#define EDGES_COL_0 \
+    { 0, 70, 140 }
+#define EDGES_COL_1 \
+    { 10, 80, 150 }
+#define EDGES_COL_2 \
+    { 20, 90, 160 }
+#define EDGES_COL_3 \
+    { 30, 100, 170 }
+#define EDGES_COL_4 \
+    { 40, 110, 180 }
+#define EDGES_COL_5 \
+    { 50, 120, 190 }
+
+#define EDGES_COL_DIR_0 \
+    { true, true, true }
+#define EDGES_COL_DIR_1 \
+    { true, true, true }
+#define EDGES_COL_DIR_2 \
+    { true, true, true }
+#define EDGES_COL_DIR_3 \
+    { true, true, true }
+#define EDGES_COL_DIR_4 \
+    { true, true, true }
+#define EDGES_COL_DIR_5 \
+    { true, true, true }
+
+/*
+ * New awesome Hive 51 Light Installation effect.
+ * Matrix style descending lights
+ */
+uint16_t WS2812FX::mode_HIVE_matrix(void) {
+    std::vector<std::vector<int>> edges = {EDGES_COL_0, EDGES_COL_1, EDGES_COL_2, EDGES_COL_3, EDGES_COL_4, EDGES_COL_5};
+    std::vector<std::vector<bool>> edge_dirs = {EDGES_COL_DIR_0, EDGES_COL_DIR_1, EDGES_COL_DIR_2, EDGES_COL_DIR_3, EDGES_COL_DIR_4, EDGES_COL_DIR_5};
+    return WS2812FX::HIVE_rotate(false, edges, edge_dirs);
+}
+
+/*
+ * New awesome Hive 51 Light Installation effect.
+ * Matrix style ascending lights
+ */
+uint16_t WS2812FX::mode_HIVE_matrix_rev(void) {
+    std::vector<std::vector<int>> edges = {EDGES_HEX_0, EDGES_HEX_1, EDGES_HEX_2, EDGES_HEX_3, EDGES_HEX_4, EDGES_HEX_5};
+    std::vector<std::vector<bool>> edge_dirs = {EDGES_COL_DIR_0, EDGES_COL_DIR_1, EDGES_COL_DIR_2, EDGES_COL_DIR_3, EDGES_COL_DIR_4, EDGES_COL_DIR_5};
+    return WS2812FX::HIVE_rotate(true, edges, edge_dirs);
 }

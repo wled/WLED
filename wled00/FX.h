@@ -116,7 +116,7 @@
 #define IS_REVERSE      ((SEGMENT.options & REVERSE     ) == REVERSE     )
 #define IS_SELECTED     ((SEGMENT.options & SELECTED    ) == SELECTED    )
 
-#define MODE_COUNT  120
+#define MODE_COUNT  123
 
 #define FX_MODE_STATIC                   0
 #define FX_MODE_BLINK                    1
@@ -236,8 +236,11 @@
 #define FX_MODE_BLENDS                 115
 #define FX_MODE_TV_SIMULATOR           116
 #define FX_MODE_DYNAMIC_SMOOTH         117
-#define FX_MODE_HIVE_51_STROBE_SEG     118 // custom effect for HIVE
-#define FX_MODE_HIVE_51_ROTATE         119 // custom effect for HIVE
+#define FX_MODE_HIVE_STROBE_SEG        118 // custom effect for HIVE
+#define FX_MODE_HIVE_ROTATE            119 // custom effect for HIVE
+#define FX_MODE_HIVE_ROTATE_REV        120 // custom effect for HIVE
+#define FX_MODE_HIVE_MATRIX            121 // custom effect for HIVE
+#define FX_MODE_HIVE_MATRIX_REV        122 // custom effect for HIVE
 
 
 class WS2812FX {
@@ -611,8 +614,11 @@ class WS2812FX {
       _mode[FX_MODE_BLENDS]                  = &WS2812FX::mode_blends;
       _mode[FX_MODE_TV_SIMULATOR]            = &WS2812FX::mode_tv_simulator;
       _mode[FX_MODE_DYNAMIC_SMOOTH]          = &WS2812FX::mode_dynamic_smooth;
-      _mode[FX_MODE_HIVE_51_STROBE_SEG]      = &WS2812FX::mode_HIVE_strobing_segments; // custom effect for HIVE
-      _mode[FX_MODE_HIVE_51_ROTATE]          = &WS2812FX::mode_HIVE_rotate; // custom effect for HIVE
+      _mode[FX_MODE_HIVE_STROBE_SEG]         = &WS2812FX::mode_HIVE_strobing_segments; // custom effect for HIVE
+      _mode[FX_MODE_HIVE_ROTATE]             = &WS2812FX::mode_HIVE_rotate; // custom effect for HIVE
+      _mode[FX_MODE_HIVE_ROTATE_REV]         = &WS2812FX::mode_HIVE_rotate_rev; // custom effect for HIVE
+      _mode[FX_MODE_HIVE_MATRIX]             = &WS2812FX::mode_HIVE_matrix; // custom effect for HIVE
+      _mode[FX_MODE_HIVE_MATRIX_REV]         = &WS2812FX::mode_HIVE_matrix_rev; // custom effect for HIVE
 
       _brightness = DEFAULT_BRIGHTNESS;
       currentPalette = CRGBPalette16(CRGB::Black);
@@ -834,7 +840,10 @@ class WS2812FX {
       mode_tv_simulator(void),
       mode_dynamic_smooth(void),
       mode_HIVE_strobing_segments(void), // custom effect for HIVE
-      mode_HIVE_rotate(void);       // custom effect for HIVE
+      mode_HIVE_rotate_rev(void),        // custom effect for HIVE
+      mode_HIVE_rotate(void),            // custom effect for HIVE
+      mode_HIVE_matrix(void),            // custom effect for HIVE
+      mode_HIVE_matrix_rev(void);        // custom effect for HIVE
 
   private:
     uint32_t crgb_to_col(CRGB fastled);
@@ -876,7 +885,9 @@ class WS2812FX {
       tricolor_chase(uint32_t, uint32_t),
       twinklefox_base(bool),
       spots_base(uint16_t),
-      phased_base(uint8_t);
+      phased_base(uint8_t),
+      HIVE_rotate(bool, std::vector<std::vector<int>>, std::vector<std::vector<bool>>),
+      display_frame(byte *, uint16_t, bool);
 
     CRGB twinklefox_one_twinkle(uint32_t ms, uint8_t salt, bool cat);
     CRGB pacifica_one_layer(uint16_t i, CRGBPalette16& p, uint16_t cistart, uint16_t wavescale, uint8_t bri, uint16_t ioff);
@@ -927,7 +938,8 @@ const char JSON_mode_names[] PROGMEM = R"=====([
 "Twinklefox","Twinklecat","Halloween Eyes","Solid Pattern","Solid Pattern Tri","Spots","Spots Fade","Glitter","Candle","Fireworks Starburst",
 "Fireworks 1D","Bouncing Balls","Sinelon","Sinelon Dual","Sinelon Rainbow","Popcorn","Drip","Plasma","Percent","Ripple Rainbow",
 "Heartbeat","Pacifica","Candle Multi", "Solid Glitter","Sunrise","Phased","Twinkleup","Noise Pal", "Sine","Phased Noise",
-"Flow","Chunchun","Dancing Shadows","Washing Machine","Candy Cane","Blends","TV Simulator","Dynamic Smooth","Hive 51 Strobe","Hive 51 Rotation"
+"Flow","Chunchun","Dancing Shadows","Washing Machine","Candy Cane","Blends","TV Simulator","Dynamic Smooth","Hive 51 Strobe","Hive 51 Rotation",
+"Hive 51 Rotation Reverse", "Hive 51 Matrix desc.", "Hive 51 Matrix asc."
 ])=====";
 
 
