@@ -96,6 +96,10 @@
 #include "../usermods/rgb-rotary-encoder/rgb-rotary-encoder.h"
 #endif
 
+#ifdef USERMOD_SEVEN_SEGMENT
+#include "../usermods/seven_segment_display/usermod_v2_seven_segment_display.h"
+#endif
+
 void registerUsermods()
 {
 /*
@@ -178,5 +182,9 @@ void registerUsermods()
 
   #ifdef RGB_ROTARY_ENCODER
   usermods.add(new RgbRotaryEncoderUsermod());
+  #endif
+
+  #ifdef USERMOD_SEVEN_SEGMENT
+  usermods.add(new SevenSegmentDisplay());
   #endif
 }

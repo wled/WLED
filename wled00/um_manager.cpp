@@ -4,7 +4,8 @@
  */
 
 //Usermod Manager internals
-void UsermodManager::loop()      { for (byte i = 0; i < numMods; i++) ums[i]->loop();  }
+void UsermodManager::loop()              { for (byte i = 0; i < numMods; i++) ums[i]->loop();  }
+void UsermodManager::handleOverlayDraw() { for (byte i = 0; i < numMods; i++) ums[i]->handleOverlayDraw(); }
 
 void UsermodManager::setup()     { for (byte i = 0; i < numMods; i++) ums[i]->setup(); }
 void UsermodManager::connected() { for (byte i = 0; i < numMods; i++) ums[i]->connected(); }
