@@ -40,7 +40,7 @@ class RgbRotaryEncoderUsermod : public Usermod
     void initRotaryEncoder()
     {
       PinManagerPinType pins[2] = { { eaIo, false }, { ebIo, false } };
-      if (!pinManager.allocateMultiplePins(pins, 2, UM_RGBRotaryEncoder)) {
+      if (!pinManager.allocateMultiplePins(pins, 2, PinOwner::UM_RGBRotaryEncoder)) {
         eaIo = -1;
         ebIo = -1;
         cleanup();
@@ -208,7 +208,7 @@ class RgbRotaryEncoderUsermod : public Usermod
         lastKnownBri = bri;
 
         updateLeds();
-        colorUpdated(NOTIFIER_CALL_MODE_DIRECT_CHANGE);
+        colorUpdated(CALL_MODE_DIRECT_CHANGE);
       }
 
       // If the brightness is changed not with the rotary, update the rotary
@@ -323,7 +323,7 @@ class RgbRotaryEncoderUsermod : public Usermod
       */
     uint16_t getId()
     {
-      return 0x4711;
+      return USERMOD_RGB_ROTARY_ENCODER;
     }
 
     //More methods can be added in the future, this example will then be extended.
