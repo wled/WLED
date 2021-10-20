@@ -9,6 +9,17 @@
   <a href="https://gitpod.io/#https://github.com/Aircoookie/WLED"><img src="https://img.shields.io/badge/Gitpod-ready--to--code-blue?style=flat-square&logo=gitpod"></a>
 
   </p>
+  
+# WLED on hexagon structures
+This fork of WLED implements further effects designed for hexagon structures (specifically a struture of 3 * 5 hexagons (a total of 60 edges) with an edge length of 10 LEDs (=16.67 cm with a 60 LEDs/m strip). The basic functionality of WLED is still given. Current added effects include:
+- 6 rotating hexagons (color adapts to chosen palette)
+- 6 reverse rotating hexagons (color adapts to chosen palette)
+- randomly strobing edges (does not adapt to the chosen palette, uses white instead)
+- matrix style descending stripes on the 6 "vertical" edges (color adapts to chosen palette)
+- matrix style ascending stripes on the 6 "vertical" edges (color adapts to chosen palette)
+- more to come 
+
+Original project description of WLED by Aircoookie below.
 
 # Welcome to my project WLED! ✨
 
