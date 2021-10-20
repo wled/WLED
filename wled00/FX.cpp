@@ -4183,7 +4183,6 @@ uint16_t WS2812FX::mode_HIVE_strobing_segments(void) {
         }
     }
     if (!isValidData || SEGENV.step != prog) {
-        //if (SEGENV.step == (uint8_t)(prog - 1) || SEGENV.step == 0 || !isValidData) {
         // update active segments to next random value
         for (uint8_t ii = 0; ii < nActiveEdges; ii++) {
             bool duplicates;
@@ -4199,9 +4198,6 @@ uint16_t WS2812FX::mode_HIVE_strobing_segments(void) {
                 }
             } while (duplicates);
         }
-        /*} else {
-        // this should not happen
-        return mode_static();*/
     }
 
     // set LED colors
@@ -4218,13 +4214,14 @@ uint16_t WS2812FX::mode_HIVE_strobing_segments(void) {
             uint32_t color = RED;
             if (isActiveEdge) {
                 // set LED colors on active edge to white
-                color = WHITE;
+                for (uint16_t jj = ii; jj < ii + N_LEDS_PER_EDGE; jj++) {
+                    setPixelColor(jj, color_from_palette((float) (jj - ii)  / (N_LEDS_PER_EDGE - 1) * 255, false, false, 0));
+                }
             } else {
                 // set LED colors on inactive edge to black
-                color = BLACK;
-            }
-            for (uint16_t jj = ii; jj < ii + N_LEDS_PER_EDGE; jj++) {
-                setPixelColor(jj, color);
+                for (uint16_t jj = ii; jj < ii + N_LEDS_PER_EDGE; jj++) {
+                    setPixelColor(jj, BLACK);
+                }
             }
             ii += N_LEDS_PER_EDGE - 1;
 
