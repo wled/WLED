@@ -886,7 +886,7 @@ class WS2812FX {
       twinklefox_base(bool),
       spots_base(uint16_t),
       phased_base(uint8_t),
-      HIVE_rotate(bool, std::vector<std::vector<int>>, std::vector<std::vector<bool>>),
+      HIVE_segment_swipe(bool, std::vector<std::vector<int>>, std::vector<std::vector<bool>>),
       display_frame(byte *, uint16_t, bool);
 
     CRGB twinklefox_one_twinkle(uint32_t ms, uint8_t salt, bool cat);

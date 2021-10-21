@@ -4267,7 +4267,7 @@ uint16_t WS2812FX::mode_HIVE_strobing_segments(void) {
 uint16_t WS2812FX::mode_HIVE_rotate(void) {
     std::vector<std::vector<int>> edges = {EDGES_HEX_0, EDGES_HEX_1, EDGES_HEX_2, EDGES_HEX_3, EDGES_HEX_4, EDGES_HEX_5};
     std::vector<std::vector<bool>> edge_dirs = {EDGES_HEX_DIR_0, EDGES_HEX_DIR_1, EDGES_HEX_DIR_2, EDGES_HEX_DIR_3, EDGES_HEX_DIR_4, EDGES_HEX_DIR_5};
-    return WS2812FX::HIVE_rotate(false, edges, edge_dirs);
+    return WS2812FX::HIVE_segment_swipe(false, edges, edge_dirs);
 }
 
 /*
@@ -4277,11 +4277,10 @@ uint16_t WS2812FX::mode_HIVE_rotate(void) {
 uint16_t WS2812FX::mode_HIVE_rotate_rev(void) {
     std::vector<std::vector<int>> edges = {EDGES_HEX_0, EDGES_HEX_1, EDGES_HEX_2, EDGES_HEX_3, EDGES_HEX_4, EDGES_HEX_5};
     std::vector<std::vector<bool>> edge_dirs = {EDGES_HEX_DIR_0, EDGES_HEX_DIR_1, EDGES_HEX_DIR_2, EDGES_HEX_DIR_3, EDGES_HEX_DIR_4, EDGES_HEX_DIR_5};
-    return WS2812FX::HIVE_rotate(true, edges, edge_dirs);
+    return WS2812FX::HIVE_segment_swipe(true, edges, edge_dirs);
 }
 
-uint16_t WS2812FX::HIVE_rotate(bool rev, std::vector<std::vector<int>> edges, std::vector<std::vector<bool>> edge_dirs) {
-    // TODO: reverse counter-clockwise edges
+uint16_t WS2812FX::HIVE_segment_swipe(bool rev, std::vector<std::vector<int>> edges, std::vector<std::vector<bool>> edge_dirs) {
     uint32_t cycleTime = 250 + (255 - SEGMENT.speed) * 150;    // total cycle time in ms
     uint32_t perc = now % cycleTime;                           // current time step in active cycle in ms
     uint16_t prog = (perc * 6 * N_LEDS_PER_EDGE) / cycleTime;  // current progress in active cycle (0 = start, 60 = end)
@@ -4411,7 +4410,7 @@ uint16_t WS2812FX::display_frame(byte *frame, uint16_t frame_size = 0, bool is_r
 uint16_t WS2812FX::mode_HIVE_matrix(void) {
     std::vector<std::vector<int>> edges = {EDGES_COL_0, EDGES_COL_1, EDGES_COL_2, EDGES_COL_3, EDGES_COL_4, EDGES_COL_5};
     std::vector<std::vector<bool>> edge_dirs = {EDGES_COL_DIR_0, EDGES_COL_DIR_1, EDGES_COL_DIR_2, EDGES_COL_DIR_3, EDGES_COL_DIR_4, EDGES_COL_DIR_5};
-    return WS2812FX::HIVE_rotate(false, edges, edge_dirs);
+    return WS2812FX::HIVE_segment_swipe(false, edges, edge_dirs);
 }
 
 /*
@@ -4421,5 +4420,5 @@ uint16_t WS2812FX::mode_HIVE_matrix(void) {
 uint16_t WS2812FX::mode_HIVE_matrix_rev(void) {
     std::vector<std::vector<int>> edges = {EDGES_HEX_0, EDGES_HEX_1, EDGES_HEX_2, EDGES_HEX_3, EDGES_HEX_4, EDGES_HEX_5};
     std::vector<std::vector<bool>> edge_dirs = {EDGES_COL_DIR_0, EDGES_COL_DIR_1, EDGES_COL_DIR_2, EDGES_COL_DIR_3, EDGES_COL_DIR_4, EDGES_COL_DIR_5};
-    return WS2812FX::HIVE_rotate(true, edges, edge_dirs);
+    return WS2812FX::HIVE_segment_swipe(true, edges, edge_dirs);
 }
