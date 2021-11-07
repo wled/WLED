@@ -4235,30 +4235,30 @@ uint16_t WS2812FX::mode_HIVE_strobing_segments(void) {
 }
 
 #define EDGES_HEX_0 \
-    { 0, 70, 140 }
+    { 540, 470, 400, 240, 160, 100 }
 #define EDGES_HEX_1 \
-    { 10, 80, 150 }
+    { 530, 460, 390, 250, 150,  90 }
 #define EDGES_HEX_2 \
-    { 20, 90, 160 }
+    { 510, 450, 380, 200, 140,  80 }
 #define EDGES_HEX_3 \
-    { 30, 100, 170 }
+    { 570, 300, 370, 210,  30,  70 }
 #define EDGES_HEX_4 \
-    { 40, 110, 180 }
+    { 560, 490, 420, 220, 180, 120 }
 #define EDGES_HEX_5 \
-    { 50, 120, 190 }
+    { 550, 480, 410, 230, 170, 110 }
 
 #define EDGES_HEX_DIR_0 \
-    { true, true, true }
+    { false, false, false, true, false, false }
 #define EDGES_HEX_DIR_1 \
-    { true, true, true }
+    { false, false, false, true, false, false }
 #define EDGES_HEX_DIR_2 \
-    { true, true, true }
+    { true , true , false, true, true , false }
 #define EDGES_HEX_DIR_3 \
-    { true, true, true }
+    { false, false, true , true, false, false }
 #define EDGES_HEX_DIR_4 \
-    { true, true, true }
+    { false, false, false, true, false, false }
 #define EDGES_HEX_DIR_5 \
-    { true, true, true }
+    { false, false, false, true, false, false }
 
 /*
  * New awesome Hive 51 Light Installation effect.
@@ -4283,40 +4283,24 @@ uint16_t WS2812FX::mode_HIVE_rotate_rev(void) {
 uint16_t WS2812FX::HIVE_segment_swipe(bool rev, std::vector<std::vector<int>> edges, std::vector<std::vector<bool>> edge_dirs) {
     uint32_t cycleTime = 250 + (255 - SEGMENT.speed) * 150;    // total cycle time in ms
     uint32_t perc = now % cycleTime;                           // current time step in active cycle in ms
-    uint16_t prog = (perc * 6 * N_LEDS_PER_EDGE) / cycleTime;  // current progress in active cycle (0 = start, 60 = end)
+    uint16_t prog = (perc * edges.size() * N_LEDS_PER_EDGE) / cycleTime;  // current progress in active cycle (0 = start, 10 * (number of edges per cycle) = end)
     if (rev) {
-        prog = (6 * N_LEDS_PER_EDGE) - prog;
+        prog = (edges.size() * N_LEDS_PER_EDGE) - prog;
     }
 
     for (uint16_t ii = 0; ii < SEGLEN; ii += N_LEDS_PER_EDGE) {
-        // edges 0 for first 30 steps
         int diff = 0;
-        bool dir, isActive = true;
-        int index0 = std::find(edges.at(0).begin(), edges.at(0).end(), ii) - edges.at(0).begin();
-        int index1 = std::find(edges.at(1).begin(), edges.at(1).end(), ii) - edges.at(1).begin();
-        int index2 = std::find(edges.at(2).begin(), edges.at(2).end(), ii) - edges.at(2).begin();
-        int index3 = std::find(edges.at(3).begin(), edges.at(3).end(), ii) - edges.at(3).begin();
-        int index4 = std::find(edges.at(4).begin(), edges.at(4).end(), ii) - edges.at(4).begin();
-        int index5 = std::find(edges.at(5).begin(), edges.at(5).end(), ii) - edges.at(5).begin();
-        if (index0 != -1) {
-            diff = prog;
-            dir = edge_dirs.at(0).at(index0);
-        } else if (index1 != -1) {
-            diff = prog - N_LEDS_PER_EDGE;
-            dir = edge_dirs.at(1).at(index1);
-        } else if (index2 != -1) {
-            diff = prog - (2 * N_LEDS_PER_EDGE);
-            dir = edge_dirs.at(2).at(index2);
-        } else if (index3 != -1) {
-            diff = prog - (3 * N_LEDS_PER_EDGE);
-            dir = edge_dirs.at(3).at(index3);
-        } else if (index4 != -1) {
-            diff = prog - (4 * N_LEDS_PER_EDGE);
-            dir = edge_dirs.at(4).at(index4);
-        } else if (index5 != -1) {
-            diff = prog - (5 * N_LEDS_PER_EDGE);
-            dir = edge_dirs.at(5).at(index5);
-        } else {
+        bool dir, isActive = NULL;
+        std::vector<int> indices;
+        for (uint8_t jj = 0; jj < edges.size(); jj++) {
+            indices.push_back(std::find(edges.at(jj).begin(), edges.at(jj).end(), ii) - edges.at(jj).begin());
+            if (indices[jj] != -1) {
+                diff = prog - jj * N_LEDS_PER_EDGE;
+                dir = edge_dirs.at(jj).at(indices[jj]);
+                break;
+            }
+        }
+        if (dir == NULL) {
             isActive = false;
         }
         if (isActive) {
@@ -4326,16 +4310,16 @@ uint16_t WS2812FX::HIVE_segment_swipe(bool rev, std::vector<std::vector<int>> ed
             for (uint8_t jj = 0; jj < N_LEDS_PER_EDGE; jj++) {
                 // only for N_LEDS_PER_EDGE == 10
                 if (dir) {
-                    diff--;  // modulo 10, to prevent accessing array index out of bounds
+                    diff--; 
                 } else {
                     diff++;
                 }
                 if (rev) {
                     diff = -diff;
                 }
-                diff = diff < 0 ? diff + 6 * N_LEDS_PER_EDGE : diff;
+                diff = diff < 0 ? diff + edges.size() * N_LEDS_PER_EDGE : diff;
                 float blend = diff;
-                blend *= 255.0f / (N_LEDS_PER_EDGE * 6.0f - 1);
+                blend *= 255.0f / (N_LEDS_PER_EDGE * edges.size() - 1);
 
                 // setPixelColor(ii + jj, WHITE);
                 setPixelColor(ii + jj, color_from_palette(255U - blend, false, false, 255U));
@@ -4378,30 +4362,30 @@ uint16_t WS2812FX::display_frame(byte *frame, uint16_t frame_size = 0, bool is_r
 }
 
 #define EDGES_COL_0 \
-    { 0, 70, 140 }
+    { 550, 510, 480, 460, 420, 390 }
 #define EDGES_COL_1 \
-    { 10, 80, 150 }
+    { 560, 520, 490, 450, 430, 380 }
 #define EDGES_COL_2 \
-    { 20, 90, 160 }
+    { 580, 260, 290, 310, 340, 360 }
 #define EDGES_COL_3 \
-    { 30, 100, 170 }
+    { 590, 250, 280, 320, 110, 350 }
 #define EDGES_COL_4 \
-    { 40, 110, 180 }
+    { 230, 200, 170, 150, 120,  90 }
 #define EDGES_COL_5 \
-    { 50, 120, 190 }
+    { 220,   0, 180, 140,  60,  80 }
 
 #define EDGES_COL_DIR_0 \
-    { true, true, true }
+    { true , true , true , false, true , false }
 #define EDGES_COL_DIR_1 \
-    { true, true, true }
+    { true , true , true , true , true , false }
 #define EDGES_COL_DIR_2 \
-    { true, true, true }
+    { true , false, false, true , true , false }
 #define EDGES_COL_DIR_3 \
-    { true, true, true }
+    { true , true , true , true , true , false }
 #define EDGES_COL_DIR_4 \
-    { true, true, true }
+    { false, true , true , false, true , false }
 #define EDGES_COL_DIR_5 \
-    { true, true, true }
+    { false, true , true , true , false, false }
 
 /*
  * New awesome Hive 51 Light Installation effect.
@@ -4418,7 +4402,7 @@ uint16_t WS2812FX::mode_HIVE_matrix(void) {
  * Matrix style ascending lights
  */
 uint16_t WS2812FX::mode_HIVE_matrix_rev(void) {
-    std::vector<std::vector<int>> edges = {EDGES_HEX_0, EDGES_HEX_1, EDGES_HEX_2, EDGES_HEX_3, EDGES_HEX_4, EDGES_HEX_5};
+    std::vector<std::vector<int>> edges = {EDGES_COL_0, EDGES_COL_1, EDGES_COL_2, EDGES_COL_3, EDGES_COL_4, EDGES_COL_5};
     std::vector<std::vector<bool>> edge_dirs = {EDGES_COL_DIR_0, EDGES_COL_DIR_1, EDGES_COL_DIR_2, EDGES_COL_DIR_3, EDGES_COL_DIR_4, EDGES_COL_DIR_5};
     return WS2812FX::HIVE_segment_swipe(true, edges, edge_dirs);
 }
