@@ -4139,21 +4139,32 @@ uint16_t WS2812FX::mode_aurora(void) {
     return FRAMETIME;
 }
 
-#define N_LEDS_PER_EDGE 10  // if != 10, correct DELTA in next line
+#define N_LEDS_PER_EDGE 10  // if != 10, correct HEXAGON_CORRECTION_FACTOR in next line
 #define HEXAGON_CORRECTION_FACTOR \
     { 0.89683481, 0.96869989, 1.02748279, 1.06629153, 1.07988476, 1.06629153, 1.02748279, 0.96869989, 0.89683481, 1.0014972 }
 // correction factor assumes a led spacing of 16.67 mm and a total edge length of 170 mm
+#define MIN_ACTIVE_EDGES 1
+#define MAX_ACTIVE_EDGES SEGLEN / N_LEDS_PER_EDGE
+#define MIN_ACTIVE_EDGES_PERC 0.1
+#define MAX_ACTIVE_EDGES_PERC 0.9
+#define N_REPEATS 10
+#define MAX_RAND_CALLS 100
 
 /*
  * New awesome Hive 51 Light Installation effect.
  * Random Strobing Segments
  */
 uint16_t WS2812FX::mode_HIVE_strobing_segments(void) {
-    uint32_t cycleTime = 250 + (255 - SEGMENT.speed) * 150U;  // total cycle time in ms
-    uint32_t perc = now % cycleTime;                          // current time step in active cycle in ms
-    uint16_t prog = (perc * 10) / cycleTime;                  // current progress in active cycle (0 = start, 10 = end)
+    uint32_t cycleTime = N_REPEATS * (2 * FRAMETIME + (255 - SEGMENT.speed) * 20);  // total cycle time in ms
+    uint32_t perc = now % cycleTime;                                                // current time step in active cycle in ms
+    uint16_t prog = (perc * N_REPEATS) / cycleTime;                                 // current progress in active cycle (0 = start, N_REPEATS = end)
 
-    uint16_t nActiveEdges = SEGLEN / N_LEDS_PER_EDGE / 3U;  // set 1/3 of the edges to active
+    uint32_t percActiveEdges = MIN_ACTIVE_EDGES_PERC + (float)SEGMENT.intensity * (MAX_ACTIVE_EDGES_PERC - MIN_ACTIVE_EDGES_PERC) / 255.0;
+    percActiveEdges = 0.5;
+    uint16_t nActiveEdges = round((float)MAX_ACTIVE_EDGES * percActiveEdges);
+    nActiveEdges = MIN(MAX(nActiveEdges, MIN_ACTIVE_EDGES), MAX_ACTIVE_EDGES);  // assure at least one and at most all edges are active
+    nActiveEdges = 30;
+
     // check if active edges are set
     if (!SEGENV.data || sizeof(SEGENV.data) != nActiveEdges) {
         if (!SEGENV.allocateData(nActiveEdges)) {
@@ -4164,13 +4175,14 @@ uint16_t WS2812FX::mode_HIVE_strobing_segments(void) {
 
     bool isValidData = true;
     if (SEGENV.step == prog) {
-        // do not update LEDs and use old states saved to SEGENV.data
         for (uint8_t ii = 0; ii < nActiveEdges; ii++) {
+            // check if saved edge indices are valid (in range 0 to SEGLEN / N_LEDS_PER_EDGE)
             if (SEGENV.data[ii] > SEGLEN / N_LEDS_PER_EDGE - 1) {
                 isValidData = false;
                 ii = nActiveEdges;
                 break;
             }
+            // check if saved edge indices are valid (no duplicates)
             for (uint8_t jj = 0; jj < nActiveEdges; jj++) {
                 if (ii != jj) {
                     if (SEGENV.data[ii] == SEGENV.data[jj]) {
@@ -4182,51 +4194,53 @@ uint16_t WS2812FX::mode_HIVE_strobing_segments(void) {
             }
         }
     }
+
     if (!isValidData || SEGENV.step != prog) {
         // update active segments to next random value
         for (uint8_t ii = 0; ii < nActiveEdges; ii++) {
             bool duplicates;
+            uint8_t randCalls = 0;
             do {
-                // get new random edge and check if it already on
+                // get new random edge and check if it is already on
                 duplicates = false;
                 SEGENV.data[ii] = random8(0, SEGLEN / N_LEDS_PER_EDGE);
+                randCalls++;
                 for (uint8_t jj = 0; jj < ii; jj++) {
                     if (SEGENV.data[ii] == SEGENV.data[jj]) {
                         duplicates = true;
                         break;
                     }
                 }
+                if (randCalls >= MAX_RAND_CALLS) {
+                    // prevent infinite loop (and blocking of loop) by limiting number of calls to random function
+                    // this will result in duplicate edge indices in SEGENV.data and therefore less active segments
+                    break;
+                }
             } while (duplicates);
         }
     }
 
     // set LED colors
-    for (uint16_t ii = 0; ii < SEGLEN; ii++) {
-        // set all LEDs to secondary color
-        if (ii % N_LEDS_PER_EDGE == 0) {
-            bool isActiveEdge = false;
-            for (uint8_t jj = 0; jj < sizeof(SEGENV.data); jj++) {
-                if (SEGENV.data[jj] == ii / N_LEDS_PER_EDGE) {
-                    isActiveEdge = true;
-                    break;
-                }
+    for (uint16_t ii = 0; ii < SEGLEN; ii += N_LEDS_PER_EDGE) {
+        bool isActiveEdge = false;
+        for (uint8_t jj = 0; jj < sizeof(SEGENV.data); jj++) {
+            if (SEGENV.data[jj] * N_LEDS_PER_EDGE == ii) {
+                isActiveEdge = true;
+                //break;
             }
-            uint32_t color = RED;
-            if (isActiveEdge) {
-                // set LED colors on active edge to white
-                for (uint16_t jj = ii; jj < ii + N_LEDS_PER_EDGE; jj++) {
-                    setPixelColor(jj, color_from_palette((float) (jj - ii)  / (N_LEDS_PER_EDGE - 1) * 255, false, false, 0));
-                }
-            } else {
-                // set LED colors on inactive edge to black
-                for (uint16_t jj = ii; jj < ii + N_LEDS_PER_EDGE; jj++) {
-                    setPixelColor(jj, BLACK);
-                }
+        }
+        if (isActiveEdge) {
+            // set LED colors on active edge to white
+            for (uint16_t jj = ii; jj < ii + N_LEDS_PER_EDGE; jj++) {
+                // setPixelColor(jj, SEGCOLOR(0));
+                setPixelColor(jj, WHITE);
+                //setPixelColor(jj, color_from_palette((float) (jj - ii)  / (N_LEDS_PER_EDGE - 1) * 255, false, false, 0));
             }
-            ii += N_LEDS_PER_EDGE - 1;
-
         } else {
-            setPixelColor(ii, RED);
+            // set LED colors on inactive edge to black
+            for (uint16_t jj = ii; jj < ii + N_LEDS_PER_EDGE; jj++) {
+                setPixelColor(jj, BLACK);
+            }
         }
     }
 
@@ -4237,11 +4251,11 @@ uint16_t WS2812FX::mode_HIVE_strobing_segments(void) {
 #define EDGES_HEX_0 \
     { 540, 470, 400, 240, 160, 100 }
 #define EDGES_HEX_1 \
-    { 530, 460, 390, 250, 150,  90 }
+    { 530, 460, 390, 250, 150, 90 }
 #define EDGES_HEX_2 \
-    { 510, 450, 380, 200, 140,  80 }
+    { 510, 450, 380, 200, 140, 80 }
 #define EDGES_HEX_3 \
-    { 570, 300, 370, 210,  30,  70 }
+    { 570, 300, 370, 210, 30, 70 }
 #define EDGES_HEX_4 \
     { 560, 490, 420, 220, 180, 120 }
 #define EDGES_HEX_5 \
@@ -4252,9 +4266,9 @@ uint16_t WS2812FX::mode_HIVE_strobing_segments(void) {
 #define EDGES_HEX_DIR_1 \
     { false, false, false, true, false, false }
 #define EDGES_HEX_DIR_2 \
-    { true , true , false, true, true , false }
+    { true, true, false, true, true, false }
 #define EDGES_HEX_DIR_3 \
-    { false, false, true , true, false, false }
+    { false, false, true, true, false, false }
 #define EDGES_HEX_DIR_4 \
     { false, false, false, true, false, false }
 #define EDGES_HEX_DIR_5 \
@@ -4281,8 +4295,8 @@ uint16_t WS2812FX::mode_HIVE_rotate_rev(void) {
 }
 
 uint16_t WS2812FX::HIVE_segment_swipe(bool rev, std::vector<std::vector<int>> edges, std::vector<std::vector<bool>> edge_dirs) {
-    uint32_t cycleTime = 250 + (255 - SEGMENT.speed) * 150;    // total cycle time in ms
-    uint32_t perc = now % cycleTime;                           // current time step in active cycle in ms
+    uint32_t cycleTime = 250 + (255 - SEGMENT.speed) * 150;               // total cycle time in ms
+    uint32_t perc = now % cycleTime;                                      // current time step in active cycle in ms
     uint16_t prog = (perc * edges.size() * N_LEDS_PER_EDGE) / cycleTime;  // current progress in active cycle (0 = start, 10 * (number of edges per cycle) = end)
     if (rev) {
         prog = (edges.size() * N_LEDS_PER_EDGE) - prog;
@@ -4290,51 +4304,70 @@ uint16_t WS2812FX::HIVE_segment_swipe(bool rev, std::vector<std::vector<int>> ed
 
     for (uint16_t ii = 0; ii < SEGLEN; ii += N_LEDS_PER_EDGE) {
         int diff = 0;
-        bool dir, isActive = NULL;
-        std::vector<int> indices;
+        bool dir = false;
+        bool isActive = false;
+        std::vector<int> indices{};
+
         for (uint8_t jj = 0; jj < edges.size(); jj++) {
-            indices.push_back(std::find(edges.at(jj).begin(), edges.at(jj).end(), ii) - edges.at(jj).begin());
-            if (indices[jj] != -1) {
-                diff = prog - jj * N_LEDS_PER_EDGE;
-                dir = edge_dirs.at(jj).at(indices[jj]);
-                break;
+            std::vector<int> currentEdge;
+            std::vector<bool> currentEdgeDir;
+            try {
+                currentEdge = edges.at(jj);
+                currentEdgeDir = edge_dirs.at(jj);
+                indices.push_back(std::find(currentEdge.begin(), currentEdge.end(), ii) - currentEdge.begin());
+            } catch (const std::out_of_range &ex) {
+                fill(RED);
+                return (SEGMENT.getOption(SEG_OPTION_TRANSITIONAL)) ? FRAMETIME : 350;  //update faster if in transition
+            }
+            try {
+                if (indices.back() != currentEdge.end() - currentEdge.begin()) {
+                    // edge starting at LED jj is part of the primary cycle
+                    diff = prog - jj * N_LEDS_PER_EDGE;
+                    dir = currentEdgeDir.at(indices.back());
+
+                    isActive = true;
+                    break;
+                }
+            } catch (const std::out_of_range &ex) {
+                fill(GREEN);
+                return (SEGMENT.getOption(SEG_OPTION_TRANSITIONAL)) ? FRAMETIME : 350;  //update faster if in transition
             }
         }
-        if (dir == NULL) {
-            isActive = false;
-        }
+
         if (isActive) {
             if (!dir) {
-                dir -= N_LEDS_PER_EDGE;
+                diff -= N_LEDS_PER_EDGE;
             }
             for (uint8_t jj = 0; jj < N_LEDS_PER_EDGE; jj++) {
                 // only for N_LEDS_PER_EDGE == 10
                 if (dir) {
-                    diff--; 
+                    diff--;
                 } else {
                     diff++;
                 }
                 if (rev) {
-                    diff = -diff;
+                    // negate the difference to use the reverse direction
+                    diff *= -1;
                 }
                 diff = diff < 0 ? diff + edges.size() * N_LEDS_PER_EDGE : diff;
                 float blend = diff;
                 blend *= 255.0f / (N_LEDS_PER_EDGE * edges.size() - 1);
 
                 // setPixelColor(ii + jj, WHITE);
-                setPixelColor(ii + jj, color_from_palette(255U - blend, false, false, 255U));
+                setPixelColor(ii + jj, color_from_palette(255U - blend, false, false, 0U));
                 // setPixelColor(ii + jj, color_blend(BLACK, WHITE, 255U - blend, false);
                 if (rev) {
-                    diff = -diff;
+                    // reset the diff sign
+                    diff *= -1;
                 }
             }
         } else {
             for (uint8_t jj = 0; jj < N_LEDS_PER_EDGE; jj++) {
-                setPixelColor(ii + jj, BLACK);
+                setPixelColor(ii + jj, BLACK);  // TODO: use first color from
             }
         }
     }
-
+    
     return FRAMETIME;
 }
 
@@ -4370,22 +4403,22 @@ uint16_t WS2812FX::display_frame(byte *frame, uint16_t frame_size = 0, bool is_r
 #define EDGES_COL_3 \
     { 590, 250, 280, 320, 110, 350 }
 #define EDGES_COL_4 \
-    { 230, 200, 170, 150, 120,  90 }
+    { 230, 200, 170, 150, 120, 90 }
 #define EDGES_COL_5 \
-    { 220,   0, 180, 140,  60,  80 }
+    { 220, 0, 180, 140, 60, 80 }
 
 #define EDGES_COL_DIR_0 \
-    { true , true , true , false, true , false }
+    { true, true, true, false, true, false }
 #define EDGES_COL_DIR_1 \
-    { true , true , true , true , true , false }
+    { true, true, true, true, true, false }
 #define EDGES_COL_DIR_2 \
-    { true , false, false, true , true , false }
+    { true, false, false, true, true, false }
 #define EDGES_COL_DIR_3 \
-    { true , true , true , true , true , false }
+    { true, true, true, true, true, false }
 #define EDGES_COL_DIR_4 \
-    { false, true , true , false, true , false }
+    { false, true, true, false, true, false }
 #define EDGES_COL_DIR_5 \
-    { false, true , true , true , false, false }
+    { false, true, true, true, false, false }
 
 /*
  * New awesome Hive 51 Light Installation effect.
