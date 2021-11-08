@@ -89,7 +89,16 @@ void loadSettingsFromEEPROM()
   if (apChannel > 13 || apChannel < 1) apChannel = 1;
   apHide = EEPROM.read(228);
   if (apHide > 1) apHide = 1;
-  ledCount = EEPROM.read(229) + ((EEPROM.read(398) << 8) & 0xFF00); if (ledCount > MAX_LEDS || ledCount == 0) ledCount = 30;
+  uint16_t length = EEPROM.read(229) + ((EEPROM.read(398) << 8) & 0xFF00); //was ledCount
+  if (length > MAX_LEDS || length == 0) length = 30;
+  uint8_t pins[5] = {2, 255, 255, 255, 255};
+  uint8_t colorOrder = COL_ORDER_GRB;
+  if (lastEEPROMversion > 9) colorOrder = EEPROM.read(383);
+  if (colorOrder > COL_ORDER_GBR) colorOrder = COL_ORDER_GRB;
+  bool skipFirst = EEPROM.read(2204);
+  bool reversed = EEPROM.read(252);
+  BusConfig bc = BusConfig(EEPROM.read(372) ? TYPE_SK6812_RGBW : TYPE_WS2812_RGB, pins, 0, length, colorOrder, reversed, skipFirst);
+  busses.add(bc);
 
   notifyButton = EEPROM.read(230);
   notifyTwice = EEPROM.read(231);
@@ -143,7 +152,7 @@ void loadSettingsFromEEPROM()
   arlsOffset = EEPROM.read(368);
   if (!EEPROM.read(367)) arlsOffset = -arlsOffset;
   turnOnAtBoot = EEPROM.read(369);
-  strip.isRgbw = EEPROM.read(372);
+  //strip.isRgbw = EEPROM.read(372);
   //374 - strip.paletteFade
   
   apBehavior = EEPROM.read(376);

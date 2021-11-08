@@ -34,9 +34,11 @@ void handleDDPPacket(e131_packet_t* p) {
 
   realtimeLock(realtimeTimeoutMs, REALTIME_MODE_DDP);
   
-  for (uint16_t i = start; i < stop; i++) {
-    setRealtimePixel(i, data[c], data[c+1], data[c+2], 0);
-    c+=3;
+  if (!realtimeOverride) {
+    for (uint16_t i = start; i < stop; i++) {
+      setRealtimePixel(i, data[c], data[c+1], data[c+2], 0);
+      c+=3;
+    }
   }
 
   bool push = p->flags & DDP_PUSH_FLAG;
@@ -102,6 +104,7 @@ void handleE131Packet(e131_packet_t* p, IPAddress clientIP, byte protocol){
   // update status info
   realtimeIP = clientIP;
   byte wChannel = 0;
+  uint16_t totalLen = strip.getLengthTotal();
 
   switch (DMXMode) {
     case DMX_MODE_DISABLED:
@@ -114,7 +117,7 @@ void handleE131Packet(e131_packet_t* p, IPAddress clientIP, byte protocol){
       realtimeLock(realtimeTimeoutMs, mde);
       if (realtimeOverride) return;
       wChannel = (dmxChannels-DMXAddress+1 > 3) ? e131_data[DMXAddress+3] : 0;
-      for (uint16_t i = 0; i < ledCount; i++)
+      for (uint16_t i = 0; i < totalLen; i++)
         setRealtimePixel(i, e131_data[DMXAddress+0], e131_data[DMXAddress+1], e131_data[DMXAddress+2], wChannel);
       break;
 
@@ -129,7 +132,7 @@ void handleE131Packet(e131_packet_t* p, IPAddress clientIP, byte protocol){
         bri = e131_data[DMXAddress+0];
         strip.setBrightness(bri);
       }
-      for (uint16_t i = 0; i < ledCount; i++)
+      for (uint16_t i = 0; i < totalLen; i++)
         setRealtimePixel(i, e131_data[DMXAddress+1], e131_data[DMXAddress+2], e131_data[DMXAddress+3], wChannel);
       break;
 

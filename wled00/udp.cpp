@@ -92,7 +92,8 @@ void notify(byte callMode, bool followUp)
 void realtimeLock(uint32_t timeoutMs, byte md)
 {
   if (!realtimeMode && !realtimeOverride){
-    for (uint16_t i = 0; i < ledCount; i++)
+    uint16_t totalLen = strip.getLengthTotal();
+    for (uint16_t i = 0; i < totalLen; i++)
     {
       strip.setPixelColor(i,0,0,0,0);
     }
@@ -168,10 +169,11 @@ void handleNotifications()
       realtimeLock(realtimeTimeoutMs, REALTIME_MODE_HYPERION);
       if (realtimeOverride) return;
       uint16_t id = 0;
+      uint16_t totalLen = strip.getLengthTotal();
       for (uint16_t i = 0; i < packetSize -2; i += 3)
       {
         setRealtimePixel(id, lbuf[i], lbuf[i+1], lbuf[i+2], 0);
-        id++; if (id >= ledCount) break;
+        id++; if (id >= totalLen) break;
       }
       strip.show();
       return;
@@ -339,9 +341,10 @@ void handleNotifications()
     byte numPackets = udpIn[5];
 
     uint16_t id = (tpmPayloadFrameSize/3)*(packetNum-1); //start LED
+    uint16_t totalLen = strip.getLengthTotal();
     for (uint16_t i = 6; i < tpmPayloadFrameSize + 4; i += 3)
     {
-      if (id < ledCount)
+      if (id < totalLen)
       {
         setRealtimePixel(id, udpIn[i], udpIn[i+1], udpIn[i+2], 0);
         id++;
@@ -372,6 +375,7 @@ void handleNotifications()
     }
     if (realtimeOverride) return;
 
+    uint16_t totalLen = strip.getLengthTotal();
     if (udpIn[0] == 1) //warls
     {
       for (uint16_t i = 2; i < packetSize -3; i += 4)
@@ -385,7 +389,7 @@ void handleNotifications()
       {
         setRealtimePixel(id, udpIn[i], udpIn[i+1], udpIn[i+2], 0);
 
-        id++; if (id >= ledCount) break;
+        id++; if (id >= totalLen) break;
       }
     } else if (udpIn[0] == 3) //drgbw
     {
@@ -394,14 +398,14 @@ void handleNotifications()
       {
         setRealtimePixel(id, udpIn[i], udpIn[i+1], udpIn[i+2], udpIn[i+3]);
         
-        id++; if (id >= ledCount) break;
+        id++; if (id >= totalLen) break;
       }
     } else if (udpIn[0] == 4) //dnrgb
     {
       uint16_t id = ((udpIn[3] << 0) & 0xFF) + ((udpIn[2] << 8) & 0xFF00);
       for (uint16_t i = 4; i < packetSize -2; i += 3)
       {
-        if (id >= ledCount) break;
+        if (id >= totalLen) break;
         setRealtimePixel(id, udpIn[i], udpIn[i+1], udpIn[i+2], 0);
         id++;
       }
@@ -410,7 +414,7 @@ void handleNotifications()
       uint16_t id = ((udpIn[3] << 0) & 0xFF) + ((udpIn[2] << 8) & 0xFF00);
       for (uint16_t i = 4; i < packetSize -2; i += 4)
       {
-        if (id >= ledCount) break;
+        if (id >= totalLen) break;
         setRealtimePixel(id, udpIn[i], udpIn[i+1], udpIn[i+2], udpIn[i+3]);
         id++;
       }
@@ -438,7 +442,7 @@ void handleNotifications()
 void setRealtimePixel(uint16_t i, byte r, byte g, byte b, byte w)
 {
   uint16_t pix = i + arlsOffset;
-  if (pix < ledCount)
+  if (pix < strip.getLengthTotal())
   {
     if (!arlsDisableGammaCorrection && strip.gammaCorrectCol)
     {
@@ -479,6 +483,7 @@ void sendSysInfoUDP()
   if (!udp2Connected) return;
 
   IPAddress ip = Network.localIP();
+  if (!ip || ip == IPAddress(255,255,255,255)) ip = IPAddress(4,3,2,1);
 
   // TODO: make a nice struct of it and clean up
   //  0: 1 byte 'binary token 255'

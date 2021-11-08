@@ -108,7 +108,6 @@ void WS2812FX::finalizeInit(void)
     if (pins[0] == 3) bd->reinit();
     #endif
   }
-  ledCount = _length;
 
   //segments are created in makeAutoSegments();
 
@@ -638,10 +637,9 @@ void WS2812FX::resetSegments() {
 }
 
 void WS2812FX::makeAutoSegments() {
-  uint16_t segStarts[MAX_NUM_SEGMENTS] = {0};
-  uint16_t segStops [MAX_NUM_SEGMENTS] = {0};
-
   if (autoSegments) { //make one segment per bus
+    uint16_t segStarts[MAX_NUM_SEGMENTS] = {0};
+    uint16_t segStops [MAX_NUM_SEGMENTS] = {0};
     uint8_t s = 0;
     for (uint8_t i = 0; i < busses.getNumBusses(); i++) {
       Bus* b = busses.getBus(i);

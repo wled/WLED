@@ -78,17 +78,12 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
   // initialize LED pins and lengths prior to other HW (except for ethernet)
   JsonObject hw_led = hw[F("led")];
 
-  CJSON(ledCount, hw_led[F("total")]);
-  if (ledCount > MAX_LEDS) ledCount = MAX_LEDS;
-
   CJSON(strip.ablMilliampsMax, hw_led[F("maxpwr")]);
   CJSON(strip.milliampsPerLed, hw_led[F("ledma")]);
   CJSON(strip.rgbwMode, hw_led[F("rgbwm")]);
 
   JsonArray ins = hw_led["ins"];
-
-  uint16_t lC = 0;
-
+  
   if (fromFS || !ins.isNull()) {
     uint8_t s = 0;  // bus iterator
     busses.removeAll();
@@ -115,15 +110,12 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
       bool refresh = elm["ref"] | false;
       ledType |= refresh << 7;  // hack bit 7 to indicate strip requires off refresh
       s++;
-      uint16_t busEnd = start + length;
-      if (busEnd > lC) lC = busEnd;
       BusConfig bc = BusConfig(ledType, pins, start, length, colorOrder, reversed, skipFirst);
       mem += BusManager::memUsage(bc);
       if (mem <= MAX_LED_MEMORY && busses.getNumBusses() <= WLED_MAX_BUSSES) busses.add(bc);  // finalization will be done in WLED::beginStrip()
     }
     // finalization done in beginStrip()
   }
-  if (lC > ledCount) ledCount = lC; // fix incorrect total length (honour analog setup)
   if (hw_led["rev"]) busses.getBus(0)->reversed = true; //set 0.11 global reversed setting for first bus
 
   // read multiple button configuration
@@ -526,7 +518,7 @@ void serializeConfig() {
   JsonObject hw = doc.createNestedObject("hw");
 
   JsonObject hw_led = hw.createNestedObject("led");
-  hw_led[F("total")] = ledCount;
+  hw_led[F("total")] = strip.getLengthTotal(); //no longer read, but provided for compatibility on downgrade
   hw_led[F("maxpwr")] = strip.ablMilliampsMax;
   hw_led[F("ledma")] = strip.milliampsPerLed;
   hw_led[F("rgbwm")] = strip.rgbwMode;

@@ -100,6 +100,10 @@
 #include "../usermods/seven_segment_display/usermod_v2_seven_segment_display.h"
 #endif
 
+#ifdef QUINLED_AN_PENTA
+#include "../usermods/quinled-an-penta/quinled-an-penta.h"
+#endif
+
 void registerUsermods()
 {
 /*
@@ -186,5 +190,9 @@ void registerUsermods()
 
   #ifdef USERMOD_SEVEN_SEGMENT
   usermods.add(new SevenSegmentDisplay());
+  #endif
+
+  #ifdef QUINLED_AN_PENTA
+  usermods.add(new QuinLEDAnPentaUsermod());
   #endif
 }

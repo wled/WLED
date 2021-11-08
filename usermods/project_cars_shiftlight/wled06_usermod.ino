@@ -5,6 +5,8 @@
  * I've had good results with settings around 5 (20 fps).
  * 
  */
+#include "wled.h"
+
 const uint8_t PCARS_dimcolor = 20;
 WiFiUDP UDP;
 const unsigned int PCARS_localUdpPort = 5606; // local port to listen on
@@ -49,11 +51,12 @@ void PCARS_readValues() {
 void PCARS_buildcolorbars() {
   boolean activated = false;
   float ledratio = 0;
+  uint16_t totalLen = strip.getLengthTotal();
 
-  for (uint16_t i = 0; i < ledCount; i++) {
+  for (uint16_t i = 0; i < totalLen; i++) {
     if (PCARS_rpmRatio < .95 || (millis() % 100 > 70 )) {
 
-      ledratio = (float)i / (float)ledCount;
+      ledratio = (float)i / (float)totalLen;
       if (ledratio < PCARS_rpmRatio) {
         activated = true;
       } else {

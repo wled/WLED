@@ -6,6 +6,13 @@
 //Usermod Manager internals
 void UsermodManager::loop()              { for (byte i = 0; i < numMods; i++) ums[i]->loop();  }
 void UsermodManager::handleOverlayDraw() { for (byte i = 0; i < numMods; i++) ums[i]->handleOverlayDraw(); }
+bool UsermodManager::handleButton(uint8_t b) { 
+  bool overrideIO = false;
+  for (byte i = 0; i < numMods; i++) {
+    if (ums[i]->handleButton(b)) overrideIO = true;
+  }
+  return overrideIO;
+}
 
 void UsermodManager::setup()     { for (byte i = 0; i < numMods; i++) ums[i]->setup(); }
 void UsermodManager::connected() { for (byte i = 0; i < numMods; i++) ums[i]->connected(); }

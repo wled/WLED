@@ -262,7 +262,6 @@ WLED_GLOBAL bool noWifiSleep _INIT(false);
 #endif
 
 // LED CONFIG
-WLED_GLOBAL uint16_t ledCount _INIT(DEFAULT_LED_COUNT);   // overcurrent prevented by ABL
 WLED_GLOBAL bool turnOnAtBoot _INIT(true);                // turn on LEDs at power-up
 WLED_GLOBAL byte bootPreset   _INIT(0);                   // save preset to load after power-up
 

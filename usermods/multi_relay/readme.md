@@ -16,6 +16,12 @@ Examples
 1. 4 relays at all, relay 2 will be toggled: `http://[device-ip]/relays?toggle=0,1,0,0`
 2. 3 relays at all, relay 1&3 will be switched on: `http://[device-ip]/relays?switch=1,0,1`
 
+## JSON API
+You can switch relay state using the following JSON object transmitted to: `http://[device-ip]/json`
+
+Switch relay 0 on: `{"MultiRelay":{"relay":0,"on":true}}`
+Switch relay4 3 & 4 off: `{"MultiRelay":[{"relay":2,"on":false},{"relay":3,"on":false}]}`
+
 ## MQTT API
 
 wled/deviceMAC/relay/0/command on|off|toggle

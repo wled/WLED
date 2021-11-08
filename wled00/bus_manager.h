@@ -579,9 +579,10 @@ class BusManager {
     return numBusses;
   }
 
+  //semi-duplicate of strip.getLengthTotal() (though that just returns strip._length, calculated in finalizeInit())
   uint16_t getTotalLength() {
     uint16_t len = 0;
-    for (uint8_t i=0; i<numBusses; i++ ) len += busses[i]->getLength();
+    for (uint8_t i=0; i<numBusses; i++) len += busses[i]->getLength();
     return len;
   }
 

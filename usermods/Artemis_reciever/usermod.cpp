@@ -24,7 +24,7 @@ void RGBNET_readValues() {
     int channel = UDP.read();
 
     //channel data is not used we only supports one channel
-    int len = UDP.read(RGBNET_packet, ledCount*3);
+    int len = UDP.read(RGBNET_packet, strip.getLengthTotal()*3);
     if(len==0){
       return;
     }
@@ -50,7 +50,7 @@ void handleConfig(AsyncWebServerRequest *request)
   \"channels\": [\
     {\
       \"channel\": 1,\
-      \"leds\": " + ledCount + "\
+      \"leds\": " + strip.getLengthTotal() + "\
     },\
     {\
       \"channel\": 2,\
