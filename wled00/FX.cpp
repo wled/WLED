@@ -4159,11 +4159,9 @@ uint16_t WS2812FX::mode_HIVE_strobing_segments(void) {
     uint32_t perc = now % cycleTime;                                                // current time step in active cycle in ms
     uint16_t prog = (perc * N_REPEATS) / cycleTime;                                 // current progress in active cycle (0 = start, N_REPEATS = end)
 
-    uint32_t percActiveEdges = MIN_ACTIVE_EDGES_PERC + (float)SEGMENT.intensity * (MAX_ACTIVE_EDGES_PERC - MIN_ACTIVE_EDGES_PERC) / 255.0;
-    percActiveEdges = 0.5;
+    float percActiveEdges = MIN_ACTIVE_EDGES_PERC + (float)SEGMENT.intensity * (MAX_ACTIVE_EDGES_PERC - MIN_ACTIVE_EDGES_PERC) / 255.0;
     uint16_t nActiveEdges = round((float)MAX_ACTIVE_EDGES * percActiveEdges);
     nActiveEdges = MIN(MAX(nActiveEdges, MIN_ACTIVE_EDGES), MAX_ACTIVE_EDGES);  // assure at least one and at most all edges are active
-    nActiveEdges = 30;
 
     // check if active edges are set
     if (!SEGENV.data || sizeof(SEGENV.data) != nActiveEdges) {
@@ -4295,11 +4293,11 @@ uint16_t WS2812FX::mode_HIVE_rotate_rev(void) {
 }
 
 uint16_t WS2812FX::HIVE_segment_swipe(bool rev, std::vector<std::vector<int>> edges, std::vector<std::vector<bool>> edge_dirs) {
-    uint32_t cycleTime = 250 + (255 - SEGMENT.speed) * 150;               // total cycle time in ms
+    uint32_t cycleTime = 250 + (255 - SEGMENT.speed) * 100;               // total cycle time in ms
     uint32_t perc = now % cycleTime;                                      // current time step in active cycle in ms
-    uint16_t prog = (perc * edges.size() * N_LEDS_PER_EDGE) / cycleTime;  // current progress in active cycle (0 = start, 10 * (number of edges per cycle) = end)
+    uint16_t prog = (perc * (edges.size() * N_LEDS_PER_EDGE + 1)) / cycleTime;  // current progress in active cycle (0 = start, 10 * (number of edges per cycle) = end)
     if (rev) {
-        prog = (edges.size() * N_LEDS_PER_EDGE) - prog;
+        prog = (edges.size() * N_LEDS_PER_EDGE + 1) - prog;
     }
 
     for (uint16_t ii = 0; ii < SEGLEN; ii += N_LEDS_PER_EDGE) {
@@ -4338,6 +4336,10 @@ uint16_t WS2812FX::HIVE_segment_swipe(bool rev, std::vector<std::vector<int>> ed
             if (!dir) {
                 diff -= N_LEDS_PER_EDGE;
             }
+            if (rev) {
+                // negate the difference to use the reverse direction
+                diff *= -1;
+            }
             for (uint8_t jj = 0; jj < N_LEDS_PER_EDGE; jj++) {
                 // only for N_LEDS_PER_EDGE == 10
                 if (dir) {
@@ -4345,25 +4347,21 @@ uint16_t WS2812FX::HIVE_segment_swipe(bool rev, std::vector<std::vector<int>> ed
                 } else {
                     diff++;
                 }
-                if (rev) {
-                    // negate the difference to use the reverse direction
-                    diff *= -1;
-                }
                 diff = diff < 0 ? diff + edges.size() * N_LEDS_PER_EDGE : diff;
                 float blend = diff;
                 blend *= 255.0f / (N_LEDS_PER_EDGE * edges.size() - 1);
 
                 // setPixelColor(ii + jj, WHITE);
                 setPixelColor(ii + jj, color_from_palette(255U - blend, false, false, 0U));
-                // setPixelColor(ii + jj, color_blend(BLACK, WHITE, 255U - blend, false);
-                if (rev) {
-                    // reset the diff sign
-                    diff *= -1;
-                }
+                // setPixelColor(ii + jj, color_blend(BLACK, WHITE, 255U - blend, false);    
+            }
+            if (rev) {
+                // reset the diff sign
+                diff *= -1;
             }
         } else {
             for (uint8_t jj = 0; jj < N_LEDS_PER_EDGE; jj++) {
-                setPixelColor(ii + jj, BLACK);  // TODO: use first color from
+                setPixelColor(ii + jj, BLACK);  // TODO: use first color from palette
             }
         }
     }
