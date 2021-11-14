@@ -265,7 +265,11 @@
 #endif
 
 // string temp buffer (now stored in stack locally)
-#define OMAX 2048
+#ifdef ESP8266
+#define SETTINGS_STACK_BUF_SIZE 2048
+#else
+#define SETTINGS_STACK_BUF_SIZE 3096 
+#endif
 
 #ifdef WLED_USE_ETHERNET
 #define E131_MAX_UNIVERSE_COUNT 20

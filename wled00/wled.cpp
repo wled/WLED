@@ -42,7 +42,7 @@ bool oappendi(int i)
 bool oappend(const char* txt)
 {
   uint16_t len = strlen(txt);
-  if (olen + len >= OMAX)
+  if (olen + len >= SETTINGS_STACK_BUF_SIZE)
     return false;        // buffer full
   strcpy(obuf + olen, txt);
   olen += len;
@@ -303,7 +303,7 @@ void WLED::setup()
 #ifdef WLED_DEBUG
   pinManager.allocatePin(1, true, PinOwner::DebugOut); // GPIO1 reserved for debug output
 #endif
-#ifdef WLED_USE_DMX //reserve GPIO2 as hardcoded DMX pin
+#ifdef WLED_ENABLE_DMX //reserve GPIO2 as hardcoded DMX pin
   pinManager.allocatePin(2, true, PinOwner::DMX);
 #endif
 

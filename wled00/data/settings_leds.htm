@@ -55,7 +55,7 @@
                 if (n2.substring(0,1)==="L") {
                   var m  = LCs[j].name.substring(2);
                   var t2 = parseInt(d.getElementsByName("LT"+m)[0].value, 10);
-                  if (t2<16) continue;
+                  if (t2>=80) continue;
                 }
                 if (LCs[j].value!="" && LCs[i].value==LCs[j].value) {alert(`Pin conflict between ${LCs[i].name}/${LCs[j].name}!`);LCs[j].value="";LCs[j].focus();return false;}
               }

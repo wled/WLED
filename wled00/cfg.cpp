@@ -396,11 +396,9 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
   CJSON(DMXStartLED,dmx[F("start-led")]);
 
   JsonArray dmx_fixmap = dmx[F("fixmap")];
-  it = 0;
-  for (int i : dmx_fixmap) {
-    if (it > 14) break;
+  for (int i = 0; i < dmx_fixmap.size(); i++) {
+    if (i > 14) break;
     CJSON(DMXFixtureMap[i],dmx_fixmap[i]);
-    it++;
   }
   #endif
 
