@@ -241,6 +241,7 @@
 #define FX_MODE_HIVE_ROTATE_REV        120 // custom effect for HIVE
 #define FX_MODE_HIVE_MATRIX            121 // custom effect for HIVE
 #define FX_MODE_HIVE_MATRIX_REV        122 // custom effect for HIVE
+#define FX_MODE_HIVE_WAVE              123 // custom effect for HIVE
 
 
 class WS2812FX {
@@ -619,6 +620,7 @@ class WS2812FX {
       _mode[FX_MODE_HIVE_ROTATE_REV]         = &WS2812FX::mode_HIVE_rotate_rev; // custom effect for HIVE
       _mode[FX_MODE_HIVE_MATRIX]             = &WS2812FX::mode_HIVE_matrix; // custom effect for HIVE
       _mode[FX_MODE_HIVE_MATRIX_REV]         = &WS2812FX::mode_HIVE_matrix_rev; // custom effect for HIVE
+      _mode[FX_MODE_HIVE_WAVE]               = &WS2812FX::mode_HIVE_wave; //custom effect for HIVE
 
       _brightness = DEFAULT_BRIGHTNESS;
       currentPalette = CRGBPalette16(CRGB::Black);

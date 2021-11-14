@@ -4437,3 +4437,12 @@ uint16_t WS2812FX::mode_HIVE_matrix_rev(void) {
     std::vector<std::vector<bool>> edge_dirs = {EDGES_COL_DIR_0, EDGES_COL_DIR_1, EDGES_COL_DIR_2, EDGES_COL_DIR_3, EDGES_COL_DIR_4, EDGES_COL_DIR_5};
     return WS2812FX::HIVE_segment_swipe(true, edges, edge_dirs);
 }
+
+/*
+* New awesome Hive 51 Light Installation effect.
+* Wave Left-Right
+*/
+uint16_t WS2812FX::mode_HIVE_wave(void) {
+   uint32_t cycleTime = 250 + (255 - SEGMENT.speed) * 100;
+    return FRAMETIME;
+}
