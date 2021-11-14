@@ -13,14 +13,14 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Aircoookie/WLED.git"
+    "url": "git+https://github.com/G0RIAN/WLED.git"
   },
   "author": "",
   "license": "ISC",
   "bugs": {
-    "url": "https://github.com/Aircoookie/WLED/issues"
+    "url": "https://github.com/G0RIAN/WLED/issues"
   },
-  "homepage": "https://github.com/Aircoookie/WLED#readme",
+  "homepage": "https://github.com/G0RIAN/WLED#readme",
   "dependencies": {
     "clean-css": "^4.2.3",
     "html-minifier-terser": "^5.1.1",
