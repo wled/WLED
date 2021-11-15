@@ -4160,15 +4160,12 @@ uint16_t WS2812FX::mode_HIVE_strobing_segments(void) {
     uint16_t prog = (perc * N_REPEATS) / cycleTime;                                 // current progress in active cycle (0 = start, N_REPEATS = end)
 
     float percActiveEdges = MIN_ACTIVE_EDGES_PERC + (float)SEGMENT.intensity * (MAX_ACTIVE_EDGES_PERC - MIN_ACTIVE_EDGES_PERC) / 255.0;
-    uint16_t nActiveEdges = round((float)MAX_ACTIVE_EDGES * percActiveEdges);
+    uint16_t nActiveEdges = roundf((float)MAX_ACTIVE_EDGES * percActiveEdges);
     nActiveEdges = MIN(MAX(nActiveEdges, MIN_ACTIVE_EDGES), MAX_ACTIVE_EDGES);  // assure at least one and at most all edges are active
 
-    // check if active edges are set
-    if (!SEGENV.data || sizeof(SEGENV.data) != nActiveEdges) {
-        if (!SEGENV.allocateData(nActiveEdges)) {
-            // return static effect if memory cannot be allocated
-            return mode_static();
-        }
+    if (!SEGENV.allocateData(nActiveEdges)) {
+        // return static effect if memory cannot be allocated
+        return mode_static();
     }
 
     bool isValidData = true;
@@ -4201,7 +4198,7 @@ uint16_t WS2812FX::mode_HIVE_strobing_segments(void) {
             do {
                 // get new random edge and check if it is already on
                 duplicates = false;
-                SEGENV.data[ii] = random8(0, SEGLEN / N_LEDS_PER_EDGE);
+                SEGENV.data[ii] = (byte) random8(0, (float)SEGLEN / N_LEDS_PER_EDGE - 1);
                 randCalls++;
                 for (uint8_t jj = 0; jj < ii; jj++) {
                     if (SEGENV.data[ii] == SEGENV.data[jj]) {
@@ -4212,6 +4209,7 @@ uint16_t WS2812FX::mode_HIVE_strobing_segments(void) {
                 if (randCalls >= MAX_RAND_CALLS) {
                     // prevent infinite loop (and blocking of loop) by limiting number of calls to random function
                     // this will result in duplicate edge indices in SEGENV.data and therefore less active segments
+                    SEGENV.data[ii] = SEGLEN / N_LEDS_PER_EDGE + 1;
                     break;
                 }
             } while (duplicates);
@@ -4221,10 +4219,10 @@ uint16_t WS2812FX::mode_HIVE_strobing_segments(void) {
     // set LED colors
     for (uint16_t ii = 0; ii < SEGLEN; ii += N_LEDS_PER_EDGE) {
         bool isActiveEdge = false;
-        for (uint8_t jj = 0; jj < sizeof(SEGENV.data); jj++) {
+        for (uint8_t jj = 0; jj < nActiveEdges; jj++) {
             if (SEGENV.data[jj] * N_LEDS_PER_EDGE == ii) {
                 isActiveEdge = true;
-                //break;
+                break;
             }
         }
         if (isActiveEdge) {
@@ -4336,16 +4334,17 @@ uint16_t WS2812FX::HIVE_segment_swipe(bool rev, std::vector<std::vector<int>> ed
             if (!dir) {
                 diff -= N_LEDS_PER_EDGE;
             }
-            if (rev) {
-                // negate the difference to use the reverse direction
-                diff *= -1;
-            }
+
             for (uint8_t jj = 0; jj < N_LEDS_PER_EDGE; jj++) {
                 // only for N_LEDS_PER_EDGE == 10
                 if (dir) {
                     diff--;
                 } else {
                     diff++;
+                }
+                if (rev) {
+                    // negate the difference to use the reverse direction
+                    diff *= -1;
                 }
                 diff = diff < 0 ? diff + edges.size() * N_LEDS_PER_EDGE : diff;
                 float blend = diff;
@@ -4354,10 +4353,10 @@ uint16_t WS2812FX::HIVE_segment_swipe(bool rev, std::vector<std::vector<int>> ed
                 // setPixelColor(ii + jj, WHITE);
                 setPixelColor(ii + jj, color_from_palette(255U - blend, false, false, 0U));
                 // setPixelColor(ii + jj, color_blend(BLACK, WHITE, 255U - blend, false);    
-            }
-            if (rev) {
-                // reset the diff sign
-                diff *= -1;
+                if (rev) {
+                    // reset the diff sign
+                    diff *= -1;
+                }
             }
         } else {
             for (uint8_t jj = 0; jj < N_LEDS_PER_EDGE; jj++) {
