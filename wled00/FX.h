@@ -845,7 +845,8 @@ class WS2812FX {
       mode_HIVE_rotate_rev(void),        // custom effect for HIVE
       mode_HIVE_rotate(void),            // custom effect for HIVE
       mode_HIVE_matrix(void),            // custom effect for HIVE
-      mode_HIVE_matrix_rev(void);        // custom effect for HIVE
+      mode_HIVE_matrix_rev(void),        // custom effect for HIVE
+      mode_HIVE_wave(void);              // custom effect for HIVE
 
   private:
     uint32_t crgb_to_col(CRGB fastled);
