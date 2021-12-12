@@ -14,6 +14,7 @@ void getStringFromJson(char* dest, const char* src, size_t len) {
 }
 
 bool deserializeConfig(JsonObject doc, bool fromFS) {
+  bool needsSave = false;
   //int rev_major = doc["rev"][0]; // 1
   //int rev_minor = doc["rev"][1]; // 0
 
@@ -61,7 +62,6 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
 
   CJSON(apBehavior, ap[F("behav")]);
   
-
   /*
   JsonArray ap_ip = ap["ip"];
   for (byte i = 0; i < 4; i++) {
@@ -80,7 +80,11 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
 
   CJSON(strip.ablMilliampsMax, hw_led[F("maxpwr")]);
   CJSON(strip.milliampsPerLed, hw_led[F("ledma")]);
-  CJSON(strip.rgbwMode, hw_led[F("rgbwm")]);
+  Bus::setAutoWhiteMode(hw_led[F("rgbwm")] | Bus::getAutoWhiteMode());
+  CJSON(correctWB, hw_led["cct"]);
+  CJSON(cctFromRgb, hw_led[F("cr")]);
+	CJSON(strip.cctBlending, hw_led[F("cb")]);
+	Bus::setCCTBlend(strip.cctBlending);
 
   JsonArray ins = hw_led["ins"];
   
@@ -220,7 +224,7 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
   CJSON(macroNl, light_nl["macro"]);
 
   JsonObject def = doc[F("def")];
-  CJSON(bootPreset, def[F("ps")]);
+  CJSON(bootPreset, def["ps"]);
   CJSON(turnOnAtBoot, def["on"]); // true
   CJSON(briS, def["bri"]); // 128
 
@@ -400,16 +404,17 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
     if (i > 14) break;
     CJSON(DMXFixtureMap[i],dmx_fixmap[i]);
   }
+
+  CJSON(e131ProxyUniverse, dmx[F("e131proxy")]);
   #endif
 
   DEBUG_PRINTLN(F("Starting usermod config."));
   JsonObject usermods_settings = doc["um"];
   if (!usermods_settings.isNull()) {
-    bool allComplete = usermods.readFromConfig(usermods_settings);
-    if (!allComplete && fromFS) serializeConfig();
+    needsSave = !usermods.readFromConfig(usermods_settings);
   }
 
-  if (fromFS) return false;
+  if (fromFS) return needsSave;
   doReboot = doc[F("rb")] | doReboot;
   return (doc["sv"] | true);
 }
@@ -421,19 +426,27 @@ void deserializeConfigFromFS() {
     return;
   }
 
+  #ifdef WLED_USE_DYNAMIC_JSON
   DynamicJsonDocument doc(JSON_BUFFER_SIZE);
+  #else
+  if (!requestJSONBufferLock(1)) return;
+  #endif
 
   DEBUG_PRINTLN(F("Reading settings from /cfg.json..."));
 
   success = readObjectFromFile("/cfg.json", nullptr, &doc);
   if (!success) { //if file does not exist, try reading from EEPROM
     deEEPSettings();
+    releaseJSONBufferLock();
     return;
   }
 
   // NOTE: This routine deserializes *and* applies the configuration
   //       Therefore, must also initialize ethernet from this function
-  deserializeConfig(doc.as<JsonObject>(), true);  
+  bool needsSave = deserializeConfig(doc.as<JsonObject>(), true);
+  releaseJSONBufferLock();
+
+  if (needsSave) serializeConfig(); // usermods required new prameters
 }
 
 void serializeConfig() {
@@ -441,7 +454,11 @@ void serializeConfig() {
 
   DEBUG_PRINTLN(F("Writing settings to /cfg.json..."));
 
+  #ifdef WLED_USE_DYNAMIC_JSON
   DynamicJsonDocument doc(JSON_BUFFER_SIZE);
+  #else
+  if (!requestJSONBufferLock(2)) return;
+  #endif
 
   JsonArray rev = doc.createNestedArray("rev");
   rev.add(1); //major settings revision
@@ -519,7 +536,10 @@ void serializeConfig() {
   hw_led[F("total")] = strip.getLengthTotal(); //no longer read, but provided for compatibility on downgrade
   hw_led[F("maxpwr")] = strip.ablMilliampsMax;
   hw_led[F("ledma")] = strip.milliampsPerLed;
-  hw_led[F("rgbwm")] = strip.rgbwMode;
+  hw_led["cct"] = correctWB;
+  hw_led[F("cr")] = cctFromRgb;
+	hw_led[F("cb")] = strip.cctBlending;
+	hw_led[F("rgbwm")] = Bus::getAutoWhiteMode();
 
   JsonArray hw_led_ins = hw_led.createNestedArray("ins");
 
@@ -536,7 +556,7 @@ void serializeConfig() {
     ins[F("order")] = bus->getColorOrder();
     ins["rev"] = bus->reversed;
     ins[F("skip")] = bus->skippedLeds();
-    ins["type"] = bus->getType() & 0x7F;;
+    ins["type"] = bus->getType() & 0x7F;
     ins["ref"] = bus->isOffRefreshRequired();
     ins[F("rgbw")] = bus->isRgbw();
   }
@@ -593,7 +613,7 @@ void serializeConfig() {
   light_nl["macro"] = macroNl;
 
   JsonObject def = doc.createNestedObject("def");
-  def[F("ps")] = bootPreset;
+  def["ps"] = bootPreset;
   def["on"] = turnOnAtBoot;
   def["bri"] = briS;
 
@@ -736,8 +756,11 @@ void serializeConfig() {
   dmx[F("start-led")] = DMXStartLED;
 
   JsonArray dmx_fixmap = dmx.createNestedArray(F("fixmap"));
-  for (byte i = 0; i < 15; i++)
+  for (byte i = 0; i < 15; i++) {
     dmx_fixmap.add(DMXFixtureMap[i]);
+  }
+
+  dmx[F("e131proxy")] = e131ProxyUniverse;
   #endif
 
   JsonObject usermods_settings = doc.createNestedObject("um");
@@ -746,16 +769,24 @@ void serializeConfig() {
   File f = WLED_FS.open("/cfg.json", "w");
   if (f) serializeJson(doc, f);
   f.close();
+  releaseJSONBufferLock();
 }
 
 //settings in /wsec.json, not accessible via webserver, for passwords and tokens
 bool deserializeConfigSec() {
   DEBUG_PRINTLN(F("Reading settings from /wsec.json..."));
 
+  #ifdef WLED_USE_DYNAMIC_JSON
   DynamicJsonDocument doc(JSON_BUFFER_SIZE);
+  #else
+  if (!requestJSONBufferLock(3)) return false;
+  #endif
 
   bool success = readObjectFromFile("/wsec.json", nullptr, &doc);
-  if (!success) return false;
+  if (!success) {
+    releaseJSONBufferLock();
+    return false;
+  }
 
   JsonObject nw_ins_0 = doc["nw"]["ins"][0];
   getStringFromJson(clientPass, nw_ins_0["psk"], 65);
@@ -787,13 +818,18 @@ bool deserializeConfigSec() {
   CJSON(wifiLock, ota[F("lock-wifi")]);
   CJSON(aOtaEnabled, ota[F("aota")]);
 
+  releaseJSONBufferLock();
   return true;
 }
 
 void serializeConfigSec() {
   DEBUG_PRINTLN(F("Writing settings to /wsec.json..."));
 
+  #ifdef WLED_USE_DYNAMIC_JSON
   DynamicJsonDocument doc(JSON_BUFFER_SIZE);
+  #else
+  if (!requestJSONBufferLock(4)) return;
+  #endif
 
   JsonObject nw = doc.createNestedObject("nw");
 
@@ -828,4 +864,5 @@ void serializeConfigSec() {
   File f = WLED_FS.open("/wsec.json", "w");
   if (f) serializeJson(doc, f);
   f.close();
+  releaseJSONBufferLock();
 }

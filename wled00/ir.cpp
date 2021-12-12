@@ -72,7 +72,7 @@ void decBrightness()
 void presetFallback(uint8_t presetID, uint8_t effectID, uint8_t paletteID) 
 {
   byte prevError = errorFlag;
-  if (!applyPreset(presetID, CALL_MODE_BUTTON)) { 
+  if (!applyPreset(presetID, CALL_MODE_BUTTON_PRESET)) { 
     effectCurrent = effectID;      
     effectPalette = paletteID;
     errorFlag = prevError; //clear error 12 from non-existent preset
@@ -87,7 +87,7 @@ bool decodeIRCustom(uint32_t code)
   {
     //just examples, feel free to modify or remove
     case IRCUSTOM_ONOFF : toggleOnOff(); break;
-    case IRCUSTOM_MACRO1 : applyPreset(1, CALL_MODE_BUTTON); break;
+    case IRCUSTOM_MACRO1 : applyPreset(1, CALL_MODE_BUTTON_PRESET); break;
 
     default: return false;
   }
@@ -165,6 +165,7 @@ void decodeIR(uint32_t code)
   if (decodeIRCustom(code)) return;
   if (irEnabled == 8) { // any remote configurable with ir.json file
     decodeIRJson(code);
+    colorUpdated(CALL_MODE_BUTTON);
     return;
   }
   if (code > 0xFFFFFF) return; //invalid code
@@ -566,25 +567,33 @@ Sample:
 void decodeIRJson(uint32_t code) 
 {
   char objKey[10];
-  const char* cmd;
   String cmdStr;
-  DynamicJsonDocument irDoc(JSON_BUFFER_SIZE);
   JsonObject fdo;
   JsonObject jsonCmdObj;
 
-  sprintf(objKey, "\"0x%X\":", code);
+  #ifdef WLED_USE_DYNAMIC_JSON
+  DynamicJsonDocument doc(JSON_BUFFER_SIZE);
+  #else
+  if (!requestJSONBufferLock(13)) return;
+  #endif
 
-  readObjectFromFile("/ir.json", objKey, &irDoc);
-  fdo = irDoc.as<JsonObject>();
+  sprintf_P(objKey, PSTR("\"0x%lX\":"), (unsigned long)code);
+
+  // attempt to read command from ir.json
+  // this may fail for two reasons: ir.json does not exist or IR code not found
+  // if the IR code is not found readObjectFromFile() will clean() doc JSON document
+  // so we can differentiate between the two
+  readObjectFromFile("/ir.json", objKey, &doc);
+  fdo = doc.as<JsonObject>();
   lastValidCode = 0;
   if (fdo.isNull()) {
     //the received code does not exist
     if (!WLED_FS.exists("/ir.json")) errorFlag = ERR_FS_IRLOAD; //warn if IR file itself doesn't exist
+    releaseJSONBufferLock();
     return;
   }
 
-  cmd = fdo["cmd"]; //string
-  cmdStr = String(cmd);
+  cmdStr = fdo["cmd"].as<String>();
   jsonCmdObj = fdo["cmd"]; //object
 
   if (!cmdStr.isEmpty()) 
@@ -617,16 +626,14 @@ void decodeIRJson(uint32_t code)
       if (!cmdStr.startsWith("win&")) {
         cmdStr = "win&" + cmdStr;
       }
-      handleSet(nullptr, cmdStr, false); 
+      handleSet(nullptr, cmdStr, false);
     }
     colorUpdated(CALL_MODE_BUTTON);
   } else if (!jsonCmdObj.isNull()) {
     // command is JSON object
-    //allow applyPreset() to reuse JSON buffer, or it would alloc. a second buffer and run out of mem.
-    fileDoc = &irDoc;
-    deserializeState(jsonCmdObj, CALL_MODE_BUTTON);
-    fileDoc = nullptr;
+    deserializeState(jsonCmdObj, CALL_MODE_BUTTON_PRESET);
   }
+  releaseJSONBufferLock();
 }
 
 void initIR()
@@ -654,9 +661,8 @@ void handleIR()
       {
         if (results.value != 0) // only print results if anything is received ( != 0 )
         {
-          Serial.print("IR recv\r\n0x");
-          Serial.println((uint32_t)results.value, HEX);
-          Serial.println();
+					if (!pinManager.isPinAllocated(1)) //GPIO 1 - Serial TX pin
+          	Serial.printf_P(PSTR("IR recv: 0x%lX\n"), (unsigned long)results.value);
         }
         decodeIR(results.value);
         irrecv->resume();

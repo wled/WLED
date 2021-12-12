@@ -67,7 +67,9 @@ void colorRGBtoXY(byte* rgb, float* xy); // only defined if huesync disabled TOD
 
 void colorFromDecOrHexString(byte* rgb, char* in);
 bool colorFromHexString(byte* rgb, const char* in);
-void colorRGBtoRGBW(byte* rgb); //rgb to rgbw (http://codewelt.com/rgbw). (RGBW_MODE_LEGACY)
+
+uint32_t colorBalanceFromKelvin(uint16_t kelvin, uint32_t rgb);
+uint16_t approximateKelvinFromRGB(uint32_t rgb);
 
 //dmx.cpp
 void initDMX();
@@ -92,6 +94,12 @@ void onHueError(void* arg, AsyncClient* client, int8_t error);
 void onHueConnect(void* arg, AsyncClient* client);
 void sendHuePoll();
 void onHueData(void* arg, AsyncClient* client, void *data, size_t len);
+
+//improv.cpp
+void handleImprovPacket();
+void sendImprovStateResponse(uint8_t state, bool error = false);
+void sendImprovInfoResponse();
+void sendImprovRPCResponse(uint8_t commandId);
 
 //ir.cpp
 bool decodeIRCustom(uint32_t code);
@@ -202,6 +210,17 @@ void handleNotifications();
 void setRealtimePixel(uint16_t i, byte r, byte g, byte b, byte w);
 void refreshNodeList();
 void sendSysInfoUDP();
+
+//util.cpp
+//bool oappend(const char* txt); // append new c string to temp buffer efficiently
+//bool oappendi(int i);          // append new number to temp buffer efficiently
+//void sappend(char stype, const char* key, int val);
+//void sappends(char stype, const char* key, char* val);
+//void prepareHostname(char* hostname);
+//void _setRandomColor(bool _sec, bool fromButton);
+//bool isAsterisksOnly(const char* str, byte maxLen);
+bool requestJSONBufferLock(uint8_t module=255);
+void releaseJSONBufferLock();
 
 //um_manager.cpp
 class Usermod {

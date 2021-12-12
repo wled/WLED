@@ -95,6 +95,11 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
     uint8_t pins[5] = {255, 255, 255, 255, 255};
 
     autoSegments = request->hasArg(F("MS"));
+    correctWB = request->hasArg(F("CCT"));
+    cctFromRgb = request->hasArg(F("CR"));
+		strip.cctBlending = request->arg(F("CB")).toInt();
+		Bus::setCCTBlend(strip.cctBlending);
+		Bus::setAutoWhiteMode(request->arg(F("AW")).toInt());
 
     for (uint8_t s = 0; s < WLED_MAX_BUSSES; s++) {
       char lp[4] = "L0"; lp[2] = 48+s; lp[3] = 0; //ascii 0-9 //strip data pin
@@ -116,7 +121,6 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
       type = request->arg(lt).toInt();
       type |= request->hasArg(rf) << 7; // off refresh override
       skip = request->hasArg(sl) ? LED_SKIP_AMOUNT : 0;
-
       colorOrder = request->arg(co).toInt();
       start = (request->hasArg(ls)) ? request->arg(ls).toInt() : t;
       if (request->hasArg(lc) && request->arg(lc).toInt() > 0) {
@@ -149,8 +153,8 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
     rlyMde = (bool)request->hasArg(F("RM"));
 
     for (uint8_t i=0; i<WLED_MAX_BUTTONS; i++) {
-      char bt[4] = "BT"; bt[2] = 48+i; bt[3] = 0; // button pin
-      char be[4] = "BE"; be[2] = 48+i; be[3] = 0; // button type
+      char bt[4] = "BT"; bt[2] = (i<10?48:55)+i; bt[3] = 0; // button pin (use A,B,C,... if WLED_MAX_BUTTONS>10)
+      char be[4] = "BE"; be[2] = (i<10?48:55)+i; be[3] = 0; // button type (use A,B,C,... if WLED_MAX_BUTTONS>10)
       int hw_btn_pin = request->arg(bt).toInt();
       if (pinManager.allocatePin(hw_btn_pin,false,PinOwner::Button)) {
         btnPin[i] = hw_btn_pin;
@@ -166,8 +170,6 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
     strip.ablMilliampsMax = request->arg(F("MA")).toInt();
     strip.milliampsPerLed = request->arg(F("LA")).toInt();
     
-    strip.rgbwMode = request->arg(F("AW")).toInt();
-
     briS = request->arg(F("CA")).toInt();
 
     turnOnAtBoot = request->hasArg(F("BO"));
@@ -339,9 +341,9 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
     macroCountdown = request->arg(F("MC")).toInt();
     macroNl = request->arg(F("MN")).toInt();
     for (uint8_t i=0; i<WLED_MAX_BUTTONS; i++) {
-      char mp[4] = "MP"; mp[2] = 48+i; mp[3] = 0; // short
-      char ml[4] = "ML"; ml[2] = 48+i; ml[3] = 0; // long
-      char md[4] = "MD"; md[2] = 48+i; md[3] = 0; // double
+      char mp[4] = "MP"; mp[2] = (i<10?48:55)+i; mp[3] = 0; // short
+      char ml[4] = "ML"; ml[2] = (i<10?48:55)+i; ml[3] = 0; // long
+      char md[4] = "MD"; md[2] = (i<10?48:55)+i; md[3] = 0; // double
       //if (!request->hasArg(mp)) break;
       macroButton[i] = request->arg(mp).toInt();      // these will default to 0 if not present
       macroLongPress[i] = request->arg(ml).toInt();
@@ -431,7 +433,12 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
   //USERMODS
   if (subPage == 8)
   {
+    #ifdef WLED_USE_DYNAMIC_JSON
     DynamicJsonDocument doc(JSON_BUFFER_SIZE);
+    #else
+    if (!requestJSONBufferLock(5)) return;
+    #endif
+
     JsonObject um = doc.createNestedObject("um");
 
     size_t args = request->args();
@@ -504,8 +511,10 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
       }
     }
     usermods.readFromConfig(um);  // force change of usermod parameters
-  }
 
+    releaseJSONBufferLock();
+  }
+  
   if (subPage != 2 && (subPage != 6 || !doReboot)) serializeConfig(); //do not save if factory reset or LED settings (which are saved after LED re-init)
   if (subPage == 4) alexaInit();
 }
@@ -547,6 +556,7 @@ void parseNumber(const char* str, byte* val, byte minv, byte maxv)
     const char* str2 = strchr(str,'~'); //min/max range (for preset cycle, e.g. "1~5~")
     if (str2) {
       byte p2 = atoi(str2+1);
+      presetCycMin = p1; presetCycMax = p2;
       while (isdigit((str2+1)[0])) str2++;
       parseNumber(str2+1, val, p1, p2);
     } else {
@@ -655,17 +665,15 @@ bool handleSet(AsyncWebServerRequest *request, const String& req, bool apply)
   pos = req.indexOf(F("PS=")); //saves current in preset
   if (pos > 0) savePreset(getNumVal(&req, pos));
 
-  byte presetCycleMin = 1;
-  byte presetCycleMax = 5;
-
   pos = req.indexOf(F("P1=")); //sets first preset for cycle
-  if (pos > 0) presetCycleMin = getNumVal(&req, pos);
+  if (pos > 0) presetCycMin = getNumVal(&req, pos);
 
   pos = req.indexOf(F("P2=")); //sets last preset for cycle
-  if (pos > 0) presetCycleMax = getNumVal(&req, pos);
+  if (pos > 0) presetCycMax = getNumVal(&req, pos);
 
   //apply preset
-  if (updateVal(&req, "PL=", &presetCycCurr, presetCycleMin, presetCycleMax)) {
+  if (updateVal(&req, "PL=", &presetCycCurr, presetCycMin, presetCycMax)) {
+		unloadPlaylist();
     applyPreset(presetCycCurr);
   }
 

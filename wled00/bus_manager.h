@@ -10,6 +10,10 @@
 #include "bus_wrapper.h"
 #include <Arduino.h>
 
+//colors.cpp
+uint32_t colorBalanceFromKelvin(uint16_t kelvin, uint32_t rgb);
+void colorRGBtoRGBW(byte* rgb);
+
 // enable additional debug output
 #ifdef WLED_DEBUG
   #ifndef ESP8266
@@ -28,13 +32,20 @@
 #define SET_BIT(var,bit)    ((var)|=(uint16_t)(0x0001<<(bit)))
 #define UNSET_BIT(var,bit)  ((var)&=(~(uint16_t)(0x0001<<(bit))))
 
+//color mangling macros
+#define RGBW32(r,g,b,w) (uint32_t((byte(w) << 24) | (byte(r) << 16) | (byte(g) << 8) | (byte(b))))
+#define R(c) (byte((c) >> 16))
+#define G(c) (byte((c) >> 8))
+#define B(c) (byte(c))
+#define W(c) (byte((c) >> 24))
+
 //temporary struct for passing bus configuration to bus
 struct BusConfig {
   uint8_t type = TYPE_WS2812_RGB;
-  uint16_t count = 1;
-  uint16_t start = 0;
-  uint8_t colorOrder = COL_ORDER_GRB;
-  bool reversed = false;
+  uint16_t count;
+  uint16_t start;
+  uint8_t colorOrder;
+  bool reversed;
   uint8_t skipAmount;
   bool refreshReq;
   uint8_t pins[5] = {LEDPIN, 255, 255, 255, 255};
@@ -62,82 +73,80 @@ struct BusConfig {
   }
 };
 
-//parent class of BusDigital and BusPwm
+//parent class of BusDigital, BusPwm, and BusNetwork
 class Bus {
   public:
-  Bus(uint8_t type, uint16_t start) {
-    _type = type;
-    _start = start;
-  };
-  
-  virtual void show() {}
-  virtual bool canShow() { return true; }
+    Bus(uint8_t type, uint16_t start) {
+      _type = type;
+      _start = start;
+    };
 
-  virtual void setPixelColor(uint16_t pix, uint32_t c) {};
+    virtual ~Bus() {} //throw the bus under the bus
 
-  virtual void setBrightness(uint8_t b) {};
+    virtual void     show() {}
+    virtual bool     canShow() { return true; }
+		virtual void     setStatusPixel(uint32_t c) {}
+    virtual void     setPixelColor(uint16_t pix, uint32_t c) {}
+    virtual uint32_t getPixelColor(uint16_t pix) { return 0; }
+    virtual void     setBrightness(uint8_t b) {}
+    virtual void     cleanup() {}
+    virtual uint8_t  getPins(uint8_t* pinArray) { return 0; }
+    virtual uint16_t getLength() { return _len; }
+    virtual void     setColorOrder() {}
+    virtual uint8_t  getColorOrder() { return COL_ORDER_RGB; }
+    virtual uint8_t  skippedLeds() { return 0; }
+    inline  uint16_t getStart() { return _start; }
+    inline  void     setStart(uint16_t start) { _start = start; }
+    inline  uint8_t  getType() { return _type; }
+    inline  bool     isOk() { return _valid; }
+    inline  bool     isOffRefreshRequired() { return _needsRefresh; }
+            bool     containsPixel(uint16_t pix) { return pix >= _start && pix < _start+_len; }
 
-  virtual uint32_t getPixelColor(uint16_t pix) { return 0; };
+    virtual bool isRgbw() { return Bus::isRgbw(_type); }
+    static  bool isRgbw(uint8_t type) {
+      if (type == TYPE_SK6812_RGBW || type == TYPE_TM1814) return true;
+      if (type > TYPE_ONOFF && type <= TYPE_ANALOG_5CH && type != TYPE_ANALOG_3CH) return true;
+      return false;
+    }
+    static void setCCT(uint16_t cct) {
+      _cct = cct;
+    }
+		static void setCCTBlend(uint8_t b) {
+			if (b > 100) b = 100;
+			_cctBlend = (b * 127) / 100;
+			//compile-time limiter for hardware that can't power both white channels at max
+			#ifdef WLED_MAX_CCT_BLEND
+				if (_cctBlend > WLED_MAX_CCT_BLEND) _cctBlend = WLED_MAX_CCT_BLEND;
+			#endif
+		}
+		inline static void    setAutoWhiteMode(uint8_t m) { if (m < 4) _autoWhiteMode = m; }
+		inline static uint8_t getAutoWhiteMode() { return _autoWhiteMode; }
 
-  virtual void cleanup() {};
-
-  virtual ~Bus() { //throw the bus under the bus
-  }
-
-  virtual uint8_t getPins(uint8_t* pinArray) { return 0; }
-
-  inline uint16_t getStart() {
-    return _start;
-  }
-
-  inline void setStart(uint16_t start) {
-    _start = start;
-  }
-
-  virtual uint16_t getLength() {
-    return 1;
-  }
-
-  virtual void setColorOrder() {}
-
-  virtual uint8_t getColorOrder() {
-    return COL_ORDER_RGB;
-  }
-
-  virtual bool isRgbw() {
-    return false;
-  }
-
-  virtual uint8_t skippedLeds() {
-    return 0;
-  }
-
-  inline uint8_t getType() {
-    return _type;
-  }
-
-  inline bool isOk() {
-    return _valid;
-  }
-
-  static bool isRgbw(uint8_t type) {
-    if (type == TYPE_SK6812_RGBW || type == TYPE_TM1814) return true;
-    if (type > TYPE_ONOFF && type <= TYPE_ANALOG_5CH && type != TYPE_ANALOG_3CH) return true;
-    return false;
-  }
-
-  inline bool isOffRefreshRequired() {
-    return _needsRefresh;
-  }
-
-  bool reversed = false;
+    bool reversed = false;
 
   protected:
-  uint8_t _type = TYPE_NONE;
-  uint8_t _bri = 255;
-  uint16_t _start = 0;
-  bool _valid = false;
-  bool _needsRefresh = false;
+    uint8_t  _type = TYPE_NONE;
+    uint8_t  _bri = 255;
+    uint16_t _start = 0;
+    uint16_t _len = 1;
+    bool     _valid = false;
+    bool     _needsRefresh = false;
+    static uint8_t _autoWhiteMode;
+    static int16_t _cct;
+		static uint8_t _cctBlend;
+  
+    uint32_t autoWhiteCalc(uint32_t c) {
+      if (_autoWhiteMode == RGBW_MODE_MANUAL_ONLY) return c;
+      uint8_t w = W(c);
+      //ignore auto-white calculation if w>0 and mode DUAL (DUAL behaves as BRIGHTER if w==0)
+      if (w > 0 && _autoWhiteMode == RGBW_MODE_DUAL) return c;
+      uint8_t r = R(c);
+      uint8_t g = G(c);
+      uint8_t b = B(c);
+      w = r < g ? (r < b ? r : b) : (g < b ? g : b);
+      if (_autoWhiteMode == RGBW_MODE_AUTO_ACCURATE) { r -= w; g -= w; b -= w; } //subtract w in ACCURATE mode
+      return RGBW32(r, g, b, w);
+    }
 };
 
 
@@ -184,7 +193,18 @@ class BusDigital : public Bus {
     PolyBus::setBrightness(_busPtr, _iType, b);
   }
 
+	//If LEDs are skipped, it is possible to use the first as a status LED.
+	//TODO only show if no new show due in the next 50ms
+	void setStatusPixel(uint32_t c) {
+    if (_skip && canShow()) {
+      PolyBus::setPixelColor(_busPtr, _iType, 0, c, _colorOrder);
+      PolyBus::show(_busPtr, _iType);
+    }
+  }
+
   void setPixelColor(uint16_t pix, uint32_t c) {
+    if (_type == TYPE_SK6812_RGBW || _type == TYPE_TM1814) c = autoWhiteCalc(c);
+    if (_cct >= 1900) c = colorBalanceFromKelvin(_cct, c); //color correction from CCT
     if (reversed) pix = _len - pix -1;
     else pix += _skip;
     PolyBus::setPixelColor(_busPtr, _iType, pix, c, _colorOrder);
@@ -200,7 +220,7 @@ class BusDigital : public Bus {
     return _colorOrder;
   }
 
-  inline uint16_t getLength() {
+  uint16_t getLength() {
     return _len - _skip;
   }
 
@@ -213,10 +233,6 @@ class BusDigital : public Bus {
   void setColorOrder(uint8_t colorOrder) {
     if (colorOrder > 5) return;
     _colorOrder = colorOrder;
-  }
-
-  inline bool isRgbw() {
-    return Bus::isRgbw(_type);
   }
 
   inline uint8_t skippedLeds() {
@@ -245,7 +261,6 @@ class BusDigital : public Bus {
   uint8_t _colorOrder = COL_ORDER_GRB;
   uint8_t _pins[2] = {255, 255};
   uint8_t _iType = I_NONE;
-  uint16_t _len = 0;
   uint8_t _skip = 0;
   void * _busPtr = nullptr;
 };
@@ -287,29 +302,62 @@ class BusPwm : public Bus {
 
   void setPixelColor(uint16_t pix, uint32_t c) {
     if (pix != 0 || !_valid) return; //only react to first pixel
-    uint8_t r = c >> 16;
-    uint8_t g = c >>  8;
-    uint8_t b = c      ;
-    uint8_t w = c >> 24;
+		if (_type != TYPE_ANALOG_3CH) c = autoWhiteCalc(c);
+    if (_cct >= 1900 && (_type == TYPE_ANALOG_3CH || _type == TYPE_ANALOG_4CH)) {
+      c = colorBalanceFromKelvin(_cct, c); //color correction from CCT
+    }
+    uint8_t r = R(c);
+    uint8_t g = G(c);
+    uint8_t b = B(c);
+    uint8_t w = W(c);
+    uint8_t cct = 0; //0 - full warm white, 255 - full cold white
+    if (_cct > -1) {
+      if (_cct >= 1900)    cct = (_cct - 1900) >> 5;
+      else if (_cct < 256) cct = _cct;
+    } else {
+      cct = (approximateKelvinFromRGB(c) - 1900) >> 5;
+    }
+
+		uint8_t ww, cw;
+		#ifdef WLED_USE_IC_CCT
+		ww = w;
+		cw = cct;
+		#else
+		//0 - linear (CCT 127 = 50% warm, 50% cold), 127 - additive CCT blending (CCT 127 = 100% warm, 100% cold)
+		if (cct       < _cctBlend) ww = 255;
+		else ww = ((255-cct) * 255) / (255 - _cctBlend);
+
+		if ((255-cct) < _cctBlend) cw = 255;
+		else cw = (cct       * 255) / (255 - _cctBlend);
+
+		ww = (w * ww) / 255; //brightness scaling
+		cw = (w * cw) / 255;
+		#endif
 
     switch (_type) {
-      case TYPE_ANALOG_1CH: //one channel (white), use highest RGBW value
-        _data[0] = max(r, max(g, max(b, w))); break;
-      
-      case TYPE_ANALOG_2CH: //warm white + cold white, we'll need some nice handling here, for now just R+G channels
-      case TYPE_ANALOG_3CH: //standard dumb RGB
+      case TYPE_ANALOG_1CH: //one channel (white), relies on auto white calculation
+        _data[0] = w;
+        break;
+      case TYPE_ANALOG_2CH: //warm white + cold white
+        _data[1] = cw;
+        _data[0] = ww;
+        break;
+      case TYPE_ANALOG_5CH: //RGB + warm white + cold white
+        // perhaps a non-linear adjustment would be in order. need to test
+        _data[4] = cw;
+        w = ww;
       case TYPE_ANALOG_4CH: //RGBW
-      case TYPE_ANALOG_5CH: //we'll want the white handling from 2CH here + RGB
-        _data[0] = r; _data[1] = g; _data[2] = b; _data[3] = w; _data[4] = 0; break;
-
-      default: return;
+        _data[3] = w;
+      case TYPE_ANALOG_3CH: //standard dumb RGB
+        _data[0] = r; _data[1] = g; _data[2] = b;
+        break;
     }
   }
 
   //does no index check
   uint32_t getPixelColor(uint16_t pix) {
     if (!_valid) return 0;
-    return ((_data[3] << 24) | (_data[0] << 16) | (_data[1] << 8) | (_data[2]));
+    return RGBW32(_data[0], _data[1], _data[2], _data[3]);
   }
 
   void show() {
@@ -333,12 +381,10 @@ class BusPwm : public Bus {
   uint8_t getPins(uint8_t* pinArray) {
     if (!_valid) return 0;
     uint8_t numPins = NUM_PWM_PINS(_type);
-    for (uint8_t i = 0; i < numPins; i++) pinArray[i] = _pins[i];
+    for (uint8_t i = 0; i < numPins; i++) {
+      pinArray[i] = _pins[i];
+    }
     return numPins;
-  }
-
-  bool isRgbw() {
-    return Bus::isRgbw(_type);
   }
 
   inline void cleanup() {
@@ -397,12 +443,10 @@ class BusNetwork : public Bus {
 //          break;
 //      }
       _UDPchannels = _rgbw ? 4 : 3;
-      //_rgbw |= bc.rgbwOverride;  // RGBW override in bit 7 or can have a special type
       _data = (byte *)malloc(bc.count * _UDPchannels);
       if (_data == nullptr) return;
       memset(_data, 0, bc.count * _UDPchannels);
       _len = bc.count;
-      //_colorOrder = bc.colorOrder;
       _client = IPAddress(bc.pins[0],bc.pins[1],bc.pins[2],bc.pins[3]);
       _broadcastLock = false;
       _valid = true;
@@ -410,22 +454,19 @@ class BusNetwork : public Bus {
 
   void setPixelColor(uint16_t pix, uint32_t c) {
     if (!_valid || pix >= _len) return;
+		if (isRgbw()) c = autoWhiteCalc(c);
+    if (_cct >= 1900) c = colorBalanceFromKelvin(_cct, c); //color correction from CCT
     uint16_t offset = pix * _UDPchannels;
-    _data[offset]   = 0xFF & (c >> 16);
-    _data[offset+1] = 0xFF & (c >>  8);
-    _data[offset+2] = 0xFF & (c      );
-    if (_rgbw) _data[offset+3] = 0xFF & (c >> 24);
+    _data[offset]   = R(c);
+    _data[offset+1] = G(c);
+    _data[offset+2] = B(c);
+    if (_rgbw) _data[offset+3] = W(c);
   }
 
   uint32_t getPixelColor(uint16_t pix) {
     if (!_valid || pix >= _len) return 0;
     uint16_t offset = pix * _UDPchannels;
-    return (
-      (_rgbw ? (_data[offset+3] << 24) : 0)
-      | (_data[offset]   << 16)
-      | (_data[offset+1] <<  8)
-      | (_data[offset+2]      )
-    );
+    return RGBW32(_data[offset], _data[offset+1], _data[offset+2], _rgbw ? (_data[offset+3] << 24) : 0);
   }
 
   void show() {
@@ -472,8 +513,6 @@ class BusNetwork : public Bus {
 
   private:
     IPAddress _client;
-    uint16_t  _len = 0;
-    //uint8_t   _colorOrder;
     uint8_t   _bri = 255;
     uint8_t   _UDPtype;
     uint8_t   _UDPchannels;
@@ -538,7 +577,13 @@ class BusManager {
     }
   }
 
-  void setPixelColor(uint16_t pix, uint32_t c) {
+	void setStatusPixel(uint32_t c) {
+    for (uint8_t i = 0; i < numBusses; i++) {
+			busses[i]->setStatusPixel(c);
+		}
+	}
+
+  void setPixelColor(uint16_t pix, uint32_t c, int16_t cct=-1) {
     for (uint8_t i = 0; i < numBusses; i++) {
       Bus* b = busses[i];
       uint16_t bstart = b->getStart();
@@ -551,6 +596,15 @@ class BusManager {
     for (uint8_t i = 0; i < numBusses; i++) {
       busses[i]->setBrightness(b);
     }
+  }
+
+  void setSegmentCCT(int16_t cct, bool allowWBCorrection = false) {
+    if (cct > 255) cct = 255;
+    if (cct >= 0) {
+      //if white balance correction allowed, save as kelvin value instead of 0-255
+      if (allowWBCorrection) cct = 1900 + (cct << 5);
+    } else cct = -1;
+    Bus::setCCT(cct);
   }
 
   uint32_t getPixelColor(uint16_t pix) {

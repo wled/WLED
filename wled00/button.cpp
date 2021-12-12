@@ -20,7 +20,7 @@ void shortPressAction(uint8_t b)
       default: ++effectCurrent %= strip.getModeCount(); colorUpdated(CALL_MODE_BUTTON); break;
     }
   } else {
-    applyPreset(macroButton[b], CALL_MODE_BUTTON);
+    applyPreset(macroButton[b], CALL_MODE_BUTTON_PRESET);
   }
 
   // publish MQTT message
@@ -39,7 +39,7 @@ void longPressAction(uint8_t b)
       default: bri += 8; colorUpdated(CALL_MODE_BUTTON); buttonPressedTime[b] = millis(); break; // repeatable action
     }
   } else {
-    applyPreset(macroLongPress[b], CALL_MODE_BUTTON);
+    applyPreset(macroLongPress[b], CALL_MODE_BUTTON_PRESET);
   }
 
   // publish MQTT message
@@ -58,7 +58,7 @@ void doublePressAction(uint8_t b)
       default: ++effectPalette %= strip.getPaletteCount(); colorUpdated(CALL_MODE_BUTTON); break;
     }
   } else {
-    applyPreset(macroDoublePress[b], CALL_MODE_BUTTON);
+    applyPreset(macroDoublePress[b], CALL_MODE_BUTTON_PRESET);
   }
 
   // publish MQTT message
@@ -105,12 +105,12 @@ void handleSwitch(uint8_t b)
     
   if (millis() - buttonPressedTime[b] > WLED_DEBOUNCE_THRESHOLD) { //fire edge event only after 50ms without change (debounce)
     if (!buttonPressedBefore[b]) { // on -> off
-      if (macroButton[b]) applyPreset(macroButton[b], CALL_MODE_BUTTON);
+      if (macroButton[b]) applyPreset(macroButton[b], CALL_MODE_BUTTON_PRESET);
       else { //turn on
         if (!bri) {toggleOnOff(); colorUpdated(CALL_MODE_BUTTON);}
       } 
     } else {  // off -> on
-      if (macroLongPress[b]) applyPreset(macroLongPress[b], CALL_MODE_BUTTON);
+      if (macroLongPress[b]) applyPreset(macroLongPress[b], CALL_MODE_BUTTON_PRESET);
       else { //turn off
         if (bri) {toggleOnOff(); colorUpdated(CALL_MODE_BUTTON);}
       } 
@@ -299,8 +299,11 @@ void handleIO()
       #ifdef ESP8266
       // turn off built-in LED if strip is turned off
       // this will break digital bus so will need to be reinitialised on On
-      pinMode(LED_BUILTIN, OUTPUT);
-      digitalWrite(LED_BUILTIN, HIGH);
+      PinOwner ledPinOwner = pinManager.getPinOwner(LED_BUILTIN);
+      if (!strip.isOffRefreshRequred && (ledPinOwner == PinOwner::None || ledPinOwner == PinOwner::BusDigital)) {
+        pinMode(LED_BUILTIN, OUTPUT);
+        digitalWrite(LED_BUILTIN, HIGH);
+      }
       #endif
       if (rlyPin>=0) {
         pinMode(rlyPin, OUTPUT);

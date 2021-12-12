@@ -221,10 +221,15 @@ void WLED::loop()
       delete busConfigs[i]; busConfigs[i] = nullptr;
     }
     strip.finalizeInit();
+    loadLedmap = 0;
     if (aligned) strip.makeAutoSegments();
     else strip.fixInvalidSegments();
     yield();
     serializeConfig();
+  }
+  if (loadLedmap >= 0) {
+    strip.deserializeMap(loadLedmap);
+    loadLedmap = -1;
   }
 
   yield();
@@ -351,7 +356,9 @@ void WLED::setup()
   #endif
 
   #ifdef WLED_ENABLE_ADALIGHT
-  if (!pinManager.isPinAllocated(3)) {
+	//Serial RX (Adalight, Improv, Serial JSON) only possible if GPIO3 unused
+	//Serial TX (Debug, Improv, Serial JSON) only possible if GPIO1 unused
+  if (!pinManager.isPinAllocated(3) && !pinManager.isPinAllocated(1)) {
     Serial.println(F("Ada"));
   }
   #endif
@@ -374,6 +381,8 @@ void WLED::setup()
     sprintf(mqttClientID + 5, "%*s", 6, escapedMac.c_str() + 6);
   }
 
+  if (Serial.available() > 0 && Serial.peek() == 'I') handleImprovPacket();
+
   strip.service();
 
 #ifndef WLED_DISABLE_OTA
@@ -391,6 +400,8 @@ void WLED::setup()
 #ifdef WLED_ENABLE_DMX
   initDMX();
 #endif
+
+  if (Serial.available() > 0 && Serial.peek() == 'I') handleImprovPacket();
   // HTTP server page init
   initServer();
 
@@ -403,6 +414,7 @@ void WLED::beginStrip()
 {
   // Initialize NeoPixel Strip and button
   strip.finalizeInit(); // busses created during deserializeConfig()
+  strip.deserializeMap();
   strip.makeAutoSegments();
   strip.setBrightness(0);
   strip.setShowCallback(handleOverlayDraw);
@@ -676,7 +688,7 @@ void WLED::handleConnection()
   // reconnect WiFi to clear stale allocations if heap gets too low
   if (now - heapTime > 5000) {
     uint32_t heap = ESP.getFreeHeap();
-    if (heap < JSON_BUFFER_SIZE+512 && lastHeap < JSON_BUFFER_SIZE+512) {
+    if (heap < MIN_HEAP_SIZE && lastHeap < MIN_HEAP_SIZE) {
       DEBUG_PRINT(F("Heap too low! "));
       DEBUG_PRINTLN(heap);
       forceReconnect = true;
@@ -720,14 +732,26 @@ void WLED::handleConnection()
       interfacesInited = false;
       initConnection();
     }
-    if (now - lastReconnectAttempt > ((stac) ? 300000 : 20000) && WLED_WIFI_CONFIGURED)
+    //send improv failed 6 seconds after second init attempt (24 sec. after provisioning)
+    if (improvActive > 2 && now - lastReconnectAttempt > 6000) {
+      sendImprovStateResponse(0x03, true);
+      improvActive = 2;
+    }
+    if (now - lastReconnectAttempt > ((stac) ? 300000 : 18000) && WLED_WIFI_CONFIGURED) {
+      if (improvActive == 2) improvActive = 3;
       initConnection();
+    }
     if (!apActive && now - lastReconnectAttempt > 12000 && (!wasConnected || apBehavior == AP_BEHAVIOR_NO_CONN))
       initAP();
-  } else if (!interfacesInited) {        // newly connected
+  } else if (!interfacesInited) { //newly connected
     DEBUG_PRINTLN("");
     DEBUG_PRINT(F("Connected! IP address: "));
     DEBUG_PRINTLN(Network.localIP());
+    if (improvActive) {
+      if (improvError == 3) sendImprovStateResponse(0x00, true);
+      sendImprovStateResponse(0x04);
+      if (improvActive > 1) sendImprovRPCResponse(0x01);
+    }
     initInterfaces();
     userConnected();
     usermods.connected();
