@@ -92,6 +92,8 @@ class PinManagerClass {
   bool isPinAllocated(byte gpio, PinOwner tag = PinOwner::None);
   bool isPinOk(byte gpio, bool output = true);
 
+  PinOwner getPinOwner(byte gpio);
+
   #ifdef ARDUINO_ARCH_ESP32
   byte allocateLedc(byte channels);
   void deallocateLedc(byte pos, byte channels);

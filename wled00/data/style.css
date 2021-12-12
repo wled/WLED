@@ -9,6 +9,10 @@ body {
 hr {
   border-color: #666;
 }
+a {
+  color: #28f;
+  text-decoration: none;
+}
 button, .btn {
   background: #333;
   color: #fff;

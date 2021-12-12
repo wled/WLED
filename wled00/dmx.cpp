@@ -22,10 +22,10 @@ void handleDMX()
   for (int i = DMXStartLED; i < len; i++) {        // uses the amount of LEDs as fixture count
 
     uint32_t in = strip.getPixelColor(i);     // get the colors for the individual fixtures as suggested by Aircoookie in issue #462
-    byte w = in >> 24 & 0xFF;
-    byte r = in >> 16 & 0xFF;
-    byte g = in >> 8 & 0xFF;
-    byte b = in & 0xFF;
+    byte w = W(in);
+    byte r = R(in);
+    byte g = G(in);
+    byte b = B(in);
 
     int DMXFixtureStart = DMXStart + (DMXGap * (i - DMXStartLED));
     for (int j = 0; j < DMXChannels; j++) {

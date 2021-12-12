@@ -459,12 +459,20 @@ img {
 .sliderdisplay {
 	content:'';
 	position: absolute;
-	top: 13px; bottom: 13px;
-	left: 10px; right: 10px;
+	top: 12.5px; bottom: 12.5px;
+	left: 13px; right: 13px;
 	background: var(--c-4);
 	border-radius: 17px;
 	pointer-events: none;
 	z-index: -1;
+  --bg: var(--c-f);
+}
+
+#rwrap .sliderdisplay { --bg: #f00; }
+#gwrap .sliderdisplay { --bg: #0f0; }
+#bwrap .sliderdisplay { --bg: #00f; }
+#wbal .sliderdisplay, #kwrap .sliderdisplay {
+  background: linear-gradient(90deg, #ff8f1f 0%, #fff 50%, #cbdbff);
 }
 
 .sliderbubble {
@@ -492,6 +500,7 @@ input[type=range] {
 	background-color: transparent;
 	cursor: pointer;
 }
+
 input[type=range]:focus {
 	outline: none;
 }
@@ -527,8 +536,7 @@ input[type=range]:active + .sliderbubble {
 	display: inline;
 	transform: translateX(-50%);
 }
-
-#wwrap {
+#wwrap, #wbal {
 	display: none;
 }
 

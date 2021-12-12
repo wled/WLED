@@ -123,6 +123,11 @@ public:
     }
   }
 
+  uint16_t getLastLDRValue()
+  {
+    return lastLDRValue;
+  }
+
   void addToJsonInfo(JsonObject &root)
   {
     JsonObject user = root[F("u")];
