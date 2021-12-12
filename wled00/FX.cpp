@@ -4404,6 +4404,21 @@ uint16_t WS2812FX::display_frame(byte *frame, uint16_t frame_size = 0, bool is_r
 #define EDGES_COL_5 \
     { 220, 0, 180, 140, 60, 80 }
 
+#define EDGES_COL_0_FULL \
+    { 550, 530, 480, 460, 410, 390 }
+#define EDGES_COL_1_FULL \
+    { 560, 510, 490, 450, 420, 380 }
+#define EDGES_COL_2_FULL \
+    { 580, 520, 290, 310, 430, 360 }
+#define EDGES_COL_3_FULL \
+    { 590, 260, 280, 320, 340, 350 }
+#define EDGES_COL_4_FULL \
+    { 230, 250, 170, 150, 110, 90 }
+#define EDGES_COL_5_FULL \
+    { 220, 200, 180, 140, 120, 80 }
+#define EDGES_COL_6_FULL \
+    { -1, 0, 20, 40, 60, -1 }
+
 #define EDGES_COL_DIR_0 \
     { true, true, true, false, true, false }
 #define EDGES_COL_DIR_1 \
@@ -4416,6 +4431,21 @@ uint16_t WS2812FX::display_frame(byte *frame, uint16_t frame_size = 0, bool is_r
     { false, true, true, false, true, false }
 #define EDGES_COL_DIR_5 \
     { false, true, true, true, false, false }
+
+#define EDGES_COL_DIR_0_FULL \
+    { true, false, true, false, true, false }
+#define EDGES_COL_DIR_1_FULL \
+    { true, true, true, true, true, false }
+#define EDGES_COL_DIR_2_FULL \
+    { true, true, false, true, true, false }
+#define EDGES_COL_DIR_3_FULL \
+    { true, false, true, true, true, false }
+#define EDGES_COL_DIR_4_FULL \
+    { false, true, true, false, true, false }
+#define EDGES_COL_DIR_5_FULL \
+    { false, true, true, true, true, false }
+#define EDGES_COL_DIR_6_FULL \
+    { true, true, false, false, false, true }
 
 /*
  * New awesome Hive 51 Light Installation effect.
@@ -4434,6 +4464,26 @@ uint16_t WS2812FX::mode_HIVE_matrix(void) {
 uint16_t WS2812FX::mode_HIVE_matrix_rev(void) {
     std::vector<std::vector<int>> edges = {EDGES_COL_0, EDGES_COL_1, EDGES_COL_2, EDGES_COL_3, EDGES_COL_4, EDGES_COL_5};
     std::vector<std::vector<bool>> edge_dirs = {EDGES_COL_DIR_0, EDGES_COL_DIR_1, EDGES_COL_DIR_2, EDGES_COL_DIR_3, EDGES_COL_DIR_4, EDGES_COL_DIR_5};
+    return WS2812FX::HIVE_segment_swipe(true, edges, edge_dirs);
+}
+
+/*
+ * New awesome Hive 51 Light Installation effect.
+ * Matrix style descending lights
+ */
+uint16_t WS2812FX::mode_HIVE_matrix_full(void) {
+    std::vector<std::vector<int>> edges = {EDGES_COL_0_FULL, EDGES_COL_1_FULL, EDGES_COL_2_FULL, EDGES_COL_3_FULL, EDGES_COL_4_FULL, EDGES_COL_5_FULL, EDGES_COL_6_FULL};
+    std::vector<std::vector<bool>> edge_dirs = {EDGES_COL_DIR_0_FULL, EDGES_COL_DIR_1_FULL, EDGES_COL_DIR_2_FULL, EDGES_COL_DIR_3_FULL, EDGES_COL_DIR_4_FULL, EDGES_COL_DIR_5_FULL, EDGES_COL_DIR_6_FULL};
+    return WS2812FX::HIVE_segment_swipe(false, edges, edge_dirs);
+}
+
+/*
+ * New awesome Hive 51 Light Installation effect.
+ * Matrix style ascending lights
+ */
+uint16_t WS2812FX::mode_HIVE_matrix_rev_full(void) {
+    std::vector<std::vector<int>> edges = {EDGES_COL_0, EDGES_COL_1, EDGES_COL_2, EDGES_COL_3, EDGES_COL_4, EDGES_COL_5, EDGES_COL_6_FULL};
+    std::vector<std::vector<bool>> edge_dirs = {EDGES_COL_DIR_0, EDGES_COL_DIR_1, EDGES_COL_DIR_2, EDGES_COL_DIR_3, EDGES_COL_DIR_4, EDGES_COL_DIR_5, EDGES_COL_DIR_6_FULL};
     return WS2812FX::HIVE_segment_swipe(true, edges, edge_dirs);
 }
 
