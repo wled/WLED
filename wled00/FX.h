@@ -116,7 +116,7 @@
 #define IS_REVERSE      ((SEGMENT.options & REVERSE     ) == REVERSE     )
 #define IS_SELECTED     ((SEGMENT.options & SELECTED    ) == SELECTED    )
 
-#define MODE_COUNT  123
+#define MODE_COUNT  126
 
 #define FX_MODE_STATIC                   0
 #define FX_MODE_BLINK                    1
@@ -242,6 +242,8 @@
 #define FX_MODE_HIVE_MATRIX            121 // custom effect for HIVE
 #define FX_MODE_HIVE_MATRIX_REV        122 // custom effect for HIVE
 #define FX_MODE_HIVE_WAVE              123 // custom effect for HIVE
+#define FX_MODE_HIVE_MATRIX_FULL       124 // custom effect for HIVE
+#define FX_MODE_HIVE_MATRIX_REV_FULL   125 // custom effect for HIVE
 
 
 class WS2812FX {
@@ -620,6 +622,8 @@ class WS2812FX {
       _mode[FX_MODE_HIVE_ROTATE_REV]         = &WS2812FX::mode_HIVE_rotate_rev; // custom effect for HIVE
       _mode[FX_MODE_HIVE_MATRIX]             = &WS2812FX::mode_HIVE_matrix; // custom effect for HIVE
       _mode[FX_MODE_HIVE_MATRIX_REV]         = &WS2812FX::mode_HIVE_matrix_rev; // custom effect for HIVE
+      _mode[FX_MODE_HIVE_MATRIX_FULL]        = &WS2812FX::mode_HIVE_matrix_full; // custom effect for HIVE
+      _mode[FX_MODE_HIVE_MATRIX_REV_FULL]    = &WS2812FX::mode_HIVE_matrix_rev_full; // custom effect for HIVE
       _mode[FX_MODE_HIVE_WAVE]               = &WS2812FX::mode_HIVE_wave; //custom effect for HIVE
 
       _brightness = DEFAULT_BRIGHTNESS;
@@ -846,6 +850,8 @@ class WS2812FX {
       mode_HIVE_rotate(void),            // custom effect for HIVE
       mode_HIVE_matrix(void),            // custom effect for HIVE
       mode_HIVE_matrix_rev(void),        // custom effect for HIVE
+      mode_HIVE_matrix_full(void),       // custom effect for HIVE
+      mode_HIVE_matrix_rev_full(void),   // custom effect for HIVE
       mode_HIVE_wave(void);              // custom effect for HIVE
 
   private:
