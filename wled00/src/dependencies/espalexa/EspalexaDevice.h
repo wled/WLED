@@ -22,7 +22,7 @@ private:
   ColorCallbackFunction _callbackCol = nullptr;
   uint8_t _val, _val_last, _sat = 0;
   uint16_t _hue = 0, _ct = 0;
-  float _x = 0.5, _y = 0.5;
+  float _x = 0.5f, _y = 0.5f;
   uint32_t _rgb = 0;
   uint8_t _id = 0;
   EspalexaDeviceType _type;

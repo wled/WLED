@@ -1176,16 +1176,14 @@ uint16_t WS2812FX::mode_rain() {
 uint16_t WS2812FX::mode_fire_flicker(void) {
     uint32_t cycleTime = 40 + (255 - SEGMENT.speed);
     uint32_t it = now / cycleTime;
-    if (SEGENV.step == it) {
-        return FRAMETIME;
-    }
-
-    byte w = (SEGCOLOR(0) >> 24) & 0xFF;
-    byte r = (SEGCOLOR(0) >> 16) & 0xFF;
-    byte g = (SEGCOLOR(0) >> 8) & 0xFF;
-    byte b = (SEGCOLOR(0) & 0xFF);
+    if (SEGENV.step == it) return FRAMETIME;
+    
+    byte w = (SEGCOLOR(0) >> 24);
+    byte r = (SEGCOLOR(0) >> 16);
+    byte g = (SEGCOLOR(0) >>  8);
+    byte b = (SEGCOLOR(0)      );
     byte lum = (SEGMENT.palette == 0) ? MAX(w, MAX(r, MAX(g, b))) : 255;
-    lum /= (((256 - SEGMENT.intensity) / 16) + 1);
+    lum /= (((256-SEGMENT.intensity)/16)+1);
     for (uint16_t i = 0; i < SEGLEN; i++) {
         byte flicker = random8(lum);
         if (SEGMENT.palette == 0) {
@@ -1243,39 +1241,31 @@ uint16_t WS2812FX::mode_loading(void) {
     return gradient_base(true);
 }
 
-//American Police Light with all LEDs Red and Blue
-uint16_t WS2812FX::police_base(uint32_t color1, uint32_t color2, uint16_t width) {
-    uint16_t delay = 1 + (FRAMETIME << 3) / SEGLEN;  // longer segments should change faster
-    uint32_t it = now / map(SEGMENT.speed, 0, 255, delay << 4, delay);
-    uint16_t offset = it % SEGLEN;
 
-    if (!width) {
-        width = 1;
-    }
+//American Police Light with all LEDs Red and Blue 
+uint16_t WS2812FX::police_base(uint32_t color1, uint32_t color2)
+{
+    uint16_t delay = 1 + (FRAMETIME<<3) / SEGLEN;  // longer segments should change faster
+    uint32_t it = now / map(SEGMENT.speed, 0, 255, delay<<4, delay);
+    uint16_t offset = it % SEGLEN;
+  
+    uint16_t width = ((SEGLEN*(SEGMENT.intensity+1))>>9); //max width is half the strip
+    if (!width) width = 1;
     for (uint16_t i = 0; i < width; i++) {
         uint16_t indexR = (offset + i) % SEGLEN;
-        uint16_t indexB = (offset + i + (SEGLEN >> 1)) % SEGLEN;
+        uint16_t indexB = (offset + i + (SEGLEN>>1)) % SEGLEN;
         setPixelColor(indexR, color1);
         setPixelColor(indexB, color2);
     }
     return FRAMETIME;
 }
 
-//American Police Light with all LEDs Red and Blue
-uint16_t WS2812FX::mode_police_all() {
-    return police_base(RED, BLUE, (SEGLEN >> 1));
-}
 
-//Police Lights Red and Blue
-uint16_t WS2812FX::mode_police() {
-    fill(SEGCOLOR(1));
-    return police_base(RED, BLUE, ((SEGLEN * (SEGMENT.intensity + 1)) >> 9));  // max width is half the strip
-}
-
-//Police All with custom colors
-uint16_t WS2812FX::mode_two_areas() {
-    fill(SEGCOLOR(2));
-    return police_base(SEGCOLOR(0), SEGCOLOR(1), ((SEGLEN * (SEGMENT.intensity + 1)) >> 9));  // max width is half the strip
+//Police Lights Red and Blue 
+uint16_t WS2812FX::mode_police()
+{
+  fill(SEGCOLOR(1));
+  return police_base(RED, BLUE);
 }
 
 //Police Lights with custom colors
@@ -1283,7 +1273,142 @@ uint16_t WS2812FX::mode_two_dots() {
     fill(SEGCOLOR(2));
     uint32_t color2 = (SEGCOLOR(1) == SEGCOLOR(2)) ? SEGCOLOR(0) : SEGCOLOR(1);
 
-    return police_base(SEGCOLOR(0), color2, ((SEGLEN * (SEGMENT.intensity + 1)) >> 9));  // max width is half the strip
+  return police_base(SEGCOLOR(0), color2);
+}
+
+
+/*
+ * Fairy, inspired by https://www.youtube.com/watch?v=zeOw5MZWq24
+ */
+//4 bytes
+typedef struct Flasher {
+  uint16_t stateStart;
+  uint8_t stateDur;
+	bool stateOn;
+} flasher;
+
+#define FLASHERS_PER_ZONE 6
+#define MAX_SHIMMER 92
+
+uint16_t WS2812FX::mode_fairy() {
+	//set every pixel to a 'random' color from palette (using seed so it doesn't change between frames)
+	uint16_t PRNG16 = 5100 + _segment_index;
+	for (uint16_t i = 0; i < SEGLEN; i++) {
+		PRNG16 = (uint16_t)(PRNG16 * 2053) + 1384; //next 'random' number
+		setPixelColor(i, color_from_palette(PRNG16 >> 8, false, false, 0));
+	}
+
+	//amount of flasher pixels depending on intensity (0: none, 255: every LED)
+	if (SEGMENT.intensity == 0) return FRAMETIME;
+	uint8_t flasherDistance = ((255 - SEGMENT.intensity) / 28) +1; //1-10
+	uint16_t numFlashers = (SEGLEN / flasherDistance) +1;
+	
+	uint16_t dataSize = sizeof(flasher) * numFlashers;
+  if (!SEGENV.allocateData(dataSize)) return FRAMETIME; //allocation failed
+	Flasher* flashers = reinterpret_cast<Flasher*>(SEGENV.data);
+	uint16_t now16 = now & 0xFFFF;
+
+	//Up to 11 flashers in one brightness zone, afterwards a new zone for every 6 flashers
+	uint16_t zones = numFlashers/FLASHERS_PER_ZONE;
+	if (!zones) zones = 1;
+	uint8_t flashersInZone = numFlashers/zones;
+	uint8_t flasherBri[FLASHERS_PER_ZONE*2 -1];
+
+	for (uint16_t z = 0; z < zones; z++) {
+		uint16_t flasherBriSum = 0;
+		uint16_t firstFlasher = z*flashersInZone;
+		if (z == zones-1) flashersInZone = numFlashers-(flashersInZone*(zones-1));
+
+		for (uint16_t f = firstFlasher; f < firstFlasher + flashersInZone; f++) {
+			uint16_t stateTime = now16 - flashers[f].stateStart;
+			//random on/off time reached, switch state
+			if (stateTime > flashers[f].stateDur * 10) {
+				flashers[f].stateOn = !flashers[f].stateOn;
+				if (flashers[f].stateOn) {
+					flashers[f].stateDur = 12 + random8(12 + ((255 - SEGMENT.speed) >> 2)); //*10, 250ms to 1250ms
+				} else {
+					flashers[f].stateDur = 20 + random8(6 + ((255 - SEGMENT.speed) >> 2)); //*10, 250ms to 1250ms
+				}
+				//flashers[f].stateDur = 51 + random8(2 + ((255 - SEGMENT.speed) >> 1));
+				flashers[f].stateStart = now16;
+				if (stateTime < 255) {
+					flashers[f].stateStart -= 255 -stateTime; //start early to get correct bri
+					flashers[f].stateDur += 26 - stateTime/10;
+					stateTime = 255 - stateTime;
+				} else {
+					stateTime = 0;
+				}
+			}
+			if (stateTime > 255) stateTime = 255; //for flasher brightness calculation, fades in first 255 ms of state
+			//flasherBri[f - firstFlasher] = (flashers[f].stateOn) ? 255-gamma8((510 - stateTime) >> 1) : gamma8((510 - stateTime) >> 1);
+			flasherBri[f - firstFlasher] = (flashers[f].stateOn) ? stateTime : 255 - (stateTime >> 0);
+			flasherBriSum += flasherBri[f - firstFlasher];
+		}
+		//dim factor, to create "shimmer" as other pixels get less voltage if a lot of flashers are on
+		uint8_t avgFlasherBri = flasherBriSum / flashersInZone;
+		uint8_t globalPeakBri = 255 - ((avgFlasherBri * MAX_SHIMMER) >> 8); //183-255, suitable for 1/5th of LEDs flashers
+
+		for (uint16_t f = firstFlasher; f < firstFlasher + flashersInZone; f++) {
+			uint8_t bri = (flasherBri[f - firstFlasher] * globalPeakBri) / 255;
+			PRNG16 = (uint16_t)(PRNG16 * 2053) + 1384; //next 'random' number
+			uint16_t flasherPos = f*flasherDistance;
+			setPixelColor(flasherPos, color_blend(SEGCOLOR(1), color_from_palette(PRNG16 >> 8, false, false, 0), bri));
+			for (uint16_t i = flasherPos+1; i < flasherPos+flasherDistance && i < SEGLEN; i++) {
+				PRNG16 = (uint16_t)(PRNG16 * 2053) + 1384; //next 'random' number
+				setPixelColor(i, color_from_palette(PRNG16 >> 8, false, false, 0, globalPeakBri));
+			}
+		}
+	}
+	return FRAMETIME;
+}
+
+
+/*
+ * Fairytwinkle. Like Colortwinkle, but starting from all lit and not relying on getPixelColor
+ * Warning: Uses 4 bytes of segment data per pixel
+ */
+uint16_t WS2812FX::mode_fairytwinkle() {
+	uint16_t dataSize = sizeof(flasher) * SEGLEN;
+  if (!SEGENV.allocateData(dataSize)) return mode_static(); //allocation failed
+	Flasher* flashers = reinterpret_cast<Flasher*>(SEGENV.data);
+	uint16_t now16 = now & 0xFFFF;
+	uint16_t PRNG16 = 5100 + _segment_index;
+
+	uint16_t riseFallTime = 400 + (255-SEGMENT.speed)*3;
+	uint16_t maxDur = riseFallTime/100 + ((255 - SEGMENT.intensity) >> 2) + 13 + ((255 - SEGMENT.intensity) >> 1);
+
+	for (uint16_t f = 0; f < SEGLEN; f++) {
+		uint16_t stateTime = now16 - flashers[f].stateStart;
+		//random on/off time reached, switch state
+		if (stateTime > flashers[f].stateDur * 100) {
+			flashers[f].stateOn = !flashers[f].stateOn;
+			bool init = !flashers[f].stateDur;
+			if (flashers[f].stateOn) {
+				flashers[f].stateDur = riseFallTime/100 + ((255 - SEGMENT.intensity) >> 2) + random8(12 + ((255 - SEGMENT.intensity) >> 1)) +1;
+			} else {
+				flashers[f].stateDur = riseFallTime/100 + random8(3 + ((255 - SEGMENT.speed) >> 6)) +1;
+			}
+			flashers[f].stateStart = now16;
+			stateTime = 0;
+			if (init) {
+				flashers[f].stateStart -= riseFallTime; //start lit
+				flashers[f].stateDur = riseFallTime/100 + random8(12 + ((255 - SEGMENT.intensity) >> 1)) +5; //fire up a little quicker
+				stateTime = riseFallTime;
+			}
+		}
+		if (flashers[f].stateOn && flashers[f].stateDur > maxDur) flashers[f].stateDur = maxDur; //react more quickly on intensity change
+		if (stateTime > riseFallTime) stateTime = riseFallTime; //for flasher brightness calculation, fades in first 255 ms of state
+		uint8_t fadeprog = 255 - ((stateTime * 255) / riseFallTime);
+		uint8_t flasherBri = (flashers[f].stateOn) ? 255-gamma8(fadeprog) : gamma8(fadeprog);
+		uint16_t lastR = PRNG16;
+		uint16_t diff = 0;
+		while (diff < 0x4000) { //make sure colors of two adjacent LEDs differ enough
+			PRNG16 = (uint16_t)(PRNG16 * 2053) + 1384; //next 'random' number
+			diff = (PRNG16 > lastR) ? PRNG16 - lastR : lastR - PRNG16;
+		}
+		setPixelColor(f, color_blend(SEGCOLOR(1), color_from_palette(PRNG16 >> 8, false, false, 0), flasherBri));
+	}
+  return FRAMETIME;
 }
 
 /*
@@ -2108,32 +2233,32 @@ typedef struct Ripple {
 #else
 #define MAX_RIPPLES 100
 #endif
-uint16_t WS2812FX::ripple_base(bool rainbow) {
-    uint16_t maxRipples = min(1 + (SEGLEN >> 2), MAX_RIPPLES);  // 56 max for 18 segment ESP8266
-    uint16_t dataSize = sizeof(ripple) * maxRipples;
+uint16_t WS2812FX::ripple_base(bool rainbow)
+{
+  uint16_t maxRipples = min(1 + (SEGLEN >> 2), MAX_RIPPLES);  // 56 max for 16 segment ESP8266
+  uint16_t dataSize = sizeof(ripple) * maxRipples;
 
-    if (!SEGENV.allocateData(dataSize)) {
-        return mode_static();  //allocation failed
+  if (!SEGENV.allocateData(dataSize)) return mode_static(); //allocation failed
+ 
+  Ripple* ripples = reinterpret_cast<Ripple*>(SEGENV.data);
+
+  // ranbow background or chosen background, all very dim.
+  if (rainbow) {
+    if (SEGENV.call == 0) {
+      SEGENV.aux0 = random8();
+      SEGENV.aux1 = random8();
     }
-
-    Ripple *ripples = reinterpret_cast<Ripple *>(SEGENV.data);
-
-    // ranbow background or chosen background, all very dim.
-    if (rainbow) {
-        if (SEGENV.call == 0) {
-            SEGENV.aux0 = random8();
-            SEGENV.aux1 = random8();
-        }
-        if (SEGENV.aux0 == SEGENV.aux1) {
-            SEGENV.aux1 = random8();
-        } else if (SEGENV.aux1 > SEGENV.aux0) {
-            SEGENV.aux0++;
-        } else {
-            SEGENV.aux0--;
-        }
-        fill(color_blend(color_wheel(SEGENV.aux0), BLACK, 235));
+    if (SEGENV.aux0 == SEGENV.aux1) {
+      SEGENV.aux1 = random8();
+    }
+    else if (SEGENV.aux1 > SEGENV.aux0) {
+      SEGENV.aux0++;
     } else {
-        fill(SEGCOLOR(1));
+      SEGENV.aux0--;
+    }
+      fill(color_blend(color_wheel(SEGENV.aux0), BLACK, 235));
+    } else {
+      fill(SEGCOLOR(1));
     }
 
     //draw wave
@@ -2916,7 +3041,6 @@ uint16_t WS2812FX::mode_starburst(void) {
     return FRAMETIME;
 }
 #undef STARBURST_MAX_FRAG
-#undef STARBURST_MAX_STARS
 
 /*
  * Exploding fireworks effect
@@ -3680,16 +3804,15 @@ typedef struct Spotlight {
  *
  * By Steve Pomeroy @xxv
  */
-uint16_t WS2812FX::mode_dancing_shadows(void) {
-    uint8_t numSpotlights = map(SEGMENT.intensity, 0, 255, 2, SPOT_MAX_COUNT);  // 49 on 32 segment ESP32, 17 on 18 segment ESP8266
+uint16_t WS2812FX::mode_dancing_shadows(void)
+{
+    uint8_t numSpotlights = map(SEGMENT.intensity, 0, 255, 2, SPOT_MAX_COUNT);  // 49 on 32 segment ESP32, 17 on 16 segment ESP8266
     bool initialize = SEGENV.aux0 != numSpotlights;
     SEGENV.aux0 = numSpotlights;
 
     uint16_t dataSize = sizeof(spotlight) * numSpotlights;
-    if (!SEGENV.allocateData(dataSize)) {
-        return mode_static();  //allocation failed
-    }
-    Spotlight *spotlights = reinterpret_cast<Spotlight *>(SEGENV.data);
+    if (!SEGENV.allocateData(dataSize)) return mode_static(); //allocation failed
+    Spotlight* spotlights = reinterpret_cast<Spotlight*>(SEGENV.data);
 
     fill(BLACK);
 
@@ -3821,21 +3944,25 @@ uint16_t WS2812FX::mode_washing_machine(void) {
   Modified, originally by Mark Kriegsman https://gist.github.com/kriegsman/1f7ccbbfa492a73c015e
 */
 uint16_t WS2812FX::mode_blends(void) {
-    uint16_t dataSize = sizeof(uint32_t) * SEGLEN;  // max segment length of 56 pixels on 18 segment ESP8266
-    if (!SEGENV.allocateData(dataSize)) {
-        return mode_static();  //allocation failed
-    }
-    uint32_t *pixels = reinterpret_cast<uint32_t *>(SEGENV.data);
-    uint8_t blendSpeed = map(SEGMENT.intensity, 0, UINT8_MAX, 10, 128);
-    uint8_t shift = (now * ((SEGMENT.speed >> 3) + 1)) >> 8;
+  uint16_t pixelLen = SEGLEN > UINT8_MAX ? UINT8_MAX : SEGLEN;
+  uint16_t dataSize = sizeof(uint32_t) * (pixelLen + 1);  // max segment length of 56 pixels on 16 segment ESP8266
+  if (!SEGENV.allocateData(dataSize)) return mode_static(); //allocation failed
+  uint32_t* pixels = reinterpret_cast<uint32_t*>(SEGENV.data);
+  uint8_t blendSpeed = map(SEGMENT.intensity, 0, UINT8_MAX, 10, 128);
+  uint8_t shift = (now * ((SEGMENT.speed >> 3) +1)) >> 8;
 
-    for (int i = 0; i < SEGLEN; i++) {
-        pixels[i] = color_blend(pixels[i], color_from_palette(shift + quadwave8((i + 1) * 16), false, PALETTE_SOLID_WRAP, 255), blendSpeed);
-        setPixelColor(i, pixels[i]);
-        shift += 3;
-    }
+  for (int i = 0; i < pixelLen; i++) {
+    pixels[i] = color_blend(pixels[i], color_from_palette(shift + quadwave8((i + 1) * 16), false, PALETTE_SOLID_WRAP, 255), blendSpeed);
+    shift += 3;
+  }
 
-    return FRAMETIME;
+  uint16_t offset = 0;
+  for (int i = 0; i < SEGLEN; i++) {
+    setPixelColor(i, pixels[offset++]);
+    if (offset > pixelLen) offset = 0;
+  }
+
+  return FRAMETIME;
 }
 
 /*
@@ -4086,7 +4213,7 @@ uint16_t WS2812FX::mode_aurora(void) {
         SEGENV.aux1 = map(SEGMENT.intensity, 0, 255, 2, W_MAX_COUNT);
         SEGENV.aux0 = SEGMENT.intensity;
 
-        if (!SEGENV.allocateData(sizeof(AuroraWave) * SEGENV.aux1)) {  // 26 on 32 segment ESP32, 9 on 18 segment ESP8266
+        if (!SEGENV.allocateData(sizeof(AuroraWave) * SEGENV.aux1)) {  // 26 on 32 segment ESP32, 9 on 16 segment ESP8266
             return mode_static();                                      //allocation failed
         }
 
@@ -4189,7 +4316,7 @@ uint16_t WS2812FX::mode_HIVE_strobing_segments(void) {
             }
         }
     }
-
+    
     if (!isValidData || SEGENV.step != prog) {
         // update active segments to next random value
         for (uint8_t ii = 0; ii < nActiveEdges; ii++) {
@@ -4482,7 +4609,7 @@ uint16_t WS2812FX::mode_HIVE_matrix_full(void) {
  * Matrix style ascending lights
  */
 uint16_t WS2812FX::mode_HIVE_matrix_rev_full(void) {
-    std::vector<std::vector<int>> edges = {EDGES_COL_0, EDGES_COL_1, EDGES_COL_2, EDGES_COL_3, EDGES_COL_4, EDGES_COL_5, EDGES_COL_6_FULL};
+    std::vector<std::vector<int>> edges = {EDGES_COL_0_FULL, EDGES_COL_1_FULL, EDGES_COL_2_FULL, EDGES_COL_3_FULL, EDGES_COL_4_FULL, EDGES_COL_5_FULL, EDGES_COL_6_FULL};
     std::vector<std::vector<bool>> edge_dirs = {EDGES_COL_DIR_0_FULL, EDGES_COL_DIR_1_FULL, EDGES_COL_DIR_2_FULL, EDGES_COL_DIR_3_FULL, EDGES_COL_DIR_4_FULL, EDGES_COL_DIR_5_FULL, EDGES_COL_DIR_6_FULL};
     return WS2812FX::HIVE_segment_swipe(true, edges, edge_dirs);
 }

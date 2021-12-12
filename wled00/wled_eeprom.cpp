@@ -329,7 +329,7 @@ void loadSettingsFromEEPROM()
   receiveDirect = !EEPROM.read(2200);
   notifyMacro = EEPROM.read(2201);
 
-  strip.rgbwMode = EEPROM.read(2203);
+  //strip.rgbwMode = EEPROM.read(2203);
   //skipFirstLed = EEPROM.read(2204);
 
   bootPreset = EEPROM.read(389);
@@ -382,8 +382,13 @@ void deEEP() {
   
   DEBUG_PRINTLN(F("Preset file not found, attempting to load from EEPROM"));
   DEBUGFS_PRINTLN(F("Allocating saving buffer for dEEP"));
-  DynamicJsonDocument dDoc(JSON_BUFFER_SIZE *2);
-  JsonObject sObj = dDoc.to<JsonObject>();
+  #ifdef WLED_USE_DYNAMIC_JSON
+  DynamicJsonDocument doc(JSON_BUFFER_SIZE);
+  #else
+  if (!requestJSONBufferLock(8)) return;
+  #endif
+
+  JsonObject sObj = doc.to<JsonObject>();
   sObj.createNestedObject("0");
 
   EEPROM.begin(EEPSIZE);
@@ -442,8 +447,6 @@ void deEEP() {
       }
     }
 
-    
-    
     for (uint16_t index = 1; index <= 16; index++) { //copy macros to presets.json
       char m[65];
       readStringFromEEPROM(1024+64*(index-1), m, 64);
@@ -463,10 +466,14 @@ void deEEP() {
   File f = WLED_FS.open("/presets.json", "w");
   if (!f) {
     errorFlag = ERR_FS_GENERAL;
+    releaseJSONBufferLock();
     return;
   }
-  serializeJson(dDoc, f);
+  serializeJson(doc, f);
   f.close();
+
+  releaseJSONBufferLock();
+
   DEBUG_PRINTLN(F("deEEP complete!"));
 }
 

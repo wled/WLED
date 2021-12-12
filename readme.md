@@ -62,7 +62,7 @@ A fast and feature-rich implementation of an ESP8266/ESP32 webserver to control 
 
 See the [documentation on our official site](https://kno.wled.ge)!
 
-[On this page](https://github.com/Aircoookie/WLED/wiki/Learning-the-ropes) you can find excellent tutorials made by the community and helpful tools to help you get your new lamp up and running!
+[On this page](https://kno.wled.ge/basics/tutorials/) you can find excellent tutorials made by the community and helpful tools to help you get your new lamp up and running!
 
 ## 🖼️ Images
 <img src="/images/macbook-pro-space-gray-on-the-wooden-table.jpg" width="50%"><img src="/images/walking-with-iphone-x.jpg" width="50%">
@@ -93,7 +93,7 @@ Any | 5v 3-pin ARGB for PC | Any PC RGB device that supports the 5v 3-pin ARGB m
 ## ✌️ Other
 
 Licensed under the MIT license  
-Credits [here](https://github.com/Aircoookie/WLED/wiki/Contributors-&-About)!
+Credits [here](https://kno.wled.ge/about/contributors/)!
 
 Uses Linearicons by Perxis!
 

@@ -106,11 +106,18 @@ void initServer()
     bool verboseResponse = false;
     bool isConfig = false;
     { //scope JsonDocument so it releases its buffer
-      DynamicJsonDocument jsonBuffer(JSON_BUFFER_SIZE);
-      DeserializationError error = deserializeJson(jsonBuffer, (uint8_t*)(request->_tempObject));
-      JsonObject root = jsonBuffer.as<JsonObject>();
+      #ifdef WLED_USE_DYNAMIC_JSON
+      DynamicJsonDocument doc(JSON_BUFFER_SIZE);
+      #else
+      if (!requestJSONBufferLock(14)) return;
+      #endif
+
+      DeserializationError error = deserializeJson(doc, (uint8_t*)(request->_tempObject));
+      JsonObject root = doc.as<JsonObject>();
       if (error || root.isNull()) {
-        request->send(400, "application/json", F("{\"error\":9}")); return;
+        releaseJSONBufferLock();
+        request->send(400, "application/json", F("{\"error\":9}"));
+        return;
       }
       const String& url = request->url();
       isConfig = url.indexOf("cfg") > -1;
@@ -120,12 +127,11 @@ void initServer()
           serializeJson(root,Serial);
           DEBUG_PRINTLN();
         #endif
-        fileDoc = &jsonBuffer;  // used for applying presets (presets.cpp)
         verboseResponse = deserializeState(root);
-        fileDoc = nullptr;
       } else {
         verboseResponse = deserializeConfig(root); //use verboseResponse to determine whether cfg change should be saved immediately
       }
+      releaseJSONBufferLock();
     }
     if (verboseResponse) {
       if (!isConfig) {

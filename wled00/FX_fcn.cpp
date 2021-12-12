@@ -86,8 +86,6 @@ void WS2812FX::finalizeInit(void)
       busses.add(defCfg);
     }
   }
-  
-  deserializeMap();
 
   _length = 0;
   for (uint8_t i=0; i<busses.getNumBusses(); i++) {
@@ -139,13 +137,16 @@ void WS2812FX::service() {
       if (!SEGMENT.getOption(SEG_OPTION_FREEZE)) { //only run effect function if not frozen
         _virtualSegmentLength = SEGMENT.virtualLength();
         _bri_t = SEGMENT.opacity; _colors_t[0] = SEGMENT.colors[0]; _colors_t[1] = SEGMENT.colors[1]; _colors_t[2] = SEGMENT.colors[2];
+        uint8_t _cct_t = SEGMENT.cct;
         if (!IS_SEGMENT_ON) _bri_t = 0;
         for (uint8_t t = 0; t < MAX_NUM_TRANSITIONS; t++) {
           if ((transitions[t].segment & 0x3F) != i) continue;
           uint8_t slot = transitions[t].segment >> 6;
           if (slot == 0) _bri_t = transitions[t].currentBri();
+          if (slot == 1) _cct_t = transitions[t].currentBri(false, 1);
           _colors_t[slot] = transitions[t].currentColor(SEGMENT.colors[slot]);
         }
+        if (!cctFromRgb || correctWB) busses.setSegmentCCT(_cct_t, correctWB);
         for (uint8_t c = 0; c < 3; c++) _colors_t[c] = gamma32(_colors_t[c]);
         handle_palette();
         delay = (this->*_mode[SEGMENT.mode])(); //effect function
@@ -156,6 +157,7 @@ void WS2812FX::service() {
     }
   }
   _virtualSegmentLength = 0;
+  busses.setSegmentCCT(-1);
   if(doShow) {
     yield();
     show();
@@ -164,11 +166,7 @@ void WS2812FX::service() {
 }
 
 void WS2812FX::setPixelColor(uint16_t n, uint32_t c) {
-  uint8_t w = (c >> 24);
-  uint8_t r = (c >> 16);
-  uint8_t g = (c >>  8);
-  uint8_t b =  c       ;
-  setPixelColor(n, r, g, b, w);
+  setPixelColor(n, R(c), G(c), B(c), W(c));
 }
 
 //used to map from segment index to physical pixel, taking into account grouping, offsets, reverse and mirroring
@@ -191,21 +189,10 @@ uint16_t WS2812FX::realPixelIndex(uint16_t i) {
 
 void WS2812FX::setPixelColor(uint16_t i, byte r, byte g, byte b, byte w)
 {
-  //auto calculate white channel value if enabled
-  if (isRgbw) {
-    if (rgbwMode == RGBW_MODE_AUTO_BRIGHTER || (w == 0 && (rgbwMode == RGBW_MODE_DUAL || rgbwMode == RGBW_MODE_LEGACY)))
-    {
-      //white value is set to lowest RGB channel
-      //thank you to @Def3nder!
-      w = r < g ? (r < b ? r : b) : (g < b ? g : b);
-    } else if (rgbwMode == RGBW_MODE_AUTO_ACCURATE && w == 0)
-    {
-      w = r < g ? (r < b ? r : b) : (g < b ? g : b);
-      r -= w; g -= w; b -= w;
-    }
-  }
-  
   if (SEGLEN) {//from segment
+    uint16_t realIndex = realPixelIndex(i);
+    uint16_t len = SEGMENT.length();
+
     //color_blend(getpixel, col, _bri_t); (pseudocode for future blending of segments)
     if (_bri_t < 255) {  
       r = scale8(r, _bri_t);
@@ -213,12 +200,9 @@ void WS2812FX::setPixelColor(uint16_t i, byte r, byte g, byte b, byte w)
       b = scale8(b, _bri_t);
       w = scale8(w, _bri_t);
     }
-    uint32_t col = ((w << 24) | (r << 16) | (g << 8) | (b));
+    uint32_t col = RGBW32(r, g, b, w);
 
     /* Set all the pixels in the group */
-    uint16_t realIndex = realPixelIndex(i);
-    uint16_t len = SEGMENT.length();
-
     for (uint16_t j = 0; j < SEGMENT.grouping; j++) {
       uint16_t indexSet = realIndex + (IS_REVERSE ? -j : j);
       if (indexSet >= SEGMENT.start && indexSet < SEGMENT.stop) {
@@ -241,8 +225,7 @@ void WS2812FX::setPixelColor(uint16_t i, byte r, byte g, byte b, byte w)
     }
   } else { //live data, etc.
     if (i < customMappingSize) i = customMappingTable[i];
-    uint32_t col = ((w << 24) | (r << 16) | (g << 8) | (b));
-    busses.setPixelColor(i, col);
+    busses.setPixelColor(i, RGBW32(r, g, b, w));
   }
 }
 
@@ -295,7 +278,7 @@ void WS2812FX::estimateCurrentAndLimitBri() {
     uint32_t busPowerSum = 0;
     for (uint16_t i = 0; i < len; i++) { //sum up the usage of each LED
       uint32_t c = bus->getPixelColor(i);
-      byte r = c >> 16, g = c >> 8, b = c, w = c >> 24;
+      byte r = R(c), g = G(c), b = B(c), w = W(c);
 
       if(useWackyWS2815PowerModel) { //ignore white component on WS2815 power calculation
         busPowerSum += (MAX(MAX(r,g),b)) * 3;
@@ -431,7 +414,7 @@ bool WS2812FX::setEffectConfig(uint8_t m, uint8_t s, uint8_t in, uint8_t p) {
 }
 
 void WS2812FX::setColor(uint8_t slot, uint8_t r, uint8_t g, uint8_t b, uint8_t w) {
-  setColor(slot, ((uint32_t)w << 24) |((uint32_t)r << 16) | ((uint32_t)g << 8) | b);
+  setColor(slot, RGBW32(r, g, b, w));
 }
 
 void WS2812FX::setColor(uint8_t slot, uint32_t c) {
@@ -459,14 +442,14 @@ void WS2812FX::setBrightness(uint8_t b) {
   if (gammaCorrectBri) b = gamma8(b);
   if (_brightness == b) return;
   _brightness = b;
-  _segment_index = 0;
   if (_brightness == 0) { //unfreeze all segments on power off
     for (uint8_t i = 0; i < MAX_NUM_SEGMENTS; i++)
     {
       _segments[i].setOption(SEG_OPTION_FREEZE, false);
     }
   }
-  if (SEGENV.next_time > millis() + 22 && millis() - _lastShow > MIN_SHOW_DELAY) show();//apply brightness change immediately if no refresh soon
+	unsigned long t = millis();
+  if (_segment_runtimes[0].next_time > t + 22 && t - _lastShow > MIN_SHOW_DELAY) show(); //apply brightness change immediately if no refresh soon
 }
 
 uint8_t WS2812FX::getMode(void) {
@@ -568,12 +551,28 @@ uint16_t WS2812FX::getLengthPhysical(void) {
   return len;
 }
 
-void WS2812FX::setSegment(uint8_t n, uint16_t i1, uint16_t i2, uint8_t grouping, uint8_t spacing) {
+bool WS2812FX::hasCCTBus(void) {
+	if (cctFromRgb && !correctWB) return false;
+	for (uint8_t b = 0; b < busses.getNumBusses(); b++) {
+    Bus *bus = busses.getBus(b);
+    if (bus == nullptr || bus->getLength()==0) break;
+    switch (bus->getType()) {
+      case TYPE_ANALOG_5CH:
+      case TYPE_ANALOG_2CH:
+        return true;
+    }
+  }
+	return false;
+}
+
+void WS2812FX::setSegment(uint8_t n, uint16_t i1, uint16_t i2, uint8_t grouping, uint8_t spacing, uint16_t offset) {
   if (n >= MAX_NUM_SEGMENTS) return;
   Segment& seg = _segments[n];
 
   //return if neither bounds nor grouping have changed
-  if (seg.start == i1 && seg.stop == i2 && (!grouping || (seg.grouping == grouping && seg.spacing == spacing))) return;
+  if (seg.start == i1 && seg.stop == i2
+			&& (!grouping || (seg.grouping == grouping && seg.spacing == spacing))
+			&& (offset == UINT16_MAX || offset == seg.offset)) return;
 
   if (seg.stop) setRange(seg.start, seg.stop -1, 0); //turn old segment range off
   if (i2 <= i1) //disable segment
@@ -603,6 +602,7 @@ void WS2812FX::setSegment(uint8_t n, uint16_t i1, uint16_t i2, uint8_t grouping,
     seg.grouping = grouping;
     seg.spacing = spacing;
   }
+	if (offset < UINT16_MAX) seg.offset = offset;
   _segment_runtimes[n].reset();
 }
 
@@ -622,6 +622,7 @@ void WS2812FX::resetSegments() {
   _segments[0].setOption(SEG_OPTION_SELECTED, 1);
   _segments[0].setOption(SEG_OPTION_ON, 1);
   _segments[0].opacity = 255;
+  _segments[0].cct = 127;
 
   for (uint16_t i = 1; i < MAX_NUM_SEGMENTS; i++)
   {
@@ -629,6 +630,7 @@ void WS2812FX::resetSegments() {
     _segments[i].grouping = 1;
     _segments[i].setOption(SEG_OPTION_ON, 1);
     _segments[i].opacity = 255;
+    _segments[i].cct = 127;
     _segments[i].speed = DEFAULT_SPEED;
     _segments[i].intensity = DEFAULT_INTENSITY;
     _segment_runtimes[i].reset();
@@ -699,14 +701,35 @@ bool WS2812FX::checkSegmentAlignment() {
 }
 
 //After this function is called, setPixelColor() will use that segment (offsets, grouping, ... will apply)
+//Note: If called in an interrupt (e.g. JSON API), it must be reset with "setPixelColor(255)",
+//otherwise it can lead to a crash on ESP32 because _segment_index is modified while in use by the main thread
+#ifdef ARDUINO_ARCH_ESP32
+uint8_t _segment_index_prev = 0;
+uint16_t _virtualSegmentLength_prev = 0;
+bool _ps_set = false;
+#endif
+
 void WS2812FX::setPixelSegment(uint8_t n)
 {
   if (n < MAX_NUM_SEGMENTS) {
+		#ifdef ARDUINO_ARCH_ESP32
+		if (!_ps_set) {
+			_segment_index_prev = _segment_index;
+			_virtualSegmentLength_prev = _virtualSegmentLength;
+			_ps_set = true;
+		}
+		#endif
     _segment_index = n;
-    _virtualSegmentLength = SEGMENT.length();
+    _virtualSegmentLength = SEGMENT.virtualLength();
   } else {
-    _segment_index = 0;
-    _virtualSegmentLength = 0;
+		_virtualSegmentLength = 0;
+		#ifdef ARDUINO_ARCH_ESP32
+		if (_ps_set) {
+			_segment_index = _segment_index_prev;
+			_virtualSegmentLength = _virtualSegmentLength_prev;
+			_ps_set = false;
+		}
+		#endif
   }
 }
 
@@ -733,13 +756,13 @@ void WS2812FX::setTransition(uint16_t t)
 
 void WS2812FX::setTransitionMode(bool t)
 {
-  unsigned long waitMax = millis() + 20; //refresh after 20 ms if transition enabled
+	unsigned long waitMax = millis() + 20; //refresh after 20 ms if transition enabled
   for (uint16_t i = 0; i < MAX_NUM_SEGMENTS; i++)
   {
-    _segment_index = i;
-    SEGMENT.setOption(SEG_OPTION_TRANSITIONAL, t);
+    _segments[i].setOption(SEG_OPTION_TRANSITIONAL, t);
 
-    if (t && SEGMENT.mode == FX_MODE_STATIC && SEGENV.next_time > waitMax) SEGENV.next_time = waitMax;
+    if (t && _segments[i].mode == FX_MODE_STATIC && _segment_runtimes[i].next_time > waitMax)
+			_segment_runtimes[i].next_time = waitMax;
   }
 }
 
@@ -752,22 +775,22 @@ uint32_t WS2812FX::color_blend(uint32_t color1, uint32_t color2, uint16_t blend,
   if(blend == blendmax) return color2;
   uint8_t shift = b16 ? 16 : 8;
 
-  uint32_t w1 = (color1 >> 24) & 0xFF;
-  uint32_t r1 = (color1 >> 16) & 0xFF;
-  uint32_t g1 = (color1 >>  8) & 0xFF;
-  uint32_t b1 =  color1        & 0xFF;
+  uint32_t w1 = W(color1);
+  uint32_t r1 = R(color1);
+  uint32_t g1 = G(color1);
+  uint32_t b1 = B(color1);
 
-  uint32_t w2 = (color2 >> 24) & 0xFF;
-  uint32_t r2 = (color2 >> 16) & 0xFF;
-  uint32_t g2 = (color2 >>  8) & 0xFF;
-  uint32_t b2 =  color2        & 0xFF;
+  uint32_t w2 = W(color2);
+  uint32_t r2 = R(color2);
+  uint32_t g2 = G(color2);
+  uint32_t b2 = B(color2);
 
   uint32_t w3 = ((w2 * blend) + (w1 * (blendmax - blend))) >> shift;
   uint32_t r3 = ((r2 * blend) + (r1 * (blendmax - blend))) >> shift;
   uint32_t g3 = ((g2 * blend) + (g1 * (blendmax - blend))) >> shift;
   uint32_t b3 = ((b2 * blend) + (b1 * (blendmax - blend))) >> shift;
 
-  return ((w3 << 24) | (r3 << 16) | (g3 << 8) | (b3));
+  return RGBW32(r3, g3, b3, w3);
 }
 
 /*
@@ -795,17 +818,17 @@ void WS2812FX::fade_out(uint8_t rate) {
   float mappedRate = float(rate) +1.1;
 
   uint32_t color = SEGCOLOR(1); // target color
-  int w2 = (color >> 24) & 0xff;
-  int r2 = (color >> 16) & 0xff;
-  int g2 = (color >>  8) & 0xff;
-  int b2 =  color        & 0xff;
+  int w2 = W(color);
+  int r2 = R(color);
+  int g2 = G(color);
+  int b2 = B(color);
 
   for(uint16_t i = 0; i < SEGLEN; i++) {
     color = getPixelColor(i);
-    int w1 = (color >> 24) & 0xff;
-    int r1 = (color >> 16) & 0xff;
-    int g1 = (color >>  8) & 0xff;
-    int b1 =  color        & 0xff;
+    int w1 = W(color);
+    int r1 = R(color);
+    int g1 = G(color);
+    int b1 = B(color);
 
     int wdelta = (w2 - w1) / mappedRate;
     int rdelta = (r2 - r1) / mappedRate;
@@ -839,9 +862,9 @@ void WS2812FX::blur(uint8_t blur_amount)
     cur += carryover;
     if(i > 0) {
       uint32_t c = getPixelColor(i-1);
-      uint8_t r = (c >> 16 & 0xFF);
-      uint8_t g = (c >> 8  & 0xFF);
-      uint8_t b = (c       & 0xFF);
+      uint8_t r = R(c);
+      uint8_t g = G(c);
+      uint8_t b = B(c);
       setPixelColor(i-1, qadd8(r, part.red), qadd8(g, part.green), qadd8(b, part.blue));
     }
     setPixelColor(i,cur.red, cur.green, cur.blue);
@@ -924,16 +947,16 @@ uint8_t WS2812FX::get_random_wheel_index(uint8_t pos) {
 
 uint32_t WS2812FX::crgb_to_col(CRGB fastled)
 {
-  return (((uint32_t)fastled.red << 16) | ((uint32_t)fastled.green << 8) | fastled.blue);
+  return RGBW32(fastled.red, fastled.green, fastled.blue, 0);
 }
 
 
 CRGB WS2812FX::col_to_crgb(uint32_t color)
 {
   CRGB fastled_col;
-  fastled_col.red =   (color >> 16 & 0xFF);
-  fastled_col.green = (color >> 8  & 0xFF);
-  fastled_col.blue =  (color       & 0xFF);
+  fastled_col.red =   R(color);
+  fastled_col.green = G(color);
+  fastled_col.blue =  B(color);
   return fastled_col;
 }
 
@@ -1074,7 +1097,7 @@ uint32_t WS2812FX::color_from_palette(uint16_t i, bool mapping, bool wrap, uint8
 }
 
 
-//load custom mapping table from JSON file
+//load custom mapping table from JSON file (called from finalizeInit() or deserializeState())
 void WS2812FX::deserializeMap(uint8_t n) {
   char fileName[32];
   strcpy_P(fileName, PSTR("/ledmap"));
@@ -1092,11 +1115,19 @@ void WS2812FX::deserializeMap(uint8_t n) {
     return;
   }
 
-  DynamicJsonDocument doc(JSON_BUFFER_SIZE);  // full sized buffer for larger maps
+  #ifdef WLED_USE_DYNAMIC_JSON
+  DynamicJsonDocument doc(JSON_BUFFER_SIZE);
+  #else
+  if (!requestJSONBufferLock(7)) return;
+  #endif
+
   DEBUG_PRINT(F("Reading LED map from "));
   DEBUG_PRINTLN(fileName);
 
-  if (!readObjectFromFile(fileName, nullptr, &doc)) return; //if file does not exist just exit
+  if (!readObjectFromFile(fileName, nullptr, &doc)) {
+    releaseJSONBufferLock();
+    return; //if file does not exist just exit
+  }
 
   // erase old custom ledmap
   if (customMappingTable != nullptr) {
@@ -1113,6 +1144,8 @@ void WS2812FX::deserializeMap(uint8_t n) {
       customMappingTable[i] = (uint16_t) map[i];
     }
   }
+
+  releaseJSONBufferLock();
 }
 
 //gamma 2.8 lookup table used for color correction
@@ -1153,15 +1186,20 @@ uint8_t WS2812FX::gamma8(uint8_t b)
 uint32_t WS2812FX::gamma32(uint32_t color)
 {
   if (!gammaCorrectCol) return color;
-  uint8_t w = (color >> 24);
-  uint8_t r = (color >> 16);
-  uint8_t g = (color >>  8);
-  uint8_t b =  color;
+  uint8_t w = W(color);
+  uint8_t r = R(color);
+  uint8_t g = G(color);
+  uint8_t b = B(color);
   w = gammaT[w];
   r = gammaT[r];
   g = gammaT[g];
   b = gammaT[b];
-  return ((w << 24) | (r << 16) | (g << 8) | (b));
+  return RGBW32(r, g, b, w);
 }
 
 WS2812FX* WS2812FX::instance = nullptr;
+
+//Bus static member definition, would belong in bus_manager.cpp
+int16_t Bus::_cct = -1;
+uint8_t Bus::_cctBlend = 0;
+uint8_t Bus::_autoWhiteMode = RGBW_MODE_DUAL;

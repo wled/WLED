@@ -73,17 +73,27 @@ void onAlexaChange(EspalexaDevice* dev)
     if (espalexaDevice->getColorMode() == EspalexaColorMode::ct) //shade of white
     {
       uint16_t ct = espalexaDevice->getCt();
-      if (strip.isRgbw)
-      {
+			if (!ct) return;
+			uint16_t k = 1000000 / ct; //mireds to kelvin
+			
+			if (strip.hasCCTBus()) {
+				uint8_t segid = strip.getMainSegmentId();
+				WS2812FX::Segment& seg = strip.getSegment(segid);
+				uint8_t cctPrev = seg.cct;
+				seg.setCCT(k, segid);
+				if (seg.cct != cctPrev) effectChanged = true; //send UDP
+				col[0]= 0; col[1]= 0; col[2]= 0; col[3]= 255;
+			} else if (strip.isRgbw) {
         switch (ct) { //these values empirically look good on RGBW
           case 199: col[0]=255; col[1]=255; col[2]=255; col[3]=255; break;
           case 234: col[0]=127; col[1]=127; col[2]=127; col[3]=255; break;
           case 284: col[0]=  0; col[1]=  0; col[2]=  0; col[3]=255; break;
           case 350: col[0]=130; col[1]= 90; col[2]=  0; col[3]=255; break;
           case 383: col[0]=255; col[1]=153; col[2]=  0; col[3]=255; break;
+					default : colorKtoRGB(k, col);
         }
       } else {
-        colorCTtoRGB(ct, col);
+        colorKtoRGB(k, col);
       }
     } else {
       uint32_t color = espalexaDevice->getRGB();

@@ -125,6 +125,11 @@ bool PinManagerClass::isPinOk(byte gpio, bool output)
   return false;
 }
 
+PinOwner PinManagerClass::getPinOwner(byte gpio) {
+  if (!isPinOk(gpio, false)) return PinOwner::None;
+  return ownerTag[gpio];
+}
+
 #ifdef ARDUINO_ARCH_ESP32
 byte PinManagerClass::allocateLedc(byte channels)
 {

@@ -79,16 +79,16 @@
 		var t = gId("macros");	// table
         var rCnt = t.rows.length;   // get the number of rows.
         var tr = t.insertRow(rCnt); // table row.
-
+		var b = String.fromCharCode((i<10?48:55)+i);
 		var td = document.createElement('td');          // TABLE DEFINITION.
 		td = tr.insertCell(0);
 		td.innerHTML = `Button ${i}:`;
 		td = tr.insertCell(1);
-		td.innerHTML = `<input name="MP${i}" type="number" min="0" max="250" value="${p}" required>`;
+		td.innerHTML = `<input name="MP${b}" type="number" min="0" max="250" value="${p}" required>`;
 		td = tr.insertCell(2);
-		td.innerHTML = `<input name="ML${i}" type="number" min="0" max="250" value="${l}" required>`;
+		td.innerHTML = `<input name="ML${b}" type="number" min="0" max="250" value="${l}" required>`;
 		td = tr.insertCell(3);
-		td.innerHTML = `<input name="MD${i}" type="number" min="0" max="250" value="${d}" required>`;
+		td.innerHTML = `<input name="MD${b}" type="number" min="0" max="250" value="${d}" required>`;
 	}
 	function GetV()
 	{
