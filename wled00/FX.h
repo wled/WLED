@@ -948,7 +948,7 @@ const char JSON_mode_names[] PROGMEM = R"=====([
 "Fireworks 1D","Bouncing Balls","Sinelon","Sinelon Dual","Sinelon Rainbow","Popcorn","Drip","Plasma","Percent","Ripple Rainbow",
 "Heartbeat","Pacifica","Candle Multi", "Solid Glitter","Sunrise","Phased","Twinkleup","Noise Pal", "Sine","Phased Noise",
 "Flow","Chunchun","Dancing Shadows","Washing Machine","Candy Cane","Blends","TV Simulator","Dynamic Smooth","Hive 51 Strobe","Hive 51 Rotation",
-"Hive 51 Rotation Reverse", "Hive 51 Matrix desc.", "Hive 51 Matrix asc."
+"Hive Rotation Reverse", "Hive Matrix desc.", "Hive Matrix asc.", "Hive WAve", "Hive Matrix Full desc.", "Hive Matrix Full asc."
 ])=====";
 
 
