@@ -4155,7 +4155,7 @@ uint16_t WS2812FX::mode_aurora(void) {
  * Random Strobing Segments
  */
 uint16_t WS2812FX::mode_HIVE_strobing_segments(void) {
-    uint32_t cycleTime = N_REPEATS * (2 * FRAMETIME + (255 - SEGMENT.speed) * 20);  // total cycle time in ms
+    uint32_t cycleTime = N_REPEATS * (FRAMETIME + (255 - SEGMENT.speed) * 10);  // total cycle time in ms
     uint32_t perc = now % cycleTime;                                                // current time step in active cycle in ms
     uint16_t prog = (perc * N_REPEATS) / cycleTime;                                 // current progress in active cycle (0 = start, N_REPEATS = end)
 
@@ -4198,7 +4198,7 @@ uint16_t WS2812FX::mode_HIVE_strobing_segments(void) {
             do {
                 // get new random edge and check if it is already on
                 duplicates = false;
-                SEGENV.data[ii] = (byte) random8(0, (float)SEGLEN / N_LEDS_PER_EDGE - 1);
+                SEGENV.data[ii] = (byte)random8(0, (float)SEGLEN / N_LEDS_PER_EDGE - 1);
                 randCalls++;
                 for (uint8_t jj = 0; jj < ii; jj++) {
                     if (SEGENV.data[ii] == SEGENV.data[jj]) {
@@ -4291,8 +4291,8 @@ uint16_t WS2812FX::mode_HIVE_rotate_rev(void) {
 }
 
 uint16_t WS2812FX::HIVE_segment_swipe(bool rev, std::vector<std::vector<int>> edges, std::vector<std::vector<bool>> edge_dirs) {
-    uint32_t cycleTime = 250 + (255 - SEGMENT.speed) * 100;               // total cycle time in ms
-    uint32_t perc = now % cycleTime;                                      // current time step in active cycle in ms
+    uint32_t cycleTime = 250 + (255 - SEGMENT.speed) * 100;                     // total cycle time in ms
+    uint32_t perc = now % cycleTime;                                            // current time step in active cycle in ms
     uint16_t prog = (perc * (edges.size() * N_LEDS_PER_EDGE + 1)) / cycleTime;  // current progress in active cycle (0 = start, 10 * (number of edges per cycle) = end)
     if (rev) {
         prog = (edges.size() * N_LEDS_PER_EDGE + 1) - prog;
@@ -4352,7 +4352,7 @@ uint16_t WS2812FX::HIVE_segment_swipe(bool rev, std::vector<std::vector<int>> ed
 
                 // setPixelColor(ii + jj, WHITE);
                 setPixelColor(ii + jj, color_from_palette(255U - blend, false, false, 0U));
-                // setPixelColor(ii + jj, color_blend(BLACK, WHITE, 255U - blend, false);    
+                // setPixelColor(ii + jj, color_blend(BLACK, WHITE, 255U - blend, false);
                 if (rev) {
                     // reset the diff sign
                     diff *= -1;
@@ -4364,7 +4364,7 @@ uint16_t WS2812FX::HIVE_segment_swipe(bool rev, std::vector<std::vector<int>> ed
             }
         }
     }
-    
+
     return FRAMETIME;
 }
 
@@ -4442,6 +4442,6 @@ uint16_t WS2812FX::mode_HIVE_matrix_rev(void) {
 * Wave Left-Right
 */
 uint16_t WS2812FX::mode_HIVE_wave(void) {
-   uint32_t cycleTime = 250 + (255 - SEGMENT.speed) * 100;
+    uint32_t cycleTime = 250 + (255 - SEGMENT.speed) * 100;
     return FRAMETIME;
 }
