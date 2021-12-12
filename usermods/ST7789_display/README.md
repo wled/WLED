@@ -12,7 +12,7 @@ This usermod allow to use 240x240 display to display following:
 ## Hardware
 
 ***
-![Hardware](images/ST7789_guide.jpg)
+![Hardware](images/ST7789_Guide.jpg)
 
 ## Library used
 

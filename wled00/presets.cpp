@@ -7,8 +7,19 @@
 bool applyPreset(byte index, byte callMode)
 {
   if (index == 0) return false;
-  if (fileDoc) {
-    errorFlag = readObjectFromFileUsingId("/presets.json", index, fileDoc) ? ERR_NONE : ERR_FS_PLOAD;
+
+  const char *filename = index < 255 ? "/presets.json" : "/tmp.json";
+
+	uint8_t core = 1;
+	//crude way to determine if this was called by a network request
+	#ifdef ARDUINO_ARCH_ESP32
+	core = xPortGetCoreID();
+	#endif
+
+	//only allow use of fileDoc from the core responsible for network requests
+	//do not use active network request doc from preset called by main loop (playlist, schedule, ...)
+  if (fileDoc && core) {
+    errorFlag = readObjectFromFileUsingId(filename, index, fileDoc) ? ERR_NONE : ERR_FS_PLOAD;
     JsonObject fdo = fileDoc->as<JsonObject>();
     if (fdo["ps"] == index) fdo.remove("ps"); //remove load request for same presets to prevent recursive crash
     #ifdef WLED_DEBUG_FS
@@ -17,41 +28,59 @@ bool applyPreset(byte index, byte callMode)
     deserializeState(fdo, callMode, index);
   } else {
     DEBUGFS_PRINTLN(F("Make read buf"));
-    DynamicJsonDocument fDoc(JSON_BUFFER_SIZE);
-    errorFlag = readObjectFromFileUsingId("/presets.json", index, &fDoc) ? ERR_NONE : ERR_FS_PLOAD;
-    JsonObject fdo = fDoc.as<JsonObject>();
+    #ifdef WLED_USE_DYNAMIC_JSON
+    DynamicJsonDocument doc(JSON_BUFFER_SIZE);
+    #else
+    if (!requestJSONBufferLock(9)) return false;
+    #endif
+    errorFlag = readObjectFromFileUsingId(filename, index, &doc) ? ERR_NONE : ERR_FS_PLOAD;
+    JsonObject fdo = doc.as<JsonObject>();
     if (fdo["ps"] == index) fdo.remove("ps");
     #ifdef WLED_DEBUG_FS
-      serializeJson(fDoc, Serial);
+      serializeJson(doc, Serial);
     #endif
     deserializeState(fdo, callMode, index);
+    releaseJSONBufferLock();
   }
 
   if (!errorFlag) {
-    currentPreset = index;
+    if (index < 255) currentPreset = index;
     return true;
   }
   return false;
 }
 
-//persist=false is not currently honored
-void savePreset(byte index, bool persist, const char* pname, JsonObject saveobj)
+void savePreset(byte index, const char* pname, JsonObject saveobj)
 {
-  if (index == 0 || index > 250) return;
-  bool docAlloc = (fileDoc != nullptr);
+  if (index == 0 || (index > 250 && index < 255)) return;
+  char tmp[12];
   JsonObject sObj = saveobj;
 
-  if (!docAlloc) {
+  bool persist = (index != 255);
+  const char *filename = persist ? "/presets.json" : "/tmp.json";
+
+  if (!fileDoc) {
     DEBUGFS_PRINTLN(F("Allocating saving buffer"));
-    DynamicJsonDocument lDoc(JSON_BUFFER_SIZE);
-    sObj = lDoc.to<JsonObject>();
-    if (pname) sObj["n"] = pname;
+    #ifdef WLED_USE_DYNAMIC_JSON
+    DynamicJsonDocument doc(JSON_BUFFER_SIZE);
+    #else
+    if (!requestJSONBufferLock(10)) return;
+    #endif
+    sObj = doc.to<JsonObject>();
+
+    if (sObj["n"].isNull() && pname == nullptr) {
+      sprintf_P(tmp, PSTR("Preset %d"), index);
+      sObj["n"] = tmp;
+    } else if (pname) sObj["n"] = pname;
+
     DEBUGFS_PRINTLN(F("Save current state"));
     serializeState(sObj, true);
-    currentPreset = index;
+    if (persist) currentPreset = index;
 
-    writeObjectToFileUsingId("/presets.json", index, &lDoc);
-  } else { //from JSON API
+    writeObjectToFileUsingId(filename, index, &doc);
+
+    releaseJSONBufferLock();
+  } else { //from JSON API (fileDoc != nullptr)
     DEBUGFS_PRINTLN(F("Reuse recv buffer"));
     sObj.remove(F("psave"));
     sObj.remove(F("v"));
@@ -59,7 +88,7 @@ void savePreset(byte index, bool persist, const char* pname, JsonObject saveobj)
     if (!sObj["o"]) {
       DEBUGFS_PRINTLN(F("Save current state"));
       serializeState(sObj, true, sObj["ib"], sObj["sb"]);
-      currentPreset = index;
+      if (persist) currentPreset = index;
     }
     sObj.remove("o");
     sObj.remove("ib");
@@ -67,9 +96,9 @@ void savePreset(byte index, bool persist, const char* pname, JsonObject saveobj)
     sObj.remove(F("error"));
     sObj.remove(F("time"));
 
-    writeObjectToFileUsingId("/presets.json", index, fileDoc);
+    writeObjectToFileUsingId(filename, index, fileDoc);
   }
-  presetsModifiedTime = toki.second(); //unix time
+  if (persist) presetsModifiedTime = toki.second(); //unix time
   updateFSInfo();
 }
 

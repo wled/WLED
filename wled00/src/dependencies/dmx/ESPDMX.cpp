@@ -11,6 +11,8 @@
 // - - - - -
 
 /* ----- LIBRARIES ----- */
+#ifdef ESP8266
+
 #include <Arduino.h>
 
 #include "ESPDMX.h"
@@ -29,12 +31,12 @@ bool dmxStarted = false;
 int sendPin = 2;		//dafault on ESP8266
 
 //DMX value array and size. Entry 0 will hold startbyte
-uint8_t dmxData[dmxMaxChannel] = {};
-int chanSize;
+uint8_t dmxDataStore[dmxMaxChannel] = {};
+int channelSize;
 
 
 void DMXESPSerial::init() {
-  chanSize = defaultMax;
+  channelSize = defaultMax;
 
   Serial1.begin(DMXSPEED);
   pinMode(sendPin, OUTPUT);
@@ -48,7 +50,7 @@ void DMXESPSerial::init(int chanQuant) {
     chanQuant = defaultMax;
   }
 
-  chanSize = chanQuant;
+  channelSize = chanQuant;
 
   Serial1.begin(DMXSPEED);
   pinMode(sendPin, OUTPUT);
@@ -61,7 +63,7 @@ uint8_t DMXESPSerial::read(int Channel) {
 
   if (Channel < 1) Channel = 1;
   if (Channel > dmxMaxChannel) Channel = dmxMaxChannel;
-  return(dmxData[Channel]);
+  return(dmxDataStore[Channel]);
 }
 
 // Function to send DMX data
@@ -69,15 +71,15 @@ void DMXESPSerial::write(int Channel, uint8_t value) {
   if (dmxStarted == false) init();
 
   if (Channel < 1) Channel = 1;
-  if (Channel > chanSize) Channel = chanSize;
+  if (Channel > channelSize) Channel = channelSize;
   if (value < 0) value = 0;
   if (value > 255) value = 255;
 
-  dmxData[Channel] = value;
+  dmxDataStore[Channel] = value;
 }
 
 void DMXESPSerial::end() {
-  chanSize = 0;
+  channelSize = 0;
   Serial1.end();
   dmxStarted = false;
 }
@@ -96,10 +98,12 @@ void DMXESPSerial::update() {
   //send data
   Serial1.begin(DMXSPEED, DMXFORMAT);
   digitalWrite(sendPin, LOW);
-  Serial1.write(dmxData, chanSize);
+  Serial1.write(dmxDataStore, channelSize);
   Serial1.flush();
   delay(1);
   Serial1.end();
 }
 
 // Function to update the DMX bus
+
+#endif

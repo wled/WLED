@@ -34,11 +34,18 @@ void wsEvent(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventTyp
         }
         bool verboseResponse = false;
         { //scope JsonDocument so it releases its buffer
-          DynamicJsonDocument jsonBuffer(JSON_BUFFER_SIZE);
-          DeserializationError error = deserializeJson(jsonBuffer, data, len);
-          JsonObject root = jsonBuffer.as<JsonObject>();
-          if (error || root.isNull()) return;
+          #ifdef WLED_USE_DYNAMIC_JSON
+          DynamicJsonDocument doc(JSON_BUFFER_SIZE);
+          #else
+          if (!requestJSONBufferLock(11)) return;
+          #endif
 
+          DeserializationError error = deserializeJson(doc, data, len);
+          JsonObject root = doc.as<JsonObject>();
+          if (error || root.isNull()) {
+            releaseJSONBufferLock();
+            return;
+          }
           if (root["v"] && root.size() == 1) {
             //if the received value is just "{"v":true}", send only to this client
             verboseResponse = true;
@@ -46,17 +53,16 @@ void wsEvent(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventTyp
           {
             wsLiveClientId = root["lv"] ? client->id() : 0;
           } else {
-            fileDoc = &jsonBuffer;
             verboseResponse = deserializeState(root);
-            fileDoc = nullptr;
             if (!interfaceUpdateCallMode) {
               //special case, only on playlist load, avoid sending twice in rapid succession
-              if (millis() - lastInterfaceUpdate > 1700) verboseResponse = false;
+              if (millis() - lastInterfaceUpdate > (INTERFACE_UPDATE_COOLDOWN -300)) verboseResponse = false;
             }
           }
+          releaseJSONBufferLock(); // will clean fileDoc
         }
         //update if it takes longer than 300ms until next "broadcast"
-        if (verboseResponse && (millis() - lastInterfaceUpdate < 1700 || !interfaceUpdateCallMode)) sendDataWs(client);
+        if (verboseResponse && (millis() - lastInterfaceUpdate < (INTERFACE_UPDATE_COOLDOWN -300) || !interfaceUpdateCallMode)) sendDataWs(client);
       }
     } else {
       //message is comprised of multiple frames or the frame is split into multiple packets
@@ -92,16 +98,27 @@ void sendDataWs(AsyncWebSocketClient * client)
   AsyncWebSocketMessageBuffer * buffer;
 
   { //scope JsonDocument so it releases its buffer
+    #ifdef WLED_USE_DYNAMIC_JSON
     DynamicJsonDocument doc(JSON_BUFFER_SIZE);
+    #else
+    if (!requestJSONBufferLock(12)) return;
+    #endif
     JsonObject state = doc.createNestedObject("state");
     serializeState(state);
     JsonObject info  = doc.createNestedObject("info");
     serializeInfo(info);
     size_t len = measureJson(doc);
-    buffer = ws.makeBuffer(len);
-    if (!buffer) return; //out of memory
-
+    size_t heap1 = ESP.getFreeHeap();
+    buffer = ws.makeBuffer(len); // will not allocate correct memory sometimes
+    size_t heap2 = ESP.getFreeHeap();
+    if (!buffer || heap1-heap2<len) {
+      releaseJSONBufferLock();
+      ws.closeAll(1013); //code 1013 = temporary overload, try again later
+      ws.cleanupClients(0); //disconnect all clients to release memory
+      return; //out of memory
+    }
     serializeJson(doc, (char *)buffer->get(), len +1);
+    releaseJSONBufferLock();
   } 
   if (client) {
     client->text(buffer);
@@ -110,14 +127,47 @@ void sendDataWs(AsyncWebSocketClient * client)
   }
 }
 
+#define MAX_LIVE_LEDS_WS 256
+
+bool sendLiveLedsWs(uint32_t wsClient)
+{
+  AsyncWebSocketClient * wsc = ws.client(wsClient);
+  if (!wsc || wsc->queueLength() > 0) return false; //only send if queue free
+
+  uint16_t used = strip.getLengthTotal();
+  uint16_t n = ((used -1)/MAX_LIVE_LEDS_WS) +1; //only serve every n'th LED if count over MAX_LIVE_LEDS_WS
+  uint16_t bufSize = 2 + (used/n)*3;
+  AsyncWebSocketMessageBuffer * wsBuf = ws.makeBuffer(bufSize);
+  if (!wsBuf) return false; //out of memory
+  uint8_t* buffer = wsBuf->get();
+  buffer[0] = 'L';
+  buffer[1] = 1; //version
+
+  uint16_t pos = 2;
+  for (uint16_t i= 0; pos < bufSize -2; i += n)
+  {
+    uint32_t c = strip.getPixelColor(i);
+    buffer[pos++] = qadd8(W(c), R(c)); //R, add white channel to RGB channels as a simple RGBW -> RGB map
+    buffer[pos++] = qadd8(W(c), G(c)); //G
+    buffer[pos++] = qadd8(W(c), B(c)); //B
+  }
+
+  wsc->binary(wsBuf);
+  return true;
+}
+
 void handleWs()
 {
   if (millis() - wsLastLiveTime > WS_LIVE_INTERVAL)
   {
+    #ifdef ESP8266
+    ws.cleanupClients(3);
+    #else
     ws.cleanupClients();
+    #endif
     bool success = true;
     if (wsLiveClientId)
-      success = serveLiveLeds(nullptr, wsLiveClientId);
+      success = sendLiveLedsWs(wsLiveClientId);
     wsLastLiveTime = millis();
     if (!success) wsLastLiveTime -= 20; //try again in 20ms if failed due to non-empty WS queue
   }

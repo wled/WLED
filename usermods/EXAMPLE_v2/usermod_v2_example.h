@@ -207,6 +207,17 @@ class MyExampleUsermod : public Usermod {
       return configComplete;
     }
 
+
+    /*
+     * handleOverlayDraw() is called just before every show() (LED strip update frame) after effects have set the colors.
+     * Use this to blank out some LEDs or set them to a different color regardless of the set effect mode.
+     * Commonly used for custom clocks (Cronixie, 7 segment)
+     */
+    void handleOverlayDraw()
+    {
+      //strip.setPixelColor(0, RGBW32(0,0,0,0)) // set the first pixel to black
+    }
+
    
     /*
      * getId() allows you to optionally give your V2 usermod an unique ID (please define it in const.h!).

@@ -9,13 +9,13 @@
 
 void parseMQTTBriPayload(char* payload)
 {
-  if      (strstr(payload, "ON") || strstr(payload, "on") || strstr(payload, "true")) {bri = briLast; colorUpdated(1);}
-  else if (strstr(payload, "T" ) || strstr(payload, "t" )) {toggleOnOff(); colorUpdated(1);}
+  if      (strstr(payload, "ON") || strstr(payload, "on") || strstr(payload, "true")) {bri = briLast; stateUpdated(1);}
+  else if (strstr(payload, "T" ) || strstr(payload, "t" )) {toggleOnOff(); stateUpdated(1);}
   else {
     uint8_t in = strtoul(payload, NULL, 10);
     if (in == 0 && bri > 0) briLast = bri;
     bri = in;
-    colorUpdated(CALL_MODE_DIRECT_CHANGE);
+    stateUpdated(CALL_MODE_DIRECT_CHANGE);
   }
 }
 
@@ -91,11 +91,14 @@ void onMqttMessage(char* topic, char* payload, AsyncMqttClientMessageProperties 
     colorUpdated(CALL_MODE_DIRECT_CHANGE);
   } else if (strcmp_P(topic, PSTR("/api")) == 0) {
     if (payload[0] == '{') { //JSON API
+      #ifdef WLED_USE_DYNAMIC_JSON
       DynamicJsonDocument doc(JSON_BUFFER_SIZE);
+      #else
+      if (!requestJSONBufferLock(15)) return;
+      #endif
       deserializeJson(doc, payloadStr);
-      fileDoc = &doc;
       deserializeState(doc.as<JsonObject>());
-      fileDoc = nullptr;
+      releaseJSONBufferLock();
     } else { //HTTP API
       String apireq = "win&";
       apireq += (char*)payloadStr;
@@ -124,22 +127,22 @@ void publishMqtt()
   sprintf_P(s, PSTR("%u"), bri);
   strlcpy(subuf, mqttDeviceTopic, 33);
   strcat_P(subuf, PSTR("/g"));
-  mqtt->publish(subuf, 0, true, s);
+  mqtt->publish(subuf, 0, true, s);         // retain message
 
   sprintf_P(s, PSTR("#%06X"), (col[3] << 24) | (col[0] << 16) | (col[1] << 8) | (col[2]));
   strlcpy(subuf, mqttDeviceTopic, 33);
   strcat_P(subuf, PSTR("/c"));
-  mqtt->publish(subuf, 0, true, s);
+  mqtt->publish(subuf, 0, true, s);         // retain message
 
   strlcpy(subuf, mqttDeviceTopic, 33);
   strcat_P(subuf, PSTR("/status"));
-  mqtt->publish(subuf, 0, true, "online");
+  mqtt->publish(subuf, 0, true, "online");  // retain message for a LWT
 
-  char apires[1024];
+  char apires[1024];                        // allocating 1024 bytes from stack can be risky
   XML_response(nullptr, apires);
   strlcpy(subuf, mqttDeviceTopic, 33);
   strcat_P(subuf, PSTR("/v"));
-  mqtt->publish(subuf, 0, false, apires);
+  mqtt->publish(subuf, 0, false, apires);   // do not retain message
 }
 
 
@@ -169,7 +172,7 @@ bool initMqtt()
 
   strlcpy(mqttStatusTopic, mqttDeviceTopic, 33);
   strcat_P(mqttStatusTopic, PSTR("/status"));
-  mqtt->setWill(mqttStatusTopic, 0, true, "offline");
+  mqtt->setWill(mqttStatusTopic, 0, true, "offline"); // LWT message
   mqtt->setKeepAlive(MQTT_KEEP_ALIVE_TIME);
   mqtt->connect();
   return true;

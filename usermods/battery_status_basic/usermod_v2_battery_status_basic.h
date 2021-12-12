@@ -21,10 +21,10 @@
 #ifndef USERMOD_BATTERY_ADC_PRECISION
   #ifdef ARDUINO_ARCH_ESP32
     // 12 bits
-    #define USERMOD_BATTERY_ADC_PRECISION 4095.0
+    #define USERMOD_BATTERY_ADC_PRECISION 4095.0f
   #else
     // 10 bits
-    #define USERMOD_BATTERY_ADC_PRECISION 1024.0
+    #define USERMOD_BATTERY_ADC_PRECISION 1024.0f
   #endif
 #endif
 
@@ -39,11 +39,11 @@
 // https://batterybro.com/blogs/18650-wholesale-battery-reviews/18852515-when-to-recycle-18650-batteries-and-how-to-start-a-collection-center-in-your-vape-shop
 // Discharge voltage: 2.5 volt + .1 for personal safety
 #ifndef USERMOD_BATTERY_MIN_VOLTAGE
-  #define USERMOD_BATTERY_MIN_VOLTAGE 2.6
+  #define USERMOD_BATTERY_MIN_VOLTAGE 2.6f
 #endif
 
 #ifndef USERMOD_BATTERY_MAX_VOLTAGE
-  #define USERMOD_BATTERY_MAX_VOLTAGE 4.2
+  #define USERMOD_BATTERY_MAX_VOLTAGE 4.2f
 #endif
 
 class UsermodBatteryBasic : public Usermod 

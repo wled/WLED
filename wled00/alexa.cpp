@@ -44,7 +44,7 @@ void onAlexaChange(EspalexaDevice* dev)
       if (bri == 0)
       {
         bri = briLast;
-        colorUpdated(CALL_MODE_ALEXA);
+        stateUpdated(CALL_MODE_ALEXA);
       }
     } else {
       applyPreset(macroAlexaOn, CALL_MODE_ALEXA);
@@ -58,7 +58,7 @@ void onAlexaChange(EspalexaDevice* dev)
       {
         briLast = bri;
         bri = 0;
-        colorUpdated(CALL_MODE_ALEXA);
+        stateUpdated(CALL_MODE_ALEXA);
       }
     } else {
       applyPreset(macroAlexaOff, CALL_MODE_ALEXA);
@@ -67,33 +67,37 @@ void onAlexaChange(EspalexaDevice* dev)
   } else if (m == EspalexaDeviceProperty::bri)
   {
     bri = espalexaDevice->getValue();
-    colorUpdated(CALL_MODE_ALEXA);
+    stateUpdated(CALL_MODE_ALEXA);
   } else //color
   {
     if (espalexaDevice->getColorMode() == EspalexaColorMode::ct) //shade of white
     {
+      byte rgbw[4];
       uint16_t ct = espalexaDevice->getCt();
-      if (strip.isRgbw)
-      {
+			if (!ct) return;
+			uint16_t k = 1000000 / ct; //mireds to kelvin
+			
+			if (strip.hasCCTBus()) {
+				strip.setCCT(k);
+				rgbw[0]= 0; rgbw[1]= 0; rgbw[2]= 0; rgbw[3]= 255;
+			} else if (strip.hasWhiteChannel()) {
         switch (ct) { //these values empirically look good on RGBW
-          case 199: col[0]=255; col[1]=255; col[2]=255; col[3]=255; break;
-          case 234: col[0]=127; col[1]=127; col[2]=127; col[3]=255; break;
-          case 284: col[0]=  0; col[1]=  0; col[2]=  0; col[3]=255; break;
-          case 350: col[0]=130; col[1]= 90; col[2]=  0; col[3]=255; break;
-          case 383: col[0]=255; col[1]=153; col[2]=  0; col[3]=255; break;
+          case 199: rgbw[0]=255; rgbw[1]=255; rgbw[2]=255; rgbw[3]=255; break;
+          case 234: rgbw[0]=127; rgbw[1]=127; rgbw[2]=127; rgbw[3]=255; break;
+          case 284: rgbw[0]=  0; rgbw[1]=  0; rgbw[2]=  0; rgbw[3]=255; break;
+          case 350: rgbw[0]=130; rgbw[1]= 90; rgbw[2]=  0; rgbw[3]=255; break;
+          case 383: rgbw[0]=255; rgbw[1]=153; rgbw[2]=  0; rgbw[3]=255; break;
+					default : colorKtoRGB(k, rgbw);
         }
       } else {
-        colorCTtoRGB(ct, col);
+        colorKtoRGB(k, rgbw);
       }
+      strip.setColor(0, rgbw[0], rgbw[1], rgbw[2], rgbw[3]);
     } else {
       uint32_t color = espalexaDevice->getRGB();
-    
-      col[0] = ((color >> 16) & 0xFF);
-      col[1] = ((color >>  8) & 0xFF);
-      col[2] = ( color        & 0xFF);
-      col[3] = 0;
+      strip.setColor(0, color);
     }
-    colorUpdated(CALL_MODE_ALEXA);
+    stateUpdated(CALL_MODE_ALEXA);
   }
 }
 

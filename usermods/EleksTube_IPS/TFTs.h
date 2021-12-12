@@ -12,6 +12,7 @@ class TFTs : public TFT_eSPI {
 private:
   uint8_t digits[NUM_DIGITS];
 
+
   // These read 16- and 32-bit types from the SD card file.
   // BMP data is stored little-endian, Arduino is little-endian too.
   // May need to reverse subscript order if porting elsewhere.
@@ -33,7 +34,16 @@ private:
   }
 
   uint16_t output_buffer[TFT_HEIGHT][TFT_WIDTH];
-  
+  int16_t w = 135, h = 240, x = 0, y = 0, bufferedDigit = 255;
+  uint16_t digitR, digitG, digitB, dimming = 255;
+  uint32_t digitColor = 0;
+
+  void drawBuffer() {
+    bool oldSwapBytes = getSwapBytes();
+    setSwapBytes(true);
+    pushImage(x, y, w, h, (uint16_t *)output_buffer);
+    setSwapBytes(oldSwapBytes);
+  }
 
   // These BMP functions are stolen directly from the TFT_SPIFFS_BMP example in the TFT_eSPI library.
   // Unfortunately, they aren't part of the library itself, so I had to copy them.
@@ -41,44 +51,69 @@ private:
 
   //// BEGIN STOLEN CODE
 
-  // Draw directly from file stored in RGB565 format
+  // Draw directly from file stored in RGB565 format. Fastest
   bool drawBin(const char *filename) {
     fs::File bmpFS;
-
 
     // Open requested file on SD card
     bmpFS = WLED_FS.open(filename, "r");
 
-    if (!bmpFS)
-    {
-      Serial.print(F("File not found: "));
-      Serial.println(filename);
-      return(false);
-    }
-
     size_t sz = bmpFS.size();
-    if (sz <= 64800)
-    {
-      bool oldSwapBytes = getSwapBytes();
-      setSwapBytes(true);
-
-      int16_t h = sz / (135 * 2);
-
-      //draw img that is shorter than 240pix into the center
-      int16_t y = (height() - h) /2;
-
-      bmpFS.read((uint8_t *) output_buffer,sz);
-
-      if (!realtimeMode || realtimeOverride) strip.service();
-
-      pushImage(0, y, 135, h, (uint16_t *)output_buffer);
-
-      setSwapBytes(oldSwapBytes);
+    if (sz > 64800) {
+      bmpFS.close();
+      return false;
     }
+
+    uint16_t r, g, b, dimming = 255;
+    int16_t row, col;
+
+    //draw img that is shorter than 240pix into the center
+    w = 135;
+    h = sz / (w * 2);
+    x = 0;
+    y = (height() - h) /2;
+    
+    uint8_t lineBuffer[w * 2];
+
+    if (!realtimeMode || realtimeOverride) strip.service();
+
+    // 0,0 coordinates are top left
+    for (row = 0; row < h; row++) {
+
+      bmpFS.read(lineBuffer, sizeof(lineBuffer));
+      uint8_t PixM, PixL;
+      
+      // Colors are already in 16-bit R5, G6, B5 format
+      for (col = 0; col < w; col++)
+      {
+        if (dimming == 255 && !digitColor) { // not needed, copy directly
+          output_buffer[row][col] = (lineBuffer[col*2+1] << 8) | (lineBuffer[col*2]);
+        } else {
+          // 16 BPP pixel format: R5, G6, B5 ; bin: RRRR RGGG GGGB BBBB
+          PixM = lineBuffer[col*2+1];
+          PixL = lineBuffer[col*2];
+          // align to 8-bit value (MSB left aligned)
+          r = (PixM) & 0xF8;
+          g = ((PixM << 5) | (PixL >> 3)) & 0xFC;
+          b = (PixL << 3) & 0xF8;
+          r *= dimming; g *= dimming; b *= dimming;
+          r  = r  >> 8; g  = g  >> 8; b  = b  >> 8;
+          if (digitColor) { // grayscale pixel coloring
+            uint8_t l = (r > g) ? ((r > b) ? r:b) : ((g > b) ? g:b);
+            r = g = b = l;
+            r *= digitR; g *= digitG; b *= digitB;
+            r  = r >> 8; g  = g >> 8; b  = b >> 8;
+          }
+          output_buffer[row][col] = ((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3);
+        }
+      }
+    }
+
+    drawBuffer();
 
     bmpFS.close();
 
-    return(true);
+    return true;
   }
 
   bool drawBmp(const char *filename) {
@@ -87,53 +122,52 @@ private:
     // Open requested file on SD card
     bmpFS = WLED_FS.open(filename, "r");
 
-    if (!bmpFS)
-    {
-      Serial.print(F("File not found: "));
-      Serial.println(filename);
-      return(false);
-    }
-
-    uint32_t seekOffset;
-    int16_t w, h, row;
-    uint8_t  r, g, b;
+    uint32_t seekOffset, headerSize, paletteSize = 0;
+    int16_t row;
+    uint16_t r, g, b, dimming = 255, bitDepth;
 
     uint16_t magic = read16(bmpFS);
-    if (magic == 0xFFFF) {
+    if (magic != ('B' | ('M' << 8))) { // File not found or not a BMP
       Serial.println(F("BMP not found!"));
       bmpFS.close();
-      return(false);
-    }
-    
-    if (magic != 0x4D42) {
-      Serial.print(F("File not a BMP. Magic: "));
-      Serial.println(magic);
-      bmpFS.close();
-      return(false);
+      return false;
     }
 
-    read32(bmpFS);
-    read32(bmpFS);
-    seekOffset = read32(bmpFS);
-    read32(bmpFS);
-    w = read32(bmpFS);
-    h = read32(bmpFS);
+    read32(bmpFS); // filesize in bytes
+    read32(bmpFS); // reserved
+    seekOffset = read32(bmpFS); // start of bitmap
+    headerSize = read32(bmpFS); // header size
+    w = read32(bmpFS); // width
+    h = read32(bmpFS); // height
+    read16(bmpFS); // color planes (must be 1)
+    bitDepth = read16(bmpFS);
 
-    if ((read16(bmpFS) != 1) || (read16(bmpFS) != 24) || (read32(bmpFS) != 0)) {
+    if (read32(bmpFS) != 0 || (bitDepth != 24 && bitDepth != 1 && bitDepth != 4 && bitDepth != 8)) {
       Serial.println(F("BMP format not recognized."));
       bmpFS.close();
-      return(false);
+      return false;
     }
 
-    //draw img that is shorter than 240pix into the center
-    int16_t y = (height() - h) /2;
+    uint32_t palette[256];
+    if (bitDepth <= 8) // 1,4,8 bit bitmap: read color palette
+    {
+      read32(bmpFS); read32(bmpFS); read32(bmpFS); // size, w resolution, h resolution
+      paletteSize = read32(bmpFS);
+      if (paletteSize == 0) paletteSize = bitDepth * bitDepth; //if 0, size is 2^bitDepth
+      bmpFS.seek(14 + headerSize); // start of color palette
+      for (uint16_t i = 0; i < paletteSize; i++) {
+        palette[i] = read32(bmpFS);
+      }
+    }
 
-    bool oldSwapBytes = getSwapBytes();
-    setSwapBytes(true);
+    // draw img that is shorter than 240pix into the center
+    x = (width() - w) /2;
+    y = (height() - h) /2;
+
     bmpFS.seek(seekOffset);
 
-    uint16_t padding = (4 - ((w * 3) & 3)) & 3;
-    uint8_t lineBuffer[w * 3 + padding];
+    uint32_t lineSize = ((bitDepth * w +31) >> 5) * 4;
+    uint8_t lineBuffer[lineSize];
     
     uint8_t serviceStrip = (!realtimeMode || realtimeOverride) ? 7 : 0;
     // row is decremented as the BMP image is drawn bottom up
@@ -142,22 +176,120 @@ private:
       bmpFS.read(lineBuffer, sizeof(lineBuffer));
       uint8_t*  bptr = lineBuffer;
       
-      // Convert 24 to 16 bit colours while copying to output buffer.
+      // Convert 24 to 16 bit colors while copying to output buffer.
       for (uint16_t col = 0; col < w; col++)
       {
-        b = *bptr++;
-        g = *bptr++;
-        r = *bptr++;
-        output_buffer[row][col] = ((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3);
+        if (bitDepth == 24) {
+          b = *bptr++;
+          g = *bptr++;
+          r = *bptr++;
+        } else {
+          uint32_t c = 0;
+          if (bitDepth == 8) {
+            c = palette[*bptr++];
+          }
+          else if (bitDepth == 4) {
+            c = palette[(*bptr >> ((col & 0x01)?0:4)) & 0x0F];
+            if (col & 0x01) bptr++;
+          }
+          else { // bitDepth == 1
+            c = palette[(*bptr >> (7 - (col & 0x07))) & 0x01];
+            if ((col & 0x07) == 0x07) bptr++;
+          }
+          b = c; g = c >> 8; r = c >> 16;
+        }
+        if (dimming != 255) { // only dimm when needed
+          r *= dimming; g *= dimming; b *= dimming;
+          r  = r  >> 8; g  = g  >> 8; b  = b  >> 8;
+        }
+        if (digitColor) { // grayscale pixel coloring
+          uint8_t l = (r > g) ? ((r > b) ? r:b) : ((g > b) ? g:b);
+          r = g = b = l;
+
+          r *= digitR; g *= digitG; b *= digitB;
+          r  = r >> 8; g  = g >> 8; b  = b >> 8;
+        }
+        output_buffer[row][col] = ((r & 0xF8) << 8) | ((g & 0xFC) << 3) | ((b & 0xFF) >> 3);
       }
     }
     
-    pushImage(0, y, w, h, (uint16_t *)output_buffer);
-    setSwapBytes(oldSwapBytes);
+    drawBuffer();
 
     bmpFS.close();
-    return(true);
+    return true;
   }
+
+  bool drawClk(const char *filename) {
+    fs::File bmpFS;
+
+    // Open requested file on SD card
+    bmpFS = WLED_FS.open(filename, "r");
+
+    if (!bmpFS)
+    {
+      Serial.print("File not found: ");
+      Serial.println(filename);
+      return false;
+    }
+
+    uint16_t r, g, b, dimming = 255, magic;
+    int16_t row, col;
+    
+    magic = read16(bmpFS);
+    if (magic != 0x4B43) { // look for "CK" header
+      Serial.print(F("File not a CLK. Magic: "));
+      Serial.println(magic);
+      bmpFS.close();
+      return false;
+    }
+
+    w = read16(bmpFS);
+    h = read16(bmpFS);
+    x = (width() - w) / 2;
+    y = (height() - h) / 2;
+    
+    uint8_t lineBuffer[w * 2];
+    
+    if (!realtimeMode || realtimeOverride) strip.service();
+
+    // 0,0 coordinates are top left
+    for (row = 0; row < h; row++) {
+
+      bmpFS.read(lineBuffer, sizeof(lineBuffer));
+      uint8_t PixM, PixL;
+      
+      // Colors are already in 16-bit R5, G6, B5 format
+      for (col = 0; col < w; col++)
+      {
+        if (dimming == 255 && !digitColor) { // not needed, copy directly
+          output_buffer[row][col+x] = (lineBuffer[col*2+1] << 8) | (lineBuffer[col*2]);
+        } else {
+          // 16 BPP pixel format: R5, G6, B5 ; bin: RRRR RGGG GGGB BBBB
+          PixM = lineBuffer[col*2+1];
+          PixL = lineBuffer[col*2];
+          // align to 8-bit value (MSB left aligned)
+          r = (PixM) & 0xF8;
+          g = ((PixM << 5) | (PixL >> 3)) & 0xFC;
+          b = (PixL << 3) & 0xF8;
+          r *= dimming; g *= dimming; b *= dimming;
+          r  = r  >> 8; g  = g  >> 8; b  = b  >> 8;
+          if (digitColor) { // grayscale pixel coloring
+            uint8_t l = (r > g) ? ((r > b) ? r:b) : ((g > b) ? g:b);
+            r = g = b = l;
+            r *= digitR; g *= digitG; b *= digitB;
+            r  = r >> 8; g  = g >> 8; b  = b >> 8;
+          }
+          output_buffer[row][col+x] = ((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3);
+        }
+      }
+    }
+
+    drawBuffer();
+
+    bmpFS.close();
+    return true;
+  }
+
 
 public:
   TFTs() : TFT_eSPI(), chip_select()
@@ -167,6 +299,9 @@ public:
   enum show_t { no, yes, force };
   // A digit of 0xFF means blank the screen.
   const static uint8_t blanked = 255;
+
+  uint8_t tubeSegment = 1;
+  uint8_t digitOffset = 0;
   
   void begin() {
     pinMode(TFT_ENABLE_PIN, OUTPUT);
@@ -182,34 +317,60 @@ public:
 
   void showDigit(uint8_t digit) {
     chip_select.setDigit(digit);
+    uint8_t digitToDraw = digits[digit];
+    if (digitToDraw < 10) digitToDraw += digitOffset;
 
-    if (digits[digit] == blanked) {
-      fillScreen(TFT_BLACK);
+    if (digitToDraw == blanked) {
+      fillScreen(TFT_BLACK); return;
     }
-    else {
-      // Filenames are no bigger than "255.bmp\0"
-      char file_name[10];
-      sprintf(file_name, "/%d.bmp", digits[digit]);
-      if (WLED_FS.exists(file_name)) {
-        drawBmp(file_name);
-      } else {
-        sprintf(file_name, "/%d.bin", digits[digit]);
-        drawBin(file_name);
-      }
+
+    // if last digit was the same, skip loading from FS to buffer
+    if (!digitColor && digitToDraw == bufferedDigit) drawBuffer();
+    digitR = R(digitColor); digitG = G(digitColor); digitB = B(digitColor);
+
+    // Filenames are no bigger than "254.bmp\0"
+    char file_name[10];
+    // Fastest, raw RGB565
+    sprintf(file_name, "/%d.bin", digitToDraw);
+    if (WLED_FS.exists(file_name)) {
+      if (drawBin(file_name)) bufferedDigit = digitToDraw;
+      return;
     }
-  }
+    // Fast, raw RGB565, see https://github.com/aly-fly/EleksTubeHAX on how to create this clk format
+    sprintf(file_name, "/%d.clk", digitToDraw);
+    if (WLED_FS.exists(file_name)) {
+      if (drawClk(file_name)) bufferedDigit = digitToDraw;
+      return;
+    }
+    // Slow, regular RGB888 or 1,4,8 bit palette BMP
+    sprintf(file_name, "/%d.bmp", digitToDraw);
+    if (drawBmp(file_name)) bufferedDigit = digitToDraw;
+    return;
+  } 
 
   void setDigit(uint8_t digit, uint8_t value, show_t show=yes) {
     uint8_t old_value = digits[digit];
     digits[digit] = value;
-  
+
+    // Color in grayscale bitmaps if Segment 1 exists
+    // TODO If secondary and tertiary are black, color all in primary,
+    // else color first three from Seg 1 color slots and last three from Seg 2 color slots
+    WS2812FX::Segment& seg1 = strip.getSegment(tubeSegment);
+    if (seg1.isActive()) {
+      digitColor = strip.getPixelColor(seg1.start + digit);
+      dimming = seg1.opacity;
+    } else {
+      digitColor = 0;
+      dimming = 255;
+    }
+
     if (show != no && (old_value != value || show == force)) {
       showDigit(digit);
     }
   }
-  uint8_t getDigit(uint8_t digit)                 { return digits[digit]; }
+  uint8_t getDigit(uint8_t digit) {return digits[digit];}
 
-  void showAllDigits()               { for (uint8_t digit=0; digit < NUM_DIGITS; digit++) showDigit(digit); }
+  void showAllDigits()            {for (uint8_t digit=0; digit < NUM_DIGITS; digit++) showDigit(digit);}
 
   // Making chip_select public so we don't have to proxy all methods, and the caller can just use it directly.
   ChipSelect chip_select;

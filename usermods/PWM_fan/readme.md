@@ -19,8 +19,8 @@ You will also need `-D USERMOD_DALLASTEMPERATURE`.
 All of the parameters are configured during run-time using Usermods settings page.
 This includes:
 
-* PWM output pin
-* tacho input pin
+* PWM output pin (can be configured at compile time `-D PWM_PIN=xx`)
+* tacho input pin (can be configured at compile time `-D TACHO_PIN=xx`)
 * sampling frequency in seconds
 * threshold temperature in degees C
 

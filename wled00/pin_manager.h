@@ -7,8 +7,8 @@
 #include "const.h" // for USERMOD_* values
 
 typedef struct PinManagerPinType {
-  int8_t  pin;
-  uint8_t isOutput;
+  int8_t pin;
+  bool   isOutput;
 } managed_pin_type;
 
 /*
@@ -21,9 +21,8 @@ typedef struct PinManagerPinType {
  *     40 bytes on ESP32
  */
 enum struct PinOwner : uint8_t {
-  None          = 0,            // default == legacy == unspecified owner
+  None          = 0,      // default == legacy == unspecified owner
   // High bit is set for all built-in pin owners
-  // StatusLED  -- THIS SHOULD NEVER BE ALLOCATED -- see handleStatusLED()
   Ethernet      = 0x81,
   BusDigital    = 0x82,
   BusDigital2   = 0x83,
@@ -34,26 +33,27 @@ enum struct PinOwner : uint8_t {
   SPI_RAM       = 0x88,   // 'SpiR' == SPI RAM
   DebugOut      = 0x89,   // 'Dbg'  == debug output always IO1
   DMX           = 0x8A,   // 'DMX'  == hard-coded to IO2
+  HW_I2C        = 0x8B,   // 'I2C'  == hardware I2C pins (4&5 on ESP8266, 21&22 on ESP32)
   // Use UserMod IDs from const.h here
   UM_Unspecified       = USERMOD_ID_UNSPECIFIED,        // 0x01
   UM_Example           = USERMOD_ID_EXAMPLE,            // 0x02 // Usermod "usermod_v2_example.h"
   UM_Temperature       = USERMOD_ID_TEMPERATURE,        // 0x03 // Usermod "usermod_temperature.h"
   // #define USERMOD_ID_FIXNETSERVICES                  // 0x04 // Usermod "usermod_Fix_unreachable_netservices.h" -- Does not allocate pins
   UM_PIR               = USERMOD_ID_PIRSWITCH,          // 0x05 // Usermod "usermod_PIR_sensor_switch.h"
-  // #define USERMOD_ID_IMU                             // 0x06 // Usermod "usermod_mpu6050_imu.h" -- Uses "standard" I2C pins ... TODO -- enable shared I2C bus use
-  UM_FourLineDisplay   = USERMOD_ID_FOUR_LINE_DISP,     // 0x07 // Usermod "usermod_v2_four_line_display.h
+  // #define USERMOD_ID_IMU                             // 0x06 // Usermod "usermod_mpu6050_imu.h" -- Uses "standard" HW_I2C pins
+  UM_FourLineDisplay   = USERMOD_ID_FOUR_LINE_DISP,     // 0x07 // Usermod "usermod_v2_four_line_display.h -- May use "standard" HW_I2C pins
   UM_RotaryEncoderUI   = USERMOD_ID_ROTARY_ENC_UI,      // 0x08 // Usermod "usermod_v2_rotary_encoder_ui.h"
   // #define USERMOD_ID_AUTO_SAVE                       // 0x09 // Usermod "usermod_v2_auto_save.h" -- Does not allocate pins
   // #define USERMOD_ID_DHT                             // 0x0A // Usermod "usermod_dht.h" -- Statically allocates pins, not compatible with pinManager?
   // #define USERMOD_ID_MODE_SORT                       // 0x0B // Usermod "usermod_v2_mode_sort.h" -- Does not allocate pins
-  // #define USERMOD_ID_VL53L0X                         // 0x0C // Usermod "usermod_vl53l0x_gestures.h" -- Uses "standard" I2C pins ... TODO -- enable shared I2C bus use
+  // #define USERMOD_ID_VL53L0X                         // 0x0C // Usermod "usermod_vl53l0x_gestures.h" -- Uses "standard" HW_I2C pins
   UM_MultiRelay        = USERMOD_ID_MULTI_RELAY,        // 0x0D // Usermod "usermod_multi_relay.h"
   UM_AnimatedStaircase = USERMOD_ID_ANIMATED_STAIRCASE, // 0x0E // Usermod "Animated_Staircase.h"
-  // #define USERMOD_ID_RTC                             // 0x0F // Usermod "usermod_rtc.h" -- Uses "standard" I2C pins ... TODO -- enable shared I2C bus use
+  // #define USERMOD_ID_RTC                             // 0x0F // Usermod "usermod_rtc.h" -- Uses "standard" HW_I2C pins 
   // #define USERMOD_ID_ELEKSTUBE_IPS                   // 0x10 // Usermod "usermod_elekstube_ips.h" -- Uses quite a few pins ... see Hardware.h and User_Setup.h
   // #define USERMOD_ID_SN_PHOTORESISTOR                // 0x11 // Usermod "usermod_sn_photoresistor.h" -- Uses hard-coded pin (PHOTORESISTOR_PIN == A0), but could be easily updated to use pinManager
-  UM_RGBRotaryEncoder  = USERMOD_RGB_ROTARY_ENCODER,     // 0x16 // Usermod "rgb-rotary-encoder.h"
-  UM_QuinLEDAnPenta    = USERMOD_ID_QUINLED_AN_PENTA,   // 0x17 // Usermod "quinled-an-penta.h"
+  UM_RGBRotaryEncoder  = USERMOD_RGB_ROTARY_ENCODER,    // 0x16 // Usermod "rgb-rotary-encoder.h"
+  UM_QuinLEDAnPenta    = USERMOD_ID_QUINLED_AN_PENTA    // 0x17 // Usermod "quinled-an-penta.h"
 };
 static_assert(0u == static_cast<uint8_t>(PinOwner::None), "PinOwner::None must be zero, so default array initialization works as expected");
 
@@ -67,10 +67,13 @@ class PinManagerClass {
   uint8_t ledcAlloc[2] = {0x00, 0x00}; //16 LEDC channels
   PinOwner ownerTag[40] = { PinOwner::None };
   #endif
+  uint8_t i2cAllocCount = 0; // allow multiple allocation of I2C bus pins but keep track of allocations
 
   public:
   // De-allocates a single pin
   bool deallocatePin(byte gpio, PinOwner tag);
+  // De-allocates multiple pins but only if all can be deallocated (PinOwner has to be specified)
+  bool deallocateMultiplePins(const uint8_t *pinArray, byte arrayElementCount, PinOwner tag);
   // Allocates a single pin, with an owner tag.
   // De-allocation requires the same owner tag (or override)
   bool allocatePin(byte gpio, bool output, PinOwner tag);
@@ -85,12 +88,16 @@ class PinManagerClass {
   #endif
   inline bool allocatePin(byte gpio, bool output = true) { return allocatePin(gpio, output, PinOwner::None); }
   #if !defined(ESP8266) // ESP8266 compiler doesn't understand deprecated attribute
-  [[deprecated("Replaced by three-parameter deallocatePin(gpio, output, ownerTag), for improved debugging")]]
+  [[deprecated("Replaced by two-parameter deallocatePin(gpio, ownerTag), for improved debugging")]]
   #endif
   inline void deallocatePin(byte gpio) { deallocatePin(gpio, PinOwner::None); }
 
+  // will return true for reserved pins
   bool isPinAllocated(byte gpio, PinOwner tag = PinOwner::None);
+  // will return false for reserved pins
   bool isPinOk(byte gpio, bool output = true);
+
+  PinOwner getPinOwner(byte gpio);
 
   #ifdef ARDUINO_ARCH_ESP32
   byte allocateLedc(byte channels);

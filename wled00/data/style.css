@@ -1,82 +1,84 @@
 body {
-  font-family: Verdana, sans-serif;
-  text-align: center;
-  background: #222;
-  color: #fff;
-  line-height: 200%%; /* %% because of AsyncWebServer */
-  margin: 0;
+	font-family: Verdana, sans-serif;
+	text-align: center;
+	background: #222;
+	color: #fff;
+	line-height: 200%%; /* %% because of AsyncWebServer */
+	margin: 0;
 }
 hr {
-  border-color: #666;
+	border-color: #666;
+}
+a {
+	color: #28f;
+	text-decoration: none;
 }
 button, .btn {
-  background: #333;
-  color: #fff;
-  font-family: Verdana, sans-serif;
-  border: 0.3ch solid #333;
-  display: inline-block;
-  font-size: 20px;
-  margin: 12px 8px 8px;
-  padding: 1px 6px;
-  cursor: pointer;
-  text-decoration: none;
+	background: #333;
+	color: #fff;
+	font-family: Verdana, sans-serif;
+	border: 0.3ch solid #333;
+	display: inline-block;
+	font-size: 20px;
+	margin: 12px 8px 8px;
+	padding: 1px 6px;
+	cursor: pointer;
+	text-decoration: none;
 }
 .lnk {
-  border: 0;
+	border: 0;
 }
 .helpB {
-  text-align: left;
-  position: absolute;
-  width: 60px;
+	text-align: left;
+	position: absolute;
+	width: 60px;
 }
 input {
-  background: #333;
-  color: #fff;
-  font-family: Verdana, sans-serif;
-  border: 0.5ch solid #333;
+	background: #333;
+	color: #fff;
+	font-family: Verdana, sans-serif;
+	border: 0.5ch solid #333;
 }
 input:disabled {
-  color: #888;
+	color: #888;
 }
 input[type="number"] {
-  width: 4em;
-  margin: 2px;
+	width: 4em;
+	margin: 2px;
 }
 input[type="number"].xxl {
-  width: 100px;
+	width: 100px;
 }
 input[type="number"].xl {
-  width: 85px;
+	width: 85px;
 }
 input[type="number"].l {
-  width: 63px;
+	width: 63px;
 }
 input[type="number"].m {
-  width: 56px;
+	width: 56px;
 }
 input[type="number"].s {
-  width: 49px;
+	width: 49px;
 }
 input[type="number"].xs {
-  width: 42px;
+	width: 42px;
 }
 input[type="checkbox"] {
-  transform: scale(1.5);
-  margin-right: 10px;
+	transform: scale(1.5);
 }
 select {
-  background: #333;
-  color: #fff;
-  font-family: Verdana, sans-serif;
-  border: 0.5ch solid #333;
+	background: #333;
+	color: #fff;
+	font-family: Verdana, sans-serif;
+	border: 0.5ch solid #333;
 }
 td {
-  padding: 2px;
+	padding: 2px;
 }
 .d5 {
-  width: 4.5em !important;
+	width: 4.5em !important;
 }
-
 #toast {
 	opacity: 0;
 	background-color: #444;
@@ -90,7 +92,7 @@ td {
 	text-align: center;
 	z-index: 5;
 	transform: translateX(-50%%); /* %% because of AsyncWebServer */
-  max-width: 90%%; /* %% because of AsyncWebServer */
+	max-width: 90%%; /* %% because of AsyncWebServer */
 	left: 50%%; /* %% because of AsyncWebServer */
 }
 

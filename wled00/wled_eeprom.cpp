@@ -141,8 +141,7 @@ void loadSettingsFromEEPROM()
   useAMPM = EEPROM.read(329);
   strip.gammaCorrectBri = EEPROM.read(330);
   strip.gammaCorrectCol = EEPROM.read(331);
-  overlayDefault = EEPROM.read(332);
-  if (lastEEPROMversion < 8 && overlayDefault > 0) overlayDefault--; //overlay mode 1 (solid) was removed
+  overlayCurrent = EEPROM.read(332);
 
   alexaEnabled = EEPROM.read(333);
 
@@ -198,11 +197,6 @@ void loadSettingsFromEEPROM()
     countdownMin = EEPROM.read(2160);
     countdownSec = EEPROM.read(2161);
     setCountdown();
-
-    #ifndef WLED_DISABLE_CRONIXIE
-    readStringFromEEPROM(2165, cronixieDisplay, 6);
-    cronixieBacklight = EEPROM.read(2171);
-    #endif
 
     //macroBoot = EEPROM.read(2175);
     macroAlexaOn = EEPROM.read(2176);
@@ -329,7 +323,7 @@ void loadSettingsFromEEPROM()
   receiveDirect = !EEPROM.read(2200);
   notifyMacro = EEPROM.read(2201);
 
-  strip.rgbwMode = EEPROM.read(2203);
+  //strip.rgbwMode = EEPROM.read(2203);
   //skipFirstLed = EEPROM.read(2204);
 
   bootPreset = EEPROM.read(389);
@@ -365,8 +359,6 @@ void loadSettingsFromEEPROM()
   //2551 - 2559 reserved for Usermods, usable by default
   //2560 - 2943 usable, NOT reserved (need to increase EEPSIZE accordingly, new WLED core features may override this section)
   //2944 - 3071 reserved for Usermods (need to increase EEPSIZE to 3072 in const.h)
-
-  overlayCurrent = overlayDefault;
 }
 
 
@@ -382,8 +374,13 @@ void deEEP() {
   
   DEBUG_PRINTLN(F("Preset file not found, attempting to load from EEPROM"));
   DEBUGFS_PRINTLN(F("Allocating saving buffer for dEEP"));
-  DynamicJsonDocument dDoc(JSON_BUFFER_SIZE *2);
-  JsonObject sObj = dDoc.to<JsonObject>();
+  #ifdef WLED_USE_DYNAMIC_JSON
+  DynamicJsonDocument doc(JSON_BUFFER_SIZE);
+  #else
+  if (!requestJSONBufferLock(8)) return;
+  #endif
+
+  JsonObject sObj = doc.to<JsonObject>();
   sObj.createNestedObject("0");
 
   EEPROM.begin(EEPSIZE);
@@ -409,7 +406,7 @@ void deEEP() {
 
         JsonArray colarr = segObj.createNestedArray("col");
 
-        byte numChannels = (strip.isRgbw)? 4:3;
+        byte numChannels = (strip.hasWhiteChannel())? 4:3;
 
         for (uint8_t k = 0; k < 3; k++) //k=0 primary (i+2) k=1 secondary (i+6) k=2 tertiary color (i+12)
         {
@@ -434,16 +431,10 @@ void deEEP() {
             strip.getSegment(j).setOption(SEG_OPTION_ON, 1);
           }
         }
-        setValuesFromMainSeg();
         serializeState(pObj, true, false, true);
-
-        strip.resetSegments();
-        setValuesFromMainSeg();
       }
     }
 
-    
-    
     for (uint16_t index = 1; index <= 16; index++) { //copy macros to presets.json
       char m[65];
       readStringFromEEPROM(1024+64*(index-1), m, 64);
@@ -463,10 +454,14 @@ void deEEP() {
   File f = WLED_FS.open("/presets.json", "w");
   if (!f) {
     errorFlag = ERR_FS_GENERAL;
+    releaseJSONBufferLock();
     return;
   }
-  serializeJson(dDoc, f);
+  serializeJson(doc, f);
   f.close();
+
+  releaseJSONBufferLock();
+
   DEBUG_PRINTLN(F("deEEP complete!"));
 }
 

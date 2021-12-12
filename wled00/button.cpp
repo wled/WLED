@@ -4,11 +4,12 @@
  * Physical IO
  */
 
-#define WLED_DEBOUNCE_THRESHOLD 50 //only consider button input of at least 50ms as valid (debouncing)
-#define WLED_LONG_PRESS 600 //long press if button is released after held for at least 600ms
-#define WLED_DOUBLE_PRESS 350 //double press if another press within 350ms after a short press
-#define WLED_LONG_REPEATED_ACTION 300 //how often a repeated action (e.g. dimming) is fired on long press on button IDs >0
-#define WLED_LONG_AP 6000 //how long the button needs to be held to activate WLED-AP
+#define WLED_DEBOUNCE_THRESHOLD      50 // only consider button input of at least 50ms as valid (debouncing)
+#define WLED_LONG_PRESS             600 // long press if button is released after held for at least 600ms
+#define WLED_DOUBLE_PRESS           350 // double press if another press within 350ms after a short press
+#define WLED_LONG_REPEATED_ACTION   300 // how often a repeated action (e.g. dimming) is fired on long press on button IDs >0
+#define WLED_LONG_AP               5000 // how long button 0 needs to be held to activate WLED-AP
+#define WLED_LONG_FACTORY_RESET   10000 // how long button 0 needs to be held to trigger a factory reset
 
 static const char _mqtt_topic_button[] PROGMEM = "%s/button/%d";  // optimize flash usage
 
@@ -16,11 +17,11 @@ void shortPressAction(uint8_t b)
 {
   if (!macroButton[b]) {
     switch (b) {
-      case 0: toggleOnOff(); colorUpdated(CALL_MODE_BUTTON); break;
-      default: ++effectCurrent %= strip.getModeCount(); colorUpdated(CALL_MODE_BUTTON); break;
+      case 0: toggleOnOff(); stateUpdated(CALL_MODE_BUTTON); break;
+      case 1: ++effectCurrent %= strip.getModeCount(); colorUpdated(CALL_MODE_BUTTON); break;
     }
   } else {
-    applyPreset(macroButton[b], CALL_MODE_BUTTON);
+    applyPreset(macroButton[b], CALL_MODE_BUTTON_PRESET);
   }
 
   // publish MQTT message
@@ -35,11 +36,11 @@ void longPressAction(uint8_t b)
 {
   if (!macroLongPress[b]) {
     switch (b) {
-      case 0: _setRandomColor(false,true); break;
-      default: bri += 8; colorUpdated(CALL_MODE_BUTTON); buttonPressedTime[b] = millis(); break; // repeatable action
+      case 0: setRandomColor(col); colorUpdated(CALL_MODE_BUTTON); break;
+      case 1: bri += 8; stateUpdated(CALL_MODE_BUTTON); buttonPressedTime[b] = millis(); break; // repeatable action
     }
   } else {
-    applyPreset(macroLongPress[b], CALL_MODE_BUTTON);
+    applyPreset(macroLongPress[b], CALL_MODE_BUTTON_PRESET);
   }
 
   // publish MQTT message
@@ -55,10 +56,10 @@ void doublePressAction(uint8_t b)
   if (!macroDoublePress[b]) {
     switch (b) {
       //case 0: toggleOnOff(); colorUpdated(CALL_MODE_BUTTON); break; //instant short press on button 0 if no macro set
-      default: ++effectPalette %= strip.getPaletteCount(); colorUpdated(CALL_MODE_BUTTON); break;
+      case 1: ++effectPalette %= strip.getPaletteCount(); colorUpdated(CALL_MODE_BUTTON); break;
     }
   } else {
-    applyPreset(macroDoublePress[b], CALL_MODE_BUTTON);
+    applyPreset(macroDoublePress[b], CALL_MODE_BUTTON_PRESET);
   }
 
   // publish MQTT message
@@ -72,21 +73,23 @@ void doublePressAction(uint8_t b)
 bool isButtonPressed(uint8_t i)
 {
   if (btnPin[i]<0) return false;
+  uint8_t pin = btnPin[i];
+
   switch (buttonType[i]) {
     case BTN_TYPE_NONE:
     case BTN_TYPE_RESERVED:
       break;
     case BTN_TYPE_PUSH:
     case BTN_TYPE_SWITCH:
-      if (digitalRead(btnPin[i]) == LOW) return true;
+      if (digitalRead(pin) == LOW) return true;
       break;
     case BTN_TYPE_PUSH_ACT_HIGH:
     case BTN_TYPE_PIR_SENSOR:
-      if (digitalRead(btnPin[i]) == HIGH) return true;
+      if (digitalRead(pin) == HIGH) return true;
       break;
     case BTN_TYPE_TOUCH:
-      #ifdef ARDUINO_ARCH_ESP32
-      if (touchRead(btnPin[i]) <= touchThreshold) return true;
+      #if defined(ARDUINO_ARCH_ESP32) && !defined(CONFIG_IDF_TARGET_ESP32C3)
+      if (touchRead(pin) <= touchThreshold) return true;
       #endif
       break;
   }
@@ -105,14 +108,14 @@ void handleSwitch(uint8_t b)
     
   if (millis() - buttonPressedTime[b] > WLED_DEBOUNCE_THRESHOLD) { //fire edge event only after 50ms without change (debounce)
     if (!buttonPressedBefore[b]) { // on -> off
-      if (macroButton[b]) applyPreset(macroButton[b], CALL_MODE_BUTTON);
+      if (macroButton[b]) applyPreset(macroButton[b], CALL_MODE_BUTTON_PRESET);
       else { //turn on
-        if (!bri) {toggleOnOff(); colorUpdated(CALL_MODE_BUTTON);}
+        if (!bri) {toggleOnOff(); stateUpdated(CALL_MODE_BUTTON);}
       } 
     } else {  // off -> on
-      if (macroLongPress[b]) applyPreset(macroLongPress[b], CALL_MODE_BUTTON);
+      if (macroLongPress[b]) applyPreset(macroLongPress[b], CALL_MODE_BUTTON_PRESET);
       else { //turn off
-        if (bri) {toggleOnOff(); colorUpdated(CALL_MODE_BUTTON);}
+        if (bri) {toggleOnOff(); stateUpdated(CALL_MODE_BUTTON);}
       } 
     }
 
@@ -159,36 +162,17 @@ void handleAnalog(uint8_t b)
     } else if (macroDoublePress[b] == 249) {
       // effect speed
       effectSpeed = aRead;
-      effectChanged = true;
-      for (uint8_t i = 0; i < strip.getMaxSegments(); i++) {
-        WS2812FX::Segment& seg = strip.getSegment(i);
-        if (!seg.isSelected()) continue;
-        seg.speed = effectSpeed;
-      }
     } else if (macroDoublePress[b] == 248) {
       // effect intensity
       effectIntensity = aRead;
-      effectChanged = true;
-      for (uint8_t i = 0; i < strip.getMaxSegments(); i++) {
-        WS2812FX::Segment& seg = strip.getSegment(i);
-        if (!seg.isSelected()) continue;
-        seg.intensity = effectIntensity;
-      }
     } else if (macroDoublePress[b] == 247) {
       // selected palette
       effectPalette = map(aRead, 0, 252, 0, strip.getPaletteCount()-1);
-      effectChanged = true;
-      for (uint8_t i = 0; i < strip.getMaxSegments(); i++) {
-        WS2812FX::Segment& seg = strip.getSegment(i);
-        if (!seg.isSelected()) continue;
-        seg.palette = effectPalette;
-      }
     } else if (macroDoublePress[b] == 200) {
       // primary color, hue, full saturation
       colorHStoRGB(aRead*256,255,col);
     } else {
       // otherwise use "double press" for segment selection
-      //uint8_t mainSeg = strip.getMainSegmentId();
       WS2812FX::Segment& seg = strip.getSegment(macroDoublePress[b]);
       if (aRead == 0) {
         seg.setOption(SEG_OPTION_ON, 0); // off
@@ -210,6 +194,7 @@ void handleAnalog(uint8_t b)
 void handleButton()
 {
   static unsigned long lastRead = 0UL;
+  bool analog = false;
 
   for (uint8_t b=0; b<WLED_MAX_BUTTONS; b++) {
     #ifdef ESP8266
@@ -221,7 +206,7 @@ void handleButton()
     if (usermods.handleButton(b)) continue; // did usermod handle buttons
 
     if ((buttonType[b] == BTN_TYPE_ANALOG || buttonType[b] == BTN_TYPE_ANALOG_INVERTED) && millis() - lastRead > 250) {   // button is not a button but a potentiometer
-      if (b+1 == WLED_MAX_BUTTONS) lastRead = millis();
+      analog = true;
       handleAnalog(b); continue;
     }
 
@@ -252,10 +237,16 @@ void handleButton()
       bool doublePress = buttonWaitTime[b]; //did we have a short press before?
       buttonWaitTime[b] = 0;
 
-      if (b == 0 && dur > WLED_LONG_AP) { //long press on button 0 (when released)
-        WLED::instance().initAP(true);
+      if (b == 0 && dur > WLED_LONG_AP) { // long press on button 0 (when released)
+        if (dur > WLED_LONG_FACTORY_RESET) { // factory reset if pressed > 10 seconds
+          WLED_FS.format();
+          clearEEPROM();
+          doReboot = true;
+        } else {
+          WLED::instance().initAP(true);
+        }
       } else if (!buttonLongPressed[b]) { //short press
-        if (b == 0 && !macroDoublePress[b]) { //don't wait for double press on button 0 if no double press macro set
+        if (b != 1 && !macroDoublePress[b]) { //don't wait for double press on buttons without a default action if no double press macro set
           shortPressAction(b);
         } else { //double press if less than 350 ms between current press and previous short press release (buttonWaitTime!=0)
           if (doublePress) {
@@ -275,6 +266,7 @@ void handleButton()
       shortPressAction(b);
     }
   }
+  if (analog) lastRead = millis();
 }
 
 void handleIO()
@@ -299,8 +291,11 @@ void handleIO()
       #ifdef ESP8266
       // turn off built-in LED if strip is turned off
       // this will break digital bus so will need to be reinitialised on On
-      pinMode(LED_BUILTIN, OUTPUT);
-      digitalWrite(LED_BUILTIN, HIGH);
+      PinOwner ledPinOwner = pinManager.getPinOwner(LED_BUILTIN);
+      if (!strip.isOffRefreshRequired() && (ledPinOwner == PinOwner::None || ledPinOwner == PinOwner::BusDigital)) {
+        pinMode(LED_BUILTIN, OUTPUT);
+        digitalWrite(LED_BUILTIN, HIGH);
+      }
       #endif
       if (rlyPin>=0) {
         pinMode(rlyPin, OUTPUT);

@@ -54,35 +54,27 @@ void userLoop()
             switch (myKey) {
                 case '1':
                     applyPreset(1);
-                    colorUpdated(CALL_MODE_FX_CHANGED);
                     break;
                 case '2':
                     applyPreset(2);
-                    colorUpdated(CALL_MODE_FX_CHANGED);
                     break;
                 case '3':
                     applyPreset(3);
-                    colorUpdated(CALL_MODE_FX_CHANGED);
                     break;
                 case '4':
                     applyPreset(4);
-                    colorUpdated(CALL_MODE_FX_CHANGED);
                     break;
                 case '5':
                     applyPreset(5);
-                    colorUpdated(CALL_MODE_FX_CHANGED);
                     break;
                 case '6':
                     applyPreset(6);
-                    colorUpdated(CALL_MODE_FX_CHANGED);
                     break;
                 case 'A':
                     applyPreset(7);
-                    colorUpdated(CALL_MODE_FX_CHANGED);
                     break;
                 case 'B':
                     applyPreset(8);
-                    colorUpdated(CALL_MODE_FX_CHANGED);
                     break;
 
                 case '7':

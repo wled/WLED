@@ -55,32 +55,28 @@ public:
   bool PIRsensorEnabled() { return enabled; }
 
 private:
-  // PIR sensor pin
-  int8_t PIRsensorPin = PIR_SENSOR_PIN;
-  // notification mode for colorUpdated()
-  const byte NotifyUpdateMode = CALL_MODE_NO_NOTIFY; // CALL_MODE_DIRECT_CHANGE
-  // delay before switch off after the sensor state goes LOW
-  uint32_t m_switchOffDelay = 600000; // 10min
-  // off timer start time
-  uint32_t m_offTimerStart = 0;
-  // current PIR sensor pin state
-  byte sensorPinState = LOW;
-  // PIR sensor enabled
-  bool enabled = true;
-  // status of initialisation
-  bool initDone = false;
-  // on and off presets
-  uint8_t m_onPreset = 0;
-  uint8_t m_offPreset = 0;
-  // flag to indicate that PIR sensor should activate WLED during nighttime only
-  bool m_nightTimeOnly = false;
-  // flag to send MQTT message only (assuming it is enabled)
-  bool m_mqttOnly = false;
-  // flag to enable triggering only if WLED is initially off (LEDs are not on, preventing running effect being overwritten by PIR)
-  bool m_offOnly = false;
-  bool PIRtriggered = false;
 
+  byte prevPreset   = 0;
+  byte prevPlaylist = 0;
+  bool savedState   = false;
+
+  uint32_t offTimerStart = 0;                   // off timer start time
+  byte NotifyUpdateMode  = CALL_MODE_NO_NOTIFY; // notification mode for stateUpdated(): CALL_MODE_NO_NOTIFY or CALL_MODE_DIRECT_CHANGE
+  byte sensorPinState    = LOW;                 // current PIR sensor pin state
+  bool initDone          = false;               // status of initialization
+  bool PIRtriggered      = false;
   unsigned long lastLoop = 0;
+
+  // configurable parameters
+  bool enabled              = true;           // PIR sensor enabled
+  int8_t PIRsensorPin       = PIR_SENSOR_PIN; // PIR sensor pin
+  uint32_t m_switchOffDelay = 600000;         // delay before switch off after the sensor state goes LOW (10min)
+  uint8_t m_onPreset        = 0;              // on preset
+  uint8_t m_offPreset       = 0;              // off preset
+  bool m_nightTimeOnly      = false;          // flag to indicate that PIR sensor should activate WLED during nighttime only
+  bool m_mqttOnly           = false;          // flag to send MQTT message only (assuming it is enabled)
+  // flag to enable triggering only if WLED is initially off (LEDs are not on, preventing running effect being overwritten by PIR)
+  bool m_offOnly            = false;
 
   // strings to reduce flash memory usage (used more than twice)
   static const char _name[];
@@ -91,30 +87,30 @@ private:
   static const char _nightTime[];
   static const char _mqttOnly[];
   static const char _offOnly[];
+  static const char _notify[];
 
   /**
    * check if it is daytime
    * if sunrise/sunset is not defined (no NTP or lat/lon) default to nighttime
    */
   bool isDayTime() {
-    bool isDayTime = false;
     updateLocalTime();
     uint8_t hr = hour(localTime);
     uint8_t mi = minute(localTime);
 
     if (sunrise && sunset) {
       if (hour(sunrise)<hr && hour(sunset)>hr) {
-        isDayTime = true;
+        return true;
       } else {
         if (hour(sunrise)==hr && minute(sunrise)<mi) {
-          isDayTime = true;
+          return true;
         }
         if (hour(sunset)==hr && minute(sunset)>mi) {
-          isDayTime = true;
+          return true;
         }
       }
     }
-    return isDayTime;
+    return false;
   }
 
   /**
@@ -124,17 +120,47 @@ private:
   {
     if (m_offOnly && bri && (switchOn || (!PIRtriggered && !switchOn))) return;
     PIRtriggered = switchOn;
-    if (switchOn && m_onPreset) {
-      applyPreset(m_onPreset);
-    } else if (!switchOn && m_offPreset) {
-      applyPreset(m_offPreset);
-    } else if (switchOn && bri == 0) {
-      bri = briLast;
-      colorUpdated(NotifyUpdateMode);
-    } else if (!switchOn && bri != 0) {
-      briLast = bri;
-      bri = 0;
-      colorUpdated(NotifyUpdateMode);
+    if (switchOn) {
+      if (m_onPreset) {
+        if (currentPlaylist>0)    prevPlaylist = currentPlaylist;
+        else if (currentPreset>0) prevPreset   = currentPreset;
+        else {
+          saveTemporaryPreset();
+          savedState   = true;
+          prevPlaylist = 0;
+          prevPreset   = 0;
+        }
+        applyPreset(m_onPreset, NotifyUpdateMode);
+        return;
+      }
+      // preset not assigned
+      if (bri == 0) {
+        bri = briLast;
+        stateUpdated(NotifyUpdateMode);
+      }
+    } else {
+      if (m_offPreset) {
+        applyPreset(m_offPreset, NotifyUpdateMode);
+        return;
+      } else if (prevPlaylist) {
+        applyPreset(prevPlaylist, NotifyUpdateMode);
+        prevPlaylist = 0;
+        return;
+      } else if (prevPreset) {
+        applyPreset(prevPreset, NotifyUpdateMode);
+        prevPreset = 0;
+        return;
+      } else if (savedState) {
+        applyTemporaryPreset();
+        savedState = false;
+        return;
+      }
+      // preset not assigned
+      if (bri != 0) {
+        briLast = bri;
+        bri = 0;
+        stateUpdated(NotifyUpdateMode);
+      }
     }
   }
 
@@ -160,12 +186,12 @@ private:
       sensorPinState = pinState; // change previous state
 
       if (sensorPinState == HIGH) {
-        m_offTimerStart = 0;
+        offTimerStart = 0;
         if (!m_mqttOnly && (!m_nightTimeOnly || (m_nightTimeOnly && !isDayTime()))) switchStrip(true);
         publishMqtt("on");
       } else /*if (bri != 0)*/ {
         // start switch off timer
-        m_offTimerStart = millis();
+        offTimerStart = millis();
       }
       return true;
     }
@@ -177,14 +203,14 @@ private:
    */
   bool handleOffTimer()
   {
-    if (m_offTimerStart > 0 && millis() - m_offTimerStart > m_switchOffDelay)
+    if (offTimerStart > 0 && millis() - offTimerStart > m_switchOffDelay)
     {
       if (enabled == true)
       {
         if (!m_mqttOnly && (!m_nightTimeOnly || (m_nightTimeOnly && !isDayTime()))) switchStrip(false);
         publishMqtt("off");
       }
-      m_offTimerStart = 0;
+      offTimerStart = 0;
       return true;
     }
     return false;
@@ -248,15 +274,25 @@ public:
     JsonObject user = root["u"];
     if (user.isNull()) user = root.createNestedObject("u");
 
-    if (enabled)
-    {
-      // off timer
-      String uiDomString = F("PIR <i class=\"icons\">&#xe325;</i>");
-      JsonArray infoArr = user.createNestedArray(uiDomString); // timer value
-      if (m_offTimerStart > 0)
+    String uiDomString = F("<button class=\"btn\" onclick=\"requestJson({");
+    uiDomString += FPSTR(_name);
+    uiDomString += F(":{");
+    uiDomString += FPSTR(_enabled);
+    if (enabled) {
+      uiDomString += F(":false}});\">");
+      uiDomString += F("PIR <i class=\"icons\">&#xe325;</i>");
+    } else {
+      uiDomString += F(":true}});\">");
+      uiDomString += F("PIR <i class=\"icons\">&#xe08f;</i>");
+    }
+    uiDomString += F("</button>");
+    JsonArray infoArr = user.createNestedArray(uiDomString); // timer value
+
+    if (enabled) {
+      if (offTimerStart > 0)
       {
         uiDomString = "";
-        unsigned int offSeconds = (m_switchOffDelay - (millis() - m_offTimerStart)) / 1000;
+        unsigned int offSeconds = (m_switchOffDelay - (millis() - offTimerStart)) / 1000;
         if (offSeconds >= 3600)
         {
           uiDomString += (offSeconds / 3600);
@@ -282,8 +318,6 @@ public:
         infoArr.add(sensorPinState ? F("sensor on") : F("inactive"));
       }
     } else {
-      String uiDomString = F("PIR sensor");
-      JsonArray infoArr = user.createNestedArray(uiDomString);
       infoArr.add(F("disabled"));
     }
   }
@@ -302,11 +336,18 @@ public:
    * readFromJsonState() can be used to receive data clients send to the /json/state part of the JSON API (state object).
    * Values in the state object may be modified by connected clients
    */
-/*
+
   void readFromJsonState(JsonObject &root)
   {
+    if (!initDone) return;  // prevent crash on boot applyPreset()
+    JsonObject usermod = root[FPSTR(_name)];
+    if (!usermod.isNull()) {
+      if (usermod[FPSTR(_enabled)].is<bool>()) {
+        enabled = usermod[FPSTR(_enabled)].as<bool>();
+      }
+    }
   }
-*/
+
 
   /**
    * provide the changeable values
@@ -314,14 +355,15 @@ public:
   void addToConfig(JsonObject &root)
   {
     JsonObject top = root.createNestedObject(FPSTR(_name));
-    top[FPSTR(_enabled)]   = enabled;
+    top[FPSTR(_enabled)]        = enabled;
     top[FPSTR(_switchOffDelay)] = m_switchOffDelay / 1000;
-    top["pin"]             = PIRsensorPin;
-    top[FPSTR(_onPreset)]  = m_onPreset;
-    top[FPSTR(_offPreset)] = m_offPreset;
-    top[FPSTR(_nightTime)] = m_nightTimeOnly;
-    top[FPSTR(_mqttOnly)]  = m_mqttOnly;
-    top[FPSTR(_offOnly)]   = m_offOnly;
+    top["pin"]                  = PIRsensorPin;
+    top[FPSTR(_onPreset)]       = m_onPreset;
+    top[FPSTR(_offPreset)]      = m_offPreset;
+    top[FPSTR(_nightTime)]      = m_nightTimeOnly;
+    top[FPSTR(_mqttOnly)]       = m_mqttOnly;
+    top[FPSTR(_offOnly)]        = m_offOnly;
+    top[FPSTR(_notify)]         = (NotifyUpdateMode != CALL_MODE_NO_NOTIFY);
     DEBUG_PRINTLN(F("PIR config saved."));
   }
 
@@ -336,9 +378,9 @@ public:
     bool oldEnabled = enabled;
     int8_t oldPin = PIRsensorPin;
 
+    DEBUG_PRINT(FPSTR(_name));
     JsonObject top = root[FPSTR(_name)];
     if (top.isNull()) {
-      DEBUG_PRINT(FPSTR(_name));
       DEBUG_PRINTLN(F(": No config found. (Using defaults.)"));
       return false;
     }
@@ -351,7 +393,6 @@ public:
 
     m_onPreset = top[FPSTR(_onPreset)] | m_onPreset;
     m_onPreset = max(0,min(250,(int)m_onPreset));
-
     m_offPreset = top[FPSTR(_offPreset)] | m_offPreset;
     m_offPreset = max(0,min(250,(int)m_offPreset));
 
@@ -359,7 +400,8 @@ public:
     m_mqttOnly      = top[FPSTR(_mqttOnly)] | m_mqttOnly;
     m_offOnly       = top[FPSTR(_offOnly)] | m_offOnly;
 
-    DEBUG_PRINT(FPSTR(_name));
+    NotifyUpdateMode = top[FPSTR(_notify)] ? CALL_MODE_DIRECT_CHANGE : CALL_MODE_NO_NOTIFY;
+
     if (!initDone) {
       // reading config prior to setup()
       DEBUG_PRINTLN(F(" config loaded."));
@@ -385,7 +427,7 @@ public:
       DEBUG_PRINTLN(F(" config (re)loaded."));
     }
     // use "return !top["newestParameter"].isNull();" when updating Usermod with new features
-    return !top[FPSTR(_offOnly)].isNull();
+    return !top[FPSTR(_notify)].isNull();
   }
 
   /**
@@ -407,3 +449,4 @@ const char PIRsensorSwitch::_offPreset[]      PROGMEM = "off-preset";
 const char PIRsensorSwitch::_nightTime[]      PROGMEM = "nighttime-only";
 const char PIRsensorSwitch::_mqttOnly[]       PROGMEM = "mqtt-only";
 const char PIRsensorSwitch::_offOnly[]        PROGMEM = "off-only";
+const char PIRsensorSwitch::_notify[]         PROGMEM = "notifications";

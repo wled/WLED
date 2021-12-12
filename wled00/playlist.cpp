@@ -107,7 +107,7 @@ int16_t loadPlaylist(JsonObject playlistObj, byte presetId) {
 
   playlistRepeat = rep;
   if (playlistRepeat > 0) playlistRepeat++; //add one extra repetition immediately since it will be deducted on first start
-  playlistEndPreset = playlistObj[F("end")] | 0;
+  playlistEndPreset = playlistObj["end"] | 0;
   shuffle = shuffle || playlistObj["r"];
   if (shuffle) playlistOptions += PL_OPTION_SHUFFLE;
 
@@ -118,7 +118,9 @@ int16_t loadPlaylist(JsonObject playlistObj, byte presetId) {
 
 
 void handlePlaylist() {
-  if (currentPlaylist < 0 || playlistEntries == nullptr) return;
+  static unsigned long presetCycledTime = 0;
+  // if fileDoc is not null JSON buffer is in use so just quit
+  if (currentPlaylist < 0 || playlistEntries == nullptr || fileDoc != nullptr) return;
 
   if (millis() - presetCycledTime > (100*playlistEntryDur)) {
     presetCycledTime = millis();

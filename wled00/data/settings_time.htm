@@ -6,9 +6,12 @@
 	<title>Time Settings</title>
 	<script>
     var d=document;
+		var el=false;
+		var ms=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+		var cals = 'style="font-size:27px;margin-top:-6px;cursor:pointer"'; //hack as to not repeat CSS on all pages
 	function H()
 	{
-		window.open("https://github.com/Aircoookie/WLED/wiki/Settings#time-settings");
+		window.open("https://kno.wled.ge/features/settings/#time-settings");
 	}
 	function B()
 	{
@@ -16,79 +19,120 @@
 	}
 	function S()
 	{
-		BTa();GetV();Cs();FC();
+		BTa();GetV();updLoc();Cs();FC();
 	}
 	function gId(s)
 	{
 		return d.getElementById(s);
 	}
+	function gN(s) {
+		return d.getElementsByName(s)[0];
+	}
+	function expand(o,i)
+	{
+		var t = gId("WD"+i);
+		t.style.display = t.style.display!=="none" ? "none" : "";
+		o.innerHTML = t.style.display==="none" ? "&#128197;" : "&#x2715;";
+	}
 	function Cs()
 	{
-		gId("cac").style.display="none";
-		gId("coc").style.display="block";
-		gId("ccc").style.display="none";
-		if (gId("ca").selected)
-		{
-			gId("cac").style.display="block";
+		gId("cac").style.display=(gN("OL").checked)?"block":"none";
+	}
+	function BTa()
+	{
+		var ih="<tr><th>En.</th><th>Hour</th><th>Minute</th><th>Preset</th><th></th></tr>";
+		for (i=0;i<8;i++) {
+			ih+=`<tr><td><input name="W${i}" id="W${i}" type="hidden"><input id="W${i}0" type="checkbox"></td>
+<td><input name="H${i}" class="xs" type="number" min="0" max="24"></td>
+<td><input name="N${i}" class="xs" type="number" min="0" max="59"></td>
+<td><input name="T${i}" class="s" type="number" min="0" max="250"></td>
+<td><div id="CB${i}" onclick="expand(this,${i})" ${cals}>&#128467;</div></td></tr>`;
+			ih+=`<tr><td colspan=5><div id="WD${i}" style="display:none;">Run on weekdays`;
+			ih+=`<table style="width:100%%;"><tr><th>M</th><th>T</th><th>W</th><th>T</th><th>F</th><th>S</th><th>S</th></tr><tr>`
+			for (j=1;j<8;j++) ih+=`<td><input id="W${i}${j}" type="checkbox"></td>`;
+			ih+=`</tr></table>from
+<select name="M${i}">`;
+			for (j=0;j<12;j++) ih+=`<option value="${j+1}">${ms[j]}</option>`;
+			ih+=`</select><input name="D${i}" class="xs" type="number" min="1" max="31"></input> to
+<select name="P${i}">`;
+			for (j=0;j<12;j++) ih+=`<option value="${j+1}">${ms[j]}</option>`;
+			ih+=`</select><input name="E${i}" class="xs" type="number" min="1" max="31"></input>
+		<hr></div></td></tr>`;
 		}
-		if (gId("cc").selected)
+		ih+=`<tr><td><input name="W8" id="W8" type="hidden"><input id="W80" type="checkbox"></td>
+<td>Sunrise<input name="H8" value="255" type="hidden"></td>
+<td><input name="N8" class="xs" type="number" min="-59" max="59"></td>
+<td><input name="T8" class="s" type="number" min="0" max="250"></td>
+<td><div id="CB8" onclick="expand(this,8)" ${cals}>&#128467;</div></td></tr><tr><td colspan=5>`;
+		ih+=`<div id="WD8"style="display:none;"><table style="width:100%%;"><tr><th>M</th><th>T</th><th>W</th><th>T</th><th>F</th><th>S</th><th>S</th></tr><tr>`;
+		for (j=1;j<8;j++) ih+=`<td><input id="W8${j}" type="checkbox"></td>`;
+		ih+="</tr></table><hr></div></td></tr>";
+		ih+=`<tr><td><input name="W9" id="W9" type="hidden"><input id="W90" type="checkbox"></td>
+<td>Sunset<input name="H9" value="255" type="hidden"></td>
+<td><input name="N9" class="xs" type="number" min="-59" max="59"></td>
+<td><input name="T9" class="s" type="number" min="0" max="250"></td>
+<td><div id="CB9" onclick="expand(this,9)" ${cals}>&#128467;</div></td></tr><tr><td colspan=5>`;
+		ih+=`<div id="WD9" style="display:none;"><table style="width:100%%;"><tr><th>M</th><th>T</th><th>W</th><th>T</th><th>F</th><th>S</th><th>S</th></tr><tr>`;
+		for (j=1;j<8;j++) ih+=`<td><input id="W9${j}" type="checkbox"></td>`;
+		ih+="</tr></table><hr></div></td></tr>";
+		gId("TMT").innerHTML=ih;
+	}
+	function FC()
+	{
+		for(i=0;i<10;i++)
 		{
-			gId("coc").style.display="none";
-			gId("ccc").style.display="block";
-		}
-		if (gId("cn").selected)
-		{
-			gId("coc").style.display="none";
+			let wd = gId("W"+i).value;
+			for(j=0;j<8;j++) {
+				gId("W"+i+j).checked=wd>>j&1;
+			}
+			if ((wd&254) != 254 || (i<8 && (gN("M"+i).value != 1 || gN("D"+i).value != 1 || gN("P"+i).value != 12 || gN("E"+i).value != 31))) {
+				expand(gId("CB"+i),i); //expand macros with custom DOW or date range set
+			}
 		}
 	}
-    function BTa()
-    {
-      var ih="<tr><th>Active</th><th>Hour</th><th>Minute</th><th>Preset</th><th>M</th><th>T</th><th>W</th><th>T</th><th>F</th><th>S</th><th>S</th></tr>";
-      for (i=0;i<8;i++)
-      {
-        ih+="<tr><td><input name=\"W"+i+"\" id=\"W"+i+"\" type=\"number\" style=\"display:none\"><input id=\"W"+i+"0\" type=\"checkbox\"></td><td><input name=\"H"+i+"\" type=\"number\" min=\"0\" max=\"24\"></td><td><input name=\"N"+i+"\" type=\"number\" min=\"0\" max=\"59\"></td><td><input name=\"T"+i+"\" type=\"number\" min=\"0\" max=\"250\"></td>";
-        for (j=1;j<8;j++) ih+="<td><input id=\"W"+i+j+"\" type=\"checkbox\"></td>";
-      }
-	  ih+="<tr><td><input name=\"W8\" id=\"W8\" type=\"number\" style=\"display:none\"><input id=\"W80\" type=\"checkbox\"></td><td>Sunrise<input name=\"H8\" value=\"255\" type=\"hidden\"></td><td><input name=\"N8\" type=\"number\" min=\"-59\" max=\"59\"></td><td><input name=\"T8\" type=\"number\" min=\"0\" max=\"250\"></td>";
-      for (j=1;j<8;j++) ih+="<td><input id=\"W8"+j+"\" type=\"checkbox\"></td>";
-      ih+="<tr><td><input name=\"W9\" id=\"W9\" type=\"number\" style=\"display:none\"><input id=\"W90\" type=\"checkbox\"></td><td>Sunset<input name=\"H9\" value=\"255\" type=\"hidden\"></td><td><input name=\"N9\" type=\"number\" min=\"-59\" max=\"59\"><td><input name=\"T9\" type=\"number\" min=\"0\" max=\"250\"></td>";
-      for (j=1;j<8;j++) ih+="<td><input id=\"W9"+j+"\" type=\"checkbox\"></td>";
-      gId("TMT").innerHTML=ih;
-    }
-    function FC()
-    {
-      for(j=0;j<8;j++)
-      {
-        for(i=0;i<10;i++) gId("W"+i+j).checked=gId("W"+i).value>>j&1;
-      }
-    }
-    function Wd()
-    {
-      a=[0,0,0,0,0,0,0,0,0,0];
-      for(i=0;i<10;i++)
-      {
-        m=1;
-        for(j=0;j<8;j++)
-        {
-          a[i]+=gId("W"+i+j).checked*m;m*=2;
-        }
-        gId("W"+i).value=a[i];
-      }
-    }
+	function Wd()
+	{
+		a = [0,0,0,0,0,0,0,0,0,0];
+		for (i=0; i<10; i++) {
+			m=1;
+			for(j=0;j<8;j++) { a[i]+=gId(("W"+i)+j).checked*m; m*=2;}
+			gId("W"+i).value=a[i];
+		}
+		if (d.Sf.LTR.value==="S") { d.Sf.LT.value = -1*parseFloat(d.Sf.LT.value); }
+		if (d.Sf.LNR.value==="W") { d.Sf.LN.value = -1*parseFloat(d.Sf.LN.value); }
+	}
 	function addRow(i,p,l,d) {
 		var t = gId("macros");	// table
-        var rCnt = t.rows.length;   // get the number of rows.
-        var tr = t.insertRow(rCnt); // table row.
-
+		var rCnt = t.rows.length;   // get the number of rows.
+		var tr = t.insertRow(rCnt); // table row.
+		var b = String.fromCharCode((i<10?48:55)+i);
 		var td = document.createElement('td');          // TABLE DEFINITION.
 		td = tr.insertCell(0);
 		td.innerHTML = `Button ${i}:`;
 		td = tr.insertCell(1);
-		td.innerHTML = `<input name="MP${i}" type="number" min="0" max="250" value="${p}" required>`;
+		td.innerHTML = `<input name="MP${b}" type="number" class="s" min="0" max="250" value="${p}" required>`;
 		td = tr.insertCell(2);
-		td.innerHTML = `<input name="ML${i}" type="number" min="0" max="250" value="${l}" required>`;
+		td.innerHTML = `<input name="ML${b}" type="number" class="s" min="0" max="250" value="${l}" required>`;
 		td = tr.insertCell(3);
-		td.innerHTML = `<input name="MD${i}" type="number" min="0" max="250" value="${d}" required>`;
+		td.innerHTML = `<input name="MD${b}" type="number" class="s" min="0" max="250" value="${d}" required>`;
+	}
+	function getLoc() {
+		if (!el) {
+			window.addEventListener("message", (event) => {
+				if (event.origin !== "https://locate.wled.me") return;
+				if (event.data instanceof Object) {
+					d.Sf.LT.value = event.data.lat;
+					d.Sf.LN.value = event.data.lon;
+					updLoc();
+				}
+			}, false);
+			el = true;
+		}
+		window.open("https://locate.wled.me","_blank");
+	}
+	function updLoc(i) {
+		if (parseFloat(d.Sf.LT.value)<0) { d.Sf.LTR.value = "S"; d.Sf.LT.value = -1*parseFloat(d.Sf.LT.value); } else d.Sf.LTR.value = "N";
+		if (parseFloat(d.Sf.LN.value)<0) { d.Sf.LNR.value = "W"; d.Sf.LN.value = -1*parseFloat(d.Sf.LN.value); } else d.Sf.LNR.value = "E";
 	}
 	function GetV()
 	{
@@ -105,7 +149,7 @@
 		<button type="button" onclick="B()">Back</button><button type="submit">Save</button><hr>
 		<h2>Time setup</h2>
 		Get time from NTP server: <input type="checkbox" name="NT"><br>
-    <input name="NS" maxlength="32"><br>
+    	<input type="text" name="NS" maxlength="32"><br>
 		Use 24h format: <input type="checkbox" name="CF"><br>
 		Time zone: 
 		<select name="TZ">
@@ -134,40 +178,31 @@
 		</select><br>
 		UTC offset: <input name="UO" type="number" min="-65500" max="65500" required> seconds (max. 18 hours)<br>
 		Current local time is <span class="times">unknown</span>.<br>
-		Latitude (N): <input name="LT" type="number" min="-66.6" max="66.6" step="0.01">
-		Longitude (E): <input name="LN" type="number" min="-180" max="180" step="0.01">
+		Latitude: <select name="LTR"><option value="N">N</option><option value="S">S</option></select><input name="LT" type="number" class="xl" min="0" max="66.6" step="0.01"><br>
+		Longitude: <select name="LNR"><option value="E">E</option><option value="W">W</option></select><input name="LN" type="number" class="xl" min="0" max="180" step="0.01"><br>
+		<button type="button" id="locbtn" onclick="getLoc()">Get location</button>
+		<div><i>(opens new tab, only works in browser)</i></div>
 		<div id="sun" class="times"></div>
 		<h3>Clock</h3>
-		Clock Overlay:
-		<select name="OL" onchange="Cs()">
-			<option value="0" id="cn" selected>None</option>
-			<option value="1" id="ca">Analog Clock</option>
-			<option value="2">Single Digit Clock</option>
-			<option value="3" id="cc">Cronixie Clock</option>
-		</select><br>
-		<div id="coc">
-		First LED: <input name="O1" type="number" min="0" max="255" required> Last LED: <input name="O2" type="number" min="0" max="255" required><br>
-			<div id="cac">
+		Analog Clock overlay: <input type="checkbox" name="OL" onchange="Cs()"><br>
+		<div id="cac">
+			First LED: <input name="O1" type="number" min="0" max="255" required> Last LED: <input name="O2" type="number" min="0" max="255" required><br>
 			12h LED: <input name="OM" type="number" min="0" max="255" required><br>
-			Show 5min marks: <input type="checkbox" name="O5"><br></div>
+			Show 5min marks: <input type="checkbox" name="O5"><br>
 			Seconds (as trail): <input type="checkbox" name="OS"><br>
-		</div>
-		<div id="ccc">
-		Cronixie Display: <input name="CX" maxlength="6"><br>
-		Cronixie Backlight: <input type="checkbox" name="CB"><br>
 		</div>
 		Countdown Mode: <input type="checkbox" name="CE"><br>
 		Countdown Goal:<br>
-		Year: 20 <input name="CY" type="number" min="0" max="99" required> Month: <input name="CI" type="number" min="1" max="12" required> Day: <input name="CD" type="number" min="1" max="31" required><br>
-		Hour: <input name="CH" type="number" min="0" max="23" required> Minute: <input name="CM" type="number" min="0" max="59" required> Second: <input name="CS" type="number" min="0" max="59" required><br>
+		Date:&nbsp;<nowrap>20<input name="CY" class="xs" type="number" min="0" max="99" required>-<input name="CI" class="xs" type="number" min="1" max="12" required>-<input name="CD" class="xs" type="number" min="1" max="31" required></nowrap><br>
+		Time: <nowrap><input name="CH" class="xs" type="number" min="0" max="23" required>:<input name="CM" class="xs" type="number" min="0" max="59" required>:<input name="CS" class="xs" type="number" min="0" max="59" required></nowrap><br>
 		<h3>Macro presets</h3>
     	<b>Macros have moved!</b><br>
     	<i>Presets now also can be used as macros to save both JSON and HTTP API commands.<br>
-    	Just enter the preset id below!</i>
+    	Just enter the preset ID below!</i>
 		<i>Use 0 for the default action instead of a preset</i><br>
-		Alexa On/Off Preset: <input name="A0" type="number" min="0" max="250" required> <input name="A1" type="number" min="0" max="250" required><br>
-		Countdown-Over Preset: <input name="MC" type="number" min="0" max="250" required><br>
-		Timed-Light-Over Presets: <input name="MN" type="number" min="0" max="250" required><br>
+		Alexa On/Off Preset: <input name="A0" class="m" type="number" min="0" max="250" required> <input name="A1" class="m" type="number" min="0" max="250" required><br>
+		Countdown-Over Preset: <input name="MC" class="m" type="number" min="0" max="250" required><br>
+		Timed-Light-Over Presets: <input name="MN" class="m" type="number" min="0" max="250" required><br>
 		<h3>Button actions</h3>
 		<table style="margin: 0 auto;" id="macros">
 			<thead>
@@ -181,11 +216,12 @@
 			<tbody>
 			</tbody>
 		</table>
-		<a href="https://github.com/Aircoookie/WLED/wiki/Macros#analog-button" target="_blank">Analog Button setup</a>
+		<a href="https://kno.wled.ge/features/macros/#analog-button" target="_blank">Analog Button setup</a>
 		<h3>Time-controlled presets</h3>
-    <div style="display: inline-block">
-    <table id="TMT">
-    </table></div><hr>
+		<div style="display: inline-block">
+		<table id="TMT" style="min-width:330px;"></table>
+		</div>
+		<hr>
 		<button type="button" onclick="B()">Back</button><button type="submit">Save</button>
 	</form>
 </body>

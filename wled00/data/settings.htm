@@ -17,23 +17,15 @@
 			color: #fff;
 			font-family: Verdana, Helvetica, sans-serif;
 			border: 1px solid #333;
+			border-radius: var(--h);
 			font-size: 6vmin;
 			height: var(--h);
-			width: 95%;
+			width: calc(100% - 40px);
 			margin-top: 2vh;
 		}
 	</style>
-	<script>
-	function BB()
-	{
-		if (window.frameElement) {
-			document.getElementById("b").style.display = "none";
-			document.documentElement.style.setProperty('--h',"13.86vh");
-		}
-	}
-	</script>
 </head>
-<body onload="BB()">
+<body>
 <form action="/"><button type=submit id="b">Back</button></form>
 <form action="/settings/wifi"><button type="submit">WiFi Setup</button></form>
 <form action="/settings/leds"><button type="submit">LED Preferences</button></form>

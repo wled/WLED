@@ -217,7 +217,7 @@ writeChunks(
       mangle: (str) =>
         str
           .replace("%", "%%")
-          .replace(/User Interface\<\/button\>\<\/form\>/gms, "User Interface\<\/button\>\<\/form\>%DMXMENU%"),
+          .replace(/Usermods\<\/button\>\<\/form\>/gms, "Usermods\<\/button\>\<\/form\>%DMXMENU%"),
     },
     {
       file: "settings_wifi.htm",

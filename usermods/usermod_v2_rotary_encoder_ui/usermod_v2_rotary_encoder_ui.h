@@ -290,12 +290,8 @@ public:
   }
 
   void lampUdated() {
-    bool fxChanged = strip.setEffectConfig(effectCurrent, effectSpeed, effectIntensity, effectPalette);
-
-    //call for notifier -> 0: init 1: direct change 2: button 3: notification 4: nightlight 5: other (No notification)
-    // 6: fx changed 7: hue 8: preset cycle 9: blynk 10: alexa
-    colorUpdated(CALL_MODE_DIRECT_CHANGE);
-    updateInterfaces(CALL_MODE_DIRECT_CHANGE);
+    colorUpdated(CALL_MODE_BUTTON);
+    updateInterfaces(CALL_MODE_BUTTON);
   }
 
   void changeBrightness(bool increase) {

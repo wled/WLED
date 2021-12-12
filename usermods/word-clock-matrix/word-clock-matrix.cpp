@@ -65,7 +65,7 @@ void hourChime()
   //strip.resetSegments();
   selectWordSegments(true);
   colorUpdated(CALL_MODE_FX_CHANGED);
-  savePreset(13, false);
+  //savePreset(255);
   selectWordSegments(false);
   //strip.getSegment(0).setOption(0, true);
   strip.getSegment(0).setOption(2, true);
@@ -299,7 +299,7 @@ void userLoop()
     if (minute(localTime) == 1){
       //turn off background segment;
         strip.getSegment(0).setOption(2, false);
-        //applyPreset(13);
+        //applyPreset(255);
     }
   }
 }

@@ -42,6 +42,14 @@
     #include "Wire.h"
 #endif
 
+#ifdef ARDUINO_ARCH_ESP32
+  #define HW_PIN_SCL 22
+  #define HW_PIN_SDA 21
+#else
+  #define HW_PIN_SCL 5
+  #define HW_PIN_SDA 4
+#endif
+
 // ================================================================
 // ===               INTERRUPT DETECTION ROUTINE                ===
 // ================================================================
@@ -55,7 +63,8 @@ void IRAM_ATTR dmpDataReady() {
 class MPU6050Driver : public Usermod {
   private:
     MPU6050 mpu;
-    
+    bool enabled = true;
+
     // MPU control/status vars
     bool dmpReady = false;  // set true if DMP init was successful
     uint8_t mpuIntStatus;   // holds actual interrupt status byte from MPU
@@ -84,6 +93,8 @@ class MPU6050Driver : public Usermod {
      * setup() is called once at boot. WiFi is not yet connected at this point.
      */
     void setup() {
+      PinManagerPinType pins[2] = { { HW_PIN_SCL, true }, { HW_PIN_SDA, true } };
+      if (!pinManager.allocateMultiplePins(pins, 2, PinOwner::HW_I2C)) { enabled = false; return; }
       // join I2C bus (I2Cdev library doesn't do this automatically)
       #if I2CDEV_IMPLEMENTATION == I2CDEV_ARDUINO_WIRE
         Wire.begin();
@@ -93,16 +104,16 @@ class MPU6050Driver : public Usermod {
       #endif
 
       // initialize device
-      Serial.println(F("Initializing I2C devices..."));
+      DEBUG_PRINTLN(F("Initializing I2C devices..."));
       mpu.initialize();
       pinMode(INTERRUPT_PIN, INPUT);
 
       // verify connection
-      Serial.println(F("Testing device connections..."));
-      Serial.println(mpu.testConnection() ? F("MPU6050 connection successful") : F("MPU6050 connection failed"));
+      DEBUG_PRINTLN(F("Testing device connections..."));
+      DEBUG_PRINTLN(mpu.testConnection() ? F("MPU6050 connection successful") : F("MPU6050 connection failed"));
 
       // load and configure the DMP
-      Serial.println(F("Initializing DMP..."));
+      DEBUG_PRINTLN(F("Initializing DMP..."));
       devStatus = mpu.dmpInitialize();
 
       // supply your own gyro offsets here, scaled for min sensitivity
@@ -114,16 +125,16 @@ class MPU6050Driver : public Usermod {
       // make sure it worked (returns 0 if so)
       if (devStatus == 0) {
         // turn on the DMP, now that it's ready
-        Serial.println(F("Enabling DMP..."));
+        DEBUG_PRINTLN(F("Enabling DMP..."));
         mpu.setDMPEnabled(true);
 
         // enable Arduino interrupt detection
-        Serial.println(F("Enabling interrupt detection (Arduino external interrupt 0)..."));
+        DEBUG_PRINTLN(F("Enabling interrupt detection (Arduino external interrupt 0)..."));
         attachInterrupt(digitalPinToInterrupt(INTERRUPT_PIN), dmpDataReady, RISING);
         mpuIntStatus = mpu.getIntStatus();
 
         // set our DMP Ready flag so the main loop() function knows it's okay to use it
-        Serial.println(F("DMP ready! Waiting for first interrupt..."));
+        DEBUG_PRINTLN(F("DMP ready! Waiting for first interrupt..."));
         dmpReady = true;
 
         // get expected DMP packet size for later comparison
@@ -133,9 +144,9 @@ class MPU6050Driver : public Usermod {
         // 1 = initial memory load failed
         // 2 = DMP configuration updates failed
         // (if it's going to break, usually the code will be 1)
-        Serial.print(F("DMP Initialization failed (code "));
-        Serial.print(devStatus);
-        Serial.println(F(")"));
+        DEBUG_PRINT(F("DMP Initialization failed (code "));
+        DEBUG_PRINT(devStatus);
+        DEBUG_PRINTLN(F(")"));
       }
     }
 
@@ -144,7 +155,7 @@ class MPU6050Driver : public Usermod {
      * Use it to initialize network interfaces
      */
     void connected() {
-      //Serial.println("Connected to WiFi!");
+      //DEBUG_PRINTLN("Connected to WiFi!");
     }
 
 
@@ -153,7 +164,7 @@ class MPU6050Driver : public Usermod {
      */
     void loop() {
       // if programming failed, don't try to do anything
-      if (!dmpReady) return;
+      if (!enabled || !dmpReady || strip.isUpdating()) return;
 
       // wait for MPU interrupt or extra packet(s) available
       if (!mpuInterrupt && fifoCount < packetSize) return;
@@ -169,7 +180,7 @@ class MPU6050Driver : public Usermod {
       if ((mpuIntStatus & 0x10) || fifoCount == 1024) {
         // reset so we can continue cleanly
         mpu.resetFIFO();
-        Serial.println(F("FIFO overflow!"));
+        DEBUG_PRINTLN(F("FIFO overflow!"));
 
         // otherwise, check for DMP data ready interrupt (this should happen frequently)
       } else if (mpuIntStatus & 0x02) {
@@ -259,10 +270,23 @@ class MPU6050Driver : public Usermod {
      */
     void readFromJsonState(JsonObject& root)
     {
-      //if (root["bri"] == 255) Serial.println(F("Don't burn down your garage!"));
+      //if (root["bri"] == 255) DEBUG_PRINTLN(F("Don't burn down your garage!"));
     }
-    
-   
+
+
+    /*
+     * addToConfig() can be used to add custom persistent settings to the cfg.json file in the "um" (usermod) object.
+     * It will be called by WLED when settings are actually saved (for example, LED settings are saved)
+     * I highly recommend checking out the basics of ArduinoJson serialization and deserialization in order to use custom settings!
+     */
+    void addToConfig(JsonObject& root)
+    {
+      JsonObject top = root.createNestedObject("MPU6050_IMU");
+      JsonArray pins = top.createNestedArray("pin");
+      pins.add(HW_PIN_SCL);
+      pins.add(HW_PIN_SDA);
+    }
+
     /*
      * getId() allows you to optionally give your V2 usermod an unique ID (please define it in const.h!).
      */

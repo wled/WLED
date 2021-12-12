@@ -5,7 +5,8 @@ function gId(s)
 {
   return d.getElementById(s);
 }
-function H(){window.open("https://github.com/Aircoookie/WLED/wiki/Settings#sync-settings");}function B(){window.open("/settings","_self");}
+function H(){window.open("https://kno.wled.ge/interfaces/udp-notifier/");}
+function B(){window.open("/settings","_self");}
 function adj(){if (d.Sf.DI.value == 6454) {if (d.Sf.DA.value == 1) d.Sf.DA.value = 0; if (d.Sf.EU.value == 1) d.Sf.EU.value = 0;}
                else if (d.Sf.DI.value == 5568) {if (d.Sf.DA.value == 0) d.Sf.DA.value = 1; if (d.Sf.EU.value == 0) d.Sf.EU.value = 1;} }
 function FC()
@@ -81,7 +82,8 @@ UDP Port: <input name="UP" type="number" min="1" max="65535" class="d5" required
         <td><input type="checkbox" id="R8" name="R8"></td>
     </tr>
 </table><br>
-Receive: <input type="checkbox" name="RB">Brightness, <input type="checkbox" name="RC">Color, and <input type="checkbox" name="RX">Effects<br>
+Receive: <input type="checkbox" name="RB"> Brightness, <input type="checkbox" name="RC"> Color, and <input type="checkbox" name="RX"> Effects<br>
+<input type="checkbox" name="SO"> Segment options, <input type="checkbox" name="SG"> bounds<br>
 Send notifications on direct change: <input type="checkbox" name="SD"><br>
 Send notifications on button press or IR: <input type="checkbox" name="SB"><br>
 Send Alexa notifications: <input type="checkbox" name="SA"><br>
@@ -93,7 +95,8 @@ Send notifications twice: <input type="checkbox" name="S2"><br>
 Enable instance list: <input type="checkbox" name="NL"><br>
 Make this instance discoverable: <input type="checkbox" name="NB">
 <h3>Realtime</h3>
-Receive UDP realtime: <input type="checkbox" name="RD"><br><br>
+Receive UDP realtime: <input type="checkbox" name="RD"><br>
+Use main segment only: <input type="checkbox" name="MO"><br><br>
 <i>Network DMX input</i><br>
 Type:
 <select name=DI onchange="SP(); adj();">
@@ -117,48 +120,62 @@ DMX mode:
 <option value=5>Dimmer + Multi RGB</option>
 <option value=6>Multi RGBW</option>
 </select><br>
-<a href="https://github.com/Aircoookie/WLED/wiki/E1.31-DMX" target="_blank">E1.31 info</a><br>
+<a href="https://kno.wled.ge/interfaces/e1.31-dmx/" target="_blank">E1.31 info</a><br>
 Timeout: <input name="ET" type="number" min="1" max="65000" required> ms<br>
 Force max brightness: <input type="checkbox" name="FB"><br>
 Disable realtime gamma correction: <input type="checkbox" name="RG"><br>
 Realtime LED offset: <input name="WO" type="number" min="-255" max="255" required>
 <h3>Alexa Voice Assistant</h3>
 Emulate Alexa device: <input type="checkbox" name="AL"><br>
-Alexa invocation name: <input name="AI" maxlength="32">
+Alexa invocation name: <input type="text" name="AI" maxlength="32">
 <h3>Blynk</h3>
 <b>Blynk, MQTT and Hue sync all connect to external hosts!<br>
 This may impact the responsiveness of the ESP8266.</b><br>
 For best results, only use one of these services at a time.<br>
 (alternatively, connect a second ESP to them and use the UDP sync)<br><br>
-Host: <input name="BH" maxlength="32">
+Host: <input type="text" name="BH" maxlength="32">
 Port: <input name="BP" type="number" min="1" max="65535" value="80" class="d5"><br>
 Device Auth token: <input name="BK" maxlength="33"><br>
-<i>Clear the token field to disable. </i><a href="https://github.com/Aircoookie/WLED/wiki/Blynk" target="_blank">Setup info</a>
+<i>Clear the token field to disable. </i><a href="https://kno.wled.ge/interfaces/blynk/" target="_blank">Setup info</a>
 <h3>MQTT</h3>
 Enable MQTT: <input type="checkbox" name="MQ"><br>
-Broker: <input name="MS" maxlength="32">
+Broker: <input type="text" name="MS" maxlength="32">
 Port: <input name="MQPORT" type="number" min="1" max="65535" class="d5"><br>
 <b>The MQTT credentials are sent over an unsecured connection.<br>
 Never use the MQTT password for another service!</b><br>
-Username: <input name="MQUSER" maxlength="40"><br>
+Username: <input type="text" name="MQUSER" maxlength="40"><br>
 Password: <input type="password" name="MQPASS" maxlength="64"><br>
-Client ID: <input name="MQCID" maxlength="40"><br>
-Device Topic: <input name="MD" maxlength="32"><br>
-Group Topic: <input name="MG" maxlength="32"><br>
+Client ID: <input type="text" name="MQCID" maxlength="40"><br>
+Device Topic: <input type="text" name="MD" maxlength="32"><br>
+Group Topic: <input type="text" name="MG" maxlength="32"><br>
 Publish on button press: <input type="checkbox" name="BM"><br>
-<i>Reboot required to apply changes. </i><a href="https://github.com/Aircoookie/WLED/wiki/MQTT" target="_blank">MQTT info</a>
+<i>Reboot required to apply changes. </i><a href="https://kno.wled.ge/interfaces/mqtt/" target="_blank">MQTT info</a>
 <h3>Philips Hue</h3>
 <i>You can find the bridge IP and the light number in the 'About' section of the hue app.</i><br>
 Poll Hue light <input name="HL" type="number" min="1" max="99" > every <input name="HI" type="number" min="100" max="65000"> ms: <input type="checkbox" name="HP"><br>
 Then, receive <input type="checkbox" name="HO"> On/Off, <input type="checkbox" name="HB"> Brightness, and <input type="checkbox" name="HC"> Color<br>
 Hue Bridge IP:<br>
-<input name="H0" type="number" min="0" max="255" > .
-<input name="H1" type="number" min="0" max="255" > .
-<input name="H2" type="number" min="0" max="255" > .
-<input name="H3" type="number" min="0" max="255" ><br>
+<input name="H0" type="number" class="s" min="0" max="255" > .
+<input name="H1" type="number" class="s" min="0" max="255" > .
+<input name="H2" type="number" class="s" min="0" max="255" > .
+<input name="H3" type="number" class="s" min="0" max="255" ><br>
 <b>Press the pushlink button on the bridge, after that save this page!</b><br>
 (when first connecting)<br>
-Hue status: <span class="sip"> Disabled in this build </span><hr>
+Hue status: <span class="sip"> Disabled in this build </span>
+<h3>Serial</h3>
+Baud rate:
+<select name=BD>
+<option value=1152>115200</option>
+<option value=2304>230400</option>
+<option value=4608>460800</option>
+<option value=5000>500000</option>
+<option value=5760>576000</option>
+<option value=9216>921600</option>
+<option value=10000>1000000</option>
+<option value=15000>1500000</option>
+</select><br>
+<i>Keep at 115200 to use Improv. Some boards may not support high rates.</i>
+<hr>
 <button type="button" onclick="B()">Back</button><button type="submit">Save</button>
 </form>
 </body>

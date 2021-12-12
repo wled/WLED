@@ -61,7 +61,7 @@ class PIRsensorSwitch : public Usermod {
   private:
     // PIR sensor pin
     const uint8_t PIRsensorPin = 13; // D7 on D1 mini
-    // notification mode for colorUpdated()
+    // notification mode for stateUpdated()
     const byte NotifyUpdateMode = CALL_MODE_NO_NOTIFY; // CALL_MODE_DIRECT_CHANGE
     // 1 min delay before switch off after the sensor state goes LOW
     uint32_t m_switchOffDelay = 60000;
@@ -127,7 +127,7 @@ class PIRsensorSwitch : public Usermod {
         if (bri != briHighlight) { 
           bri = briHighlight; // set current highlight brightness to last set highlight brightness
         }
-        colorUpdated(NotifyUpdateMode);
+        stateUpdated(NotifyUpdateMode);
         highlightActive = true; // flag highlight is on
       }    
       else { // **pir timer has elapsed**
@@ -157,7 +157,7 @@ class PIRsensorSwitch : public Usermod {
           }
           applyMacro(macroLongPress); // apply standby lighting without brightness
         }
-        colorUpdated(NotifyUpdateMode);
+        stateUpdated(NotifyUpdateMode);
         highlightActive = false; // flag highlight is off
       }
     }

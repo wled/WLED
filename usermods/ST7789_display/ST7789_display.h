@@ -118,11 +118,11 @@ class St7789DisplayUsermod : public Usermod {
     {
     needRedraw = true;
     }
-    else if (knownMode != strip.getMode())
+    else if (knownMode != strip.getMainSegment().mode)
     {
     needRedraw = true;
     }
-    else if (knownPalette != strip.getSegment(0).palette)
+    else if (knownPalette != strip.getMainSegment().palette)
     {
     needRedraw = true;
     }
@@ -148,8 +148,8 @@ class St7789DisplayUsermod : public Usermod {
     #endif
     knownIp = apActive ? IPAddress(4, 3, 2, 1) : WiFi.localIP();
     knownBrightness = bri;
-    knownMode = strip.getMode();
-    knownPalette = strip.getSegment(0).palette;
+  knownMode = strip.getMainSegment().mode;
+  knownPalette = strip.getMainSegment().palette;
 
     tft.fillScreen(TFT_BLACK);
     tft.setTextSize(2);
