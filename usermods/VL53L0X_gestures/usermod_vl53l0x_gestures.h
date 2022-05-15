@@ -21,6 +21,14 @@
 #include <Wire.h>
 #include <VL53L0X.h>
 
+#ifdef ARDUINO_ARCH_ESP32
+  #define HW_PIN_SCL 22
+  #define HW_PIN_SDA 21
+#else
+  #define HW_PIN_SCL 5
+  #define HW_PIN_SDA 4
+#endif
+
 #ifndef VL53L0X_MAX_RANGE_MM
 #define VL53L0X_MAX_RANGE_MM 230 // max height in millimiters to react for motions
 #endif
@@ -42,6 +50,7 @@ class UsermodVL53L0XGestures : public Usermod {
     //Private class members. You can declare variables and functions only accessible to your usermod here
     unsigned long lastTime = 0;
     VL53L0X sensor;
+    bool enabled = true;
 
     bool wasMotionBefore = false;
     bool isLongMotion = false;
@@ -50,6 +59,8 @@ class UsermodVL53L0XGestures : public Usermod {
   public:
 
     void setup() {
+      PinManagerPinType pins[2] = { { HW_PIN_SCL, true }, { HW_PIN_SDA, true } };
+      if (!pinManager.allocateMultiplePins(pins, 2, PinOwner::HW_I2C)) { enabled = false; return; }
       Wire.begin();
 
       sensor.setTimeout(150);
@@ -63,6 +74,7 @@ class UsermodVL53L0XGestures : public Usermod {
 
 
     void loop() {
+      if (!enabled || strip.isUpdating()) return;
       if (millis() - lastTime > VL53L0X_DELAY_MS)
       {
         lastTime = millis();
@@ -94,7 +106,7 @@ class UsermodVL53L0XGestures : public Usermod {
             // set brightness according to range
             bri = (VL53L0X_MAX_RANGE_MM - max(range, VL53L0X_MIN_RANGE_OFFSET)) * 255 / (VL53L0X_MAX_RANGE_MM - VL53L0X_MIN_RANGE_OFFSET);
             DEBUG_PRINTF(F("new brightness: %d"), bri);
-            colorUpdated(1);
+            stateUpdated(1);
           }
         } else if (wasMotionBefore) { //released
           long dur = millis() - motionStartTime;
@@ -108,6 +120,19 @@ class UsermodVL53L0XGestures : public Usermod {
           isLongMotion = false;
         }
       }
+    }
+
+    /*
+     * addToConfig() can be used to add custom persistent settings to the cfg.json file in the "um" (usermod) object.
+     * It will be called by WLED when settings are actually saved (for example, LED settings are saved)
+     * I highly recommend checking out the basics of ArduinoJson serialization and deserialization in order to use custom settings!
+     */
+    void addToConfig(JsonObject& root)
+    {
+      JsonObject top = root.createNestedObject("VL53L0x");
+      JsonArray pins = top.createNestedArray("pin");
+      pins.add(HW_PIN_SCL);
+      pins.add(HW_PIN_SDA);
     }
 
     /*

@@ -3,22 +3,15 @@
 <head>
   <meta charset="utf-8">
 	<meta name="viewport" content="width=500">
+  <meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport"/>
 	<title>LED Settings</title>
 	<script>
     var d=document,laprev=55,maxB=1,maxM=4000,maxPB=4096,maxL=1333,maxLbquot=0; //maximum bytes for LED allocation: 4kB for 8266, 32kB for 32
-		var customStarts=false,startsDirty=[];
-    function H()
-		{
-			window.open("https://kno.wled.ge/features/settings/#led-settings");
-		}
-		function B()
-		{
-			window.open("/settings","_self");
-    }
+		var customStarts=false,startsDirty=[],maxCOOverrides=5;
+    function H(){window.open("https://kno.wled.ge/features/settings/#led-settings");}
+		function B(){window.open("/settings","_self");}
     function gId(n){return d.getElementById(n);}
-    function off(n){
-      d.getElementsByName(n)[0].value = -1;
-    }
+    function off(n){d.getElementsByName(n)[0].value = -1;}
     var timeout;
     function showToast(text, error = false)
     {
@@ -71,7 +64,6 @@
       if (bquot > 100) {var msg = "Too many LEDs for me to handle!"; if (maxM < 10000) msg += "\n\rConsider using an ESP32."; alert(msg);}
       if (d.Sf.checkValidity()) d.Sf.submit(); //https://stackoverflow.com/q/37323914
     }
-		function S(){GetV();checkSi();setABL();}
     function enABL()
     {
       var en = gId('able').checked;
@@ -104,9 +96,11 @@
       UI();
     }
     //returns mem usage
-    function getMem(t, len, p0) {
+    function getMem(t, n) {
+      let len = parseInt(d.getElementsByName("LC"+n)[0].value);
+      len += parseInt(d.getElementsByName("SL"+n)[0].value); // skipped LEDs are allocated too
       if (t < 32) {
-        if (maxM < 10000 && p0==3) {    //8266 DMA uses 5x the mem
+        if (maxM < 10000 && d.getElementsByName("L0"+n)[0].value == 3) { //8266 DMA uses 5x the mem
           if (t > 29) return len*20; //RGBW
           return len*15;
         } else if (maxM >= 10000) //ESP32 RMT uses double buffer?
@@ -141,7 +135,7 @@
           gId("p1d"+n).innerHTML = (t> 49 && t<64) ? "Clk GPIO:" : "";
           var LK = d.getElementsByName("L1"+n)[0]; // clock pin
 
-          memu += getMem(t, d.getElementsByName("LC"+n)[0].value, d.getElementsByName("L0"+n)[0].value); // calc memory
+          memu += getMem(t, n); // calc memory
 
           // enumerate pins
           for (p=1; p<5; p++) {
@@ -165,7 +159,7 @@
           }
           gId("rf"+n).onclick = (t == 31) ? (function(){return false}) : (function(){});  // prevent change for TM1814
           isRGBW |= (t == 30 || t == 31 || (t > 40 && t < 46 && t != 43)); // RGBW checkbox, TYPE_xxxx values from const.h
-          gId("co"+n).style.display = ((t>=80 && t<96) || t == 41 || t == 42) ? "none":"inline";  // hide color order for PWM W & WW/CW
+          gId("co"+n).style.display = ((t>=80 && t<96) || (t > 40 && t < 48)) ? "none":"inline";  // hide color order for PWM
           gId("dig"+n+"c").style.display = (t > 40 && t < 48) ? "none":"inline";  // hide count for analog
           gId("dig"+n+"r").style.display = (t>=80 && t<96) ? "none":"inline";  // hide reversed for virtual
           gId("dig"+n+"s").style.display = ((t>=80 && t<96) || (t > 40 && t < 48)) ? "none":"inline";  // hide skip 1st for virtual & analog
@@ -188,13 +182,13 @@
         var n  = LCs[i].name.substring(2);    // bus number
         // do we have a led count field
         if (nm=="LC") {
-          var c=parseInt(LCs[i].value,10);
-          if (!customStarts || !startsDirty[n]) gId("ls"+n).value=sLC;
-          gId("ls"+n).disabled = !customStarts;
+          var c=parseInt(LCs[i].value,10); //get LED count
+          if (!customStarts || !startsDirty[n]) gId("ls"+n).value=sLC; //update start value
+          gId("ls"+n).disabled = !customStarts; //enable/disable field editing
           if(c){
-            var s = parseInt(gId("ls"+n).value);
-            if (s+c > sLC) sLC = s+c;
-            if(c>maxLC)maxLC=c;
+            var s = parseInt(gId("ls"+n).value); //start value
+            if (s+c > sLC) sLC = s+c; //update total count
+            if(c>maxLC)maxLC=c; //max per output
             var t = parseInt(d.getElementsByName("LT"+n)[0].value); // LED type SELECT
             if (t<80) sPC+=c; //virtual out busses do not count towards physical LEDs
           } // increase led count
@@ -313,7 +307,7 @@ ${i+1}:
 <option value="80">DDP RGB (network)</option>
 <!--option value="81">E1.31 RGB (network)</option-->
 <!--option value="82">ArtNet RGB (network)</option-->
-</select>&nbsp;
+</select><br>
 <div id="co${i}" style="display:inline">Color Order:
 <select name="CO${i}">
 <option value="0">GRB</option>
@@ -322,8 +316,7 @@ ${i+1}:
 <option value="3">RBG</option>
 <option value="4">BGR</option>
 <option value="5">GBR</option>
-</select></div>
-<br>
+</select><br></div>
 <span id="psd${i}">Start:</span> <input type="number" name="LS${i}" id="ls${i}" class="l starts" min="0" max="8191" value="${lastEnd(i)}" oninput="startsDirty[${i}]=true;UI();" required />&nbsp;
 <div id="dig${i}c" style="display:inline">Length: <input type="number" name="LC${i}" class="l" min="1" max="${maxPB}" value="1" required oninput="UI()" /></div>
 <br>
@@ -333,7 +326,7 @@ ${i+1}:
 <span id="p3d${i}"></span><input type="number" name="L3${i}" min="0" max="33" class="xs" onchange="UI()"/>
 <span id="p4d${i}"></span><input type="number" name="L4${i}" min="0" max="33" class="xs" onchange="UI()"/>
 <div id="dig${i}r" style="display:inline"><br><span id="rev${i}">Reversed</span>: <input type="checkbox" name="CV${i}"></div>
-<div id="dig${i}s" style="display:inline"><br>Skip 1<sup>st</sup> LED: <input id="sl${i}" type="checkbox" name="SL${i}"></div>
+<div id="dig${i}s" style="display:inline"><br>Skip first LEDs: <input type="number" name="SL${i}" min="0" max="255" oninput="UI()"></div>
 <div id="dig${i}f" style="display:inline"><br>Off Refresh: <input id="rf${i}" type="checkbox" name="RF${i}"></div>
 </div>`;
         f.insertAdjacentHTML("beforeend", cn);
@@ -347,10 +340,59 @@ ${i+1}:
 
       if (!init) UI();
     }
+
+    function addCOM(start=0,len=1,co=0) {
+      var i = d.getElementsByClassName("com_entry").length;
+      if (i >= 10) return;
+
+      var b = `<div class="com_entry">
+<hr style="width:260px">
+${i+1}: Start: <input type="number" name="XS${i}" id="xs${i}" class="l starts" min="0" max="65535" value="${start}" oninput="UI();" required="">&nbsp;
+Length: <input type="number" name="XC${i}" id="xc${i}" class="l" min="1" max="65535" value="${len}" required="" oninput="UI()">
+<div style="display:inline">Color Order:
+<select id="xo${i}" name="XO${i}">
+<option value="0">GRB</option>
+<option value="1">RGB</option>
+<option value="2">BRG</option>
+<option value="3">RBG</option>
+<option value="4">BGR</option>
+<option value="5">GBR</option>
+</select>
+</div><br></div>`;
+      gId("com_entries").insertAdjacentHTML("beforeend", b);
+      gId("xo"+i).value = co;
+      btnCOM(i+1);
+      UI();
+    }
+
+    function remCOM() {
+      var entries = d.getElementsByClassName("com_entry");
+      var i = entries.length;
+      if (i === 0) return;
+      entries[i-1].remove();
+      btnCOM(i-1);
+      UI();
+    }
+
+    function resetCOM(_newMaxCOOverrides=undefined) {
+      if (_newMaxCOOverrides) {
+        maxCOOverrides = _newMaxCOOverrides;
+      }
+      for (let e of d.getElementsByClassName("com_entry")) {
+        e.remove();
+      }
+      btnCOM(0);
+    }
+
+    function btnCOM(i) {
+      gId("com_add").style.display = (i<maxCOOverrides) ? "inline":"none";
+      gId("com_rem").style.display = (i>0) ? "inline":"none";
+    }
+
     function addBtn(i,p,t) {
       var c = gId("btns").innerHTML;
-      var bt = "BT" + String.fromCharCode((i<10?48:55)+i);;
-      var be = "BE" + String.fromCharCode((i<10?48:55)+i);;
+      var bt = "BT" + String.fromCharCode((i<10?48:55)+i);
+      var be = "BE" + String.fromCharCode((i<10?48:55)+i);
       c += `Button ${i} GPIO: <input type="number" min="-1" max="40" name="${bt}" onchange="UI()" class="xs" value="${p}">`;
       c += `&nbsp;<select name="${be}">`
       c += `<option value="0" ${t==0?"selected":""}>Disabled</option>`;
@@ -416,7 +458,7 @@ ${i+1}:
         let lines = e.target.result;
         var c = JSON.parse(lines); 
         if (c.hw) {
-          if (c.hw.led) {
+          if (c.hw.led) {
             for (var i=0; i<10; i++) addLEDs(-1);
             var l = c.hw.led;
             l.ins.forEach((v,i,a)=>{
@@ -426,9 +468,15 @@ ${i+1}:
               d.getElementsByName("LS"+i)[0].value = v.start;
               d.getElementsByName("LC"+i)[0].value = v.len;
               d.getElementsByName("CO"+i)[0].value = v.order;
-              d.getElementsByName("SL"+i)[0].checked = v.skip;
+              d.getElementsByName("SL"+i)[0].value = v.skip;
               d.getElementsByName("RF"+i)[0].checked = v.ref;
               d.getElementsByName("CV"+i)[0].checked = v.rev;
+            });
+          }
+          if(c.hw.com) {
+            resetCOM();
+            c.hw.com.forEach(e => {
+              addCOM(e.start, e.len, e.order);
             });
           }
           if (c.hw.btn) {
@@ -451,6 +499,7 @@ ${i+1}:
         }
       }
     }
+		function S(){GetV();checkSi();setABL();}
 		function GetV()
 		{
       //values injected by server while sending HTML
@@ -510,6 +559,14 @@ ${i+1}:
     Make a segment for each output: <input type="checkbox" name="MS"> <br>
     Custom bus start indices: <input type="checkbox" onchange="tglSi(this.checked)" id="si"> <br>
     <hr style="width:260px">
+    <div id="color_order_mapping">
+      Color Order Override:
+      <div id="com_entries"></div>
+      <hr style="width:260px">
+      <button type="button" id="com_add" onclick="addCOM();UI()" style="display:none;border-radius:20px;height:36px;">+</button>
+      <button type="button" id="com_rem" onclick="remCOM();UI()" style="display:none;border-radius:20px;width:36px;height:36px;">-</button><br>
+    </div>
+    <hr style="width:260px">
     <div id="btns"></div>
     Touch threshold: <input type="number" class="s" min="0" max="100" name="TT" required><br>
     IR GPIO: <input type="number" min="-1" max="40" name="IR" onchange="UI()" class="xs"><select name="IT" onchange="UI()">
@@ -523,8 +580,8 @@ ${i+1}:
     <option value=7>9-key red</option>
     <option value=8>JSON remote</option>
     </select><span style="cursor: pointer;" onclick="off('IR')">&nbsp;&#215;</span><br>
+    Apply IR change to main segment only: <input type="checkbox" name="MSO"><br>
     <div id="json" style="display:none;">JSON file: <input type="file" name="data" accept=".json"> <input type="button" value="Upload" onclick="uploadFile('/ir.json');"><br></div>
-    <div id="toast"></div>
     <a href="https://kno.wled.ge/interfaces/infrared/" target="_blank">IR info</a><br>
     Relay GPIO: <input type="number" min="-1" max="33" name="RL" onchange="UI()" class="xs"> Invert <input type="checkbox" name="RM"><span style="cursor: pointer;" onclick="off('RL')">&nbsp;&#215;</span><br>
     <hr style="width:260px">
@@ -571,10 +628,12 @@ ${i+1}:
 			<option value="2">Linear (never wrap)</option>
 			<option value="3">None (not recommended)</option>
 		</select><br>
+		Target refresh rate: <input type="number" class="s" min="1" max="120" name="FR" required> FPS
     <hr style="width:260px">
     <div id="cfg">Config template: <input type="file" name="data2" accept=".json"> <input type="button" value="Apply" onclick="loadCfg(d.Sf.data2);"><br></div>
     <hr>
     <button type="button" onclick="B()">Back</button><button type="submit">Save</button>
 	</form>
+  <div id="toast"></div>
 </body>
 </html>

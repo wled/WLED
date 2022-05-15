@@ -3,15 +3,47 @@
 /*
  * LED methods
  */
-void setValuesFromMainSeg()
+
+void setValuesFromMainSeg()          { setValuesFromSegment(strip.getMainSegmentId()); }
+void setValuesFromFirstSelectedSeg() { setValuesFromSegment(strip.getFirstSelectedSegId()); }
+void setValuesFromSegment(uint8_t s)
 {
-  WS2812FX::Segment& seg = strip.getSegment(strip.getMainSegmentId());
-  colorFromUint32(seg.colors[0]);
-  colorFromUint32(seg.colors[1], true);
-  effectCurrent = seg.mode;
-  effectSpeed = seg.speed;
+  WS2812FX::Segment& seg = strip.getSegment(s);
+  col[0] = R(seg.colors[0]);
+  col[1] = G(seg.colors[0]);
+  col[2] = B(seg.colors[0]);
+  col[3] = W(seg.colors[0]);
+  colSec[0] = R(seg.colors[1]);
+  colSec[1] = G(seg.colors[1]);
+  colSec[2] = B(seg.colors[1]);
+  colSec[3] = W(seg.colors[1]);
+  effectCurrent   = seg.mode;
+  effectSpeed     = seg.speed;
   effectIntensity = seg.intensity;
-  effectPalette = seg.palette;
+  effectPalette   = seg.palette;
+}
+
+
+// applies global legacy values (col, colSec, effectCurrent...)
+// problem: if the first selected segment already has the value to be set, other selected segments are not updated
+void applyValuesToSelectedSegs()
+{
+  // copy of first selected segment to tell if value was updated
+  uint8_t firstSel = strip.getFirstSelectedSegId();
+  WS2812FX::Segment selsegPrev = strip.getSegment(firstSel);
+  for (uint8_t i = 0; i < strip.getMaxSegments(); i++) {
+    WS2812FX::Segment& seg = strip.getSegment(i);
+    if (i != firstSel && (!seg.isActive() || !seg.isSelected())) continue;
+
+    if (effectSpeed     != selsegPrev.speed)     {seg.speed     = effectSpeed;     stateChanged = true;}
+    if (effectIntensity != selsegPrev.intensity) {seg.intensity = effectIntensity; stateChanged = true;}
+    if (effectPalette   != selsegPrev.palette)   {seg.palette   = effectPalette;   stateChanged = true;}
+    if (effectCurrent   != selsegPrev.mode)      {strip.setMode(i, effectCurrent); stateChanged = true;}
+    uint32_t col0 = RGBW32(   col[0],    col[1],    col[2],    col[3]);
+    uint32_t col1 = RGBW32(colSec[0], colSec[1], colSec[2], colSec[3]);
+    if (col0 != selsegPrev.colors[0])            {seg.setColor(0, col0, i);        stateChanged = true;}
+    if (col1 != selsegPrev.colors[1])            {seg.setColor(1, col1, i);        stateChanged = true;}
+  }
 }
 
 
@@ -43,9 +75,8 @@ byte scaledBri(byte in)
 }
 
 
-void setAllLeds() {
-  strip.setColor(0, col[0], col[1], col[2], col[3]);
-  strip.setColor(1, colSec[0], colSec[1], colSec[2], colSec[3]);
+//applies global brightness
+void applyBri() {
   if (!realtimeMode || !arlsForceMaxBri)
   {
     strip.setBrightness(scaledBri(briT));
@@ -53,114 +84,71 @@ void setAllLeds() {
 }
 
 
-void setLedsStandard()
-{
+//applies global brightness and sets it as the "current" brightness (no transition)
+void applyFinalBri() {
   briOld = bri;
   briT = bri;
-  setAllLeds();
+  applyBri();
 }
 
 
-bool colorChanged()
-{
-  for (byte i=0; i<4; i++)
-  {
-    if (col[i] != colIT[i]) return true;
-    if (colSec[i] != colSecIT[i]) return true;
-  }
-  if (bri != briIT) return true;
-  return false;
-}
-
-
-void colorUpdated(int callMode)
-{
+//called after every state changes, schedules interface updates, handles brightness transition and nightlight activation
+//unlike colorUpdated(), does NOT apply any colors or FX to segments
+void stateUpdated(byte callMode) {
   //call for notifier -> 0: init 1: direct change 2: button 3: notification 4: nightlight 5: other (No notification)
   //                     6: fx changed 7: hue 8: preset cycle 9: blynk 10: alexa 11: ws send only 12: button preset
-  if (callMode != CALL_MODE_INIT && 
-      callMode != CALL_MODE_DIRECT_CHANGE && 
-      callMode != CALL_MODE_NO_NOTIFY &&
-			callMode != CALL_MODE_BUTTON_PRESET) strip.applyToAllSelected = true; //if not from JSON api, which directly sets segments
+  setValuesFromFirstSelectedSeg();
 
-  bool someSel = false;
-
-  if (callMode == CALL_MODE_NOTIFICATION) {
-    someSel = (receiveNotificationBrightness || receiveNotificationColor || receiveNotificationEffects);
-  }
-  
-  //Notifier: apply received FX to selected segments only if actually receiving FX
-  if (someSel) strip.applyToAllSelected = receiveNotificationEffects;
-
-  bool fxChanged = strip.setEffectConfig(effectCurrent, effectSpeed, effectIntensity, effectPalette) || effectChanged;
-  bool colChanged = colorChanged();
-
-  //Notifier: apply received color to selected segments only if actually receiving color
-  if (someSel) strip.applyToAllSelected = receiveNotificationColor;
-
-  if (fxChanged || colChanged)
-  {
-    effectChanged = false;
-    if (realtimeTimeout == UINT32_MAX) realtimeTimeout = 0;
-    currentPreset = 0; //something changed, so we are no longer in the preset
+  if (bri != briOld || stateChanged) {
+    if (stateChanged) currentPreset = 0; //something changed, so we are no longer in the preset
         
-    notify(callMode);
+    if (callMode != CALL_MODE_NOTIFICATION && callMode != CALL_MODE_NO_NOTIFY) notify(callMode);
     
     //set flag to update blynk, ws and mqtt
     interfaceUpdateCallMode = callMode;
+    stateChanged = false;
   } else {
-    if (nightlightActive && !nightlightActiveOld && 
-        callMode != CALL_MODE_NOTIFICATION && 
-        callMode != CALL_MODE_NO_NOTIFY)
-    {
+    if (nightlightActive && !nightlightActiveOld && callMode != CALL_MODE_NOTIFICATION && callMode != CALL_MODE_NO_NOTIFY) {
       notify(CALL_MODE_NIGHTLIGHT); 
       interfaceUpdateCallMode = CALL_MODE_NIGHTLIGHT;
     }
   }
   
-  if (!colChanged) return; //following code is for e.g. initiating transitions
-  
-  if (callMode != CALL_MODE_NO_NOTIFY && nightlightActive && (nightlightMode == NL_MODE_FADE || nightlightMode == NL_MODE_COLORFADE))
-  {
+  if (callMode != CALL_MODE_NO_NOTIFY && nightlightActive && (nightlightMode == NL_MODE_FADE || nightlightMode == NL_MODE_COLORFADE)) {
     briNlT = bri;
     nightlightDelayMs -= (millis() - nightlightStartTime);
     nightlightStartTime = millis();
   }
-  for (byte i=0; i<4; i++)
-  {
-    colIT[i] = col[i];
-    colSecIT[i] = colSec[i];
-  }
-  if (briT == 0)
-  {
+  if (briT == 0) {
     if (callMode != CALL_MODE_NOTIFICATION) resetTimebase(); //effect start from beginning
   }
 
-  briIT = bri;
   if (bri > 0) briLast = bri;
 
   //deactivate nightlight if target brightness is reached
   if (bri == nightlightTargetBri && callMode != CALL_MODE_NO_NOTIFY && nightlightMode != NL_MODE_SUN) nightlightActive = false;
   
-  if (fadeTransition)
-  {
+  if (fadeTransition) {
     //set correct delay if not using notification delay
     if (callMode != CALL_MODE_NOTIFICATION && !jsonTransitionOnce) transitionDelayTemp = transitionDelay;
     jsonTransitionOnce = false;
     strip.setTransition(transitionDelayTemp);
-    if (transitionDelayTemp == 0) {setLedsStandard(); strip.trigger(); return;}
-    
-    if (transitionActive)
-    {
+    if (transitionDelayTemp == 0) {
+      applyFinalBri();
+      strip.trigger();
+      return;
+    }
+
+    if (transitionActive) {
       briOld = briT;
       tperLast = 0;
     }
     strip.setTransitionMode(true);
     transitionActive = true;
     transitionStartTime = millis();
-  } else
-  {
+  } else {
     strip.setTransition(0);
-    setLedsStandard();
+    applyFinalBri();
     strip.trigger();
   }
 }
@@ -169,10 +157,8 @@ void colorUpdated(int callMode)
 void updateInterfaces(uint8_t callMode)
 {
   sendDataWs();
-  if (callMode == CALL_MODE_WS_SEND) {
-    lastInterfaceUpdate = millis();
-    return;
-  }
+  lastInterfaceUpdate = millis();
+  if (callMode == CALL_MODE_WS_SEND) return;
   
   #ifndef WLED_DISABLE_ALEXA
   if (espalexaDevice != nullptr && callMode != CALL_MODE_ALEXA) {
@@ -185,14 +171,13 @@ void updateInterfaces(uint8_t callMode)
       callMode != CALL_MODE_NO_NOTIFY) updateBlynk();
   #endif
   doPublishMqtt = true;
-  lastInterfaceUpdate = millis();
 }
 
 
 void handleTransitions()
 {
   //handle still pending interface update
-  if (interfaceUpdateCallMode && millis() - lastInterfaceUpdate > 2000)
+  if (interfaceUpdateCallMode && millis() - lastInterfaceUpdate > INTERFACE_UPDATE_COOLDOWN)
   {
     updateInterfaces(interfaceUpdateCallMode);
     interfaceUpdateCallMode = 0; //disable
@@ -207,20 +192,34 @@ void handleTransitions()
       strip.setTransitionMode(false);
       transitionActive = false;
       tperLast = 0;
-      setLedsStandard();
+      applyFinalBri();
       return;
     }
     if (tper - tperLast < 0.004) return;
     tperLast = tper;
     briT    = briOld   +((bri    - briOld   )*tper);
     
-    setAllLeds();
+    applyBri();
   }
+}
+
+
+//legacy method, applies values from col, effectCurrent, ... to selected segments
+void colorUpdated(byte callMode){
+  applyValuesToSelectedSegs();
+  stateUpdated(callMode);
 }
 
 
 void handleNightlight()
 {
+/*
+  static unsigned long lastNlUpdate;
+  unsigned long now = millis();
+  if (now < 100 && lastNlUpdate > 0) lastNlUpdate = 0; //take care of millis() rollover
+  if (now - lastNlUpdate < 100) return; //allow only 10 NL updates per second
+  lastNlUpdate = now;
+*/
   if (nightlightActive)
   {
     if (!nightlightActiveOld) //init
@@ -237,7 +236,7 @@ void handleNightlight()
         colNlT[1] = effectSpeed;
         colNlT[2] = effectPalette;
 
-        strip.setMode(strip.getMainSegmentId(), FX_MODE_STATIC); //make sure seg runtime is reset if left in sunrise mode
+        strip.setMode(strip.getFirstSelectedSegId(), FX_MODE_STATIC); // make sure seg runtime is reset if it was in sunrise mode
         effectCurrent = FX_MODE_SUNRISE;
         effectSpeed = nightlightDelayMins;
         effectPalette = 0;
@@ -274,7 +273,7 @@ void handleNightlight()
           effectSpeed = colNlT[1];
           effectPalette = colNlT[2];
           toggleOnOff();
-          setLedsStandard();
+          applyFinalBri();
         }
       }
       #ifndef WLED_DISABLE_BLYNK

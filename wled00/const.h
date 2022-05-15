@@ -39,6 +39,12 @@
   #endif
 #endif
 
+#ifdef ESP8266
+#define WLED_MAX_COLOR_ORDER_MAPPINGS 5
+#else
+#define WLED_MAX_COLOR_ORDER_MAPPINGS 10
+#endif
+
 //Usermod IDs
 #define USERMOD_ID_RESERVED               0     //Unused. Might indicate no usermod present
 #define USERMOD_ID_UNSPECIFIED            1     //Default value for a general user mod that does not specify a custom ID
@@ -65,6 +71,11 @@
 #define USERMOD_RGB_ROTARY_ENCODER       22     //Usermod "rgb-rotary-encoder.h"
 #define USERMOD_ID_QUINLED_AN_PENTA      23     //Usermod "quinled-an-penta.h"
 #define USERMOD_ID_SSDR                  24     //Usermod "usermod_v2_seven_segment_display_reloaded.h"
+#define USERMOD_ID_CRONIXIE              25     //Usermod "usermod_cronixie.h"
+#define USERMOD_ID_WIZLIGHTS             26     //Usermod "wizlights.h"
+#define USERMOD_ID_WORDCLOCK             27     //Usermod "usermod_v2_word_clock.h"
+#define USERMOD_ID_MY9291                28     //Usermod "usermod_MY9291.h"
+#define USERMOD_ID_SI7021_MQTT_HA        29     //Usermod "usermod_si7021_mqtt_ha.h"
 
 //Access point behavior
 #define AP_BEHAVIOR_BOOT_NO_CONN          0     //Open AP when no connection after boot
@@ -170,6 +181,7 @@
 #define COL_ORDER_RBG             3
 #define COL_ORDER_BGR             4
 #define COL_ORDER_GBR             5
+#define COL_ORDER_MAX             5
 
 
 //Button type
@@ -184,7 +196,7 @@
 #define BTN_TYPE_ANALOG_INVERTED  8
 
 //Ethernet board types
-#define WLED_NUM_ETH_TYPES        7
+#define WLED_NUM_ETH_TYPES        8
 
 #define WLED_ETH_NONE             0
 #define WLED_ETH_WT32_ETH01       1
@@ -219,6 +231,7 @@
 #define SEG_DIFFERS_FX         0x08
 #define SEG_DIFFERS_BOUNDS     0x10
 #define SEG_DIFFERS_GSO        0x20
+#define SEG_DIFFERS_SEL        0x80
 
 //Playlist option byte
 #define PL_OPTION_SHUFFLE      0x01
@@ -283,7 +296,13 @@
   #endif
 #endif
 
-#define ABL_MILLIAMPS_DEFAULT 850  // auto lower brightness to stay close to milliampere limit
+#ifndef ABL_MILLIAMPS_DEFAULT
+  #define ABL_MILLIAMPS_DEFAULT 850  // auto lower brightness to stay close to milliampere limit
+#else
+  #if ABL_MILLIAMPS_DEFAULT < 250  // make sure value is at least 250
+   #define ABL_MILLIAMPS_DEFAULT 250
+  #endif
+#endif
 
 // PWM settings
 #ifndef WLED_PWM_FREQ
@@ -298,7 +317,7 @@
 
 // Size of buffer for API JSON object (increase for more segments)
 #ifdef ESP8266
-  #define JSON_BUFFER_SIZE 9216
+  #define JSON_BUFFER_SIZE 10240
 #else
   #define JSON_BUFFER_SIZE 20480
 #endif
@@ -336,5 +355,7 @@
 #ifndef DEFAULT_LED_COUNT
   #define DEFAULT_LED_COUNT 30
 #endif
+
+#define INTERFACE_UPDATE_COOLDOWN 2000 //time in ms to wait between websockets, alexa, and MQTT updates
 
 #endif

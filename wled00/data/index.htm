@@ -44,13 +44,15 @@
 
 <div class ="container">
 	<div id="Colors" class="tabcontent">
-		<div id="picker" class="noslide"></div>
-    <div id="vwrap">
-      <div class="sliderwrap il" id="vwrap">
-				<input id="sliderV" class="noslide" oninput="fromV()" onchange="setColor(0)" max="100" min="0" type="range" value="128" step="any" />
-				<div class="sliderdisplay"></div>
-			</div><br>
-    </div>
+		<div id="pwrap">
+			<div id="picker" class="noslide"></div>
+			<div id="vwrap">
+				<div class="sliderwrap il" id="vwrap">
+					<input id="sliderV" class="noslide" oninput="fromV()" onchange="setColor(0)" max="100" min="0" type="range" value="128" step="any" />
+					<div class="sliderdisplay"></div>
+				</div><br>
+			</div>
+		</div>
     <div id="kwrap">
 			<div class="sliderwrap il">
 				<input id="sliderK" class="noslide" oninput="fromK()" onchange="setColor(0)" max="10091" min="1900" type="range" value="6550" />
@@ -105,35 +107,29 @@
 			<button class="xxs cl btn" onclick="selectSlot(2);">3</button>
 		</div>
 		<div id="hexw">
-			<input id="hexc" type="text" class="noslide" onkeydown="hexEnter(this)" autocomplete="off" maxlength="8" />
-			<button id="hexcnf" class="xxs btn" onclick="fromHex();"><i class="icons btna-icon">&#xe390;</i></button>
+			<input id="hexc" type="text" class="noslide" onkeydown="hexEnter()" autocomplete="off" maxlength="8" />
+			<button id="hexcnf" class="xxs btn" onclick="fromHex();"><i class="icons no-margin">&#xe390;</i></button>
 		</div>
-		<p class="labels">
-			<i class="icons sel-icon" onclick="tglHex()">&#xe2b3;</i>
-			Color palette
-		</p>
-		<div class="il">
-			<div id="pallist" class="list">
-				<div class="lstI" data-id="0">
-					<label class="check schkl">
-						&nbsp;
-						<input type="radio" value="${palettes[i].id}" name="palette" onChange="setPalette()">
-						<span class="radiomark schk"></span>
-					</label>
-					<div class="lstIcontent">
-						<span class="lstIname">
-							Default
-						</span>
+		<div id="palwrap">
+			<p class="labels">
+				<i class="icons sel-icon" onclick="tglHex()">&#xe2b3;</i>
+				Color palette
+			</p>
+			<div class="il">
+				<div id="pallist" class="list">
+					<div class="lstI" data-id="0">
+						<label class="check schkl">
+							&nbsp;
+							<input type="radio" value="${palettes[i].id}" name="palette" onChange="setPalette()">
+							<span class="radiomark schk"></span>
+						</label>
+						<div class="lstIcontent">
+							<span class="lstIname">
+								Default
+							</span>
+						</div>
 					</div>
 				</div>
-				<div class="lstI">
-					<div class="lstIcontent">
-						<span class="lstIname">
-							Loading...
-						</span>
-					</div>
-				</div>
-
 			</div>
 		</div>
 	</div>
@@ -141,7 +137,7 @@
 	<div id="Effects" class="tabcontent">
 		<p class="labels">Effect speed</p>
 		<div class="staytop">
-			<i class="icons slider-icon">&#xe325;</i>
+			<i class="icons slider-icon" style="cursor: pointer;" title="Freeze" onclick="tglFreeze()">&#xe325;</i>
 			<div class="sliderwrap il">
 				<input id="sliderSpeed" class="noslide" onchange="setSpeed()" oninput="updateTrail(this)" max="255" min="0" type="range" value="128" />
 				<output class="sliderbubble hidden"></output>
@@ -227,7 +223,6 @@
 	<button class="btn" onclick="setLor(2)">Override until reboot</button><br>
 	<span class="h">For best performance, it is recommended to turn off the streaming source when not in use.</span>
 </div>
-
 <i id="roverstar" class="icons huge" onclick="setLor(0)">&#xe410;</i><br>
 <script src="iro.js"></script>
 <script src="rangetouch.js"></script>

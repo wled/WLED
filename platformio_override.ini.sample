@@ -19,10 +19,14 @@ build_flags = ${common.build_flags_esp8266}
 ; *** Use custom settings from file my_config.h
    -DWLED_USE_MY_CONFIG
 ; *********************************************************************
+;
+;
+; *** To use the below defines/overrides, copy and paste each onto it's own line just below build_flags in the section above.
+; 
+; disable specific features
 ;  -D WLED_DISABLE_OTA
 ;  -D WLED_DISABLE_ALEXA
 ;  -D WLED_DISABLE_BLYNK
-;  -D WLED_DISABLE_CRONIXIE
 ;  -D WLED_DISABLE_HUESYNC
 ;  -D WLED_DISABLE_INFRARED
 ;  -D WLED_DISABLE_WEBSOCKETS
@@ -45,3 +49,18 @@ build_flags = ${common.build_flags_esp8266}
 ;   for the Magic Home LED Controller use PWM pins 5,12,13,15
 ;   for the H801 controller use PINs 15,13,12,14 (W2 = 04)
 ;   for the BW-LT11 controller use PINs 12,4,14,5
+;   
+; set the name of the module - make sure there is a quote-backslash-quote before the name and a backslash-quote-quote after the name
+;   -D SERVERNAME="\"WLED\""
+;   
+; set the number of LEDs
+;   -D DEFAULT_LED_COUNT=30
+;   
+; set milliampere limit when using ESP pin to power leds
+;   -D ABL_MILLIAMPS_DEFAULT=850
+;
+; enable IR by setting remote type
+;   -D IRTYPE=0 ;0 Remote disabled | 1 24-key RGB | 2 24-key with CT | 3 40-key blue | 4 40-key RGB | 5 21-key RGB | 6 6-key black | 7 9-key red | 8 JSON remote
+;   
+; set default color order of your led strip
+;   -D DEFAULT_LED_COLOR_ORDER=COL_ORDER_GRB

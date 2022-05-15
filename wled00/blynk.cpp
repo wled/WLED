@@ -44,27 +44,27 @@ void updateBlynk()
 BLYNK_WRITE(V0)
 {
   bri = param.asInt();//bri
-  colorUpdated(CALL_MODE_BLYNK);
+  stateUpdated(CALL_MODE_BLYNK);
 }
 
 BLYNK_WRITE(V1)
 {
   blHue = param.asInt();//hue
-  colorHStoRGB(blHue*10,blSat,(false)? colSec:col);
+  colorHStoRGB(blHue*10,blSat,col);
   colorUpdated(CALL_MODE_BLYNK);
 }
 
 BLYNK_WRITE(V2)
 {
   blSat = param.asInt();//sat
-  colorHStoRGB(blHue*10,blSat,(false)? colSec:col);
+  colorHStoRGB(blHue*10,blSat,col);
   colorUpdated(CALL_MODE_BLYNK);
 }
 
 BLYNK_WRITE(V3)
 {
   bool on = (param.asInt()>0);
-  if (!on != !bri) {toggleOnOff(); colorUpdated(CALL_MODE_BLYNK);}
+  if (!on != !bri) {toggleOnOff(); stateUpdated(CALL_MODE_BLYNK);}
 }
 
 BLYNK_WRITE(V4)

@@ -1,6 +1,6 @@
 {
   "name": "wled",
-  "version": "0.13.0-b6",
+  "version": "0.13.2-a0",
   "description": "Tools for WLED project",
   "main": "tools/cdata.js",
   "directories": {

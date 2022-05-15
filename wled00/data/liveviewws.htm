@@ -24,40 +24,43 @@
     function updatePreview(leds) {
       var str = "linear-gradient(90deg,";
       var len = leds.length;        
-      for (i = 0; i < len; i++) {
-        var leddata = leds[i];
-        if (leddata.length > 6) leddata = leddata.substring(2);
-        str += "#" + leddata;
-        if (i < len -1) str += ","
+      for (i = 2; i < len; i+=3) {
+        str += `rgb(${leds[i]},${leds[i+1]},${leds[i+2]})`;
+        if (i < len -3) str += ","
       }
       str += ")";
       document.getElementById("canv").style.background = str;
     }
 
-    function getLiveJson(event) {
+    function getLiveJson(e) {
       try {
-        var json = JSON.parse(event.data);
-        if (json && json.leds) {
-          requestAnimationFrame(function () {updatePreview(json.leds);});
-        } 
+        if (toString.call(e.data) === '[object ArrayBuffer]') {
+          let leds = new Uint8Array(event.data);
+          if (leds[0] != 76) return; //'L'
+          updatePreview(leds);
+        }
       }
       catch (err) {
-        console.error("Live-Preview ws error:",err);
+        console.error("Peek WS error:",err);
       } 
     }
 
-    var ws = top.window.ws;
+    var ws;
+    try {
+      ws = top.window.ws;
+    } catch (e) {}
     if (ws && ws.readyState === WebSocket.OPEN) {
-      console.info("Use top WS for peek");
+      console.info("Peek uses top WS");
       ws.send("{'lv':true}");
     } else {
-      console.info("Peek ws opening");
-      ws = new WebSocket("ws://"+document.location.host+"/ws");
+      console.info("Peek WS opening");
+      ws = new WebSocket((window.location.protocol == "https:"?"wss":"ws")+"://"+document.location.host+"/ws");
       ws.onopen = function () {
-        console.info("Peek WS opened");
+        console.info("Peek WS open");
         ws.send("{'lv':true}");
       }
     }
+    ws.binaryType = "arraybuffer";
     ws.addEventListener('message',getLiveJson);
   </script>
 </body>

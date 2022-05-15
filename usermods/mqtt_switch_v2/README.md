@@ -1,3 +1,7 @@
+# DEPRECATION NOTICE
+This usermod is deprecated and no longer maintained. It will be removed in a future WLED release. Please use usermod multi_relay which has more features.
+
+
 # MQTT controllable switches
 This usermod allows controlling switches (e.g. relays) via MQTT.
 

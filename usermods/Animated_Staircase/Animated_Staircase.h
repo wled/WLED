@@ -111,17 +111,17 @@ class Animated_Staircase : public Usermod {
         }
 
         if (i >= onIndex && i < offIndex) {
-          segments->setOption(SEG_OPTION_ON, 1, 1);
+          segments->setOption(SEG_OPTION_ON, 1, i);
 
           // We may need to copy mode and colors from segment 0 to make sure
           // changes are propagated even when the config is changed during a wipe
           // segments->mode = mainsegment.mode;
           // segments->colors[0] = mainsegment.colors[0];
         } else {
-          segments->setOption(SEG_OPTION_ON, 0, 1);
+          segments->setOption(SEG_OPTION_ON, 0, i);
         }
         // Always mark segments as "transitional", we are animating the staircase
-        segments->setOption(SEG_OPTION_TRANSITIONAL, 1, 1);
+        segments->setOption(SEG_OPTION_TRANSITIONAL, 1, i);
       }
       colorUpdated(CALL_MODE_DIRECT_CHANGE);
     }
@@ -296,7 +296,7 @@ class Animated_Staircase : public Usermod {
             maxSegmentId = i - 1;
             break;
           }
-          segments->setOption(SEG_OPTION_ON, 1, 1);
+          segments->setOption(SEG_OPTION_ON, 1, i);
         }
         colorUpdated(CALL_MODE_DIRECT_CHANGE);
         DEBUG_PRINTLN(F("Animated Staircase disabled."));
@@ -508,10 +508,10 @@ class Animated_Staircase : public Usermod {
       JsonArray usermodEnabled = staircase.createNestedArray(F("Staircase"));  // name
       String btn = F("<button class=\"btn infobtn\" onclick=\"requestJson({staircase:{enabled:");
       if (enabled) {
-        btn += F("false}},false,false);loadInfo();\">");
+        btn += F("false}});\">");
         btn += F("enabled");
       } else {
-        btn += F("true}},false,false);loadInfo();\">");
+        btn += F("true}});\">");
         btn += F("disabled");
       }
       btn += F("</button>");

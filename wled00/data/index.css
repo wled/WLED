@@ -45,12 +45,10 @@ body {
 	text-align: center;
 	-webkit-touch-callout: none;
 		-webkit-user-select: none;
-			 -moz-user-select: none;
-				-ms-user-select: none;
 						user-select: none;
 	-webkit-tap-highlight-color: transparent;
-  scrollbar-width: 6px;
-  scrollbar-color: var(--c-sb) transparent;
+	scrollbar-width: 6px;
+	scrollbar-color: var(--c-sb) transparent;
 }
 
 html,
@@ -93,7 +91,7 @@ button {
 	bottom: calc(var(--bh) + 6px);
 	right: 4px;
 	color: var(--c-6);
-  cursor: pointer;
+	cursor: pointer;
 	writing-mode: vertical-rl;
 }
 
@@ -126,11 +124,6 @@ button {
 .infot {
 	table-layout: fixed;
 	width: 100%;
-}
-
-.segt {
-	table-layout: fixed;
-	width: 76%;
 }
 
 .segtd {
@@ -167,25 +160,25 @@ button {
 }
 
 .edit-icon {
-  position: absolute;
-  right: -26px;
-  top: 10px;
-  display: none;
+	position: absolute;
+	right: -26px;
+	top: 10px;
+	display: none;
 }
 
 .search-icon {
-  position: absolute;
-  left: 8px;
-  top: 10px;
-  pointer-events: none;
+	position: absolute;
+	left: 8px;
+	top: 10px;
+	pointer-events: none;
 }
 
 .search-cancel-icon {
-  position: absolute;
-  right: 8px;
-  top: 9px;
-  cursor: pointer;
-  display: none;
+	position: absolute;
+	right: 8px;
+	top: 9px;
+	cursor: pointer;
+	display: none;
 }
 
 .flr {
@@ -286,7 +279,7 @@ button {
 	padding-top: 0;
 	margin-top: 11px;
 	height: calc(100% - 11px);
-  -webkit-overflow-scrolling: touch;
+	-webkit-overflow-scrolling: touch;
 }
 
 .smooth { transition: transform	calc(var(--f, 1)*.5s) ease-out }
@@ -294,6 +287,7 @@ button {
 .tab-label {
 	margin: 0 0 -5px 0;
 	padding-bottom: 4px;
+	display: var(--bhd);
 }
 
 .overlay {
@@ -332,7 +326,7 @@ button {
 
 #fxb0 {
 	margin-bottom: 2px;
-  filter: drop-shadow(0 0 1px #000);
+	filter: drop-shadow(0 0 1px #000);
 }
 
 .first {
@@ -381,6 +375,10 @@ button {
 	overflow: auto;
 }
 
+.modal button:hover {
+	background-color: var(--c-4);
+}
+
 #info {
 	z-index: 3;
 }
@@ -390,7 +388,7 @@ button {
 }
 
 #ndlt {
-  margin: 12px 0;
+	margin: 12px 0;
 }
 
 .valtd i {
@@ -426,7 +424,7 @@ button {
 }
 
 #kn td {
-  padding-bottom: 12px;
+	padding-bottom: 12px;
 }
 
 #lv {
@@ -465,27 +463,27 @@ img {
 	border-radius: 17px;
 	pointer-events: none;
 	z-index: -1;
-  --bg: var(--c-f);
+	--bg: var(--c-f);
 }
 
 #rwrap .sliderdisplay { --bg: #f00; }
 #gwrap .sliderdisplay { --bg: #0f0; }
 #bwrap .sliderdisplay { --bg: #00f; }
 #wbal .sliderdisplay, #kwrap .sliderdisplay {
-  background: linear-gradient(90deg, #ff8f1f 0%, #fff 50%, #cbdbff);
+	background: linear-gradient(90deg, #ff8f1f 0%, #fff 50%, #cbdbff);
 }
 
 .sliderbubble {
-    width: 36px;
-    line-height: 24px;
-    background: var(--c-3);
-    position: absolute;
-    transform: translateX(-50%);
-    border-radius: 12px;
-    margin-left: 12px;
-    margin-top: 3px;
-    padding: 0px;
-    display: inline;
+	width: 36px;
+	line-height: 24px;
+	background: var(--c-3);
+	position: absolute;
+	transform: translateX(-50%);
+	border-radius: 12px;
+	margin-left: 12px;
+	margin-top: 3px;
+	padding: 0px;
+	display: inline;
 }
 
 .hidden {
@@ -536,28 +534,29 @@ input[type=range]:active + .sliderbubble {
 	display: inline;
 	transform: translateX(-50%);
 }
-#wwrap, #wbal {
+/* hide color controls until enabled in updateUI() */
+#pwrap, #wwrap, #wbal, #rgbwrap, #palwrap {
 	display: none;
 }
 
+/* Slider wrapper div */
 .sliderwrap {
 	height: 30px;
 	width: 240px;
 	position: relative;
 }
 
+/* Segment power button + brightness slider wrapper div */
 .sbs {
 	margin: 0px -20px 5px -6px;
 }
 
+/* Segment brightness slider wrapper div */
 .sws {
-	width: 230px;
+	margin-left: -7px;
 }
 
-.sis {
-	width: 214px !important;
-}
-
+/* Dynamically hide brightness slider label */
 .hd {
 	display: var(--bhd);
 }
@@ -572,10 +571,6 @@ input[type=range]:active + .sliderbubble {
 	width: 260px;
 }
 
-#rgbwrap {
-	display: none;
-}
-
 .btn {
 	padding: 8px;
 	margin: 10px;
@@ -583,14 +578,22 @@ input[type=range]:active + .sliderbubble {
 	font-size: 19px;
 	background-color: var(--c-3);
 	color: var(--c-f);
-  cursor: pointer;
+	cursor: pointer;
 	border: 0px solid white;
 	border-radius: 25px;
 	transition-duration: 0.5s;
-	-webkit-backface-visibility: hidden;
-	-webkit-transform:translate3d(0,0,0);
+	/*-webkit-backface-visibility: hidden;
+	-webkit-transform:translate3d(0,0,0);*/
 }
 
+/* Small round button (color selectors, icon-only round buttons) */
+.xxs {
+	width: 40px;
+	height: 40px;
+	margin: 6px;
+}
+
+/* Segments/presets auxiliary buttons (Add segment, Create preset, ...) */
 .btn-s {
 	width: 276px;
 	background-color: var(--c-2);
@@ -602,60 +605,80 @@ input[type=range]:active + .sliderbubble {
 	margin: 0px 8px 4px 0;
 	vertical-align: middle;
 }
-.btna-icon {
-	margin: 0px;
-}
+
+/* Wide button used in presets (Save, playlist test, delete) */
 .btn-p {
 	width: 216px;
 }
-.btn-xs {
-  width: 39px;
-	margin: 2px 0 0 0;
+
+/* Delete preset from playlist button */
+.btn-pl-del {
+	margin: 0 0 0 3px;
 }
+
+/* Add preset to playlist "+" button */
 .btn-pl-add {
-	margin-left: 9px;
+	margin: 3px 0 0 8px;
 }
 
-
+/* Quick color select buttons wrapper div */
 #qcs-w {
 	margin-top: 10px;
+	display: none;
 }
+
+/* Quick color select buttons */
 .qcs {
 	padding: 14px;
 	margin: 2px;
 	border-radius: 14px;
 	display: inline-block;
 }
+
+/* Quick color select Black button (has white border) */
 .qcsb {
 	padding: 13px;
 	border: 1px solid var(--c-f);
 }
+
+/* Hex color input wrapper div */
 #hexw {
 	margin-top: 5px;
 	display: none;
 }
+
+/* Transition time input */
 #tt {
-  text-align: center;
+	text-align: center;
 }
 
+/* Color slot select buttons (1,2,3) */
 .cl {
-	width: 42px;
+	width: 38.5px;
+	height: 38.5px;
+	margin: 7px;
+	background-color: #000;
+	box-shadow: 0 0 0 1.5px #fff;
+}
+.selected.cl {
+	box-shadow: 0 0 0 5px #fff;
 }
 
+/* Playlist preset select */
 .sel-pl {
-  width: 192px;
-  background-position: 168px 16px;
-  margin: 8px 7px 0 0;
+	width: 192px;
+	background-position: 168px 16px;
+	margin: 8px 3px 0 0;
 }
 
+/* Playlist end preset select */
 .sel-ple {
 	width: 216px;
-  background-position: 192px 16px;
+	background-position: 192px 16px;
 }
 
 select {
 	-webkit-appearance: none;
-	-moz-appearance: none;
 	appearance: none;
 	background: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='100' fill='white'><polygon points='0,0 100,0 50,50'/></svg>") no-repeat;
 	background-size: 12px;
@@ -686,7 +709,6 @@ input[type=number], input[type=text] {
 	outline: none;
 	width: 50px;
 	-webkit-appearance: textfield;
-		 -moz-appearance: textfield;
 					appearance: textfield;
 }
 
@@ -703,7 +725,7 @@ textarea {
 }
 
 ::selection {
-  background: var(--c-b);
+	background: var(--c-b);
 }
 
 input[type=text] {
@@ -711,18 +733,18 @@ input[type=text] {
 	text-align: center;
 }
 
-.ptxt {
-	width: 200px !important;
-	margin: 26px 0 6px 12px !important;
+input[type=text].ptxt {
+	width: 200px;
+	margin: 26px 0 6px 12px;
 }
 
-.stxt {
-  display: none;
-	margin-top: 6px !important;
+input[type=text].stxt {
+	display: none;
+	margin-top: 6px;
 }
 
-.qltxt {
-	width: 50px !important;
+input[type=text].qltxt {
+	width: 50px;
 }
 
 input[type=number]:focus, input[type=text]:focus {
@@ -751,42 +773,50 @@ input[type=number]::-webkit-outer-spin-button {
 }
 
 .segn {
-  border-radius: 5px !important;
+	border-radius: 5px !important;
 	margin: 3px 0 6px 0 !important;
 }
 
-.segname {
+.pname, .plname, .segname {
 	position: absolute;
-	top: 0px;
 	left: 50%;
-	padding: 9px 0;
 	transform: translateX(-50%);
 	white-space: nowrap;
 	cursor: pointer;
 }
 
 .segntxt {
-  max-width: 160px;
-  overflow: hidden;
-  text-overflow: clip;
+	max-width: 160px;
+	overflow: hidden;
+	text-overflow: clip;
 }
 
-.pname {
+.segname {
+	top: 0px;
+	padding: 9px 0;
+}
+.pname, .plname {
 	width: 208px;
 	padding: 8px 0;
 	text-align: center;
 	overflow: hidden;
 	text-overflow: clip;
 }
+.pname {
+	top: 1px;
+}
+.plname {
+	top:0;
+}
 
 .pid {
-  position: absolute;
-  top: 0px;
-  left: 0px;
-  padding: 11px 0px 0px 11px;
-  font-size: 16px;
-  width: 20px;
-  text-align: center;
+	position: absolute;
+	top: 0px;
+	left: 0px;
+	padding: 11px 0px 0px 11px;
+	font-size: 16px;
+	width: 20px;
+	text-align: center;
 	color: var(--c-b);
 }
 
@@ -798,11 +828,7 @@ input[type=number]::-webkit-outer-spin-button {
 	padding: 6px 0 0 0;
 }
 
-.xxs {
-	width: 40px;
-	margin: 6px;
-}
-
+/* Quick preset select buttons */
 .psts {
 	background-color: var(--c-3);
 	color: var(--c-f);
@@ -811,20 +837,17 @@ input[type=number]::-webkit-outer-spin-button {
 	height: 40px;
 }
 
+/* Segment apply button (checkmark) */
 .cnf {
 	color: var(--c-f);
 	cursor: pointer;
 	background: var(--c-3);
 	border-radius: 5px;
+	padding: 8.5px 21px 5px;
+	display: inline;
 }
 
-.cnf-s {
-	position: absolute;
-	bottom: 100px;
-	right: 23px;
-	padding: 7px 22px;
-}
-
+/* Segment power button icon */
 .pwr {
 	color: var(--c-6);
 	transform: translate(2px, 3px);
@@ -835,17 +858,23 @@ input[type=number]::-webkit-outer-spin-button {
 	color: var(--c-f);
 }
 
-.half {
-	padding: 7.5px;
-	bottom: 35px;
-}
-
 .del {
 	position: absolute;
 	bottom: 8px;
 	right: 8px;
-	color: var(--c-f);
+}
+
+.frz {
+	left: 36px;
+	position: absolute;
+	top: 0px;
 	cursor: pointer;
+	padding: 8px;
+}
+
+/* TODO expanded does not seem to apply to .frz, what is this for? */
+.expanded .frz {
+	display: none;
 }
 
 .check, .radio {
@@ -869,9 +898,9 @@ input[type=number]::-webkit-outer-spin-button {
 }
 
 .fxchkl {
-  position: absolute;
-  top: 0px;
-  left: 8px;
+	position: absolute;
+	top: 0px;
+	left: 8px;
 }
 
 .check input, .radio input {
@@ -884,19 +913,22 @@ input[type=number]::-webkit-outer-spin-button {
 
 .checkmark, .radiomark {
 	position: absolute;
-	bottom: 0;
 	left: 0;
-	height: 25px;
-	width: 25px;
-	background-color: var(--c-3);
+	height: 24px;
+	width: 24px;
+	background-color: var(--c-4);
 	border-radius: 10px;
+	/*border: 1px solid var(--c-2);*/
+}
+
+.checkmark {
+	top: 6px;
 }
 
 .radiomark {
-	height: 24px;
-	width: 24px;
 	border-radius: 50%;
-  background-color: transparent;
+	background-color: transparent;
+	top: 7px;
 }
 
 .schk {
@@ -918,7 +950,7 @@ input[type=number]::-webkit-outer-spin-button {
 
 
 .check:hover input ~ .checkmark {
-	background-color: var(--c-4);
+	background-color: var(--c-5);
 }
 
 .check input:checked ~ .checkmark {
@@ -936,8 +968,8 @@ input[type=number]::-webkit-outer-spin-button {
 }
 
 .check .checkmark:after {
-	left: 9px;
-	top: 5px;
+	left: 8px;
+	top: 4px;
 	width: 5px;
 	height: 10px;
 	border: solid var(--c-f);
@@ -967,7 +999,7 @@ input[type=number]::-webkit-outer-spin-button {
 	margin-bottom: 5px;
 }
 
-.seg {
+.seg, .pres {
 	position: relative;
 	display: inline-block;
 	padding: 8px;
@@ -980,29 +1012,41 @@ input[type=number]::-webkit-outer-spin-button {
 	border-radius: 20px;
 	text-align: left;
 	transition: background-color 0.5s;
-  	filter: brightness(1);
+	filter: brightness(1); /* required for slider background to render? */
+}
+
+.selected {
+	background-color: var(--c-4);
+}
+/* "selected" CSS class is applied to the segment when it is the main segment.
+	By default, do not highlight. Can be overridden by skin.css */
+.selected.seg {
+	background-color: var(--c-2); /* var(--c-4); */
+}
+.selected .checkmark, .selected .radiokmark {
+	background-color: var(--c-4); /* var(--c-6); */
 }
 
 .list {
 	position: relative;
 	transition: background-color 0.5s;
-  margin: auto auto 10px;
-  padding-bottom: 10px;
-  width: 230px;
+	margin: auto auto 10px;
+	padding-bottom: 10px;
+	width: 230px;
 }
 
 .lstI {
-  position: sticky;
-  overflow: hidden;
+	position: sticky;
+	overflow: hidden;
 }
 
 .fxbtn {
-  margin: 20px auto;
-  padding: 8px 0;
+	margin: 20px auto;
+	padding: 8px 0;
 }
 
 .lstI:hover {
-    background: var(--c-4);
+	background: var(--c-4);
 }
 
 .lstI:last-child {
@@ -1025,7 +1069,7 @@ input[type=number]::-webkit-outer-spin-button {
 .lstI.selected {
 	background: var(--c-5);
 	top: 95px;
-  bottom: -11px;
+	bottom: -11px;
 }
 
 .lstI.sticky {
@@ -1036,26 +1080,26 @@ input[type=number]::-webkit-outer-spin-button {
 	margin: 3px 0;
 	white-space: nowrap;
 	cursor: pointer;
-  font-size: 19px;
+	font-size: 19px;
 }
 
 .lstIprev {
 	width: 220px;
 	height: 5px;
 	margin: auto;
-  position: absolute;
-  bottom: 0px;
-  left: 5px;
+	position: absolute;
+	bottom: 0px;
+	left: 5px;
 }
 
 input[type="text"].search {
 	display: block;
 	width: 230px;
 	box-sizing: border-box;
-  padding: 8px 8px 9px 38px;
-  margin: 6px auto 0 auto;
+	padding: 8px 8px 9px 38px;
+	margin: 6px auto 0 auto;
 	text-align: left;
-  background-color: var(--c-3);
+	background-color: var(--c-3);
 }
 
 input[type="text"].search:focus {
@@ -1093,9 +1137,13 @@ input[type="text"].search:not(:placeholder-shown) {
 }
 
 .hrz {
-  width: auto;
-  height: 2px;
-  background-color: var(--c-b);
+	width: auto;
+	height: 2px;
+	background-color: var(--c-b);
+}
+
+.no-margin {
+	margin: 0;
 }
 
 ::-webkit-scrollbar {
@@ -1115,8 +1163,8 @@ input[type="text"].search:not(:placeholder-shown) {
 
 @media all and (max-width: 335px) {
 	.sliderbubble {
-    display: none;
-  }
+		display: none;
+	}
 }
 
 @media all and (max-width: 550px) and (min-width: 374px) {
@@ -1141,6 +1189,6 @@ input[type="text"].search:not(:placeholder-shown) {
 
 @media all and (max-width: 1249px) {
 	#buttonPcm {
-	display: none;
+		display: none;
 	}
 }

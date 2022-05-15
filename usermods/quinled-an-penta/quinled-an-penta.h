@@ -61,10 +61,10 @@ class QuinLEDAnPentaUsermod : public Usermod
     float shtLastKnownHumidity = 0;
 
     // Pin/IO vars
-    const int8_t anPentaPins[5] = {14, 13, 12, 4, 2};
+    const int8_t anPentaLEDPins[5] = {14, 13, 12, 4, 2};
     int8_t oledSpiClk = 15;
     int8_t oledSpiData = 16;
-    int8_t oledSpiCs = 0;
+    int8_t oledSpiCs = 27;
     int8_t oledSpiDc = 32;
     int8_t oledSpiRst = 33;
     int8_t shtSda = 1;
@@ -75,7 +75,7 @@ class QuinLEDAnPentaUsermod : public Usermod
     {
       for(int8_t i = 0; i <= 4; i++)
       {
-        if(anPentaPins[i] == pin)
+        if(anPentaLEDPins[i] == pin)
           return true;
       }
       return false;
@@ -313,7 +313,7 @@ class QuinLEDAnPentaUsermod : public Usermod
             byte drawnLines = 0;
             for (int8_t app = 0; app <= 4; app++) {
               for (int8_t clp = 0; clp <= 4; clp++) {
-                if (anPentaPins[app] == currentLedPins[clp]) {
+                if (anPentaLEDPins[app] == currentLedPins[clp]) {
                   char charCurrentLedcReads[17];
                   sprintf(charCurrentLedcReads, "LED %d:", app+1);
                   if (oledUseProgressBars) {

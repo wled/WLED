@@ -64,7 +64,7 @@ class AutoSaveUsermod : public Usermod {
         PSTR("~ %02d-%02d %02d:%02d:%02d ~"),
         month(localTime), day(localTime),
         hour(localTime), minute(localTime), second(localTime));
-      savePreset(autoSavePreset, true, presetNameBuffer);
+      savePreset(autoSavePreset, presetNameBuffer);
     }
 
     void inline displayOverlay() {
@@ -91,8 +91,8 @@ class AutoSaveUsermod : public Usermod {
       knownBrightness = bri;
       knownEffectSpeed = effectSpeed;
       knownEffectIntensity = effectIntensity;
-      knownMode = strip.getMode();
-      knownPalette = strip.getSegment(0).palette;
+      knownMode = strip.getMainSegment().mode;
+      knownPalette = strip.getMainSegment().palette;
     }
 
     // gets called every time WiFi is (re-)connected. Initialize own network
@@ -106,8 +106,8 @@ class AutoSaveUsermod : public Usermod {
       if (!autoSaveAfterSec || !enabled || strip.isUpdating() || currentPreset>0) return;  // setting 0 as autosave seconds disables autosave
 
       unsigned long now = millis();
-      uint8_t currentMode = strip.getMode();
-      uint8_t currentPalette = strip.getSegment(0).palette;
+      uint8_t currentMode = strip.getMainSegment().mode;
+      uint8_t currentPalette = strip.getMainSegment().palette;
 
       unsigned long wouldAutoSaveAfter = now + autoSaveAfterSec*1000;
       if (knownBrightness != bri) {

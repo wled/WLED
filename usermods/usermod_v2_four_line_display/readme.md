@@ -31,9 +31,33 @@ This usermod requires the `U8g2` and `Wire` libraries. See the
 `platformio_override.ini.sample` found in the Rotary Encoder
 UI usermod folder for how to include these using `platformio_override.ini`.
 
+## Configuration
+
+* `enabled` - enable/disable usermod
+* `pin` - GPIO pins used for display; I2C displays use Clk & Data; SPI displays can use SCK, MOSI, CS, DC & RST
+* `type` - display type in numeric format
+    * 1 = I2C SSD1306 128x32
+    * 2 = I2C SH1106 128x32
+    * 3 = I2C SSD1306 128x64 (4 double-height lines)
+    * 4 = I2C SSD1305 128x32
+    * 5 = I2C SSD1305 128x64 (4 double-height lines)
+    * 6 = SPI SSD1306 128x32
+    * 7 = SPI SSD1306 128x64 (4 double-height lines)
+* `contrast` - set display contrast (higher contrast may reduce display lifetime)
+* `refreshRateSec` - time in seconds for display refresh
+* `screenTimeOutSec` - screen saver time-out in seconds
+* `flip` - flip/rotate display 180°
+* `sleepMode` - enable/disable screen saver
+* `clockMode` - enable/disable clock display in screen saver mode
+* `i2c-freq-kHz` - I2C clock frequency in kHz (may help reduce dropped frames, range: 400-3400)
+
 ## Change Log
 
 2021-02
 * First public release
+
 2021-04
 * Adaptation for runtime configuration.
+
+2021-11
+* Added configuration option description.

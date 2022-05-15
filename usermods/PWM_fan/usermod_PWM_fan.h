@@ -10,6 +10,13 @@
 // https://github.com/KlausMu/esp32-fan-controller/tree/main/src
 // adapted for WLED usermod by @blazoncek
 
+#ifndef TACHO_PIN
+  #define TACHO_PIN -1
+#endif
+
+#ifndef PWM_PIN
+  #define PWM_PIN -1
+#endif
 
 // tacho counter
 static volatile unsigned long counter_rpm = 0;
@@ -37,8 +44,8 @@ class PWMFanUsermod : public Usermod {
     #endif
 
     // configurable parameters
-    int8_t  tachoPin          = -1;
-    int8_t  pwmPin            = -1;
+    int8_t  tachoPin          = TACHO_PIN;
+    int8_t  pwmPin            = PWM_PIN;
     uint8_t tachoUpdateSec    = 30;
     float   targetTemperature = 25.0;
     uint8_t minPWMValuePct    = 50;

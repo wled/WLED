@@ -15,12 +15,16 @@ void handleAlexa();
 void onAlexaChange(EspalexaDevice* dev);
 
 //blynk.cpp
+#ifndef WLED_DISABLE_BLYNK
 void initBlynk(const char* auth, const char* host, uint16_t port);
 void handleBlynk();
 void updateBlynk();
+#endif
 
 //button.cpp
 void shortPressAction(uint8_t b=0);
+void longPressAction(uint8_t b=0);
+void doublePressAction(uint8_t b=0);
 bool isButtonPressed(uint8_t b=0);
 void handleButton();
 void handleIO();
@@ -54,10 +58,7 @@ bool getJsonValue(const JsonVariant& element, DestType& destination, const Defau
 
 
 //colors.cpp
-void colorFromUint32(uint32_t in, bool secondary = false);
-void colorFromUint24(uint32_t in, bool secondary = false);
-uint32_t colorFromRgbw(byte* rgbw);
-void relativeChangeWhite(int8_t amount, byte lowerBoundary = 0);
+inline uint32_t colorFromRgbw(byte* rgbw) { return uint32_t((byte(rgbw[3]) << 24) | (byte(rgbw[0]) << 16) | (byte(rgbw[1]) << 8) | (byte(rgbw[2]))); }
 void colorHStoRGB(uint16_t hue, byte sat, byte* rgb); //hue, sat to rgb
 void colorKtoRGB(uint16_t kelvin, byte* rgb);
 void colorCTtoRGB(uint16_t mired, byte* rgb); //white spectrum to rgb
@@ -70,6 +71,8 @@ bool colorFromHexString(byte* rgb, const char* in);
 
 uint32_t colorBalanceFromKelvin(uint16_t kelvin, uint32_t rgb);
 uint16_t approximateKelvinFromRGB(uint32_t rgb);
+
+void setRandomColor(byte* rgb);
 
 //dmx.cpp
 void initDMX();
@@ -102,11 +105,9 @@ void sendImprovInfoResponse();
 void sendImprovRPCResponse(uint8_t commandId);
 
 //ir.cpp
-bool decodeIRCustom(uint32_t code);
+//bool decodeIRCustom(uint32_t code);
 void applyRepeatActions();
-void relativeChange(byte* property, int8_t amount, byte lowerBoundary = 0, byte higherBoundary = 0xFF);
-void changeEffectSpeed(int8_t amount);
-void changeEffectIntensity(int8_t amount);
+byte relativeChange(byte property, int8_t amount, byte lowerBoundary = 0, byte higherBoundary = 0xFF);
 void decodeIR(uint32_t code);
 void decodeIR24(uint32_t code);
 void decodeIR24OLD(uint32_t code);
@@ -133,16 +134,21 @@ void serializeSegment(JsonObject& root, WS2812FX::Segment& seg, byte id, bool fo
 void serializeState(JsonObject root, bool forPreset = false, bool includeBri = true, bool segmentBounds = true);
 void serializeInfo(JsonObject root);
 void serveJson(AsyncWebServerRequest* request);
+#ifdef WLED_ENABLE_JSONLIVE
 bool serveLiveLeds(AsyncWebServerRequest* request, uint32_t wsClient = 0);
+#endif
 
 //led.cpp
+void setValuesFromSegment(uint8_t s);
 void setValuesFromMainSeg();
+void setValuesFromFirstSelectedSeg();
 void resetTimebase();
 void toggleOnOff();
-void setAllLeds();
-void setLedsStandard();
-bool colorChanged();
-void colorUpdated(int callMode);
+void applyBri();
+void applyFinalBri();
+void applyValuesToSelectedSegs();
+void colorUpdated(byte callMode);
+void stateUpdated(byte callMode);
 void updateInterfaces(uint8_t callMode);
 void handleTransitions();
 void handleNightlight();
@@ -171,16 +177,9 @@ void calculateSunriseAndSunset();
 void setTimeFromAPI(uint32_t timein);
 
 //overlay.cpp
-void initCronixie();
-void handleOverlays();
 void handleOverlayDraw();
 void _overlayAnalogCountdown();
 void _overlayAnalogClock();
-
-byte getSameCodeLength(char code, int index, char const cronixieDisplay[]);
-void setCronixie();
-void _overlayCronixie();    
-void _drawOverlayCronixie();
 
 //playlist.cpp
 void shufflePlaylist();
@@ -190,11 +189,12 @@ void handlePlaylist();
 
 //presets.cpp
 bool applyPreset(byte index, byte callMode = CALL_MODE_DIRECT_CHANGE);
-void savePreset(byte index, bool persist = true, const char* pname = nullptr, JsonObject saveobj = JsonObject());
+inline bool applyTemporaryPreset() {return applyPreset(255);};
+void savePreset(byte index, const char* pname = nullptr, JsonObject saveobj = JsonObject());
+inline void saveTemporaryPreset() {savePreset(255);};
 void deletePreset(byte index);
 
 //set.cpp
-void _setRandomColor(bool _sec,bool fromButton=false);
 bool isAsterisksOnly(const char* str, byte maxLen);
 void handleSettingsSet(AsyncWebServerRequest *request, byte subPage);
 bool handleSet(AsyncWebServerRequest *request, const String& req, bool apply=true);
@@ -206,6 +206,7 @@ bool updateVal(const String* req, const char* key, byte* val, byte minv=0, byte 
 void notify(byte callMode, bool followUp=false);
 uint8_t realtimeBroadcast(uint8_t type, IPAddress client, uint16_t length, byte *buffer, uint8_t bri=255, bool isRGBW=false);
 void realtimeLock(uint32_t timeoutMs, byte md = REALTIME_MODE_GENERIC);
+void exitRealtime();
 void handleNotifications();
 void setRealtimePixel(uint16_t i, byte r, byte g, byte b, byte w);
 void refreshNodeList();
@@ -217,10 +218,10 @@ void sendSysInfoUDP();
 //void sappend(char stype, const char* key, int val);
 //void sappends(char stype, const char* key, char* val);
 //void prepareHostname(char* hostname);
-//void _setRandomColor(bool _sec, bool fromButton);
 //bool isAsterisksOnly(const char* str, byte maxLen);
 bool requestJSONBufferLock(uint8_t module=255);
 void releaseJSONBufferLock();
+uint8_t extractModeName(uint8_t mode, const char *src, char *dest, uint8_t maxLen);
 
 //um_manager.cpp
 class Usermod {
@@ -279,6 +280,7 @@ void clearEEPROM();
 
 //wled_serial.cpp
 void handleSerial();
+void updateBaudRate(uint32_t rate);
 
 //wled_server.cpp
 bool isIp(String str);

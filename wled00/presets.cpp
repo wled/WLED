@@ -50,11 +50,13 @@ bool applyPreset(byte index, byte callMode)
   return false;
 }
 
-void savePreset(byte index, bool persist, const char* pname, JsonObject saveobj)
+void savePreset(byte index, const char* pname, JsonObject saveobj)
 {
-  if (index == 0 || (index > 250 && persist) || (index<255 && !persist)) return;
+  if (index == 0 || (index > 250 && index < 255)) return;
+  char tmp[12];
   JsonObject sObj = saveobj;
 
+  bool persist = (index != 255);
   const char *filename = persist ? "/presets.json" : "/tmp.json";
 
   if (!fileDoc) {
@@ -65,7 +67,11 @@ void savePreset(byte index, bool persist, const char* pname, JsonObject saveobj)
     if (!requestJSONBufferLock(10)) return;
     #endif
     sObj = doc.to<JsonObject>();
-    if (pname) sObj["n"] = pname;
+
+    if (sObj["n"].isNull() && pname == nullptr) {
+      sprintf_P(tmp, PSTR("Preset %d"), index);
+      sObj["n"] = tmp;
+    } else if (pname) sObj["n"] = pname;
 
     DEBUGFS_PRINTLN(F("Save current state"));
     serializeState(sObj, true);

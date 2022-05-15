@@ -25,6 +25,7 @@
 */
 
 #include "FX.h"
+#include "wled.h"
 
 #include <algorithm>
 #include <iterator>
@@ -983,11 +984,11 @@ uint16_t WS2812FX::running(uint32_t color1, uint32_t color2, bool theatre) {
         setPixelColor(i, col);
     }
 
-    if (it != SEGENV.step) {
-        SEGENV.aux0 = (SEGENV.aux0 + 1) % (theatre ? width : (width << 1));
-        SEGENV.step = it;
-    }
-    return FRAMETIME;
+  if (it != SEGENV.step) {
+    SEGENV.aux0 = (SEGENV.aux0 +1) % (theatre ? width : (width<<1));
+    SEGENV.step = it;
+  }
+  return FRAMETIME;
 }
 
 /*
@@ -1012,28 +1013,35 @@ uint16_t WS2812FX::mode_halloween(void) {
 }
 
 /*
- * Random colored pixels running.
+ * Random colored pixels running. ("Stream")
  */
 uint16_t WS2812FX::mode_running_random(void) {
-    uint32_t cycleTime = 25 + (3 * (uint32_t)(255 - SEGMENT.speed));
-    uint32_t it = now / cycleTime;
-    if (SEGENV.aux1 == it) {
-        return FRAMETIME;
-    }
+  uint32_t cycleTime = 25 + (3 * (uint32_t)(255 - SEGMENT.speed));
+  uint32_t it = now / cycleTime;
+  if (SEGENV.call == 0) SEGENV.aux0 = random16(); // random seed for PRNG on start
 
-    for (uint16_t i = SEGLEN - 1; i > 0; i--) {
-        setPixelColor(i, getPixelColor(i - 1));
-    }
+  uint8_t zoneSize = ((255-SEGMENT.intensity) >> 4) +1;
+  uint16_t PRNG16 = SEGENV.aux0;
 
-    if (SEGENV.step == 0) {
-        SEGENV.aux0 = get_random_wheel_index(SEGENV.aux0);
-        setPixelColor(0, color_wheel(SEGENV.aux0));
+  uint8_t z = it % zoneSize;
+  bool nzone = (!z && it != SEGENV.aux1);
+  for (uint16_t i=SEGLEN-1; i > 0; i--) {
+    if (nzone || z >= zoneSize) {
+      uint8_t lastrand = PRNG16 >> 8;
+      int16_t diff = 0;
+      while (abs(diff) < 42) { // make sure the difference between adjacent colors is big enough
+        PRNG16 = (uint16_t)(PRNG16 * 2053) + 13849; // next zone, next 'random' number
+        diff = (PRNG16 >> 8) - lastrand;
+      }
+      if (nzone) {
+        SEGENV.aux0 = PRNG16; // save next starting seed
+        nzone = false;
+      }
+      z = 0;
     }
-
-    SEGENV.step++;
-    if (SEGENV.step > (uint8_t)((255 - SEGMENT.intensity) >> 4)) {
-        SEGENV.step = 0;
-    }
+    setPixelColor(i, color_wheel(PRNG16 >> 8));
+    z++;
+  }
 
     SEGENV.aux1 = it;
     return FRAMETIME;
@@ -1604,30 +1612,37 @@ uint16_t WS2812FX::mode_dual_larson_scanner(void) {
 }
 
 /*
- * Running random pixels
+ * Running random pixels ("Stream 2")
  * Custom mode by Keith Lord: https://github.com/kitesurfer1404/WS2812FX/blob/master/src/custom/RandomChase.h
  */
-uint16_t WS2812FX::mode_random_chase(void) {
-    uint32_t cycleTime = 25 + (3 * (uint32_t)(255 - SEGMENT.speed));
-    uint32_t it = now / cycleTime;
-    if (SEGENV.step == it) {
-        return FRAMETIME;
-    }
+uint16_t WS2812FX::mode_random_chase(void)
+{
+  if (SEGENV.call == 0) {
+    SEGENV.step = RGBW32(random8(), random8(), random8(), 0);
+    SEGENV.aux0 = random16();
+  }
+  uint16_t prevSeed = random16_get_seed(); // save seed so we can restore it at the end of the function
+  uint32_t cycleTime = 25 + (3 * (uint32_t)(255 - SEGMENT.speed));
+  uint32_t it = now / cycleTime;
+  uint32_t color = SEGENV.step;
+  random16_set_seed(SEGENV.aux0);
 
-    for (uint16_t i = SEGLEN - 1; i > 0; i--) {
-        setPixelColor(i, getPixelColor(i - 1));
-    }
-    uint32_t color = getPixelColor(0);
-    if (SEGLEN > 1) {
-        color = getPixelColor(1);
-    }
+  for(uint16_t i = SEGLEN -1; i > 0; i--) {
     uint8_t r = random8(6) != 0 ? (color >> 16 & 0xFF) : random8();
-    uint8_t g = random8(6) != 0 ? (color >> 8 & 0xFF) : random8();
-    uint8_t b = random8(6) != 0 ? (color & 0xFF) : random8();
-    setPixelColor(0, r, g, b);
+    uint8_t g = random8(6) != 0 ? (color >> 8  & 0xFF) : random8();
+    uint8_t b = random8(6) != 0 ? (color       & 0xFF) : random8();
+    color = RGBW32(r, g, b, 0);
+    setPixelColor(i, r, g, b);
+    if (i == SEGLEN -1 && SEGENV.aux1 != (it & 0xFFFF)) { //new first color in next frame
+      SEGENV.step = color;
+      SEGENV.aux0 = random16_get_seed();
+    }
+  }
 
-    SEGENV.step = it;
-    return FRAMETIME;
+  SEGENV.aux1 = it & 0xFFFF;
+
+  random16_set_seed(prevSeed); // restore original seed so other effects can use "random" PRNG
+  return FRAMETIME;
 }
 
 //7 bytes
@@ -2090,7 +2105,7 @@ uint16_t WS2812FX::mode_colortwinkle() {
             }
         }
     }
-    return FRAMETIME;
+    return FRAMETIME_FIXED;
 }
 
 //Calm effect, like a lake at night
@@ -2317,57 +2332,57 @@ uint16_t WS2812FX::mode_ripple_rainbow(void) {
 // incandescent bulbs change color as they get dim down.
 #define COOL_LIKE_INCANDESCENT 1
 
-CRGB WS2812FX::twinklefox_one_twinkle(uint32_t ms, uint8_t salt, bool cat) {
-    // Overall twinkle speed (changed) {
-    uint16_t ticks = ms / SEGENV.aux0;
-    uint8_t fastcycle8 = ticks;
-    uint16_t slowcycle16 = (ticks >> 8) + salt;
-    slowcycle16 += sin8(slowcycle16);
-    slowcycle16 = (slowcycle16 * 2053) + 1384;
-    uint8_t slowcycle8 = (slowcycle16 & 0xFF) + (slowcycle16 >> 8);
+CRGB IRAM_ATTR WS2812FX::twinklefox_one_twinkle(uint32_t ms, uint8_t salt, bool cat)
+{
+  // Overall twinkle speed (changed)
+  uint16_t ticks = ms / SEGENV.aux0;
+  uint8_t fastcycle8 = ticks;
+  uint16_t slowcycle16 = (ticks >> 8) + salt;
+  slowcycle16 += sin8(slowcycle16);
+  slowcycle16 = (slowcycle16 * 2053) + 1384;
+  uint8_t slowcycle8 = (slowcycle16 & 0xFF) + (slowcycle16 >> 8);
+  
+  // Overall twinkle density.
+  // 0 (NONE lit) to 8 (ALL lit at once).
+  // Default is 5.
+  uint8_t twinkleDensity = (SEGMENT.intensity >> 5) +1;
 
-    // Overall twinkle density.
-    // 0 (NONE lit) to 8 (ALL lit at once).
-    // Default is 5.
-    uint8_t twinkleDensity = (SEGMENT.intensity >> 5) + 1;
-
-    uint8_t bright = 0;
-    if (((slowcycle8 & 0x0E) / 2) < twinkleDensity) {
-        uint8_t ph = fastcycle8;
-        // This is like 'triwave8', which produces a
-        // symmetrical up-and-down triangle sawtooth waveform, except that this
-        // function produces a triangle wave with a faster attack and a slower decay
-        if (cat)  //twinklecat, variant where the leds instantly turn on
-        {
-            bright = 255 - ph;
-        } else {  //vanilla twinklefox
-            if (ph < 86) {
-                bright = ph * 3;
-            } else {
-                ph -= 86;
-                bright = 255 - (ph + (ph / 2));
-            }
-        }
+  uint8_t bright = 0;
+  if (((slowcycle8 & 0x0E)/2) < twinkleDensity) {
+    uint8_t ph = fastcycle8;
+    // This is like 'triwave8', which produces a
+    // symmetrical up-and-down triangle sawtooth waveform, except that this
+    // function produces a triangle wave with a faster attack and a slower decay
+    if (cat) //twinklecat, variant where the leds instantly turn on
+    {
+      bright = 255 - ph;
+    } else { //vanilla twinklefox
+      if (ph < 86) {
+      bright = ph * 3;
+      } else {
+        ph -= 86;
+        bright = 255 - (ph + (ph/2));
+      }
     }
-
-    uint8_t hue = slowcycle8 - salt;
-    CRGB c;
-    if (bright > 0) {
-        c = ColorFromPalette(currentPalette, hue, bright, NOBLEND);
-        if (COOL_LIKE_INCANDESCENT == 1) {
-            // This code takes a pixel, and if its in the 'fading down'
-            // part of the cycle, it adjusts the color a little bit like the
-            // way that incandescent bulbs fade toward 'red' as they dim.
-            if (fastcycle8 >= 128) {
-                uint8_t cooling = (fastcycle8 - 128) >> 4;
-                c.g = qsub8(c.g, cooling);
-                c.b = qsub8(c.b, cooling * 2);
-            }
-        }
-    } else {
-        c = CRGB::Black;
-    }
-    return c;
+  }
+  uint8_t hue = slowcycle8 - salt;
+  CRGB c;
+  if (bright > 0) {
+      c = ColorFromPalette(currentPalette, hue, bright, NOBLEND);
+      if (COOL_LIKE_INCANDESCENT == 1) {
+          // This code takes a pixel, and if its in the 'fading down'
+          // part of the cycle, it adjusts the color a little bit like the
+          // way that incandescent bulbs fade toward 'red' as they dim.
+          if (fastcycle8 >= 128) {
+              uint8_t cooling = (fastcycle8 - 128) >> 4;
+              c.g = qsub8(c.g, cooling);
+              c.b = qsub8(c.b, cooling * 2);
+          }
+      }
+  } else {
+      c = CRGB::Black;
+  }
+  return c;
 }
 
 //  This function loops over each pixel, calculates the
@@ -2375,7 +2390,8 @@ CRGB WS2812FX::twinklefox_one_twinkle(uint32_t ms, uint8_t salt, bool cat) {
 //  "CalculateOneTwinkle" on each pixel.  It then displays
 //  either the twinkle color of the background color,
 //  whichever is brighter.
-uint16_t WS2812FX::twinklefox_base(bool cat) {
+uint16_t WS2812FX::twinklefox_base(bool cat) 
+{
     // "PRNG16" is the pseudorandom number generator
     // It MUST be reset to the same starting value each time
     // this function is called, so that the sequence of 'random'
@@ -2734,63 +2750,54 @@ typedef struct Spark {
 *  modified from https://github.com/kitesurfer1404/WS2812FX/blob/master/src/custom/Popcorn.h
 */
 uint16_t WS2812FX::mode_popcorn(void) {
-    //allocate segment data
-    uint16_t maxNumPopcorn = 21;  // max 21 on 16 segment ESP8266
-    uint16_t dataSize = sizeof(spark) * maxNumPopcorn;
-    if (!SEGENV.allocateData(dataSize)) {
-        return mode_static();  //allocation failed
-    }
+  //allocate segment data
+  uint16_t maxNumPopcorn = 21; // max 21 on 16 segment ESP8266
+  uint16_t dataSize = sizeof(spark) * maxNumPopcorn;
+  if (!SEGENV.allocateData(dataSize)) return mode_static(); //allocation failed
+  
+  Spark* popcorn = reinterpret_cast<Spark*>(SEGENV.data);
 
-    Spark *popcorn = reinterpret_cast<Spark *>(SEGENV.data);
+  float gravity = -0.0001 - (SEGMENT.speed/200000.0); // m/s/s
+  gravity *= SEGLEN;
 
-    float gravity = -0.0001 - (SEGMENT.speed / 200000.0);  // m/s/s
-    gravity *= SEGLEN;
+  bool hasCol2 = SEGCOLOR(2);
+  fill(hasCol2 ? BLACK : SEGCOLOR(1));
 
-    bool hasCol2 = SEGCOLOR(2);
-    fill(hasCol2 ? BLACK : SEGCOLOR(1));
+  uint8_t numPopcorn = SEGMENT.intensity*maxNumPopcorn/255;
+  if (numPopcorn == 0) numPopcorn = 1;
 
-    uint8_t numPopcorn = SEGMENT.intensity * maxNumPopcorn / 255;
-    if (numPopcorn == 0) {
-        numPopcorn = 1;
-    }
-
-    for (uint8_t i = 0; i < numPopcorn; i++) {
-        bool isActive = popcorn[i].pos >= 0.0f;
-
-        if (isActive) {  // if kernel is active, update its position
-            popcorn[i].pos += popcorn[i].vel;
-            popcorn[i].vel += gravity;
-            uint32_t col = color_wheel(popcorn[i].colIndex);
-            if (!SEGMENT.palette && popcorn[i].colIndex < NUM_COLORS) {
-                col = SEGCOLOR(popcorn[i].colIndex);
-            }
-
-            uint16_t ledIndex = popcorn[i].pos;
-            if (ledIndex < SEGLEN) {
-                setPixelColor(ledIndex, col);
-            }
-        } else {                  // if kernel is inactive, randomly pop it
-            if (random8() < 2) {  // POP!!!
-                popcorn[i].pos = 0.01f;
-
-                uint16_t peakHeight = 128 + random8(128);  //0-255
-                peakHeight = (peakHeight * (SEGLEN - 1)) >> 8;
-                popcorn[i].vel = sqrt(-2.0 * gravity * peakHeight);
-
-                if (SEGMENT.palette) {
-                    popcorn[i].colIndex = random8();
-                } else {
-                    byte col = random8(0, NUM_COLORS);
-                    if (!hasCol2 || !SEGCOLOR(col)) {
-                        col = 0;
-                    }
-                    popcorn[i].colIndex = col;
-                }
-            }
+  for(uint8_t i = 0; i < numPopcorn; i++) {
+    if (popcorn[i].pos >= 0.0f) { // if kernel is active, update its position
+      popcorn[i].pos += popcorn[i].vel;
+      popcorn[i].vel += gravity;
+    } else { // if kernel is inactive, randomly pop it
+      if (random8() < 2) { // POP!!!
+        popcorn[i].pos = 0.01f;
+        
+        uint16_t peakHeight = 128 + random8(128); //0-255
+        peakHeight = (peakHeight * (SEGLEN -1)) >> 8;
+        popcorn[i].vel = sqrt(-2.0 * gravity * peakHeight);
+        
+        if (SEGMENT.palette)
+        {
+          popcorn[i].colIndex = random8();
+        } else {
+          byte col = random8(0, NUM_COLORS);
+          if (!hasCol2 || !SEGCOLOR(col)) col = 0;
+          popcorn[i].colIndex = col;
         }
+      }
     }
+    if (popcorn[i].pos >= 0.0f) { // draw now active popcorn (either active before or just popped)
+      uint32_t col = color_wheel(popcorn[i].colIndex);
+      if (!SEGMENT.palette && popcorn[i].colIndex < NUM_COLORS) col = SEGCOLOR(popcorn[i].colIndex);
+      
+      uint16_t ledIndex = popcorn[i].pos;
+      if (ledIndex < SEGLEN) setPixelColor(ledIndex, col);
+    }
+  }
 
-    return FRAMETIME;
+  return FRAMETIME;
 }
 
 //values close to 100 produce 5Hz flicker, which looks very candle-y
@@ -2884,7 +2891,7 @@ uint16_t WS2812FX::candle(bool multi) {
         }
     }
 
-    return FRAMETIME;
+  return FRAMETIME_FIXED;
 }
 
 uint16_t WS2812FX::mode_candle() {

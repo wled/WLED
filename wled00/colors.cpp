@@ -4,36 +4,10 @@
  * Color conversion methods
  */
 
-void colorFromUint32(uint32_t in, bool secondary)
+void setRandomColor(byte* rgb)
 {
-  byte *_col = secondary ? colSec : col;
-  _col[0] = R(in);
-  _col[1] = G(in);
-  _col[2] = B(in);
-  _col[3] = W(in);
-}
-
-//load a color without affecting the white channel
-void colorFromUint24(uint32_t in, bool secondary)
-{
-  byte *_col = secondary ? colSec : col;
-  _col[0] = R(in);
-  _col[1] = G(in);
-  _col[2] = B(in);
-}
-
-//store color components in uint32_t
-uint32_t colorFromRgbw(byte* rgbw) {
-  return RGBW32(rgbw[0], rgbw[1], rgbw[2], rgbw[3]);
-}
-
-//relatively change white brightness, minumum A=5
-void relativeChangeWhite(int8_t amount, byte lowerBoundary)
-{
-  int16_t new_val = (int16_t) col[3] + amount;
-  if (new_val > 0xFF) new_val = 0xFF;
-  else if (new_val < lowerBoundary) new_val = lowerBoundary;
-  col[3] = new_val;
+  lastRandomIndex = strip.get_random_wheel_index(lastRandomIndex);
+  colorHStoRGB(lastRandomIndex*256,255,rgb);
 }
 
 void colorHStoRGB(uint16_t hue, byte sat, byte* rgb) //hue, sat to rgb
@@ -259,7 +233,7 @@ uint32_t colorBalanceFromKelvin(uint16_t kelvin, uint32_t rgb)
   rgbw[1] = ((uint16_t) correctionRGB[1] * G(rgb)) /255; // correct G
   rgbw[2] = ((uint16_t) correctionRGB[2] * B(rgb)) /255; // correct B
   rgbw[3] =                                W(rgb);
-  return colorFromRgbw(rgbw);
+  return RGBW32(rgbw[0],rgbw[1],rgbw[2],rgbw[3]);
 }
 
 //approximates a Kelvin color temperature from an RGB color.

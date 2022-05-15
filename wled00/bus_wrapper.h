@@ -98,26 +98,34 @@
 #ifdef ARDUINO_ARCH_ESP32
 //RGB
 #define B_32_RN_NEO_3 NeoPixelBrightnessBus<NeoGrbFeature, NeoEsp32RmtNWs2812xMethod>
+#ifndef CONFIG_IDF_TARGET_ESP32C3
 #define B_32_I0_NEO_3 NeoPixelBrightnessBus<NeoGrbFeature, NeoEsp32I2s0800KbpsMethod>
-#ifndef CONFIG_IDF_TARGET_ESP32S2
+#endif
+#if !defined(CONFIG_IDF_TARGET_ESP32S2) && !defined(CONFIG_IDF_TARGET_ESP32C3)
 #define B_32_I1_NEO_3 NeoPixelBrightnessBus<NeoGrbFeature, NeoEsp32I2s1800KbpsMethod>
 #endif
 //RGBW
 #define B_32_RN_NEO_4 NeoPixelBrightnessBus<NeoGrbwFeature, NeoEsp32RmtNWs2812xMethod>
+#ifndef CONFIG_IDF_TARGET_ESP32C3
 #define B_32_I0_NEO_4 NeoPixelBrightnessBus<NeoGrbwFeature, NeoEsp32I2s0800KbpsMethod>
-#ifndef CONFIG_IDF_TARGET_ESP32S2
+#endif
+#if !defined(CONFIG_IDF_TARGET_ESP32S2) && !defined(CONFIG_IDF_TARGET_ESP32C3)
 #define B_32_I1_NEO_4 NeoPixelBrightnessBus<NeoGrbwFeature, NeoEsp32I2s1800KbpsMethod>
 #endif
 //400Kbps
 #define B_32_RN_400_3 NeoPixelBrightnessBus<NeoGrbFeature, NeoEsp32RmtN400KbpsMethod>
+#ifndef CONFIG_IDF_TARGET_ESP32C3
 #define B_32_I0_400_3 NeoPixelBrightnessBus<NeoGrbFeature, NeoEsp32I2s0400KbpsMethod>
-#ifndef CONFIG_IDF_TARGET_ESP32S2
+#endif
+#if !defined(CONFIG_IDF_TARGET_ESP32S2) && !defined(CONFIG_IDF_TARGET_ESP32C3)
 #define B_32_I1_400_3 NeoPixelBrightnessBus<NeoGrbFeature, NeoEsp32I2s1400KbpsMethod>
 #endif
 //TM1814 (RGBW)
 #define B_32_RN_TM1_4 NeoPixelBrightnessBus<NeoWrgbTm1814Feature, NeoEsp32RmtNTm1814Method>
+#ifndef CONFIG_IDF_TARGET_ESP32C3
 #define B_32_I0_TM1_4 NeoPixelBrightnessBus<NeoWrgbTm1814Feature, NeoEsp32I2s0Tm1814Method>
-#ifndef CONFIG_IDF_TARGET_ESP32S2
+#endif
+#if !defined(CONFIG_IDF_TARGET_ESP32S2) && !defined(CONFIG_IDF_TARGET_ESP32C3)
 #define B_32_I1_TM1_4 NeoPixelBrightnessBus<NeoWrgbTm1814Feature, NeoEsp32I2s1Tm1814Method>
 #endif
 //Bit Bang theoratically possible, but very undesirable and not needed (no pin restrictions on RMT and I2S)
@@ -125,7 +133,7 @@
 #endif
 
 //APA102
-#define B_HS_DOT_3 NeoPixelBrightnessBus<DotStarBgrFeature, DotStarSpiMethod> //hardware SPI
+#define B_HS_DOT_3 NeoPixelBrightnessBus<DotStarBgrFeature, DotStarSpi5MhzMethod> //hardware SPI
 #define B_SS_DOT_3 NeoPixelBrightnessBus<DotStarBgrFeature, DotStarMethod>    //soft SPI
 
 //LPD8806
@@ -181,23 +189,31 @@ class PolyBus {
     #endif
     #ifdef ARDUINO_ARCH_ESP32
       case I_32_RN_NEO_3: (static_cast<B_32_RN_NEO_3*>(busPtr))->Begin(); break;
+      #ifndef CONFIG_IDF_TARGET_ESP32C3
       case I_32_I0_NEO_3: (static_cast<B_32_I0_NEO_3*>(busPtr))->Begin(); break;
-      #ifndef CONFIG_IDF_TARGET_ESP32S2
+      #endif
+      #if !defined(CONFIG_IDF_TARGET_ESP32S2) && !defined(CONFIG_IDF_TARGET_ESP32C3)
       case I_32_I1_NEO_3: (static_cast<B_32_I1_NEO_3*>(busPtr))->Begin(); break;
       #endif
       case I_32_RN_NEO_4: (static_cast<B_32_RN_NEO_4*>(busPtr))->Begin(); break;
+      #ifndef CONFIG_IDF_TARGET_ESP32C3
       case I_32_I0_NEO_4: (static_cast<B_32_I0_NEO_4*>(busPtr))->Begin(); break;
-      #ifndef CONFIG_IDF_TARGET_ESP32S2
+      #endif
+      #if !defined(CONFIG_IDF_TARGET_ESP32S2) && !defined(CONFIG_IDF_TARGET_ESP32C3)
       case I_32_I1_NEO_4: (static_cast<B_32_I1_NEO_4*>(busPtr))->Begin(); break;
       #endif
       case I_32_RN_400_3: (static_cast<B_32_RN_400_3*>(busPtr))->Begin(); break;
+      #ifndef CONFIG_IDF_TARGET_ESP32C3
       case I_32_I0_400_3: (static_cast<B_32_I0_400_3*>(busPtr))->Begin(); break;
-      #ifndef CONFIG_IDF_TARGET_ESP32S2
+      #endif
+      #if !defined(CONFIG_IDF_TARGET_ESP32S2) && !defined(CONFIG_IDF_TARGET_ESP32C3)
       case I_32_I1_400_3: (static_cast<B_32_I1_400_3*>(busPtr))->Begin(); break;
       #endif
       case I_32_RN_TM1_4: beginTM1814<B_32_RN_TM1_4*>(busPtr); break;
+      #ifndef CONFIG_IDF_TARGET_ESP32C3
       case I_32_I0_TM1_4: beginTM1814<B_32_I0_TM1_4*>(busPtr); break;
-      #ifndef CONFIG_IDF_TARGET_ESP32S2
+      #endif
+      #if !defined(CONFIG_IDF_TARGET_ESP32S2) && !defined(CONFIG_IDF_TARGET_ESP32C3)
       case I_32_I1_TM1_4: beginTM1814<B_32_I1_TM1_4*>(busPtr); break;
       #endif
       // ESP32 can (and should, to avoid inadvertantly driving the chip select signal) specify the pins used for SPI, but only in begin()
@@ -236,23 +252,31 @@ class PolyBus {
     #endif
     #ifdef ARDUINO_ARCH_ESP32
       case I_32_RN_NEO_3: busPtr = new B_32_RN_NEO_3(len, pins[0], (NeoBusChannel)channel); break;
+      #ifndef CONFIG_IDF_TARGET_ESP32C3
       case I_32_I0_NEO_3: busPtr = new B_32_I0_NEO_3(len, pins[0]); break;
-      #ifndef CONFIG_IDF_TARGET_ESP32S2
+      #endif
+      #if !defined(CONFIG_IDF_TARGET_ESP32S2) && !defined(CONFIG_IDF_TARGET_ESP32C3)
       case I_32_I1_NEO_3: busPtr = new B_32_I1_NEO_3(len, pins[0]); break;
       #endif
       case I_32_RN_NEO_4: busPtr = new B_32_RN_NEO_4(len, pins[0], (NeoBusChannel)channel); break;
+      #ifndef CONFIG_IDF_TARGET_ESP32C3
       case I_32_I0_NEO_4: busPtr = new B_32_I0_NEO_4(len, pins[0]); break;
-      #ifndef CONFIG_IDF_TARGET_ESP32S2
+      #endif
+      #if !defined(CONFIG_IDF_TARGET_ESP32S2) && !defined(CONFIG_IDF_TARGET_ESP32C3)
       case I_32_I1_NEO_4: busPtr = new B_32_I1_NEO_4(len, pins[0]); break;
       #endif
       case I_32_RN_400_3: busPtr = new B_32_RN_400_3(len, pins[0], (NeoBusChannel)channel); break;
+      #ifndef CONFIG_IDF_TARGET_ESP32C3
       case I_32_I0_400_3: busPtr = new B_32_I0_400_3(len, pins[0]); break;
-      #ifndef CONFIG_IDF_TARGET_ESP32S2
+      #endif
+      #if !defined(CONFIG_IDF_TARGET_ESP32S2) && !defined(CONFIG_IDF_TARGET_ESP32C3)
       case I_32_I1_400_3: busPtr = new B_32_I1_400_3(len, pins[0]); break;
       #endif
       case I_32_RN_TM1_4: busPtr = new B_32_RN_TM1_4(len, pins[0], (NeoBusChannel)channel); break;
+      #ifndef CONFIG_IDF_TARGET_ESP32C3
       case I_32_I0_TM1_4: busPtr = new B_32_I0_TM1_4(len, pins[0]); break;
-      #ifndef CONFIG_IDF_TARGET_ESP32S2
+      #endif
+      #if !defined(CONFIG_IDF_TARGET_ESP32S2) && !defined(CONFIG_IDF_TARGET_ESP32C3)
       case I_32_I1_TM1_4: busPtr = new B_32_I1_TM1_4(len, pins[0]); break;
       #endif
     #endif
@@ -292,23 +316,31 @@ class PolyBus {
     #endif
     #ifdef ARDUINO_ARCH_ESP32
       case I_32_RN_NEO_3: (static_cast<B_32_RN_NEO_3*>(busPtr))->Show(); break;
+      #ifndef CONFIG_IDF_TARGET_ESP32C3
       case I_32_I0_NEO_3: (static_cast<B_32_I0_NEO_3*>(busPtr))->Show(); break;
-      #ifndef CONFIG_IDF_TARGET_ESP32S2
+      #endif
+      #if !defined(CONFIG_IDF_TARGET_ESP32S2) && !defined(CONFIG_IDF_TARGET_ESP32C3)
       case I_32_I1_NEO_3: (static_cast<B_32_I1_NEO_3*>(busPtr))->Show(); break;
       #endif
       case I_32_RN_NEO_4: (static_cast<B_32_RN_NEO_4*>(busPtr))->Show(); break;
+      #ifndef CONFIG_IDF_TARGET_ESP32C3
       case I_32_I0_NEO_4: (static_cast<B_32_I0_NEO_4*>(busPtr))->Show(); break;
-      #ifndef CONFIG_IDF_TARGET_ESP32S2
+      #endif
+      #if !defined(CONFIG_IDF_TARGET_ESP32S2) && !defined(CONFIG_IDF_TARGET_ESP32C3)
       case I_32_I1_NEO_4: (static_cast<B_32_I1_NEO_4*>(busPtr))->Show(); break;
       #endif
       case I_32_RN_400_3: (static_cast<B_32_RN_400_3*>(busPtr))->Show(); break;
+      #ifndef CONFIG_IDF_TARGET_ESP32C3
       case I_32_I0_400_3: (static_cast<B_32_I0_400_3*>(busPtr))->Show(); break;
-      #ifndef CONFIG_IDF_TARGET_ESP32S2
+      #endif
+      #if !defined(CONFIG_IDF_TARGET_ESP32S2) && !defined(CONFIG_IDF_TARGET_ESP32C3)
       case I_32_I1_400_3: (static_cast<B_32_I1_400_3*>(busPtr))->Show(); break;
       #endif
       case I_32_RN_TM1_4: (static_cast<B_32_RN_TM1_4*>(busPtr))->Show(); break;
+      #ifndef CONFIG_IDF_TARGET_ESP32C3
       case I_32_I0_TM1_4: (static_cast<B_32_I0_TM1_4*>(busPtr))->Show(); break;
-      #ifndef CONFIG_IDF_TARGET_ESP32S2
+      #endif
+      #if !defined(CONFIG_IDF_TARGET_ESP32S2) && !defined(CONFIG_IDF_TARGET_ESP32C3)
       case I_32_I1_TM1_4: (static_cast<B_32_I1_TM1_4*>(busPtr))->Show(); break;
       #endif
     #endif
@@ -345,23 +377,31 @@ class PolyBus {
     #endif
     #ifdef ARDUINO_ARCH_ESP32
       case I_32_RN_NEO_3: return (static_cast<B_32_RN_NEO_3*>(busPtr))->CanShow(); break;
+      #ifndef CONFIG_IDF_TARGET_ESP32C3
       case I_32_I0_NEO_3: return (static_cast<B_32_I0_NEO_3*>(busPtr))->CanShow(); break;
-      #ifndef CONFIG_IDF_TARGET_ESP32S2
+      #endif
+      #if !defined(CONFIG_IDF_TARGET_ESP32S2) && !defined(CONFIG_IDF_TARGET_ESP32C3)
       case I_32_I1_NEO_3: return (static_cast<B_32_I1_NEO_3*>(busPtr))->CanShow(); break;
       #endif
       case I_32_RN_NEO_4: return (static_cast<B_32_RN_NEO_4*>(busPtr))->CanShow(); break;
+      #ifndef CONFIG_IDF_TARGET_ESP32C3
       case I_32_I0_NEO_4: return (static_cast<B_32_I0_NEO_4*>(busPtr))->CanShow(); break;
-      #ifndef CONFIG_IDF_TARGET_ESP32S2
+      #endif
+      #if !defined(CONFIG_IDF_TARGET_ESP32S2) && !defined(CONFIG_IDF_TARGET_ESP32C3)
       case I_32_I1_NEO_4: return (static_cast<B_32_I1_NEO_4*>(busPtr))->CanShow(); break;
       #endif
       case I_32_RN_400_3: return (static_cast<B_32_RN_400_3*>(busPtr))->CanShow(); break;
+      #ifndef CONFIG_IDF_TARGET_ESP32C3
       case I_32_I0_400_3: return (static_cast<B_32_I0_400_3*>(busPtr))->CanShow(); break;
-      #ifndef CONFIG_IDF_TARGET_ESP32S2
+      #endif
+      #if !defined(CONFIG_IDF_TARGET_ESP32S2) && !defined(CONFIG_IDF_TARGET_ESP32C3)
       case I_32_I1_400_3: return (static_cast<B_32_I1_400_3*>(busPtr))->CanShow(); break;
       #endif
       case I_32_RN_TM1_4: return (static_cast<B_32_RN_TM1_4*>(busPtr))->CanShow(); break;
+      #ifndef CONFIG_IDF_TARGET_ESP32C3
       case I_32_I0_TM1_4: return (static_cast<B_32_I0_TM1_4*>(busPtr))->CanShow(); break;
-      #ifndef CONFIG_IDF_TARGET_ESP32S2
+      #endif
+      #if !defined(CONFIG_IDF_TARGET_ESP32S2) && !defined(CONFIG_IDF_TARGET_ESP32C3)
       case I_32_I1_TM1_4: return (static_cast<B_32_I1_TM1_4*>(busPtr))->CanShow(); break;
       #endif
     #endif
@@ -422,23 +462,31 @@ class PolyBus {
     #endif
     #ifdef ARDUINO_ARCH_ESP32
       case I_32_RN_NEO_3: (static_cast<B_32_RN_NEO_3*>(busPtr))->SetPixelColor(pix, RgbColor(col.R,col.G,col.B)); break;
+      #ifndef CONFIG_IDF_TARGET_ESP32C3
       case I_32_I0_NEO_3: (static_cast<B_32_I0_NEO_3*>(busPtr))->SetPixelColor(pix, RgbColor(col.R,col.G,col.B)); break;
-      #ifndef CONFIG_IDF_TARGET_ESP32S2
+      #endif
+      #if !defined(CONFIG_IDF_TARGET_ESP32S2) && !defined(CONFIG_IDF_TARGET_ESP32C3)
       case I_32_I1_NEO_3: (static_cast<B_32_I1_NEO_3*>(busPtr))->SetPixelColor(pix, RgbColor(col.R,col.G,col.B)); break;
       #endif
       case I_32_RN_NEO_4: (static_cast<B_32_RN_NEO_4*>(busPtr))->SetPixelColor(pix, col); break;
+      #ifndef CONFIG_IDF_TARGET_ESP32C3
       case I_32_I0_NEO_4: (static_cast<B_32_I0_NEO_4*>(busPtr))->SetPixelColor(pix, col); break;
-      #ifndef CONFIG_IDF_TARGET_ESP32S2
+      #endif
+      #if !defined(CONFIG_IDF_TARGET_ESP32S2) && !defined(CONFIG_IDF_TARGET_ESP32C3)
       case I_32_I1_NEO_4: (static_cast<B_32_I1_NEO_4*>(busPtr))->SetPixelColor(pix, col); break;
       #endif
       case I_32_RN_400_3: (static_cast<B_32_RN_400_3*>(busPtr))->SetPixelColor(pix, RgbColor(col.R,col.G,col.B)); break;
+      #ifndef CONFIG_IDF_TARGET_ESP32C3
       case I_32_I0_400_3: (static_cast<B_32_I0_400_3*>(busPtr))->SetPixelColor(pix, RgbColor(col.R,col.G,col.B)); break;
-      #ifndef CONFIG_IDF_TARGET_ESP32S2
+      #endif
+      #if !defined(CONFIG_IDF_TARGET_ESP32S2) && !defined(CONFIG_IDF_TARGET_ESP32C3)
       case I_32_I1_400_3: (static_cast<B_32_I1_400_3*>(busPtr))->SetPixelColor(pix, RgbColor(col.R,col.G,col.B)); break;
       #endif
       case I_32_RN_TM1_4: (static_cast<B_32_RN_TM1_4*>(busPtr))->SetPixelColor(pix, col); break;
+      #ifndef CONFIG_IDF_TARGET_ESP32C3
       case I_32_I0_TM1_4: (static_cast<B_32_I0_TM1_4*>(busPtr))->SetPixelColor(pix, col); break;
-      #ifndef CONFIG_IDF_TARGET_ESP32S2
+      #endif
+      #if !defined(CONFIG_IDF_TARGET_ESP32S2) && !defined(CONFIG_IDF_TARGET_ESP32C3)
       case I_32_I1_TM1_4: (static_cast<B_32_I1_TM1_4*>(busPtr))->SetPixelColor(pix, col); break;
       #endif
     #endif
@@ -475,23 +523,31 @@ class PolyBus {
     #endif
     #ifdef ARDUINO_ARCH_ESP32
       case I_32_RN_NEO_3: (static_cast<B_32_RN_NEO_3*>(busPtr))->SetBrightness(b); break;
+      #ifndef CONFIG_IDF_TARGET_ESP32C3
       case I_32_I0_NEO_3: (static_cast<B_32_I0_NEO_3*>(busPtr))->SetBrightness(b); break;
-      #ifndef CONFIG_IDF_TARGET_ESP32S2
+      #endif
+      #if !defined(CONFIG_IDF_TARGET_ESP32S2) && !defined(CONFIG_IDF_TARGET_ESP32C3)
       case I_32_I1_NEO_3: (static_cast<B_32_I1_NEO_3*>(busPtr))->SetBrightness(b); break;
       #endif
       case I_32_RN_NEO_4: (static_cast<B_32_RN_NEO_4*>(busPtr))->SetBrightness(b); break;
+      #ifndef CONFIG_IDF_TARGET_ESP32C3
       case I_32_I0_NEO_4: (static_cast<B_32_I0_NEO_4*>(busPtr))->SetBrightness(b); break;
-      #ifndef CONFIG_IDF_TARGET_ESP32S2
+      #endif
+      #if !defined(CONFIG_IDF_TARGET_ESP32S2) && !defined(CONFIG_IDF_TARGET_ESP32C3)
       case I_32_I1_NEO_4: (static_cast<B_32_I1_NEO_4*>(busPtr))->SetBrightness(b); break;
       #endif
       case I_32_RN_400_3: (static_cast<B_32_RN_400_3*>(busPtr))->SetBrightness(b); break;
+      #ifndef CONFIG_IDF_TARGET_ESP32C3
       case I_32_I0_400_3: (static_cast<B_32_I0_400_3*>(busPtr))->SetBrightness(b); break;
-      #ifndef CONFIG_IDF_TARGET_ESP32S2
+      #endif
+      #if !defined(CONFIG_IDF_TARGET_ESP32S2) && !defined(CONFIG_IDF_TARGET_ESP32C3)
       case I_32_I1_400_3: (static_cast<B_32_I1_400_3*>(busPtr))->SetBrightness(b); break;
       #endif
       case I_32_RN_TM1_4: (static_cast<B_32_RN_TM1_4*>(busPtr))->SetBrightness(b); break;
+      #ifndef CONFIG_IDF_TARGET_ESP32C3
       case I_32_I0_TM1_4: (static_cast<B_32_I0_TM1_4*>(busPtr))->SetBrightness(b); break;
-      #ifndef CONFIG_IDF_TARGET_ESP32S2
+      #endif
+      #if !defined(CONFIG_IDF_TARGET_ESP32S2) && !defined(CONFIG_IDF_TARGET_ESP32C3)
       case I_32_I1_TM1_4: (static_cast<B_32_I1_TM1_4*>(busPtr))->SetBrightness(b); break;
       #endif
     #endif
@@ -529,23 +585,31 @@ class PolyBus {
     #endif
     #ifdef ARDUINO_ARCH_ESP32
       case I_32_RN_NEO_3: col = (static_cast<B_32_RN_NEO_3*>(busPtr))->GetPixelColor(pix); break;
+      #ifndef CONFIG_IDF_TARGET_ESP32C3
       case I_32_I0_NEO_3: col = (static_cast<B_32_I0_NEO_3*>(busPtr))->GetPixelColor(pix); break;
-      #ifndef CONFIG_IDF_TARGET_ESP32S2
+      #endif
+      #if !defined(CONFIG_IDF_TARGET_ESP32S2) && !defined(CONFIG_IDF_TARGET_ESP32C3)
       case I_32_I1_NEO_3: col = (static_cast<B_32_I1_NEO_3*>(busPtr))->GetPixelColor(pix); break;
       #endif
       case I_32_RN_NEO_4: col = (static_cast<B_32_RN_NEO_4*>(busPtr))->GetPixelColor(pix); break;
+      #ifndef CONFIG_IDF_TARGET_ESP32C3
       case I_32_I0_NEO_4: col = (static_cast<B_32_I0_NEO_4*>(busPtr))->GetPixelColor(pix); break;
-      #ifndef CONFIG_IDF_TARGET_ESP32S2
+      #endif
+      #if !defined(CONFIG_IDF_TARGET_ESP32S2) && !defined(CONFIG_IDF_TARGET_ESP32C3)
       case I_32_I1_NEO_4: col = (static_cast<B_32_I1_NEO_4*>(busPtr))->GetPixelColor(pix); break;
       #endif
       case I_32_RN_400_3: col = (static_cast<B_32_RN_400_3*>(busPtr))->GetPixelColor(pix); break;
+      #ifndef CONFIG_IDF_TARGET_ESP32C3
       case I_32_I0_400_3: col = (static_cast<B_32_I0_400_3*>(busPtr))->GetPixelColor(pix); break;
-      #ifndef CONFIG_IDF_TARGET_ESP32S2
+      #endif
+      #if !defined(CONFIG_IDF_TARGET_ESP32S2) && !defined(CONFIG_IDF_TARGET_ESP32C3)
       case I_32_I1_400_3: col = (static_cast<B_32_I1_400_3*>(busPtr))->GetPixelColor(pix); break;
       #endif
       case I_32_RN_TM1_4: col = (static_cast<B_32_RN_TM1_4*>(busPtr))->GetPixelColor(pix); break;
+      #ifndef CONFIG_IDF_TARGET_ESP32C3
       case I_32_I0_TM1_4: col = (static_cast<B_32_I0_TM1_4*>(busPtr))->GetPixelColor(pix); break;
-      #ifndef CONFIG_IDF_TARGET_ESP32S2
+      #endif
+      #if !defined(CONFIG_IDF_TARGET_ESP32S2) && !defined(CONFIG_IDF_TARGET_ESP32C3)
       case I_32_I1_TM1_4: col = (static_cast<B_32_I1_TM1_4*>(busPtr))->GetPixelColor(pix); break;
       #endif
     #endif
@@ -600,23 +664,31 @@ class PolyBus {
     #endif
     #ifdef ARDUINO_ARCH_ESP32
       case I_32_RN_NEO_3: delete (static_cast<B_32_RN_NEO_3*>(busPtr)); break;
+      #ifndef CONFIG_IDF_TARGET_ESP32C3
       case I_32_I0_NEO_3: delete (static_cast<B_32_I0_NEO_3*>(busPtr)); break;
-      #ifndef CONFIG_IDF_TARGET_ESP32S2
+      #endif
+      #if !defined(CONFIG_IDF_TARGET_ESP32S2) && !defined(CONFIG_IDF_TARGET_ESP32C3)
       case I_32_I1_NEO_3: delete (static_cast<B_32_I1_NEO_3*>(busPtr)); break;
       #endif
       case I_32_RN_NEO_4: delete (static_cast<B_32_RN_NEO_4*>(busPtr)); break;
+      #ifndef CONFIG_IDF_TARGET_ESP32C3
       case I_32_I0_NEO_4: delete (static_cast<B_32_I0_NEO_4*>(busPtr)); break;
-      #ifndef CONFIG_IDF_TARGET_ESP32S2
+      #endif
+      #if !defined(CONFIG_IDF_TARGET_ESP32S2) && !defined(CONFIG_IDF_TARGET_ESP32C3)
       case I_32_I1_NEO_4: delete (static_cast<B_32_I1_NEO_4*>(busPtr)); break;
       #endif
       case I_32_RN_400_3: delete (static_cast<B_32_RN_400_3*>(busPtr)); break;
+      #ifndef CONFIG_IDF_TARGET_ESP32C3
       case I_32_I0_400_3: delete (static_cast<B_32_I0_400_3*>(busPtr)); break;
-      #ifndef CONFIG_IDF_TARGET_ESP32S2
+      #endif
+      #if !defined(CONFIG_IDF_TARGET_ESP32S2) && !defined(CONFIG_IDF_TARGET_ESP32C3)
       case I_32_I1_400_3: delete (static_cast<B_32_I1_400_3*>(busPtr)); break;
       #endif
       case I_32_RN_TM1_4: delete (static_cast<B_32_RN_TM1_4*>(busPtr)); break;
+      #ifndef CONFIG_IDF_TARGET_ESP32C3
       case I_32_I0_TM1_4: delete (static_cast<B_32_I0_TM1_4*>(busPtr)); break;
-      #ifndef CONFIG_IDF_TARGET_ESP32S2
+      #endif
+      #if !defined(CONFIG_IDF_TARGET_ESP32S2) && !defined(CONFIG_IDF_TARGET_ESP32C3)
       case I_32_I1_TM1_4: delete (static_cast<B_32_I1_TM1_4*>(busPtr)); break;
       #endif
     #endif

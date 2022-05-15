@@ -42,7 +42,7 @@ function B(){window.history.back()}function U(){document.getElementById("uf").st
 .bt{background:#333;color:#fff;font-family:Verdana,sans-serif;border:.3ch solid #333;display:inline-block;font-size:20px;margin:8px;margin-top:12px}input[type=file]{font-size:16px}body{font-family:Verdana,sans-serif;text-align:center;background:#222;color:#fff;line-height:200%}#msg{display:none}
 </style></head><body><h2>WLED Software Update</h2><form method="POST" 
 action="/update" id="uf" enctype="multipart/form-data" onsubmit="U()">
-Installed version: 0.13.0-b6<br>Download the latest binary: <a 
+Installed version: 0.13.2-a0<br>Download the latest binary: <a 
 href="https://github.com/Aircoookie/WLED/releases" target="_blank"><img 
 src="https://img.shields.io/github/release/Aircoookie/WLED.svg?style=flat-square">
 </a><br><input type="file" class="bt" name="update" required><br><input 
@@ -85,7 +85,7 @@ charset="utf-8"><meta name="theme-color" content="#222222"><title>
 WLED Live Preview</title><style>
 body{margin:0}#canv{background:#000;filter:brightness(175%);width:100%;height:100%;position:absolute}
 </style></head><body><div id="canv"><script>
-function updatePreview(e){var n="linear-gradient(90deg,",o=e.length;for(i=0;i<o;i++){var t=e[i];t.length>6&&(t=t.substring(2)),n+="#"+t,i<o-1&&(n+=",")}n+=")",document.getElementById("canv").style.background=n}function getLiveJson(e){try{var n=JSON.parse(e.data);n&&n.leds&&requestAnimationFrame((function(){updatePreview(n.leds)}))}catch(e){console.error("Live-Preview ws error:",e)}}var ws=top.window.ws;ws&&ws.readyState===WebSocket.OPEN?(console.info("Use top WS for peek"),ws.send("{'lv':true}")):(console.info("Peek ws opening"),(ws=new WebSocket("ws://"+document.location.host+"/ws")).onopen=function(){console.info("Peek WS opened"),ws.send("{'lv':true}")}),ws.addEventListener("message",getLiveJson)
+function updatePreview(e){var n="linear-gradient(90deg,",t=e.length;for(i=2;i<t;i+=3)n+=`rgb(${e[i]},${e[i+1]},${e[i+2]})`,i<t-3&&(n+=",");n+=")",document.getElementById("canv").style.background=n}function getLiveJson(e){try{if("[object ArrayBuffer]"===toString.call(e.data)){let e=new Uint8Array(event.data);if(76!=e[0])return;updatePreview(e)}}catch(e){console.error("Peek WS error:",e)}}var ws;try{ws=top.window.ws}catch(e){}ws&&ws.readyState===WebSocket.OPEN?(console.info("Peek uses top WS"),ws.send("{'lv':true}")):(console.info("Peek WS opening"),(ws=new WebSocket(("https:"==window.location.protocol?"wss":"ws")+"://"+document.location.host+"/ws")).onopen=function(){console.info("Peek WS open"),ws.send("{'lv':true}")}),ws.binaryType="arraybuffer",ws.addEventListener("message",getLiveJson)
 </script></body></html>)=====";
 
 

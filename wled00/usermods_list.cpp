@@ -104,8 +104,28 @@
 #include "../usermods/seven_segment_display_reloaded/usermod_seven_segment_reloaded.h"
 #endif
 
+#ifdef USERMOD_CRONIXIE
+#include "../usermods/Cronixie/usermod_cronixie.h"
+#endif
+
 #ifdef QUINLED_AN_PENTA
 #include "../usermods/quinled-an-penta/quinled-an-penta.h"
+#endif
+
+#ifdef USERMOD_WIZLIGHTS
+#include "../usermods/wizlights/wizlights.h"
+#endif
+
+#ifdef USERMOD_WORDCLOCK
+#include "../usermods/usermod_v2_word_clock/usermod_v2_word_clock.h"
+#endif
+
+#ifdef USERMOD_MY9291
+#include "../usermods/MY9291/usermode_MY9291.h"
+#endif
+
+#ifdef USERMOD_SI7021_MQTT_HA
+#include "../usermods/Si7021_MQTT_HA/usermod_si7021_mqtt_ha.h"
 #endif
 
 void registerUsermods()
@@ -200,7 +220,27 @@ void registerUsermods()
   usermods.add(new UsermodSSDR());
   #endif
 
+  #ifdef USERMOD_CRONIXIE
+  usermods.add(new UsermodCronixie());
+  #endif
+
   #ifdef QUINLED_AN_PENTA
   usermods.add(new QuinLEDAnPentaUsermod());
+  #endif
+
+  #ifdef USERMOD_WIZLIGHTS
+  usermods.add(new WizLightsUsermod());
+  #endif
+  
+  #ifdef USERMOD_WORDCLOCK
+  usermods.add(new WordClockUsermod());
+  #endif
+
+  #ifdef USERMOD_MY9291
+  usermods.add(new MY9291Usermod());
+  #endif
+  
+  #ifdef USERMOD_SI7021_MQTT_HA
+  usermods.add(new Si7021_MQTT_HA());
   #endif
 }

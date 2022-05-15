@@ -26,7 +26,7 @@
 //Infrared codes for 24-key remote from http://woodsgood.ca/projects/2015/02/13/rgb-led-strip-controllers-ir-codes/
 #define IR24_BRIGHTER  0xF700FF
 #define IR24_DARKER    0xF7807F
-#define IR24_OFF       0xF740BF 
+#define IR24_OFF       0xF740BF
 #define IR24_ON        0xF7C03F
 #define IR24_RED       0xF720DF
 #define IR24_REDDISH   0xF710EF
@@ -35,7 +35,7 @@
 #define IR24_YELLOW    0xF728D7
 #define IR24_GREEN     0xF7A05F
 #define IR24_GREENISH  0xF7906F
-#define IR24_TURQUOISE 0xF7B04F 
+#define IR24_TURQUOISE 0xF7B04F
 #define IR24_CYAN      0xF78877
 #define IR24_AQUA      0xF7A857
 #define IR24_BLUE      0xF7609F
@@ -76,30 +76,30 @@
 #define IR24_CT_MEMORY     0xF7E817 // MEMORY
 
 // 24-key defs for old remote control 
-#define IR24_OLD_BRIGHTER  0xFF906F // Brightness Up     
-#define IR24_OLD_DARKER    0xFFB847 // Brightness Down   
-#define IR24_OLD_OFF       0xFFF807 // Power OFF         
-#define IR24_OLD_ON        0xFFB04F // Power On          
-#define IR24_OLD_RED       0xFF9867 // RED               
-#define IR24_OLD_REDDISH   0xFFE817 // Light RED		
-#define IR24_OLD_ORANGE    0xFF02FD // Orange            
-#define IR24_OLD_YELLOWISH 0xFF50AF // Light Orange		
-#define IR24_OLD_YELLOW    0xFF38C7 // YELLOW            
-#define IR24_OLD_GREEN     0xFFD827 // GREEN             
-#define IR24_OLD_GREENISH  0xFF48B7 // Light GREEN		
-#define IR24_OLD_TURQUOISE 0xFF32CD // TURQUOISE         
+#define IR24_OLD_BRIGHTER  0xFF906F // Brightness Up
+#define IR24_OLD_DARKER    0xFFB847 // Brightness Down
+#define IR24_OLD_OFF       0xFFF807 // Power OFF
+#define IR24_OLD_ON        0xFFB04F // Power On
+#define IR24_OLD_RED       0xFF9867 // RED
+#define IR24_OLD_REDDISH   0xFFE817 // Light RED
+#define IR24_OLD_ORANGE    0xFF02FD // Orange
+#define IR24_OLD_YELLOWISH 0xFF50AF // Light Orange
+#define IR24_OLD_YELLOW    0xFF38C7 // YELLOW
+#define IR24_OLD_GREEN     0xFFD827 // GREEN
+#define IR24_OLD_GREENISH  0xFF48B7 // Light GREEN
+#define IR24_OLD_TURQUOISE 0xFF32CD // TURQUOISE
 #define IR24_OLD_CYAN      0xFF7887 // CYAN
-#define IR24_OLD_AQUA      0xFF28D7 // AQUA	
-#define IR24_OLD_BLUE      0xFF8877 // BLUE              
+#define IR24_OLD_AQUA      0xFF28D7 // AQUA
+#define IR24_OLD_BLUE      0xFF8877 // BLUE
 #define IR24_OLD_DEEPBLUE  0xFF6897 // Dark BLUE
-#define IR24_OLD_PURPLE    0xFF20DF // PURPLE		
-#define IR24_OLD_MAGENTA   0xFF708F // MAGENTA           
-#define IR24_OLD_PINK      0xFFF00F // PINK              
-#define IR24_OLD_WHITE     0xFFA857 // WHITE             
-#define IR24_OLD_FLASH     0xFFB24D // FLASH Mode       
-#define IR24_OLD_STROBE    0xFF00FF // STROBE Mode       
-#define IR24_OLD_FADE      0xFF58A7 // FADE Mode         
-#define IR24_OLD_SMOOTH    0xFF30CF // SMOOTH Mode       
+#define IR24_OLD_PURPLE    0xFF20DF // PURPLE
+#define IR24_OLD_MAGENTA   0xFF708F // MAGENTA
+#define IR24_OLD_PINK      0xFFF00F // PINK
+#define IR24_OLD_WHITE     0xFFA857 // WHITE
+#define IR24_OLD_FLASH     0xFFB24D // FLASH Mode
+#define IR24_OLD_STROBE    0xFF00FF // STROBE Mode
+#define IR24_OLD_FADE      0xFF58A7 // FADE Mode
+#define IR24_OLD_SMOOTH    0xFF30CF // SMOOTH Mode
 
 // 40-key defs for blue remote control 
 #define IR40_BPLUS         0xFF3AC5  // 
@@ -212,32 +212,27 @@
 #define IR21_FADE          0xFF02FD
 #define IR21_SMOOTH        0xFFC23D
 
-#define COLOR_RED       0xFF0000
-#define COLOR_REDDISH   0xFF7800
-#define COLOR_ORANGE    0xFFA000
-#define COLOR_YELLOWISH 0xFFC800
-#define COLOR_YELLOW    0xFFFF00
-#define COLOR_GREEN     0x00FF00
-#define COLOR_GREENISH  0x00FF78
-#define COLOR_TURQUOISE 0x00FFA0
-#define COLOR_CYAN      0x00FFDC
-#define COLOR_AQUA      0x00C8FF
-#define COLOR_BLUE      0x00A0FF
-#define COLOR_DEEPBLUE  0x0000FF
-#define COLOR_PURPLE    0xAA00FF
-#define COLOR_MAGENTA   0xFF00DC
-#define COLOR_PINK      0xFF00A0
-#define COLOR_WHITE     0xFFFFDC
-#define COLOR_WARMWHITE2     0xFFAA69
-#define COLOR_WARMWHITE      0xFFBF8E 
-#define COLOR_NEUTRALWHITE   0xFFD4B4
-#define COLOR_COLDWHITE      0xFFE9D9
-#define COLOR_COLDWHITE2     0xFFFFFF
-#define COLOR2_WARMWHITE2    0xFFFF9900
-#define COLOR2_WARMWHITE     0xFF825A00 
-#define COLOR2_NEUTRALWHITE  0xFF000000
-#define COLOR2_COLDWHITE     0xFF7F7F7F
-#define COLOR2_COLDWHITE2    0xFFFFFFFF
+#define COLOR_RED            0xFF0000
+#define COLOR_REDDISH        0xFF7800
+#define COLOR_ORANGE         0xFFA000
+#define COLOR_YELLOWISH      0xFFC800
+#define COLOR_YELLOW         0xFFFF00
+#define COLOR_GREEN          0x00FF00
+#define COLOR_GREENISH       0x00FF78
+#define COLOR_TURQUOISE      0x00FFA0
+#define COLOR_CYAN           0x00FFDC
+#define COLOR_AQUA           0x00C8FF
+#define COLOR_BLUE           0x00A0FF
+#define COLOR_DEEPBLUE       0x0000FF
+#define COLOR_PURPLE         0xAA00FF
+#define COLOR_MAGENTA        0xFF00DC
+#define COLOR_PINK           0xFF00A0
+#define COLOR_WHITE          0xFFFFFFFF
+#define COLOR_WARMWHITE2     0xFFFFAA69
+#define COLOR_WARMWHITE      0xFFFFBF8E
+#define COLOR_NEUTRALWHITE   0xFFFFD4B4
+#define COLOR_COLDWHITE      0xFFFFE9D9
+#define COLOR_COLDWHITE2     0xFFFFFFFF
 
 #define ACTION_NONE             0
 #define ACTION_BRIGHT_UP        1

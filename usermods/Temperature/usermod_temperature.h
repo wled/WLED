@@ -37,12 +37,12 @@ class UsermodTemperature : public Usermod {
     // used to determine when we can read the sensors temperature
     // we have to wait at least 93.75 ms after requestTemperatures() is called
     unsigned long lastTemperaturesRequest;
-    float temperature = -100; // default to -100, DS18B20 only goes down to -50C
+    float temperature;
     // indicates requestTemperatures has been called but the sensor measurement is not complete
     bool waitingForConversion = false;
     // flag set at startup if DS18B20 sensor not found, avoids trying to keep getting
     // temperature if flashed to a board without a sensor attached
-    bool sensorFound = false;
+    byte sensorFound;
 
     bool enabled = true;
 
@@ -54,27 +54,47 @@ class UsermodTemperature : public Usermod {
 
     //Dallas sensor quick (& dirty) reading. Credit to - Author: Peter Scargill, August 17th, 2013
     float readDallas() {
-      byte i;
-      byte data[2];
+      byte data[9];
       int16_t result;                         // raw data from sensor
-      if (!oneWire->reset()) return -127.0f;  // send reset command and fail fast
-      oneWire->skip();                        // skip ROM
-      oneWire->write(0xBE);                   // read (temperature) from EEPROM
-      for (i=0; i < 2; i++) data[i] = oneWire->read();  // first 2 bytes contain temperature
-      for (i=2; i < 8; i++) oneWire->read();  // read unused bytes  
-      result = (data[1]<<4) | (data[0]>>4);   // we only need whole part, we will add fraction when returning
-      if (data[1]&0x80) result |= 0xFF00;     // fix negative value
-      oneWire->reset();
-      oneWire->skip();                        // skip ROM
-      oneWire->write(0x44,parasite);          // request new temperature reading (without parasite power)
-      return (float)result + ((data[0]&0x0008) ? 0.5f : 0.0f);
+      float retVal = -127.0f;
+      if (oneWire->reset()) {                 // if reset() fails there are no OneWire devices
+        oneWire->skip();                      // skip ROM
+        oneWire->write(0xBE);                 // read (temperature) from EEPROM
+        oneWire->read_bytes(data, 9);         // first 2 bytes contain temperature
+        #ifdef WLED_DEBUG
+        if (OneWire::crc8(data,8) != data[8]) {
+          DEBUG_PRINTLN(F("CRC error reading temperature."));
+          for (byte i=0; i < 9; i++) DEBUG_PRINTF("0x%02X ", data[i]);
+          DEBUG_PRINT(F(" => "));
+          DEBUG_PRINTF("0x%02X\n", OneWire::crc8(data,8));
+        }
+        #endif
+        switch(sensorFound) {
+          case 0x10:  // DS18S20 has 9-bit precision
+            result = (data[1] << 8) | data[0];
+            retVal = float(result) * 0.5f;
+            break;
+          case 0x22:  // DS18B20
+          case 0x28:  // DS1822
+          case 0x3B:  // DS1825
+          case 0x42:  // DS28EA00
+            result = (data[1]<<4) | (data[0]>>4);   // we only need whole part, we will add fraction when returning
+            if (data[1] & 0x80) result |= 0xF000;   // fix negative value
+            retVal = float(result) + ((data[0] & 0x08) ? 0.5f : 0.0f);
+            break;
+        }
+      }
+      for (byte i=1; i<9; i++) data[0] &= data[i];
+      return data[0]==0xFF ? -127.0f : retVal;
     }
 
     void requestTemperatures() {
-      readDallas();
+      DEBUG_PRINTLN(F("Requesting temperature."));
+      oneWire->reset();
+      oneWire->skip();                        // skip ROM
+      oneWire->write(0x44,parasite);          // request new temperature reading (TODO: parasite would need special handling)
       lastTemperaturesRequest = millis();
       waitingForConversion = true;
-      DEBUG_PRINTLN(F("Requested temperature."));
     }
 
     void readTemperature() {
@@ -102,10 +122,13 @@ class UsermodTemperature : public Usermod {
             case 0x3B:  // DS1825
             case 0x42:  // DS28EA00
               DEBUG_PRINTLN(F("Sensor found."));
+              sensorFound = deviceAddress[0];
+              DEBUG_PRINTF("0x%02X\n", sensorFound);
               return true;
           }
         }
       }
+      DEBUG_PRINTLN(F("Sensor NOT found."));
       return false;
     }
 
@@ -113,16 +136,16 @@ class UsermodTemperature : public Usermod {
 
     void setup() {
       int retries = 10;
+      sensorFound = 0;
+      temperature = -127.0f; // default to -127, DS18B20 only goes down to -50C
       if (enabled) {
         // config says we are enabled
         DEBUG_PRINTLN(F("Allocating temperature pin..."));
         // pin retrieved from cfg.json (readFromConfig()) prior to running setup()
         if (temperaturePin >= 0 && pinManager.allocatePin(temperaturePin, true, PinOwner::UM_Temperature)) {
           oneWire = new OneWire(temperaturePin);
-          if (!oneWire->reset()) {
-            sensorFound = false;   // resetting 1-Wire bus yielded an error
-          } else {
-            while ((sensorFound=findSensor()) && retries--) {
+          if (oneWire->reset()) {
+            while (!findSensor() && retries--) {
               delay(25); // try to find sensor
             }
           }
@@ -131,7 +154,6 @@ class UsermodTemperature : public Usermod {
             DEBUG_PRINTLN(F("Temperature pin allocation failed."));
           }
           temperaturePin = -1;  // allocation failed
-          sensorFound = false;
         }
       }
       lastMeasurement = millis() - readingInterval + 10000;
@@ -139,8 +161,9 @@ class UsermodTemperature : public Usermod {
     }
 
     void loop() {
-      if (!enabled || strip.isUpdating()) return;
+      if (!enabled || !sensorFound || strip.isUpdating()) return;
 
+      static uint8_t errorCount = 0;
       unsigned long now = millis();
 
       // check to see if we are due for taking a measurement
@@ -156,20 +179,26 @@ class UsermodTemperature : public Usermod {
       }
 
       // we were waiting for a conversion to complete, have we waited log enough?
-      if (now - lastTemperaturesRequest >= 100 /* 93.75ms per the datasheet but can be up to 750ms */) {
+      if (now - lastTemperaturesRequest >= 750 /* 93.75ms per the datasheet but can be up to 750ms */) {
         readTemperature();
+        if (getTemperatureC() < -100.0f) {
+          if (++errorCount > 10) sensorFound = 0;
+          lastMeasurement = now - readingInterval + 300; // force new measurement in 300ms
+          return;
+        }
+        errorCount = 0;
 
         if (WLED_MQTT_CONNECTED) {
           char subuf[64];
           strcpy(subuf, mqttDeviceTopic);
-          if (-100 <= temperature) {
+          if (temperature > -100.0f) {
             // dont publish super low temperature as the graph will get messed up
             // the DallasTemperature library returns -127C or -196.6F when problem
             // reading the sensor
             strcat_P(subuf, PSTR("/temperature"));
-            mqtt->publish(subuf, 0, false, String(temperature).c_str());
+            mqtt->publish(subuf, 0, false, String(getTemperatureC()).c_str());
             strcat_P(subuf, PSTR("_f"));
-            mqtt->publish(subuf, 0, false, String((float)temperature * 1.8f + 32).c_str());
+            mqtt->publish(subuf, 0, false, String(getTemperatureF()).c_str());
           } else {
             // publish something else to indicate status?
           }
@@ -202,13 +231,13 @@ class UsermodTemperature : public Usermod {
       JsonArray temp = user.createNestedArray(FPSTR(_name));
       //temp.add(F("Loaded."));
 
-      if (temperature <= -100.0 || (!sensorFound && temperature == -1.0)) {
+      if (temperature <= -100.0f) {
         temp.add(0);
         temp.add(F(" Sensor Error!"));
         return;
       }
 
-      temp.add(degC ? temperature : (float)temperature * 1.8f + 32);
+      temp.add(degC ? getTemperatureC() : getTemperatureF());
       if (degC) temp.add(F("°C"));
       else      temp.add(F("°F"));
     }
@@ -252,23 +281,21 @@ class UsermodTemperature : public Usermod {
     bool readFromConfig(JsonObject &root) {
       // we look for JSON object: {"Temperature": {"pin": 0, "degC": true}}
       int8_t newTemperaturePin = temperaturePin;
+      DEBUG_PRINT(FPSTR(_name));
 
       JsonObject top = root[FPSTR(_name)];
       if (top.isNull()) {
-        DEBUG_PRINT(FPSTR(_name));
         DEBUG_PRINTLN(F(": No config found. (Using defaults.)"));
         return false;
       }
 
       enabled           = top[FPSTR(_enabled)] | enabled;
       newTemperaturePin = top["pin"] | newTemperaturePin;
-//      newTemperaturePin = min(33,max(-1,(int)newTemperaturePin)); // bounds check
       degC              = top["degC"] | degC;
       readingInterval   = top[FPSTR(_readInterval)] | readingInterval/1000;
       readingInterval   = min(120,max(10,(int)readingInterval)) * 1000;  // convert to ms
       parasite          = top[FPSTR(_parasite)] | parasite;
 
-      DEBUG_PRINT(FPSTR(_name));
       if (!initDone) {
         // first run: reading from cfg.json
         temperaturePin = newTemperaturePin;

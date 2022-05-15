@@ -104,7 +104,7 @@ void turnOff()
   transitionDelayTemp = 4000; //fade out slowly
   #endif
   bri = 0;
-  colorUpdated(CALL_MODE_NOTIFICATION);
+  stateUpdated(CALL_MODE_NOTIFICATION);
   wipeState = 0;
   userVar0 = 0;
   previousUserVar0 = 0;

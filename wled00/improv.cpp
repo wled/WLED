@@ -189,7 +189,7 @@ void sendImprovInfoResponse() {
   out[11] = 4; //Firmware len ("WLED")
   out[12] = 'W'; out[13] = 'L'; out[14] = 'E'; out[15] = 'D';
   uint8_t lengthSum = 17;
-  uint8_t vlen = sprintf_P(out+lengthSum,PSTR("0.13.0-b6/%i"),VERSION);
+  uint8_t vlen = sprintf_P(out+lengthSum,PSTR("0.13.2-a0/%i"),VERSION);
   out[16] = vlen; lengthSum += vlen;
   uint8_t hlen = 7;
   #ifdef ESP8266

@@ -65,7 +65,8 @@ private:
     {   1,   0,   1,   1,   1,   1,   1 },  // 6
     {   1,   1,   1,   0,   0,   0,   0 },  // 7
     {   1,   1,   1,   1,   1,   1,   1 },  // 8
-    {   1,   1,   1,   1,   0,   1,   1 }   // 9
+    {   1,   1,   1,   1,   0,   1,   1 },  // 9
+    {   0,   0,   0,   0,   0,   0,   0 }   // blank
   };
 
   //String to reduce flash memory usage
@@ -85,7 +86,7 @@ private:
   static const char _str_minBrightness[];
   static const char _str_maxBrightness[];
 
-#ifdef USERMOD_ID_SN_PHOTORESISTOR
+#ifdef USERMOD_SN_PHOTORESISTOR
   Usermod_SN_Photoresistor *ptr;
 #else
   void* ptr = nullptr;
@@ -100,39 +101,39 @@ private:
       switch (umSSDRDisplayMask[index]) {
         case 'h':
           timeVar = hourFormat12(localTime);
-          _showElements(&umSSDRHours, timeVar, 0);
+          _showElements(&umSSDRHours, timeVar, 0, 1);
           break;
         case 'H':
           timeVar = hour(localTime);
-          _showElements(&umSSDRHours, timeVar, 0);
+          _showElements(&umSSDRHours, timeVar, 0, 1);
           break;
         case 'k':
           timeVar = hour(localTime) + 1;
-          _showElements(&umSSDRHours, timeVar, 0);
+          _showElements(&umSSDRHours, timeVar, 0, 0);
           break;
         case 'm':
           timeVar = minute(localTime);
-          _showElements(&umSSDRMinutes, timeVar, 0);
+          _showElements(&umSSDRMinutes, timeVar, 0, 0);
           break;
         case 's':
           timeVar = second(localTime);
-          _showElements(&umSSDRSeconds, timeVar, 0);
+          _showElements(&umSSDRSeconds, timeVar, 0, 0);
           break;
         case 'd':
           timeVar = day(localTime);
-          _showElements(&umSSDRDays, timeVar, 0);
+          _showElements(&umSSDRDays, timeVar, 0, 0);
           break;
         case 'M':
           timeVar = month(localTime);
-          _showElements(&umSSDRMonths, timeVar, 0);
+          _showElements(&umSSDRMonths, timeVar, 0, 0);
           break;
         case 'y':
           timeVar = second(localTime);
-          _showElements(&umSSDRYears, timeVar, 0);
+          _showElements(&umSSDRYears, timeVar, 0, 0);
           break;
         case 'Y':
           timeVar = year(localTime);
-          _showElements(&umSSDRYears, timeVar, 0);
+          _showElements(&umSSDRYears, timeVar, 0, 0);
           break;
         case ':':
           if (!colonsDone) { // only call _setColons once as all colons are printed when the first colon is found
@@ -148,14 +149,16 @@ private:
   void _setColons() {
     if ( umSSDRColonblink ) {
       if ( second(localTime) % 2 == 0 ) {
-        _showElements(&umSSDRColons, 0, 1);
+        _showElements(&umSSDRColons, 0, 1, 0);
       }
     } else {
-      _showElements(&umSSDRColons, 0, 1);
+      _showElements(&umSSDRColons, 0, 1, 0);
     }
   }
 
-  void _showElements(String *map, int timevar, bool isColon) {
+  void _showElements(String *map, int timevar, bool isColon, bool removeZero
+
+) {
     if (!(*map).equals("") && !(*map) == NULL) {
       int length = String(timevar).length();
       bool addZero = false;
@@ -165,8 +168,16 @@ private:
       }
       int timeArr[length];
       if(addZero) {
-        timeArr[1] = 0;
-        timeArr[0] = timevar;
+        if(removeZero)
+          {
+            timeArr[1] = 10;
+            timeArr[0] = timevar;
+          }
+        else
+        {
+          timeArr[1] = 0;
+          timeArr[0] = timevar;
+        }
       } else {
         int count = 0;
         while (timevar) {
@@ -360,7 +371,7 @@ public:
     }
     _setAllFalse();
 
-    #ifdef USERMOD_ID_SN_PHOTORESISTOR
+    #ifdef USERMOD_SN_PHOTORESISTOR
       ptr = (Usermod_SN_Photoresistor*) usermods.lookup(USERMOD_ID_SN_PHOTORESISTOR);
     #endif
     DEBUG_PRINTLN(F("Setup done"));
@@ -380,7 +391,7 @@ public:
           uint16_t brightness = map(lux, 0, 1000, umSSDRBrightnessMin, umSSDRBrightnessMax);
           if (bri != brightness) {
             bri = brightness;
-            colorUpdated(1);
+            stateUpdated(1);
           }
         }
         umSSDRLastRefresh = millis();

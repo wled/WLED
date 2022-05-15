@@ -27,8 +27,8 @@ void WLED::reset()
   while (millis() - dly < 450) {
     yield();        // enough time to send response to client
   }
-  setAllLeds();
-  DEBUG_PRINTLN(F("MODULE RESET"));
+  applyBri();
+  DEBUG_PRINTLN(F("WLED RESET"));
   ESP.restart();
 }
 
@@ -62,18 +62,19 @@ void prepareHostname(char* hostname)
       hostname[pos] = '-';
       pos++;
     }
-      // else do nothing - no leading hyphens and do not include hyphens for all other characters.
-      pC++;
+    // else do nothing - no leading hyphens and do not include hyphens for all other characters.
+    pC++;
+  }
+  // if the hostname is left blank, use the mac address/default mdns name
+  if (pos < 6) {
+    sprintf(hostname + 5, "%*s", 6, escapedMac.c_str() + 6);
+  } else { //last character must not be hyphen
+    hostname[pos] = '\0'; // terminate string
+    while (pos > 0 && hostname[pos -1] == '-') {
+      hostname[pos -1] = '\0';
+      pos--;
     }
-    // if the hostname is left blank, use the mac address/default mdns name
-    if (pos < 6) {
-      sprintf(hostname + 5, "%*s", 6, escapedMac.c_str() + 6);
-    } else { //last character must not be hyphen
-      while (pos > 0 && hostname[pos -1] == '-') {
-        hostname[pos -1] = 0;
-        pos--;
-      }
-    }
+  }
 }
 
 //handle Ethernet connection event
@@ -147,37 +148,42 @@ void WLED::loop()
   yield();
   handleIO();
   handleIR();
+  #ifndef WLED_DISABLE_ALEXA
   handleAlexa();
+  #endif
 
   yield();
 
-  if (doReboot)
+  if (doReboot && !doInitBusses) // if busses have to be inited & saved, wait until next iteration
     reset();
   if (doCloseFile) {
     closeFile();
     yield();
   }
 
-  if (!realtimeMode || realtimeOverride)  // block stuff if WARLS/Adalight is enabled
+  if (!realtimeMode || realtimeOverride || (realtimeMode && useMainSegmentOnly))  // block stuff if WARLS/Adalight is enabled
   {
-    if (apActive)
-      dnsServer.processNextRequest();
-#ifndef WLED_DISABLE_OTA
-    if (WLED_CONNECTED && aOtaEnabled)
-      ArduinoOTA.handle();
-#endif
+    if (apActive) dnsServer.processNextRequest();
+    #ifndef WLED_DISABLE_OTA
+    if (WLED_CONNECTED && aOtaEnabled) ArduinoOTA.handle();
+    #endif
     handleNightlight();
     handlePlaylist();
     yield();
 
+    #ifndef WLED_DISABLE_HUESYNC
     handleHue();
-#ifndef WLED_DISABLE_BLYNK
+    yield();
+    #endif
+
+    #ifndef WLED_DISABLE_BLYNK
     handleBlynk();
-#endif
+    yield();
+    #endif
 
     yield();
 
-    if (!offMode || strip.isOffRefreshRequred)
+    if (!offMode || strip.isOffRefreshRequired())
       strip.service();
 #ifdef ESP8266
     else if (!noWifiSleep)
@@ -193,6 +199,8 @@ void WLED::loop()
   if (lastMqttReconnectAttempt > millis()) {
     rolloverMillis++;
     lastMqttReconnectAttempt = 0;
+    ntpLastSyncTime = 0;
+    strip.restartRuntime();
   }
   if (millis() - lastMqttReconnectAttempt > 30000) {
     lastMqttReconnectAttempt = millis();
@@ -356,8 +364,8 @@ void WLED::setup()
   #endif
 
   #ifdef WLED_ENABLE_ADALIGHT
-	//Serial RX (Adalight, Improv, Serial JSON) only possible if GPIO3 unused
-	//Serial TX (Debug, Improv, Serial JSON) only possible if GPIO1 unused
+  //Serial RX (Adalight, Improv, Serial JSON) only possible if GPIO3 unused
+  //Serial TX (Debug, Improv, Serial JSON) only possible if GPIO1 unused
   if (!pinManager.isPinAllocated(3) && !pinManager.isPinAllocated(1)) {
     Serial.println(F("Ada"));
   }
@@ -381,7 +389,9 @@ void WLED::setup()
     sprintf(mqttClientID + 5, "%*s", 6, escapedMac.c_str() + 6);
   }
 
+#ifdef WLED_ENABLE_ADALIGHT
   if (Serial.available() > 0 && Serial.peek() == 'I') handleImprovPacket();
+#endif
 
   strip.service();
 
@@ -401,7 +411,10 @@ void WLED::setup()
   initDMX();
 #endif
 
+#ifdef WLED_ENABLE_ADALIGHT
   if (Serial.available() > 0 && Serial.peek() == 'I') handleImprovPacket();
+#endif
+
   // HTTP server page init
   initServer();
 
@@ -571,7 +584,7 @@ void WLED::initConnection()
   if (staticIP[0] != 0 && staticGateway[0] != 0) {
     WiFi.config(staticIP, staticGateway, staticSubnet, IPAddress(1, 1, 1, 1));
   } else {
-    WiFi.config(0U, 0U, 0U);
+    WiFi.config(IPAddress((uint32_t)0), IPAddress((uint32_t)0), IPAddress((uint32_t)0));
   }
 
   lastReconnectAttempt = millis();
@@ -682,8 +695,10 @@ void WLED::handleConnection()
 
   if (now < 2000 && (!WLED_WIFI_CONFIGURED || apBehavior == AP_BEHAVIOR_ALWAYS))
     return;
-  if (lastReconnectAttempt == 0)
+  if (lastReconnectAttempt == 0) {
     initConnection();
+    return;
+  }
 
   // reconnect WiFi to clear stale allocations if heap gets too low
   if (now - heapTime > 5000) {

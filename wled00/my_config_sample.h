@@ -13,8 +13,8 @@
  * DO NOT make changes to the "my_config_sample.h" file directly! Your changes will not be applied.
  */
 
-// force the compiler to show a warning to confirm that this file is included
-#warning **** my_config.h: Settings from this file are honored ****
+// uncomment to force the compiler to show a warning to confirm that this file is included
+//#warning **** my_config.h: Settings from this file are honored ****
 
 /* Uncomment to use your WIFI settings as defaults
   //WARNING: this will hardcode these as the default even after a factory reset

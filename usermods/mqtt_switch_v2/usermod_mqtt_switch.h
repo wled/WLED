@@ -1,5 +1,7 @@
 #pragma once
 
+#warning "This usermod is deprecated and no longer maintained. It will be removed in a future WLED release. Please use usermod multi_relay which has more features."
+
 #include "wled.h"
 #ifndef WLED_ENABLE_MQTT
 #error "This user mod requires MQTT to be enabled."

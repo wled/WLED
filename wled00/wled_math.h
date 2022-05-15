@@ -18,6 +18,7 @@
 float cos_t(float phi)
 {
   float x = modd(phi, TWO_PI);
+  if (x < 0) x = -1 * x;
   int8_t sign = 1;
   if (x > PI)
   {
@@ -80,36 +81,41 @@ float asin_t(float x) {
   return res;
 }
 
-//https://stackoverflow.com/a/42542593
-#define A 0.0776509570923569
-#define B -0.287434475393028
-#define C ((HALF_PI/2) - A - B)
-
-//polynominal factors for approximation between 1 and 5
-#define C0 0.089494f
-#define C1 0.974207f
-#define C2 -0.326175f
-#define C3 0.05375f
-#define C4 -0.003445f
-
+// declare a template with no implementation, and only one specialization
+// this allows hiding the constants, while ensuring ODR causes optimizations
+// to still apply.  (Fixes issues with conflicting 3rd party #define's)
+template <typename T> T atan_t(T x);
+template<>
 float atan_t(float x) {
-  bool neg = (x < 0);
+  //For A/B/C, see https://stackoverflow.com/a/42542593
+  static const double A { 0.0776509570923569 };
+  static const double B { -0.287434475393028 };
+  static const double C { ((HALF_PI/2) - A - B) };
+  // polynominal factors for approximation between 1 and 5
+  static const float C0 {  0.089494f };
+  static const float C1 {  0.974207f };
+  static const float C2 { -0.326175f };
+  static const float C3 {  0.05375f  };
+  static const float C4 { -0.003445f };
+
   #ifdef WLED_DEBUG_MATH
   float xinput = x;
   #endif
+  bool neg = (x < 0);
   x = std::abs(x);
   float res;
-  if (x > 5.0f) { //atan(x) converges to pi/2 - (1/x) for large values
+  if (x > 5.0f) { // atan(x) converges to pi/2 - (1/x) for large values
     res = HALF_PI - (1.0f/x);
-  }
-  else if (x > 1.0f) { //1 < x < 5
+  } else if (x > 1.0f) { //1 < x < 5
     float xx = x * x;
     res = (C4*xx*xx)+(C3*xx*x)+(C2*xx)+(C1*x)+C0;
-  } else { //this approximation is only for x <= 1
+  } else { // this approximation is only for x <= 1
     float xx = x * x;
     res = ((A*xx + B)*xx + C)*x;
   }
-  if (neg) res = -res;
+  if (neg) {
+    res = -res;
+  }
   #ifdef WLED_DEBUG_MATH
   Serial.printf("atan,%f,%f,%f\n",xinput,res,atan(xinput));
   #endif
