@@ -4322,14 +4322,12 @@ uint16_t WS2812FX::mode_HIVE_strobing_segments(void) {
         for (uint8_t ii = 0; ii < nActiveEdges; ii++) {
             bool duplicates;
             uint8_t randCalls = 0;
-            do 
-            {
+            do {
                 // get new random edge and check if it is already on
                 duplicates = false;
                 SEGENV.data[ii] = (byte)random8(0, (float)SEGLEN / N_LEDS_PER_EDGE);
                 randCalls++;
-                for (uint8_t jj = 0; jj < ii; jj++)
-                {
+                for (uint8_t jj = 0; jj < ii; jj++) {
                     if (SEGENV.data[ii] == SEGENV.data[jj]) {
                         duplicates = true;
                         break;
