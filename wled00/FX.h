@@ -116,7 +116,7 @@
 #define IS_REVERSE      ((SEGMENT.options & REVERSE     ) == REVERSE     )
 #define IS_SELECTED     ((SEGMENT.options & SELECTED    ) == SELECTED    )
 
-#define MODE_COUNT  123
+#define MODE_COUNT  126
 
 #define FX_MODE_STATIC                   0
 #define FX_MODE_BLINK                    1
@@ -962,7 +962,7 @@ const char JSON_mode_names[] PROGMEM = R"=====([
 "Fireworks 1D","Bouncing Balls","Sinelon","Sinelon Dual","Sinelon Rainbow","Popcorn","Drip","Plasma","Percent","Ripple Rainbow",
 "Heartbeat","Pacifica","Candle Multi", "Solid Glitter","Sunrise","Phased","Twinkleup","Noise Pal", "Sine","Phased Noise",
 "Flow","Chunchun","Dancing Shadows","Washing Machine","Candy Cane","Blends","TV Simulator","Dynamic Smooth","Hive 51 Strobe","Hive 51 Rotation",
-"Hive 51 Rotation Reverse", "Hive 51 Matrix desc.", "Hive 51 Matrix asc."
+"Hive Rotation Reverse", "Hive Matrix desc.", "Hive Matrix asc.", "Hive Wave", "Hive Matrix Full desc.", "Hive Matrix Full asc."
 ])=====";
 
 
