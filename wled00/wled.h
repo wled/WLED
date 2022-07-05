@@ -12,6 +12,10 @@
 
 //uncomment this if you have a "my_config.h" file you'd like to use
 //#define WLED_USE_MY_CONFIG
+#define WLED_DISABLE_MQTT
+#define WLED_DISABLE_LOXONE
+#define WLED_DISABLE_ALEXA
+#define WLED_DISABLE_INFRARED
 
 // ESP8266-01 (blue) got too little storage space to work with WLED. 0.10.2 is the last release supporting this unit.
 
