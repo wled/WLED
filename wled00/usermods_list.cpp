@@ -136,6 +136,10 @@
 #include "../usermods/audioreactive/audio_reactive.h"
 #endif
 
+#ifdef USERMOD_TUBES
+#include "../usermods/Tubes/Tubes.h"
+#endif
+
 void registerUsermods()
 {
 /*
@@ -259,4 +263,9 @@ void registerUsermods()
   #ifdef USERMOD_AUDIOREACTIVE
   usermods.add(new AudioReactive());
   #endif
+
+  #ifdef USERMOD_TUBES
+  usermods.add(new TubesUsermod());
+  #endif
+
 }

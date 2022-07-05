@@ -4499,7 +4499,6 @@ uint16_t mode_aurora(void) {
   
   return FRAMETIME;
 }
-<<<<<<< HEAD
 static const char _data_FX_MODE_AURORA[] PROGMEM = "Aurora@!,!;1,2,3;!;sx=24,pal=50,1d";
 
 // WLED-SR effects
@@ -5279,6 +5278,20 @@ uint16_t mode_2DPlasmaball(void) {                   // By: Stepko https://edito
 } // mode_2DPlasmaball()
 static const char _data_FX_MODE_2DPLASMABALL[] PROGMEM = "Plasma Ball@Speed,,Fade,Blur;!,!,!;!;2d";
 
+
+uint16_t WS2812FX::mode_external(void) {
+  // uint8_t segment_id = strip.getMainSegmentId();
+  uint16_t length = strip.getLengthTotal();
+
+  for (int i = 0, p = 0; i < length; i++, p++) {
+    if (p >= EXTERNAL_BUFFER_SIZE) {
+      p = 0;
+    }
+    // strip.setPixelColor(i, color_from_palette(external_buffer[p], true, PALETTE_SOLID_WRAP, 0));
+    strip.setPixelColor(i, external_buffer[p]);
+  }
+}
+static const char _data_FX_MODE_TUBES_NOISE[] PROGMEM = "External!@!,;!,!,;!;1d";
 
 ////////////////////////////////
 //  2D Polar Lights           //
@@ -7448,7 +7461,8 @@ void WS2812FX::setupEffectData() {
   addEffect(FX_MODE_WASHING_MACHINE, &mode_washing_machine, _data_FX_MODE_WASHING_MACHINE);
   addEffect(FX_MODE_FLOWSTRIPE, &mode_FlowStripe, _data_FX_MODE_FLOWSTRIPE);
   addEffect(FX_MODE_BLENDS, &mode_blends, _data_FX_MODE_BLENDS);
-  addEffect(FX_MODE_TV_SIMULATOR, &mode_tv_simulator, _data_FX_MODE_TV_SIMULATOR);
+  // addEffect(FX_MODE_TV_SIMULATOR, &mode_tv_simulator, _data_FX_MODE_TV_SIMULATOR);
+  addEffect(FX_MODE_EXTERNAL, &mode_external, _data_FX_MODE_EXTERNAL);
   addEffect(FX_MODE_DYNAMIC_SMOOTH, &mode_dynamic_smooth, _data_FX_MODE_DYNAMIC_SMOOTH);
 
   // --- 2D non-audio effects ---
@@ -7514,7 +7528,6 @@ void WS2812FX::setupEffectData() {
   addEffect(FX_MODE_BLURZ, &mode_blurz, _data_FX_MODE_BLURZ);
   addEffect(FX_MODE_ROCKTAVES, &mode_rocktaves, _data_FX_MODE_ROCKTAVES);
 }
-=======
 
 
 
@@ -7558,4 +7571,3 @@ uint16_t WS2812FX::mode_tubes_moise(void) {
 
   return FRAMETIME;
 }
->>>>>>> 3b8e5a2f (Initial port of Tubes - palettes and noise functions)
