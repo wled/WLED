@@ -4228,44 +4228,16 @@ uint16_t WS2812FX::mode_aurora(void) {
   return FRAMETIME;
 }
 
+uint16_t WS2812FX::mode_external(void) {
+  // uint8_t segment_id = strip.getMainSegmentId();
+  uint16_t length = strip.getLengthTotal();
 
-
-
-#define MAX_VIRTUAL_LEDS 150
-uint8_t noise[MAX_VIRTUAL_LEDS];
-
-void fillnoise8(uint32_t frame, uint8_t num_leds) {
-  uint16_t scale = 17;
-  uint8_t dataSmoothing = 240;
-  
-  for (int i = 0; i < num_leds; i++) {
-    uint8_t data = inoise8(i * scale, frame>>2);
-
-    // The range of the inoise8 function is roughly 16-238.
-    // These two operations expand those values out to roughly 0..255
-    data = qsub8(data,16);
-    data = qadd8(data,scale8(data,39));
-
-    uint8_t olddata = noise[i];
-    uint8_t newdata = scale8( olddata, dataSmoothing) + scale8( data, 256 - dataSmoothing);
-    noise[i] = newdata;
-  }
-}
-
-uint16_t WS2812FX::mode_tubes_moise(void) {
-  uint16_t pixelLen = SEGLEN > MAX_VIRTUAL_LEDS ? MAX_VIRTUAL_LEDS : SEGLEN;
-  // uint16_t dataSize = sizeof(uint32_t) * (pixelLen + 1);  // max segment length of 56 pixels on 16 segment ESP8266
-  // if (!SEGENV.allocateData(dataSize)) return mode_static(); //allocation failed
-  // uint32_t* pixels = reinterpret_cast<uint32_t*>(SEGENV.data);
-  uint8_t blendSpeed = map(SEGMENT.intensity, 0, UINT8_MAX, 10, 128);
-  uint8_t shift = (now * ((SEGMENT.speed >> 3) +1)) >> 8;
-
-  // generate noise data
-  fillnoise8(now>>4, pixelLen);
-
-  uint16_t offset = 0;
-  for (int i = 0; i < SEGLEN; i++) {
-    setPixelColor(i, color_from_palette(noise[i], true, PALETTE_SOLID_WRAP, 0));
+  for (int i = 0, p = 0; i < length; i++, p++) {
+    if (p >= EXTERNAL_BUFFER_SIZE) {
+      p = 0;
+    }
+    // strip.setPixelColor(i, color_from_palette(external_buffer[p], true, PALETTE_SOLID_WRAP, 0));
+    strip.setPixelColor(i, crgb_to_col(external_buffer[p]));
   }
 
   return FRAMETIME;

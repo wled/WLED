@@ -56,6 +56,9 @@
 #define FRAMETIME_FIXED  (1000/WLED_FPS)
 #define FRAMETIME        _frametime
 
+// External buffer
+#define EXTERNAL_BUFFER_SIZE  150
+
 /* each segment uses 52 bytes of SRAM memory, so if you're application fails because of
   insufficient memory, decreasing MAX_NUM_SEGMENTS may help */
 #ifdef ESP8266
@@ -239,8 +242,7 @@
 #define FX_MODE_BLENDS                 115
 #define FX_MODE_TV_SIMULATOR           116
 #define FX_MODE_DYNAMIC_SMOOTH         117
-
-#define FX_MODE_TUBES_NOISE            118
+#define FX_MODE_EXTERNAL               118
 
 
 class WS2812FX {
@@ -611,7 +613,7 @@ class WS2812FX {
       _mode[FX_MODE_BLENDS]                  = &WS2812FX::mode_blends;
       _mode[FX_MODE_TV_SIMULATOR]            = &WS2812FX::mode_tv_simulator;
       _mode[FX_MODE_DYNAMIC_SMOOTH]          = &WS2812FX::mode_dynamic_smooth;
-      _mode[FX_MODE_TUBES_NOISE]             = &WS2812FX::mode_tubes_moise;
+      _mode[FX_MODE_EXTERNAL]                = &WS2812FX::mode_external;
 
       _brightness = DEFAULT_BRIGHTNESS;
       currentPalette = CRGBPalette16(CRGB::Black);
@@ -837,7 +839,7 @@ class WS2812FX {
       mode_blends(void),
       mode_tv_simulator(void),
       mode_dynamic_smooth(void),
-      mode_tubes_moise(void);
+      mode_external(void);
 
   private:
     uint32_t crgb_to_col(CRGB fastled);
@@ -922,7 +924,13 @@ class WS2812FX {
     uint16_t
       transitionProgress(uint8_t tNr);
   
+    CRGB external_buffer[EXTERNAL_BUFFER_SIZE]; // 4 bytes per element
+
   public:
+    static CRGB *get_external_buffer() {
+      return instance->external_buffer;
+    }
+
     inline bool hasWhiteChannel(void) {return _hasWhiteChannel;}
     inline bool isOffRefreshRequired(void) {return _isOffRefreshRequired;}
 };
@@ -940,143 +948,19 @@ const char JSON_mode_names[] PROGMEM = R"=====([
 "Twinklefox","Twinklecat","Halloween Eyes","Solid Pattern","Solid Pattern Tri","Spots","Spots Fade","Glitter","Candle","Fireworks Starburst",
 "Fireworks 1D","Bouncing Balls","Sinelon","Sinelon Dual","Sinelon Rainbow","Popcorn","Drip","Plasma","Percent","Ripple Rainbow",
 "Heartbeat","Pacifica","Candle Multi", "Solid Glitter","Sunrise","Phased","Twinkleup","Noise Pal", "Sine","Phased Noise",
-"Flow","Chunchun","Dancing Shadows","Washing Machine","Candy Cane","Blends","TV Simulator","Dynamic Smooth",
-"My Tubes"
+"Flow","Chunchun","Dancing Shadows","Washing Machine","Candy Cane","Blends","TV Simulator","Dynamic Smooth", "External!"
 ])=====";
 
 
-// "Sunset","Rivendell","Breeze","Red & Blue","Yellowout","Analogous","Splash",
-// "Pastel","Sunset 2","Beech","Vintage","Departure","Landscape","Beach","Sherbet","Hult","Hult 64",
-// "Drywet","Jul","Grintage","Rewhi","Tertiary","Fire","Icefire","Cyane","Light Pink","Autumn",
-// "Magenta","Magred","Yelmag","Yelblu","Orange & Teal","Tiamat","April Night","Orangery","C9","Sakura",
-// "Aurora","Atlantica","C9 2","C9 New","Temperature","Aurora 2","Retro Clown","Candy","Toxy Reaf","Fairy Reaf",
-// "Semi Blue","Pink Candy","Red Reaf","Aqua Flash","Yelblu Hot","Lite Light","Red Flash","Blink Red","Red Shift","Red Tide",
-// "Candy2"
 const char JSON_palette_names[] PROGMEM = R"=====([
 "Default","* Random Cycle","* Color 1","* Colors 1&2","* Color Gradient","* Colors Only","Party","Cloud","Lava","Ocean",
-"Forest","Rainbow","Rainbow Bands",
-
-"ib_jul01",
-"es_vintage_57",
-"es_vintage_01",
-"es_rivendell_15",
-"rgi_15",
-"retro2_16",
-"Analogous_1",
-"es_pinksplash_08",
-"es_pinksplash_07",
-"Coral_reef",
-
-"es_ocean_breeze_068",
-"es_ocean_breeze_036",
-"departure",
-"es_landscape_64",
-"es_landscape_33",
-"rainbowsherbet",
-"gr65_hult",
-"gr64_hult",
-"GMT_drywet",
-"ib15",
-
-"Fuschia_7",
-"es_emerald_dragon_08",
-"lava",
-"fire",
-"haiyan_23",
-"Colorfull",
-"Magenta_Evening",
-"Pink_Purple",
-"Sunset_Real",
-"es_autumn_19",
-
-"BlacK_Blue_Magenta_White",
-"BlacK_Magenta_Red",
-"BlacK_Red_Magenta_Yellow",
-"Blue_Cyan_Yellow",
-"Sunset_Yellow",
-"cloud",
-"fireandice",
-"bhw2_39",
-"rainfall",
-"tashangel",
-
-"butterflytalker",
-"os250k_metres",
-"Night_Midnight",
-"Afterdusk",
-"BlueSky",
-"Gold_Orange",
-"frizzell_05",
-"frizzell_09",
-"frizzell_10",
-"frizzell_12",
-
-"fib53_01",
-"fib53_18",
-"fib53_07",
-"fib53_13",
-"fib53_17",
-"fib53_05",
-"Analogous_02",
-"Analogous_04a",
-"Cyan_Orange_Stripped",
-"Cyan_White_Green",
-
-"Wild_Orange",
-"IKat_Radial",
-"Citrus",
-"Teal_Blue",
-"Ldby_Orange",
-"purple_orange_d07",
-"blue_tan_d08",
-"green_purple_d07",
-"knoza_00",
-"knoza_18",
-
-"calpan_18",
-"calbayo_18",
-"fib53_15",
-"grindylow_15",
-"grindylow_21",
-"konjo_08",
-"konjo_18",
-"konjo_19",
-"konkikyo_19",
-"mccahon_16",
-"sulz_10",
-"sulz_12",
-"sulz_15",
-"sulz_21",
-"sulz_22",
-"Pills_2",
-"Pink_Yellow_Orange_1",
-"es_autumn_04",
-"es_autumn_02",
-"es_candide_30",
-"es_chic_16",
-"es_coffee_01",
-"es_emerald_dragon_01",
-"es_landscape_57",
-"es_landscape_22",
-"es_landscape_47",
-"es_landscape_10",
-"es_landscape_76",
-"es_landscape_61",
-"es_landscape_60",
-"es_landscape_51",
-"es_landscape_06",
-"es_ocean_breeze_049",
-"es_ocean_breeze_057",
-"es_ocean_breeze_074",
-"es_pinksplash_05",
-"es_pinksplash_10",
-"es_vintage_56",
-"es_vintage_10",
-"gold_yellow",
-"radioactive_slime",
-"pastel_rainbow",
-"purple_sunset",
-"janico_22"
+"Forest","Rainbow","Rainbow Bands","Sunset","Rivendell","Breeze","Red & Blue","Yellowout","Analogous","Splash",
+"Pastel","Sunset 2","Beech","Vintage","Departure","Landscape","Beach","Sherbet","Hult","Hult 64",
+"Drywet","Jul","Grintage","Rewhi","Tertiary","Fire","Icefire","Cyane","Light Pink","Autumn",
+"Magenta","Magred","Yelmag","Yelblu","Orange & Teal","Tiamat","April Night","Orangery","C9","Sakura",
+"Aurora","Atlantica","C9 2","C9 New","Temperature","Aurora 2","Retro Clown","Candy","Toxy Reaf","Fairy Reaf",
+"Semi Blue","Pink Candy","Red Reaf","Aqua Flash","Yelblu Hot","Lite Light","Red Flash","Blink Red","Red Shift","Red Tide",
+"Candy2"
 ])=====";
 
 #endif
