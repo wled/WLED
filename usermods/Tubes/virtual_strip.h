@@ -168,21 +168,8 @@ class VirtualStrip {
     brightness = scale8(this->brightness, brightness);
 
     for (unsigned i=0; i < num_leds; i++) {
-#ifdef DOUBLED
-      uint8_t pos = (2*i + 1) % this->num_leds;  // slope of line is fixed right now at 2:1
-#else
       uint8_t pos = i;
-#endif
-
       CRGB c = this->leds[pos];
-
-#ifdef DOUBLED
-      CRGB c1 = this->leds[pos-1];
-      CRGB c2 = this->leds[pos+1];
-      nblend(c1, c, 128);
-      nblend(c, c2, 128);
-      nblend(c, c1, 128); // C is now a weighted average of the three virtual pixels
-#endif
 
       nscale8x3(c.r, c.g, c.b, brightness);
       nscale8x3(c.r, c.g, c.b, this->fader>>8);
