@@ -1,5 +1,8 @@
 #pragma once
 
+#include "controller.h"
+#include "radio.h"
+
 
 class DebugController {
   public:
@@ -51,6 +54,5 @@ class DebugController {
     if (this->radio->radioFailures && !this->radio->radioRestarts) {
       this->strip->leds[0] = CRGB::Red;
     }
-
   }
 };
