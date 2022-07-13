@@ -100,21 +100,20 @@ class Effects {
   }
 
   void animate(BeatFrame_24_8 frame, uint8_t beat_pulse) {
-    unsigned int len = 0; /* PARTICLES particles.length(); */
+    unsigned int len = numParticles;
     for (unsigned i=len; i > 0; i--) {
       Particle *particle = particles[i-1];
   
       particle->update(frame);
       if (particle->age > particle->lifetime) {
-        delete particle;
-        /* PARTICLES particles.erase(i-1); */
+        removeParticle(i-1);
         continue;
       }
     }
   }
 
   void draw(CRGB strip[], uint8_t num_leds) {
-    uint8_t len = 0; /* PARTICLES particles.length(); */
+    uint8_t len = numParticles;
     for (uint8_t i=0; i<len; i++) {
       Particle *particle = particles[i];
       particle->drawFn(particle, strip, num_leds);
