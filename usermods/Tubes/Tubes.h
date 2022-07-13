@@ -30,15 +30,15 @@ class TubesUsermod : public Usermod {
     DebugController debug = DebugController(&controller);
     int* master = NULL;  /* master.h deleted */
 
-    void randomize(long seed) {
-      for (int i = 0; i < seed % 16; i++) {
-        randomSeed(random(INT_MAX));
-      }
-      random16_add_entropy( random(INT_MAX) );  
+    void randomize() {
+      randomSeed(esp_random());
+      random16_add_entropy(esp_random());
     }
 
   public:
     void setup() {
+      randomize();
+
       // Start timing
       globalTimer.setup();
       beats.setup();
@@ -48,8 +48,8 @@ class TubesUsermod : public Usermod {
 
     void loop()
     {
-      EVERY_N_MILLISECONDS(1000) {
-        randomize(random(INT_MAX));
+      EVERY_N_MILLISECONDS(10000) {
+        randomize();
       }
 
       beats.update();
@@ -71,26 +71,28 @@ Aurora
 Dynamic Smooth
 Blends
 Colortwinkles
-Fillnoise - maybe
 Fireworks
 Fireworks Starburst
 Flow
-Gradient - maybe
-Juggle - maybe
 Lake
-Meteor Smooth - maybe
 Noise 2
 Noise 4
 Pacifica
-Palette - maybe
-Phased - maybe
 Plasma
 Ripple
 Running Dual
-Saw - maybe
-Sinelon Dual - maybe
-Tetrix - maybe
 Twinklecat
 Twinkleup
+
+MAYBE GOOD PATTERNS
+Fillnoise
+Gradient
+Juggle
+Meteor Smooth
+Palette
+Phased
+Saw
+Sinelon Dual
+Tetrix
 
 */
