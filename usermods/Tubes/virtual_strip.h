@@ -35,7 +35,8 @@ BeatFrame_24_8 swing(BeatFrame_24_8 frame) {
 }
 
 class VirtualStrip {
-  const static uint16_t DEF_BRIGHT = 192;
+  // Let WLED do the dimming
+  const static uint16_t DEF_BRIGHT = 255;
 
   public:
     CRGB leds[MAX_VIRTUAL_LEDS];

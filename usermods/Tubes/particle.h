@@ -3,9 +3,8 @@
 #include "wled.h"
 #include "beats.h"
 #include "options.h"
-// #include "ustd.h"
 
-#define MAX_PARTICLES 20
+#define MAX_PARTICLES 80
 #undef PARTICLE_PALETTES
 
 class Particle;
@@ -154,24 +153,34 @@ class Particle {
 
 };
 
-Particle* particles[5];
-/* PARTICLES
-ustd::array<Particle*> particles = ustd::array<Particle*>(5);
-*/
+Particle* particles[MAX_PARTICLES];
 BeatFrame_24_8 particle_beat_frame;
+uint8_t numParticles = 0;
+
+void removeParticle(uint8_t i) {
+  if (i >= numParticles)
+    return;
+
+  // Free the memory of the old particle
+  Particle *old_particle = particles[i];
+  delete old_particle;
+
+  // Reset the current free particle
+  int rest = numParticles - i;
+  if (rest > 0) {
+    memmove(&particles[i], &particles[i+1], sizeof(particles[0]) * rest);
+  }
+
+  numParticles -= 1;
+}
 
 void addParticle(Particle *particle) {
   particle->born = particle_beat_frame;
-  /* PARTICLES
-  particles.add(particle);
-  if (particles.length() > MAX_PARTICLES) {
-    Particle *old_particle = particles[0];
-    delete old_particle;
-    particles.erase(0);
+  if (numParticles >= MAX_PARTICLES) {
+    removeParticle(0);
   }
-  */
+  particles[numParticles++] = particle;
 }
-
 
 void drawFlash(Particle *particle, CRGB strip[], uint8_t num_leds) {
   uint16_t age_frac = particle->age_frac16(particle->age);

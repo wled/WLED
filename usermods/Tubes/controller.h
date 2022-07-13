@@ -8,7 +8,7 @@
 #include "global_state.h"
 #include "radio.h"
 
-const static uint8_t DEFAULT_MASTER_BRIGHTNESS = 144;
+const static uint8_t DEFAULT_MASTER_BRIGHTNESS = 255;
 
 const static CommandId COMMAND_UPDATE = 0x411;
 const static CommandId COMMAND_NEXT = 0x321;
@@ -327,7 +327,9 @@ class PatternController : public MessageReceiver {
   }
 
   uint16_t set_next_effect(uint16_t phrase) {
-    EffectDef def = gEffects[random8(gEffectCount)];
+    uint8_t effect_num = random8(gEffectCount);
+
+    EffectDef def = gEffects[effect_num];
     if (def.control.energy > this->energy)
       def = gEffects[0];
 
@@ -643,10 +645,8 @@ class PatternController : public MessageReceiver {
         return;
 
       case 'g':
-        /* PARTICLES
         for (int i=0; i< 10; i++)
           addGlitter();
-        */
         break;
 
       case '?':

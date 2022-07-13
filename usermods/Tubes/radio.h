@@ -2,11 +2,11 @@
 #define RADIO_H
 
 #include <SPI.h>
-#include <NRFLite.h>
 
 #define RADIO_VERSION 1
 
 #ifdef USERADIO
+#include <NRFLite.h>
 NRFLite _radio(Serial);
 #endif
 
