@@ -8,7 +8,7 @@
 #include "global_state.h"
 #include "radio.h"
 
-const static uint8_t DEFAULT_MASTER_BRIGHTNESS = 255;
+const static uint8_t DEFAULT_MASTER_BRIGHTNESS = 200;
 
 const static CommandId COMMAND_UPDATE = 0x411;
 const static CommandId COMMAND_NEXT = 0x321;
