@@ -55,6 +55,7 @@ class TubesUsermod : public Usermod {
       beats.update();
       controller.update();
       debug.update();
+      radio.update();
 
       // Draw after everything else is done
       controller.led_strip->update(master != NULL); // ~25us
