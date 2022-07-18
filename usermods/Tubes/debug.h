@@ -27,6 +27,12 @@ class DebugController {
   void update()
   {
     EVERY_N_MILLISECONDS( 10000 ) {
+      Serial.printf("IP: %u.%u.%u.%u   ",
+        WiFi.localIP()[0],
+        WiFi.localIP()[1],
+        WiFi.localIP()[2],
+        WiFi.localIP()[3]
+      );
       Serial.print(F("Free memory: "));
       Serial.println( freeMemory() );
     }
@@ -40,7 +46,7 @@ class DebugController {
       uint8_t p2 = scale8(this->controller->radio->tubeId, this->strip->num_leds-1);
       this->strip->leds[p2] = CRGB::White;
 
-      uint8_t p3 = scale8(this->controller->radio->masterTubeId, this->strip->num_leds-1);
+      uint8_t p3 = scale8(this->controller->radio->uplinkTubeId, this->strip->num_leds-1);
       if (p3 == p2) {
         this->strip->leds[p3] = CRGB::Green;
       } else {
