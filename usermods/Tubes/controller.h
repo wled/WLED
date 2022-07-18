@@ -10,13 +10,14 @@
 
 const static uint8_t DEFAULT_MASTER_BRIGHTNESS = 200;
 
-const static CommandId COMMAND_UPDATE = 0x411;
-const static CommandId COMMAND_NEXT = 0x321;
-const static CommandId COMMAND_RESET = 0x911;
-const static CommandId COMMAND_FIREWORK = 0xFFF;
-const static CommandId COMMAND_HELLO = 0x000;
-const static CommandId COMMAND_OPTIONS = 0x123;
-const static CommandId COMMAND_BRIGHTNESS = 0x888;
+const static CommandId COMMAND_HELLO = 0x00;
+const static CommandId COMMAND_OPTIONS = 0x10;
+const static CommandId COMMAND_UPDATE = 0x20;
+const static CommandId COMMAND_NEXT = 0x30;
+const static CommandId COMMAND_RESET = 0xF0;
+
+const static CommandId COMMAND_BRIGHTNESS = 0x80;
+const static CommandId COMMAND_FIREWORK = 0x90;
 
 
 typedef struct {
@@ -139,9 +140,9 @@ class PatternController : public MessageReceiver {
     this->read_keys();
 
     // If master has expired, clear masterId
-    if (this->radio->masterTubeId && this->slaveTimer.ended()) {
+    if (this->radio->uplinkTubeId && this->slaveTimer.ended()) {
       Serial.println(F("I have no master"));
-      this->radio->masterTubeId = 0;
+      this->radio->uplinkTubeId = 0;
     }
 
     // Update patterns to the beat
@@ -162,7 +163,7 @@ class PatternController : public MessageReceiver {
     }
 
     // If alone or master, send out updates
-    if (!this->radio->masterTubeId and this->updateTimer.ended()) {
+    if (!this->radio->uplinkTubeId and this->updateTimer.ended()) {
       this->send_update();
     }
 
@@ -462,7 +463,7 @@ class PatternController : public MessageReceiver {
 
       case COMMAND_NEXT: {
         Serial.print(F(" next "));
-        if (fromId < this->radio->masterTubeId) {
+        if (fromId < this->radio->uplinkTubeId) {
           Serial.print(F(" (ignoring)"));
           return;
         } 
@@ -475,7 +476,7 @@ class PatternController : public MessageReceiver {
   
       case COMMAND_UPDATE: {
         Serial.print(F(" update "));
-        if (fromId < this->radio->masterTubeId) {
+        if (fromId < this->radio->uplinkTubeId) {
           Serial.print(F(" (ignoring)"));
           return;
         } 

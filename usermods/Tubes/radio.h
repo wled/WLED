@@ -1,31 +1,25 @@
-#ifndef RADIO_H
-#define RADIO_H
+#pragma once
 
 #include <SPI.h>
+#include <wled.h>
 
 #define RADIO_VERSION 1
+// #define USEBLE
 
-#ifdef USERADIO
-#include <NRFLite.h>
-NRFLite _radio(Serial);
+#ifdef USEBLE
+#include "bluetooth.h"
+#include <WiFi.h>
+
+#define SERVICE_UUID "4fafc201-1fb5-459e-8fcc-c5c9c331914b"
+
+static NimBLEUUID dataUuid(SERVICE_UUID);
 #endif
 
-const static uint8_t RADIO_TX_ID = 0;               // Radio ID for both trans
-const static uint8_t RADIO_RX_ID = 0;               // Radio ID for both recv
-
-const static uint8_t PIN_RADIO_CE = 9;              // hardware pins
-const static uint8_t PIN_RADIO_CSN = 10;            // hardware pins
-const static uint8_t PIN_RADIO_MOSI = 11;           // hardware pins
-const static uint8_t PIN_RADIO_MISO = 12;           // hardware pins
-const static uint8_t PIN_RADIO_SCK = 13;            // hardware pins
-
-#define RADIO_BITRATE NRFLite::BITRATE1MBPS         // { BITRATE2MBPS, BITRATE1MBPS, BITRATE250KBPS }
-#define RADIO_CHANNEL 100 + RADIO_VERSION           // Channel hop with each version
 #define RADIO_SENDPERIOD 1000                       // how often we broadcast, in millisec
 
 class Radio;
 
-typedef uint16_t CommandId;
+typedef uint8_t CommandId;
 typedef uint8_t TubeId;
 
 #define MESSAGE_DATA_MAX_SIZE 25
@@ -87,7 +81,8 @@ class Radio {
     bool alive = false;                            // true if radio booted up
     bool reported_no_radio = false;
     TubeId tubeId = 0;
-    TubeId masterTubeId = 0;
+    TubeId uplinkTubeId = 0;
+    char tube_name[20];
 
     unsigned long radioFailures = 0;
     unsigned long radioRestarts = 0;
@@ -97,23 +92,16 @@ class Radio {
       this->resetId(254);
     else
       this->resetId();
-  
-#ifdef USERADIO
-#ifdef IS_TEENSY
-    SPI.setSCK(PIN_RADIO_SCK);
-    SPI.setMOSI(PIN_RADIO_MOSI);
-    SPI.setMISO(PIN_RADIO_MISO);
+
+#ifdef USEBLE
+    ble_setup();
 #endif
-    SPI.begin();
-    
-    this->reported_no_radio = false;
-    if (_radio.init(RADIO_RX_ID, PIN_RADIO_CE, PIN_RADIO_CSN, RADIO_BITRATE, RADIO_CHANNEL)) {
-      this->alive = true;
-    }
+  
     Serial.println(this->alive ? F("Radio: ok") : F("Radio: fail"));
-  
     // Start the radio, but mute & listen for a bit
-#endif
+  }
+
+  void update() {
   }
 
   void resetId(uint8_t id=0) {
@@ -123,8 +111,18 @@ class Radio {
     Serial.print(F("My ID is "));
     Serial.println(this->tubeId);
 
-    if (this->tubeId > this->masterTubeId)
-      this->masterTubeId = 0;
+    if (this->tubeId > this->uplinkTubeId)
+      this->uplinkTubeId = 0;
+
+#ifdef USEBLE
+    if (this->alive)
+      NimBLEDevice::deinit(false);
+
+    sprintf(tube_name, "Tube %02X", this->tubeId);
+    NimBLEDevice::init(std::string(tube_name));
+    delay(1000);
+    this->alive = true;
+#endif  
   }
 
   bool sendCommand(uint32_t command, void *data=0, uint8_t size=0, TubeId relayId=0)
@@ -134,24 +132,19 @@ class Radio {
 
   bool sendCommandFrom(TubeId id, uint32_t command, void *data=0, uint8_t size=0, TubeId relayId=0)
   {
-#ifndef USERADIO
-    return true;
-#endif
-
-    bool sent = 0;
+    bool sent = false;
     if (!this->alive)
-      return sent;
+      return true;
   
-#ifdef USERADIO
     RadioMessage message;
     if (size > sizeof(message.data)) {
       Serial.println(F("Too big to send"));
-      return 0;
+      return false;
     }
   
     message.tubeId = id;
     message.relayId = relayId;
-    message.command = command + (RADIO_VERSION << 12);
+    message.command = command + RADIO_VERSION;
     memset(message.data, 0, sizeof(message.data));
     memcpy(message.data, data, size);
     uint16_t crc = calculate_crc(message.data, sizeof(message.data));
@@ -161,11 +154,14 @@ class Radio {
     Serial.print(message.tubeId);
     Serial.print(F(": "));
     Serial.print(message.command, HEX);
-  
-    sent = _radio.send(RADIO_TX_ID, &message, sizeof(message), NRFLite::NO_ACK);
-    Serial.print(sent ? F(" ok] ") : F(" failed] "));
+
+#ifdef USEBLE
+    sent = ble_broadcast((byte *)&message, sizeof(message));
+#else
+    sent = true;
 #endif
 
+    Serial.print(sent ? F(" ok] ") : F(" failed] "));
     return sent;
   }
 
@@ -191,7 +187,7 @@ class Radio {
         return;
 
       // Ignore relayed messages if we already have a master
-      if (message.relayId && message.relayId <= this->masterTubeId)
+      if (message.relayId && message.relayId <= this->uplinkTubeId)
         return;
 
       // Filter out corrupt messages
@@ -221,11 +217,11 @@ class Radio {
         return;
       }
 
-      if (message.tubeId != 255 && message.tubeId > this->masterTubeId) {
+      if (message.tubeId != 255 && message.tubeId > this->uplinkTubeId) {
         // Found a new master!
-        this->masterTubeId = message.tubeId;
-        Serial.print(F("All hail new master "));
-        Serial.println(this->masterTubeId);
+        this->uplinkTubeId = message.tubeId;
+        Serial.print(F("My new uplink is "));
+        Serial.println(this->uplinkTubeId);
       }  
 
       // Process the command
@@ -248,5 +244,3 @@ class Radio {
   }
 
 };
-
-#endif
