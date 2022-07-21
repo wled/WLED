@@ -16,6 +16,7 @@
 #define WLED_DISABLE_LOXONE
 #define WLED_DISABLE_ALEXA
 #define WLED_DISABLE_INFRARED
+#define WLED_DISABLE_CRONIXIE
 
 // ESP8266-01 (blue) got too little storage space to work with WLED. 0.10.2 is the last release supporting this unit.
 

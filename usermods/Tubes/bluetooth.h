@@ -3,7 +3,10 @@
 #include <NimBLEDevice.h>
 #include <esp_coexist.h>
 
+#define USEBLE
 static NimBLEServer* pServer;
+
+bool initialized = false;
 
 /**  None of these are required as they will be handled by the library with defaults. **
  **                       Remove as you see fit for your needs                        */
@@ -141,16 +144,29 @@ static DescriptorCallbacks dscCallbacks;
 static CharacteristicCallbacks chrCallbacks;
 
 
-void ble_setup() {
-    esp_coex_preference_set(ESP_COEX_PREFER_BT);
+void ble_init(char *tube_name) {
+#ifndef USEBLE
     return;
+#endif
+    if (initialized)
+        NimBLEDevice::deinit(false);
 
-//     /** Optional: set the transmit power, default is 3db */
-// #ifdef ESP_PLATFORM
-//     NimBLEDevice::setPower(ESP_PWR_LVL_P9); /** +9db */
-// #else
-//     NimBLEDevice::setPower(9); /** +9db */
-// #endif
+    NimBLEDevice::init(std::string(tube_name));
+    initialized = true;
+}
+
+void ble_setup() {
+#ifndef USEBLE
+    return;
+#endif
+    esp_coex_preference_set(ESP_COEX_PREFER_BT);
+
+    /** Optional: set the transmit power, default is 3db */
+#ifdef ESP_PLATFORM
+    NimBLEDevice::setPower(ESP_PWR_LVL_P9); /** +9db */
+#else
+    NimBLEDevice::setPower(9); /** +9db */
+#endif
 
     /** Set the IO capabilities of the device, each option will trigger a different pairing method.
      *  BLE_HS_IO_DISPLAY_ONLY    - Passkey pairing
@@ -188,8 +204,10 @@ void ble_setup() {
 
 
 bool ble_broadcast(byte *data, int size) {
+#ifndef USEBLE
     return true;
-    
+#endif
+
     // Broadcast the current effect state to every connected client
     if (pServer->getConnectedCount() == 0)
         return true;
