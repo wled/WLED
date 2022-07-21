@@ -4,16 +4,8 @@
 #include <wled.h>
 
 #define RADIO_VERSION 1
-// #define USEBLE
 
-#ifdef USEBLE
 #include "bluetooth.h"
-#include <WiFi.h>
-
-#define SERVICE_UUID "4fafc201-1fb5-459e-8fcc-c5c9c331914b"
-
-static NimBLEUUID dataUuid(SERVICE_UUID);
-#endif
 
 #define RADIO_SENDPERIOD 1000                       // how often we broadcast, in millisec
 
@@ -93,9 +85,7 @@ class Radio {
     else
       this->resetId();
 
-#ifdef USEBLE
     ble_setup();
-#endif
   
     Serial.println(this->alive ? F("Radio: ok") : F("Radio: fail"));
     // Start the radio, but mute & listen for a bit
@@ -114,15 +104,9 @@ class Radio {
     if (this->tubeId > this->uplinkTubeId)
       this->uplinkTubeId = 0;
 
-#ifdef USEBLE
-    if (this->alive)
-      NimBLEDevice::deinit(false);
-
     sprintf(tube_name, "Tube %02X", this->tubeId);
-    NimBLEDevice::init(std::string(tube_name));
-    delay(1000);
+    ble_init(tube_name);
     this->alive = true;
-#endif  
   }
 
   bool sendCommand(uint32_t command, void *data=0, uint8_t size=0, TubeId relayId=0)
@@ -155,11 +139,7 @@ class Radio {
     Serial.print(F(": "));
     Serial.print(message.command, HEX);
 
-#ifdef USEBLE
     sent = ble_broadcast((byte *)&message, sizeof(message));
-#else
-    sent = true;
-#endif
 
     Serial.print(sent ? F(" ok] ") : F(" failed] "));
     return sent;
