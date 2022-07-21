@@ -6,7 +6,7 @@
 #define USEBLE
 static NimBLEServer* pServer;
 
-bool initialized = false;
+bool bluetooth_on = false;
 
 /**  None of these are required as they will be handled by the library with defaults. **
  **                       Remove as you see fit for your needs                        */
@@ -144,23 +144,7 @@ static DescriptorCallbacks dscCallbacks;
 static CharacteristicCallbacks chrCallbacks;
 
 
-void ble_init(char *tube_name) {
-#ifndef USEBLE
-    return;
-#endif
-    if (initialized)
-        NimBLEDevice::deinit(false);
-
-    NimBLEDevice::init(std::string(tube_name));
-    initialized = true;
-}
-
 void ble_setup() {
-#ifndef USEBLE
-    return;
-#endif
-    esp_coex_preference_set(ESP_COEX_PREFER_BT);
-
     /** Optional: set the transmit power, default is 3db */
 #ifdef ESP_PLATFORM
     NimBLEDevice::setPower(ESP_PWR_LVL_P9); /** +9db */
@@ -196,17 +180,14 @@ void ble_setup() {
     pAdvertising->addServiceUUID(pTubeService->getUUID());
     pAdvertising->setScanResponse(false);
     pAdvertising->setAdvertisementType(BLE_GAP_CONN_MODE_UND);
-    // pAdvertising->start();
+    pAdvertising->start();
 
     Serial.println("Advertising Started");
-    delay(1000);
 }
 
-
 bool ble_broadcast(byte *data, int size) {
-#ifndef USEBLE
-    return true;
-#endif
+    if (!bluetooth_on)
+        return true;
 
     // Broadcast the current effect state to every connected client
     if (pServer->getConnectedCount() == 0)
@@ -233,3 +214,17 @@ bool ble_broadcast(byte *data, int size) {
 
     return true;
 }
+
+void ble_init(char *name) {
+    if (bluetooth_on) {
+        NimBLEDevice::deinit(false);
+        bluetooth_on = false;
+    }
+
+    esp_wifi_set_ps(WIFI_PS_MIN_MODEM);
+    esp_coex_preference_set(ESP_COEX_PREFER_BT);
+    NimBLEDevice::init(std::string(name));
+    ble_setup();
+    bluetooth_on = true;
+}
+

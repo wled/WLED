@@ -85,13 +85,15 @@ class Radio {
     else
       this->resetId();
 
-    ble_setup();
-  
     Serial.println(this->alive ? F("Radio: ok") : F("Radio: fail"));
     // Start the radio, but mute & listen for a bit
   }
 
   void update() {
+    if (millis() > 500 && !bluetooth_on) {
+      Serial.println("INITIALIZE BLUETOOTH");
+      ble_init(tube_name);
+    }
   }
 
   void resetId(uint8_t id=0) {
@@ -105,7 +107,8 @@ class Radio {
       this->uplinkTubeId = 0;
 
     sprintf(tube_name, "Tube %02X", this->tubeId);
-    ble_init(tube_name);
+    if (bluetooth_on)
+      ble_init(tube_name);
     this->alive = true;
   }
 
