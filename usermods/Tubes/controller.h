@@ -74,7 +74,6 @@ class PatternController : public MessageReceiver {
     
     Timer graphicsTimer;
     Timer updateTimer;
-    Timer slaveTimer;
 
 #ifdef USELCD
     Lcd *lcd;
@@ -131,19 +130,12 @@ class PatternController : public MessageReceiver {
     this->radio->setup(this->isMaster);
     this->radio->sendCommand(COMMAND_HELLO);
 
-    this->slaveTimer.start(RADIO_SENDPERIOD * 3); // Assume we're a slave at first, just listen for a master.
     this->updateTimer.start(RADIO_SENDPERIOD); // Ready to send an update as soon as we're able to
   }
 
   void update()
   {
     this->read_keys();
-
-    // If master has expired, clear masterId
-    if (this->radio->uplinkTubeId && this->slaveTimer.ended()) {
-      Serial.println(F("I have no master"));
-      this->radio->uplinkTubeId = 0;
-    }
 
     // Update patterns to the beat
     this->update_beat();
@@ -162,8 +154,8 @@ class PatternController : public MessageReceiver {
       this->next_state.effect_phrase = phrase + this->set_next_effect(phrase);
     }
 
-    // If alone or master, send out updates
-    if (!this->radio->uplinkTubeId and this->updateTimer.ended()) {
+    // Update current status
+    if (this->updateTimer.ended()) {
       this->send_update();
     }
 
@@ -220,19 +212,8 @@ class PatternController : public MessageReceiver {
     this->current_state.print();
     Serial.print(F(" "));
 
-    if (this->radio->sendCommand(COMMAND_UPDATE, &this->current_state, sizeof(this->current_state))) {
-      this->radio->radioFailures = 0;
-      this->updateTimer.snooze(RADIO_SENDPERIOD);
-    } else {
-      // might have been a collision.  Back off by a small amount determined by ID
-      Serial.println(F("Radio update failed"));
-      this->updateTimer.snooze( this->radio->tubeId & 0x7F );
-      this->radio->radioFailures++;
-      if (this->radio->radioFailures > 100) {
-        this->radio->setup(this->isMaster);
-        this->radio->radioRestarts++;
-      }
-    }
+    this->radio->sendCommand(COMMAND_UPDATE, &this->current_state, sizeof(this->current_state));
+    this->updateTimer.snooze(RADIO_SENDPERIOD);
 
     uint16_t phrase = this->current_state.beat_frame >> 12;
     Serial.print(F("    "));
@@ -463,10 +444,6 @@ class PatternController : public MessageReceiver {
 
       case COMMAND_NEXT: {
         Serial.print(F(" next "));
-        if (fromId < this->radio->uplinkTubeId) {
-          Serial.print(F(" (ignoring)"));
-          return;
-        } 
 
         memcpy(&this->next_state, data, sizeof(TubeState));
         this->next_state.print();
@@ -476,19 +453,12 @@ class PatternController : public MessageReceiver {
   
       case COMMAND_UPDATE: {
         Serial.print(F(" update "));
-        if (fromId < this->radio->uplinkTubeId) {
-          Serial.print(F(" (ignoring)"));
-          return;
-        } 
 
         TubeState state;
         memcpy(&state, data, sizeof(TubeState));
         state.print();
         Serial.print(F(" (obeying)"));
   
-        // Track the last time we received a message from our master
-        this->slaveTimer.start(RADIO_SENDPERIOD * 8);
-
         // Catch up to this state
         this->load_pattern(state);
         this->load_palette(state);
@@ -559,7 +529,7 @@ class PatternController : public MessageReceiver {
         break;
 
       case 'i':
-        this->radio->resetId(arg >> 8);
+        this->radio->mesh_node.reset(arg >> 8);
         break;
 
       case 'd':

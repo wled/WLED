@@ -12,16 +12,14 @@
 class Radio;
 
 typedef uint8_t CommandId;
-typedef uint8_t TubeId;
 
 #define MESSAGE_DATA_MAX_SIZE 25
 typedef struct {
   CommandId command;
-  TubeId tubeId;
-  TubeId relayId;
   byte data[MESSAGE_DATA_MAX_SIZE];
   uint16_t crc = 0;
 } RadioMessage;
+
 
 class MessageReceiver {
   public:
@@ -50,9 +48,6 @@ uint16_t calculate_crc( byte *data, byte len ) {
   return crc & 65535;
 }
 
-uint8_t newTubeId() {
-  return random(10, 250); // Leave room for master
-}
 
 void printMessageData(RadioMessage &message, int size) {
   Serial.print(sizeof(message.data));
@@ -72,52 +67,32 @@ class Radio {
   public:
     bool alive = false;                            // true if radio booted up
     bool reported_no_radio = false;
-    TubeId tubeId = 0;
-    TubeId uplinkTubeId = 0;
-    char tube_name[20];
+
+    BLEMeshNode mesh_node = BLEMeshNode();
 
     unsigned long radioFailures = 0;
     unsigned long radioRestarts = 0;
 
   void setup(bool isMaster) {
     if (isMaster)
-      this->resetId(254);
+      mesh_node.reset(4500);
     else
-      this->resetId();
+      mesh_node.reset();
 
     Serial.println(this->alive ? F("Radio: ok") : F("Radio: fail"));
     // Start the radio, but mute & listen for a bit
   }
 
   void update() {
-    if (millis() > 500 && !bluetooth_on) {
-      Serial.println("INITIALIZE BLUETOOTH");
-      ble_init(tube_name);
-    }
+    mesh_node.update();
   }
 
-  void resetId(uint8_t id=0) {
-    if (id == 0)
-      id = newTubeId();
-    this->tubeId = id;
-    Serial.print(F("My ID is "));
-    Serial.println(this->tubeId);
-
-    if (this->tubeId > this->uplinkTubeId)
-      this->uplinkTubeId = 0;
-
-    sprintf(tube_name, "Tube %02X", this->tubeId);
-    if (bluetooth_on)
-      ble_init(tube_name);
-    this->alive = true;
-  }
-
-  bool sendCommand(uint32_t command, void *data=0, uint8_t size=0, TubeId relayId=0)
+  bool sendCommand(uint32_t command, void *data=0, uint8_t size=0, MeshId relayId=0)
   {
-    return this->sendCommandFrom(this->tubeId, command, data, size, relayId);
+    return this->sendCommandFrom(0, command, data, size, relayId);
   }
 
-  bool sendCommandFrom(TubeId id, uint32_t command, void *data=0, uint8_t size=0, TubeId relayId=0)
+  bool sendCommandFrom(MeshId id, uint32_t command, void *data=0, uint8_t size=0, MeshId relayId=0)
   {
     bool sent = false;
     if (!this->alive)
@@ -129,8 +104,6 @@ class Radio {
       return false;
     }
   
-    message.tubeId = id;
-    message.relayId = relayId;
     message.command = command + RADIO_VERSION;
     memset(message.data, 0, sizeof(message.data));
     memcpy(message.data, data, size);
@@ -138,14 +111,14 @@ class Radio {
     message.crc = crc;
 
     Serial.print(F("["));
-    Serial.print(message.tubeId);
+    Serial.print(mesh_node.ids.id);
     Serial.print(F(": "));
     Serial.print(message.command, HEX);
 
-    sent = ble_broadcast((byte *)&message, sizeof(message));
+    mesh_node.broadcast((byte *)&message, sizeof(message));
 
     Serial.print(sent ? F(" ok] ") : F(" failed] "));
-    return sent;
+    return true;
   }
 
   void receiveCommands(MessageReceiver *receiver)
@@ -170,7 +143,7 @@ class Radio {
         return;
 
       // Ignore relayed messages if we already have a master
-      if (message.relayId && message.relayId <= this->uplinkTubeId)
+      if (message.uplinkId && message.uplinkId <= this->uplinkTubeId)
         return;
 
       // Filter out corrupt messages
@@ -193,7 +166,7 @@ class Radio {
       // Ignore messages from a lower ID
       if (message.tubeId < this->tubeId) {
         // Don't need to be noisy about relayed messages
-        if (message.relayId == 0) {
+        if (message.uplinkId == 0) {
           Serial.print(F("Ignoring message from "));
           Serial.println(message.tubeId);
         }
@@ -216,7 +189,7 @@ class Radio {
         Serial.print(F(" (relaying as "));
         Serial.print(this->tubeId);
         Serial.print(F(")"));
-        message.relayId = message.tubeId;
+        message.reluplinkIdayId = message.tubeId;
         message.tubeId = this->tubeId;
         _radio.send(RADIO_TX_ID, &message, sizeof(message), NRFLite::NO_ACK);
       }
