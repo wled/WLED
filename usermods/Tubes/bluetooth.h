@@ -152,6 +152,7 @@ static CharacteristicCallbacks chrCallbacks;
 class BLEMeshNode: public NimBLEAdvertisedDeviceCallbacks {
   public:
     bool alive = false;                            // true if radio booted up
+    bool changed = false;
 
     MeshIds ids;
     byte buffer[100];
@@ -179,10 +180,7 @@ class BLEMeshNode: public NimBLEAdvertisedDeviceCallbacks {
             return;
 
         auto service_data = std::string((char *)&ids, sizeof(ids));
-        if (ids.uplinkId)
-            sprintf(node_name, "Tube %03X:%03X", ids.id, ids.uplinkId);
-        else
-            sprintf(node_name, "Tube %03X", ids.id);
+        sprintf(node_name, "Tube %03X:%03X", ids.id, ids.uplinkId);
 
         // // // Reset the device name
         // NimBLEDevice::deinit(false);
@@ -235,7 +233,7 @@ class BLEMeshNode: public NimBLEAdvertisedDeviceCallbacks {
         pAdvertising->setAppearance(0x07C6);  // Multi-color LED array
         pAdvertising->setAdvertisementType(BLE_GAP_CONN_MODE_UND);
 
-        advertise();
+        changed = true;
     }
 
     void init_scanner() {
@@ -280,6 +278,11 @@ class BLEMeshNode: public NimBLEAdvertisedDeviceCallbacks {
             follow(0);
         }
 
+        if (changed) {
+            advertise();
+            changed = false;
+        }
+
         if (!this->pScanner->isScanning()) {
             // Start scan with: duration = 0 seconds(forever), no scan end callback, not a continuation of a previous scan.
             this->pScanner->start(0, nullptr, false);
@@ -317,25 +320,31 @@ class BLEMeshNode: public NimBLEAdvertisedDeviceCallbacks {
     void reset(MeshId id = 0) {
         if (id == 0)
             id = newMeshId();
+        Serial.printf("My new ID is %03X", id);
+
         this->ids.id = id;
-
-        Serial.printf("My ID is %03X", this->ids.id);
-        if (this->ids.id > this->ids.uplinkId)
-            this->ids.uplinkId = 0;
-
-        advertise();
+        MeshId uplinkId = this->ids.uplinkId;
+        if (id > uplinkId)
+            uplinkId = id;
+        follow(uplinkId);
+        changed = true;
     }
 
     void follow(MeshId uplinkId) {
+        if (uplinkId == 0) {
+            // Following zero means "follow yourself"
+            uplinkId = this->ids.id;
+        }
+
         if (this->ids.uplinkId == uplinkId)
             return;
 
         this->ids.uplinkId = uplinkId;
-        advertise();
+        changed = true;
     }
 
     bool is_following() {
-        return this->ids.uplinkId != 0;
+        return this->ids.uplinkId != 0 && this->ids.uplinkId != this->ids.id;
     }
 
     // ====== CALLBACKS =======
@@ -352,8 +361,8 @@ class BLEMeshNode: public NimBLEAdvertisedDeviceCallbacks {
         memcpy(&data_ids, data.c_str(), data.length());
         Serial.printf("%03X/%03X ", data_ids.id, data_ids.uplinkId);
 
-        if (data_ids.id >= ids.uplinkId) {
-            follow(data_ids.id);
+        if (data_ids.uplinkId >= ids.uplinkId) {
+            follow(data_ids.uplinkId);
             uplink_ping();
         }
 
