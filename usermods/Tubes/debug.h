@@ -1,21 +1,20 @@
 #pragma once
 
 #include "controller.h"
-#include "radio.h"
-
+#include "bluetooth.h"
 
 class DebugController {
   public:
     PatternController *controller;
     LEDs *strip;
-    Radio *radio;
+    BLEMeshNode *mesh;
     uint32_t lastPhraseTime;
     uint32_t lastFrame;
 
   DebugController(PatternController *controller) {
     this->controller = controller;
     this->strip = controller->led_strip;
-    this->radio = controller->radio;
+    this->mesh = controller->mesh;
   }
   
   void setup()
@@ -27,14 +26,14 @@ class DebugController {
   void update()
   {
     EVERY_N_MILLISECONDS( 10000 ) {
-      Serial.printf("IP: %u.%u.%u.%u   ",
+      Serial.printf("%s    IP: %u.%u.%u.%u   Free memory: %d\n",
+        this->controller->mesh->node_name,
         WiFi.localIP()[0],
         WiFi.localIP()[1],
         WiFi.localIP()[2],
-        WiFi.localIP()[3]
+        WiFi.localIP()[3],
+        freeMemory()
       );
-      Serial.print(F("Free memory: "));
-      Serial.println( freeMemory() );
     }
 
     // Show the beat on the master OR if debugging
@@ -43,22 +42,16 @@ class DebugController {
       uint8_t p1 = (this->controller->current_state.beat_frame >> 8) % 16;
       this->strip->leds[p1] = CRGB::White;
 
-      uint8_t p2 = scale8(this->controller->radio->mesh_node.ids.id, this->strip->num_leds-1);
+      uint8_t p2 = scale8(this->controller->mesh->ids.id, this->strip->num_leds-1);
       this->strip->leds[p2] = CRGB::White;
 
-      uint8_t p3 = scale8(this->controller->radio->mesh_node.ids.uplinkId, this->strip->num_leds-1);
+      uint8_t p3 = scale8(this->controller->mesh->ids.uplinkId, this->strip->num_leds-1);
       if (p3 == p2) {
         this->strip->leds[p3] = CRGB::Green;
       } else {
         this->strip->leds[p3] = CRGB::Yellow; 
       }
-      if (this->radio->radioRestarts) {
-        this->strip->leds[1] = CRGB::Red;
-      }
     }
     
-    if (this->radio->radioFailures && !this->radio->radioRestarts) {
-      this->strip->leds[0] = CRGB::Red;
-    }
   }
 };
