@@ -2,25 +2,54 @@
 
 #include <NimBLEDevice.h>
 #include <esp_coexist.h>
+#include "global_state.h"
 
+#define UPDATE_RATE 2000      // Rate at which uplink is queried for data
+#define UPLINK_TIMEOUT 10000  // Time at which uplink is presumed lost
+#define CURRENT_MESH_VERSION 1
+#define MAX_CONNECTED_CLIENTS 3
+
+#define DATA_UPDATE_SERVICE  "D00B"
 
 typedef uint16_t MeshId;
 
 typedef struct {
-  MeshId id = 0;
-  MeshId uplinkId = 0;
-} MeshIds;
+    MeshId id = 0;
+    MeshId uplinkId = 0;
+    uint8_t version = CURRENT_MESH_VERSION;
+} MeshNodeHeader;
 
+typedef struct {
+    MeshNodeHeader header;
+    TubeState current;
+    TubeState next;
+} MeshStorage;
 
-#define UPLINK_TIMEOUT 10000  // Time at which uplink is presumed lost
+// Asynchronous queue handling
+typedef struct {
+    MeshId id;
+    NimBLEAddress address;
+} MeshUpdateRequest;
+
+class MessageReceiver {
+  public:
+
+  virtual void onCommand(uint8_t fromId, CommandId command, void *data) {
+    // Abstract: subclasses must define
+  }
+};
+
+static TaskHandle_t xUpdaterTaskHandle;
+QueueHandle_t UpdaterQueue = xQueueCreate(5, sizeof(MeshUpdateRequest));
+void procUpdaterTask(void* pvParameters);
 
 /**  None of these are required as they will be handled by the library with defaults. **
  **                       Remove as you see fit for your needs                        */
 class ServerCallbacks: public NimBLEServerCallbacks {
     void onConnect(NimBLEServer* pServer) {
         Serial.println("Client connected");
-        Serial.println("Multi-connect support: start advertising");
-        NimBLEDevice::startAdvertising();
+        if (pServer->getConnectedCount() < MAX_CONNECTED_CLIENTS)
+            NimBLEDevice::startAdvertising();
     };
 
     /** Alternative onConnect() method to extract details of the connection.
@@ -37,11 +66,6 @@ class ServerCallbacks: public NimBLEServerCallbacks {
          *  Timeout: 10 millisecond increments, try for 5x interval time for best results.
          */
         pServer->updateConnParams(desc->conn_handle, 24, 48, 0, 60);
-    };
-
-    void onDisconnect(NimBLEServer* pServer) {
-        Serial.println("Client disconnected - start advertising");
-        NimBLEDevice::startAdvertising();
     };
 
     void onMTUChange(uint16_t MTU, ble_gap_conn_desc* desc) {
@@ -87,6 +111,8 @@ class CharacteristicCallbacks: public NimBLECharacteristicCallbacks {
         Serial.print(pCharacteristic->getUUID().toString().c_str());
         Serial.print(": onWrite(), value: ");
         Serial.println(pCharacteristic->getValue().c_str());
+
+        ESP.restart();
     };
 
     /** Called before notification or indication is sent,
@@ -149,25 +175,71 @@ static DescriptorCallbacks dscCallbacks;
 static CharacteristicCallbacks chrCallbacks;
 
 
+NimBLEClient* connectToServer(NimBLEAddress &peer_address) {
+    NimBLEClient* pClient = nullptr;
+    bool known_server = false;
+
+    // Check if we have a client we should reuse
+    if (NimBLEDevice::getClientListSize()) {
+        // If we already know this peer, send false as the second argument in connect()
+        // to prevent refreshing the service database. This saves considerable time and power.
+        pClient = NimBLEDevice::getClientByPeerAddress(peer_address);
+        if (pClient)
+            known_server = true;
+        else
+            pClient = NimBLEDevice::getDisconnectedClient();
+
+        if (pClient) {
+            if (pClient->connect(peer_address, known_server))
+                return pClient;
+
+            // Failed to connect. Just drop the client rather than deleting it.
+            return NULL;
+        }
+    }
+
+    // No client to reuse; create a new one - if we can.
+    if (NimBLEDevice::getClientListSize() >= NIMBLE_MAX_CONNECTIONS) {
+        Serial.println("Max clients reached - no more connections available");
+        return NULL;
+    }
+    pClient = NimBLEDevice::createClient();
+
+    // Set up this client and attempt to connect.
+    pClient->setConnectionParams(12,12,0,51);
+    pClient->setConnectTimeout(5);
+    if (!pClient->connect(peer_address)) {
+        // Created a client but failed to connect, don't need to keep it as it has no data.
+        NimBLEDevice::deleteClient(pClient);
+        return NULL;
+    }
+
+    return pClient;
+}
+
+
 class BLEMeshNode: public NimBLEAdvertisedDeviceCallbacks {
   public:
     bool alive = false;                            // true if radio booted up
     bool changed = false;
 
-    MeshIds ids;
-    byte buffer[100];
+    MeshNodeHeader ids;
     char node_name[20];
 
     uint16_t serviceUUID = 0xD00F;
 
-    NimBLEServer* pServer = NULL;
-    NimBLEService* pService = NULL;
-    NimBLEScan* pScanner = NULL;
+    NimBLEServer* pServer = nullptr;
+    NimBLEService* pService = nullptr;
+    NimBLEScan* pScanner = nullptr;
+    NimBLEAddress uplink_address;
+
+    MessageReceiver *receiver = nullptr;
 
     Timer uplinkTimer;
+    Timer updateTimer;
 
-    MeshId newMeshId() {
-        return random(0, 4000);
+    BLEMeshNode(MessageReceiver *receiver) {
+        this->receiver = receiver;
     }
 
     void advertise() {
@@ -182,7 +254,7 @@ class BLEMeshNode: public NimBLEAdvertisedDeviceCallbacks {
         auto service_data = std::string((char *)&ids, sizeof(ids));
         sprintf(node_name, "Tube %03X:%03X", ids.id, ids.uplinkId);
 
-        // // // Reset the device name
+        // Reset the device name:
         // NimBLEDevice::deinit(false);
         // NimBLEDevice::init(node_name);
 
@@ -191,8 +263,7 @@ class BLEMeshNode: public NimBLEAdvertisedDeviceCallbacks {
         pAdvertising->setServiceData(NimBLEUUID(serviceUUID), service_data);
         pAdvertising->start();
 
-        Serial.printf("Advertising %s", node_name);
-        Serial.println();
+        Serial.printf("Advertising %s\n", node_name);
     }
 
     void init_service() {
@@ -213,14 +284,20 @@ class BLEMeshNode: public NimBLEAdvertisedDeviceCallbacks {
 
         pServer = NimBLEDevice::createServer();
         pServer->setCallbacks(new ServerCallbacks());
+        pServer->advertiseOnDisconnect(true);
 
-        pService = pServer->createService("D00B");
+        pService = pServer->createService(DATA_UPDATE_SERVICE);
         NimBLECharacteristic* pCharacteristic = pService->createCharacteristic(
             "FEED",
-            NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::BROADCAST
+            NIMBLE_PROPERTY::READ
         );
+        pCharacteristic->setValue("");
+        pCharacteristic->setCallbacks(&chrCallbacks);
 
-        pCharacteristic->setValue("Test");
+        pCharacteristic = pService->createCharacteristic(
+            "F00D",
+            NIMBLE_PROPERTY::WRITE
+        );
         pCharacteristic->setCallbacks(&chrCallbacks);
 
         /** Start the services when finished creating all Characteristics and Descriptors */
@@ -238,15 +315,26 @@ class BLEMeshNode: public NimBLEAdvertisedDeviceCallbacks {
 
     void init_scanner() {
         NimBLEDevice::setScanFilterMode(CONFIG_BTDM_SCAN_DUPL_TYPE_DATA_DEVICE);
-        NimBLEDevice::setScanDuplicateCacheSize(200);
+        NimBLEDevice::setScanDuplicateCacheSize(20);
 
         pScanner = NimBLEDevice::getScan(); //create new scan
         // Set the callback for when devices are discovered, no duplicates.
         pScanner->setAdvertisedDeviceCallbacks(this, false);
         pScanner->setActiveScan(false); // Don't request data (it uses more energy)
-        pScanner->setInterval(200); // How often the scan occurs / switches channels; in milliseconds,
-        pScanner->setWindow(80);  // How long to scan during the interval; in milliseconds.
+        pScanner->setInterval(97); // How often the scan occurs / switches channels; in milliseconds,
+        pScanner->setWindow(37);  // How long to scan during the interval; in milliseconds.
         pScanner->setMaxResults(0); // do not store the scan results, use callback only.
+    }
+
+    void init_updater() {
+        xTaskCreate(
+            procUpdaterTask, /* Function to implement the task */
+            "UpdaterTask", /* Name of the task */
+            3840, /* Stack size in bytes */
+            this, /* Task input parameter */
+            tskIDLE_PRIORITY+1, /* Priority of the task */
+            &xUpdaterTaskHandle /* Task handle. */
+        );
     }
 
     void init() {
@@ -255,17 +343,39 @@ class BLEMeshNode: public NimBLEAdvertisedDeviceCallbacks {
         NimBLEDevice::init(std::string("Tube"));
         init_scanner();
         init_service();
+        init_updater();
         this->alive = true;
     }
 
-    void uplink_ping() {
-        // Track the last time we received a message from our master
-        this->uplinkTimer.start(UPLINK_TIMEOUT);
+    void onPeerPing(MeshNodeHeader* pRemoteNode, NimBLEAdvertisedDevice* pAdvertisedDevice) {
+        Serial.printf("Found %03X/%03X at %s\n",
+            pRemoteNode->id,
+            pRemoteNode->uplinkId,
+            std::string(pAdvertisedDevice->getAddress()).c_str()
+        );
+
+        if (pRemoteNode->id == ids.id) {
+            Serial.println("Detected an ID conflict.");
+            this->reset();
+        }
+
+        if (pRemoteNode->id > ids.id && pRemoteNode->id > ids.uplinkId) {
+            follow(pRemoteNode->id, pAdvertisedDevice);
+        }
+
+        if (pRemoteNode->id == ids.uplinkId) {
+            this->onUplinkAlive();
+        }
+    }
+
+    void setup() {
+        this->reset();
+        Serial.println("Mesh: ok");
     }
 
     void update() {
-        // Don't do anything for the first half-second to avoid crashing WiFi
-        if (millis() < 500)
+        // Don't do anything for the first second to avoid crashing WiFi        
+        if (millis() < 1000)
             return;
 
         if (!this->alive) {
@@ -278,6 +388,18 @@ class BLEMeshNode: public NimBLEAdvertisedDeviceCallbacks {
             follow(0);
         }
 
+        if (this->ids.uplinkId && this->updateTimer.ended()) {
+            MeshUpdateRequest request = {
+                .id = this->ids.uplinkId,
+                .address = this->uplink_address
+            };
+            if (xQueueSend(UpdaterQueue, &request, 0) != pdTRUE) {
+                Serial.println("Update queue is full!");
+            }
+            updateTimer.snooze(UPDATE_RATE);
+        }
+
+        // If any actions caused the service to change, re-advertise with new values
         if (changed) {
             advertise();
             changed = false;
@@ -289,20 +411,10 @@ class BLEMeshNode: public NimBLEAdvertisedDeviceCallbacks {
         }
     }
 
-    void broadcast(byte *data, int size) {
-        if (size > sizeof(buffer)) {
-            Serial.println("Too much data");
-            return;
-        }
-
-        memset(buffer, 0, sizeof(buffer));
-        memcpy(buffer, data, size);
-
-        if (!pServer)
-            return;
-
+    void update_node_storage(TubeState &current, TubeState &next) {
         // Broadcast the current effect state to every connected client
-        if (pServer->getConnectedCount() == 0)
+
+        if (!pServer || pServer->getConnectedCount() == 0)
             return;
 
         if (!pService)
@@ -312,64 +424,116 @@ class BLEMeshNode: public NimBLEAdvertisedDeviceCallbacks {
         if(!pCharacteristic)
             return;
         
-        // Update the characteristic        
-        pCharacteristic->setValue(buffer);
-        pCharacteristic->notify(true);
+        // Store this data in the characteristic
+        MeshStorage storage = {
+            .header = this->ids,
+            .current = current,
+            .next = next
+        };
+        pCharacteristic->setValue(storage);
     }
 
     void reset(MeshId id = 0) {
         if (id == 0)
-            id = newMeshId();
-        Serial.printf("My new ID is %03X", id);
-
+            id = random(256, 4000);  // Leave room at bottom and top of 12 bits
         this->ids.id = id;
-        MeshId uplinkId = this->ids.uplinkId;
-        if (id > uplinkId)
-            uplinkId = id;
-        follow(uplinkId);
+        follow(0);
         changed = true;
     }
 
-    void follow(MeshId uplinkId) {
-        if (uplinkId == 0) {
-            // Following zero means "follow yourself"
-            uplinkId = this->ids.id;
-        }
+    void follow(MeshId uplinkId, NimBLEAdvertisedDevice* pAdvertisedDevice = NULL) {
+        // Following zero means you have no uplink
 
+        // Update uplink device address
+        if (uplinkId && pAdvertisedDevice)
+            this->uplink_address = pAdvertisedDevice->getAddress();
+        else
+            this->uplink_address = NimBLEAddress();
+
+        // Update uplink ID
         if (this->ids.uplinkId == uplinkId)
             return;
-
         this->ids.uplinkId = uplinkId;
         changed = true;
     }
 
     bool is_following() {
-        return this->ids.uplinkId != 0 && this->ids.uplinkId != this->ids.id;
+        return this->ids.uplinkId != 0;
     }
 
     // ====== CALLBACKS =======
-    void onResult(NimBLEAdvertisedDevice* advertisedDevice) {
-        if (!advertisedDevice->isAdvertisingService(NimBLEUUID("D00B")))
+    void onResult(NimBLEAdvertisedDevice* pAdvertisedDevice) {
+        // Discovered a peer via scanning.
+
+        if (!pAdvertisedDevice->isAdvertisingService(NimBLEUUID("D00B")))
             return;
 
-        // Make sure it's booted up and advertising data
-        auto data = advertisedDevice->getServiceData(NimBLEUUID(serviceUUID));
-        if (!data.length())
+        // Make sure it's booted up and advertising Mesh IDs
+        auto data = pAdvertisedDevice->getServiceData(NimBLEUUID(serviceUUID));
+        if (data.length() != sizeof(MeshNodeHeader))
+            return;
+        MeshNodeHeader* pRemoteNode = (MeshNodeHeader *)data.c_str();
+        if (pRemoteNode->version != this->ids.version)
             return;
 
-        MeshIds data_ids;
-        memcpy(&data_ids, data.c_str(), data.length());
-        Serial.printf("%03X/%03X ", data_ids.id, data_ids.uplinkId);
+        this->onPeerPing(pRemoteNode, pAdvertisedDevice);
+    }
 
-        if (data_ids.uplinkId >= ids.uplinkId) {
-            follow(data_ids.uplinkId);
-            uplink_ping();
+    void onUpdateData(MeshUpdateRequest &request, MeshStorage &storage) {
+        if (request.id != storage.header.id) {
+            Serial.println("Uplink is invalid!");
+            // The remote server has changed its ID.  We need to adapt.
+            follow(0);
+            changed = true;
+            return;
         }
+        this->onUplinkAlive();
 
-        Serial.printf("Found: %s: %s\n",
-            std::string(advertisedDevice->getAddress()).c_str(),
-            std::string(advertisedDevice->getName()).c_str()
+        // Process the command
+        this->receiver->onCommand(
+            storage.header.id,
+            COMMAND_UPDATE,
+            &storage.current
+        );
+        this->receiver->onCommand(
+            storage.header.id,
+            COMMAND_NEXT,
+            &storage.next
         );
     }
 
+    void onUplinkAlive() {
+        // Track the last time we received a message from our uplink
+        this->uplinkTimer.start(UPLINK_TIMEOUT);
+    }
+
 };
+
+
+// UPDATER
+// This is an async task handler that awaits requests to update data,
+// then connects to the requested server and fetches the data.
+void procUpdaterTask(void* pvParameters) {
+    BLEMeshNode *pNode = (BLEMeshNode*)pvParameters;
+    MeshUpdateRequest request;
+
+    for (;;) {
+        // Wait to be told to update (the queue blocks)
+        xQueueReceive(UpdaterQueue, &request, portMAX_DELAY);
+
+        // Got a request to update, so try to connect and pull down data.
+        auto uplink_address = request.address;
+        auto pClient = connectToServer(uplink_address);
+        if (!pClient)
+            continue;
+
+        auto pService = pClient->getService(DATA_UPDATE_SERVICE);
+        if (pService) {
+            auto pCharacteristic = pService->getCharacteristic("FEED");
+            MeshStorage storage = pCharacteristic->readValue<MeshStorage>();
+            pNode->onUpdateData(request, storage);
+        }
+        pClient->disconnect();
+    }
+
+}

@@ -18,15 +18,13 @@
 #include "led_strip.h"
 
 #include "controller.h"
-#include "radio.h"
 #include "debug.h"
 
 
 class TubesUsermod : public Usermod {
   private:
     BeatController beats;
-    Radio radio;
-    PatternController controller = PatternController(MAX_REAL_LEDS, &beats, &radio);
+    PatternController controller = PatternController(MAX_REAL_LEDS, &beats);
     DebugController debug = DebugController(&controller);
     int* master = NULL;  /* master.h deleted */
 
@@ -55,7 +53,6 @@ class TubesUsermod : public Usermod {
       beats.update();
       controller.update();
       debug.update();
-      radio.update();
 
       // Draw after everything else is done
       controller.led_strip->update(master != NULL); // ~25us
