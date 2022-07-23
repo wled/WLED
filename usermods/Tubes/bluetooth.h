@@ -34,7 +34,7 @@ typedef struct {
 class MessageReceiver {
   public:
 
-  virtual void onCommand(uint8_t fromId, CommandId command, void *data) {
+  virtual void onCommand(MeshId fromId, CommandId command, void *data) {
     // Abstract: subclasses must define
   }
 };
@@ -370,6 +370,7 @@ class BLEMeshNode: public NimBLEAdvertisedDeviceCallbacks {
 
     void setup() {
         this->reset();
+        this->updateTimer.start(UPDATE_RATE);
         Serial.println("Mesh: ok");
     }
 
@@ -389,6 +390,8 @@ class BLEMeshNode: public NimBLEAdvertisedDeviceCallbacks {
         }
 
         if (this->ids.uplinkId && this->updateTimer.ended()) {
+            this->updateTimer.snooze(UPDATE_RATE);
+
             MeshUpdateRequest request = {
                 .id = this->ids.uplinkId,
                 .address = this->uplink_address
@@ -396,7 +399,6 @@ class BLEMeshNode: public NimBLEAdvertisedDeviceCallbacks {
             if (xQueueSend(UpdaterQueue, &request, 0) != pdTRUE) {
                 Serial.println("Update queue is full!");
             }
-            updateTimer.snooze(UPDATE_RATE);
         }
 
         // If any actions caused the service to change, re-advertise with new values
