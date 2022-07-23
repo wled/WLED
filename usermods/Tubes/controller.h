@@ -407,17 +407,18 @@ class PatternController : public MessageReceiver {
     
     switch (command) {
       case COMMAND_RESET:
-        Serial.print(F("reset"));
+        Serial.println(F("reset"));
         return;
   
       case COMMAND_BRIGHTNESS: {
         uint8_t *bright = (uint8_t *)data;
         this->setBrightness(*bright);
+        Serial.println();
         return;
       }
   
       case COMMAND_OPTIONS: {
-        Serial.print(F("options"));
+        Serial.println(F("options"));
         memcpy(&this->options, data, sizeof(this->options));
         return;
       }
@@ -427,7 +428,7 @@ class PatternController : public MessageReceiver {
 
         memcpy(&this->next_state, data, sizeof(TubeState));
         this->next_state.print();
-        Serial.print(F(" (obeying)"));
+        Serial.println(F(" (obeying)"));
         return;
       }
   
@@ -437,7 +438,7 @@ class PatternController : public MessageReceiver {
         TubeState state;
         memcpy(&state, data, sizeof(TubeState));
         state.print();
-        Serial.print(F(" (obeying)"));
+        Serial.println(F(" (obeying)"));
   
         // Catch up to this state
         this->load_pattern(state);
