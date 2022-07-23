@@ -6,18 +6,11 @@
 #include "palettes.h"
 #include "effects.h"
 #include "global_state.h"
-#include "radio.h"
+#include "bluetooth.h"
 
 const static uint8_t DEFAULT_MASTER_BRIGHTNESS = 200;
+#define STATUS_UPDATE_PERIOD 1000
 
-const static CommandId COMMAND_HELLO = 0x00;
-const static CommandId COMMAND_OPTIONS = 0x10;
-const static CommandId COMMAND_UPDATE = 0x20;
-const static CommandId COMMAND_NEXT = 0x30;
-const static CommandId COMMAND_RESET = 0xF0;
-
-const static CommandId COMMAND_BRIGHTNESS = 0x80;
-const static CommandId COMMAND_FIREWORK = 0x90;
 
 
 typedef struct {
@@ -80,8 +73,8 @@ class PatternController : public MessageReceiver {
 #endif
     LEDs *led_strip;
     BeatController *beats;
-    Radio *radio;
     Effects *effects;
+    BLEMeshNode *mesh;
 
     ControllerOptions options;
     char key_buffer[20] = {0};
@@ -90,15 +83,15 @@ class PatternController : public MessageReceiver {
     TubeState current_state;
     TubeState next_state;
 
-  PatternController(uint8_t num_leds, BeatController *beats, Radio *radio) {
+  PatternController(uint8_t num_leds, BeatController *beats) {
     this->num_leds = num_leds;
 #ifdef USELCD
     this->lcd = new Lcd();
 #endif
     this->led_strip = new LEDs(num_leds);
     this->beats = beats;
-    this->radio = radio;
     this->effects = new Effects();
+    this->mesh = new BLEMeshNode(this);
 
     for (uint8_t i=0; i < NUM_VSTRIPS; i++) {
 #ifdef DOUBLED
@@ -112,6 +105,7 @@ class PatternController : public MessageReceiver {
   
   void setup(bool isMaster)
   {
+    this->mesh->setup();
     this->isMaster = isMaster;
     this->options.debugging = false;
     this->options.brightness = DEFAULT_MASTER_BRIGHTNESS;
@@ -125,16 +119,15 @@ class PatternController : public MessageReceiver {
     this->next_state.pattern_phrase = 0;
     this->next_state.palette_phrase = 0;
     this->next_state.effect_phrase = 0;
-    Serial.println(F("Patterns: ok"));
 
-    this->radio->setup(this->isMaster);
-    this->radio->sendCommand(COMMAND_HELLO);
-
-    this->updateTimer.start(RADIO_SENDPERIOD); // Ready to send an update as soon as we're able to
+    this->updateTimer.start(STATUS_UPDATE_PERIOD); // Ready to send an update as soon as we're able to
+    Serial.println("Patterns: ok");
   }
 
   void update()
   {
+    this->mesh->update();
+
     this->read_keys();
 
     // Update patterns to the beat
@@ -157,9 +150,8 @@ class PatternController : public MessageReceiver {
     // Update current status
     if (this->updateTimer.ended()) {
       this->send_update();
+      this->updateTimer.snooze(STATUS_UPDATE_PERIOD);
     }
-
-    this->radio->receiveCommands(this);
 
     if (this->graphicsTimer.every(REFRESH_PERIOD)) {
       this->updateGraphics();
@@ -212,8 +204,7 @@ class PatternController : public MessageReceiver {
     this->current_state.print();
     Serial.print(F(" "));
 
-    this->radio->sendCommand(COMMAND_UPDATE, &this->current_state, sizeof(this->current_state));
-    this->updateTimer.snooze(RADIO_SENDPERIOD);
+    this->mesh->update_node_storage(this->current_state, this->next_state);
 
     uint16_t phrase = this->current_state.beat_frame >> 12;
     Serial.print(F("    "));
@@ -225,7 +216,6 @@ class PatternController : public MessageReceiver {
     Serial.print(F("E: "));
     this->next_state.print();
     Serial.print(F(" "));
-    this->radio->sendCommand(COMMAND_NEXT, &this->next_state, sizeof(this->next_state));
     Serial.println();    
   }
 
@@ -341,9 +331,11 @@ class PatternController : public MessageReceiver {
   }
 
   void optionsChanged() {
+#ifdef NOT_COMPLETE
     if (this->isMaster) {
       this->radio->sendCommand(COMMAND_OPTIONS, &options, sizeof(options));
     }
+#endif
   }
 
   void setBrightness(uint8_t brightness) {
@@ -408,19 +400,12 @@ class PatternController : public MessageReceiver {
     addFlash();
   }
 
-  virtual void onCommand(uint8_t fromId, CommandId command, void *data) {
+  virtual void onCommand(MeshId fromId, CommandId command, void *data) {
     if (fromId) {
-      Serial.print(F("From "));
-      Serial.print(fromId);
-      Serial.print(F(": "));
+      Serial.printf("From %03X: ", fromId);
     }
     
     switch (command) {
-      case COMMAND_FIREWORK:
-        Serial.print(F("fireworks"));
-        this->acknowledge();
-        return;
-  
       case COMMAND_RESET:
         Serial.print(F("reset"));
         return;
@@ -430,11 +415,6 @@ class PatternController : public MessageReceiver {
         this->setBrightness(*bright);
         return;
       }
-  
-      case COMMAND_HELLO:
-        Serial.print(F("hello"));
-        this->updateTimer.stop();
-        return;
   
       case COMMAND_OPTIONS: {
         Serial.print(F("options"));
@@ -522,16 +502,6 @@ class PatternController : public MessageReceiver {
     accum88 arg = this->parse_number(command+1);
     
     switch (command[0]) {
-      case 'f':
-        this->radio->sendCommandFrom(255, COMMAND_FIREWORK, NULL, 0);
-        this->onCommand(0, COMMAND_FIREWORK, NULL);
-        Serial.println();
-        break;
-
-      case 'i':
-        this->radio->mesh_node.reset(arg >> 8);
-        break;
-
       case 'd':
         this->setDebugging(!this->options.debugging);
         break;
@@ -609,12 +579,6 @@ class PatternController : public MessageReceiver {
         this->update_next();
         return;
 
-      case 'h':
-        // Pretend to receive a HELLO
-        this->onCommand(0, COMMAND_HELLO, NULL);
-        Serial.println();
-        return;
-
       case 'g':
         for (int i=0; i< 10; i++)
           addGlitter();
@@ -645,7 +609,7 @@ class PatternController : public MessageReceiver {
   }
 
   void update_next() {
-    this->radio->sendCommand(COMMAND_NEXT, &this->next_state, sizeof(this->next_state));
+    this->mesh->update_node_storage(this->current_state, this->next_state);
   }
 
 };
