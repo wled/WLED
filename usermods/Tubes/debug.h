@@ -3,6 +3,24 @@
 #include "controller.h"
 #include "bluetooth.h"
 
+std::string formatted_time(long ms) {
+  long secs = ms / 1000; // set the seconds remaining
+  long mins = secs / 60; //convert seconds to minutes
+  long hours = mins / 60; //convert minutes to hours
+  long days = hours / 24; //convert hours to days
+
+  secs = secs % 60;
+  mins = mins % 60;
+  hours = hours % 24;
+
+  char buffer[100];
+  if (days > 0)
+    sprintf(buffer, "%ld %02ld:%02ld:%02ld", days, hours, mins, secs);
+  else
+    sprintf(buffer, "%02ld:%02ld:%02ld", hours, mins, secs);
+  return std::string(buffer);
+}
+
 class DebugController {
   public:
     PatternController *controller;
@@ -26,13 +44,14 @@ class DebugController {
   void update()
   {
     EVERY_N_MILLISECONDS( 10000 ) {
-      Serial.printf("%s    IP: %u.%u.%u.%u   Free memory: %d\n",
+      Serial.printf("%s    IP: %u.%u.%u.%u   Free memory: %d    Uptime: %s\n",
         this->controller->mesh->node_name,
         WiFi.localIP()[0],
         WiFi.localIP()[1],
         WiFi.localIP()[2],
         WiFi.localIP()[3],
-        freeMemory()
+        freeMemory(),
+        formatted_time(millis()).c_str()
       );
     }
 
@@ -55,3 +74,4 @@ class DebugController {
     
   }
 };
+
