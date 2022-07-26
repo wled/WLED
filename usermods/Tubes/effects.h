@@ -131,6 +131,7 @@ typedef struct {
 
 static const EffectDef gEffects[] = {
   {{None}, {LongDuration}},
+#ifndef TESTING_PATTERNS
   {{Flash, Brighten, Beat, 40}, {MediumDuration, MediumEnergy}},
   {{Flash, Darken, TwoBeats, 40}, {MediumDuration, MediumEnergy}},
   {{Flash, Brighten, Measure}, {ShortDuration, HighEnergy}},
@@ -150,5 +151,6 @@ static const EffectDef gEffects[] = {
   {{Bubble, Brighten}, {MediumDuration, LowEnergy}},
   {{Glitter, Darken, Eighth, 120}, {MediumDuration, LowEnergy}},
   {{Glitter, Flicker, Eighth, 120}, {MediumDuration, LowEnergy}},
+#endif
 };
 const uint8_t gEffectCount = ARRAY_SIZE(gEffects);
