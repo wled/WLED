@@ -7,6 +7,8 @@
 #define DEFAULT_FADE_SPEED 100
 #define MAX_VIRTUAL_LEDS 150
 
+#define TESTING_PATTERNS
+
 class VirtualStrip;
 typedef void (*BackgroundFn)(VirtualStrip *strip);
 

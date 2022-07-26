@@ -79,6 +79,11 @@ void biwave(VirtualStrip *strip)
   }
 }
 
+void tick(VirtualStrip *strip) {
+  strip->fill(CRGB::Black);
+  strip->leds[strip->beat % 16] = CRGB::White;
+}
+
 void sinelon(VirtualStrip *strip) 
 {
   // a colored dot sweeping back and forth, with fading trails
@@ -162,6 +167,9 @@ typedef struct {
 
 // List of patterns to cycle through.  Each is defined as a separate function below.
 PatternDef gPatterns[] = { 
+#ifdef TESTING_PATTERNS
+  {tick, LongDuration},
+#else
   {drawNoise, {ShortDuration}},
   {drawNoise, {ShortDuration}},
   {drawNoise, {MediumDuration}},
@@ -180,6 +188,7 @@ PatternDef gPatterns[] = {
   {palette_wave, {MediumDuration}},
   {bpm_palette, {ShortDuration}},
   {bpm_palette, {MediumDuration, HighEnergy}}
+#endif
 };
 
 /*

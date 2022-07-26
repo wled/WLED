@@ -356,6 +356,9 @@ class PatternController : public MessageReceiver {
   }
   
   SyncMode randomSyncMode() {
+  #ifdef TESTING_PATTERNS
+    return All;
+  #endif
     uint8_t r = random8(128);
     if (r < 40)
       return SinDrift;
