@@ -4,6 +4,8 @@
 #include <esp_coexist.h>
 #include "global_state.h"
 
+#include "TimeSync/sync.h"
+
 #define UPDATE_RATE 2000      // Rate at which uplink is queried for data
 #define UPLINK_TIMEOUT 10000  // Time at which uplink is presumed lost
 #define CURRENT_MESH_VERSION 1
