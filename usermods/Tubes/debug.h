@@ -44,7 +44,7 @@ class DebugController {
   void update()
   {
     EVERY_N_MILLISECONDS( 10000 ) {
-      Serial.printf("%s    IP: %u.%u.%u.%u   Free memory: %d    Uptime: %s\n",
+      Serial.printf("\n=== %s    IP: %u.%u.%u.%u   Free memory: %d    Uptime: %s\n\n",
         this->controller->mesh->node_name,
         WiFi.localIP()[0],
         WiFi.localIP()[1],

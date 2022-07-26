@@ -201,6 +201,7 @@ class PatternController : public MessageReceiver {
   }
   
   void send_update() {
+    Serial.print("     ");
     this->current_state.print();
     Serial.print(F(" "));
 
