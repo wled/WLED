@@ -3,11 +3,12 @@
 #include "util.h"
 #include "options.h"
 #include "beats.h"
+#include "palettes.h"
 
 #define DEFAULT_FADE_SPEED 100
 #define MAX_VIRTUAL_LEDS 150
 
-#define TESTING_PATTERNS
+//#define TESTING_PATTERNS
 
 class VirtualStrip;
 typedef void (*BackgroundFn)(VirtualStrip *strip);
@@ -15,7 +16,7 @@ typedef void (*BackgroundFn)(VirtualStrip *strip);
 class Background {
   public:
     BackgroundFn animate;
-    CRGBPalette16 palette;
+    uint8_t palette_id;
     SyncMode sync=All;
 };
 
@@ -72,6 +73,12 @@ class VirtualStrip {
     this->fader = 0;
     this->fade_speed = fade_speed;
     this->brightness = DEF_BRIGHT;
+
+#ifdef MASTER_TUBE
+    // Interface with WLED
+    WS2812FX::load_palette(background.palette_id);
+    stateChanged = true;
+#endif
   }
 
   void fadeOut(uint8_t fade_speed=DEFAULT_FADE_SPEED)
@@ -157,7 +164,13 @@ class VirtualStrip {
   }
 
   CRGB palette_color(uint8_t c, uint8_t offset=0) {
-    return ColorFromPalette( this->background.palette, c + offset );
+#define WLED_COLORS
+#ifdef WLED_COLORS
+    return WS2812FX::get_palette_crgb(c + offset);
+#else
+    CRGBPalette16 palette = gGradientPalettes[this->background.palette_id];
+    return ColorFromPalette( palette, c + offset );
+#endif
   }
 
   CRGB hue_color(uint8_t offset=0, uint8_t saturation=255, uint8_t value=192) {

@@ -882,6 +882,27 @@ class WS2812FX {  // 96 bytes
 
     void
       estimateCurrentAndLimitBri(void);
+
+    CRGB external_buffer[EXTERNAL_BUFFER_SIZE]; // 4 bytes per element
+
+  public:
+    static CRGB* get_external_buffer() {
+      return instance->external_buffer;
+    }
+    static CRGB get_palette_crgb(uint16_t c) {
+      uint32_t color = instance->color_from_palette(c, false, true, 255);
+      return instance->col_to_crgb(color);
+    }
+    static void load_palette(uint8_t palette_id) {
+      for (uint8_t i = 0; i < instance->getMaxSegments(); i++) {
+        WS2812FX::Segment& seg = instance->getSegment(i);
+        seg.palette = palette_id;
+      }
+    }
+    static WS2812FX* get_strip() {
+      return instance;
+    }
+
 };
 
 extern const char JSON_mode_names[];
