@@ -78,6 +78,7 @@ class VirtualStrip {
     // Interface with WLED
     WS2812FX::load_palette(background.palette_id);
     stateChanged = true;
+    stateUpdated(CALL_MODE_DIRECT_CHANGE);
 #endif
   }
 
