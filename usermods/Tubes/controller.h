@@ -1,5 +1,8 @@
 #pragma once
 
+#include "wled.h"
+#include "FX.h"
+
 #include "beats.h"
 
 #include "pattern.h"
@@ -239,6 +242,8 @@ class PatternController : public MessageReceiver {
     this->background_changed();
   }
 
+  // Choose the pattern to display at the next pattern cycle
+  // Return the number of phrases until the next pattern cycle
   uint16_t set_next_pattern(uint16_t phrase) {
     uint8_t pattern_id = random8(gPatternCount);
     PatternDef def = gPatterns[pattern_id];
@@ -260,23 +265,27 @@ class PatternController : public MessageReceiver {
   }
 
   void load_palette(TubeState &tube_state) {
-    if (this->current_state.palette_id == tube_state.palette_id)
+    if (this->current_state.palette_id == tube_state.palette_id) {
+      Serial.println("Nope, don't change");
       return;
+    }
 
     this->current_state.palette_phrase = tube_state.palette_phrase;
     this->_load_palette(tube_state.palette_id);
   }
 
   void _load_palette(uint8_t palette_id) {
-    this->current_state.palette_id = palette_id % gGradientPaletteCount;
+    this->current_state.palette_id = palette_id;
     
     Serial.print(F("Change palette"));
     this->background_changed();
   }
 
+  // Choose the palette to display at the next palette cycle
+  // Return the number of phrases until the next palette cycle
   uint16_t set_next_palette(uint16_t phrase) {
     this->next_state.palette_id = random8(gGradientPaletteCount);
-    return random8(4,40);
+    return 1; // random8(4,40);
   }
 
   void load_effect(TubeState &tube_state) {
@@ -299,6 +308,8 @@ class PatternController : public MessageReceiver {
     this->effects->load(this->current_state.effect_params);
   }
 
+  // Choose the effect to display at the next effect cycle
+  // Return the number of phrases until the next effect cycle
   uint16_t set_next_effect(uint16_t phrase) {
     uint8_t effect_num = random8(gEffectCount);
 
@@ -320,7 +331,7 @@ class PatternController : public MessageReceiver {
   void update_background() {
     Background background;
     background.animate = gPatterns[this->current_state.pattern_id].backgroundFn;
-    background.palette = gGradientPalettes[this->current_state.palette_id];
+    background.palette_id = this->current_state.palette_id;
     background.sync = (SyncMode)this->current_state.pattern_sync_id;
 
     // re-use virtual strips to prevent heap fragmentation
