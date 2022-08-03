@@ -176,13 +176,10 @@ PatternDef gPatterns[] = {
   {drawNoise, {MediumDuration}},
   {drawNoise, {LongDuration}},
   {drawNoise, {LongDuration}},
-  // {rainbow, {ShortDuration}},
   {confetti, {ShortDuration}},
   {confetti, {MediumDuration}},
 
   {juggle, {ShortDuration}},
-  // {bpm, {ShortDuration}},
-  // {bpm, {MediumDuration, HighEnergy}},
   {palette_wave, {ShortDuration}},
   {palette_wave, {MediumDuration}},
   {bpm_palette, {ShortDuration}},
