@@ -265,10 +265,8 @@ class PatternController : public MessageReceiver {
   }
 
   void load_palette(TubeState &tube_state) {
-    if (this->current_state.palette_id == tube_state.palette_id) {
-      Serial.println("Nope, don't change");
+    if (this->current_state.palette_id == tube_state.palette_id)
       return;
-    }
 
     this->current_state.palette_phrase = tube_state.palette_phrase;
     this->_load_palette(tube_state.palette_id);
@@ -285,7 +283,7 @@ class PatternController : public MessageReceiver {
   // Return the number of phrases until the next palette cycle
   uint16_t set_next_palette(uint16_t phrase) {
     this->next_state.palette_id = random8(gGradientPaletteCount);
-    return 1; // random8(4,40);
+    return random8(4,40);
   }
 
   void load_effect(TubeState &tube_state) {

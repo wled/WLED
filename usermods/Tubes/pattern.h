@@ -97,8 +97,7 @@ void bpm_palette(VirtualStrip *strip)
 {
   uint8_t beat = strip->bpm_sin16(64, 255);
   for (int i = 0; i < strip->num_leds; i++) {
-    CRGB c = strip->palette_color(i*2, strip->hue);
-    nscale8x3(c.r, c.g, c.b, beat-strip->hue+(i*10));
+    CRGB c = strip->palette_color(i*2, strip->hue, beat-strip->hue+(i*10));
     strip->leds[i] = c;
   }
 }
@@ -177,13 +176,13 @@ PatternDef gPatterns[] = {
   {drawNoise, {MediumDuration}},
   {drawNoise, {LongDuration}},
   {drawNoise, {LongDuration}},
-  {rainbow, {ShortDuration}},
+  // {rainbow, {ShortDuration}},
   {confetti, {ShortDuration}},
   {confetti, {MediumDuration}},
 
   {juggle, {ShortDuration}},
-  {bpm, {ShortDuration}},
-  {bpm, {MediumDuration, HighEnergy}},
+  // {bpm, {ShortDuration}},
+  // {bpm, {MediumDuration, HighEnergy}},
   {palette_wave, {ShortDuration}},
   {palette_wave, {MediumDuration}},
   {bpm_palette, {ShortDuration}},
