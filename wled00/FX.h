@@ -889,8 +889,8 @@ class WS2812FX {  // 96 bytes
     static CRGB* get_external_buffer() {
       return instance->external_buffer;
     }
-    static CRGB get_palette_crgb(uint16_t c) {
-      uint32_t color = instance->color_from_palette(c, false, true, 255);
+    static CRGB get_palette_crgb(uint16_t c, uint8_t brightness=255U) {
+      uint32_t color = instance->color_from_palette(c, false, true, 255, brightness);
       return instance->col_to_crgb(color);
     }
     static void load_palette(uint8_t palette_id) {

@@ -163,10 +163,10 @@ class VirtualStrip {
     }
   }
 
-  CRGB palette_color(uint8_t c, uint8_t offset=0) {
+  CRGB palette_color(uint8_t c, uint8_t offset=0, uint8_t brightness=255) {
 #define WLED_COLORS
 #ifdef WLED_COLORS
-    return WS2812FX::get_palette_crgb(c + offset);
+    return WS2812FX::get_palette_crgb(c + offset, brightness);
 #else
     CRGBPalette16 palette = gGradientPalettes[this->background.palette_id];
     return ColorFromPalette( palette, c + offset );
