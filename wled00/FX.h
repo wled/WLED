@@ -899,6 +899,11 @@ class WS2812FX {  // 96 bytes
         seg.palette = palette_id;
       }
     }
+    static void load_pattern(uint8_t pattern_id) {
+      for (uint8_t i = 0; i < instance->getMaxSegments(); i++) {
+        instance->setMode(i, pattern_id);
+      }
+    }
     static WS2812FX* get_strip() {
       return instance;
     }
