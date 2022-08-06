@@ -8,7 +8,7 @@
 #define DEFAULT_FADE_SPEED 100
 #define MAX_VIRTUAL_LEDS 150
 
-//#define TESTING_PATTERNS
+// #define TESTING_PATTERNS
 
 class VirtualStrip;
 typedef void (*BackgroundFn)(VirtualStrip *strip);
@@ -77,6 +77,7 @@ class VirtualStrip {
 #ifdef MASTER_TUBE
     // Interface with WLED
     WS2812FX::load_palette(background.palette_id);
+    WS2812FX::load_pattern(FX_MODE_EXTERNAL);
     stateChanged = true;
     stateUpdated(CALL_MODE_DIRECT_CHANGE);
 #endif
