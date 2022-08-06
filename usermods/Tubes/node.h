@@ -62,10 +62,17 @@ class LightNode {
     char node_name[20];
 
     uint8_t status = NODE_STATUS_INIT;
-    bool statusChanged = false;
+    bool meshChanged = false;
 
     Timer uplinkTimer;
     Timer updateTimer;
+
+    void configure_ap() {
+        strcpy(clientSSID, "");
+        strcpy(clientPass, "");
+        strcpy(apSSID, "");
+        apBehavior = AP_BEHAVIOR_BOOT_NO_CONN;
+    }
 
     void onWifiConnect() {
         if (this->status == NODE_STATUS_BROADCASTING) {
@@ -89,7 +96,7 @@ class LightNode {
         this->status = NODE_STATUS_BROADCASTING;
     }
 
-    void onStatusChange() {
+    void onMeshChange() {
         sprintf(this->node_name,
             "Tube %03X:%03X",
             this->header.id,
@@ -103,14 +110,17 @@ class LightNode {
     }
 
     void setup() {
-        this->reset();
+        configure_ap();
+
         this->updateTimer.start(UPDATE_RATE);
         this->status = NODE_STATUS_INIT;
-        this->onStatusChange();
+
+        this->reset();
+        this->onMeshChange();
 
         quickEspNow.onDataRcvd(onDataReceived);
         quickEspNow.onDataSent(onDataSent);
-
+        
         Serial.println("Node: ok");
     }
 
@@ -143,6 +153,11 @@ class LightNode {
             this->follow(0);
         }
 
+        if (this->meshChanged) {
+            this->onMeshChange();
+            this->meshChanged = false;
+        }
+
         if (this->updateTimer.ended()) {
             if (WiFi.isConnected())
                 this->onWifiConnect();
@@ -152,11 +167,6 @@ class LightNode {
             this->broadcast();
             this->updateTimer.snooze(UPDATE_RATE);
         }
-
-        if (this->statusChanged) {
-            this->onStatusChange();
-            this->statusChanged = false;
-        }
     }
 
     void reset(MeshId id = 0) {
@@ -164,7 +174,7 @@ class LightNode {
             id = random(256, 4000);  // Leave room at bottom and top of 12 bits
         this->header.id = id;
         this->follow(0);
-        this->statusChanged = true;
+        this->meshChanged = true;
     }
 
     void follow(MeshId uplinkId) {
@@ -174,7 +184,7 @@ class LightNode {
 
         // Following zero means you have no uplink
         this->header.uplinkId = uplinkId;
-        this->statusChanged = true;
+        this->meshChanged = true;
     }
 
     bool is_following() {
