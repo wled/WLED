@@ -4,22 +4,14 @@
 #include <esp_coexist.h>
 #include "global_state.h"
 
-#include "TimeSync/sync.h"
 
-#define UPDATE_RATE 2000      // Rate at which uplink is queried for data
-#define UPLINK_TIMEOUT 10000  // Time at which uplink is presumed lost
-#define CURRENT_MESH_VERSION 1
+#include "node.h"
+
+// #include "TimeSync/sync.h"
+
 #define MAX_CONNECTED_CLIENTS 3
 
 #define DATA_UPDATE_SERVICE  "D00B"
-
-typedef uint16_t MeshId;
-
-typedef struct {
-    MeshId id = 0;
-    MeshId uplinkId = 0;
-    uint8_t version = CURRENT_MESH_VERSION;
-} MeshNodeHeader;
 
 typedef struct {
     MeshNodeHeader header;
@@ -32,14 +24,6 @@ typedef struct {
     MeshId id;
     NimBLEAddress address;
 } MeshUpdateRequest;
-
-class MessageReceiver {
-  public:
-
-  virtual void onCommand(MeshId fromId, CommandId command, void *data) {
-    // Abstract: subclasses must define
-  }
-};
 
 static TaskHandle_t xUpdaterTaskHandle;
 QueueHandle_t UpdaterQueue = xQueueCreate(5, sizeof(MeshUpdateRequest));
@@ -226,7 +210,6 @@ class BLEMeshNode: public NimBLEAdvertisedDeviceCallbacks {
     bool changed = false;
 
     MeshNodeHeader ids;
-    char node_name[20];
 
     uint16_t serviceUUID = 0xD00F;
 
@@ -237,14 +220,14 @@ class BLEMeshNode: public NimBLEAdvertisedDeviceCallbacks {
 
     MessageReceiver *receiver = nullptr;
 
-    Timer uplinkTimer;
-    Timer updateTimer;
-
     BLEMeshNode(MessageReceiver *receiver) {
         this->receiver = receiver;
     }
 
     void advertise() {
+        auto service_data = std::string((char *)&ids, sizeof(ids));
+
+#ifdef BLE_MESH
         if (!pService)
             return;
 
@@ -253,8 +236,6 @@ class BLEMeshNode: public NimBLEAdvertisedDeviceCallbacks {
         if (!pAdvertising)
             return;
 
-        auto service_data = std::string((char *)&ids, sizeof(ids));
-        sprintf(node_name, "Tube %03X:%03X", ids.id, ids.uplinkId);
 
         // Reset the device name:
         // NimBLEDevice::deinit(false);
@@ -264,6 +245,7 @@ class BLEMeshNode: public NimBLEAdvertisedDeviceCallbacks {
         pAdvertising->stop();
         pAdvertising->setServiceData(NimBLEUUID(serviceUUID), service_data);
         pAdvertising->start();
+#endif        
 
         Serial.printf("Advertising %s\n", node_name);
     }
@@ -340,12 +322,17 @@ class BLEMeshNode: public NimBLEAdvertisedDeviceCallbacks {
     }
 
     void init() {
+        WiFi.mode(WIFI_AP_STA);
+        
         esp_wifi_set_ps(WIFI_PS_MIN_MODEM);
+
+#ifdef BLE_MESH
         esp_coex_preference_set(ESP_COEX_PREFER_BT);
         NimBLEDevice::init(std::string("Tube"));
         init_scanner();
         init_service();
         init_updater();
+#endif
         this->alive = true;
     }
 
@@ -371,8 +358,6 @@ class BLEMeshNode: public NimBLEAdvertisedDeviceCallbacks {
     }
 
     void setup() {
-        this->reset();
-        this->updateTimer.start(UPDATE_RATE);
         Serial.println("Mesh: ok");
     }
 
@@ -385,15 +370,7 @@ class BLEMeshNode: public NimBLEAdvertisedDeviceCallbacks {
             this->init();
         }
 
-        // Check the last time we heard from the uplink node
-        if (is_following() && this->uplinkTimer.ended()) {
-            Serial.println("Uplink lost");
-            follow(0);
-        }
-
-        if (this->ids.uplinkId && this->updateTimer.ended()) {
-            this->updateTimer.snooze(UPDATE_RATE);
-
+#ifdef BLE_MESH
             MeshUpdateRequest request = {
                 .id = this->ids.uplinkId,
                 .address = this->uplink_address
@@ -401,6 +378,7 @@ class BLEMeshNode: public NimBLEAdvertisedDeviceCallbacks {
             if (xQueueSend(UpdaterQueue, &request, 0) != pdTRUE) {
                 Serial.println("Update queue is full!");
             }
+#endif
         }
 
         // If any actions caused the service to change, re-advertise with new values
@@ -409,13 +387,14 @@ class BLEMeshNode: public NimBLEAdvertisedDeviceCallbacks {
             changed = false;
         }
 
-        if (!this->pScanner->isScanning()) {
+        if (this->pScanner && !this->pScanner->isScanning()) {
             // Start scan with: duration = 0 seconds(forever), no scan end callback, not a continuation of a previous scan.
             this->pScanner->start(0, nullptr, false);
         }
     }
 
     void update_node_storage(TubeState &current, TubeState &next) {
+#ifdef BLE_MESH
         // Broadcast the current effect state to every connected client
 
         if (!pServer || pServer->getConnectedCount() == 0)
@@ -435,34 +414,7 @@ class BLEMeshNode: public NimBLEAdvertisedDeviceCallbacks {
             .next = next
         };
         pCharacteristic->setValue(storage);
-    }
-
-    void reset(MeshId id = 0) {
-        if (id == 0)
-            id = random(256, 4000);  // Leave room at bottom and top of 12 bits
-        this->ids.id = id;
-        follow(0);
-        changed = true;
-    }
-
-    void follow(MeshId uplinkId, NimBLEAdvertisedDevice* pAdvertisedDevice = NULL) {
-        // Following zero means you have no uplink
-
-        // Update uplink device address
-        if (uplinkId && pAdvertisedDevice)
-            this->uplink_address = pAdvertisedDevice->getAddress();
-        else
-            this->uplink_address = NimBLEAddress();
-
-        // Update uplink ID
-        if (this->ids.uplinkId == uplinkId)
-            return;
-        this->ids.uplinkId = uplinkId;
-        changed = true;
-    }
-
-    bool is_following() {
-        return this->ids.uplinkId != 0;
+#endif
     }
 
     // ====== CALLBACKS =======
