@@ -1,7 +1,7 @@
 #pragma once
 
 #include "controller.h"
-#include "bluetooth.h"
+#include "node.h"
 
 std::string formatted_time(long ms) {
   long secs = ms / 1000; // set the seconds remaining
@@ -25,14 +25,14 @@ class DebugController {
   public:
     PatternController *controller;
     LEDs *strip;
-    BLEMeshNode *mesh;
+    LightNode *node;
     uint32_t lastPhraseTime;
     uint32_t lastFrame;
 
   DebugController(PatternController *controller) {
     this->controller = controller;
     this->strip = controller->led_strip;
-    this->mesh = controller->mesh;
+    this->node = controller->node;
   }
   
   void setup()
@@ -44,8 +44,10 @@ class DebugController {
   void update()
   {
     EVERY_N_MILLISECONDS( 10000 ) {
-      Serial.printf("\n=== %s    IP: %u.%u.%u.%u   Free memory: %d    Uptime: %s\n\n",
-        this->controller->mesh->node_name,
+      Serial.printf("\n=== %s    WiFi %d[ch%d] IP: %u.%u.%u.%u   Free memory: %d    Uptime: %s\n\n",
+        this->controller->node->node_name,
+        WiFi.status(),
+        WiFi.channel(),
         WiFi.localIP()[0],
         WiFi.localIP()[1],
         WiFi.localIP()[2],
@@ -61,10 +63,10 @@ class DebugController {
       uint8_t p1 = (this->controller->current_state.beat_frame >> 8) % 16;
       this->strip->leds[p1] = CRGB::White;
 
-      uint8_t p2 = scale8(this->controller->mesh->ids.id, this->strip->num_leds-1);
+      uint8_t p2 = scale8(this->controller->node->header.id, this->strip->num_leds-1);
       this->strip->leds[p2] = CRGB::White;
 
-      uint8_t p3 = scale8(this->controller->mesh->ids.uplinkId, this->strip->num_leds-1);
+      uint8_t p3 = scale8(this->controller->node->header.uplinkId, this->strip->num_leds-1);
       if (p3 == p2) {
         this->strip->leds[p3] = CRGB::Green;
       } else {

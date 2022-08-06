@@ -49,7 +49,7 @@
 #define WLED_ENABLE_FS_EDITOR      // enable /edit page for editing FS content. Will also be disabled with OTA lock
 
 // to toggle usb serial debug (un)comment the following line
-//#define WLED_DEBUG
+#define WLED_DEBUG
 
 // filesystem specific debugging
 //#define WLED_DEBUG_FS

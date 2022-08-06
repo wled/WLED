@@ -449,6 +449,8 @@ void WLED::initAP(bool resetAP)
     strcpy_P(apPass, PSTR(DEFAULT_AP_PASS));
   DEBUG_PRINT(F("Opening access point "));
   DEBUG_PRINTLN(apSSID);
+  DEBUG_PRINT(F("Password "));
+  DEBUG_PRINTLN(apPass);
   WiFi.softAPConfig(IPAddress(4, 3, 2, 1), IPAddress(4, 3, 2, 1), IPAddress(255, 255, 255, 0));
   WiFi.softAP(apSSID, apPass, apChannel, apHide);
 
