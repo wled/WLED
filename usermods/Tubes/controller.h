@@ -9,7 +9,7 @@
 #include "palettes.h"
 #include "effects.h"
 #include "global_state.h"
-#include "bluetooth.h"
+#include "node.h"
 
 const static uint8_t DEFAULT_MASTER_BRIGHTNESS = 200;
 #define STATUS_UPDATE_PERIOD 1000
@@ -21,8 +21,6 @@ typedef struct {
   uint8_t brightness;
 } ControllerOptions;
 
-#define NEXT_PATTERN_TIME 53000
-#define NEXT_PALETTE_TIME 27000
 
 #define NUM_VSTRIPS 3
 
@@ -77,7 +75,7 @@ class PatternController : public MessageReceiver {
     LEDs *led_strip;
     BeatController *beats;
     Effects *effects;
-    BLEMeshNode *mesh;
+    LightNode *node;
 
     ControllerOptions options;
     char key_buffer[20] = {0};
@@ -94,7 +92,8 @@ class PatternController : public MessageReceiver {
     this->led_strip = new LEDs(num_leds);
     this->beats = beats;
     this->effects = new Effects();
-    this->mesh = new BLEMeshNode(this);
+    this->node = new LightNode();
+    // this->mesh = new BLEMeshNode(this);
 
     for (uint8_t i=0; i < NUM_VSTRIPS; i++) {
 #ifdef DOUBLED
@@ -108,7 +107,7 @@ class PatternController : public MessageReceiver {
   
   void setup(bool isMaster)
   {
-    this->mesh->setup();
+    this->node->setup();
     this->isMaster = isMaster;
     this->options.debugging = false;
     this->options.brightness = DEFAULT_MASTER_BRIGHTNESS;
@@ -129,7 +128,7 @@ class PatternController : public MessageReceiver {
 
   void update()
   {
-    this->mesh->update();
+    this->node->update();
 
     this->read_keys();
 
@@ -208,7 +207,7 @@ class PatternController : public MessageReceiver {
     this->current_state.print();
     Serial.print(F(" "));
 
-    this->mesh->update_node_storage(this->current_state, this->next_state);
+    // this->node->update_node_storage(this->current_state, this->next_state);
 
     uint16_t phrase = this->current_state.beat_frame >> 12;
     Serial.print(F("    "));
@@ -622,13 +621,7 @@ class PatternController : public MessageReceiver {
   }
 
   void update_next() {
-    this->mesh->update_node_storage(this->current_state, this->next_state);
+    // this->node->update_node_storage(this->current_state, this->next_state);
   }
 
 };
-
-
-
-// What's interesting?
-// c53 - clouds
-// m4 - swing drift

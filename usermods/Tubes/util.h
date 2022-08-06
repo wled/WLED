@@ -2,6 +2,9 @@
 
 #include "wled.h"
 
+// Is this the tube that can control others?
+#define MASTER_TUBE
+
 uint8_t scaled16to8( uint16_t v, uint16_t lowest=0, uint16_t highest=65535) {
   uint16_t rangewidth = highest - lowest;
   uint16_t scaledbeat = scale16( v, rangewidth );
@@ -11,6 +14,10 @@ uint8_t scaled16to8( uint16_t v, uint16_t lowest=0, uint16_t highest=65535) {
 
 #define ARRAY_SIZE(A) (sizeof(A) / sizeof((A)[0]))
 
-#define __ESP32__
-#define USTD_OPTION_FS_FORCE_NO_FS
-#include <ustd_array.h>
+uint32_t freeMemory() {
+  return ESP.getFreeHeap();
+}
+
+// #define __ESP32__
+// #define USTD_OPTION_FS_FORCE_NO_FS
+// #include <ustd_array.h>
