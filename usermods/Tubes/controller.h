@@ -14,6 +14,8 @@
 const static uint8_t DEFAULT_MASTER_BRIGHTNESS = 200;
 #define STATUS_UPDATE_PERIOD 1000
 
+#define MIN_COLOR_CHANGE_PHRASES 2  // 4
+#define MAX_COLOR_CHANGE_PHRASES 4  // 40
 
 
 typedef struct {
@@ -92,7 +94,7 @@ class PatternController : public MessageReceiver {
     this->led_strip = new LEDs(num_leds);
     this->beats = beats;
     this->effects = new Effects();
-    this->node = new LightNode();
+    this->node = new LightNode(this);
     // this->mesh = new BLEMeshNode(this);
 
     for (uint8_t i=0; i < NUM_VSTRIPS; i++) {
@@ -128,7 +130,7 @@ class PatternController : public MessageReceiver {
 
   void update()
   {
-    this->node->update();
+    this->node->update(this->current_state, this->next_state);
 
     this->read_keys();
 
@@ -282,7 +284,7 @@ class PatternController : public MessageReceiver {
   // Return the number of phrases until the next palette cycle
   uint16_t set_next_palette(uint16_t phrase) {
     this->next_state.palette_id = random8(gGradientPaletteCount);
-    return random8(4,40);
+    return random8(MIN_COLOR_CHANGE_PHRASES, MAX_COLOR_CHANGE_PHRASES);
   }
 
   void load_effect(TubeState &tube_state) {
@@ -411,10 +413,8 @@ class PatternController : public MessageReceiver {
     addFlash();
   }
 
-  virtual void onCommand(MeshId fromId, CommandId command, void *data) {
-    if (fromId) {
-      Serial.printf("From %03X: ", fromId);
-    }
+  virtual void onCommand(CommandId command, MeshNodeHeader *header, void *data) {
+    Serial.printf("From %03X/%03X: ", header->id, header->uplinkId);
     
     switch (command) {
       case COMMAND_RESET:

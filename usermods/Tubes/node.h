@@ -17,8 +17,9 @@
 #define CURRENT_NODE_VERSION 1
 #define BROADCAST_ADDR ESPNOW_BROADCAST_ADDRESS 
 
-#define UPDATE_RATE 3000      // Rate at which uplink is queried for data
-#define UPLINK_TIMEOUT 10000  // Time at which uplink is presumed lost
+#define BROADCAST_RATE 3000       // Rate at which to broadcast as leader
+#define REBROADCAST_RATE 7000    // Rate at which to re-broadcast as follower
+#define UPLINK_TIMEOUT 17000      // Time at which uplink is presumed lost
 
 typedef uint16_t MeshId;
 
@@ -28,26 +29,20 @@ typedef struct {
     uint8_t version = CURRENT_NODE_VERSION;
 } MeshNodeHeader;
 
+typedef struct {
+    MeshNodeHeader header;
+    TubeState current;
+    TubeState next;
+} NodeMessage;
 
-void onDataSent (uint8_t* address, uint8_t status) {
-    Serial.printf (">> Message sent to " MACSTR ", status: %d\n", MAC2STR (address), status);
-}
-
-void onDataReceived (uint8_t* address, uint8_t* data, uint8_t len, signed int rssi, bool broadcast) {
-    Serial.printf (">> Received %d bytes ", len);
-    Serial.printf ("\"%.*s\" ", len, data);
-    Serial.printf ("%s", broadcast ? "broadcast" : "unicast");
-    Serial.printf ("@ %d dBm  ", rssi);
-    Serial.printf ("from " MACSTR "\n" , MAC2STR(address));
-}
+void onDataReceived (uint8_t* address, uint8_t* data, uint8_t len, signed int rssi, bool broadcast);
 
 
 class MessageReceiver {
   public:
-
-  virtual void onCommand(MeshId fromId, CommandId command, void *data) {
-    // Abstract: subclasses must define
-  }
+    virtual void onCommand(CommandId command, MeshNodeHeader* header, void *data) {
+      // Abstract: subclasses must define
+    }  
 };
 
 
@@ -58,14 +53,24 @@ class MessageReceiver {
 
 class LightNode {
   public:
+    static LightNode* instance;
+
+    MessageReceiver *receiver;
     MeshNodeHeader header;
+
     char node_name[20];
 
     uint8_t status = NODE_STATUS_INIT;
     bool meshChanged = false;
 
     Timer uplinkTimer;
-    Timer updateTimer;
+    Timer broadcastTimer;
+
+    LightNode(MessageReceiver *receiver) {
+        LightNode::instance = this;
+
+        this->receiver = receiver;
+    }
 
     void configure_ap() {
         strcpy(clientSSID, "");
@@ -104,45 +109,106 @@ class LightNode {
         );
     }
 
-    void onUplinkAlive() {
-        // Track the last time we received a message from our uplink
-        this->uplinkTimer.start(UPLINK_TIMEOUT);
+    void onPeerData(uint8_t* address, uint8_t* data, uint8_t len, signed int rssi, bool broadcast) {
+        // Ignore this packet if it couldn't be a mesh report.
+        if (len != sizeof(NodeMessage))
+            return;
+
+        NodeMessage* message = (NodeMessage*)data;
+        // Serial.printf(">> Received %db ", len);
+        // Serial.printf("from %03X/%03X ", message->header.id, message->header.uplinkId);
+        // Serial.printf("at " MACSTR, MAC2STR(address));
+        // Serial.printf("@ %ddBm: ", rssi);
+
+        // Ignore this packet if wrong version
+        if (message->header.version != this->header.version) {
+            // Serial.printf(" <version\n", rssi);        
+            return;
+        }
+
+        // Ignore this packet if not from (at least) my uplink
+        if (message->header.id <= this->header.uplinkId) {
+            // Serial.printf(" ignoring\n", rssi);        
+            return;
+        }
+
+        // Serial.printf(" listening\n", rssi);        
+        this->onPeerPing(&message->header);
+
+        // Execute the received command
+        MeshId fromId = message->header.uplinkId;
+        if (!fromId) fromId = message->header.id;
+
+        this->receiver->onCommand(
+            COMMAND_UPDATE,
+            &message->header,
+            &message->current
+        );
+        this->receiver->onCommand(
+            COMMAND_NEXT,
+            &message->header,
+            &message->next
+        );
+    }
+
+    void onPeerPing(MeshNodeHeader* node) {
+        if (node->id == this->header.id) {
+            Serial.println("Detected an ID conflict.");
+            this->reset();
+        }
+
+        if (node->id > this->header.uplinkId && node->id > this->header.id) {
+            Serial.printf("Following %03X:%03X\n",
+                node->id,
+                node->uplinkId
+            );
+
+            this->follow(node->id);
+        }
+
+        if (node->id == this->header.uplinkId) {
+            this->uplinkTimer.start(UPLINK_TIMEOUT);
+        }
     }
 
     void setup() {
         configure_ap();
 
-        this->updateTimer.start(UPDATE_RATE);
+        this->broadcastTimer.start(BROADCAST_RATE);
         this->status = NODE_STATUS_INIT;
 
         this->reset();
         this->onMeshChange();
 
         quickEspNow.onDataRcvd(onDataReceived);
-        quickEspNow.onDataSent(onDataSent);
         
         Serial.println("Node: ok");
     }
 
-    void broadcast() {
-        if (this->status != NODE_STATUS_BROADCASTING) {
-            Serial.println(">> BC NO");
+    void broadcast(TubeState &current, TubeState &next) {
+        // Don't broadcast if not in broadcast mode
+        if (this->status != NODE_STATUS_BROADCASTING)
             return;
-        }
 
-        static unsigned int counter = 0;
-        static const String msg = "Hello! ";
-        
-        String message = String (msg) + " " + String (counter++);
-        // WiFi.disconnect (false, true);
-        if (!quickEspNow.send (ESPNOW_BROADCAST_ADDRESS, (uint8_t*)message.c_str (), message.length ())) {
-            Serial.printf (">>>>>>>>>> Message sent: %s\n", message.c_str ());
+        NodeMessage message = {
+            .header = this->header,
+            .current = current,
+            .next = next,
+        };
+
+        auto err = quickEspNow.send (ESPNOW_BROADCAST_ADDRESS,
+            (uint8_t*)&message, sizeof(message));
+        if (err)
+            Serial.printf(">> Broadcast error %d\n", err);
+
+        if (this->is_following()) {
+            this->broadcastTimer.snooze(REBROADCAST_RATE);
         } else {
-            Serial.printf (">>>>>>>>>> Message not sent\n");
+            this->broadcastTimer.snooze(BROADCAST_RATE);
         }
     }
 
-    void update() {
+    void update(TubeState &current, TubeState &next) {
         // Don't do anything for the first second, to allow Wifi to settle
         if (millis() < 1000)
             return;
@@ -158,14 +224,13 @@ class LightNode {
             this->meshChanged = false;
         }
 
-        if (this->updateTimer.ended()) {
+        if (this->broadcastTimer.ended()) {
             if (WiFi.isConnected())
                 this->onWifiConnect();
             else
                 this->onWifiDisconnect();
 
-            this->broadcast();
-            this->updateTimer.snooze(UPDATE_RATE);
+            this->broadcast(current, next);
         }
     }
 
@@ -191,3 +256,9 @@ class LightNode {
         return this->header.uplinkId != 0;
     }
 };
+
+LightNode* LightNode::instance = nullptr;
+
+void onDataReceived (uint8_t* address, uint8_t* data, uint8_t len, signed int rssi, bool broadcast) {
+    LightNode::instance->onPeerData(address, data, len, rssi, broadcast);
+}
