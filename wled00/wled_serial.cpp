@@ -36,6 +36,7 @@ void updateBaudRate(uint32_t rate){
   
 void handleSerial()
 {
+  return;
   if (pinManager.isPinAllocated(3)) return;
   
   #ifdef WLED_ENABLE_ADALIGHT
