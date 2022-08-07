@@ -69,6 +69,7 @@ void sendBytes(){
 
 void handleSerial()
 {
+  return;
   if (pinManager.isPinAllocated(hardwareRX)) return;
   
   #ifdef WLED_ENABLE_ADALIGHT

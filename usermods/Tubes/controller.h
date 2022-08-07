@@ -594,7 +594,7 @@ class PatternController : public MessageReceiver {
       case 'g':
         for (int i=0; i< 10; i++)
           addGlitter();
-        break;
+        return;
 
       case '?':
         Serial.println(F("b###.# - set bpm"));
@@ -608,6 +608,11 @@ class PatternController : public MessageReceiver {
         Serial.println(F("i### - set ID"));
         Serial.println(F("d - toggle debugging"));
         Serial.println(F("l### - brightness"));
+        return;
+
+      default:
+        Serial.println("dunno?");
+        return;
     }
   }
 
@@ -621,7 +626,7 @@ class PatternController : public MessageReceiver {
   }
 
   void update_next() {
-    // this->node->update_node_storage(this->current_state, this->next_state);
+    this->node->broadcast(this->current_state, this->next_state);
   }
 
 };
