@@ -907,6 +907,12 @@ class WS2812FX {  // 96 bytes
     static WS2812FX* get_strip() {
       return instance;
     }
+    static CRGB get_crgb(uint32_t pos) {
+      return instance->col_to_crgb(instance->getPixelColor(pos));
+    }
+    static void set_crgb(uint32_t pos, CRGB color) {
+      instance->setPixelColor(pos, instance->crgb_to_col(color));
+    }
 
 };
 

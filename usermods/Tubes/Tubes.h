@@ -57,6 +57,13 @@ class TubesUsermod : public Usermod {
       // Draw after everything else is done
       controller.led_strip->update(master != NULL); // ~25us
     }
+
+    void handleOverlayDraw()
+    {
+      // Draw effects layers over whatever WLED is doing.
+      WS2812FX* leds = &strip;
+      controller.effects->draw(leds);
+    }
 };
 
 
