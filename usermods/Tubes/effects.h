@@ -112,11 +112,11 @@ class Effects {
     }
   }
 
-  void draw(CRGB strip[], uint8_t num_leds) {
+  void draw(WS2812FX* leds) {
     uint8_t len = numParticles;
     for (uint8_t i=0; i<len; i++) {
       Particle *particle = particles[i];
-      particle->drawFn(particle, strip, num_leds);
+      particle->drawFn(particle, leds);
     }
   }
   

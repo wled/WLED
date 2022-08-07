@@ -406,11 +406,10 @@ class PatternController : public MessageReceiver {
     }
 
     this->effects->update(first_strip, beat_frame, (BeatPulse)beat_pulse);
-    this->effects->draw(this->led_strip->leds, this->num_leds);    
   }
 
   virtual void acknowledge() {
-    addFlash();
+    addFlash(CRGB::Green);
   }
 
   virtual void onCommand(CommandId command, MeshNodeHeader *header, void *data) {

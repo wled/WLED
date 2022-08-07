@@ -949,6 +949,14 @@ class WS2812FX {
       return instance;
     }
 
+    static CRGB get_crgb(uint32_t pos) {
+      return instance->col_to_crgb(instance->getPixelColor(pos));
+    }
+    static void set_crgb(uint32_t pos, CRGB color) {
+      instance->setPixelColor(pos, instance->crgb_to_col(color));
+    }
+
+
     inline bool hasWhiteChannel(void) {return _hasWhiteChannel;}
     inline bool isOffRefreshRequired(void) {return _isOffRefreshRequired;}
 };

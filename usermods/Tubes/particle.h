@@ -9,10 +9,10 @@
 
 class Particle;
 
-typedef void (*ParticleFn)(Particle *particle, CRGB strip[], uint8_t num_leds);
+typedef void (*ParticleFn)(Particle *particle, WS2812FX* leds);
 
-extern void drawPoint(Particle *particle, CRGB strip[], uint8_t num_leds);
-extern void drawFlash(Particle *particle, CRGB strip[], uint8_t num_leds);
+extern void drawPoint(Particle *particle, WS2812FX* leds);
+extern void drawFlash(Particle *particle, WS2812FX* leds);
 
 
 class Particle {
@@ -96,59 +96,62 @@ class Particle {
     return CRGB(r,g,b);
   }
 
-  void draw_with_pen(CRGB strip[], int pos, CRGB color) {
+  void draw_with_pen(WS2812FX* leds, int pos, CRGB color) {
     CRGB new_color;
-    
+
     switch (this->pen) {
       case Draw:  
-        strip[pos] = color;
+        new_color = color;
         break;
   
       case Blend:
-        strip[pos] |= color;
+        new_color = WS2812FX::get_crgb(pos) | color;
         break;
   
       case Erase:
-        strip[pos] &= color;
+        new_color = WS2812FX::get_crgb(pos) & color;
         break;
   
       case Invert:
-        strip[pos] = -strip[pos];
+        new_color = -WS2812FX::get_crgb(pos);
         break;  
 
       case Brighten: {
         uint8_t t = color.getAverageLight();
-        new_color = CRGB(t,t,t);
-        strip[pos] += new_color;
+        new_color = WS2812FX::get_crgb(pos) + CRGB(t,t,t);
         break;  
       }
 
       case Darken: {
         uint8_t t = color.getAverageLight();
-        new_color = CRGB(t,t,t);
-        strip[pos] -= new_color;
+        new_color = WS2812FX::get_crgb(pos) - CRGB(t,t,t);
         break;  
       }
 
       case Flicker: {
         uint8_t t = color.getAverageLight();
-        new_color = CRGB(t,t,t);
-        if (millis() % 2)
-          strip[pos] -= new_color;
-        else
-          strip[pos] += new_color;
+        if (millis() % 2) {
+          new_color = WS2812FX::get_crgb(pos) - CRGB(t,t,t);
+        } else {
+          new_color = WS2812FX::get_crgb(pos) + CRGB(t,t,t);
+        }
         break;  
       }
 
       case White:
-        strip[pos] = CRGB::White;
+        new_color = CRGB::White;
         break;  
 
       case Black:
-        strip[pos] = CRGB::Black;
+        new_color = CRGB::Black;
         break;  
 
+      default:
+        // Unknown pen
+        return;
     }
+
+    WS2812FX::set_crgb(pos, new_color);
   }
 
 };
@@ -182,55 +185,57 @@ void addParticle(Particle *particle) {
   particles[numParticles++] = particle;
 }
 
-void drawFlash(Particle *particle, CRGB strip[], uint8_t num_leds) {
+void drawFlash(Particle *particle, WS2812FX* leds) {
+  auto num_leds = leds->getLengthTotal();
   uint16_t age_frac = particle->age_frac16(particle->age);
   CRGB c = particle->color_at(age_frac);
   for (int pos = 0; pos < num_leds; pos++) {
-    particle->draw_with_pen(strip, pos, c);
+    particle->draw_with_pen(leds, pos, c);
   }
 }
 
-void drawPoint(Particle *particle, CRGB strip[], uint8_t num_leds) {
+void drawPoint(Particle *particle, WS2812FX* leds) {
   uint16_t age_frac = particle->age_frac16(particle->age);
   CRGB c = particle->color_at(age_frac);
 
-  uint16_t pos = scale16(particle->position, num_leds-1);
-  particle->draw_with_pen(strip, pos, c);
+  uint16_t pos = scale16(particle->position, leds->getLengthTotal() - 1);
+  particle->draw_with_pen(leds, pos, c);
 }
 
-void drawRadius(Particle *particle, CRGB strip[], uint8_t num_leds, uint16_t pos, uint8_t radius, CRGB c, bool dim=true) {
+void drawRadius(Particle *particle, WS2812FX* leds, uint16_t pos, uint8_t radius, CRGB c, bool dim=true) {
+  auto num_leds = leds->getLengthTotal();
   for (int i = 0; i < radius; i++) {
     uint8_t bright = dim ? ((radius-i) * 255) / radius : 255;
     nscale8(&c, 1, bright);
 
     uint8_t y = pos - i;
     if (y >= 0 && y < num_leds)
-      particle->draw_with_pen(strip, y, c);
+      particle->draw_with_pen(leds, y, c);
 
     if (i == 0)
       continue;
 
     y = pos + i;
     if (y >= 0 && y < num_leds)
-      particle->draw_with_pen(strip, y, c);
+      particle->draw_with_pen(leds, y, c);
   }
 }
 
-void drawPop(Particle *particle, CRGB strip[], uint8_t num_leds) {
+void drawPop(Particle *particle, WS2812FX* leds) {
   uint16_t age_frac = particle->age_frac16(particle->age);
   CRGB c = particle->color_at(age_frac);
-  uint16_t pos = scale16(particle->position, num_leds-1);
+  uint16_t pos = scale16(particle->position, leds->getLengthTotal() - 1);
   uint8_t radius = scale16((sin16(age_frac/2) - 32768) * 2, 8);
 
-  drawRadius(particle, strip, num_leds, pos, radius, c);
+  drawRadius(particle, leds, pos, radius, c);
 }
 
-void drawBeatbox(Particle *particle, CRGB strip[], uint8_t num_leds) {
+void drawBeatbox(Particle *particle, WS2812FX* leds) {
   uint16_t age_frac = particle->age_frac16(particle->age);
   CRGB c = particle->color_at(age_frac);
-  uint16_t pos = scale16(particle->position, num_leds-1);
+  uint16_t pos = scale16(particle->position, leds->getLengthTotal() - 1);
   uint8_t radius = 5;
 
-  drawRadius(particle, strip, num_leds, pos, radius, c, false);
+  drawRadius(particle, leds, pos, radius, c, false);
 }
 
