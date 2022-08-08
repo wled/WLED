@@ -412,9 +412,7 @@ class PatternController : public MessageReceiver {
     addFlash(CRGB::Green);
   }
 
-  virtual void onCommand(CommandId command, MeshNodeHeader *header, void *data) {
-    Serial.printf("From %03X/%03X: ", header->id, header->uplinkId);
-    
+  virtual void onCommand(CommandId command, void *data) {
     switch (command) {
       case COMMAND_RESET:
         Serial.println(F("reset"));
@@ -433,22 +431,17 @@ class PatternController : public MessageReceiver {
         return;
       }
 
-      case COMMAND_NEXT: {
-        Serial.print(F(" next "));
-
-        memcpy(&this->next_state, data, sizeof(TubeState));
-        this->next_state.print();
-        Serial.println(F(" (obeying)"));
-        return;
-      }
-  
       case COMMAND_UPDATE: {
         Serial.print(F(" update "));
 
+        auto update_data = (NodeUpdate*)data;
+
         TubeState state;
-        memcpy(&state, data, sizeof(TubeState));
+        memcpy(&state, &update_data->current, sizeof(TubeState));
+        memcpy(&this->next_state, &update_data->next, sizeof(TubeState));
         state.print();
-        Serial.println(F(" (obeying)"));
+        this->next_state.print();
+        Serial.println();
   
         // Catch up to this state
         this->load_pattern(state);
@@ -460,7 +453,7 @@ class PatternController : public MessageReceiver {
     }
   
     Serial.print(F("UNKNOWN "));
-    Serial.print(command, HEX);
+    Serial.println(command, HEX);
   }
 
   void read_keys() {
@@ -625,7 +618,7 @@ class PatternController : public MessageReceiver {
   }
 
   void update_next() {
-    this->node->broadcast(this->current_state, this->next_state);
+    this->node->update_status(this->current_state, this->next_state);
   }
 
 };
