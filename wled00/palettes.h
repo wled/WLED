@@ -2019,14 +2019,10 @@ const byte* const gGradientPalettes[] PROGMEM = {
   Afterdusk_gp,
   BlueSky_gp,
   Gold_Orange_gp,
-  frizzell_05_gp,
-  frizzell_09_gp,
   frizzell_10_gp,
   frizzell_12_gp,
   
-  fib53_01_gp,
   fib53_18_gp,
-  fib53_07_gp,
   fib53_13_gp,
   fib53_17_gp,
   fib53_05_gp,
@@ -2052,15 +2048,8 @@ const byte* const gGradientPalettes[] PROGMEM = {
   grindylow_15_gp,
   grindylow_21_gp,
   konjo_08_gp,
-  konjo_18_gp,
-  konjo_19_gp,
   konkikyo_19_gp,
   mccahon_16_gp,
-  sulz_10_gp,
-  sulz_12_gp,
-  sulz_15_gp,
-  sulz_21_gp,
-  sulz_22_gp,
   Pills_2_gp,
   Pink_Yellow_Orange_1_gp,
   es_autumn_04_gp,
@@ -2153,7 +2142,7 @@ const byte* const gGradientPalettes[] PROGMEM = {
 */
 };
 const uint8_t gGradientPaletteCount = ARRAY_SIZE(gGradientPalettes);
-#define GRADIENT_PALETTE_COUNT 114
+#define GRADIENT_PALETTE_COUNT 103
 
 
 #endif
