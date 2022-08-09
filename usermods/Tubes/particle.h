@@ -97,6 +97,7 @@ class Particle {
   }
 
   void draw_with_pen(WS2812FX* leds, int pos, CRGB color) {
+    CRGB c = CRGB(WS2812FX::get_strip()->getPixelColor(pos));
     CRGB new_color;
 
     switch (this->pen) {
@@ -105,35 +106,35 @@ class Particle {
         break;
   
       case Blend:
-        new_color = WS2812FX::get_crgb(pos) | color;
+        new_color = c | color;
         break;
   
       case Erase:
-        new_color = WS2812FX::get_crgb(pos) & color;
+        new_color = c & color;
         break;
   
       case Invert:
-        new_color = -WS2812FX::get_crgb(pos);
+        new_color = -c;
         break;  
 
       case Brighten: {
         uint8_t t = color.getAverageLight();
-        new_color = WS2812FX::get_crgb(pos) + CRGB(t,t,t);
+        new_color = c + CRGB(t,t,t);
         break;  
       }
 
       case Darken: {
         uint8_t t = color.getAverageLight();
-        new_color = WS2812FX::get_crgb(pos) - CRGB(t,t,t);
+        new_color = c - CRGB(t,t,t);
         break;  
       }
 
       case Flicker: {
         uint8_t t = color.getAverageLight();
         if (millis() % 2) {
-          new_color = WS2812FX::get_crgb(pos) - CRGB(t,t,t);
+          new_color = c - CRGB(t,t,t);
         } else {
-          new_color = WS2812FX::get_crgb(pos) + CRGB(t,t,t);
+          new_color = c + CRGB(t,t,t);
         }
         break;  
       }
@@ -151,7 +152,7 @@ class Particle {
         return;
     }
 
-    WS2812FX::set_crgb(pos, new_color);
+    WS2812FX::get_strip()->setPixelColor(pos, new_color);
   }
 
 };

@@ -5284,7 +5284,7 @@ uint16_t mode_2DPlasmaball(void) {                   // By: Stepko https://edito
 static const char _data_FX_MODE_2DPLASMABALL[] PROGMEM = "Plasma Ball@Speed,,Fade,Blur;!,!,!;!;2d";
 
 
-uint16_t WS2812FX::mode_external(void) {
+uint16_t mode_external(void) {
   // uint8_t segment_id = strip.getMainSegmentId();
   uint16_t length = strip.getLengthTotal();
 
@@ -5296,7 +5296,7 @@ uint16_t WS2812FX::mode_external(void) {
     strip.setPixelColor(i, external_buffer[p]);
   }
 }
-static const char _data_FX_MODE_TUBES_NOISE[] PROGMEM = "External!@!,;!,!,;!;1d";
+static const char _data_FX_MODE_EXTERNAL[] PROGMEM = "External!@!,;!,!,;!;1d";
 
 ////////////////////////////////
 //  2D Polar Lights           //
@@ -7531,6 +7531,7 @@ void WS2812FX::setupEffectData() {
   addEffect(FX_MODE_DJLIGHT, &mode_DJLight, _data_FX_MODE_DJLIGHT);
   addEffect(FX_MODE_BLURZ, &mode_blurz, _data_FX_MODE_BLURZ);
   addEffect(FX_MODE_ROCKTAVES, &mode_rocktaves, _data_FX_MODE_ROCKTAVES);
+<<<<<<< HEAD
 }
 
 
@@ -7575,3 +7576,8 @@ uint16_t WS2812FX::mode_tubes_moise(void) {
 
   return FRAMETIME;
 }
+=======
+  //addEffect(FX_MODE_CUSTOMEFFECT, &mode_customEffect, _data_FX_MODE_CUSTOMEFFECT); //WLEDSR Custom Effects
+#endif // USERMOD_AUDIOREACTIVE
+}
+>>>>>>> 0a7756d3 (fix post merge)
