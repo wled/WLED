@@ -888,12 +888,13 @@ class WS2812FX {  // 96 bytes
       return instance->external_buffer;
     }
     static CRGB get_palette_crgb(uint16_t c, uint8_t brightness=255U) {
-      uint32_t color = instance->color_from_palette(c, false, true, 255, brightness);
-      return instance->col_to_crgb(color);
+      Segment& segment = instance->getMainSegment();
+      uint32_t color = segment.color_from_palette(c, false, true, 255, brightness);
+      return CRGB(color);
     }
     static void load_palette(uint8_t palette_id) {
       for (uint8_t i = 0; i < instance->getMaxSegments(); i++) {
-        WS2812FX::Segment& seg = instance->getSegment(i);
+        Segment& seg = instance->getSegment(i);
         seg.palette = palette_id;
       }
     }
@@ -904,12 +905,6 @@ class WS2812FX {  // 96 bytes
     }
     static WS2812FX* get_strip() {
       return instance;
-    }
-    static CRGB get_crgb(uint32_t pos) {
-      return instance->col_to_crgb(instance->getPixelColor(pos));
-    }
-    static void set_crgb(uint32_t pos, CRGB color) {
-      instance->setPixelColor(pos, instance->crgb_to_col(color));
     }
 
 };
