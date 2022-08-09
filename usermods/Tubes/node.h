@@ -87,8 +87,8 @@ class LightNode {
     void configure_ap() {
         strcpy(clientSSID, "");
         strcpy(clientPass, "");
-        strcpy(apSSID, "");
-        apBehavior = AP_BEHAVIOR_BOOT_NO_CONN;
+        strcpy(apSSID, "mywled");
+        apBehavior = AP_BEHAVIOR_NO_CONN; // AP_BEHAVIOR_BOOT_NO_CONN;
     }
 
     void onWifiConnect() {

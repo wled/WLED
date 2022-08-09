@@ -1594,14 +1594,13 @@ const char JSON_palette_names[] PROGMEM = R"=====([
 "Forest","Rainbow","Rainbow Bands","July","Vintage 57","Vintage 01","Rivendell","RGI 15","Retro","Analogous",
 "Pink Splash 08","Pink Splash 07","Coral Reef","Ocean Breeze 68","Ocean Breeze 36","Departure","Landscape 64","Landscape 33","Sherbet","Hult 65",
 "Hult 64","Drywet","IB15","Fuschia","Emerald Dragon 08","Lava","Fire","Hiyane","Colorfull","Magenta Evening",
-"Pink Purple","Sunset","Autumn","B/B/M/W","B/M/R","B/R/M/Y","Sunset Yellow","Cloud","Fire & Ice","BHW2",
-"Rainfall","Angel","Butterfly","250K Meters","Midnight","Afterdusk","Blue Sky","Gold Orange","Frizell 05","Frizell 09",
-"Frizell 10","Frizell 12","Fib 01","Fib 18","Fib 07","Fib 13","Fib 17","Fib 05","Analogous 02","Analogous 04a",
-"Cyan Orange","C/W/G","Wild Orange","Ikat","Citrus","Teal Blue","Ldby Orange","Purple/Orange","Blue/Tan","Green/Purple",
-"Knoza 00","Knoza 18","Calpan","Calbayo","Fib53","Grindylow 15","Grindylow 21","Konjo 08","Konjo 18","Konjo 19",
-"Konikyo","McCahon","Sulz 10","Sulz 12","Sulz 15","Sulz 21","Sulz 22","Pills","Pink/Yellow/Orange","Autumn 04",
-"Autumn 02","Candide","Chic","Coffee","Emerald Dragon 01","Landscape 57","Landscape 22","Landscape 47","Landscape 10","Landscape 76",
-"Landscape 61","Landscape 60","Landscape 51","Landscape 06","Ocean Breeze 49","Ocean Breeze 57","Ocean Breeze 74","Pink Splash 05","Pink Splash 10","Vintage 56",
-"Vintage 10","Gold/Yellow","Radioactive Slime","Pastel Rainbow","Purple Sunset","Janico"
+"Pink Purple","Sunset","Autumn","Blue/Magenta/White","Blue/Magenta/Red","Blue/Red/Yellow","Blue/Cyan/Yellow","Sunset Yellow","Cloud","Fire & Ice",
+"BHW2","Rainfall","Angel","Butterfly","250K Meters","Night Midnight","Afterdusk","Blue Sky","Gold Orange", "Frizell 10",
+"Frizell 12","Fib 18","Fib 13","Fib 17","Fib 05","Analogous 02","Analogous 04a","Cyan Orange","C/W/G",
+"Wild Orange","Ikat","Citrus","Teal Blue","Ldby Orange","Purple/Orange","Blue/Tan","Green/Purple","Knoza 00","Knoza 18",
+"Calpan","Calbayo","Fib53","Grindylow 15","Grindylow 21","Konjo 08","Konikyo","McCahon","Pills","Pink/Yellow/Orange",
+"Autumn 04","Autumn 02","Candide","Chic","Coffee","Emerald Dragon 01","Landscape 57","Landscape 22","Landscape 47","Landscape 10",
+"Landscape 76","Landscape 61","Landscape 60","Landscape 51","Landscape 06","Ocean Breeze 49","Ocean Breeze 57","Ocean Breeze 74","Pink Splash 05","Pink Splash 10",
+"Vintage 56","Vintage 10","Gold/Yellow","Radioactive Slime","Pastel Rainbow","Purple Sunset","Janico"
 ])=====";
 

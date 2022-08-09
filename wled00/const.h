@@ -5,7 +5,7 @@
  * Readability defines and their associated numerical values + compile-time constants
  */
 
-#define GRADIENT_PALETTE_COUNT 114  // custom palette.h
+#define GRADIENT_PALETTE_COUNT 103  // custom palette.h
 
 //Defaults
 #define DEFAULT_CLIENT_SSID "Your_Network"

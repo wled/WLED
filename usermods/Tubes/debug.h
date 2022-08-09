@@ -41,11 +41,25 @@ class DebugController {
     this->lastFrame = (uint32_t)-1;
   }
 
+  std::string status_code(NodeStatus status) {
+    switch (status) {
+      case NODE_STATUS_QUIET:
+        return std::string(" (quiet)");
+      case NODE_STATUS_STARTING:
+        return std::string(" (starting)");
+      case NODE_STATUS_STARTED:
+        return std::string("");
+      default:
+        return std::string("??");
+    }
+  }
+
   void update()
   {
     EVERY_N_MILLISECONDS( 10000 ) {
-      Serial.printf("\n=== %s    WiFi %d[ch%d] IP: %u.%u.%u.%u   Free memory: %d    Uptime: %s\n\n",
+      Serial.printf("\n=== %s%s    WiFi %d[ch%d] IP: %u.%u.%u.%u   Free memory: %d    Uptime: %s\n\n",
         this->controller->node->node_name,
+        status_code(this->controller->node->status).c_str(),
         WiFi.status(),
         WiFi.channel(),
         WiFi.localIP()[0],
