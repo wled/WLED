@@ -5282,14 +5282,16 @@ static const char _data_FX_MODE_2DPLASMABALL[] PROGMEM = "Plasma Ball@Speed,,Fad
 uint16_t mode_external(void) {
   // uint8_t segment_id = strip.getMainSegmentId();
   uint16_t length = strip.getLengthTotal();
+  auto external_buffer = strip.get_external_buffer();
 
   for (int i = 0, p = 0; i < length; i++, p++) {
     if (p >= EXTERNAL_BUFFER_SIZE) {
       p = 0;
     }
-    // strip.setPixelColor(i, color_from_palette(external_buffer[p], true, PALETTE_SOLID_WRAP, 0));
     strip.setPixelColor(i, external_buffer[p]);
   }
+
+  return FRAMETIME;
 }
 static const char _data_FX_MODE_EXTERNAL[] PROGMEM = "External!@!,;!,!,;!;1d";
 
