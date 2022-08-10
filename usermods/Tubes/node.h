@@ -20,9 +20,9 @@
 #define CURRENT_NODE_VERSION 1
 #define BROADCAST_ADDR ESPNOW_BROADCAST_ADDRESS 
 
-#define BROADCAST_RATE 2000       // Rate at which to broadcast state updates as leader
 #define UPLINK_TIMEOUT 17000      // Time at which uplink is presumed lost
 #define REBROADCAST_TIME 15000    // Time at which followers are presumed re-uplinked
+#define WIFI_CHECK_RATE 2000     // Time at which we should check wifi status again
 
 typedef uint16_t MeshId;
 
@@ -70,12 +70,10 @@ class LightNode {
     MeshNodeHeader header;
     NodeStatus status = NODE_STATUS_QUIET;
 
-    bool meshStarted = false;
-
     char node_name[20];
 
+    Timer statusTimer;  // Use this timer to initialize and check wifi status
     Timer uplinkTimer; // When this timer ends, assume uplink is lost.
-    Timer broadcastTimer; // When this timer ends, send a status update
     Timer rebroadcastTimer; // Until this timer ends, re-broadcast messages from uplink
 
     LightNode(MessageReceiver *receiver) {
@@ -88,30 +86,30 @@ class LightNode {
         strcpy(clientSSID, "");
         strcpy(clientPass, "");
         strcpy(apSSID, "mywled");
+        strcpy(apPass, "WledWled");
         apBehavior = AP_BEHAVIOR_NO_CONN; // AP_BEHAVIOR_BOOT_NO_CONN;
     }
 
     void onWifiConnect() {
-        if (this->meshStarted) {
-            Serial.println("WiFi connected: stop broadcasting");
-            quickEspNow.stop();
-            this->meshStarted = false;
-        }
-
+        if (this->status == NODE_STATUS_QUIET)
+            return;
+            
+        Serial.println("WiFi connected: stop broadcasting");
+        quickEspNow.stop();
         this->status = NODE_STATUS_QUIET;
+        this->rebroadcastTimer.stop();
+        this->statusTimer.start(WIFI_CHECK_RATE);
     }
 
     void onWifiDisconnect() {
-        if (!this->meshStarted) {
-            Serial.println("WiFi disconnected: start broadcasting");
-            WiFi.mode (WIFI_MODE_STA);
-            WiFi.disconnect(false, true);
-            quickEspNow.begin(1, WIFI_IF_STA);
-            this->meshStarted = true;
-        }
+        if (this->status != NODE_STATUS_QUIET)
+            return;
 
-        if (this->status == NODE_STATUS_QUIET)
-            this->status = NODE_STATUS_STARTING;
+        Serial.println("WiFi disconnected: start broadcasting");
+        WiFi.mode (WIFI_MODE_STA);
+        WiFi.disconnect(false, true);
+        quickEspNow.begin(1, WIFI_IF_STA);
+        this->initialize();
     }
 
     void onMeshChange() {
@@ -141,9 +139,11 @@ class LightNode {
             this->uplinkTimer.start(UPLINK_TIMEOUT);
         }
 
-        // If a message indicates that another node is following this one,
-        // enter or continue re-broadcasting mode (unless already LEAD)
-        if (node->uplinkId == this->header.id) {
+        // If a message indicates that another node is following this one, or
+        // should be (it's not following anything, but this node's ID is higher)
+        // enter or continue re-broadcasting mode.
+        if (node->uplinkId == this->header.id
+            || (node->uplinkId == 0 && node->id < this->header.id)) {
             Serial.printf("%03X/%03X is following me\n", node->id, node->uplinkId);
             this->rebroadcastTimer.start(REBROADCAST_TIME);
         }
@@ -220,51 +220,26 @@ class LightNode {
 #else
         this->reset();
 #endif
-        this->broadcastTimer.stop();
-
+        this->statusTimer.stop();
         quickEspNow.onDataRcvd(onDataReceived);
-        
         Serial.println("Node: ok");
     }
 
-    void set_timer() {
-        // Timer in QUIET mode determines how often we'll check WiFi status
-        if (this->status == NODE_STATUS_QUIET) {
-            this->broadcastTimer.start(BROADCAST_RATE);
-            this->rebroadcastTimer.stop();
-            return;
-        }
-
-        // Initial timer: wait for a bit before trying to broadcast.
+    void initialize() {
+        // Initialization timer: wait for a bit before trying to broadcast.
         // If this node's ID is high, it's more likely to be the leader, so wait less.
-        if (this->status == NODE_STATUS_STARTING) {
-            auto next_time = 4000 - this->header.id/2;
-            this->broadcastTimer.start(next_time);
-            this->rebroadcastTimer.start(REBROADCAST_TIME);
-            return;
-        }
-
-        // If following, only rebroadcast every 5 cycles
-        if (this->is_following()) {
-            auto next_time = 5 * BROADCAST_RATE;
-
-            // Randomize a bit so not everyone is rebroadcasting at the same time
-            next_time += random(0, 2000) - 1000;
-
-            this->broadcastTimer.start(next_time);
-            return;
-        }
-
-        this->broadcastTimer.start(BROADCAST_RATE);
+        this->status = NODE_STATUS_STARTING;
+        this->statusTimer.start(3000 - this->header.id / 2);
+        this->rebroadcastTimer.stop();
     }
 
-    void update(TubeState &current, TubeState &next) {
+    void update() {
         // Check the last time we heard from the uplink node
         if (is_following() && this->uplinkTimer.ended()) {
             this->follow(NULL);
         }
 
-        if (this->broadcastTimer.ended()) {
+        if (this->statusTimer.every(WIFI_CHECK_RATE)) {
             // The broadcast timer doubles as a timer for startup delay
             // Once the initial timer has ended, mark this node as started
             if (this->status == NODE_STATUS_STARTING)
@@ -275,10 +250,6 @@ class LightNode {
                 this->onWifiConnect();
             else
                 this->onWifiDisconnect();
-
-            // Set the next time and reset the rebroadcast monitoring
-            this->update_status(current, next);
-            this->set_timer();
         }
     }
 
@@ -301,9 +272,7 @@ class LightNode {
         if (id == 0)
             id = random(256, 4000);  // Leave room at bottom and top of 12 bits
         this->header.id = id;
-        this->status = NODE_STATUS_STARTING;
         this->follow(NULL);
-        this->onMeshChange();
     }
 
     void follow(MeshNodeHeader* node) {
