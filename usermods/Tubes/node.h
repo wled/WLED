@@ -85,8 +85,9 @@ class LightNode {
     void configure_ap() {
         strcpy(clientSSID, "");
         strcpy(clientPass, "");
-        strcpy(apSSID, "mywled");
+        sprintf(apSSID, "WLED %03X", this->header.id);
         strcpy(apPass, "WledWled");
+        apActive = !this->is_following();
         apBehavior = AP_BEHAVIOR_NO_CONN; // AP_BEHAVIOR_BOOT_NO_CONN;
     }
 
@@ -118,6 +119,7 @@ class LightNode {
             this->header.id,
             this->header.uplinkId
         );
+        this->configure_ap();
     }
 
     void onPeerPing(MeshNodeHeader* node) {

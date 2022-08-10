@@ -57,7 +57,7 @@ class DebugController {
   void update()
   {
     EVERY_N_MILLISECONDS( 10000 ) {
-      Serial.printf("\n=== %s%s    WiFi %d[ch%d] IP: %u.%u.%u.%u   Free memory: %d    Uptime: %s\n\n",
+      Serial.printf("\n=== %s%s    WiFi %d[ch%d] IP: %u.%u.%u.%u   Free memory: %d  space: %u/%u  Uptime: %s\n\n",
         this->controller->node->node_name,
         status_code(this->controller->node->status).c_str(),
         WiFi.status(),
@@ -67,6 +67,8 @@ class DebugController {
         WiFi.localIP()[2],
         WiFi.localIP()[3],
         freeMemory(),
+        LITTLEFS.usedBytes(),
+        LITTLEFS.totalBytes(),
         formatted_time(millis()).c_str()
       );
     }
