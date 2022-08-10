@@ -275,6 +275,7 @@
   #define FX_MODE_2DMETABALLS            142 // non audio
   #define FX_MODE_2DPULSER               143 // non audio
   #define FX_MODE_2DDRIFT                144 // non audio
+<<<<<<< HEAD
   #define FX_MODE_2DWAVERLY              145 // audio enhanced
   #define FX_MODE_2DSWIRL                146 // audio enhanced
   #define FX_MODE_2DAKEMI                147 // audio enhanced
@@ -308,6 +309,68 @@
 #define FX_MODE_ROCKTAVES              174 // audio enhanced
 
 #define MODE_COUNT                     175
+=======
+#endif
+#ifndef WLED_DISABLE_AUDIO
+  #ifndef WLED_DISABLE_2D
+    #define FX_MODE_2DWAVERLY              145 // audio enhanced
+    #define FX_MODE_2DSWIRL                146 // audio enhanced
+    #define FX_MODE_2DAKEMI                147 // audio enhanced
+    // 148 & 149 reserved
+  #endif
+  #define FX_MODE_PIXELWAVE              150 // audio enhanced
+  #define FX_MODE_JUGGLES                151 // audio enhanced
+  #define FX_MODE_MATRIPIX               152 // audio enhanced
+  #define FX_MODE_GRAVIMETER             153 // audio enhanced
+  #define FX_MODE_PLASMOID               154 // audio enhanced
+  #define FX_MODE_PUDDLES                155 // audio enhanced
+  #define FX_MODE_MIDNOISE               156 // audio enhanced
+  #define FX_MODE_NOISEMETER             157 // audio enhanced
+  #define FX_MODE_NOISEFIRE              158 // audio enhanced
+  #define FX_MODE_PUDDLEPEAK             159 // audio enhanced
+  #define FX_MODE_RIPPLEPEAK             160 // audio enhanced
+  #define FX_MODE_GRAVCENTER             161 // audio enhanced
+  #define FX_MODE_GRAVCENTRIC            162 // audio enhanced
+#endif
+
+#ifndef USERMOD_AUDIOREACTIVE
+  #ifndef WLED_DISABLE_AUDIO
+  #define MODE_COUNT                   163
+  #else
+    #ifndef WLED_DISABLE_2D
+  #define MODE_COUNT                   145
+    #else
+  #define MODE_COUNT                   118
+    #endif
+  #endif
+
+#else
+
+  #ifdef WLED_DISABLE_AUDIO
+    #error Incompatible options: WLED_DISABLE_AUDIO and USERMOD_AUDIOREACTIVE
+  #endif
+  #ifdef WLED_DISABLE_2D
+    #error AUDIOREACTIVE usermod requires 2D support.
+  #endif
+  #define FX_MODE_2DGEQ                  148
+  #define FX_MODE_2DFUNKYPLANK           149
+  #define FX_MODE_PIXELS                 163
+  #define FX_MODE_FREQWAVE               164
+  #define FX_MODE_FREQMATRIX             165
+  #define FX_MODE_WATERFALL              166
+  #define FX_MODE_FREQPIXELS             167
+  #define FX_MODE_BINMAP                 168
+  #define FX_MODE_NOISEMOVE              169
+  #define FX_MODE_FREQMAP                170
+  #define FX_MODE_GRAVFREQ               171
+  #define FX_MODE_DJLIGHT                172
+  #define FX_MODE_BLURZ                  173
+  #define FX_MODE_ROCKTAVES              174
+  //#define FX_MODE_CUSTOMEFFECT           175 //WLEDSR Custom Effects
+
+  #define MODE_COUNT                     175
+#endif
+>>>>>>> d4cc6df2 (Handle manual override of colors)
 
 typedef enum mapping1D2D {
   M12_Pixels = 0,
@@ -893,13 +956,20 @@ class WS2812FX {  // 96 bytes
       return CRGB(color);
     }
     static void load_palette(uint8_t palette_id) {
-      for (uint8_t i = 0; i < instance->getMaxSegments(); i++) {
+      for (uint8_t i=0; i < instance->getSegmentsNum(); i++) {
         Segment& seg = instance->getSegment(i);
+        if (!seg.isActive()) continue;
+        if (instance->paletteBlend)
+          seg.startTransition(instance->getTransition());
         seg.palette = palette_id;
       }
     }
     static void load_pattern(uint8_t pattern_id) {
-      for (uint8_t i = 0; i < instance->getMaxSegments(); i++) {
+      for (uint8_t i=0; i < instance->getSegmentsNum(); i++) {
+        Segment& seg = instance->getSegment(i);
+        if (!seg.isActive()) continue;
+        if (instance->paletteBlend)
+          seg.startTransition(instance->getTransition());
         instance->setMode(i, pattern_id);
       }
     }

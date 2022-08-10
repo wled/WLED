@@ -1551,7 +1551,7 @@ const char JSON_palette_names[] PROGMEM = R"=====([
 "Default","* Random Cycle","* Color 1","* Colors 1&2","* Color Gradient","* Colors Only","Party","Cloud","Lava","Ocean",
 "Forest","Rainbow","Rainbow Bands","July","Vintage 57","Vintage 01","Rivendell","RGI 15","Retro","Analogous",
 "Pink Splash 08","Pink Splash 07","Coral Reef","Ocean Breeze 68","Ocean Breeze 36","Departure","Landscape 64","Landscape 33","Sherbet","Hult 65",
-"Hult 64","Drywet","IB15","Fuschia","Emerald Dragon 08","Lava","Fire","Hiyane","Colorfull","Magenta Evening",
+"Hult 64","Drywet","IB15","Fuschia","Emerald Dragon 08","Hot Lava","Fire","Hiyane","Colorfull","Magenta Evening",
 "Pink Purple","Sunset","Autumn","Blue/Magenta/White","Blue/Magenta/Red","Blue/Red/Yellow","Blue/Cyan/Yellow","Sunset Yellow","Cloud","Fire & Ice",
 "BHW2","Rainfall","Angel","Butterfly","250K Meters","Night Midnight","Afterdusk","Blue Sky","Gold Orange", "Frizell 10",
 "Frizell 12","Fib 18","Fib 13","Fib 17","Fib 05","Analogous 02","Analogous 04a","Cyan Orange","C/W/G",
