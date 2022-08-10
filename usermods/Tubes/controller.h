@@ -131,6 +131,9 @@ class PatternController : public MessageReceiver {
   void update()
   {
     this->read_keys();
+    
+    // Update the mesh
+    this->node->update();
 
     // Update patterns to the beat
     this->update_beat();
@@ -161,14 +164,14 @@ class PatternController : public MessageReceiver {
       this->next_state.effect_phrase = phrase + this->set_next_effect(phrase);
     }
 
-    // Update the mesh
-    this->node->update(this->current_state, this->next_state);
-
     // Update current status
-    if (this->updateTimer.ended()) {
-      this->send_update();
-      this->updateTimer.snooze(STATUS_UPDATE_PERIOD);
-    }
+    if (this->updateTimer.every(STATUS_UPDATE_PERIOD)) {
+      // Transmit less often when following
+      if (!this->node->is_following() || random(0, 4) == 0) {
+        this->send_update();
+      }
+
+   }
 
     if (this->graphicsTimer.every(REFRESH_PERIOD)) {
       this->updateGraphics();
@@ -222,8 +225,6 @@ class PatternController : public MessageReceiver {
     this->current_state.print();
     Serial.print(F(" "));
 
-    // this->node->update_node_storage(this->current_state, this->next_state);
-
     uint16_t phrase = this->current_state.beat_frame >> 12;
     Serial.print(F("    "));
     Serial.print(this->next_state.pattern_phrase - phrase);
@@ -235,6 +236,8 @@ class PatternController : public MessageReceiver {
     this->next_state.print();
     Serial.print(F(" "));
     Serial.println();    
+
+    this->node->update_status(this->current_state, this->next_state);
   }
 
   void background_changed() {
