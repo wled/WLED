@@ -30,6 +30,7 @@ class TubesUsermod : public Usermod {
 
     void randomize() {
       randomSeed(esp_random());
+      random16_set_seed(random(0, 65535));
       random16_add_entropy(esp_random());
     }
 
