@@ -130,14 +130,24 @@ class PatternController : public MessageReceiver {
 
   void update()
   {
-    this->node->update(this->current_state, this->next_state);
-
     this->read_keys();
 
     // Update patterns to the beat
     this->update_beat();
-
     uint16_t phrase = this->current_state.beat_frame >> 12;
+
+    // Detect manual overrides & update the current state to match.
+    Segment& segment = WS2812FX::get_strip()->getMainSegment();
+    if (segment.palette != this->current_state.palette_id) {
+      Serial.printf("Palette override = %d\n",segment.palette);
+      this->next_state.palette_id = segment.palette;
+      this->next_state.palette_phrase = phrase;
+      this->updateTimer.stop();
+    }
+    // if (segment.mode != FX_MODE_EXTERNAL) {
+    //   Serial.printf("Pattern override = %d\n",segment.mode);
+    // }
+
     if (phrase >= this->next_state.pattern_phrase) {
       this->load_pattern(this->next_state);
       this->next_state.pattern_phrase = phrase + this->set_next_pattern(phrase);
@@ -150,6 +160,9 @@ class PatternController : public MessageReceiver {
       this->load_effect(this->next_state);
       this->next_state.effect_phrase = phrase + this->set_next_effect(phrase);
     }
+
+    // Update the mesh
+    this->node->update(this->current_state, this->next_state);
 
     // Update current status
     if (this->updateTimer.ended()) {
