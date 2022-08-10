@@ -12,7 +12,7 @@
 #include "node.h"
 
 const static uint8_t DEFAULT_MASTER_BRIGHTNESS = 200;
-#define STATUS_UPDATE_PERIOD 1000
+#define STATUS_UPDATE_PERIOD 2000
 
 #define MIN_COLOR_CHANGE_PHRASES 2  // 4
 #define MAX_COLOR_CHANGE_PHRASES 4  // 40
@@ -126,6 +126,25 @@ class PatternController : public MessageReceiver {
 
     this->updateTimer.start(STATUS_UPDATE_PERIOD); // Ready to send an update as soon as we're able to
     Serial.println("Patterns: ok");
+
+    WS2812FX::load_pattern(FX_MODE_EXTERNAL);
+  }
+
+  void do_pattern_changes() {
+    uint16_t phrase = this->current_state.beat_frame >> 12;
+
+    if (phrase >= this->next_state.pattern_phrase) {
+      this->load_pattern(this->next_state);
+      this->next_state.pattern_phrase = phrase + this->set_next_pattern(phrase);
+    }
+    if (phrase >= this->next_state.palette_phrase) {
+      this->load_palette(this->next_state);
+      this->next_state.palette_phrase = phrase + this->set_next_palette(phrase);
+    }
+    if (phrase >= this->next_state.effect_phrase) {
+      this->load_effect(this->next_state);
+      this->next_state.effect_phrase = phrase + this->set_next_effect(phrase);
+    }
   }
 
   void update()
@@ -151,31 +170,20 @@ class PatternController : public MessageReceiver {
     //   Serial.printf("Pattern override = %d\n",segment.mode);
     // }
 
-    if (phrase >= this->next_state.pattern_phrase) {
-      this->load_pattern(this->next_state);
-      this->next_state.pattern_phrase = phrase + this->set_next_pattern(phrase);
-    }
-    if (phrase >= this->next_state.palette_phrase) {
-      this->load_palette(this->next_state);
-      this->next_state.palette_phrase = phrase + this->set_next_palette(phrase);
-    }
-    if (phrase >= this->next_state.effect_phrase) {
-      this->load_effect(this->next_state);
-      this->next_state.effect_phrase = phrase + this->set_next_effect(phrase);
+    do_pattern_changes();
+
+    if (this->graphicsTimer.every(REFRESH_PERIOD)) {
+      this->updateGraphics();
     }
 
     // Update current status
     if (this->updateTimer.every(STATUS_UPDATE_PERIOD)) {
       // Transmit less often when following
-      if (!this->node->is_following() || random(0, 4) == 0) {
+      if (!this->node->is_following() || random(0, 5) == 0) {
         this->send_update();
       }
 
    }
-
-    if (this->graphicsTimer.every(REFRESH_PERIOD)) {
-      this->updateGraphics();
-    }
 
 #ifdef USELCD
     if (this->lcd->active) {

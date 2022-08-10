@@ -13,6 +13,7 @@
 #include <QuickEspNow.h>
 
 #include "global_state.h"
+#include "wled.h"
 
 // #define NODE_DEBUGGING
 #define TESTING_NODE_ID 100
@@ -83,12 +84,20 @@ class LightNode {
     }
 
     void configure_ap() {
+        // Try to hide the access point unless this is the "root" node
         strcpy(clientSSID, "");
         strcpy(clientPass, "");
-        sprintf(apSSID, "WLED %03X", this->header.id);
+        if (this->is_following()) {
+            sprintf(apSSID, "WLED %03X", this->header.id);
+        } else {
+            sprintf(apSSID, "WLED %03X", this->header.id);
+        }
         strcpy(apPass, "WledWled");
-        apActive = !this->is_following();
-        apBehavior = AP_BEHAVIOR_NO_CONN; // AP_BEHAVIOR_BOOT_NO_CONN;
+        apBehavior = AP_BEHAVIOR_NO_CONN;
+
+        bootPreset = 0;  // Try to prevent initial playlists from starting
+        fadeTransition = true;
+        transitionDelay = 6000;
     }
 
     void onWifiConnect() {

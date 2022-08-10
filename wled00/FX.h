@@ -960,9 +960,9 @@ class WS2812FX {  // 96 bytes
     static void load_palette(uint8_t palette_id) {
       for (uint8_t i=0; i < instance->getSegmentsNum(); i++) {
         Segment& seg = instance->getSegment(i);
+        if (seg.palette == palette_id) continue;
         if (!seg.isActive()) continue;
-        if (instance->paletteBlend)
-          seg.startTransition(instance->getTransition());
+        seg.startTransition(instance->getTransition());
         seg.palette = palette_id;
       }
     }
@@ -970,9 +970,10 @@ class WS2812FX {  // 96 bytes
       for (uint8_t i=0; i < instance->getSegmentsNum(); i++) {
         Segment& seg = instance->getSegment(i);
         if (!seg.isActive()) continue;
-        if (instance->paletteBlend)
-          seg.startTransition(instance->getTransition());
+        if (seg.mode == pattern_id) continue;
+        seg.startTransition(instance->getTransition());
         instance->setMode(i, pattern_id);
+        seg.markForReset();
       }
     }
     static WS2812FX* get_strip() {
