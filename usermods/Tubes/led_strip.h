@@ -11,7 +11,7 @@ class LEDs {
     CRGB leds[MAX_REAL_LEDS];
     // CRGB led_array[MAX_REAL_LEDS];
 
-    const static int FRAMES_PER_SECOND = 300;  // how often we refresh the strip, in frames per second
+    const static int FRAMES_PER_SECOND = 150;  // how often we refresh the strip, in frames per second
     const static int REFRESH_PERIOD = 1000 / FRAMES_PER_SECOND;  // how often we refresh the strip, in milliseconds
     int num_leds;
 

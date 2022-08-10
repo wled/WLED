@@ -77,7 +77,7 @@ class VirtualStrip {
 #ifdef MASTER_TUBE
     // Interface with WLED
     WS2812FX::load_palette(background.palette_id);
-    WS2812FX::load_pattern(FX_MODE_EXTERNAL);
+    WS2812FX::load_pattern(DEFAULT_WLED_FX);
     stateChanged = true;
     stateUpdated(CALL_MODE_DIRECT_CHANGE);
 #endif

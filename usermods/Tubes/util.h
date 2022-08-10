@@ -5,6 +5,8 @@
 // Is this the tube that can control others?
 #define MASTER_TUBE
 
+#define DEFAULT_WLED_FX FX_MODE_EXPLODING_FIREWORKS
+
 uint8_t scaled16to8( uint16_t v, uint16_t lowest=0, uint16_t highest=65535) {
   uint16_t rangewidth = highest - lowest;
   uint16_t scaledbeat = scale16( v, rangewidth );

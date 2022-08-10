@@ -13,7 +13,6 @@
 #include <QuickEspNow.h>
 
 #include "global_state.h"
-#include "wled.h"
 
 // #define NODE_DEBUGGING
 #define TESTING_NODE_ID 100
@@ -94,10 +93,6 @@ class LightNode {
         }
         strcpy(apPass, "WledWled");
         apBehavior = AP_BEHAVIOR_NO_CONN;
-
-        bootPreset = 0;  // Try to prevent initial playlists from starting
-        fadeTransition = true;
-        transitionDelay = 6000;
     }
 
     void onWifiConnect() {
