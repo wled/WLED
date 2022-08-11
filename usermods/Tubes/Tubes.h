@@ -73,7 +73,22 @@ class TubesUsermod : public Usermod {
       uint16_t length = strip.getLengthTotal();
       auto external_buffer = strip.get_external_buffer();
 
-      uint8_t fade = sin8(millis() / 40); // amount that Tubes overwrites WLED, 0-255
+      uint8_t fade; // amount that Tubes overwrites WLED, 0-255
+      switch (this->controller.options.fader) {
+        case AUTO:
+        default:
+          fade = sin8(millis() / 40);
+          break;
+        case LEFT:
+          fade = 255;
+          break;
+        case RIGHT:
+          fade = 0;
+          break;
+        case MIDDLE:
+          fade = 127;
+          break;
+      }
       
       if (fade > 0) {
         for (int i = 0, p = 0; i < length; i++, p++) {
