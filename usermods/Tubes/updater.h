@@ -54,9 +54,9 @@ class WifiUpdater {
             if (!line.length()) break;
 
             // Check if the HTTP Response is 200
-            if (line.startsWith("HTTP/1.1")) {
+            if (line.startsWith("HTTP/")) {
                 if (line.indexOf("200") < 0) {
-                    Serial.println("Got a non 200 status code from server. Exiting OTA Update.");
+                    Serial.println("Got a non 200 status code");
                     client.flush();
                     return;
                 }
@@ -70,7 +70,7 @@ class WifiUpdater {
 
             // Read the content type from Content-Type
             if (line.startsWith("Content-Type: ")) {
-                String contentType = getHeaderValue(line, "Content-Type: ");
+                contentType = getHeaderValue(line, "Content-Type: ");
                 Serial.println(line);
             }
         }
