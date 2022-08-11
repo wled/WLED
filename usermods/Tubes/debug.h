@@ -79,14 +79,14 @@ class DebugController {
       uint8_t p1 = (this->controller->current_state.beat_frame >> 8) % 16;
       this->strip->leds[p1] = CRGB::White;
 
-      uint8_t p2 = scale8(this->controller->node->header.id, this->strip->num_leds-1);
-      this->strip->leds[p2] = CRGB::White;
+      uint8_t p2 = scale8(this->controller->node->header.id>>4, this->strip->num_leds-1);
+      this->strip->leds[p2] = CRGB::Yellow;
 
-      uint8_t p3 = scale8(this->controller->node->header.uplinkId, this->strip->num_leds-1);
+      uint8_t p3 = scale8(this->controller->node->header.uplinkId>>4, this->strip->num_leds-1);
       if (p3 == p2) {
         this->strip->leds[p3] = CRGB::Green;
       } else {
-        this->strip->leds[p3] = CRGB::Yellow; 
+        this->strip->leds[p3] = CRGB::Blue; 
       }
     }
     

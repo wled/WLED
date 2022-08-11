@@ -12,7 +12,7 @@
 #include "node.h"
 
 const static uint8_t DEFAULT_MASTER_BRIGHTNESS = 200;
-#define STATUS_UPDATE_PERIOD 2000
+#define STATUS_UPDATE_PERIOD 4000
 
 #define MIN_COLOR_CHANGE_PHRASES 2  // 4
 #define MAX_COLOR_CHANGE_PHRASES 4  // 40
@@ -161,15 +161,14 @@ class PatternController : public MessageReceiver {
 
     // Update patterns to the beat
     this->update_beat();
-    uint16_t phrase = this->current_state.beat_frame >> 12;
 
     // Detect manual overrides & update the current state to match.
     Segment& segment = WS2812FX::get_strip()->getMainSegment();
     if (segment.palette != this->current_state.palette_id) {
       Serial.printf("Palette override = %d\n",segment.palette);
+      this->next_state.palette_phrase = 0;
       this->next_state.palette_id = segment.palette;
-      this->next_state.palette_phrase = phrase;
-      this->updateTimer.stop();
+      this->broadcast_state();
     }
     // if (segment.mode != FX_MODE_EXTERNAL) {
     //   Serial.printf("Pattern override = %d\n",segment.mode);
