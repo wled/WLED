@@ -971,7 +971,6 @@ class WS2812FX {  // 96 bytes
         if (seg.mode == pattern_id) continue;
         seg.startTransition(instance->getTransition());
         instance->setMode(i, pattern_id);
-        seg.markForReset();
       }
     }
     static WS2812FX* get_strip() {
