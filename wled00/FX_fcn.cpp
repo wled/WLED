@@ -203,7 +203,6 @@ void Segment::setUpLeds() {
     else
     #endif
       leds = (CRGB*)malloc(sizeof(CRGB)*length());
-  }
 }
 
 CRGBPalette16 &Segment::loadPalette(CRGBPalette16 &targetPalette, uint8_t pal) {
