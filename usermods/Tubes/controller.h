@@ -2,6 +2,7 @@
 
 #include "wled.h"
 #include "FX.h"
+#include "updater.h"
 
 #include "beats.h"
 
@@ -615,6 +616,10 @@ class PatternController : public MessageReceiver {
         Serial.println(F("i### - set ID"));
         Serial.println(F("d - toggle debugging"));
         Serial.println(F("l### - brightness"));
+        return;
+
+      case 'U':
+        WifiUpdater().web_update();
         return;
 
       case 0:
