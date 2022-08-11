@@ -32,17 +32,18 @@ typedef struct {
     uint8_t version = CURRENT_NODE_VERSION;
 } MeshNodeHeader;
 
-typedef struct {
-    TubeState current;
-    TubeState next;
-} NodeUpdate;
+typedef enum{
+    ALL=0,
+    ROOT=1,
+} MessageRecipients;
+
+#define MESSAGE_DATA_SIZE 50
 
 typedef struct {
     MeshNodeHeader header;
+    MessageRecipients recipients;
     CommandId command;
-    union {
-        NodeUpdate update;
-    } data;
+    byte data[MESSAGE_DATA_SIZE] = {0};
 } NodeMessage;
 
 void onDataReceived (uint8_t* address, uint8_t* data, uint8_t len, signed int rssi, bool broadcast);
@@ -82,19 +83,6 @@ class LightNode {
         this->receiver = receiver;
     }
 
-    void configure_ap() {
-        // Try to hide the access point unless this is the "root" node
-        strcpy(clientSSID, "");
-        strcpy(clientPass, "");
-        if (this->is_following()) {
-            sprintf(apSSID, "WLED %03X", this->header.id);
-        } else {
-            sprintf(apSSID, "WLED %03X", this->header.id);
-        }
-        strcpy(apPass, "WledWled");
-        apBehavior = AP_BEHAVIOR_NO_CONN;
-    }
-
     void onWifiConnect() {
         if (this->status == NODE_STATUS_QUIET)
             return;
@@ -114,7 +102,7 @@ class LightNode {
         WiFi.mode (WIFI_MODE_STA);
         WiFi.disconnect(false, true);
         quickEspNow.begin(1, WIFI_IF_STA);
-        this->initialize();
+        this->start();
     }
 
     void onMeshChange() {
@@ -124,6 +112,27 @@ class LightNode {
             this->header.uplinkId
         );
         this->configure_ap();
+    }
+
+    void configure_ap() {
+        // Try to hide the access point unless this is the "root" node
+        strcpy(clientSSID, "");
+        strcpy(clientPass, "");
+        if (this->is_following()) {
+            sprintf(apSSID, "WLED %03X F", this->header.id);
+        } else {
+            sprintf(apSSID, "WLED %03X", this->header.id);
+        }
+        strcpy(apPass, "WledWled");
+        apBehavior = AP_BEHAVIOR_NO_CONN;
+    }
+
+    void start() {
+        // Initialization timer: wait for a bit before trying to broadcast.
+        // If this node's ID is high, it's more likely to be the leader, so wait less.
+        this->status = NODE_STATUS_STARTING;
+        this->statusTimer.start(3000 - this->header.id / 2);
+        this->rebroadcastTimer.stop();
     }
 
     void onPeerPing(MeshNodeHeader* node) {
@@ -179,28 +188,49 @@ class LightNode {
         // Track that another node exists, updating this node's understanding of the mesh.
         this->onPeerPing(&message->header);
 
-        // Ignore this message if not from my uplink
-        if (message->header.id != this->header.uplinkId) {
+        bool ignore = false;
+        switch (message->recipients) {
+            case ALL:
+                // Ignore this message if not from the uplink
+                ignore = (message->header.id != this->header.uplinkId);
+                break;
+
+            case ROOT:
+                // Ignore this message if not from a downlink
+                ignore = (message->header.uplinkId != this->header.id);
+                break;
+
+            default:
+                // ignore this!
+                ignore = true;
+                break;
+        }
+
+        if (ignore) {
 #ifdef NODE_DEBUGGING            
             Serial.printf(" ignoring\n");        
 #endif
             return;
+        } else {
+#ifdef NODE_DEBUGGING
+            Serial.printf(" listening\n");        
+#endif        
         }
 
-#ifdef NODE_DEBUGGING
-        Serial.printf(" listening\n");        
-#endif        
-
         // Execute the received command
-        Serial.printf("From %03X/%03X: ", message->header.id, message->header.uplinkId);
-        this->receiver->onCommand(
-            message->command,
-            &message->data
-        );
+        if (message->recipients != ROOT || !this->is_following()) {
+            Serial.printf("From %03X/%03X: ", message->header.id, message->header.uplinkId);
+            this->receiver->onCommand(
+                message->command,
+                &message->data
+            );
+        }
 
         // Re-broadcast the message if appropriate
         if (!this->rebroadcastTimer.ended()) {
             message->header = this->header;
+            if (!this->is_following())
+                message->recipients = ALL;
             this->broadcast(message, true);
         }
     }
@@ -218,9 +248,26 @@ class LightNode {
             Serial.printf(">> Broadcast error %d\n", err);
     }
 
-    void setup() {
-        configure_ap();
+    void sendCommand(CommandId command, void *data, uint8_t len) {
+        if (len > MESSAGE_DATA_SIZE) {
+            Serial.println("Message is too big!");
+            return;
+        }
 
+        NodeMessage message;
+        message.header = header;
+        if (this->is_following()) {
+            // Follower nodes must request that the root re-sends this message
+            message.recipients = ROOT;
+        } else {
+            message.recipients = ALL;
+        }
+        message.command = command;
+        memcpy(&message.data, data, len);
+        this->broadcast(&message);
+    }
+
+    void setup() {
 #ifdef NODE_DEBUGGING
         this->reset(TESTING_NODE_ID);
 #else
@@ -228,15 +275,8 @@ class LightNode {
 #endif
         this->statusTimer.stop();
         quickEspNow.onDataRcvd(onDataReceived);
-        Serial.println("Node: ok");
-    }
 
-    void initialize() {
-        // Initialization timer: wait for a bit before trying to broadcast.
-        // If this node's ID is high, it's more likely to be the leader, so wait less.
-        this->status = NODE_STATUS_STARTING;
-        this->statusTimer.start(3000 - this->header.id / 2);
-        this->rebroadcastTimer.stop();
+        Serial.println("Mesh: ok");
     }
 
     void update() {
@@ -257,21 +297,6 @@ class LightNode {
             else
                 this->onWifiDisconnect();
         }
-    }
-
-    void update_status(TubeState &current, TubeState &next) {
-        // Broadcast (or rebroadcast) the current state
-        NodeMessage message = {
-            .header = this->header,
-            .command = COMMAND_UPDATE,
-            .data = {
-                .update = {
-                    .current = current,
-                    .next = next
-                }
-            }
-        };
-        this->broadcast(&message);
     }
 
     void reset(MeshId id = 0) {

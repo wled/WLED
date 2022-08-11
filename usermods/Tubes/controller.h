@@ -21,8 +21,13 @@ const static uint8_t DEFAULT_MASTER_BRIGHTNESS = 200;
 typedef struct {
   bool debugging;
   uint8_t brightness;
+  Fader fader; // temp
 } ControllerOptions;
 
+typedef struct {
+  TubeState current;
+  TubeState next;
+} TubeStates;
 
 #define NUM_VSTRIPS 3
 
@@ -104,7 +109,6 @@ class PatternController : public MessageReceiver {
       this->vstrips[i] = new VirtualStrip(num_leds);
 #endif
     }
-
   }
   
   void setup(bool isMaster)
@@ -113,6 +117,7 @@ class PatternController : public MessageReceiver {
     this->isMaster = isMaster;
     this->options.debugging = false;
     this->options.brightness = DEFAULT_MASTER_BRIGHTNESS;
+    this->options.fader = AUTO;
 
 #ifdef USELCD
     this->lcd->setup();
@@ -245,7 +250,7 @@ class PatternController : public MessageReceiver {
     Serial.print(F(" "));
     Serial.println();    
 
-    this->node->update_status(this->current_state, this->next_state);
+    this->broadcast_state();
   }
 
   void background_changed() {
@@ -364,20 +369,12 @@ class PatternController : public MessageReceiver {
     this->next_vstrip = (this->next_vstrip + 1) % NUM_VSTRIPS; 
   }
 
-  void optionsChanged() {
-#ifdef NOT_COMPLETE
-    if (this->isMaster) {
-      this->radio->sendCommand(COMMAND_OPTIONS, &options, sizeof(options));
-    }
-#endif
-  }
-
   void setBrightness(uint8_t brightness) {
     Serial.print(F("brightness "));
     Serial.println(brightness);
 
     this->options.brightness = brightness;
-    this->optionsChanged();
+    this->broadcast_options();
   }
 
   void setDebugging(bool debugging) {
@@ -385,7 +382,7 @@ class PatternController : public MessageReceiver {
     Serial.println(debugging);
 
     this->options.debugging = debugging;
-    this->optionsChanged();
+    this->broadcast_options();
   }
   
   SyncMode randomSyncMode() {
@@ -436,50 +433,6 @@ class PatternController : public MessageReceiver {
     addFlash(CRGB::Green);
   }
 
-  virtual void onCommand(CommandId command, void *data) {
-    switch (command) {
-      case COMMAND_RESET:
-        Serial.println(F("reset"));
-        return;
-  
-      case COMMAND_BRIGHTNESS: {
-        uint8_t *bright = (uint8_t *)data;
-        this->setBrightness(*bright);
-        Serial.println();
-        return;
-      }
-  
-      case COMMAND_OPTIONS: {
-        Serial.println(F("options"));
-        memcpy(&this->options, data, sizeof(this->options));
-        return;
-      }
-
-      case COMMAND_UPDATE: {
-        Serial.print(F(" update "));
-
-        auto update_data = (NodeUpdate*)data;
-
-        TubeState state;
-        memcpy(&state, &update_data->current, sizeof(TubeState));
-        memcpy(&this->next_state, &update_data->next, sizeof(TubeState));
-        state.print();
-        this->next_state.print();
-        Serial.println();
-  
-        // Catch up to this state
-        this->load_pattern(state);
-        this->load_palette(state);
-        this->load_effect(state);
-        this->beats->sync(state.bpm, state.beat_frame);
-        return;
-      }
-    }
-  
-    Serial.print(F("UNKNOWN "));
-    Serial.println(command, HEX);
-  }
-
   void read_keys() {
     if (!Serial.available())
       return;
@@ -526,6 +479,7 @@ class PatternController : public MessageReceiver {
   }
 
   void keyboard_command(char *command) {
+    // If not the lead, send it to the lead.
     uint8_t b;
     accum88 arg = this->parse_number(command+1);
     
@@ -578,33 +532,71 @@ class PatternController : public MessageReceiver {
         this->next_state.pattern_phrase = 0;
         this->next_state.pattern_id = arg >> 8;
         this->next_state.pattern_sync_id = All;
-        this->update_next();
+        this->broadcast_state();
         return;        
-        
+
+      case '[':
+        switch (this->options.fader) {
+          case LEFT:
+            this->options.fader = AUTO;
+            break;
+
+          case RIGHT:
+            this->options.fader = MIDDLE;
+            break;
+
+          case MIDDLE:
+          case AUTO:
+          default:
+            this->options.fader = LEFT;
+            break;
+        }
+        this->broadcast_options();
+        return;
+
+      case ']':
+        switch (this->options.fader) {
+          case RIGHT:
+            this->options.fader = AUTO;
+            break;
+
+          case LEFT:
+            this->options.fader = MIDDLE;
+            break;
+
+          case MIDDLE:
+          case AUTO:
+          default:
+            this->options.fader = RIGHT;
+            break;
+        }
+        this->broadcast_options();
+        return;
+
       case 'm':
         this->next_state.pattern_phrase = 0;
         this->next_state.pattern_id = this->current_state.pattern_id;
         this->next_state.pattern_sync_id = arg >> 8;
-        this->update_next();
+        this->broadcast_state();
         return;
         
       case 'c':
         this->next_state.palette_phrase = 0;
         this->next_state.palette_id = arg >> 8;
-        this->update_next();
+        this->broadcast_state();
         return;
         
       case 'e':
         this->next_state.effect_phrase = 0;
         this->next_state.effect_params = gEffects[(arg >> 8) % gEffectCount].params;
-        this->update_next();
+        this->broadcast_state();
         return;
 
       case '%':
         this->next_state.effect_phrase = 0;
         this->next_state.effect_params = this->current_state.effect_params;
         this->next_state.effect_params.chance = arg;
-        this->update_next();
+        this->broadcast_state();
         return;
 
       case 'g':
@@ -626,6 +618,10 @@ class PatternController : public MessageReceiver {
         Serial.println(F("l### - brightness"));
         return;
 
+      case 0:
+        // Empty command
+        return;
+
       default:
         Serial.println("dunno?");
         return;
@@ -638,11 +634,57 @@ class PatternController : public MessageReceiver {
     this->next_state.pattern_phrase -= next_phrase;
     this->next_state.palette_phrase -= next_phrase;
     this->next_state.effect_phrase -= next_phrase;
-    this->update_next();
+    this->broadcast_state();
   }
 
-  void update_next() {
-    this->node->update_status(this->current_state, this->next_state);
+  void broadcast_state() {
+    this->node->sendCommand(COMMAND_UPDATE, &this->current_state, sizeof(TubeStates));
+  }
+
+  void broadcast_options() {
+    this->node->sendCommand(COMMAND_OPTIONS, &this->options, sizeof(this->options));
+  }
+
+  virtual void onCommand(CommandId command, void *data) {
+    switch (command) {
+      case COMMAND_RESET:
+        Serial.println(F("reset"));
+        return;
+  
+      case COMMAND_BRIGHTNESS: {
+        uint8_t *bright = (uint8_t *)data;
+        this->setBrightness(*bright);
+        Serial.println();
+        return;
+      }
+  
+      case COMMAND_OPTIONS:
+        Serial.println(F("options"));
+        memcpy(&this->options, data, sizeof(this->options));
+        return;
+
+      case COMMAND_UPDATE: {
+        Serial.print(F(" update "));
+
+        auto update_data = (TubeStates*)data;
+
+        TubeState state;
+        memcpy(&state, &update_data->current, sizeof(TubeState));
+        memcpy(&this->next_state, &update_data->next, sizeof(TubeState));
+        state.print();
+        this->next_state.print();
+        Serial.println();
+  
+        // Catch up to this state
+        this->load_pattern(state);
+        this->load_palette(state);
+        this->load_effect(state);
+        this->beats->sync(state.bpm, state.beat_frame);
+        return;
+      }
+    }
+  
+    Serial.printf("UNKNOWN COMMAND %02X", command);
   }
 
 };
