@@ -116,8 +116,6 @@ class LightNode {
 
     void configure_ap() {
         // Try to hide the access point unless this is the "root" node
-        strcpy(clientSSID, "");
-        strcpy(clientPass, "");
         if (this->is_following()) {
             sprintf(apSSID, "WLED %03X F", this->header.id);
         } else {
@@ -291,11 +289,11 @@ class LightNode {
             if (this->status == NODE_STATUS_STARTING)
                 this->status = NODE_STATUS_STARTED;
 
-            // Check WiFi status and update node status if wifi changed
-            if (WiFi.isConnected())
-                this->onWifiConnect();
-            else
-                this->onWifiDisconnect();
+            // // Check WiFi status and update node status if wifi changed
+            // if (WiFi.isConnected())
+            //     this->onWifiConnect();
+            // else
+            //     this->onWifiDisconnect();
         }
     }
 
