@@ -15,6 +15,7 @@
 #include "global_state.h"
 
 // #define NODE_DEBUGGING
+// #define RELAY_DEBUGGING
 #define TESTING_NODE_ID 100
 
 #define CURRENT_NODE_VERSION 1
@@ -48,6 +49,18 @@ typedef struct {
 
 void onDataReceived (uint8_t* address, uint8_t* data, uint8_t len, signed int rssi, bool broadcast);
 
+char *command_name(CommandId command) {
+    switch (command) {
+        case COMMAND_UPDATE:
+            return "UPDATE";
+        case COMMAND_OPTIONS:
+            return "OPTIONS";
+        case COMMAND_RESET:
+            return "RESET";
+        default:
+            return "?COMMAND?";
+    }
+}
 
 class MessageReceiver {
   public:
@@ -143,8 +156,11 @@ class LightNode {
 
         // If the message arrives from a higher ID, switch into follower mode
         if (node->id > this->header.uplinkId && node->id > this->header.id) {            
-            if (this->header.id != TESTING_NODE_ID || node->id < 0x800)
-                this->follow(node);
+#ifdef RELAY_DEBUGGING
+          // When debugging relay, pretend not to see any nodes above 0x800
+          if (node->id < 0x800)
+#endif
+            this->follow(node);
         }
 
         // If the message arrived from our uplink, track that we're still linked.
@@ -170,7 +186,10 @@ class LightNode {
         NodeMessage* message = (NodeMessage*)data;
 #ifdef NODE_DEBUGGING        
         Serial.printf(">> Received %db ", len);
-        Serial.printf("from %03X/%03X ", message->header.id, message->header.uplinkId);
+        Serial.print(command_name(message->command));
+        if (message->recipients == ROOT)
+            Serial.printf(":ROOT");
+        Serial.printf(" from %03X/%03X ", message->header.id, message->header.uplinkId);
         Serial.printf("at " MACSTR, MAC2STR(address));
         Serial.printf("@ %ddBm: ", rssi);
 #endif
@@ -211,7 +230,7 @@ class LightNode {
             return;
         } else {
 #ifdef NODE_DEBUGGING
-            Serial.printf(" listening\n");        
+            Serial.printf("\n");        
 #endif        
         }
 
@@ -238,6 +257,14 @@ class LightNode {
         if (this->status != NODE_STATUS_STARTED)
             return;
         
+#ifdef NODE_DEBUGGING        
+        Serial.printf(">> Sending %db ", sizeof(*message));
+        Serial.print(command_name(message->command));
+        if (message->recipients == ROOT)
+            Serial.printf(":ROOT");
+        Serial.println();
+#endif
+
         auto err = quickEspNow.send(
             ESPNOW_BROADCAST_ADDRESS,
             (uint8_t*)message, sizeof(*message)
@@ -254,7 +281,7 @@ class LightNode {
 
         NodeMessage message;
         message.header = header;
-        if (this->is_following()) {
+        if (command != COMMAND_UPDATE && this->is_following()) {
             // Follower nodes must request that the root re-sends this message
             message.recipients = ROOT;
         } else {
