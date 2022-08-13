@@ -57,19 +57,37 @@ class DebugController {
   void update()
   {
     EVERY_N_MILLISECONDS( 10000 ) {
-      Serial.printf("\n=== %s%s    WiFi %d[ch%d] IP: %u.%u.%u.%u   Free memory: %d  space: %u/%u  Uptime: %s\n\n",
+      // Dump internal status
+      auto knownSsid = apActive ? WiFi.softAPSSID() : WiFi.SSID();
+      auto knownIp = apActive ? IPAddress(4, 3, 2, 1) : WiFi.localIP();
+      Serial.printf("\n=== %s%s    WiFi[ch%d] %s IP: %u.%u.%u.%u   Free memory: %d  space: %u/%u  Uptime: %s\n",
         this->controller->node->node_name,
         status_code(this->controller->node->status).c_str(),
-        WiFi.status(),
         WiFi.channel(),
-        WiFi.localIP()[0],
-        WiFi.localIP()[1],
-        WiFi.localIP()[2],
-        WiFi.localIP()[3],
+        knownSsid.c_str(),
+        knownIp[0],
+        knownIp[1],
+        knownIp[2],
+        knownIp[3],
         freeMemory(),
         LITTLEFS.usedBytes(),
         LITTLEFS.totalBytes(),
         formatted_time(millis()).c_str()
+      );
+
+      // Dump WLED status
+      char mode_name[50];
+      char palette_name[50];
+      auto seg = WS2812FX::getInstance()->getMainSegment();
+      extractModeName(seg.mode, JSON_mode_names, mode_name, 50);
+      extractModeName(seg.palette, JSON_palette_names, palette_name, 50);
+      Serial.printf("=== WLED: %s(%u) %s(%u) speed:%u intensity:%u\n\n",
+        mode_name,
+        seg.mode,
+        palette_name,
+        seg.palette,
+        seg.speed,
+        seg.intensity
       );
     }
 
