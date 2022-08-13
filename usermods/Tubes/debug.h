@@ -2,6 +2,7 @@
 
 #include "controller.h"
 #include "node.h"
+#include "wled.h"
 
 std::string formatted_time(long ms) {
   long secs = ms / 1000; // set the seconds remaining
@@ -24,14 +25,14 @@ std::string formatted_time(long ms) {
 class DebugController {
   public:
     PatternController *controller;
-    LEDs *strip;
+    LEDs *led_strip;
     LightNode *node;
     uint32_t lastPhraseTime;
     uint32_t lastFrame;
 
   DebugController(PatternController *controller) {
     this->controller = controller;
-    this->strip = controller->led_strip;
+    this->led_strip = controller->led_strip;
     this->node = controller->node;
   }
   
@@ -78,7 +79,7 @@ class DebugController {
       // Dump WLED status
       char mode_name[50];
       char palette_name[50];
-      auto seg = WS2812FX::getInstance()->getMainSegment();
+      auto seg = strip.getMainSegment();
       extractModeName(seg.mode, JSON_mode_names, mode_name, 50);
       extractModeName(seg.palette, JSON_palette_names, palette_name, 50);
       Serial.printf("=== WLED: %s(%u) %s(%u) speed:%u intensity:%u\n\n",
@@ -95,16 +96,16 @@ class DebugController {
 
     if (this->controller->options.debugging) {
       uint8_t p1 = (this->controller->current_state.beat_frame >> 8) % 16;
-      this->strip->leds[p1] = CRGB::White;
+      this->led_strip->leds[p1] = CRGB::White;
 
-      uint8_t p2 = scale8(this->controller->node->header.id>>4, this->strip->num_leds-1);
-      this->strip->leds[p2] = CRGB::Yellow;
+      uint8_t p2 = scale8(this->controller->node->header.id>>4, this->led_strip->num_leds-1);
+      this->led_strip->leds[p2] = CRGB::Yellow;
 
-      uint8_t p3 = scale8(this->controller->node->header.uplinkId>>4, this->strip->num_leds-1);
+      uint8_t p3 = scale8(this->controller->node->header.uplinkId>>4, this->led_strip->num_leds-1);
       if (p3 == p2) {
-        this->strip->leds[p3] = CRGB::Green;
+        this->led_strip->leds[p3] = CRGB::Green;
       } else {
-        this->strip->leds[p3] = CRGB::Blue; 
+        this->led_strip->leds[p3] = CRGB::Blue; 
       }
     }
     

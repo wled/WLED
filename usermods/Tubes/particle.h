@@ -97,7 +97,7 @@ class Particle {
   }
 
   void draw_with_pen(WS2812FX* leds, int pos, CRGB color) {
-    CRGB c = CRGB(WS2812FX::get_strip()->getPixelColor(pos));
+    CRGB c = CRGB(strip.getPixelColor(pos));
     CRGB new_color;
 
     switch (this->pen) {
@@ -152,7 +152,7 @@ class Particle {
         return;
     }
 
-    WS2812FX::get_strip()->setPixelColor(pos, new_color);
+    strip.setPixelColor(pos, new_color);
   }
 
 };

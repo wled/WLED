@@ -334,6 +334,7 @@
 #endif
 
 #ifndef USERMOD_AUDIOREACTIVE
+
   #ifndef WLED_DISABLE_AUDIO
   #define MODE_COUNT                   163
   #else
@@ -943,35 +944,6 @@ class WS2812FX {  // 96 bytes
 
     void
       estimateCurrentAndLimitBri(void);
-
-  public:
-    static CRGB get_palette_crgb(uint16_t c, uint8_t brightness=255U) {
-      Segment& segment = instance->getMainSegment();
-      uint32_t color = segment.color_from_palette(c, false, true, 255, brightness);
-      return CRGB(color);
-    }
-    static void load_palette(uint8_t palette_id) {
-      for (uint8_t i=0; i < instance->getSegmentsNum(); i++) {
-        Segment& seg = instance->getSegment(i);
-        if (seg.palette == palette_id) continue;
-        if (!seg.isActive()) continue;
-        seg.startTransition(instance->getTransition());
-        seg.palette = palette_id;
-      }
-    }
-    static void load_pattern(uint8_t pattern_id) {
-      for (uint8_t i=0; i < instance->getSegmentsNum(); i++) {
-        Segment& seg = instance->getSegment(i);
-        if (!seg.isActive()) continue;
-        if (seg.mode == pattern_id) continue;
-        seg.startTransition(instance->getTransition());
-        instance->setMode(i, pattern_id);
-      }
-    }
-    static WS2812FX* get_strip() {
-      return instance;
-    }
-
 };
 
 extern const char JSON_mode_names[];

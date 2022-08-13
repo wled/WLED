@@ -42,7 +42,7 @@ class TubesUsermod : public Usermod {
       bootPreset = 0;  // Try to prevent initial playlists from starting
       fadeTransition = true;  // Fade palette transitions
       transitionDelay = 8000;   // Fade them for a long time
-      WS2812FX::load_pattern(DEFAULT_WLED_FX);  // Crossfade with FLOW
+      VirtualStrip::set_wled_pattern(DEFAULT_WLED_FX);
 
       // Start timing
       globalTimer.setup();
