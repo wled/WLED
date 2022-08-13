@@ -21,8 +21,8 @@
 #define CURRENT_NODE_VERSION 1
 #define BROADCAST_ADDR ESPNOW_BROADCAST_ADDRESS 
 
-#define UPLINK_TIMEOUT 17000      // Time at which uplink is presumed lost
-#define REBROADCAST_TIME 15000    // Time at which followers are presumed re-uplinked
+#define UPLINK_TIMEOUT 20000      // Time at which uplink is presumed lost
+#define REBROADCAST_TIME 30000    // Time at which followers are presumed re-uplinked
 #define WIFI_CHECK_RATE 2000     // Time at which we should check wifi status again
 
 typedef uint16_t MeshId;
@@ -178,26 +178,30 @@ class LightNode {
         }
     }
 
+    void print_message(NodeMessage* message, signed int rssi) {
+        Serial.printf("%03X/%03X %s",
+            message->header.id,
+            message->header.uplinkId,
+            command_name(message->command)
+        );
+        if (message->recipients == ROOT)
+            Serial.printf(":ROOT");
+        if (rssi)
+            Serial.printf(" %ddB ", rssi);
+    }
+
     void onPeerData(uint8_t* address, uint8_t* data, uint8_t len, signed int rssi, bool broadcast) {
         // Ignore this message if it isn't a valid message payload.
         if (len != sizeof(NodeMessage))
             return;
 
         NodeMessage* message = (NodeMessage*)data;
-#ifdef NODE_DEBUGGING        
-        Serial.printf(">> Received %db ", len);
-        Serial.print(command_name(message->command));
-        if (message->recipients == ROOT)
-            Serial.printf(":ROOT");
-        Serial.printf(" from %03X/%03X ", message->header.id, message->header.uplinkId);
-        Serial.printf("at " MACSTR, MAC2STR(address));
-        Serial.printf("@ %ddBm: ", rssi);
-#endif
-
         // Ignore this message if it's the wrong version.
         if (message->header.version != this->header.version) {
 #ifdef NODE_DEBUGGING
-            Serial.printf(" <version\n");        
+            Serial.print("  -- !version ");
+            print_message(message, rssi);
+            Serial.println();
 #endif
             return;
         }
@@ -224,23 +228,24 @@ class LightNode {
         }
 
         if (ignore) {
-#ifdef NODE_DEBUGGING            
-            Serial.printf(" ignoring\n");        
+#ifdef NODE_DEBUGGING
+            Serial.print("  -- ignored ");
+            print_message(message, rssi);
+            Serial.println();
 #endif
             return;
-        } else {
-#ifdef NODE_DEBUGGING
-            Serial.printf("\n");        
-#endif        
         }
 
         // Execute the received command
         if (message->recipients != ROOT || !this->is_following()) {
-            Serial.printf("From %03X/%03X: ", message->header.id, message->header.uplinkId);
+            Serial.print("  >> ");
+            print_message(message, rssi);
+            Serial.print(" ");
             this->receiver->onCommand(
                 message->command,
                 &message->data
             );
+            Serial.println();
         }
 
         // Re-broadcast the message if appropriate
@@ -258,10 +263,8 @@ class LightNode {
             return;
         
 #ifdef NODE_DEBUGGING        
-        Serial.printf(">> Sending %db ", sizeof(*message));
-        Serial.print(command_name(message->command));
-        if (message->recipients == ROOT)
-            Serial.printf(":ROOT");
+        Serial.print("  <<< ");
+        print_message(message, 0);
         Serial.println();
 #endif
 
@@ -270,7 +273,7 @@ class LightNode {
             (uint8_t*)message, sizeof(*message)
         );
         if (err)
-            Serial.printf(">> Broadcast error %d\n", err);
+            Serial.printf("  *** Broadcast error %d\n", err);
     }
 
     void sendCommand(CommandId command, void *data, uint8_t len) {

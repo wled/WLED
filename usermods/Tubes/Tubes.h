@@ -42,7 +42,6 @@ class TubesUsermod : public Usermod {
       bootPreset = 0;  // Try to prevent initial playlists from starting
       fadeTransition = true;  // Fade palette transitions
       transitionDelay = 8000;   // Fade them for a long time
-      VirtualStrip::set_wled_pattern(DEFAULT_WLED_FX);
 
       // Start timing
       globalTimer.setup();
