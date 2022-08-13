@@ -13,7 +13,7 @@
 #include "node.h"
 
 const static uint8_t DEFAULT_MASTER_BRIGHTNESS = 200;
-#define STATUS_UPDATE_PERIOD 4000
+#define STATUS_UPDATE_PERIOD 2000
 
 #define MIN_COLOR_CHANGE_PHRASES 2  // 4
 #define MAX_COLOR_CHANGE_PHRASES 4  // 40
@@ -132,8 +132,6 @@ class PatternController : public MessageReceiver {
 
     this->updateTimer.start(STATUS_UPDATE_PERIOD); // Ready to send an update as soon as we're able to
     Serial.println("Patterns: ok");
-
-    WS2812FX::load_pattern(FX_MODE_EXTERNAL);
   }
 
   void do_pattern_changes() {

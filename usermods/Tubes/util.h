@@ -2,7 +2,7 @@
 
 #include "wled.h"
 
-// Is this the tube that can control others?
+// Is this a tube that can control WLED?
 #define MASTER_TUBE
 
 #define DEFAULT_WLED_FX FX_MODE_EXPLODING_FIREWORKS

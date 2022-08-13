@@ -289,11 +289,11 @@ class LightNode {
             if (this->status == NODE_STATUS_STARTING)
                 this->status = NODE_STATUS_STARTED;
 
-            // // Check WiFi status and update node status if wifi changed
-            // if (WiFi.isConnected())
-            //     this->onWifiConnect();
-            // else
-            //     this->onWifiDisconnect();
+            // Check WiFi status and update node status if wifi changed
+            if (WiFi.isConnected())
+                this->onWifiConnect();
+            else
+                this->onWifiDisconnect();
         }
     }
 

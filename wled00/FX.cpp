@@ -5279,22 +5279,6 @@ uint16_t mode_2DPlasmaball(void) {                   // By: Stepko https://edito
 static const char _data_FX_MODE_2DPLASMABALL[] PROGMEM = "Plasma Ball@Speed,,Fade,Blur;!,!,!;!;2d";
 
 
-uint16_t mode_external(void) {
-  // uint8_t segment_id = strip.getMainSegmentId();
-  uint16_t length = strip.getLengthTotal();
-  auto external_buffer = strip.get_external_buffer();
-
-  for (int i = 0, p = 0; i < length; i++, p++) {
-    if (p >= EXTERNAL_BUFFER_SIZE) {
-      p = 0;
-    }
-    strip.setPixelColor(i, external_buffer[p]);
-  }
-
-  return FRAMETIME;
-}
-static const char _data_FX_MODE_EXTERNAL[] PROGMEM = "External!@!,;!,!,;!;1d";
-
 ////////////////////////////////
 //  2D Polar Lights           //
 ////////////////////////////////
@@ -7463,8 +7447,7 @@ void WS2812FX::setupEffectData() {
   addEffect(FX_MODE_WASHING_MACHINE, &mode_washing_machine, _data_FX_MODE_WASHING_MACHINE);
   addEffect(FX_MODE_FLOWSTRIPE, &mode_FlowStripe, _data_FX_MODE_FLOWSTRIPE);
   addEffect(FX_MODE_BLENDS, &mode_blends, _data_FX_MODE_BLENDS);
-  // addEffect(FX_MODE_TV_SIMULATOR, &mode_tv_simulator, _data_FX_MODE_TV_SIMULATOR);
-  addEffect(FX_MODE_EXTERNAL, &mode_external, _data_FX_MODE_EXTERNAL);
+  addEffect(FX_MODE_TV_SIMULATOR, &mode_tv_simulator, _data_FX_MODE_TV_SIMULATOR);
   addEffect(FX_MODE_DYNAMIC_SMOOTH, &mode_dynamic_smooth, _data_FX_MODE_DYNAMIC_SMOOTH);
 
   // --- 2D non-audio effects ---

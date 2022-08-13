@@ -34,10 +34,7 @@ class LEDs {
   }
 
   void show() {
-    CRGB *external_buffer = WS2812FX::get_external_buffer();
-    for (int i = 0; i < num_leds; i++) {
-      external_buffer[i] = leds[i];
-    }
+    // There's nothing to do right now, because in Tubes.h we blend the LEDs into
   }
   
   void update(bool reverse=false) {
@@ -56,5 +53,11 @@ class LEDs {
       }
       this->fps = 0;
     }
+  }
+
+  CRGB getPixelColor(uint8_t pos) {
+    if (pos > this->num_leds)
+      return CRGB::Black;
+    return this->leds[pos];
   }
 };

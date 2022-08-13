@@ -944,12 +944,7 @@ class WS2812FX {  // 96 bytes
     void
       estimateCurrentAndLimitBri(void);
 
-    CRGB external_buffer[EXTERNAL_BUFFER_SIZE]; // 4 bytes per element
-
   public:
-    static CRGB* get_external_buffer() {
-      return instance->external_buffer;
-    }
     static CRGB get_palette_crgb(uint16_t c, uint8_t brightness=255U) {
       Segment& segment = instance->getMainSegment();
       uint32_t color = segment.color_from_palette(c, false, true, 255, brightness);

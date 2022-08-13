@@ -12,11 +12,6 @@
 
 //uncomment this if you have a "my_config.h" file you'd like to use
 //#define WLED_USE_MY_CONFIG
-//#define WLED_DISABLE_MQTT
-//#define WLED_DISABLE_LOXONE
-//#define WLED_DISABLE_ALEXA
-//#define WLED_DISABLE_INFRARED
-//#define WLED_DISABLE_CRONIXIE
 
 // ESP8266-01 (blue) got too little storage space to work with WLED. 0.10.2 is the last release supporting this unit.
 
@@ -49,7 +44,7 @@
 #define WLED_ENABLE_FS_EDITOR      // enable /edit page for editing FS content. Will also be disabled with OTA lock
 
 // to toggle usb serial debug (un)comment the following line
-// #define WLED_DEBUG
+//#define WLED_DEBUG
 
 // filesystem specific debugging
 //#define WLED_DEBUG_FS
