@@ -4,6 +4,7 @@
 #include "options.h"
 #include "beats.h"
 #include "palettes.h"
+#include "wled.h"
 
 #define DEFAULT_FADE_SPEED 100
 #define MAX_VIRTUAL_LEDS 150
@@ -42,6 +43,8 @@ class VirtualStrip {
   const static uint16_t DEF_BRIGHT = 255;
 
   public:
+    bool isWled = true;
+
     CRGB leds[MAX_VIRTUAL_LEDS];
     uint8_t num_leds;
     uint8_t brightness;
@@ -74,14 +77,34 @@ class VirtualStrip {
     this->fade_speed = fade_speed;
     this->brightness = DEF_BRIGHT;
 
-#ifdef MASTER_TUBE
-    // Interface with WLED
-    WS2812FX::load_palette(background.palette_id);
-    WS2812FX::load_pattern(DEFAULT_WLED_FX);
-    stateChanged = true;
-    stateUpdated(CALL_MODE_DIRECT_CHANGE);
-#endif
+    if (this->isWled) {
+      set_wled_palette(background.palette_id);
+      set_wled_pattern(DEFAULT_WLED_FX);
+      stateChanged = true;
+      stateUpdated(CALL_MODE_DIRECT_CHANGE);
+    }
   }
+
+  static void set_wled_palette(uint8_t palette_id) {
+    for (uint8_t i=0; i < strip.getSegmentsNum(); i++) {
+      Segment& seg = strip.getSegment(i);
+      if (seg.palette == palette_id) continue;
+      if (!seg.isActive()) continue;
+      seg.startTransition(strip.getTransition());
+      seg.palette = palette_id;
+    }
+  }
+
+  static void set_wled_pattern(uint8_t pattern_id) {
+    for (uint8_t i=0; i < strip.getSegmentsNum(); i++) {
+      Segment& seg = strip.getSegment(i);
+      if (!seg.isActive()) continue;
+      if (seg.mode == pattern_id) continue;
+      seg.startTransition(strip.getTransition());
+      strip.setMode(i, pattern_id);
+    }
+  }
+
 
   void fadeOut(uint8_t fade_speed=DEFAULT_FADE_SPEED)
   {
@@ -166,13 +189,14 @@ class VirtualStrip {
   }
 
   CRGB palette_color(uint8_t c, uint8_t offset=0, uint8_t brightness=255) {
-#define WLED_COLORS
-#ifdef WLED_COLORS
-    return WS2812FX::get_palette_crgb(c + offset, brightness);
-#else
-    CRGBPalette16 palette = gGradientPalettes[this->background.palette_id];
-    return ColorFromPalette( palette, c + offset );
-#endif
+    if (this->isWled) {
+      Segment& segment = strip.getMainSegment();
+      uint32_t color = segment.color_from_palette(c + offset, false, true, 255, brightness);
+      return CRGB(color);
+    } else {
+      CRGBPalette16 palette = gGradientPalettes[this->background.palette_id];
+      return ColorFromPalette( palette, c + offset );
+    }
   }
 
   CRGB hue_color(uint8_t offset=0, uint8_t saturation=255, uint8_t value=192) {

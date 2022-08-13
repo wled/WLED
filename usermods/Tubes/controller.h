@@ -162,7 +162,7 @@ class PatternController : public MessageReceiver {
     this->update_beat();
 
     // Detect manual overrides & update the current state to match.
-    Segment& segment = WS2812FX::get_strip()->getMainSegment();
+    Segment& segment = strip.getMainSegment();
     if (segment.palette != this->current_state.palette_id) {
       Serial.printf("Palette override = %d\n",segment.palette);
       this->next_state.palette_phrase = 0;
