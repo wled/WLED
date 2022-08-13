@@ -257,6 +257,10 @@ class PatternController : public MessageReceiver {
     Serial.println();
   }
 
+  void load_options(ControllerOptions &options) {
+    strip.setBrightness(options.brightness);
+  }
+
   void load_pattern(TubeState &tube_state) {
     if (this->current_state.pattern_id == tube_state.pattern_id 
         && this->current_state.pattern_sync_id == tube_state.pattern_sync_id)
@@ -650,24 +654,15 @@ class PatternController : public MessageReceiver {
   virtual void onCommand(CommandId command, void *data) {
     switch (command) {
       case COMMAND_RESET:
-        Serial.println(F("reset"));
+        // TODO
         return;
-  
-      case COMMAND_BRIGHTNESS: {
-        uint8_t *bright = (uint8_t *)data;
-        this->setBrightness(*bright);
-        Serial.println();
-        return;
-      }
   
       case COMMAND_OPTIONS:
-        Serial.println(F("options"));
         memcpy(&this->options, data, sizeof(this->options));
+        this->load_options(this->options);
         return;
 
       case COMMAND_UPDATE: {
-        Serial.print(F(" update "));
-
         auto update_data = (TubeStates*)data;
 
         TubeState state;
@@ -675,7 +670,6 @@ class PatternController : public MessageReceiver {
         memcpy(&this->next_state, &update_data->next, sizeof(TubeState));
         state.print();
         this->next_state.print();
-        Serial.println();
   
         // Catch up to this state
         this->load_pattern(state);

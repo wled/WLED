@@ -105,6 +105,10 @@ class VirtualStrip {
     }
   }
 
+  static void set_wled_brightness(uint8_t brightness) {
+    strip.setBrightness(brightness);
+  }
+
 
   void fadeOut(uint8_t fade_speed=DEFAULT_FADE_SPEED)
   {
