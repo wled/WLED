@@ -42,6 +42,7 @@ class TubesUsermod : public Usermod {
       bootPreset = 0;  // Try to prevent initial playlists from starting
       fadeTransition = true;  // Fade palette transitions
       transitionDelay = 8000;   // Fade them for a long time
+      strip.setTargetFps(60);
 
       // Start timing
       globalTimer.setup();
@@ -67,10 +68,6 @@ class TubesUsermod : public Usermod {
     void handleOverlayDraw()
     {
       // Perform a cross-fade between current WLED mode and the external buffer
-
-      // uint8_t segment_id = strip.getMainSegmentId();
-      uint16_t length = strip.getLengthTotal();
-
       uint8_t fade; // amount that Tubes overwrites WLED, 0-255
       switch (this->controller.options.fader) {
         case AUTO:
@@ -87,9 +84,10 @@ class TubesUsermod : public Usermod {
           fade = 127;
           break;
       }
-      
+
       if (fade > 0) {
-        for (int i = 0, p = 0; i < length; i++, p++) {
+        uint16_t length = strip.getLengthTotal();
+        for (int i = 0; i < length; i++) {
           CRGB color1 = strip.getPixelColor(i);
           CRGB color2 = controller.led_strip->getPixelColor(i);
 
@@ -102,8 +100,8 @@ class TubesUsermod : public Usermod {
       }
 
       // Draw effects layers over whatever WLED is doing.
-      WS2812FX* leds = &strip;
-      controller.effects->draw(leds);
+      this->controller.overlay();
+      this->debug.overlay();
     }
 };
 

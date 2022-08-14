@@ -3,7 +3,7 @@
 #define USE_WLED
 #include "wled.h"
 
-#define MAX_REAL_LEDS      100
+#define MAX_REAL_LEDS      150
 
 
 class LEDs {
