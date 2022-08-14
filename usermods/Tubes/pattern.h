@@ -166,9 +166,6 @@ typedef struct {
 
 // List of patterns to cycle through.  Each is defined as a separate function below.
 PatternDef gPatterns[] = { 
-#ifdef TESTING_PATTERNS
-  {tick, LongDuration},
-#else
   {drawNoise, {ShortDuration}},
   {drawNoise, {ShortDuration}},
   {drawNoise, {MediumDuration}},
@@ -184,7 +181,6 @@ PatternDef gPatterns[] = {
   {palette_wave, {MediumDuration}},
   {bpm_palette, {ShortDuration}},
   {bpm_palette, {MediumDuration, HighEnergy}}
-#endif
 };
 
 /*

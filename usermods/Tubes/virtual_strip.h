@@ -9,8 +9,8 @@
 #define DEFAULT_FADE_SPEED 100
 #define MAX_VIRTUAL_LEDS 150
 
-#define DEFAULT_WLED_FX FX_MODE_EXPLODING_FIREWORKS
-// #define TESTING_PATTERNS
+#define DEFAULT_WLED_FX FX_MODE_FLOW
+#define TESTING_PATTERNS
 
 class VirtualStrip;
 typedef void (*BackgroundFn)(VirtualStrip *strip);
@@ -80,9 +80,6 @@ class VirtualStrip {
 
     if (this->isWled) {
       set_wled_palette(background.palette_id);
-      set_wled_pattern(DEFAULT_WLED_FX);
-      stateChanged = true;
-      stateUpdated(CALL_MODE_DIRECT_CHANGE);
     }
   }
 
@@ -94,16 +91,22 @@ class VirtualStrip {
       seg.startTransition(strip.getTransition());
       seg.palette = palette_id;
     }
+    stateChanged = true;
+    stateUpdated(CALL_MODE_DIRECT_CHANGE);
   }
 
-  static void set_wled_pattern(uint8_t pattern_id) {
+  static void set_wled_pattern(uint8_t pattern_id, uint8_t speed, uint8_t intensity) {
     for (uint8_t i=0; i < strip.getSegmentsNum(); i++) {
       Segment& seg = strip.getSegment(i);
       if (!seg.isActive()) continue;
       if (seg.mode == pattern_id) continue;
       seg.startTransition(strip.getTransition());
+      seg.speed = speed;
+      seg.intensity = intensity;
       strip.setMode(i, pattern_id);
     }
+    stateChanged = true;
+    stateUpdated(CALL_MODE_DIRECT_CHANGE);
   }
 
   static void set_wled_brightness(uint8_t brightness) {

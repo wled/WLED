@@ -16,9 +16,9 @@
 
 // #define NODE_DEBUGGING
 // #define RELAY_DEBUGGING
-#define TESTING_NODE_ID 100
+#define TESTING_NODE_ID 0
 
-#define CURRENT_NODE_VERSION 1
+#define CURRENT_NODE_VERSION 2
 #define BROADCAST_ADDR ESPNOW_BROADCAST_ADDRESS 
 
 #define UPLINK_TIMEOUT 20000      // Time at which uplink is presumed lost
@@ -43,6 +43,7 @@ typedef enum{
 typedef struct {
     MeshNodeHeader header;
     MessageRecipients recipients;
+    uint32_t timebase;
     CommandId command;
     byte data[MESSAGE_DATA_SIZE] = {0};
 } NodeMessage;
@@ -128,6 +129,9 @@ class LightNode {
     }
 
     void configure_ap() {
+        // Don't connect to any networks.
+        strcpy(clientSSID, "");
+
         // Try to hide the access point unless this is the "root" node
         if (this->is_following()) {
             sprintf(apSSID, "WLED %03X F", this->header.id);
@@ -241,6 +245,15 @@ class LightNode {
             Serial.print("  >> ");
             print_message(message, rssi);
             Serial.print(" ");
+
+            // Adjust the timebase to match uplink
+            // But only if it's drifting, else animations get jittery
+            uint32_t new_timebase = message->timebase - millis() + 3; // Factor for network delay
+            int32_t diff = new_timebase - strip.timebase;
+            if (diff < -10 || diff > 10)
+                strip.timebase = new_timebase;
+
+            // Execute the command
             this->receiver->onCommand(
                 message->command,
                 &message->data
@@ -261,6 +274,7 @@ class LightNode {
         // Don't broadcast anything if this node isn't active.
         if (this->status != NODE_STATUS_STARTED)
             return;
+        message->timebase = strip.timebase + millis();
         
 #ifdef NODE_DEBUGGING        
         Serial.print("  <<< ");

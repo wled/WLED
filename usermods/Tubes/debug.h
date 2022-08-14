@@ -91,21 +91,25 @@ class DebugController {
         seg.intensity
       );
     }
+  }
 
+  void overlay() 
+  {
     // Show the beat on the master OR if debugging
-
     if (this->controller->options.debugging) {
+      uint16_t num_leds = strip.getLengthTotal();
+
       uint8_t p1 = (this->controller->current_state.beat_frame >> 8) % 16;
-      this->led_strip->leds[p1] = CRGB::White;
+      strip.setPixelColor(p1, CRGB::White);
 
-      uint8_t p2 = scale8(this->controller->node->header.id>>4, this->led_strip->num_leds-1);
-      this->led_strip->leds[p2] = CRGB::Yellow;
+      uint8_t p2 = scale8(this->controller->node->header.id>>4, num_leds-1);
+      strip.setPixelColor(p2, CRGB::Yellow);
 
-      uint8_t p3 = scale8(this->controller->node->header.uplinkId>>4, this->led_strip->num_leds-1);
+      uint8_t p3 = scale8(this->controller->node->header.uplinkId>>4, num_leds-1);
       if (p3 == p2) {
-        this->led_strip->leds[p3] = CRGB::Green;
+        strip.setPixelColor(p3, CRGB::Green);
       } else {
-        this->led_strip->leds[p3] = CRGB::Blue; 
+        strip.setPixelColor(p3, CRGB::Blue);
       }
     }
     

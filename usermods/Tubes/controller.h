@@ -21,8 +21,15 @@ const static uint8_t DEFAULT_MASTER_BRIGHTNESS = 200;
 
 typedef struct {
   bool debugging;
+  bool power_save;
   uint8_t brightness;
   Fader fader; // temp
+
+  uint8_t wled_pattern;
+  uint8_t speed;
+  uint8_t intensity;
+
+  uint8_t reserved[12];
 } ControllerOptions;
 
 typedef struct {
@@ -66,7 +73,7 @@ class Button {
 
 class PatternController : public MessageReceiver {
   public:
-    const static int FRAMES_PER_SECOND = 300;  // how often we animate, in frames per second
+    const static int FRAMES_PER_SECOND = 100;  // how often we animate, in frames per second
     const static int REFRESH_PERIOD = 1000 / FRAMES_PER_SECOND;  // how often we animate, in milliseconds
 
     uint8_t num_leds;
@@ -116,9 +123,18 @@ class PatternController : public MessageReceiver {
   {
     this->node->setup();
     this->isMaster = isMaster;
+    this->options.power_save = false;
     this->options.debugging = false;
     this->options.brightness = DEFAULT_MASTER_BRIGHTNESS;
+#ifdef TESTING_PATTERNS
+    this->options.fader = RIGHT;
+#else
     this->options.fader = AUTO;
+#endif
+    this->options.wled_pattern = DEFAULT_WLED_FX;
+    this->options.speed = strip.getMainSegment().speed;
+    this->options.intensity = strip.getMainSegment().intensity;
+    this->load_options(this->options);
 
 #ifdef USELCD
     this->lcd->setup();
@@ -169,9 +185,25 @@ class PatternController : public MessageReceiver {
       this->next_state.palette_id = segment.palette;
       this->broadcast_state();
     }
-    // if (segment.mode != FX_MODE_EXTERNAL) {
-    //   Serial.printf("Pattern override = %d\n",segment.mode);
-    // }
+
+    bool options_changed = false;
+    if (segment.mode != this->options.wled_pattern) {
+      Serial.printf("WLED FX mode: %d\n",segment.mode);
+      this->options.wled_pattern = segment.mode;
+      options_changed = true;
+    }
+    if (segment.speed != this->options.speed) {
+      Serial.printf("WLED FX speed: %d\n",segment.speed);
+      this->options.speed = segment.speed;
+      options_changed = true;
+    }
+    if (segment.intensity != this->options.intensity) {
+      Serial.printf("WLED FX intensity: %d\n",segment.intensity);
+      this->options.intensity = segment.intensity;
+      options_changed = true;
+    }
+    if (options_changed)
+      this->broadcast_options();
 
     do_pattern_changes();
 
@@ -199,6 +231,22 @@ class PatternController : public MessageReceiver {
       this->lcd->update();
     }
 #endif
+  }
+
+  void overlay() {
+    if (this->options.power_save) {
+      // Screen door effect
+      uint16_t length = strip.getLengthTotal();
+      for (int i = 0; i < length; i++) {
+        if (i % 2) {
+            CRGB c = strip.getPixelColor(i);
+            strip.setPixelColor(i, CRGB(c.r>>3,c.g>>3,c.b>>3));
+        }
+      }
+    }
+
+    // Draw effects layers over whatever WLED is doing.
+    this->effects->draw(&strip);
   }
 
   void restart_phrase() {
@@ -259,6 +307,7 @@ class PatternController : public MessageReceiver {
 
   void load_options(ControllerOptions &options) {
     strip.setBrightness(options.brightness);
+    VirtualStrip::set_wled_pattern(options.wled_pattern, options.speed, options.intensity);
   }
 
   void load_pattern(TubeState &tube_state) {
@@ -372,25 +421,27 @@ class PatternController : public MessageReceiver {
   }
 
   void setBrightness(uint8_t brightness) {
-    Serial.print(F("brightness "));
-    Serial.println(brightness);
+    Serial.printf("brightness: %d\n", brightness);
 
     this->options.brightness = brightness;
     this->broadcast_options();
   }
 
   void setDebugging(bool debugging) {
-    Serial.print(F("debugging "));
-    Serial.println(debugging);
+    Serial.printf("debugging: %d\n", debugging);
 
     this->options.debugging = debugging;
     this->broadcast_options();
   }
   
+  void setPowerSave(bool power_save) {
+    Serial.printf("power_save: %d\n", power_save);
+
+    this->options.power_save = power_save;
+    this->broadcast_options();
+  }
+  
   SyncMode randomSyncMode() {
-  #ifdef TESTING_PATTERNS
-    return All;
-  #endif
     uint8_t r = random8(128);
     if (r < 40)
       return SinDrift;
@@ -488,6 +539,9 @@ class PatternController : public MessageReceiver {
     switch (command[0]) {
       case 'd':
         this->setDebugging(!this->options.debugging);
+        break;
+      case '@':
+        this->setPowerSave(!this->options.power_save);
         break;
       
       case '-':
@@ -601,6 +655,15 @@ class PatternController : public MessageReceiver {
         this->broadcast_state();
         return;
 
+      case 'w':
+        Serial.printf("Setting WLED FX to %d:128:128\n", arg >> 8);
+        this->options.wled_pattern = arg >> 8;
+        this->options.speed = 128;
+        this->options.intensity = 128;
+        this->load_options(this->options);
+        this->broadcast_options();
+        return;
+        
       case 'g':
         for (int i=0; i< 10; i++)
           addGlitter();
@@ -614,10 +677,12 @@ class PatternController : public MessageReceiver {
         Serial.println(F("m### - sync mode"));
         Serial.println(F("c### - colors"));
         Serial.println(F("e### - effects"));
+        Serial.println("w### - wled pattern");
         Serial.println();
         Serial.println(F("i### - set ID"));
         Serial.println(F("d - toggle debugging"));
         Serial.println(F("l### - brightness"));
+        Serial.println("@ - power save mode");
         return;
 
       case 'U':
@@ -660,6 +725,14 @@ class PatternController : public MessageReceiver {
       case COMMAND_OPTIONS:
         memcpy(&this->options, data, sizeof(this->options));
         this->load_options(this->options);
+        Serial.printf("[debug=%d  bri=%d  fader=%d  wled:%d:%d:%d]",
+          this->options.debugging,
+          this->options.brightness,
+          this->options.fader,
+          this->options.wled_pattern,
+          this->options.speed,
+          this->options.intensity
+        );
         return;
 
       case COMMAND_UPDATE: {
