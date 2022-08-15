@@ -94,7 +94,7 @@ class DebugController {
     }
   }
 
-  void overlay() 
+  void handleOverlayDraw() 
   {
     // Show the beat on the master OR if debugging
     if (this->controller->options.debugging) {

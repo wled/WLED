@@ -68,8 +68,8 @@ class TubesUsermod : public Usermod {
     void handleOverlayDraw()
     {
       // Draw effects layers over whatever WLED is doing.
-      this->controller.overlay();
-      this->debug.overlay();
+      this->controller.handleOverlayDraw();
+      this->debug.handleOverlayDraw();
     }
 };
 

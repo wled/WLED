@@ -103,7 +103,6 @@ class VirtualStrip {
       Segment& seg = strip.getSegment(i);
       if (!seg.isActive()) continue;
       if (seg.mode == pattern_id) continue;
-      seg.startTransition(strip.getTransition());
       seg.speed = speed;
       seg.intensity = intensity;
       strip.setMode(i, pattern_id);

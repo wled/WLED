@@ -170,6 +170,7 @@ typedef struct {
 
 
 // List of patterns to cycle through.  Each is defined as a separate function below.
+static const uint8_t numInternalPatterns = 14;
 PatternDef gPatterns[] = { 
   {0, drawNoise, {ShortDuration}},
   {0, drawNoise, {ShortDuration}},
@@ -188,10 +189,13 @@ PatternDef gPatterns[] = {
   {0, bpm_palette, {MediumDuration, HighEnergy}},
   {FX_MODE_FADE, draw_wled_fx,{ShortDuration}}, // 12
   {FX_MODE_CHASE_RAINBOW, draw_wled_fx, {MediumDuration}}, // 30
+      // Make it HighEnergy? or find out why it's sometimes flashy
   {FX_MODE_AURORA, draw_wled_fx, {MediumDuration}}, // 38
+      // TODO: Aurora is too dark?
   {FX_MODE_GRADIENT, draw_wled_fx,{ShortDuration}}, // 46
   {FX_MODE_FAIRYTWINKLE, draw_wled_fx, {LongDuration}}, // 51
-  {FX_MODE_RUNNING_DUAL, draw_wled_fx, {ShortDuration}},// 52
+  {FX_MODE_RUNNING_DUAL, draw_wled_fx, {ExtraShortDuration}},// 52
+      // TODO: Kind of boring
   {FX_MODE_DUAL_LARSON_SCANNER, draw_wled_fx, {MediumDuration}}, // 60
   {FX_MODE_JUGGLE, draw_wled_fx, {MediumDuration}}, // 64
   {FX_MODE_PALETTE, draw_wled_fx, {ShortDuration}},// 65
@@ -199,19 +203,26 @@ PatternDef gPatterns[] = {
   {FX_MODE_BPM, draw_wled_fx, {MediumDuration}}, // 68
   {FX_MODE_FILLNOISE8, draw_wled_fx, {LongDuration}}, // 69
   {FX_MODE_NOISE16_2, draw_wled_fx, {MediumDuration}}, // 71
+  {FX_MODE_NOISE16_3, draw_wled_fx, {ShortDuration}}, // 72
   {FX_MODE_NOISE16_3, draw_wled_fx, {LongDuration}}, // 72
+      // TODO: Noise3 needs to be slowed down, it's a bit spastic
   {FX_MODE_COLORTWINKLE, draw_wled_fx, {MediumDuration}}, // 74
+  {FX_MODE_LAKE, draw_wled_fx, {ShortDuration}}, // 75
   {FX_MODE_LAKE, draw_wled_fx, {LongDuration}}, // 75
   {FX_MODE_METEOR_SMOOTH, draw_wled_fx, {MediumDuration}}, // 77
-  {FX_MODE_STARBURST, draw_wled_fx, {ShortDuration, HighEnergy}}, // 89
-  {FX_MODE_EXPLODING_FIREWORKS, draw_wled_fx, {ShortDuration}},// 90
+  {FX_MODE_STARBURST, draw_wled_fx, {ExtraShortDuration, HighEnergy}}, // 89
+  {FX_MODE_EXPLODING_FIREWORKS, draw_wled_fx, {ExtraShortDuration}},// 90
+      // TODO: Must be set to only fire from one side
   {FX_MODE_SINELON_DUAL, draw_wled_fx, {MediumDuration}}, // 93
   {FX_MODE_POPCORN, draw_wled_fx, {ShortDuration}}, // 95
   {FX_MODE_PLASMA, draw_wled_fx, {LongDuration}}, // 97
+  {FX_MODE_PACIFICA, draw_wled_fx, {ShortDuration}}, // 101
   {FX_MODE_PACIFICA, draw_wled_fx, {LongDuration}}, // 101
   {FX_MODE_TWINKLEUP, draw_wled_fx, {LongDuration}}, // 106
   {FX_MODE_NOISEPAL, draw_wled_fx, {LongDuration}}, // 107
   {FX_MODE_PHASEDNOISE, draw_wled_fx, {MediumDuration}}, // 109
+  {FX_MODE_FLOW, draw_wled_fx, {ShortDuration}}, // 110
+  {FX_MODE_FLOW, draw_wled_fx, {LongDuration}}, // 110
   {FX_MODE_FLOW, draw_wled_fx, {ExtraLongDuration}} // 110
 };
 
