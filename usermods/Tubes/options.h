@@ -28,6 +28,23 @@ typedef enum Fader: uint8_t {
   RIGHT = 3  // All right (WLED)
 } Fader;
 
+uint8_t fader_to_8(Fader fader) {
+  switch (fader) {
+    case AUTO:
+    default:
+      return sin8(millis() / 40);
+
+    case LEFT:
+      return 255;
+
+    case RIGHT:
+      return 0;
+
+    case MIDDLE:
+      return 127;
+  }
+}
+
 typedef struct ControlParameters {
   public:
     Duration duration=MediumDuration;
