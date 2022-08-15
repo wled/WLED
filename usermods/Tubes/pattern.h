@@ -1,6 +1,7 @@
 #pragma once
 
 #include "virtual_strip.h"
+#include "FX.h"
 
 void rainbow(VirtualStrip *strip) 
 {
@@ -158,7 +159,11 @@ void drawNoise(VirtualStrip *strip)
   }
 }
 
+void draw_wled_fx(VirtualStrip *strip) {
+}
+
 typedef struct {
+  uint8_t wled_fx_id;
   BackgroundFn backgroundFn;
   ControlParameters control;
 } PatternDef;
@@ -166,23 +171,77 @@ typedef struct {
 
 // List of patterns to cycle through.  Each is defined as a separate function below.
 PatternDef gPatterns[] = { 
-  {drawNoise, {ShortDuration}},
-  {drawNoise, {ShortDuration}},
-  {drawNoise, {MediumDuration}},
-  {drawNoise, {MediumDuration}},
-  {drawNoise, {MediumDuration}},
-  {drawNoise, {LongDuration}},
-  {drawNoise, {LongDuration}},
-  {confetti, {ShortDuration}},
-  {confetti, {MediumDuration}},
+  {0, drawNoise, {ShortDuration}},
+  {0, drawNoise, {ShortDuration}},
+  {0, drawNoise, {MediumDuration}},
+  {0, drawNoise, {MediumDuration}},
+  {0, drawNoise, {MediumDuration}},
+  {0, drawNoise, {LongDuration}},
+  {0, drawNoise, {LongDuration}},
+  {0, confetti, {ShortDuration}},
+  {0, confetti, {MediumDuration}},
 
-  {juggle, {ShortDuration}},
-  {palette_wave, {ShortDuration}},
-  {palette_wave, {MediumDuration}},
-  {bpm_palette, {ShortDuration}},
-  {bpm_palette, {MediumDuration, HighEnergy}}
+  {0, juggle, {ShortDuration}},
+  {0, palette_wave, {ShortDuration}},
+  {0, palette_wave, {MediumDuration}},
+  {0, bpm_palette, {ShortDuration}},
+  {0, bpm_palette, {MediumDuration, HighEnergy}},
+  {FX_MODE_FADE, draw_wled_fx,{ShortDuration}}, // 12
+  {FX_MODE_CHASE_RAINBOW, draw_wled_fx, {MediumDuration}}, // 30
+  {FX_MODE_AURORA, draw_wled_fx, {MediumDuration}}, // 38
+  {FX_MODE_GRADIENT, draw_wled_fx,{ShortDuration}}, // 46
+  {FX_MODE_FAIRYTWINKLE, draw_wled_fx, {LongDuration}}, // 51
+  {FX_MODE_RUNNING_DUAL, draw_wled_fx, {ShortDuration}},// 52
+  {FX_MODE_DUAL_LARSON_SCANNER, draw_wled_fx, {MediumDuration}}, // 60
+  {FX_MODE_JUGGLE, draw_wled_fx, {MediumDuration}}, // 64
+  {FX_MODE_PALETTE, draw_wled_fx, {ShortDuration}},// 65
+  {FX_MODE_FIRE_2012, draw_wled_fx, {MediumDuration}}, // 66
+  {FX_MODE_BPM, draw_wled_fx, {MediumDuration}}, // 68
+  {FX_MODE_FILLNOISE8, draw_wled_fx, {LongDuration}}, // 69
+  {FX_MODE_NOISE16_2, draw_wled_fx, {MediumDuration}}, // 71
+  {FX_MODE_NOISE16_3, draw_wled_fx, {LongDuration}}, // 72
+  {FX_MODE_COLORTWINKLE, draw_wled_fx, {MediumDuration}}, // 74
+  {FX_MODE_LAKE, draw_wled_fx, {LongDuration}}, // 75
+  {FX_MODE_METEOR_SMOOTH, draw_wled_fx, {MediumDuration}}, // 77
+  {FX_MODE_STARBURST, draw_wled_fx, {ShortDuration, HighEnergy}}, // 89
+  {FX_MODE_EXPLODING_FIREWORKS, draw_wled_fx, {ShortDuration}},// 90
+  {FX_MODE_SINELON_DUAL, draw_wled_fx, {MediumDuration}}, // 93
+  {FX_MODE_POPCORN, draw_wled_fx, {ShortDuration}}, // 95
+  {FX_MODE_PLASMA, draw_wled_fx, {LongDuration}}, // 97
+  {FX_MODE_PACIFICA, draw_wled_fx, {LongDuration}}, // 101
+  {FX_MODE_TWINKLEUP, draw_wled_fx, {LongDuration}}, // 106
+  {FX_MODE_NOISEPAL, draw_wled_fx, {LongDuration}}, // 107
+  {FX_MODE_PHASEDNOISE, draw_wled_fx, {MediumDuration}}, // 109
+  {FX_MODE_FLOW, draw_wled_fx, {ExtraLongDuration}} // 110
 };
 
 /*
 */
 const uint8_t gPatternCount = ARRAY_SIZE(gPatterns);
+
+/*
+
+WLED OK not great:
+4  - Wipe random 
+8 - Colorloop
+15 - Running
+18 - Dissolve
+27 - Android
+36 - Sweep Random
+41 - Lighthouse
+44 - Tetrix
+50 - Two Dots
+56 - Tri Fade
+67 - Color Waves --- maybe too spastic
+70 - Noise 1
+73 - Noise 4
+80 - Twinklefox
+104 - Sunrise
+108 - Sine Wave
+115 - Blends
+154 - Plasmoid
+157 - Noisemeter
+
+Jittery, why?
+15 is fine, 16 is jittery
+*/

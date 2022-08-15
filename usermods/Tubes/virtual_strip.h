@@ -10,7 +10,6 @@
 #define MAX_VIRTUAL_LEDS 150
 
 #define DEFAULT_WLED_FX FX_MODE_FLOW
-#define TESTING_PATTERNS
 
 class VirtualStrip;
 typedef void (*BackgroundFn)(VirtualStrip *strip);
@@ -18,6 +17,7 @@ typedef void (*BackgroundFn)(VirtualStrip *strip);
 class Background {
   public:
     BackgroundFn animate;
+    uint8_t wled_fx_id;
     uint8_t palette_id;
     SyncMode sync=All;
 };
@@ -44,8 +44,6 @@ class VirtualStrip {
   const static uint16_t DEF_BRIGHT = 255;
 
   public:
-    bool isWled = true;
-
     CRGB leds[MAX_VIRTUAL_LEDS];
     uint8_t num_leds;
     uint8_t brightness;
@@ -78,9 +76,14 @@ class VirtualStrip {
     this->fade_speed = fade_speed;
     this->brightness = DEF_BRIGHT;
 
-    if (this->isWled) {
+    if (this->isWled()) {
+      set_wled_pattern(background.wled_fx_id, 128, 128);
       set_wled_palette(background.palette_id);
     }
+  }
+
+  bool isWled() {
+    return this->background.wled_fx_id != 0;
   }
 
   static void set_wled_palette(uint8_t palette_id) {
@@ -197,22 +200,21 @@ class VirtualStrip {
   }
 
   CRGB palette_color(uint8_t c, uint8_t offset=0, uint8_t brightness=255) {
-    if (this->isWled) {
-      Segment& segment = strip.getMainSegment();
-      uint32_t color = segment.color_from_palette(c + offset, false, true, 255, brightness);
-      return CRGB(color);
-    } else {
-      CRGBPalette16 palette = gGradientPalettes[this->background.palette_id];
-      return ColorFromPalette( palette, c + offset );
-    }
+    Segment& segment = strip.getMainSegment();
+    uint32_t color = segment.color_from_palette(c + offset, false, true, 255, brightness);
+    return CRGB(color);
   }
 
   CRGB hue_color(uint8_t offset=0, uint8_t saturation=255, uint8_t value=192) {
     return CHSV(this->hue + offset, saturation, value);
   }
 
-  void blend(CRGB strip[], uint8_t num_leds, uint8_t brightness, bool overwrite=0) {
+  void blend(CRGB output[], uint8_t num_leds, uint8_t brightness, bool overwrite=0) {
     if (this->fade == Dead)
+      return;
+
+    // WLED is blended in elsewhere
+    if (this->isWled())
       return;
 
     brightness = scale8(this->brightness, brightness);
@@ -224,9 +226,9 @@ class VirtualStrip {
       nscale8x3(c.r, c.g, c.b, brightness);
       nscale8x3(c.r, c.g, c.b, this->fader>>8);
       if (overwrite)
-        strip[i] = c;
+        output[i] = c;
       else
-        strip[i] |= c;
+        output[i] |= c;
     }
   }
   

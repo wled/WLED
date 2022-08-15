@@ -82,13 +82,14 @@ class DebugController {
       auto seg = strip.getMainSegment();
       extractModeName(seg.mode, JSON_mode_names, mode_name, 50);
       extractModeName(seg.palette, JSON_palette_names, palette_name, 50);
-      Serial.printf("=== WLED: %s(%u) %s(%u) speed:%u intensity:%u\n\n",
+      Serial.printf("=== WLED: %s(%u) %s(%u) speed:%u intensity:%u  at %d\n\n",
         mode_name,
         seg.mode,
         palette_name,
         seg.palette,
         seg.speed,
-        seg.intensity
+        seg.intensity,
+        this->controller->wled_fader
       );
     }
   }

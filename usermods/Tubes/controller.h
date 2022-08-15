@@ -19,15 +19,12 @@ const static uint8_t DEFAULT_MASTER_BRIGHTNESS = 200;
 #define MAX_COLOR_CHANGE_PHRASES 4  // 40
 
 
+#define DEBUG_PATTERNS
+
 typedef struct {
   bool debugging;
   bool power_save;
   uint8_t brightness;
-  Fader fader; // temp
-
-  uint8_t wled_pattern;
-  uint8_t speed;
-  uint8_t intensity;
 
   uint8_t reserved[12];
 } ControllerOptions;
@@ -80,7 +77,8 @@ class PatternController : public MessageReceiver {
     VirtualStrip *vstrips[NUM_VSTRIPS];
     uint8_t next_vstrip = 0;
     bool isMaster = false;
-    
+    uint16_t wled_fader = 0;
+
     Timer graphicsTimer;
     Timer updateTimer;
 
@@ -126,14 +124,6 @@ class PatternController : public MessageReceiver {
     this->options.power_save = false;
     this->options.debugging = false;
     this->options.brightness = DEFAULT_MASTER_BRIGHTNESS;
-#ifdef TESTING_PATTERNS
-    this->options.fader = RIGHT;
-#else
-    this->options.fader = AUTO;
-#endif
-    this->options.wled_pattern = DEFAULT_WLED_FX;
-    this->options.speed = strip.getMainSegment().speed;
-    this->options.intensity = strip.getMainSegment().intensity;
     this->load_options(this->options);
 
 #ifdef USELCD
@@ -186,12 +176,8 @@ class PatternController : public MessageReceiver {
       this->broadcast_state();
     }
 
+    /* TODO: detect WLED manual overrides
     bool options_changed = false;
-    if (segment.mode != this->options.wled_pattern) {
-      Serial.printf("WLED FX mode: %d\n",segment.mode);
-      this->options.wled_pattern = segment.mode;
-      options_changed = true;
-    }
     if (segment.speed != this->options.speed) {
       Serial.printf("WLED FX speed: %d\n",segment.speed);
       this->options.speed = segment.speed;
@@ -204,6 +190,7 @@ class PatternController : public MessageReceiver {
     }
     if (options_changed)
       this->broadcast_options();
+    */
 
     do_pattern_changes();
 
@@ -234,6 +221,30 @@ class PatternController : public MessageReceiver {
   }
 
   void overlay() {
+    static uint8_t last_fader = 0;
+
+    // Crossfade between the custom pattern engine and WLED
+    uint8_t fader = this->wled_fader >> 8;
+    if (fader != last_fader) {
+      Serial.printf("fader %u ", fader);
+      last_fader = fader;
+    }
+    if (fader < 255) {
+      // Perform a cross-fade between current WLED mode and the external buffer
+      uint16_t length = strip.getLengthTotal();
+      for (int i = 0; i < length; i++) {
+        CRGB c = this->led_strip->getPixelColor(i);
+        if (fader > 0) {
+          CRGB color2 = strip.getPixelColor(i);
+          uint8_t r = blend8(c.r, color2.r, fader);
+          uint8_t g = blend8(c.g, color2.g, fader);
+          uint8_t b = blend8(c.b, color2.b, fader);
+          c = CRGB(r,g,b);
+        }
+        strip.setPixelColor(i, c);
+      }
+    }
+
     if (this->options.power_save) {
       // Screen door effect
       uint16_t length = strip.getLengthTotal();
@@ -245,8 +256,10 @@ class PatternController : public MessageReceiver {
       }
     }
 
+#ifndef DEBUG_PATTERNS
     // Draw effects layers over whatever WLED is doing.
     this->effects->draw(&strip);
+#endif
   }
 
   void restart_phrase() {
@@ -307,7 +320,6 @@ class PatternController : public MessageReceiver {
 
   void load_options(ControllerOptions &options) {
     strip.setBrightness(options.brightness);
-    VirtualStrip::set_wled_pattern(options.wled_pattern, options.speed, options.intensity);
   }
 
   void load_pattern(TubeState &tube_state) {
@@ -326,11 +338,15 @@ class PatternController : public MessageReceiver {
   // Choose the pattern to display at the next pattern cycle
   // Return the number of phrases until the next pattern cycle
   uint16_t set_next_pattern(uint16_t phrase) {
-    uint8_t pattern_id = random8(gPatternCount);
-    PatternDef def = gPatterns[pattern_id];
-    if (def.control.energy > this->energy) {
-      pattern_id = 0;
-      def = gPatterns[0];
+    uint8_t pattern_id;
+    PatternDef def;
+
+    // Try 10 times to find a pattern that fits the current "energy"
+    for (int i = 0; i < 10; i++) {
+      pattern_id = random8(gPatternCount);
+      def = gPatterns[pattern_id];
+      if (def.control.energy < this->energy)
+        break;
     }
 
     this->next_state.pattern_id = pattern_id;
@@ -356,14 +372,15 @@ class PatternController : public MessageReceiver {
   void _load_palette(uint8_t palette_id) {
     this->current_state.palette_id = palette_id;
     
-    Serial.print(F("Change palette"));
-    this->background_changed();
+    Serial.println("Change palette");
+    VirtualStrip::set_wled_palette(palette_id);
   }
 
   // Choose the palette to display at the next palette cycle
   // Return the number of phrases until the next palette cycle
   uint16_t set_next_palette(uint16_t phrase) {
-    this->next_state.palette_id = random8(gGradientPaletteCount);
+    // Don't select palette 1
+    this->next_state.palette_id = random8(2, gGradientPaletteCount);
     return random8(MIN_COLOR_CHANGE_PHRASES, MAX_COLOR_CHANGE_PHRASES);
   }
 
@@ -409,6 +426,7 @@ class PatternController : public MessageReceiver {
   void update_background() {
     Background background;
     background.animate = gPatterns[this->current_state.pattern_id].backgroundFn;
+    background.wled_fx_id = gPatterns[this->current_state.pattern_id].wled_fx_id;
     background.palette_id = this->current_state.palette_id;
     background.sync = (SyncMode)this->current_state.pattern_sync_id;
 
@@ -465,6 +483,8 @@ class PatternController : public MessageReceiver {
     }
     lastFrame = beat_frame;
 
+    this->wled_fader = 0;
+
     VirtualStrip *first_strip = NULL;
     for (uint8_t i=0; i < NUM_VSTRIPS; i++) {
       VirtualStrip *vstrip = this->vstrips[i];
@@ -474,6 +494,10 @@ class PatternController : public MessageReceiver {
       // Remember the first strip
       if (first_strip == NULL)
         first_strip = vstrip;
+
+      // Remember the strip that's actually WLED
+      if (vstrip->isWled())
+        this->wled_fader = vstrip->fader;
      
       vstrip->update(beat_frame, beat_pulse);
       vstrip->blend(this->led_strip->leds, this->led_strip->num_leds, this->options.brightness, vstrip == first_strip);
@@ -591,44 +615,6 @@ class PatternController : public MessageReceiver {
         this->broadcast_state();
         return;        
 
-      case '[':
-        switch (this->options.fader) {
-          case LEFT:
-            this->options.fader = AUTO;
-            break;
-
-          case RIGHT:
-            this->options.fader = MIDDLE;
-            break;
-
-          case MIDDLE:
-          case AUTO:
-          default:
-            this->options.fader = LEFT;
-            break;
-        }
-        this->broadcast_options();
-        return;
-
-      case ']':
-        switch (this->options.fader) {
-          case RIGHT:
-            this->options.fader = AUTO;
-            break;
-
-          case LEFT:
-            this->options.fader = MIDDLE;
-            break;
-
-          case MIDDLE:
-          case AUTO:
-          default:
-            this->options.fader = RIGHT;
-            break;
-        }
-        this->broadcast_options();
-        return;
-
       case 'm':
         this->next_state.pattern_phrase = 0;
         this->next_state.pattern_id = this->current_state.pattern_id;
@@ -655,15 +641,11 @@ class PatternController : public MessageReceiver {
         this->broadcast_state();
         return;
 
-      case 'w':
-        Serial.printf("Setting WLED FX to %d:128:128\n", arg >> 8);
-        this->options.wled_pattern = arg >> 8;
-        this->options.speed = 128;
-        this->options.intensity = 128;
-        this->load_options(this->options);
-        this->broadcast_options();
+      case 'i':
+        Serial.printf("Reset! ID -> %03X\n", arg >> 4);
+        this->node->reset(arg >> 4);
         return;
-        
+
       case 'g':
         for (int i=0; i< 10; i++)
           addGlitter();
@@ -725,13 +707,9 @@ class PatternController : public MessageReceiver {
       case COMMAND_OPTIONS:
         memcpy(&this->options, data, sizeof(this->options));
         this->load_options(this->options);
-        Serial.printf("[debug=%d  bri=%d  fader=%d  wled:%d:%d:%d]",
+        Serial.printf("[debug=%d  bri=%d]",
           this->options.debugging,
-          this->options.brightness,
-          this->options.fader,
-          this->options.wled_pattern,
-          this->options.speed,
-          this->options.intensity
+          this->options.brightness
         );
         return;
 

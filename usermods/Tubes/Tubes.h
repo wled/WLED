@@ -67,38 +67,6 @@ class TubesUsermod : public Usermod {
 
     void handleOverlayDraw()
     {
-      // Perform a cross-fade between current WLED mode and the external buffer
-      uint8_t fade; // amount that Tubes overwrites WLED, 0-255
-      switch (this->controller.options.fader) {
-        case AUTO:
-        default:
-          fade = sin8(millis() / 40);
-          break;
-        case LEFT:
-          fade = 255;
-          break;
-        case RIGHT:
-          fade = 0;
-          break;
-        case MIDDLE:
-          fade = 127;
-          break;
-      }
-
-      if (fade > 0) {
-        uint16_t length = strip.getLengthTotal();
-        for (int i = 0; i < length; i++) {
-          CRGB color1 = strip.getPixelColor(i);
-          CRGB color2 = controller.led_strip->getPixelColor(i);
-
-          uint8_t r = blend8(color1.r, color2.r, fade);
-          uint8_t g = blend8(color1.g, color2.g, fade);
-          uint8_t b = blend8(color1.b, color2.b, fade);
-
-          strip.setPixelColor(i, CRGB(r,g,b));
-        }
-      }
-
       // Draw effects layers over whatever WLED is doing.
       this->controller.overlay();
       this->debug.overlay();
