@@ -142,18 +142,30 @@ class PatternController : public MessageReceiver {
 
   void do_pattern_changes() {
     uint16_t phrase = this->current_state.beat_frame >> 12;
+    bool changed = false;
 
     if (phrase >= this->next_state.pattern_phrase) {
+      Serial.println("Time to change pattern");
       this->load_pattern(this->next_state);
       this->next_state.pattern_phrase = phrase + this->set_next_pattern(phrase);
+      changed = true;
     }
     if (phrase >= this->next_state.palette_phrase) {
+      Serial.println("Time to change palette");
       this->load_palette(this->next_state);
       this->next_state.palette_phrase = phrase + this->set_next_palette(phrase);
+      changed = true;
     }
     if (phrase >= this->next_state.effect_phrase) {
+      Serial.println("Time to change effect");
       this->load_effect(this->next_state);
       this->next_state.effect_phrase = phrase + this->set_next_effect(phrase);
+      changed = true;
+    }
+
+    if (changed) {
+      this->next_state.print();
+      Serial.println();
     }
   }
 
@@ -220,7 +232,7 @@ class PatternController : public MessageReceiver {
 #endif
   }
 
-  void overlay() {
+  void handleOverlayDraw() {
     static uint8_t last_fader = 0;
 
     // Crossfade between the custom pattern engine and WLED
@@ -246,7 +258,7 @@ class PatternController : public MessageReceiver {
     }
 
     if (this->options.power_save) {
-      // Screen door effect
+      // Screen door effectn
       uint16_t length = strip.getLengthTotal();
       for (int i = 0; i < length; i++) {
         if (i % 2) {
@@ -335,24 +347,39 @@ class PatternController : public MessageReceiver {
     this->background_changed();
   }
 
+  bool isShowingWled() {
+    return this->current_state.pattern_id >= numInternalPatterns;
+  }
+
+  // For now, can't crossfade between internal and WLED patterns
+  // If currently running an WLED pattern, only select from internal patterns.
+  uint8_t get_valid_next_pattern() {
+    if (isShowingWled())
+      return random8(0, numInternalPatterns);
+    return random8(0, gPatternCount);
+  }
+
   // Choose the pattern to display at the next pattern cycle
   // Return the number of phrases until the next pattern cycle
   uint16_t set_next_pattern(uint16_t phrase) {
     uint8_t pattern_id;
     PatternDef def;
 
+    Serial.println("Changing next pattern");
     // Try 10 times to find a pattern that fits the current "energy"
     for (int i = 0; i < 10; i++) {
-      pattern_id = random8(gPatternCount);
+      pattern_id = get_valid_next_pattern();
       def = gPatterns[pattern_id];
       if (def.control.energy < this->energy)
         break;
     }
+    Serial.printf("Next pattern will be %d\n", pattern_id);
 
     this->next_state.pattern_id = pattern_id;
     this->next_state.pattern_sync_id = this->randomSyncMode();
 
     switch (def.control.duration) {
+      case ExtraShortDuration: return random8(2, 6);
       case ShortDuration: return random8(5,15);
       case MediumDuration: return random8(15,25);
       case LongDuration: return random8(35,45);
@@ -379,8 +406,8 @@ class PatternController : public MessageReceiver {
   // Choose the palette to display at the next palette cycle
   // Return the number of phrases until the next palette cycle
   uint16_t set_next_palette(uint16_t phrase) {
-    // Don't select palette 1
-    this->next_state.palette_id = random8(2, gGradientPaletteCount);
+    // Don't select the built-in palettes
+    this->next_state.palette_id = random8(6, gGradientPaletteCount);
     return random8(MIN_COLOR_CHANGE_PHRASES, MAX_COLOR_CHANGE_PHRASES);
   }
 
@@ -415,6 +442,7 @@ class PatternController : public MessageReceiver {
     this->next_state.effect_params = def.params;
 
     switch (def.control.duration) {
+      case ExtraShortDuration: return 2;
       case ShortDuration: return 3;
       case MediumDuration: return 6;
       case LongDuration: return 10;

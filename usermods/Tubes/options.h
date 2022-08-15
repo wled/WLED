@@ -9,10 +9,11 @@ typedef enum SyncMode: uint8_t {
 } SyncMode;
 
 typedef enum Duration: uint8_t {
-  ShortDuration=0,
-  MediumDuration=10,
-  LongDuration=20,
-  ExtraLongDuration=30,
+  ExtraShortDuration=0,
+  ShortDuration=10,
+  MediumDuration=20,
+  LongDuration=30,
+  ExtraLongDuration=40,
 } Duration;
 
 typedef enum Energy: uint8_t {
