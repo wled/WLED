@@ -502,15 +502,15 @@ class PatternController : public MessageReceiver {
 
     // For boring patterns, up the chance of a sync mode
     if (this->isBoring)
-      r += 20;
+      r -= 20;
 
-    if (r < 40)
+    if (r < 30)
       return SinDrift;
-    if (r < 65)
+    if (r < 50)
       return Pulse;
-    if (r < 72)
+    if (r < 70)
       return Swing;
-    if (r < 84)
+    if (r < 80)
       return SwingDrift;
     return All;
   }
