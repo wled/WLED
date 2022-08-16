@@ -77,7 +77,10 @@ class VirtualStrip {
     this->brightness = DEF_BRIGHT;
 
     if (this->isWled()) {
-      set_wled_pattern(background.wled_fx_id, 128, 128);
+      uint8_t wled_fx_id = background.wled_fx_id;
+      if (wled_fx_id < 10)
+        wled_fx_id = DEFAULT_WLED_FX;
+      set_wled_pattern(wled_fx_id, 128, 128);
       set_wled_palette(background.palette_id);
     }
   }

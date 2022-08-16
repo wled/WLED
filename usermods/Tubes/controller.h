@@ -19,8 +19,6 @@ const static uint8_t DEFAULT_MASTER_BRIGHTNESS = 200;
 #define MAX_COLOR_CHANGE_PHRASES 4  // 40
 
 
-#define DEBUG_PATTERNS
-
 typedef struct {
   bool debugging;
   bool power_save;
@@ -97,6 +95,9 @@ class PatternController : public MessageReceiver {
     TubeState current_state;
     TubeState next_state;
 
+    // When a pattern is boring, spice it up a bit with more effects
+    bool isBoring = false;
+
   PatternController(uint8_t num_leds, BeatController *beats) {
     this->num_leds = num_leds;
 #ifdef USELCD
@@ -164,6 +165,12 @@ class PatternController : public MessageReceiver {
     }
 
     if (changed) {
+      // For now, WLED doesn't handle transitioning pattern & palette well.
+      // Stagger them
+      if (this->next_state.pattern_phrase == this->next_state.palette_phrase) {
+          this->next_state.palette_phrase += random8(1,3);
+      }
+
       this->next_state.print();
       Serial.println();
     }
@@ -268,10 +275,8 @@ class PatternController : public MessageReceiver {
       }
     }
 
-#ifndef DEBUG_PATTERNS
     // Draw effects layers over whatever WLED is doing.
     this->effects->draw(&strip);
-#endif
   }
 
   void restart_phrase() {
@@ -342,6 +347,7 @@ class PatternController : public MessageReceiver {
     this->current_state.pattern_phrase = tube_state.pattern_phrase;
     this->current_state.pattern_id = tube_state.pattern_id % gPatternCount;
     this->current_state.pattern_sync_id = tube_state.pattern_sync_id;
+    this->isBoring = gPatterns[this->current_state.pattern_id].control.energy == Boring;
 
     Serial.print(F("Change pattern "));
     this->background_changed();
@@ -435,8 +441,12 @@ class PatternController : public MessageReceiver {
   uint16_t set_next_effect(uint16_t phrase) {
     uint8_t effect_num = random8(gEffectCount);
 
+    // Pick a random effect to add; boring patterns get better chance at having an effect.
     EffectDef def = gEffects[effect_num];
-    if (def.control.energy > this->energy)
+    Energy maxEnergy = this->energy;
+    if (this->isBoring)
+      maxEnergy = (Energy)((uint8_t)maxEnergy + 10);
+    if (def.control.energy > maxEnergy)
       def = gEffects[0];
 
     this->next_state.effect_params = def.params;
@@ -489,6 +499,11 @@ class PatternController : public MessageReceiver {
   
   SyncMode randomSyncMode() {
     uint8_t r = random8(128);
+
+    // For boring patterns, up the chance of a sync mode
+    if (this->isBoring)
+      r += 20;
+
     if (r < 40)
       return SinDrift;
     if (r < 65)
