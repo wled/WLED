@@ -183,8 +183,8 @@ PatternDef gPatterns[] = {
   {0, confetti, {MediumDuration}},
 
   {0, juggle, {ShortDuration}},
-  {0, palette_wave, {ShortDuration}},
-  {0, palette_wave, {MediumDuration}},
+  {0, palette_wave, {ShortDuration, Boring}},
+  {0, palette_wave, {MediumDuration, Boring}},
   {0, bpm_palette, {ShortDuration}},
   {0, bpm_palette, {MediumDuration, HighEnergy}},
   {FX_MODE_FADE, draw_wled_fx,{ShortDuration}}, // 12
@@ -194,7 +194,7 @@ PatternDef gPatterns[] = {
       // TODO: Aurora is too dark?
   {FX_MODE_GRADIENT, draw_wled_fx,{ShortDuration}}, // 46
   {FX_MODE_FAIRYTWINKLE, draw_wled_fx, {LongDuration}}, // 51
-  {FX_MODE_RUNNING_DUAL, draw_wled_fx, {ExtraShortDuration}},// 52
+  {FX_MODE_RUNNING_DUAL, draw_wled_fx, {ExtraShortDuration, Boring}},// 52
       // TODO: Kind of boring
   {FX_MODE_DUAL_LARSON_SCANNER, draw_wled_fx, {MediumDuration}}, // 60
   {FX_MODE_JUGGLE, draw_wled_fx, {MediumDuration}}, // 64
@@ -253,6 +253,34 @@ WLED OK not great:
 154 - Plasmoid
 157 - Noisemeter
 
-Jittery, why?
-15 is fine, 16 is jittery
+LIST OF GOOD PATTERNS
+
+Aurora
+Dynamic Smooth
+Blends
+Colortwinkles
+Fireworks
+Fireworks Starburst
+Flow
+Lake
+Noise 2
+Noise 4
+Pacifica
+Plasma
+Ripple
+Running Dual
+Twinklecat
+Twinkleup
+
+MAYBE GOOD PATTERNS
+Fillnoise
+Gradient
+Juggle
+Meteor Smooth
+Palette
+Phased
+Saw
+Sinelon Dual
+Tetrix
+
 */

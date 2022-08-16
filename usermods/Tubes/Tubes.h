@@ -72,39 +72,3 @@ class TubesUsermod : public Usermod {
       this->debug.handleOverlayDraw();
     }
 };
-
-
-
-
-/*
-LIST OF GOOD PATTERNS
-
-Aurora
-Dynamic Smooth
-Blends
-Colortwinkles
-Fireworks
-Fireworks Starburst
-Flow
-Lake
-Noise 2
-Noise 4
-Pacifica
-Plasma
-Ripple
-Running Dual
-Twinklecat
-Twinkleup
-
-MAYBE GOOD PATTERNS
-Fillnoise
-Gradient
-Juggle
-Meteor Smooth
-Palette
-Phased
-Saw
-Sinelon Dual
-Tetrix
-
-*/

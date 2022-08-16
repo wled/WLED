@@ -17,34 +17,12 @@ typedef enum Duration: uint8_t {
 } Duration;
 
 typedef enum Energy: uint8_t {
-  LowEnergy=0,
-  MediumEnergy=10,
-  HighEnergy=20,
+  Boring=0,
+  LowEnergy=10,
+  MediumEnergy=20,
+  HighEnergy=230
 } Energy;
 
-typedef enum Fader: uint8_t {
-  AUTO = 0,  // Does a sin pattern
-  LEFT = 1,  // All left (internal)
-  MIDDLE = 2,  // 50% internal, 50% WLED
-  RIGHT = 3  // All right (WLED)
-} Fader;
-
-uint8_t fader_to_8(Fader fader) {
-  switch (fader) {
-    case AUTO:
-    default:
-      return sin8(millis() / 40);
-
-    case LEFT:
-      return 255;
-
-    case RIGHT:
-      return 0;
-
-    case MIDDLE:
-      return 127;
-  }
-}
 
 typedef struct ControlParameters {
   public:
