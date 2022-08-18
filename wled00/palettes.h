@@ -951,27 +951,47 @@ DEFINE_PALETTE( fib53_15_gp ) {
   253,   1,  1,  1,
   255, 239,241,240};
 
-// Gradient palette "grindylow_15_gp", originally from
-// http://soliton.vm.bytemark.co.uk/pub/cpt-city/gacruxa/grindylow/tn/grindylow-15.png.index.html
+// Gradient palette "purple_orange_d08_gp", originally from
+// http://soliton.vm.bytemark.co.uk/pub/cpt-city/km/tn/purple-orange-d08.png.index.html
 // converted for FastLED with gammas (2.6, 2.2, 2.5)
-// Size: 12 bytes of program space.
+// Size: 64 bytes of program space.
 
-DEFINE_PALETTE( grindylow_15_gp ) {
-    0, 101,241,105,
-  127,  26,182,105,
-  255,  26,151, 80};
+DEFINE_GRADIENT_PALETTE( purple_orange_d08_gp ) {
+    0,  49, 26, 89,
+   31,  49, 26, 89,
+   31, 107, 49,106,
+   63, 107, 49,106,
+   63, 165, 88,127,
+   95, 165, 88,127,
+   95, 188,151,158,
+  127, 188,151,158,
+  127, 210,178,117,
+  159, 210,178,117,
+  159, 239,135, 37,
+  191, 239,135, 37,
+  191, 220, 81,  7,
+  223, 220, 81,  7,
+  223, 159, 37,  1,
+  255, 159, 37,  1};
 
-// Gradient palette "grindylow_21_gp", originally from
-// http://soliton.vm.bytemark.co.uk/pub/cpt-city/gacruxa/grindylow/tn/grindylow-21.png.index.html
+// Gradient palette "pmh_gp", originally from
+// http://soliton.vm.bytemark.co.uk/pub/cpt-city/esdb/tn/pmh.png.index.html
 // converted for FastLED with gammas (2.6, 2.2, 2.5)
-// Size: 20 bytes of program space.
+// Size: 48 bytes of program space.
 
-DEFINE_PALETTE( grindylow_21_gp ) {
-    0, 101,241,105,
-   51,  60,241,240,
-  128,  26,241,240,
-  191,  26,182,105,
-  255,  26,151, 80};
+DEFINE_PALETTE( pmh_gp ) {
+    0, 255, 55,145,
+   42, 255, 55,145,
+   42, 255,182,145,
+   84, 255,182,145,
+   84, 255,255,105,
+  127, 255,255,105,
+  127, 171,255,174,
+  170, 171,255,174,
+  170, 101,255,212,
+  212, 101,255,212,
+  212, 171, 82,212,
+  255, 171, 82,212};
 
 // Gradient palette "konjo_08_gp", originally from
 // http://soliton.vm.bytemark.co.uk/pub/cpt-city/gacruxa/konjo/tn/konjo-08.png.index.html
@@ -2045,8 +2065,8 @@ const byte* const gGradientPalettes[] PROGMEM = {
   calpan_18_gp,
   calbayo_18_gp,
   fib53_15_gp,
-  grindylow_15_gp,
-  grindylow_21_gp,
+  purple_orange_d08_gp,
+  pmh_gp,
   konjo_08_gp,
   konkikyo_19_gp,
   mccahon_16_gp,
