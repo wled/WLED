@@ -19,6 +19,8 @@ const static uint8_t DEFAULT_MASTER_BRIGHTNESS = 200;
 #define MAX_COLOR_CHANGE_PHRASES 4  // 40
 
 
+#define IDENTIFY_STUCK_PATTERNS
+
 typedef struct {
   bool debugging;
   bool power_save;
@@ -91,7 +93,7 @@ class PatternController : public MessageReceiver {
     ControllerOptions options;
     char key_buffer[20] = {0};
 
-    Energy energy=LowEnergy;
+    Energy energy=Chill;
     TubeState current_state;
     TubeState next_state;
 
@@ -146,19 +148,25 @@ class PatternController : public MessageReceiver {
     bool changed = false;
 
     if (phrase >= this->next_state.pattern_phrase) {
+#ifdef IDENTIFY_STUCK_PATTERNS
       Serial.println("Time to change pattern");
+#endif
       this->load_pattern(this->next_state);
       this->next_state.pattern_phrase = phrase + this->set_next_pattern(phrase);
       changed = true;
     }
     if (phrase >= this->next_state.palette_phrase) {
+#ifdef IDENTIFY_STUCK_PATTERNS
       Serial.println("Time to change palette");
+#endif
       this->load_palette(this->next_state);
       this->next_state.palette_phrase = phrase + this->set_next_palette(phrase);
       changed = true;
     }
     if (phrase >= this->next_state.effect_phrase) {
+#ifdef IDENTIFY_STUCK_PATTERNS
       Serial.println("Time to change effect");
+#endif
       this->load_effect(this->next_state);
       this->next_state.effect_phrase = phrase + this->set_next_effect(phrase);
       changed = true;
@@ -306,7 +314,7 @@ class PatternController : public MessageReceiver {
     else if (this->current_state.bpm > 120>>8)
       this->energy = MediumEnergy;
     else
-      this->energy = LowEnergy;
+      this->energy = Chill;
   }
   
   void send_update() {
@@ -371,7 +379,9 @@ class PatternController : public MessageReceiver {
     uint8_t pattern_id;
     PatternDef def;
 
+#ifdef IDENTIFY_STUCK_PATTERNS
     Serial.println("Changing next pattern");
+#endif
     // Try 10 times to find a pattern that fits the current "energy"
     for (int i = 0; i < 10; i++) {
       pattern_id = get_valid_next_pattern();
@@ -379,7 +389,9 @@ class PatternController : public MessageReceiver {
       if (def.control.energy < this->energy)
         break;
     }
+#ifdef IDENTIFY_STUCK_PATTERNS
     Serial.printf("Next pattern will be %d\n", pattern_id);
+#endif
 
     this->next_state.pattern_id = pattern_id;
     this->next_state.pattern_sync_id = this->randomSyncMode();

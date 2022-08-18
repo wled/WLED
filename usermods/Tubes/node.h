@@ -177,7 +177,7 @@ class LightNode {
         // enter or continue re-broadcasting mode.
         if (node->uplinkId == this->header.id
             || (node->uplinkId == 0 && node->id < this->header.id)) {
-            Serial.printf("%03X/%03X is following me\n", node->id, node->uplinkId);
+            Serial.printf("        %03X/%03X is following me\n", node->id, node->uplinkId);
             this->rebroadcastTimer.start(REBROADCAST_TIME);
         }
     }
