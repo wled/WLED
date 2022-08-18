@@ -17,8 +17,8 @@ typedef enum Duration: uint8_t {
 } Duration;
 
 typedef enum Energy: uint8_t {
-  Boring=0,
-  LowEnergy=10,
+  Boring=0,  // a "boring" pattern is slow or whatever but -needs- effects to be interesting
+  Chill=10,   // A "chill" pattern is only slow fades, no flashes
   MediumEnergy=20,
   HighEnergy=230
 } Energy;
@@ -27,9 +27,9 @@ typedef enum Energy: uint8_t {
 typedef struct ControlParameters {
   public:
     Duration duration=MediumDuration;
-    Energy energy=LowEnergy;
+    Energy energy=Chill;
 
-  ControlParameters(Duration duration=MediumDuration, Energy energy=LowEnergy) {
+  ControlParameters(Duration duration=MediumDuration, Energy energy=Chill) {
     this->duration=duration;
     this->energy=energy;
   };

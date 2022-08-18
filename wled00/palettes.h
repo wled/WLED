@@ -956,7 +956,7 @@ DEFINE_PALETTE( fib53_15_gp ) {
 // converted for FastLED with gammas (2.6, 2.2, 2.5)
 // Size: 64 bytes of program space.
 
-DEFINE_GRADIENT_PALETTE( purple_orange_d08_gp ) {
+DEFINE_PALETTE( purple_orange_d08_gp ) {
     0,  49, 26, 89,
    31,  49, 26, 89,
    31, 107, 49,106,
