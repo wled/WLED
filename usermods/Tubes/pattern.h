@@ -228,7 +228,7 @@ PatternDef gPatterns[] = {
   {FX_MODE_EXPLODING_FIREWORKS, draw_wled_fx, {ExtraShortDuration}},// 90
       // TODO: Must be set to only fire from one side
   {FX_MODE_SINELON_DUAL, draw_wled_fx, {MediumDuration}}, // 93
-  {FX_MODE_POPCORN, draw_wled_fx, {ShortDuration}}, // 95
+  {FX_MODE_POPCORN, draw_wled_fx, {ShortDuration, MediumEnergy}}, // 95
   {FX_MODE_PLASMA, draw_wled_fx, {ShortDuration}}, // 97
   {FX_MODE_PLASMA, draw_wled_fx, {LongDuration}}, // 97
 

@@ -1984,22 +1984,241 @@ DEFINE_PALETTE( janico_22_gp ) {
   255, 194,225,255};
 
 
+// Gradient palette "Adrift_in_Dreams_gp", originally from
+// http://soliton.vm.bytemark.co.uk/pub/cpt-city/colo/Skyblue2u/tn/Adrift_in_Dreams.png.index.html
+// converted for FastLED with gammas (2.6, 2.2, 2.5)
+// Size: 40 bytes of program space.
+
+DEFINE_PALETTE( Adrift_in_Dreams_gp ) {
+    0, 148,223, 77,
+   51, 148,223, 77,
+   51,  86,182, 89,
+  102,  86,182, 89,
+  102,  36,131, 72,
+  153,  36,131, 72,
+  153,   5, 61, 51,
+  204,   5, 61, 51,
+  204,   1, 15, 29,
+  255,   1, 15, 29};
+
+
+// Gradient palette "Set3_03_gp", originally from
+// http://soliton.vm.bytemark.co.uk/pub/cpt-city/cb/qual/tn/Set3_03.png.index.html
+// converted for FastLED with gammas (2.6, 2.2, 2.5)
+// Size: 24 bytes of program space.
+
+DEFINE_PALETTE( Set3_03_gp ) {
+    0,  54,168,137,
+   84,  54,168,137,
+   84, 255,255,105,
+  170, 255,255,105,
+  170, 118,127,172,
+  255, 118,127,172};
+
+// Gradient palette "Pastel1_06_gp", originally from
+// http://soliton.vm.bytemark.co.uk/pub/cpt-city/cb/qual/tn/Pastel1_06.png.index.html
+// converted for FastLED with gammas (2.6, 2.2, 2.5)
+// Size: 48 bytes of program space.
+
+DEFINE_PALETTE( Pastel1_06_gp ) {
+    0, 244,118, 98,
+   42, 244,118, 98,
+   42, 101,157,190,
+   84, 101,157,190,
+   84, 142,213,133,
+  127, 142,213,133,
+  127, 177,154,192,
+  170, 177,154,192,
+  170, 252,178, 87,
+  212, 252,178, 87,
+  212, 255,255,145,
+  255, 255,255,145};
+
+
+// Gradient palette "es_rosa_55_gp", originally from
+// http://soliton.vm.bytemark.co.uk/pub/cpt-city/es/rosa/tn/es_rosa_55.png.index.html
+// converted for FastLED with gammas (2.6, 2.2, 2.5)
+// Size: 20 bytes of program space.
+
+DEFINE_PALETTE( es_rosa_55_gp ) {
+    0,   6,  1,  2,
+  101,  54,  1, 10,
+  170,  15, 29,  4,
+  216,  95,124, 54,
+  255, 213,233,158};
+
+// Gradient palette "daybreak_gp", originally from
+// http://soliton.vm.bytemark.co.uk/pub/cpt-city/pj/1/tn/daybreak.png.index.html
+// converted for FastLED with gammas (2.6, 2.2, 2.5)
+// Size: 32 bytes of program space.
+
+DEFINE_PALETTE( daybreak_gp ) {
+    0,   1,  1,  1,
+   91,   4, 11, 21,
+  140,  11, 31,135,
+  150, 255,255,125,
+  165, 132, 18,123,
+  198,  58, 92,221,
+  232,  57,168,223,
+  255, 255,241,242};
+
+
+// Gradient palette "melancholiy_gp", originally from
+// http://soliton.vm.bytemark.co.uk/pub/cpt-city/pj/3/tn/melancholiy.png.index.html
+// converted for FastLED with gammas (2.6, 2.2, 2.5)
+// Size: 20 bytes of program space.
+
+DEFINE_PALETTE( melancholiy_gp ) {
+    0, 255,171,242,
+   76,   1,  2,105,
+  140, 121,136,125,
+  211, 255,171,242,
+  255,   1,  2,105};
+
+
+// Gradient palette "xanidu_gp", originally from
+// http://soliton.vm.bytemark.co.uk/pub/cpt-city/pj/3/tn/xanidu.png.index.html
+// converted for FastLED with gammas (2.6, 2.2, 2.5)
+// Size: 36 bytes of program space.
+
+DEFINE_PALETTE( xanidu_gp ) {
+    0, 118,161,226,
+    5, 255,255, 45,
+   15, 252,203,156,
+   53,  79,  1,162,
+   94,  67,  1,  7,
+  132,   1, 55,156,
+  173,   1,127, 61,
+  211,  39, 45, 72,
+  255, 118,161,226};
+
+
+// Gradient palette "air_gp", originally from
+// http://soliton.vm.bytemark.co.uk/pub/cpt-city/pj/3/tn/air.png.index.html
+// converted for FastLED with gammas (2.6, 2.2, 2.5)
+// Size: 36 bytes of program space.
+
+DEFINE_PALETTE( air_gp ) {
+    0, 252,246,103,
+   84, 252,246,103,
+  140,  14,  1, 91,
+  155, 165,176,156,
+  163, 252,246,103,
+  170,  14,  1, 91,
+  181, 165,176,156,
+  193, 252,246,103,
+  255, 252,246,103};
+
+
+// Gradient palette "revolution2_gp", originally from
+// http://soliton.vm.bytemark.co.uk/pub/cpt-city/pj/6/tn/revolution2.png.index.html
+// converted for FastLED with gammas (2.6, 2.2, 2.5)
+// Size: 40 bytes of program space.
+
+DEFINE_PALETTE( revolution2_gp ) {
+    0, 112, 46, 21,
+   33, 101, 69, 14,
+   61, 194, 74, 29,
+   91, 242,115, 52,
+  119, 215,211,102,
+  145,   2,  2,  1,
+  163,   8, 28, 46,
+  186,  17,  9,  1,
+  229, 215,211,102,
+  255, 242,115, 52};
+
+
+// Gradient palette "sky_33_gp", originally from
+// http://soliton.vm.bytemark.co.uk/pub/cpt-city/rafi/tn/sky-33.png.index.html
+// converted for FastLED with gammas (2.6, 2.2, 2.5)
+// Size: 20 bytes of program space.
+
+DEFINE_PALETTE( sky_33_gp ) {
+    0, 237,229,140,
+   51, 227,107, 79,
+   87, 155, 55, 54,
+  178,  22, 28, 36,
+  255,   5, 19, 31};
+
+// Gradient palette "sky_45_gp", originally from
+// http://soliton.vm.bytemark.co.uk/pub/cpt-city/rafi/tn/sky-45.png.index.html
+// converted for FastLED with gammas (2.6, 2.2, 2.5)
+// Size: 20 bytes of program space.
+
+DEFINE_PALETTE( sky_45_gp ) {
+    0, 249,205,  4,
+   51, 255,239,123,
+   87,   5,141, 85,
+  178,   1, 26, 43,
+  255,   0,  2, 23};
+
+// Gradient palette "sky_05_gp", originally from
+// http://soliton.vm.bytemark.co.uk/pub/cpt-city/rafi/tn/sky-05.png.index.html
+// converted for FastLED with gammas (2.6, 2.2, 2.5)
+// Size: 28 bytes of program space.
+
+DEFINE_PALETTE( sky_05_gp ) {
+    0, 252, 61,  2,
+   25, 255,146,  4,
+   63, 224,255,255,
+  101,  46,114,226,
+  127,   6, 40,127,
+  191,   1,  3, 17,
+  255,   1,  1,  4};
+
+
+// Gradient palette "carousel_gp", originally from
+// http://soliton.vm.bytemark.co.uk/pub/cpt-city/rc/tn/carousel.png.index.html
+// converted for FastLED with gammas (2.6, 2.2, 2.5)
+// Size: 28 bytes of program space.
+
+DEFINE_PALETTE( carousel_gp ) {
+    0,   2,  6, 37,
+  101,   2,  6, 37,
+  122, 177,121,  9,
+  127, 217,149,  2,
+  132, 177,121,  9,
+  153,  84, 13, 36,
+  255,  84, 13, 36};
+
+// Gradient palette "nrwc_gp", originally from
+// http://soliton.vm.bytemark.co.uk/pub/cpt-city/wkp/tubs/tn/nrwc.png.index.html
+// converted for FastLED with gammas (2.6, 2.2, 2.5)
+// Size: 44 bytes of program space.
+
+DEFINE_PALETTE( nrwc_gp ) {
+    0,   1,  1,  1,
+   25,   4,  8,  1,
+   51,   1, 11,  2,
+   76,   4, 36,  9,
+  102,   6, 66, 18,
+  127,  27, 95, 23,
+  153,  82,127, 31,
+  178, 197,171, 40,
+  204, 133,100, 19,
+  229,  97, 48,  6,
+  255, 163, 55,  7};
+
+
+
 // Single array of defined cpt-city color palettes.
 // This will let us programmatically choose one based on
 // a number, rather than having to activate each explicitly
 // by name every time.
 const byte* const gGradientPalettes[] PROGMEM = {
-  ib_jul01_gp,                    //13-00 Jul01
+  // starts at #13:
+  ib_jul01_gp,
   es_vintage_57_gp,
   es_vintage_01_gp,
   es_rivendell_15_gp,
   rgi_15_gp,
   retro2_16_gp,
   Analogous_1_gp,
+
+  // 20
   es_pinksplash_08_gp,
   es_pinksplash_07_gp,
   Coral_reef_gp,
-  
   es_ocean_breeze_068_gp,
   es_ocean_breeze_036_gp,
   departure_gp,
@@ -2007,10 +2226,11 @@ const byte* const gGradientPalettes[] PROGMEM = {
   es_landscape_33_gp,
   rainbowsherbet_gp,
   gr65_hult_gp,
+
+  // 30
   gr64_hult_gp,
   GMT_drywet_gp,
   ib15_gp,
-  
   Fuschia_7_gp,
   es_emerald_dragon_08_gp,
   lava_gp,
@@ -2018,10 +2238,11 @@ const byte* const gGradientPalettes[] PROGMEM = {
   haiyan_23_gp,
   Colorfull_gp,
   Magenta_Evening_gp,
+
+  // 40
   Pink_Purple_gp,
   Sunset_Real_gp,
   es_autumn_19_gp,
-  
   BlacK_Blue_Magenta_White_gp,
   BlacK_Magenta_Red_gp,
   BlacK_Red_Magenta_Yellow_gp,
@@ -2029,10 +2250,11 @@ const byte* const gGradientPalettes[] PROGMEM = {
   Sunset_Yellow_gp,
   cloud_gp,
   fireandice_gp,
+
+  // 50
   bhw2_39_gp,
   rainfall_gp,
   tashangel_gp,
-  
   butterflytalker_gp,
   os250k_metres_gp,
   Night_Midnight_gp,
@@ -2040,8 +2262,9 @@ const byte* const gGradientPalettes[] PROGMEM = {
   BlueSky_gp,
   Gold_Orange_gp,
   frizzell_10_gp,
+
+  // 60
   frizzell_12_gp,
-  
   fib53_18_gp,
   fib53_13_gp,
   fib53_17_gp,
@@ -2050,8 +2273,9 @@ const byte* const gGradientPalettes[] PROGMEM = {
   Analogous_04a_gp,
   Cyan_Orange_Stripped_gp,
   Cyan_White_Green_gp,
-
   Wild_Orange_gp,
+
+  // 70
   IKat_Radial_gp,
   Citrus_gp,
   Teal_Blue_gp,
@@ -2061,8 +2285,9 @@ const byte* const gGradientPalettes[] PROGMEM = {
   green_purple_d07_gp,
   knoza_00_gp,
   knoza_18_gp,
-
   calpan_18_gp,
+
+  // 80
   calbayo_18_gp,
   fib53_15_gp,
   purple_orange_d08_gp,
@@ -2073,6 +2298,8 @@ const byte* const gGradientPalettes[] PROGMEM = {
   Pills_2_gp,
   Pink_Yellow_Orange_1_gp,
   es_autumn_04_gp,
+
+  // 90
   es_autumn_02_gp,
   es_candide_30_gp,
   es_chic_16_gp,
@@ -2083,6 +2310,8 @@ const byte* const gGradientPalettes[] PROGMEM = {
   es_landscape_47_gp,
   es_landscape_10_gp,
   es_landscape_76_gp,
+
+  // 100
   es_landscape_61_gp,
   es_landscape_60_gp,
   es_landscape_51_gp,
@@ -2093,12 +2322,29 @@ const byte* const gGradientPalettes[] PROGMEM = {
   es_pinksplash_05_gp,
   es_pinksplash_10_gp,
   es_vintage_56_gp,
+
+  // 110
   es_vintage_10_gp,
   gold_yellow_gp,
   radioactive_slime_gp,
   pastel_rainbow_gp,
   purple_sunset_gp,
-  janico_22_gp
+  Adrift_in_Dreams_gp,
+  Set3_03_gp,
+  Pastel1_06_gp,
+  es_rosa_55_gp,
+  daybreak_gp,
+  
+  // 120
+  melancholiy_gp,
+  xanidu_gp,
+  air_gp,
+  revolution2_gp,
+  sky_05_gp,
+  sky_33_gp,
+  sky_45_gp,
+  carousel_gp,
+  nrwc_gp,
 
 /*
   Sunset_Real_gp,               //13-00 Sunset
@@ -2162,7 +2408,7 @@ const byte* const gGradientPalettes[] PROGMEM = {
 */
 };
 const uint8_t gGradientPaletteCount = ARRAY_SIZE(gGradientPalettes);
-#define GRADIENT_PALETTE_COUNT 103
+#define GRADIENT_PALETTE_COUNT 116
 
 
 #endif

@@ -138,6 +138,7 @@ class PatternController : public MessageReceiver {
     this->next_state.pattern_phrase = 0;
     this->next_state.palette_phrase = 0;
     this->next_state.effect_phrase = 0;
+    VirtualStrip::set_wled_pattern(DEFAULT_WLED_FX, 128, 128);
 
     this->updateTimer.start(STATUS_UPDATE_PERIOD); // Ready to send an update as soon as we're able to
     Serial.println("Patterns: ok");
@@ -248,14 +249,8 @@ class PatternController : public MessageReceiver {
   }
 
   void handleOverlayDraw() {
-    static uint8_t last_fader = 0;
-
     // Crossfade between the custom pattern engine and WLED
     uint8_t fader = this->wled_fader >> 8;
-    if (fader != last_fader) {
-      Serial.printf("fader %u ", fader);
-      last_fader = fader;
-    }
     if (fader < 255) {
       // Perform a cross-fade between current WLED mode and the external buffer
       uint16_t length = strip.getLengthTotal();
