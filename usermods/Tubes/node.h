@@ -50,7 +50,7 @@ typedef struct {
 
 void onDataReceived (uint8_t* address, uint8_t* data, uint8_t len, signed int rssi, bool broadcast);
 
-char *command_name(CommandId command) {
+const char *command_name(CommandId command) {
     switch (command) {
         case COMMAND_UPDATE:
             return "UPDATE";
@@ -130,7 +130,10 @@ class LightNode {
 
     void configure_ap() {
         // Don't connect to any networks.
+        // strcpy(clientSSID, "Fish Tank");
+        // strcpy(clientPass, "Fish Tank");
         strcpy(clientSSID, "");
+        strcpy(clientPass, "");
 
         // Try to hide the access point unless this is the "root" node
         if (this->is_following()) {

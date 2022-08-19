@@ -70,7 +70,7 @@ class Button {
 
 class PatternController : public MessageReceiver {
   public:
-    const static int FRAMES_PER_SECOND = 100;  // how often we animate, in frames per second
+    const static int FRAMES_PER_SECOND = 60;  // how often we animate, in frames per second
     const static int REFRESH_PERIOD = 1000 / FRAMES_PER_SECOND;  // how often we animate, in milliseconds
 
     uint8_t num_leds;
@@ -78,6 +78,8 @@ class PatternController : public MessageReceiver {
     uint8_t next_vstrip = 0;
     bool isMaster = false;
     uint16_t wled_fader = 0;
+
+    AutoUpdater auto_updater;
 
     Timer graphicsTimer;
     Timer updateTimer;
@@ -233,6 +235,7 @@ class PatternController : public MessageReceiver {
         this->send_update();
       }
 
+    this->auto_updater.update();
    }
 
 #ifdef USELCD
@@ -280,6 +283,34 @@ class PatternController : public MessageReceiver {
 
     // Draw effects layers over whatever WLED is doing.
     this->effects->draw(&strip);
+
+    CRGB c;
+    switch (this->auto_updater.status) {
+      case Started:
+      case Connected:
+      case Received:
+        c = CRGB::Yellow;
+        if (millis() % 1000 < 500) {
+          c = CRGB::Black;
+        }
+        break;
+
+      case Failed:
+        c = CRGB::Red;
+        break;
+
+      case Complete:
+        c = CRGB::Green;
+        break;
+
+      case Idle:
+      default:
+        return;
+    }
+    for (int i = 0; i < 20; i++) {
+      strip.setPixelColor(i, c);
+    }
+
   }
 
   void restart_phrase() {
@@ -715,10 +746,11 @@ class PatternController : public MessageReceiver {
         Serial.println(F("d - toggle debugging"));
         Serial.println(F("l### - brightness"));
         Serial.println("@ - power save mode");
+        Serial.println("U - begin auto-update");
         return;
 
       case 'U':
-        WifiUpdater().web_update();
+        this->auto_updater.start();
         return;
 
       case 0:

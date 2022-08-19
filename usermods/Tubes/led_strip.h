@@ -11,8 +11,8 @@ class LEDs {
     CRGB leds[MAX_REAL_LEDS];
     // CRGB led_array[MAX_REAL_LEDS];
 
-    const static int FRAMES_PER_SECOND = 150;  // how often we refresh the strip, in frames per second
-    const static int REFRESH_PERIOD = 1000 / FRAMES_PER_SECOND;  // how often we refresh the strip, in milliseconds
+    const static int TARGET_FRAMES_PER_SECOND = 150;
+    const static int TARGET_REFRESH = 1000 / TARGET_FRAMES_PER_SECOND;
     int num_leds;
 
     uint16_t fps = 0;
@@ -33,21 +33,12 @@ class LEDs {
     }
   }
 
-  void show() {
-    // There's nothing to do right now, because in Tubes.h we blend the LEDs into
-  }
-  
   void update(bool reverse=false) {
-    EVERY_N_MILLISECONDS( this->REFRESH_PERIOD ) {
-      // Update the LEDs
-      if (reverse)
-        this->reverse();
-      show();
+    EVERY_N_MILLISECONDS( this->TARGET_REFRESH ) {
       this->fps++;
     }
-
     EVERY_N_MILLISECONDS( 1000 ) {
-      if (this->fps < (FRAMES_PER_SECOND - 30)) {
+      if (this->fps < (TARGET_FRAMES_PER_SECOND - 30)) {
         Serial.print(this->fps);
         Serial.println((char *)F(" fps!"));
       }
