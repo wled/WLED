@@ -199,7 +199,7 @@ PatternDef gPatterns[] = {
   {0, bpm_palette, {ShortDuration}},
   {0, bpm_palette, {MediumDuration, HighEnergy}},
   {FX_MODE_FADE, draw_wled_fx, {ShortDuration, Boring}}, // 12
-  {FX_MODE_CHASE_RAINBOW, draw_wled_fx, {MediumDuration}}, // 30
+  {FX_MODE_CHASE_RAINBOW, draw_wled_fx, {MediumDuration, HighEnergy}}, // 30
       // Make it HighEnergy? or find out why it's sometimes flashy
   {FX_MODE_AURORA, draw_wled_fx, {MediumDuration, Boring}}, // 38
       // TODO: Aurora is too dark?
@@ -216,7 +216,7 @@ PatternDef gPatterns[] = {
   {FX_MODE_FILLNOISE8, draw_wled_fx, {LongDuration}}, // 69
   {FX_MODE_NOISE16_2, draw_wled_fx, {MediumDuration}}, // 71
   {FX_MODE_NOISE16_3, draw_wled_fx, {ShortDuration}}, // 72
-  {FX_MODE_NOISE16_3, draw_wled_fx, {LongDuration}}, // 72
+  {FX_MODE_NOISE16_3, draw_wled_fx, {LongDuration, MediumEnergy}}, // 72
       // TODO: Noise3 needs to be slowed down, it's a bit spastic
   {FX_MODE_COLORTWINKLE, draw_wled_fx, {MediumDuration}}, // 74
 

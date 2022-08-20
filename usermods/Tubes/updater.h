@@ -6,6 +6,8 @@
 #include <Update.h>
 #include "timer.h"
 
+#define RELEASE_VERSION 3
+
 // Utility to extract header value from headers
 String getHeaderValue(String header, String headerName) {
   return header.substring(strlen(headerName.c_str()));
@@ -20,13 +22,19 @@ typedef enum UpdateWorkflowStatus: uint8_t {
   Failed=101,
 } UpdateWorkflowStatus;
 
+typedef struct AutoUpdateOffer {
+    int version = RELEASE_VERSION;
+    char ssid[25] = "Fish Tank";
+    char password[25] = "Fish Tank";
+    IPAddress host = IPAddress(192,168,0,146);
+} AutoUpdateOffer;
+
 class AutoUpdater {
   public:
-    String autoUpdateSSID = "<SSID>>";
-    String autoUpdatePass = "<Password>>";
-    String host = "<host IP>";
-    String bin = "/firmware.bin";
+    AutoUpdateOffer location;
+    String path = "/firmware.bin";
     int port = 8000;
+
     long fileSize = 0;
 
     String _storedSSID = "";
@@ -46,6 +54,7 @@ class AutoUpdater {
                 if (this->progressTimer.ended())
                     this->status = Idle;
             case Idle:
+            case Received:
                 return;
 
             case Started:
@@ -53,7 +62,7 @@ class AutoUpdater {
                 return;
 
             case Connected:
-                this->do_request(this->_client);
+                this->do_request();
                 return;
         }
     }
@@ -67,7 +76,6 @@ class AutoUpdater {
         // The auto-update process might break the current connection
         _storedSSID = String(clientSSID);
         _storedPass = String(clientPass);
-
         WLED::instance().disableWatchdog();
         
         log("starting autoupdate");
@@ -76,17 +84,20 @@ class AutoUpdater {
 
     void stop() {
         this->_client.stop();
-
         strcpy(clientSSID, _storedSSID.c_str());
         strcpy(clientPass, _storedPass.c_str());
+        WiFi.disconnect(false, true);
         WLED::instance().enableWatchdog();
-
         this->status = Idle;
     }
 
   private:
     void log(const char *message) {
         Serial.printf("OTA: %s\n", message);
+    }
+
+    void log(String message) {
+        log(message.c_str());
     }
 
     void abort(const char *message) {
@@ -101,8 +112,8 @@ class AutoUpdater {
         switch (s) {
             case WL_DISCONNECTED:
                 log("connecting to autoupdate server");
-                strcpy(clientSSID, autoUpdateSSID.c_str());
-                strcpy(clientPass, autoUpdatePass.c_str());
+                strcpy(clientSSID, this->location.ssid);
+                strcpy(clientPass, this->location.password);
                 return;
 
             case WL_NO_SSID_AVAIL:
@@ -114,9 +125,9 @@ class AutoUpdater {
                 return;
 
             case WL_CONNECTED:
-                if (WiFi.SSID() != autoUpdateSSID) {
+                if (WiFi.SSID() != String(this->location.ssid)) {
                     log("disconnecting from WiFi");
-                    WiFi.disconnect(true);
+                    WiFi.disconnect(false, true);
                     apBehavior = AP_BEHAVIOR_BUTTON_ONLY;
                     return;
                 }
@@ -131,33 +142,36 @@ class AutoUpdater {
         }
     }
 
-    void do_request(WiFiClient client) {
-        if (!client.connect(host.c_str(), port)) {
-            log("connect failed");
-            this->stop();
+    void do_request() {
+        log("connecting");
+        if (!this->_client.connect(this->location.host, this->port)) {
+            abort("connect failed");
             return;
         }
-        log("connected");
 
         // Get the contents of the bin file
-        client.print(String("GET ") + bin + " HTTP/1.1\r\n" +
-            "Host: " + host + "\r\n" +
+        log("requesting update package");
+        this->_client.print(String("GET ") + this->path + " HTTP/1.1\r\n" +
+            "Host: " + this->location.host + "\r\n" +
             "Cache-Control: no-cache\r\n\r\n");
 
+        log("awaiting response");
         timeoutTimer.start(5000);
-        while (!client.available()) {
-            vTaskDelay( 200 );
+        while (!this->_client.available()) {
+            vTaskDelay( 400 );
             if (timeoutTimer.ended()) {
                 abort("timed out waiting for response");
                 return;
             }
+            log("waiting...");
         }
 
         String contentType = "";
 
-        while (client.available()) {
+        log("reading response");
+        while (this->_client.available()) {
             // read line till /n - if the line is empty, it's the end of the headers.
-            String line = client.readStringUntil('\n');
+            String line = this->_client.readStringUntil('\n');
             line.trim();
             if (!line.length()) break;
 
@@ -195,7 +209,7 @@ class AutoUpdater {
         log("found a valid OTA BIN");
 
         this->status = Received;
-        this->do_update(client);
+        this->do_update(this->_client);
     }
 
     void do_update(WiFiClient client) {
@@ -206,7 +220,7 @@ class AutoUpdater {
 
         this->progress = 0;
         vTaskDelay(500);
-        uint8_t buf[4096];
+        uint8_t buf[2048];
         int lr;
         while ((lr = client.read(buf, sizeof(buf))) > 0) {
             size_t written = Update.write(buf, lr);
@@ -232,8 +246,8 @@ class AutoUpdater {
             return;
         }
         
-        log("update successfully completed. Rebooting.");
         doReboot = true;
+        log("update successfully completed. Rebooting.");
         this->status = Complete;
         this->progressTimer.start(10000);
         this->stop();

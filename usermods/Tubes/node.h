@@ -38,7 +38,7 @@ typedef enum{
     ROOT=1,
 } MessageRecipients;
 
-#define MESSAGE_DATA_SIZE 50
+#define MESSAGE_DATA_SIZE 64
 
 typedef struct {
     MeshNodeHeader header;
@@ -279,7 +279,7 @@ class LightNode {
             return;
         message->timebase = strip.timebase + millis();
         
-#ifdef NODE_DEBUGGING        
+#ifdef NODE_DEBUGGING
         Serial.print("  <<< ");
         print_message(message, 0);
         Serial.println();
@@ -295,7 +295,8 @@ class LightNode {
 
     void sendCommand(CommandId command, void *data, uint8_t len) {
         if (len > MESSAGE_DATA_SIZE) {
-            Serial.println("Message is too big!");
+            Serial.printf("Message is too big: %d vs %d\n",
+                len, MESSAGE_DATA_SIZE);
             return;
         }
 
