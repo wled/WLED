@@ -79,7 +79,7 @@ class PatternController : public MessageReceiver {
     bool isMaster = false;
     uint16_t wled_fader = 0;
 
-    AutoUpdater auto_updater;
+    AutoUpdater auto_updater = AutoUpdater();
 
     Timer graphicsTimer;
     Timer updateTimer;
@@ -732,6 +732,14 @@ class PatternController : public MessageReceiver {
           addGlitter();
         return;
 
+      case 'W':
+        // Clear wifi
+        Serial.print("Clearing WiFi connection.");
+        strcpy(clientSSID, "");
+        strcpy(clientPass, "");
+        WiFi.disconnect(false, true);
+        return;
+
       case '?':
         Serial.println(F("b###.# - set bpm"));
         Serial.println(F("s - start phrase"));
@@ -747,10 +755,15 @@ class PatternController : public MessageReceiver {
         Serial.println(F("l### - brightness"));
         Serial.println("@ - power save mode");
         Serial.println("U - begin auto-update");
+        Serial.println("O - offer an auto-update");
         return;
 
       case 'U':
         this->auto_updater.start();
+        return;
+
+      case 'O':
+        broadcast_autoupdate();
         return;
 
       case 0:
@@ -778,6 +791,11 @@ class PatternController : public MessageReceiver {
 
   void broadcast_options() {
     this->node->sendCommand(COMMAND_OPTIONS, &this->options, sizeof(this->options));
+  }
+
+  void broadcast_autoupdate() {
+    AutoUpdateOffer offer;
+    this->node->sendCommand(COMMAND_UPGRADE, &this->auto_updater.location, sizeof(this->auto_updater.location));
   }
 
   virtual void onCommand(CommandId command, void *data) {
@@ -811,6 +829,11 @@ class PatternController : public MessageReceiver {
         this->beats->sync(state.bpm, state.beat_frame);
         return;
       }
+
+      case COMMAND_UPGRADE:
+        memcpy((byte*)&this->auto_updater.location, (byte*)data, sizeof(AutoUpdateOffer));
+        this->auto_updater.start();
+        return;
     }
   
     Serial.printf("UNKNOWN COMMAND %02X", command);

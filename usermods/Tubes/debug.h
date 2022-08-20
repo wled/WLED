@@ -82,7 +82,7 @@ class DebugController {
       auto seg = strip.getMainSegment();
       extractModeName(seg.mode, JSON_mode_names, mode_name, 50);
       extractModeName(seg.palette, JSON_palette_names, palette_name, 50);
-      Serial.printf("=== WLED: %s(%u) %s(%u) speed:%u intensity:%u  at %d\n\n",
+      Serial.printf("=== WLED: %s(%u) %s(%u) speed:%u intensity:%u  at %d\n",
         mode_name,
         seg.mode,
         palette_name,
@@ -91,6 +91,17 @@ class DebugController {
         seg.intensity,
         this->controller->wled_fader
       );
+
+      Serial.printf("=== OTA: v%d state %d  SSID %s  %u.%u.%u.%u \n\n",
+        this->controller->auto_updater.location.version,
+        this->controller->auto_updater.status,
+        this->controller->auto_updater.location.ssid,
+        this->controller->auto_updater.location.host[0],
+        this->controller->auto_updater.location.ssid[1],
+        this->controller->auto_updater.location.ssid[2],
+        this->controller->auto_updater.location.ssid[3]
+      );
+
     }
   }
 

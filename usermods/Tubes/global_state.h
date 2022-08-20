@@ -57,4 +57,5 @@ typedef uint8_t CommandId;
 
 const static CommandId COMMAND_OPTIONS = 0x10;
 const static CommandId COMMAND_UPDATE = 0x20;
+const static CommandId COMMAND_UPGRADE = 0xE0;
 const static CommandId COMMAND_RESET = 0xF0;
