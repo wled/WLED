@@ -297,6 +297,10 @@ Running Dual
 Twinklecat
 Twinkleup
 
+AUDIOREACTIVE
+Midnoise
+GravCenter
+
 MAYBE GOOD PATTERNS
 Fillnoise
 Gradient

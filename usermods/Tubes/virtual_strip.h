@@ -9,7 +9,7 @@
 #define DEFAULT_FADE_SPEED 100
 #define MAX_VIRTUAL_LEDS 150
 
-#define DEFAULT_WLED_FX FX_MODE_FLOW
+#define DEFAULT_WLED_FX FX_MODE_RAINBOW_CYCLE
 
 class VirtualStrip;
 typedef void (*BackgroundFn)(VirtualStrip *strip);
@@ -76,11 +76,11 @@ class VirtualStrip {
     this->fade_speed = fade_speed;
     this->brightness = DEF_BRIGHT;
 
-    if (this->isWled()) {
-      uint8_t wled_fx_id = background.wled_fx_id;
-      if (wled_fx_id < 10)
-        wled_fx_id = DEFAULT_WLED_FX;
-      set_wled_pattern(wled_fx_id, 128, 128);
+    // If this is the strip that's controlling WLED, update WLED's vars
+    if (background.wled_fx_id) {
+      set_wled_pattern(background.wled_fx_id, 128, 128);
+    }
+    if (background.palette_id) {
       set_wled_palette(background.palette_id);
     }
   }
@@ -102,6 +102,10 @@ class VirtualStrip {
   }
 
   static void set_wled_pattern(uint8_t pattern_id, uint8_t speed, uint8_t intensity) {
+    // Never set it to one of the default patterns
+    if (pattern_id < 10)
+      pattern_id = DEFAULT_WLED_FX;
+
     for (uint8_t i=0; i < strip.getSegmentsNum(); i++) {
       Segment& seg = strip.getSegment(i);
       if (!seg.isActive()) continue;

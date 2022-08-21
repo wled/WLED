@@ -9,10 +9,12 @@
 #include "pattern.h"
 #include "palettes.h"
 #include "effects.h"
+#include "led_strip.h"
 #include "global_state.h"
 #include "node.h"
 
 const static uint8_t DEFAULT_MASTER_BRIGHTNESS = 200;
+const static uint8_t DEFAULT_TUBE_BRIGHTNESS = 128;
 #define STATUS_UPDATE_PERIOD 2000
 
 #define MIN_COLOR_CHANGE_PHRASES 2  // 4
@@ -77,12 +79,16 @@ class PatternController : public MessageReceiver {
     VirtualStrip *vstrips[NUM_VSTRIPS];
     uint8_t next_vstrip = 0;
     bool isMaster = false;
+    uint8_t paletteOverride = 0;
+    uint8_t patternOverride = 0;
     uint16_t wled_fader = 0;
 
     AutoUpdater auto_updater = AutoUpdater();
 
     Timer graphicsTimer;
     Timer updateTimer;
+    Timer paletteOverrideTimer;
+    Timer patternOverrideTimer;
 
 #ifdef USELCD
     Lcd *lcd;
@@ -126,9 +132,12 @@ class PatternController : public MessageReceiver {
   {
     this->node->setup();
     this->isMaster = isMaster;
-    this->options.power_save = false;
+    this->options.power_save = true;
     this->options.debugging = false;
-    this->options.brightness = DEFAULT_MASTER_BRIGHTNESS;
+    if (isMaster)
+      this->options.brightness = DEFAULT_MASTER_BRIGHTNESS;
+    else
+      this->options.brightness = DEFAULT_TUBE_BRIGHTNESS;
     this->load_options(this->options);
 
 #ifdef USELCD
@@ -140,7 +149,8 @@ class PatternController : public MessageReceiver {
     this->next_state.pattern_phrase = 0;
     this->next_state.palette_phrase = 0;
     this->next_state.effect_phrase = 0;
-    VirtualStrip::set_wled_pattern(DEFAULT_WLED_FX, 128, 128);
+    VirtualStrip::set_wled_palette(0); // Default palette
+    VirtualStrip::set_wled_pattern(0, 128, 128); // Default pattern
 
     this->updateTimer.start(STATUS_UPDATE_PERIOD); // Ready to send an update as soon as we're able to
     Serial.println("Patterns: ok");
@@ -197,30 +207,56 @@ class PatternController : public MessageReceiver {
     // Update patterns to the beat
     this->update_beat();
 
-    // Detect manual overrides & update the current state to match.
     Segment& segment = strip.getMainSegment();
-    if (segment.palette != this->current_state.palette_id) {
-      Serial.printf("Palette override = %d\n",segment.palette);
-      this->next_state.palette_phrase = 0;
-      this->next_state.palette_id = segment.palette;
-      this->broadcast_state();
+
+    // Detect manual overrides & update the current state to match.
+    uint8_t expected_palette = this->current_state.palette_id;
+    if (this->paletteOverride && !this->paletteOverrideTimer.ended()) {
+      expected_palette = this->paletteOverride;
+    }
+    if (segment.palette != expected_palette) {
+      if (segment.palette == 0) {
+        if (this->paletteOverride) {
+          // Selecting Default = allow Tubes to control palette.
+          Serial.println("Turning off WLED control of palette.");
+          this->paletteOverride = 0;
+          this->paletteOverrideTimer.stop();
+          VirtualStrip::set_wled_palette(this->current_state.palette_id);
+        }
+      } else {
+        Serial.println("WLED has control of palette.");
+        this->paletteOverride = segment.palette;
+        this->paletteOverrideTimer.start(300000); // 5 minutes of manual control
+      }
+    }
+    
+    uint8_t wled_pattern_id = gPatterns[this->current_state.pattern_id].wled_fx_id;
+    if (wled_pattern_id < 10) {
+      wled_pattern_id = DEFAULT_WLED_FX;
     }
 
-    /* TODO: detect WLED manual overrides
-    bool options_changed = false;
-    if (segment.speed != this->options.speed) {
-      Serial.printf("WLED FX speed: %d\n",segment.speed);
-      this->options.speed = segment.speed;
-      options_changed = true;
+    uint8_t expected_pattern = wled_pattern_id;
+    if (this->patternOverride && !this->patternOverrideTimer.ended()) {
+      expected_pattern = this->patternOverride;
     }
-    if (segment.intensity != this->options.intensity) {
-      Serial.printf("WLED FX intensity: %d\n",segment.intensity);
-      this->options.intensity = segment.intensity;
-      options_changed = true;
+    if (segment.mode != expected_pattern) {
+      if (segment.mode == 0) {
+        if (this->patternOverride) {
+          // Selecting Default = allow Tubes to control patterns.
+          Serial.println("Turning off WLED control of patterns.");
+          this->patternOverrideTimer.stop();
+          this->patternOverride = 0;
+          transitionDelay = 8000; // Back to long transitions
+          VirtualStrip::set_wled_pattern(wled_pattern_id, 128, 128);
+        }
+      } else {
+        Serial.println("WLED has control of patterns.");
+        this->patternOverride = segment.mode;
+        this->patternOverrideTimer.start(300000); // 5 minutes of manual control
+
+        transitionDelay = 500; // Quick transitions
+      }
     }
-    if (options_changed)
-      this->broadcast_options();
-    */
 
     do_pattern_changes();
 
@@ -234,9 +270,9 @@ class PatternController : public MessageReceiver {
       if (!this->node->is_following() || random(0, 5) == 0) {
         this->send_update();
       }
+    }
 
     this->auto_updater.update();
-   }
 
 #ifdef USELCD
     if (this->lcd->active) {
@@ -252,6 +288,11 @@ class PatternController : public MessageReceiver {
   }
 
   void handleOverlayDraw() {
+    // In manual mode WLED is always active
+    if (this->patternOverride) {
+      this->wled_fader = 0xFFFF;
+    }
+
     // Crossfade between the custom pattern engine and WLED
     uint8_t fader = this->wled_fader >> 8;
     if (fader < 255) {
@@ -282,7 +323,10 @@ class PatternController : public MessageReceiver {
     }
 
     // Draw effects layers over whatever WLED is doing.
-    this->effects->draw(&strip);
+    // But not in manual (WLED) mode
+    if (!this->patternOverride) {
+      this->effects->draw(&strip);
+    }
 
     CRGB c;
     switch (this->auto_updater.status) {
@@ -444,7 +488,9 @@ class PatternController : public MessageReceiver {
     this->current_state.palette_id = palette_id;
     
     Serial.println("Change palette");
-    VirtualStrip::set_wled_palette(palette_id);
+    if (!this->paletteOverride) {
+      VirtualStrip::set_wled_palette(palette_id);
+    }
   }
 
   // Choose the palette to display at the next palette cycle
@@ -502,7 +548,12 @@ class PatternController : public MessageReceiver {
   void update_background() {
     Background background;
     background.animate = gPatterns[this->current_state.pattern_id].backgroundFn;
-    background.wled_fx_id = gPatterns[this->current_state.pattern_id].wled_fx_id;
+    if (this->patternOverride) {
+      // Don't update WLED
+      background.wled_fx_id = 0;
+    } else {
+      background.wled_fx_id = gPatterns[this->current_state.pattern_id].wled_fx_id;
+    }
     background.palette_id = this->current_state.palette_id;
     background.sync = (SyncMode)this->current_state.pattern_sync_id;
 
@@ -647,6 +698,9 @@ class PatternController : public MessageReceiver {
         break;
       case '@':
         this->setPowerSave(!this->options.power_save);
+        break;
+      case '~':
+        ESP.restart();
         break;
       
       case '-':
