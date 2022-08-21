@@ -43,6 +43,7 @@ class TubesUsermod : public Usermod {
       fadeTransition = true;  // Fade palette transitions
       transitionDelay = 8000;   // Fade them for a long time
       strip.setTargetFps(60);
+      strip.setCCT(100);
 
       // Start timing
       globalTimer.setup();
