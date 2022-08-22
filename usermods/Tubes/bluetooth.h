@@ -1,13 +1,13 @@
 #pragma once
 
+// THIS FILE ISN'T USED ANY MORE
+
 #include <NimBLEDevice.h>
 #include <esp_coexist.h>
 #include "global_state.h"
 
 
 #include "node.h"
-
-// #include "TimeSync/sync.h"
 
 #define MAX_CONNECTED_CLIENTS 3
 

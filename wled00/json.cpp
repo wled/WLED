@@ -178,6 +178,7 @@ void deserializeSegment(JsonObject elem, byte it, byte presetId)
       seg.startTransition(strip.getTransition()); // set effect transitions
       //seg.markForReset();
       seg.mode = fx;
+<<<<<<< HEAD
     }
   }
 
@@ -201,6 +202,38 @@ void deserializeSegment(JsonObject elem, byte it, byte presetId)
       if (sOpt != seg.palette) {
         if (strip.paletteFade && !seg.transitional) seg.startTransition(strip.getTransition());
         seg.palette = sOpt;
+=======
+      // load default values from effect string if effect is selected without
+      // any other effect parameter (i.e. effect clicked in UI)
+      if ( elem[F("sx")].isNull()
+        && elem[F("ix")].isNull()
+        && elem["pal"].isNull()
+        && elem[F("c1")].isNull()
+        && elem[F("c2")].isNull()
+        && elem[F("c3")].isNull() 
+        && false // TEMPORARILY DISABLED, I don't want it in my code- SteveE
+        )
+      {
+        int16_t sOpt;
+        sOpt = extractModeDefaults(fx, SET_F("sx"));   if (sOpt >= 0) seg.speed     = sOpt;
+        sOpt = extractModeDefaults(fx, SET_F("ix"));   if (sOpt >= 0) seg.intensity = sOpt;
+        sOpt = extractModeDefaults(fx, SET_F("c1"));   if (sOpt >= 0) seg.custom1   = sOpt;
+        sOpt = extractModeDefaults(fx, SET_F("c2"));   if (sOpt >= 0) seg.custom2   = sOpt;
+        sOpt = extractModeDefaults(fx, SET_F("c3"));   if (sOpt >= 0) seg.custom3   = sOpt;
+        sOpt = extractModeDefaults(fx, SET_F("mp12")); if (sOpt >= 0) seg.map1D2D   = sOpt & 0x03;
+        sOpt = extractModeDefaults(fx, SET_F("ssim")); if (sOpt >= 0) seg.soundSim  = sOpt & 0x07;
+        sOpt = extractModeDefaults(fx, "rev");         if (sOpt >= 0) seg.reverse   = (bool)sOpt;
+        sOpt = extractModeDefaults(fx, SET_F("mi"));   if (sOpt >= 0) seg.mirror    = (bool)sOpt; // NOTE: setting this option is a risky business
+        sOpt = extractModeDefaults(fx, SET_F("rY"));   if (sOpt >= 0) seg.reverse_y = (bool)sOpt;
+        sOpt = extractModeDefaults(fx, SET_F("mY"));   if (sOpt >= 0) seg.mirror_y  = (bool)sOpt; // NOTE: setting this option is a risky business
+        sOpt = extractModeDefaults(fx, "pal");
+        if (sOpt >= 0 && sOpt < strip.getPaletteCount() + strip.customPalettes.size()) {
+          if (sOpt != seg.palette) {
+            if (strip.paletteFade && !seg.transitional) seg.startTransition(strip.getTransition());
+            seg.palette = sOpt;
+          }
+        }
+>>>>>>> 4a7b0f57 (Clean up unused)
       }
     }
   }
