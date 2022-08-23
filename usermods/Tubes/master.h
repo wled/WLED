@@ -54,8 +54,10 @@ class Master {
       this->taps = 0;
       this->fail();
     }
+  }
 
-    this->updateStatus(this->controller, this->controller->led_strip);
+  void handleOverlayDraw() {
+    this->updateStatus(this->controller);
   }
 
   void ok() {
@@ -129,32 +131,45 @@ class Master {
     if (this->taps == 16) {
       Serial.println("OK! taps");
       this->taps = 0;
+      auto frac = bpm % 256;
+
+      // Slight snap to beat
+      if (frac < 128)
+        bpm -= frac / 2;
+      else if (frac > 128)
+        bpm += (256-frac) / 2;
+      
       this->controller->set_tapped_bpm(bpm);
       this->ok();
     }
   }
 
-  void updateStatus(PatternController *controller, LEDs *strip) {
+  void updateStatus(PatternController *controller) {
     if (this->taps) {
       this->displayProgress(this->taps);
     } else if (this->palette_mode) {
       this->displayPalette(this->background);
     } else {
       uint8_t beat_pos = (controller->current_state.beat_frame >> 8) % 16;
-      strip->leds[beat_pos] = CRGB::White;      
+      strip.setPixelColor(16 - beat_pos, CRGB::White);
     }
   }
 
   void displayProgress(uint8_t progress) {
-    fill_solid(this->controller->led_strip->leds, 16, CRGB::Black);
-    fill_solid(this->controller->led_strip->leds, progress % 16, CRGB(128,128,128));
+    for (int i = 0; i < 16; i++) {
+      if (i < progress % 16) {
+        strip.setPixelColor(16 - i, CRGB(128,128,128));
+      } else {
+        strip.setPixelColor(16 - i, CRGB::Black);
+      }
+    }
   }
 
   void displayPalette(Background &background) {
     for (int i = 0; i < 16; i++) {
       Segment& segment = strip.getMainSegment();
-      uint32_t color = CRGB(segment.color_from_palette(i * 16, false, true, 255));
-      this->controller->led_strip->leds[i] = color;
+      auto color = CRGB(segment.color_from_palette(i * 16, false, true, 255));
+      strip.setPixelColor(i, color);
     }
   }
 
