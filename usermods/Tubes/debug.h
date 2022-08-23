@@ -76,6 +76,10 @@ class DebugController {
         formatted_time(millis()).c_str()
       );
 
+      if (this->controller->isMaster()) {
+        Serial.print("=== PRIMARY CONTROLER\n");
+      }
+
       // Dump WLED status
       char mode_name[50];
       char palette_name[50];
@@ -101,13 +105,13 @@ class DebugController {
       Serial.println();
 
       Serial.printf("=== OTA: v%d state %d  SSID %s  %u.%u.%u.%u \n\n",
-        this->controller->auto_updater.location.version,
+        this->controller->auto_updater.current_version.version,
         this->controller->auto_updater.status,
-        this->controller->auto_updater.location.ssid,
-        this->controller->auto_updater.location.host[0],
-        this->controller->auto_updater.location.ssid[1],
-        this->controller->auto_updater.location.ssid[2],
-        this->controller->auto_updater.location.ssid[3]
+        this->controller->auto_updater.current_version.ssid,
+        this->controller->auto_updater.current_version.host[0],
+        this->controller->auto_updater.current_version.ssid[1],
+        this->controller->auto_updater.current_version.ssid[2],
+        this->controller->auto_updater.current_version.ssid[3]
       );
 
     }

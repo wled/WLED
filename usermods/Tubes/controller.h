@@ -22,6 +22,7 @@ const static uint8_t DEFAULT_TUBE_BRIGHTNESS = 128;
 #define MIN_COLOR_CHANGE_PHRASES 2  // 4
 #define MAX_COLOR_CHANGE_PHRASES 4  // 40
 
+#define ROLE_EEPROM_LOCATION 2559
 
 #define IDENTIFY_STUCK_PATTERNS
 
@@ -37,6 +38,18 @@ typedef struct {
   TubeState current;
   TubeState next;
 } TubeStates;
+
+typedef enum ControllerRole : uint8_t {
+  DefaultRole = 10,         // Turn on in power saving mode
+  InstallationRole = 20,    // Disable power-saving mode
+  LegacyRole = 100,         // 1/2 the pixels
+  MasterRole = 200          // Controls all the others
+} ControllerRole;
+
+typedef struct {
+  char key;
+  uint8_t arg;
+} Action;
 
 #define NUM_VSTRIPS 3
 
@@ -80,10 +93,10 @@ class PatternController : public MessageReceiver {
     uint8_t num_leds;
     VirtualStrip *vstrips[NUM_VSTRIPS];
     uint8_t next_vstrip = 0;
-    bool isMaster = false;
     uint8_t paletteOverride = 0;
     uint8_t patternOverride = 0;
     uint16_t wled_fader = 0;
+    ControllerRole role;
 
     AutoUpdater auto_updater = AutoUpdater();
 
@@ -129,17 +142,35 @@ class PatternController : public MessageReceiver {
 #endif
     }
   }
-  
-  void setup(bool isMaster)
+
+  bool isMaster() {
+    return this->role == MasterRole;
+  }
+
+  void setup()
   {
     this->node->setup();
-    this->isMaster = isMaster;
-    this->options.power_save = true;
+    this->role = (ControllerRole)EEPROM.read(ROLE_EEPROM_LOCATION);
+
+    this->options.brightness = DEFAULT_TUBE_BRIGHTNESS;
+    this->options.power_save = false;
     this->options.debugging = false;
-    if (isMaster)
-      this->options.brightness = DEFAULT_MASTER_BRIGHTNESS;
-    else
-      this->options.brightness = DEFAULT_TUBE_BRIGHTNESS;
+    switch (role) {
+      case MasterRole:
+        this->node->reset(4050); // MASTER ID
+        this->options.brightness = DEFAULT_MASTER_BRIGHTNESS;
+        break;
+
+      case LegacyRole:
+        this->options.brightness = DEFAULT_TUBE_BRIGHTNESS;
+        this->options.power_save = false;
+        break;
+      
+      default:
+        this->options.brightness = DEFAULT_TUBE_BRIGHTNESS;
+        this->options.power_save = true;
+        break;
+    }
     this->load_options(this->options);
 
 #ifdef USELCD
@@ -315,13 +346,14 @@ class PatternController : public MessageReceiver {
       }
     }
 
-    if (this->options.power_save) {
+    // Power Save mode: reduce number of displayed pixels 
+    // Only affects non-powered poles
+    if (this->options.power_save && this->role == DefaultRole) {
       // Screen door effectn
       uint16_t length = strip.getLengthTotal();
       for (int i = 0; i < length; i++) {
         if (i % 2) {
-            CRGB c = strip.getPixelColor(i);
-            strip.setPixelColor(i, CRGB(c.r>>3,c.g>>3,c.b>>3));
+            strip.setPixelColor(i, CRGB::Black);
         }
       }
     }
@@ -635,6 +667,14 @@ class PatternController : public MessageReceiver {
     this->options.power_save = power_save;
     this->broadcast_options();
   }
+
+  void setRole(ControllerRole role) {
+    this->role = role;
+    Serial.printf("Role = %d", role);
+    EEPROM.write(ROLE_EEPROM_LOCATION, role);
+    ESP.restart();
+  }
+
   
   SyncMode randomSyncMode() {
     uint8_t r = random8(128);
@@ -752,11 +792,6 @@ class PatternController : public MessageReceiver {
       case '~':
         ESP.restart();
         break;
-      case 'M':
-        // Cancel any overrides
-        this->paletteOverrideTimer.stop();
-        this->patternOverrideTimer.stop();
-        break;
       
       case '-':
         b = this->options.brightness;
@@ -836,17 +871,22 @@ class PatternController : public MessageReceiver {
         this->node->reset(arg >> 4);
         return;
 
+      case 'V':
       case 'g':
-        for (int i=0; i< 10; i++)
-          addGlitter();
-        return;
-
+      case 'A':
       case 'W':
-        // Clear wifi
-        Serial.print("Clearing WiFi connection.");
-        strcpy(clientSSID, "");
-        strcpy(clientPass, "");
-        WiFi.disconnect(false, true);
+      case 'X':
+      case 'M': {
+        Action action = {
+          .key = command[0],
+          .arg = (uint8_t)(arg >> 8)
+        };
+        this->broadcast_action(action);
+        return;
+      }
+
+      case 'R':
+        this->setRole((ControllerRole)(arg >> 8));
         return;
 
       case '?':
@@ -894,6 +934,13 @@ class PatternController : public MessageReceiver {
     this->broadcast_state();
   }
 
+  void broadcast_action(Action& action) {
+    if (!this->node->is_following()) {
+      this->onAction(&action);
+    }
+    this->node->sendCommand(COMMAND_ACTION, &action, sizeof(Action));
+  }
+
   void broadcast_state() {
     this->node->sendCommand(COMMAND_UPDATE, &this->current_state, sizeof(TubeStates));
   }
@@ -904,7 +951,7 @@ class PatternController : public MessageReceiver {
 
   void broadcast_autoupdate() {
     AutoUpdateOffer offer;
-    this->node->sendCommand(COMMAND_UPGRADE, &this->auto_updater.location, sizeof(this->auto_updater.location));
+    this->node->sendCommand(COMMAND_UPGRADE, &this->auto_updater.current_version, sizeof(this->auto_updater.current_version));
   }
 
   virtual void onCommand(CommandId command, void *data) {
@@ -942,9 +989,53 @@ class PatternController : public MessageReceiver {
       case COMMAND_UPGRADE:
         this->auto_updater.start((AutoUpdateOffer*)data);
         return;
+
+      case COMMAND_ACTION:
+        this->onAction((Action*)data);
+        return;
     }
   
     Serial.printf("UNKNOWN COMMAND %02X", command);
+  }
+
+  void onAction(Action* action) {
+    switch (action->key) {
+      case 'A':
+        Serial.println("Turning on WiFi access point.");
+        WLED::instance().initAP(true);
+        return;
+
+      case 'X':
+        ESP.restart();
+        return;
+
+      case 'W':
+        Serial.println("Clearing WiFi connection.");
+        strcpy(clientSSID, "");
+        strcpy(clientPass, "");
+        WiFi.disconnect(false, true);
+        return;
+
+      case 'g':
+        Serial.println("glitter!");
+        for (int i=0; i< 10; i++)
+          addGlitter();
+        return;
+
+      case 'M':
+        Serial.println("cancel manual mode");
+        this->paletteOverrideTimer.stop();
+        this->patternOverrideTimer.stop();
+        break;
+
+      case 'V':
+        // Version check: try to update, but leave wifi on for the script
+        if (this->auto_updater.current_version.version < action->arg) {
+          WLED::instance().initAP(true);
+          this->auto_updater.start();
+        }
+        break;
+    }
   }
 
 };
