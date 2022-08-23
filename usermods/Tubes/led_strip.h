@@ -33,7 +33,7 @@ class LEDs {
     }
   }
 
-  void update(bool reverse=false) {
+  void update() {
     EVERY_N_MILLISECONDS( this->TARGET_REFRESH ) {
       this->fps++;
     }

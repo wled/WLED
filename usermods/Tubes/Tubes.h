@@ -1,13 +1,10 @@
 #pragma once
 
+#include <EEPROM.h>
 #include "wled.h"
 
 #include "util.h"
 #include "options.h"
-
-// #define MASTERCONTROL
-
-#define MASTER_PIN    6
 
 // #define USERADIO
 
@@ -16,9 +13,14 @@
 #include "beats.h"
 #include "virtual_strip.h"
 #include "led_strip.h"
+#include "master.h"
 
 #include "controller.h"
 #include "debug.h"
+
+
+#define MASTER_PIN 25
+#define LEGACY_PIN 32  // DigUno Q4
 
 
 class TubesUsermod : public Usermod {
@@ -26,7 +28,8 @@ class TubesUsermod : public Usermod {
     BeatController beats;
     PatternController controller = PatternController(MAX_REAL_LEDS, &beats);
     DebugController debug = DebugController(&controller);
-    int* master = NULL;  /* master.h deleted */
+    Master *master = nullptr;
+    bool isLegacy = false;
 
     void randomize() {
       randomSeed(esp_random());
@@ -36,6 +39,16 @@ class TubesUsermod : public Usermod {
 
   public:
     void setup() {
+      ControllerRole role = (ControllerRole)EEPROM.read(ROLE_EEPROM_LOCATION);
+      if (role == MasterRole) {
+        master = new Master(&controller);
+      }
+
+      pinMode(MASTER_PIN, INPUT_PULLUP);
+      pinMode(LEGACY_PIN, INPUT_PULLUP);
+      if (digitalRead(MASTER_PIN) == LOW) {
+      }
+      isLegacy = (digitalRead(MASTER_PIN) == LOW);
       randomize();
 
       // Override some behaviors on all Tubes
@@ -48,7 +61,11 @@ class TubesUsermod : public Usermod {
       // Start timing
       globalTimer.setup();
       beats.setup();
-      controller.setup(0);
+      controller.setup();
+      if (controller.isMaster()) {
+        master = new Master(&controller);
+        master->setup();
+      }
       debug.setup();
     }
 
@@ -58,18 +75,22 @@ class TubesUsermod : public Usermod {
         randomize();
       }
 
+      if (master) 
+        master->update();
       beats.update();
       controller.update();
       debug.update();
 
       // Draw after everything else is done
-      controller.led_strip->update(master != NULL); // ~25us
+      controller.led_strip->update();
     }
 
     void handleOverlayDraw()
     {
       // Draw effects layers over whatever WLED is doing.
       this->controller.handleOverlayDraw();
+      // if (master) 
+      //   master->handleOverlayDraw();
       this->debug.handleOverlayDraw();
     }
 };

@@ -58,6 +58,8 @@ const char *command_name(CommandId command) {
             return "OPTIONS";
         case COMMAND_RESET:
             return "RESET";
+        case COMMAND_ACTION:
+            return "ACTION";
         default:
             return "?COMMAND?";
     }
