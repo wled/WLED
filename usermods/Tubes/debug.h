@@ -80,8 +80,10 @@ class DebugController {
       if (this->controller->isMaster()) {
         Serial.print("PRIMARY ");
       }
-      Serial.printf("role=%d\n",
-        this->controller->role);
+      Serial.printf("role=%d power_save=%d\n",
+        this->controller->role,
+        this->controller->power_save
+      );
 
       // Dump WLED status
       char mode_name[50];

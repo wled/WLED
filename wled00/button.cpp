@@ -8,8 +8,8 @@
 #define WLED_LONG_PRESS             600 // long press if button is released after held for at least 600ms
 #define WLED_DOUBLE_PRESS           350 // double press if another press within 350ms after a short press
 #define WLED_LONG_REPEATED_ACTION   300 // how often a repeated action (e.g. dimming) is fired on long press on button IDs >0
-#define WLED_LONG_AP               3000 // how long button 0 needs to be held to activate WLED-AP
-
+#define WLED_LONG_AP               2000 // how long button 0 needs to be held to activate WLED-AP
+#define WLED_LONG_POWER_SAVE       8000 // how long button 0 needs to be held to DEactivate power saving mode (toggle it)
 // SteveE: geez you can't put factory reset so close to "just turn on the AP"
 #define WLED_LONG_FACTORY_RESET   30000 // how long button 0 needs to be held to trigger a factory reset
 
@@ -268,15 +268,22 @@ void handleButton()
       buttonWaitTime[b] = 0;
 
       if (b == 0 && dur > WLED_LONG_AP) { // long press on button 0 (when released)
+        Serial.printf("A %ld", dur);
         if (dur > WLED_LONG_FACTORY_RESET) { // factory reset if pressed > 10 seconds
+          Serial.printf(" B");
           WLED_FS.format();
           #ifdef WLED_ADD_EEPROM_SUPPORT
           clearEEPROM();
           #endif
           doReboot = true;
+        } else if (dur > WLED_LONG_POWER_SAVE) {
+          Serial.printf(" C");
+          usermods.handleButton(100);
         } else {
+          Serial.printf(" D");
           WLED::instance().initAP(true);
         }
+        Serial.println();
       } else if (!buttonLongPressed[b]) { //short press
         //NOTE: this interferes with double click handling in usermods so usermod needs to implement full button handling
         if (b != 1 && !macroDoublePress[b]) { //don't wait for double press on buttons without a default action if no double press macro set
