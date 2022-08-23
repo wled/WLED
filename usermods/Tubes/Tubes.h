@@ -93,4 +93,15 @@ class TubesUsermod : public Usermod {
         strip.setPixelColor(1, CRGB::Black);
       }
     }
+
+    bool handleButton(uint8_t b) {
+      // Special code for handling the "power save" button
+      if (b == 100) {
+        this->controller.togglePowerSave();
+        return true;
+      }
+
+      return false;
+    }
+
 };

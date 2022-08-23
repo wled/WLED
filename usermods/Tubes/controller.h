@@ -29,7 +29,6 @@ const static uint8_t DEFAULT_TUBE_BRIGHTNESS = 128;
 
 typedef struct {
   bool debugging;
-  bool power_save;
   uint8_t brightness;
 
   uint8_t reserved[12];
@@ -41,9 +40,11 @@ typedef struct {
 } TubeStates;
 
 typedef enum ControllerRole : uint8_t {
+  UnknownRole = 0,
   DefaultRole = 10,         // Turn on in power saving mode
-  InstallationRole = 20,    // Disable power-saving mode
-  LegacyRole = 100,         // 1/2 the pixels
+  CampRole = 50,            // Turn on in non-power-saving mode
+  InstallationRole = 100,   // Disable power-saving mode completely
+  LegacyRole = 190,          // 1/2 the pixels, no "power saving" necessary
   MasterRole = 200          // Controls all the others
 } ControllerRole;
 
@@ -98,6 +99,7 @@ class PatternController : public MessageReceiver {
     uint8_t patternOverride = 0;
     uint16_t wled_fader = 0;
     ControllerRole role;
+    bool power_save = true;  // Power save ALWAYS starts on. Some roles just ignore it
 
     AutoUpdater updater = AutoUpdater();
 
@@ -153,11 +155,14 @@ class PatternController : public MessageReceiver {
     this->node->setup();
     EEPROM.begin(2560);
     this->role = (ControllerRole)EEPROM.read(ROLE_EEPROM_LOCATION);
+    if (this->role == 255) {
+      this->role = DefaultRole;
+    }
     EEPROM.end();
     Serial.printf("Role = %d", this->role);
 
+    this->power_save = (this->role < CampRole);
     this->options.brightness = DEFAULT_TUBE_BRIGHTNESS;
-    this->options.power_save = false;
     this->options.debugging = false;
     switch (role) {
       case MasterRole:
@@ -167,12 +172,10 @@ class PatternController : public MessageReceiver {
 
       case LegacyRole:
         this->options.brightness = DEFAULT_TUBE_BRIGHTNESS;
-        this->options.power_save = false;
         break;
       
       default:
         this->options.brightness = DEFAULT_TUBE_BRIGHTNESS;
-        this->options.power_save = true;
         break;
     }
     this->load_options(this->options);
@@ -352,8 +355,8 @@ class PatternController : public MessageReceiver {
 
     // Power Save mode: reduce number of displayed pixels 
     // Only affects non-powered poles
-    if (this->options.power_save && this->role == DefaultRole) {
-      // Screen door effectn
+    if (this->power_save && this->role < InstallationRole) {
+      // Screen door effect to save power
       uint16_t length = strip.getLengthTotal();
       for (int i = 0; i < length; i++) {
         if (i % 2) {
@@ -630,11 +633,13 @@ class PatternController : public MessageReceiver {
     this->broadcast_options();
   }
   
+  void togglePowerSave() {
+    setPowerSave(!this->power_save);
+  }
+
   void setPowerSave(bool power_save) {
     Serial.printf("power_save: %d\n", power_save);
-
-    this->options.power_save = power_save;
-    this->broadcast_options();
+    this->power_save = power_save;
   }
 
   void setRole(ControllerRole role) {
@@ -757,13 +762,13 @@ class PatternController : public MessageReceiver {
       case 'd':
         this->setDebugging(!this->options.debugging);
         break;
-      case '@':
-        this->setPowerSave(!this->options.power_save);
-        break;
       case '~':
         ESP.restart();
         break;
-      
+      case '@':
+        this->togglePowerSave();
+        break;
+
       case '-':
         b = this->options.brightness;
         while (*command++ == '-')
@@ -843,7 +848,7 @@ class PatternController : public MessageReceiver {
         return;
 
       case 'V':
-      case 'g':
+      case 'G':
       case 'A':
       case 'W':
       case 'X':
@@ -854,6 +859,16 @@ class PatternController : public MessageReceiver {
         };
         this->broadcast_action(action);
         return;
+      }
+
+      case 'P': {
+        // Toggle power save
+        Action action = {
+          .key = command[0],
+          .arg = !this->power_save,
+        };
+        this->broadcast_action(action);
+        break;
       }
 
       case 'R':
@@ -872,7 +887,7 @@ class PatternController : public MessageReceiver {
         Serial.println(F("i### - set ID"));
         Serial.println(F("d - toggle debugging"));
         Serial.println(F("l### - brightness"));
-        Serial.println("@ - power save mode");
+        Serial.println("@ - toggle power saving mode");
         Serial.println("U - begin auto-update");
         Serial.println("O - offer an auto-update");
         Serial.println("==== global actions ====");
@@ -988,6 +1003,11 @@ class PatternController : public MessageReceiver {
 
       case 'X':
         ESP.restart();
+        return;
+
+      case '@':
+        Serial.print("Setting power save to %d\n");
+        this->setPowerSave(action->arg);
         return;
 
       case 'W':
