@@ -138,14 +138,8 @@ class LightNode {
         strcpy(clientPass, "");
 #endif
 
-        // Try to hide the access point unless this is the "root" node
-        if (this->is_following()) {
-            sprintf(apSSID, "WLED %03X F", this->header.id);
-        } else {
-            sprintf(apSSID, "WLED %03X", this->header.id);
-        }
-        strcpy(apPass, "WledWled");
-        apBehavior = AP_BEHAVIOR_NO_CONN;
+        // By default, we don't want these visible.
+        apBehavior = AP_BEHAVIOR_BUTTON_ONLY; // Must press button for 6 seconds to get AP
     }
 
     void start() {

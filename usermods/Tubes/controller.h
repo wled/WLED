@@ -332,6 +332,16 @@ class PatternController : public MessageReceiver {
       this->effects->draw(&strip);
     }
 
+    drawOTAOverlay();
+
+    // When AP mode is on, make sure it's obvious
+    if (apActive) {
+      strip.setPixelColor(0, CRGB::Purple);
+      strip.setPixelColor(1, CRGB::Black);
+    }
+  }
+
+  void drawOTAOverlay() {
     CRGB c;
     switch (this->auto_updater.status) {
       case Started:
@@ -358,7 +368,6 @@ class PatternController : public MessageReceiver {
     for (int i = 0; i < 20; i++) {
       strip.setPixelColor(i, c);
     }
-
   }
 
   void restart_phrase() {
@@ -931,8 +940,7 @@ class PatternController : public MessageReceiver {
       }
 
       case COMMAND_UPGRADE:
-        memcpy((byte*)&this->auto_updater.location, (byte*)data, sizeof(AutoUpdateOffer));
-        this->auto_updater.start();
+        this->auto_updater.start((AutoUpdateOffer*)data);
         return;
     }
   

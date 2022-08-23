@@ -31,9 +31,12 @@ typedef struct AutoUpdateOffer {
 
 class AutoUpdater {
   public:
-    AutoUpdateOffer location;
+    AutoUpdateOffer current_version;
+
+    // For now, hardcode it all
+    String host_name = "brcac.com";
     String path = "/firmware.bin";
-    int port = 8000;
+    int port = 80;
 
     long fileSize = 0;
 
@@ -67,9 +70,14 @@ class AutoUpdater {
         }
     }
 
-    void start() {
+    void start(AutoUpdateOffer *new_version) {
         if (this->status != Idle) {
             log("update already in progress.");
+            return;
+        }
+
+        if (new_version->version <= current_version.version) {
+            log("don't need to update to that version.");
             return;
         }
 
@@ -77,7 +85,9 @@ class AutoUpdater {
         _storedSSID = String(clientSSID);
         _storedPass = String(clientPass);
         WLED::instance().disableWatchdog();
-        
+
+        memcpy((byte*)&this->current_version, new_version, sizeof(this->current_version));
+
         log("starting autoupdate");
         this->status = Started;
     }
@@ -111,9 +121,11 @@ class AutoUpdater {
         auto s = WiFi.status();
         switch (s) {
             case WL_DISCONNECTED:
-                log("connecting to autoupdate server");
-                strcpy(clientSSID, this->location.ssid);
-                strcpy(clientPass, this->location.password);
+                if (!strlen(clientSSID)) {
+                    log("connecting to autoupdate server");
+                    strcpy(clientSSID, this->current_version.ssid);
+                    strcpy(clientPass, this->current_version.password);
+                }
                 return;
 
             case WL_NO_SSID_AVAIL:
@@ -125,7 +137,7 @@ class AutoUpdater {
                 return;
 
             case WL_CONNECTED:
-                if (WiFi.SSID() != String(this->location.ssid)) {
+                if (WiFi.SSID() != String(this->current_version.ssid)) {
                     log("disconnecting from WiFi");
                     WiFi.disconnect(false, true);
                     apBehavior = AP_BEHAVIOR_BUTTON_ONLY;
@@ -136,6 +148,12 @@ class AutoUpdater {
                 this->status = Connected;
                 return;
 
+            case WL_IDLE_STATUS:
+                EVERY_N_MILLIS(300) {
+                    Serial.print("...");
+                }
+                break;
+
             default:
                 Serial.printf("OTA: wifi %d", (int)s);
                 break;
@@ -144,16 +162,18 @@ class AutoUpdater {
 
     void do_request() {
         log("connecting");
-        if (!this->_client.connect(this->location.host, this->port)) {
+        if (!this->_client.connect(this->host_name.c_str(), this->port)) { //  this->current_version.host
             abort("connect failed");
             return;
         }
 
         // Get the contents of the bin file
         log("requesting update package");
-        this->_client.print(String("GET ") + this->path + " HTTP/1.1\r\n" +
-            "Host: " + this->location.host + "\r\n" +
-            "Cache-Control: no-cache\r\n\r\n");
+        auto request = String("GET ") + this->path + " HTTP/1.1\r\n" +
+            "Host: " + this->host_name + "\r\n" +
+            "Cache-Control: no-cache\r\n\r\n";
+        Serial.println(request);
+        this->_client.print(request);
 
         log("awaiting response");
         timeoutTimer.start(5000);

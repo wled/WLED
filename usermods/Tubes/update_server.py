@@ -266,7 +266,7 @@ def test(HandlerClass = SimpleHTTPRequestHandler,
     httpd = BaseHTTPServer.HTTPServer(server_address, SimpleHTTPRequestHandler)
 
     sa = httpd.socket.getsockname()
-    print "Serving HTTP on", sa[0], "port", sa[1], "..."
+    print("Serving HTTP on", sa[0], "port", sa[1], "...")
     httpd.serve_forever()
     BaseHTTPServer.test(HandlerClass, ServerClass)
 
