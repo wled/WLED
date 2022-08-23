@@ -1,5 +1,6 @@
 #pragma once
 
+#include <EEPROM.h>
 #include "wled.h"
 #include "FX.h"
 #include "updater.h"
@@ -13,7 +14,7 @@
 #include "global_state.h"
 #include "node.h"
 
-const static uint8_t DEFAULT_MASTER_BRIGHTNESS = 200;
+const static uint8_t DEFAULT_MASTER_BRIGHTNESS = 100;
 const static uint8_t DEFAULT_TUBE_BRIGHTNESS = 128;
 #define DEFAULT_WLED_FX FX_MODE_RAINBOW_CYCLE
 
@@ -150,7 +151,10 @@ class PatternController : public MessageReceiver {
   void setup()
   {
     this->node->setup();
+    EEPROM.begin(2560);
     this->role = (ControllerRole)EEPROM.read(ROLE_EEPROM_LOCATION);
+    EEPROM.end();
+    Serial.printf("Role = %d", this->role);
 
     this->options.brightness = DEFAULT_TUBE_BRIGHTNESS;
     this->options.power_save = false;
@@ -671,10 +675,12 @@ class PatternController : public MessageReceiver {
   void setRole(ControllerRole role) {
     this->role = role;
     Serial.printf("Role = %d", role);
+    EEPROM.begin(2560);
     EEPROM.write(ROLE_EEPROM_LOCATION, role);
+    EEPROM.end();
+    delay(10);
     ESP.restart();
   }
-
   
   SyncMode randomSyncMode() {
     uint8_t r = random8(128);

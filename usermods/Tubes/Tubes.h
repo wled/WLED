@@ -1,6 +1,5 @@
 #pragma once
 
-#include <EEPROM.h>
 #include "wled.h"
 
 #include "util.h"
@@ -39,11 +38,6 @@ class TubesUsermod : public Usermod {
 
   public:
     void setup() {
-      ControllerRole role = (ControllerRole)EEPROM.read(ROLE_EEPROM_LOCATION);
-      if (role == MasterRole) {
-        master = new Master(&controller);
-      }
-
       pinMode(MASTER_PIN, INPUT_PULLUP);
       pinMode(LEGACY_PIN, INPUT_PULLUP);
       if (digitalRead(MASTER_PIN) == LOW) {
@@ -89,8 +83,8 @@ class TubesUsermod : public Usermod {
     {
       // Draw effects layers over whatever WLED is doing.
       this->controller.handleOverlayDraw();
-      // if (master) 
-      //   master->handleOverlayDraw();
+      if (master) 
+        master->handleOverlayDraw();
       this->debug.handleOverlayDraw();
     }
 };
