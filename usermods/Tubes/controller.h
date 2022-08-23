@@ -99,7 +99,7 @@ class PatternController : public MessageReceiver {
     uint16_t wled_fader = 0;
     ControllerRole role;
 
-    AutoUpdater auto_updater = AutoUpdater();
+    AutoUpdater updater = AutoUpdater();
 
     Timer graphicsTimer;
     Timer updateTimer;
@@ -311,7 +311,7 @@ class PatternController : public MessageReceiver {
       }
     }
 
-    this->auto_updater.update();
+    this->updater.update();
 
 #ifdef USELCD
     if (this->lcd->active) {
@@ -368,42 +368,7 @@ class PatternController : public MessageReceiver {
       this->effects->draw(&strip);
     }
 
-    drawOTAOverlay();
-
-    // When AP mode is on, make sure it's obvious
-    if (apActive) {
-      strip.setPixelColor(0, CRGB::Purple);
-      strip.setPixelColor(1, CRGB::Black);
-    }
-  }
-
-  void drawOTAOverlay() {
-    CRGB c;
-    switch (this->auto_updater.status) {
-      case Started:
-      case Connected:
-      case Received:
-        c = CRGB::Yellow;
-        if (millis() % 1000 < 500) {
-          c = CRGB::Black;
-        }
-        break;
-
-      case Failed:
-        c = CRGB::Red;
-        break;
-
-      case Complete:
-        c = CRGB::Green;
-        break;
-
-      case Idle:
-      default:
-        return;
-    }
-    for (int i = 0; i < 20; i++) {
-      strip.setPixelColor(i, c);
-    }
+    this->updater.handleOverlayDraw();
   }
 
   void restart_phrase() {
@@ -903,7 +868,6 @@ class PatternController : public MessageReceiver {
         Serial.println(F("m### - sync mode"));
         Serial.println(F("c### - colors"));
         Serial.println(F("e### - effects"));
-        Serial.println("w### - wled pattern");
         Serial.println();
         Serial.println(F("i### - set ID"));
         Serial.println(F("d - toggle debugging"));
@@ -911,10 +875,16 @@ class PatternController : public MessageReceiver {
         Serial.println("@ - power save mode");
         Serial.println("U - begin auto-update");
         Serial.println("O - offer an auto-update");
+        Serial.println("==== global actions ====");
+        Serial.println("A - turn on access point");
+        Serial.println("W - forget WiFi client");
+        Serial.println("X - restart");
+        Serial.println("V### - auto-upgrade to version");
+        Serial.println("M - cancel manual pattern override");
         return;
 
       case 'U':
-        this->auto_updater.start();
+        this->updater.start();
         return;
 
       case 'O':
@@ -947,8 +917,12 @@ class PatternController : public MessageReceiver {
     this->node->sendCommand(COMMAND_ACTION, &action, sizeof(Action));
   }
 
+  void broadcast_info(NodeInfo *info) {
+    this->node->sendCommand(COMMAND_INFO, &info, sizeof(NodeInfo));
+  }
+
   void broadcast_state() {
-    this->node->sendCommand(COMMAND_UPDATE, &this->current_state, sizeof(TubeStates));
+    this->node->sendCommand(COMMAND_STATE, &this->current_state, sizeof(TubeStates));
   }
 
   void broadcast_options() {
@@ -956,14 +930,15 @@ class PatternController : public MessageReceiver {
   }
 
   void broadcast_autoupdate() {
-    AutoUpdateOffer offer;
-    this->node->sendCommand(COMMAND_UPGRADE, &this->auto_updater.current_version, sizeof(this->auto_updater.current_version));
+    this->node->sendCommand(COMMAND_UPGRADE, &this->updater.current_version, sizeof(this->updater.current_version));
   }
 
   virtual void onCommand(CommandId command, void *data) {
     switch (command) {
-      case COMMAND_RESET:
-        // TODO
+      case COMMAND_INFO:
+        Serial.printf("   \"%s\"\n",
+          ((NodeInfo*)data)->message
+        );
         return;
   
       case COMMAND_OPTIONS:
@@ -975,7 +950,7 @@ class PatternController : public MessageReceiver {
         );
         return;
 
-      case COMMAND_UPDATE: {
+      case COMMAND_STATE: {
         auto update_data = (TubeStates*)data;
 
         TubeState state;
@@ -993,7 +968,7 @@ class PatternController : public MessageReceiver {
       }
 
       case COMMAND_UPGRADE:
-        this->auto_updater.start((AutoUpdateOffer*)data);
+        this->updater.start((AutoUpdateOffer*)data);
         return;
 
       case COMMAND_ACTION:
@@ -1035,12 +1010,19 @@ class PatternController : public MessageReceiver {
         break;
 
       case 'V':
-        // Version check: try to update, but leave wifi on for the script
-        if (this->auto_updater.current_version.version < action->arg) {
-          WLED::instance().initAP(true);
-          this->auto_updater.start();
+        // Version check: prepare for update
+        if (this->updater.current_version.version >= action->arg)
+          break;
+
+        this->updater.ready();
+        break;
+
+      case 'U':
+        if (this->updater.status == Ready) {
+          this->updater.start();
         }
         break;
+
     }
   }
 

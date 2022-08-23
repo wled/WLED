@@ -34,8 +34,9 @@ typedef struct {
 } MeshNodeHeader;
 
 typedef enum{
-    ALL=0,
-    ROOT=1,
+    RECIPIENTS_ALL=0,  // Send to all neighbors; non-followers will ignore
+    RECIPIENTS_ROOT=1, // Send to root for rebroadcasting downward, all will see
+    RECIPIENTS_INFO=2, // Send to all neighbors "FYI"; none will ignore
 } MessageRecipients;
 
 #define MESSAGE_DATA_SIZE 64
@@ -48,18 +49,23 @@ typedef struct {
     byte data[MESSAGE_DATA_SIZE] = {0};
 } NodeMessage;
 
+typedef struct {
+    uint8_t status;
+    char message[40];
+} NodeInfo;
+
 void onDataReceived (uint8_t* address, uint8_t* data, uint8_t len, signed int rssi, bool broadcast);
 
 const char *command_name(CommandId command) {
     switch (command) {
-        case COMMAND_UPDATE:
+        case COMMAND_STATE:
             return "UPDATE";
         case COMMAND_OPTIONS:
             return "OPTIONS";
-        case COMMAND_RESET:
-            return "RESET";
         case COMMAND_ACTION:
             return "ACTION";
+        case COMMAND_INFO:
+            return "INFO";
         default:
             return "?COMMAND?";
     }
@@ -190,7 +196,7 @@ class LightNode {
             message->header.uplinkId,
             command_name(message->command)
         );
-        if (message->recipients == ROOT)
+        if (message->recipients == RECIPIENTS_ROOT)
             Serial.printf(":ROOT");
         if (rssi)
             Serial.printf(" %ddB ", rssi);
@@ -217,14 +223,18 @@ class LightNode {
 
         bool ignore = false;
         switch (message->recipients) {
-            case ALL:
+            case RECIPIENTS_ALL:
                 // Ignore this message if not from the uplink
                 ignore = (message->header.id != this->header.uplinkId);
                 break;
 
-            case ROOT:
-                // Ignore this message if not from a downlink
+            case RECIPIENTS_ROOT:
+                // Ignore this message if not from one of this node's downlinks
                 ignore = (message->header.uplinkId != this->header.id);
+                break;
+
+            case RECIPIENTS_INFO:
+                ignore = false;
                 break;
 
             default:
@@ -243,7 +253,7 @@ class LightNode {
         }
 
         // Execute the received command
-        if (message->recipients != ROOT || !this->is_following()) {
+        if (message->recipients != RECIPIENTS_ROOT || !this->is_following()) {
             Serial.print("  >> ");
             print_message(message, rssi);
             Serial.print(" ");
@@ -264,10 +274,10 @@ class LightNode {
         }
 
         // Re-broadcast the message if appropriate
-        if (!this->rebroadcastTimer.ended()) {
+        if (!this->rebroadcastTimer.ended() && message->recipients != RECIPIENTS_INFO) {
             message->header = this->header;
             if (!this->is_following())
-                message->recipients = ALL;
+                message->recipients = RECIPIENTS_ALL;
             this->broadcast(message, true);
         }
     }
@@ -301,11 +311,15 @@ class LightNode {
 
         NodeMessage message;
         message.header = header;
-        if (command != COMMAND_UPDATE && this->is_following()) {
+        if (command == COMMAND_INFO) {
+            message.recipients = RECIPIENTS_INFO;
+        } else if (command == COMMAND_STATE) {
+            message.recipients = RECIPIENTS_ALL;
+        } else if (this->is_following()) {
             // Follower nodes must request that the root re-sends this message
-            message.recipients = ROOT;
+            message.recipients = RECIPIENTS_ROOT;
         } else {
-            message.recipients = ALL;
+            message.recipients = RECIPIENTS_ALL;
         }
         message.command = command;
         memcpy(&message.data, data, len);

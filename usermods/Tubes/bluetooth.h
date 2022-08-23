@@ -448,7 +448,7 @@ class BLEMeshNode: public NimBLEAdvertisedDeviceCallbacks {
         // Process the command
         this->receiver->onCommand(
             storage.header.id,
-            COMMAND_UPDATE,
+            COMMAND_STATE,
             &storage.current
         );
         this->receiver->onCommand(
