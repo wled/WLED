@@ -6,64 +6,74 @@
 WLEDPATH=../../build_output/firmware
 ESPPATH=~/.platformio/packages/framework-arduinoespressif32/tools
 
+upload_firmware() {
+  echo "Uploading firmware"
+  sftp control@brcac.com <<EOF
+cd /brcac.com
+put ../../build_output/firmware/esp32_quinled_uno.bin firmware.bin
+quit
+EOF
+}
+
+update_config() {
+  curl -s http://$1/upload -F "data=@default_config.json;filename=/cfg.json" >/dev/null
+  curl -s http://$1/reset >/dev/null
+}
+
 update_firmware() {
   echo "Updating firmware via OTA"
   curl -s -F "update=@../../build_output/firmware/esp32_quinled_uno.bin" $1/update >/dev/null
   echo "Updated; wait..."
   sleep 5
-}
-
-update_config() {
-  curl -s http://$1/upload -F "data=@cfg-tmp.json;filename=/cfg.json" >/dev/null
-  curl -s http://$1/reset >/dev/null
+  echo "Updating configuration via OTA"
+  update_config $1
 }
 
 connect() {
-  if ! networksetup -getairportnetwork en0 | grep $1
+  if ! networksetup -getairportnetwork en0 | grep "$1"
   then
     echo "Connecting to $1"
-    networksetup -setairportnetwork en0 $1 "wled1234"
+    networksetup -setairportnetwork en0 "$1" "$2"
     echo "Connected; wait..."
     sleep 5
   fi
 }
 
-start() {
-  connect "WLED-AP"
-
-  ping -c 1 -t 2 $1 >/dev/null
-  PINGRESULT=$?
-  if [ $PINGRESULT -eq 0 ]; then
-    update_firmware $1
-  else
-    echo Missing $1
-  fi
-  return 1
-}
-
-# TODO: extract the config-creation from here
 update_one() {
+  connect "$2" "$3"
+
   ping -c 1 -t 2 $1 >/dev/null
   PINGRESULT=$?
   if [ $PINGRESULT -eq 0 ]; then
-    echo Updating $1
-    curl -s http://$1/presets.json -o presets-tmp.json >/dev/null
-    curl -s http://$1/cfg.json -o cfg-tmp.json >/dev/null
-
     update_firmware $1
-    curl -s -F "data=@cfg-tmp.json;filename=/cfg.json" http://$1/upload >/dev/null
-    curl -s -F "data=@presets-tmp.json;filename=/presets.json" http://$1/upload >/dev/null
-    curl -s http://$1/reset >/dev/null
-    rm presets-tmp.json
-    rm cfg-tmp.json
-    return 0
   else
     echo Missing $1
   fi
   return 1
 }
 
-while :
-do 
-  start 4.3.2.1
-done  
+update_batch() {
+  airport -s | grep WLED | cut -c23-32 | while read line
+  do
+    if [ "$line" == "WLED-AP" ]; then
+      update_one 4.3.2.1 "$line" "wled1234"    
+    else
+      update_one 4.3.2.1 "$line" "WledWled"
+    fi
+  done
+}
+
+process() {
+  if [ "$1" == "upload" ]; then
+    upload_firmware
+  elif [ "$1" == "batch" ]; then
+    update_batch
+  else
+    while :
+    do 
+      update_one 4.3.2.1 "WLED-AP" "wled1234"
+    done
+  fi
+}
+
+process "$@"
