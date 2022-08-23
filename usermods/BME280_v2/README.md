@@ -1,36 +1,60 @@
-Hello! I have written a v2 usermod for the BME280/BMP280 sensor based on the [existing v1 usermod](https://github.com/Aircoookie/WLED/blob/master/usermods/Wemos_D1_mini%2BWemos32_mini_shield/usermod_bme280.cpp). It is not just a refactor, there are many changes which I made to fit my use case, and I hope they will fit the use cases of others as well! Most notably, this usermod is *just* for the BME280 and does not control a display like in the v1 usermod designed for the WeMos shield. 
+# Usermod BME280
+This Usermod is designed to read a `BME280` or `BMP280` sensor and output the following:
+- Temperature
+- Humidity (`BME280` only)
+- Pressure
+- Heat Index (`BME280` only)
+- Dew Point (`BME280` only)
 
-- Requires libraries `BME280@~3.0.0` (by [finitespace](https://github.com/finitespace/BME280)) and `Wire`. Please add these under `lib_deps` in your `platform.ini` (or `platform_override.ini`).
-- Data is published over MQTT so make sure you've enabled the MQTT sync interface.
+Configuration is all completed via the Usermod menu.  There are no settings to set in code!  The following settings can be configured in the Usermod Menu:
+- Temperature Decimals (number of decimal places to output)
+- Humidity Decimals
+- Pressure Decimals
+- Temperature Interval (how many seconds between reads of temperature and humidity)
+- Pressure Interval
+- Publish Always (turn off to only publish changes, on to publish whether or not value changed)
+- Use Celsius (turn off to use Farenheit)
+- Home Assistant Discovery (turn on to sent MQTT Discovery entries for Home Assistant)
+- SCL/SDA GPIO Pins
+
+Dependencies
+- Libraries
+  - `BME280@~3.0.0` (by [finitespace](https://github.com/finitespace/BME280))
+  - `Wire`
+  - These must be added under `lib_deps` in your `platform.ini` (or `platform_override.ini`).
+- Data is published over MQTT - make sure you've enabled the MQTT sync interface.
 - This usermod also writes to serial (GPIO1 on ESP8266). Please make sure nothing else listening on the serial TX pin of your board will get confused by log messages!
 
-To enable, compile with `USERMOD_BME280` defined (i.e. `platformio_override.ini`)
+In addition to outputting via MQTT, you can read the values from the Info Screen on the dashboard page of the device's web interface.
+
+Methods also exist to read the read/calculated values from other WLED modules through code.
+- `getTemperatureC()`
+- `getTemperatureF()`
+- `getHumidity()`
+- `getPressure()`
+- `getDewPointC()`
+- `getDewPointF()`
+- `getHeatIndexC()`
+- `getHeatIndexF()`
+
+# Complilation
+
+To enable, compile with `USERMOD_BME280` defined  (e.g. in `platformio_override.ini`)
 ```ini
+[env:usermod_bme280_d1_mini]
+extends = env:d1_mini
 build_flags =
   ${common.build_flags_esp8266}
   -D USERMOD_BME280
+lib_deps = 
+  ${esp8266.lib_deps}
+  BME280@~3.0.0
+  Wire
 ```
-or define `USERMOD_BME280` in `my_config.h`
-```c++
-#define USERMOD_BME280
-```
 
-Changes include:
-- Adjustable measure intervals
-  - Temperature and pressure have separate intervals due to pressure not frequently changing at any constant altitude
-- Adjustment of number of decimal places in published sensor values
-  - Separate adjustment for temperature, humidity and pressure values
-  - Values are rounded to the specified number of decimal places
-- Pressure measured in units of hPa instead of Pa
-- Calculation of heat index (apparent temperature) and dew point
-  - These, along with humidity measurements, are disabled if the sensor is a BMP280
-- 16x oversampling of sensor during measurement
-- Values are only published if they are different from the previous value
-- Values are published on startup (continually until the MQTT broker acknowledges a successful publication)
 
-Adjustments are made through preprocessor definitions at the start of the class definition.
-
-MQTT topics are as follows:
+# MQTT
+MQTT topics are as follows (`<deviceTopic>` is set in MQTT section of Sync Setup menu):
 Measurement type | MQTT topic
 --- | ---
 Temperature | `<deviceTopic>/temperature`
@@ -38,3 +62,29 @@ Humidity | `<deviceTopic>/humidity`
 Pressure | `<deviceTopic>/pressure`
 Heat index | `<deviceTopic>/heat_index`
 Dew point | `<deviceTopic>/dew_point`
+
+If you are using Home Assistant, and `Home Assistant Discovery` is turned on, Home Assistant should automatically detect a new device, provided you have the MQTT integration installed.  The  device is seperate from the main WLED device and will contain sensors for Pressure, Humidity, Temperature, Dew Point and Heat Index.
+
+# Revision History
+Jul 2022
+- Added Home Assistant Discovery
+- Added API interface to output data
+- Removed compile-time variables
+- Added usermod menu interface
+- Added value outputs to info screen
+- Updated `readme.md`
+- Registered usermod
+- Implemented PinManager for usermod
+- Implemented reallocation of pins without reboot
+
+Apr 2021
+- Added `Publish Always` option
+
+Dec 2020
+- Ported to V2 Usermod format
+- Customisable `measure intervals`
+- Customisable number of `decimal places` in published sensor values
+- Pressure measured in units of hPa instead of Pa
+- Calculation of heat index (apparent temperature) and dew point
+- `16x oversampling` of sensor during measurement
+- Values only published if they are different from the previous value

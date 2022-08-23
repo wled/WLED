@@ -95,7 +95,7 @@ void deserializeSegment(JsonObject elem, byte it, byte presetId)
   if (stop > start && of > len -1) of = len -1;
   strip.setSegment(id, start, stop, grp, spc, of);
 
-  byte segbri = 0;
+  byte segbri = seg.opacity;
   if (getVal(elem["bri"], &segbri)) {
     if (segbri > 0) seg.setOpacity(segbri, id);
     seg.setOption(SEG_OPTION_ON, segbri, id);

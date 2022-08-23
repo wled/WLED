@@ -1,6 +1,26 @@
 ## WLED changelog
 
-### Builds after release 0.13.1
+### WLED release 0.13.3
+
+-   Version bump to v0.13.3 "Toki"
+-   Disable ESP watchdog by default (fixes flickering and boot issues on a fresh install)
+-   Added support for LPD6803
+
+### WLED release 0.13.2
+
+#### Build 2208140
+
+-   Version bump to v0.13.2 "Toki"
+-   Added option to receive live data on the main segment only (PR #2601)
+-   Enable ESP watchdog by default (PR #2657)
+-   Fixed race condition when saving bus config
+-   Better potentiometer filtering (PR #2693)
+-   More suitable DMX libraries (PR #2652)
+-   Fixed outgoing serial TPM2 message length (PR #2628)
+-   Fixed next universe overflow and Art-Net DMX start address (PR #2607)
+-   Fixed relative segment brightness (PR #2665)
+
+### Builds between releases 0.13.1 and 0.13.2
 
 #### Build 2203191
 

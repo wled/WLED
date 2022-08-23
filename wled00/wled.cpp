@@ -276,6 +276,44 @@ void WLED::loop()
   loops++;
 #endif        // WLED_DEBUG
   toki.resetTick();
+
+#if WLED_WATCHDOG_TIMEOUT > 0
+  // we finished our mainloop, reset the watchdog timer
+  #ifdef ARDUINO_ARCH_ESP32
+    esp_task_wdt_reset();
+  #else
+    ESP.wdtFeed();
+  #endif
+#endif
+}
+
+void WLED::enableWatchdog() {
+#if WLED_WATCHDOG_TIMEOUT > 0
+#ifdef ARDUINO_ARCH_ESP32
+  esp_err_t watchdog = esp_task_wdt_init(WLED_WATCHDOG_TIMEOUT, true);
+  DEBUG_PRINT(F("Watchdog enabled: "));
+  if (watchdog == ESP_OK) {
+    DEBUG_PRINTLN(F("OK"));
+  } else {
+    DEBUG_PRINTLN(watchdog);
+    return;
+  }
+  esp_task_wdt_add(NULL);
+#else
+  ESP.wdtEnable(WLED_WATCHDOG_TIMEOUT * 1000);
+#endif
+#endif
+}
+
+void WLED::disableWatchdog() {
+#if WLED_WATCHDOG_TIMEOUT > 0
+DEBUG_PRINTLN(F("Watchdog: disabled"));
+#ifdef ARDUINO_ARCH_ESP32
+  esp_task_wdt_delete(NULL);
+#else
+  ESP.wdtDisable();
+#endif
+#endif
 }
 
 void WLED::setup()
@@ -301,6 +339,8 @@ void WLED::setup()
 #endif
   DEBUG_PRINT(F("heap "));
   DEBUG_PRINTLN(ESP.getFreeHeap());
+
+  enableWatchdog();
 
   #if defined(ARDUINO_ARCH_ESP32) && defined(WLED_USE_PSRAM)
   if (psramFound()) {
@@ -401,7 +441,12 @@ void WLED::setup()
 #ifdef ESP8266
       wifi_set_sleep_type(NONE_SLEEP_T);
 #endif
+      WLED::instance().disableWatchdog();
       DEBUG_PRINTLN(F("Start ArduinoOTA"));
+    });
+    ArduinoOTA.onError([](ota_error_t error) {
+      // reenable watchdog on failed update
+      WLED::instance().enableWatchdog();
     });
     if (strlen(cmDNS) > 0)
       ArduinoOTA.setHostname(cmDNS);

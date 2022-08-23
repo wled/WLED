@@ -131,21 +131,42 @@ void handleSwitch(uint8_t b)
   }
 }
 
+#define ANALOG_BTN_READ_CYCLE 250   // min time between two analog reading cycles
+#define STRIP_WAIT_TIME 6           // max wait time in case of strip.isUpdating() 
+#define POT_SMOOTHING 0.25f         // smoothing factor for raw potentiometer readings
+#define POT_SENSITIVITY 4           // changes below this amount are noise (POT scratching, or ADC noise)
+
 void handleAnalog(uint8_t b)
 {
-  static uint8_t oldRead[WLED_MAX_BUTTONS];
+  static uint8_t oldRead[WLED_MAX_BUTTONS] = {0};
+  static float filteredReading[WLED_MAX_BUTTONS] = {0.0f};
+  uint16_t rawReading;    // raw value from analogRead, scaled to 12bit
+
   #ifdef ESP8266
-  uint16_t aRead = analogRead(A0) >> 2; // convert 10bit read to 8bit
+  rawReading = analogRead(A0) << 2;   // convert 10bit read to 12bit
   #else
-  uint16_t aRead = analogRead(btnPin[b]) >> 4; // convert 12bit read to 8bit
+  rawReading = analogRead(btnPin[b]); // collect at full 12bit resolution
   #endif
+  yield();                            // keep WiFi task running - analog read may take several millis on ESP8266
+
+  filteredReading[b] += POT_SMOOTHING * ((float(rawReading) / 16.0f) - filteredReading[b]); // filter raw input, and scale to [0..255]
+  uint16_t aRead = max(min(int(filteredReading[b]), 255), 0);                               // squash into 8bit
+  if(aRead <= POT_SENSITIVITY) aRead = 0;                                                   // make sure that 0 and 255 are used
+  if(aRead >= 255-POT_SENSITIVITY) aRead = 255;
 
   if (buttonType[b] == BTN_TYPE_ANALOG_INVERTED) aRead = 255 - aRead;
 
   // remove noise & reduce frequency of UI updates
-  aRead &= 0xFC;
+  if (abs(int(aRead) - int(oldRead[b])) <= POT_SENSITIVITY) return;  // no significant change in reading
 
-  if (oldRead[b] == aRead) return;  // no change in reading
+  // Unomment the next lines if you still see flickering related to potentiometer
+  // This waits until strip finishes updating (why: strip was not updating at the start of handleButton() but may have started during analogRead()?)
+  //unsigned long wait_started = millis();
+  //while(strip.isUpdating() && (millis() - wait_started < STRIP_WAIT_TIME)) {
+  //  delay(1);
+  //}
+  //if (strip.isUpdating()) return; // give up 
+
   oldRead[b] = aRead;
 
   // if no macro for "short press" and "long press" is defined use brightness control
@@ -168,6 +189,7 @@ void handleAnalog(uint8_t b)
     } else if (macroDoublePress[b] == 247) {
       // selected palette
       effectPalette = map(aRead, 0, 252, 0, strip.getPaletteCount()-1);
+      effectPalette = constrain(effectPalette, 0, strip.getPaletteCount()-1);  // map is allowed to "overshoot", so we need to contrain the result
     } else if (macroDoublePress[b] == 200) {
       // primary color, hue, full saturation
       colorHStoRGB(aRead*256,255,col);
@@ -196,6 +218,8 @@ void handleButton()
   static unsigned long lastRead = 0UL;
   bool analog = false;
 
+  if (strip.isUpdating()) return; // don't interfere with strip updates. Our button will still be there in 1ms (next cycle)
+
   for (uint8_t b=0; b<WLED_MAX_BUTTONS; b++) {
     #ifdef ESP8266
     if ((btnPin[b]<0 && !(buttonType[b] == BTN_TYPE_ANALOG || buttonType[b] == BTN_TYPE_ANALOG_INVERTED)) || buttonType[b] == BTN_TYPE_NONE) continue;
@@ -205,7 +229,7 @@ void handleButton()
 
     if (usermods.handleButton(b)) continue; // did usermod handle buttons
 
-    if ((buttonType[b] == BTN_TYPE_ANALOG || buttonType[b] == BTN_TYPE_ANALOG_INVERTED) && millis() - lastRead > 250) {   // button is not a button but a potentiometer
+    if ((buttonType[b] == BTN_TYPE_ANALOG || buttonType[b] == BTN_TYPE_ANALOG_INVERTED) && millis() - lastRead > ANALOG_BTN_READ_CYCLE) {   // button is not a button but a potentiometer
       analog = true;
       handleAnalog(b); continue;
     }

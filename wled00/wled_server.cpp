@@ -203,6 +203,7 @@ void initServer()
     },[](AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool final){
       if(!index){
         DEBUG_PRINTLN(F("OTA Update Start"));
+        WLED::instance().disableWatchdog();
         #ifdef ESP8266
         Update.runAsync(true);
         #endif
@@ -214,6 +215,7 @@ void initServer()
           DEBUG_PRINTLN(F("Update Success"));
         } else {
           DEBUG_PRINTLN(F("Update Failed"));
+          WLED::instance().enableWatchdog();
         }
       }
     });

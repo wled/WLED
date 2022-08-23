@@ -95,6 +95,7 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
     uint8_t s = 0;  // bus iterator
     if (fromFS) busses.removeAll(); // can't safely manipulate busses directly in network callback
     uint32_t mem = 0;
+    bool busesChanged = false;
     for (JsonObject elm : ins) {
       if (s >= WLED_MAX_BUSSES) break;
       uint8_t pins[5] = {255, 255, 255, 255, 255};
@@ -123,10 +124,11 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
       } else {
         if (busConfigs[s] != nullptr) delete busConfigs[s];
         busConfigs[s] = new BusConfig(ledType, pins, start, length, colorOrder, reversed, skipFirst);
-        doInitBusses = true;
+        busesChanged = true;
       }
       s++;
     }
+    doInitBusses = busesChanged;
     // finalization done in beginStrip()
   }
   if (hw_led["rev"]) busses.getBus(0)->reversed = true; //set 0.11 global reversed setting for first bus

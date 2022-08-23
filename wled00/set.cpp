@@ -90,6 +90,7 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
     Bus::setAutoWhiteMode(strip.autoWhiteMode);
     strip.setTargetFps(request->arg(F("FR")).toInt());
 
+    bool busesChanged = false;
     for (uint8_t s = 0; s < WLED_MAX_BUSSES; s++) {
       char lp[4] = "L0"; lp[2] = 48+s; lp[3] = 0; //ascii 0-9 //strip data pin
       char lc[4] = "LC"; lc[2] = 48+s; lc[3] = 0; //strip length
@@ -121,8 +122,9 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
       // actual finalization is done in WLED::loop() (removing old busses and adding new)
       if (busConfigs[s] != nullptr) delete busConfigs[s];
       busConfigs[s] = new BusConfig(type, pins, start, length, colorOrder, request->hasArg(cv), skip);
-      doInitBusses = true;
+      busesChanged = true;
     }
+    //doInitBusses = busesChanged; // we will do that below to ensure all input data is processed
 
     ColorOrderMap com = {};
     for (uint8_t s = 0; s < WLED_MAX_COLOR_ORDER_MAPPINGS; s++) {
@@ -198,6 +200,8 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
     if (t >= 0 && t < 4) strip.paletteBlend = t;
     t = request->arg(F("BF")).toInt();
     if (t > 0) briMultiplier = t;
+
+    doInitBusses = busesChanged;
   }
 
   //UI
