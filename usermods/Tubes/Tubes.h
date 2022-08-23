@@ -83,8 +83,14 @@ class TubesUsermod : public Usermod {
     {
       // Draw effects layers over whatever WLED is doing.
       this->controller.handleOverlayDraw();
+      this->debug.handleOverlayDraw();
       if (master) 
         master->handleOverlayDraw();
-      this->debug.handleOverlayDraw();
+
+      // When AP mode is on, make sure it's obvious
+      if (apActive) {
+        strip.setPixelColor(0, CRGB::Purple);
+        strip.setPixelColor(1, CRGB::Black);
+      }
     }
 };

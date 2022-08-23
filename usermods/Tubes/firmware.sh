@@ -9,7 +9,7 @@ ESPPATH=~/.platformio/packages/framework-arduinoespressif32/tools
 upload_firmware() {
   echo "Uploading firmware"
   sftp control@brcac.com <<EOF
-cd /brcac.com
+cd brcac.com
 put ../../build_output/firmware/esp32_quinled_uno.bin firmware.bin
 quit
 EOF
@@ -57,6 +57,8 @@ update_batch() {
   do
     if [ "$line" == "WLED-AP" ]; then
       update_one 4.3.2.1 "$line" "wled1234"    
+    elif [ "$line" == "WLED-UPDATE" ]; then
+      update_one 4.3.2.1 "$line" "update1234"    
     else
       update_one 4.3.2.1 "$line" "WledWled"
     fi
@@ -76,4 +78,11 @@ process() {
   fi
 }
 
+# WiFi is spotty. Let's do it a couple times :)
+process "$@"
+process "$@"
+process "$@"
+process "$@"
+process "$@"
+process "$@"
 process "$@"
