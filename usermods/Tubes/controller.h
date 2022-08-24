@@ -20,8 +20,8 @@ const static uint8_t DEFAULT_TUBE_BRIGHTNESS = 128;
 
 #define STATUS_UPDATE_PERIOD 2000
 
-#define MIN_COLOR_CHANGE_PHRASES 2  // 4
-#define MAX_COLOR_CHANGE_PHRASES 4  // 40
+#define MIN_COLOR_CHANGE_PHRASES 4
+#define MAX_COLOR_CHANGE_PHRASES 20
 
 #define ROLE_EEPROM_LOCATION 2559
 
@@ -268,7 +268,8 @@ class PatternController : public MessageReceiver {
       this->patternOverrideTimer.stop();
       transitionDelay = 8000; // Back to long transitions
 
-      this->set_wled_pattern(auto_mode, 128, 128);
+      uint8_t param = modeParameter(auto_mode);
+      this->set_wled_pattern(auto_mode, param, param);
     }
   }
 
@@ -396,9 +397,9 @@ class PatternController : public MessageReceiver {
   void update_beat() {
     this->current_state.bpm = this->next_state.bpm = this->beats->bpm;
     this->current_state.beat_frame = particle_beat_frame = this->beats->frac;  // (particle_beat_frame is a hack)
-    if (this->current_state.bpm >= 125>>8)
+    if (this->current_state.bpm>>8 >= 125)
       this->energy = HighEnergy;
-    else if (this->current_state.bpm > 120>>8)
+    else if (this->current_state.bpm>>8 > 120)
       this->energy = MediumEnergy;
     else
       this->energy = Chill;
@@ -452,6 +453,23 @@ class PatternController : public MessageReceiver {
     return this->current_state.pattern_id >= numInternalPatterns;
   }
 
+  uint8_t modeParameter(uint8_t mode) {
+    switch (this->energy) {
+      case Boring:
+        // Spice things up a bit
+        return 128;
+
+      case Chill:
+        return 90;
+
+      case MediumEnergy:
+        return 120;
+
+      case HighEnergy:
+        return 140;
+    }
+  }
+
   // For now, can't crossfade between internal and WLED patterns
   // If currently running an WLED pattern, only select from internal patterns.
   uint8_t get_valid_next_pattern() {
@@ -473,7 +491,7 @@ class PatternController : public MessageReceiver {
     for (int i = 0; i < 10; i++) {
       pattern_id = get_valid_next_pattern();
       def = gPatterns[pattern_id];
-      if (def.control.energy < this->energy)
+      if (def.control.energy <= this->energy)
         break;
     }
 #ifdef IDENTIFY_STUCK_PATTERNS
@@ -507,7 +525,11 @@ class PatternController : public MessageReceiver {
   uint16_t set_next_palette(uint16_t phrase) {
     // Don't select the built-in palettes
     this->next_state.palette_id = random8(6, gGradientPaletteCount);
-    return random8(MIN_COLOR_CHANGE_PHRASES, MAX_COLOR_CHANGE_PHRASES);
+    auto phrases = random8(MIN_COLOR_CHANGE_PHRASES, MAX_COLOR_CHANGE_PHRASES);
+    if (this->isBoring) {
+      phrases /= 2;
+    }
+    return phrases;
   }
 
   void load_effect(TubeState &tube_state) {
@@ -536,20 +558,18 @@ class PatternController : public MessageReceiver {
 
     // Pick a random effect to add; boring patterns get better chance at having an effect.
     EffectDef def = gEffects[effect_num];
-    Energy maxEnergy = this->energy;
-    if (this->isBoring)
-      maxEnergy = (Energy)((uint8_t)maxEnergy + 10);
-    if (def.control.energy > maxEnergy)
+    if (def.control.energy > this->energy) {
       def = gEffects[0];
+    }
 
     this->next_state.effect_params = def.params;
 
     switch (def.control.duration) {
-      case ExtraShortDuration: return 2;
-      case ShortDuration: return 3;
-      case MediumDuration: return 6;
-      case LongDuration: return 10;
-      case ExtraLongDuration: return 20;
+      case ExtraShortDuration: return random(2,3);
+      case ShortDuration: return random(2,4);
+      case MediumDuration: return random(4,8);
+      case LongDuration: return random(6, 14);
+      case ExtraLongDuration: return random(10,20);
     }
     return 1;
   }
@@ -571,7 +591,8 @@ class PatternController : public MessageReceiver {
     this->vstrips[this->next_vstrip]->load(background);
     this->next_vstrip = (this->next_vstrip + 1) % NUM_VSTRIPS; 
 
-    set_wled_pattern(background.wled_fx_id, 128, 128);
+    uint8_t param = modeParameter(background.wled_fx_id);
+    set_wled_pattern(background.wled_fx_id, param, param);
     set_wled_palette(background.palette_id);
   }
 
@@ -649,7 +670,7 @@ class PatternController : public MessageReceiver {
     EEPROM.write(ROLE_EEPROM_LOCATION, role);
     EEPROM.end();
     delay(10);
-    ESP.restart();
+    doReboot = true;
   }
   
   SyncMode randomSyncMode() {
@@ -763,7 +784,7 @@ class PatternController : public MessageReceiver {
         this->setDebugging(!this->options.debugging);
         break;
       case '~':
-        ESP.restart();
+        doReboot = true;
         break;
       case '@':
         this->togglePowerSave();
@@ -852,6 +873,7 @@ class PatternController : public MessageReceiver {
       case 'A':
       case 'W':
       case 'X':
+      case 'R':
       case 'M': {
         Action action = {
           .key = command[0],
@@ -871,7 +893,7 @@ class PatternController : public MessageReceiver {
         break;
       }
 
-      case 'R':
+      case 'r':
         this->setRole((ControllerRole)(arg >> 8));
         return;
 
@@ -1002,7 +1024,11 @@ class PatternController : public MessageReceiver {
         return;
 
       case 'X':
-        ESP.restart();
+        doReboot = true;
+        return;
+
+      case 'R':
+        setRole((ControllerRole)(action->arg));
         return;
 
       case '@':
