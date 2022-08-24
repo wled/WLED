@@ -473,6 +473,7 @@ WLED_GLOBAL uint16_t      transitionDelayTemp    _INIT(transitionDelay); // actu
 WLED_GLOBAL unsigned long transitionStartTime;
 WLED_GLOBAL float         tperLast               _INIT(0.0f);            // crossfade transition progress, 0.0f - 1.0f
 WLED_GLOBAL bool          jsonTransitionOnce     _INIT(false);           // flag to override transitionDelay (playlist, JSON API: "live" & "seg":{"i"} & "tt")
+WLED_GLOBAL uint16_t      transition_mode_point  _INIT(0);               // point at which a transition changes mode
 
 // nightlight
 WLED_GLOBAL bool nightlightActive _INIT(false);
