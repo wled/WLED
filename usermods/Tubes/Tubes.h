@@ -108,6 +108,11 @@ class TubesUsermod : public Usermod {
         this->controller.cancelOverrides();
         return true;
       }
+      if (b == 102) {
+        this->controller.acknowledge();
+        this->controller.request_new_bpm();
+        return true;
+      }
 
       return false;
     }
