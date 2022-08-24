@@ -100,6 +100,7 @@ class PatternController : public MessageReceiver {
     uint16_t wled_fader = 0;
     ControllerRole role;
     bool power_save = true;  // Power save ALWAYS starts on. Some roles just ignore it
+    uint8_t flashColor = 0;
 
     AutoUpdater updater = AutoUpdater();
 
@@ -107,6 +108,7 @@ class PatternController : public MessageReceiver {
     Timer updateTimer;
     Timer paletteOverrideTimer;
     Timer patternOverrideTimer;
+    Timer flashTimer;
 
 #ifdef USELCD
     Lcd *lcd;
@@ -156,7 +158,7 @@ class PatternController : public MessageReceiver {
     EEPROM.begin(2560);
     this->role = (ControllerRole)EEPROM.read(ROLE_EEPROM_LOCATION);
     if (this->role == 255) {
-      this->role = DefaultRole;
+      this->role = UnknownRole;
     }
     EEPROM.end();
     Serial.printf("Role = %d", this->role);
@@ -286,7 +288,7 @@ class PatternController : public MessageReceiver {
     Segment& segment = strip.getMainSegment();
 
     // Detect manual overrides & update the current state to match.
-    if (this->paletteOverride && this->paletteOverrideTimer.ended()) {
+    if (this->paletteOverride && (this->paletteOverrideTimer.ended() || !apActive)) {
       this->set_palette_override(0);
     } else if (segment.palette != this->current_state.palette_id) {
       this->set_palette_override(segment.palette);
@@ -295,7 +297,7 @@ class PatternController : public MessageReceiver {
     uint8_t wled_mode = gPatterns[this->current_state.pattern_id].wled_fx_id;
     if (wled_mode < 10)
       wled_mode = DEFAULT_WLED_FX;
-    if (this->patternOverride && this->patternOverrideTimer.ended()) {
+    if (this->patternOverride && (this->patternOverrideTimer.ended() || !apActive)) {
       this->set_pattern_override(0, wled_mode);
     } else if (segment.mode != wled_mode) {
       this->set_pattern_override(segment.mode, wled_mode);
@@ -336,11 +338,12 @@ class PatternController : public MessageReceiver {
       this->wled_fader = 0xFFFF;
     }
 
+    uint16_t length = strip.getLengthTotal();
+
     // Crossfade between the custom pattern engine and WLED
     uint8_t fader = this->wled_fader >> 8;
     if (fader < 255) {
       // Perform a cross-fade between current WLED mode and the external buffer
-      uint16_t length = strip.getLengthTotal();
       for (int i = 0; i < length; i++) {
         CRGB c = this->led_strip->getPixelColor(i);
         if (fader > 0) {
@@ -358,7 +361,6 @@ class PatternController : public MessageReceiver {
     // Only affects non-powered poles
     if (this->power_save && this->role < InstallationRole) {
       // Screen door effect to save power
-      uint16_t length = strip.getLengthTotal();
       for (int i = 0; i < length; i++) {
         if (i % 2) {
             strip.setPixelColor(i, CRGB::Black);
@@ -370,6 +372,19 @@ class PatternController : public MessageReceiver {
     // But not in manual (WLED) mode
     if (!this->patternOverride) {
       this->effects->draw(&strip);
+    }
+
+    if (this->flashColor) {
+      if (flashTimer.ended())
+        this->flashColor = 0;
+      else {
+        if (millis() % 4000 < 2000) {
+          auto chsv = CHSV(this->flashColor, 255, 255);
+          for (int i = 0; i < length; i++) {
+            strip.setPixelColor(i, CRGB(chsv));
+          }
+        }
+      }
     }
 
     this->updater.handleOverlayDraw();
@@ -462,11 +477,12 @@ class PatternController : public MessageReceiver {
       case Chill:
         return 90;
 
-      case MediumEnergy:
-        return 120;
-
       case HighEnergy:
         return 140;
+
+      default:
+      case MediumEnergy:
+        return 128;
     }
   }
 
@@ -594,6 +610,10 @@ class PatternController : public MessageReceiver {
     uint8_t param = modeParameter(background.wled_fx_id);
     set_wled_pattern(background.wled_fx_id, param, param);
     set_wled_palette(background.palette_id);
+  }
+
+  bool isUnderWledControl() {
+    return this->paletteOverride || this->patternOverride;
   }
 
   void set_wled_palette(uint8_t palette_id) {
@@ -873,6 +893,7 @@ class PatternController : public MessageReceiver {
       case 'A':
       case 'W':
       case 'X':
+      case 'F':
       case 'R':
       case 'M': {
         Action action = {
@@ -1043,10 +1064,16 @@ class PatternController : public MessageReceiver {
         WiFi.disconnect(false, true);
         return;
 
-      case 'g':
+      case 'G':
         Serial.println("glitter!");
         for (int i=0; i< 10; i++)
           addGlitter();
+        return;
+
+      case 'F':
+        Serial.println("flash!");
+        this->flashTimer.start(20000);
+        this->flashColor = action->arg;
         return;
 
       case 'M':
