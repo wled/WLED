@@ -88,8 +88,12 @@ class TubesUsermod : public Usermod {
         master->handleOverlayDraw();
 
       // When AP mode is on, make sure it's obvious
+      // Blink when there's a connected client
       if (apActive) {
         strip.setPixelColor(0, CRGB::Purple);
+        if (millis() % 10000 > 1000 && WiFi.softAPgetStationNum()) {
+          strip.setPixelColor(0, CRGB::Black);
+        }
         strip.setPixelColor(1, CRGB::Black);
       }
     }
