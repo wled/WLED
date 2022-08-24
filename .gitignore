@@ -18,3 +18,4 @@ wled-update.sh
 esp01-update.sh
 /wled00/LittleFS
 replace_fs.py
+wled00/wled00.ino.cpp
