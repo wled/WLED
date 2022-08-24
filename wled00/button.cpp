@@ -8,8 +8,8 @@
 #define WLED_LONG_PRESS             600 // long press if button is released after held for at least 600ms
 #define WLED_DOUBLE_PRESS           350 // double press if another press within 350ms after a short press
 #define WLED_LONG_REPEATED_ACTION   300 // how often a repeated action (e.g. dimming) is fired on long press on button IDs >0
-#define WLED_LONG_AP               2000 // how long button 0 needs to be held to activate WLED-AP
-#define WLED_LONG_POWER_SAVE       8000 // how long button 0 needs to be held to DEactivate power saving mode (toggle it)
+#define WLED_LONG_POWER_SAVE       1000 // how long button 0 needs to be held to DEactivate power saving mode (toggle it)
+#define WLED_LONG_AP               5000 // how long button 0 needs to be held to activate WLED-AP
 // SteveE: geez you can't put factory reset so close to "just turn on the AP"
 #define WLED_LONG_FACTORY_RESET   30000 // how long button 0 needs to be held to trigger a factory reset
 
@@ -19,7 +19,7 @@ void shortPressAction(uint8_t b)
 {
   if (!macroButton[b]) {
     switch (b) {
-      case 0: toggleOnOff(); stateUpdated(CALL_MODE_BUTTON); break;
+      case 0: toggleOnOff(); usermods.handleButton(101); stateUpdated(CALL_MODE_BUTTON); break;
       case 1: ++effectCurrent %= strip.getModeCount(); stateChanged = true; colorUpdated(CALL_MODE_BUTTON); break;
     }
   } else {
@@ -267,21 +267,17 @@ void handleButton()
       bool doublePress = buttonWaitTime[b]; //did we have a short press before?
       buttonWaitTime[b] = 0;
 
-      if (b == 0 && dur > WLED_LONG_AP) { // long press on button 0 (when released)
-        Serial.printf("A %ld", dur);
+      if (b == 0 && dur > WLED_LONG_POWER_SAVE) { // long press on button 0 (when released)
         if (dur > WLED_LONG_FACTORY_RESET) { // factory reset if pressed > 10 seconds
-          Serial.printf(" B");
           WLED_FS.format();
           #ifdef WLED_ADD_EEPROM_SUPPORT
           clearEEPROM();
           #endif
           doReboot = true;
-        } else if (dur > WLED_LONG_POWER_SAVE) {
-          Serial.printf(" C");
-          usermods.handleButton(100);
-        } else {
-          Serial.printf(" D");
+        } else if (dur > WLED_LONG_AP) {
           WLED::instance().initAP(true);
+        } else {
+          usermods.handleButton(100);
         }
         Serial.println();
       } else if (!buttonLongPressed[b]) { //short press

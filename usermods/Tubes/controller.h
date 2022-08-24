@@ -44,7 +44,7 @@ typedef enum ControllerRole : uint8_t {
   DefaultRole = 10,         // Turn on in power saving mode
   CampRole = 50,            // Turn on in non-power-saving mode
   InstallationRole = 100,   // Disable power-saving mode completely
-  LegacyRole = 190,          // 1/2 the pixels, no "power saving" necessary
+  LegacyRole = 190,         // 1/2 the pixels, no "power saving" necessary
   MasterRole = 200          // Controls all the others
 } ControllerRole;
 
@@ -239,6 +239,12 @@ class PatternController : public MessageReceiver {
     }
   }
 
+  void cancelOverrides() {
+    // Release the WLED overrides and take over control of the strip again.
+    this->paletteOverrideTimer.stop();
+    this->patternOverrideTimer.stop();
+  }
+
   void set_palette_override(uint8_t value) {
     if (value == this->paletteOverride)
       return;
@@ -336,6 +342,16 @@ class PatternController : public MessageReceiver {
     // In manual mode WLED is always active
     if (this->patternOverride) {
       this->wled_fader = 0xFFFF;
+      transition_mode_point = 0;
+    } else if (wled_fader == 0xFFFF) {
+      // When fading down...
+      // Wait until the transition has completely changed
+      // before switching to new mode
+      transition_mode_point = 0xFFFFU;
+    } else if (wled_fader == 0) {
+      // When fading up...
+      // Transition to new mode immediately
+      transition_mode_point = 0;
     }
 
     uint16_t length = strip.getLengthTotal();
@@ -888,6 +904,7 @@ class PatternController : public MessageReceiver {
         this->node->reset(arg >> 4);
         return;
 
+      case 'U':
       case 'V':
       case 'G':
       case 'A':
@@ -941,7 +958,7 @@ class PatternController : public MessageReceiver {
         Serial.println("M - cancel manual pattern override");
         return;
 
-      case 'U':
+      case 'u':
         this->updater.start();
         return;
 
@@ -1078,8 +1095,7 @@ class PatternController : public MessageReceiver {
 
       case 'M':
         Serial.println("cancel manual mode");
-        this->paletteOverrideTimer.stop();
-        this->patternOverrideTimer.stop();
+        this->cancelOverrides();
         break;
 
       case 'V':
