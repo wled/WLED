@@ -279,10 +279,12 @@ void handleButton()
         } else {
           usermods.handleButton(100);
         }
-        Serial.println();
       } else if (!buttonLongPressed[b]) { //short press
+        if (b == 0 && doublePress) {
+          usermods.handleButton(102);
+        }
         //NOTE: this interferes with double click handling in usermods so usermod needs to implement full button handling
-        if (b != 1 && !macroDoublePress[b]) { //don't wait for double press on buttons without a default action if no double press macro set
+        if (b > 1 && !macroDoublePress[b]) { //don't wait for double press on buttons without a default action if no double press macro set
           shortPressAction(b);
         } else { //double press if less than 350 ms between current press and previous short press release (buttonWaitTime!=0)
           if (doublePress) {

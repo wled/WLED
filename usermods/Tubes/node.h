@@ -66,6 +66,8 @@ const char *command_name(CommandId command) {
             return "ACTION";
         case COMMAND_INFO:
             return "INFO";
+        case COMMAND_BEATS:
+            return "BEATS";
         default:
             return "?COMMAND?";
     }
@@ -73,8 +75,9 @@ const char *command_name(CommandId command) {
 
 class MessageReceiver {
   public:
-    virtual void onCommand(CommandId command, void *data) {
+    virtual bool onCommand(CommandId command, void *data) {
       // Abstract: subclasses must define
+      return false;
     }  
 };
 
@@ -266,11 +269,14 @@ class LightNode {
                 strip.timebase = new_timebase;
 
             // Execute the command
-            this->receiver->onCommand(
+            auto valid = this->receiver->onCommand(
                 message->command,
                 &message->data
             );
             Serial.println();
+
+            if (!valid)
+                return;
         }
 
         // Re-broadcast the message if appropriate

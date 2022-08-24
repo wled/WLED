@@ -425,6 +425,19 @@ class PatternController : public MessageReceiver {
     this->send_update();
   }
 
+  void request_new_bpm(accum88 new_bpm = 0) {
+    // 0 = toggle 120 to 125
+    if (new_bpm == 0)
+      new_bpm = this->current_state.bpm>>8 >= 123 ? 120<<8 : 125<<8;
+
+    if (this->node->is_following()) {
+      // Send a request up to ROOT
+      this->broadcast_bpm(new_bpm);
+    } else {
+      this->set_tapped_bpm(new_bpm, 0);
+    }
+  }
+
   void update_beat() {
     this->current_state.bpm = this->next_state.bpm = this->beats->bpm;
     this->current_state.beat_frame = particle_beat_frame = this->beats->frac;  // (particle_beat_frame is a hack)
@@ -851,9 +864,7 @@ class PatternController : public MessageReceiver {
           Serial.println(F("nope"));
           return;
         }
-        this->beats->set_bpm(arg);
-        this->update_beat();
-        this->send_update();
+        request_new_bpm(arg);
         return;
 
       case 's':
@@ -1008,13 +1019,18 @@ class PatternController : public MessageReceiver {
     this->node->sendCommand(COMMAND_UPGRADE, &this->updater.current_version, sizeof(this->updater.current_version));
   }
 
-  virtual void onCommand(CommandId command, void *data) {
+  void broadcast_bpm(accum88 bpm) {
+    // Hacked in feature: request a new BPM
+    this->node->sendCommand(COMMAND_BEATS, &bpm, sizeof(bpm));
+  }
+
+  virtual bool onCommand(CommandId command, void *data) {
     switch (command) {
       case COMMAND_INFO:
         Serial.printf("   \"%s\"\n",
           ((NodeInfo*)data)->message
         );
-        return;
+        return true;
   
       case COMMAND_OPTIONS:
         memcpy(&this->options, data, sizeof(this->options));
@@ -1023,7 +1039,7 @@ class PatternController : public MessageReceiver {
           this->options.debugging,
           this->options.brightness
         );
-        return;
+        return true;
 
       case COMMAND_STATE: {
         auto update_data = (TubeStates*)data;
@@ -1039,19 +1055,28 @@ class PatternController : public MessageReceiver {
         this->load_palette(state);
         this->load_effect(state);
         this->beats->sync(state.bpm, state.beat_frame);
-        return;
+        return true;
       }
 
       case COMMAND_UPGRADE:
         this->updater.start((AutoUpdateOffer*)data);
-        return;
+        return true;
 
       case COMMAND_ACTION:
         this->onAction((Action*)data);
-        return;
+        return true;
+
+      case COMMAND_BEATS:
+        // the master control ignores this request, it has its own
+        // beat measuring.
+        if (this->isMaster())
+          return false;
+        this->set_tapped_bpm(*(accum88*)data, 0);
+        return true;
     }
   
     Serial.printf("UNKNOWN COMMAND %02X", command);
+    return false;
   }
 
   void onAction(Action* action) {
