@@ -11,13 +11,14 @@
 #define BUTTON_PIN_2   71  // SKIP
 #define BUTTON_PIN_3   72  // SET COLOR
 #define BUTTON_PIN_4   23  // TAP
-#define BUTTON_PIN_5   73
+#define BUTTON_PIN_5   25  // "NEXT!"
 
 
 class Master {
   public:
     uint8_t taps=0;
     Timer tapTimer;
+    Timer perTapTimer;
     uint16_t tapTime[16];
 
     Background background;
@@ -50,9 +51,13 @@ class Master {
       }
     }
 
-    if (this->taps && this->tapTimer.since_mark() > 10000) {
+    if (this->taps && this->perTapTimer.ended()) {
+      if (this->taps == 2) {
+        this->ok();
+      } else {
+        this->fail();
+      }
       this->taps = 0;
-      this->fail();
     }
   }
 
@@ -72,7 +77,7 @@ class Master {
     if (button == 0)
       return;
 
-    if (button == 1) {
+    if (button == 4) {
       Serial.println((char *)F("Skip >>"));
       this->controller->force_next();
       this->ok();
@@ -113,6 +118,7 @@ class Master {
     if (!this->taps) {
       this->tapTimer.start(0);
     }
+    this->perTapTimer.start(1000);
 
     uint32_t time = this->tapTimer.since_mark();
     this->tapTime[this->taps++] = time;
@@ -141,6 +147,8 @@ class Master {
       
       this->controller->set_tapped_bpm(bpm);
       this->ok();
+    } else if (this->taps >= 2) {
+      this->controller->set_tapped_bpm(this->controller->current_state.bpm, taps-1);
     }
   }
 
@@ -151,16 +159,16 @@ class Master {
       this->displayPalette(this->background);
     } else {
       uint8_t beat_pos = (controller->current_state.beat_frame >> 8) % 16;
-      strip.setPixelColor(16 - beat_pos, CRGB::White);
+      strip.setPixelColor(15 - beat_pos, CRGB::White);
     }
   }
 
   void displayProgress(uint8_t progress) {
     for (int i = 0; i < 16; i++) {
       if (i < progress % 16) {
-        strip.setPixelColor(16 - i, CRGB(128,128,128));
+        strip.setPixelColor(15 - i, CRGB(128,128,128));
       } else {
-        strip.setPixelColor(16 - i, CRGB::Black);
+        strip.setPixelColor(15 - i, CRGB::Black);
       }
     }
   }
