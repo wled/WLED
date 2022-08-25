@@ -44,7 +44,8 @@ typedef enum ControllerRole : uint8_t {
   DefaultRole = 10,         // Turn on in power saving mode
   CampRole = 50,            // Turn on in non-power-saving mode
   InstallationRole = 100,   // Disable power-saving mode completely
-  LegacyRole = 190,         // 1/2 the pixels, no "power saving" necessary
+  SmallArtRole = 120,       // < 1/2 the pixels, scale the art
+  LegacyRole = 190,         // LEGACY: 1/2 the pixels, no "power saving" necessary, no scaling
   MasterRole = 200          // Controls all the others
 } ControllerRole;
 
@@ -388,6 +389,20 @@ class PatternController : public MessageReceiver {
     // But not in manual (WLED) mode
     if (!this->patternOverride) {
       this->effects->draw(&strip);
+    }
+
+    // Make the art half-size if it has a small number of pixels
+    if (this->role == MasterRole || this->role == SmallArtRole) {
+      int p = 0;
+      for (int i = 0; i < length; i++) {
+        CRGB c = strip.getPixelColor(i++); // i advances by 2
+        CRGB c2 = strip.getPixelColor(i);
+        nblend(c, c2, 128);
+        if (this->role == MasterRole) {
+          nblend(c, CRGB::Black, 128);
+        }
+        strip.setPixelColor(p++, c);
+      }
     }
 
     if (this->flashColor) {
