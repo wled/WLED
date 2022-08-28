@@ -16,8 +16,8 @@ EOF
 }
 
 update_config() {
-  # No longer update configs
-  return;
+  # No longer update configs? comment this
+  # return;
 
   echo "Updating configuration via OTA"
   curl -s http://$1/upload -F "data=@default_config.json;filename=/cfg.json" >/dev/null
@@ -56,7 +56,7 @@ update_one() {
 }
 
 update_batch() {
-  airport -s | grep WLED | cut -c23-32 | while read line
+  airport -s | grep WLED | cut -c10-32 | while read line
   do
     if [ "$line" == "WLED-AP" ]; then
       update_one 4.3.2.1 "$line" "wled1234"    
