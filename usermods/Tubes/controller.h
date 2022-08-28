@@ -332,6 +332,10 @@ class PatternController : public MessageReceiver {
 
     Segment& segment = strip.getMainSegment();
 
+    // You can only go into manual control after enabling the wifi
+    if (apActive && this->updater.status != Ready)
+      this->canOverride = true;
+
     // Detect manual overrides & update the current state to match.
     if (this->canOverride) {
       if (this->paletteOverride && (this->paletteOverrideTimer.ended() || !apActive)) {
