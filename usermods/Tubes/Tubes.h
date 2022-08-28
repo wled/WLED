@@ -111,13 +111,10 @@ class TubesUsermod : public Usermod {
       if (b == 102) { // Double-click button 0
         this->controller.acknowledge();
         if (this->controller.isSelecting()) {
-          if (apActive) {
-            // Reboot, to turn off WiFi
-            doReboot = true;
-          } else {
-            // Turn on WiFi for updating/comms
-            this->controller.updater.ready();
-          }
+          if (this->controller.isSelected())
+            this->controller.deselect();
+          else
+            this->controller.select();
         } else {
           this->controller.request_new_bpm();
         }
