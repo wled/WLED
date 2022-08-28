@@ -10,6 +10,7 @@
 class Particle;
 
 typedef void (*ParticleFn)(Particle *particle, WS2812FX* leds);
+uint8_t particleVolume = 64; // Default mic average is around 64 during music
 
 extern void drawPoint(Particle *particle, WS2812FX* leds);
 extern void drawFlash(Particle *particle, WS2812FX* leds);
@@ -48,6 +49,9 @@ class Particle {
 
   void update(BeatFrame_24_8 frame)
   {
+    // Particles get brighter with the beat
+    this->brightness = (scale8(particleVolume, 80) + 170) << 8;
+
     this->age = frame - this->born;
     this->position = this->udelta16(this->position, this->velocity);
     this->velocity = this->delta16(this->velocity, this->gravity);
@@ -204,6 +208,9 @@ void drawPoint(Particle *particle, WS2812FX* leds) {
 }
 
 void drawRadius(Particle *particle, WS2812FX* leds, uint16_t pos, uint8_t radius, CRGB c, bool dim=true) {
+  // Bump up the radius with any beats
+  radius += scale8(particleVolume, 8) - 2;
+
   auto num_leds = leds->getLengthTotal();
   for (int i = 0; i < radius; i++) {
     uint8_t bright = dim ? ((radius-i) * 255) / radius : 255;

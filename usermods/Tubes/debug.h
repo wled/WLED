@@ -80,6 +80,9 @@ class DebugController {
       if (this->controller->isMaster()) {
         Serial.print("PRIMARY ");
       }
+      if (this->controller->sound.active) {
+        Serial.print("SOUND ");
+      }
       Serial.printf("role=%d power_save=%d\n",
         this->controller->role,
         this->controller->power_save

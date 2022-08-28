@@ -4,6 +4,7 @@
 #include "wled.h"
 #include "FX.h"
 #include "updater.h"
+#include "sound.h"
 
 #include "beats.h"
 
@@ -104,6 +105,7 @@ class PatternController : public MessageReceiver {
     uint8_t flashColor = 0;
 
     AutoUpdater updater = AutoUpdater();
+    Sounder sound = Sounder();
 
     Timer graphicsTimer;
     Timer updateTimer;
@@ -195,6 +197,8 @@ class PatternController : public MessageReceiver {
     this->next_state.effect_phrase = 0;
     this->set_wled_palette(0); // Default palette
     this->set_wled_pattern(0, 128, 128); // Default pattern
+
+    this->sound.setup();
 
     this->updateTimer.start(STATUS_UPDATE_PERIOD); // Ready to send an update as soon as we're able to
     Serial.println("Patterns: ok");
@@ -298,6 +302,9 @@ class PatternController : public MessageReceiver {
     // Update the mesh
     this->node->update();
 
+    // Update sound meter
+    this->sound.update();
+
     // Update patterns to the beat
     this->update_beat();
 
@@ -382,6 +389,8 @@ class PatternController : public MessageReceiver {
         strip.setPixelColor(i, c);
       }
     }
+
+    this->sound.handleOverlayDraw();
 
     // Power Save mode: reduce number of displayed pixels 
     // Only affects non-powered poles
