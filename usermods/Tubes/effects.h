@@ -151,6 +151,7 @@ static const EffectDef gEffects[] = {
   {{Bubble, Brighten}, {MediumDuration, Chill}},
   {{Bubble, Brighten}, {MediumDuration, Chill}},
   {{Bubble, Darken}, {MediumDuration, Chill}},
+
   {{Bubble, Invert}, {MediumDuration, Chill}},
   {{Bubble, Invert}, {MediumDuration, Chill}},
   {{Glitter, Darken, Eighth, 120}, {MediumDuration, MediumEnergy}},

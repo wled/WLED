@@ -7,10 +7,12 @@
 #define MAX_PARTICLES 80
 #undef PARTICLE_PALETTES
 
+#define DEFAULT_PARTICLE_VOLUME 64  // Default mic average is around 64 during music
+
 class Particle;
 
 typedef void (*ParticleFn)(Particle *particle, WS2812FX* leds);
-uint8_t particleVolume = 64; // Default mic average is around 64 during music
+uint8_t particleVolume = DEFAULT_PARTICLE_VOLUME;
 
 extern void drawPoint(Particle *particle, WS2812FX* leds);
 extern void drawFlash(Particle *particle, WS2812FX* leds);
@@ -208,9 +210,6 @@ void drawPoint(Particle *particle, WS2812FX* leds) {
 }
 
 void drawRadius(Particle *particle, WS2812FX* leds, uint16_t pos, uint8_t radius, CRGB c, bool dim=true) {
-  // Bump up the radius with any beats
-  radius += scale8(particleVolume, 8) - 2;
-
   auto num_leds = leds->getLengthTotal();
   for (int i = 0; i < radius; i++) {
     uint8_t bright = dim ? ((radius-i) * 255) / radius : 255;
@@ -242,7 +241,10 @@ void drawBeatbox(Particle *particle, WS2812FX* leds) {
   uint16_t age_frac = particle->age_frac16(particle->age);
   CRGB c = particle->color_at(age_frac);
   uint16_t pos = scale16(particle->position, leds->getLengthTotal() - 1);
-  uint8_t radius = 5;
+  uint8_t radius = 3;
+
+  // Bump up the radius with any beats
+  radius += scale8(particleVolume, 8);
 
   drawRadius(particle, leds, pos, radius, c, false);
 }

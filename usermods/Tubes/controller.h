@@ -978,6 +978,16 @@ class PatternController : public MessageReceiver {
         break;
       }
 
+      case 'O': {
+        // Toggle power save
+        Action action = {
+          .key = command[0],
+          .arg = !this->sound.overlay
+        };
+        this->broadcast_action(action);
+        break;
+      }
+
       case 'r':
         this->setRole((ControllerRole)(arg >> 8));
         return;
@@ -996,7 +1006,7 @@ class PatternController : public MessageReceiver {
         Serial.println(F("l### - brightness"));
         Serial.println("@ - toggle power saving mode");
         Serial.println("U - begin auto-update");
-        Serial.println("O - offer an auto-update");
+        Serial.println("O - toggle all sound overlays");
         Serial.println("==== global actions ====");
         Serial.println("* - enter select mode (double-click to Ready)");
         Serial.println("A - turn on access point (Ready to update)");
@@ -1008,10 +1018,6 @@ class PatternController : public MessageReceiver {
 
       case 'u':
         this->updater.start();
-        return;
-
-      case 'O':
-        broadcast_autoupdate();
         return;
 
       case 0:
@@ -1121,6 +1127,10 @@ class PatternController : public MessageReceiver {
       case 'A':
         Serial.println("Turning on WiFi access point.");
         WLED::instance().initAP(true);
+        return;
+
+      case 'O':
+        this->sound.overlay = (action->arg != 0);
         return;
 
       case 'X':
