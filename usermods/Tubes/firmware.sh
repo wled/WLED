@@ -16,6 +16,10 @@ EOF
 }
 
 update_config() {
+  # No longer update configs
+  return;
+
+  echo "Updating configuration via OTA"
   curl -s http://$1/upload -F "data=@default_config.json;filename=/cfg.json" >/dev/null
   curl -s http://$1/reset >/dev/null
 }
@@ -25,7 +29,6 @@ update_firmware() {
   curl -s -F "update=@../../build_output/firmware/esp32_quinled_uno.bin" $1/update >/dev/null
   echo "Updated; wait..."
   sleep 5
-  echo "Updating configuration via OTA"
   update_config $1
 }
 

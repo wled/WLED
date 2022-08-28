@@ -91,7 +91,7 @@ class TubesUsermod : public Usermod {
       // Blink when there's a connected client
       if (apActive) {
         strip.setPixelColor(0, CRGB::Purple);
-        if (millis() % 10000 > 1000 && WiFi.softAPgetStationNum()) {
+        if (millis() % 4000 > 1000 && WiFi.softAPgetStationNum()) {
           strip.setPixelColor(0, CRGB::Black);
         }
         strip.setPixelColor(1, CRGB::Black);
@@ -100,17 +100,27 @@ class TubesUsermod : public Usermod {
 
     bool handleButton(uint8_t b) {
       // Special code for handling the "power save" button
-      if (b == 100) {
+      if (b == 100) { // Press button 0 for WLED_LONG_POWER_SAVE ms
         this->controller.togglePowerSave();
         return true;
       }
-      if (b == 101) {
+      if (b == 101) { // Short press button 0 (piggybacks with default)
         this->controller.cancelOverrides();
         return true;
       }
-      if (b == 102) {
+      if (b == 102) { // Double-click button 0
         this->controller.acknowledge();
-        this->controller.request_new_bpm();
+        if (this->controller.isSelecting()) {
+          if (apActive) {
+            // Reboot, to turn off WiFi
+            doReboot = true;
+          } else {
+            // Turn on WiFi for updating/comms
+            this->controller.updater.ready();
+          }
+        } else {
+          this->controller.request_new_bpm();
+        }
         return true;
       }
 
