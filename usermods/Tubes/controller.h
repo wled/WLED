@@ -407,8 +407,6 @@ class PatternController : public MessageReceiver {
       }
     }
 
-    this->sound.handleOverlayDraw();
-
     // Power Save mode: reduce number of displayed pixels 
     // Only affects non-powered poles
     if (this->power_save && this->role < InstallationRole) {
@@ -419,6 +417,8 @@ class PatternController : public MessageReceiver {
         }
       }
     }
+
+    this->sound.handleOverlayDraw();
 
     // Draw effects layers over whatever WLED is doing.
     // But not in manual (WLED) mode
