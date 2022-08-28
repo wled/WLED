@@ -22,7 +22,7 @@ const static uint8_t DEFAULT_TUBE_BRIGHTNESS = 120;
 #define STATUS_UPDATE_PERIOD 2000
 
 #define MIN_COLOR_CHANGE_PHRASES 4
-#define MAX_COLOR_CHANGE_PHRASES 20
+#define MAX_COLOR_CHANGE_PHRASES 10
 
 #define ROLE_EEPROM_LOCATION 2559
 
@@ -97,6 +97,7 @@ class PatternController : public MessageReceiver {
     uint8_t num_leds;
     VirtualStrip *vstrips[NUM_VSTRIPS];
     uint8_t next_vstrip = 0;
+    bool canOverride = false;
     uint8_t paletteOverride = 0;
     uint8_t patternOverride = 0;
     uint16_t wled_fader = 0;
@@ -277,6 +278,8 @@ class PatternController : public MessageReceiver {
   }
 
   void set_palette_override(uint8_t value) {
+    if (!this->canOverride)
+      return;
     if (value == this->paletteOverride)
       return;
       
@@ -292,6 +295,8 @@ class PatternController : public MessageReceiver {
   }
 
   void set_pattern_override(uint8_t value, uint8_t auto_mode) {
+    if (!this->canOverride)
+      return;
     if (value == DEFAULT_WLED_FX && !this->patternOverride)
       return;
     if (value == this->patternOverride)
@@ -328,19 +333,21 @@ class PatternController : public MessageReceiver {
     Segment& segment = strip.getMainSegment();
 
     // Detect manual overrides & update the current state to match.
-    if (this->paletteOverride && (this->paletteOverrideTimer.ended() || !apActive)) {
-      this->set_palette_override(0);
-    } else if (segment.palette != this->current_state.palette_id) {
-      this->set_palette_override(segment.palette);
-    }
-    
-    uint8_t wled_mode = gPatterns[this->current_state.pattern_id].wled_fx_id;
-    if (wled_mode < 10)
-      wled_mode = DEFAULT_WLED_FX;
-    if (this->patternOverride && (this->patternOverrideTimer.ended() || !apActive)) {
-      this->set_pattern_override(0, wled_mode);
-    } else if (segment.mode != wled_mode) {
-      this->set_pattern_override(segment.mode, wled_mode);
+    if (this->canOverride) {
+      if (this->paletteOverride && (this->paletteOverrideTimer.ended() || !apActive)) {
+        this->set_palette_override(0);
+      } else if (segment.palette != this->current_state.palette_id) {
+        this->set_palette_override(segment.palette);
+      }
+      
+      uint8_t wled_mode = gPatterns[this->current_state.pattern_id].wled_fx_id;
+      if (wled_mode < 10)
+        wled_mode = DEFAULT_WLED_FX;
+      if (this->patternOverride && (this->patternOverrideTimer.ended() || !apActive)) {
+        this->set_pattern_override(0, wled_mode);
+      } else if (segment.mode != wled_mode) {
+        this->set_pattern_override(segment.mode, wled_mode);
+      }
     }
 
     do_pattern_changes();
@@ -352,7 +359,7 @@ class PatternController : public MessageReceiver {
     // Update current status
     if (this->updateTimer.every(STATUS_UPDATE_PERIOD)) {
       // Transmit less often when following
-      if (!this->node->is_following() || random(0, 5) == 0) {
+      if (!this->node->is_following() || random(0, 4) == 0) {
         this->send_update();
       }
     }
@@ -427,13 +434,13 @@ class PatternController : public MessageReceiver {
     }
 
     // Make the art half-size if it has a small number of pixels
-    if (this->role == MasterRole || this->role == SmallArtRole) {
+    if (this->role >= MasterRole || this->role == SmallArtRole) {
       int p = 0;
       for (int i = 0; i < length; i++) {
         CRGB c = strip.getPixelColor(i++); // i advances by 2
         CRGB c2 = strip.getPixelColor(i);
         nblend(c, c2, 128);
-        if (this->role == MasterRole) {
+        if (this->role >= MasterRole) {
           nblend(c, CRGB::Black, 128);
         }
         strip.setPixelColor(p++, c);
@@ -491,12 +498,14 @@ class PatternController : public MessageReceiver {
   void update_beat() {
     this->current_state.bpm = this->next_state.bpm = this->beats->bpm;
     this->current_state.beat_frame = particle_beat_frame = this->beats->frac;  // (particle_beat_frame is a hack)
-    if (this->current_state.bpm>>8 >= 125)
+    if (this->current_state.bpm>>8 <= 118) // Hip hop / ghettofunk
+      this->energy = MediumEnergy;
+    else if (this->current_state.bpm>>8 >= 125) // House & breaks
       this->energy = HighEnergy;
-    else if (this->current_state.bpm>>8 > 120)
+    else if (this->current_state.bpm>>8 > 120) // Tech house
       this->energy = MediumEnergy;
     else
-      this->energy = Chill;
+      this->energy = Chill; // Deep house
   }
   
   void send_update() {
@@ -600,8 +609,8 @@ class PatternController : public MessageReceiver {
       case ExtraShortDuration: return random8(2, 6);
       case ShortDuration: return random8(5,15);
       case MediumDuration: return random8(15,25);
-      case LongDuration: return random8(35,45);
-      case ExtraLongDuration: return random8(70, 100);
+      case LongDuration: return random8(20,40);
+      case ExtraLongDuration: return random8(25, 60);
     }
     return 5;
   }
@@ -621,6 +630,8 @@ class PatternController : public MessageReceiver {
     // Don't select the built-in palettes
     this->next_state.palette_id = random8(6, gGradientPaletteCount);
     auto phrases = random8(MIN_COLOR_CHANGE_PHRASES, MAX_COLOR_CHANGE_PHRASES);
+
+    // Change color more often in boring patterns
     if (this->isBoring) {
       phrases /= 2;
     }
@@ -660,11 +671,11 @@ class PatternController : public MessageReceiver {
     this->next_state.effect_params = def.params;
 
     switch (def.control.duration) {
-      case ExtraShortDuration: return random(2,3);
+      case ExtraShortDuration: return random(1,3);
       case ShortDuration: return random(2,4);
-      case MediumDuration: return random(4,8);
-      case LongDuration: return random(6, 14);
-      case ExtraLongDuration: return random(10,20);
+      case MediumDuration: return random(4,7);
+      case LongDuration: return random(8, 11);
+      case ExtraLongDuration: return random(10,15);
     }
     return 1;
   }
