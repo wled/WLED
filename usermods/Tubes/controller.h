@@ -15,8 +15,8 @@
 #include "global_state.h"
 #include "node.h"
 
-const static uint8_t DEFAULT_MASTER_BRIGHTNESS = 100;
-const static uint8_t DEFAULT_TUBE_BRIGHTNESS = 128;
+const static uint8_t DEFAULT_MASTER_BRIGHTNESS = 80;
+const static uint8_t DEFAULT_TUBE_BRIGHTNESS = 120;
 #define DEFAULT_WLED_FX FX_MODE_RAINBOW_CYCLE
 
 #define STATUS_UPDATE_PERIOD 2000
@@ -165,25 +165,25 @@ class PatternController : public MessageReceiver {
       this->role = UnknownRole;
     }
     EEPROM.end();
-    Serial.printf("Role = %d", this->role);
+    Serial.printf("Role = %d\n", this->role);
 
     this->power_save = (this->role < CampRole);
-    this->options.brightness = DEFAULT_TUBE_BRIGHTNESS;
-    this->options.debugging = false;
-    switch (role) {
-      case MasterRole:
-        this->node->reset(4050); // MASTER ID
-        this->options.brightness = DEFAULT_MASTER_BRIGHTNESS;
-        break;
+    if (this->role <= CampRole)
+      strip.ablMilliampsMax = 700;  // Really limit for batteries
+    else if (this->role <= InstallationRole)
+      strip.ablMilliampsMax = 1000;
+    else
+      strip.ablMilliampsMax = 1400;
 
-      case LegacyRole:
+    if (this->role >= MasterRole) {
+      this->node->reset(3850 + this->role); // MASTER ID
+      this->options.brightness = DEFAULT_MASTER_BRIGHTNESS;
+    } else if (this->role >= LegacyRole) {
         this->options.brightness = DEFAULT_TUBE_BRIGHTNESS;
-        break;
-      
-      default:
+    } else {
         this->options.brightness = DEFAULT_TUBE_BRIGHTNESS;
-        break;
     }
+    this->options.debugging = false;
     this->load_options(this->options);
 
 #ifdef USELCD
@@ -201,7 +201,7 @@ class PatternController : public MessageReceiver {
     this->sound.setup();
 
     this->updateTimer.start(STATUS_UPDATE_PERIOD); // Ready to send an update as soon as we're able to
-    Serial.println("Patterns: ok");
+    Serial.println("Controller: ok");
   }
 
   void do_pattern_changes() {
