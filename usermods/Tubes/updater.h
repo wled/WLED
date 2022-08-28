@@ -6,7 +6,7 @@
 #include <Update.h>
 #include "timer.h"
 
-#define RELEASE_VERSION 5
+#define RELEASE_VERSION 6
 
 // Utility to extract header value from headers
 String getHeaderValue(String header, String headerName) {
@@ -113,7 +113,10 @@ class AutoUpdater {
         log("ready for update - turning on updater AP");
         strcpy(apSSID, "WLED-UPDATE");
         strcpy(apPass, "update1234");
-        WLED::instance().initAP(true);
+        auto tmp = apBehavior;
+        apBehavior = AP_BEHAVIOR_ALWAYS;
+        WLED::instance().initAP();
+        apBehavior = tmp;
         this->status = Ready;
     }
 
@@ -123,6 +126,8 @@ class AutoUpdater {
         strcpy(clientPass, _storedPass.c_str());
         strcpy(apSSID, _storedAPSSID.c_str());
         strcpy(apPass, _storedAPPass.c_str());
+        WiFi.softAPdisconnect(true);
+        apActive = false;
         WiFi.disconnect(false, true);
         WLED::instance().enableWatchdog();
         this->status = Idle;
@@ -132,6 +137,9 @@ class AutoUpdater {
         CRGB c;
         switch (this->status) {
             case Ready:
+                // Once the updater connects, no need to show ready
+                if (WiFi.softAPgetStationNum())
+                    return;
                 c = CRGB::Purple;
                 break;
 
@@ -156,7 +164,7 @@ class AutoUpdater {
             default:
                 return;
         }
-        for (int i = 0; i < 20; i++) {
+        for (int i = 0; i < 10; i++) {
             strip.setPixelColor(i, c);
         }
     } 
@@ -199,6 +207,7 @@ class AutoUpdater {
             case WL_CONNECTED:
                 if (WiFi.SSID() != String(this->current_version.ssid)) {
                     log("disconnecting from WiFi");
+                    WiFi.softAPdisconnect(true);
                     WiFi.disconnect(false, true);
                     apBehavior = AP_BEHAVIOR_BUTTON_ONLY;
                     return;

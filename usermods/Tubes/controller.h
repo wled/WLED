@@ -110,6 +110,7 @@ class PatternController : public MessageReceiver {
     Timer paletteOverrideTimer;
     Timer patternOverrideTimer;
     Timer flashTimer;
+    Timer selectTimer;
 
 #ifdef USELCD
     Lcd *lcd;
@@ -150,7 +151,7 @@ class PatternController : public MessageReceiver {
   }
 
   bool isMaster() {
-    return this->role == MasterRole;
+    return this->role >= MasterRole;
   }
 
   void setup()
@@ -244,6 +245,14 @@ class PatternController : public MessageReceiver {
     // Release the WLED overrides and take over control of the strip again.
     this->paletteOverrideTimer.stop();
     this->patternOverrideTimer.stop();
+  }
+
+  void enterSelectMode() {
+    this->selectTimer.start(20000);
+  }
+
+  bool isSelecting() {
+    return !this->selectTimer.ended();
   }
 
   void set_palette_override(uint8_t value) {
@@ -932,6 +941,9 @@ class PatternController : public MessageReceiver {
 
       case 'U':
       case 'V':
+      case '*':
+      case '(':
+      case ')':
       case 'G':
       case 'A':
       case 'W':
@@ -977,7 +989,8 @@ class PatternController : public MessageReceiver {
         Serial.println("U - begin auto-update");
         Serial.println("O - offer an auto-update");
         Serial.println("==== global actions ====");
-        Serial.println("A - turn on access point");
+        Serial.println("* - enter select mode (double-click to Ready)");
+        Serial.println("A - turn on access point (Ready to update)");
         Serial.println("W - forget WiFi client");
         Serial.println("X - restart");
         Serial.println("V### - auto-upgrade to version");
@@ -1136,6 +1149,21 @@ class PatternController : public MessageReceiver {
       case 'M':
         Serial.println("cancel manual mode");
         this->cancelOverrides();
+        break;
+
+      case 'S':
+        Serial.println("enter select mode");
+        this->enterSelectMode();
+        break;
+
+      case '*':
+      case '(':
+        this->enterSelectMode();
+        break;
+
+      case ')':
+        this->updater.stop();
+        WiFi.softAPdisconnect(true);
         break;
 
       case 'V':
