@@ -114,11 +114,10 @@ class Master {
   }
 
   void tap() {
-    Serial.println((char *)F("tap"));
     if (!this->taps) {
       this->tapTimer.start(0);
     }
-    this->perTapTimer.start(1000);
+    this->perTapTimer.start(1500);
 
     uint32_t time = this->tapTimer.since_mark();
     this->tapTime[this->taps++] = time;
@@ -127,13 +126,22 @@ class Master {
     if (this->taps > 4) {
       // Can study this later to make BPM detection better
 
-      bpm = 60000*256*(this->taps-1) / time;  // 120 beats per min = 500ms per beat
+      // Should be 60000; fudge a bit to adjust to real-world timings
+      bpm = 60220*256*(this->taps-1) / time;  // 120 beats per min = 500ms per beat
       if (bpm < 70*256)
         bpm *= 2;
       else if (bpm > 140*256)
         bpm /= 2;
     }
-    
+
+    Serial.printf("tap %d: ", this->taps);
+    Serial.print(bpm >> 8);
+    uint8_t f = scale8(100, bpm & 0xFF);
+    Serial.print(".");
+    if (f < 10)
+      Serial.print("0");
+    Serial.println(f);
+
     if (this->taps == 16) {
       Serial.println("OK! taps");
       this->taps = 0;
