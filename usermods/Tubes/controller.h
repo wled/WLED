@@ -15,8 +15,9 @@
 #include "global_state.h"
 #include "node.h"
 
-const static uint8_t DEFAULT_MASTER_BRIGHTNESS = 80;
+const static uint8_t DEFAULT_MASTER_BRIGHTNESS = 200;
 const static uint8_t DEFAULT_TUBE_BRIGHTNESS = 120;
+const static uint8_t DEFAULT_TANK_BRIGHTNESS = 240;
 #define DEFAULT_WLED_FX FX_MODE_RAINBOW_CYCLE
 
 #define STATUS_UPDATE_PERIOD 2000
@@ -27,6 +28,7 @@ const static uint8_t DEFAULT_TUBE_BRIGHTNESS = 120;
 #define ROLE_EEPROM_LOCATION 2559
 
 #define IDENTIFY_STUCK_PATTERNS
+#define IDENTIFY_STUCK_PALETTES
 
 typedef struct {
   bool debugging;
@@ -181,6 +183,8 @@ class PatternController : public MessageReceiver {
       this->options.brightness = DEFAULT_MASTER_BRIGHTNESS;
     } else if (this->role >= LegacyRole) {
         this->options.brightness = DEFAULT_TUBE_BRIGHTNESS;
+    } else if (this->role == InstallationRole) {
+        this->options.brightness = DEFAULT_TANK_BRIGHTNESS;
     } else {
         this->options.brightness = DEFAULT_TUBE_BRIGHTNESS;
     }
