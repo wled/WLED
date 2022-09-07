@@ -2103,7 +2103,8 @@ function setFX(ind = null)
 		d.querySelector(`#fxlist input[name="fx"][value="${ind}"]`).checked = true;
 	}
 
-	var obj = {"seg": {"fx": parseInt(ind),"fxdef":1}}; // fxdef sets effect parameters to default values, TODO add client setting
+	// STEVEE: Removed "fxdef:1"
+	var obj = {"seg": {"fx": parseInt(ind)}}; // fxdef sets effect parameters to default values, TODO add client setting
 	requestJson(obj);
 }
 

@@ -203,6 +203,7 @@ void Segment::setUpLeds() {
     else
     #endif
       leds = (CRGB*)malloc(sizeof(CRGB)*length());
+  }
 }
 
 CRGBPalette16 &Segment::loadPalette(CRGBPalette16 &targetPalette, uint8_t pal) {
@@ -1001,7 +1002,7 @@ uint32_t WS2812FX::getPixelColor(uint16_t i)
 //I am NOT to be held liable for burned down garages!
 
 //fine tune power estimation constants for your setup                  
-#define MA_FOR_ESP        300 //how much mA does the ESP use (Wemos D1 about 80mA, ESP32 about 120mA)
+#define MA_FOR_ESP        100 //how much mA does the ESP use (Wemos D1 about 80mA, ESP32 about 120mA)
                               //you can set it to 0 if the ESP is powered by USB and the LEDs by external
 
 void WS2812FX::estimateCurrentAndLimitBri() {
