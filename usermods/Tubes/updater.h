@@ -6,7 +6,7 @@
 #include <Update.h>
 #include "timer.h"
 
-#define RELEASE_VERSION 10
+#define RELEASE_VERSION 11
 
 // Utility to extract header value from headers
 String getHeaderValue(String header, String headerName) {

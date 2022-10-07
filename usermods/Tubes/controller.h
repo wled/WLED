@@ -26,6 +26,7 @@ const static uint8_t DEFAULT_TANK_BRIGHTNESS = 240;
 #define MAX_COLOR_CHANGE_PHRASES 10
 
 #define ROLE_EEPROM_LOCATION 2559
+#define BOOT_OPTIONS_EEPROM_LOCATION 2557
 
 #define IDENTIFY_STUCK_PATTERNS
 #define IDENTIFY_STUCK_PALETTES
@@ -51,6 +52,14 @@ typedef enum ControllerRole : uint8_t {
   LegacyRole = 190,         // LEGACY: 1/2 the pixels, no "power saving" necessary, no scaling
   MasterRole = 200          // Controls all the others
 } ControllerRole;
+
+typedef struct BootOptions {
+  unsigned int default_power_save:2;
+} BootOptions;
+
+#define BOOT_OPTION_POWER_SAVE_DEFAULT 0
+#define BOOT_OPTION_POWER_SAVE_OFF 1
+#define BOOT_OPTION_POWER_SAVE_ON 2
 
 typedef struct {
   char key;
@@ -170,7 +179,21 @@ class PatternController : public MessageReceiver {
     EEPROM.end();
     Serial.printf("Role = %d\n", this->role);
 
-    this->power_save = (this->role < CampRole);
+    auto b = EEPROM.read(BOOT_OPTIONS_EEPROM_LOCATION);
+    Serial.printf("EEPROM read: %d\n", b);
+    BootOptions* boot = (BootOptions*)&b;
+    switch (boot->default_power_save) {
+      case BOOT_OPTION_POWER_SAVE_OFF:
+        this->power_save = 0;
+        break;
+      case BOOT_OPTION_POWER_SAVE_ON:
+        this->power_save = 1;
+        break;
+      default:
+        this->power_save = (this->role < CampRole);
+        break;
+    }
+
     if (this->role <= CampRole)
       strip.ablMilliampsMax = 700;  // Really limit for batteries
     else if (this->role <= InstallationRole)
@@ -779,6 +802,18 @@ class PatternController : public MessageReceiver {
   void setPowerSave(bool power_save) {
     Serial.printf("power_save: %d\n", power_save);
     this->power_save = power_save;
+
+    // Remember this setting on the next boot
+    EEPROM.begin(2560);
+    auto b = EEPROM.read(BOOT_OPTIONS_EEPROM_LOCATION);
+    BootOptions* boot = (BootOptions*)&b;
+    if (power_save)
+      boot->default_power_save = BOOT_OPTION_POWER_SAVE_ON;
+    else
+      boot->default_power_save = BOOT_OPTION_POWER_SAVE_OFF;
+    EEPROM.write(BOOT_OPTIONS_EEPROM_LOCATION, b); // Reset all boot options
+    Serial.printf("wrote: %d\n", b);
+    EEPROM.end();
   }
 
   void setRole(ControllerRole role) {
@@ -786,6 +821,7 @@ class PatternController : public MessageReceiver {
     Serial.printf("Role = %d", role);
     EEPROM.begin(2560);
     EEPROM.write(ROLE_EEPROM_LOCATION, role);
+    EEPROM.write(BOOT_OPTIONS_EEPROM_LOCATION, 0); // Reset all boot options
     EEPROM.end();
     delay(10);
     doReboot = true;
