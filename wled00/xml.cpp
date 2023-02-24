@@ -586,6 +586,16 @@ void getSettingsJS(byte subPage, Print& settingsScript)
     #ifndef WLED_ENABLE_ADALIGHT
     settingsScript.print(F("toggle('Serial');"));
     #endif
+
+    //WLEDMM: add netdebug variables
+    #ifdef WLED_DEBUG_HOST
+      sappend('v',SET_F("N0"),netDebugPrintIP[0]);
+      sappend('v',SET_F("N1"),netDebugPrintIP[1]);
+      sappend('v',SET_F("N2"),netDebugPrintIP[2]);
+      sappend('v',SET_F("N3"),netDebugPrintIP[3]);
+      sappend('v',SET_F("NP"),netDebugPrintPort);
+    #endif
+
   }
 
   if (subPage == SUBPAGE_TIME)

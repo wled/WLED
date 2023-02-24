@@ -827,6 +827,35 @@ void WLED::initInterfaces()
   }
 #endif
 
+//WLEDMM: add netdebug variables
+#ifdef WLED_DEBUG_HOST
+  if (netDebugPrintIP[0] == 0) {
+    //WLEDMM: this code moved from net_debug.cpp as we store IP as IPAddress type
+    if (!netDebugPrintIP && !netDebugPrintIP.fromString(WLED_DEBUG_HOST)) {
+      #ifdef ESP8266
+        WiFi.hostByName(WLED_DEBUG_HOST, netDebugPrintIP, 750);
+      #else
+        #ifdef WLED_USE_ETHERNET
+          ETH.hostByName(WLED_DEBUG_HOST, netDebugPrintIP);
+        #else
+          WiFi.hostByName(WLED_DEBUG_HOST, netDebugPrintIP);
+        #endif
+      #endif
+    } else {
+      IPAddress ipAddress = Network.localIP();
+      netDebugPrintIP[0] = ipAddress[0];
+      netDebugPrintIP[1] = ipAddress[1];
+      netDebugPrintIP[2] = ipAddress[2];
+    }
+  }
+  if (netDebugPrintPort == 0) 
+    #ifdef WLED_DEBUG_PORT
+      netDebugPrintPort = WLED_DEBUG_PORT;
+    #else
+      netDebugPrintPort = 7868; //Default value
+    #endif
+#endif
+
 #ifndef WLED_DISABLE_ALEXA
   // init Alexa hue emulation
   if (alexaEnabled)

@@ -523,6 +523,15 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
     reconnectHue();
     #endif
 
+    //WLEDMM: add netdebug variables
+    #ifdef WLED_DEBUG_HOST
+      for (int i=0;i<4;i++){
+        String a = "N"+String(i);
+        netDebugPrintIP[i] = request->arg(a).toInt();
+      }
+      netDebugPrintPort = request->arg("NP").toInt();
+    #endif
+
     t = request->arg(F("BD")).toInt();
     if (t >= 96 && t <= 15000) serialBaud = t;
     updateBaudRate(serialBaud *100);
