@@ -1051,7 +1051,7 @@ class PatternController : public MessageReceiver {
       }
 
       case 'O': {
-        // Toggle power save
+        // Toggle sound overlay
         Action action = {
           .key = command[0],
           .arg = !this->sound.overlay
@@ -1078,6 +1078,7 @@ class PatternController : public MessageReceiver {
         Serial.println(F("l### - brightness"));
         Serial.println("@ - toggle power saving mode");
         Serial.println("U - begin auto-update");
+        Serial.println("P - toggle all power saves");
         Serial.println("O - toggle all sound overlays");
         Serial.println("==== global actions ====");
         Serial.println("* - enter select mode (double-click to Ready)");
