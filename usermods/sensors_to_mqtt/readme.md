@@ -1,12 +1,12 @@
-# Sensors To Home Assistant (or mqtt)
+# Send sensor data To Home Assistant
 
-This usermod will publish values of the BMP280, CCS811 and Si7021 sensors to Home Assistant via MQTT.
+Publishes BMP280, CCS811 and Si7021 measurements to Home Assistant via MQTT.
 
-Its using home assistant automatic device discovery feature.
+Uses Home Assistant Automatic Device Discovery.
 
-The use of Home Assistant is not mandatory; it will publish the sensor values via MQTT just fine without it.
+The use of Home Assistant is not mandatory. The mod will publish sensor values via MQTT just fine without it.
 
-Its resusing the mqtt connection set in the WLED web user interface.
+Uses the MQTT connection set in the WLED web user interface.
 
 ## Maintainer
 
@@ -15,12 +15,12 @@ twitter.com/mpronk89
 ## Features
 
 - Reads BMP280, CCS811 and Si7021 senors
-- Publishes via MQTT, configured via webui of wled
+- Publishes via MQTT, configured via WLED webUI
 - Announces device in Home Assistant for easy setup
 - Efficient energy usage
 - Updates every 60 seconds
 
-## Example mqtt topics:
+## Example MQTT topics:
 
 `$mqttDeviceTopic` is set in webui of WLED!
 
@@ -40,7 +40,7 @@ IAQ:  $mqttDeviceTopic/iaq
 ### Requirements
 
 1. BMP280/CCS811/Si7021 sensor. E.g. https://aliexpress.com/item/32979998543.html
-2. A microcontroller which can talk i2c, e.g. esp32
+2. A microcontroller that supports i2c. e.g. esp32
 
 ### installation
 
@@ -77,7 +77,7 @@ SDA_PIN = 4;
   adafruit/Adafruit Si7021 Library @ 1.4.0
 ```
 
-The #ifdefs in `usermods_list.cpp` should do the rest :)
+The #ifdefs in `usermods_list.cpp` should do the rest
 
 # Credits
 

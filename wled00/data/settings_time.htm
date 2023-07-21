@@ -6,12 +6,12 @@
 	<meta charset="utf-8">
 	<title>Time Settings</title>
 	<script>
-    var d=document;
-    var loc = false, locip;
+	var d=document;
+	var loc = false, locip, locproto = "http:";
 	var el=false;
 	var ms=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 	function H() { window.open("https://kno.wled.ge/features/settings/#time-settings"); }
-	function B() { window.open("/settings","_self"); }
+	function B() { window.open(getURL("/settings"),"_self"); }
 	function gId(s) { return d.getElementById(s); }
 	function gN(s) { return d.getElementsByName(s)[0]; }
 	// https://www.educative.io/edpresso/how-to-dynamically-load-a-js-file-in-javascript
@@ -33,16 +33,29 @@
 		});
 	}
 	function S() {
-		if (window.location.protocol == "file:") {
+		let l = window.location;
+		if (l.protocol == "file:") {
 			loc = true;
 			locip = localStorage.getItem('locIp');
 			if (!locip) {
 				locip = prompt("File Mode. Please enter WLED IP!");
 				localStorage.setItem('locIp', locip);
 			}
+		} else {
+			// detect reverse proxy
+			let path = l.pathname;
+			let paths = path.slice(1,path.endsWith('/')?-1:undefined).split("/");
+			if (paths.length > 2) {
+				locproto = l.protocol;
+				loc = true;
+				locip = l.hostname + (l.port ? ":" + l.port : "") + "/" + paths[0];
+			}
 		}
-		var url = (loc?`http://${locip}`:'') + '/settings/s.js?p=5';
-		loadJS(url, false);	// If we set async false, file is loaded and executed, then next statement is processed
+		loadJS(getURL('/settings/s.js?p=5'), false);	// If we set async false, file is loaded and executed, then next statement is processed
+		if (loc) d.Sf.action = getURL('/settings/time');
+	}
+	function getURL(path) {
+		return (loc ? locproto + "//" + locip : "") + path;
 	}
 	function expand(o,i)
 	{
@@ -156,7 +169,7 @@
 		</div>
 		<h2>Time setup</h2>
 		Get time from NTP server: <input type="checkbox" name="NT"><br>
-    	<input type="text" name="NS" maxlength="32"><br>
+		<input type="text" name="NS" maxlength="32"><br>
 		Use 24h format: <input type="checkbox" name="CF"><br>
 		Time zone: 
 		<select name="TZ">
@@ -181,7 +194,8 @@
 			<option value="18">HST (Hawaii)</option>
 			<option value="19">NOVT (Novosibirsk)</option>
 			<option value="20">AKST/AKDT (Anchorage)</option>
-			<option value="21">MX-CST/CDT</option>
+			<option value="21">MX-CST</option>
+			<option value="22">PKT (Pakistan)</option>
 		</select><br>
 		UTC offset: <input name="UO" type="number" min="-65500" max="65500" required> seconds (max. 18 hours)<br>
 		Current local time is <span class="times">unknown</span>.<br>

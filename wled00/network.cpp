@@ -20,29 +20,29 @@ const ethernet_settings ethernetBoards[] = {
   // None
   {
   },
-  
+
   // WT32-EHT01
   // Please note, from my testing only these pins work for LED outputs:
   //   IO2, IO4, IO12, IO14, IO15
   // These pins do not appear to work from my testing:
   //   IO35, IO36, IO39
   {
-    1,                 // eth_address, 
-    16,                // eth_power, 
-    23,                // eth_mdc, 
-    18,                // eth_mdio, 
-    ETH_PHY_LAN8720,   // eth_type,
-    ETH_CLOCK_GPIO0_IN // eth_clk_mode
+    1,                    // eth_address,
+    16,                   // eth_power,
+    23,                   // eth_mdc,
+    18,                   // eth_mdio,
+    ETH_PHY_LAN8720,      // eth_type,
+    ETH_CLOCK_GPIO0_IN    // eth_clk_mode
   },
 
   // ESP32-POE
   {
-     0,                  // eth_address, 
-    12,                  // eth_power, 
-    23,                  // eth_mdc, 
-    18,                  // eth_mdio, 
-    ETH_PHY_LAN8720,     // eth_type,
-    ETH_CLOCK_GPIO17_OUT // eth_clk_mode
+     0,                   // eth_address,
+    12,                   // eth_power,
+    23,                   // eth_mdc,
+    18,                   // eth_mdio,
+    ETH_PHY_LAN8720,      // eth_type,
+    ETH_CLOCK_GPIO17_OUT  // eth_clk_mode
   },
 
    // WESP32
@@ -77,22 +77,52 @@ const ethernet_settings ethernetBoards[] = {
 
   // ESP3DEUXQuattro
   {
-    1,                    // eth_address, 
-    -1,                   // eth_power, 
-    23,                   // eth_mdc, 
-    18,                   // eth_mdio, 
+    1,                    // eth_address,
+    -1,                   // eth_power,
+    23,                   // eth_mdc,
+    18,                   // eth_mdio,
     ETH_PHY_LAN8720,      // eth_type,
     ETH_CLOCK_GPIO17_OUT  // eth_clk_mode
   },
 
   // ESP32-ETHERNET-KIT-VE
   {
-    0,                    // eth_address, 
-    5,                   // eth_power, 
+    0,                    // eth_address,
+    5,                    // eth_power,
+    23,                   // eth_mdc,
+    18,                   // eth_mdio,
+    ETH_PHY_IP101,        // eth_type,
+    ETH_CLOCK_GPIO0_IN    // eth_clk_mode
+  },
+
+  // QuinLed-Dig-Octa Brainboard-32-8L and LilyGO-T-ETH-POE
+  {
+    0,			              // eth_address,
+    -1,			              // eth_power,
+    23,			              // eth_mdc,
+    18,			              // eth_mdio,
+    ETH_PHY_LAN8720,      // eth_type,
+    ETH_CLOCK_GPIO17_OUT	// eth_clk_mode
+  },
+
+  // ABC! WLED Controller V43 + Ethernet Shield & compatible
+  {
+    1,                    // eth_address, 
+    5,                    // eth_power, 
     23,                   // eth_mdc, 
-    18,                   // eth_mdio, 
-    ETH_PHY_IP101,     // eth_type,
-    ETH_CLOCK_GPIO0_IN  // eth_clk_mode
+    33,                   // eth_mdio, 
+    ETH_PHY_LAN8720,      // eth_type,
+    ETH_CLOCK_GPIO17_OUT	// eth_clk_mode
+  },
+
+  // Serg74-ESP32 Ethernet Shield
+  {
+    1,                    // eth_address,
+    5,                    // eth_power,
+    23,                   // eth_mdc,
+    18,                   // eth_mdio,
+    ETH_PHY_LAN8720,      // eth_type,
+    ETH_CLOCK_GPIO17_OUT  // eth_clk_mode
   }
 };
 #endif
@@ -122,17 +152,14 @@ int getSignalQuality(int rssi)
 //handle Ethernet connection event
 void WiFiEvent(WiFiEvent_t event)
 {
-  #ifdef WLED_USE_ETHERNET
-  char hostname[25] = "wled-";
-  #endif
-  
   switch (event) {
 #if defined(ARDUINO_ARCH_ESP32) && defined(WLED_USE_ETHERNET)
     case SYSTEM_EVENT_ETH_START:
-      DEBUG_PRINT(F("ETH Started"));
+      DEBUG_PRINTLN(F("ETH Started"));
       break;
     case SYSTEM_EVENT_ETH_CONNECTED:
-      DEBUG_PRINT(F("ETH Connected"));
+      {
+      DEBUG_PRINTLN(F("ETH Connected"));
       if (!apActive) {
         WiFi.disconnect(true);
       }
@@ -142,12 +169,14 @@ void WiFiEvent(WiFiEvent_t event)
         ETH.config(INADDR_NONE, INADDR_NONE, INADDR_NONE);
       }
       // convert the "serverDescription" into a valid DNS hostname (alphanumeric)
+      char hostname[64];
       prepareHostname(hostname);
       ETH.setHostname(hostname);
       showWelcomePage = false;
       break;
+      }
     case SYSTEM_EVENT_ETH_DISCONNECTED:
-      DEBUG_PRINT(F("ETH Disconnected"));
+      DEBUG_PRINTLN(F("ETH Disconnected"));
       // This doesn't really affect ethernet per se,
       // as it's only configured once.  Rather, it
       // may be necessary to reconnect the WiFi when

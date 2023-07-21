@@ -17,12 +17,6 @@
     #ifndef TFT_HEIGHT
         #error Please define TFT_HEIGHT
     #endif
-    #ifndef TFT_MOSI
-        #error Please define TFT_MOSI
-    #endif
-    #ifndef TFT_SCLK
-        #error Please define TFT_SCLK
-    #endif
     #ifndef TFT_DC
         #error Please define TFT_DC
     #endif
@@ -140,8 +134,14 @@ class St7789DisplayUsermod : public Usermod {
      */
     void setup()
     {
-        PinManagerPinType pins[] = { { TFT_MOSI, true }, { TFT_MISO, false}, { TFT_SCLK, true }, { TFT_CS, true}, { TFT_DC, true}, { TFT_RST, true }, { TFT_BL, true } };
-        if (!pinManager.allocateMultiplePins(pins, 7, PinOwner::UM_FourLineDisplay)) { enabled = false; return; }
+        PinManagerPinType spiPins[] = { { spi_mosi, true }, { spi_miso, false}, { spi_sclk, true } };
+        if (!pinManager.allocateMultiplePins(spiPins, 3, PinOwner::HW_SPI)) { enabled = false; return; }
+        PinManagerPinType displayPins[] = { { TFT_CS, true}, { TFT_DC, true}, { TFT_RST, true }, { TFT_BL, true } };
+        if (!pinManager.allocateMultiplePins(displayPins, sizeof(displayPins)/sizeof(PinManagerPinType), PinOwner::UM_FourLineDisplay)) {
+            pinManager.deallocateMultiplePins(spiPins, 3, PinOwner::HW_SPI);
+            enabled = false;
+            return;
+        }
 
         tft.init();
         tft.setRotation(0);  //Rotation here is set up for the text to be readable with the port on the left. Use 1 to flip.
@@ -365,9 +365,6 @@ class St7789DisplayUsermod : public Usermod {
     {
       JsonObject top = root.createNestedObject("ST7789");
       JsonArray pins = top.createNestedArray("pin");
-      pins.add(TFT_MOSI);
-      pins.add(TFT_MISO);
-      pins.add(TFT_SCLK);
       pins.add(TFT_CS);
       pins.add(TFT_DC);
       pins.add(TFT_RST);
@@ -375,6 +372,13 @@ class St7789DisplayUsermod : public Usermod {
       //top["great"] = userVar0; //save this var persistently whenever settings are saved
     }
 
+
+    void appendConfigData() {
+      oappend(SET_F("addInfo('ST7789:pin[]',0,'','SPI CS');"));
+      oappend(SET_F("addInfo('ST7789:pin[]',1,'','SPI DC');"));
+      oappend(SET_F("addInfo('ST7789:pin[]',2,'','SPI RST');"));
+      oappend(SET_F("addInfo('ST7789:pin[]',2,'','SPI BL');"));
+    }
 
     /*
      * readFromConfig() can be used to read back the custom settings you added with addToConfig().

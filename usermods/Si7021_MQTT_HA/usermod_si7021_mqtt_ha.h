@@ -1,3 +1,7 @@
+#ifndef WLED_ENABLE_MQTT
+#error "This user mod requires MQTT to be enabled."
+#endif
+
 #pragma once
 
 // this is remixed from usermod_v2_SensorsToMqtt.h (sensors_to_mqtt usermod)
@@ -8,14 +12,6 @@
 #include <EnvironmentCalculations.h> // EnvironmentCalculations::HeatIndex(), ::DewPoint(), ::AbsoluteHumidity()
 
 Adafruit_Si7021 si7021;
-
-#ifdef ARDUINO_ARCH_ESP32 //ESP32 boards
-uint8_t SCL_PIN = 22;
-uint8_t SDA_PIN = 21;
-#else //ESP8266 boards
-uint8_t SCL_PIN = 5;
-uint8_t SDA_PIN = 4;
-#endif
 
 class Si7021_MQTT_HA : public Usermod
 {
@@ -180,7 +176,6 @@ class Si7021_MQTT_HA : public Usermod
     {
       if (enabled) {
         Serial.println("Si7021_MQTT_HA: Starting!");
-        Wire.begin(SDA_PIN, SCL_PIN);
         Serial.println("Si7021_MQTT_HA: Initializing sensors.. ");
         _initializeSensor();
       }

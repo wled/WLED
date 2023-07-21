@@ -1,7 +1,7 @@
 # SN_Photoresistor usermod
 
-This usermod will read from an attached photoresistor sensor like the KY-018 sensor.
-The luminance is displayed both in the Info section of the web UI as well as published to the `/luminance` MQTT topic if enabled.
+This usermod will read from an attached photoresistor sensor like the KY-018.
+The luminance is displayed in both the Info section of the web UI as well as published to the `/luminance` MQTT topic, if enabled.
 
 ## Installation
 
@@ -9,15 +9,15 @@ Copy the example `platformio_override.ini` to the root directory.  This file sho
 
 ### Define Your Options
 
-* `USERMOD_SN_PHOTORESISTOR`                      - define this to have this user mod included wled00\usermods_list.cpp
-* `USERMOD_SN_PHOTORESISTOR_MEASUREMENT_INTERVAL` - the number of milliseconds between measurements, defaults to 60 seconds
-* `USERMOD_SN_PHOTORESISTOR_FIRST_MEASUREMENT_AT` - the number of milliseconds after boot to take first measurement, defaults to 20 seconds
-* `USERMOD_SN_PHOTORESISTOR_REFERENCE_VOLTAGE`    - the voltage supplied to the sensor, defaults to 5v
-* `USERMOD_SN_PHOTORESISTOR_ADC_PRECISION`        - the ADC precision is the number of distinguishable ADC inputs, defaults to 1024.0 (10 bits)
-* `USERMOD_SN_PHOTORESISTOR_RESISTOR_VALUE`       - the resistor size, defaults to 10000.0 (10K hms)
-* `USERMOD_SN_PHOTORESISTOR_OFFSET_VALUE`         - the offset value to report on, defaults to 25
+* `USERMOD_SN_PHOTORESISTOR`                      - Enables this user mod. wled00\usermods_list.cpp
+* `USERMOD_SN_PHOTORESISTOR_MEASUREMENT_INTERVAL` - Number of milliseconds between measurements. Defaults to 60000 ms
+* `USERMOD_SN_PHOTORESISTOR_FIRST_MEASUREMENT_AT` - Number of milliseconds after boot to take first measurement. Defaults to 20000 ms
+* `USERMOD_SN_PHOTORESISTOR_REFERENCE_VOLTAGE`    - Voltage supplied to the sensor. Defaults to 5v
+* `USERMOD_SN_PHOTORESISTOR_ADC_PRECISION`        - ADC precision. Defaults to 10 bits
+* `USERMOD_SN_PHOTORESISTOR_RESISTOR_VALUE`       - Resistor size, defaults to 10000.0 (10K Ohms)
+* `USERMOD_SN_PHOTORESISTOR_OFFSET_VALUE`         - Offset value to report on. Defaults to 25
 
-All parameters can be configured at runtime using Usermods settings page.
+All parameters can be configured at runtime via the Usermods settings page.
 
 ## Project link
 

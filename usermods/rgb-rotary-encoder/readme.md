@@ -5,8 +5,8 @@ This usermod-v2 adds support for the awesome RGB Rotary Encoder Board by Adam Ze
 https://user-images.githubusercontent.com/3090131/124680599-0180ab80-dec7-11eb-9065-a6d08ebe0287.mp4
 
 ## Credits
-The actual / original code that does the different LED modes is from Adam Zeloof. So I don't take credit for these. But I ported it to WLED, which involved replacing the LED library he used (because, guess what, WLED already has one; so no need to add another one, but use whatever WLED uses), plus the rotary encoder library, because that one was not compatible with ESP, only Arduino.
-So it was quite more work than I hoped, but I got there eventually :)
+The actual / original code that controls the LED modes is from Adam Zeloof. I take no credit for it. I ported it to WLED, which involved replacing the LED library he used, (because WLED already has one, so no need to add another one) plus the rotary encoder library because it was not compatible with ESP, only Arduino.
+It was quite a bit more work than I hoped, but I got there eventually :)
 
 ## Requirements
 * "ESP Rotary" by Lennart Hennigs, v1.5.0 or higher: https://github.com/LennartHennigs/ESPRotary
@@ -33,25 +33,25 @@ lib_deps = ${esp8266.lib_deps}
 ```
 
 ## How to connect the board to your ESP
-We gonna need (minimum) three or (maximum) four GPIOs for the board:
-* "ea": Basically tells if the encoder goes into one or the other direction
-* "eb": Same thing, but the other direction
-* "di": LED data in. To actually control the LEDs
-* *(optional)* "sw": The integrated switch in the rotary encoder. Can be omitted for the bare functionality of just controlling the brightness
+We'll need (minimum) three or (maximum) four GPIOs for the board:
+* "ea": reports the encoder direction
+* "eb": Same thing, opposite direction
+* "di": LED data in.
+* *(optional)* "sw": The integrated switch in the rotary encoder. Can be omitted for the bare functionality of controlling only the brightness
 
-We also gonna need some power, so:
+We'll also need power:
 
 * "vdd": Needs to be connected to **+5V**.
-* "gnd": Well, it's GND.
+* "gnd": Ground.
 
-You can freely pick the GPIOs, it doesn't matter. Those will be configured in the "Usermods" section in the WLED web panel:
+You can freely pick the GPIOs, it doesn't matter. Those will be configured in the "Usermods" section of the WLED web panel:
 
 ## Configuration
-Navigate to the "Config" and then to the "Usermods" section. If you compiled WLED with `-D RGB_ROTARY_ENCODER`, you will see the config for it there. The settings there are the GPIOs we mentioned before (*Note: The switch pin is not there, as this can just be configured the "normal" button on the "LED Preferences" page*), plus a few more:
+Navigate to the "Config" and then to the "Usermods" section. If you compiled WLED with `-D RGB_ROTARY_ENCODER`, you will see the config for it there. The settings there are the aforementioned GPIOs, (*Note: The switch pin is not there, as this can just be configured the "normal" button on the "LED Preferences" page*) plus a few more:
 * LED pin:
   * Possible values: Any valid and available GPIO
   * Default: 3
-  * What it does: Pin to control the LED ring
+  * What it does: controls the LED ring
 * ea pin:
   * Possible values: Any valid and available GPIO
   * Default: 15
@@ -63,7 +63,7 @@ Navigate to the "Config" and then to the "Usermods" section. If you compiled WLE
 * LED Mode:
   * Possible values: 1-3
   * Default: 3
-  * What it does: The usermod provides three different modes of how the LEDs can look like. Here's an example: https://github.com/isotope-engineering/RGB-Encoder-Board/blob/master/images/rgb-encoder-animations.gif
+  * What it does: The usermod provides three different modes of how the LEDs can appear. Here's an example: https://github.com/isotope-engineering/RGB-Encoder-Board/blob/master/images/rgb-encoder-animations.gif
     * Up left is "1"
     * Up right is not supported / doesn't make sense for brightness control
     * Bottom left is "2"
@@ -71,15 +71,15 @@ Navigate to the "Config" and then to the "Usermods" section. If you compiled WLE
 * LED Brightness:
   * Possible values: 1-255
   * Default: 64
-  * What it does: Brightness of the LED ring
+  * What it does: sets LED ring Brightness
 * Steps per click:
   * Possible values: Any positive number
   * Default: 4
-  * What it does: With each "click", a rotary encoder actually increments it's "steps". Most rotary encoder do four "steps" per "click". I know this sounds super weird, so just leave this the default value, unless your rotary encoder behaves weirdly, like with one click, it makes two LEDs light up, or you sometimes need two click for one LED. Then you should play around with this value or write a small sketch using the same "ESP Rotary" library and read out the steps it does.
+  * What it does: With each "click", a rotary encoder actually increments its "steps". Most rotary encoders produce four "steps" per "click". Leave this at the default value unless your rotary encoder behaves strangely. e.g. with one click, it makes two LEDs light up, or you need two clicks for one LED. If that's the case, adjust this value or write a small sketch using the same "ESP Rotary" library and read out the steps it produce.
 * Increment per click:
   * Possible values: Any positive number
   * Default: 5
-  * What it does: Most rotary encoder have 20 "clicks", so basically 20 positions. This value should be set to 100 / `number of clicks`
+  * What it does: Most rotary encoders have 20 "clicks" or positions. This value should be set to 100/`number of clicks`
 
 ## Change log
 2021-07

@@ -85,12 +85,9 @@ class MPU6050Driver : public Usermod {
      * setup() is called once at boot. WiFi is not yet connected at this point.
      */
     void setup() {
-      PinManagerPinType pins[2] = { { i2c_scl, true }, { i2c_sda, true } };
-      if (!pinManager.allocateMultiplePins(pins, 2, PinOwner::HW_I2C)) { enabled = false; return; }
-      // join I2C bus (I2Cdev library doesn't do this automatically)
+      if (i2c_scl<0 || i2c_sda<0) { enabled = false; return; }
       #if I2CDEV_IMPLEMENTATION == I2CDEV_ARDUINO_WIRE
-        Wire.begin();
-        Wire.setClock(400000); // 400kHz I2C clock. Comment this line if having compilation difficulties
+        Wire.setClock(400000U); // 400kHz I2C clock. Comment this line if having compilation difficulties
       #elif I2CDEV_IMPLEMENTATION == I2CDEV_BUILTIN_FASTWIRE
         Fastwire::setup(400, true);
       #endif
@@ -138,7 +135,7 @@ class MPU6050Driver : public Usermod {
         // (if it's going to break, usually the code will be 1)
         DEBUG_PRINT(F("DMP Initialization failed (code "));
         DEBUG_PRINT(devStatus);
-        DEBUG_PRINTLN(F(")"));
+        DEBUG_PRINTLN(")");
       }
     }
 
@@ -209,7 +206,7 @@ class MPU6050Driver : public Usermod {
       JsonObject user = root["u"];
       if (user.isNull()) user = root.createNestedObject("u");
 
-      JsonArray imu_meas = user.createNestedObject("IMU");
+      JsonObject imu_meas = user.createNestedObject("IMU");
       JsonArray quat_json = imu_meas.createNestedArray("Quat");
       quat_json.add(qat.w);
       quat_json.add(qat.x);

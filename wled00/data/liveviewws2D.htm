@@ -33,7 +33,14 @@
 			if (ws && ws.readyState === WebSocket.OPEN) {
 				ws.send("{'lv':true}");
 			} else {
-				ws = new WebSocket((window.location.protocol == "https:"?"wss":"ws")+"://"+document.location.host+"/ws");
+				let l = window.location;
+				let pathn = l.pathname;
+				let paths = pathn.slice(1,pathn.endsWith('/')?-1:undefined).split("/");
+				let url = l.origin.replace("http","ws");
+				if (paths.length > 1) {
+					url +=  "/" + paths[0];
+				}
+				ws = new WebSocket(url+"/ws");
 				ws.onopen = ()=>{
 					ws.send("{'lv':true}");
 				}

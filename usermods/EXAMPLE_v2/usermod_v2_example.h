@@ -22,8 +22,12 @@
 
 //class name. Use something descriptive and leave the ": public Usermod" part :)
 class MyExampleUsermod : public Usermod {
+
   private:
-    //Private class members. You can declare variables and functions only accessible to your usermod here
+
+    // Private class members. You can declare variables and functions only accessible to your usermod here
+    bool enabled = false;
+    bool initDone = false;
     unsigned long lastTime = 0;
 
     // set your config variables to their boot default value (this can also be done in readFromConfig() or a constructor if you prefer)
@@ -37,15 +41,56 @@ class MyExampleUsermod : public Usermod {
     long testLong;
     int8_t testPins[2];
 
+    // string that are used multiple time (this will save some flash memory)
+    static const char _name[];
+    static const char _enabled[];
+
+
+    // any private methods should go here (non-inline methosd should be defined out of class)
+    void publishMqtt(const char* state, bool retain = false); // example for publishing MQTT message
+
+
   public:
-    //Functions called by WLED
+
+    // non WLED related methods, may be used for data exchange between usermods (non-inline methods should be defined out of class)
+
+    /**
+     * Enable/Disable the usermod
+     */
+    inline void enable(bool enable) { enabled = enable; }
+
+    /**
+     * Get usermod enabled/disabled state
+     */
+    inline bool isEnabled() { return enabled; }
+
+    // in such case add the following to another usermod:
+    //  in private vars:
+    //   #ifdef USERMOD_EXAMPLE
+    //   MyExampleUsermod* UM;
+    //   #endif
+    //  in setup()
+    //   #ifdef USERMOD_EXAMPLE
+    //   UM = (MyExampleUsermod*) usermods.lookup(USERMOD_ID_EXAMPLE);
+    //   #endif
+    //  somewhere in loop() or other member method
+    //   #ifdef USERMOD_EXAMPLE
+    //   if (UM != nullptr) isExampleEnabled = UM->isEnabled();
+    //   if (!isExampleEnabled) UM->enable(true);
+    //   #endif
+
+
+    // methods called by WLED (can be inlined as they are called only once but if you call them explicitly define them out of class)
 
     /*
      * setup() is called once at boot. WiFi is not yet connected at this point.
+     * readFromConfig() is called prior to setup()
      * You can use it to initialize variables, sensors or similar.
      */
     void setup() {
+      // do your set-up here
       //Serial.println("Hello from my usermod!");
+      initDone = true;
     }
 
 
@@ -69,6 +114,11 @@ class MyExampleUsermod : public Usermod {
      *    Instead, use a timer check as shown here.
      */
     void loop() {
+      // if usermod is disabled or called during strip updating just exit
+      // NOTE: on very long strips strip.isUpdating() may always return true so update accordingly
+      if (!enabled || strip.isUpdating()) return;
+
+      // do your magic here
       if (millis() - lastTime > 1000) {
         //Serial.println("I'm alive!");
         lastTime = millis();
@@ -81,19 +131,25 @@ class MyExampleUsermod : public Usermod {
      * Creating an "u" object allows you to add custom key/value pairs to the Info section of the WLED web UI.
      * Below it is shown how this could be used for e.g. a light sensor
      */
-    /*
     void addToJsonInfo(JsonObject& root)
     {
-      int reading = 20;
-      //this code adds "u":{"Light":[20," lux"]} to the info object
+      // if "u" object does not exist yet wee need to create it
       JsonObject user = root["u"];
       if (user.isNull()) user = root.createNestedObject("u");
 
-      JsonArray lightArr = user.createNestedArray("Light"); //name
-      lightArr.add(reading); //value
-      lightArr.add(" lux"); //unit
+      //this code adds "u":{"ExampleUsermod":[20," lux"]} to the info object
+      //int reading = 20;
+      //JsonArray lightArr = user.createNestedArray(FPSTR(_name))); //name
+      //lightArr.add(reading); //value
+      //lightArr.add(F(" lux")); //unit
+
+      // if you are implementing a sensor usermod, you may publish sensor data
+      //JsonObject sensor = root[F("sensor")];
+      //if (sensor.isNull()) sensor = root.createNestedObject(F("sensor"));
+      //temp = sensor.createNestedArray(F("light"));
+      //temp.add(reading);
+      //temp.add(F("lux"));
     }
-    */
 
 
     /*
@@ -102,7 +158,12 @@ class MyExampleUsermod : public Usermod {
      */
     void addToJsonState(JsonObject& root)
     {
-      //root["user0"] = userVar0;
+      if (!initDone || !enabled) return;  // prevent crash on boot applyPreset()
+
+      JsonObject usermod = root[FPSTR(_name)];
+      if (usermod.isNull()) usermod = root.createNestedObject(FPSTR(_name));
+
+      //usermod["user0"] = userVar0;
     }
 
 
@@ -112,7 +173,14 @@ class MyExampleUsermod : public Usermod {
      */
     void readFromJsonState(JsonObject& root)
     {
-      userVar0 = root["user0"] | userVar0; //if "user0" key exists in JSON, update, else keep old value
+      if (!initDone) return;  // prevent crash on boot applyPreset()
+
+      JsonObject usermod = root[FPSTR(_name)];
+      if (!usermod.isNull()) {
+        // expect JSON usermod data in usermod name object: {"ExampleUsermod:{"user0":10}"}
+        userVar0 = usermod["user0"] | userVar0; //if "user0" key exists in JSON, update, else keep old value
+      }
+      // you can as well check WLED state JSON keys
       //if (root["bri"] == 255) Serial.println(F("Don't burn down your garage!"));
     }
 
@@ -154,8 +222,10 @@ class MyExampleUsermod : public Usermod {
      */
     void addToConfig(JsonObject& root)
     {
-      JsonObject top = root.createNestedObject("exampleUsermod");
-      top["great"] = userVar0; //save these vars persistently whenever settings are saved
+      JsonObject top = root.createNestedObject(FPSTR(_name));
+      top[FPSTR(_enabled)] = enabled;
+      //save these vars persistently whenever settings are saved
+      top["great"] = userVar0;
       top["testBool"] = testBool;
       top["testInt"] = testInt;
       top["testLong"] = testLong;
@@ -188,7 +258,7 @@ class MyExampleUsermod : public Usermod {
       // default settings values could be set here (or below using the 3-argument getJsonValue()) instead of in the class definition or constructor
       // setting them inside readFromConfig() is slightly more robust, handling the rare but plausible use case of single value being missing after boot (e.g. if the cfg.json was manually edited and a value was removed)
 
-      JsonObject top = root["exampleUsermod"];
+      JsonObject top = root[FPSTR(_name)];
 
       bool configComplete = !top.isNull();
 
@@ -201,10 +271,27 @@ class MyExampleUsermod : public Usermod {
       // A 3-argument getJsonValue() assigns the 3rd argument as a default value if the Json value is missing
       configComplete &= getJsonValue(top["testInt"], testInt, 42);  
       configComplete &= getJsonValue(top["testLong"], testLong, -42424242);
+
+      // "pin" fields have special handling in settings page (or some_pin as well)
       configComplete &= getJsonValue(top["pin"][0], testPins[0], -1);
       configComplete &= getJsonValue(top["pin"][1], testPins[1], -1);
 
       return configComplete;
+    }
+
+
+    /*
+     * appendConfigData() is called when user enters usermod settings page
+     * it may add additional metadata for certain entry fields (adding drop down is possible)
+     * be careful not to add too much as oappend() buffer is limited to 3k
+     */
+    void appendConfigData()
+    {
+      oappend(SET_F("addInfo('")); oappend(String(FPSTR(_name)).c_str()); oappend(SET_F(":great")); oappend(SET_F("',1,'<i>(this is a great config value)</i>');"));
+      oappend(SET_F("addInfo('")); oappend(String(FPSTR(_name)).c_str()); oappend(SET_F(":testString")); oappend(SET_F("',1,'enter any string you want');"));
+      oappend(SET_F("dd=addDropdown('")); oappend(String(FPSTR(_name)).c_str()); oappend(SET_F("','testInt');"));
+      oappend(SET_F("addOption(dd,'Nothing',0);"));
+      oappend(SET_F("addOption(dd,'Everything',42);"));
     }
 
 
@@ -218,7 +305,72 @@ class MyExampleUsermod : public Usermod {
       //strip.setPixelColor(0, RGBW32(0,0,0,0)) // set the first pixel to black
     }
 
-   
+
+    /**
+     * handleButton() can be used to override default button behaviour. Returning true
+     * will prevent button working in a default way.
+     * Replicating button.cpp
+     */
+    bool handleButton(uint8_t b) {
+      yield();
+      // ignore certain button types as they may have other consequences
+      if (!enabled
+       || buttonType[b] == BTN_TYPE_NONE
+       || buttonType[b] == BTN_TYPE_RESERVED
+       || buttonType[b] == BTN_TYPE_PIR_SENSOR
+       || buttonType[b] == BTN_TYPE_ANALOG
+       || buttonType[b] == BTN_TYPE_ANALOG_INVERTED) {
+        return false;
+      }
+
+      bool handled = false;
+      // do your button handling here
+      return handled;
+    }
+  
+
+#ifndef WLED_DISABLE_MQTT
+    /**
+     * handling of MQTT message
+     * topic only contains stripped topic (part after /wled/MAC)
+     */
+    bool onMqttMessage(char* topic, char* payload) {
+      // check if we received a command
+      //if (strlen(topic) == 8 && strncmp_P(topic, PSTR("/command"), 8) == 0) {
+      //  String action = payload;
+      //  if (action == "on") {
+      //    enabled = true;
+      //    return true;
+      //  } else if (action == "off") {
+      //    enabled = false;
+      //    return true;
+      //  } else if (action == "toggle") {
+      //    enabled = !enabled;
+      //    return true;
+      //  }
+      //}
+      return false;
+    }
+
+    /**
+     * onMqttConnect() is called when MQTT connection is established
+     */
+    void onMqttConnect(bool sessionPresent) {
+      // do any MQTT related initialisation here
+      //publishMqtt("I am alive!");
+    }
+#endif
+
+
+    /**
+     * onStateChanged() is used to detect WLED state change
+     * @mode parameter is CALL_MODE_... parameter used for notifications
+     */
+    void onStateChange(uint8_t mode) {
+      // do something if WLED state changed (color, brightness, effect, preset, etc)
+    }
+
+
     /*
      * getId() allows you to optionally give your V2 usermod an unique ID (please define it in const.h!).
      * This could be used in the future for the system to determine whether your usermod is installed.
@@ -231,3 +383,24 @@ class MyExampleUsermod : public Usermod {
    //More methods can be added in the future, this example will then be extended.
    //Your usermod will remain compatible as it does not need to implement all methods from the Usermod base class!
 };
+
+
+// add more strings here to reduce flash memory usage
+const char MyExampleUsermod::_name[]    PROGMEM = "ExampleUsermod";
+const char MyExampleUsermod::_enabled[] PROGMEM = "enabled";
+
+
+// implementation of non-inline member methods
+
+void MyExampleUsermod::publishMqtt(const char* state, bool retain)
+{
+#ifndef WLED_DISABLE_MQTT
+  //Check if MQTT Connected, otherwise it will crash the 8266
+  if (WLED_MQTT_CONNECTED) {
+    char subuf[64];
+    strcpy(subuf, mqttDeviceTopic);
+    strcat_P(subuf, PSTR("/example"));
+    mqtt->publish(subuf, 0, retain, state);
+  }
+#endif
+}

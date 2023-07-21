@@ -7,10 +7,10 @@
 	<title>Misc Settings</title>
 	<script>
 		var d = document;
-		var loc = false, locip;
+		var loc = false, locip, locproto = "http:";
 		function H() { window.open("https://kno.wled.ge/features/settings/#security-settings"); }
-		function B() { window.open("/settings","_self"); }
-		function U() { window.open("/update","_self"); }
+		function B() { window.open(getURL("/settings"),"_self"); }
+		function U() { window.open(getURL("/update"),"_self"); }
 		function gId(s) { return d.getElementById(s); }
 		function isObj(o) { return (o && typeof o === 'object' && !Array.isArray(o)); }
 		// https://www.educative.io/edpresso/how-to-dynamically-load-a-js-file-in-javascript
@@ -47,13 +47,13 @@
 			var req = new XMLHttpRequest();
 			req.addEventListener('load', function(){showToast(this.responseText,this.status >= 400)});
 			req.addEventListener('error', function(e){showToast(e.stack,true);});
-			req.open("POST", "/upload");
+			req.open("POST", getURL("/upload"));
 			var formData = new FormData();
 			formData.append("data", fO.files[0], name);
 			req.send(formData);
 			fO.value = '';
 			return false;
-	    }
+		}
 		function checkNum(o) {
 			const specialkeys = ["Backspace", "Tab", "Enter", "Shift", "Control", "Alt", "Pause", "CapsLock", "Escape", "Space", "PageUp", "PageDown", "End", "Home", "ArrowLeft", "ArrowUp", "ArrowRight", "ArrowDown", "Insert", "Delete"];
 			// true if key is a number or a special key
@@ -65,16 +65,33 @@
 			x.setAttribute("download","wled_" + x.getAttribute("download") + (sd=="WLED"?"":("_" +sd)));
 		}
 		function S() {
-			if (window.location.protocol == "file:") {
+			let l = window.location;
+			if (l.protocol == "file:") {
 				loc = true;
 				locip = localStorage.getItem('locIp');
 				if (!locip) {
 					locip = prompt("File Mode. Please enter WLED IP!");
 					localStorage.setItem('locIp', locip);
 				}
+			} else {
+				// detect reverse proxy
+				let path = l.pathname;
+				let paths = path.slice(1,path.endsWith('/')?-1:undefined).split("/");
+				if (paths.length > 2) {
+					locproto = l.protocol;
+					loc = true;
+					locip = l.hostname + (l.port ? ":" + l.port : "") + "/" + paths[0];
+				}
 			}
-			var url = (loc?`http://${locip}`:'') + '/settings/s.js?p=6';
-			loadJS(url, false);	// If we set async false, file is loaded and executed, then next statement is processed
+			if (loc) {
+				gId("bckcfg").setAttribute('href',getURL(gId("bckcfg").pathname));
+				gId("bckpresets").setAttribute('href',getURL(gId("bckpresets").pathname));
+			}
+			loadJS(getURL('/settings/s.js?p=6'), false);	// If we set async false, file is loaded and executed, then next statement is processed
+			if (loc) d.Sf.action = getURL('/settings/sec');
+		}
+		function getURL(path) {
+			return (loc ? locproto + "//" + locip : "") + path;
 		}
 	</script>
 	<style>
@@ -89,7 +106,7 @@
 		</div>
 		<h2>Security & Update setup</h2>
 		Settings PIN: <input type="password" id="PIN" name="PIN" size="4" maxlength="4" minlength="4" onkeydown="checkNum(this)" pattern="[0-9]*" inputmode="numeric" title="Please enter a 4 digit number"><br>
-		<div style="color: #fa0;">&#9888; Unencrypted transmission. Be prudent when selecting PIN, do NOT use your banking, door, SIM, etc. pin!</div><br><br>
+		<div class="warn">&#9888; Unencrypted transmission. Be prudent when selecting PIN, do NOT use your banking, door, SIM, etc. pin!</div><br>
 		Lock wireless (OTA) software update: <input type="checkbox" name="NO"><br>
 		Passphrase: <input type="password" name="OP" maxlength="32"><br>
 		To enable OTA, for security reasons you need to also enter the correct password!<br>
@@ -99,7 +116,7 @@
 		Deny access to WiFi settings if locked: <input type="checkbox" name="OW"><br><br>
 		Factory reset: <input type="checkbox" name="RS"><br>
 		All settings and presets will be erased.<br><br>
-		<div style="color: #fa0;">&#9888; Unencrypted transmission. An attacker on the same network can intercept form data!</div>
+		<div class="warn">&#9888; Unencrypted transmission. An attacker on the same network can intercept form data!</div>
 		<hr>
 		<h3>Software Update</h3>
 		<button type="button" onclick="U()">Manual OTA Update</button><br>
@@ -110,7 +127,7 @@
 		<div>Restore presets<br><input type="file" name="data" accept=".json"> <button type="button" onclick="uploadFile(d.Sf.data,'/presets.json');">Upload</button><br></div><br>
 		<a class="btn lnk" id="bckpresets" href="/cfg.json" download="cfg">Backup configuration</a><br>
 		<div>Restore configuration<br><input type="file" name="data2" accept=".json"> <button type="button" onclick="uploadFile(d.Sf.data2,'/cfg.json');">Upload</button><br></div>
-		<div style="color: #fa0;">&#9888; Restoring presets/configuration will OVERWRITE your current presets/configuration.<br>
+		<div class="warn">&#9888; Restoring presets/configuration will OVERWRITE your current presets/configuration.<br>
 		Incorrect configuration may require a factory reset or re-flashing of your ESP.</div>
 		For security reasons, passwords are not backed up.
 		<hr>
@@ -118,7 +135,7 @@
 		<a href="https://github.com/Aircoookie/WLED/" target="_blank">WLED</a> version ##VERSION##<!-- Autoreplaced from package.json --><br><br>
 		<a href="https://github.com/Aircoookie/WLED/wiki/Contributors-and-credits" target="_blank">Contributors, dependencies and special thanks</a><br>
 		A huge thank you to everyone who helped me create WLED!<br><br>
-		(c) 2016-2022 Christian Schwinne <br>
+		(c) 2016-2023 Christian Schwinne <br>
 		<i>Licensed under the <a href="https://github.com/Aircoookie/WLED/blob/master/LICENSE" target="_blank">MIT license</a></i><br><br>
 		Server message: <span class="sip"> Response error! </span><hr>
 		<div id="toast"></div>

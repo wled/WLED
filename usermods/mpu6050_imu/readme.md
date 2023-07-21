@@ -1,13 +1,13 @@
 # MPU-6050 Six-Axis (Gyro + Accelerometer) Driver
 
-This usermod-v2 modification allows the connection of a MPU-6050 IMU sensor to
-allow for effects that are controlled by the orientation or motion of the WLED Device.
+v2 of this usermod enables connection of a MPU-6050 IMU sensor to
+work with effects controlled by the orientation or motion of the WLED Device.
 
-The MPU6050 has a built in "Digital Motion Processor" which does a lot of the heavy
-lifting in integrating the gyro and accel measurements to get potentially more
+The MPU6050 has a built in "Digital Motion Processor" which does the "heavy lifting"
+integrating the gyro and accelerometer measurements to get potentially more
 useful gravity vector and orientation output.
 
-It is pretty straightforward to comment out some of the variables being read off the device if they're not needed to save CPU/Mem/Bandwidth.
+It is fairly straightforward to comment out variables being read from the device if they're not needed. Saves CPU/Memory/Bandwidth.
 
 _Story:_
 
@@ -36,7 +36,7 @@ lib_deps =
     AsyncTCP@1.0.3
     Esp Async WebServer@1.2.0
     IRremoteESP8266@2.7.3
-    I2Cdevlib-MPU6050@fbde122cc5
+    jrowberg/I2Cdevlib-MPU6050@^1.0.0
 ```
 
 ## Wiring
@@ -78,7 +78,7 @@ to the info object
 ## Usermod installation
 
 1. Copy the file `usermod_mpu6050_imu.h` to the `wled00` directory.
-2. Register the usermod by adding `#include "usermod_mpu6050_imu.h.h"` in the top and `registerUsermod(new MPU6050Driver());` in the bottom of `usermods_list.cpp`.
+2. Register the usermod by adding `#include "usermod_mpu6050_imu.h"` in the top and `registerUsermod(new MPU6050Driver());` in the bottom of `usermods_list.cpp`.
 
 Example **usermods_list.cpp**:
 

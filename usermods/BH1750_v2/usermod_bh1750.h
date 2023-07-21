@@ -1,7 +1,13 @@
+// force the compiler to show a warning to confirm that this file is included
+#warning **** Included USERMOD_BH1750 ****
+
+#ifndef WLED_ENABLE_MQTT
+#error "This user mod requires MQTT to be enabled."
+#endif
+
 #pragma once
 
 #include "wled.h"
-#include <Wire.h>
 #include <BH1750.h>
 
 // the max frequency to check photoresistor, 10 seconds
@@ -39,7 +45,7 @@ private:
   bool getLuminanceComplete = false;
 
   // flag set at startup
-  bool disabled = false;
+  bool enabled = true;
 
   // strings to reduce flash memory usage (used more than twice)
   static const char _name[];
@@ -47,6 +53,15 @@ private:
   static const char _maxReadInterval[];
   static const char _minReadInterval[];
   static const char _offset[];
+  static const char _HomeAssistantDiscovery[];
+
+  bool initDone = false;
+  bool sensorFound = false;
+
+  // Home Assistant and MQTT  
+  String mqttLuminanceTopic = F("");
+  bool mqttInitialized = false;
+  bool HomeAssistantDiscovery = true; // Publish Home Assistant Discovery messages
 
   BH1750 lightMeter;
   float lastLux = -1000;
@@ -55,17 +70,57 @@ private:
   {
     return isnan(prevValue) || newValue <= prevValue - maxDiff || newValue >= prevValue + maxDiff || (newValue == 0.0 && prevValue > 0.0);
   }
+  
+  // set up Home Assistant discovery entries
+  void _mqttInitialize()
+  {
+    mqttLuminanceTopic = String(mqttDeviceTopic) + F("/brightness");
+
+    if (HomeAssistantDiscovery) _createMqttSensor(F("Brightness"), mqttLuminanceTopic, F("Illuminance"), F(" lx"));
+  }
+
+  // Create an MQTT Sensor for Home Assistant Discovery purposes, this includes a pointer to the topic that is published to in the Loop.
+  void _createMqttSensor(const String &name, const String &topic, const String &deviceClass, const String &unitOfMeasurement)
+  {
+    String t = String(F("homeassistant/sensor/")) + mqttClientID + F("/") + name + F("/config");
+    
+    StaticJsonDocument<600> doc;
+    
+    doc[F("name")] = String(serverDescription) + F(" ") + name;
+    doc[F("state_topic")] = topic;
+    doc[F("unique_id")] = String(mqttClientID) + name;
+    if (unitOfMeasurement != "")
+      doc[F("unit_of_measurement")] = unitOfMeasurement;
+    if (deviceClass != "")
+      doc[F("device_class")] = deviceClass;
+    doc[F("expire_after")] = 1800;
+
+    JsonObject device = doc.createNestedObject(F("device")); // attach the sensor to the same device
+    device[F("name")] = serverDescription;
+    device[F("identifiers")] = "wled-sensor-" + String(mqttClientID);
+    device[F("manufacturer")] = F("WLED");
+    device[F("model")] = F("FOSS");
+    device[F("sw_version")] = versionString;
+
+    String temp;
+    serializeJson(doc, temp);
+    DEBUG_PRINTLN(t);
+    DEBUG_PRINTLN(temp);
+
+    mqtt->publish(t.c_str(), 0, true, temp.c_str());
+  }
 
 public:
   void setup()
   {
-    Wire.begin();
-    lightMeter.begin();
+    if (i2c_scl<0 || i2c_sda<0) { enabled = false; return; }
+    sensorFound = lightMeter.begin();
+    initDone = true;
   }
 
   void loop()
   {
-    if (disabled || strip.isUpdating())
+    if ((!enabled) || strip.isUpdating())
       return;
 
     unsigned long now = millis();
@@ -88,18 +143,27 @@ public:
     {
       lastLux = lux;
       lastSend = millis();
+#ifndef WLED_DISABLE_MQTT
       if (WLED_MQTT_CONNECTED)
       {
-        char subuf[45];
-        strcpy(subuf, mqttDeviceTopic);
-        strcat_P(subuf, PSTR("/luminance"));
-        mqtt->publish(subuf, 0, true, String(lux).c_str());
+        if (!mqttInitialized)
+          {
+            _mqttInitialize();
+            mqttInitialized = true;
+          }
+        mqtt->publish(mqttLuminanceTopic.c_str(), 0, true, String(lux).c_str());
+        DEBUG_PRINTLN(F("Brightness: ") + String(lux) + F("lx"));
       }
       else
       {
-        DEBUG_PRINTLN("Missing MQTT connection. Not publishing data");
+        DEBUG_PRINTLN(F("Missing MQTT connection. Not publishing data"));
       }
+#endif
     }
+  }
+
+  inline float getIlluminance() {
+    return (float)lastLux;
   }
 
   void addToJsonInfo(JsonObject &root)
@@ -109,43 +173,39 @@ public:
       user = root.createNestedObject(F("u"));
 
     JsonArray lux_json = user.createNestedArray(F("Luminance"));
-
-    if (!getLuminanceComplete)
-    {
+    if (!enabled) {
+      lux_json.add(F("disabled"));
+    } else if (!sensorFound) {
+        // if no sensor 
+        lux_json.add(F("BH1750 "));
+        lux_json.add(F("Not Found"));
+    } else if (!getLuminanceComplete) {
       // if we haven't read the sensor yet, let the user know
-      // that we are still waiting for the first measurement
-      lux_json.add((USERMOD_BH1750_FIRST_MEASUREMENT_AT - millis()) / 1000);
-      lux_json.add(F(" sec until read"));
-      return;
+        // that we are still waiting for the first measurement
+        lux_json.add((USERMOD_BH1750_FIRST_MEASUREMENT_AT - millis()) / 1000);
+        lux_json.add(F(" sec until read"));
+        return;
+    } else {
+      lux_json.add(lastLux);
+      lux_json.add(F(" lx"));
     }
-
-    lux_json.add(lastLux);
-    lux_json.add(F(" lx"));
   }
 
-  uint16_t getId()
-  {
-    return USERMOD_ID_BH1750;
-  }
-
-  /**
-     * addToConfig() (called from set.cpp) stores persistent properties to cfg.json
-     */
+  // (called from set.cpp) stores persistent properties to cfg.json
   void addToConfig(JsonObject &root)
   {
     // we add JSON object.
     JsonObject top = root.createNestedObject(FPSTR(_name)); // usermodname
-    top[FPSTR(_enabled)] = !disabled;
+    top[FPSTR(_enabled)] = enabled;
     top[FPSTR(_maxReadInterval)] = maxReadingInterval;
     top[FPSTR(_minReadInterval)] = minReadingInterval;
+    top[FPSTR(_HomeAssistantDiscovery)] = HomeAssistantDiscovery;
     top[FPSTR(_offset)] = offset;
 
-    DEBUG_PRINTLN(F("Photoresistor config saved."));
+    DEBUG_PRINTLN(F("BH1750 config saved."));
   }
 
-  /**
-  * readFromConfig() is called before setup() to populate properties from values stored in cfg.json
-  */
+  // called before setup() to populate properties from values stored in cfg.json
   bool readFromConfig(JsonObject &root)
   {
     // we look for JSON object.
@@ -153,20 +213,34 @@ public:
     if (top.isNull())
     {
       DEBUG_PRINT(FPSTR(_name));
+      DEBUG_PRINT(F("BH1750"));
       DEBUG_PRINTLN(F(": No config found. (Using defaults.)"));
       return false;
     }
+    bool configComplete = !top.isNull();
 
-    disabled = !(top[FPSTR(_enabled)] | !disabled);
-    maxReadingInterval = (top[FPSTR(_maxReadInterval)] | maxReadingInterval); // ms
-    minReadingInterval = (top[FPSTR(_minReadInterval)] | minReadingInterval); // ms
-    offset = top[FPSTR(_offset)] | offset;
+    configComplete &= getJsonValue(top[FPSTR(_enabled)], enabled, false);
+    configComplete &= getJsonValue(top[FPSTR(_maxReadInterval)], maxReadingInterval, 10000); //ms
+    configComplete &= getJsonValue(top[FPSTR(_minReadInterval)], minReadingInterval, 500); //ms
+    configComplete &= getJsonValue(top[FPSTR(_HomeAssistantDiscovery)], HomeAssistantDiscovery, false);
+    configComplete &= getJsonValue(top[FPSTR(_offset)], offset, 1);
+
     DEBUG_PRINT(FPSTR(_name));
-    DEBUG_PRINTLN(F(" config (re)loaded."));
+    if (!initDone) {
+      DEBUG_PRINTLN(F(" config loaded."));
+    } else {
+      DEBUG_PRINTLN(F(" config (re)loaded."));
+    }
 
-    // use "return !top["newestParameter"].isNull();" when updating Usermod with new features
-    return true;
+    return configComplete;
+    
   }
+
+  uint16_t getId()
+  {
+    return USERMOD_ID_BH1750;
+  }
+
 };
 
 // strings to reduce flash memory usage (used more than twice)
@@ -174,4 +248,5 @@ const char Usermod_BH1750::_name[] PROGMEM = "BH1750";
 const char Usermod_BH1750::_enabled[] PROGMEM = "enabled";
 const char Usermod_BH1750::_maxReadInterval[] PROGMEM = "max-read-interval-ms";
 const char Usermod_BH1750::_minReadInterval[] PROGMEM = "min-read-interval-ms";
+const char Usermod_BH1750::_HomeAssistantDiscovery[] PROGMEM = "HomeAssistantDiscoveryLux";
 const char Usermod_BH1750::_offset[] PROGMEM = "offset-lx";

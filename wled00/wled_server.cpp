@@ -6,6 +6,13 @@
 #endif
 #include "html_settings.h"
 #include "html_other.h"
+#ifdef WLED_ENABLE_PIXART
+  #include "html_pixart.h"
+#endif
+#ifndef WLED_DISABLE_PXMAGIC
+  #include "html_pxmagic.h"
+#endif
+#include "html_cpal.h"
 
 /*
  * Integrated HTTP web server page declarations
@@ -37,21 +44,28 @@ void handleUpload(AsyncWebServerRequest *request, const String& filename, size_t
     return;
   }
   if (!index) {
-    request->_tempFile = WLED_FS.open(filename, "w");
-    DEBUG_PRINT("Uploading ");
-    DEBUG_PRINTLN(filename);
-    if (filename == F("/presets.json")) presetsModifiedTime = toki.second();
+    String finalname = filename;
+    if (finalname.charAt(0) != '/') {
+      finalname = '/' + finalname; // prepend slash if missing
+    }
+
+    request->_tempFile = WLED_FS.open(finalname, "w");
+    DEBUG_PRINT(F("Uploading "));
+    DEBUG_PRINTLN(finalname);
+    if (finalname.equals("/presets.json")) presetsModifiedTime = toki.second();
   }
   if (len) {
     request->_tempFile.write(data,len);
   }
   if (final) {
     request->_tempFile.close();
-    if (filename == F("/cfg.json")) {
+    if (filename.indexOf(F("cfg.json")) >= 0) { // check for filename with or without slash
       doReboot = true;
       request->send(200, "text/plain", F("Configuration restore successful.\nRebooting..."));
-    } else
+    } else {
+      if (filename.indexOf(F("palette")) >= 0 && filename.indexOf(F(".json")) >= 0) strip.loadCustomPalettes();
       request->send(200, "text/plain", F("File Uploaded!"));
+    }
     cacheInvalidate++;
   }
 }
@@ -66,7 +80,7 @@ void createEditHandler(bool enable) {
       editHandler = &server.addHandler(new SPIFFSEditor("","",WLED_FS));//http_username,http_password));
       #endif
     #else
-      editHandler = server.on("/edit", HTTP_GET, [](AsyncWebServerRequest *request){
+      editHandler = &server.on("/edit", HTTP_GET, [](AsyncWebServerRequest *request){
         serveMessage(request, 501, "Not implemented", F("The FS editor is disabled in this build."), 254);
       });
     #endif
@@ -83,7 +97,7 @@ bool captivePortal(AsyncWebServerRequest *request)
   String hostH;
   if (!request->hasHeader("Host")) return false;
   hostH = request->getHeader("Host")->value();
-  
+
   if (!isIp(hostH) && hostH.indexOf("wled.me") < 0 && hostH.indexOf(cmDNS) < 0) {
     DEBUG_PRINTLN("Captive portal");
     AsyncWebServerResponse *response = request->beginResponse(302);
@@ -102,14 +116,6 @@ void initServer()
   DefaultHeaders::Instance().addHeader(F("Access-Control-Allow-Headers"), "*");
 
 #ifdef WLED_ENABLE_WEBSOCKETS
-  server.on("/liveview", HTTP_GET, [](AsyncWebServerRequest *request){
-    if (handleIfNoneMatchCacheHeader(request)) return;
-    AsyncWebServerResponse *response = request->beginResponse_P(200, "text/html", PAGE_liveviewws, PAGE_liveviewws_length);
-    response->addHeader(FPSTR(s_content_enc),"gzip");
-    setStaticContentCacheHeaders(response);
-    request->send(response);
-    //request->send_P(200, "text/html", PAGE_liveviewws);
-  });
   #ifndef WLED_DISABLE_2D
   server.on("/liveview2D", HTTP_GET, [](AsyncWebServerRequest *request){
     if (handleIfNoneMatchCacheHeader(request)) return;
@@ -117,27 +123,24 @@ void initServer()
     response->addHeader(FPSTR(s_content_enc),"gzip");
     setStaticContentCacheHeaders(response);
     request->send(response);
-    //request->send_P(200, "text/html", PAGE_liveviewws);
   });
   #endif
-#else
+#endif
   server.on("/liveview", HTTP_GET, [](AsyncWebServerRequest *request){
     if (handleIfNoneMatchCacheHeader(request)) return;
     AsyncWebServerResponse *response = request->beginResponse_P(200, "text/html", PAGE_liveview, PAGE_liveview_length);
     response->addHeader(FPSTR(s_content_enc),"gzip");
     setStaticContentCacheHeaders(response);
     request->send(response);
-    //request->send_P(200, "text/html", PAGE_liveview);
   });
-#endif
-  
+
   //settings page
   server.on("/settings", HTTP_GET, [](AsyncWebServerRequest *request){
     serveSettings(request);
   });
-  
+
   // "/settings/settings.js&p=x" request also handled by serveSettings()
-  
+
   server.on("/style.css", HTTP_GET, [](AsyncWebServerRequest *request){
     if (handleIfNoneMatchCacheHeader(request)) return;
     AsyncWebServerResponse *response = request->beginResponse_P(200, "text/css", PAGE_settingsCss, PAGE_settingsCss_length);
@@ -145,27 +148,23 @@ void initServer()
     setStaticContentCacheHeaders(response);
     request->send(response);
   });
-  
+
   server.on("/favicon.ico", HTTP_GET, [](AsyncWebServerRequest *request){
     if(!handleFileRead(request, "/favicon.ico"))
     {
       request->send_P(200, "image/x-icon", favicon, 156);
     }
   });
-  
-  server.on("/sliders", HTTP_GET, [](AsyncWebServerRequest *request){
-    serveIndex(request);
-  });
-  
+
   server.on("/welcome", HTTP_GET, [](AsyncWebServerRequest *request){
     serveSettings(request);
   });
-  
+
   server.on("/reset", HTTP_GET, [](AsyncWebServerRequest *request){
     serveMessage(request, 200,F("Rebooting now..."),F("Please wait ~10 seconds..."),129);
     doReboot = true;
   });
-  
+
   server.on("/settings", HTTP_POST, [](AsyncWebServerRequest *request){
     serveSettings(request, true);
   });
@@ -184,9 +183,11 @@ void initServer()
     JsonObject root = doc.as<JsonObject>();
     if (error || root.isNull()) {
       releaseJSONBufferLock();
-      request->send(400, "application/json", F("{\"error\":9}"));
+      request->send(400, "application/json", F("{\"error\":9}")); // ERR_JSON
       return;
     }
+    if (root.containsKey("pin")) checkSettingsPIN(root["pin"].as<const char*>());
+
     const String& url = request->url();
     isConfig = url.indexOf("cfg") > -1;
     if (!isConfig) {
@@ -199,6 +200,11 @@ void initServer()
       */
       verboseResponse = deserializeState(root);
     } else {
+      if (!correctPIN && strlen(settingsPIN)>0) {
+        request->send(403, "application/json", F("{\"error\":1}")); // ERR_DENIED
+        releaseJSONBufferLock();
+        return;
+      }
       verboseResponse = deserializeConfig(root); //use verboseResponse to determine whether cfg change should be saved immediately
     }
     releaseJSONBufferLock();
@@ -209,37 +215,33 @@ void initServer()
       } else {
         doSerializeConfig = true; //serializeConfig(); //Save new settings to FS
       }
-    } 
+    }
     request->send(200, "application/json", F("{\"success\":true}"));
-  });
+  }, JSON_BUFFER_SIZE);
   server.addHandler(handler);
 
   server.on("/version", HTTP_GET, [](AsyncWebServerRequest *request){
     request->send(200, "text/plain", (String)VERSION);
   });
-    
+
   server.on("/uptime", HTTP_GET, [](AsyncWebServerRequest *request){
     request->send(200, "text/plain", (String)millis());
   });
-    
+
   server.on("/freeheap", HTTP_GET, [](AsyncWebServerRequest *request){
     request->send(200, "text/plain", (String)ESP.getFreeHeap());
   });
-  
+
+#ifdef WLED_ENABLE_USERMOD_PAGE
   server.on("/u", HTTP_GET, [](AsyncWebServerRequest *request){
     if (handleIfNoneMatchCacheHeader(request)) return;
     AsyncWebServerResponse *response = request->beginResponse_P(200, "text/html", PAGE_usermod, PAGE_usermod_length);
     response->addHeader(FPSTR(s_content_enc),"gzip");
     setStaticContentCacheHeaders(response);
     request->send(response);
-    //request->send_P(200, "text/html", PAGE_usermod);
   });
-    
-  //Deprecated, use of /json/state and presets recommended instead
-  server.on("/url", HTTP_GET, [](AsyncWebServerRequest *request){
-    URL_response(request);
-  });
-    
+#endif
+
   server.on("/teapot", HTTP_GET, [](AsyncWebServerRequest *request){
     serveMessage(request, 418, F("418. I'm a teapot."), F("(Tangible Embedded Advanced Project Of Twinkling)"), 254);
   });
@@ -266,14 +268,14 @@ void initServer()
     setStaticContentCacheHeaders(response);
     request->send(response);
   });
-  
+
   server.on("/rangetouch.js", HTTP_GET, [](AsyncWebServerRequest *request){
     AsyncWebServerResponse *response = request->beginResponse_P(200, "application/javascript", rangetouchJs, rangetouchJs_length);
     response->addHeader(FPSTR(s_content_enc),"gzip");
     setStaticContentCacheHeaders(response);
     request->send(response);
   });
-  
+
   createEditHandler(correctPIN);
 
 #ifndef WLED_DISABLE_OTA
@@ -284,7 +286,7 @@ void initServer()
     } else
       serveSettings(request); // checks for "upd" in URL and handles PIN
   });
-  
+
   server.on("/update", HTTP_POST, [](AsyncWebServerRequest *request){
     if (!correctPIN) {
       serveSettings(request, true); // handle PIN page POST request
@@ -293,7 +295,7 @@ void initServer()
     if (Update.hasError() || otaLock) {
       serveMessage(request, 500, F("Update failed!"), F("Please check your file and retry!"), 254);
     } else {
-      serveMessage(request, 200, F("Update successful!"), F("Rebooting..."), 131); 
+      serveMessage(request, 200, F("Update successful!"), F("Rebooting..."), 131);
       doReboot = true;
     }
   },[](AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool final){
@@ -335,15 +337,51 @@ void initServer()
     serveMessage(request, 501, "Not implemented", F("DMX support is not enabled in this build."), 254);
   });
   #endif
+
   server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){
     if (captivePortal(request)) return;
-    serveIndexOrWelcome(request);
+    if (!showWelcomePage || request->hasArg(F("sliders"))){
+      serveIndex(request);
+    } else {
+      serveSettings(request);
+    }
+  });
+
+  #ifdef WLED_ENABLE_PIXART
+  server.on("/pixart.htm", HTTP_GET, [](AsyncWebServerRequest *request){
+    if (handleFileRead(request, "/pixart.htm")) return;
+    if (handleIfNoneMatchCacheHeader(request)) return;
+    AsyncWebServerResponse *response = request->beginResponse_P(200, "text/html", PAGE_pixart, PAGE_pixart_L);
+    response->addHeader(FPSTR(s_content_enc),"gzip");
+    setStaticContentCacheHeaders(response);
+    request->send(response);
+  });
+  #endif
+
+  #ifndef WLED_DISABLE_PXMAGIC
+  server.on("/pxmagic.htm", HTTP_GET, [](AsyncWebServerRequest *request){
+    if (handleFileRead(request, "/pxmagic.htm")) return;
+    if (handleIfNoneMatchCacheHeader(request)) return;
+    AsyncWebServerResponse *response = request->beginResponse_P(200, "text/html", PAGE_pxmagic, PAGE_pxmagic_L);
+    response->addHeader(FPSTR(s_content_enc),"gzip");
+    setStaticContentCacheHeaders(response);
+    request->send(response);
+  });
+  #endif
+
+  server.on("/cpal.htm", HTTP_GET, [](AsyncWebServerRequest *request){
+    if (handleFileRead(request, "/cpal.htm")) return;
+    if (handleIfNoneMatchCacheHeader(request)) return;
+    AsyncWebServerResponse *response = request->beginResponse_P(200, "text/html", PAGE_cpal, PAGE_cpal_L);
+    response->addHeader(FPSTR(s_content_enc),"gzip");
+    setStaticContentCacheHeaders(response);
+    request->send(response);
   });
 
   #ifdef WLED_ENABLE_WEBSOCKETS
   server.addHandler(&ws);
   #endif
-  
+
   //called when the url is not defined here, ajax-in; get-settings
   server.onNotFound([](AsyncWebServerRequest *request){
     DEBUG_PRINTLN("Not-Found HTTP call:");
@@ -358,7 +396,7 @@ void initServer()
       request->send(response);
       return;
     }
-    
+
     if(handleSet(request, request->url())) return;
     #ifndef WLED_DISABLE_ALEXA
     if(espalexa.handleAlexaApiCall(request)) return;
@@ -368,18 +406,7 @@ void initServer()
     response->addHeader(FPSTR(s_content_enc),"gzip");
     setStaticContentCacheHeaders(response);
     request->send(response);
-    //request->send_P(404, "text/html", PAGE_404);
   });
-}
-
-
-void serveIndexOrWelcome(AsyncWebServerRequest *request)
-{
-  if (!showWelcomePage){
-    serveIndex(request);
-  } else {
-    serveSettings(request);
-  }
 }
 
 bool handleIfNoneMatchCacheHeader(AsyncWebServerRequest* request)
@@ -466,7 +493,7 @@ void serveMessage(AsyncWebServerRequest* request, uint16_t code, const String& h
   messageHead = headl;
   messageSub = subl;
   optionType = optionT;
-  
+
   request->send_P(code, "text/html", PAGE_msg, msgProcessor);
 }
 
@@ -488,7 +515,7 @@ String dmxProcessor(const String& var)
       mapJS += "0];";
     }
   #endif
-  
+
   return mapJS;
 }
 #endif
@@ -521,93 +548,95 @@ void serveSettings(AsyncWebServerRequest* request, bool post)
   byte subPage = 0, originalSubPage = 0;
   const String& url = request->url();
 
-  if (url.indexOf("sett") >= 0) 
+  if (url.indexOf("sett") >= 0)
   {
-    if      (url.indexOf(".js")  > 0) subPage = 254;
-    else if (url.indexOf(".css") > 0) subPage = 253;
-    else if (url.indexOf("wifi") > 0) subPage = 1;
-    else if (url.indexOf("leds") > 0) subPage = 2;
-    else if (url.indexOf("ui")   > 0) subPage = 3;
-    else if (url.indexOf("sync") > 0) subPage = 4;
-    else if (url.indexOf("time") > 0) subPage = 5;
-    else if (url.indexOf("sec")  > 0) subPage = 6;
-    else if (url.indexOf("dmx")  > 0) subPage = 7;
-    else if (url.indexOf("um")   > 0) subPage = 8;
-    else if (url.indexOf("2D")   > 0) subPage = 10;
-    else if (url.indexOf("lock") > 0) subPage = 251;
+    if      (url.indexOf(".js")  > 0) subPage = SUBPAGE_JS;
+    else if (url.indexOf(".css") > 0) subPage = SUBPAGE_CSS;
+    else if (url.indexOf("wifi") > 0) subPage = SUBPAGE_WIFI;
+    else if (url.indexOf("leds") > 0) subPage = SUBPAGE_LEDS;
+    else if (url.indexOf("ui")   > 0) subPage = SUBPAGE_UI;
+    else if (url.indexOf("sync") > 0) subPage = SUBPAGE_SYNC;
+    else if (url.indexOf("time") > 0) subPage = SUBPAGE_TIME;
+    else if (url.indexOf("sec")  > 0) subPage = SUBPAGE_SEC;
+    else if (url.indexOf("dmx")  > 0) subPage = SUBPAGE_DMX;
+    else if (url.indexOf("um")   > 0) subPage = SUBPAGE_UM;
+    else if (url.indexOf("2D")   > 0) subPage = SUBPAGE_2D;
+    else if (url.indexOf("lock") > 0) subPage = SUBPAGE_LOCK;
   }
-  else if (url.indexOf("/update") >= 0) subPage = 9; // update page, for PIN check
+  else if (url.indexOf("/update") >= 0) subPage = SUBPAGE_UPDATE; // update page, for PIN check
   //else if (url.indexOf("/edit")   >= 0) subPage = 10;
-  else subPage = 255; // welcome page
+  else subPage = SUBPAGE_WELCOME;
 
   if (!correctPIN && strlen(settingsPIN) > 0 && (subPage > 0 && subPage < 11)) {
     originalSubPage = subPage;
-    subPage = 252; // require PIN
+    subPage = SUBPAGE_PINREQ; // require PIN
   }
 
   // if OTA locked or too frequent PIN entry requests fail hard
-  if ((subPage == 1 && wifiLock && otaLock) || (post && !correctPIN && millis()-lastEditTime < 3000))
+  if ((subPage == SUBPAGE_WIFI && wifiLock && otaLock) || (post && !correctPIN && millis()-lastEditTime < PIN_RETRY_COOLDOWN))
   {
     serveMessage(request, 500, "Access Denied", FPSTR(s_unlock_ota), 254); return;
   }
 
   if (post) { //settings/set POST request, saving
-    if (subPage != 1 || !(wifiLock && otaLock)) handleSettingsSet(request, subPage);
+    if (subPage != SUBPAGE_WIFI || !(wifiLock && otaLock)) handleSettingsSet(request, subPage);
 
     char s[32];
     char s2[45] = "";
 
     switch (subPage) {
-      case 1: strcpy_P(s, PSTR("WiFi")); strcpy_P(s2, PSTR("Please connect to the new IP (if changed)")); forceReconnect = true; break;
-      case 2: strcpy_P(s, PSTR("LED")); break;
-      case 3: strcpy_P(s, PSTR("UI")); break;
-      case 4: strcpy_P(s, PSTR("Sync")); break;
-      case 5: strcpy_P(s, PSTR("Time")); break;
-      case 6: strcpy_P(s, PSTR("Security")); if (doReboot) strcpy_P(s2, PSTR("Rebooting, please wait ~10 seconds...")); break;
-      case 7: strcpy_P(s, PSTR("DMX")); break;
-      case 8: strcpy_P(s, PSTR("Usermods")); break;
-      case 10: strcpy_P(s, PSTR("2D")); break;
-      case 252: strcpy_P(s, correctPIN ? PSTR("PIN accepted") : PSTR("PIN rejected")); break;
+      case SUBPAGE_WIFI   : strcpy_P(s, PSTR("WiFi")); strcpy_P(s2, PSTR("Please connect to the new IP (if changed)")); forceReconnect = true; break;
+      case SUBPAGE_LEDS   : strcpy_P(s, PSTR("LED")); break;
+      case SUBPAGE_UI     : strcpy_P(s, PSTR("UI")); break;
+      case SUBPAGE_SYNC   : strcpy_P(s, PSTR("Sync")); break;
+      case SUBPAGE_TIME   : strcpy_P(s, PSTR("Time")); break;
+      case SUBPAGE_SEC    : strcpy_P(s, PSTR("Security")); if (doReboot) strcpy_P(s2, PSTR("Rebooting, please wait ~10 seconds...")); break;
+      case SUBPAGE_DMX    : strcpy_P(s, PSTR("DMX")); break;
+      case SUBPAGE_UM     : strcpy_P(s, PSTR("Usermods")); break;
+      case SUBPAGE_2D     : strcpy_P(s, PSTR("2D")); break;
+      case SUBPAGE_PINREQ : strcpy_P(s, correctPIN ? PSTR("PIN accepted") : PSTR("PIN rejected")); break;
     }
 
-    if (subPage == 252) {
-      createEditHandler(correctPIN);
-    } else
-      strcat_P(s, PSTR(" settings saved."));
+    if (subPage != SUBPAGE_PINREQ) strcat_P(s, PSTR(" settings saved."));
 
-    if (subPage == 252 && correctPIN) {
+    if (subPage == SUBPAGE_PINREQ && correctPIN) {
       subPage = originalSubPage; // on correct PIN load settings page the user intended
     } else {
       if (!s2[0]) strcpy_P(s2, s_redirecting);
 
-      serveMessage(request, 200, s, s2, (subPage == 1 || (subPage == 6 && doReboot)) ? 129 : (correctPIN ? 1 : 3));
+      bool redirectAfter9s = (subPage == SUBPAGE_WIFI || ((subPage == SUBPAGE_SEC || subPage == SUBPAGE_UM) && doReboot));
+      serveMessage(request, 200, s, s2, redirectAfter9s ? 129 : (correctPIN ? 1 : 3));
       return;
     }
   }
-  
+
   AsyncWebServerResponse *response;
   switch (subPage)
   {
-    case 1:   response = request->beginResponse_P(200, "text/html", PAGE_settings_wifi, PAGE_settings_wifi_length); break;
-    case 2:   response = request->beginResponse_P(200, "text/html", PAGE_settings_leds, PAGE_settings_leds_length); break;
-    case 3:   response = request->beginResponse_P(200, "text/html", PAGE_settings_ui,   PAGE_settings_ui_length);   break;
-    case 4:   response = request->beginResponse_P(200, "text/html", PAGE_settings_sync, PAGE_settings_sync_length); break;
-    case 5:   response = request->beginResponse_P(200, "text/html", PAGE_settings_time, PAGE_settings_time_length); break;
-    case 6:   response = request->beginResponse_P(200, "text/html", PAGE_settings_sec,  PAGE_settings_sec_length);  break;
-    case 7:   response = request->beginResponse_P(200, "text/html", PAGE_settings_dmx,  PAGE_settings_dmx_length);  break;
-    case 8:   response = request->beginResponse_P(200, "text/html", PAGE_settings_um,   PAGE_settings_um_length);   break;
-    case 9:   response = request->beginResponse_P(200, "text/html", PAGE_update,        PAGE_update_length);        break;
-    case 10:  response = request->beginResponse_P(200, "text/html", PAGE_settings_2D,   PAGE_settings_2D_length);   break;
-    case 251: {
+    case SUBPAGE_WIFI    : response = request->beginResponse_P(200, "text/html", PAGE_settings_wifi, PAGE_settings_wifi_length); break;
+    case SUBPAGE_LEDS    : response = request->beginResponse_P(200, "text/html", PAGE_settings_leds, PAGE_settings_leds_length); break;
+    case SUBPAGE_UI      : response = request->beginResponse_P(200, "text/html", PAGE_settings_ui,   PAGE_settings_ui_length);   break;
+    case SUBPAGE_SYNC    : response = request->beginResponse_P(200, "text/html", PAGE_settings_sync, PAGE_settings_sync_length); break;
+    case SUBPAGE_TIME    : response = request->beginResponse_P(200, "text/html", PAGE_settings_time, PAGE_settings_time_length); break;
+    case SUBPAGE_SEC     : response = request->beginResponse_P(200, "text/html", PAGE_settings_sec,  PAGE_settings_sec_length);  break;
+#ifdef WLED_ENABLE_DMX
+    case SUBPAGE_DMX     : response = request->beginResponse_P(200, "text/html", PAGE_settings_dmx,  PAGE_settings_dmx_length);  break;
+#endif
+    case SUBPAGE_UM      : response = request->beginResponse_P(200, "text/html", PAGE_settings_um,   PAGE_settings_um_length);   break;
+    case SUBPAGE_UPDATE  : response = request->beginResponse_P(200, "text/html", PAGE_update,        PAGE_update_length);        break;
+#ifndef WLED_DISABLE_2D
+    case SUBPAGE_2D      : response = request->beginResponse_P(200, "text/html", PAGE_settings_2D,   PAGE_settings_2D_length);   break;
+#endif
+    case SUBPAGE_LOCK    : {
       correctPIN = !strlen(settingsPIN); // lock if a pin is set
       createEditHandler(correctPIN);
       serveMessage(request, 200, strlen(settingsPIN) > 0 ? PSTR("Settings locked") : PSTR("No PIN set"), FPSTR(s_redirecting), 1);
       return;
     }
-    case 252: response = request->beginResponse_P(200, "text/html", PAGE_settings_pin,  PAGE_settings_pin_length);  break;
-    case 253: response = request->beginResponse_P(200, "text/css",  PAGE_settingsCss,   PAGE_settingsCss_length);   break;
-    case 254: serveSettingsJS(request); return;
-    case 255: response = request->beginResponse_P(200, "text/html", PAGE_welcome,       PAGE_welcome_length);       break;
+    case SUBPAGE_PINREQ  : response = request->beginResponse_P(200, "text/html", PAGE_settings_pin,  PAGE_settings_pin_length);  break;
+    case SUBPAGE_CSS     : response = request->beginResponse_P(200, "text/css",  PAGE_settingsCss,   PAGE_settingsCss_length);   break;
+    case SUBPAGE_JS      : serveSettingsJS(request); return;
+    case SUBPAGE_WELCOME : response = request->beginResponse_P(200, "text/html", PAGE_welcome,       PAGE_welcome_length);       break;
     default:  response = request->beginResponse_P(200, "text/html", PAGE_settings,      PAGE_settings_length);      break;
   }
   response->addHeader(FPSTR(s_content_enc),"gzip");

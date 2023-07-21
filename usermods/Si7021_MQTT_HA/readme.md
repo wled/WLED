@@ -2,14 +2,14 @@
 
 This usermod implements support for [Si7021 I²C temperature and humidity sensors](https://www.silabs.com/documents/public/data-sheets/Si7021-A20.pdf).
 
-The sensor data will *not* be shown on the WLED UI (so far) but published via MQTT to WLED's "build in" MQTT device topic. 
+As of this writing, the sensor data will *not* be shown on the WLED UI, but it _is_ published via MQTT to WLED's "built-in" MQTT device topic. 
 
 ```
 temperature: $mqttDeviceTopic/si7021_temperature
 humidity: $mqttDeviceTopic/si7021_humidity
 ```
 
-Additionally the following sensors can be published:
+The following sensors can also be published:
 
 ```
 heat_index: $mqttDeviceTopic/si7021_heat_index
@@ -17,7 +17,7 @@ dew_point: $mqttDeviceTopic/si7021_dew_point
 absolute_humidity: $mqttDeviceTopic/si7021_absolute_humidity
 ```
 
-Sensor data will be updated/send every 60 seconds.
+Sensor data will be updated/sent every 60 seconds.
 
 This usermod also supports Home Assistant Auto Discovery.
 

@@ -17,21 +17,17 @@
     position: absolute;
   }
   </style>
-</head>
-<body>
-  <div id="canv" />
   <script>
-    update();
-    
+    var ws;
     var tmout = null;
-    function update()
+    function update() // via HTTP (/json/live)
     {
       if (document.hidden) {
         clearTimeout(tmout);
         tmout = setTimeout(update, 250);
         return;
       }
-      fetch('/json/live')
+      fetch('./json/live')
       .then(res => {
         if (!res.ok) {
           clearTimeout(tmout);
@@ -57,8 +53,57 @@
         clearTimeout(tmout);
         tmout = setTimeout(update, 2500);
       })
+    }
+    function S() { // Startup function (onload)
+      let wsOn = (window.location.href.indexOf("?ws") > 0);
+      if (!wsOn) {update(); return;}
 
+      // Initialize WebSocket connection
+      try {
+        ws = top.window.ws;
+      } catch (e) {}
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        //console.info("Peek uses top WS");
+        ws.send("{'lv':true}");
+      } else {
+        //console.info("Peek WS opening");
+        let l = window.location;
+        let pathn = l.pathname;
+        let paths = pathn.slice(1,pathn.endsWith('/')?-1:undefined).split("/");
+        let url = l.origin.replace("http","ws");
+        if (paths.length > 1) {
+          url +=  "/" + paths[0];
+        }
+        ws = new WebSocket(url+"/ws");
+        ws.onopen = function () {
+          //console.info("Peek WS open");
+          ws.send("{'lv':true}");
+        }
+      }
+      ws.binaryType = "arraybuffer";
+      ws.addEventListener('message', (e) => {
+        try {
+          if (toString.call(e.data) === '[object ArrayBuffer]') {
+            let leds = new Uint8Array(event.data);
+            if (leds[0] != 76) return; //'L'
+            let str = "linear-gradient(90deg,";
+            let len = leds.length;
+            let start = leds[1]==2 ? 4 : 2; // 1 = 1D, 2 = 1D/2D (leds[2]=w, leds[3]=h)
+            for (i = start; i < len; i+=3) {
+              str += `rgb(${leds[i]},${leds[i+1]},${leds[i+2]})`;
+              if (i < len -3) str += ","
+            }
+            str += ")";
+            document.getElementById("canv").style.background = str;
+          }
+        } catch (err) {
+          console.error("Peek WS error:",err);
+        } 
+      });
     }
   </script>
+</head>
+<body onload="S()">
+  <div id="canv"></div>
 </body>
 </html>

@@ -1,5 +1,5 @@
 # QuinLED-An-Penta
-The (un)official usermod to get the best out of the QuinLED-An-Penta (https://quinled.info/quinled-an-penta/), like using the OLED and the SHT30 temperature/humidity sensor.
+The (un)official usermod to get the best out of the QuinLED-An-Penta (https://quinled.info/quinled-an-penta/), e.g. using the OLED and the SHT30 temperature/humidity sensor.
 
 ## Requirements
 * "u8gs" by olikraus, v2.28 or higher: https://github.com/olikraus/u8g2
@@ -31,15 +31,15 @@ lib_deps = ${esp32.lib_deps}
 ## Some words about the (optional) OLED
 This mod has been optimized for an SSD1306 driven 128x64 OLED. Using a smaller OLED or an OLED using a different driver will result in unexpected results.
 I highly recommend using these "two color monochromatic OLEDs", which have the first 16 pixels in a different color than the other 48, e.g. a yellow/blue OLED.
-Also note, you need to have an **SPI** driven OLED, **not i2c**!
+Note: you _must_ use an **SPI** driven OLED, **not an i2c one**!
 
 ### Limitations combined with Ethernet
-The initial development of this mod had been done with a beta version of the QuinLED-An-Penta, which had a different IO layout for the OLED: The CS pin used to be IO_0, but has been changed to IO27 with the first v1 public release. Unfortunately, IO27 is used by the Ethernet boards, so WLED will not let you enable the OLED screen, if you're using it with Ethernet. This unfortunately makes the development I've done to support/show Ethernet information void, as it cannot be used.
-However (and I've not tried this, as I don't own a v1 board): You can try to modify this mod and try to use IO27 for the OLED and share it with the Ethernet board. It is "just" the chip select pin, so there is a chance that both can coexist and use the same IO. You need to skip WLEDs PinManager for the CS pin, so WLED will not block using it. If you don't know how this works: Leave it. If you know what I'm talking about: Try it and please let me know on the Intermit.Tech (QuinLED) Discord server: https://discord.gg/WdbAauG
+The initial development of this mod was done with a beta version of the QuinLED-An-Penta, which had a different IO layout for the OLED: The CS pin _was_ IO_0, but has been changed to IO27 with the first v1 public release. Unfortunately, IO27 is used by Ethernet boards, so WLED will not let you enable the OLED screen, if you're using it with Ethernet. Unfortunately, that makes the development I've done to support/show Ethernet information invalid, as it cannot be used.
+However, (and I've not tried this, as I don't own a v1 board) you can modify this usermod and try to use IO27 for the OLED and share it with the Ethernet board. It is "just" the chip select pin, so there is a chance that both can coexist and use the same IO. You need to skip WLEDs PinManager for the CS pin, so WLED will not block using it. If you don't know how this works, don't change it. If you know what I'm talking about, try it and please let me know on the Intermit.Tech (QuinLED) Discord server: https://discord.gg/WdbAauG
 
 ### My OLED flickers after some time, what should I do?
-That's a tricky one: During development I saw that the OLED sometimes starts to "bug out" / flicker and won't work anymore. This seems to be caused by the high PWM interference the board produces. It seems to loose its settings and then doesn't know how to draw anymore. Turns out the only way to fix this is to call the libraries `begin()` method again which will re-initialize the display.
-If you're facing this issue, you can enable a setting I've added which will call the `begin()` roughly every 60 seconds between a page change. This will make the page change take ~500ms, but will fix the display.
+That's a tricky one. During development I saw that the OLED sometimes starts to "drop out" / flicker and won't work anymore. This seems to be caused by the high PWM interference the board produces. It seems to lose its settings then doesn't know how to draw anymore. Turns out the only way to fix this is to call the libraries `begin()` method again which re-initializes the display.
+If you're facing this issue, you can enable a setting which will call the `begin()` roughly every 60 seconds between page changes. This will make the page change take ~500ms, but will fix the display.
 
 
 ## Configuration
@@ -53,11 +53,11 @@ Navigate to the "Config" and then to the "Usermods" section. If you compiled WLE
   * Possible values: Enabled/Disabled
   * Default: Disabled
 * OLED-Flip-Screen-180:
-  * What it does: Flips the screen 180° / upside-down
+  * What it does: Flips the screen 180°
   * Possible values: Enabled/Disabled
   * Default: Disabled
 * OLED-Seconds-Per-Page:
-  * What it does: Defines how long the OLED should stay on one page in seconds before changing to the next
+  * What it does: Number of seconds the OLED should stay on one page before changing pages
   * Possible values: Enabled/Disabled
   * Default: 10
 * OLED-Fix-Bugged-Screen:

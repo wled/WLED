@@ -53,8 +53,8 @@ typedef struct ip_addr ip4_addr_t;
 #define DDP_PUSH_FLAG 0x01
 #define DDP_TIMECODE_FLAG 0x10
 
-#define DDP_TYPE_RGB24  0x0A
-#define DDP_TYPE_RGBW32 0x1A
+#define DDP_TYPE_RGB24  0x0B // 00 001 011 (RGB , 8 bits per channel, 3 channels)
+#define DDP_TYPE_RGBW32 0x1B // 00 011 011 (RGBW, 8 bits per channel, 4 channels)
 
 #define ARTNET_OPCODE_OPDMX 0x5000
 #define ARTNET_OPCODE_OPPOLL 0x2000
@@ -226,6 +226,32 @@ class ESPAsyncE131 {
 
     // Generic UDP listener, no physical or IP configuration
     bool begin(bool multicast, uint16_t port = E131_DEFAULT_PORT, uint16_t universe = 1, uint8_t n = 1);
+};
+
+// Class to track e131 package priority
+class E131Priority {
+  private:
+    uint8_t priority;
+    time_t setupTime;
+    uint8_t seconds;
+  
+  public:
+    E131Priority(uint8_t timeout=3) { 
+      seconds = timeout;
+      set(0);
+    };
+
+    // Set priority (+ remember time)
+    void set(uint8_t prio) {
+      setupTime = time(0);
+      priority = prio;
+    }
+
+    // Get priority (+ reset & return 0 if older timeout)
+    uint8_t get() {
+      if (time(0) > setupTime + seconds) priority = 0;
+      return priority;
+    }
 };
 
 #endif  // ESPASYNCE131_H_

@@ -10,7 +10,7 @@ For BME280 sensor use usermod_bme280.cpp. Copy to wled00 and rename to usermod.c
 ## Features
 -   SSD1306 128x32 and 128x64 I2C OLED display
 -   On screen IP address, SSID and controller status (e.g. ON or OFF, recent effect)
--   Auto display shutoff for saving display lifetime
+-   Auto display shutoff for extending display lifetime
 -   Dallas temperature sensor
 -   Reporting temperature to MQTT broker
 
@@ -39,15 +39,15 @@ default_envs = esp07
 ...
 lib_deps_external =
   ...
-  #For use SSD1306 OLED display uncomment following
+  #To use the SSD1306 OLED display, uncomment following
   U8g2@~2.27.3
-  #For Dallas sensor uncomment following 2 lines
+  #For Dallas sensor, uncomment the following 2 lines
   DallasTemperature@~3.8.0
   OneWire@~2.3.5
 ...
 ```
 
-For BME280 sensor uncomment `U8g2@~2.27.3`,`BME280@~3.0.0 under` `[common]` section in `platformio.ini`:
+For BME280 sensor, uncomment `U8g2@~2.27.3`,`BME280@~3.0.0 under` `[common]` section in `platformio.ini`:
 ```ini
 # platformio.ini
 ...
@@ -60,7 +60,7 @@ default_envs = esp07
 ...
 lib_deps_external =
   ...
-  #For use SSD1306 OLED display uncomment following
+  #To use the SSD1306 OLED display, uncomment following
   U8g2@~2.27.3
   #For BME280 sensor uncomment following
   BME280@~3.0.0

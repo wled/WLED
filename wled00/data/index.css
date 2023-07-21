@@ -101,7 +101,7 @@ button {
 	position: fixed;
 	bottom: calc(var(--bh) + 6px);
 	right: 6px;
-	color: var(--c-8);	/* should remain bright (--c-d) with dark shadow (see below) to be legible on gray background */
+	color: var(--c-8); /* set bright (--c-d) with dark text shadow (see below) to be legible on gray background (in image) */
 	cursor: pointer;
 	writing-mode: vertical-rl;
 	/* transform: rotate(180deg); */
@@ -128,12 +128,13 @@ button {
 	display: inline-block;
 }
 
-.icons.on {
-	color: var(--c-g);
+.on {
+	color: var(--c-g) !important;
 }
 
-.icons.off {
-	color: var(--c-6);
+.off {
+	color: var(--c-6) !important;
+	/* cursor: default !important; */
 }
 
 .top .icons, .bot .icons {
@@ -150,7 +151,7 @@ button {
 }
 
 .segt TD {
-	padding: 2px !important;
+	padding: 2px 0 !important;
 	text-align: center;
 	/*text-transform: uppercase;*/
 }
@@ -173,34 +174,62 @@ button {
 }
 
 .slider-icon {
-	transform: translate(3px,3px);
-}
-
-.e-icon {
-	transform: translateY(3px);
+	position: absolute;
+	left: 8px;
+	bottom: 5px;
 }
 
 .sel-icon {
 	transform: translateX(3px);
 }
 
-.e-icon, .sel-icon, .slider-icon {
+.e-icon, .g-icon, .sel-icon, .slider-icon {
 	cursor: pointer;
 	color: var(--c-d);
 }
 
+.g-icon {
+	font-style: normal;
+	position: absolute;
+	top: 8px;
+	right: 8px;
+}
+
+/* pop-up container */
+.pop {
+	position: absolute;
+	display: inline-block;
+	top: 0;
+	right: 0;
+}
+
+/* pop-up content (segment sets) */
+.pop-c {
+	position: absolute;
+	background-color: var(--c-2);
+	border: 1px solid var(--c-8);
+	border-radius: 20px;
+	z-index: 1;
+	top: 3px;
+	right: 35px;
+	padding: 3px 8px 1px;
+	font-size: 24px;
+	line-height: 24px;
+}
+.pop-c span {
+	padding: 2px 6px;
+}
+  
 .search-icon {
 	position: absolute;
 	top: 8px;
 	left: 12px;
-	/*pointer-events: none;*/
 	width: 24px;
 	height: 24px;
 }
 
 .clear-icon {
 	position: absolute;
-	display: none;
 	top: 8px;
 	right: 9px;
 	cursor: pointer;
@@ -228,14 +257,12 @@ button {
 
 #liveview {
 	height: 4px;
-	display: none;
 	width: 100%;
 	border: 0px;
 }
 
 #liveview2D {
 	height: 90%;
-	display: none;
 	width: 90%;
 	border: 0px;
 	position: absolute;
@@ -313,14 +340,14 @@ button {
 	overflow: auto;
 	height: 100%;
 	overscroll-behavior: none;
-}
-
-#Effects {
+	padding: 0 4px;
 	-webkit-overflow-scrolling: touch;
 }
 
-#segutil, #segutil2, #segcont, #putil, #pcont, #pql {
-	width: 280px;
+#segutil, #segutil2, #segcont, #putil, #pcont, #pql, #fx, #palw,
+.fnd {
+	max-width: 280px;
+	font-size: 19px;
 }
 
 #putil, #segutil, #segutil2 {
@@ -332,7 +359,8 @@ button {
 	padding-top: 12px;
 }
 
-#pql, #segcont, #pcont {
+#fx, #pql, #segcont, #pcont, #sliders, #picker, #qcs-w, #hexw, #pall, #ledmap,
+.slider, .filter, .option, .segname, .pname, .fnd {
 	margin: 0 auto;
 }
 
@@ -379,10 +407,10 @@ button {
 }
 
 #sliders {
-	width: 300px;
-	margin: 0 auto;
+	position: -webkit-sticky;
 	position: sticky;
 	bottom: 0;
+	max-width: 300px;
 }
 
 #sliders .labels {
@@ -391,29 +419,49 @@ button {
 }
 
 .slider {
-	background-color: var(--c-2);
-	max-width: 300px;
-	min-width: 280px;
-	margin: 0 auto; /* add 5px; if you want some vertical space but looks ugly */
+	/*max-width: 300px;*/
+	/* margin: 5px auto; add 5px; if you want some vertical space but looks ugly */
 	border-radius: 24px;
 	position: relative;
+	padding-bottom: 2px;
+}
+
+/* Slider wrapper div */
+.sliderwrap {
+	height: 30px;
+	width: 230px;
+	max-width: 230px;
+	position: relative;
+	z-index: 0;
+}
+
+#sliders .slider {
+	padding-right: 64px; /* offset for bubble */
+}
+
+#sliders .slider, #info .slider {
+	background-color: var(--c-2);
+}
+
+#sliders .sliderwrap, .sbs .sliderwrap {
+	left: 32px; /* offset for icon */
 }
 
 .filter, .option {
 	background-color: var(--c-4);
 	border-radius: 26px;
 	height: 26px;
-	margin: 0 auto; /* add 4-8px if you want space at the bottom */
+	max-width: 300px;
+	/* margin: 0 auto 4px; add 4-8px if you want space at the bottom */
 	padding: 4px 2px;
 	position: relative;
-	z-index: 1;
 	opacity: 1;
 	transition: opacity 0.5s linear, height 0.5s, transform 0.5s;
-	transform: scaleY(1);
 }
 
-.option {
-	z-index: unset;
+.filter {
+	z-index: 1;
+	overflow: hidden;
 }
 
 /* Tooltip text */
@@ -424,16 +472,19 @@ button {
 	box-shadow: 4px 4px 10px 4px var(--c-1);
 	color: var(--c-f);
 	text-align: center;
-	padding: 5px 10px;
+	padding: 4px 8px;
 	border-radius: 6px;
 
 	/* Position the tooltip text */
 	width: 160px;
 	position: absolute;
 	z-index: 1;
-	bottom: 100%;
+	bottom: 80%;
 	left: 50%;
 	margin-left: -92px;
+
+	/* Ensure tooltip goes away when mouse leaves control */
+	pointer-events: none;
 
 	/* Fade in tooltip */
 	opacity: 0;
@@ -459,13 +510,6 @@ button {
 	opacity: 1;
 }
 
-#pql, .edit-icon {
-	display: none;
-}
-
-.hide {
-	display: none !important;
-}
 .fade {
 	visibility: hidden; /* hide it */
 	opacity: 0; /* make it transparent */
@@ -522,6 +566,7 @@ button {
 }
 
 .close {
+	position: -webkit-sticky;
 	position: sticky;
 	top: 0;
 	float: right;
@@ -543,7 +588,6 @@ button {
 	position: fixed;
 	top: calc(var(--th) + 5px);
 	left: 1px;
-	display: none;
 	cursor: pointer;
 }
 
@@ -587,15 +631,10 @@ button {
 	margin: 0 auto;
 }
 
-#imgw {
-	/*display: inline-block;*/
+#info #imgw {
 	margin: 8px auto;
 }
-/*
-#kv, #kn {
-	display: inline-block;
-}
-*/
+
 #lv {
 	max-width: 600px;
 	display: inline-block;
@@ -643,23 +682,27 @@ img {
 #wbal  .sliderdisplay { background: linear-gradient(90deg, #ff8f1f 0%, #fff 50%, #cbdbff); }
 
 /* wrapper divs hidden by default */
-#rgbwrap, #kwrap, #wwrap, #wbal, #qcs-w, #hexw {
+#liveview, #liveview2D, #roverstar, #pql
+#rgbwrap, #swrap, #hwrap, #kwrap, #wwrap, #wbal, #qcs-w, #hexw,
+.clear-icon, .edit-icon, .ptxt {
 	display: none;
 }
 
 .sliderbubble {
 	width: 24px;
-	position: relative;
+	position: absolute;
 	display: inline-block;
-	border-radius: 10px;
+	border-radius: 16px;
 	background: var(--c-3);
 	color: var(--c-f);
-	padding: 4px 4px 2px;
+	padding: 4px;
 	font-size: 14px;
-	right: 3px;
-	transition: visibility 0.25s ease, opacity 0.25s ease;
+	right: 6px;
+	transition: visibility .25s ease,opacity .25s ease;
 	opacity: 0;
 	visibility: hidden;
+	/* left: 8px; */
+	top: 4px;
 }
 
 output.sliderbubbleshow {
@@ -717,17 +760,8 @@ input[type=range]::-moz-range-thumb {
 	border: 2px solid var(--c-1);
 }
 
-/* Slider wrapper div */
-.sliderwrap {
-	height: 30px;
-	width: 230px;
-	position: relative;
-	z-index: 0;
-}
-
 #Colors .sliderwrap {
-	width: 260px;
-	margin: 10px 0 0;
+	margin: 4px 0 0;
 }
 
 /* Dynamically hide brightness slider label */
@@ -736,17 +770,14 @@ input[type=range]::-moz-range-thumb {
 }
 
 #briwrap {
+	min-width: 267px;
 	float: right;
 	margin-top: var(--bmt);
 }
 
-#picker, #rgbwrap, #kwrap, #wwrap, #wbal, #vwrap, #qcs-w, #hexw, #pall {
-	margin: 0 auto;
-	width: 260px;
-}
-
 #picker {
-	margin-top: 10px;
+	margin-top: 8px !important;
+	max-width: 260px;
 }
 
 /* buttons */
@@ -763,8 +794,8 @@ input[type=range]::-moz-range-thumb {
 	-webkit-transform:translate3d(0,0,0);
 	backface-visibility: hidden;
 	transform:translate3d(0,0,0);
-	overflow: clip;
-	text-overflow: clip;
+	overflow: hidden;
+	text-overflow: ellipsis;
 	border: 1px solid var(--c-3);
 	background-color: var(--c-3);
 }
@@ -780,7 +811,7 @@ input[type=range]::-moz-range-thumb {
 	margin: 0;
 }
 .btn-icon {
-	margin: -4px 4px 0 0;
+	margin: -4px 4px -1px 0;
 	vertical-align: middle;
 	display: inline-block;
 }
@@ -795,6 +826,7 @@ input[type=range]::-moz-range-thumb {
 .btn-xs, .btn-pl-del, .btn-pl-add {
 	width: 42px !important;
 	height: 42px !important;
+	text-overflow: clip;
 }
 .btn-xs {
 	margin: 2px 0 0 0;
@@ -864,8 +896,8 @@ select {
 	transition-duration: 0.5s;
 	-webkit-backface-visibility: hidden;
 	-webkit-transform:translate3d(0,0,0);
-    -webkit-appearance: none; 
-    -moz-appearance: none; 
+    -webkit-appearance: none;
+    -moz-appearance: none;
 	backface-visibility: hidden;
 	transform:translate3d(0,0,0);
 	text-overflow: ellipsis;
@@ -889,14 +921,18 @@ div.sel-p:after {
     position: absolute;
     right: 10px;
     top: 22px;
-    width: 0; 
-    height: 0; 
+    width: 0;
+    height: 0;
     border-left: 8px solid transparent;
     border-right: 8px solid transparent;
     border-top: 8px solid var(--c-f);
 }
 select.sel-ple {
 	text-align: center;
+}
+select.sel-sg {
+	margin: 5px 0;
+	height: 40px;
 }
 option {
 	background-color: var(--c-3);
@@ -907,7 +943,7 @@ input[type=text] {
 	background: var(--c-3);
 	color: var(--c-f);
 	border: 0px solid var(--c-2);
-	border-radius: 5px;
+	border-radius: 10px;
 	padding: 8px;
 	/*margin: 6px 6px 6px 0;*/
 	font-size: 19px;
@@ -967,25 +1003,25 @@ textarea {
 }
 
 .ptxt {
-    margin: 0 4px 4px !important;
-	display: none;
+  	margin: -1px 4px 8px !important;
 }
 
 .stxt {
 	width: 50px !important;
 }
 
-.segname, .pname {
+.segname, .pname, .bname {
 	white-space: nowrap;
-	cursor: pointer;
 	text-align: center;
-	overflow: clip;
+	overflow: hidden;
 	text-overflow: ellipsis;
 	line-height: 24px;
 	padding: 8px 24px;
 	max-width: 170px;
-	margin: 0 auto;
 	position: relative;
+}
+.bname {
+	padding: 0 24px;
 }
 
 .segname .flr, .pname .flr {
@@ -995,8 +1031,9 @@ textarea {
 
 /* segment power wrapper */
 .sbs {
-	padding: 4px 0 4px 8px;
+	/*padding: 1px 0 1px 20px;*/
 	display: var(--sgp);
+	width: 100%;
 }
 
 .pname {
@@ -1038,15 +1075,13 @@ textarea {
 
 #csl .xxs {
 	border: 2px solid var(--c-d) !important;
-	/*box-shadow: 0 0 0 2px var(--c-d);*/
 }
 #csl .xxs-w {
 	border-width: 5px !important;
-	/*box-shadow: 0 0 0 5px var(--c-d);*/
 }
 
-.qcs/*, #namelabel*/ { /* text shadow for name to be legible on grey backround */
-	text-shadow: -1px -1px 0 var(--c-4), 1px -1px 0 var(--c-4), -1px 1px 0 var(--c-4), 1px 1px 0 var(--c-4);
+.qcs, #namelabel { /* text shadow for name to be legible on grey backround */
+	text-shadow: -1px -1px 0 var(--c-1), 1px -1px 0 var(--c-1), -1px 1px 0 var(--c-1), 1px 1px 0 var(--c-1);
 }
 
 .psts {
@@ -1056,7 +1091,6 @@ textarea {
 
 .pwr {
 	color: var(--c-6);
-	transform: translate(1px, 1px);
 	cursor: pointer;
 }
 
@@ -1071,16 +1105,11 @@ textarea {
 }
 
 .frz {
-	left: 32px;
+	left: 10px;
 	position: absolute;
-	top: -3px;
+	top: 8px;
 	cursor: pointer;
-	padding: 8px;
 	z-index: 1;
-}
-
-.expanded .frz {
-	display: none;
 }
 
 /* radiobuttons and checkmarks */
@@ -1181,20 +1210,17 @@ TD .checkmark, TD .radiomark {
 }
 
 .bp {
-	margin-bottom: 5px;
+	margin-bottom: 8px;
 }
 
 /* segment & preset wrapper */
 .seg, .pres {
 	background-color: var(--c-2);
-	color: var(--c-f);
+	/*color: var(--c-f);*/ /* seems to affect only the Add segment button, which should be same color as reset segments */
 	border: 0px solid var(--c-f);
 	text-align: left;
 	transition: background-color 0.5s;
-  	/*filter: brightness(1);*/
-	font-size: 19px;
 	border-radius: 21px;
-	/*min-width: 264px;*/
 }
 
 .seg {
@@ -1216,7 +1242,7 @@ TD .checkmark, TD .radiomark {
 	line-height: 24px;
 	vertical-align: middle;
 	-webkit-filter: grayscale(100%); /* Safari 6.0 - 9.0 */
-	filter: grayscale(100%);  
+	filter: grayscale(100%);
 }
 
 .lbl-l {
@@ -1227,7 +1253,6 @@ TD .checkmark, TD .radiomark {
 
 .lbl-s {
 	display: inline-block;
-	/* margin: 10px 4px 0 0; */
 	margin-top: 6px;
 	font-size: 13px;
 	width: 48%;
@@ -1237,10 +1262,8 @@ TD .checkmark, TD .radiomark {
 /* list wrapper */
 .list {
 	position: relative;
-	width: 280px;
 	transition: background-color 0.5s;
-    margin: auto auto 20px;
-	font-size: 19px;
+    margin: auto auto 10px;
 	line-height: 24px;
 }
 
@@ -1250,6 +1273,7 @@ TD .checkmark, TD .radiomark {
     cursor: pointer;
 	background-color: var(--c-2);
 	overflow: hidden;
+	position: -webkit-sticky;
 	position: sticky;
 	border-radius: 21px;
 	margin: 13px auto 0;
@@ -1282,6 +1306,7 @@ TD .checkmark, TD .radiomark {
 .lstI.selected {
 	top: 0;
 	bottom: 0;
+	border: 1px solid var(--c-4);
 }
 
 .lstI.sticky,
@@ -1322,13 +1347,13 @@ TD .checkmark, TD .radiomark {
 	white-space: nowrap;
 	text-overflow: ellipsis;
 	-webkit-filter: grayscale(100%); /* Safari 6.0 - 9.0 */
-	filter: grayscale(100%);  
+	filter: grayscale(100%);
 }
 
 /* list item palette preview */
 .lstIprev {
 	width: 100%;
-	height: 7px;
+	height: 6px;
 	position: absolute;
 	bottom: 0;
 	left: 0;
@@ -1337,8 +1362,6 @@ TD .checkmark, TD .radiomark {
 
 /* find/search element */
 .fnd {
-	width: 280px;
-	margin: 0 auto;
 	position: relative;
 }
 
@@ -1353,7 +1376,7 @@ TD .checkmark, TD .radiomark {
 	background: var(--c-2);
 	border: 1px solid var(--c-3);
 	-webkit-filter: grayscale(100%); /* Safari 6.0 - 9.0 */
-	filter: grayscale(100%);  
+	filter: grayscale(100%);
 }
 
 .fnd input[type="text"]:focus {
@@ -1370,7 +1393,6 @@ TD .checkmark, TD .radiomark {
 .presin {
 	padding: 8px;
 	position: relative;
-	width: 264px;
 }
 
 .btn-s,
@@ -1397,6 +1419,13 @@ TD .checkmark, TD .radiomark {
 .expanded {
 	display: inline-block !important;
 }
+.hide, .expanded .segin.hide, .expanded .presin.hide, .expanded .sbs.hide, .expanded .frz, .expanded .g-icon {
+	display: none !important;
+}
+
+.m6 {
+	margin: 6px 0;
+}
 
 .c {
 	text-align: center;
@@ -1411,6 +1440,7 @@ TD .checkmark, TD .radiomark {
 	color: red;
 }
 
+/* horizontal divider (playlist entries) */
 .hrz {
 	width: auto;
 	height: 2px;
@@ -1440,6 +1470,16 @@ TD .checkmark, TD .radiomark {
 	}
 }
 
+@media all and (max-width: 1023px) {
+	.top button {
+		width: 8%;
+		padding: 10px 0 8px 0;
+	}
+	#buttonPcm {
+		display: none;
+	}
+}
+
 @media all and (max-width: 335px) {
 	.sliderbubble {
     	display: none;
@@ -1458,38 +1498,83 @@ TD .checkmark, TD .radiomark {
 	}
 }
 
-@media all and (max-width: 540px) {
-	.top button {
-		width: 16.6%;
-		padding: 8px 0 4px 0;
-	}
-}
-
-@media all and (min-width: 541px) and (max-width: 719px) {
-	.top button {
-		width: 14.2%;
-		padding: 8px 0 4px 0;
-	}
-}
-
-@media all and (max-width: 719px) {
-	.hd {
-		display: none !important;
-	}
-	#briwrap {
-		margin-top: 0px !important;
-		float: none;
-	}
-}
-
-@media all and (max-width: 798px) {
+@media all and (max-width: 420px) {
 	#buttonNodes {
 		display: none;
 	}
 }
 
-@media all and (max-width: 1249px) {
-	#buttonPcm {
+@media all and (max-width: 639px) {
+	.top button {
+		width: 16.6%;
+		padding: 8px 0 4px 0;
+	}
+	#briwrap {
+		margin: 0 auto !important;
+		float: none;
+		display: inline-block;
+	}
+	.hd {
+		display: none !important;
+	}
+}
+
+@media all and (min-width: 420px) and (max-width: 639px) {
+	.top button {
+		width: 14.28%;
+		padding: 8px 0 4px 0;
+	}
+}
+
+@media all and (min-width: 640px) and (max-width: 767px) {
+	#buttonNodes {
 		display: none;
+	}
+}
+
+/* small screen & tablet "PC mode" support */
+@media all and (min-width: 1024px) and (max-width: 1249px) {
+	#segutil, #segutil2, #segcont, #putil, #pcont, #pql, #fx, #palw, #psFind, #sliders {
+		width: 100%;
+		max-width: 280px;
+		font-size: 18px;
+	}
+	#picker {
+		width: 230px;
+	}
+	#putil .btn-s {
+		width: 114px;
+	}
+	#sliders .sliderbubble {
+		display: none;
+	}
+	#sliders .sliderwrap, .sbs .sliderwrap {
+		width: calc(100% - 42px);
+	}
+	#sliders .slider {
+		padding-right: 0;
+	}
+	#sliders .sliderwrap {
+		left: 12px;
+	}
+	.segname {
+		max-width: calc(100% - 110px);
+	}
+	.segt TD {
+		padding: 0 !important;
+	}
+	input[type="number"], input[type=text], select, textarea {
+		font-size: 18px;
+	}
+	input[type="number"] {
+		width: 32px;
+	}
+	.lstIcontent {
+		padding-left: 8px;
+	}
+	.revchkl {
+		max-width: 183px;
+		text-overflow: ellipsis;
+		overflow-x: clip;
 	}
 }

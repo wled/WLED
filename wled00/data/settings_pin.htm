@@ -7,7 +7,7 @@
 	<title>PIN required</title>
 	<script>
 		var d = document;
-		function B() { window.open("/settings","_self"); }
+		function B() { window.open("../settings","_self"); }
 	</script>
 	<style>
 		@import url("style.css");
@@ -17,7 +17,7 @@
 	<form id="form_s" name="Sf" method="post">
 		<h2>Please enter settings PIN code</h2>
 		<input type="password" name="PIN" size="4" maxlength="4" minlength="4" pattern="[0-9]*" inputmode="numeric" autofocus>
-        <hr>
+		<hr>
 		<button type="button" onclick="B()">Back</button><button type="submit">Submit</button>
 	</form>
 </body>

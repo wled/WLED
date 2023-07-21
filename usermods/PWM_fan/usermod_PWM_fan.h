@@ -1,7 +1,7 @@
 #pragma once
 
-#ifndef USERMOD_DALLASTEMPERATURE
-#error The "PWM fan" usermod requires "Dallas Temeprature" usermod to function properly.
+#if !defined(USERMOD_DALLASTEMPERATURE) && !defined(USERMOD_SHT)
+#error The "PWM fan" usermod requires "Dallas Temeprature" or "SHT" usermod to function properly.
 #endif
 
 #include "wled.h"
@@ -42,6 +42,8 @@ class PWMFanUsermod : public Usermod {
 
     #ifdef USERMOD_DALLASTEMPERATURE
     UsermodTemperature* tempUM;
+    #elif defined(USERMOD_SHT)
+    ShtUsermod* tempUM;
     #endif
 
     // configurable parameters
@@ -145,7 +147,7 @@ class PWMFanUsermod : public Usermod {
     }
 
     float getActualTemperature(void) {
-      #ifdef USERMOD_DALLASTEMPERATURE
+      #if defined(USERMOD_DALLASTEMPERATURE) || defined(USERMOD_SHT)
       if (tempUM != nullptr)
         return tempUM->getTemperatureC();
       #endif
@@ -189,6 +191,8 @@ class PWMFanUsermod : public Usermod {
       #ifdef USERMOD_DALLASTEMPERATURE   
       // This Usermod requires Temperature usermod
       tempUM = (UsermodTemperature*) usermods.lookup(USERMOD_ID_TEMPERATURE);
+      #elif defined(USERMOD_SHT)
+      tempUM = (ShtUsermod*) usermods.lookup(USERMOD_ID_SHT);
       #endif
       initTacho();
       initPWMfan();

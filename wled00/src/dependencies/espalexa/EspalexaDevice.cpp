@@ -2,6 +2,15 @@
 
 #include "EspalexaDevice.h"
 
+// debug macros
+#ifdef ESPALEXA_DEBUG
+ #define EA_DEBUG(x)  Serial.print (x)
+ #define EA_DEBUGLN(x) Serial.println (x)
+#else
+ #define EA_DEBUG(x)
+ #define EA_DEBUGLN(x)
+#endif
+
 EspalexaDevice::EspalexaDevice(){}
 
 EspalexaDevice::EspalexaDevice(String deviceName, BrightnessCallbackFunction gnCallback, uint8_t initialValue) { //constructor for dimmable device
@@ -124,18 +133,21 @@ uint32_t EspalexaDevice::getRGB()
   {
     //TODO tweak a bit to match hue lamp characteristics
     //based on https://gist.github.com/paulkaplan/5184275
-    float temp = 10000/ _ct; //kelvins = 1,000,000/mired (and that /100)
+    float temp = (_ct != 0) ? (10000/ _ct) : 2; //kelvins = 1,000,000/mired (and that /100)   softhack007: avoid division by zero - using "2" as substitute
     float r, g, b;
 
+#ifdef ESPALEXA_DEBUG
+  if (_ct == 0) {EA_DEBUGLN(F("EspalexaDevice::getRGB() Warning: ct = 0!"));}
+#endif
     if (temp <= 66) { 
       r = 255; 
       g = temp;
-      g = 99.470802 * log(g) - 161.119568;
+      g = 99.470802 * logf(g) - 161.119568;
       if (temp <= 19) {
           b = 0;
       } else {
           b = temp-10;
-          b = 138.517731 * log(b) - 305.044793;
+          b = 138.517731 * logf(b) - 305.044793;
       }
     } else {
       r = temp - 60;
@@ -192,9 +204,9 @@ uint32_t EspalexaDevice::getRGB()
       b = 1.0f;
     }
     // Apply gamma correction
-    r = r <= 0.0031308f ? 12.92f * r : (1.0f + 0.055f) * pow(r, (1.0f / 2.4f)) - 0.055f;
-    g = g <= 0.0031308f ? 12.92f * g : (1.0f + 0.055f) * pow(g, (1.0f / 2.4f)) - 0.055f;
-    b = b <= 0.0031308f ? 12.92f * b : (1.0f + 0.055f) * pow(b, (1.0f / 2.4f)) - 0.055f;
+    r = r <= 0.0031308f ? 12.92f * r : (1.0f + 0.055f) * powf(r, (1.0f / 2.4f)) - 0.055f;
+    g = g <= 0.0031308f ? 12.92f * g : (1.0f + 0.055f) * powf(g, (1.0f / 2.4f)) - 0.055f;
+    b = b <= 0.0031308f ? 12.92f * b : (1.0f + 0.055f) * powf(b, (1.0f / 2.4f)) - 0.055f;
 
     if (r > b && r > g) {
       // red is biggest
@@ -328,8 +340,10 @@ void EspalexaDevice::setColor(uint8_t r, uint8_t g, uint8_t b)
   float X = r * 0.664511f + g * 0.154324f + b * 0.162028f;
   float Y = r * 0.283881f + g * 0.668433f + b * 0.047685f;
   float Z = r * 0.000088f + g * 0.072310f + b * 0.986039f;
-  _x = X / (X + Y + Z);
-  _y = Y / (X + Y + Z);
+  if ((r+g+b) > 0) { //   softhack007: avoid division by zero
+    _x = X / (X + Y + Z);
+    _y = Y / (X + Y + Z);
+  } else { _x = _y = 0.5f;}  // softhack007: use default values in case of "black"
   _rgb = ((r << 16) | (g << 8) | b);
   _mode = EspalexaColorMode::xy;
 }

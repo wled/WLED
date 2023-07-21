@@ -31,7 +31,7 @@ bool PinManagerClass::deallocatePin(byte gpio, PinOwner tag)
     #endif
     return false;
   }
-  
+
   byte by = gpio >> 3;
   byte bi = gpio - 8*by;
   bitWrite(pinAlloc[by], bi, false);
@@ -107,8 +107,9 @@ bool PinManagerClass::allocateMultiplePins(const managed_pin_type * mptArray, by
     }
     if (!isPinOk(gpio, mptArray[i].isOutput)) {
       #ifdef WLED_DEBUG
-      DEBUG_PRINT(F("PIN ALLOC: Invalid pin attempted to be allocated: "));
+      DEBUG_PRINT(F("PIN ALLOC: Invalid pin attempted to be allocated: GPIO "));
       DEBUG_PRINT(gpio);
+      DEBUG_PRINT(" as "); DEBUG_PRINT(mptArray[i].isOutput ? "output": "input");
       DEBUG_PRINTLN(F(""));
       #endif
       shouldFail = true;
@@ -118,7 +119,7 @@ bool PinManagerClass::allocateMultiplePins(const managed_pin_type * mptArray, by
       continue;
     } else if (isPinAllocated(gpio)) {
       #ifdef WLED_DEBUG
-      DEBUG_PRINT(F("PIN ALLOC: FAIL: IO ")); 
+      DEBUG_PRINT(F("PIN ALLOC: FAIL: IO "));
       DEBUG_PRINT(gpio);
       DEBUG_PRINT(F(" already allocated by "));
       DebugPrintOwnerTag(ownerTag[gpio]);
@@ -142,12 +143,15 @@ bool PinManagerClass::allocateMultiplePins(const managed_pin_type * mptArray, by
       // as this can greatly simplify configuration arrays
       continue;
     }
+    if (gpio >= WLED_NUM_PINS)
+      continue; // other unexpected GPIO => avoid array bounds violation
+
     byte by = gpio >> 3;
     byte bi = gpio - 8*by;
     bitWrite(pinAlloc[by], bi, true);
     ownerTag[gpio] = tag;
     #ifdef WLED_DEBUG
-    DEBUG_PRINT(F("PIN ALLOC: Pin ")); 
+    DEBUG_PRINT(F("PIN ALLOC: Pin "));
     DEBUG_PRINT(gpio);
     DEBUG_PRINT(F(" allocated by "));
     DebugPrintOwnerTag(tag);
@@ -160,7 +164,7 @@ bool PinManagerClass::allocateMultiplePins(const managed_pin_type * mptArray, by
 bool PinManagerClass::allocatePin(byte gpio, bool output, PinOwner tag)
 {
   // HW I2C & SPI pins have to be allocated using allocateMultiplePins variant since there is always SCL/SDA pair
-  if (!isPinOk(gpio, output) || tag==PinOwner::HW_I2C || tag==PinOwner::HW_SPI) {
+  if (!isPinOk(gpio, output) || (gpio >= WLED_NUM_PINS) || tag==PinOwner::HW_I2C || tag==PinOwner::HW_SPI) {
     #ifdef WLED_DEBUG
     if (gpio < 255) {  // 255 (-1) is the "not defined GPIO"
       if (!isPinOk(gpio, output)) {
@@ -179,7 +183,7 @@ bool PinManagerClass::allocatePin(byte gpio, bool output, PinOwner tag)
   }
   if (isPinAllocated(gpio)) {
     #ifdef WLED_DEBUG
-    DEBUG_PRINT(F("PIN ALLOC: Pin ")); 
+    DEBUG_PRINT(F("PIN ALLOC: Pin "));
     DEBUG_PRINT(gpio);
     DEBUG_PRINT(F(" already allocated by "));
     DebugPrintOwnerTag(ownerTag[gpio]);
@@ -193,12 +197,12 @@ bool PinManagerClass::allocatePin(byte gpio, bool output, PinOwner tag)
   bitWrite(pinAlloc[by], bi, true);
   ownerTag[gpio] = tag;
   #ifdef WLED_DEBUG
-  DEBUG_PRINT(F("PIN ALLOC: Pin ")); 
+  DEBUG_PRINT(F("PIN ALLOC: Pin "));
   DEBUG_PRINT(gpio);
   DEBUG_PRINT(F(" successfully allocated by "));
   DebugPrintOwnerTag(tag);
   DEBUG_PRINTLN(F(""));
-  #endif  
+  #endif
 
   return true;
 }
@@ -209,6 +213,7 @@ bool PinManagerClass::isPinAllocated(byte gpio, PinOwner tag)
 {
   if (!isPinOk(gpio, false)) return true;
   if ((tag != PinOwner::None) && (ownerTag[gpio] != tag)) return false;
+  if (gpio >= WLED_NUM_PINS) return false; // catch error case, to avoid array out-of-bounds access
   byte by = gpio >> 3;
   byte bi = gpio - (by<<3);
   return bitRead(pinAlloc[by], bi);
@@ -219,9 +224,9 @@ bool PinManagerClass::isPinAllocated(byte gpio, PinOwner tag)
  * Strapping pins: GPIO0, GPIO3, GPIO45 and GPIO46 are strapping pins. For more infomation, please refer to ESP32-S3 datasheet.
  * Serial TX = GPIO43, RX = GPIO44; LED BUILTIN is usually GPIO39
  * USB-JTAG: GPIO 19 and 20 are used by USB-JTAG by default. In order to use them as GPIOs, USB-JTAG will be disabled by the drivers.
- * SPI0/1: GPIO26-32 are usually used for SPI flash and PSRAM and not recommended for other uses. 
+ * SPI0/1: GPIO26-32 are usually used for SPI flash and PSRAM and not recommended for other uses.
  * When using Octal Flash or Octal PSRAM or both, GPIO33~37 are connected to SPIIO4 ~ SPIIO7 and SPIDQS. Therefore, on boards embedded with ESP32-S3R8 / ESP32-S3R8V chip, GPIO33~37 are also not recommended for other uses.
- * 
+ *
  * see https://docs.espressif.com/projects/esp-idf/en/v4.4.2/esp32s3/api-reference/peripherals/adc.html
  *     https://docs.espressif.com/projects/esp-idf/en/latest/esp32s3/api-reference/peripherals/adc_oneshot.html
  * ADC1: GPIO1  - GPIO10 (channel 0..9)
@@ -265,6 +270,7 @@ bool PinManagerClass::isPinOk(byte gpio, bool output)
 }
 
 PinOwner PinManagerClass::getPinOwner(byte gpio) {
+  if (gpio >= WLED_NUM_PINS) return PinOwner::None; // catch error case, to avoid array out-of-bounds access
   if (!isPinOk(gpio, false)) return PinOwner::None;
   return ownerTag[gpio];
 }
@@ -294,10 +300,10 @@ byte PinManagerClass::allocateLedc(byte channels)
     if (ca >= channels) { //enough free channels
       byte in = (i + 1) - ca;
       for (byte j = 0; j < ca; j++) {
-        byte b = in + j;
-        byte by = b >> 3;
-        byte bi = b - 8*by;
-        bitWrite(ledcAlloc[by], bi, true);
+        byte bChan = in + j;
+        byte byChan = bChan >> 3;
+        byte biChan = bChan - 8*byChan;
+        bitWrite(ledcAlloc[byChan], biChan, true);
       }
       return in;
     }

@@ -1,5 +1,5 @@
 //page js
-var loc = false, locip;
+var loc = false, locip, locproto = "http:";
 var noNewSegs = false;
 var isOn = false, isInfo = false, isNodes = false, isRgbw = false, cct = false;
 var whites = [0,0,0];
@@ -148,21 +148,38 @@ function loadSkinCSS(cId)
 		l.id   = cId;
 		l.rel  = 'stylesheet';
 		l.type = 'text/css';
-		l.href = (loc?`http://${locip}`:'.') + '/skin.css';
+		l.href = getURL('/skin.css');
 		l.media = 'all';
 		h.appendChild(l);
 	}
 }
 
+function getURL(path) {
+	return (loc ? locproto + "//" + locip : "") + path;
+}
 async function onLoad()
 {
-	if (window.location.protocol == "file:") {
+	let l = window.location;
+	if (l.protocol == "file:") {
 		loc = true;
 		locip = localStorage.getItem('locIp');
-		if (!locip)
-		{
+		if (!locip) {
 			locip = prompt("File Mode. Please enter WLED IP!");
 			localStorage.setItem('locIp', locip);
+		}
+	} else {
+		// detect reverse proxy and/or HTTPS
+		let pathn = l.pathname;
+		let paths = pathn.slice(1,pathn.endsWith('/')?-1:undefined).split("/");
+		if (paths[0]==="sliders") paths.shift();
+		//while (paths[0]==="") paths.shift();
+		locproto = l.protocol;
+		locip = l.hostname + (l.port ? ":" + l.port : "");
+		if (paths.length > 0 && paths[0]!=="") {
+			loc = true;
+			locip +=  "/" + paths[0];
+		} else if (locproto==="https:") {
+			loc = true;
 		}
 	}
 	var sett = localStorage.getItem('wledUiCfg');
@@ -173,7 +190,7 @@ async function onLoad()
 	applyCfg();
 	if (cfg.theme.bg.url=="" || cfg.theme.bg.url === "https://picsum.photos/1920/1080") {
 		var iUrl = cfg.theme.bg.url;
-		fetch((loc?`http://${locip}`:'.') + "/holidays.json", {
+		fetch(getURL("/holidays.json"), {
 			method: 'get'
 		})
 		.then((res)=>{
@@ -330,9 +347,7 @@ function loadPresets(callback = null)
 
 	pmtLast = pmt;
 
-	var url = (loc?`http://${locip}`:'') + '/presets.json';
-
-	fetch(url, {
+	fetch(getURL('/presets.json'), {
 		method: 'get'
 	})
 	.then(res => {
@@ -355,9 +370,7 @@ function loadPresets(callback = null)
 
 function loadPalettes(callback = null)
 {
-	var url = (loc?`http://${locip}`:'') + '/json/palettes';
-
-	fetch(url, {
+	fetch(getURL('/json/palettes'), {
 		method: 'get'
 	})
 	.then(res => {
@@ -379,9 +392,7 @@ function loadPalettes(callback = null)
 
 function loadFX(callback = null)
 {
-	var url = (loc?`http://${locip}`:'') + '/json/effects';
-
-	fetch(url, {
+	fetch(getURL('/json/effects'), {
 		method: 'get'
 	})
 	.then(res => {
@@ -403,9 +414,7 @@ function loadFX(callback = null)
 
 function loadFXData(callback = null)
 {
-	var url = (loc?`http://${locip}`:'') + '/json/fxdata';
-
-	fetch(url, {
+	fetch(getURL('/json/fxdata'), {
 		method: 'get'
 	})
 	.then(res => {
@@ -551,7 +560,7 @@ function populateSegments(s)
 	<div class="il">
 		<i class="icons slider-icon pwr ${powered[i] ? "act":""}" id="seg${i}pwr" onclick="setSegPwr(${i})" title="${inst.n}">&#xe08f;</i>
 		<div id="sliderSeg${i}Bri" class="sliderwrap il">
-			<input id="seg${i}bri" class="noslide" onchange="setSegBri(${i})" oninput="updateTrail(this)" max="255" min="1" type="range" value="${inst.bri}" />
+			<input id="seg${i}bri" onchange="setSegBri(${i})" oninput="updateTrail(this)" max="255" min="1" type="range" value="${inst.bri}" />
 			<div class="sliderdisplay"></div>
 		</div>
 		<output class="sliderbubble"></output>
@@ -611,8 +620,7 @@ function populateNodes(i,n)
 
 function loadNodes()
 {
-	var url = (loc?`http://${locip}`:'') + '/json/nodes';
-	fetch(url, {
+	fetch(getURL('/json/nodes'), {
 		method: 'get'
 	})
 	.then(res => {
@@ -855,7 +863,8 @@ function cmpP(a, b)
 
 function makeWS() {
 	if (ws) return;
-	ws = new WebSocket('ws://'+(loc?locip:window.location.hostname)+'/ws');
+	let url = loc ? getURL('/ws').replace("http","ws") : "ws://"+window.location.hostname+"/ws";
+	ws = new WebSocket(url);
 	ws.onmessage = (e)=>{
 		var json = JSON.parse(e.data);
 		if (json.leds) return; //liveview packet
@@ -974,7 +983,6 @@ function requestJson(command=null)
 	if (command && !reqsLegal) return; //stop post requests from chrome onchange event on page restore
 	if (!jsonTimeout) jsonTimeout = setTimeout(showErrorToast, 3000);
 	var req = null;
-	var url = (loc?`http://${locip}`:'') + '/json/si';
 	var useWs = (ws && ws.readyState === WebSocket.OPEN);
 	var type = command ? 'post':'get';
 	if (command) {
@@ -991,7 +999,7 @@ function requestJson(command=null)
 		setTimeout(requestJson,200);
 	}
 
-	fetch(url, {
+	fetch(getURL('/json/si'), {
 		method: type,
 		headers: {
 			"Content-type": "application/json; charset=UTF-8"
@@ -1314,9 +1322,7 @@ function loadPalettesData(callback = null)
 
 function getPalettesData(page, callback)
 {
-	var url = (loc?`http://${locip}`:'') + `/json/palx?page=${page}`;
-
-	fetch(url, {
+	fetch(getURL(`/json/palx?page=${page}`), {
 		method: 'get',
 		headers: {
 			"Content-type": "application/json; charset=UTF-8"
@@ -1379,7 +1385,7 @@ function hasIroClass(classList)
 	}
 	return false;
 }
-
+//required by rangetouch.js
 function lock(e)
 {
 	var l = e.target.classList;
@@ -1392,7 +1398,7 @@ function lock(e)
 
 	_C.classList.toggle('smooth', !(locked = true));
 }
-
+//required by rangetouch.js
 function move(e)
 {
 	if(!locked) return;

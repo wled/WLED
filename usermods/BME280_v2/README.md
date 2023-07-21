@@ -6,14 +6,14 @@ This Usermod is designed to read a `BME280` or `BMP280` sensor and output the fo
 - Heat Index (`BME280` only)
 - Dew Point (`BME280` only)
 
-Configuration is all completed via the Usermod menu.  There are no settings to set in code!  The following settings can be configured in the Usermod Menu:
+Configuration is performed via the Usermod menu.  There are no parameters to set in code!  The following settings can be configured in the Usermod Menu:
 - Temperature Decimals (number of decimal places to output)
 - Humidity Decimals
 - Pressure Decimals
-- Temperature Interval (how many seconds between reads of temperature and humidity)
+- Temperature Interval (how many seconds between temperature and humidity measurements)
 - Pressure Interval
 - Publish Always (turn off to only publish changes, on to publish whether or not value changed)
-- Use Celsius (turn off to use Farenheit)
+- Use Celsius (turn off to use Fahrenheit)
 - Home Assistant Discovery (turn on to sent MQTT Discovery entries for Home Assistant)
 - SCL/SDA GPIO Pins
 
@@ -23,7 +23,7 @@ Dependencies
   - `Wire`
   - These must be added under `lib_deps` in your `platform.ini` (or `platform_override.ini`).
 - Data is published over MQTT - make sure you've enabled the MQTT sync interface.
-- This usermod also writes to serial (GPIO1 on ESP8266). Please make sure nothing else listening on the serial TX pin of your board will get confused by log messages!
+- This usermod also writes to serial (GPIO1 on ESP8266). Please make sure nothing else is listening to the serial TX pin or your board will get confused by log messages!
 
 In addition to outputting via MQTT, you can read the values from the Info Screen on the dashboard page of the device's web interface.
 
@@ -37,7 +37,7 @@ Methods also exist to read the read/calculated values from other WLED modules th
 - `getHeatIndexC()`
 - `getHeatIndexF()`
 
-# Complilation
+# Compiling
 
 To enable, compile with `USERMOD_BME280` defined  (e.g. in `platformio_override.ini`)
 ```ini
@@ -63,7 +63,7 @@ Pressure | `<deviceTopic>/pressure`
 Heat index | `<deviceTopic>/heat_index`
 Dew point | `<deviceTopic>/dew_point`
 
-If you are using Home Assistant, and `Home Assistant Discovery` is turned on, Home Assistant should automatically detect a new device, provided you have the MQTT integration installed.  The  device is seperate from the main WLED device and will contain sensors for Pressure, Humidity, Temperature, Dew Point and Heat Index.
+If you are using Home Assistant, and `Home Assistant Discovery` is turned on, Home Assistant should automatically detect a new device, provided you have the MQTT integration installed.  The device is separate from the main WLED device and will contain sensors for Pressure, Humidity, Temperature, Dew Point and Heat Index.
 
 # Revision History
 Jul 2022
@@ -82,8 +82,8 @@ Apr 2021
 
 Dec 2020
 - Ported to V2 Usermod format
-- Customisable `measure intervals`
-- Customisable number of `decimal places` in published sensor values
+- Customizable `measure intervals`
+- Customizable number of `decimal places` in published sensor values
 - Pressure measured in units of hPa instead of Pa
 - Calculation of heat index (apparent temperature) and dew point
 - `16x oversampling` of sensor during measurement

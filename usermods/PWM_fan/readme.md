@@ -2,12 +2,12 @@
 
 v2 Usermod to to control PWM fan with RPM feedback and temperature control
 
-This usermod requires Dallas Temperature usermod to obtain temperature information. If this is not available the fan will always run at 100% speed.
-If the fan does not have _tacho_ (RPM) output you can set the _tacho-pin_ to -1 to not use that feature.
+This usermod requires the Dallas Temperature usermod to obtain temperature information. If it's not available, the fan will run at 100% speed.
+If the fan does not have _tachometer_ (RPM) output you can set the _tachometer-pin_ to -1 to disable that feature.
 
-You can also set the thershold temperature at which fan runs at lowest speed. If the actual temperature measured will be 3°C greater than threshold temperature the fan will run at 100%.
+You can also set the thershold temperature at which fan runs at lowest speed. If the measured temperature is 3°C greater than the threshold temperature, the fan will run at 100%.
 
-If the _tacho_ is supported the current speed (in RPM) will be repored in WLED Info page.
+If the _tachometer_ is supported, the current speed (in RPM) will be displayed on the WLED Info page.
 
 ## Installation
 
@@ -20,7 +20,7 @@ All of the parameters are configured during run-time using Usermods settings pag
 This includes:
 
 * PWM output pin (can be configured at compile time `-D PWM_PIN=xx`)
-* tacho input pin (can be configured at compile time `-D TACHO_PIN=xx`)
+* tachometer input pin (can be configured at compile time `-D TACHO_PIN=xx`)
 * sampling frequency in seconds
 * threshold temperature in degees C
 
@@ -32,10 +32,10 @@ No special requirements.
 
 ## Control PWM fan speed using JSON API
 
-You can use e.g. `{"PWM-fan":{"speed":30,"lock":true}}` to set fan speed to 30 percent of maximum speed (replace 30 with arbitrary value between 0 and 100) and lock the speed.
-If you include `speed` property you can set fan speed in percent (%) of maximum speed.
-If you include `lock` property you can lock (_true_) or unlock (_false_) fan speed.
-If the fan speed is unlocked it will revert to temperature controlled speed on next update cycle. Once fan speed is locked it will remain so until it is unlocked by next API call.
+e.g. you can use `{"PWM-fan":{"speed":30,"lock":true}}` to lock fan speed to 30 percent of maximum. (replace 30 with an arbitrary value between 0 and 100)
+If you include `speed` property you can set fan speed as a percentage (%) of maximum speed.
+If you include `lock` property you can lock (_true_) or unlock (_false_) the fan speed.
+If the fan speed is unlocked, it will revert to temperature controlled speed on the next update cycle. Once fan speed is locked it will remain so until it is unlocked by the next API call.
 
 ## Change Log
 

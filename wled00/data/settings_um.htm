@@ -7,15 +7,20 @@
 	<title>Usermod Settings</title>
 	<script>
 	var d = document;
+	d.max_gpio = 50;
+	d.um_p = [];
+	d.rsvd = [];
+	d.ro_gpio = [];
+	d.extra = [];
 	var umCfg = {};
 	var pins = [], pinO = [], owner;
-	var loc = false, locip;
+	var loc = false, locip, locproto = "http:";
 	var urows;
 	var numM = 0;
 	function gId(s) { return d.getElementById(s); }
 	function isO(i) { return (i && typeof i === 'object' && !Array.isArray(i)); }
 	function H() { window.open("https://github.com/Aircoookie/WLED/wiki/Settings#usermod-settings"); }
-	function B() { window.open("/settings","_self"); }
+	function B() { window.open(getURL("/settings"),"_self"); }
 	// https://www.educative.io/edpresso/how-to-dynamically-load-a-js-file-in-javascript
 	function loadJS(FILE_URL, async = true) {
 		let scE = d.createElement("script");
@@ -25,19 +30,12 @@
 		d.body.appendChild(scE);
 		// success event 
 		scE.addEventListener("load", () => {
-			//console.log("File loaded");
-			d.um_p = [];
-			d.rsvd = [];
-			d.ro_pins = [];
-			d.max_gpio = 39;
 			GetV();
-			for (let k=0; k<d.rsvd.length; k++) { pins.push(d.rsvd[k]); pinO.push("rsvd"); }
-			if (d.um_p[0]==-1) d.um_p.shift();
-			d.Sf.SDA.max = d.max_gpio;
-			d.Sf.SCL.max = d.max_gpio;
-			d.Sf.MOSI.max = d.max_gpio;
-			d.Sf.SCLK.max = d.max_gpio;
-			d.Sf.MISO.max = d.max_gpio;
+			for (let r of d.rsvd) { pins.push(r); pinO.push("rsvd"); } // reserved pins
+			if (d.um_p[0]==-1) d.um_p.shift();	// remove filler
+			d.Sf.SDA.max = d.Sf.SCL.max = d.Sf.MOSI.max = d.Sf.SCLK.max = d.Sf.MISO.max = d.max_gpio;
+			//for (let i of d.getElementsByTagName("input")) if (i.type === "number" && i.name.replace("[]","").substr(-3) === "pin") i.max = d.max_gpio;
+			pinDropdowns(); // convert INPUT to SELECT for pins
 		});
 		// error event
 		scE.addEventListener("error", (ev) => {
@@ -46,21 +44,36 @@
 		});
 	}
 	function S() {
-		if (window.location.protocol == "file:") {
+		let l = window.location;
+		if (l.protocol == "file:") {
 			loc = true;
 			locip = localStorage.getItem('locIp');
 			if (!locip) {
 				locip = prompt("File Mode. Please enter WLED IP!");
 				localStorage.setItem('locIp', locip);
 			}
+		} else {
+			// detect reverse proxy
+			let path = l.pathname;
+			let paths = path.slice(1,path.endsWith('/')?-1:undefined).split("/");
+			if (paths.length > 2) {
+				locproto = l.protocol;
+				loc = true;
+				locip = l.hostname + (l.port ? ":" + l.port : "") + "/" + paths[0];
+			}
 		}
 		ldS();
 		if (!numM) gId("um").innerHTML = "No Usermods installed.";
+		if (loc) d.Sf.action = getURL('/settings/um');
+	}
+	function getURL(path) {
+		return (loc ? locproto + "//" + locip : "") + path;
 	}
 	// https://stackoverflow.com/questions/3885817/how-do-i-check-that-a-number-is-float-or-integer
 	function isF(n) { return n === +n && n !== (n|0); }
 	function isI(n) { return n === +n && n === (n|0); }
 	function check(o,k) {   // input object, pin owner key
+		/* no longer necessary with pin dropdown fields
 		var n = o.name.replace("[]","").substr(-3);
 		if (o.type=="number" && n.substr(0,3)=="pin") {
 			for (var i=0; i<pins.length; i++) {
@@ -83,13 +96,16 @@
 				if (o.value==pins[i] || o.value<-1 || o.value>d.max_gpio) { o.style.color="red"; break; } else o.style.color=d.ro_gpio.some((e)=>e==parseInt(o.value,10))?"orange":"#fff";
 			}
 		}
+		*/
 	}
 	function getPins(o) {
 		if (isO(o)) {
 			for (const [k,v] of Object.entries(o)) {
 				if (isO(v)) {
+					let oldO = owner; // keep parent name
 					owner = k;
 					getPins(v);
+					owner = oldO;
 					continue;
 				}
 				if (k.replace("[]","").substr(-3)=="pin") {
@@ -104,9 +120,15 @@
 			}
 		}
 	}
+	function initCap(s) {
+  		if (typeof s !== 'string') return '';
+		// https://www.freecodecamp.org/news/how-to-capitalize-words-in-javascript/
+		return s.replace(/[\W_]/g,' ').replace(/(^\w{1})|(\s+\w{1})/g, l=>l.toUpperCase()); // replace - and _ with space, capitalize every 1st letter
+	}
 	function addField(k,f,o,a=false) {  //key, field, (sub)object, isArray
 		if (isO(o)) {
-			urows += '<hr style="width:260px">';
+			urows += '<hr class="sml">';
+			if (f!=='unknown' && !k.includes(":")) urows += `<p><u>${initCap(f)}</u></p>`; //show group title
 			for (const [s,v] of Object.entries(o)) {
 				// possibility to nest objects (only 1 level)
 				if (f!=='unknown' && !k.includes(":")) addField(k+":"+f,s,v);
@@ -135,19 +157,83 @@
 					t = "text"; c = `value="${o}" style="width:250px;"`;
 					break;
 			}
-			if (k.includes(":")) urows += k.substr(k.indexOf(":")+1);
-			urows += ` ${f}: `;
+			urows += ` ${initCap(f)} `; //only show field (key is shown in grouping)
 			// https://stackoverflow.com/questions/11657123/posting-both-checked-and-unchecked-checkboxes
 			if (t=="checkbox") urows += `<input type="hidden" name="${k}:${f}${a?"[]":""}" value="false">`;
 			else if (!a)       urows += `<input type="hidden" name="${k}:${f}${a?"[]":""}" value="${t}">`;
 			urows += `<input type="${t==="int"?"number":t}" name="${k}:${f}${a?"[]":""}" ${c} oninput="check(this,'${k.substr(k.indexOf(":")+1)}')"><br>`;
 		}
 	}
+	function pinDropdowns() {
+		for (let i of d.Sf.elements) {
+			if (i.type === "number" && (i.name.includes("pin") || ["SDA","SCL","MOSI","MISO","SCLK"].includes(i.name))) { //select all pin select elements
+				let v = parseInt(i.value);
+				let sel = addDropdown(i.name,0);
+				for (var j = -1; j <= d.max_gpio; j++) {
+					if (d.rsvd.includes(j)) continue;
+					let foundPin = pins.indexOf(j);
+					let txt = (j === -1) ? "unused" : `${j}`;
+					if (foundPin >= 0 && j !== v) txt += ` ${pinO[foundPin]=="if"?"global":pinO[foundPin]}`; // already reserved pin
+					if (d.ro_gpio.includes(j)) txt += " (R/O)";
+					let opt = addOption(sel, txt, j);
+					if (j === v) opt.selected = true; // this is "our" pin
+					else if (pins.includes(j)) opt.disabled = true; // someone else's pin
+				}
+				let um = i.name.split(":")[0];
+				d.extra.forEach((o)=>{
+					if (o[um] && o[um].pin) o[um].pin.forEach((e)=>{
+						let opt = addOption(sel,e[0],e[1]);
+						if (e[1]==v) opt.selected = true;
+					});
+				});
+			}
+		}
+	}
+	function UI(e) {
+		// update changed select options across all usermods
+		let oldV = parseInt(e.dataset.val);
+		e.dataset.val = e.value;
+		let txt = e.name.split(":")[e.name.split(":").length-2];
+		let selects = d.Sf.querySelectorAll("select[class='pin']");
+		for (let sel of selects) {
+			if (sel == e) continue
+			Array.from(sel.options).forEach((i)=>{
+				if (!(i.value==oldV || i.value==e.value)) return;
+				if (i.value == -1) {
+					i.text = "unused";
+					return
+				}
+				if (i.value<100) { // TODO remove this hack and use d.extra
+					i.text = i.value;
+					if (i.value==oldV) {
+						i.disabled = false;
+					}
+					if (i.value==e.value) {
+						i.disabled = true;
+						i.text += ` ${txt}`;
+					}
+					if (d.ro_gpio.includes(parseInt(i.value))) i.text += " (R/O)";
+				}
+			});
+		}
+	}
 	// https://stackoverflow.com/questions/39729741/javascript-change-input-text-to-select-option
 	function addDropdown(um,fld) {
 		let sel = d.createElement('select');
-		let arr = d.getElementsByName(um+":"+fld);
-		let inp = arr[1]; // assume 1st field to be hidden (type)
+		if (typeof(fld) === "string") {	// parameter from usermod (field name)
+			if (fld.includes("pin")) sel.classList.add("pin");
+			um += ":"+fld;
+		} else if (typeof(fld) === "number") sel.classList.add("pin"); // a hack to add a class
+		let arr = d.getElementsByName(um);
+		let idx = arr[0].type==="hidden"?1:0; // ignore hidden field
+		if (arr.length > 2) {
+			// we have array of values (usually pins)
+			for (let i of arr) {
+				if (i.type === "number") break;
+				idx++;
+			}
+		}
+		let inp = arr[idx];
 		if (inp && inp.tagName === "INPUT" && (inp.type === "text" || inp.type === "number")) {  // may also use nodeName
 			let v = inp.value;
 			let n = inp.name;
@@ -156,11 +242,12 @@
 				var att = inp.attributes[i];
 				// type and value don't apply, so skip them
 				// ** you might also want to skip style, or others -- modify as needed **
-				if (att.name != 'type' && att.name != 'value' && att.name != 'class' && att.name != 'style') {
+				if (att.name != 'type' && att.name != 'value' && att.name != 'class' && att.name != 'style' && att.name != 'oninput' && att.name != 'max' && att.name != 'min') {
 					sel.setAttribute(att.name, att.value);
 				}
 			}
 			sel.setAttribute("data-val", v);
+			sel.setAttribute("onchange", "UI(this)");
 			// finally, replace the old input element with the new select element
 			inp.parentElement.replaceChild(sel, inp);
 			return sel;
@@ -177,18 +264,25 @@
 			let c = sel.childNodes[i];
 			if (c.value == sel.dataset.val) sel.selectedIndex = i;
 		}
+		return opt;
 	}
 	// https://stackoverflow.com/questions/26440494/insert-text-after-this-input-element-with-javascript
-	function addInfo(name,el,txt) {
+	function addInfo(name,el,txt, txt2="") {
 		let obj = d.getElementsByName(name);
 		if (!obj.length) return;
 		if (typeof el === "string" && obj[0]) obj[0].placeholder = el;
-		else if (obj[el]) obj[el].insertAdjacentHTML('afterend', '&nbsp;'+txt);
+		else if (obj[el]) {
+			if (txt!="") obj[el].insertAdjacentHTML('afterend', '&nbsp;'+txt);
+			if (txt2!="") obj[el].insertAdjacentHTML('beforebegin', txt2 + '&nbsp;');  //add pre texts
+		}
+	}
+	// add Help Button
+	function addHB(um) {
+		addInfo(um + ':help',0,`<button onclick="location.href='https://kno.wled.ge/usermods/${um}'" type="button">?</button>`);
 	}
 	// load settings and insert values into DOM
 	function ldS() {
-		var url = (loc?`http://${locip}`:'') + '/cfg.json';
-		fetch(url, {
+		fetch(getURL('/cfg.json'), {
 			method: 'get'
 		})
 		.then(res => {
@@ -207,8 +301,7 @@
 			}
 			if (urows==="") urows = "Usermods configuration not found.<br>Press <i>Save</i> to initialize defaults.";
 			gId("um").innerHTML = urows;
-			var url = (loc?`http://${locip}`:'') + '/settings/s.js?p=8';
-			loadJS(url, false);	// If we set async false, file is loaded and executed, then next statement is processed
+			loadJS(getURL('/settings/s.js?p=8'), false);	// If we set async false, file is loaded and executed, then next statement is processed
 		})
 		.catch((error)=>{
 			gId('lserr').style.display = "inline";
@@ -233,15 +326,17 @@
 		</div>
 		<h2>Usermod Setup</h2>
 		Global I<sup>2</sup>C GPIOs (HW)<br>
-		<i style="color: orange;">(only changable on ESP32, change requires reboot!)</i><br>
+		<i class="warn">(change requires reboot!)</i><br>
 		SDA:<input type="number" min="-1" max="48" name="SDA" onchange="check(this,'if')" class="s" placeholder="SDA">
 		SCL:<input type="number" min="-1" max="48" name="SCL" onchange="check(this,'if')" class="s" placeholder="SCL">
-		<hr style="width:260px">
+		<hr class="sml">
 		Global SPI GPIOs (HW)<br>
-		<i style="color: orange;">(only changable on ESP32, change requires reboot!)</i><br>
+		<i class="warn">(only changable on ESP32, change requires reboot!)</i><br>
 		MOSI:<input type="number" min="-1" max="48" name="MOSI" onchange="check(this,'if')" class="s" placeholder="MOSI">
 		MISO:<input type="number" min="-1" max="48" name="MISO" onchange="check(this,'if')" class="s" placeholder="MISO">
 		SCLK:<input type="number" min="-1" max="48" name="SCLK" onchange="check(this,'if')" class="s" placeholder="SCLK">
+		<hr class="sml">
+		Reboot after save? <input type="checkbox" name="RBT"><br>
 		<div id="um">Loading settings...</div>
 		<hr><button type="button" onclick="B()">Back</button><button type="submit">Save</button>
 	</form>

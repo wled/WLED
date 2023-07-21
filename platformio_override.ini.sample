@@ -26,7 +26,6 @@ build_flags = ${common.build_flags_esp8266}
 ; disable specific features
 ;  -D WLED_DISABLE_OTA
 ;  -D WLED_DISABLE_ALEXA
-;  -D WLED_DISABLE_BLYNK
 ;  -D WLED_DISABLE_HUESYNC
 ;  -D WLED_DISABLE_INFRARED
 ;  -D WLED_DISABLE_WEBSOCKETS

@@ -12,7 +12,7 @@
 //handles RGB data only
 void handleDDPPacket(e131_packet_t* p) {
   int lastPushSeq = e131LastSequenceNumber[0];
-  
+
   //reject late packets belonging to previous frame (assuming 4 packets max. before push)
   if (e131SkipOutOfSequence && lastPushSeq) {
     int sn = p->sequenceNum & 0xF;
@@ -25,7 +25,7 @@ void handleDDPPacket(e131_packet_t* p) {
     }
   }
 
-  uint8_t ddpChannelsPerLed = (p->dataType == DDP_TYPE_RGBW32) ? 4 : 3; // data type 0x1A is RGBW (type 3, 8 bit/channel)
+  uint8_t ddpChannelsPerLed = ((p->dataType & 0b00111000)>>3 == 0b011) ? 4 : 3; // data type 0x1B (formerly 0x1A) is RGBW (type 3, 8 bit/channel)
 
   uint32_t start =  htonl(p->channelOffset) / ddpChannelsPerLed;
   start += DMXAddress / ddpChannelsPerLed;
@@ -35,7 +35,7 @@ void handleDDPPacket(e131_packet_t* p) {
   if (p->flags & DDP_TIMECODE_FLAG) c = 4; //packet has timecode flag, we do not support it, but data starts 4 bytes later
 
   realtimeLock(realtimeTimeoutMs, REALTIME_MODE_DDP);
-  
+
   if (!realtimeOverride || (realtimeMode && useMainSegmentOnly)) {
     for (uint16_t i = start; i < stop; i++) {
       setRealtimePixel(i, data[c], data[c+1], data[c+2], ddpChannelsPerLed >3 ? data[c+3] : 0);
@@ -70,10 +70,20 @@ void handleE131Packet(e131_packet_t* p, IPAddress clientIP, byte protocol){
     seq = p->art_sequence_number;
     mde = REALTIME_MODE_ARTNET;
   } else if (protocol == P_E131) {
+    // Ignore PREVIEW data (E1.31: 6.2.6)
+    if ((p->options & 0x80) != 0) return;
+    dmxChannels = htons(p->property_value_count) - 1;
+    // DMX level data is zero start code. Ignore everything else. (E1.11: 8.5)
+    if (dmxChannels == 0 || p->property_values[0] != 0) return;
     uni = htons(p->universe);
-    dmxChannels = htons(p->property_value_count) -1;
     e131_data = p->property_values;
     seq = p->sequence_number;
+    if (e131Priority != 0) {
+      if (p->priority < e131Priority ) return;
+      // track highest priority & skip all lower priorities
+      if (p->priority >= highPriority.get()) highPriority.set(p->priority);
+      if (p->priority < highPriority.get()) return;
+    }
   } else { //DDP
     realtimeIP = clientIP;
     handleDDPPacket(p);
@@ -96,11 +106,11 @@ void handleE131Packet(e131_packet_t* p, IPAddress clientIP, byte protocol){
 
   if (e131SkipOutOfSequence)
     if (seq < e131LastSequenceNumber[previousUniverses] && seq > 20 && e131LastSequenceNumber[previousUniverses] < 250){
-      DEBUG_PRINT("skipping E1.31 frame (last seq=");
+      DEBUG_PRINT(F("skipping E1.31 frame (last seq="));
       DEBUG_PRINT(e131LastSequenceNumber[previousUniverses]);
-      DEBUG_PRINT(", current seq=");
+      DEBUG_PRINT(F(", current seq="));
       DEBUG_PRINT(seq);
-      DEBUG_PRINT(", universe=");
+      DEBUG_PRINT(F(", universe="));
       DEBUG_PRINT(uni);
       DEBUG_PRINTLN(")");
       return;
@@ -132,7 +142,7 @@ void handleE131Packet(e131_packet_t* p, IPAddress clientIP, byte protocol){
       return;  // nothing to do
       break;
 
-    case DMX_MODE_SINGLE_RGB: // RGB only
+    case DMX_MODE_SINGLE_RGB:   // 3 channel: [R,G,B]
       if (uni != e131Universe) return;
       if (availDMXLen < 3) return;
 
@@ -145,7 +155,7 @@ void handleE131Packet(e131_packet_t* p, IPAddress clientIP, byte protocol){
         setRealtimePixel(i, e131_data[dataOffset+0], e131_data[dataOffset+1], e131_data[dataOffset+2], wChannel);
       break;
 
-    case DMX_MODE_SINGLE_DRGB: // Dimmer + RGB
+    case DMX_MODE_SINGLE_DRGB:  // 4 channel: [Dimmer,R,G,B]
       if (uni != e131Universe) return;
       if (availDMXLen < 4) return;
 
@@ -162,38 +172,93 @@ void handleE131Packet(e131_packet_t* p, IPAddress clientIP, byte protocol){
         setRealtimePixel(i, e131_data[dataOffset+1], e131_data[dataOffset+2], e131_data[dataOffset+3], wChannel);
       break;
 
-    case DMX_MODE_EFFECT: // Length 1: Apply Preset ID, length 11-13: apply effect config
-      if (uni != e131Universe) return;
-      if (availDMXLen < 11) {
-        if (availDMXLen > 1) return;
-        applyPreset(e131_data[dataOffset+0], CALL_MODE_NOTIFICATION);
-        return;
-      }
-
-      if (bri != e131_data[dataOffset+0]) {
-        bri = e131_data[dataOffset+0];
-      }
-      if (e131_data[dataOffset+1] < strip.getModeCount())
-      effectCurrent   = e131_data[dataOffset+ 1];
-      effectSpeed     = e131_data[dataOffset+ 2];  // flickers
-      effectIntensity = e131_data[dataOffset+ 3];
-      effectPalette   = e131_data[dataOffset+ 4];
-      col[0]          = e131_data[dataOffset+ 5];
-      col[1]          = e131_data[dataOffset+ 6];
-      col[2]          = e131_data[dataOffset+ 7];
-      colSec[0]       = e131_data[dataOffset+ 8];
-      colSec[1]       = e131_data[dataOffset+ 9];
-      colSec[2]       = e131_data[dataOffset+10];
-      if (availDMXLen > 11)
+    case DMX_MODE_PRESET:       // 2 channel: [Dimmer,Preset]
       {
-        col[3]        = e131_data[dataOffset+11]; //white
-        colSec[3]     = e131_data[dataOffset+12];
-      }
-      transitionDelayTemp = 0;               // act fast
-      colorUpdated(CALL_MODE_NOTIFICATION);  // don't send UDP
-      return;                                // don't activate realtime live mode
-      break;
+        if (uni != e131Universe || availDMXLen < 2) return;
 
+        // limit max. selectable preset to 250, even though DMX max. val is 255
+        uint8_t dmxValPreset = (e131_data[dataOffset+1] > 250 ? 250 : e131_data[dataOffset+1]);
+        
+        // only apply preset if value changed 
+        if (dmxValPreset != 0 && dmxValPreset != currentPreset &&  
+            // only apply preset if not in playlist, or playlist changed
+            (currentPlaylist < 0 || dmxValPreset != currentPlaylist)) { 
+          presetCycCurr = dmxValPreset;
+          unloadPlaylist(); // applying a preset unloads the playlist
+          applyPreset(dmxValPreset, CALL_MODE_NOTIFICATION);
+        }
+
+        // only change brightness if value changed
+        if (bri != e131_data[dataOffset]) {                                        
+          bri = e131_data[dataOffset];
+          strip.setBrightness(scaledBri(bri), false);
+          stateUpdated(CALL_MODE_WS_SEND);
+        }
+        return;
+        break;
+      }
+
+    case DMX_MODE_EFFECT:           // 15 channels [bri,effectCurrent,effectSpeed,effectIntensity,effectPalette,effectOption,R,G,B,R2,G2,B2,R3,G3,B3]
+    case DMX_MODE_EFFECT_W:         // 18 channels, same as above but with extra +3 white channels [..,W,W2,W3]
+    case DMX_MODE_EFFECT_SEGMENT:   // 15 channels per segment;
+    case DMX_MODE_EFFECT_SEGMENT_W: // 18 Channels per segment;
+      {
+        if (uni != e131Universe) return;
+        bool isSegmentMode = DMXMode == DMX_MODE_EFFECT_SEGMENT || DMXMode == DMX_MODE_EFFECT_SEGMENT_W;
+        uint8_t dmxEffectChannels = (DMXMode == DMX_MODE_EFFECT || DMXMode == DMX_MODE_EFFECT_SEGMENT) ? 15 : 18;
+        for (uint8_t id = 0; id < strip.getSegmentsNum(); id++) {
+          Segment& seg = strip.getSegment(id);
+          if (isSegmentMode)
+            dataOffset = DMXAddress + id * (dmxEffectChannels + DMXSegmentSpacing);
+          else
+            dataOffset = DMXAddress;
+          // Modify address for Art-Net data
+          if (protocol == P_ARTNET && dataOffset > 0)
+            dataOffset--;
+          // Skip out of universe addresses
+          if (dataOffset > dmxChannels - dmxEffectChannels + 1)
+            return;
+
+          if (e131_data[dataOffset+1] < strip.getModeCount())
+            if (e131_data[dataOffset+1] != seg.mode)      seg.setMode(   e131_data[dataOffset+1]);
+          if (e131_data[dataOffset+2]   != seg.speed)     seg.speed     = e131_data[dataOffset+2];      
+          if (e131_data[dataOffset+3]   != seg.intensity) seg.intensity = e131_data[dataOffset+3];
+          if (e131_data[dataOffset+4]   != seg.palette)   seg.setPalette(e131_data[dataOffset+4]);
+
+          uint8_t segOption = (uint8_t)floor(e131_data[dataOffset+5]/64.0);
+          if (segOption == 0 && (seg.mirror  || seg.reverse )) {seg.setOption(SEG_OPTION_MIRROR, false); seg.setOption(SEG_OPTION_REVERSED, false);}
+          if (segOption == 1 && (seg.mirror  || !seg.reverse)) {seg.setOption(SEG_OPTION_MIRROR, false); seg.setOption(SEG_OPTION_REVERSED,  true);}
+          if (segOption == 2 && (!seg.mirror || seg.reverse )) {seg.setOption(SEG_OPTION_MIRROR,  true); seg.setOption(SEG_OPTION_REVERSED, false);}
+          if (segOption == 3 && (!seg.mirror || !seg.reverse)) {seg.setOption(SEG_OPTION_MIRROR,  true); seg.setOption(SEG_OPTION_REVERSED,  true);}
+
+          uint32_t colors[3];
+          byte whites[3] = {0,0,0};
+          if (dmxEffectChannels == 18) {
+            whites[0] = e131_data[dataOffset+15];
+            whites[1] = e131_data[dataOffset+16];
+            whites[2] = e131_data[dataOffset+17];
+          }
+          colors[0] = RGBW32(e131_data[dataOffset+ 6], e131_data[dataOffset+ 7], e131_data[dataOffset+ 8], whites[0]);
+          colors[1] = RGBW32(e131_data[dataOffset+ 9], e131_data[dataOffset+10], e131_data[dataOffset+11], whites[1]);
+          colors[2] = RGBW32(e131_data[dataOffset+12], e131_data[dataOffset+13], e131_data[dataOffset+14], whites[2]);
+          if (colors[0] != seg.colors[0]) seg.setColor(0, colors[0]);
+          if (colors[1] != seg.colors[1]) seg.setColor(1, colors[1]);
+          if (colors[2] != seg.colors[2]) seg.setColor(2, colors[2]);
+
+          // Set segment opacity or global brightness
+          if (isSegmentMode) {
+            if (e131_data[dataOffset] != seg.opacity) seg.setOpacity(e131_data[dataOffset]);
+          } else if ( id == strip.getSegmentsNum()-1 ) {
+            if (bri != e131_data[dataOffset]) {
+              bri = e131_data[dataOffset];
+              strip.setBrightness(bri, true);
+            }
+          }
+        }
+        return;
+        break;
+      }
+      
     case DMX_MODE_MULTIPLE_DRGB:
     case DMX_MODE_MULTIPLE_RGB:
     case DMX_MODE_MULTIPLE_RGBW:
@@ -242,7 +307,7 @@ void handleE131Packet(e131_packet_t* p, IPAddress clientIP, byte protocol){
             strip.setBrightness(bri, true);
           }
         }
-        
+
         if (!is4Chan) {
           for (uint16_t i = previousLeds; i < ledsTotal; i++) {
             setRealtimePixel(i, e131_data[dmxOffset], e131_data[dmxOffset+1], e131_data[dmxOffset+2], 0);
@@ -279,7 +344,11 @@ void handleArtnetPollReply(IPAddress ipAddress) {
 
     case DMX_MODE_SINGLE_RGB:
     case DMX_MODE_SINGLE_DRGB:
+    case DMX_MODE_PRESET:
     case DMX_MODE_EFFECT:
+    case DMX_MODE_EFFECT_W:
+    case DMX_MODE_EFFECT_SEGMENT:
+    case DMX_MODE_EFFECT_SEGMENT_W:
       break;  // 1 universe is enough
 
     case DMX_MODE_MULTIPLE_DRGB:
@@ -444,8 +513,8 @@ void sendArtnetPollReply(ArtPollReply *reply, IPAddress ipAddress, uint16_t port
   reply->reply_sub_sw = (uint8_t)((portAddress >> 4) & 0x000F);
   reply->reply_sw_out[0] = (uint8_t)(portAddress & 0x000F);
 
-  sprintf((char *)reply->reply_node_report, "#0001 [%04u] OK - WLED v" TOSTRING(WLED_VERSION), pollReplyCount);
-  
+  snprintf_P((char *)reply->reply_node_report, sizeof(reply->reply_node_report)-1, PSTR("#0001 [%04u] OK - WLED v" TOSTRING(WLED_VERSION)), pollReplyCount);
+
   if (pollReplyCount < 9999) {
     pollReplyCount++;
   } else {

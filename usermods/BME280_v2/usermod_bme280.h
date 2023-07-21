@@ -1,11 +1,14 @@
 // force the compiler to show a warning to confirm that this file is included
 #warning **** Included USERMOD_BME280 version 2.0 ****
 
+#ifndef WLED_ENABLE_MQTT
+#error "This user mod requires MQTT to be enabled."
+#endif
+
 #pragma once
 
 #include "wled.h"
 #include <Arduino.h>
-#include <Wire.h>
 #include <BME280I2C.h>               // BME280 sensor
 #include <EnvironmentCalculations.h> // BME280 extended measurements
 
@@ -16,20 +19,20 @@ private:
   // NOTE: Do not implement any compile-time variables, anything the user needs to configure
   // should be configurable from the Usermod menu using the methods below
   // key settings set via usermod menu
-  unsigned long TemperatureDecimals = 0;  // Number of decimal places in published temperaure values
-  unsigned long  HumidityDecimals = 0;    // Number of decimal places in published humidity values
-  unsigned long  PressureDecimals = 0;    // Number of decimal places in published pressure values
-  unsigned long  TemperatureInterval = 5; // Interval to measure temperature (and humidity, dew point if available) in seconds
-  unsigned long  PressureInterval = 300;  // Interval to measure pressure in seconds
+  uint8_t  TemperatureDecimals = 0;  // Number of decimal places in published temperaure values
+  uint8_t  HumidityDecimals = 0;    // Number of decimal places in published humidity values
+  uint8_t  PressureDecimals = 0;    // Number of decimal places in published pressure values
+  uint16_t TemperatureInterval = 5; // Interval to measure temperature (and humidity, dew point if available) in seconds
+  uint16_t PressureInterval = 300;  // Interval to measure pressure in seconds
   bool PublishAlways = false;             // Publish values even when they have not changed
   bool UseCelsius = true;                 // Use Celsius for Reporting
   bool HomeAssistantDiscovery = false;    // Publish Home Assistant Device Information
+  bool enabled = true;
 
   // set the default pins based on the architecture, these get overridden by Usermod menu settings
   #ifdef ESP8266
     //uint8_t RST_PIN = 16; // Uncoment for Heltec WiFi-Kit-8
   #endif
-  int8_t ioPin[2] = {i2c_scl, i2c_sda};   // I2C pins: SCL, SDA...defaults to Arch hardware pins but overridden at setup()
   bool initDone = false;
 
   // BME280 sensor settings
@@ -70,15 +73,10 @@ private:
 
   // MQTT topic strings for publishing Home Assistant discovery topics
   bool mqttInitialized = false;
-  String mqttTemperatureTopic = "";
-  String mqttHumidityTopic = "";
-  String mqttPressureTopic = "";
-  String mqttHeatIndexTopic = "";
-  String mqttDewPointTopic = "";
 
-  // Store packet IDs of MQTT publications
-  uint16_t mqttTemperaturePub = 0;
-  uint16_t mqttPressurePub = 0;
+  // strings to reduce flash memory usage (used more than twice)
+  static const char _name[];
+  static const char _enabled[];
 
   // Read the BME280/BMP280 Sensor (which one runs depends on whether Celsius or Farenheit being set in Usermod Menu)
   void UpdateBME280Data(int SensorType)
@@ -95,7 +93,7 @@ private:
       sensorTemperature = _temperature;
       sensorHumidity = _humidity;
       sensorPressure = _pressure;
-      tempScale = "°C";
+      tempScale = F("°C");
       if (sensorType == 1)
       {
         sensorHeatIndex = EnvironmentCalculations::HeatIndex(_temperature, _humidity, envTempUnit);
@@ -111,7 +109,7 @@ private:
       sensorTemperature = _temperature;
       sensorHumidity = _humidity;
       sensorPressure = _pressure;
-      tempScale = "°F";
+      tempScale = F("°F");
       if (sensorType == 1)
       {
         sensorHeatIndex = EnvironmentCalculations::HeatIndex(_temperature, _humidity, envTempUnit);
@@ -123,18 +121,23 @@ private:
   // Procedure to define all MQTT discovery Topics 
   void _mqttInitialize()
   {
-    mqttTemperatureTopic = String(mqttDeviceTopic) + F("/temperature");
-    mqttPressureTopic = String(mqttDeviceTopic) + F("/pressure");
-    mqttHumidityTopic = String(mqttDeviceTopic) + F("/humidity");
-    mqttHeatIndexTopic = String(mqttDeviceTopic) + F("/heat_index");
-    mqttDewPointTopic = String(mqttDeviceTopic) + F("/dew_point");
+    char mqttTemperatureTopic[128];
+    char mqttHumidityTopic[128];
+    char mqttPressureTopic[128];
+    char mqttHeatIndexTopic[128];
+    char mqttDewPointTopic[128];
+    snprintf_P(mqttTemperatureTopic, 127, PSTR("%s/temperature"), mqttDeviceTopic);
+    snprintf_P(mqttPressureTopic, 127, PSTR("%s/pressure"), mqttDeviceTopic);
+    snprintf_P(mqttHumidityTopic, 127, PSTR("%s/humidity"), mqttDeviceTopic);
+    snprintf_P(mqttHeatIndexTopic, 127, PSTR("%s/heat_index"), mqttDeviceTopic);
+    snprintf_P(mqttDewPointTopic, 127, PSTR("%s/dew_point"), mqttDeviceTopic);
 
     if (HomeAssistantDiscovery) {
-      _createMqttSensor(F("Temperature"), mqttTemperatureTopic, F("temperature"), tempScale);
-      _createMqttSensor(F("Pressure"), mqttPressureTopic, F("pressure"), F("hPa"));
-      _createMqttSensor(F("Humidity"), mqttHumidityTopic, F("humidity"), F("%"));
-      _createMqttSensor(F("HeatIndex"), mqttHeatIndexTopic, F("temperature"), tempScale);
-      _createMqttSensor(F("DewPoint"), mqttDewPointTopic, F("temperature"), tempScale);
+      _createMqttSensor(F("Temperature"), mqttTemperatureTopic, "temperature", tempScale);
+      _createMqttSensor(F("Pressure"), mqttPressureTopic, "pressure", F("hPa"));
+      _createMqttSensor(F("Humidity"), mqttHumidityTopic, "humidity", F("%"));
+      _createMqttSensor(F("HeatIndex"), mqttHeatIndexTopic, "temperature", tempScale);
+      _createMqttSensor(F("DewPoint"), mqttDewPointTopic, "temperature", tempScale);
     }
   }
 
@@ -169,21 +172,24 @@ private:
     mqtt->publish(t.c_str(), 0, true, temp.c_str());
   }
 
+    void publishMqtt(const char *topic, const char* state) {
+      //Check if MQTT Connected, otherwise it will crash the 8266
+      if (WLED_MQTT_CONNECTED){
+        char subuf[128];
+        snprintf_P(subuf, 127, PSTR("%s/%s"), mqttDeviceTopic, topic);
+        mqtt->publish(subuf, 0, false, state);
+      }
+    }
+
 public:
   void setup()
   {
-    bool HW_Pins_Used = (ioPin[0]==i2c_scl && ioPin[1]==i2c_sda); // note whether architecture-based hardware SCL/SDA pins used
-    PinOwner po = PinOwner::UM_BME280; // defaults to being pinowner for SCL/SDA pins
-    PinManagerPinType pins[2] = { { ioPin[0], true }, { ioPin[1], true } };  // allocate pins
-    if (HW_Pins_Used) po = PinOwner::HW_I2C; // allow multiple allocations of HW I2C bus pins
-    if (!pinManager.allocateMultiplePins(pins, 2, po)) { sensorType=0; return; }
+    if (i2c_scl<0 || i2c_sda<0) { enabled = false; sensorType = 0; return; }
     
-    Wire.begin(ioPin[1], ioPin[0]);
-
     if (!bme.begin())
     {
       sensorType = 0;
-      DEBUG_PRINTLN(F("Could not find BME280I2C sensor!"));
+      DEBUG_PRINTLN(F("Could not find BME280 I2C sensor!"));
     }
     else
     {
@@ -207,14 +213,16 @@ public:
 
   void loop()
   {
+    if (!enabled || strip.isUpdating()) return;
+
     // BME280 sensor MQTT publishing
-    // Check if sensor present and MQTT Connected, otherwise it will crash the MCU
-    if (sensorType != 0 && WLED_MQTT_CONNECTED)
+    // Check if sensor present and Connected, otherwise it will crash the MCU
+    if (sensorType != 0)
     {
       // Timer to fetch new temperature, humidity and pressure data at intervals
       timer = millis();
 
-      if (timer - lastTemperatureMeasure >= TemperatureInterval * 1000 || mqttTemperaturePub == 0)
+      if (timer - lastTemperatureMeasure >= TemperatureInterval * 1000)
       {
         lastTemperatureMeasure = timer;
 
@@ -223,18 +231,11 @@ public:
         float temperature = roundf(sensorTemperature * powf(10, TemperatureDecimals)) / powf(10, TemperatureDecimals);
         float humidity, heatIndex, dewPoint;
 
-        if (WLED_MQTT_CONNECTED && !mqttInitialized)
-        {
-          _mqttInitialize();
-          mqttInitialized = true;
-        }
-
         // If temperature has changed since last measure, create string populated with device topic
         // from the UI and values read from sensor, then publish to broker
         if (temperature != lastTemperature || PublishAlways)
         {
-          String topic = String(mqttDeviceTopic) + "/temperature";
-          mqttTemperaturePub = mqtt->publish(topic.c_str(), 0, false, String(temperature, TemperatureDecimals).c_str());
+          publishMqtt("temperature", String(temperature, TemperatureDecimals).c_str());
         }
 
         lastTemperature = temperature; // Update last sensor temperature for next loop
@@ -247,20 +248,17 @@ public:
 
           if (humidity != lastHumidity || PublishAlways)
           {
-            String topic = String(mqttDeviceTopic) + F("/humidity");
-            mqtt->publish(topic.c_str(), 0, false, String(humidity, HumidityDecimals).c_str());
+            publishMqtt("humidity", String(humidity, HumidityDecimals).c_str());
           }
 
           if (heatIndex != lastHeatIndex || PublishAlways)
           {
-            String topic = String(mqttDeviceTopic) + F("/heat_index");
-            mqtt->publish(topic.c_str(), 0, false, String(heatIndex, TemperatureDecimals).c_str());
+            publishMqtt("heat_index", String(heatIndex, TemperatureDecimals).c_str());
           }
 
           if (dewPoint != lastDewPoint || PublishAlways)
           {
-            String topic = String(mqttDeviceTopic) + F("/dew_point");
-            mqtt->publish(topic.c_str(), 0, false, String(dewPoint, TemperatureDecimals).c_str());
+            publishMqtt("dew_point", String(dewPoint, TemperatureDecimals).c_str());
           }
 
           lastHumidity = humidity;
@@ -269,7 +267,7 @@ public:
         }
       }
 
-      if (timer - lastPressureMeasure >= PressureInterval * 1000 || mqttPressurePub == 0)
+      if (timer - lastPressureMeasure >= PressureInterval * 1000)
       {
         lastPressureMeasure = timer;
 
@@ -277,15 +275,23 @@ public:
 
         if (pressure != lastPressure || PublishAlways)
         {
-          String topic = String(mqttDeviceTopic) + F("/pressure");
-          mqttPressurePub = mqtt->publish(topic.c_str(), 0, true, String(pressure, PressureDecimals).c_str());
+          publishMqtt("pressure", String(pressure, PressureDecimals).c_str());
         }
 
         lastPressure = pressure;
       }
     }
   }
-    
+
+  void onMqttConnect(bool sessionPresent)
+  {
+    if (WLED_MQTT_CONNECTED && !mqttInitialized)
+    {
+      _mqttInitialize();
+      mqttInitialized = true;
+    }
+  }
+
     /*
      * API calls te enable data exchange between WLED modules
      */
@@ -294,9 +300,9 @@ public:
         return (float)roundf(sensorTemperature * powf(10, TemperatureDecimals)) / powf(10, TemperatureDecimals);
       } else {
         return (float)roundf(sensorTemperature * powf(10, TemperatureDecimals)) / powf(10, TemperatureDecimals) * 1.8f + 32;
-      }
-      
+      }      
     }
+
     inline float getTemperatureF() {
       if (UseCelsius) {
         return ((float)roundf(sensorTemperature * powf(10, TemperatureDecimals)) / powf(10, TemperatureDecimals) -32) * 0.56f;
@@ -304,12 +310,15 @@ public:
         return (float)roundf(sensorTemperature * powf(10, TemperatureDecimals)) / powf(10, TemperatureDecimals);
       }
     }
+
     inline float getHumidity() {
       return (float)roundf(sensorHumidity * powf(10, HumidityDecimals));
     }
+
     inline float getPressure() {
       return (float)roundf(sensorPressure * powf(10, PressureDecimals));
     }
+
     inline float getDewPointC() {
       if (UseCelsius) {
         return (float)roundf(sensorDewPoint * powf(10, TemperatureDecimals)) / powf(10, TemperatureDecimals);
@@ -317,6 +326,7 @@ public:
         return (float)roundf(sensorDewPoint * powf(10, TemperatureDecimals)) / powf(10, TemperatureDecimals) * 1.8f + 32;
       }
     }
+
     inline float getDewPointF() {
       if (UseCelsius) {
         return ((float)roundf(sensorDewPoint * powf(10, TemperatureDecimals)) / powf(10, TemperatureDecimals) -32) * 0.56f;
@@ -324,13 +334,16 @@ public:
         return (float)roundf(sensorDewPoint * powf(10, TemperatureDecimals)) / powf(10, TemperatureDecimals);
       }
     }
+
     inline float getHeatIndexC() {
       if (UseCelsius) {
         return (float)roundf(sensorHeatIndex * powf(10, TemperatureDecimals)) / powf(10, TemperatureDecimals);
       } else {
         return (float)roundf(sensorHeatIndex * powf(10, TemperatureDecimals)) / powf(10, TemperatureDecimals) * 1.8f + 32;
       }
-    }inline float getHeatIndexF() {
+    }
+
+    inline float getHeatIndexF() {
       if (UseCelsius) {
         return ((float)roundf(sensorHeatIndex * powf(10, TemperatureDecimals)) / powf(10, TemperatureDecimals) -32) * 0.56f;
       } else {
@@ -384,7 +397,8 @@ public:
   // Save Usermod Config Settings
   void addToConfig(JsonObject& root)
   {
-    JsonObject top = root.createNestedObject(F("BME280/BMP280"));
+    JsonObject top = root.createNestedObject(FPSTR(_name));
+    top[FPSTR(_enabled)] = enabled;
     top[F("TemperatureDecimals")] = TemperatureDecimals;
     top[F("HumidityDecimals")] = HumidityDecimals;
     top[F("PressureDecimals")] = PressureDecimals;
@@ -393,9 +407,6 @@ public:
     top[F("PublishAlways")] = PublishAlways;
     top[F("UseCelsius")] = UseCelsius;
     top[F("HomeAssistantDiscovery")] = HomeAssistantDiscovery;
-    JsonArray io_pin = top.createNestedArray(F("pin"));
-    for (byte i=0; i<2; i++) io_pin.add(ioPin[i]);
-    top[F("help4Pins")] = F("SCL,SDA"); // help for Settings page
     DEBUG_PRINTLN(F("BME280 config saved."));
   }
 
@@ -405,17 +416,15 @@ public:
     // default settings values could be set here (or below using the 3-argument getJsonValue()) instead of in the class definition or constructor
     // setting them inside readFromConfig() is slightly more robust, handling the rare but plausible use case of single value being missing after boot (e.g. if the cfg.json was manually edited and a value was removed)
 
-
-    int8_t newPin[2]; for (byte i=0; i<2; i++) newPin[i] = ioPin[i]; // prepare to note changed pins
-
-    JsonObject top = root[F("BME280/BMP280")];
+    JsonObject top = root[FPSTR(_name)];
     if (top.isNull()) {
-      DEBUG_PRINT(F("BME280/BMP280"));
+      DEBUG_PRINT(F(_name));
       DEBUG_PRINTLN(F(": No config found. (Using defaults.)"));
       return false;
     }
     bool configComplete = !top.isNull();
 
+    configComplete &= getJsonValue(top[FPSTR(_enabled)], enabled);
     // A 3-argument getJsonValue() assigns the 3rd argument as a default value if the Json value is missing
     configComplete &= getJsonValue(top[F("TemperatureDecimals")], TemperatureDecimals, 1);
     configComplete &= getJsonValue(top[F("HumidityDecimals")], HumidityDecimals, 0);
@@ -425,27 +434,14 @@ public:
     configComplete &= getJsonValue(top[F("PublishAlways")], PublishAlways, false);
     configComplete &= getJsonValue(top[F("UseCelsius")], UseCelsius, true);
     configComplete &= getJsonValue(top[F("HomeAssistantDiscovery")], HomeAssistantDiscovery, false);
-    for (byte i=0; i<2; i++) configComplete &= getJsonValue(top[F("pin")][i], newPin[i], ioPin[i]);
 
-    DEBUG_PRINT(FPSTR(F("BME280/BMP280")));
+    DEBUG_PRINT(FPSTR(_name));
     if (!initDone) {
       // first run: reading from cfg.json
-      for (byte i=0; i<2; i++) ioPin[i] = newPin[i];
       DEBUG_PRINTLN(F(" config loaded."));
     } else {
       DEBUG_PRINTLN(F(" config (re)loaded."));
       // changing parameters from settings page
-      bool pinsChanged = false;
-      for (byte i=0; i<2; i++) if (ioPin[i] != newPin[i]) { pinsChanged = true; break; } // check if any pins changed
-      if (pinsChanged) { //if pins changed, deallocate old pins and allocate new ones
-        PinOwner po = PinOwner::UM_BME280;
-        if (ioPin[0]==i2c_scl && ioPin[1]==i2c_sda) po = PinOwner::HW_I2C;  // allow multiple allocations of HW I2C bus pins
-        pinManager.deallocateMultiplePins((const uint8_t *)ioPin, 2, po);  // deallocate pins
-        for (byte i=0; i<2; i++) ioPin[i] = newPin[i];
-        setup();
-      }
-      // use "return !top["newestParameter"].isNull();" when updating Usermod with new features
-      return !top[F("pin")].isNull();
     }
 
     return configComplete;
@@ -455,3 +451,6 @@ public:
     return USERMOD_ID_BME280;
   }
 };
+
+const char UsermodBME280::_name[]                      PROGMEM = "BME280/BMP280";
+const char UsermodBME280::_enabled[]                   PROGMEM = "enabled";

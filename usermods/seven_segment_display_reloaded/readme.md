@@ -1,6 +1,6 @@
 # Seven Segment Display Reloaded
 
-Usermod that uses the overlay feature to create a configurable seven segment display.
+Uses the overlay feature to create a configurable seven segment display.
 Optimized for maximum configurability and use with seven segment clocks by parallyze (https://www.instructables.com/member/parallyze/instructables/)
 Very loosely based on the existing usermod "seven segment display".
 
@@ -12,26 +12,26 @@ Add the compile-time option `-D USERMOD_SSDR` to your `platformio.ini` (or `plat
 For the auto brightness option, the usermod SN_Photoresistor has to be installed as well. See SN_Photoresistor/readme.md for instructions.
 
 ## Settings
-All settings can be controlled the usermod setting page.
+All settings can be controlled via the usermod settings page.
 Part of the settings can be controlled through MQTT with a raw payload or through a json request to /json/state.
 
 ### enabled
-Enables/disables this overlay usermod
+Enables/disables this usermod
 
 ### inverted
-Enables the inverted mode in which the background should be enabled and the digits should be black (leds off)
+Enables the inverted mode in which the background should be enabled and the digits should be black (LEDs off)
 
 ### Colon-blinking
 Enables the blinking colon(s) if they are defined
 
 ### enable-auto-brightness
-Enables the auto brightness feature. Can be only used with the usermod SN_Photoresistor installed.
+Enables the auto brightness feature. Can be used only when the usermod SN_Photoresistor is installed.
 
 ### auto-brightness-min / auto-brightness-max
 The lux value calculated from usermod SN_Photoresistor will be mapped to the values defined here.
-The mapping is 0 - 1000 lux will be mapped to auto-brightness-min - auto-brightness-max
+The mapping, 0 - 1000 lux, will be mapped to auto-brightness-min and auto-brightness-max
 
-The mA current protection of WLED will override the calculated value if it is too high.
+WLED current protection will override the calculated value if it is too high.
 
 ### Display-Mask
 Defines the type of the time/date display. 
@@ -61,7 +61,7 @@ See following example for usage.
 
 ## Example
 
-Example for Leds definition
+Example of an LED definition:
 ```
   <  A  >
 /\       /\
@@ -74,15 +74,15 @@ E        C
   <  D  >
 ```
 
-Leds or Range of Leds are seperated by a comma ","
+LEDs or Range of LEDs are separated by a comma ","
 
-Segments are seperated by a semicolon ";" and are read as A;B;C;D;E;F;G
+Segments are separated by a semicolon ";" and are read as A;B;C;D;E;F;G
 
-Digits are seperated by colon ":" -> A;B;C;D;E;F;G:A;B;C;D;E;F;G
+Digits are separated by colon ":" -> A;B;C;D;E;F;G:A;B;C;D;E;F;G
 
 Ranges are defined as lower to higher (lower first)
 
-For example, an clock definition for the following clock (https://www.instructables.com/Lazy-7-Quick-Build-Edition/) is
+For example, a clock definition for the following clock (https://www.instructables.com/Lazy-7-Quick-Build-Edition/) is
 
 - hour "59,46;47-48;50-51;52-53;54-55;57-58;49,56:0,13;1-2;4-5;6-7;8-9;11-12;3,10"
 
@@ -96,18 +96,18 @@ or
 
 depending on the orientation.
 
-# The example detailed:
+# Example details:
 hour "59,46;47-48;50-51;52-53;54-55;57-58;49,56:0,13;1-2;4-5;6-7;8-9;11-12;3,10"
 
-there are two digits seperated by ":"
+there are two digits separated by ":"
 
 - 59,46;47-48;50-51;52-53;54-55;57-58;49,56
 - 0,13;1-2;4-5;6-7;8-9;11-12;3,10
 
 In the first digit, 
-the **segment A** consists of the leds number **59 and 46**., **segment B** consists of the leds number **47, 48** and so on
+the **segment A** consists of the LEDs number **59 and 46**., **segment B** consists of the LEDs number **47, 48** and so on
 
-The second digit starts again with **segment A** and leds **0 and 13**, **segment B** consists of the leds number **1 and 2** and so on
+The second digit starts again with **segment A** and LEDs **0 and 13**, **segment B** consists of the LEDs number **1 and 2** and so on
 
 ### first digit of the hour
 - Segment A: 59, 46

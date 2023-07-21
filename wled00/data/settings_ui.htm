@@ -6,233 +6,247 @@
 	<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport"/>
 	<title>UI Settings</title>
 	<script>
-		var d = document;
-		var loc = false, locip;
-		var initial_ds, initial_st, initial_su;
-		var sett = null;
-		var l = {
-			"comp":{
-				"labels":"Show button labels",
-				"colors":{
-					"LABEL":"Color selection methods",
-					"picker": "Color Wheel",
-					"rgb": "RGB sliders",
-					"quick": "Quick color selectors",
-					"hex": "HEX color input"
-					},
-				"pcmbot": "Show bottom tab bar in PC mode",
-				"pid": "Show preset IDs",
-				"seglen": "Set segment length instead of stop LED",
-				"segpwr": "Hide segment power &amp; brightness",
-				"segexp" : "Always expand first segment",
-				"css": "Enable custom CSS",
-				"hdays": "Enable custom Holidays list"
+	var d = document;
+	var loc = false, locip, locproto = "http:";
+	var initial_ds, initial_st, initial_su;
+	var sett = null;
+	var l = {
+		"comp":{
+			"labels":"Show button labels",
+			"colors":{
+				"LABEL":"Color selection methods",
+				"picker": "Color Wheel",
+				"rgb": "RGB sliders",
+				"quick": "Quick color selectors",
+				"hex": "HEX color input"
+				},
+			"pcmbot": "Show bottom tab bar in PC mode",
+			"pid": "Show preset IDs",
+			"seglen": "Set segment length instead of stop LED",
+			"segpwr": "Hide segment power &amp; brightness",
+			"segexp" : "Always expand first segment",
+			"css": "Enable custom CSS",
+			"hdays": "Enable custom Holidays list",
+			"fxdef": "Use effect default parameters"
+		},
+		"theme":{
+			"alpha": {
+				"bg":"Background opacity",
+				"tab":"Button opacity"
 			},
-			"theme":{
-				"alpha": {
-					"bg":"Background opacity",
-					"tab":"Button opacity"
-				},
-				"bg":{
-					"url":"BG image URL",
-					"random":"Random BG image"
-				},
-				"color":{
-					"bg":"BG HEX color"
-				}
+			"bg":{
+				"url":"BG image URL",
+				"random":"Random BG image"
+			},
+			"color":{
+				"bg":"BG HEX color"
 			}
-		};
-		function gId(s) { return d.getElementById(s); }
-		function isObject(item) {
-			return (item && typeof item === 'object' && !Array.isArray(item));
 		}
-		function set(path, obj, val) {
-			var tar = obj;
-			var pList = path.split('_');
-			var len = pList.length;
-			for(var i = 0; i < len-1; i++) {
-				var elem = pList[i];
-				if( !tar[elem] ) tar[elem] = {}
-				tar = tar[elem];
-			}
-			tar[pList[len-1]] = val;
+	};
+	function gId(s) { return d.getElementById(s); }
+	function toggle(el) { gId(el).classList.toggle("hide"); gId('No'+el).classList.toggle("hide"); }
+	function isObject(item) {
+		return (item && typeof item === 'object' && !Array.isArray(item));
+	}
+	function set(path, obj, val) {
+		var tar = obj;
+		var pList = path.split('_');
+		var len = pList.length;
+		for(var i = 0; i < len-1; i++) {
+			var elem = pList[i];
+			if( !tar[elem] ) tar[elem] = {}
+			tar = tar[elem];
 		}
-		var timeout;
-		function showToast(text, error = false)
+		tar[pList[len-1]] = val;
+	}
+	var timeout;
+	function showToast(text, error = false)
+	{
+		var x = gId("toast");
+		x.innerHTML = text;
+		x.classList.add(error ? "error":"show");
+		clearTimeout(timeout);
+		x.style.animation = 'none';
+		timeout = setTimeout(function(){ x.classList.remove("show"); }, 2900);
+	}
+	function addRec(s, path = "", label = null)
+	{
+		var str = "";
+		for (i in s)
 		{
-			var x = gId("toast");
-			x.innerHTML = text;
-			x.classList.add(error ? "error":"show");
-			clearTimeout(timeout);
-			x.style.animation = 'none';
-			timeout = setTimeout(function(){ x.classList.remove("show"); }, 2900);
-		}
-		function addRec(s, path = "", label = null)
-		{
-			var str = "";
-			for (i in s)
-			{
-				var fk = path + (path?'_':'') + i;
-				if (isObject(s[i])) {
-					if (label && label[i] && label[i]["LABEL"]) str += `<h3>${label[i]["LABEL"]}</h3>`;
-					str += addRec(s[i], fk, label? label[i] : null);
-				} else {
-					var lb = fk;
-					if (label && label[i]) lb = label[i];
-					else if (s[i+'LABEL']) lb = s[i+'LABEL'];
-					if (i.indexOf('LABEL') > 0) continue;
-					var t = typeof s[i];
-					if (gId(fk)) { //already exists
-						if(t === 'boolean')
-						{
-							gId(fk).checked = s[i];
-						} else {
-							gId(fk).value = s[i];
-						}
-						if (gId(fk).previousElementSibling.matches('.l')) {
-							gId(fk).previousElementSibling.innerHTML = lb;
-						}
+			var fk = path + (path?'_':'') + i;
+			if (isObject(s[i])) {
+				if (label && label[i] && label[i]["LABEL"]) str += `<h3>${label[i]["LABEL"]}</h3>`;
+				str += addRec(s[i], fk, label? label[i] : null);
+			} else {
+				var lb = fk;
+				if (label && label[i]) lb = label[i];
+				else if (s[i+'LABEL']) lb = s[i+'LABEL'];
+				if (i.indexOf('LABEL') > 0) continue;
+				var t = typeof s[i];
+				if (gId(fk)) { //already exists
+					if(t === 'boolean')
+					{
+						gId(fk).checked = s[i];
 					} else {
-						if(t === 'boolean')
-						{
-							str += `${lb}: <input class="agi cb" type="checkbox" id=${fk} ${s[i]?"checked":""}><br>`;
-						} else if (t === 'number')
-						{
-							str += `${lb}: <input class="agi" type="number" id=${fk} value=${s[i]}><br>`;
-						} else if (t === 'string')
-						{
-							str += `${lb}:<br><input class="agi" id=${fk} value=${s[i]}><br>`;
-						}
+						gId(fk).value = s[i];
+					}
+					if (gId(fk).previousElementSibling.matches('.l')) {
+						gId(fk).previousElementSibling.innerHTML = lb;
+					}
+				} else {
+					if(t === 'boolean')
+					{
+						str += `${lb}: <input class="agi cb" type="checkbox" id=${fk} ${s[i]?"checked":""}><br>`;
+					} else if (t === 'number')
+					{
+						str += `${lb}: <input class="agi" type="number" id=${fk} value=${s[i]}><br>`;
+					} else if (t === 'string')
+					{
+						str += `${lb}:<br><input class="agi" id=${fk} value=${s[i]}><br>`;
 					}
 				}
 			}
-			return str;
 		}
+		return str;
+	}
 
-		function genForm(s) {
-			var str = "";
-			str = addRec(s,"",l);
-			
-			gId('gen').innerHTML = str;
+	function genForm(s) {
+		var str = "";
+		str = addRec(s,"",l);
+		
+		gId('gen').innerHTML = str;
+	}
+	function GetLS()
+	{
+		sett = localStorage.getItem('wledUiCfg');
+		if (!sett) gId('lserr').style.display = "inline";
+		try {
+			sett = JSON.parse(sett);
+		} catch (e) {
+			sett = {};
+			gId('lserr').style.display = "inline";
+			gId('lserr').innerHTML = "&#9888; Settings JSON parsing failed. (" + e + ")";
 		}
-		function GetLS()
-		{
-			sett = localStorage.getItem('wledUiCfg');
-			if (!sett) gId('lserr').style.display = "inline";
-			try {
-				sett = JSON.parse(sett);
-			} catch (e) {
-				sett = {};
-				gId('lserr').style.display = "inline";
-				gId('lserr').innerHTML = "&#9888; Settings JSON parsing failed. (" + e + ")";
-			}
-			genForm(sett);
-			gId('dm').checked = (gId('theme_base').value === 'light');
+		genForm(sett);
+		gId('dm').checked = (gId('theme_base').value === 'light');
+	}
+
+	function SetLS()
+	{
+		var l = d.querySelectorAll('.agi');
+		for (var i = 0; i < l.length; i++) {
+			var e = l[i];
+			var val = e.classList.contains('cb') ? e.checked : e.value;
+			set(e.id, sett, val);
+			console.log(`${e.id} set to ${val}`);
 		}
+		try {
+			localStorage.setItem('wledUiCfg', JSON.stringify(sett));
+			gId('lssuc').style.display = "inline";
+		} catch (e) {
+			gId('lssuc').style.display = "none";
+			gId('lserr').style.display = "inline";
+			gId('lserr').innerHTML = "&#9888; Settings JSON saving failed. (" + e + ")";
+		}
+	}
+
+	function cLS()
+	{
+		localStorage.removeItem('wledP');
+		localStorage.removeItem('wledPmt');
+		localStorage.removeItem('wledPalx');
+		showToast("Cleared.");
+	}
 	
-		function SetLS()
-		{
-			var l = d.querySelectorAll('.agi');
-			for (var i = 0; i < l.length; i++) {
-				var e = l[i];
-				var val = e.classList.contains('cb') ? e.checked : e.value;
-				set(e.id, sett, val);
-				console.log(`${e.id} set to ${val}`);
+	function Save() {
+		SetLS();
+		if (d.Sf.DS.value != initial_ds || d.Sf.ST.checked != initial_st || d.Sf.SU.checked != initial_su) d.Sf.submit();
+	}
+	
+	// https://www.educative.io/edpresso/how-to-dynamically-load-a-js-file-in-javascript
+	function loadJS(FILE_URL, async = true) {
+		let scE = d.createElement("script");
+		scE.setAttribute("src", FILE_URL);
+		scE.setAttribute("type", "text/javascript");
+		scE.setAttribute("async", async);
+		d.body.appendChild(scE);
+		// success event 
+		scE.addEventListener("load", () => {
+			//console.log("File loaded");
+			GetV(); 
+			initial_ds = d.Sf.DS.value;
+			initial_st = d.Sf.ST.checked;
+			initial_su = d.Sf.SU.checked;
+			GetLS();
+		});
+		// error event
+		scE.addEventListener("error", (ev) => {
+			console.log("Error on loading file", ev);
+			alert("Loading of configuration script failed.\nIncomplete page data!");
+		});
+	}
+	function S() {
+		let l = window.location;
+		if (l.protocol == "file:") {
+			loc = true;
+			locip = localStorage.getItem('locIp');
+			if (!locip) {
+				locip = prompt("File Mode. Please enter WLED IP!");
+				localStorage.setItem('locIp', locip);
 			}
-			try {
-				localStorage.setItem('wledUiCfg', JSON.stringify(sett));
-				gId('lssuc').style.display = "inline";
-			} catch (e) {
-				gId('lssuc').style.display = "none";
-				gId('lserr').style.display = "inline";
-				gId('lserr').innerHTML = "&#9888; Settings JSON saving failed. (" + e + ")";
-			}
-		}
-
-		function cLS()
-		{
-			localStorage.removeItem('wledP');
-			localStorage.removeItem('wledPmt');
-			localStorage.removeItem('wledPalx');
-			showToast("Cleared.");
-		}
-		
-		function Save() {
-			SetLS();
-			if (d.Sf.DS.value != initial_ds || d.Sf.ST.checked != initial_st || d.Sf.SU.checked != initial_su) d.Sf.submit();
-		}
-		
-		// https://www.educative.io/edpresso/how-to-dynamically-load-a-js-file-in-javascript
-		function loadJS(FILE_URL, async = true) {
-			let scE = d.createElement("script");
-			scE.setAttribute("src", FILE_URL);
-			scE.setAttribute("type", "text/javascript");
-			scE.setAttribute("async", async);
-			d.body.appendChild(scE);
-			// success event 
-			scE.addEventListener("load", () => {
-				//console.log("File loaded");
-				GetV(); 
-				initial_ds = d.Sf.DS.value;
-				initial_st = d.Sf.ST.checked;
-				initial_su = d.Sf.SU.checked;
-				GetLS();
-			});
-			// error event
-			scE.addEventListener("error", (ev) => {
-				console.log("Error on loading file", ev);
-				alert("Loading of configuration script failed.\nIncomplete page data!");
-			});
-		}
-		function S()
-		{
-			if (window.location.protocol == "file:") {
+		} else {
+			// detect reverse proxy
+			let path = l.pathname;
+			let paths = path.slice(1,path.endsWith('/')?-1:undefined).split("/");
+			if (paths.length > 2) {
+				locproto = l.protocol;
 				loc = true;
-				locip = localStorage.getItem('locIp');
-				if (!locip) {
-					locip = prompt("File Mode. Please enter WLED IP!");
-					localStorage.setItem('locIp', locip);
-				}
+				locip = l.hostname + (l.port ? ":" + l.port : "") + "/" + paths[0];
 			}
-			var url = (loc?`http://${locip}`:'') + '/settings/s.js?p=3';
-			loadJS(url, false);	// If we set async false, file is loaded and executed, then next statement is processed
 		}
-		function H() { window.open("https://kno.wled.ge/features/settings/#user-interface-settings"); }
-		function B() { window.open("/settings","_self"); }
-		function UI()
-		{
-			gId('idonthateyou').style.display = (gId('dm').checked) ? 'inline':'none';
-			var f = gId('theme_base');
-			if (f) f.value = (gId('dm').checked) ? 'light':'dark';
-		}
+		loadJS(getURL('/settings/s.js?p=3'), false);	// If we set async false, file is loaded and executed, then next statement is processed
+		if (loc) d.Sf.action = getURL('/settings/ui');
+	}
+	function getURL(path) {
+		return (loc ? locproto + "//" + locip : "") + path;
+	}
+	function H() { window.open("https://kno.wled.ge/features/settings/#user-interface-settings"); }
+	function B() { window.open(getURL("/settings"),"_self"); }
+	function UI()
+	{
+		gId('idonthateyou').style.display = (gId('dm').checked) ? 'inline':'none';
+		var f = gId('theme_base');
+		if (f) f.value = (gId('dm').checked) ? 'light':'dark';
+	}
 
-		// random BG image
-		function setRandomBg() {
-			if (gId("theme_bg_random").checked) {
-				gId("theme_bg_url").value = "https://picsum.photos/1920/1080";
-			} else {
-				gId("theme_bg_url").value = "";
-			}
-			
+	// random BG image
+	function setRandomBg() {
+		if (gId("theme_bg_random").checked) {
+			gId("theme_bg_url").value = "https://picsum.photos/1920/1080";
+		} else {
+			gId("theme_bg_url").value = "";
 		}
-		function checkRandomBg() {
-			if (gId("theme_bg_url").value === "https://picsum.photos/1920/1080") {
-				gId("theme_bg_random").checked = true;
-			} else {
-				gId("theme_bg_random").checked = false;
-			}
+		
+	}
+	function checkRandomBg() {
+		if (gId("theme_bg_url").value === "https://picsum.photos/1920/1080") {
+			gId("theme_bg_random").checked = true;
+		} else {
+			gId("theme_bg_random").checked = false;
 		}
-		function uploadFile(fO,name) {
-			var req = new XMLHttpRequest();
-			req.addEventListener('load', function(){showToast(this.responseText,this.status >= 400)});
-			req.addEventListener('error', function(e){showToast(e.stack,true);});
-			req.open("POST", "/upload");
-			var formData = new FormData();
-			formData.append("data", fO.files[0], name);
-			req.send(formData);
-			fO.value = '';
-			return false;
-		}
+	}
+	function uploadFile(fO,name) {
+		var req = new XMLHttpRequest();
+		req.addEventListener('load', function(){showToast(this.responseText,this.status >= 400)});
+		req.addEventListener('error', function(e){showToast(e.stack,true);});
+		req.open("POST", "/upload");
+		var formData = new FormData();
+		formData.append("data", fO.files[0], name);
+		req.send(formData);
+		fO.value = '';
+		return false;
+	}
 	</script>
 	<style>@import url("style.css");</style>
 </head>
@@ -247,7 +261,10 @@
 		<h2>Web Setup</h2>
 		Server description: <input type="text" name="DS" maxlength="32"><br>
 		Sync button toggles both send and receive: <input type="checkbox" name="ST"><br>
-		Enable simplified UI: <input type="checkbox" name="SU"><br>
+		<div id="NoSimple" class="hide">
+			<i class="warn">This firmware build does not include simplified UI support.<br></i>
+		</div>
+		<div id="Simple">Enable simplified UI: <input type="checkbox" name="SU"><br></div>
 		<i>The following UI customization settings are unique both to the WLED device and this browser.<br>
 		You will need to set them again if using a different browser, device or WLED IP address.<br>
 		Refresh the main UI to apply changes.</i><br>

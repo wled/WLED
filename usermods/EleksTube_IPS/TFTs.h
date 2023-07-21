@@ -133,13 +133,13 @@ private:
       return false;
     }
 
-    read32(bmpFS); // filesize in bytes
-    read32(bmpFS); // reserved
+    (void) read32(bmpFS); // filesize in bytes
+    (void) read32(bmpFS); // reserved
     seekOffset = read32(bmpFS); // start of bitmap
     headerSize = read32(bmpFS); // header size
     w = read32(bmpFS); // width
     h = read32(bmpFS); // height
-    read16(bmpFS); // color planes (must be 1)
+    (void) read16(bmpFS); // color planes (must be 1)
     bitDepth = read16(bmpFS);
 
     if (read32(bmpFS) != 0 || (bitDepth != 24 && bitDepth != 1 && bitDepth != 4 && bitDepth != 8)) {
@@ -151,9 +151,9 @@ private:
     uint32_t palette[256];
     if (bitDepth <= 8) // 1,4,8 bit bitmap: read color palette
     {
-      read32(bmpFS); read32(bmpFS); read32(bmpFS); // size, w resolution, h resolution
+      (void) read32(bmpFS); (void) read32(bmpFS); (void) read32(bmpFS); // size, w resolution, h resolution
       paletteSize = read32(bmpFS);
-      if (paletteSize == 0) paletteSize = bitDepth * bitDepth; //if 0, size is 2^bitDepth
+      if (paletteSize == 0) paletteSize = 1 << bitDepth; //if 0, size is 2^bitDepth
       bmpFS.seek(14 + headerSize); // start of color palette
       for (uint16_t i = 0; i < paletteSize; i++) {
         palette[i] = read32(bmpFS);
@@ -198,7 +198,7 @@ private:
           }
           b = c; g = c >> 8; r = c >> 16;
         }
-        if (dimming != 255) { // only dimm when needed
+        if (dimming != 255) { // only dim when needed
           r *= dimming; g *= dimming; b *= dimming;
           r  = r  >> 8; g  = g  >> 8; b  = b  >> 8;
         }

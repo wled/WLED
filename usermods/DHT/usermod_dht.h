@@ -1,6 +1,10 @@
 #pragma once
 
 #include "wled.h"
+#ifndef WLED_ENABLE_MQTT
+#error "This user mod requires MQTT to be enabled."
+#endif
+
 
 #include <dht_nonblocking.h>
 
@@ -62,6 +66,10 @@ class UsermodDHT : public Usermod {
     float humidity, temperature = 0;
     bool initializing = true;
     bool disabled = false;
+    #ifdef USERMOD_DHT_MQTT
+    char dhtMqttTopic[64];
+    size_t dhtMqttTopicLen;
+    #endif
     #ifdef USERMOD_DHT_STATS
     unsigned long nextResetStatsTime = 0;
     uint16_t updates = 0;
@@ -76,6 +84,10 @@ class UsermodDHT : public Usermod {
     void setup() {
       nextReadTime = millis() + USERMOD_DHT_FIRST_MEASUREMENT_AT;
       lastReadTime = millis();
+      #ifdef USERMOD_DHT_MQTT
+      sprintf(dhtMqttTopic, "%s/dht", mqttDeviceTopic);
+      dhtMqttTopicLen = strlen(dhtMqttTopic);
+      #endif
       #ifdef USERMOD_DHT_STATS
       nextResetStatsTime = millis() + 60*60*1000;
       #endif
@@ -110,10 +122,29 @@ class UsermodDHT : public Usermod {
         temperature = tempC * 9 / 5 + 32;
         #endif
 
+        #ifdef USERMOD_DHT_MQTT
+        // 10^n where n is number of decimal places to display in mqtt message. Please adjust buff size together with this constant
+        #define FLOAT_PREC 100
+        if (WLED_MQTT_CONNECTED) {
+          char buff[10];
+
+          strcpy(dhtMqttTopic + dhtMqttTopicLen, "/temperature");
+          sprintf(buff, "%d.%d", (int)temperature, ((int)(temperature * FLOAT_PREC)) % FLOAT_PREC);
+          mqtt->publish(dhtMqttTopic, 0, false, buff);
+
+          sprintf(buff, "%d.%d", (int)humidity, ((int)(humidity * FLOAT_PREC)) % FLOAT_PREC);
+          strcpy(dhtMqttTopic + dhtMqttTopicLen, "/humidity");
+          mqtt->publish(dhtMqttTopic, 0, false, buff);
+
+          dhtMqttTopic[dhtMqttTopicLen] = '\0';
+        }
+        #undef FLOAT_PREC
+        #endif
+
         nextReadTime = millis() + USERMOD_DHT_MEASUREMENT_INTERVAL;
         lastReadTime = millis();
         initializing = false;
-        
+
         #ifdef USERMOD_DHT_STATS
         unsigned long icalc = millis() - currentIteration;
         if (icalc > maxIteration) {
@@ -134,7 +165,7 @@ class UsermodDHT : public Usermod {
       dcalc = millis() - dcalc;
       if (dcalc > maxDelay) {
         maxDelay = dcalc;
-      } 
+      }
       #endif
 
       if (((millis() - lastReadTime) > 10*USERMOD_DHT_MEASUREMENT_INTERVAL)) {
@@ -207,7 +238,7 @@ class UsermodDHT : public Usermod {
       temp.add("°F");
       #endif
     }
-   
+
     uint16_t getId()
     {
       return USERMOD_ID_DHT;

@@ -15,7 +15,7 @@ Not supported:
 - On-device setup with buttons (WiFi setup only)
 
 Your images must be 1-135 pixels wide and 1-240 pixels high.
-For BMP, 1, 4, 8, and 24 bits per pixel formats are supported.
+BMP 1, 4, 8, and 24 bits per pixel formats are supported.
 
 ## Installation 
 
@@ -26,11 +26,11 @@ Use LED pin 12, relay pin 27 and button pin 34.
 
 ## Use of RGB565 images
 
-Binary 16-bit per pixel RGB565 format `.bin` and `.clk` images are now supported. This has the benefit of only using 2/3rds of the file size a 24 BPP `.bmp` has.
-The drawback is that this format cannot be handled by common image programs and that an extra conversion step is needed.
+Binary 16-bit per pixel RGB565 format `.bin` and `.clk` images are now supported. This has the benefit of using only 2/3rds of the file space a 24 BPP `.bmp` occupies.
+The drawback is this format cannot be handled by common image programs and an extra conversion step is needed.
 You can use https://lvgl.io/tools/imageconverter to convert your .bmp to a .bin file (settings `True color` and `Binary RGB565`).  
 Thank you to @RedNax67 for adding .bin and .clk support.  
-For most clockface designs, using 4 or 8 BPP BMP formats will save even more file size:
+For most clockface designs, using 4 or 8 BPP BMP format will reduce file size even more:
 
 | Bits per pixel | File size in kB (for 135x240 img) | % of 24 BPP BMP | Max unique colors
 | --- | --- | --- | --- |

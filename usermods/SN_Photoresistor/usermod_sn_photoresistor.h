@@ -109,6 +109,7 @@ public:
     {
       lastLDRValue = currentLDRValue;
 
+#ifndef WLED_DISABLE_MQTT
       if (WLED_MQTT_CONNECTED)
       {
         char subuf[45];
@@ -121,6 +122,7 @@ public:
         DEBUG_PRINTLN("Missing MQTT connection. Not publishing data");
       }
     }
+#endif
   }
 
   uint16_t getLastLDRValue()

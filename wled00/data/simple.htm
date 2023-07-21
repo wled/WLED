@@ -127,19 +127,19 @@
 				<p class="label h">RGB channels</p>
 				<div id="rwrap" class="il">
 					<div class="sliderwrap il">
-						<input id="sliderR" onchange="fromRgb()" max="255" min="0" type="range" value="128" />
+						<input id="sliderR" class="noslide" onchange="fromRgb()" max="255" min="0" type="range" value="128" />
 						<div class="sliderdisplay"></div>
 					</div>
 				</div><br>
 				<div id="gwrap" class="il">
 					<div class="sliderwrap il">
-						<input id="sliderG" onchange="fromRgb()" max="255" min="0" type="range" value="128" />
+						<input id="sliderG" class="noslide" onchange="fromRgb()" max="255" min="0" type="range" value="128" />
 						<div class="sliderdisplay"></div>
 					</div>
 				</div><br>
 				<div id="bwrap" class="il">
 					<div class="sliderwrap il">
-						<input id="sliderB" onchange="fromRgb()" max="255" min="0" type="range" value="128" />
+						<input id="sliderB" class="noslide" onchange="fromRgb()" max="255" min="0" type="range" value="128" />
 						<div class="sliderdisplay"></div>
 					</div>
 				</div><br>
@@ -147,14 +147,14 @@
 			<div id="wwrap" class="center">
 				<p class="label h">White channel</p>
 				<div class="sliderwrap il">
-					<input id="sliderW" onchange="setColor(0)" max="255" min="0" type="range" value="128" />
+					<input id="sliderW" class="noslide" onchange="setColor(0)" max="255" min="0" type="range" value="128" />
 					<div class="sliderdisplay"></div>
 				</div>
 			</div>
 			<div id="wbal">
 				<p class="label h">White balance</p>
 				<div class="sliderwrap il">
-					<input id="sliderA" onchange="setBalance(this.value)" max="255" min="0" type="range" value="128" />
+					<input id="sliderA" class="noslide" onchange="setBalance(this.value)" max="255" min="0" type="range" value="128" />
 					<div class="sliderdisplay"></div>
 				</div>
 			</div>

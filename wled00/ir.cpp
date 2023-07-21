@@ -70,13 +70,9 @@ void decBrightness()
   }
 }
 
-// apply preset or fallback to a effect and palette if it doesn't exist
-void presetFallback(uint8_t presetID, uint8_t effectID, uint8_t paletteID) 
+void presetFallback(uint8_t presetID, uint8_t effectID, uint8_t paletteID)
 {
-  applyPreset(presetID, CALL_MODE_BUTTON_PRESET);
-  //these two will be overwritten if preset exists in handlePresets()
-  effectCurrent = effectID;      
-  effectPalette = paletteID;
+  applyPresetWithFallback(presetID, CALL_MODE_BUTTON_PRESET, effectID, paletteID);
 }
 
 byte relativeChange(byte property, int8_t amount, byte lowerBoundary, byte higherBoundary)
@@ -110,7 +106,7 @@ void changePalette(uint8_t pal)
     for (uint8_t i = 0; i < strip.getSegmentsNum(); i++) {
       Segment& seg = strip.getSegment(i);
       if (!seg.isActive() || !seg.isSelected()) continue;
-      seg.palette = pal;
+      seg.setPalette(pal);
     }
     setValuesFromFirstSelectedSeg();
   } else {
@@ -282,7 +278,7 @@ void decodeIR(uint32_t code)
   if (code > 0xFFFFFF) return; //invalid code
 
   switch (irEnabled) {
-    case 1: 
+    case 1:
       if (code > 0xF80000) decodeIR24OLD(code); // white 24-key remote (old) - it sends 0xFF0000 values
       else                 decodeIR24(code);    // 24-key remote - 0xF70000 to 0xF80000
       break;
@@ -419,7 +415,7 @@ void decodeIR24CT(uint32_t code)
     case IR24_CT_CTPLUS     : changeColor(COLOR_COLDWHITE, strip.getSegment(strip.getMainSegmentId()).cct+1); changeEffect(FX_MODE_STATIC); break;
     case IR24_CT_CTMINUS    : changeColor(COLOR_WARMWHITE, strip.getSegment(strip.getMainSegmentId()).cct-1); changeEffect(FX_MODE_STATIC); break;
     case IR24_CT_MEMORY     : changeColor(COLOR_NEUTRALWHITE,                                           127); changeEffect(FX_MODE_STATIC); break;
-    default: return; 
+    default: return;
   }
   lastValidCode = code;
 }
@@ -611,13 +607,13 @@ void decodeIR9(uint32_t code)
 
 /*
 This allows users to customize IR actions without the need to edit C code and compile.
-From the https://github.com/Aircoookie/WLED/wiki/Infrared-Control page, download the starter 
+From the https://github.com/Aircoookie/WLED/wiki/Infrared-Control page, download the starter
 ir.json file that corresponds to the number of buttons on your remote.
 Many of the remotes with the same number of buttons emit the same codes, but will have
 different labels or colors. Once you edit the ir.json file, upload it to your controller
 using the /edit page.
 
-Each key should be the hex encoded IR code. The "cmd" property should be the HTTP API 
+Each key should be the hex encoded IR code. The "cmd" property should be the HTTP API
 or JSON API command to execute on button press. If the command contains a relative change (SI=~16),
 it will register as a repeatable command. If the command doesn't contain a "~" but is repeatable, add "rpt" property
 set to true. Other properties are ignored but having labels and positions can assist with editing
@@ -632,7 +628,7 @@ Sample:
                "label": "Preset 1, fallback to Saw - Party if not found"},
 }
 */
-void decodeIRJson(uint32_t code) 
+void decodeIRJson(uint32_t code)
 {
   char objKey[10];
   String cmdStr;
@@ -720,10 +716,10 @@ void handleIR()
     if (irEnabled > 0)
     {
       if (irrecv == NULL)
-      { 
+      {
         initIR(); return;
       }
-      
+
       if (irrecv->decode(&results))
       {
         if (results.value != 0) // only print results if anything is received ( != 0 )

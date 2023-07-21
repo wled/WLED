@@ -19,19 +19,23 @@ Distributed as-is; no warranty is given.
 #ifndef SparkFunDMX_h
 #define SparkFunDMX_h
 
+#define DMX_SEND_ONLY // this disables DMX sending features, and saves us two GPIO pins
+
 // ---- Methods ----
 
 class SparkFunDMX {
 public:
-  void initRead(int maxChan);
   void initWrite(int maxChan);
+#if !defined(DMX_SEND_ONLY)
+  void initRead(int maxChan);
   uint8_t read(int Channel);
+#endif
   void write(int channel, uint8_t value);
   void update();
 private:
-  uint8_t _startCodeValue = 0xFF;
-  bool _READ = true;
-  bool _WRITE = false;
+  const uint8_t _startCodeValue = 0xFF;
+  const bool _READ = true;
+  const bool _WRITE = false;
   bool _READWRITE;
 };
 

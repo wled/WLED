@@ -1,0 +1,2026 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="author" content="@ajotanc" />
+
+    <title>Pixel Magic Tool</title>
+
+    <!-- <link
+      rel="shortcut icon"
+      href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAGXRFWHRTb2Z0d2FyZQBBZG9iZSBJbWFnZVJlYWR5ccllPAAAAK9JREFUeNqUUssNwyAMJZWVUw4dhRHakZA6RqWMFEbwKDnk1FNBekEWxOBYQggL/D68yXXq+M7PtHkcefn89vrOw/UrP96w/NUFGiDLRz71GyY0QJa1Yn+nFa0ShqUNYCAF0QvoceOB4naEZif6UTNRapYaTyauRi4DEspr4Hbs5YKsbmtMyeJ0LxeESV4gB+hlSy4oO2txWysyus0a0+lO6vBjxcTMlG4mt2H6F2AAhU5NWu4dorQAAAAASUVORK5CYII=
+  " /> -->
+
+    <style>
+      :root {
+        --overlay: rgba(0, 0, 0, 0.5);
+        --background: #111;
+        --text: #bbb;
+        --gray-dark: #222;
+        --gray-medium: #333;
+        --gray-light: #eeeeee;
+        --blue-dark: #284352;
+        --blue-medium: #3b708b;
+        --blue-light: #48a;
+        --success-dark: #03440c;
+        --success-medium: #548c2f;
+        --success-light: #8ac926;
+        --error-dark: #a80a0a;
+        --error-medium: #c9262b;
+        --error-light: #ff595e;
+        --warning-dark: #dc2f02;
+        --warning-medium: #e85d04;
+        --warning-light: #f48c06;
+      }
+
+      ::selection {
+        background: var(--blue-light);
+      }
+
+      * {
+        font-family: "Helvetica", Verdana, sans-serif;
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      body {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: 100vh;
+        background: var(--background);
+      }
+
+      canvas {
+        width: 100%;
+      }
+
+      form {
+        margin-bottom: 20px;
+      }
+
+      small {
+        display: block;
+        font-weight: 400;
+        margin: 2px 0 5px;
+        color: var(--text);
+        font-size: 12px;
+      }
+
+      footer {
+        width: 100%;
+        margin: 0 auto 20px;
+        display: block;
+        text-align: center;
+      }
+
+      a {
+        text-decoration: none;
+        color: var(--blue-light);
+        font-size: 12px;
+        font-weight: 600;
+      }
+
+      :is(a:hover, a:focus, a:active) {
+        color: var(--blue-medium);
+      }
+
+      .m-zero {
+        margin: 0 !important;
+      }
+
+      .m-bottom {
+        margin-bottom: 10px !important;
+      }
+
+      .m-top {
+        margin-top: 10px !important;
+      }
+
+      .container {
+        width: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-direction: column;
+      }
+
+      .content {
+        width: calc(100% - 40px);
+        max-width: 768px;
+        margin: 20px;
+      }
+
+      .row {
+        display: flex;
+        flex-wrap: nowrap;
+        justify-content: space-between;
+        margin: 20px 0 0;
+      }
+
+      .column {
+        flex-basis: calc(50% - 10px);
+        position: relative;
+        padding: 0 5px;
+      }
+
+      .column-full {
+        flex-basis: 100%;
+        position: relative;
+        padding: 0 5px;
+      }
+
+      label {
+        display: block;
+        margin-bottom: 5px;
+        font-weight: bold;
+        color: var(--text);
+      }
+
+      input[type="text"],
+      input[type="number"],
+      select,
+      textarea {
+        width: 100%;
+        padding: 10px;
+        border-radius: 50px;
+        background-color: var(--gray-medium);
+        border: 1px solid var(--gray-medium);
+        outline: none;
+        color: var(--gray-light);
+        font-size: 14px;
+      }
+
+      input[type="color"] {
+        width: 32px;
+        height: 32px;
+        cursor: pointer;
+        padding: 0px 1px;
+        outline: none;
+      }
+
+      .input-group {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+      }
+
+      .input-group input:not([type="range"]) {
+        border-radius: 8px 0 0 8px;
+      }
+
+      .input-group .input-description {
+        width: 38px;
+        height: 38px;
+        padding: 10px 0;
+        color: var(--gray-dark);
+        background: var(--gray-light);
+        border-radius: 0px 5px 5px 0;
+        border: 1px solid var(--gray-light);
+        border-left: 0;
+        text-align: center;
+        font-size: 14px;
+        line-height: 16px;
+        font-weight: 600;
+      }
+
+      .input-group .square {
+        border-radius: 8px !important;
+        margin-left: 10px;
+      }
+
+      textarea {
+        resize: vertical;
+        min-height: 200px;
+        border-radius: 8px;
+      }
+
+      .custom-select {
+        position: relative;
+      }
+
+      .custom-select select {
+        appearance: none;
+        -webkit-appearance: none;
+        -moz-appearance: none;
+        background-image: none;
+        padding-right: 20px;
+        cursor: pointer;
+      }
+
+      .custom-select label::after {
+        content: "";
+        position: absolute;
+        top: calc(50% + 6px);
+        right: 16px;
+        transform: rotate(135deg);
+        width: 6px;
+        height: 6px;
+        border-top: 2px solid var(--gray-light);
+        border-right: 2px solid var(--gray-light);
+        pointer-events: none;
+      }
+
+      .dropzone {
+        width: 100%;
+        border: 1px dashed var(--gray-light);
+        background-color: var(--gray-dark);
+        color: var(--gray-light);
+        text-align: center;
+        padding: 40px 10px;
+        border-radius: 8px;
+        margin: 20px 0 0;
+        transition: all 0.5s ease-in-out;
+      }
+
+      .dropzone:hover {
+        cursor: pointer;
+        color: var(--gray-dark);
+        background-color: var(--gray-light);
+        border-color: var(--gray-dark);
+      }
+
+      .dropzone.dragover {
+        background-color: var(--gray-medium);
+      }
+
+      .range-slider {
+        appearance: none;
+        background-color: var(--gray-light);
+        height: 8px;
+        width: 100%;
+        border-radius: 10px;
+        outline: none;
+        margin: 16px 0;
+      }
+
+      .range-slider::-webkit-slider-thumb {
+        appearance: none;
+        height: 16px;
+        width: 16px;
+        background-color: var(--gray-dark);
+        border-radius: 50%;
+        cursor: pointer;
+        border: 0;
+      }
+
+      .switch {
+        position: relative;
+        display: inline-block;
+        width: 38px;
+        height: 20px;
+      }
+
+      .switch input {
+        outline: none;
+        display: none;
+      }
+
+      .switch-slider {
+        position: absolute;
+        cursor: pointer;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: var(--gray-medium);
+        border-radius: 34px;
+        transition: 0.4s;
+      }
+
+      .switch-slider:before {
+        position: absolute;
+        content: "";
+        height: 14px;
+        width: 14px;
+        left: 3px;
+        bottom: 3px;
+        background-color: white;
+        border-radius: 50%;
+        transition: 0.4s;
+      }
+
+      input:checked + .switch-slider {
+        background-color: var(--blue-light);
+      }
+
+      input:focus + .switch-slider {
+        box-shadow: 0 0 1px var(--blue-light);
+      }
+
+      input:checked + .switch-slider:before {
+        transform: translateX(18px);
+      }
+
+      #toast-container {
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        z-index: 9999;
+      }
+
+      .toast {
+        display: flex;
+        align-items: center;
+        width: auto;
+        padding: 6px 12px;
+        margin: 10px 0 0;
+        border-radius: 8px;
+        transform: translateY(30px);
+        opacity: 0;
+        visibility: hidden;
+      }
+
+      .toast .toast-body {
+        padding: 8px 0;
+        font-weight: 600;
+        color: var(--text);
+        letter-spacing: 0.5px;
+      }
+
+      .toast.success {
+        background-color: var(--success-medium);
+      }
+
+      .toast.error {
+        background-color: var(--error-light);
+      }
+
+      .toast.warning {
+        background-color: var(--warning-light);
+      }
+
+      .toast-progress {
+        position: absolute;
+        left: 4px;
+        bottom: 4px;
+        width: calc(100% - 8px);
+        height: 3px;
+        transform: scaleX(0);
+        transform-origin: left;
+        border-radius: inherit;
+      }
+
+      .toast.success .toast-progress {
+        background: linear-gradient(
+          to right,
+          var(--success-light),
+          var(--success-medium)
+        );
+      }
+
+      .toast.error .toast-progress {
+        background: linear-gradient(
+          to right,
+          var(--error-light),
+          var(--error-medium)
+        );
+      }
+
+      .toast.warning .toast-progress {
+        background: linear-gradient(
+          to right,
+          var(--warning-light),
+          var(--warning-medium)
+        );
+      }
+
+      .header {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 0 0 20px;
+      }
+
+      .header .brand {
+        width: 100%;
+        max-width: 200px;
+        height: 100%;
+        display: block;
+        outline: none;
+        border: 0;
+      }
+
+      .carousel {
+        display: flex;
+        height: 100%;
+        width: 100%;
+        cursor: pointer;
+      }
+
+      .carousel img {
+        display: block;
+        width: 100%;
+        height: 100%;
+        margin-right: 20px;
+        border: 0;
+      }
+
+      .carousel img:last-child {
+        margin-right: 0;
+      }
+
+      .button {
+        width: 100%;
+        border: 0;
+        padding: 10px 18px;
+        border-radius: 50px;
+        color: var(--text);
+        cursor: pointer;
+        margin: 0 0 10px;
+        background: var(--gray-medium);
+        border: 1px solid var(--gray-dark);
+        transition: all 0.5s ease-in-out;
+        font-size: 14px;
+        font-weight: 600;
+      }
+
+      .button:hover {
+        background: var(--gray-dark);
+        border: 1px solid var(--gray-medium);
+      }
+
+      .button:last-child {
+        margin-bottom: 0;
+      }
+
+      .buttons {
+        display: flex;
+        flex-direction: column;
+        width: 100%;
+      }
+
+      #overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: var(--overlay);
+        display: none;
+      }
+
+      #overlay.loading::after {
+        content: "";
+        display: block;
+        position: absolute;
+        top: calc(50% - 19px);
+        left: calc(50% - 19px);
+        width: 26px;
+        height: 26px;
+        border: 6px solid var(--gray-light);
+        border-top-color: var(--gray-dark);
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+      }
+
+      #recreatedImage {
+        margin: 20px 0;
+      }
+
+      .invalid {
+        border: 1px solid var(--error-dark) !important;
+      }
+
+      .error-message {
+        display: block;
+        color: var(--error-dark);
+        padding: 4px 0;
+        font-weight: 600;
+        font-size: 12px;
+      }
+
+      @media (max-width: 767px) {
+        .header {
+          padding-bottom: 0;
+        }
+
+        .row {
+          flex-wrap: wrap;
+          flex-direction: column;
+          margin: 0;
+        }
+
+        .column,
+        .column-full {
+          flex-basis: 100%;
+          margin: 20px 0 0;
+          padding: 0;
+        }
+      }
+
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      @keyframes progress {
+        to {
+          transform: scaleX(1);
+        }
+      }
+
+      @keyframes fadeIn {
+        5% {
+          opacity: 1;
+          visibility: visible;
+          transform: translateY(0);
+        }
+
+        95% {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="content">
+        <form id="formGenerate" novalidate>
+          <div class="header">
+            <svg
+              class="brand"
+              version="1.1"
+              xmlns="http://www.w3.org/2000/svg"
+              xmlns:xlink="http://www.w3.org/1999/xlink"
+              x="0px"
+              y="0px"
+              width="200px"
+              height="130px"
+              viewBox="0 0 200 130"
+              enable-background="new 0 0 200 130"
+              xml:space="preserve">
+              <image
+                width="200"
+                height="130"
+                x="0"
+                y="0"
+                href="data:image/png;base64,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
+          ZVJlYWR5ccllPAAAAABJRU5ErkJggg==" />
+            </svg>
+          </div>
+          <div class="row">
+            <div class="column" validate>
+              <label for="hostname">Hostname</label>
+              <input type="text" name="hostname" id="hostname" required />
+            </div>
+            <div class="column" validate>
+              <label for="name">Preset Name</label>
+              <input
+                type="text"
+                name="name"
+                id="name"
+                value="New Preset"
+                required />
+            </div>
+          </div>
+          <div class="row">
+            <div class="column" validate>
+              <div class="custom-select">
+                <label for="pattern">Pattern</label>
+                <select name="pattern" id="pattern" required>
+                  <option value="">Select a choice</option>
+                  <option value="1" title="['ffffff']" selected>
+                    Individual
+                  </option>
+                  <option value="2" title="[0, 'ffffff']">Index</option>
+                  <option value="3" title="[0, 5, 'ffffff']">Range</option>
+                </select>
+              </div>
+            </div>
+            <div class="column" validate>
+              <div class="custom-select">
+                <label for="output">Output</label>
+                <select name="output" id="output" required>
+                  <option value="">Select a choice</option>
+                  <option value="json" selected>WLED JSON</option>
+                  <option value="ha">Home Assistant</option>
+                  <option value="curl">CURL</option>
+                </select>
+              </div>
+            </div>
+          </div>
+          <div class="row output" style="display: none">
+            <div class="column" validate>
+              <label for="device">Device</label>
+              <input type="text" name="device" id="device" required />
+            </div>
+            <div class="column" validate>
+              <label for="uniqueId">Unique Id</label>
+              <input type="text" name="uniqueId" id="uniqueId" required />
+            </div>
+            <div class="column" validate>
+              <label for="friendlyName">Friendly Name</label>
+              <input
+                type="text"
+                name="friendlyName"
+                id="friendlyName"
+                required />
+            </div>
+          </div>
+          <div class="row">
+            <div class="column" validate>
+              <div class="custom-select">
+                <label for="segments">Segment Id</label>
+                <select name="segments" id="segments">
+                  <option value="0" data-width="16" data-height="16">
+                    Segment 0
+                  </option>
+                </select>
+              </div>
+            </div>
+            <div class="column" validate>
+              <label for="brightness">Brightness</label>
+              <div class="input-group">
+                <input
+                  type="range"
+                  name="brightness"
+                  id="brightness"
+                  min="0"
+                  max="255"
+                  value="128"
+                  class="range-slider" />
+                <input
+                  type="text"
+                  id="brightnessValue"
+                  class="input-description square"
+                  value="128" />
+              </div>
+            </div>
+          </div>
+          <div class="row">
+            <div class="column" validate>
+              <label for="animation">Animation</label>
+              <label class="switch">
+                <input type="checkbox" name="animation" id="animation" />
+                <span class="switch-slider"></span>
+              </label>
+            </div>
+            <div class="column" validate>
+              <label for="transparentImage">Transparent Image</label>
+              <label class="switch">
+                <input
+                  type="checkbox"
+                  name="transparentImage"
+                  id="transparentImage" />
+                <span class="switch-slider"></span>
+              </label>
+            </div>
+            <div class="column" validate>
+              <label for="resizeImage">Resize Image</label>
+              <label class="switch">
+                <input type="checkbox" name="resizeImage" id="resizeImage" />
+                <span class="switch-slider"></span>
+              </label>
+            </div>
+          </div>
+          <div class="row resizeImage" style="display: none">
+            <div class="column" validate>
+              <label for="width">Width</label>
+              <input type="number" name="width" id="width" value="16" />
+            </div>
+            <div class="column" validate>
+              <label for="height">Height</label>
+              <input type="number" name="height" id="height" value="16" />
+            </div>
+          </div>
+          <div class="row animation" style="display: none">
+            <div class="column" validate>
+              <label for="frames">Frames</label>
+              <input type="number" name="frames" id="frames" value="4" />
+            </div>
+            <div class="column" validate>
+              <label for="duration">Duration</label>
+              <div class="input-group">
+                <input
+                  type="number"
+                  name="duration"
+                  id="duration"
+                  value="0.5"
+                  required="required"
+                  min="0"
+                  step="0.1"
+                  inputmode="numeric" />
+                <div class="input-description">sec</div>
+              </div>
+            </div>
+            <div class="column" validate>
+              <label for="transition">Transition</label>
+              <div class="input-group">
+                <input
+                  type="number"
+                  name="transition"
+                  id="transition"
+                  value="0.2"
+                  required="required"
+                  min="0"
+                  step="0.1"
+                  inputmode="numeric" />
+                <div class="input-description">sec</div>
+              </div>
+            </div>
+          </div>
+          <div class="row transparentImage" style="display: none">
+            <div class="column-full" validate>
+              <label for="color">Choose a color</label>
+              <small>
+                Color that will replace the
+                <strong>transparent pixels</strong> in the image
+              </small>
+              <input type="color" name="color" id="color" value="#eeeeee" />
+            </div>
+          </div>
+          <div class="row">
+            <div class="column-full" validate>
+              <div class="custom-select">
+                <label for="images">Images</label>
+                <select name="images" id="images" required>
+                  <option value="">Select a choice</option>
+                  <option value="upload">Upload</option>
+                </select>
+              </div>
+              <small>
+                Images uploaded to
+                <a id="wledEdit" href="http://[wled-ip]/edit" target="_blank">
+                  <strong>WLED</strong>
+                </a>
+                or upload image
+              </small>
+            </div>
+          </div>
+          <div id="dropzone" class="dropzone" validate style="display: none">
+            <p id="dropzoneLabel">
+              Drag and drop a file here or click to select a file
+            </p>
+            <input
+              type="file"
+              name="source"
+              id="source"
+              accept="image/jpg,image/jpeg,image/png,image/gif"
+              style="display: none" />
+          </div>
+          <div class="row">
+            <div class="column-full">
+              <button type="button" class="button" id="btnGenerate">
+                Generate
+              </button>
+            </div>
+          </div>
+        </form>
+        <div id="preview" style="display: none">
+          <div id="recreatedImage"></div>
+          <textarea name="response" id="response" readonly="readonly">
+          </textarea>
+          <div class="buttons">
+            <div class="row">
+              <div class="column">
+                <button type="button" class="button" id="btnCopyToClipboard">
+                  Copy to Clipboard
+                </button>
+              </div>
+              <div class="column">
+                <button type="button" class="button" id="btnSave">Save</button>
+              </div>
+              <div class="column">
+                <button type="button" class="button" id="btnDownloadPreset">
+                  Download
+                </button>
+              </div>
+            </div>
+            <div class="row" id="simulate" style="display: none">
+              <div class="column-full">
+                <button type="button" class="button" id="btnSimulatePreset">
+                  Simulate
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <footer>
+        <a href="https://github.com/ajotanc/PixelMagicTool" target="_blank">
+          Github &copy; Pixel Magic Tool
+        </a>
+      </footer>
+    </div>
+    <div id="toast-container"></div>
+    <div id="overlay"></div>
+  </body>
+  <script>
+    const d = document;
+    const params = new URLSearchParams(window.location.search);
+    const host = params.get("hn")
+      ? params.get("hn")
+      : window.location.host
+      ? window.location.host
+      : "0.0.0.0";
+    const protocol =
+      window.location.protocol === "file:" ? "http:" : window.location.protocol;
+
+    let WLED_URL = `${protocol}//${host}`;
+
+    const hostname = element("hostname");
+    hostname.value = host;
+
+    hostname.addEventListener("change", async () => {
+      WLED_URL = `${protocol}//${hostname.value}`;
+
+      await segments();
+      await images();
+
+      hostnameLabel();
+    });
+
+    let jsonSaveWLED = [];
+    let jsonSendWLED = {};
+
+    (async function () {
+      await segments();
+      await images();
+
+      hostnameLabel();
+    })();
+
+    function element(id) {
+      return d.getElementById(id);
+    }
+
+    function hostnameLabel() {
+      const link = element("wledEdit");
+      link.href = link.href.replace("[wled-ip]", hostname.value);
+    }
+
+    async function playlist() {
+      const { value: duration } = element("duration");
+      const { value: transition } = element("transition");
+      const { value: name } = element("name");
+
+      const urlPreset = `${WLED_URL}/presets.json`;
+      const url = `${WLED_URL}/json`;
+
+      try {
+        const response = await fetch(urlPreset);
+        const data = await response.json();
+        const items = Object.keys(data);
+
+        const ps = items.filter(
+          (key) =>
+            typeof data[key] === "object" &&
+            !data[key].playlist &&
+            data[key].n &&
+            data[key].n.startsWith(name)
+        );
+
+        const id =
+          items.find(
+            (key) =>
+              typeof data[key] === "object" &&
+              data[key].playlist &&
+              data[key].n &&
+              data[key].n === name
+          ) || parseInt(items.pop()) + 1;
+
+        const body = {
+          psave: parseInt(id),
+          n: name,
+          on: true,
+          o: false,
+          playlist: {
+            ps,
+            dur: Array.from({ length: ps.length }, () => duration * 10),
+            transition: Array.from(
+              { length: ps.length },
+              () => transition * 10
+            ),
+            repeat: 0,
+            end: 0,
+          },
+        };
+
+        const options = {
+          method: "POST",
+          body: JSON.stringify(body),
+        };
+
+        try {
+          const response = await fetch(url, options);
+          const { success } = await response.json();
+
+          if (success) {
+            toast(`Playlist "${name}" save successfully`);
+          }
+        } catch (error) {
+          toast(`Error saving preset: ${error}`, "error");
+        }
+      } catch (error) {
+        toast(error, "error");
+      }
+    }
+
+    async function insert(data, isAnimated = false, delay = 5000) {
+      const urlPreset = `${WLED_URL}/presets.json`;
+      const url = `${WLED_URL}/json`;
+
+      let requestsCompleted = 0;
+
+      show();
+
+      const promises = data.map(async (item) => {
+        return new Promise((resolve, reject) => {
+          setTimeout(async () => {
+            try {
+              const response = await fetch(urlPreset);
+              const data = await response.json();
+              const items = Object.keys(data);
+
+              const id =
+                items.find(
+                  (key) =>
+                    typeof data[key] === "object" &&
+                    !data[key].playlist &&
+                    data[key].n === item.n
+                ) || parseInt(items.pop()) + 1;
+
+              const body = Object.assign(item, { psave: parseInt(id) });
+              const options = {
+                method: "POST",
+                body: JSON.stringify(body),
+              };
+
+              try {
+                const response = await fetch(url, options);
+                const { success } = await response.json();
+
+                if (success) {
+                  toast(`Preset "${item.n}" save successfully`);
+                }
+              } catch (error) {
+                toast(`Error saving preset: ${error}`, "error");
+              }
+            } catch (error) {
+              toast(error, "error");
+            } finally {
+              resolve();
+            }
+          }, delay * requestsCompleted++);
+        });
+      });
+
+      await Promise.all(promises);
+
+      if (isAnimated) {
+        setTimeout(async () => {
+          await playlist()
+            .then(() => {
+              hide();
+            })
+            .finally(() => {
+              hide();
+            });
+        }, delay);
+      } else {
+        hide();
+      }
+    }
+
+    async function images() {
+      const url = `${WLED_URL}/edit?list=/`;
+      const select = element("images");
+
+      show();
+
+      try {
+        const response = await fetch(url);
+        const data = await response.json();
+        const mimeTypes = ["jpeg", "jpg", "png", "gif"];
+
+        const images = data.filter((file) => {
+          const { name } = file;
+          const [filename, mimetype] = name.split(".");
+          file.name = name.replace("/", "");
+          return mimeTypes.includes(mimetype);
+        });
+
+        const options = [
+          { text: "Select a choice", value: "" },
+          { text: "Upload", value: "upload" },
+        ];
+
+        if (images) {
+          options.push(
+            ...images.map(({ name }) => ({
+              text: name,
+              value: `${WLED_URL}/${name}`,
+            }))
+          );
+
+          select.innerHTML = "";
+
+          options.forEach(({ text, value }) => {
+            const option = new Option(text, value);
+            select.appendChild(option);
+          });
+        }
+      } catch (error) {
+        toast(error, "error");
+      } finally {
+        hide();
+      }
+    }
+
+    async function segments() {
+      const select = element("segments");
+      const pattern = element("pattern");
+      const width = element("width");
+      const height = element("height");
+
+      show();
+
+      try {
+        const url = `${WLED_URL}/json/state`;
+        const response = await fetch(url);
+        const { seg: segments } = await response.json();
+
+        const options = [
+          { text: "Segment Default", value: 0, width: 16, height: 16 },
+        ];
+
+        if (segments) {
+          options.splice(0);
+          options.push(
+            ...segments.map(({ id, n, start, stop, startY, stopY }) => ({
+              text: n ? n : `Segment ${id}`,
+              value: id,
+              width: stop - start,
+              height: stopY - startY,
+            }))
+          );
+        }
+
+        select.innerHTML = "";
+
+        options.forEach(({ text, value, width: w, height: h }, index) => {
+          const option = new Option(text, value);
+          option.dataset.width = w;
+          option.dataset.height = h;
+
+          if (index === 0) {
+            option.selected = true;
+            width.value = w;
+            height.value = h;
+            pattern.value = w * h > 512 ? 3 : 1;
+          }
+
+          select.add(option);
+        });
+      } catch (error) {
+        toast(error, "error");
+      } finally {
+        hide();
+      }
+    }
+
+    const dropzone = element("dropzone");
+    const source = element("source");
+
+    dropzone.addEventListener("dragover", (e) => {
+      e.preventDefault();
+    });
+
+    dropzone.addEventListener("drop", (e) => {
+      e.preventDefault();
+
+      const dropzoneLabel = element("dropzoneLabel");
+
+      source.files = e.dataTransfer.files;
+
+      const { name } = source.files[0];
+      dropzoneLabel.textContent = `Image ${name} selected!`;
+
+      validate(e);
+    });
+
+    dropzone.addEventListener("click", () => {
+      source.click();
+    });
+
+    source.addEventListener("change", (e) => {
+      const dropzoneLabel = element("dropzoneLabel");
+      const { value } = e.target;
+
+      if (value) {
+        const { name } = e.target.files[0];
+        dropzoneLabel.textContent = `Image ${name} selected!`;
+      } else {
+        dropzoneLabel.textContent =
+          "Drag and drop a file here or click to select a file";
+      }
+
+      validate(e);
+    });
+
+    element("btnSimulatePreset").addEventListener("click", async () => {
+      const url = `${WLED_URL}/json/state`;
+
+      const options = {
+        method: "POST",
+        body: JSON.stringify(jsonSendWLED),
+      };
+
+      show();
+
+      try {
+        const response = await fetch(url, options);
+        const { success } = await response.json();
+
+        if (success) {
+          toast("Successfully simulated preset");
+        }
+      } catch (error) {
+        toast(error, "error");
+      } finally {
+        hide();
+      }
+    });
+
+    element("btnSave").addEventListener("click", async () => {
+      const { checked } = element("animation");
+      const { value: name } = element("name");
+
+      if (checked) {
+        await insert(jsonSaveWLED, true);
+      } else {
+        jsonSaveWLED.splice(0);
+
+        jsonSaveWLED.push(
+          Object.assign({}, jsonSendWLED, { n: name, o: false })
+        );
+
+        await insert(jsonSaveWLED);
+      }
+    });
+
+    element("btnCopyToClipboard").addEventListener("click", async () => {
+      const response = element("response");
+
+      response.select();
+
+      try {
+        await navigator.clipboard.writeText(response.value);
+        toast("Text copied to clipboard");
+      } catch (error) {
+        try {
+          await d.execCommand("copy");
+          toast("Text copied to clipboard");
+        } catch (error) {
+          toast(error, "error");
+        }
+      }
+    });
+
+    element("btnDownloadPreset").addEventListener("click", () => {
+      const { value: response } = element("response");
+      const { value: output } = element("output");
+
+      const timestamp = new Date().getTime();
+      const filename = `WLED_${timestamp}`;
+
+      downloadFile(response, filename, output);
+    });
+
+    element("segments").addEventListener("change", (e) => {
+      const width = element("width");
+      const height = element("height");
+
+      const { width: w, height: h } = e.target.selectedOptions[0].dataset;
+
+      width.value = w;
+      height.value = h;
+    });
+
+    element("output").addEventListener("change", (e) => {
+      const output = d.getElementsByClassName("output");
+      const { value } = e.target.selectedOptions[0];
+
+      Array.from(output).forEach(function (element) {
+        if (value === "ha") {
+          element.style.display = "flex";
+        } else {
+          element.style.display = "none";
+        }
+      });
+    });
+
+    element("brightnessValue").addEventListener("input", (e) => {
+      const brightness = element("brightness");
+      const { value } = e.target;
+
+      let bri = value <= 255 ? value : 255;
+
+      brightness.value = bri;
+      e.target.value = bri;
+    });
+
+    element("brightness").addEventListener("input", (e) => {
+      const brightnessValue = element("brightnessValue");
+      const { value } = e.target;
+
+      brightnessValue.value = value;
+    });
+
+    element("images").addEventListener("change", (e) => {
+      const dropzone = element("dropzone");
+      const { value } = e.target.selectedOptions[0];
+
+      if (value === "upload") {
+        const dropzoneLabel = element("dropzoneLabel");
+        const source = element("source");
+
+        dropzoneLabel.textContent =
+          "Drag and drop a file here or click to select a file";
+        source.value = "";
+
+        dropzone.style.display = "block";
+      } else {
+        dropzone.style.display = "none";
+      }
+    });
+
+    element("transparentImage").addEventListener("change", (e) => {
+      const transparentImage = d.getElementsByClassName("transparentImage");
+      const { checked } = e.target;
+
+      Array.from(transparentImage).forEach(function (element) {
+        if (checked) {
+          element.style.display = "flex";
+        } else {
+          element.style.display = "none";
+        }
+      });
+    });
+
+    element("resizeImage").addEventListener("change", (e) => {
+      const resizeImage = d.getElementsByClassName("resizeImage");
+      const pattern = element("pattern");
+      const { checked } = e.target;
+
+      Array.from(resizeImage).forEach(function (element) {
+        if (checked) {
+          pattern.value = 3;
+          element.style.display = "flex";
+        } else {
+          pattern.value = 1;
+          element.style.display = "none";
+        }
+      });
+    });
+
+    element("animation").addEventListener("change", (e) => {
+      const animation = d.getElementsByClassName("animation");
+
+      const pattern = element("pattern");
+      const source = element("source");
+
+      const { checked } = e.target;
+
+      Array.from(animation).forEach(function (element) {
+        if (checked) {
+          toast(
+            'If you want all frames in the image, set it to "0"',
+            "warning",
+            5000
+          );
+
+          source.setAttribute("accept", "image/gif");
+          element.style.display = "flex";
+          pattern.value = 3;
+        } else {
+          source.setAttribute(
+            "accept",
+            "image/jpg,image/jpeg,image/png,image/gif"
+          );
+          element.style.display = "none";
+          pattern.value = 1;
+        }
+      });
+    });
+
+    element("btnGenerate").addEventListener("click", async (event) => {
+      const { checked } = element("animation");
+
+      const preview = element("preview");
+      const recreatedImage = element("recreatedImage");
+      const simulate = element("simulate");
+
+      if (validate(event)) {
+        jsonSaveWLED.splice(0);
+
+        preview.style.display = "block";
+        recreatedImage.innerHTML = "";
+
+        if (checked) {
+          simulate.style.display = "none";
+          await generateAnimation();
+        } else {
+          simulate.style.display = "flex";
+          await generate();
+        }
+      }
+    });
+
+    function loadImage(src) {
+      return new Promise((resolve, reject) => {
+        const image = new Image();
+
+        image.addEventListener("load", function () {
+          resolve(image);
+        });
+
+        image.addEventListener("error", function () {
+          reject(new Error("Error loading image"));
+        });
+
+        image.src = src;
+      });
+    }
+
+    async function generate() {
+      const file = element("source").files[0];
+
+      const { value: images } = element("images");
+      const { value: output } = element("output");
+
+      show();
+
+      try {
+        const response = element("response");
+        const recreatedImage = element("recreatedImage");
+
+        const urlImage =
+          images === "upload" ? URL.createObjectURL(file) : images;
+
+        const image = await loadImage(urlImage);
+        const { canvas, bri, id, i } = recreate(image);
+
+        await new Promise((resolve) => {
+          Object.assign(jsonSendWLED, {
+            on: true,
+            bri,
+            seg: {
+              id,
+              i,
+            },
+          });
+
+          resolve();
+        });
+
+        const jsonData = JSON.stringify(jsonSendWLED);
+        const dataResponse = formatOutput(output, jsonData);
+
+        response.value = dataResponse;
+        recreatedImage.appendChild(canvas);
+      } catch (error) {
+        toast(error, "error");
+      } finally {
+        hide();
+      }
+    }
+
+    async function generateAnimation() {
+      const file = element("source").files[0];
+      const images = element("images");
+      const response = element("response");
+
+      const { value: presetName } = element("name");
+      const { value: amount } = element("frames");
+      const { value: output } = element("output");
+      const { value: duration } = element("duration");
+
+      const { text: imageName, value: imageValue } = images.selectedOptions[0];
+
+      show();
+
+      try {
+        const body = new FormData();
+
+        if (imageValue === "upload") {
+          body.append("image", file);
+        } else {
+          const responseImage = await fetch(imageValue);
+          const blob = await responseImage.blob();
+
+          const file = new File([blob], imageName, { type: blob.type });
+
+          body.append("image", file);
+        }
+
+        const responseFrames = await fetch(
+          `https://pixelmagictool.vercel.app/api/wled/frames?amount=${amount}`,
+          {
+            method: "POST",
+            body,
+          }
+        );
+
+        const { message, frames } = await responseFrames.json();
+
+        if (!responseFrames.ok) {
+          toast(message, "error");
+          return;
+        }
+
+        jsonSaveWLED = [];
+
+        const texteares = [];
+        const canvases = [];
+
+        const delay = duration * 1000;
+
+        const promises = frames.map(async (frame, index) => {
+          const image = await loadImage(frame);
+          const { canvas, bri, id, i } = recreate(image);
+          const jsonData = {
+            on: true,
+            bri,
+            seg: { id, i },
+          };
+
+          const n = `${presetName} ${index + 1}`;
+
+          texteares.push(`${n}|${JSON.stringify(jsonData)}`);
+          canvases.push(canvas);
+
+          jsonSaveWLED.push(Object.assign(jsonData, { n, o: true }));
+        });
+
+        await Promise.all(promises);
+
+        const dataResponse = texteares.map((item) => {
+          const [presetName, json] = item.split("|");
+          const outputFormatted = formatOutput(output, json);
+          const comment = ["ha", "curl"].includes(output) ? "#" : "//";
+
+          return `${comment} ${presetName}\n${outputFormatted}`;
+        });
+
+        response.value = dataResponse.join("\n");
+        toast(message);
+        carousel("recreatedImage", canvases, delay);
+      } catch (error) {
+        toast(error, "error");
+      } finally {
+        hide();
+      }
+    }
+
+    function recreate(image) {
+      const { value: pattern } = element("pattern");
+      const { value: segmentId } = element("segments");
+      const { value: brightness } = element("brightness");
+      const { value: inputWidth } = element("width");
+      const { value: inputHeight } = element("height");
+      const { checked: resizeImage } = element("resizeImage");
+
+      const resizeWidth = parseInt(inputWidth);
+      const resizeHeight = parseInt(inputHeight);
+
+      const { width: dataWidth, height: dataHeight } =
+        element("segments").selectedOptions[0].dataset;
+
+      const segmentWidth = parseInt(dataWidth);
+      const segmentHeight = parseInt(dataHeight);
+
+      const imgWidth = image.naturalWidth;
+      const imgHeight = image.naturalHeight;
+
+      const width = resizeImage ? resizeWidth : imgWidth;
+      const height = resizeImage ? resizeHeight : imgHeight;
+
+      const overallWidth = resizeImage ? segmentWidth : width;
+      const overallHeight = resizeImage ? segmentHeight : height;
+
+      const startX = Math.floor((segmentWidth - width) / 2);
+      const startY = Math.floor((segmentHeight - height) / 2);
+
+      const pixelsRef = 48;
+
+      const canvasWidth = overallWidth * pixelsRef;
+      const canvasHeight = overallHeight * pixelsRef;
+
+      const fontSize = canvasWidth <= 768 ? 14 : 18;
+
+      const colors = [];
+
+      const { ctx: reference } = createCanvas(width, height);
+
+      reference.drawImage(image, 0, 0, width, height);
+
+      const imageData = reference.getImageData(0, 0, width, height);
+      const pixels = imageData.data;
+
+      const { canvas, ctx } = createCanvas(canvasWidth, canvasHeight);
+
+      ctx.fillStyle = "#000000";
+      ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+
+      for (let h = 0; h < overallHeight; h++) {
+        for (let w = 0; w < overallWidth; w++) {
+          let pixelId = h * overallWidth + w + 1;
+
+          let coordinateX = w * pixelsRef;
+          let coordinateY = h * pixelsRef;
+
+          let pixelX = w - startX;
+          let pixelY = h - startY;
+
+          let hex = "000000";
+
+          if (
+            (resizeImage &&
+              pixelX >= 0 &&
+              pixelX < width &&
+              pixelY >= 0 &&
+              pixelY < height) ||
+            (!resizeImage && w < width && h < height)
+          ) {
+            let index = resizeImage ? pixelY * width + pixelX : h * width + w;
+
+            let red = pixels[index * 4];
+            let green = pixels[index * 4 + 1];
+            let blue = pixels[index * 4 + 2];
+            let alpha = pixels[index * 4 + 3];
+
+            hex = pixelColor(red, green, blue, alpha);
+            let { r, g, b } = hexToRgb(hex);
+
+            colors.push(hex);
+
+            ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
+            ctx.fillRect(coordinateX, coordinateY, pixelsRef, pixelsRef);
+          } else {
+            colors.push("000000");
+          }
+
+          ctx.lineWidth = 1;
+          ctx.strokeStyle = "#111111";
+          ctx.strokeRect(coordinateX, coordinateY, pixelsRef, pixelsRef);
+
+          let offsetX = coordinateX + pixelsRef / 2;
+          let offsetY = coordinateY + pixelsRef / 2;
+
+          ctx.font = `${fontSize}px Arial`;
+          ctx.fillStyle = hex === "000000" ? "#eeeeee" : "#111111";
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          ctx.fillText(pixelId, offsetX, offsetY);
+        }
+      }
+
+      switch (pattern) {
+        case "1":
+          i = colors;
+          break;
+        case "2":
+          i = index(colors);
+          break;
+        case "3":
+          i = range(colors);
+          break;
+      }
+
+      return {
+        canvas,
+        bri: parseInt(brightness),
+        id: parseInt(segmentId),
+        i,
+      };
+    }
+
+    function range(colors) {
+      let startIndex = 0;
+      let endIndex = 0;
+      let currentColor = colors[0];
+      let pattern = [];
+
+      colors.forEach((color, index) => {
+        if (color !== currentColor) {
+          endIndex = index;
+          const repetitions = endIndex - startIndex;
+
+          if (repetitions == 1) {
+            pattern.push(currentColor);
+          } else {
+            pattern.push(startIndex, endIndex, currentColor);
+          }
+          startIndex = index;
+        }
+        currentColor = color;
+      });
+
+      const lastRepetition = colors.length - startIndex;
+
+      if (lastRepetition === 1) {
+        pattern.push(currentColor);
+      } else {
+        pattern.push(startIndex, colors.length, currentColor);
+      }
+
+      return pattern;
+    }
+
+    function pixelColor(r, g, b, a) {
+      const { checked } = element("transparentImage");
+      const { value } = element("color");
+
+      if (a === 0) {
+        if (checked) {
+          return value.replace("#", "").toLowerCase();
+        }
+
+        return rgbToHex(255, 255, 255);
+      }
+
+      return rgbToHex(r, g, b);
+    }
+
+    function hexToRgb(hex) {
+      hex = hex.replace("#", "");
+
+      if (hex.length === 3) {
+        hex = hex.replace(/(.)/g, "$1$1");
+      }
+
+      const [r, g, b] = hex
+        .match(/.{2}/g)
+        .map((component) => parseInt(component, 16));
+
+      return { r, g, b };
+    }
+
+    function rgbToHex(r, g, b) {
+      const hex = ((r << 16) | (g << 8) | b).toString(16);
+      return ("000000" + hex).slice(-6);
+    }
+
+    function index(colors) {
+      const pattern = [];
+      colors.forEach((led, index) => {
+        pattern.push(index, led);
+      });
+
+      return pattern;
+    }
+
+    function createCanvas(width, height) {
+      const canvas = d.createElement("canvas");
+
+      canvas.width = width;
+      canvas.height = height;
+
+      const ctx = canvas.getContext("2d", { willReadFrequently: true });
+
+      ctx.imageSmoothingQuality = "high";
+      ctx.imageSmoothingEnabled = false;
+
+      return { canvas, ctx };
+    }
+
+    function formatOutput(output, json) {
+      return output === "ha"
+        ? yaml(json)
+        : output === "curl"
+        ? curl(json)
+        : json;
+    }
+
+    function downloadFile(text, filename, output) {
+      let mimeType;
+      let fileExtension;
+      let response;
+
+      switch (output) {
+        case "json":
+          mimeType = "application/json";
+          fileExtension = "json";
+          break;
+        case "ha":
+          mimeType = "application/x-yaml";
+          fileExtension = "yaml";
+          break;
+        case "curl":
+          mimeType = "text/plain";
+          fileExtension = "txt";
+          break;
+      }
+
+      const blob = new Blob([text], { type: mimeType });
+      const url = URL.createObjectURL(blob);
+
+      const anchorElement = d.createElement("a");
+      anchorElement.href = url;
+      anchorElement.download = `${filename}.${fileExtension}`;
+
+      anchorElement.click();
+
+      URL.revokeObjectURL(url);
+    }
+
+    function yaml(jsonData) {
+      const { value: device } = element("device");
+      const { value: friendly_name } = element("friendlyName");
+      const { value: unique_id } = element("uniqueId");
+      const { value: hostname } = element("hostname");
+
+      if (device) {
+        const yamlData = {
+          switches: {
+            [device]: {
+              friendly_name,
+              unique_id,
+              command_on: `curl -X POST "http://${hostname}/json/state" -d '${jsonData}' -H "Content-Type: application/json"`,
+              command_off: `curl -X POST "http://${hostname}/json/state" -d '{"on":false}' -H "Content-Type: application/json"`,
+            },
+          },
+        };
+
+        return convertToYaml(yamlData);
+      }
+    }
+
+    function curl(jsonData) {
+      const { value: hostname } = element("hostname");
+      return `curl -X POST "http://${hostname}/json/state" -d '${jsonData}' -H "Content-Type: application/json"`;
+    }
+
+    function convertToYaml(obj) {
+      function processValue(value, indentationLevel) {
+        if (typeof value === "object" && !Array.isArray(value)) {
+          return processObject(value, indentationLevel + 1);
+        } else {
+          return value;
+        }
+      }
+
+      function processObject(obj, indentationLevel = 0) {
+        const indent = "  ".repeat(indentationLevel);
+        const lines = Object.entries(obj).map(([key, value]) => {
+          if (typeof value === "object" && !Array.isArray(value)) {
+            return `${indent}${key}:\n${processObject(
+              value,
+              indentationLevel + 1
+            )}`;
+          } else {
+            return `${indent}${key}: ${processValue(value, indentationLevel)}`;
+          }
+        });
+
+        return lines.join("\n");
+      }
+
+      return processObject(obj);
+    }
+
+    function toast(
+      message,
+      type = "success",
+      duration = 2000,
+      hideElement = "preview"
+    ) {
+      const hide = element(hideElement);
+      const toast = d.createElement("div");
+      const wait = 100;
+
+      toast.style.animation = "fadeIn";
+      toast.style.animationDuration = `${duration + wait}ms`;
+      toast.style.animationTimingFunction = "linear";
+
+      toast.classList.add("toast", type);
+
+      const body = d.createElement("span");
+      body.classList.add("toast-body");
+
+      body.textContent = message;
+
+      toast.appendChild(body);
+
+      const progress = d.createElement("div");
+      progress.classList.add("toast-progress");
+
+      progress.style.animation = "progress";
+      progress.style.animationDuration = `${duration + wait}ms`;
+      progress.style.animationDelay = "0s";
+
+      toast.appendChild(progress);
+
+      element("toast-container").appendChild(toast);
+
+      setTimeout(() => {
+        toast.style.opacity = 0;
+        setTimeout(() => {
+          toast.remove();
+        }, wait);
+      }, duration);
+
+      if (type === "error") {
+        hide.style.display = "none";
+      }
+    }
+
+    function carousel(id, images, delay = 3000) {
+      let index = 0;
+      const carousel = d.createElement("div");
+      carousel.classList.add("carousel");
+
+      images.forEach((canvas, i) => {
+        if (i === index) {
+          carousel.appendChild(canvas);
+        } else {
+          canvas.style.display = "none";
+          carousel.appendChild(canvas);
+        }
+      });
+
+      const container = element(id);
+      container.innerHTML = "";
+      container.appendChild(carousel);
+
+      function next() {
+        images[index].style.display = "none";
+        index++;
+        if (index >= images.length) {
+          index = 0;
+        }
+
+        images[index].style.display = "block";
+        loop();
+      }
+
+      function previous() {
+        images[index].style.display = "none";
+        index--;
+        if (index < 0) {
+          index = images.length - 1;
+        }
+
+        images[index].style.display = "block";
+        loop();
+      }
+
+      let timeoutId;
+      function loop() {
+        clearTimeout(timeoutId);
+        timeoutId = setTimeout(() => {
+          next();
+          if (index === 0) {
+            carousel.scrollTo(0, 0);
+          }
+        }, delay);
+      }
+      loop();
+
+      carousel.addEventListener("mouseover", () => {
+        clearTimeout(timeoutId);
+      });
+
+      carousel.addEventListener("mouseout", () => {
+        loop();
+      });
+    }
+
+    function show() {
+      const overlay = element("overlay");
+      overlay.classList.add("loading");
+      overlay.style.display = "block";
+      overlay.style.cursor = "not-allowed";
+
+      d.body.style.overflow = "hidden";
+    }
+
+    function hide() {
+      const overlay = element("overlay");
+      overlay.classList.remove("loading");
+      overlay.style.display = "none";
+      overlay.style.cursor = "default";
+
+      d.body.style.overflow = "auto";
+    }
+
+    function validate(event) {
+      event.preventDefault();
+
+      const form = element("formGenerate");
+      const inputs = form.querySelectorAll("input, select, textarea");
+
+      let isValid = true;
+
+      const browserLanguage = navigator.language || navigator.userLanguage;
+      const messageRequired =
+        browserLanguage === "pt-br"
+          ? "Este campo é obrigatório"
+          : "This field is required";
+
+      inputs.forEach((input) => {
+        const parent = input.closest("[validate]");
+
+        if (!parent) {
+          return;
+        }
+
+        let isVisible = true;
+
+        let tempParent = parent;
+        while (tempParent !== d.body) {
+          const parentStyles = window.getComputedStyle(tempParent);
+          if (
+            parentStyles.display === "none" ||
+            parentStyles.display === "hidden"
+          ) {
+            isVisible = false;
+            break;
+          }
+          tempParent = tempParent.parentNode;
+        }
+
+        if (
+          isVisible &&
+          (!input.checkValidity() ||
+            (input.type === "file" && input.files.length === 0))
+        ) {
+          input.classList.add("invalid");
+
+          const errorMessage =
+            input.dataset.errorMessage ||
+            input.validationMessage ||
+            messageRequired;
+
+          let errorElement = parent.querySelector(".error-message");
+
+          if (!errorElement) {
+            errorElement = d.createElement("div");
+            errorElement.classList.add("error-message");
+            parent.appendChild(errorElement);
+          }
+
+          errorElement.innerText = errorMessage;
+          isValid = false;
+        } else {
+          input.classList.remove("invalid");
+          const errorElement = parent.querySelector(".error-message");
+
+          if (errorElement) {
+            parent.removeChild(errorElement);
+          }
+        }
+      });
+
+      return isValid;
+    }
+  </script>
+</html>

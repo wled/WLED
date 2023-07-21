@@ -14,9 +14,10 @@ Distributed as-is; no warranty is given.
 ******************************************************************************/
 
 /* ----- LIBRARIES ----- */
-#ifdef ESP32
+#if defined(ARDUINO_ARCH_ESP32)
 
 #include <Arduino.h>
+#if !defined(CONFIG_IDF_TARGET_ESP32C3)  && !defined(CONFIG_IDF_TARGET_ESP32S2)
 
 #include "SparkFunDMX.h"
 #include <HardwareSerial.h>
@@ -29,28 +30,40 @@ Distributed as-is; no warranty is given.
 #define BREAKSPEED     83333
 #define BREAKFORMAT    SERIAL_8N1
 
-int enablePin = -1;		// disable the enable pin because it is not needed
-int rxPin = -1;       // disable the receiving pin because it is not needed
-int txPin = 2;        // transmit DMX data over this pin (default is pin 2)
+static const int enablePin = -1;		// disable the enable pin because it is not needed
+static const int rxPin = -1;       // disable the receiving pin because it is not needed - softhack007: Pin=-1 means "use default" not "disable"
+static const int txPin = 2;        // transmit DMX data over this pin (default is pin 2)
 
 //DMX value array and size. Entry 0 will hold startbyte
-uint8_t dmxData[dmxMaxChannel] = {};
-int chanSize;
-int currentChannel = 0;
+static uint8_t dmxData[dmxMaxChannel] = { 0 };
+static int chanSize = 0;
+#if !defined(DMX_SEND_ONLY)
+static int currentChannel = 0;
+#endif
 
-HardwareSerial DMXSerial(2);
+// Some new MCUs (-S2, -C3) don't have HardwareSerial(2)
+#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(4, 2, 0)
+  #if SOC_UART_NUM < 3
+  #error DMX output is not possible on your MCU, as it does not have HardwareSerial(2)
+  #endif
+#endif
+
+static HardwareSerial DMXSerial(2);
 
 /* Interrupt Timer for DMX Receive */
-hw_timer_t * timer = NULL;
-portMUX_TYPE timerMux = portMUX_INITIALIZER_UNLOCKED;
+#if !defined(DMX_SEND_ONLY)
+static hw_timer_t * timer = NULL;
+static portMUX_TYPE timerMux = portMUX_INITIALIZER_UNLOCKED;
+#endif
 
-volatile int _interruptCounter;
-volatile bool _startCodeDetected = false;
+static volatile int _interruptCounter = 0;
+static volatile bool _startCodeDetected = false;
 
 
+#if !defined(DMX_SEND_ONLY)
 /* Start Code is detected by 21 low interrupts */
 void IRAM_ATTR onTimer() {
-	if (digitalRead(rxPin) == 1)
+	if ((rxPin >= 0) && (digitalRead(rxPin) == 1))
 	{
 		_interruptCounter = 0; //If the RX Pin is high, we are not in an interrupt
 	}
@@ -80,10 +93,13 @@ void SparkFunDMX::initRead(int chanQuant) {
     chanQuant = defaultMax;
   }
   chanSize = chanQuant;
-  pinMode(enablePin, OUTPUT);
-  digitalWrite(enablePin, LOW);
-  pinMode(rxPin, INPUT);
+  if (enablePin >= 0) {
+    pinMode(enablePin, OUTPUT);
+    digitalWrite(enablePin, LOW);
+  }
+  if (rxPin >= 0) pinMode(rxPin, INPUT);
 }
+#endif
 
 // Set up the DMX-Protocol
 void SparkFunDMX::initWrite (int chanQuant) {
@@ -96,15 +112,19 @@ void SparkFunDMX::initWrite (int chanQuant) {
   chanSize = chanQuant + 1; //Add 1 for start code
 
   DMXSerial.begin(DMXSPEED, DMXFORMAT, rxPin, txPin);
-  pinMode(enablePin, OUTPUT);
-  digitalWrite(enablePin, HIGH);
+  if (enablePin >= 0) {
+    pinMode(enablePin, OUTPUT);
+    digitalWrite(enablePin, HIGH);
+  }
 }
 
+#if !defined(DMX_SEND_ONLY)
 // Function to read DMX data
 uint8_t SparkFunDMX::read(int Channel) {
   if (Channel > chanSize) Channel = chanSize;
   return(dmxData[Channel - 1]); //subtract one to account for start byte
 }
+#endif
 
 // Function to send DMX data
 void SparkFunDMX::write(int Channel, uint8_t value) {
@@ -133,6 +153,7 @@ void SparkFunDMX::update() {
     DMXSerial.flush();
     DMXSerial.end();//clear our DMX array, end the Hardware Serial port
   }
+#if !defined(DMX_SEND_ONLY)
   else if (_READWRITE == _READ)//In a perfect world, this function ends serial communication upon packet completion and attaches RX to a CHANGE interrupt so the start code can be read again
   { 
 	if (_startCodeDetected == true)
@@ -153,8 +174,9 @@ void SparkFunDMX::update() {
 	}
 	}
   }
+#endif
 }
 
 // Function to update the DMX bus
-
+#endif
 #endif

@@ -103,6 +103,7 @@ void userLoop() {
   {
     lastMeasure = tempTimer;    
 
+#ifndef WLED_DISABLE_MQTT
 // Check if MQTT Connected, otherwise it will crash the 8266
     if (mqtt != nullptr)
     {
@@ -122,6 +123,7 @@ void userLoop() {
       h += "/humidity";
       mqtt->publish(h.c_str(), 0, true, String(board_humidity).c_str());
     }
+  #endif
   }
 
   // Check if we time interval for redrawing passes.

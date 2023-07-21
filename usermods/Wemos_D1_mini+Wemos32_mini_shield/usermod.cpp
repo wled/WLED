@@ -101,6 +101,7 @@ void userLoop() {
   if (temptimer - lastMeasure > 60000) 
   {
     lastMeasure = temptimer;    
+#ifndef WLED_DISABLE_MQTT
 //Check if MQTT Connected, otherwise it will crash the 8266
     if (mqtt != nullptr)
     {
@@ -116,6 +117,7 @@ void userLoop() {
         t += "/temperature";
         mqtt->publish(t.c_str(), 0, true, String(board_temperature).c_str());
     }
+  #endif
   }
 
   // Check if we time interval for redrawing passes.

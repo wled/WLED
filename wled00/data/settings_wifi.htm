@@ -6,18 +6,109 @@
 	<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport"/>
 	<title>WiFi Settings</title>
 	<script>
-		var d=document;
-		var loc = false, locip;
+		var d = document;
+		var loc = false, locip, locproto = "http:";
+		var scanLoops = 0, preScanSSID = "";
+
+		function gId(e) { return d.getElementById(e); }
+		function cE(e) { return d.createElement(e); }
 		function H(){window.open("https://kno.wled.ge/features/settings/#wifi-settings");}
-		function B(){window.open("/settings","_self");}
+		function B(){window.open(getURL("/settings"),"_self");}
+		function N() {
+			const button = gId("scan");
+			button.disabled = true;
+			button.textContent = "Scanning...";
+
+			fetch(getURL("/json/net")).then((response) => {
+				return response.json();
+			}).then((json) => {
+				// Get the list of networks only, defaulting to an empty array.
+				return Object.assign(
+					{},
+					{"networks": []},
+					json,
+				).networks.sort(
+					// Sort by signal strength, descending.
+					(a, b) => b.rssi - a.rssi
+				).reduce(
+					// Filter out duplicate SSIDs. Since it is sorted by signal
+					// strength, the strongest signal will be kept in the
+					// order it orginally appeared in the array.
+					(unique, other) => {
+						if(!unique.some(obj => obj.ssid === other.ssid)) {
+							unique.push(other);
+						}
+						return unique;
+					},
+					[],
+				);
+			}).then((networks) => {
+				// If there are no networks, fetch it again in a second.
+				// but only do this a few times.
+				if (networks.length === 0 && scanLoops < 10) {
+					scanLoops++;
+					setTimeout(N, 1000);
+					return;
+				}
+				scanLoops = 0;
+
+				let cs = gId("CS");
+				if (cs) {
+					let select = cE("select");
+					select.setAttribute("id", "CS");
+					select.setAttribute("name", "CS");
+					select.setAttribute("onchange", "T()");
+					preScanSSID = cs.value;
+
+					for (let i = 0; i < select.children.length; i++) {
+						select.removeChild(select.children[i]);
+					}
+
+					for (let i = 0; i < networks.length; i++) {
+						const option = cE("option");
+
+						option.setAttribute("value", networks[i].ssid);
+						option.textContent = `${networks[i].ssid} (${networks[i].rssi} dBm)`;
+
+						if (networks[i].ssid === cs.value) {
+							option.setAttribute("selected", "selected");
+						}
+
+						select.appendChild(option);
+					}
+					const option = cE("option");
+
+					option.setAttribute("value", "!Cs");
+					option.textContent = `Other network...`;
+					select.appendChild(option);
+
+					cs.replaceWith(select);
+				}
+
+				button.disabled = false;
+				button.textContent = "Scan";
+			});
+		}
+		// replace WiFi select with custom SSID input field again
+		function T() {
+			let cs = gId("CS");
+			if (!cs || cs.value != "!Cs") return;
+			let input = cE("input");
+			input.type = "text";
+			input.id = "CS";
+			input.name ="CS";
+			input.setAttribute("maxlength",32);
+			input.value = preScanSSID;
+			cs.replaceWith(input);
+		}
 		// https://www.educative.io/edpresso/how-to-dynamically-load-a-js-file-in-javascript
 		function loadJS(FILE_URL, async = true) {
-			let scE = d.createElement("script");
+			let scE = cE("script");
 			scE.setAttribute("src", FILE_URL);
 			scE.setAttribute("type", "text/javascript");
 			scE.setAttribute("async", async);
 			d.body.appendChild(scE);
-			// success event 
+			// success event
 			scE.addEventListener("load", () => {
 				//console.log("File loaded");
 				GetV();
@@ -29,16 +120,29 @@
 			});
 		}
 		function S() {
-			if (window.location.protocol == "file:") {
+			let l = window.location;
+			if (l.protocol == "file:") {
 				loc = true;
 				locip = localStorage.getItem('locIp');
 				if (!locip) {
 					locip = prompt("File Mode. Please enter WLED IP!");
 					localStorage.setItem('locIp', locip);
 				}
+			} else {
+				// detect reverse proxy
+				let path = l.pathname;
+				let paths = path.slice(1,path.endsWith('/')?-1:undefined).split("/");
+				if (paths.length > 2) {
+					locproto = l.protocol;
+					loc = true;
+					locip = l.hostname + (l.port ? ":" + l.port : "") + "/" + paths[0];
+				}
 			}
-			var url = (loc?`http://${locip}`:'') + '/settings/s.js?p=1';
-			loadJS(url, false);	// If we set async false, file is loaded and executed, then next statement is processed
+			loadJS(getURL('/settings/s.js?p=1'), false);	// If we set async false, file is loaded and executed, then next statement is processed
+			if (loc) d.Sf.action = getURL('/settings/wifi');
+		}
+		function getURL(path) {
+			return (loc ? locproto + "//" + locip : "") + path;
 		}
 	</script>
 	<style>@import url("style.css");</style>
@@ -51,7 +155,9 @@
 		</div>
 		<h2>WiFi setup</h2>
 		<h3>Connect to existing network</h3>
-		Network name (SSID, empty to not connect): <br><input type="text" name="CS" maxlength="32"><br>
+		<button type="button" id="scan" onclick="N()">Scan</button><br>
+		Network name (SSID, empty to not connect):<br>
+		<input type="text" id="CS" name="CS" maxlength="32"><br>
 		Network password: <br> <input type="password" name="CP" maxlength="63"><br>
 		Static IP (leave at 0.0.0.0 for DHCP):<br>
 		<input name="I0" type="number" class="s" min="0" max="255" required> .
@@ -68,7 +174,7 @@
 		<input name="S1" type="number" class="s" min="0" max="255" required> .
 		<input name="S2" type="number" class="s" min="0" max="255" required> .
 		<input name="S3" type="number" class="s" min="0" max="255" required><br>
-		mDNS address (leave empty for no mDNS):<br/>
+		mDNS address (leave empty for no mDNS):<br>
 		http:// <input type="text" name="CM" maxlength="32"> .local<br>
 		Client IP: <span class="sip"> Not connected </span> <br>
 		<h3>Configure Access Point</h3>
@@ -87,14 +193,28 @@
 		Disable WiFi sleep: <input type="checkbox" name="WS"><br>
 		<i>Can help with connectivity issues.<br>
 		Do not enable if WiFi is working correctly, increases power consumption.</i>
+
+		<div id="remd">
+			<h3>Wireless Remote</h3>
+			<i>Listen for events over ESP-NOW<br>
+			Keep disabled if not using a remote, increases power consumption.<br></i>
+		
+			Enable Remote: <input type="checkbox" name="RE"><br>
+			Hardware MAC: <input type="text" name="RMAC"><br>
+			Last Seen: <span class="rlid">None</span> <br>
+		</div>
+
 		<div id="ethd">
 			<h3>Ethernet Type</h3>
 			<select name="ETH">
 				<option value="0">None</option>
+				<option value="9">ABC! WLED V43 & compatible</option>
 				<option value="2">ESP32-POE</option>
 				<option value="6">ESP32Deux</option>
 				<option value="7">KIT-VE</option>
+				<option value="8">QuinLED-Dig-Octa & T-ETH-POE</option>
 				<option value="4">QuinLED-ESP32</option>
+				<option value="10">Serg74-ETH32</option>
 				<option value="5">TwilightLord-ESP32</option>
 				<option value="3">WESP32</option>
 				<option value="1">WT32-ETH01</option>

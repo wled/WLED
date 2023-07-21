@@ -46,7 +46,7 @@ void sendJSON(){
       if (i != used-1) Serial.write(',');
     }
     Serial.println("]");
-  }   
+  }
 }
 
 // RGB LED data returned as bytes in TPM2 format. Faster, and slightly less easy to use on the other end.
@@ -64,14 +64,15 @@ void sendBytes(){
       Serial.write(qadd8(W(c), B(c))); //B
     }
     Serial.write(0x36); Serial.write('\n');
-  }  
+  }
 }
 
 void handleSerial()
 {
   return;
   if (pinManager.isPinAllocated(hardwareRX)) return;
-  
+  if (!Serial) return;              // arduino docs: `if (Serial)` indicates whether or not the USB CDC serial connection is open. For all non-USB CDC ports, this will always return true
+
   #ifdef WLED_ENABLE_ADALIGHT
   static auto state = AdaState::Header_A;
   static uint16_t count = 0;
@@ -95,7 +96,7 @@ void handleSerial()
           return;
         } else if (next == 'v') {
           Serial.print("WLED"); Serial.write(' '); Serial.println(VERSION);
-     
+
         } else if (next == 0xB0) {updateBaudRate( 115200);
         } else if (next == 0xB1) {updateBaudRate( 230400);
         } else if (next == 0xB2) {updateBaudRate( 460800);
@@ -104,11 +105,11 @@ void handleSerial()
         } else if (next == 0xB5) {updateBaudRate( 921600);
         } else if (next == 0xB6) {updateBaudRate(1000000);
         } else if (next == 0xB7) {updateBaudRate(1500000);
-               
+
         } else if (next == 'l') {sendJSON(); // Send LED data as JSON Array
         } else if (next == 'L') {sendBytes(); // Send LED data as TPM2 Data Packet
 
-        } else if (next == 'o') {continuousSendLED = false; // Disable Continuous Serial Streaming  
+        } else if (next == 'o') {continuousSendLED = false; // Disable Continuous Serial Streaming
         } else if (next == 'O') {continuousSendLED = true; // Enable Continuous Serial Streaming
 
         } else if (next == '{') { //JSON API
@@ -196,8 +197,8 @@ void handleSerial()
     // All other received bytes will disable Continuous Serial Streaming
     if (continuousSendLED && next != 'O'){
       continuousSendLED = false;
-      } 
-    
+      }
+
     Serial.read(); //discard the byte
   }
   #endif

@@ -2,7 +2,7 @@
  * Contains some trigonometric functions.
  * The ANSI C equivalents are likely faster, but using any sin/cos/tan function incurs a memory penalty of 460 bytes on ESP8266, likely for lookup tables.
  * This implementation has no extra static memory usage.
- * 
+ *
  * Source of the cos_t() function: https://web.eecs.utk.edu/~azh/blog/cosine.html (cos_taylor_literal_6terms)
  */
 

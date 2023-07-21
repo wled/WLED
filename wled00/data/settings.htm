@@ -6,7 +6,7 @@
 	<title>WLED Settings</title>
 	<script>
 		var d=document;
-		var loc = false, locip;
+		var loc = false, locip, locproto = "http:";
 		function gId(n){return d.getElementById(n);}
 		// https://www.educative.io/edpresso/how-to-dynamically-load-a-js-file-in-javascript
 		function loadJS(FILE_URL, async = true) {
@@ -26,17 +26,29 @@
 				alert("Loading of configuration script failed.\nIncomplete page data!");
 			});
 		}
-		function S(){
-			if (window.location.protocol == "file:") {
+		function S() {
+			let l = window.location;
+			if (l.protocol == "file:") {
 				loc = true;
 				locip = localStorage.getItem('locIp');
 				if (!locip) {
 					locip = prompt("File Mode. Please enter WLED IP!");
 					localStorage.setItem('locIp', locip);
 				}
+			} else {
+				// detect reverse proxy
+				let path = l.pathname;
+				let paths = path.slice(1,path.endsWith('/')?-1:undefined).split("/");
+				if (paths.length > 1) {
+					locproto = l.protocol;
+					loc = true;
+					locip = l.hostname + (l.port ? ":" + l.port : "") + "/" + paths[0];
+				}
 			}
-			var url = (loc?`http://${locip}`:'') + '/settings/s.js?p=0';
-			loadJS(url, false);	// If we set async false, file is loaded and executed, then next statement is processed
+			loadJS(getURL('/settings/s.js?p=0'), false);	// If we set async false, file is loaded and executed, then next statement is processed
+		}
+		function getURL(path) {
+			return (loc ? locproto + "//" + locip : "") + path;
 		}
 	</script>
 	<style>
@@ -65,15 +77,15 @@
 	</style>
 </head>
 <body onload="S()">
-<button type=submit id="b" onclick="window.location='/'">Back</button>
-<button type="submit" onclick="window.location='./settings/wifi'">WiFi Setup</button>
-<button type="submit" onclick="window.location='./settings/leds'">LED Preferences</button>
-<button type="submit" onclick="window.location='./settings/2D'">2D Configuration</button>
-<button type="submit" onclick="window.location='./settings/ui'">User Interface</button>
-<button id="dmxbtn" style="display: none;" type="submit" onclick="window.location='./settings/dmx'">DMX Output</button>
-<button type="submit" onclick="window.location='./settings/sync'">Sync Interfaces</button>
-<button type="submit" onclick="window.location='./settings/time'">Time & Macros</button>
-<button type="submit" onclick="window.location='./settings/um'">Usermods</button>
-<button type="submit" onclick="window.location='./settings/sec'">Security & Updates</button>
+<button type=submit id="b" onclick="window.location=getURL('/')">Back</button>
+<button type="submit" onclick="window.location=getURL('/settings/wifi')">WiFi Setup</button>
+<button type="submit" onclick="window.location=getURL('/settings/leds')">LED Preferences</button>
+<button id="2dbtn" style="display:none;" type="submit" onclick="window.location=getURL('/settings/2D')">2D Configuration</button>
+<button type="submit" onclick="window.location=getURL('/settings/ui')">User Interface</button>
+<button id="dmxbtn" style="display:none;" type="submit" onclick="window.location=getURL('/settings/dmx')">DMX Output</button>
+<button type="submit" onclick="window.location=getURL('/settings/sync')">Sync Interfaces</button>
+<button type="submit" onclick="window.location=getURL('/settings/time')">Time & Macros</button>
+<button type="submit" onclick="window.location=getURL('/settings/um')">Usermods</button>
+<button type="submit" onclick="window.location=getURL('/settings/sec')">Security & Updates</button>
 </body>
 </html>

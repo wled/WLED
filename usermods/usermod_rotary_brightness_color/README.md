@@ -1,18 +1,18 @@
 # Rotary Encoder (Brightness and Color)
 
-V2 usermod that allows changing brightness and color using a rotary encoder, 
+V2 usermod that enables changing brightness and color using a rotary encoder 
 change between modes by pressing a button (many encoders have one included)
 
-but it will wait for AUTOSAVE_SETTLE_MS milliseconds, a "settle" 
+it will wait for AUTOSAVE_SETTLE_MS milliseconds. a "settle" 
 period in case there are other changes (any change will 
-extend the "settle" window).
+extend the "settle" period).
 
 It will additionally load preset AUTOSAVE_PRESET_NUM at startup.
 during the first `loop()`.  Reasoning below.
 
 AutoSaveUsermod is standalone, but if FourLineDisplayUsermod is installed, it will notify the user of the saved changes.
 
-Note: I don't love that WLED doesn't respect the brightness of the preset being auto loaded, so the AutoSaveUsermod will set the AUTOSAVE_PRESET_NUM preset in the first loop, so brightness IS honored. This means WLED will effectively ignore Default brightness and Apply N preset at boot when the AutoSaveUsermod is installed.
+Note: WLED doesn't respect the brightness of the preset being auto loaded, so the AutoSaveUsermod will set the AUTOSAVE_PRESET_NUM preset in the first loop, so brightness IS honored. This means WLED will effectively ignore Default brightness and Apply N preset at boot when the AutoSaveUsermod is installed.
 
 ## Installation
 

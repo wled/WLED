@@ -5,7 +5,7 @@
 /*
  * DEPRECATED, do not use for new settings
  * Only used to restore config from pre-0.11 installations using the deEEP() methods
- * 
+ *
  * Methods to handle saving and loading to non-volatile memory
  * EEPROM Map: https://github.com/Aircoookie/WLED/wiki/EEPROM-Map
  */
@@ -102,7 +102,7 @@ void loadSettingsFromEEPROM()
   busses.add(bc);
 
   notifyButton = EEPROM.read(230);
-  notifyTwice = EEPROM.read(231);
+  if (EEPROM.read(231)) udpNumRetries = 1;
   buttonType[0] = EEPROM.read(232) ? BTN_TYPE_PUSH : BTN_TYPE_NONE;
 
   staticIP[0] = EEPROM.read(234);
@@ -154,9 +154,9 @@ void loadSettingsFromEEPROM()
   turnOnAtBoot = EEPROM.read(369);
   //strip.isRgbw = EEPROM.read(372);
   //374 - strip.paletteFade
-  
+
   apBehavior = EEPROM.read(376);
-    
+
   //377 = lastEEPROMversion
   if (lastEEPROMversion > 3) {
     aOtaEnabled = EEPROM.read(390);
@@ -164,7 +164,7 @@ void loadSettingsFromEEPROM()
     receiveNotificationEffects = EEPROM.read(392);
   }
   receiveNotifications = (receiveNotificationBrightness || receiveNotificationColor || receiveNotificationEffects);
-  
+
   if (lastEEPROMversion > 4) {
     #ifndef WLED_DISABLE_HUESYNC
     huePollingEnabled = EEPROM.read(2048);
@@ -232,7 +232,7 @@ void loadSettingsFromEEPROM()
       timerMacro[i]   = EEPROM.read(2290 + i);
       if (timerMacro[i] > 0) timerMacro[i] += 16; //add 16 to work with macro --> preset mapping
       if (timerWeekday[i] == 0) timerWeekday[i] = 255;
-      if (timerMacro[i] == 0) timerWeekday[i] = timerWeekday[i] & 0b11111110; 
+      if (timerMacro[i] == 0) timerWeekday[i] = timerWeekday[i] & 0b11111110;
     }
   }
 
@@ -319,8 +319,8 @@ void loadSettingsFromEEPROM()
 
   if (lastEEPROMversion > 21) {
     udpPort2 = EEPROM.read(378) + ((EEPROM.read(379) << 8) & 0xFF00);
-  } 
-  
+  }
+
   receiveDirect = !EEPROM.read(2200);
   notifyMacro = EEPROM.read(2201);
 
@@ -339,17 +339,12 @@ void loadSettingsFromEEPROM()
   //custom macro memory (16 slots/ each 64byte)
   //1024-2047 reserved
 
-  #ifndef WLED_DISABLE_BLYNK
-  readStringFromEEPROM(2220, blynkApiKey, 35);
-  if (strlen(blynkApiKey) < 25) blynkApiKey[0] = 0;
-  #endif
-
   #ifdef WLED_ENABLE_DMX
   // DMX (2530 - 2549)2535
   DMXChannels = EEPROM.read(2530);
   DMXGap = EEPROM.read(2531) + ((EEPROM.read(2532) << 8) & 0xFF00);
   DMXStart = EEPROM.read(2533) + ((EEPROM.read(2534) << 8) & 0xFF00);
-  
+
   for (int i=0;i<15;i++) {
     DMXFixtureMap[i] = EEPROM.read(2535+i);
   } //last used: 2549
@@ -372,7 +367,7 @@ void applyMacro(byte index) {
 // De-EEPROM routine, upgrade from previous versions to v0.11
 void deEEP() {
   if (WLED_FS.exists("/presets.json")) return;
-  
+
   DEBUG_PRINTLN(F("Preset file not found, attempting to load from EEPROM"));
   DEBUGFS_PRINTLN(F("Allocating saving buffer for dEEP"));
   if (!requestJSONBufferLock(8)) return;
@@ -413,7 +408,7 @@ void deEEP() {
 
           for (byte j = 0; j < numChannels; j++) colX.add(EEPROM.read(memloc + j));
         }
-        
+
         segObj["fx"]  = EEPROM.read(i+10);
         segObj["sx"]  = EEPROM.read(i+11);
         segObj["ix"]  = EEPROM.read(i+16);
@@ -467,11 +462,5 @@ void deEEPSettings() {
   EEPROM.begin(EEPSIZE);
   loadSettingsFromEEPROM();
   EEPROM.end();
-
-  //call readFromConfig() with an empty object so that usermods can initialize to defaults prior to saving
-  JsonObject empty = JsonObject();
-  usermods.readFromConfig(empty);
-
-  serializeConfig();
 }
 #endif

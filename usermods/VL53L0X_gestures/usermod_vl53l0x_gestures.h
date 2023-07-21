@@ -3,14 +3,13 @@
  * It can be useful for kitchen strips to avoid any touches.
  * - on/off - just swipe a hand below your sensor ("shortPressAction" is called and can be customized through WLED macros)
  * - brightness correction - keep your hand below sensor for 1 second to switch to "brightness" mode.
- *                           Configure brightness by changing distance to the sensor (see parameters below for customization).
- *                           "macroLongPress" is also called here.
+        Configure brightness by changing distance to the sensor (see parameters below for customization).
  *
- * Enabling this mod usermod:
+ * Enabling this usermod:
  * 1. Attach VL53L0X sensor to i2c pins according to default pins for your board.
- * 2. Add "-D USERMOD_VL53L0X_GESTURES" to your build flags at platformio.ini (plaformio_override.ini) for needed environment.
- * In my case, for example: build_flags = ${common.build_flags_esp8266} -D RLYPIN=12 -D USERMOD_VL53L0X_GESTURES
- * 3. Add "pololu/VL53L0X" dependency to lib_deps like this:
+ * 2. Add `-D USERMOD_VL53L0X_GESTURES` to your build flags at platformio.ini (plaformio_override.ini) for needed environment.
+ * In my case, for example: `build_flags = ${env.build_flags} -D USERMOD_VL53L0X_GESTURES`
+ * 3. Add "pololu/VL53L0X" dependency below to `lib_deps` like this:
  * lib_deps = ${env.lib_deps}
  *     pololu/VL53L0X @ ^1.3.0
  */
@@ -22,19 +21,19 @@
 #include <VL53L0X.h>
 
 #ifndef VL53L0X_MAX_RANGE_MM
-#define VL53L0X_MAX_RANGE_MM 230 // max height in millimiters to react for motions
+#define VL53L0X_MAX_RANGE_MM 230 // max height in millimeters to react for motions
 #endif
 
 #ifndef VL53L0X_MIN_RANGE_OFFSET
-#define VL53L0X_MIN_RANGE_OFFSET 60 // minimal range in millimiters that sensor can detect. Used in long motions to correct brightnes calculation.
+#define VL53L0X_MIN_RANGE_OFFSET 60 // minimal range in millimeters that sensor can detect. Used in long motions to correct brightness calculation.
 #endif
 
 #ifndef VL53L0X_DELAY_MS
-#define VL53L0X_DELAY_MS 100 // how often to get data from sensor 
+#define VL53L0X_DELAY_MS 100 // how often to get data from sensor
 #endif
 
 #ifndef VL53L0X_LONG_MOTION_DELAY_MS
-#define VL53L0X_LONG_MOTION_DELAY_MS 1000 // how often to get data from sensor 
+#define VL53L0X_LONG_MOTION_DELAY_MS 1000 // switch onto "long motion" action after this delay
 #endif
 
 class UsermodVL53L0XGestures : public Usermod {
@@ -47,13 +46,11 @@ class UsermodVL53L0XGestures : public Usermod {
     bool wasMotionBefore = false;
     bool isLongMotion = false;
     unsigned long motionStartTime = 0;
-    
+
   public:
 
     void setup() {
-      PinManagerPinType pins[2] = { { i2c_scl, true }, { i2c_sda, true } };
-      if (!pinManager.allocateMultiplePins(pins, 2, PinOwner::HW_I2C)) { enabled = false; return; }
-      Wire.begin();
+      if (i2c_scl<0 || i2c_sda<0) { enabled = false; return; }
 
       sensor.setTimeout(150);
       if (!sensor.init())
@@ -72,40 +69,34 @@ class UsermodVL53L0XGestures : public Usermod {
         lastTime = millis();
 
         int range = sensor.readRangeSingleMillimeters();
-        DEBUG_PRINTF(F("range: %d, brightness: %d"), range, bri);
+        DEBUG_PRINTF("range: %d, brightness: %d\r\n", range, bri);
 
         if (range < VL53L0X_MAX_RANGE_MM)
         {
           if (!wasMotionBefore)
           {
             motionStartTime = millis();
-            DEBUG_PRINTF(F("motionStartTime: %d"), motionStartTime);
+            DEBUG_PRINTF("motionStartTime: %d\r\n", motionStartTime);
           }
           wasMotionBefore = true;
 
           if (millis() - motionStartTime > VL53L0X_LONG_MOTION_DELAY_MS) //long motion
           {
-            DEBUG_PRINTF(F("long motion: %d"), motionStartTime);
+            DEBUG_PRINTF("long motion: %d\r\n", motionStartTime);
             if (!isLongMotion)
             {
-              if (macroLongPress)
-              {
-                applyMacro(macroLongPress);
-              }
               isLongMotion = true;
             }
 
             // set brightness according to range
             bri = (VL53L0X_MAX_RANGE_MM - max(range, VL53L0X_MIN_RANGE_OFFSET)) * 255 / (VL53L0X_MAX_RANGE_MM - VL53L0X_MIN_RANGE_OFFSET);
-            DEBUG_PRINTF(F("new brightness: %d"), bri);
+            DEBUG_PRINTF("new brightness: %d", bri);
             stateUpdated(1);
           }
         } else if (wasMotionBefore) { //released
-          long dur = millis() - motionStartTime;
-
           if (!isLongMotion)
           { //short press
-            DEBUG_PRINTF(F("shortPressAction..."));
+            DEBUG_PRINTLN(F("shortPressAction..."));
             shortPressAction();
           }
           wasMotionBefore = false;

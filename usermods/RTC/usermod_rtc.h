@@ -12,8 +12,7 @@ class RTCUsermod : public Usermod {
   public:
 
     void setup() {
-      PinManagerPinType pins[2] = { { i2c_scl, true }, { i2c_sda, true } };
-      if (!pinManager.allocateMultiplePins(pins, 2, PinOwner::HW_I2C)) { disabled = true; return; }
+      if (i2c_scl<0 || i2c_sda<0) { disabled = true; return; }
       RTC.begin();
       time_t rtcTime = RTC.get();
       if (rtcTime) {
@@ -25,8 +24,8 @@ class RTCUsermod : public Usermod {
     }
 
     void loop() {
-      if (strip.isUpdating()) return;
-      if (!disabled && toki.isTick()) {
+      if (disabled || strip.isUpdating()) return;
+      if (toki.isTick()) {
         time_t t = toki.second();
         if (t != RTC.get()) RTC.set(t); //set RTC to NTP/UI-provided value
       }

@@ -45,9 +45,9 @@
 #define IR24_PINK      0xF76897
 #define IR24_WHITE     0xF7E01F
 #define IR24_FLASH     0xF7D02F
-#define IR24_STROBE    0xF7F00F 
-#define IR24_FADE      0xF7C837 
-#define IR24_SMOOTH    0xF7E817 
+#define IR24_STROBE    0xF7F00F
+#define IR24_FADE      0xF7C837
+#define IR24_SMOOTH    0xF7E817
 
 // 24-key defs for white remote control with CW / WW / CT+ and CT- keys (from ALDI LED pillar lamp)
 #define IR24_CT_BRIGHTER   0xF700FF // BRI +
@@ -75,7 +75,7 @@
 #define IR24_CT_CTMINUS    0xF7C837 // CT-
 #define IR24_CT_MEMORY     0xF7E817 // MEMORY
 
-// 24-key defs for old remote control 
+// 24-key defs for old remote control
 #define IR24_OLD_BRIGHTER  0xFF906F // Brightness Up
 #define IR24_OLD_DARKER    0xFFB847 // Brightness Down
 #define IR24_OLD_OFF       0xFFF807 // Power OFF
@@ -101,30 +101,30 @@
 #define IR24_OLD_FADE      0xFF58A7 // FADE Mode
 #define IR24_OLD_SMOOTH    0xFF30CF // SMOOTH Mode
 
-// 40-key defs for blue remote control 
-#define IR40_BPLUS         0xFF3AC5  // 
-#define IR40_BMINUS        0xFFBA45  // 
-#define IR40_OFF           0xFF827D  // 
-#define IR40_ON            0xFF02FD  // 
-#define IR40_RED           0xFF1AE5  // 
-#define IR40_GREEN         0xFF9A65  // 
-#define IR40_BLUE          0xFFA25D  // 
+// 40-key defs for blue remote control
+#define IR40_BPLUS         0xFF3AC5  //
+#define IR40_BMINUS        0xFFBA45  //
+#define IR40_OFF           0xFF827D  //
+#define IR40_ON            0xFF02FD  //
+#define IR40_RED           0xFF1AE5  //
+#define IR40_GREEN         0xFF9A65  //
+#define IR40_BLUE          0xFFA25D  //
 #define IR40_WHITE         0xFF22DD  // natural white
-#define IR40_REDDISH       0xFF2AD5  // 
-#define IR40_GREENISH      0xFFAA55  // 
-#define IR40_DEEPBLUE      0xFF926D  // 
+#define IR40_REDDISH       0xFF2AD5  //
+#define IR40_GREENISH      0xFFAA55  //
+#define IR40_DEEPBLUE      0xFF926D  //
 #define IR40_WARMWHITE2    0xFF12ED  // warmest white
-#define IR40_ORANGE        0xFF0AF5  // 
-#define IR40_TURQUOISE     0xFF8A75  // 
-#define IR40_PURPLE        0xFFB24D  // 
+#define IR40_ORANGE        0xFF0AF5  //
+#define IR40_TURQUOISE     0xFF8A75  //
+#define IR40_PURPLE        0xFFB24D  //
 #define IR40_WARMWHITE     0xFF32CD  // warm white
-#define IR40_YELLOWISH     0xFF38C7  // 
-#define IR40_CYAN          0xFFB847  // 
-#define IR40_MAGENTA       0xFF7887  // 
+#define IR40_YELLOWISH     0xFF38C7  //
+#define IR40_CYAN          0xFFB847  //
+#define IR40_MAGENTA       0xFF7887  //
 #define IR40_COLDWHITE     0xFFF807  // cold white
-#define IR40_YELLOW        0xFF18E7  // 
-#define IR40_AQUA          0xFF9867  // 
-#define IR40_PINK          0xFF58A7  // 
+#define IR40_YELLOW        0xFF18E7  //
+#define IR40_AQUA          0xFF9867  //
+#define IR40_PINK          0xFF58A7  //
 #define IR40_COLDWHITE2    0xFFD827  // coldest white
 #define IR40_WPLUS         0xFF28D7  // white chanel bright plus
 #define IR40_WMINUS        0xFFA857  // white chanel bright minus
@@ -143,51 +143,51 @@
 #define IR40_AUTO          0xFF50AF  // AUTO
 #define IR40_SLOW          0xFFD02F  // SLOW
 
-// 44-key defs, to be done later
-#define IR44_BPLUS         0xFF3AC5  // 
-#define IR44_BMINUS        0xFFBA45  // 
-#define IR44_OFF           0xFF827D  // 
-#define IR44_ON            0xFF02FD  // 
-#define IR44_RED           0xFF1AE5  // 
-#define IR44_GREEN         0xFF9A65  // 
-#define IR44_BLUE          0xFFA25D  // 
+// 44-key defs
+#define IR44_BPLUS         0xFF3AC5  //
+#define IR44_BMINUS        0xFFBA45  //
+#define IR44_OFF           0xFF827D  //
+#define IR44_ON            0xFF02FD  //
+#define IR44_RED           0xFF1AE5  //
+#define IR44_GREEN         0xFF9A65  //
+#define IR44_BLUE          0xFFA25D  //
 #define IR44_WHITE         0xFF22DD  // natural white
-#define IR44_REDDISH       0xFF2AD5  // 
-#define IR44_GREENISH      0xFFAA55  // 
-#define IR44_DEEPBLUE      0xFF926D  // 
+#define IR44_REDDISH       0xFF2AD5  //
+#define IR44_GREENISH      0xFFAA55  //
+#define IR44_DEEPBLUE      0xFF926D  //
 #define IR44_WARMWHITE2    0xFF12ED  // warmest white
-#define IR44_ORANGE        0xFF0AF5  // 
-#define IR44_TURQUOISE     0xFF8A75  // 
-#define IR44_PURPLE        0xFFB24D  // 
+#define IR44_ORANGE        0xFF0AF5  //
+#define IR44_TURQUOISE     0xFF8A75  //
+#define IR44_PURPLE        0xFFB24D  //
 #define IR44_WARMWHITE     0xFF32CD  // warm white
-#define IR44_YELLOWISH     0xFF38C7  // 
-#define IR44_CYAN          0xFFB847  // 
-#define IR44_MAGENTA       0xFF7887  // 
+#define IR44_YELLOWISH     0xFF38C7  //
+#define IR44_CYAN          0xFFB847  //
+#define IR44_MAGENTA       0xFF7887  //
 #define IR44_COLDWHITE     0xFFF807  // cold white
-#define IR44_YELLOW        0xFF18E7  // 
-#define IR44_AQUA          0xFF9867  // 
-#define IR44_PINK          0xFF58A7  // 
+#define IR44_YELLOW        0xFF18E7  //
+#define IR44_AQUA          0xFF9867  //
+#define IR44_PINK          0xFF58A7  //
 #define IR44_COLDWHITE2    0xFFD827  // coldest white
-#define IR44_REDPLUS       0xFF28D7  // 
-#define IR44_GREENPLUS     0xFFA857  // 
-#define IR44_BLUEPLUS      0xFF6897  // 
-#define IR44_QUICK         0xFFE817  // 
-#define IR44_REDMINUS      0xFF08F7  // 
-#define IR44_GREENMINUS    0xFF8877  // 
-#define IR44_BLUEMINUS     0xFF48B7  // 
-#define IR44_SLOW          0xFFC837  // 
-#define IR44_DIY1          0xFF30CF  // 
-#define IR44_DIY2          0xFFB04F  // 
-#define IR44_DIY3          0xFF708F  // 
-#define IR44_AUTO          0xFFF00F  // 
-#define IR44_DIY4          0xFF10EF  // 
-#define IR44_DIY5          0xFF906F  // 
-#define IR44_DIY6          0xFF50AF  // 
-#define IR44_FLASH         0xFFD02F  // 
-#define IR44_JUMP3         0xFF20DF  // 
-#define IR44_JUMP7         0xFFA05F  // 
-#define IR44_FADE3         0xFF609F  // 
-#define IR44_FADE7         0xFFE01F  // 
+#define IR44_REDPLUS       0xFF28D7  //
+#define IR44_GREENPLUS     0xFFA857  //
+#define IR44_BLUEPLUS      0xFF6897  //
+#define IR44_QUICK         0xFFE817  //
+#define IR44_REDMINUS      0xFF08F7  //
+#define IR44_GREENMINUS    0xFF8877  //
+#define IR44_BLUEMINUS     0xFF48B7  //
+#define IR44_SLOW          0xFFC837  //
+#define IR44_DIY1          0xFF30CF  //
+#define IR44_DIY2          0xFFB04F  //
+#define IR44_DIY3          0xFF708F  //
+#define IR44_AUTO          0xFFF00F  //
+#define IR44_DIY4          0xFF10EF  //
+#define IR44_DIY5          0xFF906F  //
+#define IR44_DIY6          0xFF50AF  //
+#define IR44_FLASH         0xFFD02F  //
+#define IR44_JUMP3         0xFF20DF  //
+#define IR44_JUMP7         0xFFA05F  //
+#define IR44_FADE3         0xFF609F  //
+#define IR44_FADE7         0xFFE01F  //
 
 //Infrared codes for 21-key remote https://images-na.ssl-images-amazon.com/images/I/51NMA0XucnL.jpg
 #define IR21_BRIGHTER      0xFFE01F

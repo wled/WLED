@@ -18,7 +18,7 @@ void handleHue()
       hueNewKey = false;
     }
   }
-  
+
   if (!WLED_CONNECTED || hueClient == nullptr || millis() - hueLastRequestSent < huePollIntervalMs) return;
 
   hueLastRequestSent = millis();
@@ -100,7 +100,7 @@ void onHueData(void* arg, AsyncClient* client, void *data, size_t len)
     {
       hueError = HUE_ERROR_JSON_PARSING; return;
     }
-    
+
     int hueErrorCode = root[0][F("error")]["type"];
     if (hueErrorCode)//hue bridge returned error
     {
@@ -113,7 +113,7 @@ void onHueData(void* arg, AsyncClient* client, void *data, size_t len)
       }
       return;
     }
-    
+
     if (hueAuthRequired)
     {
       const char* apikey = root[0][F("success")][F("username")];
@@ -131,7 +131,7 @@ void onHueData(void* arg, AsyncClient* client, void *data, size_t len)
   str = strstr(str,"state");
   if (str == nullptr) return;
   str = strstr(str,"{");
-  
+
   auto error = deserializeJson(root, str);
   if (error)
   {
@@ -176,7 +176,7 @@ void onHueData(void* arg, AsyncClient* client, void *data, size_t len)
   }
 
   hueError = HUE_ERROR_ACTIVE;
-  
+
   //apply vals
   if (hueBri != hueBriLast)
   {

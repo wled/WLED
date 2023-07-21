@@ -75,6 +75,10 @@ class WizLightsUsermod : public Usermod {
       UDP.endPacket();
     }
 
+    // Override definition so it compiles
+    void setup() {
+      
+    }
 
 
     // TODO: Check millis() rollover

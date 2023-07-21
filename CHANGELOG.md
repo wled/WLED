@@ -1,5 +1,175 @@
 ## WLED changelog
 
+#### Build 2307130
+-   larger `oappend()` stack buffer (3.5k) for ESP32
+-   Preset cycle bugfix (#3262)
+-   Rotary encoder ALT fix for large LED count (#3276)
+-   effect updates (2D Plasmaball), `blur()` speedup
+-   On/Off toggle from nodes view (may show unknow device type on older versions) (#3291)
+-   various fixes and improvements (ABL, crashes when changing presets with different segments)
+
+#### Build 2306270
+-   ESP-NOW remote support (#3237)
+-   Pixel Magic tool (display pixel art) (#3249)
+-   Websocket (peek) fallback when connection cannot be established, WS retries (#3267)
+-   Add WiFi network scan RPC command to Improv Serial (#3271)
+-   Longer (custom option available) segment name for ESP32
+-   various fixes and improvements
+
+#### Build 2306210
+-   0.14.0-b3 release
+-   respect global I2C in all usermods (no local initilaisation of I2C bus)
+-   Multi relay usermod compile-time enabled option (-D MULTI_RELAY_ENABLED=true|false)
+
+#### Build 2306180
+-   Added client-side option for applying effect defaults from metadata
+-   Improved ESP8266 stability by reducing WebSocket response resends
+-   Updated ESP8266 core to 3.1.2
+
+#### Build 2306141
+-   Lissajous improvements
+-   Scrolling Text improvements (leading 0)
+
+#### Build 2306140
+-   Add settings PIN (un)locking to JSON post API
+
+#### Build 2306130
+-   Bumped version to 0.14-b3 (beta 3)
+-   added pin dropdowns in LED preferences (not for LED pins) and usermods
+-   introduced (unused ATM) NeoGammaWLEDMethod class
+-   Reverse proxy support
+-   PCF8754 support for Rotary encoder (requires wiring INT pin to ESP GPIO)
+-   Rely on global I2C pins for usermods (breaking change)
+-   various fixes and enhancements
+
+#### Build 2306020
+-   Support for segment sets (PR #3171)
+-   Reduce sound simulation modes to 2 to facilitiate segment sets
+-   Trigger button immediately on press if all configured presets are the same (PR #3226)
+-   Changes for allowing Alexa to change light color to White when auto-calculating from RGB (PR #3211)
+
+#### Build 2305280
+-   DDP protocol update (#3193)
+-   added PCF8574 I2C port expander support for Multi relay usermod
+-   MQTT multipacket (fragmented) message fix
+-   added option to retain MQTT brightness and color messages
+-   new ethernet board: @srg74 Ethernet Shield
+-   new 2D effects: Soap (#3184) & Octopus & Waving cell (credit @St3P40 https://github.com/80Stepko08)
+-   various fixes and enhancements
+
+#### Build 2305090
+-   new ethernet board: @Wladi ABC! WLED Eth
+-   Battery usermod voltage calculation (#3116)
+-   custom palette editor (#3164)
+-   improvements in Dancing Shadows and Tartan effects
+-   UCS389x support
+-   switched to NeoPixelBus 2.7.5 (replaced NeoPixelBrightnessBus with NeoPixelBusLg)
+-   SPI bus clock selection (for LEDs) (#3173)
+-   DMX mode preset fix (#3134)
+-   iOS fix for scroll (#3182)
+-   Wordclock "Norddeutsch" fix (#3161)
+-   various fixes and enhancements
+
+#### Build 2304090
+-   updated Arduino ESP8266 core to 4.1.0 (newer compiler)
+-   updated NeoPixelBus to 2.7.3 (with support for UCS890x chipset)
+-   better support for ESP32-C3, ESP32-S2 and ESP32-S3 (Arduino ESP32 core 5.2.0)
+-   iPad/tablet with 1024 pixels width in landscape orientation PC mode support (#3153)
+-   fix for Pixel Art Converter (#3155)
+
+#### Build 2303240
+-   Peek scaling of large 2D matrices
+-   Added 0D (1 pixel) metadata for effects & enhance 0D (analog strip) UI handling
+-   Added ability to disable ADAlight (-D WLED_DISABLE_ADALIGHT)
+-   Fixed APA102 output on Ethernet enabled controllers
+-   Added ArtNet virtual/network output (#3121)
+-   Klipper usermod (#3106)
+-   Remove DST from CST timezone
+-   various fixes and enhancements
+
+#### Build 2302180
+
+-   Removed Blynk support (servers shut down on 31st Dec 2022)
+-   Added `ledgap.json` to complement ledmaps for 2D matrices
+-   Added support for white addressable strips (#3073)
+-   Ability to use SHT temperature usermod with PWM fan usermod
+-   Added `onStateChange()` callback to usermods (#3081)
+-   Refactored `bus_manager` [internal]
+-   Dual 1D & 2D mode (add 1D strip after the matrix)
+-   Removed 1D -> 2D mapping for individual pixel control
+-   effect tweak: Fireworks 1D
+-   various bugfixes
+
+#### Build 2301240
+
+-   Version bump to v0.14.0-b2 "Hoshi"
+-   PixelArt converter (convert any image to pixel art and display it on a matrix) (PR #3042)
+-   various effect updates and optimisations
+    -   added Overlay option to some effects (allows overlapping segments)
+    -   added gradient text on Scrolling Text
+    -   added #DDMM, #MMDD & #HHMM date and time options for Scrolling Text effect (PR #2990)
+    -   deprecated: Dynamic Smooth, Dissolve Rnd, Solid Glitter
+    -   optimised & enhanced loading of default values
+    -   new effect: Distortion Waves (2D)
+    -   2D support for Ripple effect
+    -   slower minimum speed for Railway effect
+-   DMX effect mode & segment controls (PR #2891)
+-   Optimisations for conditional compiles (further reduction of code size)
+-   better UX with effect sliders (PR #3012)
+-   enhanced support for ESP32 variants: C3, S2 & S3
+-   usermod enhancements (PIR, Temperature, Battery (PR #2975), Analog Clock (PR #2993))
+-   new usermod SHT (PR #2963)
+-   2D matrix set up with gaps or irregular panels (breaking change!) (PR #2892)
+-   palette blending/transitions
+-   random palette smooth changes
+-   hex color notations in custom palettes
+-   allow more virtual buses
+-   plethora of bugfixes
+
+### WLED release 0.14.0-b1
+
+#### Build 2212222
+
+-   Version bump to v0.14.0-b1 "Hoshi"
+-   2D matrix support (including mapping 1D effects to 2D and 2D peek)
+-   [internal] completely rewritten Segment & WS2812FX handling code
+-   [internal] ability to add custom effects via usermods
+-   [internal] set of 2D drawing functions
+-   transitions on every segment (including ESP8266)
+-   enhanced old and new 2D effects (metadata: default values)
+-   custom palettes (up to 10; upload palette0.json, palette1.json, ...)
+-   custom effect sliders and options, quick filters
+-   global I2C and SPI GPIO allocation (for usermods)
+-   usermod settings page enhancements (dropdown & info)
+-   asynchronous preset loading (and added "pd" JSON API call for direct preset apply)
+-   new usermod Boblight (PR #2917)
+-   new usermod PWM Outputs (PR #2912)
+-   new usermod Audioreactive
+-   new usermod Word Clock Matrix (PR #2743)
+-   new usermod Ping Pong Clock (PR #2746)
+-   new usermod ADS1115 (PR #2752)
+-   new usermod Analog Clock (PR #2736)
+-   various usermod enhancements and updates
+-   allow disabling pull-up resistors on buttons
+-   SD card support (PR #2877)
+-   enhanced HTTP API to support custom effect sliders & options (X1, X2, X3, M1, M2, M3)
+-   multiple UDP sync message retries (PR #2830)
+-   network debug printer (PR #2870)
+-   automatic UI PC mode on large displays
+-   removed support for upgrading from pre-0.10 (EEPROM)
+-   support for setting GPIO level when LEDs are off (RMT idle level, ESP32 only) (PR #2478)
+-   Pakistan time-zone (PKT)
+-   ArtPoll support
+-   TM1829 LED support
+-   experimental support for ESP32 S2, S3 and C3
+-   general improvements and bugfixes
+
+### WLED release 0.13.3
+
+-   Version bump to v0.13.3 "Toki"
+-   Disable ESP watchdog by default (fixes flickering and boot issues on a fresh install)
+-   Added support for LPD6803
+
 ### WLED release 0.13.2
 
 #### Build 2208140

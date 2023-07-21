@@ -9,13 +9,13 @@ to preset number AUTOSAVE_PRESET_NUM after a change to any of:
 * palette
 
 but it will wait for AUTOSAVE_AFTER_SEC seconds,
-a "settle" period in case there are other changes (any change will extend the "settle" window).
+a "settle" period in case there are other changes (any change will extend the "settle" period).
 
 It will additionally load preset AUTOSAVE_PRESET_NUM at startup during the first `loop()`.
 
 AutoSaveUsermod is standalone, but if FourLineDisplayUsermod is installed, it will notify the user of the saved changes.
 
-Note: I don't love that WLED doesn't respect the brightness of the preset being auto loaded, so the AutoSaveUsermod will set the AUTOSAVE_PRESET_NUM preset in the first loop, so brightness IS honored. This means WLED will effectively ignore Default brightness and Apply N preset at boot when the AutoSaveUsermod is installed.
+Note: WLED doesn't respect the brightness of the preset being auto loaded, so the AutoSaveUsermod will set the AUTOSAVE_PRESET_NUM preset in the first loop, so brightness IS honored. This means WLED will effectively ignore Default brightness and Apply N preset at boot when the AutoSaveUsermod is installed.
 
 ## Installation
 
@@ -25,7 +25,7 @@ This file should be placed in the same directory as `platformio.ini`.
 
 ### Define Your Options
 
-* `USERMOD_AUTO_SAVE`           - define this to have this the Auto Save usermod included wled00\usermods_list.cpp
+* `USERMOD_AUTO_SAVE`           - define this to have this usermod included wled00\usermods_list.cpp
 * `AUTOSAVE_AFTER_SEC`          - define the delay time after the settings auto-saving routine should be executed
 * `AUTOSAVE_PRESET_NUM`         - define the preset number used by autosave usermod
 * `USERMOD_AUTO_SAVE_ON_BOOT`   - define if autosave should be enabled on boot

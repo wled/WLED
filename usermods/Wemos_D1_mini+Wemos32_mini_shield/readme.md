@@ -9,10 +9,10 @@
 ## Features
 -   SSD1306 128x32 or 128x64 I2C OLED display
 -   On screen IP address, SSID and controller status (e.g. ON or OFF, recent effect)
--   Auto display shutoff for saving display lifetime
+-   Auto display shutoff for extending display lifetime
 -   Dallas temperature sensor
 -   Reporting temperature to MQTT broker
--   Relay for energy saving
+-   Relay for saving energy
 
 ## Hardware
 ![Shield](https://github.com/srg74/WLED-wemos-shield/blob/master/resources/Images/Assembly_8.jpg)

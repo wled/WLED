@@ -13,6 +13,9 @@ body {
 hr {
   border-color: #666;
 }
+hr.sml {
+  width: 260px;
+}
 a, a:hover {
   color: #28f;
   text-decoration: none;
@@ -38,6 +41,9 @@ button.sml {
   min-width: 40px;
   margin: 0 0 0 10px;
 }
+#scan {
+  margin-top: -10px;
+}
 .toprow {
   top: 0;
   position: sticky;
@@ -51,6 +57,15 @@ button.sml {
   text-align: left;
   position: absolute;
   width: 60px;
+}
+.hide {
+  display: none;
+}
+.err {
+  color: #f00;
+}
+.warn {
+  color: #fa0;
 }
 input {
   background: #333;
@@ -104,6 +119,10 @@ select {
   color: #fff;
   font-family: Verdana, sans-serif;
   border: 0.5ch solid #333;
+}
+select.pin {
+  max-width: 120px;
+  text-overflow: ellipsis;
 }
 tr {
   line-height: 100%;

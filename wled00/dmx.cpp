@@ -73,7 +73,7 @@ void initDMX() {
   dmx.init(512);        // initialize with bus length
  #else
   dmx.initWrite(512);  // initialize with bus length
- #endif  
+ #endif
 }
 
 #else

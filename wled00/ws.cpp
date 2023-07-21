@@ -22,15 +22,15 @@ void wsEvent(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventTyp
     if (client->id() == wsLiveClientId) wsLiveClientId = 0;
     DEBUG_PRINTLN(F("WS client disconnected."));
   } else if(type == WS_EVT_DATA){
-    //data packet
+    // data packet
     AwsFrameInfo * info = (AwsFrameInfo*)arg;
     if(info->final && info->index == 0 && info->len == len){
-      //the whole message is in a single frame and we got all of its data (max. 1450byte)
+      // the whole message is in a single frame and we got all of its data (max. 1450 bytes)
       if(info->opcode == WS_TEXT)
       {
         if (len > 0 && len < 10 && data[0] == 'p') {
-          //application layer ping/pong heartbeat.
-          //client-side socket layer ping packets are unresponded (investigate)
+          // application layer ping/pong heartbeat.
+          // client-side socket layer ping packets are unresponded (investigate)
           client->text(F("pong"));
           return;
         }
@@ -54,14 +54,15 @@ void wsEvent(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventTyp
         }
         releaseJSONBufferLock(); // will clean fileDoc
 
-        // force broadcast in 500ms after upadting client
-        if (verboseResponse) {
-          sendDataWs(client);
-          lastInterfaceUpdate = millis() - (INTERFACE_UPDATE_COOLDOWN -500);
-        } else {
-          // we have to send something back otherwise WS connection closes
-          client->text(F("{\"success\":true}"));
-          lastInterfaceUpdate = millis() - (INTERFACE_UPDATE_COOLDOWN -500);
+        if (!interfaceUpdateCallMode) { // individual client response only needed if no WS broadcast soon
+          if (verboseResponse) {
+            sendDataWs(client);
+          } else {
+            // we have to send something back otherwise WS connection closes
+            client->text(F("{\"success\":true}"));
+          }
+          // force broadcast in 500ms after updating client
+          //lastInterfaceUpdate = millis() - (INTERFACE_UPDATE_COOLDOWN -500); // ESP8266 does not like this
         }
       }
     } else {
@@ -78,7 +79,7 @@ void wsEvent(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventTyp
       if((info->index + len) == info->len){
         if(info->final){
           if(info->message_opcode == WS_TEXT) {
-            client->text(F("{\"error\":9}")); //we do not handle split packets right now
+            client->text(F("{\"error\":9}")); // ERR_JSON we do not handle split packets right now
           }
         }
       }
@@ -111,9 +112,17 @@ void sendDataWs(AsyncWebSocketClient * client)
   DEBUG_PRINTF("JSON buffer size: %u for WS request (%u).\n", doc.memoryUsage(), len);
 
   size_t heap1 = ESP.getFreeHeap();
+  DEBUG_PRINT(F("heap ")); DEBUG_PRINTLN(ESP.getFreeHeap());
+  #ifdef ESP8266
+  if (len>heap1) {
+    DEBUG_PRINTLN(F("Out of memory (WS)!"));
+    return;
+  }
+  #endif
   buffer = ws.makeBuffer(len); // will not allocate correct memory sometimes on ESP8266
   #ifdef ESP8266
   size_t heap2 = ESP.getFreeHeap();
+  DEBUG_PRINT(F("heap ")); DEBUG_PRINTLN(ESP.getFreeHeap());
   #else
   size_t heap2 = 0; // ESP32 variants do not have the same issue and will work without checking heap allocation
   #endif
@@ -148,11 +157,17 @@ bool sendLiveLedsWs(uint32_t wsClient)
   AsyncWebSocketClient * wsc = ws.client(wsClient);
   if (!wsc || wsc->queueLength() > 0) return false; //only send if queue free
 
-  uint16_t used = strip.getLengthTotal();
-  const uint16_t MAX_LIVE_LEDS_WS = strip.isMatrix ? 1024 : 256;
-  uint16_t n = ((used -1)/MAX_LIVE_LEDS_WS) +1; //only serve every n'th LED if count over MAX_LIVE_LEDS_WS
-  uint16_t pos = (strip.isMatrix ? 4 : 2);
-  uint16_t bufSize = pos + (used/n)*3;
+  size_t used = strip.getLengthTotal();
+#ifdef ESP8266
+  const size_t MAX_LIVE_LEDS_WS = 256U;
+#else
+  const size_t MAX_LIVE_LEDS_WS = 1024U;
+#endif
+  size_t n = ((used -1)/MAX_LIVE_LEDS_WS) +1; //only serve every n'th LED if count over MAX_LIVE_LEDS_WS
+  size_t pos = (strip.isMatrix ? 4 : 2);  // start of data
+  size_t bufSize = pos + (used/n)*3;
+  size_t skipLines = 0;
+
   AsyncWebSocketMessageBuffer * wsBuf = ws.makeBuffer(bufSize);
   if (!wsBuf) return false; //out of memory
   uint8_t* buffer = wsBuf->get();
@@ -161,13 +176,27 @@ bool sendLiveLedsWs(uint32_t wsClient)
 #ifndef WLED_DISABLE_2D
   if (strip.isMatrix) {
     buffer[1] = 2; //version
-    buffer[2] = strip.matrixWidth;
-    buffer[3] = strip.matrixHeight;
+    buffer[2] = Segment::maxWidth;
+    buffer[3] = Segment::maxHeight;
+    if (Segment::maxWidth * Segment::maxHeight > MAX_LIVE_LEDS_WS*4) {
+      buffer[2] = Segment::maxWidth/4;
+      buffer[3] = Segment::maxHeight/4;
+      skipLines = 3;
+    } else if (Segment::maxWidth * Segment::maxHeight > MAX_LIVE_LEDS_WS) {
+      buffer[2] = Segment::maxWidth/2;
+      buffer[3] = Segment::maxHeight/2;
+      skipLines = 1;
+    }
   }
 #endif
 
-  for (uint16_t i = 0; pos < bufSize -2; i += n)
+  for (size_t i = 0; pos < bufSize -2; i += n)
   {
+#ifndef WLED_DISABLE_2D
+    if (strip.isMatrix && skipLines) {
+      if ((i/Segment::maxWidth)%(skipLines+1)) i += Segment::maxWidth * skipLines;
+    }
+#endif
     uint32_t c = strip.getPixelColor(i);
     buffer[pos++] = qadd8(W(c), R(c)); //R, add white channel to RGB channels as a simple RGBW -> RGB map
     buffer[pos++] = qadd8(W(c), G(c)); //G

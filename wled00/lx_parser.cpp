@@ -1,24 +1,25 @@
 #include "wled.h"
 
+#ifdef WLED_ENABLE_LOXONE
+
 /*
  * Parser for Loxone formats
  */
-bool parseLx(int lxValue, byte rgbw[4])
+bool parseLx(int lxValue, byte* rgbw)
 {
-  #ifdef WLED_ENABLE_LOXONE
   DEBUG_PRINT(F("LX: Lox = "));
   DEBUG_PRINTLN(lxValue);
 
   bool ok = false;
   float lxRed = 0, lxGreen = 0, lxBlue = 0;
 
-  if (lxValue < 200000000) { 
+  if (lxValue < 200000000) {
     // Loxone RGB
     ok = true;
     lxRed = round((lxValue % 1000) * 2.55);
     lxGreen = round(((lxValue / 1000) % 1000) * 2.55);
     lxBlue = round(((lxValue / 1000000) % 1000) * 2.55);
-  } else if ((lxValue >= 200000000) && (lxValue <= 201006500)) { 
+  } else if ((lxValue >= 200000000) && (lxValue <= 201006500)) {
     // Loxone Lumitech
     ok = true;
     float tmpBri = floor((lxValue - 200000000) / 10000); ;
@@ -42,7 +43,6 @@ bool parseLx(int lxValue, byte rgbw[4])
     rgbw[3] = 0;
     return true;
   }
-  #endif
   return false;
 }
 
@@ -62,15 +62,10 @@ void parseLxJson(int lxValue, byte segId, bool secondary)
     }
     bri = 255;
     nightlightActive = false; //always disable nightlight when toggling
-    if (segId == strip.getMainSegmentId()) {
-      DEBUG_PRINTLN(F("LX: main segment"));
-      if (secondary) for (byte i = 0; i < 4; i++) colSec[i] = rgbw[i];
-      else           for (byte i = 0; i < 4; i++) col[i]    = rgbw[i];
-    } else {
-      DEBUG_PRINT(F("LX: segment "));
-      DEBUG_PRINTLN(segId);
-      strip.getSegment(segId).setColor(secondary, RGBW32(rgbw[0], rgbw[1], rgbw[2], rgbw[3]));
-    }
+    DEBUG_PRINT(F("LX: segment "));
+    DEBUG_PRINTLN(segId);
+    strip.getSegment(segId).setColor(secondary, RGBW32(rgbw[0], rgbw[1], rgbw[2], rgbw[3])); // legacy values handled as well in json.cpp by stateUpdated()
   }
 }
 
+#endif

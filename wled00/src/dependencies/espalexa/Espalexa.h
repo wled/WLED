@@ -10,7 +10,7 @@
  */
 /*
  * @title Espalexa library
- * @version 2.7.0
+ * @version 2.7.1
  * @author Christian Schwinne
  * @license MIT
  * @contributors d-999
@@ -50,7 +50,7 @@
 #include "../network/Network.h"
 
 #ifdef ESPALEXA_DEBUG
- #pragma message "Espalexa 2.7.0 debug mode"
+ #pragma message "Espalexa 2.7.1 debug mode"
  #define EA_DEBUG(x)  Serial.print (x)
  #define EA_DEBUGLN(x) Serial.println (x)
 #else
@@ -142,7 +142,7 @@ private:
   }
 
   //device JSON string: color+temperature device emulates LCT015, dimmable device LWB010, (TODO: on/off Plug 01, color temperature device LWT010, color device LST001)
-  void deviceJsonString(EspalexaDevice* dev, char* buf)
+  void deviceJsonString(EspalexaDevice* dev, char* buf, size_t maxBuf) // softhack007 "size" parameter added, to avoid buffer overrun
   {
     char buf_lightid[27];
     encodeLightId(dev->getId() + 1, buf_lightid);
@@ -153,19 +153,19 @@ private:
       //TODO: %f is not working for some reason on ESP8266 in v0.11.0 (was fine in 0.10.2). Need to investigate
       //sprintf_P(buf_col,PSTR(",\"hue\":%u,\"sat\":%u,\"effect\":\"none\",\"xy\":[%f,%f]")
       //  ,dev->getHue(), dev->getSat(), dev->getX(), dev->getY());
-      sprintf_P(buf_col,PSTR(",\"hue\":%u,\"sat\":%u,\"effect\":\"none\",\"xy\":[%s,%s]"),dev->getHue(), dev->getSat(),
+      snprintf_P(buf_col, sizeof(buf_col), PSTR(",\"hue\":%u,\"sat\":%u,\"effect\":\"none\",\"xy\":[%s,%s]"),dev->getHue(), dev->getSat(),
         ((String)dev->getX()).c_str(), ((String)dev->getY()).c_str());
       
     char buf_ct[16] = "";
     //white spectrum support
     if (static_cast<uint8_t>(dev->getType()) > 1 && dev->getType() != EspalexaDeviceType::color)
-      sprintf(buf_ct, ",\"ct\":%u", dev->getCt());
+      snprintf(buf_ct, sizeof(buf_ct), ",\"ct\":%u", dev->getCt());
     
     char buf_cm[20] = "";
     if (static_cast<uint8_t>(dev->getType()) > 1)
-      sprintf(buf_cm,PSTR("\",\"colormode\":\"%s"), modeString(dev->getColorMode()));
+      snprintf(buf_cm, sizeof(buf_cm), PSTR("\",\"colormode\":\"%s"), modeString(dev->getColorMode()));
     
-    sprintf_P(buf, PSTR("{\"state\":{\"on\":%s,\"bri\":%u%s%s,\"alert\":\"none%s\",\"mode\":\"homeautomation\",\"reachable\":true},"
+    snprintf_P(buf, maxBuf, PSTR("{\"state\":{\"on\":%s,\"bri\":%u%s%s,\"alert\":\"none%s\",\"mode\":\"homeautomation\",\"reachable\":true},"
                    "\"type\":\"%s\",\"name\":\"%s\",\"modelid\":\"%s\",\"manufacturername\":\"Philips\",\"productname\":\"E%u"
                    "\",\"uniqueid\":\"%s\",\"swversion\":\"espalexa-2.7.0\"}")
                    
@@ -219,10 +219,10 @@ private:
     EA_DEBUGLN("# Responding to description.xml ... #\n");
     IPAddress localIP = Network.localIP();
     char s[16];
-    sprintf(s, "%d.%d.%d.%d", localIP[0], localIP[1], localIP[2], localIP[3]);
+    snprintf(s, sizeof(s), "%d.%d.%d.%d", localIP[0], localIP[1], localIP[2], localIP[3]);
     char buf[1024];
     
-    sprintf_P(buf,PSTR("<?xml version=\"1.0\" ?>"
+    snprintf_P(buf, sizeof(buf), PSTR("<?xml version=\"1.0\" ?>"
         "<root xmlns=\"urn:schemas-upnp-org:device-1-0\">"
         "<specVersion><major>1</major><minor>0</minor></specVersion>"
         "<URLBase>http://%s:80/</URLBase>"
@@ -297,7 +297,7 @@ private:
 
     char buf[1024];
 
-    sprintf_P(buf,PSTR("HTTP/1.1 200 OK\r\n"
+    snprintf_P(buf, sizeof(buf), PSTR("HTTP/1.1 200 OK\r\n"
       "EXT:\r\n"
       "CACHE-CONTROL: max-age=100\r\n" // SSDP_INTERVAL
       "LOCATION: http://%s:80/description.xml\r\n"
@@ -359,6 +359,11 @@ public:
     return false;
   }
 
+  // get device count, function only in WLED version of Espalexa
+  uint8_t getDeviceCount() {
+    return currentDeviceCount;
+  }
+
   //service loop
   void loop() {
     #ifndef ESPALEXA_ASYNC
@@ -391,6 +396,13 @@ public:
       EA_DEBUGLN("Responding search req...");
       respondToSearch();
     }
+  }
+
+  // Function only in WLED version of Espalexa, does not actually release memory for names
+  void removeAllDevices()
+  {
+    currentDeviceCount=0;
+    return;
   }
 
   // returns device index or 0 on failure
@@ -481,7 +493,7 @@ public:
       unsigned idx = decodeLightKey(devId);
       EA_DEBUGLN(idx);
       char buf[50];
-      sprintf_P(buf,PSTR("[{\"success\":{\"/lights/%u/state/\": true}}]"),devId);
+      snprintf_P(buf,sizeof(buf),PSTR("[{\"success\":{\"/lights/%u/state/\": true}}]"),devId);
       server->send(200, "application/json", buf);
       if (idx >= currentDeviceCount) return true; //return if invalid ID
       EspalexaDevice* dev = devices[idx];
@@ -559,7 +571,7 @@ public:
           jsonTemp += ':';
 
           char buf[512];
-          deviceJsonString(devices[i], buf);
+          deviceJsonString(devices[i], buf, sizeof(buf)-1);
           jsonTemp += buf;
           if (i < currentDeviceCount-1) jsonTemp += ',';
         }
@@ -576,7 +588,7 @@ public:
           return true;
         }
         char buf[512];
-        deviceJsonString(devices[idx], buf);
+        deviceJsonString(devices[idx], buf, sizeof(buf)-1);
         server->send(200, "application/json", buf);
       }
       

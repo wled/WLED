@@ -4,67 +4,55 @@
 #
 #    pip-compile
 #
-aiofiles==0.8.0
+aiofiles==22.1.0
     # via platformio
 ajsonrpc==1.2.0
     # via platformio
-anyio==3.6.1
+anyio==3.6.2
     # via starlette
-async-timeout==4.0.2
-    # via zeroconf
-bottle==0.12.23
+bottle==0.12.25
     # via platformio
-certifi==2022.6.15
+certifi==2022.12.7
     # via requests
-charset-normalizer==2.1.1
+charset-normalizer==3.1.0
     # via requests
 click==8.1.3
     # via
     #   platformio
     #   uvicorn
-colorama==0.4.5
-    # via
-    #   click
-    #   platformio
-h11==0.13.0
+colorama==0.4.6
+    # via platformio
+h11==0.14.0
     # via
     #   uvicorn
     #   wsproto
-idna==3.3
+idna==3.4
     # via
     #   anyio
     #   requests
-ifaddr==0.2.0
-    # via zeroconf
-marshmallow==3.17.0
+marshmallow==3.19.0
     # via platformio
-packaging==21.3
+packaging==23.1
     # via marshmallow
-platformio==6.1.4
+platformio==6.1.6
     # via -r requirements.in
 pyelftools==0.29
     # via platformio
-pyparsing==3.0.9
-    # via packaging
 pyserial==3.5
     # via platformio
-requests==2.28.1
+requests==2.31.0
     # via platformio
 semantic-version==2.10.0
     # via platformio
-sniffio==1.2.0
+sniffio==1.3.0
     # via anyio
-starlette==0.20.4
+starlette==0.23.1
     # via platformio
-tabulate==0.8.10
+tabulate==0.9.0
     # via platformio
-typing-extensions==4.3.0
-    # via starlette
-urllib3==1.26.11
+urllib3==1.26.15
     # via requests
-uvicorn==0.18.2
+uvicorn==0.20.0
     # via platformio
-wsproto==1.1.0
-    # via platformio
-zeroconf==0.39.0
+wsproto==1.2.0
     # via platformio

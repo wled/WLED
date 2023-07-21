@@ -2,8 +2,8 @@
 
 ## Purpose 
 
-The JSON IR remote allows users to customize IR remote behavior without writing custom code and compiling. 
-It also enables using any remote that is compatible with your IR receiver. Using the JSON IR remote, you can
+The JSON IR remote enables users to customize IR remote behavior without writing custom code and compiling. 
+It also allows using any remote compatible with your IR receiver. Using the JSON IR remote, you can
 map buttons from any remote to any HTTP request API or JSON API command.  
 
 ## Usage
