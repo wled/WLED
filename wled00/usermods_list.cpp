@@ -133,6 +133,10 @@
   #include "../usermods/wizlights/wizlights.h"
 #endif
 
+#ifdef USERMOD_WIREGUARD
+  #include "../usermods/wireguard/wireguard.h"
+#endif
+
 #ifdef USERMOD_WORDCLOCK
   #include "../usermods/usermod_v2_word_clock/usermod_v2_word_clock.h"
 #endif
@@ -307,6 +311,10 @@ void registerUsermods()
 
   #ifdef USERMOD_WIZLIGHTS
   usermods.add(new WizLightsUsermod());
+  #endif
+
+  #ifdef USERMOD_WIREGUARD
+  usermods.add(new WireguardUsermod());
   #endif
 
   #ifdef USERMOD_WORDCLOCK

@@ -1,5 +1,19 @@
 ## WLED changelog
 
+#### Build 2308110
+-   Release of WLED beta version 0.14.0-b4 "Hoshi"
+-   Reset effect data immediately upon mode change
+
+#### Build 2308030
+-   Improved random palette handling and blending
+-   Soap bugfix
+-   Fix ESP-NOW crash with AP mode Always
+
+#### Build 2307180
+-   Bus-level global buffering (#3280)
+-   Removed per-segment LED buffer (SEGMENT.leds)
+-   various fixes and improvements (ESP variants platform 5.3.0, effect optimizations, /json/cfg pin allocation)
+
 #### Build 2307130
 -   larger `oappend()` stack buffer (3.5k) for ESP32
 -   Preset cycle bugfix (#3262)

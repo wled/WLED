@@ -195,7 +195,7 @@ void handleTransitions()
       applyFinalBri();
       return;
     }
-    if (tper - tperLast < 0.004) return;
+    if (tper - tperLast < 0.004f) return;
     tperLast = tper;
     briT = briOld + ((bri - briOld) * tper);
 
@@ -205,7 +205,7 @@ void handleTransitions()
 
 
 // legacy method, applies values from col, effectCurrent, ... to selected segments
-void colorUpdated(byte callMode){
+void colorUpdated(byte callMode) {
   applyValuesToSelectedSegs();
   stateUpdated(callMode);
 }

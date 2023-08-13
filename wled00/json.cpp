@@ -22,7 +22,7 @@ bool deserializeSegment(JsonObject elem, byte it, byte presetId)
 
   int stop = elem["stop"] | -1;
 
-  // if using vectors use this code to append segment
+  // append segment
   if (id >= strip.getSegmentsNum()) {
     if (stop <= 0) return false; // ignore empty/inactive segments
     strip.appendSegment(Segment(0, strip.getLengthTotal()));
@@ -110,7 +110,11 @@ bool deserializeSegment(JsonObject elem, byte it, byte presetId)
     of = offsetAbs;
   }
   if (stop > start && of > len -1) of = len -1;
-  seg.setUp(start, stop, grp, spc, of, startY, stopY);
+
+  // update segment (delete if necessary)
+  // do not call seg.setUp() here, as it may cause a crash due to concurrent access if the segment is currently drawing effects
+  // WS2812FX handles queueing of the change
+  strip.setSegment(id, start, stop, grp, spc, of, startY, stopY);
 
   if (seg.reset && seg.stop == 0) return true; // segment was deleted & is marked for reset, no need to change anything else
 
@@ -468,12 +472,14 @@ void serializeSegment(JsonObject& root, Segment& seg, byte id, bool forPreset, b
   if (segmentBounds) {
     root["start"] = seg.start;
     root["stop"] = seg.stop;
+    #ifndef WLED_DISABLE_2D
     if (strip.isMatrix) {
       root[F("startY")] = seg.startY;
       root[F("stopY")]  = seg.stopY;
     }
+    #endif
   }
-  if (!forPreset) root["len"] = (seg.stop >= seg.start) ? (seg.stop - seg.start) : 0;
+  if (!forPreset) root["len"] = seg.stop - seg.start;
   root["grp"]    = seg.grouping;
   root[F("spc")] = seg.spacing;
   root[F("of")]  = seg.offset;
@@ -1060,7 +1066,10 @@ void serveJson(AsyncWebServerRequest* request)
 
   DEBUG_PRINTF("JSON buffer size: %u for request: %d\n", lDoc.memoryUsage(), subJson);
 
-  size_t len = response->setLength();
+  #ifdef WLED_DEBUG
+  size_t len =
+  #endif
+  response->setLength();
   DEBUG_PRINT(F("JSON content length: ")); DEBUG_PRINTLN(len);
 
   request->send(response);
@@ -1090,9 +1099,13 @@ bool serveLiveLeds(AsyncWebServerRequest* request, uint32_t wsClient)
   for (size_t i= 0; i < used; i += n)
   {
     uint32_t c = strip.getPixelColor(i);
-    uint8_t r = qadd8(W(c), R(c)); //add white channel to RGB channels as a simple RGBW -> RGB map
-    uint8_t g = qadd8(W(c), G(c));
-    uint8_t b = qadd8(W(c), B(c));
+    uint8_t r = R(c);
+    uint8_t g = G(c);
+    uint8_t b = B(c);
+    uint8_t w = W(c);
+    r = scale8(qadd8(w, r), strip.getBrightness()); //R, add white channel to RGB channels as a simple RGBW -> RGB map
+    g = scale8(qadd8(w, g), strip.getBrightness()); //G
+    b = scale8(qadd8(w, b), strip.getBrightness()); //B
     olen += sprintf(obuf + olen, "\"%06X\",", RGBW32(r,g,b,0));
   }
   olen -= 1;

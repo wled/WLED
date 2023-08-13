@@ -3,12 +3,12 @@
 /*
    Main sketch, global variable declarations
    @title WLED project sketch
-   @version 0.14.0-b3
+   @version 0.14.0-b4
    @author Christian Schwinne
  */
 
 // version code in format yymmddb (b = daily build)
-#define VERSION 2307130
+#define VERSION 2308110
 
 //uncomment this if you have a "my_config.h" file you'd like to use
 //#define WLED_USE_MY_CONFIG
@@ -331,12 +331,17 @@ WLED_GLOBAL byte bootPreset   _INIT(0);                   // save preset to load
 //if true, a segment per bus will be created on boot and LED settings save
 //if false, only one segment spanning the total LEDs is created,
 //but not on LED settings save if there is more than one segment currently
-WLED_GLOBAL bool autoSegments    _INIT(false);
-WLED_GLOBAL bool correctWB       _INIT(false); // CCT color correction of RGB color
-WLED_GLOBAL bool cctFromRgb      _INIT(false); // CCT is calculated from RGB instead of using seg.cct
-WLED_GLOBAL bool gammaCorrectCol _INIT(true ); // use gamma correction on colors
-WLED_GLOBAL bool gammaCorrectBri _INIT(false); // use gamma correction on brightness
-WLED_GLOBAL float gammaCorrectVal _INIT(2.8f); // gamma correction value
+WLED_GLOBAL bool autoSegments       _INIT(false);
+#ifdef ESP8266
+WLED_GLOBAL bool useGlobalLedBuffer _INIT(false); // double buffering disabled on ESP8266
+#else
+WLED_GLOBAL bool useGlobalLedBuffer _INIT(true);  // double buffering enabled on ESP32
+#endif
+WLED_GLOBAL bool correctWB          _INIT(false); // CCT color correction of RGB color
+WLED_GLOBAL bool cctFromRgb         _INIT(false); // CCT is calculated from RGB instead of using seg.cct
+WLED_GLOBAL bool gammaCorrectCol    _INIT(true);  // use gamma correction on colors
+WLED_GLOBAL bool gammaCorrectBri    _INIT(false); // use gamma correction on brightness
+WLED_GLOBAL float gammaCorrectVal   _INIT(2.8f);  // gamma correction value
 
 WLED_GLOBAL byte col[]    _INIT_N(({ 255, 160, 0, 0 }));  // current RGB(W) primary color. col[] should be updated if you want to change the color.
 WLED_GLOBAL byte colSec[] _INIT_N(({ 0, 0, 0, 0 }));      // current RGB(W) secondary color
@@ -508,7 +513,7 @@ WLED_GLOBAL uint16_t userVar0 _INIT(0), userVar1 _INIT(0); //available for use i
 // wifi
 WLED_GLOBAL bool apActive _INIT(false);
 WLED_GLOBAL bool forceReconnect _INIT(false);
-WLED_GLOBAL uint32_t lastReconnectAttempt _INIT(0);
+WLED_GLOBAL unsigned long lastReconnectAttempt _INIT(0);
 WLED_GLOBAL bool interfacesInited _INIT(false);
 WLED_GLOBAL bool wasConnected _INIT(false);
 

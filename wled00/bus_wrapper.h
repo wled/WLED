@@ -280,6 +280,7 @@ class PolyBus {
     #endif
     if (clock_kHz) dotStar_strip->SetMethodSettings(NeoSpiSettings((uint32_t)clock_kHz*1000));
   }
+
   // Begin & initialize the PixelSettings for TM1814 strips.
   template <class T>
   static void beginTM1814(void* busPtr) {
@@ -288,6 +289,7 @@ class PolyBus {
     // Max current for each LED (22.5 mA).
     tm1814_strip->SetPixelSettings(NeoTm1814Settings(/*R*/225, /*G*/225, /*B*/225, /*W*/225));
   }
+
   static void begin(void* busPtr, uint8_t busType, uint8_t* pins, uint16_t clock_kHz = 0U) {
     switch (busType) {
       case I_NONE: break;
@@ -390,7 +392,8 @@ class PolyBus {
       case I_SS_WS1_3: (static_cast<B_SS_WS1_3*>(busPtr))->Begin(); break;
       case I_SS_P98_3: (static_cast<B_SS_P98_3*>(busPtr))->Begin(); break;
     }
-  };
+  }
+
   static void* create(uint8_t busType, uint8_t* pins, uint16_t len, uint8_t channel, uint16_t clock_kHz = 0U) {
     void* busPtr = nullptr;
     switch (busType) {
@@ -491,104 +494,106 @@ class PolyBus {
     }
     begin(busPtr, busType, pins, clock_kHz);
     return busPtr;
-  };
-  static void show(void* busPtr, uint8_t busType) {
+  }
+
+  static void show(void* busPtr, uint8_t busType, bool consistent = true) {
     switch (busType) {
       case I_NONE: break;
     #ifdef ESP8266
-      case I_8266_U0_NEO_3: (static_cast<B_8266_U0_NEO_3*>(busPtr))->Show(); break;
-      case I_8266_U1_NEO_3: (static_cast<B_8266_U1_NEO_3*>(busPtr))->Show(); break;
-      case I_8266_DM_NEO_3: (static_cast<B_8266_DM_NEO_3*>(busPtr))->Show(); break;
-      case I_8266_BB_NEO_3: (static_cast<B_8266_BB_NEO_3*>(busPtr))->Show(); break;
-      case I_8266_U0_NEO_4: (static_cast<B_8266_U0_NEO_4*>(busPtr))->Show(); break;
-      case I_8266_U1_NEO_4: (static_cast<B_8266_U1_NEO_4*>(busPtr))->Show(); break;
-      case I_8266_DM_NEO_4: (static_cast<B_8266_DM_NEO_4*>(busPtr))->Show(); break;
-      case I_8266_BB_NEO_4: (static_cast<B_8266_BB_NEO_4*>(busPtr))->Show(); break;
-      case I_8266_U0_400_3: (static_cast<B_8266_U0_400_3*>(busPtr))->Show(); break;
-      case I_8266_U1_400_3: (static_cast<B_8266_U1_400_3*>(busPtr))->Show(); break;
-      case I_8266_DM_400_3: (static_cast<B_8266_DM_400_3*>(busPtr))->Show(); break;
-      case I_8266_BB_400_3: (static_cast<B_8266_BB_400_3*>(busPtr))->Show(); break;
-      case I_8266_U0_TM1_4: (static_cast<B_8266_U0_TM1_4*>(busPtr))->Show(); break;
-      case I_8266_U1_TM1_4: (static_cast<B_8266_U1_TM1_4*>(busPtr))->Show(); break;
-      case I_8266_DM_TM1_4: (static_cast<B_8266_DM_TM1_4*>(busPtr))->Show(); break;
-      case I_8266_BB_TM1_4: (static_cast<B_8266_BB_TM1_4*>(busPtr))->Show(); break;
-      case I_8266_U0_TM2_3: (static_cast<B_8266_U0_TM2_4*>(busPtr))->Show(); break;
-      case I_8266_U1_TM2_3: (static_cast<B_8266_U1_TM2_4*>(busPtr))->Show(); break;
-      case I_8266_DM_TM2_3: (static_cast<B_8266_DM_TM2_4*>(busPtr))->Show(); break;
-      case I_8266_BB_TM2_3: (static_cast<B_8266_BB_TM2_4*>(busPtr))->Show(); break;
-      case I_8266_U0_UCS_3: (static_cast<B_8266_U0_UCS_3*>(busPtr))->Show(); break;
-      case I_8266_U1_UCS_3: (static_cast<B_8266_U1_UCS_3*>(busPtr))->Show(); break;
-      case I_8266_DM_UCS_3: (static_cast<B_8266_DM_UCS_3*>(busPtr))->Show(); break;
-      case I_8266_BB_UCS_3: (static_cast<B_8266_BB_UCS_3*>(busPtr))->Show(); break;
-      case I_8266_U0_UCS_4: (static_cast<B_8266_U0_UCS_4*>(busPtr))->Show(); break;
-      case I_8266_U1_UCS_4: (static_cast<B_8266_U1_UCS_4*>(busPtr))->Show(); break;
-      case I_8266_DM_UCS_4: (static_cast<B_8266_DM_UCS_4*>(busPtr))->Show(); break;
-      case I_8266_BB_UCS_4: (static_cast<B_8266_BB_UCS_4*>(busPtr))->Show(); break;
+      case I_8266_U0_NEO_3: (static_cast<B_8266_U0_NEO_3*>(busPtr))->Show(consistent); break;
+      case I_8266_U1_NEO_3: (static_cast<B_8266_U1_NEO_3*>(busPtr))->Show(consistent); break;
+      case I_8266_DM_NEO_3: (static_cast<B_8266_DM_NEO_3*>(busPtr))->Show(consistent); break;
+      case I_8266_BB_NEO_3: (static_cast<B_8266_BB_NEO_3*>(busPtr))->Show(consistent); break;
+      case I_8266_U0_NEO_4: (static_cast<B_8266_U0_NEO_4*>(busPtr))->Show(consistent); break;
+      case I_8266_U1_NEO_4: (static_cast<B_8266_U1_NEO_4*>(busPtr))->Show(consistent); break;
+      case I_8266_DM_NEO_4: (static_cast<B_8266_DM_NEO_4*>(busPtr))->Show(consistent); break;
+      case I_8266_BB_NEO_4: (static_cast<B_8266_BB_NEO_4*>(busPtr))->Show(consistent); break;
+      case I_8266_U0_400_3: (static_cast<B_8266_U0_400_3*>(busPtr))->Show(consistent); break;
+      case I_8266_U1_400_3: (static_cast<B_8266_U1_400_3*>(busPtr))->Show(consistent); break;
+      case I_8266_DM_400_3: (static_cast<B_8266_DM_400_3*>(busPtr))->Show(consistent); break;
+      case I_8266_BB_400_3: (static_cast<B_8266_BB_400_3*>(busPtr))->Show(consistent); break;
+      case I_8266_U0_TM1_4: (static_cast<B_8266_U0_TM1_4*>(busPtr))->Show(consistent); break;
+      case I_8266_U1_TM1_4: (static_cast<B_8266_U1_TM1_4*>(busPtr))->Show(consistent); break;
+      case I_8266_DM_TM1_4: (static_cast<B_8266_DM_TM1_4*>(busPtr))->Show(consistent); break;
+      case I_8266_BB_TM1_4: (static_cast<B_8266_BB_TM1_4*>(busPtr))->Show(consistent); break;
+      case I_8266_U0_TM2_3: (static_cast<B_8266_U0_TM2_4*>(busPtr))->Show(consistent); break;
+      case I_8266_U1_TM2_3: (static_cast<B_8266_U1_TM2_4*>(busPtr))->Show(consistent); break;
+      case I_8266_DM_TM2_3: (static_cast<B_8266_DM_TM2_4*>(busPtr))->Show(consistent); break;
+      case I_8266_BB_TM2_3: (static_cast<B_8266_BB_TM2_4*>(busPtr))->Show(consistent); break;
+      case I_8266_U0_UCS_3: (static_cast<B_8266_U0_UCS_3*>(busPtr))->Show(consistent); break;
+      case I_8266_U1_UCS_3: (static_cast<B_8266_U1_UCS_3*>(busPtr))->Show(consistent); break;
+      case I_8266_DM_UCS_3: (static_cast<B_8266_DM_UCS_3*>(busPtr))->Show(consistent); break;
+      case I_8266_BB_UCS_3: (static_cast<B_8266_BB_UCS_3*>(busPtr))->Show(consistent); break;
+      case I_8266_U0_UCS_4: (static_cast<B_8266_U0_UCS_4*>(busPtr))->Show(consistent); break;
+      case I_8266_U1_UCS_4: (static_cast<B_8266_U1_UCS_4*>(busPtr))->Show(consistent); break;
+      case I_8266_DM_UCS_4: (static_cast<B_8266_DM_UCS_4*>(busPtr))->Show(consistent); break;
+      case I_8266_BB_UCS_4: (static_cast<B_8266_BB_UCS_4*>(busPtr))->Show(consistent); break;
     #endif
     #ifdef ARDUINO_ARCH_ESP32
-      case I_32_RN_NEO_3: (static_cast<B_32_RN_NEO_3*>(busPtr))->Show(); break;
+      case I_32_RN_NEO_3: (static_cast<B_32_RN_NEO_3*>(busPtr))->Show(consistent); break;
       #ifndef WLED_NO_I2S0_PIXELBUS
-      case I_32_I0_NEO_3: (static_cast<B_32_I0_NEO_3*>(busPtr))->Show(); break;
+      case I_32_I0_NEO_3: (static_cast<B_32_I0_NEO_3*>(busPtr))->Show(consistent); break;
       #endif
       #ifndef WLED_NO_I2S1_PIXELBUS
-      case I_32_I1_NEO_3: (static_cast<B_32_I1_NEO_3*>(busPtr))->Show(); break;
+      case I_32_I1_NEO_3: (static_cast<B_32_I1_NEO_3*>(busPtr))->Show(consistent); break;
       #endif
-//      case I_32_BB_NEO_3: (static_cast<B_32_BB_NEO_3*>(busPtr))->Show(); break;
-      case I_32_RN_NEO_4: (static_cast<B_32_RN_NEO_4*>(busPtr))->Show(); break;
+//      case I_32_BB_NEO_3: (static_cast<B_32_BB_NEO_3*>(busPtr))->Show(consistent); break;
+      case I_32_RN_NEO_4: (static_cast<B_32_RN_NEO_4*>(busPtr))->Show(consistent); break;
       #ifndef WLED_NO_I2S0_PIXELBUS
-      case I_32_I0_NEO_4: (static_cast<B_32_I0_NEO_4*>(busPtr))->Show(); break;
+      case I_32_I0_NEO_4: (static_cast<B_32_I0_NEO_4*>(busPtr))->Show(consistent); break;
       #endif
       #ifndef WLED_NO_I2S1_PIXELBUS
-      case I_32_I1_NEO_4: (static_cast<B_32_I1_NEO_4*>(busPtr))->Show(); break;
+      case I_32_I1_NEO_4: (static_cast<B_32_I1_NEO_4*>(busPtr))->Show(consistent); break;
       #endif
-//      case I_32_BB_NEO_4: (static_cast<B_32_BB_NEO_4*>(busPtr))->Show(); break;
-      case I_32_RN_400_3: (static_cast<B_32_RN_400_3*>(busPtr))->Show(); break;
+//      case I_32_BB_NEO_4: (static_cast<B_32_BB_NEO_4*>(busPtr))->Show(consistent); break;
+      case I_32_RN_400_3: (static_cast<B_32_RN_400_3*>(busPtr))->Show(consistent); break;
       #ifndef WLED_NO_I2S0_PIXELBUS
-      case I_32_I0_400_3: (static_cast<B_32_I0_400_3*>(busPtr))->Show(); break;
+      case I_32_I0_400_3: (static_cast<B_32_I0_400_3*>(busPtr))->Show(consistent); break;
       #endif
       #ifndef WLED_NO_I2S1_PIXELBUS
-      case I_32_I1_400_3: (static_cast<B_32_I1_400_3*>(busPtr))->Show(); break;
+      case I_32_I1_400_3: (static_cast<B_32_I1_400_3*>(busPtr))->Show(consistent); break;
       #endif
-//      case I_32_BB_400_3: (static_cast<B_32_BB_400_3*>(busPtr))->Show(); break;
-      case I_32_RN_TM1_4: (static_cast<B_32_RN_TM1_4*>(busPtr))->Show(); break;
-      case I_32_RN_TM2_3: (static_cast<B_32_RN_TM2_3*>(busPtr))->Show(); break;
+//      case I_32_BB_400_3: (static_cast<B_32_BB_400_3*>(busPtr))->Show(consistent); break;
+      case I_32_RN_TM1_4: (static_cast<B_32_RN_TM1_4*>(busPtr))->Show(consistent); break;
+      case I_32_RN_TM2_3: (static_cast<B_32_RN_TM2_3*>(busPtr))->Show(consistent); break;
       #ifndef WLED_NO_I2S0_PIXELBUS
-      case I_32_I0_TM1_4: (static_cast<B_32_I0_TM1_4*>(busPtr))->Show(); break;
-      case I_32_I0_TM2_3: (static_cast<B_32_I0_TM2_3*>(busPtr))->Show(); break;
+      case I_32_I0_TM1_4: (static_cast<B_32_I0_TM1_4*>(busPtr))->Show(consistent); break;
+      case I_32_I0_TM2_3: (static_cast<B_32_I0_TM2_3*>(busPtr))->Show(consistent); break;
       #endif
       #ifndef WLED_NO_I2S1_PIXELBUS
-      case I_32_I1_TM1_4: (static_cast<B_32_I1_TM1_4*>(busPtr))->Show(); break;
-      case I_32_I1_TM2_3: (static_cast<B_32_I1_TM2_3*>(busPtr))->Show(); break;
+      case I_32_I1_TM1_4: (static_cast<B_32_I1_TM1_4*>(busPtr))->Show(consistent); break;
+      case I_32_I1_TM2_3: (static_cast<B_32_I1_TM2_3*>(busPtr))->Show(consistent); break;
       #endif
-      case I_32_RN_UCS_3: (static_cast<B_32_RN_UCS_3*>(busPtr))->Show(); break;
+      case I_32_RN_UCS_3: (static_cast<B_32_RN_UCS_3*>(busPtr))->Show(consistent); break;
       #ifndef WLED_NO_I2S0_PIXELBUS
-      case I_32_I0_UCS_3: (static_cast<B_32_I0_UCS_3*>(busPtr))->Show(); break;
+      case I_32_I0_UCS_3: (static_cast<B_32_I0_UCS_3*>(busPtr))->Show(consistent); break;
       #endif
       #ifndef WLED_NO_I2S1_PIXELBUS
-      case I_32_I1_UCS_3: (static_cast<B_32_I1_UCS_3*>(busPtr))->Show(); break;
+      case I_32_I1_UCS_3: (static_cast<B_32_I1_UCS_3*>(busPtr))->Show(consistent); break;
       #endif
-//      case I_32_BB_UCS_3: (static_cast<B_32_BB_NEO_3*>(busPtr))->Show(); break;
-      case I_32_RN_UCS_4: (static_cast<B_32_RN_UCS_4*>(busPtr))->Show(); break;
+//      case I_32_BB_UCS_3: (static_cast<B_32_BB_NEO_3*>(busPtr))->Show(consistent); break;
+      case I_32_RN_UCS_4: (static_cast<B_32_RN_UCS_4*>(busPtr))->Show(consistent); break;
       #ifndef WLED_NO_I2S0_PIXELBUS
-      case I_32_I0_UCS_4: (static_cast<B_32_I0_UCS_4*>(busPtr))->Show(); break;
+      case I_32_I0_UCS_4: (static_cast<B_32_I0_UCS_4*>(busPtr))->Show(consistent); break;
       #endif
       #ifndef WLED_NO_I2S1_PIXELBUS
-      case I_32_I1_UCS_4: (static_cast<B_32_I1_UCS_4*>(busPtr))->Show(); break;
+      case I_32_I1_UCS_4: (static_cast<B_32_I1_UCS_4*>(busPtr))->Show(consistent); break;
       #endif
-//      case I_32_BB_UCS_4: (static_cast<B_32_BB_UCS_4*>(busPtr))->Show(); break;
+//      case I_32_BB_UCS_4: (static_cast<B_32_BB_UCS_4*>(busPtr))->Show(consistent); break;
     #endif
-      case I_HS_DOT_3: (static_cast<B_HS_DOT_3*>(busPtr))->Show(); break;
-      case I_SS_DOT_3: (static_cast<B_SS_DOT_3*>(busPtr))->Show(); break;
-      case I_HS_LPD_3: (static_cast<B_HS_LPD_3*>(busPtr))->Show(); break;
-      case I_SS_LPD_3: (static_cast<B_SS_LPD_3*>(busPtr))->Show(); break;
-      case I_HS_LPO_3: (static_cast<B_HS_LPO_3*>(busPtr))->Show(); break;
-      case I_SS_LPO_3: (static_cast<B_SS_LPO_3*>(busPtr))->Show(); break;
-      case I_HS_WS1_3: (static_cast<B_HS_WS1_3*>(busPtr))->Show(); break;
-      case I_SS_WS1_3: (static_cast<B_SS_WS1_3*>(busPtr))->Show(); break;
-      case I_HS_P98_3: (static_cast<B_HS_P98_3*>(busPtr))->Show(); break;
-      case I_SS_P98_3: (static_cast<B_SS_P98_3*>(busPtr))->Show(); break;
+      case I_HS_DOT_3: (static_cast<B_HS_DOT_3*>(busPtr))->Show(consistent); break;
+      case I_SS_DOT_3: (static_cast<B_SS_DOT_3*>(busPtr))->Show(consistent); break;
+      case I_HS_LPD_3: (static_cast<B_HS_LPD_3*>(busPtr))->Show(consistent); break;
+      case I_SS_LPD_3: (static_cast<B_SS_LPD_3*>(busPtr))->Show(consistent); break;
+      case I_HS_LPO_3: (static_cast<B_HS_LPO_3*>(busPtr))->Show(consistent); break;
+      case I_SS_LPO_3: (static_cast<B_SS_LPO_3*>(busPtr))->Show(consistent); break;
+      case I_HS_WS1_3: (static_cast<B_HS_WS1_3*>(busPtr))->Show(consistent); break;
+      case I_SS_WS1_3: (static_cast<B_SS_WS1_3*>(busPtr))->Show(consistent); break;
+      case I_HS_P98_3: (static_cast<B_HS_P98_3*>(busPtr))->Show(consistent); break;
+      case I_SS_P98_3: (static_cast<B_SS_P98_3*>(busPtr))->Show(consistent); break;
     }
-  };
+  }
+
   static bool canShow(void* busPtr, uint8_t busType) {
     switch (busType) {
       case I_NONE: return true;
@@ -685,7 +690,8 @@ class PolyBus {
       case I_SS_P98_3: return (static_cast<B_SS_P98_3*>(busPtr))->CanShow(); break;
     }
     return true;
-  };
+  }
+
   static void setPixelColor(void* busPtr, uint8_t busType, uint16_t pix, uint32_t c, uint8_t co) {
     uint8_t r = c >> 16;
     uint8_t g = c >> 8;
@@ -805,104 +811,106 @@ class PolyBus {
       case I_HS_P98_3: (static_cast<B_HS_P98_3*>(busPtr))->SetPixelColor(pix, RgbColor(col)); break;
       case I_SS_P98_3: (static_cast<B_SS_P98_3*>(busPtr))->SetPixelColor(pix, RgbColor(col)); break;
     }
-  };
-  static void setBrightness(void* busPtr, uint8_t busType, uint8_t b, bool immediate) { // immediate=true is for use in ABL, it applies brightness immediately (warning: inefficient)
+  }
+
+  static void setBrightness(void* busPtr, uint8_t busType, uint8_t b) {
     switch (busType) {
       case I_NONE: break;
     #ifdef ESP8266
-      case I_8266_U0_NEO_3: (static_cast<B_8266_U0_NEO_3*>(busPtr))->SetLuminance(b); if (immediate) (static_cast<B_8266_U0_NEO_3*>(busPtr))->ApplyPostAdjustments(); break;
-      case I_8266_U1_NEO_3: (static_cast<B_8266_U1_NEO_3*>(busPtr))->SetLuminance(b); if (immediate) (static_cast<B_8266_U1_NEO_3*>(busPtr))->ApplyPostAdjustments(); break;
-      case I_8266_DM_NEO_3: (static_cast<B_8266_DM_NEO_3*>(busPtr))->SetLuminance(b); if (immediate) (static_cast<B_8266_DM_NEO_3*>(busPtr))->ApplyPostAdjustments(); break;
-      case I_8266_BB_NEO_3: (static_cast<B_8266_BB_NEO_3*>(busPtr))->SetLuminance(b); if (immediate) (static_cast<B_8266_BB_NEO_3*>(busPtr))->ApplyPostAdjustments(); break;
-      case I_8266_U0_NEO_4: (static_cast<B_8266_U0_NEO_4*>(busPtr))->SetLuminance(b); if (immediate) (static_cast<B_8266_U0_NEO_4*>(busPtr))->ApplyPostAdjustments(); break;
-      case I_8266_U1_NEO_4: (static_cast<B_8266_U1_NEO_4*>(busPtr))->SetLuminance(b); if (immediate) (static_cast<B_8266_U1_NEO_4*>(busPtr))->ApplyPostAdjustments(); break;
-      case I_8266_DM_NEO_4: (static_cast<B_8266_DM_NEO_4*>(busPtr))->SetLuminance(b); if (immediate) (static_cast<B_8266_DM_NEO_4*>(busPtr))->ApplyPostAdjustments(); break;
-      case I_8266_BB_NEO_4: (static_cast<B_8266_BB_NEO_4*>(busPtr))->SetLuminance(b); if (immediate) (static_cast<B_8266_BB_NEO_4*>(busPtr))->ApplyPostAdjustments(); break;
-      case I_8266_U0_400_3: (static_cast<B_8266_U0_400_3*>(busPtr))->SetLuminance(b); if (immediate) (static_cast<B_8266_U0_400_3*>(busPtr))->ApplyPostAdjustments(); break;
-      case I_8266_U1_400_3: (static_cast<B_8266_U1_400_3*>(busPtr))->SetLuminance(b); if (immediate) (static_cast<B_8266_U1_400_3*>(busPtr))->ApplyPostAdjustments(); break;
-      case I_8266_DM_400_3: (static_cast<B_8266_DM_400_3*>(busPtr))->SetLuminance(b); if (immediate) (static_cast<B_8266_DM_400_3*>(busPtr))->ApplyPostAdjustments(); break;
-      case I_8266_BB_400_3: (static_cast<B_8266_BB_400_3*>(busPtr))->SetLuminance(b); if (immediate) (static_cast<B_8266_BB_400_3*>(busPtr))->ApplyPostAdjustments(); break;
-      case I_8266_U0_TM1_4: (static_cast<B_8266_U0_TM1_4*>(busPtr))->SetLuminance(b); if (immediate) (static_cast<B_8266_U0_TM1_4*>(busPtr))->ApplyPostAdjustments(); break;
-      case I_8266_U1_TM1_4: (static_cast<B_8266_U1_TM1_4*>(busPtr))->SetLuminance(b); if (immediate) (static_cast<B_8266_U1_TM1_4*>(busPtr))->ApplyPostAdjustments(); break;
-      case I_8266_DM_TM1_4: (static_cast<B_8266_DM_TM1_4*>(busPtr))->SetLuminance(b); if (immediate) (static_cast<B_8266_DM_TM1_4*>(busPtr))->ApplyPostAdjustments(); break;
-      case I_8266_BB_TM1_4: (static_cast<B_8266_BB_TM1_4*>(busPtr))->SetLuminance(b); if (immediate) (static_cast<B_8266_BB_TM1_4*>(busPtr))->ApplyPostAdjustments(); break;
-      case I_8266_U0_TM2_3: (static_cast<B_8266_U0_TM2_4*>(busPtr))->SetLuminance(b); if (immediate) (static_cast<B_8266_U0_TM2_4*>(busPtr))->ApplyPostAdjustments(); break;
-      case I_8266_U1_TM2_3: (static_cast<B_8266_U1_TM2_4*>(busPtr))->SetLuminance(b); if (immediate) (static_cast<B_8266_U1_TM2_4*>(busPtr))->ApplyPostAdjustments(); break;
-      case I_8266_DM_TM2_3: (static_cast<B_8266_DM_TM2_4*>(busPtr))->SetLuminance(b); if (immediate) (static_cast<B_8266_DM_TM2_4*>(busPtr))->ApplyPostAdjustments(); break;
-      case I_8266_BB_TM2_3: (static_cast<B_8266_BB_TM2_4*>(busPtr))->SetLuminance(b); if (immediate) (static_cast<B_8266_BB_TM2_4*>(busPtr))->ApplyPostAdjustments(); break;
-      case I_8266_U0_UCS_3: (static_cast<B_8266_U0_UCS_3*>(busPtr))->SetLuminance(b); if (immediate) (static_cast<B_8266_U0_UCS_3*>(busPtr))->ApplyPostAdjustments(); break;
-      case I_8266_U1_UCS_3: (static_cast<B_8266_U1_UCS_3*>(busPtr))->SetLuminance(b); if (immediate) (static_cast<B_8266_U1_UCS_3*>(busPtr))->ApplyPostAdjustments(); break;
-      case I_8266_DM_UCS_3: (static_cast<B_8266_DM_UCS_3*>(busPtr))->SetLuminance(b); if (immediate) (static_cast<B_8266_DM_UCS_3*>(busPtr))->ApplyPostAdjustments(); break;
-      case I_8266_BB_UCS_3: (static_cast<B_8266_BB_UCS_3*>(busPtr))->SetLuminance(b); if (immediate) (static_cast<B_8266_BB_UCS_3*>(busPtr))->ApplyPostAdjustments(); break;
-      case I_8266_U0_UCS_4: (static_cast<B_8266_U0_UCS_4*>(busPtr))->SetLuminance(b); if (immediate) (static_cast<B_8266_U0_UCS_4*>(busPtr))->ApplyPostAdjustments(); break;
-      case I_8266_U1_UCS_4: (static_cast<B_8266_U1_UCS_4*>(busPtr))->SetLuminance(b); if (immediate) (static_cast<B_8266_U1_UCS_4*>(busPtr))->ApplyPostAdjustments(); break;
-      case I_8266_DM_UCS_4: (static_cast<B_8266_DM_UCS_4*>(busPtr))->SetLuminance(b); if (immediate) (static_cast<B_8266_DM_UCS_4*>(busPtr))->ApplyPostAdjustments(); break;
-      case I_8266_BB_UCS_4: (static_cast<B_8266_BB_UCS_4*>(busPtr))->SetLuminance(b); if (immediate) (static_cast<B_8266_BB_UCS_4*>(busPtr))->ApplyPostAdjustments(); break;
+      case I_8266_U0_NEO_3: (static_cast<B_8266_U0_NEO_3*>(busPtr))->SetLuminance(b); break;
+      case I_8266_U1_NEO_3: (static_cast<B_8266_U1_NEO_3*>(busPtr))->SetLuminance(b); break;
+      case I_8266_DM_NEO_3: (static_cast<B_8266_DM_NEO_3*>(busPtr))->SetLuminance(b); break;
+      case I_8266_BB_NEO_3: (static_cast<B_8266_BB_NEO_3*>(busPtr))->SetLuminance(b); break;
+      case I_8266_U0_NEO_4: (static_cast<B_8266_U0_NEO_4*>(busPtr))->SetLuminance(b); break;
+      case I_8266_U1_NEO_4: (static_cast<B_8266_U1_NEO_4*>(busPtr))->SetLuminance(b); break;
+      case I_8266_DM_NEO_4: (static_cast<B_8266_DM_NEO_4*>(busPtr))->SetLuminance(b); break;
+      case I_8266_BB_NEO_4: (static_cast<B_8266_BB_NEO_4*>(busPtr))->SetLuminance(b); break;
+      case I_8266_U0_400_3: (static_cast<B_8266_U0_400_3*>(busPtr))->SetLuminance(b); break;
+      case I_8266_U1_400_3: (static_cast<B_8266_U1_400_3*>(busPtr))->SetLuminance(b); break;
+      case I_8266_DM_400_3: (static_cast<B_8266_DM_400_3*>(busPtr))->SetLuminance(b); break;
+      case I_8266_BB_400_3: (static_cast<B_8266_BB_400_3*>(busPtr))->SetLuminance(b); break;
+      case I_8266_U0_TM1_4: (static_cast<B_8266_U0_TM1_4*>(busPtr))->SetLuminance(b); break;
+      case I_8266_U1_TM1_4: (static_cast<B_8266_U1_TM1_4*>(busPtr))->SetLuminance(b); break;
+      case I_8266_DM_TM1_4: (static_cast<B_8266_DM_TM1_4*>(busPtr))->SetLuminance(b); break;
+      case I_8266_BB_TM1_4: (static_cast<B_8266_BB_TM1_4*>(busPtr))->SetLuminance(b); break;
+      case I_8266_U0_TM2_3: (static_cast<B_8266_U0_TM2_4*>(busPtr))->SetLuminance(b); break;
+      case I_8266_U1_TM2_3: (static_cast<B_8266_U1_TM2_4*>(busPtr))->SetLuminance(b); break;
+      case I_8266_DM_TM2_3: (static_cast<B_8266_DM_TM2_4*>(busPtr))->SetLuminance(b); break;
+      case I_8266_BB_TM2_3: (static_cast<B_8266_BB_TM2_4*>(busPtr))->SetLuminance(b); break;
+      case I_8266_U0_UCS_3: (static_cast<B_8266_U0_UCS_3*>(busPtr))->SetLuminance(b); break;
+      case I_8266_U1_UCS_3: (static_cast<B_8266_U1_UCS_3*>(busPtr))->SetLuminance(b); break;
+      case I_8266_DM_UCS_3: (static_cast<B_8266_DM_UCS_3*>(busPtr))->SetLuminance(b); break;
+      case I_8266_BB_UCS_3: (static_cast<B_8266_BB_UCS_3*>(busPtr))->SetLuminance(b); break;
+      case I_8266_U0_UCS_4: (static_cast<B_8266_U0_UCS_4*>(busPtr))->SetLuminance(b); break;
+      case I_8266_U1_UCS_4: (static_cast<B_8266_U1_UCS_4*>(busPtr))->SetLuminance(b); break;
+      case I_8266_DM_UCS_4: (static_cast<B_8266_DM_UCS_4*>(busPtr))->SetLuminance(b); break;
+      case I_8266_BB_UCS_4: (static_cast<B_8266_BB_UCS_4*>(busPtr))->SetLuminance(b); break;
     #endif
     #ifdef ARDUINO_ARCH_ESP32
-      case I_32_RN_NEO_3: (static_cast<B_32_RN_NEO_3*>(busPtr))->SetLuminance(b); if (immediate) (static_cast<B_32_RN_NEO_3*>(busPtr))->ApplyPostAdjustments(); break;
+      case I_32_RN_NEO_3: (static_cast<B_32_RN_NEO_3*>(busPtr))->SetLuminance(b); break;
       #ifndef WLED_NO_I2S0_PIXELBUS
-      case I_32_I0_NEO_3: (static_cast<B_32_I0_NEO_3*>(busPtr))->SetLuminance(b); if (immediate) (static_cast<B_32_I0_NEO_3*>(busPtr))->ApplyPostAdjustments(); break;
+      case I_32_I0_NEO_3: (static_cast<B_32_I0_NEO_3*>(busPtr))->SetLuminance(b); break;
       #endif
       #ifndef WLED_NO_I2S1_PIXELBUS
-      case I_32_I1_NEO_3: (static_cast<B_32_I1_NEO_3*>(busPtr))->SetLuminance(b); if (immediate) (static_cast<B_32_I1_NEO_3*>(busPtr))->ApplyPostAdjustments(); break;
+      case I_32_I1_NEO_3: (static_cast<B_32_I1_NEO_3*>(busPtr))->SetLuminance(b); break;
       #endif
-//      case I_32_BB_NEO_3: (static_cast<B_32_BB_NEO_3*>(busPtr))->SetLuminance(b); if (immediate) (static_cast<B_32_BB_NEO_3*>(busPtr))->ApplyPostAdjustments(); break;
-      case I_32_RN_NEO_4: (static_cast<B_32_RN_NEO_4*>(busPtr))->SetLuminance(b); if (immediate) (static_cast<B_32_RN_NEO_4*>(busPtr))->ApplyPostAdjustments(); break;
+//      case I_32_BB_NEO_3: (static_cast<B_32_BB_NEO_3*>(busPtr))->SetLuminance(b); break;
+      case I_32_RN_NEO_4: (static_cast<B_32_RN_NEO_4*>(busPtr))->SetLuminance(b); break;
       #ifndef WLED_NO_I2S0_PIXELBUS
-      case I_32_I0_NEO_4: (static_cast<B_32_I0_NEO_4*>(busPtr))->SetLuminance(b); if (immediate) (static_cast<B_32_I0_NEO_4*>(busPtr))->ApplyPostAdjustments(); break;
+      case I_32_I0_NEO_4: (static_cast<B_32_I0_NEO_4*>(busPtr))->SetLuminance(b); break;
       #endif
       #ifndef WLED_NO_I2S1_PIXELBUS
-      case I_32_I1_NEO_4: (static_cast<B_32_I1_NEO_4*>(busPtr))->SetLuminance(b); if (immediate) (static_cast<B_32_I1_NEO_4*>(busPtr))->ApplyPostAdjustments(); break;
+      case I_32_I1_NEO_4: (static_cast<B_32_I1_NEO_4*>(busPtr))->SetLuminance(b); break;
       #endif
-//      case I_32_BB_NEO_4: (static_cast<B_32_BB_NEO_4*>(busPtr))->SetLuminance(b); if (immediate) (static_cast<B_32_BB_NEO_4*>(busPtr))->ApplyPostAdjustments(); break;
-      case I_32_RN_400_3: (static_cast<B_32_RN_400_3*>(busPtr))->SetLuminance(b); if (immediate) (static_cast<B_32_RN_400_3*>(busPtr))->ApplyPostAdjustments(); break;
+//      case I_32_BB_NEO_4: (static_cast<B_32_BB_NEO_4*>(busPtr))->SetLuminance(b); break;
+      case I_32_RN_400_3: (static_cast<B_32_RN_400_3*>(busPtr))->SetLuminance(b); break;
       #ifndef WLED_NO_I2S0_PIXELBUS
-      case I_32_I0_400_3: (static_cast<B_32_I0_400_3*>(busPtr))->SetLuminance(b); if (immediate) (static_cast<B_32_I0_400_3*>(busPtr))->ApplyPostAdjustments(); break;
+      case I_32_I0_400_3: (static_cast<B_32_I0_400_3*>(busPtr))->SetLuminance(b); break;
       #endif
       #ifndef WLED_NO_I2S1_PIXELBUS
-      case I_32_I1_400_3: (static_cast<B_32_I1_400_3*>(busPtr))->SetLuminance(b); if (immediate) (static_cast<B_32_I1_400_3*>(busPtr))->ApplyPostAdjustments(); break;
+      case I_32_I1_400_3: (static_cast<B_32_I1_400_3*>(busPtr))->SetLuminance(b); break;
       #endif
-//      case I_32_BB_400_3: (static_cast<B_32_BB_400_3*>(busPtr))->SetLuminance(b); if (immediate) (static_cast<B_32_BB_400_3*>(busPtr))->ApplyPostAdjustments(); break;
-      case I_32_RN_TM1_4: (static_cast<B_32_RN_TM1_4*>(busPtr))->SetLuminance(b); if (immediate) (static_cast<B_32_RN_TM1_4*>(busPtr))->ApplyPostAdjustments(); break;
-      case I_32_RN_TM2_3: (static_cast<B_32_RN_TM2_3*>(busPtr))->SetLuminance(b); if (immediate) (static_cast<B_32_RN_TM2_3*>(busPtr))->ApplyPostAdjustments(); break;
+//      case I_32_BB_400_3: (static_cast<B_32_BB_400_3*>(busPtr))->SetLuminance(b); break;
+      case I_32_RN_TM1_4: (static_cast<B_32_RN_TM1_4*>(busPtr))->SetLuminance(b); break;
+      case I_32_RN_TM2_3: (static_cast<B_32_RN_TM2_3*>(busPtr))->SetLuminance(b); break;
       #ifndef WLED_NO_I2S0_PIXELBUS
-      case I_32_I0_TM1_4: (static_cast<B_32_I0_TM1_4*>(busPtr))->SetLuminance(b); if (immediate) (static_cast<B_32_I0_TM1_4*>(busPtr))->ApplyPostAdjustments(); break;
-      case I_32_I0_TM2_3: (static_cast<B_32_I0_TM2_3*>(busPtr))->SetLuminance(b); if (immediate) (static_cast<B_32_I0_TM2_3*>(busPtr))->ApplyPostAdjustments(); break;
+      case I_32_I0_TM1_4: (static_cast<B_32_I0_TM1_4*>(busPtr))->SetLuminance(b); break;
+      case I_32_I0_TM2_3: (static_cast<B_32_I0_TM2_3*>(busPtr))->SetLuminance(b); break;
       #endif
       #ifndef WLED_NO_I2S1_PIXELBUS
-      case I_32_I1_TM1_4: (static_cast<B_32_I1_TM1_4*>(busPtr))->SetLuminance(b); if (immediate) (static_cast<B_32_I1_TM1_4*>(busPtr))->ApplyPostAdjustments(); break;
-      case I_32_I1_TM2_3: (static_cast<B_32_I1_TM2_3*>(busPtr))->SetLuminance(b); if (immediate) (static_cast<B_32_I1_TM2_3*>(busPtr))->ApplyPostAdjustments(); break;
+      case I_32_I1_TM1_4: (static_cast<B_32_I1_TM1_4*>(busPtr))->SetLuminance(b); break;
+      case I_32_I1_TM2_3: (static_cast<B_32_I1_TM2_3*>(busPtr))->SetLuminance(b); break;
       #endif
-      case I_32_RN_UCS_3: (static_cast<B_32_RN_UCS_3*>(busPtr))->SetLuminance(b); if (immediate) (static_cast<B_32_RN_UCS_3*>(busPtr))->ApplyPostAdjustments(); break;
+      case I_32_RN_UCS_3: (static_cast<B_32_RN_UCS_3*>(busPtr))->SetLuminance(b); break;
       #ifndef WLED_NO_I2S0_PIXELBUS
-      case I_32_I0_UCS_3: (static_cast<B_32_I0_UCS_3*>(busPtr))->SetLuminance(b); if (immediate) (static_cast<B_32_I0_UCS_3*>(busPtr))->ApplyPostAdjustments(); break;
+      case I_32_I0_UCS_3: (static_cast<B_32_I0_UCS_3*>(busPtr))->SetLuminance(b); break;
       #endif
       #ifndef WLED_NO_I2S1_PIXELBUS
-      case I_32_I1_UCS_3: (static_cast<B_32_I1_UCS_3*>(busPtr))->SetLuminance(b); if (immediate) (static_cast<B_32_I1_UCS_3*>(busPtr))->ApplyPostAdjustments(); break;
+      case I_32_I1_UCS_3: (static_cast<B_32_I1_UCS_3*>(busPtr))->SetLuminance(b); break;
       #endif
-//      case I_32_BB_UCS_3: (static_cast<B_32_BB_UCS_3*>(busPtr))->SetLuminance(b); if (immediate) (static_cast<B_32_BB_UCS_3*>(busPtr))->ApplyPostAdjustments(); break;
-      case I_32_RN_UCS_4: (static_cast<B_32_RN_UCS_4*>(busPtr))->SetLuminance(b); if (immediate) (static_cast<B_32_RN_UCS_4*>(busPtr))->ApplyPostAdjustments(); break;
+//      case I_32_BB_UCS_3: (static_cast<B_32_BB_UCS_3*>(busPtr))->SetLuminance(b); break;
+      case I_32_RN_UCS_4: (static_cast<B_32_RN_UCS_4*>(busPtr))->SetLuminance(b); break;
       #ifndef WLED_NO_I2S0_PIXELBUS
-      case I_32_I0_UCS_4: (static_cast<B_32_I0_UCS_4*>(busPtr))->SetLuminance(b); if (immediate) (static_cast<B_32_I0_UCS_4*>(busPtr))->ApplyPostAdjustments(); break;
+      case I_32_I0_UCS_4: (static_cast<B_32_I0_UCS_4*>(busPtr))->SetLuminance(b); break;
       #endif
       #ifndef WLED_NO_I2S1_PIXELBUS
-      case I_32_I1_UCS_4: (static_cast<B_32_I1_UCS_4*>(busPtr))->SetLuminance(b); if (immediate) (static_cast<B_32_I1_UCS_4*>(busPtr))->ApplyPostAdjustments(); break;
+      case I_32_I1_UCS_4: (static_cast<B_32_I1_UCS_4*>(busPtr))->SetLuminance(b); break;
       #endif
-//      case I_32_BB_UCS_4: (static_cast<B_32_BB_UCS_4*>(busPtr))->SetLuminance(b); if (immediate) (static_cast<B_32_BB_UCS_4*>(busPtr))->ApplyPostAdjustments(); break;
+//      case I_32_BB_UCS_4: (static_cast<B_32_BB_UCS_4*>(busPtr))->SetLuminance(b); break;
     #endif
-      case I_HS_DOT_3: (static_cast<B_HS_DOT_3*>(busPtr))->SetLuminance(b); if (immediate) (static_cast<B_HS_DOT_3*>(busPtr))->ApplyPostAdjustments(); break;
-      case I_SS_DOT_3: (static_cast<B_SS_DOT_3*>(busPtr))->SetLuminance(b); if (immediate) (static_cast<B_SS_DOT_3*>(busPtr))->ApplyPostAdjustments(); break;
-      case I_HS_LPD_3: (static_cast<B_HS_LPD_3*>(busPtr))->SetLuminance(b); if (immediate) (static_cast<B_HS_LPD_3*>(busPtr))->ApplyPostAdjustments(); break;
-      case I_SS_LPD_3: (static_cast<B_SS_LPD_3*>(busPtr))->SetLuminance(b); if (immediate) (static_cast<B_SS_LPD_3*>(busPtr))->ApplyPostAdjustments(); break;
-      case I_HS_LPO_3: (static_cast<B_HS_LPO_3*>(busPtr))->SetLuminance(b); if (immediate) (static_cast<B_HS_LPO_3*>(busPtr))->ApplyPostAdjustments(); break;
-      case I_SS_LPO_3: (static_cast<B_SS_LPO_3*>(busPtr))->SetLuminance(b); if (immediate) (static_cast<B_SS_LPO_3*>(busPtr))->ApplyPostAdjustments(); break;
-      case I_HS_WS1_3: (static_cast<B_HS_WS1_3*>(busPtr))->SetLuminance(b); if (immediate) (static_cast<B_HS_WS1_3*>(busPtr))->ApplyPostAdjustments(); break;
-      case I_SS_WS1_3: (static_cast<B_SS_WS1_3*>(busPtr))->SetLuminance(b); if (immediate) (static_cast<B_SS_WS1_3*>(busPtr))->ApplyPostAdjustments(); break;
-      case I_HS_P98_3: (static_cast<B_HS_P98_3*>(busPtr))->SetLuminance(b); if (immediate) (static_cast<B_HS_P98_3*>(busPtr))->ApplyPostAdjustments(); break;
-      case I_SS_P98_3: (static_cast<B_SS_P98_3*>(busPtr))->SetLuminance(b); if (immediate) (static_cast<B_SS_P98_3*>(busPtr))->ApplyPostAdjustments(); break;
+      case I_HS_DOT_3: (static_cast<B_HS_DOT_3*>(busPtr))->SetLuminance(b); break;
+      case I_SS_DOT_3: (static_cast<B_SS_DOT_3*>(busPtr))->SetLuminance(b); break;
+      case I_HS_LPD_3: (static_cast<B_HS_LPD_3*>(busPtr))->SetLuminance(b); break;
+      case I_SS_LPD_3: (static_cast<B_SS_LPD_3*>(busPtr))->SetLuminance(b); break;
+      case I_HS_LPO_3: (static_cast<B_HS_LPO_3*>(busPtr))->SetLuminance(b); break;
+      case I_SS_LPO_3: (static_cast<B_SS_LPO_3*>(busPtr))->SetLuminance(b); break;
+      case I_HS_WS1_3: (static_cast<B_HS_WS1_3*>(busPtr))->SetLuminance(b); break;
+      case I_SS_WS1_3: (static_cast<B_SS_WS1_3*>(busPtr))->SetLuminance(b); break;
+      case I_HS_P98_3: (static_cast<B_HS_P98_3*>(busPtr))->SetLuminance(b); break;
+      case I_SS_P98_3: (static_cast<B_SS_P98_3*>(busPtr))->SetLuminance(b); break;
     }
-  };
+  }
+
   static uint32_t getPixelColor(void* busPtr, uint8_t busType, uint16_t pix, uint8_t co) {
     RgbwColor col(0,0,0,0);
     switch (busType) {

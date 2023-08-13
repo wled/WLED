@@ -141,7 +141,7 @@
 			let len = parseInt(d.getElementsByName("LC"+n)[0].value);
 			len += parseInt(d.getElementsByName("SL"+n)[0].value); // skipped LEDs are allocated too
 			let dbl = 0;
-			if (d.Sf.LD.checked) dbl = len * 3;	// double buffering
+			if (d.Sf.LD.checked) dbl = len * 4;	// double buffering
 			if (t < 32) {
 				if (t==26 || t==29) len *= 2; // 16 bit LEDs
 				if (maxM < 10000 && d.getElementsByName("L0"+n)[0].value == 3) { //8266 DMA uses 5x the mem

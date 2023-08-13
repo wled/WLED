@@ -91,7 +91,7 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
     Bus::setCCTBlend(strip.cctBlending);
     Bus::setGlobalAWMode(request->arg(F("AW")).toInt());
     strip.setTargetFps(request->arg(F("FR")).toInt());
-    strip.useLedsArray = request->hasArg(F("LD"));
+    useGlobalLedBuffer = request->hasArg(F("LD"));
 
     bool busesChanged = false;
     for (uint8_t s = 0; s < WLED_MAX_BUSSES+WLED_MIN_VIRTUAL_BUSSES; s++) {
@@ -153,7 +153,7 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
       // actual finalization is done in WLED::loop() (removing old busses and adding new)
       // this may happen even before this loop is finished so we do "doInitBusses" after the loop
       if (busConfigs[s] != nullptr) delete busConfigs[s];
-      busConfigs[s] = new BusConfig(type, pins, start, length, colorOrder | (channelSwap<<4), request->hasArg(cv), skip, awmode, freqHz);
+      busConfigs[s] = new BusConfig(type, pins, start, length, colorOrder | (channelSwap<<4), request->hasArg(cv), skip, awmode, freqHz, useGlobalLedBuffer);
       busesChanged = true;
     }
     //doInitBusses = busesChanged; // we will do that below to ensure all input data is processed
@@ -797,7 +797,7 @@ bool handleSet(AsyncWebServerRequest *request, const String& req, bool apply)
   if (pos > 0) {
     spcI = getNumVal(&req, pos);
   }
-  selseg.setUp(startI, stopI, grpI, spcI, UINT16_MAX, startY, stopY);
+  strip.setSegment(selectedSeg, startI, stopI, grpI, spcI, UINT16_MAX, startY, stopY);
 
   pos = req.indexOf(F("RV=")); //Segment reverse
   if (pos > 0) selseg.reverse = req.charAt(pos+3) != '0';

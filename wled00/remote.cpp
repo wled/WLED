@@ -39,26 +39,26 @@ typedef struct message_structure {
 } message_structure;
 
 static int esp_now_state = ESP_NOW_STATE_UNINIT;
-static uint32_t last_seq = -1;
+static uint32_t last_seq = UINT32_MAX;
 static int brightnessBeforeNightMode = NIGHT_MODE_DEACTIVATED;
 static message_structure incoming;
 
 // Pulled from the IR Remote logic but reduced to 10 steps with a constant of 3
-const byte brightnessSteps[] = {
+static const byte brightnessSteps[] = {
   6, 9, 14, 22, 33, 50, 75, 113, 170, 255
 };
-const size_t numBrightnessSteps = sizeof(brightnessSteps) / sizeof(uint8_t);
+static const size_t numBrightnessSteps = sizeof(brightnessSteps) / sizeof(uint8_t);
 
-bool nightModeActive() {
+static bool nightModeActive() {
   return brightnessBeforeNightMode != NIGHT_MODE_DEACTIVATED;
 }
 
-void activateNightMode() {
+static void activateNightMode() {
   brightnessBeforeNightMode = bri;
   bri = NIGHT_MODE_BRIGHTNESS;
 }
 
-bool resetNightMode() {
+static bool resetNightMode() {
   if (!nightModeActive()) {
     return false;
   }
@@ -68,7 +68,7 @@ bool resetNightMode() {
 }
 
 // increment `bri` to the next `brightnessSteps` value
-void brightnessUp() {
+static void brightnessUp() {
   if (nightModeActive()) { return; }
   // dumb incremental search is efficient enough for so few items
   for (uint8_t index = 0; index < numBrightnessSteps; ++index) {
@@ -80,7 +80,7 @@ void brightnessUp() {
 }
 
 // decrement `bri` to the next `brightnessSteps` value
-void brightnessDown() {
+static void brightnessDown() {
   if (nightModeActive()) { return; }
   // dumb incremental search is efficient enough for so few items
   for (int index = numBrightnessSteps - 1; index >= 0; --index) {
@@ -91,7 +91,7 @@ void brightnessDown() {
   }
 }
 
-void setOn() {
+static void setOn() {
   if (resetNightMode()) {
     stateUpdated(CALL_MODE_BUTTON);
   }
@@ -100,7 +100,7 @@ void setOn() {
   }
 }
 
-void setOff() {
+static void setOff() {
   if (resetNightMode()) {
     stateUpdated(CALL_MODE_BUTTON);
   }
@@ -109,7 +109,7 @@ void setOff() {
   }
 }
 
-void presetWithFallback(uint8_t presetID, uint8_t effectID, uint8_t paletteID) {
+static void presetWithFallback(uint8_t presetID, uint8_t effectID, uint8_t paletteID) {
   applyPresetWithFallback(presetID, CALL_MODE_BUTTON_PRESET, effectID, paletteID);
 }
  
@@ -168,7 +168,7 @@ void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
 
 void handleRemote() {
   if (enable_espnow_remote) {
-    if (esp_now_state == ESP_NOW_STATE_UNINIT) {
+    if ((esp_now_state == ESP_NOW_STATE_UNINIT) && (interfacesInited || apActive)) { // ESPNOW requires Wifi to be initialized (either STA, or AP Mode) 
       DEBUG_PRINTLN(F("Initializing ESP_NOW listener"));
       // Init ESP-NOW
       if (esp_now_init() != 0) {
