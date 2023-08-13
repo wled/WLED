@@ -28,16 +28,14 @@ class Master {
     PatternController *controller;
     Button button[5];
 
-  Master(PatternController *controller) {
-    this->controller = controller;
-  }
+  Master(PatternController *c) : controller(c) { };
 
   void setup() {
-    this->button[0].setup(BUTTON_PIN_1);
-    this->button[1].setup(BUTTON_PIN_2);
-    this->button[2].setup(BUTTON_PIN_3);
-    this->button[3].setup(BUTTON_PIN_4);
-    this->button[4].setup(BUTTON_PIN_5);
+    button[0].setup(BUTTON_PIN_1);
+    button[1].setup(BUTTON_PIN_2);
+    button[2].setup(BUTTON_PIN_3);
+    button[3].setup(BUTTON_PIN_4);
+    button[4].setup(BUTTON_PIN_5);
     Serial.println((char *)F("Master: ok"));
   }
 
@@ -45,24 +43,24 @@ class Master {
     for (uint8_t i=0; i < 5; i++) {
       if (button[i].triggered()) {
         if (button[i].pressed())
-          this->onButtonPress(i);
+          onButtonPress(i);
         else
-          this->onButtonRelease(i);
+          onButtonRelease(i);
       }
     }
 
-    if (this->taps && this->perTapTimer.ended()) {
-      if (this->taps == 2) {
-        this->ok();
+    if (taps && perTapTimer.ended()) {
+      if (taps == 2) {
+        ok();
       } else {
-        this->fail();
+        fail();
       }
-      this->taps = 0;
+      taps = 0;
     }
   }
 
   void handleOverlayDraw() {
-    this->updateStatus(this->controller);
+    updateStatus(controller);
   }
 
   void ok() {
@@ -73,68 +71,68 @@ class Master {
     addFlash(CRGB::Red);
   }
 
-  void onButtonPress(uint8_t button) {
-    if (button == 0)
+  void onButtonPress(uint8_t b) {
+    if (b == 0)
       return;
 
-    if (button == 4) {
+    if (b == 4) {
       Serial.println((char *)F("Skip >>"));
-      this->controller->force_next();
-      this->ok();
+      controller->force_next();
+      ok();
       return;
     }
 
-    if (button == 3) {
-      this->tap();
+    if (b == 3) {
+      tap();
       return;
     }
 
     Serial.print((char *)F("Pressed "));
-    Serial.println(button);
+    Serial.println(b);
   }
 
-  void onButtonRelease(uint8_t button) {
+  void onButtonRelease(uint8_t b) {
 #ifdef EXTRA_STUFF
-    if (button == 2) {
-      if (this->palette_mode)
-        this->controller->_load_palette(this->palette_id);
-      this->palette_mode = false;
+    if (b == 2) {
+      if (palette_mode)
+        controller->_load_palette(palette_id);
+      palette_mode = false;
     }
 #endif
 
-    if (button == 3) {
-      if (this->taps == 0)
+    if (b == 3) {
+      if (taps == 0)
         return;
-      this->tap();
+      tap();
       return;
     }
 
     Serial.print((char *)F("Released "));
-    Serial.println(button);
+    Serial.println(b);
   }
 
   void tap() {
-    if (!this->taps) {
-      this->tapTimer.start(0);
+    if (!taps) {
+      tapTimer.start(0);
     }
-    this->perTapTimer.start(1500);
+    perTapTimer.start(1500);
 
-    uint32_t time = this->tapTimer.since_mark();
-    this->tapTime[this->taps++] = time;
+    uint32_t time = tapTimer.since_mark();
+    tapTime[taps++] = time;
 
     uint32_t bpm = 0;
-    if (this->taps > 4) {
+    if (taps > 4) {
       // Can study this later to make BPM detection better
 
       // Should be 60000; fudge a bit to adjust to real-world timings
-      bpm = 60220*256*(this->taps-1) / time;  // 120 beats per min = 500ms per beat
+      bpm = 60220*256*(taps-1) / time;  // 120 beats per min = 500ms per beat
       if (bpm < 70*256)
         bpm *= 2;
       else if (bpm > 140*256)
         bpm /= 2;
     }
 
-    Serial.printf("tap %d: ", this->taps);
+    Serial.printf("tap %d: ", taps);
     Serial.print(bpm >> 8);
     uint8_t f = scale8(100, bpm & 0xFF);
     Serial.print(".");
@@ -142,9 +140,9 @@ class Master {
       Serial.print("0");
     Serial.println(f);
 
-    if (this->taps == 16) {
+    if (taps == 16) {
       Serial.println("OK! taps");
-      this->taps = 0;
+      taps = 0;
       auto frac = bpm % 256;
 
       // Slight snap to beat
@@ -153,18 +151,18 @@ class Master {
       else if (frac > 128)
         bpm += (256-frac) / 2;
       
-      this->controller->set_tapped_bpm(bpm);
-      this->ok();
-    } else if (this->taps >= 2) {
-      this->controller->set_tapped_bpm(this->controller->current_state.bpm, taps-1);
+      controller->set_tapped_bpm(bpm);
+      ok();
+    } else if (taps >= 2) {
+      controller->set_tapped_bpm(controller->current_state.bpm, taps-1);
     }
   }
 
   void updateStatus(PatternController *controller) {
-    if (this->taps) {
-      this->displayProgress(this->taps);
-    } else if (this->palette_mode) {
-      this->displayPalette(this->background);
+    if (taps) {
+      displayProgress(taps);
+    } else if (palette_mode) {
+      displayPalette(background);
     } else {
       uint8_t beat_pos = (controller->current_state.beat_frame >> 8) % 16;
       strip.setPixelColor(15 - beat_pos, CRGB::White);

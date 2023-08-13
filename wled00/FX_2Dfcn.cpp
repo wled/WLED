@@ -216,23 +216,27 @@ void /*IRAM_ATTR*/ Segment::setPixelColorXY(int x, int y, uint32_t col)
   y *= groupLength(); // expand to physical pixels
   if (x >= width() || y >= height()) return;  // if pixel would fall out of segment just exit
 
+  uint32_t tmpCol = col;
   for (int j = 0; j < grouping; j++) {   // groupping vertically
     for (int g = 0; g < grouping; g++) { // groupping horizontally
       uint16_t xX = (x+g), yY = (y+j);
       if (xX >= width() || yY >= height()) continue; // we have reached one dimension's end
 
-      strip.setPixelColorXY(start + xX, startY + yY, col);
+      // if blending modes, blend with underlying pixel
+      if (_modeBlend) tmpCol = color_blend(strip.getPixelColorXY(start + xX, startY + yY), col, 0xFFFFU - progress(), true);
+
+      strip.setPixelColorXY(start + xX, startY + yY, tmpCol);
 
       if (mirror) { //set the corresponding horizontally mirrored pixel
-        if (transpose) strip.setPixelColorXY(start + xX, startY + height() - yY - 1, col);
-        else           strip.setPixelColorXY(start + width() - xX - 1, startY + yY, col);
+        if (transpose) strip.setPixelColorXY(start + xX, startY + height() - yY - 1, tmpCol);
+        else           strip.setPixelColorXY(start + width() - xX - 1, startY + yY, tmpCol);
       }
       if (mirror_y) { //set the corresponding vertically mirrored pixel
-        if (transpose) strip.setPixelColorXY(start + width() - xX - 1, startY + yY, col);
-        else           strip.setPixelColorXY(start + xX, startY + height() - yY - 1, col);
+        if (transpose) strip.setPixelColorXY(start + width() - xX - 1, startY + yY, tmpCol);
+        else           strip.setPixelColorXY(start + xX, startY + height() - yY - 1, tmpCol);
       }
       if (mirror_y && mirror) { //set the corresponding vertically AND horizontally mirrored pixel
-        strip.setPixelColorXY(width() - xX - 1, height() - yY - 1, col);
+        strip.setPixelColorXY(width() - xX - 1, height() - yY - 1, tmpCol);
       }
     }
   }

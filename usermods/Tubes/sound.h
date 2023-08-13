@@ -14,30 +14,30 @@ class Sounder {
     }
 
     void update() {
-        if (!this->active) {
+        if (!active) {
             particleVolume = DEFAULT_PARTICLE_VOLUME; // Average volume
             return;
         }
 
         um_data_t *um_data;
         if (!usermods.getUMData(&um_data, USERMOD_ID_AUDIOREACTIVE)) {
-            this->active = false;
-            this->overlay = false;
+            active = false;
+            overlay = false;
             return;
         }
 
         float volumeSmth = *(float*)um_data->u_data[0];
-        this->volume = constrain(volumeSmth, 0, 255);     // Keep the sample from overflowing.
-        particleVolume = this->volume;
+        volume = constrain(volumeSmth, 0, 255);     // Keep the sample from overflowing.
+        particleVolume = volume;
     }
 
     void handleOverlayDraw() {
-        if (!this->active)
+        if (!active)
             return; 
-        if (!this->overlay)
+        if (!overlay)
             return;
 
-        int len = scale8(this->volume, 32);
+        int len = scale8(volume, 32);
 
         Segment& segment = strip.getMainSegment();
 

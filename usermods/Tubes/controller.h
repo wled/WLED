@@ -15,6 +15,8 @@
 #include "global_state.h"
 #include "node.h"
 
+#define EEPSIZE 2560
+
 const static uint8_t DEFAULT_MASTER_BRIGHTNESS = 200;
 const static uint8_t DEFAULT_TUBE_BRIGHTNESS = 120;
 const static uint8_t DEFAULT_TANK_BRIGHTNESS = 240;
@@ -26,7 +28,7 @@ const static uint8_t DEFAULT_TANK_BRIGHTNESS = 240;
 #define MAX_COLOR_CHANGE_PHRASES 10
 
 #define ROLE_EEPROM_LOCATION 2559
-#define BOOT_OPTIONS_EEPROM_LOCATION 2557
+#define BOOT_OPTIONS_EEPROM_LOCATION 2551
 
 #define IDENTIFY_STUCK_PATTERNS
 #define IDENTIFY_STUCK_PALETTES
@@ -76,26 +78,26 @@ class Button {
     uint8_t pin;
     bool lastPressed = false;
 
-  void setup(uint8_t pin) {
-    this->pin = pin;
+  void setup(uint8_t p) {
+    pin = p;
     pinMode(pin, INPUT_PULLUP);
-    this->debounceTimer.start(0);
+    debounceTimer.start(0);
   }
 
   bool pressed() {
-    if (digitalRead(this->pin) == HIGH) {
-      return !this->debounceTimer.ended();
+    if (digitalRead(pin) == HIGH) {
+      return !debounceTimer.ended();
     }
 
-    this->debounceTimer.start(DEBOUNCE_TIME);
+    debounceTimer.start(DEBOUNCE_TIME);
     return true;
   }
 
   bool triggered() {
     // Triggers BOTH low->high AND high->low
-    bool p = this->pressed();
-    bool lp = this->lastPressed;
-    this->lastPressed = p;
+    bool p = pressed();
+    bool lp = lastPressed;
+    lastPressed = p;
     return p != lp;
   }
 };
@@ -144,158 +146,166 @@ class PatternController : public MessageReceiver {
     // When a pattern is boring, spice it up a bit with more effects
     bool isBoring = false;
 
-  PatternController(uint8_t num_leds, BeatController *beats) {
-    this->num_leds = num_leds;
+  PatternController(uint8_t num, BeatController *b) : num_leds(num), beats(b) {
 #ifdef USELCD
-    this->lcd = new Lcd();
+    lcd = new Lcd();
 #endif
-    this->led_strip = new LEDs(num_leds);
-    this->beats = beats;
-    this->effects = new Effects();
-    this->node = new LightNode(this);
-    // this->mesh = new BLEMeshNode(this);
+    led_strip = new LEDs(num_leds);
+    effects = new Effects();
+    node = new LightNode(this);
+    // mesh = new BLEMeshNode(this);
 
     for (uint8_t i=0; i < NUM_VSTRIPS; i++) {
 #ifdef DOUBLED
-      this->vstrips[i] = new VirtualStrip(num_leds * 2 + 1);
+      vstrips[i] = new VirtualStrip(num_leds * 2 + 1);
 #else
-      this->vstrips[i] = new VirtualStrip(num_leds);
+      vstrips[i] = new VirtualStrip(num_leds);
 #endif
     }
   }
 
   bool isMaster() {
-    return this->role >= MasterRole;
+    return role >= MasterRole;
   }
 
   void setup()
   {
-    this->node->setup();
-    EEPROM.begin(2560);
-    this->role = (ControllerRole)EEPROM.read(ROLE_EEPROM_LOCATION);
-    if (this->role == 255) {
-      this->role = UnknownRole;
+    node->setup();
+    EEPROM.begin(EEPSIZE);
+    role = (ControllerRole)EEPROM.read(ROLE_EEPROM_LOCATION);
+    if (role == 255) {
+      role = UnknownRole;
     }
-    EEPROM.end();
-    Serial.printf("Role = %d\n", this->role);
+    Serial.printf("Role = %d\n", role);
 
     auto b = EEPROM.read(BOOT_OPTIONS_EEPROM_LOCATION);
     Serial.printf("EEPROM read: %d\n", b);
+    EEPROM.end();
+
     BootOptions* boot = (BootOptions*)&b;
     switch (boot->default_power_save) {
       case BOOT_OPTION_POWER_SAVE_OFF:
-        this->power_save = 0;
+        power_save = 0;
         break;
       case BOOT_OPTION_POWER_SAVE_ON:
-        this->power_save = 1;
+        power_save = 1;
         break;
       default:
-        this->power_save = (this->role < CampRole);
+        power_save = (role < CampRole);
         break;
     }
 
-    if (this->role <= CampRole)
+    if (role <= CampRole)
       strip.ablMilliampsMax = 700;  // Really limit for batteries
-    else if (this->role <= InstallationRole)
+    else if (role <= InstallationRole)
       strip.ablMilliampsMax = 1000;
     else
       strip.ablMilliampsMax = 1400;
 
-    if (this->role >= MasterRole) {
-      this->node->reset(3850 + this->role); // MASTER ID
-      this->options.brightness = DEFAULT_MASTER_BRIGHTNESS;
-    } else if (this->role >= LegacyRole) {
-        this->options.brightness = DEFAULT_TUBE_BRIGHTNESS;
-    } else if (this->role == InstallationRole) {
-        this->options.brightness = DEFAULT_TANK_BRIGHTNESS;
+    if (role >= MasterRole) {
+      node->reset(3850 + role); // MASTER ID
+      options.brightness = DEFAULT_MASTER_BRIGHTNESS;
+    } else if (role >= LegacyRole) {
+        options.brightness = DEFAULT_TUBE_BRIGHTNESS;
+    } else if (role == InstallationRole) {
+        options.brightness = DEFAULT_TANK_BRIGHTNESS;
     } else {
-        this->options.brightness = DEFAULT_TUBE_BRIGHTNESS;
+        options.brightness = DEFAULT_TUBE_BRIGHTNESS;
     }
-    this->options.debugging = false;
-    this->load_options(this->options);
+    options.debugging = false;
+    load_options(options);
 
 #ifdef USELCD
-    this->lcd->setup();
+    lcd->setup();
 #endif
-    this->set_next_pattern(0);
-    this->set_next_palette(0);
-    this->set_next_effect(0);
-    this->next_state.pattern_phrase = 0;
-    this->next_state.palette_phrase = 0;
-    this->next_state.effect_phrase = 0;
-    this->set_wled_palette(0); // Default palette
-    this->set_wled_pattern(0, 128, 128); // Default pattern
+    set_next_pattern(0);
+    set_next_palette(0);
+    set_next_effect(0);
+    next_state.pattern_phrase = 0;
+    next_state.palette_phrase = 0;
+    next_state.effect_phrase = 0;
+    set_wled_palette(0); // Default palette
+    set_wled_pattern(0, 128, 128); // Default pattern
 
-    this->sound.setup();
+    sound.setup();
 
-    this->updateTimer.start(STATUS_UPDATE_PERIOD); // Ready to send an update as soon as we're able to
+    updateTimer.start(STATUS_UPDATE_PERIOD); // Ready to send an update as soon as we're able to
     Serial.println("Controller: ok");
   }
 
   void do_pattern_changes() {
-    uint16_t phrase = this->current_state.beat_frame >> 12;
+    uint16_t phrase = current_state.beat_frame >> 12;
     bool changed = false;
 
-    if (phrase >= this->next_state.pattern_phrase) {
+    if (phrase >= next_state.pattern_phrase) {
 #ifdef IDENTIFY_STUCK_PATTERNS
       Serial.println("Time to change pattern");
 #endif
-      this->load_pattern(this->next_state);
-      this->next_state.pattern_phrase = phrase + this->set_next_pattern(phrase);
+      load_pattern(next_state);
+      next_state.pattern_phrase = phrase + set_next_pattern(phrase);
+
+      // Don't change pattern and others at the same time
+      while (next_state.pattern_phrase == next_state.palette_phrase || next_state.pattern_phrase == next_state.effect_phrase) {
+        next_state.pattern_phrase += random8(1,3);
+      }
       changed = true;
     }
-    if (phrase >= this->next_state.palette_phrase) {
+    if (phrase >= next_state.palette_phrase) {
 #ifdef IDENTIFY_STUCK_PATTERNS
       Serial.println("Time to change palette");
 #endif
-      this->load_palette(this->next_state);
-      this->next_state.palette_phrase = phrase + this->set_next_palette(phrase);
+      load_palette(next_state);
+      next_state.palette_phrase = phrase + set_next_palette(phrase);
+
+      // Don't change palette and others at the same time
+      while (next_state.palette_phrase == next_state.pattern_phrase || next_state.palette_phrase == next_state.effect_phrase) {
+        next_state.palette_phrase += random8(1,3);
+      }
       changed = true;
     }
-    if (phrase >= this->next_state.effect_phrase) {
+    if (phrase >= next_state.effect_phrase) {
 #ifdef IDENTIFY_STUCK_PATTERNS
       Serial.println("Time to change effect");
 #endif
-      this->load_effect(this->next_state);
-      this->next_state.effect_phrase = phrase + this->set_next_effect(phrase);
+      load_effect(next_state);
+      next_state.effect_phrase = phrase + set_next_effect(phrase);
+
+      // Don't change palette and others at the same time
+      while (next_state.effect_phrase == next_state.pattern_phrase || next_state.effect_phrase == next_state.palette_phrase) {
+        next_state.effect_phrase += random8(1,3);
+      }
       changed = true;
     }
 
     if (changed) {
-      // For now, WLED doesn't handle transitioning pattern & palette well.
-      // Stagger them
-      if (this->next_state.pattern_phrase == this->next_state.palette_phrase) {
-          this->next_state.palette_phrase += random8(1,3);
-      }
-
-      this->next_state.print();
+      next_state.print();
       Serial.println();
     }
   }
 
   void cancelOverrides() {
     // Release the WLED overrides and take over control of the strip again.
-    this->paletteOverrideTimer.stop();
-    this->patternOverrideTimer.stop();
+    paletteOverrideTimer.stop();
+    patternOverrideTimer.stop();
   }
 
   void enterSelectMode() {
-    this->selectTimer.start(20000);
+    selectTimer.start(20000);
   }
 
   bool isSelecting() {
-    return !this->selectTimer.ended();
+    return !selectTimer.ended();
   }
 
   bool isSelected() {
-    return this->updater.status == Ready;
+    return updater.status == Ready;
   }
 
   void select(bool selected = true) {
     if (selected)
-      this->updater.ready();
+      updater.ready();
     else {
-      this->updater.stop();
+      updater.stop();
       WiFi.softAPdisconnect(true);
     }
   }
@@ -305,115 +315,115 @@ class PatternController : public MessageReceiver {
   }
 
   void set_palette_override(uint8_t value) {
-    if (!this->canOverride)
+    if (!canOverride)
       return;
-    if (value == this->paletteOverride)
+    if (value == paletteOverride)
       return;
       
-    this->paletteOverride = value;
+    paletteOverride = value;
     if (value) {
       Serial.println("WLED has control of palette.");
-      this->paletteOverrideTimer.start(300000); // 5 minutes of manual control
+      paletteOverrideTimer.start(300000); // 5 minutes of manual control
     } else {
       Serial.println("Turning off WLED control of palette.");
-      this->paletteOverrideTimer.stop();
-      this->set_wled_palette(this->current_state.palette_id);
+      paletteOverrideTimer.stop();
+      set_wled_palette(current_state.palette_id);
     }
   }
 
   void set_pattern_override(uint8_t value, uint8_t auto_mode) {
-    if (!this->canOverride)
+    if (!canOverride)
       return;
-    if (value == DEFAULT_WLED_FX && !this->patternOverride)
+    if (value == DEFAULT_WLED_FX && !patternOverride)
       return;
-    if (value == this->patternOverride)
+    if (value == patternOverride)
       return;
 
-    this->patternOverride = value;
+    patternOverride = value;
     if (value) {
       Serial.println("WLED has control of patterns.");
-      this->patternOverrideTimer.start(300000); // 5 minutes of manual control
+      patternOverrideTimer.start(300000); // 5 minutes of manual control
       transitionDelay = 500;  // Short transitions
     } else {
       Serial.println("Turning off WLED control of patterns.");
-      this->patternOverrideTimer.stop();
+      patternOverrideTimer.stop();
       transitionDelay = 8000; // Back to long transitions
 
       uint8_t param = modeParameter(auto_mode);
-      this->set_wled_pattern(auto_mode, param, param);
+      set_wled_pattern(auto_mode, param, param);
     }
   }
 
   void update()
   {
-    this->read_keys();
+    read_keys();
     
     // Update the mesh
-    this->node->update();
+    node->update();
 
     // Update sound meter
-    this->sound.update();
+    sound.update();
 
     // Update patterns to the beat
-    this->update_beat();
+    update_beat();
 
     Segment& segment = strip.getMainSegment();
 
     // You can only go into manual control after enabling the wifi
-    if (apActive && this->updater.status != Ready)
-      this->canOverride = true;
+    if (apActive && updater.status != Ready)
+      canOverride = true;
 
     // Detect manual overrides & update the current state to match.
-    if (this->canOverride) {
-      if (this->paletteOverride && (this->paletteOverrideTimer.ended() || !apActive)) {
-        this->set_palette_override(0);
-      } else if (segment.palette != this->current_state.palette_id) {
-        this->set_palette_override(segment.palette);
+    if (canOverride) {
+      if (paletteOverride && (paletteOverrideTimer.ended() || !apActive)) {
+        set_palette_override(0);
+      } else if (segment.palette != current_state.palette_id) {
+        set_palette_override(segment.palette);
       }
       
-      uint8_t wled_mode = gPatterns[this->current_state.pattern_id].wled_fx_id;
+      uint8_t wled_mode = gPatterns[current_state.pattern_id].wled_fx_id;
       if (wled_mode < 10)
         wled_mode = DEFAULT_WLED_FX;
-      if (this->patternOverride && (this->patternOverrideTimer.ended() || !apActive)) {
-        this->set_pattern_override(0, wled_mode);
+      if (patternOverride && (patternOverrideTimer.ended() || !apActive)) {
+        set_pattern_override(0, wled_mode);
       } else if (segment.mode != wled_mode) {
-        this->set_pattern_override(segment.mode, wled_mode);
+        set_pattern_override(segment.mode, wled_mode);
       }
     }
 
     do_pattern_changes();
 
-    if (this->graphicsTimer.every(REFRESH_PERIOD)) {
-      this->updateGraphics();
+    if (graphicsTimer.every(REFRESH_PERIOD)) {
+      updateGraphics();
     }
 
     // Update current status
-    if (this->updateTimer.every(STATUS_UPDATE_PERIOD)) {
+    if (updateTimer.every(STATUS_UPDATE_PERIOD)) {
       // Transmit less often when following
-      if (!this->node->is_following() || random(0, 4) == 0) {
-        this->send_update();
+      if (!node->is_following() || random(0, 4) == 0) {
+        send_update();
       }
     }
 
-    this->updater.update();
+    updater.update();
 
 #ifdef USELCD
-    if (this->lcd->active) {
-      this->lcd->size(1);
-      this->lcd->write(0,56, this->current_state.beat_frame);
-      this->lcd->write(80,56, this->x_axis);
-      this->lcd->write(100,56, this->y_axis);
-      this->lcd->show();
+    if (lcd->active) {
+      lcd->size(1);
+      lcd->write(0,56, current_state.beat_frame);
+      lcd->write(80,56, x_axis);
+      lcd->write(100,56, y_axis);
+      lcd->show();
 
-      this->lcd->update();
+      lcd->update();
     }
 #endif
   }
 
   void handleOverlayDraw() {
     // In manual mode WLED is always active
-    if (this->patternOverride) {
-      this->wled_fader = 0xFFFF;
+    if (patternOverride) {
+      wled_fader = 0xFFFF;
       transition_mode_point = 0;
     } else if (wled_fader == 0xFFFF) {
       // When fading down...
@@ -429,11 +439,11 @@ class PatternController : public MessageReceiver {
     uint16_t length = strip.getLengthTotal();
 
     // Crossfade between the custom pattern engine and WLED
-    uint8_t fader = this->wled_fader >> 8;
+    uint8_t fader = wled_fader >> 8;
     if (fader < 255) {
       // Perform a cross-fade between current WLED mode and the external buffer
       for (int i = 0; i < length; i++) {
-        CRGB c = this->led_strip->getPixelColor(i);
+        CRGB c = led_strip->getPixelColor(i);
         if (fader > 0) {
           CRGB color2 = strip.getPixelColor(i);
           uint8_t r = blend8(c.r, color2.r, fader);
@@ -447,7 +457,7 @@ class PatternController : public MessageReceiver {
 
     // Power Save mode: reduce number of displayed pixels 
     // Only affects non-powered poles
-    if (this->power_save && this->role < InstallationRole) {
+    if (power_save && role < InstallationRole) {
       // Screen door effect to save power
       for (int i = 0; i < length; i++) {
         if (i % 2) {
@@ -456,34 +466,34 @@ class PatternController : public MessageReceiver {
       }
     }
 
-    this->sound.handleOverlayDraw();
+    sound.handleOverlayDraw();
 
     // Draw effects layers over whatever WLED is doing.
     // But not in manual (WLED) mode
-    if (!this->patternOverride) {
-      this->effects->draw(&strip);
+    if (!patternOverride) {
+      effects->draw(&strip);
     }
 
     // Make the art half-size if it has a small number of pixels
-    if (this->role >= MasterRole || this->role == SmallArtRole) {
+    if (role >= MasterRole || role == SmallArtRole) {
       int p = 0;
       for (int i = 0; i < length; i++) {
         CRGB c = strip.getPixelColor(i++); // i advances by 2
         CRGB c2 = strip.getPixelColor(i);
         nblend(c, c2, 128);
-        if (this->role >= MasterRole) {
+        if (role >= MasterRole) {
           nblend(c, CRGB::Black, 128);
         }
         strip.setPixelColor(p++, c);
       }
     }
 
-    if (this->flashColor) {
+    if (flashColor) {
       if (flashTimer.ended())
-        this->flashColor = 0;
+        flashColor = 0;
       else {
         if (millis() % 4000 < 2000) {
-          auto chsv = CHSV(this->flashColor, 255, 255);
+          auto chsv = CHSV(flashColor, 255, 255);
           for (int i = 0; i < length; i++) {
             strip.setPixelColor(i, CRGB(chsv));
           }
@@ -491,77 +501,77 @@ class PatternController : public MessageReceiver {
       }
     }
 
-    this->updater.handleOverlayDraw();
+    updater.handleOverlayDraw();
   }
 
   void restart_phrase() {
-    this->beats->start_phrase();
-    this->update_beat();
-    this->send_update();
+    beats->start_phrase();
+    update_beat();
+    send_update();
   }
 
   void set_phrase_position(uint8_t pos) {
-    this->beats->sync(this->beats->bpm, (this->beats->frac & -0xFFF) + (pos<<8));
-    this->update_beat();
-    this->send_update();
+    beats->sync(beats->bpm, (beats->frac & -0xFFF) + (pos<<8));
+    update_beat();
+    send_update();
   }
   
   void set_tapped_bpm(accum88 bpm, uint8_t pos=15) {
     // By default, restarts at 15th beat - because this is the end of a tap
-    this->beats->sync(bpm, (this->beats->frac & -0xFFF) + (pos<<8));
-    this->update_beat();
-    this->send_update();
+    beats->sync(bpm, (beats->frac & -0xFFF) + (pos<<8));
+    update_beat();
+    send_update();
   }
 
   void request_new_bpm(accum88 new_bpm = 0) {
     // 0 = toggle 120 to 125
     if (new_bpm == 0)
-      new_bpm = this->current_state.bpm>>8 >= 123 ? 120<<8 : 125<<8;
+      new_bpm = current_state.bpm>>8 >= 123 ? 120<<8 : 125<<8;
 
-    if (this->node->is_following()) {
+    if (node->is_following()) {
       // Send a request up to ROOT
-      this->broadcast_bpm(new_bpm);
+      broadcast_bpm(new_bpm);
     } else {
-      this->set_tapped_bpm(new_bpm, 0);
+      set_tapped_bpm(new_bpm, 0);
     }
   }
 
   void update_beat() {
-    this->current_state.bpm = this->next_state.bpm = this->beats->bpm;
-    this->current_state.beat_frame = particle_beat_frame = this->beats->frac;  // (particle_beat_frame is a hack)
-    if (this->current_state.bpm>>8 <= 118) // Hip hop / ghettofunk
-      this->energy = MediumEnergy;
-    else if (this->current_state.bpm>>8 >= 125) // House & breaks
-      this->energy = HighEnergy;
-    else if (this->current_state.bpm>>8 > 120) // Tech house
-      this->energy = MediumEnergy;
+    current_state.bpm = next_state.bpm = beats->bpm;
+    current_state.beat_frame = particle_beat_frame = beats->frac;  // (particle_beat_frame is a hack)
+    if (current_state.bpm>>8 <= 118) // Hip hop / ghettofunk
+      energy = MediumEnergy;
+    else if (current_state.bpm>>8 >= 125) // House & breaks
+      energy = HighEnergy;
+    else if (current_state.bpm>>8 > 120) // Tech house
+      energy = MediumEnergy;
     else
-      this->energy = Chill; // Deep house
+      energy = Chill; // Deep house
   }
   
   void send_update() {
     Serial.print("     ");
-    this->current_state.print();
+    current_state.print();
     Serial.print(F(" "));
 
-    uint16_t phrase = this->current_state.beat_frame >> 12;
+    uint16_t phrase = current_state.beat_frame >> 12;
     Serial.print(F("    "));
-    Serial.print(this->next_state.pattern_phrase - phrase);
+    Serial.print(next_state.pattern_phrase - phrase);
     Serial.print(F("P "));
-    Serial.print(this->next_state.palette_phrase - phrase);
+    Serial.print(next_state.palette_phrase - phrase);
     Serial.print(F("C "));
-    Serial.print(this->next_state.effect_phrase - phrase);
+    Serial.print(next_state.effect_phrase - phrase);
     Serial.print(F("E: "));
-    this->next_state.print();
+    next_state.print();
     Serial.print(F(" "));
     Serial.println();    
 
-    this->broadcast_state();
+    broadcast_state();
   }
 
   void background_changed() {
-    this->update_background();
-    this->current_state.print();
+    update_background();
+    current_state.print();
     Serial.println();
   }
 
@@ -570,25 +580,25 @@ class PatternController : public MessageReceiver {
   }
 
   void load_pattern(TubeState &tube_state) {
-    if (this->current_state.pattern_id == tube_state.pattern_id 
-        && this->current_state.pattern_sync_id == tube_state.pattern_sync_id)
+    if (current_state.pattern_id == tube_state.pattern_id 
+        && current_state.pattern_sync_id == tube_state.pattern_sync_id)
       return;
 
-    this->current_state.pattern_phrase = tube_state.pattern_phrase;
-    this->current_state.pattern_id = tube_state.pattern_id % gPatternCount;
-    this->current_state.pattern_sync_id = tube_state.pattern_sync_id;
-    this->isBoring = gPatterns[this->current_state.pattern_id].control.energy == Boring;
+    current_state.pattern_phrase = tube_state.pattern_phrase;
+    current_state.pattern_id = tube_state.pattern_id % gPatternCount;
+    current_state.pattern_sync_id = tube_state.pattern_sync_id;
+    isBoring = gPatterns[current_state.pattern_id].control.energy == Boring;
 
     Serial.print(F("Change pattern "));
-    this->background_changed();
+    background_changed();
   }
 
   bool isShowingWled() {
-    return this->current_state.pattern_id >= numInternalPatterns;
+    return current_state.pattern_id >= numInternalPatterns;
   }
 
   uint8_t modeParameter(uint8_t mode) {
-    switch (this->energy) {
+    switch (energy) {
       case Boring:
         // Spice things up a bit
         return 128;
@@ -626,15 +636,15 @@ class PatternController : public MessageReceiver {
     for (int i = 0; i < 10; i++) {
       pattern_id = get_valid_next_pattern();
       def = gPatterns[pattern_id];
-      if (def.control.energy <= this->energy)
+      if (def.control.energy <= energy)
         break;
     }
 #ifdef IDENTIFY_STUCK_PATTERNS
     Serial.printf("Next pattern will be %d\n", pattern_id);
 #endif
 
-    this->next_state.pattern_id = pattern_id;
-    this->next_state.pattern_sync_id = this->randomSyncMode();
+    next_state.pattern_id = pattern_id;
+    next_state.pattern_sync_id = randomSyncMode();
 
     switch (def.control.duration) {
       case ExtraShortDuration: return random8(2, 6);
@@ -647,45 +657,45 @@ class PatternController : public MessageReceiver {
   }
 
   void load_palette(TubeState &tube_state) {
-    if (this->current_state.palette_id == tube_state.palette_id)
+    if (current_state.palette_id == tube_state.palette_id)
       return;
 
-    this->current_state.palette_phrase = tube_state.palette_phrase;
-    this->current_state.palette_id = tube_state.palette_id % gGradientPaletteCount;
-    set_wled_palette(this->current_state.palette_id);
+    current_state.palette_phrase = tube_state.palette_phrase;
+    current_state.palette_id = tube_state.palette_id % gGradientPaletteCount;
+    set_wled_palette(current_state.palette_id);
   }
 
   // Choose the palette to display at the next palette cycle
   // Return the number of phrases until the next palette cycle
   uint16_t set_next_palette(uint16_t phrase) {
     // Don't select the built-in palettes
-    this->next_state.palette_id = random8(6, gGradientPaletteCount);
+    next_state.palette_id = random8(6, gGradientPaletteCount);
     auto phrases = random8(MIN_COLOR_CHANGE_PHRASES, MAX_COLOR_CHANGE_PHRASES);
 
     // Change color more often in boring patterns
-    if (this->isBoring) {
+    if (isBoring) {
       phrases /= 2;
     }
     return phrases;
   }
 
   void load_effect(TubeState &tube_state) {
-    if (this->current_state.effect_params.effect == tube_state.effect_params.effect && 
-        this->current_state.effect_params.pen == tube_state.effect_params.pen && 
-        this->current_state.effect_params.chance == tube_state.effect_params.chance)
+    if (current_state.effect_params.effect == tube_state.effect_params.effect && 
+        current_state.effect_params.pen == tube_state.effect_params.pen && 
+        current_state.effect_params.chance == tube_state.effect_params.chance)
       return;
 
-    this->_load_effect(tube_state.effect_params);
+    _load_effect(tube_state.effect_params);
   }
 
   void _load_effect(EffectParameters params) {
-    this->current_state.effect_params = params;
+    current_state.effect_params = params;
   
     Serial.print(F("Change effect "));
-    this->current_state.print();
+    current_state.print();
     Serial.println();
     
-    this->effects->load(this->current_state.effect_params);
+    effects->load(current_state.effect_params);
   }
 
   // Choose the effect to display at the next effect cycle
@@ -695,11 +705,11 @@ class PatternController : public MessageReceiver {
 
     // Pick a random effect to add; boring patterns get better chance at having an effect.
     EffectDef def = gEffects[effect_num];
-    if (def.control.energy > this->energy) {
+    if (def.control.energy > energy) {
       def = gEffects[0];
     }
 
-    this->next_state.effect_params = def.params;
+    next_state.effect_params = def.params;
 
     switch (def.control.duration) {
       case ExtraShortDuration: return random(1,3);
@@ -713,20 +723,20 @@ class PatternController : public MessageReceiver {
 
   void update_background() {
     Background background;
-    background.animate = gPatterns[this->current_state.pattern_id].backgroundFn;
-    background.wled_fx_id = gPatterns[this->current_state.pattern_id].wled_fx_id;
-    background.palette_id = this->current_state.palette_id;
-    background.sync = (SyncMode)this->current_state.pattern_sync_id;
+    background.animate = gPatterns[current_state.pattern_id].backgroundFn;
+    background.wled_fx_id = gPatterns[current_state.pattern_id].wled_fx_id;
+    background.palette_id = current_state.palette_id;
+    background.sync = (SyncMode)current_state.pattern_sync_id;
 
     // Use one of the virtual strips to render the patterns.
     // A WLED-based pattern exists on the virtual strip, but causes
     // it to do nothing since WLED merging happens in handleOverlayDraw.
     // Reuse virtual strips to prevent heap fragmentation
     for (uint8_t i = 0; i < NUM_VSTRIPS; i++) {
-      this->vstrips[i]->fadeOut();
+      vstrips[i]->fadeOut();
     }
-    this->vstrips[this->next_vstrip]->load(background);
-    this->next_vstrip = (this->next_vstrip + 1) % NUM_VSTRIPS; 
+    vstrips[next_vstrip]->load(background);
+    next_vstrip = (next_vstrip + 1) % NUM_VSTRIPS; 
 
     uint8_t param = modeParameter(background.wled_fx_id);
     set_wled_pattern(background.wled_fx_id, param, param);
@@ -734,12 +744,12 @@ class PatternController : public MessageReceiver {
   }
 
   bool isUnderWledControl() {
-    return this->paletteOverride || this->patternOverride;
+    return paletteOverride || patternOverride;
   }
 
   void set_wled_palette(uint8_t palette_id) {
-    if (this->paletteOverride)
-      palette_id = this->paletteOverride;
+    if (paletteOverride)
+      palette_id = paletteOverride;
       
     for (uint8_t i=0; i < strip.getSegmentsNum(); i++) {
       Segment& seg = strip.getSegment(i);
@@ -753,13 +763,13 @@ class PatternController : public MessageReceiver {
   }
 
   void set_wled_pattern(uint8_t pattern_id, uint8_t speed, uint8_t intensity) {
-    if (this->patternOverride)
-      pattern_id = this->patternOverride;
+    if (patternOverride)
+      pattern_id = patternOverride;
     else if (pattern_id == 0)
       pattern_id = DEFAULT_WLED_FX; // Never set it to solid
 
     // When fading IN, make the pattern transition immediate if possible
-    bool fadeIn = this->wled_fader < 2000;
+    bool fadeIn = wled_fader < 2000;
     for (uint8_t i=0; i < strip.getSegmentsNum(); i++) {
       Segment& seg = strip.getSegment(i);
       if (!seg.isActive()) continue;
@@ -777,31 +787,27 @@ class PatternController : public MessageReceiver {
     stateUpdated(CALL_MODE_DIRECT_CHANGE);
   }
 
-  static void set_wled_brightness(uint8_t brightness) {
-    strip.setBrightness(brightness);
-  }
-
   void setBrightness(uint8_t brightness) {
     Serial.printf("brightness: %d\n", brightness);
 
-    this->options.brightness = brightness;
-    this->broadcast_options();
+    options.brightness = brightness;
+    broadcast_options();
   }
 
   void setDebugging(bool debugging) {
     Serial.printf("debugging: %d\n", debugging);
 
-    this->options.debugging = debugging;
-    this->broadcast_options();
+    options.debugging = debugging;
+    broadcast_options();
   }
   
   void togglePowerSave() {
-    setPowerSave(!this->power_save);
+    setPowerSave(!power_save);
   }
 
-  void setPowerSave(bool power_save) {
+  void setPowerSave(bool ps) {
+    power_save = ps;
     Serial.printf("power_save: %d\n", power_save);
-    this->power_save = power_save;
 
     // Remember this setting on the next boot
     EEPROM.begin(2560);
@@ -816,10 +822,10 @@ class PatternController : public MessageReceiver {
     EEPROM.end();
   }
 
-  void setRole(ControllerRole role) {
-    this->role = role;
+  void setRole(ControllerRole r) {
+    role = r;
     Serial.printf("Role = %d", role);
-    EEPROM.begin(2560);
+    EEPROM.begin(EEPSIZE);
     EEPROM.write(ROLE_EEPROM_LOCATION, role);
     EEPROM.write(BOOT_OPTIONS_EEPROM_LOCATION, 0); // Reset all boot options
     EEPROM.end();
@@ -831,7 +837,7 @@ class PatternController : public MessageReceiver {
     uint8_t r = random8(128);
 
     // For boring patterns, up the chance of a sync mode
-    if (this->isBoring)
+    if (isBoring)
       r -= 20;
 
     if (r < 30)
@@ -847,7 +853,7 @@ class PatternController : public MessageReceiver {
 
   void updateGraphics() {
     static BeatFrame_24_8 lastFrame = 0;
-    BeatFrame_24_8 beat_frame = this->current_state.beat_frame;
+    BeatFrame_24_8 beat_frame = current_state.beat_frame;
 
     uint8_t beat_pulse = 0;
     for (int i = 0; i < 8; i++) {
@@ -856,11 +862,11 @@ class PatternController : public MessageReceiver {
     }
     lastFrame = beat_frame;
 
-    this->wled_fader = 0;
+    wled_fader = 0;
 
     VirtualStrip *first_strip = NULL;
     for (uint8_t i=0; i < NUM_VSTRIPS; i++) {
-      VirtualStrip *vstrip = this->vstrips[i];
+      VirtualStrip *vstrip = vstrips[i];
       if (vstrip->fade == Dead)
         continue;
 
@@ -870,13 +876,13 @@ class PatternController : public MessageReceiver {
 
       // Remember the strip that's actually WLED
       if (vstrip->isWled())
-        this->wled_fader = vstrip->fader;
+        wled_fader = vstrip->fader;
      
       vstrip->update(beat_frame, beat_pulse);
-      vstrip->blend(this->led_strip->leds, this->led_strip->num_leds, this->options.brightness, vstrip == first_strip);
+      vstrip->blend(led_strip->leds, led_strip->num_leds, options.brightness, vstrip == first_strip);
     }
 
-    this->effects->update(first_strip, beat_frame, (BeatPulse)beat_pulse);
+    effects->update(first_strip, beat_frame, (BeatPulse)beat_pulse);
   }
 
   virtual void acknowledge() {
@@ -888,14 +894,14 @@ class PatternController : public MessageReceiver {
       return;
       
     char c = Serial.read();
-    char *k = this->key_buffer;
-    uint8_t max = sizeof(this->key_buffer);
+    char *k = key_buffer;
+    uint8_t max = sizeof(key_buffer);
     for (uint8_t i=0; *k && (i < max-1); i++) {
       k++;
     }
     if (c == 10) {
-      this->keyboard_command(this->key_buffer);
-      this->key_buffer[0] = 0;
+      keyboard_command(key_buffer);
+      key_buffer[0] = 0;
     } else {
       *k++ = c;
       *k = 0;    
@@ -931,37 +937,37 @@ class PatternController : public MessageReceiver {
   void keyboard_command(char *command) {
     // If not the lead, send it to the lead.
     uint8_t b;
-    accum88 arg = this->parse_number(command+1);
+    accum88 arg = parse_number(command+1);
     
     switch (command[0]) {
       case 'd':
-        this->setDebugging(!this->options.debugging);
+        setDebugging(!options.debugging);
         break;
       case '~':
         doReboot = true;
         break;
       case '@':
-        this->togglePowerSave();
+        togglePowerSave();
         break;
 
       case '-':
-        b = this->options.brightness;
+        b = options.brightness;
         while (*command++ == '-')
           b -= 5;
-        this->setBrightness(b - 5);
+        setBrightness(b - 5);
         break;
       case '+':
-        b = this->options.brightness;
+        b = options.brightness;
         while (*command++ == '+')
           b += 5;
-        this->setBrightness(b + 5);
+        setBrightness(b + 5);
         return;
       case 'l':
         if (arg < 5*256) {
           Serial.println(F("nope"));
           return;
         }
-        this->setBrightness(arg >> 8);
+        setBrightness(arg >> 8);
         return;
 
       case 'b':
@@ -973,51 +979,51 @@ class PatternController : public MessageReceiver {
         return;
 
       case 's':
-        this->beats->start_phrase();
-        this->update_beat();
-        this->send_update();
+        beats->start_phrase();
+        update_beat();
+        send_update();
         return;
 
       case 'n':
-        this->force_next();
+        force_next();
         return;
 
       case 'p':
-        this->next_state.pattern_phrase = 0;
-        this->next_state.pattern_id = arg >> 8;
-        this->next_state.pattern_sync_id = All;
-        this->broadcast_state();
+        next_state.pattern_phrase = 0;
+        next_state.pattern_id = arg >> 8;
+        next_state.pattern_sync_id = All;
+        broadcast_state();
         return;        
 
       case 'm':
-        this->next_state.pattern_phrase = 0;
-        this->next_state.pattern_id = this->current_state.pattern_id;
-        this->next_state.pattern_sync_id = arg >> 8;
-        this->broadcast_state();
+        next_state.pattern_phrase = 0;
+        next_state.pattern_id = current_state.pattern_id;
+        next_state.pattern_sync_id = arg >> 8;
+        broadcast_state();
         return;
         
       case 'c':
-        this->next_state.palette_phrase = 0;
-        this->next_state.palette_id = arg >> 8;
-        this->broadcast_state();
+        next_state.palette_phrase = 0;
+        next_state.palette_id = arg >> 8;
+        broadcast_state();
         return;
         
       case 'e':
-        this->next_state.effect_phrase = 0;
-        this->next_state.effect_params = gEffects[(arg >> 8) % gEffectCount].params;
-        this->broadcast_state();
+        next_state.effect_phrase = 0;
+        next_state.effect_params = gEffects[(arg >> 8) % gEffectCount].params;
+        broadcast_state();
         return;
 
       case '%':
-        this->next_state.effect_phrase = 0;
-        this->next_state.effect_params = this->current_state.effect_params;
-        this->next_state.effect_params.chance = arg;
-        this->broadcast_state();
+        next_state.effect_phrase = 0;
+        next_state.effect_params = current_state.effect_params;
+        next_state.effect_params.chance = arg;
+        broadcast_state();
         return;
 
       case 'i':
         Serial.printf("Reset! ID -> %03X\n", arg >> 4);
-        this->node->reset(arg >> 4);
+        node->reset(arg >> 4);
         return;
 
       case 'U':
@@ -1036,7 +1042,7 @@ class PatternController : public MessageReceiver {
           .key = command[0],
           .arg = (uint8_t)(arg >> 8)
         };
-        this->broadcast_action(action);
+        broadcast_action(action);
         return;
       }
 
@@ -1044,9 +1050,9 @@ class PatternController : public MessageReceiver {
         // Toggle power save
         Action action = {
           .key = command[0],
-          .arg = !this->power_save,
+          .arg = !power_save,
         };
-        this->broadcast_action(action);
+        broadcast_action(action);
         break;
       }
 
@@ -1054,14 +1060,14 @@ class PatternController : public MessageReceiver {
         // Toggle sound overlay
         Action action = {
           .key = command[0],
-          .arg = !this->sound.overlay
+          .arg = !sound.overlay
         };
-        this->broadcast_action(action);
+        broadcast_action(action);
         break;
       }
 
       case 'r':
-        this->setRole((ControllerRole)(arg >> 8));
+        setRole((ControllerRole)(arg >> 8));
         return;
 
       case '?':
@@ -1090,7 +1096,7 @@ class PatternController : public MessageReceiver {
         return;
 
       case 'u':
-        this->updater.start();
+        updater.start();
         return;
 
       case 0:
@@ -1104,40 +1110,43 @@ class PatternController : public MessageReceiver {
   }
 
   void force_next() {
-    uint16_t phrase = this->current_state.beat_frame >> 12;
-    uint16_t next_phrase = min(this->next_state.pattern_phrase, min(this->next_state.palette_phrase, this->next_state.effect_phrase)) - phrase;
-    this->next_state.pattern_phrase -= next_phrase;
-    this->next_state.palette_phrase -= next_phrase;
-    this->next_state.effect_phrase -= next_phrase;
-    this->broadcast_state();
+    uint16_t phrase = current_state.beat_frame >> 12;
+    uint16_t next_phrase = min(next_state.pattern_phrase, min(next_state.palette_phrase, next_state.effect_phrase)) - phrase;
+    next_state.pattern_phrase -= next_phrase;
+    next_state.palette_phrase -= next_phrase;
+    next_state.effect_phrase -= next_phrase;
+    broadcast_state();
   }
 
   void broadcast_action(Action& action) {
-    if (!this->node->is_following()) {
-      this->onAction(&action);
+    if (!node->is_following()) {
+      onAction(&action);
     }
-    this->node->sendCommand(COMMAND_ACTION, &action, sizeof(Action));
+    node->sendCommand(COMMAND_ACTION, &action, sizeof(Action));
   }
 
   void broadcast_info(NodeInfo *info) {
-    this->node->sendCommand(COMMAND_INFO, &info, sizeof(NodeInfo));
+    node->sendCommand(COMMAND_INFO, &info, sizeof(NodeInfo));
   }
 
   void broadcast_state() {
-    this->node->sendCommand(COMMAND_STATE, &this->current_state, sizeof(TubeStates));
+    node->sendCommand(COMMAND_STATE, &current_state, sizeof(TubeStates));
   }
 
   void broadcast_options() {
-    this->node->sendCommand(COMMAND_OPTIONS, &this->options, sizeof(this->options));
+    if (!node->is_following()) {
+      load_options(options);
+    }
+    node->sendCommand(COMMAND_OPTIONS, &options, sizeof(options));
   }
 
   void broadcast_autoupdate() {
-    this->node->sendCommand(COMMAND_UPGRADE, &this->updater.current_version, sizeof(this->updater.current_version));
+    node->sendCommand(COMMAND_UPGRADE, &updater.current_version, sizeof(updater.current_version));
   }
 
   void broadcast_bpm(accum88 bpm) {
     // Hacked in feature: request a new BPM
-    this->node->sendCommand(COMMAND_BEATS, &bpm, sizeof(bpm));
+    node->sendCommand(COMMAND_BEATS, &bpm, sizeof(bpm));
   }
 
   virtual bool onCommand(CommandId command, void *data) {
@@ -1149,11 +1158,11 @@ class PatternController : public MessageReceiver {
         return true;
   
       case COMMAND_OPTIONS:
-        memcpy(&this->options, data, sizeof(this->options));
-        this->load_options(this->options);
+        memcpy(&options, data, sizeof(options));
+        load_options(options);
         Serial.printf("[debug=%d  bri=%d]",
-          this->options.debugging,
-          this->options.brightness
+          options.debugging,
+          options.brightness
         );
         return true;
 
@@ -1162,32 +1171,32 @@ class PatternController : public MessageReceiver {
 
         TubeState state;
         memcpy(&state, &update_data->current, sizeof(TubeState));
-        memcpy(&this->next_state, &update_data->next, sizeof(TubeState));
+        memcpy(&next_state, &update_data->next, sizeof(TubeState));
         state.print();
-        this->next_state.print();
+        next_state.print();
   
         // Catch up to this state
-        this->load_pattern(state);
-        this->load_palette(state);
-        this->load_effect(state);
-        this->beats->sync(state.bpm, state.beat_frame);
+        load_pattern(state);
+        load_palette(state);
+        load_effect(state);
+        beats->sync(state.bpm, state.beat_frame);
         return true;
       }
 
       case COMMAND_UPGRADE:
-        this->updater.start((AutoUpdateOffer*)data);
+        updater.start((AutoUpdateOffer*)data);
         return true;
 
       case COMMAND_ACTION:
-        this->onAction((Action*)data);
+        onAction((Action*)data);
         return true;
 
       case COMMAND_BEATS:
         // the master control ignores this request, it has its own
         // beat measuring.
-        if (this->isMaster())
+        if (isMaster())
           return false;
-        this->set_tapped_bpm(*(accum88*)data, 0);
+        set_tapped_bpm(*(accum88*)data, 0);
         return true;
     }
   
@@ -1203,24 +1212,24 @@ class PatternController : public MessageReceiver {
         return;
 
       case 'O':
-        this->sound.overlay = (action->arg != 0);
+        sound.overlay = (action->arg != 0);
         return;
 
       case 'X':
-        if (!this->isSelected())
+        if (!isSelected())
           return;
         doReboot = true;
         return;
 
       case 'R':
-        if (!this->isSelected())
+        if (!isSelected())
           return;
         setRole((ControllerRole)(action->arg));
         return;
 
       case '@':
         Serial.print("Setting power save to %d\n");
-        this->setPowerSave(action->arg);
+        setPowerSave(action->arg);
         return;
 
       case 'W':
@@ -1238,41 +1247,103 @@ class PatternController : public MessageReceiver {
 
       case 'F':
         Serial.println("flash!");
-        this->flashTimer.start(20000);
-        this->flashColor = action->arg;
+        flashTimer.start(20000);
+        flashColor = action->arg;
         return;
 
       case 'M':
         Serial.println("cancel manual mode");
-        this->cancelOverrides();
+        cancelOverrides();
         break;
 
       case '*':
       case '(':
         Serial.println("enter select mode");
-        this->enterSelectMode();
+        enterSelectMode();
         break;
 
       case ')':
         Serial.println("exit select mode");
-        this->deselect();
+        deselect();
         break;
 
       case 'V':
         // Version check: prepare for update
-        if (this->updater.current_version.version >= action->arg)
+        if (updater.current_version.version >= action->arg)
           break;
 
-        this->select();
+        select();
         break;
 
       case 'U':
-        if (!this->isSelected())
+        if (!isSelected())
           return;
-        this->updater.start();
+        updater.start();
         break;
 
     }
   }
+
+#define WIZMOTE_BUTTON_ON          1
+#define WIZMOTE_BUTTON_OFF         2
+#define WIZMOTE_BUTTON_NIGHT       3
+#define WIZMOTE_BUTTON_ONE         16
+#define WIZMOTE_BUTTON_TWO         17
+#define WIZMOTE_BUTTON_THREE       18
+#define WIZMOTE_BUTTON_FOUR        19
+#define WIZMOTE_BUTTON_BRIGHT_UP   9
+#define WIZMOTE_BUTTON_BRIGHT_DOWN 8
+
+  virtual bool onButton(uint8_t button_id) {
+    Serial.printf("Button %d\n", button_id);
+    switch (button_id) {
+      case WIZMOTE_BUTTON_ON:
+        WLED::instance().initAP(true);
+        acknowledge();
+        return true;
+
+      case WIZMOTE_BUTTON_OFF:
+        WiFi.softAPdisconnect(true);
+        acknowledge();
+        return true;
+
+      case WIZMOTE_BUTTON_ONE:
+        // Make it interesting - switch to a good pattern and timesync mode
+        acknowledge();
+        return true;
+
+      case WIZMOTE_BUTTON_FOUR:
+        // Turn on or off debugging
+        setDebugging(!options.debugging);
+        acknowledge();
+        return true;
+
+      case WIZMOTE_BUTTON_BRIGHT_UP:
+        if (options.brightness <= 230)
+          setBrightness(options.brightness + 25);
+        return true;
+
+      case WIZMOTE_BUTTON_BRIGHT_DOWN:
+        if (options.brightness >= 25)
+          setBrightness(options.brightness - 25);
+        return true;
+
+      case WIZMOTE_BUTTON_NIGHT:
+        // Turn off debugging and wifi
+        WiFi.softAPdisconnect(true);
+        setDebugging(false);
+        acknowledge();
+        return true;
+
+
+      // case WIZMOTE_BUTTON_ON             : setOn();                                         stateUpdated(CALL_MODE_BUTTON); break;
+      // case WIZMOTE_BUTTON_OFF            : setOff();                                        stateUpdated(CALL_MODE_BUTTON); break;
+      // case WIZMOTE_BUTTON_TWO            : presetWithFallback(2, FX_MODE_BREATH,        0); resetNightMode(); break;
+      // case WIZMOTE_BUTTON_THREE          : presetWithFallback(3, FX_MODE_FIRE_FLICKER,  0); resetNightMode(); break;
+      default:
+        return false;
+    }
+  }
+
 
 };

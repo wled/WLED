@@ -22,28 +22,28 @@ class TubeState {
     EffectParameters effect_params;
 
   void print() {
-    uint16_t phrase = this->beat_frame >> 12;
+    uint16_t phrase = beat_frame >> 12;
     Serial.print(F("["));
     Serial.print(phrase);
     Serial.print(F("."));
-    Serial.print((this->beat_frame >> 8) % 16);
+    Serial.print((beat_frame >> 8) % 16);
     Serial.print(F(" P"));
-    Serial.print(this->pattern_id);
+    Serial.print(pattern_id);
     Serial.print(F(","));
-    Serial.print(this->pattern_sync_id);
+    Serial.print(pattern_sync_id);
     Serial.print(F(" C"));
-    Serial.print(this->palette_id);
+    Serial.print(palette_id);
     Serial.print(F(" E"));
-    Serial.print(this->effect_params.effect);
+    Serial.print(effect_params.effect);
     Serial.print(F(","));
-    Serial.print(this->effect_params.pen);
+    Serial.print(effect_params.pen);
     Serial.print(F(","));
-    Serial.print(this->effect_params.beat);
+    Serial.print(effect_params.beat);
     Serial.print(F(","));
-    Serial.print(this->effect_params.chance);
+    Serial.print(effect_params.chance);
     Serial.print(F(" "));
-    Serial.print(this->bpm >> 8);
-    uint8_t frac = scale8(100, this->bpm & 0xFF);
+    Serial.print(bpm >> 8);
+    uint8_t frac = scale8(100, bpm & 0xFF);
     Serial.print(F("."));
     if (frac < 10)
       Serial.print(F("0"));

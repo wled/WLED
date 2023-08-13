@@ -62,49 +62,48 @@ class VirtualStrip {
     bool beat_pulse;
     int bps = 0;
 
-  VirtualStrip(uint8_t num_leds)
+  VirtualStrip(uint8_t num) : num_leds(num)
   {
-    this->fade = Dead;
-    this->num_leds = num_leds;
+    fade = Dead;
   }
 
-  void load(Background &background, uint8_t fade_speed=DEFAULT_FADE_SPEED)
+  void load(Background &b, uint8_t fs=DEFAULT_FADE_SPEED)
   {
-    this->background = background;
-    this->fade = FadeIn;
-    this->fader = 0;
-    this->fade_speed = fade_speed;
-    this->brightness = DEF_BRIGHT;
+    background = b;
+    fade = FadeIn;
+    fader = 0;
+    fade_speed = fs;
+    brightness = DEF_BRIGHT;
   }
 
   bool isWled() {
-    return this->background.wled_fx_id != 0;
+    return background.wled_fx_id != 0;
   }
 
-  void fadeOut(uint8_t fade_speed=DEFAULT_FADE_SPEED)
+  void fadeOut(uint8_t fs=DEFAULT_FADE_SPEED)
   {
-    if (this->fade == Dead)
+    if (fade == Dead)
       return;
-    this->fade = FadeOut;
-    this->fade_speed = fade_speed;
+    fade = FadeOut;
+    fade_speed = fs;
   }
 
   void darken(uint8_t amount=10)
   {
-    fadeToBlackBy( this->leds, this->num_leds, amount);
+    fadeToBlackBy( leds, num_leds, amount);
   }
 
   void fill(CRGB crgb) 
   {
-    fill_solid( this->leds, this->num_leds, crgb);
+    fill_solid( leds, num_leds, crgb);
   }
 
-  void update(BeatFrame_24_8 frame, uint8_t beat_pulse)
+  void update(BeatFrame_24_8 fr, uint8_t bp)
   {
-    if (this->fade == Dead)
+    if (fade == Dead)
       return;
     
-    this->frame = frame;
+    frame = fr;
 
     switch (this->background.sync) {
       case All:
@@ -112,52 +111,52 @@ class VirtualStrip {
 
       case SinDrift:
         // Drift slightly
-        this->frame = frame + (beatsin16( 5 ) >> 6);
+        frame = frame + (beatsin16( 5 ) >> 6);
         break;
 
       case Swing:
         // Swing the beat
-        this->frame = swing(frame);
+        frame = swing(frame);
         break;
 
       case SwingDrift:
         // Swing the beat AND drift slightly
-        this->frame = swing(frame) + (beatsin16( 5 ) >> 6);
+        frame = swing(frame) + (beatsin16( 5 ) >> 6);
         break;
 
       case Pulse:
         // Pulsing from 30 - 210 brightness
-        this->brightness = scale8(beatsin8( 10 ), 180) + 30;
+        brightness = scale8(beatsin8( 10 ), 180) + 30;
         break;
     }
-    this->hue = (this->frame >> 4) % 256;
-    this->beat = (this->frame >> 8) % 16;
-    this->beat_pulse = beat_pulse;
+    hue = (frame >> 4) % 256;
+    beat = (frame >> 8) % 16;
+    beat_pulse = bp;
 
     // Animate this virtual strip
-    this->background.animate(this);
+    background.animate(this);
 
-    switch (this->fade) {
+    switch (fade) {
       case Steady:
       case Dead:
         break;
         
       case FadeIn:
-        if (65535 - this->fader < this->fade_speed) {
-          this->fader = 65535;
-          this->fade = Steady;
+        if (65535 - fader < fade_speed) {
+          fader = 65535;
+          fade = Steady;
         } else {
-          this->fader += this->fade_speed;
+          fader += fade_speed;
         }
         break;
         
       case FadeOut:
-        if (this->fader < this->fade_speed) {
-          this->fader = 0;
-          this->fade = Dead;
+        if (fader < fade_speed) {
+          fader = 0;
+          fade = Dead;
           return;
         } else {
-          this->fader -= this->fade_speed;
+          fader -= fade_speed;
         }
         break;
     }
@@ -170,25 +169,25 @@ class VirtualStrip {
   }
 
   CRGB hue_color(uint8_t offset=0, uint8_t saturation=255, uint8_t value=192) {
-    return CHSV(this->hue + offset, saturation, value);
+    return CHSV(hue + offset, saturation, value);
   }
 
-  void blend(CRGB output[], uint8_t num_leds, uint8_t brightness, bool overwrite=0) {
-    if (this->fade == Dead)
+  void blend(CRGB output[], uint8_t num_leds, uint8_t br, bool overwrite=0) {
+    if (fade == Dead)
       return;
 
     // WLED is blended in elsewhere
-    if (this->isWled())
+    if (isWled())
       return;
 
-    brightness = scale8(this->brightness, brightness);
+    br = scale8(brightness, br);
 
     for (unsigned i=0; i < num_leds; i++) {
       uint8_t pos = i;
-      CRGB c = this->leds[pos];
+      CRGB c = leds[pos];
 
       nscale8x3(c.r, c.g, c.b, brightness);
-      nscale8x3(c.r, c.g, c.b, this->fader>>8);
+      nscale8x3(c.r, c.g, c.b, fader>>8);
       if (overwrite)
         output[i] = c;
       else
@@ -198,12 +197,12 @@ class VirtualStrip {
   
   uint8_t bpm_sin16( uint16_t lowest=0, uint16_t highest=65535 )
   {
-    return scaled16to8(sin16( this->frame << 7 ) + 32768, lowest, highest);
+    return scaled16to8(sin16( frame << 7 ) + 32768, lowest, highest);
   }
 
   uint8_t bpm_cos16( uint16_t lowest=0, uint16_t highest=65535 )
   {
-    return scaled16to8(cos16( this->frame << 7 ) + 32768, lowest, highest);
+    return scaled16to8(cos16( frame << 7 ) + 32768, lowest, highest);
   }
 
 };
