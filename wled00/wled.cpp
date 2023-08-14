@@ -514,6 +514,9 @@ void WLED::setup()
 #ifdef WLED_ENABLE_DMX
   initDMX();
 #endif
+#ifdef WLED_ENABLE_DMX_INPUT
+  initDMXInput();
+#endif
 
 #ifdef WLED_ENABLE_ADALIGHT
   if (serialCanRX && Serial.available() > 0 && Serial.peek() == 'I') handleImprovPacket();
