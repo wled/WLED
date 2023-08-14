@@ -82,8 +82,8 @@ class TubesUsermod : public Usermod {
     void handleOverlayDraw()
     {
       // Draw effects layers over whatever WLED is doing.
-      this->controller.handleOverlayDraw();
-      this->debug.handleOverlayDraw();
+      controller.handleOverlayDraw();
+      debug.handleOverlayDraw();
       if (master) 
         master->handleOverlayDraw();
 
@@ -101,22 +101,22 @@ class TubesUsermod : public Usermod {
     bool handleButton(uint8_t b) {
       // Special code for handling the "power save" button
       if (b == 100) { // Press button 0 for WLED_LONG_POWER_SAVE ms
-        this->controller.togglePowerSave();
+        controller.togglePowerSave();
         return true;
       }
       if (b == 101) { // Short press button 0 (piggybacks with default)
-        this->controller.cancelOverrides();
+        controller.cancelOverrides();
         return true;
       }
       if (b == 102) { // Double-click button 0
-        this->controller.acknowledge();
-        if (this->controller.isSelecting()) {
-          if (this->controller.isSelected())
-            this->controller.deselect();
+        controller.acknowledge();
+        if (controller.isSelecting()) {
+          if (controller.isSelected())
+            controller.deselect();
           else
-            this->controller.select();
+            controller.select();
         } else {
-          this->controller.request_new_bpm();
+          controller.request_new_bpm();
         }
         return true;
       }

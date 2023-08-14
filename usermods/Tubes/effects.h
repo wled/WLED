@@ -54,49 +54,49 @@ class Effects {
     uint8_t chance;
 
   void load(EffectParameters &params) {
-    this->effect = params.effect;
-    this->pen = params.pen;
-    this->beat = params.beat;
-    this->chance = params.chance;
+    effect = params.effect;
+    pen = params.pen;
+    beat = params.beat;
+    chance = params.chance;
   }
 
   void update(VirtualStrip *strip, BeatFrame_24_8 beat_frame, BeatPulse beat_pulse) {
-    if (!this->beat || beat_pulse & this->beat) {
+    if (!beat || beat_pulse & beat) {
 
-      if (random8() <= this->chance) {
+      if (random8() <= chance) {
         CRGB color = strip->palette_color(random8());
   
-        switch (this->effect) {
+        switch (effect) {
           case None:
             break;
       
           case Glitter:
-            addGlitter(color, this->pen);
+            addGlitter(color, pen);
             break;
       
           case Beatbox1:
           case Beatbox2:
-            addBeatbox(color, this->pen);
-            if (this->effect == Beatbox2)
-              addBeatbox(color, this->pen);
+            addBeatbox(color, pen);
+            if (effect == Beatbox2)
+              addBeatbox(color, pen);
             break;
       
           case Bubble:
-            addBubble(color, this->pen);
+            addBubble(color, pen);
             break;
       
           case Spark:
-            addSpark(color, this->pen);
+            addSpark(color, pen);
             break;
       
           case Flash:
-            addFlash(CRGB::White, this->pen);
+            addFlash(CRGB::White, pen);
             break;  
         }
       }
     }
 
-    this->animate(beat_frame, beat_pulse);
+    animate(beat_frame, beat_pulse);
   }
 
   void animate(BeatFrame_24_8 frame, uint8_t beat_pulse) {

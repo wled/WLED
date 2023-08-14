@@ -20,51 +20,53 @@ extern void drawFlash(Particle *particle, WS2812FX* leds);
 
 class Particle {
   public:
+    Particle(uint16_t pos, CRGB c=CRGB::White, PenMode p=Draw, uint32_t life=20000, ParticleFn fn=drawPoint) :
+      age(0),
+      color(c),
+      brightness(192<<8),
+      drawFn(fn),
+      velocity(0),
+      gravity(0)
+    {
+      pen = p;
+      position = pos;
+      lifetime = life;
+    };
+
     BeatFrame_24_8 born;
     BeatFrame_24_8 lifetime;
     BeatFrame_24_8 age;
 
-    uint16_t position = 0;
-    int16_t velocity = 0;
-    int16_t gravity = 0;
+    CRGB color;
+    PenMode pen;
+    uint16_t brightness;
+    ParticleFn drawFn;
+
+    uint16_t position;
+    int16_t velocity;
+    int16_t gravity;
     void (*die_fn)(Particle *particle) = NULL;
-    PenMode pen = Draw;
 
 #ifdef PARTICLE_PALETTES
     CRGBPalette16 palette;   // 48 bytes per particle!?
 #endif
 
-    CRGB color;
-    uint16_t brightness;
-    ParticleFn drawFn;
-
-  Particle(uint16_t position, CRGB color=CRGB::White, PenMode pen=Draw, uint32_t lifetime=20000, ParticleFn drawFn=drawPoint)
-  {
-    this->age = 0;
-    this->position = position;
-    this->color = color;
-    this->pen = pen;
-    this->lifetime = lifetime;
-    this->brightness = (192<<8);
-    this->drawFn = drawFn;
-  }
-
   void update(BeatFrame_24_8 frame)
   {
     // Particles get brighter with the beat
-    this->brightness = (scale8(particleVolume, 80) + 170) << 8;
+    brightness = (scale8(particleVolume, 80) + 170) << 8;
 
-    this->age = frame - this->born;
-    this->position = this->udelta16(this->position, this->velocity);
-    this->velocity = this->delta16(this->velocity, this->gravity);
+    age = frame - born;
+    position = udelta16(position, velocity);
+    velocity = delta16(velocity, gravity);
   }
 
   uint16_t age_frac16(BeatFrame_24_8 age)
   {
-    if (age >= this->lifetime)
+    if (age >= lifetime)
       return 65535;
     uint32_t a = age * 65536;
-    return a / this->lifetime;
+    return a / lifetime;
   }
 
   uint16_t udelta16(uint16_t x, int16_t dx)
@@ -88,17 +90,17 @@ class Particle {
   CRGB color_at(uint16_t age_frac) {
     // Particles get dimmer with age
     uint8_t a = age_frac >> 8;
-    uint8_t brightness = scale8((uint8_t)(this->brightness>>8), 255-a);
+    uint8_t brightness = scale8((uint8_t)(brightness>>8), 255-a);
 
 #ifdef PARTICLE_PALETTES
     // a black pattern actually means to use the current palette
-    if (this->color == CRGB(0,0,0))
-      return ColorFromPalette(this->palette, a, brightness);
+    if (color == CRGB(0,0,0))
+      return ColorFromPalette(palette, a, brightness);
 #endif
 
-    uint8_t r = scale8(this->color.r, brightness);
-    uint8_t g = scale8(this->color.g, brightness);
-    uint8_t b = scale8(this->color.b, brightness);
+    uint8_t r = scale8(color.r, brightness);
+    uint8_t g = scale8(color.g, brightness);
+    uint8_t b = scale8(color.b, brightness);
     return CRGB(r,g,b);
   }
 
@@ -106,7 +108,7 @@ class Particle {
     CRGB c = CRGB(strip.getPixelColor(pos));
     CRGB new_color;
 
-    switch (this->pen) {
+    switch (pen) {
       case Draw:  
         new_color = color;
         break;
