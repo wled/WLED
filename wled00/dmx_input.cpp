@@ -9,7 +9,9 @@
  */
 
 static dmx_port_t dmxInputPort = 2; //TODO make this configurable
-bool dmxInputInitialized = false; //true once initDmx finished successfully
+static bool dmxInputInitialized = false; //true once initDmx finished successfully
+static bool dmxIsConnected = false;
+static unsigned long dmxLastUpdate = 0;
 
 void initDMXInput() {
 
@@ -21,6 +23,8 @@ void initDMXInput() {
      * - attach callback for address change and store in flash
      * - load dmx address from flash and set in config on startup
      * - attach callback to rdm identify and flash leds when on
+     * - Turn this into a class
+     * - Make all important config variables available via rdm
     */
   if(dmxInputReceivePin > 0 && dmxInputEnablePin > 0 && dmxInputTransmitPin > 0) 
   {
@@ -40,7 +44,6 @@ void initDMXInput() {
       return;
     }
 
-
     dmx_config_t config{                                             
         255,                          /*alloc_size*/             
         0,                            /*model_id*/               
@@ -54,7 +57,7 @@ void initDMXInput() {
     };
     const std::string versionString = "WLED_V" + std::to_string(VERSION);
     strncpy(config.software_version_label, versionString.c_str(), 32);
-    config.software_version_label[32] = '\0';//zero termination in case our string was longer than 32 chars
+    config.software_version_label[32] = '\0';//zero termination in case versionString string was longer than 32 chars
 
     if(!dmx_driver_install(dmxInputPort, &config, DMX_INTR_FLAGS_DEFAULT))
     {
@@ -74,11 +77,7 @@ void initDMXInput() {
     USER_PRINTLN("DMX input disabled due to dmxInputReceivePin, dmxInputEnablePin or dmxInputTransmitPin not set");
     return;
   }
-
 }
-
-static bool dmxIsConnected = false;
-static unsigned long dmxLastUpdate = 0;
 
 void handleDMXInput() {
   if(!dmxInputInitialized) {
@@ -88,10 +87,7 @@ void handleDMXInput() {
   dmx_packet_t packet;
   unsigned long now = millis();
   if (dmx_receive(dmxInputPort, &packet, 0)) {
-
-    /* We should check to make sure that there weren't any DMX errors. */
     if (!packet.err) {
-      /* If this is the first DMX data we've received, lets log it! */
       if (!dmxIsConnected) {
         USER_PRINTLN("DMX is connected!");
         dmxIsConnected = true;
@@ -102,12 +98,10 @@ void handleDMXInput() {
       dmxLastUpdate = now;
 
     } else {
-      /* Oops! A DMX error occurred! Don't worry, this can happen when you first
-        connect or disconnect your DMX devices. If you are consistently getting
-        DMX errors, then something may have gone wrong with your code or
-        something is seriously wrong with your DMX transmitter. */
+      /*This can happen when you first connect or disconnect your DMX devices.
+        If you are consistently getting DMX errors, then something may have gone wrong. */
      DEBUG_PRINT("A DMX error occurred - ");
-     DEBUG_PRINTLN(packet.err);
+     DEBUG_PRINTLN(packet.err); //TODO translate err code to string for output
     }
   }
   else if (dmxIsConnected && (now - dmxLastUpdate > 5000)) {
