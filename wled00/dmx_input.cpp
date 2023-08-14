@@ -1,12 +1,13 @@
 #include "wled.h"
 
 #ifdef WLED_ENABLE_DMX_INPUT
-#include "dmx_input.h"
-#include <esp_dmx.h>
 
 #ifdef ESP8266
 #error DMX input is only supported on ESP32
 #endif
+
+#include "dmx_input.h"
+#include <rdm/responder.h>
 
 void DMXInput::init(uint8_t rxPin, uint8_t txPin, uint8_t enPin, uint8_t inputPortNum)
 {
@@ -102,8 +103,21 @@ void DMXInput::update()
         connected = true;
       }
 
-      dmx_read(inputPortNum, dmxdata, packet.size);
-      handleDMXData(1, 512, dmxdata, REALTIME_MODE_DMX, 0);
+      uint8_t identify = 0;
+      const bool gotIdentify = rdm_get_identify_device(inputPortNum, &identify);
+      // gotIdentify should never be false because it is a default parameter in rdm but just in case we check for it anyway
+      if (identify && gotIdentify)
+      {
+        turnOnAllLeds();
+      }
+      else
+      {
+        if (!packet.is_rdm)
+        {
+          dmx_read(inputPortNum, dmxdata, packet.size);
+          handleDMXData(1, 512, dmxdata, REALTIME_MODE_DMX, 0);
+        }
+      }
       lastUpdate = now;
     }
     else
@@ -121,7 +135,16 @@ void DMXInput::update()
   }
 }
 
-#else
-void DMXInput::init(uint8_t, uint8_t, uint8_t, uint8_t) {}
-void DMXInput::update() {}
+void DMXInput::turnOnAllLeds()
+{
+  // TODO not sure if this is the correct way?
+  const uint16_t numPixels = strip.getLengthTotal();
+  for (uint16_t i = 0; i < numPixels; ++i)
+  {
+    strip.setPixelColor(i, 255, 255, 255, 255);
+  }
+  strip.setBrightness(255, true);
+  strip.show();
+}
+
 #endif
