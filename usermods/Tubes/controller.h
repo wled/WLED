@@ -76,8 +76,8 @@ class Button {
     uint8_t pin;
     bool lastPressed = false;
 
-  void setup(uint8_t pin) {
-    pin = pin;
+  void setup(uint8_t p) {
+    pin = p;
     pinMode(pin, INPUT_PULLUP);
     debounceTimer.start(0);
   }
@@ -797,9 +797,9 @@ class PatternController : public MessageReceiver {
     setPowerSave(!power_save);
   }
 
-  void setPowerSave(bool power_save) {
+  void setPowerSave(bool ps) {
+    power_save = ps;
     Serial.printf("power_save: %d\n", power_save);
-    power_save = power_save;
 
     // Remember this setting on the next boot
     EEPROM.begin(2560);
@@ -814,8 +814,8 @@ class PatternController : public MessageReceiver {
     EEPROM.end();
   }
 
-  void setRole(ControllerRole role) {
-    role = role;
+  void setRole(ControllerRole r) {
+    role = r;
     Serial.printf("Role = %d", role);
     EEPROM.begin(2560);
     EEPROM.write(ROLE_EEPROM_LOCATION, role);

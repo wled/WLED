@@ -71,36 +71,36 @@ class Master {
     addFlash(CRGB::Red);
   }
 
-  void onButtonPress(uint8_t button) {
-    if (button == 0)
+  void onButtonPress(uint8_t b) {
+    if (b == 0)
       return;
 
-    if (button == 4) {
+    if (b == 4) {
       Serial.println((char *)F("Skip >>"));
       controller->force_next();
       ok();
       return;
     }
 
-    if (button == 3) {
+    if (b == 3) {
       tap();
       return;
     }
 
     Serial.print((char *)F("Pressed "));
-    Serial.println(button);
+    Serial.println(b);
   }
 
-  void onButtonRelease(uint8_t button) {
+  void onButtonRelease(uint8_t b) {
 #ifdef EXTRA_STUFF
-    if (button == 2) {
+    if (b == 2) {
       if (palette_mode)
         controller->_load_palette(palette_id);
       palette_mode = false;
     }
 #endif
 
-    if (button == 3) {
+    if (b == 3) {
       if (taps == 0)
         return;
       tap();
@@ -108,7 +108,7 @@ class Master {
     }
 
     Serial.print((char *)F("Released "));
-    Serial.println(button);
+    Serial.println(b);
   }
 
   void tap() {
