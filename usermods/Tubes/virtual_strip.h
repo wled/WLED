@@ -67,12 +67,12 @@ class VirtualStrip {
     fade = Dead;
   }
 
-  void load(Background &background, uint8_t fade_speed=DEFAULT_FADE_SPEED)
+  void load(Background &b, uint8_t fs=DEFAULT_FADE_SPEED)
   {
-    background = background;
+    background = b;
     fade = FadeIn;
     fader = 0;
-    fade_speed = fade_speed;
+    fade_speed = fs;
     brightness = DEF_BRIGHT;
   }
 
@@ -80,12 +80,12 @@ class VirtualStrip {
     return background.wled_fx_id != 0;
   }
 
-  void fadeOut(uint8_t fade_speed=DEFAULT_FADE_SPEED)
+  void fadeOut(uint8_t fs=DEFAULT_FADE_SPEED)
   {
     if (fade == Dead)
       return;
     fade = FadeOut;
-    fade_speed = fade_speed;
+    fade_speed = fs;
   }
 
   void darken(uint8_t amount=10)
@@ -98,14 +98,14 @@ class VirtualStrip {
     fill_solid( leds, num_leds, crgb);
   }
 
-  void update(BeatFrame_24_8 frame, uint8_t beat_pulse)
+  void update(BeatFrame_24_8 fr, uint8_t bp)
   {
     if (fade == Dead)
       return;
     
-    frame = frame;
+    frame = fr;
 
-    switch (background.sync) {
+    switch (this->background.sync) {
       case All:
         break;  
 
@@ -131,7 +131,7 @@ class VirtualStrip {
     }
     hue = (frame >> 4) % 256;
     beat = (frame >> 8) % 16;
-    beat_pulse = beat_pulse;
+    beat_pulse = bp;
 
     // Animate this virtual strip
     background.animate(this);
@@ -172,7 +172,7 @@ class VirtualStrip {
     return CHSV(hue + offset, saturation, value);
   }
 
-  void blend(CRGB output[], uint8_t num_leds, uint8_t brightness, bool overwrite=0) {
+  void blend(CRGB output[], uint8_t num_leds, uint8_t br, bool overwrite=0) {
     if (fade == Dead)
       return;
 
@@ -180,7 +180,7 @@ class VirtualStrip {
     if (isWled())
       return;
 
-    brightness = scale8(brightness, brightness);
+    br = scale8(brightness, br);
 
     for (unsigned i=0; i < num_leds; i++) {
       uint8_t pos = i;
