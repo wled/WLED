@@ -34,10 +34,10 @@ class BeatController {
     }
   }
 
-  void sync(accum88 bpm, BeatFrame_24_8 frac) {
+  void sync(accum88 b, BeatFrame_24_8 f) {
     accum88 last_bpm = bpm;
-    bpm = bpm;
-    frac = frac;
+    bpm = b;
+    frac = f;
     accum = 0;
 
     micros_per_frac = (uint32_t)(15360000000.0 / (float)bpm);
@@ -46,12 +46,12 @@ class BeatController {
       print_bpm();
   }
   
-  void set_bpm(accum88 bpm) {
-    sync(bpm, frac);
+  void set_bpm(accum88 b) {
+    sync(b, frac);
   }
 
-  void adjust_bpm(saccum78 bpm) {
-    sync(bpm + bpm, frac);
+  void adjust_bpm(saccum78 b) {
+    sync(bpm + b, frac);
   }
 
   void start_phrase() {
