@@ -148,6 +148,10 @@ void BusDigital::show() {
       else           pix += _skip;
       PolyBus::setPixelColor(_busPtr, _iType, pix, c, co);
     }
+    #if !defined(STATUSLED) || STATUSLED>=0
+    if (_skip) PolyBus::setPixelColor(_busPtr, _iType, 0, 0, _colorOrderMap.getPixelColorOrder(_start, _colorOrder)); // paint skipped pixels black
+    #endif
+    for (int i=1; i<_skip; i++) PolyBus::setPixelColor(_busPtr, _iType, i, 0, _colorOrderMap.getPixelColorOrder(_start, _colorOrder)); // paint skipped pixels black
   }
   PolyBus::show(_busPtr, _iType, !_buffering); // faster if buffer consistency is not important
 }

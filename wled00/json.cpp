@@ -29,8 +29,11 @@ bool deserializeSegment(JsonObject elem, byte it, byte presetId)
     id = strip.getSegmentsNum()-1; // segments are added at the end of list
   }
 
+  //DEBUG_PRINTLN("-- JSON deserialize segment.");
   Segment& seg = strip.getSegment(id);
+  //DEBUG_PRINTF("--  Original segment: %p\n", &seg);
   Segment prev = seg; //make a backup so we can tell if something changed
+  //DEBUG_PRINTF("--  Duplicate segment: %p\n", &prev);
 
   uint16_t start = elem["start"] | seg.start;
   if (stop < 0) {

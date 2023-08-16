@@ -381,6 +381,26 @@ typedef struct Segment {
     byte     *data; // effect data pointer
     static uint16_t maxWidth, maxHeight;  // these define matrix width & height (max. segment dimensions)
 
+    typedef struct TemporarySegmentData {
+      uint16_t _optionsT;
+      uint32_t _colorT[NUM_COLORS];
+      uint8_t  _speedT;
+      uint8_t  _intensityT;
+      uint8_t  _custom1T, _custom2T;   // custom FX parameters/sliders
+      struct {
+        uint8_t _custom3T : 5;        // reduced range slider (0-31)
+        bool    _check1T  : 1;        // checkmark 1
+        bool    _check2T  : 1;        // checkmark 2
+        bool    _check3T  : 1;        // checkmark 3
+      };
+      uint16_t _aux0T;
+      uint16_t _aux1T;
+      uint32_t _stepT;
+      uint32_t _callT;
+      uint8_t *_dataT;
+      uint16_t _dataLenT;
+    } tmpsegd_t;
+
   private:
     union {
       uint8_t  _capabilities;
@@ -396,43 +416,27 @@ typedef struct Segment {
     static uint16_t _usedSegmentData;
 
     // perhaps this should be per segment, not static
-    static CRGBPalette16 _randomPalette;
-    static CRGBPalette16 _newRandomPalette;
-    static unsigned long _lastPaletteChange;
+    static CRGBPalette16 _randomPalette;      // actual random palette
+    static CRGBPalette16 _newRandomPalette;   // target random palette
+    static unsigned long _lastPaletteChange;  // last random palette change time in millis()
+    static bool          _modeBlend;          // mode/effect blending semaphore
 
     // transition data, valid only if transitional==true, holds values during transition (72 bytes)
     struct Transition {
-      uint32_t      _colorT[NUM_COLORS];
+      tmpsegd_t     _segT;        // previous segment environment
       uint8_t       _briT;        // temporary brightness
       uint8_t       _cctT;        // temporary CCT
+      uint8_t       _modeT;       // previous mode/effect
       CRGBPalette16 _palT;        // temporary palette
       uint8_t       _prevPaletteBlends; // number of previous palette blends (there are max 255 belnds possible)
-      uint8_t       _modeP;       // previous mode/effect
-      //uint16_t      _aux0, _aux1; // previous mode/effect runtime data
-      //uint32_t      _step, _call; // previous mode/effect runtime data
-      //byte         *_data;        // previous mode/effect runtime data
-      unsigned long _start;         // must accommodate millis()
+      unsigned long _start;       // must accommodate millis()
       uint16_t      _dur;
       Transition(uint16_t dur=750)
-        : _briT(255)
-        , _cctT(127)
-        , _palT(CRGBPalette16(CRGB::Black))
+        : _palT(CRGBPalette16(CRGB::Black))
         , _prevPaletteBlends(0)
-        , _modeP(FX_MODE_STATIC)
         , _start(millis())
         , _dur(dur)
       {}
-      Transition(uint16_t d, uint8_t b, uint8_t c, const uint32_t *o)
-        : _briT(b)
-        , _cctT(c)
-        , _palT(CRGBPalette16(CRGB::Black))
-        , _prevPaletteBlends(0)
-        , _modeP(FX_MODE_STATIC)
-        , _start(millis())
-        , _dur(d)
-      {
-        for (size_t i=0; i<NUM_COLORS; i++) _colorT[i] = o[i];
-      }
     } *_t;
 
   public:
@@ -471,6 +475,9 @@ typedef struct Segment {
       _t(nullptr)
     {
       //refreshLightCapabilities();
+      #ifdef WLED_DEBUG
+      //Serial.printf("-- Creating segment: %p\n", this);
+      #endif
     }
 
     Segment(uint16_t sStartX, uint16_t sStopX, uint16_t sStartY, uint16_t sStopY) : Segment(sStartX, sStopX) {
@@ -482,14 +489,14 @@ typedef struct Segment {
     Segment(Segment &&orig) noexcept; // move constructor
 
     ~Segment() {
-      //#ifdef WLED_DEBUG
-      //Serial.print(F("Destroying segment:"));
+      #ifdef WLED_DEBUG
+      //Serial.printf("-- Destroying segment: %p\n", this);
       //if (name) Serial.printf(" %s (%p)", name, name);
       //if (data) Serial.printf(" %d (%p)", (int)_dataLen, data);
       //Serial.println();
-      //#endif
+      #endif
       if (name) { delete[] name; name = nullptr; }
-      if (_t)   { transitional = false; delete _t; _t = nullptr; }
+      stopTransition();
       deallocateData();
     }
 
@@ -515,6 +522,7 @@ typedef struct Segment {
 
     static uint16_t getUsedSegmentData(void)    { return _usedSegmentData; }
     static void     addUsedSegmentData(int len) { _usedSegmentData += len; }
+    static void     modeBlend(bool blend)       { _modeBlend = blend; }
     static void     handleRandomPalette();
 
     void    setUp(uint16_t i1, uint16_t i2, uint8_t grp=1, uint8_t spc=0, uint16_t ofs=UINT16_MAX, uint16_t i1Y=0, uint16_t i2Y=1, uint8_t segId = 255);
@@ -542,7 +550,10 @@ typedef struct Segment {
 
     // transition functions
     void     startTransition(uint16_t dur); // transition has to start before actual segment values change
+    void     stopTransition(void);
     void     handleTransition(void);
+    void     swapSegenv(tmpsegd_t &tmpSegD);
+    void     restoreSegenv(tmpsegd_t &tmpSegD);
     uint16_t progress(void); //transition progression between 0-65535
     uint8_t  currentBri(uint8_t briNew, bool useCct = false);
     uint8_t  currentMode(uint8_t modeNew);
