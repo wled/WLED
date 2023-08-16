@@ -240,6 +240,14 @@ class PatternController : public MessageReceiver {
 #endif
       load_pattern(next_state);
       next_state.pattern_phrase = phrase + set_next_pattern(phrase);
+
+      // Don't change pattern and others at the same time
+      if (next_state.pattern_phrase == next_state.palette_phrase) {
+          next_state.palette_phrase += random8(1,3);
+      }
+      if (next_state.pattern_phrase == next_state.effect_phrase) {
+          next_state.palette_phrase += random8(1,3);
+      }
       changed = true;
     }
     if (phrase >= next_state.palette_phrase) {
@@ -248,6 +256,14 @@ class PatternController : public MessageReceiver {
 #endif
       load_palette(next_state);
       next_state.palette_phrase = phrase + set_next_palette(phrase);
+
+      // Don't change palette and others at the same time
+      if (next_state.palette_phrase == next_state.pattern_phrase) {
+          next_state.palette_phrase += random8(1,3);
+      }
+      if (next_state.palette_phrase == next_state.effect_phrase) {
+          next_state.palette_phrase += random8(1,3);
+      }
       changed = true;
     }
     if (phrase >= next_state.effect_phrase) {
@@ -256,16 +272,18 @@ class PatternController : public MessageReceiver {
 #endif
       load_effect(next_state);
       next_state.effect_phrase = phrase + set_next_effect(phrase);
+
+      // Don't change palette and others at the same time
+      if (next_state.effect_phrase == next_state.pattern_phrase) {
+          next_state.effect_phrase += random8(1,3);
+      }
+      if (next_state.effect_phrase == next_state.palette_phrase) {
+          next_state.effect_phrase += random8(1,3);
+      }
       changed = true;
     }
 
     if (changed) {
-      // For now, WLED doesn't handle transitioning pattern & palette well.
-      // Stagger them
-      if (next_state.pattern_phrase == next_state.palette_phrase) {
-          next_state.palette_phrase += random8(1,3);
-      }
-
       next_state.print();
       Serial.println();
     }
