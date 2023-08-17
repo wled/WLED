@@ -147,4 +147,19 @@ void DMXInput::turnOnAllLeds()
   strip.show();
 }
 
+void DMXInput::disable()
+{
+  if (initialized)
+  {
+    dmx_driver_disable(inputPortNum);
+  }
+}
+void DMXInput::enable()
+{
+  if(initialized)
+  {
+    dmx_driver_enable(inputPortNum);
+  }
+}
+
 #endif

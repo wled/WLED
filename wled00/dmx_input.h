@@ -12,6 +12,10 @@ public:
   void init(uint8_t rxPin, uint8_t txPin, uint8_t enPin, uint8_t inputPortNum);
   void update();
 
+  /**disable dmx receiver (do this before disabling the cache)*/
+  void disable();
+  void enable();
+
 private:
 
   /// overrides everything and turns on all leds
