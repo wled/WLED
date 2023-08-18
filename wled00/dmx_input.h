@@ -20,6 +20,11 @@ private:
   /// @return true if rdm identify is active
   bool isIdentifyOn() const;
 
+  /**
+   * Checks if the global dmx config has changed and updates the changes in rdm
+   */
+  void checkAndUpdateConfig();
+
   /// overrides everything and turns on all leds
   void turnOnAllLeds();
 

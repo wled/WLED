@@ -90,6 +90,9 @@ void DMXInput::update()
   {
     return;
   }
+
+  checkAndUpdateConfig();
+
   byte dmxdata[DMX_PACKET_SIZE];
   dmx_packet_t packet;
   unsigned long now = millis();
@@ -169,4 +172,29 @@ bool DMXInput::isIdentifyOn() const
   // but just in case we check for it anyway
   return bool(identify) && gotIdentify;
 }
+
+void DMXInput::checkAndUpdateConfig()
+{
+
+  /**
+   * The global configuration variables are modified by the web interface.
+   * If they differ from the driver configuration, we have to update the driver
+   * configuration.
+   */
+
+  const uint8_t currentPersonality = dmx_get_current_personality(inputPortNum);
+  if (currentPersonality != DMXMode)
+  {
+    DEBUG_PRINTF("DMX personality has changed from %d to %d\n", currentPersonality, DMXMode);
+    dmx_set_current_personality(inputPortNum, DMXMode);
+  }
+
+  const uint16_t currentAddr = dmx_get_start_address(inputPortNum);
+  if (currentAddr != DMXAddress)
+  {
+    DEBUG_PRINTF("DMX address has changed from %d to %d\n", currentAddr, DMXAddress);
+    dmx_set_start_address(inputPortNum, DMXAddress);
+  }
+}
+
 #endif
