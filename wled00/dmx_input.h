@@ -17,6 +17,8 @@ public:
   void enable();
 
 private:
+  /// @return true if rdm identify is active
+  bool isIdentifyOn() const;
 
   /// overrides everything and turns on all leds
   void turnOnAllLeds();

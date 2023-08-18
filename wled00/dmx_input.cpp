@@ -103,11 +103,9 @@ void DMXInput::update()
         connected = true;
       }
 
-      uint8_t identify = 0;
-      const bool gotIdentify = rdm_get_identify_device(inputPortNum, &identify);
-      // gotIdentify should never be false because it is a default parameter in rdm but just in case we check for it anyway
-      if (identify && gotIdentify)
+      if (isIdentifyOn())
       {
+        DEBUG_PRINTLN("RDM Identify active");
         turnOnAllLeds();
       }
       else
@@ -162,4 +160,13 @@ void DMXInput::enable()
   }
 }
 
+bool DMXInput::isIdentifyOn() const
+{
+
+  uint8_t identify = 0;
+  const bool gotIdentify = rdm_get_identify_device(inputPortNum, &identify);
+  // gotIdentify should never be false because it is a default parameter in rdm
+  // but just in case we check for it anyway
+  return bool(identify) && gotIdentify;
+}
 #endif
