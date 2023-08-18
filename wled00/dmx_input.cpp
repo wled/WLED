@@ -9,6 +9,49 @@
 #include "dmx_input.h"
 #include <rdm/responder.h>
 
+
+dmx_config_t DMXInput::createConfig() const
+{
+
+  dmx_config_t config;
+  config.pd_size = 255;
+  config.dmx_start_address = DMXAddress; // TODO split between input and output address
+  config.model_id = 0;
+  config.product_category = RDM_PRODUCT_CATEGORY_FIXTURE;
+  config.software_version_id = VERSION;
+
+  const std::string versionString = "WLED_V" + std::to_string(VERSION);
+  strncpy(config.software_version_label, versionString.c_str(), 32);
+  config.software_version_label[32] = '\0'; // zero termination in case versionString string was longer than 32 chars
+
+  config.personalities[0].description = "SINGLE_RGB";
+  config.personalities[0].footprint = 3;
+  config.personalities[1].description = "SINGLE_DRGB";
+  config.personalities[1].footprint = 4;
+  config.personalities[2].description = "EFFECT";
+  config.personalities[2].footprint = 15;
+  config.personalities[3].description = "MULTIPLE_RGB";
+  config.personalities[3].footprint = std::min(512, int(strip.getLengthTotal()) * 3);
+  config.personalities[4].description = "MULTIPLE_DRGB";
+  config.personalities[4].footprint = std::min(512, int(strip.getLengthTotal()) * 3 + 1);
+  config.personalities[5].description = "MULTIPLE_RGBW";
+  config.personalities[5].footprint = std::min(512, int(strip.getLengthTotal()) * 4);
+  config.personalities[6].description = "EFFECT_W";
+  config.personalities[6].footprint = 18;
+  config.personalities[7].description = "EFFECT_SEGMENT";
+  config.personalities[7].footprint = std::min(512, strip.getSegmentsNum() * 15);
+  config.personalities[8].description = "EFFECT_SEGMENT_W";
+  config.personalities[8].footprint = std::min(512, strip.getSegmentsNum() * 18);
+  config.personalities[9].description = "PRESET";
+  config.personalities[9].footprint = 1;
+
+  config.personality_count = 10;
+  // rdm personalities are numbered from 1, thus we can just set the DMXMode directly.
+  config.current_personality = DMXMode;
+
+  return config;
+}
+
 void DMXInput::init(uint8_t rxPin, uint8_t txPin, uint8_t enPin, uint8_t inputPortNum)
 {
 
@@ -49,21 +92,7 @@ void DMXInput::init(uint8_t rxPin, uint8_t txPin, uint8_t enPin, uint8_t inputPo
       return;
     }
 
-    dmx_config_t config{
-        255,                          /*alloc_size*/
-        0,                            /*model_id*/
-        RDM_PRODUCT_CATEGORY_FIXTURE, /*product_category*/
-        VERSION,                      /*software_version_id*/
-        "undefined",                  /*software_version_label*/
-        1,                            /*current_personality*/
-        {{15, "WLED Effect Mode"}},   /*personalities*/
-        1,                            /*personality_count*/
-        1,                            /*dmx_start_address*/
-    };
-    const std::string versionString = "WLED_V" + std::to_string(VERSION);
-    strncpy(config.software_version_label, versionString.c_str(), 32);
-    config.software_version_label[32] = '\0'; // zero termination in case versionString string was longer than 32 chars
-
+    const auto config = createConfig();
     if (!dmx_driver_install(inputPortNum, &config, DMX_INTR_FLAGS_DEFAULT))
     {
       USER_PRINTF("Error: Failed to install dmx driver\n");

@@ -28,6 +28,7 @@ private:
   /// overrides everything and turns on all leds
   void turnOnAllLeds();
 
+  dmx_config_t createConfig() const;
   uint8_t inputPortNum = 255; // TODO make this configurable
   /// True once the dmx input has been initialized successfully
   bool initialized = false; // true once init finished successfully
