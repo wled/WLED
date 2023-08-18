@@ -9,6 +9,24 @@
 #include "dmx_input.h"
 #include <rdm/responder.h>
 
+void rdmAddressChangedCb(dmx_port_t dmxPort, const rdm_header_t *header,
+                         void *context)
+{
+  DMXInput *dmx = static_cast<DMXInput *>(context);
+
+  if (!dmx)
+  {
+    USER_PRINTLN("DMX: Error: no context in rdmAddressChangedCb");
+    return;
+  }
+
+  if (header->cc == RDM_CC_SET_COMMAND_RESPONSE)
+  {
+    const uint16_t addr = dmx_get_start_address(dmx->inputPortNum);
+    DMXAddress = std::min(512, int(addr));
+    USER_PRINTF("DMX start addr changed to: %d\n", DMXAddress);
+  }
+}
 
 dmx_config_t DMXInput::createConfig() const
 {
@@ -104,6 +122,7 @@ void DMXInput::init(uint8_t rxPin, uint8_t txPin, uint8_t enPin, uint8_t inputPo
     USER_PRINTF("DMX enable pin is: %u\n", enPin);
     dmx_set_pin(inputPortNum, txPin, rxPin, enPin);
 
+    rdm_register_dmx_start_address(inputPortNum, rdmAddressChangedCb, this);
     initialized = true;
   }
   else

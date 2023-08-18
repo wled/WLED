@@ -29,6 +29,11 @@ private:
   void turnOnAllLeds();
 
   dmx_config_t createConfig() const;
+
+  //is invoked whenver the dmx start address is changed via rdm
+  friend void rdmAddressChangedCb(dmx_port_t dmxPort, const rdm_header_t *header,
+                                  void *context);
+
   uint8_t inputPortNum = 255; // TODO make this configurable
   /// True once the dmx input has been initialized successfully
   bool initialized = false; // true once init finished successfully
