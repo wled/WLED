@@ -85,19 +85,22 @@ void DMXInput::init(uint8_t rxPin, uint8_t txPin, uint8_t enPin, uint8_t inputPo
 
   /**
    * TODOS:
-   * - add personalities for all supported dmx input modes
-   * - select the personality that is stored in flash on startup
    * - attach callback for personality change and store in flash if changed
    * - attach callback for address change and store in flash
    * - load dmx address from flash and set in config on startup
    * - attach callback to rdm identify and flash leds when on
    * - Make all important config variables available via rdm
+   * - RDM_PID_DEVICE_LABEL does not seem to be supported, yet? Implement in esp_dmx and create PR
+   * - implement changing personality in rdm. (not yet implemented in esp_dmx?)
+   *   - This is more complicated because get personality requests two bytes but
+   *     set personality only contains one byte. Thus the default parameter callback will
+   *     not work. Need to think about this :D
    */
   if (rxPin > 0 && enPin > 0 && txPin > 0)
   {
 
     const managed_pin_type pins[] = {
-        {(int8_t)txPin, false}, // these are not used as gpio pins, this isOutput is always false.
+        {(int8_t)txPin, false}, // these are not used as gpio pins, thus isOutput is always false.
         {(int8_t)rxPin, false},
         {(int8_t)enPin, false}};
     const bool pinsAllocated = pinManager.allocateMultiplePins(pins, 3, PinOwner::DMX_INPUT);
@@ -159,14 +162,12 @@ void DMXInput::update()
         DEBUG_PRINTLN("RDM Identify active");
         turnOnAllLeds();
       }
-      else
+      else if (!packet.is_rdm)
       {
-        if (!packet.is_rdm)
-        {
-          dmx_read(inputPortNum, dmxdata, packet.size);
-          handleDMXData(1, 512, dmxdata, REALTIME_MODE_DMX, 0);
-        }
+        dmx_read(inputPortNum, dmxdata, packet.size);
+        handleDMXData(1, 512, dmxdata, REALTIME_MODE_DMX, 0);
       }
+
       lastUpdate = now;
     }
     else
@@ -205,7 +206,7 @@ void DMXInput::disable()
 }
 void DMXInput::enable()
 {
-  if(initialized)
+  if (initialized)
   {
     dmx_driver_enable(inputPortNum);
   }
