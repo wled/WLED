@@ -165,12 +165,6 @@ void DMXInput::update()
         USER_PRINTLN("DMX is connected!");
         connected = true;
       }
-
-      if (isIdentifyOn())
-      {
-        DEBUG_PRINTLN("RDM Identify active");
-        turnOnAllLeds();
-      }
       else if (!packet.is_rdm)
       {
         dmx_read(inputPortNum, dmxdata, packet.size);
@@ -191,6 +185,12 @@ void DMXInput::update()
   {
     connected = false;
     USER_PRINTLN("DMX was disconnected.");
+  }
+
+  if (isIdentifyOn())
+  {
+    DEBUG_PRINTLN("RDM Identify active");
+    turnOnAllLeds();
   }
 }
 
