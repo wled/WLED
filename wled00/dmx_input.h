@@ -30,9 +30,13 @@ private:
 
   dmx_config_t createConfig() const;
 
-  //is invoked whenver the dmx start address is changed via rdm
+  // is invoked whenver the dmx start address is changed via rdm
   friend void rdmAddressChangedCb(dmx_port_t dmxPort, const rdm_header_t *header,
                                   void *context);
+
+  // is invoked whenever the personality is changed via rdm
+  friend void rdmPersonalityChangedCb(dmx_port_t dmxPort, const rdm_header_t *header,
+                                      void *context);
 
   uint8_t inputPortNum = 255; // TODO make this configurable
   /// True once the dmx input has been initialized successfully

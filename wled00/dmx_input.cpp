@@ -9,6 +9,25 @@
 #include "dmx_input.h"
 #include <rdm/responder.h>
 
+void rdmPersonalityChangedCb(dmx_port_t dmxPort, const rdm_header_t *header,
+                             void *context)
+{
+  DMXInput *dmx = static_cast<DMXInput *>(context);
+
+  if (!dmx)
+  {
+    USER_PRINTLN("DMX: Error: no context in rdmPersonalityChangedCb");
+    return;
+  }
+
+  if (header->cc == RDM_CC_SET_COMMAND_RESPONSE)
+  {
+    const uint8_t personality = dmx_get_current_personality(dmx->inputPortNum);
+    DMXMode = std::min(DMX_MODE_PRESET, std::max(DMX_MODE_SINGLE_RGB, int(personality)));
+    doSerializeConfig = true;
+    USER_PRINTF("DMX personality changed to to: %d\n", DMXMode);
+  }
+}
 void rdmAddressChangedCb(dmx_port_t dmxPort, const rdm_header_t *header,
                          void *context)
 {
@@ -24,6 +43,7 @@ void rdmAddressChangedCb(dmx_port_t dmxPort, const rdm_header_t *header,
   {
     const uint16_t addr = dmx_get_start_address(dmx->inputPortNum);
     DMXAddress = std::min(512, int(addr));
+    doSerializeConfig = true;
     USER_PRINTF("DMX start addr changed to: %d\n", DMXAddress);
   }
 }
@@ -37,6 +57,7 @@ dmx_config_t DMXInput::createConfig() const
   config.model_id = 0;
   config.product_category = RDM_PRODUCT_CATEGORY_FIXTURE;
   config.software_version_id = VERSION;
+  strcpy(config.device_label, "WLED_MM");
 
   const std::string versionString = "WLED_V" + std::to_string(VERSION);
   strncpy(config.software_version_label, versionString.c_str(), 32);
@@ -83,19 +104,6 @@ void DMXInput::init(uint8_t rxPin, uint8_t txPin, uint8_t enPin, uint8_t inputPo
     return;
   }
 
-  /**
-   * TODOS:
-   * - attach callback for personality change and store in flash if changed
-   * - attach callback for address change and store in flash
-   * - load dmx address from flash and set in config on startup
-   * - attach callback to rdm identify and flash leds when on
-   * - Make all important config variables available via rdm
-   * - RDM_PID_DEVICE_LABEL does not seem to be supported, yet? Implement in esp_dmx and create PR
-   * - implement changing personality in rdm. (not yet implemented in esp_dmx?)
-   *   - This is more complicated because get personality requests two bytes but
-   *     set personality only contains one byte. Thus the default parameter callback will
-   *     not work. Need to think about this :D
-   */
   if (rxPin > 0 && enPin > 0 && txPin > 0)
   {
 
@@ -126,6 +134,7 @@ void DMXInput::init(uint8_t rxPin, uint8_t txPin, uint8_t enPin, uint8_t inputPo
     dmx_set_pin(inputPortNum, txPin, rxPin, enPin);
 
     rdm_register_dmx_start_address(inputPortNum, rdmAddressChangedCb, this);
+    rdm_register_dmx_personality(inputPortNum, rdmPersonalityChangedCb, this);
     initialized = true;
   }
   else
