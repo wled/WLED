@@ -56,7 +56,7 @@ class TubesUsermod : public Usermod {
       globalTimer.setup();
       beats.setup();
       controller.setup();
-      if (controller.isMaster()) {
+      if (controller.isMasterRole()) {
         master = new Master(&controller);
         master->setup();
       }
