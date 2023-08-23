@@ -15,6 +15,8 @@
 #include "global_state.h"
 #include "node.h"
 
+#define EEPSIZE 2560
+
 const static uint8_t DEFAULT_MASTER_BRIGHTNESS = 200;
 const static uint8_t DEFAULT_TUBE_BRIGHTNESS = 120;
 const static uint8_t DEFAULT_TANK_BRIGHTNESS = 240;
@@ -26,7 +28,7 @@ const static uint8_t DEFAULT_TANK_BRIGHTNESS = 240;
 #define MAX_COLOR_CHANGE_PHRASES 10
 
 #define ROLE_EEPROM_LOCATION 2559
-#define BOOT_OPTIONS_EEPROM_LOCATION 2557
+#define BOOT_OPTIONS_EEPROM_LOCATION 2551
 
 #define IDENTIFY_STUCK_PATTERNS
 #define IDENTIFY_STUCK_PALETTES
@@ -169,7 +171,7 @@ class PatternController : public MessageReceiver {
   void setup()
   {
     node->setup();
-    EEPROM.begin(2560);
+    EEPROM.begin(EEPSIZE);
     role = (ControllerRole)EEPROM.read(ROLE_EEPROM_LOCATION);
     if (role == 255) {
       role = UnknownRole;
@@ -784,10 +786,6 @@ class PatternController : public MessageReceiver {
     stateUpdated(CALL_MODE_DIRECT_CHANGE);
   }
 
-  static void set_wled_brightness(uint8_t brightness) {
-    strip.setBrightness(brightness);
-  }
-
   void setBrightness(uint8_t brightness) {
     Serial.printf("brightness: %d\n", brightness);
 
@@ -826,7 +824,7 @@ class PatternController : public MessageReceiver {
   void setRole(ControllerRole r) {
     role = r;
     Serial.printf("Role = %d", role);
-    EEPROM.begin(2560);
+    EEPROM.begin(EEPSIZE);
     EEPROM.write(ROLE_EEPROM_LOCATION, role);
     EEPROM.write(BOOT_OPTIONS_EEPROM_LOCATION, 0); // Reset all boot options
     EEPROM.end();
@@ -1135,6 +1133,9 @@ class PatternController : public MessageReceiver {
   }
 
   void broadcast_options() {
+    if (!node->is_following()) {
+      load_options(options);
+    }
     node->sendCommand(COMMAND_OPTIONS, &options, sizeof(options));
   }
 
@@ -1281,5 +1282,67 @@ class PatternController : public MessageReceiver {
 
     }
   }
+
+#define WIZMOTE_BUTTON_ON          1
+#define WIZMOTE_BUTTON_OFF         2
+#define WIZMOTE_BUTTON_NIGHT       3
+#define WIZMOTE_BUTTON_ONE         16
+#define WIZMOTE_BUTTON_TWO         17
+#define WIZMOTE_BUTTON_THREE       18
+#define WIZMOTE_BUTTON_FOUR        19
+#define WIZMOTE_BUTTON_BRIGHT_UP   9
+#define WIZMOTE_BUTTON_BRIGHT_DOWN 8
+
+  virtual bool onButton(uint8_t button_id) {
+    Serial.printf("Button %d\n", button_id);
+    switch (button_id) {
+      case WIZMOTE_BUTTON_ON:
+        WLED::instance().initAP(true);
+        acknowledge();
+        return true;
+
+      case WIZMOTE_BUTTON_OFF:
+        WiFi.softAPdisconnect(true);
+        acknowledge();
+        return true;
+
+      case WIZMOTE_BUTTON_ONE:
+        // Make it interesting - switch to a good pattern and timesync mode
+        acknowledge();
+        return true;
+
+      case WIZMOTE_BUTTON_FOUR:
+        // Turn on or off debugging
+        setDebugging(!options.debugging);
+        acknowledge();
+        return true;
+
+      case WIZMOTE_BUTTON_BRIGHT_UP:
+        if (options.brightness <= 230)
+          setBrightness(options.brightness + 25);
+        return true;
+
+      case WIZMOTE_BUTTON_BRIGHT_DOWN:
+        if (options.brightness >= 25)
+          setBrightness(options.brightness - 25);
+        return true;
+
+      case WIZMOTE_BUTTON_NIGHT:
+        // Turn off debugging and wifi
+        WiFi.softAPdisconnect(true);
+        setDebugging(false);
+        acknowledge();
+        return true;
+
+
+      // case WIZMOTE_BUTTON_ON             : setOn();                                         stateUpdated(CALL_MODE_BUTTON); break;
+      // case WIZMOTE_BUTTON_OFF            : setOff();                                        stateUpdated(CALL_MODE_BUTTON); break;
+      // case WIZMOTE_BUTTON_TWO            : presetWithFallback(2, FX_MODE_BREATH,        0); resetNightMode(); break;
+      // case WIZMOTE_BUTTON_THREE          : presetWithFallback(3, FX_MODE_FIRE_FLICKER,  0); resetNightMode(); break;
+      default:
+        return false;
+    }
+  }
+
 
 };

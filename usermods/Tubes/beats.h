@@ -35,6 +35,11 @@ class BeatController {
   }
 
   void sync(accum88 b, BeatFrame_24_8 f) {
+    if (b < 40<<8) {
+      // Reject BPMs that are too low.
+      return;
+    }
+    
     accum88 last_bpm = bpm;
     bpm = b;
     frac = f;

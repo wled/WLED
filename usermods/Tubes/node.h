@@ -79,6 +79,10 @@ class MessageReceiver {
       // Abstract: subclasses must define
       return false;
     }  
+    virtual bool onButton(uint8_t button_id) {
+      // Abstract: subclasses must define
+      return false;
+    }  
 };
 
 typedef enum{
@@ -399,8 +403,37 @@ class LightNode {
     }
 };
 
+typedef struct wizmote_message {
+  uint8_t program;      // 0x91 for ON button, 0x81 for all others
+  uint8_t seq[4];       // Incremetal sequence number 32 bit unsigned integer LSB first
+  uint8_t byte5 = 32;   // Unknown
+  uint8_t button;       // Identifies which button is being pressed
+  uint8_t byte8 = 1;    // Unknown, but always 0x01
+  uint8_t byte9 = 100;  // Unnkown, but always 0x64
+
+  uint8_t byte10;  // Unknown, maybe checksum
+  uint8_t byte11;  // Unknown, maybe checksum
+  uint8_t byte12;  // Unknown, maybe checksum
+  uint8_t byte13;  // Unknown, maybe checksum
+} wizmote_message;
+
+void onWizmote(uint8_t* address, wizmote_message* data, uint8_t len) {
+  // First make sure this is a WizMote message.
+  if (len != sizeof(wizmote_message) || data->byte8 != 1 || data->byte9 != 100 || data->byte5 != 32)
+    return;
+
+  static uint32_t last_seq = 0;
+  uint32_t cur_seq = data->seq[0] | (data->seq[1] << 8) | (data->seq[2] << 16) | (data->seq[3] << 24);
+  if (cur_seq == last_seq)
+    return;
+  last_seq = cur_seq;
+
+  LightNode::instance->receiver->onButton(data->button);
+}
+
 LightNode* LightNode::instance = nullptr;
 
-void onDataReceived (uint8_t* address, uint8_t* data, uint8_t len, signed int rssi, bool broadcast) {
+void onDataReceived(uint8_t* address, uint8_t* data, uint8_t len, signed int rssi, bool broadcast) {
     LightNode::instance->onPeerData(address, data, len, rssi, broadcast);
+    onWizmote(address, (wizmote_message*)data, len);
 }

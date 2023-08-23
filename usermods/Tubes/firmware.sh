@@ -10,7 +10,7 @@ upload_firmware() {
   echo "Uploading firmware"
   sftp control@brcac.com <<EOF
 cd brcac.com
-put ../../build_output/firmware/esp32_quinled_uno.bin firmware.bin
+put ../../build_output/firmware/tubes.bin firmware.bin
 quit
 EOF
 }
@@ -26,7 +26,7 @@ update_config() {
 
 update_firmware() {
   echo "Updating firmware via OTA"
-  curl -s -F "update=@../../build_output/firmware/esp32_quinled_uno.bin" $1/update >/dev/null
+  curl -s -F "update=@../../build_output/firmware/tubes.bin" $1/update >/dev/null
   echo "Updated; wait..."
   sleep 5
   update_config $1
