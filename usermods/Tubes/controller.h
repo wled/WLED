@@ -176,11 +176,12 @@ class PatternController : public MessageReceiver {
     if (role == 255) {
       role = UnknownRole;
     }
-    EEPROM.end();
     Serial.printf("Role = %d\n", role);
 
     auto b = EEPROM.read(BOOT_OPTIONS_EEPROM_LOCATION);
     Serial.printf("EEPROM read: %d\n", b);
+    EEPROM.end();
+
     BootOptions* boot = (BootOptions*)&b;
     switch (boot->default_power_save) {
       case BOOT_OPTION_POWER_SAVE_OFF:
