@@ -20,13 +20,14 @@ update_config() {
   # return;
 
   echo "Updating configuration via OTA"
-  curl -s http://$1/upload -F "data=@default_config.json;filename=/cfg.json" >/dev/null
-  curl -s http://$1/reset >/dev/null
+  curl -s http://$1/upload -F "data=@default_config.json;filename=/cfg.json" -H "Connection: close" --no-keepalive
+  echo "Configured; wait..."
+  curl -s http://$1/reset -H "Connection: close" >/dev/null
 }
 
 update_firmware() {
   echo "Updating firmware via OTA"
-  curl -s -F "update=@../../build_output/firmware/tubes.bin" $1/update >/dev/null
+  curl -s -F "update=@../../build_output/firmware/tubes.bin" -H "Connection: close" --no-keepalive $1/update >/dev/null
   echo "Updated; wait..."
   sleep 5
   update_config $1
