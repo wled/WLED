@@ -213,7 +213,7 @@ class PatternController : public MessageReceiver {
         options.brightness = DEFAULT_TUBE_BRIGHTNESS;
     }
     options.debugging = false;
-    load_options(options);
+    load_options(options, true);
 
 #ifdef USELCD
     lcd->setup();
@@ -575,9 +575,9 @@ class PatternController : public MessageReceiver {
     Serial.println();
   }
 
-  void load_options(ControllerOptions &options) {
+  void load_options(ControllerOptions &options, bool init=false) {
     // Power-saving devices retain their WLED brightness
-    if (!power_save)
+    if (init || !power_save)
       strip.setBrightness(options.brightness);
   }
 
