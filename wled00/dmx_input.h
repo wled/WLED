@@ -1,6 +1,9 @@
 #pragma once
 #include <cstdint>
 #include <esp_dmx.h>
+#include <atomic>
+#include <mutex>
+
 /*
  * Support for DMX/RDM input via serial (e.g. max485) on ESP32
  * ESP32 Library from:
@@ -28,7 +31,12 @@ private:
   /// overrides everything and turns on all leds
   void turnOnAllLeds();
 
-  dmx_config_t createConfig() const;
+  /// installs the dmx driver
+  /// @return false on fail
+  bool installDriver();
+
+  /// is called by the dmx receive task regularly to receive new dmx data
+  void updateInternal();
 
   // is invoked whenver the dmx start address is changed via rdm
   friend void rdmAddressChangedCb(dmx_port_t dmxPort, const rdm_header_t *header,
@@ -38,11 +46,28 @@ private:
   friend void rdmPersonalityChangedCb(dmx_port_t dmxPort, const rdm_header_t *header,
                                       void *context);
 
-  uint8_t inputPortNum = 255; // TODO make this configurable
+  /// The internal dmx task.
+  /// This is the main loop of the dmx receiver. It never returns.
+  friend void dmxReceiverTask(void * context);
+
+  uint8_t inputPortNum = 255; 
+  uint8_t rxPin = 255;
+  uint8_t txPin = 255;
+  uint8_t enPin = 255;
+
+  /// is written to by the dmx receive task.
+  byte dmxdata[DMX_PACKET_SIZE]; //TODO add locking somehow? maybe double buffer?
   /// True once the dmx input has been initialized successfully
   bool initialized = false; // true once init finished successfully
   /// True if dmx is currently connected
-  bool connected = false;
+  std::atomic<bool> connected{false};
+  std::atomic<bool> identify{false};
   /// Timestamp of the last time a dmx frame was received
   unsigned long lastUpdate = 0;
+
+  /// Taskhandle of the dmx task that is running in the background 
+  TaskHandle_t task;
+  /// Guards access to dmxData
+  std::mutex dmxDataLock;
+  
 };

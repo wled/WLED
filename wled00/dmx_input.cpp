@@ -28,6 +28,7 @@ void rdmPersonalityChangedCb(dmx_port_t dmxPort, const rdm_header_t *header,
     USER_PRINTF("DMX personality changed to to: %d\n", DMXMode);
   }
 }
+
 void rdmAddressChangedCb(dmx_port_t dmxPort, const rdm_header_t *header,
                          void *context)
 {
@@ -48,9 +49,8 @@ void rdmAddressChangedCb(dmx_port_t dmxPort, const rdm_header_t *header,
   }
 }
 
-dmx_config_t DMXInput::createConfig() const
+static dmx_config_t createConfig()
 {
-
   dmx_config_t config;
   config.pd_size = 255;
   config.dmx_start_address = DMXAddress; // TODO split between input and output address
@@ -91,8 +91,54 @@ dmx_config_t DMXInput::createConfig() const
   return config;
 }
 
+void dmxReceiverTask(void *context)
+{
+  DMXInput *instance = static_cast<DMXInput *>(context);
+  if (instance == nullptr)
+  {
+    return;
+  }
+
+  if (instance->installDriver())
+  {
+    while (true)
+    {
+      instance->updateInternal();
+    }
+  }
+}
+
+bool DMXInput::installDriver()
+{
+
+  const auto config = createConfig();
+  if (!dmx_driver_install(inputPortNum, &config, DMX_INTR_FLAGS_DEFAULT))
+  {
+    USER_PRINTF("Error: Failed to install dmx driver\n");
+    return false;
+  }
+
+  USER_PRINTF("Listening for DMX on pin %u\n", rxPin);
+  USER_PRINTF("Sending DMX on pin %u\n", txPin);
+  USER_PRINTF("DMX enable pin is: %u\n", enPin);
+  dmx_set_pin(inputPortNum, txPin, rxPin, enPin);
+
+  rdm_register_dmx_start_address(inputPortNum, rdmAddressChangedCb, this);
+  rdm_register_dmx_personality(inputPortNum, rdmPersonalityChangedCb, this);
+  initialized = true;
+  return true;
+}
+
 void DMXInput::init(uint8_t rxPin, uint8_t txPin, uint8_t enPin, uint8_t inputPortNum)
 {
+
+#ifdef WLED_ENABLE_DMX_OUTPUT
+  if(inputPortNum == dmxOutputPort)
+  {
+    USER_PRINTF("DMXInput: Error: Input port == output port");
+    return;
+  }
+#endif
 
   if (inputPortNum < 3 && inputPortNum > 0)
   {
@@ -121,21 +167,17 @@ void DMXInput::init(uint8_t rxPin, uint8_t txPin, uint8_t enPin, uint8_t inputPo
       return;
     }
 
-    const auto config = createConfig();
-    if (!dmx_driver_install(inputPortNum, &config, DMX_INTR_FLAGS_DEFAULT))
+    this->rxPin = rxPin;
+    this->txPin = txPin;
+    this->enPin = enPin;
+
+    // put dmx receiver into seperate task because it should not be blocked
+    // pin to core 0 because wled is running on core 1
+    xTaskCreatePinnedToCore(dmxReceiverTask, "DMX_RCV_TASK", 10240, this, 2, &task, 0);
+    if (!task)
     {
-      USER_PRINTF("Error: Failed to install dmx driver\n");
-      return;
+      USER_PRINTF("Error: Failed to create dmx rcv task");
     }
-
-    USER_PRINTF("Listening for DMX on pin %u\n", rxPin);
-    USER_PRINTF("Sending DMX on pin %u\n", txPin);
-    USER_PRINTF("DMX enable pin is: %u\n", enPin);
-    dmx_set_pin(inputPortNum, txPin, rxPin, enPin);
-
-    rdm_register_dmx_start_address(inputPortNum, rdmAddressChangedCb, this);
-    rdm_register_dmx_personality(inputPortNum, rdmPersonalityChangedCb, this);
-    initialized = true;
   }
   else
   {
@@ -144,7 +186,7 @@ void DMXInput::init(uint8_t rxPin, uint8_t txPin, uint8_t enPin, uint8_t inputPo
   }
 }
 
-void DMXInput::update()
+void DMXInput::updateInternal()
 {
   if (!initialized)
   {
@@ -153,44 +195,42 @@ void DMXInput::update()
 
   checkAndUpdateConfig();
 
-  byte dmxdata[DMX_PACKET_SIZE];
   dmx_packet_t packet;
   unsigned long now = millis();
-  if (dmx_receive(inputPortNum, &packet, 0))
+  if (dmx_receive(inputPortNum, &packet, DMX_TIMEOUT_TICK))
   {
     if (!packet.err)
     {
-      if (!connected)
+      connected = true;
+      identify = isIdentifyOn();
+      if (!packet.is_rdm)
       {
-        USER_PRINTLN("DMX is connected!");
-        connected = true;
-      }
-      else if (!packet.is_rdm)
-      {
+        const std::lock_guard<std::mutex> lock(dmxDataLock);
         dmx_read(inputPortNum, dmxdata, packet.size);
-        handleDMXData(1, 512, dmxdata, REALTIME_MODE_DMX, 0);
       }
-
-      lastUpdate = now;
     }
     else
     {
-      /*This can happen when you first connect or disconnect your DMX devices.
-        If you are consistently getting DMX errors, then something may have gone wrong. */
-      DEBUG_PRINT("A DMX error occurred - ");
-      DEBUG_PRINTLN(packet.err); // TODO translate err code to string for output
+      connected = false;
     }
   }
-  else if (connected && (now - lastUpdate > 5000))
+  else
   {
     connected = false;
-    USER_PRINTLN("DMX was disconnected.");
   }
+}
 
-  if (isIdentifyOn())
+
+void DMXInput::update()
+{
+  if (identify)
   {
-    DEBUG_PRINTLN("RDM Identify active");
     turnOnAllLeds();
+  }
+  else if (connected)
+  {
+    const std::lock_guard<std::mutex> lock(dmxDataLock);
+    handleDMXData(1, 512, dmxdata, REALTIME_MODE_DMX, 0);
   }
 }
 
