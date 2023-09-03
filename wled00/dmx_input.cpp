@@ -133,11 +133,12 @@ void DMXInput::init(uint8_t rxPin, uint8_t txPin, uint8_t enPin, uint8_t inputPo
 {
 
 #ifdef WLED_ENABLE_DMX_OUTPUT
-  if(inputPortNum == dmxOutputPort)
-  {
-    USER_PRINTF("DMXInput: Error: Input port == output port");
-    return;
-  }
+  //TODO add again once dmx output has been merged
+  // if(inputPortNum == dmxOutputPort)
+  // {
+  //   USER_PRINTF("DMXInput: Error: Input port == output port");
+  //   return;
+  // }
 #endif
 
   if (inputPortNum < 3 && inputPortNum > 0)
