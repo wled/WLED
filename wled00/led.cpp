@@ -187,7 +187,7 @@ void handleTransitions()
   if (transitionActive && transitionDelayTemp > 0)
   {
     float tper = (millis() - transitionStartTime)/(float)transitionDelayTemp;
-    if (tper >= 1.0)
+    if (tper >= 1.0f)
     {
       strip.setTransitionMode(false);
       transitionActive = false;

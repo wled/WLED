@@ -41,7 +41,7 @@ float sin_t(float x) {
 
 float tan_t(float x) {
   float c = cos_t(x);
-  if (c==0.0) return 0;
+  if (c==0.0f) return 0;
   float res = sin_t(x) / c;
   #ifdef WLED_DEBUG_MATH
   Serial.printf("tan: %f,%f,%f,(%f)\n",x,res,tan(x),res-tan(x));
@@ -54,14 +54,14 @@ float tan_t(float x) {
 float acos_t(float x) {
   float negate = float(x < 0);
   float xabs = std::abs(x);
-  float ret = -0.0187293;
+  float ret = -0.0187293f;
   ret = ret * xabs;
-  ret = ret + 0.0742610;
+  ret = ret + 0.0742610f;
   ret = ret * xabs;
-  ret = ret - 0.2121144;
+  ret = ret - 0.2121144f;
   ret = ret * xabs;
   ret = ret + HALF_PI;
-  ret = ret * sqrt(1.0-xabs);
+  ret = ret * sqrt(1.0f-xabs);
   ret = ret - 2 * negate * ret;
   float res = negate * PI + ret;
   #ifdef WLED_DEBUG_MATH

@@ -505,7 +505,7 @@ um_data_t* simulateSound(uint8_t simulationId)
   maxVol        = 31;  // this gets feedback fro UI
   binNum        = 8;   // this gets feedback fro UI
   volumeRaw = volumeSmth;
-  my_magnitude = 10000.0 / 8.0f; //no idea if 10000 is a good value for FFT_Magnitude ???
+  my_magnitude = 10000.0f / 8.0f; //no idea if 10000 is a good value for FFT_Magnitude ???
   if (volumeSmth < 1 ) my_magnitude = 0.001f;             // noise gate closed - mute
 
   return um_data;

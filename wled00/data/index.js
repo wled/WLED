@@ -1595,7 +1595,7 @@ function updateSelectedPalette(s)
 	if (s > 1 && s < 6) {
 		cd[0].classList.remove('hide'); // * Color 1
 		if (s > 2) cd[1].classList.remove('hide'); // * Color 1 & 2
-		if (s == 5) cd[2].classList.remove('hide'); // all colors
+		if (s > 3) cd[2].classList.remove('hide'); // all colors
 	} else {
 		for (let i of cd) if (i.dataset.hide == '1') i.classList.add('hide');
 	}

@@ -190,7 +190,7 @@ void strip_wait_until_idle(String whoCalledMe); // WLEDMM implemented in FX_fcn.
 #define FX_MODE_FIRE_FLICKER            45
 #define FX_MODE_GRADIENT                46
 #define FX_MODE_LOADING                 47
-// #define FX_MODE_POLICE                  48  // removed in 0.14!
+#define FX_MODE_ROLLINGBALLS            48  //was Police before 0.14
 #define FX_MODE_FAIRY                   49  //was Police All prior to 0.13.0-b6 (use "Two Dots" with Red/Blue and full intensity)
 #define FX_MODE_TWO_DOTS                50
 #define FX_MODE_FAIRYTWINKLE            51  //was Two Areas prior to 0.13.0-b6 (use "Two Dots" with full intensity)
