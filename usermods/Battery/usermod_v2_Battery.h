@@ -60,9 +60,9 @@ class UsermodBattery : public Usermod
     bool initializing = true;
 
     // strings to reduce flash memory usage (used more than twice)
-    static const char _name[];
+    // static const char _name[];
     static const char _readInterval[];
-    static const char _enabled[];
+    // static const char _enabled[];
     static const char _threshold[];
     static const char _preset[];
     static const char _duration[];
@@ -117,6 +117,7 @@ class UsermodBattery : public Usermod
     float readVoltage()
     {
       #ifdef ARDUINO_ARCH_ESP32
+        if ((batteryPin <0) || !pinManager.isPinAnalog(batteryPin)) return(-1.0f);  // WLEDMM avoid reading from invalid pin
         // use calibrated millivolts analogread on esp32 (150 mV ~ 2450 mV default attentuation) and divide by 1000 to get from milivolts to volts and multiply by voltage multiplier and apply calibration value
         return (analogReadMilliVolts(batteryPin) / 1000.0f) * voltageMultiplier  + calibration;
       #else
@@ -127,6 +128,7 @@ class UsermodBattery : public Usermod
 
   public:
     //Functions called by WLED
+    UsermodBattery(const char *name, bool enabled):Usermod(name, enabled) {} //WLEDMM: this shouldn't be necessary (passthrough of constructor), maybe because Usermod is an abstract class
 
     /*
      * setup() is called once at boot. WiFi is not yet connected at this point.
@@ -134,10 +136,11 @@ class UsermodBattery : public Usermod
      */
     void setup() 
     {
+      if (!enabled) return;  // WLEDMM
       #ifdef ARDUINO_ARCH_ESP32
         bool success = false;
         DEBUG_PRINTLN(F("Allocating battery pin..."));
-        if (batteryPin >= 0 && digitalPinToAnalogChannel(batteryPin) >= 0) 
+        if ((batteryPin >= 0) && (digitalPinToAnalogChannel(batteryPin) >= 0)) 
           if (pinManager.allocatePin(batteryPin, false, PinOwner::UM_Battery)) {
             DEBUG_PRINTLN(F("Battery pin allocation succeeded."));
             success = true;
@@ -145,8 +148,9 @@ class UsermodBattery : public Usermod
           }
 
         if (!success) {
-          DEBUG_PRINTLN(F("Battery pin allocation failed."));
+          USER_PRINTLN(F("Battery pin allocation failed."));
           batteryPin = -1;  // allocation failed
+          enabled = false;
         } else {
           pinMode(batteryPin, INPUT);
         }
@@ -178,7 +182,13 @@ class UsermodBattery : public Usermod
      */
     void loop() 
     {
-      if(strip.isUpdating()) return;
+      // WLEDMM begin
+      if (!enabled) return;
+      if (batteryPin < 0) return;
+      unsigned long currentTime = millis(); // get the current elapsed time
+      if (strip.isUpdating() && (currentTime - lastTime < 30000)) return;  // WLEDMM: be nice
+      lastTime = currentTime;
+      // WLEDMM end
 
       lowPowerIndicator();
 
@@ -252,6 +262,7 @@ class UsermodBattery : public Usermod
       JsonObject user = root["u"];
       if (user.isNull()) user = root.createNestedObject("u");
 
+      if (!enabled) return;  // WLEDMM
       if (batteryPin < 0) {
         JsonArray infoVoltage = user.createNestedArray(F("Battery voltage"));
         infoVoltage.add(F("n/a"));
@@ -360,6 +371,8 @@ class UsermodBattery : public Usermod
     void addToConfig(JsonObject& root)
     {
       JsonObject battery = root.createNestedObject(FPSTR(_name));           // usermodname
+      battery[F("enabled")] = enabled; // WLEDMM
+
       #ifdef ARDUINO_ARCH_ESP32
         battery[F("pin")] = batteryPin;
       #endif
@@ -373,11 +386,11 @@ class UsermodBattery : public Usermod
       battery[FPSTR(_readInterval)] = readingInterval;
       
       JsonObject ao = battery.createNestedObject(F("auto-off"));               // auto off section
-      ao[FPSTR(_enabled)] = autoOffEnabled;
+      ao[F("auto-off-enabled")] = autoOffEnabled;
       ao[FPSTR(_threshold)] = autoOffThreshold;
 
       JsonObject lp = battery.createNestedObject(F("indicator"));    // low power section
-      lp[FPSTR(_enabled)] = lowPowerIndicatorEnabled;
+      lp[F("indicator-enabled")] = lowPowerIndicatorEnabled;
       lp[FPSTR(_preset)] = lowPowerIndicatorPreset; // dropdown trickery (String)lowPowerIndicatorPreset; 
       lp[FPSTR(_threshold)] = lowPowerIndicatorThreshold;
       lp[FPSTR(_duration)] = lowPowerIndicatorDuration;
@@ -436,6 +449,10 @@ class UsermodBattery : public Usermod
       #endif
       
       JsonObject battery = root[FPSTR(_name)];
+      
+      bool configComplete = !battery.isNull();  // WLEDMM
+      configComplete &= getJsonValue(battery[F("enabled")], enabled, true); // WLEDMM
+
       if (battery.isNull()) 
       {
         DEBUG_PRINT(FPSTR(_name));
@@ -455,11 +472,11 @@ class UsermodBattery : public Usermod
       setReadingInterval(battery[FPSTR(_readInterval)] | readingInterval);
 
       JsonObject ao = battery[F("auto-off")];
-      setAutoOffEnabled(ao[FPSTR(_enabled)] | autoOffEnabled);
+      setAutoOffEnabled(ao[F("auto-off-enabled")] | autoOffEnabled);  // WLEDMM
       setAutoOffThreshold(ao[FPSTR(_threshold)] | autoOffThreshold);
 
       JsonObject lp = battery[F("indicator")];
-      setLowPowerIndicatorEnabled(lp[FPSTR(_enabled)] | lowPowerIndicatorEnabled);
+      setLowPowerIndicatorEnabled(lp[F("indicator-enabled")] | lowPowerIndicatorEnabled); // WLEDMM
       setLowPowerIndicatorPreset(lp[FPSTR(_preset)] | lowPowerIndicatorPreset); // dropdown trickery (int)lp["preset"]
       setLowPowerIndicatorThreshold(lp[FPSTR(_threshold)] | lowPowerIndicatorThreshold);
       lowPowerIndicatorReactivationThreshold = lowPowerIndicatorThreshold+10;
@@ -490,7 +507,7 @@ class UsermodBattery : public Usermod
         }
       #endif
 
-      return !battery[FPSTR(_readInterval)].isNull();
+      return configComplete && (!battery[FPSTR(_readInterval)].isNull());  // WLEDMM
     }
 
     /*
@@ -780,9 +797,9 @@ class UsermodBattery : public Usermod
 };
 
 // strings to reduce flash memory usage (used more than twice)
-const char UsermodBattery::_name[]          PROGMEM = "Battery";
+// const char UsermodBattery::_name[]          PROGMEM = "Battery";
 const char UsermodBattery::_readInterval[]  PROGMEM = "interval";
-const char UsermodBattery::_enabled[]       PROGMEM = "enabled";
+//const char UsermodBattery::_enabled[]       PROGMEM = "enabled";
 const char UsermodBattery::_threshold[]     PROGMEM = "threshold";
 const char UsermodBattery::_preset[]        PROGMEM = "preset";
 const char UsermodBattery::_duration[]      PROGMEM = "duration";

@@ -449,9 +449,9 @@ void FFTcode(void * parameter)
     }
 
 #if defined(WLED_DEBUG) || defined(SR_DEBUG)|| defined(SR_STATS)
+    // timing
     uint64_t start = esp_timer_get_time();
     bool haveDoneFFT = false; // indicates if second measurement (FFT time) is valid
-
     static uint64_t lastCycleStart = 0;
     static uint64_t lastLastTime = 0;
     if ((lastCycleStart > 0) && (lastCycleStart < start)) { // filter out overflows
@@ -466,6 +466,14 @@ void FFTcode(void * parameter)
     if (audioSource) audioSource->getSamples(vReal, samplesFFT);
 
 #if defined(WLED_DEBUG) || defined(SR_DEBUG)|| defined(SR_STATS)
+    // debug info in case that stack usage changes
+    static unsigned int minStackFree = UINT32_MAX;
+    unsigned int stackFree = uxTaskGetStackHighWaterMark(NULL);
+    if (minStackFree > stackFree) {
+      minStackFree = stackFree;
+      DEBUGSR_PRINTF("|| %-9s min free stack %d\n", pcTaskGetTaskName(NULL), minStackFree); //WLEDMM
+    }
+    // timing
     if (start < esp_timer_get_time()) { // filter out overflows
       uint64_t sampleTimeInMillis = (esp_timer_get_time() - start +5ULL) / 10ULL; // "+5" to ensure proper rounding
       sampleTime = (sampleTimeInMillis*3 + sampleTime*7)/10.0; // smooth
@@ -715,6 +723,7 @@ void FFTcode(void * parameter)
     postProcessFFTResults((fabsf(volumeSmth)>0.25f)? true : false , NUM_GEQ_CHANNELS);    // this function modifies fftCalc, fftAvg and fftResult
 
 #if defined(WLED_DEBUG) || defined(SR_DEBUG)|| defined(SR_STATS)
+    // timing
     static uint64_t lastLastFFT = 0;
     if (haveDoneFFT && (start < esp_timer_get_time())) { // filter out overflows
       uint64_t fftTimeInMillis = ((esp_timer_get_time() - start) +5ULL) / 10ULL; // "+5" to ensure proper rounding
@@ -1678,7 +1687,13 @@ class AudioReactive : public Usermod {
           //useInputFilter = 0; // in case you need to disable low-cut software filtering
           audioSource = new ES7243(SAMPLE_RATE, BLOCK_SIZE);
           delay(100);
-          if (audioSource) audioSource->initialize(sdaPin, sclPin, i2swsPin, i2ssdPin, i2sckPin, mclkPin);
+          // WLEDMM align global pins
+          if ((sdaPin >= 0) && (i2c_sda < 0)) i2c_sda = sdaPin; // copy usermod prefs into globals (if globals not defined)
+          if ((sclPin >= 0) && (i2c_scl < 0)) i2c_scl = sclPin;
+          if (i2c_sda >= 0) sdaPin = -1;                        // -1 = use global
+          if (i2c_scl >= 0) sclPin = -1;
+
+          if (audioSource) audioSource->initialize(i2swsPin, i2ssdPin, i2sckPin, mclkPin);
           break;
         case 3:
           DEBUGSR_PRINT(F("AR: SPH0645 Microphone - ")); DEBUGSR_PRINTLN(F(I2S_MIC_CHANNEL_TEXT));
@@ -1710,11 +1725,21 @@ class AudioReactive : public Usermod {
           break;
         #endif
         case 6:
-          DEBUGSR_PRINTLN(F("AR: ES8388 Source"));
+        #ifdef use_es8388_mic
+          DEBUGSR_PRINTLN(F("AR: ES8388 Source (Mic)"));
+        #else
+          DEBUGSR_PRINTLN(F("AR: ES8388 Source (Line-In)"));
+        #endif
           audioSource = new ES8388Source(SAMPLE_RATE, BLOCK_SIZE, 1.0f);
           //useInputFilter = 0; // to disable low-cut software filtering and restore previous behaviour
           delay(100);
-          if (audioSource) audioSource->initialize(sdaPin, sclPin, i2swsPin, i2ssdPin, i2sckPin, mclkPin);
+          // WLEDMM align global pins
+          if ((sdaPin >= 0) && (i2c_sda < 0)) i2c_sda = sdaPin; // copy usermod prefs into globals (if globals not defined)
+          if ((sclPin >= 0) && (i2c_scl < 0)) i2c_scl = sclPin;
+          if (i2c_sda >= 0) sdaPin = -1;                        // -1 = use global
+          if (i2c_scl >= 0) sclPin = -1;
+
+          if (audioSource) audioSource->initialize(i2swsPin, i2ssdPin, i2sckPin, mclkPin);
           break;
 
         #if  !defined(CONFIG_IDF_TARGET_ESP32S2) && !defined(CONFIG_IDF_TARGET_ESP32C3) && !defined(CONFIG_IDF_TARGET_ESP32S3)
@@ -1758,6 +1783,10 @@ class AudioReactive : public Usermod {
       DEBUGSR_PRINT(F("AR: init done, enabled = "));
       DEBUGSR_PRINTLN(enabled ? F("true.") : F("false."));
       USER_FLUSH();
+
+      #if defined(ARDUINO_ARCH_ESP32) && defined(SR_DEBUG)
+      DEBUGSR_PRINTF("|| %-9s min free stack %d\n", pcTaskGetTaskName(NULL), uxTaskGetStackHighWaterMark(NULL)); //WLEDMM
+      #endif
     }
 
 
@@ -1788,6 +1817,10 @@ class AudioReactive : public Usermod {
           DEBUGSR_PRINTLN(udpSyncConnected ? F("AR connected(): UDP: connected to WIFI.") :  F("AR connected(): UDP is disconnected (Wifi)."));
         }
       }
+
+      #if defined(ARDUINO_ARCH_ESP32) && defined(SR_DEBUG)
+      DEBUGSR_PRINTF("|| %-9s min free stack %d\n", pcTaskGetTaskName(NULL), uxTaskGetStackHighWaterMark(NULL)); //WLEDMM
+      #endif
     }
 
 
@@ -1844,6 +1877,15 @@ class AudioReactive : public Usermod {
 #ifdef ARDUINO_ARCH_ESP32
       if (!audioSource->isInitialized()) disableSoundProcessing = true;  // no audio source
 
+      #ifdef SR_DEBUG
+      // debug info in case that task stack usage changes
+      static unsigned int minLoopStackFree = UINT32_MAX;
+      unsigned int stackFree = uxTaskGetStackHighWaterMark(NULL);
+      if (minLoopStackFree > stackFree) {
+        minLoopStackFree = stackFree;
+        DEBUGSR_PRINTF("|| %-9s min free stack %d\n", pcTaskGetTaskName(NULL), minLoopStackFree); //WLEDMM
+      }
+      #endif
 
       // Only run the sampling code IF we're not in Receive mode or realtime mode
       if (!(audioSyncEnabled & 0x02) && !disableSoundProcessing) {
@@ -2040,6 +2082,10 @@ class AudioReactive : public Usermod {
       micDataReal = 0.0f;                     // just to be sure
       if (enabled) disableSoundProcessing = false;
       updateIsRunning = init;
+
+      #if defined(ARDUINO_ARCH_ESP32) && defined(SR_DEBUG)
+      DEBUGSR_PRINTF("|| %-9s min free stack %d\n", pcTaskGetTaskName(NULL), uxTaskGetStackHighWaterMark(NULL)); //WLEDMM
+      #endif
     }
 
 #else // reduced function for 8266
@@ -2336,6 +2382,11 @@ class AudioReactive : public Usermod {
 
       JsonObject dmic = top.createNestedObject(FPSTR(_digitalmic));
       dmic[F("type")] = dmType;
+      // WLEDMM: align with globals I2C pins
+      if ((dmType == 2) || (dmType == 6)) {         // only for ES7243 and ES8388
+        if (i2c_sda >= 0) sdaPin = -1;              // -1 = use global
+        if (i2c_scl >= 0) sclPin = -1;              // -1 = use global
+      }
       JsonArray pinArray = dmic.createNestedArray("pin");
       pinArray.add(i2ssdPin);
       pinArray.add(i2swsPin);

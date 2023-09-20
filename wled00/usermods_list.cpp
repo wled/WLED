@@ -222,7 +222,7 @@ void registerUsermods()
    */
   //usermods.add(new MyExampleUsermod());
 #ifdef USERMOD_BATTERY
-  usermods.add(new UsermodBattery());
+  usermods.add(new UsermodBattery("Battery", true));
 #endif
 
 #ifdef USERMOD_DALLASTEMPERATURE
@@ -290,7 +290,7 @@ void registerUsermods()
 #endif
 
 #ifdef USERMOD_RTC
-  usermods.add(new RTCUsermod());
+  usermods.add(new RTCUsermod("RTC", true));
 #endif
 
 #ifdef USERMOD_ELEKSTUBE_IPS

@@ -8,21 +8,25 @@
 
 #define RTC_DELTA 2   // only modify RTC time if delta exceeds this number of seconds
 
-//Connect DS1307 to standard I2C pins (ESP32: GPIO 21 (SDA)/GPIO 22 (SCL))
+//Connect DS1307 or DS3231 to standard I2C pins (ESP32: GPIO 21 (SDA)/GPIO 22 (SCL))
 
 class RTCUsermod : public Usermod {
   private:
     unsigned long lastTime = 0;
-    bool disabled = false;
+    bool RTCfound = false;      // WLEDMM to prevent errors after anabling the usermod (Wire.cpp:526] write(): NULL TX buffer pointer)
   public:
 
+    RTCUsermod(const char *name, bool enabled):Usermod(name, enabled) {} //WLEDMM: this shouldn't be necessary (passthrough of constructor), maybe because Usermod is an abstract class
+
     void setup() {
+      RTCfound = false;   // WLEDMM
       PinManagerPinType pins[2] = { { i2c_scl, true }, { i2c_sda, true } };
-      if (pins[1].pin < 0 || pins[0].pin < 0)  { disabled=true; return; }  //WLEDMM bugfix - ensure that "final" GPIO are valid and no "-1" sneaks trough
+      if (pins[1].pin < 0 || pins[0].pin < 0)  { enabled=false; return; }  //WLEDMM bugfix - ensure that "final" GPIO are valid and no "-1" sneaks trough
+      if (!enabled) { DEBUG_PRINTLN(F("RTC usermod not enabled.")); return; }
 
       // WLEDMM join hardware I2C
       if (!pinManager.joinWire()) {  // WLEDMM - this allocates global I2C pins, then starts Wire - if not started previously
-        disabled = true;
+        enabled = false;
         return;
       }
 
@@ -40,20 +44,31 @@ class RTCUsermod : public Usermod {
         updateLocalTime();
 			  USER_PRINTLN(F("Localtime updated from RTC."));
       } else {
-        if (!RTC.chipPresent()) disabled = true; //don't waste time if H/W error
+        if (!RTC.chipPresent()) {
+          enabled = false; //don't waste time if H/W error
+          USER_PRINTLN(F("RTC board not present."));
+        }
       }
+      if (enabled) RTCfound = true;  // WLEDMM
     }
 
     void loop() {
-      if (strip.isUpdating()) return;
-      if (!disabled && toki.isTick()) {
+      // WLEDMM begin
+      if (!enabled) return;
+      if (!RTCfound) return; // WLEDMM
+      unsigned long currentTime = millis(); // get the current elapsed time
+      if (strip.isUpdating() && (currentTime - lastTime < 10000)) return;  // WLEDMM: be nice
+      // WLEDMM end
+
+      if (enabled && toki.isTick()) {  // WLEDMM
         time_t t = toki.second();
+        lastTime = millis();                            // WLEDMM
 
         if (abs(t - RTC.get())> RTC_DELTA) {            // WLEDMM only consider time diffs > 2 seconds
         	if (  (toki.getTimeSource() == TOKI_TS_NTP) 
               ||(  (toki.getTimeSource() != TOKI_TS_NONE) && (toki.getTimeSource() != TOKI_TS_RTC) 
                 && (toki.getTimeSource() != TOKI_TS_BAD)  && (toki.getTimeSource() != TOKI_TS_UDP_SEC) && (toki.getTimeSource() != TOKI_TS_UDP))) 
-          { // WLEMM update RTC if we have a reliable time source
+          { // WLEDMM update RTC if we have a reliable time source
         	  RTC.set(t); //set RTC to NTP/UI-provided value - WLEDMM allow up to 3 sec deviation
 			      USER_PRINTLN(F("RTC updated using localtime."));
 		      } else {

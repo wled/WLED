@@ -5303,6 +5303,7 @@ uint16_t mode_2Dmatrix(void) {                  // Matrix2D. By Jeremy Williams.
         oldSpawnColor = SEGMENT.getPixelColorXY(SEGENV.aux0, SEGENV.aux1);  // find color of previous spawns
         SEGENV.aux1 ++;                                                     // our sample pixel will be one row down the next time
     }
+    if ((oldSpawnColor == CRGB::Black) || (oldSpawnColor == trailColor)) oldSpawnColor = spawnColor; // reject "black", as it would mean that ALL pixels create trails
 
     // move pixels one row down. Falling codes keep color and add trail pixels; all others pixels are faded
     for (int row=rows-1; row>=0; row--) {
@@ -5313,7 +5314,7 @@ uint16_t mode_2Dmatrix(void) {                  // Matrix2D. By Jeremy Williams.
           if (row < rows-1) SEGMENT.setPixelColorXY(col, row+1, spawnColor);
         } else {
           // fade other pixels
-          SEGMENT.setPixelColorXY(col, row, pix.nscale8(fade));
+          if (pix != CRGB::Black) SEGMENT.setPixelColorXY(col, row, pix.nscale8(fade)); // optimization: don't fade black pixels
         }
       }
     }
