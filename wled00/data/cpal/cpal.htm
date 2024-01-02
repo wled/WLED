@@ -485,7 +485,7 @@
       console.log('Error: ', e); console.log(' Status: ', this.status);
       //Show some error notification for some time
       setTimeout(()=>{
-        //Remove it when time has pased
+        //Remove it when time has passed
       }, 1000);
     });
     req.open("POST", "/upload");
@@ -530,7 +530,7 @@
       paletteArray.push({"palette":[0,70,70,70,255,70,70,70]});
     }
 
-    //Get static palettes from localStorage and do some magic to reformat them into the same format as the pallete JSONs
+    //Get static palettes from localStorage and do some magic to reformat them into the same format as the palette JSONs
     //This code excludes any objects with "non valid integer colors", i.e. r, c1, c2, c3 and such
     //This code also fixes potentially broken palettes which doesn't end on 255
     //The code finally also removes any representations of the custom palettes, since we read them from file

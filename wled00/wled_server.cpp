@@ -575,11 +575,15 @@ void serveSettingsJS(AsyncWebServerRequest* request)
 
   #ifdef ARDUINO_ARCH_ESP32
     DEBUG_PRINT(F("ServeSettingsJS: "));
-    DEBUG_PRINTF("%s min free stack %d\n", pcTaskGetTaskName(NULL), uxTaskGetStackHighWaterMark(NULL)); //WLEDMM
-    DEBUG_PRINTF(PSTR(" bytes.\tString buffer usage: %4d of %d bytes\n"), strlen(buf)+1, SETTINGS_STACK_BUF_SIZE+37);
+    DEBUG_PRINTF("%s min free stack %d", pcTaskGetTaskName(NULL), uxTaskGetStackHighWaterMark(NULL)); //WLEDMM
+    DEBUG_PRINTF(PSTR(" bytes.\t\tString buffer usage: %4d of %d bytes\n"), strlen(buf)+1, SETTINGS_STACK_BUF_SIZE+37);
   #endif
-
-  request->send(200, "application/javascript", buf);
+  
+  AsyncWebServerResponse *response;
+  response = request->beginResponse(200, "application/javascript", buf);
+  response->addHeader(F("Cache-Control"),"no-store");
+  response->addHeader(F("Expires"),"0");
+  request->send(response);
 }
 
 

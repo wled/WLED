@@ -82,7 +82,7 @@ return F("DOUT");
 }
 
 
-//******** Flash Chip Speed is NOT correctl !!!! *****
+//******** Flash Chip Speed is NOT correct !!!! *****
 uint32_t my_ESP_getFlashChipSpeed(void)
 {
   const uint32_t spi_clock = REG_READ(SPI_CLOCK_REG(0));
@@ -413,7 +413,7 @@ void my_print_reset_reason(int reason)
     case 11 : Serial.print(" TGWDT_CPU_RESET");break;         /**<11, Time Group reset CPU*/
     case 12 : Serial.print(" SW_CPU_RESET");break;            /**<12, Software reset CPU*/
     case 13 : Serial.print(" RTCWDT_CPU_RESET");break;        /**<13, RTC Watch dog Reset CPU*/
-    case 14 : Serial.print(" EXT_CPU_RESET");break;           /**<14, for APP CPU, reseted by PRO CPU*/
+    case 14 : Serial.print(" EXT_CPU_RESET");break;           /**<14, for APP CPU, reset by PRO CPU*/
     case 15 : Serial.print(" RTCWDT_BROWN_OUT_RESET");break;  /**<15, Reset when the vdd voltage is not stable*/
     case 16 : Serial.print(" RTCWDT_RTC_RESET");break;        /**<16, RTC Watch dog reset digital core and rtc module*/
     case 17 : Serial.print(" TG1WDT_CPU_RESET");break;        /**<17, Time Group1 reset CPU*/
@@ -452,7 +452,7 @@ void my_verbose_print_reset_reason(int reason)
 
 
 /* 
- * parts below were created by softhack007, licended under GPL v3.0
+ * parts below were created by softhack007, licenced under GPL v3.0
  */
 
 void show_psram_info_part1(void)

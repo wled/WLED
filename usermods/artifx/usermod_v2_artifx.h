@@ -19,7 +19,7 @@ ARTI * arti;
 //effect function
 uint16_t mode_ARTIFX(void) { 
   //tbd: move statics to SEGMENT.data
-  static bool succesful;
+  static bool successful;
   static bool notEnoughHeap;
 
   static char previousEffect[charLength];
@@ -46,20 +46,20 @@ uint16_t mode_ARTIFX(void) {
     // artiWrapper = reinterpret_cast<ArtiWrapper*>(SEGENV.data);
     arti = new ARTI();
 
-    succesful = arti->setup("/wledv033.json", currentEffect);
+    successful = arti->setup("/wledv033.json", currentEffect);
 
-    if (!succesful)
-      ERROR_ARTI("Setup not succesful\n");
+    if (!successful)
+      ERROR_ARTI("Setup not successful\n");
   }
   else 
   {
-    if (succesful) // && SEGENV.call < 250 for each frame
+    if (successful) // && SEGENV.call < 250 for each frame
     {
       if (FREE_SIZE <= 20000) 
       {
         ERROR_ARTI("Not enough free heap (%u <= 30000)\n", FREE_SIZE);
         notEnoughHeap = true;
-        succesful = false;
+        successful = false;
       }
       else
       {
@@ -71,7 +71,7 @@ uint16_t mode_ARTIFX(void) {
         //   previousCall = SEGENV.call;
         // }
         
-        succesful = arti->loop();
+        successful = arti->loop();
       }
     }
     else 
@@ -79,7 +79,7 @@ uint16_t mode_ARTIFX(void) {
       arti->closeLog();
       if (notEnoughHeap && FREE_SIZE > 20000) {
         ERROR_ARTI("Again enough free heap, restart effect (%u > 30000)\n", FREE_SIZE);
-        succesful = true;
+        successful = true;
         notEnoughHeap = false;
         strcpy(previousEffect, ""); // force new create
       }

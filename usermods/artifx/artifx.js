@@ -82,7 +82,7 @@ function populateCEEditor(name, segID)
             <button class="btn infobtn btn-xs" onclick="location.href='https://mm.kno.wled.ge/moonmodules/arti-fx'" type="button">?</button><br>
             <br><i>Compile and Run Log</i><br>
             <textarea class="ceTextarea" id="ceLogArea"></textarea><br>
-            <i>Run log > 3 seconds is send to Serial Ouput.</i><br>
+            <i>Run log > 3 seconds is send to Serial Output.</i><br>
             <a href="#" onclick="downloadGHFile('HBB','presets.json',true,true);return false;" title="Download HBaas Base presets">🥚</a>
             <a href="#" onclick="downloadGHFile('HBE','presets.json',true,true);return false;" title="Download HBaas Effects presets">🥚</a>
             <a href="#" onclick="downloadGHFile('LM','presets.json',true,true);return false;" title="Download Ledmap presets">🥚</a>`;

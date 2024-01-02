@@ -38,7 +38,7 @@ Maximum distance for ultrasonic sensor can be configured as the time needed for 
 You _may_ need to use 10k pull-down resistors on the selected PIR pins, depending on the sensor.
 
 ## WLED configuration
-1. In the WLED UI, confgure a segment for each step. The lowest step of the stairs is the 
+1. In the WLED UI, configure a segment for each step. The lowest step of the stairs is the 
    lowest segment id. 
 2. Save your segments into a preset. 
 3. Ideally, add the preset in the config > LED setup menu to the "apply 
@@ -91,7 +91,7 @@ To enable the usermod again, use `"enabled":true`.
 Alternatively you can use _Usermod_ Settings page where you can change other parameters as well.
 
 ### Changing animation parameters and detection range of the ultrasonic HC-SR04 sensor
-Using _Usermod_ Settings page you can define different usermod parameters, includng sensor pins, delay between segment activation etc.
+Using _Usermod_ Settings page you can define different usermod parameters, including sensor pins, delay between segment activation etc.
 
 When an ultrasonic sensor is enabled you can enter maximum detection distance in centimeters separately for top and bottom sensors.
 

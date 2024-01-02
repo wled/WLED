@@ -21,13 +21,18 @@
  * ....
  */
 
-#define FFT_PREFER_EXACT_PEAKS  // use different FFT wndowing -> results in "sharper" peaks and less "leaking" into other frequencies
+#define FFT_PREFER_EXACT_PEAKS  // use different FFT windowing -> results in "sharper" peaks and less "leaking" into other frequencies
 //#define SR_STATS
 
 #if !defined(FFTTASK_PRIORITY)
+#if defined(WLEDMM_FASTPATH) && !defined(CONFIG_IDF_TARGET_ESP32S2) && !defined(CONFIG_IDF_TARGET_ESP32C3) && defined(ARDUINO_ARCH_ESP32)
+// FASTPATH: use higher priority, to avoid that webserver (ws, json, etc) delays sample processing
+//#define FFTTASK_PRIORITY 3 // competing with async_tcp
+#define FFTTASK_PRIORITY 4   // above async_tcp
+#else
 #define FFTTASK_PRIORITY 1 // standard: looptask prio
-//#define FFTTASK_PRIORITY 2 // above looptask, below asyc_tcp
-//#define FFTTASK_PRIORITY 4 // above asyc_tcp
+//#define FFTTASK_PRIORITY 2 // above looptask, below async_tcp
+#endif
 #endif
 
 #if !defined(CONFIG_IDF_TARGET_ESP32S2) && !defined(CONFIG_IDF_TARGET_ESP32C3)
@@ -86,8 +91,27 @@
   #define PLOT_FLUSH()
 #endif
 
+// sanity checks
+#ifdef ARDUINO_ARCH_ESP32
+  // we need more space in for oappend() stack buffer -> SETTINGS_STACK_BUF_SIZE and CONFIG_ASYNC_TCP_TASK_STACK_SIZE
+  #if SETTINGS_STACK_BUF_SIZE < 3904    // 3904 is required for WLEDMM-0.14.0-b28
+    #warning please increase SETTINGS_STACK_BUF_SIZE >= 3904
+  #endif
+  #if (CONFIG_ASYNC_TCP_TASK_STACK_SIZE - SETTINGS_STACK_BUF_SIZE) < 4352 // at least 4096+256 words of free task stack is needed by async_tcp alone
+    #error remaining async_tcp stack will be too low - please increase CONFIG_ASYNC_TCP_TASK_STACK_SIZE
+  #endif
+#endif
+
+// audiosync constants
+#define AUDIOSYNC_NONE 0x00      // UDP sound sync off
+#define AUDIOSYNC_SEND 0x01      // UDP sound sync - send mode
+#define AUDIOSYNC_REC  0x02      // UDP sound sync - receiver mode
+#define AUDIOSYNC_REC_PLUS 0x06  // UDP sound sync - receiver + local mode (uses local input if no receiving udp sound)
+#define AUDIOSYNC_IDLE_MS  2500  // timeout for "receiver idle" (milliseconds) 
+
 static volatile bool disableSoundProcessing = false;      // if true, sound processing (FFT, filters, AGC) will be suspended. "volatile" as its shared between tasks.
-static uint8_t audioSyncEnabled = 0;          // bit field: bit 0 - send, bit 1 - receive (config value)
+static uint8_t audioSyncEnabled = AUDIOSYNC_NONE;         // bit field: bit 0 - send, bit 1 - receive, bit 2 - use local if not receiving
+static bool audioSyncSequence = true;                     // if true, the receiver will drop out-of-sequence packets
 static bool udpSyncConnected = false;         // UDP connection status -> true if connected to multicast group
 
 #define NUM_GEQ_CHANNELS 16                                           // number of frequency channels. Don't change !!
@@ -109,9 +133,13 @@ static float    volumeSmth = 0.0f;              // either sampleAvg or sampleAgc
 static float FFT_MajorPeak = 1.0f;              // FFT: strongest (peak) frequency
 static float FFT_Magnitude = 0.0f;              // FFT: volume (magnitude) of peak frequency
 static bool samplePeak = false;      // Boolean flag for peak - used in effects. Responding routine may reset this flag. Auto-reset after strip.getMinShowDelay()
-static bool udpSamplePeak = false;   // Boolean flag for peak. Set at the same tiem as samplePeak, but reset by transmitAudioData
+static bool udpSamplePeak = false;   // Boolean flag for peak. Set at the same time as samplePeak, but reset by transmitAudioData
 static unsigned long timeOfPeak = 0; // time of last sample peak detection.
-static uint8_t fftResult[NUM_GEQ_CHANNELS]= {0};// Our calculated freq. channel result table to be used by effects
+volatile bool haveNewFFTResult = false; // flag to directly inform UDP sound sender when new FFT results are available (to reduce latency). Flag is reset at next UDP send
+
+static uint8_t fftResult[NUM_GEQ_CHANNELS]= {0};   // Our calculated freq. channel result table to be used by effects
+static float   fftCalc[NUM_GEQ_CHANNELS] = {0.0f}; // Try and normalize fftBin values to a max of 4096, so that 4096/16 = 256. (also used by dynamics limiter)
+static float   fftAvg[NUM_GEQ_CHANNELS] = {0.0f};  // Calculated frequency channel results, with smoothing (used if dynamics limiter is ON)
 
 // TODO: probably best not used by receive nodes
 static float agcSensitivity = 128;            // AGC sensitivity estimation, based on agc gain (multAgc). calculated by getSensitivity(). range 0..255
@@ -123,7 +151,7 @@ static uint16_t decayTime = 300;              // int: decay time in milliseconds
 
 // peak detection
 #ifdef ARDUINO_ARCH_ESP32
-static void detectSamplePeak(void);  // peak detection function (needs scaled FFT reasults in vReal[]) - no used for 8266 receive-only mode
+static void detectSamplePeak(void);  // peak detection function (needs scaled FFT results in vReal[]) - no used for 8266 receive-only mode
 #endif
 static void autoResetPeak(void);     // peak auto-reset function
 static uint8_t maxVol = 31;          // (was 10) Reasonable value for constant volume for 'peak detector', as it won't always trigger  (deprecated)
@@ -150,7 +178,7 @@ static uint8_t inputLevel = 128;              // UI slider value
 #endif
 
 // user settable options for FFTResult scaling
-static uint8_t FFTScalingMode = 3;            // 0 none; 1 optimized logarithmic; 2 optimized linear; 3 optimized sqare root
+static uint8_t FFTScalingMode = 3;            // 0 none; 1 optimized logarithmic; 2 optimized linear; 3 optimized square root
 #ifndef SR_FREQ_PROF
   static uint8_t pinkIndex = 0;               // 0: default; 1: line-in; 2: IMNP441
 #else
@@ -220,7 +248,7 @@ static void postProcessFFTResults(bool noiseGateOpen, int numberOfChannels); // 
 static TaskHandle_t FFT_Task = nullptr;
 
 // Table of multiplication factors so that we can even out the frequency response.
-#define MAX_PINK 10  // 0 = standard, 1= line-in (pink moise only), 2..4 = IMNP441, 5..6 = ICS-43434, ,7=SPM1423, 8..9 = userdef, 10= flat (no pink noise adjustment)
+#define MAX_PINK 10  // 0 = standard, 1= line-in (pink noise only), 2..4 = IMNP441, 5..6 = ICS-43434, ,7=SPM1423, 8..9 = userdef, 10= flat (no pink noise adjustment)
 static const float fftResultPink[MAX_PINK+1][NUM_GEQ_CHANNELS] = { 
           { 1.70f, 1.71f, 1.73f, 1.78f, 1.68f, 1.56f, 1.55f, 1.63f, 1.79f, 1.62f, 1.80f, 2.06f, 2.47f, 3.35f, 6.83f, 9.55f },  //  0 default from SR WLED
       //  { 1.30f, 1.32f, 1.40f, 1.46f, 1.52f, 1.57f, 1.68f, 1.80f, 1.89f, 2.00f, 2.11f, 2.21f, 2.30f, 2.39f, 3.09f, 4.34f },  //  - Line-In Generic -> pink noise adjustment only
@@ -244,7 +272,7 @@ static const float fftResultPink[MAX_PINK+1][NUM_GEQ_CHANNELS] = {
   /* how to make your own profile:
   * ===============================
    * preparation: make sure your microphone has direct line-of-sigh with the speaker, 1-2meter distance is best
-   * Prepare your HiFi equipment: disable all "Sound enhancements" - like Loudness, Equalizer, Bass Boost. Bass/Trebble controls set to middle.
+   * Prepare your HiFi equipment: disable all "Sound enhancements" - like Loudness, Equalizer, Bass Boost. Bass/Treble controls set to middle.
    * Your HiFi equipment should receive its audio input from Line-In, SPDIF, HDMI, or another "undistorted" connection (like CDROM). 
    * Try not to use Bluetooth or MP3 when playing the "pink noise" audio. BT-audio and MP3 both perform "acoustic adjustments" that we don't want now.
 
@@ -258,7 +286,7 @@ static const float fftResultPink[MAX_PINK+1][NUM_GEQ_CHANNELS] = {
 
    * Your own profile: 
    *  - Target for each LED bar is 50% to 75% of the max height --> 8(high) x 16(wide) panel means target = 5. 32 x 16 means target = 22.
-   *  - From left to right - count the LEDs in each of the 16 frequency colums (that's why you need the photo). This is the barheight for each channel.
+   *  - From left to right - count the LEDs in each of the 16 frequency columns (that's why you need the photo). This is the barheight for each channel.
    *  - math time! Find the multiplier that will bring each bar to to target.
    *    * in case of square root scale: multiplier = (target * target) / (barheight * barheight)
    *    * in case of linear scale:      multiplier = target / barheight
@@ -280,8 +308,6 @@ static float sampleTime = 0;        // avg (blocked) time for reading I2S sample
 
 // FFT Task variables (filtering and post-processing)
 static float   lastFftCalc[NUM_GEQ_CHANNELS] = {0.0f};                // backup of last FFT channels (before postprocessing)
-static float   fftCalc[NUM_GEQ_CHANNELS] = {0.0f};                    // Try and normalize fftBin values to a max of 4096, so that 4096/16 = 256.
-static float   fftAvg[NUM_GEQ_CHANNELS] = {0.0f};                     // Calculated frequency channel results, with smoothing (used if dynamics limiter is ON)
 
 #if !defined(CONFIG_IDF_TARGET_ESP32C3)
 // audio source parameters and constant
@@ -360,7 +386,7 @@ static float mapf(float x, float in_min, float in_max, float out_min, float out_
   return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
 }
 
-// compute average of several FFT resut bins
+// compute average of several FFT result bins
 // linear average
 static float fftAddAvgLin(int from, int to) {
   float result = 0.0f;
@@ -430,7 +456,7 @@ void FFTcode(void * parameter)
   for(uint_fast16_t binInd = 0; binInd < samplesFFT; binInd++) {
     float binFreq = binInd * binWidth + binWidth/2.0f;
     if (binFreq > (SAMPLE_RATE * 0.42f))
-      binFreq = (SAMPLE_RATE * 0.42f) - 0.25 * (binFreq - (SAMPLE_RATE * 0.42f)); // supress noise and aliasing 
+      binFreq = (SAMPLE_RATE * 0.42f) - 0.25 * (binFreq - (SAMPLE_RATE * 0.42f)); // suppress noise and aliasing 
     pinkFactors[binInd] = sqrtf(binFreq) / pinkcenter;
   }
   pinkFactors[0] *= 0.5;  // suppress 0-42hz bin
@@ -442,7 +468,7 @@ void FFTcode(void * parameter)
                         // taskYIELD(), yield(), vTaskDelay() and esp_task_wdt_feed() didn't seem to work.
 
     // Don't run FFT computing code if we're in Receive mode or in realtime mode
-    if (disableSoundProcessing || (audioSyncEnabled & 0x02)) {
+    if (disableSoundProcessing || (audioSyncEnabled == AUDIOSYNC_REC)) {
       isFirstRun = false;
       vTaskDelayUntil( &xLastWakeTime, xFrequency);        // release CPU, and let I2S fill its buffers
       continue;
@@ -482,7 +508,7 @@ void FFTcode(void * parameter)
 #endif
 
     xLastWakeTime = xTaskGetTickCount();       // update "last unblocked time" for vTaskDelay
-    isFirstRun = !isFirstRun; //  toggle throtte
+    isFirstRun = !isFirstRun; //  toggle throttle
 
 #ifdef MIC_LOGGER
     float datMin = 0.0f;
@@ -497,6 +523,11 @@ void FFTcode(void * parameter)
       }
       datAvg +=  vReal[i];
     }
+#endif
+
+#if defined(WLEDMM_FASTPATH) && !defined(CONFIG_IDF_TARGET_ESP32S2) && !defined(CONFIG_IDF_TARGET_ESP32C3) && defined(ARDUINO_ARCH_ESP32)
+    // experimental - be nice to LED update task (trying to avoid flickering) - dual core only
+    if (strip.isServicing()) delay(2);
 #endif
 
     // band pass filter - can reduce noise floor by a factor of 50
@@ -619,7 +650,7 @@ void FFTcode(void * parameter)
     *
     * Andrew's updated mapping of 256 bins down to the 16 result bins with Sample Freq = 10240, samplesFFT = 512 and some overlap.
     * Based on testing, the lowest/Start frequency is 60 Hz (with bin 3) and a highest/End frequency of 5120 Hz in bin 255.
-    * Now, Take the 60Hz and multiply by 1.320367784 to get the next frequency and so on until the end. Then detetermine the bins.
+    * Now, Take the 60Hz and multiply by 1.320367784 to get the next frequency and so on until the end. Then determine the bins.
     * End frequency = Start frequency * multiplier ^ 16
     * Multiplier = (End frequency/ Start frequency) ^ 1/16
     * Multiplier = 1.320367784
@@ -673,7 +704,7 @@ void FFTcode(void * parameter)
       fftCalc[13] = fftAddAvg(86,103);              // 18 3704 - 4479 high mid
       fftCalc[14] = fftAddAvg(104,164) * 0.88f;     // 61 4479 - 7106 high mid + high  -- with slight damping
   }
-  else if (freqDist == 1) { //WLEDMM: Rightshft: note ewowi: frequencies in comments are not correct
+  else if (freqDist == 1) { //WLEDMM: Rightshift: note ewowi: frequencies in comments are not correct
       if (useInputFilter==1) {
         // skip frequencies below 100hz
         fftCalc[ 0] = 0.8f * fftAddAvg(1,1);
@@ -717,7 +748,7 @@ void FFTcode(void * parameter)
       memcpy(fftCalc, lastFftCalc, sizeof(fftCalc)); // restore last "good" channels
     }
 
-    // post-processing of frequency channels (pink noise adjustment, AGC, smooting, scaling)
+    // post-processing of frequency channels (pink noise adjustment, AGC, smoothing, scaling)
     if (pinkIndex > MAX_PINK) pinkIndex = MAX_PINK;
     //postProcessFFTResults((fabsf(sampleAvg) > 0.25f)? true : false , NUM_GEQ_CHANNELS);
     postProcessFFTResults((fabsf(volumeSmth)>0.25f)? true : false , NUM_GEQ_CHANNELS);    // this function modifies fftCalc, fftAvg and fftResult
@@ -735,6 +766,9 @@ void FFTcode(void * parameter)
     // run peak detection
     autoResetPeak();
     detectSamplePeak();
+    
+    // we have new results - notify UDP sound send
+    haveNewFFTResult = true;
     
     #if !defined(I2S_GRAB_ADC1_COMPLETELY)    
     if ((audioSource == nullptr) || (audioSource->getType() != AudioSource::Type_I2SAdc))  // the "delay trick" does not help for analog ADC
@@ -775,7 +809,7 @@ static void runMicFilter(uint16_t numSamples, float *sampleBuffer)          // p
         // FIR lowpass, to remove high frequency noise
         float highFilteredSample;
         if (i < (numSamples-1)) highFilteredSample = beta1*sampleBuffer[i] + beta2*last_vals[0] + beta2*sampleBuffer[i+1];  // smooth out spikes
-        else highFilteredSample = beta1*sampleBuffer[i] + beta2*last_vals[0]  + beta2*last_vals[1];                  // spcial handling for last sample in array
+        else highFilteredSample = beta1*sampleBuffer[i] + beta2*last_vals[0]  + beta2*last_vals[1];                  // special handling for last sample in array
         last_vals[1] = last_vals[0];
         last_vals[0] = sampleBuffer[i];
         sampleBuffer[i] = highFilteredSample;
@@ -904,7 +938,7 @@ static void autoResetPeak(void) {
   uint16_t MinShowDelay = MAX(50, strip.getMinShowDelay());  // Fixes private class variable compiler error. Unsure if this is the correct way of fixing the root problem. -THATDONFC
   if (millis() - timeOfPeak > MinShowDelay) {          // Auto-reset of samplePeak after a complete frame has passed.
     samplePeak = false;
-    if (audioSyncEnabled == 0) udpSamplePeak = false;  // this is normally reset by transmitAudioData
+    if (audioSyncEnabled == AUDIOSYNC_NONE) udpSamplePeak = false;  // this is normally reset by transmitAudioData
   }
 }
 
@@ -966,7 +1000,7 @@ class AudioReactive : public Usermod {
       float   sampleRaw;      //  04 Bytes  - either "sampleRaw" or "rawSampleAgc" depending on soundAgc setting
       float   sampleSmth;     //  04 Bytes  - either "sampleAvg" or "sampleAgc" depending on soundAgc setting
       uint8_t samplePeak;     //  01 Bytes  - 0 no peak; >=1 peak detected. In future, this will also provide peak Magnitude
-      uint8_t reserved1;      //  01 Bytes  - for future extensions - not used yet
+      uint8_t frameCounter;   //  01 Bytes  - track duplicate/out of order packets
       uint8_t fftResult[16];  //  16 Bytes
       float  FFT_Magnitude;   //  04 Bytes
       float  FFT_MajorPeak;   //  04 Bytes
@@ -998,7 +1032,11 @@ class AudioReactive : public Usermod {
     // variables  for UDP sound sync
     WiFiUDP fftUdp;               // UDP object for sound sync (from WiFi UDP, not Async UDP!)
     unsigned long lastTime = 0;   // last time of running UDP Microphone Sync
+#if defined(WLEDMM_FASTPATH)
+    const uint16_t delayMs = 5;   // I don't want to sample too often and overload WLED
+#else
     const uint16_t delayMs = 10;  // I don't want to sample too often and overload WLED
+#endif
     uint16_t audioSyncPort= 11988;// default port for UDP sound sync
 
     bool updateIsRunning = false; // true during OTA.
@@ -1010,7 +1048,7 @@ class AudioReactive : public Usermod {
 
     // variables used by getSample() and agcAvg()
     int16_t  micIn = 0;           // Current sample starts with negative values and large values, which is why it's 16 bit signed
-    double   sampleMax = 0.0;     // Max sample over a few seconds. Needed for AGC controler.
+    double   sampleMax = 0.0;     // Max sample over a few seconds. Needed for AGC controller.
     double   micLev = 0.0;        // Used to convert returned value to have '0' as minimum. A leveller
     float    expAdjF = 0.0f;      // Used for exponential filter.
     float    sampleReal = 0.0f;	  // "sampleRaw" as float, to provide bits that are lost otherwise (before amplification by sampleGain or inputLevel). Needed for AGC.
@@ -1048,7 +1086,7 @@ class AudioReactive : public Usermod {
     ////////////////////
     void logAudio()
     {
-      if (disableSoundProcessing && (!udpSyncConnected || ((audioSyncEnabled & 0x02) == 0))) return;   // no audio availeable
+      if (disableSoundProcessing && (!udpSyncConnected || ((audioSyncEnabled & AUDIOSYNC_REC) == 0))) return;   // no audio available
     #ifdef MIC_LOGGER
       // Debugging functions for audio input and sound processing. Comment out the values you want to see
       PLOT_PRINT("volumeSmth:");  PLOT_PRINT(volumeSmth + 256.0f);  PLOT_PRINT("\t");  // +256 to move above other lines
@@ -1141,13 +1179,13 @@ class AudioReactive : public Usermod {
     * 2. we use two setpoints, one at ~60%, and one at ~80% of the maximum signal
     * 3. the amplification depends on signal level:
     *    a) normal zone - very slow adjustment
-    *    b) emergency zome (<10% or >90%) - very fast adjustment
+    *    b) emergency zone (<10% or >90%) - very fast adjustment
     */
     void agcAvg(unsigned long the_time)
     {
       const int AGC_preset = (soundAgc > 0)? (soundAgc-1): 0; // make sure the _compiler_ knows this value will not change while we are inside the function
 
-      float lastMultAgc = multAgc;      // last muliplier used
+      float lastMultAgc = multAgc;      // last multiplier used
       float multAgcTemp = multAgc;      // new multiplier
       float tmpAgc = sampleReal * multAgc;        // what-if amplified signal
 
@@ -1187,13 +1225,13 @@ class AudioReactive : public Usermod {
         
         if (((multAgcTemp > 0.085f) && (multAgcTemp < 6.5f))    //integrator anti-windup by clamping
             && (multAgc*sampleMax < agcZoneStop[AGC_preset]))   //integrator ceiling (>140% of max)
-          control_integrated += control_error * 0.002 * 0.25;   // 2ms = intgration time; 0.25 for damping
+          control_integrated += control_error * 0.002 * 0.25;   // 2ms = integration time; 0.25 for damping
         else
-          control_integrated *= 0.9;                            // spin down that beasty integrator
+          control_integrated *= 0.9;                            // spin down that integrator beast
 
         // apply PI Control 
         tmpAgc = sampleReal * lastMultAgc;                      // check "zone" of the signal using previous gain
-        if ((tmpAgc > agcZoneHigh[AGC_preset]) || (tmpAgc < soundSquelch + agcZoneLow[AGC_preset])) {  // upper/lower emergy zone
+        if ((tmpAgc > agcZoneHigh[AGC_preset]) || (tmpAgc < soundSquelch + agcZoneLow[AGC_preset])) {  // upper/lower emergency zone
           multAgcTemp = lastMultAgc + agcFollowFast[AGC_preset] * agcControlKp[AGC_preset] * control_error;
           multAgcTemp += agcFollowFast[AGC_preset] * agcControlKi[AGC_preset] * control_integrated;
         } else {                                                                         // "normal zone"
@@ -1201,7 +1239,7 @@ class AudioReactive : public Usermod {
           multAgcTemp += agcFollowSlow[AGC_preset] * agcControlKi[AGC_preset] * control_integrated;
         }
 
-        // limit amplification again - PI controler sometimes "overshoots"
+        // limit amplification again - PI controller sometimes "overshoots"
         //multAgcTemp = constrain(multAgcTemp, 0.015625f, 32.0f); // 1/64 < multAgcTemp < 32
         if (multAgcTemp > 32.0f)      multAgcTemp = 32.0f;
         if (multAgcTemp < 1.0f/64.0f) multAgcTemp = 1.0f/64.0f;
@@ -1231,7 +1269,7 @@ class AudioReactive : public Usermod {
     void getSample()
     {
       float    sampleAdj;           // Gain adjusted sample value
-      float    tmpSample;           // An interim sample variable used for calculatioins.
+      float    tmpSample;           // An interim sample variable used for calculations.
 #ifdef WLEDMM_FASTPATH
       constexpr float weighting = 0.35f;  // slightly reduced filter strength, to reduce audio latency
       constexpr float weighting2 = 0.25f;
@@ -1407,7 +1445,7 @@ class AudioReactive : public Usermod {
       if (limiterOn == false) return;
 
       long delta_time = millis() - last_time;
-      delta_time = constrain(delta_time , 1, 1000); // below 1ms -> 1ms; above 1sec -> sily lil hick-up
+      delta_time = constrain(delta_time , 1, 1000); // below 1ms -> 1ms; above 1sec -> silly lil hick-up
       float deltaSample = volumeSmth - last_volumeSmth;
 
       if (attackTime > 0) {                         // user has defined attack time > 0
@@ -1425,6 +1463,39 @@ class AudioReactive : public Usermod {
       last_time = millis();
     }
 
+    // MM experimental: limiter to smooth GEQ samples (only for UDP sound receiver mode)
+    //   target value (if gotNewSample) : fftCalc
+    //   last filtered value: fftAvg
+    void limitGEQDynamics(bool gotNewSample) {
+      constexpr float bigChange = 202;                  // just a representative number - a large, expected sample value
+      constexpr float smooth = 0.8f;                    // a bit of filtering
+      static unsigned long last_time = 0;
+
+      if (limiterOn == false) return;
+
+      if (gotNewSample) { // take new FFT samples as target values
+        for(unsigned i=0; i < NUM_GEQ_CHANNELS; i++) {
+          fftCalc[i] = fftResult[i];
+          fftResult[i] = fftAvg[i];
+        }
+      }
+
+      long delta_time = millis() - last_time;
+      delta_time = constrain(delta_time , 1, 1000); // below 1ms -> 1ms; above 1sec -> silly lil hick-up        
+      float maxAttack = (attackTime <= 0) ?  255.0f : (bigChange * float(delta_time) / float(attackTime));
+      float maxDecay  = (decayTime <= 0)  ? -255.0f : (-bigChange * float(delta_time) / float(decayTime));
+
+      for(unsigned i=0; i < NUM_GEQ_CHANNELS; i++) {
+        float deltaSample = fftCalc[i] - fftAvg[i];
+        if (deltaSample > maxAttack) deltaSample = maxAttack;
+        if (deltaSample < maxDecay) deltaSample = maxDecay;
+        deltaSample = deltaSample * smooth;
+        fftAvg[i] = fmaxf(0.0f, fminf(255.0f, fftAvg[i] + deltaSample));
+        fftResult[i] = fftAvg[i];
+      }
+      last_time = millis();
+    }
+
     //////////////////////
     // UDP Sound Sync   //
     //////////////////////
@@ -1435,7 +1506,7 @@ class AudioReactive : public Usermod {
       // necessary as we also want to transmit in "AP Mode", but the standard "connected()" callback only reacts on STA connection
       static unsigned long last_connection_attempt = 0;
 
-      if ((audioSyncPort <= 0) || ((audioSyncEnabled & 0x03) == 0)) return;  // Sound Sync not enabled
+      if ((audioSyncPort <= 0) || (audioSyncEnabled == AUDIOSYNC_NONE)) return;  // Sound Sync not enabled
       if (!(apActive || WLED_CONNECTED || interfacesInited))  {
         if (udpSyncConnected) {
           udpSyncConnected = false;
@@ -1443,11 +1514,11 @@ class AudioReactive : public Usermod {
           receivedFormat = 0;
           DEBUGSR_PRINTLN(F("AR connectUDPSoundSync(): connection lost, UDP closed."));
         }
-        return;                           // neither AP nor other connections availeable
+        return;                           // neither AP nor other connections available
       }
       if (udpSyncConnected) return;                                          // already connected
       if (millis() - last_connection_attempt < 15000) return;                // only try once in 15 seconds
-      if (updateIsRunning) return;                                           // don't reconect during OTA
+      if (updateIsRunning) return;                                           // don't reconnect during OTA
 
       // if we arrive here, we need a UDP connection but don't have one
       last_connection_attempt = millis();
@@ -1457,16 +1528,19 @@ class AudioReactive : public Usermod {
     void transmitAudioData()
     {
       if (!udpSyncConnected) return;
+      static uint8_t frameCounter = 0;
       //DEBUGSR_PRINTLN("Transmitting UDP Mic Packet");
 
       audioSyncPacket transmitData;
+      memset(reinterpret_cast<void *>(&transmitData), 0, sizeof(transmitData)); // make sure that the packet - including "invisible" padding bytes added by the compiler - is fully initialized
+
       strncpy_P(transmitData.header, PSTR(UDP_SYNC_HEADER), 6);
       // transmit samples that were not modified by limitSampleDynamics()
       transmitData.sampleRaw   = (soundAgc) ? rawSampleAgc: sampleRaw;
       transmitData.sampleSmth  = (soundAgc) ? sampleAgc   : sampleAvg;
       transmitData.samplePeak  = udpSamplePeak ? 1:0;
       udpSamplePeak            = false;           // Reset udpSamplePeak after we've transmitted it
-      transmitData.reserved1   = 0;
+      transmitData.frameCounter = frameCounter;
 
       for (int i = 0; i < NUM_GEQ_CHANNELS; i++) {
         transmitData.fftResult[i] = (uint8_t)constrain(fftResult[i], 0, 254);
@@ -1479,7 +1553,8 @@ class AudioReactive : public Usermod {
         fftUdp.write(reinterpret_cast<uint8_t *>(&transmitData), sizeof(transmitData));
         fftUdp.endPacket();
       }
-      return;
+      
+      frameCounter++;
     } // transmitAudioData()
 #endif
     static bool isValidUdpSyncVersion(const char *header) {
@@ -1489,8 +1564,29 @@ class AudioReactive : public Usermod {
       return strncmp_P(header, UDP_SYNC_HEADER_v1, 6) == 0;
     }
 
-    void decodeAudioData(int packetSize, uint8_t *fftBuff) {
+    bool decodeAudioData(int packetSize, uint8_t *fftBuff) {
+      if((0 == packetSize) || (nullptr == fftBuff)) return false; // sanity check
       audioSyncPacket *receivedPacket = reinterpret_cast<audioSyncPacket*>(fftBuff);
+
+      // validate sequence, discard out-of-sequence packets
+      static uint8_t lastFrameCounter = 0;
+      // add info for UI
+      if ((receivedPacket->frameCounter > 0) && (lastFrameCounter > 0)) receivedFormat = 3; // v2+
+      else receivedFormat = 2; // v2
+      // check sequence
+      bool sequenceOK = false;
+      if(receivedPacket->frameCounter > lastFrameCounter) sequenceOK = true;                  // sequence OK
+      if((lastFrameCounter < 12) && (receivedPacket->frameCounter > 248)) sequenceOK = false; // prevent sequence "roll-back" due to late packets (1->254)
+      if((lastFrameCounter > 248) && (receivedPacket->frameCounter < 12)) sequenceOK = true;  // handle roll-over (255 -> 0)
+      if(audioSyncSequence == false) sequenceOK = true;                                       // sequence checking disabled by user
+      if((sequenceOK == false) && (receivedPacket->frameCounter != 0)) {                      // always accept "0" - its the legacy value
+        DEBUGSR_PRINTF("Skipping audio frame out of order or duplicated - %u vs %u\n", lastFrameCounter, receivedPacket->frameCounter);
+        return false;   // reject out-of sequence frame
+      }
+      else {
+        lastFrameCounter = receivedPacket->frameCounter;
+      }
+
       // update samples for effects
       volumeSmth   = fmaxf(receivedPacket->sampleSmth, 0.0f);
       volumeRaw    = fmaxf(receivedPacket->sampleRaw, 0.0f);
@@ -1515,6 +1611,7 @@ class AudioReactive : public Usermod {
       my_magnitude  = fmaxf(receivedPacket->FFT_Magnitude, 0.0f);
       FFT_Magnitude = my_magnitude;
       FFT_MajorPeak = constrain(receivedPacket->FFT_MajorPeak, 1.0f, 11025.0f);  // restrict value to range expected by effects
+      return true;
     }
 
     void decodeAudioData_v1(int packetSize, uint8_t *fftBuff) {
@@ -1577,16 +1674,15 @@ class AudioReactive : public Usermod {
 
         // VERIFY THAT THIS IS A COMPATIBLE PACKET
         if (packetSize == sizeof(audioSyncPacket) && (isValidUdpSyncVersion((const char *)fftUdpBuffer))) {
-          decodeAudioData(packetSize, fftUdpBuffer);
-          //DEBUGSR_PRINTLN("Finished parsing UDP Sync Packet v2");
-          haveFreshData = true;
           receivedFormat = 2;
+          haveFreshData = decodeAudioData(packetSize, fftUdpBuffer);
+          //DEBUGSR_PRINTLN("Finished parsing UDP Sync Packet v2");
         } else {
           if (packetSize == sizeof(audioSyncPacket_v1) && (isValidUdpSyncVersion_v1((const char *)fftUdpBuffer))) {
             decodeAudioData_v1(packetSize, fftUdpBuffer);
+            receivedFormat = 1;
             //DEBUGSR_PRINTLN("Finished parsing UDP Sync Packet v1");
             haveFreshData = true;
-            receivedFormat = 1;
           } else receivedFormat = 0; // unknown format
         }
       }
@@ -1641,7 +1737,7 @@ class AudioReactive : public Usermod {
         um_data->u_type[10] = UMT_FLOAT;
 #else
        // ESP8266 
-        // See https://github.com/MoonModules/WLED/pull/60#issuecomment-1666972133 for explaination of these alternative sources of data
+        // See https://github.com/MoonModules/WLED/pull/60#issuecomment-1666972133 for explanation of these alternative sources of data
 
         um_data->u_data[6] = &maxVol;          // assigned in effect function from UI element!!! (Puddlepeak, Ripplepeak, Waterfall)
         um_data->u_type[6] = UMT_BYTE;
@@ -1741,6 +1837,23 @@ class AudioReactive : public Usermod {
 
           if (audioSource) audioSource->initialize(i2swsPin, i2ssdPin, i2sckPin, mclkPin);
           break;
+        case 7:
+        #ifdef use_wm8978_mic
+          DEBUGSR_PRINTLN(F("AR: WM8978 Source (Mic)"));
+        #else
+          DEBUGSR_PRINTLN(F("AR: WM8978 Source (Line-In)"));
+        #endif
+          audioSource = new WM8978Source(SAMPLE_RATE, BLOCK_SIZE, 1.0f);
+          //useInputFilter = 0; // to disable low-cut software filtering and restore previous behaviour
+          delay(100);
+          // WLEDMM align global pins
+          if ((sdaPin >= 0) && (i2c_sda < 0)) i2c_sda = sdaPin; // copy usermod prefs into globals (if globals not defined)
+          if ((sclPin >= 0) && (i2c_scl < 0)) i2c_scl = sclPin;
+          if (i2c_sda >= 0) sdaPin = -1;                        // -1 = use global
+          if (i2c_scl >= 0) sclPin = -1;
+
+          if (audioSource) audioSource->initialize(i2swsPin, i2ssdPin, i2sckPin, mclkPin);
+          break;
 
         #if  !defined(CONFIG_IDF_TARGET_ESP32S2) && !defined(CONFIG_IDF_TARGET_ESP32C3) && !defined(CONFIG_IDF_TARGET_ESP32S3)
         // ADC over I2S is only possible on "classic" ESP32
@@ -1758,7 +1871,7 @@ class AudioReactive : public Usermod {
 
       if (!audioSource) enabled = false;                 // audio failed to initialise
 #endif
-      if (enabled) onUpdateBegin(false);                 // create FFT task, and initailize network
+      if (enabled) onUpdateBegin(false);                 // create FFT task, and initialize network
 
 #ifdef ARDUINO_ARCH_ESP32
       if (FFT_Task == nullptr) enabled = false;          // FFT task creation failed
@@ -1803,7 +1916,7 @@ class AudioReactive : public Usermod {
         DEBUGSR_PRINTLN(F("AR connected(): old UDP connection closed."));
       }
       
-      if (audioSyncPort > 0 && (audioSyncEnabled & 0x03)) {
+      if ((audioSyncPort > 0) && (audioSyncEnabled > AUDIOSYNC_NONE)) {
       #ifdef ARDUINO_ARCH_ESP32
         udpSyncConnected = fftUdp.beginMulticast(IPAddress(239, 0, 0, 1), audioSyncPort);
       #else
@@ -1844,7 +1957,18 @@ class AudioReactive : public Usermod {
         return;
       }
       // We cannot wait indefinitely before processing audio data
-      if (strip.isUpdating() && (millis() - lastUMRun < 2)) return;   // be nice, but not too nice
+      if (strip.isServicing() && (millis() - lastUMRun < 2)) return;   // WLEDMM isServicing() is the critical part (be nice, but not too nice)
+
+      // sound sync "receive or local"
+      bool useNetworkAudio = false;
+      if (audioSyncEnabled > AUDIOSYNC_SEND) {  // we are in "receive" or "receive+local" mode
+        if (udpSyncConnected && ((millis() - last_UDPTime) <= AUDIOSYNC_IDLE_MS))
+          useNetworkAudio = true;
+        else
+          useNetworkAudio = false;
+        if (audioSyncEnabled == AUDIOSYNC_REC)
+          useNetworkAudio = true;  // don't fall back to local audio in standard "receive mode"
+      }
 
       // suspend local sound processing when "real time mode" is active (E131, UDP, ADALIGHT, ARTNET)
       if (  (realtimeOverride == REALTIME_OVERRIDE_NONE)  // please add other overrides here if needed
@@ -1855,27 +1979,32 @@ class AudioReactive : public Usermod {
             ||(realtimeMode == REALTIME_MODE_ARTNET) ) )  // please add other modes here if needed
       {
         #ifdef WLED_DEBUG
-        if ((disableSoundProcessing == false) && (audioSyncEnabled == 0)) {  // we just switched to "disabled"
+        if ((disableSoundProcessing == false) && (audioSyncEnabled < AUDIOSYNC_REC)) {  // we just switched to "disabled"
           DEBUG_PRINTLN("[AR userLoop]  realtime mode active - audio processing suspended.");
           DEBUG_PRINTF( "               RealtimeMode = %d; RealtimeOverride = %d\n", int(realtimeMode), int(realtimeOverride));
         }
         #endif
         disableSoundProcessing = true;
+        useNetworkAudio = false;
       } else {
         #if defined(ARDUINO_ARCH_ESP32) && defined(WLED_DEBUG)
-        if ((disableSoundProcessing == true) && (audioSyncEnabled == 0) && audioSource->isInitialized()) {    // we just switched to "enabled"
+        if ((disableSoundProcessing == true) && (audioSyncEnabled < AUDIOSYNC_REC) && audioSource->isInitialized()) {    // we just switched to "enabled"
           DEBUG_PRINTLN("[AR userLoop]  realtime mode ended - audio processing resumed.");
           DEBUG_PRINTF( "               RealtimeMode = %d; RealtimeOverride = %d\n", int(realtimeMode), int(realtimeOverride));
         }
         #endif
-        if ((disableSoundProcessing == true) && (audioSyncEnabled == 0)) lastUMRun = millis();  // just left "realtime mode" - update timekeeping
+        if ((disableSoundProcessing == true) && (audioSyncEnabled < AUDIOSYNC_REC)) lastUMRun = millis();  // just left "realtime mode" - update timekeeping
         disableSoundProcessing = false;
       }
 
-      if (audioSyncEnabled & 0x02) disableSoundProcessing = true;   // make sure everything is disabled IF in audio Receive mode
-      if (audioSyncEnabled & 0x01) disableSoundProcessing = false;  // keep running audio IF we're in audio Transmit mode
+      if (audioSyncEnabled == AUDIOSYNC_REC) disableSoundProcessing = true;   // make sure everything is disabled IF in audio Receive mode
+      if (audioSyncEnabled & AUDIOSYNC_SEND) disableSoundProcessing = false;  // keep running audio IF we're in audio Transmit mode
 #ifdef ARDUINO_ARCH_ESP32
-      if (!audioSource->isInitialized()) disableSoundProcessing = true;  // no audio source
+      if (!audioSource->isInitialized()) {                                                               // no audio source
+        disableSoundProcessing = true;
+        if (audioSyncEnabled > AUDIOSYNC_SEND) useNetworkAudio = true;
+      }
+      if ((audioSyncEnabled == AUDIOSYNC_REC_PLUS) && useNetworkAudio) disableSoundProcessing = true;   // UDP sound receiving - disable local audio
 
       #ifdef SR_DEBUG
       // debug info in case that task stack usage changes
@@ -1888,7 +2017,7 @@ class AudioReactive : public Usermod {
       #endif
 
       // Only run the sampling code IF we're not in Receive mode or realtime mode
-      if (!(audioSyncEnabled & 0x02) && !disableSoundProcessing) {
+      if ((audioSyncEnabled != AUDIOSYNC_REC) && !disableSoundProcessing && !useNetworkAudio) {
         if (soundAgc > AGC_NUM_PRESETS) soundAgc = 0; // make sure that AGC preset is valid (to avoid array bounds violation)
 
         unsigned long t_now = millis();      // remember current time
@@ -1897,9 +2026,9 @@ class AudioReactive : public Usermod {
 
         #if defined(SR_DEBUG)
           // complain when audio userloop has been delayed for long time. Currently we need userloop running between 500 and 1500 times per second.
-          // softhack007 disabled temporarily - avoid serial console spam with MANY leds and low FPS
-          //if ((userloopDelay > /*23*/ 65) && !disableSoundProcessing && (audioSyncEnabled == 0)) {
-            //DEBUG_PRINTF("[AR userLoop] hickup detected -> was inactive for last %d millis!\n", userloopDelay);
+          // softhack007 disabled temporarily - avoid serial console spam with MANY LEDs and low FPS
+          //if ((userloopDelay > /*23*/ 65) && !disableSoundProcessing && (audioSyncEnabled == AUDIOSYNC_NONE)) {
+            //DEBUG_PRINTF("[AR userLoop] hiccup detected -> was inactive for last %d millis!\n", userloopDelay);
           //}
         #endif
 
@@ -1945,27 +2074,33 @@ class AudioReactive : public Usermod {
       connectUDPSoundSync();  // ensure we have a connection - if needed
 
       // UDP Microphone Sync  - receive mode
-      if ((audioSyncEnabled & 0x02) && udpSyncConnected) {
+      if ((audioSyncEnabled & AUDIOSYNC_REC) && udpSyncConnected) {
           // Only run the audio listener code if we're in Receive mode
           static float syncVolumeSmth = 0;
           bool have_new_sample = false;
           if (millis() - lastTime > delayMs) {
             have_new_sample = receiveAudioData();
-            if (have_new_sample) last_UDPTime = millis();
+            if (have_new_sample) {
+              last_UDPTime = millis();
+              useNetworkAudio = true;  // UDP input arrived - use it
+            }
             lastTime = millis();
           } else {
 #ifdef ARDUINO_ARCH_ESP32
             fftUdp.flush(); // WLEDMM: Flush this if we haven't read it. Does not work on 8266.
 #endif
           }
-          if (have_new_sample) syncVolumeSmth = volumeSmth;   // remember received sample
-          else volumeSmth = syncVolumeSmth;                   // restore originally received sample for next run of dynamics limiter
-          limitSampleDynamics();                              // run dynamics limiter on received volumeSmth, to hide jumps and hickups
+          if (useNetworkAudio) {
+            if (have_new_sample) syncVolumeSmth = volumeSmth;   // remember received sample
+            else volumeSmth = syncVolumeSmth;                   // restore originally received sample for next run of dynamics limiter
+            limitSampleDynamics();                              // run dynamics limiter on received volumeSmth, to hide jumps and hickups
+            limitGEQDynamics(have_new_sample);                  // WLEDMM experimental: smooth FFT (GEQ) samples
+          }
       } else {
           receivedFormat = 0;
       }
 
-      if (   (audioSyncEnabled & 0x02) // receive mode
+      if (   (audioSyncEnabled & AUDIOSYNC_REC) // receive mode
           && udpSyncConnected          // connected
           && (receivedFormat > 0)      // we actually received something in the past
           && ((millis() - last_UDPTime) > 25000)) {   // close connection after 25sec idle
@@ -2011,7 +2146,12 @@ class AudioReactive : public Usermod {
 
 #ifdef ARDUINO_ARCH_ESP32
       //UDP Microphone Sync  - transmit mode
-      if ((audioSyncEnabled & 0x01) && (millis() - lastTime > 20)) {
+    #if defined(WLEDMM_FASTPATH)
+      if ((audioSyncEnabled & AUDIOSYNC_SEND) && (haveNewFFTResult || (millis() - lastTime > 24))) {  // fastpath: send data once results are ready, or each 25ms as fallback (max sampling time is 23ms)
+    #else
+      if ((audioSyncEnabled & AUDIOSYNC_SEND) && (millis() - lastTime > 20)) {                        // standard: send data each 20ms
+    #endif
+        haveNewFFTResult = false; // reset notification
         // Only run the transmit code IF we're in Transmit mode
         transmitAudioData();
         lastTime = millis();
@@ -2161,7 +2301,15 @@ class AudioReactive : public Usermod {
       infoArr.add(uiDomString);
 
       if (enabled) {
+        bool audioSyncIDLE = false; // true if sound sync is not receiving
+
 #ifdef ARDUINO_ARCH_ESP32
+        // audio sync status
+        if ((audioSyncEnabled & AUDIOSYNC_REC) && (!udpSyncConnected || (millis() - last_UDPTime > AUDIOSYNC_IDLE_MS))) // connected and nothing received in 2.5sec
+          audioSyncIDLE = true;
+        if ((audioSource == nullptr) || (!audioSource->isInitialized()))                                   // local audio not configured
+          audioSyncIDLE = false;
+
         // Input Level Slider
         if (disableSoundProcessing == false) {                                 // only show slider when audio processing is running
           if (soundAgc > 0) {
@@ -2188,11 +2336,11 @@ class AudioReactive : public Usermod {
         // The following can be used for troubleshooting user errors and is so not enclosed in #ifdef WLED_DEBUG
         // current Audio input
         infoArr = user.createNestedArray(F("Audio Source"));
-        if (audioSyncEnabled & 0x02) {
+        if ((audioSyncEnabled == AUDIOSYNC_REC) || (!audioSyncIDLE && (audioSyncEnabled == AUDIOSYNC_REC_PLUS))){
           // UDP sound sync - receive mode
           infoArr.add(F("UDP sound sync"));
           if (udpSyncConnected) {
-            if (millis() - last_UDPTime < 2500)
+            if (millis() - last_UDPTime < AUDIOSYNC_IDLE_MS)
               infoArr.add(F(" - receiving"));
             else
               infoArr.add(F(" - idle"));
@@ -2207,7 +2355,7 @@ class AudioReactive : public Usermod {
         } else {
           // Analog or I2S digital input
           if (audioSource && (audioSource->isInitialized())) {
-            // audio source sucessfully configured
+            // audio source successfully configured
             if (audioSource->getType() == AudioSource::Type_I2SAdc) {
               infoArr.add(F("ADC analog"));
             } else {
@@ -2240,13 +2388,13 @@ class AudioReactive : public Usermod {
         }
 
         // AGC or manual Gain
-        if ((soundAgc==0) && (disableSoundProcessing == false) && !(audioSyncEnabled & 0x02)) {
+        if ((soundAgc == 0) && (disableSoundProcessing == false) && !(audioSyncEnabled == AUDIOSYNC_REC)) {
           infoArr = user.createNestedArray(F("Manual Gain"));
           float myGain = ((float)sampleGain/40.0f * (float)inputLevel/128.0f) + 1.0f/16.0f;     // non-AGC gain from presets
           infoArr.add(roundf(myGain*100.0f) / 100.0f);
           infoArr.add("x");
         }
-        if (soundAgc && (disableSoundProcessing == false) && !(audioSyncEnabled & 0x02)) {
+        if ((soundAgc > 0) && (disableSoundProcessing == false) && !(audioSyncEnabled == AUDIOSYNC_REC)) {
           infoArr = user.createNestedArray(F("AGC Gain"));
           infoArr.add(roundf(multAgc*100.0f) / 100.0f);
           infoArr.add("x");
@@ -2255,18 +2403,24 @@ class AudioReactive : public Usermod {
         // UDP Sound Sync status
         infoArr = user.createNestedArray(F("UDP Sound Sync"));
         if (audioSyncEnabled) {
-          if (audioSyncEnabled & 0x01) {
+          if (audioSyncEnabled & AUDIOSYNC_SEND) {
             infoArr.add(F("send mode"));
-            if ((udpSyncConnected) && (millis() - lastTime < 2500)) infoArr.add(F(" v2"));
-          } else if (audioSyncEnabled & 0x02) {
+            if ((udpSyncConnected) && (millis() - lastTime < AUDIOSYNC_IDLE_MS)) infoArr.add(F(" v2+"));
+          } else if (audioSyncEnabled == AUDIOSYNC_REC) {
               infoArr.add(F("receive mode"));
+          } else if (audioSyncEnabled == AUDIOSYNC_REC_PLUS) {
+              infoArr.add(F("receive+local mode"));
           }
         } else
           infoArr.add("off");
         if (audioSyncEnabled && !udpSyncConnected) infoArr.add(" <i>(unconnected)</i>");
-        if (audioSyncEnabled && udpSyncConnected && (millis() - last_UDPTime < 2500)) {
+        if (audioSyncEnabled && udpSyncConnected && (millis() - last_UDPTime < AUDIOSYNC_IDLE_MS)) {
             if (receivedFormat == 1) infoArr.add(F(" v1"));
             if (receivedFormat == 2) infoArr.add(F(" v2"));
+            if (receivedFormat == 3) {
+              if (audioSyncSequence) infoArr.add(F(" v2+")); // Sequence checking enabled
+              else infoArr.add(F(" v2"));
+            }
         }
 
         #if defined(WLED_DEBUG) || defined(SR_DEBUG) || defined(SR_STATS)
@@ -2418,6 +2572,7 @@ class AudioReactive : public Usermod {
       JsonObject sync = top.createNestedObject("sync");
       sync[F("port")] = audioSyncPort;
       sync[F("mode")] = audioSyncEnabled;
+      sync[F("check_sequence")] = audioSyncSequence;
     }
 
 
@@ -2486,6 +2641,7 @@ class AudioReactive : public Usermod {
 
       configComplete &= getJsonValue(top["sync"][F("port")], audioSyncPort);
       configComplete &= getJsonValue(top["sync"][F("mode")], audioSyncEnabled);
+      configComplete &= getJsonValue(top["sync"][F("check_sequence")], audioSyncSequence);
 
       return configComplete;
     }
@@ -2548,7 +2704,11 @@ class AudioReactive : public Usermod {
       #else
         oappend(SET_F("addOption(dd,'ES8388 ☾',6);"));
       #endif
-
+      #if SR_DMTYPE==7
+        oappend(SET_F("addOption(dd,'WM8978 ☾ (⎌)',7);"));
+      #else
+        oappend(SET_F("addOption(dd,'WM8978 ☾',7);"));
+      #endif
       #ifdef SR_SQUELCH
         oappend(SET_F("addInfo('AudioReactive:config:squelch',1,'<i>&#9100; ")); oappendi(SR_SQUELCH); oappend("</i>');");  // 0 is field type, 1 is actual field
       #endif
@@ -2652,12 +2812,20 @@ class AudioReactive : public Usermod {
       oappend(SET_F("addInfo('AudioReactive:frequency:profile',1,'☾');"));
 #endif
       oappend(SET_F("dd=addDropdown('AudioReactive','sync:mode');"));
-      oappend(SET_F("addOption(dd,'Off',0);"));
+      oappend(SET_F("addOption(dd,'Off',0);"));               // AUDIOSYNC_NONE
 #ifdef ARDUINO_ARCH_ESP32
-      oappend(SET_F("addOption(dd,'Send',1);"));
+      oappend(SET_F("addOption(dd,'Send',1);"));              // AUDIOSYNC_SEND
 #endif
-      oappend(SET_F("addOption(dd,'Receive',2);"));
-      oappend(SET_F("addInfo('AudioReactive:sync:mode',1,'<br> Sync audio data with other WLEDs');"));
+      oappend(SET_F("addOption(dd,'Receive',2);"));           // AUDIOSYNC_REC
+#ifdef ARDUINO_ARCH_ESP32
+      oappend(SET_F("addOption(dd,'Receive or Local',6);"));  // AUDIOSYNC_REC_PLUS
+#endif
+      // check_sequence: Receiver skips out-of-sequence packets when enabled
+      oappend(SET_F("dd=addDropdown('AudioReactive','sync:check_sequence');"));
+      oappend(SET_F("addOption(dd,'Off',0);"));
+      oappend(SET_F("addOption(dd,'On',1);"));
+
+      oappend(SET_F("addInfo('AudioReactive:sync:check_sequence',1,'<i>when receiving</i> ☾<br> Sync audio data with other WLEDs');"));  // must append this to the last field of 'sync'
 
       oappend(SET_F("addInfo('AudioReactive:digitalmic:type',1,'<i>requires reboot!</i>');"));  // 0 is field type, 1 is actual field
 #ifdef ARDUINO_ARCH_ESP32
@@ -2700,7 +2868,7 @@ class AudioReactive : public Usermod {
         oappend(SET_F("xOpt('AudioReactive:digitalmic:pin[]',5,' ⎌',")); oappendi(ES7243_SCLPIN); oappend(");"); 
       #endif
       oappend(SET_F("dRO('AudioReactive:digitalmic:pin[]',5);")); // disable read only pins
-#endif      
+#endif
     }
 
 

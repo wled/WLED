@@ -30,7 +30,7 @@
 #define USERMOD_SN_PHOTORESISTOR_RESISTOR_VALUE 10000.0f
 #endif
 
-// only report if differance grater than offset value
+// only report if difference grater than offset value
 #ifndef USERMOD_SN_PHOTORESISTOR_OFFSET_VALUE
 #define USERMOD_SN_PHOTORESISTOR_OFFSET_VALUE 5
 #endif

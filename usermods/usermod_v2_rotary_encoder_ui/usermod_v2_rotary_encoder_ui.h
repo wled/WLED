@@ -20,7 +20,7 @@
 // Change between modes by pressing a button.
 //
 // Dependencies
-// * This usermod REQURES the ModeSortUsermod
+// * This usermod REQUIRES the ModeSortUsermod
 // * This Usermod works best coupled with 
 //   FourLineDisplayUsermod.
 //
@@ -113,7 +113,7 @@ public:
       //      tracking the owner tags....
       pinA = pinB = pinC = -1;
       enabled = false;
-      DEBUG_PRINTLN(F("Failed to alocate GPIO pins for Usermod Rotary Encoder."));   //WLEDMM add debug info
+      DEBUG_PRINTLN(F("Failed to allocate GPIO pins for Usermod Rotary Encoder."));   //WLEDMM add debug info
       return;
     }
 

@@ -58,7 +58,7 @@ class MyExampleUsermod : public Usermod {
     long testLong;
     int8_t testPins[2];
 
-    // any private methods should go here (non-inline methosd should be defined out of class)
+    // any private methods should go here (non-inline method should be defined out of class)
     void publishMqtt(const char* state, bool retain = false); // example for publishing MQTT message
 
 

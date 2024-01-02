@@ -1,15 +1,82 @@
-## WLED changelog
+## [WLED upstream](https://github.com/Aircoookie/WLED/tree/0_14_1) changelog
+
+#### Build 2312290
+-   Fix for #3622
+-   NB: fix for #3613 #3609 are not needed in MoonModules fork
+-   Various tweaks and fixes
+
+#### Build 2312230
+-   Fix for #2922 (option to force WiFi PHY mode to G on ESP8266)
+-   Fix for #3601, #3400 (incorrect sunrise/sunset, #3612 by @softhack007)
+
+#### Build 2312180
+-   Bugfixes (#3593, #3490, #3573, #3517, #3561, #3555, #3541, #3536, #3522, #3533, #3508)
+
+#### Build 2311160
+-   Bugfixes (#3496, #3487)
+-   New usermod: LDR sensor (#3490 by @JeffWDH)
+-   Effect: Twinklefox & Tinklecat metadata fix
+-   Effect: separate #HH and #MM for Scrolling Text (#3480)
+
+#### Build 2310010, build 2310130
+-   Bugfixes for #3400, #3403, #3405
+-   minor HTML optimizations
+-   audioreactive: bugfix for UDP sound sync (partly initialized packets)
+
+#### Build 2309240
+-   Effect bugfixes and improvements (Meteor, Meteor Smooth, Scrolling Text)
+-   audioreactive: bugfixes for ES8388 and ES7243 init; minor improvements for analog inputs
+
+#### Build 2309050
+-   Added receive and send sync groups to JSON API (#3317) (you can change sync groups using preset)
+-   Internal temperature usermod (#3246)
+-   New effect: Rolling Balls (a.k.a. linear bounce) (#1039)
+-   Various bug fixes and enhancements.
+
+#### Build 2308030
+-   Fix ESP-NOW crash with AP mode Always
+
+#### Build 2307180
+-   various fixes and improvements (ESP variants platform 5.3.0, effect optimizations, /json/cfg pin allocation)
+
+#### Build 2307130
+-   larger `oappend()` stack buffer (3.5k) for ESP32
+-   Preset cycle bugfix (#3262)
+-   effect updates (2D Plasmaball), `blur()` speedup
+-   On/Off toggle from nodes view (may show unknown device type on older versions) (#3291)
+-   various fixes and improvements (ABL, crashes when changing presets with different segments)
+
+#### Build 2306270
+-   ESP-NOW remote support (#3237)
+-   Pixel Magic tool (display pixel art) (#3249)
+-   Add WiFi network scan RPC command to Improv Serial (#3271)
+-   various fixes and improvements
+
+#### Build 2306210
+-   0.14.0-b3 release
+-   Multi relay usermod compile-time enabled option (-D MULTI_RELAY_ENABLED=true|false)
+
+#### Build 2306180
+-   Added client-side option for applying effect defaults from metadata
+-   Improved ESP8266 stability by reducing WebSocket response resends
+-   Updated ESP8266 core to 3.1.2
+
+#### Build 2306141
+-   Lissajous improvements
+-   Scrolling Text improvements (leading 0)
+
+#### Build 2306140
+-   Add settings PIN (un)locking to JSON post API
 
 #### Build 2306020
 
 -   Support for segment sets (PR #3171)
--   Reduce sound simulation modes to 2 to facilitiate segment sets
+-   Reduce sound simulation modes to 2 to facilitate segment sets
 -   Trigger button immediately on press if all configured presets are the same (PR #3226)
 -   Changes for allowing Alexa to change light color to White when auto-calculating from RGB (PR #3211)
 
 #### Build 2305280
 -   DDP protocol update (#3193)
--   added PCF8574 I2C port expander support for Multi relay usermod
 -   MQTT multipacket (fragmented) message fix
 -   added option to retain MQTT brightness and color messages
 -   new ethernet board: @srg74 Ethernet Shield
@@ -340,7 +407,7 @@
 
 -   Added application level pong websockets reply (#2139)
 -   Use AsyncTCP 1.0.3 as it mitigates the flickering issue from 0.13.0-b2
--   Fixed transition manually updated in preset overriden by field value
+-   Fixed transition manually updated in preset overridden by field value
 
 #### Build 2108050
 
@@ -684,7 +751,7 @@
 #### Build 2101040
 
 -   Replaced Red & Blue effect with Aurora effect (PR #1589)
--   Fixed HTTP changing segments uncommanded (#1618)
+-   Fixed HTTP changing segments un-commanded (#1618)
 -   Updated copyright year and contributor page link
 
 #### Build 2012311
@@ -869,7 +936,7 @@
 
 #### Build 2011040
 
--   Inversed Rain direction (fixes #1147)
+-   Inverted Rain direction (fixes #1147)
 
 #### Build 2011010
 
@@ -1080,7 +1147,7 @@
 
 -   Added module info page to web UI
 -   Added realtime override functionality to web UI
--   Added individial segment power and brightness to web UI
+-   Added individual segment power and brightness to web UI
 -   Added feature to one-click select single segment only by tapping segment name
 -   Removed palette jumping to default if color is changed
 

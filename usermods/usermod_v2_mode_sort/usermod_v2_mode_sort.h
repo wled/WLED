@@ -59,7 +59,7 @@ int re_qstringCmp(const void *ap, const void *bp) {
             // Lowercase
             bVal -= 32;
         }
-        // Relly we shouldn't ever get to '\0'
+        // Really we shouldn't ever get to '\0'
         if (aVal == '"' || bVal == '"' || aVal == '\0' || bVal == '\0') {
             // We're done. one is a substring of the other
             // or something happenend and the quote didn't stop us.

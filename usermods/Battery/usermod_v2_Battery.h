@@ -118,7 +118,7 @@ class UsermodBattery : public Usermod
     {
       #ifdef ARDUINO_ARCH_ESP32
         if ((batteryPin <0) || !pinManager.isPinAnalog(batteryPin)) return(-1.0f);  // WLEDMM avoid reading from invalid pin
-        // use calibrated millivolts analogread on esp32 (150 mV ~ 2450 mV default attentuation) and divide by 1000 to get from milivolts to volts and multiply by voltage multiplier and apply calibration value
+        // use calibrated millivolts analogread on esp32 (150 mV ~ 2450 mV default attenuation) and divide by 1000 to get from milliVolts to volts and multiply by voltage multiplier and apply calibration value
         return (analogReadMilliVolts(batteryPin) / 1000.0f) * voltageMultiplier  + calibration;
       #else
         // use analog read on esp8266 ( 0V ~ 1V no attenuation options) and divide by ADC precision 1023 and multiply by voltage multiplier and apply calibration value
@@ -216,7 +216,7 @@ class UsermodBattery : public Usermod
       */
       #ifdef USERMOD_BATTERY_USE_LIPO
         batteryLevel = mapf(voltage, minBatteryVoltage, maxBatteryVoltage, 0, 100); // basic mapping
-        // LiPo batteries have a differnt dischargin curve, see 
+        // LiPo batteries have a different dischargin curve, see 
         //  https://blog.ampow.com/lipo-voltage-chart/
         if (batteryLevel < 40.0f) 
           batteryLevel = mapf(batteryLevel, 0, 40, 0, 12);       // last 45% -> drops very quickly
@@ -413,7 +413,7 @@ class UsermodBattery : public Usermod
       oappend(SET_F("addInfo('Battery:indicator:threshold', 1, '%');"));
       oappend(SET_F("addInfo('Battery:indicator:duration', 1, 's');"));
       
-      // cannot quite get this mf to work. its exeeding some buffer limit i think
+      // cannot quite get this mf to work. its exceeding some buffer limit i think
       // what i wanted is a list of all presets to select one from
       // oappend(SET_F("bd=addDropdown('Battery:low-power-indicator', 'preset');"));
       // the loop generates: oappend(SET_F("addOption(bd, 'preset name', preset id);"));
@@ -612,7 +612,7 @@ class UsermodBattery : public Usermod
 
 
     /*
-     * Get the capacity of all cells in parralel sumed up
+     * Get the capacity of all cells in parallel summed up
      * unit: mAh
      */
     unsigned int getTotalBatteryCapacity()
@@ -788,7 +788,7 @@ class UsermodBattery : public Usermod
 
 
     /*
-     * Get low-power-indicator status when the indication is done thsi returns true
+     * Get low-power-indicator status when the indication is done this returns true
      */
     bool getLowPowerIndicatorDone()
     {

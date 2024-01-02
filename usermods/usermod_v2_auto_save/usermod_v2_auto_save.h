@@ -109,7 +109,7 @@ class AutoSaveUsermod : public Usermod {
     // network here
     void setup() {
       #ifdef USERMOD_FOUR_LINE_DISPLAY    
-      // This Usermod has enhanced funcionality if
+      // This Usermod has enhanced functionality if
       // FourLineDisplayUsermod is available.
       display = (FourLineDisplayUsermod*) usermods.lookup(USERMOD_ID_FOUR_LINE_DISP);
       #endif
@@ -156,7 +156,7 @@ class AutoSaveUsermod : public Usermod {
 
       if (autoSaveAfter && now > autoSaveAfter) {
         autoSaveAfter = 0;
-        // Time to auto save. You may have some flickry?
+        // Time to auto save. You may have some flickery?
         saveSettings();
         displayOverlay();
       }

@@ -11,7 +11,7 @@
 // for WLED.
 //
 // Dependencies
-// * This usermod REQURES the ModeSortUsermod
+// * This usermod REQUIRES the ModeSortUsermod
 // * This Usermod works best, by far, when coupled 
 //   with RotaryEncoderUIUsermod.
 //
@@ -398,7 +398,7 @@ class FourLineDisplayUsermod : public Usermod {
         drawString(getCols() - 1, 0, "~");
       }
 
-      // Second row with IP or Psssword
+      // Second row with IP or Password
       drawGlyph(0, lineHeight, 68, u8x8_font_open_iconic_embedded_1x1); // wifi icon
       // Print password in AP mode and if led is OFF.
       if (apActive && bri == 0) {

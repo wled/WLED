@@ -624,7 +624,12 @@ button {
 	width: 100%;
 }
 
-#info td, #nodes td {
+/*WLEDMM split info and nodes table font attributes*/
+#info td {
+	padding-bottom: 8px;
+}
+#nodes td {
+	font-size: 12px; /*WLEDMM small table cells (nodes popup) */
   padding-bottom: 8px;
 }
 
@@ -1043,6 +1048,8 @@ textarea {
 .sbs {
 	padding: 1px 0 1px 20px;
 	display: var(--sgp);
+	width: 100%;
+	position: relative;
 }
 
 .pname {

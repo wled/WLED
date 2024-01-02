@@ -9,7 +9,7 @@ The luminance is displayed in both the Info section of the web UI, as well as pu
   - This must be added under `lib_deps` in your `platformio.ini` (or `platformio_override.ini`).
 - Data is published over MQTT - make sure you've enabled the MQTT sync interface.
 
-## Compiliation
+## Compilation
 
 To enable, compile with `USERMOD_BH1750` defined  (e.g. in `platformio_override.ini`)
 ```ini

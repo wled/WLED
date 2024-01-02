@@ -7,7 +7,7 @@
 
 // #define WEATHER_DEBUG
 
-//declare weathermod global variables (always precede with weather_ (psuedo class static variables)
+//declare weathermod global variables (always precede with weather_ (pseudo class static variables)
 static uint32_t usermods_pushLoop = 0; //effect pushes loop to execute. might be interesting for audioreactive too
 static uint8_t  weather_units = 1; //config var metric (celsius) is default. (Standard=Kelvin, Imperial is Fahrenheit)
 static float    weather_minTemp = 0; //config var
@@ -159,7 +159,7 @@ class WeatherUsermod : public Usermod {
     }
 
     void loop() {
-      // return if no location  or no api key (reset lastTume to force loop)
+      // return if no location  or no api key (reset lastTime to force loop)
       if (fabs(latitude) < 0.00001 && fabs(latitude) < 0.00001) {strcpy(errorMessage, PSTR("No location")); lastTime = 0; return;}
       if (strcmp(apiKey.c_str(), "") == 0) {strcpy(errorMessage, PSTR("No api key")); lastTime = 0; return;}
 
@@ -181,12 +181,12 @@ class WeatherUsermod : public Usermod {
         if (strcmp(errorMessage, "") == 0) {
 
           // https://arduinojson.org/v6/how-to/deserialize-a-very-large-document/
-          StaticJsonDocument<256> filter; //in practive about 128
+          StaticJsonDocument<256> filter; //in practice about 128
           filter["list"][0]["dt"] = true;
           filter["list"][0]["main"]["temp"] = true;
           filter["city"]["name"] = true;
           filter["city"]["country"] = true;
-          PSRAMDynamicJsonDocument weatherDoc(4096); //in practive about 2673
+          PSRAMDynamicJsonDocument weatherDoc(4096); //in practice about 2673
 
           // Parse JSON object
           DeserializationError error = deserializeJson(weatherDoc, client, DeserializationOption::Filter(filter));
@@ -206,7 +206,7 @@ class WeatherUsermod : public Usermod {
             JsonObject weatherDocObject = weatherDoc.as<JsonObject>();
             JsonArray list = weatherDocObject[F("list")];
             JsonObject city = weatherDocObject["city"];
-            strcat(errorMessage, city["name"]); //api succesfull
+            strcat(errorMessage, city["name"]); //api successful
             strcat(errorMessage, city["country"]);
 
             uint8_t i = 0;
@@ -319,10 +319,10 @@ class WeatherUsermod : public Usermod {
 
       oappend(SET_F("dd=addDropdown('Weather','units');"));
       oappend(SET_F("addOption(dd,'Kelvin',0);"));
-      oappend(SET_F("addOption(dd,'Celcius',1);"));
+      oappend(SET_F("addOption(dd,'Celsius',1);"));
       oappend(SET_F("addOption(dd,'Fahrenheit',2);"));
       oappend(SET_F("addInfo('Weather:units',1,'<i>Set time and location in time settings</i>');"));
-      oappend(SET_F("addInfo('Weather:apiKey',1,'<i>Create acount on openweathermap.org and copy the key</i>');"));
+      oappend(SET_F("addInfo('Weather:apiKey',1,'<i>Create account on openweathermap.org and copy the key</i>');"));
       oappend(SET_F("addInfo('Weather:minTemp',1,'<i>Changing values: Reboot to (re)load forecast</i>');"));
     }
 

@@ -45,7 +45,7 @@ void notify(byte callMode, bool followUp)
   //3: supports FX intensity, 24 byte packet 4: supports transitionDelay 5: sup palette
   //6: supports timebase syncing, 29 byte packet 7: supports tertiary color 8: supports sys time sync, 36 byte packet
   //9: supports sync groups, 37 byte packet 10: supports CCT, 39 byte packet 11: per segment options, variable packet length (40+MAX_NUM_SEGMENTS*3)
-  //12: enhanced effct sliders, 2D & mapping options
+  //12: enhanced effect sliders, 2D & mapping options
   udpOut[11] = 12;
   col = mainseg.colors[1];
   udpOut[12] = R(col);
@@ -365,7 +365,7 @@ void handleNotifications()
 
     //apply colors from notification to main segment, only if not syncing full segments
     if ((receiveNotificationColor || !someSel) && (version < 11 || !receiveSegmentOptions)) {
-      // primary color, only apply white if intented (version > 0)
+      // primary color, only apply white if intended (version > 0)
       strip.setColor(0, RGBW32(udpIn[3], udpIn[4], udpIn[5], (version > 0) ? udpIn[10] : 0));
       if (version > 1) {
         strip.setColor(1, RGBW32(udpIn[12], udpIn[13], udpIn[14], udpIn[15])); // secondary color
@@ -422,8 +422,9 @@ void handleNotifications()
           }
           if (version > 11) {
             // when applying synced options ignore selected as it may be used as indicator of which segments to sync
-            // freeze, reset & transitional should never be synced
-            selseg.options = (selseg.options & 0x0071U) | (udpIn[28+ofs]<<8) | (udpIn[9 +ofs] & 0x8E); // ignore selected, freeze, reset & transitional
+            // freeze, reset should never be synced
+            // LSB to MSB: select, reverse, on, mirror, freeze, reset, reverse_y, mirror_y, transpose, map1d2d (3), ssim (2), set (2)
+            selseg.options = (selseg.options & 0b0000000000110001U) | (udpIn[28+ofs]<<8) | (udpIn[9 +ofs] & 0b11001110U); // ignore selected, freeze, reset
             if (applyEffects) {
               selseg.custom1 = udpIn[29+ofs];
               selseg.custom2 = udpIn[30+ofs];

@@ -2,6 +2,9 @@
 
 #include "wled.h"
 
+// constants
+#define MCUT_READ_TIME_MS 7500  // read once in 7.5 seconds
+
 // class name. Use something descriptive and leave the ": public Usermod" part :)
 class mcuTemp : public Usermod
 {
@@ -9,7 +12,7 @@ class mcuTemp : public Usermod
 private:
   float mcutemp = 0;
 
-  // any private methods should go here (non-inline methosd should be defined out of class)
+  // any private methods should go here (non-inline method should be defined out of class)
   void publishMqtt(const char *state, bool retain = false); // example for publishing MQTT message
 
 public:
@@ -25,10 +28,13 @@ public:
 
   void loop()
   {
+    static unsigned long lastMQQTTime = 0;
     // if usermod is disabled or called during strip updating just exit
     // NOTE: on very long strips strip.isUpdating() may always return true so update accordingly
-    if (!enabled || strip.isUpdating())
+    if (!enabled || (strip.isUpdating() && (millis() - lastTime < MCUT_READ_TIME_MS)))
       return;
+
+    if (millis() - lastTime < MCUT_READ_TIME_MS) return;  // reading each 8 seconds should be enough
 
 #ifdef ESP8266 // ESP8266
     // does not seem possible
@@ -36,16 +42,20 @@ public:
 #elif defined(CONFIG_IDF_TARGET_ESP32S2) // ESP32S2
     mcutemp = -1;
 #else                                    // ESP32 ESP32S3 and ESP32C3
-    mcutemp = roundf(temperatureRead() * 100) / 100;
+    float newmcutemp = roundf(temperatureRead() * 10) / 10;
+    if (abs(newmcutemp - 53.3f) > 0.05f) mcutemp = (mcutemp + 2.0f * newmcutemp) / 3.0f;  // skip error value (128 => 53.3deg), apply some filtering
 #endif
 
-    if (millis() - lastTime > 10000)
+#ifndef WLED_DISABLE_MQTT
+    if (millis() - lastMQQTTime > 15000)
     {
       char array[10];
-      snprintf(array, sizeof(array), "%f", mcutemp);
+      snprintf(array, sizeof(array), "%3.1f", mcutemp);
       publishMqtt(array);
-      lastTime = millis();
+      lastMQQTTime = millis();
     }
+#endif
+    lastTime = millis();
   }
   /*
    * addToJsonInfo() can be used to add custom entries to the /json/info part of the JSON API.
@@ -61,8 +71,9 @@ public:
 
     // this code adds "u":{"ExampleUsermod":[20," lux"]} to the info object
     // int reading = 20;
+    if (!enabled) return;
     JsonArray lightArr = user.createNestedArray(FPSTR(_name)); // name
-    lightArr.add(mcutemp);                                     // value
+    lightArr.add(roundf(10.0f * mcutemp)/10.0f);               // value, rounded to 1 decimal
     lightArr.add(F(" °C"));                                    // unit
 
     // if you are implementing a sensor usermod, you may publish sensor data
@@ -72,7 +83,7 @@ public:
     // temp.add(reading);
     // temp.add(F("lux"));
   }
-
+/*
   void addToJsonState(JsonObject &root)
   {
   }
@@ -96,7 +107,7 @@ public:
   void handleOverlayDraw()
   {
   }
-
+*/
   /*
    * getId() allows you to optionally give your V2 usermod an unique ID (please define it in const.h!).
    * This could be used in the future for the system to determine whether your usermod is installed.

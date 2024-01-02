@@ -193,6 +193,9 @@
 #include "../usermods/pwm_outputs/usermod_pwm_outputs.h"
 #endif
 
+#ifdef USERMOD_LDR_DUSK_DAWN
+#include "../usermods/LDR_Dusk_Dawn_v2/usermod_LDR_Dusk_Dawn_v2.h"
+#endif
 
 //WLEDMM ARTIFX
 #ifdef USERMOD_ARTIFX
@@ -222,7 +225,7 @@ void registerUsermods()
    */
   //usermods.add(new MyExampleUsermod());
 #ifdef USERMOD_BATTERY
-  usermods.add(new UsermodBattery("Battery", true));
+  usermods.add(new UsermodBattery("Battery", false));  // WLEDMM
 #endif
 
 #ifdef USERMOD_DALLASTEMPERATURE
@@ -290,7 +293,7 @@ void registerUsermods()
 #endif
 
 #ifdef USERMOD_RTC
-  usermods.add(new RTCUsermod("RTC", true));
+  usermods.add(new RTCUsermod("RTC", false));  //WLEDMM
 #endif
 
 #ifdef USERMOD_ELEKSTUBE_IPS
@@ -382,8 +385,17 @@ void registerUsermods()
 #endif
 
 #ifdef USERMOD_MCUTEMP
-  usermods.add(new mcuTemp("MCUTemp", true));
+  usermods.add(new mcuTemp("MCUTemp", false));
 #endif
+
+//#ifdef USERMOD_INTERNAL_TEMPERATURE
+//  usermods.add(new InternalTemperatureUsermod());
+//#endif
+
+#ifdef USERMOD_LDR_DUSK_DAWN
+  usermods.add(new LDR_Dusk_Dawn_v2());
+#endif
+
 
 // WLEDMM ARTIFX
 #ifdef USERMOD_ARTIFX
@@ -405,4 +417,5 @@ void registerUsermods()
 #ifdef USERMOD_ANIMARTRIX
   usermods.add(new AnimartrixUsermod("Animartrix", false));
 #endif
+
 }

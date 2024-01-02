@@ -293,7 +293,7 @@ void handleNightlight()
 }
 
 //utility for FastLED to use our custom timer
-uint32_t __attribute__((pure)) get_millisecond_timer() // WLEDMM attribute pure = does not write other momory
+uint32_t __attribute__((pure)) get_millisecond_timer() // WLEDMM attribute pure = does not write other memory
 {
   return strip.now;
 }

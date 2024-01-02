@@ -83,7 +83,7 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
 
   noWifiSleep = doc[F("wifi")][F("sleep")] | !noWifiSleep; // inverted
   noWifiSleep = !noWifiSleep;
-  //int wifi_phy = doc[F("wifi")][F("phy")]; //force phy mode n?
+  force802_3g = doc[F("wifi")][F("phy")] | force802_3g; //force phy mode g?
 
   JsonObject hw = doc[F("hw")];
 
@@ -103,10 +103,9 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
   }
 #endif
 
-  uint8_t autoWhiteMode = RGBW_MODE_MANUAL_ONLY;
   CJSON(strip.ablMilliampsMax, hw_led[F("maxpwr")]);
   CJSON(strip.milliampsPerLed, hw_led[F("ledma")]);
-  Bus::setGlobalAWMode(hw_led[F("rgbwm")] | 255);
+  Bus::setGlobalAWMode(hw_led[F("rgbwm")] | AW_GLOBAL_DISABLED);
   CJSON(correctWB, hw_led["cct"]);
   CJSON(cctFromRgb, hw_led[F("cr")]);
   CJSON(strip.cctBlending, hw_led[F("cb")]);
@@ -185,7 +184,7 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
       }
 
       uint16_t length = elm["len"] | 1;
-      uint8_t colorOrder = (int)elm[F("order")];
+      uint8_t colorOrder = (int)elm[F("order")]; // contains white channel swap option in upper nibble
       uint8_t skipFirst = elm[F("skip")];
       uint16_t start = elm["start"] | 0;
       if (length==0 || start + length > MAX_LEDS) continue; // zero length or we reached max. number of LEDs, just stop
@@ -194,7 +193,7 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
       bool refresh = elm["ref"] | false;
       uint16_t freqkHz = elm[F("freq")] | 0;  // will be in kHz for DotStar and Hz for PWM (not yet implemented fully)
       ledType |= refresh << 7; // hack bit 7 to indicate strip requires off refresh
-      uint8_t AWmode = elm[F("rgbwm")] | autoWhiteMode;
+      uint8_t AWmode = elm[F("rgbwm")] | RGBW_MODE_MANUAL_ONLY;
       if (fromFS) {
         BusConfig bc = BusConfig(ledType, pins, start, length, colorOrder, reversed, skipFirst, AWmode, freqkHz);
         mem += BusManager::memUsage(bc);
@@ -338,7 +337,7 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
   PinManagerPinType i2c[2] = { { i2c_sda, true }, { i2c_scl, true } };
   if (i2c_scl >= 0 && i2c_sda >= 0 && pinManager.allocateMultiplePins(i2c, 2, PinOwner::HW_I2C)) {
     #ifdef ESP32
-    Wire.setPins(i2c_sda, i2c_scl); // this will fail if Wire is initilised (Wire.begin() called prior)
+    Wire.setPins(i2c_sda, i2c_scl); // this will fail if Wire is initialised (Wire.begin() called prior)
     #endif
     // Wire.begin(); // WLEDMM moved into pinManager
     DEBUG_PRINTF("pinmgr success for global i2c %d %d\n", i2c_sda, i2c_scl);
@@ -364,44 +363,48 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
   //int hw_status_pin = hw[F("status")]["pin"]; // -1
 
   JsonObject light = doc[F("light")];
-  CJSON(briMultiplier, light[F("scale-bri")]);
-  CJSON(strip.paletteBlend, light[F("pal-mode")]);
-  CJSON(autoSegments, light[F("aseg")]);
+  byte prev; //WLEDMM
+  int tdd; //WLEDMM
+  if (!light.isNull()) { //WLEDMM: in case cfg string does not contain light! (solves issue that sometimes gamma correction dissappears)
+    CJSON(briMultiplier, light[F("scale-bri")]);
+    CJSON(strip.paletteBlend, light[F("pal-mode")]);
+    CJSON(autoSegments, light[F("aseg")]);
 
-  CJSON(gammaCorrectVal, light["gc"]["val"]); // default 2.8
-  float light_gc_bri = light["gc"]["bri"];
-  float light_gc_col = light["gc"]["col"];
-  float light_gc_prev = light["gc"]["prev"];  // WLEDMM
-  if (light_gc_bri > 1.0f) gammaCorrectBri = true;
-  else                     gammaCorrectBri = false;
-  if (light_gc_col > 1.0f) gammaCorrectCol = true;
-  else                     gammaCorrectCol = false;
-  if (light_gc_prev > 1.0f) gammaCorrectPreview = true;  // WLEDMM
-  else                      gammaCorrectPreview = false; // WLEDMM
-  if (gammaCorrectVal > 1.0f && gammaCorrectVal <= 3) {
-    if (gammaCorrectVal != 2.8f) calcGammaTable(gammaCorrectVal);
-  } else {
-    gammaCorrectVal = 1.0f; // no gamma correction
-    gammaCorrectBri = false;
-    gammaCorrectCol = false;
-    gammaCorrectPreview = false; // WLEDMM
+    CJSON(gammaCorrectVal, light["gc"]["val"]); // default 2.8
+    float light_gc_bri = light["gc"]["bri"];
+    float light_gc_col = light["gc"]["col"];
+    float light_gc_prev = light["gc"]["prev"];  // WLEDMM
+    if (light_gc_bri > 1.0f) gammaCorrectBri = true;
+    else                     gammaCorrectBri = false;
+    if (light_gc_col > 1.0f) gammaCorrectCol = true;
+    else                     gammaCorrectCol = false;
+    if (light_gc_prev > 1.0f) gammaCorrectPreview = true;  // WLEDMM
+    else                      gammaCorrectPreview = false; // WLEDMM
+    if (gammaCorrectVal > 1.0f && gammaCorrectVal <= 3) {
+      if (gammaCorrectVal != 2.8f) calcGammaTable(gammaCorrectVal);
+    } else {
+      gammaCorrectVal = 1.0f; // no gamma correction
+      gammaCorrectBri = false;
+      gammaCorrectCol = false;
+      gammaCorrectPreview = false; // WLEDMM
+    }
+
+    JsonObject light_tr = light["tr"];
+    CJSON(fadeTransition, light_tr["mode"]);
+    tdd = light_tr["dur"] | -1;
+    if (tdd >= 0) transitionDelay = transitionDelayDefault = tdd * 100;
+    CJSON(strip.paletteFade, light_tr["pal"]);
+    CJSON(randomPaletteChangeTime, light_tr[F("rpc")]);
+
+    JsonObject light_nl = light["nl"];
+    CJSON(nightlightMode, light_nl["mode"]);
+    prev = nightlightDelayMinsDefault;
+    CJSON(nightlightDelayMinsDefault, light_nl["dur"]);
+    if (nightlightDelayMinsDefault != prev) nightlightDelayMins = nightlightDelayMinsDefault;
+
+    CJSON(nightlightTargetBri, light_nl[F("tbri")]);
+    CJSON(macroNl, light_nl["macro"]);
   }
-
-  JsonObject light_tr = light["tr"];
-  CJSON(fadeTransition, light_tr["mode"]);
-  int tdd = light_tr["dur"] | -1;
-  if (tdd >= 0) transitionDelay = transitionDelayDefault = tdd * 100;
-  CJSON(strip.paletteFade, light_tr["pal"]);
-  CJSON(randomPaletteChangeTime, light_tr[F("rpc")]);
-
-  JsonObject light_nl = light["nl"];
-  CJSON(nightlightMode, light_nl["mode"]);
-  byte prev = nightlightDelayMinsDefault;
-  CJSON(nightlightDelayMinsDefault, light_nl["dur"]);
-  if (nightlightDelayMinsDefault != prev) nightlightDelayMins = nightlightDelayMinsDefault;
-
-  CJSON(nightlightTargetBri, light_nl[F("tbri")]);
-  CJSON(macroNl, light_nl["macro"]);
 
   JsonObject def = doc["def"];
   CJSON(bootPreset, def["ps"]);
@@ -732,7 +735,7 @@ void serializeConfig() {
 
   JsonObject wifi = doc.createNestedObject("wifi");
   wifi[F("sleep")] = !noWifiSleep;
-  //wifi[F("phy")] = 1;
+  wifi[F("phy")] = (int)force802_3g;
 
   #ifdef WLED_USE_ETHERNET
   JsonObject ethernet = doc.createNestedObject("eth");
@@ -785,6 +788,11 @@ void serializeConfig() {
     matrix[F("pr")] = strip.matrix.rightStart;
     matrix[F("pv")] = strip.matrix.vertical;
     matrix["ps"] = strip.matrix.serpentine;
+
+    matrix[F("pbl")] = strip.panelO.bottomStart;
+    matrix[F("prl")] = strip.panelO.rightStart;
+    matrix[F("pvl")] = strip.panelO.vertical;
+    matrix["psl"] = strip.panelO.serpentine;
 
     JsonArray panels = matrix.createNestedArray(F("panels"));
     for (uint8_t i=0; i<strip.panel.size(); i++) {

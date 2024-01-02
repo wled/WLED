@@ -4,7 +4,7 @@
  * Adalight and TPM2 handler
  */
 
-#define SERIAL_MAXTIME_MILLIS 100 // to avoid blocking other activities, do not spend more than 100ms with continouus reading
+#define SERIAL_MAXTIME_MILLIS 100 // to avoid blocking other activities, do not spend more than 100ms with continuous reading
 // at 115200 baud, 100ms is enough to send/receive 1280 chars
 
 enum class AdaState {

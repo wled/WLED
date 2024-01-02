@@ -470,14 +470,14 @@ public:
 
     if (mqttGroupTopic[0] != 0)
     {
-      //subcribe for sevenseg messages on the group topic
+      //subscribe for sevenseg messages on the group topic
       sprintf_P(subBuffer, PSTR("%s/%S/+/set"), mqttGroupTopic, _str_name);
       mqtt->subscribe(subBuffer, 2);
     }
   }
 
   bool onMqttMessage(char *topic, char *payload) {
-    //If topic beings iwth sevenSeg cut it off, otherwise not our message.
+    //If topic begins with sevenSeg cut it off, otherwise not our message.
     size_t topicPrefixLen = strlen_P(PSTR("/wledSS/"));
     if (strncmp_P(topic, PSTR("/wledSS/"), topicPrefixLen) == 0) {
       topic += topicPrefixLen;

@@ -75,7 +75,7 @@ class PWMFanUsermod : public Usermod {
       pinMode(tachoPin, INPUT);
       digitalWrite(tachoPin, HIGH);
       attachInterrupt(digitalPinToInterrupt(tachoPin), rpm_fan, FALLING);
-      DEBUG_PRINTLN(F("Tacho sucessfully initialized."));
+      DEBUG_PRINTLN(F("Tacho successfully initialized."));
     }
 
     void deinitTacho(void) {
@@ -118,12 +118,12 @@ class PWMFanUsermod : public Usermod {
       if (pwmChannel == 255) { //no more free LEDC channels
         deinitPWMfan(); return;
       }
-      // configure LED PWM functionalitites
+      // configure LED PWM functionalities
       ledcSetup(pwmChannel, 25000, 8);
       // attach the channel to the GPIO to be controlled
       ledcAttachPin(pwmPin, pwmChannel);
       #endif
-      DEBUG_PRINTLN(F("Fan PWM sucessfully initialized."));
+      DEBUG_PRINTLN(F("Fan PWM successfully initialized."));
     }
 
     void deinitPWMfan(void) {

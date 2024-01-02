@@ -9,7 +9,7 @@
 
 #pragma once
 
-// For testing porposes, definitions should not only run on Arduino but also on Windows etc. 
+// For testing purposes, definitions should not only run on Arduino but also on Windows etc. 
 // Because compiling on arduino takes seriously more time than on Windows.
 // The plugin.h files replace native arduino calls by windows simulated calls (e.g. setPixelColor will become printf)
 
@@ -185,7 +185,7 @@ float ARTI::arti_external_function(uint8_t function, float par1, float par2, flo
 
         float halfLength = (circleLength-1)/2.0;
 
-        //calculate circle positions, round to 5 digits and then round again to cater for radians inprecision (e.g. 3.49->3.5->4)
+        //calculate circle positions, round to 5 digits and then round again to cater for radians imprecision (e.g. 3.49->3.5->4)
         int x = round(round((sin(radians(par1)) * halfLength + halfLength) * 10)/10) + deltaWidth;
         int y = round(round((halfLength - cos(radians(par1)) * halfLength) * 10)/10) + deltaHeight;
         return SEGMENT.XY(x,y);

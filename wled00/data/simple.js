@@ -965,7 +965,7 @@ function readState(s,command=false)
 		  errstr = "Missing IR.json.";
 		  break;
 		case 19:
-		  errstr = "A filesystem error has occured.";
+		  errstr = "A filesystem error has occurred.";
 		  break;
 		}
 	  showToast('Error ' + s.error + ": " + errstr, true);

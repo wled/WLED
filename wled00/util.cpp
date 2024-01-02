@@ -148,11 +148,14 @@ bool oappendi(int i)
 bool oappend(const char* txt)
 {
   uint16_t len = strlen(txt);
-  if (olen + len >= SETTINGS_STACK_BUF_SIZE) {
-    USER_PRINT(F("oappend() error: buffer full. Increase SETTINGS_STACK_BUF_SIZE for "));
-    USER_PRINTF("%2u bytes \t\"", len /*1 + olen + len - SETTINGS_STACK_BUF_SIZE*/);
-    USER_PRINT(txt);
-    USER_PRINTLN(F("\""));
+  if ((obuf == nullptr) || (olen + len >= SETTINGS_STACK_BUF_SIZE)) { // sanity checks
+	  if (obuf == nullptr) { USER_PRINTLN(F("oappend() error: obuf == nullptr."));
+	  } else {
+	    USER_PRINT(F("oappend() error: buffer full. Increase SETTINGS_STACK_BUF_SIZE for "));
+      USER_PRINTF("%2u bytes \t\"", len /*1 + olen + len - SETTINGS_STACK_BUF_SIZE*/);
+      USER_PRINT(txt);
+      USER_PRINTLN(F("\""));
+	  }
     return false;        // buffer full
   }
   strcpy(obuf + olen, txt);
@@ -231,7 +234,7 @@ void releaseJSONBufferLock()
 
 
 // extracts effect mode (or palette) name from names serialized string
-// caller must provide large enough buffer for name (incluing SR extensions)!
+// caller must provide large enough buffer for name (including SR extensions)!
 uint8_t extractModeName(uint8_t mode, const char *src, char *dest, uint8_t maxLen)
 {
   if (src == JSON_mode_names || src == nullptr) {

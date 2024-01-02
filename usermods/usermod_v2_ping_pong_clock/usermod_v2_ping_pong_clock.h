@@ -18,15 +18,15 @@ private:
 
   // ---- Variables for correct LED numbering below, edit only if your clock is built different ----
 
-  int baseH = 43;  // Adress for the one place of the hours
-  int baseHH = 7;  // Adress for the tens place of the hours
-  int baseM = 133; // Adress for the one place of the minutes
-  int baseMM = 97; // Adress for the tens place of the minutes
-  int colon1 = 79; // Adress for the first colon led
-  int colon2 = 80; // Adress for the second colon led
+  int baseH = 43;  // Address for the one place of the hours
+  int baseHH = 7;  // Address for the tens place of the hours
+  int baseM = 133; // Address for the one place of the minutes
+  int baseMM = 97; // Address for the tens place of the minutes
+  int colon1 = 79; // Address for the first colon led
+  int colon2 = 80; // Address for the second colon led
 
   // Matrix for the illumination of the numbers
-  // Note: These only define the increments of the base adress. e.g. to define the second Minute you have to add the baseMM to every led position
+  // Note: These only define the increments of the base address. e.g. to define the second Minute you have to add the baseMM to every led position
   const int numbers[10][10] = 
     {
       {  0,  1,  4,  6, 13, 15, 18, 19, -1, -1 }, // 0: null

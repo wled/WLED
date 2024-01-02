@@ -1,6 +1,6 @@
 # Audioreactive usermod
 
-Enabless controlling LEDs via audio input. Audio source can be a microphone or analog-in (AUX) using an appropriate adapter.
+Enables controlling LEDs via audio input. Audio source can be a microphone or analog-in (AUX) using an appropriate adapter.
 Supported microphones range from analog (MAX4466, MAX9814, ...) to digital (INMP441, ICS-43434, ...).
 
 Does audio processing and provides data structure that specially written effects can use.
@@ -19,7 +19,7 @@ This usermod is an evolution of [SR-WLED](https://github.com/atuline/WLED), and 
 ## Supported MCUs
 This audioreactive usermod works best on "classic ESP32" (dual core), and on ESP32-S3 which also has dual core and hardware floating point support. 
 
-It will compile succesfully for ESP32-S2 and ESP32-C3, however might not work well, as other WLED functions will become slow. Audio processing requires a lot of computing power, which can be problematic on smaller MCUs like -S2 and -C3. 
+It will compile successfully for ESP32-S2 and ESP32-C3, however might not work well, as other WLED functions will become slow. Audio processing requires a lot of computing power, which can be problematic on smaller MCUs like -S2 and -C3. 
 
 Analog audio is only possible on "classic" ESP32, but not on other MCUs like ESP32-S3.
 
@@ -35,7 +35,7 @@ Customised _arduinoFFT_ library for use with this usermod can be found at https:
 
 ### using latest (develop) _arduinoFFT_ library
 Alternatively, you can use the latest arduinoFFT development version.
-ArduinoFFT `develop` library is slightly more accurate, and slighly faster than our customised library, however also needs additional 2kB RAM.
+ArduinoFFT `develop` library is slightly more accurate, and slightly faster than our customised library, however also needs additional 2kB RAM.
 
 * `build_flags` = `-D USERMOD_AUDIOREACTIVE` `-D UM_AUDIOREACTIVE_USE_NEW_FFT`
 * `lib_deps`= `https://github.com/kosme/arduinoFFT#develop @ 1.9.2`
@@ -63,7 +63,7 @@ You can use the following additional flags in your `build_flags`
 * `-D SR_GAIN=x`     : Default "gain" setting (60)
 * `-D I2S_USE_RIGHT_CHANNEL`: Use RIGHT instead of LEFT channel (not recommended unless you strictly need this).
 * `-D I2S_USE_16BIT_SAMPLES`: Use 16bit instead of 32bit for internal sample buffers. Reduces sampling quality, but frees some RAM ressources (not recommended unless you absolutely need this).
-* `-D I2S_GRAB_ADC1_COMPLETELY`: Experimental: continously sample analog ADC microphone. Only effective on ESP32. WARNING this _will_ cause conflicts(lock-up) with any analogRead() call.
+* `-D I2S_GRAB_ADC1_COMPLETELY`: Experimental: continuously sample analog ADC microphone. Only effective on ESP32. WARNING this _will_ cause conflicts(lock-up) with any analogRead() call.
 * `-D MIC_LOGGER`     : (debugging) Logs samples from the microphone to serial USB. Use with serial plotter (Arduino IDE)
 * `-D SR_DEBUG`       : (debugging) Additional error diagnostics and debug info on serial USB.
 

@@ -32,7 +32,7 @@ private:
 
   // set the default pins based on the architecture, these get overridden by Usermod menu settings
   #ifdef ESP8266
-    //uint8_t RST_PIN = 16; // Uncoment for Heltec WiFi-Kit-8
+    //uint8_t RST_PIN = 16; // Un-comment for Heltec WiFi-Kit-8
   #endif
   int8_t ioPin[2] = {i2c_scl, i2c_sda};   // I2C pins: SCL, SDA...defaults to Arch hardware pins but overridden at setup()
   bool initDone = false;
@@ -80,7 +80,7 @@ private:
   static const char _name[];
   static const char _enabled[];
 
-  // Read the BME280/BMP280 Sensor (which one runs depends on whether Celsius or Farenheit being set in Usermod Menu)
+  // Read the BME280/BMP280 Sensor (which one runs depends on whether Celsius or Fahrenheit being set in Usermod Menu)
   void UpdateBME280Data(int SensorType)
   {
     float _temperature, _humidity, _pressure;
@@ -163,8 +163,8 @@ private:
     JsonObject device = doc.createNestedObject(F("device")); // attach the sensor to the same device
     device[F("name")] = serverDescription;
     device[F("identifiers")] = "wled-sensor-" + String(mqttClientID);
-    device[F("manufacturer")] = F("WLED");
-    device[F("model")] = F("FOSS");
+    device[F("manufacturer")] = F(WLED_BRAND); //WLEDMM + Moustachauve/Wled-Native
+    device[F("model")] = F(WLED_PRODUCT_NAME); //WLEDMM + Moustachauve/Wled-Native
     device[F("sw_version")] = versionString;
 
     String temp;

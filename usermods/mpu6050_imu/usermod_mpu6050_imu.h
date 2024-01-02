@@ -185,7 +185,7 @@ class MPU6050Driver : public Usermod {
         //INTERRUPT_PIN = -1;
         //return;
       }
-      if ((INTERRUPT_PIN >= 0) && (pinManager.getPinOwner(INTERRUPT_PIN) != PinOwner::UM_IMU)  // only allocate pin if we don't ownn it already
+      if ((INTERRUPT_PIN >= 0) && (pinManager.getPinOwner(INTERRUPT_PIN) != PinOwner::UM_IMU)  // only allocate pin if we don't own it already
          && !pinManager.allocatePin(INTERRUPT_PIN, false, PinOwner::UM_IMU))
       {
         //enabled = false;

@@ -82,7 +82,10 @@ void strip_wait_until_idle(String whoCalledMe) {
   }
 #endif
 }
-
+// WLEDMM another helper for segment class
+bool strip_uses_global_leds(void) {
+  return strip.useLedsArray;
+}
 
 ///////////////////////////////////////////////////////////////////////////////
 // Segment class implementation
@@ -146,7 +149,7 @@ Segment::Segment(Segment &&orig) noexcept {
   orig.jMap = nullptr;    //WLEDMM jMap
 }
 
-// copy assignment --> overwrite segment withg orig - deletes old buffers in "this", but does not change orig!
+// copy assignment --> overwrite segment with orig - deletes old buffers in "this", but does not change orig!
 Segment& Segment::operator= (const Segment &orig) {
   DEBUG_PRINTLN(F("-- Copy-assignment segment --"));
   if (this != &orig) {
@@ -201,12 +204,14 @@ Segment& Segment::operator= (Segment &&orig) noexcept {
 }
 
 bool Segment::allocateData(size_t len) {
-  if (data && _dataLen >= len) {
-    if (call == 0) memset(data, 0, len); // WLEDMM: clear data when SEGENV.call==0
-    return true; //already allocated
+  // WLEDMM
+  if (data && _dataLen >= len) {                          // already allocated enough (reduce fragmentation)
+    if ((call == 0) && (len > 0)) memset(data, 0, len);   // erase buffer if called during effect initialisation
+    return true;
   }
   //DEBUG_PRINTF("allocateData(%u) start %d, stop %d, vlen %d\n", len, start, stop, virtualLength());
   deallocateData();
+  if (len == 0) return false; // nothing to do
   if (Segment::getUsedSegmentData() + len > MAX_SEGMENT_DATA) return false; //not enough memory
   // do not use SPI RAM on ESP32 since it is slow
   //#if defined(ARDUINO_ARCH_ESP32) && defined(BOARD_HAS_PSRAM) && defined(WLED_USE_PSRAM)
@@ -271,7 +276,7 @@ void Segment::setUpLeds() {
 }
 
 CRGBPalette16 &Segment::loadPalette(CRGBPalette16 &targetPalette, uint8_t pal) {
-  static unsigned long _lastPaletteChange = 0; // perhaps it should be per segment
+  static unsigned long _lastPaletteChange = millis() - 990000; // perhaps it should be per segment //WLEDMM changed init value to avoid pure orange after startup
   static CRGBPalette16 randomPalette = CRGBPalette16(DEFAULT_COLOR);
   static CRGBPalette16 prevRandomPalette = CRGBPalette16(CRGB(BLACK));
   byte tcp[76] = { 255 };   //WLEDMM: prevent out-of-range access in loadDynamicGradientPalette()
@@ -294,7 +299,7 @@ CRGBPalette16 &Segment::loadPalette(CRGBPalette16 &targetPalette, uint8_t pal) {
   switch (pal) {
     case 0: //default palette. Exceptions for specific effects above
       targetPalette = PartyColors_p; break;
-    case 1: {//periodically replace palette with a random one. Transition palette change in 500ms
+    case 1: {//Random smooth: periodically replace palette with a random one. Transition palette change in 500ms
       uint32_t timeSinceLastChange = millis() - _lastPaletteChange;
       if (timeSinceLastChange > randomPaletteChangeTime * 1000U) {
         prevRandomPalette = randomPalette;
@@ -349,7 +354,7 @@ CRGBPalette16 &Segment::loadPalette(CRGBPalette16 &targetPalette, uint8_t pal) {
       CRGB sec  = gamma32(colors[1]);
       CRGB ter  = gamma32(colors[2]);
       targetPalette = CRGBPalette16(ter,sec,prim); break;}
-    case 5: {//primary + secondary (+tert if not off), more distinct
+    case 5: {//primary + secondary (+tertiary if not off), more distinct
       CRGB prim = gamma32(colors[0]);
       CRGB sec  = gamma32(colors[1]);
       if (colors[2]) {
@@ -833,7 +838,7 @@ void xyFromBlock(uint16_t &x,uint16_t &y, uint16_t i, uint16_t vW, uint16_t vH, 
 
 }
 
-void IRAM_ATTR_YN Segment::setPixelColor(int i, uint32_t col) //WLEDMM: IRAM_ATTR conditionaly
+void IRAM_ATTR_YN Segment::setPixelColor(int i, uint32_t col) //WLEDMM: IRAM_ATTR conditionally
 {
   if (!isActive()) return; // not active
 #ifndef WLED_DISABLE_2D
@@ -942,7 +947,7 @@ void IRAM_ATTR_YN Segment::setPixelColor(int i, uint32_t col) //WLEDMM: IRAM_ATT
 
   uint16_t len = length();
   uint8_t _bri_t = currentBri(on ? opacity : 0);
-  if (!_bri_t && !transitional && fadeTransition) return; // if _bri_t == 0 && segment is not transitionig && transitions are enabled then save a few CPU cycles
+  if (!_bri_t && !transitional && fadeTransition) return; // if _bri_t == 0 && segment is not transitioning && transitions are enabled then save a few CPU cycles
   if (_bri_t < 255) {
     byte r = scale8(R(col), _bri_t);
     byte g = scale8(G(col), _bri_t);
@@ -1223,7 +1228,7 @@ void Segment::fade_out(uint8_t rate) {
     int g1 = G(color);
     int b1 = B(color);
 
-    int wdelta = mappedRate_r * (w2 - w1);  // WLEDMM use receprocal - its faster
+    int wdelta = mappedRate_r * (w2 - w1);  // WLEDMM use reciprocal - its faster
     int rdelta = mappedRate_r * (r2 - r1);
     int gdelta = mappedRate_r * (g2 - g1);
     int bdelta = mappedRate_r * (b2 - b1);
@@ -1502,7 +1507,7 @@ void WS2812FX::enumerateLedmaps() {
 void WS2812FX::finalizeInit(void)
 {
   //reset segment runtimes
-  suspendStripService = true; // WELDMM avoid running effects on an incomplete strip
+  suspendStripService = true; // WLEDMM avoid running effects on an incomplete strip
   for (segment &seg : _segments) {
     seg.markForReset();
     seg.resetIfRequired();
@@ -1583,11 +1588,11 @@ void WS2812FX::finalizeInit(void)
   DEBUG_PRINTLN(F("Loading custom ledmaps"));
   deserializeMap();     // (re)load default ledmap
   _isServicing = false;        // WLEDMM
-  suspendStripService = false; // WELDMM ready, run !
+  suspendStripService = false; // WLEDMM ready, run !
 }
 
 // WLEDMM wait until strip is idle (=not servicing).
-// on 8266 this function does nothing, because we can only do "buisy waiting" on ESP32
+// on 8266 this function does nothing, because we can only do "busy waiting" on ESP32
 #define MAX_IDLE_WAIT_MS 50  // seems to work in most cases
 void WS2812FX::waitUntilIdle(void) {
 #if defined(ARDUINO_ARCH_ESP32) && defined(WLEDMM_PROTECT_SERVICE)
@@ -1755,7 +1760,7 @@ void WS2812FX::estimateCurrentAndLimitBri() {
     uint8_t scaleB = (scaleI > 255) ? 255 : scaleI;
     uint8_t newBri = scale8(_brightness, scaleB);
     // to keep brightness uniform, sets virtual busses too - softhack007: apply reductions immediately
-    if (scaleB < 255) busses.setBrightness(scaleB, true); // NPB-LG has already applied brightness, so its suffifient to post-apply scaling ==> use scaleB instead of newBri
+    if (scaleB < 255) busses.setBrightness(scaleB, true); // NPB-LG has already applied brightness, so its sufficient to post-apply scaling ==> use scaleB instead of newBri
     busses.setBrightness(newBri, false);                  // set new brightness for next frame
     //currentMilliamps = (powerSum0 * newBri) / puPerMilliamp; // for NPBrightnessBus
     currentMilliamps = (powerSum0 * scaleB) / puPerMilliamp;   // for NPBus-LG
@@ -1768,8 +1773,7 @@ void WS2812FX::estimateCurrentAndLimitBri() {
 }
 
 void WS2812FX::show(void) {
-
-  // avoid race condition, caputre _callback value
+  // avoid race condition, capture _callback value
   show_callback callback = _callback;
   if (callback) callback();
 
@@ -1788,7 +1792,7 @@ void WS2812FX::show(void) {
   if (diff > 0) fpsCurr = 1000 / diff;
   _cumulativeFps = (3 * _cumulativeFps + fpsCurr +2) >> 2;   // "+2" for proper rounding (2/4 = 0.5)
   #if defined(ARDUINO_ARCH_ESP32) && defined(WLEDMM_FASTPATH)
-  _lastShow = b4show;  // WLEDMM this is more accurate, however it also icreases CPU load - strip.service will run more frequently
+  _lastShow = b4show;  // WLEDMM this is more accurate, however it also increases CPU load - strip.service will run more frequently
   #else
   _lastShow = now;
   #endif
@@ -1815,7 +1819,7 @@ bool WS2812FX::isUpdating() {
 
 /**
  * Returns the refresh rate of the LED strip. Useful for finding out whether a given setup is fast enough.
- * Only updates on show() or is set to 0 fps if last show is more than 2 secs ago, so accurary varies
+ * Only updates on show() or is set to 0 fps if last show is more than 2 secs ago, so accuracy varies
  */
 uint16_t WS2812FX::getFps() {
   if (millis() - _lastShow > 2000) return 0;
@@ -1976,7 +1980,7 @@ void WS2812FX::purgeSegments(bool force) {
     }
   if (deleted) {
     _segments.shrink_to_fit();
-    if (_mainSegment >= _segments.size()) setMainSegmentId(0);
+    /*if (_mainSegment >= _segments.size())*/ setMainSegmentId(0);
   }
 }
 
@@ -2235,7 +2239,7 @@ bool WS2812FX::deserializeMap(uint8_t n) {
     if (n) sprintf(fileName +7, "%d", n); //WLEDMM: trick to not include 0 in ledmap.json
     strcat(fileName, ".json");
     isFile = WLED_FS.exists(fileName);
-  } else { //WLEDM add segment name as ledmap.name
+  } else { //WLEDMM add segment name as ledmap.name
     uint8_t segment_index = 0;
     for (segment &seg : _segments) {
       if (n == 10 + segment_index && !isFile && seg.name != nullptr) {
@@ -2249,7 +2253,7 @@ bool WS2812FX::deserializeMap(uint8_t n) {
 
   if (!isFile) {
     // erase custom mapping if selecting nonexistent ledmap.json (n==0)
-    //WLEDM: doubt this is necessary as return false causes setupMatrix to deal with this !!!!
+    //WLEDMM: doubt this is necessary as return false causes setupMatrix to deal with this !!!!
     if (!isMatrix && !n) {
       customMappingSize = 0;
       loadedLedmap = 0; //WLEDMM

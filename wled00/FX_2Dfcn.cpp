@@ -51,8 +51,9 @@ void WS2812FX::setUpMatrix() {
       }
     }
 
-    // safety check
-    if (Segment::maxWidth * Segment::maxHeight > MAX_LEDS || Segment::maxWidth <= 1 || Segment::maxHeight <= 1) {
+    // safety check 
+    // WLEDMM no check on Segment::maxWidth * Segment::maxHeight > MAX_LEDS || 
+    if (Segment::maxWidth <= 1 || Segment::maxHeight <= 1) {
       DEBUG_PRINTF("2D Bounds error. %d x %d\n", Segment::maxWidth, Segment::maxHeight);
       isMatrix = false;
       Segment::maxWidth = _length;
@@ -158,7 +159,7 @@ void WS2812FX::setUpMatrix() {
     } else { // memory allocation error
       customMappingTableSize = 0;
       USER_PRINTLN(F("Ledmap alloc error."));
-      isMatrix = false;
+      isMatrix = false; //WLEDMM does not like this done in teh background while end users are confused whats happened...
       panels = 0;
       panel.clear();
       Segment::maxWidth = _length;
@@ -172,7 +173,7 @@ void WS2812FX::setUpMatrix() {
 }
 
 // absolute matrix version of setPixelColor()
-void IRAM_ATTR_YN WS2812FX::setPixelColorXY(int x, int y, uint32_t col) //WLEDMM: IRAM_ATTR conditionaly
+void IRAM_ATTR_YN WS2812FX::setPixelColorXY(int x, int y, uint32_t col) //WLEDMM: IRAM_ATTR conditionally
 {
 #ifndef WLED_DISABLE_2D
   if (!isMatrix) return; // not a matrix set-up
@@ -206,7 +207,7 @@ uint32_t WS2812FX::getPixelColorXY(uint16_t x, uint16_t y) {
 // XY(x,y) - gets pixel index within current segment (often used to reference leds[] array element)
 // WLEDMM Segment::XY()is declared inline, see FX.h
 
-void IRAM_ATTR_YN Segment::setPixelColorXY(int x, int y, uint32_t col) //WLEDMM: IRAM_ATTR conditionaly
+void IRAM_ATTR_YN Segment::setPixelColorXY(int x, int y, uint32_t col) //WLEDMM: IRAM_ATTR conditionally
 {
   if (Segment::maxHeight==1) return; // not a matrix set-up
   if (x >= virtualWidth() || y >= virtualHeight() || x<0 || y<0) return;  // if pixel would fall out of virtual segment just exit

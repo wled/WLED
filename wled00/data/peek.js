@@ -25,7 +25,7 @@ function peek(c) {
 					let mW = leds[2]; // matrix width
 					let mH = leds[3]; // matrix height
 					let pPL = Math.min(c.width / mW, c.height / mH); // pixels per LED (width of circle)
-					let lOf = Math.floor((c.width - pPL*mW)/2); //left offeset (to center matrix)
+					let lOf = Math.floor((c.width - pPL*mW)/2); //left offset (to center matrix)
 					var i = 4; //same offset as in ws.cpp
 					ctx.clearRect(0, 0, c.width, c.height); //WLEDMM
 					function colorAmp(color) {

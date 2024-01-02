@@ -44,13 +44,8 @@
       #define WLED_MIN_VIRTUAL_BUSSES 4
     #else
       #if defined(USERMOD_AUDIOREACTIVE)      // requested by @softhack007 https://github.com/blazoncek/WLED/issues/33
-      #ifndef WLEDMM_FASTPATH
-        #define WLED_MAX_BUSSES 8
-        #define WLED_MIN_VIRTUAL_BUSSES 2
-      #else
-        #define WLED_MAX_BUSSES 9           // WLEDMM I2S#1 is availeable for LEDs
+        #define WLED_MAX_BUSSES 9             // WLEDMM I2S#1 is availeable for LEDs
         #define WLED_MIN_VIRTUAL_BUSSES 1
-      #endif
       #else
         #define WLED_MAX_BUSSES 10
         #define WLED_MIN_VIRTUAL_BUSSES 0
@@ -137,7 +132,10 @@
 #define USERMOD_ID_SD_CARD               37     //Usermod "usermod_sd_card.h"
 #define USERMOD_ID_PWM_OUTPUTS           38     //Usermod "usermod_pwm_outputs.h
 #define USERMOD_ID_SHT                   39     //Usermod "usermod_sht.h
-#define USERMOD_ID_KLIPPER               40     // Usermod Klipper percentage
+#define USERMOD_ID_KLIPPER               40     //Usermod Klipper percentage
+#define USERMOD_ID_WIREGUARD             41     //Usermod "wireguard.h"
+#define USERMOD_ID_INTERNAL_TEMPERATURE  42     //Usermod "usermod_internal_temperature.h"
+#define USERMOD_ID_LDR_DUSK_DAWN         43     //Usermod "usermod_LDR_Dusk_Dawn_v2.h"
 //WLEDMM
 #define USERMOD_ID_MCUTEMP               89     //Usermod "usermod_v2_artifx.h"
 #define USERMOD_ID_ARTIFX                90     //Usermod "usermod_v2_artifx.h"
@@ -160,7 +158,7 @@
 #define CALL_MODE_NO_NOTIFY      5
 #define CALL_MODE_FX_CHANGED     6     //no longer used
 #define CALL_MODE_HUE            7
-#define CALL_MODE_PRESET_CYCLE   8
+#define CALL_MODE_PRESET_CYCLE   8     //no longer used
 #define CALL_MODE_BLYNK          9     //no longer used
 #define CALL_MODE_ALEXA         10
 #define CALL_MODE_WS_SEND       11     //special call mode, not for notifier, updates websocket only
@@ -201,8 +199,8 @@
 #define DMX_MODE_MULTIPLE_RGB     4            //every LED is addressed with its own RGB (ledCount * 3 channels)
 #define DMX_MODE_MULTIPLE_DRGB    5            //every LED is addressed with its own RGB and share a master dimmer (ledCount * 3 + 1 channels)
 #define DMX_MODE_MULTIPLE_RGBW    6            //every LED is addressed with its own RGBW (ledCount * 4 channels)
-#define DMX_MODE_EFFECT_SEGMENT   8            //trigger standalone effects of WLED (15 channels per segement)
-#define DMX_MODE_EFFECT_SEGMENT_W 9            //trigger standalone effects of WLED (18 channels per segement)
+#define DMX_MODE_EFFECT_SEGMENT   8            //trigger standalone effects of WLED (15 channels per segment)
+#define DMX_MODE_EFFECT_SEGMENT_W 9            //trigger standalone effects of WLED (18 channels per segment)
 #define DMX_MODE_PRESET           10           //apply presets (1 channel)
 
 //Light capability byte (unused) 0bRCCCTTTT
@@ -278,7 +276,7 @@
 #define BTN_TYPE_ANALOG_INVERTED  8
 
 //Ethernet board types
-#define WLED_NUM_ETH_TYPES       11
+#define WLED_NUM_ETH_TYPES       12 //WLEDMM +1 for Olimex ESP32-Gateway
 
 #define WLED_ETH_NONE             0
 #define WLED_ETH_WT32_ETH01       1
@@ -291,6 +289,7 @@
 #define WLED_ETH_QUINLED_OCTA     8
 #define WLED_ETH_ABCWLEDV43ETH    9
 #define WLED_ETH_SERG74          10
+#define WLED_ETH_OLIMEX_GTW      11
 
 //Hue error codes
 #define HUE_ERROR_INACTIVE        0
@@ -318,7 +317,7 @@
 #define SEG_DIFFERS_OPT        0x02 // all segment options except: selected, reset & transitional
 #define SEG_DIFFERS_COL        0x04 // colors
 #define SEG_DIFFERS_FX         0x08 // effect/mode parameters
-#define SEG_DIFFERS_BOUNDS     0x10 // segment start/stop ounds
+#define SEG_DIFFERS_BOUNDS     0x10 // segment start/stop bounds
 #define SEG_DIFFERS_GSO        0x20 // grouping, spacing & offset
 #define SEG_DIFFERS_SEL        0x80 // selected
 
@@ -332,26 +331,46 @@
 
 // WLED Error modes
 #define ERR_NONE         0  // All good :)
-#define ERR_EEP_COMMIT   2  // Could not commit to EEPROM (wrong flash layout?)
+#define ERR_DENIED       1  // Permission denied
+#define ERR_EEP_COMMIT   2  // Could not commit to EEPROM (wrong flash layout?) OBSOLETE
 #define ERR_NOBUF        3  // JSON buffer was not released in time, request cannot be handled at this time
 #define ERR_JSON         9  // JSON parsing failed (input too large?)
 #define ERR_FS_BEGIN    10  // Could not init filesystem (no partition?)
 #define ERR_FS_QUOTA    11  // The FS is full or the maximum file size is reached
 #define ERR_FS_PLOAD    12  // It was attempted to load a preset that does not exist
 #define ERR_FS_IRLOAD   13  // It was attempted to load an IR JSON cmd, but the "ir.json" file does not exist
-#define ERR_FS_GENERAL  19  // A general unspecified filesystem error occured
+#define ERR_FS_RMLOAD   14  // It was attempted to load an remote JSON cmd, but the "remote.json" file does not exist
+#define ERR_FS_GENERAL  19  // A general unspecified filesystem error occurred
 #define ERR_OVERTEMP    30  // An attached temperature sensor has measured above threshold temperature (not implemented)
 #define ERR_OVERCURRENT 31  // An attached current sensor has measured a current above the threshold (not implemented)
 #define ERR_UNDERVOLT   32  // An attached voltmeter has measured a voltage below the threshold (not implemented)
 
-//Timer mode types
+// Timer mode types
 #define NL_MODE_SET               0            //After nightlight time elapsed, set to target brightness
 #define NL_MODE_FADE              1            //Fade to target brightness gradually
 #define NL_MODE_COLORFADE         2            //Fade to target brightness and secondary color gradually
 #define NL_MODE_SUN               3            //Sunrise/sunset. Target brightness is set immediately, then Sunrise effect is started. Max 60 min.
 
+// Settings sub page IDs
+#define SUBPAGE_MENU              0
+#define SUBPAGE_WIFI              1
+#define SUBPAGE_LEDS              2
+#define SUBPAGE_UI                3
+#define SUBPAGE_SYNC              4
+#define SUBPAGE_TIME              5
+#define SUBPAGE_SEC               6
+#define SUBPAGE_DMX               7
+#define SUBPAGE_UM                8
+#define SUBPAGE_UPDATE            9
+#define SUBPAGE_2D               10
+#define SUBPAGE_LOCK            251
+#define SUBPAGE_PINREQ          252
+#define SUBPAGE_CSS             253
+#define SUBPAGE_JS              254
+#define SUBPAGE_WELCOME         255
 
-#define NTP_PACKET_SIZE 48
+#define NTP_PACKET_SIZE 48       // size of NTP receive buffer
+#define NTP_MIN_PACKET_SIZE 48   // min expected size - NTP v4 allows for "extended information" appended to the standard fields
 
 //maximum number of rendered LEDs - this does not have to match max. physical LEDs, e.g. if there are virtual busses
 #ifndef MAX_LEDS
@@ -382,7 +401,11 @@
 #ifdef ESP8266
 #define SETTINGS_STACK_BUF_SIZE 2048
 #else
-#define SETTINGS_STACK_BUF_SIZE 3792   // WLEDMM added 696 bytes of margin (was 3096) for audioreactive UI
+  #if !defined(USERMOD_AUDIOREACTIVE)
+    #define SETTINGS_STACK_BUF_SIZE 3834   // WLEDMM added 696+32 bytes of margin (was 3096)
+  #else
+    #define SETTINGS_STACK_BUF_SIZE 3904   // WLEDMM more buffer for audioreactive UI (add '-D CONFIG_ASYNC_TCP_TASK_STACK_SIZE=9216' to your build_flags)
+  #endif
 #endif
 
 #ifdef WLED_USE_ETHERNET
@@ -423,12 +446,12 @@
  #if defined(BOARD_HAS_PSRAM) && (defined(WLED_USE_PSRAM) || defined(WLED_USE_PSRAM_JSON))
   #if defined(ARDUINO_ARCH_ESP32S2) || defined(ARDUINO_ARCH_ESP32C3)
     #if defined(ARDUINO_ARCH_ESP32C3)
-      #define JSON_BUFFER_SIZE 46000 // WLEDMM - max 46KB on -C3 with PSRAM (chip has 400kb RAM)
+      #define JSON_BUFFER_SIZE 44000 // WLEDMM - max 44KB on -C3 with PSRAM (chip has 400kb RAM)
     #else
-      #define JSON_BUFFER_SIZE 36000 // WLEDMM - max 36KB on -S2 with PSRAM (chip has 320kb RAM)
+      #define JSON_BUFFER_SIZE 28000 // WLEDMM - max 28KB on -S2 with PSRAM (chip has 320kb RAM)
     #endif
   #else
-  #define JSON_BUFFER_SIZE 56000 // WLEDMM (was 60000) slightly reduced to avoid build error "region dram0_0_seg overflowed"
+  #define JSON_BUFFER_SIZE 54000 // WLEDMM (was 60000) slightly reduced to avoid build error "region dram0_0_seg overflowed"
   #endif
  #else
   #define JSON_BUFFER_SIZE 24576
@@ -447,8 +470,9 @@
 
 //this is merely a default now and can be changed at runtime
 #ifndef LEDPIN
-#if defined(ESP8266) || (defined(ARDUINO_ARCH_ESP32) && defined(BOARD_HAS_PSRAM)) || defined(CONFIG_IDF_TARGET_ESP32C3)
-  #define LEDPIN 2    // GPIO2 (D4) on Wemod D1 mini compatible boards
+
+#if defined(ESP8266) || (defined(ARDUINO_ARCH_ESP32) && defined(BOARD_HAS_PSRAM)) || defined(CONFIG_IDF_TARGET_ESP32C3) || defined(ARDUINO_ESP32_PICO)  //WLEDMM
+  #define LEDPIN 2    // GPIO2 (D4) on Wemos D1 mini compatible boards, and on boards where GPIO16 is not available
 #else
   #define LEDPIN 16   // aligns with GPIO2 (D4) on Wemos D1 mini32 compatible boards
 #endif
@@ -469,7 +493,7 @@
 #define INTERFACE_UPDATE_COOLDOWN 2000 //time in ms to wait between websockets, alexa, and MQTT updates
 
 // HW_PIN_SCL & HW_PIN_SDA are used for information in usermods settings page and usermods themselves
-// which GPIO pins are actually used in a hardwarea layout (controller board)
+// which GPIO pins are actually used in a hardware layout (controller board)
 //WLEDMM: unchangeable pins are not treated here by undef them, but elsewhere in the code 
 // defaults for 1st I2C on ESP32 (Wire global)
 #ifndef HW_PIN_SCL
@@ -480,7 +504,7 @@
 #endif
 
 // HW_PIN_SCLKSPI & HW_PIN_MOSISPI & HW_PIN_MISOSPI are used for information in usermods settings page and usermods themselves
-// which GPIO pins are actually used in a hardwarea layout (controller board)
+// which GPIO pins are actually used in a hardware layout (controller board)
 //WLEDMM: unchangeable pins are not treated here by undef them, but elsewhere in the code 
 // defaults for VSPI on ESP32 (SPI global, SPI.cpp) as HSPI is used by WLED (bus_wrapper.h)
 #ifndef HW_PIN_CLOCKSPI

@@ -33,6 +33,7 @@
 
 bool canUseSerial(void);                        // WLEDMM implemented in wled_serial.cpp
 void strip_wait_until_idle(String whoCalledMe); // WLEDMM implemented in FX_fcn.cpp
+bool strip_uses_global_leds(void);              // WLEDMM implemented in FX_fcn.cpp
 
 #define FASTLED_INTERNAL //remove annoying pragma messages
 #define USE_GET_MILLISECOND_TIMER
@@ -334,8 +335,17 @@ void strip_wait_until_idle(String whoCalledMe); // WLEDMM implemented in FX_fcn.
 #define FX_MODE_ROCKTAVES              185
 #define FX_MODE_2DAKEMI                186
 #define FX_MODE_ARTIFX                 187 //WLEDMM ARTIFX
+#define FX_MODE_PARTYJERK              188
 
-#define MODE_COUNT                     188
+// Experimental Audioresponsive modes from WLED-SR
+// #define FX_MODE_3DSphereMove           189 // experimental WLED-SR "cube" mode
+#define FX_MODE_POPCORN_AR             190 // WLED-SR audioreactive popcorn
+// #define FX_MODE_MULTI_COMET_AR         191 // WLED-SR audioreactive multi-comet
+#define FX_MODE_STARBURST_AR           192 // WLED-SR audioreactive fireworks starburst
+// #define FX_MODE_PALETTE_AR             193 // WLED-SR audioreactive palette
+#define FX_MODE_FIREWORKS_AR           194 // WLED-SR audioreactive fireworks
+
+#define MODE_COUNT                     195
 
 typedef enum mapping1D2D {
   M12_Pixels = 0,
@@ -397,7 +407,7 @@ typedef struct Segment {
     uint16_t aux0;  // custom var
     uint16_t aux1;  // custom var
     byte* data = nullptr;     // effect data pointer // WLEDMM initialize to nullptr
-    CRGB* ledsrgb = nullptr;     // local leds[] array (may be a pointer to global) //WLEDMM rename to ledsrgb to search on them (temp?), and initialilize to nullptr
+    CRGB* ledsrgb = nullptr;     // local leds[] array (may be a pointer to global) //WLEDMM rename to ledsrgb to search on them (temp?), and initialize to nullptr
     size_t ledsrgbSize; //WLEDMM 
     static CRGB *_globalLeds;             // global leds[] array
     static uint16_t maxWidth, maxHeight;  // these define matrix width & height (max. segment dimensions)
@@ -423,12 +433,12 @@ typedef struct Segment {
       uint8_t       _briT;        // temporary brightness
       uint8_t       _cctT;        // temporary CCT
       CRGBPalette16 _palT;        // temporary palette
-      uint8_t       _prevPaletteBlends; // number of previous palette blends (there are max 255 belnds possible)
+      uint8_t       _prevPaletteBlends; // number of previous palette blends (there are max 255 blends possible)
       uint8_t       _modeP;       // previous mode/effect
       //uint16_t      _aux0, _aux1; // previous mode/effect runtime data
       //uint32_t      _step, _call; // previous mode/effect runtime data
       //byte         *_data;        // previous mode/effect runtime data
-      unsigned long _start;         // must accommodate millis()
+      unsigned long _start;       // must accommodate millis()
       uint16_t      _dur;
       Transition(uint16_t dur=750)
         : _briT(255)
@@ -507,7 +517,11 @@ typedef struct Segment {
         if (name) Serial.printf(" name=%s (%p)", name, name);
         if (data) Serial.printf(" dataLen=%d (%p)", (int)_dataLen, data);
         if (ledsrgb) Serial.printf(" [%sledsrgb %u bytes]", Segment::_globalLeds ? "global ":"",length()*sizeof(CRGB));
+        if (strip_uses_global_leds() == true) Serial.println((Segment::_globalLeds != nullptr) ? F(" using global buffer.") : F(", using global buffer but Segment::_globalLeds is NULL!!"));
         Serial.println();
+        #ifdef ARDUINO_ARCH_ESP32
+        Serial.flush();
+        #endif
       }
       #endif
 
@@ -516,7 +530,7 @@ typedef struct Segment {
       strip_wait_until_idle("~Segment()");
       #endif
 
-      if (!Segment::_globalLeds && (ledsrgb != nullptr)) {free(ledsrgb); ledsrgb = nullptr;}
+      if ((Segment::_globalLeds == nullptr) && !strip_uses_global_leds() && (ledsrgb != nullptr)) {free(ledsrgb); ledsrgb = nullptr;}  // WLEDMM we need "!strip_uses_global_leds()" to avoid crashes (#104)
       if (name) { delete[] name; name = nullptr; }
       if (_t)   { transitional = false; delete _t; _t = nullptr; }
       deallocateData();

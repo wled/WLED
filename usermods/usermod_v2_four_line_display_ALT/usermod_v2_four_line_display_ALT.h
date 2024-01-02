@@ -11,7 +11,7 @@
 #include "4LD_wled_fonts.c"
 
 #ifndef FLD_ESP32_NO_THREADS
-#define FLD_ESP32_USE_THREADS    // comment out to use 0.13.x behaviour without parallel update task - slower, but more robust. May delay other tasks like LEDs or audioreactive!!
+  #define FLD_ESP32_USE_THREADS  // comment out to use 0.13.x behaviour without parallel update task - slower, but more robust. May delay other tasks like LEDs or audioreactive!!
 #endif
 
 //#define OLD_4LD_FONTS          // comment out if you prefer the "classic" look with blocky fonts (saves 1K flash)
@@ -671,7 +671,7 @@ void FourLineDisplayUsermod::setup() {
     }
     // start SPI now!
 #ifdef ARDUINO_ARCH_ESP32
-    if (isHW) SPI.begin(spi_sclk, spi_miso, spi_mosi);   // ESP32 - will silently fail if SPI alread active.
+    if (isHW) SPI.begin(spi_sclk, spi_miso, spi_mosi);   // ESP32 - will silently fail if SPI already active.
 #else
     if (isHW) SPI.begin();                               // ESP8266 - SPI pins are fixed
 #endif
@@ -1339,7 +1339,7 @@ void FourLineDisplayUsermod::sleepOrClock(bool sleepEnable) {
 bool FourLineDisplayUsermod::handleButton(uint8_t b) {
   yield();
   if (!enabled
-    || b // butto 0 only
+    || b // button 0 only
     || buttonType[b] == BTN_TYPE_SWITCH
     || buttonType[b] == BTN_TYPE_NONE
     || buttonType[b] == BTN_TYPE_RESERVED

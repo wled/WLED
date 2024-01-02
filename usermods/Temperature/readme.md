@@ -18,7 +18,7 @@ Copy the example `platformio_override.ini` to the root directory.  This file sho
 * `USERMOD_DALLASTEMPERATURE`                      - enables this user mod wled00/usermods_list.cpp
 * `USERMOD_DALLASTEMPERATURE_MEASUREMENT_INTERVAL` - number of milliseconds between measurements, defaults to 60000 ms (60s)
 
-All parameters can be configured at runtime via the Usermods settings page, including pin, temperature in degrees Celsius or Farenheit and measurement interval.
+All parameters can be configured at runtime via the Usermods settings page, including pin, temperature in degrees Celsius or Fahrenheit and measurement interval.
 
 ## Project link
 

@@ -9,7 +9,7 @@
           - #define ARDUINOJSON_DEFAULT_NESTING_LIMIT 100 //set this in ArduinoJson!!!, currently not necessary...
           - IF UPDATING THIS FILE IN THE WLED REPO, SEND A PULL REQUEST TO https://github.com/ewoudwijma/ARTI AS WELL!!!
    @later
-          - Code improvememt
+          - Code improvement
             - See 'for some weird reason this causes a crash on esp32'
             - check why column/lineno not correct
           - Definition improvements
@@ -2181,7 +2181,7 @@ public:
                     ERROR_ARTI("%s %s %s unknown\n", spaces+50-depth, key, variable_name);
                     valueStack->push(floatNull);
                   }
-                } // ! founnd
+                } // ! fouund
                 visitedAlready = true;
                 break;
               }

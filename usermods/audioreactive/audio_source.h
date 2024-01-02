@@ -45,7 +45,7 @@
 // benefit: analog mic inputs will be sampled contiously -> better response times and less "glitches"
 // WARNING: this option WILL lock-up your device in case that any other analogRead() operation is performed; 
 //          for example if you want to read "analog buttons"
-//#define I2S_GRAB_ADC1_COMPLETELY // (experimental) continously sample analog ADC microphone. WARNING will cause analogRead() lock-up
+//#define I2S_GRAB_ADC1_COMPLETELY // (experimental) continuously sample analog ADC microphone. WARNING will cause analogRead() lock-up
 
 // data type requested from the I2S driver - currently we always use 32bit
 //#define I2S_USE_16BIT_SAMPLES   // (experimental) define this to request 16bit - more efficient but possibly less compatible
@@ -72,7 +72,7 @@
  * if you want to receive two channels, one is the actual data from microphone and another channel is suppose to receive 0, it's different data in two channels, you need to choose I2S_CHANNEL_FMT_RIGHT_LEFT in this case.
 */
 
-#if (ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(4, 4, 0)) && (ESP_IDF_VERSION <= ESP_IDF_VERSION_VAL(4, 4, 4))
+#if (ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(4, 4, 0)) && (ESP_IDF_VERSION <= ESP_IDF_VERSION_VAL(4, 4, 6)) // fixed in IDF 4.4.5, however arduino-esp32 2.0.14 did an "I2S rollback" to 4.4.4
 // espressif bug: only_left has no sound, left and right are swapped 
 // https://github.com/espressif/esp-idf/issues/9635  I2S mic not working since 4.4 (IDFGH-8138)
 // https://github.com/espressif/esp-idf/issues/8538  I2S channel selection issue? (IDFGH-6918)
@@ -163,7 +163,7 @@ class AudioSource {
     SRate_t _sampleRate;            // Microphone sampling rate
     int _blockSize;                 // I2S block size
     bool _initialized;              // Gets set to true if initialization is successful
-    bool _i2sMaster;                // when false, ESP32 will be in I2S SLAVE mode (for devices that only operate in MASTER mode). Only workds in newer IDF >= 4.4.x
+    bool _i2sMaster;                // when false, ESP32 will be in I2S SLAVE mode (for devices that only operate in MASTER mode). Only works in newer IDF >= 4.4.x
     float _sampleScale;             // pre-scaling factor for I2S samples
     I2S_datatype newSampleBuffer[I2S_SAMPLES_MAX+4] = { 0 }; // global buffer for i2s_read
     I2S_datatype newSampleBuffer4x[(I2S_SAMPLES_MAX*4)+4] = { 0 }; // global buffer for i2s_read
@@ -438,7 +438,7 @@ class I2SSource : public AudioSource {
 };
 
 /* ES7243 Microphone
-   This is an I2S microphone that requires ininitialization over
+   This is an I2S microphone that requires initialization over
    I2C before I2S data can be received
 */
 class ES7243 : public I2SSource {
@@ -503,8 +503,8 @@ public:
     }
 };
 
-/* ES8388 Sound Modude
-   This is an I2S sound processing unit that requires ininitialization over
+/* ES8388 Sound Module
+   This is an I2S sound processing unit that requires initialization over
    I2C before I2S data can be received. 
 */
 class ES8388Source : public I2SSource {
@@ -552,7 +552,7 @@ class ES8388Source : public I2SSource {
       // The mics *and* line-in are BOTH connected to LIN2/RIN2 on the AudioKit
       // so there's no way to completely eliminate the mics. It's also hella noisy. 
       // Line-in works OK on the AudioKit, generally speaking, as the mics really need
-      // amplification to be noticable in a quiet room. If you're in a very loud room, 
+      // amplification to be noticeable in a quiet room. If you're in a very loud room, 
       // the mics on the AudioKit WILL pick up sound even in line-in mode. 
       // TL;DR: Don't use the AudioKit for anything, use the LyraT. 
       //
@@ -635,6 +635,97 @@ class ES8388Source : public I2SSource {
 
 };
 
+class WM8978Source : public I2SSource {
+  private:
+    // I2C initialization functions for WM8978
+    void _wm8978I2cBegin() {
+      Wire.setClock(400000);
+    }
+
+    void _wm8978I2cWrite(uint8_t reg, uint16_t val) {
+      #ifndef WM8978_ADDR
+        #define WM8978_ADDR 0x1A
+      #endif
+      char buf[2];
+      buf[0] = (reg << 1) | ((val >> 8) & 0X01);
+      buf[1] = val & 0XFF;
+      Wire.beginTransmission(WM8978_ADDR);
+      Wire.write((const uint8_t*)buf, 2);
+      uint8_t i2cErr = Wire.endTransmission();  // i2cErr == 0 means OK
+      if (i2cErr != 0) {
+        DEBUGSR_PRINTF("AR: WM8978 I2C write failed with error=%d  (addr=0x%X, reg 0x%X, val 0x%X).\n", i2cErr, WM8978_ADDR, reg, val);
+      }
+    }
+
+    void _wm8978InitAdc() {
+      // https://www.mouser.com/datasheet/2/76/WM8978_v4.5-1141768.pdf
+      // Sets ADC to around what AudioReactive expects, and loops line-in to line-out/headphone for monitoring.
+      // Registries are decimal, settings are 9-bit binary as that's how everything is listed in the docs
+      // ...which makes it easier to reference the docs.
+      //
+      _wm8978I2cBegin(); 
+
+      _wm8978I2cWrite( 0,0b000000000); // Reset all settings
+      _wm8978I2cWrite( 1,0b000001011); // Power Management 1 - power off most things
+      _wm8978I2cWrite( 2,0b110110011); // Power Management 2 - enable output and amp stages (amps may lift signal but it works better on the ADCs)
+      _wm8978I2cWrite( 3,0b000001100); // Power Management 3 - enable L&R output mixers
+      _wm8978I2cWrite( 4,0b001010000); // Audio Interface - standard I2S, 24-bit
+      _wm8978I2cWrite( 5,0b000000001); // Loopback Enable
+      _wm8978I2cWrite( 6,0b000000000); // Clock generation control - use external mclk
+      _wm8978I2cWrite( 7,0b000000100); // Sets sample rate to ~24kHz (only used for internal calculations, not I2S)
+      _wm8978I2cWrite(14,0b010001000); // 128x ADC oversampling - high pass filter disabled as it kills the bass response
+      _wm8978I2cWrite(43,0b000110000); // Mute signal paths we don't use
+      _wm8978I2cWrite(44,0b000000000); // Disconnect microphones
+      _wm8978I2cWrite(45,0b111000000); // Mute signal paths we don't use
+      _wm8978I2cWrite(46,0b111000000); // Mute signal paths we don't use
+      _wm8978I2cWrite(47,0b001000000); // 0dB gain on left line-in
+      _wm8978I2cWrite(48,0b001000000); // 0dB gain on right line-in
+      _wm8978I2cWrite(49,0b000000010); // Mixer thermal shutdown enable
+      _wm8978I2cWrite(50,0b000010110); // Output mixer enable only left bypass at 0dB gain
+      _wm8978I2cWrite(51,0b000010110); // Output mixer enable only right bypass at 0dB gain
+      _wm8978I2cWrite(52,0b110111001); // Left line-out enabled at 0dB gain
+      _wm8978I2cWrite(53,0b110111001); // Right line-out enabled at 0db gain
+      _wm8978I2cWrite(54,0b001000000); // Mute left speaker output
+      _wm8978I2cWrite(55,0b101000000); // Mute right speaker output
+
+    }
+
+  public:
+    WM8978Source(SRate_t sampleRate, int blockSize, float sampleScale = 1.0f, bool i2sMaster=true) :
+      I2SSource(sampleRate, blockSize, sampleScale, i2sMaster) {
+      _config.channel_format = I2S_CHANNEL_FMT_ONLY_LEFT;
+    };
+
+    void initialize(int8_t i2swsPin, int8_t i2ssdPin, int8_t i2sckPin, int8_t mclkPin) {
+      DEBUGSR_PRINTLN("WM8978Source:: initialize();");
+
+      // if ((i2sckPin < 0) || (mclkPin < 0)) { // WLEDMM not sure if this check is needed here, too
+      //    ERRORSR_PRINTF("\nAR: invalid I2S WM8978 pin: SCK=%d, MCLK=%d\n", i2sckPin, mclkPin); 
+      //    return;
+      // }
+      // BUG: "use global I2C pins" are valid as -1, and -1 is seen as invalid here.
+      // Workaround: Set I2C pins here, which will also set them globally.
+      // Bug also exists in ES7243.
+       if ((i2c_sda < 0) || (i2c_scl < 0)) {  // check that global I2C pins are not "undefined"
+        ERRORSR_PRINTF("\nAR: invalid WM8978 global I2C pins: SDA=%d, SCL=%d\n", i2c_sda, i2c_scl); 
+        return;
+      }
+      if (!pinManager.joinWire(i2c_sda, i2c_scl)) {    // WLEDMM specific: start I2C with globally defined pins
+        ERRORSR_PRINTF("\nAR: failed to join I2C bus with SDA=%d, SCL=%d\n", i2c_sda, i2c_scl); 
+        return;
+      }
+
+      // First route mclk, then configure ADC over I2C, then configure I2S
+      _wm8978InitAdc();
+      I2SSource::initialize(i2swsPin, i2ssdPin, i2sckPin, mclkPin);
+    }
+
+    void deinitialize() {
+      I2SSource::deinitialize();
+    }
+
+};
+
 #if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(4, 2, 0)
 #if !defined(SOC_I2S_SUPPORTS_ADC) && !defined(SOC_I2S_SUPPORTS_ADC_DAC)
   #warning this MCU does not support analog sound input
@@ -642,7 +733,7 @@ class ES8388Source : public I2SSource {
 #endif
 
 #if !defined(CONFIG_IDF_TARGET_ESP32S2) && !defined(CONFIG_IDF_TARGET_ESP32C3) && !defined(CONFIG_IDF_TARGET_ESP32S3)
-// ADC over I2S is only availeable in "classic" ESP32
+// ADC over I2S is only available in "classic" ESP32
 
 /* ADC over I2S Microphone
    This microphone is an ADC pin sampled via the I2S interval
@@ -686,7 +777,7 @@ class I2SAdcSource : public I2SSource {
 
       // Determine Analog channel. Only Channels on ADC1 are supported
       int8_t channel = digitalPinToAnalogChannel(_audioPin);
-      if (channel > 9) {
+      if ((channel < 0) || (channel > 9)) {  // channel == -1 means "not an ADC pin"
         USER_PRINTF("AR: Incompatible GPIO used for analog audio input: %d\n", _audioPin);
         return;
       } else {
@@ -701,7 +792,7 @@ class I2SAdcSource : public I2SSource {
         return;
       }
 
-      adc1_config_width(ADC_WIDTH_BIT_12);   // ensure that ADC runs with 12bit resolution
+      // adc1_config_width(ADC_WIDTH_BIT_12);   // ensure that ADC runs with 12bit resolution - should not be needed, because i2s_set_adc_mode does that any way
 
       // Enable I2S mode of ADC
       err = i2s_set_adc_mode(ADC_UNIT_1, adc1_channel_t(channel));

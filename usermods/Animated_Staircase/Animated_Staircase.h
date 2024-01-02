@@ -16,7 +16,7 @@ class Animated_Staircase : public Usermod {
     /* configuration (available in API and stored in flash) */
     bool enabled = false;                   // Enable this usermod
     unsigned long segment_delay_ms = 150;   // Time between switching each segment
-    unsigned long on_time_ms       = 30000; // The time for the light to stay on
+    unsigned long on_time_ms       = 5000;  // The time for the light to stay on -  TroyHacks: 5s for testing 
     int8_t topPIRorTriggerPin      = -1;    // disabled
     int8_t bottomPIRorTriggerPin   = -1;    // disabled
     int8_t topEchoPin              = -1;    // disabled
@@ -131,7 +131,7 @@ class Animated_Staircase : public Usermod {
     *            received within this time, an object is detected
     *            and the function will return true.
     *
-    * The speed of sound is 343 meters per second at 20 degress Celcius.
+    * The speed of sound is 343 meters per second at 20 degrees Celsius.
     * Since the sound has to travel back and forth, the detection
     * distance for the sensor in cm is (0.0343 * maxTimeUs) / 2.
     *
@@ -161,28 +161,37 @@ class Animated_Staircase : public Usermod {
       if ((millis() - lastScanTime) > scanDelay) {
         lastScanTime = millis();
 
-        bottomSensorRead = bottomSensorWrite ||
-          (!useUSSensorBottom ?
-            (bottomPIRorTriggerPin<0 ? false : digitalRead(bottomPIRorTriggerPin)) :
-            ultrasoundRead(bottomPIRorTriggerPin, bottomEchoPin, bottomMaxDist*59)  // cm to us
-          );
-        topSensorRead = topSensorWrite ||
-          (!useUSSensorTop ?
-            (topPIRorTriggerPin<0 ? false : digitalRead(topPIRorTriggerPin)) :
-            ultrasoundRead(topPIRorTriggerPin, topEchoPin, topMaxDist*59)   // cm to us
-          );
+        if (useUSSensorBottom) {
+          bottomSensorRead = ultrasoundRead(bottomPIRorTriggerPin, bottomEchoPin, bottomMaxDist*59); // US
+        } else if (bottomPIRorTriggerPin > 0) {
+          bottomSensorRead = digitalRead(bottomPIRorTriggerPin); // PIR
+        } else {
+          bottomSensorRead = false; // DUNNO
+        }
+
+        if (useUSSensorTop) {
+          topSensorRead = ultrasoundRead(topPIRorTriggerPin, topEchoPin, topMaxDist*59); // US
+        } else if (topPIRorTriggerPin > 0) {
+          topSensorRead = digitalRead(topPIRorTriggerPin); // PIR
+        } else {
+          topSensorRead = false; // DUNNO
+        }
 
         if (bottomSensorRead != bottomSensorState) {
           bottomSensorState = bottomSensorRead; // change previous state
           sensorChanged = true;
-          publishMqtt(true, bottomSensorState ? "on" : "off");
+          #ifndef WLED_DISABLE_MQTT
+            publishMqtt(true, bottomSensorState ? "on" : "off");
+          #endif
           DEBUG_PRINTLN(F("Bottom sensor changed."));
         }
 
         if (topSensorRead != topSensorState) {
           topSensorState = topSensorRead; // change previous state
           sensorChanged = true;
-          publishMqtt(false, topSensorState ? "on" : "off");
+          #ifndef WLED_DISABLE_MQTT
+            publishMqtt(false, topSensorState ? "on" : "off");
+          #endif
           DEBUG_PRINTLN(F("Top sensor changed."));
         }
 
@@ -224,7 +233,13 @@ class Animated_Staircase : public Usermod {
         if (bottomSensorState || topSensorState) return;
 
         // Swipe OFF in the direction of the last sensor detection
-        swipe = lastSensor;
+        // WLED-MM/TroyHacks: This should follow you up/down the stairs.
+        if (lastSensor == SWIPE_UP) {
+          swipe = SWIPE_DOWN;
+        } else {
+          swipe = SWIPE_UP;
+        }
+
         on = false;
 
         DEBUG_PRINT(F("OFF -> Swipe "));
@@ -253,7 +268,7 @@ class Animated_Staircase : public Usermod {
       }
     }
 
-    // send sesnor values to JSON API
+    // send sensor values to JSON API
     void writeSensorsToJson(JsonObject& staircase) {
       staircase[F("top-sensor")]    = topSensorRead;
       staircase[F("bottom-sensor")] = bottomSensorRead;
@@ -302,7 +317,7 @@ class Animated_Staircase : public Usermod {
           seg.setOption(SEG_OPTION_ON, true);
         }
         strip.trigger();  // force strip update
-        stateChanged = true;  // inform external dvices/UI of change
+        stateChanged = true;  // inform external devices/UI of change
         colorUpdated(CALL_MODE_DIRECT_CHANGE);
         DEBUG_PRINTLN(F("Animated Staircase disabled."));
       }
@@ -486,7 +501,7 @@ class Animated_Staircase : public Usermod {
       bottomEchoPin         = top[FPSTR(_bottomEcho_pin)] | bottomEchoPin;
 
       topMaxDist    = top[FPSTR(_topEchoCm)] | topMaxDist;
-      topMaxDist    = min(150,max(30,(int)topMaxDist));     // max distnace ~1.5m (a lag of 9ms may be expected)
+      topMaxDist    = min(150,max(30,(int)topMaxDist));     // max distance ~1.5m (a lag of 9ms may be expected)
       bottomMaxDist = top[FPSTR(_bottomEchoCm)] | bottomMaxDist;
       bottomMaxDist = min(150,max(30,(int)bottomMaxDist));  // max distance ~1.5m (a lag of 9ms may be expected)
 

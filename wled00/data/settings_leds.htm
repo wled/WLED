@@ -2,8 +2,7 @@
 <html lang="en">
 <head>
 	<meta charset="utf-8">
-	<meta name="viewport" content="width=500">
-	<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport"/>
+	<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport">
 	<title>LED Settings</title>
 	<script>
 		var d=document,laprev=55,maxB=1,maxV=0,maxM=4000,maxPB=4096,maxL=1333,maxLbquot=0; //maximum bytes for LED allocation: 4kB for 8266, 32kB for 32
@@ -27,7 +26,9 @@
 			d.body.appendChild(scE);
 			// success event 
 			scE.addEventListener("load", () => {
-				GetV();checkSi();setABL();
+				GetV();
+				setABL();
+				checkSi();
 				if (d.um_p[0]==-1) d.um_p.shift();
 			});
 			// error event

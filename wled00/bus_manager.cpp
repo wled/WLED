@@ -70,7 +70,7 @@ void ColorOrderMap::add(uint16_t start, uint16_t len, uint8_t colorOrder) {
 
 uint8_t IRAM_ATTR ColorOrderMap::getPixelColorOrder(uint16_t pix, uint8_t defaultColorOrder) const {
   if (_count == 0) return defaultColorOrder;
-  // upper nibble containd W swap information
+  // upper nibble contains W swap information
   uint8_t swapW = defaultColorOrder >> 4;
   for (uint8_t i = 0; i < _count; i++) {
     if (pix >= _mappings[i].start && pix < (_mappings[i].start + _mappings[i].len)) {
@@ -83,7 +83,7 @@ uint8_t IRAM_ATTR ColorOrderMap::getPixelColorOrder(uint16_t pix, uint8_t defaul
 
 uint32_t Bus::autoWhiteCalc(uint32_t c) {
   uint8_t aWM = _autoWhiteMode;
-  if (_gAWM < 255) aWM = _gAWM;
+  if (_gAWM != AW_GLOBAL_DISABLED) aWM = _gAWM;
   if (aWM == RGBW_MODE_MANUAL_ONLY) return c;
   uint8_t w = W(c);
   //ignore auto-white calculation if w>0 and mode DUAL (DUAL behaves as BRIGHTER if w==0)

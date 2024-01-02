@@ -343,6 +343,7 @@ void getSettingsJS(AsyncWebServerRequest* request, byte subPage, char* dest) //W
     sappends('s',SET_F("AP"),fapass);
 
     sappend('v',SET_F("AC"),apChannel);
+    sappend('c',SET_F("FG"),force802_3g);
     sappend('c',SET_F("WS"),noWifiSleep);
 
     #ifndef WLED_DISABLE_ESPNOW

@@ -60,7 +60,8 @@ enum struct PinOwner : uint8_t {
   UM_BME280            = USERMOD_ID_BME280,             // 0x1E // Usermod "usermod_bme280.h -- Uses "standard" HW_I2C pins
   UM_Audioreactive     = USERMOD_ID_AUDIOREACTIVE,      // 0x20 // Usermod "audio_reactive.h"
   UM_SdCard            = USERMOD_ID_SD_CARD,            // 0x25 // Usermod "usermod_sd_card.h"
-  UM_PWM_OUTPUTS       = USERMOD_ID_PWM_OUTPUTS         // 0x26 // Usermod "usermod_pwm_outputs.h"
+  UM_PWM_OUTPUTS       = USERMOD_ID_PWM_OUTPUTS,        // 0x26 // Usermod "usermod_pwm_outputs.h"
+  UM_LDR_DUSK_DAWN     = USERMOD_ID_LDR_DUSK_DAWN       // 0x2B // Usermod "usermod_LDR_Dusk_Dawn_v2.h"
 };
 static_assert(0u == static_cast<uint8_t>(PinOwner::None), "PinOwner::None must be zero, so default array initialization works as expected");
 

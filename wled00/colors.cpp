@@ -325,7 +325,7 @@ static byte gammaT[256] = {
 // experimental
 // CIE 1931 lookup table (8bit->8bit) that was proposed during discussion of issue #2767
 // https://github.com/Aircoookie/WLED/issues/2767#issuecomment-1310961308
-// unfortunately NepixelsBu has its own internal table, that kills low brightness values similar to the original WLED table.
+// unfortunately NeoPixelBus has its own internal table, that kills low brightness values similar to the original WLED table.
 //   see https://github.com/Makuna/NeoPixelBus/blob/master/src/internal/NeoGamma.h
 static const byte gammaT[256] = {
   0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 

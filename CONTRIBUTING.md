@@ -14,7 +14,7 @@ You are all set if you have enabled `Editor: Detect Indentation` in VS Code.
 
 #### Blocks
 
-Whether the opening bracket of e.g. an `if` block is in the same line as the condition or in a separate line is up to your discretion. If there is only one statement, leaving out block braches is acceptable.
+Whether the opening bracket of e.g. an `if` block is in the same line as the condition or in a separate line is up to your discretion. If there is only one statement, leaving out block braces is acceptable.
 
 Good:  
 ```cpp

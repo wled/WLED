@@ -23,7 +23,7 @@ private:
   unsigned char Enc_B;
   unsigned char Enc_A_prev = 0;
 
-  // private class memebers configurable by Usermod Settings (defaults set inside readFromConfig())
+  // private class members configurable by Usermod Settings (defaults set inside readFromConfig())
   int8_t pins[3]; // pins[0] = DT from encoder, pins[1] = CLK from encoder, pins[2] = CLK from encoder (optional)
   int fadeAmount; // how many points to fade the Neopixel with each step
 
@@ -162,7 +162,7 @@ public:
    * - configComplete is used to return false if any value is missing, not just if the main object is missing
    * - The defaults are loaded every time readFromConfig() is run, not just once after boot
    * 
-   * This ensures that missing values are added to the config, with their default values, in the rare but plauible cases of:
+   * This ensures that missing values are added to the config, with their default values, in the rare but plausible cases of:
    * - a single value being missing at boot, e.g. if the Usermod was upgraded and a new setting was added
    * - a single value being missing after boot (e.g. if the cfg.json was manually edited and a value was removed)
    * 

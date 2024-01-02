@@ -189,8 +189,8 @@ private:
       JsonObject device = doc.createNestedObject(F("device")); // attach the sensor to the same device
       device[F("name")] = serverDescription;
       device[F("ids")]  = String(F("wled-sensor-")) + mqttClientID;
-      device[F("mf")]   = "WLED";
-      device[F("mdl")]  = F("FOSS");
+      device[F("mf")] = F(WLED_BRAND); //WLEDMM + Moustachauve/Wled-Native
+      device[F("mdl")] = F(WLED_PRODUCT_NAME); //WLEDMM + Moustachauve/Wled-Native
       device[F("sw")]   = versionString;
       
       sprintf_P(buf, PSTR("homeassistant/binary_sensor/%s/config"), uid);
@@ -205,7 +205,7 @@ private:
 
   /**
    * Read and update PIR sensor state.
-   * Initilize/reset switch off timer
+   * Initialize/reset switch off timer
    */
   bool updatePIRsensorState()
   {
