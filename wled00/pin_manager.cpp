@@ -41,7 +41,11 @@ String PinManagerClass::getOwnerText(PinOwner tag) {
     case PinOwner::Button     : return(F("Button")); break;         // 'Butn' == button from configuration
     case PinOwner::IR         : return(F("IR Receiver")); break;    // 'IR'   == IR receiver pin from configuration
     case PinOwner::Relay      : return(F("Relay")); break;          // 'Rly'  == Relay pin from configuration
+#if defined(ARDUINO_ESP32_PICO)
+    case PinOwner::SPI_RAM    : return(F("SPI FLASH")); break;      // PICO boards use gpio 16+17 for embedded flash, not for PSRAM
+#else
     case PinOwner::SPI_RAM    : return(F("PSRAM")); break;          // 'SpiR' == SPI RAM (aka PSRAM)
+#endif
     case PinOwner::DMX        : return(F("DMX out")); break;        // 'DMX'  == hard-coded to IO2
     case PinOwner::HW_I2C     : return(F("I2C (hw)")); break;            // 'I2C'  == hardware I2C pins (4&5 on ESP8266, 21&22 on ESP32)
     case PinOwner::HW_SPI     : return(F("SPI (hw)")); break;            // 'SPI'  == hardware (V)SPI pins (13,14&15 on ESP8266, 5,18&23 on ESP32)

@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html>
   <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1">
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
@@ -45,6 +46,7 @@
         width: 7px;
         top: 50%;
         transform: translateY(-50%);
+        touch-action: none;
       }
       .color-picker-marker {
         height: 7px;
@@ -94,8 +96,13 @@
         line-height: 1;
       }
       .wrap {
-        width: 800px;
+        width: 100%;
         margin: 0 auto;
+      }
+      @media (min-width: 800px) {
+        .wrap {
+          width: 800px;
+        }
       }
       .palette {
         height: 20px;
@@ -135,6 +142,9 @@
       }
       .sendSpan, .editSpan{
         cursor: pointer;
+      }
+      h1 {
+        font-size: 1.6rem;
       }
     </style>
   </head>
@@ -349,24 +359,31 @@
     var gradientLength = maxX - minX + 1;
 
     elmnt.onmousedown = dragMouseDown;
+    elmnt.ontouchstart = dragMouseDown;
 
     function dragMouseDown(e) {
       removeTrashcan(event)
       e = e || window.event;
-      e.preventDefault();
+      var isTouch = e.type.startsWith('touch');
+      if (!isTouch) e.preventDefault();
       // get the mouse cursor position at startup:
-      mousePos = e.clientX;
+      mousePos = isTouch ? e.touches[0].clientX : e.clientX;
       d.onmouseup = closeDragElement;
+      d.ontouchcancel = closeDragElement;
+      d.ontouchend = closeDragElement;
       // call a function whenever the cursor moves:
       d.onmousemove = elementDrag;
+      d.ontouchmove = elementDrag;
     }
 
     function elementDrag(e) {
       e = e || window.event;
-      e.preventDefault();
+      var isTouch = e.type.startsWith('touch');
+      if (!isTouch) e.preventDefault();
       // calculate the new cursor position:
-      posNew = mousePos - e.clientX;
-      mousePos = e.clientX;
+      var clientX = isTouch ? e.touches[0].clientX : e.clientX;
+      posNew = mousePos - clientX;
+      mousePos = clientX;
       mousePosInGradient = mousePos - (minX + 1)
       
       truePos = Math.round((mousePosInGradient/gradientLength)*256);
@@ -393,7 +410,10 @@
     function closeDragElement() {
       /* stop moving when mouse button is released:*/
       d.onmouseup = null;
+      d.ontouchcancel = null;
+      d.ontouchend = null;
       d.onmousemove = null;
+      d.ontouchmove = null;
     }
   }
 

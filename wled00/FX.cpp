@@ -1280,7 +1280,7 @@ uint16_t mode_fireworks(void) { return mode_fireworks_core(false); }
 static const char _data_FX_MODE_FIREWORKS[] PROGMEM = "Fireworks@,Frequency;!,!;!;12;ix=192,pal=11";
 
 uint16_t mode_fireworks_audio(void) { return mode_fireworks_core(true); }
-static const char _data_FX_MODE_FIREWORKS_AR[] PROGMEM = "🎉 audio Fireworks@,Frequency;!,!;!;12;ix=192,pal=11";
+static const char _data_FX_MODE_FIREWORKS_AR[] PROGMEM = "Fireworks audio ☾@,Frequency;!,!;!;1v,12;ix=192,pal=11";
 
 //Twinkling LEDs running. Inspired by https://github.com/kitesurfer1404/WS2812FX/blob/master/src/custom/Rain.h
 uint16_t mode_rain() {
@@ -3276,7 +3276,7 @@ uint16_t mode_popcorn(void) { return mode_popcorn_core(false); }
 static const char _data_FX_MODE_POPCORN[] PROGMEM = "Popcorn@!,!,,,,,Overlay;!,!,!;!;1.5d;m12=1"; //bar WLEDMM 1.5d
 
 uint16_t mode_popcorn_audio(void) { return mode_popcorn_core(true); }
-static const char _data_FX_MODE_POPCORN_AR[] PROGMEM = "🎉 audio Popcorn@!,!,,,,,Overlay;!,!,!;!;1.5d;m12=1"; //bar WLEDMM 1.5d
+static const char _data_FX_MODE_POPCORN_AR[] PROGMEM = "Popcorn audio ☾@!,!,,,,,Overlay;!,!,!;!;1v,1.5d;m12=1"; //bar WLEDMM 1.5d
 
 //values close to 100 produce 5Hz flicker, which looks very candle-y
 //Inspired by https://github.com/avanhanegem/ArduinoCandleEffectNeoPixel
@@ -3534,7 +3534,7 @@ uint16_t mode_starburst(void) { return mode_starburst_core(false); }
 static const char _data_FX_MODE_STARBURST[] PROGMEM = "Fireworks Starburst@Chance,Fragments,,,,,Overlay;,!;!;;pal=11,m12=0";
 
 uint16_t mode_starburst_audio(void) { return mode_starburst_core(true); }
-static const char _data_FX_MODE_STARBURST_AR[] PROGMEM = "🔨 audio Fw Starburst@Chance,Fragments,,,,,Overlay;,!;!;;pal=11,m12=0";
+static const char _data_FX_MODE_STARBURST_AR[] PROGMEM = "Fw Starburst audio ☾@Chance,Fragments,,,,,Overlay;,!;!;1v;pal=11,m12=0";
 
 /*
  * Exploding fireworks effect
