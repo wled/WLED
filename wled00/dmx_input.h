@@ -7,7 +7,7 @@
 /*
  * Support for DMX/RDM input via serial (e.g. max485) on ESP32
  * ESP32 Library from:
- * https://github.com/sparkfun/SparkFunDMX
+ * https://github.com/someweisguy/esp_dmx
  */
 class DMXInput
 {
