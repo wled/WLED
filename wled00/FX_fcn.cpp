@@ -776,6 +776,16 @@ void Segment::deletejMap() {
   }
 }
 
+
+// WLEDMM constants for mapping mode "Pinwheel"
+constexpr int Pinwheel_Steps_Medium = 208;     // no holes up to 32x32;  60fps
+constexpr int Pinwheel_Size_Medium = 32;       // larger than this -> use "Big"
+constexpr int Pinwheel_Steps_Big = 360;        // no holes expected up to  58x58; 40fps
+constexpr float Int_to_Rad_Med = (DEG_TO_RAD * 360) / Pinwheel_Steps_Medium;   // conversion: from 0...208 to Radians
+constexpr float Int_to_Rad_Big = (DEG_TO_RAD * 360) / Pinwheel_Steps_Big;      // conversion: from 0...360 to Radians
+// WLEDMM end
+
+
 // 1D strip
 uint16_t Segment::virtualLength() const {
 #ifndef WLED_DISABLE_2D
@@ -806,7 +816,11 @@ uint16_t Segment::virtualLength() const {
           vLen = max(vW,vH) * 0.5; // get the longest dimension
         break;
       case M12_sPinWheel: //WLEDMM
-        vLen = 360; // full circle
+        //vLen = full circle
+        if (max(vW,vH) <= Pinwheel_Size_Medium) 
+          vLen = Pinwheel_Steps_Medium;
+        else 
+          vLen = Pinwheel_Steps_Big;
         break;
     }
     return vLen;
@@ -875,13 +889,26 @@ void IRAM_ATTR_YN Segment::setPixelColor(int i, uint32_t col) //WLEDMM: IRAM_ATT
         else {
           //WLEDMM: drawArc(0, 0, i, col); could work as alternative
 
-          float step = HALF_PI / (2.85f*i);
-          for (float rad = 0.0f; rad <= HALF_PI+step/2; rad += step) {
+          //WLEDMM: some optimizations for the drawing loop
+          //  pre-calculate loop limits, exploit symmetry at 45deg
+          float radius = float(i);
+          // float step = HALF_PI / (2.85f * radius);  // upstream uses this
+          float step = HALF_PI / (M_PI * radius);      // WLEDMM we use the correct circumference
+          bool useSymmetry = (max(vH, vW) > 20);       // for segments wider than 20 pixels, we exploit symmetry
+          unsigned numSteps;
+          if (useSymmetry) numSteps = 1 + ((HALF_PI/2.0f + step/2.0f) / step); // with symmetry
+          else             numSteps = 1 + ((HALF_PI      + step/2.0f) / step); // without symmetry
+
+          float rad = 0.0f;
+          for (unsigned count = 0; count < numSteps; count++) {
             // may want to try float version as well (with or without antialiasing)
-            int x = roundf(sin_t(rad) * i);
-            int y = roundf(cos_t(rad) * i);
+            int x = roundf(sinf(rad) * radius);
+            int y = roundf(cosf(rad) * radius);
             setPixelColorXY(x, y, col);
+            if(useSymmetry) setPixelColorXY(y, x, col);// WLEDMM
+            rad += step;
           }
+
           // Bresenham’s Algorithm (may not fill every pixel)
           //int d = 3 - (2*i);
           //int y = i, x = 0;
@@ -909,8 +936,8 @@ void IRAM_ATTR_YN Segment::setPixelColor(int i, uint32_t col) //WLEDMM: IRAM_ATT
       case M12_sCircle: //WLEDMM
         if (vStrip > 0)
         {
-          int x = roundf(sin_t(360*i/SEGLEN*DEG_TO_RAD) * vW * (vStrip+1)/nrOfVStrips());
-          int y = roundf(cos_t(360*i/SEGLEN*DEG_TO_RAD) * vW * (vStrip+1)/nrOfVStrips());
+          int x = roundf(sinf(360*i/SEGLEN*DEG_TO_RAD) * vW * (vStrip+1)/nrOfVStrips());
+          int y = roundf(cosf(360*i/SEGLEN*DEG_TO_RAD) * vW * (vStrip+1)/nrOfVStrips());
           setPixelColorXY(x + vW/2, y + vH/2, col);
         }
         else // pArc -> circle
@@ -935,24 +962,35 @@ void IRAM_ATTR_YN Segment::setPixelColor(int i, uint32_t col) //WLEDMM: IRAM_ATT
           }
         }
         break;
-      case M12_sPinWheel: {
-        // i = 0 through 359
-        float centerX = (vW-1) / 2;
-        float centerY = (vH-1) / 2;
+      case M12_sPinWheel: { // WLEDMM
+        // i = angle --> 0 through 359 (Big), OR 0 through 208 (Medium)
+        float centerX = roundf((vW-1) / 2.0f);
+        float centerY = roundf((vH-1) / 2.0f);
         // int maxDistance = sqrt(centerX * centerX + centerY * centerY) + 1;
-       
-        int distance = 0;
-        float cosVal = cosf((float)i * (float)DEG_TO_RAD); // i = current angle
-        float sinVal = sinf((float)i * (float)DEG_TO_RAD); 
-        while (true) {
-          int x = roundf(centerX + distance * cosVal);
-          int y = roundf(centerY + distance * sinVal);
-          // Check bounds
-          if (x < 0 || x >= vW || y < 0 || y >= vH) {
-            break;
-          }
+        float angleRad = (max(vW,vH) > Pinwheel_Size_Medium) ? float(i) * Int_to_Rad_Big : float(i) * Int_to_Rad_Med; // angle in radians
+        float cosVal = cosf(angleRad);
+        float sinVal = sinf(angleRad);
+
+        // draw line at angle, starting at center and ending at the segment edge
+        // we use fixed point math for better speed. Starting distance is 0.5 for better rounding
+        constexpr int_fast32_t Fixed_Scale = 512;  // fixpoint scaling factor
+        int_fast32_t posx = (centerX + 0.5f * cosVal) * Fixed_Scale; // X starting position in fixed point
+        int_fast32_t posy = (centerY + 0.5f * sinVal) * Fixed_Scale; // Y starting position in fixed point
+        int_fast16_t inc_x = cosVal * Fixed_Scale; // X increment per step (fixed point)
+        int_fast16_t inc_y = sinVal * Fixed_Scale; // Y increment per step (fixed point)
+
+        int32_t maxX = vW * Fixed_Scale; // X edge in fixedpoint
+        int32_t maxY = vH * Fixed_Scale; // Y edge in fixedpoint
+        // draw until we hit any edge
+        while ((posx > 0) && (posy > 0) && (posx < maxX)  && (posy < maxY))  {
+          // scale down to integer (compiler will replace division with appropriate bitshift)
+          int x = posx / Fixed_Scale;
+          int y = posy / Fixed_Scale;
+          // set pixel
           setPixelColorXY(x, y, col);
-          distance++;
+          // advance to next position
+          posx += inc_x;
+          posy += inc_y;
         }
         break;
       }
@@ -1076,8 +1114,8 @@ uint32_t Segment::getPixelColor(int i)
       case M12_sCircle: //WLEDMM
         if (vStrip > 0)
         {
-          int x = roundf(sin_t(360*i/SEGLEN*DEG_TO_RAD) * vW * (vStrip+1)/nrOfVStrips());
-          int y = roundf(cos_t(360*i/SEGLEN*DEG_TO_RAD) * vW * (vStrip+1)/nrOfVStrips());
+          int x = roundf(sinf(360*i/SEGLEN*DEG_TO_RAD) * vW * (vStrip+1)/nrOfVStrips());
+          int y = roundf(cosf(360*i/SEGLEN*DEG_TO_RAD) * vW * (vStrip+1)/nrOfVStrips());
           return getPixelColorXY(x + vW/2, y + vH/2);
         }
         else
@@ -1094,12 +1132,13 @@ uint32_t Segment::getPixelColor(int i)
           return getPixelColorXY(vW / 2, vH / 2 - i - 1);
         break;
       case M12_sPinWheel: //WLEDMM
-      // not 100% accurate, returns outer edge of circle 
-        int distance = min(vH, vW) / 2;
-        float centerX = (vW - 1) / 2;
-        float centerY = (vH - 1) / 2;
-        int x = round(centerX + distance * cos(i * DEG_TO_RAD));
-        int y = round(centerY + distance * sin(i * DEG_TO_RAD));
+      // not 100% accurate, returns outer edge of circle
+        float distance = max(1.0f, min(vH-1, vW-1) / 2.0f);
+        float centerX = (vW - 1) / 2.0f;
+        float centerY = (vH - 1) / 2.0f;
+        float angleRad = (max(vW,vH) > Pinwheel_Size_Medium) ? float(i) * Int_to_Rad_Big : float(i) * Int_to_Rad_Med; // angle in radians
+        int x = roundf(centerX + distance * cosf(angleRad));
+        int y = roundf(centerY + distance * sinf(angleRad));
         return getPixelColorXY(x, y);
     }
     return 0;

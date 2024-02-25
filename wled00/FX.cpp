@@ -5062,8 +5062,8 @@ uint16_t mode_2DDrift() {              // By: Stepko   https://editor.soulmateli
   unsigned long t_20 = t/20; // softhack007: pre-calculating this gives about 10% speedup
   for (float i = 1; i < maxDim; i += 0.25) {
     float angle = radians(t * (maxDim - i));
-    uint16_t myX = (cols>>1) + (uint16_t)(sin_t(angle) * i) + (cols%2);
-    uint16_t myY = (rows>>1) + (uint16_t)(cos_t(angle) * i) + (rows%2);
+    uint16_t myX = (cols>>1) + (uint16_t)(sinf(angle) * i) + (cols%2);
+    uint16_t myY = (rows>>1) + (uint16_t)(cosf(angle) * i) + (rows%2);
     SEGMENT.setPixelColorXY(myX, myY, ColorFromPalette(SEGPALETTE, (i * 20) + t_20, 255, LINEARBLEND));
   }
   SEGMENT.blur(SEGMENT.intensity>>3);
@@ -5338,8 +5338,8 @@ uint16_t mode_2DJulia(void) {                           // An animated Julia set
   reAl = -0.94299f;               // PixelBlaze example
   imAg = 0.3162f;
 
-  reAl += sin_t((float)strip.now/305.f)/20.f;
-  imAg += sin_t((float)strip.now/405.f)/20.f;
+  reAl += sinf((float)strip.now/305.f)/20.f;
+  imAg += sinf((float)strip.now/405.f)/20.f;
 
   dx = (xmax - xmin) / (cols);     // Scale the delta x and y values to our matrix size.
   dy = (ymax - ymin) / (rows);
@@ -6067,8 +6067,8 @@ uint16_t mode_2Dghostrider(void) {
     CRGB color = CRGB::White;
     SEGMENT.wu_pixel(lighter->gPosX * 256 / 10, lighter->gPosY * 256 / 10, color);
 
-    lighter->gPosX += lighter->Vspeed * sin_t(radians(lighter->gAngle));
-    lighter->gPosY += lighter->Vspeed * cos_t(radians(lighter->gAngle));
+    lighter->gPosX += lighter->Vspeed * sinf(radians(lighter->gAngle));
+    lighter->gPosY += lighter->Vspeed * cosf(radians(lighter->gAngle));
     lighter->gAngle += lighter->angleSpeed;
     if (lighter->gPosX < 0)               lighter->gPosX = (cols - 1) * 10;
     if (lighter->gPosX > (cols - 1) * 10) lighter->gPosX = 0;
@@ -6090,8 +6090,8 @@ uint16_t mode_2Dghostrider(void) {
         lighter->time[i] = 0;
         lighter->reg[i] = false;
       } else {
-        lighter->lightersPosX[i] += -7 * sin_t(radians(lighter->Angle[i]));
-        lighter->lightersPosY[i] += -7 * cos_t(radians(lighter->Angle[i]));
+        lighter->lightersPosX[i] += -7 * sinf(radians(lighter->Angle[i]));
+        lighter->lightersPosY[i] += -7 * cosf(radians(lighter->Angle[i]));
       }
       SEGMENT.wu_pixel(lighter->lightersPosX[i] * 256 / 10, lighter->lightersPosY[i] * 256 / 10, ColorFromPalette(SEGPALETTE, (256 - lighter->time[i])));
     }
@@ -6303,8 +6303,8 @@ uint16_t mode_2Ddriftrose(void) {
 
   SEGMENT.fadeToBlackBy(32+(SEGMENT.speed>>3));
   for (size_t i = 1; i < 37; i++) {
-    uint32_t x = (CX + (sin_t(radians(i * 10)) * (beatsin8(i, 0, L*2)-L))) * 255.f;
-    uint32_t y = (CY + (cos_t(radians(i * 10)) * (beatsin8(i, 0, L*2)-L))) * 255.f;
+    uint32_t x = (CX + (sinf(radians(i * 10)) * (beatsin8(i, 0, L*2)-L))) * 255.f;
+    uint32_t y = (CY + (cosf(radians(i * 10)) * (beatsin8(i, 0, L*2)-L))) * 255.f;
     SEGMENT.wu_pixel(x, y, CHSV(i * 10, 255, 255));
   }
   SEGMENT.blur((SEGMENT.intensity>>4)+1);
