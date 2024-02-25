@@ -55,6 +55,11 @@ If you want to define default GPIOs during compile time, use the following (defa
 - `-D ES7243_SDAPIN` : GPIO for I2C SDA pin on ES7243 microphone (-1)
 - `-D ES7243_SCLPIN` : GPIO for I2C SCL pin on ES7243 microphone (-1)
 
+Other options:
+
+- `-D UM_AUDIOREACTIVE_ENABLE` : makes usermod default enabled (not the same as include into build option!)
+- `-D UM_AUDIOREACTIVE_DYNAMICS_LIMITER_OFF` : disables rise/fall limiter default
+
 **NOTE** I2S is used for analog audio sampling. Hence, the analog *buttons* (i.e. potentiometers) are disabled when running this usermod with an analog microphone.
 
 ### Advanced Compile-Time Options

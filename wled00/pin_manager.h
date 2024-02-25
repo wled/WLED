@@ -26,15 +26,16 @@ enum struct PinOwner : uint8_t {
   Ethernet      = 0x81,
   BusDigital    = 0x82,
   BusOnOff      = 0x83,
-  BusPwm        = 0x84,   // 'BusP' == PWM output using BusPwm
-  Button        = 0x85,   // 'Butn' == button from configuration
-  IR            = 0x86,   // 'IR'   == IR receiver pin from configuration
-  Relay         = 0x87,   // 'Rly'  == Relay pin from configuration
-  SPI_RAM       = 0x88,   // 'SpiR' == SPI RAM
-  DebugOut      = 0x89,   // 'Dbg'  == debug output always IO1
-  DMX           = 0x8A,   // 'DMX'  == hard-coded to IO2
-  HW_I2C        = 0x8B,   // 'I2C'  == hardware I2C pins (4&5 on ESP8266, 21&22 on ESP32)
-  HW_SPI        = 0x8C,   // 'SPI'  == hardware (V)SPI pins (13,14&15 on ESP8266, 5,18&23 on ESP32)
+  BusPwm        = 0x84,   // 'BusP'      == PWM output using BusPwm
+  Button        = 0x85,   // 'Butn'      == button from configuration
+  IR            = 0x86,   // 'IR'        == IR receiver pin from configuration
+  Relay         = 0x87,   // 'Rly'       == Relay pin from configuration
+  SPI_RAM       = 0x88,   // 'SpiR'      == SPI RAM
+  DebugOut      = 0x89,   // 'Dbg'       == debug output always IO1
+  DMX           = 0x8A,   // 'DMX'       == hard-coded to IO2
+  HW_I2C        = 0x8B,   // 'I2C'       == hardware I2C pins (4&5 on ESP8266, 21&22 on ESP32)
+  HW_SPI        = 0x8C,   // 'SPI'       == hardware (V)SPI pins (13,14&15 on ESP8266, 5,18&23 on ESP32)
+  DMX_INPUT     = 0x8D,   // 'DMX_INPUT' == DMX input via serial
   // Use UserMod IDs from const.h here
   UM_Unspecified       = USERMOD_ID_UNSPECIFIED,        // 0x01
   UM_Example           = USERMOD_ID_EXAMPLE,            // 0x02 // Usermod "usermod_v2_example.h"

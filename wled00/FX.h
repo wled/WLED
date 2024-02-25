@@ -354,7 +354,8 @@ typedef enum mapping1D2D {
   M12_pCorner = 3,
   M12_jMap = 4, //WLEDMM jMap
   M12_sCircle = 5, //WLEDMM Circle
-  M12_sBlock = 6 //WLEDMM Block
+  M12_sBlock = 6, //WLEDMM Block
+  M12_sPinWheel = 7 //WLEDMM PinWheel
 } mapping1D2D_t;
 
 // segment, 72 bytes
@@ -589,7 +590,18 @@ typedef struct Segment {
     void     startTransition(uint16_t dur); // transition has to start before actual segment values change
     void     handleTransition(void);
     uint16_t progress(void); //transition progression between 0-65535
-    uint8_t  currentBri(uint8_t briNew, bool useCct = false);
+
+    // WLEDMM method inlined for speed (its called at each setPixelColor)
+    inline uint8_t  currentBri(uint8_t briNew, bool useCct = false) {
+      uint32_t prog = (transitional && _t) ? progress() : 0xFFFFU;
+      if (transitional && _t && prog < 0xFFFFU) {
+        if (useCct) return ((briNew * prog) + _t->_cctT * (0xFFFFU - prog)) >> 16;
+        else        return ((briNew * prog) + _t->_briT * (0xFFFFU - prog)) >> 16;
+      } else {
+      return (useCct ? briNew : (on ? briNew : 0));  // WLEDMM aligned with upstream
+      }
+    }
+
     uint8_t  currentMode(uint8_t modeNew);
     uint32_t currentColor(uint8_t slot, uint32_t colorNew);
     CRGBPalette16 &loadPalette(CRGBPalette16 &tgt, uint8_t pal);

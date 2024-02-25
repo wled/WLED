@@ -752,7 +752,8 @@ void initIR()
 
 void handleIR()
 {
-  if (irEnabled > 0 && millis() - irCheckedTime > 120 && !strip.isUpdating())
+  if ((irEnabled < 1) || (strip.isUpdating() && (millis() - irCheckedTime < 120))) return;  // WLEDMM be nice, but not too nice
+  if (irEnabled > 0 && millis() - irCheckedTime > 120)                                      // WLEDMM
   {
     irCheckedTime = millis();
     if (irEnabled > 0)

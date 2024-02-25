@@ -358,9 +358,11 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
     if (t >= -255  && t <= 255) arlsOffset = t;
 
 #ifdef WLED_ENABLE_DMX_INPUT
-    dmxTransmitPin = request->arg(F("DMT")).toInt();
-    dmxReceivePin = request->arg(F("DMR")).toInt();
-    dmxEnablePin= request->arg(F("DME")).toInt();
+    dmxInputTransmitPin = request->arg(F("IDMT")).toInt();
+    dmxInputReceivePin = request->arg(F("IDMR")).toInt();
+    dmxInputEnablePin = request->arg(F("IDME")).toInt();
+    dmxInputPort = request->arg(F("IDMP")).toInt();
+    if(dmxInputPort <= 0 || dmxInputPort > 2) dmxInputPort = 2;
 #endif
 
     alexaEnabled = request->hasArg(F("AL"));

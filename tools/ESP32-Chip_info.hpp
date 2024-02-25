@@ -17,6 +17,12 @@
 #include "soc/spi_reg.h"
 #include <soc/efuse_reg.h>
 
+#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(4, 0, 0)
+  #include "esp_chip_info.h"  // esp-idf v4.4.x
+#else
+  #include "esp_system.h"     // esp-idf v3.x
+#endif
+
 #if CONFIG_IDF_TARGET_ESP32
 #if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(4, 0, 0)
   #include "esp32/rom/spi_flash.h"
@@ -163,7 +169,9 @@ typedef struct {
       case 3:
         if (single_core) { return F("ESP32-S0WD-OEM"); }   // Max 160MHz, Single core, QFN 5*5, Xiaomi Yeelight
         else {             return F("ESP32-D0WD-OEM"); }   // Max 240MHz, Dual core, QFN 5*5
-      case 4:              return F("ESP32-U4WDH");        // Max 160MHz, Single core, QFN 5*5, 4MB embedded flash, ESP32-MINI-1, ESP32-DevKitM-1
+      case 4:
+        if (single_core) { return F("ESP32-U4WDH-S"); }    // Max 160MHz, Single core, QFN 5*5, 4MB embedded flash, ESP32-MINI-1, ESP32-DevKitM-1
+        else {             return F("ESP32-U4WDH-D"); }    // Max 240MHz, Dual core, QFN 5*5, 4MB embedded flash
       case 5:
         if (rev3)        { return F("ESP32-PICO-V3"); }    // Max 240MHz, Dual core, LGA 7*7, ESP32-PICO-V3-ZERO, ESP32-PICO-V3-ZERO-DevKit
         else {             return F("ESP32-PICO-D4"); }    // Max 240MHz, Dual core, LGA 7*7, 4MB embedded flash, ESP32-PICO-KIT
@@ -295,11 +303,14 @@ String my_GetDeviceHardwareRevision(void) {
 
   esp_chip_info_t chip_info;
   esp_chip_info(&chip_info);
-  char revision[10] = { 0 };
+  char revision[24] = { 0 };
   if (chip_info.revision) {
-    snprintf_P(revision, sizeof(revision), PSTR(" rev.%d"), chip_info.revision);
+    snprintf_P(revision, sizeof(revision), PSTR(" rev.%d (0x%x)"), chip_info.revision, chip_info.revision);
   }
   result += revision;                    // ESP32-C3 rev.3
+#if CONFIG_ESP32_ECO3_CACHE_LOCK_FIX
+  result += soc_has_cache_lock_bug() ? F(", chip has cache lock bug") : F(", free of cache lock bug");
+#endif
 
   return result;
 }
@@ -318,12 +329,17 @@ static void my_show_chip_info(void) {
 #if 0
   Serial.println("ESP Chip Info:");
   switch ((int)my_info.model) {
-    case (int)CHIP_ESP32: Serial.print("ESP32 "); break;
-    case 2: Serial.print("ESP32-S2 "); break;
-    case 9: Serial.print("ESP32-S3 "); break;
-    case 5: Serial.print("ESP32-C3 "); break;
-    case 6: Serial.print("ESP32-H2 "); break;
+    case 1:  Serial.print("ESP32 "); break;
+    case 2:  Serial.print("ESP32-S2 "); break;
+    case 9:  Serial.print("ESP32-S3 "); break;
+    case 5:  Serial.print("ESP32-C3 "); break;
+    case 6:  Serial.print("ESP32-H2/H4 "); break; // ESP-IFD 4.x
     case 12: Serial.print("ESP32-C2 "); break;
+    case 13: Serial.print("ESP32-C6 "); break;
+    case 16: Serial.print("ESP32-H2 "); break; // ESP-IFD 5.x
+    case 17: Serial.print("ESP32-C5 beta3 "); break;
+    case 18: Serial.print("ESP32-P4 "); break;
+    case 999: Serial.print("POSIX/Linux simulator "); break;
     default: Serial.print("(unknown) 0x"); Serial.print((int)my_info.model, HEX); Serial.print(" "); break;
   }
   Serial.print(" Rev ");
@@ -394,6 +410,7 @@ static void my_show_chip_info(void) {
 //    reason > 6 = user-defined reason codes
 #endif
 
+#if 0  // duplicate - this info is also printed by getCoreResetReason()
 void my_print_reset_reason(int reason)
 {
   Serial.print(reason);
@@ -449,7 +466,7 @@ void my_verbose_print_reset_reason(int reason)
     default : Serial.print ("other "); Serial.print(reason);
   }
 }
-
+#endif
 
 /* 
  * parts below were created by softhack007, licenced under GPL v3.0
@@ -461,7 +478,7 @@ void show_psram_info_part1(void)
   //if (esp_spiram_is_initialized() == false) esp_spiram_init();
   Serial.println(psramFound() ? "ESP32 PSRAM: found.": "ESP32 PSRAM: not found!"); 
   if (!psramFound()) return;
-  psramInit();
+  //psramInit();  // already doe by arduino framework
 
   // the next part only works on "classic" ESP32
   #if !defined(CONFIG_IDF_TARGET_ESP32S3) && !defined(CONFIG_IDF_TARGET_ESP32S2)  && !defined(CONFIG_IDF_TARGET_ESP32C3)
@@ -527,19 +544,23 @@ void show_psram_info_part2(void)
 void showRealSpeed() {
   //Serial.begin(115200);
   Serial.flush();
-  Serial.println(F("\n===================================="));
-  Serial.print(  F("Chip info for ")); Serial.println(ESP.getChipModel());
+  Serial.println(F("\n"));
+  for(int aa=0; aa<65; aa++) Serial.print("="); Serial.println();
+#if 0  // duplicate - same info is printed in wled.cpp
+  Serial.print(  F("Chip info for ")); Serial.print(ESP.getChipModel());
+  Serial.print(F(", ")); Serial.print(ESP.getChipCores()); Serial.print(F(" core(s)"));
+  Serial.print(F(", ")); Serial.print(ESP.getCpuFreqMHz()); Serial.println(F("MHz."));
+#endif
+  Serial.print(  F("ESP32 device: ")); Serial.println(my_GetDeviceHardwareRevision());
   Serial.print(  F("SDK:          ")); Serial.println(ESP.getSdkVersion());
-  Serial.println(F("------------------------------------\n"));
+  for(int aa=0; aa<42; aa++) Serial.print("-"); Serial.println();
+
+  my_show_chip_info();
 
   Serial.print(" XTAL FREQ: "); Serial.print(getXtalFrequencyMhz()); Serial.println("   MHz");
   Serial.print(" APB FREQ:  "); Serial.print(getApbFrequency() / 1000000.0, 1); Serial.println(" MHz");
   Serial.print(" CPU FREQ:  "); Serial.print(getCpuFrequencyMhz()); Serial.println("  MHz\n");
-
-  Serial.print("ESP32 DEVICE:    "); Serial.print(my_GetDeviceHardwareRevision());
-  Serial.print(F(", ")); Serial.print(ESP.getChipCores()); Serial.print(F(" core(s)"));
-  Serial.print(F(", ")); Serial.print(ESP.getCpuFreqMHz()); Serial.println(F("MHz.\n"));
-  my_show_chip_info();
+  for(int aa=0; aa<42; aa++) Serial.print("-"); Serial.println("\n");
 
   Serial.print("FLASH CHIP FREQ (magic): "); Serial.print(ESP.getFlashChipSpeed()/1000000.0, 1); Serial.println(" MHz");
   Serial.print("FLASH SIZE (magic byte): "); Serial.print(ESP.getFlashChipSize() / (1024.0 * 1024), 2); Serial.println(" MB");
@@ -553,7 +574,7 @@ void showRealSpeed() {
   Serial.print("FLASH REAL SIZE: "); Serial.print(my_ESP_getFlashChipRealSize() / (1024.0 * 1024), 2); Serial.println(" MB");
   Serial.print("FLASH REAL MODE: "); Serial.println(my_ESP_getFlashChipMode());
 
-  Serial.println(F("\n------------------------------------"));
+  for(int aa=0; aa<42; aa++) Serial.print("-"); Serial.println();
   Serial.flush();
   Serial.print(  "RAM HEAP SIZE:  "); Serial.print(ESP.getHeapSize() / 1024.0, 2); Serial.println(" KB");
   Serial.print(  " FREE RAM:      "); Serial.print(ESP.getFreeHeap() / 1024.0, 2); Serial.println(" KB");
@@ -573,6 +594,7 @@ void showRealSpeed() {
   Serial.flush();
 #endif
 
+#if 0  // duplicate - this info is also printed by getCoreResetReason()
   Serial.println();
   Serial.print("CPU #0 - last reset reason = ");
   my_print_reset_reason(rtc_get_reset_reason(0)); Serial.print("\t => ");
@@ -584,8 +606,9 @@ void showRealSpeed() {
     my_verbose_print_reset_reason(rtc_get_reset_reason(1));
     Serial.println();
   }
+#endif
 
-  Serial.println(F("====================================\n"));
+  for(int aa=0; aa<42; aa++) Serial.print("="); Serial.println("\n");
   Serial.flush();
 }
 

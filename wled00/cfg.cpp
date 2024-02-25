@@ -465,9 +465,9 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
   if (tdd >= 0) realtimeTimeoutMs = tdd * 100;
 
   #ifdef WLED_ENABLE_DMX_INPUT
-    CJSON(dmxTransmitPin, if_live_dmx[F("rxPin")]);
-    CJSON(dmxReceivePin, if_live_dmx[F("txPin")]);
-    CJSON(dmxEnablePin, if_live_dmx[F("enablePin")]);
+    CJSON(dmxInputTransmitPin, if_live_dmx[F("inputRxPin")]);
+    CJSON(dmxInputReceivePin, if_live_dmx[F("inputTxPin")]);
+    CJSON(dmxInputEnablePin, if_live_dmx[F("inputEnablePin")]);
   #endif
 
   CJSON(arlsForceMaxBri, if_live[F("maxbri")]);
@@ -735,7 +735,7 @@ void serializeConfig() {
 
   JsonObject wifi = doc.createNestedObject("wifi");
   wifi[F("sleep")] = !noWifiSleep;
-  wifi[F("phy")] = (int)force802_3g;
+  wifi[F("phy")] = force802_3g;
 
   #ifdef WLED_USE_ETHERNET
   JsonObject ethernet = doc.createNestedObject("eth");
@@ -955,9 +955,9 @@ void serializeConfig() {
   if_live_dmx[F("dss")] = DMXSegmentSpacing;
   if_live_dmx["mode"] = DMXMode;
   #ifdef WLED_ENABLE_DMX_INPUT
-    if_live_dmx[F("rxPin")] = dmxTransmitPin;
-    if_live_dmx[F("txPin")] = dmxReceivePin;
-    if_live_dmx[F("enablePin")] = dmxEnablePin;
+    if_live_dmx[F("inputRxPin")] = dmxInputTransmitPin;
+    if_live_dmx[F("inputTxPin")] = dmxInputReceivePin;
+    if_live_dmx[F("inputEnablePin")] = dmxInputEnablePin;
   #endif
 
   if_live[F("timeout")] = realtimeTimeoutMs / 100;

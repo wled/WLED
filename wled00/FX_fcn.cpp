@@ -416,22 +416,25 @@ void Segment::startTransition(uint16_t dur) {
 }
 
 // transition progression between 0-65535
-uint16_t Segment::progress() {
+uint16_t IRAM_ATTR_YN Segment::progress() {
   if (!transitional || !_t) return 0xFFFFU;
   unsigned long timeNow = millis();
   if (timeNow - _t->_start > _t->_dur || _t->_dur == 0) return 0xFFFFU;
   return (timeNow - _t->_start) * 0xFFFFU / _t->_dur;
 }
 
-uint8_t Segment::currentBri(uint8_t briNew, bool useCct) {
-  uint32_t prog = progress();
+// WLEDMM Segment::currentBri() is declared inline, see FX.h
+#if 0
+uint8_t IRAM_ATTR_YN Segment::currentBri(uint8_t briNew, bool useCct) {
+  uint32_t prog = (transitional && _t) ? progress() : 0xFFFFU;
   if (transitional && _t && prog < 0xFFFFU) {
     if (useCct) return ((briNew * prog) + _t->_cctT * (0xFFFFU - prog)) >> 16;
     else        return ((briNew * prog) + _t->_briT * (0xFFFFU - prog)) >> 16;
   } else {
-    return briNew;
+    return (useCct ? briNew : (on ? briNew : 0));  // WLEDMM aligned with upstream
   }
 }
+#endif
 
 uint8_t Segment::currentMode(uint8_t newMode) {
   return (progress()>32767U) ? newMode : _t->_modeP; // change effect in the middle of transition
@@ -802,6 +805,9 @@ uint16_t Segment::virtualLength() const {
         else 
           vLen = max(vW,vH) * 0.5; // get the longest dimension
         break;
+      case M12_sPinWheel: //WLEDMM
+        vLen = 360; // full circle
+        break;
     }
     return vLen;
   }
@@ -929,6 +935,27 @@ void IRAM_ATTR_YN Segment::setPixelColor(int i, uint32_t col) //WLEDMM: IRAM_ATT
           }
         }
         break;
+      case M12_sPinWheel: {
+        // i = 0 through 359
+        float centerX = (vW-1) / 2;
+        float centerY = (vH-1) / 2;
+        // int maxDistance = sqrt(centerX * centerX + centerY * centerY) + 1;
+       
+        int distance = 0;
+        float cosVal = cosf((float)i * (float)DEG_TO_RAD); // i = current angle
+        float sinVal = sinf((float)i * (float)DEG_TO_RAD); 
+        while (true) {
+          int x = roundf(centerX + distance * cosVal);
+          int y = roundf(centerY + distance * sinVal);
+          // Check bounds
+          if (x < 0 || x >= vW || y < 0 || y >= vH) {
+            break;
+          }
+          setPixelColorXY(x, y, col);
+          distance++;
+        }
+        break;
+      }
     }
     return;
   } else if (Segment::maxHeight!=1 && (width()==1 || height()==1)) {
@@ -1066,6 +1093,14 @@ uint32_t Segment::getPixelColor(int i)
         else
           return getPixelColorXY(vW / 2, vH / 2 - i - 1);
         break;
+      case M12_sPinWheel: //WLEDMM
+      // not 100% accurate, returns outer edge of circle 
+        int distance = min(vH, vW) / 2;
+        float centerX = (vW - 1) / 2;
+        float centerY = (vH - 1) / 2;
+        int x = round(centerX + distance * cos(i * DEG_TO_RAD));
+        int y = round(centerY + distance * sin(i * DEG_TO_RAD));
+        return getPixelColorXY(x, y);
     }
     return 0;
   }
@@ -1421,7 +1456,7 @@ void WS2812FX::enumerateLedmaps() {
   ledmapMaxSize = 0;
   ledMaps = 1;
   for (int i=1; i<10; i++) {
-    char fileName[33];
+    char fileName[33] = {'\0'};       // WLEDMM ensure termination
     snprintf_P(fileName, sizeof(fileName), PSTR("/ledmap%d.json"), i);
     bool isFile = WLED_FS.exists(fileName);
 
@@ -1612,6 +1647,8 @@ void WS2812FX::waitUntilIdle(void) {
 
 void WS2812FX::service() {
   unsigned long nowUp = millis(); // Be aware, millis() rolls over every 49 days // WLEDMM avoid losing precision
+  if (OTAisRunning) return; // WLEDMM avoid flickering during OTA
+
   now = nowUp + timebase;
   #if defined(ARDUINO_ARCH_ESP32) && defined(WLEDMM_FASTPATH)
     if ((_frametime > 2) && (_frametime < 32) && (nowUp - _lastShow) < (_frametime/2)) return;  // WLEDMM experimental - stabilizes frametimes but increases CPU load
@@ -1773,6 +1810,8 @@ void WS2812FX::estimateCurrentAndLimitBri() {
 }
 
 void WS2812FX::show(void) {
+  if (OTAisRunning) return; // WLEDMM avoid flickering during OTA
+
   // avoid race condition, capture _callback value
   show_callback callback = _callback;
   if (callback) callback();
@@ -2231,7 +2270,7 @@ void WS2812FX::loadCustomPalettes() {
 bool WS2812FX::deserializeMap(uint8_t n) {
   // 2D support creates its own ledmap (on the fly) if a ledmap.json exists it will overwrite built one.
 
-  char fileName[32];
+  char fileName[32] = {'\0'};
   //WLEDMM: als support segment name ledmaps
   bool isFile = false;;
   if (n<10) {
@@ -2283,13 +2322,17 @@ bool WS2812FX::deserializeMap(uint8_t n) {
 
   if (isMatrix) {
     //WLEDMM: read width and height
+    memset(fileName, 0, sizeof(fileName));              // clear old buffer - readBytesUntil() does not terminate strings !!!
     f.find("\"width\":");
     f.readBytesUntil('\n', fileName, sizeof(fileName)); //hack: use fileName as we have this allocated already
-    uint16_t maxWidth = atoi(fileName);
+    uint16_t maxWidth = atoi(cleanUpName(fileName));
+    //DEBUG_PRINTF(" (\"width\": %s) ", fileName)
 
+    memset(fileName, 0, sizeof(fileName));              // clear old buffer
     f.find("\"height\":");
     f.readBytesUntil('\n', fileName, sizeof(fileName));
-    uint16_t maxHeight = atoi(fileName);
+    uint16_t maxHeight = atoi(cleanUpName(fileName));
+    //DEBUG_PRINTF(" (\"height\": %s) \n", fileName)
 
     //WLEDMM: support ledmap file properties width and height: if found change segment
     if (maxWidth * maxHeight > 0) {
@@ -2324,20 +2367,23 @@ bool WS2812FX::deserializeMap(uint8_t n) {
 
   if (customMappingTable != nullptr) {
     customMappingSize  = Segment::maxWidth * Segment::maxHeight;
+    // WLEDMM reset mapping table before loading
+    //memset(customMappingTable, 0xFF, customMappingTableSize * sizeof(uint16_t)); // FFFF = no pixel
+    for (unsigned i=0; i<customMappingTableSize; i++) customMappingTable[i]=i;     // "neutral" 1:1 mapping
 
     //WLEDMM: find the map values
     f.find("\"map\":[");
     uint16_t i=0;
     do { //for each element in the array
       int mapi = f.readStringUntil(',').toInt();
-      // USER_PRINTF(", %d", mapi);
-      customMappingTable[i++] = (uint16_t) (mapi<0 ? 0xFFFFU : mapi);
+      // USER_PRINTF(", %d(%d)", mapi, i);
+      if (i < customMappingSize) customMappingTable[i++] = (uint16_t) (mapi<0 ? 0xFFFFU : mapi);  // WLEDMM do not write past array bounds
     } while (f.available());
 
     loadedLedmap = n;
     f.close();
 
-    USER_PRINTF("Custom ledmap: %d\n", loadedLedmap);
+    USER_PRINTF("Custom ledmap: %d size=%d\n", loadedLedmap, customMappingSize);
     #ifdef WLED_DEBUG_MAPS
       for (uint16_t j=0; j<customMappingSize; j++) { // fixing a minor warning: declaration of 'i' shadows a previous local
         if (!(j%Segment::maxWidth)) DEBUG_PRINTLN();

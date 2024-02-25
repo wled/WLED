@@ -11,7 +11,7 @@ The Animated Staircase can be controlled by the WLED API. Change settings such a
 speed, on/off time and distance by sending an HTTP request, see below.
 
 ## WLED integration
-To include this usermod in your WLED setup, you have to be able to [compile WLED from source](https://github.com/Aircoookie/WLED/wiki/Compiling-WLED).
+To include this usermod in your WLED setup, you have to be able to [compile WLED from source](https://kno.wled.ge/advanced/compiling-wled/).
 
 Before compiling, you have to make the following modifications:
 

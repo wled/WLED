@@ -666,27 +666,26 @@ class WM8978Source : public I2SSource {
       _wm8978I2cBegin(); 
 
       _wm8978I2cWrite( 0,0b000000000); // Reset all settings
-      _wm8978I2cWrite( 1,0b000001011); // Power Management 1 - power off most things
-      _wm8978I2cWrite( 2,0b110110011); // Power Management 2 - enable output and amp stages (amps may lift signal but it works better on the ADCs)
+      _wm8978I2cWrite( 1,0b000111110); // Power Management 1 - power off most things, but enable mic bias and I/O tie-off to help mitigate mic leakage.
+      _wm8978I2cWrite( 2,0b110111111); // Power Management 2 - enable output and amp stages (amps may lift signal but it works better on the ADCs)
       _wm8978I2cWrite( 3,0b000001100); // Power Management 3 - enable L&R output mixers
       _wm8978I2cWrite( 4,0b001010000); // Audio Interface - standard I2S, 24-bit
-      _wm8978I2cWrite( 5,0b000000001); // Loopback Enable
       _wm8978I2cWrite( 6,0b000000000); // Clock generation control - use external mclk
       _wm8978I2cWrite( 7,0b000000100); // Sets sample rate to ~24kHz (only used for internal calculations, not I2S)
       _wm8978I2cWrite(14,0b010001000); // 128x ADC oversampling - high pass filter disabled as it kills the bass response
       _wm8978I2cWrite(43,0b000110000); // Mute signal paths we don't use
-      _wm8978I2cWrite(44,0b000000000); // Disconnect microphones
+      _wm8978I2cWrite(44,0b100000000); // Disconnect microphones
       _wm8978I2cWrite(45,0b111000000); // Mute signal paths we don't use
       _wm8978I2cWrite(46,0b111000000); // Mute signal paths we don't use
       _wm8978I2cWrite(47,0b001000000); // 0dB gain on left line-in
       _wm8978I2cWrite(48,0b001000000); // 0dB gain on right line-in
-      _wm8978I2cWrite(49,0b000000010); // Mixer thermal shutdown enable
+      _wm8978I2cWrite(49,0b000000011); // Mixer thermal shutdown enable and unused IOs to 30kΩ
       _wm8978I2cWrite(50,0b000010110); // Output mixer enable only left bypass at 0dB gain
       _wm8978I2cWrite(51,0b000010110); // Output mixer enable only right bypass at 0dB gain
       _wm8978I2cWrite(52,0b110111001); // Left line-out enabled at 0dB gain
       _wm8978I2cWrite(53,0b110111001); // Right line-out enabled at 0db gain
-      _wm8978I2cWrite(54,0b001000000); // Mute left speaker output
-      _wm8978I2cWrite(55,0b101000000); // Mute right speaker output
+      _wm8978I2cWrite(54,0b111000000); // Mute left speaker output
+      _wm8978I2cWrite(55,0b111000000); // Mute right speaker output
 
     }
 

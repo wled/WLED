@@ -44,10 +44,6 @@
 #include "../usermods/PIR_sensor_switch/usermod_PIR_sensor_switch.h"
 #endif
 
-#ifdef USERMOD_MODE_SORT
-#include "../usermods/usermod_v2_mode_sort/usermod_v2_mode_sort.h"
-#endif
-
 #ifdef USERMOD_BH1750
 #include "../usermods/BH1750_v2/usermod_bh1750.h" //WLEDMM: usermod_bh1750.h in small caps!
 #endif
@@ -58,19 +54,11 @@
 #endif
 
 #ifdef USERMOD_FOUR_LINE_DISPLAY
-#if defined(USE_ALT_DISPLAY) || defined(USE_ALT_DISPlAY)
-#include "../usermods/usermod_v2_four_line_display_ALT/usermod_v2_four_line_display_ALT.h"
-#else
-#include "../usermods/usermod_v2_four_line_display/usermod_v2_four_line_display.h"
-#endif
+  #include "../usermods/usermod_v2_four_line_display_ALT/usermod_v2_four_line_display_ALT.h"
 #endif
 
 #ifdef USERMOD_ROTARY_ENCODER_UI
-#if defined(USE_ALT_DISPLAY) || defined(USE_ALT_DISPlAY)
-#include "../usermods/usermod_v2_rotary_encoder_ui_ALT/usermod_v2_rotary_encoder_ui_ALT.h"
-#else
-#include "../usermods/usermod_v2_rotary_encoder_ui/usermod_v2_rotary_encoder_ui.h"
-#endif
+  #include "../usermods/usermod_v2_rotary_encoder_ui_ALT/usermod_v2_rotary_encoder_ui_ALT.h"
 #endif
 
 #ifdef USERMOD_AUTO_SAVE
@@ -166,7 +154,7 @@
 #endif
 
 #ifdef USERMOD_KLIPPER_PERCENTAGE
-#include "..\usermods\usermod_v2_klipper_percentage\usermod_v2_klipper_percentage.h"
+  #include "../usermods/usermod_v2_klipper_percentage/usermod_v2_klipper_percentage.h"
 #endif
 
 #ifdef USERMOD_BOBLIGHT
@@ -260,11 +248,7 @@ void registerUsermods()
   usermods.add(new PIRsensorSwitch());
 #endif
 
-#ifdef USERMOD_MODE_SORT
-  usermods.add(new ModeSortUsermod());
-#endif
-
-#ifdef USERMOD_FOUR_LINE_DISPLAY
+  #ifdef USERMOD_FOUR_LINE_DISPLAY
   usermods.add(new FourLineDisplayUsermod());
 #endif
 

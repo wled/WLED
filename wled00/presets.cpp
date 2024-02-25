@@ -95,7 +95,7 @@ static void doSaveState() {
 
 bool getPresetName(byte index, String& name)
 {
-  if (!requestJSONBufferLock(9)) return false;
+  if (!requestJSONBufferLock(19)) return false;
   bool presetExists = false;
   if (readObjectFromFileUsingId(getFileName(), index, &doc))
   {

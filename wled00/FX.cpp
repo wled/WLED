@@ -4998,7 +4998,7 @@ static const char _data_FX_MODE_2DDNA[] PROGMEM = "DNA@Scroll speed,Blur;;!;2";
 /////////////////////////
 //     2D DNA Spiral   //
 /////////////////////////
-uint16_t mode_2DDNASpiral() {               // By: ldirko  https://editor.soulmatelights.com/gallery/810 , modified by: Andrew Tuline
+uint16_t mode_2DDNASpiral() {               // By: ldirko  https://editor.soulmatelights.com/gallery/512-dna-spiral-variation , modified by: Andrew Tuline
   if (!strip.isMatrix) return mode_static(); // not a 2D set-up
 
   const uint16_t cols = SEGMENT.virtualWidth();
@@ -5009,7 +5009,7 @@ uint16_t mode_2DDNASpiral() {               // By: ldirko  https://editor.soulma
     SEGMENT.fill(BLACK);
   }
 
-  uint8_t speeds = SEGMENT.speed/2 + 1;
+  uint8_t speeds = SEGMENT.speed/2 + 7;
   uint8_t freq = SEGMENT.intensity/8;
 
   uint32_t ms = strip.now / 20;

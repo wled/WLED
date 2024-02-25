@@ -29,10 +29,6 @@
 // * display network (long press buttion)
 //
 
-#ifdef USERMOD_MODE_SORT
-  #error "Usermod Mode Sort is no longer required. Remove -D USERMOD_MODE_SORT from platformio.ini"
-#endif
-
 #ifndef ENCODER_DT_PIN
 #define ENCODER_DT_PIN 18
 #endif

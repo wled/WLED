@@ -196,6 +196,8 @@ void exitRealtime() {
   realtimeIP[0] = 0;
   if (useMainSegmentOnly) { // unfreeze live segment again
     strip.getMainSegment().freeze = false;
+  } else {
+    strip.show(); // possible fix for #3589
   }
   updateInterfaces(CALL_MODE_WS_SEND);
 }
@@ -562,13 +564,13 @@ void handleNotifications()
     if (realtimeOverride && !(realtimeMode && useMainSegmentOnly)) return;
 
     uint16_t totalLen = strip.getLengthTotal();
-    if (udpIn[0] == 1) //warls
+    if (udpIn[0] == 1 && packetSize > 5) //warls
     {
       for (int i = 2; i < packetSize -3; i += 4)
       {
         setRealtimePixel(udpIn[i], udpIn[i+1], udpIn[i+2], udpIn[i+3], 0);
       }
-    } else if (udpIn[0] == 2) //drgb
+    } else if (udpIn[0] == 2 && packetSize > 4) //drgb
     {
       uint16_t id = 0;
       for (int i = 2; i < packetSize -2; i += 3)
@@ -577,7 +579,7 @@ void handleNotifications()
 
         id++; if (id >= totalLen) break;
       }
-    } else if (udpIn[0] == 3) //drgbw
+    } else if (udpIn[0] == 3 && packetSize > 6) //drgbw
     {
       uint16_t id = 0;
       for (int i = 2; i < packetSize -3; i += 4)
@@ -586,7 +588,7 @@ void handleNotifications()
 
         id++; if (id >= totalLen) break;
       }
-    } else if (udpIn[0] == 4) //dnrgb
+    } else if (udpIn[0] == 4 && packetSize > 7) //dnrgb
     {
       uint16_t id = ((udpIn[3] << 0) & 0xFF) + ((udpIn[2] << 8) & 0xFF00);
       for (int i = 4; i < packetSize -2; i += 3)
@@ -595,7 +597,7 @@ void handleNotifications()
         setRealtimePixel(id, udpIn[i], udpIn[i+1], udpIn[i+2], 0);
         id++;
       }
-    } else if (udpIn[0] == 5) //dnrgbw
+    } else if (udpIn[0] == 5 && packetSize > 8) //dnrgbw
     {
       uint16_t id = ((udpIn[3] << 0) & 0xFF) + ((udpIn[2] << 8) & 0xFF00);
       for (int i = 4; i < packetSize -2; i += 4)

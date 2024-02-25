@@ -41,7 +41,10 @@ void wsEvent(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventTyp
         }
 
         bool verboseResponse = false;
-        if (!requestJSONBufferLock(11)) return;
+        if (!requestJSONBufferLock(11)) {
+          client->text(F("{\"error\":3}")); // ERR_NOBUF
+          return;
+        }
 
         DeserializationError error = deserializeJson(doc, data, len);
         JsonObject root = doc.as<JsonObject>();
@@ -106,7 +109,14 @@ void sendDataWs(AsyncWebSocketClient * client)
   if (!ws.count()) return;
   AsyncWebSocketMessageBuffer * buffer;
 
-  if (!requestJSONBufferLock(12)) return;
+  if (!requestJSONBufferLock(12)) {
+    if (client) {
+      client->text(F("{\"error\":3}")); // ERR_NOBUF
+    } else {
+      ws.textAll(F("{\"error\":3}")); // ERR_NOBUF
+    }
+    return;
+  }
 
   JsonObject state = doc.createNestedObject("state");
   serializeState(state);

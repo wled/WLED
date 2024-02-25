@@ -136,7 +136,10 @@ void handleSerial()
 
         } else if (next == '{') { //JSON API
           bool verboseResponse = false;
-          if (!requestJSONBufferLock(16)) return;
+          if (!requestJSONBufferLock(16)) {
+             if (Serial) Serial.println(F("{\"error\":3}")); // ERR_NOBUF
+            return;
+          }
           Serial.setTimeout(100);
           DeserializationError error = deserializeJson(doc, Serial);
           if (error) {

@@ -1185,7 +1185,7 @@ class PolyBus {
       #else
       // ESP32 "audio_fastpath" - 8 RMT and 1 I2S channels. RMT 5-8 have sending delays, so use I2S#1 before going for RMT 5-8
       if (num > 8) return I_NONE;
-      if (num == 2) offset = 2;    // use I2S#1 as 3rd bus - seems to be a good compromise for performance
+      if (num == 1) offset = 2;    // use I2S#1 as 2nd bus - seems to be a good compromise for performance, and reduces flickering for some users
       //if (num == 0) offset = 2;  // un-comment to use I2S#1 as 1st bus - sometimes helps, if you experience flickering during Wifi or filesystem activity.
       #endif
       #endif
