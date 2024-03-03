@@ -382,14 +382,15 @@ class I2SSource : public AudioSource {
         }
 
         if (_sampleRate == 96000) {
-          int final_samples = num_samples/4;
-          for (int i = 0; i < final_samples; i++) {
-            newSamples[i] = 0;
-            for (int x = 0; x < 4; x++) {
-              newSamples[i] += newSamples4x[(i*4)+x]/4;
-            }
+          for (int i = 0; i < num_samples/4; i++) {
+            // Code for averaging. Decimation seems fine too.
+            // newSamples[i] = 0;
+            // for (int x = 0; x < 4; x++) {
+            //   newSamples[i] += newSamples4x[(i*4)+x]/4;
+            // }
+            newSamples[i] = newSamples4x[(i*4)]; // every 4th sample, skip the rest.
           }
-          num_samples = final_samples;
+          num_samples /= 4; // back to 512 samples
         }
 
         // Store samples in sample buffer and update DC offset
