@@ -359,13 +359,13 @@ class I2SSource : public AudioSource {
 
         memset(buffer, 0, sizeof(float) * num_samples);  // clear output buffer
         I2S_datatype *newSamples = newSampleBuffer; // use global input buffer
-        I2S_datatype *newSamples4x = newSampleBuffer4x; // use oversampling global input buffer
+        I2S_datatype *newSamples_buff = newSampleBuffer4x; // use oversampling global input buffer
 
         if (num_samples > I2S_SAMPLES_MAX) num_samples = I2S_SAMPLES_MAX; // protect the buffer from overflow
 
         if (_sampleRate == 96000) {  
           num_samples *= 4;
-          err = i2s_read(I2S_NUM_0, (void *)newSamples4x, num_samples * sizeof(I2S_datatype), &bytes_read, portMAX_DELAY);
+          err = i2s_read(I2S_NUM_0, (void *)newSamples_buff, num_samples * sizeof(I2S_datatype), &bytes_read, portMAX_DELAY);
         } else {
           err = i2s_read(I2S_NUM_0, (void *)newSamples, num_samples * sizeof(I2S_datatype), &bytes_read, portMAX_DELAY);
         }
@@ -382,13 +382,10 @@ class I2SSource : public AudioSource {
         }
 
         if (_sampleRate == 96000) {
-          for (int i = 0; i < num_samples/4; i++) {
-            // Code for averaging. Decimation seems fine too.
-            // newSamples[i] = 0;
-            // for (int x = 0; x < 4; x++) {
-            //   newSamples[i] += newSamples4x[(i*4)+x]/4;
-            // }
-            newSamples[i] = newSamples4x[(i*4)]; // every 4th sample, skip the rest.
+          int current = 0;
+          for (int i = 0; i < 2048; i += 4) {
+            newSamples[current] = newSamples_buff[i];
+            current++;
           }
           num_samples /= 4; // back to 512 samples
         }
