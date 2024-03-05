@@ -3,7 +3,7 @@
    @file    arti.h
    @date    20220818
    @author  Ewoud Wijma
-   @Copyright (c) 2023 Ewoud Wijma
+   @Copyright (c) 2024 Ewoud Wijma
    @repo    https://github.com/ewoudwijma/ARTI
    @remarks
           - #define ARDUINOJSON_DEFAULT_NESTING_LIMIT 100 //set this in ArduinoJson!!!, currently not necessary...

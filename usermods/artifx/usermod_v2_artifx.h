@@ -3,7 +3,7 @@
    @file    usermod_v2_artifx.h
    @date    20220818
    @author  Ewoud Wijma
-   @Copyright (c) 2023 Ewoud Wijma
+   @Copyright (c) 2024 Ewoud Wijma
    @repo    https://github.com/ewoudwijma/ARTI
  */
 
