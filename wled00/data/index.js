@@ -3210,7 +3210,8 @@ function genPresets()
 	var playlistSep = JSON.parse("{}");
 	var playlistDur = JSON.parse("{}");
 	var playlistTrans = JSON.parse("{}");
-	function addToPlaylist(m, id) {
+	var playlistQL = JSON.parse("{}");
+	function addToPlaylist(m, id, ql = undefined) {
 		if (!playlistPS[m]) playlistPS[m] = "";
 		if (!playlistDur[m]) playlistDur[m] = "";
 		if (!playlistTrans[m]) playlistTrans[m] = "";
@@ -3219,7 +3220,9 @@ function genPresets()
 		playlistDur[m] += playlistSep[m] + "100";
 		playlistTrans[m] += playlistSep[m] + "7";
 		playlistSep[m] = ",";
+		if(ql) playlistQL[m] = `${ql}`;
 	}
+	var seq=230; //Playlist start here
 	for (let ef of effects) {
 		if (ef.name.indexOf("RSVD") < 0) {
 			if (Array.isArray(fxdata) && fxdata.length>ef.id) {
@@ -3257,18 +3260,26 @@ function genPresets()
 				}
 				result += `${sep}"${ef.id}":{"n":"${ef.name}","mainseg":0,"seg":[{"id":0,"fx":${ef.id}${defaultString}}]}`;
 				sep = "\n,";
-				addToPlaylist(m, ef.id);
-				addToPlaylist("All", ef.id);
-				if (m.includes("1")) addToPlaylist("All1", ef.id);
-				if (m.includes("2")) addToPlaylist("All2", ef.id);
+				if(m.length <= 3) {
+					addToPlaylist(m, ef.id, m);
+				}
+				else {
+					addToPlaylist(m, ef.id);
+				}
+				addToPlaylist("All", ef.id, "ALL");
+				if(ef.name.startsWith("Y💡")) addToPlaylist("AnimARTrix", ef.id, "AM");
+				if (m.includes("1")) addToPlaylist("All 1D", ef.id, "1D");
+				if (m.includes("2")) addToPlaylist("All 2D", ef.id, "2D");
+
+				seq = Math.max(seq, (parseInt(ef.id) + 1));
 			} //fxdata is array
 		} //not RSVD
 	} //all effects
 
-	var seq=230; //Playlist start here
 	// console.log(playlistPS, playlistDur, playlistTrans);
 	for (const m in playlistPS) {
-		let playListString = `\n,"${seq}":{"n":"${m}D Playlist","ql":"${seq}","on":true,"playlist":{"ps":[${playlistPS[m]}],"dur":[${playlistDur[m]}],"transition":[${playlistTrans[m]}],"repeat":0,"end":0,"r":1}}`;
+		if(!playlistQL[m]) playlistQL[m] = seq;
+		let playListString = `\n,"${seq}":{"n":"${m} Playlist","ql":"${playlistQL[m]}","on":true,"playlist":{"ps":[${playlistPS[m]}],"dur":[${playlistDur[m]}],"transition":[${playlistTrans[m]}],"repeat":0,"end":0,"r":1}}`;
 		// console.log(playListString);
 		result += playListString;
 		seq++;

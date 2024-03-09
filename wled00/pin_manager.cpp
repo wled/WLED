@@ -50,6 +50,7 @@ String PinManagerClass::getOwnerText(PinOwner tag) {
     case PinOwner::HW_I2C     : return(F("I2C (hw)")); break;            // 'I2C'  == hardware I2C pins (4&5 on ESP8266, 21&22 on ESP32)
     case PinOwner::HW_SPI     : return(F("SPI (hw)")); break;            // 'SPI'  == hardware (V)SPI pins (13,14&15 on ESP8266, 5,18&23 on ESP32)
     case PinOwner::DMX_INPUT  : return(F("DMX Input")); break;            
+    case PinOwner::HUB75      : return(F("Hub75")); break;          // 'Hub75' == Hub75 driver 
 
     case PinOwner::UM_Audioreactive     : return(F("AudioReactive (UM)")); break;     // audioreactive usermod - analog or digital audio input
     case PinOwner::UM_Temperature       : return(F("Temperature (UM)")); break;       // "usermod_temperature.h"

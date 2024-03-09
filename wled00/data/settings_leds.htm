@@ -16,6 +16,19 @@
 		function B(){window.open("/settings","_self");}
 		function gId(n){return d.getElementById(n);}
 		function hideNoIR(){gId("irOnOff2").style.display="none";} //WLEDMM
+		function hideHub75() {
+			var s = d.getElementsByTagName("select");
+			for (i=0; i<s.length; i++) {
+				// is the field a LED type?
+				if (s[i].name.substring(0,2)=="LT") {
+					var selectobject = s[i];
+					for (var j=(selectobject.length - 1); j > 0; j--) {
+						var t = parseInt(selectobject.options[j].value);
+						if(t >= 100 && t <= 110) selectobject.remove(j);
+					}
+				}
+			}
+		}
  		function off(n){d.getElementsByName(n)[0].value = -1;}
 		// https://www.educative.io/edpresso/how-to-dynamically-load-a-js-file-in-javascript
 		function loadJS(FILE_URL, async = true) {
@@ -47,10 +60,14 @@
 			x.style.animation = 'none';
 			timeout = setTimeout(function(){ x.className = x.className.replace("show", ""); }, 2900);
 		}
-		function bLimits(b,v,p,m,l) {
-			maxB = b; maxV = v; maxM = m; maxPB = p; maxL = l;
+		function bLimits(b,v,m,l) {
+			maxB = b; maxV = v; maxM = m; maxL = l;
 		}
-		function pinsOK() {
+		function setPixelLimit(i, max) {
+			var lc = d.getElementsByName("LC"+i)[0];
+			lc.max = max;
+		}
+ 		function pinsOK() {
 			var LCs = d.getElementsByTagName("input");
 			for (i=0; i<LCs.length; i++) {
 				var nm = LCs[i].name.substring(0,2);
@@ -164,7 +181,7 @@
 				if (s[i].name.substring(0,2)=="LT") {
 					var n = s[i].name.substring(2);
 					var t = parseInt(s[i].value,10);
-					gId("p0d"+n).innerHTML = (t>=80 && t<96) ? "IP address:" : (t > 49) ? "Data GPIO:" : (t > 41) ? "GPIOs:" : "GPIO:";
+					gId("p0d"+n).innerHTML = (t >= 100 && t < 110) ? "Chain Length:" : (t>=80 && t<96) ? "IP address:" : (t > 49) ? "Data GPIO:" : (t > 41) ? "GPIOs:" : "GPIO:";
 					gId("p1d"+n).innerHTML = (t> 49 && t<64) ? "Clk GPIO:" : "";
 					var LK = d.getElementsByName("L1"+n)[0]; // clock pin
 
@@ -174,7 +191,13 @@
 					for (p=1; p<5; p++) {
 						var LK = d.getElementsByName("L"+p+n)[0]; // secondary pins
 						if (!LK) continue;
-						if (((t>=80 && t<96) && p<4) || (t>49 && p==1) || (t>41 && t < 50 && (p+40 < t))) // TYPE_xxxx values from const.h
+						if(t >= 100 && t < 110)  {
+							// hide pin field
+							LK.style.display = "none";
+							LK.required = false;
+							LK.value="";                                                    
+						}
+						else if (((t>=80 && t<96) && p<4) || (t>49 && p==1) || (t>41 && t < 50 && (p+40 < t))) // TYPE_xxxx values from const.h
 						{
 							// display pin field
 							LK.style.display = "inline";
@@ -192,15 +215,15 @@
 					}
 					gId("rf"+n).onclick = (t == 31) ? (()=>{return false}) : (()=>{});  // prevent change for TM1814
 					gRGBW |= isRGBW = ((t > 17 && t < 22) || (t > 28 && t < 32) || (t > 40 && t < 46 && t != 43) || t == 88); // RGBW checkbox, TYPE_xxxx values from const.h
-					gId("co"+n).style.display = ((t >= 80 && t < 96) || (t >= 40 && t < 48)) ? "none":"inline";  // hide color order for PWM
+					gId("co"+n).style.display = ((t >= 80 && t < 96) || (t >= 40 && t < 48)||(t >= 100 && t < 110)) ? "none":"inline";  // hide color order for PWM
 					gId("dig"+n+"w").style.display = (t > 28 && t < 32) ? "inline":"none";  // show swap channels dropdown
 					if (!(t > 28 && t < 32)) d.getElementsByName("WO"+n)[0].value = 0; // reset swapping
-					gId("dig"+n+"c").style.display = (t >= 40 && t < 48) ? "none":"inline";  // hide count for analog
-					gId("dig"+n+"r").style.display = (t >= 80 && t < 96) ? "none":"inline";  // hide reversed for virtual
-					gId("dig"+n+"s").style.display = ((t >= 80 && t < 96) || (t >= 40 && t < 48)) ? "none":"inline";  // hide skip 1st for virtual & analog
+					gId("dig"+n+"c").style.display = ((t >= 40 && t < 48)||(t >= 100 && t < 110)) ? "none":"inline";  // hide count for analog and HUB75
+					gId("dig"+n+"r").style.display = (t >= 80) ? "none":"inline";  // hide reversed for virtual
+					gId("dig"+n+"s").style.display = ((t >= 80) || (t >= 40 && t < 48)) ? "none":"inline";  // hide skip 1st for virtual & analog
 					gId("dig"+n+"f").style.display = ((t >= 16 && t < 32) || (t >= 50 && t < 64)) ? "inline":"none";  // hide refresh
 					gId("dig"+n+"a").style.display = (isRGBW && t != 40) ? "inline":"none";  // auto calculate white
-					gId("dig"+n+"l").style.display = (t > 48 && t < 64) ? "inline":"none";  // bus clock speed
+					gId("dig"+n+"l").style.display = ((t > 48 && t < 64) && !(t >= 100 && t < 110)) ? "inline":"none";  // bus clock speed
 					gId("rev"+n).innerHTML = (t >= 40 && t < 48) ? "Inverted output":"Reversed (rotated 180°)";  // change reverse text for analog
 					gId("psd"+n).innerHTML = (t >= 40 && t < 48) ? "Index:":"Start:";    // change analog start description
 				}
@@ -357,6 +380,11 @@ ${i+1}:
 <!--option value="81">E1.31 RGB (network)</option-->
 <option value="82">Art-Net RGB (network)</option>
 <option value="88">DDP RGBW (network)</option>
+<option value="101">Hub75Matrix 32x32</option>
+<option value="102">Hub75Matrix 64x32</option>
+<option value="103">Hub75Matrix 64x64</option>
+<option value="105">Hub75Matrix 32x32 (Outdoor 8S)</option>
+<option value="106">Hub75Matrix 64x64 (Outdoor 16S)</option>
 </select><br>
 <div id="co${i}" style="display:inline">Color Order:
 <select name="CO${i}">

@@ -405,7 +405,6 @@ void getSettingsJS(AsyncWebServerRequest* request, byte subPage, char* dest) //W
     oappend(SET_F("bLimits("));
     oappend(itoa(WLED_MAX_BUSSES,nS,10));  oappend(",");
     oappend(itoa(WLED_MIN_VIRTUAL_BUSSES,nS,10));  oappend(",");
-    oappend(itoa(MAX_LEDS_PER_BUS,nS,10)); oappend(",");
     oappend(itoa(MAX_LED_MEMORY,nS,10));   oappend(",");
     oappend(itoa(MAX_LEDS,nS,10));
     oappend(SET_F(");"));
@@ -469,6 +468,11 @@ void getSettingsJS(AsyncWebServerRequest* request, byte subPage, char* dest) //W
         }
       }
       sappend('v',sp,speed);
+
+      oappend(SET_F("setPixelLimit("));
+      oappendi(s); oappend(SET_F(","));
+      oappendi(bus->getMaxPixels()); oappend(SET_F(");"));
+
     }
     sappend('v',SET_F("MA"),strip.ablMilliampsMax);
     sappend('v',SET_F("LA"),strip.milliampsPerLed);
@@ -528,6 +532,10 @@ void getSettingsJS(AsyncWebServerRequest* request, byte subPage, char* dest) //W
     #if !defined(WLED_DISABLE_INFRARED)
     oappend(SET_F("hideNoIR();"));  // WLEDMM hide "not compiled in" message
     #endif
+    #ifndef WLED_ENABLE_HUB75MATRIX
+    oappend(SET_F("hideHub75();"));  // WLEDMM hide HUB75 LED types
+    #endif    
+
   }
 
   if (subPage == 3)
