@@ -11,6 +11,7 @@
 //DDP protocol support, called by handleE131Packet
 //handles RGB data only
 void handleDDPPacket(e131_packet_t* p) {
+  static bool ddpSeenPush = false;  // have we seen a push yet?
   int lastPushSeq = e131LastSequenceNumber[0];
 
   //reject late packets belonging to previous frame (assuming 4 packets max. before push)
@@ -34,6 +35,7 @@ void handleDDPPacket(e131_packet_t* p) {
   uint16_t c = 0;
   if (p->flags & DDP_TIMECODE_FLAG) c = 4; //packet has timecode flag, we do not support it, but data starts 4 bytes later
 
+  if (realtimeMode != REALTIME_MODE_DDP) ddpSeenPush = false; // just starting, no push yet
   realtimeLock(realtimeTimeoutMs, REALTIME_MODE_DDP);
 
   if (!realtimeOverride || (realtimeMode && useMainSegmentOnly)) {
@@ -44,7 +46,8 @@ void handleDDPPacket(e131_packet_t* p) {
   }
 
   bool push = p->flags & DDP_PUSH_FLAG;
-  if (push) {
+  ddpSeenPush |= push;
+  if (!ddpSeenPush || push) { // if we've never seen a push, or this is one, render display
     e131NewData = true;
     byte sn = p->sequenceNum & 0xF;
     if (sn) e131LastSequenceNumber[0] = sn;
