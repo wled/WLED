@@ -7415,6 +7415,163 @@ uint16_t mode_2DAkemi(void) {
 static const char _data_FX_MODE_2DAKEMI[] PROGMEM = "Akemi@Color speed,Dance;Head palette,Arms & Legs,Eyes & Mouth;Face palette;2f;si=0"; //beatsin
 
 
+/////////////////////////
+//  Xmas Twinkle       //
+/////////////////////////
+
+/* We need to keep data for each twinkle light.
+ * Except for the color, we smash all other data into a single
+ * uint32_t to keep memory short. We use time in centiseconds.
+ * Be careful to not overflow the limited size of these timers. */
+typedef struct XTwinkleLight {
+  uint8_t colorIdx;
+  uint32_t twData;
+
+// (Be aware of operator precedent when accessing & modifying.)
+#define TWINKLE_ON            0x80000000    // 1 bit
+#define TIME_TO_EVENT         0x7fe00000    // 10 bits >> 21
+#define TIME_TO_EVENT_SHIFT   21
+#define MAX_CYCLE             0x001ff800    // 10 bits >> 11
+#define MAX_CYCLE_SHIFT       11
+#define T_RETWINKLE           0x000007ff    // 11 bits >> 0
+} XTwinkleLight;
+
+// For creating skewed random numbers toward the shorter end.
+// The sum of percentages must = 100%
+const uint16_t pSize = 20;
+int16_t percentages[pSize] = {12, 11, 10, 10, 6, 6, 5, 5, 3, 3, 1, 1, 1, 1, 1, 1, 2, 3, 3, 15};
+
+// Input is 0-100, Ouput is skewed 0-100.
+// PArray may be any size, but elements must add up to 100.
+// Note: Single precision floating point is just as fast on an ESP-32 as fixed arithmetic.
+int32_t skewedRandom( int32_t rand100,
+                      uint16_t pArraySize,
+                      int16_t *pArray)
+{
+    int index = 0;
+    int cumulativePercentage = 0;
+
+    // Find the range in the table based on randomValue.
+    while (index < pArraySize - 1 && rand100 >= cumulativePercentage + pArray[index]) {
+        cumulativePercentage += pArray[index];
+        index++;
+    }
+
+    // Calculate linear interpolation
+    float t = float((rand100 - cumulativePercentage) / float(pArray[index]));
+    int result = int((float(index) + t) * 100.0 / pArraySize);
+
+    return result;
+}
+
+uint16_t mode_XmasTwinkle(void) {              // by Nicholas Pisarro, Jr.
+  uint16_t numTwiklers = SEGLEN * SEGMENT.intensity / 255;
+  if (numTwiklers <= 0)
+    numTwiklers = 1;        // Divide checks are not cool.
+
+  // Reinitialize evertying if the number of twinklers has changed.
+  if (numTwiklers != SEGMENT.aux0)
+    SEGMENT.aux0 = 0;
+  
+  // The maximum twinkle time varies based on the time slider
+  int32_t maximumTime = (255 - SEGMENT.speed) * 900 / 256 + 100;        // Between 100 & 1000 centiseconds
+  
+  // uint8_t flasherDistance = ((255 - SEGMENT.intensity) / 28) +1; //1-10
+  // uint16_t numFlashers = (SEGLEN / flasherDistance) +1;
+
+  uint16_t dataSize = sizeof(XTwinkleLight) * numTwiklers;
+  if (!SEGENV.allocateData(dataSize)) return mode_static(); //allocation failed
+  XTwinkleLight* twinklers = reinterpret_cast<XTwinkleLight*>(SEGENV.data);
+
+  // Initialize the twinkle lights.
+  if (SEGMENT.aux0 == 0)
+  {
+    for (int i = 0; i < numTwiklers; ++i)
+    {
+      XTwinkleLight *light = &twinklers[i];
+
+      light->colorIdx = random8();
+      light->twData = 0;        // Everything 0
+      int cycleTime = skewedRandom(random(100), pSize, percentages) * maximumTime / 100 + 20;
+
+      light->twData |= cycleTime << MAX_CYCLE_SHIFT & MAX_CYCLE;
+      light->twData |= random(50, cycleTime) << TIME_TO_EVENT_SHIFT & TIME_TO_EVENT;
+      light->twData |= (random(2, 20) * 100) & T_RETWINKLE;  // 2 - 20 seconds 1st time around
+    }
+
+    SEGMENT.step = millis();
+    SEGMENT.aux0 = numTwiklers;     // Initialized.
+  }
+
+  // Get the current time,  handling overflows.
+  uint32_t lastTime = SEGMENT.step;
+  uint32_t currTime = millis();
+  if (currTime < lastTime)
+    lastTime = 0;
+  
+  // We're doing our work in centiseconds so we don't overflow our 10 bit counters.
+  // The interval may be zero if the refresh rate is fast enought.
+  uint32_t interval = (currTime - lastTime) / 10;
+
+  // Note the time passed to the LEDs, and process any events that occured.
+  for (int i = 0; i < numTwiklers; ++i)
+  {
+    XTwinkleLight *light = &twinklers[i];
+    
+    // See if we are at the end of twinkle on o off cycle.
+    int16_t eventTime = ((light->twData & TIME_TO_EVENT) >> TIME_TO_EVENT_SHIFT) - interval;
+    if (eventTime <= 0)
+    {
+      // Twinkle on cycles are 1/3 length of twinkle off cycles. We're' twinkling after all.
+      if (light->twData & TWINKLE_ON)
+        eventTime += random(50, ((light->twData & MAX_CYCLE) >> MAX_CYCLE_SHIFT));     // turn OFF
+      else
+        eventTime += random(10, ((light->twData & MAX_CYCLE) >> MAX_CYCLE_SHIFT) / 3); // turn ON
+      
+      light->twData ^= TWINKLE_ON;
+    }
+    // Put the updated event time back.
+    light->twData = (light->twData & ~TIME_TO_EVENT) | (eventTime << TIME_TO_EVENT_SHIFT & TIME_TO_EVENT);
+
+    // See if we are at the end of a major cycle, recalculate the max cycle time.
+    int16_t cycleTime = (light->twData & T_RETWINKLE) - interval;
+    if (cycleTime <= 0)
+    {
+      int maxTime =  skewedRandom(random(100), pSize, percentages) * maximumTime / 100 + 20;
+      light->twData = (light->twData & ~MAX_CYCLE) | (maxTime << MAX_CYCLE_SHIFT & MAX_CYCLE);
+      cycleTime += 2000;                        // 20 seconds
+    }
+    light->twData = (light->twData & ~T_RETWINKLE) | (cycleTime & T_RETWINKLE);
+  }
+
+  // Remember the last time as ms.
+  SEGMENT.step += interval * 10;
+
+  // Turm off all the LEDS.
+  for (int i = 0; i < SEGLEN; ++i)
+    SEGMENT.setPixelColor(i, CRGB::Black);
+  
+  // Turn on only those leds that should be.
+ for (int i = 0; i < numTwiklers; ++i)
+  {
+    XTwinkleLight *light = &twinklers[i];
+
+    if ((light->twData & TWINKLE_ON) == 0)
+      continue;
+    
+    // Compute the offset of the light in the string.
+    short inset = i * SEGLEN / numTwiklers;
+    if (inset > SEGLEN)       // Safety
+      break;
+
+    SEGMENT.setPixelColor(inset, CRGB(SEGMENT.color_wheel(light->colorIdx)));
+  }
+
+  return FRAMETIME;
+} // mode_XmasTwinkle
+static const char _data_FX_MODE_XMASTWINKLE[] PROGMEM = "Xmas Twinkle@Twinkle speed,Density;;!;;m12=0";
+
+
 // Distortion waves - ldirko
 // https://editor.soulmatelights.com/gallery/1089-distorsion-waves
 // adapted for WLED by @blazoncek
@@ -7813,6 +7970,8 @@ void WS2812FX::setupEffectData() {
   addEffect(FX_MODE_BLENDS, &mode_blends, _data_FX_MODE_BLENDS);
   addEffect(FX_MODE_TV_SIMULATOR, &mode_tv_simulator, _data_FX_MODE_TV_SIMULATOR);
   addEffect(FX_MODE_DYNAMIC_SMOOTH, &mode_dynamic_smooth, _data_FX_MODE_DYNAMIC_SMOOTH);
+
+  addEffect(FX_MODE_XMASTWINKLE, &mode_XmasTwinkle, _data_FX_MODE_XMASTWINKLE);
 
   // --- 1D audio effects ---
   addEffect(FX_MODE_PIXELS, &mode_pixels, _data_FX_MODE_PIXELS);
