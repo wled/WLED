@@ -7428,6 +7428,7 @@ typedef struct XTwinkleLight {
   uint32_t twData;
 
 // (Be aware of operator precedent when accessing & modifying.)
+// (Tried using C++ bit fields, but code broke.)
 #define TWINKLE_ON            0x80000000    // 1 bit
 #define TIME_TO_EVENT         0x7fe00000    // 10 bits >> 21
 #define TIME_TO_EVENT_SHIFT   21
@@ -7439,17 +7440,18 @@ typedef struct XTwinkleLight {
 // For creating skewed random numbers toward the shorter end.
 // The sum of percentages must = 100%
 const uint16_t pSize = 20;
-int16_t percentages[pSize] = {12, 11, 10, 10, 6, 6, 5, 5, 3, 3, 1, 1, 1, 1, 1, 1, 2, 3, 3, 15};
+float percentages[pSize] = {12, 11, 10, 10, 6, 6, 5, 5, 3, 3, 1, 1, 1, 1, 1, 1, 2, 3, 3, 15};
 
 // Input is 0-100, Ouput is skewed 0-100.
 // PArray may be any size, but elements must add up to 100.
 // Note: Single precision floating point is just as fast on an ESP-32 as fixed arithmetic.
-int32_t skewedRandom( int32_t rand100,
+// Fun fact: Float multiply-add operations run at a faster rate than the ESP-32 clock .
+int32_t skewedRandom( float rand100,
                       uint16_t pArraySize,
-                      int16_t *pArray)
+                      float *pArray)
 {
     int index = 0;
-    int cumulativePercentage = 0;
+    float cumulativePercentage = 0;
 
     // Find the range in the table based on randomValue.
     while (index < pArraySize - 1 && rand100 >= cumulativePercentage + pArray[index]) {
@@ -7458,16 +7460,16 @@ int32_t skewedRandom( int32_t rand100,
     }
 
     // Calculate linear interpolation
-    float t = float((rand100 - cumulativePercentage) / float(pArray[index]));
-    int result = int((float(index) + t) * 100.0 / pArraySize);
+    float t = (rand100 - cumulativePercentage) / pArray[index];
+    float result = (float(index) + t) * 100.0 / pArraySize;
 
     return result;
 }
 
 uint16_t mode_XmasTwinkle(void) {              // by Nicholas Pisarro, Jr.
   uint16_t numTwiklers = SEGLEN * SEGMENT.intensity / 255;
-  if (numTwiklers <= 0)
-    numTwiklers = 1;        // Divide checks are not cool.
+  if (numTwiklers <= 1)
+    numTwiklers = 2;        // Divide checks are not cool.
 
   // Reinitialize evertying if the number of twinklers has changed.
   if (numTwiklers != SEGMENT.aux0)
