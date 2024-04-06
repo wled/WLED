@@ -7441,6 +7441,8 @@ typedef struct XTwinkleLight {
 // The sum of percentages must = 100%
 const uint16_t pSize = 20;
 float percentages[pSize] = {12, 11, 10, 10, 6, 6, 5, 5, 3, 3, 1, 1, 1, 1, 1, 1, 2, 3, 3, 15};
+float slowPercentages[pSize] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5, 6, 7, 7, 7, 10, 12, 12, 15, 19};
+float wkgPercentages[pSize];
 
 // Input is 0-100, Ouput is skewed 0-100.
 // PArray may be any size, but elements must add up to 100.
@@ -7466,6 +7468,19 @@ int32_t skewedRandom( float rand100,
     return result;
 }
 
+// Take two percentage tables and average them using the weighting factor.
+// Both tables and the result must be the same size.
+void weightPercentages(float *arg1,
+                       float *arg2,
+                       int cnt, float   // 0.0-1.0 weight given to arg2.
+                       factor, float
+                       *result)
+{
+	float arg1Factor = 1.0 - factor;
+	for (int i = 0; i < cnt; ++i)
+		result[i] = arg1[i] * arg1Factor + arg2[i] * factor;
+}
+
 uint16_t mode_XmasTwinkle(void) {              // by Nicholas Pisarro, Jr.
   uint16_t numTwiklers = SEGLEN * SEGMENT.intensity / 255;
   if (numTwiklers <= 1)
@@ -7476,7 +7491,15 @@ uint16_t mode_XmasTwinkle(void) {              // by Nicholas Pisarro, Jr.
     SEGMENT.aux0 = 0;
   
   // The maximum twinkle time varies based on the time slider
-  int32_t maximumTime = (255 - SEGMENT.speed) * 900 / 256 + 100;        // Between 100 & 1000 centiseconds
+  float slowWeight = (255 - SEGMENT.speed) / 255.0;      // 0.0 - 1.0
+  int32_t maximumTime = (slowWeight * 900.0) + 100.0;        // Between 100 & 1000 centiseconds
+
+  // We have two tables, one of 'normal' weights, 1 of slow weights.
+  // use more of the slow percentages in he last quarter of the segment times.
+  slowWeight = (slowWeight - 0.75) * 4;
+  if (slowWeight < 0)
+    slowWeight = 0.0;
+  weightPercentages(percentages, slowPercentages, pSize, slowWeight, wkgPercentages);
   
   // uint8_t flasherDistance = ((255 - SEGMENT.intensity) / 28) +1; //1-10
   // uint16_t numFlashers = (SEGLEN / flasherDistance) +1;
@@ -7494,7 +7517,7 @@ uint16_t mode_XmasTwinkle(void) {              // by Nicholas Pisarro, Jr.
 
       light->colorIdx = random8();
       light->twData = 0;        // Everything 0
-      int cycleTime = skewedRandom(random(100), pSize, percentages) * maximumTime / 100 + 20;
+      int cycleTime = skewedRandom(random(100), pSize, wkgPercentages) * maximumTime / 100 + 20;
 
       light->twData |= cycleTime << MAX_CYCLE_SHIFT & MAX_CYCLE;
       light->twData |= random(50, cycleTime) << TIME_TO_EVENT_SHIFT & TIME_TO_EVENT;
@@ -7539,7 +7562,7 @@ uint16_t mode_XmasTwinkle(void) {              // by Nicholas Pisarro, Jr.
     int16_t cycleTime = (light->twData & T_RETWINKLE) - interval;
     if (cycleTime <= 0)
     {
-      int maxTime =  skewedRandom(random(100), pSize, percentages) * maximumTime / 100 + 20;
+      int maxTime =  skewedRandom(random(100), pSize, wkgPercentages) * maximumTime / 100 + 20;
       light->twData = (light->twData & ~MAX_CYCLE) | (maxTime << MAX_CYCLE_SHIFT & MAX_CYCLE);
       cycleTime += 2000;                        // 20 seconds
     }
