@@ -41,6 +41,12 @@ void shufflePlaylist() {
   DEBUG_PRINTLN(F("Playlist shuffle."));
 }
 
+// WLEDMM supporting function for auto_playlist usermod
+//   prevents the active playlist from progressing (until it gets unloaded)
+static bool playlistSuspended = false;
+void suspendPlaylist() {
+  playlistSuspended = true;
+}
 
 void unloadPlaylist() {
   if (playlistEntries != nullptr) {
@@ -49,6 +55,7 @@ void unloadPlaylist() {
   }
   currentPlaylist = playlistIndex = -1;
   playlistLen = playlistEntryDur = playlistOptions = 0;
+  playlistSuspended = false;  // WLEDMM
   DEBUG_PRINTLN(F("Playlist unloaded."));
 }
 
@@ -124,6 +131,11 @@ void handlePlaylist() {
   static unsigned long presetCycledTime = 0;
   // if fileDoc is not null JSON buffer is in use so just quit
   if (currentPlaylist < 0 || playlistEntries == nullptr || fileDoc != nullptr) return;
+
+  if (playlistSuspended) { // WLEDMM
+    if (millis() - presetCycledTime > (100*playlistEntryDur)) presetCycledTime = millis();   // keep updating timer
+    return; // but don't progress to next extry, and don't shuffle
+  }
 
   if (millis() - presetCycledTime > (100*playlistEntryDur)) {
     presetCycledTime = millis();

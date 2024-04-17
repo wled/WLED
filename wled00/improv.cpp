@@ -210,7 +210,7 @@ void sendImprovInfoResponse() {
   //Use serverDescription if it has been changed from the default "WLED", else mDNS name
   bool useMdnsName = (strcmp(serverDescription, "WLED") == 0 && strlen(cmDNS) > 0);
   char vString[32];
-  snprintf_P(vString, sizeof(vString)-1, PSTR("0.14.1-b30.36/%i"),VERSION);
+  snprintf_P(vString, sizeof(vString)-1, PSTR("0.14.1-b30.37/%i"),VERSION);
   const char *str[4] = {"WLED", vString, bString, useMdnsName ? cmDNS : serverDescription};
 
   sendImprovRPCResult(ImprovRPCType::Request_Info, 4, str);

@@ -2,6 +2,16 @@
 
 Here are a few suggestions to make it easier for you to contribute!
 
+### Describe your PR
+
+Please add a description of your proposed code changes. It does not need to be an exhaustive essay, however a PR with no description or just a few words might not get accepted, simply because very basic information is missing.
+
+A good description helps us to review and understand your proposed changes. For example, you could say a few words about
+* what you try to achieve (new feature, fixing a bug, refactoring, security enhancements, etc.)
+* how your code works (short technical summary - focus on important aspects that might not be obvious when reading the code)
+* testing you performed, known limitations, open ends you possibly could not solve.
+* any areas where you like to get help from an experienced maintainer (yes WLEDMM has become big 😉)
+
 ### Code style
 
 When in doubt, it is easiest to replicate the code style you find in the files you want to edit :)
@@ -79,4 +89,5 @@ Good:
 
 There is no set character limit for a comment within a line,
 though as a rule of thumb you should wrap your comment if it exceeds the width of your editor window.  
+
 Inline comments are OK if they describe that line only and are not exceedingly wide.

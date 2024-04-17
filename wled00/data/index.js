@@ -1968,8 +1968,14 @@ function readState(s,command=false)
 		  errstr = "A filesystem error has occured.";
 		  break;
 		case 33:
-			errstr = "Warning: Low Memory (RAM).";
-			break;
+			errstr = "Low Memory (generic RAM).";
+		  break;
+		case 34:
+			errstr = "Low Memory (effect data).";
+		  break;
+		case 35:
+			errstr = "Low Memory (WS data).";
+		  break;
 		}
 	  showToast('Error ' + s.error + ": " + errstr, true);
 	}

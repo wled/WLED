@@ -7,6 +7,7 @@
 #include <driver/i2s.h>
 #include <driver/adc.h>
 
+#include <math.h>
 #endif
 
 #if defined(ARDUINO_ARCH_ESP32) && (defined(WLED_DEBUG) || defined(SR_DEBUG))
@@ -140,6 +141,8 @@ volatile bool haveNewFFTResult = false; // flag to directly inform UDP sound sen
 static uint8_t fftResult[NUM_GEQ_CHANNELS]= {0};   // Our calculated freq. channel result table to be used by effects
 static float   fftCalc[NUM_GEQ_CHANNELS] = {0.0f}; // Try and normalize fftBin values to a max of 4096, so that 4096/16 = 256. (also used by dynamics limiter)
 static float   fftAvg[NUM_GEQ_CHANNELS] = {0.0f};  // Calculated frequency channel results, with smoothing (used if dynamics limiter is ON)
+
+static uint16_t zeroCrossingCount = 0; // number of zero crossings in the current batch of 512 samples
 
 // TODO: probably best not used by receive nodes
 static float agcSensitivity = 128;            // AGC sensitivity estimation, based on agc gain (multAgc). calculated by getSensitivity(). range 0..255
@@ -543,15 +546,27 @@ void FFTcode(void * parameter)
       }
     }
 
-    // find highest sample in the batch
+    // set imaginary parts to 0
+    memset(vImag, 0, sizeof(vImag));
+
+    // find highest sample in the batch, and count zero crossings
     float maxSample = 0.0f;                         // max sample from FFT batch
+    uint_fast16_t newZeroCrossingCount = 0;
     for (int i=0; i < samplesFFT; i++) {
-	    // set imaginary parts to 0
-      vImag[i] = 0;
 	    // pick our  our current mic sample - we take the max value from all samples that go into FFT
 	    if ((vReal[i] <= (INT16_MAX - 1024)) && (vReal[i] >= (INT16_MIN + 1024)))  //skip extreme values - normally these are artefacts
         if (fabsf((float)vReal[i]) > maxSample) maxSample = fabsf((float)vReal[i]);
+
+      // WLED-MM/TroyHacks: Calculate zero crossings
+      //
+      if (i < (samplesFFT-1)) {
+        if (__builtin_signbit(vReal[i]) != __builtin_signbit(vReal[i+1]))  // test sign bit: sign changed -> zero crossing
+            newZeroCrossingCount++;
+      }
     }
+    newZeroCrossingCount = (newZeroCrossingCount*2)/3; // reduce value so it typicially stays below 256
+    zeroCrossingCount = newZeroCrossingCount; // update only once, to avoid that effects pick up an intermediate value
+
     // release highest sample to volume reactive effects early - not strictly necessary here - could also be done at the end of the function
     // early release allows the filters (getSample() and agcAvg()) to work with fresh values - we will have matching gain and noise gate values when we want to process the FFT results.
     micDataReal = maxSample;
@@ -770,8 +785,7 @@ void FFTcode(void * parameter)
     // run peak detection
     autoResetPeak();
     detectSamplePeak();
-    
-    // we have new results - notify UDP sound send
+
     haveNewFFTResult = true;
     
     #if !defined(I2S_GRAB_ADC1_COMPLETELY)    
@@ -1007,7 +1021,7 @@ class AudioReactive : public Usermod {
       uint8_t samplePeak;     //  01 Bytes  offset 16 - 0 no peak; >=1 peak detected. In future, this will also provide peak Magnitude
       uint8_t frameCounter;   //  01 Bytes  offset 17 - track duplicate/out of order packets
       uint8_t fftResult[16];  //  16 Bytes  offset 18
-      uint8_t gap2[2];        // gap added by compiler: 02 Bytes, offset 34
+      uint16_t zeroCrossingCount; // 02 Bytes, offset 34
       float  FFT_Magnitude;   //  04 Bytes  offset 36
       float  FFT_MajorPeak;   //  04 Bytes  offset 40
     };
@@ -1547,6 +1561,7 @@ class AudioReactive : public Usermod {
       transmitData.samplePeak  = udpSamplePeak ? 1:0;
       udpSamplePeak            = false;           // Reset udpSamplePeak after we've transmitted it
       transmitData.frameCounter = frameCounter;
+      transmitData.zeroCrossingCount = zeroCrossingCount;
 
       for (int i = 0; i < NUM_GEQ_CHANNELS; i++) {
         transmitData.fftResult[i] = (uint8_t)constrain(fftResult[i], 0, 254);
@@ -1619,6 +1634,7 @@ class AudioReactive : public Usermod {
       FFT_MajorPeak = constrain(receivedPacket->FFT_MajorPeak, 1.0f, 11025.0f);  // restrict value to range expected by effects
       soundPressure = volumeSmth; // substitute - V2 format does not (yet) include this value
       agcSensitivity = 128.0f; // substitute - V2 format does not (yet) include this value
+      zeroCrossingCount = receivedPacket->zeroCrossingCount;
 
       return true;
     }
@@ -1720,7 +1736,7 @@ class AudioReactive : public Usermod {
         // usermod exchangeable data
         // we will assign all usermod exportable data here as pointers to original variables or arrays and allocate memory for pointers
         um_data = new um_data_t;
-        um_data->u_size = 11;
+        um_data->u_size = 12;
         um_data->u_type = new um_types_t[um_data->u_size];
         um_data->u_data = new void*[um_data->u_size];
         um_data->u_data[0] = &volumeSmth;      //*used (New)
@@ -1746,6 +1762,8 @@ class AudioReactive : public Usermod {
         um_data->u_type[9]  = UMT_FLOAT;
         um_data->u_data[10] = &agcSensitivity; // used (New)
         um_data->u_type[10] = UMT_FLOAT;
+        um_data->u_data[11] = &zeroCrossingCount;
+        um_data->u_type[11] = UMT_UINT16;
 #else
        // ESP8266 
         // See https://github.com/MoonModules/WLED/pull/60#issuecomment-1666972133 for explanation of these alternative sources of data
@@ -1760,6 +1778,8 @@ class AudioReactive : public Usermod {
         um_data->u_type[9]  = UMT_FLOAT;
         um_data->u_data[10] = &agcSensitivity; // used (New) - dummy value (128 => 50%)
         um_data->u_type[10] = UMT_FLOAT;
+        um_data->u_data[11] = &zeroCrossingCount;
+        um_data->u_type[11] = UMT_UINT16;
 #endif
       }
 
@@ -1921,7 +1941,7 @@ class AudioReactive : public Usermod {
         USER_PRINTF("|  uint8_t samplePeak    offset = %2d   size = %2d\n", offsetof(audioSyncPacket, samplePeak), sizeof(data.samplePeak));      // offset 16 size 1
         USER_PRINTF("|  uint8_t frameCounter  offset = %2d   size = %2d\n", offsetof(audioSyncPacket, frameCounter), sizeof(data.frameCounter));  // offset 17 size 1
         USER_PRINTF("|  uint8_t fftResult[16] offset = %2d   size = %2d\n", offsetof(audioSyncPacket, fftResult[0]), sizeof(data.fftResult));     // offset 18 size 16
-        USER_PRINTF("|  uint8_t gap2[2]       offset = %2d   size = %2d\n", offsetof(audioSyncPacket, gap2[0]), sizeof(data.gap2));               // offset 34 size 2
+        USER_PRINTF("|  uint16_t zeroCrossingCount offset = %2d   size = %2d\n", offsetof(audioSyncPacket, zeroCrossingCount), sizeof(data.zeroCrossingCount)); // offset 34 size 2
         USER_PRINTF("|  float   FFT_Magnitude offset = %2d   size = %2d\n", offsetof(audioSyncPacket, FFT_Magnitude), sizeof(data.FFT_Magnitude));// offset 36 size 4
         USER_PRINTF("|  float   FFT_MajorPeak offset = %2d   size = %2d\n", offsetof(audioSyncPacket, FFT_MajorPeak), sizeof(data.FFT_MajorPeak));// offset 40 size 4
         USER_PRINTLN(); USER_FLUSH();

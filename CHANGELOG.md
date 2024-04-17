@@ -1,5 +1,37 @@
 ## [WLED upstream](https://github.com/Aircoookie/WLED/tree/0_14_1) changelog
 
+#### Build 2403290
+-   WLED 0.14.3 release
+-   Fix for transition 0 (#3854, #3832, #3720)
+
+#### Build 2403170
+-   WLED 0.14.2 release
+
+#### Build 2403110
+-   Beta WLED 0.14.2-b2
+-   Fixing a potential array bounds violation in ESPDMX
+-   LockedJsonResponse: Release early if possible (by @willmmiles)
+
+#### Build 2402120
+-   Beta WLED 0.14.2-b1
+-   Possible fix for #3589 & partial fix for #3605
+-   Prevent JSON buffer clear after failed lock attempt
+-   Multiple analog button fix for #3549
+-   UM Audioreactive: add two compiler options (#3732 by @wled-install)
+-   Fix for #3693
+
+#### Build 2401141
+-   Official release of WLED 0.14.1
+-   Fix for #3566, #3665, #3672
+-   Sorting of palettes in custom palette editor (#3674 by @WoodyLetsCode)
+
+#### Build 2401060
+-   Version bump: 0.14.1-b3
+-   Global JSON buffer guarding (#3648 by @willmmiles, resolves #3641, #3312, #3367, #3637, #3646, #3447)
+-   Fix for #3632
+-   Custom palette editor mobile UI enhancement (#3617 by @imeszaros)
+-   changelog update
+
 #### Build 2312290
 -   Fix for #3622
 -   NB: fix for #3613 #3609 are not needed in MoonModules fork
@@ -57,6 +89,12 @@
 -   Multi relay usermod compile-time enabled option (-D MULTI_RELAY_ENABLED=true|false)
 
 #### Build 2306180
+-   Added client-side option for applying effect defaults from metadata
+-   Improved ESP8266 stability by reducing WebSocket response resends
+-   Updated ESP8266 core to 3.1.2
+
+#### Build 2306180
+
 -   Added client-side option for applying effect defaults from metadata
 -   Improved ESP8266 stability by reducing WebSocket response resends
 -   Updated ESP8266 core to 3.1.2

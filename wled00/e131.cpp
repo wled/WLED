@@ -231,11 +231,16 @@ void handleDMXData(uint16_t uni, uint16_t dmxChannels, uint8_t* e131_data, uint8
           if (e131_data[dataOffset+3]   != seg.intensity) seg.intensity = e131_data[dataOffset+3];
           if (e131_data[dataOffset+4]   != seg.palette)   seg.setPalette(e131_data[dataOffset+4]);
 
-          uint8_t segOption = (uint8_t)floor(e131_data[dataOffset+5]/64.0);
-          if (segOption == 0 && (seg.mirror  || seg.reverse )) {seg.setOption(SEG_OPTION_MIRROR, false); seg.setOption(SEG_OPTION_REVERSED, false);}
-          if (segOption == 1 && (seg.mirror  || !seg.reverse)) {seg.setOption(SEG_OPTION_MIRROR, false); seg.setOption(SEG_OPTION_REVERSED,  true);}
-          if (segOption == 2 && (!seg.mirror || seg.reverse )) {seg.setOption(SEG_OPTION_MIRROR,  true); seg.setOption(SEG_OPTION_REVERSED, false);}
-          if (segOption == 3 && (!seg.mirror || !seg.reverse)) {seg.setOption(SEG_OPTION_MIRROR,  true); seg.setOption(SEG_OPTION_REVERSED,  true);}
+          if ((e131_data[dataOffset+5] & 0b00000010) != seg.reverse_y) { seg.setOption(SEG_OPTION_REVERSED_Y, e131_data[dataOffset+5] & 0b00000010); }
+          if ((e131_data[dataOffset+5] & 0b00000100) != seg.mirror_y) { seg.setOption(SEG_OPTION_MIRROR_Y, e131_data[dataOffset+5] & 0b00000100); }
+          if ((e131_data[dataOffset+5] & 0b00001000) != seg.transpose) { seg.setOption(SEG_OPTION_TRANSPOSED, e131_data[dataOffset+5] & 0b00001000); }
+          if ((e131_data[dataOffset+5] & 0b00110000) / 8 != seg.map1D2D) {
+            seg.map1D2D = (e131_data[dataOffset+5] & 0b00110000) / 8;
+          }
+          // To maintain backwards compatibility with prior e1.31 values, reverse is fixed to mask 0x01000000
+          if ((e131_data[dataOffset+5] & 0b01000000) != seg.reverse) { seg.setOption(SEG_OPTION_REVERSED, e131_data[dataOffset+5] & 0b01000000); }
+          // To maintain backwards compatibility with prior e1.31 values, mirror is fixed to mask 0x10000000
+          if ((e131_data[dataOffset+5] & 0b10000000) != seg.mirror) { seg.setOption(SEG_OPTION_MIRROR, e131_data[dataOffset+5] & 0b10000000); }
 
           uint32_t colors[3];
           byte whites[3] = {0,0,0};

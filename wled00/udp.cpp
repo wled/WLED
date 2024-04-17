@@ -712,6 +712,7 @@ void sendSysInfoUDP()
   #else
   data[38] = NODE_TYPE_ID_UNDEFINED;
   #endif
+  if (bri) data[38] |= 0x80U;  // add on/off state
   data[39] = ip[3]; // unit ID == last IP number
 
   uint32_t build = VERSION;

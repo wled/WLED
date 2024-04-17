@@ -65,10 +65,10 @@ void WS2812FX::setUpMatrix() {
     }
 
     USER_PRINTF("setUpMatrix %d x %d\n", Segment::maxWidth, Segment::maxHeight);
-
+    
     //WLEDMM recreate customMappingTable if more space needed
     if (Segment::maxWidth * Segment::maxHeight > customMappingTableSize) {
-      size_t size = max(ledmapMaxSize, size_t(Segment::maxWidth * Segment::maxHeight));//TroyHack
+      size_t size = max(ledmapMaxSize, size_t(Segment::maxWidth * Segment::maxHeight)); // TroyHacks
       USER_PRINTF("setupmatrix customMappingTable alloc %d from %d\n", size, customMappingTableSize);
       //if (customMappingTable != nullptr) delete[] customMappingTable;
       //customMappingTable = new uint16_t[size];
@@ -80,7 +80,10 @@ void WS2812FX::setUpMatrix() {
       if ((size > 0) && (customMappingTable == nullptr)) { // second try
         DEBUG_PRINTLN("setUpMatrix: trying to get fresh memory block.");
         customMappingTable = (uint16_t*) calloc(size, sizeof(uint16_t));
-        if (customMappingTable == nullptr) USER_PRINTLN("setUpMatrix: alloc failed");
+        if (customMappingTable == nullptr) { 
+          USER_PRINTLN("setUpMatrix: alloc failed");
+          errorFlag = ERR_LOW_MEM; // WLEDMM raise errorflag
+        }
       }
       if (customMappingTable != nullptr) customMappingTableSize = size;
     }
@@ -159,6 +162,7 @@ void WS2812FX::setUpMatrix() {
     } else { // memory allocation error
       customMappingTableSize = 0;
       USER_PRINTLN(F("Ledmap alloc error."));
+      errorFlag = ERR_LOW_MEM; // WLEDMM raise errorflag
       isMatrix = false; //WLEDMM does not like this done in teh background while end users are confused whats happened...
       panels = 0;
       panel.clear();

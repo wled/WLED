@@ -667,7 +667,13 @@ class WM8978Source : public I2SSource {
       _wm8978I2cWrite( 1,0b000111110); // Power Management 1 - power off most things, but enable mic bias and I/O tie-off to help mitigate mic leakage.
       _wm8978I2cWrite( 2,0b110111111); // Power Management 2 - enable output and amp stages (amps may lift signal but it works better on the ADCs)
       _wm8978I2cWrite( 3,0b000001100); // Power Management 3 - enable L&R output mixers
+
+      #if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(4, 2, 0)
       _wm8978I2cWrite( 4,0b001010000); // Audio Interface - standard I2S, 24-bit
+      #else
+      _wm8978I2cWrite( 4,0b001001000); // Audio Interface - left-justified I2S, 24-bit
+      #endif
+      
       _wm8978I2cWrite( 6,0b000000000); // Clock generation control - use external mclk
       _wm8978I2cWrite( 7,0b000000100); // Sets sample rate to ~24kHz (only used for internal calculations, not I2S)
       _wm8978I2cWrite(14,0b010001000); // 128x ADC oversampling - high pass filter disabled as it kills the bass response

@@ -3194,7 +3194,13 @@ static uint16_t mode_popcorn_core(bool useaudio) {
   if (SEGLEN == 1) return mode_static();
   //allocate segment data
   uint16_t strips = SEGMENT.nrOfVStrips();
-  uint16_t dataSize = sizeof(spark) * maxNumPopcorn;
+  size_t dataSize = sizeof(spark) * maxNumPopcorn;
+  uint8_t neededPopcorn = maxNumPopcorn; // WLEDMM
+  if (strips > 8) {  // WLEDMM more than 8 virtual strips --> reduce memory requirements to minimum necessary
+    neededPopcorn = (SEGMENT.intensity*maxNumPopcorn)/255;
+    neededPopcorn = min(max(neededPopcorn, uint8_t(2)), uint8_t(maxNumPopcorn));
+    dataSize = sizeof(spark) * neededPopcorn;
+  }
   if (!SEGENV.allocateData(dataSize * strips)) return mode_static(); //allocation failed
 
   Spark* popcorn = reinterpret_cast<Spark*>(SEGENV.data);
@@ -3212,7 +3218,7 @@ static uint16_t mode_popcorn_core(bool useaudio) {
 
   struct virtualStrip {
     static void runStrip(uint16_t stripNr, Spark* popcorn, bool useaudio, um_data_t *um_data) {  // WLEDMM added useaudio and um_data
-      float gravity = -0.0001 - (SEGMENT.speed/200000.0); // m/s/s
+      float gravity = -0.0001f - (SEGMENT.speed/200000.0f); // m/s/s
       gravity *= SEGLEN;
 
       uint8_t numPopcorn = SEGMENT.intensity*maxNumPopcorn/255;
@@ -3267,7 +3273,7 @@ static uint16_t mode_popcorn_core(bool useaudio) {
   };
 
   for (int stripNr=0; stripNr<strips; stripNr++)
-    virtualStrip::runStrip(stripNr, &popcorn[stripNr * maxNumPopcorn], useaudio, um_data); // WLEDMM added useaudio and um_data
+    virtualStrip::runStrip(stripNr, &popcorn[stripNr * neededPopcorn], useaudio, um_data); // WLEDMM added useaudio and um_data
 
   return FRAMETIME;
 }

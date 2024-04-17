@@ -115,7 +115,7 @@ Segment::Segment(const Segment &orig) {
 
 //WLEDMM: recreate ledsrgb if more space needed (will not free ledsrgb!)
 void Segment::allocLeds() {
-  size_t size = sizeof(CRGB)*max((size_t) length(), ledmapMaxSize); //TroyHack
+  size_t size = sizeof(CRGB)*max((size_t) length(), ledmapMaxSize); // TroyHacks
   if ((size < sizeof(CRGB)) || (size > 164000)) {                   //softhack too small (<3) or too large (>160Kb)
     DEBUG_PRINTF("allocLeds warning: size == %u !!\n", size);
     if (ledsrgb && (ledsrgbSize == 0)) {
@@ -128,10 +128,13 @@ void Segment::allocLeds() {
     if (ledsrgb) free(ledsrgb);   // we need a bigger buffer, so free the old one first
     ledsrgb = (CRGB*)calloc(size, 1);
     ledsrgbSize = ledsrgb?size:0;
-    if (ledsrgb == nullptr) USER_PRINTLN("allocLeds failed!!");
+    if (ledsrgb == nullptr) {
+      USER_PRINTLN("allocLeds failed!!");
+      errorFlag = ERR_LOW_MEM; // WLEDMM raise errorflag
+    }
   }
   else {
-    USER_PRINTF("reuse Leds %u from %u\n", size, ledsrgb?ledsrgbSize:0);
+    //USER_PRINTF("reuse Leds %u from %u\n", size, ledsrgb?ledsrgbSize:0);
   }
 }
 
@@ -212,7 +215,11 @@ bool Segment::allocateData(size_t len) {
   //DEBUG_PRINTF("allocateData(%u) start %d, stop %d, vlen %d\n", len, start, stop, virtualLength());
   deallocateData();
   if (len == 0) return false; // nothing to do
-  if (Segment::getUsedSegmentData() + len > MAX_SEGMENT_DATA) return false; //not enough memory
+  if (Segment::getUsedSegmentData() + len > MAX_SEGMENT_DATA) {
+    //USER_PRINTF("Segment::allocateData: Segment data quota exceeded! used:%u request:%u max:%d\n", Segment::getUsedSegmentData(), len, MAX_SEGMENT_DATA);
+    if (len > 0) errorFlag = ERR_LOW_SEG_MEM;  // WLEDMM raise errorflag
+    return false; //not enough memory
+  }
   // do not use SPI RAM on ESP32 since it is slow
   //#if defined(ARDUINO_ARCH_ESP32) && defined(BOARD_HAS_PSRAM) && defined(WLED_USE_PSRAM)
   //if (psramFound())
@@ -220,10 +227,17 @@ bool Segment::allocateData(size_t len) {
   //else
   //#endif
     data = (byte*) malloc(len);
-  if (!data) { _dataLen = 0; return false;} //allocation failed // WLEDMM reset dataLen
+  if (!data) {
+      _dataLen = 0; // WLEDMM reset dataLen
+      errorFlag = ERR_LOW_MEM; // WLEDMM raise errorflag
+      USER_PRINT(F("Segment::allocateData: FAILED to allocate ")); 
+      USER_PRINT(len); USER_PRINTLN(F(" bytes."));
+      return false;
+  } //allocation failed
   Segment::addUsedSegmentData(len);
   _dataLen = len;
   memset(data, 0, len);
+  if (errorFlag == ERR_LOW_SEG_MEM) errorFlag = ERR_NONE; // WLEDMM reset errorflag on success
   return true;
 }
 
@@ -231,7 +245,7 @@ void Segment::deallocateData() {
   if (!data) {_dataLen = 0; return;}  // WLEDMM reset dataLen
   free(data);
   data = nullptr;
-  //DEBUG_PRINTLN("deallocateData() called free().");
+  //USER_PRINTF("Segment::deallocateData: free'd   %d bytes.\n", _dataLen);
   Segment::addUsedSegmentData(-_dataLen);
   _dataLen = 0;
 }
@@ -481,6 +495,8 @@ void Segment::setUp(uint16_t i1, uint16_t i2, uint8_t grp, uint8_t spc, uint16_t
   if (boundsUnchanged
       && (!grp || (grouping == grp && spacing == spc))
       && (ofs == UINT16_MAX || ofs == offset)) return;
+
+  stateChanged = true; // send UDP/WS broadcast
 
   if (stop>start) fill(BLACK); //turn old segment range off // WLEDMM stop > start
   if (i2 <= i1) { //disable segment
@@ -1536,7 +1552,7 @@ void WS2812FX::enumerateLedmaps() {
 
           USER_PRINTF("enumerateLedmaps %s \"%s\"", fileName, name);
           if (isMatrix) {
-            //WLEDMM calc ledmapMaxSize (TroyHack)
+            //WLEDMM calc ledmapMaxSize (TroyHacks)
             char dim[34] = { '\0' };
             f.find("\"width\":");
             f.readBytesUntil('\n', dim, sizeof(dim)-1); //hack: use fileName as we have this allocated already
@@ -1654,6 +1670,7 @@ void WS2812FX::finalizeInit(void)
     //#endif
       if (arrSize > 0) Segment::_globalLeds = (CRGB*) malloc(arrSize); // WLEDMM avoid malloc(0)
     if ((Segment::_globalLeds != nullptr) && (arrSize > 0)) memset(Segment::_globalLeds, 0, arrSize); // WLEDMM avoid dereferencing nullptr
+    if ((Segment::_globalLeds == nullptr) && (arrSize > 0)) errorFlag = ERR_LOW_MEM; // WLEDMM raise errorflag
   }
 
   //segments are created in makeAutoSegments();
@@ -2273,16 +2290,16 @@ void WS2812FX::loadCustomPalettes() {
 
       if (readObjectFromFile(fileName, nullptr, &pDoc)) {
         JsonArray pal = pDoc[F("palette")];
-        if (!pal.isNull() && pal.size()>4) { // not an empty palette (at least 2 entries)
+        if (!pal.isNull() && pal.size()>3) { // not an empty palette (at least 2 entries)
           if (pal[0].is<int>() && pal[1].is<const char *>()) {
             // we have an array of index & hex strings
             size_t palSize = min(pal.size(), (size_t)36);  // WLEDMM use native min/max
             palSize -= palSize % 2; // make sure size is multiple of 2
-            for (size_t i=0, j=0; i<palSize && pal[i].as<int>()<256; i+=2, j+=4) {
+            for (unsigned i=0, j=0; i<palSize && pal[i].as<int>()<256; i+=2, j+=4) {
               uint8_t rgbw[] = {0,0,0,0};
               tcp[ j ] = (uint8_t) pal[ i ].as<int>(); // index
               colorFromHexString(rgbw, pal[i+1].as<const char *>()); // will catch non-string entires
-              for (size_t c=0; c<3; c++) tcp[j+1+c] = rgbw[c]; // only use RGB component
+              for (unsigned c=0; c<3; c++) tcp[j+1+c] = gamma8(rgbw[c]); // only use RGB component
               DEBUG_PRINTF("%d(%d) : %d %d %d\n", i, int(tcp[j]), int(tcp[j+1]), int(tcp[j+2]), int(tcp[j+3]));
             }
           } else {
@@ -2290,13 +2307,15 @@ void WS2812FX::loadCustomPalettes() {
             palSize -= palSize % 4; // make sure size is multiple of 4
             for (size_t i=0; i<palSize && pal[i].as<int>()<256; i+=4) {
               tcp[ i ] = (uint8_t) pal[ i ].as<int>(); // index
-              tcp[i+1] = (uint8_t) pal[i+1].as<int>(); // R
-              tcp[i+2] = (uint8_t) pal[i+2].as<int>(); // G
-              tcp[i+3] = (uint8_t) pal[i+3].as<int>(); // B
+              tcp[i+1] = gamma8((uint8_t) pal[i+1].as<int>()); // R
+              tcp[i+2] = gamma8((uint8_t) pal[i+2].as<int>()); // G
+              tcp[i+3] = gamma8((uint8_t) pal[i+3].as<int>()); // B
               DEBUG_PRINTF("%d(%d) : %d %d %d\n", i, int(tcp[i]), int(tcp[i+1]), int(tcp[i+2]), int(tcp[i+3]));
             }
           }
           customPalettes.push_back(targetPalette.loadDynamicGradientPalette(tcp));
+        } else {
+          DEBUG_PRINTLN(F("Wrong palette format."));
         }
       }
     } else {
@@ -2387,7 +2406,7 @@ bool WS2812FX::deserializeMap(uint8_t n) {
 
   //WLEDMM recreate customMappingTable if more space needed
   if (Segment::maxWidth * Segment::maxHeight > customMappingTableSize) {
-    size_t size = max(ledmapMaxSize, size_t(Segment::maxWidth * Segment::maxHeight));//TroyHack
+    size_t size = max(ledmapMaxSize, size_t(Segment::maxWidth * Segment::maxHeight)); // TroyHacks
     USER_PRINTF("deserializemap customMappingTable alloc %u from %u\n", size, customMappingTableSize);
     //if (customMappingTable != nullptr) delete[] customMappingTable;
     //customMappingTable = new uint16_t[size];
@@ -2399,7 +2418,10 @@ bool WS2812FX::deserializeMap(uint8_t n) {
     if ((size > 0) && (customMappingTable == nullptr)) { // second try
       DEBUG_PRINTLN("deserializeMap: trying to get fresh memory block.");
       customMappingTable = (uint16_t*) calloc(size, sizeof(uint16_t));
-      if (customMappingTable == nullptr) DEBUG_PRINTLN("deserializeMap: alloc failed!");
+      if (customMappingTable == nullptr) { 
+        DEBUG_PRINTLN("deserializeMap: alloc failed!");
+        errorFlag = ERR_LOW_MEM; // WLEDMM raise errorflag
+      }
     }
     if (customMappingTable != nullptr) customMappingTableSize = size;
   }
