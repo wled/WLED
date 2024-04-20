@@ -1179,14 +1179,22 @@ class PolyBus {
       #else
       // standard ESP32 has 8 RMT and 2 I2S channels
       #ifndef WLEDMM_FASTPATH
-      if (num > 9) return I_NONE;
-      if (num == 8) offset = 2;  // first use I2S#1 (so #0 stays available for audio)
-      if (num == 9) offset = 1;  // use I2S#0 as the last driver
+        #ifdef WLEDMM_SLOWPATH // I2S flickers on large installs. Favor stability over framerate.
+          if (num > 7) return I_NONE;
+        #else
+          if (num == 8) offset = 2;  // first use I2S#1 (so #0 stays available for audio)
+          if (num == 9) offset = 1;  // use I2S#0 as the last driver
+          if (num > 9) return I_NONE;        
+        #endif
       #else
-      // ESP32 "audio_fastpath" - 8 RMT and 1 I2S channels. RMT 5-8 have sending delays, so use I2S#1 before going for RMT 5-8
-      if (num > 8) return I_NONE;
-      if (num == 1) offset = 2;    // use I2S#1 as 2nd bus - seems to be a good compromise for performance, and reduces flickering for some users
-      //if (num == 0) offset = 2;  // un-comment to use I2S#1 as 1st bus - sometimes helps, if you experience flickering during Wifi or filesystem activity.
+        // ESP32 "audio_fastpath" - 8 RMT and 1 I2S channels. RMT 5-8 have sending delays, so use I2S#1 before going for RMT 5-8
+        #ifdef WLEDMM_SLOWPATH // I2S flickers on large installs. Favor stability over framerate.
+          if (num > 7) return I_NONE;
+        #else
+          if (num > 8) return I_NONE;
+          if (num == 1) offset = 2;    // use I2S#1 as 2nd bus - seems to be a good compromise for performance, and reduces flickering for some users
+          // if (num == 0) offset = 2;  // un-comment to use I2S#1 as 1st bus - sometimes helps, if you experience flickering during Wifi or filesystem activity.
+        #endif
       #endif
       #endif
       switch (busType) {

@@ -1030,11 +1030,7 @@ void IRAM_ATTR_YN Segment::setPixelColor(int i, uint32_t col) //WLEDMM: IRAM_ATT
   uint8_t _bri_t = currentBri(on ? opacity : 0);
   if (!_bri_t && !transitional && fadeTransition) return; // if _bri_t == 0 && segment is not transitioning && transitions are enabled then save a few CPU cycles
   if (_bri_t < 255) {
-    byte r = scale8(R(col), _bri_t);
-    byte g = scale8(G(col), _bri_t);
-    byte b = scale8(B(col), _bri_t);
-    byte w = scale8(W(col), _bri_t);
-    col = RGBW32(r, g, b, w);
+    col = color_fade(col, _bri_t);
   }
 
   // expand pixel (taking into account start, grouping, spacing [and offset])
@@ -1357,42 +1353,43 @@ void Segment::fadeToBlackBy(uint8_t fadeBy) {
 /*
  * blurs segment content, source: FastLED colorutils.cpp
  */
-void Segment::blur(uint8_t blur_amount)
-{
+void Segment::blur(uint8_t blur_amount, bool smear) {
   if (!isActive() || blur_amount == 0) return; // optimization: 0 means "don't blur"
 #ifndef WLED_DISABLE_2D
   if (is2D()) {
     // compatibility with 2D
-    const uint_fast16_t cols = virtualWidth();
-    const uint_fast16_t rows = virtualHeight();
-    for (uint_fast16_t i = 0; i < rows; i++) blurRow(i, blur_amount); // blur all rows
-    for (uint_fast16_t k = 0; k < cols; k++) blurCol(k, blur_amount); // blur all columns
+    const uint_fast32_t cols = virtualWidth();
+    const uint_fast32_t rows = virtualHeight();
+    for (uint_fast32_t i = 0; i < rows; i++) blurRow(i, blur_amount, smear); // blur all rows
+    for (uint_fast32_t k = 0; k < cols; k++) blurCol(k, blur_amount, smear); // blur all columns
     return;
   }
 #endif
-  uint8_t keep = 255 - blur_amount;
+  uint8_t keep = smear ? 255 : 255 - blur_amount;
   uint8_t seep = blur_amount >> 1;
-  CRGB carryover = CRGB::Black;
-  uint_fast16_t vlength = virtualLength();
-  for(uint_fast16_t i = 0; i < vlength; i++)
-  {
-    CRGB cur = CRGB(getPixelColor(i));
-    CRGB part = cur;
-    uint32_t before = uint32_t(cur); // remember color before blur
-    part.nscale8(seep);
-    cur.nscale8(keep);
-    cur += carryover;
-    if(i > 0) {
-      uint32_t c = getPixelColor(i-1);
-      uint8_t r = R(c);
-      uint8_t g = G(c);
-      uint8_t b = B(c);
-      setPixelColor((uint16_t)(i-1), qadd8(r, part.red), qadd8(g, part.green), qadd8(b, part.blue));
+  unsigned vlength = virtualLength();
+  uint32_t carryover = BLACK;
+  uint32_t lastnew;
+  uint32_t last;
+  uint32_t curnew = 0;
+  for (unsigned i = 0; i < vlength; i++) {
+    uint32_t cur = getPixelColor(i);
+    uint32_t part = color_fade(cur, seep);
+    curnew = color_fade(cur, keep);
+    if (i > 0) {
+      if (carryover)
+        curnew = color_add(curnew, carryover, !smear);  // WLEDMM
+      uint32_t prev = color_add(lastnew, part, !smear); // WLEDMM
+      if (last != prev) // optimization: only set pixel if color has changed
+        setPixelColor(int(i - 1), prev);
     }
-    if (before != uint32_t(cur))     // optimization: only set pixel if color has changed
-      setPixelColor((uint16_t)i,cur.red, cur.green, cur.blue);
+    else // first pixel
+      setPixelColor(int(i), curnew);
+    lastnew = curnew;
+    last = cur; // save original value for comparison on next iteration
     carryover = part;
   }
+  setPixelColor(int(vlength - 1), curnew);
 }
 
 /*

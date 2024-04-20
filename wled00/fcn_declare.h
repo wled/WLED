@@ -51,7 +51,8 @@ bool getJsonValue(const JsonVariant& element, DestType& destination, const Defau
 
 //colors.cpp
 uint32_t __attribute__((const)) color_blend(uint32_t,uint32_t,uint_fast16_t,bool b16=false);  // WLEDMM: added attribute const
-uint32_t  __attribute__((const)) color_add(uint32_t,uint32_t);                                // WLEDMM: added attribute const
+uint32_t __attribute__((const)) color_add(uint32_t,uint32_t, bool fast=false);                // WLEDMM: added attribute const
+uint32_t __attribute__((const)) color_fade(uint32_t c1, uint8_t amount, bool video=false);
 inline uint32_t colorFromRgbw(byte* rgbw) { return uint32_t((byte(rgbw[3]) << 24) | (byte(rgbw[0]) << 16) | (byte(rgbw[1]) << 8) | (byte(rgbw[2]))); }
 void colorHStoRGB(uint16_t hue, byte sat, byte* rgb); //hue, sat to rgb
 void colorKtoRGB(uint16_t kelvin, byte* rgb);

@@ -5627,7 +5627,7 @@ uint16_t mode_2DPlasmaball(void) {                   // By: Stepko https://edito
                                     (rows - 1 - cy == 0)) ? ColorFromPalette(SEGPALETTE, beat8(5), thisVal, LINEARBLEND) : CRGB::Black);
     }
   }
-  SEGMENT.blur(SEGMENT.custom2>>5);
+  SEGMENT.blur(SEGMENT.custom2>>5, (SEGMENT.custom2 > 132));  // WLEDMM
 
   return FRAMETIME;
 } // mode_2DPlasmaball()
@@ -5645,6 +5645,8 @@ uint16_t mode_2DPolarLights(void) {        // By: Kostyantyn Matviyevskyy  https
 
   const uint16_t cols = SEGMENT.virtualWidth();
   const uint16_t rows = SEGMENT.virtualHeight();
+  const float maxRows  = (rows <= 32) ? 32.0f : (rows <= 64) ? 64.0f : 128.0f;  // WLEDMM safe up to 128x128
+  const float minScale = (rows <= 32) ? 12.0f : (rows <= 64) ? 4.6f : 2.1f;     // WLEDMM
 
   const CRGBPalette16 auroraPalette  = {0x000000, 0x003300, 0x006600, 0x009900, 0x00cc00, 0x00ff00, 0x33ff00, 0x66ff00, 0x99ff00, 0xccff00, 0xffff00, 0xffcc00, 0xff9900, 0xff6600, 0xff3300, 0xff0000};
 
@@ -5653,8 +5655,11 @@ uint16_t mode_2DPolarLights(void) {        // By: Kostyantyn Matviyevskyy  https
     SEGMENT.fill(BLACK);
   }
 
-  float adjustHeight = mapf(rows, 8, 32, 28, 12); // maybe use mapf() ??? // WLEDMM yes!
+  float adjustHeight = mapf(rows, 8, maxRows, 28, minScale); // maybe use mapf() ??? // WLEDMM yes!  
   uint16_t adjScale = map(cols, 8, 64, 310, 63);
+
+  adjustHeight = max(min(adjustHeight, 28.0f), minScale);     // WLEDMM bugfix for larger fixtures
+  adjScale = max(min(adjScale, uint16_t(310)), uint16_t(63)); // WLEDMM
 /*
   if (SEGENV.aux1 != SEGMENT.custom1/12) {   // Hacky palette rotation. We need that black.
     SEGENV.aux1 = SEGMENT.custom1/12;
@@ -5813,6 +5818,8 @@ uint16_t mode_2DSunradiation(void) {                   // By: ldirko https://edi
 
   const uint16_t cols = SEGMENT.virtualWidth();
   const uint16_t rows = SEGMENT.virtualHeight();
+  const int minSize = min(cols, rows);          // WLEDMM
+  const int magnify = (minSize <= 32) ? 8 : 46; // WLEDMM
 
   if (!SEGENV.allocateData(sizeof(byte)*(cols+2)*(rows+2))) return mode_static(); //allocation failed
   byte *bump = reinterpret_cast<byte*>(SEGENV.data);
@@ -5841,10 +5848,10 @@ uint16_t mode_2DSunradiation(void) {                   // By: ldirko https://edi
       ++vlx;
       int8_t nx = bump[x + yindex + 1] - bump[x + yindex - 1];
       int8_t ny = bump[x + yindex + (cols + 2)] - bump[x + yindex - (cols + 2)];
-      byte difx = abs8(vlx * 7 - nx);
-      byte dify = abs8(vly * 7 - ny);
+      byte difx = min(abs(vlx * 7 - nx), 255);  // WLEDMM replaced abs8 as it does not work for numbers >127
+      byte dify = min(abs(vly * 7 - ny), 255);  // WLEDMM
       int temp = difx * difx + dify * dify;
-      int col = 255 - temp / 8; //8 its a size of effect
+      int col = 255 - temp / magnify; //8 its a size of effect // WLEDMM size adjusts to matrix dimensions
       if (col < 0) col = 0;
       SEGMENT.setPixelColorXY(x, y, HeatColor(col / (3.0f-(float)(SEGMENT.intensity)/128.f)));
     }

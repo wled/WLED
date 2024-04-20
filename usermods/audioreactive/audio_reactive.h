@@ -564,7 +564,7 @@ void FFTcode(void * parameter)
             newZeroCrossingCount++;
       }
     }
-    newZeroCrossingCount = (newZeroCrossingCount*2)/3; // reduce value so it typicially stays below 256
+    newZeroCrossingCount = (newZeroCrossingCount*2)/3; // reduce value so it typically stays below 256
     zeroCrossingCount = newZeroCrossingCount; // update only once, to avoid that effects pick up an intermediate value
 
     // release highest sample to volume reactive effects early - not strictly necessary here - could also be done at the end of the function
@@ -602,6 +602,7 @@ void FFTcode(void * parameter)
         #endif
         FFT.compute( FFTDirection::Forward );                       // Compute FFT
         FFT.complexToMagnitude();                                   // Compute magnitudes
+        vReal[0] = 0;   // The remaining DC offset on the signal produces a strong spike on position 0 that should be eliminated to avoid issues.
         #else
         FFT.DCRemoval(); // let FFT lib remove DC component, so we don't need to care about this in getSamples()
 
