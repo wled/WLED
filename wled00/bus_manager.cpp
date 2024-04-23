@@ -179,7 +179,7 @@ void IRAM_ATTR BusDigital::setPixelColor(uint16_t pix, uint32_t c) {
   PolyBus::setPixelColor(_busPtr, _iType, pix, c, co);
 }
 
-uint32_t BusDigital::getPixelColor(uint16_t pix) {
+uint32_t IRAM_ATTR_YN BusDigital::getPixelColor(uint16_t pix) {
   if (reversed) pix = _len - pix -1;
   else pix += _skip;
   uint8_t co = _colorOrderMap.getPixelColorOrder(pix+_start, _colorOrder);
@@ -728,6 +728,10 @@ int BusManager::add(BusConfig &bc) {
   } else {
     busses[numBusses] = new BusPwm(bc);
   }
+  // WLEDMM clear cached Bus info
+  lastBus = nullptr;
+  laststart = 0;
+  lastend = 0;
   return numBusses++;
 }
 
@@ -738,6 +742,10 @@ void BusManager::removeAll() {
   while (!canAllShow()) yield();
   for (uint8_t i = 0; i < numBusses; i++) delete busses[i];
   numBusses = 0;
+  // WLEDMM clear cached Bus info
+  lastBus = nullptr;
+  laststart = 0;
+  lastend = 0;
 }
 
 void BusManager::show() {
@@ -753,11 +761,24 @@ void BusManager::setStatusPixel(uint32_t c) {
 }
 
 void IRAM_ATTR BusManager::setPixelColor(uint16_t pix, uint32_t c, int16_t cct) {
+  if ((pix >= laststart) && (pix < lastend ) && (lastBus != nullptr)) {
+    // WLEDMM same bus as last time - no need to search again
+    lastBus->setPixelColor(pix - laststart, c);
+    return;
+  }
+
   for (uint_fast8_t i = 0; i < numBusses; i++) {    // WLEDMM use fast native types
     Bus* b = busses[i];
     uint_fast16_t bstart = b->getStart();
     if (pix < bstart || pix >= bstart + b->getLength()) continue;
-    busses[i]->setPixelColor(pix - bstart, c);
+    else {
+      // WLEDMM remember last Bus we took
+      lastBus = b;
+      laststart = bstart; 
+      lastend = bstart + b->getLength();
+      b->setPixelColor(pix - bstart, c);
+      break; // WLEDMM found the right Bus -> so we can stop searching
+    }
   }
 }
 
@@ -776,12 +797,23 @@ void BusManager::setSegmentCCT(int16_t cct, bool allowWBCorrection) {
   Bus::setCCT(cct);
 }
 
-uint32_t BusManager::getPixelColor(uint_fast16_t pix) {     // WLEDMM use fast native types
+uint32_t IRAM_ATTR BusManager::getPixelColor(uint_fast16_t pix) {     // WLEDMM use fast native types, IRAM_ATTR
+  if ((pix >= laststart) && (pix < lastend ) && (lastBus != nullptr)) {
+    // WLEDMM same bus as last time - no need to search again
+    return lastBus->getPixelColor(pix - laststart);
+  }
+
   for (uint_fast8_t i = 0; i < numBusses; i++) {
     Bus* b = busses[i];
     uint_fast16_t bstart = b->getStart();
     if (pix < bstart || pix >= bstart + b->getLength()) continue;
-    return b->getPixelColor(pix - bstart);
+    else {
+      // WLEDMM remember last Bus we took
+      lastBus = b;
+      laststart = bstart; 
+      lastend = bstart + b->getLength();
+      return b->getPixelColor(pix - bstart);
+    }
   }
   return 0;
 }

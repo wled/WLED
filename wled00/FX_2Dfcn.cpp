@@ -216,17 +216,34 @@ void IRAM_ATTR_YN Segment::setPixelColorXY(int x, int y, uint32_t col) //WLEDMM:
   if (Segment::maxHeight==1) return; // not a matrix set-up
   if (x<0 || y<0 || x >= virtualWidth() || y >= virtualHeight()) return;  // if pixel would fall out of virtual segment just exit
 
-  if (ledsrgb) ledsrgb[XY(x,y)] = col;
-
+  unsigned i = UINT_MAX;
+  bool sameColor = false;
+  if (ledsrgb) { // WLEDMM small optimization
+    i = XY(x,y);
+    CRGB fastled_col = CRGB(col);
+    if (ledsrgb[i] == fastled_col) sameColor = true;
+    else ledsrgb[i] = fastled_col;
+  }
   uint8_t _bri_t = currentBri(on ? opacity : 0);
   if (!_bri_t && !transitional) return;
   if (_bri_t < 255) {
     col = color_fade(col, _bri_t);
   }
 
+#if 0 // this is a dangerous optimization
+  if ((i < UINT_MAX) && sameColor && (call > 0) && (ledsrgb[i] == CRGB(col)) && (_globalLeds == nullptr)) return; // WLEDMM looks like nothing to do (but we don't trust globalleds)
+#endif
+
   if (reverse  ) x = virtualWidth()  - x - 1;
   if (reverse_y) y = virtualHeight() - y - 1;
   if (transpose) { uint16_t t = x; x = y; y = t; } // swap X & Y if segment transposed
+
+  // WLEDMM shortcut when no grouping/spacing used
+  bool simpleSegment = !mirror && !mirror_y && (grouping == 1) && (spacing == 0);
+  if (simpleSegment) {
+    strip.setPixelColorXY(start + x, startY + y, col);
+    return;
+  }
 
   x *= groupLength(); // expand to physical pixels
   y *= groupLength(); // expand to physical pixels
@@ -308,8 +325,10 @@ void Segment::setPixelColorXY(float x, float y, uint32_t col, bool aa, bool fast
 // returns RGBW values of pixel
 uint32_t IRAM_ATTR_YN Segment::getPixelColorXY(int x, int y) {
   if (x<0 || y<0 || !isActive()) return 0; // not active or out-of range
-  int i = XY(x,y);
-  if (ledsrgb) return RGBW32(ledsrgb[i].r, ledsrgb[i].g, ledsrgb[i].b, 0);
+  if (ledsrgb) {
+    int i = XY(x,y);
+    return RGBW32(ledsrgb[i].r, ledsrgb[i].g, ledsrgb[i].b, 0);
+  }
   if (reverse  ) x = virtualWidth()  - x - 1;
   if (reverse_y) y = virtualHeight() - y - 1;
   if (transpose) { uint16_t t = x; x = y; y = t; } // swap X & Y if segment transposed
@@ -325,23 +344,11 @@ void Segment::blendPixelColorXY(uint16_t x, uint16_t y, uint32_t color, uint8_t 
 }
 
 // Adds the specified color with the existing pixel color perserving color balance.
-void Segment::addPixelColorXY(int x, int y, uint32_t color, bool fast) {
+void IRAM_ATTR_YN Segment::addPixelColorXY(int x, int y, uint32_t color, bool fast) {
   if (!isActive()) return; // not active
   if (x >= virtualWidth() || y >= virtualHeight() || x<0 || y<0) return;  // if pixel would fall out of virtual segment just exit
   uint32_t col = getPixelColorXY(x,y);
-  uint8_t r = R(col);
-  uint8_t g = G(col);
-  uint8_t b = B(col);
-  uint8_t w = W(col);
-  if (fast) {
-    r = qadd8(r, R(color));
-    g = qadd8(g, G(color));
-    b = qadd8(b, B(color));
-    w = qadd8(w, W(color));
-    col = RGBW32(r,g,b,w);
-  } else {
-    col = color_add(col, color);
-  }
+  col = color_add(col, color, fast);
   setPixelColorXY(x, y, col);
 }
 

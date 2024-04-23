@@ -427,8 +427,12 @@ class BusManager {
 
   private:
     uint8_t numBusses = 0;
-    Bus* busses[WLED_MAX_BUSSES+WLED_MIN_VIRTUAL_BUSSES];
+    Bus* busses[WLED_MAX_BUSSES+WLED_MIN_VIRTUAL_BUSSES] = {nullptr}; // WLEDMM init array
     ColorOrderMap colorOrderMap;
+    // WLEDMM cache last used Bus -> 20% to 30% speedup when using many LED pins
+    Bus *lastBus = nullptr;
+    unsigned laststart = 0;
+    unsigned lastend = 0;
 
     inline uint8_t getNumVirtualBusses() {
       int j = 0;

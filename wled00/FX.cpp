@@ -2561,7 +2561,7 @@ uint16_t ripple_base()
           if ((v >= 0) && (v < SEGLEN))                                                // WLEDMM bugfix: v and w can be negative or out-of-range
             SEGMENT.setPixelColor(v, color_blend(SEGMENT.getPixelColor(v), col, mag)); // TODO
           int w = left + propI*2 + 3 -(v-left);
-          if ((v >= 0) && (v < SEGLEN))                                                // WLEDMM bugfix: v and w can be negative or out-of-range
+          if ((w >= 0) && (w < SEGLEN))                                                // WLEDMM bugfix: v and w can be negative or out-of-range
             SEGMENT.setPixelColor(w, color_blend(SEGMENT.getPixelColor(w), col, mag)); // TODO
         }
       }

@@ -1044,6 +1044,17 @@ void IRAM_ATTR_YN Segment::setPixelColor(int i, uint32_t col) //WLEDMM: IRAM_ATT
   }
   i += start; // starting pixel in a group
 
+#if 0  // needs more testing
+  // WLEDMM shortcut when no grouping/spacing used
+  bool simpleSegment = !mirror && (grouping == 1) && (spacing == 0);
+  if (simpleSegment) {
+      int indexSet = i + offset; // offset/phase
+      if (indexSet >= stop) indexSet -= len; // wrap
+      strip.setPixelColor(indexSet, col);
+    return;
+  }
+#endif
+
   // set all the pixels in the group
   for (int j = 0; j < grouping; j++) {
     uint16_t indexSet = i + ((reverse) ? -j : j);
