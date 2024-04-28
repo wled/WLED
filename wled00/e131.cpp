@@ -353,7 +353,6 @@ void handleArtnetPollReply(IPAddress ipAddress) {
 
   switch (DMXMode) {
     case DMX_MODE_DISABLED:
-      return;  // nothing to do
       break;
 
     case DMX_MODE_SINGLE_RGB:
@@ -398,9 +397,17 @@ void handleArtnetPollReply(IPAddress ipAddress) {
       break;
   }
 
-  for (uint16_t i = startUniverse; i <= endUniverse; ++i) {
-    sendArtnetPollReply(&artnetPollReply, ipAddress, i);
+  if (DMXMode != DMX_MODE_DISABLED) {
+    for (uint16_t i = startUniverse; i <= endUniverse; ++i) {
+      sendArtnetPollReply(&artnetPollReply, ipAddress, i);
+    }
   }
+
+  #ifdef WLED_ENABLE_DMX
+    if (e131ProxyUniverse > 0 && (DMXMode == DMX_MODE_DISABLED || (e131ProxyUniverse < startUniverse || e131ProxyUniverse > endUniverse))) {
+      sendArtnetPollReply(&artnetPollReply, ipAddress, e131ProxyUniverse);
+    }
+  #endif
 }
 
 void prepareArtnetPollReply(ArtPollReply *reply) {
