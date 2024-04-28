@@ -523,6 +523,7 @@ ${urows}
 ${inforow("Build",i.vid)}
 ${inforow("Signal strength",i.wifi.signal +"% ("+ i.wifi.rssi, " dBm)")}
 ${inforow("Uptime",getRuntimeStr(i.uptime))}
+${inforow("Time",i.time)}
 ${inforow("Free heap",heap," kB")}
 ${i.psram?inforow("Free PSRAM",(i.psram/1024).toFixed(1)," kB"):""}
 ${inforow("Estimated current",pwru)}
@@ -963,7 +964,7 @@ function readState(s,command=false)
 		  errstr = "Missing IR.json.";
 		  break;
 		case 19:
-		  errstr = "A filesystem error has occured.";
+		  errstr = "A filesystem error has occurred.";
 		  break;
 		}
 	  showToast('Error ' + s.error + ": " + errstr, true);

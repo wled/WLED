@@ -101,7 +101,7 @@ private:
 
   /**
    * Read and update PIR sensor state.
-   * Initilize/reset switch off timer
+   * Initialize/reset switch off timer
    */
   bool updatePIRsensorState();
 

@@ -6,7 +6,7 @@
 #include "4LD_wled_fonts.c"
 
 #ifndef FLD_ESP32_NO_THREADS
-  #define FLD_ESP32_USE_THREADS  // comment out to use 0.13.x behviour without parallel update task - slower, but more robust. May delay other tasks like LEDs or audioreactive!!
+  #define FLD_ESP32_USE_THREADS  // comment out to use 0.13.x behaviour without parallel update task - slower, but more robust. May delay other tasks like LEDs or audioreactive!!
 #endif
 
 //
@@ -243,7 +243,7 @@ class FourLineDisplayUsermod : public Usermod {
      */
     void setMarkLine(byte newMarkLineNum, byte newMarkColNum);
 
-    //Draw the arrow for the current setting beiong changed
+    //Draw the arrow for the current setting being changed
     void drawArrow();
 
     //Display the current effect or palette (desiredEntry) 
@@ -793,7 +793,7 @@ void FourLineDisplayUsermod::setMarkLine(byte newMarkLineNum, byte newMarkColNum
   markColNum = newMarkColNum;
 }
 
-//Draw the arrow for the current setting beiong changed
+//Draw the arrow for the current setting being changed
 void FourLineDisplayUsermod::drawArrow() {
 #if defined(ARDUINO_ARCH_ESP32) && defined(FLD_ESP32_USE_THREADS)
   unsigned long now = millis();
@@ -1066,7 +1066,7 @@ void FourLineDisplayUsermod::networkOverlay(const char* line1, long showHowLong)
 bool FourLineDisplayUsermod::handleButton(uint8_t b) {
   yield();
   if (!enabled
-    || b // butto 0 only
+    || b // button 0 only
     || buttonType[b] == BTN_TYPE_SWITCH
     || buttonType[b] == BTN_TYPE_NONE
     || buttonType[b] == BTN_TYPE_RESERVED
@@ -1081,7 +1081,7 @@ bool FourLineDisplayUsermod::handleButton(uint8_t b) {
   static bool buttonLongPressed = false;
   static unsigned long buttonPressedTime = 0;
   static unsigned long buttonWaitTime = 0;
-  bool handled = true;
+  bool handled = false;
 
   //momentary button logic
   if (isButtonPressed(b)) { //pressed
@@ -1090,11 +1090,12 @@ bool FourLineDisplayUsermod::handleButton(uint8_t b) {
     buttonPressedBefore = true;
 
     if (now - buttonPressedTime > 600) { //long press
-      buttonLongPressed = true;
       //TODO: handleButton() handles button 0 without preset in a different way for double click
       //so we need to override with same behaviour
-      longPressAction(0);
-      //handled = false;
+      //DEBUG_PRINTLN(F("4LD action."));
+      //if (!buttonLongPressed) longPressAction(0);
+      buttonLongPressed = true;
+      return false;
     }
 
   } else if (!isButtonPressed(b) && buttonPressedBefore) { //released
@@ -1126,7 +1127,7 @@ bool FourLineDisplayUsermod::handleButton(uint8_t b) {
     buttonWaitTime = 0;
     //TODO: handleButton() handles button 0 without preset in a different way for double click
     //so we need to override with same behaviour
-    shortPressAction(0);
+    //shortPressAction(0);
     //handled = false;
   }
   return handled;

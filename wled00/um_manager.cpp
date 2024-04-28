@@ -19,7 +19,7 @@ bool UsermodManager::handleButton(uint8_t b) {
 bool UsermodManager::getUMData(um_data_t **data, uint8_t mod_id) {
   for (byte i = 0; i < numMods; i++) {
     if (mod_id > 0 && ums[i]->getId() != mod_id) continue;  // only get data form requested usermod if provided
-    if (ums[i]->getUMData(data)) return true;               // if usermod does provide data return immediately (only one usermod can povide data at one time)
+    if (ums[i]->getUMData(data)) return true;               // if usermod does provide data return immediately (only one usermod can provide data at one time)
   }
   return false;
 }

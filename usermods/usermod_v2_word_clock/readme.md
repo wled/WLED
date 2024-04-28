@@ -8,7 +8,7 @@ active: enable/disable usermod
 diplayItIs: enable/disable display of "Es ist" on the clock
 ledOffset: number of LEDs before the wordclock LEDs
 
-### Update for alternatative wiring pattern
+### Update for alternative wiring pattern
 Based on this fantastic work I added an alternative wiring pattern.
 The original used a long wire to connect DO to DI, from one line to the next line.
 

@@ -134,11 +134,9 @@ void stateUpdated(byte callMode) {
   usermods.onStateChange(callMode);
 
   if (fadeTransition) {
-    //set correct delay if not using notification delay
-    if (callMode != CALL_MODE_NOTIFICATION && !jsonTransitionOnce) transitionDelayTemp = transitionDelay; // load actual transition duration
-    jsonTransitionOnce = false;
-    strip.setTransition(transitionDelayTemp);
-    if (transitionDelayTemp == 0) {
+    if (strip.getTransition() == 0) {
+      jsonTransitionOnce = false;
+      transitionActive = false;
       applyFinalBri();
       strip.trigger();
       return;
@@ -152,7 +150,6 @@ void stateUpdated(byte callMode) {
     transitionActive = true;
     transitionStartTime = millis();
   } else {
-    strip.setTransition(0);
     applyFinalBri();
     strip.trigger();
   }
@@ -161,8 +158,12 @@ void stateUpdated(byte callMode) {
 
 void updateInterfaces(uint8_t callMode)
 {
+  if (!interfaceUpdateCallMode || millis() - lastInterfaceUpdate < INTERFACE_UPDATE_COOLDOWN) return;
+
   sendDataWs();
   lastInterfaceUpdate = millis();
+  interfaceUpdateCallMode = 0; //disable
+
   if (callMode == CALL_MODE_WS_SEND) return;
 
   #ifndef WLED_DISABLE_ALEXA
@@ -172,25 +173,25 @@ void updateInterfaces(uint8_t callMode)
   }
   #endif
   doPublishMqtt = true;
-  interfaceUpdateCallMode = 0; //disable
 }
 
 
 void handleTransitions()
 {
   //handle still pending interface update
-  if (interfaceUpdateCallMode && millis() - lastInterfaceUpdate > INTERFACE_UPDATE_COOLDOWN) updateInterfaces(interfaceUpdateCallMode);
+  updateInterfaces(interfaceUpdateCallMode);
 #ifndef WLED_DISABLE_MQTT
   if (doPublishMqtt) publishMqtt();
 #endif
 
-  if (transitionActive && transitionDelayTemp > 0)
-  {
-    float tper = (millis() - transitionStartTime)/(float)transitionDelayTemp;
-    if (tper >= 1.0)
-    {
-      strip.setTransitionMode(false);
+  if (transitionActive && strip.getTransition() > 0) {
+    float tper = (millis() - transitionStartTime)/(float)strip.getTransition();
+    if (tper >= 1.0f) {
+      strip.setTransitionMode(false); // stop all transitions
+      // restore (global) transition time if not called from UDP notifier or single/temporary transition from JSON (also playlist)
+      if (jsonTransitionOnce) strip.setTransition(transitionDelay);
       transitionActive = false;
+      jsonTransitionOnce = false;
       tperLast = 0;
       applyFinalBri();
       return;

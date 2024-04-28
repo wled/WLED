@@ -26,7 +26,7 @@ h11==0.14.0
     # via
     #   uvicorn
     #   wsproto
-idna==3.4
+idna==3.7
     # via
     #   anyio
     #   requests
@@ -50,7 +50,9 @@ starlette==0.23.1
     # via platformio
 tabulate==0.9.0
     # via platformio
-urllib3==1.26.15
+typing-extensions==4.11.0
+    # via starlette
+urllib3==1.26.18
     # via requests
 uvicorn==0.20.0
     # via platformio

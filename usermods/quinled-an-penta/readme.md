@@ -2,7 +2,7 @@
 The (un)official usermod to get the best out of the QuinLED-An-Penta (https://quinled.info/quinled-an-penta/), e.g. using the OLED and the SHT30 temperature/humidity sensor.
 
 ## Requirements
-* "u8gs" by olikraus, v2.28 or higher: https://github.com/olikraus/u8g2
+* "u8g2" by olikraus, v2.28 or higher: https://github.com/olikraus/u8g2
 * "SHT85" by Rob Tillaart, v0.2 or higher: https://github.com/RobTillaart/SHT85
 
 ## Usermod installation

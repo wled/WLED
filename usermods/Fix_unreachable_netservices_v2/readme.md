@@ -2,7 +2,7 @@
 
 **Attention: This usermod compiles only for ESP8266**
 
-This usermod-v2 modification performs a ping request to a local IP address every 60 seconds. This ensures WLED net services remain accessible in some problematic WLAN environments.
+This usermod-v2 modification performs a ping request to a local IP address every 60 seconds. This ensures WLED net services remain accessible in some problematic WiFi environments.
 
 The modification works with static or DHCP IP address configuration.
 
@@ -24,7 +24,7 @@ The usermod supports the following state changes:
 
 | JSON key    | Value range      | Description                     |
 |-------------|------------------|---------------------------------|
-| PingDelayMs | 5000 to 18000000 | Deactivdate/activate the sensor |
+| PingDelayMs | 5000 to 18000000 | Deactivate/activate the sensor  |
 
  Changes also persist after a reboot.
 

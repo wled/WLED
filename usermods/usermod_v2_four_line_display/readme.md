@@ -23,7 +23,7 @@ This file should be placed in the same directory as `platformio.ini`.
 * `FLD_PIN_SCL`                - The display SCL pin, defaults to 5
 * `FLD_PIN_SDA`                - The display SDA pin, defaults to 4
 
-All of the parameters can be configured via the Usermods settings page, inluding GPIO pins.
+All of the parameters can be configured via the Usermods settings page, including GPIO pins.
 
 ### PlatformIO requirements
 

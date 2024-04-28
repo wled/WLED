@@ -1034,6 +1034,7 @@ textarea {
 	/*padding: 1px 0 1px 20px;*/
 	display: var(--sgp);
 	width: 100%;
+	position: relative;
 }
 
 .pname {

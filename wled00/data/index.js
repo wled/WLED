@@ -27,16 +27,15 @@ var cfg = {
 	theme:{base:"dark", bg:{url:""}, alpha:{bg:0.6,tab:0.8}, color:{bg:""}},
 	comp :{colors:{picker: true, rgb: false, quick: true, hex: false},
           labels:true, pcmbot:false, pid:true, seglen:false, segpwr:false, segexp:false,
-		  css:true, hdays:false, fxdef:true}
+		  css:true, hdays:false, fxdef:true, idsort: false}
 };
 var hol = [
 	[0,11,24,4,"https://aircoookie.github.io/xmas.png"], // christmas
 	[0,2,17,1,"https://images.alphacoders.com/491/491123.jpg"], // st. Patrick's day
 	[2025,3,20,2,"https://aircoookie.github.io/easter.png"],
-	[2023,3,9,2,"https://aircoookie.github.io/easter.png"],
 	[2024,2,31,2,"https://aircoookie.github.io/easter.png"],
-	[0,6,4,1,"https://initiate.alphacoders.com/download/wallpaper/516792/images/jpg/510921363292536"], // 4th of July
-	[0,0,1,1,"https://initiate.alphacoders.com/download/wallpaper/1198800/images/jpg/2522807481585600"] // new year
+	[0,6,4,1,"https://images.alphacoders.com/516/516792.jpg"], // 4th of July
+	[0,0,1,1,"https://images.alphacoders.com/119/1198800.jpg"] // new year
 ];
 
 function handleVisibilityChange() {if (!d.hidden && new Date () - lastUpdate > 3000) requestJson();}
@@ -683,6 +682,7 @@ ${i.opt&0x100?inforow("Debug","<button class=\"btn btn-xs\" onclick=\"requestJso
 ${inforow("Build",i.vid)}
 ${inforow("Signal strength",i.wifi.signal +"% ("+ i.wifi.rssi, " dBm)")}
 ${inforow("Uptime",getRuntimeStr(i.uptime))}
+${inforow("Time",i.time)}
 ${inforow("Free heap",heap," kB")}
 ${i.psram?inforow("Free PSRAM",(i.psram/1024).toFixed(1)," kB"):""}
 ${inforow("Estimated current",pwru)}
@@ -834,7 +834,7 @@ function populateSegments(s)
 	}
 	if (segCount < 2) {
 		gId(`segd${lSeg}`).classList.add("hide");
-		gId(`segp0`).classList.add("hide");
+		if (parseInt(gId("seg0bri").value)==255) gId(`segp0`).classList.add("hide");
 	}
 	if (!isM && !noNewSegs && (cfg.comp.seglen?parseInt(gId(`seg${lSeg}s`).value):0)+parseInt(gId(`seg${lSeg}e`).value)<ledCount) gId(`segr${lSeg}`).classList.remove("hide");
 	gId('segutil2').style.display = (segCount > 1) ? "block":"none"; // rsbtn parent
@@ -1208,7 +1208,7 @@ function updateUI()
 	if (hasRGB) {
 		updateTrail(gId('sliderR'));
 		updateTrail(gId('sliderG'));
-		updateTrail(gId('sliderB'));	
+		updateTrail(gId('sliderB'));
 	}
 	if (hasWhite) updateTrail(gId('sliderW'));
 
@@ -1247,7 +1247,7 @@ function updateSelectedPalette(s)
 	if (s > 1 && s < 6) {
 		cd[0].classList.remove('hide'); // * Color 1
 		if (s > 2) cd[1].classList.remove('hide'); // * Color 1 & 2
-		if (s == 5) cd[2].classList.remove('hide'); // all colors
+		if (s > 3) cd[2].classList.remove('hide'); // all colors
 	} else {
 		for (let i of cd) if (i.dataset.hide == '1') i.classList.add('hide');
 	}
@@ -1301,7 +1301,7 @@ function displayRover(i,s)
 
 function cmpP(a, b)
 {
-	if (!a[1].n) return (a[0] > b[0]);
+	if (cfg.comp.idsort || !a[1].n) return (parseInt(a[0]) > parseInt(b[0]));
 	// sort playlists first, followed by presets with characters and last presets with special 1st character
 	const c = a[1].n.charCodeAt(0);
 	const d = b[1].n.charCodeAt(0);
@@ -1460,9 +1460,9 @@ function readState(s,command=false)
 //      - For AC effects (id<128) 2 sliders and 3 colors and the palette will be shown
 //      - For SR effects (id>128) 5 sliders and 3 colors and the palette will be shown
 // If effective (@)
-//      - a ; seperates slider controls (left) from color controls (middle) and palette control (right)
+//      - a ; separates slider controls (left) from color controls (middle) and palette control (right)
 //      - if left, middle or right is empty no controls are shown
-//      - a , seperates slider controls (max 5) or color controls (max 3). Palette has only one value
+//      - a , separates slider controls (max 5) or color controls (max 3). Palette has only one value
 //      - a ! means that the default is used.
 //             - For sliders: Effect speeds, Effect intensity, Custom 1, Custom 2, Custom 3
 //             - For colors: Fx color, Background color, Custom
@@ -1513,12 +1513,15 @@ function setEffectParameters(idx)
 	}
 
 	// set the bottom position of selected effect (sticky) as the top of sliders div
-	setInterval(()=>{
+	function setSelectedEffectPosition() {
 		let top = parseInt(getComputedStyle(gId("sliders")).height);
 		top += 5;
 		let sel = d.querySelector('#fxlist .selected');
 		if (sel) sel.style.bottom = top + "px"; // we will need to remove this when unselected (in setFX())
-	},750);
+	}
+
+	setSelectedEffectPosition();
+	setInterval(setSelectedEffectPosition,750);
 	// set html color items on/off
 	var cslLabel = '';
 	var sep = '';
@@ -1699,7 +1702,7 @@ function toggleLiveview()
 	let wsOn = ws && ws.readyState === WebSocket.OPEN;
 
 	var lvID = "liveview";
-	if (isM && wsOn) {   
+	if (isM && wsOn) {
 		lvID += "2D";
 		if (isLv) gId('klv2D').innerHTML = `<iframe id="${lvID}" src="about:blank"></iframe>`;
 		gId('mlv2D').style.transform = (isLv) ? "translateY(0px)":"translateY(100%)";
@@ -1795,6 +1798,7 @@ function makePlSel(el, incPl=false)
 	var arr = Object.entries(pJson);
 	for (var a of arr) {
 		var n = a[1].n ? a[1].n : "Preset " + a[0];
+		if (cfg.comp.idsort) n = a[0] + ' ' + n;
 		if (!incPl && a[1].playlist && a[1].playlist.ps) continue; // remove playlists, sub-playlists not yet supported
 		plSelContent += `<option value="${a[0]}" ${a[0]==el?"selected":""}>${n}</option>`
 	}
@@ -1886,7 +1890,7 @@ function makeP(i,pl)
 			end: 0
 		};
 		var rep = plJson[i].repeat ? plJson[i].repeat : 0;
-		content = 
+		content =
 `<div id="ple${i}" style="margin-top:10px;"></div><label class="check revchkl">Shuffle
 	<input type="checkbox" id="pl${i}rtgl" onchange="plR(${i})" ${plJson[i].r||rep<0?"checked":""}>
 	<span class="checkmark"></span>

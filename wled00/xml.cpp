@@ -238,8 +238,8 @@ void getSettingsJS(byte subPage, char* dest)
 
   if (subPage == SUBPAGE_MENU)
   {
-  #ifndef WLED_DISABLE_2D // include only if 2D is compiled in
-    oappend(PSTR("gId('2dbtn').style.display='';"));
+  #ifdef WLED_DISABLE_2D // include only if 2D is not compiled in
+    oappend(PSTR("gId('2dbtn').style.display='none';"));
   #endif
   #ifdef WLED_ENABLE_DMX // include only if DMX is enabled
     oappend(PSTR("gId('dmxbtn').style.display='';"));
@@ -277,6 +277,7 @@ void getSettingsJS(byte subPage, char* dest)
     sappends('s',SET_F("AP"),fapass);
 
     sappend('v',SET_F("AC"),apChannel);
+    sappend('c',SET_F("FG"),force802_3g);
     sappend('c',SET_F("WS"),noWifiSleep);
 
     #ifndef WLED_DISABLE_ESPNOW
@@ -441,6 +442,7 @@ void getSettingsJS(byte subPage, char* dest)
     sappend('c',SET_F("GC"),gammaCorrectCol);
     dtostrf(gammaCorrectVal,3,1,nS); sappends('s',SET_F("GV"),nS);
     sappend('c',SET_F("TF"),fadeTransition);
+    sappend('c',SET_F("EB"),modeBlending);
     sappend('v',SET_F("TD"),transitionDelayDefault);
     sappend('c',SET_F("PF"),strip.paletteFade);
     sappend('v',SET_F("TP"),randomPaletteChangeTime);
@@ -478,6 +480,7 @@ void getSettingsJS(byte subPage, char* dest)
 
   if (subPage == SUBPAGE_SYNC)
   {
+    [[maybe_unused]] char nS[32];
     sappend('v',SET_F("UP"),udpPort);
     sappend('v',SET_F("U2"),udpPort2);
     sappend('v',SET_F("GS"),syncGroups);
@@ -534,6 +537,9 @@ void getSettingsJS(byte subPage, char* dest)
     sappends('s',SET_F("MG"),mqttGroupTopic);
     sappend('c',SET_F("BM"),buttonPublishMqtt);
     sappend('c',SET_F("RT"),retainMqttMsg);
+    oappend(SET_F("d.Sf.MD.maxlength=")); oappend(itoa(MQTT_MAX_TOPIC_LEN,nS,10));  oappend(SET_F(";"));
+    oappend(SET_F("d.Sf.MG.maxlength=")); oappend(itoa(MQTT_MAX_TOPIC_LEN,nS,10));  oappend(SET_F(";"));
+    oappend(SET_F("d.Sf.MS.maxlength=")); oappend(itoa(MQTT_MAX_SERVER_LEN,nS,10));  oappend(SET_F(";"));
     #else
     oappend(SET_F("toggle('MQTT');"));    // hide MQTT settings
     #endif
@@ -583,7 +589,7 @@ void getSettingsJS(byte subPage, char* dest)
     sappends('s',SET_F("LT"),tm);
     getTimeString(tm);
     sappends('m',SET_F("(\"times\")[0]"),tm);
-    if ((int)(longitude*10.) || (int)(latitude*10.)) {
+    if ((int)(longitude*10.0f) || (int)(latitude*10.0f)) {
       sprintf_P(tm, PSTR("Sunrise: %02d:%02d Sunset: %02d:%02d"), hour(sunrise), minute(sunrise), hour(sunset), minute(sunset));
       sappends('m',SET_F("(\"times\")[1]"),tm);
     }

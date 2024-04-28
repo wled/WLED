@@ -2,6 +2,21 @@
 #include "wled.h"
 #include "fcn_declare.h"
 
+// on esp8266, building with `-D WLED_USE_UNREAL_MATH` saves around 7Kb flash and 1KB RAM
+//  warning: causes errors in sunset calculations, see #3400
+#if defined(WLED_USE_UNREAL_MATH)
+#define sinf sin_t
+#define asinf asin_t
+#define cosf cos_t
+#define acosf acos_t
+#define tanf tan_t
+#define atanf atan_t
+#define fmodf fmod_t
+#define floorf floor_t
+#else
+#include <math.h>
+#endif
+
 /*
  * Acquires time from NTP server
  */
@@ -33,129 +48,118 @@ Timezone* tz;
 #define TZ_ANCHORAGE           20
 #define TZ_MX_CENTRAL          21
 #define TZ_PAKISTAN            22
+
+#define TZ_COUNT               23
 #define TZ_INIT               255
 
 byte tzCurrent = TZ_INIT; //uninitialized
 
+/* C++11 form -- static std::array<std::pair<TimeChangeRule, TimeChangeRule>, TZ_COUNT> TZ_TABLE PROGMEM = {{ */
+static const std::pair<TimeChangeRule, TimeChangeRule> TZ_TABLE[] PROGMEM = {
+    /* TZ_UTC */ {
+      {Last, Sun, Mar, 1, 0}, // UTC
+      {Last, Sun, Mar, 1, 0}  // Same
+    },
+    /* TZ_UK */ {
+      {Last, Sun, Mar, 1, 60},      //British Summer Time
+      {Last, Sun, Oct, 2, 0}       //Standard Time
+    },
+    /* TZ_EUROPE_CENTRAL */ {
+      {Last, Sun, Mar, 2, 120},     //Central European Summer Time
+      {Last, Sun, Oct, 3, 60}      //Central European Standard Time
+    },
+    /* TZ_EUROPE_EASTERN */ {
+      {Last, Sun, Mar, 3, 180},     //East European Summer Time
+      {Last, Sun, Oct, 4, 120}     //East European Standard Time
+    },
+    /* TZ_US_EASTERN */ {
+      {Second, Sun, Mar, 2, -240},  //EDT = UTC - 4 hours
+      {First,  Sun, Nov, 2, -300}  //EST = UTC - 5 hours
+    },
+    /* TZ_US_CENTRAL */ {
+      {Second, Sun, Mar, 2, -300},  //CDT = UTC - 5 hours
+      {First,  Sun, Nov, 2, -360}  //CST = UTC - 6 hours
+    },
+    /* TZ_US_MOUNTAIN */ {
+      {Second, Sun, Mar, 2, -360},  //MDT = UTC - 6 hours
+      {First,  Sun, Nov, 2, -420}  //MST = UTC - 7 hours
+    },
+    /* TZ_US_ARIZONA */ {
+      {First,  Sun, Nov, 2, -420},  //MST = UTC - 7 hours
+      {First,  Sun, Nov, 2, -420}  //MST = UTC - 7 hours
+    },
+    /* TZ_US_PACIFIC */ {
+      {Second, Sun, Mar, 2, -420},  //PDT = UTC - 7 hours
+      {First,  Sun, Nov, 2, -480}  //PST = UTC - 8 hours
+    },
+    /* TZ_CHINA */ {
+      {Last, Sun, Mar, 1, 480},     //CST = UTC + 8 hours
+      {Last, Sun, Mar, 1, 480}
+    },
+    /* TZ_JAPAN */ {
+      {Last, Sun, Mar, 1, 540},     //JST = UTC + 9 hours
+      {Last, Sun, Mar, 1, 540}
+    },
+    /* TZ_AUSTRALIA_EASTERN */ {
+      {First,  Sun, Oct, 2, 660},   //AEDT = UTC + 11 hours
+      {First,  Sun, Apr, 3, 600}   //AEST = UTC + 10 hours
+    },
+    /* TZ_NEW_ZEALAND */ {
+      {Last,   Sun, Sep, 2, 780},   //NZDT = UTC + 13 hours
+      {First,  Sun, Apr, 3, 720}   //NZST = UTC + 12 hours
+    },
+    /* TZ_NORTH_KOREA */ {
+      {Last, Sun, Mar, 1, 510},     //Pyongyang Time = UTC + 8.5 hours
+      {Last, Sun, Mar, 1, 510}
+    },
+    /* TZ_INDIA */ {
+      {Last, Sun, Mar, 1, 330},     //India Standard Time = UTC + 5.5 hours
+      {Last, Sun, Mar, 1, 330}
+    },
+    /* TZ_SASKACHEWAN */ {
+      {First,  Sun, Nov, 2, -360},  //CST = UTC - 6 hours
+      {First,  Sun, Nov, 2, -360}
+    },
+    /* TZ_AUSTRALIA_NORTHERN */ {
+      {First, Sun, Apr, 3, 570},   //ACST = UTC + 9.5 hours
+      {First, Sun, Apr, 3, 570}
+    },
+    /* TZ_AUSTRALIA_SOUTHERN */ {
+      {First, Sun, Oct, 2, 630},   //ACDT = UTC + 10.5 hours
+      {First, Sun, Apr, 3, 570}   //ACST = UTC + 9.5 hours
+    },
+    /* TZ_HAWAII */ {
+      {Last, Sun, Mar, 1, -600},   //HST =  UTC - 10 hours
+      {Last, Sun, Mar, 1, -600}
+    },
+    /* TZ_NOVOSIBIRSK */ {
+      {Last, Sun, Mar, 1, 420},     //CST = UTC + 7 hours
+      {Last, Sun, Mar, 1, 420}
+    },
+    /* TZ_ANCHORAGE */ {
+      {Second, Sun, Mar, 2, -480},  //AKDT = UTC - 8 hours
+      {First, Sun, Nov, 2, -540}   //AKST = UTC - 9 hours
+    },
+     /* TZ_MX_CENTRAL */ {
+      {First, Sun, Apr, 2, -360},  //CST = UTC - 6 hours
+      {First, Sun, Apr, 2, -360}
+    },
+    /* TZ_PAKISTAN */ {
+      {Last, Sun, Mar, 1, 300},     //Pakistan Standard Time = UTC + 5 hours
+      {Last, Sun, Mar, 1, 300}
+    }
+};
+
 void updateTimezone() {
   delete tz;
-  TimeChangeRule tcrDaylight = {Last, Sun, Mar, 1, 0}; //UTC
-  TimeChangeRule tcrStandard = tcrDaylight;            //UTC
-
-  switch (currentTimezone) {
-    case TZ_UK : {
-      tcrDaylight = {Last, Sun, Mar, 1, 60};      //British Summer Time
-      tcrStandard = {Last, Sun, Oct, 2, 0};       //Standard Time
-      break;
-    }
-    case TZ_EUROPE_CENTRAL : {
-      tcrDaylight = {Last, Sun, Mar, 2, 120};     //Central European Summer Time
-      tcrStandard = {Last, Sun, Oct, 3, 60};      //Central European Standard Time
-      break;
-    }
-    case TZ_EUROPE_EASTERN : {
-      tcrDaylight = {Last, Sun, Mar, 3, 180};     //East European Summer Time
-      tcrStandard = {Last, Sun, Oct, 4, 120};     //East European Standard Time
-      break;
-    }
-    case TZ_US_EASTERN : {
-      tcrDaylight = {Second, Sun, Mar, 2, -240};  //EDT = UTC - 4 hours
-      tcrStandard = {First,  Sun, Nov, 2, -300};  //EST = UTC - 5 hours
-      break;
-    }
-    case TZ_US_CENTRAL : {
-      tcrDaylight = {Second, Sun, Mar, 2, -300};  //CDT = UTC - 5 hours
-      tcrStandard = {First,  Sun, Nov, 2, -360};  //CST = UTC - 6 hours
-      break;
-    }
-    case TZ_US_MOUNTAIN : {
-      tcrDaylight = {Second, Sun, Mar, 2, -360};  //MDT = UTC - 6 hours
-      tcrStandard = {First,  Sun, Nov, 2, -420};  //MST = UTC - 7 hours
-      break;
-    }
-    case TZ_US_ARIZONA : {
-      tcrDaylight = {First,  Sun, Nov, 2, -420};  //MST = UTC - 7 hours
-      tcrStandard = {First,  Sun, Nov, 2, -420};  //MST = UTC - 7 hours
-      break;
-    }
-    case TZ_US_PACIFIC : {
-      tcrDaylight = {Second, Sun, Mar, 2, -420};  //PDT = UTC - 7 hours
-      tcrStandard = {First,  Sun, Nov, 2, -480};  //PST = UTC - 8 hours
-      break;
-    }
-    case TZ_CHINA : {
-      tcrDaylight = {Last, Sun, Mar, 1, 480};     //CST = UTC + 8 hours
-      tcrStandard = tcrDaylight;
-      break;
-    }
-    case TZ_JAPAN : {
-      tcrDaylight = {Last, Sun, Mar, 1, 540};     //JST = UTC + 9 hours
-      tcrStandard = tcrDaylight;
-      break;
-    }
-    case TZ_AUSTRALIA_EASTERN : {
-      tcrDaylight = {First,  Sun, Oct, 2, 660};   //AEDT = UTC + 11 hours
-      tcrStandard = {First,  Sun, Apr, 3, 600};   //AEST = UTC + 10 hours
-      break;
-    }
-    case TZ_NEW_ZEALAND : {
-      tcrDaylight = {Last,   Sun, Sep, 2, 780};   //NZDT = UTC + 13 hours
-      tcrStandard = {First,  Sun, Apr, 3, 720};   //NZST = UTC + 12 hours
-      break;
-    }
-    case TZ_NORTH_KOREA : {
-      tcrDaylight = {Last, Sun, Mar, 1, 510};     //Pyongyang Time = UTC + 8.5 hours
-      tcrStandard = tcrDaylight;
-      break;
-    }
-    case TZ_INDIA : {
-      tcrDaylight = {Last, Sun, Mar, 1, 330};     //India Standard Time = UTC + 5.5 hours
-      tcrStandard = tcrDaylight;
-      break;
-    }
-    case TZ_SASKACHEWAN : {
-      tcrDaylight = {First,  Sun, Nov, 2, -360};  //CST = UTC - 6 hours
-      tcrStandard = tcrDaylight;
-      break;
-    }
-    case TZ_AUSTRALIA_NORTHERN : {
-      tcrDaylight = {First, Sun, Apr, 3, 570};   //ACST = UTC + 9.5 hours
-      tcrStandard = tcrDaylight;
-      break;
-    }
-    case TZ_AUSTRALIA_SOUTHERN : {
-      tcrDaylight = {First, Sun, Oct, 2, 630};   //ACDT = UTC + 10.5 hours
-      tcrStandard = {First, Sun, Apr, 3, 570};   //ACST = UTC + 9.5 hours
-      break;
-    }
-    case TZ_HAWAII : {
-      tcrDaylight = {Last, Sun, Mar, 1, -600};   //HST =  UTC - 10 hours
-      tcrStandard = tcrDaylight;
-      break;
-    }
-    case TZ_NOVOSIBIRSK : {
-      tcrDaylight = {Last, Sun, Mar, 1, 420};     //CST = UTC + 7 hours
-      tcrStandard = tcrDaylight;
-      break;
-    }
-    case TZ_ANCHORAGE : {
-      tcrDaylight = {Second, Sun, Mar, 2, -480};  //AKDT = UTC - 8 hours
-      tcrStandard = {First, Sun, Nov, 2, -540};   //AKST = UTC - 9 hours
-      break;
-    }
-     case TZ_MX_CENTRAL : {
-      tcrDaylight = {First, Sun, Apr, 2, -360};  //CST = UTC - 6 hours
-      tcrStandard = tcrDaylight;
-      break;
-    }
-    case TZ_PAKISTAN : {
-      tcrDaylight = {Last, Sun, Mar, 1, 300};     //Pakistan Standard Time = UTC + 5 hours
-      tcrStandard = tcrDaylight;
-      break;
-    }
+  TimeChangeRule tcrDaylight, tcrStandard;
+  auto tz_table_entry = currentTimezone;
+  if (tz_table_entry >= TZ_COUNT) {
+    tz_table_entry = 0;
   }
-
   tzCurrent = currentTimezone;
+  memcpy_P(&tcrDaylight, &TZ_TABLE[tz_table_entry].first, sizeof(tcrDaylight));
+  memcpy_P(&tcrStandard, &TZ_TABLE[tz_table_entry].second, sizeof(tcrStandard));
 
   tz = new Timezone(tcrDaylight, tcrStandard);
 }
@@ -184,6 +188,9 @@ void handleNetworkTime()
   {
     if (millis() - ntpPacketSentTime > 10000)
     {
+      #ifdef ARDUINO_ARCH_ESP32   // I had problems using udp.flush() on 8266
+      while (ntpUdp.parsePacket() > 0) ntpUdp.flush(); // flush any existing packets
+      #endif
       sendNTPPacket();
       ntpPacketSentTime = millis();
     }
@@ -224,16 +231,38 @@ void sendNTPPacket()
   ntpUdp.endPacket();
 }
 
+static bool isValidNtpResponse(byte * ntpPacket) {
+  // Perform a few validity checks on the packet
+  //   based on https://github.com/taranais/NTPClient/blob/master/NTPClient.cpp
+  if((ntpPacket[0] & 0b11000000) == 0b11000000) return false; //reject LI=UNSYNC
+  // if((ntpPacket[0] & 0b00111000) >> 3 < 0b100) return false; //reject Version < 4
+  if((ntpPacket[0] & 0b00000111) != 0b100)      return false; //reject Mode != Server
+  if((ntpPacket[1] < 1) || (ntpPacket[1] > 15)) return false; //reject invalid Stratum
+  if( ntpPacket[16] == 0 && ntpPacket[17] == 0 && 
+      ntpPacket[18] == 0 && ntpPacket[19] == 0 &&
+      ntpPacket[20] == 0 && ntpPacket[21] == 0 &&
+      ntpPacket[22] == 0 && ntpPacket[23] == 0)               //reject ReferenceTimestamp == 0
+    return false;
+
+  return true;
+}
+
 bool checkNTPResponse()
 {
   int cb = ntpUdp.parsePacket();
-  if (!cb) return false;
+  if (cb < NTP_MIN_PACKET_SIZE) {
+    #ifdef ARDUINO_ARCH_ESP32   // I had problems using udp.flush() on 8266
+    if (cb > 0) ntpUdp.flush();  // this avoids memory leaks on esp32
+    #endif
+    return false;
+  }
 
   uint32_t ntpPacketReceivedTime = millis();
   DEBUG_PRINT(F("NTP recv, l="));
   DEBUG_PRINTLN(cb);
   byte pbuf[NTP_PACKET_SIZE];
   ntpUdp.read(pbuf, NTP_PACKET_SIZE); // read the packet into the buffer
+  if (!isValidNtpResponse(pbuf)) return false;  // verify we have a valid response to client
 
   Toki::Time arrived  = toki.fromNTP(pbuf + 32);
   Toki::Time departed = toki.fromNTP(pbuf + 40);
@@ -407,13 +436,13 @@ void checkTimers()
 }
 
 #define ZENITH -0.83
-// get sunrise (or sunset) time (in minutes) for a given day at a given geo location
-int getSunriseUTC(int year, int month, int day, float lat, float lon, bool sunset=false) {
+// get sunrise (or sunset) time (in minutes) for a given day at a given geo location. Returns >= INT16_MAX in case of "no sunset"
+static int getSunriseUTC(int year, int month, int day, float lat, float lon, bool sunset=false) {
   //1. first calculate the day of the year
   float N1 = 275 * month / 9;
   float N2 = (month + 9) / 12;
-  float N3 = (1 + floor_t((year - 4 * floor_t(year / 4) + 2) / 3));
-  float N = N1 - (N2 * N3) + day - 30;
+  float N3 = (1.0f + floorf((year - 4 * floorf(year / 4) + 2.0f) / 3.0f));
+  float N = N1 - (N2 * N3) + day - 30.0f;
 
   //2. convert the longitude to hour value and calculate an approximate time
   float lngHour = lon / 15.0f;
@@ -423,42 +452,43 @@ int getSunriseUTC(int year, int month, int day, float lat, float lon, bool sunse
   float M = (0.9856f * t) - 3.289f;
 
   //4. calculate the Sun's true longitude
-  float L = fmod_t(M + (1.916f * sin_t(DEG_TO_RAD*M)) + (0.02f * sin_t(2*DEG_TO_RAD*M)) + 282.634f, 360.0f);
+  float L = fmodf(M + (1.916f * sinf(DEG_TO_RAD*M)) + (0.02f * sinf(2*DEG_TO_RAD*M)) + 282.634f, 360.0f);
 
   //5a. calculate the Sun's right ascension
-  float RA = fmod_t(RAD_TO_DEG*atan_t(0.91764f * tan_t(DEG_TO_RAD*L)), 360.0f);
+  float RA = fmodf(RAD_TO_DEG*atanf(0.91764f * tanf(DEG_TO_RAD*L)), 360.0f);
 
   //5b. right ascension value needs to be in the same quadrant as L
-  float Lquadrant  = floor_t( L/90) * 90;
-  float RAquadrant = floor_t(RA/90) * 90;
+  float Lquadrant  = floorf( L/90) * 90;
+  float RAquadrant = floorf(RA/90) * 90;
   RA = RA + (Lquadrant - RAquadrant);
 
   //5c. right ascension value needs to be converted into hours
   RA /= 15.0f;
 
   //6. calculate the Sun's declination
-  float sinDec = 0.39782f * sin_t(DEG_TO_RAD*L);
-  float cosDec = cos_t(asin_t(sinDec));
+  float sinDec = 0.39782f * sinf(DEG_TO_RAD*L);
+  float cosDec = cosf(asinf(sinDec));
 
   //7a. calculate the Sun's local hour angle
-  float cosH = (sin_t(DEG_TO_RAD*ZENITH) - (sinDec * sin_t(DEG_TO_RAD*lat))) / (cosDec * cos_t(DEG_TO_RAD*lat));
-  if (cosH > 1 && !sunset) return 0;  // the sun never rises on this location (on the specified date)
-  if (cosH < -1 && sunset) return 0;  // the sun never sets on this location (on the specified date)
+  float cosH = (sinf(DEG_TO_RAD*ZENITH) - (sinDec * sinf(DEG_TO_RAD*lat))) / (cosDec * cosf(DEG_TO_RAD*lat));
+  if ((cosH > 1.0f) && !sunset) return INT16_MAX;  // the sun never rises on this location (on the specified date)
+  if ((cosH < -1.0f) && sunset) return INT16_MAX;  // the sun never sets on this location (on the specified date)
 
   //7b. finish calculating H and convert into hours
-  float H = sunset ? RAD_TO_DEG*acos_t(cosH) : 360 - RAD_TO_DEG*acos_t(cosH);
+  float H = sunset ? RAD_TO_DEG*acosf(cosH) : 360 - RAD_TO_DEG*acosf(cosH);
   H /= 15.0f;
 
   //8. calculate local mean time of rising/setting
   float T = H + RA - (0.06571f * t) - 6.622f;
 
   //9. adjust back to UTC
-  float UT = fmod_t(T - lngHour, 24.0f);
+  float UT = fmodf(T - lngHour, 24.0f);
 
   // return in minutes from midnight
 	return UT*60;
 }
 
+#define SUNSET_MAX (24*60) // 1day = max expected absolute value for sun offset in minutes 
 // calculate sunrise and sunset (if longitude and latitude are set)
 void calculateSunriseAndSunset() {
   if ((int)(longitude*10.) || (int)(latitude*10.)) {
@@ -469,8 +499,19 @@ void calculateSunriseAndSunset() {
     tim_0.tm_sec = 0;
     tim_0.tm_isdst = 0;
 
-    int minUTC = getSunriseUTC(year(localTime), month(localTime), day(localTime), latitude, longitude);
-    if (minUTC) {
+    // Due to limited accuracy, its possible to get a bad sunrise/sunset displayed as "00:00" (see issue #3601)
+    // So in case of invalid result, we try to use the sunset/sunrise of previous day. Max 3 days back, this worked well in all cases I tried.
+    // When latitude = 66,6 (N or S), the functions sometimes returns 2147483647, so this "unexpected large" is another condition for retry
+    int minUTC = 0;
+    int retryCount = 0;
+    do {
+      time_t theDay = localTime - retryCount * 86400; // one day back = 86400 seconds
+      minUTC = getSunriseUTC(year(theDay), month(theDay), day(theDay), latitude, longitude, false);
+      DEBUG_PRINT(F("* sunrise (minutes from UTC) = ")); DEBUG_PRINTLN(minUTC);
+      retryCount ++;
+    } while ((abs(minUTC) > SUNSET_MAX)  && (retryCount <= 3));
+
+    if (abs(minUTC) <= SUNSET_MAX) {
       // there is a sunrise
       if (minUTC < 0) minUTC += 24*60; // add a day if negative
       tim_0.tm_hour = minUTC / 60;
@@ -481,8 +522,15 @@ void calculateSunriseAndSunset() {
       sunrise = 0;
     }
 
-    minUTC = getSunriseUTC(year(localTime), month(localTime), day(localTime), latitude, longitude, true);
-    if (minUTC) {
+    retryCount = 0;
+    do {
+      time_t theDay = localTime - retryCount * 86400; // one day back = 86400 seconds
+      minUTC = getSunriseUTC(year(theDay), month(theDay), day(theDay), latitude, longitude, true);
+      DEBUG_PRINT(F("* sunset  (minutes from UTC) = ")); DEBUG_PRINTLN(minUTC);
+      retryCount ++;
+    } while ((abs(minUTC) > SUNSET_MAX)  && (retryCount <= 3));
+
+    if (abs(minUTC) <= SUNSET_MAX) {
       // there is a sunset
       if (minUTC < 0) minUTC += 24*60; // add a day if negative
       tim_0.tm_hour = minUTC / 60;

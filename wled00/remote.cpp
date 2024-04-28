@@ -26,11 +26,11 @@ void handleRemote(){}
 // since it's broadly commercially available and works out of the box as a drop-in
 typedef struct message_structure {
   uint8_t program;      // 0x91 for ON button, 0x81 for all others
-  uint8_t seq[4];       // Incremetal sequence number 32 bit unsigned integer LSB first
+  uint8_t seq[4];       // Incremental sequence number 32 bit unsigned integer LSB first
   uint8_t byte5 = 32;   // Unknown
   uint8_t button;       // Identifies which button is being pressed
   uint8_t byte8 = 1;    // Unknown, but always 0x01
-  uint8_t byte9 = 100;  // Unnkown, but always 0x64
+  uint8_t byte9 = 100;  // Unknown, but always 0x64
 
   uint8_t byte10;  // Unknown, maybe checksum
   uint8_t byte11;  // Unknown, maybe checksum
@@ -110,6 +110,8 @@ static void setOff() {
 }
 
 static void presetWithFallback(uint8_t presetID, uint8_t effectID, uint8_t paletteID) {
+  resetNightMode();
+  unloadPlaylist();
   applyPresetWithFallback(presetID, CALL_MODE_BUTTON_PRESET, effectID, paletteID);
 }
  

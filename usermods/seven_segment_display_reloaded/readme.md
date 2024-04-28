@@ -24,6 +24,9 @@ Enables the inverted mode in which the background should be enabled and the digi
 ### Colon-blinking
 Enables the blinking colon(s) if they are defined
 
+### Leading-Zero
+Shows the leading zero of the hour if it exists (i.e. shows `07` instead of `7`)
+
 ### enable-auto-brightness
 Enables the auto brightness feature. Can be used only when the usermod SN_Photoresistor is installed.
 

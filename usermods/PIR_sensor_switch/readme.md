@@ -23,7 +23,7 @@ You can also use usermod's off timer instead of sensor's. In such case rotate th
 
 ## Usermod installation
 
-**NOTE:** Usermod has been included in master branch of WLED so it can be compiled in directly just by defining `-D USERMOD_PIRSWITCH` and optionaly `-D PIR_SENSOR_PIN=16` to override default pin. You can also change the default off time by adding `-D PIR_SENSOR_OFF_SEC=30`.
+**NOTE:** Usermod has been included in master branch of WLED so it can be compiled in directly just by defining `-D USERMOD_PIRSWITCH` and optionally `-D PIR_SENSOR_PIN=16` to override default pin. You can also change the default off time by adding `-D PIR_SENSOR_OFF_SEC=30`.
 
 ## API to enable/disable the PIR sensor from outside. For example from another usermod:
 
@@ -31,7 +31,7 @@ To query or change the PIR sensor state the methods `bool PIRsensorEnabled()` an
 
 When the PIR sensor state changes an MQTT message is broadcasted with topic `wled/deviceMAC/motion` and message `on` or `off`.
 Usermod can also be configured to send just the MQTT message but not change WLED state using settings page as well as responding to motion only at night
-(assuming NTP and lattitude/longitude are set to determine sunrise/sunset times).
+(assuming NTP and latitude/longitude are set to determine sunrise/sunset times).
 
 ### There are two options to get access to the usermod instance:
 
@@ -85,7 +85,7 @@ Have fun - @gegu & @blazoncek
 
 2021-11
 * Added information about dynamic configuration options
-* Added option to temporary enable/disble usermod from WLED UI (Info dialog)
+* Added option to temporary enable/disable usermod from WLED UI (Info dialog)
 
 2022-11
 * Added compile time option for off timer.

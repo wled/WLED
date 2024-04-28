@@ -3,7 +3,7 @@
  * This file allows you to add own functionality to WLED more easily
  * See: https://github.com/Aircoookie/WLED/wiki/Add-own-functionality
  * EEPROM bytes 2750+ are reserved for your custom use case. (if you extend #define EEPSIZE in const.h)
- * bytes 2400+ are currently ununsed, but might be used for future wled features
+ * bytes 2400+ are currently unused, but might be used for future wled features
  */
 
 /*
@@ -144,7 +144,7 @@ void userLoop() {
   // First row with Wifi name
   tft.setCursor(1, 1);
   tft.print(knownSsid.substring(0, tftcharwidth > 1 ? tftcharwidth - 1 : 0));
-  // Print `~` char to indicate that SSID is longer, than our dicplay
+  // Print `~` char to indicate that SSID is longer than our display
   if (knownSsid.length() > tftcharwidth)
     tft.print("~");
 

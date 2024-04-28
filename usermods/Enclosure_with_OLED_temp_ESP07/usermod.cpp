@@ -15,23 +15,23 @@ OneWire oneWire(13);
 DallasTemperature sensor(&oneWire);
 long temptimer = millis();
 long lastMeasure = 0;
-#define Celsius // Show temperature mesaurement in Celcius otherwise is in Fahrenheit 
+#define Celsius // Show temperature measurement in Celsius otherwise is in Fahrenheit 
 
 // If display does not work or looks corrupted check the
 // constructor reference:
 // https://github.com/olikraus/u8g2/wiki/u8x8setupcpp
 // or check the gallery:
 // https://github.com/olikraus/u8g2/wiki/gallery
-// --> First choise of cheap I2C OLED 128X32 0.91"
+// --> First choice of cheap I2C OLED 128X32 0.91"
 U8X8_SSD1306_128X32_UNIVISION_HW_I2C u8x8(U8X8_PIN_NONE, U8X8_PIN_SCL, U8X8_PIN_SDA); // Pins are Reset, SCL, SDA
-// --> Second choise of cheap I2C OLED 128X64 0.96" or 1.3"
+// --> Second choice of cheap I2C OLED 128X64 0.96" or 1.3"
 //U8X8_SSD1306_128X64_NONAME_HW_I2C u8x8(U8X8_PIN_NONE, U8X8_PIN_SCL, U8X8_PIN_SDA); // Pins are Reset, SCL, SDA
 // gets called once at boot. Do all initialization that doesn't depend on
 // network here
 void userSetup() {
   sensor.begin(); //Start Dallas temperature sensor
   u8x8.begin();
-  //u8x8.setFlipMode(1); //Uncoment if using WLED Wemos shield 
+  //u8x8.setFlipMode(1); //Un-comment if using WLED Wemos shield 
   u8x8.setPowerSave(0);
   u8x8.setContrast(10); //Contrast setup will help to preserve OLED lifetime. In case OLED need to be brighter increase number up to 255
   u8x8.setFont(u8x8_font_chroma48medium8_r);
@@ -71,7 +71,7 @@ void userLoop() {
     if (mqtt != nullptr)
     {
       sensor.requestTemperatures();
-//Gets prefered temperature scale based on selection in definitions section
+//Gets preferred temperature scale based on selection in definitions section
       #ifdef Celsius
       float board_temperature = sensor.getTempCByIndex(0);
       #else
@@ -138,11 +138,11 @@ void userLoop() {
   // First row with Wifi name
   u8x8.setCursor(1, 0);
   u8x8.print(knownSsid.substring(0, u8x8.getCols() > 1 ? u8x8.getCols() - 2 : 0));
-  // Print `~` char to indicate that SSID is longer, than owr dicplay
+  // Print `~` char to indicate that SSID is longer than our display
   if (knownSsid.length() > u8x8.getCols())
     u8x8.print("~");
 
-  // Second row with IP or Psssword
+  // Second row with IP or Password
   u8x8.setCursor(1, 1);
   // Print password in AP mode and if led is OFF.
   if (apActive && bri == 0)

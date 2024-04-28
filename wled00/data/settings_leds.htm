@@ -2,8 +2,7 @@
 <html lang="en">
 <head>
 	<meta charset="utf-8">
-	<meta name="viewport" content="width=500">
-	<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport"/>
+	<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport">
 	<title>LED Settings</title>
 	<script>
 		var d=document,laprev=55,maxB=1,maxV=0,maxM=4000,maxPB=4096,maxL=1333,maxLbquot=0; //maximum bytes for LED allocation: 4kB for 8266, 32kB for 32
@@ -341,7 +340,7 @@
 ${i+1}:
 <select name="LT${i}" onchange="UI(true)">${i>=maxB ? '' :
 '<option value="22" selected>WS281x</option>\
-<option value="30">SK6812 RGBW</option>\
+<option value="30">SK6812/WS2814 RGBW</option>\
 <option value="31">TM1814</option>\
 <option value="24">400kHz</option>\
 <option value="25">TM1829</option>\
@@ -774,6 +773,7 @@ Length: <input type="number" name="XC${i}" id="xc${i}" class="l" min="1" max="65
 		Brightness factor: <input name="BF" type="number" class="m" min="1" max="255" required> %
 		<h3>Transitions</h3>
 		Crossfade: <input type="checkbox" name="TF"><br>
+		Effect blending: <input type="checkbox" name="EB"><br>
 		Transition Time: <input name="TD" type="number" class="xl" min="0" max="65500"> ms<br>
 		Enable Palette transitions: <input type="checkbox" name="PF"><br>
 		<i>Random Cycle</i> Palette Time: <input name="TP" type="number" class="m" min="1" max="255"> s<br>

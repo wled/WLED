@@ -675,7 +675,7 @@ void decodeIRJson(uint32_t code)
     } else {
       // HTTP API command
       String apireq = "win"; apireq += '&';                        // reduce flash string usage
-      if (cmdStr.indexOf("~") || fdo["rpt"]) lastValidCode = code; // repeatable action
+      if (cmdStr.indexOf("~") > 0 || fdo["rpt"]) lastValidCode = code; // repeatable action
       if (!cmdStr.startsWith(apireq)) cmdStr = apireq + cmdStr;    // if no "win&" prefix
       if (!irApplyToAllSelected && cmdStr.indexOf(F("SS="))<0) {
         char tmp[10];

@@ -34,7 +34,7 @@
 #define DS1307_CTRL_ID 0x68 
 
 // PUBLIC FUNCTIONS
-time_t DS1307RTC::get()   // Aquire data from buffer and convert to time_t
+time_t DS1307RTC::get()   // Acquire data from buffer and convert to time_t
 {
   tmElements_t tm;
   if (read(tm) == false) return 0;
@@ -48,7 +48,7 @@ bool DS1307RTC::set(time_t t)
   return write(tm); 
 }
 
-// Aquire data from the RTC chip in BCD format
+// Acquire data from the RTC chip in BCD format
 bool DS1307RTC::read(tmElements_t &tm)
 {
   uint8_t sec;

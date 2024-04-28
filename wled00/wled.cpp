@@ -133,7 +133,7 @@ void WLED::loop()
   if (lastMqttReconnectAttempt > millis()) {
     rolloverMillis++;
     lastMqttReconnectAttempt = 0;
-    ntpLastSyncTime = 0;
+    ntpLastSyncTime = NTP_NEVER;  // force new NTP query
     strip.restartRuntime();
   }
   if (millis() - lastMqttReconnectAttempt > 30000 || lastMqttReconnectAttempt == 0) { // lastMqttReconnectAttempt==0 forces immediate broadcast
@@ -195,12 +195,15 @@ void WLED::loop()
 
 #if WLED_WATCHDOG_TIMEOUT > 0
   // we finished our mainloop, reset the watchdog timer
-  if (!strip.isUpdating())
+  static unsigned long lastWDTFeed = 0;
+  if (!strip.isUpdating() || millis() - lastWDTFeed > (WLED_WATCHDOG_TIMEOUT*500)) {
   #ifdef ARDUINO_ARCH_ESP32
     esp_task_wdt_reset();
   #else
     ESP.wdtFeed();
   #endif
+    lastWDTFeed = millis();
+  }
 #endif
 
   if (doReboot && (!doInitBusses || !doSerializeConfig)) // if busses have to be inited & saved, wait until next iteration
@@ -371,6 +374,11 @@ void WLED::setup()
   #else
     DEBUG_PRINTLN(F("PSRAM not used."));
   #endif
+#endif
+#if defined(ARDUINO_ESP32_PICO)
+// special handling for PICO-D4: gpio16+17 are in use for onboard SPI FLASH (not PSRAM)
+managed_pin_type pins[] = { {16, true}, {17, true} };
+pinManager.allocateMultiplePins(pins, sizeof(pins)/sizeof(managed_pin_type), PinOwner::SPI_RAM);
 #endif
 
   //DEBUG_PRINT(F("LEDs inited. heap usage ~"));
@@ -675,7 +683,7 @@ void WLED::initConnection()
 
   WiFi.disconnect(true);        // close old connections
 #ifdef ESP8266
-  WiFi.setPhyMode(WIFI_PHY_MODE_11N);
+  WiFi.setPhyMode(force802_3g ? WIFI_PHY_MODE_11G : WIFI_PHY_MODE_11N);
 #endif
 
   if (staticIP[0] != 0 && staticGateway[0] != 0) {

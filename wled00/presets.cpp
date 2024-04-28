@@ -212,9 +212,9 @@ void savePreset(byte index, const char* pname, JsonObject sObj)
   playlistSave = false;
   if (sObj[F("ql")].is<const char*>()) strlcpy(quickLoad, sObj[F("ql")].as<const char*>(), 9); // client limits QL to 2 chars, buffer for 8 bytes to allow unicode
 
-  if (sObj["o"].isNull()) { // no "o" means not a playlist or custom API call, saving of state is async (not immediately)
-    includeBri   = sObj["ib"].as<bool>() || index==255; // temporary preset needs brightness
-    segBounds    = sObj["sb"].as<bool>() || index==255; // temporary preset needs bounds
+  if (sObj.size()==0 || sObj["o"].isNull()) { // no "o" means not a playlist or custom API call, saving of state is async (not immediately)
+    includeBri   = sObj["ib"].as<bool>() || sObj.size()==0 || index==255; // temporary preset needs brightness
+    segBounds    = sObj["sb"].as<bool>() || sObj.size()==0 || index==255; // temporary preset needs bounds
     selectedOnly = sObj[F("sc")].as<bool>();
     saveLedmap   = sObj[F("ledmap")] | -1;
   } else {

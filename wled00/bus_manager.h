@@ -114,7 +114,7 @@ class Bus {
     , _needsRefresh(refresh)
     , _data(nullptr) // keep data access consistent across all types of buses
     {
-      _autoWhiteMode = Bus::hasWhite(_type) ? aw : RGBW_MODE_MANUAL_ONLY;
+      _autoWhiteMode = Bus::hasWhite(type) ? aw : RGBW_MODE_MANUAL_ONLY;
     };
 
     virtual ~Bus() {} //throw the bus under the bus
@@ -148,7 +148,7 @@ class Bus {
     }
     virtual bool hasWhite(void) { return Bus::hasWhite(_type); }
     static  bool hasWhite(uint8_t type) {
-      if ((type >= TYPE_WS2812_1CH && type <= TYPE_WS2812_WWA) || type == TYPE_SK6812_RGBW || type == TYPE_TM1814) return true; // digital types with white channel
+      if ((type >= TYPE_WS2812_1CH && type <= TYPE_WS2812_WWA) || type == TYPE_SK6812_RGBW || type == TYPE_TM1814 || type == TYPE_UCS8904) return true; // digital types with white channel
       if (type > TYPE_ONOFF && type <= TYPE_ANALOG_5CH && type != TYPE_ANALOG_3CH) return true; // analog types with white channel
       if (type == TYPE_NET_DDP_RGBW) return true; // network types with white channel
       return false;
@@ -229,7 +229,7 @@ class BusDigital : public Bus {
         uint8_t* chan = (uint8_t*) &c;
         for (uint_fast8_t i=0; i<4; i++) {
           uint_fast16_t val = chan[i];
-          chan[i] = ((val << 8) + restoreBri) / (restoreBri + 1); //adding _bri slighly improves recovery / stops degradation on re-scale
+          chan[i] = ((val << 8) + restoreBri) / (restoreBri + 1); //adding _bri slightly improves recovery / stops degradation on re-scale
         }
       }
       return c;

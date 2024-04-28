@@ -49,7 +49,7 @@
 #endif
 
 // how many seconds after boot to take first measurement, 90 seconds
-// 90 gives enough time to OTA update firmware if this crashses
+// 90 gives enough time to OTA update firmware if this crashes
 #ifndef USERMOD_DHT_FIRST_MEASUREMENT_AT
 #define USERMOD_DHT_FIRST_MEASUREMENT_AT 90000
 #endif

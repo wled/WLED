@@ -290,7 +290,7 @@ void ShtUsermod::loop()
 /**
  * Whenever MQTT is connected, publish HA autodiscovery topics.
  *
- * Is only donce once.
+ * Is only done once.
  *
  * @see Usermod::onMqttConnect()
  * @see UsermodManager::onMqttConnect()

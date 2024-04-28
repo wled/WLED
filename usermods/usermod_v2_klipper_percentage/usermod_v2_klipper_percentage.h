@@ -79,7 +79,7 @@ public:
           httpGet(wifiClient, errorMessage);
           if (strcmp(errorMessage, "") == 0)
           {
-            PSRAMDynamicJsonDocument klipperDoc(4096); // in practive about 2673
+            PSRAMDynamicJsonDocument klipperDoc(4096); // in practice about 2673
             DeserializationError error = deserializeJson(klipperDoc, wifiClient);
             if (error)
             {

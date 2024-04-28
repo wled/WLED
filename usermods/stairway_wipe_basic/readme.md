@@ -1,5 +1,13 @@
-### Stairway lighting
+# Stairway lighting
 
+## Install
+Add the buildflag `-D USERMOD_STAIRCASE_WIPE` to your enviroment to activate it.
+
+### Configuration
+`-D STAIRCASE_WIPE_OFF` 
+<br>Have the LEDs wipe off instead of fading out
+
+## Description
 Quick usermod to accomplish something similar to [this video](https://www.youtube.com/watch?v=NHkju5ncC4A).
 
 This usermod enables you to add a lightstrip alongside or on the steps of a staircase.

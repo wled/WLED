@@ -1,9 +1,8 @@
 <!DOCTYPE html>
-<html>
-<head lang="en">
+<html lang="en">
+<head>
 	<meta charset="utf-8">
-	<meta name="viewport" content="width=500">
-	<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport"/>
+	<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport">
 	<title>UI Settings</title>
 	<script>
 	var d = document;
@@ -27,7 +26,8 @@
 			"segexp" : "Always expand first segment",
 			"css": "Enable custom CSS",
 			"hdays": "Enable custom Holidays list",
-			"fxdef": "Use effect default parameters"
+			"fxdef": "Use effect default parameters",
+			"idsort": "Sort presets by ID"
 		},
 		"theme":{
 			"alpha": {
@@ -278,6 +278,8 @@
 		<span class="l"></span>: <input type="checkbox" id="comp_seglen" class="agi cb"><br>
 		<span class="l"></span>: <input type="checkbox" id="comp_segpwr" class="agi cb"><br>
 		<span class="l"></span>: <input type="checkbox" id="comp_segexp" class="agi cb"><br>
+		<span class="l"></span>: <input type="checkbox" id="comp_fxdef" class="agi cb"><br>
+		<span class="l"></span>: <input type="checkbox" id="comp_idsort" class="agi cb"><br>
 		I hate dark mode: <input type="checkbox" id="dm" onchange="UI()"><br>
 		<span id="idonthateyou" style="display:none"><i>Why would you? </i>&#x1F97A;<br></span>
 		<span class="l"></span>: <input type="number" min=0.0 max=1.0 step=0.01 id="theme_alpha_tab" class="agi"><br>

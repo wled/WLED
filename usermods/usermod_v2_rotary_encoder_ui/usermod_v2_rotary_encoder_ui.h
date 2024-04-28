@@ -20,7 +20,7 @@
 // Change between modes by pressing a button.
 //
 // Dependencies
-// * This usermod REQURES the ModeSortUsermod
+// * This usermod REQUIRES the ModeSortUsermod
 // * This Usermod works best coupled with 
 //   FourLineDisplayUsermod.
 //

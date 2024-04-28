@@ -148,8 +148,14 @@ bool oappendi(int i)
 bool oappend(const char* txt)
 {
   uint16_t len = strlen(txt);
-  if (olen + len >= SETTINGS_STACK_BUF_SIZE)
+  if ((obuf == nullptr) || (olen + len >= SETTINGS_STACK_BUF_SIZE)) { // sanity checks
+#ifdef WLED_DEBUG
+    DEBUG_PRINT(F("oappend() buffer overflow. Cannot append "));
+    DEBUG_PRINT(len); DEBUG_PRINT(F(" bytes \t\""));
+    DEBUG_PRINT(txt); DEBUG_PRINTLN(F("\""));
+#endif
     return false;        // buffer full
+  }
   strcpy(obuf + olen, txt);
   olen += len;
   return true;
@@ -226,14 +232,15 @@ void releaseJSONBufferLock()
 
 
 // extracts effect mode (or palette) name from names serialized string
-// caller must provide large enough buffer for name (incluing SR extensions)!
+// caller must provide large enough buffer for name (including SR extensions)!
 uint8_t extractModeName(uint8_t mode, const char *src, char *dest, uint8_t maxLen)
 {
   if (src == JSON_mode_names || src == nullptr) {
     if (mode < strip.getModeCount()) {
       char lineBuffer[256];
       //strcpy_P(lineBuffer, (const char*)pgm_read_dword(&(WS2812FX::_modeData[mode])));
-      strcpy_P(lineBuffer, strip.getModeData(mode));
+      strncpy_P(lineBuffer, strip.getModeData(mode), sizeof(lineBuffer)/sizeof(char)-1);
+      lineBuffer[sizeof(lineBuffer)/sizeof(char)-1] = '\0'; // terminate string
       size_t len = strlen(lineBuffer);
       size_t j = 0;
       for (; j < maxLen && j < len; j++) {
@@ -243,6 +250,12 @@ uint8_t extractModeName(uint8_t mode, const char *src, char *dest, uint8_t maxLe
       dest[j] = 0; // terminate string
       return strlen(dest);
     } else return 0;
+  }
+
+  if (src == JSON_palette_names && mode > GRADIENT_PALETTE_COUNT) {
+    snprintf_P(dest, maxLen, PSTR("~ Custom %d~"), 255-mode);
+    dest[maxLen-1] = '\0';
+    return strlen(dest);
   }
 
   uint8_t qComma = 0;
@@ -355,9 +368,9 @@ uint8_t extractModeSlider(uint8_t mode, uint8_t slider, char *dest, uint8_t maxL
 int16_t extractModeDefaults(uint8_t mode, const char *segVar)
 {
   if (mode < strip.getModeCount()) {
-    char lineBuffer[128] = "";
-    strncpy_P(lineBuffer, strip.getModeData(mode), 127);
-    lineBuffer[127] = '\0'; // terminate string
+    char lineBuffer[256];
+    strncpy_P(lineBuffer, strip.getModeData(mode), sizeof(lineBuffer)/sizeof(char)-1);
+    lineBuffer[sizeof(lineBuffer)/sizeof(char)-1] = '\0'; // terminate string
     if (lineBuffer[0] != 0) {
       char* startPtr = strrchr(lineBuffer, ';'); // last ";" in FX data
       if (!startPtr) return -1;
@@ -403,9 +416,9 @@ uint16_t crc16(const unsigned char* data_p, size_t length) {
 // (only 2 used as stored in 1 bit in segment options, consider switching to a single global simulation type)
 typedef enum UM_SoundSimulations {
   UMS_BeatSin = 0,
-  UMS_WeWillRockYou
-  //UMS_10_13,
-  //UMS_14_3
+  UMS_WeWillRockYou,
+  UMS_10_13,
+  UMS_14_3
 } um_soundSimulations_t;
 
 um_data_t* simulateSound(uint8_t simulationId)
@@ -490,7 +503,7 @@ um_data_t* simulateSound(uint8_t simulationId)
           fftResult[i] = 0;
       }
       break;
-  /*case UMS_10_3:
+    case UMS_10_13:
       for (int i = 0; i<16; i++)
         fftResult[i] = inoise8(beatsin8(90 / (i+1), 0, 200)*15 + (ms>>10), ms>>3);
         volumeSmth = fftResult[8];
@@ -499,7 +512,7 @@ um_data_t* simulateSound(uint8_t simulationId)
       for (int i = 0; i<16; i++)
         fftResult[i] = inoise8(beatsin8(120 / (i+1), 10, 30)*10 + (ms>>14), ms>>3);
       volumeSmth = fftResult[8];
-      break;*/
+      break;
   }
 
   samplePeak    = random8() > 250;
@@ -507,7 +520,7 @@ um_data_t* simulateSound(uint8_t simulationId)
   maxVol        = 31;  // this gets feedback fro UI
   binNum        = 8;   // this gets feedback fro UI
   volumeRaw = volumeSmth;
-  my_magnitude = 10000.0 / 8.0f; //no idea if 10000 is a good value for FFT_Magnitude ???
+  my_magnitude = 10000.0f / 8.0f; //no idea if 10000 is a good value for FFT_Magnitude ???
   if (volumeSmth < 1 ) my_magnitude = 0.001f;             // noise gate closed - mute
 
   return um_data;
@@ -559,4 +572,18 @@ void enumerateLedmaps() {
     }
 
   }
+}
+
+/*
+ * Returns a new, random color wheel index with a minimum distance of 42 from pos.
+ */
+uint8_t get_random_wheel_index(uint8_t pos) {
+  uint8_t r = 0, x = 0, y = 0, d = 0;
+  while (d < 42) {
+    r = random8();
+    x = abs(pos - r);
+    y = 255 - x;
+    d = MIN(x, y);
+  }
+  return r;
 }

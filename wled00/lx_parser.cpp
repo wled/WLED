@@ -25,7 +25,7 @@ bool parseLx(int lxValue, byte* rgbw)
     float tmpBri = floor((lxValue - 200000000) / 10000); ;
     uint16_t ct = (lxValue - 200000000) - (((uint8_t)tmpBri) * 10000);
 
-    tmpBri *= 2.55;
+    tmpBri *= 2.55f;
     tmpBri = constrain(tmpBri, 0, 255);
 
     colorKtoRGB(ct, rgbw);

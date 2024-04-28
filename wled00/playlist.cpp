@@ -112,7 +112,7 @@ int16_t loadPlaylist(JsonObject playlistObj, byte presetId) {
   if (playlistEndPreset == 255 && currentPreset > 0) playlistEndPreset = currentPreset;
   if (playlistEndPreset > 250) playlistEndPreset = 0;
   shuffle = shuffle || playlistObj["r"];
-  if (shuffle) playlistOptions += PL_OPTION_SHUFFLE;
+  if (shuffle) playlistOptions |= PL_OPTION_SHUFFLE;
 
   currentPlaylist = presetId;
   DEBUG_PRINTLN(F("Playlist loaded."));
@@ -144,7 +144,7 @@ void handlePlaylist() {
     }
 
     jsonTransitionOnce = true;
-    transitionDelayTemp = playlistEntries[playlistIndex].tr * 100;
+    strip.setTransition(fadeTransition ? playlistEntries[playlistIndex].tr * 100 : 0);
     playlistEntryDur = playlistEntries[playlistIndex].dur;
     applyPreset(playlistEntries[playlistIndex].preset);
   }
@@ -156,7 +156,7 @@ void serializePlaylist(JsonObject sObj) {
   JsonArray ps = playlist.createNestedArray("ps");
   JsonArray dur = playlist.createNestedArray("dur");
   JsonArray transition = playlist.createNestedArray(F("transition"));
-  playlist[F("repeat")] = (playlistIndex < 0) ? playlistRepeat - 1 : playlistRepeat; // remove added repetition count (if not yet running)
+  playlist[F("repeat")] = (playlistIndex < 0 && playlistRepeat > 0) ? playlistRepeat - 1 : playlistRepeat; // remove added repetition count (if not yet running)
   playlist["end"] = playlistEndPreset;
   playlist["r"] = playlistOptions & PL_OPTION_SHUFFLE;
   for (int i=0; i<playlistLen; i++) {

@@ -25,6 +25,7 @@ class Animated_Staircase : public Usermod {
     bool useUSSensorBottom         = false; // using PIR or UltraSound sensor?
     unsigned int topMaxDist        = 50;    // default maximum measured distance in cm, top
     unsigned int bottomMaxDist     = 50;    // default maximum measured distance in cm, bottom
+    bool togglePower               = false; // toggle power on/off with staircase on/off
 
     /* runtime variables */
     bool initDone = false;
@@ -90,7 +91,8 @@ class Animated_Staircase : public Usermod {
     static const char _bottomEcho_pin[];
     static const char _topEchoCm[];
     static const char _bottomEchoCm[];
-    
+    static const char _togglePower[];
+
     void publishMqtt(bool bottom, const char* state) {
 #ifndef WLED_DISABLE_MQTT
       //Check if MQTT Connected, otherwise it will crash the 8266
@@ -131,7 +133,7 @@ class Animated_Staircase : public Usermod {
     *            received within this time, an object is detected
     *            and the function will return true.
     *
-    * The speed of sound is 343 meters per second at 20 degress Celcius.
+    * The speed of sound is 343 meters per second at 20 degrees Celsius.
     * Since the sound has to travel back and forth, the detection
     * distance for the sensor in cm is (0.0343 * maxTimeUs) / 2.
     *
@@ -196,6 +198,7 @@ class Animated_Staircase : public Usermod {
           if (on) {
             lastSensor = topSensorRead;
           } else {
+            if (togglePower && onIndex == offIndex && offMode) toggleOnOff(); // toggle power on if off
             // If the bottom sensor triggered, we need to swipe up, ON
             swipe = bottomSensorRead;
 
@@ -249,11 +252,14 @@ class Animated_Staircase : public Usermod {
             offIndex = MAX(onIndex, offIndex - 1);
           }
         }
-        if (oldOn != onIndex || oldOff != offIndex) updateSegments(); // reduce the number of updates to necessary ones
+        if (oldOn != onIndex || oldOff != offIndex) {
+          updateSegments(); // reduce the number of updates to necessary ones
+          if (togglePower && onIndex == offIndex && !offMode && !on) toggleOnOff();  // toggle power off for all segments off
+        }
       }
     }
 
-    // send sesnor values to JSON API
+    // send sensor values to JSON API
     void writeSensorsToJson(JsonObject& staircase) {
       staircase[F("top-sensor")]    = topSensorRead;
       staircase[F("bottom-sensor")] = bottomSensorRead;
@@ -291,10 +297,11 @@ class Animated_Staircase : public Usermod {
         offIndex = maxSegmentId = strip.getLastActiveSegmentId() + 1;
 
         // shorten the strip transition time to be equal or shorter than segment delay
-        transitionDelayTemp = transitionDelay = segment_delay_ms;
-        strip.setTransition(segment_delay_ms/100);
+        transitionDelay = segment_delay_ms;
+        strip.setTransition(segment_delay_ms);
         strip.trigger();
       } else {
+        if (togglePower && !on && offMode) toggleOnOff(); // toggle power on if off
         // Restore segment options
         for (int i = 0; i <= strip.getLastActiveSegmentId(); i++) {
           Segment &seg = strip.getSegment(i);
@@ -302,7 +309,7 @@ class Animated_Staircase : public Usermod {
           seg.setOption(SEG_OPTION_ON, true);
         }
         strip.trigger();  // force strip update
-        stateChanged = true;  // inform external dvices/UI of change
+        stateChanged = true;  // inform external devices/UI of change
         colorUpdated(CALL_MODE_DIRECT_CHANGE);
         DEBUG_PRINTLN(F("Animated Staircase disabled."));
       }
@@ -444,6 +451,7 @@ class Animated_Staircase : public Usermod {
       staircase[FPSTR(_bottomEcho_pin)]            = useUSSensorBottom ? bottomEchoPin : -1;
       staircase[FPSTR(_topEchoCm)]                 = topMaxDist;
       staircase[FPSTR(_bottomEchoCm)]              = bottomMaxDist;
+      staircase[FPSTR(_togglePower)]               = togglePower;
       DEBUG_PRINTLN(F("Staircase config saved."));
     }
 
@@ -484,9 +492,11 @@ class Animated_Staircase : public Usermod {
       bottomEchoPin         = top[FPSTR(_bottomEcho_pin)] | bottomEchoPin;
 
       topMaxDist    = top[FPSTR(_topEchoCm)] | topMaxDist;
-      topMaxDist    = min(150,max(30,(int)topMaxDist));     // max distnace ~1.5m (a lag of 9ms may be expected)
+      topMaxDist    = min(150,max(30,(int)topMaxDist));     // max distance ~1.5m (a lag of 9ms may be expected)
       bottomMaxDist = top[FPSTR(_bottomEchoCm)] | bottomMaxDist;
       bottomMaxDist = min(150,max(30,(int)bottomMaxDist));  // max distance ~1.5m (a lag of 9ms may be expected)
+
+      togglePower = top[FPSTR(_togglePower)] | togglePower;  // staircase toggles power on/off
 
       DEBUG_PRINT(FPSTR(_name));
       if (!initDone) {
@@ -511,7 +521,7 @@ class Animated_Staircase : public Usermod {
         if (changed) setup();
       }
       // use "return !top["newestParameter"].isNull();" when updating Usermod with new features
-      return true;
+      return !top[FPSTR(_togglePower)].isNull();
     }
 
     /*
@@ -551,3 +561,4 @@ const char Animated_Staircase::_bottomPIRorTrigger_pin[]    PROGMEM = "bottomPIR
 const char Animated_Staircase::_bottomEcho_pin[]            PROGMEM = "bottomEcho_pin";
 const char Animated_Staircase::_topEchoCm[]                 PROGMEM = "top-dist-cm";
 const char Animated_Staircase::_bottomEchoCm[]              PROGMEM = "bottom-dist-cm";
+const char Animated_Staircase::_togglePower[]               PROGMEM = "toggle-on-off";

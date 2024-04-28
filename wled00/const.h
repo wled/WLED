@@ -147,9 +147,12 @@
 #define USERMOD_ID_SD_CARD               37     //Usermod "usermod_sd_card.h"
 #define USERMOD_ID_PWM_OUTPUTS           38     //Usermod "usermod_pwm_outputs.h
 #define USERMOD_ID_SHT                   39     //Usermod "usermod_sht.h
-#define USERMOD_ID_KLIPPER               40     // Usermod Klipper percentage
+#define USERMOD_ID_KLIPPER               40     //Usermod Klipper percentage
 #define USERMOD_ID_WIREGUARD             41     //Usermod "wireguard.h"
-#define USERMOD_ID_TUBES                 42     //Usermod "usermod_tubes.h"
+#define USERMOD_ID_INTERNAL_TEMPERATURE  42     //Usermod "usermod_internal_temperature.h"
+#define USERMOD_ID_LDR_DUSK_DAWN         43     //Usermod "usermod_LDR_Dusk_Dawn_v2.h"
+#define USERMOD_ID_STAIRWAY_WIPE         44     //Usermod "stairway-wipe-usermod-v2.h"
+#define USERMOD_ID_TUBES                 45     //Usermod "usermod_tubes.h"
 
 //Access point behavior
 #define AP_BEHAVIOR_BOOT_NO_CONN          0     //Open AP when no connection after boot
@@ -166,7 +169,7 @@
 #define CALL_MODE_NO_NOTIFY      5
 #define CALL_MODE_FX_CHANGED     6     //no longer used
 #define CALL_MODE_HUE            7
-#define CALL_MODE_PRESET_CYCLE   8
+#define CALL_MODE_PRESET_CYCLE   8     //no longer used
 #define CALL_MODE_BLYNK          9     //no longer used
 #define CALL_MODE_ALEXA         10
 #define CALL_MODE_WS_SEND       11     //special call mode, not for notifier, updates websocket only
@@ -206,8 +209,8 @@
 #define DMX_MODE_MULTIPLE_RGB     4            //every LED is addressed with its own RGB (ledCount * 3 channels)
 #define DMX_MODE_MULTIPLE_DRGB    5            //every LED is addressed with its own RGB and share a master dimmer (ledCount * 3 + 1 channels)
 #define DMX_MODE_MULTIPLE_RGBW    6            //every LED is addressed with its own RGBW (ledCount * 4 channels)
-#define DMX_MODE_EFFECT_SEGMENT   8            //trigger standalone effects of WLED (15 channels per segement)
-#define DMX_MODE_EFFECT_SEGMENT_W 9            //trigger standalone effects of WLED (18 channels per segement)
+#define DMX_MODE_EFFECT_SEGMENT   8            //trigger standalone effects of WLED (15 channels per segment)
+#define DMX_MODE_EFFECT_SEGMENT_W 9            //trigger standalone effects of WLED (18 channels per segment)
 #define DMX_MODE_PRESET           10           //apply presets (1 channel)
 
 //Light capability byte (unused) 0bRCCCTTTT
@@ -313,17 +316,16 @@
 #define SEG_OPTION_MIRROR         3            //Indicates that the effect will be mirrored within the segment
 #define SEG_OPTION_FREEZE         4            //Segment contents will not be refreshed
 #define SEG_OPTION_RESET          5            //Segment runtime requires reset
-#define SEG_OPTION_TRANSITIONAL   6
-#define SEG_OPTION_REVERSED_Y     7
-#define SEG_OPTION_MIRROR_Y       8
-#define SEG_OPTION_TRANSPOSED     9
+#define SEG_OPTION_REVERSED_Y     6
+#define SEG_OPTION_MIRROR_Y       7
+#define SEG_OPTION_TRANSPOSED     8
 
 //Segment differs return byte
 #define SEG_DIFFERS_BRI        0x01 // opacity
 #define SEG_DIFFERS_OPT        0x02 // all segment options except: selected, reset & transitional
 #define SEG_DIFFERS_COL        0x04 // colors
 #define SEG_DIFFERS_FX         0x08 // effect/mode parameters
-#define SEG_DIFFERS_BOUNDS     0x10 // segment start/stop ounds
+#define SEG_DIFFERS_BOUNDS     0x10 // segment start/stop bounds
 #define SEG_DIFFERS_GSO        0x20 // grouping, spacing & offset
 #define SEG_DIFFERS_SEL        0x80 // selected
 
@@ -345,7 +347,8 @@
 #define ERR_FS_QUOTA    11  // The FS is full or the maximum file size is reached
 #define ERR_FS_PLOAD    12  // It was attempted to load a preset that does not exist
 #define ERR_FS_IRLOAD   13  // It was attempted to load an IR JSON cmd, but the "ir.json" file does not exist
-#define ERR_FS_GENERAL  19  // A general unspecified filesystem error occured
+#define ERR_FS_RMLOAD   14  // It was attempted to load an remote JSON cmd, but the "remote.json" file does not exist
+#define ERR_FS_GENERAL  19  // A general unspecified filesystem error occurred
 #define ERR_OVERTEMP    30  // An attached temperature sensor has measured above threshold temperature (not implemented)
 #define ERR_OVERCURRENT 31  // An attached current sensor has measured a current above the threshold (not implemented)
 #define ERR_UNDERVOLT   32  // An attached voltmeter has measured a voltage below the threshold (not implemented)
@@ -374,7 +377,8 @@
 #define SUBPAGE_JS              254
 #define SUBPAGE_WELCOME         255
 
-#define NTP_PACKET_SIZE 48
+#define NTP_PACKET_SIZE 48       // size of NTP receive buffer
+#define NTP_MIN_PACKET_SIZE 48   // min expected size - NTP v4 allows for "extended information" appended to the standard fields
 
 //maximum number of rendered LEDs - this does not have to match max. physical LEDs, e.g. if there are virtual busses
 #ifndef MAX_LEDS
@@ -458,8 +462,8 @@
 
 //this is merely a default now and can be changed at runtime
 #ifndef LEDPIN
-#if defined(ESP8266) || (defined(ARDUINO_ARCH_ESP32) && defined(WLED_USE_PSRAM)) || defined(CONFIG_IDF_TARGET_ESP32C3)
-  #define LEDPIN 2    // GPIO2 (D4) on Wemod D1 mini compatible boards
+#if defined(ESP8266) || (defined(ARDUINO_ARCH_ESP32) && defined(WLED_USE_PSRAM)) || defined(CONFIG_IDF_TARGET_ESP32C3) || defined(ARDUINO_ESP32_PICO)
+  #define LEDPIN 2    // GPIO2 (D4) on Wemos D1 mini compatible boards, and on boards where GPIO16 is not available
 #else
   #define LEDPIN 16   // aligns with GPIO2 (D4) on Wemos D1 mini32 compatible boards
 #endif
@@ -483,7 +487,7 @@
 #define PIN_TIMEOUT        900000 // time in ms after which the PIN will be required again, 15 minutes
 
 // HW_PIN_SCL & HW_PIN_SDA are used for information in usermods settings page and usermods themselves
-// which GPIO pins are actually used in a hardwarea layout (controller board)
+// which GPIO pins are actually used in a hardware layout (controller board)
 #if defined(I2CSCLPIN) && !defined(HW_PIN_SCL)
   #define HW_PIN_SCL I2CSCLPIN
 #endif
@@ -506,7 +510,7 @@
 #endif
 
 // HW_PIN_SCLKSPI & HW_PIN_MOSISPI & HW_PIN_MISOSPI are used for information in usermods settings page and usermods themselves
-// which GPIO pins are actually used in a hardwarea layout (controller board)
+// which GPIO pins are actually used in a hardware layout (controller board)
 #if defined(SPISCLKPIN) && !defined(HW_PIN_CLOCKSPI)
   #define HW_PIN_CLOCKSPI SPISCLKPIN
 #endif

@@ -35,23 +35,59 @@ uint32_t color_blend(uint32_t color1, uint32_t color2, uint16_t blend, bool b16)
  * color add function that preserves ratio
  * idea: https://github.com/Aircoookie/WLED/pull/2465 by https://github.com/Proto-molecule
  */
-uint32_t color_add(uint32_t c1, uint32_t c2)
+uint32_t color_add(uint32_t c1, uint32_t c2, bool fast)
 {
-  uint32_t r = R(c1) + R(c2);
-  uint32_t g = G(c1) + G(c2);
-  uint32_t b = B(c1) + B(c2);
-  uint32_t w = W(c1) + W(c2);
-  uint16_t max = r;
-  if (g > max) max = g;
-  if (b > max) max = b;
-  if (w > max) max = w;
-  if (max < 256) return RGBW32(r, g, b, w);
-  else           return RGBW32(r * 255 / max, g * 255 / max, b * 255 / max, w * 255 / max);
+  if (fast) {
+    uint8_t r = R(c1);
+    uint8_t g = G(c1);
+    uint8_t b = B(c1);
+    uint8_t w = W(c1);
+    r = qadd8(r, R(c2));
+    g = qadd8(g, G(c2));
+    b = qadd8(b, B(c2));
+    w = qadd8(w, W(c2));
+    return RGBW32(r,g,b,w);
+  } else {
+    uint32_t r = R(c1) + R(c2);
+    uint32_t g = G(c1) + G(c2);
+    uint32_t b = B(c1) + B(c2);
+    uint32_t w = W(c1) + W(c2);
+    uint16_t max = r;
+    if (g > max) max = g;
+    if (b > max) max = b;
+    if (w > max) max = w;
+    if (max < 256) return RGBW32(r, g, b, w);
+    else           return RGBW32(r * 255 / max, g * 255 / max, b * 255 / max, w * 255 / max);
+  }
+}
+
+/*
+ * fades color toward black
+ * if using "video" method the resulting color will never become black unless it is already black
+ */
+uint32_t color_fade(uint32_t c1, uint8_t amount, bool video)
+{
+  uint8_t r = R(c1);
+  uint8_t g = G(c1);
+  uint8_t b = B(c1);
+  uint8_t w = W(c1);
+  if (video) {
+    r = scale8_video(r, amount);
+    g = scale8_video(g, amount);
+    b = scale8_video(b, amount);
+    w = scale8_video(w, amount);
+  } else {
+    r = scale8(r, amount);
+    g = scale8(g, amount);
+    b = scale8(b, amount);
+    w = scale8(w, amount);
+  }
+  return RGBW32(r, g, b, w);
 }
 
 void setRandomColor(byte* rgb)
 {
-  lastRandomIndex = strip.getMainSegment().get_random_wheel_index(lastRandomIndex);
+  lastRandomIndex = get_random_wheel_index(lastRandomIndex);
   colorHStoRGB(lastRandomIndex*256,255,rgb);
 }
 

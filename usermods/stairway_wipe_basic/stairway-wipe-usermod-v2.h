@@ -19,10 +19,12 @@ class StairwayWipeUsermod : public Usermod {
     unsigned long timeStaticStart = 0;
     uint16_t previousUserVar0 = 0;
 
+//moved to buildflag
 //comment this out if you want the turn off effect to be just fading out instead of reverse wipe
-#define STAIRCASE_WIPE_OFF
+//#define STAIRCASE_WIPE_OFF
   public:
-
+void setup() {
+    }
     void loop() {
   //userVar0 (U0 in HTTP API):
   //has to be set to 1 if movement is detected on the PIR that is the same side of the staircase as the ESP8266
@@ -84,14 +86,15 @@ class StairwayWipeUsermod : public Usermod {
 
     uint16_t getId()
     {
-      return USERMOD_ID_EXAMPLE;
+      return USERMOD_ID_STAIRWAY_WIPE;
     }
 
 
     void startWipe()
     {
     bri = briLast; //turn on
-    transitionDelayTemp = 0; //no transition
+    jsonTransitionOnce = true;
+    strip.setTransition(0); //no transition
     effectCurrent = FX_MODE_COLOR_WIPE;
     resetTimebase(); //make sure wipe starts from beginning
 
@@ -105,10 +108,11 @@ class StairwayWipeUsermod : public Usermod {
 
     void turnOff()
     {
+    jsonTransitionOnce = true;
     #ifdef STAIRCASE_WIPE_OFF
-    transitionDelayTemp = 0; //turn off immediately after wipe completed
+    strip.setTransition(0); //turn off immediately after wipe completed
     #else
-    transitionDelayTemp = 4000; //fade out slowly
+    strip.setTransition(4000); //fade out slowly
     #endif
     bri = 0;
     stateUpdated(CALL_MODE_NOTIFICATION);

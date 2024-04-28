@@ -25,7 +25,7 @@
 #define USERMOD_BH1750_FIRST_MEASUREMENT_AT 10000
 #endif
 
-// only report if differance grater than offset value
+// only report if difference grater than offset value
 #ifndef USERMOD_BH1750_OFFSET_VALUE
 #define USERMOD_BH1750_OFFSET_VALUE 1
 #endif

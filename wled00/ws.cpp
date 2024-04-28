@@ -30,7 +30,7 @@ void wsEvent(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventTyp
       {
         if (len > 0 && len < 10 && data[0] == 'p') {
           // application layer ping/pong heartbeat.
-          // client-side socket layer ping packets are unresponded (investigate)
+          // client-side socket layer ping packets are unanswered (investigate)
           client->text(F("pong"));
           return;
         }

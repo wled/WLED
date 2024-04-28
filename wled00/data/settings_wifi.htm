@@ -2,8 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-	<meta name="viewport" content="width=500">
-	<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport"/>
+	<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport">
 	<title>WiFi Settings</title>
 	<script>
 		var d = document;
@@ -33,7 +32,7 @@
 				).reduce(
 					// Filter out duplicate SSIDs. Since it is sorted by signal
 					// strength, the strongest signal will be kept in the
-					// order it orginally appeared in the array.
+					// order it as originally appeared in the array.
 					(unique, other) => {
 						if(!unique.some(obj => obj.ssid === other.ssid)) {
 							unique.push(other);
@@ -190,6 +189,7 @@
 		<option value="3">Never (not recommended)</option></select><br>
 		AP IP: <span class="sip"> Not active </span><br>
 		<h3>Experimental</h3>
+		Force 802.11g mode (ESP8266 only): <input type="checkbox" name="FG"><br>
 		Disable WiFi sleep: <input type="checkbox" name="WS"><br>
 		<i>Can help with connectivity issues.<br>
 		Do not enable if WiFi is working correctly, increases power consumption.</i>

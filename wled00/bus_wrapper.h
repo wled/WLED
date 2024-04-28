@@ -69,17 +69,17 @@
 #define I_32_RN_NEO_3 21
 #define I_32_I0_NEO_3 22
 #define I_32_I1_NEO_3 23
-#define I_32_BB_NEO_3 24  // bitbangging on ESP32 not recommended
+#define I_32_BB_NEO_3 24  // bitbanging on ESP32 not recommended
 //RGBW
 #define I_32_RN_NEO_4 25
 #define I_32_I0_NEO_4 26
 #define I_32_I1_NEO_4 27
-#define I_32_BB_NEO_4 28  // bitbangging on ESP32 not recommended
+#define I_32_BB_NEO_4 28  // bitbanging on ESP32 not recommended
 //400Kbps
 #define I_32_RN_400_3 29
 #define I_32_I0_400_3 30
 #define I_32_I1_400_3 31
-#define I_32_BB_400_3 32  // bitbangging on ESP32 not recommended
+#define I_32_BB_400_3 32  // bitbanging on ESP32 not recommended
 //TM1814 (RGBW)
 #define I_32_RN_TM1_4 33
 #define I_32_I0_TM1_4 34
@@ -379,7 +379,7 @@ class PolyBus {
       case I_32_I1_UCS_4: (static_cast<B_32_I1_UCS_4*>(busPtr))->Begin(); break;
       #endif
 //      case I_32_BB_UCS_4: (static_cast<B_32_BB_UCS_4*>(busPtr))->Begin(); break;
-      // ESP32 can (and should, to avoid inadvertantly driving the chip select signal) specify the pins used for SPI, but only in begin()
+      // ESP32 can (and should, to avoid inadvertently driving the chip select signal) specify the pins used for SPI, but only in begin()
       case I_HS_DOT_3: beginDotStar<B_HS_DOT_3*>(busPtr, pins[1], -1, pins[0], -1, clock_kHz); break;
       case I_HS_LPD_3: beginDotStar<B_HS_LPD_3*>(busPtr, pins[1], -1, pins[0], -1, clock_kHz); break;
       case I_HS_LPO_3: beginDotStar<B_HS_LPO_3*>(busPtr, pins[1], -1, pins[0], -1, clock_kHz); break;

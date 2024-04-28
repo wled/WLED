@@ -31,7 +31,7 @@ private:
 
   // set the default pins based on the architecture, these get overridden by Usermod menu settings
   #ifdef ESP8266
-    //uint8_t RST_PIN = 16; // Uncoment for Heltec WiFi-Kit-8
+    //uint8_t RST_PIN = 16; // Un-comment for Heltec WiFi-Kit-8
   #endif
   bool initDone = false;
 
@@ -78,7 +78,7 @@ private:
   static const char _name[];
   static const char _enabled[];
 
-  // Read the BME280/BMP280 Sensor (which one runs depends on whether Celsius or Farenheit being set in Usermod Menu)
+  // Read the BME280/BMP280 Sensor (which one runs depends on whether Celsius or Fahrenheit being set in Usermod Menu)
   void UpdateBME280Data(int SensorType)
   {
     float _temperature, _humidity, _pressure;

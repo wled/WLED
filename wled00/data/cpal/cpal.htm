@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html>
   <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1">
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
@@ -45,6 +46,7 @@
         width: 7px;
         top: 50%;
         transform: translateY(-50%);
+        touch-action: none;
       }
       .color-picker-marker {
         height: 7px;
@@ -94,8 +96,13 @@
         line-height: 1;
       }
       .wrap {
-        width: 800px;
+        width: 100%;
         margin: 0 auto;
+      }
+      @media (min-width: 800px) {
+        .wrap {
+          width: 800px;
+        }
       }
       .palette {
         height: 20px;
@@ -135,6 +142,9 @@
       }
       .sendSpan, .editSpan{
         cursor: pointer;
+      }
+      h1 {
+        font-size: 1.6rem;
       }
     </style>
   </head>
@@ -191,6 +201,7 @@
   var gradientLength = rect.width;
   var mOffs = Math.round((gradientLength / 256) / 2) - 5;
   var paletteArray = []; //Holds the palettes after load.
+  var paletteName = []; // Holds the names of the palettes after load.
   var svgSave = '<svg style="width:25px;height:25px" viewBox="0 0 24 24"><path fill=#fff d="M22,12A10,10 0 0,1 12,22A10,10 0 0,1 2,12A10,10 0 0,1 12,2A10,10 0 0,1 22,12M7,12L12,17V14H16V10H12V7L7,12Z"/></svg>'
   var svgEdit = '<svg style="width:25px;height:25px" viewBox="0 0 24 24"><path fill=#fff d="M12,2C6.47,2 2,6.47 2,12C2,17.53 6.47,22 12,22C17.53,22 22,17.53 22,12C22,6.47 17.53,2 12,2M15.1,7.07C15.24,7.07 15.38,7.12 15.5,7.23L16.77,8.5C17,8.72 17,9.07 16.77,9.28L15.77,10.28L13.72,8.23L14.72,7.23C14.82,7.12 14.96,7.07 15.1,7.07M13.13,8.81L15.19,10.87L9.13,16.93H7.07V14.87L13.13,8.81Z"/></svg>'
 
@@ -349,24 +360,31 @@
     var gradientLength = maxX - minX + 1;
 
     elmnt.onmousedown = dragMouseDown;
+    elmnt.ontouchstart = dragMouseDown;
 
     function dragMouseDown(e) {
       removeTrashcan(event)
       e = e || window.event;
-      e.preventDefault();
+      var isTouch = e.type.startsWith('touch');
+      if (!isTouch) e.preventDefault();
       // get the mouse cursor position at startup:
-      mousePos = e.clientX;
+      mousePos = isTouch ? e.touches[0].clientX : e.clientX;
       d.onmouseup = closeDragElement;
+      d.ontouchcancel = closeDragElement;
+      d.ontouchend = closeDragElement;
       // call a function whenever the cursor moves:
       d.onmousemove = elementDrag;
+      d.ontouchmove = elementDrag;
     }
 
     function elementDrag(e) {
       e = e || window.event;
-      e.preventDefault();
+      var isTouch = e.type.startsWith('touch');
+      if (!isTouch) e.preventDefault();
       // calculate the new cursor position:
-      posNew = mousePos - e.clientX;
-      mousePos = e.clientX;
+      var clientX = isTouch ? e.touches[0].clientX : e.clientX;
+      posNew = mousePos - clientX;
+      mousePos = clientX;
       mousePosInGradient = mousePos - (minX + 1)
       
       truePos = Math.round((mousePosInGradient/gradientLength)*256);
@@ -393,7 +411,10 @@
     function closeDragElement() {
       /* stop moving when mouse button is released:*/
       d.onmouseup = null;
+      d.ontouchcancel = null;
+      d.ontouchend = null;
       d.onmousemove = null;
+      d.ontouchmove = null;
     }
   }
 
@@ -485,7 +506,7 @@
       console.log('Error: ', e); console.log(' Status: ', this.status);
       //Show some error notification for some time
       setTimeout(()=>{
-        //Remove it when time has pased
+        //Remove it when time has passed
       }, 1000);
     });
     req.open("POST", "/upload");
@@ -500,8 +521,10 @@
     if (hst.length > 0 ) {
       try {
         var arr = [];
-        const response = await fetch('http://'+hst+'/json/info');
-        const json = await response.json();
+        const responseInfo = await fetch('http://'+hst+'/json/info');
+        const responsePalettes = await fetch('http://'+hst+'/json/palettes');
+        const json = await responseInfo.json();
+        paletteName = await responsePalettes.json();
         cpalc = json.cpalcount;
         fetchPalettes(cpalc-1);
       } catch (error) {
@@ -530,7 +553,7 @@
       paletteArray.push({"palette":[0,70,70,70,255,70,70,70]});
     }
 
-    //Get static palettes from localStorage and do some magic to reformat them into the same format as the pallete JSONs
+    //Get static palettes from localStorage and do some magic to reformat them into the same format as the palette JSONs
     //This code excludes any objects with "non valid integer colors", i.e. r, c1, c2, c3 and such
     //This code also fixes potentially broken palettes which doesn't end on 255
     //The code finally also removes any representations of the custom palettes, since we read them from file
@@ -540,6 +563,7 @@
       alert("The cache of palettes are missig from your browser. You should probably return to the main page and let it load properly for the palettes cache to regenerate before returning here.","Missing cached palettes!")
     } else {
       for (const key in wledPalx.p) {
+        wledPalx.p[key].name = paletteName[key];
         if (key > 245) {
           delete wledPalx.p[key];
           continue;
@@ -571,8 +595,11 @@
       }
 
       const pArray = Object.entries(wledPalx.p).map(([key, value]) => ({
-        [key]: value.flat()
+        [key]: value.flat(),
+        name: value.name
       }));
+      // Sort pArray by name
+      pArray.sort((a, b) => a.name.localeCompare(b.name));
 
       paletteArray.push( ...pArray);
     }
@@ -614,6 +641,9 @@
       editSpan.id = `editSpan${i}`;
       editSpan.onclick = function() {loadForEdit(i)};
       editSpan.setAttribute('title', `Copy slot ${i} palette to editor`);
+      if (paletteArray[i].name) {
+        editSpan.setAttribute('title', `Copy ${paletteArray[i].name} palette to editor`);
+      }
       editSpan.innerHTML = svgEdit;
       editSpan.classList.add("editSpan")
 

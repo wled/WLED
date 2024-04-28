@@ -198,10 +198,11 @@
 					</label>
 				</div>
 			</div>
-			<div style="padding-bottom: 10px;">
-				<button class="btn btn-xs" type="button" onclick="window.location.href=getURL('/cpal.htm')"><i class="icons btn-icon">&#xe18a;</i></button>
-				<button class="btn btn-xs" type="button" onclick="palettesData=null;localStorage.removeItem('wledPalx');requestJson({rmcpal:true});setTimeout(loadPalettes,250,loadPalettesData);"><i class="icons btn-icon">&#xe037;</i></button>
-			</div>
+		</div>
+		<div style="padding-block: 10px;">
+			<button class="btn btn-xs" type="button" onclick="window.location.href=getURL('/pxmagic.htm')"><i class="icons btn-icon">&#xe410;</i></button>
+			<button class="btn btn-xs" type="button" onclick="window.location.href=getURL('/cpal.htm')"><i class="icons btn-icon">&#xe18a;</i></button>
+			<button class="btn btn-xs" type="button" onclick="palettesData=null;localStorage.removeItem('wledPalx');requestJson({rmcpal:true});setTimeout(loadPalettes,250,loadPalettesData);"><i class="icons btn-icon">&#xe037;</i></button>
 		</div>
 	</div>
 
@@ -392,6 +393,7 @@
 	<button class="btn" onclick="setLor(2)">Override until reboot</button><br>
 	<span class="h">For best performance, it is recommended to turn off the streaming source when not in use.</span>
 </div>
+
 <i id="roverstar" class="icons huge" onclick="setLor(0)">&#xe410;</i><br>
 <script src="index.js"></script>
 </body>

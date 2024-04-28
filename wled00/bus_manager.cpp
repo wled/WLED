@@ -64,7 +64,7 @@ void ColorOrderMap::add(uint16_t start, uint16_t len, uint8_t colorOrder) {
 
 uint8_t IRAM_ATTR ColorOrderMap::getPixelColorOrder(uint16_t pix, uint8_t defaultColorOrder) const {
   if (_count == 0) return defaultColorOrder;
-  // upper nibble containd W swap information
+  // upper nibble contains W swap information
   uint8_t swapW = defaultColorOrder >> 4;
   for (uint8_t i = 0; i < _count; i++) {
     if (pix >= _mappings[i].start && pix < (_mappings[i].start + _mappings[i].len)) {
@@ -77,7 +77,7 @@ uint8_t IRAM_ATTR ColorOrderMap::getPixelColorOrder(uint16_t pix, uint8_t defaul
 
 uint32_t Bus::autoWhiteCalc(uint32_t c) {
   uint8_t aWM = _autoWhiteMode;
-  if (_gAWM < 255) aWM = _gAWM;
+  if (_gAWM != AW_GLOBAL_DISABLED) aWM = _gAWM;
   if (aWM == RGBW_MODE_MANUAL_ONLY) return c;
   uint8_t w = W(c);
   //ignore auto-white calculation if w>0 and mode DUAL (DUAL behaves as BRIGHTER if w==0)
@@ -144,8 +144,8 @@ void BusDigital::show() {
         c = RGBW32(_data[offset],_data[offset+1],_data[offset+2],(Bus::hasWhite(_type)?_data[offset+3]:0));
       }
       uint16_t pix = i;
-      if (_reversed) pix  = _len - pix -1;
-      else           pix += _skip;
+      if (_reversed) pix = _len - pix -1;
+      pix += _skip;
       PolyBus::setPixelColor(_busPtr, _iType, pix, c, co);
     }
     #if !defined(STATUSLED) || STATUSLED>=0
@@ -210,8 +210,8 @@ void IRAM_ATTR BusDigital::setPixelColor(uint16_t pix, uint32_t c) {
     }
     if (Bus::hasWhite(_type)) _data[offset] = W(c);
   } else {
-    if (_reversed) pix  = _len - pix -1;
-    else           pix += _skip;
+    if (_reversed) pix = _len - pix -1;
+    pix += _skip;
     uint8_t co = _colorOrderMap.getPixelColorOrder(pix+_start, _colorOrder);
     if (_type == TYPE_WS2812_1CH_X3) { // map to correct IC, each controls 3 LEDs
       uint16_t pOld = pix;
@@ -241,8 +241,8 @@ uint32_t BusDigital::getPixelColor(uint16_t pix) {
     }
     return c;
   } else {
-    if (_reversed) pix  = _len - pix -1;
-    else           pix += _skip;
+    if (_reversed) pix = _len - pix -1;
+    pix += _skip;
     uint8_t co = _colorOrderMap.getPixelColorOrder(pix+_start, _colorOrder);
     uint32_t c = restoreColorLossy(PolyBus::getPixelColor(_busPtr, _iType, (_type==TYPE_WS2812_1CH_X3) ? IC_INDEX_WS2812_1CH_3X(pix) : pix, co),_bri);
     if (_type == TYPE_WS2812_1CH_X3) { // map to correct IC, each controls 3 LEDs
