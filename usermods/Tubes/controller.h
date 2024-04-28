@@ -165,6 +165,9 @@ class PatternController : public MessageReceiver {
   }
 
   bool isMasterRole() {
+#if defined(GOLDEN) || defined(CHRISTMAS)
+    return true;
+#endif
     return role >= MasterRole;
   }
 
@@ -212,6 +215,9 @@ class PatternController : public MessageReceiver {
     } else {
         options.brightness = DEFAULT_TUBE_BRIGHTNESS;
     }
+#if defined(GOLDEN) || defined(CHRISTMAS)
+    node->reset(0xFFF);
+#endif
     options.debugging = false;
     load_options(options, true);
 
@@ -670,8 +676,22 @@ class PatternController : public MessageReceiver {
   // Choose the palette to display at the next palette cycle
   // Return the number of phrases until the next palette cycle
   uint16_t set_next_palette(uint16_t phrase) {
+#if defined(GOLDEN)
+    uint r = random8(0, 4);
+    uint colors[4] = {18, 58, 71, 111};
+    next_state.palette_id = colors[r];
+#elif defined(CHRISTMAS)   // 81, 107 are too bright
+    uint r = random8(0, 20);
+    uint colors[20] = {/*gold:*/18, 58, 71, 111, 
+                      /*yes:*/25, 34, 61, 63, 81, 112,        
+                      /*best yes:*/25, 34, 34, 61, 63, 81, 112,        
+                      /*maybe:*/81, 28, 107};
+    next_state.palette_id = colors[r];
+#else
     // Don't select the built-in palettes
     next_state.palette_id = random8(6, gGradientPaletteCount);
+#endif
+
     auto phrases = random8(MIN_COLOR_CHANGE_PHRASES, MAX_COLOR_CHANGE_PHRASES);
 
     // Change color more often in boring patterns
@@ -948,7 +968,8 @@ class PatternController : public MessageReceiver {
     // If not the lead, send it to the lead.
     uint8_t b;
     accum88 arg = parse_number(command+1);
-    
+    Serial.printf("[command=%c arg=%04x]\n", command[0], arg);
+
     switch (command[0]) {
       case 'd':
         setDebugging(!options.debugging);
