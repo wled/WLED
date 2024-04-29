@@ -2408,7 +2408,7 @@ const byte* const gGradientPalettes[] PROGMEM = {
 */
 };
 const uint8_t gGradientPaletteCount = ARRAY_SIZE(gGradientPalettes);
-#define GRADIENT_PALETTE_COUNT 116
+#define GRADIENT_PALETTE_COUNT 128
 
 
 #endif

@@ -3,6 +3,20 @@
 # Updates new boards (which start as broadcasting on WLED-AP) to custom firmware
 # Will update as many boards as are plugged in, one at a time.
 
+
+# Two ways to use it:
+# 1) ./firmware.sh
+#    This will update all boards with open APs named WLED-AP
+# 2) ./firmware.sh batch
+#   This will update all boards with open APs named WLED-AP or WLED-UPDATE
+#   This is useful for updating a batch of boards at once
+#   To put a board in this mode, send it a V## command with a version higher than the current one
+# There's also:
+# 3) ./firmware.sh upload
+#    This will upload the firmware to the internet server, but not update any boards
+#    Internet upload is not working 100% yet, so this is not recommended
+
+
 WLEDPATH=../../build_output/firmware
 ESPPATH=~/.platformio/packages/framework-arduinoespressif32/tools
 
