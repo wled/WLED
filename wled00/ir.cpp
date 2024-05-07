@@ -7,6 +7,7 @@
  */
 
 #if defined(WLED_DISABLE_INFRARED)
+#pragma message "IR remote support disabled"
 void handleIR(){}
 #else
 

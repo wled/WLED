@@ -8,7 +8,7 @@
  */
 
 // version code in format yymmddb (b = daily build)
-#define VERSION 2404201
+#define VERSION 2405040
 
 // WLEDMM  - you can check for this define in usermods, to only enabled WLEDMM specific code in the "right" fork. Its not defined in AC WLED.
 #define _MoonModules_WLED_
@@ -184,6 +184,12 @@
 // There is a code that will still not use PSRAM though:
 //    AsyncJsonResponse is a derived class that implements DynamicJsonDocument (AsyncJson-v6.h)
 #if defined(ARDUINO_ARCH_ESP32) && defined(BOARD_HAS_PSRAM) && (defined(WLED_USE_PSRAM) || defined(WLED_USE_PSRAM_JSON))         // WLEDMM
+// WLEDMM the JSON_TO_PSRAM feature works, so use it by default
+#undef  WLED_USE_PSRAM_JSON
+#define WLED_USE_PSRAM_JSON
+#undef  ALL_JSON_TO_PSRAM
+#define ALL_JSON_TO_PSRAM
+
 struct PSRAM_Allocator {
   void* allocate(size_t size) {
     if (psramFound()) return ps_malloc(size); // use PSRAM if it exists
@@ -533,7 +539,8 @@ WLED_GLOBAL byte macroDoublePress[WLED_MAX_BUTTONS]   _INIT({0});
 WLED_GLOBAL bool otaLock     _INIT(false);  // prevents OTA firmware updates without password. ALWAYS enable if system exposed to any public networks
 WLED_GLOBAL bool wifiLock    _INIT(false);  // prevents access to WiFi settings when OTA lock is enabled
 #ifdef ARDUINO_ARCH_ESP32
-WLED_GLOBAL bool aOtaEnabled _INIT(true);   // ArduinoOTA allows easy updates directly from the IDE. Careful, it does not auto-disable when OTA lock is on
+// WLEDMM disabled as default - arduinoOTA is a relic, only useful when using ArduinoIDE
+WLED_GLOBAL bool aOtaEnabled _INIT(false);   // ArduinoOTA allows easy updates directly from the IDE. Careful, it does not auto-disable when OTA lock is on
 #else
 WLED_GLOBAL bool aOtaEnabled _INIT(false);   // WLEDMM: start with OTA disabled, as it seems to be unstable on 8266
 #endif
@@ -646,6 +653,7 @@ WLED_GLOBAL byte timerWeekday[]   _INIT_N(({ 255, 255, 255, 255, 255, 255, 255, 
 WLED_GLOBAL byte timerMonth[]     _INIT_N(({28,28,28,28,28,28,28,28}));
 WLED_GLOBAL byte timerDay[]       _INIT_N(({1,1,1,1,1,1,1,1}));
 WLED_GLOBAL byte timerDayEnd[]		_INIT_N(({31,31,31,31,31,31,31,31}));
+WLED_GLOBAL bool doAdvancePlaylist _INIT(false);
 
 //improv
 WLED_GLOBAL byte improvActive _INIT(0); //0: no improv packet received, 1: improv active, 2: provisioning
@@ -802,7 +810,7 @@ WLED_GLOBAL int8_t spi_sclk  _INIT(HW_PIN_CLOCKSPI);
   WLED_GLOBAL PSRAMDynamicJsonDocument doc;
   #else
   WLED_GLOBAL PSRAMDynamicJsonDocument doc(JSON_BUFFER_SIZE);
-  #warning experimental - trying to always use dynamic JSON
+  //#warning trying to always use dynamic JSON in PSRAM
   #endif
 #else
 WLED_GLOBAL StaticJsonDocument<JSON_BUFFER_SIZE> doc;

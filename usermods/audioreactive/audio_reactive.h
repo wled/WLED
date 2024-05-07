@@ -617,6 +617,9 @@ void FFTcode(void * parameter)
         FFT.ComplexToMagnitude();                               // Compute magnitudes
         #endif
 
+        float last_majorpeak = FFT_MajorPeak;
+        float last_magnitude = FFT_Magnitude;
+
         #ifdef FFT_MAJORPEAK_HUMAN_EAR
         // scale FFT results
         for(uint_fast16_t binInd = 0; binInd < samplesFFT; binInd++)
@@ -628,6 +631,9 @@ void FFTcode(void * parameter)
         #else
         FFT.MajorPeak(&FFT_MajorPeak, &FFT_Magnitude);              // let the effects know which freq was most dominant
         #endif
+
+        if (FFT_MajorPeak < (SAMPLE_RATE /  samplesFFT)) {FFT_MajorPeak = 1.0f; FFT_Magnitude = 0;}                  // too low - use zero
+        if (FFT_MajorPeak > (0.42f * SAMPLE_RATE)) {FFT_MajorPeak = last_majorpeak; FFT_Magnitude = last_magnitude;} // too high - keep last peak
 
         #ifdef FFT_MAJORPEAK_HUMAN_EAR
         // undo scaling - we want unmodified values for FFTResult[] computations
@@ -1793,6 +1799,11 @@ class AudioReactive : public Usermod {
         periph_module_reset(PERIPH_I2S0_MODULE);   // not possible on -C3
       #endif
       delay(100);         // Give that poor microphone some time to setup.
+
+      #if !defined(CONFIG_IDF_TARGET_ESP32S2) && !defined(CONFIG_IDF_TARGET_ESP32C3)
+        if ((i2sckPin == I2S_PIN_NO_CHANGE) && (i2ssdPin >= 0) && (i2swsPin >= 0) 
+            && ((dmType == 1) || (dmType == 4)) ) dmType = 51;   // dummy user support: SCK == -1 --means--> PDM microphone
+      #endif
 
       useInputFilter = 2; // default: DC blocker
       switch (dmType) {

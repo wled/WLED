@@ -26,4 +26,6 @@ size_t NetworkDebugPrinter::write(const uint8_t *buf, size_t size) {
 
 NetworkDebugPrinter NetDebug;
 
+#else
+#pragma message "Net debug disabled"
 #endif

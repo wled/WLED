@@ -313,4 +313,5 @@ void handleWs()
 #else
 void handleWs() {}
 void sendDataWs(AsyncWebSocketClient * client) {}
+#pragma message "WebSockets disabled - no live preview."
 #endif

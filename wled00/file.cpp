@@ -35,6 +35,14 @@ static File f; // don't export to other cpp files
 
 //wrapper to find out how long closing takes
 void closeFile() {
+  #ifdef ARDUINO_ARCH_ESP32
+  // WLEDMM: file.close() triggers flash writing. While flash is writing, the NPB RMT driver cannot fill its buffer which may create glitches.
+  unsigned long t_wait = millis();
+  while(strip.isUpdating() && (millis() - t_wait < 72)) delay(1); // WLEDMM try to catch a moment when strip is idle
+  while(strip.isUpdating() && (millis() - t_wait < 96)) delay(0); //        try harder
+  //if (strip.isUpdating()) USER_PRINTLN("closeFile: strip still updating.");
+  delay(2); // might help
+  #endif
   #ifdef WLED_DEBUG_FS
     DEBUGFS_PRINT(F("Close -> "));
     uint32_t s = millis();
@@ -399,19 +407,122 @@ static String getContentType(AsyncWebServerRequest* request, String filename){
   return "text/plain";
 }
 
+#if defined(BOARD_HAS_PSRAM) && (defined(WLED_USE_PSRAM) || defined(WLED_USE_PSRAM_JSON))
+// caching presets in PSRAM may prevent occasional flashes seen when HomeAssistant polls WLED
+// original idea by @akaricchi (https://github.com/Akaricchi)
+// returns a pointer to the PSRAM buffer, updates size parameter
+static const uint8_t *getPresetCache(size_t &size) {
+  static unsigned long presetsCachedTime = 0;
+  static uint8_t *presetsCached = nullptr;
+  static size_t presetsCachedSize = 0;
+  static byte presetsCachedValidate = 0;
+
+  if (!psramFound()) {
+    size = 0;
+    return nullptr;
+  }
+
+  //if (presetsModifiedTime != presetsCachedTime) DEBUG_PRINTLN(F("getPresetCache(): presetsModifiedTime changed."));
+  //if (presetsCachedValidate != cacheInvalidate) DEBUG_PRINTLN(F("getPresetCache(): cacheInvalidate changed."));
+
+  if ((presetsModifiedTime != presetsCachedTime) || (presetsCachedValidate != cacheInvalidate)) {
+    if (presetsCached) {
+      free(presetsCached);
+      presetsCached = nullptr;
+    }
+  }
+
+  if (!presetsCached) {
+    File file = WLED_FS.open("/presets.json", "r");
+    if (file) {
+      presetsCachedTime = presetsModifiedTime;
+      presetsCachedValidate = cacheInvalidate;
+      presetsCachedSize = 0;
+      presetsCached = (uint8_t*)ps_malloc(file.size() + 1);
+      if (presetsCached) {
+        presetsCachedSize = file.size();
+        file.read(presetsCached, presetsCachedSize);
+        presetsCached[presetsCachedSize] = 0;
+        file.close();
+        //USER_PRINTLN(F("getPresetCache(): /presets.json cached in PSRAM."));
+      }
+    }
+  } else {
+    //USER_PRINTLN(F("getPresetCache(): /presets.json served from PSRAM."));
+  }
+
+  size = presetsCachedSize;
+  return presetsCached;
+}
+#endif
+
+// WLEDMM
+static bool haveLedmapFile = true;
+static bool haveIndexFile = true;
+static bool haveSkinFile = true;
+static bool haveICOFile = true;
+static bool haveCpalFile = true;
+void invalidateFileNameCache() { // reset "file not found" cache
+  haveLedmapFile = true;
+  haveIndexFile = true;
+  haveSkinFile = true;
+  haveICOFile = true;
+  haveCpalFile = true;
+
+  #if defined(BOARD_HAS_PSRAM) && (defined(WLED_USE_PSRAM) || defined(WLED_USE_PSRAM_JSON))
+  // WLEDMM hack to clear presets.json cache
+  size_t dummy;
+  unsigned long realpresetsTime = presetsModifiedTime;
+  presetsModifiedTime = toki.second();   // pretend we have changes
+  (void) getPresetCache(dummy);          // clear presets.json cache
+  presetsModifiedTime = realpresetsTime; // restore correct value
+#endif
+  //USER_PRINTLN("WS FileRead cache cleared");
+}
+
 bool handleFileRead(AsyncWebServerRequest* request, String path){
   DEBUG_PRINTLN("WS FileRead: " + path);
   if(path.endsWith("/")) path += "index.htm";
   if(path.indexOf("sec") > -1) return false;
+
+  // WLEDMM shortcuts
+  if ((haveLedmapFile == false) && path.equals("/ledmap.json")) return false;
+  if ((haveIndexFile == false)  && path.equals("/index.htm")) return false;
+  if ((haveSkinFile == false)   && path.equals("/skin.css")) return false;
+  if ((haveICOFile == false)    && path.equals("/favicon.ico")) return false;
+  if ((haveCpalFile == false)   && path.equals("/cpal.htm")) return false;
+  // WLEDMM toDO: add file caching (PSRAM) for /presets.json an /cfg.json
+
   String contentType = getContentType(request, path);
   /*String pathWithGz = path + ".gz";
   if(WLED_FS.exists(pathWithGz)){
     request->send(WLED_FS, pathWithGz, contentType);
     return true;
   }*/
-  if(WLED_FS.exists(path)) {
-    request->send(WLED_FS, path, contentType);
+
+  #if defined(BOARD_HAS_PSRAM) && (defined(WLED_USE_PSRAM) || defined(WLED_USE_PSRAM_JSON))
+  if (path.endsWith("/presets.json")) {
+    size_t psize;
+    const uint8_t *presets = getPresetCache(psize);
+    if (presets) {
+      AsyncWebServerResponse *response = request->beginResponse_P(200, contentType, presets, psize);
+      request->send(response);
+      return true;
+    }
+  }
+  #endif
+
+  if(WLED_FS.exists(path) || WLED_FS.exists(path + ".gz")) {
+      request->send(WLED_FS, path, String(), request->hasArg(F("download")));
     return true;
   }
+  //USER_PRINTLN("WS FileRead failed: "  + path + " (" + contentType + ")");
+
+  // WLEDMM cache "file not found" results (reduces LED flickering during UI activities)
+  if (path.equals("/ledmap.json")) haveLedmapFile = false;
+  if (path.equals("/index.htm"))   haveIndexFile = false;
+  if (path.equals("/skin.css"))    haveSkinFile = false;
+  if (path.equals("/favicon.ico")) haveICOFile = false;
+  if (path.equals("/cpal.htm"))    haveCpalFile = false;
   return false;
 }

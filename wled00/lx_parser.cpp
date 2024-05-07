@@ -68,4 +68,6 @@ void parseLxJson(int lxValue, byte segId, bool secondary)
   }
 }
 
+#else
+#pragma message "Loxone support disabled"
 #endif

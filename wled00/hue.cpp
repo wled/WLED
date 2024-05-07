@@ -205,4 +205,5 @@ void onHueData(void* arg, AsyncClient* client, void *data, size_t len)
 #else
 void handleHue(){}
 void reconnectHue(){}
+#pragma message "Philips HUE bridge interface disabled"
 #endif

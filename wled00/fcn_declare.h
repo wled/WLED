@@ -93,6 +93,7 @@ bool readObjectFromFileUsingId(const char* file, uint16_t id, JsonDocument* dest
 bool readObjectFromFile(const char* file, const char* key, JsonDocument* dest);
 void updateFSInfo();
 void closeFile();
+void invalidateFileNameCache();   // WLEDMM call when new files were uploaded
 
 //hue.cpp
 void handleHue();

@@ -611,10 +611,12 @@ void WLED::setup()
     DEBUG_PRINTLN(F("PSRAM not used."));
   #endif
 #endif
-#if defined(ARDUINO_ESP32_PICO)
-// special handling for PICO-D4: gpio16+17 are in use for onboard SPI FLASH (not PSRAM)
-managed_pin_type pins[] = { {16, true}, {17, true} };
-pinManager.allocateMultiplePins(pins, sizeof(pins)/sizeof(managed_pin_type), PinOwner::SPI_RAM);
+#if defined(ARDUINO_ARCH_ESP32)
+  if (strncmp("ESP32-PICO", ESP.getChipModel(), 10) == 0) { // WLEDMM detect pico board at runtime
+    // special handling for PICO-D4: gpio16+17 are in use for onboard SPI FLASH (not PSRAM)
+    managed_pin_type pins[] = { {16, true}, {17, true} };
+    pinManager.allocateMultiplePins(pins, sizeof(pins)/sizeof(managed_pin_type), PinOwner::SPI_RAM);
+  }
 #endif
 
   //DEBUG_PRINT(F("LEDs inited. heap usage ~"));
@@ -681,7 +683,7 @@ pinManager.allocateMultiplePins(pins, sizeof(pins)/sizeof(managed_pin_type), Pin
   updateFSInfo();
 
   USER_PRINT(F("done Mounting FS; "));
-  USER_PRINT(((fsBytesTotal-fsBytesUsed)/1024)); USER_PRINTLN(F(" kB free."));
+  USER_PRINT(((fsBytesTotal-fsBytesUsed)/1024)); USER_PRINTLN(F(" kB free.\n"));
 
   // generate module IDs must be done before AP setup
   escapedMac = WiFi.macAddress();
@@ -705,7 +707,7 @@ pinManager.allocateMultiplePins(pins, sizeof(pins)/sizeof(managed_pin_type), Pin
   beginStrip();
   DEBUG_PRINT(F("heap ")); DEBUG_PRINTLN(ESP.getFreeHeap());
 
-  USER_PRINTLN(F("Usermods setup ..."));
+  USER_PRINTLN(F("\nUsermods setup ..."));
   userSetup();
   usermods.setup();
   DEBUG_PRINT(F("heap ")); DEBUG_PRINTLN(ESP.getFreeHeap());
@@ -721,7 +723,7 @@ pinManager.allocateMultiplePins(pins, sizeof(pins)/sizeof(managed_pin_type), Pin
   //Serial RX (Adalight, Improv, Serial JSON) only possible if GPIO3 unused
   //Serial TX (Debug, Improv, Serial JSON) only possible if GPIO1 unused
   if (!pinManager.isPinAllocated(hardwareRX) && !pinManager.isPinAllocated(hardwareTX)) {
-    if (Serial) Serial.println(F("Ada"));
+    if (Serial) Serial.println(F("\nAda"));
   }
   #endif
 
@@ -852,7 +854,7 @@ pinManager.allocateMultiplePins(pins, sizeof(pins)/sizeof(managed_pin_type), Pin
   // repeat Ada prompt
   #ifdef WLED_ENABLE_ADALIGHT
   if (!pinManager.isPinAllocated(hardwareRX) && !pinManager.isPinAllocated(hardwareTX)) {
-    if (Serial) Serial.println(F("Ada"));
+    if (Serial) Serial.println(F("\nAda"));
   }
   #endif
 
@@ -1031,6 +1033,12 @@ bool WLED::initEthernet()
 
 void WLED::initConnection()
 {
+#ifdef ARDUINO_ARCH_ESP32
+  unsigned long t_wait = millis();
+  while(strip.isUpdating() && (millis() - t_wait < 86)) delay(1); // WLEDMM try to catch a moment when strip is idle
+  //if (strip.isUpdating()) USER_PRINTLN("WLED::initConnection: strip still updating.");
+#endif
+
   #ifdef WLED_ENABLE_WEBSOCKETS
   ws.onEvent(wsEvent);
   #endif
@@ -1208,7 +1216,7 @@ void WLED::handleConnection()
   static unsigned retryCount = 0;  // WLEDMM
   #ifdef ARDUINO_ARCH_ESP32 
   // reconnect WiFi to clear stale allocations if heap gets too low
-  if (now - heapTime > 5000) { // WLEDMM: updated with better logic for small heap available by block, not total.
+  if ((!strip.isUpdating()) && (now - heapTime > 5000)) { // WLEDMM: updated with better logic for small heap available by block, not total. // WLEDMM trying to use a moment when the strip is idle
 #if defined(ARDUINO_ARCH_ESP32S2)
     uint32_t heap = ESP.getFreeHeap(); // WLEDMM works better on -S2
 #else

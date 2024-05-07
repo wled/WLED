@@ -25,6 +25,8 @@ def _create_dirs(dirs=["firmware", "map"]):
 def bin_rename_copy(source, target, env):
     _create_dirs()
     variant = env["PIOENV"]
+    builddir = os.path.join(env["PROJECT_BUILD_DIR"],  variant)
+    source_map = os.path.join(builddir, env["PROGNAME"] + ".map")
 
     # create string with location and file names based on variant
     map_file = "{}map{}{}.map".format(OUTPUT_DIR, os.path.sep, variant)
@@ -48,7 +50,11 @@ def bin_rename_copy(source, target, env):
 
     # copy firmware.map to map/<variant>.map
     if os.path.isfile("firmware.map"):
-        shutil.move("firmware.map", map_file)
+        print("Found linker mapfile firmware.map")
+        shutil.copy("firmware.map", map_file)
+    if os.path.isfile(source_map):
+        print(f"Found linker mapfile {source_map}")
+        shutil.copy(source_map, map_file)
 
 def bin_gzip(source, target, env):
     _create_dirs()

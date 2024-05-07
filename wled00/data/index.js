@@ -680,6 +680,7 @@ function populateInfo(i)
 	if (i.ver.includes("0.14.0-b2")) vcn = "This is the way"; // recently watched The Mandalorian? I have spoken ;-)
 	if (i.ver.includes("0.14.0-b15.22")) vcn = "Lupo";
 	if (i.ver.includes("0.14.1-b3")) vcn = "Fried Chicken";  // final line of "One Vision" by Queen
+	if (i.ver.includes("0.14.3-b")) vcn = "Fried Chicken";
 	cn += `v${i.ver} &nbsp;<i>"${vcn}"</i><p>(WLEDMM_${i.ver} ${i.rel}.bin)</p><p><em>build ${i.vid}</em></p><table>
 ${urows}
 ${urows===""?'':'<tr><td colspan=2><hr style="height:1px;border-width:0;color:SeaGreen;background-color:Seagreen"></td></tr>'}
@@ -690,24 +691,22 @@ ${inforow("Build",i.vid)}
 ${inforow("Estimated current",pwru)}
 ${inforow("Average FPS",i.leds.fps)}
 ${inforow("Signal strength",i.wifi.signal +"% ("+ i.wifi.rssi, " dBm)")}
+${inforow("MAC address",i.mac)}
 ${inforow("Uptime",getRuntimeStr(i.uptime))}
 <!-- WLEDMM begin--> 
+<tr><td colspan=2><hr style="height:2px;border-width:0;color:SeaGreen;background-color:SeaGreen"></td></tr>
+${inforow("Filesystem",i.fs.u + "/" + i.fs.t + " kB, " +Math.round(i.fs.u*100/i.fs.t) + "%")}
+${theap>0?inforow("Heap ☾",((i.totalheap-i.freeheap)/1000).toFixed(0)+"/"+theap.toFixed(0)+" kB",", "+Math.round((i.totalheap-i.freeheap)/(10*theap))+"%"):inforow("Free heap",heap," kB")}  <!--WLEDMM different for 8266-->
+${i.minfreeheap?inforow("Max used heap ☾",((i.totalheap-i.minfreeheap)/1000).toFixed(0)+" kB",", "+Math.round((i.totalheap-i.minfreeheap)/(10*theap))+"%"):""} 
+${i.psram?inforow("PSRAM ☾",((i.tpram-i.psram)/1024).toFixed(0)+"/"+(i.tpram/1024).toFixed(0)+" kB",", "+((i.tpram-i.psram)*100.0/i.tpram).toFixed(1)+"%"):""} 
+${i.psusedram?inforow("Max used PSRAM ☾",((i.tpram-i.psusedram)/1024).toFixed(0)+" kB",", "+((i.tpram-i.psusedram)*100.0/i.tpram).toFixed(1)+"%"):""} 
+${i.freestack?inforow("Free stack ☾",(i.freestack/1000).toFixed(3)," kB"):""} <!--WLEDMM-->
 <tr><td colspan=2><hr style="height:1px;border-width:0;color:SeaGreen;background-color:SeaGreen"></td></tr>
-${inforow("Filesystem",i.fs.u + "/" + i.fs.t + " kB (" +Math.round(i.fs.u*100/i.fs.t) + "%)")}
-${theap>0?inforow("Heap ☾",((i.totalheap-i.freeheap)/1000).toFixed(0)+"/"+theap.toFixed(0)+" kB"," ("+Math.round((i.totalheap-i.freeheap)/(10*theap))+"%)"):""}
-${i.minfreeheap?inforow("Max used heap ☾",((i.totalheap-i.minfreeheap)/1000).toFixed(1)+" kB"," ("+Math.round((i.totalheap-i.minfreeheap)/(10*theap))+"%)"):""}
-${inforow("Free heap",heap," kB")}
-${i.freestack?inforow("Free stack ☾",(i.freestack/1024).toFixed(3)," kB"):""} <!--WLEDMM-->
-${inforow("Flash Size ☾",flashsize," kB")}  <!--WLEDMM and Athom-->
-${i.tpram?inforow("PSRAM ☾",(i.tpram/1024).toFixed(1)," kB"):""}
-${i.psram?((i.tpram-i.psram)>16383?inforow("Used PSRAM ☾",((i.tpram-i.psram)/1024).toFixed(1)," kB"):inforow("Used PSRAM ☾",(i.tpram-i.psram)," B")):""}
-${i.psusedram?((i.tpram-i.psusedram)>16383?inforow("Max used PSRAM ☾",((i.tpram-i.psusedram)/1024).toFixed(1)," kB"):inforow("Max used PSRAM ☾",(i.tpram-i.psusedram)," B")):""}
-${i.psram?inforow("Free PSRAM",(i.psram/1024).toFixed(1)," kB"):""}
-${inforow("MAC address",i.mac)}
+${i.tpram?inforow("PSRAM " + (i.psrmode?"("+i.psrmode+" mode) ":"") + " ☾",(i.tpram/1024/1024).toFixed(0)," MB"):""}
+${i.e32flash?inforow("Flash mode "+i.e32flashmode+i.e32flashtext + " ☾",i.e32flash+" MB, "+i.e32flashspeed," Mhz"):""}
+${i.e32model?inforow(i.e32model + " ☾",i.e32cores +" core(s),"," "+i.e32speed+" Mhz"):""}
 ${inforow("Environment",i.arch + " " + i.core + " (" + i.lwip + ")")}
 <tr><td colspan=2><hr style="height:1px;border-width:0;color:SeaGreen;background-color:SeaGreen"></td></tr>
-${i.e32model?inforow(i.e32model + " ☾",i.e32cores +" core(s)"," "+i.e32speed+" Mhz"):""}
-${i.e32flash?inforow("Flash "+i.e32flash+"MB"+" mode "+i.e32flashmode+i.e32flashtext + " ☾",i.e32flashspeed," Mhz"):""}
 ${i.e32code?inforow("Last ESP Restart ☾",i.e32code+" "+i.e32text):""}
 ${i.e32core0code?inforow("Core0 rst reason ☾",i.e32core0code, " "+i.e32core0text):""}
 ${i.e32core1code?inforow("Core1 rst reason ☾",i.e32core1code, " "+i.e32core1text):""}
@@ -1975,6 +1974,9 @@ function readState(s,command=false)
 		  break;
 		case 35:
 			errstr = "Low Memory (WS data).";
+		  break;
+		case 36:
+			errstr = "Low Memory (oappend buffer).";
 		  break;
 		}
 	  showToast('Error ' + s.error + ": " + errstr, true);

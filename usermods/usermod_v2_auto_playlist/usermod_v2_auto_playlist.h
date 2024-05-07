@@ -85,7 +85,8 @@ class AutoPlaylistUsermod : public Usermod {
     // gets called once at boot. Do all initialization that doesn't depend on
     // network here
     void setup() {
-      USER_PRINTLN("AutoPlaylistUsermod");
+      USER_PRINT(F("AutoPlaylistUsermod startup; enabled = "));
+      USER_PRINT(enabled ? F("true"):F("false")); USER_PRINTLN(F("."));
       initDone = true;
     }
 

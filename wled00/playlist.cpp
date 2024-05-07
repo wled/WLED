@@ -137,7 +137,7 @@ void handlePlaylist() {
     return; // but don't progress to next extry, and don't shuffle
   }
 
-  if (millis() - presetCycledTime > (100*playlistEntryDur)) {
+if (millis() - presetCycledTime > (100 * playlistEntryDur) || doAdvancePlaylist) {
     presetCycledTime = millis();
     if (bri == 0 || nightlightActive) return;
 
@@ -159,6 +159,7 @@ void handlePlaylist() {
     transitionDelayTemp = playlistEntries[playlistIndex].tr * 100;
     playlistEntryDur = playlistEntries[playlistIndex].dur;
     applyPreset(playlistEntries[playlistIndex].preset);
+    doAdvancePlaylist = false;
   }
 }
 

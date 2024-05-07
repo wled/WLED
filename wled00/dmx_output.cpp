@@ -11,6 +11,7 @@
  */
 
 #ifdef WLED_ENABLE_DMX
+#pragma message "DMX network output enabled"
 
 // WLEDMM: seems that DMX output triggers watchdog resets when compiling for IDF 4.4.x
 #ifdef ARDUINO_ARCH_ESP32

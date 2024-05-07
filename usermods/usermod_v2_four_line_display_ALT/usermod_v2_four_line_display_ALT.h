@@ -488,7 +488,7 @@ void FourLineDisplayUsermod::draw2x2String(uint8_t col, uint8_t row, const char 
   if (!typeOK || !enabled) return;
   if (u8x8 == nullptr) return;
   if (FLD_SemaphoreTake(drawMux, maxWait) != pdTRUE) return;      // WLEDMM acquire draw mutex
-#if  defined(ARDUINO_ARCH_ESP32) && !defined(OLD_4LD_FONTS)           // WLEDMM use nicer 2x2 font on ESP32
+#if  defined(ARDUINO_ARCH_ESP32) && !defined(OLD_4LD_FONTS) && !defined(WLEDMM_SAVE_FLASH)        // WLEDMM use nicer 2x2 font on ESP32
   if (lineHeight>1) {                            // WLEDMM use 2x3 on 128x64 displays
     //u8x8->setFont(u8x8_font_profont29_2x3_r);   // sans serif 2x3
     u8x8->setFont(u8x8_font_courB18_2x3_r);       // courier bold 2x3

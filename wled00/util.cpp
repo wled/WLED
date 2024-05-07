@@ -155,6 +155,7 @@ bool oappend(const char* txt)
       USER_PRINTF("%2u bytes \t\"", len /*1 + olen + len - SETTINGS_STACK_BUF_SIZE*/);
       USER_PRINT(txt);
       USER_PRINTLN(F("\""));
+      errorFlag = ERR_LOW_AJAX_MEM;
 	  }
     return false;        // buffer full
   }
@@ -433,6 +434,7 @@ um_data_t* simulateSound(uint8_t simulationId)
   static float    volumeSmth;
   static uint16_t volumeRaw;
   static float    my_magnitude;
+  static uint16_t zeroCrossingCount = 0; // number of zero crossings in the current batch of 512 samples
 
   //arrays
   uint8_t *fftResult;
@@ -447,7 +449,7 @@ um_data_t* simulateSound(uint8_t simulationId)
     // NOTE!!!
     // This may change as AudioReactive usermod may change
     um_data = new um_data_t;
-    um_data->u_size = 11;
+    um_data->u_size = 12;
     um_data->u_type = new um_types_t[um_data->u_size];
     um_data->u_data = new void*[um_data->u_size];
     um_data->u_data[0] = &volumeSmth;
@@ -461,6 +463,7 @@ um_data_t* simulateSound(uint8_t simulationId)
     um_data->u_data[8]  = &FFT_MajorPeak; // dummy (FFT Peak smoothed)
     um_data->u_data[9]  = &volumeSmth;    // dummy (soundPressure)
     um_data->u_data[10] = &volumeSmth;    // dummy (agcSensitivity)
+    um_data->u_data[11] = &zeroCrossingCount;
   } else {
     // get arrays from um_data
     fftResult =  (uint8_t*)um_data->u_data[2];
@@ -527,6 +530,7 @@ um_data_t* simulateSound(uint8_t simulationId)
   volumeRaw = volumeSmth;
   my_magnitude = 10000.0f / 8.0f; //no idea if 10000 is a good value for FFT_Magnitude ???
   if (volumeSmth < 1 ) my_magnitude = 0.001f;             // noise gate closed - mute
+  zeroCrossingCount = floorf(FFT_MajorPeak / 36.0f); // 9Khz max frequency => 255 zero crossings
 
   return um_data;
 }

@@ -17,9 +17,15 @@
 #define WIZMOTE_BUTTON_BRIGHT_UP   9
 #define WIZMOTE_BUTTON_BRIGHT_DOWN 8
 
+#define WIZ_SMART_BUTTON_ON          100
+#define WIZ_SMART_BUTTON_OFF         101
+#define WIZ_SMART_BUTTON_BRIGHT_UP   102
+#define WIZ_SMART_BUTTON_BRIGHT_DOWN 103
+
 #ifdef WLED_DISABLE_ESPNOW
 void handleRemote(){}
 #else
+#pragma message "ESP-NOW remote driver enabled"
 
 #if !defined(ARDUINO_ARCH_ESP32) && !defined(ESP_OK)
 #define ESP_OK 0  // add missing constant for stupid esp8266
@@ -148,7 +154,6 @@ void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
     return;
   }
 
-
   USER_PRINT(F("\nIncoming ESP Now Packet["));
   USER_PRINT(cur_seq);
   USER_PRINT(F("] from sender["));
@@ -165,8 +170,11 @@ void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
     case WIZMOTE_BUTTON_NIGHT          : activateNightMode();                             stateUpdated(CALL_MODE_BUTTON); break;
     case WIZMOTE_BUTTON_BRIGHT_UP      : brightnessUp();                                  stateUpdated(CALL_MODE_BUTTON); break;
     case WIZMOTE_BUTTON_BRIGHT_DOWN    : brightnessDown();                                stateUpdated(CALL_MODE_BUTTON); break;
+    case WIZ_SMART_BUTTON_ON           : setOn();                                         break;
+    case WIZ_SMART_BUTTON_OFF          : setOff();                                        break;
+    case WIZ_SMART_BUTTON_BRIGHT_UP    : brightnessUp();                                  break;
+    case WIZ_SMART_BUTTON_BRIGHT_DOWN  : brightnessDown();                                break;
     default: break;
-
   }
 
   last_seq = cur_seq;

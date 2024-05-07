@@ -195,4 +195,6 @@ bool initMqtt()
   mqtt->connect();
   return true;
 }
+#else
+#pragma message "MQTT disabled"
 #endif

@@ -351,6 +351,7 @@
 #define ERR_LOW_MEM     33  // WLEDMM: low memory (RAM)
 #define ERR_LOW_SEG_MEM 34  // WLEDMM: low memory (segment data RAM)
 #define ERR_LOW_WS_MEM  35  // WLEDMM: low memory (ws)
+#define ERR_LOW_AJAX_MEM  36 // WLEDMM: low memory (oappend)
 
 // Timer mode types
 #define NL_MODE_SET               0            //After nightlight time elapsed, set to target brightness

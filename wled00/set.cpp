@@ -922,6 +922,9 @@ bool handleSet(AsyncWebServerRequest *request, const String& req, bool apply)
     applyPreset(presetCycCurr);
   }
 
+  pos = req.indexOf(F("NP")); //advances to next preset in a playlist
+  if (pos > 0) doAdvancePlaylist = true;
+  
   //set brightness
   updateVal(req.c_str(), "&A=", &bri);
 

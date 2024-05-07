@@ -139,4 +139,5 @@ void onAlexaChange(EspalexaDevice* dev)
 #else
  void alexaInit(){}
  void handleAlexa(){}
+ #pragma message "Alexa interface disabled"
 #endif

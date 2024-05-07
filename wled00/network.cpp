@@ -4,6 +4,8 @@
 
 
 #ifdef WLED_USE_ETHERNET
+#pragma message "Ethernet support enabled"
+
 // The following six pins are neither configurable nor
 // can they be re-assigned through IOMUX / GPIO matrix.
 // See https://docs.espressif.com/projects/esp-idf/en/latest/esp32/hw-reference/esp32/get-started-ethernet-kit-v1.1.html#ip101gri-phy-interface
