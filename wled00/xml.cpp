@@ -196,7 +196,11 @@ void appendGPIOinfo() {
   size_t roLen = strlen(ro_gpio);
   char pinString[10];
   for(int pinNr = 0; pinNr < WLED_NUM_PINS; pinNr++) { // 49 = highest PIN on ESP32-S3
-    if(!pinManager.isPinOk(pinNr, false)) {
+  #if defined(ARDUINO_ARCH_ESP32) && !defined(BOARD_HAS_PSRAM)
+    if ((!pinManager.isPinOk(pinNr, false)) || (pinManager.getPinOwner(pinNr) == PinOwner::SPI_RAM)) {  // WLEDMM add SPIRAM pins as "reserved" (pico boards)
+  #else
+    if (!pinManager.isPinOk(pinNr, false)) {
+  #endif
       sprintf(pinString, "%s%d", strlen(rsvd)==rsLen?"":",", pinNr);
       strcat(rsvd, pinString);
     }
@@ -265,9 +269,9 @@ void appendGPIOinfo() {
 
   // add info about max. # of pins
   oappend(SET_F("d.max_gpio="));
-  #if defined(ESP32)
+  #if defined(ESP32) && !defined(CONFIG_IDF_TARGET_ESP32S3)
     oappendi(NUM_DIGITAL_PINS - 1);
-  #else //8266
+  #else //8266 (max=17), or esp32-S3 (max=48)
     oappendi(NUM_DIGITAL_PINS); //WLEDMM include pin 17 for Analog
   #endif
   oappend(SET_F(";"));
@@ -842,7 +846,7 @@ void getSettingsJS(AsyncWebServerRequest* request, byte subPage, char* dest) //W
     olen -= 2; //delete ";
     oappend(versionString);
     oappend(SET_F(" "));
-    oappend(releaseString);
+    oappend((char*)FPSTR(releaseString));
     oappend(SET_F(".bin<br>("));
     #if defined(CONFIG_IDF_TARGET_ESP32C3)
     oappend(SET_F("ESP32-C3"));

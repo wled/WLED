@@ -40,6 +40,11 @@ uint8_t realtimeBroadcast(uint8_t type, IPAddress client, uint16_t length, byte 
   #define DEBUG_PRINTF(x...)
 #endif
 #else
+ // un-define USER_PRINT macros from bus_wrapper.h
+ #undef USER_PRINT
+ #undef USER_PRINTF
+ #undef USER_PRINTLN
+ #undef USER_FLUSH
  // WLEDMM use wled.h
 #include "wled.h"
 #endif

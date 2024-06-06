@@ -18,6 +18,28 @@
 #endif
 // temporary end
 
+// WLEDMM TroyHacks support - SLOWPATH has priority over TWOPATH
+#ifdef WLEDMM_SLOWPATH
+#undef WLEDMM_TWOPATH
+#endif
+
+// WLEDMM repeat definition of USER_PRINT
+bool canUseSerial(void);   // WLEDMM (wled_serial.cpp) returns true if Serial can be used for debug output (i.e. not configured for other purpose)
+#if defined(WLED_DEBUG_HOST)
+  #include "net_debug.h"
+  extern bool netDebugEnabled;
+  #define USER_PRINT(x) (netDebugEnabled || !canUseSerial())?NetDebug.print(x):Serial.print(x)
+  #define USER_PRINTLN(x) (netDebugEnabled || !canUseSerial())?NetDebug.println(x):Serial.println(x)
+  #define USER_PRINTF(x...) (netDebugEnabled || !canUseSerial())?NetDebug.printf(x):Serial.printf(x)
+  #define USER_FLUSH() (netDebugEnabled || !canUseSerial())?NetDebug.flush():Serial.flush()
+#else
+  #define USER_PRINT(x) {if (canUseSerial()) Serial.print(x);}
+  #define USER_PRINTLN(x) {if (canUseSerial()) Serial.println(x);}
+  #define USER_PRINTF(x...) {if (canUseSerial()) Serial.printf(x);}
+  #define USER_FLUSH() {if (canUseSerial()) Serial.flush();}
+#endif
+// WLEDMM end
+
 //Hardware SPI Pins
 #define P_8266_HS_MOSI 13
 #define P_8266_HS_CLK  14
@@ -390,10 +412,14 @@ class PolyBus {
   };
   static void* create(uint8_t busType, uint8_t* pins, uint16_t len, uint8_t channel, uint16_t clock_kHz = 0U) {
     #if defined(ARDUINO_ARCH_ESP32) && !(defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32S3) || defined(CONFIG_IDF_TARGET_ESP32C3))
-    #if defined(WLEDMM_FASTPATH) && !defined(WLEDMM_SLOWPATH) // WLEDMM only for fastpath builds
+    #if defined(WLEDMM_FASTPATH) && !defined(WLEDMM_SLOWPATH) // WLEDMM only for fastpath builds.
     // NOTE: "channel" is only used on ESP32 (and its variants) for RMT channel allocation
     // since 0.15.0-b3 I2S1 is favoured for classic ESP32 and moved to position 0 (channel 0) so we need to subtract 1 for correct RMT allocation
+  #if defined(WLEDMM_TWOPATH)
+    if (channel > 1) channel--; // accommodate I2S1 which is used as 2nd bus on classic ESP32
+  #else
     if (channel > 0) channel--; // accommodate I2S1 which is used as 1st bus on classic ESP32
+  #endif
     #endif
     #endif
     void* busPtr = nullptr;
@@ -430,20 +456,20 @@ class PolyBus {
       case I_8266_BB_UCS_4: busPtr = new B_8266_BB_UCS_4(len, pins[0]); break;
     #endif
     #ifdef ARDUINO_ARCH_ESP32
-      case I_32_RN_NEO_3: busPtr = new B_32_RN_NEO_3(len, pins[0], (NeoBusChannel)channel); break;
+      case I_32_RN_NEO_3: busPtr = new B_32_RN_NEO_3(len, pins[0], (NeoBusChannel)channel); USER_PRINTF("(RMT #%u) ", channel); break;
       #ifndef WLED_NO_I2S0_PIXELBUS
-      case I_32_I0_NEO_3: busPtr = new B_32_I0_NEO_3(len, pins[0]); break;
+      case I_32_I0_NEO_3: busPtr = new B_32_I0_NEO_3(len, pins[0]); USER_PRINT("(I2S #0) "); break;
       #endif
       #ifndef WLED_NO_I2S1_PIXELBUS
-      case I_32_I1_NEO_3: busPtr = new B_32_I1_NEO_3(len, pins[0]); break;
+      case I_32_I1_NEO_3: busPtr = new B_32_I1_NEO_3(len, pins[0]); USER_PRINT("(I2S #1) "); break;
       #endif
 //      case I_32_BB_NEO_3: busPtr = new B_32_BB_NEO_3(len, pins[0], (NeoBusChannel)channel); break;
-      case I_32_RN_NEO_4: busPtr = new B_32_RN_NEO_4(len, pins[0], (NeoBusChannel)channel); break;
+      case I_32_RN_NEO_4: busPtr = new B_32_RN_NEO_4(len, pins[0], (NeoBusChannel)channel); USER_PRINTF("(RGBW RMT #%u) ", channel); break;
       #ifndef WLED_NO_I2S0_PIXELBUS
-      case I_32_I0_NEO_4: busPtr = new B_32_I0_NEO_4(len, pins[0]); break;
+      case I_32_I0_NEO_4: busPtr = new B_32_I0_NEO_4(len, pins[0]); USER_PRINT("(RGBW I2S #0) "); break;
       #endif
       #ifndef WLED_NO_I2S1_PIXELBUS
-      case I_32_I1_NEO_4: busPtr = new B_32_I1_NEO_4(len, pins[0]); break;
+      case I_32_I1_NEO_4: busPtr = new B_32_I1_NEO_4(len, pins[0]); USER_PRINT("(RGBW I2S #1) "); break;
       #endif
 //      case I_32_BB_NEO_4: busPtr = new B_32_BB_NEO_4(len, pins[0], (NeoBusChannel)channel); break;
       case I_32_RN_400_3: busPtr = new B_32_RN_400_3(len, pins[0], (NeoBusChannel)channel); break;
@@ -1199,8 +1225,11 @@ class PolyBus {
           if (num > 7) return I_NONE;
         #else
           if (num > 8) return I_NONE;
-          //if (num == 1) offset = 2;    // use I2S#1 as 2nd bus - seems to be a good compromise for performance, and reduces flickering for some users
-          if (num == 0) offset = 2;  // un-comment to use I2S#1 as 1st bus - sometimes helps, if you experience flickering during Wifi or filesystem activity.
+  #if defined(WLEDMM_TWOPATH)
+          if (num == 1) offset = 2;    // use I2S#1 as 2nd bus - seems to be a good compromise for performance, and reduces flickering for some users
+  #else
+          if (num == 0) offset = 2;  //  use I2S#1 as 1st bus - sometimes helps, if you experience flickering during Wifi or filesystem activity.
+  #endif
         #endif
       #endif
       #endif

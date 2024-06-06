@@ -50,6 +50,7 @@ void handleImprovPacket() {
   uint8_t rpcCommandType = 0;
   char rpcData[128];
   rpcData[0] = 0;
+  if (!Serial) return; // WLEDMM avoid reading from unconnected USB-CDC
 
   while (!timeout) {
     if (Serial.available() < 1) {

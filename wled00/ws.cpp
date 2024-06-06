@@ -186,6 +186,7 @@ void sendDataWs(AsyncWebSocketClient * client)
 // WLEDMM function to recover full-bright pixel (based on code from upstream alt-buffer, which is based on code from NeoPixelBrightnessBus)
 static uint32_t restoreColorLossy(uint32_t c, uint_fast8_t _restaurationBri) {
   if (_restaurationBri == 255) return c;
+  if (_restaurationBri == 0) return 0;
   uint8_t* chan = (uint8_t*) &c;
   for (uint_fast8_t i=0; i<4; i++) {
     uint_fast16_t val = chan[i];

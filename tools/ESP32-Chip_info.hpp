@@ -543,6 +543,8 @@ void show_psram_info_part2(void)
 
 void showRealSpeed() {
   //Serial.begin(115200);
+  if (!Serial) return; // Avoid writing to unconnected USB-CDC
+
   Serial.flush();
   Serial.println(F("\n"));
   for(int aa=0; aa<65; aa++) Serial.print("="); Serial.println();

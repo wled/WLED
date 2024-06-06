@@ -42,6 +42,7 @@ void updateBaudRate(uint32_t rate){
 // RGB LED data return as JSON array. Slow, but easy to use on the other end.
 void sendJSON(){
   if (!pinManager.isPinAllocated(hardwareTX) || pinManager.getPinOwner(hardwareTX) == PinOwner::DebugOut) {
+    if (!Serial) return; // WLEDMM avoid writing to unconnected USB-CDC
     uint16_t used = strip.getLengthTotal();
     Serial.write('[');
     for (uint16_t i=0; i<used; i++) {
@@ -55,6 +56,7 @@ void sendJSON(){
 // RGB LED data returned as bytes in TPM2 format. Faster, and slightly less easy to use on the other end.
 void sendBytes(){
   if (!pinManager.isPinAllocated(hardwareTX) || pinManager.getPinOwner(hardwareTX) == PinOwner::DebugOut) {
+    if (!Serial) return; // WLEDMM avoid writing to unconnected USB-CDC
     Serial.write(0xC9); Serial.write(0xDA);
     uint16_t used = strip.getLengthTotal();
     uint16_t len = used*3;
