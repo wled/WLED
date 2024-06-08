@@ -90,7 +90,7 @@ class Particle {
   CRGB color_at(uint16_t age_frac) {
     // Particles get dimmer with age
     uint8_t a = age_frac >> 8;
-    uint8_t brightness = scale8((uint8_t)(brightness>>8), 255-a);
+    brightness = scale8((uint8_t)(brightness>>8), 255-a);
 
 #ifdef PARTICLE_PALETTES
     // a black pattern actually means to use the current palette
