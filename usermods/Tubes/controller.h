@@ -199,7 +199,7 @@ class PatternController : public MessageReceiver {
     }
 
     if (role <= CampRole)
-      strip.ablMilliampsMax = 700;  // Really limit for batteries
+      strip.ablMilliampsMax = min(ABL_MILLIAMPS_DEFAULT,700);  // Really limit for batteries
     else if (role <= InstallationRole)
       strip.ablMilliampsMax = 1000;
     else

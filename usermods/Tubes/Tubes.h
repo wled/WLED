@@ -38,11 +38,16 @@ class TubesUsermod : public Usermod {
 
   public:
     void setup() {
-      pinMode(MASTER_PIN, INPUT_PULLUP);
-      pinMode(LEGACY_PIN, INPUT_PULLUP);
-      if (digitalRead(MASTER_PIN) == LOW) {
+
+      if (pinManager.isPinOk(MASTER_PIN)) {
+        pinMode(MASTER_PIN, INPUT_PULLUP);
+        if(pinManager.isPinOk(LEGACY_PIN)) {
+          pinMode(LEGACY_PIN, INPUT_PULLUP);
+        }
+        if (digitalRead(MASTER_PIN) == LOW) {
+        }
+        isLegacy = (digitalRead(MASTER_PIN) == LOW);
       }
-      isLegacy = (digitalRead(MASTER_PIN) == LOW);
       randomize();
 
       // Override some behaviors on all Tubes
