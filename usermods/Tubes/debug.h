@@ -71,8 +71,8 @@ class DebugController {
         knownIp[2],
         knownIp[3],
         freeMemory(),
-        LITTLEFS.usedBytes(),
-        LITTLEFS.totalBytes(),
+        WLED_FS.usedBytes(),
+        WLED_FS.totalBytes(),
         formatted_time(millis()).c_str()
       );
 
