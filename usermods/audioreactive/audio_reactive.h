@@ -300,7 +300,7 @@ void FFTcode(void * parameter)
 #endif
 
 #ifdef UM_AUDIOREACTIVE_USE_NEW_FFT
-      FFT.majorPeak(FFT_MajorPeak, FFT_Magnitude);                // let the effects know which freq was most dominant
+      FFT.majorPeak(&FFT_MajorPeak, &FFT_Magnitude);                // let the effects know which freq was most dominant
 #else
       FFT.MajorPeak(&FFT_MajorPeak, &FFT_Magnitude);              // let the effects know which freq was most dominant
 #endif
