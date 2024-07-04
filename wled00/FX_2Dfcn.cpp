@@ -198,8 +198,10 @@ void IRAM_ATTR Segment::setPixelColorXY(int x, int y, uint32_t col)
       uint16_t xX = (x+g), yY = (y+j);
       if (xX >= width() || yY >= height()) continue; // we have reached one dimension's end
 
+#ifndef WLED_DISABLE_MODE_BLEND
       // if blending modes, blend with underlying pixel
       if (_modeBlend) tmpCol = color_blend(strip.getPixelColorXY(start + xX, startY + yY), col, 0xFFFFU - progress(), true);
+#endif
 
       strip.setPixelColorXY(start + xX, startY + yY, tmpCol);
 
