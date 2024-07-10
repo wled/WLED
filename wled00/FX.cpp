@@ -8355,7 +8355,7 @@ uint16_t mode_2Dwavingcell() {
 }
 static const char _data_FX_MODE_2DWAVINGCELL[] PROGMEM = "Waving Cell@!,,Amplitude 1,Amplitude 2,Amplitude 3;;!;2";
 
-uint16_t mode_3DGEQ(void) {
+uint16_t mode_GEQLASER(void) {
 
   // Author: @TroyHacks
 
@@ -8484,7 +8484,7 @@ uint16_t mode_3DGEQ(void) {
   return FRAMETIME;
 
 }
-static const char _data_FX_MODE_3DGEQ[] PROGMEM = "3D GEQ☾@!Fade Speed,,Bands,Fill Front,;;!;2"; // TODO set Audio, 2D and controls etc
+static const char _data_FX_MODE_GEQLASER[] PROGMEM = "GEQ Laser ☾@Fade Speed,,Bands,Fill Front,;;!;2f"; 
 
 
 #endif // WLED_DISABLE_2D
@@ -8733,7 +8733,7 @@ void WS2812FX::setupEffectData() {
 
   addEffect(FX_MODE_2DAKEMI, &mode_2DAkemi, _data_FX_MODE_2DAKEMI); // audio
 
-  addEffect(FX_MODE_3DGEQ, &mode_3DGEQ, _data_FX_MODE_3DGEQ); // audio
+  addEffect(FX_MODE_GEQLASER, &mode_GEQLASER, _data_FX_MODE_GEQLASER); // audio
 
 #endif // WLED_DISABLE_2D
 
