@@ -8460,7 +8460,7 @@ uint16_t mode_3DGEQ(void) {
       else if(frontBrightness >= 50) {
         // Faded fronts, assumes border added later.
         for (int x=linex+1; x<linex+(cols/NUM_BANDS)-1;x++) { 
-          SEGMENT.drawLine(x,rows-2,x,rows-heights[i]-2,color_fade(ledColor,64,true)); // front fill
+          SEGMENT.drawLine(x,rows-2,x,rows-heights[i]-2,color_fade(ledColor,map(frontBrightness, 50, 250, 0, 255),true)); // front fill
         }
       }
       else {
