@@ -8382,7 +8382,7 @@ uint16_t mode_3DGEQ(void) {
     SEGMENT.fadeToBlackBy(SEGMENT.speed);
   }
 
-  const int NUM_BANDS = 16; // map(SEGMENT.custom1, 0, 255, 1, 16);
+  const int NUM_BANDS = map(SEGMENT.custom1, 0, 255, 1, 16);
   const uint16_t cols = SEGMENT.virtualWidth();
   const uint16_t rows = SEGMENT.virtualHeight();
 
@@ -8393,26 +8393,26 @@ uint16_t mode_3DGEQ(void) {
   }
   uint8_t *fftResult = (uint8_t*)um_data->u_data[2];
 
-  uint8_t heights[16] = { 0 };
+  uint8_t heights[NUM_BANDS] = { 0 };
 
-  for (int i=0; i<16; i++) {
-    heights[i] = map(fftResult[i],0,255,0,rows-10);
+  for (int i=0; i<NUM_BANDS; i++) {
+    heights[i] = map(fftResult[i],0,255,0,rows-10); // TODO: avg don't just take lower bands?
   }
 
   for (int i=0; i<=split; i++) { // paint right vertical faces and top
 
-    uint16_t colorIndex = map(cols/16*i, 0, cols-1, 0, 255);
+    uint16_t colorIndex = map(cols/NUM_BANDS*i, 0, cols-1, 0, 255);
     uint32_t ledColor = SEGMENT.color_from_palette(colorIndex, false, PALETTE_SOLID_WRAP, 0);
 
-    int linex = i*(cols/16);
+    int linex = i*(cols/NUM_BANDS);
 
     if (heights[i] > 1) {
 
       for (int y = 0; y <= heights[i]; y++) {
-        SEGMENT.drawLine(linex+(cols/16)-1,rows-y-1,projector,0,color_fade(ledColor,32,true));
+        SEGMENT.drawLine(linex+(cols/NUM_BANDS)-1,rows-y-1,projector,0,color_fade(ledColor,32,true));
       } 
 
-      for (int x=linex; x<=linex+(cols/16)-1;x++) {
+      for (int x=linex; x<=linex+(cols/NUM_BANDS)-1;x++) {
         SEGMENT.drawLine(x,            rows-heights[i]-2,projector,0,color_fade(ledColor,128,true)); // top perspective
       }
 
@@ -8422,10 +8422,10 @@ uint16_t mode_3DGEQ(void) {
 
   for (int i=15; i>split; i--) { // paint left vertical faces and top
 
-    uint16_t colorIndex = map(cols/16*i, 0, cols-1, 0, 255);
+    uint16_t colorIndex = map(cols/NUM_BANDS*i, 0, cols-1, 0, 255);
     uint32_t ledColor = SEGMENT.color_from_palette(colorIndex, false, PALETTE_SOLID_WRAP, 0);
 
-    int linex = i*(cols/16);
+    int linex = i*(cols/NUM_BANDS);
 
     if (heights[i] > 1) {
 
@@ -8433,7 +8433,7 @@ uint16_t mode_3DGEQ(void) {
         SEGMENT.drawLine(linex           ,rows-y-1,projector,0,color_fade(ledColor,32,true));
       } 
 
-      for (int x=linex; x<=linex+(cols/16)-1;x++) {
+      for (int x=linex; x<=linex+(cols/NUM_BANDS)-1;x++) {
         SEGMENT.drawLine(x,            rows-heights[i]-2,projector,0,color_fade(ledColor,128,true)); // top perspective
       }
       
@@ -8441,31 +8441,31 @@ uint16_t mode_3DGEQ(void) {
 
   }
 
-  uint8_t frontBrightness = SEGMENT.custom1;
-  for (int i=0; i<16; i++) {
+  uint8_t frontBrightness = SEGMENT.custom2;
+  for (int i=0; i<NUM_BANDS; i++) {
 
-    uint16_t colorIndex = map(cols/16*i, 0, cols-1, 0, 255);
+    uint16_t colorIndex = map(cols/NUM_BANDS*i, 0, cols-1, 0, 255);
     uint32_t ledColor = SEGMENT.color_from_palette(colorIndex, false, PALETTE_SOLID_WRAP, 0);
 
-    int linex = i*(cols/16);
+    int linex = i*(cols/NUM_BANDS);
 
     if (heights[i] > 1) {
 
       if(frontBrightness > 250) {
         // Full bright fronts, fills all front face.
-        for (int x=linex; x<linex+(cols/16);x++) { 
+        for (int x=linex; x<linex+(cols/NUM_BANDS);x++) { 
           SEGMENT.drawLine(x,rows-1,x,rows-heights[i]-1,ledColor); // front fill
         }
       }
       else if(frontBrightness >= 50) {
         // Faded fronts, assumes border added later.
-        for (int x=linex+1; x<linex+(cols/16)-1;x++) { 
+        for (int x=linex+1; x<linex+(cols/NUM_BANDS)-1;x++) { 
           SEGMENT.drawLine(x,rows-2,x,rows-heights[i]-2,color_fade(ledColor,64,true)); // front fill
         }
       }
       else {
         // "Negative Space" - draw pure black fronts
-        for (int x=linex; x<linex+(cols/16);x++) { 
+        for (int x=linex; x<linex+(cols/NUM_BANDS);x++) { 
           SEGMENT.drawLine(x,rows-1,x,rows-heights[i]-1,BLACK); // front fill
         }
       }
@@ -8473,9 +8473,9 @@ uint16_t mode_3DGEQ(void) {
     if(frontBrightness >= 50) { // TODO: other values too? not sure exactly when we want the border
       // Border
       SEGMENT.drawLine(linex,            rows-1,linex,rows-heights[i]-1,ledColor); // left side line
-      SEGMENT.drawLine(linex+(cols/16)-1,rows-1,linex+(cols/16)-1,rows-heights[i]-1,ledColor); // right side line
-      SEGMENT.drawLine(linex,            rows-heights[i]-2,linex+(cols/16)-1,rows-heights[i]-2,ledColor); // top line
-      SEGMENT.drawLine(linex,            rows-1,linex+(cols/16)-1,rows-1,ledColor); // bottom line
+      SEGMENT.drawLine(linex+(cols/NUM_BANDS)-1,rows-1,linex+(cols/NUM_BANDS)-1,rows-heights[i]-1,ledColor); // right side line
+      SEGMENT.drawLine(linex,            rows-heights[i]-2,linex+(cols/NUM_BANDS)-1,rows-heights[i]-2,ledColor); // top line
+      SEGMENT.drawLine(linex,            rows-1,linex+(cols/NUM_BANDS)-1,rows-1,ledColor); // bottom line
     }
 
   }
@@ -8485,7 +8485,7 @@ uint16_t mode_3DGEQ(void) {
   return FRAMETIME;
 
 }
-static const char _data_FX_MODE_3DGEQ[] PROGMEM = "3D GEQ☾@!,,Fill Front,,;;!;2"; // TODO set Audio, 2D and controls etc
+static const char _data_FX_MODE_3DGEQ[] PROGMEM = "3D GEQ☾@!,,Bands,Fill Front,;;!;2"; // TODO set Audio, 2D and controls etc
 
 
 #endif // WLED_DISABLE_2D
