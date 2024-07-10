@@ -8355,6 +8355,129 @@ uint16_t mode_2Dwavingcell() {
 }
 static const char _data_FX_MODE_2DWAVINGCELL[] PROGMEM = "Waving Cell@!,,Amplitude 1,Amplitude 2,Amplitude 3;;!;2";
 
+uint16_t mode_3DGEQ(void) {
+
+  static uint16_t projector;
+  static uint16_t projector_dir = 1;
+
+  // delay(1000);
+
+  if (SEGENV.call == 0) {
+    projector = 0;
+    SEGMENT.setUpLeds(); // WLEDMM use lossless getPixelColor()
+    SEGMENT.fill(BLACK);
+  } else {
+    projector += projector_dir;
+    if (projector == SEGMENT.virtualWidth()) projector_dir = -1;
+    if (projector == 0) projector_dir = 1;
+  }
+
+  uint_fast8_t split = map(projector,0,SEGMENT.virtualWidth(),0,15);
+
+  if (SEGMENT.speed > 250) {
+    SEGMENT.fill(BLACK);
+  } else {
+    SEGMENT.fadeToBlackBy(SEGMENT.speed);
+  }
+
+  const int NUM_BANDS = 16; // map(SEGMENT.custom1, 0, 255, 1, 16);
+  const uint16_t cols = SEGMENT.virtualWidth();
+  const uint16_t rows = SEGMENT.virtualHeight();
+
+  um_data_t *um_data;
+  if (!usermods.getUMData(&um_data, USERMOD_ID_AUDIOREACTIVE)) {
+    // add support for no audio
+    um_data = simulateSound(SEGMENT.soundSim);
+  }
+  uint8_t *fftResult = (uint8_t*)um_data->u_data[2];
+
+  uint8_t heights[16] = { 0 };
+
+  for (int i=0; i<16; i++) {
+    heights[i] = map(fftResult[i],0,255,0,rows-10);
+  }
+
+  for (int i=0; i<=split; i++) { // paint right vertical faces and top
+
+    uint16_t colorIndex = map(cols/16*i, 0, cols-1, 0, 255);
+    uint32_t ledColor = SEGMENT.color_from_palette(colorIndex, false, PALETTE_SOLID_WRAP, 0);
+
+    int linex = i*(cols/16);
+
+    if (heights[i] > 1) {
+
+      for (int y = 0; y <= heights[i]; y++) {
+        SEGMENT.drawLine(linex+(cols/16)-1,rows-y-1,projector,0,color_fade(ledColor,32,true));
+      } 
+
+      for (int x=linex; x<=linex+(cols/16)-1;x++) {
+        SEGMENT.drawLine(x,            rows-heights[i]-2,projector,0,color_fade(ledColor,128,true)); // top perspective
+      }
+
+    }
+
+  }
+
+  for (int i=15; i>split; i--) { // paint left vertical faces and top
+
+    uint16_t colorIndex = map(cols/16*i, 0, cols-1, 0, 255);
+    uint32_t ledColor = SEGMENT.color_from_palette(colorIndex, false, PALETTE_SOLID_WRAP, 0);
+
+    int linex = i*(cols/16);
+
+    if (heights[i] > 1) {
+
+      for (int y = 0; y <= heights[i]; y++) {
+        SEGMENT.drawLine(linex           ,rows-y-1,projector,0,color_fade(ledColor,32,true));
+      } 
+
+      for (int x=linex; x<=linex+(cols/16)-1;x++) {
+        SEGMENT.drawLine(x,            rows-heights[i]-2,projector,0,color_fade(ledColor,128,true)); // top perspective
+      }
+      
+    }
+
+  }
+
+  for (int i=0; i<16; i++) {
+
+    uint16_t colorIndex = map(cols/16*i, 0, cols-1, 0, 255);
+    uint32_t ledColor = SEGMENT.color_from_palette(colorIndex, false, PALETTE_SOLID_WRAP, 0);
+
+    int linex = i*(cols/16);
+
+    if (heights[i] > 1) {
+
+      // Full bright fronts, fills all front face.
+      // for (int x=linex; x<linex+(cols/16);x++) { 
+      //   SEGMENT.drawLine(x,rows-1,x,rows-heights[i]-1,ledColor); // front fill
+      // }
+
+      // Faded fronts, assumes border added later.
+      // for (int x=linex+1; x<linex+(cols/16)-1;x++) { 
+      //   SEGMENT.drawLine(x,rows-2,x,rows-heights[i]-2,color_fade(ledColor,64,true)); // front fill
+      // }
+
+      // "Negative Space" - draw pure black fronts
+      for (int x=linex; x<linex+(cols/16);x++) { 
+        SEGMENT.drawLine(x,rows-1,x,rows-heights[i]-1,BLACK); // front fill
+      }
+
+      // Border
+      // SEGMENT.drawLine(linex,            rows-1,linex,rows-heights[i]-1,ledColor); // left side line
+      // SEGMENT.drawLine(linex+(cols/16)-1,rows-1,linex+(cols/16)-1,rows-heights[i]-1,ledColor); // right side line
+      // SEGMENT.drawLine(linex,            rows-heights[i]-2,linex+(cols/16)-1,rows-heights[i]-2,ledColor); // top line
+      // SEGMENT.drawLine(linex,            rows-1,linex+(cols/16)-1,rows-1,ledColor); // bottom line
+
+    }
+
+  }
+
+  return FRAMETIME;
+
+}
+static const char _data_FX_MODE_3DGEQ[] PROGMEM = "3D GEQ" // TODO set Audio, 2D and controls etc
+
 
 #endif // WLED_DISABLE_2D
 
@@ -8601,6 +8724,9 @@ void WS2812FX::setupEffectData() {
   addEffect(FX_MODE_2DWAVINGCELL, &mode_2Dwavingcell, _data_FX_MODE_2DWAVINGCELL);
 
   addEffect(FX_MODE_2DAKEMI, &mode_2DAkemi, _data_FX_MODE_2DAKEMI); // audio
+
+  addEffect(FX_MODE_3DGEQ, &mode_3DGEQ, _data_FX_MODE_3DGEQ); // audio
+
 #endif // WLED_DISABLE_2D
 
 }
