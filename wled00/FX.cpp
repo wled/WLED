@@ -8357,6 +8357,8 @@ static const char _data_FX_MODE_2DWAVINGCELL[] PROGMEM = "Waving Cell@!,,Amplitu
 
 uint16_t mode_3DGEQ(void) {
 
+  // Author: @TroyHacks
+  
   static uint16_t projector;
   static uint16_t projector_dir = 1;
 
