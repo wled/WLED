@@ -8359,19 +8359,21 @@ uint16_t mode_GEQLASER(void) {
 
   // Author: @TroyHacks
 
-  static uint16_t projector;
-  static uint16_t projector_dir = 1;
+  const size_t dataSize = sizeof(uint16_t);
+  if (!SEGENV.allocateData(dataSize * 2)) return mode_static(); //allocation failed
 
-  // delay(1000);
+  uint16_t *projector = reinterpret_cast<uint16_t*>(SEGENV.data);
+  uint16_t *projector_dir = reinterpret_cast<uint16_t*>(SEGENV.data + dataSize);
 
   if (SEGENV.call == 0) {
-    projector = 0;
+    *projector = 0;
+    *projector_dir = 0;
     SEGMENT.setUpLeds(); // WLEDMM use lossless getPixelColor()
     SEGMENT.fill(BLACK);
   } else {
-    projector += projector_dir;
-    if (projector == SEGMENT.virtualWidth()) projector_dir = -1;
-    if (projector == 0) projector_dir = 1;
+    *projector += *projector_dir;
+    if (*projector == SEGMENT.virtualWidth()) *projector_dir = -1;
+    if (*projector == 0) *projector_dir = 1;
   }
 
   if (SEGMENT.speed > 250) {
@@ -8383,7 +8385,7 @@ uint16_t mode_GEQLASER(void) {
   const int NUM_BANDS = map(SEGMENT.custom1, 0, 255, 1, 16);
   const uint16_t cols = SEGMENT.virtualWidth();
   const uint16_t rows = SEGMENT.virtualHeight();
-  const uint_fast8_t split = map(projector,0,SEGMENT.virtualWidth(),0,(NUM_BANDS - 1));
+  const uint_fast8_t split = map(*projector,0,SEGMENT.virtualWidth(),0,(NUM_BANDS - 1));
 
   um_data_t *um_data;
   if (!usermods.getUMData(&um_data, USERMOD_ID_AUDIOREACTIVE)) {
@@ -8395,7 +8397,7 @@ uint16_t mode_GEQLASER(void) {
   uint8_t heights[NUM_BANDS] = { 0 };
 
   for (int i=0; i<NUM_BANDS; i++) {
-    heights[i] = map(fftResult[i],0,255,0,rows-10); // TODO: avg don't just take lower bands?
+    heights[i] = map(fftResult[i],0,255,0,rows-10);
   }
 
   for (int i=0; i<=split; i++) { // paint right vertical faces and top
@@ -8408,11 +8410,11 @@ uint16_t mode_GEQLASER(void) {
     if (heights[i] > 1) {
 
       for (int y = 0; y <= heights[i]; y++) {
-        SEGMENT.drawLine(linex+(cols/NUM_BANDS)-1,rows-y-1,projector,0,color_fade(ledColor,32,true));
+        SEGMENT.drawLine(linex+(cols/NUM_BANDS)-1,rows-y-1,*projector,0,color_fade(ledColor,32,true));
       } 
 
       for (int x=linex; x<=linex+(cols/NUM_BANDS)-1;x++) {
-        SEGMENT.drawLine(x,            rows-heights[i]-2,projector,0,color_fade(ledColor,128,true)); // top perspective
+        SEGMENT.drawLine(x,            rows-heights[i]-2,*projector,0,color_fade(ledColor,128,true)); // top perspective
       }
 
     }
@@ -8429,11 +8431,11 @@ uint16_t mode_GEQLASER(void) {
     if (heights[i] > 1) {
 
       for (int y = 0; y <= heights[i]; y++) {
-        SEGMENT.drawLine(linex           ,rows-y-1,projector,0,color_fade(ledColor,32,true));
+        SEGMENT.drawLine(linex           ,rows-y-1,*projector,0,color_fade(ledColor,32,true));
       } 
 
       for (int x=linex; x<=linex+(cols/NUM_BANDS)-1;x++) {
-        SEGMENT.drawLine(x,            rows-heights[i]-2,projector,0,color_fade(ledColor,128,true)); // top perspective
+        SEGMENT.drawLine(x,            rows-heights[i]-2,*projector,0,color_fade(ledColor,128,true)); // top perspective
       }
       
     }
