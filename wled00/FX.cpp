@@ -8484,7 +8484,7 @@ uint16_t mode_3DGEQ(void) {
   return FRAMETIME;
 
 }
-static const char _data_FX_MODE_3DGEQ[] PROGMEM = "3D GEQ☾@!,,Bands,Fill Front,;;!;2"; // TODO set Audio, 2D and controls etc
+static const char _data_FX_MODE_3DGEQ[] PROGMEM = "3D GEQ☾@!Fade Speed,,Bands,Fill Front,;;!;2"; // TODO set Audio, 2D and controls etc
 
 
 #endif // WLED_DISABLE_2D
