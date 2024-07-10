@@ -8374,8 +8374,6 @@ uint16_t mode_3DGEQ(void) {
     if (projector == 0) projector_dir = 1;
   }
 
-  uint_fast8_t split = map(projector,0,SEGMENT.virtualWidth(),0,15);
-
   if (SEGMENT.speed > 250) {
     SEGMENT.fill(BLACK);
   } else {
@@ -8385,6 +8383,7 @@ uint16_t mode_3DGEQ(void) {
   const int NUM_BANDS = map(SEGMENT.custom1, 0, 255, 1, 16);
   const uint16_t cols = SEGMENT.virtualWidth();
   const uint16_t rows = SEGMENT.virtualHeight();
+  const uint_fast8_t split = map(projector,0,SEGMENT.virtualWidth(),0,(NUM_BANDS - 1));
 
   um_data_t *um_data;
   if (!usermods.getUMData(&um_data, USERMOD_ID_AUDIOREACTIVE)) {
@@ -8420,7 +8419,7 @@ uint16_t mode_3DGEQ(void) {
 
   }
 
-  for (int i=15; i>split; i--) { // paint left vertical faces and top
+  for (int i=(NUM_BANDS - 1); i>split; i--) { // paint left vertical faces and top
 
     uint16_t colorIndex = map(cols/NUM_BANDS*i, 0, cols-1, 0, 255);
     uint32_t ledColor = SEGMENT.color_from_palette(colorIndex, false, PALETTE_SOLID_WRAP, 0);
