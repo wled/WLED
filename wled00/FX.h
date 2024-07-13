@@ -687,8 +687,8 @@ typedef struct Segment {
     void move(uint8_t dir, uint8_t delta, bool wrap = false);
     void draw_circle(uint16_t cx, uint16_t cy, uint8_t radius, CRGB c);
     void fill_circle(uint16_t cx, uint16_t cy, uint8_t radius, CRGB c);
-    void drawLine(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1, uint32_t c);
-    void drawLine(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1, CRGB c) { drawLine(x0, y0, x1, y1, RGBW32(c.r,c.g,c.b,0)); } // automatic inline
+    void drawLine(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1, uint32_t c, uint16_t d = UINT16_MAX);
+    void drawLine(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1, CRGB c, uint16_t d = UINT16_MAX) { drawLine(x0, y0, x1, y1, RGBW32(c.r,c.g,c.b,0), d); } // automatic inline
     void drawArc(uint16_t x0, uint16_t y0, uint16_t radius, uint32_t color, uint32_t fillColor = 0);
     void drawArc(uint16_t x0, uint16_t y0, uint16_t radius, CRGB color, CRGB fillColor = BLACK) { drawArc(x0, y0, radius, RGBW32(color.r,color.g,color.b,0), RGBW32(fillColor.r,fillColor.g,fillColor.b,0)); } // automatic inline
     void drawCharacter(unsigned char chr, int16_t x, int16_t y, uint8_t w, uint8_t h, uint32_t color, uint32_t col2 = 0);

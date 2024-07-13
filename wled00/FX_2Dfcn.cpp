@@ -582,7 +582,7 @@ void Segment::nscale8(uint8_t scale) {  //WLEDMM: use fast types
 }
 
 //line function
-void Segment::drawLine(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1, uint32_t c) {
+void Segment::drawLine(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1, uint32_t c, uint16_t distance) {
   if (!isActive()) return; // not active
   const uint16_t cols = virtualWidth();
   const uint16_t rows = virtualHeight();
@@ -590,7 +590,7 @@ void Segment::drawLine(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1, uint3
   const int16_t dx = abs(x1-x0), sx = x0<x1 ? 1 : -1;
   const int16_t dy = abs(y1-y0), sy = y0<y1 ? 1 : -1;
   int16_t err = (dx>dy ? dx : -dy)/2, e2;
-  for (;;) {
+  for (uint_fast16_t d=0; d<distance; d++) {
     setPixelColorXY(x0,y0,c);
     if (x0==x1 && y0==y1) break;
     e2 = err;
