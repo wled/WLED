@@ -8413,7 +8413,7 @@ uint16_t mode_GEQLASER(void) {
       ledColorTemp = color_fade(ledColor,32,true);
 
       for (int y = 0; y <= heights[i]; y++) {
-        SEGMENT.drawLine(linex+(cols/NUM_BANDS)-1,rows-y-1,*projector,horizon,ledColorTemp,distance); // right side perspective
+        SEGMENT.drawLine(linex+(cols/NUM_BANDS)-1,rows-y-1,*projector,horizon,ledColorTemp,true,distance); // right side perspective
       } 
 
       ledColorTemp = color_fade(ledColor,128,true);
@@ -8421,7 +8421,7 @@ uint16_t mode_GEQLASER(void) {
       if (heights[i] < rows-horizon && (*projector <=linex || *projector >= linex+(cols/NUM_BANDS)-1)) { // draw if above horizon AND not directly under projector (special case later)
 
         for (uint_fast8_t x=linex; x<=linex+(cols/NUM_BANDS)-1;x++) { 
-          SEGMENT.drawLine(x,rows-heights[i]-2,*projector,horizon,ledColorTemp,distance); // top perspective
+          SEGMENT.drawLine(x,rows-heights[i]-2,*projector,horizon,ledColorTemp,true,distance); // top perspective
         }
 
       }
@@ -8442,7 +8442,7 @@ uint16_t mode_GEQLASER(void) {
       ledColorTemp = color_fade(ledColor,32,true);
 
       for (uint_fast8_t y = 0; y <= heights[i]; y++) {
-        SEGMENT.drawLine(linex,rows-y-1,*projector,horizon,ledColorTemp,distance); // left side perspective
+        SEGMENT.drawLine(linex,rows-y-1,*projector,horizon,ledColorTemp,true,distance); // left side perspective
       }
       
       ledColorTemp = color_fade(ledColor,128,true);
@@ -8450,7 +8450,7 @@ uint16_t mode_GEQLASER(void) {
       if (heights[i] < rows-horizon && (*projector <=linex || *projector >= linex+(cols/NUM_BANDS)-1)) { // draw if above horizon AND not directly under projector (special case later)
 
         for (uint_fast8_t x=linex; x<=linex+(cols/NUM_BANDS)-1;x++) {
-          SEGMENT.drawLine(x,rows-heights[i]-2,*projector,horizon,ledColorTemp,distance); // top perspective
+          SEGMENT.drawLine(x,rows-heights[i]-2,*projector,horizon,ledColorTemp,true,distance); // top perspective
         }
 
       }
@@ -8473,7 +8473,7 @@ uint16_t mode_GEQLASER(void) {
         ledColorTemp = color_fade(ledColor,128,true);
 
         for (uint_fast8_t x=linex; x<=linex+(cols/NUM_BANDS)-1;x++) {
-          SEGMENT.drawLine(x,rows-heights[i]-2,*projector,horizon,ledColorTemp,distance); // top perspective
+          SEGMENT.drawLine(x,rows-heights[i]-2,*projector,horizon,ledColorTemp,true,distance); // top perspective
         }
 
       }
