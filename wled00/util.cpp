@@ -267,8 +267,8 @@ uint8_t extractModeName(uint8_t mode, const char *src, char *dest, uint8_t maxLe
     } else return 0;
   }
 
-  if (src == JSON_palette_names && mode > GRADIENT_PALETTE_COUNT) {
-    snprintf_P(dest, maxLen, PSTR("~ Custom %d~"), 255-mode);
+  if (src == JSON_palette_names && mode > (GRADIENT_PALETTE_COUNT + 13)) {
+    snprintf_P(dest, maxLen, PSTR("~ Custom %d ~"), 255-mode);
     dest[maxLen-1] = '\0';
     return strlen(dest);
   }

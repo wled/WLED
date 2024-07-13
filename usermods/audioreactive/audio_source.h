@@ -736,6 +736,109 @@ class WM8978Source : public I2SSource {
 
 };
 
+class AC101Source : public I2SSource {
+  private:
+    // I2C initialization functions for WM8978
+    void _ac101I2cBegin() {
+      Wire.setClock(400000);
+    }
+
+    void _ac101I2cWrite(uint8_t reg_addr, uint16_t val) {
+      #ifndef AC101_ADDR
+        #define AC101_ADDR 0x1A
+      #endif
+      char send_buff[3];
+      send_buff[0] = reg_addr;
+      send_buff[1] = uint8_t((val >> 8) & 0xff);
+      send_buff[2] = uint8_t(val & 0xff);
+      Wire.beginTransmission(AC101_ADDR);
+      Wire.write((const uint8_t*)send_buff, 3);
+      uint8_t i2cErr = Wire.endTransmission();  // i2cErr == 0 means OK
+      if (i2cErr != 0) {
+        DEBUGSR_PRINTF("AR: AC101 I2C write failed with error=%d  (addr=0x%X, reg 0x%X, val 0x%X).\n", i2cErr, AC101_ADDR, reg_addr, val);
+      }
+    }
+
+    void _ac101InitAdc() {
+      // https://files.seeedstudio.com/wiki/ReSpeaker_6-Mics_Circular_Array_kit_for_Raspberry_Pi/reg/AC101_User_Manual_v1.1.pdf
+      // This supports mostly the older AI Thinkier AudioKit A1S that has an AC101 chip
+      // Newer versions use the ES3833 chip - which we also support.
+
+      _ac101I2cBegin();
+
+      #define CHIP_AUDIO_RS     0x00
+      #define SYSCLK_CTRL       0x03
+      #define MOD_CLK_ENA       0x04
+      #define MOD_RST_CTRL      0x05
+      #define I2S_SR_CTRL       0x06
+      #define I2S1LCK_CTRL      0x10
+      #define I2S1_SDOUT_CTRL   0x11
+      #define I2S1_MXR_SRC      0x13
+      #define ADC_DIG_CTRL      0x40
+      #define ADC_APC_CTRL      0x50
+      #define ADC_SRC           0x51
+      #define ADC_SRCBST_CTRL   0x52
+      #define OMIXER_DACA_CTRL  0x53
+      #define OMIXER_SR         0x54
+      #define HPOUT_CTRL        0x56
+
+      _ac101I2cWrite(CHIP_AUDIO_RS, 0x123); // I think anything written here is a reset as 0x123 is kinda suss.
+
+      delay(100);
+
+      _ac101I2cWrite(SYSCLK_CTRL,       0b0000100000001000); // System Clock is I2S MCLK
+      _ac101I2cWrite(MOD_CLK_ENA,       0b1000000000001000); // I2S and ADC Clock Enable
+      _ac101I2cWrite(MOD_RST_CTRL,      0b1000000000001000); // I2S and ADC Clock Enable
+      _ac101I2cWrite(I2S_SR_CTRL,       0b0100000000000000); // set to 22050hz just in case
+      _ac101I2cWrite(I2S1LCK_CTRL,      0b1000000000110000); // set I2S slave mode, 24-bit word size
+      _ac101I2cWrite(I2S1_SDOUT_CTRL,   0b1100000000000000); // I2S enable Left/Right channels
+      _ac101I2cWrite(I2S1_MXR_SRC,      0b0010001000000000); // I2S digital Mixer, ADC L/R data
+      _ac101I2cWrite(ADC_SRCBST_CTRL,   0b0000000000000100); // mute all boosts. last 3 bits are reserved/default
+      _ac101I2cWrite(OMIXER_SR,         0b0000010000001000); // Line L/R to output mixer
+      _ac101I2cWrite(ADC_SRC,           0b0000010000001000); // Line L/R to ADC
+      _ac101I2cWrite(ADC_DIG_CTRL,      0b1000000000000000); // Enable ADC
+      _ac101I2cWrite(ADC_APC_CTRL,      0b1011100100000000); // ADC L/R enabled, 0dB gain
+      _ac101I2cWrite(OMIXER_DACA_CTRL,  0b0011111110000000); // L/R Analog Output Mixer enabled, headphone DC offset default
+      _ac101I2cWrite(HPOUT_CTRL,        0b1111101111110001); // Headphone out from Analog Mixer stage, no reduction in volume
+
+    }
+
+  public:
+    AC101Source(SRate_t sampleRate, int blockSize, float sampleScale = 1.0f, bool i2sMaster=true) :
+      I2SSource(sampleRate, blockSize, sampleScale, i2sMaster) {
+      _config.channel_format = I2S_CHANNEL_FMT_ONLY_LEFT;
+    };
+
+    void initialize(int8_t i2swsPin, int8_t i2ssdPin, int8_t i2sckPin, int8_t mclkPin) {
+      DEBUGSR_PRINTLN("AC101Source:: initialize();");
+
+      // if ((i2sckPin < 0) || (mclkPin < 0)) { // WLEDMM not sure if this check is needed here, too
+      //    ERRORSR_PRINTF("\nAR: invalid I2S WM8978 pin: SCK=%d, MCLK=%d\n", i2sckPin, mclkPin); 
+      //    return;
+      // }
+      // BUG: "use global I2C pins" are valid as -1, and -1 is seen as invalid here.
+      // Workaround: Set I2C pins here, which will also set them globally.
+      // Bug also exists in ES7243.
+       if ((i2c_sda < 0) || (i2c_scl < 0)) {  // check that global I2C pins are not "undefined"
+        ERRORSR_PRINTF("\nAR: invalid AC101 global I2C pins: SDA=%d, SCL=%d\n", i2c_sda, i2c_scl); 
+        return;
+      }
+      if (!pinManager.joinWire(i2c_sda, i2c_scl)) {    // WLEDMM specific: start I2C with globally defined pins
+        ERRORSR_PRINTF("\nAR: failed to join I2C bus with SDA=%d, SCL=%d\n", i2c_sda, i2c_scl); 
+        return;
+      }
+
+      // First route mclk, then configure ADC over I2C, then configure I2S
+      _ac101InitAdc();
+      I2SSource::initialize(i2swsPin, i2ssdPin, i2sckPin, mclkPin);
+    }
+
+    void deinitialize() {
+      I2SSource::deinitialize();
+    }
+
+};
+
 #if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(4, 2, 0)
 #if !defined(SOC_I2S_SUPPORTS_ADC) && !defined(SOC_I2S_SUPPORTS_ADC_DAC)
   #warning this MCU does not support analog sound input

@@ -247,6 +247,7 @@ function onLoad()
 
 	selectSlot(0);
 	updateTablinks(0);
+	handleLocationHash();
 	pmtLS = localStorage.getItem('wledPmt');
 
 	// Load initial data
@@ -279,7 +280,6 @@ function updateTablinks(tabI)
 {
 	var tablinks = gEBCN("tablinks");
 	for (var i of tablinks) i.classList.remove('active');
-	if (pcMode) return;
 	tablinks[tabI].classList.add('active');
 }
 
@@ -290,6 +290,21 @@ function openTab(tabI, force = false)
 	_C.classList.toggle('smooth', false);
 	_C.style.setProperty('--i', iSlide);
 	updateTablinks(tabI);
+	switch (tabI) {
+		case 0: window.location.hash = "Colors"; break;
+		case 1: window.location.hash = "Effects"; break;
+		case 2: window.location.hash = "Segments"; break;
+		case 3: window.location.hash = "Presets"; break;
+	}
+}
+
+function handleLocationHash() {
+	switch (window.location.hash) {
+		case "#Colors": openTab(0); break;
+		case "#Effects": openTab(1); break;
+		case "#Segments": openTab(2); break;
+		case "#Presets": openTab(3); break;
+	}
 }
 
 var timeout;
@@ -3615,12 +3630,11 @@ function togglePcMode(fromB = false)
 	if (fromB) {
 		pcModeA = !pcModeA;
 		localStorage.setItem('pcm', pcModeA);
+		openTab(0, true);
 	}
 	pcMode = (wW >= 1024) && pcModeA;
 	if (cpick) cpick.resize(pcMode && wW>1023 && wW<1250 ? 230 : 260); // for tablet in landscape
 	if (!fromB && ((wW < 1024 && lastw < 1024) || (wW >= 1024 && lastw >= 1024))) return; // no change in size and called from size()
-	openTab(0, true);
-	updateTablinks(0);
 	gId('buttonPcm').className = (pcMode) ? "active":"";
 	gId('bot').style.height = (pcMode && !cfg.comp.pcmbot) ? "0":"auto";
 	sCol('--bh', gId('bot').clientHeight + "px");
@@ -3652,6 +3666,7 @@ size();
 _C.style.setProperty('--n', N);
 
 window.addEventListener('resize', size, true);
+window.addEventListener('hashchange', handleLocationHash);
 
 _C.addEventListener('mousedown', lock, false);
 _C.addEventListener('touchstart', lock, false);

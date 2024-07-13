@@ -340,8 +340,8 @@ bool deserializeSegment(JsonObject elem, byte it, byte presetId)
       seg.fill(BLACK);  // WLEDMM why now?
     }
 
-    uint16_t start = 0, stop = 0;
-    byte set = 0; //0 nothing set, 1 start set, 2 range set
+    start = 0, stop = 0;
+    set = 0; //0 nothing set, 1 start set, 2 range set
 
     for (size_t i = 0; i < iarr.size(); i++) {
       if(iarr[i].is<JsonInteger>()) {
@@ -1554,10 +1554,20 @@ bool serveLiveLeds(AsyncWebServerRequest* request, uint32_t wsClient)
 
   uint16_t used = strip.getLengthTotal();
   uint16_t n = (used -1) /MAX_LIVE_LEDS +1; //only serve every n'th LED if count over MAX_LIVE_LEDS
-  char buffer[2000];
-  strcpy_P(buffer, PSTR("{\"leds\":["));
-  obuf = buffer;
-  olen = 9;
+#ifndef WLED_DISABLE_2D
+  if (strip.isMatrix) {
+    // ignore anything behid matrix (i.e. extra strip)
+    used = Segment::maxWidth*Segment::maxHeight; // always the size of matrix (more or less than strip.getLengthTotal())
+    n = 1;
+    if (used > MAX_LIVE_LEDS) n = 2;
+    if (used > MAX_LIVE_LEDS*4) n = 4;
+  }
+#endif
+
+  DynamicBuffer buffer(9 + (9*MAX_LIVE_LEDS) + 7 + 5 + 6 + 5 + 6 + 5 + 2);  
+  char* buf = buffer.data();      // assign buffer for oappnd() functions
+  strncpy_P(buffer.data(), PSTR("{\"leds\":["), buffer.size());
+  buf += 9; // sizeof(PSTR()) from last line
 
   for (size_t i= 0; i < used; i += n)
   {
@@ -1575,20 +1585,21 @@ bool serveLiveLeds(AsyncWebServerRequest* request, uint32_t wsClient)
       g = qadd8(w, G(c));
       b = qadd8(w, B(c));
     }
-    olen += sprintf(obuf + olen, "\"%06X\",", RGBW32(r,g,b,0));
+    buf += sprintf_P(buf, PSTR("\"%06X\","), RGBW32(r,g,b,0));
   }
-  olen -= 1;
-  oappend((const char*)F("],\"n\":"));
-  oappendi(n);
-  oappend("}");
+  buf--;  // remove last comma
+  buf += sprintf_P(buf, PSTR("],\"n\":%d"), n);
+  (*buf++) = '}';
+  (*buf++) = 0;
+  
   if (request) {
-    request->send(200, "application/json", buffer);
+    request->send(200, "application/json", toString(std::move(buffer)));
   }
   #ifdef WLED_ENABLE_WEBSOCKETS
   else {
-    wsc->text(obuf, olen);
+    wsc->text(toString(std::move(buffer)));
   }
-  #endif
+  #endif  
   return true;
 }
 #endif

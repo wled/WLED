@@ -514,6 +514,10 @@ BusHub75Matrix::BusHub75Matrix(BusConfig &bc) : Bus(bc.type, bc.start, bc.autoWh
       break;
     case 106:
       mxconfig.mx_width = 64 * 2;
+      mxconfig.mx_height = 32 / 2;
+      break;
+    case 107:
+      mxconfig.mx_width = 64 * 2;
       mxconfig.mx_height = 64 / 2;
       break;
   }

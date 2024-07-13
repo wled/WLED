@@ -2551,7 +2551,7 @@ uint16_t ripple_base()
         uint16_t cx = rippleorigin >> 8;
         uint16_t cy = rippleorigin & 0xFF;
         uint8_t mag = scale8(sin8((propF>>2)), amp);
-        if (propI > 0) SEGMENT.draw_circle(cx, cy, propI, color_blend(SEGMENT.getPixelColorXY(cx + propI, cy), col, mag));
+        if (propI > 0) SEGMENT.drawCircle(cx, cy, propI, color_blend(SEGMENT.getPixelColorXY(cx + propI, cy), col, mag), true);
       } else
       #endif
       {
@@ -6271,8 +6271,8 @@ uint16_t mode_2Dfloatingblobs(void) {
       }
     }
     uint32_t c = SEGMENT.color_from_palette(blob->color[i], false, false, 0);
-    if (blob->r[i] > 1.f) SEGMENT.fill_circle(blob->x[i], blob->y[i], roundf(blob->r[i]), c);
-    else                  SEGMENT.setPixelColorXY(blob->x[i], blob->y[i], c);
+    if (blob->r[i] > 1.f) SEGMENT.fillCircle(roundf(blob->x[i]), roundf(blob->y[i]), roundf(blob->r[i]), c);
+    else                  SEGMENT.setPixelColorXY((int)roundf(blob->x[i]), (int)roundf(blob->y[i]), c);
     // move x
     if (blob->x[i] + blob->r[i] >= cols - 1) blob->x[i] += (blob->sX[i] * ((cols - 1 - blob->x[i]) / blob->r[i] + 0.005f));
     else if (blob->x[i] - blob->r[i] <= 0)   blob->x[i] += (blob->sX[i] * (blob->x[i] / blob->r[i] + 0.005f));

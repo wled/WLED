@@ -2012,6 +2012,19 @@ class AudioReactive : public Usermod {
 
           if (audioSource) audioSource->initialize(i2swsPin, i2ssdPin, i2sckPin, mclkPin);
           break;
+        case 8:
+          DEBUGSR_PRINTLN(F("AR: AC101 Source (Line-In)"));
+          audioSource = new AC101Source(SAMPLE_RATE, BLOCK_SIZE, 1.0f);
+          //useInputFilter = 0; // to disable low-cut software filtering and restore previous behaviour
+          delay(100);
+          // WLEDMM align global pins
+          if ((sdaPin >= 0) && (i2c_sda < 0)) i2c_sda = sdaPin; // copy usermod prefs into globals (if globals not defined)
+          if ((sclPin >= 0) && (i2c_scl < 0)) i2c_scl = sclPin;
+          if (i2c_sda >= 0) sdaPin = -1;                        // -1 = use global
+          if (i2c_scl >= 0) sclPin = -1;
+
+          if (audioSource) audioSource->initialize(i2swsPin, i2ssdPin, i2sckPin, mclkPin);
+          break;
 
         #if  !defined(CONFIG_IDF_TARGET_ESP32S2) && !defined(CONFIG_IDF_TARGET_ESP32C3) && !defined(CONFIG_IDF_TARGET_ESP32S3)
         // ADC over I2S is only possible on "classic" ESP32
@@ -2910,6 +2923,11 @@ class AudioReactive : public Usermod {
         oappend(SET_F("addOption(dd,'WM8978 ☾ (⎌)',7);"));
       #else
         oappend(SET_F("addOption(dd,'WM8978 ☾',7);"));
+      #endif
+      #if SR_DMTYPE==8
+        oappend(SET_F("addOption(dd,'AC101 ☾ (⎌)',8);"));
+      #else
+        oappend(SET_F("addOption(dd,'AC101 ☾',8);"));
       #endif
       #ifdef SR_SQUELCH
         oappend(SET_F("addInfo(ux+':config:squelch',1,'<i>&#9100; ")); oappendi(SR_SQUELCH); oappend("</i>');");  // 0 is field type, 1 is actual field

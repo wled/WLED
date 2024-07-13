@@ -626,7 +626,7 @@ void MultiRelay::addToJsonInfo(JsonObject &root) {
     for (int i=0; i<MULTI_RELAY_MAX_RELAYS; i++) {
       if ((_relay[i].pin<0 && !usePcf8574) || !_relay[i].external) continue;
       uiDomString = F("Relay "); uiDomString += i;
-      JsonArray infoArr = user.createNestedArray(uiDomString); // timer value
+      infoArr = user.createNestedArray(uiDomString); // timer value
 
       uiDomString = F("<button class=\"btn btn-xs\" onclick=\"requestJson({");
       uiDomString += FPSTR(_name);
