@@ -260,7 +260,7 @@ void IRAM_ATTR Segment::setPixelColorXY_fast(int x, int y, uint32_t col, uint32_
   // set the requested pixel
   strip.setPixelColorXY_fast(start + x, startY + y, scaled_col);
   bool simpleSegment = !mirror && !mirror_y;
-  //if (simpleSegment) return;   // WLEDMM shortcut when no mirroring needed
+  if (simpleSegment) return;   // WLEDMM shortcut when no mirroring needed
 
   // handle mirroring
   const int_fast16_t wid_ = stop - start;
@@ -683,15 +683,6 @@ void Segment::drawLine(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1, uint3
   const int rows = virtualHeight();
   if (x0 >= cols || x1 >= cols || y0 >= rows || y1 >= rows) return;
 
-  const int dx = abs(x1-x0), sx = x0<x1 ? 1 : -1; // x distance & step
-  const int dy = abs(y1-y0), sy = y0<y1 ? 1 : -1; // y distance & step
-
-  // single pixel (line length == 0)
-  if (dx+dy == 0) {
-    setPixelColorXY(x0, y0, c);
-    return;
-  }
-
   // WLEDMM shortcut when no grouping/spacing used
   bool simpleSegment = !reverse && (grouping == 1) && (spacing == 0);  // !reverse is just for back-to-back testing against "slow" functions
   uint32_t scaled_col = c;
@@ -700,6 +691,16 @@ void Segment::drawLine(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1, uint3
       uint8_t _bri_t = currentBri(on ? opacity : 0);
       if (!_bri_t && !transitional) return;
       if (_bri_t < 255) scaled_col = color_fade(c, _bri_t);
+  }
+
+  const int dx = abs(x1-x0), sx = x0<x1 ? 1 : -1; // x distance & step
+  const int dy = abs(y1-y0), sy = y0<y1 ? 1 : -1; // y distance & step
+
+  // single pixel (line length == 0)
+  if (dx+dy == 0) {
+    if (simpleSegment) setPixelColorXY_fast(x0, y0, c, scaled_col, cols, rows);
+    else setPixelColorXY(x0, y0, c);
+    return;
   }
 
   if (soft) {
