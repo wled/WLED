@@ -176,6 +176,15 @@ void WS2812FX::setUpMatrix() {
 #endif
 }
 
+// absolute matrix version of setPixelColor(), without error checking
+void IRAM_ATTR WS2812FX::setPixelColorXY_fast(int x, int y, uint32_t col) //WLEDMM: IRAM_ATTR conditionally
+{
+  uint_fast16_t index = y * Segment::maxWidth + x;
+  if (index < customMappingSize) index = customMappingTable[index];
+  if (index >= _length) return;
+  busses.setPixelColor(index, col);
+}
+
 // absolute matrix version of setPixelColor()
 void IRAM_ATTR_YN WS2812FX::setPixelColorXY(int x, int y, uint32_t col) //WLEDMM: IRAM_ATTR conditionally
 {
@@ -211,6 +220,67 @@ uint32_t WS2812FX::getPixelColorXY(uint16_t x, uint16_t y) {
 // XY(x,y) - gets pixel index within current segment (often used to reference leds[] array element)
 // WLEDMM Segment::XY()is declared inline, see FX.h
 
+
+// Simplified version of Segment::setPixelColorXY - without error checking. Does not support grouping or spacing
+// * expects scaled color (final brightness) as additional input parameter, plus segment  virtualWidth() and virtualHeight()
+void IRAM_ATTR Segment::setPixelColorXY_fast(int x, int y, uint32_t col, uint32_t scaled_col, int cols, int rows) //WLEDMM
+{
+  // if (Segment::maxHeight==1) return; // not a matrix set-up
+  // const int_fast16_t cols = virtualWidth();  // WLEDMM optimization
+  // const int_fast16_t rows = virtualHeight();
+  // if (x<0 || y<0 || x >= cols || y >= rows) return;  // if pixel would fall out of virtual segment just exit
+  unsigned i = UINT_MAX;
+  bool sameColor = false;
+  if (ledsrgb) { // WLEDMM small optimization
+    //i = XY(x,y);
+    //i = (x%cols) + (y%rows) * cols; // avoid error checking done in XY()
+    i = x + y*cols; // avoid error checking done by XY() - be optimistic about ranges of x and y
+    CRGB fastled_col = CRGB(col);
+    if (ledsrgb[i] == fastled_col) sameColor = true;
+    else ledsrgb[i] = fastled_col;
+  }
+#if 0
+  // we are NOT doing brightness here - must be done by the calling function!
+  //uint32_t scaled_col = col;
+  uint8_t _bri_t = currentBri(on ? opacity : 0);
+  if (!_bri_t && !transitional) return;
+  if (_bri_t < 255) scaled_col = color_fade(col, _bri_t);
+  else scaled_col  = col;
+#endif
+
+#if 0 // this is still a dangerous optimization
+  if ((i < UINT_MAX) && sameColor && (call > 0) && (!transitional) && (ledsrgb[i] == CRGB(col)) && (_globalLeds == nullptr)) return; // WLEDMM looks like nothing to do (but we don't trust globalleds)
+#endif
+
+  // handle reverse and transpose
+  if (reverse  ) x = cols  - x - 1;
+  if (reverse_y) y = rows - y - 1;
+  if (transpose) std::swap(x,y); // swap X & Y if segment transposed
+
+  // set the requested pixel
+  strip.setPixelColorXY_fast(start + x, startY + y, scaled_col);
+  bool simpleSegment = !mirror && !mirror_y;
+  //if (simpleSegment) return;   // WLEDMM shortcut when no mirroring needed
+
+  // handle mirroring
+  const int_fast16_t wid_ = stop - start;
+  const int_fast16_t hei_ = stopY - startY;
+  //if (x >= wid_ || y >= hei_) return;  // if pixel would fall out of segment just exit - should never happen, because  width() >= virtualWidth()
+  if (mirror) { //set the corresponding horizontally mirrored pixel
+    if (transpose) strip.setPixelColorXY_fast(start + x, startY + hei_ - y - 1, scaled_col);
+    else           strip.setPixelColorXY_fast(start + wid_ - x - 1, startY + y, scaled_col);
+  }
+  if (mirror_y) { //set the corresponding vertically mirrored pixel
+    if (transpose) strip.setPixelColorXY_fast(start + wid_ - x - 1, startY + y, scaled_col);
+    else           strip.setPixelColorXY_fast(start + x, startY + hei_ - y - 1, scaled_col);
+  }
+  if (mirror_y && mirror) { //set the corresponding vertically AND horizontally mirrored pixel
+    strip.setPixelColorXY_fast(wid_ - x - 1, hei_ - y - 1, scaled_col);
+  }
+}
+
+
+// normal Segment::setPixelColorXY with error checking, and support for grouping / spacing
 void IRAM_ATTR_YN Segment::setPixelColorXY(int x, int y, uint32_t col) //WLEDMM: IRAM_ATTR conditionally
 {
   if (Segment::maxHeight==1) return; // not a matrix set-up
@@ -608,6 +678,7 @@ void Segment::nscale8(uint8_t scale) {  //WLEDMM: use fast types
 //line function
 void Segment::drawLine(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1, uint32_t c, bool soft, uint16_t distance) {
   if (!isActive()) return; // not active
+  // if (Segment::maxHeight==1) return; // not a matrix set-up
   const int cols = virtualWidth();
   const int rows = virtualHeight();
   if (x0 >= cols || x1 >= cols || y0 >= rows || y1 >= rows) return;
@@ -619,6 +690,16 @@ void Segment::drawLine(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1, uint3
   if (dx+dy == 0) {
     setPixelColorXY(x0, y0, c);
     return;
+  }
+
+  // WLEDMM shortcut when no grouping/spacing used
+  bool simpleSegment = !reverse && (grouping == 1) && (spacing == 0);  // !reverse is just for back-to-back testing against "slow" functions
+  uint32_t scaled_col = c;
+  if (simpleSegment) {
+      // segment brightness must be pre-calculated for the "fast" setPixelColorXY variant!
+      uint8_t _bri_t = currentBri(on ? opacity : 0);
+      if (!_bri_t && !transitional) return;
+      if (_bri_t < 255) scaled_col = color_fade(c, _bri_t);
   }
 
   if (soft) {
@@ -651,7 +732,9 @@ void Segment::drawLine(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1, uint3
     // Bresenham's algorithm
     int err = (dx>dy ? dx : -dy)/2;   // error direction
     for (uint_fast16_t d=0; d<distance; d++) {
-      setPixelColorXY(x0, y0, c);
+      // if (x0 >= cols || y0 >= rows) break; // WLEDMM we hit the edge - should never happen
+      if (simpleSegment) setPixelColorXY_fast(x0, y0, c, scaled_col, cols, rows);
+      else setPixelColorXY(x0, y0, c);
       if (x0==x1 && y0==y1) break;
       int e2 = err;
       if (e2 >-dx) { err -= dy; x0 += sx; }

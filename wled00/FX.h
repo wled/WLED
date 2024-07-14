@@ -666,6 +666,9 @@ typedef struct Segment {
       if (height == 0) return (x%width);  // softhack007 avoid div/0
       return (x%width) + (y%height) * width;
     }
+
+    //void setPixelColorXY_fast(int x, int y,uint32_t c); // set relative pixel within segment with color - wrapper for _fast
+    void setPixelColorXY_fast(int x, int y,uint32_t c, uint32_t scaled_col, int cols, int rows); // set relative pixel within segment with color - faster, but no error checking!!!
     void setPixelColorXY(int x, int y, uint32_t c); // set relative pixel within segment with color
     inline void setPixelColorXY(unsigned x, unsigned y, uint32_t c)               { setPixelColorXY(int(x), int(y), c); }
     inline void setPixelColorXY(int x, int y, byte r, byte g, byte b, byte w = 0) { setPixelColorXY(x, y, RGBW32(r,g,b,w)); }
@@ -981,6 +984,7 @@ class WS2812FX {  // 96 bytes
 
     void
       setUpMatrix(),
+      setPixelColorXY_fast(int x, int y, uint32_t c),
       setPixelColorXY(int x, int y, uint32_t c);
 
     // outsmart the compiler :) by correctly overloading
