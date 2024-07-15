@@ -1004,6 +1004,16 @@ void IRAM_ATTR_YN Segment::setPixelColor(int i, uint32_t col) //WLEDMM: IRAM_ATT
         }
         break;
       case M12_sPinwheel: {
+        // WLEDMM shortcut when no grouping/spacing used
+        bool simpleSegment = !reverse && (grouping == 1) && (spacing == 0);  // !reverse is just for back-to-back testing against "slow" functions
+        uint32_t scaled_col = col;
+        if (simpleSegment) {
+          // segment brightness must be pre-calculated for the "fast" setPixelColorXY variant!
+          uint8_t _bri_t = currentBri(on ? opacity : 0);
+          if (!_bri_t && !transitional) return;
+          if (_bri_t < 255) scaled_col = color_fade(col, _bri_t);
+        }
+
         // i = angle --> 0 - 296  (Big), 0 - 192  (Medium), 0 - 72 (Small)
         float centerX = roundf((vW-1) / 2.0f);
         float centerY = roundf((vH-1) / 2.0f);
@@ -1040,7 +1050,10 @@ void IRAM_ATTR_YN Segment::setPixelColor(int i, uint32_t col) //WLEDMM: IRAM_ATT
           int x = posx / Fixed_Scale;
           int y = posy / Fixed_Scale;
           // set pixel
-          if (x != lastX || y != lastY) setPixelColorXY(x, y, col);  // only paint if pixel position is different
+          if (x != lastX || y != lastY) { // only paint if pixel position is different
+            if (simpleSegment) setPixelColorXY_fast(x, y, col, scaled_col, vW, vH);
+            else setPixelColorXY(x, y, col);  
+          }
           lastX = x;
           lastY = y;
           // advance to next position
