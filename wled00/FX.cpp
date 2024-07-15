@@ -7889,7 +7889,7 @@ uint16_t mode_2DGEQ(void) { // By Will Tatam. Code reduction by Ewoud Wijma.
     remaining--; //consume remaining
 
     // Serial.printf("x %d b %d n %d w %f %f\n", x, band, NUM_BANDS, bandwidth, remaining);
-    uint8_t frBand = ((NUM_BANDS < 16) && (NUM_BANDS > 1)) ? map2(band, 0, NUM_BANDS - 1, 0, 15):band; // always use full range. comment out this line to get the previous behaviour.
+    uint8_t frBand = ((NUM_BANDS < 16) && (NUM_BANDS > 1)) ? map(band, 0, NUM_BANDS - 1, 0, 15):band; // always use full range. comment out this line to get the previous behaviour.
     // frBand = constrain(frBand, 0, 15); //WLEDMM can never be out of bounds (I think...)
     uint16_t colorIndex = frBand * 17; //WLEDMM 0.255
     uint16_t bandHeight = fftResult[frBand];  // WLEDMM we use the original ffResult, to preserve accuracy
@@ -7899,7 +7899,7 @@ uint16_t mode_2DGEQ(void) { // By Will Tatam. Code reduction by Ewoud Wijma.
       // get height of next (right side) bar
       uint8_t nextband = (remaining < 1)? band +1: band;
       nextband = constrain(nextband, 0, 15);  // just to be sure
-      frBand = ((NUM_BANDS < 16) && (NUM_BANDS > 1)) ? map2(nextband, 0, NUM_BANDS - 1, 0, 15):nextband; // always use full range. comment out this line to get the previous behaviour.
+      frBand = ((NUM_BANDS < 16) && (NUM_BANDS > 1)) ? map(nextband, 0, NUM_BANDS - 1, 0, 15):nextband; // always use full range. comment out this line to get the previous behaviour.
       uint16_t nextBandHeight = fftResult[frBand];
       // smooth Band height
       bandHeight = (7*bandHeight + 3*lastBandHeight + 3*nextBandHeight) / 12;   // yeees, its 12 not 13 (10% amplification)
@@ -8088,7 +8088,7 @@ uint16_t mode_2DAkemi(void) {
     for (int x=0; x < cols/8; x++) {
       uint16_t band = x * cols/8;
       band = constrain(band, 0, 15);
-      uint16_t barHeight = map2(fftResult[band], 0, 255, 0, 17*rows/32);
+      uint16_t barHeight = map(fftResult[band], 0, 255, 0, 17*rows/32);
       CRGB color = SEGMENT.color_from_palette((band * 35), false, PALETTE_SOLID_WRAP, 0);
 
       for (int y=0; y < barHeight; y++) {
