@@ -8408,8 +8408,8 @@ uint16_t mode_GEQLASER(void) {
   SEGMENT.fill(BLACK);
 
   const int NUM_BANDS = map(SEGMENT.custom3, 0, 31, 1, 16); // custom3 is 0..31
-  const uint16_t cols = SEGMENT.virtualWidth();
-  const uint16_t rows = SEGMENT.virtualHeight();
+  const int cols = SEGMENT.virtualWidth();
+  const int rows = SEGMENT.virtualHeight();
   uint32_t ledColorTemp;
   uint_fast8_t split = map(*projector,0,SEGMENT.virtualWidth(),0,(NUM_BANDS - 1));
 
@@ -8421,9 +8421,8 @@ uint16_t mode_GEQLASER(void) {
   uint8_t *fftResult = (uint8_t*)um_data->u_data[2];
 
   uint8_t heights[NUM_GEQ_CHANNELS] = { 0 };
-
   for (int i=0; i<NUM_BANDS; i++) {
-    heights[i] = map8(fftResult[i],0,rows*0.85);
+    heights[i] = map8(fftResult[i],0,rows*0.85); // cache fftResult[] as data might be updated in parallel by the audioreactive core
   }
 
   uint16_t horizon = map(SEGMENT.custom1,0,255,rows-1,0); 
@@ -8440,16 +8439,17 @@ uint16_t mode_GEQLASER(void) {
     if (heights[i] > 1) {
 
       ledColorTemp = color_fade(ledColor,32,true);
+      int pPos = linex+(cols/NUM_BANDS)-1;
 
       for (int y = (i<NUM_BANDS-1) ? heights[i+1] : 0; y <= heights[i]; y++) { // don't bother drawing what we'll hide anyway
-        SEGMENT.drawLine(linex+(cols/NUM_BANDS)-1,rows-y-1,*projector,horizon,ledColorTemp,false,distance); // right side perspective
+        SEGMENT.drawLine(pPos,rows-y-1,*projector,horizon,ledColorTemp,false,distance); // right side perspective
       } 
 
       ledColorTemp = color_fade(ledColor,128,true);
 
-      if (heights[i] < rows-horizon && (*projector <=linex || *projector >= linex+(cols/NUM_BANDS)-1)) { // draw if above horizon AND not directly under projector (special case later)
+      if (heights[i] < rows-horizon && (*projector <=linex || *projector >= pPos)) { // draw if above horizon AND not directly under projector (special case later)
 
-        for (uint_fast8_t x=linex; x<=linex+(cols/NUM_BANDS)-1;x++) { 
+        for (uint_fast8_t x=linex; x<=pPos;x++) { 
           SEGMENT.drawLine(x,rows-heights[i]-2,*projector,horizon,ledColorTemp,false,distance); // top perspective
         }
 
@@ -8465,6 +8465,7 @@ uint16_t mode_GEQLASER(void) {
     uint32_t ledColor = SEGMENT.color_from_palette(colorIndex, false, PALETTE_SOLID_WRAP, 0);
 
     int linex = i*(cols/NUM_BANDS);
+    int pPos = linex+(cols/NUM_BANDS)-1;
 
     if (heights[i] > 1) {
 
@@ -8476,9 +8477,9 @@ uint16_t mode_GEQLASER(void) {
       
       ledColorTemp = color_fade(ledColor,128,true);
 
-      if (heights[i] < rows-horizon && (*projector <=linex || *projector >= linex+(cols/NUM_BANDS)-1)) { // draw if above horizon AND not directly under projector (special case later)
+      if (heights[i] < rows-horizon && (*projector <=linex || *projector >= pPos)) { // draw if above horizon AND not directly under projector (special case later)
 
-        for (uint_fast8_t x=linex; x<=linex+(cols/NUM_BANDS)-1;x++) {
+        for (uint_fast8_t x=linex; x<=pPos;x++) {
           SEGMENT.drawLine(x,rows-heights[i]-2,*projector,horizon,ledColorTemp,false,distance); // top perspective
         }
 
@@ -8494,14 +8495,16 @@ uint16_t mode_GEQLASER(void) {
     uint32_t ledColor = SEGMENT.color_from_palette(colorIndex, false, PALETTE_SOLID_WRAP, 0);
 
     int linex = i*(cols/NUM_BANDS);
+    int pPos  = linex+(cols/NUM_BANDS)-1;
+    int pPos1 = linex+(cols/NUM_BANDS);
 
-    if (*projector >=linex && *projector <= linex+(cols/NUM_BANDS)-1) { // special case when top perspective is directly under the projector
+    if (*projector >=linex && *projector <= pPos) { // special case when top perspective is directly under the projector
 
       if (heights[i] > 1 && heights[i] < rows-horizon) {
 
         ledColorTemp = color_fade(ledColor,128,true);
 
-        for (uint_fast8_t x=linex; x<=linex+(cols/NUM_BANDS)-1;x++) {
+        for (uint_fast8_t x=linex; x<=pPos;x++) {
           SEGMENT.drawLine(x,rows-heights[i]-2,*projector,horizon,ledColorTemp,false,distance); // top perspective
         }
 
@@ -8513,7 +8516,7 @@ uint16_t mode_GEQLASER(void) {
   
       ledColorTemp = color_fade(ledColor,SEGMENT.intensity,true);
 
-      for (uint_fast8_t x=linex; x<linex+(cols/NUM_BANDS);x++) { 
+      for (uint_fast8_t x=linex; x<pPos1;x++) { 
         SEGMENT.drawLine(x,rows-1,x,rows-heights[i]-1,ledColorTemp); // front fill
       }
 
@@ -8521,7 +8524,7 @@ uint16_t mode_GEQLASER(void) {
 
         if (SEGMENT.intensity == 0) ledColorTemp = color_fade(ledColor,32,true); // match side fill if we're in blackout mode
 
-        SEGMENT.drawLine(linex,rows-heights[i]-1,linex+(cols/NUM_BANDS)-1,rows-heights[i]-1,ledColorTemp); // top line to simulate hidden top fill
+        SEGMENT.drawLine(linex,rows-heights[i]-1,pPos,rows-heights[i]-1,ledColorTemp); // top line to simulate hidden top fill
 
       }
 
