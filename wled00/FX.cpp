@@ -8412,7 +8412,7 @@ uint16_t mode_GEQLASER(void) {
 
       ledColorTemp = color_fade(ledColor,32,true);
 
-      for (int y = 0; y <= heights[i]; y++) {
+      for (int y = heights[i+1]; y <= heights[i]; y++) { // don't bother drawing what we'll hide anyway
         SEGMENT.drawLine(linex+(cols/NUM_BANDS)-1,rows-y-1,*projector,horizon,ledColorTemp,false,distance); // right side perspective
       } 
 
@@ -8441,7 +8441,7 @@ uint16_t mode_GEQLASER(void) {
 
       ledColorTemp = color_fade(ledColor,32,true);
 
-      for (uint_fast8_t y = 0; y <= heights[i]; y++) {
+      for (uint_fast8_t y = heights[i-1]; y <= heights[i]; y++) { // don't bother drawing what we'll hide anyway
         SEGMENT.drawLine(linex,rows-y-1,*projector,horizon,ledColorTemp,false,distance); // left side perspective
       }
       
