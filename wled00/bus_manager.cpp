@@ -490,7 +490,7 @@ void BusNetwork::cleanup() {
 
 BusHub75Matrix::BusHub75Matrix(BusConfig &bc) : Bus(bc.type, bc.start, bc.autoWhite) {
 
-  mxconfig.double_buff = false; // <------------- Turn on double buffer
+  mxconfig.double_buff = true; // <------------- Turn on double buffer
 
 
   fourScanPanel = nullptr;
