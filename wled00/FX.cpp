@@ -8520,13 +8520,20 @@ uint16_t mode_GEQLASER(void) {
         SEGMENT.drawLine(x,rows-1,x,rows-heights[i]-1,ledColorTemp); // front fill
       }
 
-      if (heights[i] > rows-horizon) {
+      if (!SEGMENT.check1 && heights[i] > rows-horizon) {
 
         if (SEGMENT.intensity == 0) ledColorTemp = color_fade(ledColor,32,true); // match side fill if we're in blackout mode
 
-        SEGMENT.drawLine(linex,rows-heights[i]-1,pPos,rows-heights[i]-1,ledColorTemp); // top line to simulate hidden top fill
+        SEGMENT.drawLine(linex,rows-heights[i]-1,linex+(cols/NUM_BANDS)-1,rows-heights[i]-1,ledColorTemp); // top line to simulate hidden top fill
 
       }
+
+      if (SEGMENT.check1) {
+        SEGMENT.drawLine(linex,            rows-1,linex,rows-heights[i]-1,ledColor); // left side line
+        SEGMENT.drawLine(linex+(cols/16)-1,rows-1,linex+(cols/16)-1,rows-heights[i]-1,ledColor); // right side line
+        SEGMENT.drawLine(linex,            rows-heights[i]-2,linex+(cols/16)-1,rows-heights[i]-2,ledColor); // top line
+        SEGMENT.drawLine(linex,            rows-1,linex+(cols/16)-1,rows-1,ledColor); // bottom line
+      } 
 
     }
 
