@@ -7879,7 +7879,7 @@ uint16_t mode_2DGEQ(void) { // By Will Tatam. Code reduction by Ewoud Wijma.
 
   uint16_t lastBandHeight = 0;  // WLEDMM: for smoothing out bars
 
-  //WLEDMM: evenly ditribut bands
+  //WLEDMM: evenly ditribute bands
   float bandwidth = (float)cols / NUM_BANDS;
   float remaining = bandwidth;
   uint8_t band = 0;
@@ -8453,7 +8453,8 @@ uint16_t mode_GEQLASER(void) {
       if (heights[i] < rows-horizon && (*projector <=linex || *projector >= pPos)) { // draw if above horizon AND not directly under projector (special case later)
 
         for (uint_fast8_t x=linex; x<=pPos;x++) { 
-          SEGMENT.drawLine(x,rows-heights[i]-2,*projector,horizon,ledColorTemp,false,depth); // top perspective
+          bool doSoft = SEGMENT.check2 && ((x==linex) || (x==pPos)); // only first and last line need AA
+          SEGMENT.drawLine(x,rows-heights[i]-2,*projector,horizon,ledColorTemp,doSoft,depth); // top perspective
         }
 
       }
@@ -8483,7 +8484,8 @@ uint16_t mode_GEQLASER(void) {
       if (heights[i] < rows-horizon && (*projector <=linex || *projector >= pPos)) { // draw if above horizon AND not directly under projector (special case later)
 
         for (uint_fast8_t x=linex; x<=pPos;x++) {
-          SEGMENT.drawLine(x,rows-heights[i]-2,*projector,horizon,ledColorTemp,false,depth); // top perspective
+          bool doSoft = SEGMENT.check2 && ((x==linex) || (x==pPos)); // only first and last line need AA
+          SEGMENT.drawLine(x,rows-heights[i]-2,*projector,horizon,ledColorTemp,doSoft,depth); // top perspective
         }
 
       }
@@ -8532,10 +8534,10 @@ uint16_t mode_GEQLASER(void) {
       }
 
       if (SEGMENT.check1) {
-        SEGMENT.drawLine(linex,            rows-1,linex,rows-heights[i]-1,ledColor); // left side line
-        SEGMENT.drawLine(linex+(cols/16)-1,rows-1,linex+(cols/16)-1,rows-heights[i]-1,ledColor); // right side line
-        SEGMENT.drawLine(linex,            rows-heights[i]-2,linex+(cols/16)-1,rows-heights[i]-2,ledColor); // top line
-        SEGMENT.drawLine(linex,            rows-1,linex+(cols/16)-1,rows-1,ledColor); // bottom line
+        SEGMENT.drawLine(linex,                   rows-1,linex,rows-heights[i]-1,ledColor); // left side line
+        SEGMENT.drawLine(linex+(cols/NUM_BANDS)-1,rows-1,linex+(cols/NUM_BANDS)-1,rows-heights[i]-1,ledColor); // right side line
+        SEGMENT.drawLine(linex,                   rows-heights[i]-2,linex+(cols/NUM_BANDS)-1,rows-heights[i]-2,ledColor); // top line
+        SEGMENT.drawLine(linex,                   rows-1,linex+(cols/NUM_BANDS)-1,rows-1,ledColor); // bottom line
       } 
 
     }
@@ -8545,7 +8547,7 @@ uint16_t mode_GEQLASER(void) {
   return FRAMETIME;
 
 }
-static const char _data_FX_MODE_GEQLASER[] PROGMEM = "GEQ 3D ☾@Speed,Front Fill,Horizon,Depth,Num Bands,Borders,,;!,,Peaks;!;2f;sx=255,ix=255,c1=255,c2=255,c3=255,pal=11";
+static const char _data_FX_MODE_GEQLASER[] PROGMEM = "GEQ 3D ☾@Speed,Front Fill,Horizon,Depth,Num Bands,Borders,Soft Light,;!,,Peaks;!;2f;sx=255,ix=255,c1=255,c2=255,c3=255,pal=11";
 
 #endif // WLED_DISABLE_2D
 
