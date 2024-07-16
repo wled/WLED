@@ -676,7 +676,7 @@ void Segment::nscale8(uint8_t scale) {  //WLEDMM: use fast types
 }
 
 //line function
-void Segment::drawLine(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1, uint32_t c, bool soft, uint16_t distance) {
+void Segment::drawLine(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1, uint32_t c, bool soft, uint8_t depth) {
   if (!isActive()) return; // not active
   // if (Segment::maxHeight==1) return; // not a matrix set-up
   const int cols = virtualWidth();
@@ -691,6 +691,17 @@ void Segment::drawLine(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1, uint3
       uint8_t _bri_t = currentBri(on ? opacity : 0);
       if (!_bri_t && !transitional) return;
       if (_bri_t < 255) scaled_col = color_fade(c, _bri_t);
+  }
+
+  // WLEDMM shorten line according to depth
+  if (depth < UINT8_MAX) {
+    if (depth<2) {x1 = x0; y1=y0; } // single pixel
+    else {
+      int dx1 = ((int(x1) - int(x0)) * int(depth)) / 255;  // X distance, scaled down by depth 
+      int dy1 = ((int(y1) - int(y0)) * int(depth)) / 255;  // Y distance, scaled down by depth
+      x1 = x0 + dx1;
+      y1 = y0 + dy1;
+    }
   }
 
   const int dx = abs(x1-x0), sx = x0<x1 ? 1 : -1; // x distance & step
@@ -732,7 +743,7 @@ void Segment::drawLine(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1, uint3
   } else {
     // Bresenham's algorithm
     int err = (dx>dy ? dx : -dy)/2;   // error direction
-    for (uint_fast16_t d=0; d<distance; d++) {
+    for (;;) {
       // if (x0 >= cols || y0 >= rows) break; // WLEDMM we hit the edge - should never happen
       if (simpleSegment) setPixelColorXY_fast(x0, y0, c, scaled_col, cols, rows);
       else setPixelColorXY(x0, y0, c);

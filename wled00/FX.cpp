@@ -8430,8 +8430,7 @@ uint16_t mode_GEQLASER(void) {
   }
 
   uint16_t horizon = map(SEGMENT.custom1,0,255,rows-1,0); 
-  uint16_t distance = map8(SEGMENT.custom2,1,rows-1);
-  if (SEGMENT.custom2 == 255) distance = UINT16_MAX;
+  uint8_t depth = SEGMENT.custom2;  // depth of perspective. 255 = infinite ("laser")
 
   for (int i=0; i<=split; i++) { // paint right vertical faces and top - LEFT to RIGHT
 
@@ -8446,7 +8445,7 @@ uint16_t mode_GEQLASER(void) {
       int pPos = linex+(cols/NUM_BANDS)-1;
 
       for (int y = (i<NUM_BANDS-1) ? heights[i+1] : 0; y <= heights[i]; y++) { // don't bother drawing what we'll hide anyway
-        SEGMENT.drawLine(pPos,rows-y-1,*projector,horizon,ledColorTemp,false,distance); // right side perspective
+        SEGMENT.drawLine(pPos,rows-y-1,*projector,horizon,ledColorTemp,false,depth); // right side perspective
       } 
 
       ledColorTemp = color_fade(ledColor,128,true);
@@ -8454,7 +8453,7 @@ uint16_t mode_GEQLASER(void) {
       if (heights[i] < rows-horizon && (*projector <=linex || *projector >= pPos)) { // draw if above horizon AND not directly under projector (special case later)
 
         for (uint_fast8_t x=linex; x<=pPos;x++) { 
-          SEGMENT.drawLine(x,rows-heights[i]-2,*projector,horizon,ledColorTemp,false,distance); // top perspective
+          SEGMENT.drawLine(x,rows-heights[i]-2,*projector,horizon,ledColorTemp,false,depth); // top perspective
         }
 
       }
@@ -8476,7 +8475,7 @@ uint16_t mode_GEQLASER(void) {
       ledColorTemp = color_fade(ledColor,32,true);
 
       for (uint_fast8_t y = (i>0) ? heights[i-1] : 0; y <= heights[i]; y++) { // don't bother drawing what we'll hide anyway
-        SEGMENT.drawLine(linex,rows-y-1,*projector,horizon,ledColorTemp,false,distance); // left side perspective
+        SEGMENT.drawLine(linex,rows-y-1,*projector,horizon,ledColorTemp,false,depth); // left side perspective
       }
       
       ledColorTemp = color_fade(ledColor,128,true);
@@ -8484,7 +8483,7 @@ uint16_t mode_GEQLASER(void) {
       if (heights[i] < rows-horizon && (*projector <=linex || *projector >= pPos)) { // draw if above horizon AND not directly under projector (special case later)
 
         for (uint_fast8_t x=linex; x<=pPos;x++) {
-          SEGMENT.drawLine(x,rows-heights[i]-2,*projector,horizon,ledColorTemp,false,distance); // top perspective
+          SEGMENT.drawLine(x,rows-heights[i]-2,*projector,horizon,ledColorTemp,false,depth); // top perspective
         }
 
       }
@@ -8509,7 +8508,7 @@ uint16_t mode_GEQLASER(void) {
         ledColorTemp = color_fade(ledColor,128,true);
 
         for (uint_fast8_t x=linex; x<=pPos;x++) {
-          SEGMENT.drawLine(x,rows-heights[i]-2,*projector,horizon,ledColorTemp,false,distance); // top perspective
+          SEGMENT.drawLine(x,rows-heights[i]-2,*projector,horizon,ledColorTemp,false,depth); // top perspective
         }
 
       }
@@ -8546,7 +8545,7 @@ uint16_t mode_GEQLASER(void) {
   return FRAMETIME;
 
 }
-static const char _data_FX_MODE_GEQLASER[] PROGMEM = "GEQ 3D ☾@Speed,Front Fill,Horizon,Distance,Num Bands,Borders,,;!,,Peaks;!;2f;sx=255,ix=255,c1=255,c2=255,c3=255,pal=11";
+static const char _data_FX_MODE_GEQLASER[] PROGMEM = "GEQ 3D ☾@Speed,Front Fill,Horizon,Depth,Num Bands,Borders,,;!,,Peaks;!;2f;sx=255,ix=255,c1=255,c2=255,c3=255,pal=11";
 
 #endif // WLED_DISABLE_2D
 
