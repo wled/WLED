@@ -695,12 +695,15 @@ void Segment::drawLine(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1, uint3
 
   // WLEDMM shorten line according to depth
   if (depth < UINT8_MAX) {
+    if (depth == 0) return;         // nothing to paint
     if (depth<2) {x1 = x0; y1=y0; } // single pixel
-    else {
-      int dx1 = ((int(x1) - int(x0)) * int(depth)) / 255;  // X distance, scaled down by depth 
-      int dy1 = ((int(y1) - int(y0)) * int(depth)) / 255;  // Y distance, scaled down by depth
-      x1 = x0 + dx1;
-      y1 = y0 + dy1;
+    else {                          // shorten line
+      x0 *=2; y0 *=2; // we do everything "*2" for better rounding
+      int dx1 = ((int(2*x1) - int(x0)) * int(depth)) / 255;  // X distance, scaled down by depth 
+      int dy1 = ((int(2*y1) - int(y0)) * int(depth)) / 255;  // Y distance, scaled down by depth
+      x1 = (x0 + dx1 +1) / 2;
+      y1 = (y0 + dy1 +1) / 2;
+      x0 /=2; y0 /=2;
     }
   }
 
