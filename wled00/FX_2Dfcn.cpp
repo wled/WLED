@@ -225,28 +225,14 @@ uint32_t WS2812FX::getPixelColorXY(uint16_t x, uint16_t y) {
 // * expects scaled color (final brightness) as additional input parameter, plus segment  virtualWidth() and virtualHeight()
 void IRAM_ATTR Segment::setPixelColorXY_fast(int x, int y, uint32_t col, uint32_t scaled_col, int cols, int rows) //WLEDMM
 {
-  // if (Segment::maxHeight==1) return; // not a matrix set-up
-  // const int_fast16_t cols = virtualWidth();  // WLEDMM optimization
-  // const int_fast16_t rows = virtualHeight();
-  // if (x<0 || y<0 || x >= cols || y >= rows) return;  // if pixel would fall out of virtual segment just exit
   unsigned i = UINT_MAX;
   bool sameColor = false;
   if (ledsrgb) { // WLEDMM small optimization
-    //i = XY(x,y);
-    //i = (x%cols) + (y%rows) * cols; // avoid error checking done in XY()
     i = x + y*cols; // avoid error checking done by XY() - be optimistic about ranges of x and y
     CRGB fastled_col = CRGB(col);
     if (ledsrgb[i] == fastled_col) sameColor = true;
     else ledsrgb[i] = fastled_col;
   }
-#if 0
-  // we are NOT doing brightness here - must be done by the calling function!
-  //uint32_t scaled_col = col;
-  uint8_t _bri_t = currentBri(on ? opacity : 0);
-  if (!_bri_t && !transitional) return;
-  if (_bri_t < 255) scaled_col = color_fade(col, _bri_t);
-  else scaled_col  = col;
-#endif
 
 #if 0 // this is still a dangerous optimization
   if ((i < UINT_MAX) && sameColor && (call > 0) && (!transitional) && (ledsrgb[i] == CRGB(scaled_col))) return; // WLEDMM looks like nothing to do
@@ -265,7 +251,6 @@ void IRAM_ATTR Segment::setPixelColorXY_fast(int x, int y, uint32_t col, uint32_
   // handle mirroring
   const int_fast16_t wid_ = stop - start;
   const int_fast16_t hei_ = stopY - startY;
-  //if (x >= wid_ || y >= hei_) return;  // if pixel would fall out of segment just exit - should never happen, because  width() >= virtualWidth()
   if (mirror) { //set the corresponding horizontally mirrored pixel
     if (transpose) strip.setPixelColorXY_fast(start + x, startY + hei_ - y - 1, scaled_col);
     else           strip.setPixelColorXY_fast(start + wid_ - x - 1, startY + y, scaled_col);
