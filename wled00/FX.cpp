@@ -8511,7 +8511,8 @@ uint16_t mode_GEQLASER(void) {
       if (heights[i] > 1 && heights[i] < rows-horizon) {
         ledColorTemp = color_fade(ledColor,128,true);
         for (uint_fast8_t x=linex; x<=pPos;x++) {
-          SEGMENT.drawLine(x,rows-heights[i]-2,*projector,horizon,ledColorTemp,false,depth); // top perspective
+          bool doSoft = SEGMENT.check2 && ((x==linex) || (x==pPos)); // only first and last line need AA
+          SEGMENT.drawLine(x,rows-heights[i]-2,*projector,horizon,ledColorTemp,doSoft,depth); // top perspective
         }
       }
     }
