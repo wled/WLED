@@ -1,3 +1,4 @@
+/* Some portions of this code have other licenses, like GEQ 3D. Please review fully. */
 /*
   WS2812FX.cpp contains all effect methods
   Harm Aldick - 2016
@@ -8388,13 +8389,32 @@ uint16_t mode_2Dwavingcell() {
 }
 static const char _data_FX_MODE_2DWAVINGCELL[] PROGMEM = "Waving Cell@!,,Amplitude 1,Amplitude 2,Amplitude 3;;!;2";
 
+/* 
+   @title     MoonModules WLED - GEQ 3D Effect
+   @file      included in FX.cpp
+   @repo      https://github.com/MoonModules/WLED, submit changes to this file as PRs to MoonModules/WLED
+   @Authors   https://github.com/MoonModules/WLED/commits/mdev/
+   @Copyright © 2024 Github MoonModules Commit Authors (contact moonmodules@icloud.com for details)
+   @license   GNU GENERAL PUBLIC LICENSE Version 3, 29 June 2007
+
+     This function is part of the MoonModules WLED fork also known as "WLED-MM".
+     WLED-MM is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License 
+     as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
+
+     WLED-MM is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied 
+     warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+     
+     You should have received a copy of the GNU General Public License along with WLED-MM. If not, see <https://www.gnu.org/licenses/>.
+*/
+
 /////////////////////////
 //     ** 3D GEQ       //
 /////////////////////////
 uint16_t mode_GEQLASER(void) {
 
   // Author: @TroyHacks
-
+  // @license GNU GENERAL PUBLIC LICENSE Version 3, 29 June 2007
+  
   const size_t dataSize = sizeof(uint16_t);
   if (!SEGENV.allocateData(dataSize * 2)) return mode_static(); //allocation failed
   uint16_t *projector = reinterpret_cast<uint16_t*>(SEGENV.data);
