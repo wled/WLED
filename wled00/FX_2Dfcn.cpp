@@ -249,7 +249,7 @@ void IRAM_ATTR Segment::setPixelColorXY_fast(int x, int y, uint32_t col, uint32_
 #endif
 
 #if 0 // this is still a dangerous optimization
-  if ((i < UINT_MAX) && sameColor && (call > 0) && (!transitional) && (ledsrgb[i] == CRGB(col)) && (_globalLeds == nullptr)) return; // WLEDMM looks like nothing to do (but we don't trust globalleds)
+  if ((i < UINT_MAX) && sameColor && (call > 0) && (!transitional) && (ledsrgb[i] == CRGB(scaled_col))) return; // WLEDMM looks like nothing to do
 #endif
 
   // handle reverse and transpose
@@ -304,7 +304,7 @@ void IRAM_ATTR_YN Segment::setPixelColorXY(int x, int y, uint32_t col) //WLEDMM:
   }
 
 #if 0 // this is a dangerous optimization
-  if ((i < UINT_MAX) && sameColor && (call > 0) && (!transitional) && (ledsrgb[i] == CRGB(col)) && (_globalLeds == nullptr)) return; // WLEDMM looks like nothing to do (but we don't trust globalleds)
+  if ((i < UINT_MAX) && sameColor && (call > 0) && (!transitional) && (ledsrgb[i] == CRGB(col))) return; // WLEDMM looks like nothing to do
 #endif
 
   if (reverse  ) x = cols  - x - 1;
@@ -684,7 +684,7 @@ void Segment::drawLine(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1, uint3
   if (x0 >= cols || x1 >= cols || y0 >= rows || y1 >= rows) return;
 
   // WLEDMM shortcut when no grouping/spacing used
-  bool simpleSegment = !reverse && (grouping == 1) && (spacing == 0);  // !reverse is just for back-to-back testing against "slow" functions
+  bool simpleSegment = (grouping == 1) && (spacing == 0);
   uint32_t scaled_col = c;
   if (simpleSegment) {
       // segment brightness must be pre-calculated for the "fast" setPixelColorXY variant!

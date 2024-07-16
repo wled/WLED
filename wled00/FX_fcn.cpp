@@ -1005,7 +1005,7 @@ void IRAM_ATTR_YN Segment::setPixelColor(int i, uint32_t col) //WLEDMM: IRAM_ATT
         break;
       case M12_sPinwheel: {
         // WLEDMM shortcut when no grouping/spacing used
-        bool simpleSegment = !reverse && (grouping == 1) && (spacing == 0);  // !reverse is just for back-to-back testing against "slow" functions
+        bool simpleSegment = (grouping == 1) && (spacing == 0);
         uint32_t scaled_col = col;
         if (simpleSegment) {
           // segment brightness must be pre-calculated for the "fast" setPixelColorXY variant!
@@ -1339,7 +1339,7 @@ void Segment::fill(uint32_t c) {
   if (is2D()) {
     // pre-calculate scaled color
     uint32_t scaled_col = c;
-    bool simpleSegment = !reverse && (grouping == 1) && (spacing == 0);  // !reverse is just for back-to-back testing against "slow" functions
+    bool simpleSegment = (grouping == 1) && (spacing == 0);
     if (simpleSegment) {
       uint8_t _bri_t = currentBri(on ? opacity : 0);
       if (!_bri_t && !transitional) return;
