@@ -920,8 +920,7 @@ void IRAM_ATTR_YN Segment::setPixelColor(int i, uint32_t col) //WLEDMM: IRAM_ATT
       case M12_pBar:
         // expand 1D effect vertically or have it play on virtual strips
         if (vStrip>0) setPixelColorXY(vStrip - 1, vH - i - 1, col);
-        //else          for (int x = 0; x < vW; x++) setPixelColorXY(x, vH - i - 1, col);
-        else drawLine(0, vH - i - 1, vW-1, vH - i - 1, col, false); // WLEDMM draw line instead of plotting each pixel
+        else drawLine(0,vH-i-1, vW-1,vH-i-1, col, false); // WLEDMM draw line instead of plotting each pixel
         break;
       case M12_pArc:
         // expand in circular fashion from center
@@ -966,9 +965,12 @@ void IRAM_ATTR_YN Segment::setPixelColor(int i, uint32_t col) //WLEDMM: IRAM_ATT
           //}
         }
         break;
-      case M12_pCorner:
-        for (int x = 0; x <= i; x++) setPixelColorXY(x, i, col);
-        for (int y = 0; y <  i; y++) setPixelColorXY(i, y, col);
+      case M12_pCorner: {
+          int x = min(i, vW-1);
+          int y = min(i, vH-1);
+          if (i <= y) drawLine(0,y, x,y, col, false);  // botton line (if visible)
+          if (i <= x) drawLine(x,0, x,y, col, false);  // right line (if visible)
+        }
         break;
       case M12_jMap: //WLEDMM jMap
         if (jMap)
@@ -993,14 +995,17 @@ void IRAM_ATTR_YN Segment::setPixelColor(int i, uint32_t col) //WLEDMM: IRAM_ATT
           setPixelColorXY(x, y, col);
         }
         else { // pCorner -> block
-          for (int x = vW / 2 - i - 1; x <= vW / 2 + i; x++) { // top and bottom horizontal lines
-              setPixelColorXY(x, vH / 2 - i - 1, col);
-              setPixelColorXY(x, vH / 2 + i    , col);
-          }
-          for (int y = vH / 2 - i - 1 + 1; y <= vH / 2 + i - 1; y++) { //left and right vertical lines
-            setPixelColorXY(vW / 2 - i - 1, y, col);
-            setPixelColorXY(vW / 2 + i    , y, col);
-          }
+          int centerX = (vW+1)/2 - 1;
+          int centerY = (vH+1)/2 - 1;
+          int xLeft   = max(centerX-i, 0);
+          int yTop    = max(centerY-i, 0);
+          int xRight  = min(centerX+i+1, vW-1);
+          int yBottom = min(centerY+i+1, vH-1);
+
+          if (yTop == centerY-i)      drawLine(xLeft,yTop, xRight, yTop, col);       // top and bottom horizontal lines, if visible
+          if (yBottom == centerY+i+1) drawLine(xLeft,yBottom, xRight, yBottom, col);
+          if (xLeft == centerX-i)     drawLine(xLeft,yTop, xLeft, yBottom, col);     // left and right vertical lines, if visible
+          if (xRight == centerX+i+1)  drawLine(xRight,yTop, xRight, yBottom, col);
         }
         break;
       case M12_sPinwheel: {
