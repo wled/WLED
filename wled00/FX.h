@@ -348,8 +348,9 @@ bool strip_uses_global_leds(void);              // WLEDMM implemented in FX_fcn.
 #define FX_MODE_STARBURST_AR           192 // WLED-SR audioreactive fireworks starburst
 // #define FX_MODE_PALETTE_AR             193 // WLED-SR audioreactive palette
 #define FX_MODE_FIREWORKS_AR           194 // WLED-SR audioreactive fireworks
+#define FX_MODE_GEQLASER                  195 // WLED-MM GEQ Laser
 
-#define MODE_COUNT                     195
+#define MODE_COUNT                     196
 
 typedef enum mapping1D2D {
   M12_Pixels = 0,
@@ -431,6 +432,7 @@ typedef struct Segment {
     };
     size_t _dataLen;                   // WLEDMM uint16_t is too small
     static size_t _usedSegmentData;    // WLEDMM uint16_t is too small
+    void setPixelColorXY_fast(int x, int y,uint32_t c, uint32_t scaled_col, int cols, int rows); // set relative pixel within segment with color - faster, but no error checking!!!
 
     // perhaps this should be per segment, not static
     static CRGBPalette16 _currentPalette;     // palette used for current effect (includes transition, used in color_from_palette())
@@ -665,6 +667,8 @@ typedef struct Segment {
       if (height == 0) return (x%width);  // softhack007 avoid div/0
       return (x%width) + (y%height) * width;
     }
+
+    //void setPixelColorXY_fast(int x, int y,uint32_t c); // set relative pixel within segment with color - wrapper for _fast
     void setPixelColorXY(int x, int y, uint32_t c); // set relative pixel within segment with color
     inline void setPixelColorXY(unsigned x, unsigned y, uint32_t c)               { setPixelColorXY(int(x), int(y), c); }
     inline void setPixelColorXY(int x, int y, byte r, byte g, byte b, byte w = 0) { setPixelColorXY(x, y, RGBW32(r,g,b,w)); }
@@ -693,8 +697,8 @@ typedef struct Segment {
     inline void drawCircle(uint16_t cx, uint16_t cy, uint8_t radius, CRGB c, bool soft = false) { drawCircle(cx, cy, radius, RGBW32(c.r,c.g,c.b,0), soft); }
     void fillCircle(uint16_t cx, uint16_t cy, uint8_t radius, uint32_t c, bool soft = false);
     inline void fillCircle(uint16_t cx, uint16_t cy, uint8_t radius, CRGB c, bool soft = false) { fillCircle(cx, cy, radius, RGBW32(c.r,c.g,c.b,0), soft); }
-    void drawLine(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1, uint32_t c, bool soft = false);
-    inline void drawLine(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1, CRGB c, bool soft = false) { drawLine(x0, y0, x1, y1, RGBW32(c.r,c.g,c.b,0), soft); } // automatic inline
+    void drawLine(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1, uint32_t c, bool soft = false, uint8_t depth = UINT8_MAX);
+    inline void drawLine(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1, CRGB c, bool soft = false, uint8_t depth = UINT8_MAX) { drawLine(x0, y0, x1, y1, RGBW32(c.r,c.g,c.b,0), soft, depth); } // automatic inline
     void drawArc(uint16_t x0, uint16_t y0, uint16_t radius, uint32_t color, uint32_t fillColor = 0);
     inline void drawArc(uint16_t x0, uint16_t y0, uint16_t radius, CRGB color, CRGB fillColor = BLACK) { drawArc(x0, y0, radius, RGBW32(color.r,color.g,color.b,0), RGBW32(fillColor.r,fillColor.g,fillColor.b,0)); } // automatic inline
     void drawCharacter(unsigned char chr, int16_t x, int16_t y, uint8_t w, uint8_t h, uint32_t color, uint32_t col2 = 0);
@@ -980,6 +984,7 @@ class WS2812FX {  // 96 bytes
 
     void
       setUpMatrix(),
+      setPixelColorXY_fast(int x, int y, uint32_t c),
       setPixelColorXY(int x, int y, uint32_t c);
 
     // outsmart the compiler :) by correctly overloading

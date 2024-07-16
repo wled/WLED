@@ -7879,7 +7879,7 @@ uint16_t mode_2DGEQ(void) { // By Will Tatam. Code reduction by Ewoud Wijma.
 
   uint16_t lastBandHeight = 0;  // WLEDMM: for smoothing out bars
 
-  //WLEDMM: evenly ditribut bands
+  //WLEDMM: evenly ditribute bands
   float bandwidth = (float)cols / NUM_BANDS;
   float remaining = bandwidth;
   uint8_t band = 0;
@@ -7914,13 +7914,17 @@ uint16_t mode_2DGEQ(void) { // By Will Tatam. Code reduction by Ewoud Wijma.
     if (barHeight > previousBarHeight[x]) previousBarHeight[x] = barHeight; //drive the peak up
 
     uint32_t ledColor = BLACK;
+    if ((! SEGMENT.check1) && (barHeight > 0)) {  // use faster drawLine when single-color bars are needed
+      ledColor = SEGMENT.color_from_palette(colorIndex, false, PALETTE_SOLID_WRAP, 0);
+      SEGMENT.drawLine(int(x), max(0,int(rows)-barHeight-1), int(x), int(rows-1), ledColor, false); // max(0, ...) to prevent negative Y
+    } else {
     for (int y=0; y < barHeight; y++) {
       if (SEGMENT.check1) //color_vertical / color bars toggle
         colorIndex = map(y, 0, rows-1, 0, 255);
 
       ledColor = SEGMENT.color_from_palette(colorIndex, false, PALETTE_SOLID_WRAP, 0);
       SEGMENT.setPixelColorXY(x, rows-1 - y, ledColor);
-    }
+    } }
     if ((SEGMENT.intensity < 255) && (previousBarHeight[x] > 0) && (previousBarHeight[x] < rows))  // WLEDMM avoid "overshooting" into other segments
       SEGMENT.setPixelColorXY(x, rows - previousBarHeight[x], (SEGCOLOR(2) != BLACK) ? SEGCOLOR(2) : ledColor);
 
@@ -8384,6 +8388,166 @@ uint16_t mode_2Dwavingcell() {
 }
 static const char _data_FX_MODE_2DWAVINGCELL[] PROGMEM = "Waving Cell@!,,Amplitude 1,Amplitude 2,Amplitude 3;;!;2";
 
+uint16_t mode_GEQLASER(void) {
+
+  // Author: @TroyHacks
+
+  const size_t dataSize = sizeof(uint16_t);
+  if (!SEGENV.allocateData(dataSize * 2)) return mode_static(); //allocation failed
+
+  uint16_t *projector = reinterpret_cast<uint16_t*>(SEGENV.data);
+  uint16_t *projector_dir = reinterpret_cast<uint16_t*>(SEGENV.data + dataSize);
+
+  if (SEGENV.call == 0) {
+    *projector = 0;
+    *projector_dir = 0;
+    SEGMENT.setUpLeds(); // WLEDMM use lossless getPixelColor()
+    SEGMENT.fill(BLACK);
+  } else {
+    if (SEGENV.call % map(SEGMENT.speed,0,255,10,1) == 0) *projector += *projector_dir;
+    if (*projector == SEGMENT.virtualWidth()) *projector_dir = -1;
+    if (*projector == 0) *projector_dir = 1;
+  }
+
+  SEGMENT.fill(BLACK);
+
+  const int NUM_BANDS = map(SEGMENT.custom3, 0, 31, 1, 16); // custom3 is 0..31
+  const int cols = SEGMENT.virtualWidth();
+  const int rows = SEGMENT.virtualHeight();
+  uint32_t ledColorTemp;
+  uint_fast8_t split = map(*projector,0,SEGMENT.virtualWidth(),0,(NUM_BANDS - 1));
+
+  um_data_t *um_data;
+  if (!usermods.getUMData(&um_data, USERMOD_ID_AUDIOREACTIVE)) {
+    // add support for no audio
+    um_data = simulateSound(SEGMENT.soundSim);
+  }
+  uint8_t *fftResult = (uint8_t*)um_data->u_data[2];
+
+  uint8_t heights[NUM_GEQ_CHANNELS] = { 0 };
+  for (int i=0; i<NUM_BANDS; i++) {
+    heights[i] = map8(fftResult[i],0,rows*0.85); // cache fftResult[] as data might be updated in parallel by the audioreactive core
+  }
+
+  uint16_t horizon = map(SEGMENT.custom1,0,255,rows-1,0); 
+  uint8_t depth = SEGMENT.custom2;  // depth of perspective. 255 = infinite ("laser")
+
+  for (int i=0; i<=split; i++) { // paint right vertical faces and top - LEFT to RIGHT
+
+    uint16_t colorIndex = map(cols/NUM_BANDS*i, 0, cols-1, 0, 255);
+    uint32_t ledColor = SEGMENT.color_from_palette(colorIndex, false, PALETTE_SOLID_WRAP, 0);
+
+    int linex = i*(cols/NUM_BANDS);
+
+    if (heights[i] > 1) {
+
+      ledColorTemp = color_fade(ledColor,32,true);
+      int pPos = linex+(cols/NUM_BANDS)-1;
+
+      for (int y = (i<NUM_BANDS-1) ? heights[i+1] : 0; y <= heights[i]; y++) { // don't bother drawing what we'll hide anyway
+        SEGMENT.drawLine(pPos,rows-y-1,*projector,horizon,ledColorTemp,false,depth); // right side perspective
+      } 
+
+      ledColorTemp = color_fade(ledColor,128,true);
+
+      if (heights[i] < rows-horizon && (*projector <=linex || *projector >= pPos)) { // draw if above horizon AND not directly under projector (special case later)
+
+        for (uint_fast8_t x=linex; x<=pPos;x++) { 
+          bool doSoft = SEGMENT.check2 && ((x==linex) || (x==pPos)); // only first and last line need AA
+          SEGMENT.drawLine(x,rows-heights[i]-2,*projector,horizon,ledColorTemp,doSoft,depth); // top perspective
+        }
+
+      }
+
+    }
+
+  }
+
+  for (int i=(NUM_BANDS - 1); i>split; i--) { // paint left vertical faces and top - RIGHT to LEFT
+
+    uint16_t colorIndex = map(cols/NUM_BANDS*i, 0, cols-1, 0, 255);
+    uint32_t ledColor = SEGMENT.color_from_palette(colorIndex, false, PALETTE_SOLID_WRAP, 0);
+
+    int linex = i*(cols/NUM_BANDS);
+    int pPos = linex+(cols/NUM_BANDS)-1;
+
+    if (heights[i] > 1) {
+
+      ledColorTemp = color_fade(ledColor,32,true);
+
+      for (uint_fast8_t y = (i>0) ? heights[i-1] : 0; y <= heights[i]; y++) { // don't bother drawing what we'll hide anyway
+        SEGMENT.drawLine(linex,rows-y-1,*projector,horizon,ledColorTemp,false,depth); // left side perspective
+      }
+      
+      ledColorTemp = color_fade(ledColor,128,true);
+
+      if (heights[i] < rows-horizon && (*projector <=linex || *projector >= pPos)) { // draw if above horizon AND not directly under projector (special case later)
+
+        for (uint_fast8_t x=linex; x<=pPos;x++) {
+          bool doSoft = SEGMENT.check2 && ((x==linex) || (x==pPos)); // only first and last line need AA
+          SEGMENT.drawLine(x,rows-heights[i]-2,*projector,horizon,ledColorTemp,doSoft,depth); // top perspective
+        }
+
+      }
+
+    }
+
+  }
+
+  for (int i=0; i<NUM_BANDS; i++) {
+
+    uint16_t colorIndex = map(cols/NUM_BANDS*i, 0, cols-1, 0, 255);
+    uint32_t ledColor = SEGMENT.color_from_palette(colorIndex, false, PALETTE_SOLID_WRAP, 0);
+
+    int linex = i*(cols/NUM_BANDS);
+    int pPos  = linex+(cols/NUM_BANDS)-1;
+    int pPos1 = linex+(cols/NUM_BANDS);
+
+    if (*projector >=linex && *projector <= pPos) { // special case when top perspective is directly under the projector
+
+      if (heights[i] > 1 && heights[i] < rows-horizon) {
+
+        ledColorTemp = color_fade(ledColor,128,true);
+
+        for (uint_fast8_t x=linex; x<=pPos;x++) {
+          SEGMENT.drawLine(x,rows-heights[i]-2,*projector,horizon,ledColorTemp,false,depth); // top perspective
+        }
+
+      }
+
+    }
+
+    if (heights[i] > 1) {
+  
+      ledColorTemp = color_fade(ledColor,SEGMENT.intensity,true);
+
+      for (uint_fast8_t x=linex; x<pPos1;x++) { 
+        SEGMENT.drawLine(x,rows-1,x,rows-heights[i]-1,ledColorTemp); // front fill
+      }
+
+      if (!SEGMENT.check1 && heights[i] > rows-horizon) {
+
+        if (SEGMENT.intensity == 0) ledColorTemp = color_fade(ledColor,32,true); // match side fill if we're in blackout mode
+
+        SEGMENT.drawLine(linex,rows-heights[i]-1,linex+(cols/NUM_BANDS)-1,rows-heights[i]-1,ledColorTemp); // top line to simulate hidden top fill
+
+      }
+
+      if (SEGMENT.check1) {
+        SEGMENT.drawLine(linex,                   rows-1,linex,rows-heights[i]-1,ledColor); // left side line
+        SEGMENT.drawLine(linex+(cols/NUM_BANDS)-1,rows-1,linex+(cols/NUM_BANDS)-1,rows-heights[i]-1,ledColor); // right side line
+        SEGMENT.drawLine(linex,                   rows-heights[i]-2,linex+(cols/NUM_BANDS)-1,rows-heights[i]-2,ledColor); // top line
+        SEGMENT.drawLine(linex,                   rows-1,linex+(cols/NUM_BANDS)-1,rows-1,ledColor); // bottom line
+      } 
+
+    }
+
+  }
+
+  return FRAMETIME;
+
+}
+static const char _data_FX_MODE_GEQLASER[] PROGMEM = "GEQ 3D ☾@Speed,Front Fill,Horizon,Depth,Num Bands,Borders,Soft,;!,,Peaks;!;2f;sx=255,ix=255,c1=255,c2=255,c3=255,pal=11";
 
 #endif // WLED_DISABLE_2D
 
@@ -8630,6 +8794,9 @@ void WS2812FX::setupEffectData() {
   addEffect(FX_MODE_2DWAVINGCELL, &mode_2Dwavingcell, _data_FX_MODE_2DWAVINGCELL);
 
   addEffect(FX_MODE_2DAKEMI, &mode_2DAkemi, _data_FX_MODE_2DAKEMI); // audio
+
+  addEffect(FX_MODE_GEQLASER, &mode_GEQLASER, _data_FX_MODE_GEQLASER); // audio
+
 #endif // WLED_DISABLE_2D
 
 }
