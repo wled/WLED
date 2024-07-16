@@ -8547,7 +8547,7 @@ uint16_t mode_GEQLASER(void) {
   return FRAMETIME;
 
 }
-static const char _data_FX_MODE_GEQLASER[] PROGMEM = "GEQ 3D ☾@Speed,Front Fill,Horizon,Depth,Num Bands,Borders,Soft Light,;!,,Peaks;!;2f;sx=255,ix=255,c1=255,c2=255,c3=255,pal=11";
+static const char _data_FX_MODE_GEQLASER[] PROGMEM = "GEQ 3D ☾@Speed,Front Fill,Horizon,Depth,Num Bands,Borders,Soft,;!,,Peaks;!;2f;sx=255,ix=255,c1=255,c2=255,c3=255,pal=11";
 
 #endif // WLED_DISABLE_2D
 
