@@ -403,7 +403,8 @@ uint32_t IRAM_ATTR_YN Segment::getPixelColorXY(int x, int y) {
 
 // Blends the specified color with the existing pixel color.
 void Segment::blendPixelColorXY(uint16_t x, uint16_t y, uint32_t color, uint8_t blend) {
-  setPixelColorXY(x, y, color_blend(getPixelColorXY(x,y), color, blend));
+  if (blend == UINT8_MAX) setPixelColorXY(x, y, color);
+  else setPixelColorXY(x, y, color_blend(getPixelColorXY(x,y), color, blend));
 }
 
 // Adds the specified color with the existing pixel color perserving color balance.
