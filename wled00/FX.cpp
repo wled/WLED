@@ -8451,10 +8451,11 @@ uint16_t mode_GEQLASER(void) {
   uint8_t *fftResult = (uint8_t*)um_data->u_data[2];
 
   uint8_t heights[NUM_GEQ_CHANNELS] = { 0 };
+  const uint8_t maxHeight = roundf(float(rows) * ((rows<18) ? 0.75f : 0.85f));           // slightly reduce bar height on small panels 
   for (int i=0; i<NUM_BANDS; i++) {
     unsigned band = i;
     if (NUM_BANDS < NUM_GEQ_CHANNELS) band = map2(band, 0, NUM_BANDS - 1, 0, NUM_GEQ_CHANNELS-1); // always use full range.
-    heights[i] = map8(fftResult[band],0,roundf(rows*0.85f)); // cache fftResult[] as data might be updated in parallel by the audioreactive core
+    heights[i] = map8(fftResult[band],0,maxHeight); // cache fftResult[] as data might be updated in parallel by the audioreactive core
   }
 
 
