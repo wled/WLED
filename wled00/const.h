@@ -385,7 +385,8 @@
 #ifdef ESP8266
 #define MAX_LEDS 1664 //can't rely on memory limit to limit this to 1600 LEDs
 #else
-#define MAX_LEDS 8192
+//#define MAX_LEDS 8192
+#define MAX_LEDS 8464 // WLEDMM 92x92
 #endif
 #endif
 
@@ -402,7 +403,15 @@
 #endif
 
 #ifndef MAX_LEDS_PER_BUS
-#define MAX_LEDS_PER_BUS 2048   // may not be enough for fast LEDs (i.e. APA102)
+#if !defined(ARDUINO_ARCH_ESP32)
+  #define MAX_LEDS_PER_BUS 2048   // may not be enough for fast LEDs (i.e. APA102)
+#else
+  #if CONFIG_IDF_TARGET_ESP32 || CONFIG_IDF_TARGET_ESP32S3
+    #define MAX_LEDS_PER_BUS MAX_LEDS // for fast LEDs and fast MCUs (i.e. APA102, HUB75, ART.Net) - allows to have all LEDs on one bus
+  #else
+    #define MAX_LEDS_PER_BUS 2048     // may not be enough for fast LEDs (i.e. APA102)
+  #endif
+#endif  
 #endif
 
 // string temp buffer (now stored in stack locally) // WLEDMM ...which is actually not the greatest design choice on ESP32
@@ -448,6 +457,7 @@
 #define TOUCH_THRESHOLD 32 // limit to recognize a touch, higher value means more sensitive
 
 // Size of buffer for API JSON object (increase for more segments)
+#if !defined(JSON_BUFFER_SIZE)
 #ifdef ESP8266
   #define JSON_BUFFER_SIZE 10240
 #else
@@ -464,6 +474,7 @@
  #else
   #define JSON_BUFFER_SIZE 24576
  #endif
+#endif
 #endif
 
 //#define MIN_HEAP_SIZE (8k for AsyncWebServer)
