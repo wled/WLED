@@ -8420,21 +8420,20 @@ uint16_t mode_GEQLASER(void) {
   const int rows = SEGMENT.virtualHeight();
   if ((cols < 3) || (rows < 3)) return mode_static(); // too small
 
-  const size_t dataSize = sizeof(uint16_t);
-  if (!SEGENV.allocateData(dataSize * 2)) return mode_static(); //allocation failed
-  uint16_t *projector = reinterpret_cast<uint16_t*>(SEGENV.data);
-  uint16_t *projector_dir = reinterpret_cast<uint16_t*>(SEGENV.data + dataSize);
+  int16_t *projector     = reinterpret_cast<int16_t *>(&(SEGENV.aux0)); // *projector is an alias for aux0 (uint16_t)
+  int16_t *projector_dir = reinterpret_cast<int16_t *>(&(SEGENV.aux1)); // *projector_dir is an alias for aux1  (uint16_t)
 
   if (SEGENV.call == 0) {
     *projector = 0;
-    *projector_dir = 0;
+    *projector_dir = 1;
     SEGMENT.setUpLeds(); // WLEDMM use lossless getPixelColor()
     SEGMENT.fill(BLACK);
   } else {
     if (SEGENV.call % map(SEGMENT.speed,0,255,10,1) == 0) *projector += *projector_dir;
-    if (*projector == SEGMENT.virtualWidth()) *projector_dir = -1;
-    if (*projector == 0) *projector_dir = 1;
+    if (*projector >= cols) *projector_dir = -1;
+    if (*projector <= 0) *projector_dir = 1;
   }
+  *projector = constrain(*projector, 0, cols-1); // make sure we don't walk out of range
 
   SEGMENT.fill(BLACK);
 
@@ -8453,7 +8452,9 @@ uint16_t mode_GEQLASER(void) {
 
   uint8_t heights[NUM_GEQ_CHANNELS] = { 0 };
   for (int i=0; i<NUM_BANDS; i++) {
-    heights[i] = map8(fftResult[i],0,roundf(rows*0.85f)); // cache fftResult[] as data might be updated in parallel by the audioreactive core
+    unsigned band = i;
+    if (NUM_BANDS < NUM_GEQ_CHANNELS) band = map2(band, 0, NUM_BANDS - 1, 0, NUM_GEQ_CHANNELS-1); // always use full range.
+    heights[i] = map8(fftResult[band],0,roundf(rows*0.85f)); // cache fftResult[] as data might be updated in parallel by the audioreactive core
   }
 
 
@@ -8545,7 +8546,7 @@ uint16_t mode_GEQLASER(void) {
   }
   return FRAMETIME;
 }
-static const char _data_FX_MODE_GEQLASER[] PROGMEM = "GEQ 3D ☾@Speed,Front Fill,Horizon,Depth,Num Bands,Borders,Soft,;!,,Peaks;!;2f;sx=255,ix=228,c1=255,c2=255,c3=255,pal=11";
+static const char _data_FX_MODE_GEQLASER[] PROGMEM = "GEQ 3D ☾@Speed,Front Fill,Horizon,Depth,Num Bands,Borders,Soft,;!,,Peaks;!;2f;sx=255,ix=228,c1=255,c2=255,c3=15,pal=11";
 
 #endif // WLED_DISABLE_2D
 
