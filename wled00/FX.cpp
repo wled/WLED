@@ -5451,15 +5451,12 @@ uint16_t mode_2DSnowFall(void) { // By: Brandon Butler
         else if (x % 2 == 0 && downRight && !getBitValue(grid, pos + 1)) newX = x + 1; // Even Columns Move Right
       }
         
-      if (newY == y && newX == x) continue; // Snow didn't move. Don't update grid or pixels
-        
-      setBitValue(grid, pos, 0);            // Clear old
-      setBitValue(grid, XY(newX, newY), 1); // Set new
-
-      if (overlay) continue; // Skip drawing if inverted overlay
-      
-      SEGMENT.setPixelColorXY(newX, newY, xyColor);                       // Draw new
-      SEGMENT.setPixelColorXY(x, y, color_blend(xyColor, bgColor, blur)); // Fade old
+      if (newY != y || newX != x) { // Snow moved
+        setBitValue(grid, pos, 0);            // Clear old
+        setBitValue(grid, XY(newX, newY), 1); // Set new
+        if (!overlay) SEGMENT.setPixelColorXY(x, y, color_blend(xyColor, bgColor, blur)); // Fade old
+      } 
+      if (!overlay) SEGMENT.setPixelColorXY(newX, newY, xyColor); // Draw new / redraw stuck
     }
   }
 
