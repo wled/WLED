@@ -469,6 +469,8 @@ void getSettingsJS(AsyncWebServerRequest* request, byte subPage, char* dest) //W
           case  5000 : speed = 2; break;
           case 10000 : speed = 3; break;
           case 20000 : speed = 4; break;
+          case 40000 : speed = 5; break; // WLEDMM max speed 40Mhz - requires carefull wiring
+          case 60000 : speed = 6; break; // WLEDMM overspeed 60Mhz - may or may not work
         }
       }
       sappend('v',sp,speed);

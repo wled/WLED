@@ -127,7 +127,9 @@ BusDigital::BusDigital(BusConfig &bc, uint8_t nr, const ColorOrderMap &com) : Bu
   _valid = (_busPtr != nullptr);
   _colorOrder = bc.colorOrder;
   if (_pins[1] != 255) {  // WLEDMM USER_PRINTF
-    USER_PRINTF("%successfully inited strip %u (len %u) with type %u and pins %u,%u (itype %u)\n", _valid?"S":"Uns", nr, _len, bc.type, _pins[0],_pins[1],_iType);
+    USER_PRINTF("%successfully inited strip %u (len %u) with type %u and pins %u,%u (itype %u)", _valid?"S":"Uns", nr, _len, bc.type, _pins[0],_pins[1],_iType);
+    if (bc.frequency > 999) USER_PRINTF(", %d MHz", bc.frequency/1000);
+    USER_PRINTLN();
   } else {
     USER_PRINTF("%successfully inited strip %u (len %u) with type %u and pin %u (itype %u)\n", _valid?"S":"Uns", nr, _len, bc.type, _pins[0],_iType);
   }
@@ -241,6 +243,7 @@ BusPwm::BusPwm(BusConfig &bc) : Bus(bc.type, bc.start, bc.autoWhite) {
   }
   #endif
 
+  USER_PRINT("[PWM");
   for (uint8_t i = 0; i < numPins; i++) {
     uint8_t currentPin = bc.pins[i];
     if (!pinManager.allocatePin(currentPin, true, PinOwner::BusPwm)) {
@@ -253,7 +256,9 @@ BusPwm::BusPwm(BusConfig &bc) : Bus(bc.type, bc.start, bc.autoWhite) {
     ledcSetup(_ledcStart + i, _frequency, 8);
     ledcAttachPin(_pins[i], _ledcStart + i);
     #endif
+    USER_PRINT(" "); USER_PRINT(currentPin);
   }
+  USER_PRINTLN("] ");
   reversed = bc.reversed;
   _valid = true;
 }
@@ -389,6 +394,7 @@ BusOnOff::BusOnOff(BusConfig &bc) : Bus(bc.type, bc.start, bc.autoWhite) {
   pinMode(_pin, OUTPUT);
   reversed = bc.reversed;
   _valid = true;
+  USER_PRINTF("[On-Off %d] \n", int(currentPin));
 }
 
 void BusOnOff::setPixelColor(uint16_t pix, uint32_t c) {
@@ -421,18 +427,22 @@ uint8_t BusOnOff::getPins(uint8_t* pinArray) {
 
 BusNetwork::BusNetwork(BusConfig &bc) : Bus(bc.type, bc.start, bc.autoWhite) {
   _valid = false;
+  USER_PRINT("[");
   switch (bc.type) {
     case TYPE_NET_ARTNET_RGB:
       _rgbw = false;
       _UDPtype = 2;
+      USER_PRINT("NET_ARTNET_RGB");
       break;
     case TYPE_NET_E131_RGB:
       _rgbw = false;
       _UDPtype = 1;
+      USER_PRINT("NET_E131_RGB");
       break;
     default: // TYPE_NET_DDP_RGB / TYPE_NET_DDP_RGBW
       _rgbw = bc.type == TYPE_NET_DDP_RGBW;
       _UDPtype = 0;
+      USER_PRINT(bc.type == TYPE_NET_DDP_RGBW ? "NET_DDP_RGBW" : "NET_DDP_RGB");
       break;
   }
   _UDPchannels = _rgbw ? 4 : 3;
@@ -443,6 +453,7 @@ BusNetwork::BusNetwork(BusConfig &bc) : Bus(bc.type, bc.start, bc.autoWhite) {
   _client = IPAddress(bc.pins[0],bc.pins[1],bc.pins[2],bc.pins[3]);
   _broadcastLock = false;
   _valid = true;
+  USER_PRINTF(" %u.%u.%u.%u] \n", bc.pins[0],bc.pins[1],bc.pins[2],bc.pins[3]);
 }
 
 void BusNetwork::setPixelColor(uint16_t pix, uint32_t c) {
@@ -749,10 +760,14 @@ int BusManager::add(BusConfig &bc) {
   DEBUG_PRINTF("BusManager::add(bc.type=%u)\n", bc.type);
   if (bc.type >= TYPE_NET_DDP_RGB && bc.type < 96) {
     busses[numBusses] = new BusNetwork(bc);
-#ifdef WLED_ENABLE_HUB75MATRIX
   } else if (bc.type >= TYPE_HUB75MATRIX && bc.type <= (TYPE_HUB75MATRIX + 10)) {
+#ifdef WLED_ENABLE_HUB75MATRIX
     DEBUG_PRINTLN("BusManager::add - Adding BusHub75Matrix");
     busses[numBusses] = new BusHub75Matrix(bc);
+    USER_PRINTLN("[BusHub75Matrix] ");
+#else
+    USER_PRINTLN("[unsupported! BusHub75Matrix] ");
+    return -1;
 #endif
   } else if (IS_DIGITAL(bc.type)) {
     busses[numBusses] = new BusDigital(bc, numBusses, colorOrderMap);

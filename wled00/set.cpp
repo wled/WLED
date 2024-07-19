@@ -159,6 +159,8 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
           case 2 : freqHz =  5000; break;
           case 3 : freqHz = 10000; break;
           case 4 : freqHz = 20000; break;
+          case 5 : freqHz = 40000; break; // WLEDMM max speed 40Mhz - requires carefull wiring
+          case 6 : freqHz = 60000; break; // WLEDMM overspeed 60Mhz - may or may not work
         }
       } else {
         freqHz = 0;
