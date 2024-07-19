@@ -40,7 +40,7 @@ pyelftools==0.29
     # via platformio
 pyserial==3.5
     # via platformio
-requests==2.31.0
+requests==2.32.0
     # via platformio
 semantic-version==2.10.0
     # via platformio
@@ -52,7 +52,7 @@ tabulate==0.9.0
     # via platformio
 typing-extensions==4.11.0
     # via starlette
-urllib3==1.26.18
+urllib3==1.26.19
     # via requests
 uvicorn==0.20.0
     # via platformio

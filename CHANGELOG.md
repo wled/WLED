@@ -1,5 +1,9 @@
 ## WLED changelog
 
+#### Build 2405180
+-   WLED 0.14.4 release
+-   Fix for #3978
+
 #### Build 2404040
 -   WLED 0.14.3 release
 -   Fix for transition 0 (#3854, #3832, #3720)

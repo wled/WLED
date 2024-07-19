@@ -38,7 +38,7 @@ Alternatively, you can use the latest arduinoFFT development version.
 ArduinoFFT `develop` library is slightly more accurate, and slightly faster than our customised library, however also needs additional 2kB RAM.
 
 * `build_flags` = `-D USERMOD_AUDIOREACTIVE` `-D UM_AUDIOREACTIVE_USE_NEW_FFT`
-* `lib_deps`= `https://github.com/kosme/arduinoFFT#develop @ 1.9.2`
+* `lib_deps`= `https://github.com/kosme/arduinoFFT#419d7b0`
 
 ## Configuration
 
