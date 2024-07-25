@@ -425,13 +425,15 @@
   #endif
 #endif
 
-#ifdef WLED_USE_ETHERNET
-  #define E131_MAX_UNIVERSE_COUNT 20
-#else
-  #ifdef ESP8266
-    #define E131_MAX_UNIVERSE_COUNT 9
+#ifndef E131_MAX_UNIVERSE_COUNT
+  #ifdef WLED_USE_ETHERNET
+    #define E131_MAX_UNIVERSE_COUNT 20
   #else
-    #define E131_MAX_UNIVERSE_COUNT 12
+    #ifdef ESP8266
+      #define E131_MAX_UNIVERSE_COUNT 9
+    #else
+      #define E131_MAX_UNIVERSE_COUNT 12
+    #endif
   #endif
 #endif
 
