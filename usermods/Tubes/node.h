@@ -25,6 +25,10 @@
 #define REBROADCAST_TIME 30000    // Time at which followers are presumed re-uplinked
 #define WIFI_CHECK_RATE 2000     // Time at which we should check wifi status again
 
+#pragma pack(push,4) // set packing for consist transport across network
+// ideally this would have been pack 1, so we're actually wasting a
+// number of bytes across the network, but we've already shipped...
+
 typedef uint16_t MeshId;
 
 typedef struct {
@@ -49,12 +53,12 @@ typedef struct {
     byte data[MESSAGE_DATA_SIZE] = {0};
 } NodeMessage;
 
+#pragma pack(pop)
+
 typedef struct {
     uint8_t status;
     char message[40];
 } NodeInfo;
-
-void onDataReceived (uint8_t* address, uint8_t* data, uint8_t len, signed int rssi, bool broadcast);
 
 const char *command_name(CommandId command) {
     switch (command) {
@@ -85,20 +89,32 @@ class MessageReceiver {
     }  
 };
 
-typedef enum{
-    NODE_STATUS_QUIET=0,
-    NODE_STATUS_STARTING=1,
-    NODE_STATUS_STARTED=2,
-} NodeStatus;
-
-
 class LightNode {
   public:
     static LightNode* instance;
 
     MessageReceiver *receiver;
     MeshNodeHeader header;
+
+    typedef enum{
+        NODE_STATUS_QUIET=0,
+        NODE_STATUS_STARTING=1,
+        NODE_STATUS_STARTED=2,
+    } NodeStatus;
     NodeStatus status = NODE_STATUS_QUIET;
+
+    PGM_P status_code() {
+        switch (status) {
+        case NODE_STATUS_QUIET:
+            return PSTR(" (quiet)");
+        case NODE_STATUS_STARTING:
+            return PSTR(" (starting)");
+        case NODE_STATUS_STARTED:
+            return PSTR("");
+        default:
+            return PSTR("??");
+        }
+    }
 
     char node_name[20];
 
@@ -138,10 +154,10 @@ class LightNode {
             header.id,
             header.uplinkId
         );
-        configure_ap();
+        configuredAP();
     }
 
-    void configure_ap() {
+    void configuredAP() {
 #ifdef DEFAULT_WIFI
         strcpy(clientSSID, DEFAULT_WIFI);
         strcpy(clientPass, DEFAULT_WIFI_PASSWORD);
@@ -195,7 +211,7 @@ class LightNode {
         }
     }
 
-    void print_message(NodeMessage* message, signed int rssi) {
+    void printMessage(NodeMessage* message, signed int rssi) {
         Serial.printf("%03X/%03X %s",
             message->header.id,
             message->header.uplinkId,
@@ -217,7 +233,7 @@ class LightNode {
         if (message->header.version != header.version) {
 #ifdef NODE_DEBUGGING
             Serial.print("  -- !version ");
-            print_message(message, rssi);
+            printMessage(message, rssi);
             Serial.println();
 #endif
             return;
@@ -251,16 +267,16 @@ class LightNode {
         if (ignore) {
 #ifdef NODE_DEBUGGING
             Serial.print("  -- ignored ");
-            print_message(message, rssi);
+            printMessage(message, rssi);
             Serial.println();
 #endif
             return;
         }
 
         // Execute the received command
-        if (message->recipients != RECIPIENTS_ROOT || !is_following()) {
+        if (message->recipients != RECIPIENTS_ROOT || !isFollowing()) {
             Serial.print("  >> ");
-            print_message(message, rssi);
+            printMessage(message, rssi);
             Serial.print(" ");
 
             // Adjust the timebase to match uplink
@@ -284,7 +300,7 @@ class LightNode {
         // Re-broadcast the message if appropriate
         if (!rebroadcastTimer.ended() && message->recipients != RECIPIENTS_INFO) {
             message->header = header;
-            if (!is_following())
+            if (!isFollowing())
                 message->recipients = RECIPIENTS_ALL;
             broadcastMessage(message, true);
         }
@@ -298,7 +314,7 @@ class LightNode {
         
 #ifdef NODE_DEBUGGING
         Serial.print("  <<< ");
-        print_message(message, 0);
+        printMessage(message, 0);
         Serial.println();
 #endif
 
@@ -323,7 +339,7 @@ class LightNode {
             message.recipients = RECIPIENTS_INFO;
         } else if (command == COMMAND_STATE) {
             message.recipients = RECIPIENTS_ALL;
-        } else if (is_following()) {
+        } else if (isFollowing()) {
             // Follower nodes must request that the root re-sends this message
             message.recipients = RECIPIENTS_ROOT;
         } else {
@@ -348,7 +364,7 @@ class LightNode {
 
     void update() {
         // Check the last time we heard from the uplink node
-        if (is_following() && uplinkTimer.ended()) {
+        if (isFollowing() && uplinkTimer.ended()) {
             follow(NULL);
         }
 
@@ -367,8 +383,9 @@ class LightNode {
     }
 
     void reset(MeshId id = 0) {
-        if (id == 0)
+        if (id == 0) {
             id = random(256, 4000);  // Leave room at bottom and top of 12 bits
+        }
         header.id = id;
         follow(NULL);
     }
@@ -398,42 +415,43 @@ class LightNode {
         onMeshChange();
     }
 
-    bool is_following() {
+    bool isFollowing() {
         return header.uplinkId != 0;
+    }
+
+    typedef struct wizmote_message {
+    uint8_t program;      // 0x91 for ON button, 0x81 for all others
+    uint8_t seq[4];       // Incremetal sequence number 32 bit unsigned integer LSB first
+    uint8_t byte5 = 32;   // Unknown
+    uint8_t button;       // Identifies which button is being pressed
+    uint8_t byte8 = 1;    // Unknown, but always 0x01
+    uint8_t byte9 = 100;  // Unnkown, but always 0x64
+
+    uint8_t byte10;  // Unknown, maybe checksum
+    uint8_t byte11;  // Unknown, maybe checksum
+    uint8_t byte12;  // Unknown, maybe checksum
+    uint8_t byte13;  // Unknown, maybe checksum
+    } wizmote_message;
+
+    static void onWizmote(uint8_t* address, wizmote_message* data, uint8_t len) {
+        // First make sure this is a WizMote message.
+        if (len != sizeof(wizmote_message) || data->byte8 != 1 || data->byte9 != 100 || data->byte5 != 32)
+            return;
+
+        static uint32_t last_seq = 0;
+        uint32_t cur_seq = data->seq[0] | (data->seq[1] << 8) | (data->seq[2] << 16) | (data->seq[3] << 24);
+        if (cur_seq == last_seq)
+            return;
+        last_seq = cur_seq;
+
+        instance->receiver->onButton(data->button);
+    }
+
+    static void onDataReceived(uint8_t* address, uint8_t* data, uint8_t len, signed int rssi, bool broadcast) {
+        instance->onPeerData(address, data, len, rssi, broadcast);
+        onWizmote(address, (wizmote_message*)data, len);
     }
 };
 
-typedef struct wizmote_message {
-  uint8_t program;      // 0x91 for ON button, 0x81 for all others
-  uint8_t seq[4];       // Incremetal sequence number 32 bit unsigned integer LSB first
-  uint8_t byte5 = 32;   // Unknown
-  uint8_t button;       // Identifies which button is being pressed
-  uint8_t byte8 = 1;    // Unknown, but always 0x01
-  uint8_t byte9 = 100;  // Unnkown, but always 0x64
-
-  uint8_t byte10;  // Unknown, maybe checksum
-  uint8_t byte11;  // Unknown, maybe checksum
-  uint8_t byte12;  // Unknown, maybe checksum
-  uint8_t byte13;  // Unknown, maybe checksum
-} wizmote_message;
-
-void onWizmote(uint8_t* address, wizmote_message* data, uint8_t len) {
-  // First make sure this is a WizMote message.
-  if (len != sizeof(wizmote_message) || data->byte8 != 1 || data->byte9 != 100 || data->byte5 != 32)
-    return;
-
-  static uint32_t last_seq = 0;
-  uint32_t cur_seq = data->seq[0] | (data->seq[1] << 8) | (data->seq[2] << 16) | (data->seq[3] << 24);
-  if (cur_seq == last_seq)
-    return;
-  last_seq = cur_seq;
-
-  LightNode::instance->receiver->onButton(data->button);
-}
-
 LightNode* LightNode::instance = nullptr;
 
-void onDataReceived(uint8_t* address, uint8_t* data, uint8_t len, signed int rssi, bool broadcast) {
-    LightNode::instance->onPeerData(address, data, len, rssi, broadcast);
-    onWizmote(address, (wizmote_message*)data, len);
-}

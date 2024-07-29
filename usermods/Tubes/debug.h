@@ -42,19 +42,6 @@ class DebugController {
     lastFrame = (uint32_t)-1;
   }
 
-  std::string status_code(NodeStatus status) {
-    switch (status) {
-      case NODE_STATUS_QUIET:
-        return std::string(" (quiet)");
-      case NODE_STATUS_STARTING:
-        return std::string(" (starting)");
-      case NODE_STATUS_STARTED:
-        return std::string("");
-      default:
-        return std::string("??");
-    }
-  }
-
   void update()
   {
     EVERY_N_MILLISECONDS( 10000 ) {
@@ -63,7 +50,7 @@ class DebugController {
       auto knownIp = apActive ? IPAddress(4, 3, 2, 1) : WiFi.localIP();
       Serial.printf("\n=== %s%s    WiFi[ch%d] %s IP: %u.%u.%u.%u   Free memory: %d  space: %u/%u  Uptime: %s\n",
         controller->node->node_name,
-        status_code(controller->node->status).c_str(),
+        controller->node->status_code(),
         WiFi.channel(),
         knownSsid.c_str(),
         knownIp[0],
