@@ -126,6 +126,7 @@ class LightNode {
         LightNode::instance = this;
     }
 
+protected: 
     void onWifiConnect() {
         if (status == NODE_STATUS_QUIET)
             return;
@@ -326,6 +327,8 @@ class LightNode {
             Serial.printf("  *** Broadcast error %d\n", err);
     }
 
+public:
+
     void sendCommand(CommandId command, void *data, uint8_t len) {
         if (len > MESSAGE_DATA_SIZE) {
             Serial.printf("Message is too big: %d vs %d\n",
@@ -419,6 +422,7 @@ class LightNode {
         return header.uplinkId != 0;
     }
 
+protected: 
     typedef struct wizmote_message {
     uint8_t program;      // 0x91 for ON button, 0x81 for all others
     uint8_t seq[4];       // Incremetal sequence number 32 bit unsigned integer LSB first
