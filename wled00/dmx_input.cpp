@@ -186,6 +186,9 @@ void DMXInput::updateInternal()
   unsigned long now = millis();
   if (dmx_receive(inputPortNum, &packet, DMX_TIMEOUT_TICK)) {
     if (!packet.err) {
+      if(!connected) {
+        USER_PRINTLN("DMX Input - connected");
+      }
       connected = true;
       identify = isIdentifyOn();
       if (!packet.is_rdm) {
@@ -198,6 +201,9 @@ void DMXInput::updateInternal()
     }
   }
   else {
+    if(connected) {
+      USER_PRINTLN("DMX Input - disconnected");
+    }
     connected = false;
   }
 }
