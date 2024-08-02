@@ -2,6 +2,7 @@
 #include "wled.h"
 #include "wled_ethernet.h"
 #include <Arduino.h>
+#include "espnow_broadcast.h"
 
 #if defined(ARDUINO_ARCH_ESP32) && defined(WLED_DISABLE_BROWNOUT_DET)
 #include "soc/soc.h"
@@ -499,6 +500,10 @@ pinManager.allocateMultiplePins(pins, sizeof(pins)/sizeof(managed_pin_type), Pin
   initServer();
   DEBUG_PRINT(F("heap ")); DEBUG_PRINTLN(ESP.getFreeHeap());
 
+#ifndef WLED_DISABLE_ESPNOW_NEW
+  espnowBroadcast.setup();
+#endif
+
   enableWatchdog();
 
   #if defined(ARDUINO_ARCH_ESP32) && defined(WLED_DISABLE_BROWNOUT_DET)
@@ -807,6 +812,10 @@ void WLED::handleConnection()
     initConnection();
     return;
   }
+
+#ifndef WLED_DISABLE_ESPNOW_NEW
+  espnowBroadcast.loop();
+#endif
 
   // reconnect WiFi to clear stale allocations if heap gets too low
   if (now - heapTime > 5000) {

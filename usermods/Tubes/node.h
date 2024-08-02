@@ -1,33 +1,24 @@
 #pragma once
 
 #include <Arduino.h>
-#if defined ESP32
-#include <WiFi.h>
-#include <esp_wifi.h>
-#elif defined ESP8266
-#include <ESP8266WiFi.h>
-#define WIFI_MODE_STA WIFI_STA 
-#else
-#error "Unsupported platform"
-#endif //ESP32
-#include <QuickEspNow.h>
-
 #include "global_state.h"
+#include "espnow_broadcast.h"
 
 // #define NODE_DEBUGGING
 // #define RELAY_DEBUGGING
 #define TESTING_NODE_ID 0
 
 #define CURRENT_NODE_VERSION 2
-#define BROADCAST_ADDR ESPNOW_BROADCAST_ADDRESS 
-
-#define UPLINK_TIMEOUT 20000      // Time at which uplink is presumed lost
-#define REBROADCAST_TIME 30000    // Time at which followers are presumed re-uplinked
-#define WIFI_CHECK_RATE 2000     // Time at which we should check wifi status again
 
 #pragma pack(push,4) // set packing for consist transport across network
 // ideally this would have been pack 1, so we're actually wasting a
 // number of bytes across the network, but we've already shipped...
+
+typedef enum{
+    RECIPIENTS_ALL=0,  // Send to all neighbors; non-followers will ignore
+    RECIPIENTS_ROOT=1, // Send to root for rebroadcasting downward, all will see
+    RECIPIENTS_INFO=2, // Send to all neighbors "FYI"; none will ignore
+} MessageRecipients;
 
 typedef uint16_t MeshId;
 
@@ -37,14 +28,7 @@ typedef struct {
     uint8_t version = CURRENT_NODE_VERSION;
 } MeshNodeHeader;
 
-typedef enum{
-    RECIPIENTS_ALL=0,  // Send to all neighbors; non-followers will ignore
-    RECIPIENTS_ROOT=1, // Send to root for rebroadcasting downward, all will see
-    RECIPIENTS_INFO=2, // Send to all neighbors "FYI"; none will ignore
-} MessageRecipients;
-
 #define MESSAGE_DATA_SIZE 64
-
 typedef struct {
     MeshNodeHeader header;
     MessageRecipients recipients;
@@ -59,6 +43,7 @@ typedef struct {
     uint8_t status;
     char message[40];
 } NodeInfo;
+
 
 const char *command_name(CommandId command) {
     switch (command) {
@@ -98,8 +83,9 @@ class LightNode {
 
     typedef enum{
         NODE_STATUS_QUIET=0,
-        NODE_STATUS_STARTING=1,
-        NODE_STATUS_STARTED=2,
+        NODE_STATUS_RECEIVING,
+        NODE_STATUS_STARTED,
+        NODE_STATUS_MAX,        
     } NodeStatus;
     NodeStatus status = NODE_STATUS_QUIET;
 
@@ -107,8 +93,8 @@ class LightNode {
         switch (status) {
         case NODE_STATUS_QUIET:
             return PSTR(" (quiet)");
-        case NODE_STATUS_STARTING:
-            return PSTR(" (starting)");
+        case NODE_STATUS_RECEIVING:
+            return PSTR(" (receiving)");
         case NODE_STATUS_STARTED:
             return PSTR("");
         default:
@@ -118,36 +104,19 @@ class LightNode {
 
     char node_name[20];
 
-    Timer statusTimer;  // Use this timer to initialize and check wifi status
-    Timer uplinkTimer; // When this timer ends, assume uplink is lost.
-    Timer rebroadcastTimer; // Until this timer ends, re-broadcast messages from uplink
-
     LightNode(MessageReceiver *r) : receiver(r) {
-        LightNode::instance = this;
+        instance = this;
     }
 
-protected: 
-    void onWifiConnect() {
-        if (status == NODE_STATUS_QUIET)
-            return;
-            
-        Serial.println("WiFi connected: stop broadcasting");
-        quickEspNow.stop();
-        status = NODE_STATUS_QUIET;
-        rebroadcastTimer.stop();
-        statusTimer.start(WIFI_CHECK_RATE);
-    }
+  protected:
 
-    void onWifiDisconnect() {
-        if (status != NODE_STATUS_QUIET)
-            return;
+    const uint32_t STATUS_CHECK_RATE =   200;    // Time at which we should check wifi status again
+    const uint32_t UPLINK_TIMEOUT    = 20000;    // Time at which uplink is presumed lost
+    const uint32_t REBROADCAST_TIME  = 30000;    // Time at which followers are presumed re-uplinked
 
-        Serial.println("WiFi disconnected: start broadcasting");
-        WiFi.mode (WIFI_MODE_STA);
-        WiFi.disconnect(false, true);
-        quickEspNow.begin(1, WIFI_IF_STA);
-        start();
-    }
+    Timer statusTimer;      // Use this timer to initialize and check wifi status
+    Timer uplinkTimer;      // When this timer ends, assume uplink is lost.
+    Timer rebroadcastTimer; // Until this timer ends, re-broadcast messages from uplink
 
     void onMeshChange() {
         sprintf(node_name,
@@ -155,10 +124,11 @@ protected:
             header.id,
             header.uplinkId
         );
-        configuredAP();
+
+        configureAP();
     }
 
-    void configuredAP() {
+    void configureAP() {
 #ifdef DEFAULT_WIFI
         strcpy(clientSSID, DEFAULT_WIFI);
         strcpy(clientPass, DEFAULT_WIFI_PASSWORD);
@@ -172,47 +142,39 @@ protected:
         apBehavior = AP_BEHAVIOR_BUTTON_ONLY; // Must press button for 6 seconds to get AP
     }
 
-    void start() {
-        // Initialization timer: wait for a bit before trying to broadcast.
-        // If this node's ID is high, it's more likely to be the leader, so wait less.
-        status = NODE_STATUS_STARTING;
-        statusTimer.start(3000 - header.id / 2);
-        rebroadcastTimer.stop();
-    }
-
-    void onPeerPing(MeshNodeHeader* node) {
+    void onPeerPing(const MeshNodeHeader& node) {
         // When receiving a message, if the IDs match, it's a conflict
         // Reset to create a new ID.
-        if (node->id == header.id) {
+        if (node.id == header.id) {
             Serial.println("Detected an ID conflict.");
             reset();
         }
 
         // If the message arrives from a higher ID, switch into follower mode
-        if (node->id > header.uplinkId && node->id > header.id) {            
+        if (node.id > header.uplinkId && node.id > header.id) {
 #ifdef RELAY_DEBUGGING
           // When debugging relay, pretend not to see any nodes above 0x800
           if (node->id < 0x800)
 #endif
-            follow(node);
+            follow(&node);
         }
 
         // If the message arrived from our uplink, track that we're still linked.
-        if (node->id == header.uplinkId) {
+        if (node.id == header.uplinkId) {
             uplinkTimer.start(UPLINK_TIMEOUT);
         }
 
         // If a message indicates that another node is following this one, or
         // should be (it's not following anything, but this node's ID is higher)
         // enter or continue re-broadcasting mode.
-        if (node->uplinkId == header.id
-            || (node->uplinkId == 0 && node->id < header.id)) {
-            Serial.printf("        %03X/%03X is following me\n", node->id, node->uplinkId);
+        if (node.uplinkId == header.id
+            || (node.uplinkId == 0 && node.id < header.id)) {
+            Serial.printf("        %03X/%03X is following me", node.id, node.uplinkId);
             rebroadcastTimer.start(REBROADCAST_TIME);
         }
     }
 
-    void printMessage(NodeMessage* message, signed int rssi) {
+    void printMessage(const NodeMessage* message, signed int rssi) {
         Serial.printf("%03X/%03X %s",
             message->header.id,
             message->header.uplinkId,
@@ -224,12 +186,11 @@ protected:
             Serial.printf(" %ddB ", rssi);
     }
 
-    void onPeerData(uint8_t* address, uint8_t* data, uint8_t len, signed int rssi, bool broadcast) {
+    void onPeerData(const uint8_t* address, const NodeMessage* message, uint8_t len, signed int rssi, bool broadcast) {
         // Ignore this message if it isn't a valid message payload.
-        if (len != sizeof(NodeMessage))
+        if (len != sizeof(*message))
             return;
 
-        NodeMessage* message = (NodeMessage*)data;
         // Ignore this message if it's the wrong version.
         if (message->header.version != header.version) {
 #ifdef NODE_DEBUGGING
@@ -241,7 +202,7 @@ protected:
         }
 
         // Track that another node exists, updating this node's understanding of the mesh.
-        onPeerPing(&message->header);
+        onPeerPing(message->header);
 
         bool ignore = false;
         switch (message->recipients) {
@@ -290,7 +251,7 @@ protected:
             // Execute the command
             auto valid = receiver->onCommand(
                 message->command,
-                &message->data
+                const_cast<uint8_t*>(message->data)
             );
             Serial.println();
 
@@ -300,17 +261,32 @@ protected:
 
         // Re-broadcast the message if appropriate
         if (!rebroadcastTimer.ended() && message->recipients != RECIPIENTS_INFO) {
-            message->header = header;
-            if (!isFollowing())
-                message->recipients = RECIPIENTS_ALL;
-            broadcastMessage(message, true);
+            static NodeMessage msg;
+            memcpy(&msg, &message, len);
+            msg.header = header;
+            if (!isFollowing()) {
+                msg.recipients = RECIPIENTS_ALL;
+            }
+#ifdef NODE_DEBUGGING
+            Serial.println("rebroadcast");
+#endif
+            broadcastMessage(&msg, true);
         }
     }
 
     void broadcastMessage(NodeMessage *message, bool is_rebroadcast=false) {
         // Don't broadcast anything if this node isn't active.
-        if (status != NODE_STATUS_STARTED)
-            return;
+
+        if (status != NODE_STATUS_STARTED) {
+            if (status == NODE_STATUS_RECEIVING && statusTimer.every(STATUS_CHECK_RATE)) {
+                status = NODE_STATUS_STARTED;
+                statusTimer.stop();
+                Serial.printf("LightNode %s\n", status_code());
+            } else {
+                Serial.printf("broadcastMessage() - not started - %s\n", status_code());
+                return;
+            }
+        }
         message->timebase = strip.timebase + millis();
         
 #ifdef NODE_DEBUGGING
@@ -319,17 +295,25 @@ protected:
         Serial.println();
 #endif
 
-        auto err = quickEspNow.send(
-            ESPNOW_BROADCAST_ADDRESS,
-            (uint8_t*)message, sizeof(*message)
-        );
-        if (err)
-            Serial.printf("  *** Broadcast error %d\n", err);
+        __attribute__((unused)) auto err = espnowBroadcast.send((const uint8_t*)message, sizeof(*message));
+
+#ifdef NODE_DEBUGGING
+        if (err != ESP_OK) {
+            Serial.printf("espnowBroadcast.send() failed: %d\n", err);
+        } else {
+            Serial.println("successful broadcast");
+        }
+#endif
+
     }
 
-public:
+  public:
 
     void sendCommand(CommandId command, void *data, uint8_t len) {
+        // if (!ESP_NOW.isStarted()) {
+        //     Serial.println("SendCommand ESP Not Started!");
+        //     return;
+        // }
         if (len > MESSAGE_DATA_SIZE) {
             Serial.printf("Message is too big: %d vs %d\n",
                 len, MESSAGE_DATA_SIZE);
@@ -350,6 +334,9 @@ public:
         }
         message.command = command;
         memcpy(&message.data, data, len);
+#ifdef NODE_DEBUGGING
+        Serial.println("sendCommand");
+#endif        
         broadcastMessage(&message);
     }
 
@@ -359,30 +346,27 @@ public:
 #else
         reset();
 #endif
-        statusTimer.stop();
-        quickEspNow.onDataRcvd(onDataReceived);
 
-        Serial.println("Mesh: ok");
+
+#ifdef NODE_DEBUGGING
+        delay(2000);
+#endif
+
+        espnowBroadcast.registerCallback(onEspNowMessage);
+
+        Serial.println("setup: ok");
     }
 
     void update() {
+
+        //process any wifi events to turn on/off ESPNode
+        checkESPNowState();
+
         // Check the last time we heard from the uplink node
         if (isFollowing() && uplinkTimer.ended()) {
             follow(NULL);
         }
 
-        if (statusTimer.every(WIFI_CHECK_RATE)) {
-            // The broadcast timer doubles as a timer for startup delay
-            // Once the initial timer has ended, mark this node as started
-            if (status == NODE_STATUS_STARTING)
-                status = NODE_STATUS_STARTED;
-
-            // Check WiFi status and update node status if wifi changed
-            if (WiFi.isConnected())
-                onWifiConnect();
-            else
-                onWifiDisconnect();
-        }
     }
 
     void reset(MeshId id = 0) {
@@ -393,7 +377,7 @@ public:
         follow(NULL);
     }
 
-    void follow(MeshNodeHeader* node) {
+    void follow(const MeshNodeHeader* node) {
         if (node == NULL) {
             if (header.uplinkId != 0) {
                 Serial.println("Uplink lost");
@@ -422,22 +406,54 @@ public:
         return header.uplinkId != 0;
     }
 
-protected: 
-    typedef struct wizmote_message {
-    uint8_t program;      // 0x91 for ON button, 0x81 for all others
-    uint8_t seq[4];       // Incremetal sequence number 32 bit unsigned integer LSB first
-    uint8_t byte5 = 32;   // Unknown
-    uint8_t button;       // Identifies which button is being pressed
-    uint8_t byte8 = 1;    // Unknown, but always 0x01
-    uint8_t byte9 = 100;  // Unnkown, but always 0x64
+protected:
 
-    uint8_t byte10;  // Unknown, maybe checksum
-    uint8_t byte11;  // Unknown, maybe checksum
-    uint8_t byte12;  // Unknown, maybe checksum
-    uint8_t byte13;  // Unknown, maybe checksum
+    void checkESPNowState() {
+        auto state = espnowBroadcast.getState();
+        static auto prev = espnowBroadcast.STOPPED;
+        switch(state) {
+            case ESPNOWBroadcast::STOPPED:
+                if (NODE_STATUS_QUIET != status) {
+                    Serial.printf("checkESPNowState() - %d node_status:%s\n", state, status_code());
+                    status = NODE_STATUS_QUIET;
+                    rebroadcastTimer.stop();
+                    Serial.printf("LightNode %s\n", status_code());
+                }
+                break;
+            case ESPNOWBroadcast::STARTING: {}
+                if ( state != prev ) {
+                    Serial.printf("checkESPNowState() - %d node_status:%s\n", state, status_code());
+                }
+                break;
+            case ESPNOWBroadcast::STARTED:
+                if (NODE_STATUS_QUIET == status) {
+                    Serial.printf("checkESPNowState() - %d node_status:%s\n", state, status_code());
+                    status = NODE_STATUS_RECEIVING;
+                    statusTimer.start(3000 - header.id / 2);
+                    Serial.printf("LightNode %s\n", status_code());
+                }
+                break;
+            default:
+                break;
+        }
+        prev = state;
+    }
+
+    typedef struct wizmote_message {
+        uint8_t program;      // 0x91 for ON button, 0x81 for all others
+        uint8_t seq[4];       // Incremetal sequence number 32 bit unsigned integer LSB first
+        uint8_t byte5 = 32;   // Unknown
+        uint8_t button;       // Identifies which button is being pressed
+        uint8_t byte8 = 1;    // Unknown, but always 0x01
+        uint8_t byte9 = 100;  // Unnkown, but always 0x64
+
+        uint8_t byte10;  // Unknown, maybe checksum
+        uint8_t byte11;  // Unknown, maybe checksum
+        uint8_t byte12;  // Unknown, maybe checksum
+        uint8_t byte13;  // Unknown, maybe checksum
     } wizmote_message;
 
-    static void onWizmote(uint8_t* address, wizmote_message* data, uint8_t len) {
+    void onWizmote(const uint8_t* address, const wizmote_message* data, uint8_t len) {
         // First make sure this is a WizMote message.
         if (len != sizeof(wizmote_message) || data->byte8 != 1 || data->byte9 != 100 || data->byte5 != 32)
             return;
@@ -448,13 +464,22 @@ protected:
             return;
         last_seq = cur_seq;
 
-        instance->receiver->onButton(data->button);
+        receiver->onButton(data->button);
     }
 
-    static void onDataReceived(uint8_t* address, uint8_t* data, uint8_t len, signed int rssi, bool broadcast) {
-        instance->onPeerData(address, data, len, rssi, broadcast);
-        onWizmote(address, (wizmote_message*)data, len);
+    static void onEspNowMessage(const uint8_t *address, const uint8_t *msg, uint8_t len) {
+        if (msg) {
+            if(len == sizeof(NodeMessage)) {
+                instance->onPeerData(address, (const NodeMessage*)msg, len, 0, true);
+                instance->onWizmote(address, (const wizmote_message*)msg, len);
+            } else {
+#ifdef NODE_DEBUGGING
+                Serial.printf("wrong size QueueNodeMessage received %d\n", len);
+#endif
+            }
+        }
     }
+
 };
 
 LightNode* LightNode::instance = nullptr;

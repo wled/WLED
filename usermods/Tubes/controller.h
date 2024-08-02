@@ -173,7 +173,6 @@ class PatternController : public MessageReceiver {
 
   void setup()
   {
-    node->setup();
     EEPROM.begin(EEPSIZE);
     role = (ControllerRole)EEPROM.read(ROLE_EEPROM_LOCATION);
     if (role == 255) {
@@ -204,6 +203,8 @@ class PatternController : public MessageReceiver {
       strip.ablMilliampsMax = 1000;
     else
       strip.ablMilliampsMax = 1400;
+
+    node->setup();
 
     if (role >= MasterRole) {
       node->reset(3850 + role); // MASTER ID
