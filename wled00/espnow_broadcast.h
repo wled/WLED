@@ -27,7 +27,7 @@ class ESPNOWBroadcast {
 
     bool send(const uint8_t* msg, size_t len);
 
-    typedef void (*receive_callback_t)(const uint8_t *sender, const uint8_t *data, uint8_t len);
+    typedef void (*receive_callback_t)(const uint8_t *sender, const uint8_t *data, uint8_t len, int8_t rssi);
     bool registerCallback( receive_callback_t callback );
     bool removeCallback( receive_callback_t callback );
 

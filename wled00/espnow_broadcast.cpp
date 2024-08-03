@@ -40,8 +40,10 @@ ESP_EVENT_DEFINE_BASE(SYSTEM_EVENT);
 typedef struct {
     uint8_t mac[6];
     uint8_t len;
+    int8_t  rssi;
     uint8_t data[WLED_ESPNOW_MAX_MESSAGE_LENGTH];
 } QueuedNetworkMessage;
+static_assert(sizeof(QueuedNetworkMessage) == WLED_ESPNOW_MAX_MESSAGE_LENGTH+8, "QueuedNetworkMessage larger than needed");
 static_assert(WLED_ESPNOW_MAX_MESSAGE_LENGTH <= ESP_NOW_MAX_DATA_LEN, "WLED_ESPNOW_MAX_MESSAGE_LENGTH must be <= 250 bytes");
 
 
@@ -74,7 +76,7 @@ class ESPNOWBroadcastImpl : public ESPNOWBroadcast {
             buf = xRingbufferCreateNoSplit(sizeof(QueuedNetworkMessage), WLED_ESPNOW_MAX_QUEUED_MESSAGES);
         }
 
-        bool push(const uint8_t* mac, const uint8_t* data, uint8_t len);
+        bool push(const uint8_t* mac, const uint8_t* data, uint8_t len, int8_t rssi);
 
         QueuedNetworkMessage* pop() {
             size_t size = 0;
@@ -185,7 +187,7 @@ void ESPNOWBroadcast::loop(size_t maxMessagesToProcess /*= 1*/) {
                 if (msg) {
                     auto callback = _rxCallbacks;
                     while( *callback ) {
-                        (*callback)(msg->mac, msg->data, msg->len);
+                        (*callback)(msg->mac, msg->data, msg->len, msg->rssi);
                         callback++;
                     }
                     espnowBroadcastImpl.queuedNetworkRingBuffer.popComplete(msg);
@@ -345,8 +347,49 @@ void ESPNOWBroadcastImpl::onWiFiEvent(void* arg, esp_event_base_t event_base, in
     }
 }
 
+typedef struct {
+    uint16_t frame_head;
+    uint16_t duration;
+    uint8_t destination_address[6];
+    uint8_t source_address[6];
+    uint8_t broadcast_address[6];
+    uint16_t sequence_control;
+
+    uint8_t category_code;
+    uint8_t organization_identifier[3]; // 0x18fe34
+    uint8_t random_values[4];
+    struct {
+        uint8_t element_id;                 // 0xdd
+        uint8_t lenght;                     //
+        uint8_t organization_identifier[3]; // 0x18fe34
+        uint8_t type;                       // 4
+        uint8_t version;
+        uint8_t body[0];
+    } vendor_specific_content;
+} __attribute__ ((packed)) espnow_frame_format_t;
+
+#ifdef ESPNOW_DEBUGGING
+void logMACAddr(const uint8_t* mac) {
+    Serial.printf("%x:%x:%x:%x:%x:%x", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5] );
+}
+#endif
+
 void ESPNOWBroadcastImpl::onESPNowRxCallback(const uint8_t *mac, const uint8_t *data, int len) {
-    if (!espnowBroadcastImpl.queuedNetworkRingBuffer.push(mac, data, len)) {
+    //const espnow_frame_format_t* espnow_data = (espnow_frame_format_t*)(data - sizeof (espnow_frame_format_t));
+    const wifi_promiscuous_pkt_t* promiscuous_pkt = (wifi_promiscuous_pkt_t*)(data - sizeof (wifi_pkt_rx_ctrl_t) - sizeof (espnow_frame_format_t));
+    int8_t rssi = 0;
+    try {
+        auto rssi32 = promiscuous_pkt->rx_ctrl.rssi;
+        rssi = rssi32 <= -128 ? -127 : rssi32 > 0 ? 0 : rssi32;
+    } catch(...) {
+        // be safe about accessing memory that isn't directly exposed to the callback
+        rssi = 0;
+    }
+    // Serial.printf( "RX from " ); 
+    // logMACAddr(mac);
+    // Serial.printf( " %d:bytes rssi:%d\n", len, rssi);
+
+    if (!espnowBroadcastImpl.queuedNetworkRingBuffer.push(mac, data, len, rssi)) {
         if (len > sizeof(WLED_ESPNOW_MAX_MESSAGE_LENGTH)) {
 #ifdef ESPNOW_DEBUGGING
             Serial.printf("Receive to large of packet %d bytes. ignoring...\n", len);
@@ -357,13 +400,14 @@ void ESPNOWBroadcastImpl::onESPNowRxCallback(const uint8_t *mac, const uint8_t *
     }
 }
 
-bool ESPNOWBroadcastImpl::QueuedNetworkRingBuffer::push(const uint8_t* mac, const uint8_t* data, uint8_t len) {
+bool ESPNOWBroadcastImpl::QueuedNetworkRingBuffer::push(const uint8_t* mac, const uint8_t* data, uint8_t len, int8_t rssi) {
 #if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(4, 0, 0)
     QueuedNetworkMessage msg[1];
     if (len <= sizeof(msg->data)) {
         memcpy(msg->mac, mac, sizeof(msg->mac));
         memcpy(&(msg->data), data, len);
         msg->len = len;
+        msg->rssi = rssi;
 
         if (pdTRUE == xRingbufferSend(buf, (void**)&msg, sizeof(*msg), 0)) {
             return true;
@@ -377,6 +421,7 @@ bool ESPNOWBroadcastImpl::QueuedNetworkRingBuffer::push(const uint8_t* mac, cons
             memcpy(msg->mac, mac, sizeof(msg->mac));
             memcpy(&(msg->data), data, len);
             msg->len = len;
+            msg->rssi = rssi;
             xRingbufferSendComplete(buf, msg);
             return true;
         }
