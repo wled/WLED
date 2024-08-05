@@ -69,6 +69,7 @@ void calcGammaTable(float gamma);
 uint8_t __attribute__((pure)) gamma8(uint8_t b);                                              // WLEDMM: added attribute pure
 uint32_t __attribute__((pure)) gamma32(uint32_t);                                             // WLEDMM: added attribute pure
 uint8_t unGamma8(uint8_t value);                                                              // WLEDMM revert gamma correction
+uint32_t unGamma24(uint32_t c);                                                               // WLEDMM for 24bit color (white left as-is)
 
 //dmx_output.cpp
 void initDMXOutput();

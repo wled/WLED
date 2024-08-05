@@ -413,6 +413,12 @@ uint8_t unGamma8(uint8_t value) {
   if (gammaTinv[255] == 0) calcInvGammaTable(gammaCorrectVal);
   return gammaTinv[value];
 }
+
+uint32_t unGamma24(uint32_t c) {
+  if ((gammaCorrectVal < 0.999f) || (gammaCorrectVal > 3.0f)) return c;
+  if (gammaTinv[255] == 0) calcInvGammaTable(gammaCorrectVal);
+  return RGBW32(gammaTinv[R(c)], gammaTinv[G(c)], gammaTinv[B(c)], W(c));
+}
 // wleDMM end
 
 uint8_t gamma8_cal(uint8_t b, float gamma)

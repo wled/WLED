@@ -4,6 +4,7 @@
 #ifdef WLED_ENABLE_HUB75MATRIX
 #include <ESP32-HUB75-MatrixPanel-I2S-DMA.h>
 #include <ESP32-VirtualMatrixPanel-I2S-DMA.h>
+//extern volatile bool previousBufferFree; // experimental
 #endif
 /*
  * Class for addressing various light types
@@ -348,6 +349,7 @@ class BusHub75Matrix : public Bus {
     void show() {
       if(mxconfig.double_buff) {
         display->flipDMABuffer(); // Show the back buffer, set currently output buffer to the back (i.e. no longer being sent to LED panels)
+        // while(!previousBufferFree) delay(1);   // experimental - Wait before we allow any writing to the buffer. Stop flicker.
         display->clearScreen();   // Now clear the back-buffer
       }
     }
@@ -377,7 +379,6 @@ class BusHub75Matrix : public Bus {
     MatrixPanel_I2S_DMA *display = nullptr;
     VirtualMatrixPanel  *fourScanPanel = nullptr;
     HUB75_I2S_CFG mxconfig;
-    uint8_t r, g, b, x, y;
     
 };
 #endif

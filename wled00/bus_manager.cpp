@@ -501,6 +501,7 @@ void BusNetwork::cleanup() {
 
 BusHub75Matrix::BusHub75Matrix(BusConfig &bc) : Bus(bc.type, bc.start, bc.autoWhite) {
 
+  _valid = false;
   mxconfig.double_buff = false; // default to off, known to cause issue with some effects but needs more memory
 
 
@@ -593,6 +594,13 @@ BusHub75Matrix::BusHub75Matrix(BusConfig &bc) : Bus(bc.type, bc.start, bc.autoWh
   mxconfig.gpio.c = 19;
   mxconfig.gpio.d = 21;
   mxconfig.gpio.e = 12;
+
+  // mxconfig.double_buff = true; // <------------- Turn on double buffer
+  // mxconfig.driver = HUB75_I2S_CFG::ICN2038S;  // experimental - use specific shift register driver
+  //mxconfig.latch_blanking = 3;
+  // mxconfig.i2sspeed = HUB75_I2S_CFG::HZ_10M;  // experimental - 5MHZ should be enugh, but colours looks slightly better at 10MHz
+  //mxconfig.min_refresh_rate = 90;
+  //mxconfig.min_refresh_rate = 120;
 
 #else
   USER_PRINTLN("MatrixPanel_I2S_DMA - Default pins");
@@ -691,18 +699,25 @@ BusHub75Matrix::BusHub75Matrix(BusConfig &bc) : Bus(bc.type, bc.start, bc.autoWh
 }
 
 void BusHub75Matrix::setPixelColor(uint16_t pix, uint32_t c) {
-  r = R(c);
-  g = G(c);
-  b = B(c);
+  if (!_valid || pix >= _len) return;
+#ifndef NO_CIE1931
+  c = unGamma24(c); // to use the driver linear brightness feature, we first need to undo WLED gamma correction
+#endif
+  uint8_t r = R(c);
+  uint8_t g = G(c);
+  uint8_t b = B(c);
+
   if(fourScanPanel != nullptr) {
-    x = pix % fourScanPanel->width();
-    y = floor(pix / fourScanPanel->width());
-    fourScanPanel->drawPixelRGB888(x, y, r, g, b);
+    int pxwidth = fourScanPanel->width();
+    int x = pix % pxwidth;
+    int y = pix / pxwidth;
+    fourScanPanel->drawPixelRGB888(int16_t(x), int16_t(y), r, g, b);
   }
   else {
-    x = pix % display->width();
-    y = floor(pix / display->width());
-    display->drawPixelRGB888(x, y, r, g, b);
+    int pxwidth = display->width();
+    int x = pix % pxwidth;
+    int y = pix / pxwidth;
+    display->drawPixelRGB888(int16_t(x), int16_t(y), r, g, b);
   }
 }
 
