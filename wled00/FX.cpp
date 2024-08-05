@@ -4922,17 +4922,18 @@ uint16_t mode_2DBlackHole(void) {            // By: Stepko https://editor.soulma
   }
 
   SEGMENT.fadeToBlackBy(16 + (SEGMENT.speed>>3)); // create fading trails
-  unsigned long t = strip.now/128;                 // timebase
+  const unsigned long ratio = 128;                // rotation speed
+  unsigned long t = strip.now;                    // timebase
   // outer stars
-  for (size_t i = 0; i < 8; i++) {
-    x = beatsin8(SEGMENT.custom1>>3,   0, cols - 1, 0, ((i % 2) ? 128 : 0) + t * i);
-    y = beatsin8(SEGMENT.intensity>>3, 0, rows - 1, 0, ((i % 2) ? 192 : 64) + t * i);
+  for (unsigned i = 0; i < 8; i++) {
+    x = beatsin8(SEGMENT.custom1>>3,   0, cols - 1, 0, ((i % 2) ? 128 : 0) + (t * i)/ratio);
+    y = beatsin8(SEGMENT.intensity>>3, 0, rows - 1, 0, ((i % 2) ? 192 : 64) + (t * i)/ratio);
     SEGMENT.addPixelColorXY(x, y, CHSV(i*32, 255, 255));
   }
   // inner stars
   for (size_t i = 0; i < 4; i++) {
-    x = beatsin8(SEGMENT.custom2>>3, cols/4, cols - 1 - cols/4, 0, ((i % 2) ? 128 : 0) + t * i);
-    y = beatsin8(SEGMENT.custom3   , rows/4, rows - 1 - rows/4, 0, ((i % 2) ? 192 : 64) + t * i);
+    x = beatsin8(SEGMENT.custom2>>3, cols/4, cols - 1 - cols/4, 0, ((i % 2) ? 128 : 0) + (t * i)/ratio);
+    y = beatsin8(SEGMENT.custom3   , rows/4, rows - 1 - rows/4, 0, ((i % 2) ? 192 : 64) + (t * i)/ratio);
     SEGMENT.addPixelColorXY(x, y, CHSV(i*32, 255, 255));
   }
   // central white dot
@@ -6270,6 +6271,7 @@ uint16_t mode_2Dfloatingblobs(void) {
   }
 
   SEGMENT.fadeToBlackBy(20);
+  bool drawAA = (SEGMENT.custom1 > 0) && (SEGMENT.custom1 < 5); //WLEDMM
 
   // Bounce balls around
   for (size_t i = 0; i < Amount; i++) {
@@ -6289,7 +6291,7 @@ uint16_t mode_2Dfloatingblobs(void) {
       }
     }
     uint32_t c = SEGMENT.color_from_palette(blob->color[i], false, false, 0);
-    if (blob->r[i] > 1.f) SEGMENT.fillCircle(roundf(blob->x[i]), roundf(blob->y[i]), roundf(blob->r[i]), c);
+    if (blob->r[i] > 1.f) SEGMENT.fillCircle(roundf(blob->x[i]), roundf(blob->y[i]), roundf(blob->r[i]), c, drawAA);
     else                  SEGMENT.setPixelColorXY((int)roundf(blob->x[i]), (int)roundf(blob->y[i]), c);
     // move x
     if (blob->x[i] + blob->r[i] >= cols - 1) blob->x[i] += (blob->sX[i] * ((cols - 1 - blob->x[i]) / blob->r[i] + 0.005f));

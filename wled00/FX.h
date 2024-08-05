@@ -661,10 +661,8 @@ typedef struct Segment {
   
   #ifndef WLED_DISABLE_2D
     inline uint16_t XY(uint_fast16_t x, uint_fast16_t y) { // support function to get relative index within segment (for leds[]) // WLEDMM inline for speed
-      uint_fast16_t width  = virtualWidth();   // segment width in logical pixels
-      uint_fast16_t height = virtualHeight();  // segment height in logical pixels
-      if (width == 0) return 0;           // softhack007 avoid div/0
-      if (height == 0) return (x%width);  // softhack007 avoid div/0
+      uint_fast16_t width  = max(uint16_t(1), virtualWidth());   // segment width in logical pixels  -- softhack007 avoid div/0
+      uint_fast16_t height = max(uint16_t(1), virtualHeight());  // segment height in logical pixels -- softhack007 avoid div/0
       return (x%width) + (y%height) * width;
     }
 
