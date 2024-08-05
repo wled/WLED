@@ -2008,6 +2008,9 @@ function readState(s,command=false)
 		case 36:
 			errstr = "Low Memory (oappend buffer).";
 		  break;
+		case 37:
+			errstr = "no memory for LEDs buffer.";
+		  break;
 		}
 	  showToast('Error ' + s.error + ": " + errstr, true);
 	}

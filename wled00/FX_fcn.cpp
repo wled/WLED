@@ -132,7 +132,7 @@ void Segment::allocLeds() {
     ledsrgbSize = ledsrgb?size:0;
     if (ledsrgb == nullptr) {
       USER_PRINTLN("allocLeds failed!!");
-      errorFlag = ERR_LOW_MEM; // WLEDMM raise errorflag
+      errorFlag = ERR_LOW_BUF; // WLEDMM raise errorflag
     }
   }
   else {
@@ -1442,8 +1442,10 @@ void Segment::fadeToBlackBy(uint8_t fadeBy) {
 
   // WLEDMM minor optimization
   if(is2D()) {
-    for (uint_fast16_t y = 0; y < rows; y++) for (uint_fast16_t x = 0; x < cols; x++) {
-      setPixelColorXY((uint16_t)x, (uint16_t)y, CRGB(getPixelColorXY(x,y)).nscale8(scaledown));
+    for (int y = 0; y < rows; y++) for (int x = 0; x < cols; x++) {
+      uint32_t cc = getPixelColorXY(x,y);                            // WLEDMM avoid RGBW32 -> CRGB -> RGBW32 conversion
+      uint32_t cc2 = color_fade(cc, scaledown);                      // fade
+      if (cc2 != cc) setPixelColorXY((uint16_t)x, (uint16_t)y, cc2); // WLEDMM only re-paint if faded color is different
     }
   } else {
     for (uint_fast16_t x = 0; x < cols; x++) {
