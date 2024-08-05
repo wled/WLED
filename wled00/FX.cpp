@@ -7513,9 +7513,9 @@ uint16_t mode_freqmatrix(void) {                // Freqmatrix. By Andreas Plesch
     }
 
     // shift the pixels one pixel up
-    SEGMENT.setPixelColor(0, color);
     // if SEGLEN equals 1 this loop won't execute
     for (int i = SEGLEN - 1; i > 0; i--) SEGMENT.setPixelColor(i, SEGMENT.getPixelColor(i-1)); //move to the left
+    SEGMENT.setPixelColor(0, color);
   }
 
   return FRAMETIME;
