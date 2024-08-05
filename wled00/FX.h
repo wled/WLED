@@ -434,6 +434,19 @@ typedef struct Segment {
     static size_t _usedSegmentData;    // WLEDMM uint16_t is too small
     void setPixelColorXY_fast(int x, int y,uint32_t c, uint32_t scaled_col, int cols, int rows); // set relative pixel within segment with color - faster, but no error checking!!!
 
+#ifdef WLEDMM_FASTPATH
+    // WLEDMM cache some values that won't change while drawing a frame
+    bool _isSimpleSegment = false;
+    bool _isValid2D = false;
+    uint8_t _brightness = 255; // final pixel brightness - including transitions and segment opacity
+    uint16_t _2dWidth = 0;  // virtualWidth
+    uint16_t _2dHeight = 0; // virtualHeight
+
+    void setPixelColorXY_slow(int x, int y, uint32_t c); // set relative pixel within segment with color - full slow version
+#else
+    void setPixelColorXY_slow(int x, int y, uint32_t c) { setPixelColorXY(x,y,c); }  // not FASTPATH - slow is the normal
+#endif
+
     // perhaps this should be per segment, not static
     static CRGBPalette16 _currentPalette;     // palette used for current effect (includes transition, used in color_from_palette())
 
@@ -587,6 +600,7 @@ typedef struct Segment {
     bool allocateData(size_t len);
     void deallocateData(void);
     void resetIfRequired(void);
+    void startFrame(void); // cache a few values that don't change while an effect is drawing
     /**
       * Flags that before the next effect is calculated,
       * the internal segment state should be reset.
@@ -642,6 +656,7 @@ typedef struct Segment {
     uint32_t __attribute__((pure)) color_wheel(uint8_t pos);
 
     // 2D matrix
+#ifndef WLEDMM_FASTPATH
     inline uint16_t virtualWidth() const {  // WLEDMM use fast types, and make function inline
       uint_fast16_t groupLen = groupLength();
       uint_fast16_t vWidth = ((transpose ? height() : width()) + groupLen - 1) / groupLen;
@@ -654,6 +669,23 @@ typedef struct Segment {
       if (mirror_y) vHeight = (vHeight + 1) /2;  // divide by 2 if mirror, leave at least a single LED
       return vHeight;
     }
+#else
+    inline uint16_t virtualWidth() const  { return(_2dWidth);}  // WLEDMM get pre-calculated virtualWidth
+    inline uint16_t virtualHeight() const { return(_2dHeight);} // WLEDMM get pre-calculated virtualHeight
+
+    uint16_t calc_virtualWidth() const {
+      uint_fast16_t groupLen = groupLength();
+      uint_fast16_t vWidth = ((transpose ? height() : width()) + groupLen - 1) / groupLen;
+      if (mirror) vWidth = (vWidth + 1) /2;  // divide by 2 if mirror, leave at least a single LED
+      return vWidth;
+    }
+    uint16_t calc_virtualHeight() const {
+      uint_fast16_t groupLen = groupLength();
+      uint_fast16_t vHeight = ((transpose ? width() : height()) + groupLen - 1) / groupLen;
+      if (mirror_y) vHeight = (vHeight + 1) /2;  // divide by 2 if mirror, leave at least a single LED
+      return vHeight;
+    }
+#endif
 
     uint16_t nrOfVStrips(void) const;
     void createjMap(); //WLEDMM jMap
@@ -666,8 +698,24 @@ typedef struct Segment {
       return (x%width) + (y%height) * width;
     }
 
-    //void setPixelColorXY_fast(int x, int y,uint32_t c); // set relative pixel within segment with color - wrapper for _fast
+#ifdef WLEDMM_FASTPATH
+    // WLEDMM this is a "gateway" function - we either call _fast or fall back to "slow" 
+    inline void setPixelColorXY(int x, int y, uint32_t col) {
+      if (!_isSimpleSegment) { // slow path
+        setPixelColorXY_slow(x, y, col);
+      } else {                 // fast path
+        // some sanity checks
+        if (!_isValid2D) return;                                               // not active
+        if ((unsigned(x) >= _2dWidth) || (unsigned(y) >= _2dHeight)) return;   // check if (x,y) are out-of-range - due to 2's complement, this also catches negative values
+        if (!_brightness && !transitional) return;                             // black-out
+
+        uint32_t scaled_col = (_brightness == 255) ? col : color_fade(col, _brightness);  // calculate final color
+        setPixelColorXY_fast(x, y, col, scaled_col, int(_2dWidth), int(_2dHeight));       // call "fast" function
+  }
+}
+#else
     void setPixelColorXY(int x, int y, uint32_t c); // set relative pixel within segment with color
+#endif
     inline void setPixelColorXY(unsigned x, unsigned y, uint32_t c)               { setPixelColorXY(int(x), int(y), c); }
     inline void setPixelColorXY(int x, int y, byte r, byte g, byte b, byte w = 0) { setPixelColorXY(x, y, RGBW32(r,g,b,w)); }
     inline void setPixelColorXY(int x, int y, CRGB c)                             { setPixelColorXY(x, y, RGBW32(c.r,c.g,c.b,0)); }

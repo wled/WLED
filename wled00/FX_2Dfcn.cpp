@@ -217,6 +217,19 @@ uint32_t WS2812FX::getPixelColorXY(uint16_t x, uint16_t y) {
 
 #ifndef WLED_DISABLE_2D
 
+// WLEDMM cache some values so we don't need to re-calc then for each pixel
+void Segment::startFrame(void) {
+#ifdef WLEDMM_FASTPATH
+  _isValid2D  = isActive() && is2D();
+  _brightness = currentBri(on ? opacity : 0);
+  _isSimpleSegment = (grouping == 1) && (spacing == 0); // we can handle pixels faster when no grouping or spacing is involved
+  // if (reverse_y) _isSimpleSegment = false; // for A/B testing
+  _2dWidth    = is2D() ? calc_virtualWidth() : virtualLength();
+  _2dHeight   = calc_virtualHeight();
+#endif
+}
+// WLEDMM end
+
 // XY(x,y) - gets pixel index within current segment (often used to reference leds[] array element)
 // WLEDMM Segment::XY()is declared inline, see FX.h
 
@@ -266,7 +279,11 @@ void IRAM_ATTR Segment::setPixelColorXY_fast(int x, int y, uint32_t col, uint32_
 
 
 // normal Segment::setPixelColorXY with error checking, and support for grouping / spacing
+#ifdef WLEDMM_FASTPATH
+void IRAM_ATTR_YN Segment::setPixelColorXY_slow(int x, int y, uint32_t col) //WLEDMM: IRAM_ATTR conditionally, renamed to "_slow"
+#else
 void IRAM_ATTR_YN Segment::setPixelColorXY(int x, int y, uint32_t col) //WLEDMM: IRAM_ATTR conditionally
+#endif
 {
   if (Segment::maxHeight==1) return; // not a matrix set-up
   const int_fast16_t cols = virtualWidth();  // WLEDMM optimization
@@ -520,7 +537,7 @@ void Segment::box_blur(uint16_t i, bool vertical, fract8 blur_amount) {
   for (int j = 0; j < dim1; j++) {
     int x = vertical ? i : j;
     int y = vertical ? j : i;
-    setPixelColorXY(x, y, out[j]);
+    if (in[j] != out[j]) setPixelColorXY(x, y, out[j]);
   }
 }
 
@@ -698,7 +715,7 @@ void Segment::drawLine(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1, uint3
   // single pixel (line length == 0)
   if (dx+dy == 0) {
     if (simpleSegment) setPixelColorXY_fast(x0, y0, c, scaled_col, cols, rows);
-    else setPixelColorXY(x0, y0, c);
+    else setPixelColorXY_slow(x0, y0, c);
     return;
   }
 
@@ -734,7 +751,7 @@ void Segment::drawLine(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1, uint3
     for (;;) {
       // if (x0 >= cols || y0 >= rows) break; // WLEDMM we hit the edge - should never happen
       if (simpleSegment) setPixelColorXY_fast(x0, y0, c, scaled_col, cols, rows);
-      else setPixelColorXY(x0, y0, c);
+      else setPixelColorXY_slow(x0, y0, c);
       if (x0==x1 && y0==y1) break;
       int e2 = err;
       if (e2 >-dx) { err -= dy; x0 += sx; }

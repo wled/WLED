@@ -266,6 +266,7 @@ void Segment::resetIfRequired() {
     deallocateData();
     next_time = 0; step = 0; call = 0; aux0 = 0; aux1 = 0;
     reset = false; // setOption(SEG_OPTION_RESET, false);
+    startFrame();   // WLEDMM update cached propoerties
   }
 }
 
@@ -673,7 +674,11 @@ class JMapC {
       if (size > 0)
         return size;
       else
+#ifndef WLEDMM_FASTPATH
         return SEGMENT.virtualWidth() * SEGMENT.virtualHeight(); //pixels
+#else
+        return SEGMENT.calc_virtualWidth() * SEGMENT.calc_virtualHeight(); // calc pixel sizes
+#endif
     }
     void setPixelColor(uint16_t i, uint32_t col) {
       updatejMapDoc();
@@ -765,7 +770,11 @@ class JMapC {
         jMapFile.close();
 
         maxWidth++; maxHeight++;
+#ifndef WLEDMM_FASTPATH
         scale = min(SEGMENT.virtualWidth() / maxWidth, SEGMENT.virtualHeight() / maxHeight);  // WLEDMM use native min/max
+#else
+        scale = min(SEGMENT.calc_virtualWidth() / maxWidth, SEGMENT.calc_virtualHeight() / maxHeight);  // WLEDMM re-calc width/heiht from active settings
+#endif
         dataSize += sizeof(jVectorMap);
         USER_PRINT("dataSize ");
         USER_PRINT(dataSize);
@@ -1057,7 +1066,7 @@ void IRAM_ATTR_YN Segment::setPixelColor(int i, uint32_t col) //WLEDMM: IRAM_ATT
           // set pixel
           if (x != lastX || y != lastY) { // only paint if pixel position is different
             if (simpleSegment) setPixelColorXY_fast(x, y, col, scaled_col, vW, vH);
-            else setPixelColorXY(x, y, col);  
+            else setPixelColorXY_slow(x, y, col);  
           }
           lastX = x;
           lastY = y;
@@ -1353,7 +1362,7 @@ void Segment::fill(uint32_t c) {
     // fill 2D segment
     for(int y = 0; y < rows; y++) for (int x = 0; x < cols; x++) {
       if (simpleSegment) setPixelColorXY_fast(x, y, c, scaled_col, cols, rows);
-      else setPixelColorXY(x, y, c);
+      else setPixelColorXY_slow(x, y, c);
     }
   } else { // fill 1D strip
     for (int x = 0; x < cols; x++) setPixelColor(x, c);
@@ -1408,7 +1417,7 @@ void Segment::fade_out(uint8_t rate) {
   int g2 = G(color2);
   int b2 = B(color2);
 
-  for (uint_fast16_t y = 0; y < rows; y++) for (uint_fast16_t x = 0; x < cols; x++) {
+  for (int y = 0; y < rows; y++) for (int x = 0; x < cols; x++) {
     uint32_t color = is2D() ? getPixelColorXY(x, y) : getPixelColor(x);
     if (color == color2) continue;  // WLEDMM speedup - pixel color = target color, so nothing to do
     int w1 = W(color);
@@ -1426,10 +1435,12 @@ void Segment::fade_out(uint8_t rate) {
     rdelta += (r2 == r1) ? 0 : (r2 > r1) ? 1 : -1;
     gdelta += (g2 == g1) ? 0 : (g2 > g1) ? 1 : -1;
     bdelta += (b2 == b1) ? 0 : (b2 > b1) ? 1 : -1;
+    uint32_t colorNew = RGBW32(r1 + rdelta, g1 + gdelta, b1 + bdelta, w1 + wdelta); // WLEDMM
 
-    //if ((wdelta == 0) && (rdelta == 0) && (gdelta == 0) && (bdelta == 0)) continue; // WLEDMM delta = zero => no change // causes problem with text overlay
-    if (is2D()) setPixelColorXY((uint16_t)x, (uint16_t)y, r1 + rdelta, g1 + gdelta, b1 + bdelta, w1 + wdelta);
-    else        setPixelColor((uint16_t)x, r1 + rdelta, g1 + gdelta, b1 + bdelta, w1 + wdelta);
+    if (colorNew != color) {                                                        // WLEDMM speedup - do not repaint the same color
+      if (is2D()) setPixelColorXY(x, y, colorNew);
+      else        setPixelColor(x, colorNew);
+    }
   }
 }
 
@@ -1836,6 +1847,7 @@ void WS2812FX::service() {
         if (!cctFromRgb || correctWB) busses.setSegmentCCT(seg.currentBri(seg.cct, true), correctWB);
         for (uint8_t c = 0; c < NUM_COLORS; c++) _colors_t[c] = gamma32(_colors_t[c]);
 
+        seg.startFrame();   // WLEDMM
         // effect blending (execute previous effect)
         // actual code may be a bit more involved as effects have runtime data including allocated memory
         //if (seg.transitional && seg._modeP) (*_mode[seg._modeP])(progress());
