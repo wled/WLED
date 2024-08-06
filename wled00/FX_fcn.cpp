@@ -1347,6 +1347,18 @@ void Segment::refreshLightCapabilities() {
  */
 void Segment::fill(uint32_t c) {
   if (!isActive()) return; // not active
+  
+  #if 0 && defined(WLED_ENABLE_HUB75MATRIX) && defined(WLEDMM_FASTPATH)
+  // DIRTY HACK - this ignores the first fill(black) in each frame, knowing that HUB75 has already blanked out the display.
+  if (_firstFill) {
+    _firstFill = false;
+    if (c == BLACK) {
+      if (ledsrgb && ledsrgbSize > 0) memset(ledsrgb, 0, ledsrgbSize);
+      return;
+    }
+  }
+  #endif
+
   const uint_fast16_t cols = is2D() ? virtualWidth() : virtualLength();             // WLEDMM use fast int types
   const uint_fast16_t rows = virtualHeight(); // will be 1 for 1D
 

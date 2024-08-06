@@ -6271,7 +6271,10 @@ uint16_t mode_2Dfloatingblobs(void) {
   }
 
   SEGMENT.fadeToBlackBy(20);
-  bool drawAA = (SEGMENT.custom1 > 0) && (SEGMENT.custom1 < 5); //WLEDMM
+  bool drawAA = (SEGMENT.custom1 > 0) && (SEGMENT.custom1 < 6); //WLEDMM
+  const uint16_t minDim = min(cols, rows); // WLEDMM use smaller dimension to find good blob size
+  float max_grow = min(minDim/4.f,2.f);
+  if (minDim>=24) max_grow =(minDim/8.0f);   // WLEDMM allow bigger blobs
 
   // Bounce balls around
   for (size_t i = 0; i < Amount; i++) {
@@ -6280,13 +6283,13 @@ uint16_t mode_2Dfloatingblobs(void) {
     if (blob->grow[i]) {
       // enlarge radius until it is >= 4
       blob->r[i] += (fabsf(blob->sX[i]) > fabsf(blob->sY[i]) ? fabsf(blob->sX[i]) : fabsf(blob->sY[i])) * 0.05f;
-      if (blob->r[i] >= min(cols/4.f,2.f)) {
+      if (blob->r[i] >= max_grow) {
         blob->grow[i] = false;
       }
     } else {
       // reduce radius until it is < 1
       blob->r[i] -= (fabsf(blob->sX[i]) > fabsf(blob->sY[i]) ? fabsf(blob->sX[i]) : fabsf(blob->sY[i])) * 0.05f;
-      if (blob->r[i] < 1.f) {
+      if (blob->r[i] < 0.8f) {
         blob->grow[i] = true;
       }
     }

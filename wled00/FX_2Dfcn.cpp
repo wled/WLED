@@ -226,6 +226,9 @@ void Segment::startFrame(void) {
   // if (reverse_y) _isSimpleSegment = false; // for A/B testing
   _2dWidth    = is2D() ? calc_virtualWidth() : virtualLength();
   _2dHeight   = calc_virtualHeight();
+  #if 0 && defined(WLED_ENABLE_HUB75MATRIX)
+    _firstFill = true; // dirty HACK
+  #endif
 #endif
 }
 // WLEDMM end
@@ -651,19 +654,26 @@ void Segment::drawCircle(uint16_t cx, uint16_t cy, uint8_t radius, uint32_t col,
 }
 
 // by stepko, taken from https://editor.soulmatelights.com/gallery/573-blobs
-void Segment::fillCircle(uint16_t cx, uint16_t cy, uint8_t radius, uint32_t col, bool soft) {
-  if (!isActive() || radius == 0) return; // not active
+void Segment::fillCircle(unsigned cx, unsigned cy, int radius, uint32_t col, bool soft) {
+  if (!isActive() || radius <= 0) return; // not active
   // draw soft bounding circle
   if (soft) drawCircle(cx, cy, radius, col, soft);
-  // fill it
   const int cols = virtualWidth();
   const int rows = virtualHeight();
-  for (int y = -radius; y <= radius; y++) {
-    for (int x = -radius; x <= radius; x++) {
-      if (x * x + y * y <= radius * radius &&
-          int16_t(cx)+x>=0 && int16_t(cy)+y>=0 &&
-          int16_t(cx)+x<cols && int16_t(cy)+y<rows)
+
+  const int_fast32_t maxRadius2 = radius * radius - (((radius > 3) && !soft) ? 1:0);   // WLEDMM pre-compute r^2; '-1' removes spikes from bigger blobs
+  // WLEDMM pre-compute boundaries
+  const int startx = max(-radius, -int(cx));
+  const int endx = min(radius, cols-1-int(cx));
+  const int starty = max(-radius, -int(cy));
+  const int endy = min(radius, rows-1-int(cy));
+
+  // fill it - WLEDMM optimized
+  for (int y = starty; y <= endy; y++) {
+    for (int x = startx; x <= endx; x++) {
+      if ((x * x + y * y) <= maxRadius2) {
         setPixelColorXY(cx + x, cy + y, col);
+      }
     }
   }
 }
@@ -690,7 +700,11 @@ void Segment::drawLine(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1, uint3
   uint32_t scaled_col = c;
   if (simpleSegment) {
       // segment brightness must be pre-calculated for the "fast" setPixelColorXY variant!
+      #ifdef WLEDMM_FASTPATH
+      uint8_t _bri_t = _brightness;
+      #else
       uint8_t _bri_t = currentBri(on ? opacity : 0);
+      #endif
       if (!_bri_t && !transitional) return;
       if (_bri_t < 255) scaled_col = color_fade(c, _bri_t);
   }
