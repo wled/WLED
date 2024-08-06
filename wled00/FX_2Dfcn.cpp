@@ -774,27 +774,34 @@ void Segment::drawLine(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1, uint3
   }
 }
 
-void Segment::drawArc(uint16_t x0, uint16_t y0, uint16_t radius, uint32_t color, uint32_t fillColor) {
-  if (!isActive()) return; // not active
-  // float step = degrees / (2.85f*MAX(radius,1));
-  // for (float rad = 0.0f; rad <= degrees+step/2; rad += step) {
-  //   // may want to try float version as well (with or without antialiasing)
-  //   int x = roundf(sin_t(rad) * radius);
-  //   int y = roundf(cos_t(rad) * radius);
-  //   setPixelColorXY(x+x0, y+y0, c);
-  // }
-  float minradius = radius - .5;
-  float maxradius = radius + .5;
-  for (int x=0; x<virtualWidth(); x++) for (int y=0; y<virtualHeight(); y++) {
+void Segment::drawArc(unsigned x0, unsigned y0, int radius, uint32_t color, uint32_t fillColor) {
+  if (!isActive() || (radius <=0)) return; // not active
+  float minradius = float(radius) - .5;
+  float maxradius = float(radius) + .5;
+  // WLEDMM pre-calculate values to speed up the loop
+  const int minradius2 = roundf(minradius * minradius);
+  const int maxradius2 = roundf(maxradius * maxradius);
 
-    int newX = x - x0;
-    int newY = y - y0;
+  // WLEDMM only loop over surrounding square (50% faster)
+  const int width = virtualWidth();
+  const int height = virtualHeight();
+  const int startx = max(0, int(x0)-radius-1);
+  const int endx = min(width, int(x0)+radius+1);
+  const int starty = max(0, int(y0)-radius-1);
+  const int endy = min(height, int(y0)+radius+1);
 
-    if (newX*newX + newY*newY >= minradius * minradius && newX*newX + newY*newY <= maxradius * maxradius)
+  for (int x=startx; x<endx; x++) for (int y=starty; y<endy; y++) {
+    int newX2 = x - int(x0); newX2 *= newX2; // (distance from centerX) ^2
+    int newY2 = y - int(y0); newY2 *= newY2; // (distance from centerY) ^2
+    int distance2 = newX2 + newY2;
+
+    if ((distance2 >= minradius2) && (distance2 <= maxradius2)) {
       setPixelColorXY(x, y, color);
+    } else {
     if (fillColor != 0)
-      if (newX*newX + newY*newY < minradius * minradius)
+      if (distance2 < minradius2)
         setPixelColorXY(x, y, fillColor);
+    }
   }
 }
 
@@ -890,10 +897,11 @@ void Segment::wu_pixel(uint32_t x, uint32_t y, CRGB c) {      //awesome wu_pixel
   // multiply the intensities by the colour, and saturating-add them to the pixels
   for (int i = 0; i < 4; i++) {
     CRGB led = getPixelColorXY((x >> 8) + (i & 1), (y >> 8) + ((i >> 1) & 1));
+    CRGB oldLed = led;
     led.r = qadd8(led.r, c.r * wu[i] >> 8);
     led.g = qadd8(led.g, c.g * wu[i] >> 8);
     led.b = qadd8(led.b, c.b * wu[i] >> 8);
-    setPixelColorXY(int((x >> 8) + (i & 1)), int((y >> 8) + ((i >> 1) & 1)), led);
+    if (led != oldLed) setPixelColorXY(int((x >> 8) + (i & 1)), int((y >> 8) + ((i >> 1) & 1)), led); // WLEDMM don't repaint same color
   }
 }
 #undef WU_WEIGHT
