@@ -351,6 +351,7 @@ class BusHub75Matrix : public Bus {
         display->flipDMABuffer(); // Show the back buffer, set currently output buffer to the back (i.e. no longer being sent to LED panels)
         // while(!previousBufferFree) delay(1);   // experimental - Wait before we allow any writing to the buffer. Stop flicker.
         display->clearScreen();   // Now clear the back-buffer
+        isBlack = true;
       }
     }
 
@@ -369,6 +370,7 @@ class BusHub75Matrix : public Bus {
       // delete fourScanPanel;
       delete display;
       _valid = false;
+      isBlack = false;
     }
 
     ~BusHub75Matrix() {
@@ -379,6 +381,7 @@ class BusHub75Matrix : public Bus {
     MatrixPanel_I2S_DMA *display = nullptr;
     VirtualMatrixPanel  *fourScanPanel = nullptr;
     HUB75_I2S_CFG mxconfig;
+    bool isBlack = false;
     
 };
 #endif

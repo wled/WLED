@@ -503,7 +503,7 @@ BusHub75Matrix::BusHub75Matrix(BusConfig &bc) : Bus(bc.type, bc.start, bc.autoWh
 
   _valid = false;
   mxconfig.double_buff = false; // default to off, known to cause issue with some effects but needs more memory
-
+  isBlack = false;
 
   fourScanPanel = nullptr;
 
@@ -671,6 +671,8 @@ BusHub75Matrix::BusHub75Matrix(BusConfig &bc) : Bus(bc.type, bc.start, bc.autoWh
   }
   else {
     _valid = true;
+    display->clearScreen();   // initially clear the screen buffer
+    isBlack = true;
   }
   
   switch(bc.type) {
@@ -700,6 +702,7 @@ BusHub75Matrix::BusHub75Matrix(BusConfig &bc) : Bus(bc.type, bc.start, bc.autoWh
 
 void  __attribute__((hot)) BusHub75Matrix::setPixelColor(uint16_t pix, uint32_t c) {
   if (!_valid || pix >= _len) return;
+  if (isBlack && (c == BLACK)) return;  // reject black pixels directly after clearScreen()
 #ifndef NO_CIE1931
   c = unGamma24(c); // to use the driver linear brightness feature, we first need to undo WLED gamma correction
 #endif
@@ -719,6 +722,7 @@ void  __attribute__((hot)) BusHub75Matrix::setPixelColor(uint16_t pix, uint32_t 
     int y = pix / pxwidth;
     display->drawPixelRGB888(int16_t(x), int16_t(y), r, g, b);
   }
+  isBlack = false;
 }
 
 void BusHub75Matrix::setBrightness(uint8_t b, bool immediate) {
