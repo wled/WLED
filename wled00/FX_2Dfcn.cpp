@@ -171,6 +171,24 @@ void WS2812FX::setUpMatrix() {
       //WLEDMM: no resetSegments here, only do it in set.cpp/handleSettingsSet - as we want t0 maintain the segment settings after setup has changed
     }
   }
+
+#ifdef WLED_ENABLE_HUB75MATRIX
+  // softhack007 hack: delete mapping table in case it only contains "identity"
+  if (customMappingTable != nullptr && customMappingTableSize > 0) {
+    bool isIdentity = true;
+    for (size_t i = 0; (i< customMappingSize) && isIdentity; i++) { //WLEDMM use customMappingTableSize
+      if (customMappingTable[i] != (uint16_t)i ) isIdentity = false;
+    }
+    if (isIdentity) {
+      free(customMappingTable); customMappingTable = nullptr;      
+      USER_PRINTF("!setupmatrix: customMappingTable is not needed. Dropping %d bytes.\n", customMappingTableSize * sizeof(uint16_t));
+      customMappingTableSize = 0;
+      customMappingSize = 0;
+      loadedLedmap = 0; //WLEDMM
+    }
+  }
+#endif
+
 #else
   isMatrix = false; // no matter what config says
 #endif
