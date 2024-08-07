@@ -467,10 +467,10 @@ protected:
         receiver->onButton(data->button);
     }
 
-    static void onEspNowMessage(const uint8_t *address, const uint8_t *msg, uint8_t len) {
+    static void onEspNowMessage(const uint8_t *address, const uint8_t *msg, uint8_t len, int8_t rssi) {
         if (msg) {
             if(len == sizeof(NodeMessage)) {
-                instance->onPeerData(address, (const NodeMessage*)msg, len, 0, true);
+                instance->onPeerData(address, (const NodeMessage*)msg, len, rssi, true);
                 instance->onWizmote(address, (const wizmote_message*)msg, len);
             } else {
 #ifdef NODE_DEBUGGING
