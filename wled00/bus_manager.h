@@ -113,35 +113,35 @@ class Bus {
     virtual bool     canShow() { return true; }
     virtual void     setStatusPixel(uint32_t c) {}
     virtual void     setPixelColor(uint16_t pix, uint32_t c) = 0;
-    virtual uint32_t getPixelColor(uint16_t pix) { return 0; }
+    virtual uint32_t getPixelColor(uint16_t pix) const { return 0; }
     virtual void     setBrightness(uint8_t b, bool immediate=false) { _bri = b; };
     virtual void     cleanup() = 0;
-    virtual uint8_t  getPins(uint8_t* pinArray) { return 0; }
-    virtual uint16_t getLength() { return _len; }
+    virtual uint8_t  getPins(uint8_t* pinArray) const { return 0; }
+    virtual uint16_t getLength() const { return _len; }
     virtual void     setColorOrder() {}
-    virtual uint8_t  getColorOrder() { return COL_ORDER_RGB; }
+    virtual uint8_t  getColorOrder() const { return COL_ORDER_RGB; }
     virtual uint8_t  skippedLeds() { return 0; }
-    virtual uint16_t getFrequency() { return 0U; }
-    inline  uint16_t getStart() { return _start; }
+    virtual uint16_t getFrequency() const { return 0U; }
+    inline  uint16_t getStart() const { return _start; }
     inline  void     setStart(uint16_t start) { _start = start; }
-    inline  uint8_t  getType() { return _type; }
-    inline  bool     isOk() { return _valid; }
-    inline  bool     isOffRefreshRequired() { return _needsRefresh; }
-            bool     containsPixel(uint16_t pix) { return pix >= _start && pix < _start+_len; }
-    virtual uint16_t getMaxPixels() { return MAX_LEDS_PER_BUS; };
+    inline  uint8_t  getType() const { return _type; }
+    inline  bool     isOk() const { return _valid; }
+    inline  bool     isOffRefreshRequired() const { return _needsRefresh; }
+            bool     containsPixel(uint16_t pix) const { return pix >= _start && pix < _start+_len; }
+    virtual uint16_t getMaxPixels() const { return MAX_LEDS_PER_BUS; };
 
-    virtual bool hasRGB() {
+    virtual bool hasRGB() const {
       if ((_type >= TYPE_WS2812_1CH && _type <= TYPE_WS2812_WWA) || _type == TYPE_ANALOG_1CH || _type == TYPE_ANALOG_2CH || _type == TYPE_ONOFF) return false;
       return true;
     }
-    virtual bool hasWhite() { return Bus::hasWhite(_type); }
+    virtual bool hasWhite() const { return Bus::hasWhite(_type); }
     static  bool hasWhite(uint8_t type) {
       if ((type >= TYPE_WS2812_1CH && type <= TYPE_WS2812_WWA) || type == TYPE_SK6812_RGBW || type == TYPE_TM1814 || type == TYPE_UCS8904) return true; // digital types with white channel
       if (type > TYPE_ONOFF && type <= TYPE_ANALOG_5CH && type != TYPE_ANALOG_3CH) return true; // analog types with white channel
       if (type == TYPE_NET_DDP_RGBW) return true; // network types with white channel
       return false;
     }
-    virtual bool hasCCT() {
+    virtual bool hasCCT() const {
       if (_type == TYPE_WS2812_2CH_X3 || _type == TYPE_WS2812_WWA ||
           _type == TYPE_ANALOG_2CH    || _type == TYPE_ANALOG_5CH) return true;
       return false;
@@ -158,7 +158,7 @@ class Bus {
       #endif
     }
     inline        void    setAutoWhiteMode(uint8_t m) { if (m < 5) _autoWhiteMode = m; }
-    inline        uint8_t getAutoWhiteMode()          { return _autoWhiteMode; }
+    inline        uint8_t getAutoWhiteMode()          const { return _autoWhiteMode; }
     inline static void    setGlobalAWMode(uint8_t m)  { if (m < 5) _gAWM = m; else _gAWM = AW_GLOBAL_DISABLED; }
     inline static uint8_t getGlobalAWMode()           { return _gAWM; }
 
@@ -176,7 +176,7 @@ class Bus {
     static int16_t _cct;
     static uint8_t _cctBlend;
 
-    uint32_t autoWhiteCalc(uint32_t c);
+    uint32_t autoWhiteCalc(uint32_t c) const;
 };
 
 
@@ -186,7 +186,7 @@ class BusDigital : public Bus {
 
     inline void show();
 
-    bool canShow();
+    bool canShow() const;
 
     void setBrightness(uint8_t b, bool immediate);
 
@@ -194,25 +194,25 @@ class BusDigital : public Bus {
 
     void setPixelColor(uint16_t pix, uint32_t c);
 
-    uint32_t getPixelColor(uint16_t pix);
+    uint32_t getPixelColor(uint16_t pix) const;
 
-    uint8_t getColorOrder() {
+    uint8_t getColorOrder() const {
       return _colorOrder;
     }
 
-    uint16_t getLength() {
+    uint16_t getLength() const {
       return _len - _skip;
     }
 
-    uint8_t getPins(uint8_t* pinArray);
+    uint8_t getPins(uint8_t* pinArray) const;
 
     void setColorOrder(uint8_t colorOrder);
 
-    uint8_t skippedLeds() {
+    uint8_t skippedLeds() const {
       return _skip;
     }
 
-    uint16_t getFrequency() { return _frequencykHz; }
+    uint16_t getFrequency() const { return _frequencykHz; }
 
     void reinit();
 
@@ -240,13 +240,13 @@ class BusPwm : public Bus {
     void setPixelColor(uint16_t pix, uint32_t c);
 
     //does no index check
-    uint32_t getPixelColor(uint16_t pix);
+    uint32_t getPixelColor(uint16_t pix) const;
 
     void show();
 
-    uint8_t getPins(uint8_t* pinArray);
+    uint8_t getPins(uint8_t* pinArray) const;
 
-    uint16_t getFrequency() { return _frequency; }
+    uint16_t getFrequency() const { return _frequency; }
 
     void cleanup() {
       deallocatePins();
@@ -274,11 +274,11 @@ class BusOnOff : public Bus {
 
     void setPixelColor(uint16_t pix, uint32_t c);
 
-    uint32_t getPixelColor(uint16_t pix);
+    uint32_t getPixelColor(uint16_t pix) const;
 
     void show();
 
-    uint8_t getPins(uint8_t* pinArray);
+    uint8_t getPins(uint8_t* pinArray)  const;
 
     void cleanup() {
       pinManager.deallocatePin(_pin, PinOwner::BusOnOff);
@@ -298,24 +298,24 @@ class BusNetwork : public Bus {
   public:
     BusNetwork(BusConfig &bc);
 
-    uint16_t getMaxPixels() override { return 4096; };
-    bool hasRGB() { return true; }
-    bool hasWhite() { return _rgbw; }
+    uint16_t getMaxPixels() const override { return 4096; };
+    bool hasRGB()  const { return true; }
+    bool hasWhite()  const { return _rgbw; }
 
     void setPixelColor(uint16_t pix, uint32_t c);
 
-    uint32_t __attribute__((pure)) getPixelColor(uint16_t pix);  // WLEDMM attribute added
+    uint32_t __attribute__((pure)) getPixelColor(uint16_t pix) const;  // WLEDMM attribute added
 
     void show();
 
-    bool canShow() {
+    bool canShow()  const {
       // this should be a return value from UDP routine if it is still sending data out
       return !_broadcastLock;
     }
 
-    uint8_t getPins(uint8_t* pinArray);
+    uint8_t getPins(uint8_t* pinArray)  const;
 
-    uint16_t getLength() {
+    uint16_t getLength()  const {
       return _len;
     }
 
@@ -339,10 +339,10 @@ class BusHub75Matrix : public Bus {
   public:
     BusHub75Matrix(BusConfig &bc);
 
-    uint16_t getMaxPixels() override { return 4096; };
+    uint16_t getMaxPixels() const override { return 4096; };
 
-    bool hasRGB() { return true; }
-    bool hasWhite() { return false; }
+    bool hasRGB() const { return true; }
+    bool hasWhite() const { return false; }
 
     void setPixelColor(uint16_t pix, uint32_t c);
 
@@ -356,7 +356,7 @@ class BusHub75Matrix : public Bus {
 
     void setBrightness(uint8_t b, bool immediate);
 
-    uint8_t getPins(uint8_t* pinArray) {
+    uint8_t getPins(uint8_t* pinArray) const {
       pinArray[0] = mxconfig.chain_length;
       return 1;
     } // Fake value due to keep finaliseInit happy
@@ -388,7 +388,7 @@ class BusManager {
     BusManager() {};
 
     //utility to get the approx. memory usage of a given BusConfig
-    static uint32_t memUsage(BusConfig &bc);
+    static uint32_t memUsage(BusConfig &bc)  __attribute__((pure));
 
     int add(BusConfig &bc);
 
@@ -407,12 +407,12 @@ class BusManager {
 
     uint32_t __attribute__((pure)) getPixelColor(uint_fast16_t pix); // WLEDMM attribute added
 
-    bool canAllShow();
+    bool canAllShow() const;
 
-    Bus* getBus(uint8_t busNr);
+    Bus* getBus(uint8_t busNr) const;
 
     //semi-duplicate of strip.getLengthTotal() (though that just returns strip._length, calculated in finalizeInit())
-    uint16_t getTotalLength();
+    uint16_t getTotalLength() const;
 
     inline void updateColorOrderMap(const ColorOrderMap &com) {
       memcpy(&colorOrderMap, &com, sizeof(ColorOrderMap));
@@ -422,7 +422,7 @@ class BusManager {
       return colorOrderMap;
     }
 
-    inline uint8_t getNumBusses() {
+    inline uint8_t getNumBusses() const {
       return numBusses;
     }
 
@@ -435,7 +435,7 @@ class BusManager {
     unsigned laststart = 0;
     unsigned lastend = 0;
 
-    inline uint8_t getNumVirtualBusses() {
+    inline uint8_t getNumVirtualBusses() const {
       int j = 0;
       for (int i=0; i<numBusses; i++) if (busses[i]->getType() >= TYPE_NET_DDP_RGB && busses[i]->getType() < 96) j++;
       return j;

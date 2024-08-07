@@ -33,7 +33,7 @@
 
 bool canUseSerial(void);                        // WLEDMM implemented in wled_serial.cpp
 void strip_wait_until_idle(String whoCalledMe); // WLEDMM implemented in FX_fcn.cpp
-bool strip_uses_global_leds(void);              // WLEDMM implemented in FX_fcn.cpp
+bool strip_uses_global_leds(void) __attribute__((pure));  // WLEDMM implemented in FX_fcn.cpp
 
 #define FASTLED_INTERNAL //remove annoying pragma messages
 #define USE_GET_MILLISECOND_TIMER
@@ -640,7 +640,7 @@ typedef struct Segment {
     void setPixelColor(float i, uint32_t c, bool aa = true);
     inline void setPixelColor(float i, uint8_t r, uint8_t g, uint8_t b, uint8_t w = 0, bool aa = true) { setPixelColor(i, RGBW32(r,g,b,w), aa); }
     inline void setPixelColor(float i, CRGB c, bool aa = true)                                         { setPixelColor(i, RGBW32(c.r,c.g,c.b,0), aa); }
-    uint32_t __attribute__((pure)) getPixelColor(int i);  // WLEDMM attribute added
+    uint32_t __attribute__((pure)) getPixelColor(int i) const;  // WLEDMM attribute added
     // 1D support functions (some implement 2D as well)
     void blur(uint8_t, bool smear = false);
     void fill(uint32_t c);
@@ -652,7 +652,7 @@ typedef struct Segment {
     inline void addPixelColor(int n, byte r, byte g, byte b, byte w = 0, bool fast = false) { addPixelColor(n, RGBW32(r,g,b,w), fast); } // automatically inline
     inline void addPixelColor(int n, CRGB c, bool fast = false)          { addPixelColor(n, RGBW32(c.r,c.g,c.b,0), fast); } // automatically inline
     void fadePixelColor(uint16_t n, uint8_t fade);
-    uint8_t get_random_wheel_index(uint8_t pos);
+    uint8_t get_random_wheel_index(uint8_t pos)  const;
 	  uint32_t __attribute__((pure)) color_from_palette(uint_fast16_t, bool mapping, bool wrap, uint8_t mcol, uint8_t pbri = 255);
     uint32_t __attribute__((pure)) color_wheel(uint8_t pos);
 
@@ -693,7 +693,7 @@ typedef struct Segment {
     void deletejMap(); //WLEDMM jMap
   
   #ifndef WLED_DISABLE_2D
-    inline uint16_t XY(uint_fast16_t x, uint_fast16_t y) { // support function to get relative index within segment (for leds[]) // WLEDMM inline for speed
+    inline uint16_t XY(uint_fast16_t x, uint_fast16_t y)  const  { // support function to get relative index within segment (for leds[]) // WLEDMM inline for speed
       uint_fast16_t width  = max(uint16_t(1), virtualWidth());   // segment width in logical pixels  -- softhack007 avoid div/0
       uint_fast16_t height = max(uint16_t(1), virtualHeight());  // segment height in logical pixels -- softhack007 avoid div/0
       return (x%width) + (y%height) * width;
@@ -726,7 +726,7 @@ typedef struct Segment {
     inline void setPixelColorXY(float x, float y, byte r, byte g, byte b, byte w = 0, bool aa = true) { setPixelColorXY(x, y, RGBW32(r,g,b,w), aa); }
     inline void setPixelColorXY(float x, float y, CRGB c, bool aa = true)                             { setPixelColorXY(x, y, RGBW32(c.r,c.g,c.b,0), aa); }
     //#endif
-    uint32_t __attribute__((pure)) getPixelColorXY(int x, int y);
+    uint32_t __attribute__((pure)) getPixelColorXY(int x, int y)  const;
     // 2D support functions
     void blendPixelColorXY(uint16_t x, uint16_t y, uint32_t color, uint8_t blend);
     inline void blendPixelColorXY(uint16_t x, uint16_t y, CRGB c, uint8_t blend)  { blendPixelColorXY(x, y, RGBW32(c.r,c.g,c.b,0), blend); }
@@ -792,7 +792,7 @@ typedef struct Segment {
     inline void drawCharacter(unsigned char chr, int16_t x, int16_t y, uint8_t w, uint8_t h, CRGB c, CRGB c2, int8_t rotate = 0) {}
     inline void wu_pixel(uint32_t x, uint32_t y, CRGB c) {}
   #endif
-  uint8_t * getAudioPalette(int pal); //WLEDMM netmindz ar palette
+  uint8_t * getAudioPalette(int pal)  const; //WLEDMM netmindz ar palette
 } segment;
 //static int segSize = sizeof(Segment);
 
@@ -915,64 +915,64 @@ class WS2812FX {  // 96 bytes
 
     bool
       checkSegmentAlignment(void),
-      hasRGBWBus(void),
-      hasCCTBus(void),
+      hasRGBWBus(void) const,
+      hasCCTBus(void) const,
       // return true if the strip is being sent pixel updates
-      isUpdating(void),
+      isUpdating(void) const,
       deserializeMap(uint8_t n=0),
       useLedsArray = false;
 
-    inline bool isServicing(void) { return _isServicing; }
-    inline bool hasWhiteChannel(void) {return _hasWhiteChannel;}
-    inline bool isOffRefreshRequired(void) {return _isOffRefreshRequired;}
+    inline bool isServicing(void)  const { return _isServicing; }
+    inline bool hasWhiteChannel(void)  const {return _hasWhiteChannel;}
+    inline bool isOffRefreshRequired(void)  const {return _isOffRefreshRequired;}
 
     uint8_t
       paletteFade,
       paletteBlend,
       milliampsPerLed,
       cctBlending,
-      getActiveSegmentsNum(void),
-      getFirstSelectedSegId(void),
-      getLastActiveSegmentId(void),
-      getActiveSegsLightCapabilities(bool selectedOnly = false),
+      getActiveSegmentsNum(void)  const,
+      getFirstSelectedSegId(void) __attribute__((pure)),
+      getLastActiveSegmentId(void) const,
+      getActiveSegsLightCapabilities(bool selectedOnly = false) __attribute__((pure)),
       setPixelSegment(uint8_t n);
 
-    inline uint8_t getBrightness(void) { return _brightness; }
-    inline uint8_t getMaxSegments(void) { return MAX_NUM_SEGMENTS; }  // returns maximum number of supported segments (fixed value)
-    inline uint8_t getSegmentsNum(void) { return _segments.size(); }  // returns currently present segments
-    inline uint8_t getCurrSegmentId(void) { return _segment_index; }
-    inline uint8_t getMainSegmentId(void) { return _mainSegment; }
-    inline uint8_t getPaletteCount() { return 13 + GRADIENT_PALETTE_COUNT; }  // will only return built-in palette count
-    inline uint8_t getTargetFps() { return _targetFps; }
-    inline uint8_t getModeCount() { return _modeCount; }
+    inline uint8_t getBrightness(void)  const { return _brightness; }
+    inline uint8_t getMaxSegments(void)  const { return MAX_NUM_SEGMENTS; }  // returns maximum number of supported segments (fixed value)
+    inline uint8_t getSegmentsNum(void)  const { return _segments.size(); }  // returns currently present segments
+    inline uint8_t getCurrSegmentId(void)  const { return _segment_index; }
+    inline uint8_t getMainSegmentId(void)  const { return _mainSegment; }
+    inline uint8_t getPaletteCount()  const { return 13 + GRADIENT_PALETTE_COUNT; }  // will only return built-in palette count
+    inline uint8_t getTargetFps()  const { return _targetFps; }
+    inline uint8_t getModeCount()  const { return _modeCount; }
 
     uint16_t
       ablMilliampsMax,
       currentMilliamps,
-      getLengthPhysical(void),
-      __attribute__((pure)) getLengthTotal(void), // will include virtual/nonexistent pixels in matrix //WLEDMM attribute added
-      getFps();
+      getLengthPhysical(void) const,
+      __attribute__((pure)) getLengthTotal(void) const, // will include virtual/nonexistent pixels in matrix //WLEDMM attribute added
+      getFps() const;
 
-    inline uint16_t getFrameTime(void) { return _frametime; }
-    inline uint16_t getMinShowDelay(void) { return MIN_SHOW_DELAY; }
-    inline uint16_t getLength(void) { return _length; } // 2D matrix may have less pixels than W*H
-    inline uint16_t getTransition(void) { return _transitionDur; }
+    inline uint16_t getFrameTime(void)  const { return _frametime; }
+    inline uint16_t getMinShowDelay(void)  const { return MIN_SHOW_DELAY; }
+    inline uint16_t getLength(void)  const { return _length; } // 2D matrix may have less pixels than W*H
+    inline uint16_t getTransition(void)  const { return _transitionDur; }
 
     uint32_t
       now,
       timebase;
-    uint32_t __attribute__((pure)) getPixelColor(uint_fast16_t);   // WLEDMM attribute pure = does not have side-effects
+    uint32_t __attribute__((pure)) getPixelColor(uint_fast16_t)  const;   // WLEDMM attribute pure = does not have side-effects
 
-    inline uint32_t getLastShow(void) { return _lastShow; }
-    inline uint32_t segColor(uint8_t i) { return _colors_t[i]; }
+    inline uint32_t getLastShow(void)  const { return _lastShow; }
+    inline uint32_t segColor(uint8_t i)  const { return _colors_t[i]; }
 
     const char *
-      getModeData(uint8_t id = 0) { return (id && id<_modeCount) ? _modeData[id] : PSTR("Solid"); }
+      getModeData(uint8_t id = 0)  const { return (id && id<_modeCount) ? _modeData[id] : PSTR("Solid"); }
 
     const char **
       getModeDataSrc(void) { return &(_modeData[0]); } // vectors use arrays for underlying data
 
-    Segment&        getSegment(uint8_t id);
+    Segment&        getSegment(uint8_t id) __attribute__((pure));
     inline Segment& getFirstSelectedSeg(void) { return _segments[getFirstSelectedSegId()]; }
     inline Segment& getMainSegment(void)      { return _segments[getMainSegmentId()]; }
     inline Segment* getSegments(void)         { return &(_segments[0]); }
@@ -1039,7 +1039,7 @@ class WS2812FX {  // 96 bytes
     inline void setPixelColorXY(int x, int y, CRGB c)                             { setPixelColorXY(x, y, RGBW32(c.r,c.g,c.b,0)); }
 
     uint32_t
-      getPixelColorXY(uint16_t, uint16_t);
+      getPixelColorXY(uint16_t, uint16_t)  const;
 
   // end 2D support
 

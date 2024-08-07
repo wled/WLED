@@ -86,7 +86,7 @@ uint8_t IRAM_ATTR ColorOrderMap::getPixelColorOrder(uint16_t pix, uint8_t defaul
 }
 
 
-uint32_t Bus::autoWhiteCalc(uint32_t c) {
+uint32_t Bus::autoWhiteCalc(uint32_t c) const {
   uint8_t aWM = _autoWhiteMode;
   if (_gAWM != AW_GLOBAL_DISABLED) aWM = _gAWM;
   if (aWM == RGBW_MODE_MANUAL_ONLY) return c;
@@ -139,7 +139,7 @@ void BusDigital::show() {
   PolyBus::show(_busPtr, _iType);
 }
 
-bool BusDigital::canShow() {
+bool BusDigital::canShow() const {
   return PolyBus::canShow(_busPtr, _iType);
 }
 
@@ -182,7 +182,7 @@ void IRAM_ATTR BusDigital::setPixelColor(uint16_t pix, uint32_t c) {
   PolyBus::setPixelColor(_busPtr, _iType, pix, c, co);
 }
 
-uint32_t IRAM_ATTR_YN BusDigital::getPixelColor(uint16_t pix) {
+uint32_t IRAM_ATTR_YN BusDigital::getPixelColor(uint16_t pix) const {
   if (reversed) pix = _len - pix -1;
   else pix += _skip;
   uint8_t co = _colorOrderMap.getPixelColorOrder(pix+_start, _colorOrder);
@@ -200,7 +200,7 @@ uint32_t IRAM_ATTR_YN BusDigital::getPixelColor(uint16_t pix) {
   return PolyBus::getPixelColor(_busPtr, _iType, pix, co);
 }
 
-uint8_t BusDigital::getPins(uint8_t* pinArray) {
+uint8_t BusDigital::getPins(uint8_t* pinArray) const {
   uint8_t numPins = IS_2PIN(_type) ? 2 : 1;
   for (uint8_t i = 0; i < numPins; i++) pinArray[i] = _pins[i];
   return numPins;
@@ -317,7 +317,7 @@ void BusPwm::setPixelColor(uint16_t pix, uint32_t c) {
 }
 
 //does no index check
-uint32_t BusPwm::getPixelColor(uint16_t pix) {
+uint32_t BusPwm::getPixelColor(uint16_t pix) const {
   if (!_valid) return 0;
 #if 1
   // WLEDMM stick with the old code - we don't have cctICused
@@ -356,7 +356,7 @@ void BusPwm::show() {
   }
 }
 
-uint8_t BusPwm::getPins(uint8_t* pinArray) {
+uint8_t BusPwm::getPins(uint8_t* pinArray) const {
   if (!_valid) return 0;
   uint8_t numPins = NUM_PWM_PINS(_type);
   for (uint8_t i = 0; i < numPins; i++) {
@@ -408,7 +408,7 @@ void BusOnOff::setPixelColor(uint16_t pix, uint32_t c) {
   _data = bool(r|g|b|w) && bool(_bri) ? 0xFF : 0;
 }
 
-uint32_t BusOnOff::getPixelColor(uint16_t pix) {
+uint32_t BusOnOff::getPixelColor(uint16_t pix) const {
   if (!_valid) return 0;
   return RGBW32(_data, _data, _data, _data);
 }
@@ -418,7 +418,7 @@ void BusOnOff::show() {
   digitalWrite(_pin, reversed ? !(bool)_data : (bool)_data);
 }
 
-uint8_t BusOnOff::getPins(uint8_t* pinArray) {
+uint8_t BusOnOff::getPins(uint8_t* pinArray) const {
   if (!_valid) return 0;
   pinArray[0] = _pin;
   return 1;
@@ -467,7 +467,7 @@ void BusNetwork::setPixelColor(uint16_t pix, uint32_t c) {
   if (_rgbw) _data[offset+3] = W(c);
 }
 
-uint32_t BusNetwork::getPixelColor(uint16_t pix) {
+uint32_t BusNetwork::getPixelColor(uint16_t pix) const {
   if (!_valid || pix >= _len) return 0;
   uint16_t offset = pix * _UDPchannels;
   return RGBW32(_data[offset], _data[offset+1], _data[offset+2], _rgbw ? (_data[offset+3] << 24) : 0);
@@ -480,7 +480,7 @@ void BusNetwork::show() {
   _broadcastLock = false;
 }
 
-uint8_t BusNetwork::getPins(uint8_t* pinArray) {
+uint8_t BusNetwork::getPins(uint8_t* pinArray) const {
   for (uint8_t i = 0; i < 4; i++) {
     pinArray[i] = _client[i];
   }
@@ -698,7 +698,7 @@ BusHub75Matrix::BusHub75Matrix(BusConfig &bc) : Bus(bc.type, bc.start, bc.autoWh
   USER_PRINTLN("MatrixPanel_I2S_DMA started");
 }
 
-void BusHub75Matrix::setPixelColor(uint16_t pix, uint32_t c) {
+void  __attribute__((hot)) BusHub75Matrix::setPixelColor(uint16_t pix, uint32_t c) {
   if (!_valid || pix >= _len) return;
 #ifndef NO_CIE1931
   c = unGamma24(c); // to use the driver linear brightness feature, we first need to undo WLED gamma correction
@@ -823,7 +823,7 @@ void BusManager::setStatusPixel(uint32_t c) {
   }
 }
 
-void IRAM_ATTR BusManager::setPixelColor(uint16_t pix, uint32_t c, int16_t cct) {
+void IRAM_ATTR __attribute__((hot)) BusManager::setPixelColor(uint16_t pix, uint32_t c, int16_t cct) {
   if ((pix >= laststart) && (pix < lastend ) && (lastBus != nullptr)) {
     // WLEDMM same bus as last time - no need to search again
     lastBus->setPixelColor(pix - laststart, c);
@@ -851,7 +851,7 @@ void BusManager::setBrightness(uint8_t b, bool immediate) {
   }
 }
 
-void BusManager::setSegmentCCT(int16_t cct, bool allowWBCorrection) {
+void __attribute__((cold)) BusManager::setSegmentCCT(int16_t cct, bool allowWBCorrection) {
   if (cct > 255) cct = 255;
   if (cct >= 0) {
     //if white balance correction allowed, save as kelvin value instead of 0-255
@@ -860,7 +860,7 @@ void BusManager::setSegmentCCT(int16_t cct, bool allowWBCorrection) {
   Bus::setCCT(cct);
 }
 
-uint32_t IRAM_ATTR BusManager::getPixelColor(uint_fast16_t pix) {     // WLEDMM use fast native types, IRAM_ATTR
+uint32_t IRAM_ATTR  __attribute__((hot)) BusManager::getPixelColor(uint_fast16_t pix) {     // WLEDMM use fast native types, IRAM_ATTR
   if ((pix >= laststart) && (pix < lastend ) && (lastBus != nullptr)) {
     // WLEDMM same bus as last time - no need to search again
     return lastBus->getPixelColor(pix - laststart);
@@ -881,20 +881,20 @@ uint32_t IRAM_ATTR BusManager::getPixelColor(uint_fast16_t pix) {     // WLEDMM 
   return 0;
 }
 
-bool BusManager::canAllShow() {
+bool BusManager::canAllShow() const {
   for (uint8_t i = 0; i < numBusses; i++) {
     if (!busses[i]->canShow()) return false;
   }
   return true;
 }
 
-Bus* BusManager::getBus(uint8_t busNr) {
+Bus* BusManager::getBus(uint8_t busNr) const {
   if (busNr >= numBusses) return nullptr;
   return busses[busNr];
 }
 
 //semi-duplicate of strip.getLengthTotal() (though that just returns strip._length, calculated in finalizeInit())
-uint16_t BusManager::getTotalLength() {
+uint16_t BusManager::getTotalLength() const {
   uint_fast16_t len = 0;
   for (uint_fast8_t i=0; i<numBusses; i++) len += busses[i]->getLength();      // WLEDMM use fast native types
   return len;
