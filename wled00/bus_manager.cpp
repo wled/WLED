@@ -570,7 +570,7 @@ BusHub75Matrix::BusHub75Matrix(BusConfig &bc) : Bus(bc.type, bc.start, bc.autoWh
 
   USER_PRINTLN("MatrixPanel_I2S_DMA - Matrix Portal S3 config");
 
-  mxconfig.double_buff = true; // <------------- Turn on double buffer
+  //mxconfig.double_buff = true; // <------------- Turn on double buffer
 
   mxconfig.gpio.r1 = 42;
   mxconfig.gpio.g1 = 41;
