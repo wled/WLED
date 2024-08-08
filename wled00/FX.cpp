@@ -6667,13 +6667,19 @@ uint16_t mode_2DWaverly(void) {
 
   long t = strip.now / 2;
   for (int i = 0; i < cols; i++) {
-    uint16_t thisVal = volumeSmth*SEGMENT.intensity/64 * inoise8(i * 45 , t , t)/64;      // WLEDMM back to SR code
-    uint16_t thisMax = map(thisVal, 0, 512, 0, rows);
+    //uint16_t thisVal = volumeSmth*SEGMENT.intensity/64 * inoise8(i * 45 , t , t)/64;      // WLEDMM back to SR code
+    unsigned thisVal = unsigned(volumeSmth*SEGMENT.intensity) * inoise8(i * 45 , t , t) / (64*64);      // WLEDMM same result but more accurate
 
-    for (int j = 0; j < thisMax; j++) {
+    //int thisMax = map(thisVal, 0, 512, 0, rows);
+    int thisMax = (thisVal * rows) / 512;     // WLEDMM same result, just faster
+    int thisMax2 = min(int(rows), thisMax);   // WLEDMM limit height to visible are
+
+    for (int j = 0; j < thisMax2; j++) {
+      //int jmap = map(j, 0, thisMax, 250, 0); 
+      int jmap = 250 - ((j * 250) / thisMax);    // WLEDMM same result, just faster
       if (!SEGENV.check1)
-        SEGMENT.addPixelColorXY(i, j, ColorFromPalette(SEGPALETTE, map(j, 0, thisMax, 250, 0), 255, LINEARBLEND));
-      SEGMENT.addPixelColorXY((cols - 1) - i, (rows - 1) - j, ColorFromPalette(SEGPALETTE, map(j, 0, thisMax, 250, 0), 255, LINEARBLEND));
+        SEGMENT.addPixelColorXY(i, j, ColorFromPalette(SEGPALETTE, jmap, 255, LINEARBLEND));
+      SEGMENT.addPixelColorXY((cols - 1) - i, (rows - 1) - j, ColorFromPalette(SEGPALETTE, jmap, 255, LINEARBLEND));
     }
   }
   SEGMENT.blur(16);
