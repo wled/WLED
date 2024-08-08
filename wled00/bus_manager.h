@@ -26,6 +26,13 @@
   #define W(c) (byte((c) >> 24))
 #endif
 
+// WLEDMM bitarray utilities
+void setBitInArray(uint8_t* byteArray, size_t position, bool value);  // set bit
+bool getBitFromArray(const uint8_t* byteArray, size_t position)  __attribute__((pure)); // get bit value
+size_t getBitArrayBytes(size_t num_bits) __attribute__((const)); // number of bytes needed for an array with num_bits bits
+void setBitArray(uint8_t* byteArray, size_t numBits, bool value);  // set all bits to same value
+
+
 #define GET_BIT(var,bit)    (((var)>>(bit))&0x01)
 #define SET_BIT(var,bit)    ((var)|=(uint16_t)(0x0001<<(bit)))
 #define UNSET_BIT(var,bit)  ((var)&=(~(uint16_t)(0x0001<<(bit))))
@@ -359,6 +366,7 @@ class BusHub75Matrix : public Bus {
     bool hasWhite() const override { return false; }
 
     void setPixelColor(uint16_t pix, uint32_t c) override;
+    uint32_t getPixelColor(uint16_t pix) const override;
 
     void show(void) override;
 
@@ -382,7 +390,8 @@ class BusHub75Matrix : public Bus {
     VirtualMatrixPanel  *fourScanPanel = nullptr;
     HUB75_I2S_CFG mxconfig;
     bool isBlack = false;
-    
+    CRGB *_ledBuffer = nullptr;
+    byte *_ledsDirty = nullptr;
 };
 #endif
 

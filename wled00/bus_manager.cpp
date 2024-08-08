@@ -9,6 +9,36 @@
 #include "bus_wrapper.h"
 #include "bus_manager.h"
 
+// WLEDMM functions to get/set bits in an array - based on functions created by Brandon for GOL
+//  toDo : make this a class that's completely defined in a header file
+bool getBitFromArray(const uint8_t* byteArray, size_t position) { // get bit value
+    size_t byteIndex = position / 8;
+    unsigned bitIndex = position % 8;
+    uint8_t byteValue = byteArray[byteIndex];
+    return (byteValue >> bitIndex) & 1;
+}
+
+void setBitInArray(uint8_t* byteArray, size_t position, bool value) {  // set bit - with error handling for nullptr
+    if (byteArray == nullptr) return;
+    size_t byteIndex = position / 8;
+    unsigned bitIndex = position % 8;
+    if (value)
+        byteArray[byteIndex] |= (1 << bitIndex); 
+    else
+        byteArray[byteIndex] &= ~(1 << bitIndex);
+}
+
+size_t getBitArrayBytes(size_t num_bits) { // number of bytes needed for an array with num_bits bits
+  return (num_bits + 7) / 8; 
+}
+
+void setBitArray(uint8_t* byteArray, size_t numBits, bool value) {  // set all bits to same value
+  if (byteArray == nullptr) return;
+  size_t len =  getBitArrayBytes(numBits);
+  if (value) memset(byteArray, 0xFF, len);
+  else memset(byteArray, 0x00, len);
+}
+
 //WLEDMM: #define DEBUGOUT(x) netDebugEnabled?NetDebug.print(x):Serial.print(x) not supported in this file as netDebugEnabled not in scope
 #if 0
 //colors.cpp
@@ -665,6 +695,16 @@ BusHub75Matrix::BusHub75Matrix(BusConfig &bc) : Bus(bc.type, bc.start, bc.autoWh
   else {
     _valid = true;
     display->clearScreen();   // initially clear the screen buffer
+
+    if (_ledBuffer) free(_ledBuffer);                 // should not happen
+    if (_ledsDirty) free(_ledsDirty);                 // should not happen
+    if(mxconfig.double_buff == false) {
+      _ledBuffer = (CRGB*) calloc(_len, sizeof(CRGB));  // create LEDs buffer (initialized to BLACK)
+      _ledsDirty = (byte*) malloc(getBitArrayBytes(_len));  // create LEDs dirty bits
+      //_ledsDirty = nullptr;
+      setBitArray(_ledsDirty, _len, false);             // reset dirty bits
+    }
+
     isBlack = true;
   }
   
@@ -692,31 +732,58 @@ BusHub75Matrix::BusHub75Matrix(BusConfig &bc) : Bus(bc.type, bc.start, bc.autoWh
   USER_PRINT(F("MatrixPanel_I2S_DMA "));
   USER_PRINTF("%sstarted.\n", _valid? "":"not ");
 
+  if (mxconfig.double_buff == true) USER_PRINTLN(F("MatrixPanel_I2S_DMA driver native double-buffering enabled."));
+  if (_ledBuffer != nullptr) USER_PRINTLN(F("MatrixPanel_I2S_DMA LEDS buffer enabled."));
+  if (_ledsDirty != nullptr) USER_PRINTLN(F("MatrixPanel_I2S_DMA LEDS dirty bit optimization enabled."));
+  if ((_ledBuffer != nullptr) || (_ledsDirty != nullptr)) {
+    USER_PRINT(F("MatrixPanel_I2S_DMA LEDS buffer uses "));
+    USER_PRINT((_ledBuffer? _len*sizeof(CRGB) :0) + (_ledsDirty? getBitArrayBytes(_len) :0));
+    USER_PRINTLN(F(" bytes."));
+  }
 }
 
 void __attribute__((hot)) BusHub75Matrix::setPixelColor(uint16_t pix, uint32_t c) {
   if (!_valid || pix >= _len) return;
-  if (isBlack && (c == BLACK)) return;  // reject black pixels directly after clearScreen()
-#ifndef NO_CIE1931
-  c = unGamma24(c); // to use the driver linear brightness feature, we first need to undo WLED gamma correction
-#endif
-  uint8_t r = R(c);
-  uint8_t g = G(c);
-  uint8_t b = B(c);
+  // if (_cct >= 1900) c = colorBalanceFromKelvin(_cct, c); //color correction from CCT
 
-  if(fourScanPanel != nullptr) {
-    int pxwidth = fourScanPanel->width();
-    int x = pix % pxwidth;
-    int y = pix / pxwidth;
-    fourScanPanel->drawPixelRGB888(int16_t(x), int16_t(y), r, g, b);
+  if (_ledBuffer) {
+    CRGB fastled_col = CRGB(c);
+    if (_ledBuffer[pix] != fastled_col) {
+      _ledBuffer[pix] = fastled_col;
+      setBitInArray(_ledsDirty, pix, true);  // flag pixel as "dirty"
+      isBlack = false;
+    }
   }
   else {
-    int pxwidth = display->width();
-    int x = pix % pxwidth;
-    int y = pix / pxwidth;
-    display->drawPixelRGB888(int16_t(x), int16_t(y), r, g, b);
+    //if (isBlack && (c == BLACK)) return;  // reject black pixels directly after clearScreen()
+    #ifndef NO_CIE1931
+    c = unGamma24(c); // to use the driver linear brightness feature, we first need to undo WLED gamma correction
+    #endif
+    uint8_t r = R(c);
+    uint8_t g = G(c);
+    uint8_t b = B(c);
+
+    if(fourScanPanel != nullptr) {
+      unsigned width = fourScanPanel->width();
+      int x = pix % width;
+      int y = pix / width;
+      fourScanPanel->drawPixelRGB888(int16_t(x), int16_t(y), r, g, b);
+    } else {
+      unsigned width = display->width();
+      int x = pix % width;
+      int y = pix / width;
+      display->drawPixelRGB888(int16_t(x), int16_t(y), r, g, b);
+    }
+    isBlack = false;
   }
-  isBlack = false;
+}
+
+uint32_t BusHub75Matrix::getPixelColor(uint16_t pix) const {
+  if (!_valid || pix >= _len) return BLACK;
+  if (_ledBuffer)
+    return uint32_t(_ledBuffer[pix]) & 0x00FFFFFF;
+  else
+    return BLACK;
 }
 
 void BusHub75Matrix::setBrightness(uint8_t b, bool immediate) {
@@ -724,8 +791,36 @@ void BusHub75Matrix::setBrightness(uint8_t b, bool immediate) {
 }
 
 void __attribute__((hot)) BusHub75Matrix::show(void) {
+  if (!_valid) return;
+  if (_ledBuffer) {
+    // write out buffered LEDs
+    bool haveDirtyBits = (_ledsDirty != nullptr);
+    bool isFourScan = (fourScanPanel != nullptr);
+    unsigned width  = isFourScan ? fourScanPanel->width()  : display->width();
+    unsigned height = isFourScan ? fourScanPanel->height() : display->height();
+
+    //while(!previousBufferFree) delay(1);   // experimental - Wait before we allow any writing to the buffer. Stop flicker.
+
+    size_t pix = 0; // running pixel index
+    for (int y=0; y<height; y++) for (int x=0; x<width; x++) {
+      if ( !haveDirtyBits || (getBitFromArray(_ledsDirty, pix) == true)) {  // only repaint the "dirty"  pixels
+        uint32_t c = uint32_t(_ledBuffer[pix]) & 0x00FFFFFF; // get RGB color, removing FastLED "alpha" component 
+        #ifndef NO_CIE1931
+        c = unGamma24(c); // to use the driver linear brightness feature, we first need to undo WLED gamma correction
+        #endif
+        uint8_t r = R(c);
+        uint8_t g = G(c);
+        uint8_t b = B(c);
+        if (isFourScan) fourScanPanel->drawPixelRGB888(int16_t(x), int16_t(y), r, g, b);
+        else display->drawPixelRGB888(int16_t(x), int16_t(y), r, g, b);
+      }
+      pix ++;
+    }
+    if (haveDirtyBits) setBitArray(_ledsDirty, _len, false);  // reset dirty bits
+  }
+
   if(mxconfig.double_buff) {
-    display->flipDMABuffer(); // Show the back buffer, set currently output buffer to the back (i.e. no longer being sent to LED panels)
+    display->flipDMABuffer(); // Show the back buffer, set current output buffer to the back (i.e. no longer being sent to LED panels)
     // while(!previousBufferFree) delay(1);   // experimental - Wait before we allow any writing to the buffer. Stop flicker.
     display->clearScreen();   // Now clear the back-buffer
     isBlack = true;
@@ -733,12 +828,18 @@ void __attribute__((hot)) BusHub75Matrix::show(void) {
 }
 
 void BusHub75Matrix::cleanup() {
-  deallocatePins();
-  fourScanPanel = nullptr;
-  // delete fourScanPanel;
-  delete display;
+  if (display && _valid) display->stopDMAoutput();  // terminate DMA driver (display goes black)
   _valid = false;
+  deallocatePins();
+  USER_PRINTLN("HUB75 output ended.");
+
+  //if (fourScanPanel != nullptr) delete fourScanPanel;  // warning: deleting object of polymorphic class type 'VirtualMatrixPanel' which has non-virtual destructor might cause undefined behavior
+  delete display;
+  display = nullptr;
+  fourScanPanel = nullptr;
   isBlack = false;
+  if (_ledBuffer != nullptr) free(_ledBuffer); _ledBuffer = nullptr;
+  if (_ledsDirty != nullptr) free(_ledsDirty); _ledsDirty = nullptr;      
 }
 
 void BusHub75Matrix::deallocatePins() {
