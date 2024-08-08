@@ -755,7 +755,7 @@ void __attribute__((hot)) BusHub75Matrix::setPixelColor(uint16_t pix, uint32_t c
     }
   }
   else {
-    //if (isBlack && (c == BLACK)) return;  // reject black pixels directly after clearScreen()
+    if (isBlack && (c == BLACK)) return;  // reject black pixels directly after clearScreen()
     #ifndef NO_CIE1931
     c = unGamma24(c); // to use the driver linear brightness feature, we first need to undo WLED gamma correction
     #endif
