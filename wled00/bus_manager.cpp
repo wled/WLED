@@ -695,6 +695,8 @@ BusHub75Matrix::BusHub75Matrix(BusConfig &bc) : Bus(bc.type, bc.start, bc.autoWh
   else {
     _valid = true;
     display->clearScreen();   // initially clear the screen buffer
+    display->setBrightness8(127);    // range is 0-255, 0 - 0%, 255 - 100%
+    _bri = 127;
 
     if (_ledBuffer) free(_ledBuffer);                 // should not happen
     if (_ledsDirty) free(_ledsDirty);                 // should not happen
@@ -781,13 +783,14 @@ void __attribute__((hot)) BusHub75Matrix::setPixelColor(uint16_t pix, uint32_t c
 uint32_t BusHub75Matrix::getPixelColor(uint16_t pix) const {
   if (!_valid || pix >= _len) return BLACK;
   if (_ledBuffer)
-    return uint32_t(_ledBuffer[pix]) & 0x00FFFFFF;
+    return uint32_t(_ledBuffer[pix].scale8(_bri)) & 0x00FFFFFF;  // scale8() is needed to mimic NeoPixelBus, which returns scaled-down colours
   else
     return BLACK;
 }
 
 void BusHub75Matrix::setBrightness(uint8_t b, bool immediate) {
   this->display->setBrightness(b);
+  _bri = b;
 }
 
 void __attribute__((hot)) BusHub75Matrix::show(void) {
