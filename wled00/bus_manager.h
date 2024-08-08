@@ -12,6 +12,20 @@
 
 #include "const.h"
 
+#if !defined(FASTLED_VERSION) // only pull in FastLED if we don't have it yet
+  #define FASTLED_INTERNAL
+  #include <FastLED.h>
+#endif
+
+//color mangling macros
+#if !defined(RGBW32)
+  #define RGBW32(r,g,b,w) (uint32_t((byte(w) << 24) | (byte(r) << 16) | (byte(g) << 8) | (byte(b))))
+  #define R(c) (byte((c) >> 16))
+  #define G(c) (byte((c) >> 8))
+  #define B(c) (byte(c))
+  #define W(c) (byte((c) >> 24))
+#endif
+
 #define GET_BIT(var,bit)    (((var)>>(bit))&0x01)
 #define SET_BIT(var,bit)    ((var)|=(uint16_t)(0x0001<<(bit)))
 #define UNSET_BIT(var,bit)  ((var)&=(~(uint16_t)(0x0001<<(bit))))
@@ -341,37 +355,23 @@ class BusHub75Matrix : public Bus {
 
     uint16_t getMaxPixels() const override { return 4096; };
 
-    bool hasRGB() const { return true; }
-    bool hasWhite() const { return false; }
+    bool hasRGB() const override { return true; }
+    bool hasWhite() const override { return false; }
 
-    void setPixelColor(uint16_t pix, uint32_t c);
+    void setPixelColor(uint16_t pix, uint32_t c) override;
 
-    void show() {
-      if(mxconfig.double_buff) {
-        display->flipDMABuffer(); // Show the back buffer, set currently output buffer to the back (i.e. no longer being sent to LED panels)
-        // while(!previousBufferFree) delay(1);   // experimental - Wait before we allow any writing to the buffer. Stop flicker.
-        display->clearScreen();   // Now clear the back-buffer
-        isBlack = true;
-      }
-    }
+    void show(void) override;
 
-    void setBrightness(uint8_t b, bool immediate);
+    void setBrightness(uint8_t b, bool immediate) override;
 
-    uint8_t getPins(uint8_t* pinArray) const {
+    uint8_t getPins(uint8_t* pinArray) const override {
       pinArray[0] = mxconfig.chain_length;
       return 1;
     } // Fake value due to keep finaliseInit happy
 
     void deallocatePins();
 
-    void cleanup() {
-      deallocatePins();
-      fourScanPanel = nullptr;
-      // delete fourScanPanel;
-      delete display;
-      _valid = false;
-      isBlack = false;
-    }
+    void cleanup(void) override;
 
     ~BusHub75Matrix() {
       cleanup();

@@ -49,13 +49,6 @@ uint8_t realtimeBroadcast(uint8_t type, IPAddress client, uint16_t length, byte 
 #include "wled.h"
 #endif
 
-//color mangling macros
-#define RGBW32(r,g,b,w) (uint32_t((byte(w) << 24) | (byte(r) << 16) | (byte(g) << 8) | (byte(b))))
-#define R(c) (byte((c) >> 16))
-#define G(c) (byte((c) >> 8))
-#define B(c) (byte(c))
-#define W(c) (byte((c) >> 24))
-
 
 void ColorOrderMap::add(uint16_t start, uint16_t len, uint8_t colorOrder) {
   if (_count >= WLED_MAX_COLOR_ORDER_MAPPINGS) {
@@ -696,11 +689,12 @@ BusHub75Matrix::BusHub75Matrix(BusConfig &bc) : Bus(bc.type, bc.start, bc.autoWh
       break;
   }  
 
+  USER_PRINT(F("MatrixPanel_I2S_DMA "));
+  USER_PRINTF("%sstarted.\n", _valid? "":"not ");
 
-  USER_PRINTLN("MatrixPanel_I2S_DMA started");
 }
 
-void  __attribute__((hot)) BusHub75Matrix::setPixelColor(uint16_t pix, uint32_t c) {
+void __attribute__((hot)) BusHub75Matrix::setPixelColor(uint16_t pix, uint32_t c) {
   if (!_valid || pix >= _len) return;
   if (isBlack && (c == BLACK)) return;  // reject black pixels directly after clearScreen()
 #ifndef NO_CIE1931
@@ -727,6 +721,24 @@ void  __attribute__((hot)) BusHub75Matrix::setPixelColor(uint16_t pix, uint32_t 
 
 void BusHub75Matrix::setBrightness(uint8_t b, bool immediate) {
   this->display->setBrightness(b);
+}
+
+void __attribute__((hot)) BusHub75Matrix::show(void) {
+  if(mxconfig.double_buff) {
+    display->flipDMABuffer(); // Show the back buffer, set currently output buffer to the back (i.e. no longer being sent to LED panels)
+    // while(!previousBufferFree) delay(1);   // experimental - Wait before we allow any writing to the buffer. Stop flicker.
+    display->clearScreen();   // Now clear the back-buffer
+    isBlack = true;
+  }
+}
+
+void BusHub75Matrix::cleanup() {
+  deallocatePins();
+  fourScanPanel = nullptr;
+  // delete fourScanPanel;
+  delete display;
+  _valid = false;
+  isBlack = false;
 }
 
 void BusHub75Matrix::deallocatePins() {
