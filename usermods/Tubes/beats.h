@@ -16,16 +16,12 @@ class BeatController {
 
   void setup()
   {
-    globalTimer.setup();
-
     // Starts in phrase 1
     sync(DEFAULT_BPM << 8, 0);
   }
 
   void update()
   {
-    globalTimer.update();
-
     // Maintains an accumulator with 14 bits of precision
     accum += globalTimer.delta_micros << 8;
     while (accum > micros_per_frac) {

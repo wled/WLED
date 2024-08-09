@@ -74,6 +74,8 @@ class TubesUsermod : public Usermod {
         randomize();
       }
 
+      globalTimer.update();
+
       if (master) 
         master->update();
       beats.update();

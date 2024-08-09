@@ -96,7 +96,7 @@ class LightNode {
         case NODE_STATUS_RECEIVING:
             return PSTR(" (receiving)");
         case NODE_STATUS_STARTED:
-            return PSTR("");
+            return PSTR(" (started)");
         default:
             return PSTR("??");
         }
@@ -110,9 +110,9 @@ class LightNode {
 
   protected:
 
-    const uint32_t STATUS_CHECK_RATE =   200;    // Time at which we should check wifi status again
-    const uint32_t UPLINK_TIMEOUT    = 20000;    // Time at which uplink is presumed lost
-    const uint32_t REBROADCAST_TIME  = 30000;    // Time at which followers are presumed re-uplinked
+    const uint32_t STATUS_TIMEOUT_BASE =  3000;    // Base time to wait to send broadcasts
+    const uint32_t UPLINK_TIMEOUT      = 20000;    // Time at which uplink is presumed lost
+    const uint32_t REBROADCAST_TIME    = 30000;    // Time at which followers are presumed re-uplinked
 
     Timer statusTimer;      // Use this timer to initialize and check wifi status
     Timer uplinkTimer;      // When this timer ends, assume uplink is lost.
@@ -276,9 +276,12 @@ class LightNode {
 
     void broadcastMessage(NodeMessage *message, bool is_rebroadcast=false) {
         // Don't broadcast anything if this node isn't active.
+#ifdef NODE_DEBUGGING
+        Serial.printf("broadcastMessage() - %s %s\n", status_code(), statusTimer.ended() ? "True" : "False");
+#endif
 
         if (status != NODE_STATUS_STARTED) {
-            if (status == NODE_STATUS_RECEIVING && statusTimer.every(STATUS_CHECK_RATE)) {
+            if (status == NODE_STATUS_RECEIVING && statusTimer.ended()) {
                 status = NODE_STATUS_STARTED;
                 statusTimer.stop();
                 Serial.printf("LightNode %s\n", status_code());
@@ -295,11 +298,10 @@ class LightNode {
         Serial.println();
 #endif
 
-        __attribute__((unused)) auto err = espnowBroadcast.send((const uint8_t*)message, sizeof(*message));
-
+        __attribute__((unused)) auto success = espnowBroadcast.send((const uint8_t*)message, sizeof(*message));
 #ifdef NODE_DEBUGGING
-        if (err != ESP_OK) {
-            Serial.printf("espnowBroadcast.send() failed: %d\n", err);
+        if (!success) {
+            Serial.println("espnowBroadcast.send() failed!");
         } else {
             Serial.println("successful broadcast");
         }
@@ -429,7 +431,7 @@ protected:
                 if (NODE_STATUS_QUIET == status) {
                     Serial.printf("checkESPNowState() - %d node_status:%s\n", state, status_code());
                     status = NODE_STATUS_RECEIVING;
-                    statusTimer.start(3000 - header.id / 2);
+                    statusTimer.start(STATUS_TIMEOUT_BASE - header.id / 2);
                     Serial.printf("LightNode %s\n", status_code());
                 }
                 break;
