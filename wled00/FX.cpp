@@ -2148,7 +2148,7 @@ uint16_t mode_fire_2012() {
 
       // Step 4.  Map from heat cells to LED colors
       for (int j = 0; j < SEGLEN; j++) {
-        SEGMENT.setPixelColor(indexToVStrip(j, stripNr), ColorFromPalette(SEGPALETTE, min(heat[j],byte(240)), 255, NOBLEND));
+        SEGMENT.setPixelColor(indexToVStrip(j, stripNr), ColorFromPalette(SEGPALETTE, min(heat[j], byte(240)), 255, NOBLEND));
       }
     }
   };
@@ -2158,7 +2158,9 @@ uint16_t mode_fire_2012() {
 
   if (SEGMENT.is2D()) {
     uint8_t blurAmount = SEGMENT.custom2 >> 2;
-    SEGMENT.blur(blurAmount);
+    if (blurAmount > 48) blurAmount += blurAmount-48;             // extra blur when slider > 192  (bush burn)
+    if (blurAmount < 16) SEGMENT.blurCols(SEGMENT.custom2 >> 1);  // no side-burn when slider < 64 (faster)
+    else SEGMENT.blur(blurAmount);
   }
 
   if (it != SEGENV.step)
