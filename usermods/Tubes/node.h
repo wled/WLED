@@ -276,10 +276,6 @@ class LightNode {
 
     void broadcastMessage(NodeMessage *message, bool is_rebroadcast=false) {
         // Don't broadcast anything if this node isn't active.
-#ifdef NODE_DEBUGGING
-        Serial.printf("broadcastMessage() - %s %s\n", status_code(), statusTimer.ended() ? "True" : "False");
-#endif
-
         if (status != NODE_STATUS_STARTED) {
             if (status == NODE_STATUS_RECEIVING && statusTimer.ended()) {
                 status = NODE_STATUS_STARTED;
