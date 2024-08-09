@@ -402,19 +402,14 @@ void ESPNOWBroadcastImpl::onESPNowRxCallback(const uint8_t *mac, const uint8_t *
         // be safe about accessing memory that isn't directly exposed to the callback
         rssi = 0;
     }
-    // Serial.printf( "RX from " ); 
-    // logMACAddr(mac);
-    // Serial.printf( " %d:bytes rssi:%d\n", len, rssi);
 
-    if (len > WLED_ESPNOW_MAX_MESSAGE_LENGTH) {
-#ifdef ESPNOW_DEBUGGING
-        Serial.printf("Receive to large of packet %d > %d bytes. ignoring...\n", len, WLED_ESPNOW_MAX_MESSAGE_LENGTH);
-#endif
-    } else if (!espnowBroadcastImpl.queuedNetworkRingBuffer.push(mac, data, len, rssi)) {
-        Serial.println("Failed to aquire ring buffer.  Dropping network message");
+    if (!espnowBroadcastImpl.queuedNetworkRingBuffer.push(mac, data, len, rssi)) {
+        Serial.printf("Failed to queue message (%d bytes) to ring buffer.  Dropping message\n", len);
     } else {
 #ifdef ESPNOW_DEBUGGING
-        Serial.printf("Receive %d bytes.  RSSI %d\n", len, rssi);
+        Serial.printf("Received %d bytes from ");
+        logMACAddr(mac);
+        Serial.printf(" RSSI %d\n", len, rssi);
 #endif
     }
 }
