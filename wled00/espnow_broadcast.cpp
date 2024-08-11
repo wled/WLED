@@ -33,9 +33,14 @@ ESP_EVENT_DEFINE_BASE(SYSTEM_EVENT);
 #endif
 
 //#define ESPNOW_DEBUGGING
+//#define ESNOW_CALLBACK_DEBUGGING // Serial is called from multiple threads
 
 #define BROADCAST_ADDR_ARRAY_INITIALIZER {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF}
 #define WLED_ESPNOW_WIFI_CHANNEL 1
+
+#ifndef WLED_WIFI_POWER_SETTING
+#define WLED_WIFI_POWER_SETTING WIFI_POWER_15dBm
+#endif
 
 typedef struct {
     uint8_t mac[6];
@@ -206,9 +211,15 @@ void ESPNOWBroadcast::loop(size_t maxMessagesToProcess /*= 1*/) {
 bool ESPNOWBroadcast::send(const uint8_t* msg, size_t len) {
 #ifdef ESP32
     static const uint8_t broadcast[] = BROADCAST_ADDR_ARRAY_INITIALIZER;
-    return ESP_OK == esp_now_send(broadcast, msg, len);
+    auto err = esp_now_send(broadcast, msg, len);
+#ifdef ESPNOW_DEBUGGING
+    if (ESP_OK != err) {
+        Serial.printf( "esp_now_send() failed %d\n", err);
+    }
+#endif
+    return ESP_OK == err;
 #else
-    return false;    
+    return false;
 #endif
 }
 
@@ -250,6 +261,10 @@ void ESPNOWBroadcastImpl::start() {
         auto status = WiFi.status();
         if ( status >= WL_DISCONNECTED ) {
             if (esp_wifi_start() == ESP_OK) {
+                if (!WiFi.setTxPower(WLED_WIFI_POWER_SETTING)) {
+                    auto power = WiFi.getTxPower();
+                    Serial.printf("setTxPower(%d) failed. getTX: %d\n", WLED_WIFI_POWER_SETTING, power);
+                }
                 if (esp_now_init() == ESP_OK) {
                     if (esp_now_register_recv_cb(ESPNOWBroadcastImpl::onESPNowRxCallback) == ESP_OK) {
                         static esp_now_peer_info_t peer = {
@@ -264,6 +279,9 @@ void ESPNOWBroadcastImpl::start() {
                         if (esp_now_add_peer(&peer) == ESP_OK) {
                             ESPNOWBroadcast::STATE starting {ESPNOWBroadcast::STARTING};
                             if (_state.compare_exchange_strong(starting, ESPNOWBroadcast::STARTED)) {
+#ifdef ESPNOW_DEBUGGING
+                                Serial.println("ESPNOWBroadcast started :)");
+#endif
                                 return;
                             } else {
 #ifdef ESPNOW_DEBUGGING
@@ -368,12 +386,6 @@ typedef struct {
     } vendor_specific_content;
 } __attribute__ ((packed)) espnow_frame_format_t;
 
-#ifdef ESPNOW_DEBUGGING
-void logMACAddr(const uint8_t* mac) {
-    Serial.printf("%x:%x:%x:%x:%x:%x", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5] );
-}
-#endif
-
 void ESPNOWBroadcastImpl::onESPNowRxCallback(const uint8_t *mac, const uint8_t *data, int len) {
     //const espnow_frame_format_t* espnow_data = (espnow_frame_format_t*)(data - sizeof (espnow_frame_format_t));
     const wifi_promiscuous_pkt_t* promiscuous_pkt = (wifi_promiscuous_pkt_t*)(data - sizeof (wifi_pkt_rx_ctrl_t) - sizeof (espnow_frame_format_t));
@@ -385,18 +397,18 @@ void ESPNOWBroadcastImpl::onESPNowRxCallback(const uint8_t *mac, const uint8_t *
         // be safe about accessing memory that isn't directly exposed to the callback
         rssi = 0;
     }
-    // Serial.printf( "RX from " ); 
-    // logMACAddr(mac);
-    // Serial.printf( " %d:bytes rssi:%d\n", len, rssi);
 
     if (!espnowBroadcastImpl.queuedNetworkRingBuffer.push(mac, data, len, rssi)) {
-        if (len > sizeof(WLED_ESPNOW_MAX_MESSAGE_LENGTH)) {
-#ifdef ESPNOW_DEBUGGING
-            Serial.printf("Receive to large of packet %d bytes. ignoring...\n", len);
+        Serial.printf("Failed to queue message (%d bytes) to ring buffer.  Dropping message\n", len);
+    } else {
+#ifdef ESPNOW_CALLBACK_DEBUGGING
+        char buf[128];
+        sprintf(buf, "Received %d bytes from %x:%x:%x:%x:%x:%x RSSI %d", len,
+            mac[0], mac[1], mac[2], mac[3], mac[4], mac[5],
+            rssi
+            );
+        Serial.println(buf);
 #endif
-        } else {
-            Serial.println("Failed to aquire ring buffer.  Dropping network message");
-        }
     }
 }
 
