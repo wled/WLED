@@ -685,17 +685,18 @@ BusHub75Matrix::BusHub75Matrix(BusConfig &bc) : Bus(bc.type, bc.start, bc.autoWh
   USER_PRINTLN("MatrixPanel_I2S_DMA created");
   // let's adjust default brightness
   display->setBrightness8(25);    // range is 0-255, 0 - 0%, 255 - 100%
+  _bri = 25;
 
+  delay(24); // experimental
   // Allocate memory and start DMA display
   if( not display->begin() ) {
       USER_PRINTLN("****** MatrixPanel_I2S_DMA !KABOOM! I2S memory allocation failed ***********");
       return;
   }
   else {
+    delay(18);   // experiment - give the driver a moment (~ one full frame @ 60hz) to settle
     _valid = true;
     display->clearScreen();   // initially clear the screen buffer
-    display->setBrightness8(127);    // range is 0-255, 0 - 0%, 255 - 100%
-    _bri = 127;
 
     if (_ledBuffer) free(_ledBuffer);                 // should not happen
     if (_ledsDirty) free(_ledsDirty);                 // should not happen
@@ -736,8 +737,12 @@ BusHub75Matrix::BusHub75Matrix(BusConfig &bc) : Bus(bc.type, bc.start, bc.autoWh
       break;
   }  
 
+  if (_valid) {
+    _panelWidth = fourScanPanel ? fourScanPanel->width() : display->width();  // cache width - it will never change
+  }
+
   USER_PRINT(F("MatrixPanel_I2S_DMA "));
-  USER_PRINTF("%sstarted.\n", _valid? "":"not ");
+  USER_PRINTF("%sstarted, width=%u, %u pixels.\n", _valid? "":"not ", _panelWidth, _len);
 
   if (mxconfig.double_buff == true) USER_PRINTLN(F("MatrixPanel_I2S_DMA driver native double-buffering enabled."));
   if (_ledBuffer != nullptr) USER_PRINTLN(F("MatrixPanel_I2S_DMA LEDS buffer enabled."));
@@ -772,12 +777,12 @@ void __attribute__((hot)) BusHub75Matrix::setPixelColor(uint16_t pix, uint32_t c
     uint8_t b = B(c);
 
     if(fourScanPanel != nullptr) {
-      unsigned width = fourScanPanel->width();
+      int width = _panelWidth;
       int x = pix % width;
       int y = pix / width;
       fourScanPanel->drawPixelRGB888(int16_t(x), int16_t(y), r, g, b);
     } else {
-      unsigned width = display->width();
+      int width = _panelWidth;
       int x = pix % width;
       int y = pix / width;
       display->drawPixelRGB888(int16_t(x), int16_t(y), r, g, b);
@@ -794,16 +799,19 @@ uint32_t BusHub75Matrix::getPixelColor(uint16_t pix) const {
 }
 
 void BusHub75Matrix::setBrightness(uint8_t b, bool immediate) {
-  this->display->setBrightness(b);
   _bri = b;
+  if (_bri > 238) _bri=238;
+  display->setBrightness(_bri);
 }
 
 void __attribute__((hot)) BusHub75Matrix::show(void) {
   if (!_valid) return;
+  display->setBrightness(_bri);
+
   if (_ledBuffer) {
     // write out buffered LEDs
     bool isFourScan = (fourScanPanel != nullptr);
-    unsigned width  = isFourScan ? fourScanPanel->width()  : display->width();
+    //if (isFourScan) fourScanPanel->setRotation(0);
     unsigned height = isFourScan ? fourScanPanel->height() : display->height();
 
     //while(!previousBufferFree) delay(1);   // experimental - Wait before we allow any writing to the buffer. Stop flicker.
@@ -837,6 +845,7 @@ void __attribute__((hot)) BusHub75Matrix::show(void) {
 void BusHub75Matrix::cleanup() {
   if (display && _valid) display->stopDMAoutput();  // terminate DMA driver (display goes black)
   _valid = false;
+  _panelWidth = 0;
   deallocatePins();
   USER_PRINTLN("HUB75 output ended.");
 
