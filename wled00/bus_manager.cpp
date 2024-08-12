@@ -813,6 +813,7 @@ void __attribute__((hot)) BusHub75Matrix::show(void) {
     bool isFourScan = (fourScanPanel != nullptr);
     //if (isFourScan) fourScanPanel->setRotation(0);
     unsigned height = isFourScan ? fourScanPanel->height() : display->height();
+    unsigned width = _panelWidth;
 
     //while(!previousBufferFree) delay(1);   // experimental - Wait before we allow any writing to the buffer. Stop flicker.
 
