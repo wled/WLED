@@ -43,7 +43,7 @@ class Timer {
     start(0);
   }
 
-  uint32_t since_mark() {
+  uint32_t since_mark() const {
     if (globalTimer.now_millis < markTime)
       return 0;
     return globalTimer.now_millis - markTime;
@@ -54,7 +54,7 @@ class Timer {
       markTime += duration_ms;
   }
 
-  bool ended() {
+  bool ended() const {
     return globalTimer.now_millis > markTime;
   }
 

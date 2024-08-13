@@ -25,10 +25,10 @@ class Master {
     uint8_t palette_mode = false;
     uint8_t palette_id = 0;
 
-    PatternController *controller;
+    PatternController& controller;
     Button button[5];
 
-  Master(PatternController *c) : controller(c) { };
+  Master(PatternController& c) : controller(c) { };
 
   void setup() {
     button[0].setup(BUTTON_PIN_1);
@@ -77,7 +77,7 @@ class Master {
 
     if (b == 4) {
       Serial.println((char *)F("Skip >>"));
-      controller->force_next();
+      controller.force_next();
       ok();
       return;
     }
@@ -95,7 +95,7 @@ class Master {
 #ifdef EXTRA_STUFF
     if (b == 2) {
       if (palette_mode)
-        controller->_load_palette(palette_id);
+        controller._load_palette(palette_id);
       palette_mode = false;
     }
 #endif
@@ -151,20 +151,20 @@ class Master {
       else if (frac > 128)
         bpm += (256-frac) / 2;
       
-      controller->set_tapped_bpm(bpm);
+      controller.set_tapped_bpm(bpm);
       ok();
     } else if (taps >= 2) {
-      controller->set_tapped_bpm(controller->current_state.bpm, taps-1);
+      controller.set_tapped_bpm(controller.current_state.bpm, taps-1);
     }
   }
 
-  void updateStatus(PatternController *controller) {
+  void updateStatus(const PatternController& controller) {
     if (taps) {
       displayProgress(taps);
     } else if (palette_mode) {
       displayPalette(background);
     } else {
-      uint8_t beat_pos = (controller->current_state.beat_frame >> 8) % 16;
+      uint8_t beat_pos = (controller.current_state.beat_frame >> 8) % 16;
       strip.setPixelColor(15 - beat_pos, CRGB::White);
     }
   }
