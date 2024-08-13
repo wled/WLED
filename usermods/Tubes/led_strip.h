@@ -44,7 +44,7 @@ class LEDs {
     }
   }
 
-  CRGB getPixelColor(uint8_t pos) {
+  CRGB getPixelColor(uint8_t pos) const {
     if (pos > num_leds)
       return CRGB::Black;
     return leds[pos];

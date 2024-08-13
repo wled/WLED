@@ -131,10 +131,10 @@ class PatternController : public MessageReceiver {
 #ifdef USELCD
     Lcd *lcd;
 #endif
-    LEDs *led_strip;
-    BeatController *beats;
-    Effects *effects;
-    LightNode *node;
+    LEDs led_strip;
+    BeatController beats;
+    Effects effects;
+    LightNode node;
 
     ControllerOptions options;
     char key_buffer[20] = {0};
@@ -146,16 +146,13 @@ class PatternController : public MessageReceiver {
     // When a pattern is boring, spice it up a bit with more effects
     bool isBoring = false;
 
-  PatternController(uint8_t num, BeatController *b) : num_leds(num), beats(b) {
+  PatternController(uint8_t num) :
+    num_leds(num), led_strip(num), node(this) {
 #ifdef USELCD
     lcd = new Lcd();
 #endif
-    led_strip = new LEDs(num_leds);
-    effects = new Effects();
-    node = new LightNode(this);
-    // mesh = new BLEMeshNode(this);
 
-    for (uint8_t i=0; i < NUM_VSTRIPS; i++) {
+    for (auto i=0; i < NUM_VSTRIPS; i++) {
 #ifdef DOUBLED
       vstrips[i] = new VirtualStrip(num_leds * 2 + 1);
 #else
@@ -164,7 +161,7 @@ class PatternController : public MessageReceiver {
     }
   }
 
-  bool isMasterRole() {
+  bool isMasterRole() const {
 #if defined(GOLDEN) || defined(CHRISTMAS)
     return true;
 #endif
@@ -204,10 +201,12 @@ class PatternController : public MessageReceiver {
     else
       strip.ablMilliampsMax = 1400;
 
-    node->setup();
+
+    beats.setup();
+    node.setup();
 
     if (role >= MasterRole) {
-      node->reset(3850 + role); // MASTER ID
+      node.reset(3850 + role); // MASTER ID
       options.brightness = DEFAULT_MASTER_BRIGHTNESS;
     } else if (role >= LegacyRole) {
         options.brightness = DEFAULT_TUBE_BRIGHTNESS;
@@ -217,7 +216,7 @@ class PatternController : public MessageReceiver {
         options.brightness = DEFAULT_TUBE_BRIGHTNESS;
     }
 #if defined(GOLDEN) || defined(CHRISTMAS)
-    node->reset(0xFFF);
+    node.reset(0xFFF);
 #endif
     options.debugging = false;
     load_options(options, true);
@@ -300,11 +299,11 @@ class PatternController : public MessageReceiver {
     selectTimer.start(20000);
   }
 
-  bool isSelecting() {
+  bool isSelecting() const {
     return !selectTimer.ended();
   }
 
-  bool isSelected() {
+  bool isSelected() const {
     return updater.status == Ready;
   }
 
@@ -365,8 +364,10 @@ class PatternController : public MessageReceiver {
   {
     read_keys();
     
+    beats.update();
+
     // Update the mesh
-    node->update();
+    node.update();
 
     // Update sound meter
     sound.update();
@@ -407,7 +408,7 @@ class PatternController : public MessageReceiver {
     // Update current status
     if (updateTimer.every(STATUS_UPDATE_PERIOD)) {
       // Transmit less often when following
-      if (!node->isFollowing() || random(0, 4) == 0) {
+      if (!node.isFollowing() || random(0, 4) == 0) {
         send_update();
       }
     }
@@ -440,7 +441,7 @@ class PatternController : public MessageReceiver {
     if (fader < 255) {
       // Perform a cross-fade between current WLED mode and the external buffer
       for (int i = 0; i < length; i++) {
-        CRGB c = led_strip->getPixelColor(i);
+        CRGB c = led_strip.getPixelColor(i);
         if (fader > 0) {
           CRGB color2 = strip.getPixelColor(i);
           uint8_t r = blend8(c.r, color2.r, fader);
@@ -468,7 +469,7 @@ class PatternController : public MessageReceiver {
     // Draw effects layers over whatever WLED is doing.
     // But not in manual (WLED) mode
     if (!patternOverride) {
-      effects->draw(&strip);
+      effects.draw(&strip);
     }
 
     // Make the art half-size if it has a small number of pixels
@@ -502,20 +503,20 @@ class PatternController : public MessageReceiver {
   }
 
   void restart_phrase() {
-    beats->start_phrase();
+    beats.start_phrase();
     update_beat();
     send_update();
   }
 
   void set_phrase_position(uint8_t pos) {
-    beats->sync(beats->bpm, (beats->frac & -0xFFF) + (pos<<8));
+    beats.sync(beats.bpm, (beats.frac & -0xFFF) + (pos<<8));
     update_beat();
     send_update();
   }
   
   void set_tapped_bpm(accum88 bpm, uint8_t pos=15) {
     // By default, restarts at 15th beat - because this is the end of a tap
-    beats->sync(bpm, (beats->frac & -0xFFF) + (pos<<8));
+    beats.sync(bpm, (beats.frac & -0xFFF) + (pos<<8));
     update_beat();
     send_update();
   }
@@ -525,7 +526,7 @@ class PatternController : public MessageReceiver {
     if (new_bpm == 0)
       new_bpm = current_state.bpm>>8 >= 123 ? 120<<8 : 125<<8;
 
-    if (node->isFollowing()) {
+    if (node.isFollowing()) {
       // Send a request up to ROOT
       broadcast_bpm(new_bpm);
     } else {
@@ -534,8 +535,8 @@ class PatternController : public MessageReceiver {
   }
 
   void update_beat() {
-    current_state.bpm = next_state.bpm = beats->bpm;
-    current_state.beat_frame = particle_beat_frame = beats->frac;  // (particle_beat_frame is a hack)
+    current_state.bpm = next_state.bpm = beats.bpm;
+    current_state.beat_frame = particle_beat_frame = beats.frac;  // (particle_beat_frame is a hack)
     if (current_state.bpm>>8 <= 118) // Hip hop / ghettofunk
       energy = MediumEnergy;
     else if (current_state.bpm>>8 >= 125) // House & breaks
@@ -708,7 +709,7 @@ class PatternController : public MessageReceiver {
     current_state.print();
     Serial.println();
     
-    effects->load(current_state.effect_params);
+    effects.load(current_state.effect_params);
   }
 
   // Choose the effect to display at the next effect cycle
@@ -793,7 +794,7 @@ class PatternController : public MessageReceiver {
     load_options(options);
 
     // The master controls all followers
-    if (!node->isFollowing())
+    if (!node.isFollowing())
       broadcast_options();
   }
 
@@ -804,7 +805,7 @@ class PatternController : public MessageReceiver {
     load_options(options);
 
     // The master controls all followers
-    if (!node->isFollowing())
+    if (!node.isFollowing())
       broadcast_options();
   }
   
@@ -886,10 +887,10 @@ class PatternController : public MessageReceiver {
         wled_fader = vstrip->fader;
      
       vstrip->update(beat_frame, beat_pulse);
-      vstrip->blend(led_strip->leds, led_strip->num_leds, options.brightness, vstrip == first_strip);
+      vstrip->blend(led_strip.leds, led_strip.num_leds, options.brightness, vstrip == first_strip);
     }
 
-    effects->update(first_strip, beat_frame, (BeatPulse)beat_pulse);
+    effects.update(first_strip, beat_frame, (BeatPulse)beat_pulse);
   }
 
   virtual void acknowledge() {
@@ -987,7 +988,7 @@ class PatternController : public MessageReceiver {
         return;
 
       case 's':
-        beats->start_phrase();
+        beats.start_phrase();
         update_beat();
         send_update();
         return;
@@ -1031,7 +1032,7 @@ class PatternController : public MessageReceiver {
 
       case 'i':
         Serial.printf("Reset! ID -> %03X\n", arg >> 4);
-        node->reset(arg >> 4);
+        node.reset(arg >> 4);
         return;
 
       case 'U':
@@ -1127,31 +1128,31 @@ class PatternController : public MessageReceiver {
   }
 
   void broadcast_action(Action& action) {
-    if (!node->isFollowing()) {
+    if (!node.isFollowing()) {
       onAction(&action);
     }
-    node->sendCommand(COMMAND_ACTION, &action, sizeof(Action));
+    node.sendCommand(COMMAND_ACTION, &action, sizeof(Action));
   }
 
   void broadcast_info(NodeInfo *info) {
-    node->sendCommand(COMMAND_INFO, &info, sizeof(NodeInfo));
+    node.sendCommand(COMMAND_INFO, &info, sizeof(NodeInfo));
   }
 
   void broadcast_state() {
-    node->sendCommand(COMMAND_STATE, &current_state, sizeof(TubeStates));
+    node.sendCommand(COMMAND_STATE, &current_state, sizeof(TubeStates));
   }
 
   void broadcast_options() {
-    node->sendCommand(COMMAND_OPTIONS, &options, sizeof(options));
+    node.sendCommand(COMMAND_OPTIONS, &options, sizeof(options));
   }
 
   void broadcast_autoupdate() {
-    node->sendCommand(COMMAND_UPGRADE, &updater.current_version, sizeof(updater.current_version));
+    node.sendCommand(COMMAND_UPGRADE, &updater.current_version, sizeof(updater.current_version));
   }
 
   void broadcast_bpm(accum88 bpm) {
     // Hacked in feature: request a new BPM
-    node->sendCommand(COMMAND_BEATS, &bpm, sizeof(bpm));
+    node.sendCommand(COMMAND_BEATS, &bpm, sizeof(bpm));
   }
 
   virtual bool onCommand(CommandId command, void *data) {
@@ -1184,7 +1185,7 @@ class PatternController : public MessageReceiver {
         load_pattern(state);
         load_palette(state);
         load_effect(state);
-        beats->sync(state.bpm, state.beat_frame);
+        beats.sync(state.bpm, state.beat_frame);
         return true;
       }
 
@@ -1312,7 +1313,7 @@ class PatternController : public MessageReceiver {
   }
 
   virtual bool onButton(uint8_t button_id) {
-    bool isMaster = !this->node->isFollowing();
+    bool isMaster = !this->node.isFollowing();
 
     switch (button_id) {
       case WIZMOTE_BUTTON_ON:

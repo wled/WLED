@@ -9,7 +9,6 @@
 
 #include "FX.h"
 
-#include "beats.h"
 #include "virtual_strip.h"
 #include "led_strip.h"
 #include "master.h"
@@ -24,10 +23,9 @@
 
 class TubesUsermod : public Usermod {
   private:
-    BeatController beats;
-    PatternController controller = PatternController(MAX_REAL_LEDS, &beats);
-    DebugController debug = DebugController(&controller);
-    Master *master = nullptr;
+    PatternController controller = PatternController(MAX_REAL_LEDS);
+    DebugController debug = DebugController(controller);
+    Master master = Master(controller);
     bool isLegacy = false;
 
     void randomize() {
@@ -59,11 +57,9 @@ class TubesUsermod : public Usermod {
 
       // Start timing
       globalTimer.setup();
-      beats.setup();
       controller.setup();
       if (controller.isMasterRole()) {
-        master = new Master(&controller);
-        master->setup();
+        master.setup();
       }
       debug.setup();
     }
@@ -76,23 +72,23 @@ class TubesUsermod : public Usermod {
 
       globalTimer.update();
 
-      if (master) 
-        master->update();
-      beats.update();
+      if (controller.isMasterRole()) {
+        master.update();
+      }
       controller.update();
       debug.update();
 
       // Draw after everything else is done
-      controller.led_strip->update();
+      controller.led_strip.update();
     }
 
-    void handleOverlayDraw()
-    {
+    void handleOverlayDraw() {
       // Draw effects layers over whatever WLED is doing.
       controller.handleOverlayDraw();
       debug.handleOverlayDraw();
-      if (master) 
-        master->handleOverlayDraw();
+      if (controller.isMasterRole()) {
+        master.handleOverlayDraw();
+      }
 
       // When AP mode is on, make sure it's obvious
       // Blink when there's a connected client
