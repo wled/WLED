@@ -8,7 +8,7 @@
  */
 
 // version code in format yymmddb (b = daily build)
-#define VERSION 2407171
+#define VERSION 2408080
 
 // WLEDMM  - you can check for this define in usermods, to only enabled WLEDMM specific code in the "right" fork. Its not defined in AC WLED.
 #define _MoonModules_WLED_
@@ -928,9 +928,9 @@ public:
   }
 
   // boot starts here
-  void setup();
+  void setup() __attribute__((used));
 
-  void loop();
+  void loop()  __attribute__((used));
   void reset();
 
   void beginStrip();

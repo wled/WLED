@@ -69,6 +69,7 @@ void calcGammaTable(float gamma);
 uint8_t __attribute__((pure)) gamma8(uint8_t b);                                              // WLEDMM: added attribute pure
 uint32_t __attribute__((pure)) gamma32(uint32_t);                                             // WLEDMM: added attribute pure
 uint8_t unGamma8(uint8_t value);                                                              // WLEDMM revert gamma correction
+uint32_t unGamma24(uint32_t c);                                                               // WLEDMM for 24bit color (white left as-is)
 
 //dmx_output.cpp
 void initDMXOutput();
@@ -249,7 +250,7 @@ void refreshNodeList();
 void sendSysInfoUDP();
 
 //network.cpp
-int getSignalQuality(int rssi);
+int getSignalQuality(int rssi) __attribute__((const));
 void WiFiEvent(WiFiEvent_t event);
 
 //um_manager.cpp
@@ -368,7 +369,7 @@ bool oappendi(int i);          // append new number to temp buffer efficiently
 void sappend(char stype, const char* key, int val);
 void sappends(char stype, const char* key, char* val);
 void prepareHostname(char* hostname);
-bool isAsterisksOnly(const char* str, byte maxLen);
+bool isAsterisksOnly(const char* str, byte maxLen)  __attribute__((pure));
 bool requestJSONBufferLock(uint8_t module=255);
 void releaseJSONBufferLock();
 uint8_t extractModeName(uint8_t mode, const char *src, char *dest, uint8_t maxLen);
@@ -409,13 +410,14 @@ void clearEEPROM();
 //wled_math.cpp
 #ifndef WLED_USE_REAL_MATH
   template <typename T> T atan_t(T x);
-  float cos_t(float phi);
-  float sin_t(float x);
-  float tan_t(float x);
+  float cos_t(float phi)  __attribute__((const));
+  float sin_t(float x)    __attribute__((const));
+  float tan_t(float x)    __attribute__((const));
   float acos_t(float x);
   float asin_t(float x);
-  float floor_t(float x);
-  float fmod_t(float num, float denom);
+  float atan_t(float x)   __attribute__((const));
+  float floor_t(float x)  __attribute__((const));
+  float fmod_t(float num, float denom)   __attribute__((const));
 #else
   #include <math.h>   // WLEDMM use "float" variants
   #define sin_t sinf

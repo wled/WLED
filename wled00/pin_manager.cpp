@@ -723,7 +723,7 @@ bool PinManagerClass::joinWire(int8_t pinSDA, int8_t pinSCL) {
  */
 
 // Check if supplied GPIO is ok to use
-bool PinManagerClass::isPinOk(byte gpio, bool output)
+bool PinManagerClass::isPinOk(byte gpio, bool output) const
 {
 #ifdef ESP32
   if (digitalPinIsValid(gpio)) {
@@ -757,7 +757,7 @@ bool PinManagerClass::isPinOk(byte gpio, bool output)
   return false;
 }
 
-PinOwner PinManagerClass::getPinOwner(byte gpio) {
+PinOwner PinManagerClass::getPinOwner(byte gpio) const {
   if (gpio >= WLED_NUM_PINS) return PinOwner::None; // catch error case, to avoid array out-of-bounds access
   if (!isPinOk(gpio, false)) return PinOwner::None;
   return ownerTag[gpio];

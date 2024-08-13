@@ -2148,7 +2148,7 @@ uint16_t mode_fire_2012() {
 
       // Step 4.  Map from heat cells to LED colors
       for (int j = 0; j < SEGLEN; j++) {
-        SEGMENT.setPixelColor(indexToVStrip(j, stripNr), ColorFromPalette(SEGPALETTE, min(heat[j],byte(240)), 255, NOBLEND));
+        SEGMENT.setPixelColor(indexToVStrip(j, stripNr), ColorFromPalette(SEGPALETTE, min(heat[j], byte(240)), 255, NOBLEND));
       }
     }
   };
@@ -2156,14 +2156,19 @@ uint16_t mode_fire_2012() {
   for (int stripNr=0; stripNr<strips; stripNr++)
     virtualStrip::runStrip(stripNr, &heat[stripNr * SEGLEN], it);
 
-  if (SEGMENT.is2D()) SEGMENT.blur(32);
+  if (SEGMENT.is2D()) {
+    uint8_t blurAmount = SEGMENT.custom2 >> 2;
+    if (blurAmount > 48) blurAmount += blurAmount-48;             // extra blur when slider > 192  (bush burn)
+    if (blurAmount < 16) SEGMENT.blurCols(SEGMENT.custom2 >> 1);  // no side-burn when slider < 64 (faster)
+    else SEGMENT.blur(blurAmount);
+  }
 
   if (it != SEGENV.step)
     SEGENV.step = it;
 
   return FRAMETIME;
 }
-static const char _data_FX_MODE_FIRE_2012[] PROGMEM = "Fire 2012@Cooling,Spark rate,,,Boost;;!;1.5d;sx=64,ix=160,m12=1"; // bars WLEDMM 1.5d, 
+static const char _data_FX_MODE_FIRE_2012[] PROGMEM = "Fire 2012@Cooling,Spark rate,,2D Blur,Boost;;!;1.5d;sx=64,ix=160,c2=128,m12=1"; // bars WLEDMM 1.5d, 
 
 
 // ColorWavesWithPalettes by Mark Kriegsman: https://gist.github.com/kriegsman/8281905786e8b2632aeb
@@ -4922,17 +4927,18 @@ uint16_t mode_2DBlackHole(void) {            // By: Stepko https://editor.soulma
   }
 
   SEGMENT.fadeToBlackBy(16 + (SEGMENT.speed>>3)); // create fading trails
-  unsigned long t = strip.now/128;                 // timebase
+  const unsigned long ratio = 128;                // rotation speed
+  unsigned long t = strip.now;                    // timebase
   // outer stars
-  for (size_t i = 0; i < 8; i++) {
-    x = beatsin8(SEGMENT.custom1>>3,   0, cols - 1, 0, ((i % 2) ? 128 : 0) + t * i);
-    y = beatsin8(SEGMENT.intensity>>3, 0, rows - 1, 0, ((i % 2) ? 192 : 64) + t * i);
+  for (unsigned i = 0; i < 8; i++) {
+    x = beatsin8(SEGMENT.custom1>>3,   0, cols - 1, 0, ((i % 2) ? 128 : 0) + (t * i)/ratio);
+    y = beatsin8(SEGMENT.intensity>>3, 0, rows - 1, 0, ((i % 2) ? 192 : 64) + (t * i)/ratio);
     SEGMENT.addPixelColorXY(x, y, CHSV(i*32, 255, 255));
   }
   // inner stars
   for (size_t i = 0; i < 4; i++) {
-    x = beatsin8(SEGMENT.custom2>>3, cols/4, cols - 1 - cols/4, 0, ((i % 2) ? 128 : 0) + t * i);
-    y = beatsin8(SEGMENT.custom3   , rows/4, rows - 1 - rows/4, 0, ((i % 2) ? 192 : 64) + t * i);
+    x = beatsin8(SEGMENT.custom2>>3, cols/4, cols - 1 - cols/4, 0, ((i % 2) ? 128 : 0) + (t * i)/ratio);
+    y = beatsin8(SEGMENT.custom3   , rows/4, rows - 1 - rows/4, 0, ((i % 2) ? 192 : 64) + (t * i)/ratio);
     SEGMENT.addPixelColorXY(x, y, CHSV(i*32, 255, 255));
   }
   // central white dot
@@ -6270,6 +6276,10 @@ uint16_t mode_2Dfloatingblobs(void) {
   }
 
   SEGMENT.fadeToBlackBy(20);
+  bool drawAA = (SEGMENT.custom1 > 0) && (SEGMENT.custom1 < 6); //WLEDMM
+  const uint16_t minDim = min(cols, rows); // WLEDMM use smaller dimension to find good blob size
+  float max_grow = min(minDim/4.f,2.f);
+  if (minDim>=24) max_grow =(minDim/8.0f);   // WLEDMM allow bigger blobs
 
   // Bounce balls around
   for (size_t i = 0; i < Amount; i++) {
@@ -6278,18 +6288,18 @@ uint16_t mode_2Dfloatingblobs(void) {
     if (blob->grow[i]) {
       // enlarge radius until it is >= 4
       blob->r[i] += (fabsf(blob->sX[i]) > fabsf(blob->sY[i]) ? fabsf(blob->sX[i]) : fabsf(blob->sY[i])) * 0.05f;
-      if (blob->r[i] >= min(cols/4.f,2.f)) {
+      if (blob->r[i] >= max_grow) {
         blob->grow[i] = false;
       }
     } else {
       // reduce radius until it is < 1
       blob->r[i] -= (fabsf(blob->sX[i]) > fabsf(blob->sY[i]) ? fabsf(blob->sX[i]) : fabsf(blob->sY[i])) * 0.05f;
-      if (blob->r[i] < 1.f) {
+      if (blob->r[i] < 0.8f) {
         blob->grow[i] = true;
       }
     }
     uint32_t c = SEGMENT.color_from_palette(blob->color[i], false, false, 0);
-    if (blob->r[i] > 1.f) SEGMENT.fillCircle(roundf(blob->x[i]), roundf(blob->y[i]), roundf(blob->r[i]), c);
+    if (blob->r[i] > 1.f) SEGMENT.fillCircle(roundf(blob->x[i]), roundf(blob->y[i]), roundf(blob->r[i]), c, drawAA);
     else                  SEGMENT.setPixelColorXY((int)roundf(blob->x[i]), (int)roundf(blob->y[i]), c);
     // move x
     if (blob->x[i] + blob->r[i] >= cols - 1) blob->x[i] += (blob->sX[i] * ((cols - 1 - blob->x[i]) / blob->r[i] + 0.005f));
@@ -6662,20 +6672,26 @@ uint16_t mode_2DWaverly(void) {
 
   long t = strip.now / 2;
   for (int i = 0; i < cols; i++) {
-    uint16_t thisVal = volumeSmth*SEGMENT.intensity/64 * inoise8(i * 45 , t , t)/64;      // WLEDMM back to SR code
-    uint16_t thisMax = map(thisVal, 0, 512, 0, rows);
+    //uint16_t thisVal = volumeSmth*SEGMENT.intensity/64 * inoise8(i * 45 , t , t)/64;      // WLEDMM back to SR code
+    unsigned thisVal = unsigned(volumeSmth*SEGMENT.intensity) * inoise8(i * 45 , t , t) / (64*64);      // WLEDMM same result but more accurate
 
-    for (int j = 0; j < thisMax; j++) {
+    //int thisMax = map(thisVal, 0, 512, 0, rows);
+    int thisMax = (thisVal * rows) / 512;     // WLEDMM same result, just faster
+    int thisMax2 = min(int(rows), thisMax);   // WLEDMM limit height to visible are
+
+    for (int j = 0; j < thisMax2; j++) {
+      //int jmap = map(j, 0, thisMax, 250, 0); 
+      int jmap = 250 - ((j * 250) / thisMax);    // WLEDMM same result, just faster
       if (!SEGENV.check1)
-        SEGMENT.addPixelColorXY(i, j, ColorFromPalette(SEGPALETTE, map(j, 0, thisMax, 250, 0), 255, LINEARBLEND));
-      SEGMENT.addPixelColorXY((cols - 1) - i, (rows - 1) - j, ColorFromPalette(SEGPALETTE, map(j, 0, thisMax, 250, 0), 255, LINEARBLEND));
+        SEGMENT.addPixelColorXY(i, j, ColorFromPalette(SEGPALETTE, jmap, 255, LINEARBLEND));
+      SEGMENT.addPixelColorXY((cols - 1) - i, (rows - 1) - j, ColorFromPalette(SEGPALETTE, jmap, 255, LINEARBLEND));
     }
   }
   SEGMENT.blur(16);
 
   return FRAMETIME;
 } // mode_2DWaverly()
-static const char _data_FX_MODE_2DWAVERLY[] PROGMEM = "Waverly ☾@Amplification,Sensitivity,,,,No Clouds,Sound Pressure,AGC debug;;!;2v;ix=64,si=0"; // Beatsin
+static const char _data_FX_MODE_2DWAVERLY[] PROGMEM = "Waverly ☾@Fade Rate,Amplification,,,,No Clouds,Sound Pressure,AGC debug;;!;2v;ix=64,si=0"; // Beatsin
 
 #endif // WLED_DISABLE_2D
 
@@ -7511,9 +7527,9 @@ uint16_t mode_freqmatrix(void) {                // Freqmatrix. By Andreas Plesch
     }
 
     // shift the pixels one pixel up
-    SEGMENT.setPixelColor(0, color);
     // if SEGLEN equals 1 this loop won't execute
     for (int i = SEGLEN - 1; i > 0; i--) SEGMENT.setPixelColor(i, SEGMENT.getPixelColor(i-1)); //move to the left
+    SEGMENT.setPixelColor(0, color);
   }
 
   return FRAMETIME;

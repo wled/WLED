@@ -116,7 +116,7 @@ char* dayShortStr(uint8_t day);
 
 /* low level functions to convert to and from system time */
 void breakTime(time_t time, tmElements_t &tm);  // break time_t into elements
-time_t makeTime(tmElements_t &tm);  // convert time elements into time_t
+time_t makeTime(tmElements_t &tm) __attribute__((pure));  // convert time elements into time_t
 
 } // extern "C++"
 #endif // __cplusplus

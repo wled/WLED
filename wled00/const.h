@@ -352,6 +352,7 @@
 #define ERR_LOW_SEG_MEM 34  // WLEDMM: low memory (segment data RAM)
 #define ERR_LOW_WS_MEM  35  // WLEDMM: low memory (ws)
 #define ERR_LOW_AJAX_MEM  36 // WLEDMM: low memory (oappend)
+#define ERR_LOW_BUF     37  // WLEDMM: low memory (LED buffer from allocLEDs)
 
 // Timer mode types
 #define NL_MODE_SET               0            //After nightlight time elapsed, set to target brightness
@@ -480,7 +481,9 @@
 #endif
 
 //#define MIN_HEAP_SIZE (8k for AsyncWebServer)
+#if !defined(MIN_HEAP_SIZE)
 #define MIN_HEAP_SIZE 8192
+#endif
 
 // Maximum size of node map (list of other WLED instances)
 #ifdef ESP8266
