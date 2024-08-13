@@ -348,9 +348,9 @@ bool strip_uses_global_leds(void);              // WLEDMM implemented in FX_fcn.
 #define FX_MODE_STARBURST_AR           192 // WLED-SR audioreactive fireworks starburst
 // #define FX_MODE_PALETTE_AR             193 // WLED-SR audioreactive palette
 #define FX_MODE_FIREWORKS_AR           194 // WLED-SR audioreactive fireworks
-#define FX_MODE_GEQLASER                  195 // WLED-MM GEQ Laser
-
-#define MODE_COUNT                     196
+#define FX_MODE_GEQLASER               195 // WLED-MM GEQ Laser
+#define FX_MODE_2DPAINTBRUSH           196 // WLED-MM GEQ Laser
+#define MODE_COUNT                     197
 
 typedef enum mapping1D2D {
   M12_Pixels = 0,
