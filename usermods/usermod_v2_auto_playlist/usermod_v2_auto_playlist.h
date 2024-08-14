@@ -303,6 +303,7 @@ class AutoPlaylistUsermod : public Usermod {
           #ifdef USERMOD_AUTO_PLAYLIST_DEBUG
           USER_PRINTF("AutoPlaylist: disable due to manual change of playlist from %u to %d, preset:%u\n", lastAutoPlaylist, currentPlaylist, currentPreset);
           #endif
+          suspendPlaylist();
           functionality_enabled = false;
         } else if (currentPlaylist == musicPlaylist) {
           #ifdef USERMOD_AUTO_PLAYLIST_DEBUG
