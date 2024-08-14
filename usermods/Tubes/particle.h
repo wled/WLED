@@ -11,27 +11,26 @@
 
 class Particle;
 
-typedef void (*ParticleFn)(Particle *particle, WS2812FX* leds);
+typedef void (*ParticleFn)(Particle& particle, WS2812FX* leds);
 uint8_t particleVolume = DEFAULT_PARTICLE_VOLUME;
 
-extern void drawPoint(Particle *particle, WS2812FX* leds);
-extern void drawFlash(Particle *particle, WS2812FX* leds);
+extern void drawPoint(Particle& particle, WS2812FX* leds);
 
 
 class Particle {
   public:
-    Particle(uint16_t pos, CRGB c=CRGB::White, PenMode p=Draw, uint32_t life=20000, ParticleFn fn=drawPoint) :
+    Particle(uint16_t pos = 0, CRGB c=CRGB::White, PenMode p=Draw, uint32_t life=20000, ParticleFn fn=drawPoint) :
+      born(0),
+      lifetime(life),
       age(0),
       color(c),
+      pen(p),
       brightness(192<<8),
       drawFn(fn),
+      position(pos),
       velocity(0),
       gravity(0)
-    {
-      pen = p;
-      position = pos;
-      lifetime = life;
-    };
+    {};
 
     BeatFrame_24_8 born;
     BeatFrame_24_8 lifetime;
@@ -45,7 +44,7 @@ class Particle {
     uint16_t position;
     int16_t velocity;
     int16_t gravity;
-    void (*die_fn)(Particle *particle) = NULL;
+//    void (*die_fn)(Particle *particle) = NULL;
 
 #ifdef PARTICLE_PALETTES
     CRGBPalette16 palette;   // 48 bytes per particle!?
@@ -102,6 +101,10 @@ class Particle {
     uint8_t g = scale8(color.g, brightness);
     uint8_t b = scale8(color.b, brightness);
     return CRGB(r,g,b);
+  }
+
+  void draw(WS2812FX* leds) {
+    drawFn(*this, leds);
   }
 
   void draw_with_pen(WS2812FX* leds, int pos, CRGB color) {
@@ -165,7 +168,7 @@ class Particle {
 
 };
 
-Particle* particles[MAX_PARTICLES];
+Particle particles[MAX_PARTICLES];
 BeatFrame_24_8 particle_beat_frame;
 uint8_t numParticles = 0;
 
@@ -173,11 +176,7 @@ void removeParticle(uint8_t i) {
   if (i >= numParticles)
     return;
 
-  // Free the memory of the old particle
-  Particle *old_particle = particles[i];
-  delete old_particle;
-
-  // Reset the current free particle
+  // coalesce current particle list
   int rest = numParticles - i;
   if (rest > 0) {
     memmove(&particles[i], &particles[i+1], sizeof(particles[0]) * rest);
@@ -186,32 +185,32 @@ void removeParticle(uint8_t i) {
   numParticles -= 1;
 }
 
-void addParticle(Particle *particle) {
-  particle->born = particle_beat_frame;
+void addParticle(Particle&& particle) {
+  particle.born = particle_beat_frame;
   if (numParticles >= MAX_PARTICLES) {
     removeParticle(0);
   }
   particles[numParticles++] = particle;
 }
 
-void drawFlash(Particle *particle, WS2812FX* leds) {
+void drawFlash(Particle& particle, WS2812FX* leds) {
   auto num_leds = leds->getLengthTotal();
-  uint16_t age_frac = particle->age_frac16(particle->age);
-  CRGB c = particle->color_at(age_frac);
+  uint16_t age_frac = particle.age_frac16(particle.age);
+  CRGB c = particle.color_at(age_frac);
   for (int pos = 0; pos < num_leds; pos++) {
-    particle->draw_with_pen(leds, pos, c);
+    particle.draw_with_pen(leds, pos, c);
   }
 }
 
-void drawPoint(Particle *particle, WS2812FX* leds) {
-  uint16_t age_frac = particle->age_frac16(particle->age);
-  CRGB c = particle->color_at(age_frac);
+void drawPoint(Particle& particle, WS2812FX* leds) {
+  uint16_t age_frac = particle.age_frac16(particle.age);
+  CRGB c = particle.color_at(age_frac);
 
-  uint16_t pos = scale16(particle->position, leds->getLengthTotal() - 1);
-  particle->draw_with_pen(leds, pos, c);
+  uint16_t pos = scale16(particle.position, leds->getLengthTotal() - 1);
+  particle.draw_with_pen(leds, pos, c);
 }
 
-void drawRadius(Particle *particle, WS2812FX* leds, uint16_t pos, uint8_t radius, CRGB c, bool dim=true) {
+void drawRadius(Particle& particle, WS2812FX* leds, uint16_t pos, uint8_t radius, CRGB c, bool dim=true) {
   auto num_leds = leds->getLengthTotal();
   for (int i = 0; i < radius; i++) {
     uint8_t bright = dim ? ((radius-i) * 255) / radius : 255;
@@ -219,30 +218,30 @@ void drawRadius(Particle *particle, WS2812FX* leds, uint16_t pos, uint8_t radius
 
     uint8_t y = pos - i;
     if (y >= 0 && y < num_leds)
-      particle->draw_with_pen(leds, y, c);
+      particle.draw_with_pen(leds, y, c);
 
     if (i == 0)
       continue;
 
     y = pos + i;
     if (y >= 0 && y < num_leds)
-      particle->draw_with_pen(leds, y, c);
+      particle.draw_with_pen(leds, y, c);
   }
 }
 
-void drawPop(Particle *particle, WS2812FX* leds) {
-  uint16_t age_frac = particle->age_frac16(particle->age);
-  CRGB c = particle->color_at(age_frac);
-  uint16_t pos = scale16(particle->position, leds->getLengthTotal() - 1);
+void drawPop(Particle& particle, WS2812FX* leds) {
+  uint16_t age_frac = particle.age_frac16(particle.age);
+  CRGB c = particle.color_at(age_frac);
+  uint16_t pos = scale16(particle.position, leds->getLengthTotal() - 1);
   uint8_t radius = scale16((sin16(age_frac/2) - 32768) * 2, 8);
 
   drawRadius(particle, leds, pos, radius, c);
 }
 
-void drawBeatbox(Particle *particle, WS2812FX* leds) {
-  uint16_t age_frac = particle->age_frac16(particle->age);
-  CRGB c = particle->color_at(age_frac);
-  uint16_t pos = scale16(particle->position, leds->getLengthTotal() - 1);
+void drawBeatbox(Particle& particle, WS2812FX* leds) {
+  uint16_t age_frac = particle.age_frac16(particle.age);
+  CRGB c = particle.color_at(age_frac);
+  uint16_t pos = scale16(particle.position, leds->getLengthTotal() - 1);
   uint8_t radius = 3;
 
   // Bump up the radius with any beats

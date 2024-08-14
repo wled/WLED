@@ -6,44 +6,44 @@
 
 void addGlitter(CRGB color=CRGB::White, PenMode pen=Draw) 
 {
-  addParticle(new Particle(random16(), color, pen, 128));
+  addParticle(Particle(random16(), color, pen, 128));
 }
 
 void addSpark(CRGB color=CRGB::White, PenMode pen=Draw) 
 {
-  Particle *particle = new Particle(random16(), color, pen, 64);
+  Particle particle {random16(), color, pen, 64};
   uint8_t r = random8();
   if (r > 128)
-    particle->velocity = r;
+    particle.velocity = r;
   else
-    particle->velocity = -(128 + r);
-  addParticle(particle);
+    particle.velocity = -(128 + r);
+  addParticle(std::move(particle));
 }
 
 void addBeatbox(CRGB color=CRGB::White, PenMode pen=Draw) 
 {
-  Particle *particle = new Particle(random16(), color, pen, 256, drawBeatbox);
-  addParticle(particle);
+  Particle particle {random16(), color, pen, 256, drawBeatbox};
+  addParticle(std::move(particle));
 }
 
 void addBubble(CRGB color=CRGB::White, PenMode pen=Draw) 
 {
-  Particle *particle = new Particle(random16(), color, pen, 1024, drawPop);
-  particle->velocity = random16(0, 40) - 20;
-  addParticle(particle);
+  Particle particle {random16(), color, pen, 1024, drawPop};
+  particle.velocity = random16(0, 40) - 20;
+  addParticle(std::move(particle));
 }
 
 void addFlash(CRGB color=CRGB::Blue, PenMode pen=Draw) 
 {
-  addParticle(new Particle(random16(), color, pen, 256, drawFlash));
+  addParticle(Particle(random16(), color, pen, 256, drawFlash));
 }
 
 void addDrop(CRGB color, PenMode pen=Draw)
 {
-   Particle *particle = new Particle(65535, color, pen, 360);
-   particle->velocity = -500;
-   particle->gravity = -10;
-   addParticle(particle);
+   Particle particle {65535, color, pen, 360};
+   particle.velocity = -500;
+   particle.gravity = -10;
+   addParticle(std::move(particle));
 }
 
 class Effects {
@@ -101,13 +101,11 @@ class Effects {
 
   void animate(BeatFrame_24_8 frame, uint8_t beat_pulse) {
     unsigned int len = numParticles;
-    for (unsigned i=len; i > 0; i--) {
-      Particle *particle = particles[i-1];
-  
-      particle->update(frame);
-      if (particle->age > particle->lifetime) {
-        removeParticle(i-1);
-        continue;
+    for (unsigned i=len; i > 0; --i) {
+      Particle& particle = particles[i];
+      particle.update(frame);
+      if (particle.age > particle.lifetime) {
+        removeParticle(i);
       }
     }
   }
@@ -115,8 +113,7 @@ class Effects {
   void draw(WS2812FX* leds) {
     uint8_t len = numParticles;
     for (uint8_t i=0; i<len; i++) {
-      Particle *particle = particles[i];
-      particle->drawFn(particle, leds);
+      particles[i].draw(leds);
     }
   }
   
