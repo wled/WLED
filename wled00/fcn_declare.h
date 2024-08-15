@@ -332,6 +332,7 @@ class UsermodManager {
     void handleOverlayDraw();
     bool handleButton(uint8_t b);
     bool getUMData(um_data_t **um_data, uint8_t mod_id = USERMOD_ID_RESERVED); // USERMOD_ID_RESERVED will poll all usermods
+    um_data_t *getAudioData();
     void setup();
     void connected();
     // void appendConfigData(); //WLEDMM not used
