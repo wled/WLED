@@ -87,10 +87,12 @@ bool strip_uses_global_leds(void) __attribute__((pure));  // WLEDMM implemented 
   #ifndef MAX_NUM_SEGMENTS
     #define MAX_NUM_SEGMENTS  32
   #endif
+  #ifndef MAX_SEGMENT_DATA
   #if defined(ARDUINO_ARCH_ESP32S2)
     #define MAX_SEGMENT_DATA  24576
   #else
     #define MAX_SEGMENT_DATA  32767
+  #endif
   #endif
 #endif
 
