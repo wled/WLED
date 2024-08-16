@@ -280,8 +280,11 @@ void IRAM_ATTR __attribute__((hot)) Segment::setPixelColorXY_fast(int x, int y, 
 
   // set the requested pixel
   strip.setPixelColorXY_fast(start + x, startY + y, scaled_col);
-  //bool simpleSegment = !mirror && !mirror_y;
+  #ifdef WLEDMM_FASTPATH
   bool simpleSegment = _isSuperSimpleSegment;
+  #else
+  bool simpleSegment = !mirror && !mirror_y;
+  #endif
   if (simpleSegment) return;   // WLEDMM shortcut when no mirroring needed
 
   // handle mirroring
@@ -337,8 +340,11 @@ void IRAM_ATTR_YN Segment::setPixelColorXY(int x, int y, uint32_t col) //WLEDMM:
   if (transpose) { uint16_t t = x; x = y; y = t; } // swap X & Y if segment transposed
 
   // WLEDMM shortcut when no grouping/spacing used
-  //bool simpleSegment = !mirror && !mirror_y && (grouping == 1) && (spacing == 0);
+  #ifdef WLEDMM_FASTPATH
   bool simpleSegment = _isSuperSimpleSegment;
+  #else
+  bool simpleSegment = !mirror && !mirror_y && (grouping == 1) && (spacing == 0);
+  #endif
   if (simpleSegment) {
     strip.setPixelColorXY(start + x, startY + y, col);
     return;
