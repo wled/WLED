@@ -241,6 +241,7 @@ void Segment::startFrame(void) {
   _isValid2D  = isActive() && is2D();
   _brightness = currentBri(on ? opacity : 0);
   _isSimpleSegment = (grouping == 1) && (spacing == 0); // we can handle pixels faster when no grouping or spacing is involved
+  _isSuperSimpleSegment = !mirror && !mirror_y && (grouping == 1) && (spacing == 0); // fastest - we only draw one pixel per call
   // if (reverse_y) _isSimpleSegment = false; // for A/B testing
   _2dWidth    = is2D() ? calc_virtualWidth() : virtualLength();
   _2dHeight   = calc_virtualHeight();
@@ -279,7 +280,8 @@ void IRAM_ATTR __attribute__((hot)) Segment::setPixelColorXY_fast(int x, int y, 
 
   // set the requested pixel
   strip.setPixelColorXY_fast(start + x, startY + y, scaled_col);
-  bool simpleSegment = !mirror && !mirror_y;
+  //bool simpleSegment = !mirror && !mirror_y;
+  bool simpleSegment = _isSuperSimpleSegment;
   if (simpleSegment) return;   // WLEDMM shortcut when no mirroring needed
 
   // handle mirroring
@@ -306,7 +308,7 @@ void IRAM_ATTR_YN Segment::setPixelColorXY_slow(int x, int y, uint32_t col) //WL
 void IRAM_ATTR_YN Segment::setPixelColorXY(int x, int y, uint32_t col) //WLEDMM: IRAM_ATTR conditionally
 #endif
 {
-  if (Segment::maxHeight==1) return; // not a matrix set-up
+  if ((Segment::maxHeight==1) || !isActive()) return; // not a matrix set-up
   const int_fast16_t cols = virtualWidth();  // WLEDMM optimization
   const int_fast16_t rows = virtualHeight();
 
@@ -335,7 +337,8 @@ void IRAM_ATTR_YN Segment::setPixelColorXY(int x, int y, uint32_t col) //WLEDMM:
   if (transpose) { uint16_t t = x; x = y; y = t; } // swap X & Y if segment transposed
 
   // WLEDMM shortcut when no grouping/spacing used
-  bool simpleSegment = !mirror && !mirror_y && (grouping == 1) && (spacing == 0);
+  //bool simpleSegment = !mirror && !mirror_y && (grouping == 1) && (spacing == 0);
+  bool simpleSegment = _isSuperSimpleSegment;
   if (simpleSegment) {
     strip.setPixelColorXY(start + x, startY + y, col);
     return;
@@ -441,20 +444,21 @@ uint32_t IRAM_ATTR_YN Segment::getPixelColorXY(int x, int y) const {
 
 // Blends the specified color with the existing pixel color.
 void Segment::blendPixelColorXY(uint16_t x, uint16_t y, uint32_t color, uint8_t blend) {
-  setPixelColorXY(x, y, color_blend(getPixelColorXY(x,y), color, blend));
+  if (blend == UINT8_MAX) setPixelColorXY(x, y, color);
+  else setPixelColorXY(x, y, color_blend(getPixelColorXY(x,y), color, blend));
 }
 
 // Adds the specified color with the existing pixel color perserving color balance.
 void IRAM_ATTR_YN Segment::addPixelColorXY(int x, int y, uint32_t color, bool fast) {
-  if (!isActive()) return; // not active
-  if (x >= virtualWidth() || y >= virtualHeight() || x<0 || y<0) return;  // if pixel would fall out of virtual segment just exit
+  // if (!isActive()) return; // not active //WLEDMM sanity check is repeated in getPixelColorXY / setPixelColorXY
+  // if (x >= virtualWidth() || y >= virtualHeight() || x<0 || y<0) return;  // if pixel would fall out of virtual segment just exit //WLEDMM
   uint32_t col = getPixelColorXY(x,y);
   col = color_add(col, color, fast);
   setPixelColorXY(x, y, col);
 }
 
 void Segment::fadePixelColorXY(uint16_t x, uint16_t y, uint8_t fade) {
-  if (!isActive()) return; // not active
+  // if (!isActive()) return; // not active //WLEDMM sanity check is repeated in getPixelColorXY / setPixelColorXY
   CRGB pix = CRGB(getPixelColorXY(x,y)).nscale8_video(fade);
   setPixelColorXY(x, y, pix);
 }

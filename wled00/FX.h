@@ -439,6 +439,7 @@ typedef struct Segment {
 #ifdef WLEDMM_FASTPATH
     // WLEDMM cache some values that won't change while drawing a frame
     bool _isSimpleSegment = false;
+    bool _isSuperSimpleSegment = false;
     bool _isValid2D = false;
     uint8_t _brightness = 255; // final pixel brightness - including transitions and segment opacity
     bool _firstFill = true;  // dirty HACK support
