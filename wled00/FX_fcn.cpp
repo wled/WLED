@@ -102,6 +102,12 @@ Segment::Segment(const Segment &orig) {
   DEBUG_PRINTLN(F("-- Copy segment constructor --"));
   memcpy((void*)this, (void*)&orig, sizeof(Segment)); //WLEDMM copy to this
   transitional = false; // copied segment cannot be in transition
+#ifdef WLEDMM_FASTPATH
+  // WLEDMM temporarily prevent any fast draw calls to the new segment
+  // _isValid2D = false;
+  _isSimpleSegment = false;
+  _isSuperSimpleSegment = false;
+#endif
   name = nullptr;
   data = nullptr;
   _dataLen = 0;
@@ -143,8 +149,17 @@ void Segment::allocLeds() {
 // move constructor --> moves everything (including buffer) from orig to this
 Segment::Segment(Segment &&orig) noexcept {
   DEBUG_PRINTLN(F("-- Move segment constructor --"));
+#ifdef WLEDMM_FASTPATH
+  // WLEDMM temporarily prevent any fast draw calls to old and new segment
+  orig._isSimpleSegment = false;
+  orig._isSuperSimpleSegment = false;
+#endif
   memcpy((void*)this, (void*)&orig, sizeof(Segment));
   orig.transitional = false; // old segment cannot be in transition any more
+#ifdef WLEDMM_FASTPATH
+  // WLEDMM prevent any draw calls to old segment
+  orig._isValid2D = false;
+#endif
   orig.name = nullptr;
   orig.data = nullptr;
   orig._dataLen = 0;
@@ -169,6 +184,12 @@ Segment& Segment::operator= (const Segment &orig) {
     // copy source
     memcpy((void*)this, (void*)&orig, sizeof(Segment));
     transitional = false;
+#ifdef WLEDMM_FASTPATH
+    // WLEDMM prevent any fast draw calls to this segment until the next frame starts
+    //_isValid2D = false;
+    _isSimpleSegment = false;
+    _isSuperSimpleSegment = false;
+#endif
     // erase pointers to allocated data
     name = nullptr;
     data = nullptr;
@@ -196,7 +217,16 @@ Segment& Segment::operator= (Segment &&orig) noexcept {
     deallocateData(); // free old runtime data
     if (_t) { delete _t; _t = nullptr; }
     if (ledsrgb && !Segment::_globalLeds) free(ledsrgb); //WLEDMM: not needed anymore as we will use leds from copy. no need to nullify ledsrgb as it gets new value in memcpy
+#ifdef WLEDMM_FASTPATH
+    // WLEDMM temporarily prevent any fast draw calls to old and new segment
+    orig._isSimpleSegment = false;
+    orig._isSuperSimpleSegment = false;
+#endif
     memcpy((void*)this, (void*)&orig, sizeof(Segment));
+#ifdef WLEDMM_FASTPATH
+    // WLEDMM temporarily prevent any draw calls to old segment
+    orig._isValid2D = false;
+#endif
     orig.name = nullptr;
     orig.data = nullptr;
     orig._dataLen = 0;
@@ -956,8 +986,8 @@ void IRAM_ATTR_YN __attribute__((hot)) Segment::setPixelColor(int i, uint32_t co
           float rad = 0.0f;
           for (unsigned count = 0; count < numSteps; count++) {
             // may want to try float version as well (with or without antialiasing)
-            int x = roundf(sinf(rad) * radius);
-            int y = roundf(cosf(rad) * radius);
+            int x = max(0, min(vW-1, (int)roundf(sinf(rad) * radius)));
+            int y = max(0, min(vH-1, (int)roundf(cosf(rad) * radius)));
             setPixelColorXY(x, y, col);
             if(useSymmetry) setPixelColorXY(y, x, col);// WLEDMM
             rad += step;
@@ -1388,7 +1418,8 @@ void __attribute__((hot)) Segment::fill(uint32_t c) {
 
 // Blends the specified color with the existing pixel color.
 void Segment::blendPixelColor(int n, uint32_t color, uint8_t blend) {
-  setPixelColor(n, color_blend(getPixelColor(n), color, blend));
+  if (blend == UINT8_MAX) setPixelColor(n, color); 
+  else setPixelColor(n, color_blend(getPixelColor(n), color, blend));
 }
 
 // Adds the specified color with the existing pixel color perserving color balance.
@@ -1420,7 +1451,7 @@ void Segment::fadePixelColor(uint16_t n, uint8_t fade) {
 /*
  * fade out function, higher rate = quicker fade
  */
-void Segment::fade_out(uint8_t rate) {
+void __attribute__((hot)) Segment::fade_out(uint8_t rate) {
   if (!isActive()) return; // not active
   const uint_fast16_t cols = is2D() ? virtualWidth() : virtualLength();           // WLEDMM use fast int types
   const uint_fast16_t rows = virtualHeight(); // will be 1 for 1D

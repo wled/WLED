@@ -87,10 +87,12 @@ bool strip_uses_global_leds(void) __attribute__((pure));  // WLEDMM implemented 
   #ifndef MAX_NUM_SEGMENTS
     #define MAX_NUM_SEGMENTS  32
   #endif
+  #ifndef MAX_SEGMENT_DATA
   #if defined(ARDUINO_ARCH_ESP32S2)
     #define MAX_SEGMENT_DATA  24576
   #else
     #define MAX_SEGMENT_DATA  32767
+  #endif
   #endif
 #endif
 
@@ -437,6 +439,7 @@ typedef struct Segment {
 #ifdef WLEDMM_FASTPATH
     // WLEDMM cache some values that won't change while drawing a frame
     bool _isSimpleSegment = false;
+    bool _isSuperSimpleSegment = false;
     bool _isValid2D = false;
     uint8_t _brightness = 255; // final pixel brightness - including transitions and segment opacity
     bool _firstFill = true;  // dirty HACK support
