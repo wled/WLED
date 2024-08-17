@@ -971,44 +971,51 @@ void IRAM_ATTR_YN __attribute__((hot)) Segment::setPixelColor(int i, uint32_t co
         if (i==0)
           setPixelColorXY(0, 0, col);
         else {
-          //WLEDMM: drawArc(0, 0, i, col); could work as alternative
+          if (!_isSuperSimpleSegment) { 
+            // WLEDMM: drawArc() is faster if it's NOT "super simple" as the regular M12_pArc
+            // can do "useSymmetry" to speed things along, but a more complicated segment likey
+            // uses mirroring which generates a symmetry speed-up, or other things which mean
+            // less pixels are calculated.
+            drawArc(0, 0, i, col); 
+          } else {
+            //WLEDMM: some optimizations for the drawing loop
+            //  pre-calculate loop limits, exploit symmetry at 45deg
+            float radius = float(i);
+            
+            // float step = HALF_PI / (2.85f * radius);  // upstream uses this
+            float step = HALF_PI / (M_PI * radius);      // WLEDMM we use the correct circumference
+            bool useSymmetry = (max(vH, vW) > 20);       // for segments wider than 20 pixels, we exploit symmetry
+            unsigned numSteps;
+            if (useSymmetry) numSteps = 1 + ((HALF_PI/2.0f + step/2.0f) / step); // with symmetry
+            else             numSteps = 1 + ((HALF_PI      + step/2.0f) / step); // without symmetry
 
-          //WLEDMM: some optimizations for the drawing loop
-          //  pre-calculate loop limits, exploit symmetry at 45deg
-          float radius = float(i);
-          // float step = HALF_PI / (2.85f * radius);  // upstream uses this
-          float step = HALF_PI / (M_PI * radius);      // WLEDMM we use the correct circumference
-          bool useSymmetry = (max(vH, vW) > 20);       // for segments wider than 20 pixels, we exploit symmetry
-          unsigned numSteps;
-          if (useSymmetry) numSteps = 1 + ((HALF_PI/2.0f + step/2.0f) / step); // with symmetry
-          else             numSteps = 1 + ((HALF_PI      + step/2.0f) / step); // without symmetry
+            float rad = 0.0f;
+            for (unsigned count = 0; count < numSteps; count++) {
+              // may want to try float version as well (with or without antialiasing)
+              // int x = max(0, min(vW-1, (int)roundf(sinf(rad) * radius)));
+              // int y = max(0, min(vH-1, (int)roundf(cosf(rad) * radius)));
+              int x = roundf(sinf(rad) * radius);
+              int y = roundf(cosf(rad) * radius);
+              setPixelColorXY(x, y, col);
+              if(useSymmetry) setPixelColorXY(y, x, col);// WLEDMM
+              rad += step;
+            }
 
-          float rad = 0.0f;
-          for (unsigned count = 0; count < numSteps; count++) {
-            // may want to try float version as well (with or without antialiasing)
-            // int x = max(0, min(vW-1, (int)roundf(sinf(rad) * radius)));
-            // int y = max(0, min(vH-1, (int)roundf(cosf(rad) * radius)));
-            int x = roundf(sinf(rad) * radius);
-            int y = roundf(cosf(rad) * radius);
-            setPixelColorXY(x, y, col);
-            if(useSymmetry) setPixelColorXY(y, x, col);// WLEDMM
-            rad += step;
+            // // Bresenham’s Algorithm (may not fill every pixel)
+            // int d = 3 - (2*i);
+            // int y = i, x = 0;
+            // while (y >= x) {
+            //  setPixelColorXY(x, y, col);
+            //  setPixelColorXY(y, x, col);
+            //  x++;
+            //  if (d > 0) {
+            //    y--;
+            //    d += 4 * (x - y) + 10;
+            //  } else {
+            //    d += 4 * x + 6;
+            //  }
+            // }
           }
-
-          // Bresenham’s Algorithm (may not fill every pixel)
-          //int d = 3 - (2*i);
-          //int y = i, x = 0;
-          //while (y >= x) {
-          //  setPixelColorXY(x, y, col);
-          //  setPixelColorXY(y, x, col);
-          //  x++;
-          //  if (d > 0) {
-          //    y--;
-          //    d += 4 * (x - y) + 10;
-          //  } else {
-          //    d += 4 * x + 6;
-          //  }
-          //}
         }
         break;
       case M12_pCorner: {
