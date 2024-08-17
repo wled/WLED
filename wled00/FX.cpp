@@ -8448,6 +8448,84 @@ static const char _data_FX_MODE_GEQLASER[] PROGMEM = "GEQ 3D ☾@Speed,Front Fil
 
 #endif // WLED_DISABLE_2D
 
+/* 
+   @title     MoonModules WLED - Painbrush Effect
+   @file      included in FX.cpp
+   @repo      https://github.com/MoonModules/WLED, submit changes to this file as PRs to MoonModules/WLED
+   @Authors   https://github.com/MoonModules/WLED/commits/mdev/
+   @Copyright © 2024 Github MoonModules Commit Authors (contact moonmodules@icloud.com for details)
+   @license   GNU GENERAL PUBLIC LICENSE Version 3, 29 June 2007
+
+     This function is part of the MoonModules WLED fork also known as "WLED-MM".
+     WLED-MM is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License 
+     as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
+
+     WLED-MM is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied 
+     warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+     
+     You should have received a copy of the GNU General Public License along with WLED-MM. If not, see <https://www.gnu.org/licenses/>.
+*/
+
+///////////////////////
+//   2D Paintbrush   //
+///////////////////////
+uint16_t mode_2DPaintbrush() {
+
+  // Author: @TroyHacks
+  // @license GNU GENERAL PUBLIC LICENSE Version 3, 29 June 2007
+
+  if (!strip.isMatrix) return mode_static(); // not a 2D set-up
+
+  const uint16_t cols = SEGMENT.virtualWidth();
+  const uint16_t rows = SEGMENT.virtualHeight();
+
+  if (!SEGENV.allocateData(4)) return mode_static(); //allocation failed
+
+  if (SEGENV.call == 0) {
+    SEGMENT.setUpLeds();
+    SEGMENT.fill(BLACK);
+    SEGENV.aux0 = 0;
+  }
+
+  bool phase_chaos = SEGMENT.check3;
+  bool soft = SEGMENT.check2;
+  bool color_chaos = SEGMENT.check1;
+  CRGB color;
+
+  byte numLines = map8(SEGMENT.intensity,1,16);
+
+  SEGENV.aux0++;  // hue
+  SEGMENT.fadeToBlackBy(map8(SEGENV.custom1,10,128));
+
+  um_data_t *um_data = getAudioData();
+  uint8_t *fftResult = (uint8_t*)um_data->u_data[2];
+  
+  SEGENV.aux1 = phase_chaos?random8():0;
+
+  for (size_t i = 0; i < numLines; i++) {
+    byte bin = map(i,0,numLines,0,15);
+    
+    byte x1 = beatsin8(max(16,int(SEGMENT.speed))/16*1 + fftResult[0]/16, 0, (cols-1), fftResult[bin], SEGENV.aux1);
+    byte x2 = beatsin8(max(16,int(SEGMENT.speed))/16*2 + fftResult[0]/16, 0, (cols-1), fftResult[bin], SEGENV.aux1);
+    byte y1 = beatsin8(max(16,int(SEGMENT.speed))/16*3 + fftResult[0]/16, 0, (rows-1), fftResult[bin], SEGENV.aux1);
+    byte y2 = beatsin8(max(16,int(SEGMENT.speed))/16*4 + fftResult[0]/16, 0, (rows-1), fftResult[bin], SEGENV.aux1);
+
+    int length = sqrt((x2-x1)*(x2-x1) + (y2-y1)*(y2-y1));
+    length = map8(fftResult[bin],0,length);
+
+    if (length > max(1,int(SEGMENT.custom3))) {
+      if (color_chaos) {
+        color = ColorFromPalette(SEGPALETTE, i * 255 / numLines + (SEGENV.aux0&0xFF), 255, LINEARBLEND);
+      } else {
+        uint16_t colorIndex = map(i,0,numLines,0,255);
+        color = SEGMENT.color_from_palette(colorIndex, false, PALETTE_SOLID_WRAP, 0);
+      }
+      SEGMENT.drawLine(x1,y1,x2,y2,color,soft,length);
+    }
+  }
+  return FRAMETIME;
+} // mode_2DPaintbrush()
+static const char _data_FX_MODE_2DPAINTBRUSH[] PROGMEM = "Paintbrush ☾@Oscillator Offset,# of lines,Fade Rate,,Min Length,Color Chaos,Anti-aliasing,Phase Chaos;!,,Peaks;!;2f;sx=160,ix=255,c1=80,c2=255,c3=0,pal=72,o1=0,o2=1,o3=0";
 
 //////////////////////////////////////////////////////////////////////////////////////////
 // mode data
@@ -8693,6 +8771,8 @@ void WS2812FX::setupEffectData() {
   addEffect(FX_MODE_2DAKEMI, &mode_2DAkemi, _data_FX_MODE_2DAKEMI); // audio
 
   addEffect(FX_MODE_GEQLASER, &mode_GEQLASER, _data_FX_MODE_GEQLASER); // audio
+
+  addEffect(FX_MODE_2DPAINTBRUSH, &mode_2DPaintbrush, _data_FX_MODE_2DPAINTBRUSH); // audio
 
 #endif // WLED_DISABLE_2D
 
