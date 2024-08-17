@@ -986,8 +986,10 @@ void IRAM_ATTR_YN __attribute__((hot)) Segment::setPixelColor(int i, uint32_t co
           float rad = 0.0f;
           for (unsigned count = 0; count < numSteps; count++) {
             // may want to try float version as well (with or without antialiasing)
-            int x = max(0, min(vW-1, (int)roundf(sinf(rad) * radius)));
-            int y = max(0, min(vH-1, (int)roundf(cosf(rad) * radius)));
+            // int x = max(0, min(vW-1, (int)roundf(sinf(rad) * radius)));
+            // int y = max(0, min(vH-1, (int)roundf(cosf(rad) * radius)));
+            int x = roundf(sinf(rad) * radius);
+            int y = roundf(cosf(rad) * radius);
             setPixelColorXY(x, y, col);
             if(useSymmetry) setPixelColorXY(y, x, col);// WLEDMM
             rad += step;
