@@ -155,6 +155,11 @@ class PatternController : public MessageReceiver {
     }
   }
 
+  // Compatibility ctor for older call sites that pass a real LED count.
+  PatternController(uint16_t real_led_count) : PatternController() {
+    (void)real_led_count;
+  }
+
   bool isMasterRole() const {
 #if defined(GOLDEN) || defined(CHRISTMAS)
     return true;

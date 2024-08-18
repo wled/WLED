@@ -20,6 +20,13 @@
 #define MASTER_PIN 25
 #define LEGACY_PIN 32  // DigUno Q4
 
+#ifndef NUM_STRIPS
+#define NUM_STRIPS 1
+#endif
+
+#ifndef MAX_REAL_LEDS
+#define MAX_REAL_LEDS (DEFAULT_LED_COUNT * NUM_STRIPS)
+#endif
 
 class TubesUsermod : public Usermod {
   private:

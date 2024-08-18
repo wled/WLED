@@ -133,7 +133,12 @@ uint8_t noise[MAX_VIRTUAL_LEDS];
 void fillnoise8(uint32_t frame, uint8_t num_leds) {
   uint16_t scale = 17;
   uint8_t dataSmoothing = 240;
-  
+
+  auto max_leds = sizeof(noise)/sizeof(noise[0]);
+  if (num_leds > max_leds) {
+    num_leds = max_leds;
+  }
+
   for (int i = 0; i < num_leds; i++) {
     uint8_t data = inoise8(i * scale, frame>>2);
 
@@ -142,9 +147,9 @@ void fillnoise8(uint32_t frame, uint8_t num_leds) {
     data = qsub8(data,16);
     data = qadd8(data,scale8(data,39));
 
-    uint8_t olddata = noise[i % MAX_VIRTUAL_LEDS];
+    uint8_t olddata = noise[i];
     uint8_t newdata = scale8( olddata, dataSmoothing) + scale8( data, 256 - dataSmoothing);
-    noise[i % MAX_VIRTUAL_LEDS] = newdata;
+    noise[i] = newdata;
   }
 }
 
