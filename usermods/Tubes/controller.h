@@ -895,6 +895,7 @@ class PatternController : public MessageReceiver {
     // Calculate the color of the pixel at position i by blending the colors of the virtual strips
     CRGB color = CRGB::Black;
 
+    bool first_strip = true;
     for (uint8_t i=0; i < NUM_VSTRIPS; i++) {
       VirtualStrip *vstrip = vstrips[i];
 
@@ -902,13 +903,22 @@ class PatternController : public MessageReceiver {
       if (vstrip->fade == Dead || vstrip->isWled())
         continue;
 
-      auto br = vstrip->brightness; //(options.brightness, vstrip->brightness);
+      auto br = vstrip->brightness;
+      // TODO: code intended to use scale8(options.brightness, vstrip->brightness);
+      // but that was never implemented - should review later to see if we want
+      // options.brightness to be a factor in the brightness of the strip
 
       // Fetch the color from the strip and dim it according to the brightness
       CRGB c = vstrip->getPixelColor(pos);
       nscale8x3(c.r, c.g, c.b, br);
       nscale8x3(c.r, c.g, c.b, vstrip->fader>>8);
-      color |= c;
+
+      if (first_strip) {
+        color = c;
+        first_strip = false;
+      } else {
+        color |= c;
+      }
     }
 
     return color;
