@@ -6,14 +6,14 @@
 void rainbow(VirtualStrip *strip) 
 {
   // FastLED's built-in rainbow generator
-  fill_rainbow( strip->leds, strip->num_leds, strip->hue, 3);
+  fill_rainbow( strip->leds, strip->length(), strip->hue, 3);
 }
 
 void palette_wave(VirtualStrip *strip) 
 {
   // FastLED's built-in rainbow generator
   uint8_t hue = strip->hue;
-  for (uint8_t i=0; i < strip->num_leds; i++) {
+  for (uint8_t i=0; i < strip->length(); i++) {
     CRGB c = strip->palette_color(i, hue);
     nscale8x3(c.r, c.g, c.b, sin8(hue*8));
     strip->leds[i] = c;
@@ -23,35 +23,35 @@ void palette_wave(VirtualStrip *strip)
 
 void particleTest(VirtualStrip *strip)
 {
-  fill_solid( strip->leds, strip->num_leds, CRGB::Black);
+  fill_solid( strip->leds, strip->length(), CRGB::Black);
   fill_solid( strip->leds, 2, strip->palette_color(0, strip->hue));
 }
 
 void solidBlack(VirtualStrip *strip)
 {
-  fill_solid( strip->leds, strip->num_leds, CRGB::Black);
+  fill_solid( strip->leds, strip->length(), CRGB::Black);
 }
 
 void solidWhite(VirtualStrip *strip) 
 {
-  fill_solid( strip->leds, strip->num_leds, CRGB::White);
+  fill_solid( strip->leds, strip->length(), CRGB::White);
 }
 
 void solidRed(VirtualStrip *strip) 
 {
-  fill_solid( strip->leds, strip->num_leds, CRGB::Red);
+  fill_solid( strip->leds, strip->length(), CRGB::Red);
 }
 
 void solidBlue(VirtualStrip *strip) 
 {
-  fill_solid( strip->leds, strip->num_leds, CRGB::Blue);
+  fill_solid( strip->leds, strip->length(), CRGB::Blue);
 }
 
 void confetti(VirtualStrip *strip) 
 {
   strip->darken(2);
   
-  int pos = random16(strip->num_leds);
+  int pos = random16(strip->length());
   strip->leds[pos] += strip->palette_color(random8(64), strip->hue);
 }
 
@@ -65,8 +65,8 @@ void biwave(VirtualStrip *strip)
   uint16_t r = strip->frame * 32;
   r = cos16( r + random_offset ) + 32768;
 
-  uint8_t p1 = scaled16to8(l, 0, strip->num_leds-1);
-  uint8_t p2 = scaled16to8(r, 0, strip->num_leds-1);
+  uint8_t p1 = scaled16to8(l, 0, strip->length()-1);
+  uint8_t p2 = scaled16to8(r, 0, strip->length()-1);
   
   if (p2 < p1) {
     uint16_t t = p1;
@@ -90,14 +90,14 @@ void sinelon(VirtualStrip *strip)
   // a colored dot sweeping back and forth, with fading trails
   strip->darken(30);
 
-  int pos = scale16(sin16( strip->frame << 5 ) + 32768, strip->num_leds-1);   // beatsin16 re-implemented
+  int pos = scale16(sin16( strip->frame << 5 ) + 32768, strip->length()-1);   // beatsin16 re-implemented
   strip->leds[pos] += strip->hue_color();
 }
 
 void bpm_palette(VirtualStrip *strip) 
 {
   uint8_t beat = strip->bpm_sin16(64, 255);
-  for (int i = 0; i < strip->num_leds; i++) {
+  for (int i = 0; i < strip->length(); i++) {
     CRGB c = strip->palette_color(i*2, strip->hue, beat-strip->hue+(i*10));
     strip->leds[i] = c;
   }
@@ -109,7 +109,7 @@ void bpm(VirtualStrip *strip)
   CRGBPalette16 palette = PartyColors_p;
 
   uint8_t beat = strip->bpm_sin16(64, 255);
-  for (int i = 0; i < strip->num_leds; i++) {
+  for (int i = 0; i < strip->length(); i++) {
     strip->leds[i] = ColorFromPalette(palette, strip->hue+(i*2), beat-strip->hue+(i*10));
   }
 }
@@ -123,7 +123,7 @@ void juggle(VirtualStrip *strip)
   for( int i = 0; i < 8; i++) {
     CRGB c = strip->palette_color(dothue + strip->hue);
     // c = CHSV(dothue, 200, 255);
-    strip->leds[beatsin16( i+7, 0, strip->num_leds-1 )] |= c;
+    strip->leds[beatsin16( i+7, 0, strip->length()-1 )] |= c;
     dothue += 32;
   }
 }
@@ -142,18 +142,18 @@ void fillnoise8(uint32_t frame, uint8_t num_leds) {
     data = qsub8(data,16);
     data = qadd8(data,scale8(data,39));
 
-    uint8_t olddata = noise[i];
+    uint8_t olddata = noise[i % MAX_VIRTUAL_LEDS];
     uint8_t newdata = scale8( olddata, dataSmoothing) + scale8( data, 256 - dataSmoothing);
-    noise[i] = newdata;
+    noise[i % MAX_VIRTUAL_LEDS] = newdata;
   }
 }
 
 void drawNoise(VirtualStrip *strip)
 {
   // generate noise data
-  fillnoise8(strip->frame >> 2, strip->num_leds);
+  fillnoise8(strip->frame >> 2, strip->length());
 
-  for(int i = 0; i < strip->num_leds; i++) {
+  for(int i = 0; i < strip->length(); i++) {
     CRGB color = strip->palette_color(noise[i], strip->hue);
     strip->leds[i] = color;
   }

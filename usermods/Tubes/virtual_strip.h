@@ -7,7 +7,7 @@
 #include "wled.h"
 
 #define DEFAULT_FADE_SPEED 100
-#define MAX_VIRTUAL_LEDS 150
+#define MAX_VIRTUAL_LEDS 500
 
 #define DEFAULT_WLED_FX FX_MODE_RAINBOW_CYCLE
 
@@ -45,7 +45,6 @@ class VirtualStrip {
 
   public:
     CRGB leds[MAX_VIRTUAL_LEDS];
-    uint8_t num_leds;
     uint8_t brightness;
 
     // Fade in/out
@@ -62,9 +61,17 @@ class VirtualStrip {
     bool beat_pulse;
     int bps = 0;
 
-  VirtualStrip(uint8_t num) : num_leds(num)
+  VirtualStrip()
   {
     fade = Dead;
+  }
+
+  int32_t length() {
+    // Try to be the same as the main segment, but not if it's too big
+    auto len = strip.getMainSegment().length();
+    if (len > MAX_VIRTUAL_LEDS)
+      return MAX_VIRTUAL_LEDS;
+    return len;
   }
 
   void load(Background &b, uint8_t fs=DEFAULT_FADE_SPEED)
@@ -90,12 +97,12 @@ class VirtualStrip {
 
   void darken(uint8_t amount=10)
   {
-    fadeToBlackBy( leds, num_leds, amount);
+    fadeToBlackBy( leds, length(), amount);
   }
 
   void fill(CRGB crgb) 
   {
-    fill_solid( leds, num_leds, crgb);
+    fill_solid( leds, length(), crgb);
   }
 
   void update(BeatFrame_24_8 fr, uint8_t bp)
@@ -171,30 +178,7 @@ class VirtualStrip {
   CRGB hue_color(uint8_t offset=0, uint8_t saturation=255, uint8_t value=192) {
     return CHSV(hue + offset, saturation, value);
   }
-
-  void blend(CRGB output[], uint8_t num_leds, uint8_t br, bool overwrite=0) {
-    if (fade == Dead)
-      return;
-
-    // WLED is blended in elsewhere
-    if (isWled())
-      return;
-
-    br = scale8(brightness, br);
-
-    for (unsigned i=0; i < num_leds; i++) {
-      uint8_t pos = i;
-      CRGB c = leds[pos];
-
-      nscale8x3(c.r, c.g, c.b, brightness);
-      nscale8x3(c.r, c.g, c.b, fader>>8);
-      if (overwrite)
-        output[i] = c;
-      else
-        output[i] |= c;
-    }
-  }
-  
+ 
   uint8_t bpm_sin16( uint16_t lowest=0, uint16_t highest=65535 )
   {
     return scaled16to8(sin16( frame << 7 ) + 32768, lowest, highest);
@@ -203,6 +187,10 @@ class VirtualStrip {
   uint8_t bpm_cos16( uint16_t lowest=0, uint16_t highest=65535 )
   {
     return scaled16to8(cos16( frame << 7 ) + 32768, lowest, highest);
+  }
+
+  CRGB getPixelColor(int32_t pos) {
+    return leds[pos % length()];
   }
 
 };

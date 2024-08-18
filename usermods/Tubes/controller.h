@@ -107,7 +107,6 @@ class PatternController : public MessageReceiver {
     const static int FRAMES_PER_SECOND = 60;  // how often we animate, in frames per second
     const static int REFRESH_PERIOD = 1000 / FRAMES_PER_SECOND;  // how often we animate, in milliseconds
 
-    uint8_t num_leds;
     VirtualStrip *vstrips[NUM_VSTRIPS];
     uint8_t next_vstrip = 0;
     bool canOverride = false;
@@ -146,18 +145,13 @@ class PatternController : public MessageReceiver {
     // When a pattern is boring, spice it up a bit with more effects
     bool isBoring = false;
 
-  PatternController(uint8_t num) :
-    num_leds(num), led_strip(num), node(this) {
+  PatternController() : node(this) {
 #ifdef USELCD
     lcd = new Lcd();
 #endif
 
     for (auto i=0; i < NUM_VSTRIPS; i++) {
-#ifdef DOUBLED
-      vstrips[i] = new VirtualStrip(num_leds * 2 + 1);
-#else
-      vstrips[i] = new VirtualStrip(num_leds);
-#endif
+      vstrips[i] = new VirtualStrip();
     }
   }
 
@@ -441,7 +435,7 @@ class PatternController : public MessageReceiver {
     if (fader < 255) {
       // Perform a cross-fade between current WLED mode and the external buffer
       for (int i = 0; i < length; i++) {
-        CRGB c = led_strip.getPixelColor(i);
+        CRGB c = getBlendedPixelColor(i);
         if (fader > 0) {
           CRGB color2 = strip.getPixelColor(i);
           uint8_t r = blend8(c.r, color2.r, fader);
@@ -887,10 +881,32 @@ class PatternController : public MessageReceiver {
         wled_fader = vstrip->fader;
      
       vstrip->update(beat_frame, beat_pulse);
-      vstrip->blend(led_strip.leds, led_strip.num_leds, options.brightness, vstrip == first_strip);
     }
 
     effects.update(first_strip, beat_frame, (BeatPulse)beat_pulse);
+  }
+
+  CRGB getBlendedPixelColor(int32_t pos) {
+    // Calculate the color of the pixel at position i by blending the colors of the virtual strips
+    CRGB color = CRGB::Black;
+
+    for (uint8_t i=0; i < NUM_VSTRIPS; i++) {
+      VirtualStrip *vstrip = vstrips[i];
+
+      // Don't bother blending a fully faded strip, or the WLED strip itself
+      if (vstrip->fade == Dead || vstrip->isWled())
+        continue;
+
+      auto br = vstrip->brightness; //(options.brightness, vstrip->brightness);
+
+      // Fetch the color from the strip and dim it according to the brightness
+      CRGB c = vstrip->getPixelColor(pos);
+      nscale8x3(c.r, c.g, c.b, br);
+      nscale8x3(c.r, c.g, c.b, vstrip->fader>>8);
+      color |= c;
+    }
+
+    return color;
   }
 
   virtual void acknowledge() {
