@@ -237,11 +237,12 @@ uint32_t __attribute__((hot)) WS2812FX::getPixelColorXY(uint16_t x, uint16_t y) 
 
 // WLEDMM cache some values so we don't need to re-calc then for each pixel
 void Segment::startFrame(void) {
+  _isSimpleSegment = (grouping == 1) && (spacing == 0); // we can handle pixels faster when no grouping or spacing is involved
+  _isSuperSimpleSegment = !mirror && !mirror_y && (grouping == 1) && (spacing == 0); // fastest - we only draw one pixel per call
+
 #ifdef WLEDMM_FASTPATH
   _isValid2D  = isActive() && is2D();
   _brightness = currentBri(on ? opacity : 0);
-  _isSimpleSegment = (grouping == 1) && (spacing == 0); // we can handle pixels faster when no grouping or spacing is involved
-  _isSuperSimpleSegment = !mirror && !mirror_y && (grouping == 1) && (spacing == 0); // fastest - we only draw one pixel per call
   // if (reverse_y) _isSimpleSegment = false; // for A/B testing
   _2dWidth    = is2D() ? calc_virtualWidth() : virtualLength();
   _2dHeight   = calc_virtualHeight();

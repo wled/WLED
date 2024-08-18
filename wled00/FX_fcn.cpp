@@ -102,12 +102,11 @@ Segment::Segment(const Segment &orig) {
   DEBUG_PRINTLN(F("-- Copy segment constructor --"));
   memcpy((void*)this, (void*)&orig, sizeof(Segment)); //WLEDMM copy to this
   transitional = false; // copied segment cannot be in transition
-#ifdef WLEDMM_FASTPATH
   // WLEDMM temporarily prevent any fast draw calls to the new segment
   // _isValid2D = false;
   _isSimpleSegment = false;
   _isSuperSimpleSegment = false;
-#endif
+
   name = nullptr;
   data = nullptr;
   _dataLen = 0;
@@ -149,11 +148,11 @@ void Segment::allocLeds() {
 // move constructor --> moves everything (including buffer) from orig to this
 Segment::Segment(Segment &&orig) noexcept {
   DEBUG_PRINTLN(F("-- Move segment constructor --"));
-#ifdef WLEDMM_FASTPATH
+
   // WLEDMM temporarily prevent any fast draw calls to old and new segment
   orig._isSimpleSegment = false;
   orig._isSuperSimpleSegment = false;
-#endif
+
   memcpy((void*)this, (void*)&orig, sizeof(Segment));
   orig.transitional = false; // old segment cannot be in transition any more
 #ifdef WLEDMM_FASTPATH
@@ -184,12 +183,12 @@ Segment& Segment::operator= (const Segment &orig) {
     // copy source
     memcpy((void*)this, (void*)&orig, sizeof(Segment));
     transitional = false;
-#ifdef WLEDMM_FASTPATH
+
     // WLEDMM prevent any fast draw calls to this segment until the next frame starts
     //_isValid2D = false;
     _isSimpleSegment = false;
     _isSuperSimpleSegment = false;
-#endif
+
     // erase pointers to allocated data
     name = nullptr;
     data = nullptr;
@@ -217,11 +216,11 @@ Segment& Segment::operator= (Segment &&orig) noexcept {
     deallocateData(); // free old runtime data
     if (_t) { delete _t; _t = nullptr; }
     if (ledsrgb && !Segment::_globalLeds) free(ledsrgb); //WLEDMM: not needed anymore as we will use leds from copy. no need to nullify ledsrgb as it gets new value in memcpy
-#ifdef WLEDMM_FASTPATH
+
     // WLEDMM temporarily prevent any fast draw calls to old and new segment
     orig._isSimpleSegment = false;
     orig._isSuperSimpleSegment = false;
-#endif
+
     memcpy((void*)this, (void*)&orig, sizeof(Segment));
 #ifdef WLEDMM_FASTPATH
     // WLEDMM temporarily prevent any draw calls to old segment
