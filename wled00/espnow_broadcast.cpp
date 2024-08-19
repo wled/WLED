@@ -78,6 +78,7 @@ class ESPNOWBroadcastImpl : public ESPNOWBroadcast {
     std::atomic<uint32_t> _received {0};
     std::atomic<uint32_t> _processed {0};
     std::atomic<uint32_t> _loop {0};
+    std::atomic<uint32_t> _exit {0};
 #endif
 
     class QueuedNetworkRingBuffer {
@@ -219,6 +220,9 @@ void ESPNOWBroadcast::loop(size_t maxMessagesToProcess /*= 1*/) {
         default:
             break;
     }
+#ifdef ESPNOW_DEBUG_COUNTERS
+    espnowBroadcastImpl._exit++;
+#endif
 #endif // ESP32
 }
 
@@ -439,12 +443,13 @@ void ESPNOWBroadcastImpl::onESPNowRxCallback(const uint8_t *mac, const uint8_t *
     if(!espnowBroadcastImpl.queuedNetworkRingBuffer.push(mac, data, len, rssi)) {
         Serial.printf("Failed to queue message (%d bytes) to ring buffer.  Dropping message\n"
 #ifdef ESPNOW_DEBUG_COUNTERS
-            "\tState: %d\t loop:0x%x\t recv:0x%x\t processed:0x%x\n"
+            "\tState: %d\t loop:0x%x\t exit:0x%x recv:0x%x\t processed:0x%x\n"
 #endif
             , len
 #ifdef ESPNOW_DEBUG_COUNTERS
             , espnowBroadcastImpl.getState(),
             espnowBroadcastImpl._loop.load(),
+            espnowBroadcastImpl._exit.load(),
             espnowBroadcastImpl._received.load(),
             espnowBroadcastImpl._processed.load()
 #endif
