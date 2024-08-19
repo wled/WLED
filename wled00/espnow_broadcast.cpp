@@ -254,9 +254,13 @@ bool ESPNOWBroadcast::removeCallback( ESPNOWBroadcast::receive_callback_t callba
 }
 
 ESPNOWBroadcast::receive_filter_t ESPNOWBroadcast::registerFilter( ESPNOWBroadcast::receive_filter_t filter ) {
+#ifdef ESP32
     auto old = espnowBroadcastImpl._rxFilter;
     espnowBroadcastImpl._rxFilter = filter;
     return old;
+#else
+    return nullptr;
+#endif    
 }
 
 
