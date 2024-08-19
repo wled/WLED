@@ -60,7 +60,7 @@ class Particle {
     velocity = delta16(velocity, gravity);
   }
 
-  uint16_t age_frac16(BeatFrame_24_8 age)
+  uint16_t age_frac16(BeatFrame_24_8 age) const
   {
     if (age >= lifetime)
       return 65535;
@@ -68,7 +68,7 @@ class Particle {
     return a / lifetime;
   }
 
-  uint16_t udelta16(uint16_t x, int16_t dx)
+  uint16_t udelta16(uint16_t x, int16_t dx) const
   {
     if (dx > 0 && 65535-x < dx)
       return 65335;
@@ -77,7 +77,7 @@ class Particle {
     return x + dx;
   }
   
-  int16_t delta16(int16_t x, int16_t dx)
+  int16_t delta16(int16_t x, int16_t dx) const
   {
     if (dx > 0 && 32767-x < dx)
       return 32767;

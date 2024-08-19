@@ -1,5 +1,5 @@
 #pragma once
-
+#include "wled.h"
 #include "timer.h"
 
 #define DEFAULT_BPM  120
@@ -60,7 +60,7 @@ class BeatController {
     accum = 0;
   }
 
-  void print_bpm() {
+  void print_bpm() const {
     Serial.print(bpm >> 8);
     uint8_t frac = scale8(100, bpm & 0xFF);
     Serial.print(F("."));

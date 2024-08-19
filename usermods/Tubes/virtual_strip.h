@@ -66,7 +66,7 @@ class VirtualStrip {
     fade = Dead;
   }
 
-  int32_t length() {
+  int32_t length() const {
     // Try to be the same as the main segment, but not if it's too big
     auto len = strip.getMainSegment().length();
     if (len > MAX_VIRTUAL_LEDS)
@@ -83,7 +83,7 @@ class VirtualStrip {
     brightness = DEF_BRIGHT;
   }
 
-  bool isWled() {
+  bool isWled() const {
     return background.wled_fx_id != 0;
   }
 
@@ -169,27 +169,27 @@ class VirtualStrip {
     }
   }
 
-  CRGB palette_color(uint8_t c, uint8_t offset=0, uint8_t brightness=255) {
+  CRGB palette_color(uint8_t c, uint8_t offset=0, uint8_t brightness=255) const {
     Segment& segment = strip.getMainSegment();
     uint32_t color = segment.color_from_palette(c + offset, false, true, 255, brightness);
     return CRGB(color);
   }
 
-  CRGB hue_color(uint8_t offset=0, uint8_t saturation=255, uint8_t value=192) {
+  CRGB hue_color(uint8_t offset=0, uint8_t saturation=255, uint8_t value=192) const {
     return CHSV(hue + offset, saturation, value);
   }
  
-  uint8_t bpm_sin16( uint16_t lowest=0, uint16_t highest=65535 )
+  uint8_t bpm_sin16( uint16_t lowest=0, uint16_t highest=65535 ) const
   {
     return scaled16to8(sin16( frame << 7 ) + 32768, lowest, highest);
   }
 
-  uint8_t bpm_cos16( uint16_t lowest=0, uint16_t highest=65535 )
+  uint8_t bpm_cos16( uint16_t lowest=0, uint16_t highest=65535 ) const
   {
     return scaled16to8(cos16( frame << 7 ) + 32768, lowest, highest);
   }
 
-  CRGB getPixelColor(int32_t pos) {
+  CRGB getPixelColor(int32_t pos) const {
     return leds[pos % length()];
   }
 

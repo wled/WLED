@@ -23,32 +23,22 @@ class TubeState {
 
   void print() {
     uint16_t phrase = beat_frame >> 12;
-    Serial.print(F("["));
-    Serial.print(phrase);
-    Serial.print(F("."));
-    Serial.print((beat_frame >> 8) % 16);
-    Serial.print(F(" P"));
-    Serial.print(pattern_id);
-    Serial.print(F(","));
-    Serial.print(pattern_sync_id);
-    Serial.print(F(" C"));
-    Serial.print(palette_id);
-    Serial.print(F(" E"));
-    Serial.print(effect_params.effect);
-    Serial.print(F(","));
-    Serial.print(effect_params.pen);
-    Serial.print(F(","));
-    Serial.print(effect_params.beat);
-    Serial.print(F(","));
-    Serial.print(effect_params.chance);
-    Serial.print(F(" "));
-    Serial.print(bpm >> 8);
     uint8_t frac = scale8(100, bpm & 0xFF);
-    Serial.print(F("."));
-    if (frac < 10)
-      Serial.print(F("0"));
-    Serial.print(frac);
-    Serial.print(F("bpm]"));  
+    char buf[128];
+    sprintf(buf, "[%d.%d P%d,%d C%d E%d,%d,%d,%d %d.%02dbpm]",
+      phrase,
+      (beat_frame >> 8) % 16,
+      pattern_id,
+      pattern_sync_id,
+      palette_id,
+      effect_params.effect,
+      effect_params.pen,
+      effect_params.beat,
+      effect_params.chance,
+      bpm >> 8,
+      frac
+    );
+    Serial.print(buf);
   }
 
 };
