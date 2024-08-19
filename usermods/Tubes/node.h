@@ -161,9 +161,10 @@ class LightNode {
         // If a message indicates that another node is following this one, or
         // should be (it's not following anything, but this node's ID is higher)
         // enter or continue re-broadcasting mode.
-        if (node.uplinkId == header.id
-            || (node.uplinkId == 0 && node.id < header.id)) {
-            Serial.printf("        %03X/%03X is following me", node.id, node.uplinkId);
+        if (node.uplinkId == header.id || (node.uplinkId == 0 && node.id < header.id)) {
+            if (!isLeading()) {
+                Serial.printf("     LEADING because %03X/%03X is following me\n", node.id, node.uplinkId);
+            }
             rebroadcastTimer.start(REBROADCAST_TIME);
         }
     }
@@ -240,7 +241,7 @@ class LightNode {
         }
 
         // Re-broadcast the message if appropriate
-        if (!rebroadcastTimer.ended() && message->recipients != RECIPIENTS_INFO) {
+        if (isLeading() && message->recipients != RECIPIENTS_INFO) {
             static NodeMessage msg;
             memcpy(&msg, &message, len);
             msg.header = header;
@@ -345,7 +346,6 @@ class LightNode {
         if (isFollowing() && uplinkTimer.ended()) {
             follow(NULL);
         }
-
     }
 
     void reset(MeshId id = 0) {
@@ -383,6 +383,12 @@ class LightNode {
 
     bool isFollowing() const {
         return header.uplinkId != 0;
+    }
+    bool isLeading() const {
+        // For now, leading mode is defined as being in re-broadcast mode for any reason.
+        // Any node that thinks it has the highest ID is leading, but so are any nodes that
+        // have seen another node that should be following the leader it is following.
+        return !rebroadcastTimer.ended();
     }
 
 protected:

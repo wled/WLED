@@ -64,6 +64,12 @@ class DebugController {
       if (controller.sound.active) {
         Serial.print("SOUND ");
       }
+      if (controller.node.isLeading()) {
+        Serial.print("LEADING ");
+      }
+      if (controller.node.isFollowing()) {
+        Serial.print("FOLLLOWING ");
+      }
       Serial.printf("role=%d power_save=%d\n",
         controller.role,
         controller.power_save

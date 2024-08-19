@@ -45,6 +45,7 @@ class VirtualStrip {
 
   public:
     CRGB leds[MAX_VIRTUAL_LEDS];
+    uint16_t num_leds = 1; // only temporary until the first loop
     uint8_t brightness;
 
     // Fade in/out
@@ -66,14 +67,7 @@ class VirtualStrip {
     fade = Dead;
   }
 
-  int32_t length() const {
-    // Try to be the same as the main segment, but not if it's too big
-    auto len = strip.getMainSegment().length();
-    if (len > MAX_VIRTUAL_LEDS)
-      return MAX_VIRTUAL_LEDS;
-    return len;
-  }
-
+  
   void load(Background &b, uint8_t fs=DEFAULT_FADE_SPEED)
   {
     background = b;
@@ -97,12 +91,12 @@ class VirtualStrip {
 
   void darken(uint8_t amount=10)
   {
-    fadeToBlackBy( leds, length(), amount);
+    fadeToBlackBy( leds, num_leds, amount);
   }
 
   void fill(CRGB crgb) 
   {
-    fill_solid( leds, length(), crgb);
+    fill_solid( leds, num_leds, crgb);
   }
 
   void update(BeatFrame_24_8 fr, uint8_t bp)
@@ -111,6 +105,13 @@ class VirtualStrip {
       return;
     
     frame = fr;
+
+    // Try to keep our number of LEDs as the same as the main segment,
+    // but not if it's too big for the buffer array.
+    auto len = strip.getMainSegment().length();
+    if (len > MAX_VIRTUAL_LEDS)
+      len = MAX_VIRTUAL_LEDS;
+    num_leds = len;
 
     switch (this->background.sync) {
       case All:
@@ -190,7 +191,7 @@ class VirtualStrip {
   }
 
   CRGB getPixelColor(int32_t pos) const {
-    return leds[pos % length()];
+    return leds[pos % num_leds];
   }
 
 };
