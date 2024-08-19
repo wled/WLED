@@ -34,6 +34,7 @@ ESP_EVENT_DEFINE_BASE(SYSTEM_EVENT);
 
 //#define ESPNOW_DEBUGGING
 //#define ESPNOW_CALLBACK_DEBUGGING // Serial is called from multiple threads
+#define ESPNOW_DEBUG_COUNTERS
 
 #define BROADCAST_ADDR_ARRAY_INITIALIZER {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF}
 #define WLED_ESPNOW_WIFI_CHANNEL 1
@@ -72,6 +73,12 @@ class ESPNOWBroadcastImpl : public ESPNOWBroadcast {
     static void onESPNowRxCallback(const uint8_t *mac_addr, const uint8_t *data, int len);
 
     receive_filter_t _rxFilter = nullptr;
+
+#ifdef ESPNOW_DEBUG_COUNTERS
+    std::atomic<uint32_t> _received {0};
+    std::atomic<uint32_t> _processed {0};
+    std::atomic<uint32_t> _loop {0};
+#endif
 
     class QueuedNetworkRingBuffer {
       protected:
@@ -182,16 +189,21 @@ bool ESPNOWBroadcastImpl::setupWiFi() {
 
 void ESPNOWBroadcast::loop(size_t maxMessagesToProcess /*= 1*/) {
 #ifdef ESP32
+#ifdef ESPNOW_DEBUG_COUNTERS
+    espnowBroadcastImpl._loop++;
+#endif
     switch (espnowBroadcastImpl._state.load()) {
         case ESPNOWBroadcast::STARTING:
             // if WiFI is in starting state, actually stat ESPNow from our main task thread.
             espnowBroadcastImpl.start();
             break;
         case ESPNOWBroadcast::STARTED: {
-            auto ndx = maxMessagesToProcess;
-            while(ndx-- > 0) {
+            while(maxMessagesToProcess-- > 0) {
                 auto *msg = espnowBroadcastImpl.queuedNetworkRingBuffer.pop();
                 if (msg) {
+#ifdef ESPNOW_DEBUG_COUNTERS
+                    espnowBroadcastImpl._processed++;
+#endif
                     auto callback = _rxCallbacks;
                     while( *callback ) {
                         (*callback)(msg->mac, msg->data, msg->len, msg->rssi);
@@ -229,6 +241,10 @@ bool ESPNOWBroadcast::registerCallback( ESPNOWBroadcast::receive_callback_t call
     // last element is always null
     size_t ndx;
     for (ndx = 0; ndx < _rxCallbacksSize-1; ndx++) {
+        // already registered
+        if (callback == _rxCallbacks[ndx]) {
+            break;
+        }
         if (nullptr == _rxCallbacks[ndx]) {
             _rxCallbacks[ndx] = callback;
             break;
@@ -417,8 +433,22 @@ void ESPNOWBroadcastImpl::onESPNowRxCallback(const uint8_t *mac, const uint8_t *
         }
     }
 
+#ifdef ESPNOW_DEBUG_COUNTERS
+    espnowBroadcastImpl._received++;
+#endif
     if(!espnowBroadcastImpl.queuedNetworkRingBuffer.push(mac, data, len, rssi)) {
-        Serial.printf("Failed to queue message (%d bytes) to ring buffer.  Dropping message\n", len);
+        Serial.printf("Failed to queue message (%d bytes) to ring buffer.  Dropping message\n"
+#ifdef ESPNOW_DEBUG_COUNTERS
+            "\tState: %d\t loop:0x%x\t recv:0x%x\t processed:0x%x\n"
+#endif
+            , len
+#ifdef ESPNOW_DEBUG_COUNTERS
+            , espnowBroadcastImpl.getState(),
+            espnowBroadcastImpl._loop.load(),
+            espnowBroadcastImpl._received.load(),
+            espnowBroadcastImpl._processed.load()
+#endif
+            );
     } else {
 #ifdef ESPNOW_CALLBACK_DEBUGGING
         char buf[128];
