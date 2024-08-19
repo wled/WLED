@@ -1186,7 +1186,7 @@ class PatternController : public MessageReceiver {
     node.sendCommand(COMMAND_BEATS, &bpm, sizeof(bpm));
   }
 
-  virtual bool onCommand(CommandId command, void *data) {
+  virtual bool onCommand(CommandId command, void *data) override {
     switch (command) {
       case COMMAND_INFO:
         Serial.printf("   \"%s\"\n",
@@ -1343,7 +1343,7 @@ class PatternController : public MessageReceiver {
     force_next();
   }
 
-  virtual bool onButton(uint8_t button_id) {
+  virtual bool onButton(uint8_t button_id) override {
     bool isMaster = !this->node.isFollowing();
 
     switch (button_id) {

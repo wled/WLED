@@ -64,14 +64,8 @@ const char *command_name(CommandId command) {
 
 class MessageReceiver {
   public:
-    virtual bool onCommand(CommandId command, void *data) {
-      // Abstract: subclasses must define
-      return false;
-    }  
-    virtual bool onButton(uint8_t button_id) {
-      // Abstract: subclasses must define
-      return false;
-    }  
+    virtual bool onCommand(CommandId command, void *data) = 0;
+    virtual bool onButton(uint8_t button_id) = 0;
 };
 
 class LightNode {
@@ -174,7 +168,7 @@ class LightNode {
         }
     }
 
-    void printMessage(const NodeMessage* message, signed int rssi) {
+    void printMessage(const NodeMessage* message, signed int rssi) const {
         Serial.printf("%03X/%03X %s",
             message->header.id,
             message->header.uplinkId,
@@ -187,20 +181,6 @@ class LightNode {
     }
 
     void onPeerData(const uint8_t* address, const NodeMessage* message, uint8_t len, signed int rssi, bool broadcast) {
-        // Ignore this message if it isn't a valid message payload.
-        if (len != sizeof(*message))
-            return;
-
-        // Ignore this message if it's the wrong version.
-        if (message->header.version != header.version) {
-#ifdef NODE_DEBUGGING
-            Serial.print("  -- !version ");
-            printMessage(message, rssi);
-            Serial.println();
-#endif
-            return;
-        }
-
         // Track that another node exists, updating this node's understanding of the mesh.
         onPeerPing(message->header);
 
@@ -350,6 +330,7 @@ class LightNode {
         delay(2000);
 #endif
 
+        espnowBroadcast.registerFilter(onEspNowFilter);
         espnowBroadcast.registerCallback(onEspNowMessage);
 
         Serial.println("setup: ok");
@@ -358,7 +339,7 @@ class LightNode {
     void update() {
 
         //process any wifi events to turn on/off ESPNode
-        checkESPNowState();
+        updateESPNowState();
 
         // Check the last time we heard from the uplink node
         if (isFollowing() && uplinkTimer.ended()) {
@@ -400,19 +381,19 @@ class LightNode {
         onMeshChange();
     }
 
-    bool isFollowing() {
+    bool isFollowing() const {
         return header.uplinkId != 0;
     }
 
 protected:
 
-    void checkESPNowState() {
+    void updateESPNowState() {
         auto state = espnowBroadcast.getState();
         static auto prev = espnowBroadcast.STOPPED;
         switch(state) {
             case ESPNOWBroadcast::STOPPED:
                 if (NODE_STATUS_QUIET != status) {
-                    Serial.printf("checkESPNowState() - %d node_status:%s\n", state, status_code());
+                    Serial.printf("updateESPNowState() - %d node_status:%s\n", state, status_code());
                     status = NODE_STATUS_QUIET;
                     rebroadcastTimer.stop();
                     Serial.printf("LightNode %s\n", status_code());
@@ -420,12 +401,12 @@ protected:
                 break;
             case ESPNOWBroadcast::STARTING: {}
                 if ( state != prev ) {
-                    Serial.printf("checkESPNowState() - %d node_status:%s\n", state, status_code());
+                    Serial.printf("updateESPNowState() - %d node_status:%s\n", state, status_code());
                 }
                 break;
             case ESPNOWBroadcast::STARTED:
                 if (NODE_STATUS_QUIET == status) {
-                    Serial.printf("checkESPNowState() - %d node_status:%s\n", state, status_code());
+                    Serial.printf("updateESPNowState() - %d node_status:%s\n", state, status_code());
                     status = NODE_STATUS_RECEIVING;
                     statusTimer.start(STATUS_TIMEOUT_BASE - header.id / 2);
                     Serial.printf("LightNode %s\n", status_code());
@@ -452,10 +433,6 @@ protected:
     } wizmote_message;
 
     void onWizmote(const uint8_t* address, const wizmote_message* data, uint8_t len) {
-        // First make sure this is a WizMote message.
-        if (len != sizeof(wizmote_message) || data->byte8 != 1 || data->byte9 != 100 || data->byte5 != 32)
-            return;
-
         static uint32_t last_seq = 0;
         uint32_t cur_seq = data->seq[0] | (data->seq[1] << 8) | (data->seq[2] << 16) | (data->seq[3] << 24);
         if (cur_seq == last_seq)
@@ -466,6 +443,7 @@ protected:
     }
 
     static void onEspNowMessage(const uint8_t *address, const uint8_t *msg, uint8_t len, int8_t rssi) {
+        // basic length and field checking has been done in onEspNowFilter
         if (msg) {
             if(len == sizeof(NodeMessage)) {
                 instance->onPeerData(address, (const NodeMessage*)msg, len, rssi, true);
@@ -479,6 +457,15 @@ protected:
         }
     }
 
+    static bool onEspNowFilter(const uint8_t *address, const uint8_t *msg, uint8_t len, int8_t rssi) {
+        if (len == sizeof(NodeMessage)) {
+            return ((const NodeMessage*)msg)->header.version == instance->header.version;
+        } else if (len == sizeof(wizmote_message)) {
+            auto wizmote = (const wizmote_message*)msg;
+            return !( wizmote->byte8 != 1 || wizmote->byte9 != 100 || wizmote->byte5 != 32);
+        }
+        return false;
+    }
 };
 
 LightNode* LightNode::instance = nullptr;

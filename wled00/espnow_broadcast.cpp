@@ -33,7 +33,7 @@ ESP_EVENT_DEFINE_BASE(SYSTEM_EVENT);
 #endif
 
 //#define ESPNOW_DEBUGGING
-//#define ESNOW_CALLBACK_DEBUGGING // Serial is called from multiple threads
+//#define ESPNOW_CALLBACK_DEBUGGING // Serial is called from multiple threads
 
 #define BROADCAST_ADDR_ARRAY_INITIALIZER {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF}
 #define WLED_ESPNOW_WIFI_CHANNEL 1
@@ -57,7 +57,7 @@ class ESPNOWBroadcastImpl : public ESPNOWBroadcast {
     friend ESPNOWBroadcast;
 
     std::atomic<STATE> _state {STOPPED};
-    STATE getState() {
+    STATE getState() const {
         return _state.load();
     }
 
@@ -70,6 +70,8 @@ class ESPNOWBroadcastImpl : public ESPNOWBroadcast {
     static void onWiFiEvent(void* arg, esp_event_base_t event_base, int32_t event_id, void* event_data);
 
     static void onESPNowRxCallback(const uint8_t *mac_addr, const uint8_t *data, int len);
+
+    receive_filter_t _rxFilter = nullptr;
 
     class QueuedNetworkRingBuffer {
       protected:
@@ -103,7 +105,7 @@ ESPNOWBroadcastImpl espnowBroadcastImpl {};
 ESPNOWBroadcast espnowBroadcast {};
 
 
-ESPNOWBroadcast::STATE ESPNOWBroadcast::getState() {
+ESPNOWBroadcast::STATE ESPNOWBroadcast::getState() const {
 #ifdef ESP32
     return espnowBroadcastImpl.getState();
 #else
@@ -250,6 +252,13 @@ bool ESPNOWBroadcast::removeCallback( ESPNOWBroadcast::receive_callback_t callba
     return ndx < _rxCallbacksSize;
 
 }
+
+ESPNOWBroadcast::receive_filter_t ESPNOWBroadcast::registerFilter( ESPNOWBroadcast::receive_filter_t filter ) {
+    auto old = espnowBroadcastImpl._rxFilter;
+    espnowBroadcastImpl._rxFilter = filter;
+    return old;
+}
+
 
 #ifdef ESP32
 
@@ -398,7 +407,13 @@ void ESPNOWBroadcastImpl::onESPNowRxCallback(const uint8_t *mac, const uint8_t *
         rssi = 0;
     }
 
-    if (!espnowBroadcastImpl.queuedNetworkRingBuffer.push(mac, data, len, rssi)) {
+    if (espnowBroadcastImpl._rxFilter) {
+        if (!espnowBroadcastImpl._rxFilter(mac, data, len, rssi)) {
+            return;
+        }
+    }
+
+    if(!espnowBroadcastImpl.queuedNetworkRingBuffer.push(mac, data, len, rssi)) {
         Serial.printf("Failed to queue message (%d bytes) to ring buffer.  Dropping message\n", len);
     } else {
 #ifdef ESPNOW_CALLBACK_DEBUGGING
