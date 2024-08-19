@@ -58,7 +58,9 @@ void WLED::loop()
   #ifndef WLED_DISABLE_ESPNOW
   handleRemote();
   #endif
+  #ifndef WLED_DISABLE_SERIAL
   handleSerial();
+  #endif
   handleImprovWifiScan();
   handleNotifications();
   handleTransitions();
