@@ -205,15 +205,16 @@ void ESPNOWBroadcast::loop(size_t maxMessagesToProcess /*= 1*/) {
 #ifdef ESPNOW_DEBUG_COUNTERS
                     espnowBroadcastImpl._processed++;
 #endif
-                    auto callback = _rxCallbacks;
-                    while( *callback ) {
-                        (*callback)(msg->mac, msg->data, msg->len, msg->rssi);
-                        callback++;
+                    for( auto ndx = 0; ndx < (sizeof(_rxCallbacks)/sizeof(_rxCallbacks[0]))-1; ndx++) {
+                        if(_rxCallbacks[ndx]) {
+                            _rxCallbacks[0](msg->mac, msg->data, msg->len, msg->rssi);
+                        }
                     }
                     espnowBroadcastImpl.queuedNetworkRingBuffer.popComplete(msg);
                 } else {
                     break;
                 }
+                yield();
             }
             break;
         }

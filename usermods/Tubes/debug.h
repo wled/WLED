@@ -93,13 +93,19 @@ class DebugController {
       }
       Serial.println();
 
-      Serial.printf("=== firmware: v%d from SSID %s %u.%u.%u.%u OTA=%d\n\n",
+      Serial.printf("=== firmware: v%d "
+#ifdef TUBES_AUTOUPDATER
+        "from SSID %s %u.%u.%u.%u "
+#endif
+        "OTA=%d\n\n",
         controller.updater.current_version.version,
+#ifdef TUBES_AUTOUPDATER
         controller.updater.current_version.ssid,
         controller.updater.current_version.host[0],
         controller.updater.current_version.ssid[1],
         controller.updater.current_version.ssid[2],
         controller.updater.current_version.ssid[3],
+#endif
         controller.updater.status
       );
 
