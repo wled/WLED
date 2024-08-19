@@ -207,7 +207,7 @@ void ESPNOWBroadcast::loop(size_t maxMessagesToProcess /*= 1*/) {
 #endif
                     for( auto ndx = 0; ndx < (sizeof(_rxCallbacks)/sizeof(_rxCallbacks[0]))-1; ndx++) {
                         if(_rxCallbacks[ndx]) {
-                            _rxCallbacks[0](msg->mac, msg->data, msg->len, msg->rssi);
+                            _rxCallbacks[ndx](msg->mac, msg->data, msg->len, msg->rssi);
                         }
                     }
                     espnowBroadcastImpl.queuedNetworkRingBuffer.popComplete(msg);
