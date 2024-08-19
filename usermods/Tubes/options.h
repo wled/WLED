@@ -28,8 +28,8 @@ typedef struct ControlParameters {
   ControlParameters(Duration d=MediumDuration, Energy e=Chill) : duration(d), energy(e) {};
 
   public:
-    Duration duration=MediumDuration;
-    Energy energy=Chill;
+    Duration duration;
+    Energy energy;
 } ControlParams;
 
 typedef enum PenMode: uint8_t {

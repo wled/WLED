@@ -16,10 +16,10 @@ typedef void (*BackgroundFn)(VirtualStrip *strip);
 
 class Background {
   public:
-    BackgroundFn animate;
-    uint8_t wled_fx_id;
-    uint8_t palette_id;
-    SyncMode sync=All;
+    BackgroundFn animate {nullptr};
+    uint8_t wled_fx_id {0};
+    uint8_t palette_id {0};
+    SyncMode sync {All};
 };
 
 typedef enum VirtualStripFade {
