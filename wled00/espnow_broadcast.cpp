@@ -168,7 +168,7 @@ bool ESPNOWBroadcast::setup() {
         return false;
     }
   #endif  // ESPNOW_EVENT_DEBUGGING
-#endif ESP_IDF_VERSION
+#endif // ESP_IDF_VERSION
 
     setup = espnowBroadcastImpl.setupWiFi();
 #endif //ESP32
@@ -381,7 +381,7 @@ void ESPNOWBroadcastImpl::onWiFiEvent(void* arg, esp_event_base_t event_base, in
     if ( event_base == WIFI_EVENT ) {
 
 #ifdef ESPNOW_DEBUGGING
-    #if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(4, 0, 0)
+    #if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(6, 0, 0)
         Serial.printf("WiFiEvent( %d )\n", event_id );
     #else
         Serial.printf("WiFiEvent( %s )\n", WiFi.eventName((arduino_event_id_t)event_id) );

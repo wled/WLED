@@ -542,8 +542,9 @@ void WLED::beginStrip()
 
 void WLED::initAP(bool resetAP)
 {
-  if (apBehavior == AP_BEHAVIOR_BUTTON_ONLY && !resetAP)
+  if (apBehavior == AP_BEHAVIOR_BUTTON_ONLY && !resetAP) {
     return;
+  }
 
   if (resetAP) {
     WLED_SET_AP_SSID();
@@ -557,10 +558,17 @@ void WLED::initAP(bool resetAP)
   WiFi.setTxPower(WIFI_POWER_8_5dBm);
   #endif
 
+  Serial.printf("WLED::initAP - apActive: %s", apActive ? "true" : "false");
+
   if (!apActive) // start captive portal if AP active
   {
+    yield();
+    Serial.println("WLED::initAP - starting captive portal");
+
     DEBUG_PRINTLN(F("Init AP interfaces"));
     server.begin();
+    yield();
+
     if (udpPort > 0 && udpPort != ntpLocalPort) {
       udpConnected = notifierUdp.begin(udpPort);
     }
@@ -570,8 +578,12 @@ void WLED::initAP(bool resetAP)
     if (udpPort2 > 0 && udpPort2 != ntpLocalPort && udpPort2 != udpPort && udpPort2 != udpRgbPort) {
       udp2Connected = notifier2Udp.begin(udpPort2);
     }
+    yield();
+
     e131.begin(false, e131Port, e131Universe, E131_MAX_UNIVERSE_COUNT);
     ddp.begin(false, DDP_DEFAULT_PORT);
+
+    yield();
 
     dnsServer.setErrorReplyCode(DNSReplyCode::NoError);
     dnsServer.start(53, "*", WiFi.softAPIP());
