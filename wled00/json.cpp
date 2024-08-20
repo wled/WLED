@@ -609,9 +609,6 @@ void serializeState(JsonObject root, bool forPreset, bool includeBri, bool segme
   }
 }
 
-#define _MACRO_TO_STR(x) #x
-#define MACRO_TO_STR(x) _MACRO_TO_STR(x)
-
 void serializeInfo(JsonObject root)
 {
   root[F("ver")] = versionString;
@@ -794,7 +791,6 @@ void serializeInfo(JsonObject root)
 
   root[F("brand")] = "WLED";
   root[F("product")] = F("FOSS");
-  root[F("release")] = MACRO_TO_STR(WLED_RELEASE_NAME);
   root["mac"] = escapedMac;
   char s[16] = "";
   if (Network.isConnected())

@@ -30,6 +30,13 @@ void WLED::reset()
   }
   applyBri();
   DEBUG_PRINTLN(F("WLED RESET"));
+
+  WiFi.softAPdisconnect(true);
+  WiFi.disconnect(true);
+  yield();
+
+  lastReconnectAttempt = 0;
+  apActive = false;
   ESP.restart();
 }
 
@@ -558,12 +565,9 @@ void WLED::initAP(bool resetAP)
   WiFi.setTxPower(WIFI_POWER_8_5dBm);
   #endif
 
-  Serial.printf("WLED::initAP - apActive: %s", apActive ? "true" : "false");
-
   if (!apActive) // start captive portal if AP active
   {
     yield();
-    Serial.println("WLED::initAP - starting captive portal");
 
     DEBUG_PRINTLN(F("Init AP interfaces"));
     server.begin();
