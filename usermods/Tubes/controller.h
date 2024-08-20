@@ -1009,7 +1009,14 @@ class PatternController : public MessageReceiver {
         }
         setBrightness(arg >> 8);
         return;
-
+      case 'a':
+        Serial.println("Turning on WiFi access point.");
+        WLED::instance().initAP(true);
+        return;
+      case 'q':
+        Serial.println("Turning off WiFi access point.");
+        WiFi.disconnect(true);
+        return;
       case 'b':
         if (arg < 60*256) {
           Serial.println(F("nope"));

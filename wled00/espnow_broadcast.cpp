@@ -2,7 +2,7 @@
 #ifndef WLED_DISABLE_ESPNOW_NEW
 #include <Arduino.h>
 #include <atomic>
-
+#include <wled.h>
 #if defined ESP32
 #include <WiFi.h>
 #include <esp_wifi.h>
@@ -143,6 +143,7 @@ bool ESPNOWBroadcast::setup() {
         Serial.printf("esp_event_loop_create_default() err %d\n", err);
         return false;
     }
+
     err = esp_event_handler_instance_register(WIFI_EVENT, WIFI_EVENT_STA_START, ESPNOWBroadcastImpl::onWiFiEvent, nullptr, nullptr);
     if ( ESP_OK != err ) {
         Serial.printf("esp_event_handler_instance_register(WIFI_EVENT_STA_START) err %d\n", err);
@@ -158,6 +159,12 @@ bool ESPNOWBroadcast::setup() {
         Serial.printf("esp_event_handler_instance_register(WIFI_EVENT_AP_START) err %d\n", err);
         return false;
     }
+
+    // err = esp_event_handler_instance_register(WIFI_EVENT, ESP_EVENT_ANY_ID, ESPNOWBroadcastImpl::onWiFiEvent, nullptr, nullptr);
+    // if ( ESP_OK != err ) {
+    //     Serial.printf("esp_event_handler_instance_register(ESP_EVENT_ANY_ID) err %d\n", err);
+    //     return false;
+    // }
 #endif
 
     setup = espnowBroadcastImpl.setupWiFi();
@@ -382,6 +389,8 @@ void ESPNOWBroadcastImpl::onWiFiEvent(void* arg, esp_event_base_t event_base, in
             }
 
             case WIFI_EVENT_STA_STOP:
+                lastReconnectAttempt = 0;
+                // fall thru
             case WIFI_EVENT_AP_START: {
                 ESPNOWBroadcast::STATE started {ESPNOWBroadcast::STARTED};
                 ESPNOWBroadcast::STATE starting {ESPNOWBroadcast::STARTING};
