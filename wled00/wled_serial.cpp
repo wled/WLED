@@ -1,4 +1,7 @@
 #include "wled.h"
+#ifdef ARDUINO_ARCH_ESP32
+#include "esp_ota_ops.h"
+#endif
 
 /*
  * Adalight and TPM2 handler
@@ -119,6 +122,34 @@ void handleSerial()
         } else if (next == 'v') {
           Serial.print("WLED"); Serial.write(' '); Serial.println(VERSION);
 
+        } else if (next == '^') {
+          #ifdef ARDUINO_ARCH_ESP32
+          esp_err_t err;
+          const esp_partition_t *boot_partition = esp_ota_get_boot_partition();
+          const esp_partition_t *running_partition = esp_ota_get_running_partition();
+          USER_PRINTF("Running on %s and we should have booted from %s. This %s\n",running_partition->label,boot_partition->label,(String(running_partition->label) == String(boot_partition->label))?"is what we expect.":"means OTA messed up!");
+          if (String(running_partition->label) == String(boot_partition->label)) {
+            esp_partition_iterator_t new_boot_partition_iterator = NULL;
+            if (boot_partition->subtype == ESP_PARTITION_SUBTYPE_APP_OTA_0) {
+              new_boot_partition_iterator = esp_partition_find(ESP_PARTITION_TYPE_APP,ESP_PARTITION_SUBTYPE_APP_OTA_1,"app1");
+            } else {
+              new_boot_partition_iterator = esp_partition_find(ESP_PARTITION_TYPE_APP,ESP_PARTITION_SUBTYPE_APP_OTA_0,"app0");
+            }
+            const esp_partition_t* new_boot_partition = esp_partition_get(new_boot_partition_iterator);
+            err = esp_ota_set_boot_partition(new_boot_partition);
+            if (err == ESP_OK) {
+              USER_PRINTF("Switching boot partitions from %s to %s in 3 seconds!\n",boot_partition->label,new_boot_partition->label);
+              delay(3000);
+              esp_restart();
+            } else {
+              USER_PRINTF("Looks like the other app partition (%s) is invalid. Ignoring.\n",new_boot_partition->label);
+            }
+          } else {
+            USER_PRINTF("Looks like the other partion is invalid as we exepected %s but we booted failsafe to %s. Ignoring boot change.\n",boot_partition->label,running_partition->label);
+          }
+          #else
+          USER_PRINTLN("Boot partition switching is only available for ESP32 and newer boards.");
+          #endif
         } else if (next == 'X') {
           forceReconnect = true; // WLEDMM - force reconnect via Serial
         } else if (next == 0xB0) {updateBaudRate( 115200);

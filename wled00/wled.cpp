@@ -2,7 +2,9 @@
 #include "wled.h"
 #include "wled_ethernet.h"
 #include <Arduino.h>
-
+#ifdef ARDUINO_ARCH_ESP32
+#include "esp_ota_ops.h"
+#endif
 #warning WLED-MM GPL-v3. By installing WLED MM you implicitly accept the terms!
 
 #if defined(ARDUINO_ARCH_ESP32) && defined(WLED_DISABLE_BROWNOUT_DET)
@@ -501,7 +503,10 @@ void WLED::setup()
   #ifdef WLED_RELEASE_NAME
   USER_PRINTF(" WLEDMM_%s %s, build %s.\n", versionString, releaseString, TOSTRING(VERSION)); // WLEDMM specific
   #endif
-
+  #ifdef ARDUINO_ARCH_ESP32
+  const esp_partition_t *running_partition = esp_ota_get_running_partition();
+  USER_PRINTF("Running from: %s which is %u bytes and type %u subtype %u at address %x\n",running_partition->label,running_partition->size,running_partition->type,running_partition->subtype,running_partition->address);
+  #endif
 #ifdef ARDUINO_ARCH_ESP32
   DEBUG_PRINT(F("esp32 "));
   DEBUG_PRINTLN(ESP.getSdkVersion());
