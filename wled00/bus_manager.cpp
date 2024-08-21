@@ -588,6 +588,31 @@ BusHub75Matrix::BusHub75Matrix(BusConfig &bc) : Bus(bc.type, bc.start, bc.autoWh
   mxconfig.gpio.d = 35;
   mxconfig.gpio.e = 21;
 
+#elif defined(CONFIG_IDF_TARGET_ESP32S3) // ESP32-S3
+
+  // Huidu HD-WF2 ESP32-S3
+  // https://www.aliexpress.com/item/1005002258734810.html
+  // https://github.com/mrcodetastic/ESP32-HUB75-MatrixPanel-DMA/issues/433
+
+  USER_PRINTLN("MatrixPanel_I2S_DMA - HD-WF2 S3 config");
+
+  mxconfig.gpio.r1 = 2;
+  mxconfig.gpio.g1 = 6;
+  mxconfig.gpio.b1 = 10;
+  mxconfig.gpio.r2 = 3;
+  mxconfig.gpio.g2 = 7;
+  mxconfig.gpio.b2 = 11;
+
+  mxconfig.gpio.lat = 33;
+  mxconfig.gpio.oe  = 35;
+  mxconfig.gpio.clk = 34;
+
+  mxconfig.gpio.a = 39;
+  mxconfig.gpio.b = 38;
+  mxconfig.gpio.c = 37;
+  mxconfig.gpio.d = 36;
+  mxconfig.gpio.e = 21;
+
 #elif defined(ESP32_FORUM_PINOUT) // Common format for boards designed for SmartMatrix
 
   USER_PRINTLN("MatrixPanel_I2S_DMA - ESP32_FORUM_PINOUT");
