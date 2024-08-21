@@ -148,7 +148,7 @@ void handleSerial()
             USER_PRINTF("Looks like the other partion is invalid as we exepected %s but we booted failsafe to %s. Ignoring boot change.\n",boot_partition->label,running_partition->label);
           }
           #else
-            USER_PRINTLN("This function is only for ESP32 and newer boards.");
+          USER_PRINTLN("Boot partition switching is only available for ESP32 and newer boards.");
           #endif
         } else if (next == 'X') {
           forceReconnect = true; // WLEDMM - force reconnect via Serial
