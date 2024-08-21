@@ -503,8 +503,10 @@ void WLED::setup()
   #ifdef WLED_RELEASE_NAME
   USER_PRINTF(" WLEDMM_%s %s, build %s.\n", versionString, releaseString, TOSTRING(VERSION)); // WLEDMM specific
   #endif
+  #ifdef ARDUINO_ARCH_ESP32
   const esp_partition_t *boot_partition = esp_ota_get_running_partition();
   USER_PRINTF("Booted from: %s which is %u bytes and type %u subtype %u at address %x\n",boot_partition->label,boot_partition->size,boot_partition->type,boot_partition->subtype,boot_partition->address);
+  #endif
 #ifdef ARDUINO_ARCH_ESP32
   DEBUG_PRINT(F("esp32 "));
   DEBUG_PRINTLN(ESP.getSdkVersion());
