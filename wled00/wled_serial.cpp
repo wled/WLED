@@ -1,5 +1,7 @@
 #include "wled.h"
+#ifdef ARDUINO_ARCH_ESP32
 #include "esp_ota_ops.h"
+#endif
 
 /*
  * Adalight and TPM2 handler
@@ -121,6 +123,7 @@ void handleSerial()
           Serial.print("WLED"); Serial.write(' '); Serial.println(VERSION);
 
         } else if (next == '^') {
+          #ifdef ARDUINO_ARCH_ESP32
           esp_err_t err;
           const esp_partition_t *boot_partition = esp_ota_get_boot_partition();
           const esp_partition_t *running_partition = esp_ota_get_running_partition();
@@ -144,6 +147,9 @@ void handleSerial()
           } else {
             USER_PRINTF("Looks like the other partion is invalid as we exepected %s but we booted failsafe to %s. Ignoring boot change.\n",boot_partition->label,running_partition->label);
           }
+          #else
+            USER_PRINTLN("This function is only for ESP32 and newer boards.");
+          #endif
         } else if (next == 'X') {
           forceReconnect = true; // WLEDMM - force reconnect via Serial
         } else if (next == 0xB0) {updateBaudRate( 115200);
