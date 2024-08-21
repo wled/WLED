@@ -567,7 +567,6 @@ void WLED::initAP(bool resetAP)
 
   if (!apActive) // start captive portal if AP active
   {
-    yield();
 
     DEBUG_PRINTLN(F("Init AP interfaces"));
     server.begin();

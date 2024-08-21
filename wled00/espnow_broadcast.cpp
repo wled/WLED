@@ -384,7 +384,7 @@ void ESPNOWBroadcastImpl::onWiFiEvent(void* arg, esp_event_base_t event_base, in
     #if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(4, 4, 4)
         Serial.printf("WiFiEvent( %d )\n", event_id );
     #else
-        Serial.printf("WiFiEvent( %s )\n", WiFi.eventName((arduino_event_id_t)event_id) );
+        Serial.printf("WiFiEvent %d ( %s )\n", event_id, WiFi.eventName((arduino_event_id_t)event_id) );
     #endif
 #endif
         switch (event_id) {

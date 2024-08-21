@@ -62,6 +62,7 @@ update_firmware() {
   else
     echo "Updating $firmware firmware via OTA"
     curl -s -F "update=@../../build_output/firmware/$firmware" -H "Connection: close" --no-keepalive $1/update >/dev/null
+    curl -s http://$1/reset -H "Connection: close" >/dev/null
   fi
 }
 

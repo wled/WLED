@@ -350,7 +350,11 @@ class LightNode {
 
     void reset(MeshId id = 0) {
         if (id == 0) {
+#if defined(LOLIN_WIFI_FIX) && (defined(ARDUINO_ARCH_ESP32C3) || defined(ARDUINO_ARCH_ESP32S2) || defined(ARDUINO_ARCH_ESP32S3))
+            id = random(10, 255);  // Leave room at bottom and top of 12 bits
+#else
             id = random(256, 4000);  // Leave room at bottom and top of 12 bits
+#endif
         }
         header.id = id;
         follow(NULL);
