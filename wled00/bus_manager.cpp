@@ -557,7 +557,7 @@ BusHub75Matrix::BusHub75Matrix(BusConfig &bc) : Bus(bc.type, bc.start, bc.autoWh
   }
 
   if(mxconfig.mx_height >= 64 && (bc.pins[0] > 1)) {
-    USER_PRINT("WARNING, only single panel can be used of 64 pixel boards due to memory")
+    USER_PRINT("WARNING, only single panel can be used of 64 pixel boards due to memory");
     mxconfig.chain_length = 1;
   }
 
