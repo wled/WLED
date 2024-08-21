@@ -505,7 +505,7 @@ void WLED::setup()
   #endif
   #ifdef ARDUINO_ARCH_ESP32
   const esp_partition_t *running_partition = esp_ota_get_running_partition();
-  USER_PRINTF("Running from: %s which is %u bytes and type %u subtype %u at address %x\n",boot_partition->label,boot_partition->size,boot_partition->type,boot_partition->subtype,boot_partition->address);
+  USER_PRINTF("Running from: %s which is %u bytes and type %u subtype %u at address %x\n",running_partition->label,running_partition->size,running_partition->type,running_partition->subtype,running_partition->address);
   #endif
 #ifdef ARDUINO_ARCH_ESP32
   DEBUG_PRINT(F("esp32 "));
