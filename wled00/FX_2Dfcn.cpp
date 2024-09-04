@@ -300,7 +300,7 @@ void IRAM_ATTR __attribute__((hot)) Segment::setPixelColorXY_fast(int x, int y, 
     else           strip.setPixelColorXY_fast(start + x, startY + hei_ - y - 1, scaled_col);
   }
   if (mirror_y && mirror) { //set the corresponding vertically AND horizontally mirrored pixel
-    strip.setPixelColorXY_fast(wid_ - x - 1, hei_ - y - 1, scaled_col);
+    strip.setPixelColorXY_fast(start + wid_ - x - 1, startY + hei_ - y - 1, scaled_col);
   }
 }
 
@@ -376,7 +376,7 @@ void IRAM_ATTR_YN Segment::setPixelColorXY(int x, int y, uint32_t col) //WLEDMM:
         else           strip.setPixelColorXY(start + xX, startY + hei_ - yY - 1, col);
       }
       if (mirror_y && mirror) { //set the corresponding vertically AND horizontally mirrored pixel
-        strip.setPixelColorXY(wid_ - xX - 1, hei_ - yY - 1, col);
+        strip.setPixelColorXY(start + wid_ - xX - 1, startY + hei_ - yY - 1, col);
       }
     }
   }
