@@ -27,7 +27,7 @@ var cfg = {
 	theme:{base:"dark", bg:{url:""}, alpha:{bg:0.6,tab:0.8}, color:{bg:""}},
 	comp :{colors:{picker: true, rgb: false, quick: true, hex: false},
           labels:true, pcmbot:false, pid:true, seglen:false, segpwr:false, segexp:true, 
-          css:true, hdays:false, fxdef:true} //WLEDMM segexp true as default
+          css:true, hdays:false, fxdef:true, fxdef2:false} //WLEDMM segexp true as default, fxdef2 added
 };
 var hol = [
 	[0,11,24,4,"https://aircoookie.github.io/xmas.png"], // christmas
@@ -2856,7 +2856,7 @@ function setFX(ind = null)
 	} else {
 		d.querySelector(`#fxlist input[name="fx"][value="${ind}"]`).checked = true;
 	}
-	var obj = {"seg": {"fx": parseInt(ind), "fxdef": cfg.comp.fxdef}}; // fxdef sets effect parameters to default values
+	var obj = {"seg": {"fx": parseInt(ind), "fxdef": cfg.comp.fxdef, "fxdef2": cfg.comp.fxdef2}}; // fxdef sets effect parameters to default values; WLEDMM fxdef2 only set slider defaults
 	requestJson(obj);
 }
 
