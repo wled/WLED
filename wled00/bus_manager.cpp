@@ -744,14 +744,18 @@ BusHub75Matrix::BusHub75Matrix(BusConfig &bc) : Bus(bc.type, bc.start, bc.autoWh
       return;
   }
   else {
+    USER_PRINTLN("MatrixPanel_I2S_DMA begin ok");
     delay(18);   // experiment - give the driver a moment (~ one full frame @ 60hz) to settle
     _valid = true;
     display->clearScreen();   // initially clear the screen buffer
+    USER_PRINTLN("MatrixPanel_I2S_DMA clear ok");
 
     if (_ledBuffer) free(_ledBuffer);                 // should not happen
     if (_ledsDirty) free(_ledsDirty);                 // should not happen
+    USER_PRINTLN("MatrixPanel_I2S_DMA allocate memory");
     _ledsDirty = (byte*) malloc(getBitArrayBytes(_len));  // create LEDs dirty bits
-
+   USER_PRINTLN("MatrixPanel_I2S_DMA allocate memory ok");
+   
     if (_ledsDirty == nullptr) {
       display->stopDMAoutput();
       delete display; display = nullptr;
