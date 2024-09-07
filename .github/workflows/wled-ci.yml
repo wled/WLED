@@ -61,13 +61,13 @@ jobs:
       env:
         WLED_RELEASE: True
       run: pio run -e ${{ matrix.environment }}
-    - uses: actions/upload-artifact@v2
+    - uses: actions/upload-artifact@v4
       with:
         name: firmware-${{ matrix.environment }}
         path: |
           build_output/firmware/*.bin
           build_output/firmware/*.gz
-    - uses: actions/upload-artifact@v2
+    - uses: actions/upload-artifact@v4
       if: startsWith(github.ref, 'refs/tags/')
       with:
         name: firmware-release
