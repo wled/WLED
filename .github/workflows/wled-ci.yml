@@ -83,7 +83,9 @@ jobs:
     steps:
     - uses: actions/download-artifact@v4
       with:
-        name: firmware-release
+        name: firmware-release-*
+    - name: List Artifacts
+      run: find ./
     - name: Create draft release
       uses: softprops/action-gh-release@v1
       with:
