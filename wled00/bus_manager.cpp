@@ -666,14 +666,6 @@ BusHub75Matrix::BusHub75Matrix(BusConfig &bc) : Bus(bc.type, bc.start, bc.autoWh
   mxconfig.gpio.d = 21;
   mxconfig.gpio.e = 12;
 
-  // mxconfig.double_buff = true; // <------------- Turn on double buffer
-  // mxconfig.driver = HUB75_I2S_CFG::ICN2038S;  // experimental - use specific shift register driver
-  //mxconfig.latch_blanking = 3;
-  // mxconfig.i2sspeed = HUB75_I2S_CFG::HZ_10M;  // experimental - 5MHZ should be enugh, but colours looks slightly better at 10MHz
-  //mxconfig.min_refresh_rate = 90;
-  //mxconfig.min_refresh_rate = 120;
-  // mxconfig.clkphase = false;  // can help in case that the leftmost column is invisible, or pixels on the right side "bleeds out" to the left.
-
 #else
   USER_PRINTLN("MatrixPanel_I2S_DMA - Default pins");
   /*
@@ -703,6 +695,15 @@ BusHub75Matrix::BusHub75Matrix(BusConfig &bc) : Bus(bc.type, bc.start, bc.autoWh
   mxconfig.gpio.e = 18;
 
 #endif
+
+  // mxconfig.double_buff = true; // <------------- Turn on double buffer
+  // mxconfig.driver = HUB75_I2S_CFG::ICN2038S;  // experimental - use specific shift register driver
+  //mxconfig.latch_blanking = 3;
+  // mxconfig.i2sspeed = HUB75_I2S_CFG::HZ_10M;  // experimental - 5MHZ should be enugh, but colours looks slightly better at 10MHz
+  //mxconfig.min_refresh_rate = 90;
+  //mxconfig.min_refresh_rate = 120;
+  mxconfig.clkphase = false;  // can help in case that the leftmost column is invisible, or pixels on the right side "bleeds out" to the left.
+
 
   mxconfig.chain_length = max((u_int8_t) 1, min(bc.pins[0], (u_int8_t) 4)); // prevent bad data preventing boot due to low memory
 
