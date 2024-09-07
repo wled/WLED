@@ -73,7 +73,7 @@ jobs:
     - uses: actions/upload-artifact@v4
       if: startsWith(github.ref, 'refs/tags/')
       with:
-        name: firmware-release
+        name: firmware-release-${{ matrix.environment }}
         path: build_output/release/*.bin
   release:
     name: Create Release
