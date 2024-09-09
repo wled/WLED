@@ -689,14 +689,6 @@ BusHub75Matrix::BusHub75Matrix(BusConfig &bc) : Bus(bc.type, bc.start, bc.autoWh
   mxconfig.gpio.d = 21;
   mxconfig.gpio.e = 12;
 
-  // mxconfig.double_buff = true; // <------------- Turn on double buffer
-  // mxconfig.driver = HUB75_I2S_CFG::ICN2038S;  // experimental - use specific shift register driver
-  //mxconfig.latch_blanking = 3;
-  // mxconfig.i2sspeed = HUB75_I2S_CFG::HZ_10M;  // experimental - 5MHZ should be enugh, but colours looks slightly better at 10MHz
-  //mxconfig.min_refresh_rate = 90;
-  //mxconfig.min_refresh_rate = 120;
-  // mxconfig.clkphase = false;  // can help in case that the leftmost column is invisible, or pixels on the right side "bleeds out" to the left.
-
 #else
   USER_PRINTLN("MatrixPanel_I2S_DMA - Default pins");
   /*
@@ -768,9 +760,11 @@ BusHub75Matrix::BusHub75Matrix(BusConfig &bc) : Bus(bc.type, bc.start, bc.autoWh
       return;
   }
   else {
+    USER_PRINTLN("MatrixPanel_I2S_DMA begin ok");
     delay(18);   // experiment - give the driver a moment (~ one full frame @ 60hz) to settle
     _valid = true;
     display->clearScreen();   // initially clear the screen buffer
+    USER_PRINTLN("MatrixPanel_I2S_DMA clear ok");
 
     if (_ledBuffer) free(_ledBuffer);                 // should not happen
     if (_ledsDirty) free(_ledsDirty);                 // should not happen

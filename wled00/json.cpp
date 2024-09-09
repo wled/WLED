@@ -302,7 +302,7 @@ bool deserializeSegment(JsonObject elem, byte it, byte presetId)
   // end fix
   if (getVal(elem["fx"], &fx, 0, last)) { //load effect ('r' random, '~' inc/dec, 0-255 exact value, 5~10r pick random between 5 & 10)
     if (!presetId && currentPlaylist>=0) unloadPlaylist();
-    if (fx != seg.mode) seg.setMode(fx, elem[F("fxdef")]);
+    if (fx != seg.mode) seg.setMode(fx, elem[F("fxdef")], elem[F("fxdef2")]); // WLEDMM fxdef2 added
   }
 
   //getVal also supports inc/decrementing and random

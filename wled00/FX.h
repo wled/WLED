@@ -594,7 +594,7 @@ typedef struct Segment {
     void    setCCT(uint16_t k);
     void    setOpacity(uint8_t o);
     void    setOption(uint8_t n, bool val);
-    void    setMode(uint8_t fx, bool loadDefaults = false);
+    void    setMode(uint8_t fx, bool loadDefaults = false, bool sliderDefaultsOnly = false);
     void    setPalette(uint8_t pal);
     uint8_t differs(Segment& b) const;
     void    refreshLightCapabilities(void);
