@@ -360,7 +360,7 @@ class BusHub75Matrix : public Bus {
   public:
     BusHub75Matrix(BusConfig &bc);
 
-    uint16_t getMaxPixels() const override { return 4096; };
+    uint16_t getMaxPixels() const override { return MAX_LEDS; };
 
     bool hasRGB() const override { return true; }
     bool hasWhite() const override { return false; }
