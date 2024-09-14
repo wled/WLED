@@ -7,11 +7,13 @@
 /*
  * color blend function
  */
-IRAM_ATTR_YN uint32_t color_blend(uint32_t color1, uint32_t color2, uint_fast16_t blend, bool b16) {
+IRAM_ATTR_YN __attribute__((hot)) uint32_t color_blend(uint32_t color1, uint32_t color2, uint_fast16_t blend, bool b16) {
   if(blend == 0)   return color1;
-  uint_fast16_t blendmax = b16 ? 0xFFFF : 0xFF;
+  if (color1 == color2) return color1;  // WLEDMM shortcut
+  const uint_fast16_t blendmax = b16 ? 0xFFFF : 0xFF;
   if(blend == blendmax) return color2;
   const uint_fast8_t shift = b16 ? 16 : 8;
+  const uint_fast16_t blend2 = blendmax - blend; // WLEDMM pre-calculate value
 
   uint32_t w1 = W(color1);
   uint32_t r1 = R(color1);
@@ -23,10 +25,10 @@ IRAM_ATTR_YN uint32_t color_blend(uint32_t color1, uint32_t color2, uint_fast16_
   uint32_t g2 = G(color2);
   uint32_t b2 = B(color2);
 
-  uint32_t w3 = ((w2 * blend) + (w1 * (blendmax - blend))) >> shift;
-  uint32_t r3 = ((r2 * blend) + (r1 * (blendmax - blend))) >> shift;
-  uint32_t g3 = ((g2 * blend) + (g1 * (blendmax - blend))) >> shift;
-  uint32_t b3 = ((b2 * blend) + (b1 * (blendmax - blend))) >> shift;
+  uint32_t w3 = ((w2 * blend) + (w1 * blend2)) >> shift;
+  uint32_t r3 = ((r2 * blend) + (r1 * blend2)) >> shift;
+  uint32_t g3 = ((g2 * blend) + (g1 * blend2)) >> shift;
+  uint32_t b3 = ((b2 * blend) + (b1 * blend2)) >> shift;
 
   return RGBW32(r3, g3, b3, w3);
 }
@@ -69,7 +71,7 @@ IRAM_ATTR_YN uint32_t color_add(uint32_t c1, uint32_t c2, bool fast)   // WLEDMM
  * if using "video" method the resulting color will never become black unless it is already black
  */
 
-IRAM_ATTR_YN uint32_t color_fade(uint32_t c1, uint8_t amount, bool video)
+IRAM_ATTR_YN __attribute__((hot)) uint32_t color_fade(uint32_t c1, uint8_t amount, bool video)
 {
   if (amount == 0) return 0; // WLEDMM shortcut
 
@@ -295,7 +297,7 @@ static float maxf (float v, float w)  // WLEDMM better use standard library fmax
 
 // adjust RGB values based on color temperature in K (range [2800-10200]) (https://en.wikipedia.org/wiki/Color_balance)
 // called from bus manager when color correction is enabled!
-uint32_t IRAM_ATTR_YN colorBalanceFromKelvin(uint16_t kelvin, uint32_t rgb)  // WLEDMM: IRAM_ATTR_YN
+uint32_t __attribute__((hot)) IRAM_ATTR_YN colorBalanceFromKelvin(uint16_t kelvin, uint32_t rgb)  // WLEDMM: IRAM_ATTR_YN
 {
   //remember so that slow colorKtoRGB() doesn't have to run for every setPixelColor()
   static byte correctionRGB[4] = {0,0,0,0};
@@ -404,12 +406,18 @@ static void calcInvGammaTable(float gamma)
     gammaTinv[i] = (int)(powf((float)i / 255.0f, gammaInv) * 255.0f + 0.5f);
   }
 }
-uint8_t unGamma8(uint8_t value) {
+uint8_t __attribute__((hot)) unGamma8(uint8_t value) {
   //if (!gammaCorrectCol || (value == 0) || (value == 255)) return value;
   if ((value == 0) || (value == 255)) return value;
   if ((gammaCorrectVal < 0.999f) || (gammaCorrectVal > 3.0f)) return value;
   if (gammaTinv[255] == 0) calcInvGammaTable(gammaCorrectVal);
   return gammaTinv[value];
+}
+
+uint32_t __attribute__((hot)) unGamma24(uint32_t c) {
+  if ((gammaCorrectVal < 0.999f) || (gammaCorrectVal > 3.0f)) return c;
+  if (gammaTinv[255] == 0) calcInvGammaTable(gammaCorrectVal);
+  return RGBW32(gammaTinv[R(c)], gammaTinv[G(c)], gammaTinv[B(c)], W(c));
 }
 // wleDMM end
 
@@ -430,13 +438,13 @@ void calcGammaTable(float gamma)
 }
 
 // used for individual channel or brightness gamma correction
-IRAM_ATTR_YN uint8_t gamma8(uint8_t b)   // WLEDMM added IRAM_ATTR_YN
+IRAM_ATTR_YN __attribute__((hot)) uint8_t gamma8(uint8_t b)   // WLEDMM added IRAM_ATTR_YN
 {
   return gammaT[b];
 }
 
 // used for color gamma correction
-uint32_t gamma32(uint32_t color)
+uint32_t __attribute__((hot)) gamma32(uint32_t color)
 {
   if (!gammaCorrectCol) return color;
   uint8_t w = W(color);

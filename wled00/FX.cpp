@@ -1,3 +1,4 @@
+/* Some portions of this code have other licenses, like GEQ 3D. Please review fully. */
 /*
   WS2812FX.cpp contains all effect methods
   Harm Aldick - 2016
@@ -79,6 +80,32 @@ static float mapf(float x, float in_min, float in_max, float out_min, float out_
   return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
 }
 
+// more accurate integer version of map() - based on map3() proposed in https://forum.arduino.cc/t/how-map-loses-precision-and-how-to-fix-it/371026/3
+// rounding instead of truncation, better handling of inverted ranges
+static long map2(long x, long in_min, long in_max, long out_min, long out_max)
+{
+  long out_range = out_max - out_min;
+  if (out_range > 0) out_range ++;
+  else if (out_range < 0) out_range --;
+  else return out_min; // output range is 0
+
+  long in_range = in_max - in_min;
+  if (in_range > 0) in_range++;
+  else if (in_range < 0) in_range --;
+  else return out_min; // input range is 0 - Result is actually infinity but long has no such thing. The least negative long is another choice.
+
+  return ((x - in_min) * out_range) / in_range + out_min;
+}
+
+
+static um_data_t* getAudioData() {
+  um_data_t *um_data;
+  if (!usermods.getUMData(&um_data, USERMOD_ID_AUDIOREACTIVE)) {
+    // add support for no audio
+    um_data = simulateSound(SEGMENT.soundSim);
+  }
+  return um_data;
+}
 // effect functions
 
 /*
@@ -1975,18 +2002,14 @@ uint16_t mode_partyjerk() {
   * step: pos
   */
 
-  um_data_t *um_data;
-  if (!usermods.getUMData(&um_data, USERMOD_ID_AUDIOREACTIVE)) {
-    // add support for no audio
-    um_data = simulateSound(SEGMENT.soundSim);
-  }
+  um_data_t *um_data = getAudioData();
   float   volumeSmth = *(float*)  um_data->u_data[0];
 
   SEGENV.aux0++;
   if (SEGENV.aux1 > 254) {
     SEGENV.aux1 = 0;
   }
-  if (SEGENV.aux0 > map(SEGMENT.custom1, 0, 255, 0, 14)) {
+  if (SEGENV.aux0 > map2(SEGMENT.custom1, 0, 255, 0, 14)) {
     SEGENV.aux0 = 0;
     SEGENV.aux1++;
   }
@@ -1995,7 +2018,7 @@ uint16_t mode_partyjerk() {
   uint16_t counter = 0;
 
   if (volumeSmth * 2 > (255 - SEGMENT.intensity)) {
-    speed = SEGMENT.speed * map(SEGMENT.custom2, 0, 255, 0, 100);
+    speed = SEGMENT.speed * map2(SEGMENT.custom2, 0, 255, 0, 100);
   } else {
     speed = SEGMENT.speed;
   };
@@ -2129,7 +2152,7 @@ uint16_t mode_fire_2012() {
 
       // Step 4.  Map from heat cells to LED colors
       for (int j = 0; j < SEGLEN; j++) {
-        SEGMENT.setPixelColor(indexToVStrip(j, stripNr), ColorFromPalette(SEGPALETTE, min(heat[j],byte(240)), 255, NOBLEND));
+        SEGMENT.setPixelColor(indexToVStrip(j, stripNr), ColorFromPalette(SEGPALETTE, min(heat[j], byte(240)), 255, NOBLEND));
       }
     }
   };
@@ -2137,14 +2160,19 @@ uint16_t mode_fire_2012() {
   for (int stripNr=0; stripNr<strips; stripNr++)
     virtualStrip::runStrip(stripNr, &heat[stripNr * SEGLEN], it);
 
-  if (SEGMENT.is2D()) SEGMENT.blur(32);
+  if (SEGMENT.is2D()) {
+    uint8_t blurAmount = SEGMENT.custom2 >> 2;
+    if (blurAmount > 48) blurAmount += blurAmount-48;             // extra blur when slider > 192  (bush burn)
+    if (blurAmount < 16) SEGMENT.blurCols(SEGMENT.custom2 >> 1);  // no side-burn when slider < 64 (faster)
+    else SEGMENT.blur(blurAmount);
+  }
 
   if (it != SEGENV.step)
     SEGENV.step = it;
 
   return FRAMETIME;
 }
-static const char _data_FX_MODE_FIRE_2012[] PROGMEM = "Fire 2012@Cooling,Spark rate,,,Boost;;!;1.5d;sx=64,ix=160,m12=1"; // bars WLEDMM 1.5d, 
+static const char _data_FX_MODE_FIRE_2012[] PROGMEM = "Fire 2012@Cooling,Spark rate,,2D Blur,Boost;;!;1.5d;sx=64,ix=160,c2=128,m12=1"; // bars WLEDMM 1.5d, 
 
 
 // ColorWavesWithPalettes by Mark Kriegsman: https://gist.github.com/kriegsman/8281905786e8b2632aeb
@@ -2551,7 +2579,7 @@ uint16_t ripple_base()
         uint16_t cx = rippleorigin >> 8;
         uint16_t cy = rippleorigin & 0xFF;
         uint8_t mag = scale8(sin8((propF>>2)), amp);
-        if (propI > 0) SEGMENT.draw_circle(cx, cy, propI, color_blend(SEGMENT.getPixelColorXY(cx + propI, cy), col, mag));
+        if (propI > 0) SEGMENT.drawCircle(cx, cy, propI, color_blend(SEGMENT.getPixelColorXY(cx + propI, cy), col, mag), true);
       } else
       #endif
       {
@@ -4768,7 +4796,7 @@ uint16_t mode_aurora(void) {
 
   if(SEGENV.aux0 != SEGMENT.intensity || SEGENV.call == 0) {
     //Intensity slider changed or first call
-    SEGENV.aux1 = map(SEGMENT.intensity, 0, 255, 2, W_MAX_COUNT);
+    SEGENV.aux1 = map2(SEGMENT.intensity, 0, 255, 2, W_MAX_COUNT);
     SEGENV.aux0 = SEGMENT.intensity;
 
     if(!SEGENV.allocateData(sizeof(AuroraWave) * SEGENV.aux1)) { // 26 on 32 segment ESP32, 9 on 16 segment ESP8266
@@ -4903,17 +4931,18 @@ uint16_t mode_2DBlackHole(void) {            // By: Stepko https://editor.soulma
   }
 
   SEGMENT.fadeToBlackBy(16 + (SEGMENT.speed>>3)); // create fading trails
-  unsigned long t = strip.now/128;                 // timebase
+  const unsigned long ratio = 128;                // rotation speed
+  unsigned long t = strip.now;                    // timebase
   // outer stars
-  for (size_t i = 0; i < 8; i++) {
-    x = beatsin8(SEGMENT.custom1>>3,   0, cols - 1, 0, ((i % 2) ? 128 : 0) + t * i);
-    y = beatsin8(SEGMENT.intensity>>3, 0, rows - 1, 0, ((i % 2) ? 192 : 64) + t * i);
+  for (unsigned i = 0; i < 8; i++) {
+    x = beatsin8(SEGMENT.custom1>>3,   0, cols - 1, 0, ((i % 2) ? 128 : 0) + (t * i)/ratio);
+    y = beatsin8(SEGMENT.intensity>>3, 0, rows - 1, 0, ((i % 2) ? 192 : 64) + (t * i)/ratio);
     SEGMENT.addPixelColorXY(x, y, CHSV(i*32, 255, 255));
   }
   // inner stars
   for (size_t i = 0; i < 4; i++) {
-    x = beatsin8(SEGMENT.custom2>>3, cols/4, cols - 1 - cols/4, 0, ((i % 2) ? 128 : 0) + t * i);
-    y = beatsin8(SEGMENT.custom3   , rows/4, rows - 1 - rows/4, 0, ((i % 2) ? 192 : 64) + t * i);
+    x = beatsin8(SEGMENT.custom2>>3, cols/4, cols - 1 - cols/4, 0, ((i % 2) ? 128 : 0) + (t * i)/ratio);
+    y = beatsin8(SEGMENT.custom3   , rows/4, rows - 1 - rows/4, 0, ((i % 2) ? 192 : 64) + (t * i)/ratio);
     SEGMENT.addPixelColorXY(x, y, CHSV(i*32, 255, 255));
   }
   // central white dot
@@ -5164,66 +5193,60 @@ static void setBitValue(uint8_t* byteArray, size_t n, bool value) {
     else
         byteArray[byteIndex] &= ~(1 << bitIndex);
 }
-// create game of life struct to hold cells and future cells
-struct gameOfLife {
-  uint8_t* cells;
-  uint8_t* futureCells;
-  uint8_t gliderLength;
-  uint16_t oscillatorCRC;
-  uint16_t spaceshipCRC;
-};
+
 uint16_t mode_2Dgameoflife(void) { // Written by Ewoud Wijma, inspired by https://natureofcode.com/book/chapter-7-cellular-automata/ 
                                    // and https://github.com/DougHaber/nlife-color , Modified By: Brandon Butler
   if (!strip.isMatrix) return mode_static(); // not a 2D set-up
 
   const uint16_t cols = SEGMENT.virtualWidth();
   const uint16_t rows = SEGMENT.virtualHeight();
-  const size_t dataSize = (SEGMENT.length() / 8) + (((SEGMENT.length() % 8) != 0) ? 1 : 0); // add one byte when extra bits needed (length not a multiple of 8)
-  const size_t totalSize = dataSize*2 + sizeof(gameOfLife);
+  const size_t dataSize = ((SEGMENT.length() + 7) / 8); // round up to nearest byte
+  const size_t detectionSize =  sizeof(uint16_t) * 3 + 1; // 2 CRCs, gliderLength, soloGlider boolean
+  const size_t totalSize = dataSize * 2 + detectionSize + sizeof(uint8_t); // detectionSize + prevPalette
 
   if (!SEGENV.allocateData(totalSize)) return mode_static(); //allocation failed
-  gameOfLife* gol = reinterpret_cast<gameOfLife*>(SEGENV.data);
+  byte     *cells         = reinterpret_cast<byte*>(SEGENV.data);
+  byte     *futureCells   = reinterpret_cast<byte*>(SEGENV.data + dataSize);
+  uint16_t *gliderLength  = reinterpret_cast<uint16_t*>(SEGENV.data + dataSize * 2);
+  uint16_t *oscillatorCRC = reinterpret_cast<uint16_t*>(SEGENV.data + dataSize * 2 + sizeof(uint16_t));
+  uint16_t *spaceshipCRC  = reinterpret_cast<uint16_t*>(SEGENV.data + dataSize * 2 + sizeof(uint16_t) * 2);
+  bool     *soloGlider    = reinterpret_cast<bool*>(SEGENV.data + dataSize * 2 + sizeof(uint16_t) * 3);
+  uint8_t  *prevPalette   = reinterpret_cast<uint8_t*>(SEGENV.data + dataSize * 2 + detectionSize);
 
-  if (gol->cells == nullptr) {
-    gol->cells = new uint8_t[dataSize];
-    gol->futureCells = new uint8_t[dataSize];
-  }
-
-  uint16_t &generation = SEGENV.aux0; //rename aux0 and aux1 for readability (not needed)
-  uint16_t &pauseFrames = SEGENV.aux1;
-  CRGB backgroundColor = SEGCOLOR(1);
-  CRGB color;
+  uint16_t &generation   = SEGENV.aux0; //Rename SEGENV/SEGMENT variables for readability
+  bool allColors   = SEGMENT.check1;
+  bool overlayBG   = SEGMENT.check2;
+  bool wrap        = SEGMENT.check3;
+  bool bgBlendMode = SEGMENT.custom1 > 220 && !overlayBG; // if blur is high and not overlaying, use bg blend mode
+  byte blur        = bgBlendMode ? map2(SEGMENT.custom1 - 220, 0, 35, 255, 128) : map2(SEGMENT.custom1, 0, 255, 255, 0);
+  uint32_t bgColor = SEGCOLOR(1);
+  uint32_t color   = allColors ? random16() * random16() : SEGMENT.color_from_palette(0, false, PALETTE_SOLID_WRAP, 0);
 
   if (SEGENV.call == 0) {
     SEGMENT.setUpLeds();
     SEGMENT.fill(BLACK); // to make sure that segment buffer and physical leds are aligned initially
   }
-  //start new game of life
-  if ((SEGENV.call == 0 || generation == 0) && pauseFrames == 0) {
-    SEGENV.step = strip.now; // .step = previous call time
+  // Setup New Game of Life
+  if ((SEGENV.call == 0 || generation == 0) && SEGENV.step < strip.now) {
+    SEGENV.step = strip.now + 1250; // show initial state for 1.25 seconds
     generation = 1;
-    pauseFrames = 75; // show initial state for longer
+    *prevPalette = SEGMENT.palette;
     random16_set_seed(strip.now>>2); //seed the random generator
     //Setup Grid
-    for (int x = 0; x < cols; x++) for (int y = 0; y < rows; y++) {
-      uint8_t state = (random8() < 82) ? 1 : 0; // ~32% chance of being alive
-      if (state == 0) {
-        setBitValue(gol->cells, y * cols + x, false);
-        setBitValue(gol->futureCells, y * cols + x, false);
-        if (SEGMENT.check2) continue;
-        SEGMENT.setPixelColorXY(x,y, !SEGMENT.check1?backgroundColor : RGBW32(backgroundColor.r, backgroundColor.g, backgroundColor.b, 0));
-      }
-      else {
-        setBitValue(gol->cells, y * cols + x, true);
-        setBitValue(gol->futureCells, y * cols + x, true);
-        color = SEGMENT.color_from_palette(random8(), false, PALETTE_SOLID_WRAP, 0);
-        SEGMENT.setPixelColorXY(x,y,!SEGMENT.check1?color : RGBW32(color.r, color.g, color.b, 0));
+    memset(cells, 0, dataSize);
+    for (unsigned x = 0; x < cols; x++) for (unsigned y = 0; y < rows; y++) {
+      if (random8(100) < 32) { // ~32% chance of being alive
+        setBitValue(cells, y * cols + x, true);
+        if (overlayBG) SEGMENT.setPixelColorXY(x,y, allColors ? random16() * random16() : SEGMENT.color_from_palette(random8(), false, PALETTE_SOLID_WRAP, 0));
+        else           SEGMENT.setPixelColorXY(x,y, bgColor); // Initial color set in redraw loop
       }
     }
+    memcpy(futureCells, cells, dataSize); 
 
-    //Clear CRCs
-    gol->oscillatorCRC = 0;
-    gol->spaceshipCRC = 0;
+    //Set CRCs
+    uint16_t crc = crc16((const unsigned char*)cells, dataSize);
+    *oscillatorCRC = crc;
+    *spaceshipCRC  = crc;
 
     //Calculate glider length LCM(rows,cols)*4
     uint8_t a = rows;
@@ -5233,108 +5256,125 @@ uint16_t mode_2Dgameoflife(void) { // Written by Ewoud Wijma, inspired by https:
       b = a % b;
       a = t;
     }
-    gol->gliderLength = cols * rows / a * 4;
-    return FRAMETIME;
+    *gliderLength = cols * rows / a * 4;
   }
-  //Redraw immediately if overlay to avoid flicker
-  if (SEGMENT.check2) {
-    for (int x = 0; x < cols; x++) for (int y = 0; y < rows; y++) {
-      //redraw foreground/alive
-      if (getBitValue(gol->cells, y * cols + x)) {
-        color = SEGMENT.getPixelColorXY(x,y);
-        SEGMENT.setPixelColorXY(x,y, !SEGMENT.check1?color : RGBW32(color.r, color.g, color.b, 0));
-      }
-    }
-  }
-  if (pauseFrames || strip.now - SEGENV.step < FRAMETIME_FIXED * (uint32_t)map(SEGMENT.speed,0,255,64,2)) {
-    if(pauseFrames) pauseFrames--;
-    return FRAMETIME; //skip if not enough time has passed
-  }
-  //Update Game of Life
-  bool cellChanged = false; // Detect still live and dead grids
-  //cell index and coordinates
-  uint16_t cIndex;
-  uint16_t cX;
-  uint16_t cY;
-  //Loop through all cells. Count neighbors, apply rules, setPixel
-  for (int x = 0; x < cols; x++) for (int y = 0; y < rows; y++) {
-    byte neighbors = 0;
-    byte colorCount = 0; //track number of valid colors
-    CRGB nColors[3]; // track 3 colors, dying cells may overwrite but this wont be used
 
-    for (int i = -1; i <= 1; i++) for (int j = -1; j <= 1; j++) { // iterate through 3*3 matrix
-      if (i==0 && j==0) continue; // ignore itself
-      if (!SEGMENT.check3 || generation % 1500 == 0) { //no wrap disable wrap every 1500 generations to prevent undetected repeats
-        cX = x+i;
-        cY = y+j;
-        if (cX < 0 || cY < 0 || cX >= cols || cY >= rows) continue; //skip if out of bounds
-      } else { //wrap around
-        cX = (x+i+cols) % cols;
-        cY = (y+j+rows) % rows;
+  bool blurDead   = SEGENV.step > strip.now && blur !=255 && !bgBlendMode && !overlayBG;
+  bool palChanged = SEGMENT.palette != *prevPalette && !allColors;
+  bool newGame    = generation == 1;
+  if (palChanged) *prevPalette = SEGMENT.palette;
+
+  // Redraw Loop
+  // Redraw if paused (remove blur), palette changed, overlaying background (avoid flicker) 
+  // Generation 1 draws alive cells randomly and fades dead cells
+  if (blurDead || newGame || palChanged || overlayBG) {
+    for (unsigned x = 0; x < cols; x++) for (unsigned y = 0; y < rows; y++) {
+      unsigned cIndex = y * cols + x;
+      uint32_t cellColor = SEGMENT.getPixelColorXY(x,y);
+      bool     alive = getBitValue(cells, cIndex);
+      bool     aliveBgColor = (!overlayBG && alive && newGame && cellColor == bgColor );
+
+      if      ( alive && (palChanged || (aliveBgColor && !random(12)))) { // Palette change or spawn initial colors randomly
+        uint32_t randomColor = allColors ? random16() * random16() : SEGMENT.color_from_palette(random8(), false, PALETTE_SOLID_WRAP, 0);
+        SEGMENT.setPixelColorXY(x,y, randomColor); // Recolor alive cells
       }
-      cIndex = cY * cols + cX;
-      // count neighbors and store upto 3 neighbor colors
-      if (getBitValue(gol->cells, cIndex)) { //if alive
-        neighbors++;
-        color = SEGMENT.getPixelColorXY(cX, cY);
-        if (color == backgroundColor) continue; //parent just died, color lost
-        nColors[colorCount%3] = color;
-        colorCount++;
+      else if ( alive && overlayBG  && !aliveBgColor)   SEGMENT.setPixelColorXY(x,y, cellColor);                            // Redraw alive cells for overlayBG
+      if      (!alive && palChanged && !overlayBG)      SEGMENT.setPixelColorXY(x,y, bgColor);                              // Remove blurred cells from previous palette
+      else if (!alive && blurDead)                      SEGMENT.setPixelColorXY(x,y, color_blend(cellColor, bgColor, blur));// Blur dead cells (paused)
+      else if (!alive && !overlayBG && generation == 1) SEGMENT.setPixelColorXY(x,y, color_blend(cellColor, bgColor, 16));  // Fade dead cells on generation 1
+    }
+  }
+  
+  if (!SEGMENT.speed || SEGENV.step > strip.now || (SEGMENT.speed != 255 && strip.now - SEGENV.step < 1000 / map2(SEGMENT.speed,0,254,0,60))) return FRAMETIME; //(0 - 60) updates/sec 255 is uncapped
+  
+  //Update Game of Life
+  unsigned aliveCount = 0; // Detects dead grids and solo gliders
+  bool disableWrap = !wrap || (generation % 1500 == 0 || *soloGlider); // Disable wrap every 1500 generations to prevent undetected repeats
+  //Loop through all cells. Count neighbors, apply rules, setPixel
+  for (unsigned x = 0; x < cols; x++) for (unsigned y = 0; y < rows; y++) {
+    unsigned cIndex = y * cols + x;
+    bool     cellValue = getBitValue(cells, cIndex);
+    uint32_t cellColor = SEGMENT.getPixelColorXY(x, y);
+    if (cellValue) aliveCount++;
+
+    unsigned neighbors = 0, colorCount = 0;
+    unsigned neighborIndexes[3];
+
+    // Count neighbors and store indexes, get neighbor colors later if needed
+    for (int i = -1; i <= 1; i++) for (int j = -1; j <= 1; j++) { // Iterate through all neighbors
+      if (i == 0 && j == 0) continue;                             // Ignore self
+      if (i == 1 && j == 0 && !cellValue && !neighbors) break;    // Cell can't be born with no neighbors and 2 remaining checks
+      int nX = x + i;
+      int nY = y + j;
+      if      (nX < 0)     {if (disableWrap) continue; nX = cols - 1;} 
+      else if (nX >= cols) {if (disableWrap) continue; nX = 0;}
+      if      (nY < 0)     {if (disableWrap) continue; nY = rows - 1;} 
+      else if (nY >= rows) {if (disableWrap) continue; nY = 0;}
+
+      unsigned nIndex = nY * cols + nX; // Neighbor cell index
+      if (getBitValue(cells, nIndex)) {
+        ++neighbors;
+        if (neighbors > 3) break;                // Cell dies, stop neighbor loop
+        neighborIndexes[neighbors - 1] = nIndex; // Store alive neighbor index
       }
     }
+
+    if (!cellValue && neighbors != 3 && cellColor == bgColor) continue; // Skip dead cells with no neighbors and no color
 
     // Rules of Life
-    bool cellValue = getBitValue(gol->cells, y * cols + x);
-    if ((cellValue) && (neighbors < 2 || neighbors > 3)) {
-      // Loneliness or overpopulation
-      cellChanged = true;
-      setBitValue(gol->futureCells, y * cols + x, false);
-      if (!SEGMENT.check2) SEGMENT.setPixelColorXY(x,y, !SEGMENT.check1?backgroundColor : RGBW32(backgroundColor.r, backgroundColor.g, backgroundColor.b, 0));
+    if (cellValue && (neighbors < 2 || neighbors > 3)) {
+      // Loneliness or Overpopulation
+      setBitValue(futureCells, cIndex, false);
+      if (!overlayBG) SEGMENT.setPixelColorXY(x,y, color_blend(cellColor, bgColor, blur));
     } 
-    else if (!(cellValue) && (neighbors == 3)) { 
+    else if (neighbors == 3 && !cellValue) { 
       // Reproduction
-      setBitValue(gol->futureCells, y * cols + x, true);
-      cellChanged = true;
-      // find dominant color and assign it to a cell
-      // no longer storing colors, if parent dies the color is lost
-      CRGB dominantColor;
-      if (colorCount == 3) { //All parents survived
-        if ((nColors[0] == nColors[1]) || (nColors[0] == nColors[2])) dominantColor = nColors[0];
-        else if (nColors[1] == nColors[2]) dominantColor = nColors[1];
-        else dominantColor = nColors[random8()%3];
+      // Get Colors
+      uint32_t nColors[3];
+      for (int i = 0; i < 3; i++) {
+        unsigned nIndex = neighborIndexes[i];
+        if (!getBitValue(futureCells, nIndex)) continue; // Parent just died, color lost or blended
+        uint32_t nColor = SEGMENT.getPixelColorXY(nIndex % cols, nIndex / cols);
+        if (nColor == bgColor) continue;
+        color = nColor; // Update last seen color
+        nColors[colorCount++] = nColor;
+        
       }
-      else if (colorCount == 2) dominantColor = nColors[random8()%2]; // 1 leading parent died
-      else if (colorCount == 1) dominantColor = nColors[0]; // 2 leading parents died
-      else dominantColor = color; // all parents died last used color
-      // mutate color chance
-      if (random8() < SEGMENT.intensity) dominantColor = !SEGMENT.check1?SEGMENT.color_from_palette(random8(), false, PALETTE_SOLID_WRAP, 0): random16()*random16();
-
-      if (SEGMENT.check1) dominantColor = RGBW32(dominantColor.r, dominantColor.g, dominantColor.b, 0); //WLEDMM support all colors
-      SEGMENT.setPixelColorXY(x,y, dominantColor);
-    } 
+      setBitValue(futureCells, cIndex, true);
+      uint32_t birthColor = colorCount ? nColors[random8(colorCount)] : color; // Uses last seen color if no surviving neighbors
+      // Mutate color chance
+      if (random8() < SEGMENT.intensity) birthColor = allColors ? random16() * random16() : SEGMENT.color_from_palette(random8(), false, PALETTE_SOLID_WRAP, 0);
+      SEGMENT.setPixelColorXY(x,y, birthColor);
+    }
+    else { // Blur dead cells and redraw alive cells
+      if      (cellValue) SEGMENT.setPixelColorXY(x, y, cellColor == bgColor ? color : cellColor); // Redraw alive, fixes fading cells
+      else if (blur != 255 && !overlayBG && !bgBlendMode) SEGMENT.setPixelColorXY(x, y, color_blend(cellColor, bgColor, blur));
+    }
+    
   }
   //update cell values
-  memcpy(gol->cells, gol->futureCells, dataSize);
+  memcpy(cells, futureCells, dataSize);
 
   // Get current crc value
-  uint16_t crc = crc16((const unsigned char*)gol->cells, dataSize);
+  uint16_t crc = crc16((const unsigned char*)cells, dataSize);
 
   bool repetition = false;
-  if (!cellChanged || crc == gol->oscillatorCRC || crc == gol->spaceshipCRC) repetition = true; //check if cell changed this gen and compare previous stored crc values
+  if (!aliveCount || crc == *oscillatorCRC || crc == *spaceshipCRC) repetition = true; //check if cell changed this gen and compare previous stored crc values
   if (repetition) {
-    generation = 0; // reset on next call
-    pauseFrames = 50;
+    generation = 0;      // reset on next call
+    SEGENV.step += 1000; // pause final generation for 1 second
     return FRAMETIME;
   }
   // Update CRC values
-  if (generation % 16 == 0) gol->oscillatorCRC = crc;
-  if (generation % gol->gliderLength == 0) gol->spaceshipCRC = crc;
+  if (generation % 16 == 0) *oscillatorCRC = crc;
+  if (*gliderLength && generation % *gliderLength == 0) *spaceshipCRC = crc;
+  if (aliveCount == 5) *soloGlider = true; else *soloGlider = false;
 
   generation++;
   SEGENV.step = strip.now;
   return FRAMETIME;
 } // mode_2Dgameoflife()
-static const char _data_FX_MODE_2DGAMEOFLIFE[] PROGMEM = "Game Of Life@!,Color Mutation ☾,,,,All Colors ☾,Overlay ☾,Wrap ☾,;!,!;!;2;sx=200,ix=12,c1=0,o3=1"; 
+static const char _data_FX_MODE_2DGAMEOFLIFE[] PROGMEM = "Game Of Life@!,Color Mutation ☾,Blur ☾,,,All Colors ☾,Overlay BG ☾,Wrap ☾,;!,!;!;2;sx=56,ix=2,c1=128,o1=0,o2=0,o3=1"; 
 
 /////////////////////////
 //     2D Hiphotic     //
@@ -5736,7 +5776,7 @@ uint16_t mode_2DPolarLights(void) {        // By: Kostyantyn Matviyevskyy  https
   }
 
   float adjustHeight = mapf(rows, 8, maxRows, 28, minScale); // maybe use mapf() ??? // WLEDMM yes!  
-  uint16_t adjScale = map(cols, 8, 64, 310, 63);
+  uint16_t adjScale = map2(cols, 8, 64, 310, 63);
 
   adjustHeight = max(min(adjustHeight, 28.0f), minScale);     // WLEDMM bugfix for larger fixtures
   adjScale = max(min(adjScale, uint16_t(310)), uint16_t(63)); // WLEDMM
@@ -5755,8 +5795,8 @@ uint16_t mode_2DPolarLights(void) {        // By: Kostyantyn Matviyevskyy  https
     }
   }
 */
-  uint16_t _scale = map(SEGMENT.intensity, 0, 255, 30, adjScale);
-  byte _speed = map(SEGMENT.speed, 0, 255, 128, 16);
+  uint16_t _scale = map2(SEGMENT.intensity, 0, 255, 30, adjScale);
+  byte _speed = map2(SEGMENT.speed, 0, 255, 128, 16);
 
   //WLEDMM add SuperSync control
   uint16_t xStart, xEnd, yStart, yEnd;
@@ -6240,6 +6280,10 @@ uint16_t mode_2Dfloatingblobs(void) {
   }
 
   SEGMENT.fadeToBlackBy(20);
+  bool drawAA = (SEGMENT.custom1 > 0) && (SEGMENT.custom1 < 6); //WLEDMM
+  const uint16_t minDim = min(cols, rows); // WLEDMM use smaller dimension to find good blob size
+  float max_grow = min(minDim/4.f,2.f);
+  if (minDim>=24) max_grow =(minDim/8.0f);   // WLEDMM allow bigger blobs
 
   // Bounce balls around
   for (size_t i = 0; i < Amount; i++) {
@@ -6248,19 +6292,19 @@ uint16_t mode_2Dfloatingblobs(void) {
     if (blob->grow[i]) {
       // enlarge radius until it is >= 4
       blob->r[i] += (fabsf(blob->sX[i]) > fabsf(blob->sY[i]) ? fabsf(blob->sX[i]) : fabsf(blob->sY[i])) * 0.05f;
-      if (blob->r[i] >= min(cols/4.f,2.f)) {
+      if (blob->r[i] >= max_grow) {
         blob->grow[i] = false;
       }
     } else {
       // reduce radius until it is < 1
       blob->r[i] -= (fabsf(blob->sX[i]) > fabsf(blob->sY[i]) ? fabsf(blob->sX[i]) : fabsf(blob->sY[i])) * 0.05f;
-      if (blob->r[i] < 1.f) {
+      if (blob->r[i] < 0.8f) {
         blob->grow[i] = true;
       }
     }
     uint32_t c = SEGMENT.color_from_palette(blob->color[i], false, false, 0);
-    if (blob->r[i] > 1.f) SEGMENT.fill_circle(blob->x[i], blob->y[i], roundf(blob->r[i]), c);
-    else                  SEGMENT.setPixelColorXY(blob->x[i], blob->y[i], c);
+    if (blob->r[i] > 1.f) SEGMENT.fillCircle(roundf(blob->x[i]), roundf(blob->y[i]), roundf(blob->r[i]), c, drawAA);
+    else                  SEGMENT.setPixelColorXY((int)roundf(blob->x[i]), (int)roundf(blob->y[i]), c);
     // move x
     if (blob->x[i] + blob->r[i] >= cols - 1) blob->x[i] += (blob->sX[i] * ((cols - 1 - blob->x[i]) / blob->r[i] + 0.005f));
     else if (blob->x[i] - blob->r[i] <= 0)   blob->x[i] += (blob->sX[i] * (blob->x[i] / blob->r[i] + 0.005f));
@@ -6345,7 +6389,7 @@ uint16_t mode_2Dscrollingtext(void) {
     else if (!strncmp_P(text,PSTR("#HH"),3))   sprintf_P(text, zero?PSTR("%02d")          :PSTR("%d"),         AmPmHour);
     else if (!strncmp_P(text,PSTR("#MM"),3))   sprintf_P(text, zero?PSTR("%02d")          :PSTR("%d"),        minute(localTime));
     else if (!strncmp_P(text,PSTR("#FPS"),4)) sprintf_P(text, PSTR("%2d"), (int) strip.getFps());                     // WLEDMM
-    else if (!strncmp_P(text,PSTR("#POW"),4)) sprintf_P(text, PSTR("%3.2fA"), float(strip.currentMilliamps)/1000.0f); // WLEDMM
+    else if ((!strncmp_P(text,PSTR("#AMP"),4)) || (!strncmp_P(text,PSTR("#POW"),4))) sprintf_P(text, PSTR("%3.2fA"), float(strip.currentMilliamps)/1000.0f); // WLEDMM
     else sprintf_P(text, PSTR("%s %d, %d %d:%02d%s"), monthShortStr(month(localTime)), day(localTime), year(localTime), AmPmHour, minute(localTime), sec);
   }
   const int numberOfLetters = strlen(text);
@@ -6427,6 +6471,10 @@ static const char _data_FX_MODE_2DDRIFTROSE[] PROGMEM = "Drift Rose@Fade,Blur;;;
     volumeSmth    = *(float*)   um_data->u_data[0];
     volumeRaw     = *(int16_t*) um_data->u_data[1];
     fftResult     =  (uint8_t*) um_data->u_data[2];
+or
+    uint8_t fftResult[NUM_GEQ_CHANNELS] = {0};
+    if (um_data->u_data != nullptr) memcpy(fftResult, um_data->u_data[2], sizeof(fftResult));  // WLEDMM to buffer curent values
+
     samplePeak    = *(uint8_t*) um_data->u_data[3];
     FFT_MajorPeak = *(float*)   um_data->u_data[4];
     my_magnitude  = *(float*)   um_data->u_data[5];
@@ -6443,6 +6491,8 @@ static const char _data_FX_MODE_2DDRIFTROSE[] PROGMEM = "Drift Rose@Fade,Blur;;;
 
 
 // a few constants needed for AudioReactive effects
+
+#define NUM_GEQ_CHANNELS 16                                           // number of audioreactive frequency channels.
 
 // for 22Khz sampling
 #define MIN_FREQUENCY   80             // 80 HZ - due to lower resolution
@@ -6473,11 +6523,7 @@ uint16_t mode_ripplepeak(void) {                // * Ripple peak. By Andrew Tuli
   if (!SEGENV.allocateData(dataSize)) return mode_static(); //allocation failed
   Ripple* ripples = reinterpret_cast<Ripple*>(SEGENV.data);
 
-  um_data_t *um_data;
-  if (!usermods.getUMData(&um_data, USERMOD_ID_AUDIOREACTIVE)) {
-    // add support for no audio
-    um_data = simulateSound(SEGMENT.soundSim);
-  }
+  um_data_t *um_data = getAudioData();
   uint8_t samplePeak    = *(uint8_t*)um_data->u_data[3];
   #ifdef ESP32
   float   FFT_MajorPeak = *(float*)  um_data->u_data[4];
@@ -6573,11 +6619,7 @@ uint16_t mode_2DSwirl(void) {
   uint8_t nj = (cols - 1) - j;
   uint16_t ms = strip.now;
 
-  um_data_t *um_data;
-  if (!usermods.getUMData(&um_data, USERMOD_ID_AUDIOREACTIVE)) {
-    // add support for no audio
-    um_data = simulateSound(SEGMENT.soundSim);
-  }
+  um_data_t *um_data = getAudioData();
   float   volumeSmth  = *(float*)   um_data->u_data[0]; //ewowi: use instead of sampleAvg???
   int16_t volumeRaw   = *(int16_t*) um_data->u_data[1];
 
@@ -6610,11 +6652,7 @@ uint16_t mode_2DWaverly(void) {
     SEGMENT.fill(BLACK);
   }
 
-  um_data_t *um_data;
-  if (!usermods.getUMData(&um_data, USERMOD_ID_AUDIOREACTIVE)) {
-    // add support for no audio
-    um_data = simulateSound(SEGMENT.soundSim);
-  }
+  um_data_t *um_data = getAudioData();
   float   volumeSmth  = *(float*)   um_data->u_data[0];
   float soundPressure = *(float*)   um_data->u_data[9];
   float agcSensitivity= *(float*)   um_data->u_data[10];
@@ -6626,20 +6664,26 @@ uint16_t mode_2DWaverly(void) {
 
   long t = strip.now / 2;
   for (int i = 0; i < cols; i++) {
-    uint16_t thisVal = volumeSmth*SEGMENT.intensity/64 * inoise8(i * 45 , t , t)/64;      // WLEDMM back to SR code
-    uint16_t thisMax = map(thisVal, 0, 512, 0, rows);
+    //uint16_t thisVal = volumeSmth*SEGMENT.intensity/64 * inoise8(i * 45 , t , t)/64;      // WLEDMM back to SR code
+    unsigned thisVal = unsigned(volumeSmth*SEGMENT.intensity) * inoise8(i * 45 , t , t) / (64*64);      // WLEDMM same result but more accurate
 
-    for (int j = 0; j < thisMax; j++) {
+    //int thisMax = map(thisVal, 0, 512, 0, rows);
+    int thisMax = (thisVal * rows) / 512;     // WLEDMM same result, just faster
+    int thisMax2 = min(int(rows), thisMax);   // WLEDMM limit height to visible are
+
+    for (int j = 0; j < thisMax2; j++) {
+      //int jmap = map(j, 0, thisMax, 250, 0); 
+      int jmap = 250 - ((j * 250) / thisMax);    // WLEDMM same result, just faster
       if (!SEGENV.check1)
-        SEGMENT.addPixelColorXY(i, j, ColorFromPalette(SEGPALETTE, map(j, 0, thisMax, 250, 0), 255, LINEARBLEND));
-      SEGMENT.addPixelColorXY((cols - 1) - i, (rows - 1) - j, ColorFromPalette(SEGPALETTE, map(j, 0, thisMax, 250, 0), 255, LINEARBLEND));
+        SEGMENT.addPixelColorXY(i, j, ColorFromPalette(SEGPALETTE, jmap, 255, LINEARBLEND));
+      SEGMENT.addPixelColorXY((cols - 1) - i, (rows - 1) - j, ColorFromPalette(SEGPALETTE, jmap, 255, LINEARBLEND));
     }
   }
   SEGMENT.blur(16);
 
   return FRAMETIME;
 } // mode_2DWaverly()
-static const char _data_FX_MODE_2DWAVERLY[] PROGMEM = "Waverly ☾@Amplification,Sensitivity,,,,No Clouds,Sound Pressure,AGC debug;;!;2v;ix=64,si=0"; // Beatsin
+static const char _data_FX_MODE_2DWAVERLY[] PROGMEM = "Waverly ☾@Fade Rate,Amplification,,,,No Clouds,Sound Pressure,AGC debug;;!;2v;ix=64,si=0"; // Beatsin
 
 #endif // WLED_DISABLE_2D
 
@@ -6662,11 +6706,7 @@ uint16_t mode_gravcenter(void) {                // Gravcenter. By Andrew Tuline.
     SEGMENT.fill(BLACK);
   }
 
-  um_data_t *um_data;
-  if (!usermods.getUMData(&um_data, USERMOD_ID_AUDIOREACTIVE)) {
-    // add support for no audio
-    um_data = simulateSound(SEGMENT.soundSim);
-  }
+  um_data_t *um_data = getAudioData();
   float   volumeSmth  = *(float*)  um_data->u_data[0];
 
   //SEGMENT.fade_out(240);
@@ -6714,11 +6754,7 @@ uint16_t mode_gravcentric(void) {                     // Gravcentric. By Andrew 
     SEGMENT.fill(BLACK);
   }
 
-  um_data_t *um_data;
-  if (!usermods.getUMData(&um_data, USERMOD_ID_AUDIOREACTIVE)) {
-    // add support for no audio
-    um_data = simulateSound(SEGMENT.soundSim);
-  }
+  um_data_t *um_data = getAudioData();
   float   volumeSmth  = *(float*)  um_data->u_data[0];
 
   // printUmData();
@@ -6765,11 +6801,7 @@ uint16_t mode_gravimeter(void) {                // Gravmeter. By Andrew Tuline.
   if (!SEGENV.allocateData(dataSize)) return mode_static(); //allocation failed
   Gravity* gravcen = reinterpret_cast<Gravity*>(SEGENV.data);
 
-  um_data_t *um_data;
-  if (!usermods.getUMData(&um_data, USERMOD_ID_AUDIOREACTIVE)) {
-    // add support for no audio
-    um_data = simulateSound(SEGMENT.soundSim);
-  }
+  um_data_t *um_data = getAudioData();
   float   volumeSmth  = *(float*)  um_data->u_data[0];
   // int16_t volumeRaw   = *(int16_t*)um_data->u_data[1]; //WLEDMM: this variable not used here
   float soundPressure = *(float*)  um_data->u_data[9];
@@ -6842,11 +6874,7 @@ static const char _data_FX_MODE_GRAVIMETER[] PROGMEM = "Gravimeter ☾@Rate of f
 //   * JUGGLES      //
 //////////////////////
 uint16_t mode_juggles(void) {                   // Juggles. By Andrew Tuline.
-  um_data_t *um_data;
-  if (!usermods.getUMData(&um_data, USERMOD_ID_AUDIOREACTIVE)) {
-    // add support for no audio
-    um_data = simulateSound(SEGMENT.soundSim);
-  }
+  um_data_t *um_data = getAudioData();
   float   volumeSmth   = *(float*)  um_data->u_data[0];
   if (SEGENV.call == 0) {SEGENV.setUpLeds(); SEGMENT.fill(BLACK);}   // WLEDMM use lossless getPixelColor()
 
@@ -6869,11 +6897,7 @@ static const char _data_FX_MODE_JUGGLES[] PROGMEM = "Juggles@!,# of balls;!,!;!;
 uint16_t mode_matripix(void) {                  // Matripix. By Andrew Tuline. With some enhancements by @softhack007
   // even with 1D effect we have to take logic for 2D segments for allocation as fill_solid() fills whole segment
 
-  um_data_t *um_data;
-  if (!usermods.getUMData(&um_data, USERMOD_ID_AUDIOREACTIVE)) {
-    // add support for no audio
-    um_data = simulateSound(SEGMENT.soundSim);
-  }
+  um_data_t *um_data = getAudioData();
   int16_t volumeRaw    = *(int16_t*)um_data->u_data[1];
   float volumeSmth     = *(float*)  um_data->u_data[0];
   float soundPressure  = *(float*)  um_data->u_data[9];
@@ -6925,11 +6949,7 @@ static const char _data_FX_MODE_MATRIPIX[] PROGMEM = "Matripix ☾@!,Brightness,
 uint16_t mode_midnoise(void) {                  // Midnoise. By Andrew Tuline.
 // Changing xdist to SEGENV.aux0 and ydist to SEGENV.aux1.
 
-  um_data_t *um_data;
-  if (!usermods.getUMData(&um_data, USERMOD_ID_AUDIOREACTIVE)) {
-    // add support for no audio
-    um_data = simulateSound(SEGMENT.soundSim);
-  }
+  um_data_t *um_data = getAudioData();
   float   volumeSmth   = *(float*)  um_data->u_data[0];
 
   if (SEGENV.call == 0) {
@@ -6968,11 +6988,7 @@ uint16_t mode_noisefire(void) {                 // Noisefire. By Andrew Tuline.
                                       CRGB::DarkOrange, CRGB::DarkOrange, CRGB::Orange,  CRGB::Orange,
                                       CRGB::Yellow,     CRGB::Orange,     CRGB::Yellow,  CRGB::Yellow);
 
-  um_data_t *um_data;
-  if (!usermods.getUMData(&um_data, USERMOD_ID_AUDIOREACTIVE)) {
-    // add support for no audio
-    um_data = simulateSound(SEGMENT.soundSim);
-  }
+  um_data_t *um_data = getAudioData();
   float   volumeSmth   = *(float*)  um_data->u_data[0];
 
   if (SEGENV.call == 0) SEGMENT.fill(BLACK);
@@ -6996,17 +7012,13 @@ static const char _data_FX_MODE_NOISEFIRE[] PROGMEM = "Noisefire@!,!;;;01v;m12=2
 ///////////////////////
 uint16_t mode_noisemeter(void) {                // Noisemeter. By Andrew Tuline.
 
-  um_data_t *um_data;
-  if (!usermods.getUMData(&um_data, USERMOD_ID_AUDIOREACTIVE)) {
-    // add support for no audio
-    um_data = simulateSound(SEGMENT.soundSim);
-  }
+  um_data_t *um_data = getAudioData();
   float   volumeSmth   = *(float*)  um_data->u_data[0];
   int16_t volumeRaw    = *(int16_t*)um_data->u_data[1];
   if (SEGENV.call == 0) {SEGENV.setUpLeds(); SEGMENT.fill(BLACK);}   // WLEDMM use lossless getPixelColor()
 
   //uint8_t fadeRate = map(SEGMENT.speed,0,255,224,255);
-  uint8_t fadeRate = map(SEGMENT.speed,0,255,200,254);
+  uint8_t fadeRate = map2(SEGMENT.speed,0,255,200,254);
   SEGMENT.fade_out(fadeRate);
 
   float tmpSound2 = volumeRaw * 2.0 * (float)SEGMENT.intensity / 255.0;
@@ -7038,11 +7050,7 @@ uint16_t mode_pixelwave(void) {                 // Pixelwave. By Andrew Tuline.
     SEGMENT.fill(BLACK);
   }
 
-  um_data_t *um_data;
-  if (!usermods.getUMData(&um_data, USERMOD_ID_AUDIOREACTIVE)) {
-    // add support for no audio
-    um_data = simulateSound(SEGMENT.soundSim);
-  }
+  um_data_t *um_data = getAudioData();
   int16_t volumeRaw    = *(int16_t*)um_data->u_data[1];
 
   uint8_t secondHand = micros()/(256-SEGMENT.speed)/500+1 % 16;
@@ -7076,11 +7084,7 @@ uint16_t mode_plasmoid(void) {                  // Plasmoid. By Andrew Tuline.
   if (!SEGENV.allocateData(sizeof(plasphase))) return mode_static(); //allocation failed
   Plasphase* plasmoip = reinterpret_cast<Plasphase*>(SEGENV.data);
 
-  um_data_t *um_data;
-  if (!usermods.getUMData(&um_data, USERMOD_ID_AUDIOREACTIVE)) {
-    // add support for no audio
-    um_data = simulateSound(SEGMENT.soundSim);
-  }
+  um_data_t *um_data = getAudioData();
   float   volumeSmth   = *(float*)  um_data->u_data[0];
 
   if (SEGENV.call == 0) {
@@ -7116,14 +7120,10 @@ static const char _data_FX_MODE_PLASMOID[] PROGMEM = "Plasmoid@Phase,# of pixels
 uint16_t mode_puddlepeak(void) {                // Puddlepeak. By Andrew Tuline.
 
   uint16_t size = 0;
-  uint8_t fadeVal = map(SEGMENT.speed,0,255, 224, 254);
+  uint8_t fadeVal = map2(SEGMENT.speed,0,255, 224, 254);
   uint16_t pos = random16(SEGLEN);                        // Set a random starting position.
 
-  um_data_t *um_data;
-  if (!usermods.getUMData(&um_data, USERMOD_ID_AUDIOREACTIVE)) {
-    // add support for no audio
-    um_data = simulateSound(SEGMENT.soundSim);
-  }
+  um_data_t *um_data = getAudioData();
   uint8_t samplePeak = *(uint8_t*)um_data->u_data[3];
   uint8_t *maxVol    =  (uint8_t*)um_data->u_data[6];
   uint8_t *binNum    =  (uint8_t*)um_data->u_data[7];
@@ -7162,7 +7162,7 @@ static const char _data_FX_MODE_PUDDLEPEAK[] PROGMEM = "Puddlepeak@Fade rate,Pud
 //////////////////////
 uint16_t mode_puddles(void) {                   // Puddles. By Andrew Tuline.
   uint16_t size = 0;
-  uint8_t fadeVal = map(SEGMENT.speed, 0, 255, 224, 254);
+  uint8_t fadeVal = map2(SEGMENT.speed, 0, 255, 224, 254);
   uint16_t pos = random16(SEGLEN);                        // Set a random starting position.
 
   if (SEGENV.call == 0) {
@@ -7171,11 +7171,7 @@ uint16_t mode_puddles(void) {                   // Puddles. By Andrew Tuline.
   }
   SEGMENT.fade_out(fadeVal);
 
-  um_data_t *um_data;
-  if (!usermods.getUMData(&um_data, USERMOD_ID_AUDIOREACTIVE)) {
-    // add support for no audio
-    um_data = simulateSound(SEGMENT.soundSim);
-  }
+  um_data_t *um_data = getAudioData();
   int16_t volumeRaw    = *(int16_t*)um_data->u_data[1];
 
   if (volumeRaw > 1) {
@@ -7200,10 +7196,7 @@ uint16_t mode_pixels(void) {                    // Pixels. By Andrew Tuline.
   if (!SEGENV.allocateData(32*sizeof(uint8_t))) return mode_static(); //allocation failed
   uint8_t *myVals = reinterpret_cast<uint8_t*>(SEGENV.data); // Used to store a pile of samples because WLED frame rate and WLED sample rate are not synchronized. Frame rate is too low.
 
-  um_data_t *um_data;
-  if (!usermods.getUMData(&um_data, USERMOD_ID_AUDIOREACTIVE)) {
-    um_data = simulateSound(SEGMENT.soundSim);
-  }
+  um_data_t *um_data = getAudioData();
   float   volumeSmth   = *(float*)  um_data->u_data[0];
   if (SEGENV.call == 0) {SEGENV.setUpLeds(); SEGMENT.fill(BLACK);}   // WLEDMM use lossless getPixelColor()
 
@@ -7233,11 +7226,7 @@ static const char _data_FX_MODE_PIXELS[] PROGMEM = "Pixels@Fade rate,# of pixels
 uint16_t mode_blurz(void) {                    // Blurz. By Andrew Tuline.
   // even with 1D effect we have to take logic for 2D segments for allocation as fill_solid() fills whole segment
 
-  um_data_t *um_data;
-  if (!usermods.getUMData(&um_data, USERMOD_ID_AUDIOREACTIVE)) {
-    // add support for no audio
-    um_data = simulateSound(SEGMENT.soundSim);
-  }
+  um_data_t *um_data = getAudioData();
   uint8_t *fftResult = (uint8_t*)um_data->u_data[2];
 
   if (SEGENV.call == 0) {
@@ -7267,11 +7256,7 @@ static const char _data_FX_MODE_BLURZ[] PROGMEM = "Blurz@Fade rate,Blur;!,Color 
 uint16_t mode_blurz(void) {                    // Blurz. By Andrew Tuline.
                                                // Hint: Looks best with segment brightness set to max (use global brightness to reduce brightness)
   // even with 1D effect we have to take logic for 2D segments for allocation as fill_solid() fills whole segment
-  um_data_t *um_data;
-  if (!usermods.getUMData(&um_data, USERMOD_ID_AUDIOREACTIVE)) {
-    // add support for no audio
-    um_data = simulateSound(SEGMENT.soundSim);
-  }
+  um_data_t *um_data = getAudioData();
   uint8_t *fftResult = (uint8_t*)um_data->u_data[2];
   float volumeSmth   = *(float*)um_data->u_data[0];
 
@@ -7319,11 +7304,7 @@ uint16_t mode_DJLight(void) {                   // Written by Stefan Petrick, Ad
   // No need to prevent from executing on single led strips, only mid will be set (mid = 0)
   const int mid = SEGLEN / 2;
 
-  um_data_t *um_data;
-  if (!usermods.getUMData(&um_data, USERMOD_ID_AUDIOREACTIVE)) {
-    // add support for no audio
-    um_data = simulateSound(SEGMENT.soundSim);
-  }
+  um_data_t *um_data = getAudioData();
   uint8_t *fftResult = (uint8_t*)um_data->u_data[2];
   float volumeSmth    = *(float*)um_data->u_data[0];
 
@@ -7368,7 +7349,7 @@ uint16_t mode_DJLight(void) {                   // Written by Stefan Petrick, Ad
     //if (color.getLuma() > 12) color.maximizeBrightness();          // for testing
 
     //SEGMENT.setPixelColor(mid, color.fadeToBlackBy(map(fftResult[4], 0, 255, 255, 4)));     // 0.13.x  fade -> 180hz-260hz
-    uint8_t fadeVal = map(fftResult[3], 0, 255, 255, 4);                                      // 0.14.x  fade -> 216hz-301hz
+    uint8_t fadeVal = map2(fftResult[3], 0, 255, 255, 4);                                      // 0.14.x  fade -> 216hz-301hz
     if (SEGENV.check1) fadeVal = constrain(fadeVal, 0, 176);  // "candy factory" mode - avoid complete fade-out
     SEGMENT.setPixelColor(mid, color.fadeToBlackBy(fadeVal));
 
@@ -7389,11 +7370,7 @@ uint16_t mode_freqmap(void) {                   // Map FFT_MajorPeak to SEGLEN. 
   // Start frequency = 60 Hz and log10(60) = 1.78
   // End frequency = MAX_FREQUENCY in Hz and lo10(MAX_FREQUENCY) = MAX_FREQ_LOG10
 
-  um_data_t *um_data;
-  if (!usermods.getUMData(&um_data, USERMOD_ID_AUDIOREACTIVE)) {
-    // add support for no audio
-    um_data = simulateSound(SEGMENT.soundSim);
-  }
+  um_data_t *um_data = getAudioData();
   float FFT_MajorPeak = *(float*)um_data->u_data[SEGENV.check1 ? 8:4];              // WLEDMM may use FFT_MajorPeakSmth
   float my_magnitude  = *(float*)um_data->u_data[5] / 4.0f;
   if (FFT_MajorPeak < 1) FFT_MajorPeak = 1;                                         // log10(0) is "forbidden" (throws exception)
@@ -7434,11 +7411,7 @@ static const char _data_FX_MODE_FREQMAP[] PROGMEM = "Freqmap@Fade rate,Starting 
 ///////////////////////
 uint16_t mode_freqmatrix(void) {                // Freqmatrix. By Andreas Pleschung.
   // No need to prevent from executing on single led strips, we simply change pixel 0 each time and avoid the shift
-  um_data_t *um_data;
-  if (!usermods.getUMData(&um_data, USERMOD_ID_AUDIOREACTIVE)) {
-    // add support for no audio
-    um_data = simulateSound(SEGMENT.soundSim);
-  }
+  um_data_t *um_data = getAudioData();
   float FFT_MajorPeak = *(float*)um_data->u_data[4];
   float volumeSmth    = *(float*)um_data->u_data[0];
 
@@ -7475,9 +7448,9 @@ uint16_t mode_freqmatrix(void) {                // Freqmatrix. By Andreas Plesch
     }
 
     // shift the pixels one pixel up
-    SEGMENT.setPixelColor(0, color);
     // if SEGLEN equals 1 this loop won't execute
     for (int i = SEGLEN - 1; i > 0; i--) SEGMENT.setPixelColor(i, SEGMENT.getPixelColor(i-1)); //move to the left
+    SEGMENT.setPixelColor(0, color);
   }
 
   return FRAMETIME;
@@ -7493,11 +7466,7 @@ static const char _data_FX_MODE_FREQMATRIX[] PROGMEM = "Freqmatrix@Speed,Sound e
 //  SEGMENT.speed select faderate
 //  SEGMENT.intensity select colour index
 uint16_t mode_freqpixels(void) {                // Freqpixel. By Andrew Tuline.
-  um_data_t *um_data;
-  if (!usermods.getUMData(&um_data, USERMOD_ID_AUDIOREACTIVE)) {
-    // add support for no audio
-    um_data = simulateSound(SEGMENT.soundSim);
-  }
+  um_data_t *um_data = getAudioData();
   float FFT_MajorPeak = *(float*)um_data->u_data[4];
   float my_magnitude  = *(float*)um_data->u_data[5] / 16.0f;
   if (FFT_MajorPeak < 1) FFT_MajorPeak = 1;                                         // log10(0) is "forbidden" (throws exception)
@@ -7540,11 +7509,7 @@ static const char _data_FX_MODE_FREQPIXELS[] PROGMEM = "Freqpixels@Fade rate,Sta
 // Depending on the music stream you have you might find it useful to change the frequency mapping.
 uint16_t mode_freqwave(void) {                  // Freqwave. By Andreas Pleschung. With some enhancements by @softhack007
   // As before, this effect can also work on single pixels, we just lose the shifting effect
-  um_data_t *um_data;
-  if (!usermods.getUMData(&um_data, USERMOD_ID_AUDIOREACTIVE)) {
-    // add support for no audio
-    um_data = simulateSound(SEGMENT.soundSim);
-  }
+  um_data_t *um_data = getAudioData();
   float FFT_MajorPeak = *(float*)um_data->u_data[4];
   float volumeSmth    = *(float*)um_data->u_data[0];
 
@@ -7614,11 +7579,7 @@ uint16_t mode_gravfreq(void) {                  // Gravfreq. By Andrew Tuline.
   if (!SEGENV.allocateData(dataSize)) return mode_static(); //allocation failed
   Gravity* gravcen = reinterpret_cast<Gravity*>(SEGENV.data);
 
-  um_data_t *um_data;
-  if (!usermods.getUMData(&um_data, USERMOD_ID_AUDIOREACTIVE)) {
-    // add support for no audio
-    um_data = simulateSound(SEGMENT.soundSim);
-  }
+  um_data_t *um_data = getAudioData();
   float   FFT_MajorPeak = *(float*)um_data->u_data[4];
   float   volumeSmth    = *(float*)um_data->u_data[0];
   if (FFT_MajorPeak < 1) FFT_MajorPeak = 1;                                         // log10(0) is "forbidden" (throws exception)
@@ -7667,12 +7628,9 @@ static const char _data_FX_MODE_GRAVFREQ[] PROGMEM = "Gravfreq ☾@Rate of fall,
 //   ** Noisemove   //
 //////////////////////
 uint16_t mode_noisemove(void) {                 // Noisemove.    By: Andrew Tuline
-  um_data_t *um_data;
-  if (!usermods.getUMData(&um_data, USERMOD_ID_AUDIOREACTIVE)) {
-    // add support for no audio
-    um_data = simulateSound(SEGMENT.soundSim);
-  }
-  uint8_t *fftResult = (uint8_t*)um_data->u_data[2];
+  um_data_t *um_data = getAudioData();
+  uint8_t fftResult[NUM_GEQ_CHANNELS] = {0};
+  if (um_data->u_data != nullptr) memcpy(fftResult, um_data->u_data[2], sizeof(fftResult));  // WLEDMM buffer curent values
 
   if (SEGENV.call == 0) {
     SEGENV.setUpLeds();   // WLEDMM use lossless getPixelColor()
@@ -7682,11 +7640,11 @@ uint16_t mode_noisemove(void) {                 // Noisemove.    By: Andrew Tuli
   int fadeoutDelay = (256 - SEGMENT.speed) / 96;
   if ((fadeoutDelay <= 1 ) || ((SEGENV.call % fadeoutDelay) == 0)) SEGMENT.fadeToBlackBy(4+ SEGMENT.speed/4);
 
-  uint8_t numBins = map(SEGMENT.intensity,0,255,0,16);    // Map slider to fftResult bins.
+  uint8_t numBins = map2(SEGMENT.intensity,0,255,0,16);    // Map slider to fftResult bins.
   for (int i=0; i<numBins; i++) {                         // How many active bins are we using.
     uint16_t locn = inoise16(strip.now*SEGMENT.speed+i*50000, strip.now*SEGMENT.speed);   // Get a new pixel location from moving noise.
     // if SEGLEN equals 1 locn will be always 0, hence we set the first pixel only
-    locn = map(locn, 7500, 58000, 0, SEGLEN-1);           // Map that to the length of the strand, and ensure we don't go over.
+    locn = map2(locn, 7500, 58000, 0, SEGLEN-1);           // Map that to the length of the strand, and ensure we don't go over.
     SEGMENT.setPixelColor(locn, color_blend(SEGCOLOR(1), SEGMENT.color_from_palette(i*64, false, PALETTE_SOLID_WRAP, 0), fftResult[i % 16]*4));
   }
 
@@ -7699,11 +7657,7 @@ static const char _data_FX_MODE_NOISEMOVE[] PROGMEM = "Noisemove@Speed of perlin
 //   ** Rocktaves   //
 //////////////////////
 uint16_t mode_rocktaves(void) {                 // Rocktaves. Same note from each octave is same colour.    By: Andrew Tuline
-  um_data_t *um_data;
-  if (!usermods.getUMData(&um_data, USERMOD_ID_AUDIOREACTIVE)) {
-    // add support for no audio
-    um_data = simulateSound(SEGMENT.soundSim);
-  }
+  um_data_t *um_data = getAudioData();
   float   FFT_MajorPeak = *(float*)  um_data->u_data[8];  // WLEDMM use FFT_MajorPeakSmth
   float   my_magnitude  = *(float*)   um_data->u_data[5] / 16.0f;
 
@@ -7747,11 +7701,7 @@ uint16_t mode_waterfall(void) {                   // Waterfall. By: Andrew Tulin
   // effect can work on single pixels, we just lose the shifting effect
 
   if (SEGENV.call == 0) SEGMENT.fill(BLACK);
-  um_data_t *um_data;
-  if (!usermods.getUMData(&um_data, USERMOD_ID_AUDIOREACTIVE)) {
-    // add support for no audio
-    um_data = simulateSound(SEGMENT.soundSim);
-  }
+  um_data_t *um_data = getAudioData();
   uint8_t samplePeak    = *(uint8_t*)um_data->u_data[3];
   float   FFT_MajorPeak = *(float*)  um_data->u_data[4];
   uint8_t *maxVol       =  (uint8_t*)um_data->u_data[6];
@@ -7782,13 +7732,14 @@ uint16_t mode_waterfall(void) {                   // Waterfall. By: Andrew Tulin
     uint8_t pixCol = (log10f(FFT_MajorPeak) - 2.26f) * 150;           // 22Khz sampling - log10 frequency range is from 2.26 (182hz) to 3.967 (9260hz). Let's scale accordingly.
     if (FFT_MajorPeak < 182.0f) pixCol = 0;                           // handle underflow
 
+    // loop will not execute if SEGLEN equals 1
+    for (int i = 0; i < SEGLEN-1; i++) SEGMENT.setPixelColor(i, SEGMENT.getPixelColor(i+1)); // shift left
+    
     if (samplePeak) {
       SEGMENT.setPixelColor(SEGLEN-1, CHSV(92,92,92));
     } else {
       SEGMENT.setPixelColor(SEGLEN-1, color_blend(SEGCOLOR(1), SEGMENT.color_from_palette(pixCol+SEGMENT.intensity, false, PALETTE_SOLID_WRAP, 0), (int)my_magnitude));
     }
-    // loop will not execute if SEGLEN equals 1
-    for (int i = 0; i < SEGLEN-1; i++) SEGMENT.setPixelColor(i, SEGMENT.getPixelColor(i+1)); // shift left
   }
 
   return FRAMETIME;
@@ -7803,7 +7754,7 @@ static const char _data_FX_MODE_WATERFALL[] PROGMEM = "Waterfall@!,Adjust color,
 uint16_t mode_2DGEQ(void) { // By Will Tatam. Code reduction by Ewoud Wijma.
   if (!strip.isMatrix) return mode_static(); // not a 2D set-up
 
-  const int NUM_BANDS = map(SEGMENT.custom1, 0, 255, 1, 16);
+  const int NUM_BANDS = map2(SEGMENT.custom1, 0, 255, 1, 16);
   const uint16_t cols = SEGMENT.virtualWidth();
   const uint16_t rows = SEGMENT.virtualHeight();
   if ((cols <=1) || (rows <=1)) return mode_static(); // not really a 2D set-up
@@ -7811,12 +7762,10 @@ uint16_t mode_2DGEQ(void) { // By Will Tatam. Code reduction by Ewoud Wijma.
   if (!SEGENV.allocateData(cols*sizeof(uint16_t))) return mode_static(); //allocation failed
   uint16_t *previousBarHeight = reinterpret_cast<uint16_t*>(SEGENV.data); //array of previous bar heights per frequency band
 
-  um_data_t *um_data;
-  if (!usermods.getUMData(&um_data, USERMOD_ID_AUDIOREACTIVE)) {
-    // add support for no audio
-    um_data = simulateSound(SEGMENT.soundSim);
-  }
-  uint8_t *fftResult = (uint8_t*)um_data->u_data[2];
+  um_data_t *um_data = getAudioData();
+  uint8_t fftResult[NUM_GEQ_CHANNELS] = {0};
+  if (um_data->u_data != nullptr) memcpy(fftResult, um_data->u_data[2], sizeof(fftResult));  // WLEDMM buffer curent values
+
   #ifdef SR_DEBUG
   uint8_t samplePeak = *(uint8_t*)um_data->u_data[3];
   #endif
@@ -7839,7 +7788,7 @@ uint16_t mode_2DGEQ(void) { // By Will Tatam. Code reduction by Ewoud Wijma.
 
   uint16_t lastBandHeight = 0;  // WLEDMM: for smoothing out bars
 
-  //WLEDMM: evenly ditribut bands
+  //WLEDMM: evenly ditribute bands
   float bandwidth = (float)cols / NUM_BANDS;
   float remaining = bandwidth;
   uint8_t band = 0;
@@ -7874,13 +7823,17 @@ uint16_t mode_2DGEQ(void) { // By Will Tatam. Code reduction by Ewoud Wijma.
     if (barHeight > previousBarHeight[x]) previousBarHeight[x] = barHeight; //drive the peak up
 
     uint32_t ledColor = BLACK;
+    if ((! SEGMENT.check1) && (barHeight > 0)) {  // use faster drawLine when single-color bars are needed
+      ledColor = SEGMENT.color_from_palette(colorIndex, false, PALETTE_SOLID_WRAP, 0);
+      SEGMENT.drawLine(int(x), max(0,int(rows)-barHeight-1), int(x), int(rows-1), ledColor, false); // max(0, ...) to prevent negative Y
+    } else {
     for (int y=0; y < barHeight; y++) {
       if (SEGMENT.check1) //color_vertical / color bars toggle
         colorIndex = map(y, 0, rows-1, 0, 255);
 
       ledColor = SEGMENT.color_from_palette(colorIndex, false, PALETTE_SOLID_WRAP, 0);
       SEGMENT.setPixelColorXY(x, rows-1 - y, ledColor);
-    }
+    } }
     if ((SEGMENT.intensity < 255) && (previousBarHeight[x] > 0) && (previousBarHeight[x] < rows))  // WLEDMM avoid "overshooting" into other segments
       SEGMENT.setPixelColorXY(x, rows - previousBarHeight[x], (SEGCOLOR(2) != BLACK) ? SEGCOLOR(2) : ledColor);
 
@@ -7907,7 +7860,7 @@ uint16_t mode_2DFunkyPlank(void) {              // Written by ??? Adapted by Wil
   const uint16_t cols = SEGMENT.virtualWidth();
   const uint16_t rows = SEGMENT.virtualHeight();
 
-  int NUMB_BANDS = map(SEGMENT.custom1, 0, 255, 1, 16);
+  int NUMB_BANDS = map2(SEGMENT.custom1, 0, 255, 1, 16);
   int barWidth = (cols / NUMB_BANDS);
   int bandInc = 1;
   if (barWidth == 0) {
@@ -7916,12 +7869,9 @@ uint16_t mode_2DFunkyPlank(void) {              // Written by ??? Adapted by Wil
     bandInc = (NUMB_BANDS / cols);
   }
 
-  um_data_t *um_data;
-  if (!usermods.getUMData(&um_data, USERMOD_ID_AUDIOREACTIVE)) {
-    // add support for no audio
-    um_data = simulateSound(SEGMENT.soundSim);
-  }
-  uint8_t *fftResult = (uint8_t*)um_data->u_data[2];
+  um_data_t *um_data = getAudioData();
+  uint8_t fftResult[NUM_GEQ_CHANNELS] = {0};
+  if (um_data->u_data != nullptr) memcpy(fftResult, um_data->u_data[2], sizeof(fftResult));  // WLEDMM buffer curent values
 
   if (SEGENV.call == 0) {
     SEGMENT.setUpLeds();
@@ -7936,7 +7886,7 @@ uint16_t mode_2DFunkyPlank(void) {              // Written by ??? Adapted by Wil
     int b = 0;
     for (int band = 0; band < NUMB_BANDS; band += bandInc, b++) {
       int hue = fftResult[band % 16];
-      int v = map(fftResult[band % 16], 0, 255, 10, 255);
+      int v = map2(fftResult[band % 16], 0, 255, 10, 255);
       for (int w = 0; w < barWidth; w++) {
          int xpos = (barWidth * b) + w;
          SEGMENT.setPixelColorXY(xpos, 0, CHSV(hue, 255, v));
@@ -8008,11 +7958,9 @@ uint16_t mode_2DAkemi(void) {
   const float lightFactor  = 0.15f;
   const float normalFactor = 0.4f;
 
-  um_data_t *um_data;
-  if (!usermods.getUMData(&um_data, USERMOD_ID_AUDIOREACTIVE)) {
-    um_data = simulateSound(SEGMENT.soundSim);
-  }
-  uint8_t *fftResult = (uint8_t*)um_data->u_data[2];
+  um_data_t *um_data = getAudioData();
+  uint8_t fftResult[NUM_GEQ_CHANNELS] = {0};
+  if (um_data->u_data != nullptr) memcpy(fftResult, um_data->u_data[2], sizeof(fftResult));  // WLEDMM buffer curent values
   float base = fftResult[0]/255.0f;
 
   //draw and color Akemi
@@ -8034,7 +7982,7 @@ uint16_t mode_2DAkemi(void) {
       default: color = BLACK; break;
     }
 
-    if (SEGMENT.intensity > 128 && fftResult && fftResult[0] > 128) { //dance if base is high
+    if (SEGMENT.intensity > 128 && um_data && fftResult[0] > 128) { //dance if base is high
       SEGMENT.setPixelColorXY(x, 0, BLACK);
       SEGMENT.setPixelColorXY(x, y+1, color);
     } else
@@ -8042,7 +7990,7 @@ uint16_t mode_2DAkemi(void) {
   }
 
   //add geq left and right
-  if (um_data && fftResult) {
+  if (um_data) {
     for (int x=0; x < cols/8; x++) {
       uint16_t band = x * cols/8;
       band = constrain(band, 0, 15);
@@ -8342,9 +8290,242 @@ uint16_t mode_2Dwavingcell() {
 }
 static const char _data_FX_MODE_2DWAVINGCELL[] PROGMEM = "Waving Cell@!,,Amplitude 1,Amplitude 2,Amplitude 3;;!;2";
 
+/* 
+   @title     MoonModules WLED - GEQ 3D Effect
+   @file      included in FX.cpp
+   @repo      https://github.com/MoonModules/WLED, submit changes to this file as PRs to MoonModules/WLED
+   @Authors   https://github.com/MoonModules/WLED/commits/mdev/
+   @Copyright © 2024 Github MoonModules Commit Authors (contact moonmodules@icloud.com for details)
+   @license   GNU GENERAL PUBLIC LICENSE Version 3, 29 June 2007
+
+     This function is part of the MoonModules WLED fork also known as "WLED-MM".
+     WLED-MM is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License 
+     as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
+
+     WLED-MM is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied 
+     warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+     
+     You should have received a copy of the GNU General Public License along with WLED-MM. If not, see <https://www.gnu.org/licenses/>.
+*/
+
+/////////////////////////
+//     ** 3D GEQ       //
+/////////////////////////
+uint16_t mode_GEQLASER(void) {
+
+  // Author: @TroyHacks
+  // @license GNU GENERAL PUBLIC LICENSE Version 3, 29 June 2007
+
+  if (!strip.isMatrix) return mode_static(); // not a 2D set-up  
+  const int cols = SEGMENT.virtualWidth();
+  const int rows = SEGMENT.virtualHeight();
+  if ((cols < 3) || (rows < 3)) return mode_static(); // too small
+
+  int16_t *projector     = reinterpret_cast<int16_t *>(&(SEGENV.aux0)); // *projector is an alias for aux0 (uint16_t)
+  int16_t *projector_dir = reinterpret_cast<int16_t *>(&(SEGENV.aux1)); // *projector_dir is an alias for aux1  (uint16_t)
+
+  if (SEGENV.call == 0) {
+    *projector = 0;
+    *projector_dir = 1;
+    SEGMENT.setUpLeds(); // WLEDMM use lossless getPixelColor()
+    SEGMENT.fill(BLACK);
+  } else {
+    if (SEGENV.call % map(SEGMENT.speed,0,255,10,1) == 0) *projector += *projector_dir;
+    if (*projector >= cols) *projector_dir = -1;
+    if (*projector <= 0) *projector_dir = 1;
+  }
+  *projector = constrain(*projector, 0, cols-1); // make sure we don't walk out of range
+
+  SEGMENT.fill(BLACK);
+
+  uint32_t ledColorTemp;
+  const int NUM_BANDS = max(2, min(cols, int(map2(SEGMENT.custom3, 0, 31, 1, NUM_GEQ_CHANNELS)))); // custom3 is 0..31 - constrain NUM_BANDS between 2(for split) and cols (for small width segments)
+  uint_fast8_t split  = map2(*projector,0,SEGMENT.virtualWidth(),0,(NUM_BANDS - 1));
+  uint16_t horizon    = map2(SEGMENT.custom1,0,255,rows-1,0); 
+  uint8_t depth       = SEGMENT.custom2;  // depth of perspective. 255 = infinite ("laser")
+
+  um_data_t *um_data = getAudioData();
+  uint8_t *fftResult = (uint8_t*)um_data->u_data[2];
+
+  uint8_t heights[NUM_GEQ_CHANNELS] = { 0 };
+  const uint8_t maxHeight = roundf(float(rows) * ((rows<18) ? 0.75f : 0.85f));           // slightly reduce bar height on small panels 
+  for (int i=0; i<NUM_BANDS; i++) {
+    unsigned band = i;
+    if (NUM_BANDS < NUM_GEQ_CHANNELS) band = map2(band, 0, NUM_BANDS - 1, 0, NUM_GEQ_CHANNELS-1); // always use full range.
+    heights[i] = map8(fftResult[band],0,maxHeight); // cache fftResult[] as data might be updated in parallel by the audioreactive core
+  }
+
+
+  for (int i=0; i<=split; i++) { // paint right vertical faces and top - LEFT to RIGHT
+    uint16_t colorIndex = map(cols/NUM_BANDS*i, 0, cols-1, 0, 255);
+    uint32_t ledColor = SEGMENT.color_from_palette(colorIndex, false, PALETTE_SOLID_WRAP, 0);
+    int linex = i*(cols/NUM_BANDS);
+
+    if (heights[i] > 1) {
+      ledColorTemp = color_fade(ledColor,32,true);
+      int pPos = max(0, linex+(cols/NUM_BANDS)-1);
+      for (int y = (i<NUM_BANDS-1) ? heights[i+1] : 0; y <= heights[i]; y++) { // don't bother drawing what we'll hide anyway
+        if (rows-y > 0) SEGMENT.drawLine(pPos,rows-y-1,*projector,horizon,ledColorTemp,false,depth); // right side perspective
+      } 
+
+      ledColorTemp = color_fade(ledColor,128,true);
+      if (heights[i] < rows-horizon && (*projector <=linex || *projector >= pPos)) { // draw if above horizon AND not directly under projector (special case later)
+        if (rows-heights[i] > 1) {  // sanity check - avoid negative Y
+          for (uint_fast8_t x=linex; x<=pPos;x++) { 
+            bool doSoft = SEGMENT.check2 && ((x==linex) || (x==pPos)); // only first and last line need AA
+            SEGMENT.drawLine(x,rows-heights[i]-2,*projector,horizon,ledColorTemp,doSoft,depth); // top perspective
+          }
+        }
+      }
+    }
+  }
+
+
+  for (int i=(NUM_BANDS - 1); i>split; i--) { // paint left vertical faces and top - RIGHT to LEFT
+    uint16_t colorIndex = map(cols/NUM_BANDS*i, 0, cols-1, 0, 255);
+    uint32_t ledColor = SEGMENT.color_from_palette(colorIndex, false, PALETTE_SOLID_WRAP, 0);
+    int linex = i*(cols/NUM_BANDS);
+    int pPos = max(0, linex+(cols/NUM_BANDS)-1);
+
+    if (heights[i] > 1) {
+      ledColorTemp = color_fade(ledColor,32,true);
+      for (uint_fast8_t y = (i>0) ? heights[i-1] : 0; y <= heights[i]; y++) { // don't bother drawing what we'll hide anyway
+        if (rows-y > 0) SEGMENT.drawLine(linex,rows-y-1,*projector,horizon,ledColorTemp,false,depth); // left side perspective
+      }
+
+      ledColorTemp = color_fade(ledColor,128,true);
+      if (heights[i] < rows-horizon && (*projector <=linex || *projector >= pPos)) { // draw if above horizon AND not directly under projector (special case later)
+        if (rows-heights[i] > 1) {  // sanity check - avoid negative Y
+          for (uint_fast8_t x=linex; x<=pPos;x++) {
+            bool doSoft = SEGMENT.check2 && ((x==linex) || (x==pPos)); // only first and last line need AA
+            SEGMENT.drawLine(x,rows-heights[i]-2,*projector,horizon,ledColorTemp,doSoft,depth); // top perspective
+          }
+        }
+      }
+    }
+  }
+
+
+  for (int i=0; i<NUM_BANDS; i++) {
+    uint16_t colorIndex = map(cols/NUM_BANDS*i, 0, cols-1, 0, 255);
+    uint32_t ledColor = SEGMENT.color_from_palette(colorIndex, false, PALETTE_SOLID_WRAP, 0);
+    int linex = i*(cols/NUM_BANDS);
+    int pPos  = linex+(cols/NUM_BANDS)-1;
+    int pPos1 = linex+(cols/NUM_BANDS);
+
+    if (*projector >=linex && *projector <= pPos) { // special case when top perspective is directly under the projector
+      if ((heights[i] > 1) && (heights[i] < rows-horizon) && (rows-heights[i] > 1)) {
+        ledColorTemp = color_fade(ledColor,128,true);
+        for (uint_fast8_t x=linex; x<=pPos;x++) {
+          bool doSoft = SEGMENT.check2 && ((x==linex) || (x==pPos)); // only first and last line need AA
+          SEGMENT.drawLine(x,rows-heights[i]-2,*projector,horizon,ledColorTemp,doSoft,depth); // top perspective
+        }
+      }
+    }
+
+    if ((heights[i] > 1) && (rows-heights[i] > 0)) {
+      ledColorTemp = color_fade(ledColor,SEGMENT.intensity,true);
+      for (uint_fast8_t x=linex; x<pPos1;x++) { 
+        SEGMENT.drawLine(x,rows-1,x,rows-heights[i]-1,ledColorTemp); // front fill
+      }
+
+      if (!SEGMENT.check1 && heights[i] > rows-horizon) {
+        if (SEGMENT.intensity == 0) ledColorTemp = color_fade(ledColor,32,true); // match side fill if we're in blackout mode
+        SEGMENT.drawLine(linex,rows-heights[i]-1,linex+(cols/NUM_BANDS)-1,rows-heights[i]-1,ledColorTemp); // top line to simulate hidden top fill
+      }
+
+      if ((SEGMENT.check1) && (rows-heights[i] > 1)) {
+        SEGMENT.drawLine(linex,                   rows-1,linex,rows-heights[i]-1,ledColor); // left side line
+        SEGMENT.drawLine(linex+(cols/NUM_BANDS)-1,rows-1,linex+(cols/NUM_BANDS)-1,rows-heights[i]-1,ledColor); // right side line
+        SEGMENT.drawLine(linex,                   rows-heights[i]-2,linex+(cols/NUM_BANDS)-1,rows-heights[i]-2,ledColor); // top line
+        SEGMENT.drawLine(linex,                   rows-1,linex+(cols/NUM_BANDS)-1,rows-1,ledColor); // bottom line
+      }
+    }
+  }
+  return FRAMETIME;
+}
+static const char _data_FX_MODE_GEQLASER[] PROGMEM = "GEQ 3D ☾@Speed,Front Fill,Horizon,Depth,Num Bands,Borders,Soft,;!,,Peaks;!;2f;sx=255,ix=228,c1=255,c2=255,c3=15,pal=11";
 
 #endif // WLED_DISABLE_2D
 
+/* 
+   @title     MoonModules WLED - Painbrush Effect
+   @file      included in FX.cpp
+   @repo      https://github.com/MoonModules/WLED, submit changes to this file as PRs to MoonModules/WLED
+   @Authors   https://github.com/MoonModules/WLED/commits/mdev/
+   @Copyright © 2024 Github MoonModules Commit Authors (contact moonmodules@icloud.com for details)
+   @license   GNU GENERAL PUBLIC LICENSE Version 3, 29 June 2007
+
+     This function is part of the MoonModules WLED fork also known as "WLED-MM".
+     WLED-MM is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License 
+     as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
+
+     WLED-MM is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied 
+     warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+     
+     You should have received a copy of the GNU General Public License along with WLED-MM. If not, see <https://www.gnu.org/licenses/>.
+*/
+
+///////////////////////
+//   2D Paintbrush   //
+///////////////////////
+uint16_t mode_2DPaintbrush() {
+
+  // Author: @TroyHacks
+  // @license GNU GENERAL PUBLIC LICENSE Version 3, 29 June 2007
+
+  if (!strip.isMatrix) return mode_static(); // not a 2D set-up
+
+  const uint16_t cols = SEGMENT.virtualWidth();
+  const uint16_t rows = SEGMENT.virtualHeight();
+
+  if (!SEGENV.allocateData(4)) return mode_static(); //allocation failed
+
+  if (SEGENV.call == 0) {
+    SEGMENT.setUpLeds();
+    SEGMENT.fill(BLACK);
+    SEGENV.aux0 = 0;
+  }
+
+  bool phase_chaos = SEGMENT.check3;
+  bool soft = SEGMENT.check2;
+  bool color_chaos = SEGMENT.check1;
+  CRGB color;
+
+  byte numLines = map8(SEGMENT.intensity,1,16);
+
+  SEGENV.aux0++;  // hue
+  SEGMENT.fadeToBlackBy(map8(SEGENV.custom1,10,128));
+
+  um_data_t *um_data = getAudioData();
+  uint8_t *fftResult = (uint8_t*)um_data->u_data[2];
+  
+  SEGENV.aux1 = phase_chaos?random8():0;
+
+  for (size_t i = 0; i < numLines; i++) {
+    byte bin = map(i,0,numLines,0,15);
+    
+    byte x1 = beatsin8(max(16,int(SEGMENT.speed))/16*1 + fftResult[0]/16, 0, (cols-1), fftResult[bin], SEGENV.aux1);
+    byte x2 = beatsin8(max(16,int(SEGMENT.speed))/16*2 + fftResult[0]/16, 0, (cols-1), fftResult[bin], SEGENV.aux1);
+    byte y1 = beatsin8(max(16,int(SEGMENT.speed))/16*3 + fftResult[0]/16, 0, (rows-1), fftResult[bin], SEGENV.aux1);
+    byte y2 = beatsin8(max(16,int(SEGMENT.speed))/16*4 + fftResult[0]/16, 0, (rows-1), fftResult[bin], SEGENV.aux1);
+
+    int length = sqrt((x2-x1)*(x2-x1) + (y2-y1)*(y2-y1));
+    length = map8(fftResult[bin],0,length);
+
+    if (length > max(1,int(SEGMENT.custom3))) {
+      if (color_chaos) {
+        color = ColorFromPalette(SEGPALETTE, i * 255 / numLines + (SEGENV.aux0&0xFF), 255, LINEARBLEND);
+      } else {
+        uint16_t colorIndex = map(i,0,numLines,0,255);
+        color = SEGMENT.color_from_palette(colorIndex, false, PALETTE_SOLID_WRAP, 0);
+      }
+      SEGMENT.drawLine(x1,y1,x2,y2,color,soft,length);
+    }
+  }
+  return FRAMETIME;
+} // mode_2DPaintbrush()
+static const char _data_FX_MODE_2DPAINTBRUSH[] PROGMEM = "Paintbrush ☾@Oscillator Offset,# of lines,Fade Rate,,Min Length,Color Chaos,Anti-aliasing,Phase Chaos;!,,Peaks;!;2f;sx=160,ix=255,c1=80,c2=255,c3=0,pal=72,o1=0,o2=1,o3=0";
 
 //////////////////////////////////////////////////////////////////////////////////////////
 // mode data
@@ -8588,6 +8769,11 @@ void WS2812FX::setupEffectData() {
   addEffect(FX_MODE_2DWAVINGCELL, &mode_2Dwavingcell, _data_FX_MODE_2DWAVINGCELL);
 
   addEffect(FX_MODE_2DAKEMI, &mode_2DAkemi, _data_FX_MODE_2DAKEMI); // audio
+
+  addEffect(FX_MODE_GEQLASER, &mode_GEQLASER, _data_FX_MODE_GEQLASER); // audio
+
+  addEffect(FX_MODE_2DPAINTBRUSH, &mode_2DPaintbrush, _data_FX_MODE_2DPAINTBRUSH); // audio
+
 #endif // WLED_DISABLE_2D
 
 }

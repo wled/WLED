@@ -76,7 +76,7 @@ private:
   bool sensorFound = false;
 
   // Home Assistant and MQTT  
-  String mqttLuminanceTopic = FPSTR("");
+  String mqttLuminanceTopic;
   bool mqttInitialized = false;
   bool HomeAssistantDiscovery = true; // Publish Home Assistant Discovery messages
 

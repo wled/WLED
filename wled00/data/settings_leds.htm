@@ -5,7 +5,7 @@
 	<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport">
 	<title>LED Settings</title>
 	<script>
-		var d=document,laprev=55,maxB=1,maxV=0,maxM=4000,maxPB=4096,maxL=1333,maxLbquot=0; //maximum bytes for LED allocation: 4kB for 8266, 32kB for 32
+		var d=document,laprev=55,maxB=1,maxV=0,maxM=4000,maxPB=8465,maxL=1333,maxLbquot=0; //maximum bytes for LED allocation: 4kB for 8266, 32kB for 32
 		d.um_p = [];
 		d.rsvd = [];
 		d.ro_gpio = [];
@@ -384,7 +384,8 @@ ${i+1}:
 <option value="102">Hub75Matrix 64x32</option>
 <option value="103">Hub75Matrix 64x64</option>
 <option value="105">Hub75Matrix 32x32 (Outdoor 8S)</option>
-<option value="106">Hub75Matrix 64x64 (Outdoor 16S)</option>
+<option value="106">Hub75Matrix 64x32 (Outdoor 8S)</option>
+<option value="107">Hub75Matrix 64x64 (Outdoor 16S)</option>
 </select><br>
 <div id="co${i}" style="display:inline">Color Order:
 <select name="CO${i}">
@@ -396,9 +397,9 @@ ${i+1}:
 <option value="5">GBR</option>
 </select></div>
 <div id="dig${i}w" style="display:none">Swap: <select name="WO${i}"><option value="0">None</option><option value="1">W & B</option><option value="2">W & G</option><option value="3">W & R</option></select></div>
-<div id="dig${i}l" style="display:none">Clock: <select name="SP${i}"><option value="0">Slowest</option><option value="1">Slow</option><option value="2">Normal</option><option value="3">Fast</option><option value="4">Fastest</option></select></div>
+<div id="dig${i}l" style="display:none">Clock: <select name="SP${i}"><option value="0">Slowest</option><option value="1">Slow</option><option value="2">Normal</option><option value="3">Fast</option><option value="4">Fastest</option><option value="5">MAX</option><option value="6">overspeed</option></select></div>
 <div>
-<span id="psd${i}">Start:</span> <input type="number" name="LS${i}" id="ls${i}" class="l starts" min="0" max="8191" value="${lastEnd(i)}" oninput="startsDirty[${i}]=true;UI();" required />&nbsp;
+<span id="psd${i}">Start:</span> <input type="number" name="LS${i}" id="ls${i}" class="l starts" min="0" max="8464" value="${lastEnd(i)}" oninput="startsDirty[${i}]=true;UI();" required />&nbsp;
 <div id="dig${i}c" style="display:inline">Length: <input type="number" name="LC${i}" class="l" min="1" max="${maxPB}" value="1" required oninput="UI()" /></div><br>
 </div>
 <span id="p0d${i}">GPIO:</span> <input type="number" name="L0${i}" required class="s" onchange="UI()"/>

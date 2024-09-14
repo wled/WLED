@@ -469,6 +469,8 @@ void getSettingsJS(AsyncWebServerRequest* request, byte subPage, char* dest) //W
           case  5000 : speed = 2; break;
           case 10000 : speed = 3; break;
           case 20000 : speed = 4; break;
+          case 40000 : speed = 5; break; // WLEDMM max speed 40Mhz - requires carefull wiring
+          case 60000 : speed = 6; break; // WLEDMM overspeed 60Mhz - may or may not work
         }
       }
       sappend('v',sp,speed);
@@ -792,6 +794,7 @@ void getSettingsJS(AsyncWebServerRequest* request, byte subPage, char* dest) //W
   if (subPage == 8) //usermods
   {
     appendGPIOinfo();
+    oappendUseDeflate(true); // allow replacing long functions with shorter equivalents - only works for usermods
     if (!request->hasParam("um") ) {
       // oappend(SET_F("numM="));
       // oappendi(usermods.getModCount());
@@ -834,6 +837,7 @@ void getSettingsJS(AsyncWebServerRequest* request, byte subPage, char* dest) //W
       Usermod *usermod = usermods.lookupName(request->getParam("um")->value().c_str());
       if (usermod) usermod->appendConfigData();
     }
+    oappendUseDeflate(false);
 
     // oappend(SET_F("console.log('getSettingsJS fix ro pins', d.max_gpio, d.ro_gpio);")); 
     oappend(SET_F("pinPost();")); 

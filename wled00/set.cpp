@@ -159,6 +159,8 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
           case 2 : freqHz =  5000; break;
           case 3 : freqHz = 10000; break;
           case 4 : freqHz = 20000; break;
+          case 5 : freqHz = 40000; break; // WLEDMM max speed 40Mhz - requires carefull wiring
+          case 6 : freqHz = 60000; break; // WLEDMM overspeed 60Mhz - may or may not work
         }
       } else {
         freqHz = 0;
@@ -1060,7 +1062,7 @@ bool handleSet(AsyncWebServerRequest *request, const String& req, bool apply)
   for (uint8_t i = 0; i < strip.getSegmentsNum(); i++) {
     Segment& seg = strip.getSegment(i);
     if (i != selectedSeg && (singleSegment || !seg.isActive() || !seg.isSelected())) continue; // skip non main segments if not applying to all
-    if (fxModeChanged)    seg.setMode(effectIn, req.indexOf(F("FXD="))>0);  // apply defaults if FXD= is specified
+    if (fxModeChanged)    seg.setMode(effectIn, req.indexOf(F("FXD="))>0, req.indexOf(F("FXD2="))>0);  // apply defaults if FXD= is specified
     if (speedChanged)     seg.speed     = speedIn;
     if (intensityChanged) seg.intensity = intensityIn;
     if (paletteChanged)   seg.setPalette(paletteIn);

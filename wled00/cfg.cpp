@@ -468,6 +468,7 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
     CJSON(dmxInputTransmitPin, if_live_dmx[F("inputRxPin")]);
     CJSON(dmxInputReceivePin, if_live_dmx[F("inputTxPin")]);
     CJSON(dmxInputEnablePin, if_live_dmx[F("inputEnablePin")]);
+    CJSON(dmxInputPort, if_live_dmx[F("dmxInputPort")]);
   #endif
 
   CJSON(arlsForceMaxBri, if_live[F("maxbri")]);
@@ -958,6 +959,7 @@ void serializeConfig() {
     if_live_dmx[F("inputRxPin")] = dmxInputTransmitPin;
     if_live_dmx[F("inputTxPin")] = dmxInputReceivePin;
     if_live_dmx[F("inputEnablePin")] = dmxInputEnablePin;
+    if_live_dmx[F("dmxInputPort")] = dmxInputPort;
   #endif
 
   if_live[F("timeout")] = realtimeTimeoutMs / 100;

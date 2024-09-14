@@ -108,7 +108,6 @@ void sendDataWs(AsyncWebSocketClient * client)
 {
   DEBUG_PRINTF("sendDataWs\n");
   if (!ws.count()) return;
-  AsyncWebSocketMessageBuffer * buffer;
 
   if (!requestJSONBufferLock(12)) {
     if (client) {
@@ -138,17 +137,7 @@ void sendDataWs(AsyncWebSocketClient * client)
     // DEBUG_PRINTF("%s min free stack %d\n", pcTaskGetTaskName(NULL), uxTaskGetStackHighWaterMark(NULL)); //WLEDMM
   #endif
   if (len < 1) return; // WLEDMM do not allocate 0 size buffer
-  
-  // WLEDMM use exceptions to catch out-of-memory errors
-  #if __cpp_exceptions
-  try{
-    buffer = ws.makeBuffer(len); // will not allocate correct memory sometimes on ESP8266
-  } catch(...) {
-    buffer = nullptr;
-  }
-  #else
-  buffer = ws.makeBuffer(len); // will not allocate correct memory sometimes on ESP8266
-  #endif
+  AsyncWebSocketBuffer buffer(len);
   #ifdef ESP8266
   size_t heap2 = ESP.getFreeHeap();
   DEBUG_PRINT(F("heap ")); DEBUG_PRINTLN(ESP.getFreeHeap());
@@ -161,24 +150,19 @@ void sendDataWs(AsyncWebSocketClient * client)
     USER_PRINTLN(F("WS buffer allocation failed."));
     ws.closeAll(1013); //code 1013 = temporary overload, try again later
     ws.cleanupClients(0); //disconnect all clients to release memory
-    ws._cleanBuffers();
     errorFlag = ERR_LOW_WS_MEM;
     return; //out of memory
   }
-
-  buffer->lock();
-  serializeJson(doc, (char *)buffer->get(), len);
+  serializeJson(doc, (char *)buffer.data(), len);
 
   DEBUG_PRINT(F("Sending WS data "));
   if (client) {
-    client->text(buffer);
+    client->text(std::move(buffer));
     DEBUG_PRINTLN(F("to a single client."));
   } else {
-    ws.textAll(buffer);
+    ws.textAll(std::move(buffer));
     DEBUG_PRINTLN(F("to multiple clients."));
   }
-  buffer->unlock();
-  ws._cleanBuffers();
 
   releaseJSONBufferLock();
 }
@@ -227,32 +211,21 @@ static bool sendLiveLedsWs(uint32_t wsClient)  // WLEDMM added "static"
   #endif
   size_t pos = (strip.isMatrix ? 4 : 2);
   size_t bufSize = pos + (used/n)*3;
-
-  if ((bufSize < 1) || (used < 1)) return(false); // WLEDMM should not happen
-  //AsyncWebSocketMessageBuffer * wsBuf = ws.makeBuffer(bufSize);
-  // WLEDMM protect against exceptions due to low memory 
-  AsyncWebSocketMessageBuffer * wsBuf = nullptr;
-#if __cpp_exceptions
-  try{
-#endif
-    wsBuf = ws.makeBuffer(bufSize);
-#if __cpp_exceptions
-  } catch(...) {
-#else
-  if (wsBuf == nullptr) {    // 8266 does not support exceptions
-#endif
-    wsBuf = nullptr;
-    USER_PRINTLN(F("WS buffer allocation failed."));
-    //ws.closeAll(1013); //code 1013 = temporary overload, try again later
-    //ws.cleanupClients(0); //disconnect all clients to release memory
-    ws._cleanBuffers();
-  }
   
-  if (!wsBuf) return false; //out of memory
-  uint8_t* buffer = wsBuf->get();
-  if (!buffer) return false; //out of memory
+  if ((bufSize < 1) || (used < 1)) return(false); // WLEDMM should not happen
+  AsyncWebSocketBuffer wsBuf(bufSize);
+  if (!wsBuf) {
+	  USER_PRINTLN(F("WS buffer allocation failed."));
+	  errorFlag = ERR_LOW_WS_MEM;
+	  return false; //out of memory
+  }
+  uint8_t* buffer = reinterpret_cast<uint8_t*>(wsBuf.data());
+  if (!buffer) {
+	  USER_PRINTLN(F("WS buffer allocation failed."));
+	  errorFlag = ERR_LOW_WS_MEM;
+	  return false; //out of memory
+  }
 
-  wsBuf->lock();  // protect buffer from being cleaned by another WS instance
   buffer[0] = 'L';
   buffer[1] = 1; //version
   #ifndef WLED_DISABLE_2D
@@ -277,9 +250,10 @@ static bool sendLiveLedsWs(uint32_t wsClient)  // WLEDMM added "static"
     // WLEDMM begin: preview with color gamma correction
     if (gammaCorrectPreview) {
       uint8_t w = W(c);  // not sure why, but it looks better if using "white" without corrections
-      buffer[pos++] = qadd8(w, unGamma8(R(c))); //R, add white channel to RGB channels as a simple RGBW -> RGB map
-      buffer[pos++] = qadd8(w, unGamma8(G(c))); //G
-      buffer[pos++] = qadd8(w, unGamma8(B(c))); //B
+      if (w>0) c = color_add(c, RGBW32(w, w, w, 0), false); // add white channel to RGB channels - color_add() will prevent over-saturation
+      buffer[pos++] = unGamma8(R(c)); //R
+      buffer[pos++] = unGamma8(G(c)); //G
+      buffer[pos++] = unGamma8(B(c)); //B
     } else {
     // WLEDMM end
       uint8_t w = W(c);  // WLEDMM small optimization
@@ -289,9 +263,7 @@ static bool sendLiveLedsWs(uint32_t wsClient)  // WLEDMM added "static"
     }
   }
 
-  wsc->binary(wsBuf);
-  wsBuf->unlock();     // un-protect buffer
-  ws._cleanBuffers();  // cleans up if the message is not added to any clients.
+  wsc->binary(std::move(wsBuf));
   return true;
 }
 

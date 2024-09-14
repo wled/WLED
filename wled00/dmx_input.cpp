@@ -106,6 +106,7 @@ bool DMXInput::installDriver()
 {
 
   const auto config = createConfig();
+  USER_PRINTF("DMX port: %u\n", inputPortNum);
   if (!dmx_driver_install(inputPortNum, &config, DMX_INTR_FLAGS_DEFAULT)) {
     USER_PRINTF("Error: Failed to install dmx driver\n");
     return false;
@@ -134,7 +135,7 @@ void DMXInput::init(uint8_t rxPin, uint8_t txPin, uint8_t enPin, uint8_t inputPo
   // }
 #endif
 
-  if (inputPortNum < 3 && inputPortNum > 0) {
+  if (inputPortNum <= (SOC_UART_NUM - 1) && inputPortNum > 0) {
     this->inputPortNum = inputPortNum;
   }
   else {
@@ -186,6 +187,9 @@ void DMXInput::updateInternal()
   unsigned long now = millis();
   if (dmx_receive(inputPortNum, &packet, DMX_TIMEOUT_TICK)) {
     if (!packet.err) {
+      if(!connected) {
+        USER_PRINTLN("DMX Input - connected");
+      }
       connected = true;
       identify = isIdentifyOn();
       if (!packet.is_rdm) {
@@ -198,6 +202,9 @@ void DMXInput::updateInternal()
     }
   }
   else {
+    if(connected) {
+      USER_PRINTLN("DMX Input - disconnected");
+    }
     connected = false;
   }
 }

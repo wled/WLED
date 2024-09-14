@@ -144,22 +144,34 @@ bool oappendi(int i)
   return oappend(s);
 }
 
+static bool squeezeStrings = false;
+void oappendUseDeflate(bool OnOff) { squeezeStrings = OnOff; }
 
 bool oappend(const char* txt)
 {
-  uint16_t len = strlen(txt);
+  String str = squeezeStrings ? String(txt) : String("");
+  if (squeezeStrings) {
+    // simple fixed-dictionary deflate
+    str.replace(F("addField("),    F("adF("));
+    str.replace(F("addDropdown("), F("adD("));
+    str.replace(F("addOption("),   F("adO("));
+    str.replace(F("addInfo("),     F("adI("));
+  }
+  const char* finalTxt = squeezeStrings ? str.c_str() : txt;
+
+  size_t len = strlen(finalTxt);
   if ((obuf == nullptr) || (olen + len >= SETTINGS_STACK_BUF_SIZE)) { // sanity checks
 	  if (obuf == nullptr) { USER_PRINTLN(F("oappend() error: obuf == nullptr."));
 	  } else {
 	    USER_PRINT(F("oappend() error: buffer full. Increase SETTINGS_STACK_BUF_SIZE for "));
       USER_PRINTF("%2u bytes \t\"", len /*1 + olen + len - SETTINGS_STACK_BUF_SIZE*/);
-      USER_PRINT(txt);
+      USER_PRINT(finalTxt);
       USER_PRINTLN(F("\""));
       errorFlag = ERR_LOW_AJAX_MEM;
 	  }
     return false;        // buffer full
   }
-  strcpy(obuf + olen, txt);
+  strcpy(obuf + olen, finalTxt);
   olen += len;
   return true;
 }
@@ -255,8 +267,8 @@ uint8_t extractModeName(uint8_t mode, const char *src, char *dest, uint8_t maxLe
     } else return 0;
   }
 
-  if (src == JSON_palette_names && mode > GRADIENT_PALETTE_COUNT) {
-    snprintf_P(dest, maxLen, PSTR("~ Custom %d~"), 255-mode);
+  if (src == JSON_palette_names && mode > (GRADIENT_PALETTE_COUNT + 13)) {
+    snprintf_P(dest, maxLen, PSTR("~ Custom %d ~"), 255-mode);
     dest[maxLen-1] = '\0';
     return strlen(dest);
   }

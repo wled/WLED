@@ -27,17 +27,9 @@ Currently ESP8266 is not supported, due to low speed and small RAM of this chip.
 There are however plans to create a lightweight audioreactive for the 8266, with reduced features.
 ## Installation 
 
-### using customised _arduinoFFT_ library for use with this usermod
-Add `-D USERMOD_AUDIOREACTIVE` to your PlatformIO environment `build_flags`, as well as `https://github.com/blazoncek/arduinoFFT.git` to your `lib_deps`.
-If you are not using PlatformIO (which you should) try adding `#define USERMOD_AUDIOREACTIVE` to *my_config.h* and make sure you have _arduinoFFT_ library downloaded and installed.
+### using latest _arduinoFFT_ library
 
-Customised _arduinoFFT_ library for use with this usermod can be found at https://github.com/blazoncek/arduinoFFT.git
-
-### using latest (develop) _arduinoFFT_ library
-Alternatively, you can use the latest arduinoFFT development version.
-ArduinoFFT `develop` library is slightly more accurate, and slightly faster than our customised library, however also needs additional 2kB RAM.
-
-* `build_flags` = `-D USERMOD_AUDIOREACTIVE` `-D UM_AUDIOREACTIVE_USE_NEW_FFT`
+* `build_flags` = `-D USERMOD_AUDIOREACTIVE`
 * `lib_deps`= `https://github.com/kosme/arduinoFFT#develop @ 1.9.2`
 
 ## Configuration

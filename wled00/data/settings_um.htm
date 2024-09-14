@@ -146,6 +146,9 @@
 			urows += `<br>`;
 		}
 	}
+	function adF(k,f,o,a=false) {  //shortcut for addField(key, field, (sub)object, isArray)
+		return addField(k,f,o,a);
+	}
 	// https://stackoverflow.com/questions/39729741/javascript-change-input-text-to-select-option
 	function addDropdown(um,fld) {
 		let sel = d.createElement('select');
@@ -170,6 +173,9 @@
 		}
 		return null;
 	}
+	function adD(um,fld) { // shortcut for addDropdown(um,fld)
+		return addDropdown(um,fld);
+	}
 	function addOption(sel,txt,val) {
 		if (sel===null) return; // select object missing
 		let opt = d.createElement("option");
@@ -180,6 +186,9 @@
 			let c = sel.childNodes[i];
 			if (c.value == sel.dataset.val) sel.selectedIndex = i;
 		}
+	}
+	function adO(sel,txt,val) { // shortcut for addOption(sel,txt,val)
+		return addOption(sel,txt,val);
 	}
 	//WLEDMM: replace Option to set globals
 	function rOpt(name,el,txt,val) {
@@ -284,6 +293,9 @@
 			if (txt!="") obj[el].insertAdjacentHTML('afterend', '&nbsp;'+txt);
 			if (txt2!="") obj[el].insertAdjacentHTML('beforebegin', txt2 + '&nbsp;');  //add pre texts
 		}
+	}
+	function adI(name,el,txt, txt2="") { // shortcut for addInfo(name,el,txt, txt2="")
+		return addInfo(name,el,txt, txt2);
 	}
 	// add Help Button
 	function addHB(um)

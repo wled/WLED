@@ -352,6 +352,7 @@
 #define ERR_LOW_SEG_MEM 34  // WLEDMM: low memory (segment data RAM)
 #define ERR_LOW_WS_MEM  35  // WLEDMM: low memory (ws)
 #define ERR_LOW_AJAX_MEM  36 // WLEDMM: low memory (oappend)
+#define ERR_LOW_BUF     37  // WLEDMM: low memory (LED buffer from allocLEDs)
 
 // Timer mode types
 #define NL_MODE_SET               0            //After nightlight time elapsed, set to target brightness
@@ -385,7 +386,8 @@
 #ifdef ESP8266
 #define MAX_LEDS 1664 //can't rely on memory limit to limit this to 1600 LEDs
 #else
-#define MAX_LEDS 8192
+//#define MAX_LEDS 8192
+#define MAX_LEDS 8464 // WLEDMM 92x92
 #endif
 #endif
 
@@ -402,7 +404,15 @@
 #endif
 
 #ifndef MAX_LEDS_PER_BUS
-#define MAX_LEDS_PER_BUS 2048   // may not be enough for fast LEDs (i.e. APA102)
+#if !defined(ARDUINO_ARCH_ESP32)
+  #define MAX_LEDS_PER_BUS 2048   // may not be enough for fast LEDs (i.e. APA102)
+#else
+  #if CONFIG_IDF_TARGET_ESP32 || CONFIG_IDF_TARGET_ESP32S3
+    #define MAX_LEDS_PER_BUS MAX_LEDS // for fast LEDs and fast MCUs (i.e. APA102, HUB75, ART.Net) - allows to have all LEDs on one bus
+  #else
+    #define MAX_LEDS_PER_BUS 2048     // may not be enough for fast LEDs (i.e. APA102)
+  #endif
+#endif  
 #endif
 
 // string temp buffer (now stored in stack locally) // WLEDMM ...which is actually not the greatest design choice on ESP32
@@ -416,13 +426,15 @@
   #endif
 #endif
 
-#ifdef WLED_USE_ETHERNET
-  #define E131_MAX_UNIVERSE_COUNT 20
-#else
-  #ifdef ESP8266
-    #define E131_MAX_UNIVERSE_COUNT 9
+#ifndef E131_MAX_UNIVERSE_COUNT
+  #ifdef WLED_USE_ETHERNET
+    #define E131_MAX_UNIVERSE_COUNT 20
   #else
-    #define E131_MAX_UNIVERSE_COUNT 12
+    #ifdef ESP8266
+      #define E131_MAX_UNIVERSE_COUNT 9
+    #else
+      #define E131_MAX_UNIVERSE_COUNT 12
+    #endif
   #endif
 #endif
 
@@ -448,6 +460,7 @@
 #define TOUCH_THRESHOLD 32 // limit to recognize a touch, higher value means more sensitive
 
 // Size of buffer for API JSON object (increase for more segments)
+#if !defined(JSON_BUFFER_SIZE)
 #ifdef ESP8266
   #define JSON_BUFFER_SIZE 10240
 #else
@@ -465,9 +478,12 @@
   #define JSON_BUFFER_SIZE 24576
  #endif
 #endif
+#endif
 
 //#define MIN_HEAP_SIZE (8k for AsyncWebServer)
+#if !defined(MIN_HEAP_SIZE)
 #define MIN_HEAP_SIZE 8192
+#endif
 
 // Maximum size of node map (list of other WLED instances)
 #ifdef ESP8266
