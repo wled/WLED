@@ -2558,6 +2558,7 @@ bool WS2812FX::deserializeMap(uint8_t n) {
     uint16_t maxHeight = atoi(cleanUpName(fileName));
     //DEBUG_PRINTF(" (\"height\": %s) \n", fileName)
 
+    #ifndef WLEDMM_NO_MAP_RESET
     //WLEDMM: support ledmap file properties width and height: if found change segment
     if (maxWidth * maxHeight > 0) {
       Segment::maxWidth = maxWidth;
@@ -2566,6 +2567,7 @@ bool WS2812FX::deserializeMap(uint8_t n) {
     }
     else
       setUpMatrix(); //reset segment sizes to panels
+    #endif
   }
 
   USER_PRINTF("deserializeMap %d x %d\n", Segment::maxWidth, Segment::maxHeight);
