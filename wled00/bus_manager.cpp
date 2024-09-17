@@ -588,6 +588,29 @@ BusHub75Matrix::BusHub75Matrix(BusConfig &bc) : Bus(bc.type, bc.start, bc.autoWh
   mxconfig.gpio.d = 35;
   mxconfig.gpio.e = 21;
 
+#elif defined(CONFIG_IDF_TARGET_ESP32S3) && defined(HUB75_TROYHACKS) // ESP32-S3
+
+  // TroyHacks HUB75
+
+  USER_PRINTLN("MatrixPanel_I2S_DMA - TroyHacks with PSRAM");
+
+  mxconfig.gpio.r1 =  1;
+  mxconfig.gpio.g1 =  2;
+  mxconfig.gpio.b1 =  42;
+  // 4th pin is GND
+  mxconfig.gpio.r2 =  41;
+  mxconfig.gpio.g2 =  40;
+  mxconfig.gpio.b2 =  39;
+  mxconfig.gpio.e =   38;
+  mxconfig.gpio.a =   45;
+  mxconfig.gpio.b =   48;
+  mxconfig.gpio.c =   47;
+  mxconfig.gpio.d =   21;   // this says GND but should be the "D" pin
+  mxconfig.gpio.clk = 20;
+  mxconfig.gpio.lat = 19;
+  mxconfig.gpio.oe  = 0;
+  // 16th pin is GND
+
 #elif defined(CONFIG_IDF_TARGET_ESP32S3) // ESP32-S3
 
   // Huidu HD-WF2 ESP32-S3
@@ -698,13 +721,10 @@ BusHub75Matrix::BusHub75Matrix(BusConfig &bc) : Bus(bc.type, bc.start, bc.autoWh
 
   // mxconfig.double_buff = true; // <------------- Turn on double buffer
   // mxconfig.driver = HUB75_I2S_CFG::ICN2038S;  // experimental - use specific shift register driver
-  //mxconfig.latch_blanking = 3;
+  // mxconfig.latch_blanking = 3;
   // mxconfig.i2sspeed = HUB75_I2S_CFG::HZ_10M;  // experimental - 5MHZ should be enugh, but colours looks slightly better at 10MHz
-  //mxconfig.min_refresh_rate = 90;
-  //mxconfig.min_refresh_rate = 120;
-  mxconfig.clkphase = false;  // can help in case that the leftmost column is invisible, or pixels on the right side "bleeds out" to the left.
-
-
+  // mxconfig.min_refresh_rate = 90;
+  mxconfig.clkphase = false; // can help in case that the leftmost column is invisible, or pixels on the right side "bleeds out" to the left.
   mxconfig.chain_length = max((u_int8_t) 1, min(bc.pins[0], (u_int8_t) 4)); // prevent bad data preventing boot due to low memory
 
   USER_PRINTF("MatrixPanel_I2S_DMA config - %ux%u length: %u\n", mxconfig.mx_width, mxconfig.mx_height, mxconfig.chain_length);
@@ -753,10 +773,9 @@ BusHub75Matrix::BusHub75Matrix(BusConfig &bc) : Bus(bc.type, bc.start, bc.autoWh
 
     if (_ledBuffer) free(_ledBuffer);                 // should not happen
     if (_ledsDirty) free(_ledsDirty);                 // should not happen
-    USER_PRINTLN("MatrixPanel_I2S_DMA allocate memory");
+
     _ledsDirty = (byte*) malloc(getBitArrayBytes(_len));  // create LEDs dirty bits
-   USER_PRINTLN("MatrixPanel_I2S_DMA allocate memory ok");
-   
+
     if (_ledsDirty == nullptr) {
       display->stopDMAoutput();
       delete display; display = nullptr;
@@ -767,7 +786,15 @@ BusHub75Matrix::BusHub75Matrix(BusConfig &bc) : Bus(bc.type, bc.start, bc.autoWh
     setBitArray(_ledsDirty, _len, false);             // reset dirty bits
 
     if (mxconfig.double_buff == false) {
+      #if defined(CONFIG_IDF_TARGET_ESP32S3) && CONFIG_SPIRAM_MODE_OCT && defined(BOARD_HAS_PSRAM) && (defined(WLED_USE_PSRAM) || defined(WLED_USE_PSRAM_JSON))
+      if (psramFound()) {
+        _ledBuffer = (CRGB*) ps_calloc(_len, sizeof(CRGB));  // create LEDs buffer (initialized to BLACK)
+      } else {
+        _ledBuffer = (CRGB*) calloc(_len, sizeof(CRGB));  // create LEDs buffer (initialized to BLACK)
+      }
+      #else
       _ledBuffer = (CRGB*) calloc(_len, sizeof(CRGB));  // create LEDs buffer (initialized to BLACK)
+      #endif
     }
   }
   
