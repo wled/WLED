@@ -525,9 +525,31 @@ void BusNetwork::cleanup() {
 BusHub75Matrix::BusHub75Matrix(BusConfig &bc) : Bus(bc.type, bc.start, bc.autoWhite) {
 
   _valid = false;
-  mxconfig.double_buff = false; // default to off, known to cause issue with some effects but needs more memory
-
   fourScanPanel = nullptr;
+
+    mxconfig.double_buff = false; // Use our own memory-optimised buffer rather than the driver's own double-buffer  
+ 
+  // mxconfig.driver = HUB75_I2S_CFG::ICN2038S;  // experimental - use specific shift register driver
+  // mxconfig.latch_blanking = 3;
+  // mxconfig.i2sspeed = HUB75_I2S_CFG::HZ_10M;  // experimental - 5MHZ should be enugh, but colours looks slightly better at 10MHz
+  // mxconfig.min_refresh_rate = 90;
+  mxconfig.clkphase = false; // can help in case that the leftmost column is invisible, or pixels on the right side "bleeds out" to the left.
+ 
+  // How many panels we have connected, cap at sane value
+  mxconfig.chain_length = max((u_int8_t) 1, min(bc.pins[0], (u_int8_t) 4)); // prevent bad data preventing boot due to low memory
+
+  #if defined(CONFIG_IDF_TARGET_ESP32S3) && defined(BOARD_HAS_PSRAM)
+  if(bc.pins[0] > 4) {
+    USER_PRINT("WARNING, chain limited to 4");
+  }
+  # else
+  // Disable this check if you are want to try bigger setups and accept you
+  // might need to do full erase to recover from memory relayed boot-loop if you push too far
+  if(mxconfig.mx_height >= 64 && (bc.pins[0] > 1)) {
+    USER_PRINT("WARNING, only single panel can be used of 64 pixel boards due to memory");
+    mxconfig.chain_length = 1;
+  }
+  #endif
 
   switch(bc.type) {
     case 101:
@@ -556,20 +578,11 @@ BusHub75Matrix::BusHub75Matrix(BusConfig &bc) : Bus(bc.type, bc.start, bc.autoWh
       break;
   }
 
-  if(mxconfig.mx_height >= 64 && (bc.pins[0] > 1)) {
-    USER_PRINT("WARNING, only single panel can be used of 64 pixel boards due to memory");
-    mxconfig.chain_length = 1;
-  }
-
-  // mxconfig.driver   = HUB75_I2S_CFG::SHIFTREG;
-
 #if defined(ARDUINO_ADAFRUIT_MATRIXPORTAL_ESP32S3) // MatrixPortal ESP32-S3
 
   // https://www.adafruit.com/product/5778
 
   USER_PRINTLN("MatrixPanel_I2S_DMA - Matrix Portal S3 config");
-
-  //mxconfig.double_buff = true; // <------------- Turn on double buffer
 
   mxconfig.gpio.r1 = 42;
   mxconfig.gpio.g1 = 41;
@@ -588,11 +601,9 @@ BusHub75Matrix::BusHub75Matrix(BusConfig &bc) : Bus(bc.type, bc.start, bc.autoWh
   mxconfig.gpio.d = 35;
   mxconfig.gpio.e = 21;
 
-#elif defined(CONFIG_IDF_TARGET_ESP32S3) && defined(HUB75_TROYHACKS) // ESP32-S3
+#elif defined(CONFIG_IDF_TARGET_ESP32S3) && defined(BOARD_HAS_PSRAM)// ESP32-S3
 
-  // TroyHacks HUB75
-
-  USER_PRINTLN("MatrixPanel_I2S_DMA - TroyHacks with PSRAM");
+  USER_PRINTLN("MatrixPanel_I2S_DMA - S3 with PSRAM");
 
   mxconfig.gpio.r1 =  1;
   mxconfig.gpio.g1 =  2;
@@ -718,14 +729,6 @@ BusHub75Matrix::BusHub75Matrix(BusConfig &bc) : Bus(bc.type, bc.start, bc.autoWh
   mxconfig.gpio.e = 18;
 
 #endif
-
-  // mxconfig.double_buff = true; // <------------- Turn on double buffer
-  // mxconfig.driver = HUB75_I2S_CFG::ICN2038S;  // experimental - use specific shift register driver
-  // mxconfig.latch_blanking = 3;
-  // mxconfig.i2sspeed = HUB75_I2S_CFG::HZ_10M;  // experimental - 5MHZ should be enugh, but colours looks slightly better at 10MHz
-  // mxconfig.min_refresh_rate = 90;
-  mxconfig.clkphase = false; // can help in case that the leftmost column is invisible, or pixels on the right side "bleeds out" to the left.
-  mxconfig.chain_length = max((u_int8_t) 1, min(bc.pins[0], (u_int8_t) 4)); // prevent bad data preventing boot due to low memory
 
   USER_PRINTF("MatrixPanel_I2S_DMA config - %ux%u length: %u\n", mxconfig.mx_width, mxconfig.mx_height, mxconfig.chain_length);
 
@@ -996,7 +999,7 @@ int BusManager::add(BusConfig &bc) {
     busses[numBusses] = new BusHub75Matrix(bc);
     USER_PRINTLN("[BusHub75Matrix] ");
 #else
-    USER_PRINTLN("[unsupported! BusHub75Matrix] ");
+    USER_PRINTLN("[unsupported! BusHub75Matrix - add flag -D WLED_ENABLE_HUB75MATRIX] ");
     return -1;
 #endif
   } else if (IS_DIGITAL(bc.type)) {
