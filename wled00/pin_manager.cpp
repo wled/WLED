@@ -120,6 +120,13 @@ String PinManagerClass::getPinSpecialText(int gpio) {  // special purpose PIN in
         if (gpio > 32 && gpio < 38)  return (F("(reserved) Octal PSRAM or Octal Flash"));
       #endif
       //if (gpio == 0 || gpio == 3 || gpio == 45 || gpio == 46) return (F("(strapping pin)"));
+      #ifdef ARDUINO_TTGO_T7_S3
+      // experimental: a few special pins of the T7-S3 board
+      if (gpio == 2) return  (F("(reserved) _VBAT voltage monitoring"));
+      if (gpio == 17) return (F("onboard LED"));
+      //if (gpio == 3) return  (F("(cross-connected to pin  3-1)")); // WLEDMM experimental
+      //if (gpio == 12) return (F("(cross-connected to pin 12-1)")); // WLEDMM experimental
+      #endif
 
     #elif defined(CONFIG_IDF_TARGET_ESP32S2)
       // ESP32-S2
