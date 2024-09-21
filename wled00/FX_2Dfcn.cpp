@@ -351,9 +351,9 @@ void IRAM_ATTR_YN Segment::setPixelColorXY(int x, int y, uint32_t col) //WLEDMM:
     return;
   }
 
-  const int_fast16_t glen_ = groupLength(); // WLEDMM optimization
-  const int_fast16_t wid_ =  width();
-  const int_fast16_t hei_ = height();
+  const uint_fast16_t glen_ = groupLength(); // WLEDMM optimization
+  const uint_fast16_t wid_ =  width();
+  const uint_fast16_t hei_ = height();
 
   x *= glen_; // expand to physical pixels
   y *= glen_; // expand to physical pixels
