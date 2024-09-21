@@ -326,7 +326,7 @@ class Usermod {
 class UsermodManager {
   private:
     Usermod* ums[WLED_MAX_USERMODS];
-    byte numMods = 0;
+    unsigned numMods = 0;
 
   public:
     void loop();
