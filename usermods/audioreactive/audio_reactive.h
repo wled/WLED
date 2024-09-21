@@ -2352,6 +2352,11 @@ class AudioReactive : public Usermod {
 #endif
     }
 
+#if defined(_MoonModules_WLED_) && defined(WLEDMM_FASTPATH)
+    void loop2(void) { 
+      loop();
+    }
+#endif
 
     bool getUMData(um_data_t **data)
     {

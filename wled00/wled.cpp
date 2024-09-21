@@ -213,6 +213,19 @@ void WLED::loop()
     handlePresets();
     yield();
 
+#if defined(_MoonModules_WLED_) && defined(WLEDMM_FASTPATH)
+    #ifdef WLED_DEBUG
+    unsigned long usermod2Millis = millis();
+    #endif
+    usermods.loop2();
+    #ifdef WLED_DEBUG
+    usermod2Millis = millis() - usermod2Millis;
+    avgUsermodMillis += usermod2Millis;
+    if (usermod2Millis > maxUsermodMillis) maxUsermodMillis = usermod2Millis;
+    #endif
+    yield();
+#endif
+
     #ifdef WLED_DEBUG
     unsigned long stripMillis = millis();
     #endif
