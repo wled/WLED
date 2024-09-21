@@ -617,8 +617,8 @@ BusHub75Matrix::BusHub75Matrix(BusConfig &bc) : Bus(bc.type, bc.start, bc.autoWh
   mxconfig.gpio.b =   48;
   mxconfig.gpio.c =   47;
   mxconfig.gpio.d =   21;   // this says GND but should be the "D" pin
-  mxconfig.gpio.clk = 20;
-  mxconfig.gpio.lat = 19;
+  mxconfig.gpio.clk = 18;
+  mxconfig.gpio.lat = 8;
   mxconfig.gpio.oe  = 0;
   // 16th pin is GND
 
