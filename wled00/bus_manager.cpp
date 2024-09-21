@@ -162,7 +162,7 @@ void BusDigital::show() {
   PolyBus::show(_busPtr, _iType);
 }
 
-bool BusDigital::canShow() const {
+bool BusDigital::canShow() {
   return PolyBus::canShow(_busPtr, _iType);
 }
 
