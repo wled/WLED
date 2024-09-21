@@ -113,13 +113,18 @@ String PinManagerClass::getPinSpecialText(int gpio) {  // special purpose PIN in
   #ifdef ARDUINO_ARCH_ESP32
     #if defined(CONFIG_IDF_TARGET_ESP32S3)
       // ESP32-S3
-      if (gpio > 18 && gpio < 21) return (F("USB (CDC) / JTAG"));
-      #if !defined(BOARD_HAS_PSRAM)
-        if (gpio > 32 && gpio < 38)  return (F("(optional) Octal Flash or PSRAM"));
-      #else
+      if (gpio > 18 && gpio < 21) return (F("USB (CDC) or JTAG"));
+      #if CONFIG_SPIRAM_MODE_OCT && defined(BOARD_HAS_PSRAM)
         if (gpio > 32 && gpio < 38)  return (F("(reserved) Octal PSRAM or Octal Flash"));
       #endif
       //if (gpio == 0 || gpio == 3 || gpio == 45 || gpio == 46) return (F("(strapping pin)"));
+      #ifdef ARDUINO_TTGO_T7_S3
+      // experimental: a few special pins of the T7-S3 board
+      if (gpio == 2) return  (F("(reserved) _VBAT voltage monitoring"));
+      if (gpio == 17) return (F("onboard LED"));
+      //if (gpio == 3) return  (F("(cross-connected to pin  3-1)")); // WLEDMM experimental
+      //if (gpio == 12) return (F("(cross-connected to pin 12-1)")); // WLEDMM experimental
+      #endif
 
     #elif defined(CONFIG_IDF_TARGET_ESP32S2)
       // ESP32-S2
@@ -129,7 +134,7 @@ String PinManagerClass::getPinSpecialText(int gpio) {  // special purpose PIN in
 
     #elif defined(CONFIG_IDF_TARGET_ESP32C3)
       // ESP32-C3
-      if (gpio > 17 && gpio < 20) return (F("USB (CDC) / JTAG"));
+      if (gpio > 17 && gpio < 20) return (F("USB (CDC) or JTAG"));
       //if (gpio == 2 || gpio == 8 || gpio == 9) return (F("(strapping pin)"));
 
     #else
@@ -730,12 +735,18 @@ bool PinManagerClass::isPinOk(byte gpio, bool output) const
   #if defined(CONFIG_IDF_TARGET_ESP32C3)
     // strapping pins: 2, 8, & 9
     if (gpio > 11 && gpio < 18) return false;     // 11-17 SPI FLASH
+    #if ARDUINO_USB_CDC_ON_BOOT == 1 || ARDUINO_USB_DFU_ON_BOOT == 1
     if (gpio > 17 && gpio < 20) return false;     // 18-19 USB-JTAG
+    #endif
   #elif defined(CONFIG_IDF_TARGET_ESP32S3)
     // 00 to 18 are for general use. Be careful about straping pins GPIO0 and GPIO3 - these may be pulled-up or pulled-down on your board.
+    #if ARDUINO_USB_CDC_ON_BOOT == 1 || ARDUINO_USB_DFU_ON_BOOT == 1
     if (gpio > 18 && gpio < 21) return false;     // 19 + 20 = USB-JTAG. Not recommended for other uses.
+    #endif
     if (gpio > 21 && gpio < 33) return false;     // 22 to 32: not connected + SPI FLASH
-    //if (gpio > 32 && gpio < 38) return false;     // 33 to 37: not available if using _octal_ SPI Flash or _octal_ PSRAM
+    // #if CONFIG_SPIRAM_MODE_OCT && defined(BOARD_HAS_PSRAM)
+    //   if (gpio > 32 && gpio < 38) return !psramFound(); // 33 to 37: not available if using _octal_ SPI Flash or _octal_ PSRAM
+    // #endif
     // 38 to 48 are for general use. Be careful about straping pins GPIO45 and GPIO46 - these may be pull-up or pulled-down on your board.
   #elif defined(CONFIG_IDF_TARGET_ESP32S2)
     // strapping pins: 0, 45 & 46

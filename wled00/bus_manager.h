@@ -65,7 +65,7 @@ struct BusConfig {
     else if (type > 47) nPins = 2;
     else if (type > 40 && type < 46) nPins = NUM_PWM_PINS(type);
     else if (type >= TYPE_HUB75MATRIX && type <= (TYPE_HUB75MATRIX + 10)) nPins = 0;
-    for (uint8_t i = 0; i < nPins; i++) pins[i] = ppins[i];
+    for (uint8_t i = 0; i < min(unsigned(nPins),5U); i++) pins[i] = ppins[i];   //softhack007 fix for potential array out-of-bounds access
   }
 
   //validates start and length and extends total if needed
@@ -135,21 +135,21 @@ class Bus {
     virtual void     setStatusPixel(uint32_t c) {}
     virtual void     setPixelColor(uint16_t pix, uint32_t c) = 0;
     virtual uint32_t getPixelColor(uint16_t pix) const { return 0; }
-    virtual void     setBrightness(uint8_t b, bool immediate=false) { _bri = b; };
+    virtual void     setBrightness(uint8_t b, bool immediate=false) { _bri = b; }
     virtual void     cleanup() = 0;
     virtual uint8_t  getPins(uint8_t* pinArray) const { return 0; }
-    virtual uint16_t getLength() const { return _len; }
+    virtual inline uint16_t getLength() const { return _len; }
     virtual void     setColorOrder() {}
     virtual uint8_t  getColorOrder() const { return COL_ORDER_RGB; }
-    virtual uint8_t  skippedLeds() { return 0; }
+    virtual uint8_t  skippedLeds() const { return 0; }
     virtual uint16_t getFrequency() const { return 0U; }
     inline  uint16_t getStart() const { return _start; }
     inline  void     setStart(uint16_t start) { _start = start; }
     inline  uint8_t  getType() const { return _type; }
     inline  bool     isOk() const { return _valid; }
     inline  bool     isOffRefreshRequired() const { return _needsRefresh; }
-            bool     containsPixel(uint16_t pix) const { return pix >= _start && pix < _start+_len; }
-    virtual uint16_t getMaxPixels() const { return MAX_LEDS_PER_BUS; };
+    //inline  bool     containsPixel(uint16_t pix) const { return pix >= _start && pix < _start+_len; } // WLEDMM not used, plus wrong - it does not consider skipped pixels
+    virtual uint16_t getMaxPixels() const { return MAX_LEDS_PER_BUS; }
 
     virtual bool hasRGB() const {
       if ((_type >= TYPE_WS2812_1CH && _type <= TYPE_WS2812_WWA) || _type == TYPE_ANALOG_1CH || _type == TYPE_ANALOG_2CH || _type == TYPE_ONOFF) return false;
@@ -207,7 +207,7 @@ class BusDigital : public Bus {
 
     inline void show();
 
-    bool canShow() const;
+    bool canShow() override;
 
     void setBrightness(uint8_t b, bool immediate);
 
@@ -215,13 +215,13 @@ class BusDigital : public Bus {
 
     void setPixelColor(uint16_t pix, uint32_t c);
 
-    uint32_t getPixelColor(uint16_t pix) const;
+    uint32_t getPixelColor(uint16_t pix) const override;
 
     uint8_t getColorOrder() const {
       return _colorOrder;
     }
 
-    uint16_t getLength() const {
+    uint16_t getLength() const override {
       return _len - _skip;
     }
 
@@ -229,11 +229,11 @@ class BusDigital : public Bus {
 
     void setColorOrder(uint8_t colorOrder);
 
-    uint8_t skippedLeds() const {
+    uint8_t skippedLeds() const override {
       return _skip;
     }
 
-    uint16_t getFrequency() const { return _frequencykHz; }
+    uint16_t getFrequency() const override { return _frequencykHz; }
 
     void reinit();
 
@@ -267,7 +267,7 @@ class BusPwm : public Bus {
 
     uint8_t getPins(uint8_t* pinArray) const;
 
-    uint16_t getFrequency() const { return _frequency; }
+    uint16_t getFrequency() const override { return _frequency; }
 
     void cleanup() {
       deallocatePins();
@@ -329,14 +329,14 @@ class BusNetwork : public Bus {
 
     void show();
 
-    bool canShow()  const {
+    bool canShow() override {
       // this should be a return value from UDP routine if it is still sending data out
       return !_broadcastLock;
     }
 
     uint8_t getPins(uint8_t* pinArray)  const;
 
-    uint16_t getLength()  const {
+    uint16_t getLength()  const override {
       return _len;
     }
 
