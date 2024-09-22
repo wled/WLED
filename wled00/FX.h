@@ -963,6 +963,7 @@ class WS2812FX {  // 96 bytes
       ablMilliampsMax,
       currentMilliamps,
       getLengthPhysical(void) const,
+      getLengthPhysical2(void) const, // WLEDMM total length including HUB75, network busses excluded
       __attribute__((pure)) getLengthTotal(void) const, // will include virtual/nonexistent pixels in matrix //WLEDMM attribute added
       getFps() const;
 
