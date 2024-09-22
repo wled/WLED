@@ -245,7 +245,9 @@
 #define TYPE_P9813               53
 #define TYPE_LPD6803             54
 
+// WLEDMM additional types
 #define TYPE_HUB75MATRIX         100 // 100 - 110
+// WLEDMM caution - do not use bus types > 127
 
 //Network types (master broadcast) (80-95)
 #define TYPE_NET_DDP_RGB         80            //network DDP RGB bus (master broadcast bus)
