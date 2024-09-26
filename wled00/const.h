@@ -260,7 +260,7 @@
 #define NUM_PWM_PINS(t) ((t) - 40) //for analog PWM 41-45 only
 #define IS_2PIN(t)      ((t) > 47)
 #define IS_VIRTUAL(t)        ( ((t) <= TYPE_RESERVED) || (((t) >= TYPE_NET_DDP_RGB) && ((t) < (TYPE_NET_DDP_RGB + 16))) ) // WLEDMM 80..95 are network "virtual" busses
-#define EXCLUDE_FROM_ABL(t)  ( IS_VIRTUAL(t) || ( (t) >= (TYPE_HUB75MATRIX + 10) && (t) < (TYPE_HUB75MATRIX + 10)))  // WLEDMM do not apply ato-brightness-limiter on these bus types 
+#define EXCLUDE_FROM_ABL(t)  ( IS_VIRTUAL(t) || ( (t) >= (TYPE_HUB75MATRIX) && (t) < (TYPE_HUB75MATRIX + 10)))  // WLEDMM do not apply auto-brightness-limiter on these bus types 
 
 //Color orders
 #define COL_ORDER_GRB             0           //GRB(w),defaut

@@ -536,7 +536,7 @@ BusHub75Matrix::BusHub75Matrix(BusConfig &bc) : Bus(bc.type, bc.start, bc.autoWh
   mxconfig.clkphase = false; // can help in case that the leftmost column is invisible, or pixels on the right side "bleeds out" to the left.
  
   // How many panels we have connected, cap at sane value
-  mxconfig.chain_length = max((u_int8_t) 1, min(bc.pins[0], (u_int8_t) 4)); // prevent bad data preventing boot due to low memory
+  mxconfig.chain_length = max((uint8_t) 1, min(bc.pins[0], (uint8_t) 4)); // prevent bad data preventing boot due to low memory
 
   #if defined(CONFIG_IDF_TARGET_ESP32S3) && defined(BOARD_HAS_PSRAM)
   if(bc.pins[0] > 4) {

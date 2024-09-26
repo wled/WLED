@@ -250,7 +250,7 @@
 						if (s+c > sLC) sLC = s+c; //update total count
 						if(c>maxLC)maxLC=c; //max per output
 						var t = parseInt(d.getElementsByName("LT"+n)[0].value); // LED type SELECT
-						if (t<80) sPC+=c; //virtual out busses do not count towards physical LEDs
+						if ((t<128) && ((t<80) || ((t>99)))) sPC+=c; //virtual out busses do not count towards physical LEDs //WLEDMM include HUB75 (>=100)
 					} // increase led count
 					continue;
 				}
