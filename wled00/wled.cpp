@@ -876,6 +876,7 @@ void WLED::setup()
   USER_PRINTLN(F("\n"));
 #endif
 
+  USER_PRINT(F("Free heap ")); USER_PRINTLN(ESP.getFreeHeap());USER_PRINTLN();
   USER_PRINTLN(F("WLED initialization done.\n"));
   delay(50);
   // repeat Ada prompt

@@ -523,6 +523,7 @@ void BusNetwork::cleanup() {
 #warning "HUB75 driver enabled (experimental)"
 
 BusHub75Matrix::BusHub75Matrix(BusConfig &bc) : Bus(bc.type, bc.start, bc.autoWhite) {
+  size_t lastHeap = ESP.getFreeHeap();
 
   _valid = false;
   fourScanPanel = nullptr;
@@ -540,14 +541,14 @@ BusHub75Matrix::BusHub75Matrix(BusConfig &bc) : Bus(bc.type, bc.start, bc.autoWh
 
   #if defined(CONFIG_IDF_TARGET_ESP32S3) && defined(BOARD_HAS_PSRAM)
   if(bc.pins[0] > 4) {
-    USER_PRINT("WARNING, chain limited to 4");
+    USER_PRINTLN("WARNING, chain limited to 4");
   }
   # else
   // Disable this check if you are want to try bigger setups and accept you
   // might need to do full erase to recover from memory relayed boot-loop if you push too far
   if(mxconfig.mx_height >= 64 && (bc.pins[0] > 1)) {
-    USER_PRINT("WARNING, only single panel can be used of 64 pixel boards due to memory");
-    mxconfig.chain_length = 1;
+    USER_PRINTLN("WARNING, only single panel can be used of 64 pixel boards due to memory");
+    //mxconfig.chain_length = 1;
   }
   #endif
 
@@ -730,7 +731,8 @@ BusHub75Matrix::BusHub75Matrix(BusConfig &bc) : Bus(bc.type, bc.start, bc.autoWh
 
 #endif
 
-  USER_PRINTF("MatrixPanel_I2S_DMA config - %ux%u length: %u\n", mxconfig.mx_width, mxconfig.mx_height, mxconfig.chain_length);
+  USER_PRINTF("MatrixPanel_I2S_DMA config - %ux%u (type %u) length: %u, %u bits/pixel.\n", mxconfig.mx_width, mxconfig.mx_height, bc.type, mxconfig.chain_length, mxconfig.getPixelColorDepthBits() * 3);
+  DEBUG_PRINT(F("Free heap: ")); DEBUG_PRINTLN(ESP.getFreeHeap()); lastHeap = ESP.getFreeHeap();
 
   // OK, now we can create our matrix object
   display = new MatrixPanel_I2S_DMA(mxconfig);
@@ -762,13 +764,16 @@ BusHub75Matrix::BusHub75Matrix(BusConfig &bc) : Bus(bc.type, bc.start, bc.autoWh
   _bri = 25;
 
   delay(24); // experimental
+  DEBUG_PRINT(F("heap usage: ")); DEBUG_PRINTLN(lastHeap - ESP.getFreeHeap());
   // Allocate memory and start DMA display
   if( not display->begin() ) {
       USER_PRINTLN("****** MatrixPanel_I2S_DMA !KABOOM! I2S memory allocation failed ***********");
+      USER_PRINT(F("heap usage: ")); USER_PRINTLN(lastHeap - ESP.getFreeHeap());
       return;
   }
   else {
     USER_PRINTLN("MatrixPanel_I2S_DMA begin ok");
+    USER_PRINT(F("heap usage: ")); USER_PRINTLN(lastHeap - ESP.getFreeHeap());
     delay(18);   // experiment - give the driver a moment (~ one full frame @ 60hz) to settle
     _valid = true;
     display->clearScreen();   // initially clear the screen buffer
@@ -784,6 +789,7 @@ BusHub75Matrix::BusHub75Matrix(BusConfig &bc) : Bus(bc.type, bc.start, bc.autoWh
       delete display; display = nullptr;
       _valid = false;
       USER_PRINTLN(F("MatrixPanel_I2S_DMA not started - not enough memory for dirty bits!"));
+      USER_PRINT(F("heap usage: ")); USER_PRINTLN(lastHeap - ESP.getFreeHeap());
       return;  //  fail is we cannot get memory for the buffer
     }
     setBitArray(_ledsDirty, _len, false);             // reset dirty bits
@@ -837,6 +843,7 @@ BusHub75Matrix::BusHub75Matrix(BusConfig &bc) : Bus(bc.type, bc.start, bc.autoWh
     USER_PRINT((_ledBuffer? _len*sizeof(CRGB) :0) + (_ledsDirty? getBitArrayBytes(_len) :0));
     USER_PRINTLN(F(" bytes."));
   }
+  USER_PRINT(F("heap usage: ")); USER_PRINTLN(lastHeap - ESP.getFreeHeap());
 }
 
 void __attribute__((hot)) BusHub75Matrix::setPixelColor(uint16_t pix, uint32_t c) {
