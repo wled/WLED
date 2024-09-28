@@ -215,7 +215,11 @@ static bool sendLiveLedsWs(uint32_t wsClient)  // WLEDMM added "static"
   if ((bufSize < 1) || (used < 1)) return(false); // WLEDMM should not happen
   AsyncWebSocketBuffer wsBuf(bufSize);
   if (!wsBuf) {
-	  USER_PRINTLN(F("WS buffer allocation failed."));
+    static unsigned long last_err_time = 0;
+    if (millis() - last_err_time > 300) { // WLEDMM limit to 3 messages per second   
+      USER_PRINTF("WS buffer allocation failed (!wsBuf %u bytes).\n", bufSize);
+      last_err_time = millis();
+    }
 	  errorFlag = ERR_LOW_WS_MEM;
 	  return false; //out of memory
   }
