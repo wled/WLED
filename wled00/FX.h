@@ -761,7 +761,7 @@ typedef struct Segment {
     inline void drawLine(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1, CRGB c, bool soft = false, uint8_t depth = UINT8_MAX) { drawLine(x0, y0, x1, y1, RGBW32(c.r,c.g,c.b,0), soft, depth); } // automatic inline
     void drawArc(unsigned x0, unsigned y0, int radius, uint32_t color, uint32_t fillColor = 0);
     inline void drawArc(unsigned x0, unsigned y0, int radius, CRGB color, CRGB fillColor = BLACK) { drawArc(x0, y0, radius, RGBW32(color.r,color.g,color.b,0), RGBW32(fillColor.r,fillColor.g,fillColor.b,0)); } // automatic inline
-    void drawCharacter(unsigned char chr, int16_t x, int16_t y, uint8_t w, uint8_t h, uint32_t color, uint32_t col2 = 0);
+    void drawCharacter(unsigned char chr, int16_t x, int16_t y, uint8_t w, uint8_t h, uint32_t color, uint32_t col2 = 0, bool drawShadow = false);
     inline void drawCharacter(unsigned char chr, int16_t x, int16_t y, uint8_t w, uint8_t h, CRGB c, CRGB c2) { drawCharacter(chr, x, y, w, h, RGBW32(c.r,c.g,c.b,0), RGBW32(c2.r,c2.g,c2.b,0)); } // automatic inline
     void wu_pixel(uint32_t x, uint32_t y, CRGB c);
     //void blur1d(fract8 blur_amount); // blur all rows in 1 dimension
