@@ -10,9 +10,11 @@ static volatile unsigned long wsLastLiveTime = 0;   // WLEDMM
 //uint8_t* wsFrameBuffer = nullptr;
 
 #if !defined(ARDUINO_ARCH_ESP32) || defined(WLEDMM_FASTPATH)   // WLEDMM
-#define WS_LIVE_INTERVAL 120
+#define WS_LIVE_INTERVAL_MAX 120
+#define WS_LIVE_INTERVAL_MIN 25
 #else
-#define WS_LIVE_INTERVAL 80
+#define WS_LIVE_INTERVAL_MAX 80
+#define WS_LIVE_INTERVAL_MIN 40
 #endif
 
 void wsEvent(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventType type, void * arg, uint8_t *data, size_t len)
@@ -274,7 +276,7 @@ static bool sendLiveLedsWs(uint32_t wsClient)  // WLEDMM added "static"
 
 void handleWs()
 {
-  if ((millis() - wsLastLiveTime) > (unsigned long)(max((strip.getLengthTotal()/20), WS_LIVE_INTERVAL))) //WLEDMM dynamic nr of peek frames per second
+  if ((millis() - wsLastLiveTime) > (unsigned long)(max(WS_LIVE_INTERVAL_MIN, min((strip.getLengthTotal()/80), WS_LIVE_INTERVAL_MAX)))) //WLEDMM dynamic nr of peek frames per second
   {
     #ifdef ESP8266
     ws.cleanupClients(3);
