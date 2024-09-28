@@ -976,6 +976,7 @@ class WS2812FX {  // 96 bytes
       now,
       timebase;
     uint32_t __attribute__((pure)) getPixelColor(uint_fast16_t)  const;   // WLEDMM attribute pure = does not have side-effects
+    uint32_t __attribute__((pure)) getPixelColorRestored(uint_fast16_t i)  const;// WLEDMM gets the original color from the driver (without downscaling by _bri)
 
     inline uint32_t getLastShow(void)  const { return _lastShow; }
     inline uint32_t segColor(uint8_t i)  const { return _colors_t[i]; }
@@ -1067,6 +1068,8 @@ class WS2812FX {  // 96 bytes
 
     std::vector<segment> _segments;
     friend class Segment;
+
+    uint32_t getPixelColorXYRestored(uint16_t x, uint16_t y)  const;  // WLEDMM gets the original color from the driver (without downscaling by _bri)
 
   private:
     uint16_t _length;

@@ -249,6 +249,17 @@ uint32_t __attribute__((hot)) WS2812FX::getPixelColorXY(uint16_t x, uint16_t y) 
   return busses.getPixelColor(index);
 }
 
+uint32_t __attribute__((hot)) WS2812FX::getPixelColorXYRestored(uint16_t x, uint16_t y)  const {  // WLEDMM gets the original color from the driver (without downscaling by _bri)
+  #ifndef WLED_DISABLE_2D
+    uint_fast16_t index = (y * Segment::maxWidth + x); //WLEDMM: use fast types
+  #else
+    uint16_t index = x;
+  #endif
+  if (index < customMappingSize) index = customMappingTable[index];
+  if (index >= _length) return 0;
+  return busses.getPixelColorRestored(index);
+}
+
 ///////////////////////////////////////////////////////////
 // Segment:: routines
 ///////////////////////////////////////////////////////////
@@ -467,7 +478,7 @@ uint32_t IRAM_ATTR_YN Segment::getPixelColorXY(int x, int y) const {
   x *= groupLength_; // expand to physical pixels
   y *= groupLength_; // expand to physical pixels
   if (x >= width() || y >= height()) return 0;
-  return strip.getPixelColorXY(start + x, startY + y);
+  return strip.getPixelColorXYRestored(start + x, startY + y);
 }
 
 // Blends the specified color with the existing pixel color.

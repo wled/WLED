@@ -135,6 +135,7 @@ class Bus {
     virtual void     setStatusPixel(uint32_t c) {}
     virtual void     setPixelColor(uint16_t pix, uint32_t c) = 0;
     virtual uint32_t getPixelColor(uint16_t pix) const { return 0; }
+    virtual uint32_t getPixelColorRestored(uint16_t pix) const { return restore_Color_Lossy(getPixelColor(pix), _bri); } // override in case your bus has a lossless buffer (HUB75, FastLED, Art-Net)
     virtual void     setBrightness(uint8_t b, bool immediate=false) { _bri = b; }
     virtual void     cleanup() = 0;
     virtual uint8_t  getPins(uint8_t* pinArray) const { return 0; }
@@ -182,6 +183,17 @@ class Bus {
     inline        uint8_t getAutoWhiteMode()          const { return _autoWhiteMode; }
     inline static void    setGlobalAWMode(uint8_t m)  { if (m < 5) _gAWM = m; else _gAWM = AW_GLOBAL_DISABLED; }
     inline static uint8_t getGlobalAWMode()           { return _gAWM; }
+
+    inline uint32_t restore_Color_Lossy(uint32_t c, uint8_t restoreBri) const { // shamelessly grabbed from upstream, who grabbed from NPB, who ..
+      if (restoreBri < 255) {
+        uint8_t* chan = (uint8_t*) &c;
+        for (uint_fast8_t i=0; i<4; i++) {
+          uint_fast16_t val = chan[i];
+          chan[i] = ((val << 8) + restoreBri) / (restoreBri + 1); //adding _bri slightly improves recovery / stops degradation on re-scale
+        }
+      }
+      return c;
+    }
 
     bool reversed = false;
 
@@ -296,6 +308,7 @@ class BusOnOff : public Bus {
     void setPixelColor(uint16_t pix, uint32_t c);
 
     uint32_t getPixelColor(uint16_t pix) const;
+    uint32_t getPixelColorRestored(uint16_t pix) const override { return getPixelColor(pix);}  // WLEDMM BusOnOff ignores brightness
 
     void show();
 
@@ -326,6 +339,7 @@ class BusNetwork : public Bus {
     void setPixelColor(uint16_t pix, uint32_t c);
 
     uint32_t __attribute__((pure)) getPixelColor(uint16_t pix) const;  // WLEDMM attribute added
+    uint32_t __attribute__((pure)) getPixelColorRestored(uint16_t pix) const override { return getPixelColor(pix);}  // WLEDMM BusNetwork ignores brightness
 
     void show();
 
@@ -367,6 +381,7 @@ class BusHub75Matrix : public Bus {
 
     void setPixelColor(uint16_t pix, uint32_t c) override;
     uint32_t getPixelColor(uint16_t pix) const override;
+    uint32_t getPixelColorRestored(uint16_t pix) const override; // lossless getPixelColor supported
 
     void show(void) override;
 
@@ -418,6 +433,7 @@ class BusManager {
     void setSegmentCCT(int16_t cct, bool allowWBCorrection = false);
 
     uint32_t __attribute__((pure)) getPixelColor(uint_fast16_t pix); // WLEDMM attribute added
+    uint32_t __attribute__((pure)) getPixelColorRestored(uint_fast16_t pix);  // WLEDMM
 
     bool canAllShow() const;
 

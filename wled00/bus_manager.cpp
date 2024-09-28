@@ -890,6 +890,14 @@ uint32_t BusHub75Matrix::getPixelColor(uint16_t pix) const {
     return getBitFromArray(_ledsDirty, pix) ? DARKGREY: BLACK;   // just a hack - we only know if the pixel is black or not
 }
 
+uint32_t __attribute__((hot)) BusHub75Matrix::getPixelColorRestored(uint16_t pix) const {
+  if (!_valid || pix >= _len) return BLACK;
+  if (_ledBuffer)
+    return uint32_t(_ledBuffer[pix]) & 0x00FFFFFF;
+  else
+    return getBitFromArray(_ledsDirty, pix) ? DARKGREY: BLACK;   // just a hack - we only know if the pixel is black or not
+}
+
 void BusHub75Matrix::setBrightness(uint8_t b, bool immediate) {
   _bri = b;
   // if (_bri > 238) _bri=238; // not strictly needed. Enable this line if you see glitches at highest brightness.
@@ -1101,6 +1109,27 @@ uint32_t IRAM_ATTR  __attribute__((hot)) BusManager::getPixelColor(uint_fast16_t
       laststart = bstart; 
       lastend = bstart + b->getLength();
       return b->getPixelColor(pix - bstart);
+    }
+  }
+  return 0;
+}
+
+uint32_t IRAM_ATTR  __attribute__((hot)) BusManager::getPixelColorRestored(uint_fast16_t pix) {     // WLEDMM uses bus::getPixelColorRestored()
+  if ((pix >= laststart) && (pix < lastend ) && (lastBus != nullptr)) {
+    // WLEDMM same bus as last time - no need to search again
+    return lastBus->getPixelColorRestored(pix - laststart);
+  }
+
+  for (uint_fast8_t i = 0; i < numBusses; i++) {
+    Bus* b = busses[i];
+    uint_fast16_t bstart = b->getStart();
+    if (pix < bstart || pix >= bstart + b->getLength()) continue;
+    else {
+      // WLEDMM remember last Bus we took
+      lastBus = b;
+      laststart = bstart; 
+      lastend = bstart + b->getLength();
+      return b->getPixelColorRestored(pix - bstart);
     }
   }
   return 0;
