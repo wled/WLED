@@ -66,9 +66,26 @@ void WS2812FX::setUpMatrix() {
 
     USER_PRINTF("setUpMatrix %d x %d\n", Segment::maxWidth, Segment::maxHeight);
     
+    // WLEDMM check if mapping table is necessary (avoiding heap fragmentation)
+#if defined(WLED_ENABLE_HUB75MATRIX)
+    bool needLedMap = (loadedLedmap >0);              // ledmap loaded
+    needLedMap |= WLED_FS.exists(F("/2d-gaps.json")); // gapFile found
+    needLedMap |= panel.size() > 1;                   // 2D config: more than one panel
+    if (panel.size() == 1) {
+      Panel &p = panel[0];
+      needLedMap |= p.serpentine;                        // panel serpentine
+      needLedMap |= p.vertical;                          // panel not horizotal
+      needLedMap |= p.bottomStart | p.rightStart;        // panel not top left, or not left->light
+      needLedMap |= (p.xOffset > 0) || (p.yOffset > 0);  // panel does not start at (0,0)
+    }
+#else
+    bool needLedMap = true;                              // always use ledMaps on non-HUB75 builds
+#endif
+
     //WLEDMM recreate customMappingTable if more space needed
     if (Segment::maxWidth * Segment::maxHeight > customMappingTableSize) {
       size_t size = max(ledmapMaxSize, size_t(Segment::maxWidth * Segment::maxHeight)); // TroyHacks
+      if (!needLedMap) size = 0;                                                        // softhack007
       USER_PRINTF("setupmatrix customMappingTable alloc %d from %d\n", size, customMappingTableSize);
       //if (customMappingTable != nullptr) delete[] customMappingTable;
       //customMappingTable = new uint16_t[size];
@@ -88,8 +105,9 @@ void WS2812FX::setUpMatrix() {
       if (customMappingTable != nullptr) customMappingTableSize = size;
     }
 
-    if (customMappingTable != nullptr) {
+    if ((customMappingTable != nullptr) || (!needLedMap)) {                                          // softhack007
       customMappingSize = Segment::maxWidth * Segment::maxHeight;
+      if (!needLedMap) customMappingSize = 0;                                                        // softhack007
 
       // fill with empty in case we don't fill the entire matrix
       for (size_t i = 0; i< customMappingTableSize; i++) { //WLEDMM use customMappingTableSize
@@ -130,6 +148,7 @@ void WS2812FX::setUpMatrix() {
         releaseJSONBufferLock();
       }
 
+      if (needLedMap && customMappingTable != nullptr) {  // softhack007
       uint16_t x, y, pix=0; //pixel
       for (size_t pan = 0; pan < panel.size(); pan++) {
         Panel &p = panel[pan];
@@ -145,6 +164,7 @@ void WS2812FX::setUpMatrix() {
             if (!gapTable || (gapTable && gapTable[index] >= 0)) pix++; // not a missing pixel
           }
         }
+      }
       }
 
       // delete gap array as we no longer need it
