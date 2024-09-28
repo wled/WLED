@@ -463,8 +463,9 @@ uint32_t IRAM_ATTR_YN Segment::getPixelColorXY(int x, int y) const {
   if (reverse  ) x = virtualWidth()  - x - 1;
   if (reverse_y) y = virtualHeight() - y - 1;
   if (transpose) { uint16_t t = x; x = y; y = t; } // swap X & Y if segment transposed
-  x *= groupLength(); // expand to physical pixels
-  y *= groupLength(); // expand to physical pixels
+  const uint_fast16_t groupLength_ = groupLength(); // WLEDMM small optimization
+  x *= groupLength_; // expand to physical pixels
+  y *= groupLength_; // expand to physical pixels
   if (x >= width() || y >= height()) return 0;
   return strip.getPixelColorXY(start + x, startY + y);
 }
@@ -479,15 +480,16 @@ void Segment::blendPixelColorXY(uint16_t x, uint16_t y, uint32_t color, uint8_t 
 void IRAM_ATTR_YN Segment::addPixelColorXY(int x, int y, uint32_t color, bool fast) {
   // if (!isActive()) return; // not active //WLEDMM sanity check is repeated in getPixelColorXY / setPixelColorXY
   // if (x >= virtualWidth() || y >= virtualHeight() || x<0 || y<0) return;  // if pixel would fall out of virtual segment just exit //WLEDMM
-  uint32_t col = getPixelColorXY(x,y);
-  col = color_add(col, color, fast);
-  setPixelColorXY(x, y, col);
+  uint32_t oldCol = getPixelColorXY(x,y);
+  uint32_t col = color_add(oldCol, color, fast);
+  if (col != oldCol) setPixelColorXY(x, y, col);
 }
 
 void Segment::fadePixelColorXY(uint16_t x, uint16_t y, uint8_t fade) {
   // if (!isActive()) return; // not active //WLEDMM sanity check is repeated in getPixelColorXY / setPixelColorXY
-  CRGB pix = CRGB(getPixelColorXY(x,y)).nscale8_video(fade);
-  setPixelColorXY(x, y, pix);
+  CRGB oldPix = CRGB(getPixelColorXY(x,y));
+  CRGB pix = oldPix.nscale8_video(fade);
+  if (pix != oldPix) setPixelColorXY(int(x), int(y), pix);
 }
 
 // blurRow: perform a blur on a row of a rectangular matrix

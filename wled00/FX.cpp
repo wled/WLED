@@ -37,6 +37,9 @@
 
 #define indexToVStrip(index, stripNr) ((index) | (int((stripNr)+1)<<16))
 
+// WLEDMM replace abs8 by abs, as abs8 does not work for numbers >127
+#define abs8(x) abs(x)
+
 // effect utility functions
 static uint8_t sin_gap(uint16_t in) {
   if (in & 0x100) return 0;

@@ -1510,7 +1510,9 @@ void __attribute__((hot)) Segment::fadeToBlackBy(uint8_t fadeBy) {
     for (unsigned y = 0; y < rows; y++) for (unsigned x = 0; x < cols; x++) {
       uint32_t cc = getPixelColorXY(int(x),int(y));                            // WLEDMM avoid RGBW32 -> CRGB -> RGBW32 conversion
       uint32_t cc2 = color_fade(cc, scaledown);                      // fade
-      //if (cc2 != cc)                                               // WLEDMM only re-paint if faded color is different - disabled - causes problem with text overlay
+#ifdef WLEDMM_FASTPATH
+      if (cc2 != cc)                                               // WLEDMM only re-paint if faded color is different - normally disabled - causes problem with text overlay
+#endif
         setPixelColorXY(int(x), int(y), cc2);
     }
   } else {
