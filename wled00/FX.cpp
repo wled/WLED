@@ -5539,7 +5539,10 @@ uint16_t mode_2DLissajous(void) {            // By: Andrew Tuline
         float ylocn = float(cos8(phase/2 + i*2)) / 255.0f;
         //SEGMENT.setPixelColorXY(xlocn, ylocn, SEGMENT.color_from_palette(strip.now/100+i, false, PALETTE_SOLID_WRAP, 0)); // draw pixel with anti-aliasing
         unsigned palIndex = (256*ylocn) + phase/2 + (i* SEGMENT.speed)/64;
-        SEGMENT.setPixelColorXY(xlocn, ylocn, SEGMENT.color_from_palette(palIndex, false, PALETTE_SOLID_WRAP, 0)); // draw pixel with anti-aliasing - color follows rotation
+        //SEGMENT.setPixelColorXY(xlocn, ylocn, SEGMENT.color_from_palette(palIndex, false, PALETTE_SOLID_WRAP, 0)); // draw pixel with anti-aliasing - color follows rotation
+        // WLEDMM wu_pixel is 50% faster, and still lokks better
+        SEGMENT.wu_pixel(uint32_t(xlocn * (cols <<8)), uint32_t(ylocn * (rows <<8)), 
+                         CRGB(SEGMENT.color_from_palette(palIndex, false, PALETTE_SOLID_WRAP, 0)));
       }
   } else
   for (int i=0; i < 256; i ++) {
