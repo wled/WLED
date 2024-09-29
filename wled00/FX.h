@@ -951,13 +951,13 @@ class WS2812FX {  // 96 bytes
       setPixelSegment(uint8_t n);
 
     inline uint8_t getBrightness(void)  const { return _brightness; }
-    inline uint8_t getMaxSegments(void)  const { return MAX_NUM_SEGMENTS; }  // returns maximum number of supported segments (fixed value)
     inline uint8_t getSegmentsNum(void)  const { return _segments.size(); }  // returns currently present segments
     inline uint8_t getCurrSegmentId(void)  const { return _segment_index; }
     inline uint8_t getMainSegmentId(void)  const { return _mainSegment; }
-    inline uint8_t getPaletteCount()  const { return 13 + GRADIENT_PALETTE_COUNT; }  // will only return built-in palette count
     inline uint8_t getTargetFps()  const { return _targetFps; }
     inline uint8_t getModeCount()  const { return _modeCount; }
+    inline static constexpr uint8_t getMaxSegments(void)  { return MAX_NUM_SEGMENTS; }  // returns maximum number of supported segments (fixed value)
+    inline static constexpr uint8_t getPaletteCount()  { return 13 + GRADIENT_PALETTE_COUNT; }  // will only return built-in palette count
 
     uint16_t
       ablMilliampsMax,
