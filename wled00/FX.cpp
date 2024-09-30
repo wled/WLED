@@ -7957,7 +7957,7 @@ uint16_t mode_2DAkemi(void) {
   const uint16_t cols = SEGMENT.virtualWidth();
   const uint16_t rows = SEGMENT.virtualHeight();
 
-  if (SEGENV.call == 0) {SEGMENT.setUpLeds(); SEGMENT.fill(BLACK);}
+  if (SEGENV.call == 0) {SEGMENT.fill(BLACK);}
 
   uint16_t counter = (strip.now * ((SEGMENT.speed >> 2) +2)) & 0xFFFF;
   counter = counter >> 8;
