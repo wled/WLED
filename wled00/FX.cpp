@@ -5421,16 +5421,16 @@ uint16_t mode_2DSnowFall(void) { // By: Brandon Butler
   // Despawn snow
   bool overflow = SEGENV.aux0 && SEGMENT.check3;
   int despawnChance = SEGMENT.custom1 == 255 ? 256 : map(SEGMENT.custom1, 0, 255, 0, 100); // 255 goes to 256, allows always despawn
-  int y = rows - 1;
+  int lastY = rows - 1;
   for (int x = 0; x < cols; x++) {
-    if (overflow || random8() < despawnChance) setBitValue(grid, y * cols + x, 0);
-    if (overlay  || getBitValue(grid, y * cols + x)) continue; // Skip drawing if inverted overlay or snow
-    SEGMENT.blendPixelColorXY(x, y, bgColor, blur);
+    if (overflow || random8() < despawnChance) setBitValue(grid, lastY * cols + x, 0);
+    if (overlay  || getBitValue(grid, lastY * cols + x)) continue; // Skip drawing if inverted overlay or snow
+    SEGMENT.blendPixelColorXY(x, lastY, bgColor, blur);
   }
   if (SEGENV.aux0) --SEGENV.aux0; // Decrease overflow 
 
   // Precompute shuffled indices, helps randomize snow movement
-  int shuffledIndices[cols];
+  uint16_t shuffledIndices[cols];
   for (int i = 0; i < cols; i++) shuffledIndices[i] = i;
   std::random_shuffle(shuffledIndices, shuffledIndices + cols);
 
@@ -5484,13 +5484,13 @@ uint16_t mode_2DSnowFall(void) { // By: Brandon Butler
     if (overlay) continue;   // Skip drawing if inverted overlay
 
     if (SEGMENT.check1) SEGMENT.setPixelColorXY(x, 0, ColorFromPalette(SEGPALETTE, random8())); // Use palette
-    else {int c = random8(80,200); SEGMENT.setPixelColorXY(x, 0, c, c, c);}                     // Use snow color
+    else {int c = random8(120,200); SEGMENT.setPixelColorXY(x, 0, c, c, c);}                    // Use snow color
   }
   
   SEGENV.step = strip.now;
   return FRAMETIME;
 } // mode_2DSnowFall()
-static const char _data_FX_MODE_2DSNOWFALL[] PROGMEM = "Snow Fall@!,Spawn Rate,Despawn Rate,Blur,Sway Chance,Use Palette,Inverted Overlay,Prevent Overflow,;!,!;!;2;sx=128,ix=16,c1=17,c2=0,c3=0,o1=0,o2=0,o3=1";
+static const char _data_FX_MODE_2DSNOWFALL[] PROGMEM = "Snow Fall ☾@!,Spawn Rate,Despawn Rate,Blur,Sway Chance,Use Palette,Inverted Overlay,Prevent Overflow,;!,!;!;2;sx=128,ix=16,c1=17,c2=0,c3=0,o1=0,o2=0,o3=1";
 
 /////////////////////////
 //     2D Hiphotic     //
