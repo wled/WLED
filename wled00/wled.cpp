@@ -308,6 +308,7 @@ void WLED::loop()
       delete busConfigs[i]; busConfigs[i] = nullptr;
     }
     strip.finalizeInit();
+    busses.setBrightness(bri); // fix re-initialised bus' brightness #4005
     loadLedmap = true;
     if (aligned) strip.makeAutoSegments();
     else strip.fixInvalidSegments();
