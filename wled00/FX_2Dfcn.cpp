@@ -506,8 +506,9 @@ void IRAM_ATTR_YN Segment::addPixelColorXY(int x, int y, uint32_t color, bool fa
 
 void Segment::fadePixelColorXY(uint16_t x, uint16_t y, uint8_t fade) {
   // if (!isActive()) return; // not active //WLEDMM sanity check is repeated in getPixelColorXY / setPixelColorXY
-  CRGB oldPix = CRGB(getPixelColorXY(x,y));
-  CRGB pix = oldPix.nscale8_video(fade);
+  CRGB pix = CRGB(getPixelColorXY(x,y));
+  CRGB oldPix = pix;
+  pix = pix.nscale8_video(fade);
   if (pix != oldPix) setPixelColorXY(int(x), int(y), pix);
 }
 
