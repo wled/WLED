@@ -527,6 +527,7 @@ BusHub75Matrix::BusHub75Matrix(BusConfig &bc) : Bus(bc.type, bc.start, bc.autoWh
 
   _valid = false;
   fourScanPanel = nullptr;
+  _len = 0;
 
     mxconfig.double_buff = false; // Use our own memory-optimised buffer rather than the driver's own double-buffer  
  
@@ -744,6 +745,11 @@ BusHub75Matrix::BusHub75Matrix(BusConfig &bc) : Bus(bc.type, bc.start, bc.autoWh
 
   // OK, now we can create our matrix object
   display = new MatrixPanel_I2S_DMA(mxconfig);
+  if (display == nullptr) {
+      USER_PRINTLN("****** MatrixPanel_I2S_DMA !KABOOM! driver allocation failed ***********");
+      USER_PRINT(F("heap usage: ")); USER_PRINTLN(lastHeap - ESP.getFreeHeap());
+      return;
+  }
 
   this->_len = (display->width() * display->height());
 

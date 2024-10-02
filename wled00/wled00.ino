@@ -74,7 +74,10 @@ void loop() {
   //WLEDMM show loops per second
   loopCounter++;
   if (millis() - lastMillis >= 10000) {
-    //USER_PRINTF("%lu lps\n",loopCounter/10);
+    long delta = millis() - lastMillis;
+    if (delta > 0) {
+      //USER_PRINTF("%lu lps\n",(loopCounter*1000U) / delta);
+    }
     lastMillis = millis();
     loopCounter = 0;
   }

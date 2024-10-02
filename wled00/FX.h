@@ -945,9 +945,9 @@ class WS2812FX {  // 96 bytes
       milliampsPerLed,
       cctBlending,
       getActiveSegmentsNum(void)  const,
-      getFirstSelectedSegId(void) __attribute__((pure)),
+      __attribute__((pure)) getFirstSelectedSegId(void),
       getLastActiveSegmentId(void) const,
-      getActiveSegsLightCapabilities(bool selectedOnly = false) __attribute__((pure)),
+      __attribute__((pure)) getActiveSegsLightCapabilities(bool selectedOnly = false),
       setPixelSegment(uint8_t n);
 
     inline uint8_t getBrightness(void)  const { return _brightness; }
