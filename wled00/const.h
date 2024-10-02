@@ -245,7 +245,9 @@
 #define TYPE_P9813               53
 #define TYPE_LPD6803             54
 
+// WLEDMM additional types
 #define TYPE_HUB75MATRIX         100 // 100 - 110
+// WLEDMM caution - do not use bus types > 127
 
 //Network types (master broadcast) (80-95)
 #define TYPE_NET_DDP_RGB         80            //network DDP RGB bus (master broadcast bus)
@@ -257,6 +259,8 @@
 #define IS_PWM(t)     ((t) > 40 && (t) < 46)
 #define NUM_PWM_PINS(t) ((t) - 40) //for analog PWM 41-45 only
 #define IS_2PIN(t)      ((t) > 47)
+#define IS_VIRTUAL(t)        ( ((t) <= TYPE_RESERVED) || (((t) >= TYPE_NET_DDP_RGB) && ((t) < (TYPE_NET_DDP_RGB + 16))) ) // WLEDMM 80..95 are network "virtual" busses
+#define EXCLUDE_FROM_ABL(t)  ( IS_VIRTUAL(t) || ( (t) >= (TYPE_HUB75MATRIX) && (t) < (TYPE_HUB75MATRIX + 10)))  // WLEDMM do not apply auto-brightness-limiter on these bus types 
 
 //Color orders
 #define COL_ORDER_GRB             0           //GRB(w),defaut
@@ -352,6 +356,7 @@
 #define ERR_LOW_SEG_MEM 34  // WLEDMM: low memory (segment data RAM)
 #define ERR_LOW_WS_MEM  35  // WLEDMM: low memory (ws)
 #define ERR_LOW_AJAX_MEM  36 // WLEDMM: low memory (oappend)
+#define ERR_LOW_BUF     37  // WLEDMM: low memory (LED buffer from allocLEDs)
 
 // Timer mode types
 #define NL_MODE_SET               0            //After nightlight time elapsed, set to target brightness
@@ -425,13 +430,15 @@
   #endif
 #endif
 
-#ifdef WLED_USE_ETHERNET
-  #define E131_MAX_UNIVERSE_COUNT 20
-#else
-  #ifdef ESP8266
-    #define E131_MAX_UNIVERSE_COUNT 9
+#ifndef E131_MAX_UNIVERSE_COUNT
+  #ifdef WLED_USE_ETHERNET
+    #define E131_MAX_UNIVERSE_COUNT 20
   #else
-    #define E131_MAX_UNIVERSE_COUNT 12
+    #ifdef ESP8266
+      #define E131_MAX_UNIVERSE_COUNT 9
+    #else
+      #define E131_MAX_UNIVERSE_COUNT 12
+    #endif
   #endif
 #endif
 
@@ -478,7 +485,9 @@
 #endif
 
 //#define MIN_HEAP_SIZE (8k for AsyncWebServer)
+#if !defined(MIN_HEAP_SIZE)
 #define MIN_HEAP_SIZE 8192
+#endif
 
 // Maximum size of node map (list of other WLED instances)
 #ifdef ESP8266

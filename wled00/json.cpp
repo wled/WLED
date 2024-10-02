@@ -302,7 +302,7 @@ bool deserializeSegment(JsonObject elem, byte it, byte presetId)
   // end fix
   if (getVal(elem["fx"], &fx, 0, last)) { //load effect ('r' random, '~' inc/dec, 0-255 exact value, 5~10r pick random between 5 & 10)
     if (!presetId && currentPlaylist>=0) unloadPlaylist();
-    if (fx != seg.mode) seg.setMode(fx, elem[F("fxdef")]);
+    if (fx != seg.mode) seg.setMode(fx, elem[F("fxdef")], elem[F("fxdef2")]); // WLEDMM fxdef2 added
   }
 
   //getVal also supports inc/decrementing and random
@@ -904,8 +904,8 @@ void serializeInfo(JsonObject root)
 
   JsonObject leds = root.createNestedObject("leds");
   leds[F("count")] = strip.getLengthTotal();
-  leds[F("countP")] = strip.getLengthPhysical(); //WLEDMM
-  leds[F("pwr")] = strip.currentMilliamps;
+  leds[F("countP")] = strip.getLengthPhysical2(); //WLEDMM - getLengthPhysical plus plysical busses not supporting ABL (i.e. HUB75)
+  leds[F("pwr")] = strip.currentMilliamps > 100 ? strip.currentMilliamps : 0; // WLEDMM show "not calculated" for HUB75, or when all LEDs are out
   leds["fps"] = strip.getFps();
   leds[F("maxpwr")] = (strip.currentMilliamps)? strip.ablMilliampsMax : 0;
   leds[F("maxseg")] = strip.getMaxSegments();

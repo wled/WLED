@@ -89,7 +89,7 @@ const ethernet_settings ethernetBoards[] = {
 
   // ESP32-ETHERNET-KIT-VE
   {
-    0,                    // eth_address,
+    1,                    // eth_address, WLED-MM: Changed from 0 to 1 based on not working with 0 on same devkit.
     5,                    // eth_power,
     23,                   // eth_mdc,
     18,                   // eth_mdio,

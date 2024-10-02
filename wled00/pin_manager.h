@@ -125,9 +125,9 @@ class PinManagerClass {
   // will return true for reserved pins
   bool isPinAllocated(byte gpio, PinOwner tag = PinOwner::None);
   // will return false for reserved pins
-  bool isPinOk(byte gpio, bool output = true);
+  bool isPinOk(byte gpio, bool output = true) const;
 
-  PinOwner getPinOwner(byte gpio);
+  PinOwner getPinOwner(byte gpio) const;
 
   // WLEDMM begin
   String getOwnerText(PinOwner tag); // WLEDMM  - return PIN owner tag as text
