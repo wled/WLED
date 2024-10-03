@@ -16,7 +16,7 @@
     "url": "git+https://github.com/MoonModules/WLED.git"
   },
   "author": "",
-  "license": "GPL-3.0-or-later",
+  "license": "EUPL-1.2",
   "bugs": {
     "url": "https://github.com/MoonModules/WLED/issues"
   },

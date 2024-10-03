@@ -13,6 +13,9 @@
 # Welcome to WLED MoonModules! ✨
 
 <img width="400" alt="image" src="https://user-images.githubusercontent.com/91013628/230378884-5a0f15ee-1aa2-4998-9df7-ade9f32a3d0f.png">
+Licensed under the [EUPL-1.2](https://joinup.ec.europa.eu/collection/eupl) or later. The official license text is [available in 23 languages](https://joinup.ec.europa.eu/collection/eupl/eupl-text-eupl-12).
+
+<img width="30%" src="https://github.com/user-attachments/assets/c3051e0a-788e-4bcb-aab9-c2c9fedf5a31">
 
 MoonModules/WLED is a fork from [Aircoookie/WLED](https://github.com/Aircoookie/WLED) which contains latest merge of v0.14 of WLED with [additional features](https://mm.kno.wled.ge/moonmodules/what-is-moonmodules/).
 
