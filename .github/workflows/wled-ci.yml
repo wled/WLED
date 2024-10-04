@@ -80,7 +80,7 @@ jobs:
     steps:
     - uses: actions/download-artifact@v4
     - name: List Artifacts
-      run: find ./
+      run: find ./ -type f -name *.bin -exec mv -v {} ./ \;
     - name: Create draft release
       uses: softprops/action-gh-release@v1
       with:
