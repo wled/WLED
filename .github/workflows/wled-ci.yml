@@ -86,6 +86,6 @@ jobs:
       with:
         draft: True
         files: |
-          *.bin
+          WLEDMM*.bin
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
