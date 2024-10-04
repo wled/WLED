@@ -50,10 +50,7 @@ jobs:
       uses: actions/cache@v4
       with:
         path: ~/.platformio
-        key: ${{ runner.os }}-${{ matrix.environment}}-${{ hashFiles('platformio.ini') }}
-        restore-keys: |
-          ${{ runner.os }}-${{ matrix.environment}}
-
+        key: ${{ runner.os }}-${{ matrix.environment}}
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
