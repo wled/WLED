@@ -866,8 +866,8 @@ static uint16_t mode_midnoise(void) {                  // Midnoise. By Andrew Tu
     SEGMENT.setPixelColor(i, SEGMENT.color_from_palette(index, false, false, 0));
   }
 
-  SEGENV.aux0=SEGENV.aux0+beatsin8(5,0,10);
-  SEGENV.aux1=SEGENV.aux1+beatsin8(4,0,10);
+  SEGENV.aux0=SEGENV.aux0+beatsin8_t(5,0,10);
+  SEGENV.aux1=SEGENV.aux1+beatsin8_t(4,0,10);
 
   return FRAMETIME;
 } // mode_midnoise()
@@ -917,8 +917,8 @@ static uint16_t mode_noisemeter(void) {                // Noisemeter. By Andrew 
     SEGMENT.setPixelColor(i, SEGMENT.color_from_palette(index, false, false, 0));
   }
 
-  SEGENV.aux0+=beatsin8(5,0,10);
-  SEGENV.aux1+=beatsin8(4,0,10);
+  SEGENV.aux0+=beatsin8_t(5,0,10);
+  SEGENV.aux1+=beatsin8_t(4,0,10);
 
   return FRAMETIME;
 } // mode_noisemeter()
@@ -972,13 +972,13 @@ static uint16_t mode_plasmoid(void) {                  // Plasmoid. By Andrew Tu
 
   SEGMENT.fadeToBlackBy(32);
 
-  plasmoip->thisphase += beatsin8(6,-4,4);                          // You can change direction and speed individually.
-  plasmoip->thatphase += beatsin8(7,-4,4);                          // Two phase values to make a complex pattern. By Andrew Tuline.
+  plasmoip->thisphase += beatsin8_t(6,-4,4);                          // You can change direction and speed individually.
+  plasmoip->thatphase += beatsin8_t(7,-4,4);                          // Two phase values to make a complex pattern. By Andrew Tuline.
 
   for (unsigned i = 0; i < SEGLEN; i++) {                          // For each of the LED's in the strand, set a brightness based on a wave as follows.
     // updated, similar to "plasma" effect - softhack007
     uint8_t thisbright = cubicwave8(((i*(1 + (3*SEGMENT.speed/32)))+plasmoip->thisphase) & 0xFF)/2;
-    thisbright += cos8(((i*(97 +(5*SEGMENT.speed/32)))+plasmoip->thatphase) & 0xFF)/2; // Let's munge the brightness a bit and animate it all with the phases.
+    thisbright += cos8_t(((i*(97 +(5*SEGMENT.speed/32)))+plasmoip->thatphase) & 0xFF)/2; // Let's munge the brightness a bit and animate it all with the phases.
 
     uint8_t colorIndex=thisbright;
     if (volumeSmth * SEGMENT.intensity / 64 < thisbright) {thisbright = 0;}
@@ -1391,7 +1391,7 @@ static uint16_t mode_rocktaves(void) {                 // Rocktaves. Same note f
   frTemp -= 132.0f;                                       // This should give us a base musical note of C3
   frTemp  = fabsf(frTemp * 2.1f);                         // Fudge factors to compress octave range starting at 0 and going to 255;
 
-  unsigned i = map(beatsin8(8+octCount*4, 0, 255, 0, octCount*8), 0, 255, 0, SEGLEN-1);
+  unsigned i = map(beatsin8_t(8+octCount*4, 0, 255, 0, octCount*8), 0, 255, 0, SEGLEN-1);
   i = constrain(i, 0U, SEGLEN-1U);
   SEGMENT.addPixelColor(i, color_blend(SEGCOLOR(1), SEGMENT.color_from_palette((uint8_t)frTemp, false, false, 0), volTemp));
 
@@ -1468,8 +1468,8 @@ static uint16_t mode_2DSwirl(void) {
 
   SEGMENT.blur(SEGMENT.custom1);
 
-  int  i = beatsin8( 27*SEGMENT.speed/255, borderWidth, cols - borderWidth);
-  int  j = beatsin8( 41*SEGMENT.speed/255, borderWidth, rows - borderWidth);
+  int  i = beatsin8_t( 27*SEGMENT.speed/255, borderWidth, cols - borderWidth);
+  int  j = beatsin8_t( 41*SEGMENT.speed/255, borderWidth, rows - borderWidth);
   int ni = (cols - 1) - i;
   int nj = (cols - 1) - j;
 
