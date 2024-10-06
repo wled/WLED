@@ -848,7 +848,7 @@ constexpr float Int_to_Rad_Med =   (DEG_TO_RAD * 360) / Pinwheel_Steps_Medium; /
 constexpr float Int_to_Rad_Big =   (DEG_TO_RAD * 360) / Pinwheel_Steps_Big;    // conversion: from 0...304 to Radians
 constexpr float Int_to_Rad_XL =    (DEG_TO_RAD * 360) / Pinwheel_Steps_XL;     // conversion: from 0...368 to Radians
 constexpr float Int_to_Rad_XXL =   (DEG_TO_RAD * 360) / Pinwheel_Steps_XXL;    // conversion: from 0...456 to Radians
-constexpr float Int_to_Rad_LL =   (DEG_TO_RAD * 360) / Pinwheel_Steps_LL;    // conversion: from 0...456 to Radians
+constexpr float Int_to_Rad_LL =   (DEG_TO_RAD * 360) / Pinwheel_Steps_LL;      // conversion: from 0...592 to Radians
 
 constexpr int Fixed_Scale = 512;               // fixpoint scaling factor (9bit for fraction)
 
