@@ -145,9 +145,9 @@ bool deserializeSegment(JsonObject elem, byte it, byte presetId)
     const char * name = elem["n"].as<const char*>();
     size_t len = 0;
     if (name != nullptr) len = strlen(name);
-    if (len > 0 && len < 33) {
+    if (len > 0 && len < 32) {
       seg.name = new char[len+1];
-      if (seg.name) strlcpy(seg.name, name, 33);
+      if (seg.name) strlcpy(seg.name, name, len+1);
     } else {
       // but is empty (already deleted above)
       elem.remove("n");

@@ -1747,7 +1747,7 @@ void WS2812FX::enumerateLedmaps() {
   //WLEDMM add segment names to be used as ledmap names
   uint8_t segment_index = 0;
   for (segment &seg : _segments) {
-    if (seg.name != nullptr && strcmp(seg.name, "") != 0) {
+    if (seg.name != nullptr && strlen(seg.name) > 0) {
       char fileName[33];
       snprintf_P(fileName, sizeof(fileName), PSTR("/lm%s.json"), seg.name);
       bool isFile = WLED_FS.exists(fileName);
