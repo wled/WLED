@@ -850,7 +850,7 @@ constexpr float Int_to_Rad_XL =    (DEG_TO_RAD * 360) / Pinwheel_Steps_XL;     /
 constexpr float Int_to_Rad_XXL =   (DEG_TO_RAD * 360) / Pinwheel_Steps_XXL;    // conversion: from 0...456 to Radians
 constexpr float Int_to_Rad_LL =   (DEG_TO_RAD * 360) / Pinwheel_Steps_LL;      // conversion: from 0...592 to Radians
 
-constexpr int Fixed_Scale = 512;               // fixpoint scaling factor (9bit for fraction)
+constexpr int Fixed_Scale = 32768;               // fixpoint scaling factor (15bit for fraction)
 
 // Pinwheel helper function: pixel index to radians
 static float getPinwheelAngle(int i, int vW, int vH) {
