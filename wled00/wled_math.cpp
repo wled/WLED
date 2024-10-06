@@ -89,8 +89,8 @@ int16_t cos16_t(uint16_t theta) {
 
 uint8_t sin8_t(uint8_t theta) {
   int32_t sin16 = sin16_t((uint16_t)theta * 257); // 255 * 257 = 0xFFFF
-  sin16 += 0x7FFF; //shift result to range 0-0xFFFF
-  return sin16 >> 8;
+  sin16 += 0x7FFF + 128; //shift result to range 0-0xFFFF, +128 for rounding
+  return min(sin16, int32_t(0xFFFF)) >> 8; // min performs saturation, and prevents overflow
 }
 
 uint8_t cos8_t(uint8_t theta) {
