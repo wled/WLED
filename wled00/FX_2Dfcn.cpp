@@ -466,8 +466,8 @@ void Segment::setPixelColorXY(float x, float y, uint32_t col, bool aa, bool fast
   }
 
 #else // replacement using wu_pixel
-  unsigned px = x * (virtualWidth() <<8);
-  unsigned py = y * (virtualHeight() <<8);
+  unsigned px = x * ((virtualWidth()-1) <<8);
+  unsigned py = y * ((virtualHeight()-1) <<8);
   wu_pixel(px, py, CRGB(col));
 #endif
 }
