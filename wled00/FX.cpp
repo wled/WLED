@@ -3208,7 +3208,7 @@ static const char _data_FX_MODE_SOLID_GLITTER[] PROGMEM = "Solid Glitter@,!;Bg,,
 
 
 //each needs 19 bytes
-//Spark type is used for popcorn, 1D fireworks, and drip
+//Spark type is used for popcorn, 1D fireworks
 typedef struct Spark {
   float pos, posX;
   float vel, velX;
@@ -3823,7 +3823,7 @@ uint16_t mode_drip(void)
   };
 
   // WLEDMM calculate time passed
-  uint32_t millisPassed = min(max(1UL, strip.now - SEGENV.step), 180UL); // constrain between 1 and 180
+  uint32_t millisPassed = min(max(1U, unsigned(strip.now - SEGENV.step)), 180U); // constrain between 1 and 180
   SEGENV.step = strip.now;
   float deltaTime = float(millisPassed) / 20.0f;  // base speed 50 FPS
   for (int stripNr=0; stripNr<strips; stripNr++)
