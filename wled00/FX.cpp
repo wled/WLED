@@ -3236,6 +3236,11 @@ static uint16_t mode_popcorn_core(bool useaudio) {
 
   Spark* popcorn = reinterpret_cast<Spark*>(SEGENV.data);
 
+  if (SEGENV.call == 0) {
+    SEGMENT.fill(BLACK);     // WLEDMM clear LEDs at startup
+    SEGENV.step = strip.now; // initial time
+  }
+
   bool hasCol2 = SEGCOLOR(2);
   if (!SEGMENT.check2) SEGMENT.fill(hasCol2 ? BLACK : SEGCOLOR(1));
 
@@ -3248,9 +3253,9 @@ static uint16_t mode_popcorn_core(bool useaudio) {
   }
 
   struct virtualStrip {
-    static void runStrip(uint16_t stripNr, Spark* popcorn, bool useaudio, um_data_t *um_data) {  // WLEDMM added useaudio and um_data
-      float gravity = -0.0001f - (SEGMENT.speed/200000.0f); // m/s/s
-      gravity *= SEGLEN;
+    static void runStrip(uint16_t stripNr, Spark* popcorn, bool useaudio, um_data_t *um_data, float deltaTime) {  // WLEDMM added useaudio and um_data
+      float gravity = -0.0001f - (SEGMENT.speed/180000.0f); // m/s/s  // WLEDMM original value was "-0.0001f - (SEGMENT.speed/200000.0f)"
+      gravity *= min(max(1, SEGLEN-1), 255);                          // WLEDMM speed limit 255
 
       uint8_t numPopcorn = SEGMENT.intensity*maxNumPopcorn/255;
       if (numPopcorn == 0) numPopcorn = 1;
@@ -3261,8 +3266,8 @@ static uint16_t mode_popcorn_core(bool useaudio) {
 
       for(int i = 0; i < numPopcorn; i++) {
         if (popcorn[i].pos >= 0.0f) { // if kernel is active, update its position
-          popcorn[i].pos += popcorn[i].vel;
-          popcorn[i].vel += gravity;
+          popcorn[i].pos += popcorn[i].vel * deltaTime;
+          popcorn[i].vel += gravity * deltaTime;
         } else { // if kernel is inactive, randomly pop it
           bool doPopCorn = false;  // WLEDMM allows to inhibit new pops
           // WLEDMM begin
@@ -3281,7 +3286,7 @@ static uint16_t mode_popcorn_core(bool useaudio) {
 
             uint16_t peakHeight = 128 + random8(128); //0-255
             peakHeight = (peakHeight * (SEGLEN -1)) >> 8;
-            popcorn[i].vel = sqrtf(-2.0f * gravity * peakHeight);
+            popcorn[i].vel = sqrtf(-2.01f * gravity * peakHeight);
 
             if (SEGMENT.palette)
             {
@@ -3298,19 +3303,31 @@ static uint16_t mode_popcorn_core(bool useaudio) {
           if (!SEGMENT.palette && popcorn[i].colIndex < NUM_COLORS) col = SEGCOLOR(popcorn[i].colIndex);
           uint16_t ledIndex = popcorn[i].pos;
           if (ledIndex < SEGLEN) SEGMENT.setPixelColor(indexToVStrip(ledIndex, stripNr), col);
+          // WLEDMM add small trail
+          for (int n=1; n<4; n++) {
+            float spdLimit = n;
+            unsigned fade = 128 - 32*n;
+            uint32_t trailColor = color_fade(col, fade, true);
+            if ((popcorn[i].vel < -spdLimit) && (ledIndex+n < SEGLEN)) SEGMENT.setPixelColor(indexToVStrip(ledIndex+n, stripNr), trailColor);
+            if ((popcorn[i].vel > spdLimit) && (ledIndex >= n)) SEGMENT.setPixelColor(indexToVStrip(ledIndex-n, stripNr), trailColor);
+          }
         }
       }
     }
   };
 
+  // WLEDMM calculate time passed
+  uint32_t millisPassed = min(max(1U, unsigned(strip.now - SEGENV.step)), 200U); // constrain between 1 and 200
+  SEGENV.step = strip.now;
+  float deltaTime = useaudio ? float(millisPassed) / 8.0f : float(millisPassed) / 16.0f;  // base speed: 64 FPS (normal) / 120fps (audioreactive) 
   for (int stripNr=0; stripNr<strips; stripNr++)
-    virtualStrip::runStrip(stripNr, &popcorn[stripNr * neededPopcorn], useaudio, um_data); // WLEDMM added useaudio and um_data
+    virtualStrip::runStrip(stripNr, &popcorn[stripNr * neededPopcorn], useaudio, um_data, deltaTime); // WLEDMM added useaudio and um_data
 
   return FRAMETIME;
 }
 
 uint16_t mode_popcorn(void) { return mode_popcorn_core(false); }
-static const char _data_FX_MODE_POPCORN[] PROGMEM = "Popcorn@!,!,,,,,Overlay;!,!,!;!;1.5d;m12=1"; //bar WLEDMM 1.5d
+static const char _data_FX_MODE_POPCORN[] PROGMEM = "Popcorn ☾@!,!,,,,,Overlay;!,!,!;!;1.5d;m12=1"; //bar WLEDMM 1.5d
 
 uint16_t mode_popcorn_audio(void) { return mode_popcorn_core(true); }
 static const char _data_FX_MODE_POPCORN_AR[] PROGMEM = "Popcorn audio ☾@!,!,,,,,Overlay;!,!,!;!;1v,1.5d;m12=1"; //bar WLEDMM 1.5d
