@@ -37,6 +37,8 @@
 #define SRate_t int
 #endif
 
+constexpr i2s_port_t AR_I2S_PORT = I2S_NUM_0;       // I2S port to use (do not change ! I2S_NUM_1 possible but this has limitation -> no MCLK routing, no ADC support)
+
 //#include <driver/i2s_std.h>
 //#include <driver/i2s_pdm.h>
 //#include <driver/i2s_tdm.h>
@@ -326,7 +328,7 @@ class I2SSource : public AudioSource {
 
       //DEBUGSR_PRINTF("[AR] I2S: SD=%d, WS=%d, SCK=%d, MCLK=%d\n", i2ssdPin, i2swsPin, i2sckPin, mclkPin);
 
-      esp_err_t err = i2s_driver_install(I2S_NUM_0, &_config, 0, nullptr);
+      esp_err_t err = i2s_driver_install(AR_I2S_PORT, &_config, 0, nullptr);
       if (err != ESP_OK) {
         ERRORSR_PRINTF("AR: Failed to install i2s driver: %d\n", err);
         return;
@@ -344,18 +346,18 @@ class I2SSource : public AudioSource {
         DEBUGSR_PRINTLN(F("AR: I2S#0 driver installed in SLAVE mode."));
       }
 
-      err = i2s_set_pin(I2S_NUM_0, &_pinConfig);
+      err = i2s_set_pin(AR_I2S_PORT, &_pinConfig);
       if (err != ESP_OK) {
         ERRORSR_PRINTF("AR: Failed to set i2s pin config: %d\n", err);
-        i2s_driver_uninstall(I2S_NUM_0);  // uninstall already-installed driver
+        i2s_driver_uninstall(AR_I2S_PORT);  // uninstall already-installed driver
         return;
       }
 
 #if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(4, 2, 0)
-      err = i2s_set_clk(I2S_NUM_0, _sampleRate, I2S_SAMPLE_RESOLUTION, I2S_CHANNEL_MONO);  // set bit clocks. Also takes care of MCLK routing if needed.
+      err = i2s_set_clk(AR_I2S_PORT, _sampleRate, I2S_SAMPLE_RESOLUTION, I2S_CHANNEL_MONO);  // set bit clocks. Also takes care of MCLK routing if needed.
       if (err != ESP_OK) {
         ERRORSR_PRINTF("AR: Failed to configure i2s clocks: %d\n", err);
-        i2s_driver_uninstall(I2S_NUM_0);  // uninstall already-installed driver
+        i2s_driver_uninstall(AR_I2S_PORT);  // uninstall already-installed driver
         return;
       }
 #endif
@@ -364,7 +366,7 @@ class I2SSource : public AudioSource {
 
     virtual void deinitialize() {
       _initialized = false;
-      esp_err_t err = i2s_driver_uninstall(I2S_NUM_0);
+      esp_err_t err = i2s_driver_uninstall(AR_I2S_PORT);
       if (err != ESP_OK) {
         DEBUGSR_PRINTF("Failed to uninstall i2s driver: %d\n", err);
         return;
@@ -385,7 +387,7 @@ class I2SSource : public AudioSource {
         I2S_datatype *newSamples = newSampleBuffer; // use global input buffer
         if (num_samples > I2S_SAMPLES_MAX) num_samples = I2S_SAMPLES_MAX; // protect the buffer from overflow
 
-        err = i2s_read(I2S_NUM_0, (void *)newSamples, num_samples * sizeof(I2S_datatype), &bytes_read, portMAX_DELAY);
+        err = i2s_read(AR_I2S_PORT, (void *)newSamples, num_samples * sizeof(I2S_datatype), &bytes_read, portMAX_DELAY);
         if (err != ESP_OK) {
           DEBUGSR_PRINTF("Failed to get samples: %d\n", err);
           return;
@@ -1056,8 +1058,8 @@ class SPH0654 : public I2SSource {
       I2SSource::initialize(i2swsPin, i2ssdPin, i2sckPin);
 #if !defined(CONFIG_IDF_TARGET_ESP32S2) && !defined(CONFIG_IDF_TARGET_ESP32C3) && !defined(CONFIG_IDF_TARGET_ESP32S3)
 // these registers are only existing in "classic" ESP32
-      REG_SET_BIT(I2S_TIMING_REG(I2S_NUM_0), BIT(9));
-      REG_SET_BIT(I2S_CONF_REG(I2S_NUM_0), I2S_RX_MSB_SHIFT);
+      REG_SET_BIT(I2S_TIMING_REG(AR_I2S_PORT), BIT(9));
+      REG_SET_BIT(I2S_CONF_REG(AR_I2S_PORT), I2S_RX_MSB_SHIFT);
 #else
       #warning FIX ME! Please.
 #endif
