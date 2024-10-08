@@ -208,14 +208,23 @@ class I2SSource : public AudioSource {
         .communication_format = i2s_comm_format_t(I2S_COMM_FORMAT_STAND_I2S),
         //.intr_alloc_flags = ESP_INTR_FLAG_LEVEL1,
 #ifdef WLEDMM_FASTPATH
+  #ifdef WLED_ENABLE_HUB75MATRIX
+        .intr_alloc_flags = ESP_INTR_FLAG_IRAM|ESP_INTR_FLAG_LEVEL1,    // HUB75 seems to get into trouble if we allocate a higher priority interrupt
+        .dma_buf_count = 18,                                            // 100ms buffer (128 * dma_buf_count / sampleRate)
+  #else
       #if CONFIG_IDF_TARGET_ESP32 && !defined(BOARD_HAS_PSRAM)          // still need to test on boards with PSRAM
         .intr_alloc_flags = ESP_INTR_FLAG_IRAM|ESP_INTR_FLAG_LEVEL2|ESP_INTR_FLAG_LEVEL3,  // IRAM flag reduces missed samples
       #else
         .intr_alloc_flags = ESP_INTR_FLAG_LEVEL2|ESP_INTR_FLAG_LEVEL3,  // seems to reduce noise
       #endif
         .dma_buf_count = 24,                                            // 140ms buffer (128 * dma_buf_count / sampleRate)
+  #endif
 #else
+  #ifdef WLED_ENABLE_HUB75MATRIX
+        .intr_alloc_flags = ESP_INTR_FLAG_LEVEL1,                      // HUB75 seems to get into trouble if we allocate a higher priority interrupt
+  #else
         .intr_alloc_flags = ESP_INTR_FLAG_LEVEL2,
+  #endif
         .dma_buf_count = 8,
 #endif
         .dma_buf_len = _blockSize,
