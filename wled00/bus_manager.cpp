@@ -816,7 +816,7 @@ BusHub75Matrix::BusHub75Matrix(BusConfig &bc) : Bus(bc.type, bc.start, bc.autoWh
   if ((_ledBuffer == nullptr) || (_ledsDirty == nullptr)) {
       // fail is we cannot get memory for the buffer
       errorFlag = ERR_LOW_MEM; // WLEDMM raise errorflag
-      USER_PRINTLN(F("MatrixPanel_I2S_DMA not started - not enough memory for leds bufer!"));
+      USER_PRINTLN(F("MatrixPanel_I2S_DMA not started - not enough memory for leds buffer!"));
       cleanup();  // free buffers, and deallocate pins
       _valid = false;
       USER_PRINT(F("heap usage: ")); USER_PRINTLN(int(lastHeap - ESP.getFreeHeap()));
