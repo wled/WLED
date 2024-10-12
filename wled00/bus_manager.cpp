@@ -529,7 +529,7 @@ BusHub75Matrix::BusHub75Matrix(BusConfig &bc) : Bus(bc.type, bc.start, bc.autoWh
   fourScanPanel = nullptr;
   _len = 0;
 
-    mxconfig.double_buff = false; // Use our own memory-optimised buffer rather than the driver's own double-buffer  
+    mxconfig.double_buff = false; // Use our own memory-optimised buffer rather than the driver's own double-buffer
  
   // mxconfig.driver = HUB75_I2S_CFG::ICN2038S;  // experimental - use specific shift register driver
   // mxconfig.driver = HUB75_I2S_CFG::FM6124;    // try this driver in case you panel stays dark, or when colors look too pastel
@@ -782,9 +782,10 @@ BusHub75Matrix::BusHub75Matrix(BusConfig &bc) : Bus(bc.type, bc.start, bc.autoWh
   delay(24); // experimental
   DEBUG_PRINT(F("heap usage: ")); DEBUG_PRINTLN(lastHeap - ESP.getFreeHeap());
   // Allocate memory and start DMA display
-  if( not display->begin() ) {
+  if (display->begin() == false) {
       USER_PRINTLN("****** MatrixPanel_I2S_DMA !KABOOM! I2S memory allocation failed ***********");
       USER_PRINT(F("heap usage: ")); USER_PRINTLN(lastHeap - ESP.getFreeHeap());
+      _valid = false;
       return;
   }
   else {
@@ -799,28 +800,27 @@ BusHub75Matrix::BusHub75Matrix(BusConfig &bc) : Bus(bc.type, bc.start, bc.autoWh
     if (_ledsDirty) free(_ledsDirty);                 // should not happen
 
     _ledsDirty = (byte*) malloc(getBitArrayBytes(_len));  // create LEDs dirty bits
+    if (_ledsDirty) setBitArray(_ledsDirty, _len, false); // reset dirty bits
 
-    if (_ledsDirty == nullptr) {
-      display->stopDMAoutput();
-      delete display; display = nullptr;
-      _valid = false;
-      USER_PRINTLN(F("MatrixPanel_I2S_DMA not started - not enough memory for dirty bits!"));
-      USER_PRINT(F("heap usage: ")); USER_PRINTLN(lastHeap - ESP.getFreeHeap());
-      return;  //  fail is we cannot get memory for the buffer
-    }
-    setBitArray(_ledsDirty, _len, false);             // reset dirty bits
-
-    if (mxconfig.double_buff == false) {
-      #if defined(CONFIG_IDF_TARGET_ESP32S3) && CONFIG_SPIRAM_MODE_OCT && defined(BOARD_HAS_PSRAM) && (defined(WLED_USE_PSRAM) || defined(WLED_USE_PSRAM_JSON))
+    #if defined(CONFIG_IDF_TARGET_ESP32S3) && CONFIG_SPIRAM_MODE_OCT && defined(BOARD_HAS_PSRAM) && (defined(WLED_USE_PSRAM) || defined(WLED_USE_PSRAM_JSON))
       if (psramFound()) {
         _ledBuffer = (CRGB*) ps_calloc(_len, sizeof(CRGB));  // create LEDs buffer (initialized to BLACK)
       } else {
         _ledBuffer = (CRGB*) calloc(_len, sizeof(CRGB));  // create LEDs buffer (initialized to BLACK)
       }
-      #else
+    #else
       _ledBuffer = (CRGB*) calloc(_len, sizeof(CRGB));  // create LEDs buffer (initialized to BLACK)
-      #endif
-    }
+    #endif
+  }
+
+  if ((_ledBuffer == nullptr) || (_ledsDirty == nullptr)) {
+      // fail is we cannot get memory for the buffer
+      errorFlag = ERR_LOW_MEM; // WLEDMM raise errorflag
+      USER_PRINTLN(F("MatrixPanel_I2S_DMA not started - not enough memory for leds bufer!"));
+      cleanup();  // free buffers, and deallocate pins
+      _valid = false;
+      USER_PRINT(F("heap usage: ")); USER_PRINTLN(int(lastHeap - ESP.getFreeHeap()));
+      return;  //  fail
   }
   
   switch(bc.type) {
@@ -851,7 +851,6 @@ BusHub75Matrix::BusHub75Matrix(BusConfig &bc) : Bus(bc.type, bc.start, bc.autoWh
   USER_PRINT(F("MatrixPanel_I2S_DMA "));
   USER_PRINTF("%sstarted, width=%u, %u pixels.\n", _valid? "":"not ", _panelWidth, _len);
 
-  if (mxconfig.double_buff == true) USER_PRINTLN(F("MatrixPanel_I2S_DMA driver native double-buffering enabled."));
   if (_ledBuffer != nullptr) USER_PRINTLN(F("MatrixPanel_I2S_DMA LEDS buffer enabled."));
   if (_ledsDirty != nullptr) USER_PRINTLN(F("MatrixPanel_I2S_DMA LEDS dirty bit optimization enabled."));
   if ((_ledBuffer != nullptr) || (_ledsDirty != nullptr)) {
@@ -859,7 +858,7 @@ BusHub75Matrix::BusHub75Matrix(BusConfig &bc) : Bus(bc.type, bc.start, bc.autoWh
     USER_PRINT((_ledBuffer? _len*sizeof(CRGB) :0) + (_ledsDirty? getBitArrayBytes(_len) :0));
     USER_PRINTLN(F(" bytes."));
   }
-  USER_PRINT(F("heap usage: ")); USER_PRINTLN(lastHeap - ESP.getFreeHeap());
+  USER_PRINT(F("heap usage: ")); USER_PRINTLN(int(lastHeap - ESP.getFreeHeap()));
 }
 
 void __attribute__((hot)) BusHub75Matrix::setPixelColor(uint16_t pix, uint32_t c) {
@@ -874,9 +873,7 @@ void __attribute__((hot)) BusHub75Matrix::setPixelColor(uint16_t pix, uint32_t c
     }
   }
   else {
-    if ((c == BLACK) && (getBitFromArray(_ledsDirty, pix) == false)) return; // ignore black if pixel is already black
-    setBitInArray(_ledsDirty, pix, c != BLACK);                              // dirty = true means "color is not BLACK"
-
+    // no double buffer allocated --> directly draw pixel
     #ifndef NO_CIE1931
     c = unGamma24(c); // to use the driver linear brightness feature, we first need to undo WLED gamma correction
     #endif
@@ -903,7 +900,7 @@ uint32_t BusHub75Matrix::getPixelColor(uint16_t pix) const {
   if (_ledBuffer)
     return uint32_t(_ledBuffer[pix].scale8(_bri)) & 0x00FFFFFF;  // scale8() is needed to mimic NeoPixelBus, which returns scaled-down colours
   else
-    return getBitFromArray(_ledsDirty, pix) ? DARKGREY: BLACK;   // just a hack - we only know if the pixel is black or not
+    return BLACK;   // we don't know anything about the pixel
 }
 
 uint32_t __attribute__((hot)) BusHub75Matrix::getPixelColorRestored(uint16_t pix) const {
@@ -911,7 +908,7 @@ uint32_t __attribute__((hot)) BusHub75Matrix::getPixelColorRestored(uint16_t pix
   if (_ledBuffer)
     return uint32_t(_ledBuffer[pix]) & 0x00FFFFFF;
   else
-    return getBitFromArray(_ledsDirty, pix) ? DARKGREY: BLACK;   // just a hack - we only know if the pixel is black or not
+    return BLACK;   // we don't know anything about the pixel
 }
 
 void BusHub75Matrix::setBrightness(uint8_t b, bool immediate) {
@@ -950,13 +947,6 @@ void __attribute__((hot)) BusHub75Matrix::show(void) {
       pix ++;
     }
     setBitArray(_ledsDirty, _len, false);  // buffer shown - reset all dirty bits
-  }
-
-  if(mxconfig.double_buff) {
-    display->flipDMABuffer(); // Show the back buffer, set current output buffer to the back (i.e. no longer being sent to LED panels)
-    // while(!previousBufferFree) delay(1);   // experimental - Wait before we allow any writing to the buffer. Stop flicker.
-    display->clearScreen();   // Now clear the back-buffer
-    setBitArray(_ledsDirty, _len, false);  // dislay buffer is blank - reset all dirty bits
   }
 }
 
