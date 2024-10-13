@@ -284,7 +284,7 @@ static volatile float    micReal_max2 = 0.0f;             // MicIn data max afte
 // some prototypes, to ensure consistent interfaces
 static float mapf(float x, float in_min, float in_max, float out_min, float out_max); // map function for float
 static float fftAddAvg(int from, int to);   // average of several FFT result bins
-void FFTcode(void * parameter)  __attribute__((noreturn));      // audio processing task: read samples, run FFT, fill GEQ channels from FFT results
+void FFTcode(void * parameter);             // audio processing task: read samples, run FFT, fill GEQ channels from FFT results
 static void runMicFilter(uint16_t numSamples, float *sampleBuffer);          // pre-filtering of raw samples (band-pass)
 static void postProcessFFTResults(bool noiseGateOpen, int numberOfChannels, bool i2sFastpath); // post-processing and post-amp of GEQ channels
 
@@ -393,11 +393,11 @@ constexpr uint16_t samplesFFT_2 = 256;          // meaningful part of FFT result
 #define LOG_256  5.54517744f                            // log(256)
 
 // These are the input and output vectors.  Input vectors receive computed results from FFT.
-static float vReal[samplesFFT] = {0.0f};       // FFT sample inputs / freq output -  these are our raw result bins
-static float vImag[samplesFFT] = {0.0f};       // imaginary parts
+static float* vReal = nullptr;       // FFT sample inputs / freq output -  these are our raw result bins
+static float* vImag = nullptr;       // imaginary parts
 
 #ifdef FFT_MAJORPEAK_HUMAN_EAR
-static float pinkFactors[samplesFFT] = {0.0f};              // "pink noise" correction factors
+static float* pinkFactors = nullptr;                        // "pink noise" correction factors
 constexpr float pinkcenter = 23.66;                         // sqrt(560) - center freq for scaling is 560 hz. 
 constexpr float binWidth = SAMPLE_RATE / (float)samplesFFT; // frequency range of each FFT result bin
 #endif
@@ -413,15 +413,6 @@ constexpr float binWidth = SAMPLE_RATE / (float)samplesFFT; // frequency range o
 #define sqrt(x) sqrtf(x)             // little hack that reduces FFT time by 10-50% on ESP32 (as alternative to FFT_SQRT_APPROXIMATION)
 #define sqrt_internal sqrtf          // see https://github.com/kosme/arduinoFFT/pull/83
 #include <arduinoFFT.h>
-
-#if defined(FFT_LIB_REV) && FFT_LIB_REV > 0x19
-  // arduinoFFT 2.x has a slightly different API
-  static ArduinoFFT<float> FFT = ArduinoFFT<float>( vReal, vImag, samplesFFT, SAMPLE_RATE, true);
-#else
-  // recommended version optimized by @softhack007 (API version 1.9)
-  static float windowWeighingFactors[samplesFFT] = {0.0f}; // cache for FFT windowing factors
-  static ArduinoFFT<float> FFT = ArduinoFFT<float>( vReal, vImag, samplesFFT, SAMPLE_RATE, windowWeighingFactors);
-#endif
 
 // Helper functions
 
@@ -460,6 +451,30 @@ constexpr bool skipSecondFFT = true;
 constexpr bool skipSecondFFT = false;
 #endif
 
+// allocate FFT sample buffers from heap
+static bool alocateFFTBuffers(void) {
+  #ifdef SR_DEBUG
+    USER_PRINT(F("\nFree heap ")); USER_PRINTLN(ESP.getFreeHeap());
+  #endif
+
+  if (vReal) free(vReal); // should not happen
+  if (vImag) free(vImag); // should not happen
+  if ((vReal = (float*) calloc(sizeof(float), samplesFFT)) == nullptr) return false; // calloc or die
+  if ((vImag = (float*) calloc(sizeof(float), samplesFFT)) == nullptr) return false;
+#ifdef FFT_MAJORPEAK_HUMAN_EAR
+  if (pinkFactors) free(pinkFactors);
+  if ((pinkFactors = (float*) calloc(sizeof(float), samplesFFT)) == nullptr) return false;
+#endif
+
+  #ifdef SR_DEBUG
+    USER_PRINTLN("\nalocateFFTBuffers() completed successfully.");
+    USER_PRINT(F("Free heap: ")); USER_PRINTLN(ESP.getFreeHeap());
+    USER_PRINT("FFTtask free stack: "); USER_PRINTLN(uxTaskGetStackHighWaterMark(NULL));
+    USER_FLUSH();
+  #endif
+  return(true); // success
+}
+
 // High-Pass "DC blocker" filter
 // see https://www.dsprelated.com/freebooks/filters/DC_Blocker.html
 static void runDCBlocker(uint_fast16_t numSamples, float *sampleBuffer) {
@@ -496,9 +511,30 @@ void FFTcode(void * parameter)
   static bool isFirstRun = false;
 
 #ifdef FFT_USE_SLIDING_WINDOW
-  static float oldSamples[samplesFFT_2] = {0.0f}; // previous 50% of samples
+  static float* oldSamples = nullptr; // previous 50% of samples
   static bool haveOldSamples = false; // for sliding window FFT
   bool usingOldSamples = false;
+  if (!oldSamples) oldSamples = (float*) calloc(sizeof(float), samplesFFT_2); // allocate on first run
+  if (!oldSamples) { disableSoundProcessing = true; return; }                 // no memory -> die
+#endif
+
+  bool success = true;
+  if ((vReal == nullptr) || (vImag == nullptr)) success = alocateFFTBuffers(); // allocate sample buffers on first run
+  if (success == false) { disableSoundProcessing = true; return; }             // no memory -> die
+
+  // create FFT object - we have to do if after allocating buffers
+#if defined(FFT_LIB_REV) && FFT_LIB_REV > 0x19
+  // arduinoFFT 2.x has a slightly different API
+  static ArduinoFFT<float> FFT = ArduinoFFT<float>( vReal, vImag, samplesFFT, SAMPLE_RATE, true);
+#else
+  // recommended version optimized by @softhack007 (API version 1.9)
+  #if defined(WLED_ENABLE_HUB75MATRIX) && defined(CONFIG_IDF_TARGET_ESP32)
+    static float* windowWeighingFactors = nullptr;
+    if (!windowWeighingFactors) windowWeighingFactors = (float*) calloc(sizeof(float), samplesFFT); // cache for FFT windowing factors - use heap
+  #else
+    static float windowWeighingFactors[samplesFFT] = {0.0f};                                        // cache for FFT windowing factors - use global RAM
+  #endif
+  static ArduinoFFT<float> FFT = ArduinoFFT<float>( vReal, vImag, samplesFFT, SAMPLE_RATE, windowWeighingFactors);
 #endif
 
   #ifdef FFT_MAJORPEAK_HUMAN_EAR
@@ -542,7 +578,7 @@ void FFTcode(void * parameter)
 #endif
 
     // get a fresh batch of samples from I2S
-    memset(vReal, 0, sizeof(vReal)); // start clean
+    memset(vReal, 0, sizeof(float) * samplesFFT); // start clean
 #ifdef FFT_USE_SLIDING_WINDOW
     uint16_t readOffset;
     if (haveOldSamples && (doSlidingFFT > 0)) {
@@ -635,7 +671,7 @@ void FFTcode(void * parameter)
 #endif
 
     // set imaginary parts to 0
-    memset(vImag, 0, sizeof(vImag));
+    memset(vImag, 0, sizeof(float) * samplesFFT);
 
     #ifdef FFT_USE_SLIDING_WINDOW
     memcpy(oldSamples, vReal+samplesFFT_2, sizeof(float) * samplesFFT_2);  // copy last 50% to buffer (for sliding window FFT)
@@ -762,14 +798,14 @@ void FFTcode(void * parameter)
         FFT_MajPeakSmth = FFT_MajPeakSmth + 0.42 * (FFT_MajorPeak - FFT_MajPeakSmth);   // I like this "swooping peak" look
 
       } else { // skip second run --> clear fft results, keep peaks
-        memset(vReal, 0, sizeof(vReal)); 
+        memset(vReal, 0, sizeof(float) * samplesFFT); 
       }
 #if defined(WLED_DEBUG) || defined(SR_DEBUG) || defined(SR_STATS)
       haveDoneFFT = true;
 #endif
 
     } else { // noise gate closed - only clear results as FFT was skipped. MIC samples are still valid when we do this.
-      memset(vReal, 0, sizeof(vReal));
+      memset(vReal, 0, sizeof(float) * samplesFFT);
       FFT_MajorPeak = 1;
       FFT_Magnitude = 0.001;
     }
