@@ -48,6 +48,7 @@ Timezone* tz = nullptr;
 #define TZ_ANCHORAGE           20
 #define TZ_MX_CENTRAL          21
 #define TZ_PAKISTAN            22
+#define TZ_BRASILIA            23
 #define TZ_INIT               255
 
 byte tzCurrent = TZ_INIT; //uninitialized
@@ -165,6 +166,11 @@ void updateTimezone() {
     }
     case TZ_PAKISTAN : {
       tcrDaylight = {Last, Sun, Mar, 1, 300};     //Pakistan Standard Time = UTC + 5 hours
+      tcrStandard = tcrDaylight;
+      break;
+    }
+    case TZ_BRASILIA : {
+      tcrDaylight = {Last, Sun, Mar, 1, -180};    //Brasília Standard Time = UTC - 3 hours
       tcrStandard = tcrDaylight;
       break;
     }
