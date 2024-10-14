@@ -469,7 +469,7 @@ void my_verbose_print_reset_reason(int reason)
 #endif
 
 /* 
- * parts below were created by softhack007, licenced under GPL v3.0
+ * parts below were created by softhack007, licenced under EUPL-1.2
  */
 
 void show_psram_info_part1(void)
