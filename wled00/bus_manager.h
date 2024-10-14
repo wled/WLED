@@ -68,7 +68,7 @@ struct BusConfig {
     for (uint8_t i = 0; i < min(unsigned(nPins), sizeof(pins)/sizeof(pins[0])); i++) pins[i] = ppins[i];   //softhack007 fix for potential array out-of-bounds access
   }
 
-  //validates start and length and extends total if needed
+  //validates start and length and extends total if needed // WLEDMM this function is not used anywhere
   bool adjustBounds(uint16_t& total) {
     if (!count) count = 1;
     if (count > MAX_LEDS_PER_BUS) count = MAX_LEDS_PER_BUS;

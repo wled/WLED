@@ -395,7 +395,11 @@
 #define MAX_LEDS 1664 //can't rely on memory limit to limit this to 1600 LEDs
 #else
 //#define MAX_LEDS 8192
-#define MAX_LEDS 8464 // WLEDMM 92x92
+#if !defined(CONFIG_IDF_TARGET_ESP32S3)
+  #define MAX_LEDS 8464 // WLEDMM 92x92 for esp32, esp32-S2 and esp32-c3
+#else
+  #define MAX_LEDS 18436 // WLEDMM 128x128 + 2048 + 4 for esp32-S3
+#endif
 #endif
 #endif
 
