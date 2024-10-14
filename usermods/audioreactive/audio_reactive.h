@@ -2859,6 +2859,14 @@ class AudioReactive : public Usermod {
       JsonObject top = root[FPSTR(_name)];
       bool configComplete = !top.isNull();
 
+      // remember previous values
+      auto oldEnabled = enabled;
+      auto oldDMType = dmType;
+      auto oldI2SsdPin = i2ssdPin;
+      auto oldI2SwsPin = i2swsPin;
+      auto oldI2SckPin = i2sckPin;
+      auto oldI2SmclkPin = mclkPin;
+
       configComplete &= getJsonValue(top[FPSTR(_enabled)], enabled);
 #ifdef ARDUINO_ARCH_ESP32
     #if !defined(CONFIG_IDF_TARGET_ESP32S2) && !defined(CONFIG_IDF_TARGET_ESP32C3) && !defined(CONFIG_IDF_TARGET_ESP32S3)
@@ -2911,6 +2919,17 @@ class AudioReactive : public Usermod {
       configComplete &= getJsonValue(top["sync"][F("mode")], audioSyncEnabled);
       configComplete &= getJsonValue(top["sync"][F("check_sequence")], audioSyncSequence);
 
+      // WLEDMM notify user when a reboot is necessary
+      #ifdef ARDUINO_ARCH_ESP32
+      if (initDone) {
+        if ((audioSource != nullptr) && (oldDMType != dmType)) errorFlag = ERR_REBOOT_NEEDED;  // changing mic type requires reboot
+        if (   (audioSource != nullptr) && (enabled==true)
+            && ((oldI2SsdPin != i2ssdPin) || (oldI2SsdPin != i2ssdPin) || (oldI2SckPin != i2sckPin)) ) errorFlag = ERR_REBOOT_NEEDED;  // changing mic pins requires reboot
+        if ((audioSource != nullptr) && (oldI2SmclkPin != mclkPin)) errorFlag = ERR_REBOOT_NEEDED;  // changing MCLK pin requires reboot
+        if ((oldDMType != dmType) && (oldDMType == 0)) errorFlag = ERR_POWEROFF_NEEDED;  // changing from analog mic requires power cycle
+        if ((oldDMType != dmType) && (dmType == 0)) errorFlag = ERR_POWEROFF_NEEDED;  // changing to analog mic requires power cycle
+      }
+      #endif
       return configComplete;
     }
 

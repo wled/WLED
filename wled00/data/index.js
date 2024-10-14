@@ -2011,8 +2011,20 @@ function readState(s,command=false)
 		case 37:
 			errstr = "no memory for LEDs buffer.";
 		  break;
+		case 90:
+			errstr = "Unexpected Restart. Check serial monitor.";
+		  break;
+		case 91:
+			errstr = "Brownout Restart.";
+		  break;
+		case 98:
+			errstr = "Please reboot WLED to activate changed settings.";
+		  break;
+		case 99:
+			errstr = "Please switch your device off and back on.";
+		  break;
 		}
-	  showToast('Error ' + s.error + ": " + errstr, true);
+	  showToast(((s.error < 33)?'Error ':'Warning ') + s.error + ": " + errstr, (s.error < 35)||(s.error > 90));
 	}
 
 	selectedPal = i.pal;
