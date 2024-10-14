@@ -584,6 +584,10 @@ BusHub75Matrix::BusHub75Matrix(BusConfig &bc) : Bus(bc.type, bc.start, bc.autoWh
       mxconfig.mx_width = 64;
       mxconfig.mx_height = 64;
       break;
+    case 104: // untested
+      mxconfig.mx_width = 128;
+      mxconfig.mx_height = 64;
+      break;
     case 105:
       mxconfig.mx_width = 32 * 2;
       mxconfig.mx_height = 32 / 2;
@@ -594,6 +598,10 @@ BusHub75Matrix::BusHub75Matrix(BusConfig &bc) : Bus(bc.type, bc.start, bc.autoWh
       break;
     case 107:
       mxconfig.mx_width = 64 * 2;
+      mxconfig.mx_height = 64 / 2;
+      break;
+    case 108: // untested
+      mxconfig.mx_width = 128 * 2;
       mxconfig.mx_height = 64 / 2;
       break;
   }
@@ -896,6 +904,12 @@ BusHub75Matrix::BusHub75Matrix(BusConfig &bc) : Bus(bc.type, bc.start, bc.autoWh
     case 107:
       USER_PRINTLN("MatrixPanel_I2S_DMA FOUR_SCAN_64PX_HIGH");
       if (!fourScanPanel) fourScanPanel = new VirtualMatrixPanel((*display), 1, 1, 64, 64);
+      fourScanPanel->setPhysicalPanelScanRate(FOUR_SCAN_64PX_HIGH);
+      fourScanPanel->setRotation(0);
+      break;
+    case 108: // untested
+      USER_PRINTLN("MatrixPanel_I2S_DMA 128x64 FOUR_SCAN_64PX_HIGH");
+      if (!fourScanPanel) fourScanPanel = new VirtualMatrixPanel((*display), 1, 1, 128, 64);
       fourScanPanel->setPhysicalPanelScanRate(FOUR_SCAN_64PX_HIGH);
       fourScanPanel->setRotation(0);
       break;
