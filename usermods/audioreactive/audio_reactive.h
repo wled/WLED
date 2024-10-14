@@ -2859,6 +2859,7 @@ class AudioReactive : public Usermod {
       JsonObject top = root[FPSTR(_name)];
       bool configComplete = !top.isNull();
 
+#ifdef ARDUINO_ARCH_ESP32
       // remember previous values
       auto oldEnabled = enabled;
       auto oldDMType = dmType;
@@ -2866,6 +2867,7 @@ class AudioReactive : public Usermod {
       auto oldI2SwsPin = i2swsPin;
       auto oldI2SckPin = i2sckPin;
       auto oldI2SmclkPin = mclkPin;
+#endif
 
       configComplete &= getJsonValue(top[FPSTR(_enabled)], enabled);
 #ifdef ARDUINO_ARCH_ESP32
