@@ -529,6 +529,41 @@ HUB75_I2S_CFG BusHub75Matrix::activeMXconfig = HUB75_I2S_CFG();
 uint8_t BusHub75Matrix::activeType = 0;
 uint8_t BusHub75Matrix::instanceCount = 0;
 
+
+// --------------------------
+// Bitdepth reduction based on panel size
+// --------------------------
+#if defined(CONFIG_IDF_TARGET_ESP32S3) && CONFIG_SPIRAM_MODE_OCT && defined(BOARD_HAS_PSRAM) && (defined(WLED_USE_PSRAM) || defined(WLED_USE_PSRAM_JSON))
+  // esp32-S3 with octal PSRAM
+  #if defined(SPIRAM_FRAMEBUFFER)
+    // when PSRAM is used for pixel buffers
+    #define MAX_PIXELS_8BIT (192 * 64)
+    #define MAX_PIXELS_6BIT ( 64 * 64)   // trick: skip this category, so we go directly from 8bit to 4bit
+    #define MAX_PIXELS_4BIT (256 * 128)
+  #else
+    // PSRAM not used for pixel buffers
+    #define MAX_PIXELS_8BIT (128 * 64)
+    #define MAX_PIXELS_6BIT (192 * 64)
+    #define MAX_PIXELS_4BIT (256 * 64)
+  #endif
+#elif defined(CONFIG_IDF_TARGET_ESP32S3)
+  // standard esp32-S3
+  #define MAX_PIXELS_8BIT ( 96 * 64)
+  #define MAX_PIXELS_6BIT (128 * 64)
+  #define MAX_PIXELS_4BIT (160 * 64)
+#elif defined(CONFIG_IDF_TARGET_ESP32S2)
+  // esp32-S2 only has 320KB RAM
+  #define MAX_PIXELS_8BIT ( 48 * 48)
+  #define MAX_PIXELS_6BIT ( 64 * 48)
+  #define MAX_PIXELS_4BIT ( 96 * 64)
+#else
+  // classic esp32, and anything else
+  #define MAX_PIXELS_8BIT ( 64 * 64)
+  #define MAX_PIXELS_6BIT ( 96 * 64)
+  #define MAX_PIXELS_4BIT (128 * 64)
+#endif
+// --------------------------
+
 BusHub75Matrix::BusHub75Matrix(BusConfig &bc) : Bus(bc.type, bc.start, bc.autoWhite) {
   MatrixPanel_I2S_DMA* display = nullptr;
   VirtualMatrixPanel*  fourScanPanel = nullptr;
@@ -606,13 +641,13 @@ BusHub75Matrix::BusHub75Matrix(BusConfig &bc) : Bus(bc.type, bc.start, bc.autoWh
       break;
   }
 
-#if defined(CONFIG_IDF_TARGET_ESP32) || defined(CONFIG_IDF_TARGET_ESP32S2)// classic esp32, or esp32-s2: reduce bitdepth for large panels
-  if (mxconfig.mx_height >= 64) {
-    if (mxconfig.chain_length * mxconfig.mx_width > 192) mxconfig.setPixelColorDepthBits(3);
-    else if (mxconfig.chain_length * mxconfig.mx_width > 64)  mxconfig.setPixelColorDepthBits(4);
-    else mxconfig.setPixelColorDepthBits(8);
-  } else mxconfig.setPixelColorDepthBits(8);
-#endif
+  // reduce bitdepth based on total pixels
+  unsigned numPixels = mxconfig.mx_height * mxconfig.mx_width * mxconfig.chain_length;
+  if (numPixels <= MAX_PIXELS_8BIT)      mxconfig.setPixelColorDepthBits(8);   // 24bit
+  else if (numPixels <= MAX_PIXELS_6BIT) mxconfig.setPixelColorDepthBits(6);   // 18bit
+  else if (numPixels <= MAX_PIXELS_4BIT) mxconfig.setPixelColorDepthBits(4);   // 12bit
+  else mxconfig.setPixelColorDepthBits(3);                                     //  9bit
+
 
 #if defined(ARDUINO_ADAFRUIT_MATRIXPORTAL_ESP32S3) // MatrixPortal ESP32-S3
 
