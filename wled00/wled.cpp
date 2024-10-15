@@ -5,7 +5,7 @@
 #ifdef ARDUINO_ARCH_ESP32
 #include "esp_ota_ops.h"
 #endif
-#warning WLED-MM GPL-v3. By installing WLED MM you implicitly accept the terms!
+#warning WLED-MM is licensed under the EUPL-1.2. By installing WLED MM you implicitly accept the terms!
 
 #if defined(ARDUINO_ARCH_ESP32) && defined(WLED_DISABLE_BROWNOUT_DET)
 #include "soc/soc.h"
