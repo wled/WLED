@@ -100,8 +100,8 @@ uint8_t cos8_t(uint8_t theta) {
 float sin_approx(float theta)
 {
   theta = modd(theta, TWO_PI); // modulo: bring to -2pi to 2pi range
-  if(theta < 0) theta += M_TWOPI; // 0-2pi range
-  uint16_t scaled_theta = (uint16_t)(theta * (0xFFFF / M_TWOPI));
+  if(theta < 0) theta += TWO_PI; // 0-2pi range
+  uint16_t scaled_theta = (uint16_t)(theta * (0xFFFF / TWO_PI));
   int32_t result = sin16_t(scaled_theta);
   float sin = float(result) / 0x7FFF;
   return sin;
@@ -122,28 +122,23 @@ float tan_approx(float x) {
 #define ATAN2_CONST_A 0.1963f
 #define ATAN2_CONST_B 0.9817f
 
-// fast atan2() approximation source: public domain
+// atan2_t approximation, with the idea from https://gist.github.com/volkansalma/2972237?permalink_comment_id=3872525#gistcomment-3872525
 float atan2_t(float y, float x) {
-  if (x == 0.0f) return (y > 0.0f) ? M_PI_2 : (y < 0.0f) ? -M_PI_2 : 0.0f;
-
-  float abs_y = (y < 0.0f) ? -y : y + 1e-10f;  // make sure y is not zero to prevent division by 0
-  float z = abs_y / x;
-  float atan_approx;
-
-  if (z < 1.0f) {
-    atan_approx = z / (1.0f + ATAN2_CONST_A * z * z);
-    if (x < 0.0f) {
-      return (y >= 0.0f) ? atan_approx + PI : atan_approx - PI;
-    }
+	float abs_y = fabs(y);
+  float abs_x = fabs(x);
+  float r = (abs_x - abs_y) / (abs_y + abs_x + 1e-10f); // avoid division by zero by adding a small nubmer
+  float angle;
+  if(x < 0) {
+    r = -r;
+    angle = M_PI/2.0f + M_PI/4.f;
   }
-  else {
-    z = x / abs_y;
-    atan_approx = M_PI_2 - z / (1.0f + ATAN2_CONST_A * z * z);
-    if (y < 0.0f) {
-      return -atan_approx;
-    }
-  }
-  return atan_approx;
+  else
+    angle = M_PI/2.0f - M_PI/4.f;
+
+  float add = (ATAN2_CONST_A * (r * r) - ATAN2_CONST_B) * r;
+	angle += add;
+  angle = y < 0 ? -angle : angle;
+	return angle;
 }
 
 //https://stackoverflow.com/questions/3380628
