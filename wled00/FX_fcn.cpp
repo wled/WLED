@@ -869,6 +869,8 @@ uint16_t Segment::virtualLength() const {
         vLen = vH;
         break;
       case M12_pCorner:
+        vLen = max(vW,vH); // get the longest dimension
+        break;
       case M12_pArc:
         vLen = sqrt16(vW * vW + vH * vH);
         if (vW != vH) vLen++; // round up
@@ -1219,11 +1221,18 @@ uint32_t __attribute__((hot)) Segment::getPixelColor(int i) const
         if (vStrip>0) return getPixelColorXY(vStrip - 1, vH - i -1);
         else          return getPixelColorXY(0, vH - i -1);
         break;
-      case M12_pArc:
       case M12_pCorner:
-        // use longest dimension
-        return vW>vH ? getPixelColorXY(i, 0) : getPixelColorXY(0, i);
+      case M12_pArc: {
+        if (i < max(vW, vH)) { 
+          return vW>vH ? getPixelColorXY(i, 0) : getPixelColorXY(0, i); // Corner and Arc
+          break;
+        }
+        int length = virtualLength();
+        int x = i * vW / length;
+        int y = i * vH / length;
+        return getPixelColorXY(x, y); // Not 100% accurate
         break;
+      }
       case M12_jMap: //WLEDMM jMap
         if (jMap)
           return ((JMapC *)jMap)->getPixelColor(i);
