@@ -5055,9 +5055,21 @@ uint16_t mode_2Ddna(void) {         // dna originally by by ldirko at https://pa
 
   SEGMENT.fadeToBlackBy(64);
 
+  // WLEDMM optimized to prevent holes at height > 32
+  int lastY1 = -1;
+  int lastY2 = -1;
   for (int i = 0; i < cols; i++) {
-    SEGMENT.setPixelColorXY(i, beatsin8(SEGMENT.speed/8, 0, rows-1, 0, i*4    ), ColorFromPalette(SEGPALETTE, i*5+strip.now/17, beatsin8(5, 55, 255, 0, i*10), LINEARBLEND));
-    SEGMENT.setPixelColorXY(i, beatsin8(SEGMENT.speed/8, 0, rows-1, 0, i*4+128), ColorFromPalette(SEGPALETTE, i*5+128+strip.now/17, beatsin8(5, 55, 255, 0, i*10+128), LINEARBLEND));
+    int posY1 = beatsin8(SEGMENT.speed/8, 0, rows-1, 0, i*4    );
+    int posY2 = beatsin8(SEGMENT.speed/8, 0, rows-1, 0, i*4+128);
+    if ((i==0) || ((abs(lastY1 - posY1) < 2) && (abs(lastY2 - posY2) < 2))) {   // use original code when no holes
+      SEGMENT.setPixelColorXY(i, posY1, ColorFromPalette(SEGPALETTE, i*5+strip.now/17, beatsin8(5, 55, 255, 0, i*10), LINEARBLEND));
+      SEGMENT.setPixelColorXY(i, posY2, ColorFromPalette(SEGPALETTE, i*5+128+strip.now/17, beatsin8(5, 55, 255, 0, i*10+128), LINEARBLEND));
+    } else {                                                                    // draw line to prevent holes
+      SEGMENT.drawLine(i-1, lastY1, i, posY1, ColorFromPalette(SEGPALETTE, i*5+strip.now/17, beatsin8(5, 55, 255, 0, i*10), LINEARBLEND));
+      SEGMENT.drawLine(i-1, lastY2, i, posY2, ColorFromPalette(SEGPALETTE, i*5+128+strip.now/17, beatsin8(5, 55, 255, 0, i*10+128), LINEARBLEND));
+    }
+    lastY1 = posY1;
+    lastY2 = posY2;
   }
   SEGMENT.blur(SEGMENT.intensity>>3);
 
