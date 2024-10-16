@@ -870,7 +870,8 @@ uint16_t Segment::virtualLength() const {
         break;
       case M12_pCorner:
       case M12_pArc:
-        vLen = max(vW,vH); // get the longest dimension
+        vLen = sqrt16(vW * vW + vH * vH);
+        if (vW != vH) vLen++; // round up
         break;
       case M12_jMap: //WLEDMM jMap
         if (jMap)
