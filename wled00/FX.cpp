@@ -6529,6 +6529,23 @@ uint16_t mode_2Dscrollingtext(void) {
   if (SEGMENT.name) for (size_t i=0,j=0; i<maxLen; i++) if (SEGMENT.name[i]>31 && SEGMENT.name[i]<128) text[j++] = SEGMENT.name[i];
   const bool zero = strchr(text, '0') != nullptr;
 
+  // #ERR = show last error code
+  if ((strlen(text) > 3) && (strncmp_P(text,PSTR("#ERR"),4) == 0)) {
+    // read wled error code, and keep it for 30sec max
+    static byte lastErr = ERR_NONE;        // errorFlag cache - we can use a static (global) variable here because the error code is global, too
+    static unsigned long lastErrTime = 0;  // time when lastErr was updated
+    if ((errorFlag != ERR_NONE) && (lastErr != errorFlag)) { // new error code arrived
+      lastErr = errorFlag;
+      lastErrTime = millis();
+    }
+    bool haveError = (lastErr != ERR_NONE) && (millis() - lastErrTime < 30000);   // true if we have an "active" error code
+    if (SEGENV.call < 512) haveError = true;                                      // for testing - initially show "E00"
+    if ((!haveError) && (errorFlag == ERR_NONE)) lastErr = ERR_NONE;              // reset error code
+    // print error number
+    if (haveError) sprintf_P(text, PSTR("E%-2.2d"), (int)lastErr);
+    else sprintf_P(text, PSTR("   "));
+  }
+
   if (!strlen(text) || !strncmp_P(text,PSTR("#F"),2) || !strncmp_P(text,PSTR("#P"),2) || !strncmp_P(text,PSTR("#A"),2) || !strncmp_P(text,PSTR("#DATE"),5) || !strncmp_P(text,PSTR("#DDMM"),5) || !strncmp_P(text,PSTR("#MMDD"),5) || !strncmp_P(text,PSTR("#TIME"),5) || !strncmp_P(text,PSTR("#HH"),3) || !strncmp_P(text,PSTR("#MM"),3)) { // fallback if empty segment name: display date and time
     char sec[5]= {'\0'};
     byte AmPmHour = hour(localTime);
