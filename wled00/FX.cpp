@@ -5589,8 +5589,11 @@ uint16_t mode_2DJulia(void) {                           // An animated Julia set
     SEGMENT.intensity = 24;
   }
 
-  julias->xcen  = julias->xcen  + (float)(SEGMENT.custom1 - 128)/100000.f;
-  julias->ycen  = julias->ycen  + (float)(SEGMENT.custom2 - 128)/100000.f;
+  // WLEDMM limit drift, so we don't move away into nothing
+  constexpr float maxCenter = 2.5f; // just an educated guess
+  if (fabsf(julias->xcen) < maxCenter) julias->xcen  = julias->xcen  + (float)(SEGMENT.custom1 - 128)/100000.f;
+  if (fabsf(julias->ycen) < maxCenter) julias->ycen  = julias->ycen  + (float)(SEGMENT.custom2 - 128)/100000.f;
+
   julias->xymag = julias->xymag + (float)((SEGMENT.custom3 - 16)<<3)/100000.f; // reduced resolution slider
   if (julias->xymag < 0.01f) julias->xymag = 0.01f;
   if (julias->xymag > 1.0f) julias->xymag = 1.0f;
@@ -5662,11 +5665,23 @@ uint16_t mode_2DJulia(void) {                           // An animated Julia set
     }
     y += dy;
   }
-//  SEGMENT.blur(64);
+
+  // WLEDMM
+  if(SEGMENT.check1)
+    SEGMENT.blurRows(48, false); // slight blurr
+  if(SEGMENT.check2)
+    SEGMENT.blur(64, true);      // strong blurr
+  if(SEGMENT.check3) {           // draw crosshair
+    int screenX = lround((0.5f / maxCenter) * (julias->xcen + maxCenter) * float(cols));
+    int screenY = lround((0.5f / maxCenter) * (julias->ycen + maxCenter) * float(rows));
+    int hair = min(min(cols-1, rows-1)/2, 3);
+    SEGMENT.drawLine(screenX, screenY-hair, screenX, screenY+hair, GREEN, true);
+    SEGMENT.drawLine(screenX-hair, screenY, screenX+hair, screenY, GREEN, true);
+  }
 
   return FRAMETIME;
 } // mode_2DJulia()
-static const char _data_FX_MODE_2DJULIA[] PROGMEM = "Julia@,Max iterations per pixel,X center,Y center,Area size;!;!;2;ix=24,c1=128,c2=128,c3=16";
+static const char _data_FX_MODE_2DJULIA[] PROGMEM = "Julia@,Max iterations per pixel,X center,Y center,Area size,Soft Blur,Strong Blur,Show Center;!;!;2;ix=24,c1=128,c2=128,c3=16";
 
 
 //////////////////////////////
