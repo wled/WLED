@@ -10,6 +10,13 @@
 #include "FX.h"
 #include "fcn_declare.h"
 
+#ifdef WLEDMM_FASTPATH
+#undef SEGMENT
+#undef SEGENV
+#define SEGMENT (*strip._currentSeg) // saves us many calls to strip._segments[strip.getCurrSegmentId()]
+#define SEGENV SEGMENT
+#endif
+
 #define IBN 5100
 
 // paletteBlend: 0 - wrap when moving, 1 - always wrap, 2 - never wrap, 3 - none (undefined)

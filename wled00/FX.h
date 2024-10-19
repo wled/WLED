@@ -1056,6 +1056,9 @@ class WS2812FX {  // 96 bytes
     // and color transitions
     uint32_t _colors_t[3]; // color used for effect (includes transition)
     uint16_t _virtualSegmentLength;
+#ifdef WLEDMM_FASTPATH
+    segment* _currentSeg = nullptr;  // WLEDMM speed up SEGMENT access
+#endif
 
     std::vector<segment> _segments;
     friend class Segment;
