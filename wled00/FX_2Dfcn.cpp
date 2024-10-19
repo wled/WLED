@@ -827,8 +827,8 @@ void Segment::drawLine(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1, uint3
 
 void Segment::drawArc(unsigned x0, unsigned y0, int radius, uint32_t color, uint32_t fillColor) {
   if (!isActive() || (radius <=0)) return; // not active
-  float minradius = float(radius) - .5;
-  float maxradius = float(radius) + .5;
+  float minradius = float(radius) - .5f;
+  float maxradius = float(radius) + .5f;
   // WLEDMM pre-calculate values to speed up the loop
   const int minradius2 = roundf(minradius * minradius);
   const int maxradius2 = roundf(maxradius * maxradius);
@@ -841,17 +841,18 @@ void Segment::drawArc(unsigned x0, unsigned y0, int radius, uint32_t color, uint
   const int starty = max(0, int(y0)-radius-1);
   const int endy = min(height, int(y0)+radius+1);
 
-  for (int x=startx; x<endx; x++) for (int y=starty; y<endy; y++) {
-    int newX2 = x - int(x0); newX2 *= newX2; // (distance from centerX) ^2
-    int newY2 = y - int(y0); newY2 *= newY2; // (distance from centerY) ^2
-    int distance2 = newX2 + newY2;
-
-    if ((distance2 >= minradius2) && (distance2 <= maxradius2)) {
-      setPixelColorXY(x, y, color);
-    } else {
-    if (fillColor != 0)
-      if (distance2 < minradius2)
-        setPixelColorXY(x, y, fillColor);
+  for (int x=startx; x<endx; x++) {
+    int newX2 = x - int(x0); newX2 *= newX2;   // (distance from centerX) ^2
+    for (int y=starty; y<endy; y++) {
+      int newY2 = y - int(y0); newY2 *= newY2; // (distance from centerY) ^2
+      int distance2 = newX2 + newY2;
+      if ((distance2 >= minradius2) && (distance2 <= maxradius2)) {
+        setPixelColorXY(x, y, color);
+      } else {
+      if (fillColor != 0)
+        if (distance2 < minradius2)
+          setPixelColorXY(x, y, fillColor);
+      }
     }
   }
 }
