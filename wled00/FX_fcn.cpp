@@ -637,13 +637,13 @@ uint16_t Segment::nrOfVStrips() const {
   if (is2D()) {
     switch (map1D2D) {
       case M12_pBar:
-        vLen = virtualWidth();
+        vLen = calc_virtualWidth();
         break;
       case M12_sCircle: //WLEDMM
-        vLen = (virtualWidth() + virtualHeight()) / 6; // take third of the average width
+        vLen = (calc_virtualWidth() + calc_virtualHeight()) / 6; // take third of the average width
         break;
       case M12_sBlock: //WLEDMM
-        vLen = (virtualWidth() + virtualHeight()) / 8; // take half of the average width
+        vLen = (calc_virtualWidth() + calc_virtualHeight()) / 8; // take half of the average width
         break;
     }
   }
@@ -682,11 +682,7 @@ class JMapC {
       if (size > 0)
         return size;
       else
-#ifndef WLEDMM_FASTPATH
-        return SEGMENT.virtualWidth() * SEGMENT.virtualHeight(); //pixels
-#else
         return SEGMENT.calc_virtualWidth() * SEGMENT.calc_virtualHeight(); // calc pixel sizes
-#endif
     }
     void setPixelColor(uint16_t i, uint32_t col) {
       updatejMapDoc();
@@ -778,11 +774,7 @@ class JMapC {
         jMapFile.close();
 
         maxWidth++; maxHeight++;
-#ifndef WLEDMM_FASTPATH
-        scale = min(SEGMENT.virtualWidth() / maxWidth, SEGMENT.virtualHeight() / maxHeight);  // WLEDMM use native min/max
-#else
         scale = min(SEGMENT.calc_virtualWidth() / maxWidth, SEGMENT.calc_virtualHeight() / maxHeight);  // WLEDMM re-calc width/heiht from active settings
-#endif
         dataSize += sizeof(jVectorMap);
         USER_PRINT("dataSize ");
         USER_PRINT(dataSize);
@@ -858,11 +850,11 @@ static int getPinwheelLength(int vW, int vH) {
 #endif
 
 // 1D strip
-uint16_t Segment::virtualLength() const {
+uint16_t Segment::calc_virtualLength() const {
 #ifndef WLED_DISABLE_2D
   if (is2D()) {
-    uint16_t vW = virtualWidth();
-    uint16_t vH = virtualHeight();
+    uint16_t vW = calc_virtualWidth();
+    uint16_t vH = calc_virtualHeight();
     uint16_t vLen = vW * vH; // use all pixels from segment
     switch (map1D2D) {
       case M12_pBar:
@@ -1905,7 +1897,7 @@ void WS2812FX::service() {
       uint16_t frameDelay = FRAMETIME;    // WLEDMM avoid name clash with "delay" function
 
       if (!seg.freeze) { //only run effect function if not frozen
-        _virtualSegmentLength = seg.virtualLength();
+        _virtualSegmentLength = seg.calc_virtualLength();
         _colors_t[0] = seg.currentColor(0, seg.colors[0]);
         _colors_t[1] = seg.currentColor(1, seg.colors[1]);
         _colors_t[2] = seg.currentColor(2, seg.colors[2]);
@@ -2441,7 +2433,7 @@ uint8_t WS2812FX::setPixelSegment(uint8_t n) {
   uint8_t prevSegId = _segment_index;
   if (n < _segments.size()) {
     _segment_index = n;
-    _virtualSegmentLength = _segments[_segment_index].virtualLength();
+    _virtualSegmentLength = _segments[_segment_index].calc_virtualLength();
   }
   return prevSegId;
 }

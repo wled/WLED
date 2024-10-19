@@ -255,8 +255,9 @@ void Segment::startFrame(void) {
   _isValid2D  = isActive() && is2D();
   _brightness = currentBri(on ? opacity : 0);
   // if (reverse_y) _isSimpleSegment = false; // for A/B testing
-  _2dWidth    = is2D() ? calc_virtualWidth() : virtualLength();
+  _2dWidth    = is2D() ? calc_virtualWidth() : calc_virtualLength();
   _2dHeight   = calc_virtualHeight();
+  _virtuallength = calc_virtualLength();
   #if 0 && defined(WLED_ENABLE_HUB75MATRIX)
     _firstFill = true; // dirty HACK
   #endif

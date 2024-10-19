@@ -428,6 +428,7 @@ typedef struct Segment {
     bool _firstFill = true;  // dirty HACK support
     uint16_t _2dWidth = 0;  // virtualWidth
     uint16_t _2dHeight = 0; // virtualHeight
+    uint16_t _virtuallength = 0; // virtualLength
 
     void setPixelColorXY_slow(int x, int y, uint32_t c); // set relative pixel within segment with color - full slow version
 #else
@@ -619,7 +620,12 @@ typedef struct Segment {
     void     setCurrentPalette(void);
 
     // 1D strip
-    uint16_t virtualLength(void) const;
+    uint16_t calc_virtualLength(void) const;
+#ifndef WLEDMM_FASTPATH
+    inline uint16_t virtualLength(void) const {return calc_virtualLength();}
+#else
+    inline uint16_t virtualLength(void) const {return _virtuallength;}
+#endif
     void setPixelColor(int n, uint32_t c); // set relative pixel within segment with color
     inline void setPixelColor(int n, byte r, byte g, byte b, byte w = 0) { setPixelColor(n, RGBW32(r,g,b,w)); } // automatically inline
     inline void setPixelColor(int n, CRGB c)                             { setPixelColor(n, RGBW32(c.r,c.g,c.b,0)); } // automatically inline
@@ -660,12 +666,14 @@ typedef struct Segment {
       if (mirror) vWidth = (vWidth + 1) /2;  // divide by 2 if mirror, leave at least a single LED
       return vWidth;
     }
+    inline uint16_t calc_virtualWidth() const { return virtualWidth();}
     inline uint16_t virtualHeight() const {  // WLEDMM use fast types, and make function inline
       uint_fast16_t groupLen = groupLength();
       uint_fast16_t vHeight = ((transpose ? width() : height()) + groupLen - 1) / groupLen;
       if (mirror_y) vHeight = (vHeight + 1) /2;  // divide by 2 if mirror, leave at least a single LED
       return vHeight;
     }
+    inline uint16_t calc_virtualHeight() const { return virtualHeight();}
 #else
     inline uint16_t virtualWidth() const  { return(_2dWidth);}  // WLEDMM get pre-calculated virtualWidth
     inline uint16_t virtualHeight() const { return(_2dHeight);} // WLEDMM get pre-calculated virtualHeight
