@@ -1220,7 +1220,7 @@ uint32_t __attribute__((hot)) Segment::getPixelColor(int i) const
           return vW>vH ? getPixelColorXY(i, 0) : getPixelColorXY(0, i); // Corner and Arc
           break;
         }
-        float minradius = float(i) - .5f;
+        float minradius = float(i) - 0.1f;
         const int minradius2 = roundf(minradius * minradius);
         int startX, startY;
         if (vW >= vH) {startX = vW - 1; startY = 1;} // Last Column
