@@ -913,7 +913,7 @@ void Segment::drawCharacter(unsigned char chr, int16_t x, int16_t y, uint8_t w, 
   const int font = w*h;
 
   CRGB col = CRGB(color);
-  CRGBPalette16 grad = CRGBPalette16(col, col2 ? CRGB(col2) : col);
+  CRGBPalette16 grad = CRGBPalette16(col, (col2 != BLACK) ? CRGB(col2) : col);
   uint32_t bgCol = SEGCOLOR(1);
 
   //if (w<5 || w>6 || h!=8) return;
@@ -941,7 +941,7 @@ void Segment::drawCharacter(unsigned char chr, int16_t x, int16_t y, uint8_t w, 
         break; // 5x12 font
       default: return;
     }
-    col = ColorFromPalette(grad, (i+1)*255/h, 255, NOBLEND);
+    if (col2 != BLACK) col = ColorFromPalette(grad, (i+1)*255/h, 255, NOBLEND);
     for (int j = 0; j<w; j++) { // character width
       int16_t x0 = x + (w-1) - j;
       if ((x0 >= 0) || (x0 < cols)) {
