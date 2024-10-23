@@ -11,7 +11,7 @@ IRAM_ATTR_YN __attribute__((hot)) uint32_t color_blend(uint32_t color1, uint32_t
   if(blend == 0)   return color1;
   if (color1 == color2) return color1;  // WLEDMM shortcut
   const uint_fast16_t blendmax = b16 ? 0xFFFF : 0xFF;
-  if(blend == blendmax) return color2;
+  if(blend >= blendmax) return color2;
   const uint_fast8_t shift = b16 ? 16 : 8;
   const uint_fast16_t blend2 = blendmax - blend; // WLEDMM pre-calculate value
 
