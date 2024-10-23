@@ -6594,14 +6594,20 @@ uint16_t mode_2Dscrollingtext(void) {
   if (SEGENV.step < strip.now) {
     if ((numberOfLetters * letterWidth) > cols) ++SEGENV.aux0 %= (numberOfLetters * letterWidth) + cols;      // offset
     else                                          SEGENV.aux0  = (cols + (numberOfLetters * letterWidth))/2;
-    ++SEGENV.aux1 &= 0xFF; // color shift
-    SEGENV.step = strip.now + map(SEGMENT.speed, 0, 255, 10*FRAMETIME_FIXED, 2*FRAMETIME_FIXED);
+    SEGENV.aux1 = (SEGENV.aux1 + 1) & 0xFF; // color shift // WLEDMM changed to prevent overflow
+    SEGENV.step = strip.now + map2(SEGMENT.speed, 0, 255, 10*FRAMETIME_FIXED, 2*FRAMETIME_FIXED);
     if (!SEGMENT.check2) {
       for (int y = 0; y < rows; y++) for (int x = 0; x < cols; x++ )
         SEGMENT.blendPixelColorXY(x, y, SEGCOLOR(1), 255 - (SEGMENT.custom1>>1));
     }
+  } else { // WLEDMM "repaint" segment to prevent flickering
+    if (!SEGMENT.check2) {
+      for (int y = 0; y < rows; y++) for (int x = 0; x < cols; x++)
+        SEGMENT.blendPixelColorXY(x, y, SEGCOLOR(1), 255 - SEGMENT.custom1);  // slightly reduced "blending" to keep trails visible
+    }
   }
-  bool drawShadow = (SEGMENT.check2) && (SEGMENT.custom1 == 0);
+
+  bool drawShadow = (SEGMENT.check2);
   for (int i = 0; i < numberOfLetters; i++) {
     if (int(cols) - int(SEGENV.aux0) + letterWidth*(i+1) < 0) continue; // don't draw characters off-screen
     uint32_t col1 = SEGMENT.color_from_palette(SEGENV.aux1, false, PALETTE_SOLID_WRAP, 0);
