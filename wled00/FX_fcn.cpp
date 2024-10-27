@@ -2282,7 +2282,7 @@ void WS2812FX::setSegment(uint8_t n, uint16_t i1, uint16_t i2, uint8_t grouping,
 }
 
 void WS2812FX::restartRuntime() {
-  for (segment &seg : _segments) seg.markForReset();
+  for (segment &seg : _segments) {seg.markForReset(); seg.resetIfRequired();}
 }
 
 void WS2812FX::resetSegments(bool boundsOnly) { //WLEDMM add boundsonly
