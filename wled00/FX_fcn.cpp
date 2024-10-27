@@ -2281,8 +2281,14 @@ void WS2812FX::setSegment(uint8_t n, uint16_t i1, uint16_t i2, uint8_t grouping,
   _segments[n].setUp(i1, i2, grouping, spacing, offset, startY, stopY);
 }
 
-void WS2812FX::restartRuntime() {
-  for (segment &seg : _segments) {seg.markForReset(); seg.resetIfRequired();}
+void WS2812FX::restartRuntime(bool doReset) {
+  for (segment &seg : _segments) {
+    if (doReset) {   // WLEDMM we prefer not to perform a complete restart of all effects
+      seg.markForReset(); seg.resetIfRequired(); 
+    } else {
+      seg.next_time = 0; seg.step = 0;
+    }
+  }
 }
 
 void WS2812FX::resetSegments(bool boundsOnly) { //WLEDMM add boundsonly
