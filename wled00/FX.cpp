@@ -5276,7 +5276,11 @@ uint16_t mode_2Dgameoflife(void) { // Written by Ewoud Wijma, inspired by https:
   if (SEGENV.call == 0) {
     SEGMENT.setUpLeds();
     SEGMENT.fill(BLACK); // to make sure that segment buffer and physical leds are aligned initially
+    SEGENV.step = 0;
   }
+  // fix SEGENV.step in case that timebase jumps
+  if (abs(long(strip.now) - long(SEGENV.step)) > 2000) SEGENV.step = 0;
+
   // Setup New Game of Life
   if ((SEGENV.call == 0 || generation == 0) && SEGENV.step < strip.now) {
     SEGENV.step = strip.now + 1250; // show initial state for 1.25 seconds
@@ -5458,6 +5462,9 @@ uint16_t mode_2DSnowFall(void) { // By: Brandon Butler
     }
   }
    
+  // fix SEGENV.step in case that timebase jumps
+  if (abs(long(strip.now) - long(SEGENV.step)) > 2000) SEGENV.step = 0;
+
   uint8_t speed = map(SEGMENT.speed, 0, 255, 0, 60);                      // Updates per second
   if (!speed || strip.now - SEGENV.step < 1000 / speed) return FRAMETIME; // Not enough time passed
 
@@ -6441,6 +6448,9 @@ uint16_t mode_2Dfloatingblobs(void) {
   if (!SEGENV.allocateData(sizeof(blob_t))) return mode_static(); //allocation failed
   blob_t *blob = reinterpret_cast<blob_t*>(SEGENV.data);
 
+  // WLEDMM fix SEGENV.step in case that timebase jumps
+  if (abs(long(strip.now) - long(SEGENV.step)) > 2000) SEGENV.step = 0;
+
   if (SEGENV.call == 0)  {SEGENV.setUpLeds(); SEGMENT.fill(BLACK);}
   if (SEGENV.aux0 != cols || SEGENV.aux1 != rows) {
     SEGENV.aux0 = cols; // re-initialise if virtual size changes
@@ -6591,7 +6601,8 @@ uint16_t mode_2Dscrollingtext(void) {
   }
   const int numberOfLetters = strlen(text);
 
-  if (SEGENV.step < strip.now) {
+  long delayTime = long(strip.now) - long(SEGENV.step);
+  if ((delayTime >= 0) || (abs(delayTime) > 1500)) {   // WLEDMM keep on scrolling if timebase jumps (supersync, or brightness off, or wifi delay)
     if ((numberOfLetters * letterWidth) > cols) ++SEGENV.aux0 %= (numberOfLetters * letterWidth) + cols;      // offset
     else                                          SEGENV.aux0  = (cols + (numberOfLetters * letterWidth))/2;
     SEGENV.aux1 = (SEGENV.aux1 + 1) & 0xFF; // color shift // WLEDMM changed to prevent overflow
