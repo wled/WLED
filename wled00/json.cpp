@@ -328,6 +328,13 @@ bool deserializeSegment(JsonObject elem, byte it, byte presetId)
   if (!iarr.isNull()) {
     uint8_t oldMap1D2D = seg.map1D2D;
     seg.map1D2D = M12_Pixels; // no mapping
+    // WLEDMM begin - we need to init segment caches before putting any pixels
+    if (strip.isServicing()) {
+      USER_PRINTLN(F("deserializeSegment() image: strip is still drawing effects."));
+      strip.waitUntilIdle();
+    }
+    seg.startFrame();
+    // WLEDMM end
 
     // set brightness immediately and disable transition
     transitionDelayTemp = 0;
