@@ -8031,7 +8031,7 @@ uint16_t mode_2DGEQ(void) { // By Will Tatam. Code reduction by Ewoud Wijma.
       colorIndex = map(x, 0, cols-1, 0, 255); //WLEDMM
     }
     lastBandHeight = bandHeight; // remember BandHeight (left side) for next iteration
-    uint16_t barHeight = map(bandHeight, 0, 255, 0, rows); // Now we map bandHeight to barHeight. do not subtract -1 from rows here
+    uint16_t barHeight = map2(bandHeight, 0, 255, 0, rows); // Now we map bandHeight to barHeight. do not subtract -1 from rows here
     // WLEDMM end
 
     if (barHeight > rows) barHeight = rows;                      // WLEDMM map() can "overshoot" due to rounding errors
@@ -8040,7 +8040,7 @@ uint16_t mode_2DGEQ(void) { // By Will Tatam. Code reduction by Ewoud Wijma.
     uint32_t ledColor = BLACK;
     if ((! SEGMENT.check1) && (barHeight > 0)) {  // use faster drawLine when single-color bars are needed
       ledColor = SEGMENT.color_from_palette(colorIndex, false, PALETTE_SOLID_WRAP, 0);
-      SEGMENT.drawLine(int(x), max(0,int(rows)-barHeight-1), int(x), int(rows-1), ledColor, false); // max(0, ...) to prevent negative Y
+      SEGMENT.drawLine(int(x), max(0,int(rows)-barHeight), int(x), int(rows-1), ledColor, false); // max(0, ...) to prevent negative Y
     } else {
     for (int y=0; y < barHeight; y++) {
       if (SEGMENT.check1) //color_vertical / color bars toggle
