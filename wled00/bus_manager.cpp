@@ -1056,13 +1056,18 @@ void __attribute__((hot)) BusHub75Matrix::show(void) {
     size_t pix = 0; // running pixel index
     for (int y=0; y<height; y++) for (int x=0; x<width; x++) {
       if (getBitFromArray(_ledsDirty, pix) == true) {        // only repaint the "dirty"  pixels
-        uint32_t c = uint32_t(_ledBuffer[pix]) & 0x00FFFFFF; // get RGB color, removing FastLED "alpha" component 
         #ifndef NO_CIE1931
+        uint32_t c = uint32_t(_ledBuffer[pix]) & 0x00FFFFFF; // get RGB color, removing FastLED "alpha" component 
         c = unGamma24(c); // to use the driver linear brightness feature, we first need to undo WLED gamma correction
-        #endif
         uint8_t r = R(c);
         uint8_t g = G(c);
         uint8_t b = B(c);
+        #else
+        const CRGB c = _ledBuffer[pix];  // we stay on CRGB, instead of packing/unpacking the color value to uint32_t
+        uint8_t r = c.r;
+        uint8_t g = c.g;
+        uint8_t b = c.b;
+        #endif
         if (isFourScan) fourScanPanel->drawPixelRGB888(int16_t(x), int16_t(y), r, g, b);
         else display->drawPixelRGB888(int16_t(x), int16_t(y), r, g, b);
       }
