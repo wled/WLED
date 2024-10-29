@@ -8211,10 +8211,11 @@ uint16_t mode_2DAkemi(void) {
     int xMax = cols/8;
     for (int x=0; x < xMax; x++) {
       size_t band = map2(x, 0, max(xMax,4), 0, 15);  // map 0..cols/8 to 16 GEQ bands
-      CRGB color = SEGMENT.color_from_palette((band * 35), false, PALETTE_SOLID_WRAP, 0);
+      uint32_t color = SEGMENT.color_from_palette((band * 35), false, PALETTE_SOLID_WRAP, 0);
       band = constrain(band, 0, 15);
       uint16_t barHeight = map(fftResult[band], 0, 255, 0, 17*rows/32);
 
+      barHeight = constrain(barHeight, 0, (rows/2)+1); // map() may overshoot
       for (int y=0; y < barHeight; y++) {
         SEGMENT.setPixelColorXY(x, rows/2-y, color);
         SEGMENT.setPixelColorXY(cols-1-x, rows/2-y, color);
