@@ -404,22 +404,6 @@ void WLED::loop()
   #endif
 #endif
 
-#if 0 && defined(ALL_JSON_TO_PSRAM) && defined(WLED_USE_PSRAM_JSON)
-// WLEDMM experiment - JSON garbagecollect once per minute. Warning: may crash at random
-  static unsigned long last_gc_time = 0;
-  // try once in 60 seconds
-  if ((millis() - last_gc_time) > 60000) {
-    // look for a perfect moment -> make sure no strip or segments or presets activity, no configs being updated, no realtime external control
-    if (!suspendStripService && !doInitBusses && !doReboot && !doCloseFile && !realtimeMode && !loadLedmap && !presetsActionPending()) {
-      // make sure JSON buffer is not in use
-      if ( (doSerializeConfig == false) && (jsonBufferLock == 0) && (fileDoc == nullptr)) {
-        USER_PRINTLN(F("JSON gabage collection (regular)."));
-        doc.garbageCollect();                   // WLEDMM experimental - trigger garbage collection on JSON doc memory pool.
-                                                // this will make any pending reference to JSON objects _invalid_
-        last_gc_time = millis();
-  } } }
-#endif
-
 }
 
 #if defined(ARDUINO_ARCH_ESP32) && defined(WLEDMM_FASTPATH)
@@ -656,7 +640,7 @@ void WLED::setup()
   pinManager.allocatePin(2, true, PinOwner::DMX);
 #endif
 
-#if defined(ALL_JSON_TO_PSRAM) && defined(WLED_USE_PSRAM_JSON)
+#if defined(ALL_JSON_TO_PSRAM) && (defined(WLED_USE_PSRAM_JSON) || defined(WLED_USE_PSRAM))
   USER_PRINTLN(F("JSON gabage collection (initial)."));
   doc.garbageCollect();   // WLEDMM experimental - this seems to move the complete doc[] into PSRAM
 #endif
