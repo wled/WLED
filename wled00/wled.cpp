@@ -349,7 +349,7 @@ void WLED::loop()
       //DEBUG_PRINT(F("Total PSRAM: "));    DEBUG_PRINT(ESP.getPsramSize()/1024); DEBUG_PRINTLN("kB");
       DEBUG_PRINT(F("Free PSRAM : "));     DEBUG_PRINT(ESP.getFreePsram()/1024); DEBUG_PRINTLN("kB");
       DEBUG_PRINT(F("Avail PSRAM: "));     DEBUG_PRINT(ESP.getMaxAllocPsram()/1024); DEBUG_PRINTLN("kB");
-	  DEBUG_PRINT(F("PSRAM in use:")); DEBUG_PRINT(ESP.getPsramSize() - ESP.getFreePsram()); DEBUG_PRINTLN(F(" Bytes"));
+      DEBUG_PRINT(F("PSRAM in use:")); DEBUG_PRINT(int(ESP.getPsramSize() - ESP.getFreePsram())); DEBUG_PRINTLN(F(" Bytes"));
 
     } else {
       //DEBUG_PRINTLN(F("No PSRAM"));
@@ -640,9 +640,14 @@ void WLED::setup()
   pinManager.allocatePin(2, true, PinOwner::DMX);
 #endif
 
-#if defined(ALL_JSON_TO_PSRAM) && (defined(WLED_USE_PSRAM_JSON) || defined(WLED_USE_PSRAM))
-  USER_PRINTLN(F("JSON gabage collection (initial)."));
-  doc.garbageCollect();   // WLEDMM experimental - this seems to move the complete doc[] into PSRAM
+#if defined(ALL_JSON_TO_PSRAM) && defined(BOARD_HAS_PSRAM) && (defined(WLED_USE_PSRAM_JSON) || defined(WLED_USE_PSRAM))
+  if (psramFound()) {
+    DEBUG_PRINT(F("\nfree heap ")); DEBUG_PRINTLN(ESP.getFreeHeap());
+    USER_PRINTLN(F("JSON gabage collection (initial)."));
+    doc.garbageCollect();   // WLEDMM experimental - this seems to move the complete doc[] into PSRAM
+	  USER_PRINT(F("PSRAM in use:")); USER_PRINT(int(ESP.getPsramSize() - ESP.getFreePsram())); USER_PRINTLN(F(" Bytes."));
+    DEBUG_PRINT(F("free heap ")); DEBUG_PRINTLN(ESP.getFreeHeap());
+  }
 #endif
 
 // WLEDMM experimental: support for single neoPixel on Adafruit boards

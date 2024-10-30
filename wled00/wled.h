@@ -8,7 +8,7 @@
  */
 
 // version code in format yymmddb (b = daily build)
-#define VERSION 2410270
+#define VERSION 2410300
 
 // WLEDMM  - you can check for this define in usermods, to only enabled WLEDMM specific code in the "right" fork. Its not defined in AC WLED.
 #define _MoonModules_WLED_
@@ -814,7 +814,7 @@ WLED_GLOBAL int8_t spi_sclk  _INIT(HW_PIN_CLOCKSPI);
   #ifndef WLED_DEFINE_GLOBAL_VARS
   WLED_GLOBAL PSRAMDynamicJsonDocument doc;
   #else
-  #if defined(CONFIG_IDF_TARGET_ESP32S2) || !defined(BOARD_HAS_PSRAM)
+  #if defined(CONFIG_IDF_TARGET_ESP32) || defined(CONFIG_IDF_TARGET_ESP32S2) || !defined(BOARD_HAS_PSRAM)
     WLED_GLOBAL PSRAMDynamicJsonDocument doc(JSON_BUFFER_SIZE);       // S2 has very small RAM - lets not push our luck too far
   #else
     WLED_GLOBAL PSRAMDynamicJsonDocument doc(JSON_BUFFER_SIZE * 2 );  // initially "doc" is allocated in RAM, and later pushed into PSRAM when the drivers is ready
