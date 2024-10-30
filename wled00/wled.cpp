@@ -546,6 +546,12 @@ void WLED::setup()
     case FM_QOUT: DEBUG_PRINT(F(" (QOUT)"));break;
     case FM_DIO:  DEBUG_PRINT(F(" (DIO)")); break;
     case FM_DOUT: DEBUG_PRINT(F(" (DOUT)"));break;
+    #if defined(CONFIG_IDF_TARGET_ESP32S3) && CONFIG_ESPTOOLPY_FLASHMODE_OPI
+      case FM_FAST_READ: DEBUG_PRINT(F(" (OPI)"));break;
+    #else
+      case FM_FAST_READ: DEBUG_PRINT(F(" (fast_read)"));break;
+    #endif
+    case FM_SLOW_READ: DEBUG_PRINT(F(" (slow_read)"));break;
     default: break;
   }
   #endif
@@ -592,10 +598,10 @@ void WLED::setup()
   DEBUG_PRINTF("%s min free stack %d\n", pcTaskGetTaskName(NULL), uxTaskGetStackHighWaterMark(NULL)); //WLEDMM
 #endif
 
-#if defined(ARDUINO_ARCH_ESP32) && defined(BOARD_HAS_PSRAM)
+#if defined(ARDUINO_ARCH_ESP32) && (defined(BOARD_HAS_PSRAM) || defined(CONFIG_ESPTOOLPY_FLASHMODE_OPI))
   //psramInit(); //WLEDMM?? softhack007: not sure if explicit init is really needed ... lets disable it here and see if that works
   #if defined(CONFIG_IDF_TARGET_ESP32S3)
-    #if CONFIG_SPIRAM_MODE_OCT && defined(BOARD_HAS_PSRAM)
+    #if CONFIG_ESPTOOLPY_FLASHMODE_OPI || (CONFIG_SPIRAM_MODE_OCT && defined(BOARD_HAS_PSRAM))
       // S3: reserve GPIO 33-37 for "octal" PSRAM
       managed_pin_type pins[] = { {33, true}, {34, true}, {35, true}, {36, true}, {37, true} };
       pinManager.allocateMultiplePins(pins, sizeof(pins)/sizeof(managed_pin_type), PinOwner::SPI_RAM);

@@ -114,7 +114,7 @@ String PinManagerClass::getPinSpecialText(int gpio) {  // special purpose PIN in
     #if defined(CONFIG_IDF_TARGET_ESP32S3)
       // ESP32-S3
       if (gpio > 18 && gpio < 21) return (F("USB (CDC) or JTAG"));
-      #if CONFIG_SPIRAM_MODE_OCT && defined(BOARD_HAS_PSRAM)
+      #if CONFIG_ESPTOOLPY_FLASHMODE_OPI || (CONFIG_SPIRAM_MODE_OCT && defined(BOARD_HAS_PSRAM))
         if (gpio > 32 && gpio < 38)  return (F("(reserved) Octal PSRAM or Octal Flash"));
       #endif
       //if (gpio == 0 || gpio == 3 || gpio == 45 || gpio == 46) return (F("(strapping pin)"));
