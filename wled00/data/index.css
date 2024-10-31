@@ -352,7 +352,7 @@ button {
 
 #putil, #segutil, #segutil2 {
 	min-height: 42px;
-	margin: 13px auto 0;
+	margin: 0 auto;
 }
 
 #segutil .segin {
