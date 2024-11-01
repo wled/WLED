@@ -17,7 +17,8 @@
 	<h2>WLED Software Update</h2>
 	<form method='POST' action='./update' id='uf' enctype='multipart/form-data' onsubmit="U()">
 		Installed version: <span class="sip">##VERSION##</span><br>
-		Download the latest binary: <a href="https://github.com/Aircoookie/WLED/releases" target="_blank">
+		Download the latest binary:&nbsp;<a href="https://github.com/Aircoookie/WLED/releases" target="_blank" 
+		style="vertical-align: text-bottom; display: inline-flex;">
 		<img src="https://img.shields.io/github/release/Aircoookie/WLED.svg?style=flat-square"></a><br>
 		<input type='file' name='update' required><br> <!--should have accept='.bin', but it prevents file upload from android app-->
 		<button type="submit">Update!</button><br>

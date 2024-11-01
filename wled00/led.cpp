@@ -52,6 +52,7 @@ void toggleOnOff()
   if (bri == 0)
   {
     bri = briLast;
+    strip.restartRuntime();
   } else
   {
     briLast = bri;

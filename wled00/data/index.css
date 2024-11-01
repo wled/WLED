@@ -35,6 +35,7 @@
 	--sgp: "block";
 	--bmt: 0;
 	--sti: 42px;
+	--stp: 42px;
 }
 
 html {
@@ -143,7 +144,7 @@ button {
 }
 
 .huge {
-	font-size: 42px;
+	font-size: 60px !important;
 }
 
 .segt, .plentry TABLE {
@@ -468,7 +469,7 @@ button {
 	padding: 4px 2px;
 	position: relative;
 	opacity: 1;
-	transition: opacity .5s linear, height .25s, transform .25s;
+	transition: opacity .25s linear, height .2s, transform .2s;
 }
 
 .filter {
@@ -583,6 +584,10 @@ button {
 	z-index: 3;
 }
 
+#rover .ibtn {
+	margin: 5px;
+}
+
 #ndlt {
 	margin: 12px 0;
 }
@@ -623,7 +628,7 @@ button {
   padding-bottom: 8px;
 }
 
-.infobtn {
+#info .ibtn {
 	margin: 5px;
 }
 
@@ -847,7 +852,7 @@ input[type=range]::-moz-range-thumb {
 	width: 135px;
 }
 
-#nodes .infobtn {
+#nodes .ibtn {
 	margin: 0;
 }
 
@@ -1035,7 +1040,7 @@ textarea {
 
 .segname .flr, .pname .flr {
 	transform: rotate(0deg);
-	right: -6px;
+	/*right: -6px;*/
 }
 
 /* segment power wrapper */
@@ -1330,14 +1335,21 @@ TD .checkmark, TD .radiomark {
 	box-shadow: 0 0 10px 4px var(--c-1);
 }
 
+.lstI .flr:hover {
+    background: var(--c-6);
+    border-radius: 100%;
+}
+
 #pcont .selected:not([class*="expanded"]) {
 	bottom: 52px;
 	top: 42px;
 }
 
-#fxlist .lstI.selected,
-#pallist .lstI.selected {
+#fxlist .lstI.selected {
 	top: calc(var(--sti) + 42px);
+}
+#pallist .lstI.selected {
+	top: calc(var(--stp) + 42px);
 }
 
 dialog::backdrop {
@@ -1353,9 +1365,11 @@ dialog {
 	color: var(--c-f);
 }
 
-#fxlist .lstI.sticky,
-#pallist .lstI.sticky {
+#fxlist .lstI.sticky {
 	top: var(--sti);
+}
+#pallist .lstI.sticky {
+	top: var(--stp);
 }
 
 /* list item content */
@@ -1519,7 +1533,7 @@ dialog {
 	#info table .btn, #nodes table .btn {
 		width: 200px;
 	}
-	#info .infobtn, #nodes .infobtn {
+	#info .ibtn, #nodes .ibtn {
 		width: 145px;
 	}
 	#info div, #nodes div, #nodes a.btn {

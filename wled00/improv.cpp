@@ -123,6 +123,7 @@ void handleImprovPacket() {
     }
 
     checksum += next;
+    checksum &= 0xFF;
     packetByte++;
   }
 }
@@ -193,24 +194,22 @@ void sendImprovIPRPCResult(ImprovRPCType type) {
 }
 
 void sendImprovInfoResponse() {
-  const char* bString = 
-    #ifdef ESP8266
-      "esp8266"
-    #elif CONFIG_IDF_TARGET_ESP32C3
-      "esp32-c3"
-    #elif CONFIG_IDF_TARGET_ESP32S2
-      "esp32-s2"
-    #elif CONFIG_IDF_TARGET_ESP32S3
-      "esp32-s3";
-    #else // ESP32
-      "esp32";
-    #endif
-    ;
-
+  char bString[32];
+  #ifdef ESP8266
+  strcpy(bString, "esp8266");
+  #else // ESP32
+  strncpy(bString, ESP.getChipModel(), 31);
+  #if CONFIG_IDF_TARGET_ESP32
+  bString[5] = '\0'; // disregard chip revision for classic ESP32
+  #else
+  bString[31] = '\0'; // just in case
+  #endif
+  strlwr(bString);
+  #endif
   //Use serverDescription if it has been changed from the default "WLED", else mDNS name
   bool useMdnsName = (strcmp(serverDescription, "WLED") == 0 && strlen(cmDNS) > 0);
-  char vString[20];
-  sprintf_P(vString, PSTR("0.15.0-b5/%i"), VERSION);
+  char vString[32];
+  sprintf_P(vString, PSTR("%s/%i"), versionString, VERSION);
   const char *str[4] = {"WLED", vString, bString, useMdnsName ? cmDNS : serverDescription};
 
   sendImprovRPCResult(ImprovRPCType::Request_Info, 4, str);

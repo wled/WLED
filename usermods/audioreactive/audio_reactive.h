@@ -191,8 +191,8 @@ constexpr uint16_t samplesFFT_2 = 256;          // meaningfull part of FFT resul
 #define LOG_256  5.54517744f                            // log(256)
 
 // These are the input and output vectors.  Input vectors receive computed results from FFT.
-static float vReal[samplesFFT] = {0.0f};       // FFT sample inputs / freq output -  these are our raw result bins
-static float vImag[samplesFFT] = {0.0f};       // imaginary parts
+static float* vReal = nullptr;                  // FFT sample inputs / freq output -  these are our raw result bins
+static float* vImag = nullptr;                  // imaginary parts
 
 // Create FFT object
 // lib_deps += https://github.com/kosme/arduinoFFT#develop @ 1.9.2
@@ -200,14 +200,9 @@ static float vImag[samplesFFT] = {0.0f};       // imaginary parts
 // #define FFT_SPEED_OVER_PRECISION     // enables use of reciprocals (1/x etc) - not faster on ESP32
 // #define FFT_SQRT_APPROXIMATION       // enables "quake3" style inverse sqrt  - slower on ESP32
 // Below options are forcing ArduinoFFT to use sqrtf() instead of sqrt()
-#define sqrt(x) sqrtf(x)             // little hack that reduces FFT time by 10-50% on ESP32
-#define sqrt_internal sqrtf          // see https://github.com/kosme/arduinoFFT/pull/83
+// #define sqrt_internal sqrtf          // see https://github.com/kosme/arduinoFFT/pull/83 - since v2.0.0 this must be done in build_flags
 
-#include <arduinoFFT.h>
-
-/* Create FFT object with weighing factor storage */
-static ArduinoFFT<float> FFT = ArduinoFFT<float>( vReal, vImag, samplesFFT, SAMPLE_RATE, true);
-
+#include <arduinoFFT.h>             // FFT object is created in FFTcode
 // Helper functions
 
 // compute average of several FFT result bins
@@ -225,6 +220,18 @@ static float fftAddAvg(int from, int to) {
 void FFTcode(void * parameter)
 {
   DEBUGSR_PRINT("FFT started on core: "); DEBUGSR_PRINTLN(xPortGetCoreID());
+
+  // allocate FFT buffers on first call
+  if (vReal == nullptr) vReal = (float*) calloc(sizeof(float), samplesFFT);
+  if (vImag == nullptr) vImag = (float*) calloc(sizeof(float), samplesFFT);
+  if ((vReal == nullptr) || (vImag == nullptr)) {
+    // something went wrong
+    if (vReal) free(vReal); vReal = nullptr;
+    if (vImag) free(vImag); vImag = nullptr;
+    return;
+  }
+  // Create FFT object with weighing factor storage
+  ArduinoFFT<float> FFT = ArduinoFFT<float>( vReal, vImag, samplesFFT, SAMPLE_RATE, true);
 
   // see https://www.freertos.org/vtaskdelayuntil.html
   const TickType_t xFrequency = FFT_MIN_CYCLE * portTICK_PERIOD_MS;  
@@ -247,6 +254,7 @@ void FFTcode(void * parameter)
 
     // get a fresh batch of samples from I2S
     if (audioSource) audioSource->getSamples(vReal, samplesFFT);
+    memset(vImag, 0, samplesFFT * sizeof(float));   // set imaginary parts to 0
 
 #if defined(WLED_DEBUG) || defined(SR_DEBUG)
     if (start < esp_timer_get_time()) { // filter out overflows
@@ -265,8 +273,6 @@ void FFTcode(void * parameter)
     // find highest sample in the batch
     float maxSample = 0.0f;                         // max sample from FFT batch
     for (int i=0; i < samplesFFT; i++) {
-	    // set imaginary parts to 0
-      vImag[i] = 0;
 	    // pick our  our current mic sample - we take the max value from all samples that go into FFT
 	    if ((vReal[i] <= (INT16_MAX - 1024)) && (vReal[i] >= (INT16_MIN + 1024)))  //skip extreme values - normally these are artefacts
         if (fabsf((float)vReal[i]) > maxSample) maxSample = fabsf((float)vReal[i]);
@@ -297,7 +303,7 @@ void FFTcode(void * parameter)
 #endif
 
     } else { // noise gate closed - only clear results as FFT was skipped. MIC samples are still valid when we do this.
-      memset(vReal, 0, sizeof(vReal));
+      memset(vReal, 0, samplesFFT * sizeof(float));
       FFT_MajorPeak = 1;
       FFT_Magnitude = 0.001;
     }
@@ -1879,57 +1885,59 @@ class AudioReactive : public Usermod {
     }
 
 
-    void appendConfigData() override
+    void appendConfigData(Print& uiScript) override
     {
-#ifdef ARDUINO_ARCH_ESP32   
-      oappend(SET_F("dd=addDropdown('AudioReactive','digitalmic:type');"));
+      uiScript.print(F("ux='AudioReactive';"));         // ux = shortcut for Audioreactive - fingers crossed that "ux" isn't already used as JS var, html post parameter or css style
+#ifdef ARDUINO_ARCH_ESP32
+      uiScript.print(F("uxp=ux+':digitalmic:pin[]';")); // uxp = shortcut for AudioReactive:digitalmic:pin[]
+      uiScript.print(F("dd=addDropdown(ux,'digitalmic:type');"));
     #if  !defined(CONFIG_IDF_TARGET_ESP32S2) && !defined(CONFIG_IDF_TARGET_ESP32C3) && !defined(CONFIG_IDF_TARGET_ESP32S3)
-      oappend(SET_F("addOption(dd,'Generic Analog',0);"));
+      uiScript.print(F("addOption(dd,'Generic Analog',0);"));
     #endif
-      oappend(SET_F("addOption(dd,'Generic I2S',1);"));
-      oappend(SET_F("addOption(dd,'ES7243',2);"));
-      oappend(SET_F("addOption(dd,'SPH0654',3);"));
-      oappend(SET_F("addOption(dd,'Generic I2S with Mclk',4);"));
+      uiScript.print(F("addOption(dd,'Generic I2S',1);"));
+      uiScript.print(F("addOption(dd,'ES7243',2);"));
+      uiScript.print(F("addOption(dd,'SPH0654',3);"));
+      uiScript.print(F("addOption(dd,'Generic I2S with Mclk',4);"));
     #if  !defined(CONFIG_IDF_TARGET_ESP32S2) && !defined(CONFIG_IDF_TARGET_ESP32C3)
-      oappend(SET_F("addOption(dd,'Generic I2S PDM',5);"));
+      uiScript.print(F("addOption(dd,'Generic I2S PDM',5);"));
     #endif
-    oappend(SET_F("addOption(dd,'ES8388',6);"));
+    uiScript.print(F("addOption(dd,'ES8388',6);"));
     
-      oappend(SET_F("dd=addDropdown('AudioReactive','config:AGC');"));
-      oappend(SET_F("addOption(dd,'Off',0);"));
-      oappend(SET_F("addOption(dd,'Normal',1);"));
-      oappend(SET_F("addOption(dd,'Vivid',2);"));
-      oappend(SET_F("addOption(dd,'Lazy',3);"));
+      uiScript.print(F("dd=addDropdown(ux,'config:AGC');"));
+      uiScript.print(F("addOption(dd,'Off',0);"));
+      uiScript.print(F("addOption(dd,'Normal',1);"));
+      uiScript.print(F("addOption(dd,'Vivid',2);"));
+      uiScript.print(F("addOption(dd,'Lazy',3);"));
 
-      oappend(SET_F("dd=addDropdown('AudioReactive','dynamics:limiter');"));
-      oappend(SET_F("addOption(dd,'Off',0);"));
-      oappend(SET_F("addOption(dd,'On',1);"));
-      oappend(SET_F("addInfo('AudioReactive:dynamics:limiter',0,' On ');"));  // 0 is field type, 1 is actual field
-      oappend(SET_F("addInfo('AudioReactive:dynamics:rise',1,'ms <i>(&#x266A; effects only)</i>');"));
-      oappend(SET_F("addInfo('AudioReactive:dynamics:fall',1,'ms <i>(&#x266A; effects only)</i>');"));
+      uiScript.print(F("dd=addDropdown(ux,'dynamics:limiter');"));
+      uiScript.print(F("addOption(dd,'Off',0);"));
+      uiScript.print(F("addOption(dd,'On',1);"));
+      uiScript.print(F("addInfo(ux+':dynamics:limiter',0,' On ');"));  // 0 is field type, 1 is actual field
+      uiScript.print(F("addInfo(ux+':dynamics:rise',1,'ms <i>(&#x266A; effects only)</i>');"));
+      uiScript.print(F("addInfo(ux+':dynamics:fall',1,'ms <i>(&#x266A; effects only)</i>');"));
 
-      oappend(SET_F("dd=addDropdown('AudioReactive','frequency:scale');"));
-      oappend(SET_F("addOption(dd,'None',0);"));
-      oappend(SET_F("addOption(dd,'Linear (Amplitude)',2);"));
-      oappend(SET_F("addOption(dd,'Square Root (Energy)',3);"));
-      oappend(SET_F("addOption(dd,'Logarithmic (Loudness)',1);"));
+      uiScript.print(F("dd=addDropdown(ux,'frequency:scale');"));
+      uiScript.print(F("addOption(dd,'None',0);"));
+      uiScript.print(F("addOption(dd,'Linear (Amplitude)',2);"));
+      uiScript.print(F("addOption(dd,'Square Root (Energy)',3);"));
+      uiScript.print(F("addOption(dd,'Logarithmic (Loudness)',1);"));
 #endif
 
-      oappend(SET_F("dd=addDropdown('AudioReactive','sync:mode');"));
-      oappend(SET_F("addOption(dd,'Off',0);"));
+      uiScript.print(F("dd=addDropdown(ux,'sync:mode');"));
+      uiScript.print(F("addOption(dd,'Off',0);"));
 #ifdef ARDUINO_ARCH_ESP32
-      oappend(SET_F("addOption(dd,'Send',1);"));
+      uiScript.print(F("addOption(dd,'Send',1);"));
 #endif
-      oappend(SET_F("addOption(dd,'Receive',2);"));
+      uiScript.print(F("addOption(dd,'Receive',2);"));
 #ifdef ARDUINO_ARCH_ESP32
-      oappend(SET_F("addInfo('AudioReactive:digitalmic:type',1,'<i>requires reboot!</i>');"));  // 0 is field type, 1 is actual field
-      oappend(SET_F("addInfo('AudioReactive:digitalmic:pin[]',0,'<i>sd/data/dout</i>','I2S SD');"));
-      oappend(SET_F("addInfo('AudioReactive:digitalmic:pin[]',1,'<i>ws/clk/lrck</i>','I2S WS');"));
-      oappend(SET_F("addInfo('AudioReactive:digitalmic:pin[]',2,'<i>sck/bclk</i>','I2S SCK');"));
+      uiScript.print(F("addInfo(ux+':digitalmic:type',1,'<i>requires reboot!</i>');"));  // 0 is field type, 1 is actual field
+      uiScript.print(F("addInfo(uxp,0,'<i>sd/data/dout</i>','I2S SD');"));
+      uiScript.print(F("addInfo(uxp,1,'<i>ws/clk/lrck</i>','I2S WS');"));
+      uiScript.print(F("addInfo(uxp,2,'<i>sck/bclk</i>','I2S SCK');"));
       #if !defined(CONFIG_IDF_TARGET_ESP32S2) && !defined(CONFIG_IDF_TARGET_ESP32C3) && !defined(CONFIG_IDF_TARGET_ESP32S3)
-        oappend(SET_F("addInfo('AudioReactive:digitalmic:pin[]',3,'<i>only use -1, 0, 1 or 3</i>','I2S MCLK');"));
+        uiScript.print(F("addInfo(uxp,3,'<i>only use -1, 0, 1 or 3</i>','I2S MCLK');"));
       #else
-        oappend(SET_F("addInfo('AudioReactive:digitalmic:pin[]',3,'<i>master clock</i>','I2S MCLK');"));
+        uiScript.print(F("addInfo(uxp,3,'<i>master clock</i>','I2S MCLK');"));
       #endif
 #endif
     }

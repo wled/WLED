@@ -119,7 +119,12 @@
 			var en = d.Sf.ABL.checked;
 			gId('abl').style.display = (en) ? 'inline':'none';
 			gId('psu2').style.display = (en) ? 'inline':'none';
-			if (!en) d.Sf.PPL.checked = false;
+			if (!en) {
+				// limiter disabled
+				d.Sf.PPL.checked = false;
+//				d.Sf.querySelectorAll("#mLC select[name^=LAsel]").forEach((e)=>{e.selectedIndex = 0;}); // select default LED mA
+//				d.Sf.querySelectorAll("#mLC input[name^=LA]").forEach((e)=>{e.min = 0; e.value = 0;}); // set min & value to 0
+			}
 			UI();
 		}
 		// enable per port limiter and calculate current
@@ -132,46 +137,51 @@
 			d.Sf.MA.min = abl && !ppl ? 250 : 0;
 			gId("psuMA").style.display = ppl ? 'none' : 'inline';
 			gId("ppldis").style.display = ppl ? 'inline' : 'none';
-			// set PPL minimum value and clear actual PPL limit if ABL disabled
+			// set PPL minimum value and clear actual PPL limit if ABL is disabled
 			d.Sf.querySelectorAll("#mLC input[name^=MA]").forEach((i,x)=>{
 				var n = String.fromCharCode((x<10?48:55)+x);
 				gId("PSU"+n).style.display = ppl ? "inline" : "none";
 				const t = parseInt(d.Sf["LT"+n].value); // LED type SELECT
 				const c = parseInt(d.Sf["LC"+n].value); //get LED count
-				i.min = ppl && !(isVir(t) || isAna(t)) ? 250 : 0;
-				if (!abl || isVir(t) || isAna(t)) i.value = 0;
+				i.min = ppl && isDig(t) ? 250 : 0;
+				if (!abl || !isDig(t)) i.value = 0;
 				else if (ppl) sumMA += parseInt(i.value,10);
 				else if (sDI) i.value = Math.round(parseInt(d.Sf.MA.value,10)*c/sDI);
 			});
 			if (ppl) d.Sf.MA.value = sumMA; // populate UI ABL value if PPL used
 		}
+		// enable and update LED Amps
 		function enLA(s,n)
 		{
+			const abl = d.Sf.ABL.checked;
 			const t = parseInt(d.Sf["LT"+n].value); // LED type SELECT
-			gId('LAdis'+n).style.display = s.selectedIndex==5 ? "inline" : "none";
-			if (s.value!=="0") d.Sf["LA"+n].value = s.value;
-			d.Sf["LA"+n].min = (isVir(t) || isAna(t)) ? 0 : 1;
+			gId('LAdis'+n).style.display = s.selectedIndex==5 ? "inline" : "none"; // show/hide custom mA field
+			if (s.value!=="0") d.Sf["LA"+n].value = s.value; // set value from select object
+			d.Sf["LA"+n].min = (!isDig(t) || !abl) ? 0 : 1; // set minimum value for validation
 		}
 		function setABL()
 		{
-			d.Sf.ABL.checked = parseInt(d.Sf.MA.value) > 0;
+			let en = parseInt(d.Sf.MA.value) > 0;
 			// check if ABL is enabled (max mA entered per output)
 			d.Sf.querySelectorAll("#mLC input[name^=MA]").forEach((i,n)=>{
-				if (parseInt(i.value) > 0) d.Sf.ABL.checked = true;
+				if (parseInt(i.value) > 0) en = true;
 			});
+			d.Sf.ABL.checked = en;
 			// select appropriate LED current
 			d.Sf.querySelectorAll("#mLC select[name^=LAsel]").forEach((sel,x)=>{
 				sel.value = 0; // set custom
 				var n = String.fromCharCode((x<10?48:55)+x);
-				switch (parseInt(d.Sf["LA"+n].value)) {
-					case 0: break; // disable ABL
-					case 15: sel.value = 15; break;
-					case 30: sel.value = 30; break;
-					case 35: sel.value = 35; break;
-					case 55: sel.value = 55; break;
-					case 255: sel.value = 255; break;
-				}
-				enLA(sel,n);
+				if (en)
+					switch (parseInt(d.Sf["LA"+n].value)) {
+						case 0: break; // disable ABL
+						case 15: sel.value = 15; break;
+						case 30: sel.value = 30; break;
+						case 35: sel.value = 35; break;
+						case 55: sel.value = 55; break;
+						case 255: sel.value = 255; break;
+					}
+				else sel.value = 0;
+				enLA(sel,n); // configure individual limiter
 			});
 			enABL();
 			gId('m1').innerHTML = maxM;
@@ -202,7 +212,7 @@
 			let gRGBW = false, memu = 0;
 			let busMA = 0;
 			let sLC = 0, sPC = 0, sDI = 0, maxLC = 0;
-			const ablEN = d.Sf.ABL.checked;
+			const abl = d.Sf.ABL.checked;
 			maxB = oMaxB; // TODO make sure we start with all possible buses
 			let setPinConfig = (n,t) => {
 				let p0d = "GPIO:";
@@ -249,12 +259,12 @@
 				var t = parseInt(s.value);
 				memu += getMem(t, n); // calc memory
 				setPinConfig(n,t);
-				gId("abl"+n).style.display = (!ablEN || isVir(t) || isAna(t)) ? "none" : "inline";
-				if (change) {
+				gId("abl"+n).style.display = (!abl || !isDig(t)) ? "none" : "inline"; // show/hide individual ABL settings
+				if (change) { // did we change LED type?
 					gId("rf"+n).checked = (gId("rf"+n).checked || t == 31); // LEDs require data in off state (mandatory for TM1814)
 					if (isAna(t)) d.Sf["LC"+n].value = 1;                   // for sanity change analog count just to 1 LED
-					d.Sf["LA"+n].min = (isVir(t) || isAna(t)) ? 0 : 1;
-					d.Sf["MA"+n].min = (isVir(t) || isAna(t)) ? 0 : 250;
+					d.Sf["LA"+n].min = (!isDig(t) || !abl) ? 0 : 1;         // set minimum value for LED mA
+					d.Sf["MA"+n].min = (!isDig(t)) ? 0 : 250;               // set minimum value for PSU mA
 				}
 				gId("rf"+n).onclick = mustR(t) ? (()=>{return false}) : (()=>{});           // prevent change change of "Refresh" checkmark when mandatory
 				gRGBW |= hasW(t);                                                           // RGBW checkbox
@@ -294,7 +304,7 @@
 						if (s+c > sLC) sLC = s+c; //update total count
 						if (c > maxLC) maxLC = c; //max per output
 						if (!isVir(t)) sPC += c; //virtual out busses do not count towards physical LEDs
-						if (!(isVir(t) || isAna(t))) {
+						if (isDig(t)) {
 							sDI += c; // summarize digital LED count
 							let maPL = parseInt(d.Sf["LA"+n].value);
 							if (maPL == 255) maPL = 12;

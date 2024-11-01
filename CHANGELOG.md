@@ -1,9 +1,35 @@
 ## WLED changelog
 
+#### Build 2410270
+-   WLED 0.15.0-b7 release
+-   Re-license the WLED project from MIT to EUPL (#4194 by @Aircoookie)
+-   Fix alexa devices invisible/uncontrollable (#4214 by @Svennte)
+-   Add visual expand button on hover (#4172)
+-   Usermod: Audioreactive tuning and performance enhancements (by @softhack007)
+-   `/json/live` (JSON live data/peek) only enabled when WebSockets are disabled
+-   Various bugfixes and optimisations: #4179, #4215, #4219, #4222, #4223, #4224, #4228, #4230
+
+#### Build 2410140
+-   WLED 0.15.0-b6 release
+-   Added BRT timezone (#4188 by @LuisFadini)
+-   Fixed the positioning of the "Download the latest binary" button (#4184 by @maxi4329)
+-   Add WLED_AUTOSEGMENTS compile flag (#4183 by @PaoloTK)
+-   New 512kB FS parition map for 4MB devices
+-   Internal API change: Static PinManager & UsermodManager
+-   Change in Improv chip ID and version generation
+-   Various optimisations, bugfixes and enhancements (#4005, #4174 & #4175 by @Xevel, #4180, #4168, #4154, #4189 by @dosipod)
+
+#### Build 2409170
+-   UI: Introduce common.js in settings pages (size optimisation)
+-   Add the ability to toggle the reception of palette synchronizations (#4137 by @felddy)
+-   Usermod/FX: Temperature usermod added Temperature effect (example usermod effect by @blazoncek)
+-   Fix AsyncWebServer version pin
+
 #### Build 2409140
 -   Configure different kinds of busses at compile (#4107 by @PaoloTK)
     - BREAKING: removes LEDPIN and DEFAULT_LED_TYPE compile overrides
 -   Fetch LED types from Bus classes (dynamic UI) (#4129 by @netmindz, @blazoncek, @dedehai)
+-   Temperature usermod: update OneWire to 2.3.8 (#4131 by @iammattcoleman)
 
 #### Build 2409100
 -   WLED 0.15.0-b5 release

@@ -1202,21 +1202,21 @@ void FourLineDisplayUsermod::onUpdateBegin(bool init) {
 //}
 
 void FourLineDisplayUsermod::appendConfigData() {
-  oappend(SET_F("dd=addDropdown('4LineDisplay','type');"));
-  oappend(SET_F("addOption(dd,'None',0);"));
-  oappend(SET_F("addOption(dd,'SSD1306',1);"));
-  oappend(SET_F("addOption(dd,'SH1106',2);"));
-  oappend(SET_F("addOption(dd,'SSD1306 128x64',3);"));
-  oappend(SET_F("addOption(dd,'SSD1305',4);"));
-  oappend(SET_F("addOption(dd,'SSD1305 128x64',5);"));
-  oappend(SET_F("addOption(dd,'SSD1309 128x64',9);"));
-  oappend(SET_F("addOption(dd,'SSD1306 SPI',6);"));
-  oappend(SET_F("addOption(dd,'SSD1306 SPI 128x64',7);"));
-  oappend(SET_F("addOption(dd,'SSD1309 SPI 128x64',8);"));
-  oappend(SET_F("addInfo('4LineDisplay:type',1,'<br><i class=\"warn\">Change may require reboot</i>','');"));
-  oappend(SET_F("addInfo('4LineDisplay:pin[]',0,'','SPI CS');"));
-  oappend(SET_F("addInfo('4LineDisplay:pin[]',1,'','SPI DC');"));
-  oappend(SET_F("addInfo('4LineDisplay:pin[]',2,'','SPI RST');"));
+  oappend(F("dd=addDropdown('4LineDisplay','type');"));
+  oappend(F("addOption(dd,'None',0);"));
+  oappend(F("addOption(dd,'SSD1306',1);"));
+  oappend(F("addOption(dd,'SH1106',2);"));
+  oappend(F("addOption(dd,'SSD1306 128x64',3);"));
+  oappend(F("addOption(dd,'SSD1305',4);"));
+  oappend(F("addOption(dd,'SSD1305 128x64',5);"));
+  oappend(F("addOption(dd,'SSD1309 128x64',9);"));
+  oappend(F("addOption(dd,'SSD1306 SPI',6);"));
+  oappend(F("addOption(dd,'SSD1306 SPI 128x64',7);"));
+  oappend(F("addOption(dd,'SSD1309 SPI 128x64',8);"));
+  oappend(F("addInfo('4LineDisplay:type',1,'<br><i class=\"warn\">Change may require reboot</i>','');"));
+  oappend(F("addInfo('4LineDisplay:pin[]',0,'','SPI CS');"));
+  oappend(F("addInfo('4LineDisplay:pin[]',1,'','SPI DC');"));
+  oappend(F("addInfo('4LineDisplay:pin[]',2,'','SPI RST');"));
 }
 
 /*

@@ -264,7 +264,7 @@ void MultiRelay::handleOffTimer() {
 void MultiRelay::InitHtmlAPIHandle() {  // https://github.com/me-no-dev/ESPAsyncWebServer
   DEBUG_PRINTLN(F("Relays: Initialize HTML API"));
 
-  server.on(SET_F("/relays"), HTTP_GET, [this](AsyncWebServerRequest *request) {
+  server.on(F("/relays"), HTTP_GET, [this](AsyncWebServerRequest *request) {
     DEBUG_PRINTLN(F("Relays: HTML API"));
     String janswer;
     String error = "";
@@ -765,10 +765,10 @@ void MultiRelay::addToConfig(JsonObject &root) {
 }
 
 void MultiRelay::appendConfigData() {
-  oappend(SET_F("addInfo('MultiRelay:PCF8574-address',1,'<i>(not hex!)</i>');"));
-  oappend(SET_F("addInfo('MultiRelay:broadcast-sec',1,'(MQTT message)');"));
-  //oappend(SET_F("addInfo('MultiRelay:relay-0:pin',1,'(use -1 for PCF8574)');"));
-  oappend(SET_F("d.extra.push({'MultiRelay':{pin:[['P0',100],['P1',101],['P2',102],['P3',103],['P4',104],['P5',105],['P6',106],['P7',107]]}});"));
+  oappend(F("addInfo('MultiRelay:PCF8574-address',1,'<i>(not hex!)</i>');"));
+  oappend(F("addInfo('MultiRelay:broadcast-sec',1,'(MQTT message)');"));
+  //oappend(F("addInfo('MultiRelay:relay-0:pin',1,'(use -1 for PCF8574)');"));
+  oappend(F("d.extra.push({'MultiRelay':{pin:[['P0',100],['P1',101],['P2',102],['P3',103],['P4',104],['P5',105],['P6',106],['P7',107]]}});"));
 }
 
 /**

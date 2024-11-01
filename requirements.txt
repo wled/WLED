@@ -4,19 +4,17 @@
 #
 #    pip-compile
 #
-aiofiles==22.1.0
-    # via platformio
 ajsonrpc==1.2.0
     # via platformio
-anyio==3.6.2
+anyio==4.6.0
     # via starlette
-bottle==0.12.25
+bottle==0.13.1
     # via platformio
-certifi==2023.7.22
+certifi==2024.8.30
     # via requests
-charset-normalizer==3.1.0
+charset-normalizer==3.3.2
     # via requests
-click==8.1.3
+click==8.1.7
     # via
     #   platformio
     #   uvicorn
@@ -28,35 +26,33 @@ h11==0.14.0
     # via
     #   uvicorn
     #   wsproto
-idna==3.7
+idna==3.10
     # via
     #   anyio
     #   requests
-marshmallow==3.19.0
+marshmallow==3.22.0
     # via platformio
-packaging==23.1
+packaging==24.1
     # via marshmallow
-platformio==6.1.14
+platformio==6.1.16
     # via -r requirements.in
-pyelftools==0.29
+pyelftools==0.31
     # via platformio
 pyserial==3.5
     # via platformio
-requests==2.32.0
+requests==2.32.3
     # via platformio
 semantic-version==2.10.0
     # via platformio
-sniffio==1.3.0
+sniffio==1.3.1
     # via anyio
-starlette==0.23.1
+starlette==0.39.1
     # via platformio
 tabulate==0.9.0
     # via platformio
-typing-extensions==4.11.0
-    # via starlette
-urllib3==1.26.19
+urllib3==2.2.3
     # via requests
-uvicorn==0.20.0
+uvicorn==0.30.6
     # via platformio
 wsproto==1.2.0
     # via platformio
