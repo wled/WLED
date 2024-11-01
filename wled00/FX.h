@@ -58,7 +58,8 @@ bool strip_uses_global_leds(void) __attribute__((pure));  // WLEDMM implemented 
 #define FRAMETIME_FIXED_SLOW  (1000/WLED_FPS_SLOW)
 //#define FRAMETIME        _frametime
 #define FRAMETIME        strip.getFrameTime()
-#define MIN_SHOW_DELAY   (_frametime < 16 ? 8 : 15)
+//#define MIN_SHOW_DELAY   (_frametime < 16 ? 8 : 15)  // Upstream legacy
+#define MIN_SHOW_DELAY   (_frametime < 16 ? (_frametime <8? (_frametime <7? (_frametime <6 ? 2 :3) :4) : 8) : 15)    // WLEDMM support higher framerates (up to 250fps)
 #endif
 
 /* each segment uses 52 bytes of SRAM memory, so if you're application fails because of
