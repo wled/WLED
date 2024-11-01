@@ -215,6 +215,7 @@ void handleAnalog(uint8_t b)
         briLast = bri;
         bri = 0;
       } else {
+        if (bri == 0) strip.restartRuntime();
         bri = aRead;
       }
     } else if (macroDoublePress[b] == 249) {

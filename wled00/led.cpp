@@ -47,17 +47,12 @@ void applyValuesToSelectedSegs()
 }
 
 
-void resetTimebase()
-{
-  strip.timebase = 0 - millis();
-}
-
-
 void toggleOnOff()
 {
   if (bri == 0)
   {
     bri = briLast;
+    strip.restartRuntime();
   } else
   {
     briLast = bri;
@@ -122,7 +117,7 @@ void stateUpdated(byte callMode) {
     nightlightStartTime = millis();
   }
   if (briT == 0) {
-    if (callMode != CALL_MODE_NOTIFICATION) resetTimebase(); //effect start from beginning
+    if (callMode != CALL_MODE_NOTIFICATION) strip.resetTimebase(); //effect start from beginning
   }
 
   if (bri > 0) briLast = bri;

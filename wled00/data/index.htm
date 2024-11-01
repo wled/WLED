@@ -304,10 +304,10 @@
 	</div>
 	<div id="kv">Loading...</div><br>
 	<div>
-		<button class="btn infobtn" onclick="requestJson()">Refresh</button>
-		<button class="btn infobtn" onclick="toggleNodes()">Instance List</button>
-		<button class="btn infobtn" onclick="window.open(getURL('/update'),'_self');">Update WLED</button>
-		<button class="btn infobtn" id="resetbtn" onclick="cnfReset()">Reboot WLED</button>
+		<button class="btn ibtn" onclick="requestJson()">Refresh</button>
+		<button class="btn ibtn" onclick="toggleNodes()">Instance List</button>
+		<button class="btn ibtn" onclick="window.open(getURL('/update'),'_self');">Update WLED</button>
+		<button class="btn ibtn" id="resetbtn" onclick="cnfReset()">Reboot WLED</button>
 	</div>
 	<br>
 	<span class="h">Made with&#32;<span id="heart">&#10084;&#xFE0E;</span>&#32;by&#32;<a href="https://github.com/Aircoookie/" target="_blank">Aircoookie</a>&#32;and the&#32;<a href="https://wled.discourse.group/" target="_blank">WLED community</a></span>
@@ -318,7 +318,7 @@
 	<div id="ndlt">WLED instances</div>
 	<div id="kn">Loading...</div>
 	<div style="position:sticky;bottom:0;">
-		<button class="btn infobtn" onclick="loadNodes()">Refresh</button>
+		<button class="btn ibtn" onclick="loadNodes()">Refresh</button>
 	</div>
 </div>
 
@@ -331,8 +331,8 @@
 	<div id="lv">?</div><br><br>
 	To use built-in effects, use an override button below.<br>
 	You can return to realtime mode by pressing the star in the top left corner.<br>
-	<button class="btn" onclick="setLor(1)">Override once</button>
-	<button class="btn" onclick="setLor(2)">Override until reboot</button><br>
+	<button class="btn ibtn" onclick="setLor(1)">Override once</button>
+	<button class="btn ibtn" onclick="setLor(2)">Override until reboot</button><br>
 	<span class="h">For best performance, it is recommended to turn off the streaming source when not in use.</span>
 </div>
 

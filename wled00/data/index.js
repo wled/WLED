@@ -2828,7 +2828,12 @@ function search(field, listId = null) {
 	// restore default preset sorting if no search term is entered
 	if (!search) {
 		if (listId === 'pcont')   { populatePresets(); return; }
-		if (listId === 'pallist') { populatePalettes(); return; }
+		if (listId === 'pallist') {
+			let id = parseInt(d.querySelector('#pallist input[name="palette"]:checked').value); // preserve selected palette
+			populatePalettes();
+			updateSelectedPalette(id);
+			return;
+		}
 	}
 
 	// clear filter if searching in fxlist
@@ -2887,18 +2892,25 @@ function initFilters() {
 
 function filterFocus(e) {
 	const f = gId("filters");
-	if (e.type === "focus") f.classList.remove('fade');	// immediately show (still has transition)
-	// compute sticky top (with delay for transition)
-	setTimeout(() => {
-		const sti = parseInt(getComputedStyle(d.documentElement).getPropertyValue('--sti')) + (e.type === "focus" ? 1 : -1) * f.offsetHeight;
-		sCol('--sti', sti + "px");
-	}, 252);
+	const c = !!f.querySelectorAll("input[type=checkbox]:checked").length;
+	const h = f.offsetHeight;
+	const sti = parseInt(getComputedStyle(d.documentElement).getPropertyValue('--sti'));
+	if (e.type === "focus") {
+		// compute sticky top (with delay for transition)
+		if (!h) setTimeout(() => {
+			sCol('--sti', (sti+f.offsetHeight) + "px"); // has an unpleasant consequence on palette offset
+		}, 255);
+		f.classList.remove('fade');	// immediately show (still has transition)
+	}
 	if (e.type === "blur") {
 		setTimeout(() => {
 			if (e.target === document.activeElement && document.hasFocus()) return;
 			// do not hide if filter is active
-			if (gId("filters").querySelectorAll("input[type=checkbox]:checked").length) return;
-			f.classList.add('fade');
+			if (!c) {
+				// compute sticky top
+				sCol('--sti', (sti-h) + "px"); // has an unpleasant consequence on palette offset
+				f.classList.add('fade');
+			}
 		}, 255);	// wait with hiding
 	}
 }
@@ -2911,7 +2923,7 @@ function filterFx() {
 	gId("fxlist").querySelectorAll('.lstI').forEach((listItem,i) => {
 		const listItemName = listItem.querySelector('.lstIname').innerText;
 		let hide = false;
-		gId("filters").querySelectorAll("input[type=checkbox]").forEach((e) => { if (e.checked && !listItemName.includes(e.dataset.flt)) hide = true; });
+		gId("filters").querySelectorAll("input[type=checkbox]").forEach((e) => { if (e.checked && !listItemName.includes(e.dataset.flt)) hide = i>0 /*true*/; });
 		listItem.style.display = hide ? 'none' : '';
 	});
 }

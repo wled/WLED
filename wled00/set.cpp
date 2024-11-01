@@ -1191,7 +1191,11 @@ bool handleSet(AsyncWebServerRequest *request, const String& req, bool apply)
 
   // internal call, does not send XML response
   pos = req.indexOf(F("IN"));
-  if (pos < 1) XML_response(request);
+  if (pos < 1) {
+    auto response = request->beginResponseStream("text/xml");
+    XML_response(*response);
+    request->send(response);
+  }
 
   return true;
 }

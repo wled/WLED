@@ -974,10 +974,8 @@ void espNowReceiveCB(uint8_t* address, uint8_t* data, uint8_t len, signed int rs
     DEBUG_PRINTLN();
   #endif
 
-#ifndef WLED_DISABLE_ESPNOW
   // usermods hook can override processing
   if (UsermodManager::onEspNowMessage(address, data, len)) return;
-#endif
 
   // handle WiZ Mote data
   if (data[0] == 0x91 || data[0] == 0x81 || data[0] == 0x80) {

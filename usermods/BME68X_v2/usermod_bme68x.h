@@ -767,22 +767,22 @@ void UsermodBME68X::appendConfigData() {
 	// snprintf_P(charbuffer, 127, PSTR("addInfo('%s:%s',1,'*) Set to minus to deactivate (all sensors)');"), UMOD_NAME, _nameTemp); oappend(charbuffer);
 
 	/* Dropdown for Celsius/Fahrenheit*/
-	oappend(SET_F("dd=addDropdown('"));
+	oappend(F("dd=addDropdown('"));
 	oappend(UMOD_NAME);
-	oappend(SET_F("','"));
+	oappend(F("','"));
 	oappend(_nameTempScale);
-	oappend(SET_F("');"));
-	oappend(SET_F("addOption(dd,'Celsius',0);"));
-	oappend(SET_F("addOption(dd,'Fahrenheit',1);"));
+	oappend(F("');"));
+	oappend(F("addOption(dd,'Celsius',0);"));
+	oappend(F("addOption(dd,'Fahrenheit',1);"));
 
 	/* i²C Address*/
-	oappend(SET_F("dd=addDropdown('"));
+	oappend(F("dd=addDropdown('"));
 	oappend(UMOD_NAME);
-	oappend(SET_F("','"));
+	oappend(F("','"));
 	oappend(_nameI2CAdr);
-	oappend(SET_F("');"));
-	oappend(SET_F("addOption(dd,'0x76',0x76);"));
-	oappend(SET_F("addOption(dd,'0x77',0x77);"));
+	oappend(F("');"));
+	oappend(F("addOption(dd,'0x76',0x76);"));
+	oappend(F("addOption(dd,'0x77',0x77);"));
 }
 
 /**

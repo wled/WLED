@@ -219,6 +219,7 @@ void WLED::loop()
       busConfigs[i] = nullptr;
     }
     strip.finalizeInit(); // also loads default ledmap if present
+    BusManager::setBrightness(bri); // fix re-initialised bus' brightness #4005
     if (aligned) strip.makeAutoSegments();
     else strip.fixInvalidSegments();
     doSerializeConfig = true;

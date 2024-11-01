@@ -30,7 +30,7 @@ There are however plans to create a lightweight audioreactive for the 8266, with
 ### using latest _arduinoFFT_ library version 2.x
 The latest arduinoFFT release version should be used for audioreactive.
 
-* `build_flags` = `-D USERMOD_AUDIOREACTIVE`
+* `build_flags` = `-D USERMOD_AUDIOREACTIVE -D sqrt_internal=sqrtf`
 * `lib_deps`= `kosme/arduinoFFT @ 2.0.1`
 
 ## Configuration

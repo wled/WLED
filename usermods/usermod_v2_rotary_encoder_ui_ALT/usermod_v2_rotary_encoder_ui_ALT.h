@@ -1090,8 +1090,8 @@ void RotaryEncoderUIUsermod::addToConfig(JsonObject &root) {
 }
 
 void RotaryEncoderUIUsermod::appendConfigData() {
-  oappend(SET_F("addInfo('Rotary-Encoder:PCF8574-address',1,'<i>(not hex!)</i>');"));
-  oappend(SET_F("d.extra.push({'Rotary-Encoder':{pin:[['P0',100],['P1',101],['P2',102],['P3',103],['P4',104],['P5',105],['P6',106],['P7',107]]}});"));
+  oappend(F("addInfo('Rotary-Encoder:PCF8574-address',1,'<i>(not hex!)</i>');"));
+  oappend(F("d.extra.push({'Rotary-Encoder':{pin:[['P0',100],['P1',101],['P2',102],['P3',103],['P4',104],['P5',105],['P6',106],['P7',107]]}});"));
 }
 
 /**

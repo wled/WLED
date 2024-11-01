@@ -149,11 +149,11 @@ public:
     void appendConfigData()
     {
     // Display 'ms' next to the 'Loop Interval' setting
-    oappend(SET_F("addInfo('Internal Temperature:Loop Interval', 1, 'ms');"));
+    oappend(F("addInfo('Internal Temperature:Loop Interval', 1, 'ms');"));
     // Display '°C' next to the 'Activation Threshold' setting
-    oappend(SET_F("addInfo('Internal Temperature:Activation Threshold', 1, '°C');"));
+    oappend(F("addInfo('Internal Temperature:Activation Threshold', 1, '°C');"));
     // Display '0 = Disabled' next to the 'Preset To Activate' setting
-    oappend(SET_F("addInfo('Internal Temperature:Preset To Activate', 1, '0 = unused');"));
+    oappend(F("addInfo('Internal Temperature:Preset To Activate', 1, '0 = unused');"));
     }
 
   bool readFromConfig(JsonObject &root)
