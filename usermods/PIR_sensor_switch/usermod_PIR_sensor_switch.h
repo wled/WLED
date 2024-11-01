@@ -229,7 +229,7 @@ void PIRsensorSwitch::switchStrip(bool switchOn)
   if (m_offOnly && bri && (switchOn || (!PIRtriggered && !switchOn))) return; //if lights on and off only, do nothing
   if (PIRtriggered && switchOn) return; //if already on and triggered before, do nothing
   PIRtriggered = switchOn;
-  DEBUG_PRINT(F("PIR: strip=")); DEBUG_PRINTLN(switchOn?"on":"off");
+  DEBUGUM_PRINT(F("PIR: strip=")); DEBUGUM_PRINTLN(switchOn?"on":"off");
   if (switchOn) {
     if (m_onPreset) {
       if (currentPlaylist>0 && !offMode) {
@@ -321,9 +321,9 @@ void PIRsensorSwitch::publishHomeAssistantAutodiscovery()
     device[F("sw")]   = versionString;
     
     sprintf_P(buf, PSTR("homeassistant/binary_sensor/%s/config"), uid);
-    DEBUG_PRINTLN(buf);
+    DEBUGUM_PRINTLN(buf);
     size_t payload_size = serializeJson(doc, json_str);
-    DEBUG_PRINTLN(json_str);
+    DEBUGUM_PRINTLN(json_str);
 
     mqtt->publish(buf, 0, true, json_str, payload_size); // do we really need to retain?
   }
@@ -384,7 +384,7 @@ void PIRsensorSwitch::setup()
       #endif
       sensorPinState[i] = digitalRead(PIRsensorPin[i]);
     } else {
-      DEBUG_PRINT(F("PIRSensorSwitch pin ")); DEBUG_PRINTLN(i); DEBUG_PRINTLN(F(" allocation failed."));
+      DEBUGUM_PRINT(F("PIRSensorSwitch pin ")); DEBUGUM_PRINTLN(i); DEBUGUM_PRINTLN(F(" allocation failed."));
       PIRsensorPin[i] = -1;  // allocation failed
     }
   }
@@ -471,10 +471,10 @@ void PIRsensorSwitch::addToJsonInfo(JsonObject &root)
 
 void PIRsensorSwitch::onStateChange(uint8_t mode) {
   if (!initDone) return;
-  DEBUG_PRINT(F("PIR: offTimerStart=")); DEBUG_PRINTLN(offTimerStart);
+  DEBUGUM_PRINT(F("PIR: offTimerStart=")); DEBUGUM_PRINTLN(offTimerStart);
   if (m_override && PIRtriggered && offTimerStart) { // debounce
     // checking PIRtriggered and offTimerStart will prevent cancellation upon On trigger
-    DEBUG_PRINTLN(F("PIR: Canceled."));
+    DEBUGUM_PRINTLN(F("PIR: Canceled."));
     offTimerStart = 0;
     PIRtriggered = false;
   }
@@ -506,7 +506,7 @@ void PIRsensorSwitch::addToConfig(JsonObject &root)
   top[FPSTR(_override)]       = m_override;
   top[FPSTR(_haDiscovery)]    = HomeAssistantDiscovery;
   top[FPSTR(_domoticzIDX)]    = idx;
-  DEBUG_PRINTLN(F("PIR config saved."));
+  DEBUGUM_PRINTLN(F("PIR config saved."));
 }
 
 void PIRsensorSwitch::appendConfigData()
@@ -528,10 +528,10 @@ bool PIRsensorSwitch::readFromConfig(JsonObject &root)
     PIRsensorPin[i] = -1;
   }
 
-  DEBUG_PRINT(FPSTR(_name));
+  DEBUGUM_PRINT(FPSTR(_name));
   JsonObject top = root[FPSTR(_name)];
   if (top.isNull()) {
-    DEBUG_PRINTLN(F(": No config found. (Using defaults.)"));
+    DEBUGUM_PRINTLN(F(": No config found. (Using defaults.)"));
     return false;
   }
 
@@ -561,12 +561,12 @@ bool PIRsensorSwitch::readFromConfig(JsonObject &root)
 
   if (!initDone) {
     // reading config prior to setup()
-    DEBUG_PRINTLN(F(" config loaded."));
+    DEBUGUM_PRINTLN(F(" config loaded."));
   } else {
     for (int i = 0; i < PIR_SENSOR_MAX_SENSORS; i++)
       if (oldPin[i] >= 0) PinManager::deallocatePin(oldPin[i], PinOwner::UM_PIR);
     setup();
-    DEBUG_PRINTLN(F(" config (re)loaded."));
+    DEBUGUM_PRINTLN(F(" config (re)loaded."));
   }
   // use "return !top["newestParameter"].isNull();" when updating Usermod with new features
   return !(pins.isNull() || pins.size() != PIR_SENSOR_MAX_SENSORS);

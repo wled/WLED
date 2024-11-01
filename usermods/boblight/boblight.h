@@ -64,7 +64,7 @@ class BobLightUsermod : public Usermod {
       int bcount;
 
       if (total > strip.getLengthTotal()) {
-        DEBUG_PRINTLN(F("BobLight: Too many lights."));
+        DEBUGUM_PRINTLN(F("BobLight: Too many lights."));
         return;
       }
 
@@ -172,11 +172,11 @@ class BobLightUsermod : public Usermod {
 
       numLights = lightcount;
 
-      #if WLED_DEBUG
-      DEBUG_PRINTLN(F("Fill light data: "));
-      DEBUG_PRINTF_P(PSTR(" lights %d\n"), numLights);
+      #if WLED_DEBUG_USERMODS
+      DEBUGUM_PRINTLN(F("Fill light data: "));
+      DEBUGUM_PRINTF_P(PSTR(" lights %d\n"), numLights);
       for (int i=0; i<numLights; i++) {
-        DEBUG_PRINTF_P(PSTR(" light %s scan %2.1f %2.1f %2.1f %2.1f\n"), lights[i].lightname, lights[i].vscan[0], lights[i].vscan[1], lights[i].hscan[0], lights[i].hscan[1]);
+        DEBUGUM_PRINTF_P(PSTR(" light %s scan %2.1f %2.1f %2.1f %2.1f\n"), lights[i].lightname, lights[i].vscan[0], lights[i].vscan[1], lights[i].hscan[0], lights[i].hscan[1]);
       }
       #endif
     }
@@ -190,8 +190,8 @@ class BobLightUsermod : public Usermod {
     void setup() override {
       uint16_t totalLights = bottom + left + top + right;
       if ( totalLights > strip.getLengthTotal() ) {
-        DEBUG_PRINTLN(F("BobLight: Too many lights."));
-        DEBUG_PRINTF_P(PSTR("%d+%d+%d+%d>%d\n"), bottom, left, top, right, strip.getLengthTotal());
+        DEBUGUM_PRINTLN(F("BobLight: Too many lights."));
+        DEBUGUM_PRINTF_P(PSTR("%d+%d+%d+%d>%d\n"), bottom, left, top, right, strip.getLengthTotal());
         totalLights = strip.getLengthTotal();
         top = bottom = (uint16_t) roundf((float)totalLights * 16.0f / 50.0f);
         left = right = (uint16_t) roundf((float)totalLights *  9.0f / 50.0f);
@@ -376,7 +376,7 @@ void BobLightUsermod::pollBob() {
     if (!bobClient || !bobClient.connected()) {
       if (bobClient) bobClient.stop();
       bobClient = bob->available();
-      DEBUG_PRINTLN(F("Boblight: Client connected."));
+      DEBUGUM_PRINTLN(F("Boblight: Client connected."));
     }
     //no free/disconnected spot so reject
     WiFiClient bobClientTmp = bob->available();
@@ -392,30 +392,30 @@ void BobLightUsermod::pollBob() {
     //get data from the client
     while (bobClient.available()) {
       String input = bobClient.readStringUntil('\n');
-      // DEBUG_PRINT(F("Client: ")); DEBUG_PRINTLN(input); // may be to stressful on Serial
+      // DEBUGUM_PRINT(F("Client: ")); DEBUGUM_PRINTLN(input); // may be to stressful on Serial
       if (input.startsWith(F("hello"))) {
-        DEBUG_PRINTLN(F("hello"));
+        DEBUGUM_PRINTLN(F("hello"));
         bobClient.print(F("hello\n"));
       } else if (input.startsWith(F("ping"))) {
-        DEBUG_PRINTLN(F("ping 1"));
+        DEBUGUM_PRINTLN(F("ping 1"));
         bobClient.print(F("ping 1\n"));
       } else if (input.startsWith(F("get version"))) {
-        DEBUG_PRINTLN(F("version 5"));
+        DEBUGUM_PRINTLN(F("version 5"));
         bobClient.print(F("version 5\n"));
       } else if (input.startsWith(F("get lights"))) {
         char tmp[64];
         String answer = "";
         sprintf_P(tmp, PSTR("lights %d\n"), numLights);
-        DEBUG_PRINT(tmp);
+        DEBUGUM_PRINT(tmp);
         answer.concat(tmp);
         for (int i=0; i<numLights; i++) {
           sprintf_P(tmp, PSTR("light %s scan %2.1f %2.1f %2.1f %2.1f\n"), lights[i].lightname, lights[i].vscan[0], lights[i].vscan[1], lights[i].hscan[0], lights[i].hscan[1]);
-          DEBUG_PRINT(tmp);
+          DEBUGUM_PRINT(tmp);
           answer.concat(tmp);
         }
         bobClient.print(answer);
       } else if (input.startsWith(F("set priority"))) {
-        DEBUG_PRINTLN(F("set priority not implemented"));
+        DEBUGUM_PRINTLN(F("set priority not implemented"));
         // not implemented
       } else if (input.startsWith(F("set light "))) { // <id> <cmd in rgb, speed, interpolation> <value> ...
         input.remove(0,10);
@@ -449,7 +449,7 @@ void BobLightUsermod::pollBob() {
         BobSync();
       } else {
         // Client sent gibberish
-        DEBUG_PRINTLN(F("Client sent gibberish."));
+        DEBUGUM_PRINTLN(F("Client sent gibberish."));
         bobClient.stop();
         bobClient = bob->available();
         BobClear();

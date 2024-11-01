@@ -221,6 +221,7 @@ using PSRAMDynamicJsonDocument = BasicJsonDocument<PSRAM_Allocator>;
 #endif
 
 #ifndef WLED_DISABLE_INFRARED
+  #define _IR_ENABLE_DEFAULT_ false
   #include <IRremoteESP8266.h>
   #include <IRrecv.h>
   #include <IRutils.h>
@@ -970,6 +971,18 @@ WLED_GLOBAL volatile uint8_t jsonBufferLock _INIT(0);
   #define DEBUG_PRINTLN(x)
   #define DEBUG_PRINTF(x...)
   #define DEBUG_PRINTF_P(x...)
+#endif
+
+#ifdef WLED_DEBUG_USERMODS
+  #define DEBUGUM_PRINT(x) DEBUGOUT.print(x)
+  #define DEBUGUM_PRINTLN(x) DEBUGOUT.println(x)
+  #define DEBUGUM_PRINTF(x...) DEBUGOUT.printf(x)
+  #define DEBUGUM_PRINTF_P(x...) DEBUGOUT.printf_P(x)
+#else
+  #define DEBUGUM_PRINT(x)
+  #define DEBUGUM_PRINTLN(x)
+  #define DEBUGUM_PRINTF(x...)
+  #define DEBUGUM_PRINTF_P(x...)
 #endif
 
 #ifdef WLED_DEBUG_FS

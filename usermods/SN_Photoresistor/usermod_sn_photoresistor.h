@@ -121,7 +121,7 @@ public:
       }
       else
       {
-        DEBUG_PRINTLN(F("Missing MQTT connection. Not publishing data"));
+        DEBUGUM_PRINTLN(F("Missing MQTT connection. Not publishing data"));
       }
     }
 #endif
@@ -172,7 +172,7 @@ public:
     top[FPSTR(_adcPrecision)] = adcPrecision;
     top[FPSTR(_offset)] = offset;
 
-    DEBUG_PRINTLN(F("Photoresistor config saved."));
+    DEBUGUM_PRINTLN(F("Photoresistor config saved."));
   }
 
   /**
@@ -183,8 +183,8 @@ public:
     // we look for JSON object.
     JsonObject top = root[FPSTR(_name)];
     if (top.isNull()) {
-      DEBUG_PRINT(FPSTR(_name));
-      DEBUG_PRINTLN(F(": No config found. (Using defaults.)"));
+      DEBUGUM_PRINT(FPSTR(_name));
+      DEBUGUM_PRINTLN(F(": No config found. (Using defaults.)"));
       return false;
     }
 
@@ -194,8 +194,8 @@ public:
     resistorValue    = top[FPSTR(_resistorValue)] | resistorValue;
     adcPrecision     = top[FPSTR(_adcPrecision)] | adcPrecision;
     offset           = top[FPSTR(_offset)] | offset;
-    DEBUG_PRINT(FPSTR(_name));
-    DEBUG_PRINTLN(F(" config (re)loaded."));
+    DEBUGUM_PRINT(FPSTR(_name));
+    DEBUGUM_PRINTLN(F(" config (re)loaded."));
 
     // use "return !top["newestParameter"].isNull();" when updating Usermod with new features
     return true;

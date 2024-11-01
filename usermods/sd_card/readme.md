@@ -7,7 +7,7 @@
   2. via `-D WLED_USE_SD_SPI` when connected via SPI (use usermod page to setup SPI pins)
 
 ### Test
-- enable `-D SD_PRINT_HOME_DIR` and `-D WLED_DEBUG`
+- enable `-D SD_PRINT_HOME_DIR` and `-D WLED_DEBUG_USERMODS`
 - this will print all files in `/` on boot via serial
 
 ## Configuration

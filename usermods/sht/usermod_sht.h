@@ -95,7 +95,7 @@ void ShtUsermod::initShtTempHumiditySensor()
 
   shtTempHumidSensor->begin(shtI2cAddress); // uses &Wire
   if (shtTempHumidSensor->readStatus() == 0xFFFF) {
-    DEBUG_PRINTF("[%s] SHT init failed!\n", _name);
+    DEBUGUM_PRINTF("[%s] SHT init failed!\n", _name);
     cleanup();
     return;
   }
@@ -231,7 +231,7 @@ void ShtUsermod::setup()
   if (enabled) {
     // GPIOs can be set to -1 , so check they're gt zero
     if (i2c_sda < 0 || i2c_scl < 0) {
-      DEBUG_PRINTF("[%s] I2C bus not initialised!\n", _name);
+      DEBUGUM_PRINTF("[%s] I2C bus not initialised!\n", _name);
       cleanup();
       return;
     }
@@ -362,7 +362,7 @@ bool ShtUsermod::readFromConfig(JsonObject &root)
 {
   JsonObject top = root[FPSTR(_name)];
   if (top.isNull()) {
-    DEBUG_PRINTF("[%s] No config found. (Using defaults.)\n", _name);
+    DEBUGUM_PRINTF("[%s] No config found. (Using defaults.)\n", _name);
     return false;
   }
 
@@ -378,12 +378,12 @@ bool ShtUsermod::readFromConfig(JsonObject &root)
 
   // First run: reading from cfg.json, nothing to do here, will be all done in setup()
   if (!firstRunDone) {
-    DEBUG_PRINTF("[%s] First run, nothing to do\n", _name);
+    DEBUGUM_PRINTF("[%s] First run, nothing to do\n", _name);
   }
   // Check if mod has been en-/disabled
   else if (enabled != oldEnabled) {
     enabled ? setup() : cleanup();
-    DEBUG_PRINTF("[%s] Usermod has been en-/disabled\n", _name);
+    DEBUGUM_PRINTF("[%s] Usermod has been en-/disabled\n", _name);
   }
   // Config has been changed, so adopt to changes
   else if (enabled) {
@@ -401,7 +401,7 @@ bool ShtUsermod::readFromConfig(JsonObject &root)
       publishHomeAssistantAutodiscovery();
     }
 
-    DEBUG_PRINTF("[%s] Config (re)loaded\n", _name);
+    DEBUGUM_PRINTF("[%s] Config (re)loaded\n", _name);
   }
 
   return true;

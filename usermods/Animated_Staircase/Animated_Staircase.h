@@ -178,14 +178,14 @@ class Animated_Staircase : public Usermod {
           bottomSensorState = bottomSensorRead; // change previous state
           sensorChanged = true;
           publishMqtt(true, bottomSensorState ? "on" : "off");
-          DEBUG_PRINTLN(F("Bottom sensor changed."));
+          DEBUGUM_PRINTLN(F("Bottom sensor changed."));
         }
 
         if (topSensorRead != topSensorState) {
           topSensorState = topSensorRead; // change previous state
           sensorChanged = true;
           publishMqtt(false, topSensorState ? "on" : "off");
-          DEBUG_PRINTLN(F("Top sensor changed."));
+          DEBUGUM_PRINTLN(F("Top sensor changed."));
         }
 
         // Values read, reset the flags for next API call
@@ -202,8 +202,8 @@ class Animated_Staircase : public Usermod {
             // If the bottom sensor triggered, we need to swipe up, ON
             swipe = bottomSensorRead;
 
-            DEBUG_PRINT(F("ON -> Swipe "));
-            DEBUG_PRINTLN(swipe ? F("up.") : F("down."));
+            DEBUGUM_PRINT(F("ON -> Swipe "));
+            DEBUGUM_PRINTLN(swipe ? F("up.") : F("down."));
 
             if (onIndex == offIndex) {
               // Position the indices for a correct on-swipe
@@ -230,8 +230,8 @@ class Animated_Staircase : public Usermod {
         swipe = lastSensor;
         on = false;
 
-        DEBUG_PRINT(F("OFF -> Swipe "));
-        DEBUG_PRINTLN(swipe ? F("up.") : F("down."));
+        DEBUGUM_PRINT(F("OFF -> Swipe "));
+        DEBUGUM_PRINTLN(swipe ? F("up.") : F("down."));
       }
     }
 
@@ -273,12 +273,12 @@ class Animated_Staircase : public Usermod {
 
     void enable(bool enable) {
       if (enable) {
-        DEBUG_PRINTLN(F("Animated Staircase enabled."));
-        DEBUG_PRINT(F("Delay between steps: "));
-        DEBUG_PRINT(segment_delay_ms);
-        DEBUG_PRINT(F(" milliseconds.\nStairs switch off after: "));
-        DEBUG_PRINT(on_time_ms / 1000);
-        DEBUG_PRINTLN(F(" seconds."));
+        DEBUGUM_PRINTLN(F("Animated Staircase enabled."));
+        DEBUGUM_PRINT(F("Delay between steps: "));
+        DEBUGUM_PRINT(segment_delay_ms);
+        DEBUGUM_PRINT(F(" milliseconds.\nStairs switch off after: "));
+        DEBUGUM_PRINT(on_time_ms / 1000);
+        DEBUGUM_PRINTLN(F(" seconds."));
 
         if (!useUSSensorBottom)
           pinMode(bottomPIRorTriggerPin, INPUT_PULLUP);
@@ -311,7 +311,7 @@ class Animated_Staircase : public Usermod {
         strip.trigger();  // force strip update
         stateChanged = true;  // inform external devices/UI of change
         colorUpdated(CALL_MODE_DIRECT_CHANGE);
-        DEBUG_PRINTLN(F("Animated Staircase disabled."));
+        DEBUGUM_PRINTLN(F("Animated Staircase disabled."));
       }
       enabled = enable;
     }
@@ -400,7 +400,7 @@ class Animated_Staircase : public Usermod {
         staircase = root.createNestedObject(FPSTR(_name));
       }
       writeSensorsToJson(staircase);
-      DEBUG_PRINTLN(F("Staircase sensor state exposed in API."));
+      DEBUGUM_PRINTLN(F("Staircase sensor state exposed in API."));
     }
 
     /*
@@ -420,7 +420,7 @@ class Animated_Staircase : public Usermod {
         }
         if (en != enabled) enable(en);
         readSensorsFromJson(staircase);
-        DEBUG_PRINTLN(F("Staircase sensor state read from API."));
+        DEBUGUM_PRINTLN(F("Staircase sensor state read from API."));
       }
     }
 
@@ -452,7 +452,7 @@ class Animated_Staircase : public Usermod {
       staircase[FPSTR(_topEchoCm)]                 = topMaxDist;
       staircase[FPSTR(_bottomEchoCm)]              = bottomMaxDist;
       staircase[FPSTR(_togglePower)]               = togglePower;
-      DEBUG_PRINTLN(F("Staircase config saved."));
+      DEBUGUM_PRINTLN(F("Staircase config saved."));
     }
 
     /*
@@ -470,8 +470,8 @@ class Animated_Staircase : public Usermod {
 
       JsonObject top = root[FPSTR(_name)];
       if (top.isNull()) {
-        DEBUG_PRINT(FPSTR(_name));
-        DEBUG_PRINTLN(F(": No config found. (Using defaults.)"));
+        DEBUGUM_PRINT(FPSTR(_name));
+        DEBUGUM_PRINTLN(F(": No config found. (Using defaults.)"));
         return false;
       }
 
@@ -498,13 +498,13 @@ class Animated_Staircase : public Usermod {
 
       togglePower = top[FPSTR(_togglePower)] | togglePower;  // staircase toggles power on/off
 
-      DEBUG_PRINT(FPSTR(_name));
+      DEBUGUM_PRINT(FPSTR(_name));
       if (!initDone) {
         // first run: reading from cfg.json
-        DEBUG_PRINTLN(F(" config loaded."));
+        DEBUGUM_PRINTLN(F(" config loaded."));
       } else {
         // changing parameters from settings page
-        DEBUG_PRINTLN(F(" config (re)loaded."));
+        DEBUGUM_PRINTLN(F(" config (re)loaded."));
         bool changed = false;
         if ((oldUseUSSensorTop != useUSSensorTop) ||
             (oldUseUSSensorBottom != useUSSensorBottom) ||

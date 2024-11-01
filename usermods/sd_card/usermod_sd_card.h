@@ -46,7 +46,7 @@ class UsermodSdCard : public Usermod {
         };
 
         if (!PinManager::allocateMultiplePins(pins, 4, PinOwner::UM_SdCard)) {
-            DEBUG_PRINTF("[%s] SD (SPI) pin allocation failed!\n", _name);
+            DEBUGUM_PRINTF("[%s] SD (SPI) pin allocation failed!\n", _name);
             sdInitDone = false;
             return;
         }
@@ -59,7 +59,7 @@ class UsermodSdCard : public Usermod {
         #endif
 
         if(!returnOfInitSD) {
-          DEBUG_PRINTF("[%s] SPI begin failed!\n", _name);
+          DEBUGUM_PRINTF("[%s] SPI begin failed!\n", _name);
           sdInitDone = false;
           return;
         }
@@ -74,7 +74,7 @@ class UsermodSdCard : public Usermod {
 
         SD_ADAPTER.end();
 
-        DEBUG_PRINTF("[%s] deallocate pins!\n", _name);
+        DEBUGUM_PRINTF("[%s] deallocate pins!\n", _name);
         PinManager::deallocatePin(configPinSourceSelect, PinOwner::UM_SdCard);
         PinManager::deallocatePin(configPinSourceClock,  PinOwner::UM_SdCard);
         PinManager::deallocatePin(configPinPoci,         PinOwner::UM_SdCard);
@@ -96,10 +96,10 @@ class UsermodSdCard : public Usermod {
         if(sdInitDone) return;
         bool returnOfInitSD = false;
         returnOfInitSD = SD_ADAPTER.begin();
-        DEBUG_PRINTF("[%s] MMC begin\n", _name);
+        DEBUGUM_PRINTF("[%s] MMC begin\n", _name);
 
         if(!returnOfInitSD) {
-          DEBUG_PRINTF("[%s] MMC begin failed!\n", _name);
+          DEBUGUM_PRINTF("[%s] MMC begin failed!\n", _name);
           sdInitDone = false;
           return;
         }
@@ -113,7 +113,7 @@ class UsermodSdCard : public Usermod {
     static const char _name[];
 
     void setup() {
-      DEBUG_PRINTF("[%s] usermod loaded \n", _name);
+      DEBUGUM_PRINTF("[%s] usermod loaded \n", _name);
       #if defined(WLED_USE_SD_SPI)
         init_SD_SPI();
       #elif defined(WLED_USE_SD_MMC)
@@ -151,7 +151,7 @@ class UsermodSdCard : public Usermod {
       #ifdef WLED_USE_SD_SPI
         JsonObject top = root[FPSTR(_name)];
         if (top.isNull()) {
-          DEBUG_PRINTF("[%s] No config found. (Using defaults.)\n", _name);
+          DEBUGUM_PRINTF("[%s] No config found. (Using defaults.)\n", _name);
           return false;
         }
 
@@ -169,7 +169,7 @@ class UsermodSdCard : public Usermod {
 
         if(configSdEnabled != oldSdEnabled) {
           configSdEnabled ? init_SD_SPI() : deinit_SD_SPI();
-          DEBUG_PRINTF("[%s] SD card %s\n", _name, configSdEnabled ? "enabled" : "disabled");
+          DEBUGUM_PRINTF("[%s] SD card %s\n", _name, configSdEnabled ? "enabled" : "disabled");
         }
 
         if( configSdEnabled && (
@@ -179,8 +179,8 @@ class UsermodSdCard : public Usermod {
             oldPinPico          != configPinPico)
           )
         {
-          DEBUG_PRINTF("[%s] Init SD card based of config\n", _name);
-          DEBUG_PRINTF("[%s] Config changes \n - SS: %d -> %d\n - MI: %d -> %d\n - MO: %d -> %d\n - En: %d -> %d\n", _name, oldPinSourceSelect, configPinSourceSelect, oldPinSourceClock, configPinSourceClock, oldPinPoci, configPinPoci, oldPinPico, configPinPico);
+          DEBUGUM_PRINTF("[%s] Init SD card based of config\n", _name);
+          DEBUGUM_PRINTF("[%s] Config changes \n - SS: %d -> %d\n - MI: %d -> %d\n - MO: %d -> %d\n - En: %d -> %d\n", _name, oldPinSourceSelect, configPinSourceSelect, oldPinSourceClock, configPinSourceClock, oldPinPoci, configPinPoci, oldPinPico, configPinPico);
           reinit_SD_SPI();
         }
       #endif
@@ -202,7 +202,7 @@ bool file_onSD(const char *filepath)
 
   uint8_t cardType = SD_ADAPTER.cardType();
   if(cardType == CARD_NONE) {
-    DEBUG_PRINTF("[%s] not attached / cardType none\n", UsermodSdCard::_name);
+    DEBUGUM_PRINTF("[%s] not attached / cardType none\n", UsermodSdCard::_name);
     return false; // no SD card attached
   }
   if(cardType == CARD_MMC || cardType == CARD_SD || cardType == CARD_SDHC)
@@ -214,27 +214,27 @@ bool file_onSD(const char *filepath)
 }
 
 void listDir( const char * dirname, uint8_t levels){
-    DEBUG_PRINTF("Listing directory: %s\n", dirname);
+    DEBUGUM_PRINTF("Listing directory: %s\n", dirname);
 
     File root = SD_ADAPTER.open(dirname);
     if(!root){
-        DEBUG_PRINTF("Failed to open directory\n");
+        DEBUGUM_PRINTF("Failed to open directory\n");
         return;
     }
     if(!root.isDirectory()){
-        DEBUG_PRINTF("Not a directory\n");
+        DEBUGUM_PRINTF("Not a directory\n");
         return;
     }
 
     File file = root.openNextFile();
     while(file){
         if(file.isDirectory()){
-            DEBUG_PRINTF("  DIR : %s\n",file.name());
+            DEBUGUM_PRINTF("  DIR : %s\n",file.name());
             if(levels){
                 listDir(file.name(), levels -1);
             }
         } else {
-            DEBUG_PRINTF("  FILE: %s  SIZE: %d\n",file.name(), file.size());
+            DEBUGUM_PRINTF("  FILE: %s  SIZE: %d\n",file.name(), file.size());
         }
         file = root.openNextFile();
     }

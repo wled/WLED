@@ -88,15 +88,15 @@ public:
             }
             printPercent = (int)(klipperDoc[F("result")][F("status")][F("virtual_sdcard")][F("progress")].as<float>() * 100);
 
-            DEBUG_PRINT(F("Percent: "));
-            DEBUG_PRINTLN((int)(klipperDoc[F("result")][F("status")][F("virtual_sdcard")][F("progress")].as<float>() * 100));
-            DEBUG_PRINT(F("LEDs: "));
-            DEBUG_PRINTLN(direction == 2 ? (strip.getLengthTotal() / 2) * printPercent / 100 : strip.getLengthTotal() * printPercent / 100);
+            DEBUGUM_PRINT(F("Percent: "));
+            DEBUGUM_PRINTLN((int)(klipperDoc[F("result")][F("status")][F("virtual_sdcard")][F("progress")].as<float>() * 100));
+            DEBUGUM_PRINT(F("LEDs: "));
+            DEBUGUM_PRINTLN(direction == 2 ? (strip.getLengthTotal() / 2) * printPercent / 100 : strip.getLengthTotal() * printPercent / 100);
           }
           else
           {
-            DEBUG_PRINTLN(errorMessage);
-            DEBUG_PRINTLN(ip);
+            DEBUGUM_PRINTLN(errorMessage);
+            DEBUGUM_PRINTLN(ip);
           }
           lastTime = millis();
         }

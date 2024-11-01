@@ -29,29 +29,6 @@ uint32_t colorBalanceFromKelvin(uint16_t kelvin, uint32_t rgb);
 //udp.cpp
 uint8_t realtimeBroadcast(uint8_t type, IPAddress client, uint16_t length, byte *buffer, uint8_t bri=255, bool isRGBW=false);
 
-// enable additional debug output
-#if defined(WLED_DEBUG_HOST)
-  #include "net_debug.h"
-  #define DEBUGOUT NetDebug
-#else
-  #define DEBUGOUT Serial
-#endif
-
-#ifdef WLED_DEBUG
-  #ifndef ESP8266
-  #include <rom/rtc.h>
-  #endif
-  #define DEBUG_PRINT(x) DEBUGOUT.print(x)
-  #define DEBUG_PRINTLN(x) DEBUGOUT.println(x)
-  #define DEBUG_PRINTF(x...) DEBUGOUT.printf(x)
-  #define DEBUG_PRINTF_P(x...) DEBUGOUT.printf_P(x)
-#else
-  #define DEBUG_PRINT(x)
-  #define DEBUG_PRINTLN(x)
-  #define DEBUG_PRINTF(x...)
-  #define DEBUG_PRINTF_P(x...)
-#endif
-
 //color mangling macros
 #define RGBW32(r,g,b,w) (uint32_t((byte(w) << 24) | (byte(r) << 16) | (byte(g) << 8) | (byte(b))))
 #define R(c) (byte((c) >> 16))
@@ -152,7 +129,7 @@ BusDigital::BusDigital(BusConfig &bc, uint8_t nr, const ColorOrderMap &com)
   if (bc.type == TYPE_WS2812_1CH_X3) lenToCreate = NUM_ICS_WS2812_1CH_3X(bc.count); // only needs a third of "RGB" LEDs for NeoPixelBus
   _busPtr = PolyBus::create(_iType, _pins, lenToCreate + _skip, nr, _frequencykHz);
   _valid = (_busPtr != nullptr);
-  DEBUG_PRINTF_P(PSTR("%successfully inited strip %u (len %u) with type %u and pins %u,%u (itype %u). mA=%d/%d\n"), _valid?"S":"Uns", nr, bc.count, bc.type, _pins[0], is2Pin(bc.type)?_pins[1]:255, _iType, _milliAmpsPerLed, _milliAmpsMax);
+  DEBUGBUS_PRINTF_P(PSTR("%successfully inited strip %u (len %u) with type %u and pins %u,%u (itype %u). mA=%d/%d\n"), _valid?"S":"Uns", nr, bc.count, bc.type, _pins[0], is2Pin(bc.type)?_pins[1]:255, _iType, _milliAmpsPerLed, _milliAmpsMax);
 }
 
 //fine tune power estimation constants for your setup
@@ -416,7 +393,7 @@ void BusDigital::reinit() {
 }
 
 void BusDigital::cleanup() {
-  DEBUG_PRINTLN(F("Digital Cleanup."));
+  DEBUGBUS_PRINTLN(F("Digital Cleanup."));
   PolyBus::cleanup(_busPtr, _iType);
   _iType = I_NONE;
   _valid = false;
@@ -498,7 +475,7 @@ BusPwm::BusPwm(BusConfig &bc)
   _hasCCT = hasCCT(bc.type);
   _data = _pwmdata; // avoid malloc() and use stack
   _valid = true;
-  DEBUG_PRINTF_P(PSTR("%successfully inited PWM strip with type %u, frequency %u, bit depth %u and pins %u,%u,%u,%u,%u\n"), _valid?"S":"Uns", bc.type, _frequency, _depth, _pins[0], _pins[1], _pins[2], _pins[3], _pins[4]);
+  DEBUGBUS_PRINTF_P(PSTR("%successfully inited PWM strip with type %u, frequency %u, bit depth %u and pins %u,%u,%u,%u,%u\n"), _valid?"S":"Uns", bc.type, _frequency, _depth, _pins[0], _pins[1], _pins[2], _pins[3], _pins[4]);
 }
 
 void BusPwm::setPixelColor(uint16_t pix, uint32_t c) {
@@ -671,7 +648,7 @@ BusOnOff::BusOnOff(BusConfig &bc)
   _hasCCT = false;
   _data = &_onoffdata; // avoid malloc() and use stack
   _valid = true;
-  DEBUG_PRINTF_P(PSTR("%successfully inited On/Off strip with pin %u\n"), _valid?"S":"Uns", _pin);
+  DEBUGBUS_PRINTF_P(PSTR("%successfully inited On/Off strip with pin %u\n"), _valid?"S":"Uns", _pin);
 }
 
 void BusOnOff::setPixelColor(uint16_t pix, uint32_t c) {
@@ -731,7 +708,7 @@ BusNetwork::BusNetwork(BusConfig &bc)
   _UDPchannels = _hasWhite + 3;
   _client = IPAddress(bc.pins[0],bc.pins[1],bc.pins[2],bc.pins[3]);
   _valid = (allocateData(_len * _UDPchannels) != nullptr);
-  DEBUG_PRINTF_P(PSTR("%successfully inited virtual strip with type %u and IP %u.%u.%u.%u\n"), _valid?"S":"Uns", bc.type, bc.pins[0], bc.pins[1], bc.pins[2], bc.pins[3]);
+  DEBUGBUS_PRINTF_P(PSTR("%successfully inited virtual strip with type %u and IP %u.%u.%u.%u\n"), _valid?"S":"Uns", bc.type, bc.pins[0], bc.pins[1], bc.pins[2], bc.pins[3]);
 }
 
 void BusNetwork::setPixelColor(uint16_t pix, uint32_t c) {
@@ -857,7 +834,7 @@ void BusManager::useParallelOutput() {
 
 //do not call this method from system context (network callback)
 void BusManager::removeAll() {
-  DEBUG_PRINTLN(F("Removing all."));
+  DEBUGBUS_PRINTLN(F("Removing all."));
   //prevents crashes due to deleting busses while in use.
   while (!canAllShow()) yield();
   for (unsigned i = 0; i < numBusses; i++) delete busses[i];

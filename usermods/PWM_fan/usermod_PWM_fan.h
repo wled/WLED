@@ -82,7 +82,7 @@ class PWMFanUsermod : public Usermod {
       pinMode(tachoPin, INPUT);
       digitalWrite(tachoPin, HIGH);
       attachInterrupt(digitalPinToInterrupt(tachoPin), rpm_fan, FALLING);
-      DEBUG_PRINTLN(F("Tacho sucessfully initialized."));
+      DEBUGUM_PRINTLN(F("Tacho sucessfully initialized."));
     }
 
     void deinitTacho(void) {
@@ -130,7 +130,7 @@ class PWMFanUsermod : public Usermod {
       // attach the channel to the GPIO to be controlled
       ledcAttachPin(pwmPin, pwmChannel);
       #endif
-      DEBUG_PRINTLN(F("Fan PWM sucessfully initialized."));
+      DEBUGUM_PRINTLN(F("Fan PWM sucessfully initialized."));
     }
 
     void deinitPWMfan(void) {
@@ -173,7 +173,7 @@ class PWMFanUsermod : public Usermod {
 
     uint8_t calculatePwmStep(float diffTemp){
       if ((diffTemp == NAN) || (diffTemp <= -100.0)) {
-        DEBUG_PRINTLN(F("WARNING: no temperature value available. Cannot do temperature control. Will set PWM fan to 255."));
+        DEBUGUM_PRINTLN(F("WARNING: no temperature value available. Cannot do temperature control. Will set PWM fan to 255."));
         return _pwmMaxStepCount;
       }
       if(diffTemp <=0){
@@ -315,7 +315,7 @@ class PWMFanUsermod : public Usermod {
       top[FPSTR(_minPWMValuePct)] = minPWMValuePct;
       top[FPSTR(_maxPWMValuePct)] = maxPWMValuePct;
       top[FPSTR(_IRQperRotation)] = numberOfInterrupsInOneSingleRotation;
-      DEBUG_PRINTLN(F("Autosave config saved."));
+      DEBUGUM_PRINTLN(F("Autosave config saved."));
     }
 
     /*
@@ -333,9 +333,9 @@ class PWMFanUsermod : public Usermod {
       int8_t newPwmPin   = pwmPin;
 
       JsonObject top = root[FPSTR(_name)];
-      DEBUG_PRINT(FPSTR(_name));
+      DEBUGUM_PRINT(FPSTR(_name));
       if (top.isNull()) {
-        DEBUG_PRINTLN(F(": No config found. (Using defaults.)"));
+        DEBUGUM_PRINTLN(F(": No config found. (Using defaults.)"));
         return false;
       }
 
@@ -356,12 +356,12 @@ class PWMFanUsermod : public Usermod {
         // first run: reading from cfg.json
         tachoPin = newTachoPin;
         pwmPin   = newPwmPin;
-        DEBUG_PRINTLN(F(" config loaded."));
+        DEBUGUM_PRINTLN(F(" config loaded."));
       } else {
-        DEBUG_PRINTLN(F(" config (re)loaded."));
+        DEBUGUM_PRINTLN(F(" config (re)loaded."));
         // changing paramters from settings page
         if (tachoPin != newTachoPin || pwmPin != newPwmPin) {
-          DEBUG_PRINTLN(F("Re-init pins."));
+          DEBUGUM_PRINTLN(F("Re-init pins."));
           // deallocate pin and release interrupts
           deinitTacho();
           deinitPWMfan();

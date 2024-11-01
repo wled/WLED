@@ -82,8 +82,8 @@ class LD2410Usermod : public Usermod {
 
       String temp;
       serializeJson(doc, temp);
-      DEBUG_PRINTLN(t);
-      DEBUG_PRINTLN(temp);
+      DEBUGUM_PRINTLN(t);
+      DEBUGUM_PRINTLN(temp);
 
       mqtt->publish(t.c_str(), 0, true, temp.c_str());
     }
@@ -179,9 +179,9 @@ class LD2410Usermod : public Usermod {
       bool configComplete = !top.isNull();
       if (!configComplete)
       {
-        DEBUG_PRINT(FPSTR(_name));
-        DEBUG_PRINT(F("LD2410"));
-        DEBUG_PRINTLN(F(": No config found. (Using defaults.)"));
+        DEBUGUM_PRINT(FPSTR(_name));
+        DEBUGUM_PRINT(F("LD2410"));
+        DEBUGUM_PRINTLN(F(": No config found. (Using defaults.)"));
         return false;
       }
 

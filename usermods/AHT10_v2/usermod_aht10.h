@@ -114,8 +114,8 @@ private:
 
     String temp;
     serializeJson(doc, temp);
-    DEBUG_PRINTLN(t);
-    DEBUG_PRINTLN(temp);
+    DEBUGUM_PRINTLN(t);
+    DEBUGUM_PRINTLN(temp);
 
     mqtt->publish(t.c_str(), 0, true, temp.c_str());
   }
@@ -146,10 +146,10 @@ public:
     if (_lastStatus == AHT10_ERROR)
     {
       // Perform softReset and retry
-      DEBUG_PRINTLN(F("AHTxx returned error, doing softReset"));
+      DEBUGUM_PRINTLN(F("AHTxx returned error, doing softReset"));
       if (!_aht->softReset())
       {
-        DEBUG_PRINTLN(F("softReset failed"));
+        DEBUGUM_PRINTLN(F("softReset failed"));
         return;
       }
 
@@ -244,7 +244,7 @@ public:
     top[F("MqttHomeAssistantDiscovery")] = _mqttHomeAssistant;
 #endif
 
-    DEBUG_PRINTLN(F("AHT10 config saved."));
+    DEBUGUM_PRINTLN(F("AHT10 config saved."));
   }
 
   bool readFromConfig(JsonObject &root) override

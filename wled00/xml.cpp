@@ -83,7 +83,7 @@ void appendGPIOinfo(Print& settingsScript) {
   // usermod pin reservations will become unnecessary when settings pages will read cfg.json directly
   if (requestJSONBufferLock(6)) {
     // if we can't allocate JSON buffer ignore usermod pins
-    JsonObject mods = pDoc->createNestedObject(F("um"));
+    JsonObject mods = pDoc->createNestedObject("um");
     UsermodManager::addToConfig(mods);
     if (!mods.isNull()) fillUMPins(settingsScript, mods);
     releaseJSONBufferLock();
@@ -91,35 +91,44 @@ void appendGPIOinfo(Print& settingsScript) {
   settingsScript.print(F("];"));
 
   // add reserved (unusable) pins
+  bool firstPin = true;
   settingsScript.print(F("d.rsvd=["));
   for (unsigned i = 0; i < WLED_NUM_PINS; i++) {
     if (!PinManager::isPinOk(i, false)) {  // include readonly pins
-      settingsScript.print(i); settingsScript.print(",");
+      if (!firstPin) settingsScript.print(",");
+      settingsScript.print(i);
+      firstPin = false;
     }
   }
   #ifdef WLED_ENABLE_DMX
-  settingsScript.print(F("2,")); // DMX hardcoded pin
+  if (!firstPin) settingsScript.print(",");
+  settingsScript.print(2); // DMX hardcoded pin
+  firstPin = false;
   #endif
-  #if defined(WLED_DEBUG) && !defined(WLED_DEBUG_HOST)
-  settingsScript.printf_P(PSTR(",%d"),hardwareTX); // debug output (TX) pin
+
+  #if (defined(WLED_DEBUG) || defined(WLED_DEBUG_FX) || defined(WLED_DEBUG_FS) || defined(WLED_DEBUG_BUS) || defined(WLED_DEBUG_PINMANAGER) || defined(WLED_DEBUG_USERMODS)) && !defined(WLED_DEBUG_HOST)
+  if (!firstPin) settingsScript.print(",");
+  settingsScript.print(hardwareTX); // debug output (TX) pin
+  firstPin = false;
   #endif
   //Note: Using pin 3 (RX) disables Adalight / Serial JSON
   #ifdef WLED_USE_ETHERNET
   if (ethernetType != WLED_ETH_NONE && ethernetType < WLED_NUM_ETH_TYPES) {
-    for (unsigned p=0; p<WLED_ETH_RSVD_PINS_COUNT; p++) { settingsScript.printf(",%d", esp32_nonconfigurable_ethernet_pins[p].pin); }
-    if (ethernetBoards[ethernetType].eth_power>=0)     { settingsScript.printf(",%d", ethernetBoards[ethernetType].eth_power); }
-    if (ethernetBoards[ethernetType].eth_mdc>=0)       { settingsScript.printf(",%d", ethernetBoards[ethernetType].eth_mdc); }
-    if (ethernetBoards[ethernetType].eth_mdio>=0)      { settingsScript.printf(",%d", ethernetBoards[ethernetType].eth_mdio); }
-    switch (ethernetBoards[ethernetType].eth_clk_mode) {
+    if (!firstPin) settingsScript.print(",");
+    for (unsigned p=0; p<WLED_ETH_RSVD_PINS_COUNT; p++) { settingsScript.print(esp32_nonconfigurable_ethernet_pins[p].pin); }
+    if (ethernetBoards[ethernetType].eth_power >= 0)    { settingsScript.print(ethernetBoards[ethernetType].eth_power); }
+    if (ethernetBoards[ethernetType].eth_mdc >= 0)      { settingsScript.print(ethernetBoards[ethernetType].eth_mdc); }
+    if (ethernetBoards[ethernetType].eth_mdio >= 0)     { settingsScript.print(ethernetBoards[ethernetType].eth_mdio); }
+    switch (ethernetBoards[ethernetType].eth_clk_mode)  {
       case ETH_CLOCK_GPIO0_IN:
       case ETH_CLOCK_GPIO0_OUT:
-        settingsScript.print(F("0"));
+        settingsScript.print(0);
         break;
       case ETH_CLOCK_GPIO16_OUT:
-        settingsScript.print(F("16"));
+        settingsScript.print(16);
         break;
       case ETH_CLOCK_GPIO17_OUT:
-        settingsScript.print(F("17"));
+        settingsScript.print(17);
         break;
     }
   }
@@ -128,11 +137,11 @@ void appendGPIOinfo(Print& settingsScript) {
 
   // add info for read-only GPIO
   settingsScript.print(F("d.ro_gpio=["));
-  bool firstPin = true;
+  firstPin = true;
   for (unsigned i = 0; i < WLED_NUM_PINS; i++) {
     if (PinManager::isReadOnlyPin(i)) {
       // No comma before the first pin
-      if (!firstPin) settingsScript.print(F(","));
+      if (!firstPin) settingsScript.print(",");
       settingsScript.print(i);
       firstPin = false;
     }

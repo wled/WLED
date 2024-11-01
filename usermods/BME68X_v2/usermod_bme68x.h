@@ -14,7 +14,7 @@
 #define UMOD_BME680X_SW_VERSION "1.0.1"     			 // NOTE - Version of the User Mod
 #define CALIB_FILE_NAME "/BME680X-Calib.hex"			 // NOTE - Calibration file name
 #define UMOD_NAME "BME680X"                 			 // NOTE - User module name
-#define UMOD_DEBUG_NAME "UM-BME680X: "      			 // NOTE - Debug print module name addon
+#define UMOD_DEBUGUM_NAME "UM-BME680X: "      			 // NOTE - Debug print module name addon
 
 /* Debug Print Text Coloring */
 #define ESC "\033"
@@ -324,12 +324,12 @@ const uint8_t UsermodBME68X::bsec_config_iaq[] = {
  * @brief Called by WLED: Setup of the usermod
  */
 void UsermodBME68X::setup() {
-	DEBUG_PRINTLN(F(UMOD_DEBUG_NAME ESC_FGCOLOR_CYAN "Initialize" ESC_STYLE_RESET));
+	DEBUGUM_PRINTLN(F(UMOD_DEBUGUM_NAME ESC_FGCOLOR_CYAN "Initialize" ESC_STYLE_RESET));
 
 	/* Check, if i2c is activated */
 	if (i2c_scl < 0 || i2c_sda < 0) {
 		settings.enabled = false;												// Disable usermod once i2c is not running
-		DEBUG_PRINTLN(F(UMOD_DEBUG_NAME "I2C is not activated. Please activate I2C first." FAIL));
+		DEBUGUM_PRINTLN(F(UMOD_DEBUGUM_NAME "I2C is not activated. Please activate I2C first." FAIL));
 		return;
 	}
 
@@ -342,8 +342,8 @@ void UsermodBME68X::setup() {
 	/* Init Library*/
 	iaqSensor.begin(settings.I2cadress, Wire); 									// BME68X_I2C_ADDR_LOW
 	stringbuff = "BSEC library version " + String(iaqSensor.version.major) + "." + String(iaqSensor.version.minor) + "." + String(iaqSensor.version.major_bugfix) + "." + String(iaqSensor.version.minor_bugfix);
-	DEBUG_PRINT(F(UMOD_NAME));
-	DEBUG_PRINTLN(F(stringbuff.c_str()));
+	DEBUGUM_PRINT(F(UMOD_NAME));
+	DEBUGUM_PRINTLN(F(stringbuff.c_str()));
 
 	/* Init Sensor*/
 	iaqSensor.setConfig(bsec_config_iaq);
@@ -353,7 +353,7 @@ void UsermodBME68X::setup() {
 	loadState();                                                 				// Load the old calibration data
 	checkIaqSensorStatus();                                      				// Check the sensor status
 	// HomeAssistantDiscovery();
-	DEBUG_PRINTLN(F(INFO_COLUMN DONE));
+	DEBUGUM_PRINTLN(F(INFO_COLUMN DONE));
 }
 
 /**
@@ -522,12 +522,12 @@ void UsermodBME68X::MQTT_publish(const char* topic, const float& value, const in
  * @param bool Session Present
  */
 void UsermodBME68X::onMqttConnect(bool sessionPresent) {
-	DEBUG_PRINTLN(UMOD_DEBUG_NAME "OnMQTTConnect event fired");
+	DEBUGUM_PRINTLN(UMOD_DEBUGUM_NAME "OnMQTTConnect event fired");
 	HomeAssistantDiscovery();
 
 	if (!flags.MqttInitialized) {
 		flags.MqttInitialized=true;
-		DEBUG_PRINTLN(UMOD_DEBUG_NAME "MQTT first connect");
+		DEBUGUM_PRINTLN(UMOD_DEBUGUM_NAME "MQTT first connect");
 	}
 }
 
@@ -538,7 +538,7 @@ void UsermodBME68X::onMqttConnect(bool sessionPresent) {
 void UsermodBME68X::HomeAssistantDiscovery() {
 	if (!settings.HomeAssistantDiscovery || !flags.InitSuccessful || !settings.enabled) return; 									// Leave once HomeAssistant Discovery is inactive
 
-	DEBUG_PRINTLN(UMOD_DEBUG_NAME ESC_FGCOLOR_CYAN "Creating HomeAssistant Discovery Mqtt-Entrys" ESC_STYLE_RESET);
+	DEBUGUM_PRINTLN(UMOD_DEBUGUM_NAME ESC_FGCOLOR_CYAN "Creating HomeAssistant Discovery Mqtt-Entrys" ESC_STYLE_RESET);
 
 	/* Sensor Values */
 	MQTT_PublishHASensor(_nameTemp,  		"TEMPERATURE", 				tempScale.c_str(), 	settings.decimals.temperature		); 		// Temperature
@@ -565,7 +565,7 @@ void UsermodBME68X::HomeAssistantDiscovery() {
 	MQTT_PublishHASensor(_nameStabStatus,	"", 						_unitNone, 			settings.publishSensorState - 1, 1);
 	MQTT_PublishHASensor(_nameRunInStatus,	"", 						_unitNone, 			settings.publishSensorState - 1, 1);
 
-	DEBUG_PRINTLN(UMOD_DEBUG_NAME DONE);
+	DEBUGUM_PRINTLN(UMOD_DEBUGUM_NAME DONE);
 }
 
 /**
@@ -580,7 +580,7 @@ void UsermodBME68X::HomeAssistantDiscovery() {
  * @param option Set to true if the sensor is part of diagnostics (dafault 0)
  */
 void UsermodBME68X::MQTT_PublishHASensor(const String& name, const String& deviceClass, const String& unitOfMeasurement, const int8_t& digs, const uint8_t& option) {
-	DEBUG_PRINT(UMOD_DEBUG_NAME "\t" + name);
+	DEBUGUM_PRINT(UMOD_DEBUGUM_NAME "\t" + name);
 	
 	snprintf_P(charbuffer, 127, PSTR("%s/%s"), mqttDeviceTopic, name.c_str());				// Current values will be posted here
 	String basetopic = String(_hadtopic) + mqttClientID + F("/") + name + F("/config");   	// This is the place where Home Assinstant Discovery will check for new devices
@@ -589,7 +589,7 @@ void UsermodBME68X::MQTT_PublishHASensor(const String& name, const String& devic
 		/* Delete MQTT Entry */
 		if (WLED_MQTT_CONNECTED) {
 			mqtt->publish(basetopic.c_str(), 0, true, "");							// Send emty entry to delete
-			DEBUG_PRINTLN(INFO_COLUMN "deleted");
+			DEBUGUM_PRINTLN(INFO_COLUMN "deleted");
 		}
 	} else {
 		/* Create all the necessary HAD MQTT entrys - see: https://www.home-assistant.io/integrations/sensor.mqtt/#configuration-variables */
@@ -617,14 +617,14 @@ void UsermodBME68X::MQTT_PublishHASensor(const String& name, const String& devic
 		jdoc[F("unique_id")] = String(mqttClientID) + "-" + name; 							// An ID that uniquely identifies this sensor. If two sensors have the same unique ID, Home Assistant will raise an exception.
 		if (unitOfMeasurement != "") jdoc[F("unit_of_measurement")] = unitOfMeasurement; 	// Defines the units of measurement of the sensor, if any. The unit_of_measurement can be null.
 
-		DEBUG_PRINTF(" (%d bytes)", jdoc.memoryUsage());
+		DEBUGUM_PRINTF(" (%d bytes)", jdoc.memoryUsage());
 
 		stringbuff = "";                                                            		// clear string buffer
 		serializeJson(jdoc, stringbuff); 													// JSON to String
 
 		if (WLED_MQTT_CONNECTED) {                                         					// Check if MQTT Connected, otherwise it will crash the 8266
 			mqtt->publish(basetopic.c_str(), 0, true, stringbuff.c_str()); 					// Publish the HA discovery sensor entry
-			DEBUG_PRINTLN(INFO_COLUMN "published");
+			DEBUGUM_PRINTLN(INFO_COLUMN "published");
 		}
 	}
 }
@@ -634,7 +634,7 @@ void UsermodBME68X::MQTT_PublishHASensor(const String& name, const String& devic
  * @param JsonObject Pointer
  */
 void UsermodBME68X::addToJsonInfo(JsonObject& root) {
-	//DEBUG_PRINTLN(F(UMOD_DEBUG_NAME "Add to info event"));
+	//DEBUGUM_PRINTLN(F(UMOD_DEBUGUM_NAME "Add to info event"));
 	JsonObject user = root[F("u")];
 
 	if (user.isNull())
@@ -719,7 +719,7 @@ void UsermodBME68X::InfoHelper(JsonObject& root, const char* name, const String&
  * @see UsermodManager::addToConfig()
  */
 void UsermodBME68X::addToConfig(JsonObject& root) {
-	DEBUG_PRINT(F(UMOD_DEBUG_NAME "Creating configuration pages content: "));
+	DEBUGUM_PRINT(F(UMOD_DEBUGUM_NAME "Creating configuration pages content: "));
 
 	JsonObject top = root.createNestedObject(FPSTR(UMOD_NAME));
 	/* general settings */
@@ -751,7 +751,7 @@ void UsermodBME68X::addToConfig(JsonObject& root) {
 	sensors_json[FPSTR(_nameVoc)] = 			settings.decimals.Voc;
 	sensors_json[FPSTR(_nameGasPer)] =			settings.decimals.gasPerc;
 
-	DEBUG_PRINTLN(F(OK));
+	DEBUGUM_PRINTLN(F(OK));
 }
 
 /**
@@ -799,7 +799,7 @@ void UsermodBME68X::appendConfigData() {
  * @see UsermodManager::readFromConfig()
  */
 bool UsermodBME68X::readFromConfig(JsonObject& root) {
-	DEBUG_PRINT(F(UMOD_DEBUG_NAME "Reading configuration: "));
+	DEBUGUM_PRINT(F(UMOD_DEBUGUM_NAME "Reading configuration: "));
 
 	JsonObject top = root[FPSTR(UMOD_NAME)];
 	bool configComplete = !top.isNull();
@@ -832,7 +832,7 @@ bool UsermodBME68X::readFromConfig(JsonObject& root) {
 	configComplete &= getJsonValue(top["Sensors"][FPSTR(_nameVoc)], 			settings.decimals.Voc, 						0		);
 	configComplete &= getJsonValue(top["Sensors"][FPSTR(_nameGasPer)], 			settings.decimals.gasPerc, 					0		);
 
-	DEBUG_PRINTLN(F(OK));	
+	DEBUGUM_PRINTLN(F(OK));	
 
 	/* Set the selected temperature unit */
 	if (settings.tempScale) {
@@ -843,13 +843,13 @@ bool UsermodBME68X::readFromConfig(JsonObject& root) {
 	}
 
 	if (flags.DeleteCaibration) {
-		DEBUG_PRINT(F(UMOD_DEBUG_NAME "Deleting Calibration File"));
+		DEBUGUM_PRINT(F(UMOD_DEBUGUM_NAME "Deleting Calibration File"));
 		flags.DeleteCaibration = false;
 		if (WLED_FS.remove(CALIB_FILE_NAME)) {
-			DEBUG_PRINTLN(F(OK));
+			DEBUGUM_PRINTLN(F(OK));
 		}
 		else {
-			DEBUG_PRINTLN(F(FAIL));
+			DEBUGUM_PRINTLN(F(FAIL));
 		}
 	}
 
@@ -1023,35 +1023,35 @@ void UsermodBME68X::checkIaqSensorStatus() {
 
 	if (iaqSensor.bsecStatus != BSEC_OK) {
 		InfoPageStatusLine = "BSEC Library ";
-		DEBUG_PRINT(UMOD_DEBUG_NAME + InfoPageStatusLine);
+		DEBUGUM_PRINT(UMOD_DEBUGUM_NAME + InfoPageStatusLine);
 		flags.InitSuccessful = false;
 		if (iaqSensor.bsecStatus < BSEC_OK) {
 			InfoPageStatusLine += " Error Code : " + String(iaqSensor.bsecStatus);
-			DEBUG_PRINTLN(FAIL);
+			DEBUGUM_PRINTLN(FAIL);
 		}
 		else {
 			InfoPageStatusLine += " Warning Code : " + String(iaqSensor.bsecStatus);
-			DEBUG_PRINTLN(WARN);
+			DEBUGUM_PRINTLN(WARN);
 		}
 	}
 	else {
 		InfoPageStatusLine = "Sensor BME68X ";
-		DEBUG_PRINT(UMOD_DEBUG_NAME + InfoPageStatusLine);
+		DEBUGUM_PRINT(UMOD_DEBUGUM_NAME + InfoPageStatusLine);
 
 		if (iaqSensor.bme68xStatus != BME68X_OK) {
 			flags.InitSuccessful = false;
 			if (iaqSensor.bme68xStatus < BME68X_OK) {
 				InfoPageStatusLine += "error code: " + String(iaqSensor.bme68xStatus);
-				DEBUG_PRINTLN(FAIL);
+				DEBUGUM_PRINTLN(FAIL);
 			}
 			else {
 				InfoPageStatusLine += "warning code: " + String(iaqSensor.bme68xStatus);
-				DEBUG_PRINTLN(WARN);
+				DEBUGUM_PRINTLN(WARN);
 			}
 		}
 		else {
 			InfoPageStatusLine += F("OK");
-			DEBUG_PRINTLN(OK);
+			DEBUGUM_PRINTLN(OK);
 		}
 	}
 }
@@ -1061,20 +1061,20 @@ void UsermodBME68X::checkIaqSensorStatus() {
  */
 void UsermodBME68X::loadState() {
 	if (WLED_FS.exists(CALIB_FILE_NAME)) {
-		DEBUG_PRINT(F(UMOD_DEBUG_NAME "Read the calibration file: "));
+		DEBUGUM_PRINT(F(UMOD_DEBUGUM_NAME "Read the calibration file: "));
 		File file = WLED_FS.open(CALIB_FILE_NAME, FILE_READ);
 		if (!file) {
-			DEBUG_PRINTLN(FAIL);
+			DEBUGUM_PRINTLN(FAIL);
 		}
 		else {
 			file.read(bsecState, BSEC_MAX_STATE_BLOB_SIZE);
 			file.close();
-			DEBUG_PRINTLN(OK);
+			DEBUGUM_PRINTLN(OK);
 			iaqSensor.setState(bsecState);
 		}
 	}
 	else {
-		DEBUG_PRINTLN(F(UMOD_DEBUG_NAME "Calibration file not found."));
+		DEBUGUM_PRINTLN(F(UMOD_DEBUGUM_NAME "Calibration file not found."));
 	}
 }
 
@@ -1082,17 +1082,17 @@ void UsermodBME68X::loadState() {
  * @brief Saves the calibration data from the file system of the device
  */
 void UsermodBME68X::saveState() {
-	DEBUG_PRINT(F(UMOD_DEBUG_NAME "Write the calibration file  "));
+	DEBUGUM_PRINT(F(UMOD_DEBUGUM_NAME "Write the calibration file  "));
 	File file = WLED_FS.open(CALIB_FILE_NAME, FILE_WRITE);
 	if (!file) {
-		DEBUG_PRINTLN(FAIL);
+		DEBUGUM_PRINTLN(FAIL);
 	}
 	else {
 		iaqSensor.getState(bsecState);
 		file.write(bsecState, BSEC_MAX_STATE_BLOB_SIZE);
 		file.close();
 		stateUpdateCounter++;
-		DEBUG_PRINTF("(saved %d times)" OK "\n", stateUpdateCounter);
+		DEBUGUM_PRINTF("(saved %d times)" OK "\n", stateUpdateCounter);
 		flags.SaveState = false; // Clear save state flag
 
 		char contbuffer[30];

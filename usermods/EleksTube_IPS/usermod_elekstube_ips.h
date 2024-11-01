@@ -91,7 +91,7 @@ class ElekstubeIPSUsermod : public Usermod {
       JsonObject top = root.createNestedObject(FPSTR(_name)); // usermodname
       top[FPSTR(_tubeSeg)] = tfts.tubeSegment;
       top[FPSTR(_digitOffset)] = tfts.digitOffset;
-      DEBUG_PRINTLN(F("EleksTube config saved."));
+      DEBUGUM_PRINTLN(F("EleksTube config saved."));
     }
 
     /**
@@ -101,11 +101,11 @@ class ElekstubeIPSUsermod : public Usermod {
      */
     bool readFromConfig(JsonObject &root) {
       // we look for JSON object: {"EleksTubeIPS": {"tubeSegment": 1, "digitOffset": 0}}
-      DEBUG_PRINT(FPSTR(_name));
+      DEBUGUM_PRINT(FPSTR(_name));
 
       JsonObject top = root[FPSTR(_name)];
       if (top.isNull()) {
-        DEBUG_PRINTLN(F(": No config found. (Using defaults.)"));
+        DEBUGUM_PRINTLN(F(": No config found. (Using defaults.)"));
         return false;
       }
 

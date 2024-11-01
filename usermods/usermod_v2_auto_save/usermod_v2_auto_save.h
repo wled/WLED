@@ -225,7 +225,7 @@ class AutoSaveUsermod : public Usermod {
       top[FPSTR(_autoSaveAfterSec)]    = autoSaveAfterSec;  // usermodparam
       top[FPSTR(_autoSavePreset)]      = autoSavePreset;    // usermodparam
       top[FPSTR(_autoSaveApplyOnBoot)] = applyAutoSaveOnBoot;
-      DEBUG_PRINTLN(F("Autosave config saved."));
+      DEBUGUM_PRINTLN(F("Autosave config saved."));
     }
 
     /*
@@ -242,8 +242,8 @@ class AutoSaveUsermod : public Usermod {
       // we look for JSON object: {"Autosave": {"enabled": true, "autoSaveAfterSec": 10, "autoSavePreset": 250, ...}}
       JsonObject top = root[FPSTR(_name)];
       if (top.isNull()) {
-        DEBUG_PRINT(FPSTR(_name));
-        DEBUG_PRINTLN(F(": No config found. (Using defaults.)"));
+        DEBUGUM_PRINT(FPSTR(_name));
+        DEBUGUM_PRINTLN(F(": No config found. (Using defaults.)"));
         return false;
       }
 
@@ -253,8 +253,8 @@ class AutoSaveUsermod : public Usermod {
       autoSavePreset      = top[FPSTR(_autoSavePreset)] | autoSavePreset;
       autoSavePreset      = (uint8_t) min(250,max(100,(int)autoSavePreset)); // bounds checking
       applyAutoSaveOnBoot = top[FPSTR(_autoSaveApplyOnBoot)] | applyAutoSaveOnBoot;
-      DEBUG_PRINT(FPSTR(_name));
-      DEBUG_PRINTLN(F(" config (re)loaded."));
+      DEBUGUM_PRINT(FPSTR(_name));
+      DEBUGUM_PRINTLN(F(" config (re)loaded."));
 
       // use "return !top["newestParameter"].isNull();" when updating Usermod with new features
       return true;

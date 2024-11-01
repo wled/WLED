@@ -8,6 +8,29 @@
 #include "const.h"
 #include <vector>
 
+// enable additional debug output
+#if defined(WLED_DEBUG_HOST)
+  #include "net_debug.h"
+  #define DEBUGOUT NetDebug
+#else
+  #define DEBUGOUT Serial
+#endif
+
+#ifdef WLED_DEBUG_BUS
+  #ifndef ESP8266
+  #include <rom/rtc.h>
+  #endif
+  #define DEBUGBUS_PRINT(x) DEBUGOUT.print(x)
+  #define DEBUGBUS_PRINTLN(x) DEBUGOUT.println(x)
+  #define DEBUGBUS_PRINTF(x...) DEBUGOUT.printf(x)
+  #define DEBUGBUS_PRINTF_P(x...) DEBUGOUT.printf_P(x)
+#else
+  #define DEBUGBUS_PRINT(x)
+  #define DEBUGBUS_PRINTLN(x)
+  #define DEBUGBUS_PRINTF(x...)
+  #define DEBUGBUS_PRINTF_P(x...)
+#endif
+
 //colors.cpp
 uint16_t approximateKelvinFromRGB(uint32_t rgb);
 

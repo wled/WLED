@@ -9,6 +9,25 @@
 #include <Arduino.h> //PI constant
 
 //#define WLED_DEBUG_MATH
+#ifdef WLED_DEBUG_MATH
+  // enable additional debug output
+  #if defined(WLED_DEBUG_HOST)
+    #include "net_debug.h"
+    #define DEBUGOUT NetDebug
+  #else
+    #define DEBUGOUT Serial
+  #endif
+  #define DEBUGM_PRINT(x) DEBUGOUT.print(x)
+  #define DEBUGM_PRINTLN(x) DEBUGOUT.println(x)
+  #define DEBUGM_PRINTF(x...) DEBUGOUT.printf(x)
+  #define DEBUGM_PRINTF_P(x...) DEBUGOUT.printf_P(x)
+#else
+  #define DEBUGM_PRINT(x)
+  #define DEBUGM_PRINTLN(x)
+  #define DEBUGM_PRINTF(x...)
+  #define DEBUGM_PRINTF_P(x...)
+#endif
+
 
 #define modd(x, y) ((x) - (int)((x) / (y)) * (y))
 
@@ -25,17 +44,13 @@ float cos_t(float phi)
   float xx = x * x;
 
   float res = sign * (1 - ((xx) / (2)) + ((xx * xx) / (24)) - ((xx * xx * xx) / (720)) + ((xx * xx * xx * xx) / (40320)) - ((xx * xx * xx * xx * xx) / (3628800)) + ((xx * xx * xx * xx * xx * xx) / (479001600)));
-  #ifdef WLED_DEBUG_MATH
-  Serial.printf("cos: %f,%f,%f,(%f)\n",phi,res,cos(x),res-cos(x));
-  #endif
+  DEBUGM_PRINTF_P(PSTR("cos: %f,%f,%f,(%f)\n"),phi,res,cos(x),res-cos(x));
   return res;
 }
 
 float sin_t(float x) {
   float res =  cos_t(HALF_PI - x);
-  #ifdef WLED_DEBUG_MATH
-  Serial.printf("sin: %f,%f,%f,(%f)\n",x,res,sin(x),res-sin(x));
-  #endif
+  DEBUGM_PRINTF_P(PSTR("sin: %f,%f,%f,(%f)\n"),x,res,sin(x),res-sin(x));
   return res;
 }
 
@@ -43,9 +58,7 @@ float tan_t(float x) {
   float c = cos_t(x);
   if (c==0.0f) return 0;
   float res = sin_t(x) / c;
-  #ifdef WLED_DEBUG_MATH
-  Serial.printf("tan: %f,%f,%f,(%f)\n",x,res,tan(x),res-tan(x));
-  #endif
+  DEBUGM_PRINTF_P(PSTR("tan: %f,%f,%f,(%f)\n"),x,res,tan(x),res-tan(x));
   return res;
 }
 
@@ -64,17 +77,13 @@ float acos_t(float x) {
   ret = ret * sqrt(1.0f-xabs);
   ret = ret - 2 * negate * ret;
   float res = negate * PI + ret;
-  #ifdef WLED_DEBUG_MATH
-  Serial.printf("acos: %f,%f,%f,(%f)\n",x,res,acos(x),res-acos(x));
-  #endif
+  DEBUGM_PRINTF_P(PSTR("acos: %f,%f,%f,(%f)\n"),x,res,acos(x),res-acos(x));
   return res;
 }
 
 float asin_t(float x) {
   float res = HALF_PI - acos_t(x);
-  #ifdef WLED_DEBUG_MATH
-  Serial.printf("asin: %f,%f,%f,(%f)\n",x,res,asin(x),res-asin(x));
-  #endif
+  DEBUGM_PRINTF_P(PSTR("asin: %f,%f,%f,(%f)\n"),x,res,asin(x),res-asin(x));
   return res;
 }
 
@@ -95,9 +104,7 @@ float atan_t(float x) {
   static const float C3 {  0.05375f  };
   static const float C4 { -0.003445f };
 
-  #ifdef WLED_DEBUG_MATH
-  float xinput = x;
-  #endif
+  [[maybe_unused]] float xinput = x;
   bool neg = (x < 0);
   x = std::abs(x);
   float res;
@@ -113,9 +120,7 @@ float atan_t(float x) {
   if (neg) {
     res = -res;
   }
-  #ifdef WLED_DEBUG_MATH
-  Serial.printf("atan: %f,%f,%f,(%f)\n",xinput,res,atan(xinput),res-atan(xinput));
-  #endif
+  DEBUGM_PRINTF_P(PSTR("atan: %f,%f,%f,(%f)\n"),xinput,res,atan(xinput),res-atan(xinput));
   return res;
 }
 
@@ -123,17 +128,13 @@ float floor_t(float x) {
   bool neg = x < 0;
   int val = x;
   if (neg) val--;
-  #ifdef WLED_DEBUG_MATH
-  Serial.printf("floor: %f,%f,%f\n",x,(float)val,floor(x));
-  #endif
+  DEBUGM_PRINTF_P(PSTR("floor: %f,%f,%f\n"),x,(float)val,floor(x));
   return val;
 }
 
 float fmod_t(float num, float denom) {
   int tquot = num / denom;
   float res = num - tquot * denom;
-  #ifdef WLED_DEBUG_MATH
-  Serial.printf("fmod: %f,%f,(%f)\n",res,fmod(num,denom),res-fmod(num,denom));
-  #endif
+  DEBUGM_PRINTF_P(PSTR("fmod: %f,%f,(%f)\n"),res,fmod(num,denom),res-fmod(num,denom));
   return res;
 }

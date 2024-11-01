@@ -104,8 +104,8 @@ private:
 
     String temp;
     serializeJson(doc, temp);
-    DEBUG_PRINTLN(t);
-    DEBUG_PRINTLN(temp);
+    DEBUGUM_PRINTLN(t);
+    DEBUGUM_PRINTLN(temp);
 
     mqtt->publish(t.c_str(), 0, true, temp.c_str());
   }
@@ -152,11 +152,11 @@ public:
             mqttInitialized = true;
           }
         mqtt->publish(mqttLuminanceTopic.c_str(), 0, true, String(lux).c_str());
-        DEBUG_PRINTLN(F("Brightness: ") + String(lux) + F("lx"));
+        DEBUGUM_PRINTLN(F("Brightness: ") + String(lux) + F("lx"));
       }
       else
       {
-        DEBUG_PRINTLN(F("Missing MQTT connection. Not publishing data"));
+        DEBUGUM_PRINTLN(F("Missing MQTT connection. Not publishing data"));
       }
 #endif
     }
@@ -202,7 +202,7 @@ public:
     top[FPSTR(_HomeAssistantDiscovery)] = HomeAssistantDiscovery;
     top[FPSTR(_offset)] = offset;
 
-    DEBUG_PRINTLN(F("BH1750 config saved."));
+    DEBUGUM_PRINTLN(F("BH1750 config saved."));
   }
 
   // called before setup() to populate properties from values stored in cfg.json
@@ -212,9 +212,9 @@ public:
     JsonObject top = root[FPSTR(_name)];
     if (top.isNull())
     {
-      DEBUG_PRINT(FPSTR(_name));
-      DEBUG_PRINT(F("BH1750"));
-      DEBUG_PRINTLN(F(": No config found. (Using defaults.)"));
+      DEBUGUM_PRINT(FPSTR(_name));
+      DEBUGUM_PRINT(F("BH1750"));
+      DEBUGUM_PRINTLN(F(": No config found. (Using defaults.)"));
       return false;
     }
     bool configComplete = !top.isNull();
@@ -225,11 +225,11 @@ public:
     configComplete &= getJsonValue(top[FPSTR(_HomeAssistantDiscovery)], HomeAssistantDiscovery, false);
     configComplete &= getJsonValue(top[FPSTR(_offset)], offset, 1);
 
-    DEBUG_PRINT(FPSTR(_name));
+    DEBUGUM_PRINT(FPSTR(_name));
     if (!initDone) {
-      DEBUG_PRINTLN(F(" config loaded."));
+      DEBUGUM_PRINTLN(F(" config loaded."));
     } else {
-      DEBUG_PRINTLN(F(" config (re)loaded."));
+      DEBUGUM_PRINTLN(F(" config (re)loaded."));
     }
 
     return configComplete;

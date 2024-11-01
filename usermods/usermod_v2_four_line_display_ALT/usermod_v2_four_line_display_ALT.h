@@ -376,7 +376,7 @@ void FourLineDisplayUsermod::setVcomh(bool highContrast) {
 void FourLineDisplayUsermod::startDisplay() {
   if (type == NONE || !enabled) return;
   lineHeight = u8x8->getRows() > 4 ? 2 : 1;
-  DEBUG_PRINTLN(F("Starting display."));
+  DEBUGUM_PRINTLN(F("Starting display."));
   u8x8->setBusClock(ioFrequency);  // can be used for SPI too
   u8x8->begin();
   setFlipMode(flip);
@@ -549,7 +549,7 @@ void FourLineDisplayUsermod::setup() {
     if (i2c_scl<0 || i2c_sda<0) { type=NONE; }
   }
 
-  DEBUG_PRINTLN(F("Allocating display."));
+  DEBUGUM_PRINTLN(F("Allocating display."));
   switch (type) {
     // U8X8 uses Wire (or Wire1 with 2ND constructor) and will use existing Wire properties (calls Wire.begin() though)
     case SSD1306:       u8x8 = (U8X8 *) new U8X8_SSD1306_128X32_UNIVISION_HW_I2C(); break;
@@ -567,7 +567,7 @@ void FourLineDisplayUsermod::setup() {
   }
 
   if (nullptr == u8x8) {
-    DEBUG_PRINTLN(F("Display init failed."));
+    DEBUGUM_PRINTLN(F("Display init failed."));
     if (isSPI) {
       PinManager::deallocateMultiplePins((const uint8_t*)ioPin, 3, PinOwner::UM_FourLineDisplay);
     }
@@ -1094,7 +1094,7 @@ bool FourLineDisplayUsermod::handleButton(uint8_t b) {
     if (now - buttonPressedTime > 600) { //long press
       //TODO: handleButton() handles button 0 without preset in a different way for double click
       //so we need to override with same behaviour
-      //DEBUG_PRINTLN(F("4LD action."));
+      //DEBUGUM_PRINTLN(F("4LD action."));
       //if (!buttonLongPressed) longPressAction(0);
       buttonLongPressed = true;
       return false;
@@ -1251,7 +1251,7 @@ void FourLineDisplayUsermod::addToConfig(JsonObject& root) {
   top[FPSTR(_clockMode)]     = (bool) clockMode;
   top[FPSTR(_showSeconds)]   = (bool) showSeconds;
   top[FPSTR(_busClkFrequency)] = ioFrequency/1000;
-  DEBUG_PRINTLN(F("4 Line Display config saved."));
+  DEBUGUM_PRINTLN(F("4 Line Display config saved."));
 }
 
 /*
@@ -1269,8 +1269,8 @@ bool FourLineDisplayUsermod::readFromConfig(JsonObject& root) {
 
   JsonObject top = root[FPSTR(_name)];
   if (top.isNull()) {
-    DEBUG_PRINT(FPSTR(_name));
-    DEBUG_PRINTLN(F(": No config found. (Using defaults.)"));
+    DEBUGUM_PRINT(FPSTR(_name));
+    DEBUGUM_PRINTLN(F(": No config found. (Using defaults.)"));
     return false;
   }
 
@@ -1293,13 +1293,13 @@ bool FourLineDisplayUsermod::readFromConfig(JsonObject& root) {
   else
     ioFrequency = min(3400, max(100, (int)(top[FPSTR(_busClkFrequency)] | ioFrequency/1000))) * 1000;  // limit frequency
 
-  DEBUG_PRINT(FPSTR(_name));
+  DEBUGUM_PRINT(FPSTR(_name));
   if (!initDone) {
     // first run: reading from cfg.json
     type = newType;
-    DEBUG_PRINTLN(F(" config loaded."));
+    DEBUGUM_PRINTLN(F(" config loaded."));
   } else {
-    DEBUG_PRINTLN(F(" config (re)loaded."));
+    DEBUGUM_PRINTLN(F(" config (re)loaded."));
     // changing parameters from settings page
     bool pinsChanged = false;
     for (unsigned i=0; i<3; i++) if (ioPin[i] != oldPin[i]) { pinsChanged = true; break; }

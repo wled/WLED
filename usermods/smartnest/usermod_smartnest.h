@@ -177,7 +177,7 @@ public:
    * setup() is called once at startup to initialize the usermod.
    */
   void setup() {
-      DEBUG_PRINTF("Smartnest usermod setup initializing...");
+      DEBUGUM_PRINTF("Smartnest usermod setup initializing...");
       
       // Publish initial status
       sendToBroker("report/status", "Smartnest usermod initialized");

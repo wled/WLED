@@ -198,15 +198,15 @@ class UsermodBattery : public Usermod
 
       #ifdef ARDUINO_ARCH_ESP32
         bool success = false;
-        DEBUG_PRINTLN(F("Allocating battery pin..."));
+        DEBUGUM_PRINTLN(F("Allocating battery pin..."));
         if (batteryPin >= 0 && digitalPinToAnalogChannel(batteryPin) >= 0) 
           if (PinManager::allocatePin(batteryPin, false, PinOwner::UM_Battery)) {
-            DEBUG_PRINTLN(F("Battery pin allocation succeeded."));
+            DEBUGUM_PRINTLN(F("Battery pin allocation succeeded."));
             success = true;
           }
 
         if (!success) {
-          DEBUG_PRINTLN(F("Battery pin allocation failed."));
+          DEBUGUM_PRINTLN(F("Battery pin allocation failed."));
           batteryPin = -1;  // allocation failed
         } else {
           pinMode(batteryPin, INPUT);
@@ -396,7 +396,7 @@ class UsermodBattery : public Usermod
       
       addBatteryToJsonObject(battery, true);
       
-      DEBUG_PRINTLN(F("Battery state exposed in JSON API."));
+      DEBUGUM_PRINTLN(F("Battery state exposed in JSON API."));
     }
 
 
@@ -414,7 +414,7 @@ class UsermodBattery : public Usermod
       if (!battery.isNull()) {
         getUsermodConfigFromJsonObject(battery);
       
-        DEBUG_PRINTLN(F("Battery state read from JSON API."));
+        DEBUGUM_PRINTLN(F("Battery state read from JSON API."));
       }
     }
     */
@@ -472,7 +472,7 @@ class UsermodBattery : public Usermod
       // read voltage in case calibration or voltage multiplier changed to see immediate effect
       bat->setVoltage(readVoltage());
 
-      DEBUG_PRINTLN(F("Battery config saved."));
+      DEBUGUM_PRINTLN(F("Battery config saved."));
     }
 
     void appendConfigData()
@@ -529,8 +529,8 @@ class UsermodBattery : public Usermod
       JsonObject battery = root[FPSTR(_name)];
       if (battery.isNull()) 
       {
-        DEBUG_PRINT(FPSTR(_name));
-        DEBUG_PRINTLN(F(": No config found. (Using defaults.)"));
+        DEBUGUM_PRINT(FPSTR(_name));
+        DEBUGUM_PRINTLN(F(": No config found. (Using defaults.)"));
         return false;
       }
 
@@ -551,11 +551,11 @@ class UsermodBattery : public Usermod
         {
           // first run: reading from cfg.json
           batteryPin = newBatteryPin;
-          DEBUG_PRINTLN(F(" config loaded."));
+          DEBUGUM_PRINTLN(F(" config loaded."));
         } 
         else 
         {
-          DEBUG_PRINTLN(F(" config (re)loaded."));
+          DEBUGUM_PRINTLN(F(" config (re)loaded."));
 
           // changing parameters from settings page
           if (newBatteryPin != batteryPin) 

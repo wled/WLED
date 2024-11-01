@@ -130,14 +130,14 @@ class QuinLEDAnPentaUsermod : public Usermod
     {
       PinManagerPinType pins[5] = { { oledSpiClk, true }, { oledSpiData, true }, { oledSpiCs, true }, { oledSpiDc, true }, { oledSpiRst, true } };
       if (!PinManager::allocateMultiplePins(pins, 5, PinOwner::UM_QuinLEDAnPenta)) {
-        DEBUG_PRINTF("[%s] OLED pin allocation failed!\n", _name);
+        DEBUGUM_PRINTF("[%s] OLED pin allocation failed!\n", _name);
         oledEnabled = oledInitDone = false;
         return;
       }
 
       oledDisplay = (U8G2 *) new U8G2_SSD1306_128X64_NONAME_2_4W_SW_SPI(U8G2_R0, oledSpiClk, oledSpiData, oledSpiCs, oledSpiDc, oledSpiRst);
       if (oledDisplay == nullptr) {
-        DEBUG_PRINTF("[%s] OLED init failed!\n", _name);
+        DEBUGUM_PRINTF("[%s] OLED init failed!\n", _name);
         oledEnabled = oledInitDone = false;
         return;
       }
@@ -185,7 +185,7 @@ class QuinLEDAnPentaUsermod : public Usermod
     {
       PinManagerPinType pins[2] = { { shtSda, true }, { shtScl, true } };
       if (!PinManager::allocateMultiplePins(pins, 2, PinOwner::UM_QuinLEDAnPenta)) {
-        DEBUG_PRINTF("[%s] SHT30 pin allocation failed!\n", _name);
+        DEBUGUM_PRINTF("[%s] SHT30 pin allocation failed!\n", _name);
         shtEnabled = shtInitDone = false;
         return;
       }
@@ -198,7 +198,7 @@ class QuinLEDAnPentaUsermod : public Usermod
       // The SHT lib calls wire.begin() again without the SDA and SCL pins... So call it again here...
       wire->begin(shtSda, shtScl);
       if (sht30TempHumidSensor->readStatus() == 0xFFFF) {
-        DEBUG_PRINTF("[%s] SHT30 init failed!\n", _name);
+        DEBUGUM_PRINTF("[%s] SHT30 init failed!\n", _name);
         shtEnabled = shtInitDone = false;
         return;
       }
@@ -600,7 +600,7 @@ class QuinLEDAnPentaUsermod : public Usermod
     {
       JsonObject top = root[FPSTR(_name)];
       if (top.isNull()) {
-        DEBUG_PRINTF("[%s] No config found. (Using defaults.)\n", _name);
+        DEBUGUM_PRINTF("[%s] No config found. (Using defaults.)\n", _name);
         return false;
       }
 
@@ -619,12 +619,12 @@ class QuinLEDAnPentaUsermod : public Usermod
 
       // First run: reading from cfg.json, nothing to do here, will be all done in setup()
       if (!firstRunDone) {
-        DEBUG_PRINTF("[%s] First run, nothing to do\n", _name);
+        DEBUGUM_PRINTF("[%s] First run, nothing to do\n", _name);
       }
       // Check if mod has been en-/disabled
       else if (enabled != oldEnabled) {
         enabled ? setup() : cleanup();
-        DEBUG_PRINTF("[%s] Usermod has been en-/disabled\n", _name);
+        DEBUGUM_PRINTF("[%s] Usermod has been en-/disabled\n", _name);
       }
       // Config has been changed, so adopt to changes
       else if (enabled) {
@@ -641,7 +641,7 @@ class QuinLEDAnPentaUsermod : public Usermod
           shtEnabled ? initSht30TempHumiditySensor() : cleanupSht30TempHumiditySensor();
         }
 
-        DEBUG_PRINTF("[%s] Config (re)loaded\n", _name);
+        DEBUGUM_PRINTF("[%s] Config (re)loaded\n", _name);
       }
 
       return true;

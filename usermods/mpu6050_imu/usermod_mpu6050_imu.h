@@ -33,9 +33,7 @@
 
 #include "I2Cdev.h"
 
-#undef DEBUG_PRINT
-#undef DEBUG_PRINTLN
-#undef DEBUG_PRINTF
+// MPU6050 unfortunately uses the same DEBUG macro names as WLED :(
 #include "MPU6050_6Axis_MotionApps20.h"
 //#include "MPU6050.h" // not necessary if using MotionApps include file
 
@@ -45,20 +43,6 @@
     #include "Wire.h"
 #endif
 
-// Restore debug macros
-// MPU6050 unfortunately uses the same macro names as WLED :(
-#undef DEBUG_PRINT
-#undef DEBUG_PRINTLN
-#undef DEBUG_PRINTF
-#ifdef WLED_DEBUG
-  #define DEBUG_PRINT(x) DEBUGOUT.print(x)
-  #define DEBUG_PRINTLN(x) DEBUGOUT.println(x)
-  #define DEBUG_PRINTF(x...) DEBUGOUT.printf(x)
-#else
-  #define DEBUG_PRINT(x)
-  #define DEBUG_PRINTLN(x)
-  #define DEBUG_PRINTF(x...)
-#endif
 
 
 
@@ -161,11 +145,11 @@ class MPU6050Driver : public Usermod {
       
       if (!config.enabled) return;
       // TODO: notice if these have changed ??
-      if (i2c_scl<0 || i2c_sda<0) { DEBUG_PRINTLN(F("MPU6050: I2C is no good."));  return; }
+      if (i2c_scl<0 || i2c_sda<0) { DEBUGUM_PRINTLN(F("MPU6050: I2C is no good."));  return; }
       // Check the interrupt pin
       if (config.interruptPin >= 0) {
         irqBound = PinManager::allocatePin(config.interruptPin, false, PinOwner::UM_IMU);
-        if (!irqBound) { DEBUG_PRINTLN(F("MPU6050: IRQ pin already in use.")); return; }
+        if (!irqBound) { DEBUGUM_PRINTLN(F("MPU6050: IRQ pin already in use.")); return; }
         pinMode(config.interruptPin, INPUT);
       };
 
@@ -176,15 +160,15 @@ class MPU6050Driver : public Usermod {
       #endif
 
       // initialize device
-      DEBUG_PRINTLN(F("Initializing I2C devices..."));
+      DEBUGUM_PRINTLN(F("Initializing I2C devices..."));
       mpu.initialize();
 
       // verify connection
-      DEBUG_PRINTLN(F("Testing device connections..."));
-      DEBUG_PRINTLN(mpu.testConnection() ? F("MPU6050 connection successful") : F("MPU6050 connection failed"));
+      DEBUGUM_PRINTLN(F("Testing device connections..."));
+      DEBUGUM_PRINTLN(mpu.testConnection() ? F("MPU6050 connection successful") : F("MPU6050 connection failed"));
 
       // load and configure the DMP
-      DEBUG_PRINTLN(F("Initializing DMP..."));
+      DEBUGUM_PRINTLN(F("Initializing DMP..."));
       auto devStatus = mpu.dmpInitialize();
 
       // set offsets (from config)
@@ -201,13 +185,13 @@ class MPU6050Driver : public Usermod {
       // make sure it worked (returns 0 if so)
       if (devStatus == 0) {
         // turn on the DMP, now that it's ready
-        DEBUG_PRINTLN(F("Enabling DMP..."));
+        DEBUGUM_PRINTLN(F("Enabling DMP..."));
         mpu.setDMPEnabled(true);
 
         mpuInterrupt = true;
         if (irqBound) {
           // enable Arduino interrupt detection
-          DEBUG_PRINTLN(F("Enabling interrupt detection (Arduino external interrupt 0)..."));          
+          DEBUGUM_PRINTLN(F("Enabling interrupt detection (Arduino external interrupt 0)..."));          
           attachInterrupt(digitalPinToInterrupt(config.interruptPin), dmpDataReady, RISING);
         }
 
@@ -215,16 +199,16 @@ class MPU6050Driver : public Usermod {
         packetSize = mpu.dmpGetFIFOPacketSize();
 
         // set our DMP Ready flag so the main loop() function knows it's okay to use it
-        DEBUG_PRINTLN(F("DMP ready!"));
+        DEBUGUM_PRINTLN(F("DMP ready!"));
         dmpReady = true;
       } else {
         // ERROR!
         // 1 = initial memory load failed
         // 2 = DMP configuration updates failed
         // (if it's going to break, usually the code will be 1)
-        DEBUG_PRINT(F("DMP Initialization failed (code "));
-        DEBUG_PRINT(devStatus);
-        DEBUG_PRINTLN(")");
+        DEBUGUM_PRINT(F("DMP Initialization failed (code "));
+        DEBUGUM_PRINT(devStatus);
+        DEBUGUM_PRINTLN(")");
       }
 
       fifoCount = 0;
@@ -236,7 +220,7 @@ class MPU6050Driver : public Usermod {
      * Use it to initialize network interfaces
      */
     void connected() {
-      //DEBUG_PRINTLN(F("Connected to WiFi!"));
+      //DEBUGUM_PRINTLN(F("Connected to WiFi!"));
     }
 
 
@@ -262,16 +246,16 @@ class MPU6050Driver : public Usermod {
       if ((mpuIntStatus & 0x10) || fifoCount == 1024) {
         // reset so we can continue cleanly
         mpu.resetFIFO();
-        DEBUG_PRINTLN(F("MPU6050: FIFO overflow!"));
+        DEBUGUM_PRINTLN(F("MPU6050: FIFO overflow!"));
 
         // otherwise, check for data ready
       } else if (fifoCount >= packetSize) {
         // clear local interrupt pending status, if not polling
         mpuInterrupt = !irqBound;
 
-        // DEBUG_PRINT(F("MPU6050: Processing packet: "));
-        // DEBUG_PRINT(fifoCount);
-        // DEBUG_PRINTLN(F(" bytes in FIFO"));
+        // DEBUGUM_PRINT(F("MPU6050: Processing packet: "));
+        // DEBUGUM_PRINT(fifoCount);
+        // DEBUGUM_PRINTLN(F(" bytes in FIFO"));
 
         // read a packet from FIFO
         mpu.getFIFOBytes(fifoBuffer, packetSize);
@@ -396,15 +380,15 @@ class MPU6050Driver : public Usermod {
       configComplete &= getJsonValue(top[FPSTR(_y_gyro_bias)], config.gyro_offset[1], 0);
       configComplete &= getJsonValue(top[FPSTR(_z_gyro_bias)], config.gyro_offset[2], 0);
 
-      DEBUG_PRINT(FPSTR(_name));
+      DEBUGUM_PRINT(FPSTR(_name));
       if (top.isNull()) {
-        DEBUG_PRINTLN(F(": No config found. (Using defaults.)"));
+        DEBUGUM_PRINTLN(F(": No config found. (Using defaults.)"));
       } else if (!initDone()) {
-        DEBUG_PRINTLN(F(": config loaded."));
+        DEBUGUM_PRINTLN(F(": config loaded."));
       } else if (memcmp(&config, &old_cfg, sizeof(config)) == 0) {
-        DEBUG_PRINTLN(F(": config unchanged."));
+        DEBUGUM_PRINTLN(F(": config unchanged."));
       } else {
-        DEBUG_PRINTLN(F(": config updated."));
+        DEBUGUM_PRINTLN(F(": config updated."));
         // Previously loaded and config changed
         if (irqBound && ((old_cfg.interruptPin != config.interruptPin) || !config.enabled)) {
           detachInterrupt(old_cfg.interruptPin);

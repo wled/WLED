@@ -13,7 +13,7 @@
 
 #endif
 
-#if defined(ARDUINO_ARCH_ESP32) && (defined(WLED_DEBUG) || defined(SR_DEBUG))
+#if defined(WLED_DEBUG_USERMODS) && defined(SR_DEBUG)
 #include <esp_timer.h>
 #endif
 
@@ -36,17 +36,19 @@
 // #define FFT_SAMPLING_LOG             // FFT result debugging
 // #define SR_DEBUG                     // generic SR DEBUG messages
 
-#ifdef SR_DEBUG
+#if defined(WLED_DEBUG_USERMODS) && defined(SR_DEBUG)
   #define DEBUGSR_PRINT(x) DEBUGOUT.print(x)
   #define DEBUGSR_PRINTLN(x) DEBUGOUT.println(x)
   #define DEBUGSR_PRINTF(x...) DEBUGOUT.printf(x)
+  #define DEBUGSR_PRINTF_P(x...) DEBUGOUT.printf_P(x)
 #else
   #define DEBUGSR_PRINT(x)
   #define DEBUGSR_PRINTLN(x)
   #define DEBUGSR_PRINTF(x...)
+  #define DEBUGSR_PRINTF_P(x...)
 #endif
 
-#if defined(MIC_LOGGER) || defined(FFT_SAMPLING_LOG)
+#if defined(WLED_DEBUG_USERMODS) && (defined(MIC_LOGGER) || defined(FFT_SAMPLING_LOG))
   #define PLOT_PRINT(x) DEBUGOUT.print(x)
   #define PLOT_PRINTLN(x) DEBUGOUT.println(x)
   #define PLOT_PRINTF(x...) DEBUGOUT.printf(x)
@@ -160,7 +162,7 @@ static TaskHandle_t FFT_Task = nullptr;
 static float fftResultPink[NUM_GEQ_CHANNELS] = { 1.70f, 1.71f, 1.73f, 1.78f, 1.68f, 1.56f, 1.55f, 1.63f, 1.79f, 1.62f, 1.80f, 2.06f, 2.47f, 3.35f, 6.83f, 9.55f };
 
 // globals and FFT Output variables shared with animations
-#if defined(WLED_DEBUG) || defined(SR_DEBUG)
+#if defined(WLED_DEBUG_USERMODS) && defined(SR_DEBUG)
 static uint64_t fftTime = 0;
 static uint64_t sampleTime = 0;
 #endif
@@ -168,7 +170,7 @@ static uint64_t sampleTime = 0;
 // FFT Task variables (filtering and post-processing)
 static float   fftCalc[NUM_GEQ_CHANNELS] = {0.0f};                    // Try and normalize fftBin values to a max of 4096, so that 4096/16 = 256.
 static float   fftAvg[NUM_GEQ_CHANNELS] = {0.0f};                     // Calculated frequency channel results, with smoothing (used if dynamics limiter is ON)
-#ifdef SR_DEBUG
+#if defined(WLED_DEBUG_USERMODS) && defined(SR_DEBUG)
 static float   fftResultMax[NUM_GEQ_CHANNELS] = {0.0f};               // A table used for testing to determine how our post-processing is working.
 #endif
 
@@ -247,7 +249,7 @@ void FFTcode(void * parameter)
       continue;
     }
 
-#if defined(WLED_DEBUG) || defined(SR_DEBUG)
+#if defined(WLED_DEBUG_USERMODS) && defined(SR_DEBUG)
     uint64_t start = esp_timer_get_time();
     bool haveDoneFFT = false; // indicates if second measurement (FFT time) is valid
 #endif
@@ -256,7 +258,7 @@ void FFTcode(void * parameter)
     if (audioSource) audioSource->getSamples(vReal, samplesFFT);
     memset(vImag, 0, samplesFFT * sizeof(float));   // set imaginary parts to 0
 
-#if defined(WLED_DEBUG) || defined(SR_DEBUG)
+#if defined(WLED_DEBUG_USERMODS) && defined(SR_DEBUG)
     if (start < esp_timer_get_time()) { // filter out overflows
       uint64_t sampleTimeInMillis = (esp_timer_get_time() - start +5ULL) / 10ULL; // "+5" to ensure proper rounding
       sampleTime = (sampleTimeInMillis*3 + sampleTime*7)/10; // smooth
@@ -281,7 +283,7 @@ void FFTcode(void * parameter)
     // early release allows the filters (getSample() and agcAvg()) to work with fresh values - we will have matching gain and noise gate values when we want to process the FFT results.
     micDataReal = maxSample;
 
-#ifdef SR_DEBUG
+#if defined(WLED_DEBUG_USERMODS) && defined(SR_DEBUG)
     if (true) {  // this allows measure FFT runtimes, as it disables the "only when needed" optimization 
 #else
     if (sampleAvg > 0.25f) { // noise gate open means that FFT results will be used. Don't run FFT if results are not needed.
@@ -298,7 +300,7 @@ void FFTcode(void * parameter)
       FFT.majorPeak(&FFT_MajorPeak, &FFT_Magnitude);                // let the effects know which freq was most dominant
       FFT_MajorPeak = constrain(FFT_MajorPeak, 1.0f, 11025.0f);   // restrict value to range expected by effects
 
-#if defined(WLED_DEBUG) || defined(SR_DEBUG)
+#if defined(WLED_DEBUG_USERMODS) && defined(SR_DEBUG)
       haveDoneFFT = true;
 #endif
 
@@ -382,7 +384,7 @@ void FFTcode(void * parameter)
     // post-processing of frequency channels (pink noise adjustment, AGC, smoothing, scaling)
     postProcessFFTResults((fabsf(sampleAvg) > 0.25f)? true : false , NUM_GEQ_CHANNELS);
 
-#if defined(WLED_DEBUG) || defined(SR_DEBUG)
+#if defined(WLED_DEBUG_USERMODS) && defined(SR_DEBUG)
     if (haveDoneFFT && (start < esp_timer_get_time())) { // filter out overflows
       uint64_t fftTimeInMillis = ((esp_timer_get_time() - start) +5ULL) / 10ULL; // "+5" to ensure proper rounding
       fftTime  = (fftTimeInMillis*3 + fftTime*7)/10; // smooth
@@ -690,7 +692,7 @@ class AudioReactive : public Usermod {
     void logAudio()
     {
       if (disableSoundProcessing && (!udpSyncConnected || ((audioSyncEnabled & 0x02) == 0))) return;   // no audio availeable
-    #ifdef MIC_LOGGER
+    #if defined(WLED_DEBUG_USERMODS) && defined(MIC_LOGGER)
       // Debugging functions for audio input and sound processing. Comment out the values you want to see
       PLOT_PRINT("micReal:");     PLOT_PRINT(micDataReal); PLOT_PRINT("\t");
       PLOT_PRINT("volumeSmth:");  PLOT_PRINT(volumeSmth);  PLOT_PRINT("\t");
@@ -709,7 +711,7 @@ class AudioReactive : public Usermod {
       PLOT_PRINTLN();
     #endif
 
-    #ifdef FFT_SAMPLING_LOG
+    #if defined(WLED_DEBUG_USERMODS) && defined(FFT_SAMPLING_LOG)
       #if 0
         for(int i=0; i<NUM_GEQ_CHANNELS; i++) {
           PLOT_PRINT(fftResult[i]);
@@ -1244,11 +1246,7 @@ class AudioReactive : public Usermod {
 #ifdef ARDUINO_ARCH_ESP32
       if (FFT_Task == nullptr) enabled = false;          // FFT task creation failed
       if((!audioSource) || (!audioSource->isInitialized())) {  // audio source failed to initialize. Still stay "enabled", as there might be input arriving via UDP Sound Sync 
-      #ifdef WLED_DEBUG
-        DEBUG_PRINTLN(F("AR: Failed to initialize sound input driver. Please check input PIN settings."));
-      #else
         DEBUGSR_PRINTLN(F("AR: Failed to initialize sound input driver. Please check input PIN settings."));
-      #endif
         disableSoundProcessing = true;
       }
 #endif
@@ -1310,18 +1308,18 @@ class AudioReactive : public Usermod {
             ||(realtimeMode == REALTIME_MODE_ADALIGHT)
             ||(realtimeMode == REALTIME_MODE_ARTNET) ) )  // please add other modes here if needed
       {
-        #if defined(ARDUINO_ARCH_ESP32) && defined(WLED_DEBUG)
+        #if defined(WLED_DEBUG_USERMODS) && defined(SR_DEBUG)
         if ((disableSoundProcessing == false) && (audioSyncEnabled == 0)) {  // we just switched to "disabled"
-          DEBUG_PRINTLN(F("[AR userLoop]  realtime mode active - audio processing suspended."));
-          DEBUG_PRINTF_P(PSTR("               RealtimeMode = %d; RealtimeOverride = %d\n"), int(realtimeMode), int(realtimeOverride));
+          DEBUGSR_PRINTLN(F("[AR userLoop]  realtime mode active - audio processing suspended."));
+          DEBUGSR_PRINTF_P(PSTR("               RealtimeMode = %d; RealtimeOverride = %d\n"), int(realtimeMode), int(realtimeOverride));
         }
         #endif
         disableSoundProcessing = true;
       } else {
-        #if defined(ARDUINO_ARCH_ESP32) && defined(WLED_DEBUG)
+        #if defined(WLED_DEBUG_USERMODS) && defined(SR_DEBUG)
         if ((disableSoundProcessing == true) && (audioSyncEnabled == 0) && audioSource->isInitialized()) {    // we just switched to "enabled"
-          DEBUG_PRINTLN(F("[AR userLoop]  realtime mode ended - audio processing resumed."));
-          DEBUG_PRINTF_P(PSTR("               RealtimeMode = %d; RealtimeOverride = %d\n"), int(realtimeMode), int(realtimeOverride));
+          DEBUGSR_PRINTLN(F("[AR userLoop]  realtime mode ended - audio processing resumed."));
+          DEBUGSR_PRINTF_P(PSTR("               RealtimeMode = %d; RealtimeOverride = %d\n"), int(realtimeMode), int(realtimeOverride));
         }
         #endif
         if ((disableSoundProcessing == true) && (audioSyncEnabled == 0)) lastUMRun = millis();  // just left "realtime mode" - update timekeeping
@@ -1342,11 +1340,11 @@ class AudioReactive : public Usermod {
         int userloopDelay = int(t_now - lastUMRun);
         if (lastUMRun == 0) userloopDelay=0; // startup - don't have valid data from last run.
 
-        #ifdef WLED_DEBUG
+        #if defined(WLED_DEBUG_USERMODS) && defined(SR_DEBUG)
           // complain when audio userloop has been delayed for long time. Currently we need userloop running between 500 and 1500 times per second. 
           // softhack007 disabled temporarily - avoid serial console spam with MANY leds and low FPS
           //if ((userloopDelay > 65) && !disableSoundProcessing && (audioSyncEnabled == 0)) {
-          //  DEBUG_PRINTF_P(PSTR("[AR userLoop] hiccup detected -> was inactive for last %d millis!\n"), userloopDelay);
+          //  DEBUGSR_PRINTF_P(PSTR("[AR userLoop] hiccup detected -> was inactive for last %d millis!\n"), userloopDelay);
           //}
         #endif
 
@@ -1395,7 +1393,7 @@ class AudioReactive : public Usermod {
           limitSampleDynamics();                              // run dynamics limiter on received volumeSmth, to hide jumps and hickups
       }
 
-      #if defined(MIC_LOGGER) || defined(MIC_SAMPLING_LOG) || defined(FFT_SAMPLING_LOG)
+      #if defined(WLED_DEBUG_USERMODS) && (defined(MIC_LOGGER) || defined(FFT_SAMPLING_LOG))
       static unsigned long lastMicLoggerTime = 0;
       if (millis()-lastMicLoggerTime > 20) {
         lastMicLoggerTime = millis();
@@ -1446,7 +1444,7 @@ class AudioReactive : public Usermod {
 #ifdef ARDUINO_ARCH_ESP32
     void onUpdateBegin(bool init) override
     {
-#ifdef WLED_DEBUG
+#if defined(WLED_DEBUG_USERMODS) && defined(SR_DEBUG)
       fftTime = sampleTime = 0;
 #endif
       // gracefully suspend FFT task (if running)
@@ -1585,7 +1583,7 @@ class AudioReactive : public Usermod {
           infoArr.add(uiDomString);
         } 
 #endif
-        // The following can be used for troubleshooting user errors and is so not enclosed in #ifdef WLED_DEBUG
+        // The following can be used for troubleshooting user errors and is so not enclosed in #ifdef WLED_DEBUG_USERMODS
 
         // current Audio input
         infoArr = user.createNestedArray(F("Audio Source"));
@@ -1667,7 +1665,7 @@ class AudioReactive : public Usermod {
             if (receivedFormat == 2) infoArr.add(F(" v2"));
         }
 
-        #if defined(WLED_DEBUG) || defined(SR_DEBUG)
+        #if defined(WLED_DEBUG_USERMODS) && defined(SR_DEBUG)
         #ifdef ARDUINO_ARCH_ESP32
         infoArr = user.createNestedArray(F("Sampling time"));
         infoArr.add(float(sampleTime)/100.0f);
@@ -1965,24 +1963,24 @@ class AudioReactive : public Usermod {
 };
 
 void AudioReactive::removeAudioPalettes(void) {
-  DEBUG_PRINTLN(F("Removing audio palettes."));
+  DEBUGSR_PRINTLN(F("Removing audio palettes."));
   while (palettes>0) {
     strip.customPalettes.pop_back();
-    DEBUG_PRINTLN(palettes);
+    DEBUGSR_PRINTLN(palettes);
     palettes--;
   }
-  DEBUG_PRINT(F("Total # of palettes: ")); DEBUG_PRINTLN(strip.customPalettes.size());
+  DEBUGSR_PRINT(F("Total # of palettes: ")); DEBUGSR_PRINTLN(strip.customPalettes.size());
 }
 
 void AudioReactive::createAudioPalettes(void) {
-  DEBUG_PRINT(F("Total # of palettes: ")); DEBUG_PRINTLN(strip.customPalettes.size());
+  DEBUGSR_PRINT(F("Total # of palettes: ")); DEBUGSR_PRINTLN(strip.customPalettes.size());
   if (palettes) return;
-  DEBUG_PRINTLN(F("Adding audio palettes."));
+  DEBUGSR_PRINTLN(F("Adding audio palettes."));
   for (int i=0; i<MAX_PALETTES; i++)
     if (strip.customPalettes.size() < 10) {
       strip.customPalettes.push_back(CRGBPalette16(CRGB(BLACK)));
       palettes++;
-      DEBUG_PRINTLN(palettes);
+      DEBUGSR_PRINTLN(palettes);
     } else break;
 }
 

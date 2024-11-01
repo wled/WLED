@@ -97,8 +97,8 @@ class  Usermod_MAX17048 : public Usermod {
 
         String temp;
         serializeJson(doc, temp);
-        DEBUG_PRINTLN(t);
-        DEBUG_PRINTLN(temp);
+        DEBUGUM_PRINTLN(t);
+        DEBUGUM_PRINTLN(temp);
 
         mqtt->publish(t.c_str(), 0, true, temp.c_str());
     }
@@ -151,8 +151,8 @@ class  Usermod_MAX17048 : public Usermod {
 
           publishMqtt("batteryVoltage", String(lastBattVoltage, VoltageDecimals).c_str());
           publishMqtt("batteryPercent", String(lastBattPercent, PercentDecimals).c_str());
-          DEBUG_PRINTLN(F("Battery Voltage: ") + String(lastBattVoltage, VoltageDecimals) + F("V"));
-          DEBUG_PRINTLN(F("Battery Percent: ") + String(lastBattPercent, PercentDecimals) + F("%"));
+          DEBUGUM_PRINTLN(F("Battery Voltage: ") + String(lastBattVoltage, VoltageDecimals) + F("V"));
+          DEBUGUM_PRINTLN(F("Battery Percent: ") + String(lastBattPercent, PercentDecimals) + F("%"));
         }
     }
 
@@ -232,8 +232,8 @@ class  Usermod_MAX17048 : public Usermod {
       top[FPSTR(_maxReadInterval)] = maxReadingInterval;
       top[FPSTR(_minReadInterval)] = minReadingInterval;
       top[FPSTR(_HomeAssistantDiscovery)] = HomeAssistantDiscovery;
-      DEBUG_PRINT(F(_name));
-      DEBUG_PRINTLN(F(" config saved."));
+      DEBUGUM_PRINT(F(_name));
+      DEBUGUM_PRINTLN(F(" config saved."));
     }
 
     bool readFromConfig(JsonObject& root)
@@ -241,8 +241,8 @@ class  Usermod_MAX17048 : public Usermod {
       JsonObject top = root[FPSTR(_name)];
 
       if (top.isNull()) {
-        DEBUG_PRINT(F(_name));
-        DEBUG_PRINTLN(F(": No config found. (Using defaults.)"));
+        DEBUGUM_PRINT(F(_name));
+        DEBUGUM_PRINTLN(F(": No config found. (Using defaults.)"));
         return false;
       }
 
@@ -253,12 +253,12 @@ class  Usermod_MAX17048 : public Usermod {
       configComplete &= getJsonValue(top[FPSTR(_minReadInterval)], minReadingInterval, USERMOD_MAX17048_MIN_MONITOR_INTERVAL);
       configComplete &= getJsonValue(top[FPSTR(_HomeAssistantDiscovery)], HomeAssistantDiscovery, false);
 
-      DEBUG_PRINT(FPSTR(_name));
+      DEBUGUM_PRINT(FPSTR(_name));
       if (!initDone) {
         // first run: reading from cfg.json
-        DEBUG_PRINTLN(F(" config loaded."));
+        DEBUGUM_PRINTLN(F(" config loaded."));
       } else {
-        DEBUG_PRINTLN(F(" config (re)loaded."));
+        DEBUGUM_PRINTLN(F(" config (re)loaded."));
         // changing parameters from settings page
       }
 

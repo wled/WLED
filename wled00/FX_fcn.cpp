@@ -86,7 +86,7 @@ uint8_t  Segment::_clipStopY = 1;
 
 // copy constructor
 Segment::Segment(const Segment &orig) {
-  //DEBUG_PRINTF_P(PSTR("-- Copy segment constructor: %p -> %p\n"), &orig, this);
+  //DEBUGFX_PRINTF_P(PSTR("-- Copy segment constructor: %p -> %p\n"), &orig, this);
   memcpy((void*)this, (void*)&orig, sizeof(Segment));
   _t = nullptr; // copied segment cannot be in transition
   name = nullptr;
@@ -98,7 +98,7 @@ Segment::Segment(const Segment &orig) {
 
 // move constructor
 Segment::Segment(Segment &&orig) noexcept {
-  //DEBUG_PRINTF_P(PSTR("-- Move segment constructor: %p -> %p\n"), &orig, this);
+  //DEBUGFX_PRINTF_P(PSTR("-- Move segment constructor: %p -> %p\n"), &orig, this);
   memcpy((void*)this, (void*)&orig, sizeof(Segment));
   orig._t   = nullptr; // old segment cannot be in transition any more
   orig.name = nullptr;
@@ -108,7 +108,7 @@ Segment::Segment(Segment &&orig) noexcept {
 
 // copy assignment
 Segment& Segment::operator= (const Segment &orig) {
-  //DEBUG_PRINTF_P(PSTR("-- Copying segment: %p -> %p\n"), &orig, this);
+  //DEBUGFX_PRINTF_P(PSTR("-- Copying segment: %p -> %p\n"), &orig, this);
   if (this != &orig) {
     // clean destination
     if (name) { delete[] name; name = nullptr; }
@@ -128,7 +128,7 @@ Segment& Segment::operator= (const Segment &orig) {
 
 // move assignment
 Segment& Segment::operator= (Segment &&orig) noexcept {
-  //DEBUG_PRINTF_P(PSTR("-- Moving segment: %p -> %p\n"), &orig, this);
+  //DEBUGFX_PRINTF_P(PSTR("-- Moving segment: %p -> %p\n"), &orig, this);
   if (this != &orig) {
     if (name) { delete[] name; name = nullptr; } // free old name
     stopTransition();
@@ -149,31 +149,31 @@ bool IRAM_ATTR_YN Segment::allocateData(size_t len) {
     if (call == 0) memset(data, 0, len);  // erase buffer if called during effect initialisation
     return true;
   }
-  //DEBUG_PRINTF_P(PSTR("--   Allocating data (%d): %p\n", len, this);
+  //DEBUGFX_PRINTF_P(PSTR("--   Allocating data (%d): %p\n", len, this);
   deallocateData(); // if the old buffer was smaller release it first
   if (Segment::getUsedSegmentData() + len > MAX_SEGMENT_DATA) {
     // not enough memory
-    DEBUG_PRINT(F("!!! Effect RAM depleted: "));
-    DEBUG_PRINTF_P(PSTR("%d/%d !!!\n"), len, Segment::getUsedSegmentData());
+    DEBUGFX_PRINT(F("!!! Effect RAM depleted: "));
+    DEBUGFX_PRINTF_P(PSTR("%d/%d !!!\n"), len, Segment::getUsedSegmentData());
     errorFlag = ERR_NORAM;
     return false;
   }
   // do not use SPI RAM on ESP32 since it is slow
   data = (byte*)calloc(len, sizeof(byte));
-  if (!data) { DEBUG_PRINTLN(F("!!! Allocation failed. !!!")); return false; } // allocation failed
+  if (!data) { DEBUGFX_PRINTLN(F("!!! Allocation failed. !!!")); return false; } // allocation failed
   Segment::addUsedSegmentData(len);
-  //DEBUG_PRINTF_P(PSTR("---  Allocated data (%p): %d/%d -> %p\n"), this, len, Segment::getUsedSegmentData(), data);
+  //DEBUGFX_PRINTF_P(PSTR("---  Allocated data (%p): %d/%d -> %p\n"), this, len, Segment::getUsedSegmentData(), data);
   _dataLen = len;
   return true;
 }
 
 void IRAM_ATTR_YN Segment::deallocateData() {
   if (!data) { _dataLen = 0; return; }
-  //DEBUG_PRINTF_P(PSTR("---  Released data (%p): %d/%d -> %p\n"), this, _dataLen, Segment::getUsedSegmentData(), data);
+  //DEBUGFX_PRINTF_P(PSTR("---  Released data (%p): %d/%d -> %p\n"), this, _dataLen, Segment::getUsedSegmentData(), data);
   if ((Segment::getUsedSegmentData() > 0) && (_dataLen > 0)) { // check that we don't have a dangling / inconsistent data pointer
     free(data);
   } else {
-    DEBUG_PRINTF_P(PSTR("---- Released data (%p): inconsistent UsedSegmentData (%d/%d), cowardly refusing to free nothing.\n"), this, _dataLen, Segment::getUsedSegmentData());
+    DEBUGFX_PRINTF_P(PSTR("---- Released data (%p): inconsistent UsedSegmentData (%d/%d), cowardly refusing to free nothing.\n"), this, _dataLen, Segment::getUsedSegmentData());
   }
   data = nullptr;
   Segment::addUsedSegmentData(_dataLen <= Segment::getUsedSegmentData() ? -_dataLen : -Segment::getUsedSegmentData());
@@ -189,7 +189,7 @@ void IRAM_ATTR_YN Segment::deallocateData() {
   */
 void Segment::resetIfRequired() {
   if (!reset) return;
-  //DEBUG_PRINTF_P(PSTR("-- Segment reset: %p\n"), this);
+  //DEBUGFX_PRINTF_P(PSTR("-- Segment reset: %p\n"), this);
   if (data && _dataLen > 0) memset(data, 0, _dataLen);  // prevent heap fragmentation (just erase buffer instead of deallocateData())
   next_time = 0; step = 0; call = 0; aux0 = 0; aux1 = 0;
   reset = false;
@@ -278,7 +278,7 @@ void Segment::startTransition(uint16_t dur) {
   _t = new Transition(dur); // no previous transition running
   if (!_t) return; // failed to allocate data
 
-  //DEBUG_PRINTF_P(PSTR("-- Started transition: %p (%p)\n"), this, _t);
+  //DEBUGFX_PRINTF_P(PSTR("-- Started transition: %p (%p)\n"), this, _t);
   loadPalette(_t->_palT, palette);
   _t->_palTid         = palette;
   _t->_briT           = on ? opacity : 0;
@@ -291,7 +291,7 @@ void Segment::startTransition(uint16_t dur) {
   if (_dataLen > 0 && data) {
     _t->_segT._dataT = (byte *)malloc(_dataLen);
     if (_t->_segT._dataT) {
-      //DEBUG_PRINTF_P(PSTR("--  Allocated duplicate data (%d) for %p: %p\n"), _dataLen, this, _t->_segT._dataT);
+      //DEBUGFX_PRINTF_P(PSTR("--  Allocated duplicate data (%d) for %p: %p\n"), _dataLen, this, _t->_segT._dataT);
       memcpy(_t->_segT._dataT, data, _dataLen);
       _t->_segT._dataLenT = _dataLen;
     }
@@ -303,10 +303,10 @@ void Segment::startTransition(uint16_t dur) {
 
 void Segment::stopTransition() {
   if (isInTransition()) {
-    //DEBUG_PRINTF_P(PSTR("-- Stopping transition: %p\n"), this);
+    //DEBUGFX_PRINTF_P(PSTR("-- Stopping transition: %p\n"), this);
     #ifndef WLED_DISABLE_MODE_BLEND
     if (_t->_segT._dataT && _t->_segT._dataLenT > 0) {
-      //DEBUG_PRINTF_P(PSTR("--  Released duplicate data (%d) for %p: %p\n"), _t->_segT._dataLenT, this, _t->_segT._dataT);
+      //DEBUGFX_PRINTF_P(PSTR("--  Released duplicate data (%d) for %p: %p\n"), _t->_segT._dataLenT, this, _t->_segT._dataT);
       free(_t->_segT._dataT);
       _t->_segT._dataT = nullptr;
       _t->_segT._dataLenT = 0;
@@ -328,7 +328,7 @@ uint16_t IRAM_ATTR Segment::progress() const {
 
 #ifndef WLED_DISABLE_MODE_BLEND
 void Segment::swapSegenv(tmpsegd_t &tmpSeg) {
-  //DEBUG_PRINTF_P(PSTR("--  Saving temp seg: %p->(%p) [%d->%p]\n"), this, &tmpSeg, _dataLen, data);
+  //DEBUGFX_PRINTF_P(PSTR("--  Saving temp seg: %p->(%p) [%d->%p]\n"), this, &tmpSeg, _dataLen, data);
   tmpSeg._optionsT   = options;
   for (size_t i=0; i<NUM_COLORS; i++) tmpSeg._colorT[i] = colors[i];
   tmpSeg._speedT     = speed;
@@ -367,14 +367,14 @@ void Segment::swapSegenv(tmpsegd_t &tmpSeg) {
 }
 
 void Segment::restoreSegenv(tmpsegd_t &tmpSeg) {
-  //DEBUG_PRINTF_P(PSTR("--  Restoring temp seg: %p->(%p) [%d->%p]\n"), &tmpSeg, this, _dataLen, data);
+  //DEBUGFX_PRINTF_P(PSTR("--  Restoring temp seg: %p->(%p) [%d->%p]\n"), &tmpSeg, this, _dataLen, data);
   if (_t && &(_t->_segT) != &tmpSeg) {
     // update possibly changed variables to keep old effect running correctly
     _t->_segT._aux0T = aux0;
     _t->_segT._aux1T = aux1;
     _t->_segT._stepT = step;
     _t->_segT._callT = call;
-    //if (_t->_segT._dataT != data) DEBUG_PRINTF_P(PSTR("---  data re-allocated: (%p) %p -> %p\n"), this, _t->_segT._dataT, data);
+    //if (_t->_segT._dataT != data) DEBUGFX_PRINTF_P(PSTR("---  data re-allocated: (%p) %p -> %p\n"), this, _t->_segT._dataT, data);
     _t->_segT._dataT = data;
     _t->_segT._dataLenT = _dataLen;
   }
@@ -519,10 +519,10 @@ void Segment::setUp(uint16_t i1, uint16_t i2, uint8_t grp, uint8_t spc, uint16_t
   }
   if (ofs < UINT16_MAX) offset = ofs;
 
-  DEBUG_PRINT(F("setUp segment: ")); DEBUG_PRINT(i1);
-  DEBUG_PRINT(','); DEBUG_PRINT(i2);
-  DEBUG_PRINT(F(" -> ")); DEBUG_PRINT(i1Y);
-  DEBUG_PRINT(','); DEBUG_PRINTLN(i2Y);
+  DEBUGFX_PRINT(F("setUp segment: ")); DEBUGFX_PRINT(i1);
+  DEBUGFX_PRINT(','); DEBUGFX_PRINT(i2);
+  DEBUGFX_PRINT(F(" -> ")); DEBUGFX_PRINT(i1Y);
+  DEBUGFX_PRINT(','); DEBUGFX_PRINTLN(i2Y);
   markForReset();
   if (boundsUnchanged) return;
 
@@ -556,7 +556,7 @@ Segment &Segment::setColor(uint8_t slot, uint32_t c) {
     if (slot == 0 && c == BLACK) return *this; // on/off segment cannot have primary color black
     if (slot == 1 && c != BLACK) return *this; // on/off segment cannot have secondary color non black
   }
-  //DEBUG_PRINTF_P(PSTR("- Starting color transition: %d [0x%X]\n"), slot, c);
+  //DEBUGFX_PRINTF_P(PSTR("- Starting color transition: %d [0x%X]\n"), slot, c);
   startTransition(strip.getTransition()); // start transition prior to change
   colors[slot] = c;
   stateChanged = true; // send UDP/WS broadcast
@@ -570,7 +570,7 @@ Segment &Segment::setCCT(uint16_t k) {
     k = (k - 1900) >> 5;
   }
   if (cct != k) {
-    //DEBUG_PRINTF_P(PSTR("- Starting CCT transition: %d\n"), k);
+    //DEBUGFX_PRINTF_P(PSTR("- Starting CCT transition: %d\n"), k);
     startTransition(strip.getTransition()); // start transition prior to change
     cct = k;
     stateChanged = true; // send UDP/WS broadcast
@@ -580,7 +580,7 @@ Segment &Segment::setCCT(uint16_t k) {
 
 Segment &Segment::setOpacity(uint8_t o) {
   if (opacity != o) {
-    //DEBUG_PRINTF_P(PSTR("- Starting opacity transition: %d\n"), o);
+    //DEBUGFX_PRINTF_P(PSTR("- Starting opacity transition: %d\n"), o);
     startTransition(strip.getTransition()); // start transition prior to change
     opacity = o;
     stateChanged = true; // send UDP/WS broadcast
@@ -604,7 +604,7 @@ Segment &Segment::setMode(uint8_t fx, bool loadDefaults) {
   // if we have a valid mode & is not reserved
   if (fx != mode) {
 #ifndef WLED_DISABLE_MODE_BLEND
-    //DEBUG_PRINTF_P(PSTR("- Starting effect transition: %d\n"), fx);
+    //DEBUGFX_PRINTF_P(PSTR("- Starting effect transition: %d\n"), fx);
     startTransition(strip.getTransition()); // set effect transitions
 #endif
     mode = fx;
@@ -637,7 +637,7 @@ Segment &Segment::setPalette(uint8_t pal) {
   if (pal < 245 && pal > GRADIENT_PALETTE_COUNT+13) pal = 0; // built in palettes
   if (pal > 245 && (strip.customPalettes.size() == 0 || 255U-pal > strip.customPalettes.size()-1)) pal = 0; // custom palettes
   if (pal != palette) {
-    //DEBUG_PRINTF_P(PSTR("- Starting palette transition: %d\n"), pal);
+    //DEBUGFX_PRINTF_P(PSTR("- Starting palette transition: %d\n"), pal);
     startTransition(strip.getTransition());
     palette = pal;
     stateChanged = true; // send UDP/WS broadcast
@@ -1294,7 +1294,7 @@ void WS2812FX::finalizeInit() {
 
   //if busses failed to load, add default (fresh install, FS issue, ...)
   if (BusManager::getNumBusses() == 0) {
-    DEBUG_PRINTLN(F("No busses, init default"));
+    DEBUGFX_PRINTLN(F("No busses, init default"));
     constexpr unsigned defDataTypes[] = {LED_TYPES};
     constexpr unsigned defDataPins[] = {DATA_PINS};
     constexpr unsigned defCounts[] = {PIXEL_COUNTS};
@@ -1326,13 +1326,13 @@ void WS2812FX::finalizeInit() {
         // Pin should not be already allocated, read/only or defined for current bus
         while (PinManager::isPinAllocated(defPin[j]) || !PinManager::isPinOk(defPin[j],true)) {
           if (validPin) {
-            DEBUG_PRINTLN(F("Some of the provided pins cannot be used to configure this LED output."));
+            DEBUGFX_PRINTLN(F("Some of the provided pins cannot be used to configure this LED output."));
             defPin[j] = 1; // start with GPIO1 and work upwards
             validPin = false;
           } else if (defPin[j] < WLED_NUM_PINS) {
             defPin[j]++;
           } else {
-            DEBUG_PRINTLN(F("No available pins left! Can't configure output."));
+            DEBUGFX_PRINTLN(F("No available pins left! Can't configure output."));
             return;
           }
           // is the newly assigned pin already defined or used previously?
@@ -1400,9 +1400,9 @@ void WS2812FX::finalizeInit() {
   Segment::maxHeight = 1;
 
   //segments are created in makeAutoSegments();
-  DEBUG_PRINTLN(F("Loading custom palettes"));
+  DEBUGFX_PRINTLN(F("Loading custom palettes"));
   loadCustomPalettes(); // (re)load all custom palettes
-  DEBUG_PRINTLN(F("Loading custom ledmaps"));
+  DEBUGFX_PRINTLN(F("Loading custom ledmaps"));
   deserializeMap();     // (re)load default ledmap (will also setUpMatrix() if ledmap does not exist)
 }
 
@@ -1542,16 +1542,16 @@ void WS2812FX::service() {
   _isServicing = false;
   _triggered = false;
 
-  #ifdef WLED_DEBUG
-  if (millis() - nowUp > _frametime) DEBUG_PRINTF_P(PSTR("Slow effects %u/%d.\n"), (unsigned)(millis()-nowUp), (int)_frametime);
+  #ifdef WLED_DEBUG_FX
+  if (millis() - nowUp > _frametime) DEBUGFX_PRINTF_P(PSTR("Slow effects %u/%d.\n"), (unsigned)(millis()-nowUp), (int)_frametime);
   #endif
   if (doShow) {
     yield();
     Segment::handleRandomPalette(); // slowly transition random palette; move it into for loop when each segment has individual random palette
     show();
   }
-  #ifdef WLED_DEBUG
-  if (millis() - nowUp > _frametime) DEBUG_PRINTF_P(PSTR("Slow strip %u/%d.\n"), (unsigned)(millis()-nowUp), (int)_frametime);
+  #ifdef WLED_DEBUG_FX
+  if (millis() - nowUp > _frametime) DEBUGFX_PRINTF_P(PSTR("Slow strip %u/%d.\n"), (unsigned)(millis()-nowUp), (int)_frametime);
   #endif
 }
 
@@ -1829,7 +1829,7 @@ void WS2812FX::makeAutoSegments(bool forceReset) {
     for (size_t i = 1; i < s; i++) {
       _segments.push_back(Segment(segStarts[i], segStops[i]));
     }
-    DEBUG_PRINTF_P(PSTR("%d auto segments created.\n"), _segments.size());
+    DEBUGFX_PRINTF_P(PSTR("%d auto segments created.\n"), _segments.size());
 
   } else {
 
@@ -1903,15 +1903,15 @@ void WS2812FX::setRange(uint16_t i, uint16_t i2, uint32_t col) {
   for (unsigned x = i; x <= i2; x++) setPixelColor(x, col);
 }
 
-#ifdef WLED_DEBUG
+#ifdef WLED_DEBUG_FX
 void WS2812FX::printSize() {
   size_t size = 0;
   for (const Segment &seg : _segments) size += seg.getSize();
-  DEBUG_PRINTF_P(PSTR("Segments: %d -> %u/%dB\n"), _segments.size(), size, Segment::getUsedSegmentData());
-  for (const Segment &seg : _segments) DEBUG_PRINTF_P(PSTR("  Seg: %d,%d [A=%d, 2D=%d, RGB=%d, W=%d, CCT=%d]\n"), seg.width(), seg.height(), seg.isActive(), seg.is2D(), seg.hasRGB(), seg.hasWhite(), seg.isCCT());
-  DEBUG_PRINTF_P(PSTR("Modes: %d*%d=%uB\n"), sizeof(mode_ptr), _mode.size(), (_mode.capacity()*sizeof(mode_ptr)));
-  DEBUG_PRINTF_P(PSTR("Data: %d*%d=%uB\n"), sizeof(const char *), _modeData.size(), (_modeData.capacity()*sizeof(const char *)));
-  DEBUG_PRINTF_P(PSTR("Map: %d*%d=%uB\n"), sizeof(uint16_t), (int)customMappingSize, customMappingSize*sizeof(uint16_t));
+  DEBUGFX_PRINTF_P(PSTR("Segments: %d -> %u/%dB\n"), _segments.size(), size, Segment::getUsedSegmentData());
+  for (const Segment &seg : _segments) DEBUGFX_PRINTF_P(PSTR("  Seg: %d,%d [A=%d, 2D=%d, RGB=%d, W=%d, CCT=%d]\n"), seg.width(), seg.height(), seg.isActive(), seg.is2D(), seg.hasRGB(), seg.hasWhite(), seg.isCCT());
+  DEBUGFX_PRINTF_P(PSTR("Modes: %d*%d=%uB\n"), sizeof(mode_ptr), _mode.size(), (_mode.capacity()*sizeof(mode_ptr)));
+  DEBUGFX_PRINTF_P(PSTR("Data: %d*%d=%uB\n"), sizeof(const char *), _modeData.size(), (_modeData.capacity()*sizeof(const char *)));
+  DEBUGFX_PRINTF_P(PSTR("Map: %d*%d=%uB\n"), sizeof(uint16_t), (int)customMappingSize, customMappingSize*sizeof(uint16_t));
 }
 #endif
 
@@ -1925,8 +1925,8 @@ void WS2812FX::loadCustomPalettes() {
 
     StaticJsonDocument<1536> pDoc; // barely enough to fit 72 numbers
     if (WLED_FS.exists(fileName)) {
-      DEBUG_PRINT(F("Reading palette from "));
-      DEBUG_PRINTLN(fileName);
+      DEBUGFX_PRINT(F("Reading palette from "));
+      DEBUGFX_PRINTLN(fileName);
 
       if (readObjectFromFile(fileName, nullptr, &pDoc)) {
         JsonArray pal = pDoc[F("palette")];
@@ -1940,7 +1940,7 @@ void WS2812FX::loadCustomPalettes() {
               tcp[ j ] = (uint8_t) pal[ i ].as<int>(); // index
               colorFromHexString(rgbw, pal[i+1].as<const char *>()); // will catch non-string entires
               for (size_t c=0; c<3; c++) tcp[j+1+c] = gamma8(rgbw[c]); // only use RGB component
-              DEBUG_PRINTF_P(PSTR("%d(%d) : %d %d %d\n"), i, int(tcp[j]), int(tcp[j+1]), int(tcp[j+2]), int(tcp[j+3]));
+              DEBUGFX_PRINTF_P(PSTR("%d(%d) : %d %d %d\n"), i, int(tcp[j]), int(tcp[j+1]), int(tcp[j+2]), int(tcp[j+3]));
             }
           } else {
             size_t palSize = MIN(pal.size(), 72);
@@ -1950,12 +1950,12 @@ void WS2812FX::loadCustomPalettes() {
               tcp[i+1] = gamma8((uint8_t) pal[i+1].as<int>()); // R
               tcp[i+2] = gamma8((uint8_t) pal[i+2].as<int>()); // G
               tcp[i+3] = gamma8((uint8_t) pal[i+3].as<int>()); // B
-              DEBUG_PRINTF_P(PSTR("%d(%d) : %d %d %d\n"), i, int(tcp[i]), int(tcp[i+1]), int(tcp[i+2]), int(tcp[i+3]));
+              DEBUGFX_PRINTF_P(PSTR("%d(%d) : %d %d %d\n"), i, int(tcp[i]), int(tcp[i+1]), int(tcp[i+2]), int(tcp[i+3]));
             }
           }
           customPalettes.push_back(targetPalette.loadDynamicGradientPalette(tcp));
         } else {
-          DEBUG_PRINTLN(F("Wrong palette format."));
+          DEBUGFX_PRINTLN(F("Wrong palette format."));
         }
       }
     } else {
@@ -1986,7 +1986,7 @@ bool WS2812FX::deserializeMap(uint8_t n) {
   if (!isFile || !requestJSONBufferLock(7)) return false;
 
   if (!readObjectFromFile(fileName, nullptr, pDoc)) {
-    DEBUG_PRINT(F("ERROR Invalid ledmap in ")); DEBUG_PRINTLN(fileName);
+    DEBUGFX_PRINT(F("ERROR Invalid ledmap in ")); DEBUGFX_PRINTLN(fileName);
     releaseJSONBufferLock();
     return false; // if file does not load properly then exit
   }
@@ -2002,7 +2002,7 @@ bool WS2812FX::deserializeMap(uint8_t n) {
   customMappingTable = new uint16_t[getLengthTotal()];
 
   if (customMappingTable) {
-    DEBUG_PRINT(F("Reading LED map from ")); DEBUG_PRINTLN(fileName);
+    DEBUGFX_PRINT(F("Reading LED map from ")); DEBUGFX_PRINTLN(fileName);
     JsonArray map = root[F("map")];
     if (!map.isNull() && map.size()) {  // not an empty map
       customMappingSize = min((unsigned)map.size(), (unsigned)getLengthTotal());
@@ -2010,7 +2010,7 @@ bool WS2812FX::deserializeMap(uint8_t n) {
       currentLedmap = n;
     }
   } else {
-    DEBUG_PRINTLN(F("ERROR LED map allocation error."));
+    DEBUGFX_PRINTLN(F("ERROR LED map allocation error."));
   }
 
   releaseJSONBufferLock();

@@ -17,6 +17,25 @@
 
 #include "const.h"
 
+#ifdef WLED_DEBUG_FX
+  // enable additional debug output
+  #if defined(WLED_DEBUG_HOST)
+    #include "net_debug.h"
+    #define DEBUGOUT NetDebug
+  #else
+    #define DEBUGOUT Serial
+  #endif
+  #define DEBUGFX_PRINT(x) DEBUGOUT.print(x)
+  #define DEBUGFX_PRINTLN(x) DEBUGOUT.println(x)
+  #define DEBUGFX_PRINTF(x...) DEBUGOUT.printf(x)
+  #define DEBUGFX_PRINTF_P(x...) DEBUGOUT.printf_P(x)
+#else
+  #define DEBUGFX_PRINT(x)
+  #define DEBUGFX_PRINTLN(x)
+  #define DEBUGFX_PRINTF(x...)
+  #define DEBUGFX_PRINTF_P(x...)
+#endif
+
 #define FASTLED_INTERNAL //remove annoying pragma messages
 #define USE_GET_MILLISECOND_TIMER
 #include "FastLED.h"
@@ -497,7 +516,7 @@ typedef struct Segment {
       _dataLen(0),
       _t(nullptr)
     {
-      #ifdef WLED_DEBUG
+      #ifdef WLED_DEBUG_FX
       //Serial.printf("-- Creating segment: %p\n", this);
       #endif
     }
@@ -511,7 +530,7 @@ typedef struct Segment {
     Segment(Segment &&orig) noexcept; // move constructor
 
     ~Segment() {
-      #ifdef WLED_DEBUG
+      #ifdef WLED_DEBUG_FX
       //Serial.printf("-- Destroying segment: %p", this);
       //if (name) Serial.printf(" %s (%p)", name, name);
       //if (data) Serial.printf(" %d->(%p)", (int)_dataLen, data);
@@ -525,7 +544,7 @@ typedef struct Segment {
     Segment& operator= (const Segment &orig); // copy assignment
     Segment& operator= (Segment &&orig) noexcept; // move assignment
 
-#ifdef WLED_DEBUG
+#ifdef WLED_DEBUG_FX
     size_t getSize() const { return sizeof(Segment) + (data?_dataLen:0) + (name?strlen(name):0) + (_t?sizeof(Transition):0); }
 #endif
 
@@ -795,7 +814,7 @@ class WS2812FX {  // 96 bytes
     static WS2812FX* getInstance() { return instance; }
 
     void
-#ifdef WLED_DEBUG
+#ifdef WLED_DEBUG_FX
       printSize(),                                // prints memory usage for strip components
 #endif
       finalizeInit(),                             // initialises strip components

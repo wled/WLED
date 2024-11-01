@@ -641,6 +641,16 @@
   #define HW_PIN_MISOSPI MISO
 #endif
 
+#ifdef WLED_DEBUG_ALL
+  #define WLED_DEBUG 1
+  #define WLED_DEBUG_FX 1
+  #define WLED_DEBUG_FS 1
+  #define WLED_DEBUG_BUS 1
+  #define WLED_DEBUG_PINMANAGER 1
+  #define WLED_DEBUG_USERMODS 1
+  #define WLED_DEBUG_MATH 1
+#endif
+
 // IRAM_ATTR for 8266 with 32Kb IRAM causes error: section `.text1' will not fit in region `iram1_0_seg'
 // this hack removes the IRAM flag for some 1D/2D functions - somewhat slower, but it solves problems with some older 8266 chips
 #ifdef WLED_SAVE_IRAM
