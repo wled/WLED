@@ -2284,7 +2284,7 @@ void WS2812FX::setSegment(uint8_t n, uint16_t i1, uint16_t i2, uint8_t grouping,
 void WS2812FX::restartRuntime(bool doReset) {
   for (segment &seg : _segments) {
     if (doReset) {   // WLEDMM we prefer not to perform a complete restart of all effects
-      seg.markForReset(); seg.resetIfRequired(); 
+      seg.markForReset(); // seg.resetIfRequired(); // WLEDMM calling this function from webserver context will cause troubles
     } else {
       seg.next_time = 0; seg.step = 0;
     }
