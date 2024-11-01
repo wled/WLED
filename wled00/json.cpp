@@ -649,7 +649,7 @@ void serializeState(JsonObject root, bool forPreset, bool includeBri, bool segme
 void serializeInfo(JsonObject root)
 {
   root[F("ver")] = versionString;
-  root[F("vid")] = VERSION;
+  root[F("vid")] = build;
   root[F("cn")] = F(WLED_CODENAME);
   root[F("release")] = releaseString;
 

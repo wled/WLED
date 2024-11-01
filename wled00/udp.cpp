@@ -761,7 +761,6 @@ void sendSysInfoUDP()
   if (bri) data[38] |= 0x80U;  // add on/off state
   data[39] = ip[3]; // unit ID == last IP number
 
-  uint32_t build = VERSION;
   for (size_t i=0; i<sizeof(uint32_t); i++)
     data[40+i] = (build>>(8*i)) & 0xFF;
 

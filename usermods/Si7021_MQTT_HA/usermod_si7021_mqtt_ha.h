@@ -96,7 +96,7 @@ class Si7021_MQTT_HA : public Usermod
         device["model"] = F(WLED_PRODUCT_NAME);
         device["manufacturer"] = F(WLED_BRAND);
         device["identifiers"] = String("wled-") + String(serverDescription);
-        device["sw_version"] = VERSION;
+        device["sw_version"] = build;
 
         String payload;
         serializeJson(doc, payload);

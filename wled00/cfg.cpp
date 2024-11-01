@@ -727,7 +727,7 @@ void serializeConfig() {
   rev.add(1); //major settings revision
   rev.add(0); //minor settings revision
 
-  root[F("vid")] = VERSION;
+  root[F("vid")] = build;
 
   JsonObject id = root.createNestedObject("id");
   id[F("mdns")] = cmDNS;

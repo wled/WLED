@@ -580,7 +580,7 @@ void getSettingsJS(byte subPage, Print& settingsScript)
     printSetFormCheckbox(settingsScript,PSTR("OW"),wifiLock);
     printSetFormCheckbox(settingsScript,PSTR("AO"),aOtaEnabled);
     char tmp_buf[128];
-    snprintf_P(tmp_buf,sizeof(tmp_buf),PSTR("WLED %s (build %d)"),versionString,VERSION);
+    snprintf_P(tmp_buf,sizeof(tmp_buf),PSTR("WLED %s (build %d)"),versionString,build);
     printSetClassElementHTML(settingsScript,PSTR("sip"),0,tmp_buf);
     settingsScript.printf_P(PSTR("sd=\"%s\";"), serverDescription);
   }
@@ -641,9 +641,9 @@ void getSettingsJS(byte subPage, Print& settingsScript)
     #if defined(ARDUINO_ARCH_ESP32)
       ESP.getChipModel(),
     #else
-      F("esp8266"),
+      "esp8266",
     #endif
-      VERSION);
+      build);
 
     printSetClassElementHTML(settingsScript,PSTR("sip"),0,tmp_buf);
   }

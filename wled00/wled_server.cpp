@@ -36,7 +36,7 @@ static bool isIp(String str) {
  */
 
 static void generateEtag(char *etag, uint16_t eTagSuffix) {
-  sprintf_P(etag, PSTR("%7d-%02x-%04x"), VERSION, cacheInvalidate, eTagSuffix);
+  sprintf_P(etag, PSTR("%7d-%02x-%04x"), build, cacheInvalidate, eTagSuffix);
 }
 
 static void setStaticContentCacheHeaders(AsyncWebServerResponse *response, int code, uint16_t eTagSuffix = 0) {
@@ -336,7 +336,7 @@ void initServer()
   server.addHandler(handler);
 
   server.on(F("/version"), HTTP_GET, [](AsyncWebServerRequest *request){
-    request->send(200, FPSTR(CONTENT_TYPE_PLAIN), (String)VERSION);
+    request->send(200, FPSTR(CONTENT_TYPE_PLAIN), (String)build);
   });
 
   server.on(F("/uptime"), HTTP_GET, [](AsyncWebServerRequest *request){

@@ -87,7 +87,7 @@ private:
     device["identifiers"] = String("wled-sensor-") + mqttClientID;
     device["manufacturer"] = F(WLED_BRAND);
     device["model"] = F(WLED_PRODUCT_NAME);
-    device["sw_version"] = VERSION;
+    device["sw_version"] = build;
     device["name"] = mqttClientID;
 
     String temp;

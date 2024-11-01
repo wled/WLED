@@ -222,7 +222,6 @@ void WLED::loop()
     BusManager::setBrightness(bri); // fix re-initialised bus' brightness #4005
     if (aligned) strip.makeAutoSegments();
     else strip.fixInvalidSegments();
-    BusManager::setBrightness(bri); // fix re-initialised bus' brightness
     doSerializeConfig = true;
   }
   if (loadLedmap >= 0) {
@@ -363,7 +362,7 @@ void WLED::setup()
   Serial.setDebugOutput(false); // switch off kernel messages when using USBCDC
 #endif
   DEBUG_PRINTLN();
-  DEBUG_PRINTF_P(PSTR("---WLED %s %u INIT---\n"), versionString, VERSION);
+  DEBUG_PRINTF_P(PSTR("---WLED %s %u INIT---\n"), versionString, build);
   DEBUG_PRINTLN();
 #ifdef ARDUINO_ARCH_ESP32
   DEBUG_PRINTF_P(PSTR("esp32 %s\n"), ESP.getSdkVersion());
