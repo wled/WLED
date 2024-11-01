@@ -546,11 +546,16 @@ uint8_t BusHub75Matrix::instanceCount = 0;
     #define MAX_PIXELS_6BIT (192 * 64)
     #define MAX_PIXELS_4BIT (256 * 64)
   #endif
-#elif defined(CONFIG_IDF_TARGET_ESP32S3)
-  // standard esp32-S3
+#elif defined(CONFIG_IDF_TARGET_ESP32S3) && defined(BOARD_HAS_PSRAM)
+  // standard esp32-S3 with quad PSRAM
   #define MAX_PIXELS_8BIT ( 96 * 64)
   #define MAX_PIXELS_6BIT (128 * 64)
   #define MAX_PIXELS_4BIT (160 * 64)
+#elif defined(CONFIG_IDF_TARGET_ESP32S3)
+  // HD-WF2 is an esp32-S3 without PSRAM - use same limits as classic esp32
+  #define MAX_PIXELS_8BIT ( 64 * 64)
+  #define MAX_PIXELS_6BIT ( 96 * 64)
+  #define MAX_PIXELS_4BIT (128 * 64)
 #elif defined(CONFIG_IDF_TARGET_ESP32S2)
   // esp32-S2 only has 320KB RAM
   #define MAX_PIXELS_8BIT ( 48 * 48)
