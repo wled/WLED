@@ -33,33 +33,40 @@ uint32_t color_blend(uint32_t color1, uint32_t color2, uint16_t blend, bool b16)
 
 /*
  * color add function that preserves ratio
- * idea: https://github.com/Aircoookie/WLED/pull/2465 by https://github.com/Proto-molecule
+ * original idea: https://github.com/Aircoookie/WLED/pull/2465 by https://github.com/Proto-molecule
+ * speed optimisations by @dedehai
  */
-uint32_t color_add(uint32_t c1, uint32_t c2, bool fast)
+uint32_t color_add(uint32_t c1, uint32_t c2, bool preserveCR)
 {
   if (c1 == BLACK) return c2;
   if (c2 == BLACK) return c1;
-  if (fast) {
-    uint8_t r = R(c1);
-    uint8_t g = G(c1);
-    uint8_t b = B(c1);
-    uint8_t w = W(c1);
-    r = qadd8(r, R(c2));
-    g = qadd8(g, G(c2));
-    b = qadd8(b, B(c2));
-    w = qadd8(w, W(c2));
-    return RGBW32(r,g,b,w);
+  uint32_t rb = (c1 & 0x00FF00FF) + (c2 & 0x00FF00FF); // mask and add two colors at once
+  uint32_t wg = ((c1>>8) & 0x00FF00FF) + ((c2>>8) & 0x00FF00FF);
+  uint32_t r = rb >> 16; // extract single color values
+  uint32_t b = rb & 0xFFFF;
+  uint32_t w = wg >> 16;
+  uint32_t g = wg & 0xFFFF;
+
+  if (preserveCR) { // preserve color ratios
+    uint32_t max = std::max(r,g); // check for overflow note
+    max = std::max(max,b);
+    max = std::max(max,w);
+    //unsigned max = r; // check for overflow note
+    //max = g > max ? g : max;
+    //max = b > max ? b : max;
+    //max = w > max ? w : max;
+    if (max > 255) {
+      uint32_t scale = (uint32_t(255)<<8) / max; // division of two 8bit (shifted) values does not work -> use bit shifts and multiplaction instead
+      rb = ((rb * scale) >> 8) & 0x00FF00FF; //
+      wg = (wg * scale) & 0xFF00FF00;
+    } else wg = wg << 8; //shift white and green back to correct position
+    return rb | wg;
   } else {
-    uint32_t r = R(c1) + R(c2);
-    uint32_t g = G(c1) + G(c2);
-    uint32_t b = B(c1) + B(c2);
-    uint32_t w = W(c1) + W(c2);
-    unsigned max = r;
-    if (g > max) max = g;
-    if (b > max) max = b;
-    if (w > max) max = w;
-    if (max < 256) return RGBW32(r, g, b, w);
-    else           return RGBW32(r * 255 / max, g * 255 / max, b * 255 / max, w * 255 / max);
+    r = r > 255 ? 255 : r;
+    g = g > 255 ? 255 : g;
+    b = b > 255 ? 255 : b;
+    w = w > 255 ? 255 : w;
+    return RGBW32(r,g,b,w);
   }
 }
 
@@ -70,25 +77,51 @@ uint32_t color_add(uint32_t c1, uint32_t c2, bool fast)
 
 uint32_t color_fade(uint32_t c1, uint8_t amount, bool video)
 {
-  if (c1 == BLACK || amount + video == 0) return BLACK;
+  if (amount == 255) return c1;
+  if (c1 == BLACK || amount == 0) return BLACK;
   uint32_t scaledcolor; // color order is: W R G B from MSB to LSB
-  uint32_t r = R(c1);
-  uint32_t g = G(c1);
-  uint32_t b = B(c1);
-  uint32_t w = W(c1);
   uint32_t scale = amount; // 32bit for faster calculation
-  if (video) {
-    scaledcolor  = (((r * scale) >> 8) + ((r && scale) ? 1 : 0)) << 16;
-    scaledcolor |= (((g * scale) >> 8) + ((g && scale) ? 1 : 0)) << 8;
-    scaledcolor |=  ((b * scale) >> 8) + ((b && scale) ? 1 : 0);
-    scaledcolor |= (((w * scale) >> 8) + ((w && scale) ? 1 : 0)) << 24;
-  } else {
-    scaledcolor  = ((r * scale) >> 8) << 16;
-    scaledcolor |= ((g * scale) >> 8) << 8;
-    scaledcolor |=  (b * scale) >> 8;
-    scaledcolor |= ((w * scale) >> 8) << 24;
+  uint32_t addRemains = 0;
+  if (!video) scale++; // add one for correct scaling using bitshifts
+  else { // video scaling: make sure colors do not dim to zero if they started non-zero
+    addRemains  = R(c1) ? 0x00010000 : 0;
+    addRemains |= G(c1) ? 0x00000100 : 0;
+    addRemains |= B(c1) ? 0x00000001 : 0;
+    addRemains |= W(c1) ? 0x01000000 : 0;
   }
+  uint32_t rb = (((c1 & 0x00FF00FF) * scale) >> 8) & 0x00FF00FF; // scale red and blue
+  uint32_t wg = (((c1 & 0xFF00FF00) >> 8) * scale) & 0xFF00FF00; // scale white and green
+  scaledcolor = (rb | wg) + addRemains;
   return scaledcolor;
+}
+
+// 1:1 replacement of fastled function optimized for ESP, slightly faster, more accurate and uses less flash (~ -200bytes)
+uint32_t ColorFromPaletteWLED(const CRGBPalette16& pal, unsigned index, uint8_t brightness, TBlendType blendType)
+{
+  if (blendType == LINEARBLEND_NOWRAP) {
+    index = (index*240) >> 8; // Blend range is affected by lo4 blend of values, remap to avoid wrapping
+  }
+  unsigned hi4 = byte(index) >> 4;
+  const CRGB* entry = (CRGB*)((uint8_t*)(&(pal[0])) + (hi4 * sizeof(CRGB)));
+  unsigned red1   = entry->r;
+  unsigned green1 = entry->g;
+  unsigned blue1  = entry->b;
+  if (blendType != NOBLEND) {
+    if (hi4 == 15) entry = &(pal[0]);
+    else ++entry;
+    unsigned f2 = ((index & 0x0F) << 4) + 1; // +1 so we scale by 256 as a max value, then result can just be shifted by 8
+    unsigned f1 = (257 - f2); // f2 is 1 minimum, so this is 256 max
+    red1   = (red1 * f1 + (unsigned)entry->r * f2) >> 8;
+    green1 = (green1 * f1 + (unsigned)entry->g * f2) >> 8;
+    blue1  = (blue1 * f1 + (unsigned)entry->b * f2) >> 8;
+  }
+  if (brightness < 255) { // note: zero checking could be done to return black but that is hardly ever used so it is omitted
+    uint32_t scale = brightness + 1; // adjust for rounding (bitshift)
+    red1   = (red1 * scale) >> 8;
+    green1 = (green1 * scale) >> 8;
+    blue1  = (blue1 * scale) >> 8;
+  }
+  return RGBW32(red1,green1,blue1,0);
 }
 
 void setRandomColor(byte* rgb)
@@ -105,7 +138,7 @@ CRGBPalette16 generateHarmonicRandomPalette(CRGBPalette16 &basepalette)
 {
   CHSV palettecolors[4]; //array of colors for the new palette
   uint8_t keepcolorposition = random8(4); //color position of current random palette to keep
-  palettecolors[keepcolorposition] = rgb2hsv_approximate(basepalette.entries[keepcolorposition*5]); //read one of the base colors of the current palette
+  palettecolors[keepcolorposition] = rgb2hsv(basepalette.entries[keepcolorposition*5]); //read one of the base colors of the current palette
   palettecolors[keepcolorposition].hue += random8(10)-5; // +/- 5 randomness of base color
   //generate 4 saturation and brightness value numbers
   //only one saturation is allowed to be below 200 creating mostly vibrant colors
@@ -148,7 +181,7 @@ CRGBPalette16 generateHarmonicRandomPalette(CRGBPalette16 &basepalette)
       harmonics[1] = basehue + 205 + random8(10);
       harmonics[2] = basehue -   5 + random8(10);
       break;
-    
+
     case 3: // square
       harmonics[0] = basehue +  85 + random8(10);
       harmonics[1] = basehue + 175 + random8(10);
@@ -185,9 +218,9 @@ CRGBPalette16 generateHarmonicRandomPalette(CRGBPalette16 &basepalette)
   //apply saturation & gamma correction
   CRGB RGBpalettecolors[4];
   for (int i = 0; i < 4; i++) {
-    if (makepastelpalette && palettecolors[i].saturation > 180) { 
+    if (makepastelpalette && palettecolors[i].saturation > 180) {
       palettecolors[i].saturation -= 160; //desaturate all four colors
-    }    
+    }
     RGBpalettecolors[i] = (CRGB)palettecolors[i]; //convert to RGB
     RGBpalettecolors[i] = gamma32(((uint32_t)RGBpalettecolors[i]) & 0x00FFFFFFU); //strip alpha from CRGB
   }
@@ -206,26 +239,64 @@ CRGBPalette16 generateRandomPalette()  //generate fully random palette
                        CHSV(random8(), random8(160, 255), random8(128, 255)));
 }
 
-void colorHStoRGB(uint16_t hue, byte sat, byte* rgb) //hue, sat to rgb
+void hsv2rgb(const CHSV32& hsv, uint32_t& rgb) // convert HSV (16bit hue) to RGB (32bit with white = 0)
 {
-  float h = ((float)hue)/10922.5f; // hue*6/65535
-  float s = ((float)sat)/255.0f;
-  int   i = int(h);
-  float f = h - i;
-  int   p = int(255.0f * (1.0f-s));
-  int   q = int(255.0f * (1.0f-s*f));
-  int   t = int(255.0f * (1.0f-s*(1.0f-f)));
-  p = constrain(p, 0, 255);
-  q = constrain(q, 0, 255);
-  t = constrain(t, 0, 255);
-  switch (i%6) {
-    case 0: rgb[0]=255,rgb[1]=t,  rgb[2]=p;  break;
-    case 1: rgb[0]=q,  rgb[1]=255,rgb[2]=p;  break;
-    case 2: rgb[0]=p,  rgb[1]=255,rgb[2]=t;  break;
-    case 3: rgb[0]=p,  rgb[1]=q,  rgb[2]=255;break;
-    case 4: rgb[0]=t,  rgb[1]=p,  rgb[2]=255;break;
-    case 5: rgb[0]=255,rgb[1]=p,  rgb[2]=q;  break;
+  unsigned int remainder, region, p, q, t;
+  unsigned int h = hsv.h;
+  unsigned int s = hsv.s;
+  unsigned int v = hsv.v;
+  if (s == 0) {
+      rgb = v << 16 | v << 8 | v;
+      return;
   }
+  region = h / 10923;  // 65536 / 6 = 10923
+  remainder = (h - (region * 10923)) * 6;
+  p = (v * (255 - s)) >> 8;
+  q = (v * (255 - ((s * remainder) >> 16))) >> 8;
+  t = (v * (255 - ((s * (65535 - remainder)) >> 16))) >> 8;
+  switch (region) {
+    case 0:
+      rgb = v << 16 | t << 8 | p; break;
+    case 1:
+      rgb = q << 16 | v << 8 | p; break;
+    case 2:
+      rgb = p << 16 | v << 8 | t; break;
+    case 3:
+      rgb = p << 16 | q << 8 | v; break;
+    case 4:
+      rgb = t << 16 | p << 8 | v; break;
+    default:
+      rgb = v << 16 | p << 8 | q; break;
+  }
+}
+
+void rgb2hsv(const uint32_t rgb, CHSV32& hsv) // convert RGB to HSV (16bit hue), much more accurate and faster than fastled version
+{
+    hsv.raw = 0;
+    int32_t r = (rgb>>16)&0xFF;
+    int32_t g = (rgb>>8)&0xFF;
+    int32_t b = rgb&0xFF;
+    int32_t minval, maxval, delta;
+    minval = min(r, g);
+    minval = min(minval, b);
+    maxval = max(r, g);
+    maxval = max(maxval, b);
+    if (maxval == 0)  return; // black
+    hsv.v = maxval;
+    delta = maxval - minval;
+    hsv.s = (255 * delta) / maxval;
+    if (hsv.s == 0)  return; // gray value
+    if (maxval == r) hsv.h = (10923 * (g - b)) / delta;
+    else if (maxval == g)  hsv.h = 21845 + (10923 * (b - r)) / delta;
+    else hsv.h = 43690 + (10923 * (r - g)) / delta;
+}
+
+void colorHStoRGB(uint16_t hue, byte sat, byte* rgb) { //hue, sat to rgb
+  uint32_t crgb;
+  hsv2rgb(CHSV32(hue, sat, 255), crgb);
+  rgb[0] = byte((crgb) >> 16);
+  rgb[1] = byte((crgb) >> 8);
+  rgb[2] = byte(crgb);
 }
 
 //get RGB values from color temperature in K (https://tannerhelland.com/2012/09/18/convert-temperature-rgb-algorithm-code.html)
@@ -452,24 +523,8 @@ uint16_t approximateKelvinFromRGB(uint32_t rgb) {
   }
 }
 
-//gamma 2.8 lookup table used for color correction
-uint8_t NeoGammaWLEDMethod::gammaT[256] = {
-    0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
-    0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  1,  1,  1,  1,
-    1,  1,  1,  1,  1,  1,  1,  1,  1,  2,  2,  2,  2,  2,  2,  2,
-    2,  3,  3,  3,  3,  3,  3,  3,  4,  4,  4,  4,  4,  5,  5,  5,
-    5,  6,  6,  6,  6,  7,  7,  7,  7,  8,  8,  8,  9,  9,  9, 10,
-   10, 10, 11, 11, 11, 12, 12, 13, 13, 13, 14, 14, 15, 15, 16, 16,
-   17, 17, 18, 18, 19, 19, 20, 20, 21, 21, 22, 22, 23, 24, 24, 25,
-   25, 26, 27, 27, 28, 29, 29, 30, 31, 32, 32, 33, 34, 35, 35, 36,
-   37, 38, 39, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 50,
-   51, 52, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 66, 67, 68,
-   69, 70, 72, 73, 74, 75, 77, 78, 79, 81, 82, 83, 85, 86, 87, 89,
-   90, 92, 93, 95, 96, 98, 99,101,102,104,105,107,109,110,112,114,
-  115,117,119,120,122,124,126,127,129,131,133,135,137,138,140,142,
-  144,146,148,150,152,154,156,158,160,162,164,167,169,171,173,175,
-  177,180,182,184,186,189,191,193,196,198,200,203,205,208,210,213,
-  215,218,220,223,225,228,231,233,236,239,241,244,247,249,252,255 };
+// gamma lookup table used for color correction (filled on 1st use (cfg.cpp & set.cpp))
+uint8_t NeoGammaWLEDMethod::gammaT[256];
 
 // re-calculates & fills gamma table
 void NeoGammaWLEDMethod::calcGammaTable(float gamma)

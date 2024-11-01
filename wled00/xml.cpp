@@ -161,6 +161,7 @@ void getSettingsJS(byte subPage, Print& settingsScript)
   DEBUG_PRINTF_P(PSTR("settings resp %u\n"), (unsigned)subPage);
 
   if (subPage <0 || subPage >10) return;
+  char nS[32];
 
   if (subPage == SUBPAGE_MENU)
   {
@@ -268,8 +269,6 @@ void getSettingsJS(byte subPage, Print& settingsScript)
 
   if (subPage == SUBPAGE_LEDS)
   {
-    char nS[32];
-
     appendGPIOinfo(settingsScript);
 
     settingsScript.print(F("d.ledTypes=")); settingsScript.print(BusManager::getLEDTypesJSONString().c_str()); settingsScript.print(";");
@@ -405,7 +404,6 @@ void getSettingsJS(byte subPage, Print& settingsScript)
 
   if (subPage == SUBPAGE_SYNC)
   {
-    [[maybe_unused]] char nS[32];
     printSetFormValue(settingsScript,PSTR("UP"),udpPort);
     printSetFormValue(settingsScript,PSTR("U2"),udpPort2);
   #ifndef WLED_DISABLE_ESPNOW

@@ -104,7 +104,7 @@ uint16_t blink(uint32_t color1, uint32_t color2, bool strobe, bool do_palette) {
   uint32_t color = on ? color1 : color2;
   if (color == color1 && do_palette)
   {
-    for (int i = 0; i < SEGLEN; i++) {
+    for (unsigned i = 0; i < SEGLEN; i++) {
       SEGMENT.setPixelColor(i, SEGMENT.color_from_palette(i, true, PALETTE_SOLID_WRAP, 0));
     }
   } else SEGMENT.fill(color);
@@ -286,25 +286,25 @@ uint16_t mode_dynamic(void) {
 
   if(SEGENV.call == 0) {
     //SEGMENT.fill(BLACK);
-    for (int i = 0; i < SEGLEN; i++) SEGENV.data[i] = random8();
+    for (unsigned i = 0; i < SEGLEN; i++) SEGENV.data[i] = random8();
   }
 
   uint32_t cycleTime = 50 + (255 - SEGMENT.speed)*15;
   uint32_t it = strip.now / cycleTime;
   if (it != SEGENV.step && SEGMENT.speed != 0) //new color
   {
-    for (int i = 0; i < SEGLEN; i++) {
+    for (unsigned i = 0; i < SEGLEN; i++) {
       if (random8() <= SEGMENT.intensity) SEGENV.data[i] = random8(); // random color index
     }
     SEGENV.step = it;
   }
 
   if (SEGMENT.check1) {
-    for (int i = 0; i < SEGLEN; i++) {
+    for (unsigned i = 0; i < SEGLEN; i++) {
       SEGMENT.blendPixelColor(i, SEGMENT.color_wheel(SEGENV.data[i]), 16);
     }
   } else {
-    for (int i = 0; i < SEGLEN; i++) {
+    for (unsigned i = 0; i < SEGLEN; i++) {
       SEGMENT.setPixelColor(i, SEGMENT.color_wheel(SEGENV.data[i]));
     }
   }
@@ -339,7 +339,7 @@ uint16_t mode_breath(void) {
   }
 
   unsigned lum = 30 + var;
-  for (int i = 0; i < SEGLEN; i++) {
+  for (unsigned i = 0; i < SEGLEN; i++) {
     SEGMENT.setPixelColor(i, color_blend(SEGCOLOR(1), SEGMENT.color_from_palette(i, true, PALETTE_SOLID_WRAP, 0), lum));
   }
 
@@ -355,7 +355,7 @@ uint16_t mode_fade(void) {
   unsigned counter = (strip.now * ((SEGMENT.speed >> 3) +10));
   unsigned lum = triwave16(counter) >> 8;
 
-  for (int i = 0; i < SEGLEN; i++) {
+  for (unsigned i = 0; i < SEGLEN; i++) {
     SEGMENT.setPixelColor(i, color_blend(SEGCOLOR(1), SEGMENT.color_from_palette(i, true, PALETTE_SOLID_WRAP, 0), lum));
   }
 
@@ -438,7 +438,7 @@ uint16_t mode_rainbow_cycle(void) {
   unsigned counter = (strip.now * ((SEGMENT.speed >> 2) +2)) & 0xFFFF;
   counter = counter >> 8;
 
-  for (int i = 0; i < SEGLEN; i++) {
+  for (unsigned i = 0; i < SEGLEN; i++) {
     //intensity/29 = 0 (1/16) 1 (1/8) 2 (1/4) 3 (1/2) 4 (1) 5 (2) 6 (4) 7 (8) 8 (16)
     uint8_t index = (i * (16 << (SEGMENT.intensity /29)) / SEGLEN) + counter;
     SEGMENT.setPixelColor(i, SEGMENT.color_wheel(index));
@@ -458,7 +458,7 @@ static uint16_t running(uint32_t color1, uint32_t color2, bool theatre = false) 
   uint32_t it = strip.now / cycleTime;
   bool usePalette = color1 == SEGCOLOR(0);
 
-  for (int i = 0; i < SEGLEN; i++) {
+  for (unsigned i = 0; i < SEGLEN; i++) {
     uint32_t col = color2;
     if (usePalette) color1 = SEGMENT.color_from_palette(i, true, PALETTE_SOLID_WRAP, 0);
     if (theatre) {
@@ -505,7 +505,7 @@ static uint16_t running_base(bool saw, bool dual=false) {
   unsigned x_scale = SEGMENT.intensity >> 2;
   uint32_t counter = (strip.now * SEGMENT.speed) >> 9;
 
-  for (int i = 0; i < SEGLEN; i++) {
+  for (unsigned i = 0; i < SEGLEN; i++) {
     unsigned a = i*x_scale - counter;
     if (saw) {
       a &= 0xFF;
@@ -608,7 +608,7 @@ uint16_t dissolve(uint32_t color) {
     SEGENV.aux0 = 1;
   }
 
-  for (int j = 0; j <= SEGLEN / 15; j++) {
+  for (unsigned j = 0; j <= SEGLEN / 15; j++) {
     if (random8() <= SEGMENT.intensity) {
       for (size_t times = 0; times < 10; times++) { //attempt to spawn a new pixel 10 times
         unsigned i = random16(SEGLEN);
@@ -670,7 +670,7 @@ static const char _data_FX_MODE_DISSOLVE_RANDOM[] PROGMEM = "Dissolve Rnd@Repeat
  * Inspired by www.tweaking4all.com/hardware/arduino/adruino-led-strip-effects/
  */
 uint16_t mode_sparkle(void) {
-  if (!SEGMENT.check2) for(int i = 0; i < SEGLEN; i++) {
+  if (!SEGMENT.check2) for(unsigned i = 0; i < SEGLEN; i++) {
     SEGMENT.setPixelColor(i, SEGMENT.color_from_palette(i, true, PALETTE_SOLID_WRAP, 1));
   }
   uint32_t cycleTime = 10 + (255 - SEGMENT.speed)*2;
@@ -692,7 +692,7 @@ static const char _data_FX_MODE_SPARKLE[] PROGMEM = "Sparkle@!,,,,,,Overlay;!,!;
  * Inspired by www.tweaking4all.com/hardware/arduino/adruino-led-strip-effects/
  */
 uint16_t mode_flash_sparkle(void) {
-  if (!SEGMENT.check2) for (int i = 0; i < SEGLEN; i++) {
+  if (!SEGMENT.check2) for (unsigned i = 0; i < SEGLEN; i++) {
     SEGMENT.setPixelColor(i, SEGMENT.color_from_palette(i, true, PALETTE_SOLID_WRAP, 0));
   }
 
@@ -713,13 +713,14 @@ static const char _data_FX_MODE_FLASH_SPARKLE[] PROGMEM = "Sparkle Dark@!,!,,,,,
  * Inspired by www.tweaking4all.com/hardware/arduino/adruino-led-strip-effects/
  */
 uint16_t mode_hyper_sparkle(void) {
-  if (!SEGMENT.check2) for (int i = 0; i < SEGLEN; i++) {
+  if (!SEGMENT.check2) for (unsigned i = 0; i < SEGLEN; i++) {
     SEGMENT.setPixelColor(i, SEGMENT.color_from_palette(i, true, PALETTE_SOLID_WRAP, 0));
   }
 
   if (strip.now - SEGENV.aux0 > SEGENV.step) {
     if (random8((255-SEGMENT.intensity) >> 4) == 0) {
-      for (int i = 0; i < max(1, SEGLEN/3); i++) {
+      int len = max(1, (int)SEGLEN/3);
+      for (int i = 0; i < len; i++) {
         SEGMENT.setPixelColor(random16(SEGLEN), SEGCOLOR(1));
       }
     }
@@ -735,7 +736,7 @@ static const char _data_FX_MODE_HYPER_SPARKLE[] PROGMEM = "Sparkle+@!,!,,,,,Over
  * Strobe effect with different strobe count and pause, controlled by speed.
  */
 uint16_t mode_multi_strobe(void) {
-  for (int i = 0; i < SEGLEN; i++) {
+  for (unsigned i = 0; i < SEGLEN; i++) {
     SEGMENT.setPixelColor(i, SEGMENT.color_from_palette(i, true, PALETTE_SOLID_WRAP, 1));
   }
 
@@ -766,7 +767,7 @@ static const char _data_FX_MODE_MULTI_STROBE[] PROGMEM = "Strobe Mega@!,!;!,!;!;
  */
 uint16_t mode_android(void) {
 
-  for (int i = 0; i < SEGLEN; i++) {
+  for (unsigned i = 0; i < SEGLEN; i++) {
     SEGMENT.setPixelColor(i, SEGMENT.color_from_palette(i, true, PALETTE_SOLID_WRAP, 1));
   }
 
@@ -981,10 +982,10 @@ static const char _data_FX_MODE_COLORFUL[] PROGMEM = "Colorful@!,Saturation;1,2,
  */
 uint16_t mode_traffic_light(void) {
   if (SEGLEN == 1) return mode_static();
-  for (int i=0; i < SEGLEN; i++)
+  for (unsigned i=0; i < SEGLEN; i++)
     SEGMENT.setPixelColor(i, SEGMENT.color_from_palette(i, true, PALETTE_SOLID_WRAP, 1));
   uint32_t mdelay = 500;
-  for (int i = 0; i < SEGLEN-2 ; i+=3)
+  for (unsigned i = 0; i < SEGLEN-2 ; i+=3)
   {
     switch (SEGENV.aux0)
     {
@@ -1016,7 +1017,7 @@ uint16_t mode_chase_flash(void) {
   if (SEGLEN == 1) return mode_static();
   unsigned flash_step = SEGENV.call % ((FLASH_COUNT * 2) + 1);
 
-  for (int i = 0; i < SEGLEN; i++) {
+  for (unsigned i = 0; i < SEGLEN; i++) {
     SEGMENT.setPixelColor(i, SEGMENT.color_from_palette(i, true, PALETTE_SOLID_WRAP, 0));
   }
 
@@ -1212,8 +1213,8 @@ static const char _data_FX_MODE_COMET[] PROGMEM = "Lighthouse@!,Fade rate;!,!;!"
  */
 uint16_t mode_fireworks() {
   if (SEGLEN == 1) return mode_static();
-  const uint16_t width  = SEGMENT.is2D() ? SEGMENT.virtualWidth() : SEGMENT.virtualLength();
-  const uint16_t height = SEGMENT.virtualHeight();
+  const uint16_t width  = SEGMENT.is2D() ? SEG_W : SEGLEN;
+  const uint16_t height = SEG_H;
 
   if (SEGENV.call == 0) {
     SEGENV.aux0 = UINT16_MAX;
@@ -1254,8 +1255,8 @@ static const char _data_FX_MODE_FIREWORKS[] PROGMEM = "Fireworks@,Frequency;!,!;
 //Twinkling LEDs running. Inspired by https://github.com/kitesurfer1404/WS2812FX/blob/master/src/custom/Rain.h
 uint16_t mode_rain() {
   if (SEGLEN == 1) return mode_static();
-  const unsigned width  = SEGMENT.virtualWidth();
-  const unsigned height = SEGMENT.virtualHeight();
+  const unsigned width  = SEG_W;
+  const unsigned height = SEG_H;
   SEGENV.step += FRAMETIME;
   if (SEGENV.call && SEGENV.step > SPEED_FORMULA_L) {
     SEGENV.step = 1;
@@ -1269,7 +1270,7 @@ uint16_t mode_rain() {
     } else {
       //shift all leds left
       uint32_t ctemp = SEGMENT.getPixelColor(0);
-      for (int i = 0; i < SEGLEN - 1; i++) {
+      for (unsigned i = 0; i < SEGLEN - 1; i++) {
         SEGMENT.setPixelColor(i, SEGMENT.getPixelColor(i+1));
       }
       SEGMENT.setPixelColor(SEGLEN -1, ctemp); // wrap around
@@ -1300,7 +1301,7 @@ uint16_t mode_fire_flicker(void) {
   byte b = (SEGCOLOR(0)      );
   byte lum = (SEGMENT.palette == 0) ? MAX(w, MAX(r, MAX(g, b))) : 255;
   lum /= (((256-SEGMENT.intensity)/16)+1);
-  for (int i = 0; i < SEGLEN; i++) {
+  for (unsigned i = 0; i < SEGLEN; i++) {
     byte flicker = random8(lum);
     if (SEGMENT.palette == 0) {
       SEGMENT.setPixelColor(i, MAX(r - flicker, 0), MAX(g - flicker, 0), MAX(b - flicker, 0), MAX(w - flicker, 0));
@@ -1329,7 +1330,7 @@ uint16_t gradient_base(bool loading) {
   int p1 = pp-SEGLEN;
   int p2 = pp+SEGLEN;
 
-  for (int i = 0; i < SEGLEN; i++) {
+  for (int i = 0; i < (int)SEGLEN; i++) {
     if (loading) {
       val = abs(((i>pp) ? p2:pp) - i);
     } else {
@@ -1414,7 +1415,7 @@ typedef struct Flasher {
 uint16_t mode_fairy() {
   //set every pixel to a 'random' color from palette (using seed so it doesn't change between frames)
   uint16_t PRNG16 = 5100 + strip.getCurrSegmentId();
-  for (int i = 0; i < SEGLEN; i++) {
+  for (unsigned i = 0; i < SEGLEN; i++) {
     PRNG16 = (uint16_t)(PRNG16 * 2053) + 1384; //next 'random' number
     SEGMENT.setPixelColor(i, SEGMENT.color_from_palette(PRNG16 >> 8, false, false, 0));
   }
@@ -1499,7 +1500,7 @@ uint16_t mode_fairytwinkle() {
   unsigned riseFallTime = 400 + (255-SEGMENT.speed)*3;
   unsigned maxDur = riseFallTime/100 + ((255 - SEGMENT.intensity) >> 2) + 13 + ((255 - SEGMENT.intensity) >> 1);
 
-  for (int f = 0; f < SEGLEN; f++) {
+  for (unsigned f = 0; f < SEGLEN; f++) {
     unsigned stateTime = now16 - flashers[f].stateStart;
     //random on/off time reached, switch state
     if (stateTime > flashers[f].stateDur * 100) {
@@ -1544,7 +1545,7 @@ uint16_t tricolor_chase(uint32_t color1, uint32_t color2) {
   unsigned width = (1 + (SEGMENT.intensity>>4)); // value of 1-16 for each colour
   unsigned index = it % (width*3);
 
-  for (int i = 0; i < SEGLEN; i++, index++) {
+  for (unsigned i = 0; i < SEGLEN; i++, index++) {
     if (index > (width*3)-1) index = 0;
 
     uint32_t color = color1;
@@ -1617,7 +1618,7 @@ uint16_t mode_tricolor_wipe(void) {
   unsigned ledIndex = (prog * SEGLEN * 3) >> 16;
   unsigned ledOffset = ledIndex;
 
-  for (int i = 0; i < SEGLEN; i++)
+  for (unsigned i = 0; i < SEGLEN; i++)
   {
     SEGMENT.setPixelColor(i, SEGMENT.color_from_palette(i, true, PALETTE_SOLID_WRAP, 2));
   }
@@ -1923,7 +1924,7 @@ uint16_t mode_juggle(void) {
   for (int i = 0; i < 8; i++) {
     int index = 0 + beatsin88((16 + SEGMENT.speed)*(i + 7), 0, SEGLEN -1);
     fastled_col = CRGB(SEGMENT.getPixelColor(index));
-    fastled_col |= (SEGMENT.palette==0)?CHSV(dothue, 220, 255):ColorFromPalette(SEGPALETTE, dothue, 255);
+    fastled_col |= (SEGMENT.palette==0)?CHSV(dothue, 220, 255):CRGB(ColorFromPalette(SEGPALETTE, dothue, 255));
     SEGMENT.setPixelColor(index, fastled_col);
     dothue += 32;
   }
@@ -1956,8 +1957,8 @@ uint16_t mode_palette() {
   constexpr float (*cosFunction)(float)    = &cos_t;
 #endif
   const bool isMatrix = strip.isMatrix;
-  const int cols = SEGMENT.virtualWidth();
-  const int rows = isMatrix ? SEGMENT.virtualHeight() : strip.getActiveSegmentsNum();
+  const int cols = SEG_W;
+  const int rows = isMatrix ? SEG_H : strip.getActiveSegmentsNum();
 
   const int  inputShift           = SEGMENT.speed;
   const int  inputSize            = SEGMENT.intensity;
@@ -2070,10 +2071,10 @@ uint16_t mode_fire_2012() {
   struct virtualStrip {
     static void runStrip(uint16_t stripNr, byte* heat, uint32_t it) {
 
-      const uint8_t ignition = max(3,SEGLEN/10);  // ignition area: 10% of segment length or minimum 3 pixels
+      const uint8_t ignition = MAX(3,SEGLEN/10);  // ignition area: 10% of segment length or minimum 3 pixels
 
       // Step 1.  Cool down every cell a little
-      for (int i = 0; i < SEGLEN; i++) {
+      for (unsigned i = 0; i < SEGLEN; i++) {
         uint8_t cool = (it != SEGENV.step) ? random8((((20 + SEGMENT.speed/3) * 16) / SEGLEN)+2) : random8(4);
         uint8_t minTemp = (i<ignition) ? (ignition-i)/4 + 16 : 0;  // should not become black in ignition area
         uint8_t temp = qsub8(heat[i], cool);
@@ -2095,7 +2096,7 @@ uint16_t mode_fire_2012() {
       }
 
       // Step 4.  Map from heat cells to LED colors
-      for (int j = 0; j < SEGLEN; j++) {
+      for (unsigned j = 0; j < SEGLEN; j++) {
         SEGMENT.setPixelColor(indexToVStrip(j, stripNr), ColorFromPalette(SEGPALETTE, min(heat[j], byte(240)), 255, NOBLEND));
       }
     }
@@ -2138,7 +2139,7 @@ uint16_t mode_colorwaves() {
   sHue16 += duration * beatsin88(400, 5, 9);
   unsigned brightnesstheta16 = sPseudotime;
 
-  for (int i = 0 ; i < SEGLEN; i++) {
+  for (unsigned i = 0 ; i < SEGLEN; i++) {
     hue16 += hueinc16;
     uint8_t hue8 = hue16 >> 8;
     unsigned h16_128 = hue16 >> 7;
@@ -2169,7 +2170,7 @@ static const char _data_FX_MODE_COLORWAVES[] PROGMEM = "Colorwaves@!,Hue;!;!";
 uint16_t mode_bpm() {
   uint32_t stp = (strip.now / 20) & 0xFF;
   uint8_t beat = beatsin8(SEGMENT.speed, 64, 255);
-  for (int i = 0; i < SEGLEN; i++) {
+  for (unsigned i = 0; i < SEGLEN; i++) {
     SEGMENT.setPixelColor(i, SEGMENT.color_from_palette(stp + (i * 2), false, PALETTE_SOLID_WRAP, 0, beat - stp + (i * 10)));
   }
 
@@ -2180,7 +2181,7 @@ static const char _data_FX_MODE_BPM[] PROGMEM = "Bpm@!;!;!;;sx=64";
 
 uint16_t mode_fillnoise8() {
   if (SEGENV.call == 0) SEGENV.step = random16(12345);
-  for (int i = 0; i < SEGLEN; i++) {
+  for (unsigned i = 0; i < SEGLEN; i++) {
     unsigned index = inoise8(i * SEGLEN, SEGENV.step + i * SEGLEN);
     SEGMENT.setPixelColor(i, SEGMENT.color_from_palette(index, false, PALETTE_SOLID_WRAP, 0));
   }
@@ -2195,7 +2196,7 @@ uint16_t mode_noise16_1() {
   unsigned scale = 320;                                       // the "zoom factor" for the noise
   SEGENV.step += (1 + SEGMENT.speed/16);
 
-  for (int i = 0; i < SEGLEN; i++) {
+  for (unsigned i = 0; i < SEGLEN; i++) {
     unsigned shift_x = beatsin8(11);                          // the x position of the noise field swings @ 17 bpm
     unsigned shift_y = SEGENV.step/42;                        // the y position becomes slowly incremented
     unsigned real_x = (i + shift_x) * scale;                  // the x position of the noise field swings @ 17 bpm
@@ -2216,7 +2217,7 @@ uint16_t mode_noise16_2() {
   unsigned scale = 1000;                                        // the "zoom factor" for the noise
   SEGENV.step += (1 + (SEGMENT.speed >> 1));
 
-  for (int i = 0; i < SEGLEN; i++) {
+  for (unsigned i = 0; i < SEGLEN; i++) {
     unsigned shift_x = SEGENV.step >> 6;                        // x as a function of time
     uint32_t real_x = (i + shift_x) * scale;                    // calculate the coordinates within the noise field
     unsigned noise = inoise16(real_x, 0, 4223) >> 8;            // get the noise data and scale it down
@@ -2234,7 +2235,7 @@ uint16_t mode_noise16_3() {
   unsigned scale = 800;                                       // the "zoom factor" for the noise
   SEGENV.step += (1 + SEGMENT.speed);
 
-  for (int i = 0; i < SEGLEN; i++) {
+  for (unsigned i = 0; i < SEGLEN; i++) {
     unsigned shift_x = 4223;                                  // no movement along x and y
     unsigned shift_y = 1234;
     uint32_t real_x = (i + shift_x) * scale;                  // calculate the coordinates within the noise field
@@ -2254,7 +2255,7 @@ static const char _data_FX_MODE_NOISE16_3[] PROGMEM = "Noise 3@!;!;!";
 //https://github.com/aykevl/ledstrip-spark/blob/master/ledstrip.ino
 uint16_t mode_noise16_4() {
   uint32_t stp = (strip.now * SEGMENT.speed) >> 7;
-  for (int i = 0; i < SEGLEN; i++) {
+  for (unsigned i = 0; i < SEGLEN; i++) {
     int index = inoise16(uint32_t(i) << 12, stp);
     SEGMENT.setPixelColor(i, SEGMENT.color_from_palette(index, false, PALETTE_SOLID_WRAP, 0));
   }
@@ -2268,33 +2269,33 @@ uint16_t mode_colortwinkle() {
   unsigned dataSize = (SEGLEN+7) >> 3; //1 bit per LED
   if (!SEGENV.allocateData(dataSize)) return mode_static(); //allocation failed
 
-  CRGB fastled_col, prev;
+  CRGBW col, prev;
   fract8 fadeUpAmount = strip.getBrightness()>28 ? 8 + (SEGMENT.speed>>2) : 68-strip.getBrightness();
   fract8 fadeDownAmount = strip.getBrightness()>28 ? 8 + (SEGMENT.speed>>3) : 68-strip.getBrightness();
-  for (int i = 0; i < SEGLEN; i++) {
-    fastled_col = SEGMENT.getPixelColor(i);
-    prev = fastled_col;
+  for (unsigned i = 0; i < SEGLEN; i++) {
+    CRGBW cur = SEGMENT.getPixelColor(i);
+    prev = cur;
     unsigned index = i >> 3;
     unsigned  bitNum = i & 0x07;
     bool fadeUp = bitRead(SEGENV.data[index], bitNum);
 
     if (fadeUp) {
-      CRGB incrementalColor = fastled_col;
-      incrementalColor.nscale8_video(fadeUpAmount);
-      fastled_col += incrementalColor;
+      CRGBW incrementalColor = color_fade(cur, fadeUpAmount, true);
+      col = color_add(cur, incrementalColor);
 
-      if (fastled_col.red == 255 || fastled_col.green == 255 || fastled_col.blue == 255) {
+      if (col.r == 255 || col.g == 255 || col.b == 255) {
         bitWrite(SEGENV.data[index], bitNum, false);
       }
-      SEGMENT.setPixelColor(i, fastled_col.red, fastled_col.green, fastled_col.blue);
 
-      if (SEGMENT.getPixelColor(i) == RGBW32(prev.r, prev.g, prev.b, 0)) {  //fix "stuck" pixels
-        fastled_col += fastled_col;
-        SEGMENT.setPixelColor(i, fastled_col);
+      if (cur == prev) {  //fix "stuck" pixels
+        color_add(col, col);
+        SEGMENT.setPixelColor(i, col);
       }
-    } else {
-      fastled_col.nscale8(255 - fadeDownAmount);
-      SEGMENT.setPixelColor(i, fastled_col);
+      else SEGMENT.setPixelColor(i, col);
+    }
+    else {
+      col = color_fade(cur, 255 - fadeDownAmount);
+      SEGMENT.setPixelColor(i, col);
     }
   }
 
@@ -2303,11 +2304,10 @@ uint16_t mode_colortwinkle() {
       for (unsigned times = 0; times < 5; times++) { //attempt to spawn a new pixel 5 times
         int i = random16(SEGLEN);
         if (SEGMENT.getPixelColor(i) == 0) {
-          fastled_col = ColorFromPalette(SEGPALETTE, random8(), 64, NOBLEND);
           unsigned index = i >> 3;
           unsigned  bitNum = i & 0x07;
           bitWrite(SEGENV.data[index], bitNum, true);
-          SEGMENT.setPixelColor(i, fastled_col);
+          SEGMENT.setPixelColor(i, ColorFromPalette(SEGPALETTE, random8(), 64, NOBLEND));
           break; //only spawn 1 new pixel per frame per 50 LEDs
         }
       }
@@ -2325,7 +2325,7 @@ uint16_t mode_lake() {
   int wave2 = beatsin8(sp +1, -64,64);
   int wave3 = beatsin8(sp +2,   0,80);
 
-  for (int i = 0; i < SEGLEN; i++)
+  for (unsigned i = 0; i < SEGLEN; i++)
   {
     int index = cos8((i*15)+ wave1)/2 + cubicwave8((i*23)+ wave2)/2;
     uint8_t lum = (index > wave3) ? index - wave3 : 0;
@@ -2352,7 +2352,7 @@ uint16_t mode_meteor() {
 
   const int max = SEGMENT.palette==5 ? 239 : 255;  // "* Colors only" palette blends end with start
   // fade all leds to colors[1] in LEDs one step
-  for (int i = 0; i < SEGLEN; i++) {
+  for (unsigned i = 0; i < SEGLEN; i++) {
     if (random8() <= 255 - SEGMENT.intensity) {
       int meteorTrailDecay = 128 + random8(127);
       trail[i] = scale8(trail[i], meteorTrailDecay);
@@ -2364,8 +2364,7 @@ uint16_t mode_meteor() {
         index = map(i,0,SEGLEN,0,max);
         bri = trail[i];
       }
-      uint32_t col = SEGMENT.color_from_palette(index, false, false, idx, bri);  // full brightness for Fire
-      SEGMENT.setPixelColor(i, col);
+      SEGMENT.setPixelColor(i, SEGMENT.color_from_palette(index, false, false, idx, bri)); // full brightness for Fire
     }
   }
 
@@ -2378,8 +2377,7 @@ uint16_t mode_meteor() {
       i = map(index,0,SEGLEN,0,max);
       idx = 0;
     }
-    uint32_t col = SEGMENT.color_from_palette(i, false, false, idx, 255); // full brightness
-    SEGMENT.setPixelColor(index, col);
+    SEGMENT.setPixelColor(index, SEGMENT.color_from_palette(i, false, false, idx, 255)); // full brightness
   }
 
   return FRAMETIME;
@@ -2405,8 +2403,7 @@ uint16_t mode_meteor_smooth() {
     if (/*trail[i] != 0 &&*/ random8() <= 255 - SEGMENT.intensity) {
       int change = trail[i] + 4 - random8(24); //change each time between -20 and +4
       trail[i] = constrain(change, 0, max);
-      uint32_t col = SEGMENT.check1 ? SEGMENT.color_from_palette(i, true, false, 0, trail[i]) : SEGMENT.color_from_palette(trail[i], false, true, 255);
-      SEGMENT.setPixelColor(i, col);
+      SEGMENT.setPixelColor(i, SEGMENT.check1 ? SEGMENT.color_from_palette(i, true, false, 0, trail[i]) : SEGMENT.color_from_palette(trail[i], false, true, 255));
     }
   }
 
@@ -2417,8 +2414,7 @@ uint16_t mode_meteor_smooth() {
       index -= SEGLEN;
     }
     trail[index] = max;
-    uint32_t col = SEGMENT.check1 ? SEGMENT.color_from_palette(index, true, false, 0, trail[index]) : SEGMENT.color_from_palette(trail[index], false, true, 255);
-    SEGMENT.setPixelColor(index, col);
+    SEGMENT.setPixelColor(index, SEGMENT.check1 ? SEGMENT.color_from_palette(index, true, false, 0, trail[index]) : SEGMENT.color_from_palette(trail[index], false, true, 255));
   }
 
   SEGENV.step += SEGMENT.speed +1;
@@ -2445,7 +2441,7 @@ uint16_t mode_railway() {
     if (p0 < 255) pos = p0;
   }
   if (SEGENV.aux0) pos = 255 - pos;
-  for (int i = 0; i < SEGLEN; i += 2)
+  for (unsigned i = 0; i < SEGLEN; i += 2)
   {
     SEGMENT.setPixelColor(i, SEGMENT.color_from_palette(255 - pos, false, false, 255)); // do not use color 1 or 2, always use palette
     if (i < SEGLEN -1)
@@ -2476,7 +2472,7 @@ typedef struct Ripple {
   #define MAX_RIPPLES  100
 #endif
 static uint16_t ripple_base() {
-  unsigned maxRipples = min(1 + (SEGLEN >> 2), MAX_RIPPLES);  // 56 max for 16 segment ESP8266
+  unsigned maxRipples = min(1 + (int)(SEGLEN >> 2), MAX_RIPPLES);  // 56 max for 16 segment ESP8266
   unsigned dataSize = sizeof(ripple) * maxRipples;
 
   if (!SEGENV.allocateData(dataSize)) return mode_static(); //allocation failed
@@ -2518,7 +2514,7 @@ static uint16_t ripple_base() {
     } else {//randomly create new wave
       if (random16(IBN + 10000) <= (SEGMENT.intensity >> (SEGMENT.is2D()*3))) {
         ripples[i].state = 1;
-        ripples[i].pos = SEGMENT.is2D() ? ((random8(SEGENV.virtualWidth())<<8) | (random8(SEGENV.virtualHeight()))) : random16(SEGLEN);
+        ripples[i].pos = SEGMENT.is2D() ? ((random8(SEG_W)<<8) | (random8(SEG_H))) : random16(SEGLEN);
         ripples[i].color = random8(); //color
       }
     }
@@ -2646,7 +2642,7 @@ static uint16_t twinklefox_base(bool cat)
 
   unsigned backgroundBrightness = bg.getAverageLight();
 
-  for (int i = 0; i < SEGLEN; i++) {
+  for (unsigned i = 0; i < SEGLEN; i++) {
 
     PRNG16 = (uint16_t)(PRNG16 * 2053) + 1384; // next 'random' number
     unsigned myclockoffset16= PRNG16; // use that number as clock offset
@@ -2666,7 +2662,7 @@ static uint16_t twinklefox_base(bool cat)
     if (deltabright >= 32 || (!bg)) {
       // If the new pixel is significantly brighter than the background color,
       // use the new color.
-      SEGMENT.setPixelColor(i, c.red, c.green, c.blue);
+      SEGMENT.setPixelColor(i, c);
     } else if (deltabright > 0) {
       // If the new pixel is just slightly brighter than the background color,
       // mix a blend of the new color and the background color
@@ -2674,7 +2670,7 @@ static uint16_t twinklefox_base(bool cat)
     } else {
       // if the new pixel is not at all brighter than the background color,
       // just use the background color.
-      SEGMENT.setPixelColor(i, bg.r, bg.g, bg.b);
+      SEGMENT.setPixelColor(i, bg);
     }
   }
   return FRAMETIME;
@@ -2718,8 +2714,8 @@ uint16_t mode_halloween_eyes()
   };
 
   if (SEGLEN == 1) return mode_static();
-  const unsigned maxWidth = strip.isMatrix ? SEGMENT.virtualWidth() : SEGLEN;
-  const unsigned HALLOWEEN_EYE_SPACE = MAX(2, strip.isMatrix ? SEGMENT.virtualWidth()>>4: SEGLEN>>5);
+  const unsigned maxWidth = strip.isMatrix ? SEG_W : SEGLEN;
+  const unsigned HALLOWEEN_EYE_SPACE = MAX(2, strip.isMatrix ? SEG_W>>4: SEGLEN>>5);
   const unsigned HALLOWEEN_EYE_WIDTH = HALLOWEEN_EYE_SPACE/2;
   unsigned eyeLength = (2*HALLOWEEN_EYE_WIDTH) + HALLOWEEN_EYE_SPACE;
   if (eyeLength >= maxWidth) return mode_static(); //bail if segment too short
@@ -2742,7 +2738,7 @@ uint16_t mode_halloween_eyes()
 
       data.startPos = random16(0, maxWidth - eyeLength - 1);
       data.color = random8();
-      if (strip.isMatrix) SEGMENT.offset = random16(SEGMENT.virtualHeight()-1); // a hack: reuse offset since it is not used in matrices
+      if (strip.isMatrix) SEGMENT.offset = random16(SEG_H-1); // a hack: reuse offset since it is not used in matrices
       duration = 128u + random16(SEGMENT.intensity*64u);
       data.duration = duration;
       data.state = eyeState::on;
@@ -2860,7 +2856,7 @@ uint16_t mode_static_pattern()
   bool drawingLit = true;
   unsigned cnt = 0;
 
-  for (int i = 0; i < SEGLEN; i++) {
+  for (unsigned i = 0; i < SEGLEN; i++) {
     SEGMENT.setPixelColor(i, (drawingLit) ? SEGMENT.color_from_palette(i, true, PALETTE_SOLID_WRAP, 0) : SEGCOLOR(1));
     cnt++;
     if (cnt >= ((drawingLit) ? lit : unlit)) {
@@ -2880,7 +2876,7 @@ uint16_t mode_tri_static_pattern()
   unsigned currSeg = 0;
   unsigned currSegCount = 0;
 
-  for (int i = 0; i < SEGLEN; i++) {
+  for (unsigned i = 0; i < SEGLEN; i++) {
     if ( currSeg % 3 == 0 ) {
       SEGMENT.setPixelColor(i, SEGCOLOR(0));
     } else if( currSeg % 3 == 1) {
@@ -3310,7 +3306,7 @@ uint16_t candle(bool multi)
 {
   if (multi && SEGLEN > 1) {
     //allocate segment data
-    unsigned dataSize = max(1, SEGLEN -1) *3; //max. 1365 pixels (ESP8266)
+    unsigned dataSize = max(1, (int)SEGLEN -1) *3; //max. 1365 pixels (ESP8266)
     if (!SEGENV.allocateData(dataSize)) return candle(false); //allocation failed
   }
 
@@ -3369,7 +3365,7 @@ uint16_t candle(bool multi)
 
       SEGENV.data[d] = s; SEGENV.data[d+1] = s_target; SEGENV.data[d+2] = fadeStep;
     } else {
-      for (int j = 0; j < SEGLEN; j++) {
+      for (unsigned j = 0; j < SEGLEN; j++) {
         SEGMENT.setPixelColor(j, color_blend(SEGCOLOR(1), SEGMENT.color_from_palette(j, true, PALETTE_SOLID_WRAP, 0), s));
       }
 
@@ -3512,13 +3508,13 @@ uint16_t mode_starburst(void) {
       if (stars[j].fragment[i] > 0) {
         float loc = stars[j].fragment[i];
         if (mirrored) loc -= (loc-stars[j].pos)*2;
-        int start = loc - particleSize;
-        int end = loc + particleSize;
+        unsigned start = loc - particleSize;
+        unsigned end = loc + particleSize;
         if (start < 0) start = 0;
         if (start == end) end++;
         if (end > SEGLEN) end = SEGLEN;
-        for (int p = start; p < end; p++) {
-          SEGMENT.setPixelColor(p, c.r, c.g, c.b);
+        for (unsigned p = start; p < end; p++) {
+          SEGMENT.setPixelColor(p, c);
         }
       }
     }
@@ -3537,8 +3533,8 @@ static const char _data_FX_MODE_STARBURST[] PROGMEM = "Fireworks Starburst@Chanc
 uint16_t mode_exploding_fireworks(void)
 {
   if (SEGLEN == 1) return mode_static();
-  const int cols = SEGMENT.is2D() ? SEGMENT.virtualWidth() : 1;
-  const int rows = SEGMENT.is2D() ? SEGMENT.virtualHeight() : SEGMENT.virtualLength();
+  const int cols = SEGMENT.is2D() ? SEG_W : 1;
+  const int rows = SEGMENT.is2D() ? SEG_H : SEGLEN;
 
   //allocate segment data
   unsigned maxData = FAIR_DATA_PER_SEG; //ESP8266: 256 ESP32: 640
@@ -3636,17 +3632,17 @@ uint16_t mode_exploding_fireworks(void)
           if (SEGMENT.is2D() && !(sparks[i].posX >= 0 && sparks[i].posX < cols)) continue;
           unsigned prog = sparks[i].col;
           uint32_t spColor = (SEGMENT.palette) ? SEGMENT.color_wheel(sparks[i].colIndex) : SEGCOLOR(0);
-          CRGB c = CRGB::Black; //HeatColor(sparks[i].col);
+          CRGBW c = BLACK; //HeatColor(sparks[i].col);
           if (prog > 300) { //fade from white to spark color
-            c = CRGB(color_blend(spColor, WHITE, (prog - 300)*5));
+            c = color_blend(spColor, WHITE, (prog - 300)*5);
           } else if (prog > 45) { //fade from spark color to black
-            c = CRGB(color_blend(BLACK, spColor, prog - 45));
+            c = color_blend(BLACK, spColor, prog - 45);
             unsigned cooling = (300 - prog) >> 5;
             c.g = qsub8(c.g, cooling);
             c.b = qsub8(c.b, cooling * 2);
           }
-          if (SEGMENT.is2D()) SEGMENT.setPixelColorXY(int(sparks[i].posX), rows - int(sparks[i].pos) - 1, c.red, c.green, c.blue);
-          else                SEGMENT.setPixelColor(int(sparks[i].posX) ? rows - int(sparks[i].pos) - 1 : int(sparks[i].pos), c.red, c.green, c.blue);
+          if (SEGMENT.is2D()) SEGMENT.setPixelColorXY(int(sparks[i].posX), rows - int(sparks[i].pos) - 1, c);
+          else                SEGMENT.setPixelColor(int(sparks[i].posX) ? rows - int(sparks[i].pos) - 1 : int(sparks[i].pos), c);
         }
       }
       if (SEGMENT.check3) SEGMENT.blur(16);
@@ -3689,7 +3685,7 @@ uint16_t mode_drip(void)
       unsigned numDrops = 1 + (SEGMENT.intensity >> 6); // 255>>6 = 3
 
       float gravity = -0.0005f - (SEGMENT.speed/50000.0f);
-      gravity *= max(1, SEGLEN-1);
+      gravity *= max(1, (int)SEGLEN-1);
       int sourcedrop = 12;
 
       for (unsigned j=0;j<numDrops;j++) {
@@ -3719,7 +3715,7 @@ uint16_t mode_drip(void)
             drops[j].vel += gravity;           // gravity is negative
 
             for (int i=1;i<7-drops[j].colIndex;i++) { // some minor math so we don't expand bouncing droplets
-              unsigned pos = constrain(uint16_t(drops[j].pos) +i, 0, SEGLEN-1); //this is BAD, returns a pos >= SEGLEN occasionally
+              unsigned pos = constrain(unsigned(drops[j].pos) +i, 0, SEGLEN-1); //this is BAD, returns a pos >= SEGLEN occasionally
               SEGMENT.setPixelColor(indexToVStrip(pos, stripNr), color_blend(BLACK,SEGCOLOR(0),drops[j].col/i)); //spread pixel with fade while falling
             }
 
@@ -3812,8 +3808,8 @@ uint16_t mode_tetrix(void) {
         if (drop->pos > drop->stack) {    // fall until top of stack
           drop->pos -= drop->speed;       // may add gravity as: speed += gravity
           if (int(drop->pos) < int(drop->stack)) drop->pos = drop->stack;
-          for (int i = int(drop->pos); i < SEGLEN; i++) {
-            uint32_t col = i<int(drop->pos)+drop->brick ? SEGMENT.color_from_palette(drop->col, false, false, 0) : SEGCOLOR(1);
+          for (unsigned i = unsigned(drop->pos); i < SEGLEN; i++) {
+            uint32_t col = i < unsigned(drop->pos)+drop->brick ? SEGMENT.color_from_palette(drop->col, false, false, 0) : SEGCOLOR(1);
             SEGMENT.setPixelColor(indexToVStrip(i, stripNr), col);
           }
         } else {                          // we hit bottom
@@ -3827,7 +3823,7 @@ uint16_t mode_tetrix(void) {
         drop->brick = 0;                  // reset brick size (no more growing)
         if (drop->step > strip.now) {
           // allow fading of virtual strip
-          for (int i = 0; i < SEGLEN; i++) SEGMENT.blendPixelColor(indexToVStrip(i, stripNr), SEGCOLOR(1), 25); // 10% blend
+          for (unsigned i = 0; i < SEGLEN; i++) SEGMENT.blendPixelColor(indexToVStrip(i, stripNr), SEGCOLOR(1), 25); // 10% blend
         } else {
           drop->stack = 0;                // reset brick stack size
           drop->step = 0;                 // proceed with next brick
@@ -3884,7 +3880,7 @@ uint16_t mode_percent(void) {
   if (SEGMENT.speed == 255) size = 255;
 
   if (percent <= 100) {
-    for (int i = 0; i < SEGLEN; i++) {
+    for (unsigned i = 0; i < SEGLEN; i++) {
     	if (i < SEGENV.aux1) {
         if (SEGMENT.check1)
           SEGMENT.setPixelColor(i, SEGMENT.color_from_palette(map(percent,0,100,0,255), false, false, 0));
@@ -3896,7 +3892,7 @@ uint16_t mode_percent(void) {
     	}
     }
   } else {
-    for (int i = 0; i < SEGLEN; i++) {
+    for (unsigned i = 0; i < SEGLEN; i++) {
     	if (i < (SEGLEN - SEGENV.aux1)) {
         SEGMENT.setPixelColor(i, SEGCOLOR(1));
     	}
@@ -3946,7 +3942,7 @@ uint16_t mode_heartbeat(void) {
     SEGENV.step = strip.now;
   }
 
-  for (int i = 0; i < SEGLEN; i++) {
+  for (unsigned i = 0; i < SEGLEN; i++) {
     SEGMENT.setPixelColor(i, color_blend(SEGMENT.color_from_palette(i, true, PALETTE_SOLID_WRAP, 0), SEGCOLOR(1), 255 - (SEGENV.aux1 >> 8)));
   }
 
@@ -3992,7 +3988,7 @@ static CRGB pacifica_one_layer(uint16_t i, CRGBPalette16& p, uint16_t cistart, u
   ci += (cs * i);
   unsigned sindex16 = sin16(ci) + 32768;
   unsigned sindex8 = scale16(sindex16, 240);
-  return ColorFromPalette(p, sindex8, bri, LINEARBLEND);
+  return CRGB(ColorFromPalette(p, sindex8, bri, LINEARBLEND));
 }
 
 uint16_t mode_pacifica()
@@ -4040,7 +4036,7 @@ uint16_t mode_pacifica()
   unsigned basethreshold = beatsin8( 9, 55, 65);
   unsigned wave = beat8( 7 );
 
-  for (int i = 0; i < SEGLEN; i++) {
+  for (unsigned i = 0; i < SEGLEN; i++) {
     CRGB c = CRGB(2, 6, 10);
     // Render each of four layers, with different scales and speeds, that vary over time
     c += pacifica_one_layer(i, pacifica_palette_1, sCIStart1, beatsin16(3, 11 * 256, 14 * 256), beatsin8(10, 70, 130), 0-beat16(301));
@@ -4103,15 +4099,12 @@ uint16_t mode_sunrise() {
     if (SEGMENT.speed > 60) stage = 0xFFFF - stage; //sunset
   }
 
-  for (int i = 0; i <= SEGLEN/2; i++)
+  for (unsigned i = 0; i <= SEGLEN/2; i++)
   {
-    //default palette is Fire
-    uint32_t c = SEGMENT.color_from_palette(0, false, true, 255); //background
-
+    //default palette is Fire    
     unsigned wave = triwave16((i * stage) / SEGLEN);
-
     wave = (wave >> 8) + ((wave * SEGMENT.intensity) >> 15);
-
+    uint32_t c;
     if (wave > 240) { //clipped, full white sun
       c = SEGMENT.color_from_palette( 240, false, true, 255);
     } else { //transition
@@ -4139,7 +4132,7 @@ static uint16_t phased_base(uint8_t moder) {                  // We're making si
   unsigned index = strip.now/64;                                  // Set color rotation speed
   *phase += SEGMENT.speed/32.0;                                  // You can change the speed of the wave. AKA SPEED (was .4)
 
-  for (int i = 0; i < SEGLEN; i++) {
+  for (unsigned i = 0; i < SEGLEN; i++) {
     if (moder == 1) modVal = (inoise8(i*10 + i*10) /16);         // Let's randomize our mod length with some Perlin noise.
     unsigned val = (i+1) * allfreq;                              // This sets the frequency of the waves. The +1 makes sure that led 0 is used.
     if (modVal == 0) modVal = 1;
@@ -4171,7 +4164,7 @@ uint16_t mode_twinkleup(void) {                 // A very short twinkle routine 
   unsigned prevSeed = random16_get_seed();      // save seed so we can restore it at the end of the function
   random16_set_seed(535);                       // The randomizer needs to be re-set each time through the loop in order for the same 'random' numbers to be the same each time through.
 
-  for (int i = 0; i < SEGLEN; i++) {
+  for (unsigned i = 0; i < SEGLEN; i++) {
     unsigned ranstart = random8();               // The starting value (aka brightness) for each pixel. Must be consistent each time through the loop for this to work.
     unsigned pixBri = sin8(ranstart + 16 * strip.now/(256-SEGMENT.speed));
     if (random8() > SEGMENT.intensity) pixBri = 0;
@@ -4203,17 +4196,14 @@ uint16_t mode_noisepal(void) {                                    // Slow noise 
     palettes[1] = CRGBPalette16(CHSV(baseI+random8(64), 255, random8(128,255)), CHSV(baseI+128, 255, random8(128,255)), CHSV(baseI+random8(92), 192, random8(128,255)), CHSV(baseI+random8(92), 255, random8(128,255)));
   }
 
-  CRGB color;
-
   //EVERY_N_MILLIS(10) { //(don't have to time this, effect function is only called every 24ms)
   nblendPaletteTowardPalette(palettes[0], palettes[1], 48);               // Blend towards the target palette over 48 iterations.
 
   if (SEGMENT.palette > 0) palettes[0] = SEGPALETTE;
 
-  for (int i = 0; i < SEGLEN; i++) {
+  for (unsigned i = 0; i < SEGLEN; i++) {
     unsigned index = inoise8(i*scale, SEGENV.aux0+i*scale);                // Get a value from the noise function. I'm using both x and y axis.
-    color = ColorFromPalette(palettes[0], index, 255, LINEARBLEND);       // Use the my own palette.
-    SEGMENT.setPixelColor(i, color.red, color.green, color.blue);
+    SEGMENT.setPixelColor(i,  ColorFromPalette(palettes[0], index, 255, LINEARBLEND));  // Use my own palette.
   }
 
   SEGENV.aux0 += beatsin8(10,1,4);                                        // Moving along the distance. Vary it a bit with a sine wave.
@@ -4234,7 +4224,7 @@ uint16_t mode_sinewave(void) {             // Adjustable sinewave. By Andrew Tul
   SEGENV.step += SEGMENT.speed/16;                   // Speed of animation.
   unsigned freq = SEGMENT.intensity/4;//SEGMENT.fft2/8;                       // Frequency of the signal.
 
-  for (int i = 0; i < SEGLEN; i++) {                 // For each of the LED's in the strand, set a brightness based on a wave as follows:
+  for (unsigned i = 0; i < SEGLEN; i++) {                 // For each of the LED's in the strand, set a brightness based on a wave as follows:
     int pixBri = cubicwave8((i*freq)+SEGENV.step);//qsuba(cubicwave8((i*freq)+SEGENV.step), (255-SEGMENT.intensity)); // qsub sets a minimum value called thiscutoff. If < thiscutoff, then bright = 0. Otherwise, bright = 128 (as defined in qsub)..
     //setPixCol(i, i*colorIndex/255, pixBri);
     SEGMENT.setPixelColor(i, color_blend(SEGCOLOR(1), SEGMENT.color_from_palette(i*colorIndex/255, false, PALETTE_SOLID_WRAP, 0), pixBri));
@@ -4300,9 +4290,8 @@ uint16_t mode_chunchun(void)
     counter -= span;
     unsigned megumin = sin16(counter) + 0x8000;
     unsigned bird = uint32_t(megumin * SEGLEN) >> 16;
-    uint32_t c = SEGMENT.color_from_palette((i * 255)/ numBirds, false, false, 0);  // no palette wrapping
     bird = constrain(bird, 0U, SEGLEN-1U);
-    SEGMENT.setPixelColor(bird, c);
+    SEGMENT.setPixelColor(bird, SEGMENT.color_from_palette((i * 255)/ numBirds, false, false, 0)); // no palette wrapping
   }
   return FRAMETIME;
 }
@@ -4366,7 +4355,7 @@ uint16_t mode_dancing_shadows(void)
         spotlights[i].lastUpdateTime = time;
       }
 
-      respawn = (spotlights[i].speed > 0.0 && spotlights[i].position > (SEGLEN + 2))
+      respawn = (spotlights[i].speed > 0.0 && spotlights[i].position > (int)(SEGLEN + 2))
              || (spotlights[i].speed < 0.0 && spotlights[i].position < -(spotlights[i].width + 2));
     }
 
@@ -4396,7 +4385,7 @@ uint16_t mode_dancing_shadows(void)
     int start = spotlights[i].position;
 
     if (spotlights[i].width <= 1) {
-      if (start >= 0 && start < SEGLEN) {
+      if (start >= 0 && start < (int)SEGLEN) {
         SEGMENT.blendPixelColor(start, color, 128);
       }
     } else {
@@ -4466,7 +4455,7 @@ uint16_t mode_washing_machine(void) {
 
   SEGENV.step += (speed * 2048) / (512 - SEGMENT.speed);
 
-  for (int i = 0; i < SEGLEN; i++) {
+  for (unsigned i = 0; i < SEGLEN; i++) {
     uint8_t col = sin8(((SEGMENT.intensity / 25 + 1) * 255 * i / SEGLEN) + (SEGENV.step >> 7));
     SEGMENT.setPixelColor(i, SEGMENT.color_from_palette(col, false, PALETTE_SOLID_WRAP, 3));
   }
@@ -4616,7 +4605,7 @@ uint16_t mode_tv_simulator(void) {
   }
 
   // set strip color
-  for (i = 0; i < SEGLEN; i++) {
+  for (i = 0; i < (int)SEGLEN; i++) {
     SEGMENT.setPixelColor(i, r >> 8, g >> 8, b >> 8);  // Quantize to 8-bit
   }
 
@@ -4775,7 +4764,7 @@ uint16_t mode_aurora(void) {
   if (SEGCOLOR(1)) backlight++;
   if (SEGCOLOR(2)) backlight++;
   //Loop through LEDs to determine color
-  for (int i = 0; i < SEGLEN; i++) {
+  for (unsigned i = 0; i < SEGLEN; i++) {
     CRGB mixedRgb = CRGB(backlight, backlight, backlight);
 
     //For each LED we must check each wave if it is "active" at this position.
@@ -4822,7 +4811,7 @@ static const char _data_FX_MODE_PERLINMOVE[] PROGMEM = "Perlin Move@!,# of pixel
 // Uses beatsin8() + phase shifting. By: Andrew Tuline
 uint16_t mode_wavesins(void) {
 
-  for (int i = 0; i < SEGLEN; i++) {
+  for (unsigned i = 0; i < SEGLEN; i++) {
     uint8_t bri = sin8(strip.now/4 + i * SEGMENT.intensity);
     uint8_t index = beatsin8(SEGMENT.speed, SEGMENT.custom1, SEGMENT.custom1+SEGMENT.custom2, 0, i * (SEGMENT.custom3<<3)); // custom3 is reduced resolution slider
     //SEGMENT.setPixelColor(i, ColorFromPalette(SEGPALETTE, index, bri, LINEARBLEND));
@@ -4844,8 +4833,8 @@ uint16_t mode_FlowStripe(void) {
   uint8_t hue = strip.now / (SEGMENT.speed+1);
   uint32_t t = strip.now / (SEGMENT.intensity/8+1);
 
-  for (int i = 0; i < SEGLEN; i++) {
-    int c = (abs(i - hl) / hl) * 127;
+  for (unsigned i = 0; i < SEGLEN; i++) {
+    int c = (abs((int)i - hl) / hl) * 127;
     c = sin8(c);
     c = sin8(c / 2 + t);
     byte b = sin8(c + t/8);
@@ -4867,8 +4856,8 @@ static const char _data_FX_MODE_FLOWSTRIPE[] PROGMEM = "Flow Stripe@Hue speed,Ef
 uint16_t mode_2DBlackHole(void) {            // By: Stepko https://editor.soulmatelights.com/gallery/1012 , Modified by: Andrew Tuline
   if (!strip.isMatrix || !SEGMENT.is2D()) return mode_static(); // not a 2D set-up
 
-  const int cols = SEGMENT.virtualWidth();
-  const int rows = SEGMENT.virtualHeight();
+  const int cols = SEG_W;
+  const int rows = SEG_H;
   int x, y;
 
   SEGMENT.fadeToBlackBy(16 + (SEGMENT.speed>>3)); // create fading trails
@@ -4901,8 +4890,8 @@ static const char _data_FX_MODE_2DBLACKHOLE[] PROGMEM = "Black Hole@Fade rate,Ou
 uint16_t mode_2DColoredBursts() {              // By: ldirko   https://editor.soulmatelights.com/gallery/819-colored-bursts , modified by: Andrew Tuline
   if (!strip.isMatrix || !SEGMENT.is2D()) return mode_static(); // not a 2D set-up
 
-  const int cols = SEGMENT.virtualWidth();
-  const int rows = SEGMENT.virtualHeight();
+  const int cols = SEG_W;
+  const int rows = SEG_H;
 
   if (SEGENV.call == 0) {
     SEGENV.aux0 = 0; // start with red hue
@@ -4920,7 +4909,7 @@ uint16_t mode_2DColoredBursts() {              // By: ldirko   https://editor.so
     byte x2 = beatsin8(1 + SEGMENT.speed/16, 0, (rows - 1));
     byte y1 = beatsin8(5 + SEGMENT.speed/16, 0, (cols - 1), 0, i * 24);
     byte y2 = beatsin8(3 + SEGMENT.speed/16, 0, (rows - 1), 0, i * 48 + 64);
-    CRGB color = ColorFromPalette(SEGPALETTE, i * 255 / numLines + (SEGENV.aux0&0xFF), 255, LINEARBLEND);
+    uint32_t color = ColorFromPalette(SEGPALETTE, i * 255 / numLines + (SEGENV.aux0&0xFF), 255, LINEARBLEND);
 
     byte xsteps = abs8(x1 - y1) + 1;
     byte ysteps = abs8(x2 - y2) + 1;
@@ -4953,8 +4942,8 @@ static const char _data_FX_MODE_2DCOLOREDBURSTS[] PROGMEM = "Colored Bursts@Spee
 uint16_t mode_2Ddna(void) {         // dna originally by by ldirko at https://pastebin.com/pCkkkzcs. Updated by Preyy. WLED conversion by Andrew Tuline.
   if (!strip.isMatrix || !SEGMENT.is2D()) return mode_static(); // not a 2D set-up
 
-  const int cols = SEGMENT.virtualWidth();
-  const int rows = SEGMENT.virtualHeight();
+  const int cols = SEG_W;
+  const int rows = SEG_H;
 
   SEGMENT.fadeToBlackBy(64);
   for (int i = 0; i < cols; i++) {
@@ -4974,8 +4963,8 @@ static const char _data_FX_MODE_2DDNA[] PROGMEM = "DNA@Scroll speed,Blur;;!;2";
 uint16_t mode_2DDNASpiral() {               // By: ldirko  https://editor.soulmatelights.com/gallery/512-dna-spiral-variation , modified by: Andrew Tuline
   if (!strip.isMatrix || !SEGMENT.is2D()) return mode_static(); // not a 2D set-up
 
-  const int cols = SEGMENT.virtualWidth();
-  const int rows = SEGMENT.virtualHeight();
+  const int cols = SEG_W;
+  const int rows = SEG_H;
 
   if (SEGENV.call == 0) {
     SEGMENT.fill(BLACK);
@@ -5021,8 +5010,8 @@ static const char _data_FX_MODE_2DDNASPIRAL[] PROGMEM = "DNA Spiral@Scroll speed
 uint16_t mode_2DDrift() {              // By: Stepko   https://editor.soulmatelights.com/gallery/884-drift , Modified by: Andrew Tuline
   if (!strip.isMatrix || !SEGMENT.is2D()) return mode_static(); // not a 2D set-up
 
-  const int cols = SEGMENT.virtualWidth();
-  const int rows = SEGMENT.virtualHeight();
+  const int cols = SEG_W;
+  const int rows = SEG_H;
 
   const int colsCenter = (cols>>1) + (cols%2);
   const int rowsCenter = (rows>>1) + (rows%2);
@@ -5051,8 +5040,8 @@ static const char _data_FX_MODE_2DDRIFT[] PROGMEM = "Drift@Rotation speed,Blur a
 uint16_t mode_2Dfirenoise(void) {               // firenoise2d. By Andrew Tuline. Yet another short routine.
   if (!strip.isMatrix || !SEGMENT.is2D()) return mode_static(); // not a 2D set-up
 
-  const int cols = SEGMENT.virtualWidth();
-  const int rows = SEGMENT.virtualHeight();
+  const int cols = SEG_W;
+  const int rows = SEG_H;
 
   if (SEGENV.call == 0) {
     SEGMENT.fill(BLACK);
@@ -5085,8 +5074,8 @@ static const char _data_FX_MODE_2DFIRENOISE[] PROGMEM = "Firenoise@X scale,Y sca
 uint16_t mode_2DFrizzles(void) {                 // By: Stepko https://editor.soulmatelights.com/gallery/640-color-frizzles , Modified by: Andrew Tuline
   if (!strip.isMatrix || !SEGMENT.is2D()) return mode_static(); // not a 2D set-up
 
-  const int cols = SEGMENT.virtualWidth();
-  const int rows = SEGMENT.virtualHeight();
+  const int cols = SEG_W;
+  const int rows = SEG_H;
 
   SEGMENT.fadeToBlackBy(16);
   for (size_t i = 8; i > 0; i--) {
@@ -5112,8 +5101,8 @@ typedef struct ColorCount {
 uint16_t mode_2Dgameoflife(void) { // Written by Ewoud Wijma, inspired by https://natureofcode.com/book/chapter-7-cellular-automata/ and https://github.com/DougHaber/nlife-color
   if (!strip.isMatrix || !SEGMENT.is2D()) return mode_static(); // not a 2D set-up
 
-  const int cols = SEGMENT.virtualWidth();
-  const int rows = SEGMENT.virtualHeight();
+  const int cols = SEG_W;
+  const int rows = SEG_H;
   const unsigned dataSize = sizeof(CRGB) * SEGMENT.length();  // using width*height prevents reallocation if mirroring is enabled
   const int crcBufferLen = 2; //(SEGMENT.width() + SEGMENT.height())*71/100; // roughly sqrt(2)/2 for better repetition detection (Ewowi)
 
@@ -5218,8 +5207,8 @@ static const char _data_FX_MODE_2DGAMEOFLIFE[] PROGMEM = "Game Of Life@!;!,!;!;2
 uint16_t mode_2DHiphotic() {                        //  By: ldirko  https://editor.soulmatelights.com/gallery/810 , Modified by: Andrew Tuline
   if (!strip.isMatrix || !SEGMENT.is2D()) return mode_static(); // not a 2D set-up
 
-  const int cols = SEGMENT.virtualWidth();
-  const int rows = SEGMENT.virtualHeight();
+  const int cols = SEG_W;
+  const int rows = SEG_H;
   const uint32_t a = strip.now / ((SEGMENT.custom3>>1)+1);
 
   for (int x = 0; x < cols; x++) {
@@ -5250,8 +5239,8 @@ typedef struct Julia {
 uint16_t mode_2DJulia(void) {                           // An animated Julia set by Andrew Tuline.
   if (!strip.isMatrix || !SEGMENT.is2D()) return mode_static(); // not a 2D set-up
 
-  const int cols = SEGMENT.virtualWidth();
-  const int rows = SEGMENT.virtualHeight();
+  const int cols = SEG_W;
+  const int rows = SEG_H;
 
   if (!SEGENV.allocateData(sizeof(julia))) return mode_static();
   Julia* julias = reinterpret_cast<Julia*>(SEGENV.data);
@@ -5356,8 +5345,8 @@ static const char _data_FX_MODE_2DJULIA[] PROGMEM = "Julia@,Max iterations per p
 uint16_t mode_2DLissajous(void) {            // By: Andrew Tuline
   if (!strip.isMatrix || !SEGMENT.is2D()) return mode_static(); // not a 2D set-up
 
-  const int cols = SEGMENT.virtualWidth();
-  const int rows = SEGMENT.virtualHeight();
+  const int cols = SEG_W;
+  const int rows = SEG_H;
 
   SEGMENT.fadeToBlackBy(SEGMENT.intensity);
   uint_fast16_t phase = (strip.now * (1 + SEGENV.custom3)) /32;  // allow user to control rotation speed
@@ -5384,8 +5373,8 @@ static const char _data_FX_MODE_2DLISSAJOUS[] PROGMEM = "Lissajous@X frequency,F
 uint16_t mode_2Dmatrix(void) {                  // Matrix2D. By Jeremy Williams. Adapted by Andrew Tuline & improved by merkisoft and ewowi, and softhack007.
   if (!strip.isMatrix || !SEGMENT.is2D()) return mode_static(); // not a 2D set-up
 
-  const int cols = SEGMENT.virtualWidth();
-  const int rows = SEGMENT.virtualHeight();
+  const int cols = SEG_W;
+  const int rows = SEG_H;
 
   unsigned dataSize = (SEGMENT.length()+7) >> 3; //1 bit per LED for trails
   if (!SEGENV.allocateData(dataSize)) return mode_static(); //allocation failed
@@ -5454,8 +5443,8 @@ static const char _data_FX_MODE_2DMATRIX[] PROGMEM = "Matrix@!,Spawning rate,Tra
 uint16_t mode_2Dmetaballs(void) {   // Metaballs by Stefan Petrick. Cannot have one of the dimensions be 2 or less. Adapted by Andrew Tuline.
   if (!strip.isMatrix || !SEGMENT.is2D()) return mode_static(); // not a 2D set-up
 
-  const int cols = SEGMENT.virtualWidth();
-  const int rows = SEGMENT.virtualHeight();
+  const int cols = SEG_W;
+  const int rows = SEG_H;
 
   float speed = 0.25f * (1+(SEGMENT.speed>>6));
 
@@ -5513,8 +5502,8 @@ static const char _data_FX_MODE_2DMETABALLS[] PROGMEM = "Metaballs@!;;!;2";
 uint16_t mode_2Dnoise(void) {                  // By Andrew Tuline
   if (!strip.isMatrix || !SEGMENT.is2D()) return mode_static(); // not a 2D set-up
 
-  const int cols = SEGMENT.virtualWidth();
-  const int rows = SEGMENT.virtualHeight();
+  const int cols = SEG_W;
+  const int rows = SEG_H;
 
   const unsigned scale  = SEGMENT.intensity+2;
 
@@ -5536,8 +5525,8 @@ static const char _data_FX_MODE_2DNOISE[] PROGMEM = "Noise2D@!,Scale;;!;2";
 uint16_t mode_2DPlasmaball(void) {                   // By: Stepko https://editor.soulmatelights.com/gallery/659-plasm-ball , Modified by: Andrew Tuline
   if (!strip.isMatrix || !SEGMENT.is2D()) return mode_static(); // not a 2D set-up
 
-  const int cols = SEGMENT.virtualWidth();
-  const int rows = SEGMENT.virtualHeight();
+  const int cols = SEG_W;
+  const int rows = SEG_H;
 
   SEGMENT.fadeToBlackBy(SEGMENT.custom1>>2);
   uint_fast32_t t = (strip.now * 8) / (256 - SEGMENT.speed);  // optimized to avoid float
@@ -5576,8 +5565,8 @@ static const char _data_FX_MODE_2DPLASMABALL[] PROGMEM = "Plasma Ball@Speed,,Fad
 uint16_t mode_2DPolarLights(void) {        // By: Kostyantyn Matviyevskyy  https://editor.soulmatelights.com/gallery/762-polar-lights , Modified by: Andrew Tuline
   if (!strip.isMatrix || !SEGMENT.is2D()) return mode_static(); // not a 2D set-up
 
-  const int cols = SEGMENT.virtualWidth();
-  const int rows = SEGMENT.virtualHeight();
+  const int cols = SEG_W;
+  const int rows = SEG_H;
 
   CRGBPalette16 auroraPalette  = {0x000000, 0x003300, 0x006600, 0x009900, 0x00cc00, 0x00ff00, 0x33ff00, 0x66ff00, 0x99ff00, 0xccff00, 0xffff00, 0xffcc00, 0xff9900, 0xff6600, 0xff3300, 0xff0000};
 
@@ -5627,8 +5616,8 @@ static const char _data_FX_MODE_2DPOLARLIGHTS[] PROGMEM = "Polar Lights@!,Scale;
 uint16_t mode_2DPulser(void) {                       // By: ldirko   https://editor.soulmatelights.com/gallery/878-pulse-test , modifed by: Andrew Tuline
   if (!strip.isMatrix || !SEGMENT.is2D()) return mode_static(); // not a 2D set-up
 
-  const int cols = SEGMENT.virtualWidth();
-  const int rows = SEGMENT.virtualHeight();
+  const int cols = SEG_W;
+  const int rows = SEG_H;
 
   SEGMENT.fadeToBlackBy(8 - (SEGMENT.intensity>>5));
   uint32_t a = strip.now / (18 - SEGMENT.speed / 16);
@@ -5649,8 +5638,8 @@ static const char _data_FX_MODE_2DPULSER[] PROGMEM = "Pulser@!,Blur;;!;2";
 uint16_t mode_2DSindots(void) {                             // By: ldirko   https://editor.soulmatelights.com/gallery/597-sin-dots , modified by: Andrew Tuline
   if (!strip.isMatrix || !SEGMENT.is2D()) return mode_static(); // not a 2D set-up
 
-  const int cols = SEGMENT.virtualWidth();
-  const int rows = SEGMENT.virtualHeight();
+  const int cols = SEG_W;
+  const int rows = SEG_H;
 
   if (SEGENV.call == 0) {
     SEGMENT.fill(BLACK);
@@ -5680,8 +5669,8 @@ uint16_t mode_2Dsquaredswirl(void) {            // By: Mark Kriegsman. https://g
                                                           // Modifed by: Andrew Tuline
   if (!strip.isMatrix || !SEGMENT.is2D()) return mode_static(); // not a 2D set-up
 
-  const int cols = SEGMENT.virtualWidth();
-  const int rows = SEGMENT.virtualHeight();
+  const int cols = SEG_W;
+  const int rows = SEG_H;
 
   const uint8_t kBorderWidth = 2;
 
@@ -5711,8 +5700,8 @@ static const char _data_FX_MODE_2DSQUAREDSWIRL[] PROGMEM = "Squared Swirl@,,,,Bl
 uint16_t mode_2DSunradiation(void) {                   // By: ldirko https://editor.soulmatelights.com/gallery/599-sun-radiation  , modified by: Andrew Tuline
   if (!strip.isMatrix || !SEGMENT.is2D()) return mode_static(); // not a 2D set-up
 
-  const int cols = SEGMENT.virtualWidth();
-  const int rows = SEGMENT.virtualHeight();
+  const int cols = SEG_W;
+  const int rows = SEG_H;
 
   if (!SEGENV.allocateData(sizeof(byte)*(cols+2)*(rows+2))) return mode_static(); //allocation failed
   byte *bump = reinterpret_cast<byte*>(SEGENV.data);
@@ -5761,8 +5750,8 @@ static const char _data_FX_MODE_2DSUNRADIATION[] PROGMEM = "Sun Radiation@Varian
 uint16_t mode_2Dtartan(void) {          // By: Elliott Kember  https://editor.soulmatelights.com/gallery/3-tartan , Modified by: Andrew Tuline
   if (!strip.isMatrix || !SEGMENT.is2D()) return mode_static(); // not a 2D set-up
 
-  const int cols = SEGMENT.virtualWidth();
-  const int rows = SEGMENT.virtualHeight();
+  const int cols = SEG_W;
+  const int rows = SEG_H;
 
   if (SEGENV.call == 0) {
     SEGMENT.fill(BLACK);
@@ -5800,8 +5789,8 @@ static const char _data_FX_MODE_2DTARTAN[] PROGMEM = "Tartan@X scale,Y scale,,,S
 uint16_t mode_2Dspaceships(void) {    //// Space ships by stepko (c)05.02.21 [https://editor.soulmatelights.com/gallery/639-space-ships], adapted by Blaz Kristan (AKA blazoncek)
   if (!strip.isMatrix || !SEGMENT.is2D()) return mode_static(); // not a 2D set-up
 
-  const int cols = SEGMENT.virtualWidth();
-  const int rows = SEGMENT.virtualHeight();
+  const int cols = SEG_W;
+  const int rows = SEG_H;
 
   uint32_t tb = strip.now >> 12;  // every ~4s
   if (tb > SEGENV.step) {
@@ -5819,7 +5808,7 @@ uint16_t mode_2Dspaceships(void) {    //// Space ships by stepko (c)05.02.21 [ht
   for (size_t i = 0; i < 8; i++) {
     int x = beatsin8(12 + i, 2, cols - 3);
     int y = beatsin8(15 + i, 2, rows - 3);
-    CRGB color = ColorFromPalette(SEGPALETTE, beatsin8(12 + i, 0, 255), 255);
+    uint32_t color = ColorFromPalette(SEGPALETTE, beatsin8(12 + i, 0, 255), 255);
     SEGMENT.addPixelColorXY(x, y, color);
     if (cols > 24 || rows > 24) {
       SEGMENT.addPixelColorXY(x+1, y, color);
@@ -5843,8 +5832,8 @@ static const char _data_FX_MODE_2DSPACESHIPS[] PROGMEM = "Spaceships@!,Blur;;!;2
 uint16_t mode_2Dcrazybees(void) {
   if (!strip.isMatrix || !SEGMENT.is2D()) return mode_static(); // not a 2D set-up
 
-  const int cols = SEGMENT.virtualWidth();
-  const int rows = SEGMENT.virtualHeight();
+  const int cols = SEG_W;
+  const int rows = SEG_H;
 
   byte n = MIN(MAX_BEES, (rows * cols) / 256 + 1);
 
@@ -5916,8 +5905,8 @@ static const char _data_FX_MODE_2DCRAZYBEES[] PROGMEM = "Crazy Bees@!,Blur;;;2";
 uint16_t mode_2Dghostrider(void) {
   if (!strip.isMatrix || !SEGMENT.is2D()) return mode_static(); // not a 2D set-up
 
-  const int cols = SEGMENT.virtualWidth();
-  const int rows = SEGMENT.virtualHeight();
+  const int cols = SEG_W;
+  const int rows = SEG_H;
 
   typedef struct Lighter {
     int16_t  gPosX;
@@ -6006,8 +5995,8 @@ static const char _data_FX_MODE_2DGHOSTRIDER[] PROGMEM = "Ghost Rider@Fade rate,
 uint16_t mode_2Dfloatingblobs(void) {
   if (!strip.isMatrix || !SEGMENT.is2D()) return mode_static(); // not a 2D set-up
 
-  const int cols = SEGMENT.virtualWidth();
-  const int rows = SEGMENT.virtualHeight();
+  const int cols = SEG_W;
+  const int rows = SEG_H;
 
   typedef struct Blob {
     float x[MAX_BLOBS], y[MAX_BLOBS];
@@ -6104,8 +6093,8 @@ static const char _data_FX_MODE_2DBLOBS[] PROGMEM = "Blobs@!,# blobs,Blur,Trail;
 uint16_t mode_2Dscrollingtext(void) {
   if (!strip.isMatrix || !SEGMENT.is2D()) return mode_static(); // not a 2D set-up
 
-  const int cols = SEGMENT.virtualWidth();
-  const int rows = SEGMENT.virtualHeight();
+  const int cols = SEG_W;
+  const int rows = SEG_H;
 
   unsigned letterWidth, rotLW;
   unsigned letterHeight, rotLH;
@@ -6205,8 +6194,8 @@ static const char _data_FX_MODE_2DSCROLLTEXT[] PROGMEM = "Scrolling Text@!,Y Off
 uint16_t mode_2Ddriftrose(void) {
   if (!strip.isMatrix || !SEGMENT.is2D()) return mode_static(); // not a 2D set-up
 
-  const int cols = SEGMENT.virtualWidth();
-  const int rows = SEGMENT.virtualHeight();
+  const int cols = SEG_W;
+  const int rows = SEG_H;
 
   const float CX = (cols-cols%2)/2.f - .5f;
   const float CY = (rows-rows%2)/2.f - .5f;
@@ -6232,8 +6221,8 @@ static const char _data_FX_MODE_2DDRIFTROSE[] PROGMEM = "Drift Rose@Fade,Blur;;;
 uint16_t mode_2Dplasmarotozoom() {
   if (!strip.isMatrix || !SEGMENT.is2D()) return mode_static(); // not a 2D set-up
 
-  const int cols = SEGMENT.virtualWidth();
-  const int rows = SEGMENT.virtualHeight();
+  const int cols = SEG_W;
+  const int rows = SEG_H;
 
   unsigned dataSize = SEGMENT.length() + sizeof(float);
   if (!SEGENV.allocateData(dataSize)) return mode_static(); //allocation failed
@@ -6401,8 +6390,8 @@ static const char _data_FX_MODE_RIPPLEPEAK[] PROGMEM = "Ripple Peak@Fade rate,Ma
 uint16_t mode_2DSwirl(void) {
   if (!strip.isMatrix || !SEGMENT.is2D()) return mode_static(); // not a 2D set-up
 
-  const int cols = SEGMENT.virtualWidth();
-  const int rows = SEGMENT.virtualHeight();
+  const int cols = SEG_W;
+  const int rows = SEG_H;
 
   if (SEGENV.call == 0) {
     SEGMENT.fill(BLACK);
@@ -6440,8 +6429,8 @@ static const char _data_FX_MODE_2DSWIRL[] PROGMEM = "Swirl@!,Sensitivity,Blur;,B
 uint16_t mode_2DWaverly(void) {
   if (!strip.isMatrix || !SEGMENT.is2D()) return mode_static(); // not a 2D set-up
 
-  const int cols = SEGMENT.virtualWidth();
-  const int rows = SEGMENT.virtualHeight();
+  const int cols = SEG_W;
+  const int rows = SEG_H;
 
   um_data_t *um_data = getAudioData();
   float   volumeSmth  = *(float*)   um_data->u_data[0];
@@ -6652,7 +6641,7 @@ uint16_t mode_matripix(void) {                  // Matripix. By Andrew Tuline.
     SEGENV.aux0 = secondHand;
 
     int pixBri = volumeRaw * SEGMENT.intensity / 64;
-    for (int i = 0; i < SEGLEN-1; i++) SEGMENT.setPixelColor(i, SEGMENT.getPixelColor(i+1)); // shift left
+    for (unsigned i = 0; i < SEGLEN-1; i++) SEGMENT.setPixelColor(i, SEGMENT.getPixelColor(i+1)); // shift left
     SEGMENT.setPixelColor(SEGLEN-1, color_blend(SEGCOLOR(1), SEGMENT.color_from_palette(strip.now, false, PALETTE_SOLID_WRAP, 0), pixBri));
   }
 
@@ -6677,10 +6666,10 @@ uint16_t mode_midnoise(void) {                  // Midnoise. By Andrew Tuline.
   float tmpSound2 = volumeSmth * (float)SEGMENT.intensity / 256.0;  // Too sensitive.
   tmpSound2 *= (float)SEGMENT.intensity / 128.0;              // Reduce sensitivity/length.
 
-  int maxLen = mapf(tmpSound2, 0, 127, 0, SEGLEN/2);
+  unsigned maxLen = mapf(tmpSound2, 0, 127, 0, SEGLEN/2);
   if (maxLen >SEGLEN/2) maxLen = SEGLEN/2;
 
-  for (int i=(SEGLEN/2-maxLen); i<(SEGLEN/2+maxLen); i++) {
+  for (unsigned i=(SEGLEN/2-maxLen); i<(SEGLEN/2+maxLen); i++) {
     uint8_t index = inoise8(i*volumeSmth+SEGENV.aux0, SEGENV.aux1+i*volumeSmth);  // Get a value from the noise function. I'm using both x and y axis.
     SEGMENT.setPixelColor(i, SEGMENT.color_from_palette(index, false, PALETTE_SOLID_WRAP, 0));
   }
@@ -6708,13 +6697,12 @@ uint16_t mode_noisefire(void) {                 // Noisefire. By Andrew Tuline.
 
   if (SEGENV.call == 0) SEGMENT.fill(BLACK);
 
-  for (int i = 0; i < SEGLEN; i++) {
+  for (unsigned i = 0; i < SEGLEN; i++) {
     unsigned index = inoise8(i*SEGMENT.speed/64,strip.now*SEGMENT.speed/64*SEGLEN/255);  // X location is constant, but we move along the Y at the rate of millis(). By Andrew Tuline.
     index = (255 - i*256/SEGLEN) * index/(256-SEGMENT.intensity);                       // Now we need to scale index so that it gets blacker as we get close to one of the ends.
                                                                                         // This is a simple y=mx+b equation that's been scaled. index/128 is another scaling.
 
-    CRGB color = ColorFromPalette(myPal, index, volumeSmth*2, LINEARBLEND);     // Use the my own palette.
-    SEGMENT.setPixelColor(i, color);
+    SEGMENT.setPixelColor(i, ColorFromPalette(myPal, index, volumeSmth*2, LINEARBLEND)); // Use my own palette.
   }
 
   return FRAMETIME;
@@ -6736,11 +6724,11 @@ uint16_t mode_noisemeter(void) {                // Noisemeter. By Andrew Tuline.
   SEGMENT.fade_out(fadeRate);
 
   float tmpSound2 = volumeRaw * 2.0 * (float)SEGMENT.intensity / 255.0;
-  int maxLen = mapf(tmpSound2, 0, 255, 0, SEGLEN); // map to pixels availeable in current segment              // Still a bit too sensitive.
-  if (maxLen <0) maxLen = 0;
-  if (maxLen >SEGLEN) maxLen = SEGLEN;
+  unsigned maxLen = mapf(tmpSound2, 0, 255, 0, SEGLEN); // map to pixels availeable in current segment              // Still a bit too sensitive.
+  if (maxLen < 0) maxLen = 0;
+  if (maxLen > SEGLEN) maxLen = SEGLEN;
 
-  for (int i=0; i<maxLen; i++) {                                    // The louder the sound, the wider the soundbar. By Andrew Tuline.
+  for (unsigned i=0; i<maxLen; i++) {                                    // The louder the sound, the wider the soundbar. By Andrew Tuline.
     uint8_t index = inoise8(i*volumeSmth+SEGENV.aux0, SEGENV.aux1+i*volumeSmth);  // Get a value from the noise function. I'm using both x and y axis.
     SEGMENT.setPixelColor(i, SEGMENT.color_from_palette(index, false, PALETTE_SOLID_WRAP, 0));
   }
@@ -6774,8 +6762,8 @@ uint16_t mode_pixelwave(void) {                 // Pixelwave. By Andrew Tuline.
     int pixBri = volumeRaw * SEGMENT.intensity / 64;
 
     SEGMENT.setPixelColor(SEGLEN/2, color_blend(SEGCOLOR(1), SEGMENT.color_from_palette(strip.now, false, PALETTE_SOLID_WRAP, 0), pixBri));
-    for (int i = SEGLEN - 1; i > SEGLEN/2; i--)   SEGMENT.setPixelColor(i, SEGMENT.getPixelColor(i-1)); //move to the left
-    for (int i = 0; i < SEGLEN/2; i++)            SEGMENT.setPixelColor(i, SEGMENT.getPixelColor(i+1)); // move to the right
+    for (unsigned i = SEGLEN - 1; i > SEGLEN/2; i--) SEGMENT.setPixelColor(i, SEGMENT.getPixelColor(i-1)); //move to the left
+    for (unsigned i = 0; i < SEGLEN/2; i++)          SEGMENT.setPixelColor(i, SEGMENT.getPixelColor(i+1)); // move to the right
   }
 
   return FRAMETIME;
@@ -6804,7 +6792,7 @@ uint16_t mode_plasmoid(void) {                  // Plasmoid. By Andrew Tuline.
   plasmoip->thisphase += beatsin8(6,-4,4);                          // You can change direction and speed individually.
   plasmoip->thatphase += beatsin8(7,-4,4);                          // Two phase values to make a complex pattern. By Andrew Tuline.
 
-  for (int i = 0; i < SEGLEN; i++) {                          // For each of the LED's in the strand, set a brightness based on a wave as follows.
+  for (unsigned i = 0; i < SEGLEN; i++) {                          // For each of the LED's in the strand, set a brightness based on a wave as follows.
     // updated, similar to "plasma" effect - softhack007
     uint8_t thisbright = cubicwave8(((i*(1 + (3*SEGMENT.speed/32)))+plasmoip->thisphase) & 0xFF)/2;
     thisbright += cos8(((i*(97 +(5*SEGMENT.speed/32)))+plasmoip->thatphase) & 0xFF)/2; // Let's munge the brightness a bit and animate it all with the phases.
@@ -6944,7 +6932,7 @@ uint16_t mode_blurz(void) {                    // Blurz. By Andrew Tuline.
   SEGENV.step += FRAMETIME;
   if (SEGENV.step > SPEED_FORMULA_L) {
     unsigned segLoc = random16(SEGLEN);
-    SEGMENT.setPixelColor(segLoc, color_blend(SEGCOLOR(1), SEGMENT.color_from_palette(2*fftResult[SEGENV.aux0%16]*240/max(1, SEGLEN-1), false, PALETTE_SOLID_WRAP, 0), 2*fftResult[SEGENV.aux0%16]));
+    SEGMENT.setPixelColor(segLoc, color_blend(SEGCOLOR(1), SEGMENT.color_from_palette(2*fftResult[SEGENV.aux0%16]*240/max(1, (int)SEGLEN-1), false, PALETTE_SOLID_WRAP, 0), 2*fftResult[SEGENV.aux0%16]));
     ++(SEGENV.aux0) %= 16; // make sure it doesn't cross 16
 
     SEGENV.step = 1;
@@ -7007,7 +6995,7 @@ uint16_t mode_freqmap(void) {                   // Map FFT_MajorPeak to SEGLEN. 
   int locn = (log10f((float)FFT_MajorPeak) - 1.78f) * (float)SEGLEN/(MAX_FREQ_LOG10 - 1.78f);  // log10 frequency range is from 1.78 to 3.71. Let's scale to SEGLEN.
   if (locn < 1) locn = 0; // avoid underflow
 
-  if (locn >=SEGLEN) locn = SEGLEN-1;
+  if (locn >= (int)SEGLEN) locn = SEGLEN-1;
   unsigned pixCol = (log10f(FFT_MajorPeak) - 1.78f) * 255.0f/(MAX_FREQ_LOG10 - 1.78f);   // Scale log10 of frequency values to the 255 colour index.
   if (FFT_MajorPeak < 61.0f) pixCol = 0;                                                 // handle underflow
 
@@ -7160,8 +7148,8 @@ uint16_t mode_freqwave(void) {                  // Freqwave. By Andreas Pleschun
 
     // shift the pixels one pixel outwards
     // if SEGLEN equals 1 these loops won't execute
-    for (int i = SEGLEN - 1; i > SEGLEN/2; i--)   SEGMENT.setPixelColor(i, SEGMENT.getPixelColor(i-1)); //move to the left
-    for (int i = 0; i < SEGLEN/2; i++)            SEGMENT.setPixelColor(i, SEGMENT.getPixelColor(i+1)); // move to the right
+    for (unsigned i = SEGLEN - 1; i > SEGLEN/2; i--) SEGMENT.setPixelColor(i, SEGMENT.getPixelColor(i-1)); //move to the left
+    for (unsigned i = 0; i < SEGLEN/2; i++)          SEGMENT.setPixelColor(i, SEGMENT.getPixelColor(i+1)); // move to the right
   }
 
   return FRAMETIME;
@@ -7315,7 +7303,7 @@ uint16_t mode_waterfall(void) {                   // Waterfall. By: Andrew Tulin
       SEGMENT.setPixelColor(SEGLEN-1, color_blend(SEGCOLOR(1), SEGMENT.color_from_palette(pixCol+SEGMENT.intensity, false, PALETTE_SOLID_WRAP, 0), (int)my_magnitude));
     }
     // loop will not execute if SEGLEN equals 1
-    for (int i = 0; i < SEGLEN-1; i++) SEGMENT.setPixelColor(i, SEGMENT.getPixelColor(i+1)); // shift left
+    for (unsigned i = 0; i < SEGLEN-1; i++) SEGMENT.setPixelColor(i, SEGMENT.getPixelColor(i+1)); // shift left
   }
 
   return FRAMETIME;
@@ -7331,8 +7319,8 @@ uint16_t mode_2DGEQ(void) { // By Will Tatam. Code reduction by Ewoud Wijma.
   if (!strip.isMatrix || !SEGMENT.is2D()) return mode_static(); // not a 2D set-up
 
   const int NUM_BANDS = map(SEGMENT.custom1, 0, 255, 1, 16);
-  const int cols = SEGMENT.virtualWidth();
-  const int rows = SEGMENT.virtualHeight();
+  const int cols = SEG_W;
+  const int rows = SEG_H;
 
   if (!SEGENV.allocateData(cols*sizeof(uint16_t))) return mode_static(); //allocation failed
   uint16_t *previousBarHeight = reinterpret_cast<uint16_t*>(SEGENV.data); //array of previous bar heights per frequency band
@@ -7384,8 +7372,8 @@ static const char _data_FX_MODE_2DGEQ[] PROGMEM = "GEQ@Fade speed,Ripple decay,#
 uint16_t mode_2DFunkyPlank(void) {              // Written by ??? Adapted by Will Tatam.
   if (!strip.isMatrix || !SEGMENT.is2D()) return mode_static(); // not a 2D set-up
 
-  const int cols = SEGMENT.virtualWidth();
-  const int rows = SEGMENT.virtualHeight();
+  const int cols = SEG_W;
+  const int rows = SEG_H;
 
   int NUMB_BANDS = map(SEGMENT.custom1, 0, 255, 1, 16);
   int barWidth = (cols / NUMB_BANDS);
@@ -7472,8 +7460,8 @@ static uint8_t akemi[] PROGMEM = {
 uint16_t mode_2DAkemi(void) {
   if (!strip.isMatrix || !SEGMENT.is2D()) return mode_static(); // not a 2D set-up
 
-  const int cols = SEGMENT.virtualWidth();
-  const int rows = SEGMENT.virtualHeight();
+  const int cols = SEG_W;
+  const int rows = SEG_H;
 
   unsigned counter = (strip.now * ((SEGMENT.speed >> 2) +2)) & 0xFFFF;
   counter = counter >> 8;
@@ -7521,7 +7509,7 @@ uint16_t mode_2DAkemi(void) {
       unsigned band = map(x, 0, max(xMax,4), 0, 15);  // map 0..cols/8 to 16 GEQ bands
       band = constrain(band, 0, 15);
       int barHeight = map(fftResult[band], 0, 255, 0, 17*rows/32);
-      CRGB color = CRGB(SEGMENT.color_from_palette((band * 35), false, PALETTE_SOLID_WRAP, 0));
+      uint32_t color = SEGMENT.color_from_palette((band * 35), false, PALETTE_SOLID_WRAP, 0);
 
       for (int y=0; y < barHeight; y++) {
         SEGMENT.setPixelColorXY(x, rows/2-y, color);
@@ -7541,8 +7529,8 @@ static const char _data_FX_MODE_2DAKEMI[] PROGMEM = "Akemi@Color speed,Dance;Hea
 uint16_t mode_2Ddistortionwaves() {
   if (!strip.isMatrix || !SEGMENT.is2D()) return mode_static(); // not a 2D set-up
 
-  const int cols = SEGMENT.virtualWidth();
-  const int rows = SEGMENT.virtualHeight();
+  const int cols = SEG_W;
+  const int rows = SEG_H;
 
   uint8_t speed = SEGMENT.speed/32;
   uint8_t scale = SEGMENT.intensity/32;
@@ -7596,8 +7584,8 @@ static const char _data_FX_MODE_2DDISTORTIONWAVES[] PROGMEM = "Distortion Waves@
 uint16_t mode_2Dsoap() {
   if (!strip.isMatrix || !SEGMENT.is2D()) return mode_static(); // not a 2D set-up
 
-  const int cols = SEGMENT.virtualWidth();
-  const int rows = SEGMENT.virtualHeight();
+  const int cols = SEG_W;
+  const int rows = SEG_H;
 
   const size_t dataSize = SEGMENT.width() * SEGMENT.height() * sizeof(uint8_t); // prevent reallocation if mirrored or grouped
   if (!SEGENV.allocateData(dataSize + sizeof(uint32_t)*3)) return mode_static(); //allocation failed
@@ -7708,8 +7696,8 @@ static const char _data_FX_MODE_2DSOAP[] PROGMEM = "Soap@!,Smoothness;;!;2";
 uint16_t mode_2Doctopus() {
   if (!strip.isMatrix || !SEGMENT.is2D()) return mode_static(); // not a 2D set-up
 
-  const int cols = SEGMENT.virtualWidth();
-  const int rows = SEGMENT.virtualHeight();
+  const int cols = SEG_W;
+  const int rows = SEG_H;
   const uint8_t mapp = 180 / MAX(cols,rows);
 
   typedef struct {
@@ -7749,8 +7737,7 @@ uint16_t mode_2Doctopus() {
       //CRGB c = CHSV(SEGENV.step / 2 - radius, 255, sin8(sin8((angle * 4 - radius) / 4 + SEGENV.step) + radius - SEGENV.step * 2 + angle * (SEGMENT.custom3/3+1)));
       unsigned intensity = sin8(sin8((angle * 4 - radius) / 4 + SEGENV.step/2) + radius - SEGENV.step + angle * (SEGMENT.custom3/4+1));
       intensity = map((intensity*intensity) & 0xFFFF, 0, 65535, 0, 255); // add a bit of non-linearity for cleaner display
-      CRGB c = ColorFromPalette(SEGPALETTE, SEGENV.step / 2 - radius, intensity);
-      SEGMENT.setPixelColorXY(x, y, c);
+      SEGMENT.setPixelColorXY(x, y, ColorFromPalette(SEGPALETTE, SEGENV.step / 2 - radius, intensity));
     }
   }
   return FRAMETIME;
@@ -7764,8 +7751,8 @@ static const char _data_FX_MODE_2DOCTOPUS[] PROGMEM = "Octopus@!,,Offset X,Offse
 uint16_t mode_2Dwavingcell() {
   if (!strip.isMatrix || !SEGMENT.is2D()) return mode_static(); // not a 2D set-up
 
-  const int cols = SEGMENT.virtualWidth();
-  const int rows = SEGMENT.virtualHeight();
+  const int cols = SEG_W;
+  const int rows = SEG_H;
 
   uint32_t t = strip.now/(257-SEGMENT.speed);
   uint8_t aX = SEGMENT.custom1/16 + 9;

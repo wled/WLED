@@ -75,6 +75,7 @@ byte scaledBri(byte in)
 void applyBri() {
   if (!realtimeMode || !arlsForceMaxBri)
   {
+    //DEBUG_PRINTF_P(PSTR("Applying strip brightness: %d (%d,%d)\n"), (int)briT, (int)bri, (int)briOld);
     strip.setBrightness(scaledBri(briT));
   }
 }
@@ -133,12 +134,12 @@ void stateUpdated(byte callMode) {
     jsonTransitionOnce = false;
     transitionActive = false;
     applyFinalBri();
+    strip.trigger();
     return;
   }
 
   if (transitionActive) {
     briOld = briT;
-    tperLast = 0;
   } else
     strip.setTransitionMode(true); // force all segments to transition mode
   transitionActive = true;
@@ -172,21 +173,21 @@ void handleTransitions() {
   updateInterfaces(interfaceUpdateCallMode);
 
   if (transitionActive && strip.getTransition() > 0) {
-    float tper = (millis() - transitionStartTime)/(float)strip.getTransition();
-    if (tper >= 1.0f) {
+    int ti = millis() - transitionStartTime;
+    int tr = strip.getTransition();
+    if (ti/tr) {
       strip.setTransitionMode(false); // stop all transitions
       // restore (global) transition time if not called from UDP notifier or single/temporary transition from JSON (also playlist)
       if (jsonTransitionOnce) strip.setTransition(transitionDelay);
       transitionActive = false;
       jsonTransitionOnce = false;
-      tperLast = 0;
       applyFinalBri();
       return;
     }
-    if (tper - tperLast < 0.004f) return; // less than 1 bit change (1/255)
-    tperLast = tper;
-    briT = briOld + ((bri - briOld) * tper);
-    applyBri();
+    byte briTO = briT;
+    int deltaBri = (int)bri - (int)briOld;
+    briT = briOld + (deltaBri * ti / tr);
+    if (briTO != briT) applyBri();
   }
 }
 
@@ -220,8 +221,8 @@ void handleNightlight() {
         colNlT[1] = effectSpeed;
         colNlT[2] = effectPalette;
 
-        strip.setMode(strip.getFirstSelectedSegId(), FX_MODE_STATIC); // make sure seg runtime is reset if it was in sunrise mode
-        effectCurrent = FX_MODE_SUNRISE;
+        strip.getFirstSelectedSeg().setMode(FX_MODE_STATIC); // make sure seg runtime is reset if it was in sunrise mode
+        effectCurrent = FX_MODE_SUNRISE;            // colorUpdated() will take care of assigning that to all selected segments
         effectSpeed = nightlightDelayMins;
         effectPalette = 0;
         if (effectSpeed > 60) effectSpeed = 60; //currently limited to 60 minutes

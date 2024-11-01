@@ -318,13 +318,12 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
     gammaCorrectBri = request->hasArg(F("GB"));
     gammaCorrectCol = request->hasArg(F("GC"));
     gammaCorrectVal = request->arg(F("GV")).toFloat();
-    if (gammaCorrectVal > 1.0f && gammaCorrectVal <= 3)
-      NeoGammaWLEDMethod::calcGammaTable(gammaCorrectVal);
-    else {
+    if (gammaCorrectVal <= 1.0f || gammaCorrectVal > 3) {
       gammaCorrectVal = 1.0f; // no gamma correction
       gammaCorrectBri = false;
       gammaCorrectCol = false;
     }
+    NeoGammaWLEDMethod::calcGammaTable(gammaCorrectVal); // fill look-up table
 
     t = request->arg(F("TD")).toInt();
     if (t >= 0) transitionDelayDefault = t;
@@ -835,8 +834,9 @@ bool handleSet(AsyncWebServerRequest *request, const String& req, bool apply)
   }
 
   // temporary values, write directly to segments, globals are updated by setValuesFromFirstSelectedSeg()
-  uint32_t col0 = selseg.colors[0];
-  uint32_t col1 = selseg.colors[1];
+  uint32_t col0    = selseg.colors[0];
+  uint32_t col1    = selseg.colors[1];
+  uint32_t col2    = selseg.colors[2];
   byte colIn[4]    = {R(col0), G(col0), B(col0), W(col0)};
   byte colInSec[4] = {R(col1), G(col1), B(col1), W(col1)};
   byte effectIn    = selseg.mode;
@@ -917,7 +917,7 @@ bool handleSet(AsyncWebServerRequest *request, const String& req, bool apply)
   //set brightness
   updateVal(req.c_str(), "&A=", &bri);
 
-  bool col0Changed = false, col1Changed = false;
+  bool col0Changed = false, col1Changed = false, col2Changed = false;
   //set colors
   col0Changed |= updateVal(req.c_str(), "&R=", &colIn[0]);
   col0Changed |= updateVal(req.c_str(), "&G=", &colIn[1]);
@@ -974,7 +974,6 @@ bool handleSet(AsyncWebServerRequest *request, const String& req, bool apply)
   }
 
   //set color from HEX or 32bit DEC
-  byte tmpCol[4];
   pos = req.indexOf(F("CL="));
   if (pos > 0) {
     colorFromDecOrHexString(colIn, (char*)req.substring(pos + 3).c_str());
@@ -987,10 +986,11 @@ bool handleSet(AsyncWebServerRequest *request, const String& req, bool apply)
   }
   pos = req.indexOf(F("C3="));
   if (pos > 0) {
+    byte tmpCol[4];
     colorFromDecOrHexString(tmpCol, (char*)req.substring(pos + 3).c_str());
-    uint32_t col2 = RGBW32(tmpCol[0], tmpCol[1], tmpCol[2], tmpCol[3]);
+    col2 = RGBW32(tmpCol[0], tmpCol[1], tmpCol[2], tmpCol[3]);
     selseg.setColor(2, col2); // defined above (SS= or main)
-    if (!singleSegment) strip.setColor(2, col2); // will set color to all active & selected segments
+    col2Changed = true;
   }
 
   //set to random hue SR=0->1st SR=1->2nd
@@ -1001,29 +1001,22 @@ bool handleSet(AsyncWebServerRequest *request, const String& req, bool apply)
     col0Changed |= (!sec); col1Changed |= sec;
   }
 
-  //swap 2nd & 1st
-  pos = req.indexOf(F("SC"));
-  if (pos > 0) {
-    byte temp;
-    for (unsigned i=0; i<4; i++) {
-      temp        = colIn[i];
-      colIn[i]    = colInSec[i];
-      colInSec[i] = temp;
-    }
-    col0Changed = col1Changed = true;
-  }
-
   // apply colors to selected segment, and all selected segments if applicable
   if (col0Changed) {
-    uint32_t colIn0 = RGBW32(colIn[0], colIn[1], colIn[2], colIn[3]);
-    selseg.setColor(0, colIn0);
-    if (!singleSegment) strip.setColor(0, colIn0); // will set color to all active & selected segments
+    col0 = RGBW32(colIn[0], colIn[1], colIn[2], colIn[3]);
+    selseg.setColor(0, col0);
   }
 
   if (col1Changed) {
-    uint32_t colIn1 = RGBW32(colInSec[0], colInSec[1], colInSec[2], colInSec[3]);
-    selseg.setColor(1, colIn1);
-    if (!singleSegment) strip.setColor(1, colIn1); // will set color to all active & selected segments
+    col1 = RGBW32(colInSec[0], colInSec[1], colInSec[2], colInSec[3]);
+    selseg.setColor(1, col1);
+  }
+
+  //swap 2nd & 1st
+  pos = req.indexOf(F("SC"));
+  if (pos > 0) {
+    std::swap(col0,col1);
+    col0Changed = col1Changed = true;
   }
 
   bool fxModeChanged = false, speedChanged = false, intensityChanged = false, paletteChanged = false;
@@ -1053,6 +1046,9 @@ bool handleSet(AsyncWebServerRequest *request, const String& req, bool apply)
     if (speedChanged)     seg.speed     = speedIn;
     if (intensityChanged) seg.intensity = intensityIn;
     if (paletteChanged)   seg.setPalette(paletteIn);
+    if (col0Changed)      seg.setColor(0, col0);
+    if (col1Changed)      seg.setColor(1, col1);
+    if (col2Changed)      seg.setColor(2, col2);
     if (custom1Changed)   seg.custom1   = custom1In;
     if (custom2Changed)   seg.custom2   = custom2In;
     if (custom3Changed)   seg.custom3   = custom3In;

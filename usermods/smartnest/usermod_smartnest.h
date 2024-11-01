@@ -49,7 +49,7 @@ private:
 
   void setColor(int r, int g, int b)
   {
-    strip.setColor(0, r, g, b);
+    strip.getMainSegment().setColor(0, RGBW32(r, g, b, 0));
     stateUpdated(CALL_MODE_DIRECT_CHANGE);
     char msg[18] {};
     sprintf(msg, "rgb(%d,%d,%d)", r, g, b);

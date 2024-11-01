@@ -283,7 +283,7 @@ void BusDigital::setStatusPixel(uint32_t c) {
   }
 }
 
-void IRAM_ATTR BusDigital::setPixelColor(uint16_t pix, uint32_t c) {
+void IRAM_ATTR BusDigital::setPixelColor(unsigned pix, uint32_t c) {
   if (!_valid) return;
   uint8_t cctWW = 0, cctCW = 0;
   if (hasWhite()) c = autoWhiteCalc(c);
@@ -319,7 +319,7 @@ void IRAM_ATTR BusDigital::setPixelColor(uint16_t pix, uint32_t c) {
 }
 
 // returns original color if global buffering is enabled, else returns lossly restored color from bus
-uint32_t IRAM_ATTR BusDigital::getPixelColor(uint16_t pix) const {
+uint32_t IRAM_ATTR BusDigital::getPixelColor(unsigned pix) const {
   if (!_valid) return 0;
   if (_data) {
     size_t offset = pix * getNumberOfChannels();
@@ -478,7 +478,7 @@ BusPwm::BusPwm(BusConfig &bc)
   DEBUGBUS_PRINTF_P(PSTR("%successfully inited PWM strip with type %u, frequency %u, bit depth %u and pins %u,%u,%u,%u,%u\n"), _valid?"S":"Uns", bc.type, _frequency, _depth, _pins[0], _pins[1], _pins[2], _pins[3], _pins[4]);
 }
 
-void BusPwm::setPixelColor(uint16_t pix, uint32_t c) {
+void BusPwm::setPixelColor(unsigned pix, uint32_t c) {
   if (pix != 0 || !_valid) return; //only react to first pixel
   if (_type != TYPE_ANALOG_3CH) c = autoWhiteCalc(c);
   if (Bus::_cct >= 1900 && (_type == TYPE_ANALOG_3CH || _type == TYPE_ANALOG_4CH)) {
@@ -515,7 +515,7 @@ void BusPwm::setPixelColor(uint16_t pix, uint32_t c) {
 }
 
 //does no index check
-uint32_t BusPwm::getPixelColor(uint16_t pix) const {
+uint32_t BusPwm::getPixelColor(unsigned pix) const {
   if (!_valid) return 0;
   // TODO getting the reverse from CCT is involved (a quick approximation when CCT blending is ste to 0 implemented)
   switch (_type) {
@@ -651,7 +651,7 @@ BusOnOff::BusOnOff(BusConfig &bc)
   DEBUGBUS_PRINTF_P(PSTR("%successfully inited On/Off strip with pin %u\n"), _valid?"S":"Uns", _pin);
 }
 
-void BusOnOff::setPixelColor(uint16_t pix, uint32_t c) {
+void BusOnOff::setPixelColor(unsigned pix, uint32_t c) {
   if (pix != 0 || !_valid) return; //only react to first pixel
   c = autoWhiteCalc(c);
   uint8_t r = R(c);
@@ -661,7 +661,7 @@ void BusOnOff::setPixelColor(uint16_t pix, uint32_t c) {
   _data[0] = bool(r|g|b|w) && bool(_bri) ? 0xFF : 0;
 }
 
-uint32_t BusOnOff::getPixelColor(uint16_t pix) const {
+uint32_t BusOnOff::getPixelColor(unsigned pix) const {
   if (!_valid) return 0;
   return RGBW32(_data[0], _data[0], _data[0], _data[0]);
 }
@@ -711,7 +711,7 @@ BusNetwork::BusNetwork(BusConfig &bc)
   DEBUGBUS_PRINTF_P(PSTR("%successfully inited virtual strip with type %u and IP %u.%u.%u.%u\n"), _valid?"S":"Uns", bc.type, bc.pins[0], bc.pins[1], bc.pins[2], bc.pins[3]);
 }
 
-void BusNetwork::setPixelColor(uint16_t pix, uint32_t c) {
+void BusNetwork::setPixelColor(unsigned pix, uint32_t c) {
   if (!_valid || pix >= _len) return;
   if (_hasWhite) c = autoWhiteCalc(c);
   if (Bus::_cct >= 1900) c = colorBalanceFromKelvin(Bus::_cct, c); //color correction from CCT
@@ -722,7 +722,7 @@ void BusNetwork::setPixelColor(uint16_t pix, uint32_t c) {
   if (_hasWhite) _data[offset+3] = W(c);
 }
 
-uint32_t BusNetwork::getPixelColor(uint16_t pix) const {
+uint32_t BusNetwork::getPixelColor(unsigned pix) const {
   if (!_valid || pix >= _len) return 0;
   unsigned offset = pix * _UDPchannels;
   return RGBW32(_data[offset], _data[offset+1], _data[offset+2], (hasWhite() ? _data[offset+3] : 0));
@@ -929,7 +929,7 @@ void BusManager::setStatusPixel(uint32_t c) {
   }
 }
 
-void IRAM_ATTR BusManager::setPixelColor(uint16_t pix, uint32_t c) {
+void IRAM_ATTR BusManager::setPixelColor(unsigned pix, uint32_t c) {
   for (unsigned i = 0; i < numBusses; i++) {
     unsigned bstart = busses[i]->getStart();
     if (pix < bstart || pix >= bstart + busses[i]->getLength()) continue;
@@ -952,7 +952,7 @@ void BusManager::setSegmentCCT(int16_t cct, bool allowWBCorrection) {
   Bus::setCCT(cct);
 }
 
-uint32_t BusManager::getPixelColor(uint16_t pix) {
+uint32_t BusManager::getPixelColor(unsigned pix) {
   for (unsigned i = 0; i < numBusses; i++) {
     unsigned bstart = busses[i]->getStart();
     if (!busses[i]->containsPixel(pix)) continue;
