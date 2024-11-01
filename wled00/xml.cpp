@@ -115,10 +115,10 @@ void appendGPIOinfo(Print& settingsScript) {
   #ifdef WLED_USE_ETHERNET
   if (ethernetType != WLED_ETH_NONE && ethernetType < WLED_NUM_ETH_TYPES) {
     if (!firstPin) settingsScript.print(",");
-    for (unsigned p=0; p<WLED_ETH_RSVD_PINS_COUNT; p++) { settingsScript.print(esp32_nonconfigurable_ethernet_pins[p].pin); }
-    if (ethernetBoards[ethernetType].eth_power >= 0)    { settingsScript.print(ethernetBoards[ethernetType].eth_power); }
-    if (ethernetBoards[ethernetType].eth_mdc >= 0)      { settingsScript.print(ethernetBoards[ethernetType].eth_mdc); }
-    if (ethernetBoards[ethernetType].eth_mdio >= 0)     { settingsScript.print(ethernetBoards[ethernetType].eth_mdio); }
+    for (unsigned p=0; p<WLED_ETH_RSVD_PINS_COUNT; p++) { settingsScript.printf("%d,",esp32_nonconfigurable_ethernet_pins[p].pin); }
+    if (ethernetBoards[ethernetType].eth_power >= 0)    { settingsScript.printf("%d,",ethernetBoards[ethernetType].eth_power); }
+    if (ethernetBoards[ethernetType].eth_mdc >= 0)      { settingsScript.printf("%d,",ethernetBoards[ethernetType].eth_mdc); }
+    if (ethernetBoards[ethernetType].eth_mdio >= 0)     { settingsScript.printf("%d,",ethernetBoards[ethernetType].eth_mdio); }
     switch (ethernetBoards[ethernetType].eth_clk_mode)  {
       case ETH_CLOCK_GPIO0_IN:
       case ETH_CLOCK_GPIO0_OUT:
