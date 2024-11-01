@@ -1873,13 +1873,19 @@ void WS2812FX::service() {
   if (OTAisRunning) return; // WLEDMM avoid flickering during OTA
 
   now = nowUp + timebase;
-  #if defined(ARDUINO_ARCH_ESP32) && defined(WLEDMM_FASTPATH)
-    if ((_frametime > 2) && (_frametime < 32) && (nowUp - _lastShow) < (_frametime/2)) return;  // WLEDMM experimental - stabilizes frametimes but increases CPU load
-    else if (nowUp - _lastShow < MIN_SHOW_DELAY) return;                                        // WLEDMM fallback
-  #else
-    if (nowUp - _lastShow < MIN_SHOW_DELAY) return;
+  unsigned long elapsed = nowUp - _lastServiceShow;
+  #if defined(ARDUINO_ARCH_ESP32) && defined(WLEDMM_FASTPATH)   // WLEDMM go faster on ESP32
+  //if (_suspend) return;
+  if (elapsed < 2) return;                                                       // keep wifi alive
+  if ( !_triggered && (_targetFps < FPS_UNLIMITED) && (_targetFps > 0)) {
+    if (elapsed < MIN_SHOW_DELAY) return;                                        // WLEDMM too early for service
+  }
+  #else  // legacy
+  if (elapsed < MIN_SHOW_DELAY) return;
   #endif
+
   bool doShow = false;
+  unsigned speedLimit = (_targetFps < FPS_UNLIMITED) ? (0.85f * FRAMETIME) : 1;      // WLEDMM lower limit for effect frametime
 
   _isServicing = true;
   _segment_index = 0;
@@ -1914,6 +1920,8 @@ void WS2812FX::service() {
         // actual code may be a bit more involved as effects have runtime data including allocated memory
         //if (seg.transitional && seg._modeP) (*_mode[seg._modeP])(progress());
         frameDelay = (*_mode[seg.currentMode(seg.mode)])();
+
+        if (frameDelay < speedLimit) frameDelay = FRAMETIME;                    // WLEDMM limit effects that want to go faster than target FPS
         if (seg.mode != FX_MODE_HALLOWEEN_EYES) seg.call++;
         if (seg.transitional && frameDelay > FRAMETIME) frameDelay = FRAMETIME; // force faster updates during transition
 
@@ -1929,6 +1937,7 @@ void WS2812FX::service() {
   if(doShow) {
     yield();
     show();
+    _lastServiceShow = nowUp; // WLEDMM use correct timestamp
   }
   _triggered = false;
   _isServicing = false;
@@ -2053,25 +2062,30 @@ void WS2812FX::show(void) {
   estimateCurrentAndLimitBri();
 
   #if defined(ARDUINO_ARCH_ESP32) && defined(WLEDMM_FASTPATH)
-  unsigned long b4show = millis(); // WLEDMM the time before calling "show"
+  unsigned long now = millis();
+  #ifdef ARDUINO_ARCH_ESP32                      // WLEDMM more accurate FPS measurement for ESP32
+  uint64_t now500 = esp_timer_get_time() / 2;  // native timer; micros /2 -> millis * 500
   #endif
+  #endif
+
   // some buses send asynchronously and this method will return before
   // all of the data has been sent.
   // See https://github.com/Makuna/NeoPixelBus/wiki/ESP32-NeoMethods#neoesp32rmt-methods
   busses.show();
   unsigned long now = millis();
+  #ifdef ARDUINO_ARCH_ESP32                      // WLEDMM more accurate FPS measurement for ESP32
+  uint64_t now500 = esp_timer_get_time() / 2;  // native timer; micros /2 -> millis * 500
+  #endif
+  #endif
+
   unsigned long diff = now - _lastShow;
   uint16_t fpsCurr = 200;
   if (diff > 0) fpsCurr = 1000 / diff;
   _cumulativeFps = (3 * _cumulativeFps + fpsCurr +2) >> 2;   // "+2" for proper rounding (2/4 = 0.5)
-  #if defined(ARDUINO_ARCH_ESP32) && defined(WLEDMM_FASTPATH)
-  _lastShow = b4show;  // WLEDMM this is more accurate, however it also increases CPU load - strip.service will run more frequently
-  #else
   _lastShow = now;
-  #endif
+  _lastServiceShow = now;
 
 #ifdef ARDUINO_ARCH_ESP32                      // WLEDMM more accurate FPS measurement for ESP32
-  uint64_t now500 = esp_timer_get_time() / 2;  // native timer; micros /2 -> millis * 500
   int64_t diff500 = now500 - _lastShow500;
   if ((diff500 > 300) && (diff500 < 800000)) { // exclude stupid values (timer rollover, major hickups)
     float fpcCurr500 = 500000.0f / float(diff500);
@@ -2107,6 +2121,7 @@ void WS2812FX::setTargetFps(uint8_t fps) {
   if (fps > 0 && fps <= 251) _targetFps = fps;  // WLEDMM allow higher framerates
   _frametime = 1000 / _targetFps;
   if (_frametime < 1) _frametime = 1;           // WLEDMM better safe than sorry
+  if (fps >= FPS_UNLIMITED) _frametime = 3;     // WLEDMM unlimited mode
 }
 
 void WS2812FX::setMode(uint8_t segid, uint8_t m) {
