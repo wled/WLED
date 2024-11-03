@@ -2,7 +2,7 @@ Import('env')
 import json
 import datetime
 t = datetime.datetime.now()
-env.Append(BUILD_FLAGS=[f"-D VERSION={t.strftime('%y%m%d')}0"])
+env.Append(BUILD_FLAGS=[f"-D BUILD={t.strftime('%y%m%d')}0"])
 
 PACKAGE_FILE = "package.json"
 

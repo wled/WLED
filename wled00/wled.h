@@ -8,8 +8,10 @@
  */
 
 // version code in format yymmddb (b = daily build)
-#ifndef VERSION
+#ifndef AUTOBUILD
 #define VERSION 2410300
+#else
+#define VERSION BUILD
 #endif
 
 //uncomment this if you have a "my_config.h" file you'd like to use
