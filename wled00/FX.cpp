@@ -2387,7 +2387,7 @@ uint16_t mode_colortwinkle() {
       }
     }
   }
-  return FRAMETIME_FIXED_SLOW;
+  return FRAMETIME_FIXED;
 }
 static const char _data_FX_MODE_COLORTWINKLE[] PROGMEM = "Colortwinkles@Fade speed,Spawn speed;;!;;m12=0"; //pixels
 
@@ -3396,7 +3396,7 @@ uint16_t candle(bool multi)
     }
   }
 
-  return FRAMETIME_FIXED_SLOW;
+  return FRAMETIME_FIXED;
 }
 
 

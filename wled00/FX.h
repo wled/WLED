@@ -50,9 +50,9 @@ bool strip_uses_global_leds(void) __attribute__((pure));  // WLEDMM implemented 
 #define MIN_SHOW_DELAY   (max(2, (_frametime*5)/8))    // WLEDMM support higher framerates (up to 250fps) -- 5/8 = 62%
 #define WLED_FPS         120
 #define WLED_FPS_SLOW    60
-#define FRAMETIME_FIXED  24                                // used in Blurz, Freqmap, Scrolling text 
+#define FRAMETIME_FIXED  24                                // used in Blurz, Freqmap, Scrolling text, Colortwinkles, Candle
 //#define FRAMETIME_FIXED  (strip.getFrameTime() < 10 ? 12 : 24)
-#define FRAMETIME_FIXED_SLOW  (15)    // = 66 FPS => 1000/66 // used in Solid, Colortwinkles, Candle
+#define FRAMETIME_FIXED_SLOW  (15)    // = 66 FPS => 1000/66 // used in Solid
 #else
 #define WLED_FPS         42
 #define FRAMETIME_FIXED  (1000/WLED_FPS)
