@@ -2061,24 +2061,15 @@ void WS2812FX::show(void) {
 
   estimateCurrentAndLimitBri();
 
-  #if defined(ARDUINO_ARCH_ESP32) && defined(WLEDMM_FASTPATH)
-  unsigned long showNow = millis();
-  #ifdef ARDUINO_ARCH_ESP32                      // WLEDMM more accurate FPS measurement for ESP32
+  unsigned long showNow = millis();            // include time needed for busses.show()
+  #ifdef ARDUINO_ARCH_ESP32                    // WLEDMM more accurate FPS measurement for ESP32
   uint64_t now500 = esp_timer_get_time() / 2;  // native timer; micros /2 -> millis * 500
-  #endif
   #endif
 
   // some buses send asynchronously and this method will return before
   // all of the data has been sent.
   // See https://github.com/Makuna/NeoPixelBus/wiki/ESP32-NeoMethods#neoesp32rmt-methods
   busses.show();
-
-  #if !defined(ARDUINO_ARCH_ESP32) || !defined(WLEDMM_FASTPATH)  // upstream legacy
-  unsigned long showNow = millis();
-  #ifdef ARDUINO_ARCH_ESP32                      // WLEDMM more accurate FPS measurement for ESP32
-  uint64_t now500 = esp_timer_get_time() / 2;  // native timer; micros /2 -> millis * 500
-  #endif
-  #endif
 
   unsigned long diff = showNow - _lastShow;
   uint16_t fpsCurr = 200;
