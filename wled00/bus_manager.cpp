@@ -677,8 +677,15 @@ BusHub75Matrix::BusHub75Matrix(BusConfig &bc) : Bus(bc.type, bc.start, bc.autoWh
   mxconfig.gpio.d = 35;
   mxconfig.gpio.e = 21;
 
-#elif defined(CONFIG_IDF_TARGET_ESP32S3) && defined(BOARD_HAS_PSRAM)// ESP32-S3
+#elif defined(CONFIG_IDF_TARGET_ESP32S3) && defined(BOARD_HAS_PSRAM)// ESP32-S3 with PSRAM
 
+  #if defined(MOONHUB_S3_PINOUT)
+  USER_PRINTLN("MatrixPanel_I2S_DMA - T7 S3 with PSRAM, MOONHUB pinout");
+
+  // HUB75_I2S_CFG::i2s_pins _pins={R1_PIN, G1_PIN, B1_PIN, R2_PIN, G2_PIN, B2_PIN, A_PIN, B_PIN, C_PIN, D_PIN, E_PIN, LAT_PIN, OE_PIN, CLK_PIN};
+  mxconfig.gpio = { 1, 5, 6, 7, 13, 9, 16, 48, 47, 21, 38, 8, 4, 18 };
+
+  #else
   USER_PRINTLN("MatrixPanel_I2S_DMA - S3 with PSRAM");
 
   mxconfig.gpio.r1 =  1;
@@ -697,8 +704,9 @@ BusHub75Matrix::BusHub75Matrix(BusConfig &bc) : Bus(bc.type, bc.start, bc.autoWh
   mxconfig.gpio.lat = 8;
   mxconfig.gpio.oe  = 3;
   // 16th pin is GND
+  #endif
 
-#elif defined(CONFIG_IDF_TARGET_ESP32S3) // ESP32-S3
+#elif defined(CONFIG_IDF_TARGET_ESP32S3) // ESP32-S3 HD-WF2
 
   // Huidu HD-WF2 ESP32-S3
   // https://www.aliexpress.com/item/1005002258734810.html
