@@ -43,20 +43,24 @@ bool strip_uses_global_leds(void) __attribute__((pure));  // WLEDMM implemented 
 #endif
 
 /* Not used in all effects yet */
+#define FPS_UNLIMITED    250
+#define FPS_UNLIMITED_AC 0   // WLEDMM upstream uses "0 fps" for unlimited. We support both ways
 #if defined(ARDUINO_ARCH_ESP32) && defined(WLEDMM_FASTPATH)   // WLEDMM go faster on ESP32
-#define WLED_FPS         120
-#define FRAMETIME_FIXED  (strip.getFrameTime() < 10 ? 12 : 24)
-#define WLED_FPS_SLOW         60
-#define FRAMETIME_FIXED_SLOW  (15)    // = 66 FPS => 1000/66
-//#define FRAMETIME        _frametime
 #define FRAMETIME        strip.getFrameTime()
+#define MIN_SHOW_DELAY   (max(2, (_frametime*5)/8))    // WLEDMM support higher framerates (up to 250fps) -- 5/8 = 62%
+#define WLED_FPS         120
+#define WLED_FPS_SLOW    60
+#define FRAMETIME_FIXED  24                                // used in Blurz, Freqmap, Scrolling text 
+//#define FRAMETIME_FIXED  (strip.getFrameTime() < 10 ? 12 : 24)
+#define FRAMETIME_FIXED_SLOW  (15)    // = 66 FPS => 1000/66 // used in Solid, Colortwinkles, Candle
 #else
 #define WLED_FPS         42
 #define FRAMETIME_FIXED  (1000/WLED_FPS)
-#define WLED_FPS_SLOW         42
+#define WLED_FPS_SLOW    42
 #define FRAMETIME_FIXED_SLOW  (1000/WLED_FPS_SLOW)
-//#define FRAMETIME        _frametime
 #define FRAMETIME        strip.getFrameTime()
+//#define MIN_SHOW_DELAY   (_frametime < 16 ? 8 : 15)  // Upstream legacy
+#define MIN_SHOW_DELAY   (_frametime < 16 ? (_frametime <8? (_frametime <7? (_frametime <6 ? 2 :3) :4) : 8) : 15)    // WLEDMM support higher framerates (up to 250fps)
 #endif
 
 /* each segment uses 52 bytes of SRAM memory, so if you're application fails because of
@@ -81,8 +85,6 @@ bool strip_uses_global_leds(void) __attribute__((pure));  // WLEDMM implemented 
 /* How much data bytes each segment should max allocate to leave enough space for other segments,
   assuming each segment uses the same amount of data. 256 for ESP8266, 640 for ESP32. */
 #define FAIR_DATA_PER_SEG (MAX_SEGMENT_DATA / strip.getMaxSegments())
-
-#define MIN_SHOW_DELAY   (_frametime < 16 ? (_frametime <8? (_frametime <7? (_frametime <6 ? 2 :3) :4) : 8) : 15)    // WLEDMM support higher framerates (up to 250fps)
 
 #define NUM_COLORS       3 /* number of colors per segment */
 #define SEGMENT          strip._segments[strip.getCurrSegmentId()]
@@ -852,6 +854,7 @@ class WS2812FX {  // 96 bytes
       customMappingTableSize(0), //WLEDMM
       customMappingSize(0),
       _lastShow(0),
+      _lastServiceShow(0),
       _segment_index(0),
       _mainSegment(0)
     {
@@ -1097,6 +1100,7 @@ class WS2812FX {  // 96 bytes
     uint16_t  customMappingSize;
 
     /*uint32_t*/ unsigned long _lastShow; // WLEDMM avoid losing precision
+    unsigned long _lastServiceShow;       // WLEDMM last call of strip.show (timestamp)
 
     uint8_t _segment_index;
     uint8_t _mainSegment;
