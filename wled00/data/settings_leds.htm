@@ -166,7 +166,8 @@
 
 			gId('ampwarning').style.display = (d.Sf.MA.value > 7200) ? 'inline':'none';
 
-			gId('fpswarning').style.display = (d.Sf.FR.value > 69) ? 'block':'none'; // WLEDMM
+			gId('fpsNone').style.display = ((d.Sf.FR.value == 0) || (d.Sf.FR.value > 249))? 'block':'none'; // WLEDMM
+			gId('fpswarning').style.display = (d.Sf.FR.value > 69) || (d.Sf.FR.value == 0) ? 'block':'none'; // WLEDMM
 			gId('fpshelp1').style.display = ((d.Sf.FR.value > 80) && (d.Sf.FR.value < 132)) ? 'block':'none'; // WLEDMM
 			gId('fpshelp2').style.display = ((d.Sf.FR.value > 132) && (d.Sf.FR.value < 196)) ? 'block':'none'; // WLEDMM
 			gId('fpshelp3').style.display = (d.Sf.FR.value > 196) ? 'block':'none'; // WLEDMM
@@ -732,7 +733,8 @@ Length: <input type="number" name="XC${i}" id="xc${i}" class="l" min="1" max="65
 			<option value="2">Linear (never wrap)</option>
 			<option value="3">None (not recommended)</option>
 		</select><br>
-		Target refresh rate: <input type="number" class="s" min="1" max="250" name="FR" oninput="UI()" required> FPS
+		Target refresh rate: <input type="number" class="s" min="0" max="250" name="FR" oninput="UI()" required> FPS
+		<div id="fpsNone" style="color:green; display: none;"><b>unlimited FPS mode.</b><br></div>
 		<div id="fpswarning" style="color:GoldenRod; display: none;">
 			&#9888; WLED may become unstable above 70 fps.<br>
 			To protect your setup,

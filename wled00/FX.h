@@ -43,20 +43,21 @@ bool strip_uses_global_leds(void) __attribute__((pure));  // WLEDMM implemented 
 #endif
 
 /* Not used in all effects yet */
-#define FPS_UNLIMITED    249
+#define FPS_UNLIMITED    250
+#define FPS_UNLIMITED_AC 0   // WLEDMM upstream uses "0 fps" for unlimited. We support both ways
 #if defined(ARDUINO_ARCH_ESP32) && defined(WLEDMM_FASTPATH)   // WLEDMM go faster on ESP32
-#define WLED_FPS         120
-#define FRAMETIME_FIXED  (strip.getFrameTime() < 10 ? 12 : 24)
-#define WLED_FPS_SLOW         60
-#define FRAMETIME_FIXED_SLOW  (15)    // = 66 FPS => 1000/66
 #define FRAMETIME        strip.getFrameTime()
 #define MIN_SHOW_DELAY   (max(2, (_frametime*5)/8))    // WLEDMM support higher framerates (up to 250fps) -- 5/8 = 62%
+#define WLED_FPS         120
+#define WLED_FPS_SLOW    60
+#define FRAMETIME_FIXED  24                                // used in Blurz, Freqmap, Scrolling text 
+//#define FRAMETIME_FIXED  (strip.getFrameTime() < 10 ? 12 : 24)
+#define FRAMETIME_FIXED_SLOW  (15)    // = 66 FPS => 1000/66 // used in Solid, Colortwinkles, Candle
 #else
 #define WLED_FPS         42
 #define FRAMETIME_FIXED  (1000/WLED_FPS)
-#define WLED_FPS_SLOW         42
+#define WLED_FPS_SLOW    42
 #define FRAMETIME_FIXED_SLOW  (1000/WLED_FPS_SLOW)
-//#define FRAMETIME        _frametime
 #define FRAMETIME        strip.getFrameTime()
 //#define MIN_SHOW_DELAY   (_frametime < 16 ? 8 : 15)  // Upstream legacy
 #define MIN_SHOW_DELAY   (_frametime < 16 ? (_frametime <8? (_frametime <7? (_frametime <6 ? 2 :3) :4) : 8) : 15)    // WLEDMM support higher framerates (up to 250fps)

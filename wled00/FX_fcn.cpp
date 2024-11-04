@@ -1877,15 +1877,15 @@ void WS2812FX::service() {
   #if defined(ARDUINO_ARCH_ESP32) && defined(WLEDMM_FASTPATH)   // WLEDMM go faster on ESP32
   //if (_suspend) return;
   if (elapsed < 2) return;                                                       // keep wifi alive
-  if ( !_triggered && (_targetFps < FPS_UNLIMITED) && (_targetFps > 0)) {
+  if ( !_triggered && (_targetFps != FPS_UNLIMITED) && (_targetFps != FPS_UNLIMITED_AC)) {
     if (elapsed < MIN_SHOW_DELAY) return;                                        // WLEDMM too early for service
   }
   #else  // legacy
-  if (elapsed < MIN_SHOW_DELAY) return;
+  if (nowUp - _lastShow < MIN_SHOW_DELAY) return;
   #endif
 
   bool doShow = false;
-  unsigned speedLimit = (_targetFps < FPS_UNLIMITED) ? (0.85f * FRAMETIME) : 1;      // WLEDMM lower limit for effect frametime
+  unsigned speedLimit = (_targetFps != FPS_UNLIMITED) && (_targetFps != FPS_UNLIMITED_AC) ? (0.85f * FRAMETIME) : 1;      // WLEDMM minimum for effect frametime
 
   _isServicing = true;
   _segment_index = 0;
@@ -2120,10 +2120,10 @@ uint16_t WS2812FX::getFps() const {
 }
 
 void WS2812FX::setTargetFps(uint8_t fps) {
-  if (fps > 0 && fps <= 251) _targetFps = fps;  // WLEDMM allow higher framerates
-  _frametime = 1000 / _targetFps;
-  if (_frametime < 1) _frametime = 1;           // WLEDMM better safe than sorry
-  if (fps >= FPS_UNLIMITED) _frametime = 3;     // WLEDMM unlimited mode
+  if (fps <= 251) _targetFps = fps;  // WLEDMM allow higher framerates
+  if (fps > 0) _frametime = 1000 / _targetFps;
+  else _frametime = 2;                          // AC WLED compatibility
+  if (fps >= FPS_UNLIMITED) _frametime = 2;     // WLEDMM unlimited mode
 }
 
 void WS2812FX::setMode(uint8_t segid, uint8_t m) {
