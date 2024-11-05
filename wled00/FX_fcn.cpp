@@ -2118,7 +2118,7 @@ uint16_t WS2812FX::getFps() const {
 
 void WS2812FX::setTargetFps(uint8_t fps) {
   if (fps <= 251) _targetFps = fps;  // WLEDMM allow higher framerates
-  if (fps > 0) _frametime = 1000 / _targetFps;
+  if (fps > 0) _frametime = ((2000 / _targetFps) +1) /2;   // with rounding
   else _frametime = 2;                          // AC WLED compatibility
   if (fps >= FPS_UNLIMITED) _frametime = 2;     // WLEDMM unlimited mode
 }
