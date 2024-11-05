@@ -1878,7 +1878,11 @@ void WS2812FX::service() {
   //if (_suspend) return;
   if (elapsed < 2) return;                                                       // keep wifi alive
   if ( !_triggered && (_targetFps != FPS_UNLIMITED) && (_targetFps != FPS_UNLIMITED_AC)) {
+#if 0
     if (elapsed < MIN_SHOW_DELAY) return;                                        // WLEDMM too early for service
+#else
+    if (elapsed < _frametime) return;                                            // code from upstream - stricter on FPS
+#endif
   }
   #else  // legacy
   if (nowUp - _lastShow < MIN_SHOW_DELAY) return;
@@ -1914,7 +1918,9 @@ void WS2812FX::service() {
 
         if (!cctFromRgb || correctWB) busses.setSegmentCCT(seg.currentBri(seg.cct, true), correctWB);
         for (uint8_t c = 0; c < NUM_COLORS; c++) _colors_t[c] = gamma32(_colors_t[c]);
-
+#if 0  // WARNING this would kill _supersync_
+        now = millis() + timebase;
+#endif
         seg.startFrame();   // WLEDMM
         // effect blending (execute previous effect)
         // actual code may be a bit more involved as effects have runtime data including allocated memory
