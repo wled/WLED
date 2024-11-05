@@ -1885,7 +1885,7 @@ void WS2812FX::service() {
 #endif
   }
   #else  // legacy
-  if (nowUp - _lastShow < MIN_SHOW_DELAY) return;
+  if (elapsed < _frametime) return;
   #endif
 
   bool doShow = false;
