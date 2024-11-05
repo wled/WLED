@@ -168,8 +168,8 @@
 
 			gId('fpsNone').style.display = ((d.Sf.FR.value == 0) || (d.Sf.FR.value > 249))? 'block':'none'; // WLEDMM
 			gId('fpsNoHelp').style.display = ((d.Sf.FR.value == 0) || (d.Sf.FR.value > 249))? 'none':'block'; // WLEDMM
-			gId('fpswarning').style.display = (d.Sf.FR.value > 69) || (d.Sf.FR.value == 0) ? 'block':'none'; // WLEDMM
-			gId('fpshelp1').style.display = ((d.Sf.FR.value > 80) && (d.Sf.FR.value < 132)) ? 'block':'none'; // WLEDMM
+			gId('fpswarning').style.display = (d.Sf.FR.value > 79) || (d.Sf.FR.value == 0) ? 'block':'none'; // WLEDMM
+			gId('fpshelp1').style.display = ((d.Sf.FR.value > 90) && (d.Sf.FR.value < 132)) ? 'block':'none'; // WLEDMM
 			gId('fpshelp2').style.display = ((d.Sf.FR.value > 132) && (d.Sf.FR.value < 196)) ? 'block':'none'; // WLEDMM
 			gId('fpshelp3').style.display = (d.Sf.FR.value > 196) ? 'block':'none'; // WLEDMM
 
@@ -738,9 +738,9 @@ Length: <input type="number" name="XC${i}" id="xc${i}" class="l" min="1" max="65
 		<div id="fpsNoHelp" style="display: block;"><i>use 0 for unlimited</i><br></div>
 		<div id="fpsNone" style="color:green; display: none;"><b>Unlimited refresh rate mode.</b><br></div>
 		<div id="fpswarning" style="color:GoldenRod; display: none;">
-			&#9888; WLED may become unstable above 70 fps.<br>
+			&#9888; WLED may become unstable above 80 fps.<br>
 			To protect your setup,
-			please make sure to backup WLED configuration and presets before raising target FPS above 70!<br>
+			please make sure to <a class="lnk" href="sec#backup">backup</a> WLED configuration and presets before raising target FPS above 80!<br>
 		</div>
 		<div id="fpshelp1" style="color: orange; display: none;">For a very smooth experience, use less than 300 LEDs per output!<br>      </div><!-- up to 120 fps on ws281x -->
 		<div id="fpshelp2" style="color: orange; display: none;">For an extremely smooth experience, use less than 180 LEDs per output!<br></div><!-- up to 180 fps on WS281x -->
