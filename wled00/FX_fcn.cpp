@@ -2086,7 +2086,7 @@ void WS2812FX::show(void) {
 
 #ifdef ARDUINO_ARCH_ESP32                      // WLEDMM more accurate FPS measurement for ESP32
   int64_t diff500 = now500 - _lastShow500;
-  if ((diff500 > 300) && (diff500 < 800000)) { // exclude stupid values (timer rollover, major hickups)
+  if ((diff500 > 1) && (diff500 < 800000)) {   // exclude stupid values (timer rollover, major hickups)
     float fpcCurr500 = 500000.0f / float(diff500);
     if (fpcCurr500 > 2)
       _cumulativeFps500 = (3 * _cumulativeFps500 + (500.0 * fpcCurr500)) / 4;  // average for some smoothing
@@ -2118,7 +2118,8 @@ uint16_t WS2812FX::getFps() const {
 
 void WS2812FX::setTargetFps(uint8_t fps) {
   if (fps <= 251) _targetFps = fps;  // WLEDMM allow higher framerates
-  if (fps > 0) _frametime = ((2000 / _targetFps) +1) /2;   // with rounding
+  //if (fps > 0) _frametime = ((2000 / _targetFps) +1) /2;   // with rounding
+  if (fps > 0) _frametime = 1000 / _targetFps;
   else _frametime = 2;                          // AC WLED compatibility
   if (fps >= FPS_UNLIMITED) _frametime = 2;     // WLEDMM unlimited mode
 }
