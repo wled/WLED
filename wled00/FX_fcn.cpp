@@ -1879,9 +1879,9 @@ void WS2812FX::service() {
   if (elapsed < 2) return;                                                       // keep wifi alive
   if ( !_triggered && (_targetFps != FPS_UNLIMITED) && (_targetFps != FPS_UNLIMITED_AC)) {
 #if 0
-    if (elapsed < MIN_SHOW_DELAY) return;                                        // WLEDMM too early for service
+    if (elapsed < MIN_SHOW_DELAY) return;                                        // WLEDMM too early for service - delivers higher fps
 #else
-    if (elapsed < _frametime) return;                                            // code from upstream - stricter on FPS
+    if ((elapsed+1) < _frametime) return;                                            // code from upstream - stricter on FPS
 #endif
   }
   #else  // legacy
@@ -1941,7 +1941,15 @@ void WS2812FX::service() {
   _virtualSegmentLength = 0;
   busses.setSegmentCCT(-1);
   if(doShow) {
+#if 0 && defined(ARDUINO_ARCH_ESP32)      // EXPERIMENTAL - enabled this to enforce stricter frametime limits
+    static unsigned long lastTimeShow = 0;
+    long tdelta = millis() - lastTimeShow;
+    if ((lastTimeShow > 0) && (tdelta > 1) && (tdelta < _frametime))  // too early - release CPU to slow down
+      vTaskDelay((tdelta-1) / portTICK_PERIOD_MS);                    // "-1" because vTaskDelay() may actually delay longer than requested
+    lastTimeShow = millis();
+#else
     yield();
+#endif
     show();
     _lastServiceShow = nowUp; // WLEDMM use correct timestamp
   }
