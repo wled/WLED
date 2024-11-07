@@ -194,9 +194,9 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
       uint16_t freqkHz = elm[F("freq")] | 0;  // will be in kHz for DotStar and Hz for PWM (not yet implemented fully)
       ledType |= refresh << 7; // hack bit 7 to indicate strip requires off refresh
       uint8_t AWmode = elm[F("rgbwm")] | RGBW_MODE_MANUAL_ONLY;
-      uint8_t artnet_outputs = elm["artnet_outputs"] | 0;
-      uint16_t artnet_leds_per_output = elm["artnet_leds_per_output"] | 0;
-      uint8_t artnet_fps_limit = elm["artnet_fps_limit"] | 0;
+      uint8_t artnet_outputs = elm["artnet_outputs"] | 1; // sanity check
+      uint16_t artnet_leds_per_output = elm["artnet_leds_per_output"] | length; // sanity check
+      uint8_t artnet_fps_limit = elm["artnet_fps_limit"] | 24; // sanity check
       if (fromFS) {
         BusConfig bc = BusConfig(ledType, pins, start, length, colorOrder, reversed, skipFirst, AWmode, freqkHz, artnet_outputs, artnet_leds_per_output, artnet_fps_limit);
         mem += BusManager::memUsage(bc);
