@@ -774,7 +774,7 @@ uint8_t IRAM_ATTR realtimeBroadcast(uint8_t type, IPAddress client, uint16_t len
 
   // For some reason, this is faster outside of the case block...
   //
-  static byte *packet_buffer = (byte *) heap_caps_calloc_prefer(530, sizeof(byte), 3, MALLOC_CAP_IRAM_8BIT, MALLOC_CAP_DEFAULT, MALLOC_CAP_SPIRAM); // MALLOC_CAP_TCM seems to have alignment issues.
+  static byte *packet_buffer = (byte *) heap_caps_calloc_prefer(530, sizeof(byte), 2, MALLOC_CAP_DEFAULT, MALLOC_CAP_SPIRAM); // MALLOC_CAP_TCM seems to have alignment issues.
   if (packet_buffer[0] != 0x41) memcpy(packet_buffer, ART_NET_HEADER, 12); // copy in the Art-Net header if it isn't there already
 
   // Volumetric test code
@@ -792,6 +792,8 @@ uint8_t IRAM_ATTR realtimeBroadcast(uint8_t type, IPAddress client, uint16_t len
   switch (type) {
     case 0: // DDP
     {
+      WiFiUDP ddpUdp; 
+
       // calculate the number of UDP packets we need to send
       size_t channelCount = length * (isRGBW? 4:3); // 1 channel for every R,G,B value
       size_t packetCount = ((channelCount-1) / DDP_CHANNELS_PER_PACKET) +1;
@@ -857,16 +859,11 @@ uint8_t IRAM_ATTR realtimeBroadcast(uint8_t type, IPAddress client, uint16_t len
     case 1: //E1.31
     {
     } break;
-
-    case 2: //ArtNet
+    case 2: //Art-Net
     {
       static uint_fast16_t artnetlimiter = millis()+(1000/fps_limit);
       while (artnetlimiter > micros()) {
-        if (ArtNetSkipFrame) {
-          return 0; // Let WLED keep generating effect frames and we output an Art-Net frame when fps_limit is reached.
-        } else {
-          delayMicroseconds(10); // Make WLED obey fps_limit and just delay here until we're ready to send a frame.
-        }
+        delayMicroseconds(10); // Make WLED obey fps_limit and just delay here until we're ready to send a frame.
       }
 
       /*
@@ -903,8 +900,6 @@ uint8_t IRAM_ATTR realtimeBroadcast(uint8_t type, IPAddress client, uint16_t len
           // This stop is reached if we don't have enough pixels for the defined Art-Net output.
           return 1; // stop when we hit end of LEDs
         }
-
-        // hardware_output_universe = hardware_outputs_universe_start[hardware_output];
 
         uint_fast16_t channels_remaining = leds_per_output * (isRGBW?4:3);
 
@@ -1004,6 +999,7 @@ uint8_t IRAM_ATTR realtimeBroadcast(uint8_t type, IPAddress client, uint16_t len
           return 1; // borked
         }
         #endif
+        packet_buffer[9]  = ART_NET_HEADER[9];  // reset ArtSync opcode high byte
 
         #ifdef ARTNET_TIMER
         packetstotal++;

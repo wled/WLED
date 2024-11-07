@@ -448,7 +448,7 @@ uint8_t BusOnOff::getPins(uint8_t* pinArray) const {
 }
 
 
-BusNetwork::BusNetwork(BusConfig &bc) : Bus(bc.type, bc.start, bc.autoWhite) {
+BusNetwork::BusNetwork(BusConfig &bc, const ColorOrderMap &com) : Bus(bc.type, bc.start, bc.autoWhite), _colorOrderMap(com) {
   _valid = false;
   USER_PRINT("[");
   switch (bc.type) {
@@ -456,6 +456,11 @@ BusNetwork::BusNetwork(BusConfig &bc) : Bus(bc.type, bc.start, bc.autoWhite) {
       _rgbw = false;
       _UDPtype = 2;
       USER_PRINT("NET_ARTNET_RGB");
+      break;
+    case TYPE_NET_ARTNET_RGBW:
+      _rgbw = true;
+      _UDPtype = 2;
+      USER_PRINT("NET_ARTNET_RGBW");
       break;
     case TYPE_NET_E131_RGB:
       _rgbw = false;
@@ -469,10 +474,11 @@ BusNetwork::BusNetwork(BusConfig &bc) : Bus(bc.type, bc.start, bc.autoWhite) {
       break;
   }
   _UDPchannels = _rgbw ? 4 : 3;
-  _data = (byte *)malloc(bc.count * _UDPchannels);
+  _data = (byte*) heap_caps_calloc_prefer((bc.count * _UDPchannels)+15, sizeof(byte), 3, MALLOC_CAP_DEFAULT, MALLOC_CAP_SPIRAM);
+
   if (_data == nullptr) return;
-  memset(_data, 0, bc.count * _UDPchannels);
   _len = bc.count;
+  _colorOrder = bc.colorOrder;
   _client = IPAddress(bc.pins[0],bc.pins[1],bc.pins[2],bc.pins[3]);
   _broadcastLock = false;
   _valid = true;
@@ -482,21 +488,61 @@ BusNetwork::BusNetwork(BusConfig &bc) : Bus(bc.type, bc.start, bc.autoWhite) {
   USER_PRINTF(" %u.%u.%u.%u]\n", bc.pins[0],bc.pins[1],bc.pins[2],bc.pins[3]);
 }
 
-void BusNetwork::setPixelColor(uint16_t pix, uint32_t c) {
-  if (!_valid || pix >= _len) return;
-  if (hasWhite()) c = autoWhiteCalc(c);
-  if (_cct >= 1900) c = colorBalanceFromKelvin(_cct, c); //color correction from CCT
-  uint16_t offset = pix * _UDPchannels;
-  _data[offset]   = R(c);
-  _data[offset+1] = G(c);
-  _data[offset+2] = B(c);
-  if (_rgbw) _data[offset+3] = W(c);
+void IRAM_ATTR BusNetwork::setPixelColor(uint16_t pix, uint32_t c) {
+    if (!_valid || pix >= _len) return;
+    if (_rgbw) c = autoWhiteCalc(c);
+    if (_cct >= 1900) c = colorBalanceFromKelvin(_cct, c); // color correction from CCT
+
+    uint16_t offset = pix * _UDPchannels;
+    uint8_t co = _colorOrderMap.getPixelColorOrder(pix + _start, _colorOrder);
+
+    if (_colorOrder != co || _colorOrder != COL_ORDER_RGB) {
+        switch (co) {
+            case COL_ORDER_GRB:
+                _data[offset] = G(c); _data[offset+1] = R(c); _data[offset+2] = B(c);
+                break;
+            case COL_ORDER_RGB:
+                _data[offset] = R(c); _data[offset+1] = G(c); _data[offset+2] = B(c);
+                break;
+            case COL_ORDER_BRG:
+                _data[offset] = B(c); _data[offset+1] = R(c); _data[offset+2] = G(c);
+                break;
+            case COL_ORDER_RBG:
+                _data[offset] = R(c); _data[offset+1] = B(c); _data[offset+2] = G(c);
+                break;
+            case COL_ORDER_GBR:
+                _data[offset] = G(c); _data[offset+1] = B(c); _data[offset+2] = R(c);
+                break;
+            case COL_ORDER_BGR:
+                _data[offset] = B(c); _data[offset+1] = G(c); _data[offset+2] = R(c);
+                break;
+        }
+        if (_rgbw) _data[offset+3] = W(c);
+    } else {
+        _data[offset] = R(c); _data[offset+1] = G(c); _data[offset+2] = B(c);
+        if (_rgbw) _data[offset+3] = W(c);
+    }
 }
 
-uint32_t BusNetwork::getPixelColor(uint16_t pix) const {
-  if (!_valid || pix >= _len) return 0;
-  uint16_t offset = pix * _UDPchannels;
-  return RGBW32(_data[offset], _data[offset+1], _data[offset+2], _rgbw ? (_data[offset+3] << 24) : 0);
+uint32_t IRAM_ATTR BusNetwork::getPixelColor(uint16_t pix) const {
+    if (!_valid || pix >= _len) return 0;
+    uint16_t offset = pix * _UDPchannels;
+    uint8_t co = _colorOrderMap.getPixelColorOrder(pix + _start, _colorOrder);
+
+    uint8_t r = _data[offset + 0];
+    uint8_t g = _data[offset + 1];
+    uint8_t b = _data[offset + 2];
+    uint8_t w = _rgbw ? _data[offset + 3] : 0;
+
+    switch (co) {
+        case COL_ORDER_GRB: return RGBW32(g, r, b, w);
+        case COL_ORDER_RGB: return RGBW32(r, g, b, w);
+        case COL_ORDER_BRG: return RGBW32(b, r, g, w);
+        case COL_ORDER_RBG: return RGBW32(r, b, g, w);
+        case COL_ORDER_GBR: return RGBW32(g, b, r, w);
+        case COL_ORDER_BGR: return RGBW32(b, g, r, w);
+        default: return RGBW32(r, g, b, w); // default to RGB order
+    }
 }
 
 void BusNetwork::show() {
@@ -516,8 +562,8 @@ uint8_t BusNetwork::getPins(uint8_t* pinArray) const {
 void BusNetwork::cleanup() {
   _type = I_NONE;
   _valid = false;
-  if (_data != nullptr) free(_data);
-  _data = nullptr;
+  // if (_data != nullptr) free(_data);
+  // _data = nullptr;
 }
 
 // ***************************************************************************
@@ -1181,7 +1227,7 @@ int BusManager::add(BusConfig &bc) {
   if (getNumBusses() - getNumVirtualBusses() >= WLED_MAX_BUSSES) return -1;
   DEBUG_PRINTF("BusManager::add(bc.type=%u)\n", bc.type);
   if (bc.type >= TYPE_NET_DDP_RGB && bc.type < 96) {
-    busses[numBusses] = new BusNetwork(bc);
+    busses[numBusses] = new BusNetwork(bc, colorOrderMap);
   } else if (bc.type >= TYPE_HUB75MATRIX && bc.type <= (TYPE_HUB75MATRIX + 10)) {
 #ifdef WLED_ENABLE_HUB75MATRIX
     DEBUG_PRINTLN("BusManager::add - Adding BusHub75Matrix");

@@ -337,7 +337,7 @@ class BusOnOff : public Bus {
 
 class BusNetwork : public Bus {
   public:
-    BusNetwork(BusConfig &bc);
+    BusNetwork(BusConfig &bc, const ColorOrderMap &com);
 
     uint16_t getMaxPixels() const override { return 4096; };
     bool hasRGB()  const { return true; }
