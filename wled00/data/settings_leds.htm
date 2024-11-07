@@ -244,6 +244,13 @@
 			for (i=0; i<LCs.length; i++) {
 				var nm = LCs[i].name.substring(0,2);  // field name
 				var n  = LCs[i].name.substring(2);    // bus number
+				// correct HUB75 chain length stored as LED pin 0
+				if (nm=="L0" && (t >= 100 && t < 110) && LCs[i].value!="") {
+					const clen = parseInt(LCs[i].value,10);
+					if ((clen < 1) || ((clen > 6))) LCs[i].value = "1";
+					LCs[i].min = 1;
+					LCs[i].max = 6;
+				}
 				// do we have a led count field
 				if (nm=="LC") {
 					var c=parseInt(LCs[i].value,10); //get LED count
