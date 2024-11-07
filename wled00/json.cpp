@@ -172,7 +172,7 @@ bool deserializeSegment(JsonObject elem, byte it, byte presetId)
   if (map1D2D != M12_jMap && seg.jMap)
     seg.deletejMap();
 
-  if ((spc>0 && spc!=seg.spacing) || seg.map1D2D!=map1D2D) seg.fill(BLACK); // clear spacing gaps // WLEDMM softhack007: this line sometimes crashes with "Stack canary watchpoint triggered (async_tcp)"
+  if ((spc>0 && spc!=seg.spacing) || seg.map1D2D!=map1D2D) seg.markForBlank(); // clear spacing gaps // WLEDMM softhack007: this line sometimes crashes with "Stack canary watchpoint triggered (async_tcp)"
 
   seg.map1D2D  = constrain(map1D2D, 0, 7);
   seg.soundSim = constrain(soundSim, 0, 1);
@@ -289,7 +289,7 @@ bool deserializeSegment(JsonObject elem, byte it, byte presetId)
   seg.reverse_y  = elem["rY"]  | seg.reverse_y;
   seg.mirror_y   = elem["mY"]  | seg.mirror_y;
   seg.transpose  = elem[F("tp")] | seg.transpose;
-  if (seg.is2D() && (seg.map1D2D == M12_pArc || seg.map1D2D == M12_sCircle) && (reverse != seg.reverse || reverse_y != seg.reverse_y || mirror != seg.mirror || mirror_y != seg.mirror_y)) seg.fill(BLACK); // clear entire segment (in case of Arc 1D to 2D expansion) WLEDMM: also Circle
+  if (seg.is2D() && (seg.map1D2D == M12_pArc || seg.map1D2D == M12_sCircle) && (reverse != seg.reverse || reverse_y != seg.reverse_y || mirror != seg.mirror || mirror_y != seg.mirror_y)) seg.markForBlank(); // clear entire segment (in case of Arc 1D to 2D expansion) WLEDMM: also Circle
   #endif
 
   byte fx = seg.mode;
@@ -386,6 +386,13 @@ bool deserializeSegment(JsonObject elem, byte it, byte presetId)
   if (seg.differs(prev) & 0x7F) {
     stateChanged = true;
     if ((seg.on == false) && (prev.on == true) && (prev.freeze == false)) prev.fill(BLACK); // WLEDMM: force BLACK if segment was turned off
+    else if (prev.isActive()) prev.fill(BLACK);   // WLEDMM fingers crossed
+    seg.markForBlank();    // WLEDMM
+  }
+  else if ((seg.grouping != prev.grouping) || (seg.spacing != prev.spacing) || (seg.transpose != prev.transpose)) {
+    // WLEDMM blank if grouping / spacing changed
+    seg.markForBlank();    
+    if (prev.isActive()) prev.fill(BLACK);   // WLEDMM fingers crossed
   }
 
   if (iAmGroot) suspendStripService = false; // WLEDMM release lock

@@ -380,6 +380,7 @@ typedef struct Segment {
     };
     uint8_t  grouping, spacing;
     uint8_t  opacity;
+    bool needsBlank;              // WLEDMM indicates that Segment needs to be blanked (due to change of mirror / reverse / transpose / spacing)
     uint32_t colors[NUM_COLORS];
     uint8_t  cct;                 //0==1900K, 255==10091K
     uint8_t  custom1, custom2;    // custom FX parameters/sliders
@@ -489,6 +490,7 @@ typedef struct Segment {
       grouping(1),
       spacing(0),
       opacity(255),
+      needsBlank(false),
       colors{DEFAULT_COLOR,BLACK,BLACK},
       cct(127),
       custom1(DEFAULT_C1),
@@ -598,6 +600,7 @@ typedef struct Segment {
       * Safe to call from interrupts and network requests.
       */
     inline void markForReset(void) { reset = true; }  // setOption(SEG_OPTION_RESET, true)
+    inline void markForBlank(void) { needsBlank = true; } // WLEDMM serialize "blank" requests, avoid parallel drawing from different task
     void setUpLeds(void);   // set up leds[] array for loseless getPixelColor()
 
     // transition functions

@@ -277,7 +277,16 @@ void Segment::resetIfRequired() {
     next_time = 0; step = 0; call = 0; aux0 = 0; aux1 = 0;
     reset = false; // setOption(SEG_OPTION_RESET, false);
     startFrame();   // WLEDMM update cached propoerties
+    if (isActive()) fill(BLACK); // WLEDMM start clean
+    DEBUG_PRINTLN("Segment reset");
+  } else if (needsBlank) {
+    startFrame();   // WLEDMM update cached propoerties
+    if (isActive()) {
+      fill(BLACK); // WLEDMM start clean
+      DEBUG_PRINTLN("Segment blanked");
+    }
   }
+  needsBlank = false;
 }
 
 void Segment::setUpLeds() {
@@ -510,7 +519,7 @@ void Segment::setUp(uint16_t i1, uint16_t i2, uint8_t grp, uint8_t spc, uint16_t
 
   stateChanged = true; // send UDP/WS broadcast
 
-  if (stop>start) fill(BLACK); //turn old segment range off // WLEDMM stop > start
+  if (stop>start) markForBlank(); //turn old segment range off // WLEDMM stop > start
   if (i2 <= i1) { //disable segment
     stop = 0;
     markForReset();
@@ -2310,6 +2319,7 @@ void WS2812FX::restartRuntime(bool doReset) {
       seg.markForReset(); // seg.resetIfRequired(); // WLEDMM calling this function from webserver context will cause troubles
     } else {
       seg.next_time = 0; seg.step = 0;
+      seg.markForBlank();
     }
   }
 }
