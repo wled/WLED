@@ -252,11 +252,12 @@ void Segment::startFrame(void) {
   _isSuperSimpleSegment = !mirror && !mirror_y && (grouping == 1) && (spacing == 0); // fastest - we only draw one pixel per call
 
 #ifdef WLEDMM_FASTPATH
-  _isValid2D  = isActive() && is2D();
+  //_isValid2D  = isActive() && is2D();
+  _isValid2D  = isActive() && strip.isMatrix && length() > 1;
   _brightness = currentBri(on ? opacity : 0);
   // if (reverse_y) _isSimpleSegment = false; // for A/B testing
-  _2dWidth    = is2D() ? calc_virtualWidth() : calc_virtualLength();
   _2dHeight   = calc_virtualHeight();
+  _2dWidth    = _isValid2D ? calc_virtualWidth() : calc_virtualLength();
   _virtuallength = calc_virtualLength();
   #if 0 && defined(WLED_ENABLE_HUB75MATRIX)
     _firstFill = true; // dirty HACK
@@ -300,9 +301,9 @@ void IRAM_ATTR __attribute__((hot)) Segment::setPixelColorXY_fast(int x, int y, 
   #endif
   if (simpleSegment) return;   // WLEDMM shortcut when no mirroring needed
 
-  // handle mirroring
-  const int_fast16_t wid_ = stop - start;
-  const int_fast16_t hei_ = stopY - startY;
+  // handle mirroring - minimum width/height is 1 !!!
+  const int_fast16_t wid_ = max(1,stop - start);
+  const int_fast16_t hei_ = max(1, stopY - startY);
   if (mirror) { //set the corresponding horizontally mirrored pixel
     if (transpose) strip.setPixelColorXY_fast(start + x, startY + hei_ - y - 1, scaled_col);
     else           strip.setPixelColorXY_fast(start + wid_ - x - 1, startY + y, scaled_col);
@@ -364,8 +365,8 @@ void IRAM_ATTR_YN Segment::setPixelColorXY(int x, int y, uint32_t col) //WLEDMM:
   }
 
   const uint_fast16_t glen_ = groupLength(); // WLEDMM optimization
-  const uint_fast16_t wid_ =  width();
-  const uint_fast16_t hei_ = height();
+  const uint_fast16_t wid_ = max(uint16_t(1), width());
+  const uint_fast16_t hei_ = max(uint16_t(1), height());
 
   x *= glen_; // expand to physical pixels
   y *= glen_; // expand to physical pixels

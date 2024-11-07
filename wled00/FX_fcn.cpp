@@ -899,7 +899,7 @@ uint16_t Segment::calc_virtualLength() const {
 #endif
   uint16_t groupLen = groupLength();
   uint16_t vLength = (length() + groupLen - 1) / groupLen;
-  if (mirror) vLength = (vLength + 1) /2;  // divide by 2 if mirror, leave at least a single LED
+  if (mirror && width() > 1) vLength = (vLength + 1) /2;  // divide by 2 if mirror, leave at least a single LED // WLEDMM bugfix for pseudo 2d strips
   return vLength;
 }
 
@@ -1115,7 +1115,7 @@ void IRAM_ATTR_YN __attribute__((hot)) Segment::setPixelColor(int i, uint32_t co
       // we have a vertical or horizontal 1D segment (WARNING: virtual...() may be transposed)
       int x = 0, y = 0;
       if (virtualHeight()>1) y = i;
-      if (virtualWidth() >1) x = i;
+      else if (virtualWidth() >1) x = i;
       setPixelColorXY(x, y, col);
       return;
     }
