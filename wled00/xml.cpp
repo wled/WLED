@@ -424,6 +424,7 @@ void getSettingsJS(AsyncWebServerRequest* request, byte subPage, char* dest) //W
     for (uint8_t s=0; s < busses.getNumBusses(); s++) {
       Bus* bus = busses.getBus(s);
       if (bus == nullptr) continue;
+      // "48+s" means the ASCII character "0", so 48+1 = ASCII for "1", etc - and "[3]=0" means null-terminate the string.
       char lp[4] = "L0"; lp[2] = 48+s; lp[3] = 0; //ascii 0-9 //strip data pin
       char lc[4] = "LC"; lc[2] = 48+s; lc[3] = 0; //strip length
       char co[4] = "CO"; co[2] = 48+s; co[3] = 0; //strip color order
@@ -435,6 +436,9 @@ void getSettingsJS(AsyncWebServerRequest* request, byte subPage, char* dest) //W
       char aw[4] = "AW"; aw[2] = 48+s; aw[3] = 0; //auto white mode
       char wo[4] = "WO"; wo[2] = 48+s; wo[3] = 0; //swap channels
       char sp[4] = "SP"; sp[2] = 48+s; sp[3] = 0; //bus clock speed
+      char ao[4] = "AO"; ao[2] = 48+s; ao[3] = 0; //Art-Net outputs
+      char al[4] = "AL"; al[2] = 48+s; al[3] = 0; //Art-Net LEDs per output
+      char af[4] = "AF"; af[2] = 48+s; af[3] = 0; //Art-Net FPS limit
       oappend(SET_F("addLEDs(1);"));
       uint8_t pins[5];
       uint8_t nPins = bus->getPins(pins);
@@ -451,6 +455,9 @@ void getSettingsJS(AsyncWebServerRequest* request, byte subPage, char* dest) //W
       sappend('c',rf,bus->isOffRefreshRequired());
       sappend('v',aw,bus->getAutoWhiteMode());
       sappend('v',wo,bus->getColorOrder() >> 4);
+      sappend('v',ao,bus->get_artnet_outputs());
+      sappend('v',al,bus->get_artnet_leds_per_output());
+      sappend('v',af,bus->get_artnet_fps_limit());
       uint16_t speed = bus->getFrequency();
       if (bus->getType() > TYPE_ONOFF && bus->getType() < 48) {
         switch (speed) {

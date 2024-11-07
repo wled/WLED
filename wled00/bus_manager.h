@@ -54,12 +54,16 @@ struct BusConfig {
   uint8_t skipAmount;
   bool refreshReq;
   uint8_t autoWhite;
+  uint8_t artnet_outputs, artnet_fps_limit;
+  uint16_t artnet_leds_per_output;
+
   uint8_t pins[5] = {LEDPIN, 255, 255, 255, 255}; // WLEDMM warning: this means that BusConfig cannot handle nore than 5 pins per bus!
   uint16_t frequency;
-  BusConfig(uint8_t busType, uint8_t* ppins, uint16_t pstart, uint16_t len = 1, uint8_t pcolorOrder = COL_ORDER_GRB, bool rev = false, uint8_t skip = 0, byte aw=RGBW_MODE_MANUAL_ONLY, uint16_t clock_kHz=0U) {
+  BusConfig(uint8_t busType, uint8_t* ppins, uint16_t pstart, uint16_t len = 1, uint8_t pcolorOrder = COL_ORDER_GRB, bool rev = false, uint8_t skip = 0, byte aw=RGBW_MODE_MANUAL_ONLY, uint16_t clock_kHz=0U, uint8_t art_o=1, uint16_t art_l=1, uint8_t art_f=30) {
     refreshReq = (bool) GET_BIT(busType,7);
     type = busType & 0x7F;  // bit 7 may be/is hacked to include refresh info (1=refresh in off state, 0=no refresh)
     count = len; start = pstart; colorOrder = pcolorOrder; reversed = rev; skipAmount = skip; autoWhite = aw; frequency = clock_kHz;
+    artnet_outputs = art_o; artnet_leds_per_output = art_l; artnet_fps_limit = art_f;
     uint8_t nPins = 1;                                                                 // default = only one pin (clockless LEDs like WS281x)
     if ((type >= TYPE_NET_DDP_RGB) && (type < (TYPE_NET_DDP_RGB + 16))) nPins = 4;     // virtual network bus. 4 "pins" store IP address
     else if ((type > 47) && (type < 63)) nPins = 2;                                    // (data + clock / SPI) busses - two pins
@@ -144,6 +148,9 @@ class Bus {
     virtual uint8_t  getColorOrder() const { return COL_ORDER_RGB; }
     virtual uint8_t  skippedLeds() const { return 0; }
     virtual uint16_t getFrequency() const { return 0U; }
+    virtual uint8_t  get_artnet_fps_limit() const { return 0; }
+    virtual uint8_t  get_artnet_outputs() const { return 0; }
+    virtual uint16_t get_artnet_leds_per_output() const { return 0; }
     inline  uint16_t getStart() const { return _start; }
     inline  void     setStart(uint16_t start) { _start = start; }
     inline  uint8_t  getType() const { return _type; }
@@ -348,10 +355,28 @@ class BusNetwork : public Bus {
       return !_broadcastLock;
     }
 
-    uint8_t getPins(uint8_t* pinArray)  const;
+    uint8_t getPins(uint8_t* pinArray) const;
 
-    uint16_t getLength()  const override {
+    uint16_t getLength() const override {
       return _len;
+    }
+
+    uint8_t get_artnet_fps_limit() const override {
+      return _artnet_fps_limit;
+    }
+
+    uint8_t get_artnet_outputs() const override {
+      return _artnet_outputs;
+    }
+
+    uint16_t get_artnet_leds_per_output() const override {
+      return _artnet_leds_per_output;
+    }
+
+    void setColorOrder(uint8_t colorOrder);
+
+    uint8_t getColorOrder() const {
+      return _colorOrder;
     }
 
     void cleanup();
@@ -361,12 +386,17 @@ class BusNetwork : public Bus {
     }
 
   private:
-    IPAddress _client;
-    uint8_t   _UDPtype;
-    uint8_t   _UDPchannels;
-    bool      _rgbw;
-    bool      _broadcastLock;
-    byte     *_data;
+    IPAddress           _client;
+    uint8_t             _UDPtype;
+    uint8_t             _UDPchannels;
+    bool                _rgbw;
+    bool                _broadcastLock;
+    byte                *_data;
+    uint8_t             _colorOrder = COL_ORDER_RGB;
+    uint8_t             _artnet_fps_limit;
+    uint8_t             _artnet_outputs;
+    uint16_t            _artnet_leds_per_output;
+    const ColorOrderMap &_colorOrderMap;
 };
 
 #ifdef WLED_ENABLE_HUB75MATRIX

@@ -476,7 +476,10 @@ BusNetwork::BusNetwork(BusConfig &bc) : Bus(bc.type, bc.start, bc.autoWhite) {
   _client = IPAddress(bc.pins[0],bc.pins[1],bc.pins[2],bc.pins[3]);
   _broadcastLock = false;
   _valid = true;
-  USER_PRINTF(" %u.%u.%u.%u] \n", bc.pins[0],bc.pins[1],bc.pins[2],bc.pins[3]);
+  _artnet_outputs = bc.artnet_outputs;
+  _artnet_leds_per_output = bc.artnet_leds_per_output;
+  _artnet_fps_limit = bc.artnet_fps_limit;
+  USER_PRINTF(" %u.%u.%u.%u]\n", bc.pins[0],bc.pins[1],bc.pins[2],bc.pins[3]);
 }
 
 void BusNetwork::setPixelColor(uint16_t pix, uint32_t c) {
@@ -499,7 +502,7 @@ uint32_t BusNetwork::getPixelColor(uint16_t pix) const {
 void BusNetwork::show() {
   if (!_valid || !canShow()) return;
   _broadcastLock = true;
-  realtimeBroadcast(_UDPtype, _client, _len, _data, _bri, _rgbw);
+  realtimeBroadcast(_UDPtype, _client, _len, _data, _bri, _rgbw, _artnet_outputs, _artnet_leds_per_output, _artnet_fps_limit);
   _broadcastLock = false;
 }
 

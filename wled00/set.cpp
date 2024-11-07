@@ -95,8 +95,8 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
       }
     }
 
-    uint8_t colorOrder, type, skip, awmode, channelSwap;
-    uint16_t length, start;
+    uint8_t colorOrder, type, skip, awmode, channelSwap, artnet_outputs, artnet_fps_limit;
+    uint16_t length, start, artnet_leds_per_output;
     uint8_t pins[5] = {255, 255, 255, 255, 255};
 
     autoSegments = request->hasArg(F("MS"));
@@ -110,6 +110,7 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
 
     bool busesChanged = false;
     for (uint8_t s = 0; s < WLED_MAX_BUSSES+WLED_MIN_VIRTUAL_BUSSES; s++) {
+      // "48+s" means the ASCII character "0", so 48+1 = ASCII for "1", etc - and "[3]=0" means null-terminate the string.
       char lp[4] = "L0"; lp[2] = 48+s; lp[3] = 0; //ascii 0-9 //strip data pin
       char lc[4] = "LC"; lc[2] = 48+s; lc[3] = 0; //strip length
       char co[4] = "CO"; co[2] = 48+s; co[3] = 0; //strip color order
@@ -121,6 +122,9 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
       char aw[4] = "AW"; aw[2] = 48+s; aw[3] = 0; //auto white mode
       char wo[4] = "WO"; wo[2] = 48+s; wo[3] = 0; //channel swap
       char sp[4] = "SP"; sp[2] = 48+s; sp[3] = 0; //bus clock speed (DotStar & PWM)
+      char ao[4] = "AO"; ao[2] = 48+s; ao[3] = 0; //Art-Net outputs
+      char al[4] = "AL"; al[2] = 48+s; al[3] = 0; //Art-Net LEDs per output
+      char af[4] = "AF"; af[2] = 48+s; af[3] = 0; //Art-Net FPS limit
       if (!request->hasArg(lp)) {
         DEBUG_PRINT(F("No data for "));
         DEBUG_PRINTLN(s);
@@ -167,10 +171,13 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
       }
       channelSwap = Bus::hasWhite(type) ? request->arg(wo).toInt() : 0;
       type |= request->hasArg(rf) << 7; // off refresh override
+      artnet_outputs         = (request->hasArg(ao)) ? request->arg(ao).toInt() : 1;
+      artnet_leds_per_output = (request->hasArg(al)) ? request->arg(al).toInt() : length;
+      artnet_fps_limit       = (request->hasArg(af)) ? request->arg(af).toInt() : 33333/length;
       // actual finalization is done in WLED::loop() (removing old busses and adding new)
       // this may happen even before this loop is finished so we do "doInitBusses" after the loop
       if (busConfigs[s] != nullptr) delete busConfigs[s];
-      busConfigs[s] = new BusConfig(type, pins, start, length, colorOrder | (channelSwap<<4), request->hasArg(cv), skip, awmode, freqHz);
+      busConfigs[s] = new BusConfig(type, pins, start, length, colorOrder | (channelSwap<<4), request->hasArg(cv), skip, awmode, freqHz, artnet_outputs, artnet_leds_per_output, artnet_fps_limit);
       busesChanged = true;
     }
     //doInitBusses = busesChanged; // we will do that below to ensure all input data is processed
