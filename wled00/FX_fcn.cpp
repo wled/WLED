@@ -277,16 +277,16 @@ void Segment::resetIfRequired() {
     next_time = 0; step = 0; call = 0; aux0 = 0; aux1 = 0;
     reset = false; // setOption(SEG_OPTION_RESET, false);
     startFrame();   // WLEDMM update cached propoerties
-    if (isActive()) fill(BLACK); // WLEDMM start clean
+    if (isActive() && !freeze) fill(BLACK); // WLEDMM start clean
     DEBUG_PRINTLN("Segment reset");
   } else if (needsBlank) {
     startFrame();   // WLEDMM update cached propoerties
-    if (isActive()) {
+    if (isActive() && !freeze) {
       fill(BLACK); // WLEDMM start clean
       DEBUG_PRINTLN("Segment blanked");
+      needsBlank = false;
     }
   }
-  needsBlank = false;
 }
 
 void Segment::setUpLeds() {

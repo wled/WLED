@@ -386,13 +386,13 @@ bool deserializeSegment(JsonObject elem, byte it, byte presetId)
   if (seg.differs(prev) & 0x7F) {
     stateChanged = true;
     if ((seg.on == false) && (prev.on == true) && (prev.freeze == false)) prev.fill(BLACK); // WLEDMM: force BLACK if segment was turned off
-    else if (prev.isActive()) prev.fill(BLACK);   // WLEDMM fingers crossed
-    seg.markForBlank();    // WLEDMM
+    else if (prev.isActive() && !prev.freeze && !seg.freeze) prev.fill(BLACK);   // WLEDMM fingers crossed
+    if (!seg.freeze) seg.markForBlank();    // WLEDMM
   }
   else if ((seg.grouping != prev.grouping) || (seg.spacing != prev.spacing) || (seg.transpose != prev.transpose)) {
     // WLEDMM blank if grouping / spacing changed
-    seg.markForBlank();    
-    if (prev.isActive()) prev.fill(BLACK);   // WLEDMM fingers crossed
+    if (!seg.freeze) seg.markForBlank();    
+    if (prev.isActive() && !prev.freeze) prev.fill(BLACK);   // WLEDMM fingers crossed
   }
 
   if (iAmGroot) suspendStripService = false; // WLEDMM release lock
