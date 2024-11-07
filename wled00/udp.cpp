@@ -774,7 +774,11 @@ uint8_t IRAM_ATTR realtimeBroadcast(uint8_t type, IPAddress client, uint16_t len
 
   // For some reason, this is faster outside of the case block...
   //
-  static byte *packet_buffer = (byte *) heap_caps_calloc_prefer(530, sizeof(byte), 2, MALLOC_CAP_DEFAULT, MALLOC_CAP_SPIRAM); // MALLOC_CAP_TCM seems to have alignment issues.
+  #ifdef ESP32
+  static byte *packet_buffer = (byte *) heap_caps_calloc_prefer(530, sizeof(byte), 2, MALLOC_CAP_DEFAULT, MALLOC_CAP_SPIRAM);
+  #else
+  static byte *packet_buffer = (byte *) calloc(530, sizeof(byte));
+  #endif
   if (packet_buffer[0] != 0x41) memcpy(packet_buffer, ART_NET_HEADER, 12); // copy in the Art-Net header if it isn't there already
 
   // Volumetric test code
