@@ -383,16 +383,14 @@ bool deserializeSegment(JsonObject elem, byte it, byte presetId)
     strip.trigger(); // force segment update
   }
   // send UDP/WS if segment options changed (except selection; will also deselect current preset)
-  if (seg.differs(prev) & 0x7F) {
+  uint8_t diffresult = seg.differs(prev)  & 0x7F;
+  if (diffresult > 0) {
     stateChanged = true;
     if ((seg.on == false) && (prev.on == true) && (prev.freeze == false)) prev.fill(BLACK); // WLEDMM: force BLACK if segment was turned off
-    else if (prev.isActive() && !prev.freeze && !seg.freeze) prev.fill(BLACK);   // WLEDMM fingers crossed
-    if (!seg.freeze) seg.markForBlank();    // WLEDMM
-  }
-  else if ((seg.grouping != prev.grouping) || (seg.spacing != prev.spacing) || (seg.transpose != prev.transpose)) {
-    // WLEDMM blank if grouping / spacing changed
-    if (!seg.freeze) seg.markForBlank();    
-    if (prev.isActive() && !prev.freeze) prev.fill(BLACK);   // WLEDMM fingers crossed
+    if (diffresult & (SEG_DIFFERS_BOUNDS | SEG_DIFFERS_GSO | SEG_DIFFERS_OPT)) {   // WLEDMM bouds, grouping, or options changed (mirror, reverse, transpose, mapping)
+      if (!seg.freeze) seg.markForBlank();
+      if (prev.isActive() && (diffresult & (SEG_DIFFERS_BOUNDS | SEG_DIFFERS_GSO)) && !prev.freeze && !seg.freeze) prev.fill(BLACK);   // WLEDMM fingers crossed
+    }
   }
 
   if (iAmGroot) suspendStripService = false; // WLEDMM release lock
