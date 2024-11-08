@@ -1011,6 +1011,10 @@ void __attribute__((hot)) BusHub75Matrix::setPixelColor(uint16_t pix, uint32_t c
       setBitInArray(_ledsDirty, pix, true);  // flag pixel as "dirty"
     }
   }
+  #if 0
+  // !! this code is not used any more !!
+  //   BusHub75Matrix::BusHub75Matrix will fail if allocating _ledBuffer fails.
+  //   The fallback code below created lots of flickering so it does not make sense to keep it enabled.
   else {
     // no double buffer allocated --> directly draw pixel
     MatrixPanel_I2S_DMA* display = BusHub75Matrix::activeDisplay;
@@ -1034,6 +1038,7 @@ void __attribute__((hot)) BusHub75Matrix::setPixelColor(uint16_t pix, uint32_t c
       display->drawPixelRGB888(int16_t(x), int16_t(y), r, g, b);
     }
   }
+  #endif
 }
 
 uint32_t BusHub75Matrix::getPixelColor(uint16_t pix) const {
