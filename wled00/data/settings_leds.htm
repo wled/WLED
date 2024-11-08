@@ -110,8 +110,10 @@
 		}
 		function enABL()
 		{
-			var en = gId('able').checked;
+			const en = gId('able').checked;
 			d.Sf.LA.value = (en) ? laprev:0;
+			d.Sf.MA.min = (en) ? 250 : 0;   // WLEDMM no minimum if invisble
+			if ((!en) && (!d.Sf.MA.value || d.Sf.MA.value<0)) d.Sf.MA.value = 0; // WLEDMM workaround when field is invisible with invalid value
 			gId('abl').style.display = (en) ? 'inline':'none';
 			gId('psu2').style.display = (en) ? 'inline':'none';
 			if (d.Sf.LA.value > 0) setABL();
@@ -173,6 +175,9 @@
 			gId('fpshelp2').style.display = ((d.Sf.FR.value > 132) && (d.Sf.FR.value < 196)) ? 'block':'none'; // WLEDMM
 			gId('fpshelp3').style.display = (d.Sf.FR.value > 196) ? 'block':'none'; // WLEDMM
 
+			const ablEnabled = gId('able').checked;
+			d.Sf.MA.min = ablEnabled ? 250 : 0;          // WLEDMM no minimum if invisble
+			if ((!ablEnabled) && !d.Sf.MA.value) d.Sf.MA.value = 0; // WLEDMM workaround when field is blank but invisible 
 			if (d.Sf.LA.value == 255) laprev = 12;
 			else if (d.Sf.LA.value > 0) laprev = d.Sf.LA.value;
 
