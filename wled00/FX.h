@@ -70,6 +70,15 @@ extern byte realtimeMode;           // used in getMappedPixelIndex()
 #define FRAMETIME_FIXED  (1000/WLED_FPS)
 #define FRAMETIME        strip.getFrameTime()
 
+// FPS calculation (can be defined as compile flag for debugging)
+#ifndef FPS_CALC_AVG
+#define FPS_CALC_AVG 7 // average FPS calculation over this many frames (moving average)
+#endif
+#ifndef FPS_MULTIPLIER
+#define FPS_MULTIPLIER 1 // dev option: multiplier to get sub-frame FPS without floats
+#endif
+#define FPS_CALC_SHIFT 7 // bit shift for fixed point math
+
 /* each segment uses 82 bytes of SRAM memory, so if you're application fails because of
   insufficient memory, decreasing MAX_NUM_SEGMENTS may help */
 #ifdef ESP8266
@@ -786,7 +795,7 @@ class WS2812FX {  // 96 bytes
       _transitionDur(750),
       _targetFps(WLED_FPS),
       _frametime(FRAMETIME_FIXED),
-      _cumulativeFps(2),
+      _cumulativeFps(50 << FPS_CALC_SHIFT),
       _isServicing(false),
       _isOffRefreshRequired(false),
       _hasWhiteChannel(false),
