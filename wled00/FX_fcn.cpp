@@ -1462,7 +1462,7 @@ void WS2812FX::service() {
     if (nowUp > seg.next_time || _triggered || (doShow && seg.mode == FX_MODE_STATIC))
     {
       doShow = true;
-      unsigned delay = FRAMETIME;
+      unsigned frameDelay = FRAMETIME;
 
       if (!seg.freeze) { //only run effect function if not frozen
         int oldCCT = BusManager::getSegmentCCT(); // store original CCT value (actually it is not Segment based)
@@ -1478,7 +1478,7 @@ void WS2812FX::service() {
         // would need to be allocated for each effect and then blended together for each pixel.
         [[maybe_unused]] uint8_t tmpMode = seg.currentMode();  // this will return old mode while in transition
         seg.beginDraw();                      // set up parameters for get/setPixelColor()
-        delay = (*_mode[seg.mode])();         // run new/current mode
+        frameDelay = (*_mode[seg.mode])();    // run new/current mode
 #ifndef WLED_DISABLE_MODE_BLEND
         Segment::setClippingRect(0, 0); // disable clipping (just in case)
         if (seg.isInTransition()) {
@@ -1536,7 +1536,7 @@ void WS2812FX::service() {
               Segment::setClippingRect(0, dw, h - dh, h);
               break;
           }
-          delay = (*_mode[seg.currentMode()])();  // run new/current mode
+          frameDelay = (*_mode[seg.currentMode()])();  // run new/current mode
           // now run old/previous mode
           Segment::tmpsegd_t _tmpSegData;
           Segment::modeBlend(true);           // set semaphore
@@ -1544,18 +1544,18 @@ void WS2812FX::service() {
           seg.beginDraw();                    // set up parameters for get/setPixelColor()
           unsigned d2 = (*_mode[tmpMode])();  // run old mode
           seg.restoreSegenv(_tmpSegData);     // restore mode state (will also update transitional state)
-          delay = MIN(delay,d2);              // use shortest delay
+          frameDelay = min(frameDelay,d2);    // use shortest delay
           Segment::modeBlend(false);          // unset semaphore
           blendingStyle = orgBS;              // restore blending style if it was modified for single pixel segment
         } else
 #endif
-        delay = (*_mode[seg.mode])();         // run effect mode (not in transition)
+        frameDelay = (*_mode[seg.mode])();    // run effect mode (not in transition)
         seg.call++;
-        if (seg.isInTransition() && delay > FRAMETIME) delay = FRAMETIME; // force faster updates during transition
-        BusManager::setSegmentCCT(oldCCT);    // restore old CCT for ABL adjustments
+        if (seg.isInTransition() && frameDelay > FRAMETIME) frameDelay = FRAMETIME; // force faster updates during transition
+        BusManager::setSegmentCCT(oldCCT); // restore old CCT for ABL adjustments
       }
 
-      seg.next_time = nowUp + delay;
+      seg.next_time = nowUp + frameDelay;
     }
     _segment_index++;
   }
@@ -1600,10 +1600,12 @@ void WS2812FX::show() {
 
   unsigned long showNow = millis();
   size_t diff = showNow - _lastShow;
-  size_t fpsCurr = 200;
-  if (diff > 0) fpsCurr = 1000 / diff;
-  _cumulativeFps = (3 * _cumulativeFps + fpsCurr +2) >> 2;   // "+2" for proper rounding (2/4 = 0.5)
-  _lastShow = showNow;
+
+  if (diff > 0) { // skip calculation if no time has passed
+    size_t fpsCurr = (1000 << FPS_CALC_SHIFT) / diff; // fixed point math
+    _cumulativeFps = (FPS_CALC_AVG * _cumulativeFps + fpsCurr + FPS_CALC_AVG / 2) / (FPS_CALC_AVG + 1);   // "+FPS_CALC_AVG/2" for proper rounding
+    _lastShow = showNow;
+  }
 }
 
 void WS2812FX::setTargetFps(unsigned fps) {
@@ -1958,7 +1960,6 @@ bool WS2812FX::deserializeMap(unsigned n) {
   StaticJsonDocument<64> filter;
   filter[F("width")]  = true;
   filter[F("height")] = true;
-  filter[F("name")]   = true;
   if (!readObjectFromFile(fileName, nullptr, pDoc, &filter)) {
     DEBUGFX_PRINT(F("ERROR Invalid ledmap in ")); DEBUGFX_PRINTLN(fileName);
     releaseJSONBufferLock();

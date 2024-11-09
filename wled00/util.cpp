@@ -476,6 +476,8 @@ um_data_t* simulateSound(uint8_t simulationId)
 static const char s_ledmap_tmpl[] PROGMEM = "ledmap%d.json";
 // enumerate all ledmapX.json files on FS and extract ledmap names if existing
 void enumerateLedmaps() {
+  StaticJsonDocument<64> filter;
+  filter["n"] = true;
   ledMaps = 1;
   for (size_t i=1; i<WLED_MAX_LEDMAPS; i++) {
     char fileName[33] = "/";
@@ -494,7 +496,7 @@ void enumerateLedmaps() {
 
       #ifndef ESP8266
       if (requestJSONBufferLock(21)) {
-        if (readObjectFromFile(fileName, nullptr, pDoc)) {
+        if (readObjectFromFile(fileName, nullptr, pDoc, &filter)) {
           size_t len = 0;
           JsonObject root = pDoc->as<JsonObject>();
           if (!root["n"].isNull()) {

@@ -70,6 +70,15 @@ extern byte realtimeMode;           // used in getMappedPixelIndex()
 #define FRAMETIME_FIXED  (1000/WLED_FPS)
 #define FRAMETIME        strip.getFrameTime()
 
+// FPS calculation (can be defined as compile flag for debugging)
+#ifndef FPS_CALC_AVG
+#define FPS_CALC_AVG 7 // average FPS calculation over this many frames (moving average)
+#endif
+#ifndef FPS_MULTIPLIER
+#define FPS_MULTIPLIER 1 // dev option: multiplier to get sub-frame FPS without floats
+#endif
+#define FPS_CALC_SHIFT 7 // bit shift for fixed point math
+
 /* each segment uses 82 bytes of SRAM memory, so if you're application fails because of
   insufficient memory, decreasing MAX_NUM_SEGMENTS may help */
 #ifdef ESP8266
@@ -787,7 +796,7 @@ class WS2812FX {  // 96 bytes
       _transitionDur(750),
       _targetFps(WLED_FPS),
       _frametime(FRAMETIME_FIXED),
-      _cumulativeFps(2),
+      _cumulativeFps(50 << FPS_CALC_SHIFT),
       _isServicing(false),
       _isOffRefreshRequired(false),
       _hasWhiteChannel(false),
@@ -886,7 +895,7 @@ class WS2812FX {  // 96 bytes
       getLengthPhysical() const,
       getLengthTotal() const; // will include virtual/nonexistent pixels in matrix
 
-    inline uint16_t getFps() const          { return (millis() - _lastShow > 2000) ? 0 : _cumulativeFps +1; } // Returns the refresh rate of the LED strip
+    inline uint16_t getFps() const          { return (millis() - _lastShow > 2000) ? 0 : (FPS_MULTIPLIER * _cumulativeFps) >> FPS_CALC_SHIFT; } // Returns the refresh rate of the LED strip (_cumulativeFps is stored in fixed point)
     inline uint16_t getFrameTime() const    { return _frametime; }        // returns amount of time a frame should take (in ms)
     inline uint16_t getMinShowDelay() const { return MIN_SHOW_DELAY; }    // returns minimum amount of time strip.service() can be delayed (constant)
     inline uint16_t getLength() const       { return _length; }           // returns actual amount of LEDs on a strip (2D matrix may have less LEDs than W*H)
