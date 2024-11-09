@@ -504,8 +504,10 @@ void Segment::handleRandomPalette() {
   nblendPaletteTowardPalette(_randomPalette, _newRandomPalette, 48);
 }
 
-// segId is given when called from network callback, changes are queued if that segment is currently in its effect function
-void Segment::setUp(uint16_t i1, uint16_t i2, uint8_t grp, uint8_t spc, uint16_t ofs, uint16_t i1Y, uint16_t i2Y) {
+// sets Segment geometry (length or width/height and grouping, spacing and offset as well as 2D mapping)
+// strip must be suspended (strip.suspend()) before calling this function
+// this function may call fill() to clear pixels if spacing or mapping changed (which requires setting _vWidth, _vHeight, _vLength or beginDraw())
+void Segment::setGeometry(uint16_t i1, uint16_t i2, uint8_t grp, uint8_t spc, uint16_t ofs, uint16_t i1Y, uint16_t i2Y, uint8_t m12) {
   // return if neither bounds nor grouping have changed
   bool boundsUnchanged = (start == i1 && stop == i2);
   #ifndef WLED_DISABLE_2D
@@ -513,11 +515,19 @@ void Segment::setUp(uint16_t i1, uint16_t i2, uint8_t grp, uint8_t spc, uint16_t
   #endif
   if (boundsUnchanged
       && (!grp || (grouping == grp && spacing == spc))
-      && (ofs == UINT16_MAX || ofs == offset)) return;
+      && (ofs == UINT16_MAX || ofs == offset)
+      && (m12 == map1D2D)
+     ) return;
 
   stateChanged = true; // send UDP/WS broadcast
 
-  if (stop) fill(BLACK); // turn old segment range off (clears pixels if changing spacing)
+  if (stop || spc != spacing || m12 != map1D2D) {
+    _vWidth  = virtualWidth();
+    _vHeight = virtualHeight();
+    _vLength = virtualLength();
+    _segBri  = currentBri();
+    fill(BLACK); // turn old segment range off or clears pixels if changing spacing (requires _vWidth/_vHeight/_vLength/_segBri)
+  }
   if (grp) { // prevent assignment of 0
     grouping = grp;
     spacing = spc;
@@ -526,6 +536,7 @@ void Segment::setUp(uint16_t i1, uint16_t i2, uint8_t grp, uint8_t spc, uint16_t
     spacing = 0;
   }
   if (ofs < UINT16_MAX) offset = ofs;
+  map1D2D  = constrain(m12, 0, 7);
 
   DEBUGFX_PRINT(F("setUp segment: ")); DEBUGFX_PRINT(i1);
   DEBUGFX_PRINT(','); DEBUGFX_PRINT(i2);
@@ -1067,7 +1078,7 @@ uint32_t IRAM_ATTR_YN Segment::getPixelColor(int i) const
   return strip.getPixelColor(i);
 }
 
-uint8_t Segment::differs(Segment& b) const {
+uint8_t Segment::differs(const Segment& b) const {
   uint8_t d = 0;
   if (start != b.start)         d |= SEG_DIFFERS_BOUNDS;
   if (stop != b.stop)           d |= SEG_DIFFERS_BOUNDS;
@@ -1726,19 +1737,6 @@ Segment& WS2812FX::getSegment(unsigned id) {
   return _segments[id >= _segments.size() ? getMainSegmentId() : id]; // vectors
 }
 
-// sets new segment bounds, queues if that segment is currently running
-void WS2812FX::setSegment(uint8_t segId, uint16_t i1, uint16_t i2, uint8_t grouping, uint8_t spacing, uint16_t offset, uint16_t startY, uint16_t stopY) {
-  if (segId >= getSegmentsNum()) {
-    if (i2 <= i1) return; // do not append empty/inactive segments
-    appendSegment(Segment(0, strip.getLengthTotal()));
-    segId = getSegmentsNum()-1; // segments are added at the end of list
-  }
-  suspend();
-  _segments[segId].setUp(i1, i2, grouping, spacing, offset, startY, stopY);
-  resume();
-  if (segId > 0 && segId == getSegmentsNum()-1 && i2 <= i1) _segments.pop_back(); // if last segment was deleted remove it from vector
-}
-
 void WS2812FX::resetSegments() {
   _segments.clear(); // destructs all Segment as part of clearing
   #ifndef WLED_DISABLE_2D
@@ -1957,11 +1955,17 @@ bool WS2812FX::deserializeMap(unsigned n) {
 
   if (!isFile || !requestJSONBufferLock(7)) return false;
 
-  if (!readObjectFromFile(fileName, nullptr, pDoc)) {
+  StaticJsonDocument<64> filter;
+  filter[F("width")]  = true;
+  filter[F("height")] = true;
+  filter[F("name")]   = true;
+  if (!readObjectFromFile(fileName, nullptr, pDoc, &filter)) {
     DEBUGFX_PRINT(F("ERROR Invalid ledmap in ")); DEBUGFX_PRINTLN(fileName);
     releaseJSONBufferLock();
     return false; // if file does not load properly then exit
   }
+
+  suspend();
 
   JsonObject root = pDoc->as<JsonObject>();
   // if we are loading default ledmap (at boot) set matrix width and height from the ledmap (compatible with WLED MM ledmaps)
@@ -1975,15 +1979,51 @@ bool WS2812FX::deserializeMap(unsigned n) {
 
   if (customMappingTable) {
     DEBUGFX_PRINT(F("Reading LED map from ")); DEBUGFX_PRINTLN(fileName);
+    File f = WLED_FS.open(fileName, "r");
+    f.find("\"map\":[");
+    while (f.available()) { // f.position() < f.size() - 1
+      char number[32];
+      size_t numRead = f.readBytesUntil(',', number, sizeof(number)-1); // read a single number (may include array terminating "]" but not number separator ',')
+      number[numRead] = 0;
+      if (numRead > 0) {
+        char *end = strchr(number,']'); // we encountered end of array so stop processing if no digit found
+        bool foundDigit = (end == nullptr);
+        int i = 0;
+        if (end != nullptr) do {
+          if (number[i] >= '0' && number[i] <= '9') foundDigit = true;
+          if (foundDigit || &number[i++] == end) break;
+        } while (i < 32);
+        if (!foundDigit) break;
+        int index = atoi(number);
+        if (index < 0 || index > 16384) index = 0xFFFF;
+        customMappingTable[customMappingSize++] = index;
+        if (customMappingSize > getLengthTotal()) break;
+      } else break; // there was nothing to read, stop
+    }
+    currentLedmap = n;
+    f.close();
+
+    #ifdef WLED_DEBUG_FX
+    DEBUGFX_PRINT(F("Loaded ledmap:"));
+    for (unsigned i=0; i<customMappingSize; i++) {
+      if (!(i%Segment::maxWidth)) DEBUGFX_PRINTLN();
+      DEBUGFX_PRINTF_P(PSTR("%4d,"), customMappingTable[i]);
+    }
+    DEBUGFX_PRINTLN();
+    #endif
+/*
     JsonArray map = root[F("map")];
     if (!map.isNull() && map.size()) {  // not an empty map
       customMappingSize = min((unsigned)map.size(), (unsigned)getLengthTotal());
       for (unsigned i=0; i<customMappingSize; i++) customMappingTable[i] = (uint16_t) (map[i]<0 ? 0xFFFFU : map[i]);
       currentLedmap = n;
     }
+*/
   } else {
     DEBUGFX_PRINTLN(F("ERROR LED map allocation error."));
   }
+
+  resume();
 
   releaseJSONBufferLock();
   return (customMappingSize > 0);

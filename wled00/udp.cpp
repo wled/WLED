@@ -258,11 +258,12 @@ void parseNotifyPacket(uint8_t *udpIn) {
     // are we syncing bounds and slave has more active segments than master?
     if (receiveSegmentBounds && numSrcSegs < strip.getActiveSegmentsNum()) {
       DEBUG_PRINTLN(F("Removing excessive segments."));
-      for (size_t i=strip.getSegmentsNum(); i>numSrcSegs; i--) {
-        if (strip.getSegment(i).isActive()) {
-          strip.setSegment(i-1,0,0); // delete segment
-        }
+      strip.suspend(); //should not be needed as UDP handling is not done in ISR callbacks but still added "just in case"
+      for (size_t i=strip.getSegmentsNum(); i>numSrcSegs && i>0; i--) {
+        Segment &seg = strip.getSegment(i-1);
+        if (seg.isActive()) seg.deactivate(); // delete segment
       }
+      strip.resume();
     }
     size_t inactiveSegs = 0;
     for (size_t i = 0; i < numSrcSegs && i < strip.getMaxSegments(); i++) {
@@ -298,7 +299,7 @@ void parseNotifyPacket(uint8_t *udpIn) {
       if (!receiveSegmentOptions) {
         DEBUG_PRINTF_P(PSTR("Set segment w/o options: %d [%d,%d;%d,%d]\n"), id, (int)start, (int)stop, (int)startY, (int)stopY);
         strip.suspend(); //should not be needed as UDP handling is not done in ISR callbacks but still added "just in case"
-        selseg.setUp(start, stop, selseg.grouping, selseg.spacing, offset, startY, stopY);
+        selseg.setGeometry(start, stop, selseg.grouping, selseg.spacing, offset, startY, stopY, selseg.map1D2D);
         strip.resume();
         continue; // we do receive bounds, but not options
       }
@@ -340,12 +341,12 @@ void parseNotifyPacket(uint8_t *udpIn) {
       if (receiveSegmentBounds) {
         DEBUG_PRINTF_P(PSTR("Set segment w/ options: %d [%d,%d;%d,%d]\n"), id, (int)start, (int)stop, (int)startY, (int)stopY);
         strip.suspend(); //should not be needed as UDP handling is not done in ISR callbacks but still added "just in case"
-        selseg.setUp(start, stop, udpIn[5+ofs], udpIn[6+ofs], offset, startY, stopY);
+        selseg.setGeometry(start, stop, udpIn[5+ofs], udpIn[6+ofs], offset, startY, stopY, selseg.map1D2D);
         strip.resume();
       } else {
         DEBUG_PRINTF_P(PSTR("Set segment grouping: %d [%d,%d]\n"), id, (int)udpIn[5+ofs], (int)udpIn[6+ofs]);
         strip.suspend(); //should not be needed as UDP handling is not done in ISR callbacks but still added "just in case"
-        selseg.setUp(selseg.start, selseg.stop, udpIn[5+ofs], udpIn[6+ofs], selseg.offset, selseg.startY, selseg.stopY);
+        selseg.setGeometry(selseg.start, selseg.stop, udpIn[5+ofs], udpIn[6+ofs], selseg.offset, selseg.startY, selseg.stopY, selseg.map1D2D);
         strip.resume();
       }
     }

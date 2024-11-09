@@ -179,12 +179,12 @@ void IRAM_ATTR_YN Segment::_setPixelColorXY_raw(int& x, int& y, uint32_t& col) {
 bool IRAM_ATTR_YN Segment::isPixelXYClipped(int x, int y) const {
 #ifndef WLED_DISABLE_MODE_BLEND
   if (_clipStart != _clipStop && blendingStyle > BLEND_STYLE_FADE) {
-    const bool invertX    = _clipStart > _clipStop;
-    const bool invertY    = _clipStartY > _clipStopY;
-    const int startX = invertX ? _clipStop : _clipStart;
-    const int stopX  = invertX ? _clipStart : _clipStop;
-    const int startY = invertY ? _clipStopY : _clipStartY;
-    const int stopY  = invertY ? _clipStartY : _clipStopY;
+    const bool invertX = _clipStart > _clipStop;
+    const bool invertY = _clipStartY > _clipStopY;
+    const int startX   = invertX ? _clipStop : _clipStart;
+    const int stopX    = invertX ? _clipStart : _clipStop;
+    const int startY   = invertY ? _clipStopY : _clipStartY;
+    const int stopY    = invertY ? _clipStartY : _clipStopY;
     if (blendingStyle == BLEND_STYLE_FAIRY_DUST) {
       const unsigned width = stopX - startX;          // assumes full segment width (faster than virtualWidth())
       const unsigned len = width * (stopY - startY);  // assumes full segment height (faster than virtualHeight())
