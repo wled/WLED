@@ -565,8 +565,8 @@ uint8_t BusNetwork::getPins(uint8_t* pinArray) const {
 void BusNetwork::cleanup() {
   _type = I_NONE;
   _valid = false;
-  // if (_data != nullptr) free(_data);
-  // _data = nullptr;
+  if (_data != nullptr) free(_data);
+  _data = nullptr;
 }
 
 // ***************************************************************************
