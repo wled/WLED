@@ -129,11 +129,11 @@ void WS2812FX::setUpMatrix() {
       }
 
       if (needLedMap && customMappingTable != nullptr) {  // softhack007
-      uint16_t x, y, pix=0; //pixel
+      uint_fast16_t x, y, pix=0; //pixel
       for (size_t pan = 0; pan < panel.size(); pan++) {
         Panel &p = panel[pan];
-        uint16_t h = p.vertical ? p.height : p.width;
-        uint16_t v = p.vertical ? p.width  : p.height;
+        uint_fast16_t h = p.vertical ? p.height : p.width;
+        uint_fast16_t v = p.vertical ? p.width  : p.height;
         for (size_t j = 0; j < v; j++){
           for(size_t i = 0; i < h; i++) {
             y = (p.vertical?p.rightStart:p.bottomStart) ? v-j-1 : j;

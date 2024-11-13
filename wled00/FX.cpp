@@ -8421,7 +8421,7 @@ uint16_t mode_2Doctopus() {
 
   const uint16_t cols = SEGMENT.virtualWidth();
   const uint16_t rows = SEGMENT.virtualHeight();
-  const uint8_t mapp = 180 / MAX(cols,rows);
+  const uint16_t mapp = max(1, 180 / MAX(cols,rows)); // WLEDMM make sure this value is not 0
 
   typedef struct {
     uint8_t angle;
@@ -8458,8 +8458,8 @@ uint16_t mode_2Doctopus() {
     SEGENV.aux1 = rows;
     *offsX = SEGMENT.custom1;
     *offsY = SEGMENT.custom2;
-    const uint8_t C_X = cols / 2 + (SEGMENT.custom1 - 128)*cols/255;
-    const uint8_t C_Y = rows / 2 + (SEGMENT.custom2 - 128)*rows/255;
+    const uint16_t C_X = cols / 2 + (SEGMENT.custom1 - 128)*cols/255;
+    const uint16_t C_Y = rows / 2 + (SEGMENT.custom2 - 128)*rows/255;
     for (int x = xStart; x < xEnd; x++) {
       for (int y = yStart; y < yEnd; y++) {
         rMap[XY(x, y)].angle  = int(40.7436f * atan2f((y - C_Y), (x - C_X)));  // avoid 128*atan2()/PI
