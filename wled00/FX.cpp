@@ -5240,8 +5240,8 @@ class GameOfLifeGrid {
     Cell* cells;
     const int cols, rows, maxIndex;
     const int nOffsets[8] = {-cols-1, -cols, -cols+1, -1, 1, cols-1, cols, cols+1}; // Neighbor offsets
-    const int offsetX[8] = {-1,  0,  1, -1, 1, -1, 0, 1};
-    const int offsetY[8] = {-1, -1, -1,  0, 0,  1, 1, 1};
+    const int8_t offsetX[8] = {-1,  0,  1, -1, 1, -1, 0, 1};
+    const int8_t offsetY[8] = {-1, -1, -1,  0, 0,  1, 1, 1};
   public:
     GameOfLifeGrid(Cell* data, int c, int r) : cells(data), cols(c), rows(r), maxIndex(r * c) {}
     void getNeighborIndexes(unsigned neighbors[9], unsigned cIndex, unsigned x, unsigned y, bool wrap) {
@@ -5251,10 +5251,15 @@ class GameOfLifeGrid {
         unsigned nIndex = cIndex + nOffsets[i];
         if (edgeCell) {
           int nX = x + offsetX[i], nY = y + offsetY[i];
-          if      (nX < 0)     {if (!wrap) continue; nIndex += cols;}
-          else if (nX >= cols) {if (!wrap) continue; nIndex -= cols;}
-          if      (nY < 0)     {if (!wrap) continue; nIndex += maxIndex;}
-          else if (nY >= rows) {if (!wrap) continue; nIndex -= maxIndex;}
+          if (wrap) {
+            if      (nX < 0)     nIndex += cols;
+            else if (nX >= cols) nIndex -= cols;
+            if      (nY < 0)     nIndex += maxIndex;
+            else if (nY >= rows) nIndex -= maxIndex;
+          } 
+          else { // Wrap disabled, skip out of bound neighbors
+            if (nX < 0 || nX >= cols || nY < 0 || nY >= rows) continue; 
+          }
         }
         neighbors[++neighborCount] = nIndex;
       }
@@ -5302,15 +5307,15 @@ uint16_t mode_2Dgameoflife(void) { // Written by Ewoud Wijma, inspired by https:
   const uint16_t cols = SEGMENT.virtualWidth();
   const uint16_t rows = SEGMENT.virtualHeight();
   const size_t dataSize  = SEGMENT.length() * sizeof(Cell); // Cell = 2 bytes
-  const size_t totalSize = dataSize + 5; // 5 bytes for prevRows, prevCols, prevPalette, prevWrap, soloGlider
+  const size_t totalSize = dataSize + 7; // 7 bytes for prevRows(2), prevCols(2), prevPalette, prevWrap, soloGlider
 
   if (!SEGENV.allocateData(totalSize)) return mode_static(); //allocation failed
-  uint8_t  *prevRows    = reinterpret_cast<uint8_t*>(SEGENV.data);
-  uint8_t  *prevCols    = reinterpret_cast<uint8_t*>(SEGENV.data + 1);
-  uint8_t  *prevPalette = reinterpret_cast<uint8_t*>(SEGENV.data + 2);
-  bool     *prevWrap    = reinterpret_cast<bool*>   (SEGENV.data + 3);
-  bool     *soloGlider  = reinterpret_cast<bool*>   (SEGENV.data + 4);
-  Cell     *cells       = reinterpret_cast<Cell*>   (SEGENV.data + 5);
+  uint16_t *prevRows    = reinterpret_cast<uint16_t*>(SEGENV.data);
+  uint16_t *prevCols    = reinterpret_cast<uint16_t*>(SEGENV.data + 2);
+  uint8_t  *prevPalette = reinterpret_cast<uint8_t*> (SEGENV.data + 4);
+  bool     *prevWrap    = reinterpret_cast<bool*>    (SEGENV.data + 5);
+  bool     *soloGlider  = reinterpret_cast<bool*>    (SEGENV.data + 6);
+  Cell     *cells       = reinterpret_cast<Cell*>    (SEGENV.data + 7);
 
   uint16_t& generation   = SEGENV.aux0; //Rename SEGENV/SEGMENT variables for readability
   uint16_t& gliderLength = SEGENV.aux1;
@@ -5357,15 +5362,14 @@ uint16_t mode_2Dgameoflife(void) { // Written by Ewoud Wijma, inspired by https:
 
     //Setup Grid
     memset(cells, 0, dataSize);
-    #if !ESP32
-      random16_set_seed(strip.now>>2); //seed the random generator
-    #else
+    random16_set_seed(strip.now>>2); //seed the random generator
+    #if defined(ARDUINO_ARCH_ESP32)
       const uint32_t chance = UINT32_MAX * 0.32;
     #endif
     unsigned cIndex = 0;
     for (unsigned y = 0; y < rows; ++y) for (unsigned x = 0; x < cols; ++x, ++cIndex) {
       if (x == 0 || x == cols - 1 || y == 0 || y == rows - 1) cells[cIndex].edgeCell = 1;
-      #if ESP32
+      #if defined(ARDUINO_ARCH_ESP32)
         if (esp_random() < chance) grid.setCell(cIndex, x, y, true, wrap); // ~32% chance of being alive
       #else
         if (random16(100) < 32) grid.setCell(cIndex, x, y, true, wrap);
@@ -5382,7 +5386,7 @@ uint16_t mode_2Dgameoflife(void) { // Written by Ewoud Wijma, inspired by https:
   if (palChanged || paused || (SEGMENT.speed != 255 && strip.now - SEGENV.step < 1000 / map2(SEGMENT.speed,0,254,1,60))) { //(1 - 60) updates/sec 255 is uncapped
     // Redraw if paused (remove blur), palette changed, overlaying background if not max speed (avoid flicker) 
     // Generation 1 draws alive cells randomly and fades dead cells
-    bool newGame  = generation == 1;
+    bool newGame = generation == 1;
     if (paused || palChanged || overlayBG) {
       unsigned cIndex = 0;
       for (unsigned y = 0; y < rows; ++y) for (unsigned x = 0; x < cols; ++x, ++cIndex) {
