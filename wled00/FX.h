@@ -390,8 +390,8 @@ typedef struct Segment {
       bool    check2  : 1;        // checkmark 2
       bool    check3  : 1;        // checkmark 3
     };
-    uint8_t startY;  // start Y coodrinate 2D (top); there should be no more than 255 rows
-    uint8_t stopY;   // stop Y coordinate 2D (bottom); there should be no more than 255 rows
+    uint16_t startY;  // start Y coodrinate 2D (top); there should be no more than 255 rows, but we cannot be sure.
+    uint16_t stopY;   // stop Y coordinate 2D (bottom); there should be no more than 255 rows, but we cannot be sure.
     char *name = nullptr; // WLEDMM initialize to nullptr
 
     // runtime data
@@ -1017,10 +1017,10 @@ class WS2812FX {  // 96 bytes
     } panelO; //panelOrientation
 
     typedef struct panel_t {
-      uint8_t xOffset; // x offset relative to the top left of matrix in LEDs. WLEDMM 8 bits/256 is enough
-      uint8_t yOffset; // y offset relative to the top left of matrix in LEDs. WLEDMM 8 bits/256 is enough
-      uint8_t  width;   // width of the panel
-      uint8_t  height;  // height of the panel
+      uint16_t xOffset; // x offset relative to the top left of matrix in LEDs.
+      uint16_t yOffset; // y offset relative to the top left of matrix in LEDs.
+      uint16_t  width;   // width of the panel
+      uint16_t  height;  // height of the panel
       union {
         uint8_t options;
         struct {

@@ -2589,7 +2589,7 @@ uint16_t ripple_base()
     } else {//randomly create new wave
       if (random16(IBN + 10000) <= (SEGMENT.intensity >> (SEGMENT.is2D()*3))) {
         ripples[i].state = 1;
-        ripples[i].pos = SEGMENT.is2D() ? ((random8(SEGENV.virtualWidth())<<8) | (random8(SEGENV.virtualHeight()))) : random16(SEGLEN);
+        ripples[i].pos = SEGMENT.is2D() ? ((random16(SEGENV.virtualWidth())<<8) | (random16(SEGENV.virtualHeight()))) : random16(SEGLEN);
         ripples[i].color = random8(); //color
       }
     }
@@ -5884,7 +5884,7 @@ uint16_t mode_2Dmatrix(void) {                  // Matrix2D. By Jeremy Williams.
 
     // spawn new falling code
     if (random8() <= SEGMENT.intensity || emptyScreen) {
-      uint8_t spawnX = random8(cols);
+      uint16_t spawnX = random16(cols);
       SEGMENT.setPixelColorXY(spawnX, 0, spawnColor);
       // update hint for next run
       SEGENV.aux0 = spawnX;
@@ -6357,8 +6357,8 @@ uint16_t mode_2Dcrazybees(void) {
     void aimed(uint_fast16_t w, uint_fast16_t h) {
       if (!true) //WLEDMM SuperSync
         random16_set_seed(strip.now);
-      aimX = random8(0, w);
-      aimY = random8(0, h);
+      aimX = random8(0, min(UINT8_MAX, int(w)));
+      aimY = random8(0, min(UINT8_MAX, int(h)));
       hue = random8();
       deltaX = abs(aimX - posX);
       deltaY = abs(aimY - posY);
@@ -6377,8 +6377,8 @@ uint16_t mode_2Dcrazybees(void) {
     SEGMENT.setUpLeds();
     SEGMENT.fill(BLACK);
     for (size_t i = 0; i < n; i++) {
-      bee[i].posX = random8(0, cols);
-      bee[i].posY = random8(0, rows);
+      bee[i].posX = random8(0, min(UINT8_MAX, int(cols)));
+      bee[i].posY = random8(0, min(UINT8_MAX, int(rows)));
       bee[i].aimed(cols, rows);
     }
   }
@@ -8502,7 +8502,7 @@ uint16_t mode_2Doctopus() {
 
   const uint16_t cols = SEGMENT.virtualWidth();
   const uint16_t rows = SEGMENT.virtualHeight();
-  const uint8_t mapp = 180 / MAX(cols,rows);
+  const uint16_t mapp = max(1, 180 / MAX(cols,rows)); // WLEDMM make sure this value is not 0
 
   typedef struct {
     uint8_t angle;
@@ -8539,8 +8539,8 @@ uint16_t mode_2Doctopus() {
     SEGENV.aux1 = rows;
     *offsX = SEGMENT.custom1;
     *offsY = SEGMENT.custom2;
-    const uint8_t C_X = cols / 2 + (SEGMENT.custom1 - 128)*cols/255;
-    const uint8_t C_Y = rows / 2 + (SEGMENT.custom2 - 128)*rows/255;
+    const uint16_t C_X = cols / 2 + (SEGMENT.custom1 - 128)*cols/255;
+    const uint16_t C_Y = rows / 2 + (SEGMENT.custom2 - 128)*rows/255;
     for (int x = xStart; x < xEnd; x++) {
       for (int y = yStart; y < yEnd; y++) {
         rMap[XY(x, y)].angle  = int(40.7436f * atan2f((y - C_Y), (x - C_X)));  // avoid 128*atan2()/PI

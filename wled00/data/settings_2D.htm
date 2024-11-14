@@ -111,9 +111,9 @@ Orientation: <select id="P${i}V" name="P${i}V" oninput="draw()">
 	<option value="1">Vertical</option>
 </select><br>
 Serpentine: <input id="P${i}S" name="P${i}S" type="checkbox" onclick="draw()"><br>
-Dimensions (WxH): <input id="P${i}W" name="P${i}W" type="number" min="1" max="255" value="${pw}" oninput="draw()"> x <input id="P${i}H" name="P${i}H" type="number" min="1" max="255" value="${ph}" oninput="draw()"><br>
-Offset X:<input id="P${i}X" name="P${i}X" type="number" min="0" max="255" value="0" oninput="draw()">
-Y:<input id="P${i}Y" name="P${i}Y" type="number" min="0" max="255" value="0" oninput="draw()"><br><i>(offset from top-left corner in # LEDs)</i>
+Dimensions (WxH): <input id="P${i}W" name="P${i}W" type="number" min="1" max="1023" value="${pw}" oninput="draw()"> x <input id="P${i}H" name="P${i}H" type="number" min="1" max="1023" value="${ph}" oninput="draw()"><br>
+Offset X:<input id="P${i}X" name="P${i}X" type="number" min="0" max="1023" value="0" oninput="draw()">
+Y:<input id="P${i}Y" name="P${i}Y" type="number" min="0" max="1023" value="0" oninput="draw()"><br><i>(offset from top-left corner in # LEDs)</i>
 </div>`;
 		p.insertAdjacentHTML("beforeend", b);
 	}
@@ -401,7 +401,7 @@ Y:<input id="P${i}Y" name="P${i}Y" type="number" min="0" max="255" value="0" oni
 			<h3 id="title">Matrix Generator <button type="button" id="expGen" onclick="expand(this,gId('mxGen'));">&gt;</button></h3>
 		</div>
 		<div id="mxGen" style="display:none;">
-			Panel dimensions (WxH): <input name="PW" type="number" min="1" max="255" value="8" oninput="fieldChange()"> x <input name="PH" type="number" min="1" max="255" value="8" oninput="fieldChange()"><br>
+			Panel dimensions (WxH): <input name="PW" type="number" min="1" max="1023" value="8" oninput="fieldChange()"> x <input name="PH" type="number" min="1" max="1023" value="8" oninput="fieldChange()"><br>
 			Horizontal panels: <input name="MPH" type="number" min="1" max="8" value="1" oninput="fieldChange()">
 			Vertical panels: <input name="MPV" type="number" min="1" max="8" value="1" oninput="fieldChange()"><br>
 			<div id="blockPanelOrientation">

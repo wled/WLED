@@ -873,8 +873,11 @@ uint16_t Segment::calc_virtualLength() const {
         vLen = max(vW,vH); // get the longest dimension
         break;
       case M12_pArc:
-        vLen = sqrt16(vW * vW + vH * vH);
-        if (vW != vH) vLen++; // round up
+        { unsigned vLen2 = vW * vW + vH * vH;            // length ^2
+          if (vLen2 < UINT16_MAX) vLen = sqrt16(vLen2);  // use faster function for 16bit values
+          else vLen = sqrtf(vLen2);                      // fall-back to float if bigger
+          if (vW != vH) vLen++; // round up
+        }
         break;
       case M12_jMap: //WLEDMM jMap
         if (jMap)
@@ -888,7 +891,7 @@ uint16_t Segment::calc_virtualLength() const {
         if (nrOfVStrips()>1)
           vLen = max(vW,vH) * 4;//0.5; // get the longest dimension
         else 
-          vLen = max(vW,vH) * 0.5; // get the longest dimension
+          vLen = max(vW,vH) * 0.5f; // get the longest dimension
         break;
       case M12_sPinwheel:
         vLen = getPinwheelLength(vW, vH);
@@ -906,23 +909,23 @@ uint16_t Segment::calc_virtualLength() const {
 //WLEDMM used for M12_sBlock
 static void xyFromBlock(uint16_t &x,uint16_t &y, uint16_t i, uint16_t vW, uint16_t vH, uint16_t vStrip) {
   float i2;
-  if (i<=SEGLEN*0.25) { //top, left to right
-    i2 = i/(SEGLEN*0.25);
+  if (i<=SEGLEN*0.25f) { //top, left to right
+    i2 = i/(SEGLEN*0.25f);
     x = vW / 2 - vStrip - 1 + i2 * vStrip * 2;
     y = vH / 2 - vStrip - 1;
   }
-  else if (i <= SEGLEN * 0.5) { //right, top to bottom
-    i2 = (i-SEGLEN*0.25)/(SEGLEN*0.25);
+  else if (i <= SEGLEN * 0.5f) { //right, top to bottom
+    i2 = (i-SEGLEN*0.25f)/(SEGLEN*0.25f);
     x = vW / 2 + vStrip;
     y = vH / 2 - vStrip - 1 + i2 * vStrip * 2;
   }
-  else if (i <= SEGLEN * 0.75) { //bottom, right to left
-    i2 = (i-SEGLEN*0.5)/(SEGLEN*0.25);
+  else if (i <= SEGLEN * 0.75f) { //bottom, right to left
+    i2 = (i-SEGLEN*0.5f)/(SEGLEN*0.25f);
     x = vW / 2 + vStrip - i2 * vStrip * 2;
     y = vH / 2 + vStrip;
   }
   else if (i <= SEGLEN) { //left, bottom to top
-    i2 = (i-SEGLEN*0.75)/(SEGLEN*0.25);
+    i2 = (i-SEGLEN*0.75f)/(SEGLEN*0.25f);
     x = vW / 2 - vStrip - 1;
     y = vH / 2 + vStrip - i2 * vStrip * 2;
   }
