@@ -8,8 +8,7 @@
  * color blend function
  */
 IRAM_ATTR_YN __attribute__((hot)) uint32_t color_blend(uint32_t color1, uint32_t color2, uint_fast16_t blend, bool b16) {
-  if(blend == 0)   return color1;
-  if (color1 == color2) return color1;  // WLEDMM shortcut
+  if ((color1 == color2) || (blend == 0)) return color1; // WLEDMM
   const uint_fast16_t blendmax = b16 ? 0xFFFF : 0xFF;
   if(blend >= blendmax) return color2;
   const uint_fast8_t shift = b16 ? 16 : 8;
@@ -73,6 +72,7 @@ IRAM_ATTR_YN uint32_t color_add(uint32_t c1, uint32_t c2, bool fast)   // WLEDMM
 
 IRAM_ATTR_YN __attribute__((hot)) uint32_t color_fade(uint32_t c1, uint8_t amount, bool video)
 {
+  if (amount == 255) return c1; // WLEDMM small optimization - plus it avoids over-fading in "video" mode
   if (amount == 0) return 0; // WLEDMM shortcut
 
   uint32_t scaledcolor; // color order is: W R G B from MSB to LSB
