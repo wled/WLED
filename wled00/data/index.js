@@ -2856,7 +2856,7 @@ function search(field, listId = null) {
 		if (listId!=='pcont' && i===0) return;
 		const listItemName = listItem.querySelector('.lstIname').innerText.toUpperCase();
 		const searchIndex = listItemName.indexOf(field.value.toUpperCase());
-		listItem.style.display = (searchIndex < 0) ? 'none' : '';
+		listItem.style.display = (searchIndex < 0) && !listItem.classList.contains("selected") ? 'none' : '';
 		listItem.dataset.searchIndex = searchIndex;
 	});
 
@@ -2930,7 +2930,7 @@ function filterFx() {
 		const listItemName = listItem.querySelector('.lstIname').innerText;
 		let hide = false;
 		gId("filters").querySelectorAll("input[type=checkbox]").forEach((e) => { if (e.checked && !listItemName.includes(e.dataset.flt)) hide = i>0 /*true*/; });
-		listItem.style.display = hide ? 'none' : '';
+		listItem.style.display = hide && !listItem.classList.contains("selected") ? 'none' : '';
 	});
 }
 
