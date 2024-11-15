@@ -528,6 +528,7 @@ VirtualMatrixPanel*  BusHub75Matrix::activeFourScanPanel = nullptr;
 HUB75_I2S_CFG BusHub75Matrix::activeMXconfig = HUB75_I2S_CFG();
 uint8_t BusHub75Matrix::activeType = 0;
 uint8_t BusHub75Matrix::instanceCount = 0;
+uint8_t BusHub75Matrix::last_bri = 0;
 
 
 // --------------------------
@@ -899,7 +900,7 @@ BusHub75Matrix::BusHub75Matrix(BusConfig &bc) : Bus(bc.type, bc.start, bc.autoWh
   USER_PRINTLN("MatrixPanel_I2S_DMA created");
   // let's adjust default brightness
   //display->setBrightness8(25);    // range is 0-255, 0 - 0%, 255 - 100% //  [setBrightness()] Tried to set output brightness before begin()
-  _bri = 25;
+  _bri = (last_bri > 0) ? last_bri : 25;  // try to restore persistent brightness value
 
   delay(24); // experimental
   DEBUG_PRINT(F("heap usage: ")); DEBUG_PRINTLN(int(lastHeap - ESP.getFreeHeap()));
@@ -917,6 +918,7 @@ BusHub75Matrix::BusHub75Matrix(BusConfig &bc) : Bus(bc.type, bc.start, bc.autoWh
     USER_PRINT(F("heap usage: ")); USER_PRINTLN(int(lastHeap - ESP.getFreeHeap()));
     delay(18);   // experiment - give the driver a moment (~ one full frame @ 60hz) to settle
     _valid = true;
+    display->setBrightness8(_bri);    // range is 0-255, 0 - 0%, 255 - 100% //  [setBrightness()] Tried to set output brightness before begin()
     display->clearScreen();   // initially clear the screen buffer
     USER_PRINTLN("MatrixPanel_I2S_DMA clear ok");
 
@@ -1057,6 +1059,7 @@ void BusHub75Matrix::setBrightness(uint8_t b, bool immediate) {
   MatrixPanel_I2S_DMA* display = BusHub75Matrix::activeDisplay;
   // if (_bri > 238) _bri=238; // not strictly needed. Enable this line if you see glitches at highest brightness.
   if ((_bri > 253) && (activeMXconfig.latch_blanking < 2)) _bri=253; // prevent glitches at highest brightness.
+  last_bri = _bri;
   if (display) display->setBrightness(_bri);
 }
 
