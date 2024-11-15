@@ -95,26 +95,24 @@ void appendGPIOinfo(Print& settingsScript) {
   settingsScript.print(F("d.rsvd=["));
   for (unsigned i = 0; i < WLED_NUM_PINS; i++) {
     if (!PinManager::isPinOk(i, false)) {  // include readonly pins
-      if (!firstPin) settingsScript.print(",");
+      if (!firstPin) settingsScript.print(',');
       settingsScript.print(i);
       firstPin = false;
     }
   }
   #ifdef WLED_ENABLE_DMX
-  if (!firstPin) settingsScript.print(",");
+  if (!firstPin) settingsScript.print(',');
   settingsScript.print(2); // DMX hardcoded pin
   firstPin = false;
   #endif
-
   #if (defined(WLED_DEBUG) || defined(WLED_DEBUG_FX) || defined(WLED_DEBUG_FS) || defined(WLED_DEBUG_BUS) || defined(WLED_DEBUG_PINMANAGER) || defined(WLED_DEBUG_USERMODS)) && !defined(WLED_DEBUG_HOST)
-  if (!firstPin) settingsScript.print(",");
+  if (!firstPin) settingsScript.print(',');
   settingsScript.print(hardwareTX); // debug output (TX) pin
   firstPin = false;
   #endif
-  //Note: Using pin 3 (RX) disables Adalight / Serial JSON
   #ifdef WLED_USE_ETHERNET
   if (ethernetType != WLED_ETH_NONE && ethernetType < WLED_NUM_ETH_TYPES) {
-    if (!firstPin) settingsScript.print(",");
+    if (!firstPin) settingsScript.print(',');
     for (unsigned p=0; p<WLED_ETH_RSVD_PINS_COUNT; p++) { settingsScript.printf("%d,",esp32_nonconfigurable_ethernet_pins[p].pin); }
     if (ethernetBoards[ethernetType].eth_power >= 0)    { settingsScript.printf("%d,",ethernetBoards[ethernetType].eth_power); }
     if (ethernetBoards[ethernetType].eth_mdc >= 0)      { settingsScript.printf("%d,",ethernetBoards[ethernetType].eth_mdc); }
@@ -141,7 +139,7 @@ void appendGPIOinfo(Print& settingsScript) {
   for (unsigned i = 0; i < WLED_NUM_PINS; i++) {
     if (PinManager::isReadOnlyPin(i)) {
       // No comma before the first pin
-      if (!firstPin) settingsScript.print(",");
+      if (!firstPin) settingsScript.print(',');
       settingsScript.print(i);
       firstPin = false;
     }
@@ -151,7 +149,7 @@ void appendGPIOinfo(Print& settingsScript) {
   // add info about max. # of pins
   settingsScript.print(F("d.max_gpio="));
   settingsScript.print(WLED_NUM_PINS);
-  settingsScript.print(F(";"));
+  settingsScript.print(';');
 }
 
 //get values for settings form in javascript
