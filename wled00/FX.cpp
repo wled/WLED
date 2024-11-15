@@ -5137,6 +5137,7 @@ static const char _data_FX_MODE_2DDNASPIRAL[] PROGMEM = "DNA Spiral@Scroll speed
 //     2D Drift        //
 /////////////////////////
 uint16_t mode_2DDrift() {              // By: Stepko   https://editor.soulmatelights.com/gallery/884-drift , Modified by: Andrew Tuline
+                                       // optimized for large panels by @softhack007
   if (!strip.isMatrix) return mode_static(); // not a 2D set-up
 
   const uint16_t cols = SEGMENT.virtualWidth();
@@ -5147,22 +5148,40 @@ uint16_t mode_2DDrift() {              // By: Stepko   https://editor.soulmateli
     SEGMENT.fill(BLACK);
   }
 
-  SEGMENT.fadeToBlackBy(128);
+  if (SEGMENT.intensity > 1) SEGMENT.fadeToBlackBy(128);
+  else SEGMENT.fill(BLACK);  // WLEDMM fill is faster than fade
+  const float maxDim = max(cols, rows)/2.0f;
 
-  const uint16_t maxDim = MAX(cols, rows)/2;
-  unsigned long t = strip.now / (32 - (SEGMENT.speed>>3));
-  unsigned long t_20 = t/20; // softhack007: pre-calculating this gives about 10% speedup
-  for (float i = 1; i < maxDim; i += 0.25) {
-    float angle = radians(t * (maxDim - i));
-    uint16_t myX = (cols>>1) + (uint16_t)(sinf(angle) * i) + (cols%2);
-    uint16_t myY = (rows>>1) + (uint16_t)(cosf(angle) * i) + (rows%2);
-    SEGMENT.setPixelColorXY(myX, myY, ColorFromPalette(SEGPALETTE, (i * 20) + t_20, 255, LINEARBLEND));
+  // WLEDMM calculate timebase in float, so we don't need to worry about rounding
+  const float strip_now = strip.now & 0x003FFFFF; // float can exactly represent numbers up to 22bit
+  float t;
+  if (maxDim < 6.0f)        t = strip_now / float(16U - (SEGMENT.speed>>4));  // up to 12 (faster)
+  else if (maxDim <= 16.0f) t = strip_now / float(32U - (SEGMENT.speed>>3));  // 12..32 (standard)
+  else if (maxDim <= 32.0f) t = strip_now / float(64U - (SEGMENT.speed>>2));  // 32..64  (slower)
+  else                      t = strip_now / float(256U -  SEGMENT.speed);     // above 64 (slowest)
+
+  // WLEDMM pre-calculate some values to speed up the main loop
+  const int colsCenter = (cols >> 1) + (cols % 2);
+  const int rowsCenter = (rows >> 1) + (rows % 2);
+  unsigned t_20 = t/20.0f; // softhack007: pre-calculating this gives about 10% speedup
+  const float step = (maxDim < 6.0f) ? 0.52f : (maxDim > 24.0f) ? 0.16666666f : 0.25f;  // WLEDMM more detail on larger panels
+
+  for (float i = 1.0f; i <= maxDim; i += step) {
+    unsigned i_20 = i * 20.0f;
+    float t_maxdim = t * (maxDim - i);
+    float angle = float(DEG_TO_RAD) * t_maxdim;
+    int mySin = sinf(angle) * i;
+    int myCos = cosf(angle) * i;
+
+    if ((unsigned(colsCenter+mySin) < cols) && (unsigned(rowsCenter+myCos) < rows)) // don't draw invisible pixels
+      SEGMENT.setPixelColorXY(colsCenter+mySin, rowsCenter+myCos, ColorFromPalette(SEGPALETTE, i_20 + t_20, 255, LINEARBLEND));
+    if ((SEGMENT.check1) && (unsigned(colsCenter+myCos) < cols) && (unsigned(rowsCenter+mySin) < rows))   
+      SEGMENT.setPixelColorXY(colsCenter+myCos, rowsCenter+mySin, ColorFromPalette(SEGPALETTE, i_20 + t_20, 255, LINEARBLEND)); // twin mode
   }
-  SEGMENT.blur(SEGMENT.intensity>>3);
-
+  SEGMENT.blur(SEGMENT.intensity>>((!SEGMENT.check2) * 3), SEGMENT.check2); // user-defined blur - thanks @dedehai
   return FRAMETIME;
 } // mode_2DDrift()
-static const char _data_FX_MODE_2DDRIFT[] PROGMEM = "Drift@Rotation speed,Blur amount;;!;2";
+static const char _data_FX_MODE_2DDRIFT[] PROGMEM = "Drift@Rotation speed,Blur,,,,Twin,Smear;;!;2;ix=0";
 
 
 //////////////////////////
@@ -6730,7 +6749,13 @@ uint16_t mode_2Ddriftrose(void) {
 
   const float CX = (cols-cols%2)/2.f - .5f;
   const float CY = (rows-rows%2)/2.f - .5f;
-  const float L = min(cols, rows) / 2.f;
+
+  unsigned L2 = SEGENV.check3 ? max(cols, rows) : min(cols, rows);  // WLEDMM we use "max" to use the complete segment
+  if (SEGENV.check3 && (abs(int(cols) - int(rows)) < 4)) L2 = L2 * 1.4142f;    // WLEDMM make "expand" look a bit bigger on square panels
+  const float L = L2 / 2.f;
+  // WLEDMM pre-calculate some values
+  const uint32_t wu_cols = SEGMENT.virtualWidth()  * 256;
+  const uint32_t wu_rows = SEGMENT.virtualHeight() * 256;
 
   if (SEGENV.call == 0) {
     SEGMENT.setUpLeds();
@@ -6739,15 +6764,16 @@ uint16_t mode_2Ddriftrose(void) {
 
   SEGMENT.fadeToBlackBy(32+(SEGMENT.speed>>3));
   for (size_t i = 1; i < 37; i++) {
-    uint32_t x = (CX + (sinf(radians(i * 10)) * (beatsin8(i, 0, L*2)-L))) * 255.f;
-    uint32_t y = (CY + (cosf(radians(i * 10)) * (beatsin8(i, 0, L*2)-L))) * 255.f;
-    SEGMENT.wu_pixel(x, y, CHSV(i * 10, 255, 255));
+    float angle = float(DEG_TO_RAD) * i * 10;
+    uint32_t x = int((CX + (sinf(angle) * (beatsin8(i, 0, L2)-L))) * 255.f);
+    uint32_t y = int((CY + (cosf(angle) * (beatsin8(i, 0, L2)-L))) * 255.f);
+    if ((x < wu_cols) && (y < wu_rows)) SEGMENT.wu_pixel(x, y, CHSV(i * 10, 255, 255));
   }
   SEGMENT.blur((SEGMENT.intensity>>4)+1);
 
   return FRAMETIME;
 }
-static const char _data_FX_MODE_2DDRIFTROSE[] PROGMEM = "Drift Rose@Fade,Blur;;;2";
+static const char _data_FX_MODE_2DDRIFTROSE[] PROGMEM = "Drift Rose@Fade,Blur,,,,,,Full Expand ☾;;;2";
 
 #endif // WLED_DISABLE_2D
 
