@@ -6668,7 +6668,13 @@ uint16_t mode_2Ddriftrose(void) {
 
   const float CX = (cols-cols%2)/2.f - .5f;
   const float CY = (rows-rows%2)/2.f - .5f;
-  const float L = min(cols, rows) / 2.f;
+
+  unsigned L2 = SEGENV.check3 ? max(cols, rows) : min(cols, rows);  // WLEDMM we use "max" to use the complete segment
+  if (SEGENV.check3 && (abs(int(cols) - int(rows)) < 4)) L2 = L2 * 1.4142f;    // WLEDMM make "expand" look a bit bigger on square panels
+  const float L = L2 / 2.f;
+  // WLEDMM pre-calculate some values
+  const uint32_t wu_cols = SEGMENT.virtualWidth()  * 256;
+  const uint32_t wu_rows = SEGMENT.virtualHeight() * 256;
 
   if (SEGENV.call == 0) {
     SEGMENT.setUpLeds();
@@ -6677,15 +6683,16 @@ uint16_t mode_2Ddriftrose(void) {
 
   SEGMENT.fadeToBlackBy(32+(SEGMENT.speed>>3));
   for (size_t i = 1; i < 37; i++) {
-    uint32_t x = (CX + (sinf(radians(i * 10)) * (beatsin8(i, 0, L*2)-L))) * 255.f;
-    uint32_t y = (CY + (cosf(radians(i * 10)) * (beatsin8(i, 0, L*2)-L))) * 255.f;
-    SEGMENT.wu_pixel(x, y, CHSV(i * 10, 255, 255));
+    float angle = float(DEG_TO_RAD) * i * 10;
+    uint32_t x = int((CX + (sinf(angle) * (beatsin8(i, 0, L2)-L))) * 255.f);
+    uint32_t y = int((CY + (cosf(angle) * (beatsin8(i, 0, L2)-L))) * 255.f);
+    if ((x < wu_cols) && (y < wu_rows)) SEGMENT.wu_pixel(x, y, CHSV(i * 10, 255, 255));
   }
   SEGMENT.blur((SEGMENT.intensity>>4)+1);
 
   return FRAMETIME;
 }
-static const char _data_FX_MODE_2DDRIFTROSE[] PROGMEM = "Drift Rose@Fade,Blur;;;2";
+static const char _data_FX_MODE_2DDRIFTROSE[] PROGMEM = "Drift Rose@Fade,Blur,,,,,,Full Expand ☾;;;2";
 
 #endif // WLED_DISABLE_2D
 
