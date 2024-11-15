@@ -12,24 +12,33 @@ IRAM_ATTR_YN __attribute__((hot)) uint32_t color_blend(uint32_t color1, uint32_t
   const uint_fast16_t blendmax = b16 ? 0xFFFF : 0xFF;
   if(blend >= blendmax) return color2;
   const uint_fast8_t shift = b16 ? 16 : 8;
-  const uint_fast16_t blend2 = blendmax - blend; // WLEDMM pre-calculate value
 
-  uint32_t w1 = W(color1);
-  uint32_t r1 = R(color1);
-  uint32_t g1 = G(color1);
-  uint32_t b1 = B(color1);
+  uint16_t w1 = W(color1); // WLEDMM 16bit to make sure the compiler uses 32bit (not 64bit) for the math
+  uint16_t r1 = R(color1);
+  uint16_t g1 = G(color1);
+  uint16_t b1 = B(color1);
 
-  uint32_t w2 = W(color2);
-  uint32_t r2 = R(color2);
-  uint32_t g2 = G(color2);
-  uint32_t b2 = B(color2);
+  uint16_t w2 = W(color2);
+  uint16_t r2 = R(color2);
+  uint16_t g2 = G(color2);
+  uint16_t b2 = B(color2);
 
-  uint32_t w3 = ((w2 * blend) + (w1 * blend2)) >> shift;
-  uint32_t r3 = ((r2 * blend) + (r1 * blend2)) >> shift;
-  uint32_t g3 = ((g2 * blend) + (g1 * blend2)) >> shift;
-  uint32_t b3 = ((b2 * blend) + (b1 * blend2)) >> shift;
-
-  return RGBW32(r3, g3, b3, w3);
+  if (b16 == false) {
+    // WLEDMM based on fastled blend8() - better accuracy for 8bit
+    uint8_t w3 = (w1+w2 == 0) ? 0 : (((w1 << 8)|w2) + (w2 * blend) - (w1*blend) ) >> 8;
+    uint8_t r3 = (((r1 << 8)|r2) + (r2 * blend) - (r1*blend) ) >> 8;
+    uint8_t g3 = (((g1 << 8)|g2) + (g2 * blend) - (g1*blend) ) >> 8;
+    uint8_t b3 = (((b1 << 8)|b2) + (b2 * blend) - (b1*blend) ) >> 8;
+    return RGBW32(r3, g3, b3, w3);
+  } else {
+    // old code has lots of "jumps" due to roundding errors
+    const uint_fast16_t blend2 = blendmax - blend; // WLEDMM pre-calculate value
+    uint32_t w3 = ((w2 * blend) + (w1 * blend2)) >> shift;
+    uint32_t r3 = ((r2 * blend) + (r1 * blend2)) >> shift;
+    uint32_t g3 = ((g2 * blend) + (g1 * blend2)) >> shift;
+    uint32_t b3 = ((b2 * blend) + (b1 * blend2)) >> shift;
+    return RGBW32(r3, g3, b3, w3);
+  }
 }
 
 /*
