@@ -233,7 +233,7 @@
 					gId("dig"+n+"l").style.display = ((t > 48 && t < 64) && !(t >= 100 && t < 110)) ? "inline":"none";  // bus clock speed
 					gId("rev"+n).innerHTML = (t >= 40 && t < 48) ? "Inverted output":"Reversed (rotated 180°)";  // change reverse text for analog
 					if (t >= 100 && t < 110) gId("rev"+n).innerHTML = "Inverted clock phase";  // change "reverse" text for HUB75
-					if (t >= 100 && t < 110) gId("ref"+n).innerHTML = "Single-cycle latch blanking";  // change "off refresh" text for HUB75
+					gId("ref"+n).innerHTML = (t >= 100 && t < 110) ? "Single-cycle latch blanking":"Off Refresh";  // change "off refresh" text for HUB75
 					gId("psd"+n).innerHTML = (t >= 40 && t < 48) ? "Index:":"Start:";    // change analog start description
 				}
 			}
