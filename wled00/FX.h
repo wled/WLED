@@ -469,6 +469,7 @@ typedef struct Segment {
     static CRGBPalette16 _newRandomPalette;   // target random palette
     static uint16_t _lastPaletteChange;       // last random palette change time in millis()/1000
     static uint16_t _lastPaletteBlend;        // blend palette according to set Transition Delay in millis()%0xFFFF
+    static uint16_t _transitionProgress;      // transition progression between 0-65535
     #ifndef WLED_DISABLE_MODE_BLEND
     static bool          _modeBlend;          // mode/effect blending semaphore
     // clipping
@@ -622,12 +623,19 @@ typedef struct Segment {
     // transition functions
     void     startTransition(uint16_t dur);     // transition has to start before actual segment values change
     void     stopTransition();                  // ends transition mode by destroying transition structure (does nothing if not in transition)
-    inline void handleTransition() { if (progress() == 0xFFFFU) stopTransition(); }
+    inline void handleTransition() {
+      Segment::_transitionProgress = 0xFFFF;
+      if (isInTransition()) {
+        unsigned diff = millis() - _t->_start;
+        if (_t->_dur > 0 && diff < _t->_dur) Segment::_transitionProgress = diff * 0xFFFFU / _t->_dur;
+        if (Segment::_transitionProgress == 0xFFFFU) stopTransition();
+      }
+    }
     #ifndef WLED_DISABLE_MODE_BLEND
     void     swapSegenv(tmpsegd_t &tmpSegD);    // copies segment data into specifed buffer, if buffer is not a transition buffer, segment data is overwritten from transition buffer
     void     restoreSegenv(tmpsegd_t &tmpSegD); // restores segment data from buffer, if buffer is not transition buffer, changed values are copied to transition buffer
     #endif
-    [[gnu::hot]] uint16_t progress() const;                  // transition progression between 0-65535
+    inline uint16_t progress() const { return Segment::_transitionProgress; }; // relies on handleTransition() to update progression variable
     [[gnu::hot]] uint8_t  currentBri(bool useCct = false) const; // current segment brightness/CCT (blended while in transition)
     uint8_t  currentMode() const;                            // currently active effect/mode (while in transition)
     [[gnu::hot]] uint32_t currentColor(uint8_t slot) const;  // currently active segment color (blended while in transition)
