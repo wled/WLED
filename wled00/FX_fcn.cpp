@@ -80,6 +80,7 @@ CRGBPalette16 Segment::_randomPalette     = generateRandomPalette();  // was CRG
 CRGBPalette16 Segment::_newRandomPalette  = generateRandomPalette();  // was CRGBPalette16(DEFAULT_COLOR);
 uint16_t      Segment::_lastPaletteChange = 0; // perhaps it should be per segment
 uint16_t      Segment::_lastPaletteBlend  = 0; // in millis (lowest 16 bits only)
+uint16_t      Segment::_transitionProgress= 0xFFFF;
 
 #ifndef WLED_DISABLE_MODE_BLEND
 bool Segment::_modeBlend = false;
@@ -312,9 +313,9 @@ void Segment::stopTransition() {
     #ifndef WLED_DISABLE_MODE_BLEND
     if (_t->_segT._dataT && _t->_segT._dataLenT > 0) {
       //DEBUGFX_PRINTF_P(PSTR("--  Released duplicate data (%d) for %p: %p\n"), _t->_segT._dataLenT, this, _t->_segT._dataT);
+      _t->_segT._dataLenT = 0;  // prevent race condition
       free(_t->_segT._dataT);
       _t->_segT._dataT = nullptr;
-      _t->_segT._dataLenT = 0;
     }
     #endif
     delete _t;
@@ -322,6 +323,7 @@ void Segment::stopTransition() {
   }
 }
 
+/*
 // transition progression between 0-65535
 uint16_t IRAM_ATTR Segment::progress() const {
   if (isInTransition()) {
@@ -330,6 +332,7 @@ uint16_t IRAM_ATTR Segment::progress() const {
   }
   return 0xFFFFU;
 }
+*/
 
 #ifndef WLED_DISABLE_MODE_BLEND
 void Segment::swapSegenv(tmpsegd_t &tmpSeg) {
@@ -1451,7 +1454,7 @@ void WS2812FX::service() {
   for (segment &seg : _segments) {
     if (_suspend) return; // immediately stop processing segments if suspend requested during service()
 
-    // process transition (mode changes in the middle of transition)
+    // process transition
     seg.handleTransition();
     // reset the segment runtime data if needed
     seg.resetIfRequired();
@@ -1552,7 +1555,7 @@ void WS2812FX::service() {
         frameDelay = (*_mode[seg.mode])();    // run effect mode (not in transition)
         seg.call++;
         if (seg.isInTransition() && frameDelay > FRAMETIME) frameDelay = FRAMETIME; // force faster updates during transition
-        BusManager::setSegmentCCT(oldCCT); // restore old CCT for ABL adjustments
+        BusManager::setSegmentCCT(oldCCT);    // restore old CCT for ABL adjustments
       }
 
       seg.next_time = nowUp + frameDelay;
