@@ -2833,7 +2833,7 @@ function search(field, listId = null) {
 
 	// restore default preset sorting if no search term is entered
 	if (!search) {
-		if (listId === 'pcont')   { populatePresets(); return; }
+		if (listId === 'pcont') { populatePresets(); return; }
 		if (listId === 'pallist') {
 			let id = parseInt(d.querySelector('#pallist input[name="palette"]:checked').value); // preserve selected palette
 			populatePalettes();
@@ -2852,12 +2852,16 @@ function search(field, listId = null) {
 
 	// filter list items but leave (Default & Solid) always visible
 	const listItems = gId(listId).querySelectorAll('.lstI');
-	listItems.forEach((listItem,i)=>{
-		if (listId!=='pcont' && i===0) return;
+	listItems.forEach((listItem, i) => {
+		if (listId !== 'pcont' && i === 0) return;
 		const listItemName = listItem.querySelector('.lstIname').innerText.toUpperCase();
 		const searchIndex = listItemName.indexOf(field.value.toUpperCase());
+		if (searchIndex < 0) {
+			listItem.dataset.searchIndex = Number.MAX_SAFE_INTEGER;
+		} else {
+			listItem.dataset.searchIndex = searchIndex;
+		}
 		listItem.style.display = (searchIndex < 0) && !listItem.classList.contains("selected") ? 'none' : '';
-		listItem.dataset.searchIndex = searchIndex;
 	});
 
 	// sort list items by search index and name
@@ -2926,10 +2930,10 @@ function filterFx() {
 	inputField.value = '';
 	inputField.focus();
 	clean(inputField.nextElementSibling);
-	gId("fxlist").querySelectorAll('.lstI').forEach((listItem,i) => {
+	gId("fxlist").querySelectorAll('.lstI').forEach((listItem, i) => {
 		const listItemName = listItem.querySelector('.lstIname').innerText;
 		let hide = false;
-		gId("filters").querySelectorAll("input[type=checkbox]").forEach((e) => { if (e.checked && !listItemName.includes(e.dataset.flt)) hide = i>0 /*true*/; });
+		gId("filters").querySelectorAll("input[type=checkbox]").forEach((e) => { if (e.checked && !listItemName.includes(e.dataset.flt)) hide = i > 0 /*true*/; });
 		listItem.style.display = hide && !listItem.classList.contains("selected") ? 'none' : '';
 	});
 }
