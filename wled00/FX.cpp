@@ -3543,7 +3543,7 @@ uint16_t mode_exploding_fireworks(void)
   if (segs <= (strip.getMaxSegments() /4)) maxData *= 2; //ESP8266: 1024 if <= 4 segs ESP32: 2560 if <= 8 segs
   int maxSparks = maxData / sizeof(spark); //ESP8266: max. 21/42/85 sparks/seg, ESP32: max. 53/106/213 sparks/seg
 
-  unsigned numSparks = min(2 + ((rows*cols) >> 1), maxSparks);
+  unsigned numSparks = min(5 + ((rows*cols) >> 1), maxSparks);
   unsigned dataSize = sizeof(spark) * numSparks;
   if (!SEGENV.allocateData(dataSize + sizeof(float))) return mode_static(); //allocation failed
   float *dying_gravity = reinterpret_cast<float*>(SEGENV.data + dataSize);
@@ -3598,7 +3598,8 @@ uint16_t mode_exploding_fireworks(void)
      * Size is proportional to the height.
      */
     unsigned nSparks = flare->pos + random8(4);
-    nSparks = constrain(nSparks, 4, numSparks);
+    nSparks = std::max(nSparks, 4U);  // This is not a standard constrain; numSparks is not guaranteed to be at least 4
+    nSparks = std::min(nSparks, numSparks);
 
     // initialize sparks
     if (SEGENV.aux0 == 2) {
