@@ -411,6 +411,7 @@ class BusHub75Matrix : public Bus {
     static HUB75_I2S_CFG activeMXconfig;               // last used mxconfig
     static uint8_t activeType;                         // last used type
     static uint8_t instanceCount;                      // active instances - 0 or 1
+    static uint8_t last_bri;                           // last used brightness value (persists on driver delete)
 };
 #endif
 
