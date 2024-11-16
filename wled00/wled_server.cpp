@@ -331,7 +331,12 @@ void initServer()
     if (Update.hasError() || otaLock) {
 #ifdef ARDUINO_ARCH_ESP32
       if (Update.hasError()) {
-        String updErr = Update.getError() == UPDATE_ERROR_ACTIVATE ? String("Could Not Activate The Firmware. (wrong board type?)") : String(Update.errorString());
+        #if defined(WLEDMM_SAVE_FLASH) 
+          // not requesting the error string reduces flash size by 200 bytes
+          String updErr = Update.getError() == UPDATE_ERROR_ACTIVATE ? String("Could Not Activate The Firmware. (wrong board type?)") : String("Error ") + String(Update.getError());
+        #else
+          String updErr = Update.getError() == UPDATE_ERROR_ACTIVATE ? String("Could Not Activate The Firmware. (wrong board type?)") : String(Update.errorString());
+        #endif
         serveMessage(request, 500, F("Update failed!"), updErr + String("<br>Please check your file and retry!"), 254);
       } else
         serveMessage(request, 500, F("Update failed!"), F("Please check your file and retry! (OTA may be locked)"), 254);
