@@ -5250,8 +5250,7 @@ static const char _data_FX_MODE_2DFRIZZLES[] PROGMEM = "Frizzles@X frequency,Y f
 //   2D Cellular Automata Game of Life   //
 ///////////////////////////////////////////
 typedef struct Cell {
-    uint8_t currentStatus : 1, currentNeighborCount : 4, oscillatorCheck : 1, spaceshipCheck : 1,    unused : 1; // current data + repeated detection
-    uint8_t  futureStatus : 1,  futureNeighborCount : 4,        edgeCell : 1,      superDead : 1,  hasColor : 1; // future data  + opimizations
+    uint8_t alive : 1, neighbors : 3, toggleStatus : 1, superDead : 1, oscillatorCheck : 1, spaceshipCheck : 1;
 } Cell;
 
 class GameOfLifeGrid {
@@ -5264,8 +5263,8 @@ class GameOfLifeGrid {
   public:
     GameOfLifeGrid(Cell* data, int c, int r) : cells(data), cols(c), rows(r), maxIndex(r * c) {}
     void getNeighborIndexes(unsigned neighbors[9], unsigned cIndex, unsigned x, unsigned y, bool wrap) {
-      bool edgeCell = cells[cIndex].edgeCell;
       unsigned neighborCount = 0;
+      bool edgeCell = x == 0 || x == cols-1 || y == 0 || y == rows-1;
       for (unsigned i = 0; i < 8; ++i) {
         unsigned nIndex = cIndex + nOffsets[i];
         if (edgeCell) {
@@ -5286,35 +5285,28 @@ class GameOfLifeGrid {
     }
     void setCell(unsigned cIndex, unsigned x, unsigned y, bool alive, bool wrap) {
       Cell* cell = &cells[cIndex];
-      cell->futureStatus = alive;
-      if (alive == cell->currentStatus) return; // No change
+      if (alive == cell->alive) return; // No change
+      cell->alive = alive;
       unsigned neighbors[9];
       getNeighborIndexes(neighbors, cIndex, x, y, wrap);
       int val = alive ? 1 : -1;
-      for (unsigned i = 1; i <= neighbors[0]; ++i) cells[neighbors[i]].futureNeighborCount += val;
+      for (unsigned i = 1; i <= neighbors[0]; ++i) cells[neighbors[i]].neighbors += val;
     }
     void recalculateEdgeNeighbors(bool wrap) {
       unsigned cIndex = 0;
       for (unsigned y = 0; y < rows; ++y) for (unsigned x = 0; x < cols; ++x, ++cIndex) {
         Cell* cell = &cells[cIndex];
-        if (cell->edgeCell) {
-          cell->futureNeighborCount  = 0;
-          cell->currentNeighborCount = 0;
+        if (x == 0 || x == cols - 1 || y == 0 || y == rows - 1) {
+          cell->neighbors = 0;
           cell->superDead = 0;
 
           unsigned neighbors[9];
           getNeighborIndexes(neighbors, cIndex, x, y, wrap);
 
           for (unsigned i = 1; i <= neighbors[0]; ++i) {
-            if (cells[neighbors[i]].currentStatus) { ++cell->futureNeighborCount; ++cell->currentNeighborCount; }
+            if (cells[neighbors[i]].alive) ++cell->neighbors;
           }
         }
-      }
-    }
-    void shiftFutureToCurrent() {
-      for (unsigned i = 0; i < maxIndex; ++i) {
-        cells[i].currentStatus        = cells[i].futureStatus;
-        cells[i].currentNeighborCount = cells[i].futureNeighborCount;
       }
     }
 };
@@ -5326,15 +5318,14 @@ uint16_t mode_2Dgameoflife(void) { // Written by Ewoud Wijma, inspired by https:
   const uint16_t cols = SEGMENT.virtualWidth();
   const uint16_t rows = SEGMENT.virtualHeight();
   const size_t dataSize  = SEGMENT.length() * sizeof(Cell); // Cell = 2 bytes
-  const size_t totalSize = dataSize + 7; // 7 bytes for prevRows(2), prevCols(2), prevPalette, prevWrap, soloGlider
+  const size_t totalSize = dataSize + 6; // 6 bytes for prevRows(2), prevCols(2), prevPalette, prevWrap
 
   if (!SEGENV.allocateData(totalSize)) return mode_static(); //allocation failed
-  uint16_t *prevRows    = reinterpret_cast<uint16_t*>(SEGENV.data);
-  uint16_t *prevCols    = reinterpret_cast<uint16_t*>(SEGENV.data + 2);
-  uint8_t  *prevPalette = reinterpret_cast<uint8_t*> (SEGENV.data + 4);
-  bool     *prevWrap    = reinterpret_cast<bool*>    (SEGENV.data + 5);
-  bool     *soloGlider  = reinterpret_cast<bool*>    (SEGENV.data + 6);
-  Cell     *cells       = reinterpret_cast<Cell*>    (SEGENV.data + 7);
+  uint16_t *prevRows   = reinterpret_cast<uint16_t*>(SEGENV.data);
+  uint16_t *prevCols   = reinterpret_cast<uint16_t*>(SEGENV.data + 2);
+  uint8_t *prevPalette = reinterpret_cast<uint8_t*> (SEGENV.data + 4);
+  bool    *prevWrap    = reinterpret_cast<bool*>    (SEGENV.data + 5);
+  Cell    *cells       = reinterpret_cast<Cell*>    (SEGENV.data + 6);
 
   uint16_t& generation   = SEGENV.aux0; //Rename SEGENV/SEGMENT variables for readability
   uint16_t& gliderLength = SEGENV.aux1;
@@ -5382,20 +5373,20 @@ uint16_t mode_2Dgameoflife(void) { // Written by Ewoud Wijma, inspired by https:
     //Setup Grid
     memset(cells, 0, dataSize);
     random16_set_seed(strip.now>>2); //seed the random generator
-    #if defined(ARDUINO_ARCH_ESP32)
-      const uint32_t chance = UINT32_MAX * 0.32;
-    #endif
     unsigned cIndex = 0;
     for (unsigned y = 0; y < rows; ++y) for (unsigned x = 0; x < cols; ++x, ++cIndex) {
-      if (x == 0 || x == cols - 1 || y == 0 || y == rows - 1) cells[cIndex].edgeCell = 1;
       #if defined(ARDUINO_ARCH_ESP32)
-        if (esp_random() < chance) grid.setCell(cIndex, x, y, true, wrap); // ~32% chance of being alive
+        bool setAlive = esp_random() < 1374389534; // ~32%
       #else
-        if (random16(100) < 32) grid.setCell(cIndex, x, y, true, wrap);
+        bool setAlive = random16(100) < 32;
       #endif
-      else { cells[cIndex].hasColor = 1; cells[cIndex].superDead = 1; }
+      if (setAlive) {
+        grid.setCell(cIndex, x, y, true, wrap);
+        cells[cIndex].toggleStatus = 1; // Used to set initial color
+      }
+      else cells[cIndex].superDead = 1;
+      
     }
-    grid.shiftFutureToCurrent(); // Shift future states to current states
   }
 
   bool palChanged = SEGMENT.palette != *prevPalette && !allColors;
@@ -5411,101 +5402,109 @@ uint16_t mode_2Dgameoflife(void) { // Written by Ewoud Wijma, inspired by https:
       for (unsigned y = 0; y < rows; ++y) for (unsigned x = 0; x < cols; ++x, ++cIndex) {
         Cell& cell = cells[cIndex];
         if (!newGame && cell.superDead) continue; // Skip super dead cells unless new game
-        bool alive = cell.currentStatus;
-        uint32_t cellColor = SEGMENT.getPixelColorXY(x,y);
-        if (alive) {
-          if ((!cell.hasColor && !random(10)) || palChanged) {
+        bool needsColor = (newGame && cell.toggleStatus);
+        if (cell.alive) {
+          if ((needsColor && !random(10)) || palChanged) {
+            cell.toggleStatus = 0;
             uint32_t randomColor = allColors ? random16() * random16() : SEGMENT.color_from_palette(random8(), false, PALETTE_SOLID_WRAP, 0);
-            SEGMENT.setPixelColorXY(x,y, randomColor);                                          // Palette changed or needs initial color
-            cells[cIndex].hasColor = 1;
+            SEGMENT.setPixelColorXY(x,y, randomColor);                                                   // Palette changed or needs initial color
           }
-          else if (overlayBG && cell.hasColor) SEGMENT.setPixelColorXY(x,y, cellColor);         // Redraw alive cells for overlayBG
+          else if (overlayBG && !needsColor) SEGMENT.setPixelColorXY(x,y, SEGMENT.getPixelColorXY(x,y)); // Redraw alive cells for overlayBG
         } // Dead
         else if (paused && !overlayBG) {
+          uint32_t cellColor = SEGMENT.getPixelColorXY(x,y);
           uint32_t blended = color_blend(cellColor, bgColor, bgBlendMode ? 16 : blur);
           if (blended == cellColor) blended = bgColor; // color_blend fix
-          if ((bgBlendMode && newGame) || !bgBlendMode) SEGMENT.setPixelColorXY(x, y, blended); // Blur dead cells when paused
+          if ((bgBlendMode && newGame) || !bgBlendMode) SEGMENT.setPixelColorXY(x, y, blended);          // Blur dead cells when paused
         }
       }
     }
     return FRAMETIME;
   }
 
-  uint32_t color = allColors ? random16() * random16() : SEGMENT.color_from_palette(random8(), false, PALETTE_SOLID_WRAP, 0); // Backup color
-  if (generation <= 8) blur = 255 - (((generation-1) * (255 - blur)) >> 3); // Ramp up blur for first 8 generations
-
-  //Update Game of Life
-  bool disableWrap = !wrap || generation % 1500 == 0 || *soloGlider; // Disable wrap every 1500 generations to prevent undetected repeats
-  if (*prevWrap != !disableWrap) { grid.recalculateEdgeNeighbors(!disableWrap); *prevWrap = !disableWrap; }
   // Repeat detection
   unsigned aliveCount = 0; // Detects empty grids and solo gliders (for smaller grids)
   bool updateOscillator = generation % 16 == 0;
   bool updateSpaceship  = gliderLength && generation % gliderLength == 0;
   bool repeatingOscillator = true, repeatingSpaceship = true;
 
-  //Loop through all cells. Apply rules, setPixel
+  // First Loop: Applies rules, sets toggleStatus, detects repeating patterns
+  // Does not update cells yet to prevent neighbor counts from changing mid-loop
+  int maxIndex = rows * cols;
+  for (unsigned i = 0; i < maxIndex; ++i) {
+    Cell& cell = cells[i];
+
+    if (cell.alive) ++aliveCount;
+    if (repeatingOscillator && cell.oscillatorCheck != cell.alive) repeatingOscillator = false;
+    if (repeatingSpaceship  && cell.spaceshipCheck  != cell.alive) repeatingSpaceship  = false;
+    if (updateOscillator) cell.oscillatorCheck = cell.alive;
+    if (updateSpaceship)  cell.spaceshipCheck  = cell.alive;
+    
+    if       (cell.alive && (cell.neighbors < 2 || cell.neighbors > 3)) cell.toggleStatus = 1;  // Loneliness or Overpopulation
+    else if (!cell.alive && cell.neighbors == 3) { cell.toggleStatus = 1; cell.superDead = 0; } // Reproduction
+    else      cell.toggleStatus = 0;                                                            // No change
+  }
+
+  uint32_t color = allColors ? random16() * random16() : SEGMENT.color_from_palette(random8(), false, PALETTE_SOLID_WRAP, 0); // Backup color
+  if (generation <= 8) blur = 255 - (((generation-1) * (255 - blur)) >> 3); // Ramp up blur for first 8 generations
+
+  bool disableWrap = !wrap || generation % 1500 == 0 || aliveCount == 5; // Disable wrap every 1500 generations to prevent undetected repeats
+  if (*prevWrap != !disableWrap) { grid.recalculateEdgeNeighbors(!disableWrap); *prevWrap = !disableWrap; }
+
+  // Second Loop: Updates cells, sets colors, and detects super dead cells
   unsigned cIndex = 0;
   for (unsigned y = 0; y < rows; ++y) for (unsigned x = 0; x < cols; ++x, ++cIndex) {
     Cell& cell = cells[cIndex];
-    if (repeatingOscillator && cell.oscillatorCheck != cell.currentStatus) repeatingOscillator = false;
-    if (repeatingSpaceship  && cell.spaceshipCheck  != cell.currentStatus) repeatingSpaceship  = false;
-    if (updateOscillator) cell.oscillatorCheck = cell.currentStatus;
-    if (updateSpaceship)  cell.spaceshipCheck  = cell.currentStatus;
+    if (cell.superDead) continue; // Skip super dead cells (bgColor dead cells)
 
-    unsigned neighbors = cell.currentNeighborCount;
-    if (cell.superDead && neighbors != 3) continue; // Skip super dead cells (bgColor dead cells)
-
-    bool     cellValue = cell.currentStatus;
     uint32_t cellColor = SEGMENT.getPixelColorXY(x, y);
-    
-    if (cellValue) {
-      ++aliveCount;
-      if (cellColor != bgColor) color = cellColor; // Update last seen color
-      if (neighbors < 2 || neighbors > 3) {
-        // Loneliness or Overpopulation
+
+    if (cell.toggleStatus) {
+      if (cell.alive) { // Dies
         grid.setCell(cIndex, x, y, false, !disableWrap);
+        if (cellColor != bgColor) color = cellColor;
         if (!overlayBG) SEGMENT.setPixelColorXY(x,y, blur == 255 ? bgColor : color_blend(cellColor, bgColor, blur));
         if (blur == 255) cell.superDead = 1;
       }
-      else SEGMENT.setPixelColorXY(x, y, cellColor == bgColor ? color : cellColor); // Redraw alive
-    }
-    else if (neighbors == 3 && !cellValue) {
-      // Reproduction
-      grid.setCell(cIndex, x, y, true, !disableWrap);
-      cell.superDead = 0;
-      uint32_t birthColor = color;
-      if (random8() < SEGMENT.intensity) birthColor = allColors ? random16() * random16() : SEGMENT.color_from_palette(random8(), false, PALETTE_SOLID_WRAP, 0);
-      else {
-        // Get Colors
-        uint32_t nColors[8];
-        unsigned colorCount = 0;
-        unsigned neighbors[9];
-        grid.getNeighborIndexes(neighbors, cIndex, x, y, !disableWrap);
+      else { // Reproduction
+        grid.setCell(cIndex, x, y, true, !disableWrap);
+        uint32_t birthColor = color;
+        if (random8() < SEGMENT.intensity) birthColor = allColors ? random16() * random16() : SEGMENT.color_from_palette(random8(), false, PALETTE_SOLID_WRAP, 0);
+        else {
+          // Get Colors
+          uint32_t nColors[8];
+          unsigned colorCount = 0;
+          unsigned neighbors[9];
+          grid.getNeighborIndexes(neighbors, cIndex, x, y, !disableWrap);
 
-        for (unsigned i = 1; i <= neighbors[0]; ++i) {
-          unsigned nIndex = neighbors[i];
-          if (cells[nIndex].futureStatus) {
-            uint32_t nColor = SEGMENT.getPixelColorXY(nIndex % cols, nIndex / cols);
-            if (nColor == bgColor) continue;
-            nColors[colorCount++] = nColor;
-          }
-        }    
-        if (colorCount) { birthColor = nColors[random8(colorCount)]; color = birthColor; }
+          for (unsigned i = 1; i <= neighbors[0]; ++i) {
+            unsigned nIndex = neighbors[i];
+            if (cells[nIndex].alive) {
+              uint32_t nColor = SEGMENT.getPixelColorXY(nIndex % cols, nIndex / cols);
+              if (nColor == bgColor) continue;
+              nColors[colorCount++] = nColor;
+            }
+          }    
+          if (colorCount) { birthColor = nColors[random8(colorCount)]; color = birthColor; }
+        }
+        SEGMENT.setPixelColorXY(x,y, birthColor);
       }
-      SEGMENT.setPixelColorXY(x,y, birthColor);
     }
-    else { // Already dead
-      if (blur != 255 && !overlayBG && !bgBlendMode) {
-        uint32_t blended = color_blend(cellColor, bgColor, blur); // color_blend doesn't always converge to bgColor (this fix needed for fast fps with custom bgColor)
-        if (blended == cellColor) { blended = bgColor; cell.superDead = 1; }
-        SEGMENT.setPixelColorXY(x, y, blended);
+    else { // No change in status
+      if (cell.alive) {
+        if (cellColor == bgColor) cellColor = color; else color = cellColor;
+        SEGMENT.setPixelColorXY(x, y, cellColor); // Redraw alive cells
+      }
+      else { // Blur dead
+        if (blur != 255 && !overlayBG && !bgBlendMode) {
+          uint32_t blended = color_blend(cellColor, bgColor, blur); // color_blend doesn't always converge to bgColor (this fix needed for fast fps with custom bgColor)
+          if (blended == cellColor) { blended = bgColor; cell.superDead = 1; }
+          SEGMENT.setPixelColorXY(x, y, blended);
+        }
       }
     }
   }
 
-  grid.shiftFutureToCurrent();
-
-  if (aliveCount == 5) *soloGlider = true; else *soloGlider = false;
   if (repeatingOscillator || repeatingSpaceship || !aliveCount) {
     generation = 0;      // reset on next call
     SEGENV.step += 1000; // pause final generation for 1 second
