@@ -5338,7 +5338,7 @@ uint16_t mode_2Dgameoflife(void) { // Written by Ewoud Wijma, inspired by https:
 
   GameOfLifeGrid grid(cells, cols, rows);
 
-  // If rows or cols change due to mirror/transpose, edges and neighbor counts need to be recalculated. Just reset the game.
+  // If rows or cols change due to mirror/transpose, neighbor counts need to be recalculated. Just reset the game.
   bool setup = SEGENV.call == 0 || rows != *prevRows || cols != *prevCols;
 
   if (setup) {
@@ -5446,7 +5446,7 @@ uint16_t mode_2Dgameoflife(void) { // Written by Ewoud Wijma, inspired by https:
   }
 
   uint32_t color = allColors ? random16() * random16() : SEGMENT.color_from_palette(random8(), false, PALETTE_SOLID_WRAP, 0); // Backup color
-  if (generation <= 8) blur = 255 - (((generation-1) * (255 - blur)) >> 3); // Ramp up blur for first 8 generations
+  if (generation <= 8 && !bgBlendMode) blur = 255 - (((generation-1) * (255 - blur)) >> 3); // Ramp up blur for first 8 generations
 
   bool disableWrap = !wrap || generation % 1500 == 0 || aliveCount == 5; // Disable wrap every 1500 generations to prevent undetected repeats
   if (*prevWrap != !disableWrap) { grid.recalculateEdgeNeighbors(!disableWrap); *prevWrap = !disableWrap; }
@@ -5464,7 +5464,7 @@ uint16_t mode_2Dgameoflife(void) { // Written by Ewoud Wijma, inspired by https:
         grid.setCell(cIndex, x, y, false, !disableWrap);
         if (cellColor != bgColor) color = cellColor;
         if (!overlayBG) SEGMENT.setPixelColorXY(x,y, blur == 255 ? bgColor : color_blend(cellColor, bgColor, blur));
-        if (blur == 255) cell.superDead = 1;
+        if (blur == 255 || bgBlendMode) cell.superDead = 1;
       }
       else { // Reproduction
         grid.setCell(cIndex, x, y, true, !disableWrap);
