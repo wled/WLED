@@ -5972,9 +5972,11 @@ uint16_t mode_2DPolarLights(void) {        // By: Kostyantyn Matviyevskyy  https
   const uint16_t cols = SEGMENT.virtualWidth();
   const uint16_t rows = SEGMENT.virtualHeight();
   const float maxRows  = (rows <= 32) ? 32.0f : (rows <= 64) ? 64.0f : 128.0f;  // WLEDMM safe up to 128x128
-  const float minScale = (rows <= 32) ? 12.0f : (rows <= 64) ? 4.6f : 2.1f;     // WLEDMM
+  const float minScale = (rows <= 32) ? 12.0f : (rows <= 64) ? 7.2f : 4.6f;     // WLEDMM
+  const float maxCols  = (cols <= 32) ? 32.0f : (cols <= 64) ? 64.0f : 128.0f;  // WLEDMM safe up to 128x128
 
   const CRGBPalette16 auroraPalette  = {0x000000, 0x003300, 0x006600, 0x009900, 0x00cc00, 0x00ff00, 0x33ff00, 0x66ff00, 0x99ff00, 0xccff00, 0xffff00, 0xffcc00, 0xff9900, 0xff6600, 0xff3300, 0xff0000};
+  const CRGBPalette16 &effectPalette = SEGENV.check1 ? SEGPALETTE : auroraPalette;
 
   if (SEGENV.call == 0) {
     SEGMENT.setUpLeds();
@@ -5982,7 +5984,7 @@ uint16_t mode_2DPolarLights(void) {        // By: Kostyantyn Matviyevskyy  https
   }
 
   float adjustHeight = mapf(rows, 8, maxRows, 28, minScale); // maybe use mapf() ??? // WLEDMM yes!  
-  uint16_t adjScale = map2(cols, 8, 64, 310, 63);
+  uint16_t adjScale = map2(cols, 8, maxCols, 310, 63);       // WLEDMM
 
   adjustHeight = max(min(adjustHeight, 28.0f), minScale);     // WLEDMM bugfix for larger fixtures
   adjScale = max(min(adjScale, uint16_t(310)), uint16_t(63)); // WLEDMM
@@ -6002,11 +6004,11 @@ uint16_t mode_2DPolarLights(void) {        // By: Kostyantyn Matviyevskyy  https
   }
 */
   uint16_t _scale = map2(SEGMENT.intensity, 0, 255, 30, adjScale);
-  byte _speed = map2(SEGMENT.speed, 0, 255, 128, 16);
+  byte _speed = map2(SEGMENT.speed, 0, 255, 136, 20);
 
   //WLEDMM add SuperSync control
   uint16_t xStart, xEnd, yStart, yEnd;
-  if (SEGMENT.check1) { //Master (sync on needs to show the whole effect, children only their first panel)
+  if (SEGMENT.check2) { //Master (sync on needs to show the whole effect, children only their first panel)
     xStart = strip.panel[0].xOffset;
     xEnd = strip.panel[0].xOffset + strip.panel[0].width;
     yStart = strip.panel[0].yOffset;
@@ -6024,16 +6026,17 @@ uint16_t mode_2DPolarLights(void) {        // By: Kostyantyn Matviyevskyy  https
   for (int x = xStart; x < xEnd; x++) {
     for (int y = yStart; y < yEnd; y++) {
     SEGENV.step++;
-    SEGMENT.setPixelColorXY(x, y, ColorFromPalette(auroraPalette,
+    SEGMENT.setPixelColorXY(x, y, ColorFromPalette(effectPalette,
                                     qsub8(
                                       inoise8((SEGENV.step%2) + x * _scale, y * 16 + SEGENV.step % 16, SEGENV.step / _speed),
                                       fabsf(rows_2 - (float)y) * adjustHeight)));  // WLEDMM
     }
   }
 
+  if (SEGENV.check3) SEGMENT.blurRows(192);
   return FRAMETIME;
 } // mode_2DPolarLights()
-static const char _data_FX_MODE_2DPOLARLIGHTS[] PROGMEM = "Polar Lights@!,Scale,,,,SuperSync;;;2";
+static const char _data_FX_MODE_2DPOLARLIGHTS[] PROGMEM = "Polar Lights@!,Scale,,,,Use Palette,SuperSync, Blur;;!;2";
 
 
 /////////////////////////
