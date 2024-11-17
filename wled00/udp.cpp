@@ -760,7 +760,6 @@ void sendSysInfoUDP()
 
 static       size_t sequenceNumber = 0; // this needs to be shared across all outputs
 static const byte   ART_NET_HEADER[12] PROGMEM = {0x41,0x72,0x74,0x2d,0x4e,0x65,0x74,0x00,0x00,0x50,0x00,0x0e};
-static uint_fast16_t framenumber = 0;
 
 #if defined(ARDUINO_ARCH_ESP32P4)
 extern "C" {
