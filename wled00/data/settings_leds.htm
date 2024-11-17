@@ -222,6 +222,10 @@
 					gId("dig"+n+"O").style.display = (t == 82 || t == 83) ? "inline":"none";  // show Art-Net output number
 					gId("dig"+n+"L").style.display = (t == 82 || t == 83) ? "inline":"none";  // show Art-Net LEDs per output
 					gId("dig"+n+"F").style.display = (t == 82 || t == 83) ? "inline":"none";  // show Art-Net FPS limiter
+					gId("dig"+n+"W").style.display = (t == 82 || t == 83) ? "inline":"none";  // show Art-Net warnings/info box
+					d.getElementsByName("AO"+n)[0].min = (t == 82 || t == 83) ? 1 : -1; // make sure these fields do not block saving when hidden 
+					d.getElementsByName("AL"+n)[0].min = (t == 82 || t == 83) ? 1 : -1; 
+					d.getElementsByName("AF"+n)[0].min = (t == 82 || t == 83) ? 1 : -1;
 					if (gId("dig"+n+"F").style.display == "inline") {
 						total_leds = d.getElementsByName("LC"+n)[0].value;
 						outputs = d.getElementsByName("AO"+n)[0].value;
@@ -337,8 +341,6 @@
 			// update total led count
 			gId("lc").textContent = sLC;
 			gId("pc").textContent = (sLC == sPC) ? "":"(" + sPC + " physical)";
-
-			
 			// memory usage and warnings
 			gId('m0').innerHTML = memu;
 			bquot = memu / maxM * 100;
