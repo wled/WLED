@@ -657,8 +657,7 @@ void getSettingsJS(byte subPage, Print& settingsScript)
       printSetFormValue(settingsScript,PSTR("MPC"),strip.panels);
       // panels
       for (unsigned i=0; i<strip.panels; i++) {
-        char n[5];
-        settingsScript.printf_P(PSTR("addPanel(%d);"), itoa(i,n,10));
+        settingsScript.printf_P(PSTR("addPanel(%d);"), i);
         char pO[8] = { '\0' };
         snprintf_P(pO, 7, PSTR("P%d"), i);       // WLED_MAX_PANELS is 18 so pO will always only be 4 characters or less
         pO[7] = '\0';
