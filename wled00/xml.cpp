@@ -147,9 +147,7 @@ void appendGPIOinfo(Print& settingsScript) {
   settingsScript.print(F("];"));
 
   // add info about max. # of pins
-  settingsScript.print(F("d.max_gpio="));
-  settingsScript.print(WLED_NUM_PINS);
-  settingsScript.print(';');
+  settingsScript.printf_P(PSTR("d.max_gpio=%d;"),WLED_NUM_PINS);
 }
 
 //get values for settings form in javascript
@@ -269,7 +267,7 @@ void getSettingsJS(byte subPage, Print& settingsScript)
   {
     appendGPIOinfo(settingsScript);
 
-    settingsScript.print(F("d.ledTypes=")); settingsScript.print(BusManager::getLEDTypesJSONString().c_str()); settingsScript.print(";");
+    settingsScript.printf_P(PSTR("d.ledTypes=%s;"), BusManager::getLEDTypesJSONString().c_str());
 
     // set limits
     settingsScript.printf_P(PSTR("bLimits(%d,%d,%d,%d,%d,%d,%d,%d);"),
@@ -650,8 +648,7 @@ void getSettingsJS(byte subPage, Print& settingsScript)
   {
     printSetFormValue(settingsScript,PSTR("SOMP"),strip.isMatrix);
     #ifndef WLED_DISABLE_2D
-    settingsScript.printf_P(PSTR("maxPanels=%d;"),WLED_MAX_PANELS);
-    settingsScript.print(F("resetPanels();"));
+    settingsScript.printf_P(PSTR("maxPanels=%d;resetPanels();"),WLED_MAX_PANELS);
     if (strip.isMatrix) {
       if(strip.panels>0){
         printSetFormValue(settingsScript,PSTR("PW"),strip.panel[0].width); //Set generator Width and Height to first panel size for convenience
@@ -661,11 +658,9 @@ void getSettingsJS(byte subPage, Print& settingsScript)
       // panels
       for (unsigned i=0; i<strip.panels; i++) {
         char n[5];
-        settingsScript.print(F("addPanel("));
-        settingsScript.print(itoa(i,n,10));
-        settingsScript.print(F(");"));
+        settingsScript.printf_P(PSTR("addPanel(%d);"), itoa(i,n,10));
         char pO[8] = { '\0' };
-        snprintf_P(pO, 7, PSTR("P%d"), i);       // MAX_PANELS is 64 so pO will always only be 4 characters or less
+        snprintf_P(pO, 7, PSTR("P%d"), i);       // WLED_MAX_PANELS is 18 so pO will always only be 4 characters or less
         pO[7] = '\0';
         unsigned l = strlen(pO);
         // create P0B, P1B, ..., P63B, etc for other PxxX
