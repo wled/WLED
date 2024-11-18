@@ -272,12 +272,21 @@ void blockCorners(uint32_t color) {
     //   }
 
       bool handled = false;
-        Serial.print("Button ");
-        Serial.print(buttonType[b]);
-        Serial.println(" pressed!");
-        handled = true;
+          #ifdef WLED_DEBUG
+        DEBUG_PRINT(F("Handle Button ESP-NOW: "));
+      #endif
+        handled = false;
       return handled;
     }
+    bool onEspNowMessage(uint8_t* sender, uint8_t* payload, uint8_t len) {
+        DEBUG_PRINT(F("CUSTOM ESP-NOW: "));
+
+
+      // Process the message here
+      return true; // Override further processing
+    }
+
+
   
 
 #ifndef WLED_DISABLE_MQTT
