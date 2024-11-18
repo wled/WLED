@@ -224,6 +224,34 @@
 					gRGBW |= isRGBW = ((t > 17 && t < 22) || (t > 28 && t < 32) || (t > 40 && t < 46 && t != 43) || t == 88); // RGBW checkbox, TYPE_xxxx values from const.h
 					gId("co"+n).style.display = ((t >= 80 && t < 96) || (t >= 40 && t < 48)||(t >= 100 && t < 110)) ? "none":"inline";  // hide color order for PWM
 					gId("dig"+n+"w").style.display = (t > 28 && t < 32) ? "inline":"none";  // show swap channels dropdown
+					gId("dig"+n+"O").style.display = (t == 82 || t == 83) ? "inline":"none";  // show Art-Net output number
+					gId("dig"+n+"L").style.display = (t == 82 || t == 83) ? "inline":"none";  // show Art-Net LEDs per output
+					gId("dig"+n+"F").style.display = (t == 82 || t == 83) ? "inline":"none";  // show Art-Net FPS limiter
+					gId("dig"+n+"W").style.display = (t == 82 || t == 83) ? "inline":"none";  // show Art-Net warnings/info box
+					d.getElementsByName("AO"+n)[0].min = (t == 82 || t == 83) ? 1 : -1; // make sure these fields do not block saving when hidden 
+					d.getElementsByName("AL"+n)[0].min = (t == 82 || t == 83) ? 1 : -1; 
+					d.getElementsByName("AF"+n)[0].min = (t == 82 || t == 83) ? 1 : -1;
+					if (gId("dig"+n+"F").style.display == "inline") {
+						total_leds = d.getElementsByName("LC"+n)[0].value;
+						outputs = d.getElementsByName("AO"+n)[0].value;
+						leds_per_output = d.getElementsByName("AL"+n)[0].value;
+						fps_limit = d.getElementsByName("AF"+n)[0].value;
+						last_octet = d.getElementsByName("L3"+n)[0].value;
+						if (outputs > 1) {
+							if (t == 82) gId("dig"+n+"W").innerHTML = "<br />Set your Art-Net Hardware to "+Math.ceil(leds_per_output/170)+" universes per output.";
+							if (t == 83) gId("dig"+n+"W").innerHTML = "<br />Set your Art-Net Hardware to "+Math.ceil(leds_per_output/128)+" universes per output.";
+						} else if (outputs == 1) {
+							gId("dig"+n+"W").innerHTML = "<br />WLED-style Art-Net output enabled.";
+						} else {
+							gId("dig"+n+"W").innerHTML = "<br />You need at least 1 output!";
+						}
+						if (outputs > 1 && fps_limit > 33333/leds_per_output) gId("dig"+n+"W").innerHTML += "<br />FPS limit may be too high for WS281x pixels.";
+						if (outputs*leds_per_output != total_leds) gId("dig"+n+"W").innerHTML += "<br />Total LEDs doesn't match outputs * LEDs per output.";
+						if (last_octet == 255) {
+							if (total_leds <= 1024) gId("dig"+n+"W").innerHTML += "<br />Art-Net is in broadcast mode.";
+							if (total_leds  > 1024) gId("dig"+n+"W").innerHTML += "<br />You are sending a lot of broadcast data. Be cautious.";
+						}
+					}
 					if (!(t > 28 && t < 32)) d.getElementsByName("WO"+n)[0].value = 0; // reset swapping
 					gId("dig"+n+"c").style.display = ((t >= 40 && t < 48)||(t >= 100 && t < 110)) ? "none":"inline";  // hide count for analog and HUB75
 					gId("dig"+n+"r").style.display = (t >= 80) && (t < 100) ? "none":"inline";  // hide reversed for virtual, except for HUB75
@@ -318,7 +346,6 @@
 			// update total led count
 			gId("lc").textContent = sLC;
 			gId("pc").textContent = (sLC == sPC) ? "":"(" + sPC + " physical)";
-
 			// memory usage and warnings
 			gId('m0').innerHTML = memu;
 			bquot = memu / maxM * 100;
@@ -425,6 +452,10 @@ ${i+1}:
 <span id="p2d${i}"></span><input type="number" name="L2${i}" class="s" onchange="UI()"/>
 <span id="p3d${i}"></span><input type="number" name="L3${i}" class="s" onchange="UI()"/>
 <span id="p4d${i}"></span><input type="number" name="L4${i}" class="s" onchange="UI()"/>
+<div id="dig${i}O" style="display:inline"><br>Number of Outputs: <input type="number" name="AO${i}" min="1" max="255" value="1" oninput="UI()"></div>
+<div id="dig${i}L" style="display:inline"><br>LEDs Per Output: <input type="number" name="AL${i}" min="1" max="65535" value="1" oninput="UI()"></div>
+<div id="dig${i}F" style="display:inline"><br>FPS Limit: <input type="number" name="AF${i}" min="1" max="255" value="30" oninput="UI()"></div>
+<div id="dig${i}W" style="display:inline"><br>Art-Net Warnings Go Here.</div>
 <div id="dig${i}r" style="display:inline"><br><span id="rev${i}">Reversed</span>: <input type="checkbox" name="CV${i}"></div>
 <div id="dig${i}s" style="display:inline"><br>Skip first LEDs: <input type="number" name="SL${i}" min="0" max="255" value="0" oninput="UI()"></div>
 <div id="dig${i}f" style="display:inline"><br><span id="ref${i}">Off Refresh</span>: <input id="rf${i}" type="checkbox" name="RF${i}"></div>
