@@ -1,0 +1,5 @@
+
+[env:custom_build]
+extends = env:esp32s3dev_8MB_PSRAM_opi
+build_flags = ${env:esp32s3dev_8MB_PSRAM_opi.build_flags} -D LOLIN_WIFI_FIX
+build_unflags= -D WLED_RELEASE_NAME=Cusotm_ESP32-S3_8MB_PSRAM_opi
