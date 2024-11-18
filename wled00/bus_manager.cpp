@@ -653,6 +653,8 @@ BusHub75Matrix::BusHub75Matrix(BusConfig &bc) : Bus(bc.type, bc.start, bc.autoWh
   _needsRefresh = mxconfig.latch_blanking == 1;
   reversed = mxconfig.clkphase;
 
+  if (bc.type > 104) mxconfig.driver = HUB75_I2S_CFG::FM6124;  // use FM6124 for "outdoor" panels - workaround until we can make the driver user-configurable
+
   // How many panels we have connected, cap at sane value, prevent bad data preventing boot due to low memory
   #if defined(CONFIG_IDF_TARGET_ESP32S3) && defined(BOARD_HAS_PSRAM)        // ESP32-S3: allow up to 6 panels
   mxconfig.chain_length = max((uint8_t) 1, min(bc.pins[0], (uint8_t) 6));
