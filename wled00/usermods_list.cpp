@@ -11,6 +11,12 @@
  */
 //#include "../usermods/EXAMPLE_v2/usermod_v2_example.h"
 
+
+#ifdef USERMOD_UNUSER
+  #include "../usermods/Unuser/usermod_unuser.h"
+#endif
+
+
 #ifdef USERMOD_BATTERY
   #include "../usermods/Battery/usermod_v2_Battery.h"
 #endif
@@ -469,5 +475,9 @@ void registerUsermods()
 
   #ifdef USERMOD_POV_DISPLAY
   UsermodManager::add(new PovDisplayUsermod());
+  #endif
+
+  #ifdef USERMOD_UNUSER
+  UsermodManager::add(new UnUserMod());
   #endif
 }
