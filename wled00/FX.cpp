@@ -5375,18 +5375,17 @@ uint16_t mode_2Dgameoflife(void) { // Written by Ewoud Wijma, inspired by https:
     memset(cells, 0, dataSize);
     random16_set_seed(strip.now>>2); //seed the random generator
     unsigned cIndex = 0;
-    for (unsigned y = 0; y < rows; ++y) for (unsigned x = 0; x < cols; ++x, ++cIndex) {
+    for (unsigned y = 0; y < rows; ++y) {
       #if defined(ARDUINO_ARCH_ESP32)
-        bool setAlive = esp_random() < 1374389534; // ~32%
-      #else
-        bool setAlive = random16(100) < 32;
+        random16_add_entropy(esp_random() & 0xFFFF);
       #endif
-      if (setAlive) {
-        grid.setCell(cIndex, x, y, true, wrap);
-        cells[cIndex].toggleStatus = 1; // Used to set initial color
+      for (unsigned x = 0; x < cols; ++x, ++cIndex) {
+        if ((random16() & 0xFF) < 82) { // ~32%
+          grid.setCell(cIndex, x, y, true, wrap);
+          cells[cIndex].toggleStatus = 1; // Used to set initial color
+        }
+        else cells[cIndex].superDead = 1;
       }
-      else cells[cIndex].superDead = 1;
-      
     }
   }
 
