@@ -16,6 +16,9 @@
   #include "../usermods/Unuser/usermod_unuser.h"
 #endif
 
+#ifdef USERMOD_VISUALREMOTE
+  #include "../usermods/VisualRemote/usermod_visualremote.h"
+#endif
 
 #ifdef USERMOD_BATTERY
   #include "../usermods/Battery/usermod_v2_Battery.h"
@@ -479,5 +482,10 @@ void registerUsermods()
 
   #ifdef USERMOD_UNUSER
   UsermodManager::add(new UnUserMod());
+  #endif
+
+
+  #ifdef USERMOD_VISUALREMOTE
+    UsermodManager::add(new UsermodVisualRemote());    
   #endif
 }

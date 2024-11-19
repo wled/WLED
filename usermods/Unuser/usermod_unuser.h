@@ -61,14 +61,7 @@ class UnUserMod : public Usermod {
      *    Instead, use a timer check as shown here.
      */
      void loop() {
-      if (!enabled || strip.isUpdating()) return;
-
-      
-           // do your magic here
-      if (millis() - lastTime > 1000) {
-       
-        lastTime = millis();
-      }
+    
     }
     
 
@@ -147,26 +140,6 @@ class UnUserMod : public Usermod {
         }
     }
 
-     bool onEspNowMessage(uint8_t* sender, uint8_t* data, uint8_t len) {
-        DEBUG_PRINT(F("CUSTOM ESP-NOW: "));
-
-
-      // Process the message here
-      return true; // Override further processing
-    }
-
-
-    /*
-     * getId() allows you to optionally give your V2 usermod an unique ID (please define it in const.h!).
-     * This could be used in the future for the system to determine whether your usermod is installed.
-     */
-    uint16_t getId()
-    {
-      return USERMOD_ID_EXAMPLE;
-    }
-
-   //More methods can be added in the future, this example will then be extended.
-   //Your usermod will remain compatible as it does not need to implement all methods from the Usermod base class!
 };
 
 
