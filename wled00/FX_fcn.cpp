@@ -411,7 +411,7 @@ uint8_t Segment::currentBri(bool useCct) const {
   if (prog < 0xFFFFU) {
 #ifndef WLED_DISABLE_MODE_BLEND
     uint8_t tmpBri = useCct ? _t->_cctT : (_t->_segT._optionsT & 0x0004 ? _t->_briT : 0);
-    if (blendingStyle > BLEND_STYLE_FADE) return _modeBlend ? tmpBri : curBri; // not fade/blend transition, each effect uses its brightness
+    if (blendingStyle != BLEND_STYLE_FADE) return _modeBlend ? tmpBri : curBri; // not fade/blend transition, each effect uses its brightness
 #else
     uint8_t tmpBri = useCct ? _t->_cctT : _t->_briT;
 #endif
@@ -426,7 +426,7 @@ uint8_t Segment::currentMode() const {
 #ifndef WLED_DISABLE_MODE_BLEND
   unsigned prog = progress();
   if (prog == 0xFFFFU) return mode;
-  if (blendingStyle > BLEND_STYLE_FADE) {
+  if (blendingStyle != BLEND_STYLE_FADE) {
     // workaround for on/off transition to respect blending style
     uint8_t modeT = (bri != briT) &&  bri ? FX_MODE_STATIC : _t->_modeT;   // On/Off transition active (bri!=briT) and final bri>0 : old mode is STATIC
     uint8_t modeS = (bri != briT) && !bri ? FX_MODE_STATIC : mode;         // On/Off transition active (bri!=briT) and final bri==0 : new mode is STATIC
@@ -443,7 +443,7 @@ uint32_t Segment::currentColor(uint8_t slot) const {
   uint32_t prog = progress();
   if (prog == 0xFFFFU) return colors[slot];
 #ifndef WLED_DISABLE_MODE_BLEND
-  if (blendingStyle > BLEND_STYLE_FADE) {
+  if (blendingStyle != BLEND_STYLE_FADE) {
     // workaround for on/off transition to respect blending style
     uint32_t colT = (bri != briT) &&  bri ? BLACK : _t->_segT._colorT[slot];  // On/Off transition active (bri!=briT) and final bri>0 : old color is BLACK
     uint32_t colS = (bri != briT) && !bri ? BLACK : colors[slot];             // On/Off transition active (bri!=briT) and final bri==0 : new color is BLACK
@@ -462,20 +462,13 @@ void Segment::beginDraw() {
   _vLength = virtualLength();
   _segBri  = currentBri();
   // adjust gamma for effects
-  for (unsigned i = 0; i < NUM_COLORS; i++) {
-    #ifndef WLED_DISABLE_MODE_BLEND
-    uint32_t col = isInTransition() ? color_blend(_t->_segT._colorT[i], colors[i], progress(), true) : colors[i];
-    #else
-    uint32_t col = isInTransition() ? color_blend(_t->_colorT[i], colors[i], progress(), true) : colors[i];
-    #endif
-    _currentColors[i] = gamma32(col);
-  }
+  for (unsigned i = 0; i < NUM_COLORS; i++) _currentColors[i] = gamma32(currentColor(i));
   // load palette into _currentPalette
   loadPalette(_currentPalette, palette);
   unsigned prog = progress();
   if (prog < 0xFFFFU) {
 #ifndef WLED_DISABLE_MODE_BLEND
-    if (blendingStyle > BLEND_STYLE_FADE) {
+    if (blendingStyle != BLEND_STYLE_FADE) {
       //if (_modeBlend) loadPalette(_currentPalette, _t->_palTid); // not fade/blend transition, each effect uses its palette
       if (_modeBlend) _currentPalette = _t->_palT; // not fade/blend transition, each effect uses its palette
     } else
@@ -757,7 +750,7 @@ uint16_t Segment::virtualLength() const {
 // _modeBlend==false -> new effect during transition
 bool IRAM_ATTR_YN Segment::isPixelClipped(int i) const {
 #ifndef WLED_DISABLE_MODE_BLEND
-  if (_clipStart != _clipStop && blendingStyle > BLEND_STYLE_FADE) {
+  if (_clipStart != _clipStop && blendingStyle != BLEND_STYLE_FADE) {
     bool invert = _clipStart > _clipStop;  // ineverted start & stop
     int start = invert ? _clipStop : _clipStart;
     int stop  = invert ? _clipStart : _clipStop;

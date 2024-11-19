@@ -339,25 +339,26 @@ extern byte realtimeMode;           // used in getMappedPixelIndex()
 #define MODE_COUNT                     187
 
 
-#define BLEND_STYLE_FADE            0
-#define BLEND_STYLE_FAIRY_DUST      1
-#define BLEND_STYLE_SWIPE_RIGHT     2
-#define BLEND_STYLE_SWIPE_LEFT      3
-#define BLEND_STYLE_PUSH_RIGHT      4
-#define BLEND_STYLE_PUSH_LEFT       5
-#define BLEND_STYLE_PINCH_OUT       6
-#define BLEND_STYLE_INSIDE_OUT      7
-#define BLEND_STYLE_SWIPE_UP        8
-#define BLEND_STYLE_SWIPE_DOWN      9
-#define BLEND_STYLE_OPEN_H          10
-#define BLEND_STYLE_OPEN_V          11
-#define BLEND_STYLE_PUSH_UP         12
-#define BLEND_STYLE_PUSH_DOWN       13
-#define BLEND_STYLE_PUSH_TL         14
-#define BLEND_STYLE_PUSH_TR         15
-#define BLEND_STYLE_PUSH_BR         16
-#define BLEND_STYLE_PUSH_BL         17
-
+#define BLEND_STYLE_FADE            0x00  // universal
+#define BLEND_STYLE_FAIRY_DUST      0x01  // universal
+#define BLEND_STYLE_SWIPE_RIGHT     0x02  // 1D or 2D
+#define BLEND_STYLE_SWIPE_LEFT      0x03  // 1D or 2D
+#define BLEND_STYLE_PINCH_OUT       0x04  // 1D or 2D
+#define BLEND_STYLE_INSIDE_OUT      0x05  // 1D or 2D
+#define BLEND_STYLE_SWIPE_UP        0x06  // 2D
+#define BLEND_STYLE_SWIPE_DOWN      0x07  // 2D
+#define BLEND_STYLE_OPEN_H          0x08  // 2D
+#define BLEND_STYLE_OPEN_V          0x09  // 2D
+// as there are many push variants to optimise if statements they are groupped together
+#define BLEND_STYLE_PUSH_RIGHT      0x10  // 1D or 2D (& 0b00010000)
+#define BLEND_STYLE_PUSH_LEFT       0x11  // 1D or 2D (& 0b00010000)
+#define BLEND_STYLE_PUSH_UP         0x12  // 2D (& 0b00010000)
+#define BLEND_STYLE_PUSH_DOWN       0x13  // 2D (& 0b00010000)
+#define BLEND_STYLE_PUSH_TL         0x14  // 2D (& 0b00010000)
+#define BLEND_STYLE_PUSH_TR         0x15  // 2D (& 0b00010000)
+#define BLEND_STYLE_PUSH_BR         0x16  // 2D (& 0b00010000)
+#define BLEND_STYLE_PUSH_BL         0x17  // 2D (& 0b00010000)
+#define BLEND_STYLE_PUSH_MASK       0x10
 #define BLEND_STYLE_COUNT           18
 
 
