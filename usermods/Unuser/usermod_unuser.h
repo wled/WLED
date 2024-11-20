@@ -97,9 +97,11 @@ class UnUserMod : public Usermod {
      */
     void handleOverlayDraw()
     {
-    // Block the corners of a 16x16 matrix
+        if (!enabled) return;
+
+        // Block the corners of a 16x16 matrix
         uint32_t cornerColor = RGBW32(0, 0, 0, 0); // Black color for the corners
-        blockCorners(cornerColor);
+        blockCorners(cornerColor);      
     }
 
     void blockCorners(uint32_t color) {

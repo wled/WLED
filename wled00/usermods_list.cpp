@@ -11,13 +11,12 @@
  */
 //#include "../usermods/EXAMPLE_v2/usermod_v2_example.h"
 
+#ifdef USERMOD_VISUALREMOTE
+  #include "../usermods/VisualRemote/usermod_visualremote.h"
+#endif
 
 #ifdef USERMOD_UNUSER
   #include "../usermods/Unuser/usermod_unuser.h"
-#endif
-
-#ifdef USERMOD_VISUALREMOTE
-  #include "../usermods/VisualRemote/usermod_visualremote.h"
 #endif
 
 #ifdef USERMOD_BATTERY
@@ -480,12 +479,14 @@ void registerUsermods()
   UsermodManager::add(new PovDisplayUsermod());
   #endif
 
+
+  #ifdef USERMOD_VISUALREMOTE
+    UsermodManager::add(new UsermodVisualRemote());    
+  #endif
+
   #ifdef USERMOD_UNUSER
   UsermodManager::add(new UnUserMod());
   #endif
 
 
-  #ifdef USERMOD_VISUALREMOTE
-    UsermodManager::add(new UsermodVisualRemote());    
-  #endif
 }
