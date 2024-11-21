@@ -5171,6 +5171,10 @@ uint16_t mode_2DDrift() {              // By: Stepko   https://editor.soulmateli
     unsigned i_20 = i * 20.0f;
     float t_maxdim = t * (maxDim - i);
     float angle = float(DEG_TO_RAD) * t_maxdim;
+    // WLEDMM reduce angle to [0 ... 2*PI] - several times faster than letting sinf() do the job
+    float baseAngle = max(0.0f, floorf(angle * float(1.0 / M_TWOPI)) * float(M_TWOPI));     // multiple of 2_PI (360 deg) that's included in angle
+    angle -= baseAngle;
+
     int mySin = sinf(angle) * i;
     int myCos = cosf(angle) * i;
 
