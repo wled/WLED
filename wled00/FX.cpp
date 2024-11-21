@@ -2012,7 +2012,7 @@ uint16_t mode_partyjerk() {
     speed = SEGMENT.speed * map2(SEGMENT.custom2, 0, 255, 0, 100);
   } else {
     speed = SEGMENT.speed;
-  }
+  };
 
   SEGENV.step += speed;
   counter = SEGENV.step >> 8;
