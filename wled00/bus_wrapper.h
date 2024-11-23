@@ -597,7 +597,7 @@ class PolyBus {
       case I_HS_P98_3: busPtr = new B_HS_P98_3(len, pins[1], pins[0]); break;
       case I_SS_P98_3: busPtr = new B_SS_P98_3(len, pins[1], pins[0]); break;
     }
-    begin(busPtr, busType, pins, clock_kHz);
+
     return busPtr;
   }
 
