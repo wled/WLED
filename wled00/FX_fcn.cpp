@@ -1415,14 +1415,9 @@ void WS2812FX::finalizeInit() {
     _isOffRefreshRequired |= bus->isOffRefreshRequired() && !bus->isPWM(); // use refresh bit for phase shift with analog
     unsigned busEnd = bus->getStart() + bus->getLength();
     if (busEnd > _length) _length = busEnd;
-    #ifdef ESP8266
-    // why do we need to reinitialise GPIO3???
-    //if (!bus->isDigital() || bus->is2Pin()) continue;
-    //uint8_t pins[5];
-    //if (!bus->getPins(pins)) continue;
-    //BusDigital* bd = static_cast<BusDigital*>(bus);
-    //if (pins[0] == 3) bd->reinit();
-    #endif
+
+    // This must be done after all buses have been created, as some kinds (parallel I2S) interact
+    bus->begin();
   }
 
   Segment::maxWidth  = _length;

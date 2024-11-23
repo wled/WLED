@@ -103,6 +103,7 @@ class Bus {
 
     virtual ~Bus() {} //throw the bus under the bus
 
+    virtual void     begin() {};
     virtual void     show() = 0;
     virtual bool     canShow() const                          { return true; }
     virtual void     setStatusPixel(uint32_t c)                {}
@@ -237,7 +238,7 @@ class BusDigital : public Bus {
     uint16_t getLEDCurrent() const override  { return _milliAmpsPerLed; }
     uint16_t getUsedCurrent() const override { return _milliAmpsTotal; }
     uint16_t getMaxCurrent() const override  { return _milliAmpsMax; }
-    void reinit();
+    void begin() override;
     void cleanup();
 
     static std::vector<LEDType> getLEDTypes();

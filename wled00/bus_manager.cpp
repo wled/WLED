@@ -387,7 +387,7 @@ std::vector<LEDType> BusDigital::getLEDTypes() {
   };
 }
 
-void BusDigital::reinit() {
+void BusDigital::begin() {
   if (!_valid) return;
   PolyBus::begin(_busPtr, _iType, _pins);
 }
@@ -887,7 +887,7 @@ void BusManager::on() {
       if (busses[i]->isDigital() && busses[i]->getPins(pins)) {
         if (pins[0] == LED_BUILTIN || pins[1] == LED_BUILTIN) {
           BusDigital *bus = static_cast<BusDigital*>(busses[i]);
-          bus->reinit();
+          bus->begin();
           break;
         }
       }
