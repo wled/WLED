@@ -1056,7 +1056,7 @@ BusHub75Matrix::BusHub75Matrix(BusConfig &bc) : Bus(bc.type, bc.start, bc.autoWh
   USER_PRINT(F("heap usage: ")); USER_PRINTLN(int(lastHeap - ESP.getFreeHeap()));
 }
 
-void __attribute__((hot)) BusHub75Matrix::setPixelColor(uint16_t pix, uint32_t c) {
+void __attribute__((hot)) IRAM_ATTR BusHub75Matrix::setPixelColor(uint16_t pix, uint32_t c) {
   if (!_valid || pix >= _len) return;
   // if (_cct >= 1900) c = colorBalanceFromKelvin(_cct, c); //color correction from CCT
 
@@ -1097,12 +1097,12 @@ void __attribute__((hot)) BusHub75Matrix::setPixelColor(uint16_t pix, uint32_t c
   #endif
 }
 
-uint32_t BusHub75Matrix::getPixelColor(uint16_t pix) const {
+uint32_t IRAM_ATTR BusHub75Matrix::getPixelColor(uint16_t pix) const {
   if (!_valid || pix >= _len || !_ledBuffer) return BLACK;
   return uint32_t(_ledBuffer[pix].scale8(_bri)) & 0x00FFFFFF;  // scale8() is needed to mimic NeoPixelBus, which returns scaled-down colours
 }
 
-uint32_t __attribute__((hot)) BusHub75Matrix::getPixelColorRestored(uint16_t pix) const {
+uint32_t __attribute__((hot)) IRAM_ATTR BusHub75Matrix::getPixelColorRestored(uint16_t pix) const {
   if (!_valid || pix >= _len || !_ledBuffer) return BLACK;
   return uint32_t(_ledBuffer[pix]) & 0x00FFFFFF;
 }
@@ -1117,7 +1117,7 @@ void BusHub75Matrix::setBrightness(uint8_t b, bool immediate) {
   if (display) display->setBrightness(_bri);
 }
 
-void __attribute__((hot)) BusHub75Matrix::show(void) {
+void __attribute__((hot)) IRAM_ATTR BusHub75Matrix::show(void) {
   if (!_valid) return;
   MatrixPanel_I2S_DMA* display = BusHub75Matrix::activeDisplay;
   if (!display) return;
@@ -1277,8 +1277,8 @@ void BusManager::removeAll() {
   lastend = 0;
 }
 
-void BusManager::show() {
-  for (uint8_t i = 0; i < numBusses; i++) {
+void __attribute__((hot)) BusManager::show() {
+  for (unsigned i = 0; i < numBusses; i++) {
     busses[i]->show();
   }
 }

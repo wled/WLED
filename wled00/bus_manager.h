@@ -191,7 +191,7 @@ class Bus {
     inline static void    setGlobalAWMode(uint8_t m)  { if (m < 5) _gAWM = m; else _gAWM = AW_GLOBAL_DISABLED; }
     inline static uint8_t getGlobalAWMode()           { return _gAWM; }
 
-    inline uint32_t restore_Color_Lossy(uint32_t c, uint8_t restoreBri) const { // shamelessly grabbed from upstream, who grabbed from NPB, who ..
+    inline static uint32_t restore_Color_Lossy(uint32_t c, uint8_t restoreBri) { // shamelessly grabbed from upstream, who grabbed from NPB, who ..
       if (restoreBri < 255) {
         uint8_t* chan = (uint8_t*) &c;
         for (uint_fast8_t i=0; i<4; i++) {
