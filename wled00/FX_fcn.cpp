@@ -311,7 +311,7 @@ void Segment::setUpLeds() {
   }
 }
 
-CRGBPalette16 &Segment::loadPalette(CRGBPalette16 &targetPalette, uint8_t pal) {
+CRGBPalette16 &Segment::loadPalette(CRGBPalette16 &targetPalette, uint8_t pal) const {
   static unsigned long _lastPaletteChange = millis() - 990000; // perhaps it should be per segment //WLEDMM changed init value to avoid pure orange after startup
   static CRGBPalette16 randomPalette = CRGBPalette16(DEFAULT_COLOR);
   static CRGBPalette16 prevRandomPalette = CRGBPalette16(CRGB(BLACK));
@@ -452,7 +452,7 @@ void Segment::startTransition(uint16_t dur) {
 }
 
 // transition progression between 0-65535
-uint16_t IRAM_ATTR_YN Segment::progress() {
+uint16_t IRAM_ATTR_YN Segment::progress() const {
   if (!transitional || !_t) return 0xFFFFU;
   unsigned long timeNow = millis();
   if (timeNow - _t->_start > _t->_dur || _t->_dur == 0) return 0xFFFFU;

@@ -272,7 +272,7 @@ void Segment::startFrame(void) {
 
 // Simplified version of Segment::setPixelColorXY - without error checking. Does not support grouping or spacing
 // * expects scaled color (final brightness) as additional input parameter, plus segment  virtualWidth() and virtualHeight()
-void IRAM_ATTR __attribute__((hot)) Segment::setPixelColorXY_fast(int x, int y, uint32_t col, uint32_t scaled_col, int cols, int rows) //WLEDMM
+void IRAM_ATTR __attribute__((hot)) Segment::setPixelColorXY_fast(int x, int y, uint32_t col, uint32_t scaled_col, int cols, int rows) const //WLEDMM
 {
   unsigned i = UINT_MAX;
   bool sameColor = false;

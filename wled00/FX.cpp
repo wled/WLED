@@ -4763,7 +4763,7 @@ class AuroraWave {
       alive = true;
     }
 
-    CRGB getColorForLED(int ledIndex) {
+    CRGB getColorForLED(int ledIndex) const {
       if(ledIndex < center - width || ledIndex > center + width) return 0; //Position out of range of this wave
 
       CRGB rgb;
@@ -4818,7 +4818,7 @@ class AuroraWave {
       }
     };
 
-    bool stillAlive() {
+    bool stillAlive() const {
       return alive;
     };
 };

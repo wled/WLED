@@ -420,7 +420,7 @@ typedef struct Segment {
     };
     size_t _dataLen;                   // WLEDMM uint16_t is too small
     static size_t _usedSegmentData;    // WLEDMM uint16_t is too small
-    void setPixelColorXY_fast(int x, int y,uint32_t c, uint32_t scaled_col, int cols, int rows); // set relative pixel within segment with color - faster, but no error checking!!!
+    void setPixelColorXY_fast(int x, int y,uint32_t c, uint32_t scaled_col, int cols, int rows) const; // set relative pixel within segment with color - faster, but no error checking!!!
 
     bool _isSimpleSegment = false;      // simple = no grouping or spacing - mirror, transpose or reverse allowed
     bool _isSuperSimpleSegment = false; // superSimple = no grouping or spacing, no mirror - only transpose or reverse allowed
@@ -606,7 +606,7 @@ typedef struct Segment {
     // transition functions
     void     startTransition(uint16_t dur); // transition has to start before actual segment values change
     void     handleTransition(void);
-    uint16_t progress(void); //transition progression between 0-65535
+    uint16_t progress(void) const; //transition progression between 0-65535
 
     // WLEDMM method inlined for speed (its called at each setPixelColor)
     inline uint8_t  currentBri(uint8_t briNew, bool useCct = false) {
@@ -621,7 +621,7 @@ typedef struct Segment {
 
     uint8_t  currentMode(uint8_t modeNew);
     uint32_t currentColor(uint8_t slot, uint32_t colorNew);
-    CRGBPalette16 &loadPalette(CRGBPalette16 &tgt, uint8_t pal);
+    CRGBPalette16 &loadPalette(CRGBPalette16 &tgt, uint8_t pal) const;
     void     setCurrentPalette(void);
 
     // 1D strip
