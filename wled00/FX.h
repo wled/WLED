@@ -721,10 +721,21 @@ typedef struct Segment {
 
         uint32_t scaled_col = (_brightness == 255) ? col : color_fade(col, _brightness);  // calculate final color
         setPixelColorXY_fast(x, y, col, scaled_col, int(_2dWidth), int(_2dHeight));       // call "fast" function
-  }
-}
+      }
+    }
+    inline uint32_t getPixelColorXY(int x, int y) const {
+      // minimal sanity checks
+      if (!_isValid2D) return 0;                                                // not active
+      if ((unsigned(x) >= _2dWidth) || (unsigned(y) >= _2dHeight)) return 0 ;   // check if (x,y) are out-of-range - due to 2's complement, this also catches negative values
+      if (ledsrgb) {
+        int i = x + y*_2dWidth; // avoid error checking done by XY() - be optimistic about ranges of x and y
+        return RGBW32(ledsrgb[i].r, ledsrgb[i].g, ledsrgb[i].b, 0);
+      }
+      else return getPixelColorXY_part2(x, y, int(_2dWidth), int(_2dHeight));    // call "no ledsrgb" function to retrieve pixel from bus driver
+    }
 #else
     void setPixelColorXY(int x, int y, uint32_t c); // set relative pixel within segment with color
+    uint32_t __attribute__((pure)) getPixelColorXY(int x, int y)  const { return getPixelColorXY_slow(x,y);}
 #endif
     inline void setPixelColorXY(unsigned x, unsigned y, uint32_t c)               { setPixelColorXY(int(x), int(y), c); }
     inline void setPixelColorXY(int x, int y, byte r, byte g, byte b, byte w = 0) { setPixelColorXY(x, y, RGBW32(r,g,b,w)); }
@@ -735,7 +746,8 @@ typedef struct Segment {
     inline void setPixelColorXY(float x, float y, byte r, byte g, byte b, byte w = 0, bool aa = true) { setPixelColorXY(x, y, RGBW32(r,g,b,w), aa); }
     inline void setPixelColorXY(float x, float y, CRGB c, bool aa = true)                             { setPixelColorXY(x, y, RGBW32(c.r,c.g,c.b,0), aa); }
     //#endif
-    uint32_t __attribute__((pure)) getPixelColorXY(int x, int y)  const;
+    uint32_t __attribute__((pure)) getPixelColorXY_part2(int x, int y, int cols, int rows)  const;
+    uint32_t __attribute__((pure)) getPixelColorXY_slow(int x, int y)  const;
     // 2D support functions
     void blendPixelColorXY(uint16_t x, uint16_t y, uint32_t color, uint8_t blend);
     inline void blendPixelColorXY(uint16_t x, uint16_t y, CRGB c, uint8_t blend)  { blendPixelColorXY(x, y, RGBW32(c.r,c.g,c.b,0), blend); }

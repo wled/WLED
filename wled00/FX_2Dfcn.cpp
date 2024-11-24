@@ -454,8 +454,18 @@ void Segment::setPixelColorXY(float x, float y, uint32_t col, bool aa, bool fast
 #endif
 }
 
-// returns RGBW values of pixel
-uint32_t IRAM_ATTR_YN Segment::getPixelColorXY(int x, int y) const {
+// WLEDMM this function is only called by getPixelColorXY, in case we don't have the ledsrgb buffer!
+uint32_t IRAM_ATTR_YN Segment::getPixelColorXY_part2(int x, int y, int cols, int rows) const {
+  if (reverse  ) x = cols - x - 1;
+  if (reverse_y) y = rows - y - 1;
+  if (transpose) std::swap(x,y); // swap X & Y if segment transposed
+  const uint_fast16_t groupLength_ = groupLength(); // WLEDMM small optimization
+  x *= groupLength_; // expand to physical pixels
+  y *= groupLength_; // expand to physical pixels
+  return strip.getPixelColorXYRestored(start + x, startY + y);
+}
+
+uint32_t IRAM_ATTR_YN Segment::getPixelColorXY_slow(int x, int y) const { // WLEDMM fallback for non-fastpath builds
   if (x<0 || y<0 || !isActive()) return 0; // not active or out-of range
   if (ledsrgb) {
     int i = XY(x,y);
