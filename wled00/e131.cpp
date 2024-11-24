@@ -420,10 +420,9 @@ void prepareArtnetPollReply(ArtPollReply *reply) {
 
   reply->reply_port = ARTNET_DEFAULT_PORT;
 
-  char * numberEnd = versionString;
-  reply->reply_version_h = (uint8_t)strtol(numberEnd, &numberEnd, 10);
-  numberEnd++;
-  reply->reply_version_l = (uint8_t)strtol(numberEnd, &numberEnd, 10);
+  const char * numberEnd = strchr(versionString,'.');
+  reply->reply_version_h = (uint8_t)strtoul(versionString, nullptr, 10);
+  reply->reply_version_l = (uint8_t)(numberEnd != nullptr ? strtoul(++numberEnd, nullptr, 10) : 0);
 
   // Switch values depend on universe, set before sending
   reply->reply_net_sw = 0x00;
