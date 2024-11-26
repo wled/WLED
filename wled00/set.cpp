@@ -215,6 +215,7 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
     //doInitBusses = busesChanged; // we will do that below to ensure all input data is processed
 
     // we will not bother with pre-allocating ColorOrderMappings vector
+    BusManager::getColorOrderMap().reset();
     for (int s = 0; s < WLED_MAX_COLOR_ORDER_MAPPINGS; s++) {
       int offset = s < 10 ? 48 : 55;
       char xs[4] = "XS"; xs[2] = offset+s; xs[3] = 0; //start LED
