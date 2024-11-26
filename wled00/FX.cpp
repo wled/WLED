@@ -1743,7 +1743,7 @@ uint16_t mode_tricolor_fade(void) {
 
   return FRAMETIME;
 }
-static const char _data_FX_MODE_TRICOLOR_FADE[] PROGMEM = "Tri Fade@!;1,2,3;!";
+static const char _data_FX_MODE_TRICOLOR_FADE[] PROGMEM = "Tri Fade@!;1,2,3;!;01";
 
 
 /*
