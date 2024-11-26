@@ -6214,9 +6214,9 @@ uint16_t mode_2Dsquaredswirl(void) {            // By: Mark Kriegsman. https://g
 
   uint16_t ms = strip.now;
 
-  SEGMENT.addPixelColorXY(i, m, ColorFromPalette(SEGPALETTE, ms/29, 255, LINEARBLEND));
-  SEGMENT.addPixelColorXY(j, n, ColorFromPalette(SEGPALETTE, ms/41, 255, LINEARBLEND));
-  SEGMENT.addPixelColorXY(k, p, ColorFromPalette(SEGPALETTE, ms/73, 255, LINEARBLEND));
+  if (i<cols && m<rows) SEGMENT.addPixelColorXY(i, m, ColorFromPalette(SEGPALETTE, ms/29, 255, LINEARBLEND));
+  if (j<cols && n<rows) SEGMENT.addPixelColorXY(j, n, ColorFromPalette(SEGPALETTE, ms/41, 255, LINEARBLEND));
+  if (k<cols && p<rows) SEGMENT.addPixelColorXY(k, p, ColorFromPalette(SEGPALETTE, ms/73, 255, LINEARBLEND));
 
   return FRAMETIME;
 } // mode_2Dsquaredswirl()
@@ -6943,10 +6943,10 @@ uint16_t mode_2DSwirl(void) {
 
   SEGMENT.blur(SEGMENT.custom1);
 
-  uint8_t  i = beatsin8( 27*SEGMENT.speed/255, borderWidth, cols - borderWidth);
-  uint8_t  j = beatsin8( 41*SEGMENT.speed/255, borderWidth, rows - borderWidth);
-  uint8_t ni = (cols - 1) - i;
-  uint8_t nj = (cols - 1) - j;
+  unsigned  i = beatsin8( 27*SEGMENT.speed/255, borderWidth, cols - borderWidth);
+  unsigned  j = beatsin8( 41*SEGMENT.speed/255, borderWidth, rows - borderWidth);
+  unsigned ni = (cols - 1) - i;
+  unsigned nj = (cols - 1) - j;
   uint16_t ms = strip.now;
 
   um_data_t *um_data = getAudioData();
@@ -6955,12 +6955,12 @@ uint16_t mode_2DSwirl(void) {
 
   // printUmData();
 
-  SEGMENT.addPixelColorXY( i, j, ColorFromPalette(SEGPALETTE, (ms / 11 + volumeSmth*4), volumeRaw * SEGMENT.intensity / 64, LINEARBLEND)); //CHSV( ms / 11, 200, 255);
-  SEGMENT.addPixelColorXY( j, i, ColorFromPalette(SEGPALETTE, (ms / 13 + volumeSmth*4), volumeRaw * SEGMENT.intensity / 64, LINEARBLEND)); //CHSV( ms / 13, 200, 255);
-  SEGMENT.addPixelColorXY(ni,nj, ColorFromPalette(SEGPALETTE, (ms / 17 + volumeSmth*4), volumeRaw * SEGMENT.intensity / 64, LINEARBLEND)); //CHSV( ms / 17, 200, 255);
-  SEGMENT.addPixelColorXY(nj,ni, ColorFromPalette(SEGPALETTE, (ms / 29 + volumeSmth*4), volumeRaw * SEGMENT.intensity / 64, LINEARBLEND)); //CHSV( ms / 29, 200, 255);
-  SEGMENT.addPixelColorXY( i,nj, ColorFromPalette(SEGPALETTE, (ms / 37 + volumeSmth*4), volumeRaw * SEGMENT.intensity / 64, LINEARBLEND)); //CHSV( ms / 37, 200, 255);
-  SEGMENT.addPixelColorXY(ni, j, ColorFromPalette(SEGPALETTE, (ms / 41 + volumeSmth*4), volumeRaw * SEGMENT.intensity / 64, LINEARBLEND)); //CHSV( ms / 41, 200, 255);
+  if (i<cols && j<rows)   SEGMENT.addPixelColorXY( i, j, ColorFromPalette(SEGPALETTE, (ms / 11 + volumeSmth*4), volumeRaw * SEGMENT.intensity / 64, LINEARBLEND)); //CHSV( ms / 11, 200, 255);
+  if (j<cols && i<rows)   SEGMENT.addPixelColorXY( j, i, ColorFromPalette(SEGPALETTE, (ms / 13 + volumeSmth*4), volumeRaw * SEGMENT.intensity / 64, LINEARBLEND)); //CHSV( ms / 13, 200, 255);
+  if (ni<cols && nj<rows) SEGMENT.addPixelColorXY(ni,nj, ColorFromPalette(SEGPALETTE, (ms / 17 + volumeSmth*4), volumeRaw * SEGMENT.intensity / 64, LINEARBLEND)); //CHSV( ms / 17, 200, 255);
+  if (nj<cols && ni<rows) SEGMENT.addPixelColorXY(nj,ni, ColorFromPalette(SEGPALETTE, (ms / 29 + volumeSmth*4), volumeRaw * SEGMENT.intensity / 64, LINEARBLEND)); //CHSV( ms / 29, 200, 255);
+  if (i<cols && nj<rows)  SEGMENT.addPixelColorXY( i,nj, ColorFromPalette(SEGPALETTE, (ms / 37 + volumeSmth*4), volumeRaw * SEGMENT.intensity / 64, LINEARBLEND)); //CHSV( ms / 37, 200, 255);
+  if (ni<cols && j<rows)  SEGMENT.addPixelColorXY(ni, j, ColorFromPalette(SEGPALETTE, (ms / 41 + volumeSmth*4), volumeRaw * SEGMENT.intensity / 64, LINEARBLEND)); //CHSV( ms / 41, 200, 255);
 
   return FRAMETIME;
 } // mode_2DSwirl()
