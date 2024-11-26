@@ -57,7 +57,7 @@
 #endif
 
 /* Not used in all effects yet */
-#define WLED_FPS         42
+#define WLED_FPS         100
 #define FRAMETIME_FIXED  (1000/WLED_FPS)
 //#define FRAMETIME        _frametime
 #define FRAMETIME        strip.getFrameTime()
@@ -314,8 +314,13 @@
 #define FX_MODE_WAVESINS               184
 #define FX_MODE_ROCKTAVES              185
 #define FX_MODE_2DAKEMI                186
+#define FX_MODE_CUSTOM_SQUARES         187
+#define FX_MODE_CUSTOM_CIRCLES         188
+#define FX_MODE_CUSTOM_DIAMOND_SPIN    189
+#define FX_MODE_CUSTOM_D_DIAMOND_SPIN  190
+#define FX_MODE_CUSTOM_BEN             191
 
-#define MODE_COUNT                     187
+#define MODE_COUNT                     192
 
 typedef enum mapping1D2D {
   M12_Pixels = 0,

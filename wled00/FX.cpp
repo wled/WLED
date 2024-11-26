@@ -7469,6 +7469,450 @@ uint16_t mode_2Ddistortionwaves() {
 static const char _data_FX_MODE_2DDISTORTIONWAVES[] PROGMEM = "Distortion Waves@!,Scale;;;2";
 
 
+// Define frames as arrays of 0s and 1s (binary map)
+const uint8_t frame0[] = {
+  1, 1, 1, 1, 1, 1, 1, 1,
+  1, 1, 0, 0, 0, 0, 1, 1,
+  1, 0, 1, 0, 0, 1, 0, 1,
+  1, 0, 0, 1, 1, 0, 0, 1,
+  1, 0, 0, 1, 1, 0, 0, 1,
+  1, 0, 1, 0, 0, 1, 0, 1,
+  1, 1, 0, 0, 0, 0, 1, 1,
+  1, 1, 1, 1, 1, 1, 1, 1,
+};
+
+const uint8_t frame1[] = {
+  0, 0, 0, 1, 1, 0, 0, 0,
+  0, 0, 0, 1, 1, 0, 0, 0,
+  0, 0, 0, 1, 1, 0, 0, 0,
+  1, 1, 1, 1, 1, 1, 1, 1,
+  1, 1, 1, 1, 1, 1, 1, 1,
+  0, 0, 0, 1, 1, 0, 0, 0,
+  0, 0, 0, 1, 1, 0, 0, 0,
+  0, 0, 0, 1, 1, 0, 0, 0,
+};
+
+const uint8_t frame2[] = {
+  1, 1, 1, 1, 1, 1, 1, 1,
+  1, 0, 0, 0, 0, 0, 0, 1,
+  1, 0, 0, 0, 0, 0, 0, 1,
+  1, 0, 0, 0, 0, 0, 0, 1,
+  1, 0, 0, 0, 0, 0, 0, 1,
+  1, 0, 0, 0, 0, 0, 0, 1,
+  1, 0, 0, 0, 0, 0, 0, 1,
+  1, 1, 1, 1, 1, 1, 1, 1,
+};
+
+uint16_t mode_custom_shapes(const uint8_t *frames[], uint16_t frameCount) {
+  static bool strobeOn = true;     // Tracks whether the strobe is "on" or "off"
+
+  static uint32_t lastFrameTime = 0;
+  static uint8_t currentFrame = 0; // Frame index: 0, 1, or 2
+  // const uint8_t *frames[] = {frame0, frame1, frame2};
+  // const uint16_t frameCount = sizeof(frames) / sizeof(frames[0]);
+  
+  // Map SEGMENT.speed to pulse frequency and frame duration
+  uint16_t minPulseFrequency = 1;   // Minimum pulse frequency in Hz
+  uint16_t maxPulseFrequency = 50; // Maximum pulse frequency in Hz
+  uint16_t pulseFrequency = (SEGMENT.intensity == 0) ? 0 : map(SEGMENT.intensity, 1, 255, minPulseFrequency, maxPulseFrequency);
+
+  // Map SEGMENT.speed to frame switch duration
+  uint32_t minFrameTime = 100; // Minimum time per frame in ms (10 fps)
+  uint32_t maxFrameTime = 1000; // Maximum time per frame in ms (1 fps)
+  uint32_t frameTime = map(SEGMENT.speed, 0, 255, maxFrameTime, minFrameTime);
+
+  // beginning of strobe like effect
+  uint32_t cycleTime = (pulseFrequency > 0) ? (1000 / pulseFrequency) : 1000;
+
+  // Determine strobe state (on/off) based on cycleTime
+  uint32_t currentTime = millis();
+  if (pulseFrequency > 0) {
+    strobeOn = (currentTime % cycleTime) < (cycleTime / 2); // On for half the cycle
+  } else {
+    strobeOn = true; // Always on if pulseFrequency is 0
+  }
+
+  // Switch frames based on frameTime
+  if (currentTime - lastFrameTime > frameTime) {
+    lastFrameTime = currentTime;
+    currentFrame = (currentFrame + 1) % frameCount;
+  }
+
+// this piece uses the sign wave calculation
+/** 
+
+  // Calculate brightness based on pulse frequency
+  uint16_t pulsePeriod = 0; // Declare pulsePeriod here
+  uint8_t brightness;       // Declare brightness here
+
+  if (pulseFrequency > 0) {
+      pulsePeriod = 1000 / pulseFrequency;
+      brightness = (sin((millis() % pulsePeriod) * (PI * 2) / pulsePeriod) + 1) * 127.5;
+  } else {
+      brightness = 255; // Full brightness, no strobing
+  }
+
+  // Switch frames based on frameTime
+  if (millis() - lastFrameTime > frameTime) {
+    lastFrameTime = millis();
+    currentFrame = (currentFrame + 1) % frameCount;
+  }
+ */
+
+
+  // Get the current frame
+  const uint8_t *currentColors = frames[currentFrame];
+
+  // Apply the frame and strobe effect
+  for (uint16_t i = 0; i < SEGLEN; i++) {
+    uint8_t color = currentColors[i];
+    if (!strobeOn || color == 0) {
+      SEGMENT.setPixelColor(i, 0); // Off
+    } else {
+      uint32_t ledColor = SEGMENT.color_from_palette(0, true, PALETTE_SOLID_WRAP, 0);
+      // Apply brightness to "on" LEDs
+      // uint8_t r = ((ledColor >> 16) & 0xFF) * brightness / 255;
+      // uint8_t g = ((ledColor >> 8) & 0xFF) * brightness / 255;
+      // uint8_t b = (ledColor & 0xFF) * brightness / 255;
+      // SEGMENT.setPixelColor(i, r, g, b);
+      SEGMENT.setPixelColor(i, ledColor);
+    }
+  }
+
+  return FRAMETIME;
+}
+// Metadata for the custom effect
+static const char _data_FX_MODE_CUSTOM[] PROGMEM = "Custom Squares@!,!,,,,Smooth;;!";
+
+uint16_t mode_custom_squares() {
+  const uint8_t *frames[] = {frame0, frame1, frame2}; // Create an array of pointers
+  const uint16_t frameCount = sizeof(frames) / sizeof(frames[0]);
+  return mode_custom_shapes(frames, frameCount); 
+}
+
+// uint16_t mode_custom_circles() {
+//   const uint8_t *frames[] = {frame0, frame1, frame2}; // Create an array of pointers
+//   return mode_custom_shapes(frames); 
+// }
+
+// Diamond Spin
+
+// Define frames as arrays of 0s and 1s (binary map)
+const uint8_t dsframe0[] = {
+       0, 0, 0, 0, 
+      0, 0, 0, 0, 0, 
+    0, 0, 1, 1, 1, 0, 
+   0, 0, 1, 0, 1, 0, 0, 
+    0, 1, 1, 1, 0, 0, 
+      0, 0, 0, 0, 0, 
+        0, 0, 0, 0,
+};
+
+const uint8_t dsframe1[] = {
+       0, 0, 0, 0, 
+      0, 0, 0, 1, 0, 
+    0, 0, 1, 1, 0, 0, 
+   0, 0, 1, 0, 1, 0, 0, 
+    0, 0, 1, 1, 0, 0, 
+      0, 1, 0, 0, 0, 
+        0, 0, 0, 0,
+};
+
+const uint8_t dsframe2[] = {
+       0, 0, 0, 0, 
+      0, 0, 1, 0, 0, 
+    0, 0, 1, 1, 0, 0, 
+   0, 0, 1, 0, 1, 0, 0, 
+    0, 0, 1, 1, 0, 0, 
+      0, 0, 1, 0, 0, 
+        0, 0, 0, 0,
+};
+
+const uint8_t dsframe3[] = {
+       0, 0, 0, 0, 
+      0, 1, 0, 0, 0, 
+    0, 0, 1, 1, 0, 0, 
+   0, 0, 1, 0, 1, 0, 0, 
+    0, 0, 1, 1, 0, 0, 
+      0, 0, 0, 1, 0, 
+        0, 0, 0, 0,
+};
+
+const uint8_t dsframe4[] = {
+       0, 0, 0, 0, 
+      0, 0, 0, 0, 0, 
+    0, 1, 1, 1, 0, 0, 
+   0, 0, 1, 0, 1, 0, 0, 
+    0, 0, 1, 1, 1, 0, 
+      0, 0, 0, 0, 0, 
+        0, 0, 0, 0,
+};
+
+const uint8_t dsframe5[] = {
+       0, 0, 0, 0, 
+      0, 0, 0, 0, 0, 
+    0, 0, 1, 1, 0, 0, 
+   0, 1, 1, 0, 1, 1, 0, 
+    0, 0, 1, 1, 0, 0, 
+      0, 0, 0, 0, 0, 
+        0, 0, 0, 0,
+};
+
+uint16_t mode_custom_diamond_spin() {
+  const uint8_t *frames[] = {dsframe0, dsframe1, dsframe2, dsframe3, dsframe4, dsframe5}; // Create an array of pointers
+  const uint16_t frameCount = sizeof(frames) / sizeof(frames[0]);
+  return mode_custom_shapes(frames, frameCount); 
+}
+
+// Metadata for the custom effect
+static const char _data_FX_MODE_CUSTOM_DIAMOND_SPIN[] PROGMEM = "Diamond Spin@!,!,,,,Smooth;;!";
+
+
+// DIAMOND SPIN
+
+// Define frames as arrays of 0s and 1s (binary map)
+const uint8_t dframe0[] = {
+       0, 0, 0, 0, 
+      0, 0, 0, 0, 0, 
+    0, 0, 1, 1, 1, 0, 
+   0, 0, 1, 0, 1, 0, 0, 
+    0, 1, 1, 1, 0, 0, 
+      0, 0, 0, 0, 0, 
+        0, 0, 0, 0,
+};
+
+const uint8_t dframe1[] = {
+       0, 0, 0, 0, 
+      0, 0, 0, 0, 0, 
+    0, 0, 0, 1, 1, 1, 
+   0, 0, 0, 1, 0, 1, 0, 
+    0, 0, 1, 1, 1, 0, 
+      0, 0, 0, 0, 0, 
+        0, 0, 0, 0,
+};
+
+const uint8_t dframe2[] = {
+       0, 0, 0, 0, 
+      0, 0, 0, 0, 0, 
+    0, 0, 0, 0, 0, 0, 
+   0, 0, 0, 1, 1, 1, 0, 
+    0, 0, 1, 0, 1, 0, 
+      0, 1, 1, 1, 0, 
+        0, 0, 0, 0,
+};
+
+const uint8_t dframe3[] = {
+       0, 0, 0, 0, 
+      0, 0, 0, 0, 0, 
+    0, 0, 0, 0, 0, 0, 
+   0, 0, 1, 1, 1, 0, 0, 
+    0, 1, 0, 1, 0, 0, 
+      1, 1, 1, 0, 0, 
+        0, 0, 0, 0,
+};
+
+const uint8_t dframe4[] = {
+       0, 0, 0, 0, 
+      0, 0, 0, 0, 0, 
+    0, 1, 1, 1, 0, 0, 
+   0, 1, 0, 1, 0, 0, 0, 
+    1, 1, 1, 0, 0, 0, 
+      0, 0, 0, 0, 0, 
+        0, 0, 0, 0,
+};
+
+const uint8_t dframe5[] = {
+       0, 0, 0, 0, 
+      0, 0, 0, 0, 0, 
+    0, 1, 1, 1, 0, 0, 
+   0, 1, 0, 1, 0, 0, 0, 
+    1, 1, 1, 0, 0, 0, 
+      0, 0, 0, 0, 0, 
+        0, 0, 0, 0,
+};
+
+const uint8_t dframe6[] = {
+       0, 0, 0, 0, 
+      0, 1, 1, 1, 0, 
+    0, 1, 0, 1, 0, 0, 
+   0, 1, 1, 1, 0, 0, 0, 
+    0, 0, 0, 0, 0, 0, 
+      0, 0, 0, 0, 0, 
+        0, 0, 0, 0,
+};
+
+const uint8_t dframe7[] = {
+       0, 0, 0, 0, 
+      0, 0, 1, 1, 1, 
+    0, 0, 1, 0, 1, 0, 
+   0, 0, 1, 1, 1, 0, 0, 
+    0, 0, 0, 0, 0, 0, 
+      0, 0, 0, 0, 0, 
+        0, 0, 0, 0,
+};
+
+uint16_t mode_custom_drunk_diamond_spin() {
+  const uint8_t *frames[] = {dframe0, dframe1, dframe2, dframe3, dframe4, dframe5, dframe6, dframe7}; // Create an array of pointers
+  const uint16_t frameCount = sizeof(frames) / sizeof(frames[0]);
+  return mode_custom_shapes(frames, frameCount); 
+}
+
+// Metadata for the custom effect
+static const char _data_FX_MODE_CUSTOM_D_DIAMOND_SPIN[] PROGMEM = "Drunk Diamond Spin@!,!,,,,Smooth;;!";
+
+
+const uint8_t bframe0[] = {
+     1, 1, 1, 0, 
+    0, 0, 0, 1, 0, 
+   0, 1, 0, 1, 0, 0, 
+  0, 0, 1, 1, 0, 0, 0, 
+   0, 1, 0, 1, 0, 0, 
+    0, 0, 0, 1, 0, 
+     1, 1, 1, 0
+};
+
+const uint8_t bframe1[] = {
+     1, 1, 1, 1, 
+    0, 0, 0, 0, 0, 
+   0, 1, 0, 0, 0, 0, 
+  0, 0, 1, 1, 1, 0, 0, 
+   0, 1, 0, 0, 0, 0, 
+    0, 0, 0, 0, 0, 
+     1, 1, 1, 1
+};
+
+const uint8_t bframe2[] = {
+     1, 0, 0, 1, 
+    0, 1, 0, 0, 0, 
+   0, 1, 1, 0, 1, 0, 
+  0, 0, 0, 1, 0, 0, 0, 
+   0, 1, 0, 1, 1, 0, 
+    0, 0, 0, 1, 0, 
+     1, 0, 0, 1
+};
+
+uint16_t mode_custom_ben() {
+  const uint8_t *frames[] = {bframe0, bframe1, bframe2}; // Create an array of pointers
+  const uint16_t frameCount = sizeof(frames) / sizeof(frames[0]);
+  return mode_custom_shapes(frames, frameCount); 
+}
+
+// Metadata for the custom effect
+static const char _data_FX_MODE_CUSTOM_BEN[] PROGMEM = "Ben@!,!,,,,Smooth;;!";
+
+
+
+// Custom spin
+// me
+// Define frames as arrays of color values
+const uint8_t cframe0[] = {
+  0, 0, 0, 1, 1, 0, 0, 0,
+  0, 0, 0, 1, 1, 0, 0, 0,
+  0, 0, 0, 1, 1, 0, 0, 0,
+  0, 0, 0, 1, 1, 0, 0, 0,
+  0, 0, 0, 1, 1, 0, 0, 0,
+  0, 0, 0, 1, 1, 0, 0, 0,
+  0, 0, 0, 1, 1, 0, 0, 0,
+  0, 0, 0, 1, 1, 0, 0, 0,
+};
+
+const uint8_t cframe1[] = {
+  0, 1, 1, 0, 0, 0, 0, 0,
+  0, 0, 1, 0, 0, 0, 0, 0,
+  0, 0, 0, 1, 0, 0, 0, 0,
+  0, 0, 0, 1, 1, 0, 0, 0,
+  0, 0, 0, 1, 1, 0, 0, 0,
+  0, 0, 0, 0, 1, 0, 0, 0,
+  0, 0, 0, 0, 0, 1, 0, 0,
+  0, 0, 0, 0, 0, 1, 1, 0,
+};
+
+const uint8_t cframe2[] = {
+  1, 1, 0, 0, 0, 0, 0, 0,
+  0, 1, 1, 0, 0, 0, 0, 0,
+  0, 0, 1, 1, 0, 0, 0, 0,
+  0, 0, 1, 1, 1, 0, 0, 0,
+  0, 0, 0, 1, 1, 1, 0, 0,
+  0, 0, 0, 0, 1, 1, 0, 0,
+  0, 0, 0, 0, 0, 1, 1, 0,
+  0, 0, 0, 0, 0, 0, 1, 1,
+};
+
+const uint8_t cframe3[] = {
+  0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0,
+  1, 1, 1, 1, 1, 1, 1, 1,
+  1, 1, 1, 1, 1, 1, 1, 1,
+  0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0,
+};
+
+const uint8_t cframe4[] = {
+  0, 0, 0, 0, 0, 0, 1, 1,
+  0, 0, 0, 0, 0, 1, 1, 0,
+  0, 0, 0, 0, 1, 1, 0, 0,
+  0, 0, 0, 1, 1, 1, 0, 0,
+  0, 0, 1, 1, 1, 0, 0, 0,
+  0, 0, 1, 1, 0, 0, 0, 0,
+  0, 1, 1, 0, 0, 0, 0, 0,
+  1, 1, 0, 0, 0, 0, 0, 0,
+};
+
+const uint8_t cframe5[] = {
+  0, 0, 0, 0, 0, 0, 1, 0,
+  0, 0, 0, 0, 0, 1, 0, 0,
+  0, 0, 0, 0, 1, 1, 0, 0,
+  0, 0, 0, 1, 1, 0, 0, 0,
+  0, 0, 0, 1, 1, 0, 0, 0,
+  0, 0, 1, 1, 0, 0, 0, 0,
+  0, 0, 1, 0, 0, 0, 0, 0,
+  0, 1, 0, 0, 0, 0, 0, 0,
+};
+
+uint16_t mode_custom_circles() {
+  const uint8_t *frames[] = {cframe0, cframe1, cframe2, cframe3, cframe4, cframe5}; // Create an array of pointers
+  const uint16_t frameCount = sizeof(frames) / sizeof(frames[0]);
+  return mode_custom_shapes(frames, frameCount); 
+  // static uint32_t lastFrameTime = 0;
+  // static uint8_t currentFrame = 0; // Frame index: 0, 1, or 2
+  // const uint32_t *frames[] = {cframe0, cframe1, cframe2, cframe3, cframe4, cframe5};
+  // const uint16_t frameCount = sizeof(frames) / sizeof(frames[0]);
+  // uint16_t pulseFrequency = 20; // Hz
+  // uint16_t pulsePeriod = 1000 / pulseFrequency; // Pulse duration in ms
+  // uint8_t brightness = (sin((millis() % pulsePeriod) * (PI * 2) / pulsePeriod) + 1) * 127.5;
+
+  // // Switch frames every 500ms
+  // if (millis() - lastFrameTime > 500) {
+  //   lastFrameTime = millis();
+  //   currentFrame = (currentFrame + 1) % frameCount;
+  // }
+
+  // // Get the current frame
+  // const uint32_t *currentColors = frames[currentFrame];
+
+  // // Apply the frame and strobe effect
+  // for (uint16_t i = 0; i < SEGLEN; i++) {
+  //   uint32_t color = currentColors[i];
+  //   if (color == 0x000000) {
+  //     SEGMENT.setPixelColor(i, 0); // Off
+  //   } else {
+  //     // Apply brightness to "on" LEDs
+  //     uint8_t r = ((color >> 16) & 0xFF) * brightness / 255;
+  //     uint8_t g = ((color >> 8) & 0xFF) * brightness / 255;
+  //     uint8_t b = (color & 0xFF) * brightness / 255;
+  //     SEGMENT.setPixelColor(i, r, g, b);
+  //   }
+  // }
+
+  // return FRAMETIME;
+}
+// Metadata for the custom effect
+static const char _data_FX_MODE_CIRCLE[] PROGMEM = "Custom Circles@!,!,,,,Smooth;;!";
+
+
+
 //Soap
 //@Stepko
 //Idea from https://www.youtube.com/watch?v=DiHBgITrZck&ab_channel=StefanPetrick
@@ -7695,6 +8139,11 @@ void WS2812FX::setupEffectData() {
   }
   // now replace all pre-allocated effects
   // --- 1D non-audio effects ---
+  addEffect(FX_MODE_CUSTOM_BEN, &mode_custom_ben, _data_FX_MODE_CUSTOM_BEN);
+  addEffect(FX_MODE_CUSTOM_D_DIAMOND_SPIN, &mode_custom_drunk_diamond_spin, _data_FX_MODE_CUSTOM_D_DIAMOND_SPIN);
+  addEffect(FX_MODE_CUSTOM_DIAMOND_SPIN, &mode_custom_diamond_spin, _data_FX_MODE_CUSTOM_DIAMOND_SPIN);
+  addEffect(FX_MODE_CUSTOM_SQUARES, &mode_custom_squares, _data_FX_MODE_CUSTOM);
+  addEffect(FX_MODE_CUSTOM_CIRCLES, &mode_custom_circles, _data_FX_MODE_CIRCLE);
   addEffect(FX_MODE_BLINK, &mode_blink, _data_FX_MODE_BLINK);
   addEffect(FX_MODE_BREATH, &mode_breath, _data_FX_MODE_BREATH);
   addEffect(FX_MODE_COLOR_WIPE, &mode_color_wipe, _data_FX_MODE_COLOR_WIPE);
