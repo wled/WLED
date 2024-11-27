@@ -494,12 +494,12 @@ void Segment::setCurrentPalette() {
 }
 
 void Segment::handleTransition() {
-  if (!transitional) return;
+  if (!transitional || !_t) return;  // Early exit if no transition active
   unsigned long maxWait = millis() + 20;
   if (mode == FX_MODE_STATIC && next_time > maxWait) next_time = maxWait;
   if (progress() == 0xFFFFU) {
     if (_t) {
-      if (_t->_modeP != mode) markForReset();
+      //if (_t->_modeP != mode) markForReset();  // WLEDMM effect transition disabled as it does not work (flashes due to double effect restart)
       delete _t;
       _t = nullptr;
     }
@@ -618,7 +618,7 @@ void Segment::setMode(uint8_t fx, bool loadDefaults, bool sliderDefaultsOnly) {
           sOpt = extractModeDefaults(fx, "pal");  if (sOpt >= 0) {if (oldPalette==-1) oldPalette = palette; setPalette(sOpt);} else {if (oldPalette!=-1) setPalette(oldPalette); oldPalette = -1;}
         }
       }
-      if (!fadeTransition) markForReset(); // WLEDMM quickfix for effect "double startup" bug. -> only works when "Crossfade" is disabled (led settings)
+      /*if (!fadeTransition)*/ markForReset(); // WLEDMM quickfix for effect "double startup" bug.
       stateChanged = true; // send UDP/WS broadcast
     }
   }
