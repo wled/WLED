@@ -389,7 +389,7 @@ std::vector<LEDType> BusDigital::getLEDTypes() {
 
 void BusDigital::begin() {
   if (!_valid) return;
-  PolyBus::begin(_busPtr, _iType, _pins);
+  PolyBus::begin(_busPtr, _iType, _pins, _frequencykHz);
 }
 
 void BusDigital::cleanup() {
