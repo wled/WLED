@@ -114,7 +114,7 @@ class PatternController : public MessageReceiver {
     uint8_t patternOverride = 0;
     uint16_t wled_fader = 0;
     ControllerRole role;
-    bool power_save = true;  // Power save ALWAYS starts on. Some roles just ignore it
+    bool power_save = false;  // Default to power save mode OFF but 3 sec press turns it on
     uint8_t flashColor = 0;
 
     AutoUpdater updater = AutoUpdater();
@@ -986,7 +986,7 @@ class PatternController : public MessageReceiver {
       case '~':
         doReboot = true;
         break;
-      case '@':
+      case '_':
         togglePowerSave();
         break;
 
@@ -1078,6 +1078,7 @@ class PatternController : public MessageReceiver {
       case '*':
       case '(':
       case ')':
+      case '@':
       case 'G':
       case 'A':
       case 'W':
@@ -1125,6 +1126,7 @@ class PatternController : public MessageReceiver {
         Serial.println(F("m### - sync mode"));
         Serial.println(F("c### - colors"));
         Serial.println(F("e### - effects"));
+        Serial.println(F("n - force next"));
         Serial.println();
         Serial.println(F("i### - set ID"));
         Serial.println(F("d - toggle debugging"));
@@ -1133,6 +1135,9 @@ class PatternController : public MessageReceiver {
         Serial.println("U - begin auto-update");
         Serial.println("P - toggle all power saves");
         Serial.println("O - toggle all sound overlays");
+        Serial.println("==== wifi ====");
+        Serial.println("a - turn on access point");
+        Serial.println("q - turn off access point");
         Serial.println("==== global actions ====");
         Serial.println("* - enter select mode (double-click to Ready)");
         Serial.println("A - turn on access point (Ready to update)");

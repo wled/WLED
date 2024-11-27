@@ -81,7 +81,8 @@ class DebugController {
       auto seg = strip.getMainSegment();
       extractModeName(seg.mode, JSON_mode_names, mode_name, 50);
       extractModeName(seg.palette, JSON_palette_names, palette_name, 50);
-      Serial.printf("=== WLED: %s(%u) %s(%u) speed:%u intensity:%u",
+      Serial.printf("=== WLED: %d LEDs, %s(%u) %s(%u) speed:%u intensity:%u",
+        strip.getLengthTotal(),
         mode_name,
         seg.mode,
         palette_name,
