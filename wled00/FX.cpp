@@ -3048,7 +3048,8 @@ static uint16_t rolling_balls(void) {
   float cfac = float(scale8(8, 255-SEGMENT.speed) +1)*20000.0f; // this uses the Aircoookie conversion factor for scaling time using speed slider
 
   bool hasCol2 = SEGCOLOR(2);
-  if (!SEGMENT.check2) SEGMENT.fill(hasCol2 ? BLACK : SEGCOLOR(1));
+  //if (!SEGMENT.check2) SEGMENT.fill(hasCol2 ? BLACK : SEGCOLOR(1));
+  if (!SEGMENT.check2) SEGMENT.fade_out(253); // WLEDMM adding a bit of trail
 
   for (int i = 0; i < numBalls; i++) {
     float timeSinceLastUpdate = float((strip.now - balls[i].lastBounceUpdate))/cfac;
