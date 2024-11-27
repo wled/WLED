@@ -661,14 +661,14 @@ Segment &Segment::setPalette(uint8_t pal) {
 }
 
 // 2D matrix
-unsigned IRAM_ATTR Segment::virtualWidth() const {
+unsigned Segment::virtualWidth() const {
   unsigned groupLen = groupLength();
   unsigned vWidth = ((transpose ? height() : width()) + groupLen - 1) / groupLen;
   if (mirror) vWidth = (vWidth + 1) /2;  // divide by 2 if mirror, leave at least a single LED
   return vWidth;
 }
 
-unsigned IRAM_ATTR Segment::virtualHeight() const {
+unsigned Segment::virtualHeight() const {
   unsigned groupLen = groupLength();
   unsigned vHeight = ((transpose ? width() : height()) + groupLen - 1) / groupLen;
   if (mirror_y) vHeight = (vHeight + 1) /2;  // divide by 2 if mirror, leave at least a single LED
