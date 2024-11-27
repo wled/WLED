@@ -8110,10 +8110,11 @@ static void setFlatPixelXY(bool flatMode, int x, int y, uint32_t color, unsigned
 
   if (!flatMode) SEGMENT.setPixelColorXY(x, y, color); // normal 2D
   else {
-    y = rows - y -1 ;                     // reverse y
-    if (y & 0x01) y = (rows + y) / 2;     // center bars: odd pixels to the right
-    else y = (rows - 1 - y) / 2;          //              even pixels to the left
-
+    y = rows - y - 1;                     // reverse y
+    if (rows > 4) {                       // center y if we have more than 4 pixels per bar
+      if (y & 0x01) y = (rows + y) / 2;      // center bars: odd pixels to the right
+      else y = (rows - 1 - y) / 2;           //              even pixels to the left
+    }
     int pix = x*rows + y + offset;        // flatten -> transpose x y so that bars stay bars
     if (unsigned(pix) >= SEGLEN) return;  // skip invisible
     SEGMENT.setPixelColor(pix, color);
