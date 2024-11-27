@@ -8122,7 +8122,7 @@ static void setFlatPixelXY(bool flatMode, int x, int y, uint32_t color, unsigned
 
 uint16_t mode_2DGEQ(void) { // By Will Tatam. Code reduction by Ewoud Wijma. Flat Mode added by softhack007
   //if (!strip.isMatrix) return mode_static(); // not a 2D set-up, not a problem
-  bool flatMode = !SEGMENT.is2D();
+  bool flatMode = !SEGMENT.is2D() || (SEGMENT.width() < 3) || (SEGMENT.height() < 3); // also use flat mode when less than 3 colums or rows
 
   const int NUM_BANDS = map2(SEGMENT.custom1, 0, 255, 1, 16);
   const int vLength = SEGLEN;                                                               // for flat mode
