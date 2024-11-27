@@ -8101,15 +8101,36 @@ static const char _data_FX_MODE_WATERFALL[] PROGMEM = "Waterfall@!,Adjust color,
 
 #ifndef WLED_DISABLE_2D
 /////////////////////////
-//     ** 2D GEQ       //
+//    1D / 2D GEQ      //
 /////////////////////////
-uint16_t mode_2DGEQ(void) { // By Will Tatam. Code reduction by Ewoud Wijma.
-  if (!strip.isMatrix) return mode_static(); // not a 2D set-up
+
+// GEQ helper: either draws 2D, or flattens pixels to 1D
+static void setFlatPixelXY(bool flatMode, int x, int y, uint32_t color, unsigned cols, unsigned rows, unsigned offset) {
+  if ((unsigned(x) >= cols) || (unsigned(y) >= rows)) return; // skip invisible
+
+  if (!flatMode) SEGMENT.setPixelColorXY(x, y, color); // normal 2D
+  else {
+    y = rows - y -1 ;                     // reverse y
+    if (y & 0x01) y = (rows + y) / 2;     // center bars: odd pixels to the right
+    else y = (rows - 1 - y) / 2;          //              even pixels to the left
+
+    int pix = x*rows + y + offset;        // flatten -> transpose x y so that bars stay bars
+    if (unsigned(pix) >= SEGLEN) return;  // skip invisible
+    SEGMENT.setPixelColor(pix, color);
+  }
+}
+
+uint16_t mode_2DGEQ(void) { // By Will Tatam. Code reduction by Ewoud Wijma. Flat Mode added by softhack007
+  //if (!strip.isMatrix) return mode_static(); // not a 2D set-up, not a problem
+  bool flatMode = !SEGMENT.is2D();
 
   const int NUM_BANDS = map2(SEGMENT.custom1, 0, 255, 1, 16);
-  const uint16_t cols = SEGMENT.virtualWidth();
-  const uint16_t rows = SEGMENT.virtualHeight();
-  if ((cols <=1) || (rows <=1)) return mode_static(); // not really a 2D set-up
+  const int vLength = SEGLEN;                                                               // for flat mode
+  const uint16_t cols = flatMode ? min(max(2, NUM_BANDS), (vLength+1)/2) : SEGMENT.virtualWidth();
+  const uint16_t rows = flatMode ? vLength / cols : SEGMENT.virtualHeight();
+  const unsigned offset = flatMode ? max(0, (vLength - rows*cols +1) / 2) : 0;              // flatmode: always center effect
+
+  if ((cols <=1) || (rows <=1)) return mode_static(); // too small
 
   if (!SEGENV.allocateData(cols*sizeof(uint16_t))) return mode_static(); //allocation failed
   uint16_t *previousBarHeight = reinterpret_cast<uint16_t*>(SEGENV.data); //array of previous bar heights per frequency band
@@ -8175,7 +8196,7 @@ uint16_t mode_2DGEQ(void) { // By Will Tatam. Code reduction by Ewoud Wijma.
     if (barHeight > previousBarHeight[x]) previousBarHeight[x] = barHeight; //drive the peak up
 
     uint32_t ledColor = BLACK;
-    if ((! SEGMENT.check1) && (barHeight > 0)) {  // use faster drawLine when single-color bars are needed
+    if ((! SEGMENT.check1) && !flatMode && (barHeight > 0)) {  // use faster drawLine when single-color bars are needed
       ledColor = SEGMENT.color_from_palette(colorIndex, false, PALETTE_SOLID_WRAP, 0);
       SEGMENT.drawLine(int(x), max(0,int(rows)-barHeight), int(x), int(rows-1), ledColor, false); // max(0, ...) to prevent negative Y
     } else {
@@ -8184,23 +8205,25 @@ uint16_t mode_2DGEQ(void) { // By Will Tatam. Code reduction by Ewoud Wijma.
         colorIndex = map(y, 0, rows-1, 0, 255);
 
       ledColor = SEGMENT.color_from_palette(colorIndex, false, PALETTE_SOLID_WRAP, 0);
-      SEGMENT.setPixelColorXY(x, rows-1 - y, ledColor);
+      setFlatPixelXY(flatMode, x, rows-1 - y, ledColor, cols, rows, offset);
     } }
-    if ((SEGMENT.intensity < 255) && (previousBarHeight[x] > 0) && (previousBarHeight[x] < rows))  // WLEDMM avoid "overshooting" into other segments
-      SEGMENT.setPixelColorXY(x, rows - previousBarHeight[x], (SEGCOLOR(2) != BLACK) ? SEGCOLOR(2) : ledColor);
+    if (!flatMode && (SEGMENT.intensity < 255) && (previousBarHeight[x] > 0) && (previousBarHeight[x] < rows))  // WLEDMM avoid "overshooting" into other segments - disable ripple pixels in 1D mode 
+      setFlatPixelXY(flatMode, x, rows - previousBarHeight[x], (SEGCOLOR(2) != BLACK) ? SEGCOLOR(2) : ledColor, cols, rows, offset);
 
     if (rippleTime && previousBarHeight[x]>0) previousBarHeight[x]--;    //delay/ripple effect
   }
 
 #ifdef SR_DEBUG
+  if (!flatMode) {
   // WLEDMM: abuse top left/right pixels for peak detection debugging
   SEGMENT.setPixelColorXY(cols-1, 0, (samplePeak > 0) ? GREEN : BLACK);
   if (samplePeak > 0) SEGMENT.setPixelColorXY(0, 0, GREEN);
   // WLEDMM end
+  }
 #endif
   return FRAMETIME;
 } // mode_2DGEQ()
-static const char _data_FX_MODE_2DGEQ[] PROGMEM = "GEQ ☾@Fade speed,Ripple decay,# of bands,,,Color bars,Smooth bars ☾;!,,Peaks;!;2f;c1=255,c2=64,pal=11,si=0"; // Beatsin
+static const char _data_FX_MODE_2DGEQ[] PROGMEM = "GEQ ☾@Fade speed,Ripple decay,# of bands,,,Color bars,Smooth bars ☾;!,,Peaks;!;12f;c1=255,c2=64,pal=11,si=0"; // Beatsin
 
 
 /////////////////////////
