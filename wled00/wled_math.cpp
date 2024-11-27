@@ -88,7 +88,7 @@ int16_t sin16_t(uint16_t theta) {
 }
 
 int16_t cos16_t(uint16_t theta) {
-  return sin16_t(theta + 16384); //cos(x) = sin(x+pi/2)
+  return sin16_t(theta + 0x4000); //cos(x) = sin(x+pi/2)
 }
 
 uint8_t sin8_t(uint8_t theta) {
@@ -110,7 +110,7 @@ float sin_approx(float theta) {
 
 float cos_approx(float theta) {
   uint16_t scaled_theta = (int)(theta * (float)(0xFFFF / M_TWOPI)); // note: do not cast negative float to uint! cast to int first (undefined on C3)
-  int32_t result = sin16_t(scaled_theta + 16384);
+  int32_t result = sin16_t(scaled_theta + 0x4000);
   float cos = float(result) / 0x7FFF;
   return cos;
 }

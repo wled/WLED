@@ -5170,8 +5170,8 @@ uint16_t mode_2DJulia(void) {                           // An animated Julia set
   reAl = -0.94299f;               // PixelBlaze example
   imAg = 0.3162f;
 
-  reAl += sin_t((float)strip.now/305.f)/20.f;
-  imAg += sin_t((float)strip.now/405.f)/20.f;
+  reAl += (float)sin16_t(strip.now * 34) / 655340.f;
+  imAg += (float)sin16_t(strip.now * 26) / 655340.f;
 
   dx = (xmax - xmin) / (cols);     // Scale the delta x and y values to our matrix size.
   dy = (ymax - ymin) / (rows);
@@ -6148,6 +6148,7 @@ uint16_t mode_2Dplasmarotozoom() {
     }
   }
   *a -= 0.03f + float(SEGENV.speed-128)*0.0002f;  // rotation speed
+  if(*a < -6283.18530718f) *a += 6283.18530718f; // 1000*2*PI, protect sin/cos from very large input float values (will give wrong results)
 
   return FRAMETIME;
 }
