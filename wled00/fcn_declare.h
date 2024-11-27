@@ -379,6 +379,11 @@ uint8_t extractModeSlider(uint8_t mode, uint8_t slider, char *dest, uint8_t maxL
 int16_t extractModeDefaults(uint8_t mode, const char *segVar);
 void checkSettingsPIN(const char *pin);
 uint16_t  __attribute__((pure)) crc16(const unsigned char* data_p, size_t length);   // WLEDMM: added attribute pure
+
+uint16_t beatsin88_t(accum88 beats_per_minute_88, uint16_t lowest = 0, uint16_t highest = 65535, uint32_t timebase = 0, uint16_t phase_offset = 0);
+uint16_t beatsin16_t(accum88 beats_per_minute, uint16_t lowest = 0, uint16_t highest = 65535, uint32_t timebase = 0, uint16_t phase_offset = 0);
+uint8_t beatsin8_t(accum88 beats_per_minute, uint8_t lowest = 0, uint8_t highest = 255, uint32_t timebase = 0, uint8_t phase_offset = 0);
+
 um_data_t* simulateSound(uint8_t simulationId);
 // WLEDMM enumerateLedmaps(); moved to FX.h
 uint8_t get_random_wheel_index(uint8_t pos);
@@ -410,27 +415,39 @@ void clearEEPROM();
 #endif
 
 //wled_math.cpp
-#ifndef WLED_USE_REAL_MATH
-  template <typename T> T atan_t(T x);
-  float cos_t(float phi)  __attribute__((const));
-  float sin_t(float x)    __attribute__((const));
-  float tan_t(float x)    __attribute__((const));
-  float acos_t(float x);
-  float asin_t(float x);
-  float atan_t(float x)   __attribute__((const));
-  float floor_t(float x)  __attribute__((const));
-  float fmod_t(float num, float denom)   __attribute__((const));
-#else
-  #include <math.h>   // WLEDMM use "float" variants
-  #define sin_t sinf
-  #define cos_t cosf
-  #define tan_t tanf
-  #define asin_t asinf
-  #define acos_t acosf
-  #define atan_t atanf
-  #define fmod_t fmodf
-  #define floor_t floorf
-#endif
+//float cos_t(float phi); // use float math
+//float sin_t(float phi);
+//float tan_t(float x);
+int16_t sin16_t(uint16_t theta);
+int16_t cos16_t(uint16_t theta);
+uint8_t sin8_t(uint8_t theta);
+uint8_t cos8_t(uint8_t theta);
+
+float sin_approx(float theta); // uses integer math (converted to float), accuracy +/-0.0015 (compared to sinf())
+float cos_approx(float theta);
+float tan_approx(float x);
+//float atan2_t(float y, float x);
+//float acos_t(float x);
+//float asin_t(float x);
+//template <typename T> T atan_t(T x);
+//float floor_t(float x);
+//float fmod_t(float num, float denom);
+#define sin_t sin_approx
+#define cos_t cos_approx
+#define tan_t tan_approx
+
+#include <math.h>  // standard math functions. use a lot of flash
+#define atan2_t atan2f
+#define asin_t asinf
+#define acos_t acosf
+#define atan_t atanf
+#define fmod_t fmodf
+#define floor_t floorf
+/*
+#define sin_t sinf
+#define cos_t cosf
+#define tan_t tanf
+*/
 
 //wled_serial.cpp
 void handleSerial();
