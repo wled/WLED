@@ -101,6 +101,7 @@ function adoptVersionAndRepo(html) {
 async function minify(str, type = "plain") {
   const options = {
     collapseWhitespace: true,
+    conservativeCollapse: true, // preserve spaces in text
     collapseBooleanAttributes: true,
     collapseInlineTagWhitespace: true,
     minifyCSS: true,
