@@ -8646,7 +8646,8 @@ uint16_t mode_2Doctopus() {
         intensity = sin8(radialStep + sin8(radialStep - radius) + angle * (SEGMENT.custom3/4+1));                               // RadialWave
       else
         intensity = sin8(sin8((angle * 4 - radius) / 4 + octopusStep) + radius - SEGENV.step + angle * (SEGMENT.custom3/4+1));  // Octopus
-      intensity = map(intensity*intensity, 0, 65535, 0, 255); // add a bit of non-linearity for cleaner display
+      //intensity = map(intensity*intensity, 0, 65535, 0, 255); // add a bit of non-linearity for cleaner display
+      intensity = (intensity * intensity) / 255;                // WLEDMM same as above, but faster and a bit more accurate
       CRGB c = ColorFromPalette(SEGPALETTE, SEGENV.step / 2 - radius, intensity);
       SEGMENT.setPixelColorXY(x, y, c);
     }
