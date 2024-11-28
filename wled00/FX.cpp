@@ -8628,13 +8628,14 @@ uint16_t mode_2Doctopus() {
     }
   }
 
-  if (true) // WLEDMM SuperSync
-    SEGENV.step = strip.now * (SEGMENT.speed / 32 + 1) / 25;  // WLEDMM 40fps
-  else
-    SEGENV.step += SEGMENT.speed / 32 + 1;  // 1-4 range
+  // WLEDMM SuperSync
+  SEGENV.step = (strip.now * (SEGMENT.speed+15)) / 33 / 25;  // WLEDMM 40fps; speed range 0.4 ... 8
 
-  uint32_t octopusStep = SEGENV.step/2;     // 1/2 for Octopus mode
-  uint32_t radialStep  = 7*SEGENV.step/6;   // 7/6 = 1.16 for RadialWave mode
+  // speed of motion and color change
+  uint32_t colorSpeed = SEGENV.step / 2;
+  uint32_t octoSpeed;
+  if (SEGMENT.check3) octoSpeed = 4*SEGENV.step/5;   // 4/5 = 0.8 for RadialWave mode
+  else octoSpeed = SEGENV.step/2;                    // 1/2 = 0.5 for Octopus mode
 
   for (int x = xStart; x < xEnd; x++) {
     for (int y = yStart; y < yEnd; y++) {
@@ -8643,12 +8644,12 @@ uint16_t mode_2Doctopus() {
       //CRGB c = CHSV(SEGENV.step / 2 - radius, 255, sin8(sin8((angle * 4 - radius) / 4 + SEGENV.step) + radius - SEGENV.step * 2 + angle * (SEGMENT.custom3/3+1)));
       uint16_t intensity;
       if (SEGMENT.check3)
-        intensity = sin8(radialStep + sin8(radialStep - radius) + angle * (SEGMENT.custom3/4+1));                               // RadialWave
+        intensity = sin8(octoSpeed + sin8(octoSpeed - radius) + angle * (SEGMENT.custom3/4+1));                               // RadialWave
       else
-        intensity = sin8(sin8((angle * 4 - radius) / 4 + octopusStep) + radius - SEGENV.step + angle * (SEGMENT.custom3/4+1));  // Octopus
+        intensity = sin8(sin8((angle * 4 - radius) / 4 + octoSpeed) + radius - SEGENV.step + angle * (SEGMENT.custom3/4+1));   // Octopus
       //intensity = map(intensity*intensity, 0, 65535, 0, 255); // add a bit of non-linearity for cleaner display
       intensity = (intensity * intensity) / 255;                // WLEDMM same as above, but faster and a bit more accurate
-      CRGB c = ColorFromPalette(SEGPALETTE, SEGENV.step / 2 - radius, intensity);
+      CRGB c = ColorFromPalette(SEGPALETTE, colorSpeed - radius, intensity);
       SEGMENT.setPixelColorXY(x, y, c);
     }
   }
