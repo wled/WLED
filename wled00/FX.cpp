@@ -8575,6 +8575,7 @@ static const char _data_FX_MODE_2DSOAP[] PROGMEM = "Soap@!,Smoothness;;!;2";
 //Octopus (https://editor.soulmatelights.com/gallery/671-octopus)
 //Stepko and Sutaburosu
 // adapted for WLED by @blazoncek
+// RadialWave mode added by @softhack007, based on https://editor.soulmatelights.com/gallery/1090-radialwave
 uint16_t mode_2Doctopus() {
   if (!strip.isMatrix) return mode_static(); // not a 2D set-up
 
@@ -8632,12 +8633,19 @@ uint16_t mode_2Doctopus() {
   else
     SEGENV.step += SEGMENT.speed / 32 + 1;  // 1-4 range
 
+  uint32_t octopusStep = SEGENV.step/2;     // 1/2 for Octopus mode
+  uint32_t radialStep  = 7*SEGENV.step/6;   // 7/6 = 1.16 for RadialWave mode
+
   for (int x = xStart; x < xEnd; x++) {
     for (int y = yStart; y < yEnd; y++) {
       byte angle = rMap[XY(x,y)].angle;
       byte radius = rMap[XY(x,y)].radius;
       //CRGB c = CHSV(SEGENV.step / 2 - radius, 255, sin8(sin8((angle * 4 - radius) / 4 + SEGENV.step) + radius - SEGENV.step * 2 + angle * (SEGMENT.custom3/3+1)));
-      uint16_t intensity = sin8(sin8((angle * 4 - radius) / 4 + SEGENV.step/2) + radius - SEGENV.step + angle * (SEGMENT.custom3/4+1));
+      uint16_t intensity;
+      if (SEGMENT.check3)
+        intensity = sin8(radialStep + sin8(radialStep - radius) + angle * (SEGMENT.custom3/4+1));                               // RadialWave
+      else
+        intensity = sin8(sin8((angle * 4 - radius) / 4 + octopusStep) + radius - SEGENV.step + angle * (SEGMENT.custom3/4+1));  // Octopus
       intensity = map(intensity*intensity, 0, 65535, 0, 255); // add a bit of non-linearity for cleaner display
       CRGB c = ColorFromPalette(SEGPALETTE, SEGENV.step / 2 - radius, intensity);
       SEGMENT.setPixelColorXY(x, y, c);
@@ -8645,8 +8653,7 @@ uint16_t mode_2Doctopus() {
   }
   return FRAMETIME;
 }
-static const char _data_FX_MODE_2DOCTOPUS[] PROGMEM = "Octopus@!,,Offset X,Offset Y,Legs, SuperSync;;!;2;";
-
+static const char _data_FX_MODE_2DOCTOPUS[] PROGMEM = "Octopus@!,,Offset X,Offset Y,Legs, SuperSync,,RadialWave ☾;;!;2;";
 
 //Waving Cell
 //@Stepko (https://editor.soulmatelights.com/gallery/1704-wavingcells)
