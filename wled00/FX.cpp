@@ -6945,10 +6945,10 @@ uint16_t mode_2DSwirl(void) {
 
   SEGMENT.blur(SEGMENT.custom1);
 
-  int  i = beatsin8_t( 27*SEGMENT.speed/255, borderWidth, cols - borderWidth);
-  int  j = beatsin8_t( 41*SEGMENT.speed/255, borderWidth, rows - borderWidth);
-  int ni = (cols - 1) - i;
-  int nj = (cols - 1) - j;
+  unsigned  i = beatsin8_t( 27*SEGMENT.speed/255, borderWidth, cols - borderWidth);
+  unsigned  j = beatsin8_t( 41*SEGMENT.speed/255, borderWidth, rows - borderWidth);
+  unsigned ni = (cols - 1) - i;
+  unsigned nj = (cols - 1) - j;
   uint16_t ms = strip.now;
 
   um_data_t *um_data = getAudioData();
