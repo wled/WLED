@@ -25,6 +25,16 @@
 
 #define indexToVStrip(index, stripNr) ((index) | (int((stripNr)+1)<<16))
 
+#if 0 // for benchmarking - change to "#if 1" to use less accurate, but 30% faster FastLed sin8 and cos8 functions
+#define sin8_t sin8
+#define cos8_t cos8
+#define sin16_t sin16
+#define cos16_t cos16
+#define beatsin8_t beatsin8
+#define beatsin88_t beatsin88
+#define beatsin16_t beatsin16
+#endif
+
 // WLEDMM replace abs8 by abs, as abs8 does not work for numbers >127
 #define abs8(x) abs(x)
 
