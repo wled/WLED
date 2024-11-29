@@ -637,13 +637,13 @@ typedef struct Segment {
     void     restoreSegenv(tmpsegd_t &tmpSegD); // restores segment data from buffer, if buffer is not transition buffer, changed values are copied to transition buffer
     #endif
     inline uint16_t progress() const { return Segment::_transitionProgress; }; // relies on handleTransition() to update progression variable
-    [[gnu::hot]] uint8_t  currentBri(bool useCct = false) const; // current segment brightness/CCT (blended while in transition)
-    uint8_t  currentMode() const;                            // currently active effect/mode (while in transition)
-    [[gnu::hot]] uint32_t currentColor(uint8_t slot) const;  // currently active segment color (blended while in transition)
+    uint8_t  currentBri(bool useCct = false) const; // current segment brightness/CCT (blended while in transition)
+    uint8_t  currentMode() const;                   // currently active effect/mode (while in transition)
+    uint32_t currentColor(uint8_t slot) const;      // currently active segment color (blended while in transition)
     CRGBPalette16 &loadPalette(CRGBPalette16 &tgt, uint8_t pal);
 
     // 1D strip
-    [[gnu::hot]] uint16_t virtualLength() const;
+    uint16_t virtualLength() const;
     [[gnu::hot]] void setPixelColor(int n, uint32_t c); // set relative pixel within segment with color
     inline void setPixelColor(unsigned n, uint32_t c)                    { setPixelColor(int(n), c); }
     inline void setPixelColor(int n, byte r, byte g, byte b, byte w = 0) { setPixelColor(n, RGBW32(r,g,b,w)); }
@@ -656,7 +656,7 @@ typedef struct Segment {
     #ifndef WLED_DISABLE_MODE_BLEND
     static inline void setClippingRect(int startX, int stopX, int startY = 0, int stopY = 1) { _clipStart = startX; _clipStop = stopX; _clipStartY = startY; _clipStopY = stopY; };
     #endif
-    bool isPixelClipped(int i) const;
+    [[gnu::hot]] bool isPixelClipped(int i) const;
     [[gnu::hot]] uint32_t getPixelColor(int i) const;
     // 1D support functions (some implement 2D as well)
     void blur(uint8_t, bool smear = false);
@@ -671,19 +671,10 @@ typedef struct Segment {
     inline void fadePixelColor(uint16_t n, uint8_t fade)                 { setPixelColor(n, color_fade(getPixelColor(n), fade, true)); }
     [[gnu::hot]] uint32_t color_from_palette(uint16_t, bool mapping, bool wrap, uint8_t mcol, uint8_t pbri = 255) const;
     [[gnu::hot]] uint32_t color_wheel(uint8_t pos) const;
-
-    // 2D Blur: shortcuts for bluring columns or rows only (50% faster than full 2D blur)
-    inline void blurCols(fract8 blur_amount, bool smear = false) { // blur all columns
-      blur2D(0, blur_amount, smear);
-    }
-    inline void blurRows(fract8 blur_amount, bool smear = false) { // blur all rows
-      blur2D(blur_amount, 0, smear);
-    }
-
     // 2D matrix
-    [[gnu::hot]] unsigned virtualWidth()  const; // segment width in virtual pixels (accounts for groupping and spacing)
-    [[gnu::hot]] unsigned virtualHeight() const; // segment height in virtual pixels (accounts for groupping and spacing)
-    inline unsigned nrOfVStrips() const {        // returns number of virtual vertical strips in 2D matrix (used to expand 1D effects into 2D)
+    unsigned virtualWidth()  const;       // segment width in virtual pixels (accounts for groupping and spacing)
+    unsigned virtualHeight() const;       // segment height in virtual pixels (accounts for groupping and spacing)
+    inline unsigned nrOfVStrips() const { // returns number of virtual vertical strips in 2D matrix (used to expand 1D effects into 2D)
     #ifndef WLED_DISABLE_2D
       return (is2D() &&  map1D2D == M12_pBar) ? virtualWidth() : 1;
     #else
@@ -711,6 +702,8 @@ typedef struct Segment {
     inline void addPixelColorXY(int x, int y, byte r, byte g, byte b, byte w = 0, bool preserveCR = true) { addPixelColorXY(x, y, RGBW32(r,g,b,w), preserveCR); }
     inline void addPixelColorXY(int x, int y, CRGB c, bool preserveCR = true)                             { addPixelColorXY(x, y, RGBW32(c.r,c.g,c.b,0), preserveCR); }
     inline void fadePixelColorXY(uint16_t x, uint16_t y, uint8_t fade)                   { setPixelColorXY(x, y, color_fade(getPixelColorXY(x,y), fade, true)); }
+    inline void blurCols(fract8 blur_amount, bool smear = false)                         { blur2D(0, blur_amount, smear); } // blur all columns (50% faster than full 2D blur)
+    inline void blurRows(fract8 blur_amount, bool smear = false)                         { blur2D(blur_amount, 0, smear); } // blur all rows (50% faster than full 2D blur)
     //void box_blur(unsigned r = 1U, bool smear = false); // 2D box blur
     void blur2D(uint8_t blur_x, uint8_t blur_y, bool smear = false);
     void moveX(int delta, bool wrap = false);
@@ -749,8 +742,8 @@ typedef struct Segment {
     inline void fadePixelColorXY(uint16_t x, uint16_t y, uint8_t fade)            { fadePixelColor(x, fade); }
     //inline void box_blur(unsigned i, bool vertical, fract8 blur_amount) {}
     inline void blur2D(uint8_t blur_x, uint8_t blur_y, bool smear = false) {}
-    inline void blurRow(int row, fract8 blur_amount, bool smear = false) {}
-    inline void blurCol(int col, fract8 blur_amount, bool smear = false) {}
+    inline void blurCols(fract8 blur_amount, bool smear = false) { blur(blur_amount, smear); } // blur all columns (50% faster than full 2D blur)
+    inline void blurRows(fract8 blur_amount, bool smear = false) {}
     inline void moveX(int delta, bool wrap = false) {}
     inline void moveY(int delta, bool wrap = false) {}
     inline void move(uint8_t dir, uint8_t delta, bool wrap = false) {}
