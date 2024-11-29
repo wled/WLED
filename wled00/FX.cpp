@@ -4377,20 +4377,20 @@ static const char _data_FX_MODE_FLOW[] PROGMEM = "Flow@!,Zones;;!;;m12=1"; //ver
  */
 uint16_t mode_chunchun(void)
 {
-  if (SEGLEN == 1) return mode_static();
+  if (SEGLEN <= 1) return mode_static();
   if (SEGENV.call == 0) {SEGENV.setUpLeds(); SEGMENT.fill(BLACK);}   // WLEDMM use lossless getPixelColor()
-  SEGMENT.fade_out(254); // add a bit of trail
-  uint16_t counter = strip.now * (6 + (SEGMENT.speed >> 4));
-  uint16_t numBirds = 2 + (SEGLEN >> 3);  // 2 + 1/8 of a segment
-  uint16_t span = (SEGMENT.intensity << 8) / numBirds;
+  SEGMENT.fade_out(253); // add a bit of trail                       // WLEDMM fade rate above 253 has no effect
+  uint32_t counter = ((strip.now * (96 + SEGMENT.speed)) >> 4);      // WLEDMM same result, better resolution
+  uint16_t numBirds = min(32, 2 + (SEGLEN >> 3));  // 2 + 1/8 of a segment - WLEDMM max 32
+  uint32_t span = (SEGMENT.intensity << 8) / numBirds;
 
-  for (int i = 0; i < numBirds; i++)
+  for (unsigned i = 0; i < numBirds; i++)
   {
     counter -= span;
     uint16_t megumin = sin16_t(counter) + 0x8000;
     uint16_t bird = uint32_t(megumin * SEGLEN) >> 16;
     uint32_t c = SEGMENT.color_from_palette((i * 255)/ numBirds, false, false, 0);  // no palette wrapping
-    bird = constrain(bird, 0, SEGLEN-1);
+    bird = min(bird, uint16_t(SEGLEN-1)); // WLEDMM unsigned is always >= 0
     SEGMENT.setPixelColor(bird, c);
   }
   return FRAMETIME;
