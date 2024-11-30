@@ -103,9 +103,9 @@ class Bus {
 
     virtual ~Bus() {} //throw the bus under the bus
 
-    virtual void     begin() {};
+    virtual void     begin()                                   {};
     virtual void     show() = 0;
-    virtual bool     canShow() const                          { return true; }
+    virtual bool     canShow() const                           { return true; }
     virtual void     setStatusPixel(uint32_t c)                {}
     virtual void     setPixelColor(unsigned pix, uint32_t c) = 0;
     virtual void     setBrightness(uint8_t b)                  { _bri = b; };
@@ -176,7 +176,7 @@ class Bus {
     static inline uint8_t  getGlobalAWMode()          { return _gAWM; }
     static inline void     setCCT(int16_t cct)        { _cct = cct; }
     static inline uint8_t  getCCTBlend()              { return _cctBlend; }
-    static inline void setCCTBlend(uint8_t b) {
+    static inline void     setCCTBlend(uint8_t b) {
       _cctBlend = (std::min((int)b,100) * 127) / 100;
       //compile-time limiter for hardware that can't power both white channels at max
       #ifdef WLED_MAX_CCT_BLEND
