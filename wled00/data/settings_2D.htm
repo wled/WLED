@@ -54,8 +54,8 @@ Orientation: <select name="P${i}V" oninput="UI()">
 </select><br>
 Serpentine: <input type="checkbox" name="P${i}S" oninput="UI()"><br>
 Dimensions (WxH): <input name="P${i}W" type="number" min="1" max="255" value="${pw}" oninput="UI()"> x <input name="P${i}H" type="number" min="1" max="255" value="${ph}" oninput="UI()"><br>
-Offset X:<input name="P${i}X" type="number" min="0" max="255" value="0" oninput="UI()">
-Y:<input name="P${i}Y" type="number" min="0" max="255" value="0" oninput="UI()"><br><i>(offset from top-left corner in # LEDs)</i>
+Offset X: <input name="P${i}X" type="number" min="0" max="255" value="0" oninput="UI()">
+Y: <input name="P${i}Y" type="number" min="0" max="255" value="0" oninput="UI()"><br><i>(offset from top-left corner in # LEDs)</i>
 </div>`;
 		p.insertAdjacentHTML("beforeend", b);
 	}
