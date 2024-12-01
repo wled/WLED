@@ -4596,7 +4596,7 @@ uint16_t mode_blends(void) {
   uint16_t offset = 0;
   for (int i = 0; i < SEGLEN; i++) {
     SEGMENT.setPixelColor(i, pixels[offset++]);
-    if (offset > pixelLen) offset = 0;
+    if (offset >= pixelLen) offset = 0;
   }
 
   return FRAMETIME;
