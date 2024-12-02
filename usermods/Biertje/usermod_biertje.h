@@ -46,7 +46,8 @@ uint16_t mode_Biertje() {
   uint32_t bubbleColor = RGBW32(254, 223, 99, 0); // White color for bubbles
   uint32_t textColor = RGBW32(255, 0, 0, 0);   // Color for text
 
-  uint32_t now = strip.now;
+  // Update current time using millis()
+  uint32_t now = millis();
 
   // Initialize wave parameters at the start
   if (waveStartTime == 0) {
@@ -55,39 +56,41 @@ uint16_t mode_Biertje() {
     waveFrequency = 0.5;  // Start with a low frequency (long wave)
   }
 
+  // Calculate time elapsed since wave started
+  float timeElapsed = now - waveStartTime;
+
+  // Adjust wave amplitude and frequency over time
+  float waveDuration = 5000.0; // Duration over which the wave changes (in milliseconds)
+  if (timeElapsed < waveDuration) {
+    // Decrease wave amplitude from initial value to 0 over time
+    waveAmplitude = 5.0 - 5.0 * (timeElapsed / waveDuration);
+    if (waveAmplitude < 0.2) waveAmplitude = 0.0;
+
+    // Increase wave frequency from initial value to higher value over time
+    waveFrequency = 0.5 + 1.5 * (timeElapsed / waveDuration);
+    if (waveFrequency > 2.0) waveFrequency = 2.0;
+  } else {
+    // After waveDuration, set waveAmplitude to 0 (no more waves)
+    if (waveAmplitude != 0.0) {
+      waveAmplitude = 0.0;
+      waveFrequency = 0.0;
+      foamHeight = 4.0; // Ensure foam height is at maximum
+    }
+  }
+
   // Update beer level based on pour speed
-  uint16_t pourInterval = MAX(20, 200 - pourSpeed * 10);  // Adjust pour speed (lower value = faster pour)
+  uint16_t pourInterval = MAX(20, 200 - pourSpeed * 10);  // Adjust pour speed
   if (now - lastPourUpdate > pourInterval) {
     lastPourUpdate = now;
 
-    // Only update beer level if pouring is not complete
     if (beerLevel < rows) {
-      beerLevel += 0.5;  // Increase beer level (adjust increment for pouring speed)
+      beerLevel += 0.5;  // Increase beer level
       if (beerLevel > rows) beerLevel = rows;
 
       // Increase foam height proportionally up to 4 pixels
       if (foamHeight < 4) {
         foamHeight = (beerLevel / rows) * 4.0;
         if (foamHeight > 4) foamHeight = 4;
-      }
-
-      // Adjust wave amplitude and frequency over time
-      float waveDuration = 5000; // Duration over which the wave changes (in milliseconds)
-      float timeElapsed = now - waveStartTime;
-      if (timeElapsed < waveDuration) {
-        // Decrease wave amplitude from initial value to 0 over time
-        waveAmplitude = 5.0 - 5.0 * (timeElapsed / waveDuration);
-        if (waveAmplitude < 0.0) waveAmplitude = 0.0;
-
-        // Increase wave frequency from initial value to higher value over time
-        waveFrequency = 0.5 + 1.5 * (timeElapsed / waveDuration);
-        if (waveFrequency > 2.0) waveFrequency = 2.0;
-      } else {
-        // After waveDuration, set waveAmplitude to 0 (no more waves)
-        Serial.println("No more waves");
-        waveAmplitude = 0.0;
-        waveFrequency = 0.0;
-        foamHeight = 4.0; // Ensure foam height is at maximum
       }
     } else if (!bubblesActive) {
       // Start bubbles after beer has settled
@@ -99,6 +102,14 @@ uint16_t mode_Biertje() {
       memset(SEGENV.data, 0, dataSize);
     }
   }
+
+// // Debug statements
+// DEBUG_PRINTF("Wave Amplitude: %.2f\n", waveAmplitude);
+// DEBUG_PRINTF("Wave Frequency: %.2f\n", waveFrequency);
+// DEBUG_PRINTF("Foam Height: %.2f\n", foamHeight);
+// DEBUG_PRINTF("Beer Level: %.2f\n", beerLevel);
+// DEBUG_PRINTF("Rows: %.2f\n", rows);
+// DEBUG_PRINTF("Columns: %.2f\n", cols);
 
   // Clear the matrix
   SEGMENT.fill(BLACK);
@@ -188,32 +199,29 @@ uint16_t mode_Biertje() {
 
         // Spawn a couple of bubbles per second
         for (int i = 0; i < 2; i++) { // Adjust number of bubbles spawned
-          int x = random16(cols);
-          unsigned index = XY(x, rows - 1) >> 3;
-          unsigned bitNum = XY(x, rows - 1) & 0x07;
+          int x = random16(int(cols));
+          unsigned index = XY(x, int(rows) - 1) >> 3;
+          unsigned bitNum = XY(x, int(rows) - 1) & 0x07;
           bitSet(SEGENV.data[index], bitNum);
         }
       }
     }
 
+  // Draw the text "BIER" if textDisplayed is true
+  if (textDisplayed) {
+    // Define text parameters
+    int letterWidth = 5;   // Width of each character
+    int letterHeight = 8;  // Height of each character
+    int xOffset = (cols - (letterWidth) * textLength) / 2; // Center the text horizontally
+    int yOffset = (rows - letterHeight) / 2;                   // Center the text vertically
 
-    // Draw the text "BIER" if textDisplayed is true
-    if (textDisplayed) {
-      // Define text parameters
-      int letterWidth = 5;   // Width of each character
-      int letterHeight = 7;  // Height of each character
-      int xOffset = (cols - (letterWidth + 1) * textLength) / 2; // Center the text horizontally
-      int yOffset = (rows - letterHeight) / 2;                   // Center the text vertically
-
-      // Draw each character
-      for (int i = 0; i < textLength; i++) {
-        int charX = xOffset + i * (letterWidth + 1);
-        // Adjust for character spacing
-        SEGMENT.drawCharacter(text[i], charX, yOffset, letterWidth, letterHeight, textColor, 0, 0);
-      }
+    // Draw each character
+    for (int i = 0; i < textLength; i++) {
+      int charX = xOffset + i * (letterWidth);
+      SEGMENT.drawCharacter(text[i], charX, yOffset, letterWidth, letterHeight, textColor, 0, 0);
     }
+  }
 
-  
 
     // Stop bubbles after 30 seconds
     if (now - bubblesStartTime > 30000) {
