@@ -36,9 +36,22 @@ uint16_t mode_Biertje() {
   static const char* text = "BIER";     // Text to display
   static uint8_t textLength = 4;        // Length of the text
 
+  // Define text parameters
+  int letterWidth = 6;   // Width of each character
+  int letterHeight = 8;  // Height of each character
+  int textWidth = textLength * (letterWidth + 1); // Total text width (+1 for spacing)
+  int yOffset = ((rows - letterHeight) / 2) + 1;       // Center the text vertically
+
+  // Static variables to track text position and timing
+  static int textPosition = cols + textWidth;  // Start fully off-screen to the right
+  static uint32_t lastTextUpdate = 0;          // Time of last position update
+  const uint32_t textScrollInterval = 100;     // Scrolling speed in milliseconds
+  
   // Use SEGENV.data as bit array for bubble positions
   unsigned dataSize = (SEGMENT.length() + 7) >> 3; // 1 bit per LED
   if (!SEGENV.allocateData(dataSize)) return 350; // Allocation failed
+
+  
 
   // Colors (adjust as desired)
   uint32_t beerColor = RGBW32(255, 204, 0, 0);     // Amber color for beer
@@ -209,29 +222,36 @@ uint16_t mode_Biertje() {
 
   // Draw the text "BIER" if textDisplayed is true
   if (textDisplayed) {
-    // Define text parameters
-    int letterWidth = 5;   // Width of each character
-    int letterHeight = 8;  // Height of each character
-    int xOffset = (cols - (letterWidth) * textLength) / 2; // Center the text horizontally
-    int yOffset = (rows - letterHeight) / 2;                   // Center the text vertically
 
-    // Draw each character
+    // Update text position based on the interval
+    if (now - lastTextUpdate >= textScrollInterval) {
+      lastTextUpdate = now;
+      textPosition--;
+
+      // Reset position when text has completely scrolled off the screen
+      if (textPosition < -textWidth) {
+        textPosition = cols + textWidth;
+      }
+    }
+
+    // Draw each character at the updated position
     for (int i = 0; i < textLength; i++) {
-      int charX = xOffset + i * (letterWidth);
+      int charX = textPosition + i * (letterWidth + 1); // Position with spacing
       SEGMENT.drawCharacter(text[i], charX, yOffset, letterWidth, letterHeight, textColor, 0, 0);
     }
   }
 
 
-    // Stop bubbles after 30 seconds
-    if (now - bubblesStartTime > 30000) {
+    // Stop bubbles after x seconds
+    if ((now - bubblesStartTime > 27000) && (textPosition == cols + textWidth)) {
       bubblesActive = false;
       beerLevel = 0;
       foamHeight = 0;
       waveStartTime = 0;
       waveAmplitude = 0;    // Wave amplitude
       waveFrequency = 0;    // Wave frequency  
-      textDisplayed = true;
+      textDisplayed = false;
+      textPosition = cols + textWidth;
       memset(SEGENV.data, 0, dataSize); // Clear bubble data
     }
   }
