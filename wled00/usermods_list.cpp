@@ -11,6 +11,10 @@
  */
 //#include "../usermods/EXAMPLE_v2/usermod_v2_example.h"
 
+#ifdef USERMOD_BIERTJE
+  #include "../usermods/Biertje/usermod_biertje.h"
+#endif
+
 #ifdef USERMOD_VISUALREMOTE
   #include "../usermods/VisualRemote/usermod_visualremote.h"
 #endif
@@ -488,5 +492,8 @@ void registerUsermods()
   UsermodManager::add(new UnUserMod());
   #endif
 
+  #ifdef USERMOD_BIERTJE
+  UsermodManager::add(new UsermodBiertje());
+  #endif
 
 }
