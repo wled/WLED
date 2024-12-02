@@ -349,7 +349,7 @@ uint32_t IRAM_ATTR BusDigital::getPixelColor(unsigned pix) const {
   }
 }
 
-uint8_t BusDigital::getPins(uint8_t* pinArray) const {
+unsigned BusDigital::getPins(uint8_t* pinArray) const {
   unsigned numPins = is2Pin(_type) + 1;
   if (pinArray) for (unsigned i = 0; i < numPins; i++) pinArray[i] = _pins[i];
   return numPins;
@@ -595,7 +595,7 @@ void BusPwm::show() {
   }
 }
 
-uint8_t BusPwm::getPins(uint8_t* pinArray) const {
+unsigned BusPwm::getPins(uint8_t* pinArray) const {
   if (!_valid) return 0;
   unsigned numPins = numPWMPins(_type);
   if (pinArray) for (unsigned i = 0; i < numPins; i++) pinArray[i] = _pins[i];
@@ -671,7 +671,7 @@ void BusOnOff::show() {
   digitalWrite(_pin, _reversed ? !(bool)_data[0] : (bool)_data[0]);
 }
 
-uint8_t BusOnOff::getPins(uint8_t* pinArray) const {
+unsigned BusOnOff::getPins(uint8_t* pinArray) const {
   if (!_valid) return 0;
   if (pinArray) pinArray[0] = _pin;
   return 1;
@@ -735,7 +735,7 @@ void BusNetwork::show() {
   _broadcastLock = false;
 }
 
-uint8_t BusNetwork::getPins(uint8_t* pinArray) const {
+unsigned BusNetwork::getPins(uint8_t* pinArray) const {
   if (pinArray) for (unsigned i = 0; i < 4; i++) pinArray[i] = _client[i];
   return 4;
 }

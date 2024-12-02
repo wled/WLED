@@ -823,7 +823,7 @@ class PolyBus {
     return true;
   }
 
-  static void setPixelColor(void* busPtr, uint8_t busType, uint16_t pix, uint32_t c, uint8_t co, uint16_t wwcw = 0) {
+  [[gnu::hot]] static void setPixelColor(void* busPtr, uint8_t busType, uint16_t pix, uint32_t c, uint8_t co, uint16_t wwcw = 0) {
     uint8_t r = c >> 16;
     uint8_t g = c >> 8;
     uint8_t b = c >> 0;
@@ -1070,7 +1070,7 @@ class PolyBus {
     }
   }
 
-  static uint32_t getPixelColor(void* busPtr, uint8_t busType, uint16_t pix, uint8_t co) {
+  [[gnu::hot]] static uint32_t getPixelColor(void* busPtr, uint8_t busType, uint16_t pix, uint8_t co) {
     RgbwColor col(0,0,0,0);
     switch (busType) {
       case I_NONE: break;

@@ -111,7 +111,7 @@ class Bus {
     virtual void     setBrightness(uint8_t b)                  { _bri = b; };
     virtual void     setColorOrder(uint8_t co)                 {}
     virtual uint32_t getPixelColor(unsigned pix) const         { return 0; }
-    virtual uint8_t  getPins(uint8_t* pinArray = nullptr) const { return 0; }
+    virtual unsigned  getPins(uint8_t* pinArray = nullptr) const { return 0; }
     virtual uint16_t getLength() const                         { return isOk() ? _len : 0; }
     virtual uint8_t  getColorOrder() const                     { return COL_ORDER_RGB; }
     virtual uint8_t  skippedLeds() const                       { return 0; }
@@ -232,7 +232,7 @@ class BusDigital : public Bus {
     void setColorOrder(uint8_t colorOrder) override;
     [[gnu::hot]] uint32_t getPixelColor(unsigned pix) const override;
     uint8_t  getColorOrder() const override  { return _colorOrder; }
-    uint8_t  getPins(uint8_t* pinArray = nullptr) const override;
+    unsigned getPins(uint8_t* pinArray = nullptr) const override;
     uint8_t  skippedLeds() const override    { return _skip; }
     uint16_t getFrequency() const override   { return _frequencykHz; }
     uint16_t getLEDCurrent() const override  { return _milliAmpsPerLed; }
@@ -278,7 +278,7 @@ class BusPwm : public Bus {
 
     void setPixelColor(unsigned pix, uint32_t c) override;
     uint32_t getPixelColor(unsigned pix) const override; //does no index check
-    uint8_t  getPins(uint8_t* pinArray = nullptr) const override;
+    unsigned getPins(uint8_t* pinArray = nullptr) const override;
     uint16_t getFrequency() const override { return _frequency; }
     void show() override;
     void cleanup() { deallocatePins(); }
@@ -305,7 +305,7 @@ class BusOnOff : public Bus {
 
     void setPixelColor(unsigned pix, uint32_t c) override;
     uint32_t getPixelColor(unsigned pix) const override;
-    uint8_t  getPins(uint8_t* pinArray) const override;
+    unsigned getPins(uint8_t* pinArray) const override;
     void show() override;
     void cleanup() { PinManager::deallocatePin(_pin, PinOwner::BusOnOff); }
 
@@ -323,9 +323,9 @@ class BusNetwork : public Bus {
     ~BusNetwork() { cleanup(); }
 
     bool canShow() const override  { return !_broadcastLock; } // this should be a return value from UDP routine if it is still sending data out
-    void setPixelColor(unsigned pix, uint32_t c) override;
-    uint32_t getPixelColor(unsigned pix) const override;
-    uint8_t  getPins(uint8_t* pinArray = nullptr) const override;
+    [[gnu::hot]] void setPixelColor(unsigned pix, uint32_t c) override;
+    [[gnu::hot]] uint32_t getPixelColor(unsigned pix) const override;
+    unsigned getPins(uint8_t* pinArray = nullptr) const override;
     void show() override;
     void cleanup();
 
