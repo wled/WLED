@@ -99,16 +99,19 @@ uint16_t mode_Biertje() {
     if (beerLevel < rows) {
       beerLevel += 0.5;  // Increase beer level
       if (beerLevel > rows) beerLevel = rows;
+    } else if (!textDisplayed) {
+        textDisplayed = true;
+    }
 
-      // Increase foam height proportionally up to 4 pixels
-      if (foamHeight < 4) {
-        foamHeight = (beerLevel / rows) * 4.0;
-        if (foamHeight > 4) foamHeight = 4;
-      }
-    } else if (!bubblesActive) {
-      // Start bubbles after beer has settled
+    // Increase foam height proportionally up to 4 pixels
+    if (foamHeight < 4) {
+      foamHeight = (beerLevel / rows) * 4.0;
+      if (foamHeight > 4) foamHeight = 4;
+    }
+
+    // Start bubbles when foamHeight reaches 4
+    if (foamHeight >= 2 && !bubblesActive) {
       bubblesActive = true;
-      textDisplayed = true;
       bubblesStartTime = now;
 
       // Initialize bubble data
