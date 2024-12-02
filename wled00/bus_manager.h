@@ -323,8 +323,8 @@ class BusNetwork : public Bus {
     ~BusNetwork() { cleanup(); }
 
     bool canShow() const override  { return !_broadcastLock; } // this should be a return value from UDP routine if it is still sending data out
-    void setPixelColor(unsigned pix, uint32_t c) override;
-    uint32_t getPixelColor(unsigned pix) const override;
+    [[gnu::hot]] void setPixelColor(unsigned pix, uint32_t c) override;
+    [[gnu::hot]] uint32_t getPixelColor(unsigned pix) const override;
     unsigned getPins(uint8_t* pinArray = nullptr) const override;
     void show() override;
     void cleanup();
