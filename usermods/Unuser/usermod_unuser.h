@@ -12,6 +12,7 @@ class UnUserMod : public Usermod {
     bool enabled = false;
     bool initDone = false;
     unsigned long lastTime = 0;
+    int cutOffPixels;
 
     // string that are used multiple time (this will save some flash memory)
     static const char _name[];
@@ -70,7 +71,7 @@ class UnUserMod : public Usermod {
     {
       JsonObject top = root.createNestedObject(FPSTR(_name));
       top[FPSTR(_enabled)] = enabled;
-   
+      top["cutOffPixels"] = cutOffPixels;
     }
 
 
@@ -82,7 +83,7 @@ class UnUserMod : public Usermod {
       bool configComplete = !top.isNull();
 
       configComplete &= getJsonValue(top[FPSTR(_enabled)], enabled);
-
+      configComplete &= getJsonValue(top["cutOffPixels"], cutOffPixels, 4);  
       
 
       return configComplete;
@@ -106,36 +107,35 @@ class UnUserMod : public Usermod {
 
     void blockCorners(uint32_t color) {
         int width = 16;
-        int height = 16;
-        int N = 3; // Size of the cut-off (number of pixels from the corner)
+        int height = 16;        
 
         // Top-left corner
-        for (int y = 0; y < N; y++) {
-            for (int x = 0; x <= N - y - 1; x++) {
+        for (int y = 0; y < cutOffPixels; y++) {
+            for (int x = 0; x <= cutOffPixels - y - 1; x++) {
                 int index = y * width + x;
                 strip.setPixelColor(index, color);
             }
         }
 
         // Top-right corner
-        for (int y = 0; y < N; y++) {
-            for (int x = width - 1; x >= width - N + y; x--) {
+        for (int y = 0; y < cutOffPixels; y++) {
+            for (int x = width - 1; x >= width - cutOffPixels + y; x--) {
                 int index = y * width + x;
                 strip.setPixelColor(index, color);
             }
         }
 
         // Bottom-left corner
-        for (int y = height - N; y < height; y++) {
-            for (int x = 0; x <= y - (height - N); x++) {
+        for (int y = height - cutOffPixels; y < height; y++) {
+            for (int x = 0; x <= y - (height - cutOffPixels); x++) {
                 int index = y * width + x;
                 strip.setPixelColor(index, color);
             }
         }
 
         // Bottom-right corner
-        for (int y = height - N; y < height; y++) {
-            for (int x = width - 1; x >= width - (y - (height - N)) - 1; x--) {
+        for (int y = height - cutOffPixels; y < height; y++) {
+            for (int x = width - 1; x >= width - (y - (height - cutOffPixels)) - 1; x--) {
                 int index = y * width + x;
                 strip.setPixelColor(index, color);
             }
