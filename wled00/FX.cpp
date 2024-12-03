@@ -2128,12 +2128,16 @@ uint16_t mode_fire_2012() {
 
       const uint8_t ignition = max(3,SEGLEN/10);  // ignition area: 10% of segment length or minimum 3 pixels
 
+      #if defined(ARDUINO_ARCH_ESP32)
+        random16_add_entropy(esp_random() & 0xFFFF); // improves randonmess
+      #endif
+
       // Step 1.  Cool down every cell a little
       for (int i = 0; i < SEGLEN; i++) {
         uint8_t cool = (it != SEGENV.step) ? random8((((20 + SEGMENT.speed/3) * 16) / SEGLEN)+2) : random8(4);
         uint8_t minTemp = (i<ignition) ? (ignition-i)/4 + 16 : 0;  // should not become black in ignition area
         uint8_t temp = qsub8(heat[i], cool);
-        heat[i] = temp<minTemp ? minTemp : temp;
+        heat[i] = max(minTemp, temp);
       }
 
       if (it != SEGENV.step) {
@@ -5706,6 +5710,7 @@ uint16_t mode_2DJulia(void) {                           // An animated Julia set
   float imAg;
 
   if (SEGENV.call == 0) {           // Reset the center if we've just re-started this animation.
+    SEGMENT.setUpLeds(); SEGMENT.fill(BLACK); // WLEDMM avoids dimming when blur option is selected
     julias->xcen = 0.;
     julias->ycen = 0.;
     julias->xymag = 1.0;
