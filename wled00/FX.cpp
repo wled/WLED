@@ -1794,6 +1794,61 @@ uint16_t mode_multi_comet(void) {
 }
 static const char _data_FX_MODE_MULTI_COMET[] PROGMEM = "Multi Comet";
 
+// audioreactive multi-comet by @softhack007
+uint16_t mode_multi_comet_ar(void) {
+  constexpr unsigned MAX_COMETS = 16; // was 8
+  uint32_t cycleTime = max(1, int((255 - SEGMENT.speed)/4));
+  uint32_t it = strip.now / cycleTime;
+  if (SEGENV.step == it) return FRAMETIME; // too early
+
+  if (!SEGENV.allocateData(sizeof(uint16_t) * MAX_COMETS)) return mode_static(); //allocation failed
+  uint16_t* comets = reinterpret_cast<uint16_t*>(SEGENV.data);
+  if (SEGENV.call == 0) { // do some initializations
+    SEGMENT.setUpLeds(); SEGMENT.fill(BLACK);
+    for(uint8_t i=0; i < MAX_COMETS; i++) comets[i] = SEGLEN;  // WLEDMM make sure comments are started individually
+    SEGENV.aux0 = 0;
+  }
+  SEGMENT.fade_out(254 - SEGMENT.intensity/2);
+
+  um_data_t *um_data;
+  if (!usermods.getUMData(&um_data, USERMOD_ID_AUDIOREACTIVE)) um_data = simulateSound(SEGMENT.soundSim);
+  float   volumeSmth  = *(float*)   um_data->u_data[0];
+  int16_t volumeRaw   = *(int16_t*) um_data->u_data[1];
+  uint8_t samplePeak  = *(uint8_t*) um_data->u_data[3];
+
+  uint16_t armed = SEGENV.aux0;   // allows to delay comet launch
+
+  #if defined(ARDUINO_ARCH_ESP32)
+  random16_add_entropy(esp_random() & 0xFFFF); // improve randomness (esp32)
+  #endif
+  bool shotOne = false;           // avoids starting several coments at the same time (invisible due to overlap)
+  for(unsigned i=0; i < MAX_COMETS; i++) {
+    if(comets[i] < SEGLEN) {
+      // draw comet
+      uint16_t index = comets[i];
+      if (SEGCOLOR(2) != 0)
+        SEGMENT.setPixelColor(index, i % 2 ? SEGMENT.color_from_palette(index, true, PALETTE_SOLID_WRAP, 0) : SEGCOLOR(2));
+      else
+        SEGMENT.setPixelColor(index, SEGMENT.color_from_palette(index, true, PALETTE_SOLID_WRAP, 0));
+      comets[i]++;  // move
+    } else {
+      // randomly launch a new comet
+      if (random16(min(uint16_t(256), SEGLEN)) < 3) armed++;                             // new comet loaded and ready
+      if (armed > 2) armed = 2;                                                          // max three armed at once (avoid overlap)
+      // delay comet "launch" during silence, and wait until next beat
+      if (    (armed > 0) && (shotOne == false) 
+           && (volumeSmth > 1.0f) && ((samplePeak > 0) || (volumeRaw > 104)) ) {         // delayed lauch - wait until peak, don't launch in silence 
+        comets[i] = 0; // start a new comet!
+        armed--;       // un-arm one
+        shotOne = true;
+      }
+    }
+  }
+  SEGENV.aux0 = armed;
+  SEGENV.step = it;
+  return FRAMETIME;
+}
+static const char _data_FX_MODE_MULTI_COMET_AR[] PROGMEM = "Multi Comet audio ☾@Speed,Tail Length;!,!;!;1v;sx=160,ix=32,m12=7,si=1"; // Pinwheel, WeWillRockU
 
 /*
  * Running random pixels ("Stream 2")
@@ -9017,6 +9072,7 @@ void WS2812FX::setupEffectData() {
   addEffect(FX_MODE_LIGHTNING, &mode_lightning, _data_FX_MODE_LIGHTNING);
   addEffect(FX_MODE_ICU, &mode_icu, _data_FX_MODE_ICU);
   addEffect(FX_MODE_MULTI_COMET, &mode_multi_comet, _data_FX_MODE_MULTI_COMET);
+  addEffect(FX_MODE_MULTI_COMET_AR, &mode_multi_comet_ar, _data_FX_MODE_MULTI_COMET_AR);
   addEffect(FX_MODE_DUAL_LARSON_SCANNER, &mode_dual_larson_scanner, _data_FX_MODE_DUAL_LARSON_SCANNER);
   addEffect(FX_MODE_RANDOM_CHASE, &mode_random_chase, _data_FX_MODE_RANDOM_CHASE);
   addEffect(FX_MODE_OSCILLATE, &mode_oscillate, _data_FX_MODE_OSCILLATE);
