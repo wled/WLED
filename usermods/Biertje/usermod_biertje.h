@@ -140,8 +140,8 @@ uint16_t mode_Biertje() {
 // // Debug statements
 // DEBUG_PRINTF("Wave Amplitude: %.2f\n", waveAmplitude);
 // DEBUG_PRINTF("Wave Frequency: %.2f\n", waveFrequency);
- DEBUG_PRINTF("Foam Height: %.2f\n", foamHeight);
- DEBUG_PRINTF("Beer Level: %.2f\n", beerLevel);
+// DEBUG_PRINTF("Foam Height: %.2f\n", foamHeight);
+// DEBUG_PRINTF("Beer Level: %.2f\n", beerLevel);
 // DEBUG_PRINTF("Rows: %.2f\n", rows);
 // DEBUG_PRINTF("Columns: %.2f\n", cols);
 
