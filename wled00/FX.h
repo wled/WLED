@@ -380,6 +380,7 @@ typedef struct Segment {
     };
     uint8_t  grouping, spacing;
     uint8_t  opacity;
+    uint8_t  lastBri;             // WLEDMM optimization for black-to-black "transitions"
     bool needsBlank;              // WLEDMM indicates that Segment needs to be blanked (due to change of mirror / reverse / transpose / spacing)
     uint32_t colors[NUM_COLORS];
     uint8_t  cct;                 //0==1900K, 255==10091K
@@ -490,6 +491,7 @@ typedef struct Segment {
       grouping(1),
       spacing(0),
       opacity(255),
+      lastBri(255),
       needsBlank(false),
       colors{DEFAULT_COLOR,BLACK,BLACK},
       cct(127),
