@@ -5119,12 +5119,13 @@ static const char _data_FX_MODE_2DCOLOREDBURSTS[] PROGMEM = "Colored Bursts@Spee
 /////////////////////
 //      2D DNA     //
 /////////////////////
-uint16_t mode_2Ddna(void) {         // dna originally by by ldirko at https://pastebin.com/pCkkkzcs. Updated by Preyy. WLED conversion by Andrew Tuline.
+uint16_t mode_2Ddna(void) {         // dna originally by by ldirko at https://pastebin.com/pCkkkzcs. Updated by Preyy. WLED conversion by Andrew Tuline. Phases added by @ewoudwijma
   if (!strip.isMatrix) return mode_static(); // not a 2D set-up
 
   const uint16_t cols = SEGMENT.virtualWidth();
   const uint16_t rows = SEGMENT.virtualHeight();
-  uint8_t phases = SEGMENT.custom1;
+  unsigned phases = SEGMENT.custom1;
+  if (phases > 179) phases = 179 + 2.5f * (phases - 179); // boost for values > 179
 
   if (SEGENV.call == 0) {
     SEGMENT.setUpLeds();
@@ -5137,10 +5138,9 @@ uint16_t mode_2Ddna(void) {         // dna originally by by ldirko at https://pa
   int lastY1 = -1;
   int lastY2 = -1;
   for (int i = 0; i < cols; i++) {
-    // int posY1 = beatsin8_t(SEGMENT.speed/8, 0, rows-1, 0, i*4    );
-    ///int posY2 = beatsin8_t(SEGMENT.speed/8, 0, rows-1, 0, i*4+128);
-    unsigned phase = cols * i / 8;                      // 256 is a complete phase; half a phase is dna is 128
-    phase = i * 4 * phases / cols;                      // cols ==0 cannot happen due to the for loop
+    // 256 is a complete phase; half a phase of dna is 128
+    // unsigned phase = i * 4 * phases / cols;      // original formula; cols ==0 cannot happen due to the for loop
+    unsigned phase = i * 4 * phases / 128;          // WLEDMM this reproduces the previous behaviour at phases=127
     int posY1 = beatsin8_t(SEGMENT.speed/8, 0, rows-1, 0, phase    );
     int posY2 = beatsin8_t(SEGMENT.speed/8, 0, rows-1, 0, phase+128);
 
