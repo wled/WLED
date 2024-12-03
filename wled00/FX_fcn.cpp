@@ -1913,6 +1913,7 @@ void WS2812FX::service() {
     seg.resetIfRequired();
 
     if (!seg.isActive()) continue;
+    if (!seg.on && !seg.transitional) continue;    // WLEDMM skip disabled segments, unless a crossfade is ongoing
 
     // last condition ensures all solid segments are updated at the same time
     if(nowUp >= seg.next_time || _triggered || (doShow && seg.mode == FX_MODE_STATIC))  // WLEDMM ">=" instead of ">"
