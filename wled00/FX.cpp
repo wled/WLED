@@ -5124,6 +5124,7 @@ uint16_t mode_2Ddna(void) {         // dna originally by by ldirko at https://pa
 
   const uint16_t cols = SEGMENT.virtualWidth();
   const uint16_t rows = SEGMENT.virtualHeight();
+  uint8_t phases = SEGMENT.custom1;
 
   if (SEGENV.call == 0) {
     SEGMENT.setUpLeds();
@@ -5136,8 +5137,13 @@ uint16_t mode_2Ddna(void) {         // dna originally by by ldirko at https://pa
   int lastY1 = -1;
   int lastY2 = -1;
   for (int i = 0; i < cols; i++) {
-    int posY1 = beatsin8_t(SEGMENT.speed/8, 0, rows-1, 0, i*4    );
-    int posY2 = beatsin8_t(SEGMENT.speed/8, 0, rows-1, 0, i*4+128);
+    // int posY1 = beatsin8_t(SEGMENT.speed/8, 0, rows-1, 0, i*4    );
+    ///int posY2 = beatsin8_t(SEGMENT.speed/8, 0, rows-1, 0, i*4+128);
+    unsigned phase = cols * i / 8;                      // 256 is a complete phase; half a phase is dna is 128
+    phase = i * 4 * phases / cols;                      // cols ==0 cannot happen due to the for loop
+    int posY1 = beatsin8_t(SEGMENT.speed/8, 0, rows-1, 0, phase    );
+    int posY2 = beatsin8_t(SEGMENT.speed/8, 0, rows-1, 0, phase+128);
+
     if ((i==0) || ((abs(lastY1 - posY1) < 2) && (abs(lastY2 - posY2) < 2))) {   // use original code when no holes
       SEGMENT.setPixelColorXY(i, posY1, ColorFromPalette(SEGPALETTE, i*5+strip.now/17, beatsin8_t(5, 55, 255, 0, i*10), LINEARBLEND));
       SEGMENT.setPixelColorXY(i, posY2, ColorFromPalette(SEGPALETTE, i*5+128+strip.now/17, beatsin8_t(5, 55, 255, 0, i*10+128), LINEARBLEND));
@@ -5152,7 +5158,7 @@ uint16_t mode_2Ddna(void) {         // dna originally by by ldirko at https://pa
 
   return FRAMETIME;
 } // mode_2Ddna()
-static const char _data_FX_MODE_2DDNA[] PROGMEM = "DNA@Scroll speed,Blur;;!;2";
+static const char _data_FX_MODE_2DDNA[] PROGMEM = "DNA@Scroll speed,Blur,Phases;;!;2";
 
 
 /////////////////////////
