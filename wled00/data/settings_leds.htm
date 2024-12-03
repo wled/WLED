@@ -465,6 +465,7 @@ mA/LED: <select name="LAsel${s}" onchange="enLA(this,'${s}');UI();">
 						}
 					}
 				});
+				enLA(d.Sf["LAsel"+s],s); // update LED mA
 				// disable inappropriate LED types
 				let sel = d.getElementsByName("LT"+s)[0]
 				if (i >= maxB || digitalB >= maxD) disable(sel,'option[data-type="D"]'); // NOTE: see isDig()
