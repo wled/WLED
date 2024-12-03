@@ -2,10 +2,9 @@
 
 #include "wled.h"
 
-static const char _data_FX_MODE_BIERTJE[] PROGMEM = "Biertje@Speed;;1;2";
 #define XY(x,y) SEGMENT.XY(x,y)
 
-uint16_t mode_Biertje() {
+uint16_t mode_Biertje(bool useEmoticon) {
 
   int beer_mug[16][16] = {
       {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
@@ -49,9 +48,6 @@ uint16_t mode_Biertje() {
   // Variables for bubble animation
   static bool bubblesActive = false;    // Flag to indicate if bubbles are active
   static uint32_t bubblesStartTime = 0; // Time when bubbles started
-
-  // Variables for emoticon 
-  static bool useEmoticon = true;    // Flag to indicate if emoticon is used
 
   // Variables for text display
   static bool textDisplayed = false;    // Flag to indicate if text is displayed    
@@ -426,12 +422,32 @@ uint16_t mode_Biertje() {
   return FRAMETIME;
 }
 
+
+/*
+ * Runs a single pixel back and forth.
+ */
+uint16_t mode_biertje_full(void) {
+  return mode_Biertje(false);
+}
+static const char _data_FX_MODE_BIERTJE[] PROGMEM = "Biertje@Speed;;1;2";
+
+
+/*
+ * Runs two pixel back and forth in opposite directions.
+ */
+uint16_t mode_biertje_emoticon(void) {
+  return mode_Biertje(true);
+}
+static const char _data_FX_MODE_BIERTJE_EMOTICON[] PROGMEM = "Biertje Emoticon@Speed;;1;2";
+
+
 class UsermodBiertje : public Usermod {
   private:
 
   public:
     void setup() {
-      strip.addEffect(255, &mode_Biertje, _data_FX_MODE_BIERTJE);
+      strip.addEffect(255, &mode_biertje_full, _data_FX_MODE_BIERTJE);
+      strip.addEffect(255, &mode_biertje_emoticon, _data_FX_MODE_BIERTJE_EMOTICON);
     }
 
     void loop() {
