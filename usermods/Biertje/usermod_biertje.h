@@ -17,8 +17,7 @@ typedef struct {
   bool bubblesActive;
   uint32_t bubblesStartTime;
   bool textDisplayed;
-  const char* text;
-  uint8_t textLength;
+  const char* text;  
   int textPosition;
   uint32_t lastTextUpdate;
   uint8_t pourSpeed;
@@ -81,6 +80,9 @@ uint16_t mode_Biertje(bool useEmoticon) {
   const uint32_t TEXT_SCROLL_INTERVAL_MS = 100;     // Scrolling speed in milliseconds
   const int LETTER_WIDTH = 6;   // Width of each character
   const int LETTER_HEIGHT = 8;  // Height of each character
+  const int TEXT_LENGTH = 4;
+  const int TEXT_WIDTH = TEXT_LENGTH * (LETTER_WIDTH + 1); // Total text width (+1 for spacing)
+  const char* TEXT_CHARS = "BIER";
 
   // Colors
   const uint32_t BEER_COLOR = RGBW32(255, 204, 0, 0);
@@ -100,7 +102,7 @@ uint16_t mode_Biertje(bool useEmoticon) {
   // Initialize data if it's the first run
   if (SEGENV.call == 0) {
 
-    DEBUG_PRINTF("First Call ");
+    DEBUG_PRINTF("SEGENV.call: %u\n", SEGENV.call);    
     data->beerLevel = 0;
     data->foamHeight = 0;
     data->lastPourUpdate = 0;
@@ -111,9 +113,7 @@ uint16_t mode_Biertje(bool useEmoticon) {
     data->bubblesActive = false;
     data->bubblesStartTime = 0;
     data->textDisplayed = false;
-    data->text = "BIER";
-    data->textLength = 4;
-    data->textPosition = cols + (data->textLength * (LETTER_WIDTH + 1));  // Start off-screen
+    data->textPosition = 0;
     data->lastTextUpdate = 0;
     data->pourSpeed = SEGMENT.speed / 16;
 
@@ -162,6 +162,7 @@ uint16_t mode_Biertje(bool useEmoticon) {
       data->foamHeight += FOAM_HEIGHT_INCREMENT;
       if (data->beerLevel > rows) data->beerLevel = rows;
     } else if (!data->textDisplayed) {
+      data->textPosition = cols + TEXT_WIDTH;
       data->textDisplayed = true;
     }
     if (data->foamHeight > MAX_FOAM_HEIGHT) data->foamHeight = MAX_FOAM_HEIGHT;
@@ -269,7 +270,7 @@ uint16_t mode_Biertje(bool useEmoticon) {
       }
 
       // Stop bubbles after duration
-      if ((now - data->bubblesStartTime > BUBBLES_ACTIVE_DURATION_MS) && (data->textPosition == cols + (data->textLength * (LETTER_WIDTH + 1)))) {
+      if ((now - data->bubblesStartTime > BUBBLES_ACTIVE_DURATION_MS) && (data->textPosition == cols + TEXT_WIDTH)) {
         data->bubblesActive = false;
         data->beerLevel = 0;
         data->foamHeight = 0;
@@ -277,7 +278,6 @@ uint16_t mode_Biertje(bool useEmoticon) {
         data->waveAmplitude = 0.0;
         data->waveFrequency = 0.0;
         data->textDisplayed = false;
-        data->textPosition = cols + (data->textLength * (LETTER_WIDTH + 1));
         memset(bubbleData, 0, data->dataSize); // Clear bubble data
       }
     }
@@ -327,21 +327,25 @@ uint16_t mode_Biertje(bool useEmoticon) {
 
     // Draw the text if textDisplayed is true
     if (data->textDisplayed) {
+
+      int yOffset = ((rows - LETTER_HEIGHT) / 2) + 1;       // Center the text vertically
       // Update text position based on the interval
       if (now - data->lastTextUpdate >= TEXT_SCROLL_INTERVAL_MS) {
         data->lastTextUpdate = now;
         data->textPosition--;
-
         // Reset position when text has completely scrolled off the screen
-        if (data->textPosition < -((int)(data->textLength * (LETTER_WIDTH + 1)))) {
-          data->textPosition = cols + (data->textLength * (LETTER_WIDTH + 1));
+        if (data->textPosition < -TEXT_WIDTH) {
+          data->textPosition = cols + TEXT_WIDTH;
         }
       }
 
+      
       // Draw each character at the updated position
-      for (int i = 0; i < data->textLength; i++) {
-        int charX = data->textPosition + i * (LETTER_WIDTH + 1); // Position with spacing
-        SEGMENT.drawCharacter(data->text[i], charX, ((rows - LETTER_HEIGHT) / 2) + 1, LETTER_WIDTH, LETTER_HEIGHT, TEXT_COLOR, 0, 0);
+      for (int i = 0; i < TEXT_LENGTH; i++) {
+        int16_t charX = data->textPosition + i * (LETTER_WIDTH + 1); // Position with spacing
+
+        SEGMENT.drawCharacter(TEXT_CHARS[i], charX, yOffset, LETTER_WIDTH, LETTER_HEIGHT, TEXT_COLOR, 0, 0);
+
       }
     }
   } else {
