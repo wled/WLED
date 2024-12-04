@@ -1913,6 +1913,7 @@ void WS2812FX::service() {
     seg.resetIfRequired();
 
     if (!seg.isActive()) continue;
+    if (!seg.on && !seg.transitional) continue;    // WLEDMM skip disabled segments, unless a crossfade is ongoing
 
     // last condition ensures all solid segments are updated at the same time
     if(nowUp >= seg.next_time || _triggered || (doShow && seg.mode == FX_MODE_STATIC))  // WLEDMM ">=" instead of ">"
@@ -1934,6 +1935,7 @@ void WS2812FX::service() {
         now = millis() + timebase;
 #endif
         seg.startFrame();   // WLEDMM
+        if (!_triggered && (seg.currentBri(seg.opacity) == 0) && (seg.lastBri == 0)) continue; // WLEDMM skip totally black segments
         // effect blending (execute previous effect)
         // actual code may be a bit more involved as effects have runtime data including allocated memory
         //if (seg.transitional && seg._modeP) (*_mode[seg._modeP])(progress());
@@ -1943,6 +1945,7 @@ void WS2812FX::service() {
         if (seg.mode != FX_MODE_HALLOWEEN_EYES) seg.call++;
         if (seg.transitional && frameDelay > FRAMETIME) frameDelay = FRAMETIME; // force faster updates during transition
 
+        seg.lastBri = seg.currentBri(seg.on ? seg.opacity:0);                   // WLEDMM remember for next time
         seg.handleTransition();
       }
 

@@ -330,7 +330,7 @@ bool strip_uses_global_leds(void) __attribute__((pure));  // WLEDMM implemented 
 // Experimental Audioresponsive modes from WLED-SR
 // #define FX_MODE_3DSphereMove           189 // experimental WLED-SR "cube" mode
 #define FX_MODE_POPCORN_AR             190 // WLED-SR audioreactive popcorn
-// #define FX_MODE_MULTI_COMET_AR         191 // WLED-SR audioreactive multi-comet
+#define FX_MODE_MULTI_COMET_AR         191 // WLED-SR audioreactive multi-comet
 #define FX_MODE_STARBURST_AR           192 // WLED-SR audioreactive fireworks starburst
 // #define FX_MODE_PALETTE_AR             193 // WLED-SR audioreactive palette
 #define FX_MODE_FIREWORKS_AR           194 // WLED-SR audioreactive fireworks
@@ -380,6 +380,7 @@ typedef struct Segment {
     };
     uint8_t  grouping, spacing;
     uint8_t  opacity;
+    uint8_t  lastBri;             // WLEDMM optimization for black-to-black "transitions"
     bool needsBlank;              // WLEDMM indicates that Segment needs to be blanked (due to change of mirror / reverse / transpose / spacing)
     uint32_t colors[NUM_COLORS];
     uint8_t  cct;                 //0==1900K, 255==10091K
@@ -490,6 +491,7 @@ typedef struct Segment {
       grouping(1),
       spacing(0),
       opacity(255),
+      lastBri(255),
       needsBlank(false),
       colors{DEFAULT_COLOR,BLACK,BLACK},
       cct(127),

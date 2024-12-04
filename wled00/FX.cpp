@@ -1794,6 +1794,61 @@ uint16_t mode_multi_comet(void) {
 }
 static const char _data_FX_MODE_MULTI_COMET[] PROGMEM = "Multi Comet";
 
+// audioreactive multi-comet by @softhack007
+uint16_t mode_multi_comet_ar(void) {
+  constexpr unsigned MAX_COMETS = 16; // was 8
+  uint32_t cycleTime = max(1, int((255 - SEGMENT.speed)/4));
+  uint32_t it = strip.now / cycleTime;
+  if (SEGENV.step == it) return FRAMETIME; // too early
+
+  if (!SEGENV.allocateData(sizeof(uint16_t) * MAX_COMETS)) return mode_static(); //allocation failed
+  uint16_t* comets = reinterpret_cast<uint16_t*>(SEGENV.data);
+  if (SEGENV.call == 0) { // do some initializations
+    SEGMENT.setUpLeds(); SEGMENT.fill(BLACK);
+    for(uint8_t i=0; i < MAX_COMETS; i++) comets[i] = SEGLEN;  // WLEDMM make sure comments are started individually
+    SEGENV.aux0 = 0;
+  }
+  SEGMENT.fade_out(254 - SEGMENT.intensity/2);
+
+  um_data_t *um_data;
+  if (!usermods.getUMData(&um_data, USERMOD_ID_AUDIOREACTIVE)) um_data = simulateSound(SEGMENT.soundSim);
+  float   volumeSmth  = *(float*)   um_data->u_data[0];
+  int16_t volumeRaw   = *(int16_t*) um_data->u_data[1];
+  uint8_t samplePeak  = *(uint8_t*) um_data->u_data[3];
+
+  uint16_t armed = SEGENV.aux0;   // allows to delay comet launch
+
+  #if defined(ARDUINO_ARCH_ESP32)
+  random16_add_entropy(esp_random() & 0xFFFF); // improve randomness (esp32)
+  #endif
+  bool shotOne = false;           // avoids starting several coments at the same time (invisible due to overlap)
+  for(unsigned i=0; i < MAX_COMETS; i++) {
+    if(comets[i] < SEGLEN) {
+      // draw comet
+      uint16_t index = comets[i];
+      if (SEGCOLOR(2) != 0)
+        SEGMENT.setPixelColor(index, i % 2 ? SEGMENT.color_from_palette(index, true, PALETTE_SOLID_WRAP, 0) : SEGCOLOR(2));
+      else
+        SEGMENT.setPixelColor(index, SEGMENT.color_from_palette(index, true, PALETTE_SOLID_WRAP, 0));
+      comets[i]++;  // move
+    } else {
+      // randomly launch a new comet
+      if (random16(min(uint16_t(256), SEGLEN)) < 3) armed++;                             // new comet loaded and ready
+      if (armed > 2) armed = 2;                                                          // max three armed at once (avoid overlap)
+      // delay comet "launch" during silence, and wait until next beat
+      if (    (armed > 0) && (shotOne == false) 
+           && (volumeSmth > 1.0f) && ((samplePeak > 0) || (volumeRaw > 104)) ) {         // delayed lauch - wait until peak, don't launch in silence 
+        comets[i] = 0; // start a new comet!
+        armed--;       // un-arm one
+        shotOne = true;
+      }
+    }
+  }
+  SEGENV.aux0 = armed;
+  SEGENV.step = it;
+  return FRAMETIME;
+}
+static const char _data_FX_MODE_MULTI_COMET_AR[] PROGMEM = "Multi Comet audio ☾@Speed,Tail Length;!,!;!;1v;sx=160,ix=32,m12=7,si=1"; // Pinwheel, WeWillRockU
 
 /*
  * Running random pixels ("Stream 2")
@@ -2128,12 +2183,16 @@ uint16_t mode_fire_2012() {
 
       const uint8_t ignition = max(3,SEGLEN/10);  // ignition area: 10% of segment length or minimum 3 pixels
 
+      #if defined(ARDUINO_ARCH_ESP32)
+        random16_add_entropy(esp_random() & 0xFFFF); // improves randonmess
+      #endif
+
       // Step 1.  Cool down every cell a little
       for (int i = 0; i < SEGLEN; i++) {
         uint8_t cool = (it != SEGENV.step) ? random8((((20 + SEGMENT.speed/3) * 16) / SEGLEN)+2) : random8(4);
         uint8_t minTemp = (i<ignition) ? (ignition-i)/4 + 16 : 0;  // should not become black in ignition area
         uint8_t temp = qsub8(heat[i], cool);
-        heat[i] = temp<minTemp ? minTemp : temp;
+        heat[i] = max(minTemp, temp);
       }
 
       if (it != SEGENV.step) {
@@ -5060,11 +5119,13 @@ static const char _data_FX_MODE_2DCOLOREDBURSTS[] PROGMEM = "Colored Bursts@Spee
 /////////////////////
 //      2D DNA     //
 /////////////////////
-uint16_t mode_2Ddna(void) {         // dna originally by by ldirko at https://pastebin.com/pCkkkzcs. Updated by Preyy. WLED conversion by Andrew Tuline.
+uint16_t mode_2Ddna(void) {         // dna originally by by ldirko at https://pastebin.com/pCkkkzcs. Updated by Preyy. WLED conversion by Andrew Tuline. Phases added by @ewoudwijma
   if (!strip.isMatrix) return mode_static(); // not a 2D set-up
 
   const uint16_t cols = SEGMENT.virtualWidth();
   const uint16_t rows = SEGMENT.virtualHeight();
+  unsigned phases = SEGMENT.custom1;
+  if (phases > 179) phases = 179 + 2.5f * (phases - 179); // boost for values > 179
 
   if (SEGENV.call == 0) {
     SEGMENT.setUpLeds();
@@ -5077,8 +5138,12 @@ uint16_t mode_2Ddna(void) {         // dna originally by by ldirko at https://pa
   int lastY1 = -1;
   int lastY2 = -1;
   for (int i = 0; i < cols; i++) {
-    int posY1 = beatsin8_t(SEGMENT.speed/8, 0, rows-1, 0, i*4    );
-    int posY2 = beatsin8_t(SEGMENT.speed/8, 0, rows-1, 0, i*4+128);
+    // 256 is a complete phase; half a phase of dna is 128
+    // unsigned phase = i * 4 * phases / cols;      // original formula; cols ==0 cannot happen due to the for loop
+    unsigned phase = i * 4 * phases / 128;          // WLEDMM this reproduces the previous behaviour at phases=127
+    int posY1 = beatsin8_t(SEGMENT.speed/8, 0, rows-1, 0, phase    );
+    int posY2 = beatsin8_t(SEGMENT.speed/8, 0, rows-1, 0, phase+128);
+
     if ((i==0) || ((abs(lastY1 - posY1) < 2) && (abs(lastY2 - posY2) < 2))) {   // use original code when no holes
       SEGMENT.setPixelColorXY(i, posY1, ColorFromPalette(SEGPALETTE, i*5+strip.now/17, beatsin8_t(5, 55, 255, 0, i*10), LINEARBLEND));
       SEGMENT.setPixelColorXY(i, posY2, ColorFromPalette(SEGPALETTE, i*5+128+strip.now/17, beatsin8_t(5, 55, 255, 0, i*10+128), LINEARBLEND));
@@ -5093,7 +5158,7 @@ uint16_t mode_2Ddna(void) {         // dna originally by by ldirko at https://pa
 
   return FRAMETIME;
 } // mode_2Ddna()
-static const char _data_FX_MODE_2DDNA[] PROGMEM = "DNA@Scroll speed,Blur;;!;2";
+static const char _data_FX_MODE_2DDNA[] PROGMEM = "DNA@Scroll speed,Blur,Phases;;!;2";
 
 
 /////////////////////////
@@ -5706,6 +5771,7 @@ uint16_t mode_2DJulia(void) {                           // An animated Julia set
   float imAg;
 
   if (SEGENV.call == 0) {           // Reset the center if we've just re-started this animation.
+    SEGMENT.setUpLeds(); SEGMENT.fill(BLACK); // WLEDMM avoids dimming when blur option is selected
     julias->xcen = 0.;
     julias->ycen = 0.;
     julias->xymag = 1.0;
@@ -9012,6 +9078,7 @@ void WS2812FX::setupEffectData() {
   addEffect(FX_MODE_LIGHTNING, &mode_lightning, _data_FX_MODE_LIGHTNING);
   addEffect(FX_MODE_ICU, &mode_icu, _data_FX_MODE_ICU);
   addEffect(FX_MODE_MULTI_COMET, &mode_multi_comet, _data_FX_MODE_MULTI_COMET);
+  addEffect(FX_MODE_MULTI_COMET_AR, &mode_multi_comet_ar, _data_FX_MODE_MULTI_COMET_AR);
   addEffect(FX_MODE_DUAL_LARSON_SCANNER, &mode_dual_larson_scanner, _data_FX_MODE_DUAL_LARSON_SCANNER);
   addEffect(FX_MODE_RANDOM_CHASE, &mode_random_chase, _data_FX_MODE_RANDOM_CHASE);
   addEffect(FX_MODE_OSCILLATE, &mode_oscillate, _data_FX_MODE_OSCILLATE);

@@ -2056,7 +2056,16 @@ class AudioReactive : public Usermod {
           if ((sclPin >= 0) && (i2c_scl < 0)) i2c_scl = sclPin;
           if (i2c_sda >= 0) sdaPin = -1;                        // -1 = use global
           if (i2c_scl >= 0) sclPin = -1;
-
+        case 9:
+          DEBUGSR_PRINTLN(F("AR: ES8311 Source (Mic)"));
+          audioSource = new ES8311Source(SAMPLE_RATE, BLOCK_SIZE, 1.0f);
+          //useInputFilter = 0; // to disable low-cut software filtering and restore previous behaviour
+          delay(100);
+          // WLEDMM align global pins
+          if ((sdaPin >= 0) && (i2c_sda < 0)) i2c_sda = sdaPin; // copy usermod prefs into globals (if globals not defined)
+          if ((sclPin >= 0) && (i2c_scl < 0)) i2c_scl = sclPin;
+          if (i2c_sda >= 0) sdaPin = -1;                        // -1 = use global
+          if (i2c_scl >= 0) sclPin = -1;
           if (audioSource) audioSource->initialize(i2swsPin, i2ssdPin, i2sckPin, mclkPin);
           break;
 
@@ -3001,6 +3010,11 @@ class AudioReactive : public Usermod {
         oappend(SET_F("addOption(dd,'AC101 ☾ (⎌)',8);"));
       #else
         oappend(SET_F("addOption(dd,'AC101 ☾',8);"));
+      #endif
+      #if SR_DMTYPE==9
+        oappend(SET_F("addOption(dd,'ES8311 ☾ (⎌)',9);"));
+      #else
+        oappend(SET_F("addOption(dd,'ES8311 ☾',9);"));
       #endif
       #ifdef SR_SQUELCH
         oappend(SET_F("addInfo(ux+':config:squelch',1,'<i>&#9100; ")); oappendi(SR_SQUELCH); oappend("</i>');");  // 0 is field type, 1 is actual field
