@@ -152,10 +152,13 @@ Segment& Segment::operator= (Segment &&orig) noexcept {
 bool IRAM_ATTR_YN Segment::allocateData(size_t len) {
   if (len == 0) return false; // nothing to do
   if (data && _dataLen >= len) {          // already allocated enough (reduce fragmentation)
-    if (call == 0) memset(data, 0, len);  // erase buffer if called during effect initialisation
+    if (call == 0) {
+      //DEBUGFX_PRINTF_P(PSTR("--   Clearing data (%d): %p\n"), len, this);
+      memset(data, 0, len);  // erase buffer if called during effect initialisation
+    }
     return true;
   }
-  //DEBUGFX_PRINTF_P(PSTR("--   Allocating data (%d): %p\n", len, this);
+  //DEBUGFX_PRINTF_P(PSTR("--   Allocating data (%d): %p\n"), len, this);
   deallocateData(); // if the old buffer was smaller release it first
   if (Segment::getUsedSegmentData() + len > MAX_SEGMENT_DATA) {
     // not enough memory
@@ -166,7 +169,10 @@ bool IRAM_ATTR_YN Segment::allocateData(size_t len) {
   }
   // do not use SPI RAM on ESP32 since it is slow
   data = (byte*)calloc(len, sizeof(byte));
-  if (!data) { DEBUGFX_PRINTLN(F("!!! Allocation failed. !!!")); return false; } // allocation failed
+  if (!data) {
+    DEBUGFX_PRINTLN(F("!!! Allocation failed. !!!"));
+    return false;
+  } // allocation failed
   Segment::addUsedSegmentData(len);
   //DEBUGFX_PRINTF_P(PSTR("---  Allocated data (%p): %d/%d -> %p\n"), this, len, Segment::getUsedSegmentData(), data);
   _dataLen = len;
@@ -175,8 +181,8 @@ bool IRAM_ATTR_YN Segment::allocateData(size_t len) {
 
 void IRAM_ATTR_YN Segment::deallocateData() {
   if (!data) { _dataLen = 0; return; }
-  //DEBUGFX_PRINTF_P(PSTR("---  Released data (%p): %d/%d -> %p\n"), this, _dataLen, Segment::getUsedSegmentData(), data);
   if ((Segment::getUsedSegmentData() > 0) && (_dataLen > 0)) { // check that we don't have a dangling / inconsistent data pointer
+    //DEBUGFX_PRINTF_P(PSTR("---  Released data (%p): %d/%d -> %p\n"), this, _dataLen, Segment::getUsedSegmentData(), data);
     free(data);
   } else {
     DEBUGFX_PRINTF_P(PSTR("---- Released data (%p): inconsistent UsedSegmentData (%d/%d), cowardly refusing to free nothing.\n"), this, _dataLen, Segment::getUsedSegmentData());
@@ -194,7 +200,7 @@ void IRAM_ATTR_YN Segment::deallocateData() {
   * may free that data buffer.
   */
 void Segment::resetIfRequired() {
-  if (!reset) return;
+  if (!reset || !isActive()) return;
   //DEBUGFX_PRINTF_P(PSTR("-- Segment reset: %p\n"), this);
   if (data && _dataLen > 0) memset(data, 0, _dataLen);  // prevent heap fragmentation (just erase buffer instead of deallocateData())
   next_time = 0; step = 0; call = 0; aux0 = 0; aux1 = 0;
@@ -278,7 +284,7 @@ void Segment::startTransition(uint16_t dur) {
     if (isInTransition()) _t->_dur = dur; // this will stop transition in next handleTransition()
     return;
   }
-  if (isInTransition()) return; // already in transition no need to store anything
+  if (isInTransition() || !isActive()) return; // already in transition or inactive no need to store anything
 
   // starting a transition has to occur before change so we get current values 1st
   _t = new Transition(dur); // no previous transition running
@@ -323,17 +329,6 @@ void Segment::stopTransition() {
   }
 }
 
-/*
-// transition progression between 0-65535
-uint16_t IRAM_ATTR Segment::progress() const {
-  if (isInTransition()) {
-    unsigned diff = millis() - _t->_start;
-    if (_t->_dur > 0 && diff < _t->_dur) return diff * 0xFFFFU / _t->_dur;
-  }
-  return 0xFFFFU;
-}
-*/
-
 #ifndef WLED_DISABLE_MODE_BLEND
 void Segment::swapSegenv(tmpsegd_t &tmpSeg) {
   //DEBUGFX_PRINTF_P(PSTR("--  Saving temp seg: %p->(%p) [%d->%p]\n"), this, &tmpSeg, _dataLen, data);
@@ -355,6 +350,7 @@ void Segment::swapSegenv(tmpsegd_t &tmpSeg) {
   tmpSeg._dataLenT   = _dataLen;
   if (_t && &tmpSeg != &(_t->_segT)) {
     // swap SEGENV with transitional data
+    //DEBUGFX_PRINTF_P(PSTR("--  Setting temp seg: %p->(%p) [%d->%p]\n"), this, &tmpSeg, _dataLen, data);
     options   = _t->_segT._optionsT;
     for (size_t i=0; i<NUM_COLORS; i++) colors[i] = _t->_segT._colorT[i];
     speed     = _t->_segT._speedT;
@@ -523,10 +519,7 @@ void Segment::setUp(uint16_t i1, uint16_t i2, uint8_t grp, uint8_t spc, uint16_t
   }
   if (ofs < UINT16_MAX) offset = ofs;
 
-  DEBUGFX_PRINT(F("setUp segment: ")); DEBUGFX_PRINT(i1);
-  DEBUGFX_PRINT(','); DEBUGFX_PRINT(i2);
-  DEBUGFX_PRINT(F(" -> ")); DEBUGFX_PRINT(i1Y);
-  DEBUGFX_PRINT(','); DEBUGFX_PRINTLN(i2Y);
+  DEBUGFX_PRINTF_P(PSTR("ses segment geometry: %d,%d -> %d,%d\n"), (int)i1, (int)i2, (int)i1Y, (int)i2Y);
   markForReset();
   if (boundsUnchanged) return;
 
@@ -1456,9 +1449,7 @@ void WS2812FX::service() {
         // The blending will largely depend on the effect behaviour since actual output (LEDs) may be
         // overwritten by later effect. To enable seamless blending for every effect, additional LED buffer
         // would need to be allocated for each effect and then blended together for each pixel.
-        [[maybe_unused]] uint8_t tmpMode = seg.currentMode();  // this will return old mode while in transition
         seg.beginDraw();                      // set up parameters for get/setPixelColor()
-        frameDelay = (*_mode[seg.mode])();    // run new/current mode
 #ifndef WLED_DISABLE_MODE_BLEND
         Segment::setClippingRect(0, 0); // disable clipping (just in case)
         if (seg.isInTransition()) {
@@ -1522,9 +1513,9 @@ void WS2812FX::service() {
           Segment::modeBlend(true);           // set semaphore
           seg.swapSegenv(_tmpSegData);        // temporarily store new mode state (and swap it with transitional state)
           seg.beginDraw();                    // set up parameters for get/setPixelColor()
-          unsigned d2 = (*_mode[tmpMode])();  // run old mode
+          frameDelay = min(frameDelay, (unsigned)(*_mode[seg.currentMode()])());  // run old mode
+          seg.call++;                         // increment old mode run counter
           seg.restoreSegenv(_tmpSegData);     // restore mode state (will also update transitional state)
-          frameDelay = min(frameDelay,d2);    // use shortest delay
           Segment::modeBlend(false);          // unset semaphore
           blendingStyle = orgBS;              // restore blending style if it was modified for single pixel segment
         } else

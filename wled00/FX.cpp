@@ -5962,7 +5962,7 @@ uint16_t mode_2Dghostrider(void) {
     for (size_t i = 0; i < maxLighters; i++) {
       lighter->time[i] += random8(5, 20);
       if (lighter->time[i] >= 255 ||
-        (lighter->lightersPosX[i] <= 0) ||
+          (lighter->lightersPosX[i] <= 0) ||
           (lighter->lightersPosX[i] >= (cols - 1) * 10) ||
           (lighter->lightersPosY[i] <= 0) ||
           (lighter->lightersPosY[i] >= (rows - 1) * 10)) {
@@ -5985,7 +5985,7 @@ uint16_t mode_2Dghostrider(void) {
 
   return FRAMETIME;
 }
-static const char _data_FX_MODE_2DGHOSTRIDER[] PROGMEM = "Ghost Rider@Fade rate,Blur;;!;2";
+static const char _data_FX_MODE_2DGHOSTRIDER[] PROGMEM = "Ghost Rider@Fade rate,Blur;;!;2;pal=35";
 #undef LIGHTERS_AM
 
 ////////////////////////////
