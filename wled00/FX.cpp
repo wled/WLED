@@ -2561,8 +2561,8 @@ static CRGB twinklefox_one_twinkle(uint32_t ms, uint8_t salt, bool cat)
 {
   // Overall twinkle speed (changed)
   unsigned ticks = ms / SEGENV.aux0;
-  unsigned fastcycle8 = ticks;
-  unsigned slowcycle16 = (ticks >> 8) + salt;
+  unsigned fastcycle8 = uint8_t(ticks);
+  unsigned slowcycle16 = uint16_t((ticks >> 8) + salt);
   slowcycle16 += sin8(slowcycle16);
   slowcycle16 = (slowcycle16 * 2053) + 1384;
   unsigned slowcycle8 = (slowcycle16 & 0xFF) + (slowcycle16 >> 8);
