@@ -137,10 +137,6 @@ void deserializePatternColors(JsonArray& json, uint8_t colors[12][4], uint8_t& l
   }
 }
 
-#define TOTAL_EFFECTS 20
-// Define a struct to hold the effect ID and its 5-pixel indicator pattern
-
-uint8_t currentEffectIndex = 0;
 unsigned long lastTime = 0;
 bool isDisplayingEffectIndicator = false;     // Flag to indicate if indicator is currently displayed
 
@@ -150,72 +146,21 @@ void StartDisplayEffectIndicator(uint8_t effectIndex) {
   isDisplayingEffectIndicator = true;
 }
 
-void onButtonUpPress() {
-  currentEffectIndex++;
-  if (currentEffectIndex >= TOTAL_EFFECTS) {
-    currentEffectIndex = 0;
-  }
-  StartDisplayEffectIndicator(currentEffectIndex);
-}
 
-void onButtonDownPress() {
-  if (currentEffectIndex == 0) {
-    currentEffectIndex = TOTAL_EFFECTS - 1;
-  } else {
-    currentEffectIndex--;
-  }  
-  StartDisplayEffectIndicator(currentEffectIndex);
-}
-
-inline void handleRemote_visualremote(uint8_t *incomingData, size_t len) {
-  message_structure_t *incoming = reinterpret_cast<message_structure_t *>(incomingData);
-
-  if (len != sizeof(message_structure_t)) {
-    Serial.printf("Unknown incoming ESP-NOW message received of length %u\n", len);
-    return;
-  }
-
-  uint32_t cur_seq = incoming->seq[0] | (incoming->seq[1] << 8) | (incoming->seq[2] << 16) | (incoming->seq[3] << 24);
-  if (cur_seq == last_seq_visualremote) {
-    return;
-  }
-
-DEBUG_PRINT(F("Incoming ESP-NOW Packet ["));
-DEBUG_PRINT(cur_seq);
-DEBUG_PRINT(F("] button: "));
-DEBUG_PRINTLN(incoming->button);
-
-  switch (incoming->button) {
-    case WIZMOTE_BUTTON_ON             : setOn_visualremote();                                         break;
-    case WIZMOTE_BUTTON_OFF            : setOff_visualremote();                                        break;
-    case WIZMOTE_BUTTON_ONE            : presetWithFallback_visualremote(1, FX_MODE_STATIC,        0); break;
-    case WIZMOTE_BUTTON_TWO            : presetWithFallback_visualremote(2, FX_MODE_BREATH,        0); break;
-    case WIZMOTE_BUTTON_THREE          : presetWithFallback_visualremote(3, FX_MODE_FIRE_FLICKER,  0); break;
-    case WIZMOTE_BUTTON_FOUR           : presetWithFallback_visualremote(4, FX_MODE_RAINBOW,       0); break;
-    case WIZMOTE_BUTTON_NIGHT          : activateNightMode_visualremote();                             break;
-    case WIZMOTE_BUTTON_BRIGHT_UP      : onButtonUpPress();                                            break;
-    case WIZMOTE_BUTTON_BRIGHT_DOWN    : onButtonDownPress();                                          break;
-    case WIZ_SMART_BUTTON_ON           : setOn_visualremote();                                         break;
-    case WIZ_SMART_BUTTON_OFF          : setOff_visualremote();                                        break;
-    case WIZ_SMART_BUTTON_BRIGHT_UP    : brightnessUp_visualremote();                                  break;
-    case WIZ_SMART_BUTTON_BRIGHT_DOWN  : brightnessDown_visualremote();                                break;
-    default: break;
-  }
-
-  last_seq_visualremote = cur_seq;
-}
 
 // Usermod class
 class UsermodVisualRemote : public Usermod {
   private:
-   bool enabled = false;
-   // string that are used multiple time (this will save some flash memory)
+    bool enabled = false;
     static const char _name[];
     static const char _enabled[];
-    // Private members can be added here if needed
     String presetNames[255]; 
     bool preset_available[255];
     Pattern patterns[255]; // Array to hold patterns for each preset
+
+    uint8_t currentEffectIndex = 0;
+    unsigned long lastTime = 0;
+    bool isDisplayingEffectIndicator = false; // Flag to indicate if indicator is currently displayed
 
   public:
     void setup() {
@@ -233,10 +178,10 @@ class UsermodVisualRemote : public Usermod {
             patterns[i].name = presetNames[i];
             patterns[i].length = 3;
             for (int j = 0; j < patterns[i].length; j++) {
-              patterns[i].colors[j][0] = 128; // Red
-              patterns[i].colors[j][1] = 128; // Green
-              patterns[i].colors[j][2] = 128; // Blue
-              patterns[i].colors[j][3] = 128; // White
+              patterns[i].colors[j][0] = 255; // Red
+              patterns[i].colors[j][1] = 0; // Green
+              patterns[i].colors[j][2] = 0; // Blue
+              patterns[i].colors[j][3] = 0; // White
             }
           } else {
             Serial.printf("Pattern for preset %d loaded successfully.\n", i);
@@ -252,15 +197,12 @@ class UsermodVisualRemote : public Usermod {
       // Add patterns to config
       JsonArray patternsArray = top.createNestedArray("patterns");
       for (int i = 0; i < 255; i++) {
-        Serial.printf("Add pattern %d: %s\n", i, patterns[i].name.c_str());
-        if (patterns[i].name != "") {
-          JsonObject patternObj = patternsArray.createNestedObject();
-          patternObj["id"] = patterns[i].id;
-          patternObj["name"] = patterns[i].name;
-          patternObj["length"] = patterns[i].length;
-          JsonArray colorsArray = patternObj.createNestedArray("colors");
-          serializePatternColors(colorsArray, patterns[i].colors, patterns[i].length);
-        }
+        JsonObject patternObj = patternsArray.createNestedObject();
+        patternObj["id"] = patterns[i].id;
+        patternObj["name"] = patterns[i].name;
+        patternObj["length"] = patterns[i].length;
+        JsonArray colorsArray = patternObj.createNestedArray("colors");
+        serializePatternColors(colorsArray, patterns[i].colors, patterns[i].length);
       }
     }
 
@@ -291,6 +233,96 @@ class UsermodVisualRemote : public Usermod {
       return configComplete;
     }
 
+    void StartDisplayEffectIndicator(uint8_t effectIndex) {
+      // Set the timestamp and flag
+      lastTime = millis();
+      isDisplayingEffectIndicator = true;
+    }
+
+   void onButtonUpPress() {
+      do {
+        currentEffectIndex++;
+        if (currentEffectIndex >= 255) {
+          currentEffectIndex = 0;
+        }
+      } while (!preset_available[currentEffectIndex]);
+      Serial.printf("> Start Display effect %d \n", currentEffectIndex);
+
+      StartDisplayEffectIndicator(currentEffectIndex);
+    }
+
+    void onButtonDownPress() {
+      do {
+        if (currentEffectIndex == 0) {
+          currentEffectIndex = 255;
+        } else {
+          currentEffectIndex--;
+        }
+      } while (!preset_available[currentEffectIndex]);
+      Serial.printf("< Start Display effect %d \n", currentEffectIndex);
+      StartDisplayEffectIndicator(currentEffectIndex);
+    }
+
+    inline void handleRemote_visualremote(uint8_t *incomingData, size_t len) {
+      message_structure_t *incoming = reinterpret_cast<message_structure_t *>(incomingData);
+
+      if (len != sizeof(message_structure_t)) {
+        Serial.printf("Unknown incoming ESP-NOW message received of length %u\n", len);
+        return;
+      }
+
+      uint32_t cur_seq = incoming->seq[0] | (incoming->seq[1] << 8) | (incoming->seq[2] << 16) | (incoming->seq[3] << 24);
+      if (cur_seq == last_seq_visualremote) {
+        return;
+      }
+
+    DEBUG_PRINT(F("Incoming ESP-NOW Packet ["));
+    DEBUG_PRINT(cur_seq);
+    DEBUG_PRINT(F("] button: "));
+    DEBUG_PRINTLN(incoming->button);
+
+      switch (incoming->button) {
+        case WIZMOTE_BUTTON_ON             : setOn_visualremote();                                         break;
+        case WIZMOTE_BUTTON_OFF            : setOff_visualremote();                                        break;
+        case WIZMOTE_BUTTON_ONE            : presetWithFallback_visualremote(1, FX_MODE_STATIC,        0); break;
+        case WIZMOTE_BUTTON_TWO            : presetWithFallback_visualremote(2, FX_MODE_BREATH,        0); break;
+        case WIZMOTE_BUTTON_THREE          : presetWithFallback_visualremote(3, FX_MODE_FIRE_FLICKER,  0); break;
+        case WIZMOTE_BUTTON_FOUR           : presetWithFallback_visualremote(4, FX_MODE_RAINBOW,       0); break;
+        case WIZMOTE_BUTTON_NIGHT          : activateNightMode_visualremote();                             break;
+        case WIZMOTE_BUTTON_BRIGHT_UP      : onButtonUpPress();                                            break;
+        case WIZMOTE_BUTTON_BRIGHT_DOWN    : onButtonDownPress();                                          break;
+        case WIZ_SMART_BUTTON_ON           : setOn_visualremote();                                         break;
+        case WIZ_SMART_BUTTON_OFF          : setOff_visualremote();                                        break;
+        case WIZ_SMART_BUTTON_BRIGHT_UP    : brightnessUp_visualremote();                                  break;
+        case WIZ_SMART_BUTTON_BRIGHT_DOWN  : brightnessDown_visualremote();                                break;
+        default: break;
+      }
+
+      last_seq_visualremote = cur_seq;
+    }
+
+    void handleOverlayDraw() {
+      if (isDisplayingEffectIndicator) {
+        int offset = 50; // Starting offset for the pattern
+        int patternLength = patterns[currentEffectIndex].length; // Dynamic length
+
+        for (int i = 0; i < patternLength; i++) {
+          uint8_t r = patterns[currentEffectIndex].colors[i][0];
+          uint8_t g = patterns[currentEffectIndex].colors[i][1];
+          uint8_t b = patterns[currentEffectIndex].colors[i][2];
+          uint8_t w = patterns[currentEffectIndex].colors[i][3];
+          strip.setPixelColor(offset + i, RGBW32(r, g, b, w)); // Set the segment color                   
+
+        }
+
+        // Check if the indicator has been displayed for 5 seconds
+        if (millis() - lastTime > 1000) {
+          isDisplayingEffectIndicator = false;
+          presetWithFallback_visualremote(patterns[currentEffectIndex].id, FX_MODE_STATIC, 0);
+        }
+      }
+    }
+
     void loop() {
       // Code to run in the main loop
     }
@@ -312,35 +344,7 @@ class UsermodVisualRemote : public Usermod {
       // Return true to indicate message has been handled
       return true; // Override further processing
     }
-
-    void handleOverlayDraw()
-    {
-      if (isDisplayingEffectIndicator) {
-        int offset = 50; // Starting offset for the pattern
-        int patternLength = patterns[currentEffectIndex].length; // Dynamic length
-
-        for (int i = 0; i < patternLength; i++) {
-          int pixelIndex = offset + i;
-          uint8_t r = patterns[currentEffectIndex].colors[i][0];
-          uint8_t g = patterns[currentEffectIndex].colors[i][1];
-          uint8_t b = patterns[currentEffectIndex].colors[i][2];
-          uint8_t w = patterns[currentEffectIndex].colors[i][3];
-          strip.setPixelColor(i, RGBW32(r, g, b, w)); // Set the segment color
-        }
-
-        // Check if the indicator has been displayed for 5 seconds
-        if (millis() - lastTime > 5000) {
-          isDisplayingEffectIndicator = false;
-          presetWithFallback_visualremote(patterns[currentEffectIndex].id, FX_MODE_STATIC,        0);
-
-          //effectCurrent = effectIndicators[currentEffectIndex].effectId;
-          //colorUpdated(CALL_MODE_FX_CHANGED);
-        }
-      }
-  };
-
 };
-
 
 // add more strings here to reduce flash memory usage
 const char UsermodVisualRemote::_name[]    PROGMEM = "VisualRemote";
