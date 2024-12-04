@@ -259,9 +259,6 @@ void Segment::startFrame(void) {
   _2dHeight   = calc_virtualHeight();
   _2dWidth    = _isValid2D ? calc_virtualWidth() : calc_virtualLength();
   _virtuallength = calc_virtualLength();
-  #if 0 && defined(WLED_ENABLE_HUB75MATRIX)
-    _firstFill = true; // dirty HACK
-  #endif
 #endif
 }
 // WLEDMM end
@@ -402,7 +399,7 @@ void Segment::setPixelColorXY(float x, float y, uint32_t col, bool aa, bool fast
   if (Segment::maxHeight==1) return; // not a matrix set-up
   if (x<0.0f || x>1.0f || y<0.0f || y>1.0f) return; // not normalized
 
-#if 0 // depricated
+#if 0 // deprecated
   const uint_fast16_t cols = virtualWidth();
   const uint_fast16_t rows = virtualHeight();
 

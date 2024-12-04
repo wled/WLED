@@ -429,7 +429,6 @@ typedef struct Segment {
     // WLEDMM cache some values that won't change while drawing a frame
     bool _isValid2D = false;
     uint8_t _brightness = 255; // final pixel brightness - including transitions and segment opacity
-    bool _firstFill = true;  // dirty HACK support
     uint16_t _2dWidth = 0;  // virtualWidth
     uint16_t _2dHeight = 0; // virtualHeight
     uint16_t _virtuallength = 0; // virtualLength
