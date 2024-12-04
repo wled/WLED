@@ -4,8 +4,30 @@
 
 #define XY(x,y) SEGMENT.XY(x,y)
 
-uint16_t mode_Biertje(bool useEmoticon) {
+// Define the BiertjeData struct to hold persistent data
+typedef struct {
+  // Static variables previously used in mode_Biertje
+  float beerLevel;
+  float foamHeight;
+  uint32_t lastPourUpdate;
+  uint32_t lastBubbleUpdate;
+  float waveAmplitude;
+  float waveFrequency;
+  uint32_t waveStartTime;
+  bool bubblesActive;
+  uint32_t bubblesStartTime;
+  bool textDisplayed;
+  const char* text;
+  uint8_t textLength;
+  int textPosition;
+  uint32_t lastTextUpdate;
+  uint8_t pourSpeed;
+  unsigned dataSize;
+  // Additional variables if needed
+  uint32_t lastTime;
+} BiertjeData;
 
+uint16_t mode_Biertje(bool useEmoticon) {
   // Constants
   const int beer_mug[16][16] = {
       {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
@@ -25,8 +47,6 @@ uint16_t mode_Biertje(bool useEmoticon) {
       {0, 0, 0, 0, 2, 2, 2, 2, 2, 2, 2, 2, 0, 0, 0, 0},
       {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
   };
-
-
 
   // Constants for wave calculations
   const float INITIAL_WAVE_AMPLITUDE = 5.0;
@@ -58,7 +78,7 @@ uint16_t mode_Biertje(bool useEmoticon) {
   const uint32_t BUBBLES_ACTIVE_DURATION_MS = 27000;
 
   // Constants for text animation
-  const uint32_t TEXT_SCROLL_INTERVAL = 100;     // Scrolling speed in milliseconds
+  const uint32_t TEXT_SCROLL_INTERVAL_MS = 100;     // Scrolling speed in milliseconds
   const int LETTER_WIDTH = 6;   // Width of each character
   const int LETTER_HEIGHT = 8;  // Height of each character
 
@@ -73,121 +93,113 @@ uint16_t mode_Biertje(bool useEmoticon) {
   int cols = SEGMENT.virtualWidth();
   int rows = SEGMENT.virtualHeight();
 
-  uint8_t pourSpeed = SEGMENT.speed / 16;
+  // Allocate data for biertje effect
+  if (!SEGENV.allocateData(sizeof(BiertjeData))) return 350; // Allocation failed
+  BiertjeData* data = reinterpret_cast<BiertjeData*>(SEGENV.data);
 
-  // Static variables
-  static float beerLevel = 0;
-  static float foamHeight = 0;
-  static uint32_t lastPourUpdate = 0;
-  static uint32_t lastBubbleUpdate = 0;
-  static float waveAmplitude = 0;
-  static float waveFrequency = 0;
-  static uint32_t waveStartTime = 0;
-  static bool bubblesActive = false;
-  static uint32_t bubblesStartTime = 0;
-  static bool textDisplayed = false;
-  static const char* text = "BIER";
-  static uint8_t textLength = 4;
+  // Initialize data if it's the first run
+  if (SEGENV.call == 0) {
 
-  int textWidth = textLength * (LETTER_WIDTH + 1); // Total text width (+1 for spacing)
-  int yOffset = ((rows - LETTER_HEIGHT) / 2) + 1;       // Center the text vertically
+    DEBUG_PRINTF("First Call ");
+    data->beerLevel = 0;
+    data->foamHeight = 0;
+    data->lastPourUpdate = 0;
+    data->lastBubbleUpdate = 0;
+    data->waveAmplitude = 0;
+    data->waveFrequency = 0;
+    data->waveStartTime = 0;
+    data->bubblesActive = false;
+    data->bubblesStartTime = 0;
+    data->textDisplayed = false;
+    data->text = "BIER";
+    data->textLength = 4;
+    data->textPosition = cols + (data->textLength * (LETTER_WIDTH + 1));  // Start off-screen
+    data->lastTextUpdate = 0;
+    data->pourSpeed = SEGMENT.speed / 16;
 
-  // Static variables to track text position and timing
-  static int textPosition = cols + textWidth;  // Start fully off-screen to the right
-  static uint32_t lastTextUpdate = 0;
-  
-  
-  // Use SEGENV.data as bit array for bubble positions
-  unsigned dataSize = (SEGMENT.length() + 7) >> 3; // 1 bit per LED
-  if (!SEGENV.allocateData(dataSize)) return 350; // Allocation failed
+    // Use SEGENV.data as bit array for bubble positions
+    data->dataSize = (SEGMENT.length() + 7) >> 3; // 1 bit per LED
+    if (!SEGENV.allocateData(data->dataSize + sizeof(BiertjeData))) return 350; // Allocation failed
+    memset(SEGENV.data + sizeof(BiertjeData), 0, data->dataSize); // Clear bubble data
+  }
+
+  uint8_t* bubbleData = SEGENV.data + sizeof(BiertjeData);
 
   // Update current time using millis()
   uint32_t now = millis();
 
   // Initialize wave parameters at the start
-  if (waveStartTime == 0) {
-    waveStartTime = now;
-    waveAmplitude = INITIAL_WAVE_AMPLITUDE;
-    waveFrequency = INITIAL_WAVE_FREQUENCY;
+  if (data->waveStartTime == 0) {
+    data->waveStartTime = now;
+    data->waveAmplitude = INITIAL_WAVE_AMPLITUDE;
+    data->waveFrequency = INITIAL_WAVE_FREQUENCY;
   }
 
   // Calculate time elapsed since wave started
-  float timeElapsed = now - waveStartTime;
+  float timeElapsed = now - data->waveStartTime;
 
   // Adjust wave amplitude and frequency over time
   if (timeElapsed < WAVE_DURATION_MS) {
-    waveAmplitude = INITIAL_WAVE_AMPLITUDE - INITIAL_WAVE_AMPLITUDE * (timeElapsed / WAVE_DURATION_MS);
-    if (waveAmplitude < MIN_WAVE_AMPLITUDE) waveAmplitude = 0.0;
+    data->waveAmplitude = INITIAL_WAVE_AMPLITUDE - INITIAL_WAVE_AMPLITUDE * (timeElapsed / WAVE_DURATION_MS);
+    if (data->waveAmplitude < MIN_WAVE_AMPLITUDE) data->waveAmplitude = 0.0;
 
-    waveFrequency = INITIAL_WAVE_FREQUENCY + (MAX_WAVE_FREQUENCY - INITIAL_WAVE_FREQUENCY) * (timeElapsed / WAVE_DURATION_MS);
-    if (waveFrequency > MAX_WAVE_FREQUENCY) waveFrequency = MAX_WAVE_FREQUENCY;
+    data->waveFrequency = INITIAL_WAVE_FREQUENCY + (MAX_WAVE_FREQUENCY - INITIAL_WAVE_FREQUENCY) * (timeElapsed / WAVE_DURATION_MS);
+    if (data->waveFrequency > MAX_WAVE_FREQUENCY) data->waveFrequency = MAX_WAVE_FREQUENCY;
   } else {
-    if (waveAmplitude != 0.0) {
-      waveAmplitude = 0.0;
-      waveFrequency = 0.0;
+    if (data->waveAmplitude != 0.0) {
+      data->waveAmplitude = 0.0;
+      data->waveFrequency = 0.0;
     }
   }
 
   // Update beer level based on pour speed
-  uint16_t pourInterval = MAX(MIN_POUR_INTERVAL_MS, MAX_POUR_INTERVAL_MS - pourSpeed * POUR_SPEED_MULTIPLIER);
-  if (now - lastPourUpdate > pourInterval) {
-    lastPourUpdate = now;
+  uint16_t pourInterval = MAX(MIN_POUR_INTERVAL_MS, MAX_POUR_INTERVAL_MS - data->pourSpeed * POUR_SPEED_MULTIPLIER);
+  if (now - data->lastPourUpdate > pourInterval) {
+    data->lastPourUpdate = now;
 
-    if (beerLevel < rows) {
-      beerLevel += BEER_LEVEL_INCREMENT;
-      foamHeight += FOAM_HEIGHT_INCREMENT;
-      if (beerLevel > rows) beerLevel = rows;
-    } else if (!textDisplayed) {
-        textDisplayed = true;
+    if (data->beerLevel < rows) {
+      data->beerLevel += BEER_LEVEL_INCREMENT;
+      data->foamHeight += FOAM_HEIGHT_INCREMENT;
+      if (data->beerLevel > rows) data->beerLevel = rows;
+    } else if (!data->textDisplayed) {
+      data->textDisplayed = true;
     }
-    if (foamHeight > MAX_FOAM_HEIGHT) foamHeight = MAX_FOAM_HEIGHT;
+    if (data->foamHeight > MAX_FOAM_HEIGHT) data->foamHeight = MAX_FOAM_HEIGHT;
 
-    // Start bubbles when foamHeight reaches 4
-    if (foamHeight >= BUBBLES_START_FOAM_HEIGHT && !bubblesActive) {
-      bubblesActive = true;
-      bubblesStartTime = now;
+    // Start bubbles when foamHeight reaches threshold
+    if (data->foamHeight >= BUBBLES_START_FOAM_HEIGHT && !data->bubblesActive) {
+      data->bubblesActive = true;
+      data->bubblesStartTime = now;
 
       // Initialize bubble data
-      memset(SEGENV.data, 0, dataSize);
+      memset(bubbleData, 0, data->dataSize);
     }
   }
-
-// // Debug statements
-// DEBUG_PRINTF("Wave Amplitude: %.2f\n", waveAmplitude);
-// DEBUG_PRINTF("Wave Frequency: %.2f\n", waveFrequency);
-// DEBUG_PRINTF("Foam Height: %.2f\n", foamHeight);
-// DEBUG_PRINTF("Beer Level: %.2f\n", beerLevel);
-// DEBUG_PRINTF("Rows: %.2f\n", rows);
-// DEBUG_PRINTF("Columns: %.2f\n", cols);
 
   // Clear the matrix
   SEGMENT.fill(BLACK);
 
-
-  if (SEGMENT.is2D())  
-  {
-   
+  if (SEGMENT.is2D()) {
+    // 2D FX
     // Draw the beer and foam
     float timeSec = now / 1000.0; // Time in seconds
     float waveSpeed = 4.0;        // Adjust wave speed
 
-    float foamWaveAmplitude = 0.0; // No waves in foam after pour is done
-
     for (int x = 0; x < cols; x++) {
       // Calculate wave amplitude at this column
-      float waveAmplitudeAtX = waveAmplitude * expf(-((cols - x) / (float)cols) * WAVE_DECAY_RATE);
+      float waveAmplitudeAtX = data->waveAmplitude * expf(-((cols - x) / (float)cols) * WAVE_DECAY_RATE);
 
       // Calculate the wave for this column
-      float wave = waveAmplitudeAtX * sinf(((cols - x) * waveFrequency) - waveSpeed * timeSec);
+      float wave = waveAmplitudeAtX * sinf(((cols - x) * data->waveFrequency) - waveSpeed * timeSec);
 
-      int columnBeerLevel = (int)(beerLevel + wave);
+      int columnBeerLevel = (int)(data->beerLevel + wave);
 
       // Limit the beer level within the matrix bounds
       if (columnBeerLevel < 0) columnBeerLevel = 0;
       if (columnBeerLevel > rows) columnBeerLevel = rows;
 
       // Foam is static after pour is done
-      int columnFoamHeight = (int)(foamHeight);
+      int columnFoamHeight = (int)(data->foamHeight);
 
       // Draw the beer from the bottom up with gradient
       for (int y = rows - 1; y >= rows - columnBeerLevel + columnFoamHeight; y--) {
@@ -196,10 +208,10 @@ uint16_t mode_Biertje(bool useEmoticon) {
         uint32_t beerColorGradient = RGBW32(gradientFactor, (uint8_t)(gradientFactor * 0.8), 0, 0);
 
         // Add bubble if present
-        if (bubblesActive) {
+        if (data->bubblesActive) {
           unsigned index = XY(x, y) >> 3;
           unsigned bitNum = XY(x, y) & 0x07;
-          if (bitRead(SEGENV.data[index], bitNum)) {
+          if (bitRead(bubbleData[index], bitNum)) {
             SEGMENT.setPixelColorXY(x, y, BUBBLE_COLOR);
           } else {
             SEGMENT.setPixelColorXY(x, y, beerColorGradient);
@@ -216,69 +228,66 @@ uint16_t mode_Biertje(bool useEmoticon) {
         }
       }
     }
-  } // 2D FX
 
+    // Bubble animation
+    if (data->bubblesActive) {
+      // Slow down bubbles to half speed
+      if (now - data->lastBubbleUpdate > BUBBLE_UPDATE_INTERVAL_MS) {
+        data->lastBubbleUpdate = now;
 
-  // Bubble animation
-  if (bubblesActive) {
-    // Slow down bubbles to half speed
-    if (now - lastBubbleUpdate > BUBBLE_UPDATE_INTERVAL_MS) {
-      lastBubbleUpdate = now;
-
-      // Move bubbles up
-      for (int y = 0; y < rows; y++) {
-        for (int x = 0; x < cols; x++) {
-          unsigned index = XY(x, y) >> 3;
-          unsigned bitNum = XY(x, y) & 0x07;
-          if (bitRead(SEGENV.data[index], bitNum)) {
-            // Clear current position
-            bitClear(SEGENV.data[index], bitNum);
-            // Move up
-            if (y > 0) {
-              unsigned newIndex = XY(x, y - 1) >> 3;
-              unsigned newBitNum = XY(x, y - 1) & 0x07;
-              bitSet(SEGENV.data[newIndex], newBitNum);
+        // Move bubbles up
+        for (int y = 0; y < rows; y++) {
+          for (int x = 0; x < cols; x++) {
+            unsigned index = XY(x, y) >> 3;
+            unsigned bitNum = XY(x, y) & 0x07;
+            if (bitRead(bubbleData[index], bitNum)) {
+              // Clear current position
+              bitClear(bubbleData[index], bitNum);
+              // Move up
+              if (y > 0) {
+                unsigned newIndex = XY(x, y - 1) >> 3;
+                unsigned newBitNum = XY(x, y - 1) & 0x07;
+                bitSet(bubbleData[newIndex], newBitNum);
+              }
             }
+          }
+        }
+
+        // Spawn new bubbles at the bottom with reduced frequency
+        static uint32_t lastBubbleSpawn = 0;
+        if (now - lastBubbleSpawn > BUBBLE_SPAWN_INTERVAL_MS) { // Spawn bubbles every interval
+          lastBubbleSpawn = now;
+
+          // Spawn bubbles
+          for (int i = 0; i < BUBBLES_PER_SPAWN; i++) {
+            int x = random16(int(cols));
+            unsigned index = XY(x, int(rows) - 1) >> 3;
+            unsigned bitNum = XY(x, int(rows) - 1) & 0x07;
+            bitSet(bubbleData[index], bitNum);
           }
         }
       }
 
-      // Spawn new bubbles at the bottom with reduced frequency
-      static uint32_t lastBubbleSpawn = 0;
-      if (now - lastBubbleSpawn > BUBBLE_SPAWN_INTERVAL_MS) { // Spawn bubbles every 500ms (adjust as needed)
-        lastBubbleSpawn = now;
-
-        // Spawn a couple of bubbles per second
-        for (int i = 0; i < BUBBLES_PER_SPAWN; i++) { // Adjust number of bubbles spawned
-          int x = random16(int(cols));
-          unsigned index = XY(x, int(rows) - 1) >> 3;
-          unsigned bitNum = XY(x, int(rows) - 1) & 0x07;
-          bitSet(SEGENV.data[index], bitNum);
-        }
+      // Stop bubbles after duration
+      if ((now - data->bubblesStartTime > BUBBLES_ACTIVE_DURATION_MS) && (data->textPosition == cols + (data->textLength * (LETTER_WIDTH + 1)))) {
+        data->bubblesActive = false;
+        data->beerLevel = 0;
+        data->foamHeight = 0;
+        data->waveStartTime = 0;
+        data->waveAmplitude = 0.0;
+        data->waveFrequency = 0.0;
+        data->textDisplayed = false;
+        data->textPosition = cols + (data->textLength * (LETTER_WIDTH + 1));
+        memset(bubbleData, 0, data->dataSize); // Clear bubble data
       }
     }
 
-
-    // Stop bubbles after x seconds
-    if ((now - bubblesStartTime > BUBBLES_ACTIVE_DURATION_MS) && (textPosition == cols + textWidth)) {
-      bubblesActive = false;
-      beerLevel = 0;
-      foamHeight = 0;
-      waveStartTime = 0;
-      waveAmplitude = 0;    // Wave amplitude
-      waveFrequency = 0;    // Wave frequency  
-      textDisplayed = false;
-      textPosition = cols + textWidth;
-      memset(SEGENV.data, 0, dataSize); // Clear bubble data
-    }
-  }
-
-  if (useEmoticon)
-  {
-    // Overlay the beer_mug over the current display
-    for (int y = 0; y < rows; y++) {
-      for (int x = 0; x < cols; x++) {
-        int mugValue = beer_mug[y][x];
+    // Overlay beer mug if useEmoticon is true
+    if (useEmoticon) {
+      // Overlay the beer_mug over the current display
+      for (int y = 0; y < rows; y++) {
+        for (int x = 0; x < cols; x++) {
+          int mugValue = beer_mug[y][x];
 
           // Get the existing color at this pixel
           uint32_t currentColor = SEGMENT.getPixelColorXY(x, y);
@@ -299,50 +308,43 @@ uint16_t mode_Biertje(bool useEmoticon) {
 
           uint32_t blendedColor = (r << 16) | (g << 8) | b;
 
-        if (mugValue == 0) {
-          // Set pixel to black
-          SEGMENT.setPixelColorXY(x, y, BLACK);
-        } else if (mugValue == 2) {
-        
-
-          SEGMENT.setPixelColorXY(x, y, blendedColor);
-        } else if (mugValue == 3) {
-          SEGMENT.setPixelColorXY(x, y, HANDLE_COLOR);
-        } else {
-          if (currentColor == BLACK) {
-            // No colored pixel underneath; set to handle color
+          if (mugValue == 0) {
+            // Set pixel to black
+            SEGMENT.setPixelColorXY(x, y, BLACK);
+          } else if (mugValue == 2) {
             SEGMENT.setPixelColorXY(x, y, blendedColor);
-          }     
-        }    
+          } else if (mugValue == 3) {
+            SEGMENT.setPixelColorXY(x, y, HANDLE_COLOR);
+          } else {
+            if (currentColor == BLACK) {
+              // No colored pixel underneath; set to handle color
+              SEGMENT.setPixelColorXY(x, y, blendedColor);
+            }
+          }
+        }
       }
     }
 
-  }
+    // Draw the text if textDisplayed is true
+    if (data->textDisplayed) {
+      // Update text position based on the interval
+      if (now - data->lastTextUpdate >= TEXT_SCROLL_INTERVAL_MS) {
+        data->lastTextUpdate = now;
+        data->textPosition--;
 
-   // Draw the text "BIER" if textDisplayed is true
-  if (textDisplayed) {
+        // Reset position when text has completely scrolled off the screen
+        if (data->textPosition < -((int)(data->textLength * (LETTER_WIDTH + 1)))) {
+          data->textPosition = cols + (data->textLength * (LETTER_WIDTH + 1));
+        }
+      }
 
-    // Update text position based on the interval
-    if (now - lastTextUpdate >= TEXT_SCROLL_INTERVAL) {
-      lastTextUpdate = now;
-      textPosition--;
-
-      // Reset position when text has completely scrolled off the screen
-      if (textPosition < -textWidth) {
-        textPosition = cols + textWidth;
+      // Draw each character at the updated position
+      for (int i = 0; i < data->textLength; i++) {
+        int charX = data->textPosition + i * (LETTER_WIDTH + 1); // Position with spacing
+        SEGMENT.drawCharacter(data->text[i], charX, ((rows - LETTER_HEIGHT) / 2) + 1, LETTER_WIDTH, LETTER_HEIGHT, TEXT_COLOR, 0, 0);
       }
     }
-
-    // Draw each character at the updated position
-    for (int i = 0; i < textLength; i++) {
-      int charX = textPosition + i * (LETTER_WIDTH + 1); // Position with spacing
-      SEGMENT.drawCharacter(text[i], charX, yOffset, LETTER_WIDTH, LETTER_HEIGHT, TEXT_COLOR, 0, 0);
-    }
-  }
-
-
-
-  if (!strip.isMatrix || !SEGMENT.is2D()) {
+  } else {
     // 1D FX
     uint16_t numLeds = SEGMENT.length();  // Number of LEDs in the strip
 
@@ -350,20 +352,16 @@ uint16_t mode_Biertje(bool useEmoticon) {
     bool fillFromCenter = true; // Set to true for center-out filling, false for end-to-end filling
 
     // Parameters to control speed
-    uint8_t pourSpeed = SEGMENT.speed / 4;  // Adjust pour speed (lower value = faster pour)
+    data->pourSpeed = SEGMENT.speed / 4;  // Adjust pour speed (lower value = faster pour)
 
     // Static variables for 1D animation
     static uint16_t beerLevel1D = 0;        // Current beer level (number of LEDs lit)
     static uint32_t lastPourUpdate1D = 0;   // Last pour update timestamp
     static uint32_t fullBeerTime = 0;       // Time when beerLevel1D reached max level
-    static float foamHeightStrip = 0;            // Foam height, grows from 0 to maxFoamHeight
-
-    // Colors
-    uint32_t beerColor = RGBW32(255, 204, 0, 0);    // Amber color for beer
-    uint32_t foamColor = RGBW32(255, 255, 255, 0);  // White color for foam
+    static float foamHeightStrip = 0;       // Foam height, grows from 0 to maxFoamHeight
 
     // Update beer level and foam height based on pour speed
-    uint16_t pourInterval = MAX(20, 200 - pourSpeed * 10);  // Adjust pour speed
+    uint16_t pourInterval = MAX(20, 200 - data->pourSpeed * 10);  // Adjust pour speed
     if (now - lastPourUpdate1D > pourInterval) {
       lastPourUpdate1D = now;
 
@@ -387,7 +385,7 @@ uint16_t mode_Biertje(bool useEmoticon) {
     }
 
     // Check if we should reset the beer level after a pause
-    if (fullBeerTime > 0 && now - fullBeerTime > 500) {  // 3-second pause
+    if (fullBeerTime > 0 && now - fullBeerTime > 500) {  // 500ms pause
       beerLevel1D = 0;
       foamHeightStrip = 0;  // Reset foamHeight
       fullBeerTime = 0;
@@ -408,9 +406,9 @@ uint16_t mode_Biertje(bool useEmoticon) {
         if (distanceFromCenter < beerLevel1D) {
           // Apply foam color to the top LEDs based on foamHeight1D
           if (distanceFromCenter >= beerLevel1D - foamHeight1D) {
-            SEGMENT.setPixelColor(i, foamColor);
+            SEGMENT.setPixelColor(i, FOAM_COLOR);
           } else {
-            SEGMENT.setPixelColor(i, beerColor);
+            SEGMENT.setPixelColor(i, BEER_COLOR);
           }
         } else {
           SEGMENT.setPixelColor(i, BLACK);
@@ -420,9 +418,9 @@ uint16_t mode_Biertje(bool useEmoticon) {
         if (i < beerLevel1D) {
           // Apply foam color to the top LEDs based on foamHeight1D
           if (i >= beerLevel1D - foamHeight1D) {
-            SEGMENT.setPixelColor(index, foamColor);
+            SEGMENT.setPixelColor(index, FOAM_COLOR);
           } else {
-            SEGMENT.setPixelColor(index, beerColor);
+            SEGMENT.setPixelColor(index, BEER_COLOR);
           }
         } else {
           SEGMENT.setPixelColor(index, BLACK);
@@ -430,46 +428,38 @@ uint16_t mode_Biertje(bool useEmoticon) {
       }
     }
   }
-  
 
   return FRAMETIME;
 }
 
-
 /*
- * Runs a single pixel back and forth.
+ * Effect wrapper functions
  */
 uint16_t mode_biertje_full(void) {
   return mode_Biertje(false);
 }
 static const char _data_FX_MODE_BIERTJE[] PROGMEM = "Biertje@Speed;;1;2";
 
-
-/*
- * Runs two pixel back and forth in opposite directions.
- */
 uint16_t mode_biertje_emoticon(void) {
   return mode_Biertje(true);
 }
 static const char _data_FX_MODE_BIERTJE_EMOTICON[] PROGMEM = "Biertje Emoticon@Speed;;1;2";
 
-
+/*
+ * Usermod class
+ */
 class UsermodBiertje : public Usermod {
-  private:
-
   public:
     void setup() {
       strip.addEffect(255, &mode_biertje_full, _data_FX_MODE_BIERTJE);
-      strip.addEffect(255, &mode_biertje_emoticon, _data_FX_MODE_BIERTJE_EMOTICON);
+      strip.addEffect(254, &mode_biertje_emoticon, _data_FX_MODE_BIERTJE_EMOTICON);
     }
 
     void loop() {
-
+      // Usermod loop code if needed
     }
 
-  uint16_t getId()
-  {
-    return USERMOD_ID_BIERTJE;
-  }
-
+    uint16_t getId() {
+      return USERMOD_ID_BIERTJE; // Replace with your Usermod ID
+    }
 };
