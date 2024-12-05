@@ -158,7 +158,7 @@ class UsermodVisualRemote : public Usermod {
     bool preset_available[255];
     Pattern patterns[255]; // Array to hold patterns for each preset
 
-    uint8_t currentEffectIndex = 0;
+    uint8_t currentEffectIndex = 1;
     unsigned long lastTime = 0;
     bool isDisplayingEffectIndicator = false; // Flag to indicate if indicator is currently displayed
 
@@ -276,11 +276,6 @@ class UsermodVisualRemote : public Usermod {
         return;
       }
 
-    DEBUG_PRINT(F("Incoming ESP-NOW Packet ["));
-    DEBUG_PRINT(cur_seq);
-    DEBUG_PRINT(F("] button: "));
-    DEBUG_PRINTLN(incoming->button);
-
       switch (incoming->button) {
         case WIZMOTE_BUTTON_ON             : setOn_visualremote();                                         break;
         case WIZMOTE_BUTTON_OFF            : setOff_visualremote();                                        break;
@@ -301,16 +296,28 @@ class UsermodVisualRemote : public Usermod {
       last_seq_visualremote = cur_seq;
     }
 
+    Pattern* getPatternById(uint8_t id) {
+      for (int i = 0; i < 255; i++) {
+        if (patterns[i].id == id) {
+          return &patterns[i];
+        }
+      }
+      return nullptr; // Return nullptr if no matching pattern is found
+    }
+    
     void handleOverlayDraw() {
       if (isDisplayingEffectIndicator) {
         int offset = 50; // Starting offset for the pattern
-        int patternLength = patterns[currentEffectIndex].length; // Dynamic length
-
-        for (int i = 0; i < patternLength; i++) {
-          uint8_t r = patterns[currentEffectIndex].colors[i][0];
-          uint8_t g = patterns[currentEffectIndex].colors[i][1];
-          uint8_t b = patterns[currentEffectIndex].colors[i][2];
-          uint8_t w = patterns[currentEffectIndex].colors[i][3];
+        Pattern* pattern = getPatternById(currentEffectIndex);
+        if (pattern == nullptr) {
+          Serial.printf("Pattern with ID %d not found\n", currentEffectIndex);
+          return;
+        }
+        for (int i = 0; i < pattern->length; i++) {
+          uint8_t r = pattern->colors[i][0];
+          uint8_t g = pattern->colors[i][1];
+          uint8_t b = pattern->colors[i][2];
+          uint8_t w = pattern->colors[i][3];
           strip.setPixelColor(offset + i, RGBW32(r, g, b, w)); // Set the segment color                   
 
         }
@@ -318,7 +325,7 @@ class UsermodVisualRemote : public Usermod {
         // Check if the indicator has been displayed for 5 seconds
         if (millis() - lastTime > 1000) {
           isDisplayingEffectIndicator = false;
-          presetWithFallback_visualremote(patterns[currentEffectIndex].id, FX_MODE_STATIC, 0);
+          presetWithFallback_visualremote(pattern->id, FX_MODE_STATIC, 0);
         }
       }
     }
@@ -328,17 +335,6 @@ class UsermodVisualRemote : public Usermod {
     }
 
     bool onEspNowMessage(uint8_t* sender, uint8_t* data, uint8_t len) {
-      // DEBUG_PRINT(F("CUSTOM ESP-NOW: "));
-      // // You may need to comment out or define 'last_signal_src' appropriately
-      // // DEBUG_PRINT(last_signal_src);
-      // DEBUG_PRINT(F(" -> "));
-      // DEBUG_PRINTLN(len);
-      // for (int i = 0; i < len; i++) {
-      //   DEBUG_PRINTF_P(PSTR("%02x "), data[i]);
-      // }
-      // DEBUG_PRINTLN();
-
-      // Handle Remote here
       handleRemote_visualremote(data, len);
 
       // Return true to indicate message has been handled
