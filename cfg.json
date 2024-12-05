@@ -361,6 +361,9 @@
         },
         "VisualRemote": {
             "enabled": true,
+            "SegmentId": 1,
+            "SegmentPixelOffset": 0,
+            "TimeOutMenu": 700,
             "patterns": [
                 {
                     "id": 1,
@@ -402,6 +405,49 @@
                         "00FFFF",
                         "808080",
                         "00FFFF"
+                    ]
+                },
+                {
+                    "id": 5,
+                    "name": "Chase Rainbow",
+                    "length": 3,
+                    "colors": [
+                        "00FFFF",
+                        "F0F0F0",
+                        "12FF80"
+                    ]
+                },
+                {
+                    "id": 6,
+                    "name": "Dancing Shadows",
+                    "length": 3,
+                    "colors": [
+                        "f700ff",
+                        "ffe100",
+                        "c75eff"
+                    ]
+                }
+                ,
+                {
+                    "id": 7,
+                    "name": "Fireworks 1D",
+                    "length": 3,
+                    "colors": [
+                        "bfffe6",
+                        "0dff00",
+                        "ffae00"
+                    ]
+                }
+                ,
+                {
+                    "id": 8,
+                    "name": "Heartbeat",
+                    "length": 4,
+                    "colors": [
+                        "ff0000",
+                        "ff0000",
+                        "ff0000",
+                        "ff0000"
                     ]
                 }
             ]

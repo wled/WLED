@@ -134,13 +134,6 @@ void deserializePatternColors(JsonArray& json, String colors[12], uint8_t& lengt
 }
 
 unsigned long lastTime = 0;
-bool isDisplayingEffectIndicator = false;     // Flag to indicate if indicator is currently displayed
-
-void StartDisplayEffectIndicator(uint8_t effectIndex) {
-    // Set the timestamp and flag
-  lastTime = millis();
-  isDisplayingEffectIndicator = true;
-}
 
 
 
@@ -152,13 +145,14 @@ class UsermodVisualRemote : public Usermod {
     static const char _enabled[];
     int segmentId;
     int segmentPixelOffset;
+    int timeOutMenu;
     String presetNames[255]; 
     bool preset_available[255];
     Pattern patterns[255]; // Array to hold patterns for each preset
+    bool isDisplayingEffectIndicator = false;
 
     uint8_t currentEffectIndex = 1;
     unsigned long lastTime = 0;
-    bool isDisplayingEffectIndicator = false; // Flag to indicate if indicator is currently displayed
 
     Pattern* getPatternById(uint8_t id) {
       for (int i = 0; i < 255; i++) {
@@ -194,11 +188,19 @@ class UsermodVisualRemote : public Usermod {
       }
     }
 
+  void StartDisplayEffectIndicator(uint8_t effectIndex) {
+      // Set the timestamp and flag
+    lastTime = millis();
+    isDisplayingEffectIndicator = true;
+  }
+
+
     void addToConfig(JsonObject& root) override {
       JsonObject top = root.createNestedObject(FPSTR(_name));
       top[FPSTR(_enabled)] = enabled;
       top["SegmentId"] = segmentId;
       top["SegmentPixelOffset"] = segmentPixelOffset;
+      top["TimeOutMenu"] = timeOutMenu;
       // Add patterns to config
       JsonArray patternsArray = top.createNestedArray("patterns");
       for (int i = 0; i < 255; i++) {
@@ -221,6 +223,8 @@ class UsermodVisualRemote : public Usermod {
       configComplete &= getJsonValue(top[FPSTR(_enabled)], enabled);
       configComplete &= getJsonValue(top["SegmentId"], segmentId, 0);  
       configComplete &= getJsonValue(top["SegmentPixelOffset"], segmentPixelOffset, 0);  
+      configComplete &= getJsonValue(top["TimeOutMenu"], timeOutMenu, 1000);  
+      
 
       // Read patterns from config
       JsonArray patternsArray = top["patterns"].as<JsonArray>();
@@ -242,11 +246,6 @@ class UsermodVisualRemote : public Usermod {
       return configComplete;
     }
 
-    void StartDisplayEffectIndicator(uint8_t effectIndex) {
-      // Set the timestamp and flag
-      lastTime = millis();
-      isDisplayingEffectIndicator = true;
-    }
 
    void onButtonUpPress() {
       do {
@@ -314,18 +313,14 @@ class UsermodVisualRemote : public Usermod {
         }
 
         int patternLength = pattern->length; // Dynamic length
-        Segment &seg = strip.getSegment(segmentId);
-        if (!seg.isActive()) {
-          DEBUG_ERROR("Segment is not active");
-          return;
-        } 
+
         for (int i = 0; i < patternLength; i++) {
           int pixelIndex = segmentPixelOffset + i;
           uint32_t color = strtoul(pattern->colors[i].c_str(), nullptr, 16);
           uint8_t r = (color >> 16) & 0xFF;
           uint8_t g = (color >> 8) & 0xFF;
           uint8_t b = color & 0xFF;
-          seg.setPixelColor(pixelIndex, r, g, b); 
+          strip.getSegment(segmentId).setPixelColor(pixelIndex, r, g, b); 
          // segment.lastLed
           //strip.setPixelColor(pixelIndex, r, g, b); // Set the segment color
 
@@ -334,7 +329,7 @@ class UsermodVisualRemote : public Usermod {
         }
 
         // Check if the indicator has been displayed for 5 seconds
-        if (millis() - lastTime > 2000) {
+        if (millis() - lastTime > timeOutMenu) {
           isDisplayingEffectIndicator = false;
           presetWithFallback_visualremote(pattern->id, FX_MODE_STATIC, 0);
         }
@@ -345,8 +340,7 @@ class UsermodVisualRemote : public Usermod {
       // Code to run in the main loop
     }
 
-    bool onEspNowMessage(uint8_t* sender, uint8_t* data, uint8_t len) {
-      isDisplayingEffectIndicator = false;
+    bool onEspNowMessage(uint8_t* sender, uint8_t* data, uint8_t len) {      
       handleRemote_visualremote(data, len);
       
       // Return true to indicate message has been handled
