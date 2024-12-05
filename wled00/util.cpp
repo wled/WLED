@@ -52,7 +52,7 @@ void parseNumber(const char* str, byte* val, byte minv, byte maxv)
   *val = atoi(str);
 }
 
-
+//getVal supports inc/decrementing and random ("X~Y(r|~[w][-][Z])" form)
 bool getVal(JsonVariant elem, byte* val, byte vmin, byte vmax) {
   if (elem.is<int>()) {
 		if (elem < 0) return false; //ignore e.g. {"ps":-1}
@@ -60,8 +60,12 @@ bool getVal(JsonVariant elem, byte* val, byte vmin, byte vmax) {
     return true;
   } else if (elem.is<const char*>()) {
     const char* str = elem;
-    size_t len = strnlen(str, 12);
-    if (len == 0 || len > 10) return false;
+    size_t len = strnlen(str, 14);
+    if (len == 0 || len > 12) return false;
+    // fix for #3605 & #4346
+    // ignore vmin and vmax and use as specified in API
+    if (len > 3 && (strchr(str,'r') || strchr(str,'~') != strrchr(str,'~'))) vmax = vmin = 0; // we have "X~Y(r|~[w][-][Z])" form
+    // end fix
     parseNumber(str, val, vmin, vmax);
     return true;
   }
