@@ -2562,10 +2562,10 @@ static CRGB twinklefox_one_twinkle(uint32_t ms, uint8_t salt, bool cat)
   // Overall twinkle speed (changed)
   unsigned ticks = ms / SEGENV.aux0;
   unsigned fastcycle8 = uint8_t(ticks);
-  unsigned slowcycle16 = uint16_t((ticks >> 8) + salt);
+  uint16_t slowcycle16 = (ticks >> 8) + salt;
   slowcycle16 += sin8(slowcycle16);
   slowcycle16 = (slowcycle16 * 2053) + 1384;
-  unsigned slowcycle8 = (slowcycle16 & 0xFF) + (slowcycle16 >> 8);
+  uint8_t slowcycle8 = (slowcycle16 & 0xFF) + (slowcycle16 >> 8);
 
   // Overall twinkle density.
   // 0 (NONE lit) to 8 (ALL lit at once).
@@ -4102,7 +4102,7 @@ uint16_t mode_sunrise() {
 
   for (unsigned i = 0; i <= SEGLEN/2; i++)
   {
-    //default palette is Fire    
+    //default palette is Fire
     unsigned wave = triwave16((i * stage) / SEGLEN);
     wave = (wave >> 8) + ((wave * SEGMENT.intensity) >> 15);
     uint32_t c;
@@ -5109,7 +5109,7 @@ uint16_t mode_2Dgameoflife(void) { // Written by Ewoud Wijma, inspired by https:
 
   if (!SEGENV.allocateData(dataSize + sizeof(uint16_t)*crcBufferLen)) return mode_static(); //allocation failed
   CRGB *prevLeds = reinterpret_cast<CRGB*>(SEGENV.data);
-  uint16_t *crcBuffer = reinterpret_cast<uint16_t*>(SEGENV.data + dataSize); 
+  uint16_t *crcBuffer = reinterpret_cast<uint16_t*>(SEGENV.data + dataSize);
 
   CRGB backgroundColor = SEGCOLOR(1);
 
@@ -6230,7 +6230,7 @@ uint16_t mode_2Dplasmarotozoom() {
   float *a = reinterpret_cast<float*>(SEGENV.data);
   byte *plasma = reinterpret_cast<byte*>(SEGENV.data+sizeof(float));
 
-  unsigned ms = strip.now/15;  
+  unsigned ms = strip.now/15;
 
   // plasma
   for (int j = 0; j < rows; j++) {
@@ -7564,7 +7564,7 @@ uint16_t mode_2Ddistortionwaves() {
   unsigned cy1 = beatsin8(15-speed,0,rows-1)*scale;
   unsigned cx2 = beatsin8(17-speed,0,cols-1)*scale;
   unsigned cy2 = beatsin8(14-speed,0,rows-1)*scale;
-  
+
   unsigned xoffs = 0;
   for (int x = 0; x < cols; x++) {
     xoffs += scale;
@@ -7573,9 +7573,9 @@ uint16_t mode_2Ddistortionwaves() {
     for (int y = 0; y < rows; y++) {
        yoffs += scale;
 
-      byte rdistort = cos8((cos8(((x<<3)+a )&255)+cos8(((y<<3)-a2)&255)+a3   )&255)>>1; 
-      byte gdistort = cos8((cos8(((x<<3)-a2)&255)+cos8(((y<<3)+a3)&255)+a+32 )&255)>>1; 
-      byte bdistort = cos8((cos8(((x<<3)+a3)&255)+cos8(((y<<3)-a) &255)+a2+64)&255)>>1; 
+      byte rdistort = cos8((cos8(((x<<3)+a )&255)+cos8(((y<<3)-a2)&255)+a3   )&255)>>1;
+      byte gdistort = cos8((cos8(((x<<3)-a2)&255)+cos8(((y<<3)+a3)&255)+a+32 )&255)>>1;
+      byte bdistort = cos8((cos8(((x<<3)+a3)&255)+cos8(((y<<3)-a) &255)+a2+64)&255)>>1;
 
       byte valueR = rdistort+ w*  (a- ( ((xoffs - cx)  * (xoffs - cx)  + (yoffs - cy)  * (yoffs - cy))>>7  ));
       byte valueG = gdistort+ w*  (a2-( ((xoffs - cx1) * (xoffs - cx1) + (yoffs - cy1) * (yoffs - cy1))>>7 ));
@@ -7585,7 +7585,7 @@ uint16_t mode_2Ddistortionwaves() {
       valueG = gamma8(cos8(valueG));
       valueB = gamma8(cos8(valueB));
 
-      SEGMENT.setPixelColorXY(x, y, RGBW32(valueR, valueG, valueB, 0)); 
+      SEGMENT.setPixelColorXY(x, y, RGBW32(valueR, valueG, valueB, 0));
     }
   }
 
@@ -7692,7 +7692,7 @@ uint16_t mode_2Dsoap() {
       }
       CRGB PixelA = CRGB::Black;
       if ((zD >= 0) && (zD < rows)) PixelA = SEGMENT.getPixelColorXY(x, zD);
-      else                          PixelA = ColorFromPalette(SEGPALETTE, ~noise3d[XY(x,abs(zD))]*3); 
+      else                          PixelA = ColorFromPalette(SEGPALETTE, ~noise3d[XY(x,abs(zD))]*3);
       CRGB PixelB = CRGB::Black;
       if ((zF >= 0) && (zF < rows)) PixelB = SEGMENT.getPixelColorXY(x, zF);
       else                          PixelB = ColorFromPalette(SEGPALETTE, ~noise3d[XY(x,abs(zF))]*3);
