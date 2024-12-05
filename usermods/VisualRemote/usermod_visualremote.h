@@ -111,29 +111,25 @@ struct Pattern {
   uint8_t id;           // ID of the pattern
   String name;          // Name of the pattern
   uint8_t length;       // Actual length of the pattern
-  uint8_t colors[12][4]; // Up to 12 RGB(W) colors
+  String colors[12];    // Up to 12 colors in HEX string format
 };
 
-void serializePatternColors(JsonArray& json, uint8_t colors[12][4], uint8_t length) {
+String colorToHexString(uint32_t c) {
+    char buffer[9];
+    sprintf(buffer, "%06X", c);
+    return buffer;
+}
+
+void serializePatternColors(JsonArray& json, String colors[12], uint8_t length) {
   for (int i = 0; i < length; i++) {
-    JsonArray colorArray = json.createNestedArray();
-    colorArray.add(colors[i][0]);
-    colorArray.add(colors[i][1]);
-    colorArray.add(colors[i][2]);
-    colorArray.add(colors[i][3]);
+    json.add(colors[i]);
   }
 }
 
-void deserializePatternColors(JsonArray& json, uint8_t colors[12][4], uint8_t& length) {
+void deserializePatternColors(JsonArray& json, String colors[12], uint8_t& length) {
   length = json.size();
   for (int i = 0; i < length; i++) {
-    JsonArray colorArray = json[i].as<JsonArray>();
-    if (!colorArray.isNull()) {
-      colors[i][0] = colorArray[0] | 0;
-      colors[i][1] = colorArray[1] | 0;
-      colors[i][2] = colorArray[2] | 0;
-      colors[i][3] = colorArray[3] | 0;
-    }
+    colors[i] = json[i].as<String>();
   }
 }
 
@@ -154,6 +150,8 @@ class UsermodVisualRemote : public Usermod {
     bool enabled = false;
     static const char _name[];
     static const char _enabled[];
+    int segmentId;
+    int segmentPixelOffset;
     String presetNames[255]; 
     bool preset_available[255];
     Pattern patterns[255]; // Array to hold patterns for each preset
@@ -161,6 +159,15 @@ class UsermodVisualRemote : public Usermod {
     uint8_t currentEffectIndex = 1;
     unsigned long lastTime = 0;
     bool isDisplayingEffectIndicator = false; // Flag to indicate if indicator is currently displayed
+
+    Pattern* getPatternById(uint8_t id) {
+      for (int i = 0; i < 255; i++) {
+        if (patterns[i].id == id) {
+          return &patterns[i];
+        }
+      }
+      return nullptr; // Return nullptr if no matching pattern is found
+    }
 
   public:
     void setup() {
@@ -178,10 +185,7 @@ class UsermodVisualRemote : public Usermod {
             patterns[i].name = presetNames[i];
             patterns[i].length = 3;
             for (int j = 0; j < patterns[i].length; j++) {
-              patterns[i].colors[j][0] = 255; // Red
-              patterns[i].colors[j][1] = 0; // Green
-              patterns[i].colors[j][2] = 0; // Blue
-              patterns[i].colors[j][3] = 0; // White
+              patterns[i].colors[j] = "FFFFFF"; // Default to white
             }
           } else {
             Serial.printf("Pattern for preset %d loaded successfully.\n", i);
@@ -193,16 +197,19 @@ class UsermodVisualRemote : public Usermod {
     void addToConfig(JsonObject& root) override {
       JsonObject top = root.createNestedObject(FPSTR(_name));
       top[FPSTR(_enabled)] = enabled;
-
+      top["SegmentId"] = segmentId;
+      top["SegmentPixelOffset"] = segmentPixelOffset;
       // Add patterns to config
       JsonArray patternsArray = top.createNestedArray("patterns");
       for (int i = 0; i < 255; i++) {
-        JsonObject patternObj = patternsArray.createNestedObject();
-        patternObj["id"] = patterns[i].id;
-        patternObj["name"] = patterns[i].name;
-        patternObj["length"] = patterns[i].length;
-        JsonArray colorsArray = patternObj.createNestedArray("colors");
-        serializePatternColors(colorsArray, patterns[i].colors, patterns[i].length);
+        if (patterns[i].name != "") {
+          JsonObject patternObj = patternsArray.createNestedObject();
+          patternObj["id"] = patterns[i].id;
+          patternObj["name"] = patterns[i].name;
+          patternObj["length"] = patterns[i].length;
+          JsonArray colorsArray = patternObj.createNestedArray("colors");
+          serializePatternColors(colorsArray, patterns[i].colors, patterns[i].length);
+        }
       }
     }
 
@@ -212,6 +219,8 @@ class UsermodVisualRemote : public Usermod {
       bool configComplete = !top.isNull();
 
       configComplete &= getJsonValue(top[FPSTR(_enabled)], enabled);
+      configComplete &= getJsonValue(top["SegmentId"], segmentId, 0);  
+      configComplete &= getJsonValue(top["SegmentPixelOffset"], segmentPixelOffset, 0);  
 
       // Read patterns from config
       JsonArray patternsArray = top["patterns"].as<JsonArray>();
@@ -296,34 +305,36 @@ class UsermodVisualRemote : public Usermod {
       last_seq_visualremote = cur_seq;
     }
 
-    Pattern* getPatternById(uint8_t id) {
-      for (int i = 0; i < 255; i++) {
-        if (patterns[i].id == id) {
-          return &patterns[i];
-        }
-      }
-      return nullptr; // Return nullptr if no matching pattern is found
-    }
-    
     void handleOverlayDraw() {
       if (isDisplayingEffectIndicator) {
-        int offset = 50; // Starting offset for the pattern
         Pattern* pattern = getPatternById(currentEffectIndex);
         if (pattern == nullptr) {
           Serial.printf("Pattern with ID %d not found\n", currentEffectIndex);
           return;
         }
-        for (int i = 0; i < pattern->length; i++) {
-          uint8_t r = pattern->colors[i][0];
-          uint8_t g = pattern->colors[i][1];
-          uint8_t b = pattern->colors[i][2];
-          uint8_t w = pattern->colors[i][3];
-          strip.setPixelColor(offset + i, RGBW32(r, g, b, w)); // Set the segment color                   
 
+        int patternLength = pattern->length; // Dynamic length
+        Segment &seg = strip.getSegment(segmentId);
+        if (!seg.isActive()) {
+          DEBUG_ERROR("Segment is not active");
+          return;
+        } 
+        for (int i = 0; i < patternLength; i++) {
+          int pixelIndex = segmentPixelOffset + i;
+          uint32_t color = strtoul(pattern->colors[i].c_str(), nullptr, 16);
+          uint8_t r = (color >> 16) & 0xFF;
+          uint8_t g = (color >> 8) & 0xFF;
+          uint8_t b = color & 0xFF;
+          seg.setPixelColor(pixelIndex, r, g, b); 
+         // segment.lastLed
+          //strip.setPixelColor(pixelIndex, r, g, b); // Set the segment color
+
+          // Debug print
+          //Serial.printf("Setting pixel %d to color R:%d G:%d B:%d\n", pixelIndex, r, g, b);
         }
 
         // Check if the indicator has been displayed for 5 seconds
-        if (millis() - lastTime > 1000) {
+        if (millis() - lastTime > 2000) {
           isDisplayingEffectIndicator = false;
           presetWithFallback_visualremote(pattern->id, FX_MODE_STATIC, 0);
         }
@@ -335,10 +346,39 @@ class UsermodVisualRemote : public Usermod {
     }
 
     bool onEspNowMessage(uint8_t* sender, uint8_t* data, uint8_t len) {
+      isDisplayingEffectIndicator = false;
       handleRemote_visualremote(data, len);
-
+      
       // Return true to indicate message has been handled
       return true; // Override further processing
+    }
+
+   void appendConfigData() override {
+      Serial.println("VisualRemote mod appendConfigData");
+      oappend(F("addInfo('VisualRemote:patterns',1,'<small style=\"color:orange\">requires reboot</small>');"));
+      oappend(F("addInfo('VisualRemote")); oappend(String(FPSTR(_name)).c_str()); oappend(F(":great")); oappend(F("',1,'<i>(this is a great config value)</i>');"));
+      oappend(F("td=addDropdown('VisualRemote','SegmentId');"));          
+      for (int i = 0; i<= strip.getLastActiveSegmentId(); i++) {
+        oappend(F("addOption(td,'")); oappend(String(i)); oappend(F("','")); oappend(String(i)); oappend(F("');"));
+      }
+      // for (int i = 0; i < 255; i++) {
+      //   if (preset_available[i]) {
+      //     oappend(F("addDropdown('Pattern for Preset "));
+      //     oappend(String(i));
+      //     oappend(F("','pattern_"));
+      //     oappend(String(i));
+      //     oappend(F("');"));
+      //     for (int j = 0; j < patterns[i].length; j++) {
+      //       oappend(F("addOption('pattern_"));
+      //       oappend(String(i));
+      //       oappend(F("','"));
+      //       oappend(String(j));
+      //       oappend(F("','"));
+      //       oappend(String(patterns[i].colors[j], HEX));
+      //       oappend(F("');"));
+      //     }
+      //   }
+      //}
     }
 };
 
