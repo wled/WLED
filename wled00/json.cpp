@@ -217,30 +217,17 @@ bool deserializeSegment(JsonObject elem, byte it, byte presetId)
   #endif
 
   byte fx = seg.mode;
-  byte last = strip.getModeCount();
-  // partial fix for #3605
-  if (!elem["fx"].isNull() && elem["fx"].is<const char*>()) {
-    const char *tmp = elem["fx"].as<const char *>();
-    if (strlen(tmp) > 3 && (strchr(tmp,'r') || strchr(tmp,'~') != strrchr(tmp,'~'))) last = 0; // we have "X~Y(r|[w]~[-])" form
-  }
-  // end fix
-  if (getVal(elem["fx"], &fx, 0, last)) { //load effect ('r' random, '~' inc/dec, 0-255 exact value, 5~10r pick random between 5 & 10)
+  if (getVal(elem["fx"], &fx, 0, strip.getModeCount())) {
     if (!presetId && currentPlaylist>=0) unloadPlaylist();
     if (fx != seg.mode) seg.setMode(fx, elem[F("fxdef")]);
   }
 
-  //getVal also supports inc/decrementing and random
   getVal(elem["sx"], &seg.speed);
   getVal(elem["ix"], &seg.intensity);
 
   uint8_t pal = seg.palette;
-  last = strip.getPaletteCount();
-  if (!elem["pal"].isNull() && elem["pal"].is<const char*>()) {
-    const char *tmp = elem["pal"].as<const char *>();
-    if (strlen(tmp) > 3 && (strchr(tmp,'r') || strchr(tmp,'~') != strrchr(tmp,'~'))) last = 0; // we have "X~Y(r|[w]~[-])" form
-  }
   if (seg.getLightCapabilities() & 1) {  // ignore palette for White and On/Off segments
-    if (getVal(elem["pal"], &pal, 0, last)) seg.setPalette(pal);
+    if (getVal(elem["pal"], &pal, 0, strip.getPaletteCount())) seg.setPalette(pal);
   }
 
   getVal(elem["c1"], &seg.custom1);
@@ -466,7 +453,7 @@ bool deserializeState(JsonObject root, byte callMode, byte presetId)
     DEBUG_PRINTF_P(PSTR("Preset direct: %d\n"), currentPreset);
   } else if (!root["ps"].isNull()) {
     // we have "ps" call (i.e. from button or external API call) or "pd" that includes "ps" (i.e. from UI call)
-    if (root["win"].isNull() && getVal(root["ps"], &presetCycCurr, 0, 0) && presetCycCurr > 0 && presetCycCurr < 251 && presetCycCurr != currentPreset) {
+    if (root["win"].isNull() && getVal(root["ps"], &presetCycCurr, 1, 251) && presetCycCurr > 0 && presetCycCurr < 251 && presetCycCurr != currentPreset) {
       DEBUG_PRINTF_P(PSTR("Preset select: %d\n"), presetCycCurr);
       // b) preset ID only or preset that does not change state (use embedded cycling limits if they exist in getVal())
       applyPreset(presetCycCurr, callMode); // async load from file system (only preset ID was specified)
