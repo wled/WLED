@@ -479,10 +479,7 @@ void WLED::setup()
   if (strcmp(multiWiFi[0].clientSSID, DEFAULT_CLIENT_SSID) == 0)
     showWelcomePage = true;
   WiFi.persistent(false);
-  #ifdef WLED_USE_ETHERNET
   WiFi.onEvent(WiFiEvent);
-  #endif
-
   WiFi.mode(WIFI_STA); // enable scanning
   findWiFi(true);      // start scanning for available WiFi-s
 
@@ -783,7 +780,7 @@ int8_t WLED::findWiFi(bool doScan) {
 
 void WLED::initConnection()
 {
-  DEBUG_PRINTLN(F("initConnection() called."));
+  DEBUG_PRINTF_P(PSTR("initConnection() called @ %lus.\n"), millis()/1000);
 
   #ifdef WLED_ENABLE_WEBSOCKETS
   ws.onEvent(wsEvent);
@@ -827,9 +824,7 @@ void WLED::initConnection()
   if (WLED_WIFI_CONFIGURED) {
     showWelcomePage = false;
     
-    DEBUG_PRINT(F("Connecting to "));
-    DEBUG_PRINT(multiWiFi[selectedWiFi].clientSSID);
-    DEBUG_PRINTLN(F("..."));
+    DEBUG_PRINTF_P(PSTR("Connecting to %s...\n"), multiWiFi[selectedWiFi].clientSSID);
 
     // convert the "serverDescription" into a valid DNS hostname (alphanumeric)
     char hostname[25];
@@ -928,7 +923,8 @@ void WLED::handleConnection()
 {
   static bool scanDone = true;
   static byte stacO = 0;
-  unsigned long now = millis();
+  const unsigned long now = millis();
+  const unsigned long nowS = now/1000;
   const bool wifiConfigured = WLED_WIFI_CONFIGURED;
 
   // ignore connection handling if WiFi is configured and scan still running
@@ -937,7 +933,7 @@ void WLED::handleConnection()
     return;
 
   if (lastReconnectAttempt == 0 || forceReconnect) {
-    DEBUG_PRINTLN(F("Initial connect or forced reconnect."));
+    DEBUG_PRINTF_P(PSTR("Initial connect or forced reconnect (@ %lus).\n"), nowS);
     selectedWiFi = findWiFi(); // find strongest WiFi
     initConnection();
     interfacesInited = false;
@@ -957,8 +953,7 @@ void WLED::handleConnection()
 #endif
     if (stac != stacO) {
       stacO = stac;
-      DEBUG_PRINT(F("Connected AP clients: "));
-      DEBUG_PRINTLN(stac);
+      DEBUG_PRINTF_P(PSTR("Connected AP clients: %d\n"), (int)stac);
       if (!WLED_CONNECTED && wifiConfigured) {        // trying to connect, but not connected
         if (stac)
           WiFi.disconnect();        // disable search so that AP can work
@@ -981,6 +976,7 @@ void WLED::handleConnection()
       initConnection();
       interfacesInited = false;
       scanDone = true;
+      return;
     }
     //send improv failed 6 seconds after second init attempt (24 sec. after provisioning)
     if (improvActive > 2 && now - lastReconnectAttempt > 6000) {
@@ -989,13 +985,13 @@ void WLED::handleConnection()
     }
     if (now - lastReconnectAttempt > ((stac) ? 300000 : 18000) && wifiConfigured) {
       if (improvActive == 2) improvActive = 3;
-      DEBUG_PRINTLN(F("Last reconnect too old."));
+      DEBUG_PRINTF_P(PSTR("Last reconnect (%lus) too old (@ %lus).\n"), lastReconnectAttempt/1000, nowS);
       if (++selectedWiFi >= multiWiFi.size()) selectedWiFi = 0; // we couldn't connect, try with another network from the list
       initConnection();
     }
     if (!apActive && now - lastReconnectAttempt > 12000 && (!wasConnected || apBehavior == AP_BEHAVIOR_NO_CONN)) {
       if (!(apBehavior == AP_BEHAVIOR_TEMPORARY && now > WLED_AP_TIMEOUT)) {
-        DEBUG_PRINTLN(F("Not connected AP."));
+        DEBUG_PRINTF_P(PSTR("Not connected AP (@ %lus).\n"), nowS);
         initAP();  // start AP only within first 5min
       }
     }
@@ -1005,7 +1001,7 @@ void WLED::handleConnection()
         dnsServer.stop();
         WiFi.softAPdisconnect(true);
         apActive = false;
-        DEBUG_PRINTLN(F("Temporary AP disabled."));
+        DEBUG_PRINTF_P(PSTR("Temporary AP disabled (@ %lus).\n"), nowS);
       }
     }
   } else if (!interfacesInited) { //newly connected
