@@ -61,7 +61,7 @@ See [here](https://kno.wled.ge/basics/compatible-hardware)!
 
 ## ✌️ Other
 
-Licensed under the MIT license  
+Licensed under the EUPL v1.2 license  
 Credits [here](https://kno.wled.ge/about/contributors/)!
 
 Join the Discord server to discuss everything about WLED!
@@ -80,5 +80,5 @@ If WLED really brightens up your day, you can [![](https://img.shields.io/badge/
 If you are prone to photosensitive epilepsy, we recommended you do **not** use this software.  
 If you still want to try, don't use strobe, lighting or noise modes or high effect speed settings.
 
-As per the MIT license, I assume no liability for any damage to you or any other person or equipment.  
+As per the EUPL license, I assume no liability for any damage to you or any other person or equipment.  
 

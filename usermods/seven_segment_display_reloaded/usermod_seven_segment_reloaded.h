@@ -387,7 +387,7 @@ public:
     #ifdef USERMOD_SN_PHOTORESISTOR
       ptr = (Usermod_SN_Photoresistor*) UsermodManager::lookup(USERMOD_ID_SN_PHOTORESISTOR);
     #endif
-    DEBUG_PRINTLN(F("Setup done"));
+    DEBUGUM_PRINTLN(F("Setup done"));
   }
 
   /*
@@ -519,8 +519,8 @@ public:
     JsonObject top = root[FPSTR(_str_name)];
 
     if (top.isNull()) {
-      DEBUG_PRINT(FPSTR(_str_name));
-      DEBUG_PRINTLN(F(": No config found. (Using defaults.)"));
+      DEBUGUM_PRINT(FPSTR(_str_name));
+      DEBUGUM_PRINTLN(F(": No config found. (Using defaults.)"));
       return false;
     }
 
@@ -541,8 +541,8 @@ public:
     umSSDRBrightnessMin    = top[FPSTR(_str_minBrightness)] | umSSDRBrightnessMin;
     umSSDRBrightnessMax    = top[FPSTR(_str_maxBrightness)] | umSSDRBrightnessMax;
 
-    DEBUG_PRINT(FPSTR(_str_name));
-    DEBUG_PRINTLN(F(" config (re)loaded."));
+    DEBUGUM_PRINT(FPSTR(_str_name));
+    DEBUGUM_PRINTLN(F(" config (re)loaded."));
 
     return true;
   }

@@ -129,7 +129,7 @@ static void changeEffectSpeed(int8_t amount)
   } else { // if Effect == "solid Color", change the hue of the primary color
     Segment& sseg = irApplyToAllSelected ? strip.getFirstSelectedSeg() : strip.getMainSegment();
     CRGB fastled_col = CRGB(sseg.colors[0]);
-    CHSV prim_hsv = rgb2hsv_approximate(fastled_col);
+    CHSV prim_hsv = rgb2hsv(fastled_col);
     int16_t new_val = (int16_t)prim_hsv.h + amount;
     if (new_val > 255) new_val -= 255;  // roll-over if  bigger than 255
     if (new_val < 0) new_val += 255;    // roll-over if smaller than 0
@@ -173,7 +173,7 @@ static void changeEffectIntensity(int8_t amount)
   } else { // if Effect == "solid Color", change the saturation of the primary color
     Segment& sseg = irApplyToAllSelected ? strip.getFirstSelectedSeg() : strip.getMainSegment();
     CRGB fastled_col = CRGB(sseg.colors[0]);
-    CHSV prim_hsv = rgb2hsv_approximate(fastled_col);
+    CHSV prim_hsv = rgb2hsv(fastled_col);
     int16_t new_val = (int16_t) prim_hsv.s + amount;
     prim_hsv.s = (byte)constrain(new_val,0,255);  // constrain to 0-255
     hsv2rgb_rainbow(prim_hsv, fastled_col);

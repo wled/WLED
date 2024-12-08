@@ -677,8 +677,10 @@ function parseInfo(i) {
 	isM = mw>0 && mh>0;
 	if (!isM) {
 		gId("filter2D").classList.add('hide');
+		gId('bs').querySelectorAll('option[data-type="2D"]').forEach((o,i)=>{o.style.display='none';});
 	} else {
 		gId("filter2D").classList.remove('hide');
+		gId('bs').querySelectorAll('option[data-type="2D"]').forEach((o,i)=>{o.style.display='';});
 	}
 //	if (i.noaudio) {
 //		gId("filterVol").classList.add("hide");
@@ -1437,6 +1439,9 @@ function readState(s,command=false)
 
 	tr = s.transition;
 	gId('tt').value = tr/10;
+	gId('bs').value = s.bs || 0;
+	if (tr===0) gId('bsp').classList.add('hide')
+	else gId('bsp').classList.remove('hide')
 
 	populateSegments(s);
 	var selc=0;
@@ -1698,6 +1703,7 @@ function requestJson(command=null)
 			var tn = parseInt(t.value*10);
 			if (tn != tr) command.transition = tn;
 		}
+		//command.bs = parseInt(gId('bs').value);
 		req = JSON.stringify(command);
 		if (req.length > 1340) useWs = false; // do not send very long requests over websocket
 		if (req.length >  500 && lastinfo && lastinfo.arch == "esp8266") useWs = false; // esp8266 can only handle 500 bytes
@@ -2827,8 +2833,13 @@ function search(field, listId = null) {
 
 	// restore default preset sorting if no search term is entered
 	if (!search) {
-		if (listId === 'pcont')   { populatePresets(); return; }
-		if (listId === 'pallist') { populatePalettes(); return; }
+		if (listId === 'pcont') { populatePresets(); return; }
+		if (listId === 'pallist') {
+			let id = parseInt(d.querySelector('#pallist input[name="palette"]:checked').value); // preserve selected palette
+			populatePalettes();
+			updateSelectedPalette(id);
+			return;
+		}
 	}
 
 	// clear filter if searching in fxlist
@@ -2841,12 +2852,16 @@ function search(field, listId = null) {
 
 	// filter list items but leave (Default & Solid) always visible
 	const listItems = gId(listId).querySelectorAll('.lstI');
-	listItems.forEach((listItem,i)=>{
-		if (listId!=='pcont' && i===0) return;
+	listItems.forEach((listItem, i) => {
+		if (listId !== 'pcont' && i === 0) return;
 		const listItemName = listItem.querySelector('.lstIname').innerText.toUpperCase();
 		const searchIndex = listItemName.indexOf(field.value.toUpperCase());
-		listItem.style.display = (searchIndex < 0) ? 'none' : '';
-		listItem.dataset.searchIndex = searchIndex;
+		if (searchIndex < 0) {
+			listItem.dataset.searchIndex = Number.MAX_SAFE_INTEGER;
+		} else {
+			listItem.dataset.searchIndex = searchIndex;
+		}
+		listItem.style.display = (searchIndex < 0) && !listItem.classList.contains("selected") ? 'none' : '';
 	});
 
 	// sort list items by search index and name
@@ -2887,18 +2902,25 @@ function initFilters() {
 
 function filterFocus(e) {
 	const f = gId("filters");
-	if (e.type === "focus") f.classList.remove('fade');	// immediately show (still has transition)
-	// compute sticky top (with delay for transition)
-	setTimeout(() => {
-		const sti = parseInt(getComputedStyle(d.documentElement).getPropertyValue('--sti')) + (e.type === "focus" ? 1 : -1) * f.offsetHeight;
-		sCol('--sti', sti + "px");
-	}, 252);
+	const c = !!f.querySelectorAll("input[type=checkbox]:checked").length;
+	const h = f.offsetHeight;
+	const sti = parseInt(getComputedStyle(d.documentElement).getPropertyValue('--sti'));
+	if (e.type === "focus") {
+		// compute sticky top (with delay for transition)
+		if (!h) setTimeout(() => {
+			sCol('--sti', (sti+f.offsetHeight) + "px"); // has an unpleasant consequence on palette offset
+		}, 255);
+		f.classList.remove('fade');	// immediately show (still has transition)
+	}
 	if (e.type === "blur") {
 		setTimeout(() => {
 			if (e.target === document.activeElement && document.hasFocus()) return;
 			// do not hide if filter is active
-			if (gId("filters").querySelectorAll("input[type=checkbox]:checked").length) return;
-			f.classList.add('fade');
+			if (!c) {
+				// compute sticky top
+				sCol('--sti', (sti-h) + "px"); // has an unpleasant consequence on palette offset
+				f.classList.add('fade');
+			}
 		}, 255);	// wait with hiding
 	}
 }
@@ -2908,11 +2930,11 @@ function filterFx() {
 	inputField.value = '';
 	inputField.focus();
 	clean(inputField.nextElementSibling);
-	gId("fxlist").querySelectorAll('.lstI').forEach((listItem,i) => {
+	gId("fxlist").querySelectorAll('.lstI').forEach((listItem, i) => {
 		const listItemName = listItem.querySelector('.lstIname').innerText;
 		let hide = false;
-		gId("filters").querySelectorAll("input[type=checkbox]").forEach((e) => { if (e.checked && !listItemName.includes(e.dataset.flt)) hide = true; });
-		listItem.style.display = hide ? 'none' : '';
+		gId("filters").querySelectorAll("input[type=checkbox]").forEach((e) => { if (e.checked && !listItemName.includes(e.dataset.flt)) hide = i > 0 /*true*/; });
+		listItem.style.display = hide && !listItem.classList.contains("selected") ? 'none' : '';
 	});
 }
 

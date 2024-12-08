@@ -154,8 +154,8 @@ private:
 
     String temp;
     serializeJson(doc, temp);
-    DEBUG_PRINTLN(t);
-    DEBUG_PRINTLN(temp);
+    DEBUGUM_PRINTLN(t);
+    DEBUGUM_PRINTLN(temp);
 
     mqtt->publish(t.c_str(), 0, true, temp.c_str());
   }
@@ -187,7 +187,7 @@ private:
       if (!bme.begin())
       {
         sensorType = 0;
-        DEBUG_PRINTLN(F("Could not find BME280 I2C sensor!"));
+        DEBUGUM_PRINTLN(F("Could not find BME280 I2C sensor!"));
       }
       else
       {
@@ -195,15 +195,15 @@ private:
         {
         case BME280::ChipModel_BME280:
           sensorType = 1;
-          DEBUG_PRINTLN(F("Found BME280 sensor! Success."));
+          DEBUGUM_PRINTLN(F("Found BME280 sensor! Success."));
           break;
         case BME280::ChipModel_BMP280:
           sensorType = 2;
-          DEBUG_PRINTLN(F("Found BMP280 sensor! No Humidity available."));
+          DEBUGUM_PRINTLN(F("Found BMP280 sensor! No Humidity available."));
           break;
         default:
           sensorType = 0;
-          DEBUG_PRINTLN(F("Found UNKNOWN sensor! Error!"));
+          DEBUGUM_PRINTLN(F("Found UNKNOWN sensor! Error!"));
         }
       }
     }
@@ -413,7 +413,7 @@ public:
     top[F("PublishAlways")] = PublishAlways;
     top[F("UseCelsius")] = UseCelsius;
     top[F("HomeAssistantDiscovery")] = HomeAssistantDiscovery;
-    DEBUG_PRINTLN(F("BME280 config saved."));
+    DEBUGUM_PRINTLN(F("BME280 config saved."));
   }
 
   // Read Usermod Config Settings
@@ -424,8 +424,8 @@ public:
 
     JsonObject top = root[FPSTR(_name)];
     if (top.isNull()) {
-      DEBUG_PRINT(F(_name));
-      DEBUG_PRINTLN(F(": No config found. (Using defaults.)"));
+      DEBUGUM_PRINT(F(_name));
+      DEBUGUM_PRINTLN(F(": No config found. (Using defaults.)"));
       return false;
     }
     bool configComplete = !top.isNull();
@@ -445,13 +445,13 @@ public:
     configComplete &= getJsonValue(top[F("UseCelsius")], UseCelsius, true);
     configComplete &= getJsonValue(top[F("HomeAssistantDiscovery")], HomeAssistantDiscovery, false);
 
-    DEBUG_PRINT(FPSTR(_name));
+    DEBUGUM_PRINT(FPSTR(_name));
     if (!initDone) {
       // first run: reading from cfg.json
-      DEBUG_PRINTLN(F(" config loaded."));
+      DEBUGUM_PRINTLN(F(" config loaded."));
     } else {
       // changing parameters from settings page
-      DEBUG_PRINTLN(F(" config (re)loaded."));
+      DEBUGUM_PRINTLN(F(" config (re)loaded."));
 
       // Reset all known values
       sensorType = 0;

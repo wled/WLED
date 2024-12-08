@@ -6,7 +6,31 @@
  */
 
 #include "const.h"
+#include "pin_manager.h"
 #include <vector>
+
+// enable additional debug output
+#if defined(WLED_DEBUG_HOST)
+  #include "net_debug.h"
+  #define DEBUGOUT NetDebug
+#else
+  #define DEBUGOUT Serial
+#endif
+
+#ifdef WLED_DEBUG_BUS
+  #ifndef ESP8266
+  #include <rom/rtc.h>
+  #endif
+  #define DEBUGBUS_PRINT(x) DEBUGOUT.print(x)
+  #define DEBUGBUS_PRINTLN(x) DEBUGOUT.println(x)
+  #define DEBUGBUS_PRINTF(x...) DEBUGOUT.printf(x)
+  #define DEBUGBUS_PRINTF_P(x...) DEBUGOUT.printf_P(x)
+#else
+  #define DEBUGBUS_PRINT(x)
+  #define DEBUGBUS_PRINTLN(x)
+  #define DEBUGBUS_PRINTF(x...)
+  #define DEBUGBUS_PRINTF_P(x...)
+#endif
 
 //colors.cpp
 uint16_t approximateKelvinFromRGB(uint32_t rgb);
@@ -79,14 +103,15 @@ class Bus {
 
     virtual ~Bus() {} //throw the bus under the bus
 
+    virtual void     begin()                                   {};
     virtual void     show() = 0;
-    virtual bool     canShow() const                          { return true; }
+    virtual bool     canShow() const                           { return true; }
     virtual void     setStatusPixel(uint32_t c)                {}
-    virtual void     setPixelColor(uint16_t pix, uint32_t c) = 0;
+    virtual void     setPixelColor(unsigned pix, uint32_t c) = 0;
     virtual void     setBrightness(uint8_t b)                  { _bri = b; };
     virtual void     setColorOrder(uint8_t co)                 {}
-    virtual uint32_t getPixelColor(uint16_t pix) const         { return 0; }
-    virtual uint8_t  getPins(uint8_t* pinArray = nullptr) const { return 0; }
+    virtual uint32_t getPixelColor(unsigned pix) const         { return 0; }
+    virtual unsigned  getPins(uint8_t* pinArray = nullptr) const { return 0; }
     virtual uint16_t getLength() const                         { return isOk() ? _len : 0; }
     virtual uint8_t  getColorOrder() const                     { return COL_ORDER_RGB; }
     virtual uint8_t  skippedLeds() const                       { return 0; }
@@ -151,7 +176,7 @@ class Bus {
     static inline uint8_t  getGlobalAWMode()          { return _gAWM; }
     static inline void     setCCT(int16_t cct)        { _cct = cct; }
     static inline uint8_t  getCCTBlend()              { return _cctBlend; }
-    static inline void setCCTBlend(uint8_t b) {
+    static inline void     setCCTBlend(uint8_t b) {
       _cctBlend = (std::min((int)b,100) * 127) / 100;
       //compile-time limiter for hardware that can't power both white channels at max
       #ifdef WLED_MAX_CCT_BLEND
@@ -203,17 +228,17 @@ class BusDigital : public Bus {
     bool canShow() const override;
     void setBrightness(uint8_t b) override;
     void setStatusPixel(uint32_t c) override;
-    [[gnu::hot]] void setPixelColor(uint16_t pix, uint32_t c) override;
+    [[gnu::hot]] void setPixelColor(unsigned pix, uint32_t c) override;
     void setColorOrder(uint8_t colorOrder) override;
-    [[gnu::hot]] uint32_t getPixelColor(uint16_t pix) const override;
+    [[gnu::hot]] uint32_t getPixelColor(unsigned pix) const override;
     uint8_t  getColorOrder() const override  { return _colorOrder; }
-    uint8_t  getPins(uint8_t* pinArray = nullptr) const override;
+    unsigned getPins(uint8_t* pinArray = nullptr) const override;
     uint8_t  skippedLeds() const override    { return _skip; }
     uint16_t getFrequency() const override   { return _frequencykHz; }
     uint16_t getLEDCurrent() const override  { return _milliAmpsPerLed; }
     uint16_t getUsedCurrent() const override { return _milliAmpsTotal; }
     uint16_t getMaxCurrent() const override  { return _milliAmpsMax; }
-    void reinit();
+    void begin() override;
     void cleanup();
 
     static std::vector<LEDType> getLEDTypes();
@@ -251,9 +276,9 @@ class BusPwm : public Bus {
     BusPwm(BusConfig &bc);
     ~BusPwm() { cleanup(); }
 
-    void setPixelColor(uint16_t pix, uint32_t c) override;
-    uint32_t getPixelColor(uint16_t pix) const override; //does no index check
-    uint8_t  getPins(uint8_t* pinArray = nullptr) const override;
+    void setPixelColor(unsigned pix, uint32_t c) override;
+    uint32_t getPixelColor(unsigned pix) const override; //does no index check
+    unsigned getPins(uint8_t* pinArray = nullptr) const override;
     uint16_t getFrequency() const override { return _frequency; }
     void show() override;
     void cleanup() { deallocatePins(); }
@@ -278,9 +303,9 @@ class BusOnOff : public Bus {
     BusOnOff(BusConfig &bc);
     ~BusOnOff() { cleanup(); }
 
-    void setPixelColor(uint16_t pix, uint32_t c) override;
-    uint32_t getPixelColor(uint16_t pix) const override;
-    uint8_t  getPins(uint8_t* pinArray) const override;
+    void setPixelColor(unsigned pix, uint32_t c) override;
+    uint32_t getPixelColor(unsigned pix) const override;
+    unsigned getPins(uint8_t* pinArray) const override;
     void show() override;
     void cleanup() { PinManager::deallocatePin(_pin, PinOwner::BusOnOff); }
 
@@ -298,9 +323,9 @@ class BusNetwork : public Bus {
     ~BusNetwork() { cleanup(); }
 
     bool canShow() const override  { return !_broadcastLock; } // this should be a return value from UDP routine if it is still sending data out
-    void setPixelColor(uint16_t pix, uint32_t c) override;
-    uint32_t getPixelColor(uint16_t pix) const override;
-    uint8_t  getPins(uint8_t* pinArray = nullptr) const override;
+    [[gnu::hot]] void setPixelColor(unsigned pix, uint32_t c) override;
+    [[gnu::hot]] uint32_t getPixelColor(unsigned pix) const override;
+    unsigned getPins(uint8_t* pinArray = nullptr) const override;
     void show() override;
     void cleanup();
 
@@ -384,13 +409,13 @@ class BusManager {
     static void show();
     static bool canAllShow();
     static void setStatusPixel(uint32_t c);
-    [[gnu::hot]] static void setPixelColor(uint16_t pix, uint32_t c);
+    [[gnu::hot]] static void setPixelColor(unsigned pix, uint32_t c);
     static void setBrightness(uint8_t b);
     // for setSegmentCCT(), cct can only be in [-1,255] range; allowWBCorrection will convert it to K
     // WARNING: setSegmentCCT() is a misleading name!!! much better would be setGlobalCCT() or just setCCT()
     static void setSegmentCCT(int16_t cct, bool allowWBCorrection = false);
     static inline void setMilliampsMax(uint16_t max) { _milliAmpsMax = max;}
-    static uint32_t getPixelColor(uint16_t pix);
+    [[gnu::hot]] static uint32_t getPixelColor(unsigned pix);
     static inline int16_t getSegmentCCT() { return Bus::getCCT(); }
 
     static Bus* getBus(uint8_t busNr);

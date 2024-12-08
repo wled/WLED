@@ -433,8 +433,8 @@ class WordClockUsermod : public Usermod
 
     void appendConfigData()
     {
-      oappend(SET_F("addInfo('WordClockUsermod:ledOffset', 1, 'Number of LEDs before the letters');"));
-      oappend(SET_F("addInfo('WordClockUsermod:Norddeutsch', 1, 'Viertel vor instead of Dreiviertel');"));
+      oappend(F("addInfo('WordClockUsermod:ledOffset', 1, 'Number of LEDs before the letters');"));
+      oappend(F("addInfo('WordClockUsermod:Norddeutsch', 1, 'Viertel vor instead of Dreiviertel');"));
     }
 
     /*

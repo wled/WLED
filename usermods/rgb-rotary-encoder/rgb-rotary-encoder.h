@@ -249,7 +249,7 @@ class RgbRotaryEncoderUsermod : public Usermod
     {
       JsonObject top = root[FPSTR(_name)];
       if (top.isNull()) {
-        DEBUG_PRINTF("[%s] No config found. (Using defaults.)\n", _name);
+        DEBUGUM_PRINTF("[%s] No config found. (Using defaults.)\n", _name);
         return false;
       }
 
@@ -277,17 +277,17 @@ class RgbRotaryEncoderUsermod : public Usermod
       }
       // Mod was disabled, so run setup()
       else if (enabled && enabled != oldEnabled) {
-        DEBUG_PRINTF("[%s] Usermod has been re-enabled\n", _name);
+        DEBUGUM_PRINTF("[%s] Usermod has been re-enabled\n", _name);
         setup();
       }
       // Config has been changed, so adopt to changes
       else {
         if (!enabled) {
-          DEBUG_PRINTF("[%s] Usermod has been disabled\n", _name);
+          DEBUGUM_PRINTF("[%s] Usermod has been disabled\n", _name);
           cleanup();
         }
         else {
-          DEBUG_PRINTF("[%s] Usermod is enabled\n", _name);
+          DEBUGUM_PRINTF("[%s] Usermod is enabled\n", _name);
           if (ledIo != oldLedIo) {
             delete ledBus;
             initLedBus();
@@ -311,7 +311,7 @@ class RgbRotaryEncoderUsermod : public Usermod
           }
         }
 
-        DEBUG_PRINTF("[%s] Config (re)loaded\n", _name);
+        DEBUGUM_PRINTF("[%s] Config (re)loaded\n", _name);
       }
       
       return true;

@@ -120,7 +120,7 @@ private:
         _ina226 = new INA226_WE(_i2cAddress);
         if (!_ina226->init())
         {
-            DEBUG_PRINTLN(F("INA226 initialization failed!"));
+            DEBUGUM_PRINTLN(F("INA226 initialization failed!"));
             return;
         }
         _ina226->setCorrectionFactor(1.0);
@@ -287,8 +287,8 @@ private:
 
         String temp;
         serializeJson(doc, temp);
-        DEBUG_PRINTLN(t);
-        DEBUG_PRINTLN(temp);
+        DEBUGUM_PRINTLN(t);
+        DEBUGUM_PRINTLN(temp);
 
         mqtt->publish(t.c_str(), 0, true, temp.c_str());
     }
@@ -312,8 +312,8 @@ private:
 
         String temp;
         serializeJson(doc, temp);
-        DEBUG_PRINTLN(t);
-        DEBUG_PRINTLN(temp);
+        DEBUGUM_PRINTLN(t);
+        DEBUGUM_PRINTLN(temp);
 
         mqtt->publish(t.c_str(), 0, true, temp.c_str());
     }
@@ -462,7 +462,7 @@ public:
         top[F("MqttHomeAssistantDiscovery")] = _mqttHomeAssistant;
 #endif
 
-        DEBUG_PRINTLN(F("INA226 config saved."));
+        DEBUGUM_PRINTLN(F("INA226 config saved."));
     }
 
     bool readFromConfig(JsonObject &root) override

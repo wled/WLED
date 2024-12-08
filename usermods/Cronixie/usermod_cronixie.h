@@ -114,8 +114,8 @@ class UsermodCronixie : public Usermod {
       //W Week of Month | WW Week of Year
       //D Day of Week | DD Day Of Month | DDD Day Of Year
 
-      DEBUG_PRINT(F("cset "));
-      DEBUG_PRINTLN(cronixieDisplay);
+      DEBUGUM_PRINT(F("cset "));
+      DEBUGUM_PRINTLN(cronixieDisplay);
       
       for (int i = 0; i < 6; i++)
       {
@@ -160,13 +160,13 @@ class UsermodCronixie : public Usermod {
           //case 'v': break; //user var1
         }
       }
-      DEBUG_PRINT(F("result "));
+      DEBUGUM_PRINT(F("result "));
       for (int i = 0; i < 5; i++)
       {
-        DEBUG_PRINT((int)dP[i]);
-        DEBUG_PRINT(" ");
+        DEBUGUM_PRINT((int)dP[i]);
+        DEBUGUM_PRINT(" ");
       }
-      DEBUG_PRINTLN((int)dP[5]);
+      DEBUGUM_PRINTLN((int)dP[5]);
 
       _overlayCronixie(); // refresh
     }

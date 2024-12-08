@@ -387,23 +387,23 @@ class PixelsDiceTrayUsermod : public Usermod {
     // To work around this, add info text to the end of the preceding item.
     //
     // See addInfo in wled00/data/settings_um.htm for details on what this function does.
-    oappend(SET_F(
+    oappend(F(
         "addInfo('DiceTray:ble_scan_duration',1,'<br><br><i>Set to \"*\" to "
         "connect to any die.<br>Leave Blank to disable.</i><br><i "
         "class=\"warn\">Saving will replace \"*\" with die names.</i>','');"));
 #if USING_TFT_DISPLAY
-    oappend(SET_F("ddr=addDropdown('DiceTray','rotation');"));
-    oappend(SET_F("addOption(ddr,'0 deg',0);"));
-    oappend(SET_F("addOption(ddr,'90 deg',1);"));
-    oappend(SET_F("addOption(ddr,'180 deg',2);"));
-    oappend(SET_F("addOption(ddr,'270 deg',3);"));
-    oappend(SET_F(
+    oappend(F("ddr=addDropdown('DiceTray','rotation');"));
+    oappend(F("addOption(ddr,'0 deg',0);"));
+    oappend(F("addOption(ddr,'90 deg',1);"));
+    oappend(F("addOption(ddr,'180 deg',2);"));
+    oappend(F("addOption(ddr,'270 deg',3);"));
+    oappend(F(
         "addInfo('DiceTray:rotation',1,'<br><i class=\"warn\">DO NOT CHANGE "
         "SPI PINS.</i><br><i class=\"warn\">CHANGES ARE IGNORED.</i>','');"));
-    oappend(SET_F("addInfo('TFT:pin[]',0,'','SPI CS');"));
-    oappend(SET_F("addInfo('TFT:pin[]',1,'','SPI DC');"));
-    oappend(SET_F("addInfo('TFT:pin[]',2,'','SPI RST');"));
-    oappend(SET_F("addInfo('TFT:pin[]',3,'','SPI BL');"));
+    oappend(F("addInfo('TFT:pin[]',0,'','SPI CS');"));
+    oappend(F("addInfo('TFT:pin[]',1,'','SPI DC');"));
+    oappend(F("addInfo('TFT:pin[]',2,'','SPI RST');"));
+    oappend(F("addInfo('TFT:pin[]',3,'','SPI BL');"));
 #endif
   }
 

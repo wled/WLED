@@ -146,7 +146,7 @@ if (millis() - presetCycledTime > (100 * playlistEntryDur) || doAdvancePlaylist)
     }
 
     jsonTransitionOnce = true;
-    strip.setTransition(fadeTransition ? playlistEntries[playlistIndex].tr * 100 : 0);
+    strip.setTransition(playlistEntries[playlistIndex].tr * 100);
     playlistEntryDur = playlistEntries[playlistIndex].dur;
     applyPresetFromPlaylist(playlistEntries[playlistIndex].preset);
     doAdvancePlaylist = false;

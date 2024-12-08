@@ -47,17 +47,12 @@ void applyValuesToSelectedSegs()
 }
 
 
-void resetTimebase()
-{
-  strip.timebase = 0 - millis();
-}
-
-
 void toggleOnOff()
 {
   if (bri == 0)
   {
     bri = briLast;
+    strip.restartRuntime();
   } else
   {
     briLast = bri;
@@ -76,10 +71,11 @@ byte scaledBri(byte in)
 }
 
 
-//applies global brightness
+//applies global temporary brightness (briT) to strip
 void applyBri() {
   if (!realtimeMode || !arlsForceMaxBri)
   {
+    //DEBUG_PRINTF_P(PSTR("Applying strip brightness: %d (%d,%d)\n"), (int)briT, (int)bri, (int)briOld);
     strip.setBrightness(scaledBri(briT));
   }
 }
@@ -90,6 +86,7 @@ void applyFinalBri() {
   briOld = bri;
   briT = bri;
   applyBri();
+  strip.trigger(); // force one last update
 }
 
 
@@ -122,7 +119,7 @@ void stateUpdated(byte callMode) {
     nightlightStartTime = millis();
   }
   if (briT == 0) {
-    if (callMode != CALL_MODE_NOTIFICATION) resetTimebase(); //effect start from beginning
+    if (callMode != CALL_MODE_NOTIFICATION) strip.resetTimebase(); //effect start from beginning
   }
 
   if (bri > 0) briLast = bri;
@@ -133,31 +130,24 @@ void stateUpdated(byte callMode) {
   // notify usermods of state change
   UsermodManager::onStateChange(callMode);
 
-  if (fadeTransition) {
-    if (strip.getTransition() == 0) {
-      jsonTransitionOnce = false;
-      transitionActive = false;
-      applyFinalBri();
-      strip.trigger();
-      return;
-    }
-
-    if (transitionActive) {
-      briOld = briT;
-      tperLast = 0;
-    } else
-      strip.setTransitionMode(true); // force all segments to transition mode
-    transitionActive = true;
-    transitionStartTime = millis();
-  } else {
+  if (strip.getTransition() == 0) {
+    jsonTransitionOnce = false;
+    transitionActive = false;
     applyFinalBri();
     strip.trigger();
+    return;
   }
+
+  if (transitionActive) {
+    briOld = briT;
+  } else
+    strip.setTransitionMode(true); // force all segments to transition mode
+  transitionActive = true;
+  transitionStartTime = millis();
 }
 
 
-void updateInterfaces(uint8_t callMode)
-{
+void updateInterfaces(uint8_t callMode) {
   if (!interfaceUpdateCallMode || millis() - lastInterfaceUpdate < INTERFACE_UPDATE_COOLDOWN) return;
 
   sendDataWs();
@@ -178,28 +168,26 @@ void updateInterfaces(uint8_t callMode)
 }
 
 
-void handleTransitions()
-{
+void handleTransitions() {
   //handle still pending interface update
   updateInterfaces(interfaceUpdateCallMode);
 
   if (transitionActive && strip.getTransition() > 0) {
-    float tper = (millis() - transitionStartTime)/(float)strip.getTransition();
-    if (tper >= 1.0f) {
+    int ti = millis() - transitionStartTime;
+    int tr = strip.getTransition();
+    if (ti/tr) {
       strip.setTransitionMode(false); // stop all transitions
       // restore (global) transition time if not called from UDP notifier or single/temporary transition from JSON (also playlist)
       if (jsonTransitionOnce) strip.setTransition(transitionDelay);
       transitionActive = false;
       jsonTransitionOnce = false;
-      tperLast = 0;
       applyFinalBri();
       return;
     }
-    if (tper - tperLast < 0.004f) return; // less than 1 bit change (1/255)
-    tperLast = tper;
-    briT = briOld + ((bri - briOld) * tper);
-
-    applyBri();
+    byte briTO = briT;
+    int deltaBri = (int)bri - (int)briOld;
+    briT = briOld + (deltaBri * ti / tr);
+    if (briTO != briT) applyBri();
   }
 }
 
@@ -211,8 +199,7 @@ void colorUpdated(byte callMode) {
 }
 
 
-void handleNightlight()
-{
+void handleNightlight() {
   unsigned long now = millis();
   if (now < 100 && lastNlUpdate > 0) lastNlUpdate = 0; // take care of millis() rollover
   if (now - lastNlUpdate < 100) return; // allow only 10 NL updates per second
@@ -234,8 +221,8 @@ void handleNightlight()
         colNlT[1] = effectSpeed;
         colNlT[2] = effectPalette;
 
-        strip.setMode(strip.getFirstSelectedSegId(), FX_MODE_STATIC); // make sure seg runtime is reset if it was in sunrise mode
-        effectCurrent = FX_MODE_SUNRISE;
+        strip.getFirstSelectedSeg().setMode(FX_MODE_STATIC); // make sure seg runtime is reset if it was in sunrise mode
+        effectCurrent = FX_MODE_SUNRISE;            // colorUpdated() will take care of assigning that to all selected segments
         effectSpeed = nightlightDelayMins;
         effectPalette = 0;
         if (effectSpeed > 60) effectSpeed = 60; //currently limited to 60 minutes
@@ -292,7 +279,6 @@ void handleNightlight()
 }
 
 //utility for FastLED to use our custom timer
-uint32_t get_millisecond_timer()
-{
+uint32_t get_millisecond_timer() {
   return strip.now;
 }

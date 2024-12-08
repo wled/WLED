@@ -326,6 +326,7 @@ void WiFiEvent(WiFiEvent_t event)
     #endif
   #endif
     default:
+      DEBUG_PRINTF_P(PSTR("Network event: %d\n"), (int)event);
       break;
   }
 }

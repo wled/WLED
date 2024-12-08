@@ -9,6 +9,25 @@
 #endif
 #include "const.h" // for USERMOD_* values
 
+#ifdef WLED_DEBUG_PINMANAGER
+  // enable additional debug output
+  #if defined(WLED_DEBUG_HOST)
+    #include "net_debug.h"
+    #define DEBUGOUT NetDebug
+  #else
+    #define DEBUGOUT Serial
+  #endif
+  #define DEBUGPM_PRINT(x) DEBUGOUT.print(x)
+  #define DEBUGPM_PRINTLN(x) DEBUGOUT.println(x)
+  #define DEBUGPM_PRINTF(x...) DEBUGOUT.printf(x)
+  #define DEBUGPM_PRINTF_P(x...) DEBUGOUT.printf_P(x)
+#else
+  #define DEBUGPM_PRINT(x)
+  #define DEBUGPM_PRINTLN(x)
+  #define DEBUGPM_PRINTF(x...)
+  #define DEBUGPM_PRINTF_P(x...)
+#endif
+
 typedef struct PinManagerPinType {
   int8_t pin;
   bool   isOutput;

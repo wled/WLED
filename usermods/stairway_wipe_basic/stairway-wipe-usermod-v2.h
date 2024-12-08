@@ -96,7 +96,7 @@ void setup() {
     jsonTransitionOnce = true;
     strip.setTransition(0); //no transition
     effectCurrent = FX_MODE_COLOR_WIPE;
-    resetTimebase(); //make sure wipe starts from beginning
+    strip.resetTimebase(); //make sure wipe starts from beginning
 
     //set wipe direction
     Segment& seg = strip.getSegment(0);

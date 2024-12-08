@@ -118,8 +118,8 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
   CJSON(strip.correctWB, hw_led["cct"]);
   CJSON(strip.cctFromRgb, hw_led[F("cr")]);
   CJSON(cctICused, hw_led[F("ic")]);
-  CJSON(strip.cctBlending, hw_led[F("cb")]);
-  Bus::setCCTBlend(strip.cctBlending);
+  uint8_t cctBlending = hw_led[F("cb")] | Bus::getCCTBlend();
+  Bus::setCCTBlend(cctBlending);
   strip.setTargetFps(hw_led["fps"]); //NOP if 0, default 42 FPS
   CJSON(useGlobalLedBuffer, hw_led[F("ld")]);
 
@@ -440,21 +440,17 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
   else                     gammaCorrectBri = false;
   if (light_gc_col > 1.0f) gammaCorrectCol = true;
   else                     gammaCorrectCol = false;
-  if (gammaCorrectVal > 1.0f && gammaCorrectVal <= 3) {
-    if (gammaCorrectVal != 2.8f) NeoGammaWLEDMethod::calcGammaTable(gammaCorrectVal);
-  } else {
+  if (gammaCorrectVal <= 1.0f || gammaCorrectVal > 3) {
     gammaCorrectVal = 1.0f; // no gamma correction
     gammaCorrectBri = false;
     gammaCorrectCol = false;
   }
+  NeoGammaWLEDMethod::calcGammaTable(gammaCorrectVal); // fill look-up table
 
   JsonObject light_tr = light["tr"];
-  CJSON(fadeTransition, light_tr["mode"]);
-  CJSON(modeBlending, light_tr["fx"]);
   int tdd = light_tr["dur"] | -1;
   if (tdd >= 0) transitionDelay = transitionDelayDefault = tdd * 100;
-  strip.setTransition(fadeTransition ? transitionDelayDefault : 0);
-  CJSON(strip.paletteFade, light_tr["pal"]);
+  strip.setTransition(transitionDelayDefault);
   CJSON(randomPaletteChangeTime, light_tr[F("rpc")]);
   CJSON(useHarmonicRandomPalette, light_tr[F("hrp")]);
 
@@ -735,7 +731,7 @@ void serializeConfig() {
   rev.add(1); //major settings revision
   rev.add(0); //minor settings revision
 
-  root[F("vid")] = VERSION;
+  root[F("vid")] = build;
 
   JsonObject id = root.createNestedObject("id");
   id[F("mdns")] = cmDNS;
@@ -826,7 +822,7 @@ void serializeConfig() {
   hw_led["cct"] = strip.correctWB;
   hw_led[F("cr")] = strip.cctFromRgb;
   hw_led[F("ic")] = cctICused;
-  hw_led[F("cb")] = strip.cctBlending;
+  hw_led[F("cb")] = Bus::getCCTBlend();
   hw_led["fps"] = strip.getTargetFps();
   hw_led[F("rgbwm")] = Bus::getGlobalAWMode(); // global auto white mode override
   hw_led[F("ld")] = useGlobalLedBuffer;
@@ -944,10 +940,7 @@ void serializeConfig() {
   light_gc["val"] = gammaCorrectVal;
 
   JsonObject light_tr = light.createNestedObject("tr");
-  light_tr["mode"] = fadeTransition;
-  light_tr["fx"] = modeBlending;
   light_tr["dur"] = transitionDelayDefault / 100;
-  light_tr["pal"] = strip.paletteFade;
   light_tr[F("rpc")] = randomPaletteChangeTime;
   light_tr[F("hrp")] = useHarmonicRandomPalette;
 

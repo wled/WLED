@@ -55,7 +55,7 @@ class UsermodVL53L0XGestures : public Usermod {
       sensor.setTimeout(150);
       if (!sensor.init())
       {
-        DEBUG_PRINTLN(F("Failed to detect and initialize VL53L0X sensor!"));
+        DEBUGUM_PRINTLN(F("Failed to detect and initialize VL53L0X sensor!"));
       } else {
         sensor.setMeasurementTimingBudget(20000); // set high speed mode
       }
@@ -69,20 +69,20 @@ class UsermodVL53L0XGestures : public Usermod {
         lastTime = millis();
 
         int range = sensor.readRangeSingleMillimeters();
-        DEBUG_PRINTF("range: %d, brightness: %d\r\n", range, bri);
+        DEBUGUM_PRINTF("range: %d, brightness: %d\r\n", range, bri);
 
         if (range < VL53L0X_MAX_RANGE_MM)
         {
           if (!wasMotionBefore)
           {
             motionStartTime = millis();
-            DEBUG_PRINTF("motionStartTime: %d\r\n", motionStartTime);
+            DEBUGUM_PRINTF("motionStartTime: %d\r\n", motionStartTime);
           }
           wasMotionBefore = true;
 
           if (millis() - motionStartTime > VL53L0X_LONG_MOTION_DELAY_MS) //long motion
           {
-            DEBUG_PRINTF("long motion: %d\r\n", motionStartTime);
+            DEBUGUM_PRINTF("long motion: %d\r\n", motionStartTime);
             if (!isLongMotion)
             {
               isLongMotion = true;
@@ -90,13 +90,13 @@ class UsermodVL53L0XGestures : public Usermod {
 
             // set brightness according to range
             bri = (VL53L0X_MAX_RANGE_MM - max(range, VL53L0X_MIN_RANGE_OFFSET)) * 255 / (VL53L0X_MAX_RANGE_MM - VL53L0X_MIN_RANGE_OFFSET);
-            DEBUG_PRINTF("new brightness: %d", bri);
+            DEBUGUM_PRINTF("new brightness: %d", bri);
             stateUpdated(1);
           }
         } else if (wasMotionBefore) { //released
           if (!isLongMotion)
           { //short press
-            DEBUG_PRINTLN(F("shortPressAction..."));
+            DEBUGUM_PRINTLN(F("shortPressAction..."));
             shortPressAction();
           }
           wasMotionBefore = false;

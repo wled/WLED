@@ -219,6 +219,7 @@ void WLED::loop()
       busConfigs[i] = nullptr;
     }
     strip.finalizeInit(); // also loads default ledmap if present
+    BusManager::setBrightness(bri); // fix re-initialised bus' brightness #4005
     if (aligned) strip.makeAutoSegments();
     else strip.fixInvalidSegments();
     doSerializeConfig = true;
@@ -294,7 +295,9 @@ void WLED::loop()
       DEBUG_PRINTF_P(PSTR("UM time[ms]: %u/%lu\n"),   avgUsermodMillis/loops, maxUsermodMillis);
       DEBUG_PRINTF_P(PSTR("Strip time[ms]:%u/%lu\n"), avgStripMillis/loops,   maxStripMillis);
     }
+    #ifdef WLED_DEBUG_FX
     strip.printSize();
+    #endif
     loops = 0;
     maxLoopMillis = 0;
     maxUsermodMillis = 0;
@@ -338,29 +341,28 @@ void WLED::disableWatchdog() {
 
 void WLED::setup()
 {
-  #if defined(ARDUINO_ARCH_ESP32) && defined(WLED_DISABLE_BROWNOUT_DET)
+#if defined(ARDUINO_ARCH_ESP32) && defined(WLED_DISABLE_BROWNOUT_DET)
   WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 0); //disable brownout detection
-  #endif
+#endif
 
-  #ifdef ARDUINO_ARCH_ESP32
+#ifdef ARDUINO_ARCH_ESP32
   pinMode(hardwareRX, INPUT_PULLDOWN); delay(1);        // suppress noise in case RX pin is floating (at low noise energy) - see issue #3128
-  #endif
-  #ifdef WLED_BOOTUPDELAY
+#endif
+#ifdef WLED_BOOTUPDELAY
   delay(WLED_BOOTUPDELAY); // delay to let voltage stabilize, helps with boot issues on some setups
-  #endif
+#endif
   Serial.begin(115200);
-  #if !ARDUINO_USB_CDC_ON_BOOT
+#if !ARDUINO_USB_CDC_ON_BOOT
   Serial.setTimeout(50);  // this causes troubles on new MCUs that have a "virtual" USB Serial (HWCDC)
-  #else
-  #endif
-  #if defined(WLED_DEBUG) && defined(ARDUINO_ARCH_ESP32) && (defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32C3) || ARDUINO_USB_CDC_ON_BOOT)
+#endif
+#if (defined(WLED_DEBUG) || defined(WLED_DEBUG_FX) || defined(WLED_DEBUG_FS) || defined(WLED_DEBUG_BUS) || defined(WLED_DEBUG_PINMANAGER) || defined(WLED_DEBUG_USERMODS)) && defined(ARDUINO_ARCH_ESP32) && (defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32C3) || ARDUINO_USB_CDC_ON_BOOT)
   delay(2500);  // allow CDC USB serial to initialise
-  #endif
-  #if !defined(WLED_DEBUG) && defined(ARDUINO_ARCH_ESP32) && !defined(WLED_DEBUG_HOST) && ARDUINO_USB_CDC_ON_BOOT
+#endif
+#if !(defined(WLED_DEBUG) || defined(WLED_DEBUG_FX) || defined(WLED_DEBUG_FS) || defined(WLED_DEBUG_BUS) || defined(WLED_DEBUG_PINMANAGER) || defined(WLED_DEBUG_USERMODS)) && defined(ARDUINO_ARCH_ESP32) && !defined(WLED_DEBUG_HOST) && ARDUINO_USB_CDC_ON_BOOT
   Serial.setDebugOutput(false); // switch off kernel messages when using USBCDC
-  #endif
+#endif
   DEBUG_PRINTLN();
-  DEBUG_PRINTF_P(PSTR("---WLED %s %u INIT---\n"), versionString, VERSION);
+  DEBUG_PRINTF_P(PSTR("---WLED %s %u INIT---\n"), versionString, build);
   DEBUG_PRINTLN();
 #ifdef ARDUINO_ARCH_ESP32
   DEBUG_PRINTF_P(PSTR("esp32 %s\n"), ESP.getSdkVersion());
@@ -379,6 +381,12 @@ void WLED::setup()
     case FM_QOUT: DEBUG_PRINT(F("(QOUT)"));break;
     case FM_DIO:  DEBUG_PRINT(F("(DIO)")); break;
     case FM_DOUT: DEBUG_PRINT(F("(DOUT)"));break;
+    #if defined(CONFIG_IDF_TARGET_ESP32S3) && CONFIG_ESPTOOLPY_FLASHMODE_OPI
+    case FM_FAST_READ: DEBUG_PRINT(F("(OPI)")); break;
+    #else
+    case FM_FAST_READ: DEBUG_PRINT(F("(fast_read)")); break;
+    #endif
+    case FM_SLOW_READ: DEBUG_PRINT(F("(slow_read)")); break;
     default: break;
   }
   #endif
@@ -409,7 +417,7 @@ void WLED::setup()
   usePWMFixedNMI(); // link the NMI fix
 #endif
 
-#if defined(WLED_DEBUG) && !defined(WLED_DEBUG_HOST)
+#if (defined(WLED_DEBUG) || defined(WLED_DEBUG_FX) || defined(WLED_DEBUG_FS) || defined(WLED_DEBUG_BUS) || defined(WLED_DEBUG_PINMANAGER) || defined(WLED_DEBUG_USERMODS)) && !defined(WLED_DEBUG_HOST)
   PinManager::allocatePin(hardwareTX, true, PinOwner::DebugOut); // TX (GPIO1 on ESP32) reserved for debug output
 #endif
 #ifdef WLED_ENABLE_DMX //reserve GPIO2 as hardcoded DMX pin
@@ -580,10 +588,11 @@ void WLED::beginStrip()
   } else {
     // fix for #3196
     if (bootPreset > 0) {
-      bool oldTransition = fadeTransition;    // workaround if transitions are enabled
-      fadeTransition = false;                 // ignore transitions temporarily
-      strip.setColor(0, BLACK);               // set all segments black
-      fadeTransition = oldTransition;         // restore transitions
+      // set all segments black (no transition)
+      for (unsigned i = 0; i < strip.getSegmentsNum(); i++) {
+        Segment &seg = strip.getSegment(i);
+        if (seg.isActive()) seg.colors[0] = BLACK;
+      }
       col[0] = col[1] = col[2] = col[3] = 0;  // needed for colorUpdated()
     }
     briLast = briS; bri = 0;
@@ -790,13 +799,13 @@ bool WLED::initEthernet()
 // once the connection is established initInterfaces() is called
 void WLED::initConnection()
 {
-  DEBUG_PRINTLN(F("initConnection() called."));
+  DEBUG_PRINTF_P(PSTR("initConnection() called @ %lus.\n"), millis()/1000);
   WiFi.disconnect(true); // close old connections (and also disengage STA mode)
 
   lastReconnectAttempt = millis();
 
   if (isWiFiConfigured()) {
-    DEBUG_PRINTF_P(PSTR("WiFi: Connecting to %s... @ %lu ms\r\n"), multiWiFi[selectedWiFi].clientSSID, millis());
+    DEBUG_PRINTF_P(PSTR("WiFi: Connecting to %s... @ %lus\r\n"), multiWiFi[selectedWiFi].clientSSID, millis()/1000);
 
     WiFi.mode(WIFI_MODE_STA); // engage explicit STA mode
     // determine if using DHCP or static IP address, will also engage STA mode if not already
@@ -913,7 +922,7 @@ void WLED::initInterfaces()
 
 void WLED::handleConnection()
 {
-  unsigned long now = millis();
+  const unsigned long now = millis();
   const bool wifiConfigured = isWiFiConfigured();
 
   // ignore connection handling if WiFi is configured and scan still running
@@ -923,7 +932,7 @@ void WLED::handleConnection()
 
   if (wifiConfigured && (lastReconnectAttempt == 0 || forceReconnect)) {
     // this is first attempt at connecting to SSID or we were forced to reconnect
-    DEBUG_PRINTF_P(PSTR("WiFi: Initial connect or forced reconnect. @ %lu ms\r\n"), millis());
+    DEBUG_PRINTF_P(PSTR("WiFi: Initial connect or forced reconnect. @ %lus\r\n"), now/1000);
     selectedWiFi = findWiFi(); // find strongest WiFi
     initConnection(); // start connecting to preferred/configured WiFi
     interfacesInited = false;
@@ -933,12 +942,12 @@ void WLED::handleConnection()
 
   if (!Network.isConnected()) {
     if (!wifiConfigured && !apActive) {
-      DEBUG_PRINTF_P(PSTR("WiFi: Not configured, opening AP! @ %lu ms\r\n"), millis());
+      DEBUG_PRINTF_P(PSTR("WiFi: Not configured, opening AP! @ %lus\r\n"), now/1000);
       initAP(); // instantly go to AP mode (but will not disengage STA mode if engaged!)
       return;
     }
     if (!apActive && apBehavior == AP_BEHAVIOR_ALWAYS) {
-      DEBUG_PRINTF_P(PSTR("WiFi: AP ALWAYS enabled. @ %lu ms\r\n"), millis());
+      DEBUG_PRINTF_P(PSTR("WiFi: AP ALWAYS enabled. @ %lus\r\n"), now/1000);
       initAP(); // if STA is engaged (it should be) this will keep AP's channel in sync with STA channel
     }
     //send improv failed 6 seconds after second init attempt (24 sec. after provisioning)
@@ -970,7 +979,7 @@ void WLED::handleConnection()
         #endif
         ) {
         if (improvActive == 2) improvActive = 3;
-        DEBUG_PRINTF_P(PSTR("WiFi: Last reconnect too old @ %lu ms\r\n"), now);
+        DEBUG_PRINTF_P(PSTR("WiFi: Last reconnect (%lus) too old (@ %lus).\n"), lastReconnectAttempt/1000, now/1000);
         if (++selectedWiFi >= multiWiFi.size()) selectedWiFi = 0; // we couldn't connect, try with another network from the list
         stopAP(true); // stop ESP-NOW and disengage AP mode
         initConnection();
@@ -984,7 +993,7 @@ void WLED::handleConnection()
     // !wasConnected means this is after boot and we haven't yet successfully connected to SSID
     if (!apActive && now > lastReconnectAttempt + 12000 && (!wasConnected || apBehavior == AP_BEHAVIOR_NO_CONN)) {
       if (!(apBehavior == AP_BEHAVIOR_TEMPORARY && now > WLED_AP_TIMEOUT)) {
-        DEBUG_PRINTF_P(PSTR("WiFi: Opening not connected AP. @ %lu ms\r\n"), millis());
+        DEBUG_PRINTF_P(PSTR("WiFi: Opening not connected AP. @ %lus\r\n"), now/1000);
         WiFi.disconnect(true); // disengage STA mode/prevent connecting to WiFi while AP is open (may be reset above)
         WiFi.mode(WIFI_MODE_AP);
         initAP();  // start temporary AP only within first 5min
@@ -995,7 +1004,7 @@ void WLED::handleConnection()
     if (apActive && apBehavior == AP_BEHAVIOR_TEMPORARY && now > WLED_AP_TIMEOUT) {
       // if AP was enabled more than 10min after boot or if client was connected more than 10min after boot do not disconnect AP mode
       if (apClients == 0 && now < 2*WLED_AP_TIMEOUT) {
-        DEBUG_PRINTF_P(PSTR("WiFi: Temporary AP disabled. @ %lu ms\r\n"), millis());
+        DEBUG_PRINTF_P(PSTR("WiFi: Temporary AP disabled. @ %lus\r\n"), now/1000);
         stopAP(true);
         WiFi.mode(WIFI_MODE_STA);
         return;

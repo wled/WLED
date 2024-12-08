@@ -223,30 +223,17 @@ bool deserializeSegment(JsonObject elem, byte it, byte presetId)
   #endif
 
   byte fx = seg.mode;
-  byte last = strip.getModeCount();
-  // partial fix for #3605
-  if (!elem["fx"].isNull() && elem["fx"].is<const char*>()) {
-    const char *tmp = elem["fx"].as<const char *>();
-    if (strlen(tmp) > 3 && (strchr(tmp,'r') || strchr(tmp,'~') != strrchr(tmp,'~'))) last = 0; // we have "X~Y(r|[w]~[-])" form
-  }
-  // end fix
-  if (getVal(elem["fx"], &fx, 0, last)) { //load effect ('r' random, '~' inc/dec, 0-255 exact value, 5~10r pick random between 5 & 10)
+  if (getVal(elem["fx"], &fx, 0, strip.getModeCount())) {
     if (!presetId && currentPlaylist>=0) unloadPlaylist();
     if (fx != seg.mode) seg.setMode(fx, elem[F("fxdef")]);
   }
 
-  //getVal also supports inc/decrementing and random
   getVal(elem["sx"], &seg.speed);
   getVal(elem["ix"], &seg.intensity);
 
   uint8_t pal = seg.palette;
-  last = strip.getPaletteCount();
-  if (!elem["pal"].isNull() && elem["pal"].is<const char*>()) {
-    const char *tmp = elem["pal"].as<const char *>();
-    if (strlen(tmp) > 3 && (strchr(tmp,'r') || strchr(tmp,'~') != strrchr(tmp,'~'))) last = 0; // we have "X~Y(r|[w]~[-])" form
-  }
   if (seg.getLightCapabilities() & 1) {  // ignore palette for White and On/Off segments
-    if (getVal(elem["pal"], &pal, 0, last)) seg.setPalette(pal);
+    if (getVal(elem["pal"], &pal, 0, strip.getPaletteCount())) seg.setPalette(pal);
   }
 
   getVal(elem["c1"], &seg.custom1);
@@ -346,24 +333,29 @@ bool deserializeState(JsonObject root, byte callMode, byte presetId)
     }
   }
 
-  int tr = -1;
+  long tr = -1;
   if (!presetId || currentPlaylist < 0) { //do not apply transition time from preset if playlist active, as it would override playlist transition times
     tr = root[F("transition")] | -1;
     if (tr >= 0) {
       transitionDelay = tr * 100;
-      if (fadeTransition) strip.setTransition(transitionDelay);
+      strip.setTransition(transitionDelay);
     }
   }
+
+#ifndef WLED_DISABLE_MODE_BLEND
+  blendingStyle = root[F("bs")] | blendingStyle;
+  blendingStyle &= 0x1F;
+#endif
 
   // temporary transition (applies only once)
   tr = root[F("tt")] | -1;
   if (tr >= 0) {
     jsonTransitionOnce = true;
-    if (fadeTransition) strip.setTransition(tr * 100);
+    strip.setTransition(tr * 100);
   }
 
   tr = root[F("tb")] | -1;
-  if (tr >= 0) strip.timebase = ((uint32_t)tr) - millis();
+  if (tr >= 0) strip.timebase = (unsigned long)tr - millis();
 
   JsonObject nl       = root["nl"];
   nightlightActive    = getBoolVal(nl["on"], nightlightActive);
@@ -454,21 +446,25 @@ bool deserializeState(JsonObject root, byte callMode, byte presetId)
     handleSet(nullptr, apireq, false);    // may set stateChanged
   }
 
-  // applying preset (2 cases: a) API call includes all preset values ("pd"), b) API only specifies preset ID ("ps"))
+  // Applying preset from JSON API has 2 cases: a) "pd" AKA "preset direct" and b) "ps" AKA "preset select"
+  // a) "preset direct" can only be an integer value representing preset ID. "preset direct" assumes JSON API contains the rest of preset content (i.e. from UI call)
+  //    "preset direct" JSON can contain "ps" API (i.e. call from UI to cycle presets) in such case stateChanged has to be false (i.e. no "win" or "seg" API)
+  // b) "preset select" can be cycling ("1~5~""), random ("r" or "1~5r"), ID, etc. value allowed from JSON API. This type of call assumes no state changing content in API call
   byte presetToRestore = 0;
-  // a) already applied preset content (requires "seg" or "win" but will ignore the rest)
   if (!root[F("pd")].isNull() && stateChanged) {
+    // a) already applied preset content (requires "seg" or "win" but will ignore the rest)
     currentPreset = root[F("pd")] | currentPreset;
-    if (root["win"].isNull()) presetCycCurr = currentPreset; // otherwise it was set in handleSet() [set.cpp]
+    if (root["win"].isNull()) presetCycCurr = currentPreset; // otherwise presetCycCurr was set in handleSet() [set.cpp]
     presetToRestore = currentPreset; // stateUpdated() will clear the preset, so we need to restore it after
+    DEBUG_PRINTF_P(PSTR("Preset direct: %d\n"), currentPreset);
   } else if (!root["ps"].isNull()) {
-    ps = presetCycCurr;
-    if (root["win"].isNull() && getVal(root["ps"], &ps, 0, 0) && ps > 0 && ps < 251 && ps != currentPreset) {
+    // we have "ps" call (i.e. from button or external API call) or "pd" that includes "ps" (i.e. from UI call)
+    if (root["win"].isNull() && getVal(root["ps"], &presetCycCurr, 1, 250) && presetCycCurr > 0 && presetCycCurr < 251 && presetCycCurr != currentPreset) {
+      DEBUG_PRINTF_P(PSTR("Preset select: %d\n"), presetCycCurr);
       // b) preset ID only or preset that does not change state (use embedded cycling limits if they exist in getVal())
-      presetCycCurr = ps;
-      applyPreset(ps, callMode); // async load from file system (only preset ID was specified)
+      applyPreset(presetCycCurr, callMode); // async load from file system (only preset ID was specified)
       return stateResponse;
-    }
+    } else presetCycCurr = currentPreset; // restore presetCycCurr
   }
 
   JsonObject playlist = root[F("playlist")];
@@ -581,6 +577,9 @@ void serializeState(JsonObject root, bool forPreset, bool includeBri, bool segme
     root["on"] = (bri > 0);
     root["bri"] = briLast;
     root[F("transition")] = transitionDelay/100; //in 100ms
+#ifndef WLED_DISABLE_MODE_BLEND
+    root[F("bs")] = blendingStyle;
+#endif
   }
 
   if (!forPreset) {
@@ -635,7 +634,7 @@ void serializeState(JsonObject root, bool forPreset, bool includeBri, bool segme
 void serializeInfo(JsonObject root)
 {
   root[F("ver")] = versionString;
-  root[F("vid")] = VERSION;
+  root[F("vid")] = build;
   root[F("cn")] = F(WLED_CODENAME);
   root[F("release")] = releaseString;
 
@@ -774,7 +773,7 @@ void serializeInfo(JsonObject root)
 
   root[F("freeheap")] = ESP.getFreeHeap();
   #if defined(ARDUINO_ARCH_ESP32)
-  if (psramSafe && psramFound()) root[F("psram")] = ESP.getFreePsram();
+  if (psramFound()) root[F("psram")] = ESP.getFreePsram();
   #endif
   root[F("uptime")] = millis()/1000 + rolloverMillis*4294967;
 

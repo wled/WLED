@@ -2,24 +2,10 @@
   WS2812FX_fcn.cpp contains all utility functions
   Harm Aldick - 2016
   www.aldick.org
-  LICENSE
-  The MIT License (MIT)
+
   Copyright (c) 2016  Harm Aldick
-  Permission is hereby granted, free of charge, to any person obtaining a copy
-  of this software and associated documentation files (the "Software"), to deal
-  in the Software without restriction, including without limitation the rights
-  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-  copies of the Software, and to permit persons to whom the Software is
-  furnished to do so, subject to the following conditions:
-  The above copyright notice and this permission notice shall be included in
-  all copies or substantial portions of the Software.
-  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-  THE SOFTWARE.
+  Licensed under the EUPL v. 1.2 or later
+  Adapted from code originally licensed under the MIT license
 
   Modified heavily for WLED
 */
@@ -80,23 +66,33 @@ static constexpr bool validatePinsAndTypes(const unsigned* types, unsigned numTy
 ///////////////////////////////////////////////////////////////////////////////
 // Segment class implementation
 ///////////////////////////////////////////////////////////////////////////////
-uint16_t Segment::_usedSegmentData = 0U; // amount of RAM all segments use for their data[]
-uint16_t Segment::maxWidth = DEFAULT_LED_COUNT;
-uint16_t Segment::maxHeight = 1;
-
+unsigned      Segment::_usedSegmentData   = 0U; // amount of RAM all segments use for their data[]
+uint16_t      Segment::maxWidth           = DEFAULT_LED_COUNT;
+uint16_t      Segment::maxHeight          = 1;
+unsigned      Segment::_vLength           = 0;
+unsigned      Segment::_vWidth            = 0;
+unsigned      Segment::_vHeight           = 0;
+uint8_t       Segment::_segBri            = 0;
+uint32_t      Segment::_currentColors[NUM_COLORS] = {0,0,0};
+bool          Segment::_colorScaled       = false;
 CRGBPalette16 Segment::_currentPalette    = CRGBPalette16(CRGB::Black);
 CRGBPalette16 Segment::_randomPalette     = generateRandomPalette();  // was CRGBPalette16(DEFAULT_COLOR);
 CRGBPalette16 Segment::_newRandomPalette  = generateRandomPalette();  // was CRGBPalette16(DEFAULT_COLOR);
 uint16_t      Segment::_lastPaletteChange = 0; // perhaps it should be per segment
-uint16_t      Segment::_lastPaletteBlend  = 0; //in millis (lowest 16 bits only)
+uint16_t      Segment::_lastPaletteBlend  = 0; // in millis (lowest 16 bits only)
+uint16_t      Segment::_transitionProgress= 0xFFFF;
 
 #ifndef WLED_DISABLE_MODE_BLEND
 bool Segment::_modeBlend = false;
+uint16_t Segment::_clipStart = 0;
+uint16_t Segment::_clipStop = 0;
+uint8_t  Segment::_clipStartY = 0;
+uint8_t  Segment::_clipStopY = 1;
 #endif
 
 // copy constructor
 Segment::Segment(const Segment &orig) {
-  //DEBUG_PRINTF_P(PSTR("-- Copy segment constructor: %p -> %p\n"), &orig, this);
+  //DEBUGFX_PRINTF_P(PSTR("-- Copy segment constructor: %p -> %p\n"), &orig, this);
   memcpy((void*)this, (void*)&orig, sizeof(Segment));
   _t = nullptr; // copied segment cannot be in transition
   name = nullptr;
@@ -108,7 +104,7 @@ Segment::Segment(const Segment &orig) {
 
 // move constructor
 Segment::Segment(Segment &&orig) noexcept {
-  //DEBUG_PRINTF_P(PSTR("-- Move segment constructor: %p -> %p\n"), &orig, this);
+  //DEBUGFX_PRINTF_P(PSTR("-- Move segment constructor: %p -> %p\n"), &orig, this);
   memcpy((void*)this, (void*)&orig, sizeof(Segment));
   orig._t   = nullptr; // old segment cannot be in transition any more
   orig.name = nullptr;
@@ -118,7 +114,7 @@ Segment::Segment(Segment &&orig) noexcept {
 
 // copy assignment
 Segment& Segment::operator= (const Segment &orig) {
-  //DEBUG_PRINTF_P(PSTR("-- Copying segment: %p -> %p\n"), &orig, this);
+  //DEBUGFX_PRINTF_P(PSTR("-- Copying segment: %p -> %p\n"), &orig, this);
   if (this != &orig) {
     // clean destination
     if (name) { delete[] name; name = nullptr; }
@@ -138,7 +134,7 @@ Segment& Segment::operator= (const Segment &orig) {
 
 // move assignment
 Segment& Segment::operator= (Segment &&orig) noexcept {
-  //DEBUG_PRINTF_P(PSTR("-- Moving segment: %p -> %p\n"), &orig, this);
+  //DEBUGFX_PRINTF_P(PSTR("-- Moving segment: %p -> %p\n"), &orig, this);
   if (this != &orig) {
     if (name) { delete[] name; name = nullptr; } // free old name
     stopTransition();
@@ -156,34 +152,40 @@ Segment& Segment::operator= (Segment &&orig) noexcept {
 bool IRAM_ATTR_YN Segment::allocateData(size_t len) {
   if (len == 0) return false; // nothing to do
   if (data && _dataLen >= len) {          // already allocated enough (reduce fragmentation)
-    if (call == 0) memset(data, 0, len);  // erase buffer if called during effect initialisation
+    if (call == 0) {
+      //DEBUGFX_PRINTF_P(PSTR("--   Clearing data (%d): %p\n"), len, this);
+      memset(data, 0, len);  // erase buffer if called during effect initialisation
+    }
     return true;
   }
-  //DEBUG_PRINTF_P(PSTR("--   Allocating data (%d): %p\n", len, this);
+  //DEBUGFX_PRINTF_P(PSTR("--   Allocating data (%d): %p\n"), len, this);
   deallocateData(); // if the old buffer was smaller release it first
   if (Segment::getUsedSegmentData() + len > MAX_SEGMENT_DATA) {
     // not enough memory
-    DEBUG_PRINT(F("!!! Effect RAM depleted: "));
-    DEBUG_PRINTF_P(PSTR("%d/%d !!!\n"), len, Segment::getUsedSegmentData());
+    DEBUGFX_PRINT(F("!!! Effect RAM depleted: "));
+    DEBUGFX_PRINTF_P(PSTR("%d/%d !!!\n"), len, Segment::getUsedSegmentData());
     errorFlag = ERR_NORAM;
     return false;
   }
   // do not use SPI RAM on ESP32 since it is slow
   data = (byte*)calloc(len, sizeof(byte));
-  if (!data) { DEBUG_PRINTLN(F("!!! Allocation failed. !!!")); return false; } // allocation failed
+  if (!data) {
+    DEBUGFX_PRINTLN(F("!!! Allocation failed. !!!"));
+    return false;
+  } // allocation failed
   Segment::addUsedSegmentData(len);
-  //DEBUG_PRINTF_P(PSTR("---  Allocated data (%p): %d/%d -> %p\n"), this, len, Segment::getUsedSegmentData(), data);
+  //DEBUGFX_PRINTF_P(PSTR("---  Allocated data (%p): %d/%d -> %p\n"), this, len, Segment::getUsedSegmentData(), data);
   _dataLen = len;
   return true;
 }
 
 void IRAM_ATTR_YN Segment::deallocateData() {
   if (!data) { _dataLen = 0; return; }
-  //DEBUG_PRINTF_P(PSTR("---  Released data (%p): %d/%d -> %p\n"), this, _dataLen, Segment::getUsedSegmentData(), data);
   if ((Segment::getUsedSegmentData() > 0) && (_dataLen > 0)) { // check that we don't have a dangling / inconsistent data pointer
+    //DEBUGFX_PRINTF_P(PSTR("---  Released data (%p): %d/%d -> %p\n"), this, _dataLen, Segment::getUsedSegmentData(), data);
     free(data);
   } else {
-    DEBUG_PRINTF_P(PSTR("---- Released data (%p): inconsistent UsedSegmentData (%d/%d), cowardly refusing to free nothing.\n"), this, _dataLen, Segment::getUsedSegmentData());
+    DEBUGFX_PRINTF_P(PSTR("---- Released data (%p): inconsistent UsedSegmentData (%d/%d), cowardly refusing to free nothing.\n"), this, _dataLen, Segment::getUsedSegmentData());
   }
   data = nullptr;
   Segment::addUsedSegmentData(_dataLen <= Segment::getUsedSegmentData() ? -_dataLen : -Segment::getUsedSegmentData());
@@ -198,8 +200,8 @@ void IRAM_ATTR_YN Segment::deallocateData() {
   * may free that data buffer.
   */
 void Segment::resetIfRequired() {
-  if (!reset) return;
-  //DEBUG_PRINTF_P(PSTR("-- Segment reset: %p\n"), this);
+  if (!reset || !isActive()) return;
+  //DEBUGFX_PRINTF_P(PSTR("-- Segment reset: %p\n"), this);
   if (data && _dataLen > 0) memset(data, 0, _dataLen);  // prevent heap fragmentation (just erase buffer instead of deallocateData())
   next_time = 0; step = 0; call = 0; aux0 = 0; aux1 = 0;
   reset = false;
@@ -282,32 +284,29 @@ void Segment::startTransition(uint16_t dur) {
     if (isInTransition()) _t->_dur = dur; // this will stop transition in next handleTransition()
     return;
   }
-  if (isInTransition()) return; // already in transition no need to store anything
+  if (isInTransition() || !isActive()) return; // already in transition or inactive no need to store anything
 
   // starting a transition has to occur before change so we get current values 1st
   _t = new Transition(dur); // no previous transition running
   if (!_t) return; // failed to allocate data
 
-  //DEBUG_PRINTF_P(PSTR("-- Started transition: %p (%p)\n"), this, _t);
+  //DEBUGFX_PRINTF_P(PSTR("-- Started transition: %p (%p)\n"), this, _t);
   loadPalette(_t->_palT, palette);
+  _t->_palTid         = palette;
   _t->_briT           = on ? opacity : 0;
   _t->_cctT           = cct;
 #ifndef WLED_DISABLE_MODE_BLEND
-  if (modeBlending) {
-    swapSegenv(_t->_segT);
-    _t->_modeT          = mode;
-    _t->_segT._dataLenT = 0;
-    _t->_segT._dataT    = nullptr;
-    if (_dataLen > 0 && data) {
-      _t->_segT._dataT = (byte *)malloc(_dataLen);
-      if (_t->_segT._dataT) {
-        //DEBUG_PRINTF_P(PSTR("--  Allocated duplicate data (%d) for %p: %p\n"), _dataLen, this, _t->_segT._dataT);
-        memcpy(_t->_segT._dataT, data, _dataLen);
-        _t->_segT._dataLenT = _dataLen;
-      }
+  swapSegenv(_t->_segT);
+  _t->_modeT          = mode;
+  _t->_segT._dataLenT = 0;
+  _t->_segT._dataT    = nullptr;
+  if (_dataLen > 0 && data) {
+    _t->_segT._dataT = (byte *)malloc(_dataLen);
+    if (_t->_segT._dataT) {
+      //DEBUGFX_PRINTF_P(PSTR("--  Allocated duplicate data (%d) for %p: %p\n"), _dataLen, this, _t->_segT._dataT);
+      memcpy(_t->_segT._dataT, data, _dataLen);
+      _t->_segT._dataLenT = _dataLen;
     }
-  } else {
-    for (size_t i=0; i<NUM_COLORS; i++) _t->_segT._colorT[i] = colors[i];
   }
 #else
   for (size_t i=0; i<NUM_COLORS; i++) _t->_colorT[i] = colors[i];
@@ -316,13 +315,13 @@ void Segment::startTransition(uint16_t dur) {
 
 void Segment::stopTransition() {
   if (isInTransition()) {
-    //DEBUG_PRINTF_P(PSTR("-- Stopping transition: %p\n"), this);
+    //DEBUGFX_PRINTF_P(PSTR("-- Stopping transition: %p\n"), this);
     #ifndef WLED_DISABLE_MODE_BLEND
     if (_t->_segT._dataT && _t->_segT._dataLenT > 0) {
-      //DEBUG_PRINTF_P(PSTR("--  Released duplicate data (%d) for %p: %p\n"), _t->_segT._dataLenT, this, _t->_segT._dataT);
+      //DEBUGFX_PRINTF_P(PSTR("--  Released duplicate data (%d) for %p: %p\n"), _t->_segT._dataLenT, this, _t->_segT._dataT);
+      _t->_segT._dataLenT = 0;  // prevent race condition
       free(_t->_segT._dataT);
       _t->_segT._dataT = nullptr;
-      _t->_segT._dataLenT = 0;
     }
     #endif
     delete _t;
@@ -330,18 +329,9 @@ void Segment::stopTransition() {
   }
 }
 
-// transition progression between 0-65535
-uint16_t IRAM_ATTR Segment::progress() const {
-  if (isInTransition()) {
-    unsigned diff = millis() - _t->_start;
-    if (_t->_dur > 0 && diff < _t->_dur) return diff * 0xFFFFU / _t->_dur;
-  }
-  return 0xFFFFU;
-}
-
 #ifndef WLED_DISABLE_MODE_BLEND
 void Segment::swapSegenv(tmpsegd_t &tmpSeg) {
-  //DEBUG_PRINTF_P(PSTR("--  Saving temp seg: %p->(%p) [%d->%p]\n"), this, &tmpSeg, _dataLen, data);
+  //DEBUGFX_PRINTF_P(PSTR("--  Saving temp seg: %p->(%p) [%d->%p]\n"), this, &tmpSeg, _dataLen, data);
   tmpSeg._optionsT   = options;
   for (size_t i=0; i<NUM_COLORS; i++) tmpSeg._colorT[i] = colors[i];
   tmpSeg._speedT     = speed;
@@ -360,6 +350,7 @@ void Segment::swapSegenv(tmpsegd_t &tmpSeg) {
   tmpSeg._dataLenT   = _dataLen;
   if (_t && &tmpSeg != &(_t->_segT)) {
     // swap SEGENV with transitional data
+    //DEBUGFX_PRINTF_P(PSTR("--  Setting temp seg: %p->(%p) [%d->%p]\n"), this, &tmpSeg, _dataLen, data);
     options   = _t->_segT._optionsT;
     for (size_t i=0; i<NUM_COLORS; i++) colors[i] = _t->_segT._colorT[i];
     speed     = _t->_segT._speedT;
@@ -380,14 +371,14 @@ void Segment::swapSegenv(tmpsegd_t &tmpSeg) {
 }
 
 void Segment::restoreSegenv(tmpsegd_t &tmpSeg) {
-  //DEBUG_PRINTF_P(PSTR("--  Restoring temp seg: %p->(%p) [%d->%p]\n"), &tmpSeg, this, _dataLen, data);
+  //DEBUGFX_PRINTF_P(PSTR("--  Restoring temp seg: %p->(%p) [%d->%p]\n"), &tmpSeg, this, _dataLen, data);
   if (_t && &(_t->_segT) != &tmpSeg) {
     // update possibly changed variables to keep old effect running correctly
     _t->_segT._aux0T = aux0;
     _t->_segT._aux1T = aux1;
     _t->_segT._stepT = step;
     _t->_segT._callT = call;
-    //if (_t->_segT._dataT != data) DEBUG_PRINTF_P(PSTR("---  data re-allocated: (%p) %p -> %p\n"), this, _t->_segT._dataT, data);
+    //if (_t->_segT._dataT != data) DEBUGFX_PRINTF_P(PSTR("---  data re-allocated: (%p) %p -> %p\n"), this, _t->_segT._dataT, data);
     _t->_segT._dataT = data;
     _t->_segT._dataLenT = _dataLen;
   }
@@ -410,62 +401,98 @@ void Segment::restoreSegenv(tmpsegd_t &tmpSeg) {
 }
 #endif
 
-uint8_t IRAM_ATTR Segment::currentBri(bool useCct) const {
-  unsigned prog = progress();
+uint8_t Segment::currentBri(bool useCct) const {
+  uint32_t prog = progress();
+  uint32_t curBri = useCct ? cct : (on ? opacity : 0);
   if (prog < 0xFFFFU) {
-    unsigned curBri = (useCct ? cct : (on ? opacity : 0)) * prog;
-    curBri += (useCct ? _t->_cctT : _t->_briT) * (0xFFFFU - prog);
+#ifndef WLED_DISABLE_MODE_BLEND
+    uint8_t tmpBri = useCct ? _t->_cctT : (_t->_segT._optionsT & 0x0004 ? _t->_briT : 0);
+    if (blendingStyle != BLEND_STYLE_FADE) return _modeBlend ? tmpBri : curBri; // not fade/blend transition, each effect uses its brightness
+#else
+    uint8_t tmpBri = useCct ? _t->_cctT : _t->_briT;
+#endif
+    curBri *=  prog;
+    curBri += tmpBri * (0xFFFFU - prog);
     return curBri / 0xFFFFU;
   }
-  return (useCct ? cct : (on ? opacity : 0));
+  return curBri;
 }
 
 uint8_t Segment::currentMode() const {
 #ifndef WLED_DISABLE_MODE_BLEND
   unsigned prog = progress();
-  if (modeBlending && prog < 0xFFFFU) return _t->_modeT;
-#endif
-  return mode;
-}
-
-uint32_t IRAM_ATTR_YN Segment::currentColor(uint8_t slot) const {
-  if (slot >= NUM_COLORS) slot = 0;
-#ifndef WLED_DISABLE_MODE_BLEND
-  return isInTransition() ? color_blend(_t->_segT._colorT[slot], colors[slot], progress(), true) : colors[slot];
+  if (prog == 0xFFFFU) return mode;
+  if (blendingStyle != BLEND_STYLE_FADE) {
+    // workaround for on/off transition to respect blending style
+    uint8_t modeT = (bri != briT) &&  bri ? FX_MODE_STATIC : _t->_modeT;   // On/Off transition active (bri!=briT) and final bri>0 : old mode is STATIC
+    uint8_t modeS = (bri != briT) && !bri ? FX_MODE_STATIC : mode;         // On/Off transition active (bri!=briT) and final bri==0 : new mode is STATIC
+    return _modeBlend ? modeT : modeS;
+  }
+  return _modeBlend ? _t->_modeT : mode;
 #else
-  return isInTransition() ? color_blend(_t->_colorT[slot], colors[slot], progress(), true) : colors[slot];
+  return mode;
 #endif
 }
 
-void Segment::setCurrentPalette() {
+uint32_t Segment::currentColor(uint8_t slot) const {
+  if (slot >= NUM_COLORS) slot = 0;
+  uint32_t prog = progress();
+  if (prog == 0xFFFFU) return colors[slot];
+#ifndef WLED_DISABLE_MODE_BLEND
+  if (blendingStyle != BLEND_STYLE_FADE) {
+    // workaround for on/off transition to respect blending style
+    uint32_t colT = (bri != briT) &&  bri ? BLACK : _t->_segT._colorT[slot];  // On/Off transition active (bri!=briT) and final bri>0 : old color is BLACK
+    uint32_t colS = (bri != briT) && !bri ? BLACK : colors[slot];             // On/Off transition active (bri!=briT) and final bri==0 : new color is BLACK
+    return _modeBlend ? colT : colS;
+  }
+  return color_blend(_t->_segT._colorT[slot], colors[slot], prog, true);
+#else
+  return color_blend(_t->_colorT[slot], colors[slot], prog, true);
+#endif
+}
+
+// pre-calculate drawing parameters for faster access (based on the idea from @softhack007 from MM fork)
+void Segment::beginDraw() {
+  _vWidth  = virtualWidth();
+  _vHeight = virtualHeight();
+  _vLength = virtualLength();
+  _segBri  = currentBri();
+  // adjust gamma for effects
+  for (unsigned i = 0; i < NUM_COLORS; i++) _currentColors[i] = gamma32(currentColor(i));
+  // load palette into _currentPalette
   loadPalette(_currentPalette, palette);
   unsigned prog = progress();
-  if (strip.paletteFade && prog < 0xFFFFU) {
-    // blend palettes
-    // there are about 255 blend passes of 48 "blends" to completely blend two palettes (in _dur time)
-    // minimum blend time is 100ms maximum is 65535ms
-    unsigned noOfBlends = ((255U * prog) / 0xFFFFU) - _t->_prevPaletteBlends;
-    for (unsigned i = 0; i < noOfBlends; i++, _t->_prevPaletteBlends++) nblendPaletteTowardPalette(_t->_palT, _currentPalette, 48);
-    _currentPalette = _t->_palT; // copy transitioning/temporary palette
+  if (prog < 0xFFFFU) {
+#ifndef WLED_DISABLE_MODE_BLEND
+    if (blendingStyle != BLEND_STYLE_FADE) {
+      //if (_modeBlend) loadPalette(_currentPalette, _t->_palTid); // not fade/blend transition, each effect uses its palette
+      if (_modeBlend) _currentPalette = _t->_palT; // not fade/blend transition, each effect uses its palette
+    } else
+#endif
+    {
+      // blend palettes
+      // there are about 255 blend passes of 48 "blends" to completely blend two palettes (in _dur time)
+      // minimum blend time is 100ms maximum is 65535ms
+      unsigned noOfBlends = ((255U * prog) / 0xFFFFU) - _t->_prevPaletteBlends;
+      for (unsigned i = 0; i < noOfBlends; i++, _t->_prevPaletteBlends++) nblendPaletteTowardPalette(_t->_palT, _currentPalette, 48);
+      _currentPalette = _t->_palT; // copy transitioning/temporary palette
+    }
   }
 }
 
 // relies on WS2812FX::service() to call it for each frame
 void Segment::handleRandomPalette() {
   // is it time to generate a new palette?
-  if ((uint16_t)((uint16_t)(millis() / 1000U) - _lastPaletteChange) > randomPaletteChangeTime){
-        _newRandomPalette = useHarmonicRandomPalette ? generateHarmonicRandomPalette(_randomPalette) : generateRandomPalette();
-        _lastPaletteChange = (uint16_t)(millis() / 1000U);
-        _lastPaletteBlend = (uint16_t)((uint16_t)millis() - 512); // starts blending immediately   
+  if ((uint16_t)(millis()/1000U) - _lastPaletteChange > randomPaletteChangeTime) {
+    _newRandomPalette = useHarmonicRandomPalette ? generateHarmonicRandomPalette(_randomPalette) : generateRandomPalette();
+    _lastPaletteChange = (uint16_t)(millis()/1000U);
+    _lastPaletteBlend = (uint16_t)(millis())-512; // starts blending immediately
   }
 
-  // if palette transitions is enabled, blend it according to Transition Time (if longer than minimum given by service calls)
-  if (strip.paletteFade) {
-    // assumes that 128 updates are sufficient to blend a palette, so shift by 7 (can be more, can be less)
-    // in reality there need to be 255 blends to fully blend two entirely different palettes
-    if ((uint16_t)((uint16_t)millis() - _lastPaletteBlend) < strip.getTransition() >> 7) return; // not yet time to fade, delay the update
-    _lastPaletteBlend = (uint16_t)millis();
-  }
+  // assumes that 128 updates are sufficient to blend a palette, so shift by 7 (can be more, can be less)
+  // in reality there need to be 255 blends to fully blend two entirely different palettes
+  if ((uint16_t)millis() - _lastPaletteBlend < strip.getTransition() >> 7) return; // not yet time to fade, delay the update
+  _lastPaletteBlend = (uint16_t)millis();
   nblendPaletteTowardPalette(_randomPalette, _newRandomPalette, 48);
 }
 
@@ -492,10 +519,7 @@ void Segment::setUp(uint16_t i1, uint16_t i2, uint8_t grp, uint8_t spc, uint16_t
   }
   if (ofs < UINT16_MAX) offset = ofs;
 
-  DEBUG_PRINT(F("setUp segment: ")); DEBUG_PRINT(i1);
-  DEBUG_PRINT(','); DEBUG_PRINT(i2);
-  DEBUG_PRINT(F(" -> ")); DEBUG_PRINT(i1Y);
-  DEBUG_PRINT(','); DEBUG_PRINTLN(i2Y);
+  DEBUGFX_PRINTF_P(PSTR("ses segment geometry: %d,%d -> %d,%d\n"), (int)i1, (int)i2, (int)i1Y, (int)i2Y);
   markForReset();
   if (boundsUnchanged) return;
 
@@ -523,53 +547,62 @@ void Segment::setUp(uint16_t i1, uint16_t i2, uint8_t grp, uint8_t spc, uint16_t
 }
 
 
-bool Segment::setColor(uint8_t slot, uint32_t c) { //returns true if changed
-  if (slot >= NUM_COLORS || c == colors[slot]) return false;
+Segment &Segment::setColor(uint8_t slot, uint32_t c) {
+  if (slot >= NUM_COLORS || c == colors[slot]) return *this;
   if (!_isRGB && !_hasW) {
-    if (slot == 0 && c == BLACK) return false; // on/off segment cannot have primary color black
-    if (slot == 1 && c != BLACK) return false; // on/off segment cannot have secondary color non black
+    if (slot == 0 && c == BLACK) return *this; // on/off segment cannot have primary color black
+    if (slot == 1 && c != BLACK) return *this; // on/off segment cannot have secondary color non black
   }
-  if (fadeTransition) startTransition(strip.getTransition()); // start transition prior to change
+  //DEBUGFX_PRINTF_P(PSTR("- Starting color transition: %d [0x%X]\n"), slot, c);
+  startTransition(strip.getTransition()); // start transition prior to change
   colors[slot] = c;
   stateChanged = true; // send UDP/WS broadcast
-  return true;
+  return *this;
 }
 
-void Segment::setCCT(uint16_t k) {
+Segment &Segment::setCCT(uint16_t k) {
   if (k > 255) { //kelvin value, convert to 0-255
     if (k < 1900)  k = 1900;
     if (k > 10091) k = 10091;
     k = (k - 1900) >> 5;
   }
-  if (cct == k) return;
-  if (fadeTransition) startTransition(strip.getTransition()); // start transition prior to change
-  cct = k;
-  stateChanged = true; // send UDP/WS broadcast
+  if (cct != k) {
+    //DEBUGFX_PRINTF_P(PSTR("- Starting CCT transition: %d\n"), k);
+    startTransition(strip.getTransition()); // start transition prior to change
+    cct = k;
+    stateChanged = true; // send UDP/WS broadcast
+  }
+  return *this;
 }
 
-void Segment::setOpacity(uint8_t o) {
-  if (opacity == o) return;
-  if (fadeTransition) startTransition(strip.getTransition()); // start transition prior to change
-  opacity = o;
-  stateChanged = true; // send UDP/WS broadcast
+Segment &Segment::setOpacity(uint8_t o) {
+  if (opacity != o) {
+    //DEBUGFX_PRINTF_P(PSTR("- Starting opacity transition: %d\n"), o);
+    startTransition(strip.getTransition()); // start transition prior to change
+    opacity = o;
+    stateChanged = true; // send UDP/WS broadcast
+  }
+  return *this;
 }
 
-void Segment::setOption(uint8_t n, bool val) {
+Segment &Segment::setOption(uint8_t n, bool val) {
   bool prevOn = on;
-  if (fadeTransition && n == SEG_OPTION_ON && val != prevOn) startTransition(strip.getTransition()); // start transition prior to change
+  if (n == SEG_OPTION_ON && val != prevOn) startTransition(strip.getTransition()); // start transition prior to change
   if (val) options |=   0x01 << n;
   else     options &= ~(0x01 << n);
   if (!(n == SEG_OPTION_SELECTED || n == SEG_OPTION_RESET)) stateChanged = true; // send UDP/WS broadcast
+  return *this;
 }
 
-void Segment::setMode(uint8_t fx, bool loadDefaults) {
+Segment &Segment::setMode(uint8_t fx, bool loadDefaults) {
   // skip reserved
   while (fx < strip.getModeCount() && strncmp_P("RSVD", strip.getModeData(fx), 4) == 0) fx++;
   if (fx >= strip.getModeCount()) fx = 0; // set solid mode
   // if we have a valid mode & is not reserved
   if (fx != mode) {
 #ifndef WLED_DISABLE_MODE_BLEND
-    if (modeBlending) startTransition(strip.getTransition()); // set effect transitions
+    //DEBUGFX_PRINTF_P(PSTR("- Starting effect transition: %d\n"), fx);
+    startTransition(strip.getTransition()); // set effect transitions
 #endif
     mode = fx;
     // load default values from effect string
@@ -594,45 +627,34 @@ void Segment::setMode(uint8_t fx, bool loadDefaults) {
     markForReset();
     stateChanged = true; // send UDP/WS broadcast
   }
+  return *this;
 }
 
-void Segment::setPalette(uint8_t pal) {
+Segment &Segment::setPalette(uint8_t pal) {
   if (pal < 245 && pal > GRADIENT_PALETTE_COUNT+13) pal = 0; // built in palettes
   if (pal > 245 && (strip.customPalettes.size() == 0 || 255U-pal > strip.customPalettes.size()-1)) pal = 0; // custom palettes
   if (pal != palette) {
-    if (strip.paletteFade) startTransition(strip.getTransition());
+    //DEBUGFX_PRINTF_P(PSTR("- Starting palette transition: %d\n"), pal);
+    startTransition(strip.getTransition());
     palette = pal;
     stateChanged = true; // send UDP/WS broadcast
   }
+  return *this;
 }
 
 // 2D matrix
-uint16_t IRAM_ATTR Segment::virtualWidth() const {
+unsigned IRAM_ATTR Segment::virtualWidth() const {
   unsigned groupLen = groupLength();
   unsigned vWidth = ((transpose ? height() : width()) + groupLen - 1) / groupLen;
   if (mirror) vWidth = (vWidth + 1) /2;  // divide by 2 if mirror, leave at least a single LED
   return vWidth;
 }
 
-uint16_t IRAM_ATTR Segment::virtualHeight() const {
+unsigned IRAM_ATTR Segment::virtualHeight() const {
   unsigned groupLen = groupLength();
   unsigned vHeight = ((transpose ? width() : height()) + groupLen - 1) / groupLen;
   if (mirror_y) vHeight = (vHeight + 1) /2;  // divide by 2 if mirror, leave at least a single LED
   return vHeight;
-}
-
-uint16_t IRAM_ATTR_YN Segment::nrOfVStrips() const {
-  unsigned vLen = 1;
-#ifndef WLED_DISABLE_2D
-  if (is2D()) {
-    switch (map1D2D) {
-      case M12_pBar:
-        vLen = virtualWidth();
-        break;
-    }
-  }
-#endif
-  return vLen;
 }
 
 // Constants for mapping mode "Pinwheel"
@@ -672,7 +694,7 @@ static int getPinwheelLength(int vW, int vH) {
 #endif
 
 // 1D strip
-uint16_t IRAM_ATTR Segment::virtualLength() const {
+uint16_t Segment::virtualLength() const {
 #ifndef WLED_DISABLE_2D
   if (is2D()) {
     unsigned vW = virtualWidth();
@@ -704,20 +726,60 @@ uint16_t IRAM_ATTR Segment::virtualLength() const {
   return vLength;
 }
 
+// pixel is clipped if it falls outside clipping range (_modeBlend==true) or is inside clipping range (_modeBlend==false)
+// if clipping start > stop the clipping range is inverted
+// _modeBlend==true  -> old effect during transition
+// _modeBlend==false -> new effect during transition
+bool IRAM_ATTR_YN Segment::isPixelClipped(int i) const {
+#ifndef WLED_DISABLE_MODE_BLEND
+  if (_clipStart != _clipStop && blendingStyle != BLEND_STYLE_FADE) {
+    bool invert = _clipStart > _clipStop;  // ineverted start & stop
+    int start = invert ? _clipStop : _clipStart;
+    int stop  = invert ? _clipStart : _clipStop;
+    if (blendingStyle == BLEND_STYLE_FAIRY_DUST) {
+      unsigned len = stop - start;
+      if (len < 2) return false;
+      unsigned shuffled = hashInt(i) % len;
+      unsigned pos = (shuffled * 0xFFFFU) / len;
+      return (progress() <= pos) ^ _modeBlend;
+    }
+    const bool iInside = (i >= start && i < stop);
+    //if (!invert &&  iInside) return _modeBlend;
+    //if ( invert && !iInside) return _modeBlend;
+    //return !_modeBlend;
+    return !iInside ^ invert ^ _modeBlend; // thanks @willmmiles (https://github.com/Aircoookie/WLED/pull/3877#discussion_r1554633876)
+  }
+#endif
+  return false;
+}
+
 void IRAM_ATTR_YN Segment::setPixelColor(int i, uint32_t col)
 {
-  if (!isActive()) return; // not active
+  if (!isActive() || i < 0) return; // not active or invalid index
 #ifndef WLED_DISABLE_2D
-  int vStrip = i>>16; // hack to allow running on virtual strips (2D segment columns/rows)
+  int vStrip = 0;
 #endif
-  i &= 0xFFFF;
-
-  if (i >= virtualLength() || i<0) return;  // if pixel would fall out of segment just exit
+  const int vL = vLength();
+  // if the 1D effect is using virtual strips "i" will have virtual strip id stored in upper 16 bits
+  // in such case "i" will be > virtualLength()
+  if (i >= vL) {
+    // check if this is a virtual strip
+    #ifndef WLED_DISABLE_2D
+    vStrip = i>>16; // hack to allow running on virtual strips (2D segment columns/rows)
+    i &= 0xFFFF;    //truncate vstrip index
+    if (i >= vL) return;  // if pixel would still fall out of segment just exit
+    #else
+    return;
+    #endif
+  }
 
 #ifndef WLED_DISABLE_2D
   if (is2D()) {
-    int vH = virtualHeight();  // segment height in logical pixels
-    int vW = virtualWidth();
+    const int vW = vWidth();   // segment width in logical pixels (can be 0 if segment is inactive)
+    const int vH = vHeight();  // segment height in logical pixels (is always >= 1)
+    // pre-scale color for all pixels
+    col = color_fade(col, _segBri);
+    _colorScaled = true;
     switch (map1D2D) {
       case M12_Pixels:
         // use all available pixels as a long strip
@@ -725,12 +787,12 @@ void IRAM_ATTR_YN Segment::setPixelColor(int i, uint32_t col)
         break;
       case M12_pBar:
         // expand 1D effect vertically or have it play on virtual strips
-        if (vStrip>0) setPixelColorXY(vStrip - 1, vH - i - 1, col);
-        else          for (int x = 0; x < vW; x++) setPixelColorXY(x, vH - i - 1, col);
+        if (vStrip > 0) setPixelColorXY(vStrip - 1, vH - i - 1, col);
+        else for (int x = 0; x < vW; x++) setPixelColorXY(x, vH - i - 1, col);
         break;
       case M12_pArc:
         // expand in circular fashion from center
-        if (i==0)
+        if (i == 0)
           setPixelColorXY(0, 0, col);
         else {
           float r = i;
@@ -787,7 +849,7 @@ void IRAM_ATTR_YN Segment::setPixelColor(int i, uint32_t col)
         // Odd rays start further from center if prevRay started at center.
         static int prevRay = INT_MIN; // previous ray number
         if ((i % 2 == 1) && (i - 1 == prevRay || i + 1 == prevRay)) {
-          int jump = min(vW/3, vH/3); // can add 2 if using medium pinwheel 
+          int jump = min(vW/3, vH/3); // can add 2 if using medium pinwheel
           posx += inc_x * jump;
           posy += inc_y * jump;
         }
@@ -809,24 +871,35 @@ void IRAM_ATTR_YN Segment::setPixelColor(int i, uint32_t col)
         break;
       }
     }
+    _colorScaled = false;
     return;
-  } else if (Segment::maxHeight!=1 && (width()==1 || height()==1)) {
+  } else if (Segment::maxHeight != 1 && (width() == 1 || height() == 1)) {
     if (start < Segment::maxWidth*Segment::maxHeight) {
       // we have a vertical or horizontal 1D segment (WARNING: virtual...() may be transposed)
       int x = 0, y = 0;
-      if (virtualHeight()>1) y = i;
-      if (virtualWidth() >1) x = i;
+      if (vHeight() > 1) y = i;
+      if (vWidth()  > 1) x = i;
       setPixelColorXY(x, y, col);
       return;
     }
   }
 #endif
 
-  unsigned len = length();
-  uint8_t _bri_t = currentBri();
-  if (_bri_t < 255) {
-    col = color_fade(col, _bri_t);
+#ifndef WLED_DISABLE_MODE_BLEND
+  // if we blend using "push" style we need to "shift" new mode to left or right
+  if (isInTransition() && !_modeBlend && (blendingStyle == BLEND_STYLE_PUSH_RIGHT || blendingStyle == BLEND_STYLE_PUSH_LEFT)) {
+    unsigned prog = 0xFFFF - progress();
+    unsigned dI = prog * vL / 0xFFFF;
+    if (blendingStyle == BLEND_STYLE_PUSH_RIGHT) i -= dI;
+    else                                         i += dI;
   }
+#endif
+
+  if (i >= vL || i < 0 || isPixelClipped(i)) return; // handle clipping on 1D
+
+  unsigned len = length();
+  // if color is unscaled
+  if (!_colorScaled) col = color_fade(col, _segBri);
 
   // expand pixel (taking into account start, grouping, spacing [and offset])
   i = i * groupLength();
@@ -849,14 +922,16 @@ void IRAM_ATTR_YN Segment::setPixelColor(int i, uint32_t col)
         indexMir += offset; // offset/phase
         if (indexMir >= stop) indexMir -= len; // wrap
 #ifndef WLED_DISABLE_MODE_BLEND
-        if (_modeBlend) tmpCol = color_blend(strip.getPixelColor(indexMir), col, 0xFFFFU - progress(), true);
+        // _modeBlend==true -> old effect
+        if (_modeBlend && blendingStyle == BLEND_STYLE_FADE) tmpCol = color_blend(strip.getPixelColor(indexMir), col, 0xFFFFU - progress(), true);
 #endif
         strip.setPixelColor(indexMir, tmpCol);
       }
       indexSet += offset; // offset/phase
       if (indexSet >= stop) indexSet -= len; // wrap
 #ifndef WLED_DISABLE_MODE_BLEND
-      if (_modeBlend) tmpCol = color_blend(strip.getPixelColor(indexSet), col, 0xFFFFU - progress(), true);
+        // _modeBlend==true -> old effect
+      if (_modeBlend && blendingStyle == BLEND_STYLE_FADE) tmpCol = color_blend(strip.getPixelColor(indexSet), col, 0xFFFFU - progress(), true);
 #endif
       strip.setPixelColor(indexSet, tmpCol);
     }
@@ -901,23 +976,23 @@ void Segment::setPixelColor(float i, uint32_t col, bool aa)
 uint32_t IRAM_ATTR_YN Segment::getPixelColor(int i) const
 {
   if (!isActive()) return 0; // not active
-#ifndef WLED_DISABLE_2D
-  int vStrip = i>>16;
-#endif
-  i &= 0xFFFF;
+
+  int vL = vLength();
+  if (i >= vL || i < 0) return 0;
 
 #ifndef WLED_DISABLE_2D
   if (is2D()) {
-    int vH = virtualHeight();  // segment height in logical pixels
-    int vW = virtualWidth();
+    const int vW = vWidth();   // segment width in logical pixels (can be 0 if segment is inactive)
+    const int vH = vHeight();  // segment height in logical pixels (is always >= 1)
     switch (map1D2D) {
       case M12_Pixels:
         return getPixelColorXY(i % vW, i / vW);
         break;
-      case M12_pBar:
-        if (vStrip>0) return getPixelColorXY(vStrip - 1, vH - i -1);
-        else          return getPixelColorXY(0, vH - i -1);
-        break;
+      case M12_pBar: {
+        int vStrip = i>>16; // virtual strips are only relevant in Bar expansion mode
+        if (vStrip > 0) return getPixelColorXY(vStrip - 1, vH - (i & 0xFFFF) -1);
+        else            return getPixelColorXY(0, vH - i -1);
+        break; }
       case M12_pArc:
         if (i >= vW && i >= vH) {
           unsigned vI = sqrt16(i*i/2);
@@ -961,7 +1036,18 @@ uint32_t IRAM_ATTR_YN Segment::getPixelColor(int i) const
   }
 #endif
 
-  if (reverse) i = virtualLength() - i - 1;
+#ifndef WLED_DISABLE_MODE_BLEND
+  if (isInTransition() && !_modeBlend && (blendingStyle == BLEND_STYLE_PUSH_RIGHT || blendingStyle == BLEND_STYLE_PUSH_LEFT)) {
+    unsigned prog = 0xFFFF - progress();
+    unsigned dI = prog * vL / 0xFFFF;
+    if (blendingStyle == BLEND_STYLE_PUSH_RIGHT) i -= dI;
+    else                                         i += dI;
+  }
+#endif
+
+  if (i >= vL || i < 0 || isPixelClipped(i)) return 0; // handle clipping on 1D
+
+  if (reverse) i = vL - i - 1;
   i *= groupLength();
   i += start;
   // offset/phase
@@ -1050,12 +1136,16 @@ void Segment::refreshLightCapabilities() {
  */
 void Segment::fill(uint32_t c) {
   if (!isActive()) return; // not active
-  const int cols = is2D() ? virtualWidth() : virtualLength();
-  const int rows = virtualHeight(); // will be 1 for 1D
+  const int cols = is2D() ? vWidth() : vLength();
+  const int rows = vHeight(); // will be 1 for 1D
+  // pre-scale color for all pixels
+  c = color_fade(c, _segBri);
+  _colorScaled = true;
   for (int y = 0; y < rows; y++) for (int x = 0; x < cols; x++) {
     if (is2D()) setPixelColorXY(x, y, c);
     else        setPixelColor(x, c);
   }
+  _colorScaled = false;
 }
 
 /*
@@ -1063,8 +1153,8 @@ void Segment::fill(uint32_t c) {
  */
 void Segment::fade_out(uint8_t rate) {
   if (!isActive()) return; // not active
-  const int cols = is2D() ? virtualWidth() : virtualLength();
-  const int rows = virtualHeight(); // will be 1 for 1D
+  const int cols = is2D() ? vWidth() : vLength();
+  const int rows = vHeight(); // will be 1 for 1D
 
   rate = (255-rate) >> 1;
   float mappedRate = 1.0f / (float(rate) + 1.1f);
@@ -1102,8 +1192,8 @@ void Segment::fade_out(uint8_t rate) {
 // fades all pixels to black using nscale8()
 void Segment::fadeToBlackBy(uint8_t fadeBy) {
   if (!isActive() || fadeBy == 0) return;   // optimization - no scaling to apply
-  const int cols = is2D() ? virtualWidth() : virtualLength();
-  const int rows = virtualHeight(); // will be 1 for 1D
+  const int cols = is2D() ? vWidth() : vLength();
+  const int rows = vHeight(); // will be 1 for 1D
 
   for (int y = 0; y < rows; y++) for (int x = 0; x < cols; x++) {
     if (is2D()) setPixelColorXY(x, y, color_fade(getPixelColorXY(x,y), 255-fadeBy));
@@ -1119,14 +1209,14 @@ void Segment::blur(uint8_t blur_amount, bool smear) {
 #ifndef WLED_DISABLE_2D
   if (is2D()) {
     // compatibility with 2D
-    blur2D(blur_amount, smear);
+    blur2D(blur_amount, blur_amount, smear); // symmetrical 2D blur
     //box_blur(map(blur_amount,1,255,1,3), smear);
     return;
   }
 #endif
   uint8_t keep = smear ? 255 : 255 - blur_amount;
   uint8_t seep = blur_amount >> (1 + smear);
-  unsigned vlength = virtualLength();
+  unsigned vlength = vLength();
   uint32_t carryover = BLACK;
   uint32_t lastnew;
   uint32_t last;
@@ -1136,12 +1226,11 @@ void Segment::blur(uint8_t blur_amount, bool smear) {
     uint32_t part = color_fade(cur, seep);
     curnew = color_fade(cur, keep);
     if (i > 0) {
-      if (carryover) curnew = color_add(curnew, carryover, true);
-      uint32_t prev = color_add(lastnew, part, true);
+      if (carryover) curnew = color_add(curnew, carryover);
+      uint32_t prev = color_add(lastnew, part);
       // optimization: only set pixel if color has changed
       if (last != prev) setPixelColor(i - 1, prev);
-    } else // first pixel
-      setPixelColor(i, curnew);
+    } else setPixelColor(i, curnew); // first pixel
     lastnew = curnew;
     last = cur; // save original value for comparison on next iteration
     carryover = part;
@@ -1156,11 +1245,11 @@ void Segment::blur(uint8_t blur_amount, bool smear) {
  */
 uint32_t Segment::color_wheel(uint8_t pos) const {
   if (palette) return color_from_palette(pos, false, true, 0); // perhaps "strip.paletteBlend < 2" should be better instead of "true"
-  uint8_t w = W(currentColor(0));
+  uint8_t w = W(getCurrentColor(0));
   pos = 255 - pos;
   if (pos < 85) {
     return RGBW32((255 - pos * 3), 0, (pos * 3), w);
-  } else if(pos < 170) {
+  } else if (pos < 170) {
     pos -= 85;
     return RGBW32(0, (pos * 3), (255 - pos * 3), w);
   } else {
@@ -1179,18 +1268,21 @@ uint32_t Segment::color_wheel(uint8_t pos) const {
  * @returns Single color from palette
  */
 uint32_t Segment::color_from_palette(uint16_t i, bool mapping, bool wrap, uint8_t mcol, uint8_t pbri) const {
-  uint32_t color = gamma32(currentColor(mcol));
-
+  uint32_t color = getCurrentColor(mcol < NUM_COLORS ? mcol : 0);
   // default palette or no RGB support on segment
-  if ((palette == 0 && mcol < NUM_COLORS) || !_isRGB) return (pbri == 255) ? color : color_fade(color, pbri, true);
+  if ((palette == 0 && mcol < NUM_COLORS) || !_isRGB) {
+    return color_fade(color, pbri, true);
+  }
 
+  const int vL = vLength();
   unsigned paletteIndex = i;
-  if (mapping && virtualLength() > 1) paletteIndex = (i*255)/(virtualLength() -1);
+  if (mapping && vL > 1) paletteIndex = (i*255)/(vL -1);
   // paletteBlend: 0 - wrap when moving, 1 - always wrap, 2 - never wrap, 3 - none (undefined)
   if (!wrap && strip.paletteBlend != 3) paletteIndex = scale8(paletteIndex, 240); //cut off blend at palette "end"
-  CRGB fastled_col = ColorFromPalette(_currentPalette, paletteIndex, pbri, (strip.paletteBlend == 3)? NOBLEND:LINEARBLEND); // NOTE: paletteBlend should be global
+  CRGBW palcol = ColorFromPalette(_currentPalette, paletteIndex, pbri, (strip.paletteBlend == 3)? NOBLEND:LINEARBLEND); // NOTE: paletteBlend should be global
+  palcol.w = W(color);
 
-  return RGBW32(fastled_col.r, fastled_col.g, fastled_col.b, W(color));
+  return palcol.color32;
 }
 
 
@@ -1201,10 +1293,7 @@ uint32_t Segment::color_from_palette(uint16_t i, bool mapping, bool wrap, uint8_
 //do not call this method from system context (network callback)
 void WS2812FX::finalizeInit() {
   //reset segment runtimes
-  for (segment &seg : _segments) {
-    seg.markForReset();
-    seg.resetIfRequired();
-  }
+  restartRuntime();
 
   // for the lack of better place enumerate ledmaps here
   // if we do it in json.cpp (serializeInfo()) we are getting flashes on LEDs
@@ -1216,7 +1305,7 @@ void WS2812FX::finalizeInit() {
 
   //if busses failed to load, add default (fresh install, FS issue, ...)
   if (BusManager::getNumBusses() == 0) {
-    DEBUG_PRINTLN(F("No busses, init default"));
+    DEBUGFX_PRINTLN(F("No busses, init default"));
     constexpr unsigned defDataTypes[] = {LED_TYPES};
     constexpr unsigned defDataPins[] = {DATA_PINS};
     constexpr unsigned defCounts[] = {PIXEL_COUNTS};
@@ -1248,13 +1337,13 @@ void WS2812FX::finalizeInit() {
         // Pin should not be already allocated, read/only or defined for current bus
         while (PinManager::isPinAllocated(defPin[j]) || !PinManager::isPinOk(defPin[j],true)) {
           if (validPin) {
-            DEBUG_PRINTLN(F("Some of the provided pins cannot be used to configure this LED output."));
+            DEBUGFX_PRINTLN(F("Some of the provided pins cannot be used to configure this LED output."));
             defPin[j] = 1; // start with GPIO1 and work upwards
             validPin = false;
           } else if (defPin[j] < WLED_NUM_PINS) {
             defPin[j]++;
           } else {
-            DEBUG_PRINTLN(F("No available pins left! Can't configure output."));
+            DEBUGFX_PRINTLN(F("No available pins left! Can't configure output."));
             return;
           }
           // is the newly assigned pin already defined or used previously?
@@ -1290,7 +1379,7 @@ void WS2812FX::finalizeInit() {
       // if we have less counts than pins and they do not align, use last known count to set current count
       unsigned count = defCounts[(i < defNumCounts) ? i : defNumCounts -1];
       // analog always has length 1
-      if (Bus::isPWM(dataType)) count = 1;
+      if (Bus::isPWM(dataType) || Bus::isOnOff(dataType)) count = 1;
       prevLen += count;
       BusConfig defCfg = BusConfig(dataType, defPin, start, count, DEFAULT_LED_COLOR_ORDER, false, 0, RGBW_MODE_MANUAL_ONLY, 0, useGlobalLedBuffer);
       if (BusManager::add(defCfg) == -1) break;
@@ -1308,23 +1397,18 @@ void WS2812FX::finalizeInit() {
     _isOffRefreshRequired |= bus->isOffRefreshRequired() && !bus->isPWM(); // use refresh bit for phase shift with analog
     unsigned busEnd = bus->getStart() + bus->getLength();
     if (busEnd > _length) _length = busEnd;
-    #ifdef ESP8266
-    // why do we need to reinitialise GPIO3???
-    //if (!bus->isDigital() || bus->is2Pin()) continue;
-    //uint8_t pins[5];
-    //if (!bus->getPins(pins)) continue;
-    //BusDigital* bd = static_cast<BusDigital*>(bus);
-    //if (pins[0] == 3) bd->reinit();
-    #endif
+
+    // This must be done after all buses have been created, as some kinds (parallel I2S) interact
+    bus->begin();
   }
 
   Segment::maxWidth  = _length;
   Segment::maxHeight = 1;
 
   //segments are created in makeAutoSegments();
-  DEBUG_PRINTLN(F("Loading custom palettes"));
+  DEBUGFX_PRINTLN(F("Loading custom palettes"));
   loadCustomPalettes(); // (re)load all custom palettes
-  DEBUG_PRINTLN(F("Loading custom ledmaps"));
+  DEBUGFX_PRINTLN(F("Loading custom ledmaps"));
   deserializeMap();     // (re)load default ledmap (will also setUpMatrix() if ledmap does not exist)
 }
 
@@ -1340,7 +1424,7 @@ void WS2812FX::service() {
   for (segment &seg : _segments) {
     if (_suspend) return; // immediately stop processing segments if suspend requested during service()
 
-    // process transition (mode changes in the middle of transition)
+    // process transition
     seg.handleTransition();
     // reset the segment runtime data if needed
     seg.resetIfRequired();
@@ -1351,15 +1435,10 @@ void WS2812FX::service() {
     if (nowUp > seg.next_time || _triggered || (doShow && seg.mode == FX_MODE_STATIC))
     {
       doShow = true;
-      unsigned delay = FRAMETIME;
+      unsigned frameDelay = FRAMETIME;
 
       if (!seg.freeze) { //only run effect function if not frozen
         int oldCCT = BusManager::getSegmentCCT(); // store original CCT value (actually it is not Segment based)
-        _virtualSegmentLength = seg.virtualLength(); //SEGLEN
-        _colors_t[0] = gamma32(seg.currentColor(0));
-        _colors_t[1] = gamma32(seg.currentColor(1));
-        _colors_t[2] = gamma32(seg.currentColor(2));
-        seg.setCurrentPalette();              // load actual palette
         // when correctWB is true we need to correct/adjust RGB value according to desired CCT value, but it will also affect actual WW/CW ratio
         // when cctFromRgb is true we implicitly calculate WW and CW from RGB values
         if (cctFromRgb) BusManager::setSegmentCCT(-1);
@@ -1370,43 +1449,101 @@ void WS2812FX::service() {
         // The blending will largely depend on the effect behaviour since actual output (LEDs) may be
         // overwritten by later effect. To enable seamless blending for every effect, additional LED buffer
         // would need to be allocated for each effect and then blended together for each pixel.
-        [[maybe_unused]] uint8_t tmpMode = seg.currentMode();  // this will return old mode while in transition
-        delay = (*_mode[seg.mode])();         // run new/current mode
+        seg.beginDraw();                      // set up parameters for get/setPixelColor()
 #ifndef WLED_DISABLE_MODE_BLEND
-        if (modeBlending && seg.mode != tmpMode) {
+        Segment::setClippingRect(0, 0); // disable clipping (just in case)
+        if (seg.isInTransition()) {
+          // set clipping rectangle
+          // new mode is run inside clipping area and old mode outside clipping area
+          unsigned p = seg.progress();
+          unsigned w = seg.is2D() ? seg.vWidth() : seg.vLength();
+          unsigned h = seg.vHeight();
+          unsigned dw = p * w / 0xFFFFU + 1;
+          unsigned dh = p * h / 0xFFFFU + 1;
+          unsigned orgBS = blendingStyle;
+          if (w*h == 1) blendingStyle = BLEND_STYLE_FADE; // disable belending for single pixel segments (use fade instead)
+          switch (blendingStyle) {
+            case BLEND_STYLE_FAIRY_DUST:  // fairy dust (must set entire segment, see isPixelXYClipped())
+              Segment::setClippingRect(0, w, 0, h);
+              break;
+            case BLEND_STYLE_SWIPE_RIGHT: // left-to-right
+            case BLEND_STYLE_PUSH_RIGHT:  // left-to-right
+              Segment::setClippingRect(0, dw, 0, h);
+              break;
+            case BLEND_STYLE_SWIPE_LEFT:  // right-to-left
+            case BLEND_STYLE_PUSH_LEFT:   // right-to-left
+              Segment::setClippingRect(w - dw, w, 0, h);
+              break;
+            case BLEND_STYLE_PINCH_OUT:   // corners
+              Segment::setClippingRect((w + dw)/2, (w - dw)/2, (h + dh)/2, (h - dh)/2); // inverted!!
+              break;
+            case BLEND_STYLE_INSIDE_OUT:  // outward
+              Segment::setClippingRect((w - dw)/2, (w + dw)/2, (h - dh)/2, (h + dh)/2);
+              break;
+            case BLEND_STYLE_SWIPE_DOWN:  // top-to-bottom (2D)
+            case BLEND_STYLE_PUSH_DOWN:   // top-to-bottom (2D)
+              Segment::setClippingRect(0, w, 0, dh);
+              break;
+            case BLEND_STYLE_SWIPE_UP:    // bottom-to-top (2D)
+            case BLEND_STYLE_PUSH_UP:     // bottom-to-top (2D)
+              Segment::setClippingRect(0, w, h - dh, h);
+              break;
+            case BLEND_STYLE_OPEN_H:      // horizontal-outward (2D) same look as INSIDE_OUT on 1D
+              Segment::setClippingRect((w - dw)/2, (w + dw)/2, 0, h);
+              break;
+            case BLEND_STYLE_OPEN_V:      // vertical-outward (2D)
+              Segment::setClippingRect(0, w, (h - dh)/2, (h + dh)/2);
+              break;
+            case BLEND_STYLE_PUSH_TL:     // TL-to-BR (2D)
+              Segment::setClippingRect(0, dw, 0, dh);
+              break;
+            case BLEND_STYLE_PUSH_TR:     // TR-to-BL (2D)
+              Segment::setClippingRect(w - dw, w, 0, dh);
+              break;
+            case BLEND_STYLE_PUSH_BR:     // BR-to-TL (2D)
+              Segment::setClippingRect(w - dw, w, h - dh, h);
+              break;
+            case BLEND_STYLE_PUSH_BL:     // BL-to-TR (2D)
+              Segment::setClippingRect(0, dw, h - dh, h);
+              break;
+          }
+          frameDelay = (*_mode[seg.currentMode()])();  // run new/current mode
+          // now run old/previous mode
           Segment::tmpsegd_t _tmpSegData;
           Segment::modeBlend(true);           // set semaphore
           seg.swapSegenv(_tmpSegData);        // temporarily store new mode state (and swap it with transitional state)
-          _virtualSegmentLength = seg.virtualLength(); // update SEGLEN (mapping may have changed)
-          unsigned d2 = (*_mode[tmpMode])();  // run old mode
+          seg.beginDraw();                    // set up parameters for get/setPixelColor()
+          frameDelay = min(frameDelay, (unsigned)(*_mode[seg.currentMode()])());  // run old mode
+          seg.call++;                         // increment old mode run counter
           seg.restoreSegenv(_tmpSegData);     // restore mode state (will also update transitional state)
-          delay = MIN(delay,d2);              // use shortest delay
           Segment::modeBlend(false);          // unset semaphore
-        }
+          blendingStyle = orgBS;              // restore blending style if it was modified for single pixel segment
+        } else
 #endif
+        frameDelay = (*_mode[seg.mode])();    // run effect mode (not in transition)
         seg.call++;
-        if (seg.isInTransition() && delay > FRAMETIME) delay = FRAMETIME; // force faster updates during transition
-        BusManager::setSegmentCCT(oldCCT); // restore old CCT for ABL adjustments
+        if (seg.isInTransition() && frameDelay > FRAMETIME) frameDelay = FRAMETIME; // force faster updates during transition
+        BusManager::setSegmentCCT(oldCCT);    // restore old CCT for ABL adjustments
       }
 
-      seg.next_time = nowUp + delay;
+      seg.next_time = nowUp + frameDelay;
     }
     _segment_index++;
   }
-  _virtualSegmentLength = 0;
+  Segment::setClippingRect(0, 0);             // disable clipping for overlays
   _isServicing = false;
   _triggered = false;
 
-  #ifdef WLED_DEBUG
-  if (millis() - nowUp > _frametime) DEBUG_PRINTF_P(PSTR("Slow effects %u/%d.\n"), (unsigned)(millis()-nowUp), (int)_frametime);
+  #ifdef WLED_DEBUG_FX
+  if (millis() - nowUp > _frametime) DEBUGFX_PRINTF_P(PSTR("Slow effects %u/%d.\n"), (unsigned)(millis()-nowUp), (int)_frametime);
   #endif
   if (doShow) {
     yield();
     Segment::handleRandomPalette(); // slowly transition random palette; move it into for loop when each segment has individual random palette
     show();
   }
-  #ifdef WLED_DEBUG
-  if (millis() - nowUp > _frametime) DEBUG_PRINTF_P(PSTR("Slow strip %u/%d.\n"), (unsigned)(millis()-nowUp), (int)_frametime);
+  #ifdef WLED_DEBUG_FX
+  if (millis() - nowUp > _frametime) DEBUGFX_PRINTF_P(PSTR("Slow strip %u/%d.\n"), (unsigned)(millis()-nowUp), (int)_frametime);
   #endif
 }
 
@@ -1416,7 +1553,7 @@ void IRAM_ATTR WS2812FX::setPixelColor(unsigned i, uint32_t col) {
   BusManager::setPixelColor(i, col);
 }
 
-uint32_t IRAM_ATTR WS2812FX::getPixelColor(uint16_t i) const {
+uint32_t IRAM_ATTR WS2812FX::getPixelColor(unsigned i) const {
   i = getMappedPixelIndex(i);
   if (i >= _length) return 0;
   return BusManager::getPixelColor(i);
@@ -1434,53 +1571,17 @@ void WS2812FX::show() {
 
   unsigned long showNow = millis();
   size_t diff = showNow - _lastShow;
-  size_t fpsCurr = 200;
-  if (diff > 0) fpsCurr = 1000 / diff;
-  _cumulativeFps = (3 * _cumulativeFps + fpsCurr +2) >> 2;   // "+2" for proper rounding (2/4 = 0.5)
-  _lastShow = showNow;
+
+  if (diff > 0) { // skip calculation if no time has passed
+    size_t fpsCurr = (1000 << FPS_CALC_SHIFT) / diff; // fixed point math
+    _cumulativeFps = (FPS_CALC_AVG * _cumulativeFps + fpsCurr + FPS_CALC_AVG / 2) / (FPS_CALC_AVG + 1);   // "+FPS_CALC_AVG/2" for proper rounding
+    _lastShow = showNow;
+  }
 }
 
-/**
- * Returns a true value if any of the strips are still being updated.
- * On some hardware (ESP32), strip updates are done asynchronously.
- */
-bool WS2812FX::isUpdating() const {
-  return !BusManager::canAllShow();
-}
-
-/**
- * Returns the refresh rate of the LED strip. Useful for finding out whether a given setup is fast enough.
- * Only updates on show() or is set to 0 fps if last show is more than 2 secs ago, so accuracy varies
- */
-uint16_t WS2812FX::getFps() const {
-  if (millis() - _lastShow > 2000) return 0;
-  return _cumulativeFps +1;
-}
-
-void WS2812FX::setTargetFps(uint8_t fps) {
+void WS2812FX::setTargetFps(unsigned fps) {
   if (fps > 0 && fps <= 120) _targetFps = fps;
   _frametime = 1000 / _targetFps;
-}
-
-void WS2812FX::setMode(uint8_t segid, uint8_t m) {
-  if (segid >= _segments.size()) return;
-
-  if (m >= getModeCount()) m = getModeCount() - 1;
-
-  if (_segments[segid].mode != m) {
-    _segments[segid].setMode(m); // do not load defaults
-  }
-}
-
-//applies to all active and selected segments
-void WS2812FX::setColor(uint8_t slot, uint32_t c) {
-  if (slot >= NUM_COLORS) return;
-
-  for (segment &seg : _segments) {
-    if (seg.isActive() && seg.isSelected()) {
-      seg.setColor(slot, c);
-    }
-  }
 }
 
 void WS2812FX::setCCT(uint16_t k) {
@@ -1529,7 +1630,7 @@ uint8_t WS2812FX::getFirstSelectedSegId() const {
   return getMainSegmentId();
 }
 
-void WS2812FX::setMainSegmentId(uint8_t n) {
+void WS2812FX::setMainSegmentId(unsigned n) {
   _mainSegment = 0;
   if (n < _segments.size()) {
     _mainSegment = n;
@@ -1605,7 +1706,7 @@ void WS2812FX::purgeSegments() {
   }
 }
 
-Segment& WS2812FX::getSegment(uint8_t id) {
+Segment& WS2812FX::getSegment(unsigned id) {
   return _segments[id >= _segments.size() ? getMainSegmentId() : id]; // vectors
 }
 
@@ -1684,7 +1785,7 @@ void WS2812FX::makeAutoSegments(bool forceReset) {
     for (size_t i = 1; i < s; i++) {
       _segments.push_back(Segment(segStarts[i], segStops[i]));
     }
-    DEBUG_PRINTF_P(PSTR("%d auto segments created.\n"), _segments.size());
+    DEBUGFX_PRINTF_P(PSTR("%d auto segments created.\n"), _segments.size());
 
   } else {
 
@@ -1758,15 +1859,15 @@ void WS2812FX::setRange(uint16_t i, uint16_t i2, uint32_t col) {
   for (unsigned x = i; x <= i2; x++) setPixelColor(x, col);
 }
 
-#ifdef WLED_DEBUG
+#ifdef WLED_DEBUG_FX
 void WS2812FX::printSize() {
   size_t size = 0;
   for (const Segment &seg : _segments) size += seg.getSize();
-  DEBUG_PRINTF_P(PSTR("Segments: %d -> %u/%dB\n"), _segments.size(), size, Segment::getUsedSegmentData());
-  for (const Segment &seg : _segments) DEBUG_PRINTF_P(PSTR("  Seg: %d,%d [A=%d, 2D=%d, RGB=%d, W=%d, CCT=%d]\n"), seg.width(), seg.height(), seg.isActive(), seg.is2D(), seg.hasRGB(), seg.hasWhite(), seg.isCCT());
-  DEBUG_PRINTF_P(PSTR("Modes: %d*%d=%uB\n"), sizeof(mode_ptr), _mode.size(), (_mode.capacity()*sizeof(mode_ptr)));
-  DEBUG_PRINTF_P(PSTR("Data: %d*%d=%uB\n"), sizeof(const char *), _modeData.size(), (_modeData.capacity()*sizeof(const char *)));
-  DEBUG_PRINTF_P(PSTR("Map: %d*%d=%uB\n"), sizeof(uint16_t), (int)customMappingSize, customMappingSize*sizeof(uint16_t));
+  DEBUGFX_PRINTF_P(PSTR("Segments: %d -> %u/%dB\n"), _segments.size(), size, Segment::getUsedSegmentData());
+  for (const Segment &seg : _segments) DEBUGFX_PRINTF_P(PSTR("  Seg: %d,%d [A=%d, 2D=%d, RGB=%d, W=%d, CCT=%d]\n"), seg.width(), seg.height(), seg.isActive(), seg.is2D(), seg.hasRGB(), seg.hasWhite(), seg.isCCT());
+  DEBUGFX_PRINTF_P(PSTR("Modes: %d*%d=%uB\n"), sizeof(mode_ptr), _mode.size(), (_mode.capacity()*sizeof(mode_ptr)));
+  DEBUGFX_PRINTF_P(PSTR("Data: %d*%d=%uB\n"), sizeof(const char *), _modeData.size(), (_modeData.capacity()*sizeof(const char *)));
+  DEBUGFX_PRINTF_P(PSTR("Map: %d*%d=%uB\n"), sizeof(uint16_t), (int)customMappingSize, customMappingSize*sizeof(uint16_t));
 }
 #endif
 
@@ -1780,8 +1881,8 @@ void WS2812FX::loadCustomPalettes() {
 
     StaticJsonDocument<1536> pDoc; // barely enough to fit 72 numbers
     if (WLED_FS.exists(fileName)) {
-      DEBUG_PRINT(F("Reading palette from "));
-      DEBUG_PRINTLN(fileName);
+      DEBUGFX_PRINT(F("Reading palette from "));
+      DEBUGFX_PRINTLN(fileName);
 
       if (readObjectFromFile(fileName, nullptr, &pDoc)) {
         JsonArray pal = pDoc[F("palette")];
@@ -1795,7 +1896,7 @@ void WS2812FX::loadCustomPalettes() {
               tcp[ j ] = (uint8_t) pal[ i ].as<int>(); // index
               colorFromHexString(rgbw, pal[i+1].as<const char *>()); // will catch non-string entires
               for (size_t c=0; c<3; c++) tcp[j+1+c] = gamma8(rgbw[c]); // only use RGB component
-              DEBUG_PRINTF_P(PSTR("%d(%d) : %d %d %d\n"), i, int(tcp[j]), int(tcp[j+1]), int(tcp[j+2]), int(tcp[j+3]));
+              DEBUGFX_PRINTF_P(PSTR("%d(%d) : %d %d %d\n"), i, int(tcp[j]), int(tcp[j+1]), int(tcp[j+2]), int(tcp[j+3]));
             }
           } else {
             size_t palSize = MIN(pal.size(), 72);
@@ -1805,12 +1906,12 @@ void WS2812FX::loadCustomPalettes() {
               tcp[i+1] = gamma8((uint8_t) pal[i+1].as<int>()); // R
               tcp[i+2] = gamma8((uint8_t) pal[i+2].as<int>()); // G
               tcp[i+3] = gamma8((uint8_t) pal[i+3].as<int>()); // B
-              DEBUG_PRINTF_P(PSTR("%d(%d) : %d %d %d\n"), i, int(tcp[i]), int(tcp[i+1]), int(tcp[i+2]), int(tcp[i+3]));
+              DEBUGFX_PRINTF_P(PSTR("%d(%d) : %d %d %d\n"), i, int(tcp[i]), int(tcp[i+1]), int(tcp[i+2]), int(tcp[i+3]));
             }
           }
           customPalettes.push_back(targetPalette.loadDynamicGradientPalette(tcp));
         } else {
-          DEBUG_PRINTLN(F("Wrong palette format."));
+          DEBUGFX_PRINTLN(F("Wrong palette format."));
         }
       }
     } else {
@@ -1820,7 +1921,7 @@ void WS2812FX::loadCustomPalettes() {
 }
 
 //load custom mapping table from JSON file (called from finalizeInit() or deserializeState())
-bool WS2812FX::deserializeMap(uint8_t n) {
+bool WS2812FX::deserializeMap(unsigned n) {
   // 2D support creates its own ledmap (on the fly) if a ledmap.json exists it will overwrite built one.
 
   char fileName[32];
@@ -1841,7 +1942,7 @@ bool WS2812FX::deserializeMap(uint8_t n) {
   if (!isFile || !requestJSONBufferLock(7)) return false;
 
   if (!readObjectFromFile(fileName, nullptr, pDoc)) {
-    DEBUG_PRINT(F("ERROR Invalid ledmap in ")); DEBUG_PRINTLN(fileName);
+    DEBUGFX_PRINT(F("ERROR Invalid ledmap in ")); DEBUGFX_PRINTLN(fileName);
     releaseJSONBufferLock();
     return false; // if file does not load properly then exit
   }
@@ -1857,7 +1958,7 @@ bool WS2812FX::deserializeMap(uint8_t n) {
   customMappingTable = new uint16_t[getLengthTotal()];
 
   if (customMappingTable) {
-    DEBUG_PRINT(F("Reading LED map from ")); DEBUG_PRINTLN(fileName);
+    DEBUGFX_PRINT(F("Reading LED map from ")); DEBUGFX_PRINTLN(fileName);
     JsonArray map = root[F("map")];
     if (!map.isNull() && map.size()) {  // not an empty map
       customMappingSize = min((unsigned)map.size(), (unsigned)getLengthTotal());
@@ -1865,19 +1966,11 @@ bool WS2812FX::deserializeMap(uint8_t n) {
       currentLedmap = n;
     }
   } else {
-    DEBUG_PRINTLN(F("ERROR LED map allocation error."));
+    DEBUGFX_PRINTLN(F("ERROR LED map allocation error."));
   }
 
   releaseJSONBufferLock();
   return (customMappingSize > 0);
-}
-
-uint16_t IRAM_ATTR WS2812FX::getMappedPixelIndex(uint16_t index) const {
-  // convert logical address to physical
-  if (index < customMappingSize
-    && (realtimeMode == REALTIME_MODE_INACTIVE || realtimeRespectLedMaps)) index = customMappingTable[index];
-
-  return index;
 }
 
 

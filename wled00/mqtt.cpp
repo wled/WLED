@@ -124,6 +124,32 @@ static void onMqttMessage(char* topic, char* payload, AsyncMqttClientMessageProp
   payloadStr = nullptr;
 }
 
+// Print adapter for flat buffers
+namespace { 
+class bufferPrint : public Print {
+  char* _buf;
+  size_t _size, _offset;
+  public:
+
+  bufferPrint(char* buf, size_t size) : _buf(buf), _size(size), _offset(0) {};
+
+  size_t write(const uint8_t *buffer, size_t size) {
+    size = std::min(size, _size - _offset);
+    memcpy(_buf + _offset, buffer, size);
+    _offset += size;
+    return size;
+  }
+
+  size_t write(uint8_t c) {
+    return this->write(&c, 1);
+  }
+
+  char* data() const { return _buf; }
+  size_t size() const { return _offset; }
+  size_t capacity() const { return _size; }
+};
+}; // anonymous namespace
+
 
 void publishMqtt()
 {
@@ -148,11 +174,13 @@ void publishMqtt()
   strcat_P(subuf, PSTR("/status"));
   mqtt->publish(subuf, 0, true, "online");          // retain message for a LWT
 
-  char apires[1024];                                // allocating 1024 bytes from stack can be risky
-  XML_response(nullptr, apires);
+  // TODO: use a DynamicBufferList.  Requires a list-read-capable MQTT client API.
+  DynamicBuffer buf(1024);
+  bufferPrint pbuf(buf.data(), buf.size());
+  XML_response(pbuf);
   strlcpy(subuf, mqttDeviceTopic, 33);
   strcat_P(subuf, PSTR("/v"));
-  mqtt->publish(subuf, 0, retainMqttMsg, apires);   // optionally retain message (#2263)
+  mqtt->publish(subuf, 0, retainMqttMsg, buf.data(), pbuf.size());   // optionally retain message (#2263)
   #endif
 }
 

@@ -262,10 +262,10 @@ void MultiRelay::handleOffTimer() {
  */
 #define GEOGABVERSION "0.1.3"
 void MultiRelay::InitHtmlAPIHandle() {  // https://github.com/me-no-dev/ESPAsyncWebServer
-  DEBUG_PRINTLN(F("Relays: Initialize HTML API"));
+  DEBUGUM_PRINTLN(F("Relays: Initialize HTML API"));
 
-  server.on(SET_F("/relays"), HTTP_GET, [this](AsyncWebServerRequest *request) {
-    DEBUG_PRINTLN(F("Relays: HTML API"));
+  server.on(F("/relays"), HTTP_GET, [this](AsyncWebServerRequest *request) {
+    DEBUGUM_PRINTLN(F("Relays: HTML API"));
     String janswer;
     String error = "";
     //int params = request->params();
@@ -399,7 +399,7 @@ void MultiRelay::switchRelay(uint8_t relay, bool mode) {
       state |= (_relay[i].invert ? !_relay[i].state : _relay[i].state) << pin; // fill relay states for all pins
     }
     IOexpanderWrite(addrPcf8574, state);
-    DEBUG_PRINT(F("Writing to PCF8574: ")); DEBUG_PRINTLN(state);
+    DEBUGUM_PRINT(F("Writing to PCF8574: ")); DEBUGUM_PRINTLN(state);
   } else if (_relay[relay].pin < 100) {
     pinMode(_relay[relay].pin, OUTPUT);
     digitalWrite(_relay[relay].pin, _relay[relay].invert ? !_relay[relay].state : _relay[relay].state);
@@ -527,7 +527,7 @@ void MultiRelay::setup() {
   }
   if (usePcf8574) {
     IOexpanderWrite(addrPcf8574, state);  // init expander (set all outputs)
-    DEBUG_PRINTLN(F("PCF8574(s) inited."));
+    DEBUGUM_PRINTLN(F("PCF8574(s) inited."));
   }
   _oldMode = offMode;
   initDone = true;
@@ -761,14 +761,14 @@ void MultiRelay::addToConfig(JsonObject &root) {
     relay[FPSTR(_external)]   = _relay[i].external;
     relay[FPSTR(_button)]     = _relay[i].button;
   }
-  DEBUG_PRINTLN(F("MultiRelay config saved."));
+  DEBUGUM_PRINTLN(F("MultiRelay config saved."));
 }
 
 void MultiRelay::appendConfigData() {
-  oappend(SET_F("addInfo('MultiRelay:PCF8574-address',1,'<i>(not hex!)</i>');"));
-  oappend(SET_F("addInfo('MultiRelay:broadcast-sec',1,'(MQTT message)');"));
-  //oappend(SET_F("addInfo('MultiRelay:relay-0:pin',1,'(use -1 for PCF8574)');"));
-  oappend(SET_F("d.extra.push({'MultiRelay':{pin:[['P0',100],['P1',101],['P2',102],['P3',103],['P4',104],['P5',105],['P6',106],['P7',107]]}});"));
+  oappend(F("addInfo('MultiRelay:PCF8574-address',1,'<i>(not hex!)</i>');"));
+  oappend(F("addInfo('MultiRelay:broadcast-sec',1,'(MQTT message)');"));
+  //oappend(F("addInfo('MultiRelay:relay-0:pin',1,'(use -1 for PCF8574)');"));
+  oappend(F("d.extra.push({'MultiRelay':{pin:[['P0',100],['P1',101],['P2',102],['P3',103],['P4',104],['P5',105],['P6',106],['P7',107]]}});"));
 }
 
 /**
@@ -782,8 +782,8 @@ bool MultiRelay::readFromConfig(JsonObject &root) {
 
   JsonObject top = root[FPSTR(_name)];
   if (top.isNull()) {
-    DEBUG_PRINT(FPSTR(_name));
-    DEBUG_PRINTLN(F(": No config found. (Using defaults.)"));
+    DEBUGUM_PRINT(FPSTR(_name));
+    DEBUGUM_PRINTLN(F(": No config found. (Using defaults.)"));
     return false;
   }
 
@@ -809,10 +809,10 @@ bool MultiRelay::readFromConfig(JsonObject &root) {
     _relay[i].delay    = min(600,max(0,abs((int)_relay[i].delay))); // bounds checking max 10min
   }
 
-  DEBUG_PRINT(FPSTR(_name));
+  DEBUGUM_PRINT(FPSTR(_name));
   if (!initDone) {
     // reading config prior to setup()
-    DEBUG_PRINTLN(F(" config loaded."));
+    DEBUGUM_PRINTLN(F(" config loaded."));
   } else {
     // deallocate all pins 1st
     for (int i=0; i<MULTI_RELAY_MAX_RELAYS; i++)
@@ -821,7 +821,7 @@ bool MultiRelay::readFromConfig(JsonObject &root) {
       }
     // allocate new pins
     setup();
-    DEBUG_PRINTLN(F(" config (re)loaded."));
+    DEBUGUM_PRINTLN(F(" config (re)loaded."));
   }
   // use "return !top["newestParameter"].isNull();" when updating Usermod with new features
   return !top[FPSTR(_pcf8574)].isNull();

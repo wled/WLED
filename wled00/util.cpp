@@ -52,7 +52,7 @@ void parseNumber(const char* str, byte* val, byte minv, byte maxv)
   *val = atoi(str);
 }
 
-
+//getVal supports inc/decrementing and random ("X~Y(r|~[w][-][Z])" form)
 bool getVal(JsonVariant elem, byte* val, byte vmin, byte vmax) {
   if (elem.is<int>()) {
 		if (elem < 0) return false; //ignore e.g. {"ps":-1}
@@ -60,8 +60,12 @@ bool getVal(JsonVariant elem, byte* val, byte vmin, byte vmax) {
     return true;
   } else if (elem.is<const char*>()) {
     const char* str = elem;
-    size_t len = strnlen(str, 12);
-    if (len == 0 || len > 10) return false;
+    size_t len = strnlen(str, 14);
+    if (len == 0 || len > 12) return false;
+    // fix for #3605 & #4346
+    // ignore vmin and vmax and use as specified in API
+    if (len > 3 && (strchr(str,'r') || strchr(str,'~') != strrchr(str,'~'))) vmax = vmin = 0; // we have "X~Y(r|~[w][-][Z])" form
+    // end fix
     parseNumber(str, val, vmin, vmax);
     return true;
   }
@@ -87,88 +91,28 @@ bool updateVal(const char* req, const char* key, byte* val, byte minv, byte maxv
   return true;
 }
 
-
-//append a numeric setting to string buffer
-void sappend(char stype, const char* key, int val)
-{
-  char ds[] = "d.Sf.";
-
-  switch(stype)
-  {
-    case 'c': //checkbox
-      oappend(ds);
-      oappend(key);
-      oappend(".checked=");
-      oappendi(val);
-      oappend(";");
-      break;
-    case 'v': //numeric
-      oappend(ds);
-      oappend(key);
-      oappend(".value=");
-      oappendi(val);
-      oappend(";");
-      break;
-    case 'i': //selectedIndex
-      oappend(ds);
-      oappend(key);
-      oappend(SET_F(".selectedIndex="));
-      oappendi(val);
-      oappend(";");
-      break;
-  }
+static size_t printSetFormInput(Print& settingsScript, const char* key, const char* selector, int value) {
+  return settingsScript.printf_P(PSTR("d.Sf.%s.%s=%d;"), key, selector, value);
 }
 
-
-//append a string setting to buffer
-void sappends(char stype, const char* key, char* val)
-{
-  switch(stype)
-  {
-    case 's': {//string (we can interpret val as char*)
-      String buf = val;
-      //convert "%" to "%%" to make EspAsyncWebServer happy
-      //buf.replace("%","%%");
-      oappend("d.Sf.");
-      oappend(key);
-      oappend(".value=\"");
-      oappend(buf.c_str());
-      oappend("\";");
-      break;}
-    case 'm': //message
-      oappend(SET_F("d.getElementsByClassName"));
-      oappend(key);
-      oappend(SET_F(".innerHTML=\""));
-      oappend(val);
-      oappend("\";");
-      break;
-  }
+size_t printSetFormCheckbox(Print& settingsScript, const char* key, int val) {
+  return printSetFormInput(settingsScript, key, PSTR("checked"), val);
+}
+size_t printSetFormValue(Print& settingsScript, const char* key, int val) {
+  return printSetFormInput(settingsScript, key, PSTR("value"), val);
+}
+size_t printSetFormIndex(Print& settingsScript, const char* key, int index) {
+  return printSetFormInput(settingsScript, key, PSTR("selectedIndex"), index);
 }
 
-
-bool oappendi(int i)
-{
-  char s[12]; // 32bit signed number can have 10 digits plus - sign
-  sprintf(s, "%d", i);
-  return oappend(s);
+size_t printSetFormValue(Print& settingsScript, const char* key, const char* val) {
+  return settingsScript.printf_P(PSTR("d.Sf.%s.value=\"%s\";"),key,val);
 }
 
-
-bool oappend(const char* txt)
-{
-  unsigned len = strlen(txt);
-  if ((obuf == nullptr) || (olen + len >= SETTINGS_STACK_BUF_SIZE)) { // sanity checks
-#ifdef WLED_DEBUG
-    DEBUG_PRINT(F("oappend() buffer overflow. Cannot append "));
-    DEBUG_PRINT(len); DEBUG_PRINT(F(" bytes \t\""));
-    DEBUG_PRINT(txt); DEBUG_PRINTLN(F("\""));
-#endif
-    return false;        // buffer full
-  }
-  strcpy(obuf + olen, txt);
-  olen += len;
-  return true;
+size_t printSetClassElementHTML(Print& settingsScript, const char* key, const int index, const char* val) {
+  return settingsScript.printf_P(PSTR("d.getElementsByClassName(\"%s\")[%d].innerHTML=\"%s\";"), key, index, val);
 }
+
 
 
 void prepareHostname(char* hostname)
@@ -616,4 +560,11 @@ uint8_t get_random_wheel_index(uint8_t pos) {
 // float version of map()
 float mapf(float x, float in_min, float in_max, float out_min, float out_max) {
   return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
+}
+
+uint32_t hashInt(uint32_t s) {
+  // borrowed from https://stackoverflow.com/questions/664014/what-integer-hash-function-are-good-that-accepts-an-integer-hash-key
+  s = ((s >> 16) ^ s) * 0x45d9f3b;
+  s = ((s >> 16) ^ s) * 0x45d9f3b;
+  return (s >> 16) ^ s;
 }

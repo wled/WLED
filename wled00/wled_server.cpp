@@ -36,7 +36,7 @@ static bool isIp(String str) {
  */
 
 static void generateEtag(char *etag, uint16_t eTagSuffix) {
-  sprintf_P(etag, PSTR("%7d-%02x-%04x"), VERSION, cacheInvalidate, eTagSuffix);
+  sprintf_P(etag, PSTR("%7d-%02x-%04x"), build, cacheInvalidate, eTagSuffix);
 }
 
 static void setStaticContentCacheHeaders(AsyncWebServerResponse *response, int code, uint16_t eTagSuffix = 0) {
@@ -193,12 +193,12 @@ void createEditHandler(bool enable) {
       editHandler = &server.addHandler(new SPIFFSEditor("","",WLED_FS));//http_username,http_password));
       #endif
     #else
-      editHandler = &server.on(SET_F("/edit"), HTTP_GET, [](AsyncWebServerRequest *request){
+      editHandler = &server.on(F("/edit"), HTTP_GET, [](AsyncWebServerRequest *request){
         serveMessage(request, 501, FPSTR(s_notimplemented), F("The FS editor is disabled in this build."), 254);
       });
     #endif
   } else {
-    editHandler = &server.on(SET_F("/edit"), HTTP_ANY, [](AsyncWebServerRequest *request){
+    editHandler = &server.on(F("/edit"), HTTP_ANY, [](AsyncWebServerRequest *request){
       serveMessage(request, 401, FPSTR(s_accessdenied), FPSTR(s_unlock_cfg), 254);
     });
   }
@@ -336,7 +336,7 @@ void initServer()
   server.addHandler(handler);
 
   server.on(F("/version"), HTTP_GET, [](AsyncWebServerRequest *request){
-    request->send(200, FPSTR(CONTENT_TYPE_PLAIN), (String)VERSION);
+    request->send(200, FPSTR(CONTENT_TYPE_PLAIN), (String)build);
   });
 
   server.on(F("/uptime"), HTTP_GET, [](AsyncWebServerRequest *request){
@@ -427,11 +427,11 @@ void initServer()
 
 
 #ifdef WLED_ENABLE_DMX
-  server.on(SET_F("/dmxmap"), HTTP_GET, [](AsyncWebServerRequest *request){
+  server.on(F("/dmxmap"), HTTP_GET, [](AsyncWebServerRequest *request){
     request->send_P(200, FPSTR(CONTENT_TYPE_HTML), PAGE_dmxmap     , dmxProcessor);
   });
 #else
-  server.on(SET_F("/dmxmap"), HTTP_GET, [](AsyncWebServerRequest *request){
+  server.on(F("/dmxmap"), HTTP_GET, [](AsyncWebServerRequest *request){
     serveMessage(request, 501, FPSTR(s_notimplemented), F("DMX support is not enabled in this build."), 254);
   });
 #endif
@@ -520,27 +520,23 @@ void serveSettingsJS(AsyncWebServerRequest* request)
     handleStaticContent(request, FPSTR(_common_js), 200, FPSTR(CONTENT_TYPE_JAVASCRIPT), JS_common, JS_common_length);
     return;
   }
-  char buf[SETTINGS_STACK_BUF_SIZE+37];
-  buf[0] = 0;
   byte subPage = request->arg(F("p")).toInt();
   if (subPage > 10) {
-    strcpy_P(buf, PSTR("alert('Settings for this request are not implemented.');"));
-    request->send(501, FPSTR(CONTENT_TYPE_JAVASCRIPT), buf);
+    request->send_P(501, FPSTR(CONTENT_TYPE_JAVASCRIPT), PSTR("alert('Settings for this request are not implemented.');"));
     return;
   }
   if (subPage > 0 && !correctPIN && strlen(settingsPIN)>0) {
-    strcpy_P(buf, PSTR("alert('PIN incorrect.');"));
-    request->send(401, FPSTR(CONTENT_TYPE_JAVASCRIPT), buf);
+    request->send_P(401, FPSTR(CONTENT_TYPE_JAVASCRIPT), PSTR("alert('PIN incorrect.');"));
     return;
   }
-  strcat_P(buf,PSTR("function GetV(){var d=document;"));
-  getSettingsJS(subPage, buf+strlen(buf));  // this may overflow by 35bytes!!!
-  strcat_P(buf,PSTR("}"));
   
-  AsyncWebServerResponse *response;
-  response = request->beginResponse(200, FPSTR(CONTENT_TYPE_JAVASCRIPT), buf);
+  AsyncResponseStream *response = request->beginResponseStream(FPSTR(CONTENT_TYPE_JAVASCRIPT));
   response->addHeader(F("Cache-Control"), F("no-store"));
   response->addHeader(F("Expires"), F("0"));
+
+  response->print(F("function GetV(){var d=document;"));
+  getSettingsJS(subPage, *response);
+  response->print(F("}"));
   request->send(response);
 }
 
