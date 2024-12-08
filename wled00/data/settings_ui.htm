@@ -85,13 +85,13 @@
 				} else {
 					if(t === 'boolean')
 					{
-						str += `${lb}: <input class="agi cb" type="checkbox" id=${fk} ${s[i]?"checked":""}><br>`;
+						str += `${lb}: <input class="agi cb" type="checkbox" id="${fk}" ${s[i]?"checked":""}><br>`;
 					} else if (t === 'number')
 					{
-						str += `${lb}: <input class="agi" type="number" id=${fk} value=${s[i]}><br>`;
+						str += `${lb}: <input class="agi" type="number" id="${fk}" value="${s[i]}"><br>`;
 					} else if (t === 'string')
 					{
-						str += `${lb}:<br><input class="agi" id=${fk} value=${s[i]}><br>`;
+						str += `${lb}:<br><input class="agi" id="${fk}" value="${s[i]}"><br>`;
 					}
 				}
 			}

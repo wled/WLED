@@ -40,6 +40,7 @@ uint8_t realtimeBroadcast(uint8_t type, IPAddress client, uint16_t length, byte 
 bool ColorOrderMap::add(uint16_t start, uint16_t len, uint8_t colorOrder) {
   if (count() >= WLED_MAX_COLOR_ORDER_MAPPINGS || len == 0 || (colorOrder & 0x0F) > COL_ORDER_MAX) return false; // upper nibble contains W swap information
   _mappings.push_back({start,len,colorOrder});
+  DEBUGBUS_PRINTF_P(PSTR("Bus: Add COM (%d,%d,%d)\n"), (int)start, (int)len, (int)colorOrder);
   return true;
 }
 
@@ -285,20 +286,20 @@ void BusDigital::setStatusPixel(uint32_t c) {
 
 void IRAM_ATTR BusDigital::setPixelColor(unsigned pix, uint32_t c) {
   if (!_valid) return;
-  uint8_t cctWW = 0, cctCW = 0;
   if (hasWhite()) c = autoWhiteCalc(c);
   if (Bus::_cct >= 1900) c = colorBalanceFromKelvin(Bus::_cct, c); //color correction from CCT
   if (_data) {
     size_t offset = pix * getNumberOfChannels();
+    uint8_t* dataptr = _data + offset;
     if (hasRGB()) {
-      _data[offset++] = R(c);
-      _data[offset++] = G(c);
-      _data[offset++] = B(c);
+      *dataptr++ = R(c);
+      *dataptr++ = G(c);
+      *dataptr++ = B(c);
     }
-    if (hasWhite()) _data[offset++] = W(c);
+    if (hasWhite()) *dataptr++ = W(c);
     // unfortunately as a segment may span multiple buses or a bus may contain multiple segments and each segment may have different CCT
     // we need to store CCT value for each pixel (if there is a color correction in play, convert K in CCT ratio)
-    if (hasCCT())   _data[offset]   = Bus::_cct >= 1900 ? (Bus::_cct - 1900) >> 5 : (Bus::_cct < 0 ? 127 : Bus::_cct); // TODO: if _cct == -1 we simply ignore it
+    if (hasCCT()) *dataptr = Bus::_cct >= 1900 ? (Bus::_cct - 1900) >> 5 : (Bus::_cct < 0 ? 127 : Bus::_cct); // TODO: if _cct == -1 we simply ignore it
   } else {
     if (_reversed) pix = _len - pix -1;
     pix += _skip;
@@ -313,8 +314,14 @@ void IRAM_ATTR BusDigital::setPixelColor(unsigned pix, uint32_t c) {
         case 2: c = RGBW32(R(cOld), G(cOld), W(c)   , 0); break;
       }
     }
-    if (hasCCT()) Bus::calculateCCT(c, cctWW, cctCW);
-    PolyBus::setPixelColor(_busPtr, _iType, pix, c, co, (cctCW<<8) | cctWW);
+    uint16_t wwcw = 0;
+    if (hasCCT()) {
+      uint8_t cctWW = 0, cctCW = 0;
+      Bus::calculateCCT(c, cctWW, cctCW);
+      wwcw = (cctCW<<8) | cctWW;
+    }
+
+    PolyBus::setPixelColor(_busPtr, _iType, pix, c, co, wwcw);
   }
 }
 
@@ -322,7 +329,7 @@ void IRAM_ATTR BusDigital::setPixelColor(unsigned pix, uint32_t c) {
 uint32_t IRAM_ATTR BusDigital::getPixelColor(unsigned pix) const {
   if (!_valid) return 0;
   if (_data) {
-    size_t offset = pix * getNumberOfChannels();
+    const size_t offset = pix * getNumberOfChannels();
     uint32_t c;
     if (!hasRGB()) {
       c = RGBW32(_data[offset], _data[offset], _data[offset], _data[offset]);
@@ -333,7 +340,7 @@ uint32_t IRAM_ATTR BusDigital::getPixelColor(unsigned pix) const {
   } else {
     if (_reversed) pix = _len - pix -1;
     pix += _skip;
-    unsigned co = _colorOrderMap.getPixelColorOrder(pix+_start, _colorOrder);
+    const unsigned co = _colorOrderMap.getPixelColorOrder(pix+_start, _colorOrder);
     uint32_t c = restoreColorLossy(PolyBus::getPixelColor(_busPtr, _iType, (_type==TYPE_WS2812_1CH_X3) ? IC_INDEX_WS2812_1CH_3X(pix) : pix, co),_bri);
     if (_type == TYPE_WS2812_1CH_X3) { // map to correct IC, each controls 3 LEDs
       unsigned r = R(c);

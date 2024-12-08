@@ -153,22 +153,28 @@ uint16_t IRAM_ATTR_YN Segment::XY(int x, int y) {
 }
 
 // raw setColor function without checks (checks are done in setPixelColorXY())
-void IRAM_ATTR_YN Segment::_setPixelColorXY_raw(int& x, int& y, uint32_t& col) {
+void IRAM_ATTR_YN Segment::_setPixelColorXY_raw(int& x, int& y, uint32_t& col)
+{
+  const int baseX = start + x;
+  const int baseY = startY + y;
 #ifndef WLED_DISABLE_MODE_BLEND
   // if blending modes, blend with underlying pixel
-  if (_modeBlend && blendingStyle == BLEND_STYLE_FADE) col = color_blend(strip.getPixelColorXY(start + x, startY + y), col, 0xFFFFU - progress(), true);
+  if (_modeBlend && blendingStyle == BLEND_STYLE_FADE) col = color_blend(strip.getPixelColorXY(baseX, baseY), col, 0xFFFFU - progress(), true);
 #endif
-  strip.setPixelColorXY(start + x, startY + y, col);
-  if (mirror) { //set the corresponding horizontally mirrored pixel
-    if (transpose) strip.setPixelColorXY(start + x, startY + height() - y - 1, col);
-    else           strip.setPixelColorXY(start + width() - x - 1, startY + y, col);
-  }
-  if (mirror_y) { //set the corresponding vertically mirrored pixel
-    if (transpose) strip.setPixelColorXY(start + width() - x - 1, startY + y, col);
-    else           strip.setPixelColorXY(start + x, startY + height() - y - 1, col);
-  }
-  if (mirror_y && mirror) { //set the corresponding vertically AND horizontally mirrored pixel
-    strip.setPixelColorXY(start + width() - x - 1, startY + height() - y - 1, col);
+  strip.setPixelColorXY(baseX, baseY, col);
+
+  // Apply mirroring
+  if (mirror || mirror_y) {
+    auto setMirroredPixel = [&](int mx, int my) {
+      strip.setPixelColorXY(mx, my, col);
+    };
+
+    const int mirrorX = start + width() - x - 1;
+    const int mirrorY = startY + height() - y - 1;
+
+    if (mirror)             setMirroredPixel(transpose ? baseX : mirrorX, transpose ? mirrorY : baseY);
+    if (mirror_y)           setMirroredPixel(transpose ? mirrorX : baseX, transpose ? baseY : mirrorY);
+    if (mirror && mirror_y) setMirroredPixel(mirrorX, mirrorY);
   }
 }
 
@@ -237,16 +243,12 @@ void IRAM_ATTR_YN Segment::setPixelColorXY(int x, int y, uint32_t col)
     int H = height();
     x *= groupLen; // expand to physical pixels
     y *= groupLen; // expand to physical pixels
-    int yY = y;
-    for (int j = 0; j < grouping; j++) {   // groupping vertically
-      if (yY >= H) break;
-      int xX = x;
-      for (int g = 0; g < grouping; g++) { // groupping horizontally
-        if (xX >= W) break;  // we have reached X dimension's end
+    const int maxY = std::min(y + grouping, H);
+    const int maxX = std::min(x + grouping, W);
+    for (int yY = y; yY < maxY; yY++) {
+      for (int xX = x; xX < maxX; xX++) {
         _setPixelColorXY_raw(xX, yY, col);
-        xX++;
       }
-      yY++;
     }
   } else {
     _setPixelColorXY_raw(x, y, col);

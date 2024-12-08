@@ -90,7 +90,7 @@ private:
 
     bool hexStringToColor(String const& s, uint32_t& c, uint32_t def) {
         char *ep;
-        unsigned long long r = strtoull(s.c_str(), &ep, 16);
+        uint32_t r = strtoul(s.c_str(), &ep, 16);
         if (*ep == 0) {
             c = r;
             return true;

@@ -420,10 +420,9 @@ void prepareArtnetPollReply(ArtPollReply *reply) {
 
   reply->reply_port = ARTNET_DEFAULT_PORT;
 
-  char * numberEnd = versionString;
-  reply->reply_version_h = (uint8_t)strtol(numberEnd, &numberEnd, 10);
-  numberEnd++;
-  reply->reply_version_l = (uint8_t)strtol(numberEnd, &numberEnd, 10);
+  const char * numberEnd = strchr(versionString,'.');
+  reply->reply_version_h = (uint8_t)strtoul(versionString, nullptr, 10);
+  reply->reply_version_l = (uint8_t)(numberEnd != nullptr ? strtoul(++numberEnd, nullptr, 10) : 0);
 
   // Switch values depend on universe, set before sending
   reply->reply_net_sw = 0x00;
@@ -524,7 +523,7 @@ void sendArtnetPollReply(ArtPollReply *reply, IPAddress ipAddress, uint16_t port
   reply->reply_sub_sw = (uint8_t)((portAddress >> 4) & 0x000F);
   reply->reply_sw_out[0] = (uint8_t)(portAddress & 0x000F);
 
-  snprintf_P((char *)reply->reply_node_report, sizeof(reply->reply_node_report)-1, PSTR("#0001 [%04u] OK - WLED v" TOSTRING(WLED_VERSION)), pollReplyCount);
+  snprintf_P((char *)reply->reply_node_report, sizeof(reply->reply_node_report)-1, PSTR("#0001 [%04u] OK - WLED v%s"), pollReplyCount, versionString);
 
   if (pollReplyCount < 9999) {
     pollReplyCount++;

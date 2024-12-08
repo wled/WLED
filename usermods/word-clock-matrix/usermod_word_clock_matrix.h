@@ -31,14 +31,14 @@ public:
     //strip.getSegment(1).setOption(SEG_OPTION_SELECTED, true);
 
     //select first two segments (background color + FX settable)
-    WS2812FX::Segment &seg = strip.getSegment(0);
+    Segment &seg = strip.getSegment(0);
     seg.colors[0] = ((0 << 24) | ((0 & 0xFF) << 16) | ((0 & 0xFF) << 8) | ((0 & 0xFF)));
     strip.getSegment(0).setOption(0, false);
     strip.getSegment(0).setOption(2, false);
     //other segments are text
     for (int i = 1; i < 10; i++)
     {
-      WS2812FX::Segment &seg = strip.getSegment(i);
+      Segment &seg = strip.getSegment(i);
       seg.colors[0] = ((0 << 24) | ((0 & 0xFF) << 16) | ((190 & 0xFF) << 8) | ((180 & 0xFF)));
       strip.getSegment(i).setOption(0, true);
       strip.setBrightness(64);
@@ -80,61 +80,61 @@ public:
   void displayTime(byte hour, byte minute)
   {
     bool isToHour = false;      //true if minute > 30
-    strip.setSegment(0, 0, 64); // background
-    strip.setSegment(1, 0, 2);  //It is
+    strip.getSegment(0).setGeometry(0, 64); // background
+    strip.getSegment(1).setGeometry(0, 2);  //It is
 
-    strip.setSegment(2, 0, 0);
-    strip.setSegment(3, 0, 0); //disable minutes
-    strip.setSegment(4, 0, 0); //past
-    strip.setSegment(6, 0, 0); //to
-    strip.setSegment(8, 0, 0); //disable o'clock
+    strip.getSegment(2).setGeometry(0, 0);
+    strip.getSegment(3).setGeometry(0, 0); //disable minutes
+    strip.getSegment(4).setGeometry(0, 0); //past
+    strip.getSegment(6).setGeometry(0, 0); //to
+    strip.getSegment(8).setGeometry(0, 0); //disable o'clock
 
     if (hour < 24) //valid time, display
     {
       if (minute == 30)
       {
-        strip.setSegment(2, 3, 6); //half
-        strip.setSegment(3, 0, 0); //minutes
+        strip.getSegment(2).setGeometry(3, 6); //half
+        strip.getSegment(3).setGeometry(0, 0); //minutes
       }
       else if (minute == 15 || minute == 45)
       {
-        strip.setSegment(3, 0, 0); //minutes
+        strip.getSegment(3).setGeometry(0, 0); //minutes
       }
       else if (minute == 10)
       {
-        //strip.setSegment(5, 6, 8); //ten
+        //strip.getSegment(5).setGeometry(6, 8); //ten
       }
       else if (minute == 5)
       {
-        //strip.setSegment(5, 16, 18); //five
+        //strip.getSegment(5).setGeometry(16, 18); //five
       }
       else if (minute == 0)
       {
-        strip.setSegment(3, 0, 0); //minutes
+        strip.getSegment(3).setGeometry(0, 0); //minutes
         //hourChime();
       }
       else
       {
-        strip.setSegment(3, 18, 22); //minutes
+        strip.getSegment(3).setGeometry(18, 22); //minutes
       }
 
       //past or to?
       if (minute == 0)
       {                              //full hour
-        strip.setSegment(3, 0, 0);   //disable minutes
-        strip.setSegment(4, 0, 0);   //disable past
-        strip.setSegment(6, 0, 0);   //disable to
-        strip.setSegment(8, 60, 64); //o'clock
+        strip.getSegment(3).setGeometry(0, 0);   //disable minutes
+        strip.getSegment(4).setGeometry(0, 0);   //disable past
+        strip.getSegment(6).setGeometry(0, 0);   //disable to
+        strip.getSegment(8).setGeometry(60, 64); //o'clock
       }
       else if (minute > 34)
       {
-        //strip.setSegment(6, 22, 24); //to
+        //strip.getSegment(6).setGeometry(22, 24); //to
         //minute = 60 - minute;
         isToHour = true;
       }
       else
       {
-        //strip.setSegment(4, 24, 27); //past
+        //strip.getSegment(4).setGeometry(24, 27); //past
         //isToHour = false;
       }
     }
@@ -143,68 +143,68 @@ public:
 
     if (minute <= 4)
     {
-      strip.setSegment(3, 0, 0);   //nothing
-      strip.setSegment(5, 0, 0);   //nothing
-      strip.setSegment(6, 0, 0);   //nothing
-      strip.setSegment(8, 60, 64); //o'clock
+      strip.getSegment(3).setGeometry(0, 0);   //nothing
+      strip.getSegment(5).setGeometry(0, 0);   //nothing
+      strip.getSegment(6).setGeometry(0, 0);   //nothing
+      strip.getSegment(8).setGeometry(60, 64); //o'clock
     }
     else if (minute <= 9)
     {
-      strip.setSegment(5, 16, 18); // five past
-      strip.setSegment(4, 24, 27); //past
+      strip.getSegment(5).setGeometry(16, 18); // five past
+      strip.getSegment(4).setGeometry(24, 27); //past
     }
     else if (minute <= 14)
     {
-      strip.setSegment(5, 6, 8);   // ten past
-      strip.setSegment(4, 24, 27); //past
+      strip.getSegment(5).setGeometry(6, 8);   // ten past
+      strip.getSegment(4).setGeometry(24, 27); //past
     }
     else if (minute <= 19)
     {
-      strip.setSegment(5, 8, 12);  // quarter past
-      strip.setSegment(3, 0, 0);   //minutes
-      strip.setSegment(4, 24, 27); //past
+      strip.getSegment(5).setGeometry(8, 12);  // quarter past
+      strip.getSegment(3).setGeometry(0, 0);   //minutes
+      strip.getSegment(4).setGeometry(24, 27); //past
     }
     else if (minute <= 24)
     {
-      strip.setSegment(5, 12, 16); // twenty past
-      strip.setSegment(4, 24, 27); //past
+      strip.getSegment(5).setGeometry(12, 16); // twenty past
+      strip.getSegment(4).setGeometry(24, 27); //past
     }
     else if (minute <= 29)
     {
-      strip.setSegment(5, 12, 18); // twenty-five past
-      strip.setSegment(4, 24, 27); //past
+      strip.getSegment(5).setGeometry(12, 18); // twenty-five past
+      strip.getSegment(4).setGeometry(24, 27); //past
     }
     else if (minute <= 34)
     {
-      strip.setSegment(5, 3, 6);   // half past
-      strip.setSegment(3, 0, 0);   //minutes
-      strip.setSegment(4, 24, 27); //past
+      strip.getSegment(5).setGeometry(3, 6);   // half past
+      strip.getSegment(3).setGeometry(0, 0);   //minutes
+      strip.getSegment(4).setGeometry(24, 27); //past
     }
     else if (minute <= 39)
     {
-      strip.setSegment(5, 12, 18); // twenty-five to
-      strip.setSegment(6, 22, 24); //to
+      strip.getSegment(5).setGeometry(12, 18); // twenty-five to
+      strip.getSegment(6).setGeometry(22, 24); //to
     }
     else if (minute <= 44)
     {
-      strip.setSegment(5, 12, 16); // twenty to
-      strip.setSegment(6, 22, 24); //to
+      strip.getSegment(5).setGeometry(12, 16); // twenty to
+      strip.getSegment(6).setGeometry(22, 24); //to
     }
     else if (minute <= 49)
     {
-      strip.setSegment(5, 8, 12);  // quarter to
-      strip.setSegment(3, 0, 0);   //minutes
-      strip.setSegment(6, 22, 24); //to
+      strip.getSegment(5).setGeometry(8, 12);  // quarter to
+      strip.getSegment(3).setGeometry(0, 0);   //minutes
+      strip.getSegment(6).setGeometry(22, 24); //to
     }
     else if (minute <= 54)
     {
-      strip.setSegment(5, 6, 8);   // ten to
-      strip.setSegment(6, 22, 24); //to
+      strip.getSegment(5).setGeometry(6, 8);   // ten to
+      strip.getSegment(6).setGeometry(22, 24); //to
     }
     else if (minute <= 59)
     {
-      strip.setSegment(5, 16, 18); // five to
-      strip.setSegment(6, 22, 24); //to
+      strip.getSegment(5).setGeometry(16, 18); // five to
+      strip.getSegment(6).setGeometry(22, 24); //to
     }
 
     //hours
@@ -220,45 +220,45 @@ public:
     switch (hour)
     {
     case 1:
-      strip.setSegment(7, 27, 29);
+      strip.getSegment(7).setGeometry(27, 29);
       break; //one
     case 2:
-      strip.setSegment(7, 35, 37);
+      strip.getSegment(7).setGeometry(35, 37);
       break; //two
     case 3:
-      strip.setSegment(7, 29, 32);
+      strip.getSegment(7).setGeometry(29, 32);
       break; //three
     case 4:
-      strip.setSegment(7, 32, 35);
+      strip.getSegment(7).setGeometry(32, 35);
       break; //four
     case 5:
-      strip.setSegment(7, 37, 40);
+      strip.getSegment(7).setGeometry(37, 40);
       break; //five
     case 6:
-      strip.setSegment(7, 43, 45);
+      strip.getSegment(7).setGeometry(43, 45);
       break; //six
     case 7:
-      strip.setSegment(7, 40, 43);
+      strip.getSegment(7).setGeometry(40, 43);
       break; //seven
     case 8:
-      strip.setSegment(7, 45, 48);
+      strip.getSegment(7).setGeometry(45, 48);
       break; //eight
     case 9:
-      strip.setSegment(7, 48, 50);
+      strip.getSegment(7).setGeometry(48, 50);
       break; //nine
     case 10:
-      strip.setSegment(7, 54, 56);
+      strip.getSegment(7).setGeometry(54, 56);
       break; //ten
     case 11:
-      strip.setSegment(7, 50, 54);
+      strip.getSegment(7).setGeometry(50, 54);
       break; //eleven
     case 12:
-      strip.setSegment(7, 56, 60);
+      strip.getSegment(7).setGeometry(56, 60);
       break; //twelve
     }
 
     selectWordSegments(true);
-    applyMacro(1);
+    applyPreset(1);
   }
 
   void timeOfDay()

@@ -259,15 +259,15 @@ void WLED::loop()
 #ifdef WLED_DEBUG
   loopMillis = millis() - loopMillis;
   if (loopMillis > 30) {
-    DEBUG_PRINTF_P(PSTR("Loop took %lums.\n"), loopMillis);
-    DEBUG_PRINTF_P(PSTR("Usermods took %lums.\n"), usermodMillis);
-    DEBUG_PRINTF_P(PSTR("Strip took %lums.\n"), stripMillis);
+    DEBUG_PRINTF_P(PSTR(" Loop took %lums.\n"),     loopMillis);
+    DEBUG_PRINTF_P(PSTR(" Usermods took %lums.\n"), usermodMillis);
+    DEBUG_PRINTF_P(PSTR(" Strip took %lums.\n"),    stripMillis);
   }
   avgLoopMillis += loopMillis;
   if (loopMillis > maxLoopMillis) maxLoopMillis = loopMillis;
   if (millis() - debugTime > 29999) {
     DEBUG_PRINTLN(F("---DEBUG INFO---"));
-    DEBUG_PRINTF_P(PSTR("Runtime: %lu\n"),  millis());
+    DEBUG_PRINTF_P(PSTR("Runtime: %lus\n"),  millis()/1000);
     DEBUG_PRINTF_P(PSTR("Unix time: %u,%03u\n"), toki.getTime().sec, toki.getTime().ms);
     DEBUG_PRINTF_P(PSTR("Free heap: %u\n"), ESP.getFreeHeap());
     #if defined(ARDUINO_ARCH_ESP32)
@@ -277,23 +277,26 @@ void WLED::loop()
     }
     DEBUG_PRINTF_P(PSTR("TX power: %d/%d\n"), WiFi.getTxPower(), txPower);
     #endif
-    DEBUG_PRINTF_P(PSTR("Wifi state: %d (channel %d, mode %d)\n"), WiFi.status(), WiFi.channel(), WiFi.getMode());
-    #ifndef WLED_DISABLE_ESPNOW
-    DEBUG_PRINTF_P(PSTR("ESP-NOW state: %u\n"), statusESPNow);
-    #endif
-
-    if (WiFi.status() != lastWifiState) {
-      wifiStateChangedTime = millis();
-    }
+    if (WiFi.status() != lastWifiState) wifiStateChangedTime = millis();
     lastWifiState = WiFi.status();
-    DEBUG_PRINTF_P(PSTR("State time: %lu\n"),        wifiStateChangedTime);
-    DEBUG_PRINTF_P(PSTR("NTP last sync: %lu\n"),     ntpLastSyncTime);
-    DEBUG_PRINTF_P(PSTR("Client IP: %u.%u.%u.%u\n"), Network.localIP()[0], Network.localIP()[1], Network.localIP()[2], Network.localIP()[3]);
+    // WL_IDLE_STATUS      = 0
+    // WL_NO_SSID_AVAIL    = 1
+    // WL_SCAN_COMPLETED   = 2
+    // WL_CONNECTED        = 3
+    // WL_CONNECT_FAILED   = 4
+    // WL_CONNECTION_LOST  = 5
+    // WL_DISCONNECTED     = 6
+    DEBUG_PRINTF_P(PSTR("Wifi state: %d (channel %d, mode %d) @ %lus\n"), lastWifiState, WiFi.channel(), WiFi.getMode(), wifiStateChangedTime/1000);
+    #ifndef WLED_DISABLE_ESPNOW
+    DEBUG_PRINTF_P(PSTR("ESP-NOW state: %u\n"),       statusESPNow);
+    #endif
+    DEBUG_PRINTF_P(PSTR("NTP last sync: %lus\n"),     ntpLastSyncTime/1000);
+    DEBUG_PRINTF_P(PSTR("Client IP: %u.%u.%u.%u\n"),  Network.localIP()[0], Network.localIP()[1], Network.localIP()[2], Network.localIP()[3]);
     if (loops > 0) { // avoid division by zero
       DEBUG_PRINTF_P(PSTR("Loops/sec: %u\n"),         loops / 30);
-      DEBUG_PRINTF_P(PSTR("Loop time[ms]: %u/%lu\n"), avgLoopMillis/loops,    maxLoopMillis);
-      DEBUG_PRINTF_P(PSTR("UM time[ms]: %u/%lu\n"),   avgUsermodMillis/loops, maxUsermodMillis);
-      DEBUG_PRINTF_P(PSTR("Strip time[ms]:%u/%lu\n"), avgStripMillis/loops,   maxStripMillis);
+      DEBUG_PRINTF_P(PSTR(" Loop time[ms]: %u/%lu\n"), avgLoopMillis/loops,    maxLoopMillis);
+      DEBUG_PRINTF_P(PSTR(" UM time[ms]: %u/%lu\n"),   avgUsermodMillis/loops, maxUsermodMillis);
+      DEBUG_PRINTF_P(PSTR(" Strip time[ms]:%u/%lu\n"), avgStripMillis/loops,   maxStripMillis);
     }
     #ifdef WLED_DEBUG_FX
     strip.printSize();
