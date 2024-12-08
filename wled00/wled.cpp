@@ -257,7 +257,8 @@ void WLED::loop()
 
 // DEBUG serial logging (every 30s)
 #ifdef WLED_DEBUG
-  loopMillis = millis() - loopMillis;
+  unsigned long now = millis();
+  loopMillis = now - loopMillis;
   if (loopMillis > 30) {
     DEBUG_PRINTF_P(PSTR(" Loop took %lums.\n"),     loopMillis);
     DEBUG_PRINTF_P(PSTR(" Usermods took %lums.\n"), usermodMillis);
@@ -265,9 +266,9 @@ void WLED::loop()
   }
   avgLoopMillis += loopMillis;
   if (loopMillis > maxLoopMillis) maxLoopMillis = loopMillis;
-  if (millis() - debugTime > 29999) {
+  if (now - debugTime > 29999) {
     DEBUG_PRINTLN(F("---DEBUG INFO---"));
-    DEBUG_PRINTF_P(PSTR("Runtime: %lus\n"),  millis()/1000);
+    DEBUG_PRINTF_P(PSTR("Runtime: %lus\n"),  now/1000);
     DEBUG_PRINTF_P(PSTR("Unix time: %u,%03u\n"), toki.getTime().sec, toki.getTime().ms);
     DEBUG_PRINTF_P(PSTR("Free heap: %u\n"), ESP.getFreeHeap());
     #if defined(ARDUINO_ARCH_ESP32)
@@ -277,7 +278,7 @@ void WLED::loop()
     }
     DEBUG_PRINTF_P(PSTR("TX power: %d/%d\n"), WiFi.getTxPower(), txPower);
     #endif
-    if (WiFi.status() != lastWifiState) wifiStateChangedTime = millis();
+    if (WiFi.status() != lastWifiState) wifiStateChangedTime = now;
     lastWifiState = WiFi.status();
     // WL_IDLE_STATUS      = 0
     // WL_NO_SSID_AVAIL    = 1
@@ -288,12 +289,12 @@ void WLED::loop()
     // WL_DISCONNECTED     = 6
     DEBUG_PRINTF_P(PSTR("Wifi state: %d (channel %d, mode %d) @ %lus\n"), lastWifiState, WiFi.channel(), WiFi.getMode(), wifiStateChangedTime/1000);
     #ifndef WLED_DISABLE_ESPNOW
-    DEBUG_PRINTF_P(PSTR("ESP-NOW state: %u\n"),       statusESPNow);
+    DEBUG_PRINTF_P(PSTR("ESP-NOW state: %u\n"),        statusESPNow);
     #endif
-    DEBUG_PRINTF_P(PSTR("NTP last sync: %lus\n"),     ntpLastSyncTime/1000);
-    DEBUG_PRINTF_P(PSTR("Client IP: %u.%u.%u.%u\n"),  Network.localIP()[0], Network.localIP()[1], Network.localIP()[2], Network.localIP()[3]);
+    DEBUG_PRINTF_P(PSTR("NTP last sync: %lus\n"),      ntpLastSyncTime/1000);
+    DEBUG_PRINTF_P(PSTR("Client IP: %u.%u.%u.%u\n"),   Network.localIP()[0], Network.localIP()[1], Network.localIP()[2], Network.localIP()[3]);
     if (loops > 0) { // avoid division by zero
-      DEBUG_PRINTF_P(PSTR("Loops/sec: %u\n"),         loops / 30);
+      DEBUG_PRINTF_P(PSTR("Loops/sec: %u\n"),          loops / 30);
       DEBUG_PRINTF_P(PSTR(" Loop time[ms]: %u/%lu\n"), avgLoopMillis/loops,    maxLoopMillis);
       DEBUG_PRINTF_P(PSTR(" UM time[ms]: %u/%lu\n"),   avgUsermodMillis/loops, maxUsermodMillis);
       DEBUG_PRINTF_P(PSTR(" Strip time[ms]:%u/%lu\n"), avgStripMillis/loops,   maxStripMillis);
@@ -308,10 +309,10 @@ void WLED::loop()
     avgLoopMillis = 0;
     avgUsermodMillis = 0;
     avgStripMillis = 0;
-    debugTime = millis();
+    debugTime = now;
   }
   loops++;
-  lastRun = millis();
+  lastRun = now;
 #endif        // WLED_DEBUG
 }
 
@@ -506,6 +507,7 @@ void WLED::setup()
   //Serial RX (Adalight, Improv, Serial JSON) only possible if GPIO3 unused
   //Serial TX (Debug, Improv, Serial JSON) only possible if GPIO1 unused
   if (serialCanRX && serialCanTX) {
+    DEBUG_PRINTLN(F("Ada"));
     Serial.println(F("Ada"));
   }
   #endif
@@ -980,7 +982,8 @@ void WLED::handleConnection()
         // wait for 3 skipped heartbeats if ESP-NOW sync is enabled
         && now > 12000 + heartbeatESPNow
         #endif
-        ) {
+        )
+      {
         if (improvActive == 2) improvActive = 3;
         DEBUG_PRINTF_P(PSTR("WiFi: Last reconnect (%lus) too old (@ %lus).\n"), lastReconnectAttempt/1000, now/1000);
         if (++selectedWiFi >= multiWiFi.size()) selectedWiFi = 0; // we couldn't connect, try with another network from the list

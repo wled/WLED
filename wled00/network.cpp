@@ -174,7 +174,7 @@ int getSignalQuality(int rssi)
 // returns configured WiFi ID with the strongest signal (or default if no configured networks available)
 int8_t findWiFi(bool doScan) {
   if (multiWiFi.size() <= 1) {
-    DEBUG_PRINTLN(F("Defaulf WiFi used."));
+    DEBUG_PRINTF_P(PSTR("WiFi: Defaulf SSID (%s) used.\r\n"), multiWiFi[0].clientSSID);
     return 0;
   }
 
@@ -183,15 +183,14 @@ int8_t findWiFi(bool doScan) {
   int status = WiFi.scanComplete(); // complete scan may take as much as several seconds (usually <6s with not very crowded air)
 
   if (status == WIFI_SCAN_FAILED) {
-    DEBUG_PRINTF_P(PSTR("WiFi: Scan started. @ %lu ms\r\n"), millis());
+    DEBUG_PRINTF_P(PSTR("WiFi: Scan started. @ %lus\r\n"), millis()/1000);
     WiFi.scanNetworks(true);  // start scanning in asynchronous mode
   } else if (status >= 0) {   // status contains number of found networks (including duplicate SSIDs with different BSSID)
-    DEBUG_PRINTF_P(PSTR("WiFi: Scan completed: %d @ %lu ms\r\n"), status, millis());
+    DEBUG_PRINTF_P(PSTR("WiFi: Found %d SSIDs. @ %lus\r\n"), status, millis()/1000);
     int rssi = -9999;
     unsigned selected = selectedWiFi;
     for (int o = 0; o < status; o++) {
-      DEBUG_PRINT(F(" WiFi available: ")); DEBUG_PRINT(WiFi.SSID(o));
-      DEBUG_PRINT(F(" RSSI: ")); DEBUG_PRINT(WiFi.RSSI(o)); DEBUG_PRINTLN(F("dB"));
+      DEBUG_PRINTF_P(PSTR(" SSID: %s RSSI: %ddB\r\n"), WiFi.SSID(o).c_str(), WiFi.RSSI(o));
       for (unsigned n = 0; n < multiWiFi.size(); n++)
         if (!strcmp(WiFi.SSID(o).c_str(), multiWiFi[n].clientSSID)) {
           // find the WiFi with the strongest signal (but keep priority of entry if signal difference is not big)
@@ -202,8 +201,7 @@ int8_t findWiFi(bool doScan) {
           break;
         }
     }
-    DEBUG_PRINT(F("Selected SSID: ")); DEBUG_PRINT(multiWiFi[selected].clientSSID);
-    DEBUG_PRINT(F(" RSSI: ")); DEBUG_PRINT(rssi); DEBUG_PRINTLN(F("dB"));
+    DEBUG_PRINTF_P(PSTR("WiFi: Selected SSID: %s RSSI: %ddB\r\n"), multiWiFi[selected].clientSSID, rssi);
     return selected;
   }
   //DEBUG_PRINT(F("WiFi scan running."));
@@ -230,6 +228,7 @@ bool isWiFiConfigured() {
   #define ARDUINO_EVENT_WIFI_STA_DISCONNECTED   SYSTEM_EVENT_STA_DISCONNECTED
   #define ARDUINO_EVENT_WIFI_AP_START           SYSTEM_EVENT_AP_START
   #define ARDUINO_EVENT_WIFI_AP_STOP            SYSTEM_EVENT_AP_STOP
+  #define ARDUINO_EVENT_WIFI_SCAN_DONE          SYSTEM_EVENT_SCAN_DONE
   #define ARDUINO_EVENT_ETH_START               SYSTEM_EVENT_ETH_START
   #define ARDUINO_EVENT_ETH_CONNECTED           SYSTEM_EVENT_ETH_CONNECTED
   #define ARDUINO_EVENT_ETH_DISCONNECTED        SYSTEM_EVENT_ETH_DISCONNECTED
@@ -248,21 +247,21 @@ void WiFiEvent(WiFiEvent_t event)
     case ARDUINO_EVENT_WIFI_AP_STACONNECTED:
       // AP client connected
       // it looks like this doesn't work as expected
-      DEBUG_PRINTLN(F("WiFi: AP Client Connected"));
+      DEBUG_PRINTF_P(PSTR("WiFi: AP Client Connected. @ %lus\r\n"), millis()/1000);
       apClients++;
       DEBUG_PRINTLN(apClients);
       break;
     case ARDUINO_EVENT_WIFI_STA_GOT_IP:
-      DEBUG_PRINTLN();
-      DEBUG_PRINT(F("IP address: ")); DEBUG_PRINTLN(Network.localIP());
+      DEBUG_PRINT(F("WiFi: IP address: ")); DEBUG_PRINTLN(Network.localIP());
       break;
     case ARDUINO_EVENT_WIFI_STA_CONNECTED:
-      DEBUG_PRINTF_P(PSTR("WiFi: Connected! @ %lu ms\r\n"), millis());
+      // followed by IDLE and SCAN_DONE
+      DEBUG_PRINTF_P(PSTR("WiFi: Connected! @ %lus\r\n"), millis()/1000);
       wasConnected = true;
       break;
     case ARDUINO_EVENT_WIFI_STA_DISCONNECTED:
       if (wasConnected && interfacesInited) {
-        DEBUG_PRINTLN(F("WiFi: Disconnected"));
+        DEBUG_PRINTF_P(PSTR("WiFi: Disconnected. @ %lus\r\n"), millis()/1000);
         if (interfacesInited && WiFi.scanComplete() >= 0) {
           findWiFi(true); // reinit WiFi scan
           forceReconnect = true;
@@ -271,6 +270,10 @@ void WiFiEvent(WiFiEvent_t event)
       }
       break;
   #ifdef ARDUINO_ARCH_ESP32
+    case ARDUINO_EVENT_WIFI_SCAN_DONE:
+      // also triggered when connected to selected SSID
+      DEBUG_PRINTLN(F("WiFi: SSID scan completed."));
+      break;
     case ARDUINO_EVENT_WIFI_AP_START:
       DEBUG_PRINTLN(F("WiFi: AP Started"));
       break;
