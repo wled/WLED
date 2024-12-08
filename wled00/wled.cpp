@@ -259,15 +259,15 @@ void WLED::loop()
 #ifdef WLED_DEBUG
   loopMillis = millis() - loopMillis;
   if (loopMillis > 30) {
-    DEBUG_PRINTF_P(PSTR("Loop took %lums.\n"), loopMillis);
-    DEBUG_PRINTF_P(PSTR("Usermods took %lums.\n"), usermodMillis);
-    DEBUG_PRINTF_P(PSTR("Strip took %lums.\n"), stripMillis);
+    DEBUG_PRINTF_P(PSTR(" Loop took %lums.\n"),     loopMillis);
+    DEBUG_PRINTF_P(PSTR(" Usermods took %lums.\n"), usermodMillis);
+    DEBUG_PRINTF_P(PSTR(" Strip took %lums.\n"),    stripMillis);
   }
   avgLoopMillis += loopMillis;
   if (loopMillis > maxLoopMillis) maxLoopMillis = loopMillis;
   if (millis() - debugTime > 29999) {
     DEBUG_PRINTLN(F("---DEBUG INFO---"));
-    DEBUG_PRINTF_P(PSTR("Runtime: %lu\n"),  millis());
+    DEBUG_PRINTF_P(PSTR("Runtime: %lus\n"),  millis()/1000);
     DEBUG_PRINTF_P(PSTR("Unix time: %u,%03u\n"), toki.getTime().sec, toki.getTime().ms);
     DEBUG_PRINTF_P(PSTR("Free heap: %u\n"), ESP.getFreeHeap());
     #if defined(ARDUINO_ARCH_ESP32)
@@ -277,23 +277,26 @@ void WLED::loop()
     }
     DEBUG_PRINTF_P(PSTR("TX power: %d/%d\n"), WiFi.getTxPower(), txPower);
     #endif
-    DEBUG_PRINTF_P(PSTR("Wifi state: %d\n"), WiFi.status());
-    #ifndef WLED_DISABLE_ESPNOW
-    DEBUG_PRINTF_P(PSTR("ESP-NOW state: %u\n"), statusESPNow);
-    #endif
-
-    if (WiFi.status() != lastWifiState) {
-      wifiStateChangedTime = millis();
-    }
+    if (WiFi.status() != lastWifiState) wifiStateChangedTime = millis();
     lastWifiState = WiFi.status();
-    DEBUG_PRINTF_P(PSTR("State time: %lu\n"),        wifiStateChangedTime);
-    DEBUG_PRINTF_P(PSTR("NTP last sync: %lu\n"),     ntpLastSyncTime);
-    DEBUG_PRINTF_P(PSTR("Client IP: %u.%u.%u.%u\n"), Network.localIP()[0], Network.localIP()[1], Network.localIP()[2], Network.localIP()[3]);
+    // WL_IDLE_STATUS      = 0
+    // WL_NO_SSID_AVAIL    = 1
+    // WL_SCAN_COMPLETED   = 2
+    // WL_CONNECTED        = 3
+    // WL_CONNECT_FAILED   = 4
+    // WL_CONNECTION_LOST  = 5
+    // WL_DISCONNECTED     = 6
+    DEBUG_PRINTF_P(PSTR("Wifi state: %d @ %lus\n"),   lastWifiState, wifiStateChangedTime/1000);
+    #ifndef WLED_DISABLE_ESPNOW
+    DEBUG_PRINTF_P(PSTR("ESP-NOW state: %u\n"),       statusESPNow);
+    #endif
+    DEBUG_PRINTF_P(PSTR("NTP last sync: %lus\n"),     ntpLastSyncTime/1000);
+    DEBUG_PRINTF_P(PSTR("Client IP: %u.%u.%u.%u\n"),  Network.localIP()[0], Network.localIP()[1], Network.localIP()[2], Network.localIP()[3]);
     if (loops > 0) { // avoid division by zero
       DEBUG_PRINTF_P(PSTR("Loops/sec: %u\n"),         loops / 30);
-      DEBUG_PRINTF_P(PSTR("Loop time[ms]: %u/%lu\n"), avgLoopMillis/loops,    maxLoopMillis);
-      DEBUG_PRINTF_P(PSTR("UM time[ms]: %u/%lu\n"),   avgUsermodMillis/loops, maxUsermodMillis);
-      DEBUG_PRINTF_P(PSTR("Strip time[ms]:%u/%lu\n"), avgStripMillis/loops,   maxStripMillis);
+      DEBUG_PRINTF_P(PSTR(" Loop time[ms]: %u/%lu\n"), avgLoopMillis/loops,    maxLoopMillis);
+      DEBUG_PRINTF_P(PSTR(" UM time[ms]: %u/%lu\n"),   avgUsermodMillis/loops, maxUsermodMillis);
+      DEBUG_PRINTF_P(PSTR(" Strip time[ms]:%u/%lu\n"), avgStripMillis/loops,   maxStripMillis);
     }
     #ifdef WLED_DEBUG_FX
     strip.printSize();
@@ -921,10 +924,9 @@ void WLED::initInterfaces()
 
 void WLED::handleConnection()
 {
-  static bool scanDone = true;
+  static bool scanDone = true;  // can be determined by: WiFi.status() == WL_SCAN_COMPLETED || WiFi.status() == WL_CONNECTED
   static byte stacO = 0;
   const unsigned long now = millis();
-  const unsigned long nowS = now/1000;
   const bool wifiConfigured = WLED_WIFI_CONFIGURED;
 
   // ignore connection handling if WiFi is configured and scan still running
@@ -933,7 +935,7 @@ void WLED::handleConnection()
     return;
 
   if (lastReconnectAttempt == 0 || forceReconnect) {
-    DEBUG_PRINTF_P(PSTR("Initial connect or forced reconnect (@ %lus).\n"), nowS);
+    DEBUG_PRINTF_P(PSTR("Initial connect or forced reconnect (@ %lus).\n"), now/1000);
     selectedWiFi = findWiFi(); // find strongest WiFi
     initConnection();
     interfacesInited = false;
@@ -942,7 +944,7 @@ void WLED::handleConnection()
     return;
   }
 
-  byte stac = 0;
+  unsigned stac = 0;
   if (apActive) {
 #ifdef ESP8266
     stac = wifi_softap_get_station_num();
@@ -953,7 +955,7 @@ void WLED::handleConnection()
 #endif
     if (stac != stacO) {
       stacO = stac;
-      DEBUG_PRINTF_P(PSTR("Connected AP clients: %d\n"), (int)stac);
+      DEBUG_PRINTF_P(PSTR("Connected AP clients: %u\n"), stac);
       if (!WLED_CONNECTED && wifiConfigured) {        // trying to connect, but not connected
         if (stac)
           WiFi.disconnect();        // disable search so that AP can work
@@ -969,14 +971,14 @@ void WLED::handleConnection()
         DEBUG_PRINTLN(F("WiFi scan initiated on disconnect."));
         findWiFi(true); // reinit scan
         scanDone = false;
-        return;         // try to connect in next iteration
+      } else {
+        DEBUG_PRINTLN(F("Disconnected!"));
+        selectedWiFi = findWiFi();
+        initConnection();
+        interfacesInited = false;
+        scanDone = true;
       }
-      DEBUG_PRINTLN(F("Disconnected!"));
-      selectedWiFi = findWiFi();
-      initConnection();
-      interfacesInited = false;
-      scanDone = true;
-      return;
+      return;         // try to connect in next iteration
     }
     //send improv failed 6 seconds after second init attempt (24 sec. after provisioning)
     if (improvActive > 2 && now - lastReconnectAttempt > 6000) {
@@ -985,13 +987,13 @@ void WLED::handleConnection()
     }
     if (now - lastReconnectAttempt > ((stac) ? 300000 : 18000) && wifiConfigured) {
       if (improvActive == 2) improvActive = 3;
-      DEBUG_PRINTF_P(PSTR("Last reconnect (%lus) too old (@ %lus).\n"), lastReconnectAttempt/1000, nowS);
+      DEBUG_PRINTF_P(PSTR("Last reconnect (%lus) too old (@ %lus).\n"), lastReconnectAttempt/1000, now/1000);
       if (++selectedWiFi >= multiWiFi.size()) selectedWiFi = 0; // we couldn't connect, try with another network from the list
       initConnection();
     }
     if (!apActive && now - lastReconnectAttempt > 12000 && (!wasConnected || apBehavior == AP_BEHAVIOR_NO_CONN)) {
       if (!(apBehavior == AP_BEHAVIOR_TEMPORARY && now > WLED_AP_TIMEOUT)) {
-        DEBUG_PRINTF_P(PSTR("Not connected AP (@ %lus).\n"), nowS);
+        DEBUG_PRINTF_P(PSTR("Not connected AP (@ %lus).\n"), now/1000);
         initAP();  // start AP only within first 5min
       }
     }
@@ -1001,7 +1003,7 @@ void WLED::handleConnection()
         dnsServer.stop();
         WiFi.softAPdisconnect(true);
         apActive = false;
-        DEBUG_PRINTF_P(PSTR("Temporary AP disabled (@ %lus).\n"), nowS);
+        DEBUG_PRINTF_P(PSTR("Temporary AP disabled (@ %lus).\n"), now/1000);
       }
     }
   } else if (!interfacesInited) { //newly connected
