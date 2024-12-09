@@ -189,6 +189,9 @@ class UsermodVisualRemote : public Usermod {
     }
 
   void StartDisplayEffectIndicator(uint8_t effectIndex) {
+    effectCurrent = USERMOD_ID_BIERTJE;
+
+    colorUpdated(CALL_MODE_FX_CHANGED);
       // Set the timestamp and flag
     lastTime = millis();
     isDisplayingEffectIndicator = true;
@@ -306,6 +309,9 @@ class UsermodVisualRemote : public Usermod {
 
     void handleOverlayDraw() {
       if (isDisplayingEffectIndicator) {
+            strip.setColor(0, 0, 0, 0);
+        stateUpdated(CALL_MODE_DIRECT_CHANGE);
+
         Pattern* pattern = getPatternById(currentEffectIndex);
         if (pattern == nullptr) {
           Serial.printf("Pattern with ID %d not found\n", currentEffectIndex);
