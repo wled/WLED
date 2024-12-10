@@ -186,7 +186,6 @@ class AudioSource {
     bool _i2sMaster;                // when false, ESP32 will be in I2S SLAVE mode (for devices that only operate in MASTER mode). Only works in newer IDF >= 4.4.x
     float _sampleScale;             // pre-scaling factor for I2S samples
     I2S_datatype newSampleBuffer[I2S_SAMPLES_MAX+4] = { 0 }; // global buffer for i2s_read
-    I2S_datatype newSampleBuffer4x[(I2S_SAMPLES_MAX*4)+4] = { 0 }; // global buffer for i2s_read
 };
 
 /* Basic I2S microphone source
@@ -195,12 +194,12 @@ class AudioSource {
 */
 class I2SSource : public AudioSource {
   public:
-    I2SSource(SRate_t sampleRate, int blockSize, float sampleScale = 1.0f, bool i2sMaster=false) :
+    I2SSource(SRate_t sampleRate, int blockSize, float sampleScale = 1.0f, bool i2sMaster=true) :
       AudioSource(sampleRate, blockSize, sampleScale, i2sMaster) {
       _config = {
         .mode = i2sMaster ? i2s_mode_t(I2S_MODE_MASTER | I2S_MODE_RX) : i2s_mode_t(I2S_MODE_SLAVE | I2S_MODE_RX),
-        .sample_rate = _sampleRate, // slave mode: may help to set this to 96000, as the other side (master) controls sample rates
-        .bits_per_sample = I2S_SAMPLE_RESOLUTION,  
+        .sample_rate = _sampleRate,
+        .bits_per_sample = I2S_SAMPLE_RESOLUTION,  // slave mode: may help to set this to 96000, as the other side (master) controls sample rates
         .channel_format = I2S_MIC_CHANNEL,
 #if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(4, 2, 0)
         .communication_format = i2s_comm_format_t(I2S_COMM_FORMAT_STAND_I2S),
@@ -395,8 +394,6 @@ class I2SSource : public AudioSource {
 
         memset(buffer, 0, sizeof(float) * num_samples);  // clear output buffer
         I2S_datatype *newSamples = newSampleBuffer; // use global input buffer
-        I2S_datatype *newSamples_buff = newSampleBuffer4x; // use oversampling global input buffer
-
         if (num_samples > I2S_SAMPLES_MAX) num_samples = I2S_SAMPLES_MAX; // protect the buffer from overflow
 
         err = i2s_read(AR_I2S_PORT, (void *)newSamples, num_samples * sizeof(I2S_datatype), &bytes_read, portMAX_DELAY);
@@ -409,15 +406,6 @@ class I2SSource : public AudioSource {
         if (bytes_read != (num_samples * sizeof(I2S_datatype))) {
           DEBUGSR_PRINTF("Failed to get enough samples: wanted: %d read: %d\n", num_samples * sizeof(I2S_datatype), bytes_read);
           return;
-        }
-
-        if (_sampleRate == 96000) {
-          int current = 0;
-          for (int i = 0; i < 2048; i += 4) {
-            newSamples[current] = newSamples_buff[i];
-            current++;
-          }
-          num_samples /= 4; // back to 512 samples
         }
 
         // Store samples in sample buffer and update DC offset
