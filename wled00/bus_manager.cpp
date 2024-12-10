@@ -102,7 +102,7 @@ uint8_t IRAM_ATTR ColorOrderMap::getPixelColorOrder(uint16_t pix, uint8_t defaul
   uint8_t swapW = defaultColorOrder >> 4;
   for (uint8_t i = 0; i < _count; i++) {
     if (pix >= _mappings[i].start && pix < (_mappings[i].start + _mappings[i].len)) {
-      return _mappings[i].colorOrder | (swapW << 4);
+      return _mappings[i].colorOrder | (swapW << 4); // WLED-MM/TroyHacks: Disabling this disables color order mapping.
     }
   }
   return defaultColorOrder;
@@ -201,6 +201,10 @@ void IRAM_ATTR BusDigital::setPixelColor(uint16_t pix, uint32_t c) {
       case 1: c = RGBW32(W(c)   , G(cOld), B(cOld), 0); break;
       case 2: c = RGBW32(R(cOld), G(cOld), W(c)   , 0); break;
     }
+  }
+  if (_colorOrder != co) {
+    c = RGBW32(dim8_lin(R(c)), dim8_lin(G(c)), dim8_lin(B(c)), 0); // WLED-MM/TroyHacks - remap pixels not in the default color order
+    co = _colorOrder; // keep the original color order, as this is a hack. :)
   }
   PolyBus::setPixelColor(_busPtr, _iType, pix, c, co);
 }
