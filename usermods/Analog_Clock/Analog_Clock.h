@@ -102,9 +102,9 @@ private:
 
     void secondsEffectSineFade(int16_t secondLed, Toki::Time const& time) {
         uint32_t ms = time.ms % 1000;
-        uint8_t b0 = (cos8(ms * 64 / 1000) - 128) * 2;
+        uint8_t b0 = (cos8_t(ms * 64 / 1000) - 128) * 2;
         setPixelColor(secondLed, gamma32(scale32(secondColor, b0)));
-        uint8_t b1 = (sin8(ms * 64 / 1000) - 128) * 2;
+        uint8_t b1 = (sin8_t(ms * 64 / 1000) - 128) * 2;
         setPixelColor(inc(secondLed, 1, secondsSegment), gamma32(scale32(secondColor, b1)));
     }
 

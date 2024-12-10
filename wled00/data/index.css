@@ -352,7 +352,7 @@ button {
 
 #putil, #segutil, #segutil2 {
 	min-height: 42px;
-	margin: 13px auto 0;
+	margin: 0 auto;
 }
 
 #segutil .segin {
@@ -1041,7 +1041,7 @@ textarea {
 
 .segname .flr, .pname .flr {
 	transform: rotate(0deg);
-	right: -6px;
+	right: 4px;
 }
 
 /* segment power wrapper */
@@ -1329,6 +1329,11 @@ TD .checkmark, TD .radiomark {
 .lstI.selected {
 	z-index: 1;
 	box-shadow: 0px 0px 10px 4px var(--c-1);
+}
+
+.lstI .flr:hover {
+    background: var(--c-6);
+    border-radius: 100%;
 }
 
 #pcont .selected:not([class*="expanded"]) {

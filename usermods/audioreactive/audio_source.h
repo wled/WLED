@@ -6,16 +6,7 @@
    @repo      https://github.com/MoonModules/WLED, submit changes to this file as PRs to MoonModules/WLED
    @Authors   https://github.com/MoonModules/WLED/commits/mdev/
    @Copyright © 2024 Github MoonModules Commit Authors (contact moonmodules@icloud.com for details)
-   @license   GNU GENERAL PUBLIC LICENSE Version 3, 29 June 2007
-
-     This file is part of the MoonModules WLED fork also known as "WLED-MM".
-     WLED-MM is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License 
-     as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
-
-     WLED-MM is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied 
-     warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
-     
-     You should have received a copy of the GNU General Public License along with WLED-MM. If not, see <https://www.gnu.org/licenses/>.
+   @license   Licensed under the EUPL-1.2 or later
 
 */
 
@@ -36,6 +27,9 @@
 #else
 #define SRate_t int
 #endif
+
+constexpr i2s_port_t AR_I2S_PORT = I2S_NUM_0;       // I2S port to use (do not change!  I2S_NUM_1 possible but this has 
+                                                    // strong limitations -> no MCLK routing, no ADC support, no PDM support
 
 //#include <driver/i2s_std.h>
 //#include <driver/i2s_pdm.h>
@@ -70,6 +64,11 @@
 
 // data type requested from the I2S driver - currently we always use 32bit
 //#define I2S_USE_16BIT_SAMPLES   // (experimental) define this to request 16bit - more efficient but possibly less compatible
+
+#if defined(WLED_ENABLE_HUB75MATRIX) && defined(CONFIG_IDF_TARGET_ESP32)
+  // this is bitter, but necessary to survive
+  #define I2S_USE_16BIT_SAMPLES
+#endif
 
 #ifdef I2S_USE_16BIT_SAMPLES
 #define I2S_SAMPLE_RESOLUTION I2S_BITS_PER_SAMPLE_16BIT
@@ -207,14 +206,23 @@ class I2SSource : public AudioSource {
         .communication_format = i2s_comm_format_t(I2S_COMM_FORMAT_STAND_I2S),
         //.intr_alloc_flags = ESP_INTR_FLAG_LEVEL1,
 #ifdef WLEDMM_FASTPATH
+  #ifdef WLED_ENABLE_HUB75MATRIX
+        .intr_alloc_flags = ESP_INTR_FLAG_IRAM|ESP_INTR_FLAG_LEVEL1,    // HUB75 seems to get into trouble if we allocate a higher priority interrupt
+        .dma_buf_count = 18,                                            // 100ms buffer (128 * dma_buf_count / sampleRate)
+  #else
       #if CONFIG_IDF_TARGET_ESP32 && !defined(BOARD_HAS_PSRAM)          // still need to test on boards with PSRAM
         .intr_alloc_flags = ESP_INTR_FLAG_IRAM|ESP_INTR_FLAG_LEVEL2|ESP_INTR_FLAG_LEVEL3,  // IRAM flag reduces missed samples
       #else
         .intr_alloc_flags = ESP_INTR_FLAG_LEVEL2|ESP_INTR_FLAG_LEVEL3,  // seems to reduce noise
       #endif
         .dma_buf_count = 24,                                            // 140ms buffer (128 * dma_buf_count / sampleRate)
+  #endif
 #else
+  #ifdef WLED_ENABLE_HUB75MATRIX
+        .intr_alloc_flags = ESP_INTR_FLAG_LEVEL1,                      // HUB75 seems to get into trouble if we allocate a higher priority interrupt
+  #else
         .intr_alloc_flags = ESP_INTR_FLAG_LEVEL2,
+  #endif
         .dma_buf_count = 8,
 #endif
         .dma_buf_len = _blockSize,
@@ -291,6 +299,9 @@ class I2SSource : public AudioSource {
       #if defined(ARDUINO_ARCH_ESP32) && !defined(CONFIG_IDF_TARGET_ESP32S3) && !defined(CONFIG_IDF_TARGET_ESP32S2) && !defined(CONFIG_IDF_TARGET_ESP32C3)
       if (ESP.getChipRevision() == 0) _config.use_apll = false; // APLL is broken on ESP32 revision 0
       #endif
+      #if defined(WLED_ENABLE_HUB75MATRIX)
+        _config.use_apll = false; // APLL needed for HUB75 DMA driver ?
+      #endif
 #endif
 
       if (_i2sMaster == false) {
@@ -327,7 +338,7 @@ class I2SSource : public AudioSource {
 
       //DEBUGSR_PRINTF("[AR] I2S: SD=%d, WS=%d, SCK=%d, MCLK=%d\n", i2ssdPin, i2swsPin, i2sckPin, mclkPin);
 
-      esp_err_t err = i2s_driver_install(I2S_NUM_0, &_config, 0, nullptr);
+      esp_err_t err = i2s_driver_install(AR_I2S_PORT, &_config, 0, nullptr);
       if (err != ESP_OK) {
         ERRORSR_PRINTF("AR: Failed to install i2s driver: %d\n", err);
         return;
@@ -345,18 +356,18 @@ class I2SSource : public AudioSource {
         DEBUGSR_PRINTLN(F("AR: I2S#0 driver installed in SLAVE mode."));
       }
 
-      err = i2s_set_pin(I2S_NUM_0, &_pinConfig);
+      err = i2s_set_pin(AR_I2S_PORT, &_pinConfig);
       if (err != ESP_OK) {
         ERRORSR_PRINTF("AR: Failed to set i2s pin config: %d\n", err);
-        i2s_driver_uninstall(I2S_NUM_0);  // uninstall already-installed driver
+        i2s_driver_uninstall(AR_I2S_PORT);  // uninstall already-installed driver
         return;
       }
 
 #if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(4, 2, 0)
-      err = i2s_set_clk(I2S_NUM_0, _sampleRate, I2S_SAMPLE_RESOLUTION, I2S_CHANNEL_MONO);  // set bit clocks. Also takes care of MCLK routing if needed.
+      err = i2s_set_clk(AR_I2S_PORT, _sampleRate, I2S_SAMPLE_RESOLUTION, I2S_CHANNEL_MONO);  // set bit clocks. Also takes care of MCLK routing if needed.
       if (err != ESP_OK) {
         ERRORSR_PRINTF("AR: Failed to configure i2s clocks: %d\n", err);
-        i2s_driver_uninstall(I2S_NUM_0);  // uninstall already-installed driver
+        i2s_driver_uninstall(AR_I2S_PORT);  // uninstall already-installed driver
         return;
       }
 #endif
@@ -365,7 +376,7 @@ class I2SSource : public AudioSource {
 
     virtual void deinitialize() {
       _initialized = false;
-      esp_err_t err = i2s_driver_uninstall(I2S_NUM_0);
+      esp_err_t err = i2s_driver_uninstall(AR_I2S_PORT);
       if (err != ESP_OK) {
         DEBUGSR_PRINTF("Failed to uninstall i2s driver: %d\n", err);
         return;
@@ -388,13 +399,7 @@ class I2SSource : public AudioSource {
 
         if (num_samples > I2S_SAMPLES_MAX) num_samples = I2S_SAMPLES_MAX; // protect the buffer from overflow
 
-        if (_sampleRate == 96000) {  
-          num_samples *= 4;
-          err = i2s_read(I2S_NUM_0, (void *)newSamples_buff, num_samples * sizeof(I2S_datatype), &bytes_read, portMAX_DELAY);
-        } else {
-          err = i2s_read(I2S_NUM_0, (void *)newSamples, num_samples * sizeof(I2S_datatype), &bytes_read, portMAX_DELAY);
-        }
-
+        err = i2s_read(AR_I2S_PORT, (void *)newSamples, num_samples * sizeof(I2S_datatype), &bytes_read, portMAX_DELAY);
         if (err != ESP_OK) {
           DEBUGSR_PRINTF("Failed to get samples: %d\n", err);
           return;
@@ -649,6 +654,106 @@ class ES8388Source : public I2SSource {
 
       // First route mclk, then configure ADC over I2C, then configure I2S
       _es8388InitAdc();
+      I2SSource::initialize(i2swsPin, i2ssdPin, i2sckPin, mclkPin);
+    }
+
+    void deinitialize() {
+      I2SSource::deinitialize();
+    }
+
+};
+
+/* ES8311 Sound Module
+   This is an I2S sound processing unit that requires initialization over
+   I2C before I2S data can be received. 
+*/
+class ES8311Source : public I2SSource {
+  private:
+    // I2C initialization functions for es8311
+    void _es8311I2cBegin() {
+      Wire.setClock(100000);
+    }
+
+    void _es8311I2cWrite(uint8_t reg, uint8_t val) {
+      #ifndef ES8311_ADDR
+        #define ES8311_ADDR 0x18   // default address is... foggy
+      #endif
+      Wire.beginTransmission(ES8311_ADDR);
+      Wire.write((uint8_t)reg);
+      Wire.write((uint8_t)val);
+      uint8_t i2cErr = Wire.endTransmission();  // i2cErr == 0 means OK
+      if (i2cErr != 0) {
+        DEBUGSR_PRINTF("AR: ES8311 I2C write failed with error=%d  (addr=0x%X, reg 0x%X, val 0x%X).\n", i2cErr, ES8311_ADDR, reg, val);
+      }
+    }
+
+    void _es8311InitAdc() {
+      // 
+      // Currently only tested with the ESP32-P4 EV board with the onboard mic.
+      // Datasheet with I2C commands: https://dl.xkwy2018.com/downloads/RK3588/01_Official%20Release/04_Product%20Line%20Branch_NVR/02_Key%20Device%20Specifications/ES8311%20DS.pdf
+      //
+      _es8311I2cBegin(); 
+      _es8311I2cWrite(0x00, 0b00011111); // RESET, default value
+      _es8311I2cWrite(0x45, 0b00000000); // GP, default value
+      _es8311I2cWrite(0x01, 0b00111010); // CLOCK MANAGER was 0b00110000 trying 0b00111010 (MCLK enable?)
+
+      _es8311I2cWrite(0x02, 0b00000000); // 22050hz calculated
+      _es8311I2cWrite(0x05, 0b00000000); // 22050hz calculated
+      _es8311I2cWrite(0x03, 0b00010000); // 22050hz calculated
+      _es8311I2cWrite(0x04, 0b00010000); // 22050hz calculated
+      _es8311I2cWrite(0x07, 0b00000000); // 22050hz calculated
+      _es8311I2cWrite(0x08, 0b11111111); // 22050hz calculated
+      _es8311I2cWrite(0x06, 0b11100011); // 22050hz calculated
+
+      _es8311I2cWrite(0x16, 0b00100000); // ADC was 0b00000011 trying 0b00100100 now 
+      _es8311I2cWrite(0x0B, 0b00000000); // SYSTEM at default
+      _es8311I2cWrite(0x0C, 0b00100000); // SYSTEM was 0b00001111 trying 0b00100000
+      _es8311I2cWrite(0x10, 0b00010011); // SYSTEM was 0b00011111 trying 0b00010011
+      _es8311I2cWrite(0x11, 0b01111100); // SYSTEM was 0b01111111 trying 0b01111100
+      _es8311I2cWrite(0x00, 0b11000000); // *** RESET (again - seems important?)
+      _es8311I2cWrite(0x01, 0b00111010); // CLOCK MANAGER was 0b00111111 trying 0b00111010 (again??)
+      _es8311I2cWrite(0x14, 0b00010000); // *** SYSTEM was 0b00011010 trying 0b00010000 (or 0b01111010) (PGA gain)
+      _es8311I2cWrite(0x12, 0b00000000); // SYSTEM - DAC, likely don't care
+      _es8311I2cWrite(0x13, 0b00010000); // SYSTEM - output, likely don't cate
+      _es8311I2cWrite(0x09, 0b00001000); // SDP IN (likely don't care) was 0b00001100 (16-bit) - changed to 0b00001000 (I2S 32-bit)
+      _es8311I2cWrite(0x0A, 0b00001000); // *** SDP OUT, was 0b00001100 trying 0b00001000 (I2S 32-bit)
+      _es8311I2cWrite(0x0E, 0b00000010); // *** SYSTEM was 0b00000010 trying 0b00011010 (seems best so far!) (or 0b00000010)
+      _es8311I2cWrite(0x0F, 0b01000100); // SYSTEM was 0b01000100
+      _es8311I2cWrite(0x15, 0b00000000); // ADC soft ramp (disabled)
+      _es8311I2cWrite(0x1B, 0b00000101); // ADC soft-mute was 0b00000101
+      _es8311I2cWrite(0x1C, 0b01100101); // ADC EQ and offset freeze was 0b01100101 (bad at 0b00101100)
+      _es8311I2cWrite(0x17, 0b10111111); // ADC volume was 0b11111111 trying ADC volume 0b10111111 = 0db (maxgain) 0x16
+      _es8311I2cWrite(0x44, 0b00000000); // 0b10000000 - loopback test. on: 0x88; off: 0x00; mic--" speak
+
+    }
+
+  public:
+    ES8311Source(SRate_t sampleRate, int blockSize, float sampleScale = 1.0f, bool i2sMaster=true) :
+      I2SSource(sampleRate, blockSize, sampleScale, i2sMaster) {
+      _config.channel_format = I2S_CHANNEL_FMT_ONLY_LEFT;
+    };
+
+    void initialize(int8_t i2swsPin, int8_t i2ssdPin, int8_t i2sckPin, int8_t mclkPin) {
+      DEBUGSR_PRINTLN("es8311Source:: initialize();");
+
+      // if ((i2sckPin < 0) || (mclkPin < 0)) { // WLEDMM not sure if this check is needed here, too
+      //    ERRORSR_PRINTF("\nAR: invalid I2S es8311 pin: SCK=%d, MCLK=%d\n", i2sckPin, mclkPin); 
+      //    return;
+      // }
+      // BUG: "use global I2C pins" are valid as -1, and -1 is seen as invalid here.
+      // Workaround: Set I2C pins here, which will also set them globally.
+      // Bug also exists in ES7243.
+       if ((i2c_sda < 0) || (i2c_scl < 0)) {  // check that global I2C pins are not "undefined"
+        ERRORSR_PRINTF("\nAR: invalid es8311 global I2C pins: SDA=%d, SCL=%d\n", i2c_sda, i2c_scl); 
+        return;
+      }
+      if (!pinManager.joinWire(i2c_sda, i2c_scl)) {    // WLEDMM specific: start I2C with globally defined pins
+        ERRORSR_PRINTF("\nAR: failed to join I2C bus with SDA=%d, SCL=%d\n", i2c_sda, i2c_scl); 
+        return;
+      }
+
+      // First route mclk, then configure ADC over I2C, then configure I2S
+      _es8311InitAdc();
       I2SSource::initialize(i2swsPin, i2ssdPin, i2sckPin, mclkPin);
     }
 
@@ -1074,8 +1179,8 @@ class SPH0654 : public I2SSource {
       I2SSource::initialize(i2swsPin, i2ssdPin, i2sckPin);
 #if !defined(CONFIG_IDF_TARGET_ESP32S2) && !defined(CONFIG_IDF_TARGET_ESP32C3) && !defined(CONFIG_IDF_TARGET_ESP32S3)
 // these registers are only existing in "classic" ESP32
-      REG_SET_BIT(I2S_TIMING_REG(I2S_NUM_0), BIT(9));
-      REG_SET_BIT(I2S_CONF_REG(I2S_NUM_0), I2S_RX_MSB_SHIFT);
+      REG_SET_BIT(I2S_TIMING_REG(AR_I2S_PORT), BIT(9));
+      REG_SET_BIT(I2S_CONF_REG(AR_I2S_PORT), I2S_RX_MSB_SHIFT);
 #else
       #warning FIX ME! Please.
 #endif

@@ -717,7 +717,7 @@ ${i.psram?inforow("PSRAM ☾",((i.tpram-i.psram)/1024).toFixed(0)+"/"+(i.tpram/1
 ${i.psusedram?inforow("Max used PSRAM ☾",((i.tpram-i.psusedram)/1024).toFixed(0)+" kB",", "+((i.tpram-i.psusedram)*100.0/i.tpram).toFixed(1)+"%"):""} 
 ${i.freestack?inforow("Free stack ☾",(i.freestack/1000).toFixed(3)," kB"):""} <!--WLEDMM-->
 <tr><td colspan=2><hr style="height:1px;border-width:0;color:SeaGreen;background-color:SeaGreen"></td></tr>
-${i.tpram?inforow("PSRAM " + (i.psrmode?"("+i.psrmode+" mode) ":"") + " ☾",(i.tpram/1024/1024).toFixed(0)," MB"):""}
+${i.tpram?inforow("PSRAM " + (i.psrmode?"("+i.psrmode+" mode) ":"") + " ☾",(i.tpram/1024/1024).toFixed(0)," MB"):inforow("NO PSRAM found.", "")}
 ${i.e32flash?inforow("Flash mode "+i.e32flashmode+i.e32flashtext + " ☾",i.e32flash+" MB, "+i.e32flashspeed," Mhz"):""}
 ${i.e32model?inforow(i.e32model + " ☾",i.e32cores +" core(s),"," "+i.e32speed+" Mhz"):""}
 ${inforow("Environment",i.arch + " " + i.core + " (" + i.lwip + ")")}
@@ -2011,8 +2011,20 @@ function readState(s,command=false)
 		case 37:
 			errstr = "no memory for LEDs buffer.";
 		  break;
+		case 90:
+			errstr = "Unexpected Restart. Check serial monitor.";
+		  break;
+		case 91:
+			errstr = "Brownout Restart.";
+		  break;
+		case 98:
+			errstr = "Please reboot WLED to activate changed settings.";
+		  break;
+		case 99:
+			errstr = "Please switch your device off and back on.";
+		  break;
 		}
-	  showToast('Error ' + s.error + ": " + errstr, true);
+	  showToast(((s.error < 33)?'Error ':'Warning ') + s.error + ": " + errstr, (s.error < 35)||(s.error > 90));
 	}
 
 	selectedPal = i.pal;
@@ -2357,7 +2369,7 @@ function makeSeg()
 	});
 	var cn = `<div class="seg lstI expanded">`+
 		`<div class="segin">`+
-			`<input type="text" id="seg${lu}t" autocomplete="off" maxlength=32 value="" placeholder="New segment ${lu}"/>`+
+			`<input class="ptxt show" type="text" id="seg${lu}t" autocomplete="off" maxlength=32 value="" placeholder="New segment ${lu}"/>`+
 			`<table class="segt">`+
 				`<tr>`+
 					`<td width="38%">${isM?'Start X':'Start LED'}</td>`+
@@ -2383,7 +2395,7 @@ function makeSeg()
 
 function resetUtil(off=false)
 {
-	gId('segutil').innerHTML = `<div class="seg btn btn-s${off?' off':''}" style="padding:0;">`
+	gId('segutil').innerHTML = `<div class="seg btn btn-s${off?' off':''}" style="padding:0;margin-bottom:12px;">`
 	+ '<label class="check schkl"><input type="checkbox" id="selall" onchange="selSegAll(this)"><span class="checkmark"></span></label>'
 	+ `<div class="segname" ${off?'':'onclick="makeSeg()"'}><i class="icons btn-icon">&#xe18a;</i>Add segment</div>`
 	+ '<div class="pop hide" onclick="event.stopPropagation();">'

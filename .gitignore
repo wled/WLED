@@ -13,7 +13,10 @@ esp01-update.sh
 platformio_override.ini
 replace_fs.py
 wled-update.sh
+qodana.yaml
+compile_commands.json
 
+/build/
 /build_output/
 /node_modules/
 

@@ -10,9 +10,11 @@ static volatile unsigned long wsLastLiveTime = 0;   // WLEDMM
 //uint8_t* wsFrameBuffer = nullptr;
 
 #if !defined(ARDUINO_ARCH_ESP32) || defined(WLEDMM_FASTPATH)   // WLEDMM
-#define WS_LIVE_INTERVAL 120
+#define WS_LIVE_INTERVAL_MAX 120
+#define WS_LIVE_INTERVAL_MIN 25
 #else
-#define WS_LIVE_INTERVAL 80
+#define WS_LIVE_INTERVAL_MAX 80
+#define WS_LIVE_INTERVAL_MIN 40
 #endif
 
 void wsEvent(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventType type, void * arg, uint8_t *data, size_t len)
@@ -184,6 +186,12 @@ static bool sendLiveLedsWs(uint32_t wsClient)  // WLEDMM added "static"
   AsyncWebSocketClient * wsc = ws.client(wsClient);
   if (!wsc || wsc->queueLength() > 0) return false; //only send if queue free
 
+  #ifdef ARDUINO_ARCH_ESP32
+  static unsigned long ws_delay = 0;
+  if ((ws_delay > 0) && (millis() - ws_delay < 6000)) return false; // out of memory -> suspend for 6 seconds 
+  else ws_delay = 0;
+  #endif
+
   #ifdef ESP8266
     constexpr size_t MAX_LIVE_LEDS_WS = 256U;
   #else
@@ -215,8 +223,16 @@ static bool sendLiveLedsWs(uint32_t wsClient)  // WLEDMM added "static"
   if ((bufSize < 1) || (used < 1)) return(false); // WLEDMM should not happen
   AsyncWebSocketBuffer wsBuf(bufSize);
   if (!wsBuf) {
-	  USER_PRINTLN(F("WS buffer allocation failed."));
+    static unsigned long last_err_time = 0;
+    if (millis() - last_err_time > 300) { // WLEDMM limit to 3 messages per second   
+      USER_PRINTF("WS buffer allocation failed (!wsBuf %u bytes).\n", bufSize);
+      last_err_time = millis();
+    }
 	  errorFlag = ERR_LOW_WS_MEM;
+    #ifdef ARDUINO_ARCH_ESP32
+      ws_delay = millis(); // suspend for next 6 seconds
+      USER_PRINTLN("out of memory - live preview suspended for 6 seconds.");
+    #endif
 	  return false; //out of memory
   }
   uint8_t* buffer = reinterpret_cast<uint8_t*>(wsBuf.data());
@@ -247,6 +263,7 @@ static bool sendLiveLedsWs(uint32_t wsClient)  // WLEDMM added "static"
     }
   #endif
     uint32_t c = restoreColorLossy(strip.getPixelColor(i), stripBrightness); // WLEDMM full bright preview - does _not_ recover ABL reductions
+    //uint32_t c = strip.getPixelColorRestored(i);
     // WLEDMM begin: preview with color gamma correction
     if (gammaCorrectPreview) {
       uint8_t w = W(c);  // not sure why, but it looks better if using "white" without corrections
@@ -269,7 +286,7 @@ static bool sendLiveLedsWs(uint32_t wsClient)  // WLEDMM added "static"
 
 void handleWs()
 {
-  if ((millis() - wsLastLiveTime) > (unsigned long)(max((strip.getLengthTotal()/20), WS_LIVE_INTERVAL))) //WLEDMM dynamic nr of peek frames per second
+  if ((millis() - wsLastLiveTime) > (unsigned long)(max(WS_LIVE_INTERVAL_MIN, min((strip.getLengthTotal()/80), WS_LIVE_INTERVAL_MAX)))) //WLEDMM dynamic nr of peek frames per second
   {
     #ifdef ESP8266
     ws.cleanupClients(3);

@@ -104,7 +104,7 @@
 		<button type="button" onclick="U()">Manual OTA Update</button><br>
 		Enable ArduinoOTA: <input type="checkbox" name="AO">
 		<hr>
-		<h3>Backup & Restore</h3>
+		<h3 id="backup">Backup &amp; Restore</h3>
 		<a class="btn lnk" id="bckcfg" href="/presets.json" download="presets">Backup presets</a><br>
 		<div>Restore presets<br><input type="file" name="data" accept=".json"> <button type="button" onclick="uploadFile(d.Sf.data,'/presets.json');">Upload</button><br></div><br>
 		<a class="btn lnk" id="bckpresets" href="/cfg.json" download="cfg">Backup configuration</a><br>
@@ -121,7 +121,7 @@
 		<a href="https://github.com/Aircoookie/WLED/wiki/Contributors-and-credits" target="_blank">Contributors, dependencies and special thanks</a><br>
 		A huge thank you to everyone who helped me create WLED!<br><br>
 		WLED core (c) 2016-2024 Christian Schwinne <br>
-		<i>WLED MM Licensed under the <a href="https://github.com/MoonModules/WLED/blob/master/LICENSE" target="_blank">GPL v3 license</a></i><br><br>
+		<i>WLED MM Licensed under the <a href="https://github.com/MoonModules/WLED/blob/master/LICENSE" target="_blank">EUPL-1.2 license</a></i><br><br>
 		Server message: <span class="sip"> Response error! </span><hr>
 		<div id="toast"></div>
 		<button type="button" onclick="B()">Back</button><button type="submit">Save</button>

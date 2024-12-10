@@ -6,16 +6,8 @@
    @repo      https://github.com/MoonModules/WLED, submit changes to this file as PRs to MoonModules/WLED
    @Authors   https://github.com/MoonModules/WLED/commits/mdev/
    @Copyright © 2024 Github MoonModules Commit Authors (contact moonmodules@icloud.com for details)
-   @license   GNU GENERAL PUBLIC LICENSE Version 3, 29 June 2007
+   @license   Licensed under the EUPL-1.2 or later
 
-     This file is part of the MoonModules WLED fork also known as "WLED-MM".
-     WLED-MM is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License 
-     as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
-
-     WLED-MM is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied 
-     warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
-     
-     You should have received a copy of the GNU General Public License along with WLED-MM. If not, see <https://www.gnu.org/licenses/>.
 */
 
 
@@ -199,7 +191,6 @@ static uint8_t binNum = 8;           // Used to select the bin for FFT based bea
 
 // use audio source class (ESP32 specific)
 #include "audio_source.h"
-constexpr i2s_port_t I2S_PORT = I2S_NUM_0;       // I2S port to use (do not change !)
 constexpr int BLOCK_SIZE = 128;                  // I2S buffer size (samples)
 
 // globals
@@ -285,7 +276,7 @@ static volatile float    micReal_max2 = 0.0f;             // MicIn data max afte
 // some prototypes, to ensure consistent interfaces
 static float mapf(float x, float in_min, float in_max, float out_min, float out_max); // map function for float
 static float fftAddAvg(int from, int to);   // average of several FFT result bins
-void FFTcode(void * parameter)  __attribute__((noreturn));      // audio processing task: read samples, run FFT, fill GEQ channels from FFT results
+void FFTcode(void * parameter);             // audio processing task: read samples, run FFT, fill GEQ channels from FFT results
 static void runMicFilter(uint16_t numSamples, float *sampleBuffer);          // pre-filtering of raw samples (band-pass)
 static void postProcessFFTResults(bool noiseGateOpen, int numberOfChannels, bool i2sFastpath); // post-processing and post-amp of GEQ channels
 
@@ -394,11 +385,11 @@ constexpr uint16_t samplesFFT_2 = 256;          // meaningful part of FFT result
 #define LOG_256  5.54517744f                            // log(256)
 
 // These are the input and output vectors.  Input vectors receive computed results from FFT.
-static float vReal[samplesFFT] = {0.0f};       // FFT sample inputs / freq output -  these are our raw result bins
-static float vImag[samplesFFT] = {0.0f};       // imaginary parts
+static float* vReal = nullptr;       // FFT sample inputs / freq output -  these are our raw result bins
+static float* vImag = nullptr;       // imaginary parts
 
 #ifdef FFT_MAJORPEAK_HUMAN_EAR
-static float pinkFactors[samplesFFT] = {0.0f};              // "pink noise" correction factors
+static float* pinkFactors = nullptr;                        // "pink noise" correction factors
 constexpr float pinkcenter = 23.66;                         // sqrt(560) - center freq for scaling is 560 hz. 
 constexpr float binWidth = SAMPLE_RATE / (float)samplesFFT; // frequency range of each FFT result bin
 #endif
@@ -414,15 +405,6 @@ constexpr float binWidth = SAMPLE_RATE / (float)samplesFFT; // frequency range o
 #define sqrt(x) sqrtf(x)             // little hack that reduces FFT time by 10-50% on ESP32 (as alternative to FFT_SQRT_APPROXIMATION)
 #define sqrt_internal sqrtf          // see https://github.com/kosme/arduinoFFT/pull/83
 #include <arduinoFFT.h>
-
-#if defined(FFT_LIB_REV) && FFT_LIB_REV > 0x19
-  // arduinoFFT 2.x has a slightly different API
-  static ArduinoFFT<float> FFT = ArduinoFFT<float>( vReal, vImag, samplesFFT, SAMPLE_RATE, true);
-#else
-  // recommended version optimized by @softhack007 (API version 1.9)
-  static float windowWeighingFactors[samplesFFT] = {0.0f}; // cache for FFT windowing factors
-  static ArduinoFFT<float> FFT = ArduinoFFT<float>( vReal, vImag, samplesFFT, SAMPLE_RATE, windowWeighingFactors);
-#endif
 
 // Helper functions
 
@@ -461,6 +443,30 @@ constexpr bool skipSecondFFT = true;
 constexpr bool skipSecondFFT = false;
 #endif
 
+// allocate FFT sample buffers from heap
+static bool alocateFFTBuffers(void) {
+  #ifdef SR_DEBUG
+    USER_PRINT(F("\nFree heap ")); USER_PRINTLN(ESP.getFreeHeap());
+  #endif
+
+  if (vReal) free(vReal); // should not happen
+  if (vImag) free(vImag); // should not happen
+  if ((vReal = (float*) calloc(sizeof(float), samplesFFT)) == nullptr) return false; // calloc or die
+  if ((vImag = (float*) calloc(sizeof(float), samplesFFT)) == nullptr) return false;
+#ifdef FFT_MAJORPEAK_HUMAN_EAR
+  if (pinkFactors) free(pinkFactors);
+  if ((pinkFactors = (float*) calloc(sizeof(float), samplesFFT)) == nullptr) return false;
+#endif
+
+  #ifdef SR_DEBUG
+    USER_PRINTLN("\nalocateFFTBuffers() completed successfully.");
+    USER_PRINT(F("Free heap: ")); USER_PRINTLN(ESP.getFreeHeap());
+    USER_PRINT("FFTtask free stack: "); USER_PRINTLN(uxTaskGetStackHighWaterMark(NULL));
+    USER_FLUSH();
+  #endif
+  return(true); // success
+}
+
 // High-Pass "DC blocker" filter
 // see https://www.dsprelated.com/freebooks/filters/DC_Blocker.html
 static void runDCBlocker(uint_fast16_t numSamples, float *sampleBuffer) {
@@ -497,9 +503,30 @@ void FFTcode(void * parameter)
   static bool isFirstRun = false;
 
 #ifdef FFT_USE_SLIDING_WINDOW
-  static float oldSamples[samplesFFT_2] = {0.0f}; // previous 50% of samples
+  static float* oldSamples = nullptr; // previous 50% of samples
   static bool haveOldSamples = false; // for sliding window FFT
   bool usingOldSamples = false;
+  if (!oldSamples) oldSamples = (float*) calloc(sizeof(float), samplesFFT_2); // allocate on first run
+  if (!oldSamples) { disableSoundProcessing = true; return; }                 // no memory -> die
+#endif
+
+  bool success = true;
+  if ((vReal == nullptr) || (vImag == nullptr)) success = alocateFFTBuffers(); // allocate sample buffers on first run
+  if (success == false) { disableSoundProcessing = true; return; }             // no memory -> die
+
+  // create FFT object - we have to do if after allocating buffers
+#if defined(FFT_LIB_REV) && FFT_LIB_REV > 0x19
+  // arduinoFFT 2.x has a slightly different API
+  static ArduinoFFT<float> FFT = ArduinoFFT<float>( vReal, vImag, samplesFFT, SAMPLE_RATE, true);
+#else
+  // recommended version optimized by @softhack007 (API version 1.9)
+  #if defined(WLED_ENABLE_HUB75MATRIX) && defined(CONFIG_IDF_TARGET_ESP32)
+    static float* windowWeighingFactors = nullptr;
+    if (!windowWeighingFactors) windowWeighingFactors = (float*) calloc(sizeof(float), samplesFFT); // cache for FFT windowing factors - use heap
+  #else
+    static float windowWeighingFactors[samplesFFT] = {0.0f};                                        // cache for FFT windowing factors - use global RAM
+  #endif
+  static ArduinoFFT<float> FFT = ArduinoFFT<float>( vReal, vImag, samplesFFT, SAMPLE_RATE, windowWeighingFactors);
 #endif
 
   #ifdef FFT_MAJORPEAK_HUMAN_EAR
@@ -543,7 +570,7 @@ void FFTcode(void * parameter)
 #endif
 
     // get a fresh batch of samples from I2S
-    memset(vReal, 0, sizeof(vReal)); // start clean
+    memset(vReal, 0, sizeof(float) * samplesFFT); // start clean
 #ifdef FFT_USE_SLIDING_WINDOW
     uint16_t readOffset;
     if (haveOldSamples && (doSlidingFFT > 0)) {
@@ -636,7 +663,7 @@ void FFTcode(void * parameter)
 #endif
 
     // set imaginary parts to 0
-    memset(vImag, 0, sizeof(vImag));
+    memset(vImag, 0, sizeof(float) * samplesFFT);
 
     #ifdef FFT_USE_SLIDING_WINDOW
     memcpy(oldSamples, vReal+samplesFFT_2, sizeof(float) * samplesFFT_2);  // copy last 50% to buffer (for sliding window FFT)
@@ -763,14 +790,14 @@ void FFTcode(void * parameter)
         FFT_MajPeakSmth = FFT_MajPeakSmth + 0.42 * (FFT_MajorPeak - FFT_MajPeakSmth);   // I like this "swooping peak" look
 
       } else { // skip second run --> clear fft results, keep peaks
-        memset(vReal, 0, sizeof(vReal)); 
+        memset(vReal, 0, sizeof(float) * samplesFFT); 
       }
 #if defined(WLED_DEBUG) || defined(SR_DEBUG) || defined(SR_STATS)
       haveDoneFFT = true;
 #endif
 
     } else { // noise gate closed - only clear results as FFT was skipped. MIC samples are still valid when we do this.
-      memset(vReal, 0, sizeof(vReal));
+      memset(vReal, 0, sizeof(float) * samplesFFT);
       FFT_MajorPeak = 1;
       FFT_Magnitude = 0.001;
     }
@@ -1083,6 +1110,11 @@ class AudioReactive : public Usermod {
   private:
 #ifdef ARDUINO_ARCH_ESP32
 
+// HUB75 workaround - audio receive only
+#ifdef WLED_ENABLE_HUB75MATRIX
+#undef SR_DMTYPE
+#define SR_DMTYPE 254  // "network receive only"
+#endif
     #ifndef AUDIOPIN
     int8_t audioPin = -1;
     #else
@@ -1907,12 +1939,14 @@ class AudioReactive : public Usermod {
 
 #ifdef ARDUINO_ARCH_ESP32
 
-      // Reset I2S peripheral for good measure
+      // Reset I2S peripheral for good measure - not needed in esp-idf v4.4.x and later.
+    #if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(4, 4, 0)
       i2s_driver_uninstall(I2S_NUM_0);   // E (696) I2S: i2s_driver_uninstall(2006): I2S port 0 has not installed
       #if !defined(CONFIG_IDF_TARGET_ESP32C3)
         delay(100);
         periph_module_reset(PERIPH_I2S0_MODULE);   // not possible on -C3
       #endif
+    #endif
       delay(100);         // Give that poor microphone some time to setup.
 
       #if !defined(CONFIG_IDF_TARGET_ESP32S2) && !defined(CONFIG_IDF_TARGET_ESP32C3)
@@ -2022,8 +2056,25 @@ class AudioReactive : public Usermod {
           if ((sclPin >= 0) && (i2c_scl < 0)) i2c_scl = sclPin;
           if (i2c_sda >= 0) sdaPin = -1;                        // -1 = use global
           if (i2c_scl >= 0) sclPin = -1;
-
+        case 9:
+          DEBUGSR_PRINTLN(F("AR: ES8311 Source (Mic)"));
+          audioSource = new ES8311Source(SAMPLE_RATE, BLOCK_SIZE, 1.0f);
+          //useInputFilter = 0; // to disable low-cut software filtering and restore previous behaviour
+          delay(100);
+          // WLEDMM align global pins
+          if ((sdaPin >= 0) && (i2c_sda < 0)) i2c_sda = sdaPin; // copy usermod prefs into globals (if globals not defined)
+          if ((sclPin >= 0) && (i2c_scl < 0)) i2c_scl = sclPin;
+          if (i2c_sda >= 0) sdaPin = -1;                        // -1 = use global
+          if (i2c_scl >= 0) sclPin = -1;
           if (audioSource) audioSource->initialize(i2swsPin, i2ssdPin, i2sckPin, mclkPin);
+          break;
+
+          case 255: // falls through
+          case 254: // dummy "network receive only" driver
+            if (audioSource) delete audioSource;
+            audioSource = nullptr;
+            disableSoundProcessing = true;
+            audioSyncEnabled = AUDIOSYNC_REC; // force udp sound receive mode
           break;
 
         #if  !defined(CONFIG_IDF_TARGET_ESP32S2) && !defined(CONFIG_IDF_TARGET_ESP32C3) && !defined(CONFIG_IDF_TARGET_ESP32S3)
@@ -2040,18 +2091,16 @@ class AudioReactive : public Usermod {
       }
       delay(250); // give microphone enough time to initialise
 
-      if (!audioSource) enabled = false;                 // audio failed to initialise
+      if (!audioSource && (dmType < 254)) enabled = false;      // audio failed to initialise
 #endif
-      if (enabled) onUpdateBegin(false);                 // create FFT task, and initialize network
+      if (enabled) onUpdateBegin(false);                        // create FFT task, and initialize network
 
 #ifdef ARDUINO_ARCH_ESP32
-      if (FFT_Task == nullptr) enabled = false;          // FFT task creation failed
+      if (audioSource && FFT_Task == nullptr) enabled = false; // FFT task creation failed
       if((!audioSource) || (!audioSource->isInitialized())) {  // audio source failed to initialize. Still stay "enabled", as there might be input arriving via UDP Sound Sync 
-      #ifdef WLED_DEBUG
-        DEBUG_PRINTLN(F("AR: Failed to initialize sound input driver. Please check input PIN settings."));
-      #else
-        USER_PRINTLN(F("AR: Failed to initialize sound input driver. Please check input PIN settings."));
-      #endif
+
+        if (dmType < 254) { USER_PRINTLN(F("AR: Failed to initialize sound input driver. Please check input PIN settings."));}
+        else  { USER_PRINTLN(F("AR: No sound input driver configured - network receive only."));}
         disableSoundProcessing = true;
       } else {
         USER_PRINTLN(F("AR: sound input driver initialized successfully."));        
@@ -2191,7 +2240,7 @@ class AudioReactive : public Usermod {
       if (audioSyncEnabled == AUDIOSYNC_REC) disableSoundProcessing = true;   // make sure everything is disabled IF in audio Receive mode
       if (audioSyncEnabled == AUDIOSYNC_SEND) disableSoundProcessing = false;  // keep running audio IF we're in audio Transmit mode
 #ifdef ARDUINO_ARCH_ESP32
-      if (!audioSource->isInitialized()) {                                                               // no audio source
+      if (!audioSource || !audioSource->isInitialized()) {                                                               // no audio source
         disableSoundProcessing = true;
         if (audioSyncEnabled > AUDIOSYNC_SEND) useNetworkAudio = true;
       }
@@ -2352,6 +2401,11 @@ class AudioReactive : public Usermod {
 #endif
     }
 
+#if defined(_MoonModules_WLED_) && defined(WLEDMM_FASTPATH)
+    void loop2(void) { 
+      loop();
+    }
+#endif
 
     bool getUMData(um_data_t **data)
     {
@@ -2399,7 +2453,8 @@ class AudioReactive : public Usermod {
         if (FFT_Task) {
           vTaskResume(FFT_Task);
           connected(); // resume UDP
-        } else
+        } else {
+          if (audioSource)                    // WLEDMM only create FFT task if we have a valid audio source
 //          xTaskCreatePinnedToCore(
 //          xTaskCreate(                        // no need to "pin" this task to core #0
           xTaskCreateUniversal(
@@ -2411,9 +2466,10 @@ class AudioReactive : public Usermod {
             &FFT_Task                         // Task handle
             , 0                               // Core where the task should run
           );
+        }
       }
       micDataReal = 0.0f;                     // just to be sure
-      if (enabled) disableSoundProcessing = false;
+      if (enabled && audioSource) disableSoundProcessing = false;
       updateIsRunning = init;
 
       #if defined(ARDUINO_ARCH_ESP32) && defined(SR_DEBUG)
@@ -2568,7 +2624,7 @@ class AudioReactive : public Usermod {
           } else {
             // error during audio source setup
             infoArr.add(F("not initialized"));
-            infoArr.add(F(" - check pin settings"));
+            if (dmType < 254) infoArr.add(F(" - check pin settings"));
           }
         }
 
@@ -2804,6 +2860,16 @@ class AudioReactive : public Usermod {
       JsonObject top = root[FPSTR(_name)];
       bool configComplete = !top.isNull();
 
+#ifdef ARDUINO_ARCH_ESP32
+      // remember previous values
+      auto oldEnabled = enabled;
+      auto oldDMType = dmType;
+      auto oldI2SsdPin = i2ssdPin;
+      auto oldI2SwsPin = i2swsPin;
+      auto oldI2SckPin = i2sckPin;
+      auto oldI2SmclkPin = mclkPin;
+#endif
+
       configComplete &= getJsonValue(top[FPSTR(_enabled)], enabled);
 #ifdef ARDUINO_ARCH_ESP32
     #if !defined(CONFIG_IDF_TARGET_ESP32S2) && !defined(CONFIG_IDF_TARGET_ESP32C3) && !defined(CONFIG_IDF_TARGET_ESP32S3)
@@ -2856,6 +2922,17 @@ class AudioReactive : public Usermod {
       configComplete &= getJsonValue(top["sync"][F("mode")], audioSyncEnabled);
       configComplete &= getJsonValue(top["sync"][F("check_sequence")], audioSyncSequence);
 
+      // WLEDMM notify user when a reboot is necessary
+      #ifdef ARDUINO_ARCH_ESP32
+      if (initDone) {
+        if ((audioSource != nullptr) && (oldDMType != dmType)) errorFlag = ERR_REBOOT_NEEDED;  // changing mic type requires reboot
+        if (   (audioSource != nullptr) && (enabled==true)
+            && ((oldI2SsdPin != i2ssdPin) || (oldI2SsdPin != i2ssdPin) || (oldI2SckPin != i2sckPin)) ) errorFlag = ERR_REBOOT_NEEDED;  // changing mic pins requires reboot
+        if ((audioSource != nullptr) && (oldI2SmclkPin != mclkPin)) errorFlag = ERR_REBOOT_NEEDED;  // changing MCLK pin requires reboot
+        if ((oldDMType != dmType) && (oldDMType == 0)) errorFlag = ERR_POWEROFF_NEEDED;  // changing from analog mic requires power cycle
+        if ((oldDMType != dmType) && (dmType == 0)) errorFlag = ERR_POWEROFF_NEEDED;  // changing to analog mic requires power cycle
+      }
+      #endif
       return configComplete;
     }
 
@@ -2875,6 +2952,11 @@ class AudioReactive : public Usermod {
       #endif
 
       oappend(SET_F("dd=addDropdown(ux,'digitalmic:type');"));
+      #if SR_DMTYPE==254
+        oappend(SET_F("addOption(dd,'None - network receive only (⎌)',254);"));
+      #else
+        oappend(SET_F("addOption(dd,'None - network receive only',254);"));
+      #endif
       #if !defined(CONFIG_IDF_TARGET_ESP32S2) && !defined(CONFIG_IDF_TARGET_ESP32C3) && !defined(CONFIG_IDF_TARGET_ESP32S3)
         #if SR_DMTYPE==0
           oappend(SET_F("addOption(dd,'Generic Analog (⎌)',0);"));
@@ -2928,6 +3010,11 @@ class AudioReactive : public Usermod {
         oappend(SET_F("addOption(dd,'AC101 ☾ (⎌)',8);"));
       #else
         oappend(SET_F("addOption(dd,'AC101 ☾',8);"));
+      #endif
+      #if SR_DMTYPE==9
+        oappend(SET_F("addOption(dd,'ES8311 ☾ (⎌)',9);"));
+      #else
+        oappend(SET_F("addOption(dd,'ES8311 ☾',9);"));
       #endif
       #ifdef SR_SQUELCH
         oappend(SET_F("addInfo(ux+':config:squelch',1,'<i>&#9100; ")); oappendi(SR_SQUELCH); oappend("</i>');");  // 0 is field type, 1 is actual field

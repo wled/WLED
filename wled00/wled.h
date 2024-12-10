@@ -8,7 +8,7 @@
  */
 
 // version code in format yymmddb (b = daily build)
-#define VERSION 2409060
+#define VERSION 2412030
 
 // WLEDMM  - you can check for this define in usermods, to only enabled WLEDMM specific code in the "right" fork. Its not defined in AC WLED.
 #define _MoonModules_WLED_
@@ -393,7 +393,7 @@ WLED_GLOBAL byte briS     _INIT(128);                     // default brightness
 WLED_GLOBAL byte nightlightTargetBri _INIT(0);      // brightness after nightlight is over
 WLED_GLOBAL byte nightlightDelayMins _INIT(60);
 WLED_GLOBAL byte nightlightMode      _INIT(NL_MODE_FADE); // See const.h for available modes. Was nightlightFade
-WLED_GLOBAL bool fadeTransition      _INIT(false);  // enable crossfading color transition // WLEDMM disabled - has bugs that will be solved in upstream beta4
+WLED_GLOBAL bool fadeTransition      _INIT(true);   // enable crossfading color transition // WLEDMM only do color x-fade -- effect x-fade has bugs that will be solved in upstream beta4
 WLED_GLOBAL uint16_t transitionDelay _INIT(750);    // default crossfade duration in ms
 
 WLED_GLOBAL uint_fast16_t briMultiplier _INIT(100);          // % of brightness to set (to limit power, if you set it to 50 and set bri to 255, actual brightness will be 127)
@@ -809,12 +809,16 @@ WLED_GLOBAL int8_t spi_sclk  _INIT(HW_PIN_CLOCKSPI);
 #endif
 
 // global ArduinoJson buffer
-#if defined(ALL_JSON_TO_PSRAM) && defined(WLED_USE_PSRAM_JSON)
+#if defined(ALL_JSON_TO_PSRAM) && (defined(WLED_USE_PSRAM_JSON) || defined(WLED_USE_PSRAM))
 // WLEDMM experimental : always use dynamic JSON
   #ifndef WLED_DEFINE_GLOBAL_VARS
   WLED_GLOBAL PSRAMDynamicJsonDocument doc;
   #else
-  WLED_GLOBAL PSRAMDynamicJsonDocument doc(JSON_BUFFER_SIZE);
+  #if defined(CONFIG_IDF_TARGET_ESP32) || defined(CONFIG_IDF_TARGET_ESP32S2) || !defined(BOARD_HAS_PSRAM)
+    WLED_GLOBAL PSRAMDynamicJsonDocument doc(JSON_BUFFER_SIZE);       // S2 has very small RAM - lets not push our luck too far
+  #else
+    WLED_GLOBAL PSRAMDynamicJsonDocument doc(JSON_BUFFER_SIZE * 2 );  // initially "doc" is allocated in RAM, and later pushed into PSRAM when the drivers is ready
+  #endif
   //#warning trying to always use dynamic JSON in PSRAM
   #endif
 #else

@@ -54,21 +54,25 @@ struct BusConfig {
   uint8_t skipAmount;
   bool refreshReq;
   uint8_t autoWhite;
-  uint8_t pins[5] = {LEDPIN, 255, 255, 255, 255};
+  uint8_t artnet_outputs, artnet_fps_limit;
+  uint16_t artnet_leds_per_output;
+
+  uint8_t pins[5] = {LEDPIN, 255, 255, 255, 255}; // WLEDMM warning: this means that BusConfig cannot handle nore than 5 pins per bus!
   uint16_t frequency;
-  BusConfig(uint8_t busType, uint8_t* ppins, uint16_t pstart, uint16_t len = 1, uint8_t pcolorOrder = COL_ORDER_GRB, bool rev = false, uint8_t skip = 0, byte aw=RGBW_MODE_MANUAL_ONLY, uint16_t clock_kHz=0U) {
+  BusConfig(uint8_t busType, uint8_t* ppins, uint16_t pstart, uint16_t len = 1, uint8_t pcolorOrder = COL_ORDER_GRB, bool rev = false, uint8_t skip = 0, byte aw=RGBW_MODE_MANUAL_ONLY, uint16_t clock_kHz=0U, uint8_t art_o=1, uint16_t art_l=1, uint8_t art_f=30) {
     refreshReq = (bool) GET_BIT(busType,7);
     type = busType & 0x7F;  // bit 7 may be/is hacked to include refresh info (1=refresh in off state, 0=no refresh)
     count = len; start = pstart; colorOrder = pcolorOrder; reversed = rev; skipAmount = skip; autoWhite = aw; frequency = clock_kHz;
-    uint8_t nPins = 1;
-    if (type >= TYPE_NET_DDP_RGB && type < 96) nPins = 4; //virtual network bus. 4 "pins" store IP address
-    else if (type > 47) nPins = 2;
-    else if (type > 40 && type < 46) nPins = NUM_PWM_PINS(type);
-    else if (type >= TYPE_HUB75MATRIX && type <= (TYPE_HUB75MATRIX + 10)) nPins = 0;
-    for (uint8_t i = 0; i < nPins; i++) pins[i] = ppins[i];
+    artnet_outputs = art_o; artnet_leds_per_output = art_l; artnet_fps_limit = art_f;
+    uint8_t nPins = 1;                                                                 // default = only one pin (clockless LEDs like WS281x)
+    if ((type >= TYPE_NET_DDP_RGB) && (type < (TYPE_NET_DDP_RGB + 16))) nPins = 4;     // virtual network bus. 4 "pins" store IP address
+    else if ((type > 47) && (type < 63)) nPins = 2;                                    // (data + clock / SPI) busses - two pins
+    else if (IS_PWM(type)) nPins = NUM_PWM_PINS(type);                                 // PWM needs 1..5 pins
+    else if (type >= TYPE_HUB75MATRIX && type <= (TYPE_HUB75MATRIX + 10)) nPins = 1;   // HUB75 does not use LED pins, but we need to preserve the "chain length" parameter
+    for (uint8_t i = 0; i < min(unsigned(nPins), sizeof(pins)/sizeof(pins[0])); i++) pins[i] = ppins[i];   //softhack007 fix for potential array out-of-bounds access
   }
 
-  //validates start and length and extends total if needed
+  //validates start and length and extends total if needed // WLEDMM this function is not used anywhere
   bool adjustBounds(uint16_t& total) {
     if (!count) count = 1;
     if (count > MAX_LEDS_PER_BUS) count = MAX_LEDS_PER_BUS;
@@ -135,21 +139,25 @@ class Bus {
     virtual void     setStatusPixel(uint32_t c) {}
     virtual void     setPixelColor(uint16_t pix, uint32_t c) = 0;
     virtual uint32_t getPixelColor(uint16_t pix) const { return 0; }
-    virtual void     setBrightness(uint8_t b, bool immediate=false) { _bri = b; };
+    virtual uint32_t getPixelColorRestored(uint16_t pix) const { return restore_Color_Lossy(getPixelColor(pix), _bri); } // override in case your bus has a lossless buffer (HUB75, FastLED, Art-Net)
+    virtual void     setBrightness(uint8_t b, bool immediate=false) { _bri = b; }
     virtual void     cleanup() = 0;
     virtual uint8_t  getPins(uint8_t* pinArray) const { return 0; }
-    virtual uint16_t getLength() const { return _len; }
+    virtual inline uint16_t getLength() const { return _len; }
     virtual void     setColorOrder() {}
     virtual uint8_t  getColorOrder() const { return COL_ORDER_RGB; }
-    virtual uint8_t  skippedLeds() { return 0; }
+    virtual uint8_t  skippedLeds() const { return 0; }
     virtual uint16_t getFrequency() const { return 0U; }
+    virtual uint8_t  get_artnet_fps_limit() const { return 0; }
+    virtual uint8_t  get_artnet_outputs() const { return 0; }
+    virtual uint16_t get_artnet_leds_per_output() const { return 0; }
     inline  uint16_t getStart() const { return _start; }
     inline  void     setStart(uint16_t start) { _start = start; }
     inline  uint8_t  getType() const { return _type; }
     inline  bool     isOk() const { return _valid; }
     inline  bool     isOffRefreshRequired() const { return _needsRefresh; }
-            bool     containsPixel(uint16_t pix) const { return pix >= _start && pix < _start+_len; }
-    virtual uint16_t getMaxPixels() const { return MAX_LEDS_PER_BUS; };
+    //inline  bool     containsPixel(uint16_t pix) const { return pix >= _start && pix < _start+_len; } // WLEDMM not used, plus wrong - it does not consider skipped pixels
+    virtual uint16_t getMaxPixels() const { return MAX_LEDS_PER_BUS; }
 
     virtual bool hasRGB() const {
       if ((_type >= TYPE_WS2812_1CH && _type <= TYPE_WS2812_WWA) || _type == TYPE_ANALOG_1CH || _type == TYPE_ANALOG_2CH || _type == TYPE_ONOFF) return false;
@@ -183,6 +191,17 @@ class Bus {
     inline static void    setGlobalAWMode(uint8_t m)  { if (m < 5) _gAWM = m; else _gAWM = AW_GLOBAL_DISABLED; }
     inline static uint8_t getGlobalAWMode()           { return _gAWM; }
 
+    inline static uint32_t restore_Color_Lossy(uint32_t c, uint8_t restoreBri) { // shamelessly grabbed from upstream, who grabbed from NPB, who ..
+      if (restoreBri < 255) {
+        uint8_t* chan = (uint8_t*) &c;
+        for (uint_fast8_t i=0; i<4; i++) {
+          uint_fast16_t val = chan[i];
+          chan[i] = ((val << 8) + restoreBri) / (restoreBri + 1); //adding _bri slightly improves recovery / stops degradation on re-scale
+        }
+      }
+      return c;
+    }
+
     bool reversed = false;
 
   protected:
@@ -207,7 +226,7 @@ class BusDigital : public Bus {
 
     inline void show();
 
-    bool canShow() const;
+    bool canShow() override;
 
     void setBrightness(uint8_t b, bool immediate);
 
@@ -215,13 +234,13 @@ class BusDigital : public Bus {
 
     void setPixelColor(uint16_t pix, uint32_t c);
 
-    uint32_t getPixelColor(uint16_t pix) const;
+    uint32_t getPixelColor(uint16_t pix) const override;
 
     uint8_t getColorOrder() const {
       return _colorOrder;
     }
 
-    uint16_t getLength() const {
+    uint16_t getLength() const override {
       return _len - _skip;
     }
 
@@ -229,11 +248,11 @@ class BusDigital : public Bus {
 
     void setColorOrder(uint8_t colorOrder);
 
-    uint8_t skippedLeds() const {
+    uint8_t skippedLeds() const override {
       return _skip;
     }
 
-    uint16_t getFrequency() const { return _frequencykHz; }
+    uint16_t getFrequency() const override { return _frequencykHz; }
 
     void reinit();
 
@@ -267,7 +286,7 @@ class BusPwm : public Bus {
 
     uint8_t getPins(uint8_t* pinArray) const;
 
-    uint16_t getFrequency() const { return _frequency; }
+    uint16_t getFrequency() const override { return _frequency; }
 
     void cleanup() {
       deallocatePins();
@@ -296,6 +315,7 @@ class BusOnOff : public Bus {
     void setPixelColor(uint16_t pix, uint32_t c);
 
     uint32_t getPixelColor(uint16_t pix) const;
+    uint32_t getPixelColorRestored(uint16_t pix) const override { return getPixelColor(pix);}  // WLEDMM BusOnOff ignores brightness
 
     void show();
 
@@ -317,7 +337,7 @@ class BusOnOff : public Bus {
 
 class BusNetwork : public Bus {
   public:
-    BusNetwork(BusConfig &bc);
+    BusNetwork(BusConfig &bc, const ColorOrderMap &com);
 
     uint16_t getMaxPixels() const override { return 4096; };
     bool hasRGB()  const { return true; }
@@ -326,18 +346,37 @@ class BusNetwork : public Bus {
     void setPixelColor(uint16_t pix, uint32_t c);
 
     uint32_t __attribute__((pure)) getPixelColor(uint16_t pix) const;  // WLEDMM attribute added
+    uint32_t __attribute__((pure)) getPixelColorRestored(uint16_t pix) const override { return getPixelColor(pix);}  // WLEDMM BusNetwork ignores brightness
 
     void show();
 
-    bool canShow()  const {
+    bool canShow() override {
       // this should be a return value from UDP routine if it is still sending data out
       return !_broadcastLock;
     }
 
-    uint8_t getPins(uint8_t* pinArray)  const;
+    uint8_t getPins(uint8_t* pinArray) const override;
 
-    uint16_t getLength()  const {
+    uint16_t getLength() const override {
       return _len;
+    }
+
+    uint8_t get_artnet_fps_limit() const override {
+      return _artnet_fps_limit;
+    }
+
+    uint8_t get_artnet_outputs() const override {
+      return _artnet_outputs;
+    }
+
+    uint16_t get_artnet_leds_per_output() const override {
+      return _artnet_leds_per_output;
+    }
+
+    void setColorOrder(uint8_t colorOrder);
+
+    uint8_t getColorOrder() const override {
+      return _colorOrder;
     }
 
     void cleanup();
@@ -347,12 +386,17 @@ class BusNetwork : public Bus {
     }
 
   private:
-    IPAddress _client;
-    uint8_t   _UDPtype;
-    uint8_t   _UDPchannels;
-    bool      _rgbw;
-    bool      _broadcastLock;
-    byte     *_data;
+    IPAddress           _client;
+    uint8_t             _UDPtype;
+    uint8_t             _UDPchannels;
+    bool                _rgbw;
+    bool                _broadcastLock;
+    byte                *_data;
+    uint8_t             _colorOrder = COL_ORDER_RGB;
+    uint8_t             _artnet_fps_limit;
+    uint8_t             _artnet_outputs;
+    uint16_t            _artnet_leds_per_output;
+    const ColorOrderMap &_colorOrderMap;
 };
 
 #ifdef WLED_ENABLE_HUB75MATRIX
@@ -360,20 +404,21 @@ class BusHub75Matrix : public Bus {
   public:
     BusHub75Matrix(BusConfig &bc);
 
-    uint16_t getMaxPixels() const override { return 4096; };
+    uint16_t getMaxPixels() const override { return MAX_LEDS; };
 
     bool hasRGB() const override { return true; }
     bool hasWhite() const override { return false; }
 
     void setPixelColor(uint16_t pix, uint32_t c) override;
     uint32_t getPixelColor(uint16_t pix) const override;
+    uint32_t getPixelColorRestored(uint16_t pix) const override; // lossless getPixelColor supported
 
     void show(void) override;
 
     void setBrightness(uint8_t b, bool immediate) override;
 
     uint8_t getPins(uint8_t* pinArray) const override {
-      pinArray[0] = mxconfig.chain_length;
+      pinArray[0] = activeMXconfig.chain_length;
       return 1;
     } // Fake value due to keep finaliseInit happy
 
@@ -386,12 +431,17 @@ class BusHub75Matrix : public Bus {
     }
 
   private:
-    MatrixPanel_I2S_DMA *display = nullptr;
-    VirtualMatrixPanel  *fourScanPanel = nullptr;
-    HUB75_I2S_CFG mxconfig;
     unsigned _panelWidth = 0;
     CRGB *_ledBuffer = nullptr;
     byte *_ledsDirty = nullptr;
+    // C++ dirty trick: private static variables are actually _not_ part of the class (however only visibile to class instances). 
+    // These variables persist when BusHub75Matrix gets deleted.
+    static MatrixPanel_I2S_DMA *activeDisplay;         // active display object
+    static VirtualMatrixPanel  *activeFourScanPanel;   // active fourScan object
+    static HUB75_I2S_CFG activeMXconfig;               // last used mxconfig
+    static uint8_t activeType;                         // last used type
+    static uint8_t instanceCount;                      // active instances - 0 or 1
+    static uint8_t last_bri;                           // last used brightness value (persists on driver delete)
 };
 #endif
 
@@ -418,6 +468,7 @@ class BusManager {
     void setSegmentCCT(int16_t cct, bool allowWBCorrection = false);
 
     uint32_t __attribute__((pure)) getPixelColor(uint_fast16_t pix); // WLEDMM attribute added
+    uint32_t __attribute__((pure)) getPixelColorRestored(uint_fast16_t pix);  // WLEDMM
 
     bool canAllShow() const;
 

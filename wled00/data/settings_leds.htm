@@ -5,7 +5,7 @@
 	<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport">
 	<title>LED Settings</title>
 	<script>
-		var d=document,laprev=55,maxB=1,maxV=0,maxM=4000,maxPB=8465,maxL=1333,maxLbquot=0; //maximum bytes for LED allocation: 4kB for 8266, 32kB for 32
+		var d=document,laprev=55,maxB=1,maxV=0,maxM=4000,maxPB=18438,maxL=1333,maxLbquot=0; //maximum bytes for LED allocation: 4kB for 8266, 64kB for 32
 		d.um_p = [];
 		d.rsvd = [];
 		d.ro_gpio = [];
@@ -110,8 +110,10 @@
 		}
 		function enABL()
 		{
-			var en = gId('able').checked;
+			const en = gId('able').checked;
 			d.Sf.LA.value = (en) ? laprev:0;
+			d.Sf.MA.min = (en) ? 250 : 0;   // WLEDMM no minimum if invisble
+			if ((!en) && (!d.Sf.MA.value || d.Sf.MA.value<0)) d.Sf.MA.value = 0; // WLEDMM workaround when field is invisible with invalid value
 			gId('abl').style.display = (en) ? 'inline':'none';
 			gId('psu2').style.display = (en) ? 'inline':'none';
 			if (d.Sf.LA.value > 0) setABL();
@@ -166,11 +168,16 @@
 
 			gId('ampwarning').style.display = (d.Sf.MA.value > 7200) ? 'inline':'none';
 
-			gId('fpswarning').style.display = (d.Sf.FR.value > 69) ? 'block':'none'; // WLEDMM
-			gId('fpshelp1').style.display = ((d.Sf.FR.value > 80) && (d.Sf.FR.value < 132)) ? 'block':'none'; // WLEDMM
+			gId('fpsNone').style.display = ((d.Sf.FR.value == 0) || (d.Sf.FR.value > 249))? 'block':'none'; // WLEDMM
+			gId('fpsNoHelp').style.display = ((d.Sf.FR.value == 0) || (d.Sf.FR.value > 249))? 'none':'block'; // WLEDMM
+			gId('fpswarning').style.display = (d.Sf.FR.value > 79) || (d.Sf.FR.value == 0) ? 'block':'none'; // WLEDMM
+			gId('fpshelp1').style.display = ((d.Sf.FR.value > 90) && (d.Sf.FR.value < 132)) ? 'block':'none'; // WLEDMM
 			gId('fpshelp2').style.display = ((d.Sf.FR.value > 132) && (d.Sf.FR.value < 196)) ? 'block':'none'; // WLEDMM
 			gId('fpshelp3').style.display = (d.Sf.FR.value > 196) ? 'block':'none'; // WLEDMM
 
+			const ablEnabled = gId('able').checked;
+			d.Sf.MA.min = ablEnabled ? 250 : 0;          // WLEDMM no minimum if invisble
+			if ((!ablEnabled) && !d.Sf.MA.value) d.Sf.MA.value = 0; // WLEDMM workaround when field is blank but invisible 
 			if (d.Sf.LA.value == 255) laprev = 12;
 			else if (d.Sf.LA.value > 0) laprev = d.Sf.LA.value;
 
@@ -215,16 +222,46 @@
 					}
 					gId("rf"+n).onclick = (t == 31) ? (()=>{return false}) : (()=>{});  // prevent change for TM1814
 					gRGBW |= isRGBW = ((t > 17 && t < 22) || (t > 28 && t < 32) || (t > 40 && t < 46 && t != 43) || t == 88); // RGBW checkbox, TYPE_xxxx values from const.h
-					gId("co"+n).style.display = ((t >= 80 && t < 96) || (t >= 40 && t < 48)||(t >= 100 && t < 110)) ? "none":"inline";  // hide color order for PWM
+					gId("co"+n).style.display = ((t >= 83 && t < 96) || (t >= 40 && t < 48)||(t >= 100 && t < 110)) ? "none":"inline";  // hide color order for PWM
 					gId("dig"+n+"w").style.display = (t > 28 && t < 32) ? "inline":"none";  // show swap channels dropdown
+					gId("dig"+n+"O").style.display = (t == 82 || t == 83) ? "inline":"none";  // show Art-Net output number
+					gId("dig"+n+"L").style.display = (t == 82 || t == 83) ? "inline":"none";  // show Art-Net LEDs per output
+					gId("dig"+n+"F").style.display = (t == 82 || t == 83) ? "inline":"none";  // show Art-Net FPS limiter
+					gId("dig"+n+"W").style.display = (t == 82 || t == 83) ? "inline":"none";  // show Art-Net warnings/info box
+					d.getElementsByName("AO"+n)[0].min = (t == 82 || t == 83) ? 1 : -1; // make sure these fields do not block saving when hidden 
+					d.getElementsByName("AL"+n)[0].min = (t == 82 || t == 83) ? 1 : -1; 
+					d.getElementsByName("AF"+n)[0].min = (t == 82 || t == 83) ? 1 : -1;
+					if (gId("dig"+n+"F").style.display == "inline") {
+						total_leds = d.getElementsByName("LC"+n)[0].value;
+						outputs = d.getElementsByName("AO"+n)[0].value;
+						leds_per_output = d.getElementsByName("AL"+n)[0].value;
+						fps_limit = d.getElementsByName("AF"+n)[0].value;
+						last_octet = d.getElementsByName("L3"+n)[0].value;
+						if (outputs > 1) {
+							if (t == 82) gId("dig"+n+"W").innerHTML = "<br />Set your Art-Net Hardware to "+Math.ceil(leds_per_output/170)+" universes per output.";
+							if (t == 83) gId("dig"+n+"W").innerHTML = "<br />Set your Art-Net Hardware to "+Math.ceil(leds_per_output/128)+" universes per output.";
+						} else if (outputs == 1) {
+							gId("dig"+n+"W").innerHTML = "<br />WLED-style Art-Net output enabled.";
+						} else {
+							gId("dig"+n+"W").innerHTML = "<br />You need at least 1 output!";
+						}
+						if (outputs > 1 && fps_limit > 33333/leds_per_output) gId("dig"+n+"W").innerHTML += "<br />FPS limit may be too high for WS281x pixels.";
+						if (outputs*leds_per_output != total_leds) gId("dig"+n+"W").innerHTML += "<br />Total LEDs doesn't match outputs * LEDs per output.";
+						if (last_octet == 255) {
+							if (total_leds <= 1024) gId("dig"+n+"W").innerHTML += "<br />Art-Net is in broadcast mode.";
+							if (total_leds  > 1024) gId("dig"+n+"W").innerHTML += "<br />You are sending a lot of broadcast data. Be cautious.";
+						}
+					}
 					if (!(t > 28 && t < 32)) d.getElementsByName("WO"+n)[0].value = 0; // reset swapping
 					gId("dig"+n+"c").style.display = ((t >= 40 && t < 48)||(t >= 100 && t < 110)) ? "none":"inline";  // hide count for analog and HUB75
-					gId("dig"+n+"r").style.display = (t >= 80) ? "none":"inline";  // hide reversed for virtual
+					gId("dig"+n+"r").style.display = (t >= 80) && (t < 100) ? "none":"inline";  // hide reversed for virtual, except for HUB75
 					gId("dig"+n+"s").style.display = ((t >= 80) || (t >= 40 && t < 48)) ? "none":"inline";  // hide skip 1st for virtual & analog
-					gId("dig"+n+"f").style.display = ((t >= 16 && t < 32) || (t >= 50 && t < 64)) ? "inline":"none";  // hide refresh
+					gId("dig"+n+"f").style.display = ((t >= 16 && t < 32) || (t >= 50 && t < 64)||(t >= 100 && t < 110)) ? "inline":"none";  // hide refresh, except for HUB75
 					gId("dig"+n+"a").style.display = (isRGBW && t != 40) ? "inline":"none";  // auto calculate white
 					gId("dig"+n+"l").style.display = ((t > 48 && t < 64) && !(t >= 100 && t < 110)) ? "inline":"none";  // bus clock speed
 					gId("rev"+n).innerHTML = (t >= 40 && t < 48) ? "Inverted output":"Reversed (rotated 180°)";  // change reverse text for analog
+					if (t >= 100 && t < 110) gId("rev"+n).innerHTML = "Inverted clock phase";  // change "reverse" text for HUB75
+					gId("ref"+n).innerHTML = (t >= 100 && t < 110) ? "Single-cycle latch blanking":"Off Refresh";  // change "off refresh" text for HUB75
 					gId("psd"+n).innerHTML = (t >= 40 && t < 48) ? "Index:":"Start:";    // change analog start description
 				}
 			}
@@ -240,6 +277,13 @@
 			for (i=0; i<LCs.length; i++) {
 				var nm = LCs[i].name.substring(0,2);  // field name
 				var n  = LCs[i].name.substring(2);    // bus number
+				// correct HUB75 chain length stored as LED pin 0
+				if (nm=="L0" && (t >= 100 && t < 110) && LCs[i].value!="") {
+					const clen = parseInt(LCs[i].value,10);
+					if ((clen < 1) || ((clen > 6))) LCs[i].value = "1";
+					LCs[i].min = 1;
+					LCs[i].max = 6;
+				}
 				// do we have a led count field
 				if (nm=="LC") {
 					var c=parseInt(LCs[i].value,10); //get LED count
@@ -250,7 +294,7 @@
 						if (s+c > sLC) sLC = s+c; //update total count
 						if(c>maxLC)maxLC=c; //max per output
 						var t = parseInt(d.getElementsByName("LT"+n)[0].value); // LED type SELECT
-						if (t<80) sPC+=c; //virtual out busses do not count towards physical LEDs
+						if ((t<128) && ((t<80) || ((t>99)))) sPC+=c; //virtual out busses do not count towards physical LEDs //WLEDMM include HUB75 (>=100)
 					} // increase led count
 					continue;
 				}
@@ -302,7 +346,6 @@
 			// update total led count
 			gId("lc").textContent = sLC;
 			gId("pc").textContent = (sLC == sPC) ? "":"(" + sPC + " physical)";
-
 			// memory usage and warnings
 			gId('m0').innerHTML = memu;
 			bquot = memu / maxM * 100;
@@ -383,9 +426,11 @@ ${i+1}:
 <option value="101">Hub75Matrix 32x32</option>
 <option value="102">Hub75Matrix 64x32</option>
 <option value="103">Hub75Matrix 64x64</option>
+<option value="104">Hub75Matrix 128x64</option>
 <option value="105">Hub75Matrix 32x32 (Outdoor 8S)</option>
 <option value="106">Hub75Matrix 64x32 (Outdoor 8S)</option>
 <option value="107">Hub75Matrix 64x64 (Outdoor 16S)</option>
+<option value="108">Hub75Matrix 128x64 (Outdoor 16S)</option>
 </select><br>
 <div id="co${i}" style="display:inline">Color Order:
 <select name="CO${i}">
@@ -407,9 +452,13 @@ ${i+1}:
 <span id="p2d${i}"></span><input type="number" name="L2${i}" class="s" onchange="UI()"/>
 <span id="p3d${i}"></span><input type="number" name="L3${i}" class="s" onchange="UI()"/>
 <span id="p4d${i}"></span><input type="number" name="L4${i}" class="s" onchange="UI()"/>
+<div id="dig${i}O" style="display:inline"><br>Number of Outputs: <input type="number" name="AO${i}" min="1" max="255" value="1" oninput="UI()"></div>
+<div id="dig${i}L" style="display:inline"><br>LEDs Per Output: <input type="number" name="AL${i}" min="1" max="65535" value="1" oninput="UI()"></div>
+<div id="dig${i}F" style="display:inline"><br>FPS Limit: <input type="number" name="AF${i}" min="1" max="255" value="30" oninput="UI()"></div>
+<div id="dig${i}W" style="display:inline"><br>Art-Net Warnings Go Here.</div>
 <div id="dig${i}r" style="display:inline"><br><span id="rev${i}">Reversed</span>: <input type="checkbox" name="CV${i}"></div>
 <div id="dig${i}s" style="display:inline"><br>Skip first LEDs: <input type="number" name="SL${i}" min="0" max="255" value="0" oninput="UI()"></div>
-<div id="dig${i}f" style="display:inline"><br>Off Refresh: <input id="rf${i}" type="checkbox" name="RF${i}"></div>
+<div id="dig${i}f" style="display:inline"><br><span id="ref${i}">Off Refresh</span>: <input id="rf${i}" type="checkbox" name="RF${i}"></div>
 <div id="dig${i}a" style="display:inline"><br>Auto-calculate white channel from RGB:<br><select name="AW${i}"><option value=0>None</option><option value=1>Brighter</option><option value=2>Accurate</option><option value=3>Dual</option><option value=4>Max</option></select>&nbsp;</div>
 </div>`;
 				f.insertAdjacentHTML("beforeend", cn);
@@ -729,12 +778,14 @@ Length: <input type="number" name="XC${i}" id="xc${i}" class="l" min="1" max="65
 			<option value="1">Linear (always wrap)</option>
 			<option value="2">Linear (never wrap)</option>
 			<option value="3">None (not recommended)</option>
-		</select><br>
-		Target refresh rate: <input type="number" class="s" min="1" max="250" name="FR" oninput="UI()" required> FPS
+		</select><br><br>
+		Target refresh rate: <input type="number" class="s" min="0" max="250" name="FR" oninput="UI()" required> FPS
+		<div id="fpsNoHelp" style="display: block;"><i>use 0 for unlimited</i><br></div>
+		<div id="fpsNone" style="color:green; display: none;"><b>Unlimited refresh rate mode.</b><br></div>
 		<div id="fpswarning" style="color:GoldenRod; display: none;">
-			&#9888; WLED may become unstable above 70 fps.<br>
+			&#9888; WLED may become unstable above 80 fps.<br>
 			To protect your setup,
-			please make sure to backup WLED configuration and presets before raising target FPS above 70!<br>
+			please make sure to <a class="lnk" href="sec#backup">backup</a> WLED configuration and presets before raising target FPS above 80!<br>
 		</div>
 		<div id="fpshelp1" style="color: orange; display: none;">For a very smooth experience, use less than 300 LEDs per output!<br>      </div><!-- up to 120 fps on ws281x -->
 		<div id="fpshelp2" style="color: orange; display: none;">For an extremely smooth experience, use less than 180 LEDs per output!<br></div><!-- up to 180 fps on WS281x -->

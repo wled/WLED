@@ -145,9 +145,9 @@ bool deserializeSegment(JsonObject elem, byte it, byte presetId)
     const char * name = elem["n"].as<const char*>();
     size_t len = 0;
     if (name != nullptr) len = strlen(name);
-    if (len > 0 && len < 33) {
+    if (len > 0 && len < 32) {
       seg.name = new char[len+1];
-      if (seg.name) strlcpy(seg.name, name, 33);
+      if (seg.name) strlcpy(seg.name, name, len+1);
     } else {
       // but is empty (already deleted above)
       elem.remove("n");
@@ -172,7 +172,7 @@ bool deserializeSegment(JsonObject elem, byte it, byte presetId)
   if (map1D2D != M12_jMap && seg.jMap)
     seg.deletejMap();
 
-  if ((spc>0 && spc!=seg.spacing) || seg.map1D2D!=map1D2D) seg.fill(BLACK); // clear spacing gaps // WLEDMM softhack007: this line sometimes crashes with "Stack canary watchpoint triggered (async_tcp)"
+  if ((spc>0 && spc!=seg.spacing) || seg.map1D2D!=map1D2D) seg.markForBlank(); // clear spacing gaps // WLEDMM softhack007: this line sometimes crashes with "Stack canary watchpoint triggered (async_tcp)"
 
   seg.map1D2D  = constrain(map1D2D, 0, 7);
   seg.soundSim = constrain(soundSim, 0, 1);
@@ -289,7 +289,7 @@ bool deserializeSegment(JsonObject elem, byte it, byte presetId)
   seg.reverse_y  = elem["rY"]  | seg.reverse_y;
   seg.mirror_y   = elem["mY"]  | seg.mirror_y;
   seg.transpose  = elem[F("tp")] | seg.transpose;
-  if (seg.is2D() && (seg.map1D2D == M12_pArc || seg.map1D2D == M12_sCircle) && (reverse != seg.reverse || reverse_y != seg.reverse_y || mirror != seg.mirror || mirror_y != seg.mirror_y)) seg.fill(BLACK); // clear entire segment (in case of Arc 1D to 2D expansion) WLEDMM: also Circle
+  if (seg.is2D() && (seg.map1D2D == M12_pArc || seg.map1D2D == M12_sCircle) && (reverse != seg.reverse || reverse_y != seg.reverse_y || mirror != seg.mirror || mirror_y != seg.mirror_y)) seg.markForBlank(); // clear entire segment (in case of Arc 1D to 2D expansion) WLEDMM: also Circle
   #endif
 
   byte fx = seg.mode;
@@ -328,6 +328,13 @@ bool deserializeSegment(JsonObject elem, byte it, byte presetId)
   if (!iarr.isNull()) {
     uint8_t oldMap1D2D = seg.map1D2D;
     seg.map1D2D = M12_Pixels; // no mapping
+    // WLEDMM begin - we need to init segment caches before putting any pixels
+    if (strip.isServicing()) {
+      USER_PRINTLN(F("deserializeSegment() image: strip is still drawing effects."));
+      strip.waitUntilIdle();
+    }
+    seg.startFrame();
+    // WLEDMM end
 
     // set brightness immediately and disable transition
     transitionDelayTemp = 0;
@@ -376,9 +383,14 @@ bool deserializeSegment(JsonObject elem, byte it, byte presetId)
     strip.trigger(); // force segment update
   }
   // send UDP/WS if segment options changed (except selection; will also deselect current preset)
-  if (seg.differs(prev) & 0x7F) {
+  uint8_t diffresult = seg.differs(prev)  & 0x7F;
+  if (diffresult > 0) {
     stateChanged = true;
     if ((seg.on == false) && (prev.on == true) && (prev.freeze == false)) prev.fill(BLACK); // WLEDMM: force BLACK if segment was turned off
+    if (diffresult & (SEG_DIFFERS_BOUNDS | SEG_DIFFERS_GSO | SEG_DIFFERS_OPT)) {   // WLEDMM bouds, grouping, or options changed (mirror, reverse, transpose, mapping)
+      if (!seg.freeze) seg.markForBlank();
+      if (prev.isActive() && (diffresult & (SEG_DIFFERS_BOUNDS | SEG_DIFFERS_GSO)) && !prev.freeze && !seg.freeze) prev.fill(BLACK);   // WLEDMM fingers crossed
+    }
   }
 
   if (iAmGroot) suspendStripService = false; // WLEDMM release lock
@@ -430,7 +442,7 @@ bool deserializeState(JsonObject root, byte callMode, byte presetId)
     }
   }
 
-  int tr = -1;
+  long tr = -1;
   if (!presetId || currentPlaylist < 0) { //do not apply transition time from preset if playlist active, as it would override playlist transition times
     tr = root[F("transition")] | -1;
     if (tr >= 0)
@@ -463,7 +475,7 @@ bool deserializeState(JsonObject root, byte callMode, byte presetId)
   strip.setTransition(transitionDelayTemp); // required here for color transitions to have correct duration
 
   tr = root[F("tb")] | -1;
-  if (tr >= 0) strip.timebase = ((uint32_t)tr) - millis();
+  if (tr >= 0) strip.timebase = ((unsigned long)tr) - millis();
 
   JsonObject nl       = root["nl"];
   nightlightActive    = nl["on"]      | nightlightActive;
@@ -904,8 +916,8 @@ void serializeInfo(JsonObject root)
 
   JsonObject leds = root.createNestedObject("leds");
   leds[F("count")] = strip.getLengthTotal();
-  leds[F("countP")] = strip.getLengthPhysical(); //WLEDMM
-  leds[F("pwr")] = strip.currentMilliamps;
+  leds[F("countP")] = strip.getLengthPhysical2(); //WLEDMM - getLengthPhysical plus plysical busses not supporting ABL (i.e. HUB75)
+  leds[F("pwr")] = strip.currentMilliamps > 100 ? strip.currentMilliamps : 0; // WLEDMM show "not calculated" for HUB75, or when all LEDs are out
   leds["fps"] = strip.getFps();
   leds[F("maxpwr")] = (strip.currentMilliamps)? strip.ablMilliampsMax : 0;
   leds[F("maxseg")] = strip.getMaxSegments();
@@ -1072,7 +1084,7 @@ void serializeInfo(JsonObject root)
     #if CONFIG_SPIRAM_MODE_OCT
       root[F("psrmode")]  = F("🚀 OPI");
     #elif CONFIG_SPIRAM_MODE_QUAD
-      root[F("psrmode")]  = F("qspi 🛻");
+      root[F("psrmode")]  = F("qspi");
     #endif
     #endif
   }
@@ -1108,6 +1120,12 @@ void serializeInfo(JsonObject root)
     case FM_QOUT: root[F("e32flashtext")] = F(" (QOUT)");break;
     case FM_DIO:  root[F("e32flashtext")] = F(" (DIO)"); break;
     case FM_DOUT: root[F("e32flashtext")] = F(" (DOUT or other)");break;
+    #if defined(CONFIG_IDF_TARGET_ESP32S3) && CONFIG_ESPTOOLPY_FLASHMODE_OPI
+      case FM_FAST_READ: root[F("e32flashtext")] = F(" (🚀OPI)");break;
+    #else
+      case FM_FAST_READ: root[F("e32flashtext")] = F(" (fast_read)");break;
+    #endif
+    case FM_SLOW_READ: root[F("e32flashtext")] = F(" (slow_read)");break;
     default: root[F("e32flashtext")] = F(" (other)"); break;
   }
 
