@@ -684,18 +684,20 @@ function populateInfo(i)
 				urows += inforow(k,val);
 		}
 	}
-	var vcn = "Kuuhaku";
-	if (i.ver.startsWith("0.14.")) vcn = "Hoshi";
+	var vcn = "Small Step";  // WLED-MM 14.5.0, release Dec 2024
+//	if (i.ver.startsWith("0.14.")) vcn = "Hoshi";
 //	if (i.ver.includes("-bl")) vcn = "Supāku";
 	if (i.cn) vcn = i.cn;
 
 	//WLEDMM: add total heap and total PSRAM, and build number, add bin name
-	if (i.ver.includes("0.14.0")) vcn = "Lupo";          // check for MM versioning scheme
-	if (i.ver.includes("0.14.0-b15")) vcn = "Sitting Ducks"; // late easter egg
-	if (i.ver.includes("0.14.0-b2")) vcn = "This is the way"; // recently watched The Mandalorian? I have spoken ;-)
-	if (i.ver.includes("0.14.0-b15.22")) vcn = "Lupo";
-	if (i.ver.includes("0.14.1-b3")) vcn = "Fried Chicken";  // final line of "One Vision" by Queen
+	//if (i.ver.includes("0.14.0")) vcn = "Lupo";          // check for MM versioning scheme
+	//if (i.ver.includes("0.14.0-b15")) vcn = "Sitting Ducks"; // late easter egg
+	//if (i.ver.includes("0.14.0-b2")) vcn = "This is the way"; // recently watched The Mandalorian? I have spoken ;-)
+	//if (i.ver.includes("0.14.0-b15.22")) vcn = "Lupo";
+	//if (i.ver.includes("0.14.1-b")) vcn = "Fried Chicken";  // final line of "One Vision" by Queen
 	if (i.ver.includes("0.14.3-b")) vcn = "Fried Chicken";
+	if (i.ver.includes("14.5.")) vcn = "Small Step";
+
 	cn += `v${i.ver} &nbsp;<i>"${vcn}"</i><p>(WLEDMM ${i.rel}.bin)</p><p><em>build ${i.vid}</em></p><table>
 ${urows}
 ${urows===""?'':'<tr><td colspan=2><hr style="height:1px;border-width:0;color:SeaGreen;background-color:Seagreen"></td></tr>'}

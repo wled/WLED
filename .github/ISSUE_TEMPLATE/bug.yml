@@ -48,7 +48,7 @@ body:
     attributes:
       label: What version/release of MM WLED?
       description: You can find this in by going to Config -> Security & Updates -> Scroll to Bottom. Copy and paste the entire line after "Server message"
-      placeholder: "e.g. build 2401290, WLEDMM_0.14.1-b32.40_esp32_4MB_M.bin"
+      placeholder: "e.g. build 2401290, WLEDMM_14.5.0-beta_esp32_4MB_M.bin"
     validations:
       required: true
   - type: dropdown
