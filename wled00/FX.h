@@ -94,7 +94,7 @@ bool strip_uses_global_leds(void) __attribute__((pure));  // WLEDMM implemented 
 #define SEGCOLOR(x)      strip.segColor(x) /* saves us a few kbytes of code */
 #define SEGPALETTE       Segment::getCurrentPalette()
 #define SEGLEN           strip._virtualSegmentLength /* saves us a few kbytes of code */
-#define SPEED_FORMULA_L  (5U + (50U*(255U - SEGMENT.speed))/SEGLEN)
+#define SPEED_FORMULA_L  (4U + (50U*(255U - SEGMENT.speed))/min(SEGLEN, uint16_t(512)))  // WLEDMM limiting the formula to 512 virtual pixels
 
 // some common colors
 #define RED        (uint32_t)0xFF0000

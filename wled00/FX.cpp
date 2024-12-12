@@ -1289,6 +1289,9 @@ static uint16_t mode_fireworks_core(bool useaudio) {
   if (valid1) { if (SEGMENT.is2D()) SEGMENT.setPixelColorXY(SEGENV.aux0%width, SEGENV.aux0/width, sv1); else SEGMENT.setPixelColor(SEGENV.aux0, sv1); } // restore spark color after blur
   if (valid2) { if (SEGMENT.is2D()) SEGMENT.setPixelColorXY(SEGENV.aux1%width, SEGENV.aux1/width, sv2); else SEGMENT.setPixelColor(SEGENV.aux1, sv2); } // restore old spark color after blur
 
+  #if defined(ARDUINO_ARCH_ESP32)
+  random16_add_entropy(esp_random() & 0xFFFF); // improve randomness (esp32)
+  #endif
   if (addPixels) // WLEDMM
   for (int i=0; i<max(1, width/20); i++) {
     if (random8(myIntensity) == 0) { // WLEDMM
@@ -2615,6 +2618,13 @@ uint16_t ripple_base()
   uint16_t maxRipples = min(1 + (SEGLEN >> 2), MAX_RIPPLES);  // 56 max for 16 segment ESP8266
   uint16_t dataSize = sizeof(ripple) * maxRipples;
 
+  const uint16_t cols = strip.isMatrix ? SEGMENT.virtualWidth() : 1;
+  const uint16_t rows = strip.isMatrix ? SEGMENT.virtualHeight() : SEGMENT.virtualLength();
+  const int16_t maxDim = max(2, (cols + rows) / 4); // WLEDMM
+  #if defined(ARDUINO_ARCH_ESP32)
+  random16_add_entropy(esp_random() & 0xFFFF); // improve randomness (esp32)
+  #endif
+
   if (!SEGENV.allocateData(dataSize)) return mode_static(); //allocation failed
   if (SEGENV.call == 0) {SEGENV.setUpLeds(); SEGMENT.fill(BLACK);}                 // WLEDMM use lossless getPixelColor()
 
@@ -2638,7 +2648,9 @@ uint16_t ripple_base()
         uint16_t cx = rippleorigin >> 8;
         uint16_t cy = rippleorigin & 0xFF;
         uint8_t mag = scale8(sin8_t((propF>>2)), amp);
-        if (propI > 0) SEGMENT.drawCircle(cx, cy, propI, color_blend(SEGMENT.getPixelColorXY(cx + propI, cy), col, mag), true);
+        propI = min(propI, maxDim); // WLEDMM make sure that circles are visible
+        if ((propI > 0) && (unsigned(cx + propI) < cols) && (unsigned(cy) < rows))  // WLEDMM
+          SEGMENT.drawCircle(cx, cy, propI, color_blend(SEGMENT.getPixelColorXY(cx + propI, cy), col, mag), true);
       } else
       #endif
       {
@@ -3687,6 +3699,9 @@ uint16_t mode_exploding_fireworks(void)
 
   float gravity = -0.0004f - (SEGMENT.speed/800000.0f); // m/s/s
   gravity *= rows;
+#if defined(ARDUINO_ARCH_ESP32)
+  random16_add_entropy(esp_random() & 0xFFFF); // improves randonmess
+#endif
 
   if (SEGENV.aux0 < 2) { //FLARE
     if (SEGENV.aux0 == 0) { //init flare
@@ -3708,7 +3723,7 @@ uint16_t mode_exploding_fireworks(void)
       flare->pos  += flare->vel;
       flare->posX += flare->velX;
       flare->pos  = constrain(flare->pos, 0, rows-1);
-      flare->posX = constrain(flare->posX, 0, cols-strip.isMatrix);
+      flare->posX = constrain(flare->posX, 0, cols-int(strip.isMatrix));
       flare->vel  += gravity;
       flare->col  -= 2;
     } else {
@@ -3738,10 +3753,10 @@ uint16_t mode_exploding_fireworks(void)
         sparks[i].colIndex = random8();
         sparks[i].vel  *= flare->pos/rows; // proportional to height
         sparks[i].velX *= strip.isMatrix ? flare->posX/cols : 0; // proportional to width
-        sparks[i].vel  *= -gravity *50;
+        sparks[i].vel  *= -gravity *50.0f;
       }
       //sparks[1].col = 345; // this will be our known spark
-      *dying_gravity = gravity/2;
+      *dying_gravity = gravity/2.0f;
       SEGENV.aux0 = 3;
     }
 
