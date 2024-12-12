@@ -1268,7 +1268,11 @@ int BusManager::add(BusConfig &bc) {
 void BusManager::removeAll() {
   DEBUG_PRINTLN(F("Removing all."));
   //prevents crashes due to deleting busses while in use.
+#if !defined(ARDUINO_ARCH_ESP32)
   while (!canAllShow()) yield();
+#else
+  while (!canAllShow()) delay(2); // WLEDMM on esp32, yield() doesn't work as you think it would
+#endif
   for (uint8_t i = 0; i < numBusses; i++) delete busses[i];
   numBusses = 0;
   // WLEDMM clear cached Bus info
@@ -1279,6 +1283,10 @@ void BusManager::removeAll() {
 
 void __attribute__((hot)) BusManager::show() {
   for (unsigned i = 0; i < numBusses; i++) {
+#if 1 && defined(ARDUINO_ARCH_ESP32)
+    unsigned long t0 = millis();
+    while ((busses[i]->canShow() == false) && (millis() - t0 < 80)) delay(1); // WLEDMM experimental: wait until bus driver is ready (max 80ms) - costs us 1-2 fps but reduces flickering
+#endif
     busses[i]->show();
   }
 }
