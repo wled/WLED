@@ -103,7 +103,6 @@ void WLED::loop()
     if (WLED_CONNECTED && aOtaEnabled && !otaLock && correctPIN) ArduinoOTA.handle();
     #endif
     handleNightlight();
-    handlePlaylist();
     yield();
 
     #ifndef WLED_DISABLE_HUESYNC
@@ -111,6 +110,10 @@ void WLED::loop()
     yield();
     #endif
 
+    if (!presetNeedsSaving()) {
+      handlePlaylist();
+      yield();
+    }
     handlePresets();
     yield();
 
@@ -590,10 +593,10 @@ void WLED::beginStrip()
     strip.fill(BLACK);
     strip.show();
   }
+  colorUpdated(CALL_MODE_INIT); // will not send notification but will initiate transition
   if (bootPreset > 0) {
     applyPreset(bootPreset, CALL_MODE_INIT);
   }
-  colorUpdated(CALL_MODE_INIT); // will not send notification
 
   // init relay pin
   if (rlyPin >= 0) {
