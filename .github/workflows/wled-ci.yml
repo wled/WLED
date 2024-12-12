@@ -6,7 +6,7 @@ jobs:
 
   get_default_envs:
     name: Gather Environments
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
     - uses: actions/checkout@v4
     - name: Cache pip
@@ -31,7 +31,7 @@ jobs:
 
   build:
     name: Builds
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     needs: get_default_envs
     strategy:
       fail-fast: false
@@ -74,7 +74,7 @@ jobs:
         path: build_output/release/*.bin
   release:
     name: Create Release
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     needs: [get_default_envs, build]
     if: startsWith(github.ref, 'refs/tags/')
     steps:
