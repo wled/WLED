@@ -305,6 +305,7 @@ void serializePlaylist(JsonObject obj);
 
 //presets.cpp
 const char *getPresetsFileName(bool persistent = true);
+bool presetNeedsSaving();
 void initPresetsFile();
 void handlePresets();
 bool applyPreset(byte index, byte callMode = CALL_MODE_DIRECT_CHANGE);
