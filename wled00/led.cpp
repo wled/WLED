@@ -113,10 +113,11 @@ void stateUpdated(byte callMode) {
     }
   }
 
+  unsigned long now = millis();
   if (callMode != CALL_MODE_NO_NOTIFY && nightlightActive && (nightlightMode == NL_MODE_FADE || nightlightMode == NL_MODE_COLORFADE)) {
     briNlT = bri;
-    nightlightDelayMs -= (millis() - nightlightStartTime);
-    nightlightStartTime = millis();
+    nightlightDelayMs -= (now - nightlightStartTime);
+    nightlightStartTime = now;
   }
   if (briT == 0) {
     if (callMode != CALL_MODE_NOTIFICATION) strip.resetTimebase(); //effect start from beginning
@@ -143,7 +144,7 @@ void stateUpdated(byte callMode) {
   } else
     strip.setTransitionMode(true); // force all segments to transition mode
   transitionActive = true;
-  transitionStartTime = millis();
+  transitionStartTime = now;
 }
 
 
