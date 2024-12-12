@@ -54,7 +54,7 @@ void unloadPlaylist() {
 
 
 int16_t loadPlaylist(JsonObject playlistObj, byte presetId) {
-  if (currentPlaylist > 0 && parentPlaylistPresetId > 0) return; // we are already in nested playlist, do nothing
+  if (currentPlaylist > 0 && parentPlaylistPresetId > 0) return -1; // we are already in nested playlist, do nothing
   if (currentPlaylist > 0) {
     parentPlaylistIndex = playlistIndex;
     parentPlaylistRepeat = playlistRepeat;
