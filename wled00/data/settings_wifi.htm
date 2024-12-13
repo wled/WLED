@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
 	<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport">
-	<title>WiFi Settings</title>
+	<title>Wi-Fi Settings</title>
 	<script>
 		var d = document;
 		var loc = false, locip;
@@ -141,7 +141,7 @@
 		<div class="helpB"><button type="button" onclick="H()">?</button></div>
 		<button type="button" onclick="B()">Back</button><button type="submit">Save &amp; Connect</button><hr>
 		</div>
-		<h2>WiFi setup</h2>
+		<h2>Wi-Fi setup</h2>
 		<h3>Connect to existing network</h3>
 		<button type="button" id="scan" onclick="N()">Scan</button><br>
 		Network name (SSID, empty to not connect):<br>
@@ -169,7 +169,7 @@
 		AP SSID (leave empty for no AP):<br> <input type="text" name="AS" maxlength="32"><br>
 		Hide AP name: <input type="checkbox" name="AH"><br>
 		AP password (leave empty for open):<br> <input type="password" name="AP" maxlength="63" pattern="(.{8,63})|()" title="Empty or min. 8 characters"><br>
-		Access Point WiFi channel: <input name="AC" type="number" class="xs" min="1" max="13" required><br>
+		Access Point Wi-Fi channel: <input name="AC" type="number" class="xs" min="1" max="13" required><br>
 		AP opens:
 		<select name="AB">
 		<option value="0">No connection after boot</option>
@@ -179,9 +179,9 @@
 		AP IP: <span class="sip"> Not active </span><br>
 		<h3>Experimental</h3>
 		Force 802.11g mode (ESP8266 only): <input type="checkbox" name="FG"><br>
-		Disable WiFi sleep: <input type="checkbox" name="WS"><br>
+		Disable Wi-Fi sleep: <input type="checkbox" name="WS"><br>
 		<i>Can help with connectivity issues.<br>
-		Do not enable if WiFi is working correctly, increases power consumption.</i>
+		Do not enable if Wi-Fi is working correctly, increases power consumption.</i>
 
 		<div id="remd">
 			<h3>Wireless Remote</h3>
