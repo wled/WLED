@@ -3216,6 +3216,7 @@ setInterval(()=>{
 	if (hc==144) hc+=36;
 	if (hc==108) hc+=18;
 	gId('heart').style.color = `hsl(${hc}, 100%, 50%)`;
+	gId('heartMM').style.color = `hsl(${hc}, 100%, 50%)`;
 }, 910);
 
 function openGH() { window.open("https://github.com/Aircoookie/WLED/wiki"); }

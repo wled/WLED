@@ -361,6 +361,12 @@ button:hover {
 	color: #f00;
 }
 
+#heartMM {
+	transition: color 0.9s;
+	font-size: 16px;
+	color: #0f0;
+}
+
 img {
 	max-width: 100%;
 	max-height: 100%;
