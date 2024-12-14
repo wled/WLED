@@ -318,7 +318,23 @@ void deletePreset(byte index);
 bool getPresetName(byte index, String& name);
 
 //remote.cpp
-void handleRemote(uint8_t *data, size_t len);
+void handleRemote();
+// This is kind of an esoteric strucure because it's pulled from the "Wizmote"
+// product spec. That remote is used as the baseline for behavior and availability
+// since it's broadly commercially available and works out of the box as a drop-in
+typedef struct WizMoteMessageStructure {
+  uint8_t program;  // 0x91 for ON button, 0x81 for all others
+  uint8_t seq[4];   // Incremetal sequence number 32 bit unsigned integer LSB first
+  uint8_t dt1;      // Button Data Type (0x32)
+  uint8_t button;   // Identifies which button is being pressed
+  uint8_t dt2;      // Battery Level Data Type (0x01)
+  uint8_t batLevel; // Battery Level 0-100
+  
+  uint8_t byte10;   // Unknown, maybe checksum
+  uint8_t byte11;   // Unknown, maybe checksum
+  uint8_t byte12;   // Unknown, maybe checksum
+  uint8_t byte13;   // Unknown, maybe checksum
+} message_structure_t;
 
 //set.cpp
 bool isAsterisksOnly(const char* str, byte maxLen);

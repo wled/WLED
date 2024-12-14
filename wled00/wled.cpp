@@ -84,6 +84,9 @@ void WLED::loop()
   #ifndef WLED_DISABLE_INFRARED
   handleIR();
   #endif
+  #ifndef WLED_DISABLE_ESPNOW
+  handleRemote();
+  #endif
   #ifndef WLED_DISABLE_ALEXA
   handleAlexa();
   #endif
@@ -289,7 +292,7 @@ void WLED::loop()
     // WL_CONNECT_FAILED   = 4
     // WL_CONNECTION_LOST  = 5
     // WL_DISCONNECTED     = 6
-    DEBUG_PRINTF_P(PSTR("Wifi state: %d @ %lus\n"),   lastWifiState, wifiStateChangedTime/1000);
+    DEBUG_PRINTF_P(PSTR("Wifi state: %d (connected %d, channel %d, mode %d) @ %lus -> %lus\n"), lastWifiState, (int)Network.isConnected(), WiFi.channel(), WiFi.getMode(), lastReconnectAttempt/1000, wifiStateChangedTime/1000);
     #ifndef WLED_DISABLE_ESPNOW
     DEBUG_PRINTF_P(PSTR("ESP-NOW state: %u\n"),       statusESPNow);
     #endif

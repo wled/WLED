@@ -951,7 +951,10 @@ void espNowReceiveCB(uint8_t* address, uint8_t* data, uint8_t len, signed int rs
 
   #ifdef WLED_DEBUG
     DEBUG_PRINT(F("ESP-NOW: ")); DEBUG_PRINT(last_signal_src); DEBUG_PRINT(F(" -> ")); DEBUG_PRINTLN(len);
-    for (int i=0; i<len; i++) DEBUG_PRINTF_P(PSTR("%02x "), data[i]);
+    for (int i=0; i<len; i++) {
+      if (!(i % 32)) DEBUG_PRINTLN();
+      DEBUG_PRINTF_P(PSTR("%02x "), data[i]);
+    }
     DEBUG_PRINTLN();
   #endif
 
@@ -960,7 +963,15 @@ void espNowReceiveCB(uint8_t* address, uint8_t* data, uint8_t len, signed int rs
 
   // handle WiZ Mote data
   if (data[0] == 0x91 || data[0] == 0x81 || data[0] == 0x80) {
-    handleRemote(data, len);
+    static uint32_t last_seq = UINT32_MAX;
+    message_structure_t *incoming = reinterpret_cast<message_structure_t *>(data);
+    if (len == sizeof(message_structure_t)) {
+      uint32_t cur_seq = incoming->seq[0] | (incoming->seq[1] << 8) | (incoming->seq[2] << 16) | (incoming->seq[3] << 24);
+      if (cur_seq == last_seq) return;
+      DEBUG_PRINTF_P(PSTR("Incoming Wiz Mote Packet [%u]; button: %d\n"), cur_seq, (int)incoming->button);
+      wizMoteButton = incoming->button;
+      last_seq = cur_seq;
+    } else DEBUG_PRINTF_P(PSTR("Unknown Wiz Mote message [%uB]\n"), len);
     return;
   }
 
