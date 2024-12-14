@@ -524,6 +524,7 @@ WLED_GLOBAL byte statusESPNow        _INIT(ESP_NOW_STATE_UNINIT); // state of ES
 WLED_GLOBAL bool useESPNowSync       _INIT(false);  // use ESP-NOW wireless technology for sync
 WLED_GLOBAL char linked_remote[13]   _INIT("");     // MAC of ESP-NOW remote (Wiz Mote)
 WLED_GLOBAL char last_signal_src[13] _INIT("");     // last seen ESP-NOW sender
+WLED_GLOBAL int16_t wizMoteButton    _INIT(-1);
 #endif
 
 // Time CONFIG
