@@ -548,6 +548,7 @@ WLED_GLOBAL byte senderESPNow[6]     _INIT_N(({0,0,0,0,0,0})); // last seen ESP-
 WLED_GLOBAL byte channelESPNow       _INIT(1);      // last channel used when searching for master
 WLED_GLOBAL unsigned long scanESPNow _INIT(0UL);
 WLED_GLOBAL unsigned long heartbeatESPNow _INIT(0UL); // last heartbeat/beacon millis()
+WLED_GLOBAL int16_t wizMoteButton    _INIT(-1);
 #endif
 
 // Time CONFIG
