@@ -603,6 +603,7 @@ WLED_GLOBAL bool forceReconnect _INIT(false);
 WLED_GLOBAL unsigned long lastReconnectAttempt _INIT(0);
 WLED_GLOBAL bool interfacesInited _INIT(false);
 WLED_GLOBAL bool wasConnected _INIT(false);
+WLED_GLOBAL bool initInterfaces _INIT(false);
 
 // color
 WLED_GLOBAL byte lastRandomIndex _INIT(0);        // used to save last random color so the new one is not the same
@@ -1026,9 +1027,9 @@ WLED_GLOBAL volatile uint8_t jsonBufferLock _INIT(0);
 
 // debug macro variable definitions
 #ifdef WLED_DEBUG
-  WLED_GLOBAL unsigned long debugTime _INIT(0);
-  WLED_GLOBAL int lastWifiState _INIT(3);
-  WLED_GLOBAL unsigned long wifiStateChangedTime _INIT(0);
+  WLED_GLOBAL unsigned long debugTime _INIT(0UL);
+  WLED_GLOBAL int lastWifiState _INIT(WL_IDLE_STATUS);
+  WLED_GLOBAL unsigned long wifiStateChangedTime _INIT(0UL);
   WLED_GLOBAL unsigned loops _INIT(0);
 #endif
 
@@ -1081,11 +1082,10 @@ public:
 
   void beginStrip();
   void handleConnection();
-  bool initEthernet(); // result is informational
   void stopAP(bool stopESPNow = true);
   void initAP(bool resetAP = false);
   void initConnection();
-  void initInterfaces();
+  void connected();
   #if defined(STATUSLED)
   void handleStatusLED();
   #endif

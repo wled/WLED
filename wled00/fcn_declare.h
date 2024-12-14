@@ -355,6 +355,7 @@ void espNowReceiveCB(uint8_t* address, uint8_t* data, uint8_t len, signed int rs
 #endif
 
 //network.cpp
+bool initEthernet(); // result is informational
 int getSignalQuality(int rssi);
 int8_t findWiFi(bool doScan = false);
 bool isWiFiConfigured();

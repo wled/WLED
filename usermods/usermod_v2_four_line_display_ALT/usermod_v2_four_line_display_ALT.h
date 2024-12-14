@@ -133,8 +133,6 @@ class FourLineDisplayUsermod : public Usermod {
 
     // Next variables hold the previous known values to determine if redraw is
     // required.
-    String knownSsid = apSSID;
-    IPAddress knownIp = IPAddress(4, 3, 2, 1);
     uint8_t knownBrightness = 0;
     uint8_t knownEffectSpeed = 0;
     uint8_t knownEffectIntensity = 0;
@@ -583,8 +581,6 @@ void FourLineDisplayUsermod::setup() {
 // gets called every time WiFi is (re-)connected. Initialize own network
 // interfaces here
 void FourLineDisplayUsermod::connected() {
-  knownSsid = WiFi.SSID();       //apActive ? apSSID : WiFi.SSID(); //apActive ? WiFi.softAPSSID() :
-  knownIp   = Network.localIP(); //apActive ? IPAddress(4, 3, 2, 1) : Network.localIP();
   networkOverlay(PSTR("NETWORK INFO"),7000);
 }
 
@@ -626,7 +622,6 @@ void FourLineDisplayUsermod::redraw(bool forceRedraw) {
   if (drawing || lockRedraw) return;
 
   if (apActive && isWiFiConfigured() && now < 15000) {
-    knownSsid = apSSID;
     networkOverlay(PSTR("NETWORK INFO"),30000);
     return;
   }
@@ -1036,6 +1031,7 @@ void FourLineDisplayUsermod::networkOverlay(const char* line1, long showHowLong)
     drawString(0, 0, line.c_str());
   }
   // Second row with Wifi name
+  String knownSsid = Network.isConnected() && !apActive ? WiFi.SSID() : WiFi.softAPSSID(); //apSSID
   line = knownSsid.substring(0, getCols() > 1 ? getCols() - 2 : 0);
   if (line.length() < getCols()) center(line, getCols());
   drawString(0, lineHeight, line.c_str());
@@ -1044,6 +1040,7 @@ void FourLineDisplayUsermod::networkOverlay(const char* line1, long showHowLong)
     drawString(getCols() - 1, 0, "~");
   }
   // Third row with IP and Password in AP Mode
+  IPAddress knownIp =  Network.isConnected() && !apActive ? Network.localIP() : WiFi.softAPIP();
   line = knownIp.toString();
   center(line, getCols());
   drawString(0, lineHeight*2, line.c_str());

@@ -146,6 +146,101 @@ const ethernet_settings ethernetBoards[] = {
     ETH_CLOCK_GPIO0_OUT	// eth_clk_mode
   }
 };
+
+bool initEthernet()
+{
+  static bool successfullyConfiguredEthernet = false;
+
+  if (successfullyConfiguredEthernet) {
+    // DEBUG_PRINTLN(F("initE: ETH already successfully configured, ignoring"));
+    return false;
+  }
+  if (ethernetType == WLED_ETH_NONE) {
+    return false;
+  }
+  if (ethernetType >= WLED_NUM_ETH_TYPES) {
+    DEBUG_PRINTF_P(PSTR("initE: Ignoring attempt for invalid ethernetType (%d)\n"), ethernetType);
+    return false;
+  }
+
+  DEBUG_PRINTF_P(PSTR("initE: Attempting ETH config: %d\n"), ethernetType);
+
+  // Ethernet initialization should only succeed once -- else reboot required
+  ethernet_settings es = ethernetBoards[ethernetType];
+  managed_pin_type pinsToAllocate[10] = {
+    // first six pins are non-configurable
+    esp32_nonconfigurable_ethernet_pins[0],
+    esp32_nonconfigurable_ethernet_pins[1],
+    esp32_nonconfigurable_ethernet_pins[2],
+    esp32_nonconfigurable_ethernet_pins[3],
+    esp32_nonconfigurable_ethernet_pins[4],
+    esp32_nonconfigurable_ethernet_pins[5],
+    { (int8_t)es.eth_mdc,   true },  // [6] = MDC  is output and mandatory
+    { (int8_t)es.eth_mdio,  true },  // [7] = MDIO is bidirectional and mandatory
+    { (int8_t)es.eth_power, true },  // [8] = optional pin, not all boards use
+    { ((int8_t)0xFE),       false }, // [9] = replaced with eth_clk_mode, mandatory
+  };
+  // update the clock pin....
+  if (es.eth_clk_mode == ETH_CLOCK_GPIO0_IN) {
+    pinsToAllocate[9].pin = 0;
+    pinsToAllocate[9].isOutput = false;
+  } else if (es.eth_clk_mode == ETH_CLOCK_GPIO0_OUT) {
+    pinsToAllocate[9].pin = 0;
+    pinsToAllocate[9].isOutput = true;
+  } else if (es.eth_clk_mode == ETH_CLOCK_GPIO16_OUT) {
+    pinsToAllocate[9].pin = 16;
+    pinsToAllocate[9].isOutput = true;
+  } else if (es.eth_clk_mode == ETH_CLOCK_GPIO17_OUT) {
+    pinsToAllocate[9].pin = 17;
+    pinsToAllocate[9].isOutput = true;
+  } else {
+    DEBUG_PRINTF_P(PSTR("initE: Failing due to invalid eth_clk_mode (%d)\n"), es.eth_clk_mode);
+    return false;
+  }
+
+  if (!PinManager::allocateMultiplePins(pinsToAllocate, 10, PinOwner::Ethernet)) {
+    DEBUG_PRINTLN(F("initE: Failed to allocate ethernet pins"));
+    return false;
+  }
+
+  /*
+  For LAN8720 the most correct way is to perform clean reset each time before init
+  applying LOW to power or nRST pin for at least 100 us (please refer to datasheet, page 59)
+  ESP_IDF > V4 implements it (150 us, lan87xx_reset_hw(esp_eth_phy_t *phy) function in 
+  /components/esp_eth/src/esp_eth_phy_lan87xx.c, line 280)
+  but ESP_IDF < V4 does not. Lets do it:
+  [not always needed, might be relevant in some EMI situations at startup and for hot resets]
+  */
+  #if ESP_IDF_VERSION_MAJOR==3
+  if(es.eth_power>0 && es.eth_type==ETH_PHY_LAN8720) {
+    pinMode(es.eth_power, OUTPUT);
+    digitalWrite(es.eth_power, 0);
+    delayMicroseconds(150);
+    digitalWrite(es.eth_power, 1);
+    delayMicroseconds(10);
+  }
+  #endif
+
+  if (!ETH.begin(
+                (uint8_t) es.eth_address,
+                (int)     es.eth_power,
+                (int)     es.eth_mdc,
+                (int)     es.eth_mdio,
+                (eth_phy_type_t)   es.eth_type,
+                (eth_clock_mode_t) es.eth_clk_mode
+                )) {
+    DEBUG_PRINTLN(F("initC: ETH.begin() failed"));
+    // de-allocate the allocated pins
+    for (managed_pin_type mpt : pinsToAllocate) {
+      PinManager::deallocatePin(mpt.pin, PinOwner::Ethernet);
+    }
+    return false;
+  }
+
+  successfullyConfiguredEthernet = true;
+  DEBUG_PRINTLN(F("initC: *** Ethernet successfully configured! ***"));
+  return true;
+}
 #endif
 
 
@@ -174,7 +269,7 @@ int getSignalQuality(int rssi)
 // returns configured WiFi ID with the strongest signal (or default if no configured networks available)
 int8_t findWiFi(bool doScan) {
   if (multiWiFi.size() <= 1) {
-    DEBUG_PRINTF_P(PSTR("WiFi: Defaulf SSID (%s) used.\r\n"), multiWiFi[0].clientSSID);
+    DEBUG_PRINTF_P(PSTR("WiFi: Defaulf SSID (%s) used.\n"), multiWiFi[0].clientSSID);
     return 0;
   }
 
@@ -183,14 +278,14 @@ int8_t findWiFi(bool doScan) {
   int status = WiFi.scanComplete(); // complete scan may take as much as several seconds (usually <6s with not very crowded air)
 
   if (status == WIFI_SCAN_FAILED) {
-    DEBUG_PRINTF_P(PSTR("WiFi: Scan started. @ %lus\r\n"), millis()/1000);
+    DEBUG_PRINTF_P(PSTR("WiFi: Scan started. @ %lus\n"), millis()/1000);
     WiFi.scanNetworks(true);  // start scanning in asynchronous mode
   } else if (status >= 0) {   // status contains number of found networks (including duplicate SSIDs with different BSSID)
-    DEBUG_PRINTF_P(PSTR("WiFi: Found %d SSIDs. @ %lus\r\n"), status, millis()/1000);
+    DEBUG_PRINTF_P(PSTR("WiFi: Found %d SSIDs. @ %lus\n"), status, millis()/1000);
     int rssi = -9999;
     unsigned selected = selectedWiFi;
     for (int o = 0; o < status; o++) {
-      DEBUG_PRINTF_P(PSTR(" SSID: %s RSSI: %ddB\r\n"), WiFi.SSID(o).c_str(), WiFi.RSSI(o));
+      DEBUG_PRINTF_P(PSTR(" SSID: %s RSSI: %ddB\n"), WiFi.SSID(o).c_str(), WiFi.RSSI(o));
       for (unsigned n = 0; n < multiWiFi.size(); n++)
         if (!strcmp(WiFi.SSID(o).c_str(), multiWiFi[n].clientSSID)) {
           // find the WiFi with the strongest signal (but keep priority of entry if signal difference is not big)
@@ -201,7 +296,7 @@ int8_t findWiFi(bool doScan) {
           break;
         }
     }
-    DEBUG_PRINTF_P(PSTR("WiFi: Selected SSID: %s RSSI: %ddB\r\n"), multiWiFi[selected].clientSSID, rssi);
+    DEBUG_PRINTF_P(PSTR("WiFi: Selected SSID: %s RSSI: %ddB\n"), multiWiFi[selected].clientSSID, rssi);
     return selected;
   }
   //DEBUG_PRINT(F("WiFi scan running."));
@@ -247,7 +342,7 @@ void WiFiEvent(WiFiEvent_t event)
     case ARDUINO_EVENT_WIFI_AP_STACONNECTED:
       // AP client connected
       // it looks like this doesn't work as expected
-      DEBUG_PRINTF_P(PSTR("WiFi: AP Client Connected. @ %lus\r\n"), millis()/1000);
+      DEBUG_PRINTF_P(PSTR("WiFi: AP Client Connected. @ %lus\n"), millis()/1000);
       apClients++;
       DEBUG_PRINTLN(apClients);
       break;
@@ -256,12 +351,12 @@ void WiFiEvent(WiFiEvent_t event)
       break;
     case ARDUINO_EVENT_WIFI_STA_CONNECTED:
       // followed by IDLE and SCAN_DONE
-      DEBUG_PRINTF_P(PSTR("WiFi: Connected! @ %lus\r\n"), millis()/1000);
-      wasConnected = true;
+      DEBUG_PRINTF_P(PSTR("WiFi: Connected! @ %lus\n"), millis()/1000);
+      wasConnected = initInterfaces = true;
       break;
     case ARDUINO_EVENT_WIFI_STA_DISCONNECTED:
       if (wasConnected && interfacesInited) {
-        DEBUG_PRINTF_P(PSTR("WiFi: Disconnected. @ %lus\r\n"), millis()/1000);
+        DEBUG_PRINTF_P(PSTR("WiFi: Disconnected. @ %lus\n"), millis()/1000);
         if (interfacesInited && WiFi.scanComplete() >= 0) {
           findWiFi(true); // reinit WiFi scan
           forceReconnect = true;
