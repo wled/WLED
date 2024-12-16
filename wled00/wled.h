@@ -275,7 +275,7 @@ using PSRAMDynamicJsonDocument = BasicJsonDocument<PSRAM_Allocator>;
 #ifndef WLED_RELEASE_NAME
   #define WLED_RELEASE_NAME dev_release
 #else
-  #if WLED_RELEASE_NAME == ESP32 || WLED_RELEASE_NAME == ESP8266
+  #if (defined(ESP32) && WLED_RELEASE_NAME == ESP32) || (defined(ESP8266) && WLED_RELEASE_NAME == ESP8266)
     #error Wrong WLED_RELEASE_NAME.
   #endif
 #endif
