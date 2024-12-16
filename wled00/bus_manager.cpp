@@ -133,16 +133,6 @@ BusDigital::BusDigital(BusConfig &bc, uint8_t nr, const ColorOrderMap &com)
   DEBUGBUS_PRINTF_P(PSTR("%successfully inited strip %u (len %u) with type %u and pins %u,%u (itype %u). mA=%d/%d\n"), _valid?"S":"Uns", nr, bc.count, bc.type, _pins[0], is2Pin(bc.type)?_pins[1]:255, _iType, _milliAmpsPerLed, _milliAmpsMax);
 }
 
-//fine tune power estimation constants for your setup
-//you can set it to 0 if the ESP is powered by USB and the LEDs by external
-#ifndef MA_FOR_ESP
-  #ifdef ESP8266
-    #define MA_FOR_ESP         80 //how much mA does the ESP use (Wemos D1 about 80mA)
-  #else
-    #define MA_FOR_ESP        120 //how much mA does the ESP use (ESP32 about 120mA)
-  #endif
-#endif
-
 //DISCLAIMER
 //The following function attemps to calculate the current LED power usage,
 //and will limit the brightness to stay below a set amperage threshold.
@@ -927,7 +917,6 @@ void BusManager::show() {
     busses[i]->show();
     _milliAmpsUsed += busses[i]->getUsedCurrent();
   }
-  if (_milliAmpsUsed) _milliAmpsUsed += MA_FOR_ESP;
 }
 
 void BusManager::setStatusPixel(uint32_t c) {
