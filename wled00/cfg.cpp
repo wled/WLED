@@ -745,7 +745,7 @@ void serializeConfig() {
 #ifndef WLED_DISABLE_ESPNOW
   nw[F("espnow")] = enableESPNow;
   char linked_remote[13];
-  sprintf(linked_remote, "%02x%02x%02x%02x%02x%02x", MAC2STR(masterESPNow));
+  sprintf_P(linked_remote, PSTR("%02x%02x%02x%02x%02x%02x"), MAC2STR(masterESPNow));
   nw[F("linked_remote")] = linked_remote;
 #endif
 
