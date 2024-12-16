@@ -409,7 +409,9 @@ function pName(i)
 
 function isPlaylist(i)
 {
-	return pJson[i].playlist && pJson[i].playlist.ps;
+	if (isNumeric(i)) return pJson[i].playlist && pJson[i].playlist.ps;
+	if (isObj(i)) return i.playlist && i.playlist.ps;
+	return false;
 }
 
 function papiVal(i)
@@ -1899,15 +1901,16 @@ function resetUtil(off=false)
 	if (lSeg>2) d.querySelectorAll("#Segments .pop").forEach((e)=>{e.classList.remove("hide");});
 }
 
-function makePlSel(el, incPl=false)
+function makePlSel(p, el)
 {
 	var plSelContent = "";
 	delete pJson["0"];	// remove filler preset
 	Object.entries(pJson).sort(cmpP).forEach((a)=>{
 		var n = a[1].n ? a[1].n : "Preset " + a[0];
+		if (isPlaylist(a[1])) n += ' &#9654;'; // mark playlist
 		if (cfg.comp.idsort) n = a[0] + ' ' + n;
-		if (!(!incPl && a[1].playlist && a[1].playlist.ps)) // skip playlists, sub-playlists not yet supported
-			plSelContent += `<option value="${a[0]}" ${a[0]==el?"selected":""}>${n}</option>`;
+		// skip endless playlists and itself
+		if (!isPlaylist(a[1]) || (a[1].playlist.repeat > 0 && a[0]!=p)) plSelContent += `<option value="${a[0]}" ${a[0]==el?"selected":""}>${n}</option>`;
 	});
 	return plSelContent;
 }
@@ -1932,21 +1935,23 @@ function refreshPlE(p)
 	});
 }
 
-// p: preset ID, i: ps index
+// p: preset ID, i: playlist item index
 function addPl(p,i)
 {
-	plJson[p].ps.splice(i+1,0,0);
-	plJson[p].dur.splice(i+1,0,plJson[p].dur[i]);
-	plJson[p].transition.splice(i+1,0,plJson[p].transition[i]);
+	const pl = plJson[p];
+	pl.ps.splice(i+1,0,1);
+	pl.dur.splice(i+1,0,pl.dur[i]);
+	pl.transition.splice(i+1,0,pl.transition[i]);
 	refreshPlE(p);
 }
 
 function delPl(p,i)
 {
-	if (plJson[p].ps.length < 2) return;
-	plJson[p].ps.splice(i,1);
-	plJson[p].dur.splice(i,1);
-	plJson[p].transition.splice(i,1);
+	const pl = plJson[p];
+	if (pl.ps.length < 2) return;
+	pl.ps.splice(i,1);
+	pl.dur.splice(i,1);
+	pl.transition.splice(i,1);
 	refreshPlE(p);
 }
 
@@ -2011,7 +2016,7 @@ function makeP(i,pl)
 <div class="sel-p"><select class="sel-ple" id="pl${i}selEnd" onchange="plR(${i})" data-val=${plJson[i].end?plJson[i].end:0}>
 <option value="0">None</option>
 <option value="255" ${plJson[i].end && plJson[i].end==255?"selected":""}>Restore preset</option>
-${makePlSel(plJson[i].end?plJson[i].end:0, true)}
+${makePlSel(i, plJson[i].end?plJson[i].end:0)}
 </select></div></div>
 </div>
 <div class="c"><button class="btn btn-p" onclick="testPl(${i}, this)"><i class='icons btn-icon'>&#xe139;</i>Test</button></div>`;
@@ -2090,7 +2095,7 @@ function makePlEntry(p,i)
 	<tr>
 		<td width="80%" colspan=2>
 			<div class="sel-p"><select class="sel-pl" onchange="plePs(${p},${i},this)" data-val="${plJson[p].ps[i]}" data-index="${i}">
-			${makePlSel(plJson[p].ps[i])}
+			${makePlSel(p, plJson[p].ps[i])}
 			</select></div>
 		</td>
 		<td class="c"><button class="btn btn-pl-add" onclick="addPl(${p},${i})"><i class="icons btn-icon">&#xe18a;</i></button></td>
