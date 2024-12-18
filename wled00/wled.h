@@ -3,11 +3,11 @@
 /*
    Main sketch, global variable declarations
    @title WLED project sketch
-   @version 14.5.0-dev
+   @version 14.5.0-beta
  */
 
 // version code in format yymmddb (b = daily build)
-#define VERSION 2412110
+#define VERSION 2412180
 
 // WLEDMM  - you can check for this define in usermods, to only enabled WLEDMM specific code in the "right" fork. Its not defined in AC WLED.
 #define _MoonModules_WLED_
