@@ -119,19 +119,19 @@ struct CHSV32 { // 32bit HSV color with 16bit hue for more accurate conversions
     uint32_t raw;    // 32bit access
   };
   inline CHSV32() __attribute__((always_inline)) = default; // default constructor
-
-    /// Allow construction from hue, saturation, and value
-    /// @param ih input hue
-    /// @param is input saturation
-    /// @param iv input value
+  /// Allow construction from hue, saturation, and value
+  /// @param ih input hue
+  /// @param is input saturation
+  /// @param iv input value
   inline CHSV32(uint16_t ih, uint8_t is, uint8_t iv) __attribute__((always_inline)) // constructor from 16bit h, s, v
-        : h(ih), s(is), v(iv) {}
+    : h(ih), s(is), v(iv) {}
   inline CHSV32(uint8_t ih, uint8_t is, uint8_t iv) __attribute__((always_inline)) // constructor from 8bit h, s, v
-        : h((uint16_t)ih << 8), s(is), v(iv) {}
+    : h((uint16_t)ih << 8), s(is), v(iv) {}
   inline CHSV32(const CHSV& chsv) __attribute__((always_inline))  // constructor from CHSV
     : h((uint16_t)chsv.h << 8), s(chsv.s), v(chsv.v) {}
   inline operator CHSV() const { return CHSV((uint8_t)(h >> 8), s, v); } // typecast to CHSV
 };
+
 // similar to NeoPixelBus NeoGammaTableMethod but allows dynamic changes (superseded by NPB::NeoGammaDynamicTableMethod)
 class NeoGammaWLEDMethod {
   public:
@@ -444,8 +444,6 @@ class Usermod {
 };
 
 namespace UsermodManager {
-  extern byte numMods;
-
   void loop();
   void handleOverlayDraw();
   bool handleButton(uint8_t b);
@@ -469,7 +467,7 @@ namespace UsermodManager {
   void onStateChange(uint8_t);
   bool add(Usermod* um);
   Usermod* lookup(uint16_t mod_id);
-  inline byte getModCount() {return numMods;};
+  byte getModCount();
 };
 
 //usermods_list.cpp
