@@ -212,7 +212,7 @@ void sendImprovInfoResponse() {
   bool useMdnsName = (strcmp(serverDescription, "WLED") == 0 && strlen(cmDNS) > 0);
   char vString[32] = { '\0' };
   //snprintf_P(vString, sizeof(vString)-1, PSTR("0.14.1-b34.42/%i"),VERSION); // upstream baseline
-  snprintf_P(vString, sizeof(vString)-1, PSTR("14.5.0-beta/%i"),VERSION);      // WLEDMM version
+  snprintf_P(vString, sizeof(vString)-1, PSTR("14.5.1-dev/%i"),VERSION);      // WLEDMM version
   const char *str[4] = {"WLED", vString, bString, useMdnsName ? cmDNS : serverDescription};
 
   sendImprovRPCResult(ImprovRPCType::Request_Info, 4, str);
