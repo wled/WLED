@@ -1442,7 +1442,7 @@ uint16_t mode_fairy() {
     if (z == zones-1) flashersInZone = numFlashers-(flashersInZone*(zones-1));
 
     for (unsigned f = firstFlasher; f < firstFlasher + flashersInZone; f++) {
-      unsigned stateTime = now16 - flashers[f].stateStart;
+      unsigned stateTime = uint16_t(now16 - flashers[f].stateStart);
       //random on/off time reached, switch state
       if (stateTime > flashers[f].stateDur * 10) {
         flashers[f].stateOn = !flashers[f].stateOn;
@@ -1501,7 +1501,7 @@ uint16_t mode_fairytwinkle() {
   unsigned maxDur = riseFallTime/100 + ((255 - SEGMENT.intensity) >> 2) + 13 + ((255 - SEGMENT.intensity) >> 1);
 
   for (unsigned f = 0; f < SEGLEN; f++) {
-    unsigned stateTime = now16 - flashers[f].stateStart;
+    uint16_t stateTime = now16 - flashers[f].stateStart;
     //random on/off time reached, switch state
     if (stateTime > flashers[f].stateDur * 100) {
       flashers[f].stateOn = !flashers[f].stateOn;
