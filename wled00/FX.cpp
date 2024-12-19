@@ -200,7 +200,7 @@ uint16_t color_wipe(bool rev, bool useRandomColors) {
     } else
     {
       SEGMENT.setPixelColor(index, back? col0 : col1);
-      if (i == ledIndex) SEGMENT.setPixelColor(index, color_blend(back? col0 : col1, back? col1 : col0, rem));
+      if (i == ledIndex) SEGMENT.setPixelColor(index, color_blend(back? col0 : col1, back? col1 : col0, uint8_t(rem)));
     }
   }
   return FRAMETIME;
@@ -271,7 +271,7 @@ uint16_t mode_random_color(void) {
     SEGENV.step = it;
   }
 
-  SEGMENT.fill(color_blend(SEGMENT.color_wheel(SEGENV.aux1), SEGMENT.color_wheel(SEGENV.aux0), fade));
+  SEGMENT.fill(color_blend(SEGMENT.color_wheel(SEGENV.aux1), SEGMENT.color_wheel(SEGENV.aux0), uint8_t(fade)));
   return FRAMETIME;
 }
 static const char _data_FX_MODE_RANDOM_COLOR[] PROGMEM = "Random Colors@!,Fade time;;!;01";
@@ -353,7 +353,7 @@ static const char _data_FX_MODE_BREATH[] PROGMEM = "Breathe@!;!,!;!;01";
  */
 uint16_t mode_fade(void) {
   unsigned counter = (strip.now * ((SEGMENT.speed >> 3) +10));
-  unsigned lum = triwave16(counter) >> 8;
+  uint8_t lum = triwave16(counter) >> 8;
 
   for (unsigned i = 0; i < SEGLEN; i++) {
     SEGMENT.setPixelColor(i, color_blend(SEGCOLOR(1), SEGMENT.color_from_palette(i, true, PALETTE_SOLID_WRAP, 0), lum));
@@ -421,7 +421,7 @@ uint16_t mode_rainbow(void) {
   counter = counter >> 8;
 
   if (SEGMENT.intensity < 128){
-    SEGMENT.fill(color_blend(SEGMENT.color_wheel(counter),WHITE,128-SEGMENT.intensity));
+    SEGMENT.fill(color_blend(SEGMENT.color_wheel(counter),WHITE,uint8_t(128-SEGMENT.intensity)));
   } else {
     SEGMENT.fill(SEGMENT.color_wheel(counter));
   }
@@ -523,7 +523,7 @@ static uint16_t running_base(bool saw, bool dual=false) {
       unsigned b = (SEGLEN-1-i)*x_scale - counter;
       uint8_t t = sin_gap(b);
       uint32_t cb = color_blend(SEGCOLOR(1), SEGMENT.color_from_palette(i, true, PALETTE_SOLID_WRAP, 2), t);
-      ca = color_blend(ca, cb, 127);
+      ca = color_blend(ca, cb, uint8_t(127));
     }
     SEGMENT.setPixelColor(i, ca);
   }
@@ -1337,7 +1337,7 @@ uint16_t gradient_base(bool loading) {
       val = min(abs(pp-i),min(abs(p1-i),abs(p2-i)));
     }
     val = (brd > val) ? (val * 255) / brd : 255;
-    SEGMENT.setPixelColor(i, color_blend(SEGCOLOR(0), SEGMENT.color_from_palette(i, true, PALETTE_SOLID_WRAP, 1), val));
+    SEGMENT.setPixelColor(i, color_blend(SEGCOLOR(0), SEGMENT.color_from_palette(i, true, PALETTE_SOLID_WRAP, 1), uint8_t(val)));
   }
 
   return FRAMETIME;
@@ -1471,7 +1471,7 @@ uint16_t mode_fairy() {
     unsigned globalPeakBri = 255 - ((avgFlasherBri * MAX_SHIMMER) >> 8); //183-255, suitable for 1/5th of LEDs flashers
 
     for (unsigned f = firstFlasher; f < firstFlasher + flashersInZone; f++) {
-      unsigned bri = (flasherBri[f - firstFlasher] * globalPeakBri) / 255;
+      uint8_t bri = (flasherBri[f - firstFlasher] * globalPeakBri) / 255;
       PRNG16 = (uint16_t)(PRNG16 * 2053) + 1384; //next 'random' number
       unsigned flasherPos = f*flasherDistance;
       SEGMENT.setPixelColor(flasherPos, color_blend(SEGCOLOR(1), SEGMENT.color_from_palette(PRNG16 >> 8, false, false, 0), bri));
@@ -1522,7 +1522,7 @@ uint16_t mode_fairytwinkle() {
     if (flashers[f].stateOn && flashers[f].stateDur > maxDur) flashers[f].stateDur = maxDur; //react more quickly on intensity change
     if (stateTime > riseFallTime) stateTime = riseFallTime; //for flasher brightness calculation, fades in first 255 ms of state
     unsigned fadeprog = 255 - ((stateTime * 255) / riseFallTime);
-    unsigned flasherBri = (flashers[f].stateOn) ? 255-gamma8(fadeprog) : gamma8(fadeprog);
+    uint8_t flasherBri = (flashers[f].stateOn) ? 255-gamma8(fadeprog) : gamma8(fadeprog);
     unsigned lastR = PRNG16;
     unsigned diff = 0;
     while (diff < 0x4000) { //make sure colors of two adjacent LEDs differ enough
@@ -1816,7 +1816,7 @@ uint16_t mode_oscillate(void) {
     uint32_t color = BLACK;
     for (unsigned j = 0; j < numOscillators; j++) {
       if(i >= (unsigned)oscillators[j].pos - oscillators[j].size && i <= oscillators[j].pos + oscillators[j].size) {
-        color = (color == BLACK) ? SEGCOLOR(j) : color_blend(color, SEGCOLOR(j), 128);
+        color = (color == BLACK) ? SEGCOLOR(j) : color_blend(color, SEGCOLOR(j), uint8_t(128));
       }
     }
     SEGMENT.setPixelColor(i, color);
@@ -2504,7 +2504,7 @@ static uint16_t ripple_base() {
         int left = rippleorigin - propI -1;
         int right = rippleorigin + propI +2;
         for (int v = 0; v < 4; v++) {
-          unsigned mag = scale8(cubicwave8((propF>>2) + v * 64), amp);
+          uint8_t mag = scale8(cubicwave8((propF>>2) + v * 64), amp);
           SEGMENT.setPixelColor(left + v, color_blend(SEGMENT.getPixelColor(left + v), col, mag)); // TODO
           SEGMENT.setPixelColor(right - v, color_blend(SEGMENT.getPixelColor(right - v), col, mag)); // TODO
         }
@@ -2547,7 +2547,7 @@ uint16_t mode_ripple_rainbow(void) {
   } else {
     SEGENV.aux0--;
   }
-  SEGMENT.fill(color_blend(SEGMENT.color_wheel(SEGENV.aux0),BLACK,235));
+  SEGMENT.fill(color_blend(SEGMENT.color_wheel(SEGENV.aux0),BLACK,uint8_t(235)));
   return ripple_base();
 }
 static const char _data_FX_MODE_RIPPLE_RAINBOW[] PROGMEM = "Ripple Rainbow@!,Wave #;;!;12";
@@ -2666,7 +2666,7 @@ static uint16_t twinklefox_base(bool cat)
     } else if (deltabright > 0) {
       // If the new pixel is just slightly brighter than the background color,
       // mix a blend of the new color and the background color
-      SEGMENT.setPixelColor(i, color_blend(RGBW32(bg.r,bg.g,bg.b,0), RGBW32(c.r,c.g,c.b,0), deltabright * 8));
+      SEGMENT.setPixelColor(i, color_blend(RGBW32(bg.r,bg.g,bg.b,0), RGBW32(c.r,c.g,c.b,0), uint8_t(deltabright * 8)));
     } else {
       // if the new pixel is not at all brighter than the background color,
       // just use the background color.
@@ -2762,7 +2762,7 @@ uint16_t mode_halloween_eyes()
       const uint32_t eyeColor = SEGMENT.color_from_palette(data.color, false, false, 0);
       uint32_t c = eyeColor;
       if (fadeInAnimationState < 256u) {
-        c = color_blend(backgroundColor, eyeColor, fadeInAnimationState);
+        c = color_blend(backgroundColor, eyeColor, uint8_t(fadeInAnimationState));
       } else if (elapsedTime > minimumOnTimeBegin) {
         const uint32_t remainingTime = (elapsedTime >= duration) ? 0u : (duration - elapsedTime);
         if (remainingTime > minimumOnTimeEnd) {
@@ -2915,7 +2915,7 @@ static uint16_t spots_base(uint16_t threshold)
       if (wave > threshold) {
         unsigned index = 0 + pos + i;
         unsigned s = (wave - threshold)*255 / (0xFFFF - threshold);
-        SEGMENT.setPixelColor(index, color_blend(SEGMENT.color_from_palette(index, true, PALETTE_SOLID_WRAP, 0), SEGCOLOR(1), 255-s));
+        SEGMENT.setPixelColor(index, color_blend(SEGMENT.color_from_palette(index, true, PALETTE_SOLID_WRAP, 0), SEGCOLOR(1), uint8_t(255-s)));
       }
     }
   }
@@ -3361,7 +3361,7 @@ uint16_t candle(bool multi)
     }
 
     if (i > 0) {
-      SEGMENT.setPixelColor(i, color_blend(SEGCOLOR(1), SEGMENT.color_from_palette(i, true, PALETTE_SOLID_WRAP, 0), s));
+      SEGMENT.setPixelColor(i, color_blend(SEGCOLOR(1), SEGMENT.color_from_palette(i, true, PALETTE_SOLID_WRAP, 0), uint8_t(s)));
 
       SEGENV.data[d] = s; SEGENV.data[d+1] = s_target; SEGENV.data[d+2] = fadeStep;
     } else {
@@ -3484,7 +3484,7 @@ uint16_t mode_starburst(void) {
     float age = it-stars[j].birth;
 
     if (age < particleIgnition) {
-      c = CRGB(color_blend(WHITE, RGBW32(c.r,c.g,c.b,0), 254.5f*((age / particleIgnition))));
+      c = CRGB(color_blend(WHITE, RGBW32(c.r,c.g,c.b,0), uint8_t(254.5f*((age / particleIgnition)))));
     } else {
       // Figure out how much to fade and shrink the star based on
       // its age relative to its lifetime
@@ -3495,8 +3495,7 @@ uint16_t mode_starburst(void) {
       } else {
         age -= particleIgnition;
         fade = (age / particleFadeTime);  // Fading star
-        byte f = 254.5f*fade;
-        c = CRGB(color_blend(RGBW32(c.r,c.g,c.b,0), SEGCOLOR(1), f));
+        c = CRGB(color_blend(RGBW32(c.r,c.g,c.b,0), SEGCOLOR(1), uint8_t(254.5f*fade)));
       }
     }
 
@@ -3697,10 +3696,10 @@ uint16_t mode_drip(void)
           drops[j].colIndex = 1;      // drop state (0 init, 1 forming, 2 falling, 5 bouncing)
         }
 
-        SEGMENT.setPixelColor(indexToVStrip(SEGLEN-1, stripNr), color_blend(BLACK,SEGCOLOR(0), sourcedrop));// water source
+        SEGMENT.setPixelColor(indexToVStrip(SEGLEN-1, stripNr), color_blend(BLACK,SEGCOLOR(0), uint8_t(sourcedrop)));// water source
         if (drops[j].colIndex==1) {
           if (drops[j].col>255) drops[j].col=255;
-          SEGMENT.setPixelColor(indexToVStrip(uint16_t(drops[j].pos), stripNr), color_blend(BLACK,SEGCOLOR(0),drops[j].col));
+          SEGMENT.setPixelColor(indexToVStrip(uint16_t(drops[j].pos), stripNr), color_blend(BLACK,SEGCOLOR(0),uint8_t(drops[j].col)));
 
           drops[j].col += map(SEGMENT.speed, 0, 255, 1, 6); // swelling
 
@@ -3721,7 +3720,7 @@ uint16_t mode_drip(void)
             }
 
             if (drops[j].colIndex > 2) {       // during bounce, some water is on the floor
-              SEGMENT.setPixelColor(indexToVStrip(0, stripNr), color_blend(SEGCOLOR(0),BLACK,drops[j].col));
+              SEGMENT.setPixelColor(indexToVStrip(0, stripNr), color_blend(SEGCOLOR(0),BLACK,uint8_t(drops[j].col)));
             }
           } else {                             // we hit bottom
             if (drops[j].colIndex > 2) {       // already hit once, so back to forming
@@ -4140,7 +4139,7 @@ static uint16_t phased_base(uint8_t moder) {                  // We're making si
     val += *phase * (i % modVal +1) /2;                          // This sets the varying phase change of the waves. By Andrew Tuline.
     unsigned b = cubicwave8(val);                                 // Now we make an 8 bit sinewave.
     b = (b > cutOff) ? (b - cutOff) : 0;                         // A ternary operator to cutoff the light.
-    SEGMENT.setPixelColor(i, color_blend(SEGCOLOR(1), SEGMENT.color_from_palette(index, false, false, 0), b));
+    SEGMENT.setPixelColor(i, color_blend(SEGCOLOR(1), SEGMENT.color_from_palette(index, false, false, 0), uint8_t(b)));
     index += 256 / SEGLEN;
     if (SEGLEN > 256) index ++;                                  // Correction for segments longer than 256 LEDs
   }
@@ -4475,7 +4474,7 @@ uint16_t mode_blends(void) {
   unsigned dataSize = sizeof(uint32_t) * (pixelLen + 1);  // max segment length of 56 pixels on 16 segment ESP8266
   if (!SEGENV.allocateData(dataSize)) return mode_static(); //allocation failed
   uint32_t* pixels = reinterpret_cast<uint32_t*>(SEGENV.data);
-  unsigned blendSpeed = map(SEGMENT.intensity, 0, UINT8_MAX, 10, 128);
+  uint8_t blendSpeed = map(SEGMENT.intensity, 0, UINT8_MAX, 10, 128);
   unsigned shift = (strip.now * ((SEGMENT.speed >> 3) +1)) >> 8;
 
   for (unsigned i = 0; i < pixelLen; i++) {
@@ -6313,7 +6312,7 @@ static const char _data_FX_MODE_2DPLASMAROTOZOOM[] PROGMEM = "Rotozoomer@!,Scale
 /////////////////////////////////
 uint16_t mode_ripplepeak(void) {                // * Ripple peak. By Andrew Tuline.
                                                           // This currently has no controls.
-  #define maxsteps 16                                     // Case statement wouldn't allow a variable.
+  #define MAXSTEPS 16                                     // Case statement wouldn't allow a variable.
 
   unsigned maxRipples = 16;
   unsigned dataSize = sizeof(Ripple) * maxRipples;
@@ -6331,7 +6330,6 @@ uint16_t mode_ripplepeak(void) {                // * Ripple peak. By Andrew Tuli
   // printUmData();
 
   if (SEGENV.call == 0) {
-    SEGENV.aux0 = 255;
     SEGMENT.custom1 = *binNum;
     SEGMENT.custom2 = *maxVol * 2;
   }
@@ -6362,17 +6360,17 @@ uint16_t mode_ripplepeak(void) {                // * Ripple peak. By Andrew Tuli
         break;
 
       case 0:
-        SEGMENT.setPixelColor(ripples[i].pos, color_blend(SEGCOLOR(1), SEGMENT.color_from_palette(ripples[i].color, false, PALETTE_SOLID_WRAP, 0), SEGENV.aux0));
+        SEGMENT.setPixelColor(ripples[i].pos, SEGMENT.color_from_palette(ripples[i].color, false, PALETTE_SOLID_WRAP, 0));
         ripples[i].state++;
         break;
 
-      case maxsteps:                                      // At the end of the ripples. 254 is an inactive mode.
+      case MAXSTEPS:                                      // At the end of the ripples. 254 is an inactive mode.
         ripples[i].state = 254;
         break;
 
       default:                                            // Middle of the ripples.
-        SEGMENT.setPixelColor((ripples[i].pos + ripples[i].state + SEGLEN) % SEGLEN, color_blend(SEGCOLOR(1), SEGMENT.color_from_palette(ripples[i].color, false, PALETTE_SOLID_WRAP, 0), SEGENV.aux0/ripples[i].state*2));
-        SEGMENT.setPixelColor((ripples[i].pos - ripples[i].state + SEGLEN) % SEGLEN, color_blend(SEGCOLOR(1), SEGMENT.color_from_palette(ripples[i].color, false, PALETTE_SOLID_WRAP, 0), SEGENV.aux0/ripples[i].state*2));
+        SEGMENT.setPixelColor((ripples[i].pos + ripples[i].state + SEGLEN) % SEGLEN, color_blend(SEGCOLOR(1), SEGMENT.color_from_palette(ripples[i].color, false, PALETTE_SOLID_WRAP, 0), uint8_t(2*255/ripples[i].state)));
+        SEGMENT.setPixelColor((ripples[i].pos - ripples[i].state + SEGLEN) % SEGLEN, color_blend(SEGCOLOR(1), SEGMENT.color_from_palette(ripples[i].color, false, PALETTE_SOLID_WRAP, 0), uint8_t(2*255/ripples[i].state)));
         ripples[i].state++;                               // Next step.
         break;
     } // switch step
@@ -6492,8 +6490,8 @@ uint16_t mode_gravcenter(void) {                // Gravcenter. By Andrew Tuline.
 
   for (int i=0; i<tempsamp; i++) {
     uint8_t index = inoise8(i*segmentSampleAvg+strip.now, 5000+i*segmentSampleAvg);
-    SEGMENT.setPixelColor(i+SEGLEN/2, color_blend(SEGCOLOR(1), SEGMENT.color_from_palette(index, false, PALETTE_SOLID_WRAP, 0), segmentSampleAvg*8));
-    SEGMENT.setPixelColor(SEGLEN/2-i-1, color_blend(SEGCOLOR(1), SEGMENT.color_from_palette(index, false, PALETTE_SOLID_WRAP, 0), segmentSampleAvg*8));
+    SEGMENT.setPixelColor(i+SEGLEN/2, color_blend(SEGCOLOR(1), SEGMENT.color_from_palette(index, false, PALETTE_SOLID_WRAP, 0), uint8_t(segmentSampleAvg*8)));
+    SEGMENT.setPixelColor(SEGLEN/2-i-1, color_blend(SEGCOLOR(1), SEGMENT.color_from_palette(index, false, PALETTE_SOLID_WRAP, 0), uint8_t(segmentSampleAvg*8)));
   }
 
   if (tempsamp >= gravcen->topLED)
@@ -6585,7 +6583,7 @@ uint16_t mode_gravimeter(void) {                // Gravmeter. By Andrew Tuline.
 
   for (int i=0; i<tempsamp; i++) {
     uint8_t index = inoise8(i*segmentSampleAvg+strip.now, 5000+i*segmentSampleAvg);
-    SEGMENT.setPixelColor(i, color_blend(SEGCOLOR(1), SEGMENT.color_from_palette(index, false, PALETTE_SOLID_WRAP, 0), segmentSampleAvg*8));
+    SEGMENT.setPixelColor(i, color_blend(SEGCOLOR(1), SEGMENT.color_from_palette(index, false, PALETTE_SOLID_WRAP, 0), uint8_t(segmentSampleAvg*8)));
   }
 
   if (tempsamp >= gravcen->topLED)
@@ -6611,7 +6609,7 @@ uint16_t mode_juggles(void) {                   // Juggles. By Andrew Tuline.
   float   volumeSmth   = *(float*)  um_data->u_data[0];
 
   SEGMENT.fade_out(224); // 6.25%
-  unsigned my_sampleAgc = fmax(fmin(volumeSmth, 255.0), 0);
+  uint8_t my_sampleAgc = fmax(fmin(volumeSmth, 255.0), 0);
 
   for (size_t i=0; i<SEGMENT.intensity/32+1U; i++) {
     // if SEGLEN equals 1, we will always set color to the first and only pixel, but the effect is still good looking
@@ -6768,7 +6766,7 @@ uint16_t mode_pixelwave(void) {                 // Pixelwave. By Andrew Tuline.
   if (SEGENV.aux0 != secondHand) {
     SEGENV.aux0 = secondHand;
 
-    int pixBri = volumeRaw * SEGMENT.intensity / 64;
+    uint8_t pixBri = volumeRaw * SEGMENT.intensity / 64;
 
     SEGMENT.setPixelColor(SEGLEN/2, color_blend(SEGCOLOR(1), SEGMENT.color_from_palette(strip.now, false, PALETTE_SOLID_WRAP, 0), pixBri));
     for (unsigned i = SEGLEN - 1; i > SEGLEN/2; i--) SEGMENT.setPixelColor(i, SEGMENT.getPixelColor(i-1)); //move to the left
@@ -6907,7 +6905,7 @@ uint16_t mode_pixels(void) {                    // Pixels. By Andrew Tuline.
 
   for (int i=0; i <SEGMENT.intensity/8; i++) {
     unsigned segLoc = random16(SEGLEN);                    // 16 bit for larger strands of LED's.
-    SEGMENT.setPixelColor(segLoc, color_blend(SEGCOLOR(1), SEGMENT.color_from_palette(myVals[i%32]+i*4, false, PALETTE_SOLID_WRAP, 0), volumeSmth));
+    SEGMENT.setPixelColor(segLoc, color_blend(SEGCOLOR(1), SEGMENT.color_from_palette(myVals[i%32]+i*4, false, PALETTE_SOLID_WRAP, 0), uint8_t(volumeSmth)));
   }
 
   return FRAMETIME;
@@ -6945,7 +6943,7 @@ uint16_t mode_blurz(void) {                    // Blurz. By Andrew Tuline.
     ++(SEGENV.aux0) %= 16; // make sure it doesn't cross 16
 
     SEGENV.step = 1;
-    SEGMENT.blur(SEGMENT.intensity);
+    SEGMENT.blur(SEGMENT.intensity); // note: blur > 210 results in a alternating pattern, this could be fixed by mapping but some may like it (very old bug)
   }
 
   return FRAMETIME;
@@ -7008,7 +7006,7 @@ uint16_t mode_freqmap(void) {                   // Map FFT_MajorPeak to SEGLEN. 
   unsigned pixCol = (log10f(FFT_MajorPeak) - 1.78f) * 255.0f/(MAX_FREQ_LOG10 - 1.78f);   // Scale log10 of frequency values to the 255 colour index.
   if (FFT_MajorPeak < 61.0f) pixCol = 0;                                                 // handle underflow
 
-  unsigned bright = (int)my_magnitude;
+  uint8_t bright = (uint8_t)my_magnitude;
 
   SEGMENT.setPixelColor(locn, color_blend(SEGCOLOR(1), SEGMENT.color_from_palette(SEGMENT.intensity+pixCol, false, PALETTE_SOLID_WRAP, 0), bright));
 
@@ -7095,7 +7093,7 @@ uint16_t mode_freqpixels(void) {                // Freqpixel. By Andrew Tuline.
   if (FFT_MajorPeak < 61.0f) pixCol = 0;                                               // handle underflow
   for (int i=0; i < SEGMENT.intensity/32+1; i++) {
     unsigned locn = random16(0,SEGLEN);
-    SEGMENT.setPixelColor(locn, color_blend(SEGCOLOR(1), SEGMENT.color_from_palette(SEGMENT.intensity+pixCol, false, PALETTE_SOLID_WRAP, 0), (int)my_magnitude));
+    SEGMENT.setPixelColor(locn, color_blend(SEGCOLOR(1), SEGMENT.color_from_palette(SEGMENT.intensity+pixCol, false, PALETTE_SOLID_WRAP, 0), (uint8_t)my_magnitude));
   }
 
   return FRAMETIME;
@@ -7229,12 +7227,12 @@ uint16_t mode_noisemove(void) {                 // Noisemove.    By: Andrew Tuli
     unsigned locn = inoise16(strip.now*SEGMENT.speed+i*50000, strip.now*SEGMENT.speed);   // Get a new pixel location from moving noise.
     // if SEGLEN equals 1 locn will be always 0, hence we set the first pixel only
     locn = map(locn, 7500, 58000, 0, SEGLEN-1);           // Map that to the length of the strand, and ensure we don't go over.
-    SEGMENT.setPixelColor(locn, color_blend(SEGCOLOR(1), SEGMENT.color_from_palette(i*64, false, PALETTE_SOLID_WRAP, 0), fftResult[i % 16]*4));
+    SEGMENT.setPixelColor(locn, color_blend(SEGCOLOR(1), SEGMENT.color_from_palette(i*64, false, PALETTE_SOLID_WRAP, 0), uint8_t(fftResult[i % 16]*4)));
   }
 
   return FRAMETIME;
 } // mode_noisemove()
-static const char _data_FX_MODE_NOISEMOVE[] PROGMEM = "Noisemove@Speed of perlin movement,Fade rate;!,!;!;01f;m12=0,si=0"; // Pixels, Beatsin
+static const char _data_FX_MODE_NOISEMOVE[] PROGMEM = "Noisemove@Move speed,Fade rate;!,!;!;01f;m12=0,si=0"; // Pixels, Beatsin
 
 
 //////////////////////
@@ -7313,7 +7311,7 @@ uint16_t mode_waterfall(void) {                   // Waterfall. By: Andrew Tulin
     if (samplePeak) {
       pixels[k] = (uint32_t)CRGB(CHSV(92,92,92));
     } else {
-      pixels[k] = color_blend(SEGCOLOR(1), SEGMENT.color_from_palette(pixCol+SEGMENT.intensity, false, PALETTE_SOLID_WRAP, 0), (int)my_magnitude);
+      pixels[k] = color_blend(SEGCOLOR(1), SEGMENT.color_from_palette(pixCol+SEGMENT.intensity, false, PALETTE_SOLID_WRAP, 0), (uint8_t)my_magnitude);
     }
     SEGMENT.setPixelColor(k, pixels[k]);
     // loop will not execute if SEGLEN equals 1

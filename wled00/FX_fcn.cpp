@@ -433,9 +433,9 @@ uint32_t Segment::currentColor(uint8_t slot) const {
     uint32_t colS = (bri != briT) && !bri ? BLACK : colors[slot];             // On/Off transition active (bri!=briT) and final bri==0 : new color is BLACK
     return _modeBlend ? colT : colS;
   }
-  return color_blend(_t->_segT._colorT[slot], colors[slot], prog, true);
+  return color_blend16(_t->_segT._colorT[slot], colors[slot], prog);
 #else
-  return color_blend(_t->_colorT[slot], colors[slot], prog, true);
+  return color_blend16(_t->_colorT[slot], colors[slot], prog);
 #endif
 }
 
@@ -911,7 +911,7 @@ void IRAM_ATTR_YN Segment::setPixelColor(int i, uint32_t col)
         if (indexMir >= stop) indexMir -= len; // wrap
 #ifndef WLED_DISABLE_MODE_BLEND
         // _modeBlend==true -> old effect
-        if (_modeBlend && blendingStyle == BLEND_STYLE_FADE) tmpCol = color_blend(strip.getPixelColor(indexMir), col, 0xFFFFU - progress(), true);
+        if (_modeBlend && blendingStyle == BLEND_STYLE_FADE) tmpCol = color_blend16(strip.getPixelColor(indexMir), col, 0xFFFFU - progress());
 #endif
         strip.setPixelColor(indexMir, tmpCol);
       }
@@ -919,7 +919,7 @@ void IRAM_ATTR_YN Segment::setPixelColor(int i, uint32_t col)
       if (indexSet >= stop) indexSet -= len; // wrap
 #ifndef WLED_DISABLE_MODE_BLEND
         // _modeBlend==true -> old effect
-      if (_modeBlend && blendingStyle == BLEND_STYLE_FADE) tmpCol = color_blend(strip.getPixelColor(indexSet), col, 0xFFFFU - progress(), true);
+      if (_modeBlend && blendingStyle == BLEND_STYLE_FADE) tmpCol = color_blend16(strip.getPixelColor(indexSet), col, 0xFFFFU - progress());
 #endif
       strip.setPixelColor(indexSet, tmpCol);
     }
@@ -1191,6 +1191,7 @@ void Segment::fadeToBlackBy(uint8_t fadeBy) {
 
 /*
  * blurs segment content, source: FastLED colorutils.cpp
+ * Note: for blur_amount > 215 this function does not work properly (creates alternating pattern)
  */
 void Segment::blur(uint8_t blur_amount, bool smear) {
   if (!isActive() || blur_amount == 0) return; // optimization: 0 means "don't blur"
