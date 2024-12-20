@@ -155,8 +155,13 @@ void realtimeLock(uint32_t timeoutMs, byte md)
   if (!realtimeMode && !realtimeOverride) {
     // this code runs once when we enter realtime mode
     // WLEDMM begin - we need to init segment caches before putting any pixels
+    USER_PRINT(F("realtimeLock() entering realtime mode [timeoutMs="));
+    USER_PRINT(timeoutMs); USER_PRINT(",mode="); USER_PRINT(md);
+    if (useMainSegmentOnly) USER_PRINTLN(F(", main segment only].")) else USER_PRINTLN(F("]."));
+    USER_FLUSH();
+
     if (strip.isServicing()) {
-      USER_PRINTLN(F("realtimeLock() enter RTM: strip is still drawing effects."));
+      USER_PRINTLN(F("realtimeLock() entering RTM: strip is still drawing effects."));
       strip.waitUntilIdle();
     }
     strip.service(); // WLEDMM make sure that all segments are properly initialized
@@ -211,6 +216,7 @@ void exitRealtime() {
     strip.show(); // possible fix for #3589
   }
   busses.invalidateCache(false);  // WLEDMM
+  USER_PRINTLN(F("exitRealtime() realtime mode ended."));
   updateInterfaces(CALL_MODE_WS_SEND);
 }
 
