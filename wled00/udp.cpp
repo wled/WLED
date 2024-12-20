@@ -157,7 +157,7 @@ void realtimeLock(uint32_t timeoutMs, byte md)
     // WLEDMM begin - we need to init segment caches before putting any pixels
     USER_PRINT(F("realtimeLock() entering realtime mode [timeoutMs="));
     USER_PRINT(timeoutMs); USER_PRINT(",mode="); USER_PRINT(md);
-    if (useMainSegmentOnly) USER_PRINTLN(F(", main segment only].")) else USER_PRINTLN(F("]."));
+    if (useMainSegmentOnly) { USER_PRINTLN(F(", main segment only].")); } else { USER_PRINTLN(F("]."));}
     USER_FLUSH();
 
     if (strip.isServicing()) {
