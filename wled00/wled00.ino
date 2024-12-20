@@ -87,8 +87,8 @@ void loop() {
       USER_PRINTF("%lu lps\t", lps);
       USER_PRINTF("%u fps\t", strip.getFps());
       //USER_PRINTF("%lu lps without show\t\t", lps2);
-      USER_PRINTF("frametime %d\t", int(strip.getFrameTime()));
-      USER_PRINTF("targetFPS %d\n", int(strip.getTargetFps()));
+      USER_PRINTF("target frametime %dms\t", int(strip.getFrameTime()));
+      USER_PRINTF("target FPS %d\n", int(strip.getTargetFps()));
     }
     lastMillis = millis();
     loopCounter = 0;

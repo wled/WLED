@@ -459,6 +459,14 @@ class BusManager {
 
     void show();
 
+    void invalidateCache(bool isRTMode) {
+      // WLEDMM clear cached Bus info
+      lastBus = nullptr;
+      laststart = 0;
+      lastend = 0;
+      slowMode = isRTMode;
+    }
+
     void setStatusPixel(uint32_t c);
 
     void setPixelColor(uint16_t pix, uint32_t c, int16_t cct=-1);
@@ -497,6 +505,7 @@ class BusManager {
     Bus *lastBus = nullptr;
     unsigned laststart = 0;
     unsigned lastend = 0;
+    bool slowMode = false; // WLEDMM not sure why we need this. But its necessary.
 
     inline uint8_t getNumVirtualBusses() const {
       int j = 0;
