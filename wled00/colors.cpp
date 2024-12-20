@@ -127,86 +127,86 @@ void setRandomColor(byte* rgb)
  */
 CRGBPalette16 generateHarmonicRandomPalette(CRGBPalette16 &basepalette)
 {
-  CHSV palettecolors[4]; //array of colors for the new palette
-  uint8_t keepcolorposition = random8(4); //color position of current random palette to keep
-  palettecolors[keepcolorposition] = rgb2hsv(basepalette.entries[keepcolorposition*5]); //read one of the base colors of the current palette
-  palettecolors[keepcolorposition].hue += random8(10)-5; // +/- 5 randomness of base color
-  //generate 4 saturation and brightness value numbers
-  //only one saturation is allowed to be below 200 creating mostly vibrant colors
-  //only one brightness value number is allowed below 200, creating mostly bright palettes
+  CHSV palettecolors[4]; // array of colors for the new palette
+  uint8_t keepcolorposition = hw_random8(4); // color position of current random palette to keep
+  palettecolors[keepcolorposition] = rgb2hsv(basepalette.entries[keepcolorposition*5]); // read one of the base colors of the current palette
+  palettecolors[keepcolorposition].hue += hw_random8(10)-5; // +/- 5 randomness of base color
+  // generate 4 saturation and brightness value numbers
+  // only one saturation is allowed to be below 200 creating mostly vibrant colors
+  // only one brightness value number is allowed below 200, creating mostly bright palettes
 
-  for (int i = 0; i < 3; i++) { //generate three high values
-    palettecolors[i].saturation = random8(200,255);
-    palettecolors[i].value = random8(220,255);
+  for (int i = 0; i < 3; i++) { // generate three high values
+    palettecolors[i].saturation = hw_random8(200,255);
+    palettecolors[i].value = hw_random8(220,255);
   }
-  //allow one to be lower
-  palettecolors[3].saturation = random8(20,255);
-  palettecolors[3].value = random8(80,255);
+  // allow one to be lower
+  palettecolors[3].saturation = hw_random8(20,255);
+  palettecolors[3].value = hw_random8(80,255);
 
-  //shuffle the arrays
+  // shuffle the arrays
   for (int i = 3; i > 0; i--) {
-    std::swap(palettecolors[i].saturation, palettecolors[random8(i + 1)].saturation);
-    std::swap(palettecolors[i].value, palettecolors[random8(i + 1)].value);
+    std::swap(palettecolors[i].saturation, palettecolors[hw_random8(i + 1)].saturation);
+    std::swap(palettecolors[i].value, palettecolors[hw_random8(i + 1)].value);
   }
 
-  //now generate three new hues based off of the hue of the chosen current color
+  // now generate three new hues based off of the hue of the chosen current color
   uint8_t basehue = palettecolors[keepcolorposition].hue;
-  uint8_t harmonics[3]; //hues that are harmonic but still a little random
-  uint8_t type = random8(5); //choose a harmony type
+  uint8_t harmonics[3]; // hues that are harmonic but still a little random
+  uint8_t type = hw_random8(5); // choose a harmony type
 
   switch (type) {
     case 0: // analogous
-      harmonics[0] = basehue + random8(30, 50);
-      harmonics[1] = basehue + random8(10, 30);
-      harmonics[2] = basehue - random8(10, 30);
+      harmonics[0] = basehue + hw_random8(30, 50);
+      harmonics[1] = basehue + hw_random8(10, 30);
+      harmonics[2] = basehue - hw_random8(10, 30);
       break;
 
     case 1: // triadic
-      harmonics[0] = basehue + 113 + random8(15);
-      harmonics[1] = basehue + 233 + random8(15);
-      harmonics[2] = basehue -   7 + random8(15);
+      harmonics[0] = basehue + 113 + hw_random8(15);
+      harmonics[1] = basehue + 233 + hw_random8(15);
+      harmonics[2] = basehue -   7 + hw_random8(15);
       break;
 
     case 2: // split-complementary
-      harmonics[0] = basehue + 145 + random8(10);
-      harmonics[1] = basehue + 205 + random8(10);
-      harmonics[2] = basehue -   5 + random8(10);
+      harmonics[0] = basehue + 145 + hw_random8(10);
+      harmonics[1] = basehue + 205 + hw_random8(10);
+      harmonics[2] = basehue -   5 + hw_random8(10);
       break;
 
     case 3: // square
-      harmonics[0] = basehue +  85 + random8(10);
-      harmonics[1] = basehue + 175 + random8(10);
-      harmonics[2] = basehue + 265 + random8(10);
+      harmonics[0] = basehue +  85 + hw_random8(10);
+      harmonics[1] = basehue + 175 + hw_random8(10);
+      harmonics[2] = basehue + 265 + hw_random8(10);
      break;
 
     case 4: // tetradic
-      harmonics[0] = basehue +  80 + random8(20);
-      harmonics[1] = basehue + 170 + random8(20);
-      harmonics[2] = basehue -  15 + random8(30);
+      harmonics[0] = basehue +  80 + hw_random8(20);
+      harmonics[1] = basehue + 170 + hw_random8(20);
+      harmonics[2] = basehue -  15 + hw_random8(30);
      break;
   }
 
-  if (random8() < 128) {
-    //50:50 chance of shuffling hues or keep the color order
+  if (hw_random8() < 128) {
+    // 50:50 chance of shuffling hues or keep the color order
     for (int i = 2; i > 0; i--) {
-      std::swap(harmonics[i], harmonics[random8(i + 1)]);
+      std::swap(harmonics[i], harmonics[hw_random8(i + 1)]);
     }
   }
 
-  //now set the hues
+  // now set the hues
   int j = 0;
   for (int i = 0; i < 4; i++) {
-    if (i==keepcolorposition) continue; //skip the base color
+    if (i==keepcolorposition) continue; // skip the base color
     palettecolors[i].hue = harmonics[j];
     j++;
   }
 
   bool makepastelpalette = false;
-  if (random8() < 25) { //~10% chance of desaturated 'pastel' colors
+  if (hw_random8() < 25) { // ~10% chance of desaturated 'pastel' colors
     makepastelpalette = true;
   }
 
-  //apply saturation & gamma correction
+  // apply saturation & gamma correction
   CRGB RGBpalettecolors[4];
   for (int i = 0; i < 4; i++) {
     if (makepastelpalette && palettecolors[i].saturation > 180) {
@@ -222,12 +222,12 @@ CRGBPalette16 generateHarmonicRandomPalette(CRGBPalette16 &basepalette)
                        RGBpalettecolors[3]);
 }
 
-CRGBPalette16 generateRandomPalette()  //generate fully random palette
+CRGBPalette16 generateRandomPalette()  // generate fully random palette
 {
-  return CRGBPalette16(CHSV(random8(), random8(160, 255), random8(128, 255)),
-                       CHSV(random8(), random8(160, 255), random8(128, 255)),
-                       CHSV(random8(), random8(160, 255), random8(128, 255)),
-                       CHSV(random8(), random8(160, 255), random8(128, 255)));
+  return CRGBPalette16(CHSV(hw_random8(), hw_random8(160, 255), hw_random8(128, 255)),
+                       CHSV(hw_random8(), hw_random8(160, 255), hw_random8(128, 255)),
+                       CHSV(hw_random8(), hw_random8(160, 255), hw_random8(128, 255)),
+                       CHSV(hw_random8(), hw_random8(160, 255), hw_random8(128, 255)));
 }
 
 void hsv2rgb(const CHSV32& hsv, uint32_t& rgb) // convert HSV (16bit hue) to RGB (32bit with white = 0)

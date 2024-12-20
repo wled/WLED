@@ -14,7 +14,7 @@ int getNumVal(const String* req, uint16_t pos)
 void parseNumber(const char* str, byte* val, byte minv, byte maxv)
 {
   if (str == nullptr || str[0] == '\0') return;
-  if (str[0] == 'r') {*val = random8(minv,maxv?maxv:255); return;} // maxv for random cannot be 0
+  if (str[0] == 'r') {*val = hw_random8(minv,maxv?maxv:255); return;} // maxv for random cannot be 0
   bool wrap = false;
   if (str[0] == 'w' && strlen(str) > 1) {str++; wrap = true;}
   if (str[0] == '~') {
@@ -437,20 +437,20 @@ um_data_t* simulateSound(uint8_t simulationId)
       break;
     case UMS_WeWillRockYou:
       if (ms%2000 < 200) {
-        volumeSmth = random8(255);
-        for (int i = 0; i<5; i++) fftResult[i] = random8(255);
+        volumeSmth = hw_random8();
+        for (int i = 0; i<5; i++) fftResult[i] = hw_random8();
       } else if (ms%2000 < 400) {
         volumeSmth = 0;
         for (int i = 0; i<16; i++) fftResult[i] = 0;
       } else if (ms%2000 < 600) {
-        volumeSmth = random8(255);
-        for (int i = 5; i<11; i++) fftResult[i] = random8(255);
+        volumeSmth = hw_random8();
+        for (int i = 5; i<11; i++) fftResult[i] = hw_random8();
       } else if (ms%2000 < 800) {
         volumeSmth = 0;
         for (int i = 0; i<16; i++) fftResult[i] = 0;
       } else if (ms%2000 < 1000) {
-        volumeSmth = random8(255);
-        for (int i = 11; i<16; i++) fftResult[i] = random8(255);
+        volumeSmth = hw_random8();
+        for (int i = 11; i<16; i++) fftResult[i] = hw_random8();
       } else {
         volumeSmth = 0;
         for (int i = 0; i<16; i++) fftResult[i] = 0;
@@ -466,7 +466,7 @@ um_data_t* simulateSound(uint8_t simulationId)
       break;
   }
 
-  samplePeak    = random8() > 250;
+  samplePeak    = hw_random8() > 250;
   FFT_MajorPeak = 21.0f + (volumeSmth*volumeSmth) / 8.0f; // walk through full range of 21hz...8200hz
   maxVol        = 31;  // this gets feedback from UI
   binNum        = 8;   // this gets feedback from UI
@@ -532,7 +532,7 @@ void enumerateLedmaps() {
 uint8_t get_random_wheel_index(uint8_t pos) {
   uint8_t r = 0, x = 0, y = 0, d = 0;
   while (d < 42) {
-    r = random8();
+    r = hw_random8();
     x = abs(pos - r);
     y = 255 - x;
     d = MIN(x, y);
@@ -550,4 +550,17 @@ uint32_t hashInt(uint32_t s) {
   s = ((s >> 16) ^ s) * 0x45d9f3b;
   s = ((s >> 16) ^ s) * 0x45d9f3b;
   return (s >> 16) ^ s;
+}
+
+// 32 bit random number generator, inlining uses more code, use hw_random16() if speed is critical (see fcn_declare.h)
+uint32_t hw_random(uint32_t upperlimit) {
+  uint32_t rnd = hw_random();
+  uint64_t scaled = uint64_t(rnd) * uint64_t(upperlimit);
+  return scaled >> 32;
+}
+
+int32_t hw_random(int32_t lowerlimit, int32_t upperlimit) {
+  if (lowerlimit > upperlimit) std::swap(lowerlimit, upperlimit);
+  uint32_t diff = upperlimit - lowerlimit;
+  return hw_random(diff) + lowerlimit;
 }
