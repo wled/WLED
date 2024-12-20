@@ -1319,7 +1319,7 @@ void IRAM_ATTR __attribute__((hot)) BusManager::setPixelColor(uint16_t pix, uint
         lastend = bstart + b->getLength();
       }
       b->setPixelColor(pix - bstart, c);
-      break; // WLEDMM found the right Bus -> so we can stop searching
+      if (!slowMode) break; // WLEDMM found the right Bus -> so we can stop searching - unless we have busses that overlap
     }
   }
 }
