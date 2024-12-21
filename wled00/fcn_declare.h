@@ -52,6 +52,7 @@ bool getJsonValue(const JsonVariant& element, DestType& destination, const Defau
 typedef struct WiFiConfig {
   char clientSSID[33];
   char clientPass[65];
+  uint8_t bssid[6];
   IPAddress staticIP;
   IPAddress staticGW;
   IPAddress staticSN;
@@ -62,6 +63,7 @@ typedef struct WiFiConfig {
   {
     strncpy(clientSSID, ssid, 32); clientSSID[32] = 0;
     strncpy(clientPass, pass, 64); clientPass[64] = 0;
+    memset(bssid, 0, sizeof(bssid));
   }
 } wifi_config;
 
@@ -372,8 +374,10 @@ void espNowReceiveCB(uint8_t* address, uint8_t* data, uint8_t len, signed int rs
 
 //network.cpp
 bool initEthernet(); // result is informational
-int getSignalQuality(int rssi);
-int8_t findWiFi(bool doScan = false);
+int  getSignalQuality(int rssi);
+void fillMAC2Str(char *str, const uint8_t *mac);
+void fillStr2MAC(uint8_t *mac, const char *str);
+int  findWiFi(bool doScan = false);
 bool isWiFiConfigured();
 void WiFiEvent(WiFiEvent_t event);
 
@@ -492,6 +496,7 @@ void userConnected();
 void userLoop();
 
 //util.cpp
+#define hex2int(a) (((a)>='0' && (a)<='9') ? (a)-'0' : ((a)>='A' && (a)<='F') ? (a)-'A'+10 : ((a)>='a' && (a)<='f') ? (a)-'a'+10 : 0)
 int getNumVal(const String* req, uint16_t pos);
 void parseNumber(const char* str, byte* val, byte minv=0, byte maxv=255);
 bool getVal(JsonVariant elem, byte* val, byte minv=0, byte maxv=255); // getVal supports inc/decrementing and random ("X~Y(r|~[w][-][Z])" form)

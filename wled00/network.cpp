@@ -265,32 +265,46 @@ int getSignalQuality(int rssi)
 }
 
 
+void fillMAC2Str(char *str, const uint8_t *mac) {
+  sprintf_P(str, PSTR("%02x%02x%02x%02x%02x%02x"), MAC2STR(mac));
+  byte nul = 0;
+  for (int i = 0; i < 6; i++) nul |= *mac++;  // do we have 0
+  if (!nul) str[0] = '\0';                    // empty string
+}
+
+void fillStr2MAC(uint8_t *mac, const char *str) {
+  for (int i = 0; i < 6; i++) *mac++ = 0;     // clear
+  if (!str) return;                           // null string
+  uint64_t MAC = strtoull(str, nullptr, 16);
+  for (int i = 0; i < 6; i++) { *--mac = MAC & 0xFF; MAC >>= 8; }
+}
+
+
 // performs asynchronous scan for available networks (which may take couple of seconds to finish)
 // returns configured WiFi ID with the strongest signal (or default if no configured networks available)
-int8_t findWiFi(bool doScan) {
+int findWiFi(bool doScan) {
   if (multiWiFi.size() <= 1) {
     DEBUG_PRINTF_P(PSTR("WiFi: Defaulf SSID (%s) used.\n"), multiWiFi[0].clientSSID);
     return 0;
   }
 
-  if (doScan) WiFi.scanDelete();    // restart scan
-
   int status = WiFi.scanComplete(); // complete scan may take as much as several seconds (usually <6s with not very crowded air)
 
-  if (status == WIFI_SCAN_FAILED) {
+  if (doScan || status == WIFI_SCAN_FAILED) {
     DEBUG_PRINTF_P(PSTR("WiFi: Scan started. @ %lus\n"), millis()/1000);
-    WiFi.scanNetworks(true);  // start scanning in asynchronous mode
+    WiFi.scanNetworks(true);  // start scanning in asynchronous mode (will delete old scan)
   } else if (status >= 0) {   // status contains number of found networks (including duplicate SSIDs with different BSSID)
     DEBUG_PRINTF_P(PSTR("WiFi: Found %d SSIDs. @ %lus\n"), status, millis()/1000);
     int rssi = -9999;
-    unsigned selected = selectedWiFi;
+    int selected = selectedWiFi;
     for (int o = 0; o < status; o++) {
-      DEBUG_PRINTF_P(PSTR(" SSID: %s RSSI: %ddB\n"), WiFi.SSID(o).c_str(), WiFi.RSSI(o));
+      DEBUG_PRINTF_P(PSTR(" SSID: %s (BSSID: %s) RSSI: %ddB\n"), WiFi.SSID(o).c_str(), WiFi.BSSIDstr(o).c_str(), WiFi.RSSI(o));
       for (unsigned n = 0; n < multiWiFi.size(); n++)
         if (!strcmp(WiFi.SSID(o).c_str(), multiWiFi[n].clientSSID)) {
+          bool foundBSSID = memcmp(multiWiFi[n].bssid, WiFi.BSSID(o), 6) == 0;
           // find the WiFi with the strongest signal (but keep priority of entry if signal difference is not big)
-          if ((n < selected && WiFi.RSSI(o) > rssi-10) || WiFi.RSSI(o) > rssi) {
-            rssi = WiFi.RSSI(o);
+          if (foundBSSID || (n < selected && WiFi.RSSI(o) > rssi-10) || WiFi.RSSI(o) > rssi) {
+            rssi = foundBSSID ? 0 : WiFi.RSSI(o); // RSSI is only ever negative
             selected = n;
           }
           break;
@@ -335,29 +349,40 @@ void WiFiEvent(WiFiEvent_t event)
   switch (event) {
     case ARDUINO_EVENT_WIFI_AP_STADISCONNECTED:
       // AP client disconnected
-      DEBUG_PRINTLN(F("WiFi: AP Client Disconnected"));
+      //#ifdef ESP8266
+      //int apClients = wifi_softap_get_station_num();
+      //#else
+      //wifi_sta_list_t stationList;
+      //esp_wifi_ap_get_sta_list(&stationList);
+      //int apClients = stationList.num;
+      //#endif
       if (--apClients == 0 && isWiFiConfigured()) forceReconnect = true; // no clients reconnect WiFi if awailable
-      DEBUG_PRINTLN(apClients);
+      DEBUG_PRINTF_P(PSTR("WiFi-E: AP Client Disconnected (%d) @ %lus.\n"), (int)apClients, millis()/1000);
       break;
     case ARDUINO_EVENT_WIFI_AP_STACONNECTED:
       // AP client connected
-      // it looks like this doesn't work as expected
-      DEBUG_PRINTF_P(PSTR("WiFi: AP Client Connected. @ %lus\n"), millis()/1000);
+      //#ifdef ESP8266
+      //int apClients = wifi_softap_get_station_num();
+      //#else
+      //wifi_sta_list_t stationList;
+      //esp_wifi_ap_get_sta_list(&stationList);
+      //int apClients = stationList.num;
+      //#endif
       apClients++;
-      DEBUG_PRINTLN(apClients);
+      DEBUG_PRINTF_P(PSTR("WiFi-E: AP Client Connected (%d) @ %lus.\n"), (int)apClients, millis()/1000);
       break;
     case ARDUINO_EVENT_WIFI_STA_GOT_IP:
-      DEBUG_PRINT(F("WiFi: IP address: ")); DEBUG_PRINTLN(Network.localIP());
+      DEBUG_PRINT(F("WiFi-E: IP address: ")); DEBUG_PRINTLN(Network.localIP());
       break;
     case ARDUINO_EVENT_WIFI_STA_CONNECTED:
       // followed by IDLE and SCAN_DONE
-      DEBUG_PRINTF_P(PSTR("WiFi: Connected! @ %lus\n"), millis()/1000);
-      wasConnected = initInterfaces = true;
+      DEBUG_PRINTF_P(PSTR("WiFi-E: Connected! @ %lus\n"), millis()/1000);
+      wasConnected = true;
       break;
     case ARDUINO_EVENT_WIFI_STA_DISCONNECTED:
       if (wasConnected && interfacesInited) {
-        DEBUG_PRINTF_P(PSTR("WiFi: Disconnected. @ %lus\n"), millis()/1000);
-        if (interfacesInited && WiFi.scanComplete() >= 0) {
+        DEBUG_PRINTF_P(PSTR("WiFi-E: Disconnected! @ %lus\n"), millis()/1000);
+        if (interfacesInited && multiWiFi.size() > 1 && WiFi.scanComplete() >= 0) {
           findWiFi(true); // reinit WiFi scan
           forceReconnect = true;
         }
@@ -367,37 +392,23 @@ void WiFiEvent(WiFiEvent_t event)
   #ifdef ARDUINO_ARCH_ESP32
     case ARDUINO_EVENT_WIFI_SCAN_DONE:
       // also triggered when connected to selected SSID
-      DEBUG_PRINTLN(F("WiFi: SSID scan completed."));
+      DEBUG_PRINTLN(F("WiFi-E: SSID scan completed."));
       break;
     case ARDUINO_EVENT_WIFI_AP_START:
-      DEBUG_PRINTLN(F("WiFi: AP Started"));
+      DEBUG_PRINTLN(F("WiFi-E: AP Started"));
       break;
     case ARDUINO_EVENT_WIFI_AP_STOP:
-      DEBUG_PRINTLN(F("WiFi: AP Stopped"));
+      DEBUG_PRINTLN(F("WiFi-E: AP Stopped"));
       break;
     #if defined(WLED_USE_ETHERNET)
     case ARDUINO_EVENT_ETH_START:
-      DEBUG_PRINTLN(F("ETH Started"));
+      DEBUG_PRINTLN(F("ETH-E: Started"));
       break;
     case ARDUINO_EVENT_ETH_CONNECTED:
       {
-      DEBUG_PRINTLN(F("ETH Connected"));
+      DEBUG_PRINTLN(F("ETH-E: Connected"));
       if (!apActive) {
-      #ifndef WLED_DISABLE_ESPNOW
-        if (useESPNowSync && statusESPNow == ESP_NOW_STATE_ON) {
-          DEBUG_PRINTLN(F("ESP-NOW restarting on ETH connected."));
-          quickEspNow.stop();
-          WiFi.disconnect(true); // disconnect from WiFi and disengage STA mode
-          WiFi.mode(WIFI_MODE_AP);
-          quickEspNow.onDataSent(espNowSentCB);     // see udp.cpp
-          quickEspNow.onDataRcvd(espNowReceiveCB);  // see udp.cpp
-          quickEspNow.setWiFiBandwidth(WIFI_IF_AP, WIFI_BW_HT20); // Only needed for ESP32 in case you need coexistence with ESP8266 in the same network
-          bool espNowOK = quickEspNow.begin(channelESPNow, WIFI_IF_AP);  // Same channel must be used for both AP and ESP-NOW
-          statusESPNow = espNowOK ? ESP_NOW_STATE_ON : ESP_NOW_STATE_ERROR;
-        } else WiFi.disconnect(true); // otherwise disable WiFi entirely
-      #else
         WiFi.disconnect(true); // disable WiFi entirely
-      #endif
       }
       if (multiWiFi[0].staticIP != (uint32_t)0x00000000 && multiWiFi[0].staticGW != (uint32_t)0x00000000) {
         ETH.config(multiWiFi[0].staticIP, multiWiFi[0].staticGW, multiWiFi[0].staticSN, dnsAddress);
@@ -412,7 +423,7 @@ void WiFiEvent(WiFiEvent_t event)
       break;
       }
     case ARDUINO_EVENT_ETH_DISCONNECTED:
-      DEBUG_PRINTLN(F("ETH Disconnected"));
+      DEBUG_PRINTLN(F("ETH-E: Disconnected"));
       // This doesn't really affect ethernet per se,
       // as it's only configured once.  Rather, it
       // may be necessary to reconnect the WiFi when
@@ -424,7 +435,7 @@ void WiFiEvent(WiFiEvent_t event)
     #endif
   #endif
     default:
-      DEBUG_PRINTF_P(PSTR("Network event: %d\n"), (int)event);
+      DEBUG_PRINTF_P(PSTR("WiFi-E: Event %d\n"), (int)event);
       break;
   }
 }

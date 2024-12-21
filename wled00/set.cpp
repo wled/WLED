@@ -23,6 +23,7 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
     for (size_t n = 0; n < WLED_MAX_WIFI_COUNT; n++) {
       char cs[4] = "CS"; cs[2] = 48+n; cs[3] = 0; //client SSID
       char pw[4] = "PW"; pw[2] = 48+n; pw[3] = 0; //client password
+      char bs[4] = "BS"; bs[2] = 48+n; bs[3] = 0; //BSSID
       char ip[5] = "IP"; ip[2] = 48+n; ip[4] = 0; //IP address
       char gw[5] = "GW"; gw[2] = 48+n; gw[4] = 0; //GW address
       char sn[5] = "SN"; sn[2] = 48+n; sn[4] = 0; //subnet mask
@@ -39,6 +40,7 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
           strlcpy(multiWiFi[n].clientPass, request->arg(pw).c_str(), 65);
           forceReconnect = true;
         }
+        fillStr2MAC(multiWiFi[n].bssid, request->arg(bs).c_str());
         for (size_t i = 0; i < 4; i++) {
           ip[3] = 48+i;
           gw[3] = 48+i;
