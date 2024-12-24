@@ -540,14 +540,14 @@ WLED_GLOBAL bool     serialCanRX _INIT(false);
 WLED_GLOBAL bool     serialCanTX _INIT(false);
 
 #ifndef WLED_DISABLE_ESPNOW
-WLED_GLOBAL bool enableESPNow        _INIT(false);  // global on/off for ESP-NOW
-WLED_GLOBAL byte statusESPNow        _INIT(ESP_NOW_STATE_UNINIT); // state of ESP-NOW stack (0 uninitialised, 1 initialised, 2 error)
-WLED_GLOBAL bool useESPNowSync       _INIT(false);  // use ESP-NOW wireless technology for sync
-WLED_GLOBAL byte masterESPNow[6]     _INIT_N(({0,0,0,0,0,0})); // MAC of ESP-NOW sync master or linked remote (Wiz Mote)
-WLED_GLOBAL byte senderESPNow[6]     _INIT_N(({0,0,0,0,0,0})); // last seen ESP-NOW sender
-WLED_GLOBAL byte channelESPNow       _INIT(1);      // last channel used when searching for master
-WLED_GLOBAL unsigned long scanESPNow _INIT(0UL);
-WLED_GLOBAL unsigned long heartbeatESPNow _INIT(0UL); // last heartbeat/beacon millis()
+WLED_GLOBAL bool enableESPNow        _INIT(false);                  // global on/off for ESP-NOW
+WLED_GLOBAL byte statusESPNow        _INIT(ESP_NOW_STATE_UNINIT);   // state of ESP-NOW stack (0 uninitialised, 1 initialised, 2 error)
+WLED_GLOBAL bool useESPNowSync       _INIT(false);                  // use ESP-NOW wireless technology for sync
+WLED_GLOBAL byte masterESPNow[6]     _INIT_N(({0,0,0,0,0,0}));      // MAC of ESP-NOW sync master or linked remote (Wiz Mote)
+WLED_GLOBAL byte senderESPNow[6]     _INIT_N(({0,0,0,0,0,0}));      // last seen ESP-NOW sender
+WLED_GLOBAL byte channelESPNow       _INIT(1);                      // last channel used when searching for master
+WLED_GLOBAL unsigned long scanESPNow _INIT(0UL);                    // timestamp (in ms) of next ESP-NOW channel scan
+WLED_GLOBAL unsigned long heartbeatESPNow _INIT(0UL);               // last heartbeat/beacon millis()
 WLED_GLOBAL int16_t wizMoteButton    _INIT(-1);
 #endif
 
@@ -604,7 +604,6 @@ WLED_GLOBAL bool forceReconnect _INIT(false);
 WLED_GLOBAL unsigned long lastReconnectAttempt _INIT(0);
 WLED_GLOBAL bool interfacesInited _INIT(false);
 WLED_GLOBAL bool wasConnected _INIT(false);
-WLED_GLOBAL bool initInterfaces _INIT(false);
 
 // color
 WLED_GLOBAL byte lastRandomIndex _INIT(0);        // used to save last random color so the new one is not the same
@@ -913,12 +912,12 @@ WLED_GLOBAL ESPAsyncE131 ddp  _INIT_N(((handleE131Packet)));
 WLED_GLOBAL bool e131NewData _INIT(false);
 
 // led fx library object
-WLED_GLOBAL BusManager busses _INIT(BusManager());
-WLED_GLOBAL WS2812FX strip _INIT(WS2812FX());
+WLED_GLOBAL BusManager busMgr        _INIT(BusManager());
+WLED_GLOBAL WS2812FX   strip         _INIT(WS2812FX());
 WLED_GLOBAL BusConfig* busConfigs[WLED_MAX_BUSSES+WLED_MIN_VIRTUAL_BUSSES] _INIT({nullptr}); //temporary, to remember values from network callback until after
-WLED_GLOBAL bool doInitBusses _INIT(false);
-WLED_GLOBAL int8_t loadLedmap _INIT(-1);
-WLED_GLOBAL uint8_t currentLedmap _INIT(0);
+WLED_GLOBAL byte       doInit        _INIT(0);    // bitfield: 1 - bus, 2 - 2D, 3-8 - reserved
+WLED_GLOBAL int8_t     loadLedmap    _INIT(-1);
+WLED_GLOBAL uint8_t    currentLedmap _INIT(0);
 #ifndef ESP8266
 WLED_GLOBAL char  *ledmapNames[WLED_MAX_LEDMAPS-1] _INIT_N(({nullptr}));
 #endif
@@ -1034,11 +1033,7 @@ WLED_GLOBAL volatile uint8_t jsonBufferLock _INIT(0);
   WLED_GLOBAL unsigned loops _INIT(0);
 #endif
 
-#ifdef ARDUINO_ARCH_ESP32
-  #define WLED_CONNECTED (WiFi.status() == WL_CONNECTED || ETH.localIP()[0] != 0)
-#else
-  #define WLED_CONNECTED (WiFi.status() == WL_CONNECTED)
-#endif
+#define WLED_CONNECTED Network.isConnected()
 
 #ifndef WLED_AP_SSID_UNIQUE
   #define WLED_SET_AP_SSID() do { \

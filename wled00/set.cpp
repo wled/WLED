@@ -91,10 +91,7 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
     bool oldESPNow = enableESPNow;
     enableESPNow = request->hasArg(F("RE"));
     if (oldESPNow != enableESPNow) forceReconnect = true;
-    char linked_remote[13];
-    strlcpy(linked_remote, request->arg(F("RMAC")).c_str(), 13);
-    #define hex2int(a) (((a)>='0' && (a)<='9') ? (a)-'0' : ((a)>='A' && (a)<='F') ? (a)-'A'+10 : ((a)>='a' && (a)<='f') ? (a)-'a'+10 : 0)
-    for (int i=0; i<6; i++) masterESPNow[i] = (hex2int(linked_remote[i*2])<<4) | hex2int(linked_remote[i*2+1]);
+    fillStr2MAC(masterESPNow, request->arg(F("RMAC")).c_str());
     DEBUG_PRINTF_P(PSTR("ESP-NOW linked remote: " MACSTR "\n"), MAC2STR(masterESPNow));
     #endif
 
@@ -348,7 +345,7 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
     t = request->arg(F("BF")).toInt();
     if (t > 0) briMultiplier = t;
 
-    doInitBusses = busesChanged;
+    doInit |= busesChanged ? INIT_BUS : 0;
   }
 
   //UI

@@ -948,7 +948,6 @@ void espNowSentCB(uint8_t* address, uint8_t status) {
 
 // ESP-NOW message receive callback function
 void espNowReceiveCB(uint8_t* address, uint8_t* data, uint8_t len, signed int rssi, bool broadcast) {
-  //sprintf_P(last_signal_src, PSTR("%02x%02x%02x%02x%02x%02x"), address[0], address[1], address[2], address[3], address[4], address[5]);
   memcpy(senderESPNow, address, sizeof(senderESPNow));
 
   #ifdef WLED_DEBUG
@@ -970,17 +969,20 @@ void espNowReceiveCB(uint8_t* address, uint8_t* data, uint8_t len, signed int rs
     return;
   }
 
+  unsigned long now = millis();
+
   // is received packet a master's heartbeat
   EspNowBeacon *master = reinterpret_cast<EspNowBeacon *>(data);
   if (len == sizeof(EspNowBeacon) && memcmp(master->magic, "WLED", 4) == 0) {
     DEBUG_PRINTF_P(PSTR("ESP-NOW master heartbeat (wifi: %d).\n"), WiFi.channel());
+    heartbeatESPNow = now;                         // update heartbeat time
+    channelESPNow = master->channel;                    // pre-configure if heartbeat is heard while scanning for WiFi
+    if (Network.isConnected()) return;                  // no need to do anything else if we are connected
     toki.setTime(master->time, TOKI_NO_MS_ACCURACY, TOKI_TS_SEC);
-    updateLocalTime();                                    // we can assume that slave does not have access to NTP
-    if (!heartbeatESPNow) calculateSunriseAndSunset();    // if this is first heartbeat update sunrise/sunset
-    if (!WLED_CONNECTED) lastReconnectAttempt = millis(); // prevent reconnecting to WiFi if configured (due to channel switching)
-    heartbeatESPNow = millis();                           // update heartbeat time
-    scanESPNow = heartbeatESPNow + 30000;                 // disable scanning for a few seconds
-    channelESPNow = master->channel;                      // pre-configure if heartbeat is heard while scanning for WiFi
+    updateLocalTime();                                  // we can assume that slave does not have access to NTP
+    if (!scanESPNow) calculateSunriseAndSunset();       // if this is first heartbeat update sunrise/sunset
+    scanESPNow = heartbeatESPNow + 8000;                // disable scanning for a few seconds (assume master will stay on the same channel if hearbeat is lost temporarily)
+    //lastReconnectAttempt = heartbeatESPNow + 108000;    // schedule WiFi reconnection at least 2min after last heartbeat (enough time to scan all channels twice)
     return;
   }
 
@@ -999,7 +1001,7 @@ void espNowReceiveCB(uint8_t* address, uint8_t* data, uint8_t len, signed int rs
   }
 
   EspNowPartialPacket *buffer = reinterpret_cast<EspNowPartialPacket *>(data);
-  if (len < 6 || !broadcast || !useESPNowSync || memcmp(buffer->magic, "WLED", 4) != 0 || WLED_CONNECTED) {
+  if (len < 6 || !broadcast || !useESPNowSync || memcmp(buffer->magic, "WLED", 4) != 0 || Network.isConnected()) {
     DEBUG_PRINTLN(F("ESP-NOW unexpected packet, not syncing or connected to WiFi."));
     return;
   }
@@ -1046,10 +1048,14 @@ void espNowReceiveCB(uint8_t* address, uint8_t* data, uint8_t len, signed int rs
   DEBUG_PRINTF_P(PSTR("ESP-NOW packet received: %d (%d/%d) s:[%d/%d]\n"), (int)buffer->packet, (int)packetsReceived, (int)buffer->noOfPackets, (int)segsReceived, MAX_NUM_SEGMENTS);
   if (packetsReceived >= buffer->noOfPackets) {
     // last packet received
-    if (millis() - lastProcessed > 250) {
+    if (now > lastProcessed + 250) {
       DEBUG_PRINTLN(F("ESP-NOW processing complete message."));
       parseNotifyPacket(udpIn);
-      lastProcessed = millis();
+      lastProcessed = heartbeatESPNow = now; // also update heartbeat time
+      // when we received a full notification packet (usually change of effect or parameter) we can try to
+      // reconnect WiFi if it became available. this will temporarily disrupt ESP-NOW processing but
+      // it may be ok if we only retry once and then switch back to ESP-NOW (if connect is unsuccessful)
+      if (now > lastReconnectAttempt + 120000) forceReconnect = true;  // retry connecting to WiFi after a while since last reconnect
     } else {
       DEBUG_PRINTLN(F("ESP-NOW ignoring complete message."));
     }

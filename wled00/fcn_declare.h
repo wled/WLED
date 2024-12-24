@@ -377,6 +377,8 @@ bool initEthernet(); // result is informational
 int  getSignalQuality(int rssi);
 void fillMAC2Str(char *str, const uint8_t *mac);
 void fillStr2MAC(uint8_t *mac, const char *str);
+void initESPNow(bool resetAP = false);
+void sendESPNowHeartBeat();
 int  findWiFi(bool doScan = false);
 bool isWiFiConfigured();
 void WiFiEvent(WiFiEvent_t event);

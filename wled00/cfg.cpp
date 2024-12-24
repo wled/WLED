@@ -38,11 +38,7 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
   JsonObject nw = doc["nw"];
 #ifndef WLED_DISABLE_ESPNOW
   CJSON(enableESPNow, nw[F("espnow")]);
-  char linked_remote[13];
-  getStringFromJson(linked_remote, nw[F("linked_remote")], 13);
-  linked_remote[12] = '\0';
-  #define hex2int(a) (((a)>='0' && (a)<='9') ? (a)-'0' : ((a)>='A' && (a)<='F') ? (a)-'A'+10 : ((a)>='a' && (a)<='f') ? (a)-'a'+10 : 0)
-  for (int i=0; i<6; i++) masterESPNow[i] = (hex2int(linked_remote[i*2])<<4) | hex2int(linked_remote[i*2+1]);
+  fillStr2MAC(masterESPNow, nw[F("linked_remote")].as<const char*>());
   DEBUG_PRINTF_P(PSTR("ESP-NOW linked remote: " MACSTR "\n"), MAC2STR(masterESPNow));
 #endif
 
@@ -160,6 +156,7 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
       strip.panel.push_back(p);
     }
     // cannot call strip.setUpMatrix() here due to already locked JSON buffer
+    if (!fromFS) doInit |= INIT_2D; // if called at boot (fromFS==true), WLED::beginStrip() will take care of setting up matrix
   }
   #endif
 
@@ -239,7 +236,7 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
       } else {
         if (busConfigs[s] != nullptr) delete busConfigs[s];
         busConfigs[s] = new BusConfig(ledType, pins, start, length, colorOrder, reversed, skipFirst, AWmode, freqkHz, useGlobalLedBuffer, maPerLed, maMax);
-        doInitBusses = true;  // finalization done in beginStrip()
+        doInit |= INIT_BUS;  // finalization done in beginStrip()
       }
       s++;
     }
@@ -673,7 +670,7 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
   if (fromFS) return needsSave;
   // if from /json/cfg
   doReboot = doc[F("rb")] | doReboot;
-  if (doInitBusses) return false; // no save needed, will do after bus init in wled.cpp loop
+  if (doInit & INIT_BUS) return false; // no save needed, will do after bus init in wled.cpp loop
   return (doc["sv"] | true);
 }
 
@@ -748,7 +745,7 @@ void serializeConfig() {
 #ifndef WLED_DISABLE_ESPNOW
   nw[F("espnow")] = enableESPNow;
   char linked_remote[13];
-  sprintf_P(linked_remote, PSTR("%02x%02x%02x%02x%02x%02x"), MAC2STR(masterESPNow));
+  fillMAC2Str(linked_remote, masterESPNow);
   nw[F("linked_remote")] = linked_remote;
 #endif
 

@@ -36,7 +36,7 @@ static void doSaveState() {
   initPresetsFile(); // just in case if someone deleted presets.json using /edit
   JsonObject sObj = pDoc->to<JsonObject>();
 
-  DEBUG_PRINTLN(F("Serialize current state"));
+  DEBUG_PRINTLN(F("Preset: Serialize current state"));
   if (playlistSave) {
     serializePlaylist(sObj);
     if (includeBri) sObj["on"] = true;
@@ -58,7 +58,6 @@ static void doSaveState() {
   if (!persist) {
     if (tmpRAMbuffer!=nullptr) free(tmpRAMbuffer);
     size_t len = measureJson(*pDoc) + 1;
-    DEBUG_PRINTLN(len);
     // if possible use SPI RAM on ESP32
     if (psramSafe && psramFound())
       tmpRAMbuffer = (char*) ps_malloc(len);

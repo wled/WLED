@@ -466,6 +466,10 @@
 #define NTP_PACKET_SIZE 48       // size of NTP receive buffer
 #define NTP_MIN_PACKET_SIZE 48   // min expected size - NTP v4 allows for "extended information" appended to the standard fields
 
+#define INIT_BUS      0x01
+#define INIT_2D       0x02
+#define INIT_RESERVED 0xFC
+
 // Maximum number of pins per output. 5 for RGBCCT analog LEDs.
 #define OUTPUT_MAX_PINS 5
 

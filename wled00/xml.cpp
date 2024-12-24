@@ -216,7 +216,7 @@ void getSettingsJS(byte subPage, Print& settingsScript)
 
     #ifndef WLED_DISABLE_ESPNOW
     char linked_remote[13];
-    sprintf_P(linked_remote, PSTR("%02x%02x%02x%02x%02x%02x"), MAC2STR(masterESPNow));
+    fillMAC2Str(linked_remote, masterESPNow);
     printSetFormCheckbox(settingsScript,PSTR("RE"),enableESPNow);
     printSetFormValue(settingsScript,PSTR("RMAC"),linked_remote);
     #else
@@ -260,7 +260,7 @@ void getSettingsJS(byte subPage, Print& settingsScript)
     #ifndef WLED_DISABLE_ESPNOW
     if (senderESPNow[0] | senderESPNow[1] | senderESPNow[2] | senderESPNow[3] | senderESPNow[4] | senderESPNow[5]) { //Have seen an ESP-NOW Remote
       char last_signal_src[13];
-      sprintf_P(last_signal_src, PSTR("%02x%02x%02x%02x%02x%02x"), MAC2STR(senderESPNow));
+      fillMAC2Str(last_signal_src, senderESPNow);
       printSetClassElementHTML(settingsScript,PSTR("rlid"),0,last_signal_src);
     } else if (!enableESPNow) {
       printSetClassElementHTML(settingsScript,PSTR("rlid"),0,(char*)F("(Enable ESP-NOW to listen)"));

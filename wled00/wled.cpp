@@ -43,7 +43,7 @@ void WLED::loop()
   unsigned long        loopMillis = millis();
   size_t               loopDelay = loopMillis - lastRun;
   if (lastRun == 0) loopDelay=0; // startup - don't have valid data from last run.
-  if (loopDelay > 2) DEBUG_PRINTF_P(PSTR("Loop delayed more than %ums.\n"), loopDelay);
+  if (loopDelay > 4) DEBUG_PRINTF_P(PSTR("Loop delayed more than %ums.\n"), loopDelay);
   static unsigned long maxLoopMillis = 0;
   static size_t        avgLoopMillis = 0;
   static unsigned long maxUsermodMillis = 0;
@@ -103,7 +103,7 @@ void WLED::loop()
   {
     if (apActive) dnsServer.processNextRequest();
     #ifndef WLED_DISABLE_OTA
-    if (WLED_CONNECTED && aOtaEnabled && !otaLock && correctPIN) ArduinoOTA.handle();
+    if (Network.isConnected() && aOtaEnabled && !otaLock && correctPIN) ArduinoOTA.handle();
     #endif
     handleNightlight();
     yield();
@@ -178,10 +178,16 @@ void WLED::loop()
     heapTime = millis();
   }
 
-  //LED settings have been saved, re-init busses
+  //LED settings need to be saved, re-init busses
   //This code block causes severe FPS drop on ESP32 with the original "if (busConfigs[0] != nullptr)" conditional. Investigate!
-  if (doInitBusses) {
-    doInitBusses = false;
+  if (doInit & INIT_2D) {
+    doInit &= ~INIT_2D;
+    strip.setUpMatrix(); // will check limits
+    strip.makeAutoSegments(true);
+    strip.deserializeMap();
+  }
+  if (doInit & INIT_BUS) {
+    doInit &= ~INIT_BUS;
     DEBUG_PRINTLN(F("Re-init busses."));
     bool aligned = strip.checkSegmentAlignment(); //see if old segments match old bus(ses)
     BusManager::removeAll();
@@ -258,7 +264,7 @@ void WLED::loop()
   }
 #endif
 
-  if (doReboot && (!doInitBusses || !doSerializeConfig)) // if busses have to be inited & saved, wait until next iteration
+  if (doReboot && (!doInit || !doSerializeConfig)) // if busses have to be inited & saved, wait until next iteration
     reset();
 
 // DEBUG serial logging (every 30s)
@@ -293,7 +299,7 @@ void WLED::loop()
     }
     DEBUG_PRINTF_P(PSTR("TX power: %d/%d\n"), WiFi.getTxPower(), txPower);
     #endif
-    DEBUG_PRINTF_P(PSTR("Wifi state: %d (connected %d, channel %d, mode %d) @ %lus -> %lus\n"), lastWifiState, (int)Network.isConnected(), WiFi.channel(), WiFi.getMode(), lastReconnectAttempt/1000, wifiStateChangedTime/1000);
+    DEBUG_PRINTF_P(PSTR("Wifi state: %d (connected %d (%d), channel %d, BSSID %s, mode %d, scan %d) @ %lus -> %lus\n"), lastWifiState, (int)apClients, (int)Network.isConnected(), WiFi.channel(), WiFi.BSSIDstr().c_str(), (int)WiFi.getMode(), (int)WiFi.scanComplete(), lastReconnectAttempt/1000, wifiStateChangedTime/1000);
     #ifndef WLED_DISABLE_ESPNOW
     DEBUG_PRINTF_P(PSTR("ESP-NOW state: %u\n"),        statusESPNow);
     #endif
@@ -498,7 +504,7 @@ void WLED::setup()
   if (isWiFiConfigured()) {
     showWelcomePage = false;
     WiFi.setAutoReconnect(true);  // use automatic reconnect functionality
-    WiFi.mode(WIFI_MODE_STA);     // enable scanning
+    WiFi.mode(WIFI_MODE_STA);     // enable SSID scanning
     findWiFi(true);               // start scanning for available WiFi-s
   } else {
     showWelcomePage = true;
@@ -631,7 +637,6 @@ void WLED::stopAP(bool stopESPNow) {
     DEBUG_PRINTLN(F("ESP-NOW stopping on AP stop."));
     quickEspNow.stop();
     statusESPNow = ESP_NOW_STATE_UNINIT;
-    scanESPNow = millis() + 8000; // postpone searching for a bit
   }
 #endif
   dnsServer.stop();
@@ -658,12 +663,9 @@ void WLED::initAP(bool resetAP)
   }
   DEBUG_PRINTF_P(PSTR("WiFi: Opening access point %s @ %lus\n"), apSSID, millis()/1000);
   WiFi.softAPConfig(IPAddress(4, 3, 2, 1), IPAddress(4, 3, 2, 1), IPAddress(255, 255, 255, 0)); // will also engage WIFI_MODE_AP
-  WiFi.softAP(apSSID, apPass, apChannel, apHide); // WiFi mode can be either WIFI_MODE_AP or WIFI_MODE_APSTA(==WIFI_MODE_STA | WIFI_MODE_AP)
-  #ifdef ARDUINO_ARCH_ESP32
-  WiFi.setTxPower(wifi_power_t(txPower));
-  #endif
+  bool success = WiFi.softAP(apSSID, apPass, apChannel, apHide); // WiFi mode can be either WIFI_MODE_AP or WIFI_MODE_APSTA(==WIFI_MODE_STA | WIFI_MODE_AP)
 
-  if (!apActive) // start captive portal if AP active
+  if (!apActive && success) // start captive portal if AP active
   {
     #ifdef WLED_ENABLE_WEBSOCKETS
     ws.onEvent(wsEvent);
@@ -685,40 +687,28 @@ void WLED::initAP(bool resetAP)
     dnsServer.setErrorReplyCode(DNSReplyCode::NoError);
     dnsServer.start(53, "*", WiFi.softAPIP());
 
-#ifndef WLED_DISABLE_ESPNOW
-    if (enableESPNow) {
-      // we have opened AP (on desired channel) so we need to initialise ESP-NOW on the same channel
-      // it is going to be used as for sending AND receiving (assuming slave device has no WiFi configured)
-      // if slave has WiFi configured it needs to set TEMPORARY AP to be able to search for master
-      quickEspNow.onDataSent(espNowSentCB);     // see udp.cpp
-      quickEspNow.onDataRcvd(espNowReceiveCB);  // see udp.cpp
-      DEBUG_PRINTLN(F("ESP-NOW initing in AP mode."));
-      #ifdef ESP32
-      quickEspNow.setWiFiBandwidth(WIFI_IF_AP, WIFI_BW_HT20); // Only needed for ESP32 in case you need coexistence with ESP8266 in the same network
-      #endif //ESP32
-      bool espNowOK = quickEspNow.begin(apChannel, WIFI_IF_AP);  // Same channel must be used for both AP and ESP-NOW
-      statusESPNow = espNowOK ? ESP_NOW_STATE_ON : ESP_NOW_STATE_ERROR;
-      channelESPNow = apChannel;
-      DEBUG_PRINTF_P(PSTR("ESP-NOW%sinited in AP mode (wifi: %d/%d).\n"), espNowOK ? " " : " NOT ", WiFi.channel(), (int)apChannel);
-    }
-#endif
+    #ifdef ARDUINO_ARCH_ESP32
+    WiFi.setTxPower(wifi_power_t(txPower));
+    #endif
+
+    initESPNow();
   }
-  apActive = true;
+  apActive = success;
+  DEBUG_PRINTF_P(PSTR("WiFi: AP (%s) %s opened.\n"), apSSID, success ? "" : "NOT");
 }
 
 // initConnection() (re)starts connection to configured WiFi/SSIDs
-// once the connection is established initInterfaces() is called
+// once the connection is established connected() is called
 void WLED::initConnection()
 {
   DEBUG_PRINTF_P(PSTR("initConnection() called @ %lus.\n"), millis()/1000);
-  WiFi.disconnect(true); // close old connections (and also disengage STA mode)
+  WiFi.disconnect(); // close old connections
 
   lastReconnectAttempt = millis();
 
   if (isWiFiConfigured()) {
     DEBUG_PRINTF_P(PSTR("WiFi: Connecting to %s... @ %lus\n"), multiWiFi[selectedWiFi].clientSSID, millis()/1000);
 
-    WiFi.mode(WIFI_MODE_STA); // engage explicit STA mode
     // determine if using DHCP or static IP address, will also engage STA mode if not already
     if (multiWiFi[selectedWiFi].staticIP != 0U && multiWiFi[selectedWiFi].staticGW != 0U) {
       WiFi.config(multiWiFi[selectedWiFi].staticIP, multiWiFi[selectedWiFi].staticGW, multiWiFi[selectedWiFi].staticSN, dnsAddress);
@@ -731,14 +721,18 @@ void WLED::initConnection()
     prepareHostname(hostname);
 
 #ifdef ARDUINO_ARCH_ESP32
-    WiFi.setTxPower(wifi_power_t(txPower));
     WiFi.setSleep(!noWifiSleep);
     WiFi.setHostname(hostname);
+    WiFi.setTxPower(wifi_power_t(txPower));
 #else
     wifi_set_sleep_type((noWifiSleep) ? NONE_SLEEP_T : MODEM_SLEEP_T);
     WiFi.hostname(hostname);
 #endif
-    WiFi.begin(multiWiFi[selectedWiFi].clientSSID, multiWiFi[selectedWiFi].clientPass); // no harm if called multiple times
+    unsigned i = 0;
+    while (i < sizeof(multiWiFi[selectedWiFi].bssid)) if (multiWiFi[selectedWiFi].bssid[i++]) break;
+    const uint8_t *bssid = i < sizeof(multiWiFi[selectedWiFi].bssid) ? multiWiFi[selectedWiFi].bssid : nullptr;
+    // WiFi mode can be either WIFI_MODE_STA or WIFI_MODE_APSTA(==WIFI_MODE_STA | WIFI_MODE_AP)
+    WiFi.begin(multiWiFi[selectedWiFi].clientSSID, multiWiFi[selectedWiFi].clientPass, 0, bssid); // no harm if called multiple times
     // once WiFi is configured and begin() called, ESP will keep connecting to the specified SSID in the background
     // until connection is established or new configuration is submitted or disconnect() is called
   }
@@ -816,188 +810,247 @@ void WLED::connected()
 #endif
   lastMqttReconnectAttempt = 0; // force immediate update (MQTT & node broadcast)
 
-#ifndef WLED_DISABLE_ESPNOW
-  // we are connected to WiFi and ESP-NOW will only be used on master for sending out packets
-  // on the same channel as WiFi it is connected to (slaves will need to find it, see below)
-  if (enableESPNow) {
-    quickEspNow.onDataSent(espNowSentCB);     // see udp.cpp
-    quickEspNow.onDataRcvd(espNowReceiveCB);  // see udp.cpp
-    DEBUG_PRINTF_P(PSTR("ESP-NOW initing in STA mode, channel %d.\n"), WiFi.channel());
-    bool espNowOK = quickEspNow.begin(); // Use no parameters to start ESP-NOW on same channel as WiFi, in STA mode
-    statusESPNow = espNowOK ? ESP_NOW_STATE_ON : ESP_NOW_STATE_ERROR;
-    scanESPNow = millis() + 5000;
-  }
-#endif
+  initESPNow(!WiFi.isConnected());  // if we are connected using Ethernet force hidden AP mode
 
   interfacesInited = true;
-  initInterfaces = false;
 }
 
 void WLED::handleConnection()
 {
   const unsigned long now = millis();
-  const bool wifiConfigured = isWiFiConfigured();
+  // if we are connected and interfaces are initialised do nothing
+  if (Network.isConnected() && !forceReconnect) {
+    if (interfacesInited) sendESPNowHeartBeat();
+    else {
+      // newly connected
+      if (improvActive) {
+        if (improvError == 3) sendImprovStateResponse(0x00, true);
+        sendImprovStateResponse(0x04);
+        if (improvActive > 1) sendImprovIPRPCResult(ImprovRPCType::Command_Wifi);
+      }
+      connected();
+      userConnected();
+      UsermodManager::connected();
+      // shut down AP
+      if (apBehavior != AP_BEHAVIOR_ALWAYS && apActive) {
+        stopAP(false); // do not stop ESP-NOW
+        DEBUG_PRINTF_P(PSTR("WiFi: AP disabled (connected). @ %lus\n"), now/1000);
+      }
+    }
+    return;
+  }
 
+  // at this point we are not connected to WiFi or Ethernet or we are forced to reconnect
+  // we will try to connect periodically if WiFi is configured and we will also
+  // scan for ESP-NOW master if it is configured and we are in WIFI_MODE_AP mode
+  // if WIFI_MODE_STA or WIFI_MODE_APSTA is active we will not atempt any ESP-NOW activity
+
+  const bool wifiConfigured = isWiFiConfigured();
+  const int  wifiState = WiFi.status();
+/*
+  if (WiFi.status() == WL_NO_SHIELD || WiFi.status() == WL_IDLE_STATUS) {
+    DEBUG_PRINTF_P(PSTR("WiFi: Not initialised %d (%d) @ %lus\n"), (int)WiFi.status(), (int)WiFi.getMode(), now/1000);
+    WiFi.mode(WIFI_MODE_APSTA);
+    WiFi.begin();
+    WiFi.softAP(apSSID, apPass, apChannel, true);
+    if (wifiConfigured && multiWiFi.size() > 1 && WiFi.scanComplete() == -2) findWiFi(true);
+    //lastReconnectAttempt = now + 6000;
+    return;
+  }
+*/
   // ignore connection handling if WiFi is configured and scan still running
   // or within first 2s if WiFi is not configured or AP is always active
-  if ((wifiConfigured && multiWiFi.size() > 1 && WiFi.scanComplete() < 0) || (now < 2000 && (!wifiConfigured || apBehavior == AP_BEHAVIOR_ALWAYS)))
+  if ((wifiConfigured && multiWiFi.size() > 1 && WiFi.scanComplete() < 0) || (now < 2000 && (!wifiConfigured || apBehavior == AP_BEHAVIOR_ALWAYS))) {
     return;
+  }
 
-  if (wifiConfigured && (lastReconnectAttempt == 0UL || forceReconnect)) {
+  if (wifiConfigured && (forceReconnect || lastReconnectAttempt == 0 || wifiState == WL_NO_SHIELD /*|| wifiState == WL_IDLE_STATUS*/)) {
     // this is first attempt at connecting to SSID or we were forced to reconnect
+    // WL_NO_SHIELD means WiFi is turned off while WL_IDLE_STATUS means we are not trying to connect to SSID (but we may be in AP mode)
     DEBUG_PRINTF_P(PSTR("WiFi: Initial connect or forced reconnect. @ %lus\n"), now/1000);
     selectedWiFi = findWiFi(); // find strongest WiFi
+    if (selectedWiFi < 0) {
+      // fallback if scan returned error
+      findWiFi(true);
+      selectedWiFi = 0;
+    }
     initConnection(); // start connecting to preferred/configured WiFi
     interfacesInited = false;
     forceReconnect = false;
+#ifndef WLED_DISABLE_ESPNOW
+    // if we are slave in ESP-NOW sync we need to postpone active scan for master until temporary AP is closed
+    // otherwise just delay it until we connect to WiFi (will be overriden on connect)
+    scanESPNow = now + 18000; // postpone ESP-NOW scanning/broadcasting
+#endif
     return;
   }
 
-  if (!Network.isConnected()) {
-    if (!wifiConfigured && !apActive) {
+  // send improv failed 6 seconds after second init attempt (24 sec. after provisioning)
+  if (improvActive > 2 && now > lastReconnectAttempt + 6000) {
+    sendImprovStateResponse(0x03, true);
+    improvActive = 2;
+  }
+
+  if (!apActive) {
+    // WiFi is not configured and soft AP is not yet open
+    if (!wifiConfigured && apBehavior != AP_BEHAVIOR_BUTTON_ONLY) {
       DEBUG_PRINTF_P(PSTR("WiFi: Not configured, opening AP! @ %lus\n"), now/1000);
-      initAP(); // instantly go to AP mode (but will not disengage STA mode if engaged!)
+      initAP(); // instantly go to AP mode (WIFI_MODE_AP selected in setup())
+      return;
+    } else if (apBehavior == AP_BEHAVIOR_ALWAYS || (now > lastReconnectAttempt + 12000 && (!wasConnected || apBehavior == AP_BEHAVIOR_NO_CONN))) {
+      // open AP if requested to be permanently open or this is 12s after boot connect attempt or any disconnect (_NO_CONN)
+      // i.e. initial connect was unsuccessful (12s is enough to connect to SSID if it exists)
+      // !wasConnected means this is after boot and we haven't yet successfully connected to SSID
+      DEBUG_PRINTF_P(PSTR("WiFi: Opening AP in STA mode (%d) @ %lus.\n"), (int)(apBehavior == AP_BEHAVIOR_ALWAYS), now/1000);
+      WiFi.mode(WIFI_MODE_APSTA);
+      initAP();
       return;
     }
-    if (!apActive && apBehavior == AP_BEHAVIOR_ALWAYS) {
-      DEBUG_PRINTF_P(PSTR("WiFi: AP ALWAYS enabled. @ %lus\n"), now/1000);
-      initAP(); // if STA is engaged (it should be) this will keep AP's channel in sync with STA channel
-    }
-    //send improv failed 6 seconds after second init attempt (24 sec. after provisioning)
-    if (improvActive > 2 && now > lastReconnectAttempt + 6000) {
-      sendImprovStateResponse(0x03, true);
-      improvActive = 2;
-    }
-/*
-    #ifdef ESP8266
-    int staClients = wifi_softap_get_station_num();
-    #else
-    wifi_sta_list_t stationList;
-    esp_wifi_ap_get_sta_list(&stationList);
-    int staClients = stationList.num;
-    #endif
-*/
-    // WiFi is configured with multiple networks; try to reconnect if not connected after 15s or 300s if clients connected to AP
-    // this will cycle through all configured SSIDs (findWiFi() sorted SSIDs by signal strength)
-    // ESP usually connects to WiFi within 10s but we should give it a bit of time before attempting another network
-    // when a disconnect happens (see onEvent()) the WiFi scan is reinitiated and forced reconnect scheduled
-    if (wifiConfigured && multiWiFi.size() > 1 && now > lastReconnectAttempt + ((apActive) ? WLED_AP_TIMEOUT : 15000)) {
-      // this code is executed if ESP was unsuccessful in connecting to prefered WiFi. it is repeated every 15s
-      // to select different WiFi from the list (if only one WiFi is configured there will be 2 min between calls) if connects
-      // are not successful. if AP is still active when AP timeout is reached, stop AP
-      if ((!apActive || apClients == 0)
-        #ifndef WLED_DISABLE_ESPNOW
-        // wait for 3 skipped heartbeats if ESP-NOW sync is enabled
-        && now > 12000 + heartbeatESPNow
-        #endif
-        )
-      {
-        if (improvActive == 2) improvActive = 3;
-        DEBUG_PRINTF_P(PSTR("WiFi: Last reconnect (%lus) too old (@ %lus).\n"), lastReconnectAttempt/1000, now/1000);
-        if (++selectedWiFi >= multiWiFi.size()) selectedWiFi = 0; // we couldn't connect, try with another network from the list
-        stopAP(true); // stop ESP-NOW and disengage AP mode
-        initConnection();
-        // postpone searching for 2 min after last SSID from list and rely on auto reconnect
-        if (selectedWiFi + 1U == multiWiFi.size()) lastReconnectAttempt += 120000;
-        return;
-      }
-    }
-    // open AP if this is 12s after boot connect attempt or 12s after any disconnect (_NO_CONN)
-    // i.e. initial connect was unsuccessful (12s is enough to connect to SSID if it exists)
-    // !wasConnected means this is after boot and we haven't yet successfully connected to SSID
-    if (!apActive && now > lastReconnectAttempt + 12000 && (!wasConnected || apBehavior == AP_BEHAVIOR_NO_CONN)) {
-      if (!(apBehavior == AP_BEHAVIOR_TEMPORARY && now > WLED_AP_TIMEOUT)) { // start temporary AP only within first 5min
-        DEBUG_PRINTF_P(PSTR("WiFi: Opening not connected AP. @ %lus\n"), now/1000);
-        WiFi.disconnect(true); // disengage STA mode/prevent connecting to WiFi while AP is open (may be reset above)
-        WiFi.mode(WIFI_MODE_AP);
-        initAP();
-        return;
-      }
-    }
-    // disconnect AP after 5min if no clients connected and mode TEMPORARY
-    if (apActive && apBehavior == AP_BEHAVIOR_TEMPORARY && now > WLED_AP_TIMEOUT) {
-      // if AP was enabled more than 10min after boot or if client was connected more than 10min after boot do not disconnect AP mode
-      if (apClients == 0 && now < 2*WLED_AP_TIMEOUT) {
-        DEBUG_PRINTF_P(PSTR("WiFi: Temporary AP disabled. @ %lus\n"), now/1000);
-        stopAP(true);
-        WiFi.mode(WIFI_MODE_STA);
-        return;
-      }
-    }
+  } else {
+    //#ifdef ESP8266
+    //int apClients = wifi_softap_get_station_num();
+    //#else
+    //wifi_sta_list_t stationList;
+    //esp_wifi_ap_get_sta_list(&stationList);
+    //int apClients = stationList.num;
+    //#endif
+    // disconnect TEMPORARY AP after 5min if no clients are connected
+    // if client was connected longer than 10min after boot do not disconnect AP mode
+    if (wifiConfigured && apBehavior == AP_BEHAVIOR_TEMPORARY && apClients == 0 && now > WLED_AP_TIMEOUT && now < 2*WLED_AP_TIMEOUT) {
 #ifndef WLED_DISABLE_ESPNOW
-    // we are still not connected to WiFi and we may have AP active or not. if AP is active we will listen on its channel for ESP-NOW packets
-    // otherwise we'll try to find our master by hopping channels (master is detected in ESP-NOW receive callback)
-    bool isMasterDefined = masterESPNow[0] | masterESPNow[1] | masterESPNow[2] | masterESPNow[3] | masterESPNow[4] | masterESPNow[5];
-    if (!apActive && apBehavior == AP_BEHAVIOR_TEMPORARY && enableESPNow && !sendNotificationsRT && isMasterDefined && now > WLED_AP_TIMEOUT) {
-      // wait for 15s after starting to scan for WiFi before starting ESP-NOW (give ESP a chance to connect)
-      if (statusESPNow == ESP_NOW_STATE_UNINIT && wifiConfigured && now > lastReconnectAttempt + 15000) {
-        quickEspNow.onDataSent(espNowSentCB);     // see udp.cpp
-        quickEspNow.onDataRcvd(espNowReceiveCB);  // see udp.cpp
-        DEBUG_PRINTF_P(PSTR("ESP-NOW initing in unconnected (no)AP mode (channel %d).\n"), (int)channelESPNow);
-        WiFi.disconnect();        // stop looking for WiFi
-        // this will open AP named ESP_xxxxxxxx but nothing else. when switching channels you'll be unable to connect to it.
-        // when you manage to connect to it, no services will be available
-        WiFi.mode(WIFI_MODE_AP);  // force AP mode to fix channel
-        // if we try to force AP disconnect, ESP-NOW will cease to function (unable to change channel)
-        //WiFi.softAPdisconnect();
-        WiFi.softAP(apSSID, apPass, channelESPNow, true); // we will not set apActive = true
-        bool espNowOK = quickEspNow.begin(channelESPNow, WIFI_IF_AP); // use fixed channel AP mode
-        statusESPNow = espNowOK ? ESP_NOW_STATE_ON : ESP_NOW_STATE_ERROR;
-        scanESPNow = now;         // prevent immediate change of channel
-        heartbeatESPNow = 0UL;
-      }
-      if (statusESPNow == ESP_NOW_STATE_ON && wifiConfigured) {
-        if (now > 4000 + scanESPNow) {
-          // change channel every 4s (after 30s of last heartbeat) and wait 120s after roll-over
-          scanESPNow = now;
-          if (++channelESPNow > 13) {
-            channelESPNow = 1;
-            scanESPNow += 120000;
-          }
-          if (!quickEspNow.setChannel(channelESPNow)) DEBUG_PRINTLN(F("ESP-NOW Unable to set channel."));
-          else {
-            DEBUG_PRINTF_P(PSTR("ESP-NOW channel %d set (wifi: %d).\n"), (int)channelESPNow, WiFi.channel());
-            // update AP channel to match ESP-NOW channel
-            #ifdef ESP8266
-            struct softap_config conf;
-            wifi_softap_get_config(&conf);
-            conf.channel = channelESPNow;
-            wifi_softap_set_config_current(&conf);
-            #else
-            wifi_config_t conf;
-            esp_wifi_get_config(WIFI_IF_AP, &conf);
-            conf.ap.channel = channelESPNow;
-            esp_wifi_set_config(WIFI_IF_AP, &conf);
-            #endif
-          }
-        } else if (WiFi.channel() != channelESPNow && WiFi.getMode() == WIFI_MODE_AP) quickEspNow.setChannel(channelESPNow); // sometimes channel will chnage, force it back
-      }
-    }
+      if (enableESPNow && useESPNowSync && !sendNotificationsRT) {
+        DEBUG_PRINTF_P(PSTR("WiFi: Temporary AP hidden for ESP-NOW @ %lus.\n"), now/1000);
+        initESPNow(true);         // enter hidden AP mode (fixed channel)
+        scanESPNow = now + 6000;  // "immediately" start scanning for master
+      } else
 #endif
-  } else if (initInterfaces) { //newly connected
-    if (improvActive) {
-      if (improvError == 3) sendImprovStateResponse(0x00, true);
-      sendImprovStateResponse(0x04);
-      if (improvActive > 1) sendImprovIPRPCResult(ImprovRPCType::Command_Wifi);
-    }
-    connected();
-    userConnected();
-    UsermodManager::connected();
-    // shut down AP
-    if (apBehavior != AP_BEHAVIOR_ALWAYS && apActive) {
-      stopAP(false); // do not stop ESP-NOW
-      DEBUG_PRINTF_P(PSTR("WiFi: AP disabled (connected). @ %lus\n"), now/1000);
+      {
+        DEBUG_PRINTF_P(PSTR("WiFi: Temporary AP disabled @ %lus.\n"), now/1000);
+        stopAP(true);             // stop ESP-NOW in AP mode as well
+        WiFi.mode(WIFI_MODE_STA);
+        initConnection();         // will also start ESP-NOW when connected (if enabled)
+      }
+      wasConnected = true;        // hack to prevent reopeneing AP
+      return;
     }
   }
 
+  const bool isSTAmode = WiFi.getMode() & WIFI_MODE_STA;
+  const bool isAPmode  = WiFi.getMode() & WIFI_MODE_AP;
+  const bool isESPNowMasterDefined = masterESPNow[0] | masterESPNow[1] | masterESPNow[2] | masterESPNow[3] | masterESPNow[4] | masterESPNow[5];
+
 #ifndef WLED_DISABLE_ESPNOW
-  // send ESP-NOW beacon every 2s if we are in sync mode (AKA master device) regardless of STA or AP mode
-  // beacon will contain current/intended channel and local time (for loose synchronisation purposes)
-  if (useESPNowSync && statusESPNow == ESP_NOW_STATE_ON && sendNotificationsRT && now > 2000 + scanESPNow) {
-    EspNowBeacon buffer = {{'W','L','E','D'}, 0, (uint8_t)WiFi.channel(), toki.second(), {0}};
-    quickEspNow.send(ESPNOW_BROADCAST_ADDRESS, reinterpret_cast<uint8_t*>(&buffer), sizeof(buffer));
-    scanESPNow = now;
-    DEBUG_PRINTF_P(PSTR("ESP-NOW beacon on channel %d.\n"), WiFi.channel());
+  // if we are syncing via ESP-NOW and master has not been heard in a while we shoud retry WiFi
+  if (useESPNowSync && !sendNotificationsRT && now > lastReconnectAttempt + 300000 && heartbeatESPNow > 0 && now > heartbeatESPNow + 120000) {
+    DEBUG_PRINTF_P(PSTR("WiFi: Timeout conn: %lus, HB: %lus @ %lus.\n"), lastReconnectAttempt/1000, heartbeatESPNow/1000, now/1000);
+    if (!isSTAmode) {
+      quickEspNow.stop();
+      WiFi.softAPdisconnect(true);
+      WiFi.mode(WIFI_MODE_STA);
+    }
+    findWiFi(true);
+    forceReconnect = true;
+    return;
+  }
+#endif
+
+  // we need to send heartbeat if we are in AP/APSTA mode
+  if (isAPmode) sendESPNowHeartBeat();
+
+  // WiFi is configured (with multiple networks); try to reconnect if not connected after 12s (or 300s if clients are connected to AP)
+  // this will cycle through all configured SSIDs (findWiFi() will select strongest)
+  // ESP usually connects to WiFi within 10s but we should give it a bit of time before attempting another network
+  // when a disconnect happens (see onEvent()) the WiFi scan is reinitiated and forced reconnect scheduled
+  // if we are ESP-NOW sync slave, connectiong to WiFi must not happen automatically as it will disrupt ESP-NOW channel
+  // but we need a way to occasionally reconnect.
+  if (isSTAmode && wifiConfigured && (now > lastReconnectAttempt + (apActive ? WLED_AP_TIMEOUT : 12000) && apClients == 0)) {
+    // this code is executed if ESP was unsuccessful in connecting to selected SSID. it is repeated every 12s
+    // to select different SSID from the list if connects are not successful.
+    if (improvActive == 2) improvActive = 3;
+#ifndef WLED_DISABLE_ESPNOW
+    // we are slave in ESP-NOW sync and we were not able to connect to best SSID (initial connect/forced reconnect)
+    // in such case we will not attempt to traverse all configured SSIDs (as findWiFi() does that) but switch to AP mode
+    // immediately so ESP-NOW heartbeat scan can commence
+    if (enableESPNow && useESPNowSync && !sendNotificationsRT) {
+      DEBUG_PRINTF_P(PSTR("WiFi: Last reconnect (%lus) too old, entering ESP-NOW scan. @ %lus.\n"), lastReconnectAttempt/1000, now/1000);
+      initESPNow(true);
+      scanESPNow = now + 6000;
+      lastReconnectAttempt = now;
+      return;
+    }
+#endif
+    DEBUG_PRINTF_P(PSTR("WiFi: Last reconnect (%lus) too old @ %lus.\n"), lastReconnectAttempt/1000, now/1000);
+    if (++selectedWiFi >= multiWiFi.size()) selectedWiFi = 0; // we couldn't connect, try with another network from the list
+    initConnection();                                         // start connecting to selected SSID
+    if (selectedWiFi > 0 && selectedWiFi == findWiFi()) lastReconnectAttempt += 300000; // if we selected best SSID then postpone connecting for 5 min (wrapped around/single)
+    return;
+  }
+
+#ifndef WLED_DISABLE_ESPNOW
+  // ESP-NOW sync is only relevant if device is not connected to WiFi and it may have AP active or not.
+  // if AP is active we will try to find our master by switching AP channels (master is detected in ESP-NOW receive callback)
+  // for this to work we must not be in STA mode as otherwise WiFi driver will switch channels on its own while searching for configured SSID
+  //
+  // so we may have a conflict if we do not want AP (AP_BEHAVIOR_TEMPORARY) and connect to SSID but we also don't want to miss master's heartbeat
+  // by unintentionally switching channels
+  //
+  // the solution is to try to find master while we are in temporary AP mode by switching channels after having enough time to find master on each channel
+  // the situation is even more complicated if device initially connected to SSID but subesquently lost connection,
+  // in such case AP will not be engaged and we have no clue where master is so we need to disconnect() from SSID do a search
+  // for master and if search is unsuccessful reconnect(). the additional complication arises when multiple SSIDs are configured.
+  // when they are, we need to findWiFi() every now and then
+  //
+  // possible situations:
+  // - wifi not configured but ESP-NOW syncing enabled
+  //   - must be in (temporary?) AP mode (and when timer expires remain in hidden AP mode)
+  // - wifi is configured with single SSID
+  //   - unconnected at boot
+  //     - start temporary AP and listen for master (switching channels every few s)
+  //     - if master is found postpone retrying WiFi connection for at least 2 minutes (after last heartbeat)
+  //     - if master is not found while in AP mode stop participating in ESP-NOW sync and retry connecting to WiFi
+  //   - connected at boot
+  //     - when disconnect happens temporarily enter AP mode and stop STA mode
+  //     - start searching for master (about 1 minute for 13 channeld) and wait 1 minute between searches
+  //     - while waiting for new search try to reconnect
+  // - wifi configured with multiple SSIDs
+  //   - similar situation as single SSID but additionally perform findWiFi(true) to try to find best SSID
+  //
+  if (enableESPNow && useESPNowSync && !sendNotificationsRT && isESPNowMasterDefined && apBehavior == AP_BEHAVIOR_TEMPORARY) {
+    // WiFi is configured but we are not connected (AP may be open or not). if ESP-NOW is not active,
+    // activate it in AP mode and stop connecting to WiFi (lastReconnectAttempt will retry connecting after a while, see above)
+    if (now > scanESPNow && (!isAPmode || statusESPNow != ESP_NOW_STATE_ON)) {
+      initESPNow(true);
+      scanESPNow = now + 6000;  // prevent immediate change of channel
+      heartbeatESPNow = 0;
+      return;
+    }
+    if (statusESPNow == ESP_NOW_STATE_ON && isAPmode && !isSTAmode) {
+      if (now > scanESPNow) { // are we due for next scan? (will be postponed on each heartbeat)
+        // change channel every 4s and wait 60s after roll-over
+        // this will take about 52s to scan all channels
+        scanESPNow = now + 4000;
+        if (++channelESPNow > 13) {
+          channelESPNow = 1;
+          scanESPNow += 56000;
+        }
+        if (!quickEspNow.setChannel(channelESPNow)) DEBUG_PRINTLN(F("ESP-NOW Unable to set channel."));
+        else {
+          DEBUG_PRINTF_P(PSTR("ESP-NOW channel %d set (wifi: %d).\n"), (int)channelESPNow, WiFi.channel());
+          // update AP channel to match ESP-NOW channel
+          #ifdef ESP8266
+          struct softap_config conf;
+          wifi_softap_get_config(&conf);
+          conf.channel = channelESPNow;
+          wifi_softap_set_config_current(&conf);
+          #else
+          wifi_config_t conf;
+          esp_wifi_get_config(WIFI_IF_AP, &conf);
+          conf.ap.channel = channelESPNow;
+          esp_wifi_set_config(WIFI_IF_AP, &conf);
+          #endif
+        }
+      } else if (WiFi.channel() != channelESPNow) quickEspNow.setChannel(channelESPNow); // sometimes channel will chnage, force it back
+    }
   }
 #endif
 }
@@ -1017,7 +1070,7 @@ void WLED::handleStatusLED()
   }
   #endif
 
-  if (WLED_CONNECTED) {
+  if (Network.isConnected()) {
     c = RGBW32(0,255,0,0);
     ledStatusType = 2;
   } else if (WLED_MQTT_CONNECTED) {
