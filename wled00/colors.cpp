@@ -5,30 +5,18 @@
  */
 
 /*
- * color blend function
+ * color blend function, based on FastLED blend function
+ * the calculation for each color is: result = (A*(amountOfA) + A + B*(amountOfB) + B) / 256 with amountOfA = 255 - amountOfB
  */
-uint32_t color_blend(uint32_t color1, uint32_t color2, uint16_t blend, bool b16) {
-  if (blend == 0) return color1;
-  unsigned blendmax = b16 ? 0xFFFF : 0xFF;
-  if (blend == blendmax) return color2;
-  unsigned shift = b16 ? 16 : 8;
-
-  uint32_t w1 = W(color1);
-  uint32_t r1 = R(color1);
-  uint32_t g1 = G(color1);
-  uint32_t b1 = B(color1);
-
-  uint32_t w2 = W(color2);
-  uint32_t r2 = R(color2);
-  uint32_t g2 = G(color2);
-  uint32_t b2 = B(color2);
-
-  uint32_t w3 = ((w2 * blend) + (w1 * (blendmax - blend))) >> shift;
-  uint32_t r3 = ((r2 * blend) + (r1 * (blendmax - blend))) >> shift;
-  uint32_t g3 = ((g2 * blend) + (g1 * (blendmax - blend))) >> shift;
-  uint32_t b3 = ((b2 * blend) + (b1 * (blendmax - blend))) >> shift;
-
-  return RGBW32(r3, g3, b3, w3);
+uint32_t color_blend(uint32_t color1, uint32_t color2, uint8_t blend) {
+  // min / max blend checking is omitted: calls with 0 or 255 are rare, checking lowers overall performance
+  uint32_t rb1 = color1 & 0x00FF00FF;
+  uint32_t wg1 = (color1>>8) & 0x00FF00FF;
+  uint32_t rb2 = color2 & 0x00FF00FF;
+  uint32_t wg2 = (color2>>8) & 0x00FF00FF;
+  uint32_t rb3 = ((((rb1 << 8) | rb2) + (rb2 * blend) - (rb1 * blend)) >> 8) & 0x00FF00FF;
+  uint32_t wg3 = ((((wg1 << 8) | wg2) + (wg2 * blend) - (wg1 * blend))) & 0xFF00FF00;
+  return rb3 | wg3;
 }
 
 /*

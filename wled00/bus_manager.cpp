@@ -541,19 +541,15 @@ void BusPwm::show() {
   const unsigned maxBri = (1<<_depth);      // possible values: 16384 (14), 8192 (13), 4096 (12), 2048 (11), 1024 (10), 512 (9) and 256 (8) 
   [[maybe_unused]] const unsigned bitShift = dithering * 4;  // if dithering, _depth is 12 bit but LEDC channel is set to 8 bit (using 4 fractional bits)
 
-  // use CIE brightness formula (cubic) to fit (or approximate linearity of) human eye perceived brightness
-  // the formula is based on 12 bit resolution as there is no need for greater precision
+  // use CIE brightness formula (linear + cubic) to approximate human eye perceived brightness
   // see: https://en.wikipedia.org/wiki/Lightness
-  unsigned pwmBri = (unsigned)_bri * 100;  // enlarge to use integer math for linear response
-  if (pwmBri < 2040) {
-    // linear response for values [0-20]
-    pwmBri = ((pwmBri << 12) + 115043) / 230087; //adding '0.5' before division for correct rounding
-  } else {
-    // cubic response for values [21-255]
-    pwmBri += 4080;
-    float temp = (float)pwmBri / 29580.0f;
-    temp = temp * temp * temp * (float)maxBri; 
-    pwmBri = (unsigned)temp;  // pwmBri is in range [0-maxBri] 
+  unsigned pwmBri = _bri;
+  if (pwmBri < 21) {                                   // linear response for values [0-20]
+    pwmBri = (pwmBri * maxBri + 2300 / 2) / 2300 ;     // adding '0.5' before division for correct rounding, 2300 gives a good match to CIE curve
+  } else {                                             // cubic response for values [21-255]
+    float temp = float(pwmBri + 41) / float(255 + 41); // 41 is to match offset & slope to linear part
+    temp = temp * temp * temp * (float)maxBri;
+    pwmBri = (unsigned)temp;                           // pwmBri is in range [0-maxBri] C
   }
 
   [[maybe_unused]] unsigned hPoint = 0;  // phase shift (0 - maxBri)
