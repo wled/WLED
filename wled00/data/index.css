@@ -97,6 +97,7 @@ button {
 .labels {
 	margin: 0;
 	padding: 8px 0 2px 0;
+	font-size: 19px;
 }
 
 #namelabel {
@@ -890,12 +891,12 @@ a.btn {
 	line-height: 28px;
 }
 
-/* Quick color select Black button (has white border) */
-.qcsb {
+/* Quick color select Black and White button (has white/black border, depending on the theme) */
+.qcsb, .qcsw {
 	width: 26px;
 	height: 26px;
 	line-height: 26px;
-	border: 1px solid #fff;
+	border: 1px solid var(--c-f);
 }
 
 /* Hex color input wrapper div */
@@ -1299,6 +1300,14 @@ TD .checkmark, TD .radiomark {
 	width: 100%;
 }
 
+#segutil {
+	margin-bottom: 12px;
+}
+
+#segcont > div:first-child, #fxFind  {
+	margin-top: 4px;
+}
+
 /* Simplify segments */
 .simplified #segcont .lstI {
 	margin-top: 4px;
@@ -1436,6 +1445,11 @@ dialog {
 .presin {
 	padding: 8px;
 	position: relative;
+}
+
+.presin {
+	width: 100%; 
+	box-sizing: border-box;
 }
 
 .btn-s,

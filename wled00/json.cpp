@@ -891,10 +891,7 @@ void serializePalettes(JsonObject root, int page)
         setPaletteColors(curPalette, PartyColors_p);
         break;
       case 1: //random
-          curPalette.add("r");
-          curPalette.add("r");
-          curPalette.add("r");
-          curPalette.add("r");
+           for (int j = 0; j < 4; j++) curPalette.add("r");
         break;
       case 2: //primary color only
         curPalette.add("c1");
@@ -911,52 +908,19 @@ void serializePalettes(JsonObject root, int page)
         curPalette.add("c1");
         break;
       case 5: //primary + secondary (+tertiary if not off), more distinct
+        for (int j = 0; j < 5; j++) curPalette.add("c1");
+        for (int j = 0; j < 5; j++) curPalette.add("c2");
+        for (int j = 0; j < 5; j++) curPalette.add("c3");
         curPalette.add("c1");
-        curPalette.add("c1");
-        curPalette.add("c1");
-        curPalette.add("c1");
-        curPalette.add("c1");
-        curPalette.add("c2");
-        curPalette.add("c2");
-        curPalette.add("c2");
-        curPalette.add("c2");
-        curPalette.add("c2");
-        curPalette.add("c3");
-        curPalette.add("c3");
-        curPalette.add("c3");
-        curPalette.add("c3");
-        curPalette.add("c3");
-        curPalette.add("c1");
-        break;
-      case 6: //Party colors
-        setPaletteColors(curPalette, PartyColors_p);
-        break;
-      case 7: //Cloud colors
-        setPaletteColors(curPalette, CloudColors_p);
-        break;
-      case 8: //Lava colors
-        setPaletteColors(curPalette, LavaColors_p);
-        break;
-      case 9: //Ocean colors
-        setPaletteColors(curPalette, OceanColors_p);
-        break;
-      case 10: //Forest colors
-        setPaletteColors(curPalette, ForestColors_p);
-        break;
-      case 11: //Rainbow colors
-        setPaletteColors(curPalette, RainbowColors_p);
-        break;
-      case 12: //Rainbow stripe colors
-        setPaletteColors(curPalette, RainbowStripeColors_p);
         break;
       default:
-        {
-        if (i>=palettesCount) {
+        if (i >= palettesCount)
           setPaletteColors(curPalette, strip.customPalettes[i - palettesCount]);
-        } else {
+        else if (i < 13) // palette 6 - 12, fastled palettes
+          setPaletteColors(curPalette, *fastledPalettes[i-6]);
+        else {
           memcpy_P(tcp, (byte*)pgm_read_dword(&(gGradientPalettes[i - 13])), 72);
           setPaletteColors(curPalette, tcp);
-        }
         }
         break;
     }

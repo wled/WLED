@@ -444,6 +444,7 @@ public:
     configComplete &= getJsonValue(top[F("PublishAlways")], PublishAlways, false);
     configComplete &= getJsonValue(top[F("UseCelsius")], UseCelsius, true);
     configComplete &= getJsonValue(top[F("HomeAssistantDiscovery")], HomeAssistantDiscovery, false);
+    tempScale = UseCelsius ? "°C" : "°F";
 
     DEBUGUM_PRINT(FPSTR(_name));
     if (!initDone) {
