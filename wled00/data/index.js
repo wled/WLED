@@ -777,8 +777,8 @@ function populateSegments(s)
 		}
 
 		let segp = `<div id="segp${i}" class="sbs">`+
-						`<i class="icons slider-icon pwr ${inst.on ? "act":""}" id="seg${i}pwr" onclick="setSegPwr(${i})">&#xe08f;</i>`+
-						`<div class="sliderwrap il">`+
+						`<i class="icons slider-icon pwr ${inst.on ? "act":""}" id="seg${i}pwr" title="Power" onclick="setSegPwr(${i})">&#xe08f;</i>`+
+						`<div class="sliderwrap il" title="Opacity/Brightness">`+
 							`<input id="seg${i}bri" class="noslide" onchange="setSegBri(${i})" oninput="updateTrail(this)" max="255" min="1" type="range" value="${inst.bri}" />`+
 							`<div class="sliderdisplay"></div>`+
 						`</div>`+
@@ -814,7 +814,7 @@ function populateSegments(s)
 		cn += `<div class="seg lstI ${i==s.mainseg && !simplifiedUI ? 'selected' : ''} ${exp ? "expanded":""}" id="seg${i}" data-set="${inst.set}">`+
 				`<label class="check schkl ${smpl}">`+
 					`<input type="checkbox" id="seg${i}sel" onchange="selSeg(${i})" ${inst.sel ? "checked":""}>`+
-					`<span class="checkmark"></span>`+
+					`<span class="checkmark" title="Select"></span>`+
 				`</label>`+
 				`<div class="segname ${smpl}" onclick="selSegEx(${i})">`+
 					`<i class="icons e-icon frz" id="seg${i}frz" title="(un)Freeze" onclick="event.preventDefault();tglFreeze(${i});">&#x${inst.frz ? (li.live && li.liveseg==i?'e410':'e0e8') : 'e325'};</i>`+
@@ -1666,13 +1666,17 @@ function setEffectParameters(idx)
 			paOnOff[0] = paOnOff[0].substring(0,dPos);
 		}
 		if (paOnOff.length>0 && paOnOff[0] != "!") text = paOnOff[0];
+		gId("adPal").classList.remove("hide");
+		if (lastinfo.cpalcount>0) gId("rmPal").classList.remove("hide");
 	} else {
 		// disable palette list
 		text += ' not used';
 		palw.style.display = "none";
+		gId("adPal").classList.add("hide");
+		gId("rmPal").classList.add("hide");
 		// Close palette dialog if not available
-		if (gId("palw").lastElementChild.tagName == "DIALOG") {
-			gId("palw").lastElementChild.close();
+		if (palw.lastElementChild.tagName == "DIALOG") {
+			palw.lastElementChild.close();
 		}
 	}
 	pall.innerHTML = icon + text;
@@ -1887,7 +1891,7 @@ function makeSeg()
 function resetUtil(off=false)
 {
 	gId('segutil').innerHTML = `<div class="seg btn btn-s${off?' off':''}" style="padding:0;margin-bottom:12px;">`
-	+ '<label class="check schkl"><input type="checkbox" id="selall" onchange="selSegAll(this)"><span class="checkmark"></span></label>'
+	+ '<label class="check schkl"><input type="checkbox" id="selall" onchange="selSegAll(this)"><span class="checkmark" title="Select all"></span></label>'
 	+ `<div class="segname" ${off?'':'onclick="makeSeg()"'}><i class="icons btn-icon">&#xe18a;</i>Add segment</div>`
 	+ '<div class="pop hide" onclick="event.stopPropagation();">'
 	+ `<i class="icons g-icon" title="Select group" onclick="this.nextElementSibling.classList.toggle('hide');">&#xE34B;</i>`
