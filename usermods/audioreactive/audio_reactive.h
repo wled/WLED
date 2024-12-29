@@ -1159,16 +1159,16 @@ class AudioReactive : public Usermod {
 #endif
     // new "V2" audiosync struct - 44 Bytes
     struct __attribute__ ((packed)) audioSyncPacket {  // WLEDMM "packed" ensures that there are no additional gaps
-      char    header[6];      //  06 Bytes  offset 0
+      char    header[6];      //  06 Bytes  offset 0 - "00002" for protocol version 2 ( includes \0 for c-style string termination) 
       uint8_t pressure[2];    //  02 Bytes, offset 6  - sound pressure as fixed point (8bit integer,  8bit fraction) 
       float   sampleRaw;      //  04 Bytes  offset 8  - either "sampleRaw" or "rawSampleAgc" depending on soundAgc setting
       float   sampleSmth;     //  04 Bytes  offset 12 - either "sampleAvg" or "sampleAgc" depending on soundAgc setting
       uint8_t samplePeak;     //  01 Bytes  offset 16 - 0 no peak; >=1 peak detected. In future, this will also provide peak Magnitude
-      uint8_t frameCounter;   //  01 Bytes  offset 17 - track duplicate/out of order packets
-      uint8_t fftResult[16];  //  16 Bytes  offset 18
-      uint16_t zeroCrossingCount; // 02 Bytes, offset 34
-      float  FFT_Magnitude;   //  04 Bytes  offset 36
-      float  FFT_MajorPeak;   //  04 Bytes  offset 40
+      uint8_t frameCounter;   //  01 Bytes  offset 17 - rolling counter to track duplicate/out of order packets
+      uint8_t fftResult[16];  //  16 Bytes  offset 18 - 16 GEQ channels, each channel has one byte (uint8_t)
+      uint16_t zeroCrossingCount; // 02 Bytes, offset 34 - number of zero crossings seen in 23ms
+      float  FFT_Magnitude;   //  04 Bytes  offset 36 - largest FFT result from a single run (raw value, can go up to 4096)
+      float  FFT_MajorPeak;   //  04 Bytes  offset 40 - frequency (Hz) of largest FFT result
     };
 
     // old "V1" audiosync struct - 83 Bytes payload, 88 bytes total - for backwards compatibility
