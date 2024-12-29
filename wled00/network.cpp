@@ -369,7 +369,7 @@ int findWiFi(bool doScan) {
         if (!strcmp(WiFi.SSID(o).c_str(), multiWiFi[n].clientSSID)) {
           bool foundBSSID = memcmp(multiWiFi[n].bssid, WiFi.BSSID(o), 6) == 0;
           // find the WiFi with the strongest signal (but keep priority of entry if signal difference is not big)
-          if (foundBSSID || (n < selected && WiFi.RSSI(o) > rssi-10) || WiFi.RSSI(o) > rssi) {
+          if (foundBSSID || ((int)n < selected && WiFi.RSSI(o) > rssi-10) || WiFi.RSSI(o) > rssi) {
             rssi = foundBSSID ? 0 : WiFi.RSSI(o); // RSSI is only ever negative
             selected = n;
           }
