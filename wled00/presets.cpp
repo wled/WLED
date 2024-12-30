@@ -233,9 +233,10 @@ void handlePresets()
   DEBUG_PRINT(F("Applying preset: "));
   DEBUG_PRINTLN(tmpPreset);
 
-  #if defined(ARDUINO_ARCH_ESP32S2) || defined(ARDUINO_ARCH_ESP32C3)
+  #if defined(ARDUINO_ARCH_ESP32)   // WLEDMM we apply this workaround to all esp32 boards (S3 and classic esp32 included)
+  //#if defined(ARDUINO_ARCH_ESP32S2) || defined(ARDUINO_ARCH_ESP32C3)
   unsigned long start = millis();
-  while (strip.isUpdating() && millis() - start < FRAMETIME_FIXED) yield(); // wait for strip to finish updating, accessing FS during sendout causes glitches
+  while (strip.isUpdating() && millis() - start < FRAMETIME_FIXED) delay(1); // wait for strip to finish updating, accessing FS during sendout causes glitches // WLEDMM delay instead of yield
   #endif
 
   #ifdef ARDUINO_ARCH_ESP32
