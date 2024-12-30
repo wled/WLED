@@ -6648,8 +6648,6 @@ uint16_t mode_matripix(void) {                  // Matripix. By Andrew Tuline.
 
   const bool overlay = SEGMENT.check2;
 
-  const bool overlay = SEGMENT.check2;
-
   if (SEGENV.call == 0) {
     for (unsigned i = 0; i < SEGLEN; i++) pixels[i] = BLACK;   // may not be needed as resetIfRequired() clears buffer
   }
@@ -7433,7 +7431,7 @@ uint16_t mode_2DFunkyPlank(void) {              // Written by ??? Adapted by Wil
   uint8_t *fftResult = (uint8_t*)um_data->u_data[2];
 
   if (SEGENV.call == 0) {
-    for (unsigned i = 0; i < cols; i++) for (unsigned j = 0; j < rows; j++) pixels[XY(i,j)] = BLACK;   // may not be needed as resetIfRequired() clears buffer
+    for (int i = 0; i < cols; i++) for (int j = 0; j < rows; j++) pixels[XY(i,j)] = BLACK;   // may not be needed as resetIfRequired() clears buffer
   }
 
   uint8_t secondHand = micros()/(256-SEGMENT.speed)/500+1 % 64;
