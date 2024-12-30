@@ -6648,6 +6648,8 @@ uint16_t mode_matripix(void) {                  // Matripix. By Andrew Tuline.
 
   const bool overlay = SEGMENT.check2;
 
+  const bool overlay = SEGMENT.check2;
+
   if (SEGENV.call == 0) {
     for (unsigned i = 0; i < SEGLEN; i++) pixels[i] = BLACK;   // may not be needed as resetIfRequired() clears buffer
   }
