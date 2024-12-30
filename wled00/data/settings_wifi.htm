@@ -47,7 +47,7 @@
 				scanLoops = 0;
 
 				if (networks.length > 0) {
-					let cs = d.querySelectorAll("#wifi_entries input[type=text]");
+					let cs = d.querySelectorAll("#wifi_entries input[type=text][name^=CS]");
 					for (let input of (cs||[])) {
 						let found = false;
 						let select = cE("select");
@@ -64,7 +64,7 @@
 							const option = cE("option");
 
 							option.setAttribute("value", networks[i].ssid);
-							option.textContent = `${networks[i].ssid} (${networks[i].rssi} dBm)`;
+							option.textContent = `${networks[i].ssid} (${networks[i].rssi} dBm)`; // [${networks[i].bssid.replaceAll(':','')}]
 
 							if (networks[i].ssid === input.value) {
 								option.setAttribute("selected", "selected");
