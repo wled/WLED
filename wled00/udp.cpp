@@ -201,6 +201,8 @@ void realtimeLock(uint32_t timeoutMs, byte md)
   if (realtimeOverride) return;
   if (arlsForceMaxBri) strip.setBrightness(scaledBri(255), true);
   if (briT > 0 && md == REALTIME_MODE_GENERIC) strip.show();
+
+  if (realtimeMode && !realtimeOverride && useMainSegmentOnly) strip.getMainSegment().startFrame(); // WLEDMM make sure the main segment is ready for drawing
 }
 
 void exitRealtime() {
