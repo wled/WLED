@@ -660,6 +660,7 @@ typedef struct Segment {
     [[gnu::hot]] uint32_t getPixelColor(int i) const;
     // 1D support functions (some implement 2D as well)
     void blur(uint8_t, bool smear = false);
+    void clear();
     void fill(uint32_t c);
     void fade_out(uint8_t r);
     void fadeToSecondaryBy(uint8_t fadeBy);

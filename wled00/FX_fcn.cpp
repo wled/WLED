@@ -278,13 +278,13 @@ void Segment::startTransition(uint16_t dur) {
   _t = new Transition(dur); // no previous transition running
   if (!_t) return; // failed to allocate data
 
-  //DEBUGFX_PRINTF_P(PSTR("-- Started transition: %p (%p)\n"), this, _t);
+  DEBUGFX_PRINTF_P(PSTR("-- Started transition: %p (%p)\n"), this, _t);
   loadPalette(_t->_palT, palette);
   _t->_palTid         = palette;
   _t->_briT           = on ? opacity : 0;
   _t->_cctT           = cct;
 #ifndef WLED_DISABLE_MODE_BLEND
-  swapSegenv(_t->_segT);
+  swapSegenv(_t->_segT); // copy runtime data to temporary
   _t->_modeT          = mode;
   _t->_segT._dataLenT = 0;
   _t->_segT._dataT    = nullptr;
@@ -296,6 +296,13 @@ void Segment::startTransition(uint16_t dur) {
       _t->_segT._dataLenT = _dataLen;
     }
   }
+  DEBUGFX_PRINTF_P(PSTR("-- pal: %d, bri: %d, C:[%08X,%08X,%08X], m: %d\n"),
+    (int)_t->_palTid,
+    (int)_t->_briT,
+    _t->_segT._colorT[0],
+    _t->_segT._colorT[1],
+    _t->_segT._colorT[2],
+    (int)_t->_modeT);
 #else
   for (size_t i=0; i<NUM_COLORS; i++) _t->_colorT[i] = colors[i];
 #endif
@@ -493,21 +500,17 @@ void Segment::setGeometry(uint16_t i1, uint16_t i2, uint8_t grp, uint8_t spc, ui
   #ifndef WLED_DISABLE_2D
   if (Segment::maxHeight>1) boundsUnchanged &= (startY == i1Y && stopY == i2Y); // 2D
   #endif
+
+  if (stop && (spc > 0 || m12 != map1D2D)) clear();
+/*
   if (boundsUnchanged
       && (!grp || (grouping == grp && spacing == spc))
       && (ofs == UINT16_MAX || ofs == offset)
       && (m12 == map1D2D)
      ) return;
-
+*/
   stateChanged = true; // send UDP/WS broadcast
 
-  if (stop || spc != spacing || m12 != map1D2D) {
-    _vWidth  = virtualWidth();
-    _vHeight = virtualHeight();
-    _vLength = virtualLength();
-    _segBri  = currentBri();
-    fill(BLACK); // turn old segment range off or clears pixels if changing spacing (requires _vWidth/_vHeight/_vLength/_segBri)
-  }
   if (grp) { // prevent assignment of 0
     grouping = grp;
     spacing = spc;
@@ -518,7 +521,7 @@ void Segment::setGeometry(uint16_t i1, uint16_t i2, uint8_t grp, uint8_t spc, ui
   if (ofs < UINT16_MAX) offset = ofs;
   map1D2D  = constrain(m12, 0, 7);
 
-  DEBUGFX_PRINTF_P(PSTR("ses segment geometry: %d,%d -> %d,%d\n"), (int)i1, (int)i2, (int)i1Y, (int)i2Y);
+  DEBUGFX_PRINTF_P(PSTR("Segment geometry: %d,%d -> %d,%d\n"), (int)i1, (int)i2, (int)i1Y, (int)i2Y);
   markForReset();
   if (boundsUnchanged) return;
 
@@ -1131,6 +1134,26 @@ void Segment::refreshLightCapabilities() {
 }
 
 /*
+ * Fills segment with black
+ */
+void Segment::clear() {
+  if (!isActive()) return; // not active
+    unsigned oldVW = _vWidth;
+    unsigned oldVH = _vHeight;
+    unsigned oldVL = _vLength;
+    unsigned oldSB = _segBri;
+    _vWidth  = virtualWidth();
+    _vHeight = virtualHeight();
+    _vLength = virtualLength();
+    _segBri  = currentBri();
+    fill(BLACK);
+    _vWidth  = oldVW;
+    _vHeight = oldVH;
+    _vLength = oldVL;
+    _segBri  = oldSB;
+}
+
+/*
  * Fills segment with color
  */
 void Segment::fill(uint32_t c) {
@@ -1444,7 +1467,7 @@ void WS2812FX::service() {
   _segment_index = 0;
 
   for (segment &seg : _segments) {
-    if (_suspend) return; // immediately stop processing segments if suspend requested during service()
+    if (_suspend) break; // immediately stop processing segments if suspend requested during service()
 
     // process transition
     seg.handleTransition();
@@ -1562,7 +1585,7 @@ void WS2812FX::service() {
   if (doShow) {
     yield();
     Segment::handleRandomPalette(); // slowly transition random palette; move it into for loop when each segment has individual random palette
-    show();
+    if (!_suspend) show();
   }
   #ifdef WLED_DEBUG_FX
   if (millis() - nowUp > _frametime) DEBUGFX_PRINTF_P(PSTR("Slow strip %u/%d.\n"), (unsigned)(millis()-nowUp), (int)_frametime);
