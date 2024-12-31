@@ -279,22 +279,27 @@ void Segment::startTransition(uint16_t dur) {
   _t->_briT           = on ? opacity : 0;
   _t->_cctT           = cct;
 #ifndef WLED_DISABLE_MODE_BLEND
-  if (modeBlending) {
-    swapSegenv(_t->_segT);
-    _t->_modeT          = mode;
-    _t->_segT._dataLenT = 0;
-    _t->_segT._dataT    = nullptr;
-    if (_dataLen > 0 && data) {
-      _t->_segT._dataT = (byte *)malloc(_dataLen);
-      if (_t->_segT._dataT) {
-        //DEBUG_PRINTF_P(PSTR("--  Allocated duplicate data (%d) for %p: %p\n"), _dataLen, this, _t->_segT._dataT);
-        memcpy(_t->_segT._dataT, data, _dataLen);
-        _t->_segT._dataLenT = _dataLen;
-      }
+  swapSegenv(_t->_segT); // copy runtime data to temporary
+  _t->_modeT          = mode;
+  _t->_segT._dataLenT = 0;
+  _t->_segT._dataT    = nullptr;
+  if (_dataLen > 0 && data) {
+    _t->_segT._dataT = (byte *)malloc(_dataLen);
+    if (_t->_segT._dataT) {
+      //DEBUG_PRINTF_P(PSTR("--  Allocated duplicate data (%d) for %p: %p\n"), _dataLen, this, _t->_segT._dataT);
+      memcpy(_t->_segT._dataT, data, _dataLen);
+      _t->_segT._dataLenT = _dataLen;
     }
   } else {
     for (size_t i=0; i<NUM_COLORS; i++) _t->_segT._colorT[i] = colors[i];
   }
+  DEBUG_PRINTF_P(PSTR("-- pal: %d, bri: %d, C:[%08X,%08X,%08X], m: %d\n"),
+    (int)_t->_palTid,
+    (int)_t->_briT,
+    _t->_segT._colorT[0],
+    _t->_segT._colorT[1],
+    _t->_segT._colorT[2],
+    (int)_t->_modeT);
 #else
   for (size_t i=0; i<NUM_COLORS; i++) _t->_colorT[i] = colors[i];
 #endif
@@ -462,13 +467,16 @@ void Segment::setGeometry(uint16_t i1, uint16_t i2, uint8_t grp, uint8_t spc, ui
   #ifndef WLED_DISABLE_2D
   if (Segment::maxHeight>1) boundsUnchanged &= (startY == i1Y && stopY == i2Y); // 2D
   #endif
+
+  if (stop && (spc > 0 || m12 != map1D2D)) clear();
+/*
   if (boundsUnchanged
       && (!grp || (grouping == grp && spacing == spc))
-      && (ofs == UINT16_MAX || ofs == offset)) return;
-
+      && (m12 == map1D2D)
+     ) return;
+*/
   stateChanged = true; // send UDP/WS broadcast
 
-  if (stop) fill(BLACK); // turn old segment range off (clears pixels if changing spacing)
   if (grp) { // prevent assignment of 0
     grouping = grp;
     spacing = spc;
@@ -478,10 +486,7 @@ void Segment::setGeometry(uint16_t i1, uint16_t i2, uint8_t grp, uint8_t spc, ui
   }
   if (ofs < UINT16_MAX) offset = ofs;
 
-  DEBUG_PRINT(F("setUp segment: ")); DEBUG_PRINT(i1);
-  DEBUG_PRINT(','); DEBUG_PRINT(i2);
-  DEBUG_PRINT(F(" -> ")); DEBUG_PRINT(i1Y);
-  DEBUG_PRINT(','); DEBUG_PRINTLN(i2Y);
+  DEBUG_PRINTF_P(PSTR("Segment geometry: %d,%d -> %d,%d\n"), (int)i1, (int)i2, (int)i1Y, (int)i2Y);
   markForReset();
   if (boundsUnchanged) return;
 
@@ -1041,6 +1046,26 @@ void Segment::refreshLightCapabilities() {
 }
 
 /*
+ * Fills segment with black
+ */
+void Segment::clear() {
+  if (!isActive()) return; // not active
+    unsigned oldVW = _vWidth;
+    unsigned oldVH = _vHeight;
+    unsigned oldVL = _vLength;
+    unsigned oldSB = _segBri;
+    _vWidth  = virtualWidth();
+    _vHeight = virtualHeight();
+    _vLength = virtualLength();
+    _segBri  = currentBri();
+    fill(BLACK);
+    _vWidth  = oldVW;
+    _vHeight = oldVH;
+    _vLength = oldVL;
+    _segBri  = oldSB;
+}
+
+/*
  * Fills segment with color
  */
 void Segment::fill(uint32_t c) {
@@ -1364,7 +1389,7 @@ void WS2812FX::service() {
   _segment_index = 0;
 
   for (segment &seg : _segments) {
-    if (_suspend) return; // immediately stop processing segments if suspend requested during service()
+    if (_suspend) break; // immediately stop processing segments if suspend requested during service()
 
     // process transition (mode changes in the middle of transition)
     seg.handleTransition();
@@ -1429,8 +1454,8 @@ void WS2812FX::service() {
   if (doShow) {
     yield();
     Segment::handleRandomPalette(); // slowly transition random palette; move it into for loop when each segment has individual random palette
-    show();
     _lastServiceShow = nowUp; // update timestamp, for precise FPS control
+    if (!_suspend) show();
   }
   #ifdef WLED_DEBUG
   if ((_targetFps != FPS_UNLIMITED) && (millis() - nowUp > _frametime)) DEBUG_PRINTF_P(PSTR("Slow strip %u/%d.\n"), (unsigned)(millis()-nowUp), (int)_frametime);
