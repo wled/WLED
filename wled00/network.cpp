@@ -291,6 +291,7 @@ void initESPNow(bool resetAP) {
       WiFi.disconnect(true);                            // stop STA mode (also stop connecting to WiFi)
       WiFi.mode(WIFI_MODE_AP);                          // force AP mode to fix channel
       if (!WiFi.softAP(apSSID, apPass, channelESPNow, true)) DEBUG_PRINTLN(F("WARNING! softAP failed.")); // hide AP (do not bother with initialising interfaces)
+      delay(100);
     }
 
     int wifiMode = WiFi.getMode();
@@ -317,7 +318,7 @@ void initESPNow(bool resetAP) {
     // if slave has WiFi configured it needs to set TEMPORARY AP to be able to search for master
     quickEspNow.onDataSent(espNowSentCB);     // see udp.cpp
     quickEspNow.onDataRcvd(espNowReceiveCB);  // see udp.cpp
-    DEBUG_PRINTF_P(PSTR("ESP-NOW initing in %s mode."), wifiModeStr);
+    DEBUG_PRINTF_P(PSTR("ESP-NOW initing in %s mode.\n"), wifiModeStr);
     #ifdef ESP32
     quickEspNow.setWiFiBandwidth(WIFI_IF_AP, WIFI_BW_HT20); // Only needed for ESP32 in case you need coexistence with ESP8266 in the same network
     #endif //ESP32
@@ -391,6 +392,7 @@ bool isWiFiConfigured() {
 #if defined(ESP8266)
   #define ARDUINO_EVENT_WIFI_AP_STADISCONNECTED WIFI_EVENT_SOFTAPMODE_STADISCONNECTED
   #define ARDUINO_EVENT_WIFI_AP_STACONNECTED    WIFI_EVENT_SOFTAPMODE_STACONNECTED
+  #define ARDUINO_EVENT_WIFI_STA_LOST_IP        WIFI_EVENT_STAMODE_LOST_IP
   #define ARDUINO_EVENT_WIFI_STA_GOT_IP         WIFI_EVENT_STAMODE_GOT_IP
   #define ARDUINO_EVENT_WIFI_STA_CONNECTED      WIFI_EVENT_STAMODE_CONNECTED
   #define ARDUINO_EVENT_WIFI_STA_DISCONNECTED   WIFI_EVENT_STAMODE_DISCONNECTED
@@ -398,6 +400,7 @@ bool isWiFiConfigured() {
   // not strictly IDF v3 but Arduino core related
   #define ARDUINO_EVENT_WIFI_AP_STADISCONNECTED SYSTEM_EVENT_AP_STADISCONNECTED
   #define ARDUINO_EVENT_WIFI_AP_STACONNECTED    SYSTEM_EVENT_AP_STACONNECTED
+  #define ARDUINO_EVENT_WIFI_STA_LOST_IP        SYSTEM_EVENT_STA_LOST_IP
   #define ARDUINO_EVENT_WIFI_STA_GOT_IP         SYSTEM_EVENT_STA_GOT_IP
   #define ARDUINO_EVENT_WIFI_STA_CONNECTED      SYSTEM_EVENT_STA_CONNECTED
   #define ARDUINO_EVENT_WIFI_STA_DISCONNECTED   SYSTEM_EVENT_STA_DISCONNECTED
@@ -439,6 +442,14 @@ void WiFiEvent(WiFiEvent_t event)
       break;
     case ARDUINO_EVENT_WIFI_STA_GOT_IP:
       DEBUG_PRINT(F("WiFi-E: IP address: ")); DEBUG_PRINTLN(Network.localIP());
+      break;
+    case ARDUINO_EVENT_WIFI_STA_LOST_IP:
+      // lost IP event happens when AP is established (and STA was previously connected)
+      DEBUG_PRINTF_P(PSTR("WiFi-E: Lost IP. @ %lus\n"), millis()/1000);
+#ifndef WLED_DISABLE_ESPNOW
+      // force ESP-NOW scan
+      scanESPNow = millis() + 5000;    // postpone heartbeat generation for a few seconds (may be overriden in WLED::connected())
+#endif
       break;
     case ARDUINO_EVENT_WIFI_STA_CONNECTED:
       // followed by IDLE and SCAN_DONE
@@ -513,7 +524,7 @@ void WiFiEvent(WiFiEvent_t event)
     #endif
   #endif
     default:
-      DEBUG_PRINTF_P(PSTR("WiFi-E: Unmanaged event %d\n"), (int)event);
+      DEBUG_PRINTF_P(PSTR("WiFi-E: Unmanaged event %d @ %lus\n"), (int)event, millis()/1000);
       break;
   }
 }

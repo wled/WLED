@@ -847,41 +847,51 @@ void WLED::handleConnection()
 
   const bool wifiConfigured = isWiFiConfigured();
   const int  wifiState = WiFi.status();
-/*
-  if (WiFi.status() == WL_NO_SHIELD || WiFi.status() == WL_IDLE_STATUS) {
-    DEBUG_PRINTF_P(PSTR("WiFi: Not initialised %d (%d) @ %lus\n"), (int)WiFi.status(), (int)WiFi.getMode(), now/1000);
-    WiFi.mode(WIFI_MODE_APSTA);
-    WiFi.begin();
-    WiFi.softAP(apSSID, apPass, apChannel, true);
-    if (wifiConfigured && multiWiFi.size() > 1 && WiFi.scanComplete() == -2) findWiFi(true);
-    //lastReconnectAttempt = now + 6000;
-    return;
-  }
-*/
-  // ignore connection handling if WiFi is configured and scan still running
-  // or within first 2s if WiFi is not configured or AP is always active
-  if ((wifiConfigured && multiWiFi.size() > 1 && WiFi.scanComplete() < 0) || (now < 2000 && (!wifiConfigured || apBehavior == AP_BEHAVIOR_ALWAYS))) {
+
+  // WL_NO_SHIELD means WiFi is turned off while WL_IDLE_STATUS means we are not trying to connect to SSID (but we may be in AP mode)
+  // so need to occasionally check if we can reconnect to restart WiFi
+  if (wifiState == WL_NO_SHIELD || (wifiState == WL_IDLE_STATUS && !apClients && !apActive)) {
+    // if we haven't heard master & 5 minutes have passes since last reconect
+    if (now > WLED_AP_TIMEOUT/2 + heartbeatESPNow && now > WLED_AP_TIMEOUT + lastReconnectAttempt) { // 2.5/5min timeout
+      DEBUG_PRINTF_P(PSTR("WiFi: Not initialised %d (%d) @ %lus\n"), (int)wifiState, (int)WiFi.getMode(), now/1000);
+      if (wifiConfigured) {
+        WiFi.mode(WIFI_MODE_STA);
+        if (multiWiFi.size() > 1 || WiFi.scanComplete() == -2) findWiFi(true);
+        //lastReconnectAttempt = now + 6000;
+      } else if (wifiState == WL_NO_SHIELD) {
+        // restart WiF in hidden AP mode
+        WiFi.mode(WIFI_MODE_AP);
+        WiFi.softAP(apSSID, apPass, apChannel, true);
+      }
+    }
     return;
   }
 
-  if (wifiConfigured && (forceReconnect || lastReconnectAttempt == 0 || wifiState == WL_NO_SHIELD /*|| wifiState == WL_IDLE_STATUS*/)) {
+  if (wifiConfigured && (forceReconnect || lastReconnectAttempt == 0)) {
     // this is first attempt at connecting to SSID or we were forced to reconnect
-    // WL_NO_SHIELD means WiFi is turned off while WL_IDLE_STATUS means we are not trying to connect to SSID (but we may be in AP mode)
     DEBUG_PRINTF_P(PSTR("WiFi: Initial connect or forced reconnect. @ %lus\n"), now/1000);
     selectedWiFi = findWiFi(); // find strongest WiFi
     if (selectedWiFi < 0) {
       // fallback if scan returned error
       findWiFi(true);
       selectedWiFi = 0;
-    }
-    initConnection(); // start connecting to preferred/configured WiFi
-    interfacesInited = false;
-    forceReconnect = false;
+    } else {
+      initConnection(); // start connecting to preferred/configured WiFi
+      forceReconnect = false;
+      interfacesInited = false;
 #ifndef WLED_DISABLE_ESPNOW
-    // if we are slave in ESP-NOW sync we need to postpone active scan for master until temporary AP is closed
-    // otherwise just delay it until we connect to WiFi (will be overriden on connect)
-    scanESPNow = now + 18000; // postpone ESP-NOW scanning/broadcasting
+      // if we are slave in ESP-NOW sync we need to postpone active scan for master until temporary AP is closed
+      // otherwise just delay it until we connect to WiFi (will be overriden on connect)
+      scanESPNow = now + 30000; // postpone ESP-NOW scanning/broadcasting
 #endif
+    }
+    return;
+  }
+
+  // ignore connection handling if WiFi is configured and scan still running
+  // or within first 2s if WiFi is not configured or AP is always active
+  if ((wifiConfigured && multiWiFi.size() > 1 && WiFi.scanComplete() < 0 && (WiFi.getMode() & WIFI_MODE_STA))
+    || (now < 2000 && (!wifiConfigured || apBehavior == AP_BEHAVIOR_ALWAYS))) {
     return;
   }
 
@@ -982,7 +992,7 @@ void WLED::handleConnection()
     DEBUG_PRINTF_P(PSTR("WiFi: Last reconnect (%lus) too old @ %lus.\n"), lastReconnectAttempt/1000, now/1000);
     if (++selectedWiFi >= multiWiFi.size()) selectedWiFi = 0; // we couldn't connect, try with another network from the list
     initConnection();                                         // start connecting to selected SSID
-    if (selectedWiFi > 0 && selectedWiFi == findWiFi()) lastReconnectAttempt += 300000; // if we selected best SSID then postpone connecting for 5 min (wrapped around/single)
+    if (selectedWiFi > 0 && selectedWiFi == findWiFi()) lastReconnectAttempt += 120000; // if we selected best SSID then postpone connecting for 2 min (wrapped around/single)
     return;
   }
 
