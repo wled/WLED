@@ -167,6 +167,11 @@ void handlePresets()
 
   DEBUG_PRINTF_P(PSTR("Applying preset: %u\n"), (unsigned)tmpPreset);
 
+  #if defined(ARDUINO_ARCH_ESP32S2) || defined(ARDUINO_ARCH_ESP32C3)
+  unsigned long start = millis();
+  while (strip.isUpdating() && millis() - start < strip.getFrameTime()) yield(); // wait for strip to finish updating, accessing FS during sendout causes glitches
+  #endif
+
   #ifdef ARDUINO_ARCH_ESP32
   if (tmpPreset==255 && tmpRAMbuffer!=nullptr) {
     deserializeJson(*pDoc,tmpRAMbuffer);
