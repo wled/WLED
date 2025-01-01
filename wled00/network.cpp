@@ -392,7 +392,6 @@ bool isWiFiConfigured() {
 #if defined(ESP8266)
   #define ARDUINO_EVENT_WIFI_AP_STADISCONNECTED WIFI_EVENT_SOFTAPMODE_STADISCONNECTED
   #define ARDUINO_EVENT_WIFI_AP_STACONNECTED    WIFI_EVENT_SOFTAPMODE_STACONNECTED
-  #define ARDUINO_EVENT_WIFI_STA_LOST_IP        WIFI_EVENT_STAMODE_LOST_IP
   #define ARDUINO_EVENT_WIFI_STA_GOT_IP         WIFI_EVENT_STAMODE_GOT_IP
   #define ARDUINO_EVENT_WIFI_STA_CONNECTED      WIFI_EVENT_STAMODE_CONNECTED
   #define ARDUINO_EVENT_WIFI_STA_DISCONNECTED   WIFI_EVENT_STAMODE_DISCONNECTED
@@ -443,22 +442,14 @@ void WiFiEvent(WiFiEvent_t event)
     case ARDUINO_EVENT_WIFI_STA_GOT_IP:
       DEBUG_PRINT(F("WiFi-E: IP address: ")); DEBUG_PRINTLN(Network.localIP());
       break;
-    case ARDUINO_EVENT_WIFI_STA_LOST_IP:
-      // lost IP event happens when AP is established (and STA was previously connected)
-      DEBUG_PRINTF_P(PSTR("WiFi-E: Lost IP. @ %lus\n"), millis()/1000);
-#ifndef WLED_DISABLE_ESPNOW
-      // force ESP-NOW scan
-      scanESPNow = millis() + 5000;    // postpone heartbeat generation for a few seconds (may be overriden in WLED::connected())
-#endif
-      break;
     case ARDUINO_EVENT_WIFI_STA_CONNECTED:
       // followed by IDLE and SCAN_DONE
       DEBUG_PRINTF_P(PSTR("WiFi-E: Connected! @ %lus\n"), millis()/1000);
       wasConnected = true;
-#ifndef WLED_DISABLE_ESPNOW
+      #ifndef WLED_DISABLE_ESPNOW
       heartbeatESPNow = 0;
       scanESPNow = millis() + 15000;    // postpone heartbeat generation for a few seconds (may be overriden in WLED::connected())
-#endif
+      #endif
       break;
     case ARDUINO_EVENT_WIFI_STA_DISCONNECTED:
       if (wasConnected && interfacesInited) {
@@ -467,13 +458,21 @@ void WiFiEvent(WiFiEvent_t event)
           findWiFi(true);               // reinit WiFi scan (this may add ~6s connection delay but will select best SSID)
         forceReconnect = true;          // force reconnect
         interfacesInited = false;
-#ifndef WLED_DISABLE_ESPNOW
+        #ifndef WLED_DISABLE_ESPNOW
         heartbeatESPNow = 0;
         scanESPNow = millis() + 30000;  // postpone scan for master for 30s after disconnect (give auto reconnect enough time to reconnect)
-#endif
+        #endif
       }
       break;
   #ifdef ARDUINO_ARCH_ESP32
+    case ARDUINO_EVENT_WIFI_STA_LOST_IP:
+      // lost IP event happens when AP is established (and STA was previously connected)
+      DEBUG_PRINTF_P(PSTR("WiFi-E: Lost IP. @ %lus\n"), millis()/1000);
+      #ifndef WLED_DISABLE_ESPNOW
+      // force ESP-NOW scan
+      scanESPNow = millis() + 5000;    // postpone heartbeat generation for a few seconds (may be overriden in WLED::connected())
+      #endif
+      break;
     case ARDUINO_EVENT_WIFI_SCAN_DONE:
       // also triggered when connected to selected SSID
       DEBUG_PRINTLN(F("WiFi-E: SSID scan completed."));
