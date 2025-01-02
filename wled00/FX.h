@@ -661,6 +661,7 @@ typedef struct Segment {
     void blur(uint8_t, bool smear = false);
     void fill(uint32_t c);
     void fade_out(uint8_t r);
+    void fadeToSecondaryBy(uint8_t fadeBy);
     void fadeToBlackBy(uint8_t fadeBy);
     inline void blendPixelColor(int n, uint32_t color, uint8_t blend)    { setPixelColor(n, color_blend(getPixelColor(n), color, blend)); }
     inline void blendPixelColor(int n, CRGB c, uint8_t blend)            { blendPixelColor(n, RGBW32(c.r,c.g,c.b,0), blend); }

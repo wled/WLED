@@ -1138,6 +1138,8 @@ void Segment::fill(uint32_t c) {
 
 /*
  * fade out function, higher rate = quicker fade
+ * fading is highly dependant on frame rate (higher frame rates, faster fading)
+ * each frame will fade at max 9% or as little as 0.8%
  */
 void Segment::fade_out(uint8_t rate) {
   if (!isActive()) return; // not active
@@ -1145,7 +1147,8 @@ void Segment::fade_out(uint8_t rate) {
   const int rows = vHeight(); // will be 1 for 1D
 
   rate = (255-rate) >> 1;
-  float mappedRate = 1.0f / (float(rate) + 1.1f);
+  //float mappedRate = 1.0f / (float(rate) + 1.1f); // mappedRate is in (nonlinear) range ~ [0.0078,0.9091] so roughly 1% to 91%
+  int mappedRate = 256 / (rate + 1);
 
   uint32_t color = colors[1]; // SEGCOLOR(1); // target color
   int w2 = W(color);
@@ -1161,10 +1164,14 @@ void Segment::fade_out(uint8_t rate) {
     int g1 = G(color);
     int b1 = B(color);
 
-    int wdelta = (w2 - w1) * mappedRate;
-    int rdelta = (r2 - r1) * mappedRate;
-    int gdelta = (g2 - g1) * mappedRate;
-    int bdelta = (b2 - b1) * mappedRate;
+    //int wdelta = (w2 - w1) * mappedRate;
+    //int rdelta = (r2 - r1) * mappedRate;
+    //int gdelta = (g2 - g1) * mappedRate;
+    //int bdelta = (b2 - b1) * mappedRate;
+    int wdelta = ((w2 - w1) * mappedRate) >> 8;
+    int rdelta = ((r2 - r1) * mappedRate) >> 8;
+    int gdelta = ((g2 - g1) * mappedRate) >> 8;
+    int bdelta = ((b2 - b1) * mappedRate) >> 8;
 
     // if fade isn't complete, make sure delta is at least 1 (fixes rounding issues)
     wdelta += (w2 == w1) ? 0 : (w2 > w1) ? 1 : -1;
@@ -1172,8 +1179,23 @@ void Segment::fade_out(uint8_t rate) {
     gdelta += (g2 == g1) ? 0 : (g2 > g1) ? 1 : -1;
     bdelta += (b2 == b1) ? 0 : (b2 > b1) ? 1 : -1;
 
-    if (is2D()) setPixelColorXY(x, y, r1 + rdelta, g1 + gdelta, b1 + bdelta, w1 + wdelta);
-    else        setPixelColor(x, r1 + rdelta, g1 + gdelta, b1 + bdelta, w1 + wdelta);
+    //if (is2D()) setPixelColorXY(x, y, r1 + rdelta, g1 + gdelta, b1 + bdelta, w1 + wdelta);
+    //else        setPixelColor(x, r1 + rdelta, g1 + gdelta, b1 + bdelta, w1 + wdelta);
+    uint32_t newColor = RGBW32(r1 + rdelta, g1 + gdelta, b1 + bdelta, w1 + wdelta);
+    if (is2D()) setPixelColorXY(x, y, newColor);
+    else        setPixelColor(x, newColor);
+  }
+}
+
+// fades all pixels to secondary color
+void Segment::fadeToSecondaryBy(uint8_t fadeBy) {
+  if (!isActive() || fadeBy == 0) return;   // optimization - no scaling to apply
+  const int cols = is2D() ? vWidth() : vLength();
+  const int rows = vHeight(); // will be 1 for 1D
+
+  for (int y = 0; y < rows; y++) for (int x = 0; x < cols; x++) {
+    if (is2D()) setPixelColorXY(x, y, color_blend(getPixelColorXY(x,y), colors[1], fadeBy));
+    else        setPixelColor(x, color_blend(getPixelColor(x), colors[1], fadeBy));
   }
 }
 
@@ -1268,7 +1290,7 @@ uint32_t Segment::color_from_palette(uint16_t i, bool mapping, bool wrap, uint8_
   if (mapping && vL > 1) paletteIndex = (i*255)/(vL -1);
   // paletteBlend: 0 - wrap when moving, 1 - always wrap, 2 - never wrap, 3 - none (undefined)
   if (!wrap && strip.paletteBlend != 3) paletteIndex = scale8(paletteIndex, 240); //cut off blend at palette "end"
-  CRGBW palcol = ColorFromPalette(_currentPalette, paletteIndex, pbri, (strip.paletteBlend == 3)? NOBLEND:LINEARBLEND); // NOTE: paletteBlend should be global
+  CRGBW palcol = ColorFromPaletteWLED(_currentPalette, paletteIndex, pbri, (strip.paletteBlend == 3)? NOBLEND:LINEARBLEND); // NOTE: paletteBlend should be global
   palcol.w = W(color);
 
   return palcol.color32;
