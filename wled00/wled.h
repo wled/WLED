@@ -9,7 +9,7 @@
 
 // version code in format yymmddb (b = daily build)
 #ifndef AUTOBUILD
-#define VERSION 2412300
+#define VERSION 2501020
 #else
 #define VERSION BUILD
 #endif
@@ -1031,8 +1031,8 @@ WLED_GLOBAL volatile uint8_t jsonBufferLock _INIT(0);
     snprintf_P(\
       apSSID, \
       sizeof(apSSID)-1, \
-      PSTR("%s-%s"), \
-      WLED_BRAND, \
+      PSTR("%s_%s"), \
+      WLED_AP_SSID, \
       escapedMac.c_str()+6 \
     ); \
   } while(0)

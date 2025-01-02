@@ -16,7 +16,7 @@ uint32_t color_blend(uint32_t color1, uint32_t color2, uint8_t blend) {
   uint32_t rb2 = color2 & mask;
   uint32_t wg2 = (color2 >> 8) & mask;
   uint32_t rb3 = ((((rb1 << 8) | rb2) + (rb2 * blend) - (rb1 * blend)) >> 8) & mask;
-  uint32_t wg3 = ((((wg1 << 8) | wg2) + (wg2 * blend) - (wg1 * blend))) & mask;
+  uint32_t wg3 = ((((wg1 << 8) | wg2) + (wg2 * blend) - (wg1 * blend))) & ~mask;
   return rb3 | wg3;
 }
 
@@ -48,7 +48,7 @@ uint32_t color_add(uint32_t c1, uint32_t c2, bool preserveCR)
     if (max > 255) {
       const uint32_t scale = (uint32_t(255)<<8) / max; // division of two 8bit (shifted) values does not work -> use bit shifts and multiplaction instead
       rb = ((rb * scale) >> 8) & mask; //
-      wg = (wg * scale) & mask;
+      wg = (wg * scale) & ~mask;
     } else wg = wg << 8; //shift white and green back to correct position
     return rb | wg;
   } else {
@@ -80,8 +80,8 @@ uint32_t color_fade(uint32_t c1, uint8_t amount, bool video)
     addRemains |= W(c1) ? 0x01000000 : 0;
   }
   const uint32_t mask = 0x00FF00FF;
-  uint32_t rb = (((c1 & mask) * scale) >> 8) & mask; // scale red and blue
-  uint32_t wg = (((c1 >> 8) & mask) * scale) & (mask << 8); // scale white and green
+  uint32_t rb = (((c1 &  mask) * scale) >> 8) &  mask;  // scale red and blue
+  uint32_t wg = (((c1 & ~mask) >> 8) * scale) & ~mask;  // scale white and green
   scaledcolor = (rb | wg) + addRemains;
   return scaledcolor;
 }
@@ -525,23 +525,21 @@ void NeoGammaWLEDMethod::calcGammaTable(float gamma)
   }
 }
 
-uint8_t IRAM_ATTR_YN NeoGammaWLEDMethod::Correct(uint8_t value)
+uint8_t IRAM_ATTR NeoGammaWLEDMethod::Correct(uint8_t value)
 {
-  if (!gammaCorrectCol) return value;
-  return gammaT[value];
+  if (gammaCorrectCol) return gammaT[value];
+  return value;
 }
 
 // used for color gamma correction
-uint32_t IRAM_ATTR_YN NeoGammaWLEDMethod::Correct32(uint32_t color)
+uint32_t IRAM_ATTR NeoGammaWLEDMethod::Correct32(uint32_t color)
 {
-  if (!gammaCorrectCol) return color;
-  uint8_t w = W(color);
-  uint8_t r = R(color);
-  uint8_t g = G(color);
-  uint8_t b = B(color);
-  w = gammaT[w];
-  r = gammaT[r];
-  g = gammaT[g];
-  b = gammaT[b];
-  return RGBW32(r, g, b, w);
+  if (gammaCorrectCol) {
+    uint8_t w = W(color);
+    uint8_t r = R(color);
+    uint8_t g = G(color);
+    uint8_t b = B(color);
+    color = RGBW32(gammaT[r], gammaT[g], gammaT[b], gammaT[w]);
+  }
+  return color;
 }
