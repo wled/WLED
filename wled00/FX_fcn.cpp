@@ -149,7 +149,7 @@ Segment& Segment::operator= (Segment &&orig) noexcept {
 }
 
 // allocates effect data buffer on heap and initialises (erases) it
-bool IRAM_ATTR_YN Segment::allocateData(size_t len) {
+bool Segment::allocateData(size_t len) {
   if (len == 0) return false; // nothing to do
   if (data && _dataLen >= len) {          // already allocated enough (reduce fragmentation)
     if (call == 0) {
@@ -179,7 +179,7 @@ bool IRAM_ATTR_YN Segment::allocateData(size_t len) {
   return true;
 }
 
-void IRAM_ATTR_YN Segment::deallocateData() {
+void Segment::deallocateData() {
   if (!data) { _dataLen = 0; return; }
   if ((Segment::getUsedSegmentData() > 0) && (_dataLen > 0)) { // check that we don't have a dangling / inconsistent data pointer
     //DEBUGFX_PRINTF_P(PSTR("---  Released data (%p): %d/%d -> %p\n"), this, _dataLen, Segment::getUsedSegmentData(), data);
@@ -732,7 +732,7 @@ uint16_t Segment::virtualLength() const {
 // if clipping start > stop the clipping range is inverted
 // _modeBlend==true  -> old effect during transition
 // _modeBlend==false -> new effect during transition
-bool IRAM_ATTR_YN Segment::isPixelClipped(int i) const {
+bool IRAM_ATTR Segment::isPixelClipped(int i) const {
 #ifndef WLED_DISABLE_MODE_BLEND
   if (_clipStart != _clipStop && blendingStyle != BLEND_STYLE_FADE) {
     bool invert = _clipStart > _clipStop;  // ineverted start & stop
@@ -755,7 +755,7 @@ bool IRAM_ATTR_YN Segment::isPixelClipped(int i) const {
   return false;
 }
 
-void IRAM_ATTR_YN Segment::setPixelColor(int i, uint32_t col)
+void IRAM_ATTR Segment::setPixelColor(int i, uint32_t col)
 {
   if (!isActive() || i < 0) return; // not active or invalid index
 #ifndef WLED_DISABLE_2D
@@ -975,7 +975,7 @@ void Segment::setPixelColor(float i, uint32_t col, bool aa)
 }
 #endif
 
-uint32_t IRAM_ATTR_YN Segment::getPixelColor(int i) const
+uint32_t IRAM_ATTR Segment::getPixelColor(int i) const
 {
   if (!isActive()) return 0; // not active
 

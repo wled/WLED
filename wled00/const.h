@@ -655,12 +655,4 @@
   #define WLED_DEBUG_MATH 1
 #endif
 
-// IRAM_ATTR for 8266 with 32Kb IRAM causes error: section `.text1' will not fit in region `iram1_0_seg'
-// this hack removes the IRAM flag for some 1D/2D functions - somewhat slower, but it solves problems with some older 8266 chips
-#ifdef WLED_SAVE_IRAM
-  #define IRAM_ATTR_YN
-#else
-  #define IRAM_ATTR_YN IRAM_ATTR
-#endif
-
 #endif
