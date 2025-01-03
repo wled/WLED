@@ -294,7 +294,8 @@ public:
   void loop()
   {
     // only check sensors 4x/s
-    if (!enabled || millis() - lastLoop < 250 || strip.isUpdating()) return;
+    if (!enabled || millis() - lastLoop < 250) return;
+    if (strip.isUpdating() && (millis() - lastLoop < 250)) return; // WLEDMM be nice, but not too nice
     lastLoop = millis();
 
     if (!updatePIRsensorState()) {
