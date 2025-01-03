@@ -490,8 +490,8 @@ void WiFiEvent(WiFiEvent_t event)
     case ARDUINO_EVENT_ETH_CONNECTED:
       {
       DEBUG_PRINTLN(F("ETH-E: Connected"));
-      if (apActive) stopAP(true);           // stop AP & ESP-NOW
-      else          WiFi.disconnect(true);  // disable SSID scanning
+      if (apActive) WLED::instance().stopAP(true);  // stop AP & ESP-NOW
+      else          WiFi.disconnect(true);          // disable SSID scanning
       // WLED::connected() will take care of ESP-NOW
       if (multiWiFi[0].staticIP != (uint32_t)0x00000000 && multiWiFi[0].staticGW != (uint32_t)0x00000000) {
         ETH.config(multiWiFi[0].staticIP, multiWiFi[0].staticGW, multiWiFi[0].staticSN, dnsAddress);
