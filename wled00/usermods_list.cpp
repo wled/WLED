@@ -242,6 +242,11 @@
 #include "../usermods/LD2410_v2/usermod_ld2410.h"
 #endif
 
+
+#ifdef USERMOD_DEEP_SLEEP
+  #include "../usermods/deep_sleep/usermod_deep_sleep.h"
+#endif
+
 void registerUsermods()
 {
 /*
@@ -469,5 +474,9 @@ void registerUsermods()
 
   #ifdef USERMOD_POV_DISPLAY
   UsermodManager::add(new PovDisplayUsermod());
+  #endif
+
+  #ifdef USERMOD_DEEP_SLEEP
+   usermods.add(new DeepSleepUsermod());
   #endif
 }
