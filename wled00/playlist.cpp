@@ -85,7 +85,7 @@ int16_t loadPlaylist(JsonObject playlistObj, byte presetId) {
   } else {
     for (int dur : durations) {
       if (it >= playlistLen) break;
-      playlistEntries[it].dur = (dur > 1) ? dur : 100;
+      playlistEntries[it].dur = constrain(dur, 0, 65530);
       it++;
     }
   }
@@ -146,7 +146,7 @@ void handlePlaylist() {
   static unsigned long presetCycledTime = 0;
   if (currentPlaylist < 0 || playlistEntries == nullptr) return;
 
-  if (millis() - presetCycledTime > (100 * playlistEntryDur) || doAdvancePlaylist) {
+  if ((playlistEntryDur < UINT16_MAX && millis() - presetCycledTime > 100 * playlistEntryDur) || doAdvancePlaylist) {
     presetCycledTime = millis();
     if (bri == 0 || nightlightActive) return;
 
@@ -169,7 +169,7 @@ void handlePlaylist() {
 
     jsonTransitionOnce = true;
     strip.setTransition(playlistEntries[playlistIndex].tr * 100);
-    playlistEntryDur = playlistEntries[playlistIndex].dur;
+    playlistEntryDur = playlistEntries[playlistIndex].dur > 0 ? playlistEntries[playlistIndex].dur : UINT16_MAX;
     applyPresetFromPlaylist(playlistEntries[playlistIndex].preset);
     doAdvancePlaylist = false;
   }

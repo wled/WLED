@@ -1972,6 +1972,13 @@ function pleDur(p,i,field)
 
 function pleTr(p,i,field)
 {
+	const du = gId(`pl${p}du${i}`);
+	const dv = parseFloat(du.value);
+	if (dv > 0) {
+		field.max = dv;
+		if (parseFloat(field.value) > dv)
+			field.value = du.value;
+	}
 	if (field.validity.valid)
 		plJson[p].transition[i] = Math.floor(field.value*10);
 }
@@ -1991,6 +1998,17 @@ function plR(p)
 	}
 }
 
+function plM(p)
+{
+	const man = gId(`pl${p}manual`).checked;
+	plJson[p].dur.forEach((e,i)=>{
+		const d = gId(`pl${p}du${i}`);
+		plJson[p].dur[i] = e = man ? 0 : 100;
+		d.value = e/10; // 10s default 
+		d.readOnly = man;
+	});
+}
+
 function makeP(i,pl)
 {
 	var content = "";
@@ -2004,10 +2022,15 @@ function makeP(i,pl)
 			r: false,
 			end: 0
 		};
-		var rep = plJson[i].repeat ? plJson[i].repeat : 0;
+		const rep = plJson[i].repeat ? plJson[i].repeat : 0;
+		const man = plJson[i].dur == 0;
 		content =
 `<div id="ple${i}" style="margin-top:10px;"></div><label class="check revchkl">Shuffle
 	<input type="checkbox" id="pl${i}rtgl" onchange="plR(${i})" ${plJson[i].r||rep<0?"checked":""}>
+	<span class="checkmark"></span>
+</label>
+<label class="check revchkl">Manual advance
+	<input type="checkbox" id="pl${i}manual" onchange="plM(${i})" ${man?"checked":""}>
 	<span class="checkmark"></span>
 </label>
 <label class="check revchkl">Repeat indefinitely
@@ -2093,6 +2116,7 @@ function makePUtil()
 
 function makePlEntry(p,i)
 {
+	const man = gId(`pl${p}manual`).checked;
 	return `<div class="plentry">
 	<div class="hrz"></div>
 	<table>
@@ -2105,13 +2129,13 @@ function makePlEntry(p,i)
 		<td class="c"><button class="btn btn-pl-add" onclick="addPl(${p},${i})"><i class="icons btn-icon">&#xe18a;</i></button></td>
 	</tr>
 	<tr>
-		<td class="c">Duration</td>
+		<td class="c">Duration <i style="font-size:70%;">(0=inf.)</i></td>
 		<td class="c">Transition</td>
 		<td class="c">#${i+1}</td>
 	</tr>
 	<tr>
-		<td class="c" width="40%"><input class="segn" type="number" placeholder="Duration" max=6553.0 min=0.2 step=0.1 oninput="pleDur(${p},${i},this)" value="${plJson[p].dur[i]/10.0}">s</td>
-		<td class="c" width="40%"><input class="segn" type="number" placeholder="Transition" max=65.0 min=0.0 step=0.1 oninput="pleTr(${p},${i},this)" value="${plJson[p].transition[i]/10.0}">s</td>
+		<td class="c" width="40%"><input class="segn" type="number" placeholder="Duration" max=6553.0 min=0.0 step=0.1 oninput="pleDur(${p},${i},this)" value="${plJson[p].dur[i]/10.0}" id="pl${p}du${i}" ${man?"readonly":""}>s</td>
+		<td class="c" width="40%"><input class="segn" type="number" placeholder="Transition" max=65.0 min=0.0 step=0.1 oninput="pleTr(${p},${i},this)" onfocus="pleTr(${p},${i},this)" value="${plJson[p].transition[i]/10.0}">s</td>
 		<td class="c"><button class="btn btn-pl-del" onclick="delPl(${p},${i})"><i class="icons btn-icon">&#xe037;</i></button></div></td>
 	</tr>
 	</table>
