@@ -9,7 +9,7 @@ The actual / original code that controls the LED modes is from Adam Zeloof. I ta
 It was quite a bit more work than I hoped, but I got there eventually :)
 
 ## Requirements
-* "ESP Rotary" by Lennart Hennigs, v1.5.0 or higher: https://github.com/LennartHennigs/ESPRotary
+* "ESP Rotary" by Lennart Hennigs, v2.1.1 or higher: https://github.com/LennartHennigs/ESPRotary
 
 ## Usermod installation
 Simply copy the below block (build task) to your `platformio_override.ini` and compile WLED using this new build task. Or use an existing one and add the buildflag `-D RGB_ROTARY_ENCODER`.
@@ -20,7 +20,7 @@ ESP32:
 extends = env:esp32dev
 build_flags = ${common.build_flags_esp32} -D WLED_RELEASE_NAME=ESP32 -D RGB_ROTARY_ENCODER
 lib_deps = ${esp32.lib_deps}
-    lennarthennigs/ESP Rotary@^1.5.0
+    lennarthennigs/ESP Rotary@^2.1.1
 ```
 
 ESP8266 / D1 Mini:
@@ -29,7 +29,7 @@ ESP8266 / D1 Mini:
 extends = env:d1_mini
 build_flags = ${common.build_flags_esp8266} -D RGB_ROTARY_ENCODER
 lib_deps = ${esp8266.lib_deps}
-    lennarthennigs/ESP Rotary@^1.5.0
+    lennarthennigs/ESP Rotary@^2.1.1
 ```
 
 ## How to connect the board to your ESP
