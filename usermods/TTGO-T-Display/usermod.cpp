@@ -49,7 +49,7 @@ TFT_eSPI tft = TFT_eSPI(135, 240); // Invoke custom library
 //gets called once at boot. Do all initialization that doesn't depend on network here
 void userSetup() {
     Serial.begin(115200);
-    Serial.println("Start");
+    DEBUG_PRINTLN("Start");
     tft.init();
     tft.setRotation(3);  //Rotation here is set up for the text to be readable with the port on the left. Use 1 to flip.
     tft.fillScreen(TFT_BLACK);
@@ -61,7 +61,7 @@ void userSetup() {
     tft.setTextSize(3);
     //tft.setTextSize(1);
     tft.print("Loading...");
-    Serial.println("Loading...");
+    DEBUG_PRINTLN("Loading...");
 
     if (TFT_BL > 0) { // TFT_BL has been set in the TFT_eSPI library in the User Setup file TTGO_T_Display.h
          pinMode(TFT_BL, OUTPUT); // Set backlight pin to output mode
@@ -161,7 +161,7 @@ void userLoop() {
   //   tft.print(apPass);
   // else
   //   tft.print(knownIp);
-  Serial.println("Print known AP");
+  DEBUG_PRINTLN("Print known AP");
   if (apActive) {
     tft.print("AP IP: ");
     tft.print(knownIp);
@@ -170,7 +170,7 @@ void userLoop() {
     tft.print(apPass);
   }
   else {
-    Serial.println("Print IP");
+    DEBUG_PRINTLN("Print IP");
     tft.print("IP: ");
     tft.print(knownIp);
     tft.setCursor(1,46);
@@ -186,23 +186,23 @@ void userLoop() {
   char lineBuffer[tftcharwidth+1];
   extractModeName(knownMode, JSON_mode_names, lineBuffer, tftcharwidth);
   tft.print(lineBuffer);
-  Serial.println("Print mode name");
+  DEBUG_PRINTLN("Print mode name");
 
   // Fourth row with palette name
   tft.setCursor(1, 90);
   extractModeName(knownPalette, JSON_palette_names, lineBuffer, tftcharwidth);
   tft.print(lineBuffer);
-  Serial.println("Print palette");
+  DEBUG_PRINTLN("Print palette");
 
   // Fifth row with estimated mA usage
   tft.setCursor(1, 112);
   // Print estimated milliamp usage (must specify the LED type in LED prefs for this to be a reasonable estimate).
   //tft.print(strip.currentMilliamps);
   tft.print(BusManager::currentMilliamps());
-  Serial.print(BusManager::currentMilliamps());
-  Serial.println(" mA (estimated)");
+  DEBUG_PRINTLN(BusManager::currentMilliamps());
+  DEBUG_PRINTLN(" mA (estimated)");
   //tft.print("test ");
   tft.print("mA (estimated)");
-  Serial.println("Print estimated current");
+  DEBUG_PRINTLN("Print estimated current");
   
 }
