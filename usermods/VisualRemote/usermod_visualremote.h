@@ -36,6 +36,7 @@ typedef struct WizMoteMessageStructure {
 } message_structure_t;
 
 // Declare static variables
+static volatile byte presetToApply = 0;
 static uint32_t last_seq_visualremote = UINT32_MAX;
 static int brightnessBeforeNightMode_visualremote = NIGHT_MODE_DEACTIVATED;
 
@@ -103,6 +104,8 @@ inline void setOff_visualremote() {
 }
 
 inline void presetWithFallback_visualremote(uint8_t presetID, uint8_t effectID, uint8_t paletteID) {
+  if (presetToApply == presetID) return;
+  presetToApply = presetID;
   resetNightMode_visualremote();
   applyPresetWithFallback(presetID, CALL_MODE_BUTTON_PRESET, effectID, paletteID);
 }
