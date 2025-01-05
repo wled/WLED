@@ -44,7 +44,7 @@ Functionality checked with:
 Copy the `platformio_override.ini` file which is contained in the `usermods/TTGO-T-Display/` folder into the root of your project folder. This file contains an override that remaps the button pin of WLED to use the on-board button to the right of the USB-C connector (when viewed with the port oriented downward - see hardware photo).  
 
 ### Platformio.ini changes
-This file isn't actually changed, but it is helpful to save the file in the VS Code application.  This should trigger the download of the library dependencies.
+Once the platformio_override.ini file has been copied as described above, the platformio.ini file isn't actually changed, but it is helpful to save the platformio.ini file in the VS Code application.  This should trigger the download of the library dependencies.
 
 ### Change to the WLED_T-Display environment
 This should appear as an option in the bottom toolbar.
@@ -69,7 +69,7 @@ xtensa-esp32-elf-g++: fatal error: no input files
 ```
 try building again. Sometimes this happens on the first build attempt and subsequent attempts build correctly.
 
-Once the compilation is done and loaded onto the TTGO T-Display module, you may need to complete the initial setup of WLED via the AP interface, configure the WiFi settings, let it restart and then go to the LED preferences option in the WLED web interface.  The Data GPIO pin needs to be set to pin 2 (or whatever pin you used), and then reboot WLED on the device.  This should get the display working.  I am unable to get the overrides to change the initial pin setting of 16 (which conflicts with the display).
+Once the compilation is done and loaded onto the TTGO T-Display module, the display should show "Loading...", and then it will show the IP of the WLED access point.
 
 ## Arduino IDE
 - UNTESTED
