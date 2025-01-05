@@ -6,15 +6,15 @@
 #define NIGHT_MODE_DEACTIVATED     -1
 #define NIGHT_MODE_BRIGHTNESS      5
 
-#define WIZMOTE_BUTTON_ON          1
-#define WIZMOTE_BUTTON_OFF         2
-#define WIZMOTE_BUTTON_NIGHT       3
-#define WIZMOTE_BUTTON_ONE         16
-#define WIZMOTE_BUTTON_TWO         17
-#define WIZMOTE_BUTTON_THREE       18
+#define WIZMOTE_BUTTON_ON          3
+#define WIZMOTE_BUTTON_OFF         1
+#define WIZMOTE_BUTTON_NIGHT       37
+#define WIZMOTE_BUTTON_ONE         12
+#define WIZMOTE_BUTTON_TWO         5
+#define WIZMOTE_BUTTON_THREE       26
 #define WIZMOTE_BUTTON_FOUR        19
-#define WIZMOTE_BUTTON_BRIGHT_UP   9
-#define WIZMOTE_BUTTON_BRIGHT_DOWN 8
+#define WIZMOTE_BUTTON_BRIGHT_UP   33
+#define WIZMOTE_BUTTON_BRIGHT_DOWN 35
 
 #define WIZ_SMART_BUTTON_ON          100
 #define WIZ_SMART_BUTTON_OFF         101
@@ -289,6 +289,8 @@ class UsermodVisualRemote : public Usermod {
       if (cur_seq == last_seq_visualremote) {
         return;
       }
+ // Debug print the button value
+      Serial.printf("Button value: %u\n", incoming->button);
 
       switch (incoming->button) {
         case WIZMOTE_BUTTON_ON             : setOn_visualremote();                                         break;
