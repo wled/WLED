@@ -153,8 +153,7 @@ uint16_t IRAM_ATTR Segment::XY(int x, int y) {
 }
 
 // raw setColor function without checks (checks are done in setPixelColorXY())
-void IRAM_ATTR Segment::_setPixelColorXY_raw(int& x, int& y, uint32_t& col)
-{
+void IRAM_ATTR Segment::_setPixelColorXY_raw(int& x, int& y, uint32_t& col) {
   const int baseX = start + x;
   const int baseY = startY + y;
 #ifndef WLED_DISABLE_MODE_BLEND

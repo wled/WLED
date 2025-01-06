@@ -18,10 +18,11 @@
 #endif
 #include "const.h"
 #include "pin_manager.h"
-#include "bus_wrapper.h"
 #include "bus_manager.h"
+#include "bus_wrapper.h"
 
 extern bool cctICused;
+extern bool useParallelI2S;
 
 //colors.cpp
 uint32_t colorBalanceFromKelvin(uint16_t kelvin, uint32_t rgb);
@@ -224,6 +225,7 @@ void BusDigital::show() {
         // TODO: there is an issue if CCT is calculated from RGB value (_cct==-1), we cannot do that with double buffer
         Bus::_cct = _data[offset+channels-1];
         Bus::calculateCCT(c, cctWW, cctCW);
+        if (_type == TYPE_WS2812_WWA) c = RGBW32(cctWW, cctCW, 0, W(c));
       }
       unsigned pix = i;
       if (_reversed) pix = _len - pix -1;
@@ -309,8 +311,8 @@ void IRAM_ATTR BusDigital::setPixelColor(unsigned pix, uint32_t c) {
       uint8_t cctWW = 0, cctCW = 0;
       Bus::calculateCCT(c, cctWW, cctCW);
       wwcw = (cctCW<<8) | cctWW;
+      if (_type == TYPE_WS2812_WWA) c = RGBW32(cctWW, cctCW, 0, W(c));
     }
-
     PolyBus::setPixelColor(_busPtr, _iType, pix, c, co, wwcw);
   }
 }
@@ -341,6 +343,10 @@ uint32_t IRAM_ATTR BusDigital::getPixelColor(unsigned pix) const {
         case 1: c = RGBW32(r, r, r, r); break;
         case 2: c = RGBW32(b, b, b, b); break;
       }
+    }
+    if (_type == TYPE_WS2812_WWA) {
+      uint8_t w = R(c) | G(c);
+      c = RGBW32(w, w, 0, w);
     }
     return c;
   }
@@ -375,7 +381,7 @@ std::vector<LEDType> BusDigital::getLEDTypes() {
     {TYPE_SM16825,       "D",  PSTR("SM16825 RGBCW")},
     {TYPE_WS2812_1CH_X3, "D",  PSTR("WS2811 White")},
     //{TYPE_WS2812_2CH_X3, "D",  PSTR("WS2811 CCT")}, // not implemented
-    //{TYPE_WS2812_WWA,    "D",  PSTR("WS2811 WWA")}, // not implemented
+    {TYPE_WS2812_WWA,    "D",  PSTR("WS2811 WWA")}, // amber ignored
     {TYPE_WS2801,        "2P", PSTR("WS2801")},
     {TYPE_APA102,        "2P", PSTR("APA102")},
     {TYPE_LPD8806,       "2P", PSTR("LPD8806")},
@@ -769,16 +775,14 @@ uint32_t BusManager::memUsage(BusConfig &bc) {
         multiplier = 5;
       }
     #else //ESP32 RMT uses double buffer, parallel I2S uses 8x buffer (3 times)
-      multiplier = PolyBus::isParallelI2S1Output() ? 24 : 2;
+      #if !defined(ARDUINO_ARCH_ESP32S2) && !defined(ARDUINO_ARCH_ESP32S3) && !defined(ARDUINO_ARCH_ESP32C3)
+      multiplier = useParallelI2S ? 24 : 2;
+      #else
+      multiplier = 2;
+      #endif
     #endif
   }
   return (len * multiplier + bc.doubleBuffer * (bc.count + bc.skipAmount)) * channels;
-}
-
-uint32_t BusManager::memUsage(unsigned maxChannels, unsigned maxCount, unsigned minBuses) {
-  //ESP32 RMT uses double buffer, parallel I2S uses 8x buffer (3 times)
-  unsigned multiplier = PolyBus::isParallelI2S1Output() ? 3 : 2;
-  return (maxChannels * maxCount * minBuses * multiplier);
 }
 
 int BusManager::add(BusConfig &bc) {
@@ -821,8 +825,11 @@ String BusManager::getLEDTypesJSONString() {
 }
 
 void BusManager::useParallelOutput() {
-  _parallelOutputs = 8; // hardcoded since we use NPB I2S x8 methods
   PolyBus::setParallelI2S1Output();
+}
+
+bool BusManager::hasParallelOutput() {
+  return PolyBus::isParallelI2S1Output();
 }
 
 //do not call this method from system context (network callback)
@@ -832,7 +839,6 @@ void BusManager::removeAll() {
   while (!canAllShow()) yield();
   for (unsigned i = 0; i < numBusses; i++) delete busses[i];
   numBusses = 0;
-  _parallelOutputs = 1;
   PolyBus::setParallelI2S1Output(false);
 }
 
@@ -854,9 +860,10 @@ void BusManager::esp32RMTInvertIdle() {
       if (u > 3) return;
       rmt = u;
     #else
-      if (u < _parallelOutputs) continue;
-      if (u >= _parallelOutputs + 8) return; // only 8 RMT channels
-      rmt = u - _parallelOutputs;
+      unsigned numI2S = 1 + PolyBus::isParallelI2S1Output()*7;
+      if (u < numI2S) continue;
+      if (u >= numI2S + 8) return; // only 8 RMT channels
+      rmt = u - numI2S;
     #endif
     if (busses[u]->getLength()==0 || !busses[u]->isDigital() || busses[u]->is2Pin()) continue;
     //assumes that bus number to rmt channel mapping stays 1:1
@@ -972,7 +979,7 @@ uint16_t BusManager::getTotalLength() {
   return len;
 }
 
-bool PolyBus::useParallelI2S = false;
+bool PolyBus::_useParallelI2S = false;
 
 // Bus static member definition
 int16_t Bus::_cct = -1;
@@ -986,4 +993,3 @@ Bus*          BusManager::busses[WLED_MAX_BUSSES+WLED_MIN_VIRTUAL_BUSSES];
 ColorOrderMap BusManager::colorOrderMap = {};
 uint16_t      BusManager::_milliAmpsUsed = 0;
 uint16_t      BusManager::_milliAmpsMax = ABL_MILLIAMPS_DEFAULT;
-uint8_t       BusManager::_parallelOutputs = 1;

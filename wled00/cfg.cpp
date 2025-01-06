@@ -121,6 +121,9 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
   Bus::setCCTBlend(cctBlending);
   strip.setTargetFps(hw_led["fps"]); //NOP if 0, default 42 FPS
   CJSON(useGlobalLedBuffer, hw_led[F("ld")]);
+  #if defined(ARDUINO_ARCH_ESP32) && !defined(ARDUINO_ARCH_ESP32S2) && !defined(ARDUINO_ARCH_ESP32S3) && !defined(ARDUINO_ARCH_ESP32C3)
+  CJSON(useParallelI2S, hw_led[F("prl")]);
+  #endif
 
   #ifndef WLED_DISABLE_2D
   // 2D Matrix Settings
@@ -166,34 +169,6 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
     DEBUG_PRINTF_P(PSTR("Heap before buses: %d\n"), ESP.getFreeHeap());
     int s = 0;  // bus iterator
     if (fromFS) BusManager::removeAll(); // can't safely manipulate busses directly in network callback
-    unsigned mem = 0;
-
-    // determine if it is sensible to use parallel I2S outputs on ESP32 (i.e. more than 5 outputs = 1 I2S + 4 RMT)
-    bool useParallel = false;
-    #if defined(ARDUINO_ARCH_ESP32) && !defined(ARDUINO_ARCH_ESP32S2) && !defined(ARDUINO_ARCH_ESP32S3) && !defined(ARDUINO_ARCH_ESP32C3)
-    unsigned digitalCount = 0;
-    unsigned maxLedsOnBus = 0;
-    unsigned maxChannels = 0;
-    for (JsonObject elm : ins) {
-      unsigned type = elm["type"] | TYPE_WS2812_RGB;
-      unsigned len = elm["len"] | DEFAULT_LED_COUNT;
-      if (!Bus::isDigital(type)) continue;
-      if (!Bus::is2Pin(type)) {
-        digitalCount++;
-        unsigned channels = Bus::getNumberOfChannels(type);
-        if (len > maxLedsOnBus)     maxLedsOnBus = len;
-        if (channels > maxChannels) maxChannels  = channels;
-      }
-    }
-    DEBUG_PRINTF_P(PSTR("Maximum LEDs on a bus: %u\nDigital buses: %u\n"), maxLedsOnBus, digitalCount);
-    // we may remove 300 LEDs per bus limit when NeoPixelBus is updated beyond 2.9.0
-    if (maxLedsOnBus <= 300 && digitalCount > 5) {
-      DEBUG_PRINTLN(F("Switching to parallel I2S."));
-      useParallel = true;
-      BusManager::useParallelOutput();
-      mem = BusManager::memUsage(maxChannels, maxLedsOnBus, 8); // use alternate memory calculation
-    }
-    #endif
 
     for (JsonObject elm : ins) {
       if (s >= WLED_MAX_BUSSES+WLED_MIN_VIRTUAL_BUSSES) break;
@@ -224,24 +199,12 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
         maMax = 0;
       }
       ledType |= refresh << 7; // hack bit 7 to indicate strip requires off refresh
-      if (fromFS) {
-        BusConfig bc = BusConfig(ledType, pins, start, length, colorOrder, reversed, skipFirst, AWmode, freqkHz, useGlobalLedBuffer, maPerLed, maMax);
-        if (useParallel && s < 8) {
-          // if for some unexplained reason the above pre-calculation was wrong, update
-          unsigned memT = BusManager::memUsage(bc); // includes x8 memory allocation for parallel I2S
-          if (memT > mem) mem = memT; // if we have unequal LED count use the largest
-        } else
-          mem += BusManager::memUsage(bc); // includes global buffer
-        if (mem <= MAX_LED_MEMORY) if (BusManager::add(bc) == -1) break;  // finalization will be done in WLED::beginStrip()
-      } else {
-        if (busConfigs[s] != nullptr) delete busConfigs[s];
-        busConfigs[s] = new BusConfig(ledType, pins, start, length, colorOrder, reversed, skipFirst, AWmode, freqkHz, useGlobalLedBuffer, maPerLed, maMax);
-        doInit |= INIT_BUS;  // finalization done in beginStrip()
-      }
+
+      if (busConfigs[s] != nullptr) delete busConfigs[s];
+      busConfigs[s] = new BusConfig(ledType, pins, start, length, colorOrder, reversed, skipFirst, AWmode, freqkHz, useGlobalLedBuffer, maPerLed, maMax);
+      doInit |= INIT_BUS;  // finalization done in beginStrip()
       s++;
     }
-    DEBUG_PRINTF_P(PSTR("LED buffer size: %uB\n"), mem);
-    DEBUG_PRINTF_P(PSTR("Heap after buses: %d\n"), ESP.getFreeHeap());
   }
   if (hw_led["rev"]) BusManager::getBus(0)->setReversed(true); //set 0.11 global reversed setting for first bus
 
@@ -829,6 +792,9 @@ void serializeConfig() {
   hw_led["fps"] = strip.getTargetFps();
   hw_led[F("rgbwm")] = Bus::getGlobalAWMode(); // global auto white mode override
   hw_led[F("ld")] = useGlobalLedBuffer;
+  #if defined(ARDUINO_ARCH_ESP32) && !defined(ARDUINO_ARCH_ESP32S2) && !defined(ARDUINO_ARCH_ESP32S3) && !defined(ARDUINO_ARCH_ESP32C3)
+  hw_led[F("prl")] = BusManager::hasParallelOutput();
+  #endif
 
   #ifndef WLED_DISABLE_2D
   // 2D Matrix Settings

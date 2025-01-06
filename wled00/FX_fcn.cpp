@@ -1348,6 +1348,43 @@ void WS2812FX::finalizeInit() {
 
   _hasWhiteChannel = _isOffRefreshRequired = false;
 
+  #if defined(ARDUINO_ARCH_ESP32) && !defined(ARDUINO_ARCH_ESP32S2) && !defined(ARDUINO_ARCH_ESP32S3) && !defined(ARDUINO_ARCH_ESP32C3)
+  // determine if it is sensible to use parallel I2S outputs on ESP32 (i.e. more than 5 outputs = 1 I2S + 4 RMT)
+  unsigned digitalCount = 0;
+  unsigned maxLedsOnBus = 0;
+  //unsigned maxChannels = 0;
+  for (unsigned i = 0; i < WLED_MAX_BUSSES+WLED_MIN_VIRTUAL_BUSSES; i++) {
+    if (busConfigs[i] == nullptr) break;
+    if (Bus::isDigital(busConfigs[i]->type) && !Bus::is2Pin(busConfigs[i]->type)) {
+      digitalCount++;
+      if (busConfigs[i]->count > maxLedsOnBus) maxLedsOnBus = busConfigs[i]->count;
+      //unsigned channels = Bus::getNumberOfChannels(busConfigs[i]->type);
+      //if (channels > maxChannels) maxChannels = channels;
+    }
+  }
+  DEBUG_PRINTF_P(PSTR("Maximum LEDs on a bus: %u\nDigital buses: %u\n"), maxLedsOnBus, digitalCount);
+  // we may remove 300 LEDs per bus limit when NeoPixelBus is updated beyond 2.9.0
+  if (maxLedsOnBus <= 300 && useParallelI2S) BusManager::useParallelOutput(); // must call before creating buses
+  else useParallelI2S = false; // enforce single I2S
+  #endif
+
+  // create buses/outputs
+  unsigned mem = 0;
+  for (unsigned i = 0; i < WLED_MAX_BUSSES+WLED_MIN_VIRTUAL_BUSSES; i++) {
+    if (busConfigs[i] == nullptr) break;
+    #if defined(ARDUINO_ARCH_ESP32) && !defined(ARDUINO_ARCH_ESP32S2) && !defined(ARDUINO_ARCH_ESP32S3) && !defined(ARDUINO_ARCH_ESP32C3)
+    if (!BusManager::hasParallelOutput() && i > 10) break;
+    if (BusManager::hasParallelOutput() && i < 8) {
+      unsigned memT = BusManager::memUsage(*busConfigs[i]); // includes x8 memory allocation for parallel I2S
+      if (memT > mem) mem = memT; // if we have unequal LED count use the largest
+    } else
+    #endif
+      mem += BusManager::memUsage(*busConfigs[i]); // includes global buffer
+    if (mem <= MAX_LED_MEMORY) BusManager::add(*busConfigs[i]);
+    delete busConfigs[i];
+    busConfigs[i] = nullptr;
+  }
+
   //if busses failed to load, add default (fresh install, FS issue, ...)
   if (BusManager::getNumBusses() == 0) {
     DEBUGFX_PRINTLN(F("No busses, init default"));
@@ -1427,9 +1464,11 @@ void WS2812FX::finalizeInit() {
       if (Bus::isPWM(dataType) || Bus::isOnOff(dataType)) count = 1;
       prevLen += count;
       BusConfig defCfg = BusConfig(dataType, defPin, start, count, DEFAULT_LED_COLOR_ORDER, false, 0, RGBW_MODE_MANUAL_ONLY, 0, useGlobalLedBuffer);
+      mem += BusManager::memUsage(defCfg);
       if (BusManager::add(defCfg) == -1) break;
     }
   }
+  DEBUG_PRINTF_P(PSTR("LED buffer size: %uB\n"), mem);
 
   _length = 0;
   for (int i=0; i<BusManager::getNumBusses(); i++) {
@@ -1446,6 +1485,7 @@ void WS2812FX::finalizeInit() {
     // This must be done after all buses have been created, as some kinds (parallel I2S) interact
     bus->begin();
   }
+  DEBUG_PRINTF_P(PSTR("Heap after buses: %d\n"), ESP.getFreeHeap());
 
   Segment::maxWidth  = _length;
   Segment::maxHeight = 1;

@@ -403,12 +403,12 @@ class BusManager {
 
     //utility to get the approx. memory usage of a given BusConfig
     static uint32_t memUsage(BusConfig &bc);
-    static uint32_t memUsage(unsigned channels, unsigned count, unsigned buses = 1);
     static uint16_t currentMilliamps() { return _milliAmpsUsed + MA_FOR_ESP; }
     static uint16_t ablMilliampsMax()  { return _milliAmpsMax; }
 
     static int add(BusConfig &bc);
     static void useParallelOutput(); // workaround for inaccessible PolyBus
+    static bool hasParallelOutput(); // workaround for inaccessible PolyBus
 
     //do not call this method from system context (network callback)
     static void removeAll();
@@ -443,7 +443,6 @@ class BusManager {
     static ColorOrderMap colorOrderMap;
     static uint16_t _milliAmpsUsed;
     static uint16_t _milliAmpsMax;
-    static uint8_t _parallelOutputs;
 
     #ifdef ESP32_DATA_IDLE_HIGH
     static void    esp32RMTInvertIdle() ;

@@ -191,46 +191,7 @@ void WLED::loop()
     DEBUG_PRINTLN(F("Re-init busses."));
     bool aligned = strip.checkSegmentAlignment(); //see if old segments match old bus(ses)
     BusManager::removeAll();
-    unsigned mem = 0;
-    // determine if it is sensible to use parallel I2S outputs on ESP32 (i.e. more than 5 outputs = 1 I2S + 4 RMT)
-    bool useParallel = false;
-    #if defined(ARDUINO_ARCH_ESP32) && !defined(ARDUINO_ARCH_ESP32S2) && !defined(ARDUINO_ARCH_ESP32S3) && !defined(ARDUINO_ARCH_ESP32C3)
-    unsigned digitalCount = 0;
-    unsigned maxLedsOnBus = 0;
-    unsigned maxChannels = 0;
-    for (unsigned i = 0; i < WLED_MAX_BUSSES+WLED_MIN_VIRTUAL_BUSSES; i++) {
-      if (busConfigs[i] == nullptr) break;
-      if (!Bus::isDigital(busConfigs[i]->type)) continue;
-      if (!Bus::is2Pin(busConfigs[i]->type)) {
-        digitalCount++;
-        unsigned channels = Bus::getNumberOfChannels(busConfigs[i]->type);
-        if (busConfigs[i]->count > maxLedsOnBus) maxLedsOnBus = busConfigs[i]->count;
-        if (channels > maxChannels) maxChannels  = channels;
-      }
-    }
-    DEBUG_PRINTF_P(PSTR("Maximum LEDs on a bus: %u\nDigital buses: %u\n"), maxLedsOnBus, digitalCount);
-    // we may remove 300 LEDs per bus limit when NeoPixelBus is updated beyond 2.9.0
-    if (maxLedsOnBus <= 300 && digitalCount > 5) {
-      DEBUG_PRINTF_P(PSTR("Switching to parallel I2S."));
-      useParallel = true;
-      BusManager::useParallelOutput();
-      mem = BusManager::memUsage(maxChannels, maxLedsOnBus, 8); // use alternate memory calculation (hse to be used *after* useParallelOutput())
-    }
-    #endif
-    // create buses/outputs
-    for (unsigned i = 0; i < WLED_MAX_BUSSES+WLED_MIN_VIRTUAL_BUSSES; i++) {
-      if (busConfigs[i] == nullptr || (!useParallel && i > 10)) break;
-      if (useParallel && i < 8) {
-        // if for some unexplained reason the above pre-calculation was wrong, update
-        unsigned memT = BusManager::memUsage(*busConfigs[i]); // includes x8 memory allocation for parallel I2S
-        if (memT > mem) mem = memT; // if we have unequal LED count use the largest
-      } else
-        mem += BusManager::memUsage(*busConfigs[i]); // includes global buffer
-      if (mem <= MAX_LED_MEMORY) BusManager::add(*busConfigs[i]);
-      delete busConfigs[i];
-      busConfigs[i] = nullptr;
-    }
-    strip.finalizeInit(); // also loads default ledmap if present
+    strip.finalizeInit(); // will create buses and also load default ledmap if present
     BusManager::setBrightness(bri); // fix re-initialised bus' brightness #4005
     if (aligned) strip.makeAutoSegments();
     else strip.fixInvalidSegments();
@@ -598,6 +559,7 @@ void WLED::beginStrip()
   strip.makeAutoSegments();
   strip.setBrightness(0);
   strip.setShowCallback(handleOverlayDraw);
+  doInit = 0;
 
   if (turnOnAtBoot) {
     if (briS > 0) bri = briS;
