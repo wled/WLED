@@ -9,7 +9,7 @@
 
 // version code in format yymmddb (b = daily build)
 #ifndef AUTOBUILD
-#define VERSION 2501020
+#define VERSION 2501060
 #else
 #define VERSION BUILD
 #endif
@@ -396,7 +396,7 @@ WLED_GLOBAL bool noWifiSleep _INIT(false);
 WLED_GLOBAL bool force802_3g _INIT(false);
 #endif // WLED_SAVE_RAM
 #ifdef ARDUINO_ARCH_ESP32
-  #if defined(LOLIN_WIFI_FIX) && (defined(ARDUINO_ARCH_ESP32C3) || defined(ARDUINO_ARCH_ESP32S2) || defined(ARDUINO_ARCH_ESP32S3))
+  #if defined(LOLIN_WIFI_FIX) && (defined(CONFIG_IDF_TARGET_ESP32C3) || defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32S3))
 WLED_GLOBAL uint8_t txPower _INIT(WIFI_POWER_8_5dBm);
   #else
 WLED_GLOBAL uint8_t txPower _INIT(WIFI_POWER_19_5dBm);
@@ -422,7 +422,7 @@ WLED_GLOBAL byte bootPreset   _INIT(0);                   // save preset to load
 WLED_GLOBAL bool useGlobalLedBuffer _INIT(false); // double buffering disabled on ESP8266
 #else
 WLED_GLOBAL bool useGlobalLedBuffer _INIT(true);  // double buffering enabled on ESP32
-  #if !defined(ARDUINO_ARCH_ESP32S2) && !defined(ARDUINO_ARCH_ESP32S3) && !defined(ARDUINO_ARCH_ESP32C3)
+  #ifndef CONFIG_IDF_TARGET_ESP32C3
 WLED_GLOBAL bool useParallelI2S     _INIT(false); // parallel I2S for ESP32
   #endif
 #endif

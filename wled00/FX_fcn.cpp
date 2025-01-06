@@ -1348,7 +1348,7 @@ void WS2812FX::finalizeInit() {
 
   _hasWhiteChannel = _isOffRefreshRequired = false;
 
-  #if defined(ARDUINO_ARCH_ESP32) && !defined(ARDUINO_ARCH_ESP32S2) && !defined(ARDUINO_ARCH_ESP32S3) && !defined(ARDUINO_ARCH_ESP32C3)
+  #if defined(ARDUINO_ARCH_ESP32) && !defined(CONFIG_IDF_TARGET_ESP32C3)
   // determine if it is sensible to use parallel I2S outputs on ESP32 (i.e. more than 5 outputs = 1 I2S + 4 RMT)
   unsigned digitalCount = 0;
   unsigned maxLedsOnBus = 0;
@@ -1372,12 +1372,19 @@ void WS2812FX::finalizeInit() {
   unsigned mem = 0;
   for (unsigned i = 0; i < WLED_MAX_BUSSES+WLED_MIN_VIRTUAL_BUSSES; i++) {
     if (busConfigs[i] == nullptr) break;
-    #if defined(ARDUINO_ARCH_ESP32) && !defined(ARDUINO_ARCH_ESP32S2) && !defined(ARDUINO_ARCH_ESP32S3) && !defined(ARDUINO_ARCH_ESP32C3)
-    if (!BusManager::hasParallelOutput() && i > 10) break;
-    if (BusManager::hasParallelOutput() && i < 8) {
+    #if defined(ARDUINO_ARCH_ESP32) && !defined(CONFIG_IDF_TARGET_ESP32C3)
+      #if defined(CONFIG_IDF_TARGET_ESP32S3) || defined(CONFIG_IDF_TARGET_ESP32S2)
+    // TODO: once I2S memory is larger than RMT it will ignore RMT
+    if (BusManager::hasParallelOutput() && i > 3) {  // will use RMT and then x8 I2S
       unsigned memT = BusManager::memUsage(*busConfigs[i]); // includes x8 memory allocation for parallel I2S
       if (memT > mem) mem = memT; // if we have unequal LED count use the largest
     } else
+      #else // classic ESP32
+    if (BusManager::hasParallelOutput() && i < 8) {                                 // 1-8 are RMT if using x1 I2S
+      unsigned memT = BusManager::memUsage(*busConfigs[i]); // includes x8 memory allocation for parallel I2S
+      if (memT > mem) mem = memT; // if we have unequal LED count use the largest
+    } else
+      #endif
     #endif
       mem += BusManager::memUsage(*busConfigs[i]); // includes global buffer
     if (mem <= MAX_LED_MEMORY) BusManager::add(*busConfigs[i]);

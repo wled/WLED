@@ -402,8 +402,9 @@ void BusDigital::cleanup() {
   _valid = false;
   _busPtr = nullptr;
   if (_data != nullptr) freeData();
-  PinManager::deallocatePin(_pins[1], PinOwner::BusDigital);
-  PinManager::deallocatePin(_pins[0], PinOwner::BusDigital);
+  PinManager::deallocateMultiplePins(_pins, 2, PinOwner::BusDigital);
+  //PinManager::deallocatePin(_pins[1], PinOwner::BusDigital);
+  //PinManager::deallocatePin(_pins[0], PinOwner::BusDigital);
 }
 
 
@@ -775,7 +776,7 @@ uint32_t BusManager::memUsage(BusConfig &bc) {
         multiplier = 5;
       }
     #else //ESP32 RMT uses double buffer, parallel I2S uses 8x buffer (3 times)
-      #if !defined(ARDUINO_ARCH_ESP32S2) && !defined(ARDUINO_ARCH_ESP32S3) && !defined(ARDUINO_ARCH_ESP32C3)
+      #ifndef CONFIG_IDF_TARGET_ESP32C3
       multiplier = useParallelI2S ? 24 : 2;
       #else
       multiplier = 2;
