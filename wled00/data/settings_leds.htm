@@ -42,10 +42,10 @@
 			if (loc) d.Sf.action = getURL('/settings/leds');
 		}
 		function bLimits(b,v,p,m,l,o=5,d=2,a=6) {
-			oMaxB = maxB = b; // maxB - max buses (can be changed if using ESP32 parallel I2S): 20 - ESP32, 6 - S3, 7 - S2, 6 - C3, 4 - 8266
-			maxD  = d; // maxD - max digital channels (can be changed if using ESP32 parallel I2S): 17 - ESP32, 4 - S3, 5 - S2, 2 - C3, 3 - 8266
-			maxA  = a; // maxA - max analog channels: 16 - ESP32, 8 - S3, 8 - S2, 6 - C3, 5 - 8266
-			maxV  = v; // maxV - min virtual buses
+			oMaxB = maxB = b; // maxB - max buses (can be changed if using ESP32 parallel I2S): 20 - ESP32, 14 - S3/S2, 6 - C3, 4 - 8266
+			maxD  = d; // maxD - max digital channels (can be changed if using ESP32 parallel I2S): 17 - ESP32, 12 - S3/S2, 2 - C3, 3 - 8266
+			maxA  = a; // maxA - max analog channels: 16 - ESP32, 8 - S3/S2, 6 - C3, 5 - 8266
+			maxV  = v; // maxV - min virtual buses: 4 - ESP32/S3, 3 - S2/C3, 2 - ESP8266
 			maxPB = p; // maxPB - max LEDs per bus
 			maxM  = m; // maxM - max LED memory
 			maxL  = l; // maxL - max LEDs (will serve to determine ESP >1664 == ESP32)
@@ -351,14 +351,16 @@
 						else LC.style.color = d.ro_gpio.some((e)=>e==parseInt(LC.value)) ? "orange" : "#fff";
 					}
 			});
-			if (oMaxB == 20) { // TODO: crude ESP32 detection
+			const S2 = (oMaxB == 14) && (maxV == 3);
+			const S3 = (oMaxB == 14) && (maxV == 4);
+			if (oMaxB == 20 || S2 || S3) { // TODO: crude ESP32 & S2/S3 detection
 				if (maxLC > 300 || dC <= 4) {
 					d.Sf["PR"].checked = false;
 					gId("prl").classList.add("hide");
 				} else
 					gId("prl").classList.remove("hide");
-				maxD = 9 + (d.Sf["PR"].checked ? 8 : 1); // TODO: use bLimits() : 8RMT + I2S0 + (parallel) I2S1
-				maxB = oMaxB - (d.Sf["PR"].checked ? 0 : 7);
+				maxD = (S2 || S3 ? 4 : 9) + (d.Sf["PR"].checked ? 8 : !S3); // TODO: use bLimits() : 4/8RMT + (?I2S0) + (x8 parallel) I2S1
+				maxB = oMaxB - (d.Sf["PR"].checked ? 0 : 7 + S3); // S2 (maxV==3) does support single I2S
 			}
 			// distribute ABL current if not using PPL
 			enPPL(sDI);
