@@ -143,8 +143,8 @@ class Bus {
     inline  bool     containsPixel(uint16_t pix) const          { return pix >= _start && pix < _start + _len; }
 
     static inline std::vector<LEDType> getLEDTypes()            { return {{TYPE_NONE, "", PSTR("None")}}; } // not used. just for reference for derived classes
-    static constexpr unsigned getNumberOfPins(uint8_t type)     { return isVirtual(type) ? 4 : isPWM(type) ? numPWMPins(type) : is2Pin(type) + 1; } // credit @PaoloTK
-    static constexpr unsigned getNumberOfChannels(uint8_t type) { return hasWhite(type) + 3*hasRGB(type) + hasCCT(type); }
+    static constexpr uint8_t getNumberOfPins(uint8_t type)      { return isVirtual(type) ? 4 : isPWM(type) ? numPWMPins(type) : is2Pin(type) + 1; } // credit @PaoloTK
+    static constexpr uint8_t getNumberOfChannels(uint8_t type)  { return (type == TYPE_WS2812_WWA) ? 3 : hasWhite(type) + 3*hasRGB(type) + hasCCT(type); }
     static constexpr bool hasRGB(uint8_t type) {
       return !((type >= TYPE_WS2812_1CH && type <= TYPE_WS2812_WWA) || type == TYPE_ANALOG_1CH || type == TYPE_ANALOG_2CH || type == TYPE_ONOFF);
     }
@@ -403,12 +403,12 @@ class BusManager {
 
     //utility to get the approx. memory usage of a given BusConfig
     static uint32_t memUsage(BusConfig &bc);
-    static uint32_t memUsage(unsigned channels, unsigned count, unsigned buses = 1);
     static uint16_t currentMilliamps() { return _milliAmpsUsed + MA_FOR_ESP; }
     static uint16_t ablMilliampsMax()  { return _milliAmpsMax; }
 
     static int add(BusConfig &bc);
     static void useParallelOutput(); // workaround for inaccessible PolyBus
+    static bool hasParallelOutput(); // workaround for inaccessible PolyBus
 
     //do not call this method from system context (network callback)
     static void removeAll();
@@ -443,7 +443,6 @@ class BusManager {
     static ColorOrderMap colorOrderMap;
     static uint16_t _milliAmpsUsed;
     static uint16_t _milliAmpsMax;
-    static uint8_t _parallelOutputs;
 
     #ifdef ESP32_DATA_IDLE_HIGH
     static void    esp32RMTInvertIdle() ;
