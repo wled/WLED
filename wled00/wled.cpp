@@ -629,7 +629,8 @@ void WLED::setup()
   #endif
 #endif
 #if defined(ARDUINO_ARCH_ESP32)
-  if (strncmp("ESP32-PICO", ESP.getChipModel(), 10) == 0) { // WLEDMM detect pico board at runtime
+  if ((strncmp("ESP32-PICO", ESP.getChipModel(), 10) == 0) || (strncmp("ESP32-U4WDH", ESP.getChipModel(), 11) == 0))
+  { // WLEDMM detect pico board and esp32-mini1 board at runtime
     // special handling for PICO-D4: gpio16+17 are in use for onboard SPI FLASH (not PSRAM)
     managed_pin_type pins[] = { {16, true}, {17, true} };
     pinManager.allocateMultiplePins(pins, sizeof(pins)/sizeof(managed_pin_type), PinOwner::SPI_RAM);
