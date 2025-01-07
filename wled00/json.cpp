@@ -146,7 +146,7 @@ bool deserializeSegment(JsonObject elem, byte it, byte presetId)
     size_t len = 0;
     if (name != nullptr) len = strlen(name);
     if (len > 0 && len < 32) {
-      seg.name = new char[len+1];
+      seg.name = new(std::nothrow) char[len+1];
       if (seg.name) strlcpy(seg.name, name, len+1);
     } else {
       // but is empty (already deleted above)

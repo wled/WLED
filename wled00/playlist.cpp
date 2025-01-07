@@ -68,7 +68,7 @@ int16_t loadPlaylist(JsonObject playlistObj, byte presetId) {
   if (playlistLen == 0) return -1;
   if (playlistLen > 100) playlistLen = 100;
 
-  playlistEntries = new PlaylistEntry[playlistLen];
+  playlistEntries = new(std::nothrow) PlaylistEntry[playlistLen];
   if (playlistEntries == nullptr) return -1;
 
   byte it = 0;

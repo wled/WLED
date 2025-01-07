@@ -68,7 +68,7 @@ void WS2812FX::setUpMatrix() {
       if (!needLedMap) size = 0;                                                        // softhack007
       USER_PRINTF("setupmatrix customMappingTable alloc %d from %d\n", size, customMappingTableSize);
       //if (customMappingTable != nullptr) delete[] customMappingTable;
-      //customMappingTable = new uint16_t[size];
+      //customMappingTable = new(std::nothrow) uint16_t[size];
 
       // don't use new / delete
       if ((size > 0) && (customMappingTable != nullptr)) {  // resize
@@ -118,7 +118,7 @@ void WS2812FX::setUpMatrix() {
           JsonArray map = doc.as<JsonArray>();
           gapSize = map.size();
           if (!map.isNull() && (gapSize > 0) && gapSize >= customMappingSize) { // not an empty map //softhack also check gapSize>0 
-            gapTable = new int8_t[gapSize];
+            gapTable = new(std::nothrow) int8_t[gapSize];
             if (gapTable) for (size_t i = 0; i < gapSize; i++) {
               gapTable[i] = constrain(map[i], -1, 1);
             }
