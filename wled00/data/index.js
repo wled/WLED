@@ -2653,28 +2653,28 @@ function fromRgb()
 	var g = gId('sliderG').value;
 	var b = gId('sliderB').value;
 	setPicker(`rgb(${r},${g},${b})`);
-	let cd = gId('csl').children; // color slots
-	cd[csel].dataset.r = r;
-	cd[csel].dataset.g = g;
-	cd[csel].dataset.b = b;
-	setCSL(cd[csel]);
+	let cd = gId('csl').children[csel]; // color slots
+	cd.dataset.r = r;
+	cd.dataset.g = g;
+	cd.dataset.b = b;
+	setCSL(cd);
 }
 
 function fromW()
 {
 	let w = gId('sliderW');
-	let cd = gId('csl').children; // color slots
-	cd[csel].dataset.w = w.value;
-	setCSL(cd[csel]);
+	let cd = gId('csl').children[csel]; // color slots
+	cd.dataset.w = w.value;
+	setCSL(cd);
 	updateTrail(w);
 }
 
 // sr 0: from RGB sliders, 1: from picker, 2: from hex
 function setColor(sr)
 {
-	var cd = gId('csl').children; // color slots
-	let cdd = cd[csel].dataset;
-	let w = 0, r,g,b;
+	var cd = gId('csl').children[csel]; // color slots
+	let cdd = cd.dataset;
+	let w = parseInt(cdd.w), r = parseInt(cdd.r), g = parseInt(cdd.g), b = parseInt(cdd.b);
 	if (sr == 1 && isRgbBlack(cdd)) cpick.color.setChannel('hsv', 'v', 100);
 	if (sr != 2 && hasWhite) w = parseInt(gId('sliderW').value);
 	var col = cpick.color.rgb;
@@ -2682,7 +2682,7 @@ function setColor(sr)
 	cdd.g = g = hasRGB ? col.g : w;
 	cdd.b = b = hasRGB ? col.b : w;
 	cdd.w = w;
-	setCSL(cd[csel]);
+	setCSL(cd);
 	var obj = {"seg": {"col": [[],[],[]]}};
 	obj.seg.col[csel] = [r, g, b, w];
 	requestJson(obj);
