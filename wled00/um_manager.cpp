@@ -3,6 +3,9 @@
  * Registration and management utility for v2 usermods
  */
 
+static Usermod* ums[WLED_MAX_USERMODS] = {nullptr};
+byte UsermodManager::numMods = 0;
+
 //Usermod Manager internals
 void UsermodManager::setup()             { for (unsigned i = 0; i < numMods; i++) ums[i]->setup(); }
 void UsermodManager::connected()         { for (unsigned i = 0; i < numMods; i++) ums[i]->connected(); }
@@ -69,8 +72,6 @@ bool UsermodManager::add(Usermod* um)
   return true;
 }
 
-Usermod* UsermodManager::ums[WLED_MAX_USERMODS] = {nullptr};
-byte UsermodManager::numMods = 0;
 
 /* Usermod v2 interface shim for oappend */
 Print* Usermod::oappend_shim = nullptr;

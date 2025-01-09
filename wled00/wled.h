@@ -930,9 +930,6 @@ WLED_GLOBAL uint32_t ledMaps _INIT(0); // bitfield representation of available l
 WLED_GLOBAL uint16_t ledMaps _INIT(0); // bitfield representation of available ledmaps
 #endif
 
-// Usermod manager
-WLED_GLOBAL UsermodManager usermods _INIT(UsermodManager());
-
 // global I2C SDA pin (used for usermods)
 #ifndef I2CSDAPIN
 WLED_GLOBAL int8_t i2c_sda  _INIT(-1);
