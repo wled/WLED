@@ -896,6 +896,7 @@ void WLED::beginStrip()
   strip.finalizeInit(); // busses created during deserializeConfig()
   strip.makeAutoSegments();
   strip.setBrightness(0);
+  strip.fill(BLACK);    // WLEDMM avoids random colors at power-on
   strip.setShowCallback(handleOverlayDraw);
 
   if (turnOnAtBoot) {
@@ -913,8 +914,11 @@ void WLED::beginStrip()
   colorUpdated(CALL_MODE_INIT);
 
   // init relay pin
-  if (rlyPin>=0)
+  if (rlyPin>=0) {
+    delay(FRAMETIME_FIXED); // WLEDMM wait a bit, to ensure that no background led communication is happening while powering on the strip
     digitalWrite(rlyPin, (rlyMde ? bri : !bri));
+    delay(50); // wait for relay to switch and power to stabilize
+  }
 }
 
 void WLED::initAP(bool resetAP)
