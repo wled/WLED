@@ -201,7 +201,7 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
       ledType |= refresh << 7; // hack bit 7 to indicate strip requires off refresh
 
       if (busConfigs[s] != nullptr) delete busConfigs[s];
-      busConfigs[s] = new BusConfig(ledType, pins, start, length, colorOrder, reversed, skipFirst, AWmode, freqkHz, useGlobalLedBuffer, maPerLed, maMax);
+      busConfigs[s] = new(std::nothrow) BusConfig(ledType, pins, start, length, colorOrder, reversed, skipFirst, AWmode, freqkHz, useGlobalLedBuffer, maPerLed, maMax);
       doInit |= INIT_BUS;  // finalization done in beginStrip()
       s++;
     }

@@ -214,7 +214,7 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
       // actual finalization is done in WLED::loop() (removing old busses and adding new)
       // this may happen even before this loop is finished so we do "doInitBusses" after the loop
       if (busConfigs[s] != nullptr) delete busConfigs[s];
-      busConfigs[s] = new BusConfig(type, pins, start, length, colorOrder | (channelSwap<<4), request->hasArg(cv), skip, awmode, freq, useGlobalLedBuffer, maPerLed, maMax);
+      busConfigs[s] = new(std::nothrow) BusConfig(type, pins, start, length, colorOrder | (channelSwap<<4), request->hasArg(cv), skip, awmode, freq, useGlobalLedBuffer, maPerLed, maMax);
       busesChanged = true;
     }
     //doInitBusses = busesChanged; // we will do that below to ensure all input data is processed
@@ -815,7 +815,7 @@ bool handleSet(AsyncWebServerRequest *request, const String& req, bool apply)
   //segment select (sets main segment)
   pos = req.indexOf(F("SM="));
   if (pos > 0 && !realtimeMode) {
-    strip.setMainSegmentId(getNumVal(&req, pos));
+    strip.setMainSegmentId(getNumVal(req, pos));
   }
 
   byte selectedSeg = strip.getFirstSelectedSegId();
@@ -824,7 +824,7 @@ bool handleSet(AsyncWebServerRequest *request, const String& req, bool apply)
 
   pos = req.indexOf(F("SS="));
   if (pos > 0) {
-    unsigned t = getNumVal(&req, pos);
+    unsigned t = getNumVal(req, pos);
     if (t < strip.getSegmentsNum()) {
       selectedSeg = t;
       singleSegment = true;
@@ -834,7 +834,7 @@ bool handleSet(AsyncWebServerRequest *request, const String& req, bool apply)
   Segment& selseg = strip.getSegment(selectedSeg);
   pos = req.indexOf(F("SV=")); //segment selected
   if (pos > 0) {
-    unsigned t = getNumVal(&req, pos);
+    unsigned t = getNumVal(req, pos);
     if (t == 2) for (unsigned i = 0; i < strip.getSegmentsNum(); i++) strip.getSegment(i).selected = false; // unselect other segments
     selseg.selected = t;
   }
@@ -863,19 +863,19 @@ bool handleSet(AsyncWebServerRequest *request, const String& req, bool apply)
   uint16_t spcI    = selseg.spacing;
   pos = req.indexOf(F("&S=")); //segment start
   if (pos > 0) {
-    startI = std::abs(getNumVal(&req, pos));
+    startI = std::abs(getNumVal(req, pos));
   }
   pos = req.indexOf(F("S2=")); //segment stop
   if (pos > 0) {
-    stopI = std::abs(getNumVal(&req, pos));
+    stopI = std::abs(getNumVal(req, pos));
   }
   pos = req.indexOf(F("GP=")); //segment grouping
   if (pos > 0) {
-    grpI = std::max(1,getNumVal(&req, pos));
+    grpI = std::max(1,getNumVal(req, pos));
   }
   pos = req.indexOf(F("SP=")); //segment spacing
   if (pos > 0) {
-    spcI = std::max(0,getNumVal(&req, pos));
+    spcI = std::max(0,getNumVal(req, pos));
   }
   strip.suspend(); // must suspend strip operations before changing geometry
   selseg.setGeometry(startI, stopI, grpI, spcI, UINT16_MAX, startY, stopY, selseg.map1D2D);
@@ -889,7 +889,7 @@ bool handleSet(AsyncWebServerRequest *request, const String& req, bool apply)
 
   pos = req.indexOf(F("SB=")); //Segment brightness/opacity
   if (pos > 0) {
-    byte segbri = getNumVal(&req, pos);
+    byte segbri = getNumVal(req, pos);
     selseg.setOption(SEG_OPTION_ON, segbri); // use transition
     if (segbri) {
       selseg.setOpacity(segbri);
@@ -898,7 +898,7 @@ bool handleSet(AsyncWebServerRequest *request, const String& req, bool apply)
 
   pos = req.indexOf(F("SW=")); //segment power
   if (pos > 0) {
-    switch (getNumVal(&req, pos)) {
+    switch (getNumVal(req, pos)) {
       case 0:  selseg.setOption(SEG_OPTION_ON, false);      break; // use transition
       case 1:  selseg.setOption(SEG_OPTION_ON, true);       break; // use transition
       default: selseg.setOption(SEG_OPTION_ON, !selseg.on); break; // use transition
@@ -906,16 +906,16 @@ bool handleSet(AsyncWebServerRequest *request, const String& req, bool apply)
   }
 
   pos = req.indexOf(F("PS=")); //saves current in preset
-  if (pos > 0) savePreset(getNumVal(&req, pos));
+  if (pos > 0) savePreset(getNumVal(req, pos));
 
   pos = req.indexOf(F("P1=")); //sets first preset for cycle
-  if (pos > 0) presetCycMin = getNumVal(&req, pos);
+  if (pos > 0) presetCycMin = getNumVal(req, pos);
 
   pos = req.indexOf(F("P2=")); //sets last preset for cycle
-  if (pos > 0) presetCycMax = getNumVal(&req, pos);
+  if (pos > 0) presetCycMax = getNumVal(req, pos);
 
   //apply preset
-  if (updateVal(req.c_str(), "PL=", &presetCycCurr, presetCycMin, presetCycMax)) {
+  if (updateVal(req.c_str(), "PL=", presetCycCurr, presetCycMin, presetCycMax)) {
     applyPreset(presetCycCurr);
   }
 
@@ -923,25 +923,25 @@ bool handleSet(AsyncWebServerRequest *request, const String& req, bool apply)
   if (pos > 0) doAdvancePlaylist = true;
   
   //set brightness
-  updateVal(req.c_str(), "&A=", &bri);
+  updateVal(req.c_str(), "&A=", bri);
 
   bool col0Changed = false, col1Changed = false, col2Changed = false;
   //set colors
-  col0Changed |= updateVal(req.c_str(), "&R=", &colIn[0]);
-  col0Changed |= updateVal(req.c_str(), "&G=", &colIn[1]);
-  col0Changed |= updateVal(req.c_str(), "&B=", &colIn[2]);
-  col0Changed |= updateVal(req.c_str(), "&W=", &colIn[3]);
+  col0Changed |= updateVal(req.c_str(), "&R=", colIn[0]);
+  col0Changed |= updateVal(req.c_str(), "&G=", colIn[1]);
+  col0Changed |= updateVal(req.c_str(), "&B=", colIn[2]);
+  col0Changed |= updateVal(req.c_str(), "&W=", colIn[3]);
 
-  col1Changed |= updateVal(req.c_str(), "R2=", &colInSec[0]);
-  col1Changed |= updateVal(req.c_str(), "G2=", &colInSec[1]);
-  col1Changed |= updateVal(req.c_str(), "B2=", &colInSec[2]);
-  col1Changed |= updateVal(req.c_str(), "W2=", &colInSec[3]);
+  col1Changed |= updateVal(req.c_str(), "R2=", colInSec[0]);
+  col1Changed |= updateVal(req.c_str(), "G2=", colInSec[1]);
+  col1Changed |= updateVal(req.c_str(), "B2=", colInSec[2]);
+  col1Changed |= updateVal(req.c_str(), "W2=", colInSec[3]);
 
   #ifdef WLED_ENABLE_LOXONE
   //lox parser
   pos = req.indexOf(F("LX=")); // Lox primary color
   if (pos > 0) {
-    int lxValue = getNumVal(&req, pos);
+    int lxValue = getNumVal(req, pos);
     if (parseLx(lxValue, colIn)) {
       bri = 255;
       nightlightActive = false; //always disable nightlight when toggling
@@ -950,7 +950,7 @@ bool handleSet(AsyncWebServerRequest *request, const String& req, bool apply)
   }
   pos = req.indexOf(F("LY=")); // Lox secondary color
   if (pos > 0) {
-    int lxValue = getNumVal(&req, pos);
+    int lxValue = getNumVal(req, pos);
     if(parseLx(lxValue, colInSec)) {
       bri = 255;
       nightlightActive = false; //always disable nightlight when toggling
@@ -962,11 +962,11 @@ bool handleSet(AsyncWebServerRequest *request, const String& req, bool apply)
   //set hue
   pos = req.indexOf(F("HU="));
   if (pos > 0) {
-    uint16_t temphue = getNumVal(&req, pos);
+    uint16_t temphue = getNumVal(req, pos);
     byte tempsat = 255;
     pos = req.indexOf(F("SA="));
     if (pos > 0) {
-      tempsat = getNumVal(&req, pos);
+      tempsat = getNumVal(req, pos);
     }
     byte sec = req.indexOf(F("H2"));
     colorHStoRGB(temphue, tempsat, (sec>0) ? colInSec : colIn);
@@ -977,7 +977,7 @@ bool handleSet(AsyncWebServerRequest *request, const String& req, bool apply)
   pos = req.indexOf(F("&K="));
   if (pos > 0) {
     byte sec = req.indexOf(F("K2"));
-    colorKtoRGB(getNumVal(&req, pos), (sec>0) ? colInSec : colIn);
+    colorKtoRGB(getNumVal(req, pos), (sec>0) ? colInSec : colIn);
     col0Changed |= (!sec); col1Changed |= sec;
   }
 
@@ -1004,7 +1004,7 @@ bool handleSet(AsyncWebServerRequest *request, const String& req, bool apply)
   //set to random hue SR=0->1st SR=1->2nd
   pos = req.indexOf(F("SR"));
   if (pos > 0) {
-    byte sec = getNumVal(&req, pos);
+    byte sec = getNumVal(req, pos);
     setRandomColor(sec? colInSec : colIn);
     col0Changed |= (!sec); col1Changed |= sec;
   }
@@ -1030,19 +1030,19 @@ bool handleSet(AsyncWebServerRequest *request, const String& req, bool apply)
   bool fxModeChanged = false, speedChanged = false, intensityChanged = false, paletteChanged = false;
   bool custom1Changed = false, custom2Changed = false, custom3Changed = false, check1Changed = false, check2Changed = false, check3Changed = false;
   // set effect parameters
-  if (updateVal(req.c_str(), "FX=", &effectIn, 0, strip.getModeCount()-1)) {
+  if (updateVal(req.c_str(), "FX=", effectIn, 0, strip.getModeCount()-1)) {
     if (request != nullptr) unloadPlaylist(); // unload playlist if changing FX using web request
     fxModeChanged = true;
   }
-  speedChanged     = updateVal(req.c_str(), "SX=", &speedIn);
-  intensityChanged = updateVal(req.c_str(), "IX=", &intensityIn);
-  paletteChanged   = updateVal(req.c_str(), "FP=", &paletteIn, 0, strip.getPaletteCount()-1);
-  custom1Changed   = updateVal(req.c_str(), "X1=", &custom1In);
-  custom2Changed   = updateVal(req.c_str(), "X2=", &custom2In);
-  custom3Changed   = updateVal(req.c_str(), "X3=", &custom3In);
-  check1Changed    = updateVal(req.c_str(), "M1=", &check1In);
-  check2Changed    = updateVal(req.c_str(), "M2=", &check2In);
-  check3Changed    = updateVal(req.c_str(), "M3=", &check3In);
+  speedChanged     = updateVal(req.c_str(), "SX=", speedIn);
+  intensityChanged = updateVal(req.c_str(), "IX=", intensityIn);
+  paletteChanged   = updateVal(req.c_str(), "FP=", paletteIn, 0, strip.getPaletteCount()-1);
+  custom1Changed   = updateVal(req.c_str(), "X1=", custom1In);
+  custom2Changed   = updateVal(req.c_str(), "X2=", custom2In);
+  custom3Changed   = updateVal(req.c_str(), "X3=", custom3In);
+  check1Changed    = updateVal(req.c_str(), "M1=", check1In);
+  check2Changed    = updateVal(req.c_str(), "M2=", check2In);
+  check3Changed    = updateVal(req.c_str(), "M3=", check3In);
 
   stateChanged |= (fxModeChanged || speedChanged || intensityChanged || paletteChanged || custom1Changed || custom2Changed || custom3Changed || check1Changed || check2Changed || check3Changed);
 
@@ -1068,13 +1068,13 @@ bool handleSet(AsyncWebServerRequest *request, const String& req, bool apply)
   //set advanced overlay
   pos = req.indexOf(F("OL="));
   if (pos > 0) {
-    overlayCurrent = getNumVal(&req, pos);
+    overlayCurrent = getNumVal(req, pos);
   }
 
   //apply macro (deprecated, added for compatibility with pre-0.11 automations)
   pos = req.indexOf(F("&M="));
   if (pos > 0) {
-    applyPreset(getNumVal(&req, pos) + 16);
+    applyPreset(getNumVal(req, pos) + 16);
   }
 
   //toggle send UDP direct notifications
@@ -1093,7 +1093,7 @@ bool handleSet(AsyncWebServerRequest *request, const String& req, bool apply)
   pos = req.indexOf(F("&T="));
   if (pos > 0) {
     nightlightActive = false; //always disable nightlight when toggling
-    switch (getNumVal(&req, pos))
+    switch (getNumVal(req, pos))
     {
       case 0: if (bri != 0){briLast = bri; bri = 0;} break; //off, only if it was previously on
       case 1: if (bri == 0) bri = briLast; break; //on, only if it was previously off
@@ -1112,7 +1112,7 @@ bool handleSet(AsyncWebServerRequest *request, const String& req, bool apply)
       nightlightActive = false;
     } else {
       nightlightActive = true;
-      if (!aNlDef) nightlightDelayMins = getNumVal(&req, pos);
+      if (!aNlDef) nightlightDelayMins = getNumVal(req, pos);
       else         nightlightDelayMins = nightlightDelayMinsDefault;
       nightlightStartTime = millis();
     }
@@ -1126,7 +1126,7 @@ bool handleSet(AsyncWebServerRequest *request, const String& req, bool apply)
   //set nightlight target brightness
   pos = req.indexOf(F("NT="));
   if (pos > 0) {
-    nightlightTargetBri = getNumVal(&req, pos);
+    nightlightTargetBri = getNumVal(req, pos);
     nightlightActiveOld = false; //re-init
   }
 
@@ -1134,32 +1134,32 @@ bool handleSet(AsyncWebServerRequest *request, const String& req, bool apply)
   pos = req.indexOf(F("NF="));
   if (pos > 0)
   {
-    nightlightMode = getNumVal(&req, pos);
+    nightlightMode = getNumVal(req, pos);
 
     nightlightActiveOld = false; //re-init
   }
   if (nightlightMode > NL_MODE_SUN) nightlightMode = NL_MODE_SUN;
 
   pos = req.indexOf(F("TT="));
-  if (pos > 0) transitionDelay = getNumVal(&req, pos);
+  if (pos > 0) transitionDelay = getNumVal(req, pos);
   strip.setTransition(transitionDelay);
 
   //set time (unix timestamp)
   pos = req.indexOf(F("ST="));
   if (pos > 0) {
-    setTimeFromAPI(getNumVal(&req, pos));
+    setTimeFromAPI(getNumVal(req, pos));
   }
 
   //set countdown goal (unix timestamp)
   pos = req.indexOf(F("CT="));
   if (pos > 0) {
-    countdownTime = getNumVal(&req, pos);
+    countdownTime = getNumVal(req, pos);
     if (countdownTime - toki.second() > 0) countdownOverTriggered = false;
   }
 
   pos = req.indexOf(F("LO="));
   if (pos > 0) {
-    realtimeOverride = getNumVal(&req, pos);
+    realtimeOverride = getNumVal(req, pos);
     if (realtimeOverride > 2) realtimeOverride = REALTIME_OVERRIDE_ALWAYS;
     if (realtimeMode && useMainSegmentOnly) {
       strip.getMainSegment().freeze = !realtimeOverride;
@@ -1175,12 +1175,12 @@ bool handleSet(AsyncWebServerRequest *request, const String& req, bool apply)
 
   pos = req.indexOf(F("U0=")); //user var 0
   if (pos > 0) {
-    userVar0 = getNumVal(&req, pos);
+    userVar0 = getNumVal(req, pos);
   }
 
   pos = req.indexOf(F("U1=")); //user var 1
   if (pos > 0) {
-    userVar1 = getNumVal(&req, pos);
+    userVar1 = getNumVal(req, pos);
   }
   // you can add more if you need
 

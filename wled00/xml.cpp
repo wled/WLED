@@ -26,7 +26,7 @@ void XML_response(Print& dest)
   );
 }
 
-static void extractPin(Print& settingsScript, JsonObject &obj, const char *key) {
+static void extractPin(Print& settingsScript, const JsonObject &obj, const char *key) {
   if (obj[key].is<JsonArray>()) {
     JsonArray pins = obj[key].as<JsonArray>();
     for (JsonVariant pv : pins) {
@@ -38,7 +38,7 @@ static void extractPin(Print& settingsScript, JsonObject &obj, const char *key) 
 }
 
 // print used pins by scanning JsonObject (1 level deep)
-static void fillUMPins(Print& settingsScript, JsonObject &mods)
+static void fillUMPins(Print& settingsScript, const JsonObject &mods)
 {
   for (JsonPair kv : mods) {
     // kv.key() is usermod name or subobject key

@@ -4,17 +4,17 @@
 
 
 //helper to get int value at a position in string
-int getNumVal(const String* req, uint16_t pos)
+int getNumVal(const String& req, uint16_t pos)
 {
-  return req->substring(pos+3).toInt();
+  return req.substring(pos+3).toInt();
 }
 
 
 //helper to get int value with in/decrementing support via ~ syntax
-void parseNumber(const char* str, byte* val, byte minv, byte maxv)
+void parseNumber(const char* str, byte& val, byte minv, byte maxv)
 {
   if (str == nullptr || str[0] == '\0') return;
-  if (str[0] == 'r') {*val = random8(minv,maxv?maxv:255); return;} // maxv for random cannot be 0
+  if (str[0] == 'r') {val = random8(minv,maxv?maxv:255); return;} // maxv for random cannot be 0
   bool wrap = false;
   if (str[0] == 'w' && strlen(str) > 1) {str++; wrap = true;}
   if (str[0] == '~') {
@@ -22,19 +22,19 @@ void parseNumber(const char* str, byte* val, byte minv, byte maxv)
     if (out == 0) {
       if (str[1] == '0') return;
       if (str[1] == '-') {
-        *val = (int)(*val -1) < (int)minv ? maxv : min((int)maxv,(*val -1)); //-1, wrap around
+        val = (int)(val -1) < (int)minv ? maxv : min((int)maxv,(val -1)); //-1, wrap around
       } else {
-        *val = (int)(*val +1) > (int)maxv ? minv : max((int)minv,(*val +1)); //+1, wrap around
+        val = (int)(val +1) > (int)maxv ? minv : max((int)minv,(val +1)); //+1, wrap around
       }
     } else {
-      if (wrap && *val == maxv && out > 0) out = minv;
-      else if (wrap && *val == minv && out < 0) out = maxv;
+      if (wrap && val == maxv && out > 0) out = minv;
+      else if (wrap && val == minv && out < 0) out = maxv;
       else {
-        out += *val;
+        out += val;
         if (out > maxv) out = maxv;
         if (out < minv) out = minv;
       }
-      *val = out;
+      val = out;
     }
     return;
   } else if (minv == maxv && minv == 0) { // limits "unset" i.e. both 0
@@ -49,14 +49,14 @@ void parseNumber(const char* str, byte* val, byte minv, byte maxv)
       }
     }
   }
-  *val = atoi(str);
+  val = atoi(str);
 }
 
-//getVal supports inc/decrementing and random ("X~Y(r|~[w][-][Z])" form)
-bool getVal(JsonVariant elem, byte* val, byte vmin, byte vmax) {
+//getVal supports inc/decrementing and random ("X~Y(r|[w]~[-][Z])" form)
+bool getVal(JsonVariant elem, byte& val, byte vmin, byte vmax) {
   if (elem.is<int>()) {
 		if (elem < 0) return false; //ignore e.g. {"ps":-1}
-    *val = elem;
+    val = elem;
     return true;
   } else if (elem.is<const char*>()) {
     const char* str = elem;
@@ -64,7 +64,7 @@ bool getVal(JsonVariant elem, byte* val, byte vmin, byte vmax) {
     if (len == 0 || len > 12) return false;
     // fix for #3605 & #4346
     // ignore vmin and vmax and use as specified in API
-    if (len > 3 && (strchr(str,'r') || strchr(str,'~') != strrchr(str,'~'))) vmax = vmin = 0; // we have "X~Y(r|~[w][-][Z])" form
+    if (len > 3 && (strchr(str,'r') || strchr(str,'~') != strrchr(str,'~'))) vmax = vmin = 0; // we have "X~Y(r|[w]~[-][Z])" form
     // end fix
     parseNumber(str, val, vmin, vmax);
     return true;
@@ -73,7 +73,7 @@ bool getVal(JsonVariant elem, byte* val, byte vmin, byte vmax) {
 }
 
 
-bool getBoolVal(JsonVariant elem, bool dflt) {
+bool getBoolVal(const JsonVariant &elem, bool dflt) {
   if (elem.is<const char*>() && elem.as<const char*>()[0] == 't') {
     return !dflt;
   } else {
@@ -82,7 +82,7 @@ bool getBoolVal(JsonVariant elem, bool dflt) {
 }
 
 
-bool updateVal(const char* req, const char* key, byte* val, byte minv, byte maxv)
+bool updateVal(const char* req, const char* key, byte& val, byte minv, byte maxv)
 {
   const char *v = strstr(req, key);
   if (v) v += strlen(key);
@@ -151,7 +151,7 @@ bool isAsterisksOnly(const char* str, byte maxLen)
 
 
 //threading/network callback details: https://github.com/Aircoookie/WLED/pull/2336#discussion_r762276994
-bool requestJSONBufferLock(uint8_t module)
+bool requestJSONBufferLock(uint8_t moduleID)
 {
   if (pDoc == nullptr) {
     DEBUG_PRINTLN(F("ERROR: JSON buffer not allocated!"));
@@ -175,14 +175,14 @@ bool requestJSONBufferLock(uint8_t module)
 #endif  
   // If the lock is still held - by us, or by another task
   if (jsonBufferLock) {
-    DEBUG_PRINTF_P(PSTR("ERROR: Locking JSON buffer (%d) failed! (still locked by %d)\n"), module, jsonBufferLock);
+    DEBUG_PRINTF_P(PSTR("ERROR: Locking JSON buffer (%d) failed! (still locked by %d)\n"), moduleID, jsonBufferLock);
 #ifdef ARDUINO_ARCH_ESP32
     xSemaphoreGiveRecursive(jsonBufferLockMutex);
 #endif
     return false;
   }
 
-  jsonBufferLock = module ? module : 255;
+  jsonBufferLock = moduleID ? moduleID : 255;
   DEBUG_PRINTF_P(PSTR("JSON buffer locked. (%d)\n"), jsonBufferLock);
   pDoc->clear();
   return true;
@@ -265,16 +265,16 @@ uint8_t extractModeSlider(uint8_t mode, uint8_t slider, char *dest, uint8_t maxL
   if (mode < strip.getModeCount()) {
     String lineBuffer = FPSTR(strip.getModeData(mode));
     if (lineBuffer.length() > 0) {
-      unsigned start = lineBuffer.indexOf('@');
-      unsigned stop  = lineBuffer.indexOf(';', start);
+      int start = lineBuffer.indexOf('@');
+      int stop  = lineBuffer.indexOf(';', start);
       if (start>0 && stop>0) {
         String names = lineBuffer.substring(start, stop); // include @
-        unsigned nameBegin = 1, nameEnd, nameDefault;
+        int nameBegin = 1, nameEnd, nameDefault;
         if (slider < 10) {
           for (size_t i=0; i<=slider; i++) {
             const char *tmpstr;
             dest[0] = '\0'; //clear dest buffer
-            if (nameBegin == 0) break; // there are no more names
+            if (nameBegin <= 0) break; // there are no more names
             nameEnd = names.indexOf(',', nameBegin);
             if (i == slider) {
               nameDefault = names.indexOf('=', nameBegin); // find default value
@@ -490,7 +490,7 @@ void enumerateLedmaps() {
 
     #ifndef ESP8266
     if (ledmapNames[i-1]) { //clear old name
-      delete[] ledmapNames[i-1];
+      free(ledmapNames[i-1]);
       ledmapNames[i-1] = nullptr;
     }
     #endif
@@ -508,7 +508,7 @@ void enumerateLedmaps() {
             const char *name = root["n"].as<const char*>();
             if (name != nullptr) len = strlen(name);
             if (len > 0 && len < 33) {
-              ledmapNames[i-1] = new char[len+1];
+              ledmapNames[i-1] = static_cast<char*>(malloc(len+1));
               if (ledmapNames[i-1]) strlcpy(ledmapNames[i-1], name, 33);
             }
           }
@@ -516,7 +516,7 @@ void enumerateLedmaps() {
             char tmp[33];
             snprintf_P(tmp, 32, s_ledmap_tmpl, i);
             len = strlen(tmp);
-            ledmapNames[i-1] = new char[len+1];
+            ledmapNames[i-1] = static_cast<char*>(malloc(len+1));
             if (ledmapNames[i-1]) strlcpy(ledmapNames[i-1], tmp, 33);
           }
         }

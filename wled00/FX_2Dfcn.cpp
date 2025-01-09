@@ -50,8 +50,8 @@ void WS2812FX::setUpMatrix() {
 
     customMappingSize = 0; // prevent use of mapping if anything goes wrong
 
-    if (customMappingTable) delete[] customMappingTable;
-    customMappingTable = new uint16_t[getLengthTotal()];
+    if (customMappingTable) free(customMappingTable);
+    customMappingTable = static_cast<uint16_t*>(malloc(sizeof(uint16_t)*getLengthTotal()));
 
     if (customMappingTable) {
       customMappingSize = getLengthTotal();
@@ -68,7 +68,7 @@ void WS2812FX::setUpMatrix() {
       // content of the file is just raw JSON array in the form of [val1,val2,val3,...]
       // there are no other "key":"value" pairs in it
       // allowed values are: -1 (missing pixel/no LED attached), 0 (inactive/unused pixel), 1 (active/used pixel)
-      char    fileName[32]; strcpy_P(fileName, PSTR("/2d-gaps.json")); // reduce flash footprint
+      char    fileName[32]; strcpy_P(fileName, PSTR("/2d-gaps.json"));
       bool    isFile = WLED_FS.exists(fileName);
       size_t  gapSize = 0;
       int8_t *gapTable = nullptr;
@@ -85,7 +85,7 @@ void WS2812FX::setUpMatrix() {
           JsonArray map = pDoc->as<JsonArray>();
           gapSize = map.size();
           if (!map.isNull() && gapSize >= matrixSize) { // not an empty map
-            gapTable = new int8_t[gapSize];
+            gapTable = static_cast<int8_t*>(malloc(gapSize));
             if (gapTable) for (size_t i = 0; i < gapSize; i++) {
               gapTable[i] = constrain(map[i], -1, 1);
             }
@@ -113,7 +113,7 @@ void WS2812FX::setUpMatrix() {
       }
 
       // delete gap array as we no longer need it
-      if (gapTable) delete[] gapTable;
+      if (gapTable) free(gapTable);
 
       #ifdef WLED_DEBUG_FX
       DEBUGFX_PRINT(F("Matrix ledmap:"));
@@ -146,14 +146,14 @@ void WS2812FX::setUpMatrix() {
 #ifndef WLED_DISABLE_2D
 
 // XY(x,y) - gets pixel index within current segment (often used to reference leds[] array element)
-uint16_t IRAM_ATTR Segment::XY(int x, int y) {
+int IRAM_ATTR Segment::XY(int x, int y) const {
   const int vW = vWidth();   // segment width in logical pixels (can be 0 if segment is inactive)
   const int vH = vHeight();  // segment height in logical pixels (is always >= 1)
   return isActive() ? (x%vW) + (y%vH) * vW : 0;
 }
 
 // raw setColor function without checks (checks are done in setPixelColorXY())
-void IRAM_ATTR Segment::_setPixelColorXY_raw(int& x, int& y, uint32_t& col) {
+void IRAM_ATTR Segment::_setPixelColorXY_raw(const int& x, const int& y, uint32_t& col) const {
   const int baseX = start + x;
   const int baseY = startY + y;
 #ifndef WLED_DISABLE_MODE_BLEND
@@ -208,7 +208,7 @@ bool IRAM_ATTR Segment::isPixelXYClipped(int x, int y) const {
   return false;
 }
 
-void IRAM_ATTR Segment::setPixelColorXY(int x, int y, uint32_t col)
+void IRAM_ATTR Segment::setPixelColorXY(int x, int y, uint32_t col) const
 {
   if (!isActive()) return; // not active
 
@@ -256,7 +256,7 @@ void IRAM_ATTR Segment::setPixelColorXY(int x, int y, uint32_t col)
 
 #ifdef WLED_USE_AA_PIXELS
 // anti-aliased version of setPixelColorXY()
-void Segment::setPixelColorXY(float x, float y, uint32_t col, bool aa)
+void Segment::setPixelColorXY(float x, float y, uint32_t col, bool aa) const
 {
   if (!isActive()) return; // not active
   if (x<0.0f || x>1.0f || y<0.0f || y>1.0f) return; // not normalized
@@ -328,7 +328,7 @@ uint32_t IRAM_ATTR Segment::getPixelColorXY(int x, int y) const {
 }
 
 // 2D blurring, can be asymmetrical
-void Segment::blur2D(uint8_t blur_x, uint8_t blur_y, bool smear) {
+void Segment::blur2D(uint8_t blur_x, uint8_t blur_y, bool smear) const {
   if (!isActive()) return; // not active
   const unsigned cols = vWidth();
   const unsigned rows = vHeight();
@@ -456,7 +456,7 @@ void Segment::box_blur(unsigned radius, bool smear) {
   delete[] tmpWSum;
 }
 */
-void Segment::moveX(int delta, bool wrap) {
+void Segment::moveX(int delta, bool wrap) const {
   if (!isActive() || !delta) return; // not active
   const int vW = vWidth();   // segment width in logical pixels (can be 0 if segment is inactive)
   const int vH = vHeight();  // segment height in logical pixels (is always >= 1)
@@ -482,7 +482,7 @@ void Segment::moveX(int delta, bool wrap) {
   }
 }
 
-void Segment::moveY(int delta, bool wrap) {
+void Segment::moveY(int delta, bool wrap) const {
   if (!isActive() || !delta) return; // not active
   const int vW = vWidth();   // segment width in logical pixels (can be 0 if segment is inactive)
   const int vH = vHeight();  // segment height in logical pixels (is always >= 1)
@@ -512,7 +512,7 @@ void Segment::moveY(int delta, bool wrap) {
 // @param dir direction: 0=left, 1=left-up, 2=up, 3=right-up, 4=right, 5=right-down, 6=down, 7=left-down
 // @param delta number of pixels to move
 // @param wrap around
-void Segment::move(unsigned dir, unsigned delta, bool wrap) {
+void Segment::move(unsigned dir, unsigned delta, bool wrap) const {
   if (delta==0) return;
   switch (dir) {
     case 0: moveX( delta, wrap);                      break;
@@ -526,7 +526,7 @@ void Segment::move(unsigned dir, unsigned delta, bool wrap) {
   }
 }
 
-void Segment::drawCircle(uint16_t cx, uint16_t cy, uint8_t radius, uint32_t col, bool soft) {
+void Segment::drawCircle(uint16_t cx, uint16_t cy, uint8_t radius, uint32_t col, bool soft) const {
   if (!isActive() || radius == 0) return; // not active
   if (soft) {
     // Xiaolin Wu’s algorithm
@@ -586,7 +586,7 @@ void Segment::drawCircle(uint16_t cx, uint16_t cy, uint8_t radius, uint32_t col,
 }
 
 // by stepko, taken from https://editor.soulmatelights.com/gallery/573-blobs
-void Segment::fillCircle(uint16_t cx, uint16_t cy, uint8_t radius, uint32_t col, bool soft) {
+void Segment::fillCircle(uint16_t cx, uint16_t cy, uint8_t radius, uint32_t col, bool soft) const {
   if (!isActive() || radius == 0) return; // not active
   const int vW = vWidth();   // segment width in logical pixels (can be 0 if segment is inactive)
   const int vH = vHeight();  // segment height in logical pixels (is always >= 1)
@@ -608,7 +608,7 @@ void Segment::fillCircle(uint16_t cx, uint16_t cy, uint8_t radius, uint32_t col,
 }
 
 //line function
-void Segment::drawLine(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1, uint32_t c, bool soft) {
+void Segment::drawLine(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1, uint32_t c, bool soft) const {
   if (!isActive()) return; // not active
   const int vW = vWidth();   // segment width in logical pixels (can be 0 if segment is inactive)
   const int vH = vHeight();  // segment height in logical pixels (is always >= 1)
@@ -674,7 +674,7 @@ void Segment::drawLine(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1, uint3
 
 // draws a raster font character on canvas
 // only supports: 4x6=24, 5x8=40, 5x12=60, 6x8=48 and 7x9=63 fonts ATM
-void Segment::drawCharacter(unsigned char chr, int16_t x, int16_t y, uint8_t w, uint8_t h, uint32_t color, uint32_t col2, int8_t rotate) {
+void Segment::drawCharacter(unsigned char chr, int16_t x, int16_t y, uint8_t w, uint8_t h, uint32_t color, uint32_t col2, int8_t rotate) const {
   if (!isActive()) return; // not active
   if (chr < 32 || chr > 126) return; // only ASCII 32-126 supported
   chr -= 32; // align with font table entries
@@ -717,7 +717,7 @@ void Segment::drawCharacter(unsigned char chr, int16_t x, int16_t y, uint8_t w, 
 }
 
 #define WU_WEIGHT(a,b) ((uint8_t) (((a)*(b)+(a)+(b))>>8))
-void Segment::wu_pixel(uint32_t x, uint32_t y, CRGB c) {      //awesome wu_pixel procedure by reddit u/sutaburosu
+void Segment::wu_pixel(uint32_t x, uint32_t y, CRGB c) const {      //awesome wu_pixel procedure by reddit u/sutaburosu
   if (!isActive()) return; // not active
   // extract the fractional parts and derive their inverses
   unsigned xx = x & 0xff, yy = y & 0xff, ix = 255 - xx, iy = 255 - yy;

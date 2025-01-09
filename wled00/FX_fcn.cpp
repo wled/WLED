@@ -98,7 +98,7 @@ Segment::Segment(const Segment &orig) {
   name = nullptr;
   data = nullptr;
   _dataLen = 0;
-  if (orig.name) { name = new char[strlen(orig.name)+1]; if (name) strcpy(name, orig.name); }
+  if (orig.name) { name = static_cast<char*>(malloc(strlen(orig.name)+1)); if (name) strcpy(name, orig.name); }
   if (orig.data) { if (allocateData(orig._dataLen)) memcpy(data, orig.data, orig._dataLen); }
 }
 
@@ -117,7 +117,7 @@ Segment& Segment::operator= (const Segment &orig) {
   //DEBUGFX_PRINTF_P(PSTR("-- Copying segment: %p -> %p\n"), &orig, this);
   if (this != &orig) {
     // clean destination
-    if (name) { delete[] name; name = nullptr; }
+    if (name) { free(name); name = nullptr; }
     stopTransition();
     deallocateData();
     // copy source
@@ -126,7 +126,7 @@ Segment& Segment::operator= (const Segment &orig) {
     data = nullptr;
     _dataLen = 0;
     // copy source data
-    if (orig.name) { name = new char[strlen(orig.name)+1]; if (name) strcpy(name, orig.name); }
+    if (orig.name) { name = static_cast<char*>(malloc(strlen(orig.name)+1)); if (name) strcpy(name, orig.name); }
     if (orig.data) { if (allocateData(orig._dataLen)) memcpy(data, orig.data, orig._dataLen); }
   }
   return *this;
@@ -136,7 +136,7 @@ Segment& Segment::operator= (const Segment &orig) {
 Segment& Segment::operator= (Segment &&orig) noexcept {
   //DEBUGFX_PRINTF_P(PSTR("-- Moving segment: %p -> %p\n"), &orig, this);
   if (this != &orig) {
-    if (name) { delete[] name; name = nullptr; } // free old name
+    if (name) { free(name); name = nullptr; } // free old name
     stopTransition();
     deallocateData(); // free old runtime data
     memcpy((void*)this, (void*)&orig, sizeof(Segment));
@@ -275,7 +275,7 @@ void Segment::startTransition(uint16_t dur) {
   if (isInTransition() || !isActive()) return; // already in transition or inactive no need to store anything
 
   // starting a transition has to occur before change so we get current values 1st
-  _t = new Transition(dur); // no previous transition running
+  _t = new(std::nothrow) Transition(dur); // no previous transition running
   if (!_t) return; // failed to allocate data
 
   DEBUGFX_PRINTF_P(PSTR("-- Started transition: %p (%p)\n"), this, _t);
@@ -365,7 +365,7 @@ void Segment::swapSegenv(tmpsegd_t &tmpSeg) {
   }
 }
 
-void Segment::restoreSegenv(tmpsegd_t &tmpSeg) {
+void Segment::restoreSegenv(const tmpsegd_t &tmpSeg) {
   //DEBUGFX_PRINTF_P(PSTR("--  Restoring temp seg: %p->(%p) [%d->%p]\n"), &tmpSeg, this, _dataLen, data);
   if (_t && &(_t->_segT) != &tmpSeg) {
     // update possibly changed variables to keep old effect running correctly
@@ -755,7 +755,7 @@ bool IRAM_ATTR Segment::isPixelClipped(int i) const {
   return false;
 }
 
-void IRAM_ATTR Segment::setPixelColor(int i, uint32_t col)
+void IRAM_ATTR Segment::setPixelColor(int i, uint32_t col) const
 {
   if (!isActive() || i < 0) return; // not active or invalid index
 #ifndef WLED_DISABLE_2D
@@ -942,7 +942,7 @@ void IRAM_ATTR Segment::setPixelColor(int i, uint32_t col)
 
 #ifdef WLED_USE_AA_PIXELS
 // anti-aliased normalized version of setPixelColor()
-void Segment::setPixelColor(float i, uint32_t col, bool aa)
+void Segment::setPixelColor(float i, uint32_t col, bool aa) const
 {
   if (!isActive()) return; // not active
   int vStrip = int(i/10.0f); // hack to allow running on virtual strips (2D segment columns/rows)
@@ -1136,7 +1136,7 @@ void Segment::refreshLightCapabilities() {
 /*
  * Fills segment with black
  */
-void Segment::clear() {
+void Segment::clear() const {
   if (!isActive()) return; // not active
     unsigned oldVW = _vWidth;
     unsigned oldVH = _vHeight;
@@ -1156,7 +1156,7 @@ void Segment::clear() {
 /*
  * Fills segment with color
  */
-void Segment::fill(uint32_t c) {
+void Segment::fill(uint32_t c) const {
   if (!isActive()) return; // not active
   const int cols = is2D() ? vWidth() : vLength();
   const int rows = vHeight(); // will be 1 for 1D
@@ -1175,7 +1175,7 @@ void Segment::fill(uint32_t c) {
  * fading is highly dependant on frame rate (higher frame rates, faster fading)
  * each frame will fade at max 9% or as little as 0.8%
  */
-void Segment::fade_out(uint8_t rate) {
+void Segment::fade_out(uint8_t rate) const {
   if (!isActive()) return; // not active
   const int cols = is2D() ? vWidth() : vLength();
   const int rows = vHeight(); // will be 1 for 1D
@@ -1203,7 +1203,7 @@ void Segment::fade_out(uint8_t rate) {
 }
 
 // fades all pixels to secondary color
-void Segment::fadeToSecondaryBy(uint8_t fadeBy) {
+void Segment::fadeToSecondaryBy(uint8_t fadeBy) const {
   if (!isActive() || fadeBy == 0) return;   // optimization - no scaling to apply
   const int cols = is2D() ? vWidth() : vLength();
   const int rows = vHeight(); // will be 1 for 1D
@@ -1215,7 +1215,7 @@ void Segment::fadeToSecondaryBy(uint8_t fadeBy) {
 }
 
 // fades all pixels to black using nscale8()
-void Segment::fadeToBlackBy(uint8_t fadeBy) {
+void Segment::fadeToBlackBy(uint8_t fadeBy) const {
   if (!isActive() || fadeBy == 0) return;   // optimization - no scaling to apply
   const int cols = is2D() ? vWidth() : vLength();
   const int rows = vHeight(); // will be 1 for 1D
@@ -1230,7 +1230,7 @@ void Segment::fadeToBlackBy(uint8_t fadeBy) {
  * blurs segment content, source: FastLED colorutils.cpp
  * Note: for blur_amount > 215 this function does not work properly (creates alternating pattern)
  */
-void Segment::blur(uint8_t blur_amount, bool smear) {
+void Segment::blur(uint8_t blur_amount, bool smear) const {
   if (!isActive() || blur_amount == 0) return; // optimization: 0 means "don't blur"
 #ifndef WLED_DISABLE_2D
   if (is2D()) {
@@ -1620,7 +1620,7 @@ void WS2812FX::service() {
   #endif
 }
 
-void IRAM_ATTR WS2812FX::setPixelColor(unsigned i, uint32_t col) {
+void IRAM_ATTR WS2812FX::setPixelColor(unsigned i, uint32_t col) const {
   i = getMappedPixelIndex(i);
   if (i >= _length) return;
   BusManager::setPixelColor(i, col);
@@ -1900,9 +1900,9 @@ void WS2812FX::fixInvalidSegments() {
 
 //true if all segments align with a bus, or if a segment covers the total length
 //irrelevant in 2D set-up
-bool WS2812FX::checkSegmentAlignment() {
+bool WS2812FX::checkSegmentAlignment() const {
   bool aligned = false;
-  for (segment &seg : _segments) {
+  for (const segment &seg : _segments) {
     for (unsigned b = 0; b<BusManager::getNumBusses(); b++) {
       Bus *bus = BusManager::getBus(b);
       if (seg.start == bus->getStart() && seg.stop == bus->getStart() + bus->getLength()) aligned = true;
@@ -2019,8 +2019,8 @@ bool WS2812FX::deserializeMap(unsigned n) {
     Segment::maxHeight = min(max(root[F("height")].as<int>(), 1), 128);
   }
 
-  if (customMappingTable) delete[] customMappingTable;
-  customMappingTable = new uint16_t[getLengthTotal()];
+  if (customMappingTable) free(customMappingTable);
+  customMappingTable = static_cast<uint16_t*>(malloc(sizeof(uint16_t)*getLengthTotal()));
 
   if (customMappingTable) {
     DEBUGFX_PRINT(F("Reading LED map from ")); DEBUGFX_PRINTLN(fileName);

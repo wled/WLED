@@ -68,7 +68,7 @@ bool deserializeSegment(JsonObject elem, byte it, byte presetId)
   if (elem["n"]) {
     // name field exists
     if (seg.name) { //clear old name
-      delete[] seg.name;
+      free(seg.name);
       seg.name = nullptr;
     }
 
@@ -77,7 +77,7 @@ bool deserializeSegment(JsonObject elem, byte it, byte presetId)
     if (name != nullptr) len = strlen(name);
     if (len > 0) {
       if (len > WLED_MAX_SEGNAME_LEN) len = WLED_MAX_SEGNAME_LEN;
-      seg.name = new char[len+1];
+      seg.name = static_cast<char*>(malloc(len+1));
       if (seg.name) strlcpy(seg.name, name, WLED_MAX_SEGNAME_LEN+1);
     } else {
       // but is empty (already deleted above)
@@ -86,7 +86,7 @@ bool deserializeSegment(JsonObject elem, byte it, byte presetId)
   } else if (start != seg.start || stop != seg.stop) {
     // clearing or setting segment without name field
     if (seg.name) {
-      delete[] seg.name;
+      free(seg.name);
       seg.name = nullptr;
     }
   }
@@ -127,7 +127,7 @@ bool deserializeSegment(JsonObject elem, byte it, byte presetId)
   }
 
   byte segbri = seg.opacity;
-  if (getVal(elem["bri"], &segbri)) {
+  if (getVal(elem["bri"], segbri)) {
     if (segbri > 0) seg.setOpacity(segbri);
     seg.setOption(SEG_OPTION_ON, segbri); // use transition
   }
@@ -219,23 +219,23 @@ bool deserializeSegment(JsonObject elem, byte it, byte presetId)
   #endif
 
   byte fx = seg.mode;
-  if (getVal(elem["fx"], &fx, 0, strip.getModeCount())) {
+  if (getVal(elem["fx"], fx, 0, strip.getModeCount())) {
     if (!presetId && currentPlaylist>=0) unloadPlaylist();
     if (fx != seg.mode) seg.setMode(fx, elem[F("fxdef")]);
   }
 
-  getVal(elem["sx"], &seg.speed);
-  getVal(elem["ix"], &seg.intensity);
+  getVal(elem["sx"], seg.speed);
+  getVal(elem["ix"], seg.intensity);
 
   uint8_t pal = seg.palette;
   if (seg.getLightCapabilities() & 1) {  // ignore palette for White and On/Off segments
-    if (getVal(elem["pal"], &pal, 0, strip.getPaletteCount())) seg.setPalette(pal);
+    if (getVal(elem["pal"], pal, 0, strip.getPaletteCount())) seg.setPalette(pal);
   }
 
-  getVal(elem["c1"], &seg.custom1);
-  getVal(elem["c2"], &seg.custom2);
+  getVal(elem["c1"], seg.custom1);
+  getVal(elem["c2"], seg.custom2);
   uint8_t cust3 = seg.custom3;
-  getVal(elem["c3"], &cust3, 0, 31); // we can't pass reference to bitfield
+  getVal(elem["c3"], cust3, 0, 31); // we can't pass reference to bitfield
   seg.custom3 = constrain(cust3, 0, 31);
 
   seg.check1 = getBoolVal(elem["o1"], seg.check1);
@@ -311,7 +311,7 @@ bool deserializeState(JsonObject root, byte callMode, byte presetId)
   #endif
 
   bool onBefore = bri;
-  getVal(root["bri"], &bri);
+  getVal(root["bri"], bri);
 
   bool on = root["on"] | (bri > 0);
   if (!on != !bri) toggleOnOff();
@@ -458,7 +458,7 @@ bool deserializeState(JsonObject root, byte callMode, byte presetId)
     DEBUG_PRINTF_P(PSTR("Preset direct: %d\n"), currentPreset);
   } else if (!root["ps"].isNull()) {
     // we have "ps" call (i.e. from button or external API call) or "pd" that includes "ps" (i.e. from UI call)
-    if (root["win"].isNull() && getVal(root["ps"], &presetCycCurr, 1, 250) && presetCycCurr > 0 && presetCycCurr < 251 && presetCycCurr != currentPreset) {
+    if (root["win"].isNull() && getVal(root["ps"], presetCycCurr, 1, 250) && presetCycCurr > 0 && presetCycCurr < 251 && presetCycCurr != currentPreset) {
       DEBUG_PRINTF_P(PSTR("Preset select: %d\n"), presetCycCurr);
       // b) preset ID only or preset that does not change state (use embedded cycling limits if they exist in getVal())
       applyPreset(presetCycCurr, callMode); // async load from file system (only preset ID was specified)

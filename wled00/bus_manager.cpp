@@ -28,7 +28,7 @@ extern bool useParallelI2S;
 uint32_t colorBalanceFromKelvin(uint16_t kelvin, uint32_t rgb);
 
 //udp.cpp
-uint8_t realtimeBroadcast(uint8_t type, IPAddress client, uint16_t length, byte *buffer, uint8_t bri=255, bool isRGBW=false);
+uint8_t realtimeBroadcast(uint8_t type, IPAddress client, uint16_t length, const byte *buffer, uint8_t bri=255, bool isRGBW=false);
 
 //color mangling macros
 #define RGBW32(r,g,b,w) (uint32_t((byte(w) << 24) | (byte(r) << 16) | (byte(g) << 8) | (byte(b))))
@@ -100,7 +100,7 @@ uint8_t *Bus::allocateData(size_t size) {
 }
 
 
-BusDigital::BusDigital(BusConfig &bc, uint8_t nr, const ColorOrderMap &com)
+BusDigital::BusDigital(const BusConfig &bc, uint8_t nr, const ColorOrderMap &com)
 : Bus(bc.type, bc.start, bc.autoWhite, bc.count, bc.reversed, (bc.refreshReq || bc.type == TYPE_TM1814))
 , _skip(bc.skipAmount) //sacrificial pixels
 , _colorOrder(bc.colorOrder)
@@ -433,7 +433,7 @@ void BusDigital::cleanup() {
   #endif
 #endif
 
-BusPwm::BusPwm(BusConfig &bc)
+BusPwm::BusPwm(const BusConfig &bc)
 : Bus(bc.type, bc.start, bc.autoWhite, 1, bc.reversed, bc.refreshReq) // hijack Off refresh flag to indicate usage of dithering
 {
   if (!isPWM(bc.type)) return;
@@ -631,7 +631,7 @@ void BusPwm::deallocatePins() {
 }
 
 
-BusOnOff::BusOnOff(BusConfig &bc)
+BusOnOff::BusOnOff(const BusConfig &bc)
 : Bus(bc.type, bc.start, bc.autoWhite, 1, bc.reversed)
 , _onoffdata(0)
 {
@@ -684,7 +684,7 @@ std::vector<LEDType> BusOnOff::getLEDTypes() {
   };
 }
 
-BusNetwork::BusNetwork(BusConfig &bc)
+BusNetwork::BusNetwork(const BusConfig &bc)
 : Bus(bc.type, bc.start, bc.autoWhite, bc.count)
 , _broadcastLock(false)
 {
@@ -763,7 +763,7 @@ void BusNetwork::cleanup() {
 
 
 //utility to get the approx. memory usage of a given BusConfig
-uint32_t BusManager::memUsage(BusConfig &bc) {
+uint32_t BusManager::memUsage(const BusConfig &bc) {
   if (Bus::isOnOff(bc.type) || Bus::isPWM(bc.type)) return OUTPUT_MAX_PINS;
 
   unsigned len = bc.count + bc.skipAmount;

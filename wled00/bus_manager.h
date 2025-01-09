@@ -221,7 +221,7 @@ class Bus {
 
 class BusDigital : public Bus {
   public:
-    BusDigital(BusConfig &bc, uint8_t nr, const ColorOrderMap &com);
+    BusDigital(const BusConfig &bc, uint8_t nr, const ColorOrderMap &com);
     ~BusDigital() { cleanup(); }
 
     void show() override;
@@ -273,7 +273,7 @@ class BusDigital : public Bus {
 
 class BusPwm : public Bus {
   public:
-    BusPwm(BusConfig &bc);
+    BusPwm(const BusConfig &bc);
     ~BusPwm() { cleanup(); }
 
     void setPixelColor(unsigned pix, uint32_t c) override;
@@ -300,7 +300,7 @@ class BusPwm : public Bus {
 
 class BusOnOff : public Bus {
   public:
-    BusOnOff(BusConfig &bc);
+    BusOnOff(const BusConfig &bc);
     ~BusOnOff() { cleanup(); }
 
     void setPixelColor(unsigned pix, uint32_t c) override;
@@ -319,7 +319,7 @@ class BusOnOff : public Bus {
 
 class BusNetwork : public Bus {
   public:
-    BusNetwork(BusConfig &bc);
+    BusNetwork(const BusConfig &bc);
     ~BusNetwork() { cleanup(); }
 
     bool canShow() const override  { return !_broadcastLock; } // this should be a return value from UDP routine if it is still sending data out
@@ -402,7 +402,7 @@ class BusManager {
     BusManager() {};
 
     //utility to get the approx. memory usage of a given BusConfig
-    static uint32_t memUsage(BusConfig &bc);
+    static uint32_t memUsage(const BusConfig &bc);
     static uint16_t currentMilliamps() { return _milliAmpsUsed + MA_FOR_ESP; }
     static uint16_t ablMilliampsMax()  { return _milliAmpsMax; }
 

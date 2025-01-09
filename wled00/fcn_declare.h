@@ -163,12 +163,12 @@ class NeoGammaWLEDMethod {
 };
 #define gamma32(c) NeoGammaWLEDMethod::Correct32(c)
 #define gamma8(c)  NeoGammaWLEDMethod::rawGamma8(c)
-[[gnu::hot]] uint32_t color_blend(uint32_t c1, uint32_t c2 , uint8_t blend);
+[[gnu::hot, gnu::pure]] uint32_t color_blend(uint32_t c1, uint32_t c2 , uint8_t blend);
 inline uint32_t color_blend16(uint32_t c1, uint32_t c2, uint16_t b) { return color_blend(c1, c2, b >> 8); };
-[[gnu::hot]] uint32_t color_add(uint32_t,uint32_t, bool fast=false);
-[[gnu::hot]] uint32_t color_fade(uint32_t c1, uint8_t amount, bool video=false);
-[[gnu::hot]] uint32_t ColorFromPaletteWLED(const CRGBPalette16 &pal, unsigned index, uint8_t brightness = (uint8_t)255U, TBlendType blendType = LINEARBLEND);
-CRGBPalette16 generateHarmonicRandomPalette(CRGBPalette16 &basepalette);
+[[gnu::hot, gnu::pure]] uint32_t color_add(uint32_t,uint32_t, bool fast=false);
+[[gnu::hot, gnu::pure]] uint32_t color_fade(uint32_t c1, uint8_t amount, bool video=false);
+[[gnu::hot, gnu::pure]] uint32_t ColorFromPaletteWLED(const CRGBPalette16 &pal, unsigned index, uint8_t brightness = (uint8_t)255U, TBlendType blendType = LINEARBLEND);
+CRGBPalette16 generateHarmonicRandomPalette(const CRGBPalette16 &basepalette);
 CRGBPalette16 generateRandomPalette();
 inline uint32_t colorFromRgbw(byte* rgbw) { return uint32_t((byte(rgbw[3]) << 24) | (byte(rgbw[0]) << 16) | (byte(rgbw[1]) << 8) | (byte(rgbw[2]))); }
 void hsv2rgb(const CHSV32& hsv, uint32_t& rgb);
@@ -178,8 +178,8 @@ inline CHSV rgb2hsv(const CRGB c) { CHSV32 hsv; rgb2hsv((uint32_t((byte(c.r) << 
 void colorKtoRGB(uint16_t kelvin, byte* rgb);
 void colorCTtoRGB(uint16_t mired, byte* rgb); //white spectrum to rgb
 void colorXYtoRGB(float x, float y, byte* rgb); // only defined if huesync disabled TODO
-void colorRGBtoXY(byte* rgb, float* xy); // only defined if huesync disabled TODO
-void colorFromDecOrHexString(byte* rgb, char* in);
+void colorRGBtoXY(const byte* rgb, float* xy); // only defined if huesync disabled TODO
+void colorFromDecOrHexString(byte* rgb, const char* in);
 bool colorFromHexString(byte* rgb, const char* in);
 uint32_t colorBalanceFromKelvin(uint16_t kelvin, uint32_t rgb);
 uint16_t approximateKelvinFromRGB(uint32_t rgb);
@@ -197,16 +197,16 @@ void sendArtnetPollReply(ArtPollReply* reply, IPAddress ipAddress, uint16_t port
 
 //file.cpp
 bool handleFileRead(AsyncWebServerRequest*, String path);
-bool writeObjectToFileUsingId(const char* file, uint16_t id, JsonDocument* content);
-bool writeObjectToFile(const char* file, const char* key, JsonDocument* content);
-bool readObjectFromFileUsingId(const char* file, uint16_t id, JsonDocument* dest, JsonDocument* filter = nullptr);
-bool readObjectFromFile(const char* file, const char* key, JsonDocument* dest, JsonDocument* filter = nullptr);
+bool writeObjectToFileUsingId(const char* file, uint16_t id, const JsonDocument* content);
+bool writeObjectToFile(const char* file, const char* key, const JsonDocument* content);
+bool readObjectFromFileUsingId(const char* file, uint16_t id, JsonDocument* dest, const JsonDocument* filter = nullptr);
+bool readObjectFromFile(const char* file, const char* key, JsonDocument* dest, const JsonDocument* filter = nullptr);
 void updateFSInfo();
 void closeFile();
-inline bool writeObjectToFileUsingId(const String &file, uint16_t id, JsonDocument* content) { return writeObjectToFileUsingId(file.c_str(), id, content); };
-inline bool writeObjectToFile(const String &file, const char* key, JsonDocument* content) { return writeObjectToFile(file.c_str(), key, content); };
-inline bool readObjectFromFileUsingId(const String &file, uint16_t id, JsonDocument* dest, JsonDocument* filter = nullptr) { return readObjectFromFileUsingId(file.c_str(), id, dest); };
-inline bool readObjectFromFile(const String &file, const char* key, JsonDocument* dest, JsonDocument* filter = nullptr) { return readObjectFromFile(file.c_str(), key, dest); };
+inline bool writeObjectToFileUsingId(const String &file, uint16_t id, const JsonDocument* content) { return writeObjectToFileUsingId(file.c_str(), id, content); };
+inline bool writeObjectToFile(const String &file, const char* key, const JsonDocument* content) { return writeObjectToFile(file.c_str(), key, content); };
+inline bool readObjectFromFileUsingId(const String &file, uint16_t id, JsonDocument* dest, const JsonDocument* filter = nullptr) { return readObjectFromFileUsingId(file.c_str(), id, dest); };
+inline bool readObjectFromFile(const String &file, const char* key, JsonDocument* dest, const JsonDocument* filter = nullptr) { return readObjectFromFile(file.c_str(), key, dest); };
 
 //hue.cpp
 void handleHue();
@@ -346,7 +346,7 @@ bool handleSet(AsyncWebServerRequest *request, const String& req, bool apply=tru
 
 //udp.cpp
 void notify(byte callMode, bool followUp=false);
-uint8_t realtimeBroadcast(uint8_t type, IPAddress client, uint16_t length, uint8_t *buffer, uint8_t bri=255, bool isRGBW=false);
+uint8_t realtimeBroadcast(uint8_t type, IPAddress client, uint16_t length, const uint8_t *buffer, uint8_t bri=255, bool isRGBW=false);
 void realtimeLock(uint32_t timeoutMs, byte md = REALTIME_MODE_GENERIC);
 void exitRealtime();
 void handleNotifications();
@@ -497,18 +497,18 @@ void userLoop();
 
 //util.cpp
 #define hex2int(a) (((a)>='0' && (a)<='9') ? (a)-'0' : ((a)>='A' && (a)<='F') ? (a)-'A'+10 : ((a)>='a' && (a)<='f') ? (a)-'a'+10 : 0)
-int getNumVal(const String* req, uint16_t pos);
-void parseNumber(const char* str, byte* val, byte minv=0, byte maxv=255);
-bool getVal(JsonVariant elem, byte* val, byte minv=0, byte maxv=255); // getVal supports inc/decrementing and random ("X~Y(r|~[w][-][Z])" form)
-bool getBoolVal(JsonVariant elem, bool dflt);
-bool updateVal(const char* req, const char* key, byte* val, byte minv=0, byte maxv=255);
+[[gnu::pure]] int getNumVal(const String& req, uint16_t pos);
+void parseNumber(const char* str, byte& val, byte minv=0, byte maxv=255);
+bool getVal(JsonVariant elem, byte& val, byte minv=0, byte maxv=255); // getVal supports inc/decrementing and random ("X~Y(r|~[w][-][Z])" form)
+[[gnu::pure]] bool getBoolVal(const JsonVariant &elem, bool dflt);
+bool updateVal(const char* req, const char* key, byte& val, byte minv=0, byte maxv=255);
 size_t printSetFormCheckbox(Print& settingsScript, const char* key, int val);
 size_t printSetFormValue(Print& settingsScript, const char* key, int val);
 size_t printSetFormValue(Print& settingsScript, const char* key, const char* val);
 size_t printSetFormIndex(Print& settingsScript, const char* key, int index);
 size_t printSetClassElementHTML(Print& settingsScript, const char* key, const int index, const char* val);
 void prepareHostname(char* hostname);
-bool isAsterisksOnly(const char* str, byte maxLen);
+[[gnu::pure]] bool isAsterisksOnly(const char* str, byte maxLen);
 bool requestJSONBufferLock(uint8_t module=255);
 void releaseJSONBufferLock();
 uint8_t extractModeName(uint8_t mode, const char *src, char *dest, uint8_t maxLen);
@@ -518,9 +518,9 @@ void checkSettingsPIN(const char *pin);
 uint16_t crc16(const unsigned char* data_p, size_t length);
 um_data_t* simulateSound(uint8_t simulationId);
 void enumerateLedmaps();
-uint8_t get_random_wheel_index(uint8_t pos);
-float mapf(float x, float in_min, float in_max, float out_min, float out_max);
-uint32_t hashInt(uint32_t s);
+[[gnu::hot]] uint8_t get_random_wheel_index(uint8_t pos);
+[[gnu::hot, gnu::pure]] float mapf(float x, float in_min, float in_max, float out_min, float out_max);
+[[gnu::hot, gnu::pure]] uint32_t hashInt(uint32_t s);
 
 // RAII guard class for the JSON Buffer lock
 // Modeled after std::lock_guard

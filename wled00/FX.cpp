@@ -155,7 +155,7 @@ static const char _data_FX_MODE_STROBE_RAINBOW[] PROGMEM = "Strobe Rainbow@!;,!;
  * if (bool rev == true) then LEDs are turned off in reverse order
  */
 uint16_t color_wipe(bool rev, bool useRandomColors) {
-  if (SEGLEN == 1) return mode_static();
+  if (SEGLEN <= 1) return mode_static();
   uint32_t cycleTime = 750 + (255 - SEGMENT.speed)*150;
   uint32_t perc = strip.now % cycleTime;
   unsigned prog = (perc * 65535) / cycleTime;
@@ -368,7 +368,7 @@ static const char _data_FX_MODE_FADE[] PROGMEM = "Fade@!;!,!;!;01";
  * Scan mode parent function
  */
 uint16_t scan(bool dual) {
-  if (SEGLEN == 1) return mode_static();
+  if (SEGLEN <= 1) return mode_static();
   uint32_t cycleTime = 750 + (255 - SEGMENT.speed)*150;
   uint32_t perc = strip.now % cycleTime;
   int prog = (perc * 65535) / cycleTime;
@@ -981,7 +981,7 @@ static const char _data_FX_MODE_COLORFUL[] PROGMEM = "Colorful@!,Saturation;1,2,
  * Emulates a traffic light.
  */
 uint16_t mode_traffic_light(void) {
-  if (SEGLEN == 1) return mode_static();
+  if (SEGLEN <= 1) return mode_static();
   for (unsigned i=0; i < SEGLEN; i++)
     SEGMENT.setPixelColor(i, SEGMENT.color_from_palette(i, true, PALETTE_SOLID_WRAP, 1));
   uint32_t mdelay = 500;
@@ -1014,7 +1014,7 @@ static const char _data_FX_MODE_TRAFFIC_LIGHT[] PROGMEM = "Traffic Light@!,US st
  */
 #define FLASH_COUNT 4
 uint16_t mode_chase_flash(void) {
-  if (SEGLEN == 1) return mode_static();
+  if (SEGLEN <= 1) return mode_static();
   unsigned flash_step = SEGENV.call % ((FLASH_COUNT * 2) + 1);
 
   for (unsigned i = 0; i < SEGLEN; i++) {
@@ -1044,7 +1044,7 @@ static const char _data_FX_MODE_CHASE_FLASH[] PROGMEM = "Chase Flash@!;Bg,Fx;!";
  * Prim flashes running, followed by random color.
  */
 uint16_t mode_chase_flash_random(void) {
-  if (SEGLEN == 1) return mode_static();
+  if (SEGLEN <= 1) return mode_static();
   unsigned flash_step = SEGENV.call % ((FLASH_COUNT * 2) + 1);
 
   for (int i = 0; i < SEGENV.aux1; i++) {
@@ -1126,7 +1126,7 @@ static const char _data_FX_MODE_RUNNING_RANDOM[] PROGMEM = "Stream@!,Zone size;;
  * K.I.T.T.
  */
 uint16_t mode_larson_scanner(void) {
-  if (SEGLEN == 1) return mode_static();
+  if (SEGLEN <= 1) return mode_static();
 
   const unsigned speed  = FRAMETIME * map(SEGMENT.speed, 0, 255, 96, 2); // map into useful range
   const unsigned pixels = SEGLEN / speed; // how many pixels to advance per frame
@@ -1184,7 +1184,7 @@ static const char _data_FX_MODE_DUAL_LARSON_SCANNER[] PROGMEM = "Scanner Dual@!,
  * Firing comets from one end. "Lighthouse"
  */
 uint16_t mode_comet(void) {
-  if (SEGLEN == 1) return mode_static();
+  if (SEGLEN <= 1) return mode_static();
   unsigned counter = (strip.now * ((SEGMENT.speed >>2) +1)) & 0xFFFF;
   unsigned index = (counter * SEGLEN) >> 16;
   if (SEGENV.call == 0) SEGENV.aux0 = index;
@@ -1212,7 +1212,7 @@ static const char _data_FX_MODE_COMET[] PROGMEM = "Lighthouse@!,Fade rate;!,!;!"
  * Fireworks function.
  */
 uint16_t mode_fireworks() {
-  if (SEGLEN == 1) return mode_static();
+  if (SEGLEN <= 1) return mode_static();
   const bool is2D   = SEGMENT.is2D();
   const int  width  = is2D ? SEG_W : SEGLEN;
   const int  height = SEG_H;
@@ -1255,7 +1255,7 @@ static const char _data_FX_MODE_FIREWORKS[] PROGMEM = "Fireworks@,Frequency;!,!;
 
 //Twinkling LEDs running. Inspired by https://github.com/kitesurfer1404/WS2812FX/blob/master/src/custom/Rain.h
 uint16_t mode_rain() {
-  if (SEGLEN == 1) return mode_static();
+  if (SEGLEN <= 1) return mode_static();
   const bool is2D   = SEGMENT.is2D();
   const int  width  = is2D ? SEG_W : SEGLEN;
   const int  height = SEG_H;
@@ -1321,7 +1321,7 @@ static const char _data_FX_MODE_FIRE_FLICKER[] PROGMEM = "Fire Flicker@!,!;!;!;0
  * Gradient run base function
  */
 uint16_t gradient_base(bool loading) {
-  if (SEGLEN == 1) return mode_static();
+  if (SEGLEN <= 1) return mode_static();
   uint16_t counter = strip.now * ((SEGMENT.speed >> 2) + 1);
   uint16_t pp = (counter * SEGLEN) >> 16;
   if (SEGENV.call == 0) pp = 0;
@@ -1365,7 +1365,7 @@ static const char _data_FX_MODE_LOADING[] PROGMEM = "Loading@!,Fade;!,!;!;;ix=16
 
 //American Police Light with all LEDs Red and Blue
 uint16_t police_base(uint32_t color1, uint32_t color2) {
-  if (SEGLEN == 1) return mode_static();
+  if (SEGLEN <= 1) return mode_static();
   unsigned delay = 1 + (FRAMETIME<<3) / SEGLEN;  // longer segments should change faster
   uint32_t it = strip.now / map(SEGMENT.speed, 0, 255, delay<<4, delay);
   unsigned offset = it % SEGLEN;
@@ -1830,7 +1830,7 @@ static const char _data_FX_MODE_OSCILLATE[] PROGMEM = "Oscillate";
 
 //TODO
 uint16_t mode_lightning(void) {
-  if (SEGLEN == 1) return mode_static();
+  if (SEGLEN <= 1) return mode_static();
   unsigned ledstart = random16(SEGLEN);               // Determine starting location of flash
   unsigned ledlen = 1 + random16(SEGLEN -ledstart);   // Determine length of flash (not to go beyond NUM_LEDS-1)
   uint8_t bri = 255/random8(1, 3);
@@ -1916,7 +1916,7 @@ static const char _data_FX_MODE_PRIDE_2015[] PROGMEM = "Pride 2015@!;;";
 
 //eight colored dots, weaving in and out of sync with each other
 uint16_t mode_juggle(void) {
-  if (SEGLEN == 1) return mode_static();
+  if (SEGLEN <= 1) return mode_static();
 
   SEGMENT.fadeToBlackBy(192 - (3*SEGMENT.intensity/4));
   CRGB fastled_col;
@@ -2061,7 +2061,7 @@ static const char _data_FX_MODE_PALETTE[] PROGMEM = "Palette@Shift,Size,Rotation
 // feel of your fire: COOLING (used in step 1 above) (Speed = COOLING), and SPARKING (used
 // in step 3 above) (Effect Intensity = Sparking).
 uint16_t mode_fire_2012() {
-  if (SEGLEN == 1) return mode_static();
+  if (SEGLEN <= 1) return mode_static();
   const unsigned strips = SEGMENT.nrOfVStrips();
   if (!SEGENV.allocateData(strips * SEGLEN)) return mode_static(); //allocation failed
   byte* heat = SEGENV.data;
@@ -2341,7 +2341,7 @@ static const char _data_FX_MODE_LAKE[] PROGMEM = "Lake@!;Fx;!";
 // send a meteor from begining to to the end of the strip with a trail that randomly decays.
 // adapted from https://www.tweaking4all.com/hardware/arduino/adruino-led-strip-effects/#LEDStripEffectMeteorRain
 uint16_t mode_meteor() {
-  if (SEGLEN == 1) return mode_static();
+  if (SEGLEN <= 1) return mode_static();
   if (!SEGENV.allocateData(SEGLEN)) return mode_static(); //allocation failed
 
   byte* trail = SEGENV.data;
@@ -2389,7 +2389,7 @@ static const char _data_FX_MODE_METEOR[] PROGMEM = "Meteor@!,Trail,,,,Gradient;!
 // send a meteor from begining to to the end of the strip with a trail that randomly decays.
 // adapted from https://www.tweaking4all.com/hardware/arduino/adruino-led-strip-effects/#LEDStripEffectMeteorRain
 uint16_t mode_meteor_smooth() {
-  if (SEGLEN == 1) return mode_static();
+  if (SEGLEN <= 1) return mode_static();
   if (!SEGENV.allocateData(SEGLEN)) return mode_static(); //allocation failed
 
   byte* trail = SEGENV.data;
@@ -2425,7 +2425,7 @@ static const char _data_FX_MODE_METEOR_SMOOTH[] PROGMEM = "Meteor Smooth@!,Trail
 
 //Railway Crossing / Christmas Fairy lights
 uint16_t mode_railway() {
-  if (SEGLEN == 1) return mode_static();
+  if (SEGLEN <= 1) return mode_static();
   unsigned dur = (256 - SEGMENT.speed) * 40;
   uint16_t rampdur = (dur * SEGMENT.intensity) >> 8;
   if (SEGENV.step > dur)
@@ -2527,7 +2527,7 @@ static uint16_t ripple_base() {
 
 
 uint16_t mode_ripple(void) {
-  if (SEGLEN == 1) return mode_static();
+  if (SEGLEN <= 1) return mode_static();
   if (!SEGMENT.check2) SEGMENT.fill(SEGCOLOR(1));
   else                 SEGMENT.fade_out(250);
   return ripple_base();
@@ -2536,7 +2536,7 @@ static const char _data_FX_MODE_RIPPLE[] PROGMEM = "Ripple@!,Wave #,,,,,Overlay;
 
 
 uint16_t mode_ripple_rainbow(void) {
-  if (SEGLEN == 1) return mode_static();
+  if (SEGLEN <= 1) return mode_static();
   if (SEGENV.call ==0) {
     SEGENV.aux0 = random8();
     SEGENV.aux1 = random8();
@@ -2714,7 +2714,7 @@ uint16_t mode_halloween_eyes()
     uint32_t blinkEndTime;
   };
 
-  if (SEGLEN == 1) return mode_static();
+  if (SEGLEN <= 1) return mode_static();
   const unsigned maxWidth = strip.isMatrix ? SEG_W : SEGLEN;
   const unsigned HALLOWEEN_EYE_SPACE = MAX(2, strip.isMatrix ? SEG_W>>4: SEGLEN>>5);
   const unsigned HALLOWEEN_EYE_WIDTH = HALLOWEEN_EYE_SPACE/2;
@@ -2899,7 +2899,7 @@ static const char _data_FX_MODE_TRI_STATIC_PATTERN[] PROGMEM = "Solid Pattern Tr
 
 static uint16_t spots_base(uint16_t threshold)
 {
-  if (SEGLEN == 1) return mode_static();
+  if (SEGLEN <= 1) return mode_static();
   if (!SEGMENT.check2) SEGMENT.fill(SEGCOLOR(1));
 
   unsigned maxZones = SEGLEN >> 2;
@@ -2955,7 +2955,7 @@ typedef struct Ball {
 *  Bouncing Balls Effect
 */
 uint16_t mode_bouncing_balls(void) {
-  if (SEGLEN == 1) return mode_static();
+  if (SEGLEN <= 1) return mode_static();
   //allocate segment data
   const unsigned strips = SEGMENT.nrOfVStrips(); // adapt for 2D
   const size_t maxNumBalls = 16;
@@ -3133,7 +3133,7 @@ static const char _data_FX_MODE_ROLLINGBALLS[] PROGMEM = "Rolling Balls@!,# of b
 * Sinelon stolen from FASTLED examples
 */
 static uint16_t sinelon_base(bool dual, bool rainbow=false) {
-  if (SEGLEN == 1) return mode_static();
+  if (SEGLEN <= 1) return mode_static();
   SEGMENT.fade_out(SEGMENT.intensity);
   unsigned pos = beatsin16(SEGMENT.speed/10,0,SEGLEN-1);
   if (SEGENV.call == 0) SEGENV.aux0 = pos;
@@ -3238,7 +3238,7 @@ typedef struct Spark {
 *  modified from https://github.com/kitesurfer1404/WS2812FX/blob/master/src/custom/Popcorn.h
 */
 uint16_t mode_popcorn(void) {
-  if (SEGLEN == 1) return mode_static();
+  if (SEGLEN <= 1) return mode_static();
   //allocate segment data
   unsigned strips = SEGMENT.nrOfVStrips();
   unsigned usablePopcorns = maxNumPopcorn;
@@ -3413,7 +3413,7 @@ typedef struct particle {
 } star;
 
 uint16_t mode_starburst(void) {
-  if (SEGLEN == 1) return mode_static();
+  if (SEGLEN <= 1) return mode_static();
   unsigned maxData = FAIR_DATA_PER_SEG; //ESP8266: 256 ESP32: 640
   unsigned segs = strip.getActiveSegmentsNum();
   if (segs <= (strip.getMaxSegments() /2)) maxData *= 2; //ESP8266: 512 if <= 8 segs ESP32: 1280 if <= 16 segs
@@ -3532,7 +3532,7 @@ static const char _data_FX_MODE_STARBURST[] PROGMEM = "Fireworks Starburst@Chanc
  */
 uint16_t mode_exploding_fireworks(void)
 {
-  if (SEGLEN == 1) return mode_static();
+  if (SEGLEN <= 1) return mode_static();
   const bool is2D = SEGMENT.is2D();
   const int cols = is2D ? SEG_W : 1;
   const int rows = is2D ? SEG_H : SEGLEN;
@@ -3673,7 +3673,7 @@ static const char _data_FX_MODE_EXPLODING_FIREWORKS[] PROGMEM = "Fireworks 1D@Gr
  */
 uint16_t mode_drip(void)
 {
-  if (SEGLEN == 1) return mode_static();
+  if (SEGLEN <= 1) return mode_static();
   //allocate segment data
   unsigned strips = SEGMENT.nrOfVStrips();
   const int maxNumDrops = 4;
@@ -3769,7 +3769,7 @@ typedef struct Tetris {
 } tetris;
 
 uint16_t mode_tetrix(void) {
-  if (SEGLEN == 1) return mode_static();
+  if (SEGLEN <= 1) return mode_static();
   unsigned strips = SEGMENT.nrOfVStrips(); // allow running on virtual strips (columns in 2D segment)
   unsigned dataSize = sizeof(tetris);
   if (!SEGENV.allocateData(dataSize * strips)) return mode_static(); //allocation failed
@@ -4076,7 +4076,7 @@ static const char _data_FX_MODE_PACIFICA[] PROGMEM = "Pacifica@!,Angle;;!;;pal=5
  * Mode simulates a gradual sunrise
  */
 uint16_t mode_sunrise() {
-  if (SEGLEN == 1) return mode_static();
+  if (SEGLEN <= 1) return mode_static();
   //speed 0 - static sun
   //speed 1 - 60: sunrise time in minutes
   //speed 60 - 120 : sunset time in minutes - 60;
@@ -4283,7 +4283,7 @@ static const char _data_FX_MODE_FLOW[] PROGMEM = "Flow@!,Zones;;!;;m12=1"; //ver
  */
 uint16_t mode_chunchun(void)
 {
-  if (SEGLEN == 1) return mode_static();
+  if (SEGLEN <= 1) return mode_static();
   SEGMENT.fade_out(252); // add a bit of trail
   unsigned counter = (strip.now * (96 + SEGMENT.speed)) >> 4;
   unsigned numBirds = 2 + (SEGLEN >> 3);  // 2 + 1/8 of a segment
@@ -4334,7 +4334,7 @@ typedef struct Spotlight {
  */
 uint16_t mode_dancing_shadows(void)
 {
-  if (SEGLEN == 1) return mode_static();
+  if (SEGLEN <= 1) return mode_static();
   unsigned numSpotlights = map(SEGMENT.intensity, 0, 255, 2, SPOT_MAX_COUNT);  // 49 on 32 segment ESP32, 17 on 16 segment ESP8266
   bool initialize = SEGENV.aux0 != numSpotlights;
   SEGENV.aux0 = numSpotlights;
@@ -4796,7 +4796,7 @@ static const char _data_FX_MODE_AURORA[] PROGMEM = "Aurora@!,!;1,2,3;!;;sx=24,pa
 // 16 bit perlinmove. Use Perlin Noise instead of sinewaves for movement. By Andrew Tuline.
 // Controls are speed, # of pixels, faderate.
 uint16_t mode_perlinmove(void) {
-  if (SEGLEN == 1) return mode_static();
+  if (SEGLEN <= 1) return mode_static();
   SEGMENT.fade_out(255-SEGMENT.custom1);
   for (int i = 0; i < SEGMENT.intensity/16 + 1; i++) {
     unsigned locn = inoise16(strip.now*128/(260-SEGMENT.speed)+i*15000, strip.now*128/(260-SEGMENT.speed)); // Get a new pixel location from moving noise.
@@ -4832,7 +4832,7 @@ static const char _data_FX_MODE_WAVESINS[] PROGMEM = "Wavesins@!,Brightness vari
 //////////////////////////////
 // By: ldirko  https://editor.soulmatelights.com/gallery/392-flow-led-stripe , modifed by: Andrew Tuline
 uint16_t mode_FlowStripe(void) {
-  if (SEGLEN == 1) return mode_static();
+  if (SEGLEN <= 1) return mode_static();
   const int hl = SEGLEN * 10 / 13;
   uint8_t hue = strip.now / (SEGMENT.speed+1);
   uint32_t t = strip.now / (SEGMENT.intensity/8+1);
@@ -6488,7 +6488,7 @@ typedef struct Gravity {
 //   * GRAVCENTER    //
 ///////////////////////
 uint16_t mode_gravcenter(void) {                // Gravcenter. By Andrew Tuline.
-  if (SEGLEN == 1) return mode_static();
+  if (SEGLEN <= 1) return mode_static();
 
   const unsigned dataSize = sizeof(gravity);
   if (!SEGENV.allocateData(dataSize)) return mode_static(); //allocation failed
@@ -6533,7 +6533,7 @@ static const char _data_FX_MODE_GRAVCENTER[] PROGMEM = "Gravcenter@Rate of fall,
 //   * GRAVCENTRIC   //
 ///////////////////////
 uint16_t mode_gravcentric(void) {                     // Gravcentric. By Andrew Tuline.
-  if (SEGLEN == 1) return mode_static();
+  if (SEGLEN <= 1) return mode_static();
 
   unsigned dataSize = sizeof(gravity);
   if (!SEGENV.allocateData(dataSize)) return mode_static();     //allocation failed
@@ -6581,7 +6581,7 @@ static const char _data_FX_MODE_GRAVCENTRIC[] PROGMEM = "Gravcentric@Rate of fal
 //   * GRAVIMETER    //
 ///////////////////////
 uint16_t mode_gravimeter(void) {                // Gravmeter. By Andrew Tuline.
-  if (SEGLEN == 1) return mode_static();
+  if (SEGLEN <= 1) return mode_static();
 
   unsigned dataSize = sizeof(gravity);
   if (!SEGENV.allocateData(dataSize)) return mode_static(); //allocation failed
@@ -6682,7 +6682,7 @@ static const char _data_FX_MODE_MATRIPIX[] PROGMEM = "Matripix@!,Brightness,,,,,
 //   * MIDNOISE     //
 //////////////////////
 uint16_t mode_midnoise(void) {                  // Midnoise. By Andrew Tuline.
-  if (SEGLEN == 1) return mode_static();
+  if (SEGLEN <= 1) return mode_static();
 // Changing xdist to SEGENV.aux0 and ydist to SEGENV.aux1.
 
   um_data_t *um_data = getAudioData();
@@ -6773,7 +6773,7 @@ static const char _data_FX_MODE_NOISEMETER[] PROGMEM = "Noisemeter@Fade rate,Wid
 //   * PIXELWAVE    //
 //////////////////////
 uint16_t mode_pixelwave(void) {                 // Pixelwave. By Andrew Tuline.
-  if (SEGLEN == 1) return mode_static();
+  if (SEGLEN <= 1) return mode_static();
   unsigned dataSize = sizeof(uint32_t) * SEGLEN;
   if (!SEGENV.allocateData(dataSize)) return mode_static(); //allocation failed
   uint32_t* pixels = reinterpret_cast<uint32_t*>(SEGENV.data);
@@ -6846,7 +6846,7 @@ static const char _data_FX_MODE_PLASMOID[] PROGMEM = "Plasmoid@Phase,# of pixels
 ///////////////////////
 // Andrew's crappy peak detector. If I were 40+ years younger, I'd learn signal processing.
 uint16_t mode_puddlepeak(void) {                // Puddlepeak. By Andrew Tuline.
-  if (SEGLEN == 1) return mode_static();
+  if (SEGLEN <= 1) return mode_static();
 
   unsigned size = 0;
   uint8_t fadeVal = map(SEGMENT.speed,0,255, 224, 254);
@@ -6886,7 +6886,7 @@ static const char _data_FX_MODE_PUDDLEPEAK[] PROGMEM = "Puddlepeak@Fade rate,Pud
 //   * PUDDLES      //
 //////////////////////
 uint16_t mode_puddles(void) {                   // Puddles. By Andrew Tuline.
-  if (SEGLEN == 1) return mode_static();
+  if (SEGLEN <= 1) return mode_static();
   unsigned size = 0;
   uint8_t fadeVal = map(SEGMENT.speed, 0, 255, 224, 254);
   unsigned pos = random16(SEGLEN);                        // Set a random starting position.
@@ -6914,7 +6914,7 @@ static const char _data_FX_MODE_PUDDLES[] PROGMEM = "Puddles@Fade rate,Puddle si
 //     * PIXELS     //
 //////////////////////
 uint16_t mode_pixels(void) {                    // Pixels. By Andrew Tuline.
-  if (SEGLEN == 1) return mode_static();
+  if (SEGLEN <= 1) return mode_static();
 
   if (!SEGENV.allocateData(32*sizeof(uint8_t))) return mode_static(); //allocation failed
   uint8_t *myVals = reinterpret_cast<uint8_t*>(SEGENV.data); // Used to store a pile of samples because WLED frame rate and WLED sample rate are not synchronized. Frame rate is too low.
@@ -6945,7 +6945,7 @@ static const char _data_FX_MODE_PIXELS[] PROGMEM = "Pixels@Fade rate,# of pixels
 //    ** Blurz      //
 //////////////////////
 uint16_t mode_blurz(void) {                    // Blurz. By Andrew Tuline.
-  if (SEGLEN == 1) return mode_static();
+  if (SEGLEN <= 1) return mode_static();
   // even with 1D effect we have to take logic for 2D segments for allocation as fill_solid() fills whole segment
   const unsigned cycleTime = 5 + 50*(255-SEGMENT.speed)/SEGLEN; // SPEED_FORMULA_L
 
@@ -6979,7 +6979,7 @@ static const char _data_FX_MODE_BLURZ[] PROGMEM = "Blurz@Fade rate,Blur;!,Color 
 //   ** DJLight        //
 /////////////////////////
 uint16_t mode_DJLight(void) {                   // Written by ??? Adapted by Will Tatam.
-  if (SEGLEN == 1) return mode_static();
+  if (SEGLEN <= 1) return mode_static();
   unsigned dataSize = sizeof(uint32_t) * SEGLEN;
   if (!SEGENV.allocateData(dataSize)) return mode_static(); //allocation failed
   uint32_t* pixels = reinterpret_cast<uint32_t*>(SEGENV.data);
@@ -7015,7 +7015,7 @@ static const char _data_FX_MODE_DJLIGHT[] PROGMEM = "DJ Light@Speed;;;01f;m12=2,
 //   ** Freqmap   //
 ////////////////////
 uint16_t mode_freqmap(void) {                   // Map FFT_MajorPeak to SEGLEN. Would be better if a higher framerate.
-  if (SEGLEN == 1) return mode_static();
+  if (SEGLEN <= 1) return mode_static();
   // Start frequency = 60 Hz and log10(60) = 1.78
   // End frequency = MAX_FREQUENCY in Hz and lo10(MAX_FREQUENCY) = MAX_FREQ_LOG10
 
@@ -7198,7 +7198,7 @@ static const char _data_FX_MODE_FREQWAVE[] PROGMEM = "Freqwave@Speed,Sound effec
 //    ** Gravfreq    //
 ///////////////////////
 uint16_t mode_gravfreq(void) {                  // Gravfreq. By Andrew Tuline.
-  if (SEGLEN == 1) return mode_static();
+  if (SEGLEN <= 1) return mode_static();
   unsigned dataSize = sizeof(gravity);
   if (!SEGENV.allocateData(dataSize)) return mode_static(); //allocation failed
   Gravity* gravcen = reinterpret_cast<Gravity*>(SEGENV.data);
