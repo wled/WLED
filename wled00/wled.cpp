@@ -452,17 +452,23 @@ void WLED::setup()
   delay(WLED_BOOTUPDELAY); // delay to let voltage stabilize, helps with boot issues on some setups
   #endif
   Serial.begin(115200);
+
+#if !defined(WLEDMM_NO_SERIAL_WAIT) || defined(WLED_DEBUG)
   if (!Serial) delay(1000); // WLEDMM make sure that Serial has initalized
+#else
+  if (!Serial) delay(300);  // just a tiny wait to avoid problems later when acessing serial
+#endif
 
   #ifdef ARDUINO_ARCH_ESP32
   #if defined(WLED_DEBUG) && (defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32C3) || ARDUINO_USB_CDC_ON_BOOT)
-  if (!Serial) delay(2500);  // WLEDMM allow CDC USB serial to initialise
+  if (!Serial) delay(2500);  // WLEDMM allow CDC USB serial to initialise (WLED_DEBUG only)
   #endif
   #if ARDUINO_USB_CDC_ON_BOOT || ARDUINO_USB_MODE
     #if ARDUINO_USB_CDC_ON_BOOT && (defined(CONFIG_IDF_TARGET_ESP32S3) || defined(CONFIG_IDF_TARGET_ESP32C3) || defined(CONFIG_IDF_TARGET_ESP32C6))
     //  WLEDMM avoid "hung devices" when USB_CDC is enabled; see https://github.com/espressif/arduino-esp32/issues/9043
     Serial.setTxTimeoutMs(0);    // potential side-effect: incomplete debug output, with missing characters whenever TX buffer is full.
     #endif
+#if !defined(WLEDMM_NO_SERIAL_WAIT) || defined(WLED_DEBUG)
   if (!Serial) delay(2500);  // WLEDMM: always allow CDC USB serial to initialise
   if (Serial) Serial.println("wait 1");  // waiting a bit longer ensures that a  debug messages are shown in serial monitor
   if (!Serial) delay(2500);
@@ -470,6 +476,8 @@ void WLED::setup()
   if (!Serial) delay(2500);
 
   if (Serial) Serial.flush(); // WLEDMM
+#endif
+
   //Serial.setTimeout(350); // WLEDMM: don't change timeout, as it causes crashes later
   // WLEDMM: redirect debug output to HWCDC
   #if ARDUINO_USB_CDC_ON_BOOT && (defined(WLED_DEBUG) || defined(SR_DEBUG))
@@ -521,6 +529,7 @@ void WLED::setup()
   USER_PRINT(F(", ")); USER_PRINT(ESP.getCpuFreqMHz()); USER_PRINTLN(F("MHz."));
 
   // WLEDMM begin
+  delay(20); USER_FLUSH(); // drain serial output buffers
   USER_PRINT(F("CPU    "));
   esp_reset_reason_t resetReason = getRestartReason();
   USER_PRINT(restartCode2InfoLong(resetReason));
