@@ -397,11 +397,12 @@ void Segment::restoreSegenv(const tmpsegd_t &tmpSeg) {
 #endif
 
 uint8_t Segment::currentBri(bool useCct) const {
-  uint32_t prog = progress();
+  unsigned prog = progress();
   uint32_t curBri = useCct ? cct : (on ? opacity : 0);
   if (prog < 0xFFFFU) {
 #ifndef WLED_DISABLE_MODE_BLEND
     uint8_t tmpBri = useCct ? _t->_cctT : (_t->_segT._optionsT & 0x0004 ? _t->_briT : 0);
+    // _modeBlend==true -> old effect
     if (blendingStyle != BLEND_STYLE_FADE) return _modeBlend ? tmpBri : curBri; // not fade/blend transition, each effect uses its brightness
 #else
     uint8_t tmpBri = useCct ? _t->_cctT : _t->_briT;
@@ -421,9 +422,9 @@ uint8_t Segment::currentMode() const {
     // workaround for on/off transition to respect blending style
     uint8_t modeT = (bri != briT) &&  bri ? FX_MODE_STATIC : _t->_modeT;   // On/Off transition active (bri!=briT) and final bri>0 : old mode is STATIC
     uint8_t modeS = (bri != briT) && !bri ? FX_MODE_STATIC : mode;         // On/Off transition active (bri!=briT) and final bri==0 : new mode is STATIC
-    return _modeBlend ? modeT : modeS;
+    return _modeBlend ? modeT : modeS;    // _modeBlend==true -> old effect
   }
-  return _modeBlend ? _t->_modeT : mode;
+  return _modeBlend ? _t->_modeT : mode;  // _modeBlend==true -> old effect
 #else
   return mode;
 #endif
@@ -431,14 +432,14 @@ uint8_t Segment::currentMode() const {
 
 uint32_t Segment::currentColor(uint8_t slot) const {
   if (slot >= NUM_COLORS) slot = 0;
-  uint32_t prog = progress();
+  unsigned prog = progress();
   if (prog == 0xFFFFU) return colors[slot];
 #ifndef WLED_DISABLE_MODE_BLEND
   if (blendingStyle != BLEND_STYLE_FADE) {
     // workaround for on/off transition to respect blending style
     uint32_t colT = (bri != briT) &&  bri ? BLACK : _t->_segT._colorT[slot];  // On/Off transition active (bri!=briT) and final bri>0 : old color is BLACK
     uint32_t colS = (bri != briT) && !bri ? BLACK : colors[slot];             // On/Off transition active (bri!=briT) and final bri==0 : new color is BLACK
-    return _modeBlend ? colT : colS;
+    return _modeBlend ? colT : colS;    // _modeBlend==true -> old effect
   }
   return color_blend16(_t->_segT._colorT[slot], colors[slot], prog);
 #else
@@ -460,7 +461,7 @@ void Segment::beginDraw() {
   if (prog < 0xFFFFU) {
 #ifndef WLED_DISABLE_MODE_BLEND
     if (blendingStyle != BLEND_STYLE_FADE) {
-      //if (_modeBlend) loadPalette(_currentPalette, _t->_palTid); // not fade/blend transition, each effect uses its palette
+      // _modeBlend==true -> old effect
       if (_modeBlend) _currentPalette = _t->_palT; // not fade/blend transition, each effect uses its palette
     } else
 #endif
@@ -888,10 +889,11 @@ void IRAM_ATTR Segment::setPixelColor(int i, uint32_t col) const
 #endif
 
 #ifndef WLED_DISABLE_MODE_BLEND
+  unsigned prog = 0xFFFFU - progress();
   // if we blend using "push" style we need to "shift" new mode to left or right
-  if (isInTransition() && !_modeBlend && (blendingStyle == BLEND_STYLE_PUSH_RIGHT || blendingStyle == BLEND_STYLE_PUSH_LEFT)) {
-    unsigned prog = 0xFFFF - progress();
-    unsigned dI = prog * vL / 0xFFFF;
+  // _modeBlend==true -> old effect
+  if (!prog && !_modeBlend && (blendingStyle == BLEND_STYLE_PUSH_RIGHT || blendingStyle == BLEND_STYLE_PUSH_LEFT)) {
+    unsigned dI = prog * vL / 0xFFFFU;
     if (blendingStyle == BLEND_STYLE_PUSH_RIGHT) i -= dI;
     else                                         i += dI;
   }
@@ -925,7 +927,7 @@ void IRAM_ATTR Segment::setPixelColor(int i, uint32_t col) const
         if (indexMir >= stop) indexMir -= len; // wrap
 #ifndef WLED_DISABLE_MODE_BLEND
         // _modeBlend==true -> old effect
-        if (_modeBlend && blendingStyle == BLEND_STYLE_FADE) tmpCol = color_blend16(strip.getPixelColor(indexMir), col, 0xFFFFU - progress());
+        if (_modeBlend && blendingStyle == BLEND_STYLE_FADE) tmpCol = color_blend16(strip.getPixelColor(indexMir), col, prog);
 #endif
         strip.setPixelColor(indexMir, tmpCol);
       }
@@ -933,7 +935,7 @@ void IRAM_ATTR Segment::setPixelColor(int i, uint32_t col) const
       if (indexSet >= stop) indexSet -= len; // wrap
 #ifndef WLED_DISABLE_MODE_BLEND
         // _modeBlend==true -> old effect
-      if (_modeBlend && blendingStyle == BLEND_STYLE_FADE) tmpCol = color_blend16(strip.getPixelColor(indexSet), col, 0xFFFFU - progress());
+      if (_modeBlend && blendingStyle == BLEND_STYLE_FADE) tmpCol = color_blend16(strip.getPixelColor(indexSet), col, prog);
 #endif
       strip.setPixelColor(indexSet, tmpCol);
     }
@@ -1039,8 +1041,9 @@ uint32_t IRAM_ATTR Segment::getPixelColor(int i) const
 #endif
 
 #ifndef WLED_DISABLE_MODE_BLEND
-  if (isInTransition() && !_modeBlend && (blendingStyle == BLEND_STYLE_PUSH_RIGHT || blendingStyle == BLEND_STYLE_PUSH_LEFT)) {
-    unsigned prog = 0xFFFF - progress();
+  unsigned prog = 0xFFFF - progress();
+  // _modeBlend==true -> old effect
+  if (!prog && !_modeBlend && (blendingStyle == BLEND_STYLE_PUSH_RIGHT || blendingStyle == BLEND_STYLE_PUSH_LEFT)) {
     unsigned dI = prog * vL / 0xFFFF;
     if (blendingStyle == BLEND_STYLE_PUSH_RIGHT) i -= dI;
     else                                         i += dI;

@@ -153,7 +153,7 @@ int IRAM_ATTR Segment::XY(int x, int y) const {
 }
 
 // raw setColor function without checks (checks are done in setPixelColorXY())
-void IRAM_ATTR Segment::_setPixelColorXY_raw(const int& x, const int& y, uint32_t& col) const {
+void IRAM_ATTR Segment::_setPixelColorXY_raw(int x, int y, uint32_t& col) const {
   const int baseX = start + x;
   const int baseY = startY + y;
 #ifndef WLED_DISABLE_MODE_BLEND
@@ -216,8 +216,8 @@ void IRAM_ATTR Segment::setPixelColorXY(int x, int y, uint32_t col) const
   const int vH = vHeight();  // segment height in logical pixels (is always >= 1)
 
 #ifndef WLED_DISABLE_MODE_BLEND
-  if (isInTransition() && !_modeBlend && (blendingStyle & BLEND_STYLE_PUSH_MASK)) {
-    unsigned prog = 0xFFFF - progress();
+  unsigned prog = 0xFFFF - progress();
+  if (!prog && !_modeBlend && (blendingStyle & BLEND_STYLE_PUSH_MASK)) {
     unsigned dX = (blendingStyle == BLEND_STYLE_PUSH_UP   || blendingStyle == BLEND_STYLE_PUSH_DOWN)  ? 0 : prog * vW / 0xFFFF;
     unsigned dY = (blendingStyle == BLEND_STYLE_PUSH_LEFT || blendingStyle == BLEND_STYLE_PUSH_RIGHT) ? 0 : prog * vH / 0xFFFF;
     if (blendingStyle == BLEND_STYLE_PUSH_LEFT || blendingStyle == BLEND_STYLE_PUSH_TL || blendingStyle == BLEND_STYLE_PUSH_BL) x += dX;
@@ -305,8 +305,8 @@ uint32_t IRAM_ATTR Segment::getPixelColorXY(int x, int y) const {
   const int vH = vHeight();
 
 #ifndef WLED_DISABLE_MODE_BLEND
-  if (isInTransition() && !_modeBlend && (blendingStyle & BLEND_STYLE_PUSH_MASK)) {
-    unsigned prog = 0xFFFF - progress();
+  unsigned prog = 0xFFFF - progress();
+  if (!prog && !_modeBlend && (blendingStyle & BLEND_STYLE_PUSH_MASK)) {
     unsigned dX = (blendingStyle == BLEND_STYLE_PUSH_UP   || blendingStyle == BLEND_STYLE_PUSH_DOWN)  ? 0 : prog * vW / 0xFFFF;
     unsigned dY = (blendingStyle == BLEND_STYLE_PUSH_LEFT || blendingStyle == BLEND_STYLE_PUSH_RIGHT) ? 0 : prog * vH / 0xFFFF;
     if (blendingStyle == BLEND_STYLE_PUSH_LEFT || blendingStyle == BLEND_STYLE_PUSH_TL || blendingStyle == BLEND_STYLE_PUSH_BL) x -= dX;

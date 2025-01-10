@@ -501,7 +501,7 @@ typedef struct Segment {
     } *_t;
 
   #ifndef WLED_DISABLE_2D
-    [[gnu::hot]] void _setPixelColorXY_raw(const int& x, const int& y, uint32_t& col) const; // set pixel without mapping (internal use only)
+    [[gnu::hot]] void _setPixelColorXY_raw(int x, int y, uint32_t& col) const; // set pixel without mapping (internal use only)
   #endif
 
   public:
@@ -637,7 +637,7 @@ typedef struct Segment {
     void     swapSegenv(tmpsegd_t &tmpSegD);    // copies segment data into specifed buffer, if buffer is not a transition buffer, segment data is overwritten from transition buffer
     void     restoreSegenv(const tmpsegd_t &tmpSegD); // restores segment data from buffer, if buffer is not transition buffer, changed values are copied to transition buffer
     #endif
-    inline uint16_t progress() const { return _t ? Segment::_transitionProgress : 0xFFFF; } // relies on handleTransition() to update progression variable
+    inline unsigned progress() const { return _t ? Segment::_transitionProgress : 0xFFFFU; } // relies on handleTransition() to update progression variable
     uint8_t  currentBri(bool useCct = false) const; // current segment brightness/CCT (blended while in transition)
     uint8_t  currentMode() const;                   // currently active effect/mode (while in transition)
     uint32_t currentColor(uint8_t slot) const;      // currently active segment color (blended while in transition)
