@@ -169,7 +169,7 @@ uint16_t color_wipe(bool rev, bool useRandomColors) {
 
   if (useRandomColors) {
     if (SEGENV.call == 0) {
-      SEGENV.aux0 = random8();
+      SEGENV.aux0 = hw_random8();
       SEGENV.step = 3;
     }
     if (SEGENV.step == 1) { //if flag set, change to new random color
@@ -261,7 +261,7 @@ uint16_t mode_random_color(void) {
   }
 
   if (SEGENV.call == 0) {
-    SEGENV.aux0 = random8();
+    SEGENV.aux0 = hw_random8();
     SEGENV.step = 2;
   }
   if (it != SEGENV.step) //new color
@@ -286,7 +286,7 @@ uint16_t mode_dynamic(void) {
 
   if(SEGENV.call == 0) {
     //SEGMENT.fill(BLACK);
-    for (unsigned i = 0; i < SEGLEN; i++) SEGENV.data[i] = random8();
+    for (unsigned i = 0; i < SEGLEN; i++) SEGENV.data[i] = hw_random8();
   }
 
   uint32_t cycleTime = 50 + (255 - SEGMENT.speed)*15;
@@ -294,7 +294,7 @@ uint16_t mode_dynamic(void) {
   if (it != SEGENV.step && SEGMENT.speed != 0) //new color
   {
     for (unsigned i = 0; i < SEGLEN; i++) {
-      if (random8() <= SEGMENT.intensity) SEGENV.data[i] = random8(); // random color index
+      if (hw_random8() <= SEGMENT.intensity) SEGENV.data[i] = hw_random8(); // random color index
     }
     SEGENV.step = it;
   }
@@ -575,7 +575,7 @@ uint16_t mode_twinkle(void) {
     if (SEGENV.aux0 >= maxOn)
     {
       SEGENV.aux0 = 0;
-      SEGENV.aux1 = random16(); //new seed for our PRNG
+      SEGENV.aux1 = hw_random(); //new seed for our PRNG
     }
     SEGENV.aux0++;
     SEGENV.step = it;
@@ -609,9 +609,9 @@ uint16_t dissolve(uint32_t color) {
   }
 
   for (unsigned j = 0; j <= SEGLEN / 15; j++) {
-    if (random8() <= SEGMENT.intensity) {
+    if (hw_random8() <= SEGMENT.intensity) {
       for (size_t times = 0; times < 10; times++) { //attempt to spawn a new pixel 10 times
-        unsigned i = random16(SEGLEN);
+        unsigned i = hw_random16(SEGLEN);
         unsigned index = i >> 3;
         unsigned bitNum = i & 0x07;
         bool fadeUp = bitRead(SEGENV.data[index], bitNum);
@@ -651,7 +651,7 @@ uint16_t dissolve(uint32_t color) {
  * Blink several LEDs on and then off
  */
 uint16_t mode_dissolve(void) {
-  return dissolve(SEGMENT.check1 ? SEGMENT.color_wheel(random8()) : SEGCOLOR(0));
+  return dissolve(SEGMENT.check1 ? SEGMENT.color_wheel(hw_random8()) : SEGCOLOR(0));
 }
 static const char _data_FX_MODE_DISSOLVE[] PROGMEM = "Dissolve@Repeat speed,Dissolve speed,,,,Random;!,!;!";
 
@@ -660,7 +660,7 @@ static const char _data_FX_MODE_DISSOLVE[] PROGMEM = "Dissolve@Repeat speed,Diss
  * Blink several LEDs on and then off in random colors
  */
 uint16_t mode_dissolve_random(void) {
-  return dissolve(SEGMENT.color_wheel(random8()));
+  return dissolve(SEGMENT.color_wheel(hw_random8()));
 }
 static const char _data_FX_MODE_DISSOLVE_RANDOM[] PROGMEM = "Dissolve Rnd@Repeat speed,Dissolve speed;,!;!";
 
@@ -677,7 +677,7 @@ uint16_t mode_sparkle(void) {
   uint32_t it = strip.now / cycleTime;
   if (it != SEGENV.step)
   {
-    SEGENV.aux0 = random16(SEGLEN); // aux0 stores the random led index
+    SEGENV.aux0 = hw_random16(SEGLEN); // aux0 stores the random led index
     SEGENV.step = it;
   }
 
@@ -697,8 +697,8 @@ uint16_t mode_flash_sparkle(void) {
   }
 
   if (strip.now - SEGENV.aux0 > SEGENV.step) {
-    if(random8((255-SEGMENT.intensity) >> 4) == 0) {
-      SEGMENT.setPixelColor(random16(SEGLEN), SEGCOLOR(1)); //flash
+    if(hw_random8((255-SEGMENT.intensity) >> 4) == 0) {
+      SEGMENT.setPixelColor(hw_random16(SEGLEN), SEGCOLOR(1)); //flash
     }
     SEGENV.step = strip.now;
     SEGENV.aux0 = 255-SEGMENT.speed;
@@ -718,10 +718,10 @@ uint16_t mode_hyper_sparkle(void) {
   }
 
   if (strip.now - SEGENV.aux0 > SEGENV.step) {
-    if (random8((255-SEGMENT.intensity) >> 4) == 0) {
+    if (hw_random8((255-SEGMENT.intensity) >> 4) == 0) {
       int len = max(1, (int)SEGLEN/3);
       for (int i = 0; i < len; i++) {
-        SEGMENT.setPixelColor(random16(SEGLEN), SEGCOLOR(1));
+        SEGMENT.setPixelColor(hw_random16(SEGLEN), SEGCOLOR(1));
       }
     }
     SEGENV.step = strip.now;
@@ -1091,7 +1091,7 @@ static const char _data_FX_MODE_RUNNING_COLOR[] PROGMEM = "Chase 2@!,Width;!,!;!
 uint16_t mode_running_random(void) {
   uint32_t cycleTime = 25 + (3 * (uint32_t)(255 - SEGMENT.speed));
   uint32_t it = strip.now / cycleTime;
-  if (SEGENV.call == 0) SEGENV.aux0 = random16(); // random seed for PRNG on start
+  if (SEGENV.call == 0) SEGENV.aux0 = hw_random(); // random seed for PRNG on start
 
   unsigned zoneSize = ((255-SEGMENT.intensity) >> 4) +1;
   uint16_t PRNG16 = SEGENV.aux0;
@@ -1237,11 +1237,11 @@ uint16_t mode_fireworks() {
   }
 
   for (int i=0; i<max(1, width/20); i++) {
-    if (random8(129 - (SEGMENT.intensity >> 1)) == 0) {
-      unsigned index = random16(width*height);
+    if (hw_random8(129 - (SEGMENT.intensity >> 1)) == 0) {
+      unsigned index = hw_random16(width*height);
       x = index % width;
       y = index / width;
-      uint32_t col = SEGMENT.color_from_palette(random8(), false, false, 0);
+      uint32_t col = SEGMENT.color_from_palette(hw_random8(), false, false, 0);
       if (is2D) SEGMENT.setPixelColorXY(x, y, col);
       else      SEGMENT.setPixelColor(index, col);
       SEGENV.aux1 = SEGENV.aux0;  // old spark
@@ -1303,7 +1303,7 @@ uint16_t mode_fire_flicker(void) {
   byte lum = (SEGMENT.palette == 0) ? MAX(w, MAX(r, MAX(g, b))) : 255;
   lum /= (((256-SEGMENT.intensity)/16)+1);
   for (unsigned i = 0; i < SEGLEN; i++) {
-    byte flicker = random8(lum);
+    byte flicker = hw_random8(lum);
     if (SEGMENT.palette == 0) {
       SEGMENT.setPixelColor(i, MAX(r - flicker, 0), MAX(g - flicker, 0), MAX(b - flicker, 0), MAX(w - flicker, 0));
     } else {
@@ -1448,11 +1448,11 @@ uint16_t mode_fairy() {
       if (stateTime > flashers[f].stateDur * 10) {
         flashers[f].stateOn = !flashers[f].stateOn;
         if (flashers[f].stateOn) {
-          flashers[f].stateDur = 12 + random8(12 + ((255 - SEGMENT.speed) >> 2)); //*10, 250ms to 1250ms
+          flashers[f].stateDur = 12 + hw_random8(12 + ((255 - SEGMENT.speed) >> 2)); //*10, 250ms to 1250ms
         } else {
-          flashers[f].stateDur = 20 + random8(6 + ((255 - SEGMENT.speed) >> 2)); //*10, 250ms to 1250ms
+          flashers[f].stateDur = 20 + hw_random8(6 + ((255 - SEGMENT.speed) >> 2)); //*10, 250ms to 1250ms
         }
-        //flashers[f].stateDur = 51 + random8(2 + ((255 - SEGMENT.speed) >> 1));
+        //flashers[f].stateDur = 51 + hw_random8(2 + ((255 - SEGMENT.speed) >> 1));
         flashers[f].stateStart = now16;
         if (stateTime < 255) {
           flashers[f].stateStart -= 255 -stateTime; //start early to get correct bri
@@ -1508,15 +1508,15 @@ uint16_t mode_fairytwinkle() {
       flashers[f].stateOn = !flashers[f].stateOn;
       bool init = !flashers[f].stateDur;
       if (flashers[f].stateOn) {
-        flashers[f].stateDur = riseFallTime/100 + ((255 - SEGMENT.intensity) >> 2) + random8(12 + ((255 - SEGMENT.intensity) >> 1)) +1;
+        flashers[f].stateDur = riseFallTime/100 + ((255 - SEGMENT.intensity) >> 2) + hw_random8(12 + ((255 - SEGMENT.intensity) >> 1)) +1;
       } else {
-        flashers[f].stateDur = riseFallTime/100 + random8(3 + ((255 - SEGMENT.speed) >> 6)) +1;
+        flashers[f].stateDur = riseFallTime/100 + hw_random8(3 + ((255 - SEGMENT.speed) >> 6)) +1;
       }
       flashers[f].stateStart = now16;
       stateTime = 0;
       if (init) {
         flashers[f].stateStart -= riseFallTime; //start lit
-        flashers[f].stateDur = riseFallTime/100 + random8(12 + ((255 - SEGMENT.intensity) >> 1)) +5; //fire up a little quicker
+        flashers[f].stateDur = riseFallTime/100 + hw_random8(12 + ((255 - SEGMENT.intensity) >> 1)) +5; //fire up a little quicker
         stateTime = riseFallTime;
       }
     }
@@ -1585,11 +1585,11 @@ uint16_t mode_icu(void) {
   if (SEGMENT.step < cycleTime) {
     SEGMENT.step = cycleTime + 1;
     if (SEGENV.aux0 == dest) { // pause between eye movements
-      SEGENV.aux0 = random16(SEGLEN-space); // new position of eyes
-      if (random8(6) == 0) { // blink once in a while
+      SEGENV.aux0 = hw_random16(SEGLEN-space); // new position of eyes
+      if (hw_random8(6) == 0) { // blink once in a while
         SEGMENT.step += 200/FRAMETIME;  // 200ms wait
       } else {
-        SEGMENT.step += random16(1000, 3000)/FRAMETIME; // 1-3s wait
+        SEGMENT.step += hw_random16(1000, 3000)/FRAMETIME; // 1-3s wait
       }
     } else if (SEGENV.aux0 > SEGENV.aux1) {
       dest++;
@@ -1719,7 +1719,7 @@ uint16_t mode_multi_comet(void) {
       }
       comets[i]++;
     } else {
-      if(!random16(SEGLEN)) {
+      if(!hw_random16(SEGLEN)) {
         comets[i] = 0;
       }
     }
@@ -1803,12 +1803,12 @@ uint16_t mode_oscillate(void) {
       oscillators[i].pos = 0;
       oscillators[i].dir = 1;
       // make bigger steps for faster speeds
-      oscillators[i].speed = SEGMENT.speed > 100 ? random8(2, 4):random8(1, 3);
+      oscillators[i].speed = SEGMENT.speed > 100 ? hw_random8(2, 4):hw_random8(1, 3);
     }
     if((oscillators[i].dir == 1) && (oscillators[i].pos >= (SEGLEN - 1))) {
       oscillators[i].pos = SEGLEN - 1;
       oscillators[i].dir = -1;
-      oscillators[i].speed = SEGMENT.speed > 100 ? random8(2, 4):random8(1, 3);
+      oscillators[i].speed = SEGMENT.speed > 100 ? hw_random8(2, 4):hw_random8(1, 3);
     }
   }
 
@@ -1831,13 +1831,13 @@ static const char _data_FX_MODE_OSCILLATE[] PROGMEM = "Oscillate";
 //TODO
 uint16_t mode_lightning(void) {
   if (SEGLEN == 1) return mode_static();
-  unsigned ledstart = random16(SEGLEN);               // Determine starting location of flash
-  unsigned ledlen = 1 + random16(SEGLEN -ledstart);   // Determine length of flash (not to go beyond NUM_LEDS-1)
-  uint8_t bri = 255/random8(1, 3);
+  unsigned ledstart = hw_random16(SEGLEN);               // Determine starting location of flash
+  unsigned ledlen = 1 + hw_random16(SEGLEN -ledstart);   // Determine length of flash (not to go beyond NUM_LEDS-1)
+  uint8_t bri = 255/hw_random8(1, 3);
 
   if (SEGENV.aux1 == 0) //init, leader flash
   {
-    SEGENV.aux1 = random8(4, 4 + SEGMENT.intensity/20); //number of flashes
+    SEGENV.aux1 = hw_random8(4, 4 + SEGMENT.intensity/20); //number of flashes
     SEGENV.aux1 *= 2;
 
     bri = 52; //leader has lower brightness
@@ -1854,15 +1854,15 @@ uint16_t mode_lightning(void) {
     SEGENV.aux1--;
 
     SEGENV.step = strip.now;
-    //return random8(4, 10); // each flash only lasts one frame/every 24ms... originally 4-10 milliseconds
+    //return hw_random8(4, 10); // each flash only lasts one frame/every 24ms... originally 4-10 milliseconds
   } else {
     if (strip.now - SEGENV.step > SEGENV.aux0) {
       SEGENV.aux1--;
       if (SEGENV.aux1 < 2) SEGENV.aux1 = 0;
 
-      SEGENV.aux0 = (50 + random8(100)); //delay between flashes
+      SEGENV.aux0 = (50 + hw_random8(100)); //delay between flashes
       if (SEGENV.aux1 == 2) {
-        SEGENV.aux0 = (random8(255 - SEGMENT.speed) * 100); // delay between strikes
+        SEGENV.aux0 = (hw_random8(255 - SEGMENT.speed) * 100); // delay between strikes
       }
       SEGENV.step = strip.now;
     }
@@ -2075,7 +2075,7 @@ uint16_t mode_fire_2012() {
 
       // Step 1.  Cool down every cell a little
       for (unsigned i = 0; i < SEGLEN; i++) {
-        uint8_t cool = (it != SEGENV.step) ? random8((((20 + SEGMENT.speed/3) * 16) / SEGLEN)+2) : random8(4);
+        uint8_t cool = (it != SEGENV.step) ? hw_random8((((20 + SEGMENT.speed/3) * 16) / SEGLEN)+2) : hw_random8(4);
         uint8_t minTemp = (i<ignition) ? (ignition-i)/4 + 16 : 0;  // should not become black in ignition area
         uint8_t temp = qsub8(heat[i], cool);
         heat[i] = temp<minTemp ? minTemp : temp;
@@ -2088,10 +2088,10 @@ uint16_t mode_fire_2012() {
         }
 
         // Step 3.  Randomly ignite new 'sparks' of heat near the bottom
-        if (random8() <= SEGMENT.intensity) {
-          uint8_t y = random8(ignition);
+        if (hw_random8() <= SEGMENT.intensity) {
+          uint8_t y = hw_random8(ignition);
           uint8_t boost = (17+SEGMENT.custom3) * (ignition - y/2) / ignition; // integer math!
-          heat[y] = qadd8(heat[y], random8(96+2*boost,207+boost));
+          heat[y] = qadd8(heat[y], hw_random8(96+2*boost,207+boost));
         }
       }
 
@@ -2180,7 +2180,7 @@ static const char _data_FX_MODE_BPM[] PROGMEM = "Bpm@!;!;!;;sx=64";
 
 
 uint16_t mode_fillnoise8() {
-  if (SEGENV.call == 0) SEGENV.step = random16(12345);
+  if (SEGENV.call == 0) SEGENV.step = hw_random();
   for (unsigned i = 0; i < SEGLEN; i++) {
     unsigned index = inoise8(i * SEGLEN, SEGENV.step + i * SEGLEN);
     SEGMENT.setPixelColor(i, SEGMENT.color_from_palette(index, false, PALETTE_SOLID_WRAP, 0));
@@ -2300,14 +2300,14 @@ uint16_t mode_colortwinkle() {
   }
 
   for (unsigned j = 0; j <= SEGLEN / 50; j++) {
-    if (random8() <= SEGMENT.intensity) {
+    if (hw_random8() <= SEGMENT.intensity) {
       for (unsigned times = 0; times < 5; times++) { //attempt to spawn a new pixel 5 times
-        int i = random16(SEGLEN);
+        int i = hw_random16(SEGLEN);
         if (SEGMENT.getPixelColor(i) == 0) {
           unsigned index = i >> 3;
           unsigned  bitNum = i & 0x07;
           bitWrite(SEGENV.data[index], bitNum, true);
-          SEGMENT.setPixelColor(i, ColorFromPalette(SEGPALETTE, random8(), 64, NOBLEND));
+          SEGMENT.setPixelColor(i, ColorFromPalette(SEGPALETTE, hw_random8(), 64, NOBLEND));
           break; //only spawn 1 new pixel per frame per 50 LEDs
         }
       }
@@ -2354,7 +2354,7 @@ uint16_t mode_meteor() {
   // fade all leds to colors[1] in LEDs one step
   for (unsigned i = 0; i < SEGLEN; i++) {
     if (random8() <= 255 - SEGMENT.intensity) {
-      int meteorTrailDecay = 128 + random8(127);
+      int meteorTrailDecay = 128 + hw_random8(127);
       trail[i] = scale8(trail[i], meteorTrailDecay);
       int index = trail[i];
       int idx = 255;
@@ -2400,8 +2400,8 @@ uint16_t mode_meteor_smooth() {
   const int max = SEGMENT.palette==5 || !SEGMENT.check1 ? 240 : 255;
   // fade all leds to colors[1] in LEDs one step
   for (unsigned i = 0; i < SEGLEN; i++) {
-    if (/*trail[i] != 0 &&*/ random8() <= 255 - SEGMENT.intensity) {
-      int change = trail[i] + 4 - random8(24); //change each time between -20 and +4
+    if (/*trail[i] != 0 &&*/ hw_random8() <= 255 - SEGMENT.intensity) {
+      int change = trail[i] + 4 - hw_random8(24); //change each time between -20 and +4
       trail[i] = constrain(change, 0, max);
       SEGMENT.setPixelColor(i, SEGMENT.check1 ? SEGMENT.color_from_palette(i, true, false, 0, trail[i]) : SEGMENT.color_from_palette(trail[i], false, true, 255));
     }
@@ -2513,10 +2513,10 @@ static uint16_t ripple_base() {
       ripplestate += rippledecay;
       ripples[i].state = (ripplestate > 254) ? 0 : ripplestate;
     } else {//randomly create new wave
-      if (random16(IBN + 10000) <= (SEGMENT.intensity >> (is2D*3))) {
+      if (hw_random16(IBN + 10000) <= (SEGMENT.intensity >> (is2D*3))) {
         ripples[i].state = 1;
-        ripples[i].pos = is2D ? ((random8(SEG_W)<<8) | (random8(SEG_H))) : random16(SEGLEN);
-        ripples[i].color = random8(); //color
+        ripples[i].pos = is2D ? ((hw_random8(SEG_W)<<8) | (hw_random8(SEG_H))) : random16(SEGLEN);
+        ripples[i].color = hw_random8(); //color
       }
     }
   }
@@ -2538,11 +2538,11 @@ static const char _data_FX_MODE_RIPPLE[] PROGMEM = "Ripple@!,Wave #,,,,,Overlay;
 uint16_t mode_ripple_rainbow(void) {
   if (SEGLEN == 1) return mode_static();
   if (SEGENV.call ==0) {
-    SEGENV.aux0 = random8();
-    SEGENV.aux1 = random8();
+    SEGENV.aux0 = hw_random8();
+    SEGENV.aux1 = hw_random8();
   }
   if (SEGENV.aux0 == SEGENV.aux1) {
-    SEGENV.aux1 = random8();
+    SEGENV.aux1 = hw_random8();
   } else if (SEGENV.aux1 > SEGENV.aux0) {
     SEGENV.aux0++;
   } else {
@@ -2737,10 +2737,10 @@ uint16_t mode_halloween_eyes()
       // - select a duration
       // - immediately switch to eyes on state.
 
-      data.startPos = random16(0, maxWidth - eyeLength - 1);
-      data.color = random8();
-      if (strip.isMatrix) SEGMENT.offset = random16(SEG_H-1); // a hack: reuse offset since it is not used in matrices
-      duration = 128u + random16(SEGMENT.intensity*64u);
+      data.startPos = hw_random16(0, maxWidth - eyeLength - 1);
+      data.color = hw_random8();
+      if (strip.isMatrix) SEGMENT.offset = hw_random16(SEG_H-1); // a hack: reuse offset since it is not used in matrices
+      duration = 128u + hw_random16(SEGMENT.intensity*64u);
       data.duration = duration;
       data.state = eyeState::on;
       [[fallthrough]];
@@ -2767,11 +2767,11 @@ uint16_t mode_halloween_eyes()
       } else if (elapsedTime > minimumOnTimeBegin) {
         const uint32_t remainingTime = (elapsedTime >= duration) ? 0u : (duration - elapsedTime);
         if (remainingTime > minimumOnTimeEnd) {
-          if (random8() < 4u)
+          if (hw_random8() < 4u)
           {
             c = backgroundColor;
             data.state = eyeState::blink;
-            data.blinkEndTime = strip.now + random8(8, 128);
+            data.blinkEndTime = strip.now + hw_random8(8, 128);
           }
         }
       }
@@ -2805,7 +2805,7 @@ uint16_t mode_halloween_eyes()
       // - immediately switch to eyes-off state
 
       const unsigned eyeOffTimeBase = SEGMENT.speed*128u;
-      duration = eyeOffTimeBase + random16(eyeOffTimeBase);
+      duration = eyeOffTimeBase + hw_random16(eyeOffTimeBase);
       data.duration = duration;
       data.state = eyeState::off;
       [[fallthrough]];
@@ -2995,7 +2995,7 @@ uint16_t mode_bouncing_balls(void) {
           balls[i].lastBounceTime = time;
 
           if (balls[i].impactVelocity < 0.015f) {
-            float impactVelocityStart = sqrtf(-2.0f * gravity) * random8(5,11)/10.0f; // randomize impact velocity
+            float impactVelocityStart = sqrtf(-2.0f * gravity) * hw_random8(5,11)/10.0f; // randomize impact velocity
             balls[i].impactVelocity = impactVelocityStart;
           }
         } else if (balls[i].height > 1.0f) {
@@ -3058,10 +3058,10 @@ static uint16_t rolling_balls(void) {
     SEGMENT.fill(hasCol2 ? BLACK : SEGCOLOR(1));                    // start clean
     for (unsigned i = 0; i < maxNumBalls; i++) {
       balls[i].lastBounceUpdate = strip.now;
-      balls[i].velocity = 20.0f * float(random16(1000, 10000))/10000.0f;  // number from 1 to 10
-      if (random8()<128) balls[i].velocity = -balls[i].velocity;    // 50% chance of reverse direction
-      balls[i].height = (float(random16(0, 10000)) / 10000.0f);     // from 0. to 1.
-      balls[i].mass   = (float(random16(1000, 10000)) / 10000.0f);  // from .1 to 1.
+      balls[i].velocity = 20.0f * float(hw_random16(1000, 10000))/10000.0f;  // number from 1 to 10
+      if (hw_random8()<128) balls[i].velocity = -balls[i].velocity;    // 50% chance of reverse direction
+      balls[i].height = (float(hw_random16(0, 10000)) / 10000.0f);     // from 0. to 1.
+      balls[i].mass   = (float(hw_random16(1000, 10000)) / 10000.0f);  // from .1 to 1.
     }
   }
 
@@ -3077,7 +3077,7 @@ static uint16_t rolling_balls(void) {
     float thisHeight = balls[i].height + balls[i].velocity * timeSinceLastUpdate; // this method keeps higher resolution
     // test if intensity level was increased and some balls are way off the track then put them back
     if (thisHeight < -0.5f || thisHeight > 1.5f) {
-      thisHeight = balls[i].height = (float(random16(0, 10000)) / 10000.0f); // from 0. to 1.
+      thisHeight = balls[i].height = (float(hw_random16(0, 10000)) / 10000.0f); // from 0. to 1.
       balls[i].lastBounceUpdate = strip.now;
     }
     // check if reached ends of the strip
@@ -3187,7 +3187,7 @@ static const char _data_FX_MODE_SINELON_RAINBOW[] PROGMEM = "Sinelon Rainbow@!,T
 
 // utility function that will add random glitter to SEGMENT
 void glitter_base(uint8_t intensity, uint32_t col = ULTRAWHITE) {
-  if (intensity > random8()) SEGMENT.setPixelColor(random16(SEGLEN), col);
+  if (intensity > hw_random8()) SEGMENT.setPixelColor(hw_random16(SEGLEN), col);
 }
 
 //Glitter with palette background, inspired by https://gist.github.com/kriegsman/062e10f7f07ba8518af6
@@ -3264,18 +3264,18 @@ uint16_t mode_popcorn(void) {
           popcorn[i].pos += popcorn[i].vel;
           popcorn[i].vel += gravity;
         } else { // if kernel is inactive, randomly pop it
-          if (random8() < 2) { // POP!!!
+          if (hw_random8() < 2) { // POP!!!
             popcorn[i].pos = 0.01f;
 
-            unsigned peakHeight = 128 + random8(128); //0-255
+            unsigned peakHeight = 128 + hw_random8(128); //0-255
             peakHeight = (peakHeight * (SEGLEN -1)) >> 8;
             popcorn[i].vel = sqrtf(-2.0f * gravity * peakHeight);
 
             if (SEGMENT.palette)
             {
-              popcorn[i].colIndex = random8();
+              popcorn[i].colIndex = hw_random8();
             } else {
-              byte col = random8(0, NUM_COLORS);
+              byte col = hw_random8(0, NUM_COLORS);
               if (!SEGCOLOR(2) || !SEGCOLOR(col)) col = 0;
               popcorn[i].colIndex = col;
             }
@@ -3337,7 +3337,7 @@ uint16_t candle(bool multi)
       s = SEGENV.data[d]; s_target = SEGENV.data[d+1]; fadeStep = SEGENV.data[d+2];
     }
     if (fadeStep == 0) { //init vals
-      s = 128; s_target = 130 + random8(4); fadeStep = 1;
+      s = 128; s_target = 130 + hw_random8(4); fadeStep = 1;
     }
 
     bool newTarget = false;
@@ -3350,8 +3350,8 @@ uint16_t candle(bool multi)
     }
 
     if (newTarget) {
-      s_target = random8(rndval) + random8(rndval); //between 0 and rndval*2 -2 = 252
-      if (s_target < (rndval >> 1)) s_target = (rndval >> 1) + random8(rndval);
+      s_target = hw_random8(rndval) + hw_random8(rndval); //between 0 and rndval*2 -2 = 252
+      if (s_target < (rndval >> 1)) s_target = (rndval >> 1) + hw_random8(rndval);
       unsigned offset = (255 - valrange);
       s_target += offset;
 
@@ -3437,19 +3437,19 @@ uint16_t mode_starburst(void) {
   for (unsigned j = 0; j < numStars; j++)
   {
     // speed to adjust chance of a burst, max is nearly always.
-    if (random8((144-(SEGMENT.speed >> 1))) == 0 && stars[j].birth == 0)
+    if (hw_random8((144-(SEGMENT.speed >> 1))) == 0 && stars[j].birth == 0)
     {
       // Pick a random color and location.
-      unsigned startPos = random16(SEGLEN-1);
-      float multiplier = (float)(random8())/255.0f * 1.0f;
+      unsigned startPos = hw_random16(SEGLEN-1);
+      float multiplier = (float)(hw_random8())/255.0f * 1.0f;
 
-      stars[j].color = CRGB(SEGMENT.color_wheel(random8()));
+      stars[j].color = CRGB(SEGMENT.color_wheel(hw_random8()));
       stars[j].pos = startPos;
-      stars[j].vel = maxSpeed * (float)(random8())/255.0f * multiplier;
+      stars[j].vel = maxSpeed * (float)(hw_random8())/255.0f * multiplier;
       stars[j].birth = it;
       stars[j].last = it;
       // more fragments means larger burst effect
-      int num = random8(3,6 + (SEGMENT.intensity >> 5));
+      int num = hw_random8(3,6 + (SEGMENT.intensity >> 5));
 
       for (int i=0; i < STARBURST_MAX_FRAG; i++) {
         if (i < num) stars[j].fragment[i] = startPos;
@@ -3568,11 +3568,11 @@ uint16_t mode_exploding_fireworks(void)
       const unsigned half = cols/2;
       const unsigned quarter = cols/4;
       flare->pos = 0;
-      flare->posX = is2D ? random16(half-quarter,half+quarter) : (SEGMENT.intensity > random8()); // will enable random firing side on 1D
-      unsigned peakHeight = 75 + random8(180); //0-255
+      flare->posX = is2D ? hw_random16(half-quarter,half+quarter) : (SEGMENT.intensity > random8()); // will enable random firing side on 1D
+      unsigned peakHeight = 75 + hw_random8(180); //0-255
       peakHeight = (peakHeight * (rows -1)) >> 8;
       flare->vel = sqrtf(-2.0f * gravity * float(peakHeight));
-      flare->velX = is2D ? (random8(9)-4)/64.0f : 0.0f; // no X velocity on 1D
+      flare->velX = is2D ? (hw_random8(9)-4)/64.0f : 0.0f; // no X velocity on 1D
       flare->col = 255; //brightness
       SEGENV.aux0 = 1;
     }
@@ -3600,7 +3600,7 @@ uint16_t mode_exploding_fireworks(void)
      * Explosion happens where the flare ended.
      * Size is proportional to the height.
      */
-    unsigned nSparks = flare->pos + random8(4);
+    unsigned nSparks = flare->pos + hw_random8(4);
     nSparks = std::max(nSparks, 4U);  // This is not a standard constrain; numSparks is not guaranteed to be at least 4
     nSparks = std::min(nSparks, numSparks);
 
@@ -3609,12 +3609,12 @@ uint16_t mode_exploding_fireworks(void)
       for (unsigned i = 1; i < nSparks; i++) {
         sparks[i].pos  = flare->pos;
         sparks[i].posX = flare->posX;
-        sparks[i].vel  = (float(random16(20001)) / 10000.0f) - 0.9f; // from -0.9 to 1.1
+        sparks[i].vel  = (float(hw_random16(20001)) / 10000.0f) - 0.9f; // from -0.9 to 1.1
         sparks[i].vel *= rows<32 ? 0.5f : 1; // reduce velocity for smaller strips
-        sparks[i].velX = is2D ? (float(random16(20001)) / 10000.0f) - 1.0f : 0; // from -1 to 1
+        sparks[i].velX = is2D ? (float(hw_random16(20001)) / 10000.0f) - 1.0f : 0; // from -1 to 1
         sparks[i].col  = 345;//abs(sparks[i].vel * 750.0); // set colors before scaling velocity to keep them bright
         //sparks[i].col = constrain(sparks[i].col, 0, 345);
-        sparks[i].colIndex = random8();
+        sparks[i].colIndex = hw_random8();
         sparks[i].vel  *= flare->pos/float(rows); // proportional to height
         sparks[i].velX *= is2D ? flare->posX/cols : 0.0f; // proportional to width
         sparks[i].vel  *= -gravity * 50.0f;
@@ -3652,7 +3652,7 @@ uint16_t mode_exploding_fireworks(void)
       if (SEGMENT.check3) SEGMENT.blur(16);
       *dying_gravity *= .8f; // as sparks burn out they fall slower
     } else {
-      SEGENV.aux0 = 6 + random8(10); //wait for this many frames
+      SEGENV.aux0 = 6 + hw_random8(10); //wait for this many frames
     }
   } else {
     SEGENV.aux0--;
@@ -3707,7 +3707,7 @@ uint16_t mode_drip(void)
 
           drops[j].col += map(SEGMENT.speed, 0, 255, 1, 6); // swelling
 
-          if (random8() < drops[j].col/10) {               // random drop
+          if (hw_random8() < drops[j].col/10) {               // random drop
             drops[j].colIndex=2;               //fall
             drops[j].col=255;
           }
@@ -3793,17 +3793,17 @@ uint16_t mode_tetrix(void) {
         // speed calculation: a single brick should reach bottom of strip in X seconds
         // if the speed is set to 1 this should take 5s and at 255 it should take 0.25s
         // as this is dependant on SEGLEN it should be taken into account and the fact that effect runs every FRAMETIME s
-        int speed = SEGMENT.speed ? SEGMENT.speed : random8(1,255);
+        int speed = SEGMENT.speed ? SEGMENT.speed : hw_random8(1,255);
         speed = map(speed, 1, 255, 5000, 250); // time taken for full (SEGLEN) drop
         drop->speed = float(SEGLEN * FRAMETIME) / float(speed); // set speed
         drop->pos   = SEGLEN;             // start at end of segment (no need to subtract 1)
-        if (!SEGMENT.check1) drop->col = random8(0,15)<<4;   // limit color choices so there is enough HUE gap
+        if (!SEGMENT.check1) drop->col = hw_random8(0,15)<<4;   // limit color choices so there is enough HUE gap
         drop->step  = 1;                  // drop state (0 init, 1 forming, 2 falling)
-        drop->brick = (SEGMENT.intensity ? (SEGMENT.intensity>>5)+1 : random8(1,5)) * (1+(SEGLEN>>6));  // size of brick
+        drop->brick = (SEGMENT.intensity ? (SEGMENT.intensity>>5)+1 : hw_random8(1,5)) * (1+(SEGLEN>>6));  // size of brick
       }
 
       if (drop->step == 1) {              // forming
-        if (random8()>>6) {               // random drop
+        if (hw_random8()>>6) {               // random drop
           drop->step = 2;                 // fall
         }
       }
@@ -3852,7 +3852,7 @@ static const char _data_FX_MODE_TETRIX[] PROGMEM = "Tetrix@!,Width,,,,One color;
 uint16_t mode_plasma(void) {
   // initialize phases on start
   if (SEGENV.call == 0) {
-    SEGENV.aux0 = random8(0,2);  // add a bit of randomness
+    SEGENV.aux0 = hw_random8(0,2);  // add a bit of randomness
   }
   unsigned thisPhase = beatsin8(6+SEGENV.aux0,-64,64);
   unsigned thatPhase = beatsin8(7+SEGENV.aux0,-64,64);
@@ -4196,8 +4196,8 @@ uint16_t mode_noisepal(void) {                                    // Slow noise 
   {
     SEGENV.step = strip.now;
 
-    unsigned baseI = random8();
-    palettes[1] = CRGBPalette16(CHSV(baseI+random8(64), 255, random8(128,255)), CHSV(baseI+128, 255, random8(128,255)), CHSV(baseI+random8(92), 192, random8(128,255)), CHSV(baseI+random8(92), 255, random8(128,255)));
+    unsigned baseI = hw_random8();
+    palettes[1] = CRGBPalette16(CHSV(baseI+hw_random8(64), 255, hw_random8(128,255)), CHSV(baseI+128, 255, hw_random8(128,255)), CHSV(baseI+hw_random8(92), 192, hw_random8(128,255)), CHSV(baseI+hw_random8(92), 255, hw_random8(128,255)));
   }
 
   //EVERY_N_MILLIS(10) { //(don't have to time this, effect function is only called every 24ms)
@@ -4364,16 +4364,16 @@ uint16_t mode_dancing_shadows(void)
     }
 
     if (initialize || respawn) {
-      spotlights[i].colorIdx = random8();
-      spotlights[i].width = random8(1, 10);
+      spotlights[i].colorIdx = hw_random8();
+      spotlights[i].width = hw_random8(1, 10);
 
-      spotlights[i].speed = 1.0/random8(4, 50);
+      spotlights[i].speed = 1.0/hw_random8(4, 50);
 
       if (initialize) {
-        spotlights[i].position = random16(SEGLEN);
-        spotlights[i].speed *= random8(2) ? 1.0 : -1.0;
+        spotlights[i].position = hw_random16(SEGLEN);
+        spotlights[i].speed *= hw_random8(2) ? 1.0 : -1.0;
       } else {
-        if (random8(2)) {
+        if (hw_random8(2)) {
           spotlights[i].position = SEGLEN + spotlights[i].width;
           spotlights[i].speed *= -1.0;
         }else {
@@ -4382,7 +4382,7 @@ uint16_t mode_dancing_shadows(void)
       }
 
       spotlights[i].lastUpdateTime = time;
-      spotlights[i].type = random8(SPOT_TYPES_COUNT);
+      spotlights[i].type = hw_random8(SPOT_TYPES_COUNT);
     }
 
     uint32_t color = SEGMENT.color_from_palette(spotlights[i].colorIdx, false, false, 255);
@@ -4541,10 +4541,10 @@ uint16_t mode_tv_simulator(void) {
     // create a new sceene
     if (((strip.now - tvSimulator->sceeneStart) >= tvSimulator->sceeneDuration) || SEGENV.aux1 == 0) {
       tvSimulator->sceeneStart    = strip.now;                                               // remember the start of the new sceene
-      tvSimulator->sceeneDuration = random16(60* 250* colorSpeed, 60* 750 * colorSpeed);    // duration of a "movie sceene" which has similar colors (5 to 15 minutes with max speed slider)
-      tvSimulator->sceeneColorHue = random16(   0, 768);                                    // random start color-tone for the sceene
-      tvSimulator->sceeneColorSat = random8 ( 100, 130 + colorIntensity);                   // random start color-saturation for the sceene
-      tvSimulator->sceeneColorBri = random8 ( 200, 240);                                    // random start color-brightness for the sceene
+      tvSimulator->sceeneDuration = hw_random16(60* 250* colorSpeed, 60* 750 * colorSpeed);    // duration of a "movie sceene" which has similar colors (5 to 15 minutes with max speed slider)
+      tvSimulator->sceeneColorHue = hw_random16(   0, 768);                                    // random start color-tone for the sceene
+      tvSimulator->sceeneColorSat = hw_random8 ( 100, 130 + colorIntensity);                   // random start color-saturation for the sceene
+      tvSimulator->sceeneColorBri = hw_random8 ( 200, 240);                                    // random start color-brightness for the sceene
       SEGENV.aux1 = 1;
       SEGENV.aux0 = 0;
     }
@@ -4552,16 +4552,16 @@ uint16_t mode_tv_simulator(void) {
     // slightly change the color-tone in this sceene
     if (SEGENV.aux0 == 0) {
       // hue change in both directions
-      j = random8(4 * colorIntensity);
-      hue = (random8() < 128) ? ((j < tvSimulator->sceeneColorHue)       ? tvSimulator->sceeneColorHue - j : 767 - tvSimulator->sceeneColorHue - j) :  // negative
+      j = hw_random8(4 * colorIntensity);
+      hue = (hw_random8() < 128) ? ((j < tvSimulator->sceeneColorHue)       ? tvSimulator->sceeneColorHue - j : 767 - tvSimulator->sceeneColorHue - j) :  // negative
                                 ((j + tvSimulator->sceeneColorHue) < 767 ? tvSimulator->sceeneColorHue + j : tvSimulator->sceeneColorHue + j - 767) ;  // positive
 
       // saturation
-      j = random8(2 * colorIntensity);
+      j = hw_random8(2 * colorIntensity);
       sat = (tvSimulator->sceeneColorSat - j) < 0 ? 0 : tvSimulator->sceeneColorSat - j;
 
       // brightness
-      j = random8(100);
+      j = hw_random8(100);
       bri = (tvSimulator->sceeneColorBri - j) < 0 ? 0 : tvSimulator->sceeneColorBri - j;
 
       // calculate R,G,B from HSV
@@ -4587,9 +4587,9 @@ uint16_t mode_tv_simulator(void) {
     SEGENV.aux0 = 1;
 
     // randomize total duration and fade duration for the actual color
-    tvSimulator->totalTime = random16(250, 2500);                   // Semi-random pixel-to-pixel time
-    tvSimulator->fadeTime  = random16(0, tvSimulator->totalTime);   // Pixel-to-pixel transition time
-    if (random8(10) < 3) tvSimulator->fadeTime = 0;                 // Force scene cut 30% of time
+    tvSimulator->totalTime = hw_random16(250, 2500);                   // Semi-random pixel-to-pixel time
+    tvSimulator->fadeTime  = hw_random16(0, tvSimulator->totalTime);   // Pixel-to-pixel transition time
+    if (hw_random8(10) < 3) tvSimulator->fadeTime = 0;                 // Force scene cut 30% of time
 
     tvSimulator->startTime = strip.now;
   } // end of initialization
@@ -4654,15 +4654,15 @@ class AuroraWave {
 
   public:
     void init(uint32_t segment_length, CRGB color) {
-      ttl = random16(500, 1501);
+      ttl = hw_random16(500, 1501);
       basecolor = color;
-      basealpha = random8(60, 101) / (float)100;
+      basealpha = hw_random8(60, 101) / (float)100;
       age = 0;
-      width = random16(segment_length / 20, segment_length / W_WIDTH_FACTOR); //half of width to make math easier
+      width = hw_random16(segment_length / 20, segment_length / W_WIDTH_FACTOR); //half of width to make math easier
       if (!width) width = 1;
-      center = random8(101) / (float)100 * segment_length;
-      goingleft = random8(0, 2) == 0;
-      speed_factor = (random8(10, 31) / (float)100 * W_MAX_SPEED / 255);
+      center = hw_random8(101) / (float)100 * segment_length;
+      goingleft = hw_random8(0, 2) == 0;
+      speed_factor = (hw_random8(10, 31) / (float)100 * W_MAX_SPEED / 255);
       alive = true;
     }
 
@@ -4747,7 +4747,7 @@ uint16_t mode_aurora(void) {
     waves = reinterpret_cast<AuroraWave*>(SEGENV.data);
 
     for (int i = 0; i < SEGENV.aux1; i++) {
-      waves[i].init(SEGLEN, CRGB(SEGMENT.color_from_palette(random8(), false, false, random8(0, 3))));
+      waves[i].init(SEGLEN, CRGB(SEGMENT.color_from_palette(hw_random8(), false, false, hw_random8(0, 3))));
     }
   } else {
     waves = reinterpret_cast<AuroraWave*>(SEGENV.data);
@@ -4759,7 +4759,7 @@ uint16_t mode_aurora(void) {
 
     if(!(waves[i].stillAlive())) {
       //If a wave dies, reinitialize it starts over.
-      waves[i].init(SEGLEN, CRGB(SEGMENT.color_from_palette(random8(), false, false, random8(0, 3))));
+      waves[i].init(SEGLEN, CRGB(SEGMENT.color_from_palette(hw_random8(), false, false, hw_random8(0, 3))));
     }
   }
 
@@ -5124,15 +5124,14 @@ uint16_t mode_2Dgameoflife(void) { // Written by Ewoud Wijma, inspired by https:
   if (SEGENV.call == 0 || strip.now - SEGMENT.step > 3000) {
     SEGENV.step = strip.now;
     SEGENV.aux0 = 0;
-    //random16_set_seed(millis()>>2); //seed the random generator
 
     //give the leds random state and colors (based on intensity, colors from palette or all posible colors are chosen)
     for (int x = 0; x < cols; x++) for (int y = 0; y < rows; y++) {
-      unsigned state = random8()%2;
+      unsigned state = hw_random8()%2;
       if (state == 0)
         SEGMENT.setPixelColorXY(x,y, backgroundColor);
       else
-        SEGMENT.setPixelColorXY(x,y, SEGMENT.color_from_palette(random8(), false, PALETTE_SOLID_WRAP, 255));
+        SEGMENT.setPixelColorXY(x,y, SEGMENT.color_from_palette(hw_random8(), false, PALETTE_SOLID_WRAP, 255));
     }
 
     for (int y = 0; y < rows; y++) for (int x = 0; x < cols; x++) prevLeds[XY(x,y)] = CRGB::Black;
@@ -5187,9 +5186,9 @@ uint16_t mode_2Dgameoflife(void) { // Written by Ewoud Wijma, inspired by https:
       for (int i=0; i<9 && colorsCount[i].count != 0; i++)
         if (colorsCount[i].count > dominantColorCount.count) dominantColorCount = colorsCount[i];
       // assign the dominant color w/ a bit of randomness to avoid "gliders"
-      if (dominantColorCount.count > 0 && random8(128)) SEGMENT.setPixelColorXY(x,y, dominantColorCount.color);
-    } else if ((col == bgc) && (neighbors == 2) && !random8(128)) {               // Mutation
-      SEGMENT.setPixelColorXY(x,y, SEGMENT.color_from_palette(random8(), false, PALETTE_SOLID_WRAP, 255));
+      if (dominantColorCount.count > 0 && hw_random8(128)) SEGMENT.setPixelColorXY(x,y, dominantColorCount.color);
+    } else if ((col == bgc) && (neighbors == 2) && !hw_random8(128)) {               // Mutation
+      SEGMENT.setPixelColorXY(x,y, SEGMENT.color_from_palette(hw_random8(), false, PALETTE_SOLID_WRAP, 255));
     }
     // else do nothing!
   } //x,y
@@ -5431,8 +5430,8 @@ uint16_t mode_2Dmatrix(void) {                  // Matrix2D. By Jeremy Williams.
     }
 
     // spawn new falling code
-    if (random8() <= SEGMENT.intensity || emptyScreen) {
-      uint8_t spawnX = random8(cols);
+    if (hw_random8() <= SEGMENT.intensity || emptyScreen) {
+      uint8_t spawnX = hw_random8(cols);
       SEGMENT.setPixelColorXY(spawnX, 0, spawnColor);
       // update hint for next run
       unsigned index = XY(spawnX, 0) >> 3;
@@ -5804,11 +5803,11 @@ uint16_t mode_2Dspaceships(void) {    //// Space ships by stepko (c)05.02.21 [ht
   uint32_t tb = strip.now >> 12;  // every ~4s
   if (tb > SEGENV.step) {
     int dir = ++SEGENV.aux0;
-    dir  += (int)random8(3)-1;
+    dir  += (int)hw_random8(3)-1;
     if      (dir > 7) SEGENV.aux0 = 0;
     else if (dir < 0) SEGENV.aux0 = 7;
     else              SEGENV.aux0 = dir;
-    SEGENV.step = tb + random8(4);
+    SEGENV.step = tb + hw_random8(4);
   }
 
   SEGMENT.fadeToBlackBy(map(SEGMENT.speed, 0, 255, 248, 16));
@@ -5938,9 +5937,8 @@ uint16_t mode_2Dghostrider(void) {
   if (SEGENV.aux0 != cols || SEGENV.aux1 != rows) {
     SEGENV.aux0 = cols;
     SEGENV.aux1 = rows;
-    //random16_set_seed(strip.now);
-    lighter->angleSpeed = random8(0,20) - 10;
-    lighter->gAngle = random16();
+    lighter->angleSpeed = hw_random8(0,20) - 10;
+    lighter->gAngle = hw_random16();
     lighter->Vspeed = 5;
     lighter->gPosX = (cols/2) * 10;
     lighter->gPosY = (rows/2) * 10;
@@ -5968,7 +5966,7 @@ uint16_t mode_2Dghostrider(void) {
     if (lighter->gPosY < 0)               lighter->gPosY = (rows - 1) * 10;
     if (lighter->gPosY > (rows - 1) * 10) lighter->gPosY = 0;
     for (size_t i = 0; i < maxLighters; i++) {
-      lighter->time[i] += random8(5, 20);
+      lighter->time[i] += hw_random8(5, 20);
       if (lighter->time[i] >= 255 ||
           (lighter->lightersPosX[i] <= 0) ||
           (lighter->lightersPosX[i] >= (cols - 1) * 10) ||
@@ -5979,7 +5977,7 @@ uint16_t mode_2Dghostrider(void) {
       if (lighter->reg[i]) {
         lighter->lightersPosY[i] = lighter->gPosY;
         lighter->lightersPosX[i] = lighter->gPosX;
-        lighter->Angle[i] = lighter->gAngle + ((int)random8(20) - 10);
+        lighter->Angle[i] = lighter->gAngle + ((int)hw_random8(20) - 10);
         lighter->time[i] = 0;
         lighter->reg[i] = false;
       } else {
@@ -6025,12 +6023,12 @@ uint16_t mode_2Dfloatingblobs(void) {
     SEGENV.aux1 = rows;
     //SEGMENT.fill(BLACK);
     for (size_t i = 0; i < MAX_BLOBS; i++) {
-      blob->r[i]  = random8(1, cols>8 ? (cols/4) : 2);
-      blob->sX[i] = (float) random8(3, cols) / (float)(256 - SEGMENT.speed); // speed x
-      blob->sY[i] = (float) random8(3, rows) / (float)(256 - SEGMENT.speed); // speed y
-      blob->x[i]  = random8(0, cols-1);
-      blob->y[i]  = random8(0, rows-1);
-      blob->color[i] = random8();
+      blob->r[i]  = hw_random8(1, cols>8 ? (cols/4) : 2);
+      blob->sX[i] = (float) hw_random8(3, cols) / (float)(256 - SEGMENT.speed); // speed x
+      blob->sY[i] = (float) hw_random8(3, rows) / (float)(256 - SEGMENT.speed); // speed y
+      blob->x[i]  = hw_random8(0, cols-1);
+      blob->y[i]  = hw_random8(0, rows-1);
+      blob->color[i] = hw_random8();
       blob->grow[i]  = (blob->r[i] < 1.f);
       if (blob->sX[i] == 0) blob->sX[i] = 1;
       if (blob->sY[i] == 0) blob->sY[i] = 1;
@@ -6069,19 +6067,19 @@ uint16_t mode_2Dfloatingblobs(void) {
     else                                     blob->y[i] += blob->sY[i];
     // bounce x
     if (blob->x[i] < 0.01f) {
-      blob->sX[i] = (float)random8(3, cols) / (256 - SEGMENT.speed);
+      blob->sX[i] = (float)hw_random8(3, cols) / (256 - SEGMENT.speed);
       blob->x[i]  = 0.01f;
     } else if (blob->x[i] > (float)cols - 1.01f) {
-      blob->sX[i] = (float)random8(3, cols) / (256 - SEGMENT.speed);
+      blob->sX[i] = (float)hw_random8(3, cols) / (256 - SEGMENT.speed);
       blob->sX[i] = -blob->sX[i];
       blob->x[i]  = (float)cols - 1.01f;
     }
     // bounce y
     if (blob->y[i] < 0.01f) {
-      blob->sY[i] = (float)random8(3, rows) / (256 - SEGMENT.speed);
+      blob->sY[i] = (float)hw_random8(3, rows) / (256 - SEGMENT.speed);
       blob->y[i]  = 0.01f;
     } else if (blob->y[i] > (float)rows - 1.01f) {
-      blob->sY[i] = (float)random8(3, rows) / (256 - SEGMENT.speed);
+      blob->sY[i] = (float)hw_random8(3, rows) / (256 - SEGMENT.speed);
       blob->sY[i] = -blob->sY[i];
       blob->y[i]  = (float)rows - 1.01f;
     }
@@ -6367,13 +6365,13 @@ uint16_t mode_ripplepeak(void) {                // * Ripple peak. By Andrew Tuli
         break;
 
       case 255:                                           // Initialize ripple variables.
-        ripples[i].pos = random16(SEGLEN);
+        ripples[i].pos = hw_random16(SEGLEN);
         #ifdef ESP32
         if (FFT_MajorPeak > 1.0f)                         // log10(0) is "forbidden" (throws exception)
           ripples[i].color = (int)(log10f(FFT_MajorPeak) * 128.0f);
         else ripples[i].color = 0;
         #else
-        ripples[i].color = random8();
+        ripples[i].color = hw_random8();
         #endif
         ripples[i].state = 0;
         break;
@@ -6850,7 +6848,7 @@ uint16_t mode_puddlepeak(void) {                // Puddlepeak. By Andrew Tuline.
 
   unsigned size = 0;
   uint8_t fadeVal = map(SEGMENT.speed,0,255, 224, 254);
-  unsigned pos = random16(SEGLEN);                        // Set a random starting position.
+  unsigned pos = hw_random16(SEGLEN);                        // Set a random starting position.
 
   um_data_t *um_data = getAudioData();
   uint8_t samplePeak = *(uint8_t*)um_data->u_data[3];
@@ -6927,7 +6925,7 @@ uint16_t mode_pixels(void) {                    // Pixels. By Andrew Tuline.
   SEGMENT.fade_out(64+(SEGMENT.speed>>1));
 
   for (int i=0; i <SEGMENT.intensity/8; i++) {
-    unsigned segLoc = random16(SEGLEN);                    // 16 bit for larger strands of LED's.
+    unsigned segLoc = hw_random16(SEGLEN);                    // 16 bit for larger strands of LED's.
     SEGMENT.setPixelColor(segLoc, color_blend(SEGCOLOR(1), SEGMENT.color_from_palette(myVals[i%32]+i*4, false, PALETTE_SOLID_WRAP, 0), uint8_t(volumeSmth)));
   }
 
@@ -6962,7 +6960,7 @@ uint16_t mode_blurz(void) {                    // Blurz. By Andrew Tuline.
 
   SEGENV.step += FRAMETIME;
   if (SEGENV.step > cycleTime) {
-    unsigned segLoc = random16(SEGLEN);
+    unsigned segLoc = hw_random16(SEGLEN);
     SEGMENT.setPixelColor(segLoc, color_blend(SEGCOLOR(1), SEGMENT.color_from_palette(2*fftResult[SEGENV.aux0%16]*240/max(1, (int)SEGLEN-1), false, PALETTE_SOLID_WRAP, 0), 2*fftResult[SEGENV.aux0%16]));
     ++(SEGENV.aux0) %= 16; // make sure it doesn't cross 16
 
@@ -7122,7 +7120,7 @@ uint16_t mode_freqpixels(void) {                // Freqpixel. By Andrew Tuline.
   uint8_t pixCol = (log10f(FFT_MajorPeak) - 1.78f) * 255.0f/(MAX_FREQ_LOG10 - 1.78f);  // Scale log10 of frequency values to the 255 colour index.
   if (FFT_MajorPeak < 61.0f) pixCol = 0;                                               // handle underflow
   for (int i=0; i < SEGMENT.intensity/32+1; i++) {
-    unsigned locn = random16(0,SEGLEN);
+    unsigned locn = hw_random16(0,SEGLEN);
     SEGMENT.setPixelColor(locn, color_blend(SEGCOLOR(1), SEGMENT.color_from_palette(SEGMENT.intensity+pixCol, false, PALETTE_SOLID_WRAP, 0), (uint8_t)my_magnitude));
   }
 
@@ -7650,9 +7648,9 @@ uint16_t mode_2Dsoap() {
   // init
   if (SEGENV.call == 0) {
     for (unsigned i = 0; i < SEGLEN; i++) pixels[i] = BLACK;   // may not be needed as resetIfRequired() clears buffer
-    *noise32_x = random16();
-    *noise32_y = random16();
-    *noise32_z = random16();
+    *noise32_x = hw_random();
+    *noise32_y = hw_random();
+    *noise32_z = hw_random();
   } else {
     *noise32_x += mov;
     *noise32_y += mov;

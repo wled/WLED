@@ -133,7 +133,7 @@ static bool remoteJson(int button)
         parsed = true;
       } else if (cmdStr.startsWith(F("!presetF"))) { //!presetFallback
         uint8_t p1 = fdo["PL"] | 1;
-        uint8_t p2 = fdo["FX"] | random8(strip.getModeCount() -1);
+        uint8_t p2 = fdo["FX"] | hw_random8(strip.getModeCount() -1);
         uint8_t p3 = fdo["FP"] | 0;
         presetWithFallback(p1, p2, p3);
         parsed = true;
