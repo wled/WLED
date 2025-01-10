@@ -496,6 +496,12 @@ void userConnected();
 void userLoop();
 
 //util.cpp
+#ifdef ESP8266
+#define HW_RND_REGISTER RANDOM_REG32
+#else // ESP32 family
+#include "soc/wdev_reg.h"
+#define HW_RND_REGISTER REG_READ(WDEV_RND_REG)
+#endif
 #define hex2int(a) (((a)>='0' && (a)<='9') ? (a)-'0' : ((a)>='A' && (a)<='F') ? (a)-'A'+10 : ((a)>='a' && (a)<='f') ? (a)-'a'+10 : 0)
 [[gnu::pure]] int getNumVal(const String& req, uint16_t pos);
 void parseNumber(const char* str, byte& val, byte minv=0, byte maxv=255);
@@ -521,6 +527,23 @@ void enumerateLedmaps();
 [[gnu::hot]] uint8_t get_random_wheel_index(uint8_t pos);
 [[gnu::hot, gnu::pure]] float mapf(float x, float in_min, float in_max, float out_min, float out_max);
 [[gnu::hot, gnu::pure]] uint32_t hashInt(uint32_t s);
+
+// fast (true) random numbers using hardware RNG, all functions return values in the range lowerlimit to upperlimit-1
+// note: for true random numbers with high entropy, do not call faster than every 200ns (5MHz)
+// tests show it is still highly random reading it quickly in a loop (better than fastled PRNG)
+// for 8bit and 16bit random functions: no limit check is done for best speed
+// 32bit inputs are used for speed and code size, limits don't work if inverted or out of range
+// inlining does save code size except for random(a,b) and 32bit random with limits
+#define random hw_random // replace arduino random()
+inline uint32_t hw_random() { return HW_RND_REGISTER; };
+uint32_t hw_random(uint32_t upperlimit); // not inlined for code size
+int32_t hw_random(int32_t lowerlimit, int32_t upperlimit);
+inline uint16_t hw_random16() { return HW_RND_REGISTER; };
+inline uint16_t hw_random16(uint32_t upperlimit) { return (hw_random16() * upperlimit) >> 16; }; // input range 0-65535 (uint16_t)
+inline int16_t hw_random16(int32_t lowerlimit, int32_t upperlimit) { int32_t range = upperlimit - lowerlimit; return lowerlimit + hw_random16(range); }; // signed limits, use int16_t ranges
+inline uint8_t hw_random8() { return HW_RND_REGISTER; };
+inline uint8_t hw_random8(uint32_t upperlimit) { return (hw_random8() * upperlimit) >> 8; }; // input range 0-255
+inline uint8_t hw_random8(uint32_t lowerlimit, uint32_t upperlimit) { uint32_t range = upperlimit - lowerlimit; return lowerlimit + hw_random8(range); }; // input range 0-255
 
 // RAII guard class for the JSON Buffer lock
 // Modeled after std::lock_guard

@@ -223,8 +223,20 @@ bool PinManager::isPinOk(byte gpio, bool output)
     // JTAG: GPIO39-42 are usually used for inline debugging
     // GPIO46 is input only and pulled down
   #else
-    if (gpio > 5 && gpio < 12) return false;      //SPI flash pins
-    if (strncmp_P(PSTR("ESP32-PICO"), ESP.getChipModel(), 10) == 0 && (gpio == 16 || gpio == 17)) return false; // PICO-D4: gpio16+17 are in use for onboard SPI FLASH
+
+    if ((strncmp_P(PSTR("ESP32-U4WDH"), ESP.getChipModel(), 11) == 0) ||    // this is the correct identifier, but....
+        (strncmp_P(PSTR("ESP32-PICO-D2"), ESP.getChipModel(), 13) == 0)) {  // https://github.com/espressif/arduino-esp32/issues/10683
+      // this chip has 4 MB of internal Flash and different packaging, so available pins are different!
+      if (((gpio > 5) && (gpio < 9)) || (gpio == 11))
+        return false;
+    } else {
+      // for classic ESP32 (non-mini) modules, these are the SPI flash pins
+      if (gpio > 5 && gpio < 12) return false;      //SPI flash pins
+    }
+
+    if (((strncmp_P(PSTR("ESP32-PICO"), ESP.getChipModel(), 10) == 0) ||
+         (strncmp_P(PSTR("ESP32-U4WDH"), ESP.getChipModel(), 11) == 0))
+        && (gpio == 16 || gpio == 17)) return false; // PICO-D4/U4WDH: gpio16+17 are in use for onboard SPI FLASH
     if (gpio == 16 || gpio == 17) return !psramFound(); //PSRAM pins on ESP32 (these are IO)
   #endif
     if (output) return digitalPinCanOutput(gpio);
