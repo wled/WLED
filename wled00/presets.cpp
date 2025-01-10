@@ -233,8 +233,16 @@ void handlePresets()
   DEBUG_PRINT(F("Applying preset: "));
   DEBUG_PRINTLN(tmpPreset);
 
+  bool haveLocked = false;
   #if defined(ARDUINO_ARCH_ESP32)   // WLEDMM we apply this workaround to all esp32 boards (S3 and classic esp32 included)
   //#if defined(ARDUINO_ARCH_ESP32S2) || defined(ARDUINO_ARCH_ESP32C3)
+  // in case we are called from web UI, wait until strip.service() is done
+  if (!suspendStripService) { suspendStripService = true; haveLocked = true; } // only lock service if not locked already
+  unsigned long waitstart = millis();
+  while (strip.isServicing() && millis() - waitstart < FRAMETIME_FIXED) delay(1); // wait for effects to finish updating
+
+  strip.fill(BLACK); strip.show(); // experimental: set LEDs to black while new preset loads (instead of freezing effects)
+
   unsigned long start = millis();
   while (strip.isUpdating() && millis() - start < FRAMETIME_FIXED) delay(1); // wait for strip to finish updating, accessing FS during sendout causes glitches // WLEDMM delay instead of yield
   #endif
@@ -250,6 +258,7 @@ void handlePresets()
     if ((errorFlag == ERR_FS_PLOAD) || (errorFlag == ERR_JSON)) errorFlag = ERR_NONE;  // WLEDMM only reset our own error
     if (presetErrorFlag == ERR_FS_PLOAD) errorFlag = presetErrorFlag;
   }
+  if (haveLocked) suspendStripService = false; // WLEDMM unlock effects after presets file was loaded
   fdo = fileDoc->as<JsonObject>();
 
   //HTTP API commands
