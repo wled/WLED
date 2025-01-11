@@ -16,10 +16,39 @@
 #define WIZMOTE_BUTTON_BRIGHT_UP   33
 #define WIZMOTE_BUTTON_BRIGHT_DOWN 35
 
+#define WIZMOTE_BUTTON_TWO_DOUBLE  6
+#define WIZMOTE_BUTTON_TWO_TRIPLE  7
+#define WIZMOTE_BUTTON_TWO_QUAD    8
+#define WIZMOTE_BUTTON_TWO_QUINT   9
+#define WIZMOTE_BUTTON_TWO_HEX     10
+#define WIZMOTE_BUTTON_TWO_LONG    11
+
+#define WIZMOTE_BUTTON_ONE_DOUBLE  13
+#define WIZMOTE_BUTTON_ONE_TRIPLE  14
+#define WIZMOTE_BUTTON_ONE_QUAD    15
+#define WIZMOTE_BUTTON_ONE_QUINT   16
+#define WIZMOTE_BUTTON_ONE_HEX     17
+#define WIZMOTE_BUTTON_ONE_LONG    18
+
+#define WIZMOTE_BUTTON_FOUR_DOUBLE 20
+#define WIZMOTE_BUTTON_FOUR_TRIPLE 21
+#define WIZMOTE_BUTTON_FOUR_QUAD   22
+#define WIZMOTE_BUTTON_FOUR_QUINT  23
+#define WIZMOTE_BUTTON_FOUR_HEX    24
+#define WIZMOTE_BUTTON_FOUR_LONG   25
+
+#define WIZMOTE_BUTTON_THREE_DOUBLE 27
+#define WIZMOTE_BUTTON_THREE_TRIPLE 28
+#define WIZMOTE_BUTTON_THREE_QUAD   29
+#define WIZMOTE_BUTTON_THREE_QUINT  30
+#define WIZMOTE_BUTTON_THREE_HEX    31
+#define WIZMOTE_BUTTON_THREE_LONG   32
+
 #define WIZ_SMART_BUTTON_ON          100
 #define WIZ_SMART_BUTTON_OFF         101
 #define WIZ_SMART_BUTTON_BRIGHT_UP   102
 #define WIZ_SMART_BUTTON_BRIGHT_DOWN 103
+
 
 // Define the WizMoteMessageStructure
 typedef struct WizMoteMessageStructure {
@@ -200,6 +229,12 @@ class UsermodVisualRemote : public Usermod {
     isDisplayingEffectIndicator = true;
   }
 
+  void activate_menu_preset()
+  {
+    isDisplayingEffectIndicator = false;
+    presetWithFallback_visualremote(getPatternById(currentEffectIndex)->id, FX_MODE_STATIC, 0);
+  }
+
 
     void addToConfig(JsonObject& root) override {
       JsonObject top = root.createNestedObject(FPSTR(_name));
@@ -293,19 +328,22 @@ class UsermodVisualRemote : public Usermod {
       Serial.printf("Button value: %u\n", incoming->button);
 
       switch (incoming->button) {
-        case WIZMOTE_BUTTON_ON             : setOn_visualremote();                                         break;
-        case WIZMOTE_BUTTON_OFF            : setOff_visualremote();                                        break;
-        case WIZMOTE_BUTTON_ONE            : presetWithFallback_visualremote(1, FX_MODE_STATIC,        0); break;
-        case WIZMOTE_BUTTON_TWO            : presetWithFallback_visualremote(2, FX_MODE_BREATH,        0); break;
-        case WIZMOTE_BUTTON_THREE          : presetWithFallback_visualremote(3, FX_MODE_FIRE_FLICKER,  0); break;
-        case WIZMOTE_BUTTON_FOUR           : presetWithFallback_visualremote(4, FX_MODE_RAINBOW,       0); break;
-        case WIZMOTE_BUTTON_NIGHT          : activateNightMode_visualremote();                             break;
-        case WIZMOTE_BUTTON_BRIGHT_UP      : onButtonUpPress();                                            break;
-        case WIZMOTE_BUTTON_BRIGHT_DOWN    : onButtonDownPress();                                          break;
-        case WIZ_SMART_BUTTON_ON           : setOn_visualremote();                                         break;
-        case WIZ_SMART_BUTTON_OFF          : setOff_visualremote();                                        break;
-        case WIZ_SMART_BUTTON_BRIGHT_UP    : brightnessUp_visualremote();                                  break;
-        case WIZ_SMART_BUTTON_BRIGHT_DOWN  : brightnessDown_visualremote();                                break;
+        case WIZMOTE_BUTTON_ON             : setOn_visualremote();                                            break;
+        case WIZMOTE_BUTTON_OFF            : setOff_visualremote();                                           break;
+        case WIZMOTE_BUTTON_ONE            : presetWithFallback_visualremote(1, FX_MODE_STATIC,        0);    break;
+        case WIZMOTE_BUTTON_TWO            : presetWithFallback_visualremote(2, FX_MODE_BREATH,        0);    break;
+        case WIZMOTE_BUTTON_THREE          : presetWithFallback_visualremote(3, FX_MODE_FIRE_FLICKER,  0);    break;
+        case WIZMOTE_BUTTON_FOUR           : presetWithFallback_visualremote(4, FX_MODE_RAINBOW,       0);    break;
+        case WIZMOTE_BUTTON_NIGHT          : activateNightMode_visualremote();                                break;
+        case WIZMOTE_BUTTON_BRIGHT_UP      : onButtonUpPress();                                               break;
+        case WIZMOTE_BUTTON_BRIGHT_DOWN    : onButtonDownPress();                                             break;
+        case WIZ_SMART_BUTTON_ON           : setOn_visualremote();                                            break;
+        case WIZ_SMART_BUTTON_OFF          : setOff_visualremote();                                           break;
+        case WIZ_SMART_BUTTON_BRIGHT_UP    : brightnessUp_visualremote();                                     break;
+        case WIZ_SMART_BUTTON_BRIGHT_DOWN  : brightnessDown_visualremote();                                   break;
+        case WIZMOTE_BUTTON_ONE_LONG       : activate_menu_preset();                                          break;
+        case WIZMOTE_BUTTON_ONE_TRIPLE       : activate_menu_preset();                                          break;
+        
         default: break;
       }
 
@@ -314,9 +352,11 @@ class UsermodVisualRemote : public Usermod {
 
     void handleOverlayDraw() {
       if (isDisplayingEffectIndicator) {
-            strip.setColor(0, 0, 0, 0);
+        strip.fill(BLACK);
         stateUpdated(CALL_MODE_DIRECT_CHANGE);
-
+        if (millis() - lastTime > timeOutMenu) {
+          return;
+        }   
         Pattern* pattern = getPatternById(currentEffectIndex);
         if (pattern == nullptr) {
           Serial.printf("Pattern with ID %d not found\n", currentEffectIndex);
@@ -339,11 +379,9 @@ class UsermodVisualRemote : public Usermod {
           //Serial.printf("Setting pixel %d to color R:%d G:%d B:%d\n", pixelIndex, r, g, b);
         }
 
-        // Check if the indicator has been displayed for 5 seconds
-        if (millis() - lastTime > timeOutMenu) {
-          isDisplayingEffectIndicator = false;
-          presetWithFallback_visualremote(pattern->id, FX_MODE_STATIC, 0);
-        }
+      
+
+          
       }
     }
 
