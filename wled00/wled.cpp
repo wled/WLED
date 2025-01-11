@@ -480,7 +480,6 @@ void WLED::setup()
   //Serial RX (Adalight, Improv, Serial JSON) only possible if GPIO3 unused
   //Serial TX (Debug, Improv, Serial JSON) only possible if GPIO1 unused
   if (serialCanRX && serialCanTX) {
-    DEBUG_PRINTLN(F("Ada"));
     Serial.println(F("Ada"));
   }
   #endif
@@ -825,13 +824,13 @@ void WLED::handleConnection()
 
   if (wifiConfigured && (forceReconnect || lastReconnectAttempt == 0)) {
     // this is first attempt at connecting to SSID or we were forced to reconnect
-    DEBUG_PRINTF_P(PSTR("WiFi: Initial connect or forced reconnect. @ %lus\n"), now/1000);
     selectedWiFi = findWiFi(); // find strongest WiFi
-    if (selectedWiFi < 0) {
+    if (selectedWiFi == WIFI_SCAN_FAILED) {
       // fallback if scan returned error
       findWiFi(true);
       selectedWiFi = 0;
-    } else {
+    } else if (selectedWiFi >= 0) {
+      DEBUG_PRINTF_P(PSTR("WiFi: Initial connect or forced reconnect. @ %lus\n"), now/1000);
       initConnection(); // start connecting to preferred/configured WiFi
       forceReconnect = false;
       interfacesInited = false;
