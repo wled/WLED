@@ -70,8 +70,8 @@
       #define WLED_MIN_VIRTUAL_BUSSES 4
     #else
       // the last digital bus (I2S0) will prevent Audioreactive usermod from functioning
-      #define WLED_MAX_BUSSES 20              // will allow 17 digital & 3 analog RGB
-      #define WLED_MAX_DIGITAL_CHANNELS 17    // x1/x8 I2S1 + x8 RMT + x1 I2S0
+      #define WLED_MAX_BUSSES 19              // will allow 16 digital & 3 analog RGB
+      #define WLED_MAX_DIGITAL_CHANNELS 16    // x1/x8 I2S1 + x8 RMT
       //#define WLED_MAX_ANALOG_CHANNELS 16
       #define WLED_MIN_VIRTUAL_BUSSES 4
     #endif

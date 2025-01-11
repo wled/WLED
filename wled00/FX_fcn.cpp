@@ -1459,7 +1459,7 @@ void WS2812FX::finalizeInit() {
       if (BusManager::add(defCfg) == -1) break;
     }
   }
-  DEBUG_PRINTF_P(PSTR("LED buffer size: %uB\n"), mem);
+  DEBUG_PRINTF_P(PSTR("LED buffer size: %uB/%uB\n"), mem, BusManager::getTotalBuffers());
 
   _length = 0;
   for (int i=0; i<BusManager::getNumBusses(); i++) {

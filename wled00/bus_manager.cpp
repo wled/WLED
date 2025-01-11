@@ -199,7 +199,7 @@ void BusDigital::show() {
   if (!_valid) return;
 
   uint8_t cctWW = 0, cctCW = 0;
-  unsigned newBri = estimateCurrentAndLimitBri();  // will fill _milliAmpsTotal
+  unsigned newBri = estimateCurrentAndLimitBri();  // will fill _milliAmpsTotal (TODO: could use PolyBus::CalcTotalMilliAmpere())
   if (newBri < _bri) PolyBus::setBrightness(_busPtr, _iType, newBri); // limit brightness to stay within current limits
 
   if (_data) {
@@ -356,6 +356,10 @@ unsigned BusDigital::getPins(uint8_t* pinArray) const {
   unsigned numPins = is2Pin(_type) + 1;
   if (pinArray) for (unsigned i = 0; i < numPins; i++) pinArray[i] = _pins[i];
   return numPins;
+}
+
+unsigned BusDigital::getBufferSize() const {
+  return isOk() ? PolyBus::getDataSize(_busPtr, _iType) : 0;
 }
 
 void BusDigital::setColorOrder(uint8_t colorOrder) {
@@ -784,6 +788,12 @@ uint32_t BusManager::memUsage(const BusConfig &bc) {
     #endif
   }
   return (len * multiplier + bc.doubleBuffer * (bc.count + bc.skipAmount)) * channels;
+}
+
+unsigned BusManager::getTotalBuffers() {
+  unsigned size = 0;
+  for (unsigned i=0; i<numBusses; i++) size += busses[i]->getBufferSize();
+  return size;
 }
 
 int BusManager::add(BusConfig &bc) {

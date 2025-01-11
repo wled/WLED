@@ -119,6 +119,7 @@ class Bus {
     virtual uint16_t getLEDCurrent() const                      { return 0; }
     virtual uint16_t getUsedCurrent() const                     { return 0; }
     virtual uint16_t getMaxCurrent() const                      { return 0; }
+    virtual unsigned getBufferSize() const                      { return 1; }
 
     inline  bool     hasRGB() const                             { return _hasRgb; }
     inline  bool     hasWhite() const                           { return _hasWhite; }
@@ -238,6 +239,7 @@ class BusDigital : public Bus {
     uint16_t getLEDCurrent() const override  { return _milliAmpsPerLed; }
     uint16_t getUsedCurrent() const override { return _milliAmpsTotal; }
     uint16_t getMaxCurrent() const override  { return _milliAmpsMax; }
+    unsigned getBufferSize() const override;
     void begin() override;
     void cleanup();
 
@@ -280,6 +282,7 @@ class BusPwm : public Bus {
     uint32_t getPixelColor(unsigned pix) const override; //does no index check
     unsigned getPins(uint8_t* pinArray = nullptr) const override;
     uint16_t getFrequency() const override { return _frequency; }
+    unsigned getBufferSize() const override  { return OUTPUT_MAX_PINS; }
     void show() override;
     void cleanup() { deallocatePins(); }
 
@@ -326,6 +329,7 @@ class BusNetwork : public Bus {
     [[gnu::hot]] void setPixelColor(unsigned pix, uint32_t c) override;
     [[gnu::hot]] uint32_t getPixelColor(unsigned pix) const override;
     unsigned getPins(uint8_t* pinArray = nullptr) const override;
+    unsigned getBufferSize() const override  { return isOk() ? _len * _UDPchannels : 0; }
     void show() override;
     void cleanup();
 
@@ -403,6 +407,7 @@ class BusManager {
 
     //utility to get the approx. memory usage of a given BusConfig
     static uint32_t memUsage(const BusConfig &bc);
+    static unsigned getTotalBuffers();
     static uint16_t currentMilliamps() { return _milliAmpsUsed + MA_FOR_ESP; }
     static uint16_t ablMilliampsMax()  { return _milliAmpsMax; }
 
