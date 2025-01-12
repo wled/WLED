@@ -119,7 +119,7 @@ class Bus {
     virtual uint16_t getLEDCurrent() const                      { return 0; }
     virtual uint16_t getUsedCurrent() const                     { return 0; }
     virtual uint16_t getMaxCurrent() const                      { return 0; }
-    virtual unsigned getBufferSize() const                      { return 1; }
+    virtual unsigned getBusSize() const                         { return sizeof(Bus); }
 
     inline  bool     hasRGB() const                             { return _hasRgb; }
     inline  bool     hasWhite() const                           { return _hasWhite; }
@@ -185,6 +185,7 @@ class Bus {
       #endif
     }
     static void calculateCCT(uint32_t c, uint8_t &ww, uint8_t &cw);
+    //static unsigned getBusSize(unsigned len, unsigned type, unsigned nr) { return sizeof(Bus); } // used to determine intended bus RAM requirements
 
   protected:
     uint8_t  _type;
@@ -239,11 +240,12 @@ class BusDigital : public Bus {
     uint16_t getLEDCurrent() const override  { return _milliAmpsPerLed; }
     uint16_t getUsedCurrent() const override { return _milliAmpsTotal; }
     uint16_t getMaxCurrent() const override  { return _milliAmpsMax; }
-    unsigned getBufferSize() const override;
+    unsigned getBusSize() const override;
     void begin() override;
     void cleanup();
 
     static std::vector<LEDType> getLEDTypes();
+    //static unsigned getBusSize(unsigned len, unsigned iType, unsigned nr); // used to determine intended bus RAM requirements
 
   private:
     uint8_t _skip;
@@ -282,7 +284,7 @@ class BusPwm : public Bus {
     uint32_t getPixelColor(unsigned pix) const override; //does no index check
     unsigned getPins(uint8_t* pinArray = nullptr) const override;
     uint16_t getFrequency() const override { return _frequency; }
-    unsigned getBufferSize() const override  { return OUTPUT_MAX_PINS; }
+    unsigned getBusSize() const override   { return sizeof(BusPwm); }
     void show() override;
     void cleanup() { deallocatePins(); }
 
@@ -309,6 +311,7 @@ class BusOnOff : public Bus {
     void setPixelColor(unsigned pix, uint32_t c) override;
     uint32_t getPixelColor(unsigned pix) const override;
     unsigned getPins(uint8_t* pinArray) const override;
+    unsigned getBusSize() const override { return sizeof(BusOnOff); }
     void show() override;
     void cleanup() { PinManager::deallocatePin(_pin, PinOwner::BusOnOff); }
 
@@ -329,11 +332,12 @@ class BusNetwork : public Bus {
     [[gnu::hot]] void setPixelColor(unsigned pix, uint32_t c) override;
     [[gnu::hot]] uint32_t getPixelColor(unsigned pix) const override;
     unsigned getPins(uint8_t* pinArray = nullptr) const override;
-    unsigned getBufferSize() const override  { return isOk() ? _len * _UDPchannels : 0; }
+    unsigned getBusSize() const override  { return sizeof(BusNetwork) + (isOk() ? _len * _UDPchannels : 0); }
     void show() override;
     void cleanup();
 
     static std::vector<LEDType> getLEDTypes();
+    //static unsigned getBusSize(unsigned len, unsigned type) { return len * (hasWhite(type) + 3) + sizeof(BusNetwork); } // used to determine intended bus RAM requirements
 
   private:
     IPAddress _client;
@@ -388,6 +392,19 @@ struct BusConfig {
     if (start + count > total) total = start + count;
     return true;
   }
+/*
+  unsigned getBusSize(unsigned nr = 0) {
+    if (Bus::isVirtual(type)) {
+      return BusNetwork::getBusSize(count, type);
+    } else if (Bus::isDigital(type)) {
+      return BusDigital::getBusSize(count, type, nr);
+    } else if (Bus::isOnOff(type)) {
+      return sizeof(BusOnOff);
+    } else {
+      return sizeof(BusPwm);
+    }
+  }
+*/
 };
 
 
@@ -407,7 +424,7 @@ class BusManager {
 
     //utility to get the approx. memory usage of a given BusConfig
     static uint32_t memUsage(const BusConfig &bc);
-    static unsigned getTotalBuffers();
+    static unsigned getBusSizeTotal();
     static uint16_t currentMilliamps() { return _milliAmpsUsed + MA_FOR_ESP; }
     static uint16_t ablMilliampsMax()  { return _milliAmpsMax; }
 

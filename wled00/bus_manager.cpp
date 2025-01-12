@@ -358,10 +358,17 @@ unsigned BusDigital::getPins(uint8_t* pinArray) const {
   return numPins;
 }
 
-unsigned BusDigital::getBufferSize() const {
-  return isOk() ? PolyBus::getDataSize(_busPtr, _iType) : 0;
+unsigned BusDigital::getBusSize() const {
+  return sizeof(BusDigital) + (isOk() ? PolyBus::getDataSize(_busPtr, _iType) : 0);
 }
-
+/*
+unsigned BusDigital::getBusSize(unsigned count, unsigned type, unsigned nr) {
+  byte pins[2] = {0,0};
+  unsigned iType = PolyBus::getI(type, pins, nr);
+  //return sizeof(BusDigital) + PolyBus::getBusSize(count, iType);
+  return sizeof(BusDigital) + (count * (3 + hasWhite(type)));
+}
+*/
 void BusDigital::setColorOrder(uint8_t colorOrder) {
   // upper nibble contains W swap information
   if ((colorOrder & 0x0F) > 5) return;
@@ -790,9 +797,9 @@ uint32_t BusManager::memUsage(const BusConfig &bc) {
   return (len * multiplier + bc.doubleBuffer * (bc.count + bc.skipAmount)) * channels;
 }
 
-unsigned BusManager::getTotalBuffers() {
+unsigned BusManager::getBusSizeTotal() {
   unsigned size = 0;
-  for (unsigned i=0; i<numBusses; i++) size += busses[i]->getBufferSize();
+  for (unsigned i=0; i<numBusses; i++) size += busses[i]->getBusSize();
   return size;
 }
 
