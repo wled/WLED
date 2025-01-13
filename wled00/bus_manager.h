@@ -379,6 +379,16 @@ struct BusConfig {
     type = busType & 0x7F;  // bit 7 may be/is hacked to include refresh info (1=refresh in off state, 0=no refresh)
     size_t nPins = Bus::getNumberOfPins(type);
     for (size_t i = 0; i < nPins; i++) pins[i] = ppins[i];
+    DEBUGBUS_PRINTF_P(PSTR("Bus: Config (%d-%d, type:%d, CO:%d, rev:%d, skip:%d, AW:%d kHz:%d, mA:%d/%d)\n"),
+      (int)start, (int)(start+len),
+      (int)type,
+      (int)colorOrder,
+      (int)reversed,
+      (int)skipAmount,
+      (int)autoWhite,
+      (int)frequency,
+      (int)milliAmpsPerLed, (int)milliAmpsMax
+    );
   }
 
   //validates start and length and extends total if needed
@@ -397,7 +407,7 @@ struct BusConfig {
     if (Bus::isVirtual(type)) {
       return BusNetwork::getBusSize(count, type);
     } else if (Bus::isDigital(type)) {
-      return BusDigital::getBusSize(count, type, nr);
+      return BusDigital::getBusSize(count, pins[0], type, nr);
     } else if (Bus::isOnOff(type)) {
       return sizeof(BusOnOff);
     } else {
@@ -428,7 +438,7 @@ class BusManager {
     static uint16_t currentMilliamps() { return _milliAmpsUsed + MA_FOR_ESP; }
     static uint16_t ablMilliampsMax()  { return _milliAmpsMax; }
 
-    static int add(BusConfig &bc);
+    static int add(const BusConfig &bc);
     static void useParallelOutput(); // workaround for inaccessible PolyBus
     static bool hasParallelOutput(); // workaround for inaccessible PolyBus
 

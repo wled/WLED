@@ -819,8 +819,19 @@ void serializeConfig() {
   JsonArray hw_led_ins = hw_led.createNestedArray("ins");
 
   for (size_t s = 0; s < BusManager::getNumBusses(); s++) {
+    DEBUG_PRINTF_P(PSTR("Cfg: Saving bus #%u\n"), s);
     Bus *bus = BusManager::getBus(s);
     if (!bus || bus->getLength()==0) break;
+    DEBUG_PRINTF_P(PSTR("  (%d-%d, type:%d, CO:%d, rev:%d, skip:%d, AW:%d kHz:%d, mA:%d/%d)\n"),
+      (int)bus->getStart(), (int)(bus->getStart()+bus->getLength()),
+      (int)(bus->getType() & 0x7F),
+      (int)bus->getColorOrder(),
+      (int)bus->isReversed(),
+      (int)bus->skippedLeds(),
+      (int)bus->getAutoWhiteMode(),
+      (int)bus->getFrequency(),
+      (int)bus->getLEDCurrent(), (int)bus->getMaxCurrent()
+    );
     JsonObject ins = hw_led_ins.createNestedObject();
     ins["start"] = bus->getStart();
     ins["len"] = bus->getLength();

@@ -1372,6 +1372,7 @@ void WS2812FX::finalizeInit() {
     #endif
       mem += BusManager::memUsage(*busConfigs[i]); // includes global buffer
     if (mem <= MAX_LED_MEMORY) BusManager::add(*busConfigs[i]);
+    else DEBUG_PRINTF_P(PSTR("Out of LED memory! Bus #%u not created."), i);
     delete busConfigs[i];
     busConfigs[i] = nullptr;
   }
@@ -1410,13 +1411,13 @@ void WS2812FX::finalizeInit() {
         // Pin should not be already allocated, read/only or defined for current bus
         while (PinManager::isPinAllocated(defPin[j]) || !PinManager::isPinOk(defPin[j],true)) {
           if (validPin) {
-            DEBUGFX_PRINTLN(F("Some of the provided pins cannot be used to configure this LED output."));
+            DEBUG_PRINTLN(F("Some of the provided pins cannot be used to configure this LED output."));
             defPin[j] = 1; // start with GPIO1 and work upwards
             validPin = false;
           } else if (defPin[j] < WLED_NUM_PINS) {
             defPin[j]++;
           } else {
-            DEBUGFX_PRINTLN(F("No available pins left! Can't configure output."));
+            DEBUG_PRINTLN(F("No available pins left! Can't configure output."));
             return;
           }
           // is the newly assigned pin already defined or used previously?
