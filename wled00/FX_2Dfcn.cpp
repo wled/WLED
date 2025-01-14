@@ -51,7 +51,7 @@ void WS2812FX::setUpMatrix() {
     customMappingSize = 0; // prevent use of mapping if anything goes wrong
 
     if (customMappingTable) free(customMappingTable);
-    customMappingTable = static_cast<uint16_t*>(malloc(sizeof(uint16_t)*getLengthTotal()));
+    customMappingTable = static_cast<uint16_t*>(malloc(sizeof(uint16_t)*getLengthTotal())); // do not use SPI RAM
 
     if (customMappingTable) {
       customMappingSize = getLengthTotal();
@@ -85,7 +85,7 @@ void WS2812FX::setUpMatrix() {
           JsonArray map = pDoc->as<JsonArray>();
           gapSize = map.size();
           if (!map.isNull() && gapSize >= matrixSize) { // not an empty map
-            gapTable = static_cast<int8_t*>(malloc(gapSize));
+            gapTable = static_cast<int8_t*>(w_malloc(gapSize));
             if (gapTable) for (size_t i = 0; i < gapSize; i++) {
               gapTable[i] = constrain(map[i], -1, 1);
             }

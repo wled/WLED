@@ -405,7 +405,7 @@ um_data_t* simulateSound(uint8_t simulationId)
 
   if (!um_data) {
     //claim storage for arrays
-    fftResult = (uint8_t *)malloc(sizeof(uint8_t) * 16);
+    fftResult = (uint8_t *)w_malloc(sizeof(uint8_t) * 16);
 
     // initialize um_data pointer structure
     // NOTE!!!
@@ -508,7 +508,7 @@ void enumerateLedmaps() {
             const char *name = root["n"].as<const char*>();
             if (name != nullptr) len = strlen(name);
             if (len > 0 && len < 33) {
-              ledmapNames[i-1] = static_cast<char*>(malloc(len+1));
+              ledmapNames[i-1] = static_cast<char*>(w_malloc(len+1));
               if (ledmapNames[i-1]) strlcpy(ledmapNames[i-1], name, 33);
             }
           }
@@ -516,7 +516,7 @@ void enumerateLedmaps() {
             char tmp[33];
             snprintf_P(tmp, 32, s_ledmap_tmpl, i);
             len = strlen(tmp);
-            ledmapNames[i-1] = static_cast<char*>(malloc(len+1));
+            ledmapNames[i-1] = static_cast<char*>(w_malloc(len+1));
             if (ledmapNames[i-1]) strlcpy(ledmapNames[i-1], tmp, 33);
           }
         }
@@ -561,8 +561,31 @@ uint32_t hw_random(uint32_t upperlimit) {
   return scaled >> 32;
 }
 
-int32_t hw_random(int32_t lowerlimit, int32_t upperlimit) {
+uint32_t hw_random(uint32_t lowerlimit, uint32_t upperlimit) {
   if (lowerlimit > upperlimit) std::swap(lowerlimit, upperlimit);
   uint32_t diff = upperlimit - lowerlimit;
   return hw_random(diff) + lowerlimit;
+}
+
+void *w_malloc(size_t size) {
+#ifndef ESP8266
+  if (psramSafe && psramFound()) return ps_malloc(size); // use PSRAM if it exists
+  else
+#endif
+  return malloc(size); // fallback
+}
+
+void *w_realloc(void *ptr, size_t size) {
+#ifndef ESP8266
+  if (psramSafe && psramFound()) return ps_realloc(ptr, size); // use PSRAM if it exists
+  else
+#endif
+  return realloc(ptr, size); // fallback
+}
+
+void *w_calloc(size_t count, size_t size) {
+  size *= count;
+  void *ptr = w_malloc(size);
+  if (ptr) memset(ptr, 0, size);
+  return ptr;
 }

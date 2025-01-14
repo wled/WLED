@@ -535,15 +535,18 @@ void enumerateLedmaps();
 // 32bit inputs are used for speed and code size, limits don't work if inverted or out of range
 // inlining does save code size except for random(a,b) and 32bit random with limits
 #define random hw_random // replace arduino random()
+#define hw_random16 (uint16_t)hw_random
+#define hw_random8 (uint8_t)hw_random
 inline uint32_t hw_random() { return HW_RND_REGISTER; };
 uint32_t hw_random(uint32_t upperlimit); // not inlined for code size
-int32_t hw_random(int32_t lowerlimit, int32_t upperlimit);
-inline uint16_t hw_random16() { return HW_RND_REGISTER; };
-inline uint16_t hw_random16(uint32_t upperlimit) { return (hw_random16() * upperlimit) >> 16; }; // input range 0-65535 (uint16_t)
-inline int16_t hw_random16(int32_t lowerlimit, int32_t upperlimit) { int32_t range = upperlimit - lowerlimit; return lowerlimit + hw_random16(range); }; // signed limits, use int16_t ranges
-inline uint8_t hw_random8() { return HW_RND_REGISTER; };
-inline uint8_t hw_random8(uint32_t upperlimit) { return (hw_random8() * upperlimit) >> 8; }; // input range 0-255
-inline uint8_t hw_random8(uint32_t lowerlimit, uint32_t upperlimit) { uint32_t range = upperlimit - lowerlimit; return lowerlimit + hw_random8(range); }; // input range 0-255
+uint32_t hw_random(uint32_t lowerlimit, uint32_t upperlimit);
+//template <typename T> T hw_random(T upperlimit) { return static_cast<T>(hw_random((uint32_t)upperlimit)); }
+//template <typename T> T hw_random(T lowerlimit, T upperlimit) { return static_cast<T>(hw_random((uint32_t)lowerlimit, (uint32_t)upperlimit)); }
+
+// PSRAM allocation wrappers
+void *w_malloc(size_t);
+void *w_calloc(size_t, size_t);
+void *w_realloc(void *, size_t);
 
 // RAII guard class for the JSON Buffer lock
 // Modeled after std::lock_guard

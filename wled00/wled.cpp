@@ -696,6 +696,7 @@ void WLED::initConnection()
 // connected() is called when WiFi connection is established
 void WLED::connected()
 {
+  DEBUG_PRINTF_P(PSTR("heap %u\n"), ESP.getFreeHeap());
   DEBUG_PRINTLN(F("Init STA interfaces"));
 
 #ifdef WLED_ENABLE_WEBSOCKETS
@@ -768,6 +769,7 @@ void WLED::connected()
   initESPNow(!WiFi.isConnected());  // if we are connected using Ethernet force hidden AP mode
 
   interfacesInited = true;
+  DEBUG_PRINTF_P(PSTR("heap %u\n"), ESP.getFreeHeap());
 }
 
 void WLED::handleConnection()

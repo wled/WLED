@@ -37,7 +37,7 @@
 #endif
 
 #ifndef WLED_MAX_USERMODS
-  #ifdef ESP8266
+  #if defined(ESP8266) || defined(CONFIG_IDF_TARGET_ESP32S2)
     #define WLED_MAX_USERMODS 4
   #else
     #define WLED_MAX_USERMODS 6
@@ -115,7 +115,7 @@
   #endif
 #endif
 
-#ifdef ESP8266
+#if defined(ESP8266) || defined(CONFIG_IDF_TARGET_ESP32S2)
 #define WLED_MAX_COLOR_ORDER_MAPPINGS 5
 #else
 #define WLED_MAX_COLOR_ORDER_MAPPINGS 10
@@ -125,7 +125,7 @@
   #undef WLED_MAX_LEDMAPS
 #endif
 #ifndef WLED_MAX_LEDMAPS
-  #ifdef ESP8266
+  #if defined(ESP8266) || defined(CONFIG_IDF_TARGET_ESP32S2)
     #define WLED_MAX_LEDMAPS 10
   #else
     #define WLED_MAX_LEDMAPS 16
@@ -477,6 +477,8 @@
 #ifndef MAX_LEDS
 #ifdef ESP8266
 #define MAX_LEDS 1664 //can't rely on memory limit to limit this to 1600 LEDs
+#elif defined(CONFIG_IDF_TARGET_ESP32S2)
+#define MAX_LEDS 2048 //due to memory constraints
 #else
 #define MAX_LEDS 8192
 #endif
@@ -486,7 +488,9 @@
   #ifdef ESP8266
     #define MAX_LED_MEMORY 4000
   #else
-    #if defined(ARDUINO_ARCH_ESP32S2) || defined(ARDUINO_ARCH_ESP32C3)
+    #if defined(ARDUINO_ARCH_ESP32S2)
+      #define MAX_LED_MEMORY 16000
+    #elif defined(ARDUINO_ARCH_ESP32C3)
       #define MAX_LED_MEMORY 32000
     #else
       #define MAX_LED_MEMORY 64000

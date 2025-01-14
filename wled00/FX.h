@@ -82,18 +82,15 @@ extern byte realtimeMode;           // used in getMappedPixelIndex()
 /* each segment uses 82 bytes of SRAM memory, so if you're application fails because of
   insufficient memory, decreasing MAX_NUM_SEGMENTS may help */
 #ifdef ESP8266
-  #define MAX_NUM_SEGMENTS    16
+  #define MAX_NUM_SEGMENTS  16
   /* How much data bytes all segments combined may allocate */
   #define MAX_SEGMENT_DATA  5120
+#elif defined(CONFIG_IDF_TARGET_ESP32S2)
+  #define MAX_NUM_SEGMENTS  20
+  #define MAX_SEGMENT_DATA  (MAX_NUM_SEGMENTS*512)  // 10k by default (S2 is short on free RAM)
 #else
-  #ifndef MAX_NUM_SEGMENTS
-    #define MAX_NUM_SEGMENTS  32
-  #endif
-  #if defined(ARDUINO_ARCH_ESP32S2)
-    #define MAX_SEGMENT_DATA  (MAX_NUM_SEGMENTS*768)  // 24k by default (S2 is short on free RAM)
-  #else
-    #define MAX_SEGMENT_DATA  (MAX_NUM_SEGMENTS*1280) // 40k by default
-  #endif
+  #define MAX_NUM_SEGMENTS  32  // warning: going beyond 32 may consume too much RAM for stable operation
+  #define MAX_SEGMENT_DATA  (MAX_NUM_SEGMENTS*1280) // 40k by default
 #endif
 
 /* How much data bytes each segment should max allocate to leave enough space for other segments,

@@ -59,10 +59,7 @@ static void doSaveState() {
     if (tmpRAMbuffer!=nullptr) free(tmpRAMbuffer);
     size_t len = measureJson(*pDoc) + 1;
     // if possible use SPI RAM on ESP32
-    if (psramSafe && psramFound())
-      tmpRAMbuffer = (char*) ps_malloc(len);
-    else
-      tmpRAMbuffer = (char*) malloc(len);
+    tmpRAMbuffer = (char*)w_malloc(len);
     if (tmpRAMbuffer!=nullptr) {
       serializeJson(*pDoc, tmpRAMbuffer, len);
     } else {
@@ -219,8 +216,8 @@ void handlePresets()
 //called from handleSet(PS=) [network callback (sObj is empty), IR (irrational), deserializeState, UDP] and deserializeState() [network callback (filedoc!=nullptr)]
 void savePreset(byte index, const char* pname, JsonObject sObj)
 {
-  if (!saveName) saveName = static_cast<char*>(malloc(33));
-  if (!quickLoad) quickLoad = static_cast<char*>(malloc(9));
+  if (!saveName) saveName = static_cast<char*>(w_malloc(33));
+  if (!quickLoad) quickLoad = static_cast<char*>(w_malloc(9));
   if (!saveName || !quickLoad) return;
 
   if (index == 0 || (index > 250 && index < 255)) return;

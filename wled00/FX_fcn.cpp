@@ -98,7 +98,7 @@ Segment::Segment(const Segment &orig) {
   name = nullptr;
   data = nullptr;
   _dataLen = 0;
-  if (orig.name) { name = static_cast<char*>(malloc(strlen(orig.name)+1)); if (name) strcpy(name, orig.name); }
+  if (orig.name) { name = static_cast<char*>(w_malloc(strlen(orig.name)+1)); if (name) strcpy(name, orig.name); }
   if (orig.data) { if (allocateData(orig._dataLen)) memcpy(data, orig.data, orig._dataLen); }
 }
 
@@ -126,7 +126,7 @@ Segment& Segment::operator= (const Segment &orig) {
     data = nullptr;
     _dataLen = 0;
     // copy source data
-    if (orig.name) { name = static_cast<char*>(malloc(strlen(orig.name)+1)); if (name) strcpy(name, orig.name); }
+    if (orig.name) { name = static_cast<char*>(w_malloc(strlen(orig.name)+1)); if (name) strcpy(name, orig.name); }
     if (orig.data) { if (allocateData(orig._dataLen)) memcpy(data, orig.data, orig._dataLen); }
   }
   return *this;
@@ -289,7 +289,7 @@ void Segment::startTransition(uint16_t dur) {
   _t->_segT._dataLenT = 0;
   _t->_segT._dataT    = nullptr;
   if (_dataLen > 0 && data) {
-    _t->_segT._dataT = (byte *)malloc(_dataLen);
+    _t->_segT._dataT = (byte *)malloc(_dataLen);  // must not be allocated from SPI RAM
     if (_t->_segT._dataT) {
       //DEBUGFX_PRINTF_P(PSTR("--  Allocated duplicate data (%d) for %p: %p\n"), _dataLen, this, _t->_segT._dataT);
       memcpy(_t->_segT._dataT, data, _dataLen);
@@ -2024,7 +2024,7 @@ bool WS2812FX::deserializeMap(unsigned n) {
   }
 
   if (customMappingTable) free(customMappingTable);
-  customMappingTable = static_cast<uint16_t*>(malloc(sizeof(uint16_t)*getLengthTotal()));
+  customMappingTable = static_cast<uint16_t*>(malloc(sizeof(uint16_t)*getLengthTotal())); // do not use SPI RAM
 
   if (customMappingTable) {
     DEBUGFX_PRINT(F("Reading LED map from ")); DEBUGFX_PRINTLN(fileName);
