@@ -584,8 +584,9 @@ void *w_realloc(void *ptr, size_t size) {
 }
 
 void *w_calloc(size_t count, size_t size) {
-  size *= count;
-  void *ptr = w_malloc(size);
-  if (ptr) memset(ptr, 0, size);
-  return ptr;
+#ifndef ESP8266
+  if (psramSafe && psramFound()) return ps_calloc(count, size); // use PSRAM if it exists
+  else
+#endif
+  return calloc(count, size); // fallback
 }
