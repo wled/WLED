@@ -569,24 +569,21 @@ uint32_t hw_random(uint32_t lowerlimit, uint32_t upperlimit) {
 
 void *w_malloc(size_t size) {
 #ifndef ESP8266
-  if (psramSafe && psramFound()) return ps_malloc(size); // use PSRAM if it exists
-  else
+  if (psramSafe && psramFound()) return heap_caps_malloc_prefer(size, 2, MALLOC_CAP_SPIRAM|MALLOC_CAP_8BIT, MALLOC_CAP_DEFAULT|MALLOC_CAP_8BIT); // prefer PSRAM if it exists
 #endif
   return malloc(size); // fallback
 }
 
 void *w_realloc(void *ptr, size_t size) {
 #ifndef ESP8266
-  if (psramSafe && psramFound()) return ps_realloc(ptr, size); // use PSRAM if it exists
-  else
+  if (psramSafe && psramFound()) return heap_caps_realloc_prefer(ptr, size, 2, MALLOC_CAP_SPIRAM|MALLOC_CAP_8BIT, MALLOC_CAP_DEFAULT|MALLOC_CAP_8BIT); // prefer PSRAM if it exists
 #endif
   return realloc(ptr, size); // fallback
 }
 
 void *w_calloc(size_t count, size_t size) {
 #ifndef ESP8266
-  if (psramSafe && psramFound()) return ps_calloc(count, size); // use PSRAM if it exists
-  else
+  if (psramSafe && psramFound()) return heap_caps_calloc_prefer(count, size, 2, MALLOC_CAP_SPIRAM|MALLOC_CAP_8BIT, MALLOC_CAP_DEFAULT|MALLOC_CAP_8BIT); // prefer PSRAM if it exists
 #endif
   return calloc(count, size); // fallback
 }

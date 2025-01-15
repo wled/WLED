@@ -179,7 +179,7 @@
 extern bool psramSafe;
 struct PSRAM_Allocator {
   static inline void* allocate(size_t size)                  { return w_malloc(size); }
-  static inline void* reallocate(void* ptr, size_t new_size) { return realloc(ptr, new_size); }
+  static inline void* reallocate(void* ptr, size_t new_size) { return w_realloc(ptr, new_size); }
   static inline void  deallocate(void* pointer)              { free(pointer); }
 };
 using PSRAMDynamicJsonDocument = BasicJsonDocument<PSRAM_Allocator>;
