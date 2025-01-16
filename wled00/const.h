@@ -446,7 +446,11 @@
     #ifdef ESP8266
       #define E131_MAX_UNIVERSE_COUNT 9
     #else
-      #define E131_MAX_UNIVERSE_COUNT 12
+      #if !defined(CONFIG_IDF_TARGET_ESP32S2) && !defined(CONFIG_IDF_TARGET_ESP32C3)  && !defined(CONFIG_IDF_TARGET_ESP32C6)
+        #define E131_MAX_UNIVERSE_COUNT 112 // WLEDMM enough universes for 128 x 128 pixels, for boards that can handle it
+      #else
+        #define E131_MAX_UNIVERSE_COUNT 12  // WLEDMM use upstream default for S2 and C3
+      #endif
     #endif
   #endif
 #endif

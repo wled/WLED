@@ -7,6 +7,7 @@
 /*
  * E1.31 handler
  */
+static byte e131LastSequenceNumber[E131_MAX_UNIVERSE_COUNT] = {0}; // to detect packet loss // WLEDMM moved from wled.h into e131.cpp
 
 //DDP protocol support, called by handleE131Packet
 //handles RGB data only
@@ -94,11 +95,12 @@ void handleE131Packet(e131_packet_t* p, IPAddress clientIP, byte protocol){
   }
 
   // only listen for universes we're handling & allocated memory
-  if (uni < e131Universe || uni >= (e131Universe + E131_MAX_UNIVERSE_COUNT)) return;
+  //if (uni < e131Universe || uni >= (e131Universe + E131_MAX_UNIVERSE_COUNT)) return;
+  if (uni < e131Universe || uni >= e131Universe + 256) return; // WLEDMM just prevent overflow
 
   uint8_t previousUniverses = uni - e131Universe;
 
-  if (e131SkipOutOfSequence)
+  if (e131SkipOutOfSequence && (previousUniverses < E131_MAX_UNIVERSE_COUNT))  // WLEDMM
     if (seq < e131LastSequenceNumber[previousUniverses] && seq > 20 && e131LastSequenceNumber[previousUniverses] < 250){
       DEBUG_PRINT(F("skipping E1.31 frame (last seq="));
       DEBUG_PRINT(e131LastSequenceNumber[previousUniverses]);
@@ -109,7 +111,7 @@ void handleE131Packet(e131_packet_t* p, IPAddress clientIP, byte protocol){
       DEBUG_PRINTLN(")");
       return;
     }
-  e131LastSequenceNumber[previousUniverses] = seq;
+  if (previousUniverses < E131_MAX_UNIVERSE_COUNT) e131LastSequenceNumber[previousUniverses] = seq; // WLEDMM prevent array bounds violation
 
   // update status info
   realtimeIP = clientIP;
