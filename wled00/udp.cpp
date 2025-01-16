@@ -886,7 +886,7 @@ uint8_t IRAM_ATTR_YN realtimeBroadcast(uint8_t type, IPAddress client, uint16_t 
     {
       static unsigned long artnetlimiter = micros()+(1000000/fps_limit);
       while (artnetlimiter > micros()) {
-        delayMicroseconds(10); // Make WLED obey fps_limit and just delay here until we're ready to send a frame.
+        delayMicroseconds(100); // Make WLED obey fps_limit and just delay here until we're ready to send a frame.
       }
 
       /*
