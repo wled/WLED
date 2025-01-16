@@ -451,6 +451,8 @@ void Segment::startTransition(uint16_t dur) {
   transitional = true; // setOption(SEG_OPTION_TRANSITIONAL, true);
 }
 
+// WLEDMM Segment::progress() is declared inline, see FX.h
+#if 0
 // transition progression between 0-65535
 uint16_t IRAM_ATTR_YN Segment::progress() const {
   if (!transitional || !_t) return 0xFFFFU;
@@ -458,6 +460,7 @@ uint16_t IRAM_ATTR_YN Segment::progress() const {
   if (timeNow - _t->_start > _t->_dur || _t->_dur == 0) return 0xFFFFU;
   return (timeNow - _t->_start) * 0xFFFFU / _t->_dur;
 }
+#endif
 
 // WLEDMM Segment::currentBri() is declared inline, see FX.h
 #if 0

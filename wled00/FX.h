@@ -607,12 +607,18 @@ typedef struct Segment {
     // transition functions
     void     startTransition(uint16_t dur); // transition has to start before actual segment values change
     void     handleTransition(void);
-    uint16_t progress(void) const; //transition progression between 0-65535
+    // transition progression between 0-65535
+    [[gnu::hot]] inline uint16_t progress() const {
+      if (!transitional || !_t) return 0xFFFFU;
+      unsigned long timeNow = millis();
+      if (timeNow - _t->_start > _t->_dur || _t->_dur == 0) return 0xFFFFU;
+      return (timeNow - _t->_start) * 0xFFFFU / _t->_dur;
+    }
 
     // WLEDMM method inlined for speed (its called at each setPixelColor)
     [[gnu::hot]] inline uint8_t currentBri(uint8_t briNew, bool useCct = false) {
-      uint32_t prog = (transitional && _t) ? progress() : 0xFFFFU;
-      if (transitional && _t && prog < 0xFFFFU) {
+      uint32_t prog = progress();
+      if (prog < 0xFFFFU) {  // progress() < 0xFFFFU implies that _t is valid (see progress() function)
         if (useCct) return ((briNew * prog) + _t->_cctT * (0xFFFFU - prog)) >> 16;
         else        return ((briNew * prog) + _t->_briT * (0xFFFFU - prog)) >> 16;
       } else {
