@@ -248,6 +248,7 @@
 #define REALTIME_MODE_ARTNET      6
 #define REALTIME_MODE_TPM2NET     7
 #define REALTIME_MODE_DDP         8
+#define REALTIME_MODE_DMX         9
 
 //realtime override modes
 #define REALTIME_OVERRIDE_NONE    0

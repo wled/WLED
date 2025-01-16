@@ -15,7 +15,7 @@ void rdmPersonalityChangedCb(dmx_port_t dmxPort, const rdm_header_t *header,
   DMXInput *dmx = static_cast<DMXInput *>(context);
 
   if (!dmx) {
-    USER_PRINTLN("DMX: Error: no context in rdmPersonalityChangedCb");
+    DEBUG_PRINTLN("DMX: Error: no context in rdmPersonalityChangedCb");
     return;
   }
 
@@ -23,7 +23,7 @@ void rdmPersonalityChangedCb(dmx_port_t dmxPort, const rdm_header_t *header,
     const uint8_t personality = dmx_get_current_personality(dmx->inputPortNum);
     DMXMode = std::min(DMX_MODE_PRESET, std::max(DMX_MODE_SINGLE_RGB, int(personality)));
     doSerializeConfig = true;
-    USER_PRINTF("DMX personality changed to to: %d\n", DMXMode);
+    DEBUG_PRINTF("DMX personality changed to to: %d\n", DMXMode);
   }
 }
 
@@ -33,7 +33,7 @@ void rdmAddressChangedCb(dmx_port_t dmxPort, const rdm_header_t *header,
   DMXInput *dmx = static_cast<DMXInput *>(context);
 
   if (!dmx) {
-    USER_PRINTLN("DMX: Error: no context in rdmAddressChangedCb");
+    DEBUG_PRINTLN("DMX: Error: no context in rdmAddressChangedCb");
     return;
   }
 
@@ -41,7 +41,7 @@ void rdmAddressChangedCb(dmx_port_t dmxPort, const rdm_header_t *header,
     const uint16_t addr = dmx_get_start_address(dmx->inputPortNum);
     DMXAddress = std::min(512, int(addr));
     doSerializeConfig = true;
-    USER_PRINTF("DMX start addr changed to: %d\n", DMXAddress);
+    DEBUG_PRINTF("DMX start addr changed to: %d\n", DMXAddress);
   }
 }
 
@@ -105,15 +105,15 @@ bool DMXInput::installDriver()
 {
 
   const auto config = createConfig();
-  USER_PRINTF("DMX port: %u\n", inputPortNum);
+  DEBUG_PRINTF("DMX port: %u\n", inputPortNum);
   if (!dmx_driver_install(inputPortNum, &config, DMX_INTR_FLAGS_DEFAULT)) {
-    USER_PRINTF("Error: Failed to install dmx driver\n");
+    DEBUG_PRINTF("Error: Failed to install dmx driver\n");
     return false;
   }
 
-  USER_PRINTF("Listening for DMX on pin %u\n", rxPin);
-  USER_PRINTF("Sending DMX on pin %u\n", txPin);
-  USER_PRINTF("DMX enable pin is: %u\n", enPin);
+  DEBUG_PRINTF("Listening for DMX on pin %u\n", rxPin);
+  DEBUG_PRINTF("Sending DMX on pin %u\n", txPin);
+  DEBUG_PRINTF("DMX enable pin is: %u\n", enPin);
   dmx_set_pin(inputPortNum, txPin, rxPin, enPin);
 
   rdm_register_dmx_start_address(inputPortNum, rdmAddressChangedCb, this);
@@ -129,7 +129,7 @@ void DMXInput::init(uint8_t rxPin, uint8_t txPin, uint8_t enPin, uint8_t inputPo
   //TODO add again once dmx output has been merged
   // if(inputPortNum == dmxOutputPort)
   // {
-  //   USER_PRINTF("DMXInput: Error: Input port == output port");
+  //   DEBUG_PRINTF("DMXInput: Error: Input port == output port");
   //   return;
   // }
 #endif
@@ -138,7 +138,7 @@ void DMXInput::init(uint8_t rxPin, uint8_t txPin, uint8_t enPin, uint8_t inputPo
     this->inputPortNum = inputPortNum;
   }
   else {
-    USER_PRINTF("DMXInput: Error: invalid inputPortNum: %d\n", inputPortNum);
+    DEBUG_PRINTF("DMXInput: Error: invalid inputPortNum: %d\n", inputPortNum);
     return;
   }
 
@@ -148,12 +148,12 @@ void DMXInput::init(uint8_t rxPin, uint8_t txPin, uint8_t enPin, uint8_t inputPo
         {(int8_t)txPin, false}, // these are not used as gpio pins, thus isOutput is always false.
         {(int8_t)rxPin, false},
         {(int8_t)enPin, false}};
-    const bool pinsAllocated = pinManager.allocateMultiplePins(pins, 3, PinOwner::DMX_INPUT);
+    const bool pinsAllocated = PinManager::allocateMultiplePins(pins, 3, PinOwner::DMX_INPUT);
     if (!pinsAllocated) {
-      USER_PRINTF("DMXInput: Error: Failed to allocate pins for DMX_INPUT. Pins already in use:\n");
-      USER_PRINTF("rx in use by: %s\n", pinManager.getPinOwnerText(rxPin).c_str());
-      USER_PRINTF("tx in use by: %s\n", pinManager.getPinOwnerText(txPin).c_str());
-      USER_PRINTF("en in use by: %s\n", pinManager.getPinOwnerText(enPin).c_str());
+      DEBUG_PRINTF("DMXInput: Error: Failed to allocate pins for DMX_INPUT. Pins already in use:\n");
+      DEBUG_PRINTF("rx in use by: %s\n", pinManager.getPinOwnerText(rxPin).c_str());
+      DEBUG_PRINTF("tx in use by: %s\n", pinManager.getPinOwnerText(txPin).c_str());
+      DEBUG_PRINTF("en in use by: %s\n", pinManager.getPinOwnerText(enPin).c_str());
       return;
     }
 
@@ -165,11 +165,11 @@ void DMXInput::init(uint8_t rxPin, uint8_t txPin, uint8_t enPin, uint8_t inputPo
     // pin to core 0 because wled is running on core 1
     xTaskCreatePinnedToCore(dmxReceiverTask, "DMX_RCV_TASK", 10240, this, 2, &task, 0);
     if (!task) {
-      USER_PRINTF("Error: Failed to create dmx rcv task");
+      DEBUG_PRINTF("Error: Failed to create dmx rcv task");
     }
   }
   else {
-    USER_PRINTLN("DMX input disabled due to rxPin, enPin or txPin not set");
+    DEBUG_PRINTLN("DMX input disabled due to rxPin, enPin or txPin not set");
     return;
   }
 }
@@ -187,7 +187,7 @@ void DMXInput::updateInternal()
   if (dmx_receive(inputPortNum, &packet, DMX_TIMEOUT_TICK)) {
     if (!packet.err) {
       if(!connected) {
-        USER_PRINTLN("DMX Input - connected");
+        DEBUG_PRINTLN("DMX Input - connected");
       }
       connected = true;
       identify = isIdentifyOn();
@@ -202,7 +202,7 @@ void DMXInput::updateInternal()
   }
   else {
     if(connected) {
-      USER_PRINTLN("DMX Input - disconnected");
+      DEBUG_PRINTLN("DMX Input - disconnected");
     }
     connected = false;
   }
