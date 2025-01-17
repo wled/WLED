@@ -116,7 +116,7 @@ Segment& Segment::operator= (const Segment &orig) {
   //DEBUGFX_PRINTF_P(PSTR("-- Copying segment: %p -> %p\n"), &orig, this);
   if (this != &orig) {
     // clean destination
-    if (name) { free(name); name = nullptr; }
+    if (name) { d_free(name); name = nullptr; }
     stopTransition();
     deallocateData();
     // copy source
@@ -135,7 +135,7 @@ Segment& Segment::operator= (const Segment &orig) {
 Segment& Segment::operator= (Segment &&orig) noexcept {
   //DEBUGFX_PRINTF_P(PSTR("-- Moving segment: %p -> %p\n"), &orig, this);
   if (this != &orig) {
-    if (name) { free(name); name = nullptr; } // free old name
+    if (name) { d_free(name); name = nullptr; } // free old name
     stopTransition();
     deallocateData(); // free old runtime data
     memcpy((void*)this, (void*)&orig, sizeof(Segment));
@@ -185,7 +185,7 @@ void Segment::deallocateData() {
   if (!data) { _dataLen = 0; return; }
   if ((Segment::getUsedSegmentData() > 0) && (_dataLen > 0)) { // check that we don't have a dangling / inconsistent data pointer
     //DEBUGFX_PRINTF_P(PSTR("---  Released data (%p): %d/%d -> %p\n"), this, _dataLen, Segment::getUsedSegmentData(), data);
-    free(data);
+    d_free(data);
   } else {
     DEBUGFX_PRINTF_P(PSTR("---- Released data (%p): inconsistent UsedSegmentData (%d/%d), cowardly refusing to free nothing.\n"), this, _dataLen, Segment::getUsedSegmentData());
   }
@@ -317,7 +317,7 @@ void Segment::stopTransition() {
     if (_t->_segT._dataT && _t->_segT._dataLenT > 0) {
       //DEBUGFX_PRINTF_P(PSTR("--  Released duplicate data (%d) for %p: %p\n"), _t->_segT._dataLenT, this, _t->_segT._dataT);
       _t->_segT._dataLenT = 0;  // prevent race condition
-      free(_t->_segT._dataT);
+      d_free(_t->_segT._dataT);
       _t->_segT._dataT = nullptr;
     }
     #endif
@@ -1348,18 +1348,15 @@ void WS2812FX::finalizeInit() {
 
   _hasWhiteChannel = _isOffRefreshRequired = false;
 
+  unsigned digitalCount = 0;
   #if defined(ARDUINO_ARCH_ESP32) && !defined(CONFIG_IDF_TARGET_ESP32C3)
   // determine if it is sensible to use parallel I2S outputs on ESP32 (i.e. more than 5 outputs = 1 I2S + 4 RMT)
-  unsigned digitalCount = 0;
   unsigned maxLedsOnBus = 0;
-  //unsigned maxChannels = 0;
   for (unsigned i = 0; i < WLED_MAX_BUSSES+WLED_MIN_VIRTUAL_BUSSES; i++) {
     if (busConfigs[i] == nullptr) break;
     if (Bus::isDigital(busConfigs[i]->type) && !Bus::is2Pin(busConfigs[i]->type)) {
       digitalCount++;
       if (busConfigs[i]->count > maxLedsOnBus) maxLedsOnBus = busConfigs[i]->count;
-      //unsigned channels = Bus::getNumberOfChannels(busConfigs[i]->type);
-      //if (channels > maxChannels) maxChannels = channels;
     }
   }
   DEBUG_PRINTF_P(PSTR("Maximum LEDs on a bus: %u\nDigital buses: %u\n"), maxLedsOnBus, digitalCount);
@@ -1370,23 +1367,10 @@ void WS2812FX::finalizeInit() {
 
   // create buses/outputs
   unsigned mem = 0;
+  digitalCount = 0;
   for (unsigned i = 0; i < WLED_MAX_BUSSES+WLED_MIN_VIRTUAL_BUSSES; i++) {
     if (busConfigs[i] == nullptr) break;
-    #if defined(ARDUINO_ARCH_ESP32) && !defined(CONFIG_IDF_TARGET_ESP32C3)
-      #if defined(CONFIG_IDF_TARGET_ESP32S3) || defined(CONFIG_IDF_TARGET_ESP32S2)
-    // TODO: once I2S memory is larger than RMT it will ignore RMT
-    if (BusManager::hasParallelOutput() && i > 3) {  // will use RMT and then x8 I2S
-      unsigned memT = BusManager::memUsage(*busConfigs[i]); // includes x8 memory allocation for parallel I2S
-      if (memT > mem) mem = memT; // if we have unequal LED count use the largest
-    } else
-      #else // classic ESP32
-    if (BusManager::hasParallelOutput() && i < 8) {                                 // 1-8 are RMT if using x1 I2S
-      unsigned memT = BusManager::memUsage(*busConfigs[i]); // includes x8 memory allocation for parallel I2S
-      if (memT > mem) mem = memT; // if we have unequal LED count use the largest
-    } else
-      #endif
-    #endif
-      mem += BusManager::memUsage(*busConfigs[i]); // includes global buffer
+    mem += busConfigs[i]->memUsage(Bus::isDigital(busConfigs[i]->type) && !Bus::is2Pin(busConfigs[i]->type) ? digitalCount++ : 0); // includes global buffer
     if (mem <= MAX_LED_MEMORY) BusManager::add(*busConfigs[i]);
     else DEBUG_PRINTF_P(PSTR("Out of LED memory! Bus #%u not created."), i);
     delete busConfigs[i];
@@ -1395,7 +1379,7 @@ void WS2812FX::finalizeInit() {
 
   //if busses failed to load, add default (fresh install, FS issue, ...)
   if (BusManager::getNumBusses() == 0) {
-    DEBUGFX_PRINTLN(F("No busses, init default"));
+    DEBUG_PRINTLN(F("No busses, init default"));
     constexpr unsigned defDataTypes[] = {LED_TYPES};
     constexpr unsigned defDataPins[] = {DATA_PINS};
     constexpr unsigned defCounts[] = {PIXEL_COUNTS};
@@ -1408,6 +1392,7 @@ void WS2812FX::finalizeInit() {
     
     unsigned prevLen = 0;
     unsigned pinsIndex = 0;
+    digitalCount = 0;
     for (unsigned i = 0; i < WLED_MAX_BUSSES+WLED_MIN_VIRTUAL_BUSSES; i++) {
       uint8_t defPin[OUTPUT_MAX_PINS];
       // if we have less types than requested outputs and they do not align, use last known type to set current type
@@ -1472,11 +1457,12 @@ void WS2812FX::finalizeInit() {
       if (Bus::isPWM(dataType) || Bus::isOnOff(dataType)) count = 1;
       prevLen += count;
       BusConfig defCfg = BusConfig(dataType, defPin, start, count, DEFAULT_LED_COLOR_ORDER, false, 0, RGBW_MODE_MANUAL_ONLY, 0, useGlobalLedBuffer);
-      mem += BusManager::memUsage(defCfg);
+      //mem += BusManager::memUsage(defCfg);
+      mem += defCfg.memUsage(Bus::isDigital(dataType) && !Bus::is2Pin(dataType) ? digitalCount++ : 0);
       if (BusManager::add(defCfg) == -1) break;
     }
   }
-  DEBUG_PRINTF_P(PSTR("LED buffer size: %uB/%uB\n"), mem, BusManager::getBusSizeTotal());
+  DEBUG_PRINTF_P(PSTR("LED buffer size: %uB/%uB\n"), mem, BusManager::memUsage());
 
   _length = 0;
   for (int i=0; i<BusManager::getNumBusses(); i++) {
@@ -1499,9 +1485,9 @@ void WS2812FX::finalizeInit() {
   Segment::maxHeight = 1;
 
   //segments are created in makeAutoSegments();
-  DEBUGFX_PRINTLN(F("Loading custom palettes"));
+  DEBUG_PRINTLN(F("Loading custom palettes"));
   loadCustomPalettes(); // (re)load all custom palettes
-  DEBUGFX_PRINTLN(F("Loading custom ledmaps"));
+  DEBUG_PRINTLN(F("Loading custom ledmaps"));
   deserializeMap();     // (re)load default ledmap (will also setUpMatrix() if ledmap does not exist)
 }
 
@@ -2039,7 +2025,7 @@ bool WS2812FX::deserializeMap(unsigned n) {
     Segment::maxHeight = min(max(root[F("height")].as<int>(), 1), 128);
   }
 
-  if (customMappingTable) free(customMappingTable);
+  if (customMappingTable) d_free(customMappingTable);
   customMappingTable = static_cast<uint16_t*>(d_malloc(sizeof(uint16_t)*getLengthTotal())); // do not use SPI RAM
 
   if (customMappingTable) {

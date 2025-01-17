@@ -78,7 +78,7 @@ private:
       rgb[position++] = (int)strtoul(token, NULL, 10);
       token = strtok_r(NULL, delim, &cxt);
     }
-    free(color_);
+    w_free(color_);
 
     return position;
   }

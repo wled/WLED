@@ -49,7 +49,7 @@ void WS2812FX::setUpMatrix() {
 
     customMappingSize = 0; // prevent use of mapping if anything goes wrong
 
-    if (customMappingTable) free(customMappingTable);
+    if (customMappingTable) d_free(customMappingTable);
     customMappingTable = static_cast<uint16_t*>(d_malloc(sizeof(uint16_t)*getLengthTotal())); // do not use SPI RAM
 
     if (customMappingTable) {
@@ -112,7 +112,7 @@ void WS2812FX::setUpMatrix() {
       }
 
       // delete gap array as we no longer need it
-      if (gapTable) free(gapTable);
+      if (gapTable) w_free(gapTable);
 
       #ifdef WLED_DEBUG_FX
       DEBUGFX_PRINT(F("Matrix ledmap:"));

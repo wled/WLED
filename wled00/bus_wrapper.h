@@ -1,3 +1,4 @@
+#pragma once
 #ifndef BusWrapper_h
 #define BusWrapper_h
 
@@ -471,8 +472,8 @@ class PolyBus {
     #if defined(ARDUINO_ARCH_ESP32) && !(defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32S3) || defined(CONFIG_IDF_TARGET_ESP32C3))
     // NOTE: "channel" is only used on ESP32 (and its variants) for RMT channel allocation
     // since 0.15.0-b3 I2S1 is favoured for classic ESP32 and moved to position 0 (channel 0) so we need to subtract 1 for correct RMT allocation
-    if (_useParallelI2S && channel > 7) channel -= 8; // accommodate parallel I2S1 which is used 1st on classic ESP32
-    else if (channel > 0) channel--; // accommodate I2S1 which is used as 1st bus on classic ESP32
+    if (!_useParallelI2S && channel > 0) channel--; // accommodate I2S1 which is used as 1st bus on classic ESP32
+    // if user selected parallel I2S, RMT is used 1st (8 channels) followed by parallel I2S (8 channels)
     #endif
     void* busPtr = nullptr;
     switch (busType) {
@@ -700,6 +701,7 @@ class PolyBus {
       case I_8266_U0_UCS_4: return (static_cast<B_8266_U0_UCS_4*>(busPtr))->CanShow(); break;
       case I_8266_U1_UCS_4: return (static_cast<B_8266_U1_UCS_4*>(busPtr))->CanShow(); break;
       case I_8266_DM_UCS_4: return (static_cast<B_8266_DM_UCS_4*>(busPtr))->CanShow(); break;
+      case I_8266_BB_UCS_4: return (static_cast<B_8266_BB_UCS_4*>(busPtr))->CanShow(); break;
       case I_8266_U0_APA106_3: return (static_cast<B_8266_U0_APA106_3*>(busPtr))->CanShow(); break;
       case I_8266_U1_APA106_3: return (static_cast<B_8266_U1_APA106_3*>(busPtr))->CanShow(); break;
       case I_8266_DM_APA106_3: return (static_cast<B_8266_DM_APA106_3*>(busPtr))->CanShow(); break;
@@ -1199,54 +1201,54 @@ class PolyBus {
     switch (busType) {
       case I_NONE: break;
     #ifdef ESP8266
-      case I_8266_U0_NEO_3: size = (static_cast<B_8266_U0_NEO_3*>(busPtr))->PixelsSize(); break;
-      case I_8266_U1_NEO_3: size = (static_cast<B_8266_U1_NEO_3*>(busPtr))->PixelsSize(); break;
+      case I_8266_U0_NEO_3: size = (static_cast<B_8266_U0_NEO_3*>(busPtr))->PixelsSize()*2; break;
+      case I_8266_U1_NEO_3: size = (static_cast<B_8266_U1_NEO_3*>(busPtr))->PixelsSize()*2; break;
       case I_8266_DM_NEO_3: size = (static_cast<B_8266_DM_NEO_3*>(busPtr))->PixelsSize()*5; break;
-      case I_8266_BB_NEO_3: size = (static_cast<B_8266_BB_NEO_3*>(busPtr))->PixelsSize(); break;
-      case I_8266_U0_NEO_4: size = (static_cast<B_8266_U0_NEO_4*>(busPtr))->PixelsSize(); break;
-      case I_8266_U1_NEO_4: size = (static_cast<B_8266_U1_NEO_4*>(busPtr))->PixelsSize(); break;
+      case I_8266_BB_NEO_3: size = (static_cast<B_8266_BB_NEO_3*>(busPtr))->PixelsSize()*2; break;
+      case I_8266_U0_NEO_4: size = (static_cast<B_8266_U0_NEO_4*>(busPtr))->PixelsSize()*2; break;
+      case I_8266_U1_NEO_4: size = (static_cast<B_8266_U1_NEO_4*>(busPtr))->PixelsSize()*2; break;
       case I_8266_DM_NEO_4: size = (static_cast<B_8266_DM_NEO_4*>(busPtr))->PixelsSize()*5; break;
-      case I_8266_BB_NEO_4: size = (static_cast<B_8266_BB_NEO_4*>(busPtr))->PixelsSize(); break;
-      case I_8266_U0_400_3: size = (static_cast<B_8266_U0_400_3*>(busPtr))->PixelsSize(); break;
-      case I_8266_U1_400_3: size = (static_cast<B_8266_U1_400_3*>(busPtr))->PixelsSize(); break;
+      case I_8266_BB_NEO_4: size = (static_cast<B_8266_BB_NEO_4*>(busPtr))->PixelsSize()*2; break;
+      case I_8266_U0_400_3: size = (static_cast<B_8266_U0_400_3*>(busPtr))->PixelsSize()*2; break;
+      case I_8266_U1_400_3: size = (static_cast<B_8266_U1_400_3*>(busPtr))->PixelsSize()*2; break;
       case I_8266_DM_400_3: size = (static_cast<B_8266_DM_400_3*>(busPtr))->PixelsSize()*5; break;
-      case I_8266_BB_400_3: size = (static_cast<B_8266_BB_400_3*>(busPtr))->PixelsSize(); break;
-      case I_8266_U0_TM1_4: size = (static_cast<B_8266_U0_TM1_4*>(busPtr))->PixelsSize(); break;
-      case I_8266_U1_TM1_4: size = (static_cast<B_8266_U1_TM1_4*>(busPtr))->PixelsSize(); break;
+      case I_8266_BB_400_3: size = (static_cast<B_8266_BB_400_3*>(busPtr))->PixelsSize()*2; break;
+      case I_8266_U0_TM1_4: size = (static_cast<B_8266_U0_TM1_4*>(busPtr))->PixelsSize()*2; break;
+      case I_8266_U1_TM1_4: size = (static_cast<B_8266_U1_TM1_4*>(busPtr))->PixelsSize()*2; break;
       case I_8266_DM_TM1_4: size = (static_cast<B_8266_DM_TM1_4*>(busPtr))->PixelsSize()*5; break;
-      case I_8266_BB_TM1_4: size = (static_cast<B_8266_BB_TM1_4*>(busPtr))->PixelsSize(); break;
-      case I_8266_U0_TM2_3: size = (static_cast<B_8266_U0_TM2_3*>(busPtr))->PixelsSize(); break;
-      case I_8266_U1_TM2_3: size = (static_cast<B_8266_U1_TM2_3*>(busPtr))->PixelsSize(); break;
+      case I_8266_BB_TM1_4: size = (static_cast<B_8266_BB_TM1_4*>(busPtr))->PixelsSize()*2; break;
+      case I_8266_U0_TM2_3: size = (static_cast<B_8266_U0_TM2_3*>(busPtr))->PixelsSize()*2; break;
+      case I_8266_U1_TM2_3: size = (static_cast<B_8266_U1_TM2_3*>(busPtr))->PixelsSize()*2; break;
       case I_8266_DM_TM2_3: size = (static_cast<B_8266_DM_TM2_3*>(busPtr))->PixelsSize()*5; break;
-      case I_8266_BB_TM2_3: size = (static_cast<B_8266_BB_TM2_3*>(busPtr))->PixelsSize(); break;
-      case I_8266_U0_UCS_3: size = (static_cast<B_8266_U0_UCS_3*>(busPtr))->PixelsSize(); break;
-      case I_8266_U1_UCS_3: size = (static_cast<B_8266_U1_UCS_3*>(busPtr))->PixelsSize(); break;
+      case I_8266_BB_TM2_3: size = (static_cast<B_8266_BB_TM2_3*>(busPtr))->PixelsSize()*2; break;
+      case I_8266_U0_UCS_3: size = (static_cast<B_8266_U0_UCS_3*>(busPtr))->PixelsSize()*2; break;
+      case I_8266_U1_UCS_3: size = (static_cast<B_8266_U1_UCS_3*>(busPtr))->PixelsSize()*2; break;
       case I_8266_DM_UCS_3: size = (static_cast<B_8266_DM_UCS_3*>(busPtr))->PixelsSize()*5; break;
-      case I_8266_BB_UCS_3: size = (static_cast<B_8266_BB_UCS_3*>(busPtr))->PixelsSize(); break;
-      case I_8266_U0_UCS_4: size = (static_cast<B_8266_U0_UCS_4*>(busPtr))->PixelsSize(); break;
-      case I_8266_U1_UCS_4: size = (static_cast<B_8266_U1_UCS_4*>(busPtr))->PixelsSize(); break;
+      case I_8266_BB_UCS_3: size = (static_cast<B_8266_BB_UCS_3*>(busPtr))->PixelsSize()*2; break;
+      case I_8266_U0_UCS_4: size = (static_cast<B_8266_U0_UCS_4*>(busPtr))->PixelsSize()*2; break;
+      case I_8266_U1_UCS_4: size = (static_cast<B_8266_U1_UCS_4*>(busPtr))->PixelsSize()*2; break;
       case I_8266_DM_UCS_4: size = (static_cast<B_8266_DM_UCS_4*>(busPtr))->PixelsSize()*5; break;
-      case I_8266_BB_UCS_4: size = (static_cast<B_8266_BB_UCS_4*>(busPtr))->PixelsSize(); break;
-      case I_8266_U0_APA106_3: size = (static_cast<B_8266_U0_APA106_3*>(busPtr))->PixelsSize(); break;
-      case I_8266_U1_APA106_3: size = (static_cast<B_8266_U1_APA106_3*>(busPtr))->PixelsSize(); break;
+      case I_8266_BB_UCS_4: size = (static_cast<B_8266_BB_UCS_4*>(busPtr))->PixelsSize()*2; break;
+      case I_8266_U0_APA106_3: size = (static_cast<B_8266_U0_APA106_3*>(busPtr))->PixelsSize()*2; break;
+      case I_8266_U1_APA106_3: size = (static_cast<B_8266_U1_APA106_3*>(busPtr))->PixelsSize()*2; break;
       case I_8266_DM_APA106_3: size = (static_cast<B_8266_DM_APA106_3*>(busPtr))->PixelsSize()*5; break;
-      case I_8266_BB_APA106_3: size = (static_cast<B_8266_BB_APA106_3*>(busPtr))->PixelsSize(); break;
-      case I_8266_U0_FW6_5: size = (static_cast<B_8266_U0_FW6_5*>(busPtr))->PixelsSize(); break;
-      case I_8266_U1_FW6_5: size = (static_cast<B_8266_U1_FW6_5*>(busPtr))->PixelsSize(); break;
+      case I_8266_BB_APA106_3: size = (static_cast<B_8266_BB_APA106_3*>(busPtr))->PixelsSize()*2; break;
+      case I_8266_U0_FW6_5: size = (static_cast<B_8266_U0_FW6_5*>(busPtr))->PixelsSize()*2; break;
+      case I_8266_U1_FW6_5: size = (static_cast<B_8266_U1_FW6_5*>(busPtr))->PixelsSize()*2; break;
       case I_8266_DM_FW6_5: size = (static_cast<B_8266_DM_FW6_5*>(busPtr))->PixelsSize()*5; break;
-      case I_8266_BB_FW6_5: size = (static_cast<B_8266_BB_FW6_5*>(busPtr))->PixelsSize(); break;
-      case I_8266_U0_2805_5: size = (static_cast<B_8266_U0_2805_5*>(busPtr))->PixelsSize(); break;
-      case I_8266_U1_2805_5: size = (static_cast<B_8266_U1_2805_5*>(busPtr))->PixelsSize(); break;
+      case I_8266_BB_FW6_5: size = (static_cast<B_8266_BB_FW6_5*>(busPtr))->PixelsSize()*2; break;
+      case I_8266_U0_2805_5: size = (static_cast<B_8266_U0_2805_5*>(busPtr))->PixelsSize()*2; break;
+      case I_8266_U1_2805_5: size = (static_cast<B_8266_U1_2805_5*>(busPtr))->PixelsSize()*2; break;
       case I_8266_DM_2805_5: size = (static_cast<B_8266_DM_2805_5*>(busPtr))->PixelsSize()*5; break;
-      case I_8266_BB_2805_5: size = (static_cast<B_8266_BB_2805_5*>(busPtr))->PixelsSize(); break;
-      case I_8266_U0_TM1914_3: size = (static_cast<B_8266_U0_TM1914_3*>(busPtr))->PixelsSize(); break;
-      case I_8266_U1_TM1914_3: size = (static_cast<B_8266_U1_TM1914_3*>(busPtr))->PixelsSize(); break;
+      case I_8266_BB_2805_5: size = (static_cast<B_8266_BB_2805_5*>(busPtr))->PixelsSize()*2; break;
+      case I_8266_U0_TM1914_3: size = (static_cast<B_8266_U0_TM1914_3*>(busPtr))->PixelsSize()*2; break;
+      case I_8266_U1_TM1914_3: size = (static_cast<B_8266_U1_TM1914_3*>(busPtr))->PixelsSize()*2; break;
       case I_8266_DM_TM1914_3: size = (static_cast<B_8266_DM_TM1914_3*>(busPtr))->PixelsSize()*5; break;
-      case I_8266_BB_TM1914_3: size = (static_cast<B_8266_BB_TM1914_3*>(busPtr))->PixelsSize(); break;
-      case I_8266_U0_SM16825_5: size = (static_cast<B_8266_U0_SM16825_5*>(busPtr))->PixelsSize(); break;
-      case I_8266_U1_SM16825_5: size = (static_cast<B_8266_U1_SM16825_5*>(busPtr))->PixelsSize(); break;
+      case I_8266_BB_TM1914_3: size = (static_cast<B_8266_BB_TM1914_3*>(busPtr))->PixelsSize()*2; break;
+      case I_8266_U0_SM16825_5: size = (static_cast<B_8266_U0_SM16825_5*>(busPtr))->PixelsSize()*2; break;
+      case I_8266_U1_SM16825_5: size = (static_cast<B_8266_U1_SM16825_5*>(busPtr))->PixelsSize()*2; break;
       case I_8266_DM_SM16825_5: size = (static_cast<B_8266_DM_SM16825_5*>(busPtr))->PixelsSize()*5; break;
-      case I_8266_BB_SM16825_5: size = (static_cast<B_8266_BB_SM16825_5*>(busPtr))->PixelsSize(); break;
+      case I_8266_BB_SM16825_5: size = (static_cast<B_8266_BB_SM16825_5*>(busPtr))->PixelsSize()*2; break;
     #endif
     #ifdef ARDUINO_ARCH_ESP32
       // RMT buses
@@ -1264,134 +1266,126 @@ class PolyBus {
       case I_32_RN_SM16825_5: size = (static_cast<B_32_RN_SM16825_5*>(busPtr))->PixelsSize()*2; break;
       // I2S1 bus or paralell buses
       #ifndef CONFIG_IDF_TARGET_ESP32C3
-      case I_32_I2_NEO_3: size = (_useParallelI2S) ? (static_cast<B_32_IP_NEO_3*>(busPtr))->PixelsSize()*16 : (static_cast<B_32_I2_NEO_3*>(busPtr))->PixelsSize()*8; break;
-      case I_32_I2_NEO_4: size = (_useParallelI2S) ? (static_cast<B_32_IP_NEO_4*>(busPtr))->PixelsSize()*16 : (static_cast<B_32_I2_NEO_4*>(busPtr))->PixelsSize()*8; break;
-      case I_32_I2_400_3: size = (_useParallelI2S) ? (static_cast<B_32_IP_400_3*>(busPtr))->PixelsSize()*16 : (static_cast<B_32_I2_400_3*>(busPtr))->PixelsSize()*8; break;
-      case I_32_I2_TM1_4: size = (_useParallelI2S) ? (static_cast<B_32_IP_TM1_4*>(busPtr))->PixelsSize()*16 : (static_cast<B_32_I2_TM1_4*>(busPtr))->PixelsSize()*8; break;
-      case I_32_I2_TM2_3: size = (_useParallelI2S) ? (static_cast<B_32_IP_TM2_3*>(busPtr))->PixelsSize()*16 : (static_cast<B_32_I2_TM2_3*>(busPtr))->PixelsSize()*8; break;
-      case I_32_I2_UCS_3: size = (_useParallelI2S) ? (static_cast<B_32_IP_UCS_3*>(busPtr))->PixelsSize()*16 : (static_cast<B_32_I2_UCS_3*>(busPtr))->PixelsSize()*8; break;
-      case I_32_I2_UCS_4: size = (_useParallelI2S) ? (static_cast<B_32_IP_UCS_4*>(busPtr))->PixelsSize()*16 : (static_cast<B_32_I2_UCS_4*>(busPtr))->PixelsSize()*8; break;
-      case I_32_I2_APA106_3: size = (_useParallelI2S) ? (static_cast<B_32_IP_APA106_3*>(busPtr))->PixelsSize()*16 : (static_cast<B_32_I2_APA106_3*>(busPtr))->PixelsSize()*8; break;
-      case I_32_I2_FW6_5: size = (_useParallelI2S) ? (static_cast<B_32_IP_FW6_5*>(busPtr))->PixelsSize()*16 : (static_cast<B_32_I2_FW6_5*>(busPtr))->PixelsSize()*8; break;
-      case I_32_I2_2805_5: size = (_useParallelI2S) ? (static_cast<B_32_IP_2805_5*>(busPtr))->PixelsSize()*16 : (static_cast<B_32_I2_2805_5*>(busPtr))->PixelsSize()*8; break;
-      case I_32_I2_TM1914_3: size = (_useParallelI2S) ? (static_cast<B_32_IP_TM1914_3*>(busPtr))->PixelsSize()*16 : (static_cast<B_32_I2_TM1914_3*>(busPtr))->PixelsSize()*8; break;
-      case I_32_I2_SM16825_5: size = (_useParallelI2S) ? (static_cast<B_32_IP_SM16825_5*>(busPtr))->PixelsSize()*16 : (static_cast<B_32_I2_SM16825_5*>(busPtr))->PixelsSize()*8; break;
+      case I_32_I2_NEO_3: size = (_useParallelI2S) ? (static_cast<B_32_IP_NEO_3*>(busPtr))->PixelsSize()*6 : (static_cast<B_32_I2_NEO_3*>(busPtr))->PixelsSize()*6; break;
+      case I_32_I2_NEO_4: size = (_useParallelI2S) ? (static_cast<B_32_IP_NEO_4*>(busPtr))->PixelsSize()*6 : (static_cast<B_32_I2_NEO_4*>(busPtr))->PixelsSize()*6; break;
+      case I_32_I2_400_3: size = (_useParallelI2S) ? (static_cast<B_32_IP_400_3*>(busPtr))->PixelsSize()*6 : (static_cast<B_32_I2_400_3*>(busPtr))->PixelsSize()*6; break;
+      case I_32_I2_TM1_4: size = (_useParallelI2S) ? (static_cast<B_32_IP_TM1_4*>(busPtr))->PixelsSize()*6 : (static_cast<B_32_I2_TM1_4*>(busPtr))->PixelsSize()*6; break;
+      case I_32_I2_TM2_3: size = (_useParallelI2S) ? (static_cast<B_32_IP_TM2_3*>(busPtr))->PixelsSize()*6 : (static_cast<B_32_I2_TM2_3*>(busPtr))->PixelsSize()*6; break;
+      case I_32_I2_UCS_3: size = (_useParallelI2S) ? (static_cast<B_32_IP_UCS_3*>(busPtr))->PixelsSize()*6 : (static_cast<B_32_I2_UCS_3*>(busPtr))->PixelsSize()*6; break;
+      case I_32_I2_UCS_4: size = (_useParallelI2S) ? (static_cast<B_32_IP_UCS_4*>(busPtr))->PixelsSize()*6 : (static_cast<B_32_I2_UCS_4*>(busPtr))->PixelsSize()*6; break;
+      case I_32_I2_APA106_3: size = (_useParallelI2S) ? (static_cast<B_32_IP_APA106_3*>(busPtr))->PixelsSize()*6 : (static_cast<B_32_I2_APA106_3*>(busPtr))->PixelsSize()*6; break;
+      case I_32_I2_FW6_5: size = (_useParallelI2S) ? (static_cast<B_32_IP_FW6_5*>(busPtr))->PixelsSize()*6 : (static_cast<B_32_I2_FW6_5*>(busPtr))->PixelsSize()*6; break;
+      case I_32_I2_2805_5: size = (_useParallelI2S) ? (static_cast<B_32_IP_2805_5*>(busPtr))->PixelsSize()*6 : (static_cast<B_32_I2_2805_5*>(busPtr))->PixelsSize()*6; break;
+      case I_32_I2_TM1914_3: size = (_useParallelI2S) ? (static_cast<B_32_IP_TM1914_3*>(busPtr))->PixelsSize()*6 : (static_cast<B_32_I2_TM1914_3*>(busPtr))->PixelsSize()*6; break;
+      case I_32_I2_SM16825_5: size = (_useParallelI2S) ? (static_cast<B_32_IP_SM16825_5*>(busPtr))->PixelsSize()*6 : (static_cast<B_32_I2_SM16825_5*>(busPtr))->PixelsSize()*6; break;
       #endif
     #endif
-      case I_HS_DOT_3: size = (static_cast<B_HS_DOT_3*>(busPtr))->PixelsSize(); break;
-      case I_SS_DOT_3: size = (static_cast<B_SS_DOT_3*>(busPtr))->PixelsSize(); break;
-      case I_HS_LPD_3: size = (static_cast<B_HS_LPD_3*>(busPtr))->PixelsSize(); break;
-      case I_SS_LPD_3: size = (static_cast<B_SS_LPD_3*>(busPtr))->PixelsSize(); break;
-      case I_HS_LPO_3: size = (static_cast<B_HS_LPO_3*>(busPtr))->PixelsSize(); break;
-      case I_SS_LPO_3: size = (static_cast<B_SS_LPO_3*>(busPtr))->PixelsSize(); break;
-      case I_HS_WS1_3: size = (static_cast<B_HS_WS1_3*>(busPtr))->PixelsSize(); break;
-      case I_SS_WS1_3: size = (static_cast<B_SS_WS1_3*>(busPtr))->PixelsSize(); break;
-      case I_HS_P98_3: size = (static_cast<B_HS_P98_3*>(busPtr))->PixelsSize(); break;
-      case I_SS_P98_3: size = (static_cast<B_SS_P98_3*>(busPtr))->PixelsSize(); break;
+      case I_HS_DOT_3: size = (static_cast<B_HS_DOT_3*>(busPtr))->PixelsSize()*2; break;
+      case I_SS_DOT_3: size = (static_cast<B_SS_DOT_3*>(busPtr))->PixelsSize()*2; break;
+      case I_HS_LPD_3: size = (static_cast<B_HS_LPD_3*>(busPtr))->PixelsSize()*2; break;
+      case I_SS_LPD_3: size = (static_cast<B_SS_LPD_3*>(busPtr))->PixelsSize()*2; break;
+      case I_HS_LPO_3: size = (static_cast<B_HS_LPO_3*>(busPtr))->PixelsSize()*2; break;
+      case I_SS_LPO_3: size = (static_cast<B_SS_LPO_3*>(busPtr))->PixelsSize()*2; break;
+      case I_HS_WS1_3: size = (static_cast<B_HS_WS1_3*>(busPtr))->PixelsSize()*2; break;
+      case I_SS_WS1_3: size = (static_cast<B_SS_WS1_3*>(busPtr))->PixelsSize()*2; break;
+      case I_HS_P98_3: size = (static_cast<B_HS_P98_3*>(busPtr))->PixelsSize()*2; break;
+      case I_SS_P98_3: size = (static_cast<B_SS_P98_3*>(busPtr))->PixelsSize()*2; break;
     }
     return size;
   }
-/*
-  static unsigned getBusSize(unsigned count, unsigned busType) {
-    unsigned size = 0;
+
+  static unsigned memUsage(unsigned count, unsigned busType) {
+    unsigned size = count;
     switch (busType) {
-      case I_NONE: break;
+      case I_NONE: size = 0; break;
     #ifdef ESP8266
-      case I_8266_U0_NEO_3: size = B_8266_U0_NEO_3::GetBusSize(count); break;
-      case I_8266_U1_NEO_3: size = B_8266_U1_NEO_3::GetBusSize(count); break;
-      case I_8266_DM_NEO_3: size = B_8266_DM_NEO_3::GetBusSize(count); break;
-      case I_8266_BB_NEO_3: size = B_8266_BB_NEO_3::GetBusSize(count); break;
-      case I_8266_U0_NEO_4: size = B_8266_U0_NEO_4::GetBusSize(count); break;
-      case I_8266_U1_NEO_4: size = B_8266_U1_NEO_4::GetBusSize(count); break;
-      case I_8266_DM_NEO_4: size = B_8266_DM_NEO_4::GetBusSize(count); break;
-      case I_8266_BB_NEO_4: size = B_8266_BB_NEO_4::GetBusSize(count); break;
-      case I_8266_U0_400_3: size = B_8266_U0_400_3::GetBusSize(count); break;
-      case I_8266_U1_400_3: size = B_8266_U1_400_3::GetBusSize(count); break;
-      case I_8266_DM_400_3: size = B_8266_DM_400_3::GetBusSize(count); break;
-      case I_8266_BB_400_3: size = B_8266_BB_400_3::GetBusSize(count); break;
-      case I_8266_U0_TM1_4: size = B_8266_U0_TM1_4::GetBusSize(count); break;
-      case I_8266_U1_TM1_4: size = B_8266_U1_TM1_4::GetBusSize(count); break;
-      case I_8266_DM_TM1_4: size = B_8266_DM_TM1_4::GetBusSize(count); break;
-      case I_8266_BB_TM1_4: size = B_8266_BB_TM1_4::GetBusSize(count); break;
-      case I_8266_U0_TM2_3: size = B_8266_U0_TM2_3::GetBusSize(count); break;
-      case I_8266_U1_TM2_3: size = B_8266_U1_TM2_3::GetBusSize(count); break;
-      case I_8266_DM_TM2_3: size = B_8266_DM_TM2_3::GetBusSize(count); break;
-      case I_8266_BB_TM2_3: size = B_8266_BB_TM2_3::GetBusSize(count); break;
-      case I_8266_U0_UCS_3: size = B_8266_U0_UCS_3::GetBusSize(count); break;
-      case I_8266_U1_UCS_3: size = B_8266_U1_UCS_3::GetBusSize(count); break;
-      case I_8266_DM_UCS_3: size = B_8266_DM_UCS_3::GetBusSize(count); break;
-      case I_8266_BB_UCS_3: size = B_8266_BB_UCS_3::GetBusSize(count); break;
-      case I_8266_U0_UCS_4: size = B_8266_U0_UCS_4::GetBusSize(count); break;
-      case I_8266_U1_UCS_4: size = B_8266_U1_UCS_4::GetBusSize(count); break;
-      case I_8266_DM_UCS_4: size = B_8266_DM_UCS_4::GetBusSize(count); break;
-      case I_8266_BB_UCS_4: size = B_8266_BB_UCS_4::GetBusSize(count); break;
-      case I_8266_U0_APA106_3: size = B_8266_U0_APA106_3::GetBusSize(count); break;
-      case I_8266_U1_APA106_3: size = B_8266_U1_APA106_3::GetBusSize(count); break;
-      case I_8266_DM_APA106_3: size = B_8266_DM_APA106_3::GetBusSize(count); break;
-      case I_8266_BB_APA106_3: size = B_8266_BB_APA106_3::GetBusSize(count); break;
-      case I_8266_U0_FW6_5: size = B_8266_U0_FW6_5::GetBusSize(count); break;
-      case I_8266_U1_FW6_5: size = B_8266_U1_FW6_5::GetBusSize(count); break;
-      case I_8266_DM_FW6_5: size = B_8266_DM_FW6_5::GetBusSize(count); break;
-      case I_8266_BB_FW6_5: size = B_8266_BB_FW6_5::GetBusSize(count); break;
-      case I_8266_U0_2805_5: size = B_8266_U0_2805_5::GetBusSize(count); break;
-      case I_8266_U1_2805_5: size = B_8266_U1_2805_5::GetBusSize(count); break;
-      case I_8266_DM_2805_5: size = B_8266_DM_2805_5::GetBusSize(count); break;
-      case I_8266_BB_2805_5: size = B_8266_BB_2805_5::GetBusSize(count); break;
-      case I_8266_U0_TM1914_3: size = B_8266_U0_TM1914_3::GetBusSize(count); break;
-      case I_8266_U1_TM1914_3: size = B_8266_U1_TM1914_3::GetBusSize(count); break;
-      case I_8266_DM_TM1914_3: size = B_8266_DM_TM1914_3::GetBusSize(count); break;
-      case I_8266_BB_TM1914_3: size = B_8266_BB_TM1914_3::GetBusSize(count); break;
-      case I_8266_U0_SM16825_5: size = B_8266_U0_SM16825_5::GetBusSize(count); break;
-      case I_8266_U1_SM16825_5: size = B_8266_U1_SM16825_5::GetBusSize(count); break;
-      case I_8266_DM_SM16825_5: size = B_8266_DM_SM16825_5::GetBusSize(count); break;
-      case I_8266_BB_SM16825_5: size = B_8266_BB_SM16825_5::GetBusSize(count); break;
+      case I_8266_U0_NEO_3: size *= 9; break;
+      case I_8266_U1_NEO_3: size *= 9; break;
+      case I_8266_BB_NEO_3: size *= 9; break;
+      case I_8266_U0_NEO_4: size *= 12; break;
+      case I_8266_U1_NEO_4: size *= 12; break;
+      case I_8266_BB_NEO_4: size *= 12; break;
+      case I_8266_U0_400_3: size *= 9; break;
+      case I_8266_U1_400_3: size *= 9; break;
+      case I_8266_BB_400_3: size *= 9; break;
+      case I_8266_U0_TM1_4: size *= 12; break;
+      case I_8266_U1_TM1_4: size *= 12; break;
+      case I_8266_BB_TM1_4: size *= 12; break;
+      case I_8266_U0_TM2_3: size *= 9; break;
+      case I_8266_U1_TM2_3: size *= 9; break;
+      case I_8266_BB_TM2_3: size *= 9; break;
+      case I_8266_U0_UCS_3: size *= 18; break;
+      case I_8266_U1_UCS_3: size *= 18; break;
+      case I_8266_BB_UCS_3: size *= 18; break;
+      case I_8266_U0_UCS_4: size *= 24; break;
+      case I_8266_U1_UCS_4: size *= 24; break;
+      case I_8266_BB_UCS_4: size *= 24; break;
+      case I_8266_U0_APA106_3: size *= 9; break;
+      case I_8266_U1_APA106_3: size *= 9; break;
+      case I_8266_BB_APA106_3: size *= 9; break;
+      case I_8266_U0_FW6_5: size *= 15; break;
+      case I_8266_U1_FW6_5: size *= 15; break;
+      case I_8266_BB_FW6_5: size *= 15; break;
+      case I_8266_U0_2805_5: size *= 15; break;
+      case I_8266_U1_2805_5: size *= 15; break;
+      case I_8266_BB_2805_5: size *= 15; break;
+      case I_8266_U0_TM1914_3: size *= 9; break;
+      case I_8266_U1_TM1914_3: size *= 9; break;
+      case I_8266_BB_TM1914_3: size *= 9; break;
+      case I_8266_U0_SM16825_5: size *= 30; break;
+      case I_8266_U1_SM16825_5: size *= 30; break;
+      case I_8266_BB_SM16825_5: size *= 30; break;
+      case I_8266_DM_NEO_3: size *= 15; break;
+      case I_8266_DM_NEO_4: size *= 20; break;
+      case I_8266_DM_400_3: size *= 15; break;
+      case I_8266_DM_TM1_4: size *= 20; break;
+      case I_8266_DM_TM2_3: size *= 15; break;
+      case I_8266_DM_UCS_3: size *= 30; break;
+      case I_8266_DM_UCS_4: size *= 40; break;
+      case I_8266_DM_APA106_3: size *= 15; break;
+      case I_8266_DM_FW6_5: size *= 30; break;
+      case I_8266_DM_2805_5: size *= 30; break;
+      case I_8266_DM_TM1914_3: size *= 15; break;
+      case I_8266_DM_SM16825_5: size *= 50; break;
+        size *= 5;
+        break;
     #endif
     #ifdef ARDUINO_ARCH_ESP32
-      // RMT buses
-      case I_32_RN_NEO_3: size = B_32_RN_NEO_3::GetBusSize(count); break;
-      case I_32_RN_NEO_4: size = B_32_RN_NEO_4::GetBusSize(count); break;
-      case I_32_RN_400_3: size = B_32_RN_400_3::GetBusSize(count); break;
-      case I_32_RN_TM1_4: size = B_32_RN_TM1_4::GetBusSize(count); break;
-      case I_32_RN_TM2_3: size = B_32_RN_TM2_3::GetBusSize(count); break;
-      case I_32_RN_UCS_3: size = B_32_RN_UCS_3::GetBusSize(count); break;
-      case I_32_RN_UCS_4: size = B_32_RN_UCS_4::GetBusSize(count); break;
-      case I_32_RN_APA106_3: size = B_32_RN_APA106_3::GetBusSize(count); break;
-      case I_32_RN_FW6_5: size = B_32_RN_FW6_5::GetBusSize(count); break;
-      case I_32_RN_2805_5: size = B_32_RN_2805_5::GetBusSize(count); break;
-      case I_32_RN_TM1914_3: size = B_32_RN_TM1914_3::GetBusSize(count); break;
-      case I_32_RN_SM16825_5: size = B_32_RN_SM16825_5::GetBusSize(count); break;
-      // I2S1 bus or paralell buses
+      // RMT buses (2x front and 1x back buffer)
+      case I_32_RN_NEO_3: size *= 9; break;
+      case I_32_RN_NEO_4: size *= 12; break;
+      case I_32_RN_400_3: size *= 9; break;
+      case I_32_RN_TM1_4: size *= 12; break;
+      case I_32_RN_TM2_3: size *= 9; break;
+      case I_32_RN_UCS_3: size *= 18; break;
+      case I_32_RN_UCS_4: size *= 24; break;
+      case I_32_RN_APA106_3: size *= 9; break;
+      case I_32_RN_FW6_5: size *= 15; break;
+      case I_32_RN_2805_5: size *= 15;  break;
+      case I_32_RN_TM1914_3: size *= 9; break;
+      case I_32_RN_SM16825_5: size *= 30; break;
+      // I2S1 bus or paralell buses (individual 2x front and 1 DMA (3x or 4x pixel count) or common back DMA buffers)
       #ifndef CONFIG_IDF_TARGET_ESP32C3
-      case I_32_I2_NEO_3: size = (_useParallelI2S) ? B_32_IP_NEO_3::GetBusSize(count) : B_32_I2_NEO_3::GetBusSize(count); break;
-      case I_32_I2_NEO_4: size = (_useParallelI2S) ? B_32_IP_NEO_4::GetBusSize(count) : B_32_I2_NEO_4::GetBusSize(count); break;
-      case I_32_I2_400_3: size = (_useParallelI2S) ? B_32_IP_400_3::GetBusSize(count) : B_32_I2_400_3::GetBusSize(count); break;
-      case I_32_I2_TM1_4: size = (_useParallelI2S) ? B_32_IP_TM1_4::GetBusSize(count) : B_32_I2_TM1_4::GetBusSize(count); break;
-      case I_32_I2_TM2_3: size = (_useParallelI2S) ? B_32_IP_TM2_3::GetBusSize(count) : B_32_I2_TM2_3::GetBusSize(count); break;
-      case I_32_I2_UCS_3: size = (_useParallelI2S) ? B_32_IP_UCS_3::GetBusSize(count) : B_32_I2_UCS_3::GetBusSize(count); break;
-      case I_32_I2_UCS_4: size = (_useParallelI2S) ? B_32_IP_UCS_4::GetBusSize(count) : B_32_I2_UCS_4::GetBusSize(count); break;
-      case I_32_I2_APA106_3: size = (_useParallelI2S) ? B_32_IP_APA106_3::GetBusSize(count) : B_32_I2_APA106_3::GetBusSize(count); break;
-      case I_32_I2_FW6_5: size = (_useParallelI2S) ? B_32_IP_FW6_5::GetBusSize(count) : B_32_I2_FW6_5::GetBusSize(count); break;
-      case I_32_I2_2805_5: size = (_useParallelI2S) ? B_32_IP_2805_5::GetBusSize(count) : B_32_I2_2805_5::GetBusSize(count); break;
-      case I_32_I2_TM1914_3: size = (_useParallelI2S) ? B_32_IP_TM1914_3::GetBusSize(count) : B_32_I2_TM1914_3::GetBusSize(count); break;
-      case I_32_I2_SM16825_5: size = (_useParallelI2S) ? B_32_IP_SM16825_5::GetBusSize(count) : B_32_I2_SM16825_5::GetBusSize(count); break;
+      case I_32_I2_NEO_3: size *= 18; break;
+      case I_32_I2_NEO_4: size *= 24; break;
+      case I_32_I2_400_3: size *= 18; break;
+      case I_32_I2_TM1_4: size *= 24; break;
+      case I_32_I2_TM2_3: size *= 18; break;
+      case I_32_I2_UCS_3: size *= 36; break;
+      case I_32_I2_UCS_4: size *= 48; break;
+      case I_32_I2_APA106_3: size *= 18; break;
+      case I_32_I2_FW6_5: size *= 30; break;
+      case I_32_I2_2805_5: size *= 30; break;
+      case I_32_I2_TM1914_3: size *= 18; break;
+      case I_32_I2_SM16825_5: size *= 60; break;
       #endif
     #endif
-      case I_HS_DOT_3: size = B_HS_DOT_3::GetBusSize(count); break;
-      case I_SS_DOT_3: size = B_SS_DOT_3::GetBusSize(count); break;
-      case I_HS_LPD_3: size = B_HS_LPD_3::GetBusSize(count); break;
-      case I_SS_LPD_3: size = B_SS_LPD_3::GetBusSize(count); break;
-      case I_HS_LPO_3: size = B_HS_LPO_3::GetBusSize(count); break;
-      case I_SS_LPO_3: size = B_SS_LPO_3::GetBusSize(count); break;
-      case I_HS_WS1_3: size = B_HS_WS1_3::GetBusSize(count); break;
-      case I_SS_WS1_3: size = B_SS_WS1_3::GetBusSize(count); break;
-      case I_HS_P98_3: size = B_HS_P98_3::GetBusSize(count); break;
-      case I_SS_P98_3: size = B_SS_P98_3::GetBusSize(count); break;
     }
     return size;
   }
-*/
+
   //gives back the internal type index (I_XX_XXX_X above) for the input
-  static uint8_t getI(uint8_t busType, uint8_t* pins, uint8_t num = 0) {
+  static uint8_t getI(uint8_t busType, const uint8_t* pins, uint8_t num = 0) {
     if (!Bus::isDigital(busType)) return I_NONE;
     if (Bus::is2Pin(busType)) { //SPI LED chips
       bool isHSPI = false;
@@ -1473,7 +1467,7 @@ class PolyBus {
       // standard ESP32 has 8 RMT and x1/x8 I2S1 channels
       if (_useParallelI2S) {
         if (num > 15) return I_NONE;
-        if (num < 8) offset = 1;  // prefer 8 parallel I2S1 channels
+        if (num > 7) offset = 1;  // 8 RMT followed by 8 I2S
       } else {
         if (num > 9) return I_NONE;
         if (num == 0) offset = 1; // prefer I2S1 for 1st bus (less flickering but more RAM needed)

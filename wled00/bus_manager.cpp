@@ -36,16 +36,20 @@ uint8_t realtimeBroadcast(uint8_t type, IPAddress client, uint16_t length, const
 void *w_malloc(size_t);           // prefer PSRAM over DRAM
 void *w_calloc(size_t, size_t);   // prefer PSRAM over DRAM
 void *w_realloc(void *, size_t);  // prefer PSRAM over DRAM
+inline void w_free(void *ptr) { heap_caps_free(ptr); }
 void *d_malloc(size_t);           // prefer DRAM over PSRAM
 void *d_calloc(size_t, size_t);   // prefer DRAM over PSRAM
 void *d_realloc(void *, size_t);  // prefer DRAM over PSRAM
+inline void d_free(void *ptr) { heap_caps_free(ptr); }
 #else
 #define w_malloc malloc
 #define w_calloc calloc
 #define w_realloc realloc
+#define w_free free
 #define d_malloc malloc
 #define d_calloc calloc
 #define d_realloc realloc
+#define d_free free
 #endif
 
 //color mangling macros
@@ -113,8 +117,13 @@ uint32_t Bus::autoWhiteCalc(uint32_t c) const {
 }
 
 uint8_t *Bus::allocateData(size_t size) {
-  if (_data) free(_data); // should not happen, but for safety
+  freeData(); // should not happen, but for safety
   return _data = (uint8_t *)(size>0 ? d_calloc(size, sizeof(uint8_t)) : nullptr);
+}
+
+void Bus::freeData() {
+  if (_data) d_free(_data);
+  _data = nullptr;
 }
 
 
@@ -171,7 +180,7 @@ BusDigital::BusDigital(const BusConfig &bc, uint8_t nr, const ColorOrderMap &com
 //I am NOT to be held liable for burned down garages or houses!
 
 // To disable brightness limiter we either set output max current to 0 or single LED current to 0
-uint8_t BusDigital::estimateCurrentAndLimitBri() {
+uint8_t BusDigital::estimateCurrentAndLimitBri() const {
   bool useWackyWS2815PowerModel = false;
   byte actualMilliampsPerLed = _milliAmpsPerLed;
 
@@ -209,21 +218,21 @@ uint8_t BusDigital::estimateCurrentAndLimitBri() {
   }
 
   // powerSum has all the values of channels summed (max would be getLength()*765 as white is excluded) so convert to milliAmps
-  _milliAmpsTotal = (busPowerSum * actualMilliampsPerLed * _bri) / (765*255);
+  BusDigital::_milliAmpsTotal = (busPowerSum * actualMilliampsPerLed * _bri) / (765*255);
 
   uint8_t newBri = _bri;
-  if (_milliAmpsTotal > powerBudget) {
+  if (BusDigital::_milliAmpsTotal > powerBudget) {
     //scale brightness down to stay in current limit
-    unsigned scaleB = powerBudget * 255 / _milliAmpsTotal;
+    unsigned scaleB = powerBudget * 255 / BusDigital::_milliAmpsTotal;
     newBri = (_bri * scaleB) / 256 + 1;
-    _milliAmpsTotal = powerBudget;
+    BusDigital::_milliAmpsTotal = powerBudget;
     //_milliAmpsTotal = (busPowerSum * actualMilliampsPerLed * newBri) / (765*255);
   }
   return newBri;
 }
 
 void BusDigital::show() {
-  _milliAmpsTotal = 0;
+  BusDigital::_milliAmpsTotal = 0;
   if (!_valid) return;
 
   uint8_t cctWW = 0, cctCW = 0;
@@ -387,16 +396,9 @@ unsigned BusDigital::getPins(uint8_t* pinArray) const {
 }
 
 unsigned BusDigital::getBusSize() const {
-  return sizeof(BusDigital) + (isOk() ? PolyBus::getDataSize(_busPtr, _iType) : 0);
+  return sizeof(BusDigital) + (isOk() ? PolyBus::getDataSize(_busPtr, _iType) + (_data ? _len * getNumberOfChannels() : 0) : 0);
 }
-/*
-unsigned BusDigital::getBusSize(unsigned count, uint8_t pin, unsigned type, unsigned nr) {
-  byte pins[2] = {pin,0};
-  unsigned iType = PolyBus::getI(type, pins, nr);
-  //return sizeof(BusDigital) + PolyBus::getBusSize(count, iType);
-  return sizeof(BusDigital) + (count * (3 + hasWhite(type)));
-}
-*/
+
 void BusDigital::setColorOrder(uint8_t colorOrder) {
   // upper nibble contains W swap information
   if ((colorOrder & 0x0F) > 5) return;
@@ -440,7 +442,7 @@ void BusDigital::cleanup() {
   _iType = I_NONE;
   _valid = false;
   _busPtr = nullptr;
-  if (_data != nullptr) freeData();
+  freeData();
   //PinManager::deallocateMultiplePins(_pins, 2, PinOwner::BusDigital);
   PinManager::deallocatePin(_pins[1], PinOwner::BusDigital);
   PinManager::deallocatePin(_pins[0], PinOwner::BusDigital);
@@ -803,33 +805,44 @@ void BusNetwork::cleanup() {
 
 
 //utility to get the approx. memory usage of a given BusConfig
-uint32_t BusManager::memUsage(const BusConfig &bc) {
-  if (Bus::isOnOff(bc.type) || Bus::isPWM(bc.type)) return OUTPUT_MAX_PINS;
-
-  unsigned len = bc.count + bc.skipAmount;
-  unsigned channels = Bus::getNumberOfChannels(bc.type);
-  unsigned multiplier = 1;
-  if (Bus::isDigital(bc.type)) { // digital types
-    if (Bus::is16bit(bc.type)) len *= 2; // 16-bit LEDs
-    #ifdef ESP8266
-      if (bc.pins[0] == 3) { //8266 DMA uses 5x the mem
-        multiplier = 5;
-      }
-    #else //ESP32 RMT uses double buffer, parallel I2S uses 8x buffer (3 times)
-      #ifndef CONFIG_IDF_TARGET_ESP32C3
-      multiplier = useParallelI2S ? 24 : 2;
-      #else
-      multiplier = 2;
-      #endif
-    #endif
+unsigned BusConfig::memUsage(unsigned nr) const {
+  if (Bus::isVirtual(type)) {
+    return sizeof(BusNetwork) + (count * Bus::getNumberOfChannels(type));
+  } else if (Bus::isDigital(type)) {
+    return sizeof(BusDigital) + PolyBus::memUsage(count + skipAmount, PolyBus::getI(type, pins, nr)) + doubleBuffer * (count + skipAmount) * Bus::getNumberOfChannels(type);
+  } else if (Bus::isOnOff(type)) {
+    return sizeof(BusOnOff);
+  } else {
+    return sizeof(BusPwm);
   }
-  return (len * multiplier + bc.doubleBuffer * (bc.count + bc.skipAmount)) * channels;
 }
 
-unsigned BusManager::getBusSizeTotal() {
+
+unsigned BusManager::memUsage() {
+  // when ESP32, S2 & S3 use parallel I2S only the largest bus determines the total memory requirements for back buffers
+  // front buffers are always allocated per bus
   unsigned size = 0;
-  for (unsigned i=0; i<numBusses; i++) size += busses[i]->getBusSize();
-  return size;
+  unsigned maxI2S = 0;
+  #if !defined(CONFIG_IDF_TARGET_ESP32C3) && !defined(ESP8266)
+  unsigned digitalCount = 0;
+    #if defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32S3)
+      #define MAX_RMT 4
+    #else
+      #define MAX_RMT 8
+    #endif
+  #endif
+  for (unsigned i=0; i<numBusses; i++) {
+    unsigned busSize = busses[i]->getBusSize();
+    #if !defined(CONFIG_IDF_TARGET_ESP32C3) && !defined(ESP8266)
+    if (busses[i]->isDigital() && !busses[i]->is2Pin()) digitalCount++;
+    if (PolyBus::isParallelI2S1Output() && digitalCount > MAX_RMT) {
+      if (busSize > maxI2S) maxI2S = busSize;
+      busSize -= 3 * busses[i]->getLength() * busses[i]->getNumberOfChannels(); // TODO subtract back I2S buffer
+    }
+    #endif
+    size += busSize;
+  }
+  return size + maxI2S;
 }
 
 int BusManager::add(const BusConfig &bc) {

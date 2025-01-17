@@ -68,7 +68,7 @@ static void onMqttMessage(char* topic, char* payload, AsyncMqttClientMessageProp
   }
 
   if (index == 0) {                       // start (1st partial packet or the only packet)
-    if (payloadStr) free(payloadStr);     // fail-safe: release buffer
+    if (payloadStr) w_free(payloadStr);     // fail-safe: release buffer
     payloadStr = static_cast<char*>(w_malloc(total+1)); // allocate new buffer
   }
   if (payloadStr == nullptr) return;      // buffer not allocated
@@ -94,7 +94,7 @@ static void onMqttMessage(char* topic, char* payload, AsyncMqttClientMessageProp
     } else {
       // Non-Wled Topic used here. Probably a usermod subscribed to this topic.
       UsermodManager::onMqttMessage(topic, payloadStr);
-      free(payloadStr);
+      w_free(payloadStr);
       payloadStr = nullptr;
       return;
     }
@@ -124,7 +124,7 @@ static void onMqttMessage(char* topic, char* payload, AsyncMqttClientMessageProp
     // topmost topic (just wled/MAC)
     parseMQTTBriPayload(payloadStr);
   }
-  free(payloadStr);
+  w_free(payloadStr);
   payloadStr = nullptr;
 }
 

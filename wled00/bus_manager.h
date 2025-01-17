@@ -1,3 +1,4 @@
+#pragma once
 #ifndef BusManager_h
 #define BusManager_h
 
@@ -185,7 +186,6 @@ class Bus {
       #endif
     }
     static void calculateCCT(uint32_t c, uint8_t &ww, uint8_t &cw);
-    //static unsigned getBusSize(unsigned len, unsigned type, unsigned nr) { return sizeof(Bus); } // used to determine intended bus RAM requirements
 
   protected:
     uint8_t  _type;
@@ -217,7 +217,7 @@ class Bus {
 
     uint32_t autoWhiteCalc(uint32_t c) const;
     uint8_t *allocateData(size_t size = 1);
-    void     freeData() { if (_data != nullptr) free(_data); _data = nullptr; }
+    void     freeData();
 };
 
 
@@ -245,7 +245,6 @@ class BusDigital : public Bus {
     void cleanup();
 
     static std::vector<LEDType> getLEDTypes();
-    //static unsigned getBusSize(unsigned len, unsigned iType, unsigned nr); // used to determine intended bus RAM requirements
 
   private:
     uint8_t _skip;
@@ -271,7 +270,7 @@ class BusDigital : public Bus {
       return c;
     }
 
-    uint8_t  estimateCurrentAndLimitBri();
+    uint8_t  estimateCurrentAndLimitBri() const;
 };
 
 
@@ -337,7 +336,6 @@ class BusNetwork : public Bus {
     void cleanup();
 
     static std::vector<LEDType> getLEDTypes();
-    //static unsigned getBusSize(unsigned len, unsigned type) { return len * (hasWhite(type) + 3) + sizeof(BusNetwork); } // used to determine intended bus RAM requirements
 
   private:
     IPAddress _client;
@@ -402,19 +400,8 @@ struct BusConfig {
     if (start + count > total) total = start + count;
     return true;
   }
-/*
-  unsigned getBusSize(unsigned nr = 0) {
-    if (Bus::isVirtual(type)) {
-      return BusNetwork::getBusSize(count, type);
-    } else if (Bus::isDigital(type)) {
-      return BusDigital::getBusSize(count, pins[0], type, nr);
-    } else if (Bus::isOnOff(type)) {
-      return sizeof(BusOnOff);
-    } else {
-      return sizeof(BusPwm);
-    }
-  }
-*/
+
+  unsigned memUsage(unsigned nr = 0) const;
 };
 
 
@@ -432,9 +419,7 @@ class BusManager {
   public:
     BusManager() {};
 
-    //utility to get the approx. memory usage of a given BusConfig
-    static uint32_t memUsage(const BusConfig &bc);
-    static unsigned getBusSizeTotal();
+    static unsigned memUsage();
     static uint16_t currentMilliamps() { return _milliAmpsUsed + MA_FOR_ESP; }
     static uint16_t ablMilliampsMax()  { return _milliAmpsMax; }
 

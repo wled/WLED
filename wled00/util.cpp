@@ -488,7 +488,7 @@ void enumerateLedmaps() {
 
     #ifndef ESP8266
     if (ledmapNames[i-1]) { //clear old name
-      free(ledmapNames[i-1]);
+      w_free(ledmapNames[i-1]);
       ledmapNames[i-1] = nullptr;
     }
     #endif

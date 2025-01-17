@@ -9,7 +9,7 @@
 
 // version code in format yymmddb (b = daily build)
 #ifndef AUTOBUILD
-#define VERSION 2501140
+#define VERSION 2501170
 #else
 #define VERSION BUILD
 #endif
@@ -180,7 +180,7 @@ extern bool psramSafe;
 struct PSRAM_Allocator {
   static inline void* allocate(size_t size)                  { return w_malloc(size); }
   static inline void* reallocate(void* ptr, size_t new_size) { return w_realloc(ptr, new_size); }
-  static inline void  deallocate(void* pointer)              { free(pointer); }
+  static inline void  deallocate(void* pointer)              { w_free(pointer); }
 };
 using PSRAMDynamicJsonDocument = BasicJsonDocument<PSRAM_Allocator>;
 #else

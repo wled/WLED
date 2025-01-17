@@ -56,7 +56,7 @@ static void doSaveState() {
 */
   #if defined(ARDUINO_ARCH_ESP32)
   if (!persist) {
-    if (tmpRAMbuffer!=nullptr) free(tmpRAMbuffer);
+    if (tmpRAMbuffer!=nullptr) w_free(tmpRAMbuffer);
     size_t len = measureJson(*pDoc) + 1;
     // if possible use SPI RAM on ESP32
     tmpRAMbuffer = (char*)w_malloc(len);
@@ -76,8 +76,8 @@ static void doSaveState() {
   // clean up
   saveLedmap   = -1;
   presetToSave = 0;
-  free(saveName);
-  free(quickLoad);
+  w_free(saveName);
+  w_free(quickLoad);
   saveName = nullptr;
   quickLoad = nullptr;
   playlistSave = false;
@@ -202,7 +202,7 @@ void handlePresets()
   #if defined(ARDUINO_ARCH_ESP32)
   //Aircoookie recommended not to delete buffer
   if (tmpPreset==255 && tmpRAMbuffer!=nullptr) {
-    free(tmpRAMbuffer);
+    w_free(tmpRAMbuffer);
     tmpRAMbuffer = nullptr;
   }
   #endif
@@ -263,8 +263,8 @@ void savePreset(byte index, const char* pname, JsonObject sObj)
         presetsModifiedTime = toki.second(); //unix time
         updateFSInfo();
       }
-      free(saveName);
-      free(quickLoad);
+      w_free(saveName);
+      w_free(quickLoad);
       saveName = nullptr;
       quickLoad = nullptr;
     } else {

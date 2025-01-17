@@ -1,3 +1,4 @@
+#pragma once
 #ifndef WLED_FCN_DECLARE_H
 #define WLED_FCN_DECLARE_H
 
@@ -532,16 +533,20 @@ uint32_t hw_random(uint32_t lowerlimit, uint32_t upperlimit);
 void *w_malloc(size_t);           // prefer PSRAM over DRAM
 void *w_calloc(size_t, size_t);   // prefer PSRAM over DRAM
 void *w_realloc(void *, size_t);  // prefer PSRAM over DRAM
+inline void w_free(void *ptr) { heap_caps_free(ptr); }
 void *d_malloc(size_t);           // prefer DRAM over PSRAM
 void *d_calloc(size_t, size_t);   // prefer DRAM over PSRAM
 void *d_realloc(void *, size_t);  // prefer DRAM over PSRAM
+inline void d_free(void *ptr) { heap_caps_free(ptr); }
 #else
 #define w_malloc malloc
 #define w_calloc calloc
 #define w_realloc realloc
+#define w_free free
 #define d_malloc malloc
 #define d_calloc calloc
 #define d_realloc realloc
+#define d_free free
 #endif
 
 // RAII guard class for the JSON Buffer lock
