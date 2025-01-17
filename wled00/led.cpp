@@ -67,7 +67,7 @@ void toggleOnOff()
   stateChanged = true;
 }
 
-
+#if !defined(ARDUINO_ARCH_ESP32) || !defined(WLEDMM_FASTPATH) || defined(WLEDMM_SAVE_FLASH)  // WLEDMM color utils moved into colorTools.hpp for performance reasons
 //scales the brightness with the briMultiplier factor
 IRAM_ATTR_YN __attribute__((hot)) byte scaledBri(byte in)  // WLEDMM added IRAM_ATTR_YN
 {
@@ -76,7 +76,7 @@ IRAM_ATTR_YN __attribute__((hot)) byte scaledBri(byte in)  // WLEDMM added IRAM_
   if (val > 255) val = 255;
   return (byte)val;
 }
-
+#endif
 
 //applies global brightness
 void applyBri() {

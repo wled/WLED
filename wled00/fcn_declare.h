@@ -50,9 +50,14 @@ bool getJsonValue(const JsonVariant& element, DestType& destination, const Defau
 
 
 //colors.cpp
+#if !defined(ARDUINO_ARCH_ESP32) || !defined(WLEDMM_FASTPATH) || defined(WLEDMM_SAVE_FLASH)  // WLEDMM: color utils moved into colorTools.hpp, so the compiler may inline these functions (faster)
 uint32_t __attribute__((const)) color_blend(uint32_t,uint32_t,uint_fast16_t,bool b16=false);  // WLEDMM: added attribute const
 uint32_t __attribute__((const)) color_add(uint32_t,uint32_t, bool fast=false);                // WLEDMM: added attribute const
 uint32_t __attribute__((const)) color_fade(uint32_t c1, uint8_t amount, bool video=false);
+#else
+#include "colorTools.hpp"
+#endif
+
 inline uint32_t colorFromRgbw(byte* rgbw) { return uint32_t((byte(rgbw[3]) << 24) | (byte(rgbw[0]) << 16) | (byte(rgbw[1]) << 8) | (byte(rgbw[2]))); }
 void colorHStoRGB(uint16_t hue, byte sat, byte* rgb); //hue, sat to rgb
 void colorKtoRGB(uint16_t kelvin, byte* rgb);
@@ -179,7 +184,10 @@ void stateUpdated(byte callMode);
 void updateInterfaces(uint8_t callMode);
 void handleTransitions();
 void handleNightlight();
+
+#if !defined(ARDUINO_ARCH_ESP32) || !defined(WLEDMM_FASTPATH) || defined(WLEDMM_SAVE_FLASH)  // WLEDMM: color utils moved into colorTools.hpp, so comiler can inline calls (up to 12% faster)
 byte __attribute__((pure)) scaledBri(byte in);                     // WLEDMM: added attribute pure
+#endif
 
 #ifdef WLED_ENABLE_LOXONE
 //lx_parser.cpp
