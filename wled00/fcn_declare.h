@@ -29,26 +29,6 @@ bool deserializeConfigSec();
 void serializeConfig();
 void serializeConfigSec();
 
-template<typename DestType>
-bool getJsonValue(const JsonVariant& element, DestType& destination) {
-  if (element.isNull()) {
-    return false;
-  }
-
-  destination = element.as<DestType>();
-  return true;
-}
-
-template<typename DestType, typename DefaultType>
-bool getJsonValue(const JsonVariant& element, DestType& destination, const DefaultType defaultValue) {
-  if(!getJsonValue(element, destination)) {
-    destination = defaultValue;
-    return false;
-  }
-
-  return true;
-}
-
 typedef struct WiFiConfig {
   char clientSSID[33];
   char clientPass[65];
@@ -238,14 +218,7 @@ void deInitIR();
 void handleIR();
 
 //json.cpp
-#include "ESPAsyncWebServer.h"
-#include "src/dependencies/json/ArduinoJson-v6.h"
-#include "src/dependencies/json/AsyncJson-v6.h"
-#include "FX.h"
-
-bool deserializeSegment(JsonObject elem, byte it, byte presetId = 0);
 bool deserializeState(JsonObject root, byte callMode = CALL_MODE_DIRECT_CHANGE, byte presetId = 0);
-void serializeSegment(JsonObject& root, Segment& seg, byte id, bool forPreset = false, bool segmentBounds = true);
 void serializeState(JsonObject root, bool forPreset = false, bool includeBri = true, bool segmentBounds = true, bool selectedSegmentsOnly = false);
 void serializeInfo(JsonObject root);
 void serializeModeNames(JsonArray root);
@@ -254,6 +227,17 @@ void serveJson(AsyncWebServerRequest* request);
 #ifdef WLED_ENABLE_JSONLIVE
 bool serveLiveLeds(AsyncWebServerRequest* request, uint32_t wsClient = 0);
 #endif
+template<typename DestType>
+bool getJsonValue(const JsonVariant& element, DestType& destination) {
+  if (element.isNull()) return false;
+  destination = element.as<DestType>();
+  return true;
+}
+template<typename DestType, typename DefaultType>
+bool getJsonValue(const JsonVariant& element, DestType& destination, const DefaultType defaultValue) {
+  destination = defaultValue;
+  return getJsonValue(element, destination);
+}
 
 //led.cpp
 void setValuesFromSegment(uint8_t s);
@@ -544,9 +528,21 @@ uint32_t hw_random(uint32_t lowerlimit, uint32_t upperlimit);
 //template <typename T> T hw_random(T lowerlimit, T upperlimit) { return static_cast<T>(hw_random((uint32_t)lowerlimit, (uint32_t)upperlimit)); }
 
 // PSRAM allocation wrappers
-void *w_malloc(size_t);
-void *w_calloc(size_t, size_t);
-void *w_realloc(void *, size_t);
+#ifndef ESP8266
+void *w_malloc(size_t);           // prefer PSRAM over DRAM
+void *w_calloc(size_t, size_t);   // prefer PSRAM over DRAM
+void *w_realloc(void *, size_t);  // prefer PSRAM over DRAM
+void *d_malloc(size_t);           // prefer DRAM over PSRAM
+void *d_calloc(size_t, size_t);   // prefer DRAM over PSRAM
+void *d_realloc(void *, size_t);  // prefer DRAM over PSRAM
+#else
+#define w_malloc malloc
+#define w_calloc calloc
+#define w_realloc realloc
+#define d_malloc malloc
+#define d_calloc calloc
+#define d_realloc realloc
+#endif
 
 // RAII guard class for the JSON Buffer lock
 // Modeled after std::lock_guard

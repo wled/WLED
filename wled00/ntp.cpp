@@ -1,6 +1,5 @@
 #include "src/dependencies/timezone/Timezone.h"
 #include "wled.h"
-#include "fcn_declare.h"
 
 // WARNING: may cause errors in sunset calculations on ESP8266, see #3400
 // building with `-D WLED_USE_REAL_MATH` will prevent those errors at the expense of flash and RAM

@@ -1,5 +1,4 @@
 #include "wled.h"
-#include "fcn_declare.h"
 #include "wled_ethernet.h"
 
 

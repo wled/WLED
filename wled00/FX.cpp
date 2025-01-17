@@ -11,8 +11,6 @@
 */
 
 #include "wled.h"
-#include "FX.h"
-#include "fcn_declare.h"
 
 #define IBN 5100
 

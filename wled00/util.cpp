@@ -1,6 +1,4 @@
 #include "wled.h"
-#include "fcn_declare.h"
-#include "const.h"
 
 
 //helper to get int value at a position in string
@@ -567,23 +565,64 @@ uint32_t hw_random(uint32_t lowerlimit, uint32_t upperlimit) {
   return hw_random(diff) + lowerlimit;
 }
 
-void *w_malloc(size_t size) {
 #ifndef ESP8266
-  if (psramSafe && psramFound()) return heap_caps_malloc_prefer(size, 2, MALLOC_CAP_SPIRAM|MALLOC_CAP_8BIT, MALLOC_CAP_DEFAULT|MALLOC_CAP_8BIT); // prefer PSRAM if it exists
-#endif
-  return malloc(size); // fallback
+void *w_malloc(size_t size) {
+  int caps1 = MALLOC_CAP_SPIRAM  | MALLOC_CAP_8BIT;
+  int caps2 = MALLOC_CAP_DEFAULT | MALLOC_CAP_8BIT;
+  if (psramSafe) {
+    if (heap_caps_get_free_size(caps2) > 3*MIN_HEAP_SIZE && size < 512) std::swap(caps1, caps2);  // use DRAM for small alloactions & when heap is plenty
+    return heap_caps_malloc_prefer(size, 2, caps1, caps2); // otherwise prefer PSRAM if it exists
+  }
+  return heap_caps_malloc(size, caps2);
 }
 
 void *w_realloc(void *ptr, size_t size) {
-#ifndef ESP8266
-  if (psramSafe && psramFound()) return heap_caps_realloc_prefer(ptr, size, 2, MALLOC_CAP_SPIRAM|MALLOC_CAP_8BIT, MALLOC_CAP_DEFAULT|MALLOC_CAP_8BIT); // prefer PSRAM if it exists
-#endif
-  return realloc(ptr, size); // fallback
+  int caps1 = MALLOC_CAP_SPIRAM  | MALLOC_CAP_8BIT;
+  int caps2 = MALLOC_CAP_DEFAULT | MALLOC_CAP_8BIT;
+  if (psramSafe) {
+    if (heap_caps_get_free_size(caps2) > 3*MIN_HEAP_SIZE && size < 512) std::swap(caps1, caps2);  // use DRAM for small alloactions & when heap is plenty
+    return heap_caps_realloc_prefer(ptr, size, 2, caps1, caps2); // otherwise prefer PSRAM if it exists
+  }
+  return heap_caps_realloc(ptr, size, caps2);
 }
 
 void *w_calloc(size_t count, size_t size) {
-#ifndef ESP8266
-  if (psramSafe && psramFound()) return heap_caps_calloc_prefer(count, size, 2, MALLOC_CAP_SPIRAM|MALLOC_CAP_8BIT, MALLOC_CAP_DEFAULT|MALLOC_CAP_8BIT); // prefer PSRAM if it exists
-#endif
-  return calloc(count, size); // fallback
+  int caps1 = MALLOC_CAP_SPIRAM  | MALLOC_CAP_8BIT;
+  int caps2 = MALLOC_CAP_DEFAULT | MALLOC_CAP_8BIT;
+  if (psramSafe) {
+    if (heap_caps_get_free_size(caps2) > 3*MIN_HEAP_SIZE && size < 512) std::swap(caps1, caps2);  // use DRAM for small alloactions & when heap is plenty
+    return heap_caps_calloc_prefer(count, size, 2, caps1, caps2); // otherwise prefer PSRAM if it exists
+  }
+  return heap_caps_calloc(count, size, caps2);
 }
+
+void *d_malloc(size_t size) {
+  int caps1 = MALLOC_CAP_DEFAULT | MALLOC_CAP_8BIT;
+  int caps2 = MALLOC_CAP_SPIRAM  | MALLOC_CAP_8BIT;
+  if (psramSafe) {
+    if (size > MIN_HEAP_SIZE) std::swap(caps1, caps2);  // prefer PSRAM for large alloactions
+    return heap_caps_malloc_prefer(size, 2, caps1, caps2); // otherwise prefer DRAM
+  }
+  return heap_caps_malloc(size, caps1);
+}
+
+void *d_realloc(void *ptr, size_t size) {
+  int caps1 = MALLOC_CAP_DEFAULT | MALLOC_CAP_8BIT;
+  int caps2 = MALLOC_CAP_SPIRAM  | MALLOC_CAP_8BIT;
+  if (psramSafe) {
+    if (size > MIN_HEAP_SIZE) std::swap(caps1, caps2);  // prefer PSRAM for large alloactions
+    return heap_caps_realloc_prefer(ptr, size, 2, caps1, caps2); // otherwise prefer DRAM
+  }
+  return heap_caps_realloc(ptr, size, caps1);
+}
+
+void *d_calloc(size_t count, size_t size) {
+  int caps1 = MALLOC_CAP_DEFAULT | MALLOC_CAP_8BIT;
+  int caps2 = MALLOC_CAP_SPIRAM  | MALLOC_CAP_8BIT;
+  if (psramSafe) {
+    if (size > MIN_HEAP_SIZE) std::swap(caps1, caps2);  // prefer PSRAM for large alloactions
+    return heap_caps_calloc_prefer(count, size, 2, caps1, caps2); // otherwise prefer DRAM
+  }
+  return heap_caps_calloc(count, size, caps1);
+}
+#endif
