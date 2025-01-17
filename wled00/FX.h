@@ -616,7 +616,7 @@ typedef struct Segment {
     }
 
     // WLEDMM method inlined for speed (its called at each setPixelColor)
-    [[gnu::hot]] inline uint8_t currentBri(uint8_t briNew, bool useCct = false) {
+    [[gnu::hot]] inline uint8_t currentBri(uint8_t briNew, bool useCct = false) const {
       uint32_t prog = progress();
       if (prog < 0xFFFFU) {  // progress() < 0xFFFFU implies that _t is valid (see progress() function)
         if (useCct) return ((briNew * prog) + _t->_cctT * (0xFFFFU - prog)) >> 16;

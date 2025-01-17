@@ -12,16 +12,16 @@
 // WLEDMM functions to get/set bits in an array - based on functions created by Brandon for GOL
 //  toDo : make this a class that's completely defined in a header file
 inline bool getBitFromArray(const uint8_t* byteArray, size_t position) { // get bit value
-    size_t byteIndex = position / 8;
-    unsigned bitIndex = position % 8;
+    size_t byteIndex = position >> 3;      // same as "position/8"
+    unsigned bitIndex = position & 0x0007; // last 3 bits
     uint8_t byteValue = byteArray[byteIndex];
     return (byteValue >> bitIndex) & 1;
 }
 
 inline void setBitInArray(uint8_t* byteArray, size_t position, bool value) {  // set bit - with error handling for nullptr
     //if (byteArray == nullptr) return;
-    size_t byteIndex = position / 8;
-    unsigned bitIndex = position % 8;
+    size_t byteIndex = position >> 3;
+    unsigned bitIndex = position & 0x0007; // last 3 bits
     if (value)
         byteArray[byteIndex] |= (1 << bitIndex); 
     else

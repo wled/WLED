@@ -464,7 +464,7 @@ uint16_t IRAM_ATTR_YN Segment::progress() const {
 
 // WLEDMM Segment::currentBri() is declared inline, see FX.h
 #if 0
-uint8_t IRAM_ATTR_YN Segment::currentBri(uint8_t briNew, bool useCct) {
+uint8_t IRAM_ATTR_YN Segment::currentBri(uint8_t briNew, bool useCct) const {
   uint32_t prog = (transitional && _t) ? progress() : 0xFFFFU;
   if (transitional && _t && prog < 0xFFFFU) {
     if (useCct) return ((briNew * prog) + _t->_cctT * (0xFFFFU - prog)) >> 16;
