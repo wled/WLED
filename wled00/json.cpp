@@ -15,7 +15,7 @@
  * JSON API (De)serialization
  */
 
-bool deserializeSegment(JsonObject elem, byte it, byte presetId)
+static bool deserializeSegment(JsonObject elem, byte it, byte presetId)
 {
   byte id = elem["id"] | it;
   if (id >= strip.getMaxSegments()) return false;
@@ -67,28 +67,11 @@ bool deserializeSegment(JsonObject elem, byte it, byte presetId)
 
   if (elem["n"]) {
     // name field exists
-    if (seg.name) { //clear old name
-      free(seg.name);
-      seg.name = nullptr;
-    }
-
     const char * name = elem["n"].as<const char*>();
-    size_t len = 0;
-    if (name != nullptr) len = strlen(name);
-    if (len > 0) {
-      if (len > WLED_MAX_SEGNAME_LEN) len = WLED_MAX_SEGNAME_LEN;
-      seg.name = static_cast<char*>(w_malloc(len+1));
-      if (seg.name) strlcpy(seg.name, name, WLED_MAX_SEGNAME_LEN+1);
-    } else {
-      // but is empty (already deleted above)
-      elem.remove("n");
-    }
+    seg.setName(name); // will resolve empty and null correctly
   } else if (start != seg.start || stop != seg.stop) {
     // clearing or setting segment without name field
-    if (seg.name) {
-      free(seg.name);
-      seg.name = nullptr;
-    }
+    seg.clearName();
   }
 
   uint16_t grp       = elem["grp"] | seg.grouping;
@@ -501,7 +484,7 @@ bool deserializeState(JsonObject root, byte callMode, byte presetId)
   return stateResponse;
 }
 
-void serializeSegment(JsonObject& root, Segment& seg, byte id, bool forPreset, bool segmentBounds)
+static void serializeSegment(JsonObject& root, Segment& seg, byte id, bool forPreset, bool segmentBounds)
 {
   root["id"] = id;
   if (segmentBounds) {

@@ -8,7 +8,6 @@
   Parts of the code adapted from WLED Sound Reactive
 */
 #include "wled.h"
-#include "FX.h"
 #include "palettes.h"
 
 // setUpMatrix() - constructs ledmap array from matrix of panels with WxH pixels
@@ -51,7 +50,7 @@ void WS2812FX::setUpMatrix() {
     customMappingSize = 0; // prevent use of mapping if anything goes wrong
 
     if (customMappingTable) free(customMappingTable);
-    customMappingTable = static_cast<uint16_t*>(malloc(sizeof(uint16_t)*getLengthTotal())); // do not use SPI RAM
+    customMappingTable = static_cast<uint16_t*>(d_malloc(sizeof(uint16_t)*getLengthTotal())); // do not use SPI RAM
 
     if (customMappingTable) {
       customMappingSize = getLengthTotal();

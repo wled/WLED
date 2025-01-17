@@ -10,7 +10,6 @@
   Modified heavily for WLED
 */
 #include "wled.h"
-#include "FX.h"
 #include "palettes.h"
 
 /*
@@ -98,7 +97,7 @@ Segment::Segment(const Segment &orig) {
   name = nullptr;
   data = nullptr;
   _dataLen = 0;
-  if (orig.name) { name = static_cast<char*>(w_malloc(strlen(orig.name)+1)); if (name) strcpy(name, orig.name); }
+  if (orig.name) { name = static_cast<char*>(d_malloc(strlen(orig.name)+1)); if (name) strcpy(name, orig.name); }
   if (orig.data) { if (allocateData(orig._dataLen)) memcpy(data, orig.data, orig._dataLen); }
 }
 
@@ -126,7 +125,7 @@ Segment& Segment::operator= (const Segment &orig) {
     data = nullptr;
     _dataLen = 0;
     // copy source data
-    if (orig.name) { name = static_cast<char*>(w_malloc(strlen(orig.name)+1)); if (name) strcpy(name, orig.name); }
+    if (orig.name) { name = static_cast<char*>(d_malloc(strlen(orig.name)+1)); if (name) strcpy(name, orig.name); }
     if (orig.data) { if (allocateData(orig._dataLen)) memcpy(data, orig.data, orig._dataLen); }
   }
   return *this;
@@ -159,24 +158,27 @@ bool Segment::allocateData(size_t len) {
     return true;
   }
   //DEBUGFX_PRINTF_P(PSTR("--   Allocating data (%d): %p\n"), len, this);
-  deallocateData(); // if the old buffer was smaller release it first
-  if (Segment::getUsedSegmentData() + len > MAX_SEGMENT_DATA) {
+  if (Segment::getUsedSegmentData() + len - _dataLen > MAX_SEGMENT_DATA) {
     // not enough memory
-    DEBUGFX_PRINT(F("!!! Effect RAM depleted: "));
-    DEBUGFX_PRINTF_P(PSTR("%d/%d !!!\n"), len, Segment::getUsedSegmentData());
+    DEBUGFX_PRINTF_P(PSTR("!!! Not enough RAM: %d/%d !!!\n"), len, Segment::getUsedSegmentData());
     errorFlag = ERR_NORAM;
     return false;
   }
-  // do not use SPI RAM on ESP32 since it is slow
-  data = (byte*)calloc(len, sizeof(byte));
-  if (!data) {
-    DEBUGFX_PRINTLN(F("!!! Allocation failed. !!!"));
-    return false;
-  } // allocation failed
-  Segment::addUsedSegmentData(len);
-  //DEBUGFX_PRINTF_P(PSTR("---  Allocated data (%p): %d/%d -> %p\n"), this, len, Segment::getUsedSegmentData(), data);
-  _dataLen = len;
-  return true;
+  // prefer DRAM over SPI RAM on ESP32 since it is slow
+  if (data) data = (byte*)d_realloc(data, len);
+  else      data = (byte*)d_malloc(len);
+  if (data) {
+    memset(data, 0, len);  // erase buffer
+    Segment::addUsedSegmentData(len - _dataLen);
+    _dataLen = len;
+    //DEBUGFX_PRINTF_P(PSTR("---  Allocated data (%p): %d/%d -> %p\n"), this, len, Segment::getUsedSegmentData(), data);
+    return true;
+  }
+  // allocation failed
+  DEBUGFX_PRINTLN(F("!!! Allocation failed. !!!"));
+  Segment::addUsedSegmentData(-_dataLen); // subtract original buffer size
+  errorFlag = ERR_NORAM;
+  return false;
 }
 
 void Segment::deallocateData() {
@@ -289,7 +291,7 @@ void Segment::startTransition(uint16_t dur) {
   _t->_segT._dataLenT = 0;
   _t->_segT._dataT    = nullptr;
   if (_dataLen > 0 && data) {
-    _t->_segT._dataT = (byte *)malloc(_dataLen);  // must not be allocated from SPI RAM
+    _t->_segT._dataT = (byte *)d_malloc(_dataLen);  // must not be allocated from SPI RAM
     if (_t->_segT._dataT) {
       //DEBUGFX_PRINTF_P(PSTR("--  Allocated duplicate data (%d) for %p: %p\n"), _dataLen, this, _t->_segT._dataT);
       memcpy(_t->_segT._dataT, data, _dataLen);
@@ -321,6 +323,7 @@ void Segment::stopTransition() {
     #endif
     delete _t;
     _t = nullptr;
+    _transitionProgress = 0xFFFF;
   }
 }
 
@@ -343,7 +346,7 @@ void Segment::swapSegenv(tmpsegd_t &tmpSeg) {
   tmpSeg._callT      = call;
   tmpSeg._dataT      = data;
   tmpSeg._dataLenT   = _dataLen;
-  if (_t && &tmpSeg != &(_t->_segT)) {
+  if (isInTransition() && &tmpSeg != &(_t->_segT)) {
     // swap SEGENV with transitional data
     //DEBUGFX_PRINTF_P(PSTR("--  Setting temp seg: %p->(%p) [%d->%p]\n"), this, &tmpSeg, _dataLen, data);
     options   = _t->_segT._optionsT;
@@ -367,7 +370,7 @@ void Segment::swapSegenv(tmpsegd_t &tmpSeg) {
 
 void Segment::restoreSegenv(const tmpsegd_t &tmpSeg) {
   //DEBUGFX_PRINTF_P(PSTR("--  Restoring temp seg: %p->(%p) [%d->%p]\n"), &tmpSeg, this, _dataLen, data);
-  if (_t && &(_t->_segT) != &tmpSeg) {
+  if (isInTransition() && &(_t->_segT) != &tmpSeg) {
     // update possibly changed variables to keep old effect running correctly
     _t->_segT._aux0T = aux0;
     _t->_segT._aux1T = aux1;
@@ -643,6 +646,19 @@ Segment &Segment::setPalette(uint8_t pal) {
     stateChanged = true; // send UDP/WS broadcast
   }
   return *this;
+}
+
+Segment &Segment::setName(const char *newName) {
+  if (newName) {
+    const int newLen = min(strlen(newName), (size_t)WLED_MAX_SEGNAME_LEN);
+    if (newLen) {
+      if (name) name = static_cast<char*>(d_realloc(name, newLen+1));
+      else      name = static_cast<char*>(d_malloc(newLen+1));
+      if (name) strlcpy(name, newName, newLen);
+      return *this;
+    }
+  }
+  return clearName();
 }
 
 // 2D matrix
@@ -2024,7 +2040,7 @@ bool WS2812FX::deserializeMap(unsigned n) {
   }
 
   if (customMappingTable) free(customMappingTable);
-  customMappingTable = static_cast<uint16_t*>(malloc(sizeof(uint16_t)*getLengthTotal())); // do not use SPI RAM
+  customMappingTable = static_cast<uint16_t*>(d_malloc(sizeof(uint16_t)*getLengthTotal())); // do not use SPI RAM
 
   if (customMappingTable) {
     DEBUGFX_PRINT(F("Reading LED map from ")); DEBUGFX_PRINTLN(fileName);

@@ -30,6 +30,24 @@ uint32_t colorBalanceFromKelvin(uint16_t kelvin, uint32_t rgb);
 //udp.cpp
 uint8_t realtimeBroadcast(uint8_t type, IPAddress client, uint16_t length, const byte *buffer, uint8_t bri=255, bool isRGBW=false);
 
+//util.cpp
+// PSRAM allocation wrappers
+#ifndef ESP8266
+void *w_malloc(size_t);           // prefer PSRAM over DRAM
+void *w_calloc(size_t, size_t);   // prefer PSRAM over DRAM
+void *w_realloc(void *, size_t);  // prefer PSRAM over DRAM
+void *d_malloc(size_t);           // prefer DRAM over PSRAM
+void *d_calloc(size_t, size_t);   // prefer DRAM over PSRAM
+void *d_realloc(void *, size_t);  // prefer DRAM over PSRAM
+#else
+#define w_malloc malloc
+#define w_calloc calloc
+#define w_realloc realloc
+#define d_malloc malloc
+#define d_calloc calloc
+#define d_realloc realloc
+#endif
+
 //color mangling macros
 #define RGBW32(r,g,b,w) (uint32_t((byte(w) << 24) | (byte(r) << 16) | (byte(g) << 8) | (byte(b))))
 #define R(c) (byte((c) >> 16))
@@ -96,7 +114,7 @@ uint32_t Bus::autoWhiteCalc(uint32_t c) const {
 
 uint8_t *Bus::allocateData(size_t size) {
   if (_data) free(_data); // should not happen, but for safety
-  return _data = (uint8_t *)(size>0 ? calloc(size, sizeof(uint8_t)) : nullptr);
+  return _data = (uint8_t *)(size>0 ? d_calloc(size, sizeof(uint8_t)) : nullptr);
 }
 
 

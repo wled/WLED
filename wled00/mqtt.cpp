@@ -196,7 +196,8 @@ bool initMqtt()
   if (!mqttEnabled || mqttServer[0] == 0 || !WLED_CONNECTED) return false;
 
   if (mqtt == nullptr) {
-    mqtt = new AsyncMqttClient();
+    void *ptr = w_malloc(sizeof(AsyncMqttClient));
+    mqtt = new (ptr) AsyncMqttClient(); // use placement new (into PSRAM), client will never be deleted
     if (!mqtt) return false;
     mqtt->onMessage(onMqttMessage);
     mqtt->onConnect(onMqttConnect);

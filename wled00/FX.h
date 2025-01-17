@@ -14,9 +14,7 @@
 #define WS2812FX_h
 
 #include <vector>
-
-#include "const.h"
-#include "bus_manager.h"
+#include "wled.h"
 
 #ifdef WLED_DEBUG_FX
   // enable additional debug output
@@ -581,6 +579,8 @@ typedef struct Segment {
     inline uint16_t groupLength()        const { return grouping + spacing; }
     inline uint8_t  getLightCapabilities() const { return _capabilities; }
     inline void     deactivate()               { setGeometry(0,0); }
+    inline Segment &clearName()                { if (name) free(name); name = nullptr; return *this; }
+    inline Segment &setName(const String &name) { return setName(name.c_str()); }
 
     inline static unsigned getUsedSegmentData()            { return Segment::_usedSegmentData; }
     inline static void     addUsedSegmentData(int len)     { Segment::_usedSegmentData += len; }
@@ -603,6 +603,7 @@ typedef struct Segment {
     Segment &setOption(uint8_t n, bool val);
     Segment &setMode(uint8_t fx, bool loadDefaults = false);
     Segment &setPalette(uint8_t pal);
+    Segment &setName(const char* name);
     uint8_t differs(const Segment& b) const;
     void    refreshLightCapabilities();
 

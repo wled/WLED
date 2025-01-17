@@ -1,8 +1,6 @@
 #pragma once
 
 #include "wled.h"
-#include "FX.h"
-#include "fcn_declare.h"
 
 #include "tetrisaigame.h"
 // By: muebau
