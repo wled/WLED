@@ -63,8 +63,8 @@
     },
     "hw": {
         "led": {
-            "total": 299,
-            "maxpwr": 2500,
+            "total": 367,
+            "maxpwr": 2200,
             "ledma": 0,
             "cct": true,
             "cr": false,
@@ -102,7 +102,7 @@
                     "ref": false,
                     "rgbwm": 0,
                     "freq": 0,
-                    "maxpwr": 2140,
+                    "maxpwr": 1535,
                     "ledma": 55
                 },
                 {
@@ -118,7 +118,39 @@
                     "ref": false,
                     "rgbwm": 0,
                     "freq": 0,
+                    "maxpwr": 258,
+                    "ledma": 55
+                },
+                {
+                    "start": 299,
+                    "len": 60,
+                    "pin": [
+                        4
+                    ],
+                    "order": 0,
+                    "rev": false,
+                    "skip": 0,
+                    "type": 22,
+                    "ref": false,
+                    "rgbwm": 0,
+                    "freq": 0,
                     "maxpwr": 360,
+                    "ledma": 55
+                },
+                {
+                    "start": 359,
+                    "len": 8,
+                    "pin": [
+                        5
+                    ],
+                    "order": 0,
+                    "rev": false,
+                    "skip": 0,
+                    "type": 22,
+                    "ref": false,
+                    "rgbwm": 0,
+                    "freq": 0,
+                    "maxpwr": 48,
                     "ledma": 55
                 }
             ]
@@ -361,9 +393,9 @@
         },
         "VisualRemote": {
             "enabled": true,
-            "SegmentId": 1,
+            "SegmentId": 0,
             "SegmentPixelOffset": 0,
-            "TimeOutMenu": 700,
+            "TimeOutMenu": 2000,
             "patterns": [
                 {
                     "id": 1,
@@ -426,8 +458,7 @@
                         "ffe100",
                         "c75eff"
                     ]
-                }
-                ,
+                },
                 {
                     "id": 7,
                     "name": "Fireworks 1D",
@@ -437,8 +468,7 @@
                         "0dff00",
                         "ffae00"
                     ]
-                }
-                ,
+                },
                 {
                     "id": 8,
                     "name": "Heartbeat",
@@ -449,11 +479,31 @@
                         "ff0000",
                         "ff0000"
                     ]
+                },
+                {
+                    "id": 8,
+                    "name": "Heartbeat",
+                    "length": 3,
+                    "colors": [
+                        "FFFFFF",
+                        "FFFFFF",
+                        "FFFFFF"
+                    ]
+                },
+                {
+                    "id": 9,
+                    "name": "Simon01",
+                    "length": 3,
+                    "colors": [
+                        "FFFFFF",
+                        "FFFFFF",
+                        "FFFFFF"
+                    ]
                 }
             ]
         },
         "UnUserMod": {
-            "enabled": true,
+            "enabled": false,
             "cutOffPixels": 4
         }
     }
