@@ -836,8 +836,9 @@ unsigned BusManager::memUsage() {
     #if !defined(CONFIG_IDF_TARGET_ESP32C3) && !defined(ESP8266)
     if (busses[i]->isDigital() && !busses[i]->is2Pin()) digitalCount++;
     if (PolyBus::isParallelI2S1Output() && digitalCount > MAX_RMT) {
-      if (busSize > maxI2S) maxI2S = busSize;
-      busSize -= 3 * busses[i]->getLength() * busses[i]->getNumberOfChannels(); // TODO subtract back I2S buffer
+      unsigned i2sCommonSize = 3 * busses[i]->getLength() * busses[i]->getNumberOfChannels() * (busses[i]->is16bit()+1);
+      if (i2sCommonSize > maxI2S) maxI2S = i2sCommonSize;
+      busSize -= i2sCommonSize;
     }
     #endif
     size += busSize;
