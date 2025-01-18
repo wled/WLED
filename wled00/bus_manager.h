@@ -102,7 +102,7 @@ class Bus {
       _autoWhiteMode = Bus::hasWhite(type) ? aw : RGBW_MODE_MANUAL_ONLY;
     };
 
-    virtual ~Bus() {} //throw the bus under the bus
+    virtual ~Bus() {} //throw the bus under the bus (derived class needs to freeData())
 
     virtual void     begin()                                    {};
     virtual void     show() = 0;
@@ -285,7 +285,7 @@ class BusPwm : public Bus {
     uint16_t getFrequency() const override { return _frequency; }
     unsigned getBusSize() const override   { return sizeof(BusPwm); }
     void show() override;
-    void cleanup() { deallocatePins(); }
+    inline void cleanup() { deallocatePins(); _data = nullptr; }
 
     static std::vector<LEDType> getLEDTypes();
 
@@ -312,7 +312,7 @@ class BusOnOff : public Bus {
     unsigned getPins(uint8_t* pinArray) const override;
     unsigned getBusSize() const override { return sizeof(BusOnOff); }
     void show() override;
-    void cleanup() { PinManager::deallocatePin(_pin, PinOwner::BusOnOff); }
+    inline void cleanup() { PinManager::deallocatePin(_pin, PinOwner::BusOnOff); _data = nullptr; }
 
     static std::vector<LEDType> getLEDTypes();
 
@@ -456,7 +456,7 @@ class BusManager {
 
   private:
     static uint8_t numBusses;
-    static Bus* busses[WLED_MAX_BUSSES+WLED_MIN_VIRTUAL_BUSSES];
+    static std::vector<Bus*> busses;
     static ColorOrderMap colorOrderMap;
     static uint16_t _milliAmpsUsed;
     static uint16_t _milliAmpsMax;
@@ -466,7 +466,7 @@ class BusManager {
     #endif
     static uint8_t getNumVirtualBusses() {
       int j = 0;
-      for (int i=0; i<numBusses; i++) if (busses[i]->isVirtual()) j++;
+      for (const auto &bus : busses) j += bus->isVirtual();
       return j;
     }
 };

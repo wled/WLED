@@ -1352,11 +1352,10 @@ void WS2812FX::finalizeInit() {
   #if defined(ARDUINO_ARCH_ESP32) && !defined(CONFIG_IDF_TARGET_ESP32C3)
   // determine if it is sensible to use parallel I2S outputs on ESP32 (i.e. more than 5 outputs = 1 I2S + 4 RMT)
   unsigned maxLedsOnBus = 0;
-  for (unsigned i = 0; i < WLED_MAX_BUSSES+WLED_MIN_VIRTUAL_BUSSES; i++) {
-    if (busConfigs[i] == nullptr) break;
-    if (Bus::isDigital(busConfigs[i]->type) && !Bus::is2Pin(busConfigs[i]->type)) {
+  for (const auto &bus : busConfigs) {
+    if (Bus::isDigital(bus.type) && !Bus::is2Pin(bus.type)) {
       digitalCount++;
-      if (busConfigs[i]->count > maxLedsOnBus) maxLedsOnBus = busConfigs[i]->count;
+      if (bus.count > maxLedsOnBus) maxLedsOnBus = bus.count;
     }
   }
   DEBUG_PRINTF_P(PSTR("Maximum LEDs on a bus: %u\nDigital buses: %u\n"), maxLedsOnBus, digitalCount);
@@ -1368,14 +1367,13 @@ void WS2812FX::finalizeInit() {
   // create buses/outputs
   unsigned mem = 0;
   digitalCount = 0;
-  for (unsigned i = 0; i < WLED_MAX_BUSSES+WLED_MIN_VIRTUAL_BUSSES; i++) {
-    if (busConfigs[i] == nullptr) break;
-    mem += busConfigs[i]->memUsage(Bus::isDigital(busConfigs[i]->type) && !Bus::is2Pin(busConfigs[i]->type) ? digitalCount++ : 0); // includes global buffer
-    if (mem <= MAX_LED_MEMORY) BusManager::add(*busConfigs[i]);
-    else DEBUG_PRINTF_P(PSTR("Out of LED memory! Bus #%u not created."), i);
-    delete busConfigs[i];
-    busConfigs[i] = nullptr;
+  for (const auto &bus : busConfigs) {
+    mem += bus.memUsage(Bus::isDigital(bus.type) && !Bus::is2Pin(bus.type) ? digitalCount++ : 0); // includes global buffer
+    if (mem <= MAX_LED_MEMORY) BusManager::add(bus);
+    else DEBUG_PRINTF_P(PSTR("Out of LED memory! Bus %d (%d) #%u not created."), (int)bus.type, (int)bus.count, digitalCount);
   }
+  busConfigs.clear();
+  busConfigs.shrink_to_fit();
 
   //if busses failed to load, add default (fresh install, FS issue, ...)
   if (BusManager::getNumBusses() == 0) {
@@ -1457,7 +1455,6 @@ void WS2812FX::finalizeInit() {
       if (Bus::isPWM(dataType) || Bus::isOnOff(dataType)) count = 1;
       prevLen += count;
       BusConfig defCfg = BusConfig(dataType, defPin, start, count, DEFAULT_LED_COLOR_ORDER, false, 0, RGBW_MODE_MANUAL_ONLY, 0, useGlobalLedBuffer);
-      //mem += BusManager::memUsage(defCfg);
       mem += defCfg.memUsage(Bus::isDigital(dataType) && !Bus::is2Pin(dataType) ? digitalCount++ : 0);
       if (BusManager::add(defCfg) == -1) break;
     }

@@ -9,7 +9,7 @@
 
 // version code in format yymmddb (b = daily build)
 #ifndef AUTOBUILD
-#define VERSION 2501170
+#define VERSION 2501180
 #else
 #define VERSION BUILD
 #endif
@@ -909,7 +909,7 @@ WLED_GLOBAL bool e131NewData _INIT(false);
 // led fx library object
 WLED_GLOBAL BusManager busMgr        _INIT(BusManager());
 WLED_GLOBAL WS2812FX   strip         _INIT(WS2812FX());
-WLED_GLOBAL BusConfig* busConfigs[WLED_MAX_BUSSES+WLED_MIN_VIRTUAL_BUSSES] _INIT({nullptr}); //temporary, to remember values from network callback until after
+WLED_GLOBAL std::vector<BusConfig> busConfigs;    //temporary, to remember values from network callback until after
 WLED_GLOBAL byte       doInit        _INIT(0);    // bitfield: 1 - bus, 2 - 2D, 3-8 - reserved
 WLED_GLOBAL int8_t     loadLedmap    _INIT(-1);
 WLED_GLOBAL uint8_t    currentLedmap _INIT(0);

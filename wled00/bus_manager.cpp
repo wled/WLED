@@ -518,7 +518,7 @@ BusPwm::BusPwm(const BusConfig &bc)
   _hasRgb = hasRGB(bc.type);
   _hasWhite = hasWhite(bc.type);
   _hasCCT = hasCCT(bc.type);
-  _data = _pwmdata; // avoid malloc() and use stack
+  _data = _pwmdata; // avoid malloc() and use already allocated memory
   _valid = true;
   DEBUGBUS_PRINTF_P(PSTR("%successfully inited PWM strip with type %u, frequency %u, bit depth %u and pins %u,%u,%u,%u,%u\n"), _valid?"S":"Uns", bc.type, _frequency, _depth, _pins[0], _pins[1], _pins[2], _pins[3], _pins[4]);
 }
@@ -831,12 +831,13 @@ unsigned BusManager::memUsage() {
       #define MAX_RMT 8
     #endif
   #endif
-  for (unsigned i=0; i<numBusses; i++) {
-    unsigned busSize = busses[i]->getBusSize();
+  for (const auto &bus : busses) {
+  //for (unsigned i=0; i<numBusses; i++) {
+    unsigned busSize = bus->getBusSize();
     #if !defined(CONFIG_IDF_TARGET_ESP32C3) && !defined(ESP8266)
-    if (busses[i]->isDigital() && !busses[i]->is2Pin()) digitalCount++;
+    if (bus->isDigital() && !bus->is2Pin()) digitalCount++;
     if (PolyBus::isParallelI2S1Output() && digitalCount > MAX_RMT) {
-      unsigned i2sCommonSize = 3 * busses[i]->getLength() * busses[i]->getNumberOfChannels() * (busses[i]->is16bit()+1);
+      unsigned i2sCommonSize = 3 * bus->getLength() * bus->getNumberOfChannels() * (bus->is16bit()+1);
       if (i2sCommonSize > maxI2S) maxI2S = i2sCommonSize;
       busSize -= i2sCommonSize;
     }
@@ -850,13 +851,13 @@ int BusManager::add(const BusConfig &bc) {
   DEBUGBUS_PRINTF_P(PSTR("Bus: Adding bus #%d (%d - %d >= %d)\n"), numBusses, getNumBusses(), getNumVirtualBusses(), WLED_MAX_BUSSES);
   if (getNumBusses() - getNumVirtualBusses() >= WLED_MAX_BUSSES) return -1;
   if (Bus::isVirtual(bc.type)) {
-    busses[numBusses] = new BusNetwork(bc);
+    busses.push_back(new BusNetwork(bc));
   } else if (Bus::isDigital(bc.type)) {
-    busses[numBusses] = new BusDigital(bc, numBusses, colorOrderMap);
+    busses.push_back(new BusDigital(bc, numBusses, colorOrderMap));
   } else if (Bus::isOnOff(bc.type)) {
-    busses[numBusses] = new BusOnOff(bc);
+    busses.push_back(new BusOnOff(bc));
   } else {
-    busses[numBusses] = new BusPwm(bc);
+    busses.push_back(new BusPwm(bc));
   }
   return numBusses++;
 }
@@ -900,7 +901,8 @@ void BusManager::removeAll() {
   DEBUGBUS_PRINTLN(F("Removing all."));
   //prevents crashes due to deleting busses while in use.
   while (!canAllShow()) yield();
-  for (unsigned i = 0; i < numBusses; i++) delete busses[i];
+  for (auto &bus : busses) delete bus;
+  busses.clear();
   numBusses = 0;
   PolyBus::setParallelI2S1Output(false);
 }
@@ -945,12 +947,12 @@ void BusManager::on() {
   #ifdef ESP8266
   //Fix for turning off onboard LED breaking bus
   if (PinManager::getPinOwner(LED_BUILTIN) == PinOwner::BusDigital) {
-    for (unsigned i = 0; i < numBusses; i++) {
+    for (auto &bus : busses) {
       uint8_t pins[2] = {255,255};
-      if (busses[i]->isDigital() && busses[i]->getPins(pins)) {
+      if (bus->isDigital() && bus->getPins(pins)) {
         if (pins[0] == LED_BUILTIN || pins[1] == LED_BUILTIN) {
-          BusDigital *bus = static_cast<BusDigital*>(busses[i]);
-          bus->begin();
+          BusDigital *b = static_cast<BusDigital*>(bus);
+          b->begin();
           break;
         }
       }
@@ -967,7 +969,7 @@ void BusManager::off() {
   // turn off built-in LED if strip is turned off
   // this will break digital bus so will need to be re-initialised on On
   if (PinManager::getPinOwner(LED_BUILTIN) == PinOwner::BusDigital) {
-    for (unsigned i = 0; i < numBusses; i++) if (busses[i]->isOffRefreshRequired()) return;
+    for (const auto &bus : busses) if (bus->isOffRefreshRequired()) return;
     pinMode(LED_BUILTIN, OUTPUT);
     digitalWrite(LED_BUILTIN, HIGH);
   }
@@ -979,30 +981,26 @@ void BusManager::off() {
 
 void BusManager::show() {
   _milliAmpsUsed = 0;
-  for (unsigned i = 0; i < numBusses; i++) {
-    busses[i]->show();
-    _milliAmpsUsed += busses[i]->getUsedCurrent();
+  for (auto &bus : busses) {
+    bus->show();
+    _milliAmpsUsed += bus->getUsedCurrent();
   }
 }
 
 void BusManager::setStatusPixel(uint32_t c) {
-  for (unsigned i = 0; i < numBusses; i++) {
-    busses[i]->setStatusPixel(c);
-  }
+  for (auto &bus : busses) bus->setStatusPixel(c);
 }
 
 void IRAM_ATTR BusManager::setPixelColor(unsigned pix, uint32_t c) {
-  for (unsigned i = 0; i < numBusses; i++) {
-    unsigned bstart = busses[i]->getStart();
-    if (pix < bstart || pix >= bstart + busses[i]->getLength()) continue;
-    busses[i]->setPixelColor(pix - bstart, c);
+  for (auto &bus : busses) {
+    unsigned bstart = bus->getStart();
+    if (pix < bstart || pix >= bstart + bus->getLength()) continue;
+    bus->setPixelColor(pix - bstart, c);
   }
 }
 
 void BusManager::setBrightness(uint8_t b) {
-  for (unsigned i = 0; i < numBusses; i++) {
-    busses[i]->setBrightness(b);
-  }
+  for (auto &bus : busses) bus->setBrightness(b);
 }
 
 void BusManager::setSegmentCCT(int16_t cct, bool allowWBCorrection) {
@@ -1015,30 +1013,28 @@ void BusManager::setSegmentCCT(int16_t cct, bool allowWBCorrection) {
 }
 
 uint32_t BusManager::getPixelColor(unsigned pix) {
-  for (unsigned i = 0; i < numBusses; i++) {
-    unsigned bstart = busses[i]->getStart();
-    if (!busses[i]->containsPixel(pix)) continue;
-    return busses[i]->getPixelColor(pix - bstart);
+  for (auto &bus : busses) {
+    unsigned bstart = bus->getStart();
+    if (!bus->containsPixel(pix)) continue;
+    return bus->getPixelColor(pix - bstart);
   }
   return 0;
 }
 
 bool BusManager::canAllShow() {
-  for (unsigned i = 0; i < numBusses; i++) {
-    if (!busses[i]->canShow()) return false;
-  }
+  for (const auto &bus : busses) if (!bus->canShow()) return false;
   return true;
 }
 
 Bus* BusManager::getBus(uint8_t busNr) {
-  if (busNr >= numBusses) return nullptr;
+  if (busNr >= busses.size()) return nullptr;
   return busses[busNr];
 }
 
 //semi-duplicate of strip.getLengthTotal() (though that just returns strip._length, calculated in finalizeInit())
 uint16_t BusManager::getTotalLength() {
   unsigned len = 0;
-  for (unsigned i=0; i<numBusses; i++) len += busses[i]->getLength();
+  for (const auto &bus : busses) len += bus->getLength();
   return len;
 }
 
@@ -1052,7 +1048,7 @@ uint8_t Bus::_gAWM = 255;
 uint16_t BusDigital::_milliAmpsTotal = 0;
 
 uint8_t       BusManager::numBusses = 0;
-Bus*          BusManager::busses[WLED_MAX_BUSSES+WLED_MIN_VIRTUAL_BUSSES];
+std::vector<Bus*> BusManager::busses;
 ColorOrderMap BusManager::colorOrderMap = {};
 uint16_t      BusManager::_milliAmpsUsed = 0;
 uint16_t      BusManager::_milliAmpsMax = ABL_MILLIAMPS_DEFAULT;
