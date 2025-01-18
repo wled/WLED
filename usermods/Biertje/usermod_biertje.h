@@ -47,6 +47,26 @@ uint16_t mode_Biertje(bool useEmoticon) {
       {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
   };
 
+ // Constants
+const int heart[16][16] = {
+    {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+    {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+    {0, 0, 0, 2, 2, 2, 2, 0, 0, 2, 2, 2, 2, 0, 0, 0},
+    {0, 0, 2, 2, 1, 1, 2, 2, 2, 2, 1, 1, 2, 2, 0, 0},
+    {0, 2, 2, 1, 1, 1, 1, 2, 2, 1, 1, 1, 1, 2, 2, 0},
+    {0, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 0},
+    {0, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 0},
+    {0, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 0},
+    {0, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 0},
+    {0, 2, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 0},
+    {0, 0, 2, 2, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 0, 0},
+    {0, 0, 0, 2, 2, 1, 1, 1, 1, 1, 1, 2, 2, 0, 0, 0},
+    {0, 0, 0, 0, 2, 2, 1, 1, 1, 1, 2, 2, 0, 0, 0, 0},
+    {0, 0, 0, 0, 0, 2, 2, 1, 1, 2, 2, 0, 0, 0, 0, 0},
+    {0, 0, 0, 0, 0, 0, 2, 2, 2, 2, 0, 0, 0, 0, 0, 0},
+    {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+};
+
   // Constants for wave calculations
   const float INITIAL_WAVE_AMPLITUDE = 5.0;
   const float INITIAL_WAVE_FREQUENCY = 0.5;
@@ -80,9 +100,9 @@ uint16_t mode_Biertje(bool useEmoticon) {
   const uint32_t TEXT_SCROLL_INTERVAL_MS = 100;     // Scrolling speed in milliseconds
   const int LETTER_WIDTH = 6;   // Width of each character
   const int LETTER_HEIGHT = 8;  // Height of each character
-  const int TEXT_LENGTH = 4;
+  const int TEXT_LENGTH = 7;
   const int TEXT_WIDTH = TEXT_LENGTH * (LETTER_WIDTH + 1); // Total text width (+1 for spacing)
-  const char* TEXT_CHARS = "BIER";
+  const char* TEXT_CHARS = "BIERTJE";
 
   // Colors
   const uint32_t BEER_COLOR = RGBW32(255, 204, 0, 0);
@@ -455,8 +475,8 @@ static const char _data_FX_MODE_BIERTJE_EMOTICON[] PROGMEM = "Biertje Emoticon@S
 class UsermodBiertje : public Usermod {
   public:
     void setup() {
-      strip.addEffect(255, &mode_biertje_full, _data_FX_MODE_BIERTJE);
-      strip.addEffect(254, &mode_biertje_emoticon, _data_FX_MODE_BIERTJE_EMOTICON);
+      //strip.addEffect(255, &mode_biertje_full, _data_FX_MODE_BIERTJE);
+      strip.addEffect(255, &mode_biertje_emoticon, _data_FX_MODE_BIERTJE_EMOTICON);
     }
 
     void loop() {

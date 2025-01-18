@@ -15,6 +15,11 @@
   #include "../usermods/Biertje/usermod_biertje.h"
 #endif
 
+
+#ifdef USERMOD_HEARTH
+  #include "../usermods/Hearth/usermod_hearth.h"
+#endif
+
 #ifdef USERMOD_VISUALREMOTE
   #include "../usermods/VisualRemote/usermod_visualremote.h"
 #endif
@@ -494,6 +499,10 @@ void registerUsermods()
 
   #ifdef USERMOD_BIERTJE
   UsermodManager::add(new UsermodBiertje());
+  #endif
+
+   #ifdef USERMOD_HEARTH
+  UsermodManager::add(new UsermodHearth());
   #endif
 
 }
