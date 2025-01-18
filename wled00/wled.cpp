@@ -260,7 +260,15 @@ void WLED::loop()
     }
     DEBUG_PRINTF_P(PSTR("TX power: %d/%d\n"), WiFi.getTxPower(), txPower);
     #endif
-    DEBUG_PRINTF_P(PSTR("Wifi state: %d (connected %d (%d), channel %d, BSSID %s, mode %d, scan %d) @ %lus -> %lus\n"), lastWifiState, (int)apClients, (int)Network.isConnected(), WiFi.channel(), WiFi.BSSIDstr().c_str(), (int)WiFi.getMode(), (int)WiFi.scanComplete(), lastReconnectAttempt/1000, wifiStateChangedTime/1000);
+    DEBUG_PRINTF_P(PSTR("WiFi: state:%d clnt: %d conn:%d, ch:%d, BSSID:%s, mode:%d, scan:%d @ %lus -> %lus\n"),
+      lastWifiState,
+      (int)apClients,
+      (int)Network.isConnected(),
+      WiFi.channel(),
+      WiFi.BSSIDstr().c_str(),
+      (int)WiFi.getMode(),
+      (int)WiFi.scanComplete(),
+      lastReconnectAttempt/1000, wifiStateChangedTime/1000);
     #ifndef WLED_DISABLE_ESPNOW
     DEBUG_PRINTF_P(PSTR("ESP-NOW state: %u\n"),        statusESPNow);
     #endif
@@ -690,6 +698,9 @@ void WLED::initConnection()
     WiFi.begin(multiWiFi[selectedWiFi].clientSSID, multiWiFi[selectedWiFi].clientPass, 0, bssid); // no harm if called multiple times
     // once WiFi is configured and begin() called, ESP will keep connecting to the specified SSID in the background
     // until connection is established or new configuration is submitted or disconnect() is called
+#ifndef WLED_DISABLE_ESPNOW
+    scanESPNow = millis() + 30000;
+#endif
   }
 }
 
@@ -801,9 +812,57 @@ void WLED::handleConnection()
   // we will try to connect periodically if WiFi is configured and we will also
   // scan for ESP-NOW master if it is configured and we are in WIFI_MODE_AP mode
   // if WIFI_MODE_STA or WIFI_MODE_APSTA is active we will not atempt any ESP-NOW activity
+  // there is one oddity: when disconnect happens the event handler may be called *after* loop()
+  // processes handleConnection() and as such "now > lastReconnectAttempt + 12000" will be true
+  // we must not immediatelly engage ESP-NOW scan but wait for reconnect to happen (now > scanEspNow)
+
+/*
+Reconnecting MQTT
+WS client disconnected.
+WiFi: Last reconnect (6s) too old, entering ESP-NOW scan. @ 49855s.
+ESP-NOW init hidden AP.
+WiFi-E: Disconnected! @ 49855s
+WiFi: Scan started. @ 49855s
+WiFi-E: Unmanaged event 3 @ 49855s [STA stop]
+WiFi-E: Unmanaged event 3 @ 49855s
+WiFi-E: Unmanaged event 0 @ 49856s [WiFi ready]
+WiFi-E: AP Stopped
+WiFi-E: AP Started
+WiFi-E: AP Started
+ESP-NOW initing in AP mode.
+WiFi-E: AP Stopped
+ESP-NOW  inited in AP mode (channel: 1/1).
+WiFi-E: AP Started
+...
+WiFi: Scan started. @ 49861s
+WiFi: Scan started. @ 49861s
+WiFi-E: Unmanaged event 2 @ 49861s [STA start]
+WiFi-E: SSID scan completed.
+WiFi: Found 1 SSIDs. @ 49866s
+ SSID: kristan (BSSID: 00:1F:XX:XX:XX:0F) RSSI: -86dB
+WiFi: Selected SSID: XXXXXXXX RSSI: -86dB
+WiFi: Initial connect or forced reconnect. @ 49866s
+initConnection() called @ 49866s.
+WiFi: Connecting to XXXXXXXX... @ 49866s
+WiFi-E: Connected! @ 49871s
+WiFi: Last reconnect (49866s) too old, entering ESP-NOW scan. @ 49878s. [????? wrong]
+ESP-NOW init hidden AP.
+WiFi-E: Unmanaged event 3 @ 49878s [STA stop]
+WiFi-E: Unmanaged event 3 @ 49878s
+ESP-NOW initing in AP mode.
+ESP-NOW  inited in AP mode (channel: 6/1).
+*/
 
   const bool wifiConfigured = isWiFiConfigured();
   const int  wifiState = WiFi.status();
+  // WL_IDLE_STATUS      = 0
+  // WL_NO_SSID_AVAIL    = 1
+  // WL_SCAN_COMPLETED   = 2
+  // WL_CONNECTED        = 3
+  // WL_CONNECT_FAILED   = 4
+  // WL_CONNECTION_LOST  = 5
+  // WL_DISCONNECTED     = 6
+  // WL_NO_SHIELD        = 255
 
   // WL_NO_SHIELD means WiFi is turned off while WL_IDLE_STATUS means we are not trying to connect to SSID (but we may be in AP mode)
   // so need to occasionally check if we can reconnect to restart WiFi
@@ -824,6 +883,7 @@ void WLED::handleConnection()
     }
   }
 
+  // handling new or forced connection
   if (wifiConfigured && (forceReconnect || lastReconnectAttempt == 0)) {
     // this is first attempt at connecting to SSID or we were forced to reconnect
     selectedWiFi = findWiFi(); // find strongest WiFi
@@ -909,7 +969,7 @@ void WLED::handleConnection()
 #ifndef WLED_DISABLE_ESPNOW
   // if we are syncing via ESP-NOW and master has not been heard in a while we shoud retry WiFi
   if (useESPNowSync && !sendNotificationsRT && now > lastReconnectAttempt + 300000 && heartbeatESPNow > 0 && now > heartbeatESPNow + 120000) {
-    DEBUG_PRINTF_P(PSTR("WiFi: Timeout conn: %lus, HB: %lus @ %lus.\n"), lastReconnectAttempt/1000, heartbeatESPNow/1000, now/1000);
+    DEBUG_PRINTF_P(PSTR("WiFi: ESP-NOW HB Timeout conn: %lus, HB: %lus @ %lus.\n"), lastReconnectAttempt/1000, heartbeatESPNow/1000, now/1000);
     if (!isSTAmode) {
       quickEspNow.stop();
       WiFi.softAPdisconnect(true);
@@ -931,14 +991,14 @@ void WLED::handleConnection()
   // if we are ESP-NOW sync slave, connectiong to WiFi must not happen automatically as it will disrupt ESP-NOW channel
   // but we need a way to occasionally reconnect.
   if (isSTAmode && wifiConfigured && (now > lastReconnectAttempt + (apActive ? WLED_AP_TIMEOUT : 12000) && apClients == 0)) {
-    // this code is executed if ESP was unsuccessful in connecting to selected SSID. it is repeated every 12s
-    // to select different SSID from the list if connects are not successful.
+    // this code is executed if ESP was unsuccessful in connecting to selected SSID or disconnect happened.
+    // it is repeated every 12s to select different SSID from the list if connects are not successful.
     if (improvActive == 2) improvActive = 3;
 #ifndef WLED_DISABLE_ESPNOW
     // we are slave in ESP-NOW sync and we were not able to connect to best SSID (initial connect/forced reconnect)
     // in such case we will not attempt to traverse all configured SSIDs (as findWiFi() does that) but switch to AP mode
     // immediately so ESP-NOW heartbeat scan can commence
-    if (enableESPNow && useESPNowSync && !sendNotificationsRT) {
+    if (enableESPNow && useESPNowSync && !sendNotificationsRT && now > scanESPNow) {
       DEBUG_PRINTF_P(PSTR("WiFi: Last reconnect (%lus) too old, entering ESP-NOW scan. @ %lus.\n"), lastReconnectAttempt/1000, now/1000);
       initESPNow(true);
       scanESPNow = now + 6000;

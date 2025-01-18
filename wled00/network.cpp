@@ -339,7 +339,7 @@ void sendESPNowHeartBeat() {
   if (enableESPNow && useESPNowSync && sendNotificationsRT && statusESPNow == ESP_NOW_STATE_ON && now > scanESPNow) {
     EspNowBeacon buffer = {{'W','L','E','D'}, 0, (uint8_t)WiFi.channel(), toki.second(), {0}};
     quickEspNow.send(ESPNOW_BROADCAST_ADDRESS, reinterpret_cast<uint8_t*>(&buffer), sizeof(buffer));
-    scanESPNow = now + 2000; // we will use scanESPNow as a timer for heartbeat
+    scanESPNow = now + 2000; // we will use scanESPNow as a timer for heartbeat (will also help when disconnect happens)
     DEBUG_PRINTF_P(PSTR("ESP-NOW beacon on channel %d.\n"), WiFi.channel());
   }
 #endif
@@ -447,10 +447,11 @@ void WiFiEvent(WiFiEvent_t event)
       wasConnected = true;
       #ifndef WLED_DISABLE_ESPNOW
       heartbeatESPNow = 0;
-      scanESPNow = millis() + 15000;    // postpone heartbeat generation for a few seconds (may be overriden in WLED::connected())
+      scanESPNow = millis() + 30000;    // postpone heartbeat generation for a few seconds (may be overriden in WLED::connected())
       #endif
       break;
     case ARDUINO_EVENT_WIFI_STA_DISCONNECTED:
+      // may be called *after* loop() has called handleConnection() with WiFi disconnected!
       if (wasConnected && interfacesInited) {
         DEBUG_PRINTF_P(PSTR("WiFi-E: Disconnected! @ %lus\n"), millis()/1000);
         if (multiWiFi.size() > 1 && WiFi.scanComplete() >= 0)
@@ -474,21 +475,21 @@ void WiFiEvent(WiFiEvent_t event)
       break;
     case ARDUINO_EVENT_WIFI_SCAN_DONE:
       // also triggered when connected to selected SSID
-      DEBUG_PRINTLN(F("WiFi-E: SSID scan completed."));
+      DEBUG_PRINTF_P(PSTR("WiFi-E: SSID scan completed. @ %lus\n"), millis()/1000);
       break;
     case ARDUINO_EVENT_WIFI_AP_START:
-      DEBUG_PRINTLN(F("WiFi-E: AP Started"));
+      DEBUG_PRINTF_P(PSTR("WiFi-E: AP Started. @ %lus\n"), millis()/1000);
       break;
     case ARDUINO_EVENT_WIFI_AP_STOP:
-      DEBUG_PRINTLN(F("WiFi-E: AP Stopped"));
+      DEBUG_PRINTF_P(PSTR("WiFi-E: AP Stopped. @ %lus\n"), millis()/1000);
       break;
     #if defined(WLED_USE_ETHERNET)
     case ARDUINO_EVENT_ETH_START:
-      DEBUG_PRINTLN(F("ETH-E: Started"));
+      DEBUG_PRINTF_P(PSTR("ETH-E: Started. @ %lus\n"), millis()/1000);
       break;
     case ARDUINO_EVENT_ETH_CONNECTED:
       {
-      DEBUG_PRINTLN(F("ETH-E: Connected"));
+      DEBUG_PRINTF_P(PSTR("ETH-E: Connected. @ %lus\n"), millis()/1000);
       if (apActive) WLED::instance().stopAP(true);  // stop AP & ESP-NOW
       else          WiFi.disconnect(true);          // disable SSID scanning
       // WLED::connected() will take care of ESP-NOW
@@ -505,7 +506,7 @@ void WiFiEvent(WiFiEvent_t event)
       break;
       }
     case ARDUINO_EVENT_ETH_DISCONNECTED:
-      DEBUG_PRINTLN(F("ETH-E: Disconnected"));
+      DEBUG_PRINTF_P(PSTR("ETH-E: Disconnected. @ %lus\n"), millis()/1000);
       // This doesn't really affect ethernet per se,
       // as it's only configured once.  Rather, it
       // may be necessary to reconnect the WiFi when
@@ -522,7 +523,7 @@ void WiFiEvent(WiFiEvent_t event)
     #endif
   #endif
     default:
-      DEBUG_PRINTF_P(PSTR("WiFi-E: Unmanaged event %d @ %lus\n"), (int)event, millis()/1000);
+      DEBUG_PRINTF_P(PSTR("WiFi-E: Unhadled event %d @ %lus\n"), (int)event, millis()/1000);
       break;
   }
 }
