@@ -320,7 +320,7 @@ void getSettingsJS(byte subPage, Print& settingsScript)
       uint8_t pins[5];
       int nPins = bus->getPins(pins);
       for (int i = 0; i < nPins; i++) {
-        lp[1] = offset+i;
+        lp[1] = '0'+i;
         if (PinManager::isPinOk(pins[i]) || bus->isVirtual()) printSetFormValue(settingsScript,lp,pins[i]);
       }
       printSetFormValue(settingsScript,lc,bus->getLength());
