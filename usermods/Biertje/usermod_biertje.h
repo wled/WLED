@@ -476,7 +476,7 @@ class UsermodBiertje : public Usermod {
   public:
     void setup() {
       //strip.addEffect(255, &mode_biertje_full, _data_FX_MODE_BIERTJE);
-      strip.addEffect(255, &mode_biertje_emoticon, _data_FX_MODE_BIERTJE_EMOTICON);
+      strip.addEffect(254, &mode_biertje_emoticon, _data_FX_MODE_BIERTJE_EMOTICON);
     }
 
     void loop() {

@@ -79,19 +79,28 @@ inline bool nightModeActive_visualremote() {
   return brightnessBeforeNightMode_visualremote != NIGHT_MODE_DEACTIVATED;
 }
 
-inline void activateNightMode_visualremote() {
-  if (nightModeActive_visualremote()) return;
-  brightnessBeforeNightMode_visualremote = bri;
-  bri = NIGHT_MODE_BRIGHTNESS;
-  stateUpdated(CALL_MODE_BUTTON);
-}
 
 inline bool resetNightMode_visualremote() {
   if (!nightModeActive_visualremote()) return false;
+  
   bri = brightnessBeforeNightMode_visualremote;
   brightnessBeforeNightMode_visualremote = NIGHT_MODE_DEACTIVATED;
+  Serial.println("Night mode deactivated");
   stateUpdated(CALL_MODE_BUTTON);
   return true;
+}
+
+
+inline void activateNightMode_visualremote() {
+  if (nightModeActive_visualremote()) 
+  {
+    resetNightMode_visualremote();
+    return;
+  }
+  brightnessBeforeNightMode_visualremote = bri;
+  bri = NIGHT_MODE_BRIGHTNESS;
+  Serial.println("Night mode activated");
+  stateUpdated(CALL_MODE_BUTTON);
 }
 
 inline void brightnessUp_visualremote() {
@@ -116,8 +125,14 @@ inline void brightnessDown_visualremote() {
   stateUpdated(CALL_MODE_BUTTON);
 }
 
+inline void togglePower_visualremote() {
+  //resetNightMode_visualremote();
+  toggleOnOff();
+  stateUpdated(CALL_MODE_BUTTON);
+}
+
 inline void setOn_visualremote() {
-  resetNightMode_visualremote();
+  //resetNightMode_visualremote();
   if (!bri) {
     toggleOnOff();
     stateUpdated(CALL_MODE_BUTTON);
@@ -125,7 +140,7 @@ inline void setOn_visualremote() {
 }
 
 inline void setOff_visualremote() {
-  resetNightMode_visualremote();
+  //resetNightMode_visualremote();
   if (bri) {
     toggleOnOff();
     stateUpdated(CALL_MODE_BUTTON);
@@ -135,7 +150,7 @@ inline void setOff_visualremote() {
 inline void presetWithFallback_visualremote(uint8_t presetID, uint8_t effectID, uint8_t paletteID) {
   if (presetToApply == presetID) return;
   presetToApply = presetID;
-  resetNightMode_visualremote();
+  //resetNightMode_visualremote();
   applyPresetWithFallback(presetID, CALL_MODE_BUTTON_PRESET, effectID, paletteID);
 }
 
@@ -312,11 +327,20 @@ class UsermodVisualRemote : public Usermod {
       StartDisplayEffectIndicator(currentEffectIndex);
     }
 
+
+
+
     inline void handleRemote_visualremote(uint8_t *incomingData, size_t len) {
       message_structure_t *incoming = reinterpret_cast<message_structure_t *>(incomingData);
 
       if (len != sizeof(message_structure_t)) {
-        Serial.printf("Unknown incoming ESP-NOW message received of length %u\n", len);
+        //Serial.printf("Unknown incoming ESP-NOW message received of length %u\n", len);
+        return;
+      }
+      Serial.printf("Button value: %u\n", incoming->button);
+      if (strcmp(last_signal_src, linked_remote) != 0) {
+        DEBUG_PRINT(F("ESP Now Message Received from Unlinked Sender: "));
+        DEBUG_PRINTLN(last_signal_src);
         return;
       }
 
@@ -325,10 +349,10 @@ class UsermodVisualRemote : public Usermod {
         return;
       }
  // Debug print the button value
-      Serial.printf("Button value: %u\n", incoming->button);
+      
 
       switch (incoming->button) {
-        case WIZMOTE_BUTTON_ON             : setOn_visualremote();                                            break;
+        case WIZMOTE_BUTTON_ON             : togglePower_visualremote();                                            break;
         case WIZMOTE_BUTTON_OFF            : setOff_visualremote();                                           break;
         case WIZMOTE_BUTTON_ONE            : presetWithFallback_visualremote(1, FX_MODE_STATIC,        0);    break;
         case WIZMOTE_BUTTON_TWO            : presetWithFallback_visualremote(2, FX_MODE_BREATH,        0);    break;
@@ -337,10 +361,10 @@ class UsermodVisualRemote : public Usermod {
         case WIZMOTE_BUTTON_NIGHT          : activateNightMode_visualremote();                                break;
         case WIZMOTE_BUTTON_BRIGHT_UP      : onButtonUpPress();                                               break;
         case WIZMOTE_BUTTON_BRIGHT_DOWN    : onButtonDownPress();                                             break;
-        case WIZ_SMART_BUTTON_ON           : setOn_visualremote();                                            break;
-        case WIZ_SMART_BUTTON_OFF          : setOff_visualremote();                                           break;
-        case WIZ_SMART_BUTTON_BRIGHT_UP    : brightnessUp_visualremote();                                     break;
-        case WIZ_SMART_BUTTON_BRIGHT_DOWN  : brightnessDown_visualremote();                                   break;
+        // case WIZ_SMART_BUTTON_ON           : setOn_visualremote();                                            break;
+        // case WIZ_SMART_BUTTON_OFF          : setOff_visualremote();                                           break;
+        // case WIZ_SMART_BUTTON_BRIGHT_UP    : brightnessUp_visualremote();                                     break;
+        // case WIZ_SMART_BUTTON_BRIGHT_DOWN  : brightnessDown_visualremote();                                   break;
         case WIZMOTE_BUTTON_ONE_LONG       : activate_menu_preset();                                          break;
         case WIZMOTE_BUTTON_ONE_TRIPLE       : activate_menu_preset();                                          break;
         
