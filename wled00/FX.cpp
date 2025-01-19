@@ -1793,9 +1793,9 @@ uint16_t mode_oscillate(void) {
 
   if (SEGENV.call == 0)
   {
-    oscillators[0] = {(uint16_t)(SEGLEN/4),   (uint8_t)(SEGLEN/8),  1, 1};
-    oscillators[1] = {(uint16_t)(SEGLEN/4*3), (uint8_t)(SEGLEN/8),  1, 2};
-    oscillators[2] = {(uint16_t)(SEGLEN/4*2), (uint8_t)(SEGLEN/8), -1, 1};
+    oscillators[0] = {(int16_t)(SEGLEN/4),   (uint8_t)(SEGLEN/8),  1, 1};
+    oscillators[1] = {(int16_t)(SEGLEN/4*3), (uint8_t)(SEGLEN/8),  1, 2};
+    oscillators[2] = {(int16_t)(SEGLEN/4*2), (uint8_t)(SEGLEN/8), -1, 1};
   }
 
   uint32_t cycleTime = 20 + (2 * (uint32_t)(255 - SEGMENT.speed));
@@ -1878,46 +1878,71 @@ uint16_t mode_lightning(void) {
 static const char _data_FX_MODE_LIGHTNING[] PROGMEM = "Lightning@!,!,,,,,Overlay;!,!;!";
 
 
-// Pride2015
+// Pride2015 & Colorwaves
 // Animated, ever-changing rainbows.
-// by Mark Kriegsman: https://gist.github.com/kriegsman/964de772d64c502760e5
-uint16_t mode_pride_2015(void) {
+// by Mark Kriegsman: https://gist.github.com/kriegsman/964de772d64c502760e5 https://gist.github.com/kriegsman/8281905786e8b2632aeb
+// widely-varying set of parameters, using a color palette.
+// combined function from original pride and colorwaves by @dedehai
+uint16_t mode_colorwaves_pride_base(bool isPride2015) {
   unsigned duration = 10 + SEGMENT.speed;
   unsigned sPseudotime = SEGENV.step;
   unsigned sHue16 = SEGENV.aux0;
 
-  uint8_t sat8 = beatsin88( 87, 220, 250);
-  uint8_t brightdepth = beatsin88( 341, 96, 224);
-  unsigned brightnessthetainc16 = beatsin88( 203, (25 * 256), (40 * 256));
+  uint8_t sat8 = isPride2015 ? beatsin88(87, 220, 250) : 255;
+  unsigned brightdepth = beatsin88(341, 96, 224);
+  unsigned brightnessthetainc16 = beatsin88(203, (25 * 256), (40 * 256));
   unsigned msmultiplier = beatsin88(147, 23, 60);
 
-  unsigned hue16 = sHue16;//gHue * 256;
-  unsigned hueinc16 = beatsin88(113, 1, 3000);
+  unsigned hue16 = sHue16;
+  unsigned hueinc16 = isPride2015 ? beatsin88(113, 1, 3000) : 
+                                    beatsin88(113, 60, 300) * SEGMENT.intensity * 10 / 255;
 
   sPseudotime += duration * msmultiplier;
-  sHue16 += duration * beatsin88( 400, 5,9);
+  sHue16 += duration * beatsin88(400, 5, 9);
   unsigned brightnesstheta16 = sPseudotime;
 
-  for (unsigned i = 0 ; i < SEGLEN; i++) {
+  for (unsigned i = 0; i < SEGLEN; i++) {
     hue16 += hueinc16;
-    uint8_t hue8 = hue16 >> 8;
+    uint8_t hue8;
 
-    brightnesstheta16  += brightnessthetainc16;
-    unsigned b16 = sin16( brightnesstheta16  ) + 32768;
+    if (isPride2015) {
+      hue8 = hue16 >> 8;
+    } else {
+      unsigned h16_128 = hue16 >> 7;
+      hue8 = (h16_128 & 0x100) ? (255 - (h16_128 >> 1)) : (h16_128 >> 1);
+    }
 
-    unsigned bri16 = (uint32_t)((uint32_t)b16 * (uint32_t)b16) / 65536;
-    uint8_t bri8 = (uint32_t)(((uint32_t)bri16) * brightdepth) / 65536;
+    brightnesstheta16 += brightnessthetainc16;
+    unsigned b16 = sin16(brightnesstheta16) + 32768;
+    unsigned bri16 = (b16 * b16) / 65536;
+    uint8_t bri8 = (bri16 * brightdepth) / 65536;
     bri8 += (255 - brightdepth);
 
-    CRGB newcolor = CHSV(hue8, sat8, bri8);
-    SEGMENT.blendPixelColor(i, newcolor, 64);
+    if (isPride2015) {
+      CRGB newcolor = CHSV(hue8, sat8, bri8);
+      SEGMENT.blendPixelColor(i, newcolor, 64);
+    } else {
+      SEGMENT.blendPixelColor(i, SEGMENT.color_from_palette(hue8, false, PALETTE_SOLID_WRAP, 0, bri8), 128);
+    }
   }
+
   SEGENV.step = sPseudotime;
   SEGENV.aux0 = sHue16;
 
   return FRAMETIME;
 }
+
+// Pride2015
+uint16_t mode_pride_2015(void) {
+  return mode_colorwaves_pride_base(true);
+}
 static const char _data_FX_MODE_PRIDE_2015[] PROGMEM = "Pride 2015@!;;";
+
+// ColorWavesWithPalettes
+uint16_t mode_colorwaves() {
+  return mode_colorwaves_pride_base(false);
+}
+static const char _data_FX_MODE_COLORWAVES[] PROGMEM = "Colorwaves@!,Hue;!;!;;pal=26";
 
 
 //eight colored dots, weaving in and out of sync with each other
@@ -2124,53 +2149,6 @@ uint16_t mode_fire_2012() {
   return FRAMETIME;
 }
 static const char _data_FX_MODE_FIRE_2012[] PROGMEM = "Fire 2012@Cooling,Spark rate,,2D Blur,Boost;;!;1;pal=35,sx=64,ix=160,m12=1,c2=128"; // bars
-
-
-// ColorWavesWithPalettes by Mark Kriegsman: https://gist.github.com/kriegsman/8281905786e8b2632aeb
-// This function draws color waves with an ever-changing,
-// widely-varying set of parameters, using a color palette.
-uint16_t mode_colorwaves() {
-  unsigned duration = 10 + SEGMENT.speed;
-  unsigned sPseudotime = SEGENV.step;
-  unsigned sHue16 = SEGENV.aux0;
-
-  unsigned brightdepth = beatsin88(341, 96, 224);
-  unsigned brightnessthetainc16 = beatsin88( 203, (25 * 256), (40 * 256));
-  unsigned msmultiplier = beatsin88(147, 23, 60);
-
-  unsigned hue16 = sHue16;//gHue * 256;
-  unsigned hueinc16 = beatsin88(113, 60, 300)*SEGMENT.intensity*10/255;  // Use the Intensity Slider for the hues
-
-  sPseudotime += duration * msmultiplier;
-  sHue16 += duration * beatsin88(400, 5, 9);
-  unsigned brightnesstheta16 = sPseudotime;
-
-  for (unsigned i = 0 ; i < SEGLEN; i++) {
-    hue16 += hueinc16;
-    uint8_t hue8 = hue16 >> 8;
-    unsigned h16_128 = hue16 >> 7;
-    if ( h16_128 & 0x100) {
-      hue8 = 255 - (h16_128 >> 1);
-    } else {
-      hue8 = h16_128 >> 1;
-    }
-
-    brightnesstheta16  += brightnessthetainc16;
-    unsigned b16 = sin16(brightnesstheta16) + 32768;
-
-    unsigned bri16 = (uint32_t)((uint32_t)b16 * (uint32_t)b16) / 65536;
-    uint8_t bri8 = (uint32_t)(((uint32_t)bri16) * brightdepth) / 65536;
-    bri8 += (255 - brightdepth);
-
-    SEGMENT.blendPixelColor(i, SEGMENT.color_from_palette(hue8, false, PALETTE_SOLID_WRAP, 0, bri8), 128); // 50/50 mix
-  }
-  SEGENV.step = sPseudotime;
-  SEGENV.aux0 = sHue16;
-
-  return FRAMETIME;
-}
-static const char _data_FX_MODE_COLORWAVES[] PROGMEM = "Colorwaves@!,Hue;!;!;;pal=26";
-
 
 // colored stripes pulsing at a defined Beats-Per-Minute (BPM)
 uint16_t mode_bpm() {
