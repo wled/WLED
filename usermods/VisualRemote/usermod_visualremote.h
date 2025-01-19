@@ -68,6 +68,7 @@ typedef struct WizMoteMessageStructure {
 static volatile byte presetToApply = 0;
 static uint32_t last_seq_visualremote = UINT32_MAX;
 static int brightnessBeforeNightMode_visualremote = NIGHT_MODE_DEACTIVATED;
+static bool SyncMode = true;
 
 static const byte brightnessSteps_visualremote[] = {
   6, 9, 14, 22, 33, 50, 75, 113, 170, 255
@@ -129,6 +130,10 @@ inline void togglePower_visualremote() {
   //resetNightMode_visualremote();
   toggleOnOff();
   stateUpdated(CALL_MODE_BUTTON);
+}
+
+inline void toggleSyncMode_visualremote() {
+  SyncMode = !SyncMode;
 }
 
 inline void setOn_visualremote() {
@@ -213,26 +218,26 @@ class UsermodVisualRemote : public Usermod {
   public:
     void setup() {
       Serial.println("VisualRemote mod active!");
-      for (byte i = 0; i < 255; i++) {
-        preset_available[i] = getPresetName(i, presetNames[i]);        
-        if (preset_available[i]) {
-          Serial.printf("Preset %d: %s\n", i, presetNames[i].c_str());
+      // for (byte i = 0; i < 255; i++) {
+      //   preset_available[i] = getPresetName(i, presetNames[i]);        
+      //   if (preset_available[i]) {
+      //     Serial.printf("Preset %d: %s\n", i, presetNames[i].c_str());
 
-          // Initialize pattern data from config
-          if (patterns[i].name == "") {
-            // No pattern exists yet for this preset, create a default one
-            Serial.printf("No pattern for preset %d found, creating default pattern.\n", i);
-            patterns[i].id = i;
-            patterns[i].name = presetNames[i];
-            patterns[i].length = 3;
-            for (int j = 0; j < patterns[i].length; j++) {
-              patterns[i].colors[j] = "FFFFFF"; // Default to white
-            }
-          } else {
-            Serial.printf("Pattern for preset %d loaded successfully.\n", i);
-          }
-        }
-      }
+      //     // Initialize pattern data from config
+      //     if (patterns[i].name == "") {
+      //       // No pattern exists yet for this preset, create a default one
+      //       Serial.printf("No pattern for preset %d found, creating default pattern.\n", i);
+      //       patterns[i].id = i;
+      //       patterns[i].name = presetNames[i];
+      //       patterns[i].length = 3;
+      //       for (int j = 0; j < patterns[i].length; j++) {
+      //         patterns[i].colors[j] = "FFFFFF"; // Default to white
+      //       }
+      //     } else {
+      //       Serial.printf("Pattern for preset %d loaded successfully.\n", i);
+      //     }
+      //   }
+      // }
     }
 
   void StartDisplayEffectIndicator(uint8_t effectIndex) {
@@ -256,19 +261,19 @@ class UsermodVisualRemote : public Usermod {
       top[FPSTR(_enabled)] = enabled;
       top["SegmentId"] = segmentId;
       top["SegmentPixelOffset"] = segmentPixelOffset;
-      top["TimeOutMenu"] = timeOutMenu;
-      // Add patterns to config
-      JsonArray patternsArray = top.createNestedArray("patterns");
-      for (int i = 0; i < 255; i++) {
-        if (patterns[i].name != "") {
-          JsonObject patternObj = patternsArray.createNestedObject();
-          patternObj["id"] = patterns[i].id;
-          patternObj["name"] = patterns[i].name;
-          patternObj["length"] = patterns[i].length;
-          JsonArray colorsArray = patternObj.createNestedArray("colors");
-          serializePatternColors(colorsArray, patterns[i].colors, patterns[i].length);
-        }
-      }
+      // top["TimeOutMenu"] = timeOutMenu;
+      // // Add patterns to config
+      // JsonArray patternsArray = top.createNestedArray("patterns");
+      // for (int i = 0; i < 255; i++) {
+      //   if (patterns[i].name != "") {
+      //     JsonObject patternObj = patternsArray.createNestedObject();
+      //     patternObj["id"] = patterns[i].id;
+      //     patternObj["name"] = patterns[i].name;
+      //     patternObj["length"] = patterns[i].length;
+      //     JsonArray colorsArray = patternObj.createNestedArray("colors");
+      //     serializePatternColors(colorsArray, patterns[i].colors, patterns[i].length);
+      //   }
+      // }
     }
 
     bool readFromConfig(JsonObject& root) override {
@@ -282,22 +287,22 @@ class UsermodVisualRemote : public Usermod {
       configComplete &= getJsonValue(top["TimeOutMenu"], timeOutMenu, 1000);  
       
 
-      // Read patterns from config
-      JsonArray patternsArray = top["patterns"].as<JsonArray>();
-      if (!patternsArray.isNull()) {
-        for (int i = 0; i < 255; i++) {
-          JsonObject patternObj = patternsArray[i];
-          if (!patternObj.isNull()) {
-            patterns[i].id = patternObj["id"] | 0;
-            patterns[i].name = patternObj["name"].as<String>();
-            patterns[i].length = patternObj["length"] | 0;
-            JsonArray colorsArray = patternObj["colors"].as<JsonArray>();
-            if (!colorsArray.isNull()) {
-              deserializePatternColors(colorsArray, patterns[i].colors, patterns[i].length);
-            }
-          }
-        }
-      }
+      // // Read patterns from config
+      // JsonArray patternsArray = top["patterns"].as<JsonArray>();
+      // if (!patternsArray.isNull()) {
+      //   for (int i = 0; i < 255; i++) {
+      //     JsonObject patternObj = patternsArray[i];
+      //     if (!patternObj.isNull()) {
+      //       patterns[i].id = patternObj["id"] | 0;
+      //       patterns[i].name = patternObj["name"].as<String>();
+      //       patterns[i].length = patternObj["length"] | 0;
+      //       JsonArray colorsArray = patternObj["colors"].as<JsonArray>();
+      //       if (!colorsArray.isNull()) {
+      //         deserializePatternColors(colorsArray, patterns[i].colors, patterns[i].length);
+      //       }
+      //     }
+      //   }
+      // }
 
       return configComplete;
     }
@@ -341,11 +346,14 @@ class UsermodVisualRemote : public Usermod {
       if (strcmp(last_signal_src, linked_remote) != 0) {
         DEBUG_PRINT(F("ESP Now Message Received from Unlinked Sender: "));
         DEBUG_PRINTLN(last_signal_src);
+        if (!SyncMode) {
+          return;
+        }
         if (
           (incoming->button != WIZMOTE_BUTTON_ONE_LONG) &&
           (incoming->button != WIZMOTE_BUTTON_TWO_LONG) &&
           (incoming->button != WIZMOTE_BUTTON_THREE_LONG) &&
-          (incoming->button != WIZMOTE_BUTTON_FOUR_LONG)
+          (incoming->button != WIZMOTE_BUTTON_FOUR_LONG) 
           ) {
             return;
           }
@@ -360,7 +368,7 @@ class UsermodVisualRemote : public Usermod {
 
       switch (incoming->button) {
         case WIZMOTE_BUTTON_ON             : togglePower_visualremote();                                            break;
-        case WIZMOTE_BUTTON_OFF            : setOff_visualremote();                                           break;
+        case WIZMOTE_BUTTON_OFF            : toggleSyncMode_visualremote();                                           break;
         case WIZMOTE_BUTTON_ONE            : presetWithFallback_visualremote(1, FX_MODE_STATIC,        0);    break;
         case WIZMOTE_BUTTON_TWO            : presetWithFallback_visualremote(2, FX_MODE_BREATH,        0);    break;
         case WIZMOTE_BUTTON_THREE          : presetWithFallback_visualremote(3, FX_MODE_FIRE_FLICKER,  0);    break;
@@ -385,7 +393,34 @@ class UsermodVisualRemote : public Usermod {
     }
 
     void handleOverlayDraw() {
-      if (isDisplayingEffectIndicator) {
+      uint32_t wifiColor = BLACK;  // default color
+
+      switch (WiFi.status()) {
+        case 4:
+          wifiColor = RED;
+          break;
+        case 3:
+          wifiColor = GREEN;
+          break;
+        case 2:
+          wifiColor = ORANGE;
+          break;
+        case 1:
+          wifiColor = PURPLE;
+          break;
+        case 0:
+          wifiColor = BLUE;
+          break;
+        default:
+          wifiColor = BLUE;  // Off
+          break;
+      }
+
+      strip.getSegment(segmentId).setPixelColor(segmentPixelOffset, wifiColor); 
+      uint32_t syncColor = SyncMode ? GREEN : RED;
+      strip.getSegment(segmentId).setPixelColor(segmentPixelOffset + 1, syncColor); 
+      
+      /* if (isDisplayingEffectIndicator) {
         strip.fill(BLACK);
         stateUpdated(CALL_MODE_DIRECT_CHANGE);
         if (millis() - lastTime > timeOutMenu) {
@@ -417,6 +452,7 @@ class UsermodVisualRemote : public Usermod {
 
           
       }
+      */
     }
 
     void loop() {
