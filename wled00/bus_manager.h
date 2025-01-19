@@ -9,6 +9,7 @@
 #include "const.h"
 #include "pin_manager.h"
 #include <vector>
+#include <memory>
 
 // enable additional debug output
 #if defined(WLED_DEBUG_HOST)
@@ -449,13 +450,13 @@ class BusManager {
 
     //semi-duplicate of strip.getLengthTotal() (though that just returns strip._length, calculated in finalizeInit())
     static uint16_t getTotalLength();
-    static inline uint8_t getNumBusses() { return numBusses; }
+    static inline uint8_t getNumBusses() { return busses.size(); }
     static String getLEDTypesJSONString();
 
     static inline ColorOrderMap& getColorOrderMap() { return colorOrderMap; }
 
   private:
-    static uint8_t numBusses;
+    //static std::vector<std::unique_ptr<Bus>> busses; // we'd need C++ >11
     static std::vector<Bus*> busses;
     static ColorOrderMap colorOrderMap;
     static uint16_t _milliAmpsUsed;

@@ -20,6 +20,7 @@
 #include "pin_manager.h"
 #include "bus_manager.h"
 #include "bus_wrapper.h"
+#include <bits/unique_ptr.h>
 
 extern bool cctICused;
 extern bool useParallelI2S;
@@ -832,7 +833,6 @@ unsigned BusManager::memUsage() {
     #endif
   #endif
   for (const auto &bus : busses) {
-  //for (unsigned i=0; i<numBusses; i++) {
     unsigned busSize = bus->getBusSize();
     #if !defined(CONFIG_IDF_TARGET_ESP32C3) && !defined(ESP8266)
     if (bus->isDigital() && !bus->is2Pin()) digitalCount++;
@@ -848,18 +848,24 @@ unsigned BusManager::memUsage() {
 }
 
 int BusManager::add(const BusConfig &bc) {
-  DEBUGBUS_PRINTF_P(PSTR("Bus: Adding bus #%d (%d - %d >= %d)\n"), numBusses, getNumBusses(), getNumVirtualBusses(), WLED_MAX_BUSSES);
+  DEBUGBUS_PRINTF_P(PSTR("Bus: Adding bus (%d - %d >= %d)\n"), getNumBusses(), getNumVirtualBusses(), WLED_MAX_BUSSES);
   if (getNumBusses() - getNumVirtualBusses() >= WLED_MAX_BUSSES) return -1;
+  unsigned numDigital = 0;
+  for (const auto &bus : busses) if (bus->isDigital() && !bus->is2Pin()) numDigital++;
   if (Bus::isVirtual(bc.type)) {
+    //busses.push_back(std::make_unique<BusNetwork>(bc)); // when C++ >11
     busses.push_back(new BusNetwork(bc));
   } else if (Bus::isDigital(bc.type)) {
-    busses.push_back(new BusDigital(bc, numBusses, colorOrderMap));
+    //busses.push_back(std::make_unique<BusDigital>(bc, numDigital, colorOrderMap));
+    busses.push_back(new BusDigital(bc, numDigital, colorOrderMap));
   } else if (Bus::isOnOff(bc.type)) {
+    //busses.push_back(std::make_unique<BusOnOff>(bc));
     busses.push_back(new BusOnOff(bc));
   } else {
+    //busses.push_back(std::make_unique<BusPwm>(bc));
     busses.push_back(new BusPwm(bc));
   }
-  return numBusses++;
+  return busses.size();
 }
 
 // credit @willmmiles
@@ -901,9 +907,8 @@ void BusManager::removeAll() {
   DEBUGBUS_PRINTLN(F("Removing all."));
   //prevents crashes due to deleting busses while in use.
   while (!canAllShow()) yield();
-  for (auto &bus : busses) delete bus;
+  for (auto &bus : busses) delete bus; // needed when not using std::unique_ptr C++ >11
   busses.clear();
-  numBusses = 0;
   PolyBus::setParallelI2S1Output(false);
 }
 
@@ -914,7 +919,9 @@ void BusManager::removeAll() {
 void BusManager::esp32RMTInvertIdle() {
   bool idle_out;
   unsigned rmt = 0;
-  for (unsigned u = 0; u < numBusses(); u++) {
+  unsigned u = 0;
+  for (auto &bus : busses) {
+    if (bus->getLength()==0 || !bus->isDigital() || bus->is2Pin()) continue;
     #if defined(CONFIG_IDF_TARGET_ESP32C3)    // 2 RMT, only has 1 I2S but NPB does not support it ATM
       if (u > 1) return;
       rmt = u;
@@ -925,12 +932,11 @@ void BusManager::esp32RMTInvertIdle() {
       if (u > 3) return;
       rmt = u;
     #else
-      unsigned numI2S = 1 + PolyBus::isParallelI2S1Output()*7;
-      if (u < numI2S) continue;
-      if (u >= numI2S + 8) return; // only 8 RMT channels
+      unsigned numI2S = !PolyBus::isParallelI2S1Output(); // if using parallel I2S, RMT is used 1st
+      if (numI2S > u) continue;
+      if (u > 7 + numI2S) return;
       rmt = u - numI2S;
     #endif
-    if (busses[u]->getLength()==0 || !busses[u]->isDigital() || busses[u]->is2Pin()) continue;
     //assumes that bus number to rmt channel mapping stays 1:1
     rmt_channel_t ch = static_cast<rmt_channel_t>(rmt);
     rmt_idle_level_t lvl;
@@ -939,6 +945,7 @@ void BusManager::esp32RMTInvertIdle() {
     else if (lvl == RMT_IDLE_LEVEL_LOW) lvl = RMT_IDLE_LEVEL_HIGH;
     else continue;
     rmt_set_idle_level(ch, idle_out, lvl);
+    u++
   }
 }
 #endif
@@ -1047,7 +1054,7 @@ uint8_t Bus::_gAWM = 255;
 
 uint16_t BusDigital::_milliAmpsTotal = 0;
 
-uint8_t       BusManager::numBusses = 0;
+//std::vector<std::unique_ptr<Bus>> BusManager::busses;
 std::vector<Bus*> BusManager::busses;
 ColorOrderMap BusManager::colorOrderMap = {};
 uint16_t      BusManager::_milliAmpsUsed = 0;
