@@ -163,7 +163,7 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
         break;
       }
       for (int i = 0; i < 5; i++) {
-        lp[1] = offset+i;
+        lp[1] = '0'+i;
         if (!request->hasArg(lp)) break;
         pins[i] = (request->arg(lp).length() > 0) ? request->arg(lp).toInt() : 255;
       }
