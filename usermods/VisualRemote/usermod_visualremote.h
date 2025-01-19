@@ -341,7 +341,14 @@ class UsermodVisualRemote : public Usermod {
       if (strcmp(last_signal_src, linked_remote) != 0) {
         DEBUG_PRINT(F("ESP Now Message Received from Unlinked Sender: "));
         DEBUG_PRINTLN(last_signal_src);
-        return;
+        if (
+          (incoming->button != WIZMOTE_BUTTON_ONE_LONG) &&
+          (incoming->button != WIZMOTE_BUTTON_TWO_LONG) &&
+          (incoming->button != WIZMOTE_BUTTON_THREE_LONG) &&
+          (incoming->button != WIZMOTE_BUTTON_FOUR_LONG)
+          ) {
+            return;
+          }
       }
 
       uint32_t cur_seq = incoming->seq[0] | (incoming->seq[1] << 8) | (incoming->seq[2] << 16) | (incoming->seq[3] << 24);
@@ -365,8 +372,11 @@ class UsermodVisualRemote : public Usermod {
         // case WIZ_SMART_BUTTON_OFF          : setOff_visualremote();                                           break;
         // case WIZ_SMART_BUTTON_BRIGHT_UP    : brightnessUp_visualremote();                                     break;
         // case WIZ_SMART_BUTTON_BRIGHT_DOWN  : brightnessDown_visualremote();                                   break;
-        case WIZMOTE_BUTTON_ONE_LONG       : activate_menu_preset();                                          break;
-        case WIZMOTE_BUTTON_ONE_TRIPLE       : activate_menu_preset();                                          break;
+        case WIZMOTE_BUTTON_ONE_LONG       : presetWithFallback_visualremote(1, FX_MODE_STATIC,        0);    break;
+        case WIZMOTE_BUTTON_TWO_LONG       : presetWithFallback_visualremote(2, FX_MODE_BREATH,        0);    break;
+        case WIZMOTE_BUTTON_THREE_LONG       : presetWithFallback_visualremote(3, FX_MODE_FIRE_FLICKER,        0);    break;
+        case WIZMOTE_BUTTON_FOUR_LONG       : presetWithFallback_visualremote(4, FX_MODE_RAINBOW,        0);    break;
+        //case WIZMOTE_BUTTON_ONE_TRIPLE       : activate_menu_preset();                                          break;
         
         default: break;
       }
