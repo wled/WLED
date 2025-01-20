@@ -436,20 +436,24 @@ class BusManager {
 
     static void show();
     static bool canAllShow();
-    static void setStatusPixel(uint32_t c);
+    static inline void setStatusPixel(uint32_t c)  { for (auto &bus : busses) bus->setStatusPixel(c);}
     [[gnu::hot]] static void setPixelColor(unsigned pix, uint32_t c);
-    static void setBrightness(uint8_t b);
+    static inline void setBrightness(uint8_t b)    { for (auto &bus : busses) bus->setBrightness(b); }
     // for setSegmentCCT(), cct can only be in [-1,255] range; allowWBCorrection will convert it to K
     // WARNING: setSegmentCCT() is a misleading name!!! much better would be setGlobalCCT() or just setCCT()
     static void setSegmentCCT(int16_t cct, bool allowWBCorrection = false);
     static inline void setMilliampsMax(uint16_t max) { _milliAmpsMax = max;}
     [[gnu::hot]] static uint32_t getPixelColor(unsigned pix);
-    static inline int16_t getSegmentCCT() { return Bus::getCCT(); }
+    static inline int16_t getSegmentCCT()   { return Bus::getCCT(); }
 
-    static Bus* getBus(uint8_t busNr);
+    static Bus& getBus(uint8_t busNr) { return *busses[std::min((size_t)busNr,busses.size()-1)]; }
 
     //semi-duplicate of strip.getLengthTotal() (though that just returns strip._length, calculated in finalizeInit())
-    static uint16_t getTotalLength();
+    static inline uint16_t getTotalLength(bool onlyPhysical = false) {
+      unsigned len = 0;
+      for (const auto &bus : busses) if (!(bus->isVirtual() && onlyPhysical)) len += bus->getLength();
+      return len;
+    }
     static inline uint8_t getNumBusses() { return busses.size(); }
     static String getLEDTypesJSONString();
 

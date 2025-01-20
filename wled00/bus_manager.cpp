@@ -994,20 +994,12 @@ void BusManager::show() {
   }
 }
 
-void BusManager::setStatusPixel(uint32_t c) {
-  for (auto &bus : busses) bus->setStatusPixel(c);
-}
-
 void IRAM_ATTR BusManager::setPixelColor(unsigned pix, uint32_t c) {
   for (auto &bus : busses) {
     unsigned bstart = bus->getStart();
     if (pix < bstart || pix >= bstart + bus->getLength()) continue;
     bus->setPixelColor(pix - bstart, c);
   }
-}
-
-void BusManager::setBrightness(uint8_t b) {
-  for (auto &bus : busses) bus->setBrightness(b);
 }
 
 void BusManager::setSegmentCCT(int16_t cct, bool allowWBCorrection) {
@@ -1033,17 +1025,6 @@ bool BusManager::canAllShow() {
   return true;
 }
 
-Bus* BusManager::getBus(uint8_t busNr) {
-  if (busNr >= busses.size()) return nullptr;
-  return busses[busNr];
-}
-
-//semi-duplicate of strip.getLengthTotal() (though that just returns strip._length, calculated in finalizeInit())
-uint16_t BusManager::getTotalLength() {
-  unsigned len = 0;
-  for (const auto &bus : busses) len += bus->getLength();
-  return len;
-}
 
 bool PolyBus::_useParallelI2S = false;
 

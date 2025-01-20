@@ -168,8 +168,6 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
   if (fromFS || !ins.isNull()) {
     DEBUG_PRINTF_P(PSTR("Heap before buses: %d\n"), ESP.getFreeHeap());
     int s = 0;  // bus iterator
-    if (fromFS) BusManager::removeAll(); // can't safely manipulate busses directly in network callback
-
     for (JsonObject elm : ins) {
       if (s >= WLED_MAX_BUSSES+WLED_MIN_VIRTUAL_BUSSES) break;
       uint8_t pins[5] = {255, 255, 255, 255, 255};
@@ -206,7 +204,7 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
       s++;
     }
   }
-  if (hw_led["rev"]) BusManager::getBus(0)->setReversed(true); //set 0.11 global reversed setting for first bus
+  if (hw_led["rev"]) BusManager::getBus(0).setReversed(true); //set 0.11 global reversed setting for first bus
 
   // read color order map configuration
   JsonArray hw_com = hw[F("com")];
@@ -820,34 +818,34 @@ void serializeConfig() {
 
   for (size_t s = 0; s < BusManager::getNumBusses(); s++) {
     DEBUG_PRINTF_P(PSTR("Cfg: Saving bus #%u\n"), s);
-    Bus *bus = BusManager::getBus(s);
-    if (!bus || bus->getLength()==0) break;
+    const Bus &bus = BusManager::getBus(s);
+    if (bus.getLength()==0) break;
     DEBUG_PRINTF_P(PSTR("  (%d-%d, type:%d, CO:%d, rev:%d, skip:%d, AW:%d kHz:%d, mA:%d/%d)\n"),
-      (int)bus->getStart(), (int)(bus->getStart()+bus->getLength()),
-      (int)(bus->getType() & 0x7F),
-      (int)bus->getColorOrder(),
-      (int)bus->isReversed(),
-      (int)bus->skippedLeds(),
-      (int)bus->getAutoWhiteMode(),
-      (int)bus->getFrequency(),
-      (int)bus->getLEDCurrent(), (int)bus->getMaxCurrent()
+      (int)bus.getStart(), (int)(bus.getStart()+bus.getLength()),
+      (int)(bus.getType() & 0x7F),
+      (int)bus.getColorOrder(),
+      (int)bus.isReversed(),
+      (int)bus.skippedLeds(),
+      (int)bus.getAutoWhiteMode(),
+      (int)bus.getFrequency(),
+      (int)bus.getLEDCurrent(), (int)bus.getMaxCurrent()
     );
     JsonObject ins = hw_led_ins.createNestedObject();
-    ins["start"] = bus->getStart();
-    ins["len"] = bus->getLength();
+    ins["start"] = bus.getStart();
+    ins["len"]   = bus.getLength();
     JsonArray ins_pin = ins.createNestedArray("pin");
     uint8_t pins[5];
-    uint8_t nPins = bus->getPins(pins);
+    uint8_t nPins = bus.getPins(pins);
     for (int i = 0; i < nPins; i++) ins_pin.add(pins[i]);
-    ins[F("order")] = bus->getColorOrder();
-    ins["rev"] = bus->isReversed();
-    ins[F("skip")] = bus->skippedLeds();
-    ins["type"] = bus->getType() & 0x7F;
-    ins["ref"] = bus->isOffRefreshRequired();
-    ins[F("rgbwm")] = bus->getAutoWhiteMode();
-    ins[F("freq")] = bus->getFrequency();
-    ins[F("maxpwr")] = bus->getMaxCurrent();
-    ins[F("ledma")] = bus->getLEDCurrent();
+    ins[F("order")]  = bus.getColorOrder();
+    ins["rev"]       = bus.isReversed();
+    ins[F("skip")]   = bus.skippedLeds();
+    ins["type"]      = bus.getType() & 0x7F;
+    ins["ref"]       = bus.isOffRefreshRequired();
+    ins[F("rgbwm")]  = bus.getAutoWhiteMode();
+    ins[F("freq")]   = bus.getFrequency();
+    ins[F("maxpwr")] = bus.getMaxCurrent();
+    ins[F("ledma")]  = bus.getLEDCurrent();
   }
 
   JsonArray hw_com = hw.createNestedArray(F("com"));
