@@ -2,7 +2,6 @@
 
 #include "wled.h"
 
-#define XY(x,y) SEGMENT.XY(x,y)
 #define PALETTE_SOLID_WRAP   (strip.paletteBlend == 1 || strip.paletteBlend == 3)
 
 // Minimal data struct for hearth effect

@@ -70,6 +70,9 @@ static uint32_t last_seq_visualremote = UINT32_MAX;
 static int brightnessBeforeNightMode_visualremote = NIGHT_MODE_DEACTIVATED;
 static bool SyncMode = true;
 
+static bool MenuMode = false;
+
+
 static const byte brightnessSteps_visualremote[] = {
   6, 9, 14, 22, 33, 50, 75, 113, 170, 255
 };
@@ -159,6 +162,19 @@ inline void presetWithFallback_visualremote(uint8_t presetID, uint8_t effectID, 
   applyPresetWithFallback(presetID, CALL_MODE_BUTTON_PRESET, effectID, paletteID);
 }
 
+inline void increaseSpeed()
+{
+  Serial.printf("Increase speed: %u\n", effectSpeed);  
+  effectSpeed = min(effectSpeed + 20, 255);
+  stateChanged = true;
+  for (unsigned i=0; i<strip.getSegmentsNum(); i++) {
+      Segment& seg = strip.getSegment(i);
+      if (!seg.isActive()) continue;
+      seg.speed = effectSpeed;
+  }
+  colorUpdated(CALL_MODE_FX_CHANGED);
+}
+
 struct Pattern {
   uint8_t id;           // ID of the pattern
   String name;          // Name of the pattern
@@ -199,7 +215,7 @@ class UsermodVisualRemote : public Usermod {
     int segmentPixelOffset;
     int timeOutMenu;
     String presetNames[255]; 
-    bool preset_available[255];
+    bool preset_available[255] = {false};
     Pattern patterns[255]; // Array to hold patterns for each preset
     bool isDisplayingEffectIndicator = false;
 
@@ -216,29 +232,15 @@ class UsermodVisualRemote : public Usermod {
     }
 
   public:
-    void setup() {
-      Serial.println("VisualRemote mod active!");
-      // for (byte i = 0; i < 255; i++) {
-      //   preset_available[i] = getPresetName(i, presetNames[i]);        
-      //   if (preset_available[i]) {
-      //     Serial.printf("Preset %d: %s\n", i, presetNames[i].c_str());
-
-      //     // Initialize pattern data from config
-      //     if (patterns[i].name == "") {
-      //       // No pattern exists yet for this preset, create a default one
-      //       Serial.printf("No pattern for preset %d found, creating default pattern.\n", i);
-      //       patterns[i].id = i;
-      //       patterns[i].name = presetNames[i];
-      //       patterns[i].length = 3;
-      //       for (int j = 0; j < patterns[i].length; j++) {
-      //         patterns[i].colors[j] = "FFFFFF"; // Default to white
-      //       }
-      //     } else {
-      //       Serial.printf("Pattern for preset %d loaded successfully.\n", i);
-      //     }
-      //   }
-      // }
+  void setup() {
+    Serial.println("VisualRemote mod active!");
+     String name = "";
+    for (unsigned presetIndex = 1; presetIndex <= 255; presetIndex++)
+    {
+       if (!getPresetName(presetIndex, name)) break; // no more presets
+       preset_available[presetIndex] = true;
     }
+  }
 
   void StartDisplayEffectIndicator(uint8_t effectIndex) {
     effectCurrent = USERMOD_ID_BIERTJE;
@@ -309,27 +311,33 @@ class UsermodVisualRemote : public Usermod {
 
 
    void onButtonUpPress() {
+    if (MenuMode) {
       do {
         currentEffectIndex++;
         if (currentEffectIndex >= 255) {
-          currentEffectIndex = 0;
+          currentEffectIndex = 5;
         }
       } while (!preset_available[currentEffectIndex]);
       Serial.printf("> Start Display effect %d \n", currentEffectIndex);
-
-      StartDisplayEffectIndicator(currentEffectIndex);
+      presetWithFallback_visualremote(currentEffectIndex, FX_MODE_BIERTJE,        0);
+      //activate_menu_preset();
+    } else
+    {
+      increaseSpeed();
     }
+   }
 
     void onButtonDownPress() {
+      MenuMode = true;      
       do {
-        if (currentEffectIndex == 0) {
+        if (currentEffectIndex < 5) {
           currentEffectIndex = 255;
         } else {
           currentEffectIndex--;
         }
       } while (!preset_available[currentEffectIndex]);
       Serial.printf("< Start Display effect %d \n", currentEffectIndex);
-      StartDisplayEffectIndicator(currentEffectIndex);
+      presetWithFallback_visualremote(currentEffectIndex, FX_MODE_BIERTJE,        0);
     }
 
 
@@ -365,14 +373,17 @@ class UsermodVisualRemote : public Usermod {
       }
  // Debug print the button value
       
-
+      if ((incoming->button != WIZMOTE_BUTTON_BRIGHT_DOWN) && (incoming->button != WIZMOTE_BUTTON_BRIGHT_UP)) {
+        MenuMode = false;
+      }
+    
       switch (incoming->button) {
         case WIZMOTE_BUTTON_ON             : togglePower_visualremote();                                            break;
         case WIZMOTE_BUTTON_OFF            : toggleSyncMode_visualremote();                                           break;
-        case WIZMOTE_BUTTON_ONE            : presetWithFallback_visualremote(1, FX_MODE_STATIC,        0);    break;
+        case WIZMOTE_BUTTON_ONE            : presetWithFallback_visualremote(1, FX_MODE_BIERTJE,        0);    break;
         case WIZMOTE_BUTTON_TWO            : presetWithFallback_visualremote(2, FX_MODE_BREATH,        0);    break;
         case WIZMOTE_BUTTON_THREE          : presetWithFallback_visualremote(3, FX_MODE_FIRE_FLICKER,  0);    break;
-        case WIZMOTE_BUTTON_FOUR           : presetWithFallback_visualremote(4, FX_MODE_RAINBOW,       0);    break;
+        case WIZMOTE_BUTTON_FOUR           : presetWithFallback_visualremote(4, FX_MODE_HEART,       0);    break;
         case WIZMOTE_BUTTON_NIGHT          : activateNightMode_visualremote();                                break;
         case WIZMOTE_BUTTON_BRIGHT_UP      : onButtonUpPress();                                               break;
         case WIZMOTE_BUTTON_BRIGHT_DOWN    : onButtonDownPress();                                             break;
@@ -380,10 +391,10 @@ class UsermodVisualRemote : public Usermod {
         // case WIZ_SMART_BUTTON_OFF          : setOff_visualremote();                                           break;
         // case WIZ_SMART_BUTTON_BRIGHT_UP    : brightnessUp_visualremote();                                     break;
         // case WIZ_SMART_BUTTON_BRIGHT_DOWN  : brightnessDown_visualremote();                                   break;
-        case WIZMOTE_BUTTON_ONE_LONG       : presetWithFallback_visualremote(1, FX_MODE_STATIC,        0);    break;
+        case WIZMOTE_BUTTON_ONE_LONG       : presetWithFallback_visualremote(1, FX_MODE_BIERTJE,        0);    break;
         case WIZMOTE_BUTTON_TWO_LONG       : presetWithFallback_visualremote(2, FX_MODE_BREATH,        0);    break;
         case WIZMOTE_BUTTON_THREE_LONG       : presetWithFallback_visualremote(3, FX_MODE_FIRE_FLICKER,        0);    break;
-        case WIZMOTE_BUTTON_FOUR_LONG       : presetWithFallback_visualremote(4, FX_MODE_RAINBOW,        0);    break;
+        case WIZMOTE_BUTTON_FOUR_LONG       : presetWithFallback_visualremote(4, FX_MODE_HEART,        0);    break;
         //case WIZMOTE_BUTTON_ONE_TRIPLE       : activate_menu_preset();                                          break;
         
         default: break;
