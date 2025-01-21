@@ -903,7 +903,6 @@ WLED_GLOBAL ESPAsyncE131 ddp  _INIT_N(((handleE131Packet)));
 WLED_GLOBAL bool e131NewData _INIT(false);
 
 // led fx library object
-//WLED_GLOBAL BusManager busMgr        _INIT(BusManager());
 WLED_GLOBAL WS2812FX   strip         _INIT(WS2812FX());
 WLED_GLOBAL std::vector<BusConfig> busConfigs;    //temporary, to remember values from network callback until after
 WLED_GLOBAL byte       doInit        _INIT(0);    // bitfield: 1 - bus, 2 - 2D, 3-8 - reserved
