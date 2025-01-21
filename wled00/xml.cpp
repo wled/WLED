@@ -300,8 +300,8 @@ void getSettingsJS(byte subPage, Print& settingsScript)
 
     unsigned sumMa = 0;
     for (int s = 0; s < BusManager::getNumBusses(); s++) {
-      const Bus &bus = BusManager::getBus(s);
-      if (bus.getLength()==0) continue;
+      const Bus *bus = BusManager::getBus(s);
+      if (!bus || !bus->isOk()) break; // should not happen but for safety
       int offset = s < 10 ? 48 : 55;
       char lp[4] = "L0"; lp[2] = offset+s; lp[3] = 0; //ascii 0-9 //strip data pin
       char lc[4] = "LC"; lc[2] = offset+s; lc[3] = 0; //strip length
@@ -318,22 +318,22 @@ void getSettingsJS(byte subPage, Print& settingsScript)
       char ma[4] = "MA"; ma[2] = offset+s; ma[3] = 0; //max per-port PSU current
       settingsScript.print(F("addLEDs(1);"));
       uint8_t pins[5];
-      int nPins = bus.getPins(pins);
+      int nPins = bus->getPins(pins);
       for (int i = 0; i < nPins; i++) {
         lp[1] = '0'+i;
-        if (PinManager::isPinOk(pins[i]) || bus.isVirtual()) printSetFormValue(settingsScript,lp,pins[i]);
+        if (PinManager::isPinOk(pins[i]) || bus->isVirtual()) printSetFormValue(settingsScript,lp,pins[i]);
       }
-      printSetFormValue(settingsScript,lc,bus.getLength());
-      printSetFormValue(settingsScript,lt,bus.getType());
-      printSetFormValue(settingsScript,co,bus.getColorOrder() & 0x0F);
-      printSetFormValue(settingsScript,ls,bus.getStart());
-      printSetFormCheckbox(settingsScript,cv,bus.isReversed());
-      printSetFormValue(settingsScript,sl,bus.skippedLeds());
-      printSetFormCheckbox(settingsScript,rf,bus.isOffRefreshRequired());
-      printSetFormValue(settingsScript,aw,bus.getAutoWhiteMode());
-      printSetFormValue(settingsScript,wo,bus.getColorOrder() >> 4);
-      unsigned speed = bus.getFrequency();
-      if (bus.isPWM()) {
+      printSetFormValue(settingsScript,lc,bus->getLength());
+      printSetFormValue(settingsScript,lt,bus->getType());
+      printSetFormValue(settingsScript,co,bus->getColorOrder() & 0x0F);
+      printSetFormValue(settingsScript,ls,bus->getStart());
+      printSetFormCheckbox(settingsScript,cv,bus->isReversed());
+      printSetFormValue(settingsScript,sl,bus->skippedLeds());
+      printSetFormCheckbox(settingsScript,rf,bus->isOffRefreshRequired());
+      printSetFormValue(settingsScript,aw,bus->getAutoWhiteMode());
+      printSetFormValue(settingsScript,wo,bus->getColorOrder() >> 4);
+      unsigned speed = bus->getFrequency();
+      if (bus->isPWM()) {
         switch (speed) {
           case WLED_PWM_FREQ/2    : speed = 0; break;
           case WLED_PWM_FREQ*2/3  : speed = 1; break;
@@ -342,7 +342,7 @@ void getSettingsJS(byte subPage, Print& settingsScript)
           case WLED_PWM_FREQ*2    : speed = 3; break;
           case WLED_PWM_FREQ*10/3 : speed = 4; break; // uint16_t max (19531 * 3.333)
         }
-      } else if (bus.is2Pin()) {
+      } else if (bus->is2Pin()) {
         switch (speed) {
           case  1000 : speed = 0; break;
           case  2000 : speed = 1; break;
@@ -353,9 +353,9 @@ void getSettingsJS(byte subPage, Print& settingsScript)
         }
       }
       printSetFormValue(settingsScript,sp,speed);
-      printSetFormValue(settingsScript,la,bus.getLEDCurrent());
-      printSetFormValue(settingsScript,ma,bus.getMaxCurrent());
-      sumMa += bus.getMaxCurrent();
+      printSetFormValue(settingsScript,la,bus->getLEDCurrent());
+      printSetFormValue(settingsScript,ma,bus->getMaxCurrent());
+      sumMa += bus->getMaxCurrent();
     }
     printSetFormValue(settingsScript,PSTR("MA"),BusManager::ablMilliampsMax() ? BusManager::ablMilliampsMax() : sumMa);
     printSetFormCheckbox(settingsScript,PSTR("ABL"),BusManager::ablMilliampsMax() || sumMa > 0);

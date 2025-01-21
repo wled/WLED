@@ -470,7 +470,7 @@ namespace BusManager {
   // WARNING: setSegmentCCT() is a misleading name!!! much better would be setGlobalCCT() or just setCCT()
   void           setSegmentCCT(int16_t cct, bool allowWBCorrection = false);
   inline int16_t getSegmentCCT()         { return Bus::getCCT(); }
-  inline Bus&    getBus(uint8_t busNr)   { return *busses[std::min((size_t)busNr, busses.size()-1)]; }
+  inline Bus*    getBus(size_t busNr)    { return busNr < busses.size() ? busses[busNr].get() : nullptr; }
   inline uint8_t getNumBusses()          { return busses.size(); }
 
   //semi-duplicate of strip.getLengthTotal() (though that just returns strip._length, calculated in finalizeInit())

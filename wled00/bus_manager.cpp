@@ -159,7 +159,7 @@ BusDigital::BusDigital(const BusConfig &bc, uint8_t nr)
   uint16_t lenToCreate = bc.count;
   if (bc.type == TYPE_WS2812_1CH_X3) lenToCreate = NUM_ICS_WS2812_1CH_3X(bc.count); // only needs a third of "RGB" LEDs for NeoPixelBus
   _busPtr = PolyBus::create(_iType, _pins, lenToCreate + _skip, nr);
-  _valid = (_busPtr != nullptr);
+  _valid = (_busPtr != nullptr) && bc.count > 0;
   DEBUGBUS_PRINTF_P(PSTR("Bus: %successfully inited #%u (len:%u, type:%u (RGB:%d, W:%d, CCT:%d), pins:%u,%u [itype:%u] mA=%d/%d)\n"),
     _valid?"S":"Uns",
     (int)nr,
@@ -748,7 +748,7 @@ BusNetwork::BusNetwork(const BusConfig &bc)
   _hasCCT = false;
   _UDPchannels = _hasWhite + 3;
   _client = IPAddress(bc.pins[0],bc.pins[1],bc.pins[2],bc.pins[3]);
-  _valid = (allocateData(_len * _UDPchannels) != nullptr);
+  _valid = (allocateData(_len * _UDPchannels) != nullptr) && bc.count > 0;
   DEBUGBUS_PRINTF_P(PSTR("%successfully inited virtual strip with type %u and IP %u.%u.%u.%u\n"), _valid?"S":"Uns", bc.type, bc.pins[0], bc.pins[1], bc.pins[2], bc.pins[3]);
 }
 
