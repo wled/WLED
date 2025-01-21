@@ -462,12 +462,12 @@ const int heart[16][16] = {
 uint16_t mode_biertje_full(void) {
   return mode_Biertje(false);
 }
-static const char _data_FX_MODE_BIERTJE[] PROGMEM = "Biertje@Speed;;1;2";
+static const char _data_FX_MODE_BIERTJE[] PROGMEM = "Biertje@Speed;;1;1";
 
 uint16_t mode_biertje_emoticon(void) {
   return mode_Biertje(true);
 }
-static const char _data_FX_MODE_BIERTJE_EMOTICON[] PROGMEM = "Biertje Emoticon@Speed;;1;2";
+static const char _data_FX_MODE_BIERTJE_EMOTICON[] PROGMEM = "Biertje Emoticon@Speed;;1;1";
 
 /*
  * Usermod class
