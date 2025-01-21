@@ -330,7 +330,7 @@ class UsermodVisualRemote : public Usermod {
     void onButtonDownPress() {
       MenuMode = true;      
       do {
-        if (currentEffectIndex < 5) {
+        if (currentEffectIndex <= 5) {
           currentEffectIndex = 255;
         } else {
           currentEffectIndex--;
@@ -426,10 +426,10 @@ class UsermodVisualRemote : public Usermod {
           wifiColor = BLUE;  // Off
           break;
       }
-
-      strip.getSegment(segmentId).setPixelColor(segmentPixelOffset, wifiColor); 
+  
+      //strip.getSegment(segmentId).setPixelColor(segmentPixelOffset, wifiColor); 
       uint32_t syncColor = SyncMode ? GREEN : RED;
-      strip.getSegment(segmentId).setPixelColor(segmentPixelOffset + 1, syncColor); 
+      //strip.getSegment(segmentId).setPixelColor(segmentPixelOffset + 1, syncColor); 
       
       /* if (isDisplayingEffectIndicator) {
         strip.fill(BLACK);
