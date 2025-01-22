@@ -146,7 +146,7 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
     #endif
 
     bool busesChanged = false;
-    for (int s = 0; s < WLED_MAX_BUSSES+WLED_MIN_VIRTUAL_BUSSES; s++) {
+    for (int s = 0; s < 36; s++) { // theoretical limit is 36 : "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"
       int offset = s < 10 ? 48 : 55;
       char lp[4] = "L0"; lp[2] = offset+s; lp[3] = 0; //ascii 0-9 //strip data pin
       char lc[4] = "LC"; lc[2] = offset+s; lc[3] = 0; //strip length
@@ -162,7 +162,7 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
       char la[4] = "LA"; la[2] = offset+s; la[3] = 0; //LED mA
       char ma[4] = "MA"; ma[2] = offset+s; ma[3] = 0; //max mA
       if (!request->hasArg(lp)) {
-        DEBUG_PRINTF_P(PSTR("No data for %d\n"), s);
+        DEBUG_PRINTF_P(PSTR("# of buses: %d\n"), s+1);
         break;
       }
       for (int i = 0; i < 5; i++) {

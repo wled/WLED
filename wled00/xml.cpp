@@ -279,7 +279,7 @@ void getSettingsJS(byte subPage, Print& settingsScript)
     // set limits
     settingsScript.printf_P(PSTR("bLimits(%d,%d,%d,%d,%d,%d,%d,%d);"),
       WLED_MAX_BUSSES,
-      WLED_MIN_VIRTUAL_BUSSES,
+      WLED_MIN_VIRTUAL_BUSSES, // irrelevant, but kept to distinguish S2/S3 in UI
       MAX_LEDS_PER_BUS,
       MAX_LED_MEMORY,
       MAX_LEDS,

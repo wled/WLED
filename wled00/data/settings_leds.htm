@@ -6,7 +6,7 @@
 	<title>LED Settings</title>
 	<script src="common.js" async type="text/javascript"></script>
 	<script>
-		var laprev=55,maxB=1,maxD=1,maxA=1,maxV=0,maxM=4000,maxPB=2048,maxL=1664,maxCO=5,maxLbquot=0; //maximum bytes for LED allocation: 4kB for 8266, 32kB for 32
+		var maxB=1,maxD=1,maxA=1,maxV=0,maxM=4000,maxPB=2048,maxL=1664,maxCO=5; //maximum bytes for LED allocation: 4kB for 8266, 32kB for 32
 		var oMaxB=1;
 		var customStarts=false,startsDirty=[];
 		function off(n)    { gN(n).value = -1;}
@@ -46,7 +46,7 @@
 			oMaxB = maxB = b; // maxB - max buses (can be changed if using ESP32 parallel I2S): 20 - ESP32, 14 - S3/S2, 6 - C3, 4 - 8266
 			maxD  = d; // maxD - max digital channels (can be changed if using ESP32 parallel I2S): 17 - ESP32, 12 - S3/S2, 2 - C3, 3 - 8266
 			maxA  = a; // maxA - max analog channels: 16 - ESP32, 8 - S3/S2, 6 - C3, 5 - 8266
-			maxV  = v; // maxV - min virtual buses: 4 - ESP32/S3, 3 - S2/C3, 2 - ESP8266
+			maxV  = v; // maxV - min virtual buses: 6 - ESP32/S3, 4 - S2/C3, 3 - ESP8266 (only used to distinguish S2/S3)
 			maxPB = p; // maxPB - max LEDs per bus
 			maxM  = m; // maxM - max LED memory
 			maxL  = l; // maxL - max LEDs (will serve to determine ESP >1664 == ESP32)
@@ -360,8 +360,9 @@
 					gId("prl").classList.add("hide");
 				} else
 					gId("prl").classList.remove("hide");
+				// S2 supports mono I2S as well as parallel so we need to take that into account; S3 only supports parallel
 				maxD = (S2 || S3 ? 4 : 8) + (d.Sf["PR"].checked ? 8 : S2); // TODO: use bLimits() : 4/8RMT + (x1/x8 parallel) I2S1
-				maxB = oMaxB - (d.Sf["PR"].checked ? 0 : 7 + S3); // S2 (maxV==3) does support single I2S
+				maxB = oMaxB - (d.Sf["PR"].checked ? 0 : 7 + S3); // S2 (maxV==4) does support mono I2S
 			}
 			// distribute ABL current if not using PPL
 			enPPL(sDI);
@@ -417,7 +418,7 @@
 				if (isVir(t)) virtB++;
 			});
 
-			if ((n==1 && i>=maxB+maxV) || (n==-1 && i==0)) return;
+			if ((n==1 && i>=36) || (n==-1 && i==0)) return; // used to be i>=maxB+maxV when virtual buses were limited (now :"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ")
 			var s = chrID(i);
 
 			if (n==1) {
@@ -491,7 +492,7 @@ mA/LED: <select name="LAsel${s}" onchange="enLA(this,'${s}');UI();">
 				o[i].querySelector("[name^=LT]").disabled = false;
 			}
 
-			gId("+").style.display = (i<maxB+maxV-1) ? "inline":"none";
+			gId("+").style.display = (i<35) ? "inline":"none"; // was maxB+maxV-1 when virtual buses were limited (now :"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ")
 			gId("-").style.display = (i>0) ? "inline":"none";
 
 			if (!init) {
@@ -612,22 +613,32 @@ Swap: <select id="xw${s}" name="XW${s}">
 
 			function receivedText(e) {
 				let lines = e.target.result;
-				var c = JSON.parse(lines); 
+				let c = JSON.parse(lines); 
 				if (c.hw) {
 					if (c.hw.led) {
-						for (var i=0; i<oMaxB+maxV; i++) addLEDs(-1);
-						var l = c.hw.led;
+						// remove all existing outputs
+						for (const i=0; i<36; i++) addLEDs(-1); // was i<maxb+maxV when number of virtual buses was limited (now :"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ")
+						let l = c.hw.led;
 						l.ins.forEach((v,i,a)=>{
 							addLEDs(1);
 							for (var j=0; j<v.pin.length; j++) d.getElementsByName(`L${j}${i}`)[0].value = v.pin[j];
-							d.getElementsByName("LT"+i)[0].value = v.type;
-							d.getElementsByName("LS"+i)[0].value = v.start;
-							d.getElementsByName("LC"+i)[0].value = v.len;
-							d.getElementsByName("CO"+i)[0].value = v.order;
-							d.getElementsByName("SL"+i)[0].value = v.skip;
+							d.getElementsByName("LT"+i)[0].value   = v.type;
+							d.getElementsByName("LS"+i)[0].value   = v.start;
+							d.getElementsByName("LC"+i)[0].value   = v.len;
+							d.getElementsByName("CO"+i)[0].value   = v.order & 0x0F;
+							d.getElementsByName("SL"+i)[0].value   = v.skip;
 							d.getElementsByName("RF"+i)[0].checked = v.ref;
 							d.getElementsByName("CV"+i)[0].checked = v.rev;
+							d.getElementsByName("AW"+i)[0].value   = v.rgbwm;
+							d.getElementsByName("WO"+i)[0].value   = (v.order>>4) & 0x0F;
+							d.getElementsByName("SP"+i)[0].value   = v.freq;
+							d.getElementsByName("LA"+i)[0].value   = v.ledma;
+							d.getElementsByName("MA"+i)[0].value   = v.maxpwr;
 						});
+						d.getElementsByName("PR")[0].checked  = l.prl | 0;
+						d.getElementsByName("LD")[0].checked  = l.ld;
+						d.getElementsByName("MA")[0].value    = l.maxpwr;
+						d.getElementsByName("ABL")[0].checked = l.maxpwr > 0;
 					}
 					if(c.hw.com) {
 						resetCOM();
@@ -635,22 +646,28 @@ Swap: <select id="xw${s}" name="XW${s}">
 							addCOM(e.start, e.len, e.order);
 						});
 					}
-					if (c.hw.btn) {
-						var b = c.hw.btn;
+					let b = c.hw.btn;
+					if (b) {
 						if (Array.isArray(b.ins)) gId("btns").innerHTML = "";
 						b.ins.forEach((v,i,a)=>{
 							addBtn(i,v.pin[0],v.type);
 						});
 						d.getElementsByName("TT")[0].value = b.tt;
 					}
-					if (c.hw.ir) {
-						d.getElementsByName("IR")[0].value = c.hw.ir.pin;
-						d.getElementsByName("IT")[0].value = c.hw.ir.type;
+					let ir = c.hw.ir;
+					if (ir) {
+						d.getElementsByName("IR")[0].value = ir.pin;
+						d.getElementsByName("IT")[0].value = ir.type;
 					}
-					if (c.hw.relay) {
-						d.getElementsByName("RL")[0].value = c.hw.relay.pin;
-						d.getElementsByName("RM")[0].checked = c.hw.relay.rev;
-						d.getElementsByName("RO")[0].checked = c.hw.relay.odrain;
+					let rl = c.hw.relay;
+					if (rl) {
+						d.getElementsByName("RL")[0].value   = rl.pin;
+						d.getElementsByName("RM")[0].checked = rl.rev;
+						d.getElementsByName("RO")[0].checked = rl.odrain;
+					}
+					let li = c.light;
+					if (li) {
+						d.getElementsByName("MS")[0].checked  = li.aseg;
 					}
 					UI();
 				}

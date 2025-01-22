@@ -169,7 +169,7 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
     DEBUG_PRINTF_P(PSTR("Heap before buses: %d\n"), ESP.getFreeHeap());
     int s = 0;  // bus iterator
     for (JsonObject elm : ins) {
-      if (s >= WLED_MAX_BUSSES+WLED_MIN_VIRTUAL_BUSSES) break;
+      if (s >= WLED_MAX_BUSSES) break;
       uint8_t pins[5] = {255, 255, 255, 255, 255};
       JsonArray pinArr = elm["pin"];
       if (pinArr.size() == 0) continue;
@@ -201,7 +201,7 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
       //busConfigs.push_back(std::move(BusConfig(ledType, pins, start, length, colorOrder, reversed, skipFirst, AWmode, freqkHz, useGlobalLedBuffer, maPerLed, maMax)));
       busConfigs.emplace_back(ledType, pins, start, length, colorOrder, reversed, skipFirst, AWmode, freqkHz, useGlobalLedBuffer, maPerLed, maMax);
       doInit |= INIT_BUS;  // finalization done in beginStrip()
-      s++;
+      if (!Bus::isVirtual(ledType)) s++; // have as many virtual buses as you want
     }
   }
   if (hw_led["rev"] && BusManager::getNumBusses()) BusManager::getBus(0)->setReversed(true); //set 0.11 global reversed setting for first bus
