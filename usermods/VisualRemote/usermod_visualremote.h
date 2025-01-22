@@ -44,11 +44,6 @@
 #define WIZMOTE_BUTTON_THREE_HEX    31
 #define WIZMOTE_BUTTON_THREE_LONG   32
 
-#define WIZ_SMART_BUTTON_ON          100
-#define WIZ_SMART_BUTTON_OFF         101
-#define WIZ_SMART_BUTTON_BRIGHT_UP   102
-#define WIZ_SMART_BUTTON_BRIGHT_DOWN 103
-
 
 // Define the WizMoteMessageStructure
 typedef struct WizMoteMessageStructure {
@@ -73,6 +68,7 @@ static bool SyncMode = true;
 static bool SyncModeChanged = false;
 static bool MenuMode = false;
 static bool ButtonPressed = false;
+static uint8_t MagicFlowStart = 11;
 static uint8_t MagicFlowMode = 0;
 static uint8_t MagicFlowProgram = 5;
 
@@ -284,6 +280,7 @@ class UsermodVisualRemote : public Usermod {
       top["SegmentId"] = segmentId;
       top["SegmentPixelOffset"] = segmentPixelOffset;
       top["TimeOutMenu"] = timeOutMenu;     
+      top["MagicFlowStart"] = MagicFlowStart;     
     }
 
     bool readFromConfig(JsonObject& root) override {
@@ -294,8 +291,8 @@ class UsermodVisualRemote : public Usermod {
       configComplete &= getJsonValue(top[FPSTR(_enabled)], enabled);
       configComplete &= getJsonValue(top["SegmentId"], segmentId, 1);  
       configComplete &= getJsonValue(top["SegmentPixelOffset"], segmentPixelOffset, 0);  
-      configComplete &= getJsonValue(top["TimeOutMenu"], timeOutMenu, 300);     
-
+      configComplete &= getJsonValue(top["TimeOutMenu"], timeOutMenu, 300);  
+      configComplete &= getJsonValue(top["MagicFlowStart"], MagicFlowStart, 11);     
 
       return configComplete;
     }
@@ -310,7 +307,7 @@ class UsermodVisualRemote : public Usermod {
       do {
         currentEffectIndex++;
         if (currentEffectIndex >= 255) {
-          currentEffectIndex = 5;
+          currentEffectIndex = MagicFlowStart;
         }
       } while (!preset_available[currentEffectIndex]);
       DEBUG_PRINTF("> Start Display effect %d \n", currentEffectIndex);
@@ -324,7 +321,7 @@ class UsermodVisualRemote : public Usermod {
     void onButtonDownPress() {
       MenuMode = true;      
       do {
-        if (currentEffectIndex <= 5) {
+        if (currentEffectIndex <= MagicFlowStart) {
           currentEffectIndex = 255;
         } else {
           currentEffectIndex--;
@@ -448,39 +445,6 @@ class UsermodVisualRemote : public Usermod {
         //strip.getSegment(segmentId).setPixelColor(segmentPixelOffset, WHITE);       
       }
 
-      /* if (isDisplayingEffectIndicator) {
-        strip.fill(BLACK);
-        stateUpdated(CALL_MODE_DIRECT_CHANGE);
-        if (millis() - lastTime > timeOutMenu) {
-          return;
-        }   
-        Pattern* pattern = getPatternById(currentEffectIndex);
-        if (pattern == nullptr) {
-          Serial.printf("Pattern with ID %d not found\n", currentEffectIndex);
-          return;
-        }
-
-        int patternLength = pattern->length; // Dynamic length
-
-        for (int i = 0; i < patternLength; i++) {
-          int pixelIndex = segmentPixelOffset + i;
-          uint32_t color = strtoul(pattern->colors[i].c_str(), nullptr, 16);
-          uint8_t r = (color >> 16) & 0xFF;
-          uint8_t g = (color >> 8) & 0xFF;
-          uint8_t b = color & 0xFF;
-          strip.getSegment(segmentId).setPixelColor(pixelIndex, r, g, b); 
-         // segment.lastLed
-          //strip.setPixelColor(pixelIndex, r, g, b); // Set the segment color
-
-          // Debug print
-          //Serial.printf("Setting pixel %d to color R:%d G:%d B:%d\n", pixelIndex, r, g, b);
-        }
-
-      
-
-          
-      }
-      */
     }
 
     void loop() {
@@ -490,18 +454,9 @@ class UsermodVisualRemote : public Usermod {
     bool onEspNowMessage(uint8_t* sender, uint8_t* data, uint8_t len) {      
       handleRemote_visualremote(data, len);
       
-      // Return true to indicate message has been handled
       return true; // Override further processing
     }
 
-  //  void appendConfigData() override {
-  //     Serial.println("VisualRemote mod appendConfigData");
-  //     oappend(F("addInfo('VisualRemote:patterns',1,'<small style=\"color:orange\">requires reboot</small>');"));
-  //     oappend(F("addInfo('VisualRemote")); oappend(String(FPSTR(_name)).c_str()); oappend(F(":great")); oappend(F("',1,'<i>(this is a great config value)</i>');"));
-  //     oappend(F("td=addDropdown('VisualRemote','SegmentId');"));          
-  //     for (int i = 0; i<= strip.getLastActiveSegmentId(); i++) {
-  //       oappend(F("addOption(td,'")); oappend(String(i)); oappend(F("','")); oappend(String(i)); oappend(F("');"));
-  //     }
      
 };
 
