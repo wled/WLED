@@ -68,14 +68,15 @@ typedef struct WizMoteMessageStructure {
 static volatile byte presetToApply = 0;
 static uint32_t last_seq_visualremote = UINT32_MAX;
 static int brightnessBeforeNightMode_visualremote = NIGHT_MODE_DEACTIVATED;
+static int NextBrightnessStep = 0;
 static bool SyncMode = true;
-
 static bool MenuMode = false;
-
+static bool ButtonPressed = false;
 
 static const byte brightnessSteps_visualremote[] = {
-  6, 9, 14, 22, 33, 50, 75, 113, 170, 255
+  6, 33, 50, 128 
 };
+
 static const size_t numBrightnessSteps_visualremote = sizeof(brightnessSteps_visualremote) / sizeof(byte);
 
 // Inline functions to prevent multiple definitions
@@ -88,8 +89,7 @@ inline bool resetNightMode_visualremote() {
   if (!nightModeActive_visualremote()) return false;
   
   bri = brightnessBeforeNightMode_visualremote;
-  brightnessBeforeNightMode_visualremote = NIGHT_MODE_DEACTIVATED;
-  Serial.println("Night mode deactivated");
+  brightnessBeforeNightMode_visualremote = NIGHT_MODE_DEACTIVATED;  
   stateUpdated(CALL_MODE_BUTTON);
   return true;
 }
@@ -102,8 +102,17 @@ inline void activateNightMode_visualremote() {
     return;
   }
   brightnessBeforeNightMode_visualremote = bri;
-  bri = NIGHT_MODE_BRIGHTNESS;
-  Serial.println("Night mode activated");
+  bri = NIGHT_MODE_BRIGHTNESS;  
+  stateUpdated(CALL_MODE_BUTTON);
+}
+
+inline void setBrightness_visualremote() {
+  bri = brightnessSteps_visualremote[NextBrightnessStep];
+  NextBrightnessStep++;
+  if (NextBrightnessStep >= sizeof(brightnessSteps_visualremote)) {
+    NextBrightnessStep = 0;
+  }
+  DEBUG_PRINTF("Brightness adjusted: %u\n", bri);
   stateUpdated(CALL_MODE_BUTTON);
 }
 
@@ -164,7 +173,7 @@ inline void presetWithFallback_visualremote(uint8_t presetID, uint8_t effectID, 
 
 inline void increaseSpeed()
 {
-  Serial.printf("Increase speed: %u\n", effectSpeed);  
+  DEBUG_PRINTF("Increase speed: %u\n", effectSpeed);
   effectSpeed = min(effectSpeed + 20, 255);
   stateChanged = true;
   for (unsigned i=0; i<strip.getSegmentsNum(); i++) {
@@ -241,41 +250,12 @@ class UsermodVisualRemote : public Usermod {
        preset_available[presetIndex] = true;
     }
   }
-
-  void StartDisplayEffectIndicator(uint8_t effectIndex) {
-    effectCurrent = USERMOD_ID_BIERTJE;
-
-    colorUpdated(CALL_MODE_FX_CHANGED);
-      // Set the timestamp and flag
-    lastTime = millis();
-    isDisplayingEffectIndicator = true;
-  }
-
-  void activate_menu_preset()
-  {
-    isDisplayingEffectIndicator = false;
-    presetWithFallback_visualremote(getPatternById(currentEffectIndex)->id, FX_MODE_STATIC, 0);
-  }
-
-
     void addToConfig(JsonObject& root) override {
       JsonObject top = root.createNestedObject(FPSTR(_name));
       top[FPSTR(_enabled)] = enabled;
       top["SegmentId"] = segmentId;
       top["SegmentPixelOffset"] = segmentPixelOffset;
-      // top["TimeOutMenu"] = timeOutMenu;
-      // // Add patterns to config
-      // JsonArray patternsArray = top.createNestedArray("patterns");
-      // for (int i = 0; i < 255; i++) {
-      //   if (patterns[i].name != "") {
-      //     JsonObject patternObj = patternsArray.createNestedObject();
-      //     patternObj["id"] = patterns[i].id;
-      //     patternObj["name"] = patterns[i].name;
-      //     patternObj["length"] = patterns[i].length;
-      //     JsonArray colorsArray = patternObj.createNestedArray("colors");
-      //     serializePatternColors(colorsArray, patterns[i].colors, patterns[i].length);
-      //   }
-      // }
+      top["TimeOutMenu"] = timeOutMenu;     
     }
 
     bool readFromConfig(JsonObject& root) override {
@@ -284,27 +264,10 @@ class UsermodVisualRemote : public Usermod {
       bool configComplete = !top.isNull();
 
       configComplete &= getJsonValue(top[FPSTR(_enabled)], enabled);
-      configComplete &= getJsonValue(top["SegmentId"], segmentId, 0);  
+      configComplete &= getJsonValue(top["SegmentId"], segmentId, 1);  
       configComplete &= getJsonValue(top["SegmentPixelOffset"], segmentPixelOffset, 0);  
-      configComplete &= getJsonValue(top["TimeOutMenu"], timeOutMenu, 1000);  
-      
+      configComplete &= getJsonValue(top["TimeOutMenu"], timeOutMenu, 300);     
 
-      // // Read patterns from config
-      // JsonArray patternsArray = top["patterns"].as<JsonArray>();
-      // if (!patternsArray.isNull()) {
-      //   for (int i = 0; i < 255; i++) {
-      //     JsonObject patternObj = patternsArray[i];
-      //     if (!patternObj.isNull()) {
-      //       patterns[i].id = patternObj["id"] | 0;
-      //       patterns[i].name = patternObj["name"].as<String>();
-      //       patterns[i].length = patternObj["length"] | 0;
-      //       JsonArray colorsArray = patternObj["colors"].as<JsonArray>();
-      //       if (!colorsArray.isNull()) {
-      //         deserializePatternColors(colorsArray, patterns[i].colors, patterns[i].length);
-      //       }
-      //     }
-      //   }
-      // }
 
       return configComplete;
     }
@@ -318,9 +281,8 @@ class UsermodVisualRemote : public Usermod {
           currentEffectIndex = 5;
         }
       } while (!preset_available[currentEffectIndex]);
-      Serial.printf("> Start Display effect %d \n", currentEffectIndex);
+      DEBUG_PRINTF("> Start Display effect %d \n", currentEffectIndex);
       presetWithFallback_visualremote(currentEffectIndex, FX_MODE_BIERTJE,        0);
-      //activate_menu_preset();
     } else
     {
       increaseSpeed();
@@ -336,7 +298,7 @@ class UsermodVisualRemote : public Usermod {
           currentEffectIndex--;
         }
       } while (!preset_available[currentEffectIndex]);
-      Serial.printf("< Start Display effect %d \n", currentEffectIndex);
+      DEBUG_PRINTF("< Start Display effect %d \n", currentEffectIndex);
       presetWithFallback_visualremote(currentEffectIndex, FX_MODE_BIERTJE,        0);
     }
 
@@ -350,7 +312,7 @@ class UsermodVisualRemote : public Usermod {
         //Serial.printf("Unknown incoming ESP-NOW message received of length %u\n", len);
         return;
       }
-      Serial.printf("Button value: %u\n", incoming->button);
+      DEBUG_PRINTF("Button value: %u\n", incoming->button);
       if (strcmp(last_signal_src, linked_remote) != 0) {
         DEBUG_PRINT(F("ESP Now Message Received from Unlinked Sender: "));
         DEBUG_PRINTLN(last_signal_src);
@@ -371,8 +333,10 @@ class UsermodVisualRemote : public Usermod {
       if (cur_seq == last_seq_visualremote) {
         return;
       }
- // Debug print the button value
-      
+
+      ButtonPressed = true;    
+      lastTime = millis();
+
       if ((incoming->button != WIZMOTE_BUTTON_BRIGHT_DOWN) && (incoming->button != WIZMOTE_BUTTON_BRIGHT_UP)) {
         MenuMode = false;
       }
@@ -384,18 +348,14 @@ class UsermodVisualRemote : public Usermod {
         case WIZMOTE_BUTTON_TWO            : presetWithFallback_visualremote(2, FX_MODE_BREATH,        0);    break;
         case WIZMOTE_BUTTON_THREE          : presetWithFallback_visualremote(3, FX_MODE_FIRE_FLICKER,  0);    break;
         case WIZMOTE_BUTTON_FOUR           : presetWithFallback_visualremote(4, FX_MODE_HEART,       0);    break;
-        case WIZMOTE_BUTTON_NIGHT          : activateNightMode_visualremote();                                break;
+        case WIZMOTE_BUTTON_NIGHT          : setBrightness_visualremote();                                break;
         case WIZMOTE_BUTTON_BRIGHT_UP      : onButtonUpPress();                                               break;
         case WIZMOTE_BUTTON_BRIGHT_DOWN    : onButtonDownPress();                                             break;
-        // case WIZ_SMART_BUTTON_ON           : setOn_visualremote();                                            break;
-        // case WIZ_SMART_BUTTON_OFF          : setOff_visualremote();                                           break;
-        // case WIZ_SMART_BUTTON_BRIGHT_UP    : brightnessUp_visualremote();                                     break;
-        // case WIZ_SMART_BUTTON_BRIGHT_DOWN  : brightnessDown_visualremote();                                   break;
+      
         case WIZMOTE_BUTTON_ONE_LONG       : presetWithFallback_visualremote(1, FX_MODE_BIERTJE,        0);    break;
         case WIZMOTE_BUTTON_TWO_LONG       : presetWithFallback_visualremote(2, FX_MODE_BREATH,        0);    break;
         case WIZMOTE_BUTTON_THREE_LONG       : presetWithFallback_visualremote(3, FX_MODE_FIRE_FLICKER,        0);    break;
         case WIZMOTE_BUTTON_FOUR_LONG       : presetWithFallback_visualremote(4, FX_MODE_HEART,        0);    break;
-        //case WIZMOTE_BUTTON_ONE_TRIPLE       : activate_menu_preset();                                          break;
         
         default: break;
       }
@@ -430,6 +390,14 @@ class UsermodVisualRemote : public Usermod {
       //strip.getSegment(segmentId).setPixelColor(segmentPixelOffset, wifiColor); 
       uint32_t syncColor = SyncMode ? GREEN : RED;
       //strip.getSegment(segmentId).setPixelColor(segmentPixelOffset + 1, syncColor); 
+
+      if (ButtonPressed) {
+     
+        if (millis() - lastTime > timeOutMenu) {
+          ButtonPressed = false;
+        }   
+        strip.getSegment(segmentId).setPixelColor(segmentPixelOffset, WHITE);       
+      }
       
       /* if (isDisplayingEffectIndicator) {
         strip.fill(BLACK);
@@ -477,33 +445,15 @@ class UsermodVisualRemote : public Usermod {
       return true; // Override further processing
     }
 
-   void appendConfigData() override {
-      Serial.println("VisualRemote mod appendConfigData");
-      oappend(F("addInfo('VisualRemote:patterns',1,'<small style=\"color:orange\">requires reboot</small>');"));
-      oappend(F("addInfo('VisualRemote")); oappend(String(FPSTR(_name)).c_str()); oappend(F(":great")); oappend(F("',1,'<i>(this is a great config value)</i>');"));
-      oappend(F("td=addDropdown('VisualRemote','SegmentId');"));          
-      for (int i = 0; i<= strip.getLastActiveSegmentId(); i++) {
-        oappend(F("addOption(td,'")); oappend(String(i)); oappend(F("','")); oappend(String(i)); oappend(F("');"));
-      }
-      // for (int i = 0; i < 255; i++) {
-      //   if (preset_available[i]) {
-      //     oappend(F("addDropdown('Pattern for Preset "));
-      //     oappend(String(i));
-      //     oappend(F("','pattern_"));
-      //     oappend(String(i));
-      //     oappend(F("');"));
-      //     for (int j = 0; j < patterns[i].length; j++) {
-      //       oappend(F("addOption('pattern_"));
-      //       oappend(String(i));
-      //       oappend(F("','"));
-      //       oappend(String(j));
-      //       oappend(F("','"));
-      //       oappend(String(patterns[i].colors[j], HEX));
-      //       oappend(F("');"));
-      //     }
-      //   }
-      //}
-    }
+  //  void appendConfigData() override {
+  //     Serial.println("VisualRemote mod appendConfigData");
+  //     oappend(F("addInfo('VisualRemote:patterns',1,'<small style=\"color:orange\">requires reboot</small>');"));
+  //     oappend(F("addInfo('VisualRemote")); oappend(String(FPSTR(_name)).c_str()); oappend(F(":great")); oappend(F("',1,'<i>(this is a great config value)</i>');"));
+  //     oappend(F("td=addDropdown('VisualRemote','SegmentId');"));          
+  //     for (int i = 0; i<= strip.getLastActiveSegmentId(); i++) {
+  //       oappend(F("addOption(td,'")); oappend(String(i)); oappend(F("','")); oappend(String(i)); oappend(F("');"));
+  //     }
+     
 };
 
 // add more strings here to reduce flash memory usage
