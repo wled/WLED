@@ -70,6 +70,7 @@ static uint32_t last_seq_visualremote = UINT32_MAX;
 static int brightnessBeforeNightMode_visualremote = NIGHT_MODE_DEACTIVATED;
 static int NextBrightnessStep = 0;
 static bool SyncMode = true;
+static bool SyncModeChanged = false;
 static bool MenuMode = false;
 static bool ButtonPressed = false;
 
@@ -144,8 +145,9 @@ inline void togglePower_visualremote() {
   stateUpdated(CALL_MODE_BUTTON);
 }
 
-inline void toggleSyncMode_visualremote() {
+inline void toggleSyncMode_visualremote() {  
   SyncMode = !SyncMode;
+  SyncModeChanged = true;
 }
 
 inline void setOn_visualremote() {
@@ -388,17 +390,26 @@ class UsermodVisualRemote : public Usermod {
       }
   
       //strip.getSegment(segmentId).setPixelColor(segmentPixelOffset, wifiColor); 
-      uint32_t syncColor = SyncMode ? GREEN : RED;
+      
       //strip.getSegment(segmentId).setPixelColor(segmentPixelOffset + 1, syncColor); 
 
-      if (ButtonPressed) {
-     
+      if (ButtonPressed) {     
         if (millis() - lastTime > timeOutMenu) {
           ButtonPressed = false;
         }   
         strip.getSegment(segmentId).setPixelColor(segmentPixelOffset, WHITE);       
       }
       
+
+      if (SyncModeChanged) {     
+        if (millis() - lastTime > timeOutMenu) {
+          SyncModeChanged = false;
+        }   
+        uint32_t syncColor = SyncMode ? GREEN : RED;
+        strip.fill(syncColor);
+        //strip.getSegment(segmentId).setPixelColor(segmentPixelOffset, WHITE);       
+      }
+
       /* if (isDisplayingEffectIndicator) {
         strip.fill(BLACK);
         stateUpdated(CALL_MODE_DIRECT_CHANGE);
