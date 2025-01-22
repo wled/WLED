@@ -73,6 +73,8 @@ static bool SyncMode = true;
 static bool SyncModeChanged = false;
 static bool MenuMode = false;
 static bool ButtonPressed = false;
+static uint8_t MagicFlowMode = 0;
+static uint8_t MagicFlowProgram = 5;
 
 static const byte brightnessSteps_visualremote[] = {
   6, 33, 50, 128 
@@ -212,6 +214,30 @@ void deserializePatternColors(JsonArray& json, String colors[12], uint8_t& lengt
   }
 }
 
+
+void magic_flow(uint8_t program) {
+  MagicFlowProgram = program;
+  if (MagicFlowMode == 0) 
+  {
+    MagicFlowMode = 1;
+    presetWithFallback_visualremote(9, FX_MODE_2DCRAZYBEES, 0);
+    return;
+  }
+  if (MagicFlowMode == 1) 
+  {
+    MagicFlowMode = 2;
+    presetWithFallback_visualremote(10, FX_MODE_2DCRAZYBEES, 0);
+    return;
+  }
+  if (MagicFlowMode == 2) 
+  {
+    MagicFlowMode = 0;
+    presetWithFallback_visualremote(MagicFlowProgram, FX_MODE_2DCRAZYBEES, 0);
+    return;
+  }
+
+}
+
 unsigned long lastTime = 0;
 
 
@@ -276,6 +302,10 @@ class UsermodVisualRemote : public Usermod {
 
 
    void onButtonUpPress() {
+    if (MagicFlowMode > 0) 
+    {
+      magic_flow(MagicFlowProgram);
+    }
     if (MenuMode) {
       do {
         currentEffectIndex++;
@@ -356,9 +386,17 @@ class UsermodVisualRemote : public Usermod {
       
         case WIZMOTE_BUTTON_ONE_LONG       : presetWithFallback_visualremote(1, FX_MODE_BIERTJE,        0);    break;
         case WIZMOTE_BUTTON_TWO_LONG       : presetWithFallback_visualremote(2, FX_MODE_BREATH,        0);    break;
-        case WIZMOTE_BUTTON_THREE_LONG       : presetWithFallback_visualremote(3, FX_MODE_FIRE_FLICKER,        0);    break;
-        case WIZMOTE_BUTTON_FOUR_LONG       : presetWithFallback_visualremote(4, FX_MODE_HEART,        0);    break;
-        
+        case WIZMOTE_BUTTON_THREE_LONG     : presetWithFallback_visualremote(3, FX_MODE_FIRE_FLICKER,        0);    break;
+        case WIZMOTE_BUTTON_FOUR_LONG      : presetWithFallback_visualremote(4, FX_MODE_HEART,        0);    break;
+
+        case WIZMOTE_BUTTON_ONE_DOUBLE     : magic_flow(5);    break;
+        case WIZMOTE_BUTTON_TWO_DOUBLE     : magic_flow(6);    break;
+        case WIZMOTE_BUTTON_THREE_DOUBLE   : magic_flow(7);    break;
+        case WIZMOTE_BUTTON_FOUR_DOUBLE    : magic_flow(8);    break;
+        case WIZMOTE_BUTTON_ONE_TRIPLE     : magic_flow(5);    break;;
+        case WIZMOTE_BUTTON_TWO_TRIPLE     : magic_flow(6);    break;
+        case WIZMOTE_BUTTON_THREE_TRIPLE   : magic_flow(7);    break;
+        case WIZMOTE_BUTTON_FOUR_TRIPLE    : magic_flow(8);    break;
         default: break;
       }
 
