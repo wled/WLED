@@ -66,6 +66,7 @@ static bool bufferedFind(const char *target, bool fromStart = true) {
 
   size_t index = 0;
   byte buf[FS_BUFSIZE];
+  f.setBufferSize(FS_BUFSIZE);
   if (fromStart) f.seek(0);
 
   while (f.position() < f.size() -1) {
@@ -107,6 +108,7 @@ static bool bufferedFindSpace(size_t targetLen, bool fromStart = true) {
 
   size_t index = 0; // better to use size_t instead if uint16_t
   byte buf[FS_BUFSIZE];
+  f.setBufferSize(FS_BUFSIZE);
   if (fromStart) f.seek(0);
 
   while (f.position() < f.size() -1) {
@@ -150,6 +152,7 @@ static bool bufferedFindObjectEnd() {
   uint16_t objDepth = 0; //num of '{' minus num of '}'. return once 0
   //size_t start = f.position();
   byte buf[FS_BUFSIZE];
+  f.setBufferSize(FS_BUFSIZE);
 
   while (f.position() < f.size() -1) {
     size_t bufsize = f.read(buf, FS_BUFSIZE); // better to use size_t instead of uint16_t
@@ -175,7 +178,7 @@ static void writeSpace(size_t l)
 {
   byte buf[FS_BUFSIZE];
   memset(buf, ' ', FS_BUFSIZE);
-
+  f.setBufferSize(FS_BUFSIZE);
   while (l > 0) {
     size_t block = (l>FS_BUFSIZE) ? FS_BUFSIZE : l;
     f.write(buf, block);
