@@ -82,6 +82,7 @@
 #define WIZMOTE_BUTTON_NIGHT_SEXTUPLE   62
 #define WIZMOTE_BUTTON_NIGHT_LONG       63
 
+#define WIZMOTE_BUTTON_PROGRAM          255
 
 
 // Define the WizMoteMessageStructure
@@ -110,6 +111,19 @@ static bool ButtonPressed = false;
 static uint8_t MagicFlowStart = 11;
 static uint8_t MagicFlowMode = 0;
 static uint8_t MagicFlowProgram = 5;
+static bool BroadcastProgram = false;
+uint8_t repeat = 10;
+
+// Declare sequenceNumber as a global variable
+uint32_t sequenceNumber = 0;
+
+uint32_t nextSequenceNumber() {
+  // Increment sequence number
+  sequenceNumber++;
+
+  // Return the new sequence number
+  return sequenceNumber;
+}
 
 static const byte brightnessSteps_visualremote[] = {
   6, 33, 50, 128 
@@ -145,6 +159,8 @@ inline void activateNightMode_visualremote() {
 }
 
 inline void setBrightness_visualremote() {
+  
+
   bri = brightnessSteps_visualremote[NextBrightnessStep];
   NextBrightnessStep++;
   if (NextBrightnessStep >= sizeof(brightnessSteps_visualremote)) {
@@ -152,6 +168,11 @@ inline void setBrightness_visualremote() {
   }
   DEBUG_PRINTF("Brightness adjusted: %u\n", bri);
   stateUpdated(CALL_MODE_BUTTON);
+}
+
+inline void broadcastProgram() {
+  repeat = 10;
+  BroadcastProgram = true;
 }
 
 inline void brightnessUp_visualremote() {
@@ -377,32 +398,40 @@ class UsermodVisualRemote : public Usermod {
       message_structure_t *incoming = reinterpret_cast<message_structure_t *>(incomingData);
 
       if (len != sizeof(message_structure_t)) {
-        //Serial.printf("Unknown incoming ESP-NOW message received of length %u\n", len);
+        Serial.printf("Unknown incoming ESP-NOW message received of length %u\n", len);
         return;
       }
-      DEBUG_PRINTF("Button value: %u\n", incoming->button);
+      
       if (strcmp(last_signal_src, linked_remote) != 0) {
         DEBUG_PRINT(F("ESP Now Message Received from Unlinked Sender: "));
-        DEBUG_PRINTLN(last_signal_src);
+        DEBUG_PRINTLN(last_signal_src);     
+        DEBUG_PRINTLN(incoming->button);     
+        DEBUG_PRINTLN(incoming->program);     
+        DEBUG_PRINTLN(incoming->seq[0]);     
         if (!SyncMode) {
           return;
         }
         if (
-          (incoming->button != WIZMOTE_BUTTON_ONE_LONG) &&
-          (incoming->button != WIZMOTE_BUTTON_TWO_LONG) &&
-          (incoming->button != WIZMOTE_BUTTON_THREE_LONG) &&
-          (incoming->button != WIZMOTE_BUTTON_FOUR_LONG) 
+          (incoming->button != WIZMOTE_BUTTON_PROGRAM)
           ) {
             return;
           }
       }
 
+      if (incoming->button == WIZMOTE_BUTTON_PROGRAM) {
+          DEBUG_PRINT(F("Program: "));
+        DEBUG_PRINTLN(incoming->program);
+        sequenceNumber=0;
+
+      }
+      DEBUG_PRINTF("Button value: %u\n", incoming->button);
       uint32_t cur_seq = incoming->seq[0] | (incoming->seq[1] << 8) | (incoming->seq[2] << 16) | (incoming->seq[3] << 24);
       if (cur_seq == last_seq_visualremote) {
         return;
       }
 
-      ButtonPressed = true;    
+      ButtonPressed = true;
+      BroadcastProgram = false;    
       lastTime = millis();
 
       if ((incoming->button != WIZMOTE_BUTTON_BRIGHT_DOWN_SHORT) && (incoming->button != WIZMOTE_BUTTON_BRIGHT_UP_SHORT)) {
@@ -416,7 +445,7 @@ class UsermodVisualRemote : public Usermod {
         case WIZMOTE_BUTTON_TWO_SHORT            : presetWithFallback_visualremote(2, FX_MODE_BREATH,        0);    break;
         case WIZMOTE_BUTTON_THREE_SHORT          : presetWithFallback_visualremote(3, FX_MODE_FIRE_FLICKER,  0);    break;
         case WIZMOTE_BUTTON_FOUR_SHORT           : presetWithFallback_visualremote(4, FX_MODE_HEART,       0);    break;
-        case WIZMOTE_BUTTON_NIGHT_SHORT          : setBrightness_visualremote();                                break;
+        case WIZMOTE_BUTTON_NIGHT_SHORT          : broadcastProgram();                                break;
         case WIZMOTE_BUTTON_BRIGHT_UP_SHORT      : onButtonUpPress();                                               break;
         case WIZMOTE_BUTTON_BRIGHT_DOWN_SHORT    : onButtonDownPress();                                             break;
       
@@ -424,6 +453,7 @@ class UsermodVisualRemote : public Usermod {
         case WIZMOTE_BUTTON_TWO_LONG       : presetWithFallback_visualremote(2, FX_MODE_BREATH,        0);    break;
         case WIZMOTE_BUTTON_THREE_LONG     : presetWithFallback_visualremote(3, FX_MODE_FIRE_FLICKER,        0);    break;
         case WIZMOTE_BUTTON_FOUR_LONG      : presetWithFallback_visualremote(4, FX_MODE_HEART,        0);    break;
+        case WIZMOTE_BUTTON_PROGRAM        : presetWithFallback_visualremote(incoming->program, FX_MODE_BIERTJE,        0);    break;
 
         case WIZMOTE_BUTTON_ONE_DOUBLE     : magic_flow(5);    break;
         case WIZMOTE_BUTTON_TWO_DOUBLE     : magic_flow(6);    break;
@@ -487,8 +517,30 @@ class UsermodVisualRemote : public Usermod {
     }
 
     void loop() {
+      
       // Code to run in the main loop
+      if (BroadcastProgram) {
+        static time_t lastSend = 60000;
+        if (millis () - lastSend >= 1000) {
+          lastSend = millis ();
+          DEBUG_PRINTLN("Broadcasting program");
+          message_structure_t msg;
+          msg.button = WIZMOTE_BUTTON_PROGRAM;
+          msg.program = presetToApply; 
+          // Use next sequence number
+          uint32_t seq = nextSequenceNumber();
+          msg.seq[0] = seq & 0xFF;
+          msg.seq[1] = (seq >> 8) & 0xFF;
+          msg.seq[2] = (seq >> 16) & 0xFF;
+          msg.seq[3] = (seq >> 24) & 0xFF;
+
+          quickEspNow.send(ESPNOW_BROADCAST_ADDRESS, (uint8_t*)&msg, sizeof(msg));        
+        }
+      }
+      
     }
+
+
 
     bool onEspNowMessage(uint8_t* sender, uint8_t* data, uint8_t len) {      
       handleRemote_visualremote(data, len);
