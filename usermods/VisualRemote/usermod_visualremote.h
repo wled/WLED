@@ -6,43 +6,82 @@
 #define NIGHT_MODE_DEACTIVATED     -1
 #define NIGHT_MODE_BRIGHTNESS      5
 
-#define WIZMOTE_BUTTON_ON          3
-#define WIZMOTE_BUTTON_OFF         1
-#define WIZMOTE_BUTTON_NIGHT       37
-#define WIZMOTE_BUTTON_ONE         12
-#define WIZMOTE_BUTTON_TWO         5
-#define WIZMOTE_BUTTON_THREE       26
-#define WIZMOTE_BUTTON_FOUR        19
-#define WIZMOTE_BUTTON_BRIGHT_UP   33
-#define WIZMOTE_BUTTON_BRIGHT_DOWN 35
+// Button Mappings
 
-#define WIZMOTE_BUTTON_TWO_DOUBLE  6
-#define WIZMOTE_BUTTON_TWO_TRIPLE  7
-#define WIZMOTE_BUTTON_TWO_QUAD    8
-#define WIZMOTE_BUTTON_TWO_QUINT   9
-#define WIZMOTE_BUTTON_TWO_HEX     10
-#define WIZMOTE_BUTTON_TWO_LONG    11
 
-#define WIZMOTE_BUTTON_ONE_DOUBLE  13
-#define WIZMOTE_BUTTON_ONE_TRIPLE  14
-#define WIZMOTE_BUTTON_ONE_QUAD    15
-#define WIZMOTE_BUTTON_ONE_QUINT   16
-#define WIZMOTE_BUTTON_ONE_HEX     17
-#define WIZMOTE_BUTTON_ONE_LONG    18
+// Unique integers for each button press type
+#define WIZMOTE_BUTTON_OFF_SHORT        1
+#define WIZMOTE_BUTTON_OFF_DOUBLE       2
+#define WIZMOTE_BUTTON_OFF_TRIPLE       3
+#define WIZMOTE_BUTTON_OFF_QUADRUPLE    4
+#define WIZMOTE_BUTTON_OFF_QUINTUPLE    5
+#define WIZMOTE_BUTTON_OFF_SEXTUPLE     6
+#define WIZMOTE_BUTTON_OFF_LONG         7
 
-#define WIZMOTE_BUTTON_FOUR_DOUBLE 20
-#define WIZMOTE_BUTTON_FOUR_TRIPLE 21
-#define WIZMOTE_BUTTON_FOUR_QUAD   22
-#define WIZMOTE_BUTTON_FOUR_QUINT  23
-#define WIZMOTE_BUTTON_FOUR_HEX    24
-#define WIZMOTE_BUTTON_FOUR_LONG   25
+#define WIZMOTE_BUTTON_ON_SHORT         8
+#define WIZMOTE_BUTTON_ON_DOUBLE        9
+#define WIZMOTE_BUTTON_ON_TRIPLE        10
+#define WIZMOTE_BUTTON_ON_QUADRUPLE     11
+#define WIZMOTE_BUTTON_ON_QUINTUPLE     12
+#define WIZMOTE_BUTTON_ON_SEXTUPLE      13
+#define WIZMOTE_BUTTON_ON_LONG          14
 
-#define WIZMOTE_BUTTON_THREE_DOUBLE 27
-#define WIZMOTE_BUTTON_THREE_TRIPLE 28
-#define WIZMOTE_BUTTON_THREE_QUAD   29
-#define WIZMOTE_BUTTON_THREE_QUINT  30
-#define WIZMOTE_BUTTON_THREE_HEX    31
-#define WIZMOTE_BUTTON_THREE_LONG   32
+#define WIZMOTE_BUTTON_TWO_SHORT        15
+#define WIZMOTE_BUTTON_TWO_DOUBLE       16
+#define WIZMOTE_BUTTON_TWO_TRIPLE       17
+#define WIZMOTE_BUTTON_TWO_QUADRUPLE    18
+#define WIZMOTE_BUTTON_TWO_QUINTUPLE    19
+#define WIZMOTE_BUTTON_TWO_SEXTUPLE     20
+#define WIZMOTE_BUTTON_TWO_LONG         21
+
+#define WIZMOTE_BUTTON_ONE_SHORT        22
+#define WIZMOTE_BUTTON_ONE_DOUBLE       23
+#define WIZMOTE_BUTTON_ONE_TRIPLE       24
+#define WIZMOTE_BUTTON_ONE_QUADRUPLE    25
+#define WIZMOTE_BUTTON_ONE_QUINTUPLE    26
+#define WIZMOTE_BUTTON_ONE_SEXTUPLE     27
+#define WIZMOTE_BUTTON_ONE_LONG         28
+
+#define WIZMOTE_BUTTON_THREE_SHORT      29
+#define WIZMOTE_BUTTON_THREE_DOUBLE     30
+#define WIZMOTE_BUTTON_THREE_TRIPLE     31
+#define WIZMOTE_BUTTON_THREE_QUADRUPLE  32
+#define WIZMOTE_BUTTON_THREE_QUINTUPLE  33
+#define WIZMOTE_BUTTON_THREE_SEXTUPLE   34
+#define WIZMOTE_BUTTON_THREE_LONG       35
+
+#define WIZMOTE_BUTTON_FOUR_SHORT       36
+#define WIZMOTE_BUTTON_FOUR_DOUBLE      37
+#define WIZMOTE_BUTTON_FOUR_TRIPLE      38
+#define WIZMOTE_BUTTON_FOUR_QUADRUPLE   39
+#define WIZMOTE_BUTTON_FOUR_QUINTUPLE   40
+#define WIZMOTE_BUTTON_FOUR_SEXTUPLE    41
+#define WIZMOTE_BUTTON_FOUR_LONG        42
+
+#define WIZMOTE_BUTTON_BRIGHT_UP_SHORT       43
+#define WIZMOTE_BUTTON_BRIGHT_UP_DOUBLE      44
+#define WIZMOTE_BUTTON_BRIGHT_UP_TRIPLE      45
+#define WIZMOTE_BUTTON_BRIGHT_UP_QUADRUPLE   46
+#define WIZMOTE_BUTTON_BRIGHT_UP_QUINTUPLE   47
+#define WIZMOTE_BUTTON_BRIGHT_UP_SEXTUPLE    48
+#define WIZMOTE_BUTTON_BRIGHT_UP_LONG        49
+
+#define WIZMOTE_BUTTON_BRIGHT_DOWN_SHORT     50
+#define WIZMOTE_BUTTON_BRIGHT_DOWN_DOUBLE    51
+#define WIZMOTE_BUTTON_BRIGHT_DOWN_TRIPLE    52
+#define WIZMOTE_BUTTON_BRIGHT_DOWN_QUADRUPLE 53
+#define WIZMOTE_BUTTON_BRIGHT_DOWN_QUINTUPLE 54
+#define WIZMOTE_BUTTON_BRIGHT_DOWN_SEXTUPLE  55
+#define WIZMOTE_BUTTON_BRIGHT_DOWN_LONG      56
+
+#define WIZMOTE_BUTTON_NIGHT_SHORT      57
+#define WIZMOTE_BUTTON_NIGHT_DOUBLE     58
+#define WIZMOTE_BUTTON_NIGHT_TRIPLE     59
+#define WIZMOTE_BUTTON_NIGHT_QUADRUPLE  60
+#define WIZMOTE_BUTTON_NIGHT_QUINTUPLE  61
+#define WIZMOTE_BUTTON_NIGHT_SEXTUPLE   62
+#define WIZMOTE_BUTTON_NIGHT_LONG       63
+
 
 
 // Define the WizMoteMessageStructure
@@ -366,20 +405,20 @@ class UsermodVisualRemote : public Usermod {
       ButtonPressed = true;    
       lastTime = millis();
 
-      if ((incoming->button != WIZMOTE_BUTTON_BRIGHT_DOWN) && (incoming->button != WIZMOTE_BUTTON_BRIGHT_UP)) {
+      if ((incoming->button != WIZMOTE_BUTTON_BRIGHT_DOWN_SHORT) && (incoming->button != WIZMOTE_BUTTON_BRIGHT_UP_SHORT)) {
         MenuMode = false;
       }
     
       switch (incoming->button) {
-        case WIZMOTE_BUTTON_ON             : togglePower_visualremote();                                            break;
-        case WIZMOTE_BUTTON_OFF            : toggleSyncMode_visualremote();                                           break;
-        case WIZMOTE_BUTTON_ONE            : presetWithFallback_visualremote(1, FX_MODE_BIERTJE,        0);    break;
-        case WIZMOTE_BUTTON_TWO            : presetWithFallback_visualremote(2, FX_MODE_BREATH,        0);    break;
-        case WIZMOTE_BUTTON_THREE          : presetWithFallback_visualremote(3, FX_MODE_FIRE_FLICKER,  0);    break;
-        case WIZMOTE_BUTTON_FOUR           : presetWithFallback_visualremote(4, FX_MODE_HEART,       0);    break;
-        case WIZMOTE_BUTTON_NIGHT          : setBrightness_visualremote();                                break;
-        case WIZMOTE_BUTTON_BRIGHT_UP      : onButtonUpPress();                                               break;
-        case WIZMOTE_BUTTON_BRIGHT_DOWN    : onButtonDownPress();                                             break;
+        case WIZMOTE_BUTTON_ON_SHORT             : togglePower_visualremote();                                            break;
+        case WIZMOTE_BUTTON_OFF_SHORT            : toggleSyncMode_visualremote();                                           break;
+        case WIZMOTE_BUTTON_ONE_SHORT            : presetWithFallback_visualremote(1, FX_MODE_BIERTJE,        0);    break;
+        case WIZMOTE_BUTTON_TWO_SHORT            : presetWithFallback_visualremote(2, FX_MODE_BREATH,        0);    break;
+        case WIZMOTE_BUTTON_THREE_SHORT          : presetWithFallback_visualremote(3, FX_MODE_FIRE_FLICKER,  0);    break;
+        case WIZMOTE_BUTTON_FOUR_SHORT           : presetWithFallback_visualremote(4, FX_MODE_HEART,       0);    break;
+        case WIZMOTE_BUTTON_NIGHT_SHORT          : setBrightness_visualremote();                                break;
+        case WIZMOTE_BUTTON_BRIGHT_UP_SHORT      : onButtonUpPress();                                               break;
+        case WIZMOTE_BUTTON_BRIGHT_DOWN_SHORT    : onButtonDownPress();                                             break;
       
         case WIZMOTE_BUTTON_ONE_LONG       : presetWithFallback_visualremote(1, FX_MODE_BIERTJE,        0);    break;
         case WIZMOTE_BUTTON_TWO_LONG       : presetWithFallback_visualremote(2, FX_MODE_BREATH,        0);    break;

@@ -29,6 +29,16 @@ static const int heart[16][16] = {
   {0, 0, 0, 0, 0, 0, 0, 2, 2, 0, 0, 0, 0, 0, 0, 0}
 };
 
+#define XY(x,y) SEGMENT.XY(x,y)
+const int fish[6][9] = {
+    {0, 0, 1, 1, 1, 0, 0, 0, 1},
+    {0, 1, 1, 1, 1, 1, 0, 1, 1},
+    {1, 1, 2, 1, 1, 1, 1, 1, 0},
+    {1, 1, 1, 1, 1, 1, 1, 1, 1},
+    {0, 1, 1, 1, 1, 1, 0, 1, 1},
+    {0, 0, 1, 1, 1, 0, 0, 0, 1},    
+};
+
 // Simple pulsing heart effect
 uint16_t mode_hearth() {
   if (!SEGENV.allocateData(sizeof(HearthData))) return FRAMETIME;
