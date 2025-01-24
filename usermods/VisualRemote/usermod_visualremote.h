@@ -103,7 +103,7 @@ typedef struct WizMoteMessageStructure {
 static volatile byte presetToApply = 0;
 static uint32_t last_seq_visualremote = UINT32_MAX;
 static int brightnessBeforeNightMode_visualremote = NIGHT_MODE_DEACTIVATED;
-static int NextBrightnessStep = 0;
+static int NextBrightnessStep = 3;
 static bool SyncMode = true;
 static bool SyncModeChanged = false;
 static bool MenuMode = false;
@@ -112,6 +112,7 @@ static uint8_t MagicFlowStart = 11;
 static uint8_t MagicFlowMode = 0;
 static uint8_t MagicFlowProgram = 5;
 static bool BroadcastProgram = false;
+static bool UpdateBrightness = false;
 uint8_t repeat = 10;
 
 // Declare sequenceNumber as a global variable
@@ -158,17 +159,32 @@ inline void activateNightMode_visualremote() {
   stateUpdated(CALL_MODE_BUTTON);
 }
 
-inline void setBrightness_visualremote() {
-  
+inline void applyBrightness_visualremote() {
+  repeat--;
+  if (repeat <= 0)
+  {
+    UpdateBrightness = false;
+  }
+  bri = brightnessSteps_visualremote[NextBrightnessStep]; 
+  DEBUG_PRINTF("Brightness set: %u\n", bri);
+  DEBUG_PRINTF("Brightness step: %u\n", NextBrightnessStep);
+  stateUpdated(CALL_MODE_BUTTON);
+}
 
-  bri = brightnessSteps_visualremote[NextBrightnessStep];
+inline void setBrightness_visualremote() {    
   NextBrightnessStep++;
   if (NextBrightnessStep >= sizeof(brightnessSteps_visualremote)) {
     NextBrightnessStep = 0;
   }
-  DEBUG_PRINTF("Brightness adjusted: %u\n", bri);
-  stateUpdated(CALL_MODE_BUTTON);
+  applyBrightness_visualremote();
 }
+
+inline void resetBrightness_visualremote() {    
+  NextBrightnessStep = sizeof(brightnessSteps_visualremote) - 1;
+  applyBrightness_visualremote();
+}
+
+
 
 inline void broadcastProgram() {
   repeat = 10;
@@ -226,9 +242,9 @@ inline void setOff_visualremote() {
 
 inline void presetWithFallback_visualremote(uint8_t presetID, uint8_t effectID, uint8_t paletteID) {
   if (presetToApply == presetID) return;
-  presetToApply = presetID;
-  //resetNightMode_visualremote();
-  applyPresetWithFallback(presetID, CALL_MODE_BUTTON_PRESET, effectID, paletteID);
+  presetToApply = presetID;  
+  applyPresetWithFallback(presetID, CALL_MODE_BUTTON_PRESET, effectID, paletteID);    
+  UpdateBrightness = true;
 }
 
 inline void increaseSpeed()
@@ -440,14 +456,22 @@ class UsermodVisualRemote : public Usermod {
     
       switch (incoming->button) {
         case WIZMOTE_BUTTON_ON_SHORT             : togglePower_visualremote();                                            break;
-        case WIZMOTE_BUTTON_OFF_SHORT            : toggleSyncMode_visualremote();                                           break;
+        case WIZMOTE_BUTTON_ON_LONG            : toggleSyncMode_visualremote();                                           break;
+        case WIZMOTE_BUTTON_OFF_SHORT            : setBrightness_visualremote();                                           break;
+        case WIZMOTE_BUTTON_OFF_LONG            : resetBrightness_visualremote();                                           break;
         case WIZMOTE_BUTTON_ONE_SHORT            : presetWithFallback_visualremote(1, FX_MODE_BIERTJE,        0);    break;
         case WIZMOTE_BUTTON_TWO_SHORT            : presetWithFallback_visualremote(2, FX_MODE_BREATH,        0);    break;
         case WIZMOTE_BUTTON_THREE_SHORT          : presetWithFallback_visualremote(3, FX_MODE_FIRE_FLICKER,  0);    break;
         case WIZMOTE_BUTTON_FOUR_SHORT           : presetWithFallback_visualremote(4, FX_MODE_HEART,       0);    break;
         case WIZMOTE_BUTTON_NIGHT_SHORT          : broadcastProgram();                                break;
+        case WIZMOTE_BUTTON_NIGHT_DOUBLE         : broadcastProgram();                                break;
+        case WIZMOTE_BUTTON_NIGHT_TRIPLE         : broadcastProgram();                                break;
+        case WIZMOTE_BUTTON_NIGHT_LONG           : broadcastProgram();                                break;
         case WIZMOTE_BUTTON_BRIGHT_UP_SHORT      : onButtonUpPress();                                               break;
+        case WIZMOTE_BUTTON_BRIGHT_UP_LONG      : presetWithFallback_visualremote(5, FX_MODE_HEART,       0);    break;
         case WIZMOTE_BUTTON_BRIGHT_DOWN_SHORT    : onButtonDownPress();                                             break;
+        case WIZMOTE_BUTTON_BRIGHT_DOWN_LONG    : presetWithFallback_visualremote(6, FX_MODE_HEART,       0);    break;
+
       
         case WIZMOTE_BUTTON_ONE_LONG       : presetWithFallback_visualremote(1, FX_MODE_BIERTJE,        0);    break;
         case WIZMOTE_BUTTON_TWO_LONG       : presetWithFallback_visualremote(2, FX_MODE_BREATH,        0);    break;
@@ -501,7 +525,12 @@ class UsermodVisualRemote : public Usermod {
         if (millis() - lastTime > timeOutMenu) {
           ButtonPressed = false;
         }   
-        strip.getSegment(segmentId).setPixelColor(segmentPixelOffset, WHITE);       
+        strip.getSegment(segmentId).setPixelColor(segmentPixelOffset, BLUE);       
+      }
+
+      if (BroadcastProgram)
+      {        
+        strip.getSegment(segmentId).setPixelColor(segmentPixelOffset, PURPLE);            
       }
       
 
@@ -517,13 +546,16 @@ class UsermodVisualRemote : public Usermod {
     }
 
     void loop() {
-      
+      if (UpdateBrightness) {
+        applyBrightness_visualremote();
+      }
       // Code to run in the main loop
       if (BroadcastProgram) {
         static time_t lastSend = 60000;
         if (millis () - lastSend >= 1000) {
           lastSend = millis ();
           DEBUG_PRINTLN("Broadcasting program");
+
           message_structure_t msg;
           msg.button = WIZMOTE_BUTTON_PROGRAM;
           msg.program = presetToApply; 
@@ -533,10 +565,21 @@ class UsermodVisualRemote : public Usermod {
           msg.seq[1] = (seq >> 8) & 0xFF;
           msg.seq[2] = (seq >> 16) & 0xFF;
           msg.seq[3] = (seq >> 24) & 0xFF;
-
-          quickEspNow.send(ESPNOW_BROADCAST_ADDRESS, (uint8_t*)&msg, sizeof(msg));        
+          if (!quickEspNow.send(ESPNOW_BROADCAST_ADDRESS, (uint8_t*)&msg, sizeof(msg)))
+          {
+                        
+            repeat--;
+            if (repeat <= 0) {
+               BroadcastProgram = false;
+            }
+            
+          } else {
+            DEBUG_PRINTLN("Failed to send ESP-NOW message");
+          }    
+          
         }
       }
+    
       
     }
 
