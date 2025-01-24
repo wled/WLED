@@ -176,12 +176,6 @@ inline void toggleSyncMode_visualremote() {
   SyncModeChanged = true;
 }
 
-inline void applyPreset_visualremote(uint8_t presetID) {
-  if (presetToApply == presetID) return;
-  presetToApply = presetID;  
-  applyPreset(presetID, CALL_MODE_BUTTON_PRESET);    
-  UpdateBrightness = true;
-}
 
 inline void increaseSpeed()
 {
@@ -195,6 +189,17 @@ inline void increaseSpeed()
   }
   colorUpdated(CALL_MODE_FX_CHANGED);
 }
+
+inline void applyPreset_visualremote(uint8_t presetID) {
+  if (presetToApply == presetID) {
+    increaseSpeed();
+    return;
+  };
+  presetToApply = presetID;  
+  applyPreset(presetID, CALL_MODE_BUTTON_PRESET);    
+  UpdateBrightness = true;
+}
+
 
 struct Pattern {
   uint8_t id;           // ID of the pattern
@@ -295,8 +300,7 @@ class UsermodVisualRemote : public Usermod {
     if (MagicFlowMode > 0) 
     {
       magic_flow(MagicFlowProgram);
-    }
-    if (MenuMode) {
+    } else {
       do {
         currentEffectIndex++;
         if (currentEffectIndex >= 255) {
@@ -305,10 +309,7 @@ class UsermodVisualRemote : public Usermod {
       } while (!preset_available[currentEffectIndex]);
       DEBUG_PRINTF("> Start Display effect %d \n", currentEffectIndex);
       applyPreset_visualremote(currentEffectIndex);
-    } else
-    {
-      increaseSpeed();
-    }
+    } 
    }
 
     void onButtonDownPress() {
@@ -396,10 +397,10 @@ class UsermodVisualRemote : public Usermod {
         case WIZMOTE_BUTTON_FOUR_LONG      : applyPreset_visualremote(4);    break;
         case WIZMOTE_BUTTON_PROGRAM        : applyPreset_visualremote(incoming->program);    break;
 
-        case WIZMOTE_BUTTON_ONE_DOUBLE     : magic_flow(5);    break;
-        case WIZMOTE_BUTTON_TWO_DOUBLE     : magic_flow(6);    break;
-        case WIZMOTE_BUTTON_THREE_DOUBLE   : magic_flow(7);    break;
-        case WIZMOTE_BUTTON_FOUR_DOUBLE    : magic_flow(8);    break;
+        case WIZMOTE_BUTTON_ONE_DOUBLE     : increaseSpeed();    break;
+        case WIZMOTE_BUTTON_TWO_DOUBLE     : increaseSpeed();    break;
+        case WIZMOTE_BUTTON_THREE_DOUBLE   : increaseSpeed();    break;
+        case WIZMOTE_BUTTON_FOUR_DOUBLE    : increaseSpeed();    break;
         case WIZMOTE_BUTTON_ONE_TRIPLE     : magic_flow(5);    break;;
         case WIZMOTE_BUTTON_TWO_TRIPLE     : magic_flow(6);    break;
         case WIZMOTE_BUTTON_THREE_TRIPLE   : magic_flow(7);    break;
