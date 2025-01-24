@@ -598,11 +598,12 @@ static const char _data_FX_MODE_TWINKLE[] PROGMEM = "Twinkle@!,!;!,!;!;;m12=0"; 
  * Dissolve function
  */
 uint16_t dissolve(uint32_t color) {
-  unsigned dataSize = (SEGLEN+7) >> 3; //1 bit per LED
+  unsigned dataSize = sizeof(uint32_t) * SEGLEN;
   if (!SEGENV.allocateData(dataSize)) return mode_static(); //allocation failed
+  uint32_t* pixels = reinterpret_cast<uint32_t*>(SEGENV.data);
 
   if (SEGENV.call == 0) {
-    memset(SEGMENT.data, 0xFF, dataSize); // start by fading pixels up
+    for (unsigned i = 0; i < SEGLEN; i++) pixels[i] = SEGCOLOR(1);
     SEGENV.aux0 = 1;
   }
 
@@ -610,33 +611,26 @@ uint16_t dissolve(uint32_t color) {
     if (hw_random8() <= SEGMENT.intensity) {
       for (size_t times = 0; times < 10; times++) { //attempt to spawn a new pixel 10 times
         unsigned i = hw_random16(SEGLEN);
-        unsigned index = i >> 3;
-        unsigned bitNum = i & 0x07;
-        bool fadeUp = bitRead(SEGENV.data[index], bitNum);
         if (SEGENV.aux0) { //dissolve to primary/palette
-          if (fadeUp) {
-            if (color == SEGCOLOR(0)) {
-              SEGMENT.setPixelColor(i, SEGMENT.color_from_palette(i, true, PALETTE_SOLID_WRAP, 0));
-            } else {
-              SEGMENT.setPixelColor(i, color);
-            }
-            bitWrite(SEGENV.data[index], bitNum, false);
+          if (pixels[i] == SEGCOLOR(1)) {
+            pixels[i] = color == SEGCOLOR(0) ? SEGMENT.color_from_palette(i, true, PALETTE_SOLID_WRAP, 0) : color;
             break; //only spawn 1 new pixel per frame per 50 LEDs
           }
         } else { //dissolve to secondary
-          if (!fadeUp) {
-            SEGMENT.setPixelColor(i, SEGCOLOR(1)); break;
-            bitWrite(SEGENV.data[index], bitNum, true);
+          if (pixels[i] != SEGCOLOR(1)) {
+            pixels[i] = SEGCOLOR(1);
+            break;
           }
         }
       }
     }
   }
+  // fix for #4401
+  for (unsigned i = 0; i < SEGLEN; i++) SEGMENT.setPixelColor(i, pixels[i]);
 
   if (SEGENV.step > (255 - SEGMENT.speed) + 15U) {
     SEGENV.aux0 = !SEGENV.aux0;
     SEGENV.step = 0;
-    memset(SEGMENT.data, (SEGENV.aux0 ? 0xFF : 0), dataSize); // switch fading
   } else {
     SEGENV.step++;
   }
@@ -1361,15 +1355,19 @@ uint16_t mode_loading(void) {
 static const char _data_FX_MODE_LOADING[] PROGMEM = "Loading@!,Fade;!,!;!;;ix=16";
 
 
-//American Police Light with all LEDs Red and Blue
-uint16_t police_base(uint32_t color1, uint32_t color2) {
+/*
+ * Two dots running in circles
+ */
+uint16_t mode_two_dots() {
   if (SEGLEN <= 1) return mode_static();
-  unsigned delay = 1 + (FRAMETIME<<3) / SEGLEN;  // longer segments should change faster
-  uint32_t it = strip.now / map(SEGMENT.speed, 0, 255, delay<<4, delay);
-  unsigned offset = it % SEGLEN;
-
+  const unsigned delay = 1 + (FRAMETIME<<3) / SEGLEN;  // longer segments should change faster
+  const uint32_t it = strip.now / map(SEGMENT.speed, 0, 255, delay<<4, delay);
+  const unsigned offset = it % SEGLEN;
   unsigned width = ((SEGLEN*(SEGMENT.intensity+1))>>9); //max width is half the strip
   if (!width) width = 1;
+  if (!SEGMENT.check2) SEGMENT.fill(SEGCOLOR(2));
+  const uint32_t color1 = SEGCOLOR(0);
+  const uint32_t color2 = (SEGCOLOR(1) == SEGCOLOR(2)) ? color1 : SEGCOLOR(1);
   for (unsigned i = 0; i < width; i++) {
     unsigned indexR = (offset + i) % SEGLEN;
     unsigned indexB = (offset + i + (SEGLEN>>1)) % SEGLEN;
@@ -1377,23 +1375,6 @@ uint16_t police_base(uint32_t color1, uint32_t color2) {
     SEGMENT.setPixelColor(indexB, color2);
   }
   return FRAMETIME;
-}
-
-
-//Police Lights Red and Blue
-//uint16_t mode_police()
-//{
-//  SEGMENT.fill(SEGCOLOR(1));
-//  return police_base(RED, BLUE);
-//}
-//static const char _data_FX_MODE_POLICE[] PROGMEM = "Police@!,Width;,Bg;0";
-
-
-//Police Lights with custom colors
-uint16_t mode_two_dots() {
-  if (!SEGMENT.check2) SEGMENT.fill(SEGCOLOR(2));
-  uint32_t color2 = (SEGCOLOR(1) == SEGCOLOR(2)) ? SEGCOLOR(0) : SEGCOLOR(1);
-  return police_base(SEGCOLOR(0), color2);
 }
 static const char _data_FX_MODE_TWO_DOTS[] PROGMEM = "Two Dots@!,Dot size,,,,,Overlay;1,2,Bg;!";
 
@@ -2115,7 +2096,7 @@ uint16_t mode_fire_2012() {
 
   return FRAMETIME;
 }
-static const char _data_FX_MODE_FIRE_2012[] PROGMEM = "Fire 2012@Cooling,Spark rate,,2D Blur,Boost;;!;1;sx=64,ix=160,m12=1,c2=128"; // bars
+static const char _data_FX_MODE_FIRE_2012[] PROGMEM = "Fire 2012@Cooling,Spark rate,,2D Blur,Boost;;!;1;pal=35,sx=64,ix=160,m12=1,c2=128"; // bars
 
 
 // ColorWavesWithPalettes by Mark Kriegsman: https://gist.github.com/kriegsman/8281905786e8b2632aeb
@@ -2161,7 +2142,7 @@ uint16_t mode_colorwaves() {
 
   return FRAMETIME;
 }
-static const char _data_FX_MODE_COLORWAVES[] PROGMEM = "Colorwaves@!,Hue;!;!";
+static const char _data_FX_MODE_COLORWAVES[] PROGMEM = "Colorwaves@!,Hue;!;!;;pal=26";
 
 
 // colored stripes pulsing at a defined Beats-Per-Minute (BPM)
@@ -2187,7 +2168,7 @@ uint16_t mode_fillnoise8() {
 
   return FRAMETIME;
 }
-static const char _data_FX_MODE_FILLNOISE8[] PROGMEM = "Fill Noise@!;!;!";
+static const char _data_FX_MODE_FILLNOISE8[] PROGMEM = "Fill Noise@!;!;!;;pal=9";
 
 
 uint16_t mode_noise16_1() {
@@ -2208,7 +2189,7 @@ uint16_t mode_noise16_1() {
 
   return FRAMETIME;
 }
-static const char _data_FX_MODE_NOISE16_1[] PROGMEM = "Noise 1@!;!;!";
+static const char _data_FX_MODE_NOISE16_1[] PROGMEM = "Noise 1@!;!;!;;pal=20";
 
 
 uint16_t mode_noise16_2() {
@@ -2226,7 +2207,7 @@ uint16_t mode_noise16_2() {
 
   return FRAMETIME;
 }
-static const char _data_FX_MODE_NOISE16_2[] PROGMEM = "Noise 2@!;!;!";
+static const char _data_FX_MODE_NOISE16_2[] PROGMEM = "Noise 2@!;!;!;;pal=43";
 
 
 uint16_t mode_noise16_3() {
@@ -2247,7 +2228,7 @@ uint16_t mode_noise16_3() {
 
   return FRAMETIME;
 }
-static const char _data_FX_MODE_NOISE16_3[] PROGMEM = "Noise 3@!;!;!";
+static const char _data_FX_MODE_NOISE16_3[] PROGMEM = "Noise 3@!;!;!;;pal=35";
 
 
 //https://github.com/aykevl/ledstrip-spark/blob/master/ledstrip.ino
@@ -2259,7 +2240,7 @@ uint16_t mode_noise16_4() {
   }
   return FRAMETIME;
 }
-static const char _data_FX_MODE_NOISE16_4[] PROGMEM = "Noise 4@!;!;!";
+static const char _data_FX_MODE_NOISE16_4[] PROGMEM = "Noise 4@!;!;!;;pal=26";
 
 
 //based on https://gist.github.com/kriegsman/5408ecd397744ba0393e
@@ -2450,7 +2431,7 @@ uint16_t mode_railway() {
   SEGENV.step += FRAMETIME;
   return FRAMETIME;
 }
-static const char _data_FX_MODE_RAILWAY[] PROGMEM = "Railway@!,Smoothness;1,2;!";
+static const char _data_FX_MODE_RAILWAY[] PROGMEM = "Railway@!,Smoothness;1,2;!;;pal=3";
 
 
 //Water ripple
@@ -3208,7 +3189,7 @@ uint16_t mode_glitter()
   glitter_base(SEGMENT.intensity, SEGCOLOR(2) ? SEGCOLOR(2) : ULTRAWHITE);
   return FRAMETIME;
 }
-static const char _data_FX_MODE_GLITTER[] PROGMEM = "Glitter@!,!,,,,,Overlay;,,Glitter color;!;;pal=0,m12=0"; //pixels
+static const char _data_FX_MODE_GLITTER[] PROGMEM = "Glitter@!,!,,,,,Overlay;,,Glitter color;!;;pal=11,m12=0"; //pixels
 
 
 //Solid colour background with glitter (can be replaced by Glitter)
@@ -4118,7 +4099,7 @@ uint16_t mode_sunrise() {
 
   return FRAMETIME;
 }
-static const char _data_FX_MODE_SUNRISE[] PROGMEM = "Sunrise@Time [min],Width;;!;;sx=60";
+static const char _data_FX_MODE_SUNRISE[] PROGMEM = "Sunrise@Time [min],Width;;!;;pal=35,sx=60";
 
 
 /*
@@ -7735,7 +7716,7 @@ uint16_t mode_2Dsoap() {
 
   return FRAMETIME;
 }
-static const char _data_FX_MODE_2DSOAP[] PROGMEM = "Soap@!,Smoothness;;!;2";
+static const char _data_FX_MODE_2DSOAP[] PROGMEM = "Soap@!,Smoothness;;!;2;;pal=11";
 
 
 //Idea from https://www.youtube.com/watch?v=HsA-6KIbgto&ab_channel=GreatScott%21

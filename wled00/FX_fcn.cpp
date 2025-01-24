@@ -213,6 +213,8 @@ CRGBPalette16 &Segment::loadPalette(CRGBPalette16 &targetPalette, uint8_t pal) {
   if (pal < 245 && pal > GRADIENT_PALETTE_COUNT+13) pal = 0;
   if (pal > 245 && (strip.customPalettes.size() == 0 || 255U-pal > strip.customPalettes.size()-1)) pal = 0; // TODO remove strip dependency by moving customPalettes out of strip
   //default palette. Differs depending on effect
+  if (pal == 0) pal = _default_palette; // _default_palette is set in setMode()
+/*
   if (pal == 0) switch (mode) {
     case FX_MODE_FIRE_2012  : pal = 35; break; // heat palette
     case FX_MODE_COLORWAVES : pal = 26; break; // landscape 33
@@ -226,6 +228,7 @@ CRGBPalette16 &Segment::loadPalette(CRGBPalette16 &targetPalette, uint8_t pal) {
     case FX_MODE_RAILWAY    : pal =  3; break; // prim + sec
     case FX_MODE_2DSOAP     : pal = 11; break; // rainbow colors
   }
+*/
   switch (pal) {
     case 0: //default palette. Exceptions for specific effects above
       targetPalette = PartyColors_p; break;
@@ -611,9 +614,9 @@ Segment &Segment::setMode(uint8_t fx, bool loadDefaults) {
     startTransition(strip.getTransition()); // set effect transitions
 #endif
     mode = fx;
+    int sOpt;
     // load default values from effect string
     if (loadDefaults) {
-      int sOpt;
       sOpt = extractModeDefaults(fx, "sx");  speed     = (sOpt >= 0) ? sOpt : DEFAULT_SPEED;
       sOpt = extractModeDefaults(fx, "ix");  intensity = (sOpt >= 0) ? sOpt : DEFAULT_INTENSITY;
       sOpt = extractModeDefaults(fx, "c1");  custom1   = (sOpt >= 0) ? sOpt : DEFAULT_C1;
@@ -628,8 +631,11 @@ Segment &Segment::setMode(uint8_t fx, bool loadDefaults) {
       sOpt = extractModeDefaults(fx, "mi");  if (sOpt >= 0) mirror    = (bool)sOpt; // NOTE: setting this option is a risky business
       sOpt = extractModeDefaults(fx, "rY");  if (sOpt >= 0) reverse_y = (bool)sOpt;
       sOpt = extractModeDefaults(fx, "mY");  if (sOpt >= 0) mirror_y  = (bool)sOpt; // NOTE: setting this option is a risky business
-      sOpt = extractModeDefaults(fx, "pal"); if (sOpt >= 0) setPalette(sOpt); //else setPalette(0);
     }
+    sOpt = extractModeDefaults(fx, "pal"); // always extract 'pal' to set _default_palette
+    if (sOpt >= 0 && loadDefaults) setPalette(sOpt);
+    if (sOpt <= 0) sOpt = 6; // partycolors if zero or not set
+    _default_palette = sOpt; // _deault_palette is loaded into pal0 in loadPalette() (if selected)
     markForReset();
     stateChanged = true; // send UDP/WS broadcast
   }
@@ -1530,8 +1536,8 @@ void WS2812FX::service() {
           // set clipping rectangle
           // new mode is run inside clipping area and old mode outside clipping area
           unsigned p = seg.progress();
-          unsigned w = seg.is2D() ? seg.vWidth() : seg.vLength();
-          unsigned h = seg.vHeight();
+          unsigned w = seg.is2D() ? Segment::vWidth() : Segment::vLength();
+          unsigned h = Segment::vHeight();
           unsigned dw = p * w / 0xFFFFU + 1;
           unsigned dh = p * h / 0xFFFFU + 1;
           unsigned orgBS = blendingStyle;
