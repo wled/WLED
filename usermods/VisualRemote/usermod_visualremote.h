@@ -113,6 +113,7 @@ static uint8_t MagicFlowMode = 0;
 static uint8_t MagicFlowProgram = 5;
 static bool BroadcastProgram = false;
 static bool UpdateBrightness = false;
+uint8_t brightnessrepeat = 2;
 uint8_t repeat = 10;
 
 // Declare sequenceNumber as a global variable
@@ -133,8 +134,8 @@ static const byte brightnessSteps_visualremote[] = {
 static const size_t numBrightnessSteps_visualremote = sizeof(brightnessSteps_visualremote) / sizeof(byte);
 
 inline void applyBrightness_visualremote() {
-  repeat--;
-  if (repeat <= 0)
+  brightnessrepeat--;
+  if (brightnessrepeat <= 0)
   {
     UpdateBrightness = false;
   }
@@ -197,6 +198,7 @@ inline void applyPreset_visualremote(uint8_t presetID) {
   };
   presetToApply = presetID;  
   applyPreset(presetID, CALL_MODE_BUTTON_PRESET);    
+  brightnessrepeat = 2;
   UpdateBrightness = true;
 }
 
