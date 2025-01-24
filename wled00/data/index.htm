@@ -26,7 +26,7 @@
 		<!--write js to change the power icon color to green when toggled on-->
 		<i onclick="togglePower()" class="icons" style="position:absolute; left:5%; padding-top:7px;">&#xe08f;</i>
 		<!--NEED NEW ICON FOR WIFI-->
-		<i onclick="window.location.href=getURL('/settings/wifi');" class="icons" style="position:absolute; right:5%; padding-top:7px;">&#xe0a2;</i>
+		<i onclick="window.location.href=getURL('/settings/wifi');" class="icons_sm" style="position:absolute; right:5%; padding-top:7px;">&#xe91b;</i>
 
 		<!-- brightness slider -->
 		<!-- is brightness icon necessary? ideally it would be in place of the slider bubble but don't know how to do that -->
@@ -335,10 +335,10 @@
 	<!-- change icon used for presets to that used by segments -->
 	<!-- havn't yet figured out how to change button order and default to presets page instead of colors -->
 	<!-- more inspirational to see color page initially then list of presets? -->
-	<button class="tablinks" onclick="openTab(0)" style="width:33.3%;"><i class="icons">&#xe2b3;</i><p class="tab-label"><!--Colors--></p></button>
-	<button class="tablinks" onclick="openTab(1)" style="width:33.3%;"><i class="icons">&#xe23d;</i><p class="tab-label"><!--Effects--></p></button>
+	<button class="tablinks" onclick="openTab(0)" style="width:33.3%;"><i class="icons2">&#xe90b;</i><p class="tab-label"><!--Colors--></p></button>
+	<button class="tablinks" onclick="openTab(1)" style="width:33.3%;"><i class="icons2">&#xe91d;</i><p class="tab-label"><!--Effects--></p></button>
 	<button hidden class="tablinks" onclick="openTab(2)"><i class="icons">&#xe34b;</i><p class="tab-label">Segments</p></button>
-	<button class="tablinks" onclick="openTab(3)" style="width:33.3%;"><i class="icons">&#xe34b;</i><p class="tab-label"><!--Presets--></p></button>
+	<button class="tablinks" onclick="openTab(3)" style="width:33.3%;"><i class="icons2">&#xe92e;</i><p class="tab-label"><!--Presets--></p></button>
 </div>
 
 <!-- connection indicator circle in bottom left corner -->
@@ -348,10 +348,9 @@
 <!-- hide the WLED label in the bottom right that toggles the Nodes modal -->
 <div hidden id="namelabel" onclick="toggleNodes()"></div>
 <!-- in its place, add a small info icon that toggles the info modal -->
-<i onclick="toggleInfo()" class="icons" style="position:absolute; right:3%; bottom:50px; font-size:50%;">&#xe066;</i>
+<i onclick="toggleInfo()" class="icons_s" style="position:absolute; right:4%; bottom:55px; color:#555;">&#xe066;</i>
 <!-- on the left side, add a small message icon that links users to a feedback form -->
-<!-- hiding until new icon is complete -->
-<!--<i onclick="window.location.href=getURL('/feedback');" class="icons" style="position:absolute; left:5%; bottom:5%; font-size:50%;">&#xe066;</i>-->
+<i onclick="window.location.href=getURL('/feedback');" class="icons_sm" style="position:absolute; left:4%; bottom:55px; color:#555;">&#xe96b;</i>
 
 <div id="info" class="modal">
 	<button class="btn btn-xs close" onclick="toggleInfo()"><i class="icons rot45">&#xe18a;</i></button>
@@ -377,6 +376,18 @@
 	<div id="kn">Loading...</div>
 	<div style="position:sticky;bottom:0;">
 		<button class="btn ibtn" onclick="loadNodes()">Refresh</button>
+	</div>
+</div>
+
+<!-- Adding new Wifi settings modal for streamlined user experience -->
+<!-- work in progress -->
+<div id="wifi" class="modal">
+	<!-- to do: create toggleWifi function in Index.js -->
+	<button class="btn btn-xs close" onclick="toggleWifi()"><i class="icons rot45">&#xe18a;</i></button>
+	<div id="ndlt">Wifi Configuration</div>
+	<!-- relocate html from wifi settings page here? -->
+	<div style="position:sticky;bottom:0;">
+		<button class="btn ibtn">Connect</button>
 	</div>
 </div>
 
