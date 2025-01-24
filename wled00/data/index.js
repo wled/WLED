@@ -1250,7 +1250,8 @@ function updateUI()
 	gId('buttonPower').className = (isOn) ? 'active':'';
 	gId('buttonNl').className = (nlA) ? 'active':'';
 	gId('buttonSync').className = (syncSend) ? 'active':'';
-	gId('pxmb').style.display = (isM) ? "inline-block" : "none";
+	//comment out logic below to unhide pixel magic button if enabled. Button hidden in index.htm
+	//gId('pxmb').style.display = (isM) ? "inline-block" : "none";
 
 	updateSelectedFx();
 	updateSelectedPalette(selectedPal); // must be after updateSelectedFx() to un-hide color slots for * palettes

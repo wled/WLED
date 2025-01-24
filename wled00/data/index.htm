@@ -5,46 +5,55 @@
 	<meta charset="utf-8">
 	<meta name="theme-color" content="#222222">
 	<meta content="yes" name="apple-mobile-web-app-capable">
+	<!-- to do: update shortcut icon below -->
 	<link rel="shortcut icon" href="data:image/x-icon;base64,AAABAAEAEBAAAAEAGACGAAAAFgAAAIlQTkcNChoKAAAADUlIRFIAAAAQAAAAEAgGAAAAH/P/YQAAAE1JREFUOI1j/P//PwOxgNGeAUMxE9G6cQCKDWAhpADZ2f8PMjBS3QW08QK20KaZC2gfC9hCnqouoNgARgY7zMxAyNlUdQHlXiAlO2MDAD63EVqNHAe0AAAAAElFTkSuQmCC"/>
-	<title>WLED</title>
+	<title>Lightfall</title>
 	<link rel="stylesheet" href="index.css">
 </head>
 <body onload="onLoad()">
 
-<div id="cv" class="overlay">Loading WLED UI...</div>
-<noscript><div class="overlay" style="opacity:1;">Sorry, WLED UI needs JavaScript!</div></noscript>
+<div id="cv" class="overlay">Loading UI...</div>
+<noscript><div class="overlay" style="opacity:1;">Sorry, this UI needs JavaScript!</div></noscript>
 <div id="bg"></div>
 
+<!-- modified top bar with pwr button, brightness slider, and button linking to wifi setting-->
 <div class="wrapper" id="top">
-	<div class="tab top">
-		<div class="btnwrap">
-			<button id="buttonPower" onclick="togglePower()" class="tgl"><i class="icons">&#xe08f;</i><p class="tab-label">Power</p></button>
-			<button id="buttonNl" onclick="toggleNl()"><i class="icons">&#xe2a2;</i><p class="tab-label">Timer</p></button>
-			<button id="buttonSync" onclick="toggleSync()"><i class="icons">&#xe116;</i><p class="tab-label">Sync</p></button>
-			<button id="buttonSr" onclick="toggleLiveview()"><i class="icons">&#xe410;</i><p class="tab-label">Peek</p></button>
-			<button id="buttonI" onclick="toggleInfo()"><i class="icons">&#xe066;</i><p class="tab-label">Info</p></button>
-			<button id="buttonNodes" onclick="toggleNodes()"><i class="icons">&#xe22d;</i><p class="tab-label">Nodes</p></button>
-			<button onclick="window.location.href=getURL('/settings');"><i class="icons">&#xe0a2;</i><p class="tab-label">Config</p></button>
-			<button id="buttonPcm" onclick="togglePcMode(true)"><i class="icons">&#xe23d;</i><p class="tab-label">PC Mode</p></button>
+	<div class="tab top" style="padding-top:5px; padding-bottom:50px;">
+		<!--replace header below with lightfall workdmark-->
+		<h2 style="padding-left:12px; margin-bottom:10px; letter-spacing:15px;">LIGHTFALL</h2>
+		
+		<!--replaced buttons with icons to avoid background change on hover, but lost color change of power button when toggled -->
+		<!--write js to change the power icon color to green when toggled on-->
+		<i onclick="togglePower()" class="icons" style="position:absolute; left:5%; padding-top:7px;">&#xe08f;</i>
+		<!--NEED NEW ICON FOR WIFI-->
+		<i onclick="window.location.href=getURL('/settings/wifi');" class="icons" style="position:absolute; right:5%; padding-top:7px;">&#xe0a2;</i>
+
+		<!-- brightness slider -->
+		<!-- is brightness icon necessary? ideally it would be in place of the slider bubble but don't know how to do that -->
+		<!--<i class="icons slider-icon" style="transform: translateY(2px); left:17%;">&#xe333;</i>-->
+		<div class="sliderwrap il" style="max-width:100%; width:70%; transform:translateY(4px); position:absolute; left:15%;">
+			<input id="sliderBri" onchange="setBri()" oninput="updateTrail(this)" max="255" min="1" type="range" value="128" />
+			<div class="sliderdisplay"></div>
 		</div>
-		<div id="briwrap">
-			<p class="hd">Brightness</p>
-			<div class="slider">
-				<i class="icons slider-icon" onclick="tglTheme()" style="transform: translateY(2px);">&#xe2a6;</i>
-				<div class="sliderwrap il">
-					<input id="sliderBri" onchange="setBri()" oninput="updateTrail(this)" max="255" min="1" type="range" value="128" />
-					<div class="sliderdisplay"></div>
-				</div>
-				<output class="sliderbubble"></output>
-			</div>
-		</div>
-		<iframe id="liveview" src="about:blank"></iframe>
+		<output class="sliderbubble"></output>
+			
+		<!-- hide buttons for features we're not yet supporting. commenting button results in js errors when referencing element by id -->
+		<button hidden id="buttonPower" onclick="togglePower()" class="tgl"><i class="icons" style="left:1%">&#xe08f;</i><p class="tab-label"></p></button>
+		<button hidden id="buttonNl" onclick="toggleNl()"></button>
+		<button hidden id="buttonSync" onclick="toggleSync()"><i class="icons">&#xe116;</i><p class="tab-label"></p></button>
+		<button hidden id="buttonSr" onclick="toggleLiveview()"><i class="icons">&#xe410;</i><p class="tab-label"></p></button>
+		<button hidden id="buttonI" onclick="toggleInfo()"><i class="icons">&#xe066;</i><p class="tab-label"></p></button>
+		<button hidden id="buttonNodes" onclick="toggleNodes()"><i class="icons">&#xe22d;</i><p class="tab-label"></p></button>
+		<!--<button onclick="window.location.href=getURL('/settings');"><i class="icons">&#xe0a2;</i><p class="tab-label"></p></button>-->
+		<button hidden id="buttonPcm" onclick="togglePcMode(true)"><i class="icons">&#xe23d;</i><p class="tab-label"></p></button>
 	</div>
+	<iframe hidden id="liveview" src="about:blank"></iframe>
+
 </div>
 
 <div class ="container">
 	<div id="Colors" class="tabcontent">
-		<div id="picker" class="noslide"></div>
+		<div id="picker" class="noslide" style="padding-top:15px; padding-bottom:10px;"></div>
 		<div id="hwrap" class="slider">
 			<div title="Hue" class="sliderwrap il">
 				<input id="sliderH" class="noslide" oninput="fromH()" onchange="setColor(0)" max="359" min="0" type="range" value="0" step="any">
@@ -125,11 +134,14 @@
 			<input id="hexc" title="Hex RGB" type="text" class="noslide" onkeydown="hexEnter()" autocomplete="off" maxlength="8" />
 			<button id="hexcnf" class="btn btn-xs" onclick="fromHex();"><i class="icons btn-icon">&#xe390;</i></button>
 		</div>
+		<!-- buttons displayed below color picker -->
+		<!-- hide file editor, custom palette buttons, and pixel magic for now. Can still get to feature via url -->
 		<div style="padding: 8px 0;" id="btns">
-			<button class="btn btn-xs" title="File editor" type="button" id="edit" onclick="window.location.href=getURL('/edit')"><i class="icons btn-icon">&#xe2c6;</i></button>
-			<button class="btn btn-xs" title="Pixel Magic Tool" type="button" id="pxmb" onclick="window.location.href=getURL('/pxmagic.htm')"><i class="icons btn-icon">&#xe410;</i></button>
-			<button class="btn btn-xs" title="Add custom palette" type="button" onclick="window.location.href=getURL('/cpal.htm')"><i class="icons btn-icon">&#xe18a;</i></button>
-			<button class="btn btn-xs" title="Remove last custom palette" type="button" id="rmPal" onclick="palettesData=null;localStorage.removeItem('wledPalx');requestJson({rmcpal:true});setTimeout(loadPalettes,250,loadPalettesData);"><i class="icons btn-icon">&#xe037;</i></button>
+			<button hidden class="btn btn-xs" title="File editor" type="button" id="edit" onclick="window.location.href=getURL('/edit')"><i class="icons btn-icon">&#xe2c6;</i></button>
+			<!-- pixel magic button gets unhidden by index.js line 1254, so also commented that line in that file-->
+			<button hidden class="btn btn-xs" title="" type="button" id="pxmb" onclick="window.location.href=getURL('/pxmagic.htm')"><i class="icons btn-icon">&#xe410;</i></button>
+			<button hidden class="btn btn-xs" title="Add custom palette" type="button" onclick="window.location.href=getURL('/cpal.htm')"><i class="icons btn-icon">&#xe18a;</i></button>
+			<button hidden class="btn btn-xs" title="Remove last custom palette" type="button" id="rmPal" onclick="palettesData=null;localStorage.removeItem('wledPalx');requestJson({rmcpal:true});setTimeout(loadPalettes,250,loadPalettesData);"><i class="icons btn-icon">&#xe037;</i></button>
 		</div>
 		<p class="labels hd" id="pall"><i class="icons sel-icon" onclick="tglHex()">&#xe2b3;</i> Color palette</p>
 		<div id="palw" class="il">
@@ -309,30 +321,44 @@
 	</div>
 </div>
 
-<div class="tab bot" id="bot">
+<!-- hiding segments button for now -->
+<!-- adding inline css to div to evenly space remaining three buttons -->
+<!-- show presets first, then colors and effects-->
+<div class="tab bot" id="bot" style="display:flex; justify-content: space-between; align-items: center;">
+	<!-- change icon used for presets to that used by segments -->
+	<button class="tablinks" onclick="openTab(3)"><i class="icons">&#xe34b;</i><p class="tab-label">Presets</p></button>
 	<button class="tablinks" onclick="openTab(0)"><i class="icons">&#xe2b3;</i><p class="tab-label">Colors</p></button>
 	<button class="tablinks" onclick="openTab(1)"><i class="icons">&#xe23d;</i><p class="tab-label">Effects</p></button>
-	<button class="tablinks" onclick="openTab(2)"><i class="icons">&#xe34b;</i><p class="tab-label">Segments</p></button>
-	<button class="tablinks" onclick="openTab(3)"><i class="icons">&#xe04c;</i><p class="tab-label">Presets</p></button>
+	<button hidden class="tablinks" onclick="openTab(2)"><i class="icons">&#xe34b;</i><p class="tab-label">Segments</p></button>
 </div>
 
-<div id="connind"></div>
+<!-- connection indicator circle in bottom left corner -->
+<div hidden id="connind"></div>
+
 <div id="toast" onclick="clearErrorToast(100);"></div>
-<div id="namelabel" onclick="toggleNodes()"></div>
+<!-- hide the WLED label in the bottom right that toggles the Nodes modal -->
+<div hidden id="namelabel" onclick="toggleNodes()"></div>
+<!-- in its place, add a small info icon that toggles the info modal -->
+<i onclick="toggleInfo()" class="icons" style="position:absolute; left:90%; top:90%; font-size:50%;">&#xe066;</i>
+<!-- on the left side, add a small message icon that links users to a feedback form -->
+<i onclick="window.location.href=getURL('/feedback');" class="icons" style="position:absolute; right:90%; top:90%; font-size:50%;">&#xe066;</i>
+
 <div id="info" class="modal">
 	<button class="btn btn-xs close" onclick="toggleInfo()"><i class="icons rot45">&#xe18a;</i></button>
-	<div id="imgw">
+	<!-- hide the WLED logo -->
+	<div hidden id="imgw">
 		<img class="wi" alt="" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAB0AAAAFCAYAAAC5Fuf5AAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAABbSURBVChTlY9bDoAwDMNW7n9nwCipytQN4Z8tbrTHmDmF4oPzyldwRqp1SSdnV/NuZuzqerAByxXznBw3igkeFEfXyUuhK/yFM0CxJfyqXZEOc6/Sr9/bf7uIC5Nwd7orMvAPAAAAAElFTkSuQmCC" />
 	</div>
 	<div id="kv">Loading...</div><br>
 	<div>
 		<button class="btn ibtn" onclick="requestJson()">Refresh</button>
-		<button class="btn ibtn" onclick="toggleNodes()">Instance List</button>
-		<button class="btn ibtn" onclick="window.open(getURL('/update'),'_self');">Update WLED</button>
-		<button class="btn ibtn" id="resetbtn" onclick="cnfReset()">Reboot WLED</button>
+		<button class="btn ibtn" onclick="toggleNodes()">Instances</button>
+		<button class="btn ibtn" onclick="window.open(getURL('/update'),'_self');">Update</button>
+		<button class="btn ibtn" id="resetbtn" onclick="cnfReset()">Reboot</button>
 	</div>
 	<br>
-	<span class="h">Made with&#32;<span id="heart">&#10084;&#xFE0E;</span>&#32;by&#32;<a href="https://github.com/Aircoookie/" target="_blank">Aircoookie</a>&#32;and the&#32;<a href="https://wled.discourse.group/" target="_blank">WLED community</a></span>
+	<!-- hide the WLED line -->
+	<span hidden class="h">Made with&#32;<span id="heart">&#10084;&#xFE0E;</span>&#32;by&#32;<a href="https://github.com/Aircoookie/" target="_blank">Aircoookie</a>&#32;and the&#32;<a href="https://wled.discourse.group/" target="_blank">WLED community</a></span>
 </div>
 
 <div id="nodes" class="modal">
