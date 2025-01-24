@@ -176,10 +176,10 @@ inline void toggleSyncMode_visualremote() {
   SyncModeChanged = true;
 }
 
-inline void presetWithFallback_visualremote(uint8_t presetID, uint8_t effectID, uint8_t paletteID) {
+inline void applyPreset_visualremote(uint8_t presetID) {
   if (presetToApply == presetID) return;
   presetToApply = presetID;  
-  applyPresetWithFallback(presetID, CALL_MODE_BUTTON_PRESET, effectID, paletteID);    
+  applyPreset(presetID, CALL_MODE_BUTTON_PRESET);    
   UpdateBrightness = true;
 }
 
@@ -209,19 +209,19 @@ void magic_flow(uint8_t program) {
   if (MagicFlowMode == 0) 
   {
     MagicFlowMode = 1;
-    presetWithFallback_visualremote(9, FX_MODE_2DCRAZYBEES, 0);
+    applyPreset_visualremote(9);
     return;
   }
   if (MagicFlowMode == 1) 
   {
     MagicFlowMode = 2;
-    presetWithFallback_visualremote(10, FX_MODE_2DCRAZYBEES, 0);
+    applyPreset_visualremote(10);
     return;
   }
   if (MagicFlowMode == 2) 
   {
     MagicFlowMode = 0;
-    presetWithFallback_visualremote(MagicFlowProgram, FX_MODE_2DCRAZYBEES, 0);
+    applyPreset_visualremote(MagicFlowProgram);
     return;
   }
 
@@ -304,7 +304,7 @@ class UsermodVisualRemote : public Usermod {
         }
       } while (!preset_available[currentEffectIndex]);
       DEBUG_PRINTF("> Start Display effect %d \n", currentEffectIndex);
-      presetWithFallback_visualremote(currentEffectIndex, FX_MODE_BIERTJE,        0);
+      applyPreset_visualremote(currentEffectIndex);
     } else
     {
       increaseSpeed();
@@ -321,7 +321,7 @@ class UsermodVisualRemote : public Usermod {
         }
       } while (!preset_available[currentEffectIndex]);
       DEBUG_PRINTF("< Start Display effect %d \n", currentEffectIndex);
-      presetWithFallback_visualremote(currentEffectIndex, FX_MODE_BIERTJE,        0);
+      applyPreset_visualremote(currentEffectIndex);
     }
 
 
@@ -376,25 +376,25 @@ class UsermodVisualRemote : public Usermod {
         case WIZMOTE_BUTTON_ON_LONG            : toggleSyncMode_visualremote();                                           break;
         case WIZMOTE_BUTTON_OFF_SHORT            : setBrightness_visualremote();                                           break;
         case WIZMOTE_BUTTON_OFF_LONG            : resetBrightness_visualremote();                                           break;
-        case WIZMOTE_BUTTON_ONE_SHORT            : presetWithFallback_visualremote(1, FX_MODE_BIERTJE,        0);    break;
-        case WIZMOTE_BUTTON_TWO_SHORT            : presetWithFallback_visualremote(2, FX_MODE_BREATH,        0);    break;
-        case WIZMOTE_BUTTON_THREE_SHORT          : presetWithFallback_visualremote(3, FX_MODE_FIRE_FLICKER,  0);    break;
-        case WIZMOTE_BUTTON_FOUR_SHORT           : presetWithFallback_visualremote(4, FX_MODE_HEART,       0);    break;
+        case WIZMOTE_BUTTON_ONE_SHORT            : applyPreset_visualremote(1);    break;
+        case WIZMOTE_BUTTON_TWO_SHORT            : applyPreset_visualremote(2);    break;
+        case WIZMOTE_BUTTON_THREE_SHORT          : applyPreset_visualremote(3);    break;
+        case WIZMOTE_BUTTON_FOUR_SHORT           : applyPreset_visualremote(4);    break;
         case WIZMOTE_BUTTON_NIGHT_SHORT          : broadcastProgram();                                break;
         case WIZMOTE_BUTTON_NIGHT_DOUBLE         : broadcastProgram();                                break;
         case WIZMOTE_BUTTON_NIGHT_TRIPLE         : broadcastProgram();                                break;
         case WIZMOTE_BUTTON_NIGHT_LONG           : broadcastProgram();                                break;
         case WIZMOTE_BUTTON_BRIGHT_UP_SHORT      : onButtonUpPress();                                               break;
-        case WIZMOTE_BUTTON_BRIGHT_UP_LONG      : presetWithFallback_visualremote(5, FX_MODE_HEART,       0);    break;
+        case WIZMOTE_BUTTON_BRIGHT_UP_LONG      : applyPreset_visualremote(5);    break;
         case WIZMOTE_BUTTON_BRIGHT_DOWN_SHORT    : onButtonDownPress();                                             break;
-        case WIZMOTE_BUTTON_BRIGHT_DOWN_LONG    : presetWithFallback_visualremote(6, FX_MODE_HEART,       0);    break;
+        case WIZMOTE_BUTTON_BRIGHT_DOWN_LONG    : applyPreset_visualremote(6);    break;
 
       
-        case WIZMOTE_BUTTON_ONE_LONG       : presetWithFallback_visualremote(1, FX_MODE_BIERTJE,        0);    break;
-        case WIZMOTE_BUTTON_TWO_LONG       : presetWithFallback_visualremote(2, FX_MODE_BREATH,        0);    break;
-        case WIZMOTE_BUTTON_THREE_LONG     : presetWithFallback_visualremote(3, FX_MODE_FIRE_FLICKER,        0);    break;
-        case WIZMOTE_BUTTON_FOUR_LONG      : presetWithFallback_visualremote(4, FX_MODE_HEART,        0);    break;
-        case WIZMOTE_BUTTON_PROGRAM        : presetWithFallback_visualremote(incoming->program, FX_MODE_BIERTJE,        0);    break;
+        case WIZMOTE_BUTTON_ONE_LONG       : applyPreset_visualremote(1);    break;
+        case WIZMOTE_BUTTON_TWO_LONG       : applyPreset_visualremote(2);    break;
+        case WIZMOTE_BUTTON_THREE_LONG     : applyPreset_visualremote(3);    break;
+        case WIZMOTE_BUTTON_FOUR_LONG      : applyPreset_visualremote(4);    break;
+        case WIZMOTE_BUTTON_PROGRAM        : applyPreset_visualremote(incoming->program);    break;
 
         case WIZMOTE_BUTTON_ONE_DOUBLE     : magic_flow(5);    break;
         case WIZMOTE_BUTTON_TWO_DOUBLE     : magic_flow(6);    break;
