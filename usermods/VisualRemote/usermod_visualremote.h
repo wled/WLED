@@ -132,33 +132,6 @@ static const byte brightnessSteps_visualremote[] = {
 
 static const size_t numBrightnessSteps_visualremote = sizeof(brightnessSteps_visualremote) / sizeof(byte);
 
-// Inline functions to prevent multiple definitions
-inline bool nightModeActive_visualremote() {
-  return brightnessBeforeNightMode_visualremote != NIGHT_MODE_DEACTIVATED;
-}
-
-
-inline bool resetNightMode_visualremote() {
-  if (!nightModeActive_visualremote()) return false;
-  
-  bri = brightnessBeforeNightMode_visualremote;
-  brightnessBeforeNightMode_visualremote = NIGHT_MODE_DEACTIVATED;  
-  stateUpdated(CALL_MODE_BUTTON);
-  return true;
-}
-
-
-inline void activateNightMode_visualremote() {
-  if (nightModeActive_visualremote()) 
-  {
-    resetNightMode_visualremote();
-    return;
-  }
-  brightnessBeforeNightMode_visualremote = bri;
-  bri = NIGHT_MODE_BRIGHTNESS;  
-  stateUpdated(CALL_MODE_BUTTON);
-}
-
 inline void applyBrightness_visualremote() {
   repeat--;
   if (repeat <= 0)
@@ -191,27 +164,6 @@ inline void broadcastProgram() {
   BroadcastProgram = true;
 }
 
-inline void brightnessUp_visualremote() {
-  if (nightModeActive_visualremote()) return;
-  for (unsigned index = 0; index < numBrightnessSteps_visualremote; ++index) {
-    if (brightnessSteps_visualremote[index] > bri) {
-      bri = brightnessSteps_visualremote[index];
-      break;
-    }
-  }
-  stateUpdated(CALL_MODE_BUTTON);
-}
-
-inline void brightnessDown_visualremote() {
-  if (nightModeActive_visualremote()) return;
-  for (int index = numBrightnessSteps_visualremote - 1; index >= 0; --index) {
-    if (brightnessSteps_visualremote[index] < bri) {
-      bri = brightnessSteps_visualremote[index];
-      break;
-    }
-  }
-  stateUpdated(CALL_MODE_BUTTON);
-}
 
 inline void togglePower_visualremote() {
   //resetNightMode_visualremote();
@@ -222,22 +174,6 @@ inline void togglePower_visualremote() {
 inline void toggleSyncMode_visualremote() {  
   SyncMode = !SyncMode;
   SyncModeChanged = true;
-}
-
-inline void setOn_visualremote() {
-  //resetNightMode_visualremote();
-  if (!bri) {
-    toggleOnOff();
-    stateUpdated(CALL_MODE_BUTTON);
-  }
-}
-
-inline void setOff_visualremote() {
-  //resetNightMode_visualremote();
-  if (bri) {
-    toggleOnOff();
-    stateUpdated(CALL_MODE_BUTTON);
-  }
 }
 
 inline void presetWithFallback_visualremote(uint8_t presetID, uint8_t effectID, uint8_t paletteID) {
@@ -266,25 +202,6 @@ struct Pattern {
   uint8_t length;       // Actual length of the pattern
   String colors[12];    // Up to 12 colors in HEX string format
 };
-
-String colorToHexString(uint32_t c) {
-    char buffer[9];
-    sprintf(buffer, "%06X", c);
-    return buffer;
-}
-
-void serializePatternColors(JsonArray& json, String colors[12], uint8_t length) {
-  for (int i = 0; i < length; i++) {
-    json.add(colors[i]);
-  }
-}
-
-void deserializePatternColors(JsonArray& json, String colors[12], uint8_t& length) {
-  length = json.size();
-  for (int i = 0; i < length; i++) {
-    colors[i] = json[i].as<String>();
-  }
-}
 
 
 void magic_flow(uint8_t program) {
