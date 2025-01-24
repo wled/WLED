@@ -20,6 +20,11 @@
   #include "../usermods/Hearth/usermod_hearth.h"
 #endif
 
+
+#ifdef USERMOD_FISH
+  #include "../usermods/Fish/usermod_fish.h"
+#endif
+
 #ifdef USERMOD_VISUALREMOTE
   #include "../usermods/VisualRemote/usermod_visualremote.h"
 #endif
@@ -503,6 +508,10 @@ void registerUsermods()
 
    #ifdef USERMOD_HEARTH
   UsermodManager::add(new UsermodHearth());
+  #endif
+
+  #ifdef USERMOD_FISH
+  UsermodManager::add(new UsermodFish());
   #endif
 
 }

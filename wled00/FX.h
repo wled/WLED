@@ -305,8 +305,9 @@
 #define FX_MODE_2DAKEMI                186
 #define FX_MODE_BIERTJE                187
 #define FX_MODE_HEART                  188
+#define FX_MODE_FISH                   189
 
-#define MODE_COUNT                     189
+#define MODE_COUNT                     190
 
 typedef enum mapping1D2D {
   M12_Pixels = 0,
