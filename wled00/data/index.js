@@ -271,6 +271,7 @@ function onLoad()
 		loadBg();
 
 	selectSlot(0);
+	/* does this set the default tab?*/
 	updateTablinks(0);
 	handleLocationHash();
 	cpick.on("input:end", () => {setColor(1);});

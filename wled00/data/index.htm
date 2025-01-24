@@ -52,6 +52,7 @@
 </div>
 
 <div class ="container">
+	<!-- COLORS -->
 	<div id="Colors" class="tabcontent">
 		<div id="picker" class="noslide" style="padding-top:15px; padding-bottom:10px;"></div>
 		<div id="hwrap" class="slider">
@@ -164,6 +165,7 @@
 		</div>
 	</div>
 
+	<!-- EFFECTS -->
 	<div id="Effects" class="tabcontent">
 		<div id="fx">
 			<p class="labels hd" id="modeLabel">Effect mode</p>
@@ -198,6 +200,10 @@
 					</label>
 				</div>
 			</div>
+			
+			<!-- FX LIST ----------------------------------------------------------------------------------------->
+			<!-- one approach to edit effects list is using a custom css file: https://jeffmission.com/wledcss/ -->
+			<!-- could just add to directory and link in header next to index.css? -->
 			<div id="fxlist" class="list">
 				<div class="lstI">
 					<label class="radio schkl" onclick="loadFX()">
@@ -268,6 +274,7 @@
 		</div>
 	</div>
 
+	<!-- SEGMENTS -->
 	<div id="Segments" class="tabcontent">
 		<p class="labels hd" id="segLabel">Segments</p>
 		<div id="segcont">
@@ -304,6 +311,7 @@
 		<p id="ledmap" class="hide"></p>
 	</div>
 
+	<!-- PRESETS -->
 	<div id="Presets" class="tabcontent">
 		<div id="pql">
 		</div>
@@ -323,13 +331,14 @@
 
 <!-- hiding segments button for now -->
 <!-- adding inline css to div to evenly space remaining three buttons -->
-<!-- show presets first, then colors and effects-->
-<div class="tab bot" id="bot" style="display:flex; justify-content: space-between; align-items: center;">
+<div class="tab bot" id="bot" style="display:flex; justify-content: space-between; align-items: center; margin-top:10px;">
 	<!-- change icon used for presets to that used by segments -->
-	<button class="tablinks" onclick="openTab(3)"><i class="icons">&#xe34b;</i><p class="tab-label">Presets</p></button>
-	<button class="tablinks" onclick="openTab(0)"><i class="icons">&#xe2b3;</i><p class="tab-label">Colors</p></button>
-	<button class="tablinks" onclick="openTab(1)"><i class="icons">&#xe23d;</i><p class="tab-label">Effects</p></button>
+	<!-- havn't yet figured out how to change button order and default to presets page instead of colors -->
+	<!-- more inspirational to see color page initially then list of presets? -->
+	<button class="tablinks" onclick="openTab(0)" style="width:33.3%;"><i class="icons">&#xe2b3;</i><p class="tab-label"><!--Colors--></p></button>
+	<button class="tablinks" onclick="openTab(1)" style="width:33.3%;"><i class="icons">&#xe23d;</i><p class="tab-label"><!--Effects--></p></button>
 	<button hidden class="tablinks" onclick="openTab(2)"><i class="icons">&#xe34b;</i><p class="tab-label">Segments</p></button>
+	<button class="tablinks" onclick="openTab(3)" style="width:33.3%;"><i class="icons">&#xe34b;</i><p class="tab-label"><!--Presets--></p></button>
 </div>
 
 <!-- connection indicator circle in bottom left corner -->
@@ -339,9 +348,10 @@
 <!-- hide the WLED label in the bottom right that toggles the Nodes modal -->
 <div hidden id="namelabel" onclick="toggleNodes()"></div>
 <!-- in its place, add a small info icon that toggles the info modal -->
-<i onclick="toggleInfo()" class="icons" style="position:absolute; left:90%; top:90%; font-size:50%;">&#xe066;</i>
+<i onclick="toggleInfo()" class="icons" style="position:absolute; right:3%; bottom:50px; font-size:50%;">&#xe066;</i>
 <!-- on the left side, add a small message icon that links users to a feedback form -->
-<i onclick="window.location.href=getURL('/feedback');" class="icons" style="position:absolute; right:90%; top:90%; font-size:50%;">&#xe066;</i>
+<!-- hiding until new icon is complete -->
+<!--<i onclick="window.location.href=getURL('/feedback');" class="icons" style="position:absolute; left:5%; bottom:5%; font-size:50%;">&#xe066;</i>-->
 
 <div id="info" class="modal">
 	<button class="btn btn-xs close" onclick="toggleInfo()"><i class="icons rot45">&#xe18a;</i></button>
