@@ -7640,6 +7640,86 @@ uint16_t mode_2Dwavingcell() {
 static const char _data_FX_MODE_2DWAVINGCELL[] PROGMEM = "Waving Cell@!,Blur,Amplitude 1,Amplitude 2,Amplitude 3,,Flow;;!;2;ix=0";
 
 
+//Pendulum - lightfall.io
+//@martincowell and malcolm gibson. Original work in collab with jona raphael 
+uint16_t mode_2Dpendulum() {
+  // 1. Define the matrix layout
+  const uint16_t matrixWidth  = 18; // example, set to your actual width
+  const uint16_t matrixHeight = 20; // example, set to your actual height
+
+  // If something is off, fall back to static
+  if (matrixWidth * matrixHeight <= 1) {
+    return mode_static();  
+  }
+
+  // 2. Fade out entire matrix to create trails
+  SEGMENT.fade_out(254);
+
+  // 3. For demonstration, each column gets its own “speed”.
+  //    We store them in a static array so they persist across frames.
+  static bool     speedsInitialized = false;
+  static uint8_t  columnSpeeds[256]; // or use matrixWidth if known maximum
+
+  // Optionally, we can also store random “phase offsets” to make columns
+  // move out of sync. In many effects, random offsets look nice:
+  static uint16_t columnOffsets[256];
+
+  if (!speedsInitialized) {
+    for (uint16_t x = 0; x < matrixWidth; x++) {
+      // Pick random speed in some range; tweak as needed
+      columnSpeeds[x]  = 16;  
+      // Random offset so columns don't start at the same position
+      columnOffsets[x] = 0;  
+    }
+    speedsInitialized = true;
+  }
+
+  // 4. For each column, compute the chunchun pattern
+  for (uint16_t x = 0; x < matrixWidth; x++)
+  {
+    // localCounter changes over time for this column,
+    // factoring in strip.now plus an offset if desired.
+    // (strip.now is in milliseconds; we usually multiply or shift
+    //  to scale it to a suitable range.)
+    unsigned localCounter = (strip.now + columnOffsets[x]) 
+                            * (6 + (columnSpeeds[x] >> 4));
+
+    // Number of “birds” (peaks) in this column
+    unsigned numBirds = 2 + (matrixHeight >> 3); 
+    unsigned span     = (SEGMENT.intensity << 8) / numBirds;
+
+    // 5. Compute each bird’s position and set its color
+    for (unsigned i = 0; i < numBirds; i++)
+    {
+      localCounter -= span;
+
+      // The original 1D code uses `sin16_t(counter) + 0x8000` to get a 
+      // 0..65535 “megumin” value, then maps that into the segment length.
+      // For 2D, we map into the column’s height.
+      unsigned megumin = sin16_t(localCounter) + 0x8000; 
+      // Map 0..65535 => 0..(matrixHeight-1)
+      unsigned birdY = (uint32_t(megumin) * matrixHeight) >> 16;
+      birdY = constrain(birdY, 0U, matrixHeight - 1U);
+
+      // Set color from the palette (or a static color).
+      // The original code used palette index `(i * 255)/numBirds`.
+      uint32_t color = SEGMENT.color_from_palette(
+        (i * 255) / numBirds,   // palette index
+        false,                  // no wrap
+        false,                  // no reverse
+        0                       // no blend (0 means “use palette color directly”)
+      );
+
+      // 6. Light that pixel
+      SEGMENT.setPixelColor(XY(x, birdY), color);
+    } // end for each “bird”
+  } // end for each column
+
+  // 7. Return time to next frame
+  return FRAMETIME; // ~16ms
+}
+static const char _data_FX_MODE_2DPENDULUM[] PROGMEM = "Pendulum@!,Blur,Amplitude 1,Amplitude 2,Amplitude 3,,Flow;;!;2;ix=0";
+
 #endif // WLED_DISABLE_2D
 
 
@@ -7883,6 +7963,7 @@ void WS2812FX::setupEffectData() {
   addEffect(FX_MODE_2DSOAP, &mode_2Dsoap, _data_FX_MODE_2DSOAP);
   addEffect(FX_MODE_2DOCTOPUS, &mode_2Doctopus, _data_FX_MODE_2DOCTOPUS);
   addEffect(FX_MODE_2DWAVINGCELL, &mode_2Dwavingcell, _data_FX_MODE_2DWAVINGCELL);
+  addEffect(FX_MODE_2DPENDULUM, &mode_2Dpendulum, _data_FX_MODE_2DPENDULUM);
 
   addEffect(FX_MODE_2DAKEMI, &mode_2DAkemi, _data_FX_MODE_2DAKEMI); // audio
 #endif // WLED_DISABLE_2D
