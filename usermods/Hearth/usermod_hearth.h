@@ -129,6 +129,7 @@ static const char _data_FX_MODE_HEART[] PROGMEM = "Heart@!,!;!,!;!;01;1";//"Hear
 class UsermodHearth : public Usermod {
 public:
   void setup() {
+    Serial.println("Heart mod active!");
     // Register new effect in a free slot (example: 253)
     strip.addEffect(FX_MODE_HEART, &mode_hearth, _data_FX_MODE_HEART);
   }

@@ -204,8 +204,9 @@
 #define USERMOD_ID_POV_DISPLAY           53     //Usermod "usermod_pov_display.h"
 #define USERMOD_ID_PIXELS_DICE_TRAY      54     //Usermod "pixels_dice_tray.h"
 #define USERMOD_ID_BIERTJE               55     //Usermod "usermod_biertje.h"
-#define USERMOD_ID_HEART               56     //Usermod "usermod_heart.h"
-#define USERMOD_ID_FISH              56     //Usermod "usermod_fish.h"
+#define USERMOD_ID_HEART                 56     //Usermod "usermod_heart.h"
+#define USERMOD_ID_FISH                  57     //Usermod "usermod_fish.h"
+#define USERMOD_ID_AQUARIUM              58     //Usermod "usermod_aquarium.h"
 
 //Access point behavior
 #define AP_BEHAVIOR_BOOT_NO_CONN          0     //Open AP when no connection after boot

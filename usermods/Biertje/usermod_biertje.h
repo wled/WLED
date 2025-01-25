@@ -455,6 +455,7 @@ static const char _data_FX_MODE_BIERTJE_EMOTICON[] PROGMEM = "Biertje Emoticon@S
 class UsermodBiertje : public Usermod {
   public:
     void setup() {
+       Serial.println("Biertje mod active!");
       strip.addEffect(255, &mode_biertje_full, _data_FX_MODE_BIERTJE);
       strip.addEffect(FX_MODE_BIERTJE, &mode_biertje_emoticon, _data_FX_MODE_BIERTJE_EMOTICON);      
     }

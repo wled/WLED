@@ -25,6 +25,10 @@
   #include "../usermods/Fish/usermod_fish.h"
 #endif
 
+#ifdef USERMOD_AQUARIUM
+  #include "../usermods/Aquarium/usermod_aquarium.h"
+#endif
+
 #ifdef USERMOD_VISUALREMOTE
   #include "../usermods/VisualRemote/usermod_visualremote.h"
 #endif
@@ -493,7 +497,16 @@ void registerUsermods()
   UsermodManager::add(new PovDisplayUsermod());
   #endif
 
+#ifdef USERMOD_FISH
+  UsermodManager::add(new UsermodFish());
+  #endif
 
+ 
+
+   #ifdef USERMOD_AQUARIUM
+  UsermodManager::add(new UsermodAquarium());
+  #endif
+  
   #ifdef USERMOD_VISUALREMOTE
     UsermodManager::add(new UsermodVisualRemote());    
   #endif
@@ -506,12 +519,14 @@ void registerUsermods()
   UsermodManager::add(new UsermodBiertje());
   #endif
 
-   #ifdef USERMOD_HEARTH
+  #ifdef USERMOD_HEARTH
   UsermodManager::add(new UsermodHearth());
   #endif
 
-  #ifdef USERMOD_FISH
-  UsermodManager::add(new UsermodFish());
-  #endif
+
+  
+  
+
+
 
 }
