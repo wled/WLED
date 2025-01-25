@@ -1,0 +1,17 @@
+/* list of EFFECTS to hide from user */
+/* the id for each effect name can be found in fx.h file, starting on line 134 */
+/* or use this convenient tool: https://jeffmission.com/wledcss/ */
+
+/* hide traffic light */
+div#fxlist [data-id="35"] { display: none; }
+/* hide exploding fireworks */
+div#fxlist [data-id="90"] { display: none; }
+
+
+
+
+/* list of COLOR PALETTES to hide from user */
+/* the id for each effect name can be found in palettes.h file, starting on line 870. It's the first number in the comment. */
+
+/* hide beech */
+div#pallist [data-id="26"] { display: none; }
