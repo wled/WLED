@@ -375,10 +375,10 @@ class UsermodVisualRemote : public Usermod {
       }
     
       switch (incoming->button) {
-        case WIZMOTE_BUTTON_ON_SHORT             : togglePower_visualremote();                                            break;
-        case WIZMOTE_BUTTON_ON_LONG            : toggleSyncMode_visualremote();                                           break;
-        case WIZMOTE_BUTTON_OFF_SHORT            : setBrightness_visualremote();                                           break;
-        case WIZMOTE_BUTTON_OFF_LONG            : resetBrightness_visualremote();                                           break;
+        case WIZMOTE_BUTTON_OFF_SHORT             : togglePower_visualremote();                                            break;
+        case WIZMOTE_BUTTON_OFF_LONG            : toggleSyncMode_visualremote();                                           break;
+        case WIZMOTE_BUTTON_ON_SHORT            : setBrightness_visualremote();                                           break;
+        case WIZMOTE_BUTTON_ON_LONG            : resetBrightness_visualremote();                                           break;
         case WIZMOTE_BUTTON_ONE_SHORT            : applyPreset_visualremote(1);    break;
         case WIZMOTE_BUTTON_TWO_SHORT            : applyPreset_visualremote(2);    break;
         case WIZMOTE_BUTTON_THREE_SHORT          : applyPreset_visualremote(3);    break;
