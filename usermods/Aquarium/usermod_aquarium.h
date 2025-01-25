@@ -12,6 +12,21 @@ const int aquariumfish[6][9] = {
     {0, 0, 1, 1, 1, 0, 0, 0, 1},    
 };
 
+const int aquariumshark[12][22] = {
+  {0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0},
+  {0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0},
+  {0,0,0,0,0,0,0,0,0,1,2,1,0,0,0,0,0,0,0,0,1,1},
+  {0,0,0,0,1,1,1,1,1,2,2,1,1,1,1,0,0,0,0,1,1,0},
+  {1,1,1,1,3,3,2,2,2,2,2,2,2,2,2,1,1,1,1,2,1,0},
+  {1,2,2,2,5,3,2,2,2,2,2,2,2,2,2,2,2,2,2,1,0,0},
+  {0,1,2,2,2,2,2,3,2,2,2,2,2,2,2,2,2,4,1,2,1,0},
+  {0,0,1,3,3,3,3,2,2,2,2,4,4,4,4,4,4,1,0,1,1,0},
+  {0,0,0,1,3,3,4,4,4,4,2,2,1,1,1,1,1,0,0,0,1,1},
+  {0,0,0,0,1,1,1,1,1,1,1,2,2,1,0,0,0,0,0,0,0,0},
+  {0,0,0,0,0,0,0,0,1,1,0,1,1,0,0,0,0,0,0,0,0,0},
+  {0,0,0,0,0,0,0,0,0,1,0,0,1,0,0,0,0,0,0,0,0,0}  
+};
+
 // Vegetation sprite (3x3)
 const int vegetation[3][3] = {
     {0, 1, 0},
@@ -43,6 +58,31 @@ void drawFish(int x, int y, int direction) {
   }
 }
 
+void drawShark(int x, int y, int direction) {
+  for (int i = 0; i < 12; i++) {
+    for (int j = 0; j < 22; j++) {
+      // Pick a column index based on whether we're flipping horizontally
+      int col = (direction == 1) ? j       // normal
+                                 : (21 - j); // flipped horizontally
+      // Always draw left to right in screen space
+      int drawX = x + j;      
+      
+      int pixel = aquariumshark[i][col];
+      if (pixel == 1) {
+        SEGMENT.setPixelColorXY(drawX, y + i, RGBW32(20, 20, 20, 0));
+      } else if (pixel == 2) {
+        SEGMENT.setPixelColorXY(drawX, y + i,  RGBW32(40, 40, 40, 0));
+      } else if (pixel == 3) {
+        SEGMENT.setPixelColorXY(drawX, y + i,  RGBW32(100, 100, 100, 0));
+      } else if (pixel == 4) {
+        SEGMENT.setPixelColorXY(drawX, y + i,  RGBW32(30, 30, 30, 0));
+      } else if (pixel == 5) {
+        SEGMENT.setPixelColorXY(drawX, y + i,  RGBW32(100, 0, 100, 0));
+      }
+    }
+  }
+}
+
 // Function to draw vegetation
 void drawVegetation(int x, int y) {
   for (int i = 0; i < 3; i++) {
@@ -69,13 +109,13 @@ void animateFish(int &x, int &y, int &direction, unsigned long &lastMoveTime, un
     // Move fish horizontally
     if (direction == 0) {
       x++;
-      if (x > 16) {
+      if (x > 25) {
         waitTime = random(1000, 15000); // Wait for 1-5 seconds
         direction = 1; // Change direction to left
       }
     } else {
       x--;
-      if (x < -9) {
+      if (x < -25) {
         waitTime = random(1000, 15000); // Wait for 1-5 seconds
         direction = 0; // Change direction to right
       }
@@ -100,7 +140,7 @@ void animateVegetation() {
 
 // Main aquarium animation function
 uint16_t mode_aquarium() {
-  static int fishX = -9, fishY = 5, fishDirection = 0;
+  static int fishX = -22, fishY = 3, fishDirection = 0;
   static int bubbleX = 8, bubbleY = 15;
   static unsigned long lastFishMoveTime = 0;
   static unsigned long fishWaitTime = 0; 
@@ -113,7 +153,8 @@ uint16_t mode_aquarium() {
   if (lastFishMoveTime + fishWaitTime < millis()) {
     // Draw and animate fish
     fishWaitTime = 0;
-    drawFish(fishX, fishY, fishDirection);
+    //drawFish(fishX, fishY, fishDirection);
+    drawShark(fishX, fishY, fishDirection);
     animateFish(fishX, fishY, fishDirection, lastFishMoveTime, fishMoveInterval, fishWaitTime);
   }
   // Draw and animate bubbles
