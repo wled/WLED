@@ -77,12 +77,12 @@ const int jelleyfishB[12][9] = {
   {1,1,1,1,1,1,1,1,1},
   {1,1,1,1,1,1,1,1,1},
   {0,1,1,1,1,1,1,1,0},
-  {0,1,0,1,0,1,0,1,0},
-  {1,0,1,0,1,0,1,0,1},
-  {0,1,0,1,1,1,0,1,0},
-  {0,1,0,1,0,1,0,1,0},   
-  {1,0,1,0,1,0,1,0,1},
-  {1,0,1,0,1,0,1,0,1}  
+  {0,2,0,2,0,2,0,2,0},
+  {2,0,2,0,2,0,2,0,2},
+  {0,2,0,2,2,2,0,2,0},
+  {0,2,0,2,0,2,0,2,0},   
+  {2,0,2,0,2,0,2,0,2},
+  {2,0,2,0,2,0,2,0,2}  
 };
 
 // Vegetation sprite (3x3)
@@ -118,7 +118,7 @@ void drawObject(const AnimatedObject &obj) {
   }
 }
 
-void animateObject(AnimatedObject &obj, int maxX, int minX, int maxY, int minY) {
+bool animateObject(AnimatedObject &obj, int maxX, int minX, int maxY, int minY) {
   unsigned long currentTime = millis();
   if (currentTime - obj.lastMoveTime >= obj.moveInterval) {
     obj.lastMoveTime = currentTime;
@@ -148,7 +148,9 @@ void animateObject(AnimatedObject &obj, int maxX, int minX, int maxY, int minY) 
         obj.y = maxY;
       }
     } 
+    return true;
   }
+  return false;
 }
 
 
@@ -222,7 +224,8 @@ uint16_t mode_aquarium() {
 
   static AnimatedObject shark = {sharkSprites, 22, 12, -22, 1, 0, 0, 300, 0, RGBW32(20, 20, 20, 0), RGBW32(40, 40, 40, 0),RGBW32(100, 100, 100, 0),RGBW32(30, 30, 30, 0),RGBW32(100, 0, 100, 0) };
 
-  static AnimatedObject jellyfish = {jellyfishSprites0, 9, 12, 4, -22, 2, 0, 300, 0, RGBW32(128, 24, 28, 0), RGBW32(40, 40, 40, 0),RGBW32(100, 100, 100, 0),RGBW32(30, 30, 30, 0),RGBW32(100, 0, 100, 0) };
+  static AnimatedObject jellyfish = {jellyfishSprites0, 9, 12, 4, -22, 2, 0, 300, 0, RGBW32(128, 24, 28, 0), RGBW32(128, 24, 28, 0),RGBW32(100, 100, 100, 0),RGBW32(30, 30, 30, 0),RGBW32(100, 0, 100, 0) };
+  static bool jellyfishFrame = true;
 
   // Clear the segment
   SEGMENT.fill(RGBW32(0, 0, 28, 0));
@@ -244,9 +247,14 @@ uint16_t mode_aquarium() {
   }
 
     if (jellyfish.lastMoveTime + jellyfish.waitTime < millis()) {
+      
       jellyfish.waitTime = 0;
       drawObject(jellyfish);
-      animateObject(jellyfish, 16, 4, 25, -25);
+      if (animateObject(jellyfish, 16, 0, 25, -25)) 
+      {
+        jellyfish.sprite = jellyfishFrame ? jellyfishSprites0 : jellyfishSprites1; 
+        jellyfishFrame = !jellyfishFrame;
+      };
     }
 
   // Draw and animate bubbles
