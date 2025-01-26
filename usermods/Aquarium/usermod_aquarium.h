@@ -17,6 +17,7 @@ struct AnimatedObject {
   long shade3;
   long shade4;
   long shade5;
+  bool frame;
 };
 // Fish sprite (6x9)
 const int aquariumfish[6][9] = {
@@ -28,6 +29,16 @@ const int aquariumfish[6][9] = {
     {0, 0, 1, 1, 1, 0, 0, 0, 1},    
 };
 
+const int aquariumfishB[6][9] = {
+    {0, 0, 1, 1, 1, 0, 0, 0, 1},
+    {0, 1, 1, 1, 1, 1, 0, 1, 1},
+    {1, 1, 5, 1, 1, 1, 1, 1, 1},
+    {1, 1, 1, 1, 1, 1, 1, 1, 1},
+    {0, 1, 1, 1, 1, 1, 0, 0, 1},
+    {0, 0, 1, 1, 1, 0, 0, 0, 1},    
+};
+
+
 const int gupfish[7][12] = {
   {0,0,0,0,0,0,0,0,0,0,1,0},
   {0,1,1,1,1,1,1,0,0,1,2,1},
@@ -36,6 +47,16 @@ const int gupfish[7][12] = {
   {1,2,2,2,1,2,2,1,0,1,2,1},
   {0,1,1,1,1,1,1,0,0,1,2,1},
   {0,0,0,0,0,0,0,0,0,0,1,0}  
+};
+
+const int gupfishB[7][12] = {
+  {0,0,0,0,0,0,0,0,0,0,1,1},
+  {0,1,1,1,1,1,1,0,0,1,2,1},
+  {1,2,2,2,2,2,2,1,0,1,2,1},
+  {1,2,5,2,1,2,2,2,1,1,2,1},
+  {1,2,2,2,1,2,2,1,0,1,2,1},
+  {0,1,1,1,1,1,1,0,0,1,2,1},
+  {0,0,0,0,0,0,0,0,0,0,1,1}  
 };
 
 
@@ -192,13 +213,15 @@ uint16_t mode_aquarium() {
     aquariumfish[0], aquariumfish[1], aquariumfish[2], aquariumfish[3], aquariumfish[4], aquariumfish[5]
   };
   static const int *fishSprites1[6] = {
-    aquariumfish[0], aquariumfish[1], aquariumfish[2], aquariumfish[3], aquariumfish[4], aquariumfish[5]
+    aquariumfishB[0], aquariumfishB[1], aquariumfishB[2], aquariumfishB[3], aquariumfishB[4], aquariumfishB[5]
   };
-  static const int *fishSprites2[7] = {
+
+
+  static const int *gupSprites0[7] = {
     gupfish[0], gupfish[1], gupfish[2], gupfish[3], gupfish[4], gupfish[5], gupfish[6]
   };
-  static const int *fishSprites3[7] = {
-    gupfish[0], gupfish[1], gupfish[2], gupfish[3], gupfish[4], gupfish[5], gupfish[6]
+  static const int *gupSprites1[7] = {
+    gupfishB[0], gupfishB[1], gupfishB[2], gupfishB[3], gupfishB[4], gupfishB[5], gupfishB[6]
   };
 
   static const int *jellyfishSprites0[12] = {
@@ -215,11 +238,14 @@ uint16_t mode_aquarium() {
     aquariumshark[10], aquariumshark[11]
   };
 
-  static AnimatedObject fish[4] = {
+  static AnimatedObject fish[2] = {
     {fishSprites0, 9, 6, 25, 3, 0, 0, 50, 4530, RGBW32(255, 30, 0, 0)},
-    {fishSprites1, 9, 6, 25, 6, 1, 0, 250, 1000, RGBW32(128, 104, 128, 0)},
-    {fishSprites2, 12, 7, -19, 9, 1, 0, 500, 10000, RGBW32(150, 100, 0, 0),  RGBW32(50, 50, 0, 0)},
-    {fishSprites3, 12, 7, -19, 12, 0, 0, 100, 3440, RGBW32(150, 52, 52, 0), ORANGE}
+    {fishSprites1, 9, 6, 25, 6, 1, 0, 250, 1000, RGBW32(128, 104, 128, 0)},   
+  };
+
+  static AnimatedObject gup[2] = {
+    {gupSprites0, 12, 7, -19, 9, 1, 0, 500, 10000, RGBW32(150, 100, 0, 0),  RGBW32(50, 50, 0, 0)},
+    {gupSprites0, 12, 7, -19, 12, 0, 0, 100, 3440, RGBW32(150, 52, 52, 0), ORANGE}
   };
 
   static AnimatedObject shark = {sharkSprites, 22, 12, -22, 1, 0, 0, 300, 0, RGBW32(20, 20, 20, 0), RGBW32(40, 40, 40, 0),RGBW32(100, 100, 100, 0),RGBW32(30, 30, 30, 0),RGBW32(100, 0, 100, 0) };
@@ -238,24 +264,41 @@ uint16_t mode_aquarium() {
   }
 
   // Draw and animate fish
-  for (int i = 0; i < 4; i++) {
+  for (int i = 0; i < 2; i++) {
     if (fish[i].lastMoveTime + fish[i].waitTime < millis()) {
       fish[i].waitTime = 0;
       drawObject(fish[i]);
-      animateObject(fish[i], 25, -25, 20, -10);
+      if (animateObject(fish[i], 25, -25, 20, -10))
+      {
+         fish[i].sprite = fish[i].frame ? fishSprites0 : fishSprites1; 
+         fish[i].frame = !fish[i].frame;
+      }
     }
   }
 
-    if (jellyfish.lastMoveTime + jellyfish.waitTime < millis()) {
-      
-      jellyfish.waitTime = 0;
-      drawObject(jellyfish);
-      if (animateObject(jellyfish, 16, 0, 25, -25)) 
+  for (int i = 0; i < 2; i++) {
+    if (gup[i].lastMoveTime + gup[i].waitTime < millis()) {
+      gup[i].waitTime = 0;
+      drawObject(gup[i]);
+      if (animateObject(gup[i], 25, -25, 20, -10))
       {
-        jellyfish.sprite = jellyfishFrame ? jellyfishSprites0 : jellyfishSprites1; 
-        jellyfishFrame = !jellyfishFrame;
-      };
+         gup[i].sprite = gup[i].frame ? gupSprites0 : gupSprites1; 
+         gup[i].frame = !gup[i].frame;
+      }
     }
+  }
+
+
+  if (jellyfish.lastMoveTime + jellyfish.waitTime < millis()) {
+    
+    jellyfish.waitTime = 0;
+    drawObject(jellyfish);
+    if (animateObject(jellyfish, 16, 0, 25, -25)) 
+    {
+      jellyfish.sprite = jellyfish.frame ? jellyfishSprites0 : jellyfishSprites1; 
+      jellyfish.frame = !jellyfish.frame;
+    };
+  }
 
   // Draw and animate bubbles
   static int bubbleX = 8, bubbleY = 15;
