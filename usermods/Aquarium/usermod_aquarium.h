@@ -2,6 +2,15 @@
 
 #include "wled.h"
 
+const int STATE_NORMAL = 0;
+const int STATE_MOVING_TO_CENTER = 1;
+const int STATE_STAYING_AT_CENTER = 2;
+const int STATE_MOVING_OUT = 3;
+
+const int STRAIGHT = 0;
+const int UP = 1;
+const int DOWN = -1;
+
 struct AnimatedObject {
   const int **sprite; // Pointer to a pointer for flexible sprite width
   int width;
@@ -12,13 +21,18 @@ struct AnimatedObject {
   unsigned long lastMoveTime;
   unsigned long moveInterval;
   unsigned long waitTime;
+  bool frame;
+  int state; // Add this field to track the state of the fish
+  unsigned long stateStartTime; // Add this field to track the start time of the current state
+  int movementType;
   long shade1;
   long shade2;
   long shade3;
   long shade4;
   long shade5;
-  bool frame;
+
 };
+
 // Fish sprite (6x9)
 const int aquariumfish[6][9] = {
     {0, 0, 1, 1, 1, 0, 0, 0, 1},
@@ -94,7 +108,7 @@ const int jelleyfishA[12][9] = {
 const int jelleyfishB[12][9] = {
   {0,0,1,1,1,1,1,0,0},
   {0,1,1,1,1,1,1,1,0},
-  {1,1,2,1,1,1,2,1,1},
+  {1,1,5,1,1,1,5,1,1},
   {1,1,1,1,1,1,1,1,1},
   {1,1,1,1,1,1,1,1,1},
   {0,1,1,1,1,1,1,1,0},
@@ -145,27 +159,33 @@ bool animateObject(AnimatedObject &obj, int maxX, int minX, int maxY, int minY) 
     obj.lastMoveTime = currentTime;
     if (obj.direction == 0) {
       obj.x++;
+      if (obj.frame) obj.y = obj.y + obj.movementType;
       if (obj.x > maxX) {
         obj.waitTime = random(1000, 20000);
         obj.moveInterval = random(20, 300);
         obj.y = random(minY, maxY);
         obj.direction = 1;
+        obj.movementType = random(-1, 2);
       }
     } else if (obj.direction == 1) { // Move left
       obj.x--;
+      if (obj.frame) obj.y = obj.y + obj.movementType;
       if (obj.x < minX) {
         obj.waitTime = random(1000, 20000);
         obj.moveInterval = random(20, 300);
         obj.y = random(minY, maxY);
         obj.direction = 0; // Change direction to right
+        obj.movementType = random(-1, 2);
       }
     } else if (obj.direction == 2) { // Move up
       obj.y--;
+      if (obj.frame) obj.x = obj.x + obj.movementType;
       if (obj.y < minY) {
         obj.waitTime = random(1000, 20000);
         obj.moveInterval = random(20, 300);
         obj.x = random(minX, maxX);
         obj.direction = 2; // Change direction to down
+        obj.movementType = random(-1, 2);
         obj.y = maxY;
       }
     } 
@@ -238,19 +258,21 @@ uint16_t mode_aquarium() {
     aquariumshark[10], aquariumshark[11]
   };
 
+
   static AnimatedObject fish[2] = {
-    {fishSprites0, 9, 6, 25, 3, 0, 0, 50, 4530, RGBW32(255, 30, 0, 0)},
-    {fishSprites1, 9, 6, 25, 6, 1, 0, 250, 1000, RGBW32(128, 104, 128, 0)},   
+    {fishSprites0, 9, 6, 25, 3, 0, 0, 50, 4530, 0, STATE_NORMAL, millis(), -1, RGBW32(255, 30, 0, 0)},
+    {fishSprites1, 9, 6, 25, 6, 1, 0, 250, 1000, 0, STATE_NORMAL, millis(), 0, RGBW32(128, 104, 128, 0)},   
   };
 
   static AnimatedObject gup[2] = {
-    {gupSprites0, 12, 7, -19, 9, 1, 0, 500, 10000, RGBW32(150, 100, 0, 0),  RGBW32(50, 50, 0, 0)},
-    {gupSprites0, 12, 7, -19, 12, 0, 0, 100, 3440, RGBW32(150, 52, 52, 0), ORANGE}
+    {gupSprites0, 12, 7, -19, 9, 1, 0, 500, 10000, 0, STATE_NORMAL, millis(), 0, RGBW32(150, 100, 0, 0),  RGBW32(50, 50, 0, 0)},
+    {gupSprites0, 12, 7, -19, 12, 0, 0, 100, 3440, 0, STATE_NORMAL, millis(), 1, RGBW32(150, 52, 52, 0), ORANGE}
   };
 
-  static AnimatedObject shark = {sharkSprites, 22, 12, -22, 1, 0, 0, 300, 0, RGBW32(20, 20, 20, 0), RGBW32(40, 40, 40, 0),RGBW32(100, 100, 100, 0),RGBW32(30, 30, 30, 0),RGBW32(100, 0, 100, 0) };
+  static AnimatedObject shark = {sharkSprites, 22, 12, -22, 1, 0, 0, 300, 120000, 0, STATE_NORMAL, millis(), 0, RGBW32(20, 20, 20, 0), RGBW32(40, 40, 40, 0),RGBW32(100, 100, 100, 0),RGBW32(30, 30, 30, 0),RGBW32(100, 0, 100, 0) };
+ // sprite, widht, height, x, y, direction, lastMoveTime, moveInterval, waitTime, frame, state, stateStartTime, shade1, shade2, shade3, shade4, shade5
 
-  static AnimatedObject jellyfish = {jellyfishSprites0, 9, 12, 4, -22, 2, 0, 300, 0, RGBW32(128, 24, 28, 0), RGBW32(128, 24, 28, 0),RGBW32(100, 100, 100, 0),RGBW32(30, 30, 30, 0),RGBW32(100, 0, 100, 0) };
+  static AnimatedObject jellyfish = {jellyfishSprites0, 9, 12, 4, -22, 2, 0, 300, 58000, 0, STATE_NORMAL, millis(), 1, RGBW32(128, 24, 28, 0), RGBW32(128, 24, 28, 0),RGBW32(100, 100, 100, 0),RGBW32(30, 30, 30, 0),RGBW32(100, 0, 100, 0) };
   static bool jellyfishFrame = true;
 
   // Clear the segment
@@ -260,7 +282,7 @@ uint16_t mode_aquarium() {
   if (shark.lastMoveTime + shark.waitTime < millis()) {
     shark.waitTime = 0;
     drawObject(shark);
-    animateObject(shark, 16, -22, 12, 15);
+    animateObject(shark, 16, -22, 14, 4);
   }
 
   // Draw and animate fish
