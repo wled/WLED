@@ -693,7 +693,7 @@ void Segment::drawCharacter(unsigned char chr, int16_t x, int16_t y, uint8_t w, 
       case 60: bits = pgm_read_byte_near(&console_font_5x12[(chr * h) + i]); break; // 5x12 font
       default: return;
     }
-    uint32_t c = ColorFromPaletteWLED(grad, (i+1)*255/h, 255, NOBLEND);
+    uint32_t c = ColorFromPalette(grad, (i+1)*255/h, 255, LINEARBLEND_NOWRAP);
     // pre-scale color for all pixels
     c = color_fade(c, _segBri);
     _colorScaled = true;
