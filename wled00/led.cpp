@@ -157,7 +157,7 @@ void updateInterfaces(uint8_t callMode)
 
   sendDataWs();
   lastInterfaceUpdate = millis();
-  interfaceUpdateCallMode = 0; //disable further updates
+  interfaceUpdateCallMode = CALL_MODE_INIT; //disable further updates
 
   if (callMode == CALL_MODE_WS_SEND) return;
 
