@@ -151,7 +151,7 @@ extern byte realtimeMode;           // used in getMappedPixelIndex()
 #define FX_MODE_SAW                     16
 #define FX_MODE_TWINKLE                 17
 #define FX_MODE_DISSOLVE                18
-#define FX_MODE_DISSOLVE_RANDOM         19  // candidate for removal (use Dissolve with with check 3)
+//#define FX_MODE_DISSOLVE_RANDOM         19  // candidate for removal (use Dissolve with with check 3)
 #define FX_MODE_SPARKLE                 20
 #define FX_MODE_FLASH_SPARKLE           21
 #define FX_MODE_HYPER_SPARKLE           22
@@ -192,7 +192,7 @@ extern byte realtimeMode;           // used in getMappedPixelIndex()
 #define FX_MODE_LIGHTNING               57
 #define FX_MODE_ICU                     58
 #define FX_MODE_MULTI_COMET             59
-#define FX_MODE_DUAL_LARSON_SCANNER     60  // candidate for removal (use Scanner with with check 1)
+//#define FX_MODE_DUAL_LARSON_SCANNER     60  // candidate for removal (use Scanner with with check 1)
 #define FX_MODE_RANDOM_CHASE            61
 #define FX_MODE_OSCILLATE               62
 #define FX_MODE_PRIDE_2015              63
@@ -225,17 +225,17 @@ extern byte realtimeMode;           // used in getMappedPixelIndex()
 #define FX_MODE_EXPLODING_FIREWORKS     90
 #define FX_MODE_BOUNCINGBALLS           91
 #define FX_MODE_SINELON                 92
-#define FX_MODE_SINELON_DUAL            93
-#define FX_MODE_SINELON_RAINBOW         94
+//#define FX_MODE_SINELON_DUAL            93  // candidate for removal (use sinelon)
+//#define FX_MODE_SINELON_RAINBOW         94  // candidate for removal (use sinelon)
 #define FX_MODE_POPCORN                 95
 #define FX_MODE_DRIP                    96
 #define FX_MODE_PLASMA                  97
 #define FX_MODE_PERCENT                 98
-#define FX_MODE_RIPPLE_RAINBOW          99
+//#define FX_MODE_RIPPLE_RAINBOW          99  // candidate for removal (use ripple)
 #define FX_MODE_HEARTBEAT              100
 #define FX_MODE_PACIFICA               101
 #define FX_MODE_CANDLE_MULTI           102
-#define FX_MODE_SOLID_GLITTER          103  // candidate for removal (use glitter)
+//#define FX_MODE_SOLID_GLITTER          103  // candidate for removal (use glitter)
 #define FX_MODE_SUNRISE                104
 #define FX_MODE_PHASED                 105
 #define FX_MODE_TWINKLEUP              106
@@ -249,7 +249,7 @@ extern byte realtimeMode;           // used in getMappedPixelIndex()
 #define FX_MODE_2DPLASMAROTOZOOM       114 // was Candy Cane prior to 0.14 (use Chase 2)
 #define FX_MODE_BLENDS                 115
 #define FX_MODE_TV_SIMULATOR           116
-#define FX_MODE_DYNAMIC_SMOOTH         117 // candidate for removal (check3 in dynamic)
+//#define FX_MODE_DYNAMIC_SMOOTH         117 // candidate for removal (check3 in dynamic)
 
 // new 0.14 2D effects
 #define FX_MODE_2DSPACESHIPS           118 //gap fill
