@@ -1774,7 +1774,7 @@ static const char _data_FX_MODE_RANDOM_CHASE[] PROGMEM = "Stream 2@!;;";
 
 //7 bytes
 typedef struct Oscillator {
-  uint16_t pos;
+  int16_t  pos;
   uint8_t  size;
   int8_t   dir;
   uint8_t  speed;
@@ -1784,7 +1784,7 @@ typedef struct Oscillator {
 /  Oscillating bars of color, updated with standard framerate
 */
 uint16_t mode_oscillate(void) {
-  constexpr unsigned numOscillators = 3;
+  constexpr int numOscillators = 3;
   constexpr unsigned dataSize = sizeof(oscillator) * numOscillators;
 
   if (!SEGENV.allocateData(dataSize)) return mode_static(); //allocation failed
@@ -1801,7 +1801,7 @@ uint16_t mode_oscillate(void) {
   uint32_t cycleTime = 20 + (2 * (uint32_t)(255 - SEGMENT.speed));
   uint32_t it = strip.now / cycleTime;
 
-  for (unsigned i = 0; i < numOscillators; i++) {
+  for (int i = 0; i < numOscillators; i++) {
     // if the counter has increased, move the oscillator by the random step
     if (it != SEGENV.step) oscillators[i].pos += oscillators[i].dir * oscillators[i].speed;
     oscillators[i].size = SEGLEN/(3+SEGMENT.intensity/8);
@@ -1818,10 +1818,10 @@ uint16_t mode_oscillate(void) {
     }
   }
 
-  for (unsigned i = 0; i < SEGLEN; i++) {
+  for (int i = 0; i < (int)SEGLEN; i++) {
     uint32_t color = BLACK;
-    for (unsigned j = 0; j < numOscillators; j++) {
-      if(i >= (unsigned)oscillators[j].pos - oscillators[j].size && i <= oscillators[j].pos + oscillators[j].size) {
+    for (int j = 0; j < numOscillators; j++) {
+      if(i >= oscillators[j].pos - oscillators[j].size && i <= oscillators[j].pos + oscillators[j].size) {
         color = (color == BLACK) ? SEGCOLOR(j) : color_blend(color, SEGCOLOR(j), uint8_t(128));
       }
     }
