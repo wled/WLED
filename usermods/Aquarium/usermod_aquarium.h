@@ -241,17 +241,22 @@ void setNewTarget(AnimatedObject &obj, int minX, int maxX, int minY, int maxY) {
 }
 
 void setNewTarget(AnimatedObject &obj, int setX, int setY) {
-  // Opposite side in X, random Y
-  obj.targetX = setX;
-  obj.targetY = setY;
-  
+  // Opposite side in X, random Y  
+  if (obj.direction == 1) {
+    obj.targetX = setX - obj.width + 2;
+  } else {
+    obj.targetX = setX;
+  }
+  obj.targetY = setY - obj.height / 2;
+
+  Serial.printf("Setting new target: %d, %d to %d, %d\n", setX, setY, obj.targetX, obj.targetY);
   float dx = obj.targetX - obj.xPosF;
   float dy = obj.targetY - obj.yPosF;
   float dist = sqrt(dx * dx + dy * dy);
   float speed = 2.5f; // Adjust  
   Serial.printf("dx: %f, dy: %f, dist: %f, speed: %f\n", dx, dy, dist, speed);
   obj.direction = dx < 0.0 ? 0 : 1;
-
+  
   obj.speedX = (dx / dist) * speed;
   obj.speedY = (dy / dist) * speed;
 }
@@ -418,11 +423,16 @@ uint16_t mode_aquarium() {
     if (FeedingFish)
     {
       Serial.printf("Feeding fish %d\n", i);
-      setNewTarget(fish[i], 8, 12);
       fish[i].moveInterval = 100;
       fish[i].state = STATE_MOVING_TO_CENTER;
       fish[i].moveInterval = 100;
        fish[i].stateStartTime = millis();  
+    }
+    if (fish[i].state == STATE_MOVING_TO_CENTER) {
+      setNewTarget(fish[i], fishFood[i].x, fishFood[i].y);
+    }
+    if (fish[i].state == STATE_STAYING_AT_CENTER) {
+      fishFood[i].active = false;
     }
     if (fish[i].targetX == 0 && fish[i].targetY == 0) {
       setNewTarget(fish[i], -25, 25, -4, 20);
@@ -445,10 +455,16 @@ uint16_t mode_aquarium() {
     if (FeedingFish)
     {
       Serial.printf("Feeding gup %d\n", i);
-      setNewTarget(gup[i], 8, 3);
+      
       gup[i].state = STATE_MOVING_TO_CENTER;
-      gup[i].moveInterval = 100;
+      gup[i].moveInterval = 150;
        gup[i].stateStartTime = millis();  
+    }
+    if (gup[i].state == STATE_MOVING_TO_CENTER) {
+      setNewTarget(gup[i], fishFood[2].x, fishFood[2].y);
+    }
+    if (gup[i].state == STATE_STAYING_AT_CENTER) {
+      fishFood[2].active = false;
     }
     if (gup[i].targetX == 0 && gup[i].targetY == 0) {
       setNewTarget(gup[i], -25, 25, 0, 16);
