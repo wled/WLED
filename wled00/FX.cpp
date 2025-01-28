@@ -7643,228 +7643,13 @@ static const char _data_FX_MODE_2DWAVINGCELL[] PROGMEM = "Waving Cell@!,Blur,Amp
 //Lightfall
 //@martincowell and malcolm gibson. Original work in collab with jona raphael 
 uint16_t mode_2Dlightfall1() {
-  // 1. Define the matrix layout
-  const uint16_t matrixWidth  = 18; // example, set to your actual width
-  const uint16_t matrixHeight = 20; // example, set to your actual height
-
-  // If something is off, fall back to static
-  if (matrixWidth * matrixHeight <= 1) {
-    return mode_static();  
-  }
-
-  // 2. Fade out entire matrix to create trails
-  SEGMENT.fade_out(254);
-
-  // 3. For demonstration, each column gets its own “speed”.
-  //    We store them in a static array so they persist across frames.
-  static bool     speedsInitialized = false;
-  static uint8_t  columnSpeeds[256]; // or use matrixWidth if known maximum
-
-  // Optionally, we can also store random “phase offsets” to make columns
-  // move out of sync. In many effects, random offsets look nice:
-  static uint16_t columnOffsets[256];
-
-  if (!speedsInitialized) {
-    for (uint16_t x = 0; x < matrixWidth; x++) {
-      // Pick random speed in some range; tweak as needed
-      columnSpeeds[x]  = 16+(x-1)*(512-16)/(matrixWidth-1);  
-      // Random offset so columns don't start at the same position
-      columnOffsets[x] = 0;  
-    }
-    speedsInitialized = true;
-  }
-
-  // 4. For each column, compute the chunchun pattern
-  for (uint16_t x = 0; x < matrixWidth; x++)
-  {
-    // localCounter changes over time for this column,
-    // factoring in strip.now plus an offset if desired.
-    // (strip.now is in milliseconds; we usually multiply or shift
-    //  to scale it to a suitable range.)
-    unsigned localCounter = (strip.now + columnOffsets[x]) * (6 + (columnSpeeds[x] >> 4));
-
-    // Number of “birds” (peaks) in this column
-    unsigned numBirds = 2 + (matrixHeight >> 3); 
-    unsigned span     = (SEGMENT.intensity << 8) / numBirds;
-
-    // 5. Compute each bird’s position and set its color
-    for (unsigned i = 0; i < numBirds; i++)
-    {
-      localCounter -= span;
-
-      // The original 1D code uses `sin16_t(counter) + 0x8000` to get a 
-      // 0..65535 “megumin” value, then maps that into the segment length.
-      // For 2D, we map into the column’s height.
-      unsigned megumin = sin16_t(localCounter) + 0x8000; 
-      // Map 0..65535 => 0..(matrixHeight-1)
-      unsigned birdY = (uint32_t(megumin) * matrixHeight) >> 16;
-      birdY = constrain(birdY, 0U, matrixHeight - 1U);
-
-      // Set color from the palette (or a static color).
-      // The original code used palette index `(i * 255)/numBirds`.
-      uint32_t color = SEGMENT.color_from_palette((i * 255) / numBirds, false, false, 0);
-
-      // 6. Light that pixel
-      SEGMENT.setPixelColor(XY(x, birdY), color);
-    } // end for each “bird”
-  } // end for each column
-
-  return FRAMETIME; 
-}
-static const char _data_FX_MODE_2DLIGHTFALL1[] PROGMEM = "Lightfall1@!,intensity;!,!;!";
-
-//lightfall2
-uint16_t mode_2Dlightfall2(void)
-{
-  /**********************************************************************
-   * 1) USER / PROJECT PARAMETERS
-   **********************************************************************/
-
-  // Matrix dimensions (example defaults 18 x 20).
-  // Make these adjustable as needed.
-  const uint16_t matrixWidth  = 18;
-  const uint16_t matrixHeight = 20;
-
-  // Amplitude: half the height if you want it to swing top-to-bottom.
-  // e.g. for height=20, amplitude ~ 9.5
-  float amplitude = (float)(matrixHeight - 1) / 2.0f;
-
-  // Streak length in pixels (adjustable). Example: 6 px
-  float streakLength = 6.0f;
-
-  // Fastest and slowest wave periods (in seconds).
-  // They increase linearly from the left edge to the center and then mirror.
-  // Example: ~5s for fastest, ~10s for slowest.
-  float fastestPeriod = 10.0f;
-  float slowestPeriod = 10.1f;
-
-  // Validate we have enough LEDs for an 18x20 = 360-pixel panel
-  if (matrixWidth == 0 || matrixHeight == 0 || SEGLEN < matrixWidth * matrixHeight) {
-    return mode_static(); // fallback if something’s off
-  }
-
-  /**********************************************************************
-   * 2) CLEAR OR FADE THE MATRIX
-   **********************************************************************/
-  // Hard clear each frame:
-  for (uint16_t i = 0; i < SEGLEN; i++) {
-    SEGMENT.setPixelColor(i, 0); 
-  }
-  // Or, if you want a trailing effect, comment out the loop above and use:
-  // SEGMENT.fade_out(200);
-
-  /**********************************************************************
-   * 3) PRECOMPUTE COLUMN PERIODS (MIRRORED)
-   **********************************************************************/
-  static float columnPeriod[256];
-  static bool  periodInitialized = false;
-  if (!periodInitialized) {
-    uint16_t halfWidth = matrixWidth / 2;  // for width=18, half=9
-    for (uint16_t x = 0; x < halfWidth; x++) {
-      float ratio = (float)x / (float)(halfWidth - 1); 
-      columnPeriod[x] = fastestPeriod + ratio * (slowestPeriod - fastestPeriod);
-    }
-    // Mirror for columns after the midpoint
-    for (uint16_t x = halfWidth; x < matrixWidth; x++) {
-      uint16_t mirrorIndex = (matrixWidth - 1) - x;
-      columnPeriod[x] = columnPeriod[mirrorIndex];
-    }
-    periodInitialized = true;
-  }
-
-  /**********************************************************************
-   * 4) TIME AND RENDER
-   **********************************************************************/
-  float timeSec;
-  timeSec = (float)millis() / 1000.0f; 
-
-  for (uint16_t x = 0; x < matrixWidth; x++)
-  {
-    float T = columnPeriod[x];              // Period for this column
-    float omega = (2.0f * (float)M_PI) / T; // Angular frequency
-    float angle = omega * timeSec;          // Wave angle at current time
-
-    // Center Y of the wave in this column
-    float centerY = (matrixHeight - 1.0f) / 2.0f 
-                    + amplitude * sinf(angle);
-
-    // Streak extends half-length above/below center
-    float halfLen = streakLength * 0.5f;
-    float streakTop    = centerY - halfLen; // might be fractional
-    float streakBottom = centerY + halfLen;
-
-    // We also need the wave’s vertical velocity sign to know which end is “head”
-    //   derivative of sin(angle) = cos(angle)
-    //   actual velocity ~ amplitude * omega * cos(angle).
-    float velocity = amplitude * omega * cosf(angle);
-
-    // For each row, figure out the coverage + color. 
-    for (uint16_t y = 0; y < matrixHeight; y++)
-    {
-      float pixelTop = (float)y;
-      float pixelBot = (float)y + 1.0f;
-
-      // Intersection with the streak [streakTop, streakBottom]
-      float overlapTop = (streakTop > pixelTop) ? streakTop : pixelTop;
-      float overlapBot = (streakBottom < pixelBot) ? streakBottom : pixelBot;
-      float overlap    = overlapBot - overlapTop;
-      if (overlap < 0.0f) overlap = 0.0f;
-
-      // overlap is fraction of this 1-pixel cell that’s within the streak
-      // coverage in [0..1]
-      float coverage = overlap; 
-      if (coverage <= 0.0f) continue;  // no coverage => skip
-
-      // Next, figure out how far along the streak this pixel is, from tail to head.
-      // If velocity>0 => wave is going downward => the bottom is the “head”.
-      //   => fraction=0 at top of streak, fraction=1 at bottom
-      // If velocity<0 => wave is going upward => the top is the “head”.
-      //   => fraction=1 at top, fraction=0 at bottom
-      float fraction = 0.0f;
-      if (velocity > 0.0f) {
-        // Streak goes top->bottom from palette index 0->255
-        fraction = ( ((float)y + 0.5f) - streakTop ) / streakLength;
-        // +0.5f to sample the center of the pixel
-      } else {
-        // velocity <= 0 => wave going up => top is the head => 255->0
-        fraction = ( streakBottom - ((float)y + 0.5f) ) / streakLength;
-      }
-
-      // clamp fraction to [0..1] just in case
-      if (fraction < 0.0f) fraction = 0.0f;
-      if (fraction > 1.0f) fraction = 1.0f;
-
-      // map fraction [0..1] -> [0..255] for the palette index
-      uint8_t palIndex = (uint8_t)(fraction * 255.0f + 0.5f);
-
-      // coverage -> brightness
-      uint8_t bri = (uint8_t)(coverage * 255.0f + 0.5f);
-
-      // Now get color from the palette. The 4th param is brightness scaling.
-      uint32_t color = SEGMENT.color_from_palette(
-        palIndex,  // index
-        false,     // no wrap
-        false,     // no reverse
-        bri        // brightness
-      );
-
-      SEGMENT.setPixelColor(XY(x, y), color);
-    } // end for y
-  } // end for x
-
-  return FRAMETIME; // ~16ms, ~60 FPS
-}
-static const char _data_FX_MODE_2DLIGHTFALL2[] PROGMEM = "Lightfall2@!,intensity;!,!;!";
-
-//lightfall3
-uint16_t mode_2Dlightfall3(void){
   /**********************************************************************
    * 1) USER / PROJECT PARAMETERS
    **********************************************************************/
 
   // Example panel dimensions: 18 wide × 20 tall
-  const uint16_t matrixWidth  = 18;
-  const uint16_t matrixHeight = 20;
+  const uint16_t matrixWidth  = SEG_W;
+  const uint16_t matrixHeight = SEG_H;
 
   // The wave amplitude so that it spans most of the panel’s height
   // (center ± amplitude). E.g. ~9.5 if you want near top-to-bottom motion.
@@ -7876,9 +7661,10 @@ uint16_t mode_2Dlightfall3(void){
   // ~1/4 wave => 2π * 1/4 = π/2
   const float phaseOffset = (float)M_PI / 2.0f;
 
-  // Fastest & slowest wave periods (in seconds) for the columns.
-  float fastestPeriod = 10.0f;
-  float slowestPeriod = 10.1f;
+  // Fastest & slowest wave periods (in seconds) for the columns. 
+  // This is scaled later by the speed SEGMENT.function so it's not exactly seconds.
+  float fastestPeriod = 12.0f/255.0f;
+  float slowestPeriod = fastestPeriod*1.1;
 
   // If the total number of LEDs is insufficient or dimensions are invalid,
   // fallback to a static display.
@@ -7903,14 +7689,14 @@ uint16_t mode_2Dlightfall3(void){
   static float columnPeriod[256];
   static bool  periodInitialized = false;
   if (!periodInitialized) {
-    uint16_t halfWidth = matrixWidth / 2;  // for an 18-wide matrix => 9
+    uint16_t halfWidth = matrixWidth / 2+1;  // for an 18-wide matrix => 9
     for (uint16_t x = 0; x < halfWidth; x++) {
       float ratio = (float)x / (float)(halfWidth - 1); 
-      columnPeriod[x] = slowestPeriod - ratio * (slowestPeriod - fastestPeriod);
+      columnPeriod[x] = fastestPeriod + ratio * (slowestPeriod - fastestPeriod);
     }
     // Mirror the periods on the other half
     for (uint16_t x = halfWidth; x < matrixWidth; x++) {
-      uint16_t mirrorIndex = (matrixWidth - 1) - x;
+      uint16_t mirrorIndex = matrixWidth - x;
       columnPeriod[x] = columnPeriod[mirrorIndex];
     }
     periodInitialized = true;
@@ -7927,7 +7713,295 @@ uint16_t mode_2Dlightfall3(void){
   // The streak is all rows between these two.
   for (uint16_t x = 0; x < matrixWidth; x++)
   {
-    float T = columnPeriod[x];  // period for this column
+    float T = -1*columnPeriod[x]*SEGMENT.speed+16;  // period for this column
+    float omega = (2.0f * (float)M_PI) / T; 
+    float angle = omega * timeSec;
+
+    // The center of the wave’s motion
+    float centerY = (matrixHeight - 1.0f) / 2.0f;
+
+    // Leading end (head) wave
+    float yHead = centerY + amplitude * sinf(angle);
+
+    float streakHeight = 0.33f*amplitude*cosf(angle);
+
+    // Trailing end wave (same frequency, offset by phaseOffset)
+    float yTail = centerY + streakHeight;
+
+    // The streak extends from min(yHead, yTail) to max(yHead, yTail).
+    float top    = (yHead < yTail) ? yHead : yTail;
+    float bottom = (yHead > yTail) ? yHead : yTail;
+
+    // float streakHeight = bottom - top; // can be negative if they cross, but with min/max it's >= 0
+    // if (streakHeight <= 0.0f) continue; // no streak if they coincide exactly
+
+    // For each row in this column, figure out how much coverage & where
+    for (uint16_t y = 0; y < matrixHeight; y++)
+    {
+      float pixelTop = (float)y;
+      float pixelBot = (float)y + 1.0f;
+
+      // Intersection with [top, bottom]
+      float overlapTop = (top > pixelTop) ? top : pixelTop;
+      float overlapBot = (bottom < pixelBot) ? bottom : pixelBot;
+      float overlap    = overlapBot - overlapTop;
+      if (overlap < 0.0f) overlap = 0.0f;
+
+      if (overlap > 0.0f) // partial or full coverage => set color
+      {
+        // coverage => brightness
+        uint8_t bri = (uint8_t)(overlap * 255.0f + 0.5f);
+
+        // Next, we map each pixel’s center to a fraction (0..1) from
+        // the tail wave (0) to the head wave (1).
+        // i.e., fraction=0 => near yTail, fraction=1 => near yHead
+        // We look at the center of the pixel y+0.5
+        float midY = (float)y + 0.5f;
+        float frac;
+        if (yTail <= yHead) {
+          // Tail is physically above => fraction = (midY - yTail) / streakHeight
+          frac = (midY - yTail) / streakHeight;
+        } else {
+          // Tail is physically below => fraction = (yTail - midY) / streakHeight
+          // because now the “bottom” in space is the tail
+          frac = (yTail - midY) / streakHeight;
+        }
+        if (frac < 0.0f) frac = 0.0f;
+        if (frac > 1.0f) frac = 1.0f;
+
+        // fraction => 0..1 => 0..255 for palette index
+        uint8_t palIndex = (uint8_t)((1-frac) * 255.0f + 0.5f);
+
+        // Use the chosen WLED palette with the coverage-based brightness
+        uint32_t color = SEGMENT.color_from_palette(
+          palIndex,  // which color in the palette
+          false,     // no wrap
+          false,     // no reverse
+          bri        // brightness
+        );
+
+        // Set the pixel
+        SEGMENT.setPixelColor(XY(x, y), color);
+      }
+    } // end for y
+  } // end for x
+
+  /**********************************************************************
+   * 5) FRAME DELAY
+   **********************************************************************/
+  return FRAMETIME; // ~16ms for ~60 FPS
+}
+static const char _data_FX_MODE_2DLIGHTFALL1[] PROGMEM = "Lightfall1@!,intensity;!,!;!";
+
+//lightfall2
+uint16_t mode_2Dlightfall2() {
+  /**********************************************************************
+   * 1) USER / PROJECT PARAMETERS
+   **********************************************************************/
+
+  const uint16_t matrixWidth  = SEG_W;
+  const uint16_t matrixHeight = SEG_H;
+
+  // The wave amplitude so that it spans most of the panel’s height
+  float amplitude = (matrixHeight - 1.0f) / 2.0f;
+
+  // *** CHANGED ***: Remove the phaseOffset entirely; not used anymore
+  // const float phaseOffset = (float)M_PI / 2.0f; // <--- gone
+
+  // Fastest & slowest wave periods (in seconds) for the columns. 
+  float fastestPeriod = 12.0f/255.0f;
+  float slowestPeriod = fastestPeriod * 1.1;
+
+  // If the total number of LEDs is insufficient or dimensions are invalid,
+  // fallback to a static display.
+  if (matrixWidth == 0 || matrixHeight == 0 ||
+      SEGLEN < (matrixWidth * matrixHeight)) {
+    return mode_static();
+  }
+
+  /**********************************************************************
+   * 2) CLEAR OR FADE THE MATRIX
+   **********************************************************************/
+  for (uint16_t i = 0; i < SEGLEN; i++) {
+    SEGMENT.setPixelColor(i, 0);
+  }
+  // OR, if you want trailing, comment out the loop above and use fade_out:
+  // SEGMENT.fade_out(220);
+
+  /**********************************************************************
+   * 3) PRECOMPUTE COLUMN PERIODS (MIRRORED FROM LEFT TO RIGHT)
+   **********************************************************************/
+  static float columnPeriod[256];
+  static bool  periodInitialized = false;
+  if (!periodInitialized) {
+    uint16_t halfWidth = matrixWidth / 2 + 1;  
+    for (uint16_t x = 0; x < halfWidth; x++) {
+      float ratio = (float)x / (float)(halfWidth - 1); 
+      columnPeriod[x] = fastestPeriod + ratio * (slowestPeriod - fastestPeriod);
+    }
+    // Mirror the periods on the other half
+    for (uint16_t x = halfWidth; x < matrixWidth; x++) {
+      uint16_t mirrorIndex = matrixWidth - x;
+      columnPeriod[x] = columnPeriod[mirrorIndex];
+    }
+    periodInitialized = true;
+  }
+
+  /**********************************************************************
+   * 4) TIME & SINE CALCS
+   **********************************************************************/
+  float timeSec = (float)millis() / 1000.0f; // current time in seconds
+
+  // We define the tail by a length = amplitude * cos(angle),
+
+  for (uint16_t x = 0; x < matrixWidth; x++)
+  {
+    float T = -1 * columnPeriod[x] * SEGMENT.speed/4.0f + 16;  
+    float omega = (2.0f * (float)M_PI) / T; 
+    float angle = omega * timeSec;
+
+    float centerY = (matrixHeight - 1.0f) / 2.0f;
+
+    // Head wave using sine
+    float yHead = centerY + amplitude * sinf(angle);
+
+    // Tail length is proportional to cos(angle).
+    float tailLen = 1.5*(SEGMENT.custom3+9)/(31.0f+9.0f) * (2.0f*amplitude) * -1.0f*cosf(angle);
+
+    // Position the tail behind yHead by that amount:
+    float yTail = yHead - tailLen;
+
+    // The streak extends from min(yHead, yTail) to max(yHead, yTail).
+    float top    = (yHead < yTail) ? yHead : yTail;
+    float bottom = (yHead > yTail) ? yHead : yTail;
+
+    float streakHeight = bottom - top;
+    if (streakHeight <= 0.0f) continue; // no streak if they coincide exactly
+
+    // For each row in this column, figure out coverage & color
+    for (uint16_t y = 0; y < matrixHeight; y++)
+    {
+      float pixelTop = (float)y;
+      float pixelBot = (float)y + 1.0f;
+
+      float overlapTop = (top > pixelTop) ? top : pixelTop;
+      float overlapBot = (bottom < pixelBot) ? bottom : pixelBot;
+      float overlap    = overlapBot - overlapTop;
+      if (overlap < 0.0f) overlap = 0.0f;
+
+      if (overlap > 0.0f) // partial or full coverage => set color
+      {
+        // coverage => brightness
+        uint8_t bri = (uint8_t)(overlap * 255.0f + 0.5f);
+
+        // Map each pixel’s center to a fraction (0..1) from tail to head
+        float midY = (float)y + 0.5f;
+        float frac;
+        if (yTail <= yHead) {
+          frac = (midY - yTail) / streakHeight;
+        } else {
+          frac = (yTail - midY) / streakHeight;
+        }
+        if (frac < 0.0f) frac = 0.0f;
+        if (frac > 1.0f) frac = 1.0f;
+
+        // fraction => 0..1 => 0..255 for palette index
+        uint8_t palIndex = (uint8_t)((1 - frac) * 255.0f + 0.5f);
+
+        // Use the chosen WLED palette with coverage-based brightness
+        uint32_t color = SEGMENT.color_from_palette(
+          palIndex,  // which color in the palette
+          false,     // no wrap
+          false,     // no reverse
+          bri        // brightness
+        );
+
+        SEGMENT.setPixelColor(XY(x, y), color);
+      }
+    } // end for y
+  } // end for x
+
+  /**********************************************************************
+   * 5) FRAME DELAY
+   **********************************************************************/
+  return FRAMETIME; // ~16ms for ~60 FPS
+}
+
+static const char _data_FX_MODE_2DLIGHTFALL2[] PROGMEM = "Lightfall2@Speed,,,,tail;!;!;2";
+
+//lightfall3
+uint16_t mode_2Dlightfall3(void){
+  /**********************************************************************
+   * 1) USER / PROJECT PARAMETERS
+   **********************************************************************/
+
+  // Example panel dimensions: 18 wide × 20 tall
+  const uint16_t matrixWidth  = SEG_W;
+  const uint16_t matrixHeight = SEG_H;
+
+  // The wave amplitude so that it spans most of the panel’s height
+  // (center ± amplitude). E.g. ~9.5 if you want near top-to-bottom motion.
+  float amplitude = (matrixHeight - 1.0f) / 2.0f;
+
+  // We no longer have a simple “streakLength.” Instead, the streak
+  // is between two waves that have a phase offset.
+  // For clarity, we just define a wave offset in radians for the “tail.”
+  // ~1/8 wave => 2π * 1/8 = π/4
+  const float phaseOffset = (float)M_PI;
+
+  // Fastest & slowest wave periods (in seconds) for the columns. 
+  // This is scaled later by the speed SEGMENT.function so it's not exactly seconds.
+  float fastestPeriod = 12.0f/255.0f;
+  float slowestPeriod = fastestPeriod*1.1;
+
+  // If the total number of LEDs is insufficient or dimensions are invalid,
+  // fallback to a static display.
+  if (matrixWidth == 0 || matrixHeight == 0 ||
+      SEGLEN < (matrixWidth * matrixHeight)) {
+    return mode_static();
+  }
+
+  /**********************************************************************
+   * 2) CLEAR OR FADE THE MATRIX
+   **********************************************************************/
+  // Hard clear each frame (no trailing):
+  for (uint16_t i = 0; i < SEGLEN; i++) {
+    SEGMENT.setPixelColor(i, 0);
+  }
+  // OR, if you want trailing, comment out the loop above and use fade_out:
+  // SEGMENT.fade_out(220);
+
+  /**********************************************************************
+   * 3) PRECOMPUTE COLUMN PERIODS (MIRRORED FROM LEFT TO RIGHT)
+   **********************************************************************/
+  static float columnPeriod[256];
+  static bool  periodInitialized = false;
+  if (!periodInitialized) {
+    uint16_t halfWidth = matrixWidth / 2+1;  // for an 18-wide matrix => 9
+    for (uint16_t x = 0; x < halfWidth; x++) {
+      float ratio = (float)x / (float)(halfWidth - 1); 
+      columnPeriod[x] = fastestPeriod + ratio * (slowestPeriod - fastestPeriod);
+    }
+    // Mirror the periods on the other half
+    for (uint16_t x = halfWidth; x < matrixWidth; x++) {
+      uint16_t mirrorIndex = matrixWidth - x;
+      columnPeriod[x] = columnPeriod[mirrorIndex];
+    }
+    periodInitialized = true;
+  }
+
+  /**********************************************************************
+   * 4) TIME & SINE CALCS
+   **********************************************************************/
+  float timeSec = (float)millis() / 1000.0f; // current time in seconds
+
+  // We'll iterate columns and compute two waves:
+  //   yHead(t) = center + amplitude * sin(angle)
+  //   yTail(t) = center + amplitude * sin(angle + phaseOffset)
+  // The streak is all rows between these two.
+  for (uint16_t x = 0; x < matrixWidth; x++)
+  {
+    float T = -1*columnPeriod[x]*SEGMENT.speed+16;  // period for this column
     float omega = (2.0f * (float)M_PI) / T; 
     float angle = omega * timeSec;
 
@@ -7938,7 +8012,7 @@ uint16_t mode_2Dlightfall3(void){
     float yHead = centerY + amplitude * sinf(angle);
 
     // Trailing end wave (same frequency, offset by phaseOffset)
-    float yTail = centerY + amplitude * sinf(angle + phaseOffset);
+    float yTail = centerY + 1.5*amplitude * sinf(angle + phaseOffset*(SEGMENT.custom3+1)/32);
 
     // The streak extends from min(yHead, yTail) to max(yHead, yTail).
     float top    = (yHead < yTail) ? yHead : yTail;
@@ -8003,238 +8077,134 @@ uint16_t mode_2Dlightfall3(void){
    **********************************************************************/
   return FRAMETIME; // ~16ms for ~60 FPS
 }
-static const char _data_FX_MODE_2DLIGHTFALL3[] PROGMEM = "Lightfall3@!,intensity;!,!;!";
+static const char _data_FX_MODE_2DLIGHTFALL3[] PROGMEM = "Lightfall3@Speed,,,,tail;!;!;2;c3=11";
 
 //lightfall4
-uint16_t mode_2Dlightfall4(void)
-{
-  /******************************************************************************
-   * 1) USER / PROJECT PARAMETERS
-   ******************************************************************************/
-  // Example: 18×20 matrix (adjust as needed or make user-configurable)
-  const uint16_t matrixWidth  = 18;
-  const uint16_t matrixHeight = 20;
+// Adjust these as needed
+#define NUM_COLS  18
+#define NUM_ROWS  20
+#define TOTAL_LEDS (NUM_COLS * NUM_ROWS)
 
-  // Sine wave amplitude: half the height if you want near top-bottom swing
-  float amplitude = (float)(matrixHeight - 1) / 2.0f;
+// If your strip has a different arrangement, map them accordingly.
+// In this example, we assume columns are laid out sequentially.
+// Column 0 -> LED indices [0..4]
+// Column 1 -> LED indices [5..9]
+// ...
+// Column (NUM_COLS-1) -> LED indices [15..19]
 
-  // Phase offset ~1/4 wave => π/2, so the two waves are out of phase
-  // (one wave for the "head", one for the "tail")
-  const float phaseOffset = (float)M_PI / 2.0f;
+// Physical spacing: 60 LED/m => ~1.6667 cm per LED
+static const float LED_SPACING_CM = 100.0f / 60.0f; // ~1.6667
 
-  // Fastest & slowest wave periods (seconds), mirrored from edges to center
-  float fastestPeriod = 10.0f;
-  float slowestPeriod = 10.1f;
+// Base speed in cm/s
+static const float BASE_SPEED_CM = 2.5f;
 
-  // "Feather" distance: how many pixels of soft fade ahead of the leading edge
-  // Increase if you want a gentler ramp (e.g., 1.5 or 2.0).
-  float featherDist = 1.0f;
+// A small struct to hold per-effect data
+typedef struct __attribute__((__packed__)) {
+  float position[NUM_COLS]; // Current "float" position in each column
+  float speed[NUM_COLS];    // Speed in cm/s for each column
+} SmoothWhiteSpotData;
 
-  // Validate we have enough LEDs
-  if (matrixWidth == 0 || matrixHeight == 0 ||
-      SEGLEN < (matrixWidth * matrixHeight)) {
-    return mode_static(); // fallback if invalid
+uint16_t mode_2Dlightfall4() { 
+  // Ensure we have enough runtime data allocated for our custom structure
+  if (!SEGENV.allocateData(sizeof(SmoothWhiteSpotData))) return mode_static(); // fallback if allocation fails
+  
+  // Pointer to our effect’s custom data
+  SmoothWhiteSpotData* data = reinterpret_cast<SmoothWhiteSpotData*>(SEGENV.data);
+
+  // During the first call, we can initialize positions and speeds
+  if (SEGENV.call == 0) {
+    for (uint8_t col = 0; col < NUM_COLS; col++) {
+      data->position[col] = 0.0f; 
+      // Give each column a slightly different speed
+      data->speed[col] = BASE_SPEED_CM + (0.5f * col); 
+    }
   }
 
-  /******************************************************************************
-   * 2) CLEAR (OR FADE) THE MATRIX
-   ******************************************************************************/
-  // Hard-clear the entire matrix this frame
+  // Clear all LEDs to black first
   for (uint16_t i = 0; i < SEGLEN; i++) {
-    SEGMENT.setPixelColor(i, 0);
-  }
-  // OR: if you want trailing, comment out the loop above and do:
-  // SEGMENT.fade_out(220);
-
-  /******************************************************************************
-   * 3) PRECOMPUTE COLUMN PERIODS, MIRRORED LEFT→RIGHT
-   ******************************************************************************/
-  static float columnPeriod[256];
-  static bool  periodInitialized = false;
-  if (!periodInitialized) {
-    uint16_t halfWidth = matrixWidth / 2;  
-    for (uint16_t x = 0; x < halfWidth; x++) {
-      float ratio = (float)x / (float)(halfWidth - 1);
-      columnPeriod[x] = slowestPeriod - ratio * (slowestPeriod - fastestPeriod);
-    }
-    // Mirror for columns after midpoint
-    for (uint16_t x = halfWidth; x < matrixWidth; x++) {
-      uint16_t mirrorIndex = (matrixWidth - 1) - x;
-      columnPeriod[x] = columnPeriod[mirrorIndex];
-    }
-    periodInitialized = true;
+    SEGMENT.setPixelColor(i, 0, 0, 0);
   }
 
-  /******************************************************************************
-   * 4) TIME & SINE CALCS
-   ******************************************************************************/
-  float timeSec = (float)millis() / 1000.0f; // current time in seconds
+  // Time since last frame (in seconds). WLED’s frame time is in milliseconds.
+  // SEGTIME is the time delta in ms between frames.
+  float deltaSec = (float)FRAMETIME / 1000.0f;
 
-  for (uint16_t x = 0; x < matrixWidth; x++)
-  {
-    float T = columnPeriod[x];
-    float omega = (2.0f * (float)M_PI) / T;
-    float angle = omega * timeSec;
+  // For each column, update position and set LED brightness
+  for (uint8_t col = 0; col < NUM_COLS; col++) {
+    //--------------------------------
+    // 1) Update the floating position
+    //--------------------------------
+    // speed in cm/s => LED steps per second = speed / LED_SPACING_CM
+    float stepPerSec = data->speed[col] / LED_SPACING_CM;
+    data->position[col] += stepPerSec * deltaSec;
 
-    // We have two waves in each column:
-    float wave0 = ((float)matrixHeight - 1.0f)/2.0f + amplitude * sinf(angle);
-    float wave1 = ((float)matrixHeight - 1.0f)/2.0f + amplitude * sinf(angle + phaseOffset);
+    // If we’ve passed the top LED (NUM_ROWS), wrap back around
+    if (data->position[col] >= NUM_ROWS) {
+      data->position[col] = fmodf(data->position[col], (float)NUM_ROWS);
+    }
 
-    // Sort them so wave0 <= wave1 => wave0 is "tail", wave1 is "head"
-    float yTail = (wave0 < wave1) ? wave0 : wave1;
-    float yHead = (wave0 < wave1) ? wave1 : wave0;
+    //--------------------------------
+    // 2) Determine which row indices we blend
+    //--------------------------------
+    // Example: If position[col] = 2.3,
+    // then floor(2.3) = 2, next index = 3,
+    // fraction = 0.3 => 30% brightness in pixel 3, 70% in pixel 2
 
-    // Streak is from yTail..yHead
-    float top    = yTail;  
-    float bottom = yHead; 
-    float streakHeight = bottom - top; 
-    if (streakHeight <= 0.0f) continue; // if exactly same => skip
+    uint16_t iFloor = (uint16_t)floorf(data->position[col]);           // the “lower” pixel
+    uint16_t iCeil  = (iFloor + 1) % NUM_ROWS;                          // the “upper” pixel (wrap around column top)
+    float frac       = data->position[col] - (float)iFloor;            // fraction in between
 
-    // We also want to determine the wave that is physically "head" 
-    // and its velocity (to know if we're moving down or up).
-    // If wave1==yHead => wave1 is the head wave => velocity is v1
-    // else wave0 is the head wave => velocity is v0
-    float v0 = amplitude * omega * cosf(angle);
-    float v1 = amplitude * omega * cosf(angle + phaseOffset);
+    // Map these row indices to actual strip indices.
+    // Column col starts at baseIndex = col * NUM_ROWS
+    uint16_t baseIndex = col * NUM_ROWS;
+    uint16_t ledIndexFloor = baseIndex + iFloor;
+    uint16_t ledIndexCeil  = baseIndex + iCeil;
 
-    // Identify which wave is the "head" in space
-    bool headIsWave1 = (yHead == wave1);
-    float vHead      = headIsWave1 ? v1 : v0;
+    //--------------------------------
+    // 3) Compute brightness for each pixel
+    //--------------------------------
+    // We'll do 8-bit brightness interpolation
+    // If frac=0.3 => floor gets 0.7 => ~178, ceil gets 0.3 => ~77
+    uint8_t brightFloor = (uint8_t)(255.0f * (1.0f - frac));
+    uint8_t brightCeil  = (uint8_t)(255.0f * frac);
 
-    // We'll define the leading boundary:
-    //  If vHead>0 => wave is moving downward => "head" at bottom
-    //    leading boundary = yHead, and we'll add a fade from [yHead..yHead+featherDist]
-    //  If vHead<0 => wave is moving upward => "head" at top
-    //    leading boundary = yTail, and we'll add a fade from [yTail-featherDist..yTail]
-    //  Actually since we sorted yTail<yHead => the "bottom" in space is yHead,
-    //    the "top" in space is yTail. 
-    //  So for the "leading boundary," we see if velocity is positive => leading boundary=bottom 
-    //    else leading boundary=top
-    float leadingBoundary = (vHead > 0.0f) ? bottom : top;
+    // We set them to white with that brightness. 
+    // If you want to sum multiple columns, you’d read back existing color 
+    // from the buffer, add, then write. For simplicity, we just overwrite here.
+    SEGMENT.setPixelColor(ledIndexFloor, brightFloor, brightFloor, brightFloor);
+    SEGMENT.setPixelColor(ledIndexCeil,  brightCeil,  brightCeil,  brightCeil);
+  }
 
-    /******************************************************************************
-     * 5) RENDER EACH ROW
-     ******************************************************************************/
-    for (uint16_t y = 0; y < matrixHeight; y++)
-    {
-      // We'll do sub-pixel coverage for the main streak region [top..bottom].
-      float pixelTop = (float) y;
-      float pixelBot = (float) y + 1.0f;
+  // Return a typical frame time. If you want a faster or slower frame rate, adjust accordingly.
+  return FRAMETIME; // typically 16-50 ms. WLED default is 16 ms for ~60 FPS
+} 
+static const char _data_FX_MODE_2DLIGHTFALL4[] PROGMEM = "Lightfall4@X scale,Y scale,,,Speed;!;!;2";
 
-      // Intersection with [top..bottom]
-      float overlapTop = (top    > pixelTop) ? top    : pixelTop;
-      float overlapBot = (bottom < pixelBot) ? bottom : pixelBot;
-      float overlap    = overlapBot - overlapTop;
-      if (overlap < 0.0f) overlap = 0.0f;
 
-      // coverageMain => how much of this pixel is in the main streak
-      float coverageMain = overlap;
+uint16_t mode_lightfallpixels(void) {                    // lightfall pixels adapted from pixels FX to be slower
+  if (SEGLEN <= 1) return mode_static();
 
-      // color fraction for the main streak region (0..1)
-      // fraction = 0 at tail (yTail), 1 at head (yHead)
-      // We'll sample pixel center to define fraction
-      float fractionMain = 0.0f; 
-      if (streakHeight > 0.0f)
-      {
-        float midY = (float)y + 0.5f;
-        fractionMain = (midY - yTail) / streakHeight; 
-        if (fractionMain < 0.0f) fractionMain = 0.0f;
-        if (fractionMain > 1.0f) fractionMain = 1.0f;
-      }
+  if (!SEGENV.allocateData(32*sizeof(uint8_t))) return mode_static(); //allocation failed
+  uint8_t *myVals = reinterpret_cast<uint8_t*>(SEGENV.data); // Used to store a pile of samples because WLED frame rate and WLED sample rate are not synchronized. Frame rate is too low.
 
-      // Now let's add the "feather" coverage for the leading edge region,
-      // which extends beyond the streak by featherDist in the direction of travel.
-      float coverageFeather = 0.0f; 
-      float fractionFeather = 0.0f; // color fraction in that region
+  um_data_t *um_data;
+  if (!UsermodManager::getUMData(&um_data, USERMOD_ID_AUDIOREACTIVE)) {
+    um_data = simulateSound(SEGMENT.soundSim);
+  }
+  float   volumeSmth   = *(float*)  um_data->u_data[0];
 
-      // If vHead>0 => leading boundary=bottom => fade region [bottom..bottom+featherDist]
-      // If vHead<0 => leading boundary=top => fade region [top-featherDist..top]
-      if (vHead > 0.0f) {
-        // wave moving downward => leading boundary = bottom
-        float fadeStart = bottom; 
-        float fadeEnd   = bottom + featherDist; 
-        if (pixelBot > fadeStart && pixelTop < fadeEnd) {
-          // intersection with [fadeStart..fadeEnd]
-          float intTop = (fadeStart > pixelTop) ? fadeStart : pixelTop;
-          float intBot = (fadeEnd   < pixelBot) ? fadeEnd   : pixelBot;
-          float intLen = intBot - intTop;
-          if (intLen > 0.0f) {
-            // coverageFeather in [0..1] 
-            // we want a linear ramp from 0 at fadeStart to 1 at fadeEnd
-            float midY = (float)y + 0.5f;
-            float distFromStart = midY - fadeStart;
-            // clamp to 0..featherDist
-            if (distFromStart < 0.0f) distFromStart = 0.0f;
-            if (distFromStart > featherDist) distFromStart = featherDist;
-            coverageFeather = (distFromStart / featherDist); 
-            // coverageFeather is how bright we are in the feather region
-            // color fraction in that region is "head color" => 1.0f
-            fractionFeather = 1.0f; 
-          }
-        }
-      } else {
-        // wave moving upward => leading boundary=top
-        float fadeStart = top - featherDist;
-        float fadeEnd   = top;
-        if (pixelBot > fadeStart && pixelTop < fadeEnd) {
-          // intersection with [fadeStart..fadeEnd]
-          float intTop = (fadeStart > pixelTop) ? fadeStart : pixelTop;
-          float intBot = (fadeEnd   < pixelBot) ? fadeEnd   : pixelBot;
-          float intLen = intBot - intTop;
-          if (intLen > 0.0f) {
-            // coverageFeather in [0..1]
-            // linear ramp from 0 at fadeEnd to 1 at fadeStart
-            // i.e. coverageFeather = 1 - ((midY - fadeStart)/featherDist)?
-            float midY = (float)y + 0.5f;
-            float distFromEnd = fadeEnd - midY; 
-            // distFromEnd goes 0..featherDist 
-            if (distFromEnd < 0.0f) distFromEnd = 0.0f;
-            if (distFromEnd > featherDist) distFromEnd = featherDist;
-            coverageFeather = (distFromEnd / featherDist);
-            // color fraction in that region = "head color" if the top is head=0? 
-            // Actually if wave is traveling up, the "head" is physically at top => fraction=0
-            fractionFeather = 0.0f;
-          }
-        }
-      }
+  myVals[strip.now%32] = volumeSmth;    // filling values semi randomly
 
-      // Combine coverage & fraction from main streak vs. feather
-      // We'll pick whichever coverage is larger to avoid double-dimming
-      float finalCoverage, finalFraction;
-      if (coverageFeather > coverageMain) {
-        // The feather region has a stronger coverage
-        finalCoverage = coverageFeather;
-        finalFraction = fractionFeather;
-      } else {
-        // The main region is stronger (or they're equal)
-        finalCoverage = coverageMain;
-        finalFraction = fractionMain;
-      }
+  //SEGMENT.fade_out((SEGMENT.speed>>1));
 
-      // If we have any coverage, set the pixel
-      if (finalCoverage > 0.0f)
-      {
-        uint8_t bri       = (uint8_t)(finalCoverage * 255.0f + 0.5f);
-        uint8_t palIndex  = (uint8_t)(finalFraction * 255.0f + 0.5f);
+  for (int i=0; i <SEGMENT.intensity/8; i++) {
+    unsigned segLoc = hw_random16(SEGLEN);                    // 16 bit for larger strands of LED's.
+    SEGMENT.setPixelColor(segLoc, color_blend(SEGCOLOR(1), SEGMENT.color_from_palette(myVals[i%32]+i*4, false, PALETTE_SOLID_WRAP, 0), uint8_t(volumeSmth)));
+  }
 
-        uint32_t color = SEGMENT.color_from_palette(
-          palIndex,  // palette index
-          false,     // no wrap
-          false,     // no reverse
-          bri        // brightness
-        );
-        SEGMENT.setPixelColor(XY(x, y), color);
-      }
-    } // end for y
-  } // end for x
-
-  /******************************************************************************
-   * 6) FRAME DELAY
-   ******************************************************************************/
-  return FRAMETIME; // ~16ms, ~60 FPS
-}
-
-static const char _data_FX_MODE_2DLIGHTFALL4[] PROGMEM = "Lightfall4@!,intensity;!,!;!";
+  return FRAMETIME;
+} 
+static const char _data_FX_MODE_LIGHTFALLPIXELS[] PROGMEM = "Lightfall Pixels@Fade rate,# of pixels;!,!;!;1v;m12=0,si=0";
 
 #endif // WLED_DISABLE_2D
 
@@ -8483,6 +8453,7 @@ void WS2812FX::setupEffectData() {
   addEffect(FX_MODE_2DLIGHTFALL2, &mode_2Dlightfall2, _data_FX_MODE_2DLIGHTFALL2);
   addEffect(FX_MODE_2DLIGHTFALL3, &mode_2Dlightfall3, _data_FX_MODE_2DLIGHTFALL3);
   addEffect(FX_MODE_2DLIGHTFALL4, &mode_2Dlightfall4, _data_FX_MODE_2DLIGHTFALL4);
+  addEffect(FX_MODE_LIGHTFALLPIXELS, &mode_lightfallpixels, _data_FX_MODE_LIGHTFALLPIXELS);
 
   addEffect(FX_MODE_2DAKEMI, &mode_2DAkemi, _data_FX_MODE_2DAKEMI); // audio
 #endif // WLED_DISABLE_2D
