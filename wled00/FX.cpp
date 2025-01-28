@@ -7856,7 +7856,7 @@ uint16_t mode_2Dlightfall2() {
 
   for (uint16_t x = 0; x < matrixWidth; x++)
   {
-    float T = -1 * columnPeriod[x] * SEGMENT.speed + 16;  
+    float T = -1 * columnPeriod[x] * SEGMENT.speed/4.0f + 16;  
     float omega = (2.0f * (float)M_PI) / T; 
     float angle = omega * timeSec;
 
@@ -7946,8 +7946,8 @@ uint16_t mode_2Dlightfall3(void){
   // We no longer have a simple “streakLength.” Instead, the streak
   // is between two waves that have a phase offset.
   // For clarity, we just define a wave offset in radians for the “tail.”
-  // ~1/4 wave => 2π * 1/4 = π/2
-  const float phaseOffset = (float)M_PI / 2.0f;
+  // ~1/8 wave => 2π * 1/8 = π/4
+  const float phaseOffset = (float)M_PI;
 
   // Fastest & slowest wave periods (in seconds) for the columns. 
   // This is scaled later by the speed SEGMENT.function so it's not exactly seconds.
@@ -8012,7 +8012,7 @@ uint16_t mode_2Dlightfall3(void){
     float yHead = centerY + amplitude * sinf(angle);
 
     // Trailing end wave (same frequency, offset by phaseOffset)
-    float yTail = centerY + amplitude * sinf(angle + phaseOffset);
+    float yTail = centerY + 1.5*amplitude * sinf(angle + phaseOffset*(SEGMENT.custom3+1)/32);
 
     // The streak extends from min(yHead, yTail) to max(yHead, yTail).
     float top    = (yHead < yTail) ? yHead : yTail;
@@ -8077,7 +8077,7 @@ uint16_t mode_2Dlightfall3(void){
    **********************************************************************/
   return FRAMETIME; // ~16ms for ~60 FPS
 }
-static const char _data_FX_MODE_2DLIGHTFALL3[] PROGMEM = "Lightfall3@!,intensity;!,!;!";
+static const char _data_FX_MODE_2DLIGHTFALL3[] PROGMEM = "Lightfall3@Speed,,,,tail;!;!;2;c3=11";
 
 //lightfall4
 // Adjust these as needed
@@ -8179,6 +8179,32 @@ uint16_t mode_2Dlightfall4() {
   return FRAMETIME; // typically 16-50 ms. WLED default is 16 ms for ~60 FPS
 } 
 static const char _data_FX_MODE_2DLIGHTFALL4[] PROGMEM = "Lightfall4@X scale,Y scale,,,Speed;!;!;2";
+
+
+uint16_t mode_lightfallpixels(void) {                    // lightfall pixels adapted from pixels FX to be slower
+  if (SEGLEN <= 1) return mode_static();
+
+  if (!SEGENV.allocateData(32*sizeof(uint8_t))) return mode_static(); //allocation failed
+  uint8_t *myVals = reinterpret_cast<uint8_t*>(SEGENV.data); // Used to store a pile of samples because WLED frame rate and WLED sample rate are not synchronized. Frame rate is too low.
+
+  um_data_t *um_data;
+  if (!UsermodManager::getUMData(&um_data, USERMOD_ID_AUDIOREACTIVE)) {
+    um_data = simulateSound(SEGMENT.soundSim);
+  }
+  float   volumeSmth   = *(float*)  um_data->u_data[0];
+
+  myVals[strip.now%32] = volumeSmth;    // filling values semi randomly
+
+  //SEGMENT.fade_out((SEGMENT.speed>>1));
+
+  for (int i=0; i <SEGMENT.intensity/8; i++) {
+    unsigned segLoc = hw_random16(SEGLEN);                    // 16 bit for larger strands of LED's.
+    SEGMENT.setPixelColor(segLoc, color_blend(SEGCOLOR(1), SEGMENT.color_from_palette(myVals[i%32]+i*4, false, PALETTE_SOLID_WRAP, 0), uint8_t(volumeSmth)));
+  }
+
+  return FRAMETIME;
+} 
+static const char _data_FX_MODE_LIGHTFALLPIXELS[] PROGMEM = "Lightfall Pixels@Fade rate,# of pixels;!,!;!;1v;m12=0,si=0";
 
 #endif // WLED_DISABLE_2D
 
@@ -8427,6 +8453,7 @@ void WS2812FX::setupEffectData() {
   addEffect(FX_MODE_2DLIGHTFALL2, &mode_2Dlightfall2, _data_FX_MODE_2DLIGHTFALL2);
   addEffect(FX_MODE_2DLIGHTFALL3, &mode_2Dlightfall3, _data_FX_MODE_2DLIGHTFALL3);
   addEffect(FX_MODE_2DLIGHTFALL4, &mode_2Dlightfall4, _data_FX_MODE_2DLIGHTFALL4);
+  addEffect(FX_MODE_LIGHTFALLPIXELS, &mode_lightfallpixels, _data_FX_MODE_LIGHTFALLPIXELS);
 
   addEffect(FX_MODE_2DAKEMI, &mode_2DAkemi, _data_FX_MODE_2DAKEMI); // audio
 #endif // WLED_DISABLE_2D
