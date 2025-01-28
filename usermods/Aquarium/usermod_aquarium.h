@@ -36,6 +36,14 @@ struct AnimatedObject {
   long shade5;
 };
 
+
+static bool FeedingFish = false;
+static void FeedFish()
+{
+  Serial.println("Feeding fish");
+  FeedingFish = true;
+}
+
 // Fish sprite (6x9)
 const int aquariumfish[6][9] = {
     {0, 0, 1, 1, 1, 0, 0, 0, 1},
@@ -51,7 +59,7 @@ const int aquariumfishB[6][9] = {
     {0, 1, 1, 1, 1, 1, 0, 1, 1},
     {1, 1, 5, 1, 1, 1, 1, 1, 1},
     {1, 1, 1, 1, 1, 1, 1, 1, 1},
-    {0, 1, 1, 1, 1, 1, 0, 0, 1},
+    {0, 1, 1, 1, 1, 1, 0, 1, 1},
     {0, 0, 1, 1, 1, 0, 0, 0, 1},    
 };
 
@@ -185,25 +193,72 @@ void setNewTarget(AnimatedObject &obj, int minX, int maxX, int minY, int maxY) {
   obj.speedY = (dy / dist) * speed;
 }
 
+void setNewTarget(AnimatedObject &obj, int setX, int setY) {
+  // Opposite side in X, random Y
+  obj.targetX = setX;
+  obj.targetY = setY;
+  
+  float dx = obj.targetX - obj.xPosF;
+  float dy = obj.targetY - obj.yPosF;
+  float dist = sqrt(dx * dx + dy * dy);
+  float speed = 2.5f; // Adjust  
+  Serial.printf("dx: %f, dy: %f, dist: %f, speed: %f\n", dx, dy, dist, speed);
+  obj.direction = dx < 0.0 ? 0 : 1;
+
+  obj.speedX = (dx / dist) * speed;
+  obj.speedY = (dy / dist) * speed;
+}
+
 bool animateObject(AnimatedObject &obj) {
   unsigned long currentTime = millis();
+
+  // Handle timer-based transitions
+  if (obj.state == STATE_STAYING_AT_CENTER) {
+    // Transition out after waitTime
+    if (currentTime - obj.stateStartTime >= 1500) {
+      Serial.println("Fish is moving out");
+      obj.state = STATE_MOVING_OUT;
+      obj.stateStartTime = currentTime;
+      setNewTarget(obj, -25, 25, -4, 20);
+    }
+  }
+  else if (obj.state == STATE_MOVING_OUT) {
+    if (currentTime - obj.stateStartTime >= 8000) {
+      Serial.println("Fish is normal");
+      obj.state = STATE_NORMAL;
+      obj.stateStartTime = currentTime;
+      obj.waitTime = random(100, 400);
+      obj.targetX = 0;
+      obj.targetY = 0;
+    }
+  }
+
+  // Movement interval
   if (currentTime - obj.lastMoveTime >= obj.moveInterval) {
     obj.lastMoveTime = currentTime;
 
     // Move towards target
     obj.xPosF += obj.speedX;
     obj.yPosF += obj.speedY;
-    // Check if target reached
-    if (obj.direction == 2) {
-      if (fabsf(obj.yPosF - obj.targetY) < 2.0f) {
+
+    // Check distance to target
+    float dx = obj.targetX - obj.xPosF;
+    float dy = obj.targetY - obj.yPosF;
+    float dist = sqrtf(dx * dx + dy * dy);
+
+    // Only switch to STAYING_AT_CENTER once on arrival
+    if (dist < 2.0f) {
+      if (obj.state == STATE_NORMAL) {
+        // Normal scenario: maybe pick a new target or do nothing
         obj.targetX = 0;
         obj.targetY = 0;
       }
-    } else if (obj.direction == 1 || obj.direction == 0) {
-      if (fabsf(obj.xPosF - obj.targetX) < 2.0f) {
-        obj.targetX = 0;
-        obj.targetY = 0;
-        // setNewTarget(obj, minX, maxX, minY, maxY);
+      else if (obj.state == STATE_MOVING_TO_CENTER) {
+        // Just arrived at center: stop and set STAYING_AT_CENTER
+        obj.speedX = 0.0f;
+        obj.speedY = 0.0f;
+        obj.state = STATE_STAYING_AT_CENTER;
+        obj.stateStartTime = currentTime;
       }
     }
 
@@ -299,7 +354,7 @@ uint16_t mode_aquarium() {
 
   if (shark.targetX == 0 && shark.targetY == 0) {
     setNewTarget(shark, -25, 25, -4, 20);
-    jellyfish.waitTime = random(40000, 120000);
+    shark.waitTime = random(40000, 120000);
     shark.lastMoveTime = millis();
   }
   // Draw and animate shark
@@ -311,6 +366,17 @@ uint16_t mode_aquarium() {
 
   // Draw and animate fish
   for (int i = 0; i < 2; i++) {
+    drawObject(fish[i]);
+
+    if (FeedingFish)
+    {
+      Serial.printf("Feeding fish %d\n", i);
+      setNewTarget(fish[i], 8, 12);
+      fish[i].moveInterval = 100;
+      fish[i].state = STATE_MOVING_TO_CENTER;
+      
+       fish[i].stateStartTime = millis();            
+    }
     if (fish[i].targetX == 0 && fish[i].targetY == 0) {
       setNewTarget(fish[i], -25, 25, -4, 20);
       fish[i].waitTime = random(1000, 20000);
@@ -318,7 +384,6 @@ uint16_t mode_aquarium() {
     }
     if (fish[i].lastMoveTime + fish[i].waitTime < millis()) {
       fish[i].waitTime = 0;
-      drawObject(fish[i]);
       if (animateObject(fish[i]))
       {
          fish[i].sprite = fish[i].frame ? fishSprites0 : fishSprites1; 
@@ -328,6 +393,16 @@ uint16_t mode_aquarium() {
   }
 
   for (int i = 0; i < 1; i++) {
+    drawObject(gup[i]);
+
+    if (FeedingFish)
+    {
+      Serial.printf("Feeding gup %d\n", i);
+      setNewTarget(gup[i], 8, 3);
+      gup[i].state = STATE_MOVING_TO_CENTER;
+      gup[i].moveInterval = 100;
+       gup[i].stateStartTime = millis();  
+    }
     if (gup[i].targetX == 0 && gup[i].targetY == 0) {
       setNewTarget(gup[i], -25, 25, 0, 16);
       gup[i].waitTime = random(1000, 20000);
@@ -335,7 +410,6 @@ uint16_t mode_aquarium() {
     }
     if (gup[i].lastMoveTime + gup[i].waitTime < millis()) {
       gup[i].waitTime = 0;
-      drawObject(gup[i]);
       if (animateObject(gup[i]))
       {
          gup[i].sprite = gup[i].frame ? gupSprites0 : gupSprites1; 
@@ -368,7 +442,8 @@ uint16_t mode_aquarium() {
   // Draw vegetation
   drawVegetation(2, 13);
   drawVegetation(12, 13);
-
+      FeedingFish = false;
+  
   return FRAMETIME;
 }
 

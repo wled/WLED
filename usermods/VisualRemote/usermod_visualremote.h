@@ -131,7 +131,9 @@ static const byte brightnessSteps_visualremote[] = {
   6, 33, 50, 128 
 };
 
+
 static const size_t numBrightnessSteps_visualremote = sizeof(brightnessSteps_visualremote) / sizeof(byte);
+
 
 inline void applyBrightness_visualremote() {
   brightnessrepeat--;
@@ -375,7 +377,7 @@ class UsermodVisualRemote : public Usermod {
       }
     
       switch (incoming->button) {
-        case WIZMOTE_BUTTON_OFF_SHORT             : togglePower_visualremote();                                            break;
+        case WIZMOTE_BUTTON_OFF_SHORT             : FeedFish(); /*togglePower_visualremote();*/                                            break;
         case WIZMOTE_BUTTON_OFF_LONG            : toggleSyncMode_visualremote();                                           break;
         case WIZMOTE_BUTTON_ON_SHORT            : setBrightness_visualremote();                                           break;
         case WIZMOTE_BUTTON_ON_LONG            : resetBrightness_visualremote();                                           break;
