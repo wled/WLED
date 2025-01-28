@@ -38,10 +38,57 @@ struct AnimatedObject {
 
 
 static bool FeedingFish = false;
+static const uint32_t BROWN = RGBW32(90, 48, 0, 0);
+
+struct FishFood {
+  bool active;
+  float x;
+  float y;
+};
+
+static FishFood fishFood[3];
+
+void spawnFishFood() {
+  for (int i = 0; i < 3; i++) {
+    fishFood[i].active = true;
+    // Slightly spread out x to see 3 distinct pieces
+    fishFood[i].x = 5.0f + (float)(i*2);
+    fishFood[i].y = 0.0f; // Top
+  }
+}
+
+
+void animateFishFood() {
+  for (int i = 0; i < 3; i++) {
+    if (!fishFood[i].active) continue;
+
+    // Slow downward movement
+    fishFood[i].y += 0.02f; 
+
+    // A bit more drift range so it’s more visible
+    float drift = (float)(random(-1, 2)) / 10.0f; // -0.5 .. +0.5
+    fishFood[i].x += drift;
+
+    // Deactivate if out of view
+    if (fishFood[i].y > 16.0f) {
+      fishFood[i].active = false;
+    }
+  }
+}
+
+void drawFishFood() {
+  for (int i = 0; i < 3; i++) {
+    if (fishFood[i].active) {
+      SEGMENT.setPixelColorXY((int)fishFood[i].x, (int)fishFood[i].y, BROWN);
+    }
+  }
+}
+
 static void FeedFish()
 {
   Serial.println("Feeding fish");
   FeedingFish = true;
+  spawnFishFood(); 
 }
 
 // Fish sprite (6x9)
@@ -307,7 +354,6 @@ static const int *fishSprites1[6] = {
   aquariumfishB[0], aquariumfishB[1], aquariumfishB[2], aquariumfishB[3], aquariumfishB[4], aquariumfishB[5]
 };
 
-
 static const int *gupSprites0[7] = {
   gupfish[0], gupfish[1], gupfish[2], gupfish[3], gupfish[4], gupfish[5], gupfish[6]
 };
@@ -352,6 +398,7 @@ uint16_t mode_aquarium() {
   SEGMENT.fill(RGBW32(0, 0, 28, 0));
 
 
+
   if (shark.targetX == 0 && shark.targetY == 0) {
     setNewTarget(shark, -25, 25, -4, 20);
     shark.waitTime = random(40000, 120000);
@@ -374,8 +421,8 @@ uint16_t mode_aquarium() {
       setNewTarget(fish[i], 8, 12);
       fish[i].moveInterval = 100;
       fish[i].state = STATE_MOVING_TO_CENTER;
-      
-       fish[i].stateStartTime = millis();            
+      fish[i].moveInterval = 100;
+       fish[i].stateStartTime = millis();  
     }
     if (fish[i].targetX == 0 && fish[i].targetY == 0) {
       setNewTarget(fish[i], -25, 25, -4, 20);
@@ -438,6 +485,9 @@ uint16_t mode_aquarium() {
   static int bubbleX = 8, bubbleY = 15;
   drawBubble(bubbleX, bubbleY);
   animateBubbles(bubbleX, bubbleY);
+  
+  animateFishFood();
+  drawFishFood();
 
   // Draw vegetation
   drawVegetation(2, 13);
