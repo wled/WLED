@@ -22,10 +22,12 @@
 		<!--replace header below with lightfall workdmark-->
 		<h2 style="padding-left:12px; margin-bottom:10px; letter-spacing:15px;">LIGHTFALL</h2>
 		
-		<!--replaced buttons with icons to avoid background change on hover, but lost color change of power button when toggled -->
-		<!--write js to change the power icon color to green when toggled on-->
-		<i onclick="togglePower()" class="icons" style="position:absolute; left:5%; padding-top:7px;">&#xe08f;</i>
-		<!--NEED NEW ICON FOR WIFI-->
+		<!-- replaced buttons with icons to avoid background change on hover, but lost color change of power button when toggled -->
+		<!-- added js to togglePower() function in index.js to change the pwr icon color when toggled -->
+		<!-- also added new line to beginning of updateUI() function in index.js to handle initial state on page load -->
+		<!-- PWR Button -->
+		<i id="pwri" onclick="togglePower()" class="icons tgl" style="position:absolute; left:5%; padding-top:7px;">&#xe08f;</i>
+		<!--WIFI Button-->
 		<i onclick="window.location.href=getURL('/settings/wifi');" class="icons_sm" style="position:absolute; right:5%; padding-top:7px;">&#xe91b;</i>
 
 		<!-- brightness slider -->

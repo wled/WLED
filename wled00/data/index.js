@@ -1249,6 +1249,8 @@ function updatePA()
 function updateUI()
 {
 	gId('buttonPower').className = (isOn) ? 'active':'';
+	//since using pwr icon instead of button, add line to match icon color to ON state
+	gId('pwri').style.color = (isOn) ? '#0f0':'#ddd';
 	gId('buttonNl').className = (nlA) ? 'active':'';
 	gId('buttonSync').className = (syncSend) ? 'active':'';
 	//comment out logic below to unhide pixel magic button if enabled. Button hidden in index.htm
@@ -1766,6 +1768,16 @@ function togglePower()
 {
 	isOn = !isOn;
 	var obj = {"on": isOn};
+
+	 // mgibson - adding logic to change icon color based on the power state
+	 // also added js at bottom of index.htm to match icon color to power state at page load
+	 var icon = document.getElementById("pwri");
+	 if (isOn) {
+		 icon.style.color = "#0f0";  // Color when ON, green
+	 } else {
+		 icon.style.color = "#ddd";    // Color when OFF, usual light grey
+	 }
+
 	if (isOn && lastinfo && lastinfo.live && lastinfo.liveseg>=0) {
 		obj.live = false;
 		obj.seg = [];
