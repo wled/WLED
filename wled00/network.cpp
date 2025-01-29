@@ -161,6 +161,12 @@ int getSignalQuality(int rssi)
     return quality;
 }
 
+#if ESP_IDF_VERSION_MAJOR >= 4
+  #define SYSTEM_EVENT_ETH_CONNECTED ARDUINO_EVENT_ETH_CONNECTED
+  #define SYSTEM_EVENT_ETH_DISCONNECTED ARDUINO_EVENT_ETH_DISCONNECTED
+  #define SYSTEM_EVENT_ETH_START ARDUINO_EVENT_ETH_START
+  #define SYSTEM_EVENT_ETH_GOT_IP ARDUINO_EVENT_ETH_GOT_IP
+#endif
 
 //handle Ethernet connection event
 void WiFiEvent(WiFiEvent_t event)
@@ -170,12 +176,21 @@ void WiFiEvent(WiFiEvent_t event)
     case SYSTEM_EVENT_ETH_START:
       DEBUG_PRINTLN(F("ETH Started"));
       break;
+    case SYSTEM_EVENT_ETH_GOT_IP:
+      if (Network.isEthernet()) {
+        if (!apActive) {
+          DEBUG_PRINTLN(F("WiFi Connected *and* ETH Connected. Disabling WIFi"));
+          WiFi.disconnect(true);
+        } else {
+          DEBUG_PRINTLN(F("WiFi Connected *and* ETH Connected. Leaving AP WiFi active"));
+        }
+      } else {
+        DEBUG_PRINTLN(F("WiFi Connected. No ETH"));
+      }
+      break;
     case SYSTEM_EVENT_ETH_CONNECTED:
       {
       DEBUG_PRINTLN(F("ETH Connected"));
-      if (!apActive) {
-        WiFi.disconnect(true);
-      }
       if (staticIP != (uint32_t)0x00000000 && staticGateway != (uint32_t)0x00000000) {
         ETH.config(staticIP, staticGateway, staticSubnet, IPAddress(8, 8, 8, 8));
       } else {
