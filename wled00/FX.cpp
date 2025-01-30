@@ -2321,92 +2321,70 @@ uint16_t mode_lake() {
 static const char _data_FX_MODE_LAKE[] PROGMEM = "Lake@!;Fx;!";
 
 
-// meteor effect
+// meteor effect & meteor smooth (merged by @dedehai, optimised by @blazoncek)
 // send a meteor from begining to to the end of the strip with a trail that randomly decays.
 // adapted from https://www.tweaking4all.com/hardware/arduino/adruino-led-strip-effects/#LEDStripEffectMeteorRain
 uint16_t mode_meteor() {
   if (SEGLEN <= 1) return mode_static();
   if (!SEGENV.allocateData(SEGLEN)) return mode_static(); //allocation failed
-
-  byte* trail = SEGENV.data;
-
+  const bool gradient = SEGMENT.check1;
+  const bool smooth = SEGMENT.check3;
   const unsigned meteorSize = 1 + SEGLEN / 20; // 5%
-  unsigned counter = strip.now * ((SEGMENT.speed >> 2) +8);
-  uint16_t in = counter * SEGLEN >> 16;
-  const bool gradient = SEGMENT.check1;
-
-  const int max = SEGMENT.palette==5 ? 239 : 255;  // "* Colors only" palette blends end with start
-  // fade all leds to colors[1] in LEDs one step
-  for (unsigned i = 0; i < SEGLEN; i++) {
-    if (random8() <= 255 - SEGMENT.intensity) {
-      int meteorTrailDecay = 128 + hw_random8(127);
-      trail[i] = scale8(trail[i], meteorTrailDecay);
-      int index = trail[i];
-      int idx = 255;
-      int bri = SEGMENT.palette==35 || SEGMENT.palette==36 ? 255 : trail[i];
-      if (!gradient) {
-        idx = 0;
-        index = map(i,0,SEGLEN,0,max);
-        bri = trail[i];
-      }
-      SEGMENT.setPixelColor(i, SEGMENT.color_from_palette(index, false, false, idx, bri)); // full brightness for Fire
-    }
-  }
-
-  // draw meteor
-  for (unsigned j = 0; j < meteorSize; j++) {
-    int index = (in + j) % SEGLEN;
-    int idx = 255;
-    int i = trail[index] = max;
-    if (!gradient) {
-      i = map(index,0,SEGLEN,0,max);
-      idx = 0;
-    }
-    SEGMENT.setPixelColor(index, SEGMENT.color_from_palette(i, false, false, idx, 255)); // full brightness
-  }
-
-  return FRAMETIME;
-}
-static const char _data_FX_MODE_METEOR[] PROGMEM = "Meteor@!,Trail,,,,Gradient;!;!;1";
-
-
-// smooth meteor effect
-// send a meteor from begining to to the end of the strip with a trail that randomly decays.
-// adapted from https://www.tweaking4all.com/hardware/arduino/adruino-led-strip-effects/#LEDStripEffectMeteorRain
-uint16_t mode_meteor_smooth() {
-  if (SEGLEN <= 1) return mode_static();
-  if (!SEGENV.allocateData(SEGLEN)) return mode_static(); //allocation failed
-
   byte* trail = SEGENV.data;
 
-  const unsigned meteorSize = 1+ SEGLEN / 20; // 5%
-  uint16_t in = map((SEGENV.step >> 6 & 0xFF), 0, 255, 0, SEGLEN -1);
-  const bool gradient = SEGMENT.check1;
+  uint16_t meteorstart;
+  uint32_t c;
 
-  const int max = SEGMENT.palette==5 || !gradient ? 240 : 255;
+  if (smooth) meteorstart = map((SEGENV.step >> 6 & 0xFF), 0, 255, 0, SEGLEN -1);
+  else {
+    unsigned counter = strip.now * ((SEGMENT.speed >> 2) + 8);
+    meteorstart = (counter * SEGLEN) >> 16;
+  }
+
+  const int max = SEGMENT.palette==5 ? 240 : 255;
   // fade all leds to colors[1] in LEDs one step
   for (unsigned i = 0; i < SEGLEN; i++) {
-    if (/*trail[i] != 0 &&*/ hw_random8() <= 255 - SEGMENT.intensity) {
-      int change = trail[i] + 4 - hw_random8(24); //change each time between -20 and +4
-      trail[i] = constrain(change, 0, max);
-      SEGMENT.setPixelColor(i, gradient ? SEGMENT.color_from_palette(i, true, false, 0, trail[i]) : SEGMENT.color_from_palette(trail[i], false, true, 255));
+    if (hw_random8() >= SEGMENT.intensity) {
+      int index = i;
+      int mbri, mcol = 0;
+      if (smooth) {
+        if (trail[i]) { // randomly fade tail
+          int change = trail[i] + 4 - hw_random8(24); //change each time between -20 and +4
+          trail[i] = constrain(change, 0, max);
+        }
+        mbri = trail[i];
+        if (gradient) {
+          index = trail[i];
+          mcol = 255;
+        }
+      } else {
+        trail[i] = scale8(trail[i], 128 + hw_random8(127));
+        mbri = trail[i];
+        if (gradient) {
+          index = trail[i];
+          mcol = 255;
+        }
+      }
+      c = SEGMENT.color_from_palette(index, !gradient, false, mcol, mbri);
+      SEGMENT.setPixelColor(i, c);
     }
   }
 
   // draw meteor
   for (unsigned j = 0; j < meteorSize; j++) {
-    unsigned index = in + j;
-    if (index >= SEGLEN) {
-      index -= SEGLEN;
-    }
+    unsigned index = (meteorstart + j) % SEGLEN;
     trail[index] = max;
-    SEGMENT.setPixelColor(index, gradient ? SEGMENT.color_from_palette(index, true, false, 0, trail[index]) : SEGMENT.color_from_palette(trail[index], false, true, 255));
+    int mbri = smooth ? trail[index] : 255;
+    int mcol = gradient ? 255 : 0;
+    c = SEGMENT.color_from_palette(index, !gradient, false, mcol, mbri);
+    if (smooth) SEGMENT.blendPixelColor(index, c, 48);
+    else        SEGMENT.setPixelColor(index, c);
   }
 
   SEGENV.step += SEGMENT.speed +1;
   return FRAMETIME;
 }
-static const char _data_FX_MODE_METEOR_SMOOTH[] PROGMEM = "Meteor Smooth@!,Trail,,,,Gradient;;!;1";
+static const char _data_FX_MODE_METEOR[] PROGMEM = "Meteor@!,Trail,,,,Gradient,,Smooth;!;!;1";
 
 
 //Railway Crossing / Christmas Fairy lights
@@ -7927,7 +7905,7 @@ void WS2812FX::setupEffectData() {
   addEffect(FX_MODE_COLORTWINKLE, &mode_colortwinkle, _data_FX_MODE_COLORTWINKLE);
   addEffect(FX_MODE_LAKE, &mode_lake, _data_FX_MODE_LAKE);
   addEffect(FX_MODE_METEOR, &mode_meteor, _data_FX_MODE_METEOR);
-  addEffect(FX_MODE_METEOR_SMOOTH, &mode_meteor_smooth, _data_FX_MODE_METEOR_SMOOTH);
+  //addEffect(FX_MODE_METEOR_SMOOTH, &mode_meteor_smooth, _data_FX_MODE_METEOR_SMOOTH);
   addEffect(FX_MODE_RAILWAY, &mode_railway, _data_FX_MODE_RAILWAY);
   addEffect(FX_MODE_RIPPLE, &mode_ripple, _data_FX_MODE_RIPPLE);
   addEffect(FX_MODE_TWINKLEFOX, &mode_twinklefox, _data_FX_MODE_TWINKLEFOX);

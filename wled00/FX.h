@@ -219,7 +219,8 @@ extern byte realtimeMode;           // used in getMappedPixelIndex()
 #define FX_MODE_COLORTWINKLE            74
 #define FX_MODE_LAKE                    75
 #define FX_MODE_METEOR                  76
-#define FX_MODE_METEOR_SMOOTH           77
+#define FX_MODE_METEOR_SMOOTH           FX_MODE_METEOR
+//#define FX_MODE_METEOR_SMOOTH           77  // replaced by Meteor
 #define FX_MODE_RAILWAY                 78
 #define FX_MODE_RIPPLE                  79
 #define FX_MODE_TWINKLEFOX              80
