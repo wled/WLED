@@ -549,6 +549,9 @@ void WLED::setup()
   #if defined(ARDUINO_ARCH_ESP32) && defined(WLED_DISABLE_BROWNOUT_DET)
   WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 1); //enable brownout detector
   #endif
+
+  DEBUG_PRINTLN(F("setup() done!"));
+  DEBUG_PRINTLN();
 }
 
 void WLED::beginStrip()
@@ -996,7 +999,7 @@ ESP-NOW  inited in AP mode (channel: 6/1).
     // we are slave in ESP-NOW sync and we were not able to connect to best SSID (initial connect/forced reconnect)
     // in such case we will not attempt to traverse all configured SSIDs (as findWiFi() does that) but switch to AP mode
     // immediately so ESP-NOW heartbeat scan can commence
-    if (enableESPNow && useESPNowSync && !sendNotificationsRT && now > scanESPNow) {
+    if (enableESPNow && useESPNowSync && !sendNotificationsRT && now > scanESPNow && findWiFi() >= 0) {
       DEBUG_PRINTF_P(PSTR("WiFi: Last reconnect (%lus) too old, entering ESP-NOW scan. @ %lus.\n"), lastReconnectAttempt/1000, now/1000);
       initESPNow(true);
       scanESPNow = now + 6000;
