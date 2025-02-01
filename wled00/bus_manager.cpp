@@ -389,13 +389,13 @@ uint32_t IRAM_ATTR BusDigital::getPixelColor(unsigned pix) const {
   }
 }
 
-unsigned BusDigital::getPins(uint8_t* pinArray) const {
+size_t BusDigital::getPins(uint8_t* pinArray) const {
   unsigned numPins = is2Pin(_type) + 1;
   if (pinArray) for (unsigned i = 0; i < numPins; i++) pinArray[i] = _pins[i];
   return numPins;
 }
 
-unsigned BusDigital::getBusSize() const {
+size_t BusDigital::getBusSize() const {
   return sizeof(BusDigital) + (isOk() ? PolyBus::getDataSize(_busPtr, _iType) + (_data ? _len * getNumberOfChannels() : 0) : 0);
 }
 
@@ -585,7 +585,7 @@ void BusPwm::show() {
   // if _needsRefresh is true (UI hack) we are using dithering (credit @dedehai & @zalatnaicsongor)
   // https://github.com/Aircoookie/WLED/pull/4115 and https://github.com/zalatnaicsongor/WLED/pull/1)
   const bool     dithering = _needsRefresh; // avoid working with bitfield
-  const unsigned numPins = getPins();
+  const size_t   numPins = getPins();
   const unsigned maxBri = (1<<_depth);      // possible values: 16384 (14), 8192 (13), 4096 (12), 2048 (11), 1024 (10), 512 (9) and 256 (8) 
   [[maybe_unused]] const unsigned bitShift = dithering * 4;  // if dithering, _depth is 12 bit but LEDC channel is set to 8 bit (using 4 fractional bits)
 
@@ -636,7 +636,7 @@ void BusPwm::show() {
   }
 }
 
-unsigned BusPwm::getPins(uint8_t* pinArray) const {
+size_t BusPwm::getPins(uint8_t* pinArray) const {
   if (!_valid) return 0;
   unsigned numPins = numPWMPins(_type);
   if (pinArray) for (unsigned i = 0; i < numPins; i++) pinArray[i] = _pins[i];
@@ -656,7 +656,7 @@ std::vector<LEDType> BusPwm::getLEDTypes() {
 }
 
 void BusPwm::deallocatePins() {
-  unsigned numPins = getPins();
+  size_t numPins = getPins();
   for (unsigned i = 0; i < numPins; i++) {
     PinManager::deallocatePin(_pins[i], PinOwner::BusPwm);
     if (!PinManager::isPinOk(_pins[i])) continue;
@@ -712,7 +712,7 @@ void BusOnOff::show() {
   digitalWrite(_pin, _reversed ? !(bool)_data[0] : (bool)_data[0]);
 }
 
-unsigned BusOnOff::getPins(uint8_t* pinArray) const {
+size_t BusOnOff::getPins(uint8_t* pinArray) const {
   if (!_valid) return 0;
   if (pinArray) pinArray[0] = _pin;
   return 1;
@@ -776,7 +776,7 @@ void BusNetwork::show() {
   _broadcastLock = false;
 }
 
-unsigned BusNetwork::getPins(uint8_t* pinArray) const {
+size_t BusNetwork::getPins(uint8_t* pinArray) const {
   if (pinArray) for (unsigned i = 0; i < 4; i++) pinArray[i] = _client[i];
   return 4;
 }
@@ -805,7 +805,7 @@ void BusNetwork::cleanup() {
 
 
 //utility to get the approx. memory usage of a given BusConfig
-unsigned BusConfig::memUsage(unsigned nr) const {
+size_t BusConfig::memUsage(unsigned nr) const {
   if (Bus::isVirtual(type)) {
     return sizeof(BusNetwork) + (count * Bus::getNumberOfChannels(type));
   } else if (Bus::isDigital(type)) {
@@ -818,7 +818,7 @@ unsigned BusConfig::memUsage(unsigned nr) const {
 }
 
 
-unsigned BusManager::memUsage() {
+size_t BusManager::memUsage() {
   // when ESP32, S2 & S3 use parallel I2S only the largest bus determines the total memory requirements for back buffers
   // front buffers are always allocated per bus
   unsigned size = 0;
