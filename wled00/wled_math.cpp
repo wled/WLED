@@ -92,7 +92,7 @@ float asin_t(float x) {
 // to still apply.  (Fixes issues with conflicting 3rd party #define's)
 template <typename T> T atan_t(T x);
 template<>
-float atan_t(float x) {
+float atan_t(float xInput) {
   //For A/B/C, see https://stackoverflow.com/a/42542593
   static const double A { 0.0776509570923569 };
   static const double B { -0.287434475393028 };
@@ -104,9 +104,8 @@ float atan_t(float x) {
   static const float C3 {  0.05375f  };
   static const float C4 { -0.003445f };
 
-  [[maybe_unused]] float xinput = x;
-  bool neg = (x < 0);
-  x = std::abs(x);
+  bool neg = (xInput < 0);
+  float x = std::abs(xInput);
   float res;
   if (x > 5.0f) { // atan(x) converges to pi/2 - (1/x) for large values
     res = HALF_PI - (1.0f/x);
@@ -120,7 +119,7 @@ float atan_t(float x) {
   if (neg) {
     res = -res;
   }
-  DEBUGM_PRINTF_P(PSTR("atan: %f,%f,%f,(%f)\n"),xinput,res,atan(xinput),res-atan(xinput));
+  DEBUGM_PRINTF_P(PSTR("atan: %f,%f,%f,(%f)\n"),xInput,res,atan(xInput),res-atan(xInput));
   return res;
 }
 

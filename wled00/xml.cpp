@@ -299,7 +299,7 @@ void getSettingsJS(byte subPage, Print& settingsScript)
     printSetFormCheckbox(settingsScript,PSTR("PR"),BusManager::hasParallelOutput());  // get it from bus manager not global variable
 
     unsigned sumMa = 0;
-    for (int s = 0; s < BusManager::getNumBusses(); s++) {
+    for (size_t s = 0; s < BusManager::getNumBusses(); s++) {
       const Bus *bus = BusManager::getBus(s);
       if (!bus || !bus->isOk()) break; // should not happen but for safety
       int offset = s < 10 ? 48 : 55;

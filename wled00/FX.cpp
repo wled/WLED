@@ -1811,7 +1811,7 @@ uint16_t mode_oscillate(void) {
       // make bigger steps for faster speeds
       oscillators[i].speed = SEGMENT.speed > 100 ? hw_random8(2, 4):hw_random8(1, 3);
     }
-    if((oscillators[i].dir == 1) && (oscillators[i].pos >= (SEGLEN - 1))) {
+    if((oscillators[i].dir == 1) && (oscillators[i].pos >= int(SEGLEN - 1))) {
       oscillators[i].pos = SEGLEN - 1;
       oscillators[i].dir = -1;
       oscillators[i].speed = SEGMENT.speed > 100 ? hw_random8(2, 4):hw_random8(1, 3);

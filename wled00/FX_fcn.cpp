@@ -661,6 +661,7 @@ Segment &Segment::setName(const char *newName) {
       if (name) name = static_cast<char*>(d_realloc(name, newLen+1));
       else      name = static_cast<char*>(d_malloc(newLen+1));
       if (name) strlcpy(name, newName, newLen);
+      name[newLen] = 0;
       return *this;
     }
   }
@@ -1473,7 +1474,7 @@ void WS2812FX::finalizeInit() {
   DEBUG_PRINTF_P(PSTR("LED buffer size: %uB/%uB\n"), mem, BusManager::memUsage());
 
   _length = 0;
-  for (int i=0; i<BusManager::getNumBusses(); i++) {
+  for (size_t i=0; i<BusManager::getNumBusses(); i++) {
     Bus *bus = BusManager::getBus(i);
     if (!bus || !bus->isOk() || bus->getStart() + bus->getLength() > MAX_LEDS) break;
     //RGBW mode is enabled if at least one of the strips is RGBW

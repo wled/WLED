@@ -560,7 +560,7 @@ typedef struct Segment {
       //if (data) Serial.printf(" %d->(%p)", (int)_dataLen, data);
       //Serial.println();
       #endif
-      if (name) { d_free(name); name = nullptr; }
+      clearName();
       stopTransition();
       deallocateData();
     }
@@ -585,7 +585,7 @@ typedef struct Segment {
     inline uint16_t groupLength()        const { return grouping + spacing; }
     inline uint8_t  getLightCapabilities() const { return _capabilities; }
     inline void     deactivate()               { setGeometry(0,0); }
-    inline Segment &clearName()                { if (name) d_free(name); name = nullptr; return *this; }
+    inline Segment &clearName()                 { if (name) d_free(name); name = nullptr; return *this; }
     inline Segment &setName(const String &name) { return setName(name.c_str()); }
 
     inline static unsigned getUsedSegmentData()            { return Segment::_usedSegmentData; }
