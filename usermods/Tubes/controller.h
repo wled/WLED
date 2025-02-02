@@ -161,7 +161,7 @@ class PatternController : public MessageReceiver {
   }
 
   bool isMasterRole() const {
-#if defined(GOLDEN) || defined(CHRISTMAS)
+#if defined(GOLDEN) || defined(CHRISTMAS) || defined(RUBY)
     return true;
 #endif
     return role >= MasterRole;
@@ -214,7 +214,7 @@ class PatternController : public MessageReceiver {
     } else {
         options.brightness = DEFAULT_TUBE_BRIGHTNESS;
     }
-#if defined(GOLDEN) || defined(CHRISTMAS)
+#if defined(GOLDEN) || defined(CHRISTMAS) || defined(RUBY)
     node.reset(0xFFF);
 #endif
     options.debugging = false;
@@ -446,7 +446,29 @@ class PatternController : public MessageReceiver {
           uint8_t r = blend8(c.r, color2.r, fader);
           uint8_t g = blend8(c.g, color2.g, fader);
           uint8_t b = blend8(c.b, color2.b, fader);
+#ifdef RUBY
+          // Simple average brightness for a "luminosity" measure
+          uint8_t brightness = (uint16_t)(r + g + b) / 3;  
+
+          // Check if it's near white (all channels fairly similar and somewhat bright)
+          // You can tweak thresholds to taste.
+          bool isNearWhite = (abs(r - g) < 20 && abs(g - b) < 20 && (r + g + b) > 200);
+
+          // Force everything into a shade of red:
+          uint8_t redLevel = brightness;
+          uint8_t greenLevel = 0;
+          uint8_t blueLevel  = 0;
+
+          // If it’s near white, add a little G/B so it’s not pure red.
+          if(isNearWhite) {
+            greenLevel = brightness / 2;
+            blueLevel  = brightness / 2;
+          }
+
+          c = CRGB(redLevel, greenLevel, blueLevel);
+#else
           c = CRGB(r,g,b);
+#endif
         }
         strip.setPixelColor(i, c);
       }
@@ -677,6 +699,13 @@ class PatternController : public MessageReceiver {
                       /*yes:*/25, 34, 61, 63, 81, 112,        
                       /*best yes:*/25, 34, 34, 61, 63, 81, 112,        
                       /*maybe:*/81, 28, 107};
+    next_state.palette_id = colors[r];
+#elif defined(RUBY)   // 81, 107 are too bright
+    uint r = random8(0, 20);
+    uint colors[20] = {/*gold:*/, 
+                      /*yes:*/21, 
+                      /*best yes:*/,
+                      /*maybe:*/33, 35, 44, 81, 93, 107;
     next_state.palette_id = colors[r];
 #else
     // Don't select the built-in palettes
