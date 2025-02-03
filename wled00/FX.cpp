@@ -1484,7 +1484,7 @@ static const char _data_FX_MODE_FAIRYTWINKLE[] PROGMEM = "Fairytwinkle@!,!;!,!;!
 /*
  * Tricolor chase function
  */
-uint16_t tricolor_chase(uint32_t color1, uint32_t color2) {
+uint16_t mode_tricolor_chase(void) {
   uint32_t cycleTime = 50 + ((255 - SEGMENT.speed)<<1);
   uint32_t it = strip.now / cycleTime;  // iterator
   unsigned width = (1 + (SEGMENT.intensity>>4)); // value of 1-16 for each colour
@@ -1493,21 +1493,13 @@ uint16_t tricolor_chase(uint32_t color1, uint32_t color2) {
   for (unsigned i = 0; i < SEGLEN; i++, index++) {
     if (index > (width*3)-1) index = 0;
 
-    uint32_t color = color1;
+    uint32_t color = SEGCOLOR(2);
     if (index > (width<<1)-1) color = SEGMENT.color_from_palette(i, true, PALETTE_SOLID_WRAP, 1);
-    else if (index > width-1) color = color2;
+    else if (index > width-1) color = SEGCOLOR(0);
 
     SEGMENT.setPixelColor(SEGLEN - i -1, color);
   }
   return FRAMETIME;
-}
-
-
-/*
- * Tricolor chase mode
- */
-uint16_t mode_tricolor_chase(void) {
-  return tricolor_chase(SEGCOLOR(2), SEGCOLOR(0));
 }
 static const char _data_FX_MODE_TRICOLOR_CHASE[] PROGMEM = "Chase 3@!,Size;1,2,3;!";
 
