@@ -143,10 +143,10 @@ extern byte realtimeMode;           // used in getMappedPixelIndex()
 #define FX_MODE_RAINBOW                  8
 #define FX_MODE_RAINBOW_CYCLE            9
 #define FX_MODE_SCAN                    10
-#define FX_MODE_DUAL_SCAN               11
+//#define FX_MODE_DUAL_SCAN               11  // candidate for removal (use Scan)
 #define FX_MODE_FADE                    12
 #define FX_MODE_THEATER_CHASE           13
-#define FX_MODE_THEATER_CHASE_RAINBOW   14
+//#define FX_MODE_THEATER_CHASE_RAINBOW   14  // candidate for removal (use Theater)
 #define FX_MODE_RUNNING_LIGHTS          15
 #define FX_MODE_SAW                     16
 #define FX_MODE_TWINKLE                 17
@@ -169,7 +169,7 @@ extern byte realtimeMode;           // used in getMappedPixelIndex()
 #define FX_MODE_COLORFUL                34
 #define FX_MODE_TRAFFIC_LIGHT           35
 #define FX_MODE_COLOR_SWEEP_RANDOM      36
-#define FX_MODE_RUNNING_COLOR           37
+//#define FX_MODE_RUNNING_COLOR           37  // candidate for removal (use Theater)
 #define FX_MODE_AURORA                  38
 #define FX_MODE_RUNNING_RANDOM          39
 #define FX_MODE_LARSON_SCANNER          40
@@ -184,7 +184,7 @@ extern byte realtimeMode;           // used in getMappedPixelIndex()
 #define FX_MODE_FAIRY                   49  //was Police All prior to 0.13.0-b6 (use "Two Dots" with Red/Blue and full intensity)
 #define FX_MODE_TWO_DOTS                50
 #define FX_MODE_FAIRYTWINKLE            51  //was Two Areas prior to 0.13.0-b6 (use "Two Dots" with full intensity)
-#define FX_MODE_RUNNING_DUAL            52
+//#define FX_MODE_RUNNING_DUAL            52  // candidate for removal (use Running)
 #define FX_MODE_IMAGE                   53
 #define FX_MODE_TRICOLOR_CHASE          54
 #define FX_MODE_TRICOLOR_WIPE           55
@@ -234,7 +234,7 @@ extern byte realtimeMode;           // used in getMappedPixelIndex()
 //#define FX_MODE_RIPPLE_RAINBOW          99  // candidate for removal (use ripple)
 #define FX_MODE_HEARTBEAT              100
 #define FX_MODE_PACIFICA               101
-#define FX_MODE_CANDLE_MULTI           102
+//#define FX_MODE_CANDLE_MULTI           102  // candidate for removal (use candle with multi select)
 //#define FX_MODE_SOLID_GLITTER          103  // candidate for removal (use glitter)
 #define FX_MODE_SUNRISE                104
 #define FX_MODE_PHASED                 105
