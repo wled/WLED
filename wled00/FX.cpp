@@ -312,19 +312,6 @@ static const char _data_FX_MODE_DYNAMIC[] PROGMEM = "Dynamic@!,!,,,,Smooth;;!";
 
 
 /*
- * effect "Dynamic" with smooth color-fading
- */
-//uint16_t mode_dynamic_smooth(void) {
-//  bool old = SEGMENT.check1;
-//  SEGMENT.check1 = true;
-//  mode_dynamic();
-//  SEGMENT.check1 = old;
-//  return FRAMETIME;
-//}
-//static const char _data_FX_MODE_DYNAMIC_SMOOTH[] PROGMEM = "Dynamic Smooth@!,!;;!";
-
-
-/*
  * Does the "standby-breathing" of well known i-Devices.
  */
 uint16_t mode_breath(void) {
@@ -363,10 +350,11 @@ static const char _data_FX_MODE_FADE[] PROGMEM = "Fade@!;!,!;!;01";
 
 
 /*
- * Scan mode parent function
+ * Runs a single pixel back and forth.
  */
-uint16_t scan(bool dual) {
+uint16_t mode_scan(void) {
   if (SEGLEN <= 1) return mode_static();
+  const bool dual = SEGMENT.check3;
   uint32_t cycleTime = 750 + (255 - SEGMENT.speed)*150;
   uint32_t perc = strip.now % cycleTime;
   int prog = (perc * 65535) / cycleTime;
@@ -391,24 +379,7 @@ uint16_t scan(bool dual) {
 
   return FRAMETIME;
 }
-
-
-/*
- * Runs a single pixel back and forth.
- */
-uint16_t mode_scan(void) {
-  return scan(false);
-}
-static const char _data_FX_MODE_SCAN[] PROGMEM = "Scan@!,# of dots,,,,,Overlay;!,!,!;!";
-
-
-/*
- * Runs two pixel back and forth in opposite directions.
- */
-uint16_t mode_dual_scan(void) {
-  return scan(true);
-}
-static const char _data_FX_MODE_DUAL_SCAN[] PROGMEM = "Scan Dual@!,# of dots,,,,,Overlay;!,!,!;!";
+static const char _data_FX_MODE_SCAN[] PROGMEM = "Scan@!,Size,,,,,Overlay,Dual;!,!,!;!;1;o1=0";
 
 
 /*
@@ -448,27 +419,31 @@ static const char _data_FX_MODE_RAINBOW_CYCLE[] PROGMEM = "Rainbow@!,Size;;!";
 
 
 /*
- * Alternating pixels running function.
+ * Alternating pixels running function / Theatre-style crawling lights.
+ * Inspired by the Adafruit examples.
  */
-static uint16_t running(uint32_t color1, uint32_t color2, bool theatre = false) {
+uint16_t mode_theater_chase() {
+  const bool animate = SEGMENT.check1;
+  const bool theatre = SEGMENT.check3;
   int width = (theatre ? 3 : 1) + (SEGMENT.intensity >> 4);  // window
   uint32_t cycleTime = 50 + (255 - SEGMENT.speed);
   uint32_t it = strip.now / cycleTime;
-  bool usePalette = color1 == SEGCOLOR(0);
 
   for (unsigned i = 0; i < SEGLEN; i++) {
-    uint32_t col = color2;
-    if (usePalette) {
-      unsigned palIdx = SEGMENT.check1 ? (i+it)%SEGLEN : i;
-      color1 = SEGMENT.color_from_palette(palIdx, true, SEGMENT.check1, 0);
+    uint32_t c1 = SEGMENT.color_from_palette(i, true, false, 0);
+    uint32_t c2 = SEGCOLOR(1);
+    if (animate) {
+      c1 = SEGMENT.color_wheel(SEGENV.step); // sets moving palette and rainbow for default
+      //unsigned palIdx = animate ? (i+it)%SEGLEN : i;
+      //c1 = SEGMENT.color_from_palette(palIdx, true, animate, 0);
     }
     if (theatre) {
-      if ((i % width) == SEGENV.aux0) col = color1;
+      if ((i % width) == SEGENV.aux0) c2 = c1;
     } else {
       int pos = (i % (width<<1));
-      if ((pos < SEGENV.aux0-width) || ((pos >= SEGENV.aux0) && (pos < SEGENV.aux0+width))) col = color1;
+      if ((pos < SEGENV.aux0-width) || ((pos >= SEGENV.aux0) && (pos < SEGENV.aux0+width))) c2 = c1;
     }
-    SEGMENT.setPixelColor(i,col);
+    SEGMENT.setPixelColor(i,c2);
   }
 
   if (it != SEGENV.step) {
@@ -477,32 +452,15 @@ static uint16_t running(uint32_t color1, uint32_t color2, bool theatre = false) 
   }
   return FRAMETIME;
 }
-
-
-/*
- * Theatre-style crawling lights.
- * Inspired by the Adafruit examples.
- */
-uint16_t mode_theater_chase(void) {
-  return running(SEGCOLOR(0), SEGCOLOR(1), true);
-}
-static const char _data_FX_MODE_THEATER_CHASE[] PROGMEM = "Theater@!,Gap size,,,,Animate palette;!,!;!;;o1=0";
-
-
-/*
- * Theatre-style crawling lights with rainbow effect.
- * Inspired by the Adafruit examples.
- */
-uint16_t mode_theater_chase_rainbow(void) {
-  return running(SEGMENT.color_wheel(SEGENV.step), SEGCOLOR(1), true);
-}
-static const char _data_FX_MODE_THEATER_CHASE_RAINBOW[] PROGMEM = "Theater Rainbow@!,Gap size;,!;!;;o1=0";
+static const char _data_FX_MODE_THEATER_CHASE[] PROGMEM = "Theater@!,Gap size,,,,Animate palette,,Chase;!,!;!;;o1=0,o3=0";
 
 
 /*
  * Running lights effect with smooth sine transition base.
+ * Idea: Make the gap width controllable with a third slider in the future
  */
-static uint16_t running_base(bool saw, bool dual=false) {
+static uint16_t running_base(bool saw) {
+  const bool dual = SEGMENT.check3;
   unsigned x_scale = SEGMENT.intensity >> 2;
   uint32_t counter = (strip.now * SEGMENT.speed) >> 9;
   const bool moving = SEGMENT.check1;
@@ -534,24 +492,13 @@ static uint16_t running_base(bool saw, bool dual=false) {
   return FRAMETIME;
 }
 
-
-/*
- * Running lights in opposite directions.
- * Idea: Make the gap width controllable with a third slider in the future
- */
-uint16_t mode_running_dual(void) {
-  return running_base(false, true);
-}
-static const char _data_FX_MODE_RUNNING_DUAL[] PROGMEM = "Running Dual@!,Wave width,,,,Animate palette;L,!,R;!;;o1=0";
-
-
 /*
  * Running lights effect with smooth sine transition.
  */
 uint16_t mode_running_lights(void) {
   return running_base(false);
 }
-static const char _data_FX_MODE_RUNNING_LIGHTS[] PROGMEM = "Running@!,Wave width,,,,Animate palette;!,!;!;;o1=0";
+static const char _data_FX_MODE_RUNNING_LIGHTS[] PROGMEM = "Running@!,Wave width,,,,Animate palette,,Dual;!,!;!;;o1=0";
 
 
 /*
@@ -560,7 +507,7 @@ static const char _data_FX_MODE_RUNNING_LIGHTS[] PROGMEM = "Running@!,Wave width
 uint16_t mode_saw(void) {
   return running_base(true);
 }
-static const char _data_FX_MODE_SAW[] PROGMEM = "Saw@!,Width,,,,Animate palette;!,!;!;;o1=0";
+static const char _data_FX_MODE_SAW[] PROGMEM = "Saw@!,Width,,,,Animate palette;!,!;!;;o1=0,o3=0";
 
 
 /*
@@ -1089,15 +1036,6 @@ uint16_t mode_chase_flash_random(void) {
   return delay;
 }
 static const char _data_FX_MODE_CHASE_FLASH_RANDOM[] PROGMEM = "Chase Flash Rnd@!;!,!;!";
-
-
-/*
- * Alternating color/sec pixels running.
- */
-uint16_t mode_running_color(void) {
-  return running(SEGCOLOR(0), SEGCOLOR(1));
-}
-static const char _data_FX_MODE_RUNNING_COLOR[] PROGMEM = "Chase 2@!,Width;!,!;!";
 
 
 /*
@@ -3270,13 +3208,9 @@ static const char _data_FX_MODE_POPCORN[] PROGMEM = "Popcorn@!,!,,,,,Overlay;!,!
 //Inspired by https://github.com/avanhanegem/ArduinoCandleEffectNeoPixel
 //and https://cpldcpu.wordpress.com/2016/01/05/reverse-engineering-a-real-candle/
 
-uint16_t candle(bool multi)
-{
-  if (multi && SEGLEN > 1) {
-    //allocate segment data
-    unsigned dataSize = max(1, (int)SEGLEN -1) *3; //max. 1365 pixels (ESP8266)
-    if (!SEGENV.allocateData(dataSize)) return candle(false); //allocation failed
-  }
+uint16_t mode_candle() {
+  const unsigned dataSize = max(1, (int)SEGLEN -1) *3; //max. 1365 pixels (ESP8266)
+  const bool multi = SEGMENT.check3 && SEGLEN > 1 && SEGENV.allocateData(dataSize);
 
   //max. flicker range controlled by intensity
   unsigned valrange = SEGMENT.intensity;
@@ -3343,20 +3277,7 @@ uint16_t candle(bool multi)
 
   return FRAMETIME_FIXED;
 }
-
-
-uint16_t mode_candle()
-{
-  return candle(false);
-}
-static const char _data_FX_MODE_CANDLE[] PROGMEM = "Candle@!,!;!,!;!;01;sx=96,ix=224,pal=0";
-
-
-uint16_t mode_candle_multi()
-{
-  return candle(true);
-}
-static const char _data_FX_MODE_CANDLE_MULTI[] PROGMEM = "Candle Multi@!,!;!,!;!;;sx=96,ix=224,pal=0";
+static const char _data_FX_MODE_CANDLE[] PROGMEM = "Candle@!,!,,,,,,Multi;!,!;!;01;sx=96,ix=224,pal=0,o3=1";
 
 
 /*
@@ -7838,10 +7759,10 @@ void WS2812FX::setupEffectData() {
   addEffect(FX_MODE_RAINBOW, &mode_rainbow, _data_FX_MODE_RAINBOW);
   addEffect(FX_MODE_RAINBOW_CYCLE, &mode_rainbow_cycle, _data_FX_MODE_RAINBOW_CYCLE);
   addEffect(FX_MODE_SCAN, &mode_scan, _data_FX_MODE_SCAN);
-  addEffect(FX_MODE_DUAL_SCAN, &mode_dual_scan, _data_FX_MODE_DUAL_SCAN);
+  //addEffect(FX_MODE_DUAL_SCAN, &mode_dual_scan, _data_FX_MODE_DUAL_SCAN);
   addEffect(FX_MODE_FADE, &mode_fade, _data_FX_MODE_FADE);
   addEffect(FX_MODE_THEATER_CHASE, &mode_theater_chase, _data_FX_MODE_THEATER_CHASE);
-  addEffect(FX_MODE_THEATER_CHASE_RAINBOW, &mode_theater_chase_rainbow, _data_FX_MODE_THEATER_CHASE_RAINBOW);
+  //addEffect(FX_MODE_THEATER_CHASE_RAINBOW, &mode_theater_chase_rainbow, _data_FX_MODE_THEATER_CHASE_RAINBOW);
   addEffect(FX_MODE_RUNNING_LIGHTS, &mode_running_lights, _data_FX_MODE_RUNNING_LIGHTS);
   addEffect(FX_MODE_SAW, &mode_saw, _data_FX_MODE_SAW);
   addEffect(FX_MODE_TWINKLE, &mode_twinkle, _data_FX_MODE_TWINKLE);
@@ -7864,7 +7785,7 @@ void WS2812FX::setupEffectData() {
   addEffect(FX_MODE_COLORFUL, &mode_colorful, _data_FX_MODE_COLORFUL);
   addEffect(FX_MODE_TRAFFIC_LIGHT, &mode_traffic_light, _data_FX_MODE_TRAFFIC_LIGHT);
   addEffect(FX_MODE_COLOR_SWEEP_RANDOM, &mode_color_sweep_random, _data_FX_MODE_COLOR_SWEEP_RANDOM);
-  addEffect(FX_MODE_RUNNING_COLOR, &mode_running_color, _data_FX_MODE_RUNNING_COLOR);
+  //addEffect(FX_MODE_RUNNING_COLOR, &mode_running_color, _data_FX_MODE_RUNNING_COLOR);
   addEffect(FX_MODE_AURORA, &mode_aurora, _data_FX_MODE_AURORA);
   addEffect(FX_MODE_RUNNING_RANDOM, &mode_running_random, _data_FX_MODE_RUNNING_RANDOM);
   addEffect(FX_MODE_LARSON_SCANNER, &mode_larson_scanner, _data_FX_MODE_LARSON_SCANNER);
@@ -7880,7 +7801,7 @@ void WS2812FX::setupEffectData() {
   addEffect(FX_MODE_FAIRY, &mode_fairy, _data_FX_MODE_FAIRY);
   addEffect(FX_MODE_TWO_DOTS, &mode_two_dots, _data_FX_MODE_TWO_DOTS);
   addEffect(FX_MODE_FAIRYTWINKLE, &mode_fairytwinkle, _data_FX_MODE_FAIRYTWINKLE);
-  addEffect(FX_MODE_RUNNING_DUAL, &mode_running_dual, _data_FX_MODE_RUNNING_DUAL);
+  //addEffect(FX_MODE_RUNNING_DUAL, &mode_running_dual, _data_FX_MODE_RUNNING_DUAL);
 
   addEffect(FX_MODE_TRICOLOR_CHASE, &mode_tricolor_chase, _data_FX_MODE_TRICOLOR_CHASE);
   addEffect(FX_MODE_TRICOLOR_WIPE, &mode_tricolor_wipe, _data_FX_MODE_TRICOLOR_WIPE);
@@ -7930,7 +7851,7 @@ void WS2812FX::setupEffectData() {
   //addEffect(FX_MODE_RIPPLE_RAINBOW, &mode_ripple_rainbow, _data_FX_MODE_RIPPLE_RAINBOW);
   addEffect(FX_MODE_HEARTBEAT, &mode_heartbeat, _data_FX_MODE_HEARTBEAT);
   addEffect(FX_MODE_PACIFICA, &mode_pacifica, _data_FX_MODE_PACIFICA);
-  addEffect(FX_MODE_CANDLE_MULTI, &mode_candle_multi, _data_FX_MODE_CANDLE_MULTI);
+  //addEffect(FX_MODE_CANDLE_MULTI, &mode_candle_multi, _data_FX_MODE_CANDLE_MULTI);
   //addEffect(FX_MODE_SOLID_GLITTER, &mode_solid_glitter, _data_FX_MODE_SOLID_GLITTER);
   addEffect(FX_MODE_SUNRISE, &mode_sunrise, _data_FX_MODE_SUNRISE);
   addEffect(FX_MODE_PHASED, &mode_phased, _data_FX_MODE_PHASED);
