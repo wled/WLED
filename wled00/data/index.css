@@ -40,8 +40,8 @@
 	--bhd: none;
 	--sgp: "block";
 	--bmt: 0;
-	--sti: 42px;
-	--stp: 42px;
+	--sti: 10px; /*reduced from 42px*/
+	--stp: 10px; /*reduced from 42px*/
 }
 
 html {
@@ -51,6 +51,8 @@ html {
 body {
 	margin: 0;
 	background-color: var(--c-1);
+	/*mgibson: experimental*/
+	/*background: linear-gradient(0deg, #222 10%, #111 15%, #111 75%, #222 80%);*/
 	font-family: Helvetica, Verdana, sans-serif;
 	font-size: 17px;
 	color: var(--c-f);
@@ -285,6 +287,7 @@ button {
 
 .il {
 	display: inline-block;
+	width:100%; /* force width to 100% since search bubble removed */
 	vertical-align: middle;
 }
 
@@ -379,7 +382,7 @@ button {
 }
 
 #Segments, #Presets, #Effects, #Colors {
-	font-size: 19px;
+	font-size: 18px;
 	padding: 4px 0 0;
 }
 
@@ -415,6 +418,7 @@ button {
 
 .tab-label {
 	margin: 0 0 -5px 0;
+	font-size: x-small;
 	padding-bottom: 4px;
 	display: var(--bhd);
 }
@@ -440,13 +444,13 @@ button {
 	display: block;
 	position: -webkit-sticky;
 	position: sticky !important;
-	top: 0;
+	top: 5;
 	z-index: 2;
 	margin: 0 auto auto;
 }
 
 .staybot {
-	bottom: 5px;
+	bottom: 20px;
 }
 
 #sliders {
@@ -465,9 +469,10 @@ button {
 .slider {
 	/*max-width: 300px;*/
 	/* margin: 5px auto; add 5px; if you want some vertical space but looks ugly */
+	margin-bottom: 5px;
 	border-radius: 24px;
 	position: relative;
-	padding-bottom: 2px;
+	padding-bottom: 10px;
 }
 
 /* Slider wrapper div */
@@ -1364,7 +1369,7 @@ TD .checkmark, TD .radiomark {
 /* selected list item */
 .lstI.selected {
 	top: 0;
-	bottom: 0;
+	bottom: 10px;
 	border: 1px solid var(--c-4);
 }
 
@@ -1384,11 +1389,14 @@ TD .checkmark, TD .radiomark {
 	top: 42px;
 }
 
+/* removing 42px vertical offset so that selected list item overlaps first list item when sticking to top */
 #fxlist .lstI.selected {
-	top: calc(var(--sti) + 42px);
+	/*top: calc(var(--sti) + 42px);*/
+	top: calc(var(--sti));
 }
 #pallist .lstI.selected {
-	top: calc(var(--stp) + 42px);
+	/*top: calc(var(--stp) + 42px);*/
+	top: calc(var(--stp));
 }
 
 dialog::backdrop {
@@ -1413,7 +1421,8 @@ dialog {
 
 /* list item content */
 .lstIcontent {
-	padding: 9px 0 7px;
+	width:100%;
+	padding: 10px 0 7px;
 	position: relative;
 }
 

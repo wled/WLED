@@ -1,6 +1,6 @@
 //page js
 var loc = false, locip, locproto = "http:";
-var isOn = false, nlA = false, isLv = false, isInfo = false, isNodes = false, syncSend = false/*, syncTglRecv = true*/;
+var isOn = false, nlA = false, isLv = false, isInfo = false, isNodes = false, isWifi = false, syncSend = false/*, syncTglRecv = true*/;
 var hasWhite = false, hasRGB = false, hasCCT = false, has2D = false;
 var nlDur = 60, nlTar = 0;
 var nlMode = false;
@@ -1850,6 +1850,17 @@ function toggleNodes()
 	if (isNodes) loadNodes();
 	gId('nodes').style.transform = (isNodes) ? "translateY(0px)":"translateY(100%)";
 	gId('buttonNodes').className = (isNodes) ? "active":"";
+}
+
+// new function to toggle wifi modal 
+function toggleWifi()
+{
+	if (isInfo) toggleInfo(); // close (toggle) info modal if its already opened 
+	isWifi = !isWifi;
+	//if (isWifi) loadNodes(); // if modal is opening, then do something 
+	//for now, just want to show the modal by "translating" it in to view
+	gId('wifi').style.transform = (isWifi) ? "translateY(0px)":"translateY(100%)";
+	gId('wifii').style.color = (isWifi) ? "#0f0":"#ddd";
 }
 
 function makeSeg()

@@ -203,3 +203,16 @@ td {
     width: 144px;
   }
 }
+
+@font-face {
+	font-family: "LIcons";
+	src: url('./icons-ui/fonts/icomoon_lightfall.woff') format('woff');
+}
+
+.icons_sm {
+	font-family: 'LIcons';
+	font-style: normal;
+	font-size: 18px !important;
+	line-height: 1 !important;
+	display: inline-block;
+}

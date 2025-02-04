@@ -585,7 +585,7 @@ void serveSettings(AsyncWebServerRequest* request, bool post) {
     char s2[45] = "";
 
     switch (subPage) {
-      case SUBPAGE_WIFI   : strcpy_P(s, PSTR("WiFi")); strcpy_P(s2, PSTR("Please connect to the new IP (if changed)")); break;
+      case SUBPAGE_WIFI   : strcpy_P(s, PSTR("WIFI")); strcpy_P(s2, PSTR("Please connect to the new network, then navigate to orb-mini.local/ to control your orb.")); break;
       case SUBPAGE_LEDS   : strcpy_P(s, PSTR("LED")); break;
       case SUBPAGE_UI     : strcpy_P(s, PSTR("UI")); break;
       case SUBPAGE_SYNC   : strcpy_P(s, PSTR("Sync")); break;

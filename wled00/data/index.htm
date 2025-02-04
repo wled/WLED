@@ -5,8 +5,8 @@
 	<meta charset="utf-8">
 	<meta name="theme-color" content="#222222">
 	<meta content="yes" name="apple-mobile-web-app-capable">
-	<!-- to do: update shortcut icon below -->
-	<link rel="shortcut icon" href="data:image/x-icon;base64,AAABAAEAEBAAAAEAGACGAAAAFgAAAIlQTkcNChoKAAAADUlIRFIAAAAQAAAAEAgGAAAAH/P/YQAAAE1JREFUOI1j/P//PwOxgNGeAUMxE9G6cQCKDWAhpADZ2f8PMjBS3QW08QK20KaZC2gfC9hCnqouoNgARgY7zMxAyNlUdQHlXiAlO2MDAD63EVqNHAe0AAAAAElFTkSuQmCC"/>
+	<!-- update favicon icon below -->
+	<link rel="shortcut icon" href="lightfall_favicon.ico"/>
 	<title>Lightfall</title>
 	<link rel="stylesheet" href="index.css">
 </head>
@@ -28,7 +28,8 @@
 		<!-- PWR Button -->
 		<i id="pwri" onclick="togglePower()" class="icons tgl" style="position:absolute; left:5%; padding-top:7px;">&#xe08f;</i>
 		<!--WIFI Button-->
-		<i onclick="window.location.href=getURL('/settings/wifi');" class="icons_sm" style="position:absolute; right:5%; padding-top:7px;">&#xe91b;</i>
+		<!--to do: if wifi is not configured, meaning user is connected through AP, show wifi icon as dark to indicate so -->
+		<i id="wifii" onclick="window.location.href=getURL('/settings/wifi');" class="icons_sm" style="position:absolute; right:5%; padding-top:7px;">&#xe91b;</i>
 
 		<!-- brightness slider -->
 		<!-- is brightness icon necessary? ideally it would be in place of the slider bubble but don't know how to do that -->
@@ -148,7 +149,8 @@
 		</div>
 		<p class="labels hd" id="pall"><i class="icons sel-icon" onclick="tglHex()">&#xe2b3;</i> Color palette</p>
 		<div id="palw" class="il">
-			<div class="staytop fnd">
+			<!-- hide search bubble for palettes since users aren't familiar with names assigned to palettes -->
+			<div class="staytop fnd" style="display:none";>
 				<input type="text" placeholder="Search" oninput="search(this,'pallist')" onfocus="search(this,'pallist')" />
 				<i class="icons clear-icon" onclick="clean(this)">&#xe38f;</i>
 				<i class="icons search-icon">&#xe0a1;</i>
@@ -173,6 +175,7 @@
 		<div id="fx">
 			<p class="labels hd" id="modeLabel">Effect mode</p>
 			<div class="staytop fnd" id="fxFind" onmousedown="preventBlur(event);">
+				<!--search bubble with drop down filters-->
 				<input type="text" placeholder="Search" oninput="search(this,'fxlist')" onfocus="filterFocus(event);search(this,'fxlist');" onblur="filterFocus(event);">
 				<i class="icons clear-icon" onclick="clean(this);">&#xe38f;</i>
 				<i class="icons search-icon" style="cursor:pointer;">&#xe0a1;</i>
@@ -277,6 +280,24 @@
 		</div>
 	</div>
 
+	<!-- PRESETS -->
+	<div id="Presets" class="tabcontent">
+		<div id="pql">
+		</div>
+		<p class="labels hd">Presets</p>
+		<!--hide search bubble for presets since list is short-->
+		<div class="staytop fnd" id="psFind" style="display:none";>
+			<input type="text" placeholder="Search" oninput="search(this,'pcont')" onfocus="search(this,'pcont')" />
+			<i class="icons clear-icon" onclick="clean(this);">&#xe38f;</i>
+			<i class="icons search-icon">&#xe0a1;</i>
+		</div>
+		<div id="pcont" class="list">
+			<span onclick="loadPresets()">Loading...</span>
+		</div>
+		<div id="putil" class="staybot">
+		</div>
+	</div>
+
 	<!-- SEGMENTS -->
 	<div id="Segments" class="tabcontent">
 		<p class="labels hd" id="segLabel">Segments</p>
@@ -313,23 +334,6 @@
 		</p>
 		<p id="ledmap" class="hide"></p>
 	</div>
-
-	<!-- PRESETS -->
-	<div id="Presets" class="tabcontent">
-		<div id="pql">
-		</div>
-		<p class="labels hd">Presets</p>
-		<div class="staytop fnd" id="psFind">
-			<input type="text" placeholder="Search" oninput="search(this,'pcont')" onfocus="search(this,'pcont')" />
-			<i class="icons clear-icon" onclick="clean(this);">&#xe38f;</i>
-			<i class="icons search-icon">&#xe0a1;</i>
-		</div>
-		<div id="pcont" class="list">
-			<span onclick="loadPresets()">Loading...</span>
-		</div>
-		<div id="putil" class="staybot">
-		</div>
-	</div>
 </div>
 
 <!-- hiding segments button for now -->
@@ -338,10 +342,10 @@
 	<!-- change icon used for presets to that used by segments -->
 	<!-- havn't yet figured out how to change button order and default to presets page instead of colors -->
 	<!-- more inspirational to see color page initially then list of presets? -->
-	<button class="tablinks" onclick="openTab(0)" style="width:33.3%;"><i class="icons2">&#xe90b;</i><p class="tab-label"><!--Colors--></p></button>
-	<button class="tablinks" onclick="openTab(1)" style="width:33.3%;"><i class="icons2">&#xe91d;</i><p class="tab-label"><!--Effects--></p></button>
-	<button hidden class="tablinks" onclick="openTab(2)"><i class="icons">&#xe34b;</i><p class="tab-label">Segments</p></button>
-	<button class="tablinks" onclick="openTab(3)" style="width:33.3%;"><i class="icons2">&#xe92e;</i><p class="tab-label"><!--Presets--></p></button>
+	<button class="tablinks" onclick="openTab(0)" style="width:33.3%;"><i class="icons2">&#xe90b;</i><p class="tab-label"><!--COLORS--></p></button>
+	<button class="tablinks" onclick="openTab(1)" style="width:33.3%;"><i class="icons2">&#xe91d;</i><p class="tab-label"><!--EFFECTS--></p></button>
+	<button class="tablinks" onclick="openTab(2)" style="width:33.3%;"><i class="icons2">&#xe92e;</i><p class="tab-label"><!--PRESETS--></p></button>
+	<button hidden class="tablinks" onclick="openTab(3)"><i class="icons">&#xe34b;</i><p class="tab-label">Segments</p></button>
 </div>
 
 <!-- connection indicator circle in bottom left corner -->
@@ -382,16 +386,15 @@
 	</div>
 </div>
 
-<!-- Adding new Wifi settings modal for streamlined user experience -->
+<!-- Adding new WIFI SETUP modal for streamlined user experience -->
 <!-- work in progress -->
 <div id="wifi" class="modal">
-	<!-- to do: create toggleWifi function in Index.js -->
+	<!-- wifi icon opens and closes wifi modal -->
 	<button class="btn btn-xs close" onclick="toggleWifi()"><i class="icons rot45">&#xe18a;</i></button>
-	<div id="ndlt">Wifi Configuration</div>
-	<!-- relocate html from wifi settings page here? -->
-	<div style="position:sticky;bottom:0;">
-		<button class="btn ibtn">Connect</button>
-	</div>
+
+	<!-- I can't get the functionality on the wifi settings page to work here, consider difference approach-->
+	<p>If connected, then show wifi info like network name, signal strength, AP name here? Otherwise, make icon link to wifi settings page?</p>
+
 </div>
 
 <div id="mlv2D" class="modal">
