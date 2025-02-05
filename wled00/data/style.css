@@ -1,8 +1,11 @@
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300,400,700&display=swap');
+
 html {
 	touch-action: manipulation;
 }
 body {
-  font-family: Verdana, sans-serif;
+  /*font-family: Verdana, sans-serif;*/
+  font-family: Montserrat, sans-serif;
   font-size: 1rem;
   text-align: center;
   background: #222;
@@ -26,7 +29,8 @@ a, a:hover {
 button, .btn {
   background: #333;
   color: #fff;
-  font-family: Verdana, sans-serif;
+  /*font-family: Verdana, sans-serif;*/
+  font-family: Montserrat, sans-serif;
   border: 0.3ch solid #333;
 	border-radius: 24px;
   display: inline-block;
@@ -73,7 +77,8 @@ button.sml {
 input {
   background: #333;
   color: #fff;
-  font-family: Verdana, sans-serif;
+  /*font-family: Verdana, sans-serif;*/
+  font-family: Montserrat, sans-serif;
   border: 0.5ch solid #333;
 }
 input:disabled {
@@ -121,7 +126,8 @@ select {
   margin: 2px;
   background: #333;
   color: #fff;
-  font-family: Verdana, sans-serif;
+  /*font-family: Verdana, sans-serif;*/
+  font-family: Montserrat, sans-serif;
   border: 0.5ch solid #333;
 }
 select.pin {

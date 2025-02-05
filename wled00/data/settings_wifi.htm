@@ -156,7 +156,7 @@
 			<div class="helpB"><button type="button" onclick="H('features/settings/#wifi-settings')">?</button></div>
 			<button type="button" onclick="B()">Back</button><button type="submit">Save & Connect</button><hr>
 		</div>
-		<h2 onclick="showAllSettings()">WIFI Setup</h2>
+		<h2 onclick="showAllSettings()" style="margin-top:50px; font-weight:300;">WIFI Setup</h2>
 		<!--<p style="margin-left:10px; margin-right:10px; line-height:normal;">For the best experience, we recommend connecting your orb to your local WIFI network</p>-->
 		<!--hide the network scan button, takes longer than just entering your network name-->
 		<button type="button" id="scan" onclick="N()" style="display:none;">Scan</button><br>
@@ -167,6 +167,7 @@
 			<button hidden type="button" id="wifi_add" onclick="addWiFi()">+</button>
 			<button hidden type="button" id="wifi_rem" onclick="remWiFi()">-</button><br>
 		</div>
+		<p style="margin-left:12%; margin-right:12%; margin-bottom:5px; margin-bottom:10px;">After saving, please navigate to <b>orb-mini.local/</b> on the new network to control your orb.</p>
 		<div id="advanced_settings" hidden> <!--hide all advnaced settings in a new div-->
 			DNS server address:<br>
 			<input name="D0" type="number" class="s" min="0" max="255" required>.<input name="D1" type="number" class="s" min="0" max="255" required>.<input name="D2" type="number" class="s" min="0" max="255" required>.<input name="D3" type="number" class="s" min="0" max="255" required><br>
@@ -239,7 +240,7 @@
 					<option value="1">WT32-ETH01</option>
 				</select><br><br>
 			</div>
-		</div>	
+		</div>
 		<button type="button" onclick="window.location.href=getURL('/');">Back</button><button type="submit">Save & Connect</button>
 	</form>
 </body>
