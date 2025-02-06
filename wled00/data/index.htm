@@ -20,21 +20,21 @@
 <div class="wrapper" id="top">
 	<div class="tab top" style="padding-top:5px; padding-bottom:50px;">
 		<!--replace header below with lightfall workdmark-->
-		<h2 style="padding-left:12px; margin-bottom:10px; letter-spacing:12px; font-weight: 300;">LIGHTFALL</h2>
+		<h2 class="wordmark" style="padding-left:12px; margin-bottom:10px;">LIGHTFALL</h2>
 		
 		<!-- replaced buttons with icons to avoid background change on hover, but lost color change of power button when toggled -->
 		<!-- added js to togglePower() function in index.js to change the pwr icon color when toggled -->
 		<!-- also added new line to beginning of updateUI() function in index.js to handle initial state on page load -->
 		<!-- PWR Button -->
-		<i id="pwri" onclick="togglePower()" class="icons tgl" style="position:absolute; left:5%; padding-top:7px;">&#xe08f;</i>
+		<i id="pwri" onclick="togglePower()" class="icons tgl" style="position:absolute; left:5.5%; padding-top:7px;">&#xe08f;</i>
 		<!--WIFI Button-->
 		<!--to do: if wifi is not configured, meaning user is connected through AP, show wifi icon as dark to indicate so -->
-		<i id="wifii" onclick="window.location.href=getURL('/settings/wifi');" class="icons_sm" style="position:absolute; right:5%; padding-top:7px;">&#xe91b;</i>
+		<i id="wifii" onclick="window.location.href=getURL('/settings/wifi');" class="icons_sm" style="position:absolute; right:5.5%; padding-top:7px;">&#xe91b;</i>
 
 		<!-- brightness slider -->
 		<!-- is brightness icon necessary? ideally it would be in place of the slider bubble but don't know how to do that -->
 		<!--<i class="icons slider-icon" style="transform: translateY(2px); left:17%;">&#xe333;</i>-->
-		<div class="sliderwrap il" style="max-width:100%; width:70%; transform:translateY(4px); position:absolute; left:15%;">
+		<div class="sliderbright il" style="max-width:100%; width:70%; transform:translateY(4px); position:absolute; left:15%;">
 			<input id="sliderBri" onchange="setBri()" oninput="updateTrail(this)" max="255" min="1" type="range" value="128" />
 			<div class="sliderdisplay"></div>
 		</div>
@@ -57,7 +57,8 @@
 <div class ="container">
 	<!-- COLORS -->
 	<div id="Colors" class="tabcontent">
-		<div id="picker" class="noslide" style="padding-top:15px; padding-bottom:10px;"></div>
+		<!-- add glowing class to make the color picker pop a bit more -->
+		<div id="picker" class="noslide glowing" style="padding-top:8px; padding-bottom:5px; scale:0.85;"></div>
 		<div id="hwrap" class="slider">
 			<div title="Hue" class="sliderwrap il">
 				<input id="sliderH" class="noslide" oninput="fromH()" onchange="setColor(0)" max="359" min="0" type="range" value="0" step="any">
@@ -127,7 +128,8 @@
 			<div class="qcs" onclick="pC('#08ff00');" style="background-color:#08ff00;"></div>
 			<div class="qcs" onclick="pC('rnd');" title="Random" style="background:linear-gradient(to right, red, orange, yellow, green, blue, purple);transform: translateY(-11px);">R</div>
 		</div>
-		<div id="csl">
+		<!-- change color select buttons to have a thinner dark border instead of white, consider some drop shadow or glow reflecting the selected color? -->
+		<div id="csl" style="padding-top:5px;">
 			<button id="csl0" title="Select slot" class="btn" onclick="selectSlot(0);" data-r="0" data-g="0" data-b="0" data-w="0">1</button>
 			<button id="csl1" title="Select slot" class="btn" onclick="selectSlot(1);" data-r="0" data-g="0" data-b="0" data-w="0">2</button>
 			<button id="csl2" title="Select slot" class="btn" onclick="selectSlot(2);" data-r="0" data-g="0" data-b="0" data-w="0">3</button>
@@ -174,8 +176,8 @@
 	<div id="Effects" class="tabcontent">
 		<div id="fx">
 			<p class="labels hd" id="modeLabel">Effect mode</p>
-			<div class="staytop fnd" id="fxFind" onmousedown="preventBlur(event);">
-				<!--search bubble with drop down filters-->
+			<!--search bubble with drop down filters. Make position sticky? -->
+			<div class="staytop fnd sticky" id="fxFind" onmousedown="preventBlur(event);" style="padding-top:10px;">
 				<input type="text" placeholder="Search" oninput="search(this,'fxlist')" onfocus="filterFocus(event);search(this,'fxlist');" onblur="filterFocus(event);">
 				<i class="icons clear-icon" onclick="clean(this);">&#xe38f;</i>
 				<i class="icons search-icon" style="cursor:pointer;">&#xe0a1;</i>
@@ -222,17 +224,20 @@
 				</div>
 			</div>
 		</div>
+		<!-- FX SLIDERS -->
 		<div id="sliders">
-			<div id="slider0" class="slider">
-				<i class="icons slider-icon" title="Freeze" onclick="tglFreeze()">&#xe325;</i>
+			<div id="slider0" class="slider" style="border-radius: 24px 24px 0 0; padding-top: 5px;"> <!-- only round top corners of top slider -->
+				<i class="icons slider-icon" title="Freeze" onclick="tglFreeze()" style="padding-top: 5px;">&#xe325;</i>
 				<div title="Effect speed" class="sliderwrap il">
 					<input id="sliderSpeed" class="noslide" onchange="setSpeed()" oninput="updateTrail(this)" max="255" min="0" type="range" value="128" />
 					<div class="sliderdisplay"></div>
 				</div>
 				<output class="sliderbubble"></output>
 			</div>
+			<!-- add logic to make slider stack uniform on fx select by rounding only bottom corners of last slider in use by effect. See index.js -->
 			<div id="slider1" class="slider">
-				<i class="icons slider-icon" title="Toggle labels" onclick="tglLabels()">&#xe409;</i>
+				<!-- remove tglLabels() onclick behavior -->
+				<i class="icons slider-icon">&#xe409;</i>
 				<div title="Effect intensity" class="sliderwrap il">
 					<input id="sliderIntensity" class="noslide" onchange="setIntensity()" oninput="updateTrail(this)" max="255" min="0" type="range" value="128" />
 					<div class="sliderdisplay"></div>
@@ -263,9 +268,9 @@
 				</div>
 				<output class="sliderbubble"></output>
 			</div>
-			<div id="fxopt" class="option fade">
+			<div id="fxopt" class="option fade" style="border-radius: 0 0 0 0;"> <!-- if no sliders, then JS will round top corners -->
 				<label id="opt0" title="Check 1" class="check ochkl hide"><i class="icons">&#xe2b3;</i>
-					<input id="checkO1" type="checkbox" onchange="setOption(1, this.checked)">
+					<input id="checkO1" type="checkbox" onchange="setOption(1, this.checked)" style="padding:4px;">
 					<span class="checkmark"></span>
 				</label>
 				<label id="opt1" title="Check 2" class="check ochkl hide"><i class="icons">&#xe34b;</i>
@@ -291,8 +296,9 @@
 			<i class="icons clear-icon" onclick="clean(this);">&#xe38f;</i>
 			<i class="icons search-icon">&#xe0a1;</i>
 		</div>
-		<div id="pcont" class="list">
+		<div id="pcont" class="list" style="padding-top: 10px;">
 			<span onclick="loadPresets()">Loading...</span>
+			<!-- preset html gets built in makeP() function of Index.js, then loaded here -->
 		</div>
 		<div id="putil" class="staybot">
 		</div>
@@ -342,9 +348,9 @@
 	<!-- change icon used for presets to that used by segments -->
 	<!-- havn't yet figured out how to change button order and default to presets page instead of colors -->
 	<!-- more inspirational to see color page initially then list of presets? -->
-	<button class="tablinks" onclick="openTab(0)" style="width:33.3%;"><i class="icons2">&#xe90b;</i><p class="tab-label"><!--COLORS--></p></button>
-	<button class="tablinks" onclick="openTab(1)" style="width:33.3%;"><i class="icons2">&#xe91d;</i><p class="tab-label"><!--EFFECTS--></p></button>
-	<button class="tablinks" onclick="openTab(2)" style="width:33.3%;"><i class="icons2">&#xe92e;</i><p class="tab-label"><!--PRESETS--></p></button>
+	<button class="tablinks" onclick="openTab(0)" style="width:33.3%; padding:10px;"><i class="icons2">&#xe90b;</i><p class="tab-label" style="padding-top:4px;">COLORS</p></button>
+	<button class="tablinks" onclick="openTab(1)" style="width:33.3%; padding:10px;"><i class="icons2">&#xe91d;</i><p class="tab-label" style="padding-top:4px;">EFFECTS</p></button>
+	<button class="tablinks" onclick="openTab(2)" style="width:33.3%; padding:10px;"><i class="icons2">&#xe92e;</i><p class="tab-label" style="padding-top:4px;">PRESETS</p></button>
 	<button hidden class="tablinks" onclick="openTab(3)"><i class="icons">&#xe34b;</i><p class="tab-label">Segments</p></button>
 </div>
 
@@ -355,9 +361,9 @@
 <!-- hide the WLED label in the bottom right that toggles the Nodes modal -->
 <div hidden id="namelabel" onclick="toggleNodes()"></div>
 <!-- in its place, add a small info icon that toggles the info modal -->
-<i onclick="toggleInfo()" class="icons_s" style="position:absolute; right:4%; bottom:55px; color:#555;">&#xe066;</i>
+<i onclick="toggleInfo()" class="icons_s" style="position:absolute; right:5%; bottom:75px; color:#555;">&#xe066;</i>
 <!-- on the left side, add a small message icon that links users to a feedback form -->
-<i onclick="window.location.href=getURL('/feedback');" class="icons_sm" style="position:absolute; left:4%; bottom:55px; color:#555;">&#xe96b;</i>
+<i onclick="window.location.href=getURL('/feedback');" class="icons_sm" style="position:absolute; left:5%; bottom:75px; color:#555;">&#xe96b;</i>
 
 <div id="info" class="modal">
 	<button class="btn btn-xs close" onclick="toggleInfo()"><i class="icons rot45">&#xe18a;</i></button>

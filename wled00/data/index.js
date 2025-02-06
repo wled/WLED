@@ -70,6 +70,11 @@ function rgbStr(a) {return "rgb(" + a.r + "," + a.g + "," + a.b + ")";}
 // brightness approximation for selecting white as text color if background bri < 127, and black if higher
 function rgbBri(a) {return 0.2126*parseInt(a.r) + 0.7152*parseInt(a.g) + 0.0722*parseInt(a.b);}
 
+// mgibson added -----------------
+// Define a function to replace the default names with your custom names.
+
+//----------------------------------
+
 // sets background of color slot selectors
 function setCSL(cs)
 {
@@ -290,7 +295,7 @@ function onLoad()
 				});
 			})},50);
 		});
-	});
+	}); 
 	resetUtil();
 
 	d.addEventListener("visibilitychange", handleVisibilityChange, false);
@@ -319,8 +324,8 @@ function openTab(tabI, force = false)
 	switch (tabI) {
 		case 0: window.location.hash = "Colors"; break;
 		case 1: window.location.hash = "Effects"; break;
-		case 2: window.location.hash = "Segments"; break;
-		case 3: window.location.hash = "Presets"; break;
+		case 2: window.location.hash = "Presets"; break;
+		case 3: window.location.hash = "Segments"; break;
 	}
 }
 
@@ -328,8 +333,8 @@ function handleLocationHash() {
 	switch (window.location.hash) {
 		case "#Colors": openTab(0); break;
 		case "#Effects": openTab(1); break;
-		case "#Segments": openTab(2); break;
-		case "#Presets": openTab(3); break;
+		case "#Presets": openTab(2); break;
+		case "#Segments": openTab(3); break;
 	}
 }
 
@@ -1250,7 +1255,8 @@ function updateUI()
 {
 	gId('buttonPower').className = (isOn) ? 'active':'';
 	//since using pwr icon instead of button, add line to match icon color to ON state
-	gId('pwri').style.color = (isOn) ? '#0f0':'#ddd';
+	gId('pwri').style.color = (isOn) ? '#ddd':'#555';
+	gId('pwri').style.textShadow = (isOn) ? "0 0 6px rgba(255, 255, 255, 0.6)":"0 0 6px rgba(255, 255, 255, 0)";
 	gId('buttonNl').className = (nlA) ? 'active':'';
 	gId('buttonSync').className = (syncSend) ? 'active':'';
 	//comment out logic below to unhide pixel magic button if enabled. Button hidden in index.htm
@@ -1770,12 +1776,14 @@ function togglePower()
 	var obj = {"on": isOn};
 
 	 // mgibson - adding logic to change icon color based on the power state
-	 // also added js at bottom of index.htm to match icon color to power state at page load
+	 // also added new line to beginning of updateUI() function to handle initial state on page load
 	 var icon = document.getElementById("pwri");
 	 if (isOn) {
-		 icon.style.color = "#0f0";  // Color when ON, green
+		 icon.style.color = "#ddd";  // Color when ON, white
+		 icon.style.textShadow = "0 0 6px rgba(255, 255, 255, 0.6)" // add some glow too
 	 } else {
-		 icon.style.color = "#ddd";    // Color when OFF, usual light grey
+		 icon.style.color = "#555";    // Color when OFF, dark grey
+		 icon.style.textShadow = "0 0 6px rgba(255, 255, 255, 0)"
 	 }
 
 	if (isOn && lastinfo && lastinfo.live && lastinfo.liveseg>=0) {
@@ -2007,6 +2015,7 @@ function plR(p)
 	}
 }
 
+/* mgibson - modifying function below to simplify preset options by hiding various elements */
 function makeP(i,pl)
 {
 	var content = "";
@@ -2065,8 +2074,8 @@ ${makePlSel(plJson[i].end?plJson[i].end:0, true)}
 	}
 
 	return `<input type="text" class="ptxt ${i==0?'show':''}" id="p${i}txt" autocomplete="off" maxlength=32 value="${(i>0)?pName(i):""}" placeholder="Enter name..."/>
-<div class="c">Quick load label: <input type="text" class="stxt" maxlength=2 value="${qlName(i)}" id="p${i}ql" autocomplete="off"/></div>
-<div class="h">(leave empty for no Quick load button)</div>
+<div hidden class="c">Quick load label: <input type="text" class="stxt" maxlength=2 value="${qlName(i)}" id="p${i}ql" autocomplete="off"/></div>
+<div hidden class="h">(leave empty for no Quick load button)</div>
 <div ${pl&&i==0?"style='display:none'":""}>
 <label class="check revchkl">
 	<span class="lstIname">${pl?"Show playlist editor":(i>0)?"Overwrite with state":"Use current state"}</span>
@@ -2074,14 +2083,14 @@ ${makePlSel(plJson[i].end?plJson[i].end:0, true)}
 	<span class="checkmark"></span>
 </label>
 </div>
-<div class="po2" id="p${i}o2">API command<br><textarea class="apitxt" id="p${i}api"></textarea></div>
-<div class="po1" id="p${i}o1">${content}</div>
+<div class="po2" id="p${i}o2"><p hidden>API command</p><textarea hidden class="apitxt" id="p${i}api"></textarea></div>
+<div hidden class="po1" id="p${i}o1">${content}</div>
 <label class="check revchkl">
 	<span class="lstIname">Apply at boot</span>
 	<input type="checkbox" id="p${i}bps" ${i==bps?"checked":""}>
 	<span class="checkmark"></span>
 </label>
-<div class="c m6">Save to ID <input id="p${i}id" type="number" oninput="checkUsed(${i})" max=250 min=1 value=${(i>0)?i:getLowestUnusedP()}></div>
+<div class="c m6" style="left:30px;">Save to ID  <input id="p${i}id" style="width:30px; height:20px;" type="number" oninput="checkUsed(${i})" max=250 min=1 value=${(i>0)?i:getLowestUnusedP()}></div>
 <div class="c">
 	<button class="btn btn-p" onclick="saveP(${i},${pl})"><i class="icons btn-icon">&#xe390;</i>Save</button>
 	${(i>0)?'<button class="btn btn-p" id="p'+i+'del" onclick="delP('+i+')"><i class="icons btn-icon">&#xe037;</i>Delete':'<button class="btn btn-p" onclick="resetPUtil()">Cancel'}</button>
@@ -2383,6 +2392,31 @@ function setFX(ind = null)
 
 	var obj = {"seg": {"fx": parseInt(ind), "fxdef": cfg.comp.fxdef}}; // fxdef sets effect parameters to default values
 	requestJson(obj);
+
+	/*
+	// make fx sliders and option bar look grouped by not rounding top corners of last slider not hidden
+	// slider0 has only top corners rounded by default, this covers the single slider case
+	if (gId("slider2").classList.contains("hide")) { 		// if 2 sliders, don't round the second sliders top corners
+		gId("slider1").style.borderRadius = "0 0 0 0";
+	} else if (gId("slider3").classList.contains("hide")) { // if 3 sliders, don't round middle sliders top corners
+		gId("slider1").style.borderRadius = "0 0 0 0"
+		gId("slider2").style.borderRadius = "0 0 0 0";
+	} else if (gId("slider4").classList.contains("hide")) { // if 4 sliders, don't round middle sliders top corners
+		gId("slider1").style.borderRadius = "0 0 0 0"
+		gId("slider2").style.borderRadius = "0 0 0 0"
+		gId("slider3").style.borderRadius = "0 0 0 0";
+	} else { // if all sliders are not hidden (5 total), don't round any prior sliders top corners
+		gId("slider1").style.borderRadius = "0 0 0 0"
+		gId("slider2").style.borderRadius = "0 0 0 0"
+		gId("slider3").style.borderRadius = "0 0 0 0"
+		gId("slider4").style.borderRadius = "0 0 0 0";
+	} */
+
+	if (gId("slider0").classList.contains("hide")) {  // if no sliders, then round option bar top corners
+		gId("fxopt").style.borderRadius = "24px 24px 0 0";
+	} else {
+		gId("fxopt").style.borderRadius = "0 0 0 0"; // otherwise, set back to square corners 
+	}
 }
 
 function setPalette(paletteId = null)

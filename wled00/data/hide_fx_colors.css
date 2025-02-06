@@ -13,5 +13,10 @@ div#fxlist [data-id="90"] { display: none; }
 /* list of COLOR PALETTES to hide from user */
 /* the id for each effect name can be found in palettes.h file, starting on line 870. It's the first number in the comment. */
 
-/* hide beech */
-div#pallist [data-id="26"] { display: none; }
+div#pallist [data-id="26"] { display: none; } /* hide beech */
+div#pallist [data-id="48"] { display: none; } /* hide C9 */
+div#pallist [data-id="52"] { display: none; } /* hide C9 2 */
+
+
+/* How do we CHANGE the name of an effect or palette? */
+/* JSON API? IF statement in LoadPalettes() JS functionm? */

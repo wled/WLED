@@ -70,6 +70,21 @@ body {
 	scrollbar-color: var(--c-sb) transparent;
 }
 
+.wordmark {
+    font-size: 26px;
+	font-weight: 400;
+	letter-spacing:12px;
+	/*background: linear-gradient(0deg, #111 5%, #ddd 50%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;*/
+	/*text-shadow: 0 0 10px rgba(255, 255, 255, 0.75);*/
+}
+
+.glowing {
+    filter: drop-shadow(0 0 1px black) /*give the element a fine sharp edge */
+			drop-shadow(0 0 25px rgba(120, 120, 120, 0.5));
+}
+
 html,
 body {
 	height: 100%;
@@ -213,6 +228,7 @@ button {
 
 .slider-icon {
 	position: absolute;
+	top: 8px; /* mgibson added to vertically center in element */
 	left: 8px;
 	bottom: 5px;
 }
@@ -260,7 +276,7 @@ button {
 
 .search-icon {
 	position: absolute;
-	top: 8px;
+	top: 22px;
 	left: 12px;
 	width: 24px;
 	height: 24px;
@@ -391,7 +407,7 @@ button {
 
 #segutil, #segutil2, #segcont, #putil, #pcont, #pql, #fx, #palw,
 .fnd {
-	max-width: 280px;
+	max-width: 275px;
 }
 
 #putil, #segutil, #segutil2 {
@@ -460,7 +476,7 @@ button {
 	position: -webkit-sticky;
 	position: sticky;
 	bottom: 0;
-	max-width: 300px;
+	max-width: 275px;
 	z-index: 2;
 }
 
@@ -470,16 +486,25 @@ button {
 }
 
 .slider {
-	/*max-width: 300px;*/
-	/* margin: 5px auto; add 5px; if you want some vertical space but looks ugly */
-	margin-bottom: 5px;
-	border-radius: 24px;
+	max-width: 275px;
+	/*margin: 5px auto; add 5px; if you want some vertical space but looks ugly because background scroll visible in gap */
+	margin-bottom: 0px;
+	/*border-radius: 24px; make sliders look grouped by only rounding slider0 top corners, set in index.html */
 	position: relative;
 	padding-bottom: 10px;
 }
 
 /* Slider wrapper div */
 .sliderwrap {
+	height: 30px;
+	width: 230px;
+	max-width: 230px;
+	top:6px; /* mgibson added to vertically center slider in element */
+	position: relative;
+	z-index: 0;
+}
+
+.sliderbright {
 	height: 30px;
 	width: 230px;
 	max-width: 230px;
@@ -492,7 +517,7 @@ button {
 }
 
 #sliders .slider, #info .slider {
-	background-color: var(--c-2);
+	background-color: var(--c-4);
 }
 
 #sliders .sliderwrap, .sbs .sliderwrap {
@@ -503,9 +528,9 @@ button {
 	background-color: var(--c-4);
 	border-radius: 26px;
 	height: 26px;
-	max-width: 300px;
+	max-width: 275px;
 	/* margin: 0 auto 4px; add 4-8px if you want space at the bottom */
-	padding: 4px 2px;
+	padding: 2px 5px 8px 5px;
 	position: relative;
 	opacity: 1;
 	transition: opacity .25s linear, height .2s, transform .2s;
@@ -712,7 +737,7 @@ img {
 	position: absolute;
 	top: 12px; left: 8px; right: 8px;
 	height: 5px;
-	background: var(--c-4);
+	background: var(--c-6);
 	border-radius: 16px;
 	pointer-events: none;
 	z-index: -1;
@@ -1121,15 +1146,19 @@ textarea {
 	width: 44px;
 	height: 44px;
 	margin: 5px;
-	border: 2px solid var(--c-d) !important;
+	/*border: 2px solid var(--c-d) !important;*/
+	border: 0px solid var(--c-3);
 	background-color: #000;
+	/* make it pop with a drop shadow */
+	filter: drop-shadow(0 0 8px rgba(120, 120, 120, 0.5));
 }
 /* selected color selector */
 #csl .sl {
 	margin: 2px;
 	width: 50px;
 	height: 50px;
-	border-width: 5px !important;
+	border-color: #444;
+	border-width: 3px !important;
 }
 
 .qcs, #namelabel { /* text shadow for name to be legible on grey backround */
@@ -1388,9 +1417,10 @@ TD .checkmark, TD .radiomark {
     border-radius: 100%;
 }
 
+/* removing 42px top position on selection since its making the first preset in the list jump down when clicked */
 #pcont .selected:not([class*="expanded"]) {
 	bottom: 52px;
-	top: 42px;
+	/*top: 42px;*/
 }
 
 /* removing 42px vertical offset so that selected list item overlaps first list item when sticking to top */
@@ -1426,7 +1456,8 @@ dialog {
 /* list item content */
 .lstIcontent {
 	width:100%;
-	padding: 10px 0 7px;
+	max-width:275px; /* set a max width to keep it consistent with other items */
+	padding: 7px 0 7px; /* make padding equal on top and bottom */
 	position: relative;
 }
 
@@ -1636,7 +1667,7 @@ dialog {
 @media all and (min-width: 1024px) and (max-width: 1249px) {
 	#segutil, #segutil2, #segcont, #putil, #pcont, #pql, #fx, #palw, #psFind, #sliders {
 		width: 100%;
-		max-width: 280px;
+		max-width: 275px;
 		font-size: 18px;
 	}
 	#putil .btn-s {
