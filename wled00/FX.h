@@ -501,7 +501,7 @@ typedef struct Segment {
     } *_t;
 
   #ifndef WLED_DISABLE_2D
-    [[gnu::hot]] void _setPixelColorXY_raw(int x, int y, uint32_t& col) const; // set pixel without mapping (internal use only)
+    [[gnu::hot]] void _setPixelColorXY_raw(int x, int y, uint32_t col) const; // set pixel without mapping (internal use only)
   #endif
 
   public:
@@ -572,21 +572,21 @@ typedef struct Segment {
     size_t getSize() const { return sizeof(Segment) + (data?_dataLen:0) + (name?strlen(name):0) + (_t?sizeof(Transition):0); }
 #endif
 
-    inline bool     getOption(uint8_t n) const { return ((options >> n) & 0x01); }
-    inline bool     isSelected()         const { return selected; }
-    inline bool     isInTransition()     const { return _t != nullptr; }
-    inline bool     isActive()           const { return stop > start; }
-    inline bool     hasRGB()             const { return _isRGB; }
-    inline bool     hasWhite()           const { return _hasW; }
-    inline bool     isCCT()              const { return _isCCT; }
-    inline uint16_t width()              const { return isActive() ? (stop - start) : 0; }  // segment width in physical pixels (length if 1D)
-    inline uint16_t height()             const { return stopY - startY; }                   // segment height (if 2D) in physical pixels (it *is* always >=1)
-    inline uint16_t length()             const { return width() * height(); }               // segment length (count) in physical pixels
-    inline uint16_t groupLength()        const { return grouping + spacing; }
+    inline bool     getOption(uint8_t n)   const { return ((options >> n) & 0x01); }
+    inline bool     isSelected()           const { return selected; }
+    inline bool     isInTransition()       const { return _t != nullptr; }
+    inline bool     isActive()             const { return stop > start; }
+    inline bool     hasRGB()               const { return _isRGB; }
+    inline bool     hasWhite()             const { return _hasW; }
+    inline bool     isCCT()                const { return _isCCT; }
+    inline uint16_t width()                const { return isActive() ? (stop - start) : 0; }  // segment width in physical pixels (length if 1D)
+    inline uint16_t height()               const { return stopY - startY; }                   // segment height (if 2D) in physical pixels (it *is* always >=1)
+    inline uint16_t length()               const { return width() * height(); }               // segment length (count) in physical pixels
+    inline uint16_t groupLength()          const { return grouping + spacing; }
     inline uint8_t  getLightCapabilities() const { return _capabilities; }
-    inline void     deactivate()               { setGeometry(0,0); }
-    inline Segment &clearName()                 { if (name) d_free(name); name = nullptr; return *this; }
-    inline Segment &setName(const String &name) { return setName(name.c_str()); }
+    inline void     deactivate()                 { setGeometry(0,0); }
+    inline Segment &clearName()                  { if (name) d_free(name); name = nullptr; return *this; }
+    inline Segment &setName(const String &name)  { return setName(name.c_str()); }
 
     inline static unsigned getUsedSegmentData()            { return Segment::_usedSegmentData; }
     inline static void     addUsedSegmentData(int len)     { Segment::_usedSegmentData += len; }
@@ -690,7 +690,6 @@ typedef struct Segment {
     }
   #ifndef WLED_DISABLE_2D
     inline bool is2D() const                                                            { return (width()>1 && height()>1); }
-    [[gnu::hot]] int  XY(int x, int y) const; // support function to get relative index within segment
     [[gnu::hot]] void setPixelColorXY(int x, int y, uint32_t c) const; // set relative pixel within segment with color
     inline void setPixelColorXY(unsigned x, unsigned y, uint32_t c) const               { setPixelColorXY(int(x), int(y), c); }
     inline void setPixelColorXY(int x, int y, byte r, byte g, byte b, byte w = 0) const { setPixelColorXY(x, y, RGBW32(r,g,b,w)); }
@@ -730,7 +729,6 @@ typedef struct Segment {
     inline void fill_solid(CRGB c) const { fill(RGBW32(c.r,c.g,c.b,0)); }
   #else
     inline constexpr bool is2D() const                                            { return false; }
-    inline int  XY(int x, int y) const                                            { return x; }
     inline void setPixelColorXY(int x, int y, uint32_t c) const                   { setPixelColor(x, c); }
     inline void setPixelColorXY(unsigned x, unsigned y, uint32_t c) const         { setPixelColor(int(x), c); }
     inline void setPixelColorXY(int x, int y, byte r, byte g, byte b, byte w = 0) const { setPixelColor(x, RGBW32(r,g,b,w)); }

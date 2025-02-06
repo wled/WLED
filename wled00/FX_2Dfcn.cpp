@@ -144,15 +144,8 @@ void WS2812FX::setUpMatrix() {
 
 #ifndef WLED_DISABLE_2D
 
-// XY(x,y) - gets pixel index within current segment (often used to reference leds[] array element)
-int IRAM_ATTR Segment::XY(int x, int y) const {
-  const int vW = vWidth();   // segment width in logical pixels (can be 0 if segment is inactive)
-  const int vH = vHeight();  // segment height in logical pixels (is always >= 1)
-  return isActive() ? (x%vW) + (y%vH) * vW : 0;
-}
-
 // raw setColor function without checks (checks are done in setPixelColorXY())
-void IRAM_ATTR Segment::_setPixelColorXY_raw(int x, int y, uint32_t& col) const {
+void IRAM_ATTR Segment::_setPixelColorXY_raw(int x, int y, uint32_t col) const {
   const int baseX = start + x;
   const int baseY = startY + y;
 #ifndef WLED_DISABLE_MODE_BLEND
@@ -163,16 +156,11 @@ void IRAM_ATTR Segment::_setPixelColorXY_raw(int x, int y, uint32_t& col) const 
 
   // Apply mirroring
   if (mirror || mirror_y) {
-    auto setMirroredPixel = [&](int mx, int my) {
-      strip.setPixelColorXY(mx, my, col);
-    };
-
     const int mirrorX = start + width() - x - 1;
     const int mirrorY = startY + height() - y - 1;
-
-    if (mirror)             setMirroredPixel(transpose ? baseX : mirrorX, transpose ? mirrorY : baseY);
-    if (mirror_y)           setMirroredPixel(transpose ? mirrorX : baseX, transpose ? baseY : mirrorY);
-    if (mirror && mirror_y) setMirroredPixel(mirrorX, mirrorY);
+    if (mirror)             strip.setPixelColorXY(transpose ? baseX : mirrorX, transpose ? mirrorY : baseY, col);
+    if (mirror_y)           strip.setPixelColorXY(transpose ? mirrorX : baseX, transpose ? baseY : mirrorY, col);
+    if (mirror && mirror_y) strip.setPixelColorXY(mirrorX, mirrorY, col);
   }
 }
 
@@ -237,12 +225,10 @@ void IRAM_ATTR Segment::setPixelColorXY(int x, int y, uint32_t col) const
   unsigned groupLen = groupLength();
 
   if (groupLen > 1) {
-    int W = width();
-    int H = height();
     x *= groupLen; // expand to physical pixels
     y *= groupLen; // expand to physical pixels
-    const int maxY = std::min(y + grouping, H);
-    const int maxX = std::min(x + grouping, W);
+    const int maxY = std::min(y + grouping, vH);
+    const int maxX = std::min(x + grouping, vW);
     for (int yY = y; yY < maxY; yY++) {
       for (int xX = x; xX < maxX; xX++) {
         _setPixelColorXY_raw(xX, yY, col);

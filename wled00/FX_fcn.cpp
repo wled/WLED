@@ -505,17 +505,10 @@ void Segment::setGeometry(uint16_t i1, uint16_t i2, uint8_t grp, uint8_t spc, ui
   // return if neither bounds nor grouping have changed
   bool boundsUnchanged = (start == i1 && stop == i2);
   #ifndef WLED_DISABLE_2D
-  if (Segment::maxHeight>1) boundsUnchanged &= (startY == i1Y && stopY == i2Y); // 2D
+  boundsUnchanged &= (startY == i1Y && stopY == i2Y); // 2D
   #endif
 
   if (stop && (spc > 0 || m12 != map1D2D)) clear();
-/*
-  if (boundsUnchanged
-      && (!grp || (grouping == grp && spacing == spc))
-      && (ofs == UINT16_MAX || ofs == offset)
-      && (m12 == map1D2D)
-     ) return;
-*/
   stateChanged = true; // send UDP/WS broadcast
 
   if (grp) { // prevent assignment of 0
@@ -1847,12 +1840,12 @@ void WS2812FX::makeAutoSegments(bool forceReset) {
     // there is always at least one segment (but we need to differentiate between 1D and 2D)
     #ifndef WLED_DISABLE_2D
     if (isMatrix)
-      _segments.push_back(Segment(0, Segment::maxWidth, 0, Segment::maxHeight));
+      _segments.emplace_back(0, Segment::maxWidth, 0, Segment::maxHeight);
     else
     #endif
-      _segments.push_back(Segment(segStarts[0], segStops[0]));
+      _segments.emplace_back(segStarts[0], segStops[0]);
     for (size_t i = 1; i < s; i++) {
-      _segments.push_back(Segment(segStarts[i], segStops[i]));
+      _segments.emplace_back(segStarts[i], segStops[i]);
     }
     DEBUGFX_PRINTF_P(PSTR("%d auto segments created.\n"), _segments.size());
 
@@ -1863,15 +1856,9 @@ void WS2812FX::makeAutoSegments(bool forceReset) {
     else if (getActiveSegmentsNum() == 1) {
       size_t i = getLastActiveSegmentId();
       #ifndef WLED_DISABLE_2D
-      _segments[i].start  = 0;
-      _segments[i].stop   = Segment::maxWidth;
-      _segments[i].startY = 0;
-      _segments[i].stopY  = Segment::maxHeight;
-      _segments[i].grouping = 1;
-      _segments[i].spacing  = 0;
+      _segments[i].setGeometry(0, Segment::maxWidth, 1, 0, 0xFFFF, 0, Segment::maxHeight);
       #else
-      _segments[i].start = 0;
-      _segments[i].stop  = _length;
+      _segments[i].setGeometry(0, _length);
       #endif
     }
   }

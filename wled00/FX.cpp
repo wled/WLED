@@ -4735,7 +4735,6 @@ static const char _data_FX_MODE_FLOWSTRIPE[] PROGMEM = "Flow Stripe@Hue speed,Ef
 #ifndef WLED_DISABLE_2D
 ///////////////////////////////////////////////////////////////////////////////
 //***************************  2D routines  ***********************************
-#define XY(x,y) SEGMENT.XY(x,y)
 
 
 // Black hole
@@ -4995,6 +4994,7 @@ uint16_t mode_2Dgameoflife(void) { // Written by Ewoud Wijma, inspired by https:
 
   const int cols = SEG_W;
   const int rows = SEG_H;
+  const auto XY = [&](int x, int y) { return (x%cols) + (y%rows) * cols; };
   const unsigned dataSize = sizeof(CRGB) * SEGMENT.length();  // using width*height prevents reallocation if mirroring is enabled
   const int crcBufferLen = 2; //(SEGMENT.width() + SEGMENT.height())*71/100; // roughly sqrt(2)/2 for better repetition detection (Ewowi)
 
@@ -5266,6 +5266,7 @@ uint16_t mode_2Dmatrix(void) {                  // Matrix2D. By Jeremy Williams.
 
   const int cols = SEG_W;
   const int rows = SEG_H;
+  const auto XY = [&](int x, int y) { return (x%cols) + (y%rows) * cols; };
 
   unsigned dataSize = (SEGMENT.length()+7) >> 3; //1 bit per LED for trails
   if (!SEGENV.allocateData(dataSize)) return mode_static(); //allocation failed
@@ -7305,6 +7306,7 @@ uint16_t mode_2DFunkyPlank(void) {              // Written by ??? Adapted by Wil
 
   const int cols = SEG_W;
   const int rows = SEG_H;
+  const auto XY = [&](int x, int y) { return (x%cols) + (y%rows) * cols; };
 
   int NUMB_BANDS = map(SEGMENT.custom1, 0, 255, 1, 16);
   int barWidth = (cols / NUMB_BANDS);
@@ -7514,6 +7516,7 @@ uint16_t mode_2Dsoap() {
 
   const int cols = SEG_W;
   const int rows = SEG_H;
+  const auto XY = [&](int x, int y) { return (x%cols) + (y%rows) * cols; };
 
   const size_t dataSize = SEGMENT.width() * SEGMENT.height() * (sizeof(uint8_t) + sizeof(uint32_t)); // prevent reallocation if mirrored or grouped
   if (!SEGENV.allocateData(dataSize + sizeof(uint32_t)*3)) return mode_static(); //allocation failed
@@ -7632,6 +7635,7 @@ uint16_t mode_2Doctopus() {
 
   const int cols = SEG_W;
   const int rows = SEG_H;
+  const auto XY = [&](int x, int y) { return (x%cols) + (y%rows) * cols; };
   const uint8_t mapp = 180 / MAX(cols,rows);
 
   typedef struct {
