@@ -103,7 +103,7 @@ static void onMqttMessage(char* topic, char* payload, AsyncMqttClientMessageProp
   //Prefix is stripped from the topic at this point
 
   if (strcmp_P(topic, PSTR("/col")) == 0) {
-    colorFromDecOrHexString(col, payloadStr);
+    colorFromDecOrHexString(colPri, payloadStr);
     colorUpdated(CALL_MODE_DIRECT_CHANGE);
   } else if (strcmp_P(topic, PSTR("/api")) == 0) {
     if (requestJSONBufferLock(15)) {
@@ -169,7 +169,7 @@ void publishMqtt()
   strcat_P(subuf, PSTR("/g"));
   mqtt->publish(subuf, 0, retainMqttMsg, s);         // optionally retain message (#2263)
 
-  sprintf_P(s, PSTR("#%06X"), (col[3] << 24) | (col[0] << 16) | (col[1] << 8) | (col[2]));
+  sprintf_P(s, PSTR("#%06X"), (colPri[3] << 24) | (colPri[0] << 16) | (colPri[1] << 8) | (colPri[2]));
   strlcpy(subuf, mqttDeviceTopic, MQTT_MAX_TOPIC_LEN + 1);
   strcat_P(subuf, PSTR("/c"));
   mqtt->publish(subuf, 0, retainMqttMsg, s);         // optionally retain message (#2263)

@@ -1183,7 +1183,7 @@ bool handleSet(AsyncWebServerRequest *request, const String& req, bool apply)
   }
   // you can add more if you need
 
-  // global col[], effectCurrent, ... are updated in stateChanged()
+  // global colPri[], effectCurrent, ... are updated in stateChanged()
   if (!apply) return true; // when called by JSON API, do not call colorUpdated() here
 
   pos = req.indexOf(F("&NN")); //do not send UDP notifications this time

@@ -574,7 +574,7 @@ void WLED::beginStrip()
         Segment &seg = strip.getSegment(i);
         if (seg.isActive()) seg.colors[0] = BLACK;
       }
-      col[0] = col[1] = col[2] = col[3] = 0;  // needed for colorUpdated()
+      colPri[0] = colPri[1] = colPri[2] = colPri[3] = 0;  // needed for colorUpdated()
     }
     briLast = briS; bri = 0;
     strip.fill(BLACK);

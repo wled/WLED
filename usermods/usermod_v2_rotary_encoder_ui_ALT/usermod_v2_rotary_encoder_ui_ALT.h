@@ -518,7 +518,7 @@ void RotaryEncoderUIUsermod::setup()
 
   loopTime = millis();
 
-  currentCCT = (approximateKelvinFromRGB(RGBW32(col[0], col[1], col[2], col[3])) - 1900) >> 5;
+  currentCCT = (approximateKelvinFromRGB(RGBW32(colPri[0], colPri[1], colPri[2], colPri[3])) - 1900) >> 5;
 
   if (!initDone) sortModesAndPalettes();
 
@@ -920,17 +920,17 @@ void RotaryEncoderUIUsermod::changeHue(bool increase){
   display->updateRedrawTime();
 #endif
   currentHue1 = max(min((increase ? currentHue1+fadeAmount : currentHue1-fadeAmount), 255), 0);
-  colorHStoRGB(currentHue1*256, currentSat1, col);
+  colorHStoRGB(currentHue1*256, currentSat1, colPri);
   stateChanged = true; 
   if (applyToAll) {
     for (unsigned i=0; i<strip.getSegmentsNum(); i++) {
       Segment& seg = strip.getSegment(i);
       if (!seg.isActive()) continue;
-      seg.colors[0] = RGBW32(col[0], col[1], col[2], col[3]);
+      seg.colors[0] = RGBW32(colPri[0], colPri[1], colPri[2], colPri[3]);
     }
   } else {
     Segment& seg = strip.getSegment(strip.getMainSegmentId());
-    seg.colors[0] = RGBW32(col[0], col[1], col[2], col[3]);
+    seg.colors[0] = RGBW32(colPri[0], colPri[1], colPri[2], colPri[3]);
   }
   lampUdated();
 #ifdef USERMOD_FOUR_LINE_DISPLAY
@@ -950,16 +950,16 @@ void RotaryEncoderUIUsermod::changeSat(bool increase){
   display->updateRedrawTime();
 #endif
   currentSat1 = max(min((increase ? currentSat1+fadeAmount : currentSat1-fadeAmount), 255), 0);
-  colorHStoRGB(currentHue1*256, currentSat1, col);
+  colorHStoRGB(currentHue1*256, currentSat1, colPri);
   if (applyToAll) {
     for (unsigned i=0; i<strip.getSegmentsNum(); i++) {
       Segment& seg = strip.getSegment(i);
       if (!seg.isActive()) continue;
-      seg.colors[0] = RGBW32(col[0], col[1], col[2], col[3]);
+      seg.colors[0] = RGBW32(colPri[0], colPri[1], colPri[2], colPri[3]);
     }
   } else {
     Segment& seg = strip.getSegment(strip.getMainSegmentId());
-    seg.colors[0] = RGBW32(col[0], col[1], col[2], col[3]);
+    seg.colors[0] = RGBW32(colPri[0], colPri[1], colPri[2], colPri[3]);
   }
   lampUdated();
 #ifdef USERMOD_FOUR_LINE_DISPLAY
