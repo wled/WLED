@@ -261,7 +261,6 @@ extern byte realtimeMode;           // used in getMappedPixelIndex()
 #define FX_MODE_BLENDS                 115
 #define FX_MODE_TV_SIMULATOR           116
 //#define FX_MODE_DYNAMIC_SMOOTH         117 // candidate for removal (check3 in dynamic)
-
 // new 0.14 2D effects
 #define FX_MODE_2DSPACESHIPS           118 //gap fill
 #define FX_MODE_2DCRAZYBEES            119 //gap fill
@@ -275,54 +274,22 @@ extern byte realtimeMode;           // used in getMappedPixelIndex()
 #define FX_MODE_2DWAVINGCELL           127 //gap fill
 
 // WLED-SR effects (SR compatible IDs !!!)
-#define FX_MODE_PIXELS                 128
-#define FX_MODE_PIXELWAVE              129
-#define FX_MODE_JUGGLES                130
-#define FX_MODE_MATRIPIX               131
-#define FX_MODE_GRAVIMETER             132
-#define FX_MODE_PLASMOID               133
-#define FX_MODE_PUDDLES                134
-#define FX_MODE_MIDNOISE               135
-#define FX_MODE_NOISEMETER             136
-#define FX_MODE_FREQWAVE               137
-#define FX_MODE_FREQMATRIX             138
-#define FX_MODE_2DGEQ                  139
-#define FX_MODE_WATERFALL              140
-#define FX_MODE_FREQPIXELS             141
-#define FX_MODE_BINMAP                 142
-#define FX_MODE_NOISEFIRE              143
-#define FX_MODE_PUDDLEPEAK             144
-#define FX_MODE_NOISEMOVE              145
 #define FX_MODE_2DNOISE                146
 #define FX_MODE_PERLINMOVE             147
-#define FX_MODE_RIPPLEPEAK             148
 #define FX_MODE_2DFIRENOISE            149
 #define FX_MODE_2DSQUAREDSWIRL         150
-// #define FX_MODE_2DFIRE2012             151
 #define FX_MODE_2DDNA                  152
 #define FX_MODE_2DMATRIX               153
 #define FX_MODE_2DMETABALLS            154
-#define FX_MODE_FREQMAP                155
-#define FX_MODE_GRAVCENTER             156
-#define FX_MODE_GRAVCENTRIC            157
-#define FX_MODE_GRAVFREQ               158
-#define FX_MODE_DJLIGHT                159
-#define FX_MODE_2DFUNKYPLANK           160
-//#define FX_MODE_2DCENTERBARS           161
 #define FX_MODE_2DPULSER               162
-#define FX_MODE_BLURZ                  163
 #define FX_MODE_2DDRIFT                164
 #define FX_MODE_2DWAVERLY              165
 #define FX_MODE_2DSUNRADIATION         166
 #define FX_MODE_2DCOLOREDBURSTS        167
 #define FX_MODE_2DJULIA                168
-// #define FX_MODE_2DPOOLNOISE            169 //have been removed in WLED SR in the past because of low mem but should be added back
-// #define FX_MODE_2DTWISTER              170 //have been removed in WLED SR in the past because of low mem but should be added back
-// #define FX_MODE_2DCAELEMENTATY         171 //have been removed in WLED SR in the past because of low mem but should be added back
 #define FX_MODE_2DGAMEOFLIFE           172
 #define FX_MODE_2DTARTAN               173
 #define FX_MODE_2DPOLARLIGHTS          174
-#define FX_MODE_2DSWIRL                175
 #define FX_MODE_2DLISSAJOUS            176
 #define FX_MODE_2DFRIZZLES             177
 #define FX_MODE_2DPLASMABALL           178
@@ -332,8 +299,6 @@ extern byte realtimeMode;           // used in getMappedPixelIndex()
 #define FX_MODE_2DDNASPIRAL            182
 #define FX_MODE_2DBLACKHOLE            183
 #define FX_MODE_WAVESINS               184
-#define FX_MODE_ROCKTAVES              185
-#define FX_MODE_2DAKEMI                186
 
 #define MODE_COUNT                     187
 

@@ -805,14 +805,14 @@ function populateSegments(s)
 							`<option value="4" ${inst.m12==4?' selected':''}>Pinwheel</option>`+
 						`</select></div>`+
 					`</div>`;
-		let sndSim = `<div data-snd="si" class="lbl-s hide">Sound sim<br>`+
-						`<div class="sel-p"><select class="sel-p" id="seg${i}si" onchange="setSi(${i})">`+
-							`<option value="0" ${inst.si==0?' selected':''}>BeatSin</option>`+
-							`<option value="1" ${inst.si==1?' selected':''}>WeWillRockYou</option>`+
-							`<option value="2" ${inst.si==2?' selected':''}>10/13</option>`+
-							`<option value="3" ${inst.si==3?' selected':''}>14/3</option>`+
-						`</select></div>`+
-					`</div>`;
+//		let sndSim = `<div data-snd="si" class="lbl-s hide">Sound sim<br>`+
+//						`<div class="sel-p"><select class="sel-p" id="seg${i}si" onchange="setSi(${i})">`+
+//							`<option value="0" ${inst.si==0?' selected':''}>BeatSin</option>`+
+//							`<option value="1" ${inst.si==1?' selected':''}>WeWillRockYou</option>`+
+//							`<option value="2" ${inst.si==2?' selected':''}>10/13</option>`+
+//							`<option value="3" ${inst.si==3?' selected':''}>14/3</option>`+
+//						`</select></div>`+
+//					`</div>`;
 		cn += `<div class="seg lstI ${i==s.mainseg && !simplifiedUI ? 'selected' : ''} ${exp ? "expanded":""}" id="seg${i}" data-set="${inst.set}">`+
 				`<label class="check schkl ${smpl}">`+
 					`<input type="checkbox" id="seg${i}sel" onchange="selSeg(${i})" ${inst.sel ? "checked":""}>`+
@@ -862,7 +862,7 @@ function populateSegments(s)
 					`<div class="h bp" id="seg${i}len"></div>`+
 					(!isMSeg ? rvXck : '') +
 					(isMSeg&&stoY-staY>1&&stoX-staX>1 ? map2D : '') +
-					(s.AudioReactive && s.AudioReactive.on ? "" : sndSim) +
+//					(s.AudioReactive && s.AudioReactive.on ? "" : sndSim) +
 					`<label class="check revchkl" id="seg${i}lbtm">`+
 						(isMSeg?'Transpose':'Mirror effect') + (isMSeg ?
 						'<input type="checkbox" id="seg'+i+'tp" onchange="setTp('+i+')" '+(inst.tp?"checked":"")+'>':
@@ -1363,9 +1363,9 @@ function updateSelectedFx()
 		gId("segcont").querySelectorAll(`div[data-map="map2D"]`).forEach((seg)=>{
 			if (selectedName.indexOf("\u25A6")<0) seg.classList.remove('hide'); else seg.classList.add('hide');
 		});
-		gId("segcont").querySelectorAll(`div[data-snd="si"]`).forEach((seg)=>{
-			if (selectedName.indexOf("\u266A")<0 && selectedName.indexOf("\u266B")<0) seg.classList.add('hide'); else seg.classList.remove('hide'); // also "♫ "?
-		});
+//		gId("segcont").querySelectorAll(`div[data-snd="si"]`).forEach((seg)=>{
+//			if (selectedName.indexOf("\u266A")<0 && selectedName.indexOf("\u266B")<0) seg.classList.add('hide'); else seg.classList.remove('hide'); // also "♫ "?
+//		});
 	}
 }
 
@@ -2331,14 +2331,14 @@ function setM12(s)
 	var obj = {"seg": {"id": s, "m12": value}};
 	requestJson(obj);
 }
-
+/*
 function setSi(s)
 {
 	var value = gId(`seg${s}si`).selectedIndex;
 	var obj = {"seg": {"id": s, "si": value}};
 	requestJson(obj);
 }
-
+*/
 function setTp(s)
 {
 	var tp = gId(`seg${s}tp`).checked;

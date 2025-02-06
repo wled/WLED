@@ -375,6 +375,7 @@ uint16_t crc16(const unsigned char* data_p, size_t length) {
 }
 
 
+/*
 ///////////////////////////////////////////////////////////////////////////////
 // Begin simulateSound (to enable audio enhanced effects to display something)
 ///////////////////////////////////////////////////////////////////////////////
@@ -474,6 +475,7 @@ um_data_t* simulateSound(uint8_t simulationId)
 
   return um_data;
 }
+*/
 
 static const char s_ledmap_tmpl[] PROGMEM = "ledmap%d.json";
 // enumerate all ledmapX.json files on FS and extract ledmap names if existing
