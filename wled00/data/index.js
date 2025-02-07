@@ -2051,15 +2051,15 @@ ${makePlSel(plJson[i].end?plJson[i].end:0, true)}
 	<input type="checkbox" id="p${i}ibtgl" checked>
 	<span class="checkmark"></span>
 </label>
-<label class="check revchkl">
-	<span class="lstIname">Save segment bounds</span>
-	<input type="checkbox" id="p${i}sbtgl" checked>
-	<span class="checkmark"></span>
+<label class="check revchkl" style="display:none;">
+	<span hidden class="lstIname">Save segment bounds</span>
+	<input hidden type="checkbox" id="p${i}sbtgl" checked>
+	<span hidden class="checkmark"></span>
 </label>
-<label class="check revchkl">
-	<span class="lstIname">Checked segments only</span>
-	<input type="checkbox" id="p${i}sbchk">
-	<span class="checkmark"></span>
+<label class="check revchkl" style="display:none;">
+	<span hidden class="lstIname">Checked segments only</span>
+	<input hidden type="checkbox" id="p${i}sbchk">
+	<span hidden class="checkmark"></span>
 </label>`;
 		if (Array.isArray(lastinfo.maps) && lastinfo.maps.length>1) {
 			content += `<div class="lbl-l">Ledmap:&nbsp;<div class="sel-p"><select class="sel-p" id="p${i}lmp"><option value="">Unchanged</option>`;
