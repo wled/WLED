@@ -106,22 +106,21 @@ class Bus {
     : _type(type)
     , _bri(255)
     , _start(start)
-    , _len(len)
+    , _len(std::max(len,(uint16_t)1))
     , _reversed(reversed)
     , _valid(false)
     , _needsRefresh(refresh)
-    , _data(nullptr) // keep data access consistent across all types of buses
     {
       _autoWhiteMode = Bus::hasWhite(type) ? aw : RGBW_MODE_MANUAL_ONLY;
     };
 
-    virtual ~Bus() {} //throw the bus under the bus (derived class needs to freeData())
+    virtual ~Bus() {} //throw the bus under the bus
 
     virtual void     begin()                                    {};
-    virtual void     show() = 0;
+    virtual void     show()                                     = 0;
     virtual bool     canShow() const                            { return true; }
     virtual void     setStatusPixel(uint32_t c)                 {}
-    virtual void     setPixelColor(unsigned pix, uint32_t c) = 0;
+    virtual void     setPixelColor(unsigned pix, uint32_t c)    = 0;
     virtual void     setBrightness(uint8_t b)                   { _bri = b; };
     virtual void     setColorOrder(uint8_t co)                  {}
     virtual uint32_t getPixelColor(unsigned pix) const          { return 0; }
@@ -214,7 +213,6 @@ class Bus {
       bool _hasCCT;//       : 1;
     //} __attribute__ ((packed));
     uint8_t  _autoWhiteMode;
-    uint8_t  *_data;
     // global Auto White Calculation override
     static uint8_t _gAWM;
     // _cct has the following menaings (see calculateCCT() & BusManager::setSegmentCCT()):
@@ -229,8 +227,6 @@ class Bus {
     static uint8_t _cctBlend;
 
     uint32_t autoWhiteCalc(uint32_t c) const;
-    uint8_t *allocateData(size_t size = 1);
-    void     freeData();
 };
 
 
@@ -260,14 +256,15 @@ class BusDigital : public Bus {
     static std::vector<LEDType> getLEDTypes();
 
   private:
-    uint8_t _skip;
-    uint8_t _colorOrder;
-    uint8_t _pins[2];
-    uint8_t _iType;
+    uint8_t  _skip;
+    uint8_t  _colorOrder;
+    uint8_t  _pins[2];
+    uint8_t  _iType;
     uint16_t _frequencykHz;
-    uint8_t _milliAmpsPerLed;
+    uint8_t  _milliAmpsPerLed;
     uint16_t _milliAmpsMax;
-    void * _busPtr;
+    uint8_t *_data;
+    void    *_busPtr;
 
     static uint16_t _milliAmpsTotal; // is overwitten/recalculated on each show()
 
@@ -297,13 +294,13 @@ class BusPwm : public Bus {
     uint16_t getFrequency() const override { return _frequency; }
     size_t   getBusSize() const override   { return sizeof(BusPwm); }
     void show() override;
-    inline void cleanup() { deallocatePins(); _data = nullptr; }
+    inline void cleanup() { deallocatePins(); }
 
     static std::vector<LEDType> getLEDTypes();
 
   private:
     uint8_t _pins[OUTPUT_MAX_PINS];
-    uint8_t _pwmdata[OUTPUT_MAX_PINS];
+    uint8_t _data[OUTPUT_MAX_PINS];
     #ifdef ARDUINO_ARCH_ESP32
     uint8_t _ledcStart;
     #endif
@@ -324,13 +321,13 @@ class BusOnOff : public Bus {
     size_t   getPins(uint8_t* pinArray) const override;
     size_t   getBusSize() const override { return sizeof(BusOnOff); }
     void show() override;
-    inline void cleanup() { PinManager::deallocatePin(_pin, PinOwner::BusOnOff); _data = nullptr; }
+    inline void cleanup() { PinManager::deallocatePin(_pin, PinOwner::BusOnOff); }
 
     static std::vector<LEDType> getLEDTypes();
 
   private:
     uint8_t _pin;
-    uint8_t _onoffdata;
+    uint8_t _data;
 };
 
 
@@ -354,6 +351,7 @@ class BusNetwork : public Bus {
     uint8_t   _UDPtype;
     uint8_t   _UDPchannels;
     bool      _broadcastLock;
+    uint8_t   *_data;
 };
 
 
@@ -374,7 +372,7 @@ struct BusConfig {
   uint16_t milliAmpsMax;
 
   BusConfig(uint8_t busType, uint8_t* ppins, uint16_t pstart, uint16_t len = 1, uint8_t pcolorOrder = COL_ORDER_GRB, bool rev = false, uint8_t skip = 0, byte aw=RGBW_MODE_MANUAL_ONLY, uint16_t clock_kHz=0U, bool dblBfr=false, uint8_t maPerLed=LED_MILLIAMPS_DEFAULT, uint16_t maMax=ABL_MILLIAMPS_DEFAULT)
-  : count(len)
+  : count(std::max(len,(uint16_t)1))
   , start(pstart)
   , colorOrder(pcolorOrder)
   , reversed(rev)

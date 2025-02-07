@@ -117,16 +117,6 @@ uint32_t Bus::autoWhiteCalc(uint32_t c) const {
   return RGBW32(r, g, b, w);
 }
 
-uint8_t *Bus::allocateData(size_t size) {
-  freeData(); // should not happen, but for safety
-  return _data = (uint8_t *)(size>0 ? d_calloc(size, sizeof(uint8_t)) : nullptr);
-}
-
-void Bus::freeData() {
-  if (_data) d_free(_data);
-  _data = nullptr;
-}
-
 
 BusDigital::BusDigital(const BusConfig &bc, uint8_t nr)
 : Bus(bc.type, bc.start, bc.autoWhite, bc.count, bc.reversed, (bc.refreshReq || bc.type == TYPE_TM1814))
@@ -154,8 +144,10 @@ BusDigital::BusDigital(const BusConfig &bc, uint8_t nr)
   _hasRgb = hasRGB(bc.type);
   _hasWhite = hasWhite(bc.type);
   _hasCCT = hasCCT(bc.type);
-  if (bc.doubleBuffer && !allocateData(bc.count * Bus::getNumberOfChannels(bc.type))) { DEBUGBUS_PRINTLN(F("Buffer allocation failed!")); return; }
-  //_buffering = bc.doubleBuffer;
+  if (bc.doubleBuffer) {
+    _data = (uint8_t*)d_calloc(_len, Bus::getNumberOfChannels(_type));
+    if (!_data) DEBUGBUS_PRINTLN(F("Bus: Buffer allocation failed!"));
+  }
   uint16_t lenToCreate = bc.count;
   if (bc.type == TYPE_WS2812_1CH_X3) lenToCreate = NUM_ICS_WS2812_1CH_3X(bc.count); // only needs a third of "RGB" LEDs for NeoPixelBus
   _busPtr = PolyBus::create(_iType, _pins, lenToCreate + _skip, nr);
@@ -286,7 +278,7 @@ void BusDigital::show() {
       }
     }
   }
-  PolyBus::show(_busPtr, _iType, !_data); // faster if buffer consistency is not important (use !_buffering this causes 20% FPS drop)
+  PolyBus::show(_busPtr, _iType, !_data); // faster if buffer consistency is not important
   // restore bus brightness to its original value
   // this is done right after show, so this is only OK if LED updates are completed before show() returns
   // or async show has a separate buffer (ESP32 RMT and I2S are ok)
@@ -439,10 +431,11 @@ void BusDigital::begin() {
 void BusDigital::cleanup() {
   DEBUGBUS_PRINTLN(F("Digital Cleanup."));
   PolyBus::cleanup(_busPtr, _iType);
+  d_free(_data);
+  _data = nullptr;
   _iType = I_NONE;
   _valid = false;
   _busPtr = nullptr;
-  freeData();
   //PinManager::deallocateMultiplePins(_pins, 2, PinOwner::BusDigital);
   PinManager::deallocatePin(_pins[1], PinOwner::BusDigital);
   PinManager::deallocatePin(_pins[0], PinOwner::BusDigital);
@@ -518,7 +511,6 @@ BusPwm::BusPwm(const BusConfig &bc)
   _hasRgb = hasRGB(bc.type);
   _hasWhite = hasWhite(bc.type);
   _hasCCT = hasCCT(bc.type);
-  _data = _pwmdata; // avoid malloc() and use already allocated memory
   _valid = true;
   DEBUGBUS_PRINTF_P(PSTR("%successfully inited PWM strip with type %u, frequency %u, bit depth %u and pins %u,%u,%u,%u,%u\n"), _valid?"S":"Uns", bc.type, _frequency, _depth, _pins[0], _pins[1], _pins[2], _pins[3], _pins[4]);
 }
@@ -674,7 +666,7 @@ void BusPwm::deallocatePins() {
 
 BusOnOff::BusOnOff(const BusConfig &bc)
 : Bus(bc.type, bc.start, bc.autoWhite, 1, bc.reversed)
-, _onoffdata(0)
+, _data(0)
 {
   if (!Bus::isOnOff(bc.type)) return;
 
@@ -687,7 +679,6 @@ BusOnOff::BusOnOff(const BusConfig &bc)
   _hasRgb = false;
   _hasWhite = false;
   _hasCCT = false;
-  _data = &_onoffdata; // avoid malloc() and use stack
   _valid = true;
   DEBUGBUS_PRINTF_P(PSTR("%successfully inited On/Off strip with pin %u\n"), _valid?"S":"Uns", _pin);
 }
@@ -699,17 +690,17 @@ void BusOnOff::setPixelColor(unsigned pix, uint32_t c) {
   uint8_t g = G(c);
   uint8_t b = B(c);
   uint8_t w = W(c);
-  _data[0] = bool(r|g|b|w) && bool(_bri) ? 0xFF : 0;
+  _data = bool(r|g|b|w) && bool(_bri) ? 0xFF : 0;
 }
 
 uint32_t BusOnOff::getPixelColor(unsigned pix) const {
   if (!_valid) return 0;
-  return RGBW32(_data[0], _data[0], _data[0], _data[0]);
+  return RGBW32(_data, _data, _data, _data);
 }
 
 void BusOnOff::show() {
   if (!_valid) return;
-  digitalWrite(_pin, _reversed ? !(bool)_data[0] : (bool)_data[0]);
+  digitalWrite(_pin, _reversed ? !(bool)_data : (bool)_data);
 }
 
 size_t BusOnOff::getPins(uint8_t* pinArray) const {
@@ -748,7 +739,8 @@ BusNetwork::BusNetwork(const BusConfig &bc)
   _hasCCT = false;
   _UDPchannels = _hasWhite + 3;
   _client = IPAddress(bc.pins[0],bc.pins[1],bc.pins[2],bc.pins[3]);
-  _valid = (allocateData(_len * _UDPchannels) != nullptr) && bc.count > 0;
+  _data = (uint8_t*)d_calloc(_len, _UDPchannels);
+  _valid = (_data != nullptr);
   DEBUGBUS_PRINTF_P(PSTR("%successfully inited virtual strip with type %u and IP %u.%u.%u.%u\n"), _valid?"S":"Uns", bc.type, bc.pins[0], bc.pins[1], bc.pins[2], bc.pins[3]);
 }
 
@@ -798,9 +790,10 @@ std::vector<LEDType> BusNetwork::getLEDTypes() {
 
 void BusNetwork::cleanup() {
   DEBUGBUS_PRINTLN(F("Virtual Cleanup."));
+  d_free(_data);
+  _data = nullptr;
   _type = I_NONE;
   _valid = false;
-  freeData();
 }
 
 
