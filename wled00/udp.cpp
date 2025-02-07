@@ -1036,7 +1036,7 @@ void espNowReceiveCB(uint8_t* address, uint8_t* data, uint8_t len, signed int rs
   } else {
     // any out of order packet or incorrectly sized packet or if we have no UDP buffer will abort
     DEBUG_PRINTF_P(PSTR("ESP-NOW incorrect packet: %d (%d) [%d]\n"), (int)buffer->packet, (int)len-3, (int)UDP_SEG_SIZE);
-    if (udpIn) w_free(udpIn);
+    w_free(udpIn);
     udpIn = nullptr;
     packetsReceived = 0;
     segsReceived = 0;

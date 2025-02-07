@@ -68,7 +68,7 @@ static void onMqttMessage(char* topic, char* payload, AsyncMqttClientMessageProp
   }
 
   if (index == 0) {                       // start (1st partial packet or the only packet)
-    if (payloadStr) w_free(payloadStr);     // fail-safe: release buffer
+    w_free(payloadStr);                   // release buffer if it exists
     payloadStr = static_cast<char*>(w_malloc(total+1)); // allocate new buffer
   }
   if (payloadStr == nullptr) return;      // buffer not allocated

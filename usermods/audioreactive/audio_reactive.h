@@ -237,8 +237,8 @@ void FFTcode(void * parameter)
   if (vImag == nullptr) vImag = (float*) d_calloc(sizeof(float), samplesFFT);
   if ((vReal == nullptr) || (vImag == nullptr)) {
     // something went wrong
-    if (vReal) d_free(vReal); vReal = nullptr;
-    if (vImag) d_free(vImag); vImag = nullptr;
+    d_free(vReal); vReal = nullptr;
+    d_free(vImag); vImag = nullptr;
     return;
   }
   // Create FFT object with weighing factor storage

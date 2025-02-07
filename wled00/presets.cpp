@@ -56,7 +56,7 @@ static void doSaveState() {
 */
   #if defined(ARDUINO_ARCH_ESP32)
   if (!persist) {
-    if (tmpRAMbuffer!=nullptr) w_free(tmpRAMbuffer);
+    w_free(tmpRAMbuffer);
     size_t len = measureJson(*pDoc) + 1;
     // if possible use SPI RAM on ESP32
     tmpRAMbuffer = (char*)w_malloc(len);
