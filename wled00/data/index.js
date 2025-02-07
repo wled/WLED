@@ -70,11 +70,6 @@ function rgbStr(a) {return "rgb(" + a.r + "," + a.g + "," + a.b + ")";}
 // brightness approximation for selecting white as text color if background bri < 127, and black if higher
 function rgbBri(a) {return 0.2126*parseInt(a.r) + 0.7152*parseInt(a.g) + 0.0722*parseInt(a.b);}
 
-// mgibson added -----------------
-// Define a function to replace the default names with your custom names.
-
-//----------------------------------
-
 // sets background of color slot selectors
 function setCSL(cs)
 {

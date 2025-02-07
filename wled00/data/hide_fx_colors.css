@@ -1,4 +1,4 @@
-/* list of EFFECTS to hide from user */
+/* list of EFFECTS to HIDE ---------------------------------------------------------------------- */
 /* the id for each effect name can be found in fx.h file, starting on line 134 */
 /* or use this convenient tool: https://jeffmission.com/wledcss/ */
 
@@ -8,9 +8,15 @@ div#fxlist [data-id="35"] { display: none; }
 div#fxlist [data-id="90"] { display: none; }
 
 
+/* list of NAME CHANGES to EFFECTS -------------------------------------------------------------- */
+/* note this also removes filter icons like the palette, grid, and music notes. But does filter still work?
+
+/* change "Candle Multi" to "Shimmer" */
+div#fxlist [data-id="102"] .lstIname { color: transparent; position:relative; } /* make default name transparent and move it out of way */
+div#fxlist [data-id="102"] .lstIname::after { content:"Shimmer"; color:#fff; position:absolute; width:100%; left:50%; transform:translateX(-50%);} /* replace name with our own
 
 
-/* list of COLOR PALETTES to hide from user */
+/* list of COLOR PALETTES to HIDE -------------------------------------------------------------- */
 /* the id for each effect name can be found in palettes.h file, starting on line 870. It's the first number in the comment. */
 
 div#pallist [data-id="26"] { display: none; } /* hide beech */
@@ -18,5 +24,9 @@ div#pallist [data-id="48"] { display: none; } /* hide C9 */
 div#pallist [data-id="52"] { display: none; } /* hide C9 2 */
 
 
-/* How do we CHANGE the name of an effect or palette? */
-/* JSON API? IF statement in LoadPalettes() JS functionm? */
+/* list of NAME CHANGES to COLOR PALETTES ------------------------------------------------------- */
+/* note this also lets us assign names to our custom palettes */
+
+/* change "C9 New" to "Vivid" */
+div#pallist [data-id="53"] .lstIname { color: transparent; position:relative; } /* make default name transparent and move it out of way */
+div#pallist [data-id="53"] .lstIname::after { content:"Vivid"; color:#fff; position:absolute; width:100%; left:50%; transform:translateX(-50%);} /* replace name with our own */
