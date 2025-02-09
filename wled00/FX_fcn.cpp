@@ -289,7 +289,7 @@ void Segment::startTransition(uint16_t dur) {
   _t->_briT           = on ? opacity : 0;
   _t->_cctT           = cct;
 #ifndef WLED_DISABLE_MODE_BLEND
-  swapSegenv(_t->_segT); // copy runtime data to temporary
+  saveSegenv(_t->_segT); // copy runtime data to transition
   _t->_modeT          = mode;
   _t->_segT._dataLenT = 0;
   _t->_segT._dataT    = nullptr;
@@ -326,13 +326,13 @@ void Segment::stopTransition() {
     #endif
     delete _t;
     _t = nullptr;
-    _transitionProgress = 0xFFFF;
+    Segment::_transitionProgress = 0xFFFF;
   }
 }
 
 #ifndef WLED_DISABLE_MODE_BLEND
-void Segment::swapSegenv(tmpsegd_t &tmpSeg) {
-  //DEBUGFX_PRINTF_P(PSTR("--  Saving temp seg: %p->(%p) [%d->%p]\n"), this, &tmpSeg, _dataLen, data);
+void Segment::saveSegenv(tmpsegd_t &tmpSeg) const {
+  //DEBUGFX_PRINTF_P(PSTR("--  Saving seg: %p->(%p) [%d->%p]\n"), this, &tmpSeg, _dataLen, data);
   tmpSeg._optionsT   = options;
   for (size_t i=0; i<NUM_COLORS; i++) tmpSeg._colorT[i] = colors[i];
   tmpSeg._speedT     = speed;
@@ -349,40 +349,10 @@ void Segment::swapSegenv(tmpsegd_t &tmpSeg) {
   tmpSeg._callT      = call;
   tmpSeg._dataT      = data;
   tmpSeg._dataLenT   = _dataLen;
-  if (isInTransition() && &tmpSeg != &(_t->_segT)) {
-    // swap SEGENV with transitional data
-    //DEBUGFX_PRINTF_P(PSTR("--  Setting temp seg: %p->(%p) [%d->%p]\n"), this, &tmpSeg, _dataLen, data);
-    options   = _t->_segT._optionsT;
-    for (size_t i=0; i<NUM_COLORS; i++) colors[i] = _t->_segT._colorT[i];
-    speed     = _t->_segT._speedT;
-    intensity = _t->_segT._intensityT;
-    custom1   = _t->_segT._custom1T;
-    custom2   = _t->_segT._custom2T;
-    custom3   = _t->_segT._custom3T;
-    check1    = _t->_segT._check1T;
-    check2    = _t->_segT._check2T;
-    check3    = _t->_segT._check3T;
-    aux0      = _t->_segT._aux0T;
-    aux1      = _t->_segT._aux1T;
-    step      = _t->_segT._stepT;
-    call      = _t->_segT._callT;
-    data      = _t->_segT._dataT;
-    _dataLen  = _t->_segT._dataLenT;
-  }
 }
 
-void Segment::restoreSegenv(const tmpsegd_t &tmpSeg) {
-  //DEBUGFX_PRINTF_P(PSTR("--  Restoring temp seg: %p->(%p) [%d->%p]\n"), &tmpSeg, this, _dataLen, data);
-  if (isInTransition() && &(_t->_segT) != &tmpSeg) {
-    // update possibly changed variables to keep old effect running correctly
-    _t->_segT._aux0T = aux0;
-    _t->_segT._aux1T = aux1;
-    _t->_segT._stepT = step;
-    _t->_segT._callT = call;
-    //if (_t->_segT._dataT != data) DEBUGFX_PRINTF_P(PSTR("---  data re-allocated: (%p) %p -> %p\n"), this, _t->_segT._dataT, data);
-    _t->_segT._dataT = data;
-    _t->_segT._dataLenT = _dataLen;
-  }
+void Segment::loadSegenv(const tmpsegd_t &tmpSeg) {
+  //DEBUGFX_PRINTF_P(PSTR("--  Loading seg: %p->(%p) [%d->%p]\n"), &tmpSeg, this, _dataLen, data);
   options   = tmpSeg._optionsT;
   for (size_t i=0; i<NUM_COLORS; i++) colors[i] = tmpSeg._colorT[i];
   speed     = tmpSeg._speedT;
@@ -399,6 +369,25 @@ void Segment::restoreSegenv(const tmpsegd_t &tmpSeg) {
   call      = tmpSeg._callT;
   data      = tmpSeg._dataT;
   _dataLen  = tmpSeg._dataLenT;
+}
+
+void Segment::swapSegenv(tmpsegd_t &tmpSeg) {
+  saveSegenv(tmpSeg);
+  if (isInTransition()) loadSegenv(_t->_segT);
+}
+
+void Segment::restoreSegenv(const tmpsegd_t &tmpSeg) {
+  // update possibly changed variables to keep old effect running correctly
+  if (isInTransition()) {
+    //saveSegenv(_t->_segT);
+    _t->_segT._aux0T = aux0;
+    _t->_segT._aux1T = aux1;
+    _t->_segT._stepT = step;
+    _t->_segT._callT = call;
+    _t->_segT._dataT = data;
+    _t->_segT._dataLenT = _dataLen;
+  }
+  loadSegenv(tmpSeg);
 }
 #endif
 
@@ -1600,7 +1589,7 @@ void WS2812FX::service() {
           blendingStyle = orgBS;              // restore blending style if it was modified for single pixel segment
         } else
 #endif
-        frameDelay = (*_mode[seg.mode])();    // run effect mode (not in transition)
+          frameDelay = (*_mode[seg.mode])();  // run effect mode (not in transition)
         seg.call++;
         if (seg.isInTransition() && frameDelay > FRAMETIME) frameDelay = FRAMETIME; // force faster updates during transition
         BusManager::setSegmentCCT(oldCCT);    // restore old CCT for ABL adjustments

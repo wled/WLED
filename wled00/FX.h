@@ -408,6 +408,13 @@ typedef struct Segment {
         : _dataT(nullptr) // just in case...
         , _dataLenT(0)
       {}
+      /*
+      // oddly enough this adds 160 bytes to the code
+      ~TemporarySegmentData() {
+        d_free(_dataT);
+        _dataT = nullptr;
+      }
+      */
     } tmpsegd_t;
 
   private:
@@ -603,8 +610,10 @@ typedef struct Segment {
       }
     }
     #ifndef WLED_DISABLE_MODE_BLEND
-    void     swapSegenv(tmpsegd_t &tmpSegD);    // copies segment data into specifed buffer, if buffer is not a transition buffer, segment data is overwritten from transition buffer
-    void     restoreSegenv(const tmpsegd_t &tmpSegD); // restores segment data from buffer, if buffer is not transition buffer, changed values are copied to transition buffer
+    void     saveSegenv(tmpsegd_t &tmpSeg) const; // save current segment runtime data to a (temporary) struct
+    void     loadSegenv(const tmpsegd_t &tmpSeg); // loads (temporary) segment runtime data into current segment
+    void     swapSegenv(tmpsegd_t &tmpSegD);      // saves current segment runtime data and loads transition runtime data into current segment
+    void     restoreSegenv(const tmpsegd_t &tmpSegD); // restores segment runtime data from buffer and updates transition runtime data
     #endif
     inline unsigned progress() const { return _t ? Segment::_transitionProgress : 0xFFFFU; } // relies on handleTransition() to update progression variable
     uint8_t  currentBri(bool useCct = false) const; // current segment brightness/CCT (blended while in transition)
