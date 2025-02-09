@@ -887,13 +887,14 @@ ESP-NOW  inited in AP mode (channel: 6/1).
   // handling new or forced connection
   if (wifiConfigured && (forceReconnect || lastReconnectAttempt == 0)) {
     // this is first attempt at connecting to SSID or we were forced to reconnect
-    selectedWiFi = findWiFi(); // find strongest WiFi
-    if (selectedWiFi == WIFI_SCAN_FAILED) {
+    int found = findWiFi(); // find strongest WiFi
+    if (found == WIFI_SCAN_FAILED) {
       // fallback if scan returned error
       findWiFi(true);
       selectedWiFi = 0;
-    } else if (selectedWiFi >= 0) {
+    } else if (found >= 0) {
       DEBUG_PRINTF_P(PSTR("WiFi: Initial connect or forced reconnect. @ %lus\n"), now/1000);
+      selectedWiFi = found ? found-1 : 0; // if configured WiFi was not found use 1st
       initConnection(); // start connecting to preferred/configured WiFi
       forceReconnect = false;
       interfacesInited = false;
@@ -999,7 +1000,7 @@ ESP-NOW  inited in AP mode (channel: 6/1).
     // we are slave in ESP-NOW sync and we were not able to connect to best SSID (initial connect/forced reconnect)
     // in such case we will not attempt to traverse all configured SSIDs (as findWiFi() does that) but switch to AP mode
     // immediately so ESP-NOW heartbeat scan can commence
-    if (enableESPNow && useESPNowSync && !sendNotificationsRT && now > scanESPNow && findWiFi() >= 0) {
+    if (enableESPNow && useESPNowSync && !sendNotificationsRT && now > scanESPNow && findWiFi() == 0) {
       DEBUG_PRINTF_P(PSTR("WiFi: Last reconnect (%lus) too old, entering ESP-NOW scan. @ %lus.\n"), lastReconnectAttempt/1000, now/1000);
       initESPNow(true);
       scanESPNow = now + 6000;
@@ -1010,7 +1011,7 @@ ESP-NOW  inited in AP mode (channel: 6/1).
     DEBUG_PRINTF_P(PSTR("WiFi: Last reconnect (%lus) too old @ %lus.\n"), lastReconnectAttempt/1000, now/1000);
     if (++selectedWiFi >= multiWiFi.size()) selectedWiFi = 0; // we couldn't connect, try with another network from the list
     initConnection();                                         // start connecting to selected SSID
-    if (selectedWiFi > 0 && selectedWiFi == findWiFi()) lastReconnectAttempt += 120000; // if we selected best SSID then postpone connecting for 2 min (wrapped around/single)
+    if (selectedWiFi > 0 && selectedWiFi == findWiFi()-1) lastReconnectAttempt += 120000; // if we selected best SSID then postpone connecting for 2 min (wrapped around/single)
     return;
   }
 
