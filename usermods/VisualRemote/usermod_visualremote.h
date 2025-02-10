@@ -42,21 +42,21 @@
 #define WIZMOTE_BUTTON_ONE_SEXTUPLE     27
 #define WIZMOTE_BUTTON_ONE_LONG         28
 
-#define WIZMOTE_BUTTON_THREE_SHORT      29
-#define WIZMOTE_BUTTON_THREE_DOUBLE     30
-#define WIZMOTE_BUTTON_THREE_TRIPLE     31
-#define WIZMOTE_BUTTON_THREE_QUADRUPLE  32
-#define WIZMOTE_BUTTON_THREE_QUINTUPLE  33
-#define WIZMOTE_BUTTON_THREE_SEXTUPLE   34
-#define WIZMOTE_BUTTON_THREE_LONG       35
+#define WIZMOTE_BUTTON_THREE_SHORT      36
+#define WIZMOTE_BUTTON_THREE_DOUBLE     37
+#define WIZMOTE_BUTTON_THREE_TRIPLE     38
+#define WIZMOTE_BUTTON_THREE_QUADRUPLE  39
+#define WIZMOTE_BUTTON_THREE_QUINTUPLE  40
+#define WIZMOTE_BUTTON_THREE_SEXTUPLE   41
+#define WIZMOTE_BUTTON_THREE_LONG       42
 
-#define WIZMOTE_BUTTON_FOUR_SHORT       36
-#define WIZMOTE_BUTTON_FOUR_DOUBLE      37
-#define WIZMOTE_BUTTON_FOUR_TRIPLE      38
-#define WIZMOTE_BUTTON_FOUR_QUADRUPLE   39
-#define WIZMOTE_BUTTON_FOUR_QUINTUPLE   40
-#define WIZMOTE_BUTTON_FOUR_SEXTUPLE    41
-#define WIZMOTE_BUTTON_FOUR_LONG        42
+#define WIZMOTE_BUTTON_FOUR_SHORT       29
+#define WIZMOTE_BUTTON_FOUR_DOUBLE      30
+#define WIZMOTE_BUTTON_FOUR_TRIPLE      31
+#define WIZMOTE_BUTTON_FOUR_QUADRUPLE   32
+#define WIZMOTE_BUTTON_FOUR_QUINTUPLE   33
+#define WIZMOTE_BUTTON_FOUR_SEXTUPLE    34
+#define WIZMOTE_BUTTON_FOUR_LONG        35
 
 #define WIZMOTE_BUTTON_BRIGHT_UP_SHORT       43
 #define WIZMOTE_BUTTON_BRIGHT_UP_DOUBLE      44
@@ -195,6 +195,11 @@ inline void increaseSpeed()
 
 inline void applyPreset_visualremote(uint8_t presetID) {
   if (presetToApply == presetID) {
+    if (presetID == 3)
+    {
+      FeedFish();
+      return;;
+    }
     increaseSpeed();
     return;
   };
@@ -377,7 +382,7 @@ class UsermodVisualRemote : public Usermod {
       }
     
       switch (incoming->button) {
-        case WIZMOTE_BUTTON_OFF_SHORT             : FeedFish(); /*togglePower_visualremote();*/                                            break;
+        case WIZMOTE_BUTTON_OFF_SHORT             : togglePower_visualremote();                                            break;
         case WIZMOTE_BUTTON_OFF_LONG            : toggleSyncMode_visualremote();                                           break;
         case WIZMOTE_BUTTON_ON_SHORT            : setBrightness_visualremote();                                           break;
         case WIZMOTE_BUTTON_ON_LONG            : resetBrightness_visualremote();                                           break;

@@ -249,12 +249,10 @@ void setNewTarget(AnimatedObject &obj, int setX, int setY) {
   }
   obj.targetY = setY - obj.height / 2;
 
-  Serial.printf("Setting new target: %d, %d to %d, %d\n", setX, setY, obj.targetX, obj.targetY);
   float dx = obj.targetX - obj.xPosF;
   float dy = obj.targetY - obj.yPosF;
   float dist = sqrt(dx * dx + dy * dy);
   float speed = 2.5f; // Adjust  
-  Serial.printf("dx: %f, dy: %f, dist: %f, speed: %f\n", dx, dy, dist, speed);
   obj.direction = dx < 0.0 ? 0 : 1;
   
   obj.speedX = (dx / dist) * speed;
@@ -268,7 +266,6 @@ bool animateObject(AnimatedObject &obj) {
   if (obj.state == STATE_STAYING_AT_CENTER) {
     // Transition out after waitTime
     if (currentTime - obj.stateStartTime >= 1500) {
-      Serial.println("Fish is moving out");
       obj.state = STATE_MOVING_OUT;
       obj.stateStartTime = currentTime;
       setNewTarget(obj, -25, 25, -4, 20);
@@ -276,7 +273,6 @@ bool animateObject(AnimatedObject &obj) {
   }
   else if (obj.state == STATE_MOVING_OUT) {
     if (currentTime - obj.stateStartTime >= 8000) {
-      Serial.println("Fish is normal");
       obj.state = STATE_NORMAL;
       obj.stateStartTime = currentTime;
       obj.waitTime = random(100, 400);
@@ -385,12 +381,12 @@ uint16_t mode_aquarium() {
  
 
   static AnimatedObject fish[2] = {
-    {fishSprites0, 9, 6, 25, 3, 0, 0, 50, 4530, 0, STATE_NORMAL, millis(), -1, 0,0,0,0, RGBW32(255, 30, 0, 0)},
-    {fishSprites1, 9, 6, 25, 6, 1, 0, 250, 1000, 0, STATE_NORMAL, millis(), 0, 0,0,0,0, RGBW32(162, 171, 0, 0)},   
+    {fishSprites0, 9, 6, 25, 3, 0, 0, 50, 4530, 0, STATE_NORMAL, millis(), -1, 0,0,0,0, RGBW32(128, 15, 0, 0)},
+    {fishSprites1, 9, 6, 25, 6, 1, 0, 250, 1000, 0, STATE_NORMAL, millis(), 0, 0,0,0,0, RGBW32(81, 86, 0, 0)},   
   };
 
   static AnimatedObject gup[2] = {    
-    {gupSprites0, 12, 7, -19, 12, 0, 0, 100, 3440, 0, STATE_NORMAL, millis(), 1, 0,0,0,0, RGBW32(255, 100, 0, 0), RGBW32(255, 110, 35, 0), RGBW32(128, 128, 128, 0)},
+    {gupSprites0, 12, 7, -19, 12, 0, 0, 100, 3440, 0, STATE_NORMAL, millis(), 1, 0,0,0,0, RGBW32(128, 50, 0, 0), RGBW32(128, 55, 17, 0), RGBW32(64, 64, 64, 0)},
     {gupSprites0, 12, 7, -19, 9, 1, 0, 500, 10000, 0, STATE_NORMAL, millis(), 0,0,0,0,0, RGBW32(255, 172, 0, 0), RGBW32(219, 158, 36, 1), RGBW32(128, 128, 128, 0)}
   };
 
@@ -422,7 +418,6 @@ uint16_t mode_aquarium() {
 
     if (FeedingFish)
     {
-      Serial.printf("Feeding fish %d\n", i);
       fish[i].moveInterval = 100;
       fish[i].state = STATE_MOVING_TO_CENTER;
       fish[i].moveInterval = 100;
@@ -454,7 +449,6 @@ uint16_t mode_aquarium() {
 
     if (FeedingFish)
     {
-      Serial.printf("Feeding gup %d\n", i);
       
       gup[i].state = STATE_MOVING_TO_CENTER;
       gup[i].moveInterval = 150;
