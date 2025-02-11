@@ -2,11 +2,17 @@
 <html>
 <head>
 	<meta content='width=device-width' name='viewport'>
-	<title>WLED Update</title>
+	<title>Software Update</title>
 	<script>
 		function B() { window.history.back(); }
 		function U() { document.getElementById("uf").style.display="none";document.getElementById("msg").style.display="block"; }
 		function GetV() {/*injected values here*/}
+		function showAllSettings() {
+			var elements = document.querySelectorAll("[hidden]");
+			elements.forEach(function(element) {
+				element.removeAttribute("hidden");
+			});
+		}
 	</script>
 	<style>
 		@import url("style.css");
@@ -14,7 +20,7 @@
 </head>
 
 <body onload="GetV()">
-	<h2>Software Update</h2>
+	<h2 onclick="showAllSettings()" style="margin:50px 30px 30px; font-weight:400;">Software Update</h2>
 	<form method='POST' action='./update' id='uf' enctype='multipart/form-data' onsubmit="U()">
 		<u>Installed Version</u><br>
 		<span class="sip">##VERSION##</span><br>

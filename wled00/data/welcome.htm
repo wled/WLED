@@ -5,6 +5,7 @@
 		<meta content='width=device-width' name='viewport'>
 		<meta name="theme-color" content="#222222">
 		<title>Welcome</title>
+		<script src="common.js" async type="text/javascript"></script>
 		<style>
 			@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300,400,700&display=swap');
 			@font-face {
@@ -88,8 +89,8 @@
 			<br>
 			<p style="margin:2px 20px; text-align: center;"><u>Get Started</u></p>
 			<p style="margin:4px 20px;">For the best experience, connect your orb to your home WIFI network</p>
-			<button onclick="window.location.href='./settings/wifi'">WIFI Settings</button>
-			<button style="color:#666;" click="window.location.href='./#Presets'">Setup Later</button>
+			<button onclick="window.location.href=getURL('./settings/wifi');">WIFI Settings</button>
+			<button onclick="window.location.href=getURL('./#Presets');" style="color:#666;">Setup Later</button>
 			<br>
 		</div>
 	</body>
