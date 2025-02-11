@@ -6214,7 +6214,7 @@ static const char _data_FX_MODE_2DDISTORTIONWAVES[] PROGMEM = "Distortion Waves@
 
 
 //Soap
-//@Stepko
+//@Stepko https://github.com/St3p40
 //Idea from https://www.youtube.com/watch?v=DiHBgITrZck&ab_channel=StefanPetrick
 // adapted for WLED by @blazoncek, size tuning by @dedehai
 static void soapPixels(bool isRow, uint8_t *noise3d, CRGB *pixels) {
@@ -6224,8 +6224,8 @@ static void soapPixels(bool isRow, uint8_t *noise3d, CRGB *pixels) {
   const auto abs  = [](int x) { return x<0 ? -x : x; };
   const int  tRC  = isRow ? rows : cols; // transpose if isRow
   const int  tCR  = isRow ? cols : rows; // transpose if isRow
-  const int  amplitude = 2 * ((tCR >= 16) ? (tCR-8) : 8) / (1 + ((255 - SEGMENT.custom1) >> 5));
-  const int  shift = 0; //(128 - SEGMENT.custom2)*2;
+  const int  amplitude = 1 + (tCR / ((33 - SEGMENT.custom3) >> 1));
+  const int  shift = (128 - SEGMENT.custom2)*2;
 
   CRGB ledsbuff[tCR];
 
@@ -6242,8 +6242,8 @@ static void soapPixels(bool isRow, uint8_t *noise3d, CRGB *pixels) {
         zD = j + delta;
         zF = zD + 1;
       }
-      int yA = abs(zD);
-      int yB = abs(zF);
+      int yA = abs(zD)%tCR;
+      int yB = abs(zF)%tCR;
       int xA = i;
       int xB = i;
       if (isRow) {
@@ -6252,12 +6252,8 @@ static void soapPixels(bool isRow, uint8_t *noise3d, CRGB *pixels) {
       }
       const int indxA = XY(xA,yA);
       const int indxB = XY(xB,yB);
-      CRGB PixelA;
-      CRGB PixelB;
-      if ((zD >= 0) && (zD < tCR)) PixelA = pixels[indxA];
-      else                         PixelA = ColorFromPalette(SEGPALETTE, ~noise3d[indxA]*3);
-      if ((zF >= 0) && (zF < tCR)) PixelB = pixels[indxB];
-      else                         PixelB = ColorFromPalette(SEGPALETTE, ~noise3d[indxB]*3);
+      CRGB PixelA = ((zD >= 0) && (zD < tCR)) ? pixels[indxA] : ColorFromPalette(SEGPALETTE, ~noise3d[indxA]*3);
+      CRGB PixelB = ((zF >= 0) && (zF < tCR)) ? pixels[indxB] : ColorFromPalette(SEGPALETTE, ~noise3d[indxB]*3);
       ledsbuff[j] = (PixelA.nscale8(ease8InOutApprox(255 - fraction))) + (PixelB.nscale8(ease8InOutApprox(fraction)));
     }
     for (int j = 0; j < tCR; j++) {
@@ -6316,12 +6312,12 @@ uint16_t mode_2Dsoap() {
 
   return FRAMETIME;
 }
-static const char _data_FX_MODE_2DSOAP[] PROGMEM = "Soap@!,Smoothness,Density;;!;2;;pal=11,c1=0";
+static const char _data_FX_MODE_2DSOAP[] PROGMEM = "Soap@!,Smoothness,,Shift,Density;;!;2;;pal=11";
 
 
 //Idea from https://www.youtube.com/watch?v=HsA-6KIbgto&ab_channel=GreatScott%21
 //Octopus (https://editor.soulmatelights.com/gallery/671-octopus)
-//Stepko and Sutaburosu
+//@Stepko https://github.com/St3p40 and Sutaburosu
 // adapted for WLED by @blazoncek
 uint16_t mode_2Doctopus() {
   if (!strip.isMatrix || !SEGMENT.is2D()) return mode_static(); // not a 2D set-up
@@ -6377,7 +6373,7 @@ static const char _data_FX_MODE_2DOCTOPUS[] PROGMEM = "Octopus@!,,Offset X,Offse
 
 
 //Waving Cell
-//@Stepko (https://editor.soulmatelights.com/gallery/1704-wavingcells)
+//@Stepko https://github.com/St3p40 (https://editor.soulmatelights.com/gallery/1704-wavingcells)
 // adapted for WLED by @blazoncek
 uint16_t mode_2Dwavingcell() {
   if (!strip.isMatrix || !SEGMENT.is2D()) return mode_static(); // not a 2D set-up
