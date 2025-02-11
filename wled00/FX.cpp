@@ -3131,17 +3131,17 @@ static const char _data_FX_MODE_ROLLINGBALLS[] PROGMEM = "Rolling Balls@!,# of b
 static uint16_t mode_ants(void) {
   //allocate segment data
   uint32_t bgcolor = BLACK;
-  static constexpr uint16_t MAX_ANTS = 32;                                     // Maximum number of ants
-  static constexpr uint8_t DEFAULT_ANT_SIZE = 1;                               
-  uint8_t antSize = DEFAULT_ANT_SIZE;
-  uint16_t dataSize = sizeof(rball_t) * MAX_ANTS;
+  static constexpr unsigned MAX_ANTS = 32;                                     // Maximum number of ants
+  static constexpr unsigned DEFAULT_ANT_SIZE = 1;                               
+  unsigned antSize = DEFAULT_ANT_SIZE;
+  unsigned dataSize = sizeof(rball_t) * MAX_ANTS;
   if (!SEGENV.allocateData(dataSize)) return mode_static();                    //allocation failed
 
   int confusedAnt;                                                             // the first random ant to go backwards
   rball_t *ants = reinterpret_cast<rball_t *>(SEGENV.data);
 
   // number of ants based on intensity setting to max of 32
-  uint8_t numAnts = 1 + (SEGLEN * SEGMENT.intensity >> 12);
+  unsigned numAnts = 1 + (SEGLEN * SEGMENT.intensity >> 12);
   if (numAnts > 32) numAnts = MAX_ANTS;
 
   antSize = map(SEGMENT.custom1, 0, 255, 1, 20);                               // the size/length of each ant is user selectable (1 to 5 pixels) with a slider
@@ -3224,7 +3224,7 @@ static uint16_t mode_ants(void) {
 
     if (thisHeight < 0.0f) thisHeight = 0.0f;
     if (thisHeight > 1.0f) thisHeight = 1.0f;
-    uint16_t pos = round(thisHeight * (SEGLEN - 1));
+    unsigned pos = round(thisHeight * (SEGLEN - 1));
 
     for (int z = 0; z < antSize; z++) {                                           // make each ant the selected size (between 1 and 5 pixels)
       SEGMENT.setPixelColor(pos, color);
@@ -3241,8 +3241,8 @@ static const char _data_FX_MODE_ANTS[] PROGMEM = "Ants@Ant speed,# of ants,Ant s
 
 
 typedef struct PacManChars {
-  uint16_t  pos;
-  uint8_t   size;
+  unsigned  pos;
+  unsigned   size;
   uint32_t  color;
 } pacmancharacters_t;
 
@@ -3262,12 +3262,12 @@ typedef struct PacManChars {
 */
 static uint16_t mode_pacman(void) {
   //allocate segment data
-  constexpr uint16_t numGhosts = 4;
-  uint16_t dataSize = sizeof(pacmancharacters_t) * (numGhosts + 1 + 1);         // 4 ghosts + 1 Pac-Man + 1 Power dot 
+  constexpr unsigned numGhosts = 4;
+  unsigned dataSize = sizeof(pacmancharacters_t) * (numGhosts + 1 + 1);         // 4 ghosts + 1 Pac-Man + 1 Power dot 
   if (SEGLEN <= 15 || !SEGENV.allocateData(dataSize)) return mode_static();     // allocation failed
   pacmancharacters_t *character = reinterpret_cast<pacmancharacters_t *>(SEGENV.data);
 
-  uint8_t startBlinkingGhostsLED;                                               // the first LED when the blue ghosts will start blinking 
+  unsigned startBlinkingGhostsLED;                                               // the first LED when the blue ghosts will start blinking 
 
   if (SEGLEN > 150)
     startBlinkingGhostsLED = SEGLEN/4;                                          // For longer strips, start blinking the ghosts when there is only 1/4th of the LEDs left
