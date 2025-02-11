@@ -74,7 +74,7 @@ body {
     font-size: 26px;
 	font-weight: 400;
 	letter-spacing:12px;
-	/*background: linear-gradient(0deg, #111 5%, #ddd 50%);
+	/*background: linear-gradient(0deg, #111 4%, #ddd 50%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;*/
 	/*text-shadow: 0 0 10px rgba(255, 255, 255, 0.75);*/
@@ -276,7 +276,7 @@ button {
 
 .search-icon {
 	position: absolute;
-	top: 22px;
+	top: 10px;
 	left: 12px;
 	width: 24px;
 	height: 24px;
@@ -463,7 +463,7 @@ button {
 	display: block;
 	position: -webkit-sticky;
 	position: sticky !important;
-	top: 5;
+	top: 8px;
 	z-index: 2;
 	margin: 0 auto auto;
 }
@@ -763,16 +763,16 @@ img {
 	position: absolute;
 	display: inline-block;
 	border-radius: 16px;
-	background: var(--c-3);
+	background: var(--c-3); /* changing to --c-4 creates a wled_server.cpp error */
 	color: var(--c-f);
 	padding: 4px;
 	font-size: 14px;
-	right: 6px;
+	right: 8px;
 	transition: visibility .25s ease,opacity .25s ease;
 	opacity: 0;
 	visibility: hidden;
 	/* left: 8px; */
-	top: 4px;
+	top: 6px; /* mgibson - match adjustment to sliderwrap */
 }
 
 output.sliderbubbleshow {
@@ -1426,7 +1426,7 @@ TD .checkmark, TD .radiomark {
 /* removing 42px vertical offset so that selected list item overlaps first list item when sticking to top */
 #fxlist .lstI.selected {
 	/*top: calc(var(--sti) + 42px);*/
-	top: calc(var(--sti));
+	top: calc(var(--sti) + 45px);
 }
 #pallist .lstI.selected {
 	/*top: calc(var(--stp) + 42px);*/
@@ -1447,10 +1447,10 @@ dialog {
 }
 
 #fxlist .lstI.sticky {
-	top: var(--sti);
+	/*top: var(--sti); mgibson - fixes bug where first item "Solid" always sticks at top. Will still stick when selected. */
 }
 #pallist .lstI.sticky {
-	top: var(--stp);
+	/*top: var(--stp); mgibson - fixes bug where first item "Default" always sticks at top. Will still stick when selected. */
 }
 
 /* list item content */
@@ -1487,13 +1487,14 @@ dialog {
 .fnd input[type="text"] {
 	display: block;
 	width: 100%;
+	height: 42px;
 	box-sizing: border-box;
 	padding: 8px 40px 8px 44px;
 	margin: 4px auto 12px;
 	text-align: left;
 	border-radius: 21px;
-	background: var(--c-2);
-	border: 1px solid var(--c-3);
+	background: var(--c-4);
+	border: 1px solid var(--c-4);
 	-webkit-filter: grayscale(100%); /* Safari 6.0 - 9.0 */
 	filter: grayscale(100%);
 }
@@ -1506,6 +1507,10 @@ dialog {
 .fnd input[type="text"]:hover {
 	background-color: var(--c-3);
 }
+
+.fnd input[type="text"]::placeholder {
+	color: #ccc;
+  }
 
 #fxFind.fnd input[type="text"] {
 	margin-bottom: 0;

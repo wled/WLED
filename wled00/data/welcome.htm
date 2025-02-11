@@ -7,6 +7,10 @@
 		<title>Welcome</title>
 		<style>
 			@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300,400,700&display=swap');
+			@font-face {
+				font-family: "LIcons";
+				src: url('./icons-ui/fonts/icomoon_lightfall.woff') format('woff');
+			}
 
 			body {
 				/*font-family: Verdana, Helvetica, sans-serif;*/
@@ -16,7 +20,22 @@
 				margin: 0;
 				color: #fff;
 			}
+
+			.ilst {
+				margin:2px 25px; 
+				text-align:center;
+				/*padding-left:50px;
+				text-indent:-50px;*/
+			}
 	
+			.icons_sm {
+				font-family: 'LIcons';
+				font-style: normal;
+				font-size: 18px !important;
+				line-height: 1 !important;
+				display: inline-block;
+			}
+
 			button {
 				outline: none;
 				cursor: pointer;
@@ -54,17 +73,24 @@
 	</head>
 	<body>
 		<div class="main">
-			<h2 style="margin-bottom:10px; margin-top:50px; letter-spacing:10px; font-weight: 300;">WELCOME</h2>
+			<h2 style="margin-bottom:10px; margin-top:50px; font-weight: 400;">WELCOME</h2>
 			<br>
+			<p style="margin:4px 20px;">Thank you for being a part of our beta program. We're grateful to have your insight as we refine our product</p>
+			<!--<i class="icons_sm" style="text-align:center; padding:5px;">&#xe9da;</i><br>-->
 			<br>
-			<p style="margin-left:25px; margin-right:25px; margin-bottom:4px;">[inspiring graphic here. Be cautious of image size, or load from external source]</p>
+			<p style="margin:5px 20px; text-align: center;"><u>Overview</u></p>
+			<p class="ilst"><b>Presets</b><br>
+			Curated animations we've built for you.<br>
+			<b>Effects</b><br>
+			Dynamic patterns and effects that animate your orb<br>
+			<b>Colors</b><br>
+			Select a palette, or make your own. Applies to the selected effect</p><br>
 			<br>
+			<p style="margin:2px 20px; text-align: center;"><u>Get Started</u></p>
+			<p style="margin:4px 20px;">For the best experience, connect your orb to your home WIFI network</p>
+			<button onclick="window.location.href='./settings/wifi'">WIFI Settings</button>
+			<button style="color:#666;" click="window.location.href='./#Presets'">Setup Later</button>
 			<br>
-			<p style="margin-left:20px; margin-right:20px; margin-bottom:4px;">For the best experience, we recommend connecting your orb to a WIFI network</p>
-			<button onclick="window.location.href='./settings/wifi'">WiFi Settings</button>
-			<br>
-			<p style="margin-left:30px; margin-right:30px; margin-bottom:4px;">Alternatively, you can remain connected to your orb directly</p>
-			<button onclick="window.location.href='./?sliders'">Connect Directly</button>
 		</div>
 	</body>
 </html>

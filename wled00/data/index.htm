@@ -20,7 +20,7 @@
 <div class="wrapper" id="top">
 	<div class="tab top" style="padding-top:5px; padding-bottom:50px;">
 		<!--replace header below with lightfall workdmark-->
-		<h2 class="wordmark" style="padding-left:12px; margin-bottom:10px;">LIGHTFALL</h2>
+		<h2 class="wordmark" style="padding-left:12px; margin-bottom:10px;" onclick="toggleLiveview()">LIGHTFALL</h2>
 		
 		<!-- replaced buttons with icons to avoid background change on hover, but lost color change of power button when toggled -->
 		<!-- added js to togglePower() function in index.js to change the pwr icon color when toggled -->
@@ -58,7 +58,7 @@
 	<!-- COLORS -->
 	<div id="Colors" class="tabcontent">
 		<!-- add glowing class to make the color picker pop a bit more -->
-		<div id="picker" class="noslide glowing" style="padding-top:8px; padding-bottom:5px; scale:0.85;"></div>
+		<div id="picker" class="noslide glowing" style="padding-top:8px; padding-bottom:5px; scale:0.88;"></div>
 		<div id="hwrap" class="slider">
 			<div title="Hue" class="sliderwrap il">
 				<input id="sliderH" class="noslide" oninput="fromH()" onchange="setColor(0)" max="359" min="0" type="range" value="0" step="any">
@@ -173,11 +173,11 @@
 	</div>
 
 	<!-- EFFECTS -->
-	<div id="Effects" class="tabcontent">
+	<div id="Effects" class="tabcontent" style="display: flex; flex-direction: column;"> <!-- make container a flex box to keep fx slider group always at bottom-->
 		<div id="fx">
 			<p class="labels hd" id="modeLabel">Effect mode</p>
-			<!--search bubble with drop down filters. Make position sticky? -->
-			<div class="staytop fnd sticky" id="fxFind" onmousedown="preventBlur(event);" style="padding-top:10px;">
+			<!--FX SEARCH bubble with drop down filters. Make position sticky? -->
+			<div class="staytop fnd sticky" id="fxFind" onmousedown="preventBlur(event);">
 				<input type="text" placeholder="Search" oninput="search(this,'fxlist')" onfocus="filterFocus(event);search(this,'fxlist');" onblur="filterFocus(event);">
 				<i class="icons clear-icon" onclick="clean(this);">&#xe38f;</i>
 				<i class="icons search-icon" style="cursor:pointer;">&#xe0a1;</i>
@@ -212,7 +212,7 @@
 			<!-- FX LIST ----------------------------------------------------------------------------------------->
 			<!-- one approach to edit effects list is using a custom css file: https://jeffmission.com/wledcss/ -->
 			<!-- could just add to directory and link in header next to index.css? -->
-			<div id="fxlist" class="list">
+			<div id="fxlist" class="list" style="padding-top: 3px;">
 				<div class="lstI">
 					<label class="radio schkl" onclick="loadFX()">
 						<div class="lstIcontent">
@@ -225,8 +225,9 @@
 			</div>
 		</div>
 		<!-- FX SLIDERS -->
-		<div id="sliders">
-			<div id="slider0" class="slider" style="border-radius: 24px 24px 0 0; padding-top: 5px;"> <!-- only round top corners of top slider -->
+		<div id="sliders" style="margin-top:auto;"> <!-- margin-top:auto, in combination with display:flex on parent div, keeps slider group at bottom-->
+			<!-- only round top corners of top slider to make sliders look grouped -->
+			<div id="slider0" class="slider" style="border-radius: 24px 24px 0 0; padding-top: 5px;">
 				<i class="icons slider-icon" title="Freeze" onclick="tglFreeze()" style="padding-top: 5px;">&#xe325;</i>
 				<div title="Effect speed" class="sliderwrap il">
 					<input id="sliderSpeed" class="noslide" onchange="setSpeed()" oninput="updateTrail(this)" max="255" min="0" type="range" value="128" />
@@ -234,9 +235,8 @@
 				</div>
 				<output class="sliderbubble"></output>
 			</div>
-			<!-- add logic to make slider stack uniform on fx select by rounding only bottom corners of last slider in use by effect. See index.js -->
 			<div id="slider1" class="slider">
-				<!-- remove tglLabels() onclick behavior -->
+				<!-- remove tglLabels() onclick behavior from fire icon (labels for bottom nav) -->
 				<i class="icons slider-icon">&#xe409;</i>
 				<div title="Effect intensity" class="sliderwrap il">
 					<input id="sliderIntensity" class="noslide" onchange="setIntensity()" oninput="updateTrail(this)" max="255" min="0" type="range" value="128" />
@@ -286,7 +286,7 @@
 	</div>
 
 	<!-- PRESETS -->
-	<div id="Presets" class="tabcontent">
+	<div id="Presets" class="tabcontent" style="display: flex; flex-direction: column;">
 		<div id="pql">
 		</div>
 		<p class="labels hd">Presets</p>
@@ -296,11 +296,11 @@
 			<i class="icons clear-icon" onclick="clean(this);">&#xe38f;</i>
 			<i class="icons search-icon">&#xe0a1;</i>
 		</div>
-		<div id="pcont" class="list" style="padding-top: 10px;">
+		<div id="pcont" class="list" style="padding-top: 10px; width:100%;">
 			<span onclick="loadPresets()">Loading...</span>
 			<!-- preset html gets built in makeP() function of Index.js, then loaded here -->
 		</div>
-		<div id="putil" class="staybot">
+		<div id="putil" class="staybot" style="margin-top:auto;"> <!-- in combo with style attributes in id=Presets above, this pushes buttons to bottom -->
 		</div>
 	</div>
 

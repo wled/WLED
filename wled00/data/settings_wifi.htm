@@ -107,16 +107,18 @@
 	}
 	function btnWiFi(i) {
 		//gId("wifi_add").style.display = (i<maxNetworks) ? "inline":"none";
-		gId("wifi_add").style.visibility = (i<maxNetworks) ? "hidden":"hidden"; //trying to hide the dang add button
-		gId("wifi_add").setAttribute("hidden", true);
-		gId("wifi_rem").style.display = (i>1) ? "inline":"none";
+		//gId("wifi_add").style.visibility = (i<maxNetworks) ? "hidden":"hidden";
+		//gId("wifi_add").setAttribute("hidden", true);
+		//gId("wifi_rem").style.display = (i>1) ? "inline":"none";
+		gId("wifi_add").style.display = "none"; // just hide both buttons
+		gId("wifi_rem").style.display = "none";
 	}
 	function addWiFi(ssid="",pass="",ip=0,gw=0,sn=0x00ffffff) { // little endian
 		var i = gId("wifi_entries").childNodes.length;
 		if (i >= maxNetworks) return;
 		var b = `<div id="net${i}">
-	Network:<br><input type="text" id="CS${i}" name="CS${i}" maxlength="32" value="${ssid}" ${i>0?"required":""}><br>
-	Password:<br><input type="password" name="PW${i}" maxlength="64" value="${pass}"><br>
+	Network:<br><input type="text" id="CS${i}" name="CS${i}" maxlength="32" style="border-radius:16px;" value="${ssid}" ${i>0?"required":""}><br>
+	Password:<br><input type="password" name="PW${i}" maxlength="64" style="border-radius:16px;" value="${pass}"><br>
 	<div id="static_ip" hidden>
 	Static IP (leave at 0.0.0.0 for DHCP)${i==0?"<br>Also used by Ethernet":""}:<br>
 	<input name="IP${i}0" type="number" class="s" min="0" max="255" value="${ip&0xFF}" required>.<input name="IP${i}1" type="number" class="s" min="0" max="255" value="${(ip>>8)&0xFF}" required>.<input name="IP${i}2" type="number" class="s" min="0" max="255" value="${(ip>>16)&0xFF}" required>.<input name="IP${i}3" type="number" class="s" min="0" max="255" value="${(ip>>24)&0xFF}" required><br>
@@ -145,6 +147,9 @@
     	elements.forEach(function(element) {
         	element.removeAttribute("hidden");
     	});
+		gId("umsg").style.display = "none";
+		gId("wifi_add").style.display = "inline";
+		gId("wifi_rem").style.display = "inline";
 	}
 	</script>
 	<style>@import url("style.css");</style>
@@ -156,18 +161,18 @@
 			<div class="helpB"><button type="button" onclick="H('features/settings/#wifi-settings')">?</button></div>
 			<button type="button" onclick="B()">Back</button><button type="submit">Save & Connect</button><hr>
 		</div>
-		<h2 onclick="showAllSettings()" style="margin-top:50px; font-weight:300;">WIFI Setup</h2>
+		<h2 onclick="showAllSettings()" style="margin:50px 30px 30px; font-weight:400;">WIFI Setup</h2>
 		<!--<p style="margin-left:10px; margin-right:10px; line-height:normal;">For the best experience, we recommend connecting your orb to your local WIFI network</p>-->
 		<!--hide the network scan button, takes longer than just entering your network name-->
-		<button type="button" id="scan" onclick="N()" style="display:none;">Scan</button><br>
+		<button type="button" id="scan" onclick="N()" style="display:none;">Scan</button>
 		<div id="wifi">
 			<div id="wifi_entries">
-				<!--Wireless networks get populated by JS here-->
+			<!--Wireless networks get populated by JS here-->
 			</div>
 			<button hidden type="button" id="wifi_add" onclick="addWiFi()">+</button>
-			<button hidden type="button" id="wifi_rem" onclick="remWiFi()">-</button><br>
+			<button hidden type="button" id="wifi_rem" onclick="remWiFi()">-</button>
 		</div>
-		<p style="margin-left:12%; margin-right:12%; margin-bottom:5px; margin-bottom:10px;">After saving, please navigate to <b>orb-mini.local/</b> on the new network to control your orb.</p>
+		<p id="umsg" style="margin:25px 55px 25px;">After saving, please navigate to <b>orb-mini.local/</b> on the new network to control your orb.</p>
 		<div id="advanced_settings" hidden> <!--hide all advnaced settings in a new div-->
 			DNS server address:<br>
 			<input name="D0" type="number" class="s" min="0" max="255" required>.<input name="D1" type="number" class="s" min="0" max="255" required>.<input name="D2" type="number" class="s" min="0" max="255" required>.<input name="D3" type="number" class="s" min="0" max="255" required><br>

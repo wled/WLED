@@ -2162,8 +2162,8 @@ function resetPUtil()
 	let p = gId('putil');
 	p.classList.add('staybot');
 	p.classList.remove('pres');
-	p.innerHTML = `<button class="btn btn-s" onclick="makePUtil()" style="float:left;"><i class="icons btn-icon">&#xe18a;</i>Preset</button>`
-	+ `<button class="btn btn-s" onclick="makePlUtil()" style="float:right;"><i class="icons btn-icon">&#xe18a;</i>Playlist</button>`;
+	p.innerHTML = `<button class="btn btn-s" onclick="makePUtil()" style="float:left; margin:3px; width:124px;"><i class="icons btn-icon">&#xe18a;</i>Preset</button>`
+	+ `<button class="btn btn-s" onclick="makePlUtil()" style="float:right; margin:3px; width:124px;"><i class="icons btn-icon">&#xe18a;</i>Playlist</button>`;
 }
 
 function tglCs(i)
@@ -2389,14 +2389,14 @@ function setFX(ind = null)
 	requestJson(obj);
 
 	/*
-	// make fx sliders and option bar look grouped by not rounding top corners of last slider not hidden
+	// make fx sliders and option bar look grouped by only rounding bottom corners of last slider in use //
 	// slider0 has only top corners rounded by default, this covers the single slider case
-	if (gId("slider2").classList.contains("hide")) { 		// if 2 sliders, don't round the second sliders top corners
+	if (gId("slider2").classList.contains("hide")) { 		// if 2 sliders
 		gId("slider1").style.borderRadius = "0 0 0 0";
-	} else if (gId("slider3").classList.contains("hide")) { // if 3 sliders, don't round middle sliders top corners
+	} else if (gId("slider3").classList.contains("hide")) { // if 3 sliders
 		gId("slider1").style.borderRadius = "0 0 0 0"
 		gId("slider2").style.borderRadius = "0 0 0 0";
-	} else if (gId("slider4").classList.contains("hide")) { // if 4 sliders, don't round middle sliders top corners
+	} else if (gId("slider4").classList.contains("hide")) { // if 4 sliders
 		gId("slider1").style.borderRadius = "0 0 0 0"
 		gId("slider2").style.borderRadius = "0 0 0 0"
 		gId("slider3").style.borderRadius = "0 0 0 0";
