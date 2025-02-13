@@ -81,8 +81,9 @@ body {
 }
 
 .glowing {
-    filter: drop-shadow(0 0 1px black) /*give the element a fine sharp edge */
-			drop-shadow(0 0 25px rgba(120, 120, 120, 0.5));
+    filter: drop-shadow(0 0 5px rgba(0, 0, 0, 1));
+			/*drop-shadow(0 0 25px rgba(120, 120, 120, 0.5));*/
+			/*rgb glow is handled in #picker::before */
 }
 
 html,
@@ -179,6 +180,15 @@ button {
 	font-size: 18px !important;
 	line-height: 1 !important;
 	display: inline-block;
+}
+
+.icons_xs {
+	font-family: 'LIcons';
+	font-style: normal;
+	font-size: 15px !important;
+	line-height: 1 !important;
+	display: inline-block;
+	margin-top: 5px;
 }
 
 .on {
@@ -407,7 +417,7 @@ button {
 
 #segutil, #segutil2, #segcont, #putil, #pcont, #pql, #fx, #palw,
 .fnd {
-	max-width: 275px;
+	max-width: 270px;
 }
 
 #putil, #segutil, #segutil2 {
@@ -476,7 +486,7 @@ button {
 	position: -webkit-sticky;
 	position: sticky;
 	bottom: 0;
-	max-width: 275px;
+	max-width: 270px;
 	z-index: 2;
 }
 
@@ -486,7 +496,7 @@ button {
 }
 
 .slider {
-	max-width: 275px;
+	max-width: 270px;
 	/*margin: 5px auto; add 5px; if you want some vertical space but looks ugly because background scroll visible in gap */
 	margin-bottom: 0px;
 	/*border-radius: 24px; make sliders look grouped by only rounding slider0 top corners, set in index.html */
@@ -528,7 +538,7 @@ button {
 	background-color: var(--c-4);
 	border-radius: 26px;
 	height: 26px;
-	max-width: 275px;
+	max-width: 270px;
 	/* margin: 0 auto 4px; add 4-8px if you want space at the bottom */
 	padding: 2px 5px 8px 5px;
 	position: relative;
@@ -540,8 +550,10 @@ button {
 	z-index: 1;
 	/*overflow: visible;*/
 	border-radius: 0 0 16px 16px;
-	max-width: 220px;
-	height: 54px;
+	max-width: 230px;
+	/*height: 54px;*/
+	height: 32px;
+	width: 230px;
 	line-height: 1.5;
 	padding-bottom: 8px;
 	pointer-events: none;
@@ -603,7 +615,8 @@ button {
 	z-index: 5;
 	left: 50%;
 	transform: translateX(-50%);
-	bottom: calc(var(--bh) + 22px);
+	/*bottom: calc(var(--bh) + 22px);*/
+	bottom: calc(var(--bh) + 100px);
 	font-size: 17px;
 	pointer-events: none;
 }
@@ -627,9 +640,9 @@ button {
 	top: calc(var(--th) - 1px);
 	background-color: var(--c-o);
 	transform: translateY(100%);
-	transition: transform .4s;
+	transition: transform .5s;
 	padding: 8px;
-	font-size: 20px;
+	font-size: 16px;
 	overflow: auto;
 }
 
@@ -674,7 +687,7 @@ button {
 }
 
 #info .slider {
-	max-width: 200px;
+	max-width: 150px;
 	min-width: 145px;
 	float: right;
 	margin: 0;
@@ -850,8 +863,36 @@ input[type=range]::-moz-range-thumb {
 }
 
 #picker {
+	position:relative;
 	margin: 4px auto 0 !important;
 	max-width: max-content;
+	border-radius: 50%;
+	filter: drop-shadow(0 0 5px rgba(0, 0, 0, 0.8));
+}
+
+/* this is a subtle colored glow gradient of color picker in background */
+#picker::before {
+	content: "";
+	position: absolute;
+	top:50%;
+	left: 50%;
+	width: 100%;
+	height: 100%;
+	border-radius: 50%;
+	background: conic-gradient(
+	  rgba(255, 0, 0, 0.45), 
+	  rgba(255, 165, 0, 0.45),
+	  rgba(255, 255, 0, 0.35),
+	  rgba(0, 255, 0, 0.35),
+	  rgba(0, 255, 255, 0.45),
+	  rgba(0, 0, 255, 0.55),
+	  rgba(0, 0, 255, 0.55),
+	  rgba(255, 0, 255, 0.45),
+	  rgba(255, 0, 0, 0.45)
+	);
+	filter: blur(35px);
+	transform: translate(-50%, -50%);
+	z-index: -1; /* Places shadow behind the element */
 }
 
 /* buttons */
@@ -1318,7 +1359,8 @@ TD .checkmark, TD .radiomark {
 .filter .fchkl, .option .ochkl {
 	display: inline-block;
 	min-width: .7em;
-	padding: 1px 4px 1px 32px;
+	/*padding: 1px 4px 1px 32px;*/
+	padding: 3px 1px 1px 28px;
 	text-align: left;
 	line-height: 24px;
 	vertical-align: middle;
@@ -1326,7 +1368,7 @@ TD .checkmark, TD .radiomark {
 	filter: grayscale(100%);
 }
 .filter .fchkl {
-	margin: 0 4px;
+	margin: 4px 1px;
 	min-width: 20px;
 	pointer-events: auto;
 }
@@ -1456,7 +1498,7 @@ dialog {
 /* list item content */
 .lstIcontent {
 	width:100%;
-	max-width:275px; /* set a max width to keep it consistent with other items */
+	max-width:270px; /* set a max width to keep it consistent with other items */
 	padding: 7px 0 7px; /* make padding equal on top and bottom */
 	position: relative;
 }
@@ -1672,7 +1714,7 @@ dialog {
 @media all and (min-width: 1024px) and (max-width: 1249px) {
 	#segutil, #segutil2, #segcont, #putil, #pcont, #pql, #fx, #palw, #psFind, #sliders {
 		width: 100%;
-		max-width: 275px;
+		max-width: 270px;
 		font-size: 18px;
 	}
 	#putil .btn-s {

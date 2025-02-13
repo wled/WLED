@@ -330,6 +330,7 @@ function handleLocationHash() {
 		case "#Effects": openTab(1); break;
 		case "#Presets": openTab(2); break;
 		case "#Segments": openTab(3); break;
+		case "#Info": toggleInfo(); break;
 	}
 }
 
@@ -382,6 +383,12 @@ function getRuntimeStr(rt)
 function inforow(key, val, unit = "")
 {
 	return `<tr><td class="keytd">${key}</td><td class="valtd">${val}${unit}</td></tr>`;
+}
+
+// mgibson - making duplicate to above function but with row hidden
+function inforowhidden(key, val, unit = "")
+{
+	return `<tr hidden><td class="keytd">${key}</td><td class="valtd">${val}${unit}</td></tr>`;
 }
 
 function getLowestUnusedP()
@@ -706,6 +713,14 @@ function parseInfo(i) {
 //}
 //setInnerHTML(obj, html);
 
+function showAllInfo() { //function to unhide all info in the info modal only
+	var elements = document.querySelectorAll("#kv [hidden]");
+	document.getElementById("moreinfo").style.display = "none";
+	elements.forEach(function(element) {
+		element.removeAttribute("hidden");
+	});
+}
+
 function populateInfo(i)
 {
 	var cn="";
@@ -714,34 +729,52 @@ function populateInfo(i)
 	if (pwr > 1000) {pwr /= 1000; pwr = pwr.toFixed((pwr > 10) ? 0 : 1); pwru = pwr + " A";}
 	else if (pwr > 0) {pwr = 50 * Math.round(pwr/50); pwru = pwr + " mA";}
 	var urows="";
+	const shownKeys = ['Internal Temperature','Sound Processing']; // show key value pairs where the key constains any of these words, reference json/info/u
 	if (i.u) {
 		for (const [k, val] of Object.entries(i.u)) {
-			if (val[1])
-				urows += inforow(k,val[0],val[1]);
-			else
-				urows += inforow(k,val);
+			if (!shownKeys.some(word => k.includes(word))) {
+				if (val[1]) {
+					urows += inforowhidden(k, val[0], val[1]);
+				} else {
+					urows += inforowhidden(k, val);
+				}
+			} else {
+				if (val[1]) {
+					let tempKey = k;
+					if (tempKey === "Internal Temperature") {
+						urows += inforow("MCU Temperature", val[0], val[1]); // change displayed key to mcu temperature to prevent two lines
+					} else {
+						urows += inforow(k, val[0], val[1]);
+					}
+				} else {
+					urows += inforow(k, val);
+				}
+			}
 		}
 	}
 	var vcn = "Kuuhaku";
 	if (i.cn) vcn = i.cn;
 
-	cn += `v${i.ver} "${vcn}"<br><br><table>
-${urows}
-${urows===""?'':'<tr><td colspan=2><hr style="height:1px;border-width:0;color:gray;background-color:gray"></td></tr>'}
+	// mgibson - don't show WLED version and release name, instead show product name (see index.htm)
+	//cn += `v${i.ver} "${vcn}"<br><br><table>
+	cn += `<table>
+${urows===""?'':'<tr><td colspan=2><hr style="height:1px;border-width:0;color:gray;background-color:gray;margin:10px auto 5px;"></td></tr>'}
 ${i.opt&0x100?inforow("Debug","<button class=\"btn btn-xs\" onclick=\"requestJson({'debug':"+(i.opt&0x0080?"false":"true")+"});\"><i class=\"icons "+(i.opt&0x0080?"on":"off")+"\">&#xe08f;</i></button>"):''}
-${inforow("Build",i.vid)}
-${inforow("Signal strength",i.wifi.signal +"% ("+ i.wifi.rssi, " dBm)")}
-${inforow("Uptime",getRuntimeStr(i.uptime))}
-${inforow("Time",i.time)}
-${inforow("Free heap",(i.freeheap/1024).toFixed(1)," kB")}
+${urows}
+${inforowhidden("Build",i.vid)}
+${inforow("WIFI signal",i.wifi.signal +"%")}
+${inforowhidden("Uptime",getRuntimeStr(i.uptime))}
+${inforowhidden("Time",i.time)}
+${inforowhidden("Free heap",(i.freeheap/1024).toFixed(1)," kB")}
 ${i.psram?inforow("Free PSRAM",(i.psram/1024).toFixed(1)," kB"):""}
 ${inforow("Estimated current",pwru)}
 ${inforow("Average FPS",i.leds.fps)}
-${inforow("MAC address",i.mac)}
-${inforow("CPU clock",i.clock," MHz")}
-${inforow("Flash size",i.flash," MB")}
-${inforow("Filesystem",i.fs.u + "/" + i.fs.t + " kB (" +Math.round(i.fs.u*100/i.fs.t) + "%)")}
-${inforow("Environment",i.arch + " " + i.core + " (" + i.lwip + ")")}
+${inforowhidden("MAC address",i.mac)}
+${inforowhidden("CPU clock",i.clock," MHz")}
+${inforowhidden("Flash size",i.flash," MB")}
+${inforowhidden("Filesystem",i.fs.u + "/" + i.fs.t + " kB (" +Math.round(i.fs.u*100/i.fs.t) + "%)")}
+${inforowhidden("Environment",i.arch + " " + i.core + " (" + i.lwip + ")")}
+<tr id="moreinfo"><td onclick="showAllInfo()" class="keytd">...</td><td class="valtd"></td></tr>
 </table>`;
 	gId('kv').innerHTML = cn;
 	//  update all sliders in Info

@@ -58,7 +58,7 @@
 	<!-- COLORS -->
 	<div id="Colors" class="tabcontent">
 		<!-- add glowing class to make the color picker pop a bit more -->
-		<div id="picker" class="noslide glowing" style="padding-top:8px; padding-bottom:5px; scale:0.88;"></div>
+		<div id="picker" class="noslide" style="padding-top:8px; padding-bottom:5px; scale:0.88;"></div>
 		<div id="hwrap" class="slider">
 			<div title="Hue" class="sliderwrap il">
 				<input id="sliderH" class="noslide" oninput="fromH()" onchange="setColor(0)" max="359" min="0" type="range" value="0" step="any">
@@ -182,27 +182,27 @@
 				<i class="icons clear-icon" onclick="clean(this);">&#xe38f;</i>
 				<i class="icons search-icon" style="cursor:pointer;">&#xe0a1;</i>
 				<div id="filters" class="filter fade">
-					<label id="filterPal" title="Uses palette" class="check fchkl">&#x1F3A8;
+					<label id="filterPal" title="Uses palette" class="check fchkl"><img src="./icons-ui/droplet.svg" width="18" height="18">
 						<input type="checkbox" data-flt="&#x1F3A8;" onchange="filterFx();">
 						<span class="checkmark"></span>
 					</label>
-					<label id="filter0D" title="Single pixel" class="check fchkl">&#8226;
+					<label id="filter0D" title="Single pixel" class="check fchkl" style="display:none;">&#8226;
 						<input type="checkbox" data-flt="&#8226;" onchange="filterFx();">
 						<span class="checkmark"></span>
 					</label>
-					<label id="filter1D" title="1D" class="check fchkl">&#8942;
+					<label id="filter1D" title="1D" class="check fchkl" style="display:none;">&#8942;
 						<input type="checkbox" data-flt="&#8942;" onchange="filterFx();">
 						<span class="checkmark"></span>
 					</label>
-					<label id="filter2D" title="2D" class="check fchkl">&#9638;
+					<label id="filter2D" title="2D" class="check fchkl"><img src="./icons-ui/2d.svg" width="20" height="20">
 						<input type="checkbox" data-flt="&#9638;" onchange="filterFx();">
 						<span class="checkmark"></span>
 					</label>
-					<label id="filterVol" title="Volume" class="check fchkl">&#9834;
+					<label id="filterVol" title="Volume" class="check fchkl"><img src="./icons-ui/note_cast.svg" width="20" height="20">
 						<input type="checkbox" data-flt="&#9834;" onchange="filterFx();">
 						<span class="checkmark"></span>
 					</label>
-					<label id="filterFreq" title="Frequency" class="check fchkl">&#9835;
+					<label id="filterFreq" title="Frequency" class="check fchkl"><img src="./icons-ui/eq.svg" width="20" height="20">
 						<input type="checkbox" data-flt="&#9835;" onchange="filterFx();">
 						<span class="checkmark"></span>
 					</label>
@@ -233,7 +233,7 @@
 					<input id="sliderSpeed" class="noslide" onchange="setSpeed()" oninput="updateTrail(this)" max="255" min="0" type="range" value="128" />
 					<div class="sliderdisplay"></div>
 				</div>
-				<output class="sliderbubble"></output>
+				<output class="sliderbubble" style="margin-top:5px;"></output>
 			</div>
 			<div id="slider1" class="slider">
 				<!-- remove tglLabels() onclick behavior from fire icon (labels for bottom nav) -->
@@ -361,24 +361,46 @@
 <!-- hide the WLED label in the bottom right that toggles the Nodes modal -->
 <div hidden id="namelabel" onclick="toggleNodes()"></div>
 <!-- in its place, add a small info icon that toggles the info modal -->
-<i onclick="toggleInfo()" class="icons_s" style="position:absolute; right:5%; bottom:75px; color:#555;">&#xe066;</i>
+<i onclick="toggleInfo()" class="icons" style="position:absolute; right:3%; bottom:70px; color:#555;">&#xe066;</i>
 <!-- on the left side, add a small message icon that links users to a feedback form -->
-<i onclick="window.location.href=getURL('/feedback');" class="icons_sm" style="position:absolute; left:5%; bottom:75px; color:#555;">&#xe96b;</i>
+<!--<i onclick="window.location.href=getURL('/feedback');" class="icons_sm" style="position:absolute; left:5%; bottom:75px; color:#555;">&#xe96b;</i>-->
 
+<!-- INFO MODAL -->
 <div id="info" class="modal">
-	<button class="btn btn-xs close" onclick="toggleInfo()"><i class="icons rot45">&#xe18a;</i></button>
+	<button class="btn btn-xs close" onclick="toggleInfo()" style="margin:8px;"><i class="icons rot45">&#xe18a;</i></button>
 	<!-- hide the WLED logo -->
 	<div hidden id="imgw">
 		<img class="wi" alt="" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAB0AAAAFCAYAAAC5Fuf5AAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAABbSURBVChTlY9bDoAwDMNW7n9nwCipytQN4Z8tbrTHmDmF4oPzyldwRqp1SSdnV/NuZuzqerAByxXznBw3igkeFEfXyUuhK/yFM0CxJfyqXZEOc6/Sr9/bf7uIC5Nwd7orMvAPAAAAAElFTkSuQmCC" />
 	</div>
-	<div id="kv">Loading...</div><br>
-	<div>
-		<button class="btn ibtn" onclick="requestJson()">Refresh</button>
-		<button class="btn ibtn" onclick="toggleNodes()">Instances</button>
-		<button class="btn ibtn" onclick="window.open(getURL('/update'),'_self');">Update</button>
-		<button class="btn ibtn" id="resetbtn" onclick="cnfReset()">Reboot</button>
-	</div>
+	<h2 style="width:50%; margin:10px auto 2px; font-weight: 300;">Orb Mini</h2> <!-- had to reduce width to avoid element covering close button -->
+	<p style="width:50%; margin:0px auto; font-weight: 300;"><i>(Beta)</i></p>
 	<br>
+	<!-- overview of UI sections -->
+	<p style="margin:8px 20px; text-align: center;">Overview</p>
+	<table style="width: 85%; table-layout: fixed; margin:0 auto; font-size:14px; text-align:left;">
+		<colgroup>
+		  <col style="width: 15%;">
+		  <col style="width: 55%;">
+		</colgroup>
+			<tr>
+				<td style="vertical-align: top;">Colors</td>
+				<td>Select a palette, or make your own. Get's applied to the selected effect.</td>
+			</tr>
+			<tr>
+				<td style="vertical-align: top;">Effects</td>
+				<td>Dynamic patterns and effects that animate your orb.</td>
+			</tr>
+			<tr>
+				<td style="vertical-align: top;">Presets</td>
+				<td>Curated scenes we think you'll enjoy, alongside your own favorites.</td>
+			</tr>
+	</table>
+	<br>
+	<button class="btn ibtn" onclick="window.open(getURL('/update'),'_self');">Update</button>
+	<button class="btn ibtn" onclick="toggleNodes()">Feedback</button>
+	<div id="kv">Loading...</div>
+	<button class="btn ibtn" onclick="requestJson()">Refresh</button>
+	<button class="btn ibtn" id="resetbtn" onclick="cnfReset()">Reboot</button>
 	<!-- hide the WLED line -->
 	<span hidden class="h">Made with&#32;<span id="heart">&#10084;&#xFE0E;</span>&#32;by&#32;<a href="https://github.com/Aircoookie/" target="_blank">Aircoookie</a>&#32;and the&#32;<a href="https://wled.discourse.group/" target="_blank">WLED community</a></span>
 </div>

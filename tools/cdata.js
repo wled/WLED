@@ -138,7 +138,9 @@ async function writeHtmlGzipped(sourceFile, resultFile, page) {
     console.info("Minified and compressed " + sourceFile + " from " + originalLength + " to " + result.length + " bytes");
     const array = hexdump(result);
     let src = singleHeader;
-    src += `const uint16_t PAGE_${page}_L = ${result.length};\n`;
+    // modifying to uint32 to allow for a longer page since overflows keep occuring 
+    // src += `const uint16_t PAGE_${page}_L = ${result.length};\n`;
+    src += `const uint32_t PAGE_${page}_L = ${result.length};\n`;
     src += `const uint8_t PAGE_${page}[] PROGMEM = {\n${array}\n};\n\n`;
     console.info("Writing " + resultFile);
     fs.writeFileSync(resultFile, src);
