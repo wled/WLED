@@ -509,21 +509,34 @@ void ParticleSystem2D::applyGravity(PSparticle &part) {
 // slow down particle by friction, the higher the speed, the higher the friction. a high friction coefficient slows them more (255 means instant stop)
 // note: a coefficient smaller than 0 will speed them up (this is a feature, not a bug), coefficient larger than 255 inverts the speed, so don't do that
 void ParticleSystem2D::applyFriction(PSparticle &part, const int32_t coefficient) {
-  int32_t friction = 255 - coefficient;
   // note: not checking if particle is dead can be done by caller (or can be omitted)
-  // note2: cannot use right shifts as bit shifting in right direction is asymmetrical for positive and negative numbers and this needs to be accurate
+  #if defined(CONFIG_IDF_TARGET_ESP32C3) || defined(ESP8266) // use bitshifts with rounding instead of division (2x faster)
+  int32_t friction = 256 - coefficient;
+  part.vx = ((int32_t)part.vx * friction + (((int32_t)part.vx >> 31) & 0xFF)) >> 8; // note: (v>>31) & 0xFF)) extracts the sign and adds 255 if negative for correct rounding using shifts
+  part.vy = ((int32_t)part.vy * friction + (((int32_t)part.vy >> 31) & 0xFF)) >> 8;
+  #else // division is faster on ESP32, S2 and S3
+  int32_t friction = 255 - coefficient;
   part.vx = ((int32_t)part.vx * friction) / 255;
   part.vy = ((int32_t)part.vy * friction) / 255;
+  #endif
 }
 
 // apply friction to all particles
+// note: not checking if particle is dead is faster as most are usually alive and if few are alive, rendering is fast anyways
 void ParticleSystem2D::applyFriction(const int32_t coefficient) {
+  #if defined(CONFIG_IDF_TARGET_ESP32C3) || defined(ESP8266) // use bitshifts with rounding instead of division (2x faster)
+  int32_t friction = 256 - coefficient;
+  for (uint32_t i = 0; i < usedParticles; i++) {
+    particles[i].vx = ((int32_t)particles[i].vx * friction + (((int32_t)particles[i].vx >> 31) & 0xFF)) >> 8; // note: (v>>31) & 0xFF)) extracts the sign and adds 255 if negative for correct rounding using shifts
+    particles[i].vy = ((int32_t)particles[i].vy * friction + (((int32_t)particles[i].vy >> 31) & 0xFF)) >> 8;
+  }
+  #else // division is faster on ESP32, S2 and S3
   int32_t friction = 255 - coefficient;
   for (uint32_t i = 0; i < usedParticles; i++) {
-    // note: not checking if particle is dead is faster as most are usually alive and if few are alive, rendering is fast anyways
     particles[i].vx = ((int32_t)particles[i].vx * friction) / 255;
     particles[i].vy = ((int32_t)particles[i].vy * friction) / 255;
   }
+  #endif
 }
 
 // attracts a particle to an attractor particle using the inverse square-law
@@ -940,22 +953,35 @@ void ParticleSystem2D::collideParticles(PSparticle &particle1, PSparticle &parti
     // overflow check: dx/dy are 7bit, relativV are 8bit -> dotproduct is 15bit, dotproduct/distsquared ist 8b, multiplied by collisionhardness of 8bit. so a 16bit shift is ok, make it 15 to be sure no overflows happen
     // note: cannot use right shifts as bit shifting in right direction is asymmetrical for positive and negative numbers and this needs to be accurate! the trick is: only shift positive numers
     // Calculate new velocities after collision
-    int32_t surfacehardness = max(collisionHardness, (int32_t)PS_P_MINSURFACEHARDNESS); // if particles are soft, the impulse must stay above a limit or collisions slip through at higher speeds, 170 seems to be a good value
-    int32_t impulse = -(((((-dotProduct) << 15) / distanceSquared) * surfacehardness) >> 8); // note: inverting before bitshift corrects for asymmetry in right-shifts (and is slightly faster)
-    int32_t ximpulse = ((impulse) * dx) / 32767; // cannot use bit shifts here, it can be negative, use division by 2^bitshift
-    int32_t yimpulse = ((impulse) * dy) / 32767;
-    particle1.vx += ximpulse;
-    particle1.vy += yimpulse;
-    particle2.vx -= ximpulse;
-    particle2.vy -= yimpulse;
+    int32_t surfacehardness = 1 + max(collisionHardness, (int32_t)PS_P_MINSURFACEHARDNESS); // if particles are soft, the impulse must stay above a limit or collisions slip through at higher speeds, 170 seems to be a good value
+    int32_t impulse = (((((-dotProduct) << 15) / distanceSquared) * surfacehardness) >> 8); // note: inverting before bitshift corrects for asymmetry in right-shifts (is slightly faster)
+
+    #if defined(CONFIG_IDF_TARGET_ESP32C3) || defined(ESP8266) // use bitshifts with rounding instead of division (2x faster)
+    int32_t ximpulse = (impulse * dx + ((dx >> 31) & 32767)) >> 15; // note: extracting sign bit and adding rounding value to correct for asymmetry in right shifts
+    int32_t yimpulse = (impulse * dy + ((dy >> 31) & 32767)) >> 15;
+    #else
+    int32_t ximpulse = (impulse * dx) / 32767;
+    int32_t yimpulse = (impulse * dy) / 32767;
+    #endif
+    particle1.vx -= ximpulse; // note: impulse is inverted, so subtracting it
+    particle1.vy -= yimpulse;
+    particle2.vx += ximpulse;
+    particle2.vy += yimpulse;
 
     if (collisionHardness < PS_P_MINSURFACEHARDNESS && (SEGMENT.call & 0x07) == 0) { // if particles are soft, they become 'sticky' i.e. apply some friction (they do pile more nicely and stop sloshing around)
       const uint32_t coeff = collisionHardness + (255 - PS_P_MINSURFACEHARDNESS);
-      particle1.vx = ((int32_t)particle1.vx * coeff) / 255; // Note: could call applyFriction, but this is faster and speed is key here
+      // Note: could call applyFriction, but this is faster and speed is key here
+      #if defined(CONFIG_IDF_TARGET_ESP32C3) || defined(ESP8266) // use bitshifts with rounding instead of division (2x faster)
+      particle1.vx = ((int32_t)particle1.vx * coeff + (((int32_t)particle1.vx >> 31) & 0xFF)) >> 8; // note: (v>>31) & 0xFF)) extracts the sign and adds 255 if negative for correct rounding using shifts
+      particle1.vy = ((int32_t)particle1.vy * coeff + (((int32_t)particle1.vy >> 31) & 0xFF)) >> 8;
+      particle2.vx = ((int32_t)particle2.vx * coeff + (((int32_t)particle2.vx >> 31) & 0xFF)) >> 8;
+      particle2.vy = ((int32_t)particle2.vy * coeff + (((int32_t)particle2.vy >> 31) & 0xFF)) >> 8;
+      #else // division is faster on ESP32, S2 and S3
+      particle1.vx = ((int32_t)particle1.vx * coeff) / 255;
       particle1.vy = ((int32_t)particle1.vy * coeff) / 255;
-
       particle2.vx = ((int32_t)particle2.vx * coeff) / 255;
       particle2.vy = ((int32_t)particle2.vy * coeff) / 255;
+      #endif
     }
 
     // particles have volume, push particles apart if they are too close
@@ -1478,11 +1504,20 @@ void ParticleSystem1D::applyGravity(PSparticle1D &part, PSparticleFlags1D &partF
 // slow down particle by friction, the higher the speed, the higher the friction. a high friction coefficient slows them more (255 means instant stop)
 // note: a coefficient smaller than 0 will speed them up (this is a feature, not a bug), coefficient larger than 255 inverts the speed, so don't do that
 void ParticleSystem1D::applyFriction(int32_t coefficient) {
+  #if defined(CONFIG_IDF_TARGET_ESP32C3) || defined(ESP8266) // use bitshifts with rounding instead of division (2x faster)
+  int32_t friction = 256 - coefficient;
+  for (uint32_t i = 0; i < usedParticles; i++) {
+    if (particles[i].ttl)
+      particles[i].vx = ((int32_t)particles[i].vx * friction + (((int32_t)particles[i].vx >> 31) & 0xFF)) >> 8; // note: (v>>31) & 0xFF)) extracts the sign and adds 255 if negative for correct rounding using shifts
+  }
+  #else // division is faster on ESP32, S2 and S3
   int32_t friction = 255 - coefficient;
   for (uint32_t i = 0; i < usedParticles; i++) {
     if (particles[i].ttl)
-      particles[i].vx = ((int32_t)particles[i].vx * friction) / 255; // note: cannot use bitshift as vx can be negative
+      particles[i].vx = ((int32_t)particles[i].vx * friction) / 255;
   }
+  #endif
+  
 }
 
 
@@ -1747,7 +1782,7 @@ void ParticleSystem1D::collideParticles(PSparticle1D &particle1, const PSparticl
   if (dotProduct < 0) { // particles are moving towards each other
     uint32_t surfacehardness = max(collisionHardness, (int32_t)PS_P_MINSURFACEHARDNESS_1D); // if particles are soft, the impulse must stay above a limit or collisions slip through
     // Calculate new velocities after collision
-    int32_t impulse = relativeVx * surfacehardness / 255;
+    int32_t impulse = relativeVx * surfacehardness / 255; // note: not using dot product like in 2D as impulse is purely speed depnedent
     particle1.vx += impulse;
     particle2.vx -= impulse;
 
@@ -1763,7 +1798,8 @@ void ParticleSystem1D::collideParticles(PSparticle1D &particle1, const PSparticl
       particle2.vx = ((int32_t)particle2.vx * coeff) / 255;
     }
   }
-  else if (distance < collisiondistance || relativeVx == 0) // moving apart or moving along and/or distance too close, push particles apart
+
+  if (distance < (collisiondistance - 8) && abs(relativeVx) < 5) // overlapping and moving slowly
   {
     // particles have volume, push particles apart if they are too close
     // behaviour is different than in 2D, we need pixel accurate stacking here, push the top particle
@@ -1774,19 +1810,28 @@ void ParticleSystem1D::collideParticles(PSparticle1D &particle1, const PSparticl
     particle1.vx -= pushamount;
     particle2.vx += pushamount;
 
-    if(distance < collisiondistance >> 1 ) { // too close, force push particles
-      pushamount = (collisiondistance - distance) >> 3; // note: push amount found by experimentation
+    if(distance < collisiondistance >> 1) { // too close, force push particles so they dont collapse
+      pushamount = 1 + ((collisiondistance - distance) >> 3); // note: push amount found by experimentation
+
       if(particle1.x < (maxX >> 1)) { // lower half, push particle with larger x in positive direction
-        if (dx < 0 && !particle1flags.fixed)  // particle2.x < particle1.x  -> push particle 1
-          particle1.vx += pushamount;
-        else if (!particle2flags.fixed) // particle1.x < particle2.x  -> push particle 2
-          particle2.vx += pushamount;
+        if (dx < 0 && !particle1flags.fixed) {  // particle2.x < particle1.x  -> push particle 1
+          particle1.vx++;// += pushamount;
+          particle1.x += pushamount;
+        }
+        else if (!particle2flags.fixed) { // particle1.x < particle2.x  -> push particle 2
+          particle2.vx++;// += pushamount;
+          particle2.x += pushamount;
+        }
       }
       else { // upper half, push particle with smaller x
-        if (dx < 0 && !particle2flags.fixed)  // particle2.x < particle1.x  -> push particle 2
-          particle2.vx -= pushamount;
-        else if (!particle2flags.fixed)  // particle1.x < particle2.x  -> push particle 1
-          particle1.vx -= pushamount;
+        if (dx < 0 && !particle2flags.fixed) {  // particle2.x < particle1.x  -> push particle 2
+          particle2.vx--;// -= pushamount;
+          particle2.x -= pushamount;
+        }
+        else if (!particle2flags.fixed) { // particle1.x < particle2.x  -> push particle 1
+          particle1.vx--;// -= pushamount;
+          particle1.x -= pushamount;
+        }
       }
     }
   }
