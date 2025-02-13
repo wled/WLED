@@ -427,7 +427,7 @@ class UsermodVisualRemote : public Usermod {
         case WIZMOTE_BUTTON_TWO_QUADRUPLE   : magic_flow(17);    break;
         case WIZMOTE_BUTTON_TWO_LONG        : applyPreset_visualremote(21);    break;
 
-        case WIZMOTE_BUTTON_THREE_SHORT     : applyPreset_visualremote(4);    break;
+        case WIZMOTE_BUTTON_THREE_SHORT     : applyPreset_visualremote(3);    break;
         case WIZMOTE_BUTTON_THREE_DOUBLE    : increaseSpeed();    break;
         case WIZMOTE_BUTTON_THREE_TRIPLE:
         case WIZMOTE_BUTTON_THREE_QUADRUPLE    : magic_flow(18);    break;
