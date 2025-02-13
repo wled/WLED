@@ -21,7 +21,7 @@ static const char s_accessdenied[]   PROGMEM = "Access Denied";
 static const char _common_js[]       PROGMEM = "/common.js";
 
 //Is this an IP?
-static bool isIp(String str) {
+static bool isIp(const String &str) {
   for (size_t i = 0; i < str.length(); i++) {
     int c = str.charAt(i);
     if (c != '.' && (c < '0' || c > '9')) {
@@ -152,9 +152,9 @@ static String msgProcessor(const String& var)
   return String();
 }
 
-static void handleUpload(AsyncWebServerRequest *request, const String& filename, size_t index, uint8_t *data, size_t len, bool final) {
+static void handleUpload(AsyncWebServerRequest *request, const String& filename, size_t index, uint8_t *data, size_t len, bool isFinal) {
   if (!correctPIN) {
-    if (final) request->send(401, FPSTR(CONTENT_TYPE_PLAIN), FPSTR(s_unlock_cfg));
+    if (isFinal) request->send(401, FPSTR(CONTENT_TYPE_PLAIN), FPSTR(s_unlock_cfg));
     return;
   }
   if (!index) {
@@ -170,7 +170,7 @@ static void handleUpload(AsyncWebServerRequest *request, const String& filename,
   if (len) {
     request->_tempFile.write(data,len);
   }
-  if (final) {
+  if (isFinal) {
     request->_tempFile.close();
     if (filename.indexOf(F("cfg.json")) >= 0) { // check for filename with or without slash
       doReboot = true;
@@ -288,7 +288,7 @@ void initServer()
     bool isConfig = false;
 
     if (!requestJSONBufferLock(14)) {
-      serveJsonError(request, 503, ERR_NOBUF);
+      request->deferResponse();
       return;
     }
 
@@ -359,7 +359,7 @@ void initServer()
 
   server.on(F("/upload"), HTTP_POST, [](AsyncWebServerRequest *request) {},
         [](AsyncWebServerRequest *request, const String& filename, size_t index, uint8_t *data,
-                      size_t len, bool final) {handleUpload(request, filename, index, data, len, final);}
+                      size_t len, bool isFinal) {handleUpload(request, filename, index, data, len, isFinal);}
   );
 
   createEditHandler(correctPIN);
@@ -389,7 +389,7 @@ void initServer()
       serveMessage(request, 200, F("Update successful!"), F("Rebooting..."), 131);
       doReboot = true;
     }
-  },[](AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool final){
+  },[](AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool isFinal){
     if (!correctPIN || otaLock) return;
     if(!index){
       DEBUG_PRINTLN(F("OTA Update Start"));
@@ -406,7 +406,7 @@ void initServer()
       Update.begin((ESP.getFreeSketchSpace() - 0x1000) & 0xFFFFF000);
     }
     if(!Update.hasError()) Update.write(data, len);
-    if(final){
+    if(isFinal){
       if(Update.end(true)){
         DEBUG_PRINTLN(F("Update Success"));
       } else {

@@ -68,7 +68,7 @@ bool deserializeSegment(JsonObject elem, byte it, byte presetId)
   if (elem["n"]) {
     // name field exists
     if (seg.name) { //clear old name
-      delete[] seg.name;
+      free(seg.name);
       seg.name = nullptr;
     }
 
@@ -77,7 +77,7 @@ bool deserializeSegment(JsonObject elem, byte it, byte presetId)
     if (name != nullptr) len = strlen(name);
     if (len > 0) {
       if (len > WLED_MAX_SEGNAME_LEN) len = WLED_MAX_SEGNAME_LEN;
-      seg.name = new char[len+1];
+      seg.name = static_cast<char*>(malloc(len+1));
       if (seg.name) strlcpy(seg.name, name, WLED_MAX_SEGNAME_LEN+1);
     } else {
       // but is empty (already deleted above)
@@ -86,7 +86,7 @@ bool deserializeSegment(JsonObject elem, byte it, byte presetId)
   } else if (start != seg.start || stop != seg.stop) {
     // clearing or setting segment without name field
     if (seg.name) {
-      delete[] seg.name;
+      free(seg.name);
       seg.name = nullptr;
     }
   }
@@ -332,15 +332,20 @@ bool deserializeState(JsonObject root, byte callMode, byte presetId)
     tr = root[F("transition")] | -1;
     if (tr >= 0) {
       transitionDelay = tr * 100;
-      if (fadeTransition) strip.setTransition(transitionDelay);
+      strip.setTransition(transitionDelay);
     }
   }
+
+#ifndef WLED_DISABLE_MODE_BLEND
+  blendingStyle = root[F("bs")] | blendingStyle;
+  blendingStyle &= 0x1F;
+#endif
 
   // temporary transition (applies only once)
   tr = root[F("tt")] | -1;
   if (tr >= 0) {
     jsonTransitionOnce = true;
-    if (fadeTransition) strip.setTransition(tr * 100);
+    strip.setTransition(tr * 100);
   }
 
   tr = root[F("tb")] | -1;
@@ -493,7 +498,7 @@ bool deserializeState(JsonObject root, byte callMode, byte presetId)
   return stateResponse;
 }
 
-void serializeSegment(JsonObject& root, Segment& seg, byte id, bool forPreset, bool segmentBounds)
+void serializeSegment(const JsonObject& root, const Segment& seg, byte id, bool forPreset, bool segmentBounds)
 {
   root["id"] = id;
   if (segmentBounds) {
@@ -568,6 +573,9 @@ void serializeState(JsonObject root, bool forPreset, bool includeBri, bool segme
     root["on"] = (bri > 0);
     root["bri"] = briLast;
     root[F("transition")] = transitionDelay/100; //in 100ms
+#ifndef WLED_DISABLE_MODE_BLEND
+    root[F("bs")] = blendingStyle;
+#endif
   }
 
   if (!forPreset) {
@@ -761,7 +769,7 @@ void serializeInfo(JsonObject root)
 
   root[F("freeheap")] = ESP.getFreeHeap();
   #if defined(ARDUINO_ARCH_ESP32)
-  if (psramSafe && psramFound()) root[F("psram")] = ESP.getFreePsram();
+  if (psramFound()) root[F("psram")] = ESP.getFreePsram();
   #endif
   root[F("uptime")] = millis()/1000 + rolloverMillis*4294967;
 
@@ -1052,7 +1060,7 @@ void serveJson(AsyncWebServerRequest* request)
   }
 
   if (!requestJSONBufferLock(17)) {
-    serveJsonError(request, 503, ERR_NOBUF);
+    request->deferResponse();    
     return;
   }
   // releaseJSONBufferLock() will be called when "response" is destroyed (from AsyncWebServer)

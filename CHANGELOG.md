@@ -173,7 +173,7 @@
 -   v0.15.0-b2
 -   WS2805 support (RGB + WW + CW, 600kbps)
 -   Unified PSRAM use
--   NeoPixelBus v2.7.9
+-   NeoPixelBus v2.7.9 (for future WS2805 support)
 -   Ubiquitous PSRAM mode for all variants of ESP32
 -   SSD1309_64 I2C Support for FLD Usermod (#3836 by @THATDONFC)
 -   Palette cycling fix (add support for `{"seg":[{"pal":"X~Y~"}]}` or `{"seg":[{"pal":"X~Yr"}]}`)

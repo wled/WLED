@@ -87,25 +87,26 @@ uint32_t color_fade(uint32_t c1, uint8_t amount, bool video)
 uint32_t ColorFromPaletteWLED(const CRGBPalette16& pal, unsigned index, uint8_t brightness, TBlendType blendType)
 {
   if (blendType == LINEARBLEND_NOWRAP) {
-    index = (index*240) >> 8; // Blend range is affected by lo4 blend of values, remap to avoid wrapping
+    index = (index * 0xF0) >> 8; // Blend range is affected by lo4 blend of values, remap to avoid wrapping
   }
   unsigned hi4 = byte(index) >> 4;
-  const CRGB* entry = (CRGB*)((uint8_t*)(&(pal[0])) + (hi4 * sizeof(CRGB)));
+  unsigned lo4 = (index & 0x0F);
+  const CRGB* entry = (CRGB*)&(pal[0]) + hi4;
   unsigned red1   = entry->r;
   unsigned green1 = entry->g;
   unsigned blue1  = entry->b;
-  if (blendType != NOBLEND) {
+  if(lo4 && blendType != NOBLEND) {
     if (hi4 == 15) entry = &(pal[0]);
     else ++entry;
-    unsigned f2 = ((index & 0x0F) << 4) + 1; // +1 so we scale by 256 as a max value, then result can just be shifted by 8
-    unsigned f1 = (257 - f2); // f2 is 1 minimum, so this is 256 max
-    red1   = (red1 * f1 + (unsigned)entry->r * f2) >> 8;
+    unsigned f2 = (lo4 << 4);
+    unsigned f1 = 256 - f2;
+    red1   = (red1 * f1 + (unsigned)entry->r * f2) >> 8; // note: using color_blend() is 20% slower
     green1 = (green1 * f1 + (unsigned)entry->g * f2) >> 8;
     blue1  = (blue1 * f1 + (unsigned)entry->b * f2) >> 8;
   }
   if (brightness < 255) { // note: zero checking could be done to return black but that is hardly ever used so it is omitted
     uint32_t scale = brightness + 1; // adjust for rounding (bitshift)
-    red1   = (red1 * scale) >> 8;
+    red1   = (red1 * scale) >> 8; // note: using color_fade() is 30% slower
     green1 = (green1 * scale) >> 8;
     blue1  = (blue1 * scale) >> 8;
   }
@@ -122,7 +123,7 @@ void setRandomColor(byte* rgb)
  * generates a random palette based on harmonic color theory
  * takes a base palette as the input, it will choose one color of the base palette and keep it
  */
-CRGBPalette16 generateHarmonicRandomPalette(CRGBPalette16 &basepalette)
+CRGBPalette16 generateHarmonicRandomPalette(const CRGBPalette16 &basepalette)
 {
   CHSV palettecolors[4]; // array of colors for the new palette
   uint8_t keepcolorposition = hw_random8(4); // color position of current random palette to keep
@@ -391,7 +392,7 @@ void colorXYtoRGB(float x, float y, byte* rgb) //coordinates to rgb (https://www
   rgb[2] = byte(255.0f*b);
 }
 
-void colorRGBtoXY(byte* rgb, float* xy) //rgb to coordinates (https://www.developers.meethue.com/documentation/color-conversions-rgb-xy)
+void colorRGBtoXY(const byte* rgb, float* xy) //rgb to coordinates (https://www.developers.meethue.com/documentation/color-conversions-rgb-xy)
 {
   float X = rgb[0] * 0.664511f + rgb[1] * 0.154324f + rgb[2] * 0.162028f;
   float Y = rgb[0] * 0.283881f + rgb[1] * 0.668433f + rgb[2] * 0.047685f;
@@ -402,7 +403,7 @@ void colorRGBtoXY(byte* rgb, float* xy) //rgb to coordinates (https://www.develo
 #endif // WLED_DISABLE_HUESYNC
 
 //RRGGBB / WWRRGGBB order for hex
-void colorFromDecOrHexString(byte* rgb, char* in)
+void colorFromDecOrHexString(byte* rgb, const char* in)
 {
   if (in[0] == 0) return;
   char first = in[0];

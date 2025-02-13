@@ -2,6 +2,10 @@
 #include <EEPROM.h>
 #include "wled.h"
 
+#if defined(WLED_ENABLE_MQTT) && MQTT_MAX_TOPIC_LEN < 32
+#error "MQTT topics length < 32 is not supported by the EEPROM module!"
+#endif
+
 /*
  * DEPRECATED, do not use for new settings
  * Only used to restore config from pre-0.11 installations using the deEEP() methods
@@ -220,7 +224,7 @@ void loadSettingsFromEEPROM()
 
   if (lastEEPROMversion > 7)
   {
-    strip.paletteFade  = EEPROM.read(374);
+    //strip.paletteFade  = EEPROM.read(374);
     strip.paletteBlend = EEPROM.read(382);
 
     for (int i = 0; i < 8; ++i)

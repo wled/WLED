@@ -224,7 +224,7 @@ void sendNTPPacket()
   ntpUdp.endPacket();
 }
 
-static bool isValidNtpResponse(byte * ntpPacket) {
+static bool isValidNtpResponse(const byte* ntpPacket) {
   // Perform a few validity checks on the packet
   //   based on https://github.com/taranais/NTPClient/blob/master/NTPClient.cpp
   if((ntpPacket[0] & 0b11000000) == 0b11000000) return false; //reject LI=UNSYNC

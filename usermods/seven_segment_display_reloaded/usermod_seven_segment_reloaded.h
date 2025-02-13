@@ -97,6 +97,11 @@ private:
 #else
   void* ptr = nullptr;
 #endif
+#ifdef USERMOD_BH1750
+  Usermod_BH1750* bh1750 = nullptr;
+#else
+  void* bh1750 = nullptr;
+#endif
 
   void _overlaySevenSegmentDraw() {
     int displayMaskLen = static_cast<int>(umSSDRDisplayMask.length());
@@ -387,6 +392,9 @@ public:
     #ifdef USERMOD_SN_PHOTORESISTOR
       ptr = (Usermod_SN_Photoresistor*) UsermodManager::lookup(USERMOD_ID_SN_PHOTORESISTOR);
     #endif
+    #ifdef USERMOD_BH1750
+      bh1750 = (Usermod_BH1750*) UsermodManager::lookup(USERMOD_ID_BH1750);
+    #endif
     DEBUG_PRINTLN(F("Setup done"));
   }
 
@@ -403,6 +411,20 @@ public:
           uint16_t lux = ptr->getLastLDRValue();
           uint16_t brightness = map(lux, 0, 1000, umSSDRBrightnessMin, umSSDRBrightnessMax);
           if (bri != brightness) {
+            bri = brightness;
+            stateUpdated(1);
+          }
+        }
+        umSSDRLastRefresh = millis();
+      }
+    #endif
+    #ifdef USERMOD_BH1750
+      if(bri != 0 && umSSDREnableLDR && (millis() - umSSDRLastRefresh > umSSDRResfreshTime)) {
+        if (bh1750 != nullptr) {
+          float lux = bh1750->getIlluminance();
+          uint16_t brightness = map(lux, 0, 1000, umSSDRBrightnessMin, umSSDRBrightnessMax);
+          if (bri != brightness) {
+            DEBUG_PRINTF("Adjusting brightness based on lux value: %.2f lx, new brightness: %d\n", lux, brightness);
             bri = brightness;
             stateUpdated(1);
           }

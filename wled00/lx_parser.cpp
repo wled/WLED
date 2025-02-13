@@ -22,7 +22,7 @@ bool parseLx(int lxValue, byte* rgbw)
   } else if ((lxValue >= 200000000) && (lxValue <= 201006500)) {
     // Loxone Lumitech
     ok = true;
-    float tmpBri = floor((lxValue - 200000000) / 10000); ;
+    float tmpBri = floor((lxValue - 200000000) / 10000);
     uint16_t ct = (lxValue - 200000000) - (((uint8_t)tmpBri) * 10000);
 
     tmpBri *= 2.55f;

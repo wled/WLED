@@ -114,10 +114,13 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
   CJSON(strip.correctWB, hw_led["cct"]);
   CJSON(strip.cctFromRgb, hw_led[F("cr")]);
   CJSON(cctICused, hw_led[F("ic")]);
-  CJSON(strip.cctBlending, hw_led[F("cb")]);
-  Bus::setCCTBlend(strip.cctBlending);
+  uint8_t cctBlending = hw_led[F("cb")] | Bus::getCCTBlend();
+  Bus::setCCTBlend(cctBlending);
   strip.setTargetFps(hw_led["fps"]); //NOP if 0, default 42 FPS
   CJSON(useGlobalLedBuffer, hw_led[F("ld")]);
+  #if defined(ARDUINO_ARCH_ESP32) && !defined(CONFIG_IDF_TARGET_ESP32C3)
+  CJSON(useParallelI2S, hw_led[F("prl")]);
+  #endif
 
   #ifndef WLED_DISABLE_2D
   // 2D Matrix Settings
@@ -162,34 +165,6 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
     DEBUG_PRINTF_P(PSTR("Heap before buses: %d\n"), ESP.getFreeHeap());
     int s = 0;  // bus iterator
     if (fromFS) BusManager::removeAll(); // can't safely manipulate busses directly in network callback
-    unsigned mem = 0;
-
-    // determine if it is sensible to use parallel I2S outputs on ESP32 (i.e. more than 5 outputs = 1 I2S + 4 RMT)
-    bool useParallel = false;
-    #if defined(ARDUINO_ARCH_ESP32) && !defined(ARDUINO_ARCH_ESP32S2) && !defined(ARDUINO_ARCH_ESP32S3) && !defined(ARDUINO_ARCH_ESP32C3)
-    unsigned digitalCount = 0;
-    unsigned maxLedsOnBus = 0;
-    unsigned maxChannels = 0;
-    for (JsonObject elm : ins) {
-      unsigned type = elm["type"] | TYPE_WS2812_RGB;
-      unsigned len = elm["len"] | DEFAULT_LED_COUNT;
-      if (!Bus::isDigital(type)) continue;
-      if (!Bus::is2Pin(type)) {
-        digitalCount++;
-        unsigned channels = Bus::getNumberOfChannels(type);
-        if (len > maxLedsOnBus)     maxLedsOnBus = len;
-        if (channels > maxChannels) maxChannels  = channels;
-      }
-    }
-    DEBUG_PRINTF_P(PSTR("Maximum LEDs on a bus: %u\nDigital buses: %u\n"), maxLedsOnBus, digitalCount);
-    // we may remove 300 LEDs per bus limit when NeoPixelBus is updated beyond 2.9.0
-    if (maxLedsOnBus <= 300 && digitalCount > 5) {
-      DEBUG_PRINTLN(F("Switching to parallel I2S."));
-      useParallel = true;
-      BusManager::useParallelOutput();
-      mem = BusManager::memUsage(maxChannels, maxLedsOnBus, 8); // use alternate memory calculation
-    }
-    #endif
 
     for (JsonObject elm : ins) {
       if (s >= WLED_MAX_BUSSES+WLED_MIN_VIRTUAL_BUSSES) break;
@@ -220,24 +195,11 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
         maMax = 0;
       }
       ledType |= refresh << 7; // hack bit 7 to indicate strip requires off refresh
-      if (fromFS) {
-        BusConfig bc = BusConfig(ledType, pins, start, length, colorOrder, reversed, skipFirst, AWmode, freqkHz, useGlobalLedBuffer, maPerLed, maMax);
-        if (useParallel && s < 8) {
-          // if for some unexplained reason the above pre-calculation was wrong, update
-          unsigned memT = BusManager::memUsage(bc); // includes x8 memory allocation for parallel I2S
-          if (memT > mem) mem = memT; // if we have unequal LED count use the largest
-        } else
-          mem += BusManager::memUsage(bc); // includes global buffer
-        if (mem <= MAX_LED_MEMORY) if (BusManager::add(bc) == -1) break;  // finalization will be done in WLED::beginStrip()
-      } else {
-        if (busConfigs[s] != nullptr) delete busConfigs[s];
-        busConfigs[s] = new BusConfig(ledType, pins, start, length, colorOrder, reversed, skipFirst, AWmode, freqkHz, useGlobalLedBuffer, maPerLed, maMax);
-        doInitBusses = true;  // finalization done in beginStrip()
-      }
+
+      busConfigs.push_back(std::move(BusConfig(ledType, pins, start, length, colorOrder, reversed, skipFirst, AWmode, freqkHz, useGlobalLedBuffer, maPerLed, maMax)));
+      doInitBusses = true;  // finalization done in beginStrip()
       s++;
     }
-    DEBUG_PRINTF_P(PSTR("LED buffer size: %uB\n"), mem);
-    DEBUG_PRINTF_P(PSTR("Heap after buses: %d\n"), ESP.getFreeHeap());
   }
   if (hw_led["rev"]) BusManager::getBus(0)->setReversed(true); //set 0.11 global reversed setting for first bus
 
@@ -444,12 +406,9 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
   NeoGammaWLEDMethod::calcGammaTable(gammaCorrectVal); // fill look-up table
 
   JsonObject light_tr = light["tr"];
-  CJSON(fadeTransition, light_tr["mode"]);
-  CJSON(modeBlending, light_tr["fx"]);
   int tdd = light_tr["dur"] | -1;
   if (tdd >= 0) transitionDelay = transitionDelayDefault = tdd * 100;
-  strip.setTransition(fadeTransition ? transitionDelayDefault : 0);
-  CJSON(strip.paletteFade, light_tr["pal"]);
+  strip.setTransition(transitionDelayDefault);
   CJSON(randomPaletteChangeTime, light_tr[F("rpc")]);
   CJSON(useHarmonicRandomPalette, light_tr[F("hrp")]);
 
@@ -522,6 +481,14 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
 
   tdd = if_live[F("timeout")] | -1;
   if (tdd >= 0) realtimeTimeoutMs = tdd * 100;
+
+  #ifdef WLED_ENABLE_DMX_INPUT
+    CJSON(dmxInputTransmitPin, if_live_dmx[F("inputRxPin")]);
+    CJSON(dmxInputReceivePin, if_live_dmx[F("inputTxPin")]);
+    CJSON(dmxInputEnablePin, if_live_dmx[F("inputEnablePin")]);
+    CJSON(dmxInputPort, if_live_dmx[F("dmxInputPort")]);
+  #endif
+
   CJSON(arlsForceMaxBri, if_live[F("maxbri")]);
   CJSON(arlsDisableGammaCorrection, if_live[F("no-gc")]); // false
   CJSON(arlsOffset, if_live[F("offset")]); // 0
@@ -819,10 +786,13 @@ void serializeConfig() {
   hw_led["cct"] = strip.correctWB;
   hw_led[F("cr")] = strip.cctFromRgb;
   hw_led[F("ic")] = cctICused;
-  hw_led[F("cb")] = strip.cctBlending;
+  hw_led[F("cb")] = Bus::getCCTBlend();
   hw_led["fps"] = strip.getTargetFps();
   hw_led[F("rgbwm")] = Bus::getGlobalAWMode(); // global auto white mode override
   hw_led[F("ld")] = useGlobalLedBuffer;
+  #if defined(ARDUINO_ARCH_ESP32) && !defined(CONFIG_IDF_TARGET_ESP32C3)
+  hw_led[F("prl")] = BusManager::hasParallelOutput();
+  #endif
 
   #ifndef WLED_DISABLE_2D
   // 2D Matrix Settings
@@ -847,8 +817,19 @@ void serializeConfig() {
   JsonArray hw_led_ins = hw_led.createNestedArray("ins");
 
   for (size_t s = 0; s < BusManager::getNumBusses(); s++) {
+    DEBUG_PRINTF_P(PSTR("Cfg: Saving bus #%u\n"), s);
     Bus *bus = BusManager::getBus(s);
     if (!bus || bus->getLength()==0) break;
+    DEBUG_PRINTF_P(PSTR("  (%d-%d, type:%d, CO:%d, rev:%d, skip:%d, AW:%d kHz:%d, mA:%d/%d)\n"),
+      (int)bus->getStart(), (int)(bus->getStart()+bus->getLength()),
+      (int)(bus->getType() & 0x7F),
+      (int)bus->getColorOrder(),
+      (int)bus->isReversed(),
+      (int)bus->skippedLeds(),
+      (int)bus->getAutoWhiteMode(),
+      (int)bus->getFrequency(),
+      (int)bus->getLEDCurrent(), (int)bus->getMaxCurrent()
+    );
     JsonObject ins = hw_led_ins.createNestedObject();
     ins["start"] = bus->getStart();
     ins["len"] = bus->getLength();
@@ -937,10 +918,7 @@ void serializeConfig() {
   light_gc["val"] = gammaCorrectVal;
 
   JsonObject light_tr = light.createNestedObject("tr");
-  light_tr["mode"] = fadeTransition;
-  light_tr["fx"] = modeBlending;
   light_tr["dur"] = transitionDelayDefault / 100;
-  light_tr["pal"] = strip.paletteFade;
   light_tr[F("rpc")] = randomPaletteChangeTime;
   light_tr[F("hrp")] = useHarmonicRandomPalette;
 
@@ -1001,6 +979,12 @@ void serializeConfig() {
   if_live_dmx[F("addr")] = DMXAddress;
   if_live_dmx[F("dss")] = DMXSegmentSpacing;
   if_live_dmx["mode"] = DMXMode;
+  #ifdef WLED_ENABLE_DMX_INPUT
+    if_live_dmx[F("inputRxPin")] = dmxInputTransmitPin;
+    if_live_dmx[F("inputTxPin")] = dmxInputReceivePin;
+    if_live_dmx[F("inputEnablePin")] = dmxInputEnablePin;
+    if_live_dmx[F("dmxInputPort")] = dmxInputPort;
+  #endif
 
   if_live[F("timeout")] = realtimeTimeoutMs / 100;
   if_live[F("maxbri")] = arlsForceMaxBri;

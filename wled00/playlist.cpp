@@ -61,7 +61,7 @@ int16_t loadPlaylist(JsonObject playlistObj, byte presetId) {
   if (playlistLen == 0) return -1;
   if (playlistLen > 100) playlistLen = 100;
 
-  playlistEntries = new PlaylistEntry[playlistLen];
+  playlistEntries = new(std::nothrow) PlaylistEntry[playlistLen];
   if (playlistEntries == nullptr) return -1;
 
   byte it = 0;
@@ -146,7 +146,7 @@ if (millis() - presetCycledTime > (100 * playlistEntryDur) || doAdvancePlaylist)
     }
 
     jsonTransitionOnce = true;
-    strip.setTransition(fadeTransition ? playlistEntries[playlistIndex].tr * 100 : 0);
+    strip.setTransition(playlistEntries[playlistIndex].tr * 100);
     playlistEntryDur = playlistEntries[playlistIndex].dur;
     applyPresetFromPlaylist(playlistEntries[playlistIndex].preset);
     doAdvancePlaylist = false;

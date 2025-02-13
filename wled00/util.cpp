@@ -73,7 +73,7 @@ bool getVal(JsonVariant elem, byte* val, byte vmin, byte vmax) {
 }
 
 
-bool getBoolVal(JsonVariant elem, bool dflt) {
+bool getBoolVal(const JsonVariant &elem, bool dflt) {
   if (elem.is<const char*>() && elem.as<const char*>()[0] == 't') {
     return !dflt;
   } else {
@@ -151,7 +151,7 @@ bool isAsterisksOnly(const char* str, byte maxLen)
 
 
 //threading/network callback details: https://github.com/Aircoookie/WLED/pull/2336#discussion_r762276994
-bool requestJSONBufferLock(uint8_t module)
+bool requestJSONBufferLock(uint8_t moduleID)
 {
   if (pDoc == nullptr) {
     DEBUG_PRINTLN(F("ERROR: JSON buffer not allocated!"));
@@ -175,14 +175,14 @@ bool requestJSONBufferLock(uint8_t module)
 #endif  
   // If the lock is still held - by us, or by another task
   if (jsonBufferLock) {
-    DEBUG_PRINTF_P(PSTR("ERROR: Locking JSON buffer (%d) failed! (still locked by %d)\n"), module, jsonBufferLock);
+    DEBUG_PRINTF_P(PSTR("ERROR: Locking JSON buffer (%d) failed! (still locked by %d)\n"), moduleID, jsonBufferLock);
 #ifdef ARDUINO_ARCH_ESP32
     xSemaphoreGiveRecursive(jsonBufferLockMutex);
 #endif
     return false;
   }
 
-  jsonBufferLock = module ? module : 255;
+  jsonBufferLock = moduleID ? moduleID : 255;
   DEBUG_PRINTF_P(PSTR("JSON buffer locked. (%d)\n"), jsonBufferLock);
   pDoc->clear();
   return true;
@@ -265,16 +265,16 @@ uint8_t extractModeSlider(uint8_t mode, uint8_t slider, char *dest, uint8_t maxL
   if (mode < strip.getModeCount()) {
     String lineBuffer = FPSTR(strip.getModeData(mode));
     if (lineBuffer.length() > 0) {
-      unsigned start = lineBuffer.indexOf('@');
-      unsigned stop  = lineBuffer.indexOf(';', start);
+      int start = lineBuffer.indexOf('@');   // String::indexOf() returns an int, not an unsigned; -1 means "not found"
+      int stop  = lineBuffer.indexOf(';', start);
       if (start>0 && stop>0) {
         String names = lineBuffer.substring(start, stop); // include @
-        unsigned nameBegin = 1, nameEnd, nameDefault;
+        int nameBegin = 1, nameEnd, nameDefault;
         if (slider < 10) {
           for (size_t i=0; i<=slider; i++) {
             const char *tmpstr;
             dest[0] = '\0'; //clear dest buffer
-            if (nameBegin == 0) break; // there are no more names
+            if (nameBegin <= 0) break; // there are no more names
             nameEnd = names.indexOf(',', nameBegin);
             if (i == slider) {
               nameDefault = names.indexOf('=', nameBegin); // find default value
@@ -470,7 +470,7 @@ um_data_t* simulateSound(uint8_t simulationId)
       for (int i = 0; i<16; i++)
         fftResult[i] = beatsin8_t(120 / (i+1), 0, 255);
         // fftResult[i] = (beatsin8_t(120, 0, 255) + (256/16 * i)) % 256;
-        volumeSmth = fftResult[8];
+      volumeSmth = fftResult[8];
       break;
     case UMS_WeWillRockYou:
       if (ms%2000 < 200) {
@@ -507,7 +507,7 @@ um_data_t* simulateSound(uint8_t simulationId)
     case UMS_10_13:
       for (int i = 0; i<16; i++)
         fftResult[i] = inoise8(beatsin8_t(90 / (i+1), 0, 200)*15 + (ms>>10), ms>>3);
-        volumeSmth = fftResult[8];
+      volumeSmth = fftResult[8];
       break;
     case UMS_14_3:
       for (int i = 0; i<16; i++)
@@ -538,7 +538,7 @@ void enumerateLedmaps() {
 
     #ifndef ESP8266
     if (ledmapNames[i-1]) { //clear old name
-      delete[] ledmapNames[i-1];
+      free(ledmapNames[i-1]);
       ledmapNames[i-1] = nullptr;
     }
     #endif
@@ -556,7 +556,7 @@ void enumerateLedmaps() {
             const char *name = root["n"].as<const char*>();
             if (name != nullptr) len = strlen(name);
             if (len > 0 && len < 33) {
-              ledmapNames[i-1] = new char[len+1];
+              ledmapNames[i-1] = static_cast<char*>(malloc(len+1));
               if (ledmapNames[i-1]) strlcpy(ledmapNames[i-1], name, 33);
             }
           }
@@ -564,7 +564,7 @@ void enumerateLedmaps() {
             char tmp[33];
             snprintf_P(tmp, 32, s_ledmap_tmpl, i);
             len = strlen(tmp);
-            ledmapNames[i-1] = new char[len+1];
+            ledmapNames[i-1] = static_cast<char*>(malloc(len+1));
             if (ledmapNames[i-1]) strlcpy(ledmapNames[i-1], tmp, 33);
           }
         }
@@ -593,6 +593,13 @@ uint8_t get_random_wheel_index(uint8_t pos) {
 // float version of map()
 float mapf(float x, float in_min, float in_max, float out_min, float out_max) {
   return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
+}
+
+uint32_t hashInt(uint32_t s) {
+  // borrowed from https://stackoverflow.com/questions/664014/what-integer-hash-function-are-good-that-accepts-an-integer-hash-key
+  s = ((s >> 16) ^ s) * 0x45d9f3b;
+  s = ((s >> 16) ^ s) * 0x45d9f3b;
+  return (s >> 16) ^ s;
 }
 
 // 32 bit random number generator, inlining uses more code, use hw_random16() if speed is critical (see fcn_declare.h)

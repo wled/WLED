@@ -134,11 +134,13 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
     strip.correctWB = request->hasArg(F("CCT"));
     strip.cctFromRgb = request->hasArg(F("CR"));
     cctICused = request->hasArg(F("IC"));
-    strip.cctBlending = request->arg(F("CB")).toInt();
-    Bus::setCCTBlend(strip.cctBlending);
+    Bus::setCCTBlend(request->arg(F("CB")).toInt());
     Bus::setGlobalAWMode(request->arg(F("AW")).toInt());
     strip.setTargetFps(request->arg(F("FR")).toInt());
     useGlobalLedBuffer = request->hasArg(F("LD"));
+    #if defined(ARDUINO_ARCH_ESP32) && !defined(CONFIG_IDF_TARGET_ESP32C3)
+    useParallelI2S = request->hasArg(F("PR"));
+    #endif
 
     bool busesChanged = false;
     for (int s = 0; s < WLED_MAX_BUSSES+WLED_MIN_VIRTUAL_BUSSES; s++) {
@@ -208,8 +210,7 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
       type |= request->hasArg(rf) << 7; // off refresh override
       // actual finalization is done in WLED::loop() (removing old busses and adding new)
       // this may happen even before this loop is finished so we do "doInitBusses" after the loop
-      if (busConfigs[s] != nullptr) delete busConfigs[s];
-      busConfigs[s] = new BusConfig(type, pins, start, length, colorOrder | (channelSwap<<4), request->hasArg(cv), skip, awmode, freq, useGlobalLedBuffer, maPerLed, maMax);
+      busConfigs.push_back(std::move(BusConfig(type, pins, start, length, colorOrder | (channelSwap<<4), request->hasArg(cv), skip, awmode, freq, useGlobalLedBuffer, maPerLed, maMax)));
       busesChanged = true;
     }
     //doInitBusses = busesChanged; // we will do that below to ensure all input data is processed
@@ -326,11 +327,8 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
     }
     NeoGammaWLEDMethod::calcGammaTable(gammaCorrectVal); // fill look-up table
 
-    fadeTransition = request->hasArg(F("TF"));
-    modeBlending = request->hasArg(F("EB"));
     t = request->arg(F("TD")).toInt();
     if (t >= 0) transitionDelayDefault = t;
-    strip.paletteFade = request->hasArg(F("PF"));
     t = request->arg(F("TP")).toInt();
     randomPaletteChangeTime = MIN(255,MAX(1,t));
     useHarmonicRandomPalette = request->hasArg(F("TH"));
@@ -419,6 +417,14 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
     arlsDisableGammaCorrection = request->hasArg(F("RG"));
     t = request->arg(F("WO")).toInt();
     if (t >= -255  && t <= 255) arlsOffset = t;
+
+#ifdef WLED_ENABLE_DMX_INPUT
+    dmxInputTransmitPin = request->arg(F("IDMT")).toInt();
+    dmxInputReceivePin = request->arg(F("IDMR")).toInt();
+    dmxInputEnablePin = request->arg(F("IDME")).toInt();
+    dmxInputPort = request->arg(F("IDMP")).toInt();
+    if(dmxInputPort <= 0 || dmxInputPort > 2) dmxInputPort = 2;
+#endif
 
     #ifndef WLED_DISABLE_ALEXA
     alexaEnabled = request->hasArg(F("AL"));
@@ -623,7 +629,10 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
   //USERMODS
   if (subPage == SUBPAGE_UM)
   {
-    if (!requestJSONBufferLock(5)) return;
+    if (!requestJSONBufferLock(5)) {
+      request->deferResponse();
+      return;
+    }
 
     // global I2C & SPI pins
     int8_t hw_sda_pin  = !request->arg(F("SDA")).length() ? -1 : (int)request->arg(F("SDA")).toInt();
@@ -982,18 +991,18 @@ bool handleSet(AsyncWebServerRequest *request, const String& req, bool apply)
   //set color from HEX or 32bit DEC
   pos = req.indexOf(F("CL="));
   if (pos > 0) {
-    colorFromDecOrHexString(colIn, (char*)req.substring(pos + 3).c_str());
+    colorFromDecOrHexString(colIn, req.substring(pos + 3).c_str());
     col0Changed = true;
   }
   pos = req.indexOf(F("C2="));
   if (pos > 0) {
-    colorFromDecOrHexString(colInSec, (char*)req.substring(pos + 3).c_str());
+    colorFromDecOrHexString(colInSec, req.substring(pos + 3).c_str());
     col1Changed = true;
   }
   pos = req.indexOf(F("C3="));
   if (pos > 0) {
     byte tmpCol[4];
-    colorFromDecOrHexString(tmpCol, (char*)req.substring(pos + 3).c_str());
+    colorFromDecOrHexString(tmpCol, req.substring(pos + 3).c_str());
     col2 = RGBW32(tmpCol[0], tmpCol[1], tmpCol[2], tmpCol[3]);
     selseg.setColor(2, col2); // defined above (SS= or main)
     col2Changed = true;
@@ -1140,7 +1149,7 @@ bool handleSet(AsyncWebServerRequest *request, const String& req, bool apply)
 
   pos = req.indexOf(F("TT="));
   if (pos > 0) transitionDelay = getNumVal(&req, pos);
-  if (fadeTransition) strip.setTransition(transitionDelay);
+  strip.setTransition(transitionDelay);
 
   //set time (unix timestamp)
   pos = req.indexOf(F("ST="));
