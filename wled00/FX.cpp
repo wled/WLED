@@ -3124,7 +3124,7 @@ static const char _data_FX_MODE_ROLLINGBALLS[] PROGMEM = "Rolling Balls@!,# of b
 *   First slider is for the ants' speed.
 *   Second slider is for the # of ants.
 *   Third slider is for the Ants' size.
-*   Checkbox1 is for using the palettes (enabled) or the color slots (disabled)
+*   
 *   Checkbox2 is for Overlay mode (enabled is Overlay, disabled is no overlay)
 *   Checkbox3 is for whether the ants will bump into each other (disabled) or just pass by each other (enabled)
 */
@@ -3205,10 +3205,10 @@ static uint16_t mode_ants(void) {
     }
 
     uint32_t color;
-    if (SEGMENT.check1) {                                                               // if the Palette checkbox is selected, use palette colors
+    if (SEGMENT.palette != 0 ) {                                                        // if a Palette is selected (besides the Default palette), use the palette's colors
       color = SEGMENT.color_from_palette(i*255/numAnts, false, PALETTE_SOLID_WRAP,255);
     }
-    else {                                                                              // otherwise, use the 2 selectable color slots (Fx and Cs); not Bg as that's the background color 
+    else {                                                                              // otherwise, Default palette selected; use the 2 selectable color slots (Fx and Cs)
       unsigned coloridx = i % 3;
       if (coloridx == 1)
         color = SEGCOLOR(0);                                                            // color Fx
@@ -3231,7 +3231,7 @@ static uint16_t mode_ants(void) {
 
   return FRAMETIME;
 }
-static const char _data_FX_MODE_ANTS[] PROGMEM = "Ants@Ant speed,# of ants,Ant size,,,Palettes,Overlay,Pass by;!,!,!;!;1;sx=192,ix=255,c1=32";
+static const char _data_FX_MODE_ANTS[] PROGMEM = "Ants@Ant speed,# of ants,Ant size,,,,Overlay,Pass by;!,!,!;!;1;sx=192,ix=255,c1=32";
 
 
 typedef struct PacManChars {
