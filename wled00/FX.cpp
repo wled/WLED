@@ -3124,38 +3124,27 @@ static const char _data_FX_MODE_ROLLINGBALLS[] PROGMEM = "Rolling Balls@!,# of b
 *   First slider is for the ants' speed.
 *   Second slider is for the # of ants.
 *   Third slider is for the Ants' size.
-*   
+*   Checkbox1 is for using the palettes (enabled) or the color slots (disabled)
 *   Checkbox2 is for Overlay mode (enabled is Overlay, disabled is no overlay)
 *   Checkbox3 is for whether the ants will bump into each other (disabled) or just pass by each other (enabled)
 */
 static uint16_t mode_ants(void) {
   //allocate segment data
-  uint32_t bgcolor = BLACK;
   static constexpr unsigned MAX_ANTS = 32;                                     // Maximum number of ants
   static constexpr unsigned DEFAULT_ANT_SIZE = 1;                               
   unsigned antSize = DEFAULT_ANT_SIZE;
   unsigned dataSize = sizeof(rball_t) * MAX_ANTS;
-  if (!SEGENV.allocateData(dataSize)) return mode_static();                    //allocation failed
+  if (!SEGENV.allocateData(dataSize)) return mode_static();                    // allocation failed
 
   int confusedAnt;                                                             // the first random ant to go backwards
   rball_t *ants = reinterpret_cast<rball_t *>(SEGENV.data);
 
-  // number of ants based on intensity setting to max of 32
+  // number of ants based on intensity setting (max of 32)
   unsigned numAnts = 1 + (SEGLEN * SEGMENT.intensity >> 12);
   if (numAnts > 32) numAnts = MAX_ANTS;
 
-  antSize = map(SEGMENT.custom1, 0, 255, 1, 20);                               // the size/length of each ant is user selectable (1 to 5 pixels) with a slider
+  antSize = map(SEGMENT.custom1, 0, 255, 1, 20);                               // the size/length of each ant is user selectable (1 to 20 pixels) with a slider
 
-  uint8_t bgColorIdx = map(SEGMENT.custom2, 0, 255, 0, 5);                     // background color based on the what the user selects from the Background Color slider
-  switch (bgColorIdx) {
-    case 0:  bgcolor = BLACK;     break;  // black
-    case 1:  bgcolor = 0x007700;  break;  // med-dark green
-    case 2:  bgcolor = 0x9c7a00;  break;  // dark yellow
-    case 3:  bgcolor = 0x845000;  break;  // brown
-    case 4:  bgcolor = 0x00aaaa;  break;  // cyan-ish
-    case 5:  bgcolor = 0x999999;  break;  // light gray (whitish)
-  }
-  
   if (SEGENV.call == 0) {
     confusedAnt = hw_random(0,numAnts-1);
     for (int i = 0; i < MAX_ANTS; i++) {
@@ -3169,8 +3158,8 @@ static uint16_t mode_ants(void) {
 
   float cfac = float(scale8(8, 255-SEGMENT.speed) +1)*20000.0f;                // this uses the Aircoookie conversion factor for scaling time using speed slider
 
- 	if (!SEGMENT.check2) SEGMENT.fill(bgcolor);                                  // fill all LEDs with background color
- 
+  if (!SEGMENT.check2) SEGMENT.fill(SEGCOLOR(1));                              // fill all LEDs with background color (Bg) if the user didn't select Overlay checkbox
+
   for (int i = 0; i < numAnts; i++) {  // for each Ant, do this...
     float timeSinceLastUpdate = float((strip.now - ants[i].lastBounceUpdate))/cfac;
     float thisHeight = ants[i].height + ants[i].velocity * timeSinceLastUpdate;   // this method keeps higher resolution
@@ -3215,18 +3204,23 @@ static uint16_t mode_ants(void) {
       }
     }
 
-    uint32_t color = SEGCOLOR(0);
-    if (SEGMENT.palette) {
-      color = SEGMENT.color_from_palette(i*255/numAnts, false, PALETTE_SOLID_WRAP, 0);
-    } else {
-      color = SEGCOLOR(i % NUM_COLORS);
+    uint32_t color;
+    if (SEGMENT.check1) {                                                               // if the Palette checkbox is selected, use palette colors
+      color = SEGMENT.color_from_palette(i*255/numAnts, false, PALETTE_SOLID_WRAP,255);
+    }
+    else {                                                                              // otherwise, use the 2 selectable color slots (Fx and Cs); not Bg as that's the background color 
+      unsigned coloridx = i % 3;
+      if (coloridx == 1)
+        color = SEGCOLOR(0);                                                            // color Fx
+      else
+        color = SEGCOLOR(2);                                                            // color Cs
     }
 
     if (thisHeight < 0.0f) thisHeight = 0.0f;
     if (thisHeight > 1.0f) thisHeight = 1.0f;
     unsigned pos = round(thisHeight * (SEGLEN - 1));
 
-    for (int z = 0; z < antSize; z++) {                                           // make each ant the selected size (between 1 and 5 pixels)
+    for (int z = 0; z < antSize; z++) {                                           // make each ant the selected size (between 1 and 20 pixels)
       SEGMENT.setPixelColor(pos, color);
       pos = pos + 1;
     }
@@ -3237,7 +3231,7 @@ static uint16_t mode_ants(void) {
 
   return FRAMETIME;
 }
-static const char _data_FX_MODE_ANTS[] PROGMEM = "Ants@Ant speed,# of ants,Ant size,Background color,,,Overlay,Pass by;1,2,3;!;1;sx=192,ix=255,c1=80,c2=0,pal=0,m12=1";
+static const char _data_FX_MODE_ANTS[] PROGMEM = "Ants@Ant speed,# of ants,Ant size,,,Palettes,Overlay,Pass by;!,!,!;!;1;sx=192,ix=255,c1=32";
 
 
 typedef struct PacManChars {
