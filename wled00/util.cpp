@@ -333,11 +333,12 @@ uint8_t extractModeSlider(uint8_t mode, uint8_t slider, char *dest, uint8_t maxL
 
 
 // extracts mode parameter defaults from last section of mode data (e.g. "Juggle@!,Trail;!,!,;!;012;sx=16,ix=240")
-int16_t extractModeDefaults(uint8_t mode, const char *segVar)
+int16_t extractModeDefaults(const char *metaData, const char *segVar)
 {
-  if (mode < strip.getModeCount()) {
+  //TODO this function doesn't need any string copies
+  if (metaData != nullptr) {
     char lineBuffer[256];
-    strncpy_P(lineBuffer, strip.getModeData(mode), sizeof(lineBuffer)/sizeof(char)-1);
+    strncpy_P(lineBuffer, metaData, sizeof(lineBuffer)/sizeof(char)-1);
     lineBuffer[sizeof(lineBuffer)/sizeof(char)-1] = '\0'; // terminate string
     if (lineBuffer[0] != 0) {
       char* startPtr = strrchr(lineBuffer, ';'); // last ";" in FX data

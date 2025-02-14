@@ -854,7 +854,7 @@ bool handleSet(AsyncWebServerRequest *request, const String& req, bool apply)
   uint32_t col2    = selseg.colors[2];
   byte colIn[4]    = {R(col0), G(col0), B(col0), W(col0)};
   byte colInSec[4] = {R(col1), G(col1), B(col1), W(col1)};
-  byte effectIn    = selseg.mode;
+  byte effectIn    = selseg.getEffectId();
   byte speedIn     = selseg.speed;
   byte intensityIn = selseg.intensity;
   byte paletteIn   = selseg.palette;
