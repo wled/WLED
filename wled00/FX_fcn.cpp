@@ -97,8 +97,10 @@ Segment::Segment(const Segment &orig) {
   name = nullptr;
   data = nullptr;
   _dataLen = 0;
+  pixels = nullptr;
   if (orig.name) { name = static_cast<char*>(d_malloc(strlen(orig.name)+1)); if (name) strcpy(name, orig.name); }
   if (orig.data) { if (allocateData(orig._dataLen)) memcpy(data, orig.data, orig._dataLen); }
+  if (orig.pixels) { pixels = static_cast<uint32_t*>(d_malloc(sizeof(uint32_t) * (stop-start) * (stopY-startY))); }
 }
 
 // move constructor
@@ -109,6 +111,7 @@ Segment::Segment(Segment &&orig) noexcept {
   orig.name = nullptr;
   orig.data = nullptr;
   orig._dataLen = 0;
+  orig.pixels = nullptr;
 }
 
 // copy assignment
@@ -124,9 +127,11 @@ Segment& Segment::operator= (const Segment &orig) {
     // erase pointers to allocated data
     data = nullptr;
     _dataLen = 0;
+    pixels = nullptr;
     // copy source data
     if (orig.name) { name = static_cast<char*>(d_malloc(strlen(orig.name)+1)); if (name) strcpy(name, orig.name); }
     if (orig.data) { if (allocateData(orig._dataLen)) memcpy(data, orig.data, orig._dataLen); }
+    if (orig.pixels) { pixels = static_cast<uint32_t*>(d_malloc(sizeof(uint32_t) * (stop-start) * (stopY-startY))); }
   }
   return *this;
 }
@@ -142,6 +147,7 @@ Segment& Segment::operator= (Segment &&orig) noexcept {
     orig.name = nullptr;
     orig.data = nullptr;
     orig._dataLen = 0;
+    orig.pixels = nullptr;
     orig._t   = nullptr; // old segment cannot be in transition
   }
   return *this;
@@ -516,6 +522,8 @@ void Segment::setGeometry(uint16_t i1, uint16_t i2, uint8_t grp, uint8_t spc, ui
 
   // apply change immediately
   if (i2 <= i1) { //disable segment
+    d_free(pixels);
+    pixels = nullptr;
     stop = 0;
     return;
   }
@@ -531,9 +539,14 @@ void Segment::setGeometry(uint16_t i1, uint16_t i2, uint8_t grp, uint8_t spc, ui
   #endif
   // safety check
   if (start >= stop || startY >= stopY) {
+    d_free(pixels);
+    pixels = nullptr;
     stop = 0;
     return;
   }
+  // re-allocate FX render buffer
+  if (pixels) pixels = static_cast<uint32_t*>(d_realloc(pixels, sizeof(uint32_t) * (stop-start) * (stopY-startY)));
+  else        pixels = static_cast<uint32_t*>(d_malloc(sizeof(uint32_t) * (stop-start) * (stopY-startY)));
   refreshLightCapabilities();
 }
 
@@ -910,6 +923,14 @@ void IRAM_ATTR Segment::setPixelColor(int i, uint32_t col) const
   // if color is unscaled
   if (!_colorScaled) col = color_fade(col, _segBri);
 
+
+#ifndef WLED_DISABLE_MODE_BLEND
+  // _modeBlend==true -> old effect
+  if (_modeBlend && blendingStyle == BLEND_STYLE_FADE) col = color_blend16(pixels[i], col, prog);
+#endif
+  pixels[i] = col;
+
+/*
   // expand pixel (taking into account start, grouping, spacing [and offset])
   i = i * groupLength();
   if (reverse) { // is segment reversed?
@@ -939,12 +960,13 @@ void IRAM_ATTR Segment::setPixelColor(int i, uint32_t col) const
       indexSet += offset; // offset/phase
       if (indexSet >= stop) indexSet -= len; // wrap
 #ifndef WLED_DISABLE_MODE_BLEND
-        // _modeBlend==true -> old effect
+      // _modeBlend==true -> old effect
       if (_modeBlend && blendingStyle == BLEND_STYLE_FADE) tmpCol = color_blend16(strip.getPixelColor(indexSet), col, prog);
 #endif
       strip.setPixelColor(indexSet, tmpCol);
     }
   }
+*/
 }
 
 #ifdef WLED_USE_AA_PIXELS
@@ -1057,6 +1079,8 @@ uint32_t IRAM_ATTR Segment::getPixelColor(int i) const
 
   if (i >= vL || i < 0 || isPixelClipped(i)) return 0; // handle clipping on 1D
 
+  return pixels[i];
+/*
   if (reverse) i = vL - i - 1;
   i *= groupLength();
   i += start;
@@ -1064,6 +1088,7 @@ uint32_t IRAM_ATTR Segment::getPixelColor(int i) const
   i += offset;
   if (i >= stop) i -= length();
   return strip.getPixelColor(i);
+*/
 }
 
 uint8_t Segment::differs(const Segment& b) const {
@@ -1474,6 +1499,10 @@ void WS2812FX::finalizeInit() {
   Segment::maxWidth  = _length;
   Segment::maxHeight = 1;
 
+  // allocate frame buffer
+  if (pixels) pixels = static_cast<uint32_t*>(d_realloc(pixels, _length * sizeof(uint32_t)));
+  else        pixels = static_cast<uint32_t*>(d_malloc(_length * sizeof(uint32_t)));
+
   //segments are created in makeAutoSegments();
   DEBUG_PRINTLN(F("Loading custom palettes"));
   loadCustomPalettes(); // (re)load all custom palettes
@@ -1607,6 +1636,10 @@ void WS2812FX::service() {
   if (millis() - nowUp > _frametime) DEBUGFX_PRINTF_P(PSTR("Slow effects %u/%d.\n"), (unsigned)(millis()-nowUp), (int)_frametime);
   #endif
   if (doShow) {
+    for (size_t i = 0; i < getLengthTotal(); i++) pixels[i] = BLACK; // clear frame buffer; memset(pixels, 0, sizeof(uint32_t) * getLengthTotal());
+    for (const auto &seg : _segments) if (seg.isActive()) blendSegment(seg); // blend all render buffers into frame buffer
+    for (size_t i = 0; i < getLengthTotal(); i++) setPixelColor(i, pixels[i]);
+
     yield();
     Segment::handleRandomPalette(); // slowly transition random palette; move it into for loop when each segment has individual random palette
     if (!_suspend) show();
@@ -1614,6 +1647,77 @@ void WS2812FX::service() {
   #ifdef WLED_DEBUG_FX
   if (millis() - nowUp > _frametime) DEBUGFX_PRINTF_P(PSTR("Slow strip %u/%d.\n"), (unsigned)(millis()-nowUp), (int)_frametime);
   #endif
+}
+
+void WS2812FX::blendSegment(const Segment &topSegment) {
+  constexpr auto top        = [](uint8_t a, uint8_t b){ return uint8_t(a); };
+  constexpr auto bottom     = [](uint8_t a, uint8_t b){ return uint8_t(b); };
+  constexpr auto add        = [](uint8_t a, uint8_t b){ return uint8_t(a + b); };
+  constexpr auto subtract   = [](uint8_t a, uint8_t b){ return uint8_t(b > a ? (b - a) : 0); };
+  constexpr auto difference = [](uint8_t a, uint8_t b){ return uint8_t(b > a ? (b - a) : (a - b)); };
+  constexpr auto average    = [](uint8_t a, uint8_t b){ return uint8_t((a + b) >> 1); };
+  constexpr auto multiply   = [](uint8_t a, uint8_t b){ return uint8_t(a * b); };
+  constexpr auto divide     = [](uint8_t a, uint8_t b){ return uint8_t(b != 0 ? a / b : 0); };
+  constexpr auto lighten    = [](uint8_t a, uint8_t b){ return uint8_t(a>b ? a : b); };
+  constexpr auto darken     = [](uint8_t a, uint8_t b){ return uint8_t(a<b ? a : b); };
+  constexpr auto screen     = [](uint8_t a, uint8_t b){ return uint8_t(0xFF - ~a * ~b); }; // 255 - (255-a)*(255-b)
+  constexpr auto overlay    = [](uint8_t a, uint8_t b){ return uint8_t(a<0x80 ? 2*a*b : (0xFF - 2 * ~a * ~b)); };
+
+  typedef uint8_t(*FuncType)(uint8_t, uint8_t);
+  FuncType funcs[] = {
+    top, bottom, add, subtract, difference, average, multiply, divide, lighten, darken, screen, overlay
+  };
+
+  const uint8_t blendMode = topSegment.blendMode;
+  auto func = funcs[blendMode % (sizeof(funcs) / sizeof(FuncType))];
+
+  const int  cols = topSegment.width();
+  const int  rows = topSegment.height();
+  const int  len  = topSegment.length();
+  const auto XY = [&](int x, int y){ return x + y*cols; };
+
+  for (auto k = 0; k<len; k++) {
+    uint32_t c_a = topSegment.getPixelColor(k);
+    auto r_a = R(c_a);
+    auto g_a = G(c_a);
+    auto b_a = B(c_a);
+    auto w_a = W(c_a);
+
+    // expand pixel (taking into account start, grouping, spacing [and offset])
+    int i = k * topSegment.groupLength();
+    if (topSegment.reverse) {   // is segment reversed?
+      if (topSegment.mirror) {  // is segment mirrored?
+        i = (len - 1) / 2 - i;  // only need to index half the pixels
+      } else {
+        i = (len - 1) - i;
+      }
+    }
+    i += topSegment.start; // starting pixel in a group
+
+    // set all the pixels in the group
+    for (int j = 0; j < topSegment.grouping; j++) {
+      unsigned indexSet = i + ((topSegment.reverse) ? -j : j);
+      if (indexSet >= topSegment.start && indexSet < topSegment.stop) {
+        if (topSegment.mirror) { //set the corresponding mirrored pixel
+          unsigned indexMir = topSegment.stop - indexSet + topSegment.start - 1;
+          indexMir += topSegment.offset; // offset/phase
+          if (indexMir >= topSegment.stop) indexMir -= len; // wrap
+          auto r_b = R(pixels[indexMir]);
+          auto g_b = G(pixels[indexMir]);
+          auto b_b = B(pixels[indexMir]);
+          auto w_b = W(pixels[indexMir]);
+          pixels[indexMir] = RGBW32(func(r_a,r_b), func(g_a,g_b), func(b_a,b_b), func(w_a,w_b));
+        }
+        indexSet += topSegment.offset; // offset/phase
+        if (indexSet >= topSegment.stop) indexSet -= len; // wrap
+        auto r_b = R(pixels[indexSet]);
+        auto g_b = G(pixels[indexSet]);
+        auto b_b = B(pixels[indexSet]);
+        auto w_b = W(pixels[indexSet]);
+        pixels[indexSet] = RGBW32(func(r_a,r_b), func(g_a,g_b), func(b_a,b_b), func(w_a,w_b));
+      }
+    }
+  }
 }
 
 void IRAM_ATTR WS2812FX::setPixelColor(unsigned i, uint32_t col) const {
@@ -1629,6 +1733,9 @@ uint32_t IRAM_ATTR WS2812FX::getPixelColor(unsigned i) const {
 }
 
 void WS2812FX::show() {
+  unsigned long showNow = millis();
+  size_t diff = showNow - _lastShow;
+
   // avoid race condition, capture _callback value
   show_callback callback = _callback;
   if (callback) callback();
@@ -1637,9 +1744,6 @@ void WS2812FX::show() {
   // all of the data has been sent.
   // See https://github.com/Makuna/NeoPixelBus/wiki/ESP32-NeoMethods#neoesp32rmt-methods
   BusManager::show();
-
-  unsigned long showNow = millis();
-  size_t diff = showNow - _lastShow;
 
   if (diff > 0) { // skip calculation if no time has passed
     size_t fpsCurr = (1000 << FPS_CALC_SHIFT) / diff; // fixed point math

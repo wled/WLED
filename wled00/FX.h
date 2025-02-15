@@ -371,11 +371,14 @@ typedef struct Segment {
       bool    check1  : 1;        // checkmark 1
       bool    check2  : 1;        // checkmark 2
       bool    check3  : 1;        // checkmark 3
+      uint8_t blendMode : 4;      // segment blending modes: top, bottom, add, subtract, difference, multiply, divide, lighten, darken, screen, overlay
+      uint8_t reserved  : 4;      // for future use
     };
     uint8_t startY;  // start Y coodrinate 2D (top); there should be no more than 255 rows
     uint8_t stopY;   // stop Y coordinate 2D (bottom); there should be no more than 255 rows
     //note: here are 3 free bytes of padding
     char    *name;
+    uint32_t *pixels;
 
     // runtime data
     unsigned long next_time;  // millis() of next update
@@ -478,7 +481,7 @@ typedef struct Segment {
 
   public:
 
-    Segment(uint16_t sStart=0, uint16_t sStop=30) :
+    Segment(uint16_t sStart=0, uint16_t sStop=30, uint16_t sStartY = 0, uint16_t sStopY = 1) :
       start(sStart),
       stop(sStop),
       offset(0),
@@ -498,8 +501,9 @@ typedef struct Segment {
       check1(false),
       check2(false),
       check3(false),
-      startY(0),
-      stopY(1),
+      blendMode(0),
+      startY(sStartY),
+      stopY(sStopY),
       name(nullptr),
       next_time(0),
       step(0),
@@ -515,11 +519,8 @@ typedef struct Segment {
       #ifdef WLED_DEBUG_FX
       //Serial.printf("-- Creating segment: %p\n", this);
       #endif
-    }
-
-    Segment(uint16_t sStartX, uint16_t sStopX, uint16_t sStartY, uint16_t sStopY) : Segment(sStartX, sStopX) {
-      startY = sStartY;
-      stopY  = sStopY;
+      // allocate render buffer
+      pixels = static_cast<uint32_t*>(d_malloc(sizeof(uint32_t) * (stop-start) * (stopY-startY)));
     }
 
     Segment(const Segment &orig); // copy constructor
@@ -535,6 +536,7 @@ typedef struct Segment {
       clearName();
       stopTransition();
       deallocateData();
+      d_free(pixels);
     }
 
     Segment& operator= (const Segment &orig); // copy assignment
@@ -755,9 +757,12 @@ class WS2812FX {  // 96 bytes
 
   static WS2812FX* instance;
 
+  uint32_t *pixels;
+
   public:
 
     WS2812FX() :
+      pixels(nullptr),
       paletteBlend(0),
       now(millis()),
       timebase(0),
@@ -800,6 +805,7 @@ class WS2812FX {  // 96 bytes
     }
 
     ~WS2812FX() {
+      d_free(pixels);
       d_free(customMappingTable);
       _mode.clear();
       _modeData.clear();
@@ -827,6 +833,7 @@ class WS2812FX {  // 96 bytes
       makeAutoSegments(bool forceReset = false),  // will create segments based on configured outputs
       fixInvalidSegments(),                       // fixes incorrect segment configuration
       setPixelColor(unsigned n, uint32_t c) const,      // paints absolute strip pixel with index n and color c
+      blendSegment(const Segment &topSegment),
       show(),                                     // initiates LED output
       setTargetFps(unsigned fps),
       setupEffectData();                          // add default effects to the list; defined in FX.cpp
@@ -840,7 +847,8 @@ class WS2812FX {  // 96 bytes
     inline void trigger()                                     { _triggered = true; }  // Forces the next frame to be computed on all active segments.
     inline void setShowCallback(show_callback cb)             { _callback = cb; }
     inline void setTransition(uint16_t t)                     { _transitionDur = t; } // sets transition time (in ms)
-    inline void appendSegment(const Segment &seg = Segment()) { if (_segments.size() < getMaxSegments()) _segments.push_back(seg); }
+    inline void appendSegment(uint16_t sStart=0, uint16_t sStop=30, uint16_t sStartY = 0, uint16_t sStopY = 1)
+                                                { if (_segments.size() < getMaxSegments()) _segments.emplace_back(sStart,sStop,sStartY,sStopY); }
     inline void suspend()                                     { _suspend = true; }    // will suspend (and canacel) strip.service() execution
     inline void resume()                                      { _suspend = false; }   // will resume strip.service() execution
 

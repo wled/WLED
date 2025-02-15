@@ -98,7 +98,7 @@ void notify(byte callMode, bool followUp)
   udpOut[40] = UDP_SEG_SIZE; //size of each loop iteration (one segment)
   size_t s = 0, nsegs = strip.getSegmentsNum();
   for (size_t i = 0; i < nsegs; i++) {
-    Segment &selseg = strip.getSegment(i);
+    const Segment &selseg = strip.getSegment(i);
     if (!selseg.isActive()) continue;
     unsigned ofs = 41 + s*UDP_SEG_SIZE; //start of segment offset byte
     udpOut[0 +ofs] = s;
@@ -321,7 +321,7 @@ static void parseNotifyPacket(const uint8_t *udpIn) {
         // freeze, reset should never be synced
         // LSB to MSB: select, reverse, on, mirror, freeze, reset, reverse_y, mirror_y, transpose, map1d2d (3), ssim (2), set (2)
         DEBUG_PRINTF_P(PSTR("Apply options: %u\n"), id);
-        selseg.options = (selseg.options & 0b0000000000110001U) | (udpIn[28+ofs]<<8) | (udpIn[9 +ofs] & 0b11001110U); // ignore selected, freeze, reset
+        selseg.options = (selseg.options & 0b0000000000110001U) | ((uint16_t)udpIn[28+ofs]<<8) | (udpIn[9 +ofs] & 0b11001110U); // ignore selected, freeze, reset
         if (applyEffects) {
           DEBUG_PRINTF_P(PSTR("Apply sliders: %u\n"), id);
           selseg.custom1 = udpIn[29+ofs];

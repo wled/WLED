@@ -26,7 +26,7 @@ static bool deserializeSegment(JsonObject elem, byte it, byte presetId)
   // append segment
   if (id >= strip.getSegmentsNum()) {
     if (stop <= 0) return false; // ignore empty/inactive segments
-    strip.appendSegment(Segment(0, strip.getLengthTotal()));
+    strip.appendSegment(0, strip.getLengthTotal());
     id = strip.getSegmentsNum()-1; // segments are added at the end of list
     newSeg = true;
   }
@@ -225,6 +225,10 @@ static bool deserializeSegment(JsonObject elem, byte it, byte presetId)
   seg.check2 = getBoolVal(elem["o2"], seg.check2);
   seg.check3 = getBoolVal(elem["o3"], seg.check3);
 
+  uint8_t blend = seg.blendMode;
+  getVal(elem["bm"], blend, 0, 11); // we can't pass reference to bitfield
+  seg.blendMode = constrain(blend, 0, 11);
+
   JsonArray iarr = elem[F("i")]; //set individual LEDs
   if (!iarr.isNull()) {
     uint8_t oldMap1D2D = seg.map1D2D;
@@ -269,7 +273,7 @@ static bool deserializeSegment(JsonObject elem, byte it, byte presetId)
         }
 
         if (set < 2 || stop <= start) stop = start + 1;
-        uint32_t c = gamma32(RGBW32(rgbw[0], rgbw[1], rgbw[2], rgbw[3]));
+        uint32_t c = RGBW32(gamma8(rgbw[0]), gamma8(rgbw[1]), gamma8(rgbw[2]), gamma8(rgbw[3]));
         while (start < stop) seg.setPixelColor(start++, c);
         set = 0;
       }
@@ -391,7 +395,7 @@ bool deserializeState(JsonObject root, byte callMode, byte presetId)
       if (id < 0) {
         //apply all selected segments
         for (size_t s = 0; s < strip.getSegmentsNum(); s++) {
-          Segment &sg = strip.getSegment(s);
+          const Segment &sg = strip.getSegment(s);
           if (sg.isActive() && sg.isSelected()) {
             deserializeSegment(segVar, s, presetId);
           }
@@ -484,7 +488,7 @@ bool deserializeState(JsonObject root, byte callMode, byte presetId)
   return stateResponse;
 }
 
-static void serializeSegment(JsonObject& root, Segment& seg, byte id, bool forPreset, bool segmentBounds)
+static void serializeSegment(JsonObject& root, const Segment& seg, byte id, bool forPreset, bool segmentBounds)
 {
   root["id"] = id;
   if (segmentBounds) {
@@ -601,7 +605,7 @@ void serializeState(JsonObject root, bool forPreset, bool includeBri, bool segme
       } else
         break;
     }
-    Segment &sg = strip.getSegment(s);
+    const Segment &sg = strip.getSegment(s);
     if (forPreset && selectedSegmentsOnly && !sg.isSelected()) continue;
     if (sg.isActive()) {
       JsonObject seg0 = seg.createNestedObject();

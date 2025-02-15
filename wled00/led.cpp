@@ -8,7 +8,7 @@ void setValuesFromMainSeg()          { setValuesFromSegment(strip.getMainSegment
 void setValuesFromFirstSelectedSeg() { setValuesFromSegment(strip.getFirstSelectedSegId()); }
 void setValuesFromSegment(uint8_t s)
 {
-  Segment& seg = strip.getSegment(s);
+  const Segment& seg = strip.getSegment(s);
   colPri[0] = R(seg.colors[0]);
   colPri[1] = G(seg.colors[0]);
   colPri[2] = B(seg.colors[0]);
@@ -30,7 +30,7 @@ void applyValuesToSelectedSegs()
 {
   // copy of first selected segment to tell if value was updated
   unsigned firstSel = strip.getFirstSelectedSegId();
-  Segment selsegPrev = strip.getSegment(firstSel);
+  const Segment& selsegPrev = strip.getSegment(firstSel);
   for (unsigned i = 0; i < strip.getSegmentsNum(); i++) {
     Segment& seg = strip.getSegment(i);
     if (i != firstSel && (!seg.isActive() || !seg.isSelected())) continue;
@@ -73,7 +73,7 @@ byte scaledBri(byte in)
 
 //applies global temporary brightness (briT) to strip
 void applyBri() {
-  if (!realtimeMode || !arlsForceMaxBri)
+  if (realtimeOverride || !(realtimeMode && arlsForceMaxBri))
   {
     //DEBUG_PRINTF_P(PSTR("Applying strip brightness: %d (%d,%d)\n"), (int)briT, (int)bri, (int)briOld);
     strip.setBrightness(scaledBri(briT));
