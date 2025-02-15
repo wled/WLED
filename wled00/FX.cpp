@@ -7469,6 +7469,12 @@ uint16_t mode_2Ddistortionwaves() {
 static const char _data_FX_MODE_2DDISTORTIONWAVES[] PROGMEM = "Distortion Waves@!,Scale;;;2";
 
 
+struct Frame {
+    const uint8_t *data;
+    uint16_t duration; // Duration in seconds (0 = use speed-based timing)
+    uint16_t pulseFrequency; // Flashing frequency in Hz (0 = always on)
+};
+
 // Define frames as arrays of 0s and 1s (binary map)
 const uint8_t frame0[] = {
   1, 1, 1, 1, 1, 1, 1, 1,
@@ -7503,91 +7509,145 @@ const uint8_t frame2[] = {
   1, 1, 1, 1, 1, 1, 1, 1,
 };
 
-uint16_t mode_custom_shapes(const uint8_t *frames[], uint16_t frameCount) {
-  static bool strobeOn = true;     // Tracks whether the strobe is "on" or "off"
+uint16_t mode_custom_shapes(const Frame frames[], uint16_t frameCount) {
+    // static bool strobeOn = true;
+    static uint32_t lastFrameTime = 0;
+    static uint8_t currentFrame = 0;
+    static uint32_t lastStrobeTime = 0; // Tracks strobe toggling
+    static bool strobeState = true;     // Tracks LED flashing state
 
-  static uint32_t lastFrameTime = 0;
-  static uint8_t currentFrame = 0; // Frame index: 0, 1, or 2
-  // const uint8_t *frames[] = {frame0, frame1, frame2};
-  // const uint16_t frameCount = sizeof(frames) / sizeof(frames[0]);
-  
-  // Map SEGMENT.speed to pulse frequency and frame duration
-  uint16_t minPulseFrequency = 1;   // Minimum pulse frequency in Hz
-  uint16_t maxPulseFrequency = 50; // Maximum pulse frequency in Hz
-  uint16_t pulseFrequency = (SEGMENT.intensity == 0) ? 0 : map(SEGMENT.intensity, 1, 255, minPulseFrequency, maxPulseFrequency);
+    uint32_t currentTime = millis();
 
-  // Map SEGMENT.speed to frame switch duration
-  uint32_t minFrameTime = 100; // Minimum time per frame in ms (10 fps)
-  uint32_t maxFrameTime = 1000; // Maximum time per frame in ms (1 fps)
-  uint32_t frameTime = map(SEGMENT.speed, 0, 255, maxFrameTime, minFrameTime);
+    // Retrieve current frame settings
+    const Frame &frame = frames[currentFrame];
+    uint32_t frameTime = (frame.duration > 0) ? frame.duration * 1000 : map(SEGMENT.speed, 0, 255, 1000, 100);
 
-  // beginning of strobe like effect
-  uint32_t cycleTime = (pulseFrequency > 0) ? (1000 / pulseFrequency) : 1000;
-
-  // Determine strobe state (on/off) based on cycleTime
-  uint32_t currentTime = millis();
-  if (pulseFrequency > 0) {
-    strobeOn = (currentTime % cycleTime) < (cycleTime / 2); // On for half the cycle
-  } else {
-    strobeOn = true; // Always on if pulseFrequency is 0
-  }
-
-  // Switch frames based on frameTime
-  if (currentTime - lastFrameTime > frameTime) {
-    lastFrameTime = currentTime;
-    currentFrame = (currentFrame + 1) % frameCount;
-  }
-
-// this piece uses the sign wave calculation
-/** 
-
-  // Calculate brightness based on pulse frequency
-  uint16_t pulsePeriod = 0; // Declare pulsePeriod here
-  uint8_t brightness;       // Declare brightness here
-
-  if (pulseFrequency > 0) {
-      pulsePeriod = 1000 / pulseFrequency;
-      brightness = (sin((millis() % pulsePeriod) * (PI * 2) / pulsePeriod) + 1) * 127.5;
-  } else {
-      brightness = 255; // Full brightness, no strobing
-  }
-
-  // Switch frames based on frameTime
-  if (millis() - lastFrameTime > frameTime) {
-    lastFrameTime = millis();
-    currentFrame = (currentFrame + 1) % frameCount;
-  }
- */
-
-
-  // Get the current frame
-  const uint8_t *currentColors = frames[currentFrame];
-
-  // Apply the frame and strobe effect
-  for (uint16_t i = 0; i < SEGLEN; i++) {
-    uint8_t color = currentColors[i];
-    if (!strobeOn || color == 0) {
-      SEGMENT.setPixelColor(i, 0); // Off
-    } else {
-      uint32_t ledColor = SEGMENT.color_from_palette(0, true, PALETTE_SOLID_WRAP, 0);
-      // Apply brightness to "on" LEDs
-      // uint8_t r = ((ledColor >> 16) & 0xFF) * brightness / 255;
-      // uint8_t g = ((ledColor >> 8) & 0xFF) * brightness / 255;
-      // uint8_t b = (ledColor & 0xFF) * brightness / 255;
-      // SEGMENT.setPixelColor(i, r, g, b);
-      SEGMENT.setPixelColor(i, ledColor);
+    // Update frame index if needed
+    if (currentTime - lastFrameTime > frameTime) {
+        lastFrameTime = currentTime;
+        currentFrame = (currentFrame + 1) % frameCount;
     }
-  }
 
-  return FRAMETIME;
+    // Determine strobe behavior for the current frame
+    uint32_t cycleTime = (frame.pulseFrequency > 0) ? (1000 / frame.pulseFrequency) : 0;
+
+    if (frame.pulseFrequency > 0 && (currentTime - lastStrobeTime > cycleTime / 2)) {
+        lastStrobeTime = currentTime;
+        strobeState = !strobeState; // Toggle strobe state
+    } else if (frame.pulseFrequency == 0) {
+        strobeState = true; // Always on
+    }
+
+    // Get the current frame data
+    const uint8_t *currentColors = frame.data;
+
+    // Apply the frame and strobe effect
+    for (uint16_t i = 0; i < SEGLEN; i++) {
+        uint8_t color = currentColors[i];
+        if (!strobeState || color == 0) {
+            SEGMENT.setPixelColor(i, 0); // Turn off LED
+        } else {
+            uint32_t ledColor = SEGMENT.color_from_palette(0, true, PALETTE_SOLID_WRAP, 0);
+            SEGMENT.setPixelColor(i, ledColor);
+        }
+    }
+
+    return FRAMETIME;
 }
+
+// uint16_t mode_custom_shapes(const Frame frames[], uint16_t frameCount) {
+//   static bool strobeOn = true;     // Tracks whether the strobe is "on" or "off"
+
+//   static uint32_t lastFrameTime = 0;
+//   static uint8_t currentFrame = 0; // Frame index: 0, 1, or 2
+//   // const uint8_t *frames[] = {frame0, frame1, frame2};
+//   // const uint16_t frameCount = sizeof(frames) / sizeof(frames[0]);
+  
+//   // Map SEGMENT.speed to pulse frequency and frame duration
+//   uint16_t minPulseFrequency = 1;   // Minimum pulse frequency in Hz
+//   uint16_t maxPulseFrequency = 50; // Maximum pulse frequency in Hz
+//   uint16_t pulseFrequency = (SEGMENT.intensity == 0) ? 0 : map(SEGMENT.intensity, 1, 255, minPulseFrequency, maxPulseFrequency);
+
+//   // Map SEGMENT.speed to frame switch duration
+//   uint32_t minFrameTime = 100; // Minimum time per frame in ms (10 fps)
+//   uint32_t maxFrameTime = 1000; // Maximum time per frame in ms (1 fps)
+//   uint32_t frameTime = map(SEGMENT.speed, 0, 255, maxFrameTime, minFrameTime);
+
+//   // beginning of strobe like effect
+//   uint32_t cycleTime = (pulseFrequency > 0) ? (1000 / pulseFrequency) : 1000;
+
+//   // Determine strobe state (on/off) based on cycleTime
+//   uint32_t currentTime = millis();
+//   if (pulseFrequency > 0) {
+//     strobeOn = (currentTime % cycleTime) < (cycleTime / 2); // On for half the cycle
+//   } else {
+//     strobeOn = true; // Always on if pulseFrequency is 0
+//   }
+
+//   // Use custom durations if the first frame has a nonzero duration
+//   uint32_t effectiveFrameTime = (frames[0].duration > 0) ? frames[currentFrame].duration * 1000 : frameTime;
+
+//   // Switch frames based on frameTime
+//   if (currentTime - lastFrameTime > frameTime) {
+//     lastFrameTime = currentTime;
+//     currentFrame = (currentFrame + 1) % frameCount;
+//   }
+
+// // this piece uses the sign wave calculation
+// /** 
+
+//   // Calculate brightness based on pulse frequency
+//   uint16_t pulsePeriod = 0; // Declare pulsePeriod here
+//   uint8_t brightness;       // Declare brightness here
+
+//   if (pulseFrequency > 0) {
+//       pulsePeriod = 1000 / pulseFrequency;
+//       brightness = (sin((millis() % pulsePeriod) * (PI * 2) / pulsePeriod) + 1) * 127.5;
+//   } else {
+//       brightness = 255; // Full brightness, no strobing
+//   }
+
+//   // Switch frames based on frameTime
+//   if (millis() - lastFrameTime > frameTime) {
+//     lastFrameTime = millis();
+//     currentFrame = (currentFrame + 1) % frameCount;
+//   }
+//  */
+
+
+//   // Get the current frame
+//   const uint8_t *currentColors = frames[currentFrame].data;
+
+//   // Apply the frame and strobe effect
+//   for (uint16_t i = 0; i < SEGLEN; i++) {
+//     uint8_t color = currentColors[i];
+//     if (!strobeOn || color == 0) {
+//       SEGMENT.setPixelColor(i, 0); // Off
+//     } else {
+//       uint32_t ledColor = SEGMENT.color_from_palette(0, true, PALETTE_SOLID_WRAP, 0);
+//       // Apply brightness to "on" LEDs
+//       // uint8_t r = ((ledColor >> 16) & 0xFF) * brightness / 255;
+//       // uint8_t g = ((ledColor >> 8) & 0xFF) * brightness / 255;
+//       // uint8_t b = (ledColor & 0xFF) * brightness / 255;
+//       // SEGMENT.setPixelColor(i, r, g, b);
+//       SEGMENT.setPixelColor(i, ledColor);
+//     }
+//   }
+
+//   return FRAMETIME;
+// }
 // Metadata for the custom effect
 static const char _data_FX_MODE_CUSTOM[] PROGMEM = "Custom Squares@!,!,,,,Smooth;;!";
 
 uint16_t mode_custom_squares() {
   const uint8_t *frames[] = {frame0, frame1, frame2}; // Create an array of pointers
+  const Frame sframes[] = {
+    { frame0, 10, 0 },  // Show for 2 seconds
+    { frame1, 2, 0 },  // Show for 3 seconds
+    { frame2, 10, 0 },  // Show for 1 second
+};
   const uint16_t frameCount = sizeof(frames) / sizeof(frames[0]);
-  return mode_custom_shapes(frames, frameCount); 
+  return mode_custom_shapes(sframes, frameCount); 
 }
 
 // uint16_t mode_custom_circles() {
@@ -7660,8 +7720,16 @@ const uint8_t dsframe5[] = {
 
 uint16_t mode_custom_diamond_spin() {
   const uint8_t *frames[] = {dsframe0, dsframe1, dsframe2, dsframe3, dsframe4, dsframe5}; // Create an array of pointers
+  const Frame dsframes[] = {
+    { dsframe0, 10, 50 },  // Show for 2 seconds
+    { dsframe1, 2, 30 },  // Show for 3 seconds
+    { dsframe2, 10, 50 },  // Show for 1 second
+    { dsframe3, 10, 30},  // Show for 2 seconds
+    { dsframe4, 2, 50 },  // Show for 3 seconds
+    { dsframe5, 10, 30 }  // Show for 1 second
+};
   const uint16_t frameCount = sizeof(frames) / sizeof(frames[0]);
-  return mode_custom_shapes(frames, frameCount); 
+  return mode_custom_shapes(dsframes, frameCount); 
 }
 
 // Metadata for the custom effect
@@ -7753,8 +7821,18 @@ const uint8_t dframe7[] = {
 
 uint16_t mode_custom_drunk_diamond_spin() {
   const uint8_t *frames[] = {dframe0, dframe1, dframe2, dframe3, dframe4, dframe5, dframe6, dframe7}; // Create an array of pointers
+  const Frame dframes[] = {
+    { dframe0, 10, 50 },  // Show for 2 seconds
+    { dframe1, 2, 30 },  // Show for 3 seconds
+    { dframe2, 10, 35 },  // Show for 1 second
+    { dframe3, 10, 40 },  // Show for 2 seconds
+    { dframe4, 2, 0 },  // Show for 3 seconds
+    { dframe5, 10, 0 },  // Show for 1 second
+    { dframe6, 2, 0 },  // Show for 3 seconds
+    { dframe7, 10, 50 }  // Show for 1 second
+};
   const uint16_t frameCount = sizeof(frames) / sizeof(frames[0]);
-  return mode_custom_shapes(frames, frameCount); 
+  return mode_custom_shapes(dframes, frameCount); 
 }
 
 // Metadata for the custom effect
@@ -7793,8 +7871,13 @@ const uint8_t bframe2[] = {
 
 uint16_t mode_custom_ben() {
   const uint8_t *frames[] = {bframe0, bframe1, bframe2}; // Create an array of pointers
+  const Frame bframes[] = {
+    { bframe0, 10, 0 },  // Show for 2 seconds
+    { bframe1, 2, 0 },  // Show for 3 seconds
+    { bframe2, 10, 0},  // Show for 1 second
+};
   const uint16_t frameCount = sizeof(frames) / sizeof(frames[0]);
-  return mode_custom_shapes(frames, frameCount); 
+  return mode_custom_shapes(bframes, frameCount); 
 }
 
 // Metadata for the custom effect
@@ -7873,8 +7956,16 @@ const uint8_t cframe5[] = {
 
 uint16_t mode_custom_circles() {
   const uint8_t *frames[] = {cframe0, cframe1, cframe2, cframe3, cframe4, cframe5}; // Create an array of pointers
+  const Frame cframes[] = {
+    { cframe0, 10, 0 },  // Show for 2 seconds
+    { cframe1, 2, 0},  // Show for 3 seconds
+    { cframe2, 10, 0 },  // Show for 1 second
+    { cframe3, 10, 0 },  // Show for 2 seconds
+    { cframe4, 2, 0 },  // Show for 3 seconds
+    { cframe5, 10, 0 }  // Show for 1 second
+};
   const uint16_t frameCount = sizeof(frames) / sizeof(frames[0]);
-  return mode_custom_shapes(frames, frameCount); 
+  return mode_custom_shapes(cframes, frameCount); 
   // static uint32_t lastFrameTime = 0;
   // static uint8_t currentFrame = 0; // Frame index: 0, 1, or 2
   // const uint32_t *frames[] = {cframe0, cframe1, cframe2, cframe3, cframe4, cframe5};
