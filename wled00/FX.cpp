@@ -3020,9 +3020,9 @@ static const char _data_FX_MODE_BOUNCINGBALLS[] PROGMEM = "Bouncing Balls@Gravit
  *  https://github.com/Aircoookie/WLED/pull/1039
  */
 // modified for balltrack mode
-typedef struct RollingBall {                                          // used for rolling_balls and Ants modes
+typedef struct RollingBall {
   unsigned long lastBounceUpdate;
-  float mass; // could fix this to be = 1. if memory is an issue      // mass not used in ants mode
+  float mass; // could fix this to be = 1. if memory is an issue
   float velocity;
   float height;
 } rball_t;
@@ -3115,36 +3115,48 @@ static uint16_t rolling_balls(void) {
 static const char _data_FX_MODE_ROLLINGBALLS[] PROGMEM = "Rolling Balls@!,# of balls,,,,Collisions,Overlay,Trails;!,!,!;!;1;m12=1"; //bar
 
 
+typedef struct Ants {
+  unsigned long lastBounceUpdate;
+  bool hasFood;
+  float velocity;
+  float height;
+} ant_t;
 /*
 /  Ants (created by making modifications to the Rolling Balls code) - Bob Loeffler - January 2025
-*   bouncing balls on a track track Effect modified from Aircoookie's bouncing balls
+*   bouncing balls on a track track Effect modified from Aircoookie's bouncing ballsccccccccccccccccccccccccccc
 *   Courtesy of pjhatch (https://github.com/pjhatch)
 *   https://github.com/Aircoookie/WLED/pull/1039
 * 
 *   First slider is for the ants' speed.
 *   Second slider is for the # of ants.
 *   Third slider is for the Ants' size.
-*   
+*   Checkbox1 is for Gathering food (enabled if you want the ants to gather food, disabled if they are just walking).
+*     We will switch directions when they get to the beginning or end of the segment.
+*     When they have food, we will enable the Pass By option so they can drop off their food easier.
 *   Checkbox2 is for Overlay mode (enabled is Overlay, disabled is no overlay)
 *   Checkbox3 is for whether the ants will bump into each other (disabled) or just pass by each other (enabled)
 */
 static uint16_t mode_ants(void) {
   //allocate segment data
+  uint32_t bgcolor = BLACK;
   static constexpr unsigned MAX_ANTS = 32;                                     // Maximum number of ants
   static constexpr unsigned DEFAULT_ANT_SIZE = 1;                               
   unsigned antSize = DEFAULT_ANT_SIZE;
-  unsigned dataSize = sizeof(rball_t) * MAX_ANTS;
+  unsigned dataSize = sizeof(ant_t) * MAX_ANTS;
   if (!SEGENV.allocateData(dataSize)) return mode_static();                    // allocation failed
 
   int confusedAnt;                                                             // the first random ant to go backwards
-  rball_t *ants = reinterpret_cast<rball_t *>(SEGENV.data);
+  ant_t *ants = reinterpret_cast<ant_t *>(SEGENV.data);
 
-  // number of ants based on intensity setting (max of 32)
-  unsigned numAnts = 1 + (SEGLEN * SEGMENT.intensity >> 12);
-  if (numAnts > 32) numAnts = MAX_ANTS;
+  unsigned numAnts = 1 + (SEGLEN * SEGMENT.intensity >> 12);                   // number of ants based on intensity setting
+  if (numAnts > 32) numAnts = MAX_ANTS;                                        //   max of 32 ants
+
+  bool passBy = SEGMENT.check3;                                                // see if the user wants the ants to pass by each other without colliding with them
 
   antSize = map(SEGMENT.custom1, 0, 255, 1, 20);                               // the size/length of each ant is user selectable (1 to 20 pixels) with a slider
-
+  if (SEGMENT.check1)                                                          // if checkbox 1 (Gather food) is enabled, add one pixel to the ant size to make it look like food is in it's mouth.
+    antSize += 1;
+  
   if (SEGENV.call == 0) {
     confusedAnt = hw_random(0,numAnts-1);
     for (int i = 0; i < MAX_ANTS; i++) {
@@ -3158,30 +3170,59 @@ static uint16_t mode_ants(void) {
 
   float cfac = float(scale8(8, 255-SEGMENT.speed) +1)*20000.0f;                // this uses the Aircoookie conversion factor for scaling time using speed slider
 
-  if (!SEGMENT.check2) SEGMENT.fill(SEGCOLOR(1));                              // fill all LEDs with background color (Bg) if the user didn't select Overlay checkbox
+  if (!SEGMENT.check2) {
+    bgcolor = SEGCOLOR(1);
+    SEGMENT.fill(bgcolor);                                                     // fill all LEDs with background color (Bg) if the user didn't select Overlay checkbox
+  }
 
-  for (int i = 0; i < numAnts; i++) {  // for each Ant, do this...
+  for (int i = 0; i < numAnts; i++) {                                                // for each Ant, do this...
     float timeSinceLastUpdate = float((strip.now - ants[i].lastBounceUpdate))/cfac;
-    float thisHeight = ants[i].height + ants[i].velocity * timeSinceLastUpdate;   // this method keeps higher resolution
+    float thisHeight = ants[i].height + ants[i].velocity * timeSinceLastUpdate;      // this method keeps higher resolution
+
     // test if intensity level was increased and some ants are way off the track then put them back
     if (thisHeight < -0.5f || thisHeight > 1.5f) {
-      thisHeight = ants[i].height = (float(hw_random16(0, 10000)) / 10000.0f);  // from 0.0 to 1.0
+      thisHeight = ants[i].height = (float(hw_random16(0, 10000)) / 10000.0f);       // from 0.0 to 1.0
       ants[i].lastBounceUpdate = strip.now;
     }
-    // check if reached past the beginning of the strip. If so, wrap around.
+
+    // check if reached past the beginning of the strip.
     if (thisHeight <= 0.0f && ants[i].velocity < 0.0f) {
-      thisHeight = 1.0f;
-      ants[i].lastBounceUpdate = strip.now;
-      ants[i].height = thisHeight;
+      if (SEGMENT.check1) {                                               // if looking for food, stop and go back the other way
+        thisHeight = 0.0f;
+        ants[i].velocity = -ants[i].velocity;                             // reverse direction
+        ants[i].lastBounceUpdate = strip.now;
+        ants[i].height = thisHeight;
+        ants[i].hasFood = true;                                           // found food
+        passBy = true;                                                    // when looking for food, pass by other ants without bumping into them
+        SEGMENT.check3 = true;                                            // when looking for food, pass by other ants without bumping into them
+      }
+      else {                                                              // If not looking for food, wrap around
+        thisHeight = 1.0f;
+        ants[i].lastBounceUpdate = strip.now;
+        ants[i].height = thisHeight;
+      }
     }
-    // check if reached past the end of the strip. If so, wrap around.
+
+    // check if reached past the end of the strip.
     if (thisHeight >= 1.0f && ants[i].velocity > 0.0f) {
-      thisHeight = 0.0f;
-      ants[i].lastBounceUpdate = strip.now;
-      ants[i].height = thisHeight;
+      if (SEGMENT.check1) {                                               // if looking for food, stop and go back the other way
+        thisHeight = 1.0f;
+        ants[i].velocity = -ants[i].velocity;                             // reverse direction
+        ants[i].lastBounceUpdate = strip.now;
+        ants[i].height = thisHeight;
+        ants[i].hasFood = false;                                          // dropped off the food, now going back for more
+        passBy = true;                                                    // when looking for food, pass by other ants without bumping into them
+        SEGMENT.check3 = true;                                            // when looking for food, pass by other ants without bumping into them
+      }
+      else {                                                              // If not looking for food, wrap around
+        thisHeight = 0.0f;
+        ants[i].lastBounceUpdate = strip.now;
+        ants[i].height = thisHeight;
+      }
     }
-    // check for "passing by" or "bumping into"
-    if (!SEGMENT.check3) {                                 // Ants bump into each other and reverse direction if checkbox #3 is not "checked"; they pass each other if "checked"
+
+    // check for "passing by" or "bumping into" other ants
+    if (!passBy) {                                           // Ants bump into each other and reverse direction if checkbox #3 (Pass by) is not "checked"; they pass each other if "checked"
       for (int j = i + 1; j < numAnts; j++) {
         if (ants[j].velocity != ants[i].velocity) {
           //  tcollided + ants[j].lastBounceUpdate is acutal time of collision (this keeps precision with long to float conversions)
@@ -3208,7 +3249,7 @@ static uint16_t mode_ants(void) {
     if (SEGMENT.palette != 0 ) {                                                        // if a Palette is selected (besides the Default palette), use the palette's colors
       color = SEGMENT.color_from_palette(i*255/numAnts, false, PALETTE_SOLID_WRAP,255);
     }
-    else {                                                                              // otherwise, Default palette selected; use the 2 selectable color slots (Fx and Cs)
+    else {                                                                              // ...otherwise, Default palette selected; use the 2 selectable color slots (Fx and Cs)
       unsigned coloridx = i % 3;
       if (coloridx == 1)
         color = SEGCOLOR(0);                                                            // color Fx
@@ -3220,8 +3261,24 @@ static uint16_t mode_ants(void) {
     if (thisHeight > 1.0f) thisHeight = 1.0f;
     unsigned pos = round(thisHeight * (SEGLEN - 1));
 
-    for (int z = 0; z < antSize; z++) {                                           // make each ant the selected size (between 1 and 20 pixels)
-      SEGMENT.setPixelColor(pos, color);
+    for (int z = 0; z < antSize; z++) {                                                 // make each ant the selected size (between 1 and 20 pixels)
+      if (ants[i].velocity < 0) {
+        if (z == 0 && SEGMENT.check1 && ants[i].hasFood) {                              // make the food pixel white, but if the ant is white, make the food pixel yellow;
+          if (color == WHITE)                                                           // ...but if the bg is yellow, make the food pixel gray.  If the bg is white, make it yellow.
+            color = bgcolor==YELLOW?GRAY:YELLOW;
+          else
+            color = bgcolor==WHITE?YELLOW:WHITE;
+        }
+      }
+      else {  // velocity > 0
+        if (z == antSize-1 && SEGMENT.check1 && ants[i].hasFood) {                      // make the food pixel white, but if the ant is white, make the food pixel yellow;
+          if (color == WHITE)                                                           // ...but if the bg is yellow, make the food pixel gray.  If the bg is white, make it yellow.
+            color = bgcolor==YELLOW?GRAY:YELLOW;
+          else
+            color = bgcolor==WHITE?YELLOW:WHITE;
+        }
+      }
+      SEGMENT.setPixelColor(pos, color);                                                // draw the pixel with the correct color
       pos = pos + 1;
     }
 
@@ -3231,12 +3288,12 @@ static uint16_t mode_ants(void) {
 
   return FRAMETIME;
 }
-static const char _data_FX_MODE_ANTS[] PROGMEM = "Ants@Ant speed,# of ants,Ant size,,,,Overlay,Pass by;!,!,!;!;1;sx=192,ix=255,c1=32";
+static const char _data_FX_MODE_ANTS[] PROGMEM = "Ants@Ant speed,# of ants,Ant size,,,Gathering food,Overlay,Pass by;!,!,!;!;1;sx=192,ix=255,c1=32";
 
 
 typedef struct PacManChars {
   unsigned  pos;
-  unsigned   size;
+  unsigned  size;
   uint32_t  color;
 } pacmancharacters_t;
 
