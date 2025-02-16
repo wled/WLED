@@ -911,7 +911,7 @@ void IRAM_ATTR Segment::setPixelColor(int i, uint32_t col) const
   unsigned prog = 0xFFFFU - progress();
   // if we blend using "push" style we need to "shift" new mode to left or right
   // _modeBlend==true -> old effect
-  if (!prog && !_modeBlend && (blendingStyle == BLEND_STYLE_PUSH_RIGHT || blendingStyle == BLEND_STYLE_PUSH_LEFT)) {
+  if (!prog && !_modeBlend && (blendingStyle & BLEND_STYLE_PUSH_MASK)) {
     unsigned dI = prog * vL / 0xFFFFU;
     if (blendingStyle == BLEND_STYLE_PUSH_RIGHT) i -= dI;
     else                                         i += dI;
@@ -920,7 +920,6 @@ void IRAM_ATTR Segment::setPixelColor(int i, uint32_t col) const
 
   if (i >= vL || i < 0 || isPixelClipped(i)) return; // handle clipping on 1D
 
-  unsigned len = length();
   // if color is unscaled
   if (!_colorScaled) col = color_fade(col, _segBri);
 
@@ -932,6 +931,7 @@ void IRAM_ATTR Segment::setPixelColor(int i, uint32_t col) const
   pixels[i] = col;
 
 /*
+  unsigned len = length();
   // expand pixel (taking into account start, grouping, spacing [and offset])
   i = i * groupLength();
   if (reverse) { // is segment reversed?
@@ -1694,21 +1694,34 @@ void WS2812FX::blendSegment(const Segment &topSegment) {
   const auto func = funcs[blendMode]; // blendMode % (sizeof(funcs) / sizeof(FuncType))
 
   if (isMatrix) {
+#ifndef WLED_DISABLE_2D
     const int  cols = topSegment.virtualWidth();
     const int  rows = topSegment.virtualHeight();
     const auto XY = [](int x, int y){ return x + y*Segment::maxWidth; };
     for (auto r = 0; r < rows; r++) for (auto c = 0; c < cols; c++) {
+      // get segment's pixel
+      uint32_t c_a = topSegment.getPixelColorXY(c,r);
+      auto r_a = R(c_a);
+      auto g_a = G(c_a);
+      auto b_a = B(c_a);
+      auto w_a = W(c_a);
+
+      // map it into frame buffer
       int x = c;
       int y = r;
-      uint32_t col = topSegment.getPixelColorXY(x,y);
       if (topSegment.reverse  ) x = cols - x - 1;
       if (topSegment.reverse_y) y = rows - y - 1;
       if (topSegment.transpose) { std::swap(x,y); } // swap X & Y if segment transposed
-      pixels[XY(topSegment.start + x, topSegment.startY + y)] = col;
-
-      // handle grouping and spacing
       const unsigned groupLen = topSegment.groupLength();
-      if (groupLen > 1) {
+      if (groupLen == 1) {
+        size_t indx = XY(topSegment.start + x, topSegment.startY + y);
+        auto r_b = R(pixels[indx]);
+        auto g_b = G(pixels[indx]);
+        auto b_b = B(pixels[indx]);
+        auto w_b = W(pixels[indx]);
+        pixels[indx] = RGBW32(func(r_a,r_b), func(g_a,g_b), func(b_a,b_b), func(w_a,w_b));
+      } else {
+        // handle grouping and spacing
         x *= groupLen; // expand to physical pixels
         y *= groupLen; // expand to physical pixels
         const int maxY = std::min(y + topSegment.grouping, rows);
@@ -1719,22 +1732,49 @@ void WS2812FX::blendSegment(const Segment &topSegment) {
           for (int xX = x; xX < maxX; xX++) {
             const int baseX = topSegment.start + xX;
             const int baseY = topSegment.startY + yY;
-            pixels[XY(baseX, baseY)] = col;
+            size_t indx = XY(baseX, baseY);
+            auto r_b = R(pixels[indx]);
+            auto g_b = G(pixels[indx]);
+            auto b_b = B(pixels[indx]);
+            auto w_b = W(pixels[indx]);
+            pixels[indx] = RGBW32(func(r_a,r_b), func(g_a,g_b), func(b_a,b_b), func(w_a,w_b));
             // Apply mirroring
             if (topSegment.mirror || topSegment.mirror_y) {
               const int mirrorX = topSegment.start + width - x - 1;
               const int mirrorY = topSegment.startY + height - y - 1;
-              if (topSegment.mirror)                        pixels[XY(topSegment.transpose ? baseX : mirrorX, topSegment.transpose ? mirrorY : baseY)] = col;
-              if (topSegment.mirror_y)                      pixels[XY(topSegment.transpose ? mirrorX : baseX, topSegment.transpose ? baseY : mirrorY)] = col;
-              if (topSegment.mirror && topSegment.mirror_y) pixels[XY(mirrorX, mirrorY)] = col;
+              const size_t idxMX = XY(topSegment.transpose ? baseX : mirrorX, topSegment.transpose ? mirrorY : baseY);
+              const size_t idxMY = XY(topSegment.transpose ? mirrorX : baseX, topSegment.transpose ? baseY : mirrorY);
+              const size_t idxMM = XY(mirrorX, mirrorY);
+              if (topSegment.mirror) {
+                auto r_b = R(pixels[idxMX]);
+                auto g_b = G(pixels[idxMX]);
+                auto b_b = B(pixels[idxMX]);
+                auto w_b = W(pixels[idxMX]);
+                pixels[idxMX] = RGBW32(func(r_a,r_b), func(g_a,g_b), func(b_a,b_b), func(w_a,w_b));
+              }
+              if (topSegment.mirror_y) {
+                auto r_b = R(pixels[idxMY]);
+                auto g_b = G(pixels[idxMY]);
+                auto b_b = B(pixels[idxMY]);
+                auto w_b = W(pixels[idxMY]);
+                pixels[idxMY] = RGBW32(func(r_a,r_b), func(g_a,g_b), func(b_a,b_b), func(w_a,w_b));
+              }
+              if (topSegment.mirror && topSegment.mirror_y) {
+                auto r_b = R(pixels[idxMM]);
+                auto g_b = G(pixels[idxMM]);
+                auto b_b = B(pixels[idxMM]);
+                auto w_b = W(pixels[idxMM]);
+                pixels[idxMM] = RGBW32(func(r_a,r_b), func(g_a,g_b), func(b_a,b_b), func(w_a,w_b));
+              }
             }
           }
         }
       }
     }
+#endif
   } else {
-    const int  len  = topSegment.virtualLength();
-    for (auto k = 0; k<len; k++) {
+    const int len = topSegment.virtualLength();
+    for (auto k = 0; k < len; k++) {
       uint32_t c_a = topSegment.getPixelColor(k);
       auto r_a = R(c_a);
       auto g_a = G(c_a);

@@ -143,7 +143,7 @@ void WS2812FX::setUpMatrix() {
 ///////////////////////////////////////////////////////////
 
 #ifndef WLED_DISABLE_2D
-
+/*
 // raw setColor function without checks (checks are done in setPixelColorXY())
 void IRAM_ATTR Segment::_setPixelColorXY_raw(int x, int y, uint32_t col) const {
   const int baseX = start + x;
@@ -163,6 +163,7 @@ void IRAM_ATTR Segment::_setPixelColorXY_raw(int x, int y, uint32_t col) const {
     if (mirror && mirror_y) strip.setPixelColorXY(mirrorX, mirrorY, col);
   }
 }
+*/
 
 // pixel is clipped if it falls outside clipping range (_modeBlend==true) or is inside clipping range (_modeBlend==false)
 // if clipping start > stop the clipping range is inverted
@@ -220,6 +221,10 @@ void IRAM_ATTR Segment::setPixelColorXY(int x, int y, uint32_t col) const
   // if color is unscaled
   if (!_colorScaled) col = color_fade(col, _segBri);
 
+#ifndef WLED_DISABLE_MODE_BLEND
+  // if blending modes, blend with underlying pixel
+  if (_modeBlend && blendingStyle == BLEND_STYLE_FADE) col = color_blend16(pixels[XY(x,y)], col, prog);
+#endif
   pixels[XY(x,y)] = col;
 /*
   if (reverse  ) x = vW - x - 1;
