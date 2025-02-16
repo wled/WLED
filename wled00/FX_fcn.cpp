@@ -1551,6 +1551,11 @@ void WS2812FX::service() {
 #ifndef WLED_DISABLE_MODE_BLEND
         Segment::setClippingRect(0, 0); // disable clipping (just in case)
         if (seg.isInTransition()) {
+          // a hack to determine if effect has changed
+          uint8_t  m = seg.currentMode();
+          Segment::modeBlend(true);           // set semaphore
+          bool     sameEffect = (m == seg.currentMode());
+          Segment::modeBlend(false);          // clear semaphore
           // set clipping rectangle
           // new mode is run inside clipping area and old mode outside clipping area
           unsigned p = seg.progress();
@@ -1559,7 +1564,20 @@ void WS2812FX::service() {
           unsigned dw = p * w / 0xFFFFU + 1;
           unsigned dh = p * h / 0xFFFFU + 1;
           unsigned orgBS = blendingStyle;
-          if (w*h == 1) blendingStyle = BLEND_STYLE_FADE; // disable belending for single pixel segments (use fade instead)
+          if (w*h == 1) blendingStyle = BLEND_STYLE_FADE; // disable style for single pixel segments (use fade instead)
+          else if (sameEffect && (blendingStyle & BLEND_STYLE_PUSH_MASK)) {
+            // when effect stays the same push will look awful, change it to swipe
+            switch (blendingStyle) {
+              case BLEND_STYLE_PUSH_BR:
+              case BLEND_STYLE_PUSH_TR:
+              case BLEND_STYLE_PUSH_RIGHT: blendingStyle = BLEND_STYLE_SWIPE_RIGHT; break;
+              case BLEND_STYLE_PUSH_BL:
+              case BLEND_STYLE_PUSH_TL:
+              case BLEND_STYLE_PUSH_LEFT:  blendingStyle = BLEND_STYLE_SWIPE_LEFT;  break;
+              case BLEND_STYLE_PUSH_DOWN:  blendingStyle = BLEND_STYLE_SWIPE_DOWN;  break;
+              case BLEND_STYLE_PUSH_UP:    blendingStyle = BLEND_STYLE_SWIPE_UP;    break;
+            }
+          }
           switch (blendingStyle) {
             case BLEND_STYLE_FAIRY_DUST:  // fairy dust (must set entire segment, see isPixelXYClipped())
               Segment::setClippingRect(0, w, 0, h);
@@ -1605,7 +1623,7 @@ void WS2812FX::service() {
               Segment::setClippingRect(0, dw, h - dh, h);
               break;
           }
-          frameDelay = (*_mode[seg.currentMode()])();  // run new/current mode
+          frameDelay = (*_mode[m])();         // run new/current mode
           // now run old/previous mode
           Segment::tmpsegd_t _tmpSegData;
           Segment::modeBlend(true);           // set semaphore
