@@ -520,7 +520,7 @@ typedef struct Segment {
       //Serial.printf("-- Creating segment: %p\n", this);
       #endif
       // allocate render buffer
-      pixels = static_cast<uint32_t*>(d_malloc(sizeof(uint32_t) * (stop-start) * (stopY-startY)));
+      pixels = static_cast<uint32_t*>(d_malloc(sizeof(uint32_t) * (stop-start) * (stopY-startY))); // it is good here not to use virtualLength() as groupSize()==1
     }
 
     Segment(const Segment &orig); // copy constructor
@@ -575,6 +575,7 @@ typedef struct Segment {
     inline static uint8_t getCurrentBrightness()           { return Segment::_segBri; }
     static void handleRandomPalette();
 
+    inline void setDrawDimensions() const { Segment::_vWidth = virtualWidth(); Segment::_vHeight = virtualHeight(); Segment::_vLength = virtualLength(); }
     void    beginDraw();            // set up parameters for current effect
     void    setGeometry(uint16_t i1, uint16_t i2, uint8_t grp=1, uint8_t spc=0, uint16_t ofs=UINT16_MAX, uint16_t i1Y=0, uint16_t i2Y=1, uint8_t m12=0);
     Segment &setColor(uint8_t slot, uint32_t c);

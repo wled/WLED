@@ -98,9 +98,10 @@ Segment::Segment(const Segment &orig) {
   data = nullptr;
   _dataLen = 0;
   pixels = nullptr;
+  if (!isActive()) return;
   if (orig.name) { name = static_cast<char*>(d_malloc(strlen(orig.name)+1)); if (name) strcpy(name, orig.name); }
   if (orig.data) { if (allocateData(orig._dataLen)) memcpy(data, orig.data, orig._dataLen); }
-  if (orig.pixels) { pixels = static_cast<uint32_t*>(d_malloc(sizeof(uint32_t) * (stop-start) * (stopY-startY))); }
+  if (orig.pixels) { pixels = static_cast<uint32_t*>(d_malloc(sizeof(uint32_t) * virtualLength())); }
 }
 
 // move constructor
@@ -128,10 +129,11 @@ Segment& Segment::operator= (const Segment &orig) {
     data = nullptr;
     _dataLen = 0;
     pixels = nullptr;
+    if (!isActive()) return *this;
     // copy source data
     if (orig.name) { name = static_cast<char*>(d_malloc(strlen(orig.name)+1)); if (name) strcpy(name, orig.name); }
     if (orig.data) { if (allocateData(orig._dataLen)) memcpy(data, orig.data, orig._dataLen); }
-    if (orig.pixels) { pixels = static_cast<uint32_t*>(d_malloc(sizeof(uint32_t) * (stop-start) * (stopY-startY))); }
+    if (orig.pixels) { pixels = static_cast<uint32_t*>(d_malloc(sizeof(uint32_t) * virtualLength())); }
   }
   return *this;
 }
@@ -211,6 +213,7 @@ void Segment::resetIfRequired() {
   if (!reset || !isActive()) return;
   //DEBUGFX_PRINTF_P(PSTR("-- Segment reset: %p\n"), this);
   if (data && _dataLen > 0) memset(data, 0, _dataLen);  // prevent heap fragmentation (just erase buffer instead of deallocateData())
+  if (pixels) for (size_t i = 0; i < virtualLength(); i++) pixels[i] = BLACK; // clear pixel buffer
   next_time = 0; step = 0; call = 0; aux0 = 0; aux1 = 0;
   reset = false;
 }
@@ -450,20 +453,18 @@ uint32_t Segment::currentColor(uint8_t slot) const {
 
 // pre-calculate drawing parameters for faster access (based on the idea from @softhack007 from MM fork)
 void Segment::beginDraw() {
-  _vWidth  = virtualWidth();
-  _vHeight = virtualHeight();
-  _vLength = virtualLength();
-  _segBri  = currentBri();
+  setDrawDimensions();
+  Segment::_segBri  = currentBri();
   // adjust gamma for effects
   for (unsigned i = 0; i < NUM_COLORS; i++) _currentColors[i] = gamma32(currentColor(i));
   // load palette into _currentPalette
-  loadPalette(_currentPalette, palette);
+  loadPalette(Segment::_currentPalette, palette);
   unsigned prog = progress();
   if (prog < 0xFFFFU) {
 #ifndef WLED_DISABLE_MODE_BLEND
     if (blendingStyle != BLEND_STYLE_FADE) {
       // _modeBlend==true -> old effect
-      if (_modeBlend) _currentPalette = _t->_palT; // not fade/blend transition, each effect uses its palette
+      if (_modeBlend) Segment::_currentPalette = _t->_palT; // not fade/blend transition, each effect uses its palette
     } else
 #endif
     {
@@ -471,8 +472,8 @@ void Segment::beginDraw() {
       // there are about 255 blend passes of 48 "blends" to completely blend two palettes (in _dur time)
       // minimum blend time is 100ms maximum is 65535ms
       unsigned noOfBlends = ((255U * prog) / 0xFFFFU) - _t->_prevPaletteBlends;
-      for (unsigned i = 0; i < noOfBlends; i++, _t->_prevPaletteBlends++) nblendPaletteTowardPalette(_t->_palT, _currentPalette, 48);
-      _currentPalette = _t->_palT; // copy transitioning/temporary palette
+      for (unsigned i = 0; i < noOfBlends; i++, _t->_prevPaletteBlends++) nblendPaletteTowardPalette(_t->_palT, Segment::_currentPalette, 48);
+      Segment::_currentPalette = _t->_palT; // copy transitioning/temporary palette
     }
   }
 }
@@ -545,8 +546,8 @@ void Segment::setGeometry(uint16_t i1, uint16_t i2, uint8_t grp, uint8_t spc, ui
     return;
   }
   // re-allocate FX render buffer
-  if (pixels) pixels = static_cast<uint32_t*>(d_realloc(pixels, sizeof(uint32_t) * (stop-start) * (stopY-startY)));
-  else        pixels = static_cast<uint32_t*>(d_malloc(sizeof(uint32_t) * (stop-start) * (stopY-startY)));
+  if (pixels) pixels = static_cast<uint32_t*>(d_realloc(pixels, sizeof(uint32_t) * virtualLength()));
+  else        pixels = static_cast<uint32_t*>(d_malloc(sizeof(uint32_t) * virtualLength()));
   refreshLightCapabilities();
 }
 
@@ -1655,7 +1656,10 @@ void WS2812FX::service() {
   #endif
   if (doShow) {
     for (size_t i = 0; i < getLengthTotal(); i++) pixels[i] = BLACK; // clear frame buffer; memset(pixels, 0, sizeof(uint32_t) * getLengthTotal());
-    for (const auto &seg : _segments) if (seg.isActive()) blendSegment(seg); // blend all render buffers into frame buffer
+    for (const auto &seg : _segments) if (seg.isActive()) {
+      seg.setDrawDimensions();  // required for seg.getPixelColor()
+      blendSegment(seg); // blend all render buffers into frame buffer
+    }
     for (size_t i = 0; i < getLengthTotal(); i++) setPixelColor(i, pixels[i]);
 
     yield();
@@ -1686,53 +1690,90 @@ void WS2812FX::blendSegment(const Segment &topSegment) {
     top, bottom, add, subtract, difference, average, multiply, divide, lighten, darken, screen, overlay
   };
 
-  const uint8_t blendMode = topSegment.blendMode;
-  auto func = funcs[blendMode % (sizeof(funcs) / sizeof(FuncType))];
+  const size_t blendMode = topSegment.blendMode < (sizeof(funcs) / sizeof(FuncType)) ? topSegment.blendMode : 0;
+  const auto func = funcs[blendMode]; // blendMode % (sizeof(funcs) / sizeof(FuncType))
 
-  const int  cols = topSegment.width();
-  const int  rows = topSegment.height();
-  const int  len  = topSegment.length();
-  const auto XY = [&](int x, int y){ return x + y*cols; };
+  if (isMatrix) {
+    const int  cols = topSegment.virtualWidth();
+    const int  rows = topSegment.virtualHeight();
+    const auto XY = [](int x, int y){ return x + y*Segment::maxWidth; };
+    for (auto r = 0; r < rows; r++) for (auto c = 0; c < cols; c++) {
+      int x = c;
+      int y = r;
+      uint32_t col = topSegment.getPixelColorXY(x,y);
+      if (topSegment.reverse  ) x = cols - x - 1;
+      if (topSegment.reverse_y) y = rows - y - 1;
+      if (topSegment.transpose) { std::swap(x,y); } // swap X & Y if segment transposed
+      pixels[XY(topSegment.start + x, topSegment.startY + y)] = col;
 
-  for (auto k = 0; k<len; k++) {
-    uint32_t c_a = topSegment.getPixelColor(k);
-    auto r_a = R(c_a);
-    auto g_a = G(c_a);
-    auto b_a = B(c_a);
-    auto w_a = W(c_a);
-
-    // expand pixel (taking into account start, grouping, spacing [and offset])
-    int i = k * topSegment.groupLength();
-    if (topSegment.reverse) {   // is segment reversed?
-      if (topSegment.mirror) {  // is segment mirrored?
-        i = (len - 1) / 2 - i;  // only need to index half the pixels
-      } else {
-        i = (len - 1) - i;
+      // handle grouping and spacing
+      const unsigned groupLen = topSegment.groupLength();
+      if (groupLen > 1) {
+        x *= groupLen; // expand to physical pixels
+        y *= groupLen; // expand to physical pixels
+        const int maxY = std::min(y + topSegment.grouping, rows);
+        const int maxX = std::min(x + topSegment.grouping, cols);
+        const int width = topSegment.width();
+        const int height = topSegment.height();
+        for (int yY = y; yY < maxY; yY++) {
+          for (int xX = x; xX < maxX; xX++) {
+            const int baseX = topSegment.start + xX;
+            const int baseY = topSegment.startY + yY;
+            pixels[XY(baseX, baseY)] = col;
+            // Apply mirroring
+            if (topSegment.mirror || topSegment.mirror_y) {
+              const int mirrorX = topSegment.start + width - x - 1;
+              const int mirrorY = topSegment.startY + height - y - 1;
+              if (topSegment.mirror)                        pixels[XY(topSegment.transpose ? baseX : mirrorX, topSegment.transpose ? mirrorY : baseY)] = col;
+              if (topSegment.mirror_y)                      pixels[XY(topSegment.transpose ? mirrorX : baseX, topSegment.transpose ? baseY : mirrorY)] = col;
+              if (topSegment.mirror && topSegment.mirror_y) pixels[XY(mirrorX, mirrorY)] = col;
+            }
+          }
+        }
       }
     }
-    i += topSegment.start; // starting pixel in a group
+  } else {
+    const int  len  = topSegment.virtualLength();
+    for (auto k = 0; k<len; k++) {
+      uint32_t c_a = topSegment.getPixelColor(k);
+      auto r_a = R(c_a);
+      auto g_a = G(c_a);
+      auto b_a = B(c_a);
+      auto w_a = W(c_a);
 
-    // set all the pixels in the group
-    for (int j = 0; j < topSegment.grouping; j++) {
-      unsigned indexSet = i + ((topSegment.reverse) ? -j : j);
-      if (indexSet >= topSegment.start && indexSet < topSegment.stop) {
-        if (topSegment.mirror) { //set the corresponding mirrored pixel
-          unsigned indexMir = topSegment.stop - indexSet + topSegment.start - 1;
-          indexMir += topSegment.offset; // offset/phase
-          if (indexMir >= topSegment.stop) indexMir -= len; // wrap
-          auto r_b = R(pixels[indexMir]);
-          auto g_b = G(pixels[indexMir]);
-          auto b_b = B(pixels[indexMir]);
-          auto w_b = W(pixels[indexMir]);
-          pixels[indexMir] = RGBW32(func(r_a,r_b), func(g_a,g_b), func(b_a,b_b), func(w_a,w_b));
+      // expand pixel (taking into account start, grouping, spacing [and offset])
+      int i = k * topSegment.groupLength();
+      if (topSegment.reverse) {   // is segment reversed?
+        if (topSegment.mirror) {  // is segment mirrored?
+          i = (len - 1) / 2 - i;  // only need to index half the pixels
+        } else {
+          i = (len - 1) - i;
         }
-        indexSet += topSegment.offset; // offset/phase
-        if (indexSet >= topSegment.stop) indexSet -= len; // wrap
-        auto r_b = R(pixels[indexSet]);
-        auto g_b = G(pixels[indexSet]);
-        auto b_b = B(pixels[indexSet]);
-        auto w_b = W(pixels[indexSet]);
-        pixels[indexSet] = RGBW32(func(r_a,r_b), func(g_a,g_b), func(b_a,b_b), func(w_a,w_b));
+      }
+      i += topSegment.start; // starting pixel in a group
+
+      // set all the pixels in the group
+      for (int j = 0; j < topSegment.grouping; j++) {
+        unsigned indexSet = i + ((topSegment.reverse) ? -j : j);
+        if (indexSet >= topSegment.start && indexSet < topSegment.stop) {
+          if (topSegment.mirror) { //set the corresponding mirrored pixel
+            unsigned indexMir = topSegment.stop - indexSet + topSegment.start - 1;
+            indexMir += topSegment.offset; // offset/phase
+            if (indexMir >= topSegment.stop) indexMir -= len; // wrap
+            auto r_b = R(pixels[indexMir]);
+            auto g_b = G(pixels[indexMir]);
+            auto b_b = B(pixels[indexMir]);
+            auto w_b = W(pixels[indexMir]);
+            pixels[indexMir] = RGBW32(func(r_a,r_b), func(g_a,g_b), func(b_a,b_b), func(w_a,w_b));
+          }
+          indexSet += topSegment.offset; // offset/phase
+          if (indexSet >= topSegment.stop) indexSet -= len; // wrap
+          auto r_b = R(pixels[indexSet]);
+          auto g_b = G(pixels[indexSet]);
+          auto b_b = B(pixels[indexSet]);
+          auto w_b = W(pixels[indexSet]);
+          pixels[indexSet] = RGBW32(func(r_a,r_b), func(g_a,g_b), func(b_a,b_b), func(w_a,w_b));
+        }
       }
     }
   }

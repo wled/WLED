@@ -201,6 +201,7 @@ void IRAM_ATTR Segment::setPixelColorXY(int x, int y, uint32_t col) const
 
   const int vW = vWidth();   // segment width in logical pixels (can be 0 if segment is inactive)
   const int vH = vHeight();  // segment height in logical pixels (is always >= 1)
+  const auto XY = [&](int x, int y){ return x + y*vW; };
 
 #ifndef WLED_DISABLE_MODE_BLEND
   unsigned prog = 0xFFFF - progress();
@@ -219,6 +220,8 @@ void IRAM_ATTR Segment::setPixelColorXY(int x, int y, uint32_t col) const
   // if color is unscaled
   if (!_colorScaled) col = color_fade(col, _segBri);
 
+  pixels[XY(x,y)] = col;
+/*
   if (reverse  ) x = vW - x - 1;
   if (reverse_y) y = vH - y - 1;
   if (transpose) { std::swap(x,y); } // swap X & Y if segment transposed
@@ -237,6 +240,7 @@ void IRAM_ATTR Segment::setPixelColorXY(int x, int y, uint32_t col) const
   } else {
     _setPixelColorXY_raw(x, y, col);
   }
+*/
 }
 
 #ifdef WLED_USE_AA_PIXELS
@@ -288,6 +292,7 @@ uint32_t IRAM_ATTR Segment::getPixelColorXY(int x, int y) const {
 
   const int vW = vWidth();
   const int vH = vHeight();
+  const auto XY = [&](int x, int y){ return x + y*vW; };
 
 #ifndef WLED_DISABLE_MODE_BLEND
   unsigned prog = 0xFFFF - progress();
@@ -303,6 +308,8 @@ uint32_t IRAM_ATTR Segment::getPixelColorXY(int x, int y) const {
 
   if (x >= vW || y >= vH || x<0 || y<0 || isPixelXYClipped(x,y)) return 0;  // if pixel would fall out of virtual segment just exit
 
+  return pixels[XY(x,y)];
+/*
   if (reverse  ) x = vW - x - 1;
   if (reverse_y) y = vH - y - 1;
   if (transpose) { std::swap(x,y); } // swap X & Y if segment transposed
@@ -310,6 +317,7 @@ uint32_t IRAM_ATTR Segment::getPixelColorXY(int x, int y) const {
   y *= groupLength(); // expand to physical pixels
   if (x >= width() || y >= height()) return 0;
   return strip.getPixelColorXY(start + x, startY + y);
+*/
 }
 
 // 2D blurring, can be asymmetrical
