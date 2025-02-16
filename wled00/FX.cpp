@@ -3122,7 +3122,7 @@ typedef struct Ants {
   float height;
 } ant_t;
 /*
-/  Ants (created by making modifications to the Rolling Balls code) - Bob Loeffler - January 2025
+/  Ants (created by making modifications to the Rolling Balls code) - Bob Loeffler - Jan-Feb 2025
 *   bouncing balls on a track track Effect modified from Aircoookie's bouncing ballsccccccccccccccccccccccccccc
 *   Courtesy of pjhatch (https://github.com/pjhatch)
 *   https://github.com/Aircoookie/WLED/pull/1039
@@ -3132,7 +3132,7 @@ typedef struct Ants {
 *   Third slider is for the Ants' size.
 *   Checkbox1 is for Gathering food (enabled if you want the ants to gather food, disabled if they are just walking).
 *     We will switch directions when they get to the beginning or end of the segment.
-*     When they have food, we will enable the Pass By option so they can drop off their food easier.
+*     When they have food, we will enable the Pass By option so they can drop off their food easier (and look for more food).
 *   Checkbox2 is for Overlay mode (enabled is Overlay, disabled is no overlay)
 *   Checkbox3 is for whether the ants will bump into each other (disabled) or just pass by each other (enabled)
 */
@@ -3301,7 +3301,7 @@ typedef struct PacManChars {
 #define WHITEISH      (uint32_t)0x999999
 #define DIRECTION_FLAG  0b01
 #define GHOSTSBLUE_FLAG 0b10
-
+#define PACMAN 0                                                                // the PacMan character is character[0]
 /*
 /  Pac-Man (created by making modifications to the Ants effect which was a
 *    modification of the Rolling Balls effect) - Bob Loeffler -  Jan-Feb 2025
@@ -3328,14 +3328,12 @@ static uint16_t mode_pacman(void) {
   if (SEGENV.call == 0) {
     SEGENV.aux0 = DIRECTION_FLAG;                                               // initial direction of movement for all characters.  1=pacman chasing ghosts
 
-    SEGMENT.fill(BLACK);                                                        // black out all LEDs on the segment
-
     for (int i = 0; i < 6; i++) {                                               // make all 6 characters (4 ghosts + 1 Pac-Man + 1 Power dot) the same size
       character[i].size = 1;                                                    //   Not used now, but maybe a different size (2 pixels?) in the future?
     }
 
-    character[0].color = YELLOW;                                                // Pac-man character
-    character[0].pos   = 10;
+    character[PACMAN].color = YELLOW;                                           // Pac-man character[0]
+    character[PACMAN].pos   = 10;
 
     character[1].color = RED;                                                   // Ghost character (turns blue when the power dot is eaten; blinks just before it turns back to normal color)
     character[1].pos =   6;
@@ -3352,13 +3350,6 @@ static uint16_t mode_pacman(void) {
     character[5].color = ORANGEYELLOW;                                          // orange-ish power dot (always blinks until it is eaten)
     character[5].pos =   SEGLEN-1;
 
-    if (SEGMENT.check1) {                                                       // set up the white dots (or not) so PacMan can start eating them; start at the dot just ahead of PacMan
-      for (int i = character[0].pos; i < SEGLEN-1; i++) {
-        SEGMENT.setPixelColor(i, WHITEISH);                                     // dim white color dots
-        i++;                                                                    // skip a dot so the dots are not next to each other
-      }
-    }
-
     SEGMENT.setPixelColor(character[5].pos, character[5].color);                // draw the power dot in the last pixel/led
 
     SEGENV.aux0 = SEGENV.aux0 & ~GHOSTSBLUE_FLAG;                               // the ghosts are not blue yet, so set this to false (0)
@@ -3369,21 +3360,42 @@ static uint16_t mode_pacman(void) {
     SEGENV.aux1++;
   }
 
+  // draw white dots (or black LEDs) so PacMan can start eating them
+  if (SEGENV.aux0 & DIRECTION_FLAG && character[PACMAN].pos > 0) {
+    for (int i = character[4].pos; i > 0; i--) {                               // black out LEDs behind the last ghost (character[4]) in case they are on (transition from previous effect)
+      SEGMENT.setPixelColor(i-2, BLACK);
+    }
+
+    if (SEGMENT.check1) {                                                       // White Dots option is selected, so draw white dots (and black LEDs between them) in front of PacMan
+      for (int i = SEGLEN-2; i > character[PACMAN].pos; i--) {                  // start at the end of the segment (but not the last one because it's the orange power dot) and draw to the PacMan character
+        SEGMENT.setPixelColor(i, WHITEISH);                                     // white dots
+        SEGMENT.setPixelColor(i-1, BLACK);                                      // black LEDS between each white dot
+        i--;                                                                    // skip a dot so the dots are not next to each other
+      }
+    }
+    else {                                                                      // White Dots option is NOT selected, so draw black LEDs in front of PacMan
+      for (int i = SEGLEN-2; i > character[PACMAN].pos; i--) {                  // start at the end of the segment (but not the last one because it's the orange power dot) and draw to the PacMan character
+        SEGMENT.setPixelColor(i, BLACK);                                        // black LEDS only
+      }
+    };
+  }
+
   // blink the orange-ish power dot pixel
   if (SEGENV.aux1 % 10 == 0) {                                                  // blink every 10 ticks of the ticker timer 
     if (character[5].color == ORANGEYELLOW)
       character[5].color = BLACK;
     else
        character[5].color = ORANGEYELLOW;
-   if (SEGENV.aux0 & DIRECTION_FLAG)
-     SEGMENT.setPixelColor(character[5].pos, character[5].color); 
+   
+    if (SEGENV.aux0 & DIRECTION_FLAG)
+      SEGMENT.setPixelColor(character[5].pos, character[5].color); 
   }
 
   // PacMan ate the power dot! Chase the ghosts!
-  if (character[0].pos >= SEGLEN) {
+  if (character[PACMAN].pos >= SEGLEN) {
     SEGENV.aux0 = SEGENV.aux0 & ~DIRECTION_FLAG;                                // reverse direction for all characters; 0=ghosts chasing pacman
     for (int i = 1; i < numGhosts + 1; i++) {                                   // For all 4 ghosts...
-      character[i].color = BLUE;                                                //   change their color to blue
+      character[i].color = BLUE;                                                // ...change their color to blue
     }
     for (int i = 0; i < 5; i++) {                                               // move each character back one pixel, but not the orange-ish power dot
       character[i].pos = character[i].pos - 1;
@@ -3392,15 +3404,8 @@ static uint16_t mode_pacman(void) {
   }
 
   // when the ghosts are blue and PacMan gets to the beginning of the segment...
-  if ((SEGENV.aux0 & GHOSTSBLUE_FLAG) && character[0].pos <= 0) {
-    for (int i = character[0].pos; i < SEGLEN-1; i++) {                         // set up the white dots (or not) so PacMan can start eating them again; start at the dot just ahead of PacMan
-      if (SEGMENT.check1)
-        SEGMENT.setPixelColor(i, WHITEISH);                                     // dim white color dots
-      else
-        SEGMENT.setPixelColor(i, BLACK);                                        // black (no dots)
-      i++;                                                                      // skip a dot so the dots are not next to each other
-    }
-    SEGMENT.setPixelColor(character[5].pos, character[5].color);                // ...draw the orange-ish power dot in the last led
+  if ((SEGENV.aux0 & GHOSTSBLUE_FLAG) && character[PACMAN].pos <= 0) {
+    SEGMENT.setPixelColor(character[5].pos, character[5].color);                // draw the orange-ish power dot in the last led
 
     SEGENV.aux0 = SEGENV.aux0 | DIRECTION_FLAG;                                 // reverse direction for all characters (back to normal direction; 1=pacman chasing ghosts)
     character[1].color = RED;                                                   // change ghost 1 color back to red
@@ -3410,12 +3415,12 @@ static uint16_t mode_pacman(void) {
     SEGENV.aux0 = SEGENV.aux0 & ~GHOSTSBLUE_FLAG;                               // ghosts should not be blue anymore, so set to false
   }
 
-  // display everything
+  // display the characters
   if (SEGENV.aux1 % map(SEGMENT.speed, 0, 255, 20, 1) == 0) {                   // User-selectable speed of PacMan and the Ghosts
     if (SEGENV.aux0 & DIRECTION_FLAG) {                                         // Going forward from the beginning...
-      SEGMENT.setPixelColor(character[0].pos, character[0].color);              // ...draw PacMan
-      SEGMENT.setPixelColor(character[0].pos-1, BLACK);
-      character[0].pos = character[0].pos+1;
+      SEGMENT.setPixelColor(character[PACMAN].pos, character[PACMAN].color);    // ...draw PacMan
+      SEGMENT.setPixelColor(character[PACMAN].pos-1, BLACK);
+      character[0].pos = character[PACMAN].pos+1;
 
       for (int i = 1; i < numGhosts + 1; i++) {                                 // ...draw the 4 ghosts (and black dots surrounding each ghost)
         SEGMENT.setPixelColor(character[i].pos, character[i].color);
@@ -3424,13 +3429,13 @@ static uint16_t mode_pacman(void) {
       }
     }
     else {                                                                      // Going backward (after PacMan ate the power dot)...
-      SEGMENT.setPixelColor(character[0].pos+1, BLACK);
-      SEGMENT.setPixelColor(character[0].pos, character[0].color);              // ...draw PacMan
-      SEGMENT.setPixelColor(character[0].pos-1, BLACK);
+      SEGMENT.setPixelColor(character[PACMAN].pos+1, BLACK);
+      SEGMENT.setPixelColor(character[PACMAN].pos, character[PACMAN].color);    // ...draw PacMan
+      SEGMENT.setPixelColor(character[PACMAN].pos-1, BLACK);
       character[0].pos = character[0].pos-1;
 
       for (int i = 1; i < numGhosts + 1; i++) {                                 // ...draw the 4 ghosts (and black dots surrounding each ghost)
-        if ((SEGENV.aux0 & GHOSTSBLUE_FLAG) && character[0].pos <= startBlinkingGhostsLED) {   // if the ghost is blue and nearing the beginning of the strip, blink the ghosts
+        if ((SEGENV.aux0 & GHOSTSBLUE_FLAG) && character[PACMAN].pos <= startBlinkingGhostsLED) {   // if the ghost is blue and nearing the beginning of the strip, blink the ghosts
           if (character[i].color == BLUE)
               character[i].color = BLACK;
           else
@@ -3447,7 +3452,7 @@ static uint16_t mode_pacman(void) {
 
   return FRAMETIME;
 }
-static const char _data_FX_MODE_PACMAN[] PROGMEM = "PacMan@Speed,,,,,White Dots,,;,,;!;1;m12=1,o1=1";
+static const char _data_FX_MODE_PACMAN[] PROGMEM = "PacMan@Speed,,,,,White dots,,;,,;!;1;m12=1,o1=1";
 
 
 /*
