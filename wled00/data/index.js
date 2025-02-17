@@ -805,20 +805,20 @@ function populateSegments(s)
 							`<option value="4" ${inst.m12==4?' selected':''}>Pinwheel</option>`+
 						`</select></div>`+
 					`</div>`;
-		let blend = `<div data-snd="si" class="lbl-s hide">Blend mode<br>`+
+		let blend = `<div class="lbl-s">Blend mode<br>`+
 						`<div class="sel-p"><select class="sel-p" id="seg${i}bm" onchange="setBm(${i})">`+
-							`<option value="0" ${inst.si==0?' selected':''}>Top/Default</option>`+
-							`<option value="1" ${inst.si==1?' selected':''}>Bottom/None</option>`+
-							`<option value="2" ${inst.si==2?' selected':''}>Add</option>`+
-							`<option value="3" ${inst.si==3?' selected':''}>Subtract</option>`+
-							`<option value="4" ${inst.si==4?' selected':''}>Difference</option>`+
-							`<option value="5" ${inst.si==5?' selected':''}>Average</option>`+
-							`<option value="6" ${inst.si==6?' selected':''}>Multiply</option>`+
-							`<option value="7" ${inst.si==7?' selected':''}>Divide</option>`+
-							`<option value="8" ${inst.si==8?' selected':''}>Lighten</option>`+
-							`<option value="9" ${inst.si==9?' selected':''}>Darken</option>`+
-							`<option value="10" ${inst.si==10?' selected':''}>Screen</option>`+
-							`<option value="11" ${inst.si==11?' selected':''}>Overlay</option>`+
+							`<option value="0" ${inst.bm==0?' selected':''}>Top/Default</option>`+
+							`<option value="1" ${inst.bm==1?' selected':''}>Bottom/None</option>`+
+							`<option value="2" ${inst.bm==2?' selected':''}>Add</option>`+
+							`<option value="3" ${inst.bm==3?' selected':''}>Subtract</option>`+
+							`<option value="4" ${inst.bm==4?' selected':''}>Difference</option>`+
+							`<option value="5" ${inst.bm==5?' selected':''}>Average</option>`+
+							`<option value="6" ${inst.bm==6?' selected':''}>Multiply</option>`+
+							`<option value="7" ${inst.bm==7?' selected':''}>Divide</option>`+
+							`<option value="8" ${inst.bm==8?' selected':''}>Lighten</option>`+
+							`<option value="9" ${inst.bm==9?' selected':''}>Darken</option>`+
+							`<option value="10" ${inst.bm==10?' selected':''}>Screen</option>`+
+							`<option value="11" ${inst.bm==11?' selected':''}>Overlay</option>`+
 						`</select></div>`+
 					`</div>`;
 //		let sndSim = `<div data-snd="si" class="lbl-s hide">Sound sim<br>`+

@@ -555,6 +555,7 @@ static void serializeSegment(JsonObject& root, const Segment& seg, byte id, bool
   root["o3"]  = seg.check3;
   root["si"]  = seg.soundSim;
   root["m12"] = seg.map1D2D;
+  root["bm"]  = seg.blendMode;
 }
 
 void serializeState(JsonObject root, bool forPreset, bool includeBri, bool segmentBounds, bool selectedSegmentsOnly)

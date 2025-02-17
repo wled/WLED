@@ -438,7 +438,7 @@ typedef struct Segment {
     static unsigned _vLength;                 // 1D dimension used for current effect
     static unsigned _vWidth, _vHeight;        // 2D dimensions used for current effect
     static uint32_t _currentColors[NUM_COLORS]; // colors used for current effect
-    static bool     _colorScaled;             // color has been scaled prior to setPixelColor() call
+    //static bool     _colorScaled;             // color has been scaled prior to setPixelColor() call
     static CRGBPalette16 _currentPalette;     // palette used for current effect (includes transition, used in color_from_palette())
     static CRGBPalette16 _randomPalette;      // actual random palette
     static CRGBPalette16 _newRandomPalette;   // target random palette

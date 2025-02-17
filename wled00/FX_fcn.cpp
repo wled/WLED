@@ -73,7 +73,7 @@ unsigned      Segment::_vWidth            = 0;
 unsigned      Segment::_vHeight           = 0;
 uint8_t       Segment::_segBri            = 0;
 uint32_t      Segment::_currentColors[NUM_COLORS] = {0,0,0};
-bool          Segment::_colorScaled       = false;
+//bool          Segment::_colorScaled       = false;
 CRGBPalette16 Segment::_currentPalette    = CRGBPalette16(CRGB::Black);
 CRGBPalette16 Segment::_randomPalette     = generateRandomPalette();  // was CRGBPalette16(DEFAULT_COLOR);
 CRGBPalette16 Segment::_newRandomPalette  = generateRandomPalette();  // was CRGBPalette16(DEFAULT_COLOR);
@@ -800,8 +800,8 @@ void IRAM_ATTR Segment::setPixelColor(int i, uint32_t col) const
     const int vW = vWidth();   // segment width in logical pixels (can be 0 if segment is inactive)
     const int vH = vHeight();  // segment height in logical pixels (is always >= 1)
     // pre-scale color for all pixels
-    col = color_fade(col, _segBri);
-    _colorScaled = true;
+    //col = color_fade(col, _segBri);
+    //_colorScaled = true;
     switch (map1D2D) {
       case M12_Pixels:
         // use all available pixels as a long strip
@@ -893,7 +893,7 @@ void IRAM_ATTR Segment::setPixelColor(int i, uint32_t col) const
         break;
       }
     }
-    _colorScaled = false;
+    //_colorScaled = false;
     return;
   } else if (Segment::maxHeight != 1 && (width() == 1 || height() == 1)) {
     if (start < Segment::maxWidth*Segment::maxHeight) {
@@ -921,7 +921,7 @@ void IRAM_ATTR Segment::setPixelColor(int i, uint32_t col) const
   if (i >= vL || i < 0 || isPixelClipped(i)) return; // handle clipping on 1D
 
   // if color is unscaled
-  if (!_colorScaled) col = color_fade(col, _segBri);
+  //if (!_colorScaled) col = color_fade(col, _segBri);
 
 #ifndef WLED_DISABLE_MODE_BLEND
   // _modeBlend==true -> old effect
@@ -1191,13 +1191,13 @@ void Segment::fill(uint32_t c) const {
   const int cols = is2D() ? vWidth() : vLength();
   const int rows = vHeight(); // will be 1 for 1D
   // pre-scale color for all pixels
-  c = color_fade(c, _segBri);
-  _colorScaled = true;
+  //c = color_fade(c, _segBri);
+  //_colorScaled = true;
   for (int y = 0; y < rows; y++) for (int x = 0; x < cols; x++) {
     if (is2D()) setPixelColorXY(x, y, c);
     else        setPixelColor(x, c);
   }
-  _colorScaled = false;
+  //_colorScaled = false;
 }
 
 /*
@@ -1549,12 +1549,12 @@ void WS2812FX::service() {
         // would need to be allocated for each effect and then blended together for each pixel.
         seg.beginDraw();                      // set up parameters for get/setPixelColor()
 #ifndef WLED_DISABLE_MODE_BLEND
-        Segment::setClippingRect(0, 0); // disable clipping (just in case)
+        Segment::setClippingRect(0, 0);       // disable clipping (just in case)
         if (seg.isInTransition()) {
           // a hack to determine if effect has changed
-          uint8_t  m = seg.currentMode();
+          uint8_t m = seg.currentMode();
           Segment::modeBlend(true);           // set semaphore
-          bool     sameEffect = (m == seg.currentMode());
+          bool sameEffect = (m == seg.currentMode());
           Segment::modeBlend(false);          // clear semaphore
           // set clipping rectangle
           // new mode is run inside clipping area and old mode outside clipping area
@@ -1655,7 +1655,7 @@ void WS2812FX::service() {
   #endif
   if (doShow) {
     for (size_t i = 0; i < getLengthTotal(); i++) pixels[i] = BLACK; // clear frame buffer; memset(pixels, 0, sizeof(uint32_t) * getLengthTotal());
-    for (const auto &seg : _segments) if (seg.isActive()) blendSegment(seg); // blend all render buffers into frame buffer
+    for (const auto &seg : _segments) if (seg.isActive() && seg.on) blendSegment(seg); // blend all render buffers into frame buffer
     for (size_t i = 0; i < getLengthTotal(); i++) setPixelColor(i, pixels[i]);
 
     yield();
@@ -1695,7 +1695,7 @@ void WS2812FX::blendSegment(const Segment &topSegment) {
   const size_t matrixSize = Segment::maxWidth * Segment::maxHeight;
   const size_t startIndx  = XY(topSegment.start, topSegment.startY);
   const size_t stopIndx   = startIndx + len;
-  const unsigned opacity  = topSegment.opacity; // determines amount of a applied over b in blend fuctions (not yet used)
+  const unsigned opacity  = topSegment.currentBri(); // determines amount of a applied over b in blend fuctions (not yet used)
 
   if (isMatrix && stopIndx <= matrixSize) {
 #ifndef WLED_DISABLE_2D
@@ -1704,6 +1704,7 @@ void WS2812FX::blendSegment(const Segment &topSegment) {
     for (int r = 0; r < rows; r++) for (int c = 0; c < cols; c++) {
       // get segment's pixel
       uint32_t c_a = topSegment.getPixelColorXY(c,r);
+      c_a = color_fade(c_a, opacity);
       auto r_a = R(c_a);
       auto g_a = G(c_a);
       auto b_a = B(c_a);
@@ -1778,6 +1779,7 @@ void WS2812FX::blendSegment(const Segment &topSegment) {
   } else {
     for (int k = 0; k < len; k++) {
       uint32_t c_a = topSegment.getPixelColor(k);
+      c_a = color_fade(c_a, opacity);
       auto r_a = R(c_a);
       auto g_a = G(c_a);
       auto b_a = B(c_a);
