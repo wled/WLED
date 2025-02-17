@@ -301,8 +301,37 @@ extern byte realtimeMode;           // used in getMappedPixelIndex()
 #define FX_MODE_2DDNASPIRAL            182
 #define FX_MODE_2DBLACKHOLE            183
 #define FX_MODE_WAVESINS               184
-
-#define MODE_COUNT                     187
+#define FX_MODE_ROCKTAVES              185
+#define FX_MODE_2DAKEMI                186
+#define FX_MODE_PARTICLEVOLCANO        187
+#define FX_MODE_PARTICLEFIRE           188
+#define FX_MODE_PARTICLEFIREWORKS      189
+#define FX_MODE_PARTICLEVORTEX         190
+#define FX_MODE_PARTICLEPERLIN         191
+#define FX_MODE_PARTICLEPIT            192
+#define FX_MODE_PARTICLEBOX            193
+#define FX_MODE_PARTICLEATTRACTOR      194
+#define FX_MODE_PARTICLEIMPACT         195
+#define FX_MODE_PARTICLEWATERFALL      196
+#define FX_MODE_PARTICLESPRAY          197
+#define FX_MODE_PARTICLESGEQ           198
+#define FX_MODE_PARTICLECENTERGEQ      199
+#define FX_MODE_PARTICLEGHOSTRIDER     200
+#define FX_MODE_PARTICLEBLOBS          201
+#define FX_MODE_PSDRIP                 202
+#define FX_MODE_PSPINBALL              203
+#define FX_MODE_PSDANCINGSHADOWS       204
+#define FX_MODE_PSFIREWORKS1D          205
+#define FX_MODE_PSSPARKLER             206
+#define FX_MODE_PSHOURGLASS            207
+#define FX_MODE_PS1DSPRAY              208
+#define FX_MODE_PSBALANCE              209
+#define FX_MODE_PSCHASE                210
+#define FX_MODE_PSSTARBURST            211
+#define FX_MODE_PS1DGEQ                212
+#define FX_MODE_PSFIRE1D               213
+#define FX_MODE_PS1DSONICSTREAM        214
+#define MODE_COUNT                     215
 
 
 #define BLEND_STYLE_FADE            0x00  // universal
@@ -432,6 +461,7 @@ typedef struct Segment {
       uint8_t       _prevPaletteBlends; // number of previous palette blends (there are max 255 blends possible)
       unsigned long _start;       // must accommodate millis()
       uint16_t      _dur;
+      // -> here is one byte of padding
       Transition(uint16_t dur=750)
         : _oldSegment(nullptr)
         , _palT(CRGBPalette16(CRGB::Black))
