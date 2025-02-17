@@ -242,6 +242,7 @@ private:
   uint8_t motionBlur; // motion blur, values > 100 gives smoother animations. Note: motion blurring does not work if particlesize is > 0
   uint8_t smearBlur; // 2D smeared blurring of full frame
   uint8_t effectID; // ID of the effect that is using this particle system, used for transitions
+  uint32_t lastRender; // last time the particles were rendered, intermediate fix for speedup
 };
 
 void blur2D(CRGB *colorbuffer, const uint32_t xsize, uint32_t ysize, const uint32_t xblur, const uint32_t yblur, const uint32_t xstart = 0, uint32_t ystart = 0, const bool isparticle = false);
@@ -406,6 +407,7 @@ private:
   uint8_t motionBlur; // enable motion blur, values > 100 gives smoother animations
   uint8_t smearBlur; // smeared blurring of full frame
   uint8_t effectID; // ID of the effect that is using this particle system, used for transitions
+  uint32_t lastRender; // last time the particles were rendered, intermediate fix for speedup
 };
 
 bool initParticleSystem1D(ParticleSystem1D *&PartSys, const uint32_t requestedsources, const uint8_t fractionofparticles = 255, const uint32_t additionalbytes = 0, const bool advanced = false);
