@@ -921,6 +921,88 @@ static uint16_t chase(uint32_t color1, uint32_t color2, uint32_t color3, bool do
   return FRAMETIME;
 }
 
+/**
+ * Chase_Race function to allow 3 colored bands to race along the LEDs with black between the colors.
+ * color1, color2, and color3 = colors of the three leaders in the race
+ */
+uint16_t chase_race(uint32_t color1, uint32_t color2, uint32_t color3, bool do_palette)
+{
+  uint16_t counter = strip.now * ((SEGMENT.speed >> 2) + 1);
+  uint16_t a = (counter * SEGLEN) >> 16;
+
+  // Use intensity setting to vary chase up to 1/2 string length
+  unsigned size = 1 + ((SEGMENT.intensity * SEGLEN) >> 10);
+  unsigned gap = size / 8; // Smaller black band size as a fraction of color size
+  uint16_t b = a + size;   // "trail" of chase, filled with color1
+  if (b > SEGLEN)
+    b -= SEGLEN;
+  uint16_t c = b + size + gap; // Add black gap after color1
+  if (c > SEGLEN)
+    c -= SEGLEN;
+  uint16_t d = c + size; // "trail" of color2
+  if (d > SEGLEN)
+    d -= SEGLEN;
+  uint16_t e = d + size + gap; // Add black gap after color2
+  if (e > SEGLEN)
+    e -= SEGLEN;
+  uint16_t f = e + size; // "trail" of color3
+  if (f > SEGLEN)
+    f -= SEGLEN;
+
+  // Background
+  SEGMENT.fill(0); // Set the entire strip to black
+
+  // Fill between points a and b with color1
+  if (a < b)
+  {
+    for (unsigned i = a; i < b; i++)
+      SEGMENT.setPixelColor(i, color1);
+  }
+  else
+  {
+    for (unsigned i = a; i < SEGLEN; i++)
+      SEGMENT.setPixelColor(i, color1);
+    for (unsigned i = 0; i < b; i++)
+      SEGMENT.setPixelColor(i, color1);
+  }
+
+  // Fill between points c and d with color2
+  if (c < d)
+  {
+    for (unsigned i = c; i < d; i++)
+      SEGMENT.setPixelColor(i, color2);
+  }
+  else
+  {
+    for (unsigned i = c; i < SEGLEN; i++)
+      SEGMENT.setPixelColor(i, color2);
+    for (unsigned i = 0; i < d; i++)
+      SEGMENT.setPixelColor(i, color2);
+  }
+
+  // Fill between points e and f with color3
+  if (e < f)
+  {
+    for (unsigned i = e; i < f; i++)
+      SEGMENT.setPixelColor(i, color3);
+  }
+  else
+  {
+    for (unsigned i = e; i < SEGLEN; i++)
+      SEGMENT.setPixelColor(i, color3);
+    for (unsigned i = 0; i < f; i++)
+      SEGMENT.setPixelColor(i, color3);
+  }
+
+  return FRAMETIME;
+}
+
+// Main effect function
+uint16_t mode_chase_race()
+{
+  return chase_race(SEGCOLOR(0), SEGCOLOR(1), SEGCOLOR(2), false);
+}
+static const char _data_FX_MODE_CHASE_RACE[] PROGMEM = "Chase Race@!,Width;!,!,!;!";
 
 /*
  * Bicolor chase, more primary color.
@@ -7732,6 +7814,7 @@ void WS2812FX::setupEffectData() {
   addEffect(FX_MODE_BLINK_RAINBOW, &mode_blink_rainbow, _data_FX_MODE_BLINK_RAINBOW);
   addEffect(FX_MODE_ANDROID, &mode_android, _data_FX_MODE_ANDROID);
   addEffect(FX_MODE_CHASE_COLOR, &mode_chase_color, _data_FX_MODE_CHASE_COLOR);
+  addEffect(FX_MODE_CHASE_RACE, &mode_chase_race, _data_FX_MODE_CHASE_RACE);
   addEffect(FX_MODE_CHASE_RANDOM, &mode_chase_random, _data_FX_MODE_CHASE_RANDOM);
   addEffect(FX_MODE_CHASE_RAINBOW, &mode_chase_rainbow, _data_FX_MODE_CHASE_RAINBOW);
   addEffect(FX_MODE_CHASE_FLASH, &mode_chase_flash, _data_FX_MODE_CHASE_FLASH);
