@@ -9738,7 +9738,7 @@ uint16_t mode_particleBalance(void) {
   PartSys->particles[randomindex].vx = ((int32_t)PartSys->particles[randomindex].vx * 200) / 255;  // apply friction to random particle to reduce clumping (without collisions)
 
   //if (SEGMENT.check2 && (SEGMENT.call & 0x07) == 0) // no walls, apply friction to smooth things out
-  if ((SEGMENT.call & 0x0F) == 0 && SEGMENT.custom3 > 2) // apply friction every 16th frame to smooth things out (except for low tilt)
+  if ((SEGMENT.call & 0x0F) == 0 && SEGMENT.custom3 > 4) // apply friction every 16th frame to smooth things out (except for low tilt)
     PartSys->applyFriction(1); // apply friction to all particles
 
   //update colors
@@ -9751,7 +9751,7 @@ uint16_t mode_particleBalance(void) {
   PartSys->update(); // update and render
   return FRAMETIME;
 }
-static const char _data_FX_MODE_PS_BALANCE[] PROGMEM = "PS 1D Balance@!,!,Hardness,Blur,Tilt,Position Color,Wrap,Random;,!;!;1;pal=18,sx=64,c1=200,c2=0,c3=5,o1=1";
+static const char _data_FX_MODE_PS_BALANCE[] PROGMEM = "PS 1D Balance@!,!,Hardness,Blur,Tilt,Position Color,Wrap,Random;,!;!;1;pal=18,c2=0,c3=4,o1=1";
 
 /*
 Particle based Chase effect
