@@ -101,7 +101,7 @@ Segment::Segment(const Segment &orig) {
   if (!isActive()) return;
   if (orig.name) { name = static_cast<char*>(d_malloc(strlen(orig.name)+1)); if (name) strcpy(name, orig.name); }
   if (orig.data) { if (allocateData(orig._dataLen)) memcpy(data, orig.data, orig._dataLen); }
-  if (orig.pixels) { pixels = static_cast<uint32_t*>(d_malloc(sizeof(uint32_t) * virtualLength())); }
+  if (orig.pixels) { pixels = static_cast<uint32_t*>(d_malloc(sizeof(uint32_t) * virtualLength())); if (pixels) memcpy(pixels, orig.pixels, sizeof(uint32_t) * virtualLength()); }
 }
 
 // move constructor
@@ -133,7 +133,7 @@ Segment& Segment::operator= (const Segment &orig) {
     // copy source data
     if (orig.name) { name = static_cast<char*>(d_malloc(strlen(orig.name)+1)); if (name) strcpy(name, orig.name); }
     if (orig.data) { if (allocateData(orig._dataLen)) memcpy(data, orig.data, orig._dataLen); }
-    if (orig.pixels) { pixels = static_cast<uint32_t*>(d_malloc(sizeof(uint32_t) * virtualLength())); }
+    if (orig.pixels) { pixels = static_cast<uint32_t*>(d_malloc(sizeof(uint32_t) * virtualLength())); if (pixels) memcpy(pixels, orig.pixels, sizeof(uint32_t) * virtualLength()); }
   }
   return *this;
 }
@@ -923,7 +923,6 @@ void IRAM_ATTR Segment::setPixelColor(int i, uint32_t col) const
   // if color is unscaled
   if (!_colorScaled) col = color_fade(col, _segBri);
 
-
 #ifndef WLED_DISABLE_MODE_BLEND
   // _modeBlend==true -> old effect
   if (_modeBlend && blendingStyle == BLEND_STYLE_FADE) col = color_blend16(pixels[i], col, prog);
@@ -1656,10 +1655,7 @@ void WS2812FX::service() {
   #endif
   if (doShow) {
     for (size_t i = 0; i < getLengthTotal(); i++) pixels[i] = BLACK; // clear frame buffer; memset(pixels, 0, sizeof(uint32_t) * getLengthTotal());
-    for (const auto &seg : _segments) if (seg.isActive()) {
-      seg.setDrawDimensions();  // required for seg.getPixelColor()
-      blendSegment(seg); // blend all render buffers into frame buffer
-    }
+    for (const auto &seg : _segments) if (seg.isActive()) blendSegment(seg); // blend all render buffers into frame buffer
     for (size_t i = 0; i < getLengthTotal(); i++) setPixelColor(i, pixels[i]);
 
     yield();
@@ -1693,12 +1689,19 @@ void WS2812FX::blendSegment(const Segment &topSegment) {
   const size_t blendMode = topSegment.blendMode < (sizeof(funcs) / sizeof(FuncType)) ? topSegment.blendMode : 0;
   const auto func = funcs[blendMode]; // blendMode % (sizeof(funcs) / sizeof(FuncType))
 
-  if (isMatrix) {
+  topSegment.setDrawDimensions();         // required for seg.getPixelColor()
+  const int  len = Segment::vLength();    // use precalculated value from setDrawDimensions()
+  const auto XY  = [](int x, int y){ return x + y*Segment::maxWidth; };
+  const size_t matrixSize = Segment::maxWidth * Segment::maxHeight;
+  const size_t startIndx  = XY(topSegment.start, topSegment.startY);
+  const size_t stopIndx   = startIndx + len;
+  const unsigned opacity  = topSegment.opacity; // determines amount of a applied over b in blend fuctions (not yet used)
+
+  if (isMatrix && stopIndx <= matrixSize) {
 #ifndef WLED_DISABLE_2D
-    const int  cols = topSegment.virtualWidth();
-    const int  rows = topSegment.virtualHeight();
-    const auto XY = [](int x, int y){ return x + y*Segment::maxWidth; };
-    for (auto r = 0; r < rows; r++) for (auto c = 0; c < cols; c++) {
+    const int cols = Segment::vWidth();   // use precalculated value from setDrawDimensions()
+    const int rows = Segment::vHeight();  // use precalculated value from setDrawDimensions()
+    for (int r = 0; r < rows; r++) for (int c = 0; c < cols; c++) {
       // get segment's pixel
       uint32_t c_a = topSegment.getPixelColorXY(c,r);
       auto r_a = R(c_a);
@@ -1773,8 +1776,7 @@ void WS2812FX::blendSegment(const Segment &topSegment) {
     }
 #endif
   } else {
-    const int len = topSegment.virtualLength();
-    for (auto k = 0; k < len; k++) {
+    for (int k = 0; k < len; k++) {
       uint32_t c_a = topSegment.getPixelColor(k);
       auto r_a = R(c_a);
       auto g_a = G(c_a);
