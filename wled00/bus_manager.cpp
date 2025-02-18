@@ -124,7 +124,7 @@ BusDigital::BusDigital(const BusConfig &bc, uint8_t nr)
 , _colorOrder(bc.colorOrder)
 , _milliAmpsPerLed(bc.milliAmpsPerLed)
 , _milliAmpsMax(bc.milliAmpsMax)
-, _data(nullptr)
+//, _data(nullptr)
 {
   DEBUGBUS_PRINTLN(F("Bus: Creating digital bus."));
   if (!isDigital(bc.type) || !bc.count) { DEBUGBUS_PRINTLN(F("Not digial or empty bus!")); return; }
@@ -145,10 +145,10 @@ BusDigital::BusDigital(const BusConfig &bc, uint8_t nr)
   _hasRgb = hasRGB(bc.type);
   _hasWhite = hasWhite(bc.type);
   _hasCCT = hasCCT(bc.type);
-  if (bc.doubleBuffer) {
-    _data = (uint8_t*)d_calloc(_len, Bus::getNumberOfChannels(_type));
-    if (!_data) DEBUGBUS_PRINTLN(F("Bus: Buffer allocation failed!"));
-  }
+//  if (bc.doubleBuffer) {
+//    _data = (uint8_t*)d_calloc(_len, Bus::getNumberOfChannels(_type));
+//    if (!_data) DEBUGBUS_PRINTLN(F("Bus: Buffer allocation failed!"));
+//  }
   uint16_t lenToCreate = bc.count;
   if (bc.type == TYPE_WS2812_1CH_X3) lenToCreate = NUM_ICS_WS2812_1CH_3X(bc.count); // only needs a third of "RGB" LEDs for NeoPixelBus
   _busPtr = PolyBus::create(_iType, _pins, lenToCreate + _skip, nr);
@@ -231,7 +231,7 @@ void BusDigital::show() {
   uint8_t cctWW = 0, cctCW = 0;
   unsigned newBri = estimateCurrentAndLimitBri();  // will fill _milliAmpsTotal (TODO: could use PolyBus::CalcTotalMilliAmpere())
   if (newBri < _bri) PolyBus::setBrightness(_busPtr, _iType, newBri); // limit brightness to stay within current limits
-
+/*
   if (_data) {
     size_t channels = getNumberOfChannels();
     int16_t oldCCT = Bus::_cct; // temporarily save bus CCT
@@ -268,6 +268,7 @@ void BusDigital::show() {
     for (int i=1; i<_skip; i++) PolyBus::setPixelColor(_busPtr, _iType, i, 0, _colorOrderMap.getPixelColorOrder(_start, _colorOrder)); // paint skipped pixels black
     Bus::_cct = oldCCT;
   } else {
+*/
     if (newBri < _bri) {
       unsigned hwLen = _len;
       if (_type == TYPE_WS2812_1CH_X3) hwLen = NUM_ICS_WS2812_1CH_3X(_len); // only needs a third of "RGB" LEDs for NeoPixelBus
@@ -278,8 +279,8 @@ void BusDigital::show() {
         PolyBus::setPixelColor(_busPtr, _iType, i, c, 0, (cctCW<<8) | cctWW); // repaint all pixels with new brightness
       }
     }
-  }
-  PolyBus::show(_busPtr, _iType, !_data); // faster if buffer consistency is not important
+//  }
+  PolyBus::show(_busPtr, _iType/*, !_data*/); // faster if buffer consistency is not important
   // restore bus brightness to its original value
   // this is done right after show, so this is only OK if LED updates are completed before show() returns
   // or async show has a separate buffer (ESP32 RMT and I2S are ok)
@@ -310,6 +311,7 @@ void IRAM_ATTR BusDigital::setPixelColor(unsigned pix, uint32_t c) {
   if (!_valid) return;
   if (hasWhite()) c = autoWhiteCalc(c);
   if (Bus::_cct >= 1900) c = colorBalanceFromKelvin(Bus::_cct, c); //color correction from CCT
+/*
   if (_data) {
     size_t offset = pix * getNumberOfChannels();
     uint8_t* dataptr = _data + offset;
@@ -323,6 +325,7 @@ void IRAM_ATTR BusDigital::setPixelColor(unsigned pix, uint32_t c) {
     // we need to store CCT value for each pixel (if there is a color correction in play, convert K in CCT ratio)
     if (hasCCT()) *dataptr = Bus::_cct >= 1900 ? (Bus::_cct - 1900) >> 5 : (Bus::_cct < 0 ? 127 : Bus::_cct); // TODO: if _cct == -1 we simply ignore it
   } else {
+*/
     if (_reversed) pix = _len - pix -1;
     pix += _skip;
     unsigned co = _colorOrderMap.getPixelColorOrder(pix+_start, _colorOrder);
@@ -344,12 +347,13 @@ void IRAM_ATTR BusDigital::setPixelColor(unsigned pix, uint32_t c) {
       if (_type == TYPE_WS2812_WWA) c = RGBW32(cctWW, cctCW, 0, W(c));
     }
     PolyBus::setPixelColor(_busPtr, _iType, pix, c, co, wwcw);
-  }
+//  }
 }
 
 // returns original color if global buffering is enabled, else returns lossly restored color from bus
 uint32_t IRAM_ATTR BusDigital::getPixelColor(unsigned pix) const {
   if (!_valid) return 0;
+/*
   if (_data) {
     const size_t offset = pix * getNumberOfChannels();
     uint32_t c;
@@ -360,6 +364,7 @@ uint32_t IRAM_ATTR BusDigital::getPixelColor(unsigned pix) const {
     }
     return c;
   } else {
+*/
     if (_reversed) pix = _len - pix -1;
     pix += _skip;
     const unsigned co = _colorOrderMap.getPixelColorOrder(pix+_start, _colorOrder);
@@ -379,7 +384,7 @@ uint32_t IRAM_ATTR BusDigital::getPixelColor(unsigned pix) const {
       c = RGBW32(w, w, 0, w);
     }
     return c;
-  }
+//  }
 }
 
 size_t BusDigital::getPins(uint8_t* pinArray) const {
@@ -389,7 +394,7 @@ size_t BusDigital::getPins(uint8_t* pinArray) const {
 }
 
 size_t BusDigital::getBusSize() const {
-  return sizeof(BusDigital) + (isOk() ? PolyBus::getDataSize(_busPtr, _iType) + (_data ? _len * getNumberOfChannels() : 0) : 0);
+  return sizeof(BusDigital) + (isOk() ? PolyBus::getDataSize(_busPtr, _iType) /*+ (_data ? _len * getNumberOfChannels() : 0)*/ : 0);
 }
 
 void BusDigital::setColorOrder(uint8_t colorOrder) {
@@ -432,8 +437,8 @@ void BusDigital::begin() {
 void BusDigital::cleanup() {
   DEBUGBUS_PRINTLN(F("Digital Cleanup."));
   PolyBus::cleanup(_busPtr, _iType);
-  d_free(_data);
-  _data = nullptr;
+//  d_free(_data);
+//  _data = nullptr;
   _iType = I_NONE;
   _valid = false;
   _busPtr = nullptr;
@@ -803,7 +808,7 @@ size_t BusConfig::memUsage(unsigned nr) const {
   if (Bus::isVirtual(type)) {
     return sizeof(BusNetwork) + (count * Bus::getNumberOfChannels(type));
   } else if (Bus::isDigital(type)) {
-    return sizeof(BusDigital) + PolyBus::memUsage(count + skipAmount, PolyBus::getI(type, pins, nr)) + doubleBuffer * (count + skipAmount) * Bus::getNumberOfChannels(type);
+    return sizeof(BusDigital) + PolyBus::memUsage(count + skipAmount, PolyBus::getI(type, pins, nr)) /*+ doubleBuffer * (count + skipAmount) * Bus::getNumberOfChannels(type)*/;
   } else if (Bus::isOnOff(type)) {
     return sizeof(BusOnOff);
   } else {

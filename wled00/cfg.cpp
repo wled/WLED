@@ -120,7 +120,7 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
   uint8_t cctBlending = hw_led[F("cb")] | Bus::getCCTBlend();
   Bus::setCCTBlend(cctBlending);
   strip.setTargetFps(hw_led["fps"]); //NOP if 0, default 42 FPS
-  CJSON(useGlobalLedBuffer, hw_led[F("ld")]);
+//  CJSON(useGlobalLedBuffer, hw_led[F("ld")]);
   #if defined(ARDUINO_ARCH_ESP32) && !defined(CONFIG_IDF_TARGET_ESP32C3)
   CJSON(useParallelI2S, hw_led[F("prl")]);
   #endif
@@ -198,8 +198,8 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
       }
       ledType |= refresh << 7; // hack bit 7 to indicate strip requires off refresh
 
-      //busConfigs.push_back(std::move(BusConfig(ledType, pins, start, length, colorOrder, reversed, skipFirst, AWmode, freqkHz, useGlobalLedBuffer, maPerLed, maMax)));
-      busConfigs.emplace_back(ledType, pins, start, length, colorOrder, reversed, skipFirst, AWmode, freqkHz, useGlobalLedBuffer, maPerLed, maMax);
+      //busConfigs.push_back(std::move(BusConfig(ledType, pins, start, length, colorOrder, reversed, skipFirst, AWmode, freqkHz, /*useGlobalLedBuffer,*/ maPerLed, maMax)));
+      busConfigs.emplace_back(ledType, pins, start, length, colorOrder, reversed, skipFirst, AWmode, freqkHz, /*useGlobalLedBuffer,*/ maPerLed, maMax);
       doInit |= INIT_BUS;  // finalization done in beginStrip()
       if (!Bus::isVirtual(ledType)) s++; // have as many virtual buses as you want
     }
@@ -782,14 +782,14 @@ void serializeConfig() {
   JsonObject hw_led = hw.createNestedObject("led");
   hw_led[F("total")] = strip.getLengthTotal(); //provided for compatibility on downgrade and per-output ABL
   hw_led[F("maxpwr")] = BusManager::ablMilliampsMax();
-  hw_led[F("ledma")] = 0; // no longer used
+//  hw_led[F("ledma")] = 0; // no longer used
   hw_led["cct"] = strip.correctWB;
   hw_led[F("cr")] = strip.cctFromRgb;
   hw_led[F("ic")] = cctICused;
   hw_led[F("cb")] = Bus::getCCTBlend();
   hw_led["fps"] = strip.getTargetFps();
   hw_led[F("rgbwm")] = Bus::getGlobalAWMode(); // global auto white mode override
-  hw_led[F("ld")] = useGlobalLedBuffer;
+//  hw_led[F("ld")] = useGlobalLedBuffer; // no longer used
   #if defined(ARDUINO_ARCH_ESP32) && !defined(CONFIG_IDF_TARGET_ESP32C3)
   hw_led[F("prl")] = BusManager::hasParallelOutput();
   #endif

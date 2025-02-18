@@ -407,9 +407,9 @@ WLED_GLOBAL byte bootPreset   _INIT(0);                   // save preset to load
 //if false, only one segment spanning the total LEDs is created,
 //but not on LED settings save if there is more than one segment currently
 #ifdef ESP8266
-WLED_GLOBAL bool useGlobalLedBuffer _INIT(false); // double buffering disabled on ESP8266
+//WLED_GLOBAL bool useGlobalLedBuffer _INIT(false); // double buffering disabled on ESP8266
 #else
-WLED_GLOBAL bool useGlobalLedBuffer _INIT(true);  // double buffering enabled on ESP32
+//WLED_GLOBAL bool useGlobalLedBuffer _INIT(true);  // double buffering enabled on ESP32
   #ifndef CONFIG_IDF_TARGET_ESP32C3
 WLED_GLOBAL bool useParallelI2S     _INIT(false); // parallel I2S for ESP32
   #endif
