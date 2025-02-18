@@ -929,69 +929,43 @@ static uint16_t chase(uint32_t color1, uint32_t color2, uint32_t color3, bool do
  * Chase_Race function to allow 3 colored bands to race along the LEDs with black between the colors.
  * color1, color2, and color3 = colors of the three leaders in the race
  */
-uint16_t chase_race(uint32_t color1, uint32_t color2, uint32_t color3, bool do_palette)
+
+uint16_t chase_race(uint32_t color1, uint32_t color2, uint32_t color3)
 {
   uint16_t counter = strip.now * ((SEGMENT.speed >> 2) + 1);
   uint16_t a = (counter * SEGLEN) >> 16;
+
   // Use intensity setting to vary chase up to 1/2 string length
   unsigned size = 1 + ((SEGMENT.intensity * SEGLEN) >> 10);
-  unsigned gap = size / 8; // Smaller black band size as a fraction of color size
-  uint16_t b = a + size;   // "trail" of chase, filled with color1
-  if (b > SEGLEN)
-    b -= SEGLEN;
-  uint16_t c = b + size + gap; // Add black gap after color1
-  if (c > SEGLEN)
-    c -= SEGLEN;
-  uint16_t d = c + size; // "trail" of color2
-  if (d > SEGLEN)
-    d -= SEGLEN;
-  uint16_t e = d + size + gap; // Add black gap after color2
-  if (e > SEGLEN)
-    e -= SEGLEN;
-  uint16_t f = e + size; // "trail" of color3
-  if (f > SEGLEN)
-    f -= SEGLEN;
-  // Background
-  SEGMENT.fill(0); // Set the entire strip to black
-  // Fill between points a and b with color1
-  if (a < b)
+  unsigned gap = 1 + size / 4; // Smaller black band size as a fraction of color size
+
+  // Calculate positions for each color band
+  uint16_t positions[] = {
+      a,                                 // Start of color1
+      (a + size) % SEGLEN,               // End of color1
+      (a + size + gap) % SEGLEN,         // Start of color2
+      (a + size * 2 + gap) % SEGLEN,     // End of color2
+      (a + size * 2 + gap * 2) % SEGLEN, // Start of color3
+      (a + size * 3 + gap * 2) % SEGLEN  // End of color3
+  };
+
+  // Define compact lambda for filling LED segments using modulo
+  auto fillSegment = [](uint16_t start, uint16_t end, uint32_t color)
   {
-    for (unsigned i = a; i < b; i++)
-      SEGMENT.setPixelColor(i, color1);
-  }
-  else
-  {
-    for (unsigned i = a; i < SEGLEN; i++)
-      SEGMENT.setPixelColor(i, color1);
-    for (unsigned i = 0; i < b; i++)
-      SEGMENT.setPixelColor(i, color1);
-  }
-  // Fill between points c and d with color2
-  if (c < d)
-  {
-    for (unsigned i = c; i < d; i++)
-      SEGMENT.setPixelColor(i, color2);
-  }
-  else
-  {
-    for (unsigned i = c; i < SEGLEN; i++)
-      SEGMENT.setPixelColor(i, color2);
-    for (unsigned i = 0; i < d; i++)
-      SEGMENT.setPixelColor(i, color2);
-  }
-  // Fill between points e and f with color3
-  if (e < f)
-  {
-    for (unsigned i = e; i < f; i++)
-      SEGMENT.setPixelColor(i, color3);
-  }
-  else
-  {
-    for (unsigned i = e; i < SEGLEN; i++)
-      SEGMENT.setPixelColor(i, color3);
-    for (unsigned i = 0; i < f; i++)
-      SEGMENT.setPixelColor(i, color3);
-  }
+    for (unsigned count = 0; count < SEGLEN && count < end - start + (end < start ? SEGLEN : 0); count++)
+    {
+      SEGMENT.setPixelColor((start + count) % SEGLEN, color);
+    }
+  };
+
+  // Set background to black
+  SEGMENT.fill(0);
+
+  // Fill the three color segments
+  fillSegment(positions[0], positions[1], color1);
+  fillSegment(positions[2], positions[3], color2);
+  fillSegment(positions[4], positions[5], color3);
+
   return FRAMETIME;
 }
 
@@ -1004,11 +978,11 @@ uint16_t mode_chase_color(void) {
 static const char _data_FX_MODE_CHASE_COLOR[] PROGMEM = "Chase@!,Width;!,!,!;!";
 
 /* 
-* Chace Race with 3 color strips 
+* Chase Race with 3 color strips 
 */
 uint16_t mode_chase_race()
 {
-  return chase_race(SEGCOLOR(0), SEGCOLOR(1), SEGCOLOR(2), false);
+  return chase_race(SEGCOLOR(0), SEGCOLOR(1), SEGCOLOR(2));  
 }
 static const char _data_FX_MODE_CHASE_RACE[] PROGMEM = "Chase Race@!,Width;!,!,!;!";
 
