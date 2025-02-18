@@ -371,7 +371,7 @@ typedef struct Segment {
       bool    check1  : 1;        // checkmark 1
       bool    check2  : 1;        // checkmark 2
       bool    check3  : 1;        // checkmark 3
-      uint8_t blendMode : 4;      // segment blending modes: top, bottom, add, subtract, difference, multiply, divide, lighten, darken, screen, overlay
+      uint8_t blendMode : 4;      // segment blending modes: top, bottom, add, subtract, difference, multiply, divide, lighten, darken, screen, overlay, hardlight, softlight, dodge, burn
       uint8_t reserved  : 4;      // for future use
     };
     uint8_t startY;  // start Y coodrinate 2D (top); there should be no more than 255 rows

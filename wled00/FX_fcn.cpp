@@ -1654,9 +1654,10 @@ void WS2812FX::service() {
   if (millis() - nowUp > _frametime) DEBUGFX_PRINTF_P(PSTR("Slow effects %u/%d.\n"), (unsigned)(millis()-nowUp), (int)_frametime);
   #endif
   if (doShow) {
-    for (size_t i = 0; i < getLengthTotal(); i++) pixels[i] = BLACK; // clear frame buffer; memset(pixels, 0, sizeof(uint32_t) * getLengthTotal());
+    size_t totalLen = getLengthTotal();
+    for (size_t i = 0; i < totalLen; i++) pixels[i] = BLACK; // clear frame buffer; memset(pixels, 0, sizeof(uint32_t) * getLengthTotal());
     for (const auto &seg : _segments) if (seg.isActive() && seg.on) blendSegment(seg); // blend all render buffers into frame buffer
-    for (size_t i = 0; i < getLengthTotal(); i++) setPixelColor(i, pixels[i]);
+    for (size_t i = 0; i < totalLen; i++) setPixelColor(i, pixels[i]);
 
     yield();
     Segment::handleRandomPalette(); // slowly transition random palette; move it into for loop when each segment has individual random palette
@@ -1668,22 +1669,30 @@ void WS2812FX::service() {
 }
 
 void WS2812FX::blendSegment(const Segment &topSegment) {
+  // https://en.wikipedia.org/wiki/Blend_modes but using a for top layer & b for bottom layer
   constexpr auto top        = [](uint8_t a, uint8_t b){ return uint8_t(a); };
   constexpr auto bottom     = [](uint8_t a, uint8_t b){ return uint8_t(b); };
-  constexpr auto add        = [](uint8_t a, uint8_t b){ return uint8_t(a + b); };
+  constexpr auto add        = [](uint8_t a, uint8_t b){ return qadd8(a, b); }; // { unsigned t = a+b; return t>255 ? 255 : t; }
   constexpr auto subtract   = [](uint8_t a, uint8_t b){ return uint8_t(b > a ? (b - a) : 0); };
   constexpr auto difference = [](uint8_t a, uint8_t b){ return uint8_t(b > a ? (b - a) : (a - b)); };
   constexpr auto average    = [](uint8_t a, uint8_t b){ return uint8_t((a + b) >> 1); };
-  constexpr auto multiply   = [](uint8_t a, uint8_t b){ return uint8_t(a * b); };
-  constexpr auto divide     = [](uint8_t a, uint8_t b){ return uint8_t(b != 0 ? a / b : 0); };
-  constexpr auto lighten    = [](uint8_t a, uint8_t b){ return uint8_t(a>b ? a : b); };
-  constexpr auto darken     = [](uint8_t a, uint8_t b){ return uint8_t(a<b ? a : b); };
-  constexpr auto screen     = [](uint8_t a, uint8_t b){ return uint8_t(0xFF - ~a * ~b); }; // 255 - (255-a)*(255-b)
-  constexpr auto overlay    = [](uint8_t a, uint8_t b){ return uint8_t(a<0x80 ? 2*a*b : (0xFF - 2 * ~a * ~b)); };
+  constexpr auto multiply   = [](uint8_t a, uint8_t b){ return uint8_t((a * b) / 255); }; // origianl uses a & b in range [0,1]
+  constexpr auto divide     = [](uint8_t a, uint8_t b){ return uint8_t(a > 0 ? (b*255) / a : b); };
+  constexpr auto lighten    = [](uint8_t a, uint8_t b){ return uint8_t(a > b ? a : b); };
+  constexpr auto darken     = [](uint8_t a, uint8_t b){ return uint8_t(a < b ? a : b); };
+  constexpr auto screen     = [](uint8_t a, uint8_t b){ return uint8_t(255 - multiply(~a, ~b)); }; // 255 - (255-a)*(255-b)/255
+  constexpr auto overlay    = [](uint8_t a, uint8_t b){ return uint8_t(b<128 ? 2*a*b/255 : (255 - 2*~a*~b/255)); };
+  constexpr auto hardlight  = [](uint8_t a, uint8_t b){ return uint8_t(a<128 ? 2*a*b/255 : (255 - 2*~a*~b/255)); };
+  constexpr auto softlight  = [](uint8_t a, uint8_t b){ return uint8_t((b*b*(255-2*a)/255 + 2*a*b)/255); }; // Pegtop's formula (1 - 2a)b^2 + 2ab
+  constexpr auto dodge      = [](uint8_t a, uint8_t b){ return divide(b,~a); };
+  constexpr auto burn       = [](uint8_t a, uint8_t b){ return divide(~b,a); };
 
   typedef uint8_t(*FuncType)(uint8_t, uint8_t);
   FuncType funcs[] = {
-    top, bottom, add, subtract, difference, average, multiply, divide, lighten, darken, screen, overlay
+    top, bottom,
+    add, subtract, difference, average,
+    multiply, divide, lighten, darken, screen, overlay,
+    hardlight, softlight, dodge, burn
   };
 
   const size_t blendMode = topSegment.blendMode < (sizeof(funcs) / sizeof(FuncType)) ? topSegment.blendMode : 0;

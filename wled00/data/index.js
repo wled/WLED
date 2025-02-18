@@ -819,6 +819,10 @@ function populateSegments(s)
 							`<option value="9" ${inst.bm==9?' selected':''}>Darken</option>`+
 							`<option value="10" ${inst.bm==10?' selected':''}>Screen</option>`+
 							`<option value="11" ${inst.bm==11?' selected':''}>Overlay</option>`+
+							`<option value="12" ${inst.bm==12?' selected':''}>Hard Light</option>`+
+							`<option value="13" ${inst.bm==13?' selected':''}>Soft Light</option>`+
+							`<option value="14" ${inst.bm==14?' selected':''}>Dodge</option>`+
+							`<option value="15" ${inst.bm==15?' selected':''}>Burn</option>`+
 						`</select></div>`+
 					`</div>`;
 //		let sndSim = `<div data-snd="si" class="lbl-s hide">Sound sim<br>`+
