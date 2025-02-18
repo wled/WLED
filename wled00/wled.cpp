@@ -973,8 +973,17 @@ void WLED::handleConnection()
     }
   } else if (!interfacesInited) { //newly connected
     DEBUG_PRINTLN();
-    DEBUG_PRINT(F("Connected! IP address: "));
-    DEBUG_PRINTLN(Network.localIP());
+    DEBUG_PRINTLN("");
+    DEBUG_PRINT(F("Connected! IP address: http://"));
+    DEBUG_PRINT(Network.localIP());
+    if (Network.isEthernet()) {
+     #if ESP32
+     DEBUG_PRINTLN(" via Ethernet (disabling WiFi)");
+     WiFi.disconnect(true);
+     #endif
+    } else {
+     DEBUG_PRINTLN(" via WiFi");
+    }
     if (improvActive) {
       if (improvError == 3) sendImprovStateResponse(0x00, true);
       sendImprovStateResponse(0x04);
