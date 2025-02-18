@@ -1677,15 +1677,15 @@ void WS2812FX::blendSegment(const Segment &topSegment) {
   constexpr auto difference = [](uint8_t a, uint8_t b){ return uint8_t(b > a ? (b - a) : (a - b)); };
   constexpr auto average    = [](uint8_t a, uint8_t b){ return uint8_t((a + b) >> 1); };
   constexpr auto multiply   = [](uint8_t a, uint8_t b){ return uint8_t((a * b) / 255); }; // origianl uses a & b in range [0,1]
-  constexpr auto divide     = [](uint8_t a, uint8_t b){ return uint8_t(a > 0 ? (b*255) / a : b); };
+  constexpr auto divide     = [](uint8_t a, uint8_t b){ return uint8_t(a > b ? (b*255) / a : 255); };
   constexpr auto lighten    = [](uint8_t a, uint8_t b){ return uint8_t(a > b ? a : b); };
   constexpr auto darken     = [](uint8_t a, uint8_t b){ return uint8_t(a < b ? a : b); };
-  constexpr auto screen     = [](uint8_t a, uint8_t b){ return uint8_t(255 - multiply(~a, ~b)); }; // 255 - (255-a)*(255-b)/255
+  constexpr auto screen     = [](uint8_t a, uint8_t b){ return uint8_t(255 - multiply(~a,~b)); }; // 255 - (255-a)*(255-b)/255
   constexpr auto overlay    = [](uint8_t a, uint8_t b){ return uint8_t(b<128 ? 2*a*b/255 : (255 - 2*~a*~b/255)); };
   constexpr auto hardlight  = [](uint8_t a, uint8_t b){ return uint8_t(a<128 ? 2*a*b/255 : (255 - 2*~a*~b/255)); };
   constexpr auto softlight  = [](uint8_t a, uint8_t b){ return uint8_t((b*b*(255-2*a)/255 + 2*a*b)/255); }; // Pegtop's formula (1 - 2a)b^2 + 2ab
-  constexpr auto dodge      = [](uint8_t a, uint8_t b){ return divide(b,~a); };
-  constexpr auto burn       = [](uint8_t a, uint8_t b){ return divide(~b,a); };
+  constexpr auto dodge      = [](uint8_t a, uint8_t b){ return divide(~a,b); };
+  constexpr auto burn       = [](uint8_t a, uint8_t b){ return uint8_t(~divide(a,~b)); };
 
   typedef uint8_t(*FuncType)(uint8_t, uint8_t);
   FuncType funcs[] = {

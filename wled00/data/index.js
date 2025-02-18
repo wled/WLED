@@ -805,7 +805,7 @@ function populateSegments(s)
 							`<option value="4" ${inst.m12==4?' selected':''}>Pinwheel</option>`+
 						`</select></div>`+
 					`</div>`;
-		let blend = `<div class="lbl-s">Blend mode<br>`+
+		let blend = `<div class="lbl-l">Blend mode<br>`+
 						`<div class="sel-p"><select class="sel-p" id="seg${i}bm" onchange="setBm(${i})">`+
 							`<option value="0" ${inst.bm==0?' selected':''}>Top/Default</option>`+
 							`<option value="1" ${inst.bm==1?' selected':''}>Bottom/None</option>`+
@@ -880,9 +880,9 @@ function populateSegments(s)
 					`</tr>`+
 					`</table>`+
 					`<div class="h bp" id="seg${i}len"></div>`+
+					blend +
 					(!isMSeg ? rvXck : '') +
 					(isMSeg&&stoY-staY>1&&stoX-staX>1 ? map2D : '') +
-					blend +
 //					(s.AudioReactive && s.AudioReactive.on ? "" : sndSim) +
 					`<label class="check revchkl" id="seg${i}lbtm">`+
 						(isMSeg?'Transpose':'Mirror effect') + (isMSeg ?
