@@ -544,10 +544,9 @@ static const char _data_FX_MODE_TWINKLE[] PROGMEM = "Twinkle@!,!;!,!;!;;m12=0"; 
 uint16_t dissolve(uint32_t color) {
   unsigned dataSize = sizeof(uint32_t) * SEGLEN;
   if (!SEGENV.allocateData(dataSize)) return mode_static(); //allocation failed
-  uint32_t* pixels = reinterpret_cast<uint32_t*>(SEGENV.data);
 
   if (SEGENV.call == 0) {
-    for (unsigned i = 0; i < SEGLEN; i++) pixels[i] = SEGCOLOR(1);
+    SEGMENT.fill(SEGCOLOR(1));
     SEGENV.aux0 = 1;
   }
 
@@ -556,21 +555,19 @@ uint16_t dissolve(uint32_t color) {
       for (size_t times = 0; times < 10; times++) { //attempt to spawn a new pixel 10 times
         unsigned i = hw_random16(SEGLEN);
         if (SEGENV.aux0) { //dissolve to primary/palette
-          if (pixels[i] == SEGCOLOR(1)) {
-            pixels[i] = color == SEGCOLOR(0) ? SEGMENT.color_from_palette(i, true, PALETTE_SOLID_WRAP, 0) : color;
+          if (SEGMENT.getPixelColor(i) == SEGCOLOR(1)) {
+            SEGMENT.setPixelColor(i, color == SEGCOLOR(0) ? SEGMENT.color_from_palette(i, true, PALETTE_SOLID_WRAP, 0) : color);
             break; //only spawn 1 new pixel per frame per 50 LEDs
           }
         } else { //dissolve to secondary
-          if (pixels[i] != SEGCOLOR(1)) {
-            pixels[i] = SEGCOLOR(1);
+          if (SEGMENT.getPixelColor(i) != SEGCOLOR(1)) {
+            SEGMENT.setPixelColor(i, SEGCOLOR(1));
             break;
           }
         }
       }
     }
   }
-  // fix for #4401
-  for (unsigned i = 0; i < SEGLEN; i++) SEGMENT.setPixelColor(i, pixels[i]);
 
   if (SEGENV.step > (255 - SEGMENT.speed) + 15U) {
     SEGENV.aux0 = !SEGENV.aux0;
@@ -4352,20 +4349,17 @@ static const char _data_FX_MODE_WASHING_MACHINE[] PROGMEM = "Washing Machine@!,!
 */
 uint16_t mode_blends(void) {
   unsigned pixelLen = SEGLEN > UINT8_MAX ? UINT8_MAX : SEGLEN;
-  unsigned dataSize = sizeof(uint32_t) * (pixelLen + 1);  // max segment length of 56 pixels on 16 segment ESP8266
-  if (!SEGENV.allocateData(dataSize)) return mode_static(); //allocation failed
-  uint32_t* pixels = reinterpret_cast<uint32_t*>(SEGENV.data);
   uint8_t blendSpeed = map(SEGMENT.intensity, 0, UINT8_MAX, 10, 128);
   unsigned shift = (strip.now * ((SEGMENT.speed >> 3) +1)) >> 8;
 
   for (unsigned i = 0; i < pixelLen; i++) {
-    pixels[i] = color_blend(pixels[i], SEGMENT.color_from_palette(shift + quadwave8((i + 1) * 16), false, PALETTE_SOLID_WRAP, 255), blendSpeed);
+    SEGMENT.blendPixelColor(i, SEGMENT.color_from_palette(shift + quadwave8((i + 1) * 16), false, PALETTE_SOLID_WRAP, 255), blendSpeed);
     shift += 3;
   }
 
   unsigned offset = 0;
   for (unsigned i = 0; i < SEGLEN; i++) {
-    SEGMENT.setPixelColor(i, pixels[offset++]);
+    SEGMENT.setPixelColor(i, SEGMENT.getPixelColor(offset++));
     if (offset >= pixelLen) offset = 0;
   }
 
@@ -6217,7 +6211,7 @@ static const char _data_FX_MODE_2DDISTORTIONWAVES[] PROGMEM = "Distortion Waves@
 //@Stepko https://github.com/St3p40
 //Idea from https://www.youtube.com/watch?v=DiHBgITrZck&ab_channel=StefanPetrick
 // adapted for WLED by @blazoncek, size tuning by @dedehai
-static void soapPixels(bool isRow, uint8_t *noise3d, CRGB *pixels) {
+static void soapPixels(bool isRow, uint8_t *noise3d) {
   const int  cols = SEG_W;
   const int  rows = SEG_H;
   const auto XY   = [&](int x, int y) { return x + y * cols; };
@@ -6252,14 +6246,14 @@ static void soapPixels(bool isRow, uint8_t *noise3d, CRGB *pixels) {
       }
       const int indxA = XY(xA,yA);
       const int indxB = XY(xB,yB);
-      CRGB PixelA = ((zD >= 0) && (zD < tCR)) ? pixels[indxA] : ColorFromPalette(SEGPALETTE, ~noise3d[indxA]*3);
-      CRGB PixelB = ((zF >= 0) && (zF < tCR)) ? pixels[indxB] : ColorFromPalette(SEGPALETTE, ~noise3d[indxB]*3);
+      CRGB PixelA = ((zD >= 0) && (zD < tCR)) ? SEGMENT.getPixelColorXY(xA,yA) : ColorFromPalette(SEGPALETTE, ~noise3d[indxA]*3);
+      CRGB PixelB = ((zF >= 0) && (zF < tCR)) ? SEGMENT.getPixelColorXY(xB,yB) : ColorFromPalette(SEGPALETTE, ~noise3d[indxB]*3);
       ledsbuff[j] = (PixelA.nscale8(ease8InOutApprox(255 - fraction))) + (PixelB.nscale8(ease8InOutApprox(fraction)));
     }
     for (int j = 0; j < tCR; j++) {
       CRGB c = ledsbuff[j];
       if (isRow) std::swap(j,i);
-      SEGMENT.setPixelColorXY(i, j, pixels[XY(i,j)] = c);
+      SEGMENT.setPixelColorXY(i, j, c);
       if (isRow) std::swap(j,i);
     }
   }
@@ -6273,11 +6267,10 @@ uint16_t mode_2Dsoap() {
   const auto XY = [&](int x, int y) { return x + y * cols; };
 
   const size_t segSize  = SEGMENT.width() * SEGMENT.height(); // prevent reallocation if mirrored or grouped
-  const size_t dataSize = segSize * (sizeof(uint8_t) + sizeof(CRGB)); // pixels and noise
+  const size_t dataSize = segSize * sizeof(uint8_t); // pixels and noise
   if (!SEGENV.allocateData(dataSize + sizeof(uint32_t)*3)) return mode_static(); //allocation failed
 
   uint8_t  *noise3d  = reinterpret_cast<uint8_t*>(SEGENV.data);
-  CRGB     *pixels   = reinterpret_cast<CRGB*>(SEGENV.data + segSize * sizeof(uint8_t));
   uint32_t *noiseXYZ = reinterpret_cast<uint32_t*>(SEGENV.data + dataSize); // inoise16() coordinates
   const uint32_t scale32_x = 160000U/cols;
   const uint32_t scale32_y = 160000U/rows;
@@ -6302,13 +6295,13 @@ uint16_t mode_2Dsoap() {
     SEGMENT.aux1 = rows;
     for (int i = 0; i < cols; i++) {
       for (int j = 0; j < rows; j++) {
-        SEGMENT.setPixelColorXY(i, j, pixels[XY(i,j)] = ColorFromPalette(SEGPALETTE,~noise3d[XY(i,j)]*3));
+        SEGMENT.setPixelColorXY(i, j, ColorFromPalette(SEGPALETTE,~noise3d[XY(i,j)]*3));
       }
     }
   }
   // draw pixels
-  soapPixels(true,  noise3d, pixels);
-  soapPixels(false, noise3d, pixels);
+  soapPixels(true,  noise3d);
+  soapPixels(false, noise3d);
 
   return FRAMETIME;
 }
