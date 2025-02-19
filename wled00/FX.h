@@ -143,16 +143,16 @@ extern byte realtimeMode;           // used in getMappedPixelIndex()
 #define FX_MODE_RAINBOW                  8
 #define FX_MODE_RAINBOW_CYCLE            9
 #define FX_MODE_SCAN                    10
-//#define FX_MODE_DUAL_SCAN               11  // candidate for removal (use Scan)
+//#define FX_MODE_DUAL_SCAN               11  // removed in 0.16, use Scan with check
 #define FX_MODE_FADE                    12
 #define FX_MODE_THEATER_CHASE           13
-//#define FX_MODE_THEATER_CHASE_RAINBOW   14  // candidate for removal (use Theater)
+//#define FX_MODE_THEATER_CHASE_RAINBOW   14  // removed in 0.16, use Theater with check
 #define FX_MODE_RUNNING_LIGHTS          15
-#define FX_MODE_SAW                     16
+//#define FX_MODE_SAW                     16  // removed in 0.16, use Running with with check 3
 #define FX_MODE_TWINKLE                 17
 #define FX_MODE_DISSOLVE                18
-//#define FX_MODE_DISSOLVE_RANDOM         19  // candidate for removal (use Dissolve with with check 3)
-#define FX_MODE_SPARKLE                 20
+//#define FX_MODE_DISSOLVE_RANDOM         19  // removed in 0.16, use Dissolve with with check 3
+#define FX_MODE_SPARKLE                 20  // alternative: PS Sparkler
 #define FX_MODE_FLASH_SPARKLE           21
 #define FX_MODE_HYPER_SPARKLE           22
 #define FX_MODE_STROBE                  23
@@ -169,7 +169,7 @@ extern byte realtimeMode;           // used in getMappedPixelIndex()
 #define FX_MODE_COLORFUL                34
 #define FX_MODE_TRAFFIC_LIGHT           35
 #define FX_MODE_COLOR_SWEEP_RANDOM      36
-//#define FX_MODE_RUNNING_COLOR           37  // candidate for removal (use Theater)
+//#define FX_MODE_RUNNING_COLOR           37  // removed in 0.16, use Theater
 #define FX_MODE_AURORA                  38
 #define FX_MODE_RUNNING_RANDOM          39
 #define FX_MODE_LARSON_SCANNER          40
@@ -180,25 +180,25 @@ extern byte realtimeMode;           // used in getMappedPixelIndex()
 #define FX_MODE_FIRE_FLICKER            45
 #define FX_MODE_GRADIENT                46
 #define FX_MODE_LOADING                 47
-#define FX_MODE_ROLLINGBALLS            48  //was Police before 0.14
+#define FX_MODE_ROLLINGBALLS            48  // alternative: PS Pinball with checkmark "rolling"
 #define FX_MODE_FAIRY                   49  //was Police All prior to 0.13.0-b6 (use "Two Dots" with Red/Blue and full intensity)
 #define FX_MODE_TWO_DOTS                50
 #define FX_MODE_FAIRYTWINKLE            51  //was Two Areas prior to 0.13.0-b6 (use "Two Dots" with full intensity)
-//#define FX_MODE_RUNNING_DUAL            52  // candidate for removal (use Running)
+//#define FX_MODE_RUNNING_DUAL            52  // removed in 0.16, use Running with with check 2
 #define FX_MODE_IMAGE                   53
 #define FX_MODE_TRICOLOR_CHASE          54
 #define FX_MODE_TRICOLOR_WIPE           55
 #define FX_MODE_TRICOLOR_FADE           56
 #define FX_MODE_LIGHTNING               57
 #define FX_MODE_ICU                     58
-#define FX_MODE_MULTI_COMET             59
-//#define FX_MODE_DUAL_LARSON_SCANNER     60  // candidate for removal (use Scanner with with check 1)
+#define FX_MODE_MULTI_COMET             59  // alternative: PS Pinball with gravity set to 0
+//#define FX_MODE_DUAL_LARSON_SCANNER     60  // removed in 0.16, use Scanner with check 3
 #define FX_MODE_RANDOM_CHASE            61
 #define FX_MODE_OSCILLATE               62
 #define FX_MODE_PRIDE_2015              63
 #define FX_MODE_JUGGLE                  64
 #define FX_MODE_PALETTE                 65
-#define FX_MODE_FIRE_2012               66
+#define FX_MODE_FIRE_2012               66  // alternative: PS Fire (1D and 2D)
 #define FX_MODE_COLORWAVES              67
 #define FX_MODE_BPM                     68
 #define FX_MODE_FILLNOISE8              69
@@ -219,23 +219,23 @@ extern byte realtimeMode;           // used in getMappedPixelIndex()
 #define FX_MODE_TRI_STATIC_PATTERN      84
 #define FX_MODE_SPOTS                   85
 #define FX_MODE_SPOTS_FADE              86
-#define FX_MODE_GLITTER                 87
+#define FX_MODE_GLITTER                 87  // alternative: PS Sparkler
 #define FX_MODE_CANDLE                  88
-#define FX_MODE_STARBURST               89
-#define FX_MODE_EXPLODING_FIREWORKS     90
+#define FX_MODE_STARBURST               89  // alternative: PS Starburst
+#define FX_MODE_EXPLODING_FIREWORKS     90  // alternative: PS Fireworks (1D and 2D)
 #define FX_MODE_BOUNCINGBALLS           91
 #define FX_MODE_SINELON                 92
-//#define FX_MODE_SINELON_DUAL            93  // candidate for removal (use sinelon)
-//#define FX_MODE_SINELON_RAINBOW         94  // candidate for removal (use sinelon)
+//#define FX_MODE_SINELON_DUAL            93  // removed in 0.16, use Sinelon with check 2
+//#define FX_MODE_SINELON_RAINBOW         94  // removed in 0.16, use Sinelon with check 1
 #define FX_MODE_POPCORN                 95
 #define FX_MODE_DRIP                    96
 #define FX_MODE_PLASMA                  97
 #define FX_MODE_PERCENT                 98
-//#define FX_MODE_RIPPLE_RAINBOW          99  // candidate for removal (use ripple)
+//#define FX_MODE_RIPPLE_RAINBOW          99  // removed in 0.16, use Sinelon with check 1
 #define FX_MODE_HEARTBEAT              100
 #define FX_MODE_PACIFICA               101
-//#define FX_MODE_CANDLE_MULTI           102  // candidate for removal (use candle with multi select)
-//#define FX_MODE_SOLID_GLITTER          103  // candidate for removal (use glitter)
+//#define FX_MODE_CANDLE_MULTI           102  // removed in 0.16, use Candle with check 3
+//#define FX_MODE_SOLID_GLITTER          103  // removed in 0.16, use Glitter
 #define FX_MODE_SUNRISE                104
 #define FX_MODE_PHASED                 105
 #define FX_MODE_TWINKLEUP              106
@@ -244,24 +244,24 @@ extern byte realtimeMode;           // used in getMappedPixelIndex()
 #define FX_MODE_PHASEDNOISE            109
 #define FX_MODE_FLOW                   110
 #define FX_MODE_CHUNCHUN               111
-#define FX_MODE_DANCING_SHADOWS        112
+#define FX_MODE_DANCING_SHADOWS        112  // alternative: PS Dancing Shadows
 #define FX_MODE_WASHING_MACHINE        113
 #define FX_MODE_2DPLASMAROTOZOOM       114 // was Candy Cane prior to 0.14 (use Chase 2)
 #define FX_MODE_BLENDS                 115
 #define FX_MODE_TV_SIMULATOR           116
-//#define FX_MODE_DYNAMIC_SMOOTH         117 // candidate for removal (check3 in dynamic)
+//#define FX_MODE_DYNAMIC_SMOOTH         117 // removed in 0.16, use Danamic with check3
 
 // new 0.14 2D effects
-#define FX_MODE_2DSPACESHIPS           118 //gap fill
-#define FX_MODE_2DCRAZYBEES            119 //gap fill
-#define FX_MODE_2DGHOSTRIDER           120 //gap fill
-#define FX_MODE_2DBLOBS                121 //gap fill
-#define FX_MODE_2DSCROLLTEXT           122 //gap fill
-#define FX_MODE_2DDRIFTROSE            123 //gap fill
-#define FX_MODE_2DDISTORTIONWAVES      124 //gap fill
-#define FX_MODE_2DSOAP                 125 //gap fill
-#define FX_MODE_2DOCTOPUS              126 //gap fill
-#define FX_MODE_2DWAVINGCELL           127 //gap fill
+#define FX_MODE_2DSPACESHIPS           118
+#define FX_MODE_2DCRAZYBEES            119
+#define FX_MODE_2DGHOSTRIDER           120 // alternative: PS Ghost Rider
+#define FX_MODE_2DBLOBS                121 // alternative: PS Blobs
+#define FX_MODE_2DSCROLLTEXT           122
+#define FX_MODE_2DDRIFTROSE            123
+#define FX_MODE_2DDISTORTIONWAVES      124
+#define FX_MODE_2DSOAP                 125
+#define FX_MODE_2DOCTOPUS              126
+#define FX_MODE_2DWAVINGCELL           127
 
 // WLED-SR effects (SR compatible IDs !!!)
 #define FX_MODE_PIXELS                 128

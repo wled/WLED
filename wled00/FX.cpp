@@ -507,15 +507,15 @@ static const char _data_FX_MODE_THEATER_CHASE[] PROGMEM = "Theater@!,Gap size,,,
  * Running lights effect with smooth sine transition base.
  * Idea: Make the gap width controllable with a third slider in the future
  */
-static uint16_t running_base(bool saw) {
-  const bool dual = SEGMENT.check3;
+static uint16_t mode_running_lights() {
+  const bool dual = SEGMENT.check2;
   unsigned x_scale = SEGMENT.intensity >> 2;
   uint32_t counter = (strip.now * SEGMENT.speed) >> 9;
   const bool moving = SEGMENT.check1;
 
   for (unsigned i = 0; i < SEGLEN; i++) {
     unsigned a = i*x_scale - counter;
-    if (saw) {
+    if (SEGMENT.check3) { // Saw mode
       a &= 0xFF;
       if (a < 16)
       {
@@ -539,23 +539,7 @@ static uint16_t running_base(bool saw) {
 
   return FRAMETIME;
 }
-
-/*
- * Running lights effect with smooth sine transition.
- */
-uint16_t mode_running_lights(void) {
-  return running_base(false);
-}
-static const char _data_FX_MODE_RUNNING_LIGHTS[] PROGMEM = "Running@!,Wave width,,,,Animate palette,,Dual;!,!;!;;o1=0";
-
-
-/*
- * Running lights effect with sawtooth transition.
- */
-uint16_t mode_saw(void) {
-  return running_base(true);
-}
-static const char _data_FX_MODE_SAW[] PROGMEM = "Saw@!,Width,,,,Animate palette;!,!;!;;o1=0,o3=0";
+static const char _data_FX_MODE_RUNNING_LIGHTS[] PROGMEM = "Running@!,Width,,,,Animate palette,Dual,Saw;L,!,R;!";
 
 
 /*
@@ -1173,16 +1157,6 @@ uint16_t mode_larson_scanner(void) {
   return FRAMETIME;
 }
 static const char _data_FX_MODE_LARSON_SCANNER[] PROGMEM = "Scanner@!,Trail,Delay,,,Animate palette,Bi-delay,Dual;!,!,!;!;;m12=0,c1=0,o1=0,o3=0";
-
-/*
- * Creates two Larson scanners moving in opposite directions
- * Custom mode by Keith Lord: https://github.com/kitesurfer1404/WS2812FX/blob/master/src/custom/DualLarson.h
- */
-//uint16_t mode_dual_larson_scanner(void){
-//  SEGMENT.check3 = true;
-//  return mode_larson_scanner();
-//}
-//static const char _data_FX_MODE_DUAL_LARSON_SCANNER[] PROGMEM = "Scanner Dual@!,Trail,Delay,,,Animate palette,Bi-delay;!,!,!;!;;m12=0,c1=0,o3=1";
 
 
 /*
@@ -2306,76 +2280,59 @@ uint16_t mode_meteor() {
   byte* trail = SEGENV.data;
 
   const unsigned meteorSize = 1 + SEGLEN / 20; // 5%
-  unsigned counter = strip.now * ((SEGMENT.speed >> 2) +8);
-  uint16_t in = counter * SEGLEN >> 16;
-  const bool gradient = SEGMENT.check1;
+  uint16_t meteorstart;
+  if(meteorSmooth) meteorstart = map((SEGENV.step >> 6 & 0xFF), 0, 255, 0, SEGLEN -1);
+  else {
+    unsigned counter = strip.now * ((SEGMENT.speed >> 2) + 8);
+    meteorstart = (counter * SEGLEN) >> 16;
+  }
 
   const int max = SEGMENT.palette==5 || !SEGMENT.check1 ? 240 : 255;
   // fade all leds to colors[1] in LEDs one step
   for (unsigned i = 0; i < SEGLEN; i++) {
-    if (random8() <= 255 - SEGMENT.intensity) {
-      int meteorTrailDecay = 128 + hw_random8(127);
-      trail[i] = scale8(trail[i], meteorTrailDecay);
-      int index = trail[i];
-      int idx = 255;
-      int bri = SEGMENT.palette==35 || SEGMENT.palette==36 ? 255 : trail[i];
-      if (!gradient) {
-        idx = 0;
-        index = map(i,0,SEGLEN,0,max);
-        bri = trail[i];
+    uint32_t col;
+    if (hw_random8() <= 255 - SEGMENT.intensity) {
+      if(meteorSmooth) {
+        if (trail[i] > 0) {
+          int change = trail[i] + 4 - hw_random8(24); //change each time between -20 and +4
+          trail[i] = constrain(change, 0, max);
+        }
+        col = SEGMENT.check1 ? SEGMENT.color_from_palette(i, true, false, 0, trail[i]) : SEGMENT.color_from_palette(trail[i], false, true, 255);
       }
-      SEGMENT.setPixelColor(i, SEGMENT.color_from_palette(index, false, false, idx, bri)); // full brightness for Fire
+      else {
+        trail[i] = scale8(trail[i], 128 + hw_random8(127));
+        int index = trail[i];
+        int idx = 255;
+        int bri = SEGMENT.palette==35 || SEGMENT.palette==36 ? 255 : trail[i];
+        if (!SEGMENT.check1) {
+          idx = 0;
+          index = map(i,0,SEGLEN,0,max);
+          bri = trail[i];
+        }
+        col = SEGMENT.color_from_palette(index, false, false, idx, bri);  // full brightness for Fire
+      }
+      SEGMENT.setPixelColor(i, col);
     }
   }
 
   // draw meteor
   for (unsigned j = 0; j < meteorSize; j++) {
-    int index = (in + j) % SEGLEN;
-    int idx = 255;
-    int i = trail[index] = max;
-    if (!gradient) {
-      i = map(index,0,SEGLEN,0,max);
-      idx = 0;
+    unsigned index = (meteorstart + j) % SEGLEN;
+    if(meteorSmooth) {
+        trail[index] = max;
+        uint32_t col = SEGMENT.check1 ? SEGMENT.color_from_palette(index, true, false, 0, trail[index]) : SEGMENT.color_from_palette(trail[index], false, true, 255);
+        SEGMENT.setPixelColor(index, col);
     }
-    SEGMENT.setPixelColor(index, SEGMENT.color_from_palette(i, false, false, idx, 255)); // full brightness
-  }
-
-  return FRAMETIME;
-}
-static const char _data_FX_MODE_METEOR[] PROGMEM = "Meteor@!,Trail,,,,Gradient;!;!;1";
-
-
-// smooth meteor effect
-// send a meteor from begining to to the end of the strip with a trail that randomly decays.
-// adapted from https://www.tweaking4all.com/hardware/arduino/adruino-led-strip-effects/#LEDStripEffectMeteorRain
-uint16_t mode_meteor_smooth() {
-  if (SEGLEN <= 1) return mode_static();
-  if (!SEGENV.allocateData(SEGLEN)) return mode_static(); //allocation failed
-
-  byte* trail = SEGENV.data;
-
-  const unsigned meteorSize = 1+ SEGLEN / 20; // 5%
-  uint16_t in = map((SEGENV.step >> 6 & 0xFF), 0, 255, 0, SEGLEN -1);
-  const bool gradient = SEGMENT.check1;
-
-  const int max = SEGMENT.palette==5 || !gradient ? 240 : 255;
-  // fade all leds to colors[1] in LEDs one step
-  for (unsigned i = 0; i < SEGLEN; i++) {
-    if (/*trail[i] != 0 &&*/ hw_random8() <= 255 - SEGMENT.intensity) {
-      int change = trail[i] + 4 - hw_random8(24); //change each time between -20 and +4
-      trail[i] = constrain(change, 0, max);
-      SEGMENT.setPixelColor(i, gradient ? SEGMENT.color_from_palette(i, true, false, 0, trail[i]) : SEGMENT.color_from_palette(trail[i], false, true, 255));
+    else{
+      int idx = 255;
+      int i = trail[index] = max;
+      if (!SEGMENT.check1) {
+        i = map(index,0,SEGLEN,0,max);
+        idx = 0;
+      }
+      uint32_t col = SEGMENT.color_from_palette(i, false, false, idx, 255); // full brightness
+      SEGMENT.setPixelColor(index, col);
     }
-  }
-
-  // draw meteor
-  for (unsigned j = 0; j < meteorSize; j++) {
-    unsigned index = in + j;
-    if (index >= SEGLEN) {
-      index -= SEGLEN;
-    }
-    trail[index] = max;
-    SEGMENT.setPixelColor(index, gradient ? SEGMENT.color_from_palette(index, true, false, 0, trail[index]) : SEGMENT.color_from_palette(trail[index], false, true, 255));
   }
 
   SEGENV.step += SEGMENT.speed +1;
@@ -2432,13 +2389,29 @@ typedef struct Ripple {
 #else
   #define MAX_RIPPLES  100
 #endif
-static uint16_t ripple_base(uint8_t blurAmount = 0) {
+uint16_t mode_ripple() {
+  if (SEGLEN <= 1) return mode_static();
   unsigned maxRipples = min(1 + (int)(SEGLEN >> 2), MAX_RIPPLES);  // 56 max for 16 segment ESP8266
   unsigned dataSize = sizeof(ripple) * maxRipples;
 
   if (!SEGENV.allocateData(dataSize)) return mode_static(); //allocation failed
 
   Ripple* ripples = reinterpret_cast<Ripple*>(SEGENV.data);
+
+
+  if (SEGENV.call == 0) {
+    SEGENV.aux0 = SEGENV.aux1 = hw_random8();
+  }
+  if (SEGENV.aux0 == SEGENV.aux1) {
+    SEGENV.aux1 = hw_random8();
+  } else if (SEGENV.aux1 > SEGENV.aux0) {
+    SEGENV.aux0++;
+  } else {
+    SEGENV.aux0--;
+  }
+  if(SEGMENT.custom1 || SEGMENT.check2) // blur or overlay
+                       SEGMENT.fade_out(250);
+  else SEGMENT.fill(SEGMENT.check1 ? color_blend(SEGMENT.color_wheel(SEGENV.aux0),BLACK,uint8_t(235)) : SEGCOLOR(1));
 
   //draw wave
   for (unsigned i = 0; i < maxRipples; i++) {
@@ -2480,49 +2453,13 @@ static uint16_t ripple_base(uint8_t blurAmount = 0) {
       }
     }
   }
-  SEGMENT.blur(blurAmount);
+  SEGMENT.blur(SEGMENT.custom1>>1);
   return FRAMETIME;
 }
+static const char _data_FX_MODE_RIPPLE[] PROGMEM = "Ripple@!,Waves,Blur,,,Rainbow,Overlay;,!;!;12;c1=0";
 #undef MAX_RIPPLES
 
 
-uint16_t mode_ripple(void) {
-  if (SEGLEN <= 1) return mode_static();
-  if (SEGENV.call == 0) {
-    SEGENV.aux0 = hw_random8();
-    SEGENV.aux1 = hw_random8();
-  }
-  if (SEGENV.aux0 == SEGENV.aux1) {
-    SEGENV.aux1 = hw_random8();
-  } else if (SEGENV.aux1 > SEGENV.aux0) {
-    SEGENV.aux0++;
-  } else {
-    SEGENV.aux0--;
-  }
-  if (!SEGMENT.check2) SEGMENT.fill(SEGMENT.check1 ? color_blend(SEGMENT.color_wheel(SEGENV.aux0),BLACK,uint8_t(240)) : SEGCOLOR(1));
-  else                 SEGMENT.fade_out(250);
-  return ripple_base();
-}
-static const char _data_FX_MODE_RIPPLE[] PROGMEM = "Ripple@!,Waves,,,,Palette BG,Overlay;,!;!;12;o1=0";
-
-
-//uint16_t mode_ripple_rainbow(void) {
-//  if (SEGLEN <= 1) return mode_static();
-//  if (SEGENV.call ==0) {
-//    SEGENV.aux0 = hw_random8();
-//    SEGENV.aux1 = hw_random8();
-//  }
-//  if (SEGENV.aux0 == SEGENV.aux1) {
-//    SEGENV.aux1 = hw_random8();
-//  } else if (SEGENV.aux1 > SEGENV.aux0) {
-//    SEGENV.aux0++;
-//  } else {
-//    SEGENV.aux0--;
-//  }
-//  SEGMENT.fill(color_blend(SEGMENT.color_wheel(SEGENV.aux0),BLACK,uint8_t(235)));
-//  return ripple_base();
-//}
-//static const char _data_FX_MODE_RIPPLE_RAINBOW[] PROGMEM = "Ripple Rainbow@!,Waves;;!;12";
 
 
 //  TwinkleFOX by Mark Kriegsman: https://gist.github.com/kriegsman/756ea6dcae8e30845b5a
@@ -3105,7 +3042,7 @@ static const char _data_FX_MODE_ROLLINGBALLS[] PROGMEM = "Rolling Balls@!,# of b
 uint16_t mode_sinelon() {
   if (SEGLEN <= 1) return mode_static();
   const bool rainbow = SEGMENT.check1;
-  const bool dual    = SEGMENT.check3;
+  const bool dual    = SEGMENT.check2;
   SEGMENT.fade_out(SEGMENT.intensity);
   unsigned pos = beatsin16_t(SEGMENT.speed/10,0,SEGLEN-1);
   if (SEGENV.call == 0) SEGENV.aux0 = pos;
@@ -3137,21 +3074,7 @@ uint16_t mode_sinelon() {
 
   return FRAMETIME;
 }
-
-//uint16_t mode_sinelon(void) {
-//  return sinelon_base(false);
-//}
-static const char _data_FX_MODE_SINELON[] PROGMEM = "Sinelon@!,Trail,,,,Rainbow,,Dual;!,!,!;!";
-
-//uint16_t mode_sinelon_dual(void) {
-//  return sinelon_base(true);
-//}
-//static const char _data_FX_MODE_SINELON_DUAL[] PROGMEM = "Sinelon Dual@!,Trail;!,!,!;!";
-
-//uint16_t mode_sinelon_rainbow(void) {
-//  return sinelon_base(false, true);
-//}
-//static const char _data_FX_MODE_SINELON_RAINBOW[] PROGMEM = "Sinelon Rainbow@!,Trail;,,!;!";
+static const char _data_FX_MODE_SINELON[] PROGMEM = "Sinelon@!,Trail,,,,Rainbow,Dual;!,!,!;!";
 
 
 //Glitter with palette background, inspired by https://gist.github.com/kriegsman/062e10f7f07ba8518af6
@@ -10142,7 +10065,7 @@ void WS2812FX::setupEffectData() {
   addEffect(FX_MODE_THEATER_CHASE, &mode_theater_chase, _data_FX_MODE_THEATER_CHASE);
   //addEffect(FX_MODE_THEATER_CHASE_RAINBOW, &mode_theater_chase_rainbow, _data_FX_MODE_THEATER_CHASE_RAINBOW);
   addEffect(FX_MODE_RUNNING_LIGHTS, &mode_running_lights, _data_FX_MODE_RUNNING_LIGHTS);
-  addEffect(FX_MODE_SAW, &mode_saw, _data_FX_MODE_SAW);
+  //addEffect(FX_MODE_SAW, &mode_saw, _data_FX_MODE_SAW);
   addEffect(FX_MODE_TWINKLE, &mode_twinkle, _data_FX_MODE_TWINKLE);
   addEffect(FX_MODE_DISSOLVE, &mode_dissolve, _data_FX_MODE_DISSOLVE);
   //addEffect(FX_MODE_DISSOLVE_RANDOM, &mode_dissolve_random, _data_FX_MODE_DISSOLVE_RANDOM);
@@ -10187,7 +10110,6 @@ void WS2812FX::setupEffectData() {
   addEffect(FX_MODE_TRICOLOR_FADE, &mode_tricolor_fade, _data_FX_MODE_TRICOLOR_FADE);
   addEffect(FX_MODE_LIGHTNING, &mode_lightning, _data_FX_MODE_LIGHTNING);
   addEffect(FX_MODE_ICU, &mode_icu, _data_FX_MODE_ICU);
-  addEffect(FX_MODE_MULTI_COMET, &mode_multi_comet, _data_FX_MODE_MULTI_COMET);
   //addEffect(FX_MODE_DUAL_LARSON_SCANNER, &mode_dual_larson_scanner, _data_FX_MODE_DUAL_LARSON_SCANNER);
   addEffect(FX_MODE_RANDOM_CHASE, &mode_random_chase, _data_FX_MODE_RANDOM_CHASE);
   addEffect(FX_MODE_OSCILLATE, &mode_oscillate, _data_FX_MODE_OSCILLATE);
