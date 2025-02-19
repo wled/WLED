@@ -11,6 +11,7 @@
 */
 #include "wled.h"
 #include "FX.h"
+#include "FXparticleSystem.h"  // TODO: better define the required function (mem service) in FX.h?
 #include "palettes.h"
 
 /*
@@ -470,6 +471,12 @@ void Segment::beginDraw() {
   }
 }
 
+// loads palette of the old FX during transitions (used by particle system)
+void Segment::loadOldPalette(void) {
+  if(isInTransition())
+    loadPalette(_currentPalette, _t->_palTid);
+}
+
 // relies on WS2812FX::service() to call it for each frame
 void Segment::handleRandomPalette() {
   // is it time to generate a new palette?
@@ -655,7 +662,8 @@ Segment &Segment::setName(const char *newName) {
     if (newLen) {
       if (name) name = static_cast<char*>(realloc(name, newLen+1));
       else      name = static_cast<char*>(malloc(newLen+1));
-      if (name) strlcpy(name, newName, newLen);
+      if (name) strlcpy(name, newName, newLen+1);
+      name[newLen] = 0;
       return *this;
     }
   }
@@ -767,7 +775,7 @@ bool IRAM_ATTR_YN Segment::isPixelClipped(int i) const {
     //if (!invert &&  iInside) return _modeBlend;
     //if ( invert && !iInside) return _modeBlend;
     //return !_modeBlend;
-    return !iInside ^ invert ^ _modeBlend; // thanks @willmmiles (https://github.com/Aircoookie/WLED/pull/3877#discussion_r1554633876)
+    return !iInside ^ invert ^ _modeBlend; // thanks @willmmiles (https://github.com/wled-dev/WLED/pull/3877#discussion_r1554633876)
   }
 #endif
   return false;
@@ -1591,6 +1599,9 @@ void WS2812FX::service() {
     _segment_index++;
   }
   Segment::setClippingRect(0, 0);             // disable clipping for overlays
+  #if !(defined(WLED_DISABLE_PARTICLESYSTEM2D) && defined(WLED_DISABLE_PARTICLESYSTEM1D))
+  servicePSmem(); // handle segment particle system memory
+  #endif
   _isServicing = false;
   _triggered = false;
 

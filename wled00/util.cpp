@@ -150,7 +150,7 @@ bool isAsterisksOnly(const char* str, byte maxLen)
 }
 
 
-//threading/network callback details: https://github.com/Aircoookie/WLED/pull/2336#discussion_r762276994
+//threading/network callback details: https://github.com/wled-dev/WLED/pull/2336#discussion_r762276994
 bool requestJSONBufferLock(uint8_t moduleID)
 {
   if (pDoc == nullptr) {

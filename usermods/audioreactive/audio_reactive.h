@@ -19,7 +19,7 @@
 
 /*
  * Usermods allow you to add own functionality to WLED more easily
- * See: https://github.com/Aircoookie/WLED/wiki/Add-own-functionality
+ * See: https://github.com/wled-dev/WLED/wiki/Add-own-functionality
  * 
  * This is an audioreactive v2 usermod.
  * ....

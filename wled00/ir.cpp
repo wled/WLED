@@ -530,7 +530,7 @@ static void decodeIR9(uint32_t code)
 
 /*
 This allows users to customize IR actions without the need to edit C code and compile.
-From the https://github.com/Aircoookie/WLED/wiki/Infrared-Control page, download the starter
+From the https://github.com/wled-dev/WLED/wiki/Infrared-Control page, download the starter
 ir.json file that corresponds to the number of buttons on your remote.
 Many of the remotes with the same number of buttons emit the same codes, but will have
 different labels or colors. Once you edit the ir.json file, upload it to your controller
@@ -611,9 +611,15 @@ static void decodeIRJson(uint32_t code)
       handleSet(nullptr, cmdStr, false);                           // no stateUpdated() call here
     }
   } else {
-    // command is JSON object (TODO: currently will not handle irApplyToAllSelected correctly)
-    if (jsonCmdObj[F("psave")].isNull()) deserializeState(jsonCmdObj, CALL_MODE_BUTTON_PRESET);
-    else {
+    // command is JSON object
+    if (jsonCmdObj[F("psave")].isNull()) {
+      if (irApplyToAllSelected && jsonCmdObj["seg"].is<JsonArray>()) {
+        JsonObject seg = jsonCmdObj["seg"][0];                    // take 1st segment from array and use it to apply to all selected segments
+        seg.remove("id");                                         // remove segment ID if it exists
+        jsonCmdObj["seg"] = seg;                                  // replace array with object
+      }
+      deserializeState(jsonCmdObj, CALL_MODE_BUTTON_PRESET);      // **will call stateUpdated() with correct CALL_MODE**
+    } else {
       uint8_t psave = jsonCmdObj[F("psave")].as<int>();
       char pname[33];
       sprintf_P(pname, PSTR("IR Preset %d"), psave);
@@ -628,6 +634,7 @@ static void applyRepeatActions()
 {
   if (irEnabled == 8) {
     decodeIRJson(lastValidCode);
+    stateUpdated(CALL_MODE_BUTTON_PRESET);
     return;
   } else switch (lastRepeatableAction) {
     case ACTION_BRIGHT_UP :      incBrightness();                            stateUpdated(CALL_MODE_BUTTON); return;
@@ -664,7 +671,7 @@ static void decodeIR(uint32_t code)
 
   if (irEnabled == 8) { // any remote configurable with ir.json file
     decodeIRJson(code);
-    stateUpdated(CALL_MODE_BUTTON);
+    stateUpdated(CALL_MODE_BUTTON_PRESET);
     return;
   }
   if (code > 0xFFFFFF) return; //invalid code

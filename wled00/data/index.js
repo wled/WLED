@@ -807,6 +807,8 @@ function populateSegments(s)
 						`<div class="sel-p"><select class="sel-p" id="seg${i}si" onchange="setSi(${i})">`+
 							`<option value="0" ${inst.si==0?' selected':''}>BeatSin</option>`+
 							`<option value="1" ${inst.si==1?' selected':''}>WeWillRockYou</option>`+
+							`<option value="2" ${inst.si==2?' selected':''}>10/13</option>`+
+							`<option value="3" ${inst.si==3?' selected':''}>14/3</option>`+
 						`</select></div>`+
 					`</div>`;
 		cn += `<div class="seg lstI ${i==s.mainseg && !simplifiedUI ? 'selected' : ''} ${exp ? "expanded":""}" id="seg${i}" data-set="${inst.set}">`+
@@ -1416,7 +1418,7 @@ function makeWS() {
 		ws = null;
 	}
 	ws.onopen = (e)=>{
-		//ws.send("{'v':true}"); // unnecessary (https://github.com/Aircoookie/WLED/blob/master/wled00/ws.cpp#L18)
+		//ws.send("{'v':true}"); // unnecessary (https://github.com/wled-dev/WLED/blob/main/wled00/ws.cpp#L18)
 		wsRpt = 0;
 		reqsLegal = true;
 	}
@@ -2727,7 +2729,7 @@ setInterval(()=>{
 	gId('heart').style.color = `hsl(${hc}, 100%, 50%)`;
 }, 910);
 
-function openGH() { window.open("https://github.com/Aircoookie/WLED/wiki"); }
+function openGH() { window.open("https://github.com/wled-dev/WLED/wiki"); }
 
 var cnfr = false;
 function cnfReset()
@@ -3120,10 +3122,9 @@ function mergeDeep(target, ...sources)
 	return mergeDeep(target, ...sources);
 }
 
-function tooltip(cont=null)
-{
+function tooltip(cont=null) {
 	d.querySelectorAll((cont?cont+" ":"")+"[title]").forEach((element)=>{
-		element.addEventListener("mouseover", ()=>{
+		element.addEventListener("pointerover", ()=>{
 			// save title
 			element.setAttribute("data-title", element.getAttribute("title"));
 			const tooltip = d.createElement("span");
@@ -3148,7 +3149,7 @@ function tooltip(cont=null)
 			tooltip.classList.add("visible");
 		});
 
-		element.addEventListener("mouseout", ()=>{
+		element.addEventListener("pointerout", ()=>{
 			d.querySelectorAll('.tooltip').forEach((tooltip)=>{
 				tooltip.classList.remove("visible");
 				d.body.removeChild(tooltip);

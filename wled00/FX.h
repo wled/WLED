@@ -323,8 +323,35 @@ extern byte realtimeMode;           // used in getMappedPixelIndex()
 #define FX_MODE_WAVESINS               184
 #define FX_MODE_ROCKTAVES              185
 #define FX_MODE_2DAKEMI                186
-
-#define MODE_COUNT                     187
+#define FX_MODE_PARTICLEVOLCANO        187
+#define FX_MODE_PARTICLEFIRE           188
+#define FX_MODE_PARTICLEFIREWORKS      189
+#define FX_MODE_PARTICLEVORTEX         190
+#define FX_MODE_PARTICLEPERLIN         191
+#define FX_MODE_PARTICLEPIT            192
+#define FX_MODE_PARTICLEBOX            193
+#define FX_MODE_PARTICLEATTRACTOR      194
+#define FX_MODE_PARTICLEIMPACT         195
+#define FX_MODE_PARTICLEWATERFALL      196
+#define FX_MODE_PARTICLESPRAY          197
+#define FX_MODE_PARTICLESGEQ           198
+#define FX_MODE_PARTICLECENTERGEQ      199
+#define FX_MODE_PARTICLEGHOSTRIDER     200
+#define FX_MODE_PARTICLEBLOBS          201
+#define FX_MODE_PSDRIP                 202
+#define FX_MODE_PSPINBALL              203
+#define FX_MODE_PSDANCINGSHADOWS       204
+#define FX_MODE_PSFIREWORKS1D          205
+#define FX_MODE_PSSPARKLER             206
+#define FX_MODE_PSHOURGLASS            207
+#define FX_MODE_PS1DSPRAY              208
+#define FX_MODE_PSBALANCE              209
+#define FX_MODE_PSCHASE                210
+#define FX_MODE_PSSTARBURST            211
+#define FX_MODE_PS1DGEQ                212
+#define FX_MODE_PSFIRE1D               213
+#define FX_MODE_PS1DSONICSTREAM        214
+#define MODE_COUNT                     215
 
 
 #define BLEND_STYLE_FADE            0x00  // universal
@@ -481,6 +508,7 @@ typedef struct Segment {
       uint8_t       _prevPaletteBlends; // number of previous palette blends (there are max 255 blends possible)
       unsigned long _start;       // must accommodate millis()
       uint16_t      _dur;
+      // -> here is one byte of padding
       Transition(uint16_t dur=750)
         : _palT(CRGBPalette16(CRGB::Black))
         , _prevPaletteBlends(0)
@@ -579,6 +607,7 @@ typedef struct Segment {
     inline static void     addUsedSegmentData(int len)     { Segment::_usedSegmentData += len; }
     #ifndef WLED_DISABLE_MODE_BLEND
     inline static void     modeBlend(bool blend)           { _modeBlend = blend; }
+    inline static bool     getmodeBlend(void)              { return _modeBlend; }
     #endif
     inline static unsigned vLength()                       { return Segment::_vLength; }
     inline static unsigned vWidth()                        { return Segment::_vWidth; }
@@ -627,6 +656,7 @@ typedef struct Segment {
     uint8_t  currentMode() const;                            // currently active effect/mode (while in transition)
     [[gnu::hot]] uint32_t currentColor(uint8_t slot) const;  // currently active segment color (blended while in transition)
     CRGBPalette16 &loadPalette(CRGBPalette16 &tgt, uint8_t pal);
+    void     loadOldPalette(); // loads old FX palette into _currentPalette
 
     // 1D strip
     [[gnu::hot]] uint16_t virtualLength() const;
@@ -678,7 +708,6 @@ typedef struct Segment {
     }
   #ifndef WLED_DISABLE_2D
     inline bool is2D() const                                                            { return (width()>1 && height()>1); }
-    [[gnu::hot]] int  XY(int x, int y) const; // support function to get relative index within segment
     [[gnu::hot]] void setPixelColorXY(int x, int y, uint32_t c) const; // set relative pixel within segment with color
     inline void setPixelColorXY(unsigned x, unsigned y, uint32_t c) const               { setPixelColorXY(int(x), int(y), c); }
     inline void setPixelColorXY(int x, int y, byte r, byte g, byte b, byte w = 0) const { setPixelColorXY(x, y, RGBW32(r,g,b,w)); }
@@ -715,8 +744,7 @@ typedef struct Segment {
     void wu_pixel(uint32_t x, uint32_t y, CRGB c);
     inline void fill_solid(CRGB c) { fill(RGBW32(c.r,c.g,c.b,0)); }
   #else
-    inline constexpr bool is2D() const                                            { return false; }
-    inline int  XY(int x, int y) const                                            { return x; }
+    inline bool is2D() const                                                      { return false; }
     inline void setPixelColorXY(int x, int y, uint32_t c)                         { setPixelColor(x, c); }
     inline void setPixelColorXY(unsigned x, unsigned y, uint32_t c)               { setPixelColor(int(x), c); }
     inline void setPixelColorXY(int x, int y, byte r, byte g, byte b, byte w = 0) { setPixelColor(x, RGBW32(r,g,b,w)); }

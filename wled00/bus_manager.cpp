@@ -387,7 +387,7 @@ void BusDigital::setColorOrder(uint8_t colorOrder) {
   _colorOrder = colorOrder;
 }
 
-// credit @willmmiles & @netmindz https://github.com/Aircoookie/WLED/pull/4056
+// credit @willmmiles & @netmindz https://github.com/wled-dev/WLED/pull/4056
 std::vector<LEDType> BusDigital::getLEDTypes() {
   return {
     {TYPE_WS2812_RGB,    "D",  PSTR("WS281x")},
@@ -569,7 +569,7 @@ void BusPwm::show() {
    constexpr unsigned bitShift = 8;  // 256 clocks for dead time, ~3us at 80MHz
 #else
   // if _needsRefresh is true (UI hack) we are using dithering (credit @dedehai & @zalatnaicsongor)
-  // https://github.com/Aircoookie/WLED/pull/4115 and https://github.com/zalatnaicsongor/WLED/pull/1)
+  // https://github.com/wled-dev/WLED/pull/4115 and https://github.com/zalatnaicsongor/WLED/pull/1)
   const bool     dithering = _needsRefresh; // avoid working with bitfield
   const unsigned maxBri = (1<<_depth);      // possible values: 16384 (14), 8192 (13), 4096 (12), 2048 (11), 1024 (10), 512 (9) and 256 (8) 
   const unsigned bitShift = dithering * 4;  // if dithering, _depth is 12 bit but LEDC channel is set to 8 bit (using 4 fractional bits)
@@ -635,7 +635,7 @@ unsigned BusPwm::getPins(uint8_t* pinArray) const {
   return numPins;
 }
 
-// credit @willmmiles & @netmindz https://github.com/Aircoookie/WLED/pull/4056
+// credit @willmmiles & @netmindz https://github.com/wled-dev/WLED/pull/4056
 std::vector<LEDType> BusPwm::getLEDTypes() {
   return {
     {TYPE_ANALOG_1CH, "A",      PSTR("PWM White")},
@@ -710,7 +710,7 @@ unsigned BusOnOff::getPins(uint8_t* pinArray) const {
   return 1;
 }
 
-// credit @willmmiles & @netmindz https://github.com/Aircoookie/WLED/pull/4056
+// credit @willmmiles & @netmindz https://github.com/wled-dev/WLED/pull/4056
 std::vector<LEDType> BusOnOff::getLEDTypes() {
   return {
     {TYPE_ONOFF, "", PSTR("On/Off")},
@@ -773,7 +773,7 @@ unsigned BusNetwork::getPins(uint8_t* pinArray) const {
   return 4;
 }
 
-// credit @willmmiles & @netmindz https://github.com/Aircoookie/WLED/pull/4056
+// credit @willmmiles & @netmindz https://github.com/wled-dev/WLED/pull/4056
 std::vector<LEDType> BusNetwork::getLEDTypes() {
   return {
     {TYPE_NET_DDP_RGB,     "N",     PSTR("DDP RGB (network)")},      // should be "NNNN" to determine 4 "pin" fields
@@ -784,7 +784,7 @@ std::vector<LEDType> BusNetwork::getLEDTypes() {
     //{TYPE_VIRTUAL_I2C_W,   "V",     PSTR("I2C White (virtual)")}, // allows setting I2C address in _pin[0]
     //{TYPE_VIRTUAL_I2C_CCT, "V",     PSTR("I2C CCT (virtual)")}, // allows setting I2C address in _pin[0]
     //{TYPE_VIRTUAL_I2C_RGB, "VVV",   PSTR("I2C RGB (virtual)")}, // allows setting I2C address in _pin[0] and 2 additional values in _pin[1] & _pin[2]
-    //{TYPE_USERMOD,         "VVVVV", PSTR("Usermod (virtual)")}, // 5 data fields (see https://github.com/Aircoookie/WLED/pull/4123)
+    //{TYPE_USERMOD,         "VVVVV", PSTR("Usermod (virtual)")}, // 5 data fields (see https://github.com/wled-dev/WLED/pull/4123)
   };
 }
 
@@ -872,7 +872,7 @@ static String LEDTypesToJson(const std::vector<LEDType>& types) {
   return json;
 }
 
-// credit @willmmiles & @netmindz https://github.com/Aircoookie/WLED/pull/4056
+// credit @willmmiles & @netmindz https://github.com/wled-dev/WLED/pull/4056
 String BusManager::getLEDTypesJSONString() {
   String json = "[";
   json += LEDTypesToJson(BusDigital::getLEDTypes());
