@@ -526,7 +526,7 @@ static uint16_t running_base(bool saw) {
       a = 255 - a;
     }
     unsigned palIdx = moving ? (i+counter)%SEGLEN : i;
-    uint8_t s = dual ? sin_gap(a) : sin8(a);
+    uint8_t s = dual ? sin_gap(a) : sin8_t(a);
     uint32_t ca = color_blend(SEGCOLOR(1), SEGMENT.color_from_palette(palIdx, true, moving, 0), s);
     if (dual) {
       unsigned b = (SEGLEN-1-i)*x_scale - counter;
@@ -4829,14 +4829,14 @@ uint16_t mode_2DBlackHole(void) {            // By: Stepko https://editor.soulma
   unsigned long t = strip.now/128;                 // timebase
   // outer stars
   for (size_t i = 0; i < 8; i++) {
-    x = beatsin8(SEGMENT.custom1>>3,   0, cols - 1, 0, ((i % 2) ? 128 : 0) + t * i);
-    y = beatsin8(SEGMENT.intensity>>3, 0, rows - 1, 0, ((i % 2) ? 192 : 64) + t * i);
+    x = beatsin8_t(SEGMENT.custom1>>3,   0, cols - 1, 0, ((i % 2) ? 128 : 0) + t * i);
+    y = beatsin8_t(SEGMENT.intensity>>3, 0, rows - 1, 0, ((i % 2) ? 192 : 64) + t * i);
     SEGMENT.addPixelColorXY(x, y, SEGMENT.color_from_palette(i*32, false, PALETTE_SOLID_WRAP, oneColor?0:255));
   }
   // inner stars
   for (size_t i = 0; i < 4; i++) {
-    x = beatsin8(SEGMENT.custom2>>3, cols/4, cols - 1 - cols/4, 0, ((i % 2) ? 128 : 0) + t * i);
-    y = beatsin8(SEGMENT.custom3   , rows/4, rows - 1 - rows/4, 0, ((i % 2) ? 192 : 64) + t * i);
+    x = beatsin8_t(SEGMENT.custom2>>3, cols/4, cols - 1 - cols/4, 0, ((i % 2) ? 128 : 0) + t * i);
+    y = beatsin8_t(SEGMENT.custom3   , rows/4, rows - 1 - rows/4, 0, ((i % 2) ? 192 : 64) + t * i);
     SEGMENT.addPixelColorXY(x, y, SEGMENT.color_from_palette(255-i*64, false, PALETTE_SOLID_WRAP, oneColor?0:255));
   }
   // central white dot
