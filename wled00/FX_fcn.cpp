@@ -1696,7 +1696,8 @@ void WS2812FX::blendSegment(const Segment &topSegment) {
   };
 
   const size_t blendMode = topSegment.blendMode < (sizeof(funcs) / sizeof(FuncType)) ? topSegment.blendMode : 0;
-  const auto func = funcs[blendMode]; // blendMode % (sizeof(funcs) / sizeof(FuncType))
+  const auto func  = funcs[blendMode]; // blendMode % (sizeof(funcs) / sizeof(FuncType))
+  const auto blend = [&](uint32_t top, uint32_t bottom){ return RGBW32(func(R(top),R(bottom)), func(G(top),G(bottom)), func(B(top),B(bottom)), func(W(top),W(bottom))); };
 
   topSegment.setDrawDimensions();         // required for seg.getPixelColor()
   const int  len = Segment::vLength();    // use precalculated value from setDrawDimensions()
@@ -1704,7 +1705,7 @@ void WS2812FX::blendSegment(const Segment &topSegment) {
   const size_t matrixSize = Segment::maxWidth * Segment::maxHeight;
   const size_t startIndx  = XY(topSegment.start, topSegment.startY);
   const size_t stopIndx   = startIndx + len;
-  const unsigned opacity  = topSegment.currentBri(); // determines amount of a applied over b in blend fuctions (not yet used)
+  const unsigned opacity  = topSegment.currentBri(); // determines amount of a applied over b in blend fuctions
 
   if (isMatrix && stopIndx <= matrixSize) {
 #ifndef WLED_DISABLE_2D
@@ -1712,13 +1713,7 @@ void WS2812FX::blendSegment(const Segment &topSegment) {
     const int rows = Segment::vHeight();  // use precalculated value from setDrawDimensions()
     for (int r = 0; r < rows; r++) for (int c = 0; c < cols; c++) {
       // get segment's pixel
-      uint32_t c_a = topSegment.getPixelColorXY(c,r);
-      c_a = color_fade(c_a, opacity);
-      auto r_a = R(c_a);
-      auto g_a = G(c_a);
-      auto b_a = B(c_a);
-      auto w_a = W(c_a);
-
+      const uint32_t c_a = topSegment.getPixelColorXY(c,r);
       // map it into frame buffer
       int x = c;
       int y = r;
@@ -1727,12 +1722,8 @@ void WS2812FX::blendSegment(const Segment &topSegment) {
       if (topSegment.transpose) { std::swap(x,y); } // swap X & Y if segment transposed
       const unsigned groupLen = topSegment.groupLength();
       if (groupLen == 1) {
-        size_t indx = XY(topSegment.start + x, topSegment.startY + y);
-        auto r_b = R(pixels[indx]);
-        auto g_b = G(pixels[indx]);
-        auto b_b = B(pixels[indx]);
-        auto w_b = W(pixels[indx]);
-        pixels[indx] = RGBW32(func(r_a,r_b), func(g_a,g_b), func(b_a,b_b), func(w_a,w_b));
+        size_t indx = XY(topSegment.start + x, topSegment.startY + y);  // absolute address on strip
+        pixels[indx] = color_blend(pixels[indx], blend(c_a, pixels[indx]), opacity);
       } else {
         // handle grouping and spacing
         x *= groupLen; // expand to physical pixels
@@ -1745,12 +1736,8 @@ void WS2812FX::blendSegment(const Segment &topSegment) {
           for (int xX = x; xX < maxX; xX++) {
             const int baseX = topSegment.start + xX;
             const int baseY = topSegment.startY + yY;
-            size_t indx = XY(baseX, baseY);
-            auto r_b = R(pixels[indx]);
-            auto g_b = G(pixels[indx]);
-            auto b_b = B(pixels[indx]);
-            auto w_b = W(pixels[indx]);
-            pixels[indx] = RGBW32(func(r_a,r_b), func(g_a,g_b), func(b_a,b_b), func(w_a,w_b));
+            size_t indx = XY(baseX, baseY); // absolute address on strip
+            pixels[indx] = color_blend(pixels[indx], blend(c_a, pixels[indx]), opacity);
             // Apply mirroring
             if (topSegment.mirror || topSegment.mirror_y) {
               const int mirrorX = topSegment.start + width - x - 1;
@@ -1758,27 +1745,9 @@ void WS2812FX::blendSegment(const Segment &topSegment) {
               const size_t idxMX = XY(topSegment.transpose ? baseX : mirrorX, topSegment.transpose ? mirrorY : baseY);
               const size_t idxMY = XY(topSegment.transpose ? mirrorX : baseX, topSegment.transpose ? baseY : mirrorY);
               const size_t idxMM = XY(mirrorX, mirrorY);
-              if (topSegment.mirror) {
-                auto r_b = R(pixels[idxMX]);
-                auto g_b = G(pixels[idxMX]);
-                auto b_b = B(pixels[idxMX]);
-                auto w_b = W(pixels[idxMX]);
-                pixels[idxMX] = RGBW32(func(r_a,r_b), func(g_a,g_b), func(b_a,b_b), func(w_a,w_b));
-              }
-              if (topSegment.mirror_y) {
-                auto r_b = R(pixels[idxMY]);
-                auto g_b = G(pixels[idxMY]);
-                auto b_b = B(pixels[idxMY]);
-                auto w_b = W(pixels[idxMY]);
-                pixels[idxMY] = RGBW32(func(r_a,r_b), func(g_a,g_b), func(b_a,b_b), func(w_a,w_b));
-              }
-              if (topSegment.mirror && topSegment.mirror_y) {
-                auto r_b = R(pixels[idxMM]);
-                auto g_b = G(pixels[idxMM]);
-                auto b_b = B(pixels[idxMM]);
-                auto w_b = W(pixels[idxMM]);
-                pixels[idxMM] = RGBW32(func(r_a,r_b), func(g_a,g_b), func(b_a,b_b), func(w_a,w_b));
-              }
+              if (topSegment.mirror)                        pixels[idxMX] = color_blend(pixels[idxMX], blend(c_a, pixels[idxMX]), opacity);
+              if (topSegment.mirror_y)                      pixels[idxMY] = color_blend(pixels[idxMY], blend(c_a, pixels[idxMY]), opacity);
+              if (topSegment.mirror && topSegment.mirror_y) pixels[idxMM] = color_blend(pixels[idxMM], blend(c_a, pixels[idxMM]), opacity);
             }
           }
         }
@@ -1787,13 +1756,8 @@ void WS2812FX::blendSegment(const Segment &topSegment) {
 #endif
   } else {
     for (int k = 0; k < len; k++) {
-      uint32_t c_a = topSegment.getPixelColor(k);
-      c_a = color_fade(c_a, opacity);
-      auto r_a = R(c_a);
-      auto g_a = G(c_a);
-      auto b_a = B(c_a);
-      auto w_a = W(c_a);
-
+      // get segment's pixel
+      const uint32_t c_a = topSegment.getPixelColor(k);
       // expand pixel (taking into account start, grouping, spacing [and offset])
       int i = k * topSegment.groupLength();
       if (topSegment.reverse) {   // is segment reversed?
@@ -1803,8 +1767,7 @@ void WS2812FX::blendSegment(const Segment &topSegment) {
           i = (len - 1) - i;
         }
       }
-      i += topSegment.start; // starting pixel in a group
-
+      i += topSegment.start; // starting pixel in a group (set absolute address)
       // set all the pixels in the group
       for (int j = 0; j < topSegment.grouping; j++) {
         unsigned indexSet = i + ((topSegment.reverse) ? -j : j);
@@ -1813,19 +1776,11 @@ void WS2812FX::blendSegment(const Segment &topSegment) {
             unsigned indexMir = topSegment.stop - indexSet + topSegment.start - 1;
             indexMir += topSegment.offset; // offset/phase
             if (indexMir >= topSegment.stop) indexMir -= len; // wrap
-            auto r_b = R(pixels[indexMir]);
-            auto g_b = G(pixels[indexMir]);
-            auto b_b = B(pixels[indexMir]);
-            auto w_b = W(pixels[indexMir]);
-            pixels[indexMir] = RGBW32(func(r_a,r_b), func(g_a,g_b), func(b_a,b_b), func(w_a,w_b));
+            pixels[indexMir] = color_blend(pixels[indexMir], blend(c_a, pixels[indexMir]), opacity);
           }
           indexSet += topSegment.offset; // offset/phase
           if (indexSet >= topSegment.stop) indexSet -= len; // wrap
-          auto r_b = R(pixels[indexSet]);
-          auto g_b = G(pixels[indexSet]);
-          auto b_b = B(pixels[indexSet]);
-          auto w_b = W(pixels[indexSet]);
-          pixels[indexSet] = RGBW32(func(r_a,r_b), func(g_a,g_b), func(b_a,b_b), func(w_a,w_b));
+          pixels[indexSet] = color_blend(pixels[indexSet], blend(c_a, pixels[indexSet]), opacity);
         }
       }
     }
