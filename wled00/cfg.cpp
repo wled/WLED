@@ -20,11 +20,11 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
 
   //long vid = doc[F("vid")]; // 2010020
 
-#ifdef WLED_USE_ETHERNET
+#if defined(ARDUINO_ARCH_ESP32) && defined(WLED_USE_ETHERNET)
   JsonObject ethernet = doc[F("eth")];
   CJSON(ethernetType, ethernet["type"]);
   // NOTE: Ethernet configuration takes priority over other use of pins
-  WLED::instance().initEthernet();
+  initEthernet();
 #endif
 
   JsonObject id = doc["id"];
@@ -53,9 +53,11 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
       JsonArray sn = wifi["sn"];
       char ssid[33] = "";
       char pass[65] = "";
+      char bssid[13] = "";
       IPAddress nIP = (uint32_t)0U, nGW = (uint32_t)0U, nSN = (uint32_t)0x00FFFFFF; // little endian
       getStringFromJson(ssid, wifi[F("ssid")], 33);
       getStringFromJson(pass, wifi["psk"], 65); // password is not normally present but if it is, use it
+      getStringFromJson(bssid, wifi[F("bssid")], 13);
       for (size_t i = 0; i < 4; i++) {
         CJSON(nIP[i], ip[i]);
         CJSON(nGW[i], gw[i]);
@@ -63,6 +65,7 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
       }
       if (strlen(ssid) > 0) strlcpy(multiWiFi[n].clientSSID, ssid, 33); // this will keep old SSID intact if not present in JSON
       if (strlen(pass) > 0) strlcpy(multiWiFi[n].clientPass, pass, 65); // this will keep old password intact if not present in JSON
+      if (strlen(bssid) > 0) fillStr2MAC(multiWiFi[n].bssid, bssid);
       multiWiFi[n].staticIP = nIP;
       multiWiFi[n].staticGW = nGW;
       multiWiFi[n].staticSN = nSN;
@@ -118,6 +121,9 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
   Bus::setCCTBlend(cctBlending);
   strip.setTargetFps(hw_led["fps"]); //NOP if 0, default 42 FPS
   CJSON(useGlobalLedBuffer, hw_led[F("ld")]);
+  #if defined(ARDUINO_ARCH_ESP32) && !defined(CONFIG_IDF_TARGET_ESP32C3)
+  CJSON(useParallelI2S, hw_led[F("prl")]);
+  #endif
 
   #ifndef WLED_DISABLE_2D
   // 2D Matrix Settings
@@ -162,34 +168,6 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
     DEBUG_PRINTF_P(PSTR("Heap before buses: %d\n"), ESP.getFreeHeap());
     int s = 0;  // bus iterator
     if (fromFS) BusManager::removeAll(); // can't safely manipulate busses directly in network callback
-    unsigned mem = 0;
-
-    // determine if it is sensible to use parallel I2S outputs on ESP32 (i.e. more than 5 outputs = 1 I2S + 4 RMT)
-    bool useParallel = false;
-    #if defined(ARDUINO_ARCH_ESP32) && !defined(ARDUINO_ARCH_ESP32S2) && !defined(ARDUINO_ARCH_ESP32S3) && !defined(ARDUINO_ARCH_ESP32C3)
-    unsigned digitalCount = 0;
-    unsigned maxLedsOnBus = 0;
-    unsigned maxChannels = 0;
-    for (JsonObject elm : ins) {
-      unsigned type = elm["type"] | TYPE_WS2812_RGB;
-      unsigned len = elm["len"] | DEFAULT_LED_COUNT;
-      if (!Bus::isDigital(type)) continue;
-      if (!Bus::is2Pin(type)) {
-        digitalCount++;
-        unsigned channels = Bus::getNumberOfChannels(type);
-        if (len > maxLedsOnBus)     maxLedsOnBus = len;
-        if (channels > maxChannels) maxChannels  = channels;
-      }
-    }
-    DEBUG_PRINTF_P(PSTR("Maximum LEDs on a bus: %u\nDigital buses: %u\n"), maxLedsOnBus, digitalCount);
-    // we may remove 300 LEDs per bus limit when NeoPixelBus is updated beyond 2.9.0
-    if (maxLedsOnBus <= 300 && digitalCount > 5) {
-      DEBUG_PRINTLN(F("Switching to parallel I2S."));
-      useParallel = true;
-      BusManager::useParallelOutput();
-      mem = BusManager::memUsage(maxChannels, maxLedsOnBus, 8); // use alternate memory calculation
-    }
-    #endif
 
     for (JsonObject elm : ins) {
       if (s >= WLED_MAX_BUSSES+WLED_MIN_VIRTUAL_BUSSES) break;
@@ -220,24 +198,11 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
         maMax = 0;
       }
       ledType |= refresh << 7; // hack bit 7 to indicate strip requires off refresh
-      if (fromFS) {
-        BusConfig bc = BusConfig(ledType, pins, start, length, colorOrder, reversed, skipFirst, AWmode, freqkHz, useGlobalLedBuffer, maPerLed, maMax);
-        if (useParallel && s < 8) {
-          // if for some unexplained reason the above pre-calculation was wrong, update
-          unsigned memT = BusManager::memUsage(bc); // includes x8 memory allocation for parallel I2S
-          if (memT > mem) mem = memT; // if we have unequal LED count use the largest
-        } else
-          mem += BusManager::memUsage(bc); // includes global buffer
-        if (mem <= MAX_LED_MEMORY) if (BusManager::add(bc) == -1) break;  // finalization will be done in WLED::beginStrip()
-      } else {
-        if (busConfigs[s] != nullptr) delete busConfigs[s];
-        busConfigs[s] = new BusConfig(ledType, pins, start, length, colorOrder, reversed, skipFirst, AWmode, freqkHz, useGlobalLedBuffer, maPerLed, maMax);
-        doInitBusses = true;  // finalization done in beginStrip()
-      }
+
+      busConfigs.push_back(std::move(BusConfig(ledType, pins, start, length, colorOrder, reversed, skipFirst, AWmode, freqkHz, useGlobalLedBuffer, maPerLed, maMax)));
+      doInitBusses = true;  // finalization done in beginStrip()
       s++;
     }
-    DEBUG_PRINTF_P(PSTR("LED buffer size: %uB\n"), mem);
-    DEBUG_PRINTF_P(PSTR("Heap after buses: %d\n"), ESP.getFreeHeap());
   }
   if (hw_led["rev"]) BusManager::getBus(0)->setReversed(true); //set 0.11 global reversed setting for first bus
 
@@ -707,8 +672,8 @@ void deserializeConfigFromFS() {
     UsermodManager::readFromConfig(empty);
     serializeConfig();
     // init Ethernet (in case default type is set at compile time)
-    #ifdef WLED_USE_ETHERNET
-    WLED::instance().initEthernet();
+    #if defined(ARDUINO_ARCH_ESP32) && defined(WLED_USE_ETHERNET)
+    initEthernet();
     #endif
     return;
   }
@@ -756,6 +721,9 @@ void serializeConfig() {
     JsonObject wifi = nw_ins.createNestedObject();
     wifi[F("ssid")] = multiWiFi[n].clientSSID;
     wifi[F("pskl")] = strlen(multiWiFi[n].clientPass);
+    char bssid[13];
+    fillMAC2Str(bssid, multiWiFi[n].bssid);
+    wifi[F("bssid")] = bssid;
     JsonArray wifi_ip = wifi.createNestedArray("ip");
     JsonArray wifi_gw = wifi.createNestedArray("gw");
     JsonArray wifi_sn = wifi.createNestedArray("sn");
@@ -791,7 +759,7 @@ void serializeConfig() {
   wifi[F("txpwr")] = txPower;
 #endif
 
-#ifdef WLED_USE_ETHERNET
+#if defined(ARDUINO_ARCH_ESP32) && defined(WLED_USE_ETHERNET)
   JsonObject ethernet = root.createNestedObject("eth");
   ethernet["type"] = ethernetType;
   if (ethernetType != WLED_ETH_NONE && ethernetType < WLED_NUM_ETH_TYPES) {
@@ -828,6 +796,9 @@ void serializeConfig() {
   hw_led["fps"] = strip.getTargetFps();
   hw_led[F("rgbwm")] = Bus::getGlobalAWMode(); // global auto white mode override
   hw_led[F("ld")] = useGlobalLedBuffer;
+  #if defined(ARDUINO_ARCH_ESP32) && !defined(CONFIG_IDF_TARGET_ESP32C3)
+  hw_led[F("prl")] = BusManager::hasParallelOutput();
+  #endif
 
   #ifndef WLED_DISABLE_2D
   // 2D Matrix Settings
@@ -852,8 +823,19 @@ void serializeConfig() {
   JsonArray hw_led_ins = hw_led.createNestedArray("ins");
 
   for (size_t s = 0; s < BusManager::getNumBusses(); s++) {
+    DEBUG_PRINTF_P(PSTR("Cfg: Saving bus #%u\n"), s);
     Bus *bus = BusManager::getBus(s);
     if (!bus || bus->getLength()==0) break;
+    DEBUG_PRINTF_P(PSTR("  (%d-%d, type:%d, CO:%d, rev:%d, skip:%d, AW:%d kHz:%d, mA:%d/%d)\n"),
+      (int)bus->getStart(), (int)(bus->getStart()+bus->getLength()),
+      (int)(bus->getType() & 0x7F),
+      (int)bus->getColorOrder(),
+      (int)bus->isReversed(),
+      (int)bus->skippedLeds(),
+      (int)bus->getAutoWhiteMode(),
+      (int)bus->getFrequency(),
+      (int)bus->getLEDCurrent(), (int)bus->getMaxCurrent()
+    );
     JsonObject ins = hw_led_ins.createNestedObject();
     ins["start"] = bus->getStart();
     ins["len"] = bus->getLength();

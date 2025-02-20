@@ -42,10 +42,10 @@
 			if (loc) d.Sf.action = getURL('/settings/leds');
 		}
 		function bLimits(b,v,p,m,l,o=5,d=2,a=6) {
-			oMaxB = maxB = b; // maxB - max buses (can be changed if using ESP32 parallel I2S)
-			maxD  = d; // maxD - max digital channels (can be changed if using ESP32 parallel I2S)
-			maxA  = a; // maxA - max analog channels
-			maxV  = v; // maxV - min virtual buses
+			oMaxB = maxB = b; // maxB - max buses (can be changed if using ESP32 parallel I2S): 19 - ESP32, 14 - S3/S2, 6 - C3, 4 - 8266
+			maxD  = d; // maxD - max digital channels (can be changed if using ESP32 parallel I2S): 16 - ESP32, 12 - S3/S2, 2 - C3, 3 - 8266
+			maxA  = a; // maxA - max analog channels: 16 - ESP32, 8 - S3/S2, 6 - C3, 5 - 8266
+			maxV  = v; // maxV - min virtual buses: 4 - ESP32/S3, 3 - S2/C3, 2 - ESP8266
 			maxPB = p; // maxPB - max LEDs per bus
 			maxM  = m; // maxM - max LED memory
 			maxL  = l; // maxL - max LEDs (will serve to determine ESP >1664 == ESP32)
@@ -250,6 +250,7 @@
 			}
 
 			// enable/disable LED fields
+			let dC = 0; // count of digital buses (for parallel I2S)
 			let LTs = d.Sf.querySelectorAll("#mLC select[name^=LT]");
 			LTs.forEach((s,i)=>{
 				if (i < LTs.length-1) s.disabled = true; // prevent changing type (as we can't update options)
@@ -257,6 +258,7 @@
 				var n = s.name.substring(2);
 				var t = parseInt(s.value);
 				memu += getMem(t, n); // calc memory
+				dC += (isDig(t) && !isD2P(t));
 				setPinConfig(n,t);
 				gId("abl"+n).style.display = (!abl || !isDig(t)) ? "none" : "inline"; // show/hide individual ABL settings
 				if (change) { // did we change LED type?
@@ -295,8 +297,7 @@
 				// do we have a led count field
 				if (nm=="LC") {
 					let c = parseInt(LC.value,10); //get LED count
-					if (c > 300 && i < 8) maxB = oMaxB - Math.max(maxD-7,0); //TODO: hard limit for buses when using ESP32 parallel I2S
-					if (!customStarts || !startsDirty[n]) gId("ls"+n).value=sLC; //update start value
+					if (!customStarts || !startsDirty[n]) gId("ls"+n).value = sLC; //update start value
 					gId("ls"+n).disabled = !customStarts; //enable/disable field editing
 					if (c) {
 						let s = parseInt(gId("ls"+n).value); //start value
@@ -350,6 +351,17 @@
 						else LC.style.color = d.ro_gpio.some((e)=>e==parseInt(LC.value)) ? "orange" : "#fff";
 					}
 			});
+			const S2 = (oMaxB == 14) && (maxV == 4);
+			const S3 = (oMaxB == 14) && (maxV == 6);
+			if (oMaxB == 19 || S2 || S3) { // TODO: crude ESP32 & S2/S3 detection
+				if (maxLC > 300 || dC <= 2) {
+					d.Sf["PR"].checked = false;
+					gId("prl").classList.add("hide");
+				} else
+					gId("prl").classList.remove("hide");
+				maxD = (S2 || S3 ? 4 : 8) + (d.Sf["PR"].checked ? 8 : S2); // TODO: use bLimits() : 4/8RMT + (x1/x8 parallel) I2S1
+				maxB = oMaxB - (d.Sf["PR"].checked ? 0 : 7 + S3); // S2 (maxV==3) does support single I2S
+			}
 			// distribute ABL current if not using PPL
 			enPPL(sDI);
 
@@ -470,14 +482,13 @@ mA/LED: <select name="LAsel${s}" onchange="enLA(this,'${s}');UI();">
 						}
 					}
 				});
+				enLA(d.Sf["LAsel"+s],s); // update LED mA
 				// disable inappropriate LED types
 				let sel = d.getElementsByName("LT"+s)[0]
 				if (i >= maxB || digitalB >= maxD) disable(sel,'option[data-type="D"]'); // NOTE: see isDig()
 				if (i >= maxB || twopinB >= 1)     disable(sel,'option[data-type="2P"]'); // NOTE: see isD2P()
 				disable(sel,`option[data-type^="${'A'.repeat(maxA-analogB+1)}"]`); // NOTE: see isPWM()
 				sel.selectedIndex = sel.querySelector('option:not(:disabled)').index;
-			    // initialize current limiter
-				enLA(d.Sf["LAsel"+s],s);
 			}
 			if (n==-1) {
 				o[--i].remove();--i;
@@ -789,6 +800,7 @@ Swap: <select id="xw${s}" name="XW${s}">
 			Use less than <span id="wreason">800 LEDs per output</span> for the best experience!<br>
 		</div>
 		<hr class="sml">
+		<div id="prl" class="hide">Use parallel I2S: <input type="checkbox" name="PR"><br></div>
 		Make a segment for each output: <input type="checkbox" name="MS"><br>
 		Custom bus start indices: <input type="checkbox" onchange="tglSi(this.checked)" id="si"><br>
 		Use global LED buffer: <input type="checkbox" name="LD" onchange="UI()"><br>

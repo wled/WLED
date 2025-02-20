@@ -12,7 +12,7 @@
 
 /*
  * Usermods allow you to add own functionality to WLED more easily
- * See: https://github.com/Aircoookie/WLED/wiki/Add-own-functionality
+ * See: https://github.com/wled-dev/WLED/wiki/Add-own-functionality
  * 
  * Using a usermod:
  * 1. Copy the usermod into the sketch folder (same folder as wled00.ino)

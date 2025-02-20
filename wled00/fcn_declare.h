@@ -1,3 +1,4 @@
+#pragma once
 #ifndef WLED_FCN_DECLARE_H
 #define WLED_FCN_DECLARE_H
 
@@ -52,6 +53,7 @@ bool getJsonValue(const JsonVariant& element, DestType& destination, const Defau
 typedef struct WiFiConfig {
   char clientSSID[33];
   char clientPass[65];
+  uint8_t bssid[6];
   IPAddress staticIP;
   IPAddress staticGW;
   IPAddress staticSN;
@@ -62,6 +64,7 @@ typedef struct WiFiConfig {
   {
     strncpy(clientSSID, ssid, 32); clientSSID[32] = 0;
     strncpy(clientPass, pass, 64); clientPass[64] = 0;
+    memset(bssid, 0, sizeof(bssid));
   }
 } wifi_config;
 
@@ -202,14 +205,14 @@ void sendArtnetPollReply(ArtPollReply* reply, IPAddress ipAddress, uint16_t port
 bool handleFileRead(AsyncWebServerRequest*, String path);
 bool writeObjectToFileUsingId(const char* file, uint16_t id, const JsonDocument* content);
 bool writeObjectToFile(const char* file, const char* key, const JsonDocument* content);
-bool readObjectFromFileUsingId(const char* file, uint16_t id, JsonDocument* dest);
-bool readObjectFromFile(const char* file, const char* key, JsonDocument* dest);
+bool readObjectFromFileUsingId(const char* file, uint16_t id, JsonDocument* dest, const JsonDocument* filter = nullptr);
+bool readObjectFromFile(const char* file, const char* key, JsonDocument* dest, const JsonDocument* filter = nullptr);
 void updateFSInfo();
 void closeFile();
 inline bool writeObjectToFileUsingId(const String &file, uint16_t id, const JsonDocument* content) { return writeObjectToFileUsingId(file.c_str(), id, content); };
 inline bool writeObjectToFile(const String &file, const char* key, const JsonDocument* content) { return writeObjectToFile(file.c_str(), key, content); };
-inline bool readObjectFromFileUsingId(const String &file, uint16_t id, JsonDocument* dest) { return readObjectFromFileUsingId(file.c_str(), id, dest); };
-inline bool readObjectFromFile(const String &file, const char* key, JsonDocument* dest) { return readObjectFromFile(file.c_str(), key, dest); };
+inline bool readObjectFromFileUsingId(const String &file, uint16_t id, JsonDocument* dest, const JsonDocument* filter = nullptr) { return readObjectFromFileUsingId(file.c_str(), id, dest); };
+inline bool readObjectFromFile(const String &file, const char* key, JsonDocument* dest, const JsonDocument* filter = nullptr) { return readObjectFromFile(file.c_str(), key, dest); };
 
 //hue.cpp
 void handleHue();
@@ -359,7 +362,12 @@ void espNowReceiveCB(uint8_t* address, uint8_t* data, uint8_t len, signed int rs
 #endif
 
 //network.cpp
-int getSignalQuality(int rssi);
+bool initEthernet(); // result is informational
+int  getSignalQuality(int rssi);
+void fillMAC2Str(char *str, const uint8_t *mac);
+void fillStr2MAC(uint8_t *mac, const char *str);
+int  findWiFi(bool doScan = false);
+bool isWiFiConfigured();
 void WiFiEvent(WiFiEvent_t event);
 
 //um_manager.cpp
@@ -480,6 +488,7 @@ void userLoop();
 #include "soc/wdev_reg.h"
 #define HW_RND_REGISTER REG_READ(WDEV_RND_REG)
 #endif
+#define hex2int(a) (((a)>='0' && (a)<='9') ? (a)-'0' : ((a)>='A' && (a)<='F') ? (a)-'A'+10 : ((a)>='a' && (a)<='f') ? (a)-'a'+10 : 0)
 [[gnu::pure]] int getNumVal(const String* req, uint16_t pos);
 void parseNumber(const char* str, byte* val, byte minv=0, byte maxv=255);
 bool getVal(JsonVariant elem, byte* val, byte vmin=0, byte vmax=255); // getVal supports inc/decrementing and random ("X~Y(r|[w]~[-][Z])" form)
