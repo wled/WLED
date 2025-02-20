@@ -129,6 +129,7 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
     unsigned length, start, maMax;
     uint8_t pins[5] = {255, 255, 255, 255, 255};
 
+    // this will set global ABL max current used when per-port ABL is not used
     unsigned ablMilliampsMax = request->arg(F("MA")).toInt();
     BusManager::setMilliampsMax(ablMilliampsMax);
 
@@ -208,7 +209,7 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
         maMax = 0;
       } else {
         maPerLed = request->arg(la).toInt();
-        maMax = request->arg(ma).toInt(); // if ABL is disabled this will be 0
+        maMax = request->arg(ma).toInt() * request->hasArg(F("PPL")); // if PP-ABL is disabled maMax (per bus) must be 0
       }
       type |= request->hasArg(rf) << 7; // off refresh override
       // actual finalization is done in WLED::loop() (removing old busses and adding new)

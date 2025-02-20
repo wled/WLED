@@ -1654,11 +1654,6 @@ void WS2812FX::service() {
   if (millis() - nowUp > _frametime) DEBUGFX_PRINTF_P(PSTR("Slow effects %u/%d.\n"), (unsigned)(millis()-nowUp), (int)_frametime);
   #endif
   if (doShow) {
-    size_t totalLen = getLengthTotal();
-    for (size_t i = 0; i < totalLen; i++) pixels[i] = BLACK; // clear frame buffer; memset(pixels, 0, sizeof(uint32_t) * getLengthTotal());
-    for (const auto &seg : _segments) if (seg.isActive() && seg.on) blendSegment(seg); // blend all render buffers into frame buffer
-    for (size_t i = 0; i < totalLen; i++) setPixelColor(i, pixels[i]);
-
     yield();
     Segment::handleRandomPalette(); // slowly transition random palette; move it into for loop when each segment has individual random palette
     if (!_suspend) show();
@@ -1799,9 +1794,80 @@ uint32_t IRAM_ATTR WS2812FX::getPixelColor(unsigned i) const {
   return BusManager::getPixelColor(i);
 }
 
+// To disable brightness limiter we either set output max current to 0 or single LED current to 0
+static uint8_t estimateCurrentAndLimitBri(uint8_t brightness, uint32_t *pixels) {
+  unsigned milliAmpsMax = BusManager::ablMilliampsMax();
+  if (milliAmpsMax > 0) {
+    unsigned milliAmpsTotal = 0;
+    unsigned avgMilliAmpsPerLED = 0;
+    unsigned lengthDigital = 0;
+    bool useWackyWS2815PowerModel = false;
+
+    for (size_t i = 0; i < BusManager::getNumBusses(); i++) {
+      const Bus *bus = BusManager::getBus(i);
+      if (!(bus && bus->isDigital() && bus->isOk())) continue;
+      unsigned maPL = bus->getLEDCurrent();
+      if (maPL == 0 || bus->getMaxCurrent() > 0) continue; // skip buses with 0 mA per LED or max current per bus defined (PP-ABL)
+      if (maPL == 255) {
+        useWackyWS2815PowerModel = true;
+        maPL = 12; // WS2815 uses 12mA per channel
+      }
+      avgMilliAmpsPerLED += maPL * bus->getLength();
+      lengthDigital += bus->getLength();
+      // sum up the usage of each LED on digital bus
+      uint32_t busPowerSum = 0;
+      for (unsigned i = 0; i < bus->getLength(); i++) {
+        uint32_t c = pixels[i + bus->getStart()];
+        byte r = R(c), g = G(c), b = B(c), w = W(c);
+        if (useWackyWS2815PowerModel) { //ignore white component on WS2815 power calculation
+          busPowerSum += (max(max(r,g),b)) * 3;
+        } else {
+          busPowerSum += (r + g + b + w);
+        }
+      }
+      // RGBW led total output with white LEDs enabled is still 50mA, so each channel uses less
+      if (bus->hasWhite()) {
+        busPowerSum *= 3;
+        busPowerSum >>= 2; //same as /= 4
+      }
+      // powerSum has all the values of channels summed (max would be getLength()*765 as white is excluded) so convert to milliAmps
+      milliAmpsTotal += (busPowerSum * maPL * brightness) / (765*255);
+    }
+    avgMilliAmpsPerLED /= lengthDigital;
+
+    if (milliAmpsMax > MA_FOR_ESP && avgMilliAmpsPerLED > 0) { //0 mA per LED and too low numbers turn off calculation
+      unsigned powerBudget = (milliAmpsMax - MA_FOR_ESP); //80/120mA for ESP power
+      if (powerBudget > lengthDigital) { //each LED uses about 1mA in standby, exclude that from power budget
+        powerBudget -= lengthDigital;
+      } else {
+        powerBudget = 0;
+      }
+      if (milliAmpsTotal > powerBudget) {
+        //scale brightness down to stay in current limit
+        unsigned scaleB = powerBudget * 255 / milliAmpsTotal;
+        brightness = (brightness * scaleB) / 256 + 1;
+      }
+    }
+  }
+  return brightness;
+}
+
 void WS2812FX::show() {
   unsigned long showNow = millis();
   size_t diff = showNow - _lastShow;
+
+  size_t totalLen = getLengthTotal();
+  for (size_t i = 0; i < totalLen; i++) pixels[i] = BLACK; // clear frame buffer; memset(pixels, 0, sizeof(uint32_t) * getLengthTotal());
+
+  // blend all segments
+  for (const auto &seg : _segments) if (seg.isActive() && seg.on) blendSegment(seg); // blend all render buffers into frame buffer
+
+  // determine ABL brightness
+  uint8_t newBri = estimateCurrentAndLimitBri(_brightness, pixels);
+  if (newBri != _brightness) BusManager::setBrightness(newBri);
+
+  // paint actuall pixels
+  for (size_t i = 0; i < totalLen; i++) setPixelColor(i, pixels[i]);
 
   // avoid race condition, capture _callback value
   show_callback callback = _callback;
@@ -1811,6 +1877,8 @@ void WS2812FX::show() {
   // all of the data has been sent.
   // See https://github.com/Makuna/NeoPixelBus/wiki/ESP32-NeoMethods#neoesp32rmt-methods
   BusManager::show();
+
+  if (newBri != _brightness) BusManager::setBrightness(_brightness); // restore brightness for next frame
 
   if (diff > 0) { // skip calculation if no time has passed
     size_t fpsCurr = (1000 << FPS_CALC_SHIFT) / diff; // fixed point math
