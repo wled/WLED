@@ -994,9 +994,8 @@ void BusManager::show() {
 
 void IRAM_ATTR BusManager::setPixelColor(unsigned pix, uint32_t c) {
   for (auto &bus : busses) {
-    unsigned bstart = bus->getStart();
-    if (pix < bstart || pix >= bstart + bus->getLength()) continue;
-    bus->setPixelColor(pix - bstart, c);
+    if (!bus->containsPixel(pix)) continue;
+    bus->setPixelColor(pix - bus->getStart(), c);
   }
 }
 
@@ -1011,9 +1010,8 @@ void BusManager::setSegmentCCT(int16_t cct, bool allowWBCorrection) {
 
 uint32_t BusManager::getPixelColor(unsigned pix) {
   for (auto &bus : busses) {
-    unsigned bstart = bus->getStart();
     if (!bus->containsPixel(pix)) continue;
-    return bus->getPixelColor(pix - bstart);
+    return bus->getPixelColor(pix - bus->getStart());
   }
   return 0;
 }
