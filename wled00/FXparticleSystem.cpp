@@ -387,14 +387,14 @@ void ParticleSystem2D::getParticleXYsize(PSadvancedParticle *advprops, PSsizeCon
     return;
   int32_t size = advprops->size;
   int32_t asymdir = advsize->asymdir;
-  int32_t deviation = ((uint32_t)size * (uint32_t)advsize->asymmetry) / 255; // deviation from symmetrical size
+  int32_t deviation = ((uint32_t)size * (uint32_t)advsize->asymmetry + 255) >> 8; // deviation from symmetrical size
   // Calculate x and y size based on deviation and direction (0 is symmetrical, 64 is x, 128 is symmetrical, 192 is y)
   if (asymdir < 64) {
-    deviation = (asymdir * deviation) / 64;
+    deviation = (asymdir * deviation) >> 6;
   } else if (asymdir < 192) {
-    deviation = ((128 - asymdir) * deviation) / 64;
+    deviation = ((128 - asymdir) * deviation) >> 6;
   } else {
-    deviation = ((asymdir - 255) * deviation) / 64;
+    deviation = ((asymdir - 255) * deviation) >> 6;
   }
   // Calculate x and y size based on deviation, limit to 255 (rendering function cannot handle larger sizes)
   xsize = min((size - deviation), (int32_t)255);
@@ -404,7 +404,7 @@ void ParticleSystem2D::getParticleXYsize(PSadvancedParticle *advprops, PSsizeCon
 // function to bounce a particle from a wall using set parameters (wallHardness and wallRoughness)
 void ParticleSystem2D::bounce(int8_t &incomingspeed, int8_t &parallelspeed, int32_t &position, const uint32_t maxposition) {
   incomingspeed = -incomingspeed;
-  incomingspeed = (incomingspeed * wallHardness) / 255; // reduce speed as energy is lost on non-hard surface
+  incomingspeed = (incomingspeed * wallHardness + 128) >> 8; // reduce speed as energy is lost on non-hard surface
   if (position < (int32_t)particleHardRadius)
     position = particleHardRadius; // fast particles will never reach the edge if position is inverted, this looks better
   else
@@ -1789,8 +1789,12 @@ void ParticleSystem1D::collideParticles(PSparticle1D &particle1, const PSparticl
   uint32_t distance = abs(dx);
   if (dotProduct < 0) { // particles are moving towards each other
     uint32_t surfacehardness = max(collisionHardness, (int32_t)PS_P_MINSURFACEHARDNESS_1D); // if particles are soft, the impulse must stay above a limit or collisions slip through
-    // Calculate new velocities after collision
-    int32_t impulse = relativeVx * surfacehardness / 255; // note: not using dot product like in 2D as impulse is purely speed depnedent
+    // Calculate new velocities after collision  note: not using dot product like in 2D as impulse is purely speed depnedent
+    #if defined(CONFIG_IDF_TARGET_ESP32C3) || defined(ESP8266) // use bitshifts with rounding instead of division (2x faster)
+    int32_t impulse = ((relativeVx * surfacehardness) + (((int32_t)relativeVx >> 31) & 0xFF)) >> 8; // note: (v>>31) & 0xFF)) extracts the sign and adds 255 if negative for correct rounding using shifts
+    #else // division is faster on ESP32, S2 and S3
+    int32_t impulse = (relativeVx * surfacehardness) / 255;
+    #endif
     particle1.vx += impulse;
     particle2.vx -= impulse;
 
@@ -1802,8 +1806,13 @@ void ParticleSystem1D::collideParticles(PSparticle1D &particle1, const PSparticl
 
     if (collisionHardness < PS_P_MINSURFACEHARDNESS_1D && (SEGMENT.call & 0x07) == 0) { // if particles are soft, they become 'sticky' i.e. apply some friction
       const uint32_t coeff = collisionHardness + (250 - PS_P_MINSURFACEHARDNESS_1D);
+      #if defined(CONFIG_IDF_TARGET_ESP32C3) || defined(ESP8266) // use bitshifts with rounding instead of division (2x faster)
+      particle1.vx = ((int32_t)particle1.vx * coeff + (((int32_t)particle1.vx >> 31) & 0xFF)) >> 8; // note: (v>>31) & 0xFF)) extracts the sign and adds 255 if negative for correct rounding using shifts
+      particle2.vx = ((int32_t)particle2.vx * coeff + (((int32_t)particle2.vx >> 31) & 0xFF)) >> 8;
+      #else // division is faster on ESP32, S2 and S3
       particle1.vx = ((int32_t)particle1.vx * coeff) / 255;
       particle2.vx = ((int32_t)particle2.vx * coeff) / 255;
+      #endif
     }
   }
 
@@ -1836,7 +1845,7 @@ void ParticleSystem1D::collideParticles(PSparticle1D &particle1, const PSparticl
           particle2.vx--;// -= pushamount;
           particle2.x -= pushamount;
         }
-        else if (!particle2flags.fixed) { // particle1.x < particle2.x  -> push particle 1
+        else if (!particle1flags.fixed) { // particle1.x < particle2.x  -> push particle 1
           particle1.vx--;// -= pushamount;
           particle1.x -= pushamount;
         }

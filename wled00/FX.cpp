@@ -7818,7 +7818,7 @@ uint16_t mode_particlefireworks(void) {
         else if (PartSys->sources[j].source.vy < 0) { // rocket is exploded and time is up (ttl=0 and negative speed), relaunch it
           PartSys->sources[j].source.y = PS_P_RADIUS; // start from bottom
           PartSys->sources[j].source.x = (PartSys->maxX >> 2) + hw_random(PartSys->maxX >> 1); // centered half
-          PartSys->sources[j].source.vy = (SEGMENT.custom3) + random16(SEGMENT.custom1 >> 3) + 5; // rocket speed TODO: need to adjust for segment height
+          PartSys->sources[j].source.vy = (SEGMENT.custom3) + hw_random16(SEGMENT.custom1 >> 3) + 5; // rocket speed TODO: need to adjust for segment height
           PartSys->sources[j].source.vx = hw_random16(7) - 3; // not perfectly straight up
           PartSys->sources[j].source.sat = 30; // low saturation -> exhaust is off-white
           PartSys->sources[j].source.ttl = hw_random16(SEGMENT.custom1) + (SEGMENT.custom1 >> 1); // set fuse time
@@ -7888,7 +7888,7 @@ uint16_t mode_particlefireworks(void) {
           counter = 0;
           speed += 3 + ((SEGMENT.intensity >> 6)); // increase speed to form a second wave
           PartSys->sources[j].source.hue += hueincrement; // new color for next circle
-          PartSys->sources[j].source.sat = min((uint16_t)150, random16());
+          PartSys->sources[j].source.sat = min((uint16_t)150, hw_random16());
         }
         angle += angleincrement; // set angle for next particle
       }
@@ -9514,44 +9514,36 @@ uint16_t mode_particleHourglass(void) {
   PartSys->updateSystem(); // update system properties (dimensions and data pointers)
   settingTracker = reinterpret_cast<uint32_t *>(PartSys->PSdataEnd);  //assign data pointer
   direction = reinterpret_cast<bool *>(PartSys->PSdataEnd + 4);  //assign data pointer
-  PartSys->setUsedParticles(map(SEGMENT.intensity, 0, 255, 1, 255));
+  PartSys->setUsedParticles(1 + ((SEGMENT.intensity * 255) >> 8));
   PartSys->setMotionBlur(SEGMENT.custom2); // anable motion blur
   PartSys->setGravity(map(SEGMENT.custom3, 0, 31, 1, 30));
-  PartSys->enableParticleCollisions(true, 34); // hardness value found by experimentation on different settings
+  PartSys->enableParticleCollisions(true, 32); // hardness value found by experimentation on different settings
 
   uint32_t colormode = SEGMENT.custom1 >> 5; // 0-7
 
   if ((SEGMENT.intensity | (PartSys->getAvailableParticles() << 8)) != *settingTracker) { // initialize, getAvailableParticles changes while in FX transition
     *settingTracker = SEGMENT.intensity | (PartSys->getAvailableParticles() << 8);
     for (uint32_t i = 0; i < PartSys->usedParticles; i++) {
-      PartSys->particleFlags[i].reversegrav = true;
+      PartSys->particleFlags[i].reversegrav = true; // resting particles dont fall
       *direction = 0; // down
       SEGENV.aux1 = 1; // initialize below
     }
     SEGENV.aux0 = PartSys->usedParticles - 1; // initial state, start with highest number particle
   }
 
+  // calculate target position depending on direction
+  auto calcTargetPos = [&](size_t i) {
+    return PartSys->particleFlags[i].reversegrav ?
+          PartSys->maxX - i * PS_P_RADIUS_1D - positionOffset
+        : (PartSys->usedParticles - i) * PS_P_RADIUS_1D - positionOffset;
+  };
+
+
   for (uint32_t i = 0; i < PartSys->usedParticles; i++) { // check if particle reached target position after falling
-    int32_t targetposition;
-    if (PartSys->particleFlags[i].fixed == false) { // && abs(PartSys->particles[i].vx) < 8) {
-      // calculate target position depending on direction
-      bool closeToTarget = false;
-      bool reachedTarget = false;
-      if (PartSys->particleFlags[i].reversegrav) { // up
-        targetposition = PartSys->maxX - (i * PS_P_RADIUS_1D) - positionOffset; // target resting position
-        if (targetposition - PartSys->particles[i].x <= 5 * PS_P_RADIUS_1D)
-          closeToTarget = true;
-        if (PartSys->particles[i].x >= targetposition) // particle has reached target position, pin it. if not pinned, they do not stack well on larger piles
-          reachedTarget = true;
-      }
-      else { // down, highest index particle drops first
-        targetposition = (PartSys->usedParticles - i) * PS_P_RADIUS_1D - positionOffset; // target resting position note: using -offset instead of -1 + offset
-        if (PartSys->particles[i].x - targetposition <= 5 * PS_P_RADIUS_1D)
-          closeToTarget = true;
-        if (PartSys->particles[i].x <= targetposition) // particle has reached target position, pin it. if not pinned, they do not stack well on larger piles
-          reachedTarget = true;
-      }
-      if (reachedTarget || (closeToTarget && abs(PartSys->particles[i].vx) < 10)) { // reached target or close to target and slow speed
+    if (PartSys->particleFlags[i].fixed == false && abs(PartSys->particles[i].vx) < 5) {
+      int32_t targetposition = calcTargetPos(i);
+      bool closeToTarget = abs(targetposition - PartSys->particles[i].x) < 3 * PS_P_RADIUS_1D;
+      if (closeToTarget) { // close to target and slow speed
         PartSys->particles[i].x = targetposition; // set exact position
         PartSys->particleFlags[i].fixed = true;   // pin particle
       }
@@ -9576,19 +9568,20 @@ uint16_t mode_particleHourglass(void) {
       PartSys->particles[i].hue += 120;
   }
 
+  // re-order particles in case collisions flipped particles (highest number index particle is on the "bottom")
+  for (int i = 0; i < PartSys->usedParticles - 1; i++) {
+    if (PartSys->particles[i].x < PartSys->particles[i+1].x && PartSys->particleFlags[i].fixed == false && PartSys->particleFlags[i+1].fixed == false) {
+      std::swap(PartSys->particles[i].x, PartSys->particles[i+1].x);
+    }
+  }
+
+
   if (SEGENV.aux1 == 1) { // last countdown call before dropping starts, reset all particles
     for (uint32_t i = 0; i < PartSys->usedParticles; i++) {
       PartSys->particleFlags[i].collide = true;
       PartSys->particleFlags[i].perpetual = true;
       PartSys->particles[i].ttl = 260;
-      uint32_t targetposition;
-      //calculate target position depending on direction
-      if (PartSys->particleFlags[i].reversegrav)
-         targetposition = PartSys->maxX - (i * PS_P_RADIUS_1D + positionOffset); // target resting position
-      else
-        targetposition = (PartSys->usedParticles - i) * PS_P_RADIUS_1D - positionOffset; // target resting position  -5 - PS_P_RADIUS_1D/2
-
-      PartSys->particles[i].x = targetposition;
+      PartSys->particles[i].x = calcTargetPos(i);
       PartSys->particleFlags[i].fixed = true;
     }
   }
@@ -9716,6 +9709,17 @@ uint16_t mode_particleBalance(void) {
   }
   SEGENV.aux1 = PartSys->usedParticles;
 
+  // re-order particles in case collisions flipped particles
+  for (i = 0; i < PartSys->usedParticles - 1; i++) {
+    if (PartSys->particles[i].x > PartSys->particles[i+1].x) {
+      if(SEGMENT.check2) { // check for wrap around
+        if(PartSys->particles[i].x - PartSys->particles[i+1].x > 3 * PS_P_RADIUS_1D)
+          continue;
+      }
+      std::swap(PartSys->particles[i].x, PartSys->particles[i+1].x);
+    }
+  }
+
   if (SEGMENT.call % (((255 - SEGMENT.speed) >> 6) + 1) == 0) { // how often the force is applied depends on speed setting
     int32_t xgravity;
     int32_t increment = (SEGMENT.speed >> 6) + 1;
@@ -9770,7 +9774,7 @@ uint16_t mode_particleChase(void) {
   // Particle System settings
   PartSys->updateSystem(); // update system properties (dimensions and data pointers)
   PartSys->setColorByPosition(SEGMENT.check3);
-  PartSys->setMotionBlur(8 + ((SEGMENT.custom3) << 3)); // anable motion blur
+  PartSys->setMotionBlur(7 + ((SEGMENT.custom3) << 3)); // anable motion blur
   // uint8_t* basehue = (PartSys->PSdataEnd + 2);  //assign data pointer
 
   uint32_t settingssum = SEGMENT.speed + SEGMENT.intensity + SEGMENT.custom1 + SEGMENT.custom2 + SEGMENT.check1 + SEGMENT.check2 + SEGMENT.check3 + PartSys->getAvailableParticles(); // note: getAvailableParticles is used to enforce update during transitions
