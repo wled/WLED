@@ -1663,31 +1663,32 @@ void WS2812FX::service() {
   #endif
 }
 
+// https://en.wikipedia.org/wiki/Blend_modes but using a for top layer & b for bottom layer
+static uint8_t _top       (uint8_t a, uint8_t b) { return a; }
+static uint8_t _bottom    (uint8_t a, uint8_t b) { return b; }
+static uint8_t _add       (uint8_t a, uint8_t b) { unsigned t = a + b; return t > 255 ? 255 : t; }
+static uint8_t _subtract  (uint8_t a, uint8_t b) { return b > a ? (b - a) : 0; }
+static uint8_t _difference(uint8_t a, uint8_t b) { return b > a ? (b - a) : (a - b); }
+static uint8_t _average   (uint8_t a, uint8_t b) { return (a + b) >> 1; }
+static uint8_t _multiply  (uint8_t a, uint8_t b) { return (a * b) / 255; } // origianl uses a & b in range [0,1]
+static uint8_t _divide    (uint8_t a, uint8_t b) { return a > b ? (b * 255) / a : 255; }
+static uint8_t _lighten   (uint8_t a, uint8_t b) { return a > b ? a : b; }
+static uint8_t _darken    (uint8_t a, uint8_t b) { return a < b ? a : b; }
+static uint8_t _screen    (uint8_t a, uint8_t b) { return 255 - _multiply(~a,~b); } // 255 - (255-a)*(255-b)/255
+static uint8_t _overlay   (uint8_t a, uint8_t b) { return b < 128 ? 2 * _multiply(a,b) : (255 - 2 * _multiply(~a,~b)); }
+static uint8_t _hardlight (uint8_t a, uint8_t b) { return a < 128 ? 2 * _multiply(a,b) : (255 - 2 * _multiply(~a,~b)); }
+static uint8_t _softlight (uint8_t a, uint8_t b) { return (b * b * (255 - 2 * a) / 255 + 2 * a * b) / 255; } // Pegtop's formula (1 - 2a)b^2 + 2ab
+static uint8_t _dodge     (uint8_t a, uint8_t b) { return _divide(~a,b); }
+static uint8_t _burn      (uint8_t a, uint8_t b) { return ~_divide(a,~b); }
+
 void WS2812FX::blendSegment(const Segment &topSegment) {
-  // https://en.wikipedia.org/wiki/Blend_modes but using a for top layer & b for bottom layer
-  auto top        = [](uint8_t a, uint8_t b){ return uint8_t(a); };
-  auto bottom     = [](uint8_t a, uint8_t b){ return uint8_t(b); };
-  auto add        = [](uint8_t a, uint8_t b){ unsigned t = a + b; return uint8_t(t > 255 ? 255 : t); };
-  auto subtract   = [](uint8_t a, uint8_t b){ return uint8_t(b > a ? (b - a) : 0); };
-  auto difference = [](uint8_t a, uint8_t b){ return uint8_t(b > a ? (b - a) : (a - b)); };
-  auto average    = [](uint8_t a, uint8_t b){ return uint8_t((a + b) >> 1); };
-  auto multiply   = [](uint8_t a, uint8_t b){ return uint8_t((a * b) / 255); }; // origianl uses a & b in range [0,1]
-  auto divide     = [](uint8_t a, uint8_t b){ return uint8_t(a > b ? (b * 255) / a : 255); };
-  auto lighten    = [](uint8_t a, uint8_t b){ return uint8_t(a > b ? a : b); };
-  auto darken     = [](uint8_t a, uint8_t b){ return uint8_t(a < b ? a : b); };
-  auto screen     = [](uint8_t a, uint8_t b){ return uint8_t(255 - ~a * ~b / 255); }; // 255 - (255-a)*(255-b)/255
-  auto overlay    = [](uint8_t a, uint8_t b){ return uint8_t(b < 128 ? 2 * a * b / 255 : (255 - 2 * ~a * ~b / 255)); };
-  auto hardlight  = [](uint8_t a, uint8_t b){ return uint8_t(a < 128 ? 2 * a * b / 255 : (255 - 2 * ~a * ~b / 255)); };
-  auto softlight  = [](uint8_t a, uint8_t b){ return uint8_t((b * b * (255 - 2 * a) / 255 + 2 * a * b) / 255); }; // Pegtop's formula (1 - 2a)b^2 + 2ab
-  auto dodge      = [](uint8_t a, uint8_t b){ return uint8_t(uint8_t(~a) > b ? (b * 255) / ~a : 255); }; // divide(~a,b)
-  auto burn       = [](uint8_t a, uint8_t b){ return uint8_t(a > uint8_t(~b) ? (~b * 255) / a : 0); }; // ~divide(a,~b)
 
   typedef uint8_t(*FuncType)(uint8_t, uint8_t);
   FuncType funcs[] = {
-    top, bottom,
-    add, subtract, difference, average,
-    multiply, divide, lighten, darken, screen, overlay,
-    hardlight, softlight, dodge, burn
+    _top, _bottom,
+    _add, _subtract, _difference, _average,
+    _multiply, _divide, _lighten, _darken, _screen, _overlay,
+    _hardlight, _softlight, _dodge, _burn
   };
 
   const size_t blendMode = topSegment.blendMode < (sizeof(funcs) / sizeof(FuncType)) ? topSegment.blendMode : 0;
@@ -1704,8 +1705,27 @@ void WS2812FX::blendSegment(const Segment &topSegment) {
 
   if (isMatrix && stopIndx <= matrixSize) {
 #ifndef WLED_DISABLE_2D
+    const int width = topSegment.width();
+    const int height = topSegment.height();
     const int cols = Segment::vWidth();   // use precalculated value from setDrawDimensions()
     const int rows = Segment::vHeight();  // use precalculated value from setDrawDimensions()
+    const auto setMirroredPixel = [&](int x, int y, uint32_t col) {
+      const int baseX = topSegment.start  + x;
+      const int baseY = topSegment.startY + y;
+      size_t indx = XY(baseX, baseY); // absolute address on strip
+      pixels[indx] = color_blend(pixels[indx], blend(col, pixels[indx]), opacity);
+      // Apply mirroring
+      if (topSegment.mirror || topSegment.mirror_y) {
+        const int mirrorX = topSegment.start  + width  - x - 1;
+        const int mirrorY = topSegment.startY + height - y - 1;
+        const size_t idxMX = XY(topSegment.transpose ? baseX : mirrorX, topSegment.transpose ? mirrorY : baseY);
+        const size_t idxMY = XY(topSegment.transpose ? mirrorX : baseX, topSegment.transpose ? baseY : mirrorY);
+        const size_t idxMM = XY(mirrorX, mirrorY);
+        if (topSegment.mirror)                        pixels[idxMX] = color_blend(pixels[idxMX], blend(col, pixels[idxMX]), opacity);
+        if (topSegment.mirror_y)                      pixels[idxMY] = color_blend(pixels[idxMY], blend(col, pixels[idxMY]), opacity);
+        if (topSegment.mirror && topSegment.mirror_y) pixels[idxMM] = color_blend(pixels[idxMM], blend(col, pixels[idxMM]), opacity);
+      }
+    };
     for (int r = 0; r < rows; r++) for (int c = 0; c < cols; c++) {
       // get segment's pixel
       const uint32_t c_a = topSegment.getPixelColorXY(c,r);
@@ -1717,33 +1737,16 @@ void WS2812FX::blendSegment(const Segment &topSegment) {
       if (topSegment.transpose) { std::swap(x,y); } // swap X & Y if segment transposed
       const unsigned groupLen = topSegment.groupLength();
       if (groupLen == 1) {
-        size_t indx = XY(topSegment.start + x, topSegment.startY + y);  // absolute address on strip
-        pixels[indx] = color_blend(pixels[indx], blend(c_a, pixels[indx]), opacity);
+        setMirroredPixel(x, y, c_a);
       } else {
         // handle grouping and spacing
         x *= groupLen; // expand to physical pixels
         y *= groupLen; // expand to physical pixels
-        const int maxY = std::min(y + topSegment.grouping, rows);
-        const int maxX = std::min(x + topSegment.grouping, cols);
-        const int width = topSegment.width();
-        const int height = topSegment.height();
+        const int maxX   = std::min(x + topSegment.grouping, width);
+        const int maxY   = std::min(y + topSegment.grouping, height);
         for (int yY = y; yY < maxY; yY++) {
           for (int xX = x; xX < maxX; xX++) {
-            const int baseX = topSegment.start + xX;
-            const int baseY = topSegment.startY + yY;
-            size_t indx = XY(baseX, baseY); // absolute address on strip
-            pixels[indx] = color_blend(pixels[indx], blend(c_a, pixels[indx]), opacity);
-            // Apply mirroring
-            if (topSegment.mirror || topSegment.mirror_y) {
-              const int mirrorX = topSegment.start + width - x - 1;
-              const int mirrorY = topSegment.startY + height - y - 1;
-              const size_t idxMX = XY(topSegment.transpose ? baseX : mirrorX, topSegment.transpose ? mirrorY : baseY);
-              const size_t idxMY = XY(topSegment.transpose ? mirrorX : baseX, topSegment.transpose ? baseY : mirrorY);
-              const size_t idxMM = XY(mirrorX, mirrorY);
-              if (topSegment.mirror)                        pixels[idxMX] = color_blend(pixels[idxMX], blend(c_a, pixels[idxMX]), opacity);
-              if (topSegment.mirror_y)                      pixels[idxMY] = color_blend(pixels[idxMY], blend(c_a, pixels[idxMY]), opacity);
-              if (topSegment.mirror && topSegment.mirror_y) pixels[idxMM] = color_blend(pixels[idxMM], blend(c_a, pixels[idxMM]), opacity);
-            }
+            setMirroredPixel(xX, yY, c_a);
           }
         }
       }
