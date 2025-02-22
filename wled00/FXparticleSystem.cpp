@@ -911,9 +911,9 @@ void ParticleSystem2D::handleCollisions() {
           collDistSq = (particleHardRadius << 1) + (((uint32_t)advPartProps[idx_i].size + (uint32_t)advPartProps[idx_j].size) >> 1); // collision distance note: not 100% clear why the >> 1 is needed, but it is.
           collDistSq = collDistSq * collDistSq; // square it for faster comparison
         }
-        int32_t dx = particles[idx_j].x - particles[idx_i].x;
+        int32_t dx = (particles[idx_j].x + particles[idx_j].vx) - (particles[idx_i].x + particles[idx_i].vx); // distance with lookahead
         if (dx * dx < collDistSq) { // check x direction, if close, check y direction (squaring is faster than abs() or dual compare)
-          int32_t dy = particles[idx_j].y - particles[idx_i].y;
+          int32_t dy = (particles[idx_j].y + particles[idx_j].vy)  - (particles[idx_i].y + particles[idx_i].vy); // distance with lookahead
           if (dy * dy < collDistSq) // particles are close
             collideParticles(particles[idx_i], particles[idx_j], dx, dy, collDistSq);
         }
@@ -927,7 +927,7 @@ void ParticleSystem2D::handleCollisions() {
 // takes two pointers to the particles to collide and the particle hardness (softer means more energy lost in collision, 255 means full hard)
 void ParticleSystem2D::collideParticles(PSparticle &particle1, PSparticle &particle2, int32_t dx, int32_t dy, const int32_t collDistSq) {
   int32_t distanceSquared = dx * dx + dy * dy;
-  // Calculate relative velocity (if it is zero, could exit but extra check does not overall speed but deminish it)
+  // Calculate relative velocity note: could zero check but that does not improve overall speed but deminish it as that is rarely the case and pushing is still required
   int32_t relativeVx = (int32_t)particle2.vx - (int32_t)particle1.vx;
   int32_t relativeVy = (int32_t)particle2.vy - (int32_t)particle1.vy;
 
@@ -1769,13 +1769,10 @@ void ParticleSystem1D::handleCollisions() {
         if (advPartProps) { // use advanced size properties
           collisiondistance = (PS_P_MINHARDRADIUS_1D << particlesize) + (((uint32_t)advPartProps[idx_i].size + (uint32_t)advPartProps[idx_j].size) >> 1);
         }
-        int32_t dx = particles[idx_j].x - particles[idx_i].x;
-        int32_t dv = (int32_t)particles[idx_j].vx - (int32_t)particles[idx_i].vx;
-        int32_t proximity = collisiondistance;
-        if (dv >= proximity) // particles would go past each other in next move update
-          proximity += abs(dv); // add speed difference to catch fast particles
-        if (dx <= proximity && dx >= -proximity) { // collide if close
-          collideParticles(particles[idx_i], particleFlags[idx_i], particles[idx_j], particleFlags[idx_j], dx, dv, collisiondistance);
+        int32_t dx = (particles[idx_j].x + particles[idx_j].vx) - (particles[idx_i].x + particles[idx_i].vx); // distance between particles with lookahead
+        uint32_t dx_abs = abs(dx);
+        if (dx_abs <= collisiondistance) { // collide if close
+          collideParticles(particles[idx_i], particleFlags[idx_i], particles[idx_j], particleFlags[idx_j], dx, dx_abs, collisiondistance);
         }
       }
     }
@@ -1784,16 +1781,17 @@ void ParticleSystem1D::handleCollisions() {
 }
 // handle a collision if close proximity is detected, i.e. dx and/or dy smaller than 2*PS_P_RADIUS
 // takes two pointers to the particles to collide and the particle hardness (softer means more energy lost in collision, 255 means full hard)
-void ParticleSystem1D::collideParticles(PSparticle1D &particle1, const PSparticleFlags1D &particle1flags, PSparticle1D &particle2, const PSparticleFlags1D &particle2flags, int32_t dx, int32_t relativeVx, const int32_t collisiondistance) {
-  int32_t dotProduct = (dx * relativeVx); // is always negative if moving towards each other
-  uint32_t distance = abs(dx);
+void ParticleSystem1D::collideParticles(PSparticle1D &particle1, const PSparticleFlags1D &particle1flags, PSparticle1D &particle2, const PSparticleFlags1D &particle2flags, const int32_t dx, const uint32_t dx_abs, const int32_t collisiondistance) {
+  int32_t dv = (int32_t)particle2.vx - (int32_t)particle1.vx;
+  int32_t dotProduct = (dx * dv); // is always negative if moving towards each other
+
   if (dotProduct < 0) { // particles are moving towards each other
     uint32_t surfacehardness = max(collisionHardness, (int32_t)PS_P_MINSURFACEHARDNESS_1D); // if particles are soft, the impulse must stay above a limit or collisions slip through
     // Calculate new velocities after collision  note: not using dot product like in 2D as impulse is purely speed depnedent
     #if defined(CONFIG_IDF_TARGET_ESP32C3) || defined(ESP8266) // use bitshifts with rounding instead of division (2x faster)
-    int32_t impulse = ((relativeVx * surfacehardness) + (((int32_t)relativeVx >> 31) & 0xFF)) >> 8; // note: (v>>31) & 0xFF)) extracts the sign and adds 255 if negative for correct rounding using shifts
+    int32_t impulse = ((dv * surfacehardness) + ((dv >> 31) & 0xFF)) >> 8; // note: (v>>31) & 0xFF)) extracts the sign and adds 255 if negative for correct rounding using shifts
     #else // division is faster on ESP32, S2 and S3
-    int32_t impulse = (relativeVx * surfacehardness) / 255;
+    int32_t impulse = (dv * surfacehardness) / 255;
     #endif
     particle1.vx += impulse;
     particle2.vx -= impulse;
@@ -1816,7 +1814,7 @@ void ParticleSystem1D::collideParticles(PSparticle1D &particle1, const PSparticl
     }
   }
 
-  if (distance < (collisiondistance - 8) && abs(relativeVx) < 5) // overlapping and moving slowly
+  if (dx_abs < (collisiondistance - 8) && abs(dv) < 5) // overlapping and moving slowly
   {
     // particles have volume, push particles apart if they are too close
     // behaviour is different than in 2D, we need pixel accurate stacking here, push the top particle
@@ -1827,8 +1825,8 @@ void ParticleSystem1D::collideParticles(PSparticle1D &particle1, const PSparticl
     particle1.vx -= pushamount;
     particle2.vx += pushamount;
 
-    if(distance < collisiondistance >> 1) { // too close, force push particles so they dont collapse
-      pushamount = 1 + ((collisiondistance - distance) >> 3); // note: push amount found by experimentation
+    if(dx_abs < collisiondistance >> 1) { // too close, force push particles so they dont collapse
+      pushamount = 1 + ((collisiondistance - dx_abs) >> 3); // note: push amount found by experimentation
 
       if(particle1.x < (maxX >> 1)) { // lower half, push particle with larger x in positive direction
         if (dx < 0 && !particle1flags.fixed) {  // particle2.x < particle1.x  -> push particle 1
