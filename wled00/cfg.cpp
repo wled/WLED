@@ -612,6 +612,8 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
     CJSON(wifiLock, ota[F("lock-wifi")]);
     CJSON(aOtaEnabled, ota[F("aota")]);
     getStringFromJson(otaPass, pwd, 33); //normally not present due to security
+    interfaceUpdateCallMode = CALL_MODE_WS_SEND;
+    stateChanged = true;
   }
 
   #ifdef WLED_ENABLE_DMX
