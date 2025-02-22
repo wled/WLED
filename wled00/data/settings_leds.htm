@@ -202,7 +202,7 @@
 				if (maxM >= 10000) { //ESP32 RMT uses double buffer?
 					mul = 2;
 				}
-				if (d.Sf.LD.checked) dbl = len * ch; // double buffering
+				//if (d.Sf.LD.checked) dbl = len * ch; // double buffering
 			}
 			return len * ch * mul + dbl;
 		}
@@ -636,7 +636,7 @@ Swap: <select id="xw${s}" name="XW${s}">
 							d.getElementsByName("MA"+i)[0].value   = v.maxpwr;
 						});
 						d.getElementsByName("PR")[0].checked  = l.prl | 0;
-						d.getElementsByName("LD")[0].checked  = l.ld;
+						//d.getElementsByName("LD")[0].checked  = l.ld;
 						d.getElementsByName("MA")[0].value    = l.maxpwr;
 						d.getElementsByName("ABL")[0].checked = l.maxpwr > 0;
 					}
