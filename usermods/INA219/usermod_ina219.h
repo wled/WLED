@@ -138,6 +138,7 @@ private:
 		_ina219 = new INA219_WE(_i2cAddress);
 		if (!_ina219->init()) {
 			DEBUG_PRINTLN(F("INA219 initialization failed!"));
+			enabled = false; // Disable further sensor reads
 			return;
 		}
 		_ina219->setShuntSizeInOhms(shuntResistor);
