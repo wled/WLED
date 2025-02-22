@@ -146,7 +146,7 @@ extern byte realtimeMode;           // used in getMappedPixelIndex()
 //#define FX_MODE_DUAL_SCAN               11  // removed in 0.16, use Scan with check
 #define FX_MODE_FADE                    12
 #define FX_MODE_THEATER_CHASE           13
-//#define FX_MODE_THEATER_CHASE_RAINBOW   14  // removed in 0.16, use Theater with check
+//#define FX_MODE_THEATER_CHASE_RAINBOW   14  // removed in 0.16, use Theater with check 1
 #define FX_MODE_RUNNING_LIGHTS          15
 //#define FX_MODE_SAW                     16  // removed in 0.16, use Running with with check 3
 #define FX_MODE_TWINKLE                 17
@@ -169,7 +169,7 @@ extern byte realtimeMode;           // used in getMappedPixelIndex()
 #define FX_MODE_COLORFUL                34
 #define FX_MODE_TRAFFIC_LIGHT           35
 #define FX_MODE_COLOR_SWEEP_RANDOM      36
-//#define FX_MODE_RUNNING_COLOR           37  // removed in 0.16, use Theater
+//#define FX_MODE_RUNNING_COLOR           37  // removed in 0.16, use Theater without check 3
 #define FX_MODE_AURORA                  38
 #define FX_MODE_RUNNING_RANDOM          39
 #define FX_MODE_LARSON_SCANNER          40
@@ -231,7 +231,7 @@ extern byte realtimeMode;           // used in getMappedPixelIndex()
 #define FX_MODE_DRIP                    96
 #define FX_MODE_PLASMA                  97
 #define FX_MODE_PERCENT                 98
-//#define FX_MODE_RIPPLE_RAINBOW          99  // removed in 0.16, use Sinelon with check 1
+//#define FX_MODE_RIPPLE_RAINBOW          99  // removed in 0.16, use Ripple with check 1
 #define FX_MODE_HEARTBEAT              100
 #define FX_MODE_PACIFICA               101
 //#define FX_MODE_CANDLE_MULTI           102  // removed in 0.16, use Candle with check 3

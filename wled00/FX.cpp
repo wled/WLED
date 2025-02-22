@@ -500,7 +500,7 @@ uint16_t mode_theater_chase() {
   }
   return FRAMETIME;
 }
-static const char _data_FX_MODE_THEATER_CHASE[] PROGMEM = "Theater@!,Gap size,,,,Animate palette,,Chase;!,!;!;;o1=0,o3=0";
+static const char _data_FX_MODE_THEATER_CHASE[] PROGMEM = "Theater@!,Gap size,,,,Rainbow,,Theater;!,!;!;;o1=0,o3=1";
 
 
 /*
@@ -539,7 +539,7 @@ static uint16_t mode_running_lights() {
 
   return FRAMETIME;
 }
-static const char _data_FX_MODE_RUNNING_LIGHTS[] PROGMEM = "Running@!,Width,,,,Animate palette,Dual,Saw;L,!,R;!";
+static const char _data_FX_MODE_RUNNING_LIGHTS[] PROGMEM = "Running@!,Width,,,,Rainbow,Dual,Saw;L,!,R;!";
 
 
 /*
@@ -579,12 +579,13 @@ static const char _data_FX_MODE_TWINKLE[] PROGMEM = "Twinkle@!,!;!,!;!;;m12=0"; 
 
 
 /*
- * Dissolve function
+ * Dissolve function: Blink several LEDs on and then off
  */
-uint16_t dissolve(uint32_t color) {
+uint16_t mode_dissolve(void) {
   unsigned dataSize = sizeof(uint32_t) * SEGLEN;
   if (!SEGENV.allocateData(dataSize)) return mode_static(); //allocation failed
   uint32_t* pixels = reinterpret_cast<uint32_t*>(SEGENV.data);
+  uint32_t color = SEGMENT.check1 ? SEGMENT.color_wheel(hw_random8()) : SEGCOLOR(0);
 
   if (SEGENV.call == 0) {
     for (unsigned i = 0; i < SEGLEN; i++) pixels[i] = SEGCOLOR(1);
@@ -621,25 +622,7 @@ uint16_t dissolve(uint32_t color) {
 
   return FRAMETIME;
 }
-
-
-/*
- * Blink several LEDs on and then off
- */
-uint16_t mode_dissolve(void) {
-  return dissolve(SEGMENT.check1 ? SEGMENT.color_wheel(hw_random8()) : SEGCOLOR(0));
-}
 static const char _data_FX_MODE_DISSOLVE[] PROGMEM = "Dissolve@Repeat speed,Dissolve speed,,,,Random;!,!;!";
-
-
-/*
- * Blink several LEDs on and then off in random colors
- */
-//uint16_t mode_dissolve_random(void) {
-//  return dissolve(SEGMENT.color_wheel(hw_random8()));
-//}
-//static const char _data_FX_MODE_DISSOLVE_RANDOM[] PROGMEM = "Dissolve Rnd@Repeat speed,Dissolve speed;,!;!";
-
 
 /*
  * Blinks one LED at a time.
@@ -662,7 +645,7 @@ uint16_t mode_sparkle(void) {
   SEGMENT.setPixelColor(SEGENV.aux0, SEGCOLOR(0));
   return FRAMETIME;
 }
-static const char _data_FX_MODE_SPARKLE[] PROGMEM = "Sparkle@!,,,,,Animate palette,Overlay;!,!;!;;m12=0,01=0";
+static const char _data_FX_MODE_SPARKLE[] PROGMEM = "Sparkle@!,,,,,Move,Overlay;!,!;!;;m12=0,01=0";
 
 
 /*
@@ -687,7 +670,7 @@ uint16_t mode_flash_sparkle(void) {
   }
   return FRAMETIME;
 }
-static const char _data_FX_MODE_FLASH_SPARKLE[] PROGMEM = "Sparkle Dark@!,!,,,,Animate palette,Overlay;Bg,Fx;!;;m12=0";
+static const char _data_FX_MODE_FLASH_SPARKLE[] PROGMEM = "Sparkle Dark@!,!,,,,Move,Overlay;Bg,Fx;!;;m12=0";
 
 
 /*
@@ -715,7 +698,7 @@ uint16_t mode_hyper_sparkle(void) {
   }
   return FRAMETIME;
 }
-static const char _data_FX_MODE_HYPER_SPARKLE[] PROGMEM = "Sparkle+@!,!,,,,Animate palette,Overlay;Bg,Fx;!;;m12=0";
+static const char _data_FX_MODE_HYPER_SPARKLE[] PROGMEM = "Sparkle+@!,!,,,,Move,Overlay;Bg,Fx;!;;m12=0";
 
 
 /*
@@ -749,7 +732,7 @@ uint16_t mode_multi_strobe(void) {
 
   return FRAMETIME;
 }
-static const char _data_FX_MODE_MULTI_STROBE[] PROGMEM = "Strobe Mega@!,!,,,,Animate palette;!,!;!;01;o1=0";
+static const char _data_FX_MODE_MULTI_STROBE[] PROGMEM = "Strobe Mega@!,!,,,,Move;!,!;!;01;o1=0";
 
 
 /*
@@ -1031,7 +1014,7 @@ uint16_t mode_chase_flash(void) {
   }
   return delay;
 }
-static const char _data_FX_MODE_CHASE_FLASH[] PROGMEM = "Chase Flash@!,,,,,Animate palette;Bg,Fx;!;;o1=0";
+static const char _data_FX_MODE_CHASE_FLASH[] PROGMEM = "Chase Flash@!,,,,,Animate BG;Bg,Fx;!;;o1=0";
 
 
 /*
@@ -1156,7 +1139,7 @@ uint16_t mode_larson_scanner(void) {
   }
   return FRAMETIME;
 }
-static const char _data_FX_MODE_LARSON_SCANNER[] PROGMEM = "Scanner@!,Trail,Delay,,,Animate palette,Bi-delay,Dual;!,!,!;!;;m12=0,c1=0,o1=0,o3=0";
+static const char _data_FX_MODE_LARSON_SCANNER[] PROGMEM = "Scanner@!,Trail,Delay,,,Shift palette,Bi-delay,Dual;!,!,!;!;;m12=0,c1=0,o1=0,o3=0";
 
 
 /*
@@ -3256,7 +3239,7 @@ uint16_t mode_candle() {
 
   return FRAMETIME_FIXED;
 }
-static const char _data_FX_MODE_CANDLE[] PROGMEM = "Candle@!,!,,,,,,Multi;!,!;!;01;sx=96,ix=224,pal=0,o3=1";
+static const char _data_FX_MODE_CANDLE[] PROGMEM = "Candle@!,!,,,,,,Multi;!,!;!;01;sx=96,ix=224,pal=0";
 
 #ifdef WLED_PS_DONT_REPLACE_FX
 /*
@@ -10124,7 +10107,7 @@ void WS2812FX::setupEffectData() {
   addEffect(FX_MODE_COLORTWINKLE, &mode_colortwinkle, _data_FX_MODE_COLORTWINKLE);
   addEffect(FX_MODE_LAKE, &mode_lake, _data_FX_MODE_LAKE);
   addEffect(FX_MODE_METEOR, &mode_meteor, _data_FX_MODE_METEOR);
-  //addEffect(FX_MODE_METEOR_SMOOTH, &mode_meteor_smooth, _data_FX_MODE_METEOR_SMOOTH); // merged with mode_meteor 
+  //addEffect(FX_MODE_METEOR_SMOOTH, &mode_meteor_smooth, _data_FX_MODE_METEOR_SMOOTH); // merged with mode_meteor
   addEffect(FX_MODE_RAILWAY, &mode_railway, _data_FX_MODE_RAILWAY);
   addEffect(FX_MODE_RIPPLE, &mode_ripple, _data_FX_MODE_RIPPLE);
   addEffect(FX_MODE_TWINKLEFOX, &mode_twinklefox, _data_FX_MODE_TWINKLEFOX);
@@ -10136,11 +10119,11 @@ void WS2812FX::setupEffectData() {
   addEffect(FX_MODE_SPOTS_FADE, &mode_spots_fade, _data_FX_MODE_SPOTS_FADE);
   addEffect(FX_MODE_COMET, &mode_comet, _data_FX_MODE_COMET);
   #ifdef WLED_PS_DONT_REPLACE_FX
-  addEffect(FX_MODE_MULTI_COMET, &mode_multi_comet, _data_FX_MODE_MULTI_COMET);  
+  addEffect(FX_MODE_MULTI_COMET, &mode_multi_comet, _data_FX_MODE_MULTI_COMET);
   addEffect(FX_MODE_ROLLINGBALLS, &rolling_balls, _data_FX_MODE_ROLLINGBALLS);
   addEffect(FX_MODE_SPARKLE, &mode_sparkle, _data_FX_MODE_SPARKLE);
   addEffect(FX_MODE_GLITTER, &mode_glitter, _data_FX_MODE_GLITTER);
-  addEffect(FX_MODE_SOLID_GLITTER, &mode_solid_glitter, _data_FX_MODE_SOLID_GLITTER);
+  //addEffect(FX_MODE_SOLID_GLITTER, &mode_solid_glitter, _data_FX_MODE_SOLID_GLITTER);
   addEffect(FX_MODE_STARBURST, &mode_starburst, _data_FX_MODE_STARBURST);
   addEffect(FX_MODE_DANCING_SHADOWS, &mode_dancing_shadows, _data_FX_MODE_DANCING_SHADOWS);
   addEffect(FX_MODE_FIRE_2012, &mode_fire_2012, _data_FX_MODE_FIRE_2012);
