@@ -1670,14 +1670,22 @@ static uint8_t _add       (uint8_t a, uint8_t b) { unsigned t = a + b; return t 
 static uint8_t _subtract  (uint8_t a, uint8_t b) { return b > a ? (b - a) : 0; }
 static uint8_t _difference(uint8_t a, uint8_t b) { return b > a ? (b - a) : (a - b); }
 static uint8_t _average   (uint8_t a, uint8_t b) { return (a + b) >> 1; }
+#ifdef CONFIG_IDF_TARGET_ESP32C3
+static uint8_t _multiply  (uint8_t a, uint8_t b) { return ((a * b) + 255) >> 8; } // faster than division on C3 but slightly less accurate
+#else
 static uint8_t _multiply  (uint8_t a, uint8_t b) { return (a * b) / 255; } // origianl uses a & b in range [0,1]
+#endif
 static uint8_t _divide    (uint8_t a, uint8_t b) { return a > b ? (b * 255) / a : 255; }
 static uint8_t _lighten   (uint8_t a, uint8_t b) { return a > b ? a : b; }
 static uint8_t _darken    (uint8_t a, uint8_t b) { return a < b ? a : b; }
 static uint8_t _screen    (uint8_t a, uint8_t b) { return 255 - _multiply(~a,~b); } // 255 - (255-a)*(255-b)/255
 static uint8_t _overlay   (uint8_t a, uint8_t b) { return b < 128 ? 2 * _multiply(a,b) : (255 - 2 * _multiply(~a,~b)); }
 static uint8_t _hardlight (uint8_t a, uint8_t b) { return a < 128 ? 2 * _multiply(a,b) : (255 - 2 * _multiply(~a,~b)); }
+#ifdef CONFIG_IDF_TARGET_ESP32C3
+static uint8_t _softlight (uint8_t a, uint8_t b) { return (((b * b * (255 - 2 * a) + 255) >> 8) + 2 * a * b + 255) >> 8; } // Pegtop's formula (1 - 2a)b^2 + 2ab
+#else
 static uint8_t _softlight (uint8_t a, uint8_t b) { return (b * b * (255 - 2 * a) / 255 + 2 * a * b) / 255; } // Pegtop's formula (1 - 2a)b^2 + 2ab
+#endif
 static uint8_t _dodge     (uint8_t a, uint8_t b) { return _divide(~a,b); }
 static uint8_t _burn      (uint8_t a, uint8_t b) { return ~_divide(a,~b); }
 
@@ -1696,7 +1704,7 @@ void WS2812FX::blendSegment(const Segment &topSegment) {
   const auto blend = [&](uint32_t top, uint32_t bottom){ return RGBW32(func(R(top),R(bottom)), func(G(top),G(bottom)), func(B(top),B(bottom)), func(W(top),W(bottom))); };
 
   topSegment.setDrawDimensions();         // required for seg.getPixelColor()
-  const int  len = Segment::vLength();    // use precalculated value from setDrawDimensions()
+  const int  len = topSegment.length();   // physical segment length (counts all pixels in 2D segment)
   const auto XY  = [](int x, int y){ return x + y*Segment::maxWidth; };
   const size_t matrixSize = Segment::maxWidth * Segment::maxHeight;
   const size_t startIndx  = XY(topSegment.start, topSegment.startY);
@@ -1734,7 +1742,7 @@ void WS2812FX::blendSegment(const Segment &topSegment) {
       int y = r;
       if (topSegment.reverse  ) x = cols - x - 1;
       if (topSegment.reverse_y) y = rows - y - 1;
-      if (topSegment.transpose) { std::swap(x,y); } // swap X & Y if segment transposed
+      if (topSegment.transpose) std::swap(x,y); // swap X & Y if segment transposed
       const unsigned groupLen = topSegment.groupLength();
       if (groupLen == 1) {
         setMirroredPixel(x, y, c_a);
@@ -1742,45 +1750,40 @@ void WS2812FX::blendSegment(const Segment &topSegment) {
         // handle grouping and spacing
         x *= groupLen; // expand to physical pixels
         y *= groupLen; // expand to physical pixels
-        const int maxX   = std::min(x + topSegment.grouping, width);
-        const int maxY   = std::min(y + topSegment.grouping, height);
-        for (int yY = y; yY < maxY; yY++) {
-          for (int xX = x; xX < maxX; xX++) {
-            setMirroredPixel(xX, yY, c_a);
-          }
+        const int maxX = std::min(x + topSegment.grouping, width);
+        const int maxY = std::min(y + topSegment.grouping, height);
+        while (y < maxY) {
+          while (x < maxX) setMirroredPixel(x++, y, c_a);
+          y++;
         }
       }
     }
 #endif
   } else {
-    for (int k = 0; k < len; k++) {
+    const int vLen = Segment::vLength();   // use precalculated value from setDrawDimensions()
+    const auto setMirroredPixel = [&](int i, uint32_t col) {
+      int indx = topSegment.start + i;
+      // Apply mirroring
+      if (topSegment.mirror) {
+        unsigned indxM = topSegment.stop - i - 1;
+        indxM += topSegment.offset; // offset/phase
+        if (indxM >= topSegment.stop) indxM -= len; // wrap
+        pixels[indxM] = color_blend(pixels[indxM], blend(col, pixels[indxM]), opacity);
+      }
+      indx += topSegment.offset; // offset/phase
+      if (indx >= topSegment.stop) indx -= len; // wrap
+      pixels[indx] = color_blend(pixels[indx], blend(col, pixels[indx]), opacity);
+    };
+    for (int k = 0; k < vLen; k++) {
       // get segment's pixel
       const uint32_t c_a = topSegment.getPixelColor(k);
-      // expand pixel (taking into account start, grouping, spacing [and offset])
-      int i = k * topSegment.groupLength();
-      if (topSegment.reverse) {   // is segment reversed?
-        if (topSegment.mirror) {  // is segment mirrored?
-          i = (len - 1) / 2 - i;  // only need to index half the pixels
-        } else {
-          i = (len - 1) - i;
-        }
-      }
-      i += topSegment.start; // starting pixel in a group (set absolute address)
+      int i = k;
+      if (topSegment.reverse) i = vLen - i - 1; // is segment reversed?
+      // expand pixel
+      i *= topSegment.groupLength();
       // set all the pixels in the group
-      for (int j = 0; j < topSegment.grouping; j++) {
-        unsigned indexSet = i + ((topSegment.reverse) ? -j : j);
-        if (indexSet >= topSegment.start && indexSet < topSegment.stop) {
-          if (topSegment.mirror) { //set the corresponding mirrored pixel
-            unsigned indexMir = topSegment.stop - indexSet + topSegment.start - 1;
-            indexMir += topSegment.offset; // offset/phase
-            if (indexMir >= topSegment.stop) indexMir -= len; // wrap
-            pixels[indexMir] = color_blend(pixels[indexMir], blend(c_a, pixels[indexMir]), opacity);
-          }
-          indexSet += topSegment.offset; // offset/phase
-          if (indexSet >= topSegment.stop) indexSet -= len; // wrap
-          pixels[indexSet] = color_blend(pixels[indexSet], blend(c_a, pixels[indexSet]), opacity);
-        }
-      }
+      const int maxI = std::min(i + topSegment.grouping, len); // make sure to not go beyond physical length
+      while (i < maxI) setMirroredPixel(i++, c_a);
     }
   }
 }
