@@ -76,8 +76,8 @@ static void doSaveState() {
   // clean up
   saveLedmap   = -1;
   presetToSave = 0;
-  delete[] saveName;
-  delete[] quickLoad;
+  free(saveName);
+  free(quickLoad);
   saveName = nullptr;
   quickLoad = nullptr;
   playlistSave = false;
@@ -216,8 +216,8 @@ void handlePresets()
 //called from handleSet(PS=) [network callback (sObj is empty), IR (irrational), deserializeState, UDP] and deserializeState() [network callback (filedoc!=nullptr)]
 void savePreset(byte index, const char* pname, JsonObject sObj)
 {
-  if (!saveName) saveName = new char[33];
-  if (!quickLoad) quickLoad = new char[9];
+  if (!saveName) saveName = static_cast<char*>(malloc(33));
+  if (!quickLoad) quickLoad = static_cast<char*>(malloc(9));
   if (!saveName || !quickLoad) return;
 
   if (index == 0 || (index > 250 && index < 255)) return;
@@ -263,8 +263,8 @@ void savePreset(byte index, const char* pname, JsonObject sObj)
         presetsModifiedTime = toki.second(); //unix time
         updateFSInfo();
       }
-      delete[] saveName;
-      delete[] quickLoad;
+      free(saveName);
+      free(quickLoad);
       saveName = nullptr;
       quickLoad = nullptr;
     } else {

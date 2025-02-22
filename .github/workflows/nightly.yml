@@ -37,4 +37,10 @@ jobs:
           prerelease: true
           body: ${{ steps.changelog.outputs.changelog }}
           files: |
-            ./*.bin
+            *.bin
+            *.bin.gz
+      # - name: Repository Dispatch
+      #  uses: peter-evans/repository-dispatch@v3
+      #  with:
+      #    repository: wled-dev/WLED-WebInstaller
+      #    event-type: release-nightly

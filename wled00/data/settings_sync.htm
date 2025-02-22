@@ -40,6 +40,8 @@
 	function getURL(path) {
 		return (loc ? locproto + "//" + locip : "") + path;
 	}
+	function hideDMXInput(){gId("dmxInput").style.display="none";}
+	function hideNoDMXInput(){gId("dmxInputOff").style.display="none";}
 	</script>
 	<style>@import url("style.css");</style>
 </head>
@@ -151,6 +153,19 @@ Timeout: <input name="ET" type="number" min="1" max="65000" required> ms<br>
 Force max brightness: <input type="checkbox" name="FB"><br>
 Disable realtime gamma correction: <input type="checkbox" name="RG"><br>
 Realtime LED offset: <input name="WO" type="number" min="-255" max="255" required>
+<div id="dmxInput">
+	<h4>Wired DMX Input Pins</h4>
+	DMX RX: <input name="IDMR" type="number" min="-1" max="99">RO<br/>
+	DMX TX: <input name="IDMT" type="number" min="-1" max="99">DI<br/>
+	DMX Enable: <input name="IDME" type="number" min="-1" max="99">RE+DE<br/>
+	DMX Port: <input name="IDMP" type="number" min="1" max="2"><br/>
+</div> 
+<div id="dmxInputOff">
+	<br><em style="color:darkorange">This firmware build does not include DMX Input support. <br></em>
+</div> 
+<div id="dmxOnOff2">
+  <br><em style="color:darkorange">This firmware build does not include DMX output support. <br></em>
+</div> 
 <hr class="sml">
 <h3>Alexa Voice Assistant</h3>
 <div id="NoAlexa" class="hide">

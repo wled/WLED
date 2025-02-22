@@ -90,12 +90,12 @@ void doublePressAction(uint8_t b)
 #endif
 }
 
-bool isButtonPressed(uint8_t i)
+bool isButtonPressed(uint8_t b)
 {
-  if (btnPin[i]<0) return false;
-  unsigned pin = btnPin[i];
+  if (btnPin[b]<0) return false;
+  unsigned pin = btnPin[b];
 
-  switch (buttonType[i]) {
+  switch (buttonType[b]) {
     case BTN_TYPE_NONE:
     case BTN_TYPE_RESERVED:
       break;
@@ -113,7 +113,7 @@ bool isButtonPressed(uint8_t i)
         #ifdef SOC_TOUCH_VERSION_2 //ESP32 S2 and S3 provide a function to check touch state (state is updated in interrupt)
         if (touchInterruptGetLastStatus(pin)) return true;
         #else
-        if (digitalPinToTouchChannel(btnPin[i]) >= 0 && touchRead(pin) <= touchThreshold) return true;
+        if (digitalPinToTouchChannel(btnPin[b]) >= 0 && touchRead(pin) <= touchThreshold) return true;
         #endif
       #endif
      break;

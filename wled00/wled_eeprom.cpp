@@ -11,7 +11,7 @@
  * Only used to restore config from pre-0.11 installations using the deEEP() methods
  *
  * Methods to handle saving and loading to non-volatile memory
- * EEPROM Map: https://github.com/Aircoookie/WLED/wiki/EEPROM-Map
+ * EEPROM Map: https://github.com/wled-dev/WLED/wiki/EEPROM-Map
  */
 
 //eeprom Version code, enables default settings instead of 0 init on update
@@ -224,7 +224,7 @@ void loadSettingsFromEEPROM()
 
   if (lastEEPROMversion > 7)
   {
-    strip.paletteFade  = EEPROM.read(374);
+    //strip.paletteFade  = EEPROM.read(374);
     strip.paletteBlend = EEPROM.read(382);
 
     for (int i = 0; i < 8; ++i)
