@@ -26,7 +26,6 @@ class MyExampleUsermod : public Usermod {
   private:
 
     // Private class members. You can declare variables and functions only accessible to your usermod here
-    bool enabled = false;
     bool initDone = false;
     unsigned long lastTime = 0;
 
@@ -53,16 +52,6 @@ class MyExampleUsermod : public Usermod {
   public:
 
     // non WLED related methods, may be used for data exchange between usermods (non-inline methods should be defined out of class)
-
-    /**
-     * Enable/Disable the usermod
-     */
-    inline void enable(bool enable) { enabled = enable; }
-
-    /**
-     * Get usermod enabled/disabled state
-     */
-    inline bool isEnabled() { return enabled; }
 
     // in such case add the following to another usermod:
     //  in private vars:
@@ -114,9 +103,9 @@ class MyExampleUsermod : public Usermod {
      *    Instead, use a timer check as shown here.
      */
     void loop() override {
-      // if usermod is disabled or called during strip updating just exit
+      // if called during strip updating just exit
       // NOTE: on very long strips strip.isUpdating() may always return true so update accordingly
-      if (!enabled || strip.isUpdating()) return;
+      if (strip.isUpdating()) return;
 
       // do your magic here
       if (millis() - lastTime > 1000) {
@@ -314,8 +303,7 @@ class MyExampleUsermod : public Usermod {
     bool handleButton(uint8_t b) override {
       yield();
       // ignore certain button types as they may have other consequences
-      if (!enabled
-       || buttonType[b] == BTN_TYPE_NONE
+      if (buttonType[b] == BTN_TYPE_NONE
        || buttonType[b] == BTN_TYPE_RESERVED
        || buttonType[b] == BTN_TYPE_PIR_SENSOR
        || buttonType[b] == BTN_TYPE_ANALOG
