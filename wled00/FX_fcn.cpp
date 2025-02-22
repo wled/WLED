@@ -1839,19 +1839,21 @@ static uint8_t estimateCurrentAndLimitBri(uint8_t brightness, uint32_t *pixels) 
       // powerSum has all the values of channels summed (max would be getLength()*765 as white is excluded) so convert to milliAmps
       milliAmpsTotal += (busPowerSum * maPL * brightness) / (765*255);
     }
-    avgMilliAmpsPerLED /= lengthDigital;
+    if (lengthDigital > 0) {
+      avgMilliAmpsPerLED /= lengthDigital;
 
-    if (milliAmpsMax > MA_FOR_ESP && avgMilliAmpsPerLED > 0) { //0 mA per LED and too low numbers turn off calculation
-      unsigned powerBudget = (milliAmpsMax - MA_FOR_ESP); //80/120mA for ESP power
-      if (powerBudget > lengthDigital) { //each LED uses about 1mA in standby, exclude that from power budget
-        powerBudget -= lengthDigital;
-      } else {
-        powerBudget = 0;
-      }
-      if (milliAmpsTotal > powerBudget) {
-        //scale brightness down to stay in current limit
-        unsigned scaleB = powerBudget * 255 / milliAmpsTotal;
-        brightness = (brightness * scaleB) / 256 + 1;
+      if (milliAmpsMax > MA_FOR_ESP && avgMilliAmpsPerLED > 0) { //0 mA per LED and too low numbers turn off calculation
+        unsigned powerBudget = (milliAmpsMax - MA_FOR_ESP); //80/120mA for ESP power
+        if (powerBudget > lengthDigital) { //each LED uses about 1mA in standby, exclude that from power budget
+          powerBudget -= lengthDigital;
+        } else {
+          powerBudget = 0;
+        }
+        if (milliAmpsTotal > powerBudget) {
+          //scale brightness down to stay in current limit
+          unsigned scaleB = powerBudget * 255 / milliAmpsTotal;
+          brightness = ((brightness * scaleB) >> 8) + 1;
+        }
       }
     }
   }
