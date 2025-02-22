@@ -480,7 +480,7 @@ void registerUsermods()
   #endif
 
   #ifdef USERMOD_POV_DISPLAY
-  UsermodManager::add(new PovDisplayUsermod());
+  UsermodManager::add(new PovDisplayUsermod("Pov Display", false));
   #endif
 
   #ifdef USERMOD_DEEP_SLEEP

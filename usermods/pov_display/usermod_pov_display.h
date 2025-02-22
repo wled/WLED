@@ -2,17 +2,21 @@
 #include "wled.h"
 #include <PNGdec.h>
 
-void * openFile(const char *filename, int32_t *size) {
-    f = WLED_FS.open(filename);
-    *size = f.size();
-    return &f;
+PNG png_decoder;
+File pov_image;
+static const char _data_FX_MODE_POV_IMAGE[] PROGMEM = "POV Image@!;;;1";
+
+void * PovOpenFile(const char *filename, int32_t *size) {
+    pov_image = WLED_FS.open(filename);
+    *size = pov_image.size();
+    return &pov_image;
 }
 
-void closeFile(void *handle) {
-    if (f) f.close();
+void PovCloseFile(void *handle) {
+    if (pov_image) pov_image.close();
 }
 
-int32_t readFile(PNGFILE *pFile, uint8_t *pBuf, int32_t iLen)
+int32_t PovReadFile(PNGFILE *pFile, uint8_t *pBuf, int32_t iLen)
 {
     int32_t iBytesRead;
     iBytesRead = iLen;
@@ -27,7 +31,7 @@ int32_t readFile(PNGFILE *pFile, uint8_t *pBuf, int32_t iLen)
     return iBytesRead;
 }
 
-int32_t seekFile(PNGFILE *pFile, int32_t iPosition)
+int32_t PovSeekFile(PNGFILE *pFile, int32_t iPosition)
 {
     int i = micros();
     File *f = static_cast<File *>(pFile->fHandle);
@@ -37,9 +41,9 @@ int32_t seekFile(PNGFILE *pFile, int32_t iPosition)
     return pFile->iPos;
 }
 
-void draw(PNGDRAW *pDraw) {
+void PovDraw(PNGDRAW *pDraw) {
     uint16_t usPixels[SEGLEN];
-    png.getLineAsRGB565(pDraw, usPixels, PNG_RGB565_LITTLE_ENDIAN, 0xffffffff);
+    png_decoder.getLineAsRGB565(pDraw, usPixels, PNG_RGB565_LITTLE_ENDIAN, 0xffffffff);
     for(int x=0; x < SEGLEN; x++) {
 	uint16_t color = usPixels[x];
 	byte r = ((color >> 11) & 0x1F);
@@ -51,26 +55,33 @@ void draw(PNGDRAW *pDraw) {
 }
 
 uint16_t mode_pov_image(void) {
-    const char * filepath = SEGMENT.name;
-    int rc = png.open(filepath, openFile, closeFile, readFile, seekFile, draw);
+    char filepath[WLED_MAX_SEGNAME_LEN + 1] = "/";
+    strncpy(filepath + 1, SEGMENT.name, WLED_MAX_SEGNAME_LEN);
+    int rc = png_decoder.open(filepath, PovOpenFile, PovCloseFile, PovReadFile, PovSeekFile, PovDraw);
     if (rc == PNG_SUCCESS) {
-	rc = png.decode(NULL, 0);
-	png.close();
+	rc = png_decoder.decode(NULL, 0);
+	png_decoder.close();
 	return FRAMETIME;
     }
     return FRAMETIME;
 }
 
-class PovDisplayUsermod : public Usermod
-{
-  public:
-    static const char _data_FX_MODE_POV_IMAGE[] PROGMEM = "POV Image@!;;;1";
+class PovDisplayUsermod : public Usermod {
+  protected:
+        bool enabled = false; //WLEDMM
+        const char *_name; //WLEDMM
+        bool initDone = false; //WLEDMM
+        unsigned long lastTime = 0; //WLEDMM
 
-    PNG png;
-    File f;
+  public:
+    PovDisplayUsermod(const char *name, bool enabled) {
+	this->_name = name;
+	this->enabled = enabled;
+    } //WLEDMM
 
     void setup() {
 	strip.addEffect(255, &mode_pov_image, _data_FX_MODE_POV_IMAGE);
+	initDone = true;
     }
 
     void loop() {
