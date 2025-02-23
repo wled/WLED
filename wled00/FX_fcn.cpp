@@ -1590,7 +1590,7 @@ void WS2812FX::service() {
 #endif
         frameDelay = (*_mode[seg.mode])();         // run effect mode (not in transition)
         seg.call++;
-        if (seg.isInTransition() && frameDelay > FRAMETIME) frameDelay = FRAMETIME; // force faster updates during transition
+        if (seg.isInTransition() && frameDelay > FRAMETIME_FIXED) frameDelay = FRAMETIME_FIXED; // force faster updates during transition, if requested time is below 40 fps
         BusManager::setSegmentCCT(oldCCT); // restore old CCT for ABL adjustments
       }
 
