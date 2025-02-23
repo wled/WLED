@@ -35,6 +35,7 @@ class MyExampleUsermod : public Usermod {
     unsigned long testULong = 42424242;
     float testFloat = 42.42;
     String testString = "Forty-Two";
+    String testMultilineString = "Forty...\nTwo"; // Key has > as final character, makes it multiline
 
     // These config variables have defaults set inside readFromConfig()
     int testInt;
@@ -232,6 +233,7 @@ class MyExampleUsermod : public Usermod {
       top["testULong"] = testULong;
       top["testFloat"] = testFloat;
       top["testString"] = testString;
+      top["testMultilineString>"] = testMultilineString; // Key has > as final character, makes it multiline
       JsonArray pinArray = top.createNestedArray("pin");
       pinArray.add(testPins[0]);
       pinArray.add(testPins[1]); 
@@ -267,6 +269,17 @@ class MyExampleUsermod : public Usermod {
       configComplete &= getJsonValue(top["testULong"], testULong);
       configComplete &= getJsonValue(top["testFloat"], testFloat);
       configComplete &= getJsonValue(top["testString"], testString);
+      configComplete &= getJsonValue(top["testMultilineString>"], testMultilineString);
+
+      // Remove any carriage returns (\r) from testMultilineString, leave only newlines (\n)
+      int i=0;
+      int lastI;
+      while(true) {
+        lastI = i;
+        i = testMultilineString.indexOf('\r',lastI);
+        if (i < 0) break;
+        testMultilineString.remove(i,1);
+      }
 
       // A 3-argument getJsonValue() assigns the 3rd argument as a default value if the Json value is missing
       configComplete &= getJsonValue(top["testInt"], testInt, 42);  

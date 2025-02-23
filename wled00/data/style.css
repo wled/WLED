@@ -70,7 +70,7 @@ button.sml {
 .warn {
   color: #fa0;
 }
-input {
+input, textarea {
   background: #333;
   color: #fff;
   font-family: Verdana, sans-serif;

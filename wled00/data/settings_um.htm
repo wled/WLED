@@ -135,14 +135,19 @@
 					}
 					break;
 				default:
-					t = "text"; c = `value="${o}" style="width:250px;"`;
+					if (f.substr(-1)===">") {
+						t = "textarea"; c = `style="width:300px;height:150px;"`;
+					} else {
+						t = "text"; c = `value="${o}" style="width:250px;"`;
+					}
 					break;
 			}
 			urows += ` ${initCap(f)} `; //only show field (key is shown in grouping)
 			// https://stackoverflow.com/questions/11657123/posting-both-checked-and-unchecked-checkboxes
 			if (t=="checkbox") urows += `<input type="hidden" name="${k}:${f}${a?"[]":""}" value="false">`;
 			else if (!a)       urows += `<input type="hidden" name="${k}:${f}${a?"[]":""}" value="${t}">`;
-			urows += `<input type="${t==="int"?"number":t}" name="${k}:${f}${a?"[]":""}" ${c} oninput="check(this,'${k.substr(k.indexOf(":")+1)}')"><br>`;
+			if (t=="textarea") urows += `<br><textarea name="${k}:${f}${a?"[]":""}" ${c}>${o}</textarea><br>`;
+			else               urows += `<input type="${t==="int"?"number":t}" name="${k}:${f}${a?"[]":""}" ${c} oninput="check(this,'${k.substr(k.indexOf(":")+1)}')"><br>`;
 		}
 	}
 	function pinDD() {
