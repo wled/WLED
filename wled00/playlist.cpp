@@ -6,7 +6,7 @@
 
 typedef struct PlaylistEntry {
   uint8_t preset; //ID of the preset to apply
-  uint16_t dur;   //Duration of the entry (in tenths of seconds)
+  uint16_t dur;   //Duration of the entry (in tenths of seconds) (0 = infinitely)
   uint16_t tr;    //Duration of the transition TO this entry (in tenths of seconds)
 } ple;
 
@@ -48,7 +48,8 @@ void unloadPlaylist() {
     playlistEntries = nullptr;
   }
   currentPlaylist = playlistIndex = -1;
-  playlistLen = playlistEntryDur = playlistOptions = 0;
+  playlistLen = playlistOptions = 0;
+  playlistEntryDur = 1;
   DEBUG_PRINTLN(F("Playlist unloaded."));
 }
 
@@ -79,7 +80,7 @@ int16_t loadPlaylist(JsonObject playlistObj, byte presetId) {
   } else {
     for (int dur : durations) {
       if (it >= playlistLen) break;
-      playlistEntries[it].dur = (dur > 1) ? dur : 100;
+      playlistEntries[it].dur = (dur > 1 || dur == 0) ? dur : 100;
       it++;
     }
   }
@@ -126,8 +127,8 @@ int16_t loadPlaylist(JsonObject playlistObj, byte presetId) {
 void handlePlaylist() {
   static unsigned long presetCycledTime = 0;
   if (currentPlaylist < 0 || playlistEntries == nullptr) return;
-
-if (millis() - presetCycledTime > (100 * playlistEntryDur) || doAdvancePlaylist) {
+  if (playlistEntryDur == 0 && !doAdvancePlaylist) return;
+  if (millis() - presetCycledTime > (100 * playlistEntryDur) || doAdvancePlaylist) {
     presetCycledTime = millis();
     if (bri == 0 || nightlightActive) return;
 

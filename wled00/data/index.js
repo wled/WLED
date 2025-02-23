@@ -2098,12 +2098,12 @@ function makePlEntry(p,i)
 		<td class="c"><button class="btn btn-pl-add" onclick="addPl(${p},${i})"><i class="icons btn-icon">&#xe18a;</i></button></td>
 	</tr>
 	<tr>
-		<td class="c">Duration</td>
+		<td class="c">Duration (0 for infinite)</td>
 		<td class="c">Transition</td>
 		<td class="c">#${i+1}</td>
 	</tr>
 	<tr>
-		<td class="c" width="40%"><input class="segn" type="number" placeholder="Duration" max=6553.0 min=0.2 step=0.1 oninput="pleDur(${p},${i},this)" value="${plJson[p].dur[i]/10.0}">s</td>
+		<td class="c" width="40%"><input class="segn" type="number" placeholder="Duration" max=6553.0 min=0 step=0.1 oninput="pleDur(${p},${i},this)" value="${plJson[p].dur[i]/10.0}">s</td>
 		<td class="c" width="40%"><input class="segn" type="number" placeholder="Transition" max=65.0 min=0.0 step=0.1 oninput="pleTr(${p},${i},this)" value="${plJson[p].transition[i]/10.0}">s</td>
 		<td class="c"><button class="btn btn-pl-del" onclick="delPl(${p},${i})"><i class="icons btn-icon">&#xe037;</i></button></div></td>
 	</tr>
