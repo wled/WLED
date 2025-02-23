@@ -1,0 +1,125 @@
+[
+    {
+        "content": "2D Set-up"
+    },
+    {
+        "content": "Back"
+    },
+    {
+        "content": "Save"
+    },
+    {
+        "content": "2D setup"
+    },
+    {
+        "content": "\n\tStrip or panel:\n\t"
+    },
+    {
+        "content": "1D Strip"
+    },
+    {
+        "content": "2D Matrix"
+    },
+    {
+        "content": "Matrix Generator "
+    },
+    {
+        "content": "\n\t\t\tPanel dimensions (WxH): "
+    },
+    {
+        "content": " x "
+    },
+    {
+        "content": "\n\t\t\tHorizontal panels: "
+    },
+    {
+        "content": "\n\t\t\tVertical panels: "
+    },
+    {
+        "content": "st"
+    },
+    {
+        "content": " panel: "
+    },
+    {
+        "content": "Top"
+    },
+    {
+        "content": "Bottom"
+    },
+    {
+        "content": "Left"
+    },
+    {
+        "content": "Right"
+    },
+    {
+        "content": "\n\t\t\tOrientation: "
+    },
+    {
+        "content": "Horizontal"
+    },
+    {
+        "content": "Vertical"
+    },
+    {
+        "content": "\n\t\t\tSerpentine: "
+    },
+    {
+        "content": "Pressing Populate will create LED panel layout with pre-arranged matrix."
+    },
+    {
+        "content": "Values above "
+    },
+    {
+        "content": "will not"
+    },
+    {
+        "content": " affect final layout."
+    },
+    {
+        "content": "\n\t\t\t\tWARNING: You may need to update each panel parameters after they are generated."
+    },
+    {
+        "content": "Populate"
+    },
+    {
+        "content": "Panel set-up"
+    },
+    {
+        "content": "\n\t\tNumber of panels: "
+    },
+    {
+        "content": "A matrix is made of 1 or more physical LED panels."
+    },
+    {
+        "content": "\n\t\tEach panel can be of different size and/or have different LED orientation and/or starting point and/or layout."
+    },
+    {
+        "content": "LED panel layout"
+    },
+    {
+        "content": "Gap file: "
+    },
+    {
+        "content": "Upload"
+    },
+    {
+        "content": "Note: Gap file is a "
+    },
+    {
+        "content": ".json"
+    },
+    {
+        "content": " file containing an array with number of elements equal to the matrix size."
+    },
+    {
+        "content": "\n\t\t\tA value of -1 means that pixel at that position is missing, a value of 0 means never paint that pixel, and 1 means regular pixel."
+    },
+    {
+        "content": "Back"
+    },
+    {
+        "content": "Save"
+    }
+]

@@ -1,0 +1,705 @@
+[
+    {
+        "content": "UI Settings"
+    },
+    {
+        "content": "Back"
+    },
+    {
+        "content": "Save"
+    },
+    {
+        "content": "\u2714 Local UI settings saved!"
+    },
+    {
+        "content": "\u26a0 Could not access local storage. Make sure it is enabled in your browser."
+    },
+    {
+        "content": "Web Setup"
+    },
+    {
+        "content": "\n\t\tServer description: "
+    },
+    {
+        "content": "\n\t\tEnable simplified UI: "
+    },
+    {
+        "content": "The following UI customization settings are unique both to the WLED device and this browser."
+    },
+    {
+        "content": "\n\t\tYou will need to set them again if using a different browser, device or WLED IP address."
+    },
+    {
+        "content": "\n\t\tRefresh the main UI to apply changes."
+    },
+    {
+        "content": "Loading settings..."
+    },
+    {
+        "content": "UI Appearance"
+    },
+    {
+        "content": "\n\t\tI hate dark mode: "
+    },
+    {
+        "content": "Why would you? "
+    },
+    {
+        "content": "\n\t\tBG image: "
+    },
+    {
+        "content": "Random BG image settings"
+    },
+    {
+        "content": "Custom CSS: "
+    },
+    {
+        "content": "Holidays: "
+    },
+    {
+        "content": "Clear local storage"
+    },
+    {
+        "content": "Back"
+    },
+    {
+        "content": "Save"
+    },
+    {
+        "content": "UI Settings"
+    },
+    {
+        "content": "Back"
+    },
+    {
+        "content": "Save"
+    },
+    {
+        "content": "\u2714 Local UI settings saved!"
+    },
+    {
+        "content": "\u26a0 Could not access local storage. Make sure it is enabled in your browser."
+    },
+    {
+        "content": "Web Setup"
+    },
+    {
+        "content": "\n\t\tServer description: "
+    },
+    {
+        "content": "\n\t\tEnable simplified UI: "
+    },
+    {
+        "content": "The following UI customization settings are unique both to the WLED device and this browser."
+    },
+    {
+        "content": "\n\t\tYou will need to set them again if using a different browser, device or WLED IP address."
+    },
+    {
+        "content": "\n\t\tRefresh the main UI to apply changes."
+    },
+    {
+        "content": "Loading settings..."
+    },
+    {
+        "content": "UI Appearance"
+    },
+    {
+        "content": "\n\t\tI hate dark mode: "
+    },
+    {
+        "content": "Why would you? "
+    },
+    {
+        "content": "\n\t\tBG image: "
+    },
+    {
+        "content": "Random BG image settings"
+    },
+    {
+        "content": "Custom CSS: "
+    },
+    {
+        "content": "Holidays: "
+    },
+    {
+        "content": "Clear local storage"
+    },
+    {
+        "content": "Back"
+    },
+    {
+        "content": "Save"
+    },
+    {
+        "content": "UI Settings"
+    },
+    {
+        "content": "Back"
+    },
+    {
+        "content": "Save"
+    },
+    {
+        "content": "\u2714 Local UI settings saved!"
+    },
+    {
+        "content": "\u26a0 Could not access local storage. Make sure it is enabled in your browser."
+    },
+    {
+        "content": "Web Setup"
+    },
+    {
+        "content": "\n\t\tServer description: "
+    },
+    {
+        "content": "\n\t\tSync button toggles both send and receive: "
+    },
+    {
+        "content": "\n\n\t\t\n\t\tEnable simplified UI: "
+    },
+    {
+        "content": "\n\t\tSet display language:\n\t\t\t"
+    },
+    {
+        "content": "English"
+    },
+    {
+        "content": "This firmware build does not include simplified UI support."
+    },
+    {
+        "content": "Enable simplified UI: "
+    },
+    {
+        "content": "The following UI customization settings are unique both to the WLED device and this browser."
+    },
+    {
+        "content": "\n\t\t\tYou will need to set them again if using a different browser, device or WLED IP address.\n\t\t\t"
+    },
+    {
+        "content": "Refresh the main UI to apply changes."
+    },
+    {
+        "content": "Loading settings..."
+    },
+    {
+        "content": "UI Appearance"
+    },
+    {
+        "content": "\n\t\tI hate dark mode: "
+    },
+    {
+        "content": "Why would you? "
+    },
+    {
+        "content": "\n\t\tBG image: "
+    },
+    {
+        "content": "Random BG image settings"
+    },
+    {
+        "content": "Custom CSS: "
+    },
+    {
+        "content": "Holidays: "
+    },
+    {
+        "content": "Clear local storage"
+    },
+    {
+        "content": "Back"
+    },
+    {
+        "content": "Save"
+    },
+    {
+        "content": "UI Settings"
+    },
+    {
+        "content": "Back"
+    },
+    {
+        "content": "Save"
+    },
+    {
+        "content": "\u2714 Local UI settings saved!"
+    },
+    {
+        "content": "\u26a0 Could not access local storage. Make sure it is enabled in your browser."
+    },
+    {
+        "content": "Web Setup"
+    },
+    {
+        "content": "\n\t\tServer description: "
+    },
+    {
+        "content": "\n\t\tSync button toggles both send and receive: "
+    },
+    {
+        "content": "\n\n\t\t\n\t\tEnable simplified UI: "
+    },
+    {
+        "content": "\n\t\tSet display language:\n\t\t\t"
+    },
+    {
+        "content": "English"
+    },
+    {
+        "content": "French"
+    },
+    {
+        "content": "Japanese"
+    },
+    {
+        "content": "This firmware build does not include simplified UI support."
+    },
+    {
+        "content": "Enable simplified UI: "
+    },
+    {
+        "content": "The following UI customization settings are unique both to the WLED device and this browser."
+    },
+    {
+        "content": "\n\t\t\tYou will need to set them again if using a different browser, device or WLED IP address.\n\t\t\t"
+    },
+    {
+        "content": "Refresh the main UI to apply changes."
+    },
+    {
+        "content": "Color selection methods"
+    },
+    {
+        "content": "Color Wheel: "
+    },
+    {
+        "content": "RGB sliders: "
+    },
+    {
+        "content": "Quick color selectors: "
+    },
+    {
+        "content": "HEX color input: "
+    },
+    {
+        "content": "UI Appearance"
+    },
+    {
+        "content": "Show button labels"
+    },
+    {
+        "content": "Show bottom tab bar in PC mode"
+    },
+    {
+        "content": "Show preset IDs"
+    },
+    {
+        "content": "Set segment length instead of stop LED"
+    },
+    {
+        "content": "Hide segment power & brightness"
+    },
+    {
+        "content": "Always expand first segment"
+    },
+    {
+        "content": "Use effect default parameters"
+    },
+    {
+        "content": "Power button preset override for On"
+    },
+    {
+        "content": "Power button preset override for Off"
+    },
+    {
+        "content": "Sort presets by ID"
+    },
+    {
+        "content": "\n\t\tI hate dark mode: "
+    },
+    {
+        "content": "Why would you? "
+    },
+    {
+        "content": "Button opacity"
+    },
+    {
+        "content": "Background opacity"
+    },
+    {
+        "content": "BG HEX color"
+    },
+    {
+        "content": "\n\t\tBG image: "
+    },
+    {
+        "content": "Random BG image"
+    },
+    {
+        "content": "BG image URL"
+    },
+    {
+        "content": "Random BG image settings"
+    },
+    {
+        "content": "Grayscale"
+    },
+    {
+        "content": "Blur"
+    },
+    {
+        "content": "Enable custom CSS"
+    },
+    {
+        "content": "Custom CSS: "
+    },
+    {
+        "content": "Enable custom Holidays list"
+    },
+    {
+        "content": "Holidays: "
+    },
+    {
+        "content": "Clear local storage"
+    },
+    {
+        "content": "Back"
+    },
+    {
+        "content": "Save"
+    },
+    {
+        "content": "UI Settings"
+    },
+    {
+        "content": "Back"
+    },
+    {
+        "content": "Save"
+    },
+    {
+        "content": "\u2714 Local UI settings saved!"
+    },
+    {
+        "content": "\u26a0 Could not access local storage. Make sure it is enabled in your browser."
+    },
+    {
+        "content": "Web Setup"
+    },
+    {
+        "content": "\n\t\tServer description: "
+    },
+    {
+        "content": "\n\t\tSync button toggles both send and receive: "
+    },
+    {
+        "content": "\n\n\t\t\n\t\tEnable simplified UI: "
+    },
+    {
+        "content": "\n\t\tSet display language:\n\t\t\t"
+    },
+    {
+        "content": "English"
+    },
+    {
+        "content": "This firmware build does not include simplified UI support."
+    },
+    {
+        "content": "Enable simplified UI: "
+    },
+    {
+        "content": "The following UI customization settings are unique both to the WLED device and this browser."
+    },
+    {
+        "content": "\n\t\t\tYou will need to set them again if using a different browser, device or WLED IP address.\n\t\t\t"
+    },
+    {
+        "content": "Refresh the main UI to apply changes."
+    },
+    {
+        "content": "Loading settings..."
+    },
+    {
+        "content": "UI Appearance"
+    },
+    {
+        "content": "\n\t\tI hate dark mode: "
+    },
+    {
+        "content": "Why would you? "
+    },
+    {
+        "content": "\n\t\tBG image: "
+    },
+    {
+        "content": "Random BG image settings"
+    },
+    {
+        "content": "Custom CSS: "
+    },
+    {
+        "content": "Holidays: "
+    },
+    {
+        "content": "Clear local storage"
+    },
+    {
+        "content": "Back"
+    },
+    {
+        "content": "Save"
+    },
+    {
+        "content": "UI Settings"
+    },
+    {
+        "content": "Back"
+    },
+    {
+        "content": "Save"
+    },
+    {
+        "content": "\u2714 Local UI settings saved!"
+    },
+    {
+        "content": "\u26a0 Could not access local storage. Make sure it is enabled in your browser."
+    },
+    {
+        "content": "Web Setup"
+    },
+    {
+        "content": "\n\t\tServer description: "
+    },
+    {
+        "content": "\n\t\tSync button toggles both send and receive: "
+    },
+    {
+        "content": "\n\n\t\t\n\t\tEnable simplified UI: "
+    },
+    {
+        "content": "\n\t\tSet display language:\n\t\t\t"
+    },
+    {
+        "content": "English"
+    },
+    {
+        "content": "This firmware build does not include simplified UI support."
+    },
+    {
+        "content": "Enable simplified UI: "
+    },
+    {
+        "content": "The following UI customization settings are unique both to the WLED device and this browser."
+    },
+    {
+        "content": "\n\t\t\tYou will need to set them again if using a different browser, device or WLED IP address.\n\t\t\t"
+    },
+    {
+        "content": "Refresh the main UI to apply changes."
+    },
+    {
+        "content": "Loading settings..."
+    },
+    {
+        "content": "UI Appearance"
+    },
+    {
+        "content": "\n\t\tI hate dark mode: "
+    },
+    {
+        "content": "Why would you? "
+    },
+    {
+        "content": "\n\t\tBG image: "
+    },
+    {
+        "content": "Random BG image settings"
+    },
+    {
+        "content": "Custom CSS: "
+    },
+    {
+        "content": "Holidays: "
+    },
+    {
+        "content": "Clear local storage"
+    },
+    {
+        "content": "Back"
+    },
+    {
+        "content": "Save"
+    },
+    {
+        "content": "UI Settings"
+    },
+    {
+        "content": "Back"
+    },
+    {
+        "content": "Save"
+    },
+    {
+        "content": "\u2714 Local UI settings saved!"
+    },
+    {
+        "content": "\u26a0 Could not access local storage. Make sure it is enabled in your browser."
+    },
+    {
+        "content": "Web Setup"
+    },
+    {
+        "content": "\n\t\tServer description: "
+    },
+    {
+        "content": "\n\t\tSync button toggles both send and receive: "
+    },
+    {
+        "content": "\n\n\t\t\n\t\tEnable simplified UI: "
+    },
+    {
+        "content": "\n\t\tSet display language:\n\t\t\t"
+    },
+    {
+        "content": "English"
+    },
+    {
+        "content": "This firmware build does not include simplified UI support."
+    },
+    {
+        "content": "Enable simplified UI: "
+    },
+    {
+        "content": "The following UI customization settings are unique both to the WLED device and this browser."
+    },
+    {
+        "content": "\n\t\t\tYou will need to set them again if using a different browser, device or WLED IP address.\n\t\t\t"
+    },
+    {
+        "content": "Refresh the main UI to apply changes."
+    },
+    {
+        "content": "Loading settings..."
+    },
+    {
+        "content": "UI Appearance"
+    },
+    {
+        "content": "\n\t\tI hate dark mode: "
+    },
+    {
+        "content": "Why would you? "
+    },
+    {
+        "content": "\n\t\tBG image: "
+    },
+    {
+        "content": "Random BG image settings"
+    },
+    {
+        "content": "Custom CSS: "
+    },
+    {
+        "content": "Holidays: "
+    },
+    {
+        "content": "Clear local storage"
+    },
+    {
+        "content": "Back"
+    },
+    {
+        "content": "Save"
+    },
+    {
+        "content": "UI Settings"
+    },
+    {
+        "content": "Back"
+    },
+    {
+        "content": "Save"
+    },
+    {
+        "content": "\u2714 Local UI settings saved!"
+    },
+    {
+        "content": "\u26a0 Could not access local storage. Make sure it is enabled in your browser."
+    },
+    {
+        "content": "Web Setup"
+    },
+    {
+        "content": "\n\t\tServer description: "
+    },
+    {
+        "content": "\n\t\tSync button toggles both send and receive: "
+    },
+    {
+        "content": "\n\n\t\t\n\t\tEnable simplified UI: "
+    },
+    {
+        "content": "\n\t\tSet display language:\n\t\t\t"
+    },
+    {
+        "content": "English"
+    },
+    {
+        "content": "This firmware build does not include simplified UI support."
+    },
+    {
+        "content": "Enable simplified UI: "
+    },
+    {
+        "content": "The following UI customization settings are unique both to the WLED device and this browser."
+    },
+    {
+        "content": "\n\t\t\tYou will need to set them again if using a different browser, device or WLED IP address.\n\t\t\t"
+    },
+    {
+        "content": "Refresh the main UI to apply changes."
+    },
+    {
+        "content": "Loading settings..."
+    },
+    {
+        "content": "UI Appearance"
+    },
+    {
+        "content": "\n\t\tI hate dark mode: "
+    },
+    {
+        "content": "Why would you? "
+    },
+    {
+        "content": "\n\t\tBG image: "
+    },
+    {
+        "content": "Random BG image settings"
+    },
+    {
+        "content": "Custom CSS: "
+    },
+    {
+        "content": "Holidays: "
+    },
+    {
+        "content": "Clear local storage"
+    },
+    {
+        "content": "Back"
+    },
+    {
+        "content": "Save"
+    },
+    {
+        "content": "Remove"
+    },
+    {
+        "content": "Upload"
+    },
+    {
+        "content": "Segment 0",
+        "pattern": "^Segment ([0-9]+)$"
+    }
+]

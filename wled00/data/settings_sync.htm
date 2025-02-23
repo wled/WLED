@@ -44,8 +44,8 @@
 	function hideNoDMXInput(){gId("dmxInputOff").style.display="none";}
 	</script>
 	<style>@import url("style.css");</style>
-</head>
-<body onload="S()">
+<script src='/L12N.js'></script></head>
+<body onload='try { S() } finally { runI18N(); }'>
 <form id="form_s" name="Sf" method="post" onsubmit="GC()">
 <div class="toprow">
 <div class="helpB"><button type="button" onclick="H('interfaces/udp-notifier/')">?</button></div>

@@ -11,9 +11,9 @@
 	<style>
 		@import url("style.css");
 	</style>
-</head>
+<script src='/L12N.js'></script></head>
 
-<body onload="GetV()">
+<body onload='try { GetV() } finally { runI18N(); }'>
 	<h2>WLED Software Update</h2>
 	<form method='POST' action='./update' id='uf' enctype='multipart/form-data' onsubmit="U()">
 		Installed version: <span class="sip">##VERSION##</span><br>
