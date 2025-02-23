@@ -10020,10 +10020,9 @@ static const char _data_FX_MODE_PS_FIRE1D[] PROGMEM = "PS Fire 1D@!,!,Cooling,Bl
 
 /*
   Particle based AR effect, swoop particles along the strip with selected frequency loudness
-  Uses palette for particle color
   by DedeHai (Damian Schneider)
 */
-uint16_t mode_particle1Dsonicstream(void) {
+uint16_t mode_particle1DsonicStream(void) {
   ParticleSystem1D *PartSys = nullptr;
 
   if (SEGMENT.call == 0) { // initialization
@@ -10054,14 +10053,13 @@ uint16_t mode_particle1Dsonicstream(void) {
   uint32_t baseBin = SEGMENT.custom3 >> 1; // 0 - 15 map(SEGMENT.custom3, 0, 31, 0, 14);
 
   loudness = fftResult[baseBin];// + fftResult[baseBin + 1];
-  int mids = sqrt16((int)fftResult[5] + (int)fftResult[6] + (int)fftResult[7] + (int)fftResult[8] + (int)fftResult[9] + (int)fftResult[10]); // average the mids, bin 5 is ~500Hz, bin 10 is ~2kHz (see audio_reactive.h)
   if (baseBin > 12)
     loudness = loudness << 2; // double loudness for high frequencies (better detecion)
 
-  uint32_t threshold = 150 - (SEGMENT.intensity >> 1);
+  uint32_t threshold = 140 - (SEGMENT.intensity >> 1);
   if (SEGMENT.check2) { // enable low pass filter for dynamic threshold
     SEGMENT.step = (SEGMENT.step * 31500 + loudness * (32768 - 31500)) >> 15; // low pass filter for simple beat detection: add average to base threshold
-    threshold = 20 + (threshold >> 1) + SEGMENT.step; // add average to threshold
+    threshold = 20 + (threshold >> 2) + SEGMENT.step; // add average to threshold
   }
 
   // color
@@ -10076,8 +10074,10 @@ uint16_t mode_particle1Dsonicstream(void) {
       }
       else PartSys->particles[i].ttl = 0;
     }
-    if (SEGMENT.check1) // modulate colors by mid frequencies
+    if (SEGMENT.check1) { // modulate colors by mid frequencies
+      int mids = sqrt32_bw((int)fftResult[5] + (int)fftResult[6] + (int)fftResult[7] + (int)fftResult[8] + (int)fftResult[9] + (int)fftResult[10]); // average the mids, bin 5 is ~500Hz, bin 10 is ~2kHz (see audio_reactive.h)
       PartSys->particles[i].hue += (mids * perlin8(PartSys->particles[i].x << 2, SEGMENT.step << 2)) >> 9; // color by perlin noise from mid frequencies
+    }
   }
 
   if (loudness > threshold) {
@@ -10121,6 +10121,100 @@ uint16_t mode_particle1Dsonicstream(void) {
   return FRAMETIME;
 }
 static const char _data_FX_MODE_PS_SONICSTREAM[] PROGMEM = "PS Sonic Stream@!,!,Color,Blur,Bin,Mod,Filter,Push;,!;!;1f;c3=0,o2=1";
+
+
+/*
+  Particle based AR effect, creates exploding particles on beats
+  by DedeHai (Damian Schneider)
+*/
+uint16_t mode_particle1DsonicBoom(void) {
+  ParticleSystem1D *PartSys = nullptr;
+  if (SEGMENT.call == 0) { // initialization
+    if (!initParticleSystem1D(PartSys, 1, 255, 0, true)) // init, no additional data needed
+      return mode_static(); // allocation failed or is single pixel
+    PartSys->setKillOutOfBounds(true);
+  }
+  else
+    PartSys = reinterpret_cast<ParticleSystem1D *>(SEGENV.data); // if not first call, just set the pointer to the PS
+  if (PartSys == nullptr)
+    return mode_static(); // something went wrong, no data!
+
+  // Particle System settings
+  PartSys->updateSystem(); // update system properties (dimensions and data pointers)
+  PartSys->setMotionBlur(180 * SEGMENT.check3);
+  PartSys->setSmearBlur(64 * SEGMENT.check3);
+  PartSys->sources[0].var = map(SEGMENT.speed, 0, 255, 10, 127);
+
+  // FFT processing
+  um_data_t *um_data = getAudioData();
+  uint8_t *fftResult = (uint8_t *)um_data->u_data[2]; // 16 bins with FFT data, log mapped already, each band contains frequency amplitude 0-255
+  uint32_t loudness;
+  uint32_t baseBin = SEGMENT.custom3 >> 1; // 0 - 15 map(SEGMENT.custom3, 0, 31, 0, 14);
+  loudness = fftResult[baseBin];// + fftResult[baseBin + 1];
+
+  if (baseBin > 12)
+    loudness = loudness << 2; // double loudness for high frequencies (better detecion)
+  uint32_t threshold = 150 - (SEGMENT.intensity >> 1);
+  if (SEGMENT.check2) { // enable low pass filter for dynamic threshold
+    SEGMENT.step = (SEGMENT.step * 31000 + loudness * (32768 - 31000)) >> 15; // low pass filter for simple beat detection: add average to base threshold
+    threshold = 20 + (threshold >> 2) + SEGMENT.step; // add average to threshold
+  }
+
+  // particle manipulation
+  for (uint32_t i = 0; i < PartSys->usedParticles; i++) {
+    if (SEGMENT.check1) { // modulate colors by mid frequencies
+      int mids = sqrt32_bw((int)fftResult[5] + (int)fftResult[6] + (int)fftResult[7] + (int)fftResult[8] + (int)fftResult[9] + (int)fftResult[10]); // average the mids, bin 5 is ~500Hz, bin 10 is ~2kHz (see audio_reactive.h)
+      PartSys->particles[i].hue += (mids * inoise8(PartSys->particles[i].x << 2, SEGMENT.step << 2)) >> 9; // color by perlin noise from mid frequencies
+    }
+    if(PartSys->particles[i].ttl > 16) {
+      PartSys->particles[i].ttl -= 16; //ttl is linked to brightness, this allows to use higher brightness but still a (very) short lifespan
+    }
+  }
+
+  if (loudness > threshold) {
+    if(SEGMENT.aux1 == 0) { // edge detected, code only runs once per "beat"
+      // update position
+      if(SEGMENT.custom2 < 128)
+        PartSys->sources[0].source.x = map(SEGMENT.custom2, 0, 127, 0, PartSys->maxX);
+      else if(SEGMENT.custom2 < 255) {
+        int32_t step = PartSys->maxX / ((262 - (SEGMENT.custom2) >> 2)); // step: 2 - 33 steps for full segment width
+        PartSys->sources[0].source.x = (PartSys->sources[0].source.x + step) % PartSys->maxX;
+        if(PartSys->sources[0].source.x < (step >> 1)) // align to be symmetrical by making the first position half a step from start
+          PartSys->sources[0].source.x = step >> 1;
+      }
+      else // position set to max, use random postion per beat
+        PartSys->sources[0].source.x = hw_random(PartSys->maxX);
+
+      // update color
+      //PartSys->setColorByPosition(SEGMENT.custom1 == 255);     // color slider at max: particle color by position
+      PartSys->sources[0].sat = SEGMENT.custom1 > 0 ? 255 : 0; // color slider at zero: set to white
+      if(SEGMENT.custom1 == 255) // emit color by position
+        SEGMENT.aux0 = map(PartSys->sources[0].source.x , 0, PartSys->maxX, 0, 255);
+      else if(SEGMENT.custom1 > 0)
+        SEGMENT.aux0 += (SEGMENT.custom1 >> 1); // change emit color per "beat"
+    }
+    SEGMENT.aux1 = 1; // track edge detection
+
+    PartSys->sources[0].minLife = 200;
+    PartSys->sources[0].maxLife = PartSys->sources[0].minLife + (((unsigned)SEGMENT.intensity * loudness * loudness) >> 13);
+    PartSys->sources[0].source.hue = SEGMENT.aux0;
+    PartSys->sources[0].size = 1; //SEGMENT.speed>>3;
+    uint32_t explosionsize = 4 + (PartSys->maxXpixel >> 2);
+    explosionsize = hw_random16((explosionsize * loudness) >> 10);
+    for (uint32_t e = 0; e < explosionsize; e++) { // emit explosion particles
+        PartSys->sprayEmit(PartSys->sources[0]); // emit a particle
+      }
+  }
+  else
+    SEGMENT.aux1 = 0; // reset edge detection
+
+  PartSys->update(); // update and render (needs to be done before manipulation for initial particle spacing to be right)
+  return FRAMETIME;
+}
+static const char _data_FX_MODE_PS_SONICBOOM[] PROGMEM = "PS Sonic Boom@!,!,Color,Position,Bin,Mod,Filter,Blur;,!;!;1f;c2=63,c3=0,o2=1";
+
+
+
 #endif // WLED_DISABLE_PARTICLESYSTEM1D
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -10389,7 +10483,8 @@ addEffect(FX_MODE_PSCHASE, &mode_particleChase, _data_FX_MODE_PS_CHASE);
 addEffect(FX_MODE_PSSTARBURST, &mode_particleStarburst, _data_FX_MODE_PS_STARBURST);
 addEffect(FX_MODE_PS1DGEQ, &mode_particle1DGEQ, _data_FX_MODE_PS_1D_GEQ);
 addEffect(FX_MODE_PSFIRE1D, &mode_particleFire1D, _data_FX_MODE_PS_FIRE1D);
-addEffect(FX_MODE_PS1DSONICSTREAM, &mode_particle1Dsonicstream, _data_FX_MODE_PS_SONICSTREAM);
+addEffect(FX_MODE_PS1DSONICSTREAM, &mode_particle1DsonicStream, _data_FX_MODE_PS_SONICSTREAM);
+addEffect(FX_MODE_PS1DSONICBOOM, &mode_particle1DsonicBoom, _data_FX_MODE_PS_SONICBOOM);
 #endif // WLED_DISABLE_PARTICLESYSTEM1D
 
 }
