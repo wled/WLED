@@ -4,9 +4,9 @@
  * UDP sync notifier / Realtime / Hyperion / TPM2.NET
  */
 
-#define UDP_SEG_SIZE 36
+#define UDP_SEG_SIZE (36+WLED_MAX_SEGNAME_LEN)
 #define SEG_OFFSET (41)
-#define WLEDPACKETSIZE (41+(MAX_NUM_SEGMENTS*UDP_SEG_SIZE)+0)
+#define WLEDPACKETSIZE (SEG_OFFSET+(MAX_NUM_SEGMENTS*UDP_SEG_SIZE)+0)
 #define UDP_IN_MAXSIZE 1472
 #define PRESUMED_NETWORK_DELAY 3 //how many ms could it take on avg to reach the receiver? This will be added to transmitted times
 
@@ -143,6 +143,11 @@ void notify(byte callMode, bool followUp)
     udpOut[33+ofs] = selseg.startY & 0xFF;
     udpOut[34+ofs] = selseg.stopY >> 8;     // ATM always 0 as Segment::stopY is 8-bit
     udpOut[35+ofs] = selseg.stopY & 0xFF;
+
+    if(selseg.name){
+	strcpy((char *)&udpOut[36+ofs], selseg.name);
+    }
+
     ++s;
   }
 
@@ -155,15 +160,11 @@ void notify(byte callMode, bool followUp)
     // send global data
     DEBUG_PRINTLN(F("ESP-NOW sending first packet."));
     const size_t bufferSize = sizeof(buffer.data)/sizeof(uint8_t);
-    size_t packetSize = 41;
-    size_t s0 = 0;
+    size_t packetSize = SEG_OFFSET;
     memcpy(buffer.data, udpOut, packetSize);
-    // stuff as many segments in first packet as possible (normally up to 5)
-    for (size_t i = 0; packetSize < bufferSize && i < s; i++) {
-      memcpy(buffer.data + packetSize, &udpOut[41+i*UDP_SEG_SIZE], UDP_SEG_SIZE);
-      packetSize += UDP_SEG_SIZE;
-      s0++;
-    }
+    // since we sync the name, only one segment can fit in the first packet
+    memcpy(buffer.data + packetSize, &udpOut[41+UDP_SEG_SIZE], UDP_SEG_SIZE);
+    size_t s0 = 1;
     if (s > s0) buffer.noOfPackets += 1 + ((s - s0) * UDP_SEG_SIZE) / bufferSize; // set number of packets
     auto err = quickEspNow.send(ESPNOW_BROADCAST_ADDRESS, reinterpret_cast<const uint8_t*>(&buffer), packetSize+3);
     if (!err && s0 < s) {
@@ -267,7 +268,7 @@ static void parseNotifyPacket(const uint8_t *udpIn) {
     }
     size_t inactiveSegs = 0;
     for (size_t i = 0; i < numSrcSegs && i < strip.getMaxSegments(); i++) {
-      unsigned ofs = 41 + i*udpIn[40]; //start of segment offset byte
+      unsigned ofs = SEG_OFFSET + i*udpIn[40]; //start of segment offset byte
       unsigned id = udpIn[0 +ofs];
       DEBUG_PRINTF_P(PSTR("UDP segment received: %u\n"), id);
       if      (id >  strip.getSegmentsNum()) break;
@@ -296,6 +297,7 @@ static void parseNotifyPacket(const uint8_t *udpIn) {
       uint16_t startY = version > 11 ? (udpIn[32+ofs] << 8 | udpIn[33+ofs]) : 0;
       uint16_t stopY  = version > 11 ? (udpIn[34+ofs] << 8 | udpIn[35+ofs]) : 1;
       uint16_t offset = (udpIn[7+ofs] << 8 | udpIn[8+ofs]);
+
       if (!receiveSegmentOptions) {
         DEBUG_PRINTF_P(PSTR("Set segment w/o options: %d [%d,%d;%d,%d]\n"), id, (int)start, (int)stop, (int)startY, (int)stopY);
         strip.suspend(); //should not be needed as UDP handling is not done in ISR callbacks but still added "just in case"
@@ -337,6 +339,13 @@ static void parseNotifyPacket(const uint8_t *udpIn) {
           selseg.check1  = (udpIn[31+ofs]>>6) & 0x1;
           selseg.check1  = (udpIn[31+ofs]>>7) & 0x1;
         }
+      }
+      if (receiveSegmentName) {
+	      const char* name = (char *) &udpIn[36+ofs];
+	      if (strlen(name) < WLED_MAX_SEGNAME_LEN) {
+		      selseg.clearName();
+		      selseg.setName(name);
+	      }
       }
       if (receiveSegmentBounds) {
         DEBUG_PRINTF_P(PSTR("Set segment w/ options: %d [%d,%d;%d,%d]\n"), id, (int)start, (int)stop, (int)startY, (int)stopY);

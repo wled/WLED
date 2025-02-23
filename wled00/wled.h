@@ -651,6 +651,7 @@ typedef class Receive {
         bool    Color          : 1;
         bool    Effects        : 1;
         bool    SegmentOptions : 1;
+        bool    SegmentName    : 1;
         bool    SegmentBounds  : 1;
         bool    Direct         : 1;
         bool    Palette        : 1;
@@ -658,11 +659,12 @@ typedef class Receive {
       };
     };
     Receive(int i) { Options = i; }
-    Receive(bool b, bool c, bool e, bool sO, bool sB, bool p)
+    Receive(bool b, bool c, bool e, bool sO, bool sN, bool sB, bool p)
     : Brightness(b)
     , Color(c)
     , Effects(e)
     , SegmentOptions(sO)
+    , SegmentName(sN)
     , SegmentBounds(sB)
     , Palette(p)
     {};
@@ -694,6 +696,7 @@ WLED_GLOBAL send_notification_t    notifyG  _INIT(0b00001111);
 #define receiveNotificationEffects    receiveN.Effects
 #define receiveNotificationPalette    receiveN.Palette
 #define receiveSegmentOptions         receiveN.SegmentOptions
+#define receiveSegmentName            receiveN.SegmentName
 #define receiveSegmentBounds          receiveN.SegmentBounds
 #define receiveDirect                 receiveN.Direct
 #define notifyDirect notifyG.Direct
@@ -706,6 +709,7 @@ WLED_GLOBAL bool receiveNotificationColor      _INIT(true);       // apply color
 WLED_GLOBAL bool receiveNotificationEffects    _INIT(true);       // apply effects setup
 WLED_GLOBAL bool receiveNotificationPalette    _INIT(true);       // apply palette
 WLED_GLOBAL bool receiveSegmentOptions         _INIT(false);      // apply segment options
+WLED_GLOBAL bool receiveSegmentName            _INIT(false);
 WLED_GLOBAL bool receiveSegmentBounds          _INIT(false);      // apply segment bounds (start, stop, offset)
 WLED_GLOBAL bool receiveDirect _INIT(true);                       // receive UDP/Hyperion realtime
 WLED_GLOBAL bool notifyDirect _INIT(false);                       // send notification if change via UI or HTTP API
