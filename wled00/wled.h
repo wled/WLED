@@ -217,6 +217,10 @@ using PSRAMDynamicJsonDocument = BasicJsonDocument<PSRAM_Allocator>;
   #define WLED_AP_PASS DEFAULT_AP_PASS
 #endif
 
+#ifndef WLED_PIN
+  #define WLED_PIN ""
+#endif
+
 #ifndef SPIFFS_EDITOR_AIRCOOOKIE
   #error You are not using the Aircoookie fork of the ESPAsyncWebserver library.\
   Using upstream puts your WiFi password at risk of being served by the filesystem.\
@@ -277,7 +281,11 @@ WLED_GLOBAL char releaseString[] _INIT(WLED_RELEASE_NAME); // must include the q
 
 // AP and OTA default passwords (for maximum security change them!)
 WLED_GLOBAL char apPass[65]  _INIT(WLED_AP_PASS);
+#ifdef WLED_OTA_PASS
+WLED_GLOBAL char otaPass[33] _INIT(WLED_OTA_PASS);
+#else
 WLED_GLOBAL char otaPass[33] _INIT(DEFAULT_OTA_PASS);
+#endif
 
 // Hardware and pin config
 #ifndef BTNPIN
@@ -570,11 +578,15 @@ WLED_GLOBAL byte macroLongPress[WLED_MAX_BUTTONS]     _INIT({0});
 WLED_GLOBAL byte macroDoublePress[WLED_MAX_BUTTONS]   _INIT({0});
 
 // Security CONFIG
-WLED_GLOBAL bool otaLock     _INIT(false);  // prevents OTA firmware updates without password. ALWAYS enable if system exposed to any public networks
-WLED_GLOBAL bool wifiLock    _INIT(false);  // prevents access to WiFi settings when OTA lock is enabled
-WLED_GLOBAL bool aOtaEnabled _INIT(true);   // ArduinoOTA allows easy updates directly from the IDE. Careful, it does not auto-disable when OTA lock is on
-WLED_GLOBAL char settingsPIN[5] _INIT("");  // PIN for settings pages
-WLED_GLOBAL bool correctPIN     _INIT(true);
+#ifdef WLED_OTA_PASS
+WLED_GLOBAL bool otaLock        _INIT(true);     // prevents OTA firmware updates without password. ALWAYS enable if system exposed to any public networks
+#else
+WLED_GLOBAL bool otaLock        _INIT(false);     // prevents OTA firmware updates without password. ALWAYS enable if system exposed to any public networks
+#endif
+WLED_GLOBAL bool wifiLock       _INIT(false);     // prevents access to WiFi settings when OTA lock is enabled
+WLED_GLOBAL bool aOtaEnabled    _INIT(true);      // ArduinoOTA allows easy updates directly from the IDE. Careful, it does not auto-disable when OTA lock is on
+WLED_GLOBAL char settingsPIN[5] _INIT(WLED_PIN);  // PIN for settings pages
+WLED_GLOBAL bool correctPIN     _INIT(!strlen(settingsPIN));
 WLED_GLOBAL unsigned long lastEditTime _INIT(0);
 
 WLED_GLOBAL uint16_t userVar0 _INIT(0), userVar1 _INIT(0); //available for use in usermod
