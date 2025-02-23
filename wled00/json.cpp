@@ -384,10 +384,10 @@ bool deserializeState(JsonObject root, byte callMode, byte presetId)
   if (!segVar.isNull()) {
     // we may be called during strip.service() so we must not modify segments while effects are executing
     strip.suspend();
-    const unsigned long start = millis();
-    while (strip.isServicing() && millis() - start < strip.getFrameTime()) yield(); // wait until frame is over
+    unsigned long maxWait = millis() + 2*strip.getFrameTime();
+    while (strip.isServicing() && maxWait > millis()) yield(); // wait until frame is over
     #ifdef WLED_DEBUG
-    if (millis() - start > 0) DEBUG_PRINTLN(F("JSON: Waited for strip to finish servicing."));
+    if (millis() >= maxWait) DEBUG_PRINTLN(F("JSON: Waited for strip to finish servicing."));
     #endif
     if (segVar.is<JsonObject>()) {
       int id = segVar["id"] | -1;

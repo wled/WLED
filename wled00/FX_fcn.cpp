@@ -1962,10 +1962,8 @@ uint8_t WS2812FX::getLastActiveSegmentId() const {
 }
 
 uint8_t WS2812FX::getActiveSegmentsNum() const {
-  uint8_t c = 0;
-  for (size_t i = 0; i < _segments.size(); i++) {
-    if (_segments[i].isActive()) c++;
-  }
+  unsigned c = 0;
+  for (const segment &seg : _segments) if (seg.isActive()) c++;
   return c;
 }
 
