@@ -295,10 +295,6 @@ function onLoad()
 	d.addEventListener("visibilitychange", handleVisibilityChange, false);
 	//size();
 	gId("cv").style.opacity=0;
-	d.querySelectorAll('input[type="range"]').forEach((sl)=>{
-		sl.addEventListener('touchstart', toggleBubble);
-		sl.addEventListener('touchend', toggleBubble);
-	});
 }
 
 function updateTablinks(tabI)
@@ -1139,15 +1135,8 @@ function updateTrail(e)
 		var val = `linear-gradient(90deg, var(--bg) ${perc}%, var(--c-6) ${perc}%)`;
 		sd.style.backgroundImage = val;
 	}
-	var b = e.parentNode.parentNode.getElementsByTagName('output')[0];
-	if (b) b.innerHTML = e.value;
-}
-
-// rangetouch slider function
-function toggleBubble(e)
-{
-	var b = e.target.parentNode.parentNode.getElementsByTagName('output')[0];
-	b.classList.toggle('sliderbubbleshow');
+	var b = e.parentNode.parentNode.getElementsByClassName('sliderInput')[0];
+	if (b) b.value = e.value;
 }
 
 // updates segment length upon input of segment values
@@ -2379,32 +2368,32 @@ function setPalette(paletteId = null)
 	requestJson(obj);
 }
 
-function setBri()
+function setBri(val) 
 {
-	var obj = {"bri": parseInt(gId('sliderBri').value)};
+	var obj = { "bri": parseInt(val) };
 	requestJson(obj);
 }
 
-function setSpeed()
+function setSpeed(val) 
 {
-	var obj = {"seg": {"sx": parseInt(gId('sliderSpeed').value)}};
+	var obj = { "seg": { "sx": parseInt(val) } };
 	requestJson(obj);
 }
 
-function setIntensity()
+function setIntensity(val) 
 {
-	var obj = {"seg": {"ix": parseInt(gId('sliderIntensity').value)}};
+	var obj = { "seg": { "ix": parseInt(val) } };
 	requestJson(obj);
 }
 
-function setCustom(i=1)
+function setCustom(i=1, val)
 {
 	if (i<1 || i>3) return;
 	var obj = {"seg": {}};
-	var val = parseInt(gId(`sliderC${i}`).value);
-	if      (i===3) obj.seg.c3 = val;
-	else if (i===2) obj.seg.c2 = val;
-	else            obj.seg.c1 = val;
+	val = parseInt(val);
+	if		(i===3) obj.seg.c3 = val;
+	else if	(i===2) obj.seg.c2 = val;
+	else			obj.seg.c1 = val;
 	requestJson(obj);
 }
 

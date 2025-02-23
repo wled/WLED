@@ -32,10 +32,10 @@
 			<div class="slider">
 				<i class="icons slider-icon" onclick="tglTheme()" style="transform: translateY(2px);">&#xe2a6;</i>
 				<div class="sliderwrap il">
-					<input id="sliderBri" onchange="setBri()" oninput="updateTrail(this)" max="255" min="1" type="range" value="128" />
+					<input id="sliderBri" onchange="setBri(this.value)" oninput="updateTrail(this)" max="255" min="1" type="range" value="128" />
 					<div class="sliderdisplay"></div>
 				</div>
-				<output class="sliderbubble"></output>
+				<input class="sliderInput" onchange="if(this.checkValidity()) {setBri(this.value)}" onfocus="this.select();" max="255" min="1" type="number" value="128">
 			</div>
 		</div>
 		<iframe id="liveview" src="about:blank"></iframe>
@@ -202,42 +202,42 @@
 			<div id="slider0" class="slider">
 				<i class="icons slider-icon" title="Freeze" onclick="tglFreeze()">&#xe325;</i>
 				<div title="Effect speed" class="sliderwrap il">
-					<input id="sliderSpeed" class="noslide" onchange="setSpeed()" oninput="updateTrail(this)" max="255" min="0" type="range" value="128" />
+					<input id="sliderSpeed" class="noslide" onchange="setSpeed(this.value)" oninput="updateTrail(this)" max="255" min="0" type="range" value="128" />
 					<div class="sliderdisplay"></div>
 				</div>
-				<output class="sliderbubble"></output>
+				<input class="sliderInput" onchange="if(this.checkValidity()) {setSpeed(this.value)}" onfocus="this.select();" max="255" min="0" type="number" value="128" >
 			</div>
 			<div id="slider1" class="slider">
 				<i class="icons slider-icon" title="Toggle labels" onclick="tglLabels()">&#xe409;</i>
 				<div title="Effect intensity" class="sliderwrap il">
-					<input id="sliderIntensity" class="noslide" onchange="setIntensity()" oninput="updateTrail(this)" max="255" min="0" type="range" value="128" />
+					<input id="sliderIntensity" class="noslide" onchange="setIntensity(this.value)" oninput="updateTrail(this)" max="255" min="0" type="range" value="128" />
 					<div class="sliderdisplay"></div>
 				</div>
-				<output class="sliderbubble"></output>
+				<input class="sliderInput" onchange="if(this.checkValidity()) {setIntensity(this.value)}" onfocus="this.select();" max="255" min="0" type="number" value="128">
 			</div>
 			<div id="slider2" class="slider hide">
 				<i class="icons slider-icon">&#xe410;</i>
 				<div title="Custom 1" class="sliderwrap il">
-					<input id="sliderC1" class="noslide" onchange="setCustom(1)" oninput="updateTrail(this)" max="255" min="0" type="range" value="0" />
+					<input id="sliderC1" class="noslide" onchange="setCustom(1, this.value)" oninput="updateTrail(this)" max="255" min="0" type="range" value="0" />
 					<div class="sliderdisplay"></div>
 				</div>
-				<output class="sliderbubble"></output>
+				<input class="sliderInput" onchange="if(this.checkValidity()) { setCustom(1, this.value)}" onfocus="this.select();" max="255" min="0" type="number" value="0">
 			</div>
 			<div id="slider3" class="slider hide">
 				<i class="icons slider-icon">&#xe0a2;</i>
 				<div title="Custom 2" class="sliderwrap il">
-					<input id="sliderC2" class="noslide" onchange="setCustom(2)" oninput="updateTrail(this)" max="255" min="0" type="range" value="0" />
+					<input id="sliderC2" class="noslide" onchange="setCustom(2, this.value)" oninput="updateTrail(this)" max="255" min="0" type="range" value="0" />
 					<div class="sliderdisplay"></div>
 				</div>
-				<output class="sliderbubble"></output>
+				<input class="sliderInput" onchange="if(this.checkValidity()) { setCustom(2, this.value); }"  onfocus="this.select();" max="255" min="0" type="number" value="0">
 			</div>
 			<div id="slider4" class="slider hide">
 				<i class="icons slider-icon">&#xe0e8;</i>
 				<div title="Custom 3" class="sliderwrap il">
-					<input id="sliderC3" class="noslide" onchange="setCustom(3)" oninput="updateTrail(this)" max="31" min="0" type="range" value="0" />
+					<input id="sliderC3" class="noslide" onchange="setCustom(3, this.value)" oninput="updateTrail(this)" max="31" min="0" type="range" value="0" />
 					<div class="sliderdisplay"></div>
 				</div>
-				<output class="sliderbubble"></output>
+				<input class="sliderInput" onchange="if(this.checkValidity()) { setCustom(3, this.value); }"  onfocus="this.select();" max="31" min="0" type="number" value="0">
 			</div>
 			<div id="fxopt" class="option fade">
 				<label id="opt0" title="Check 1" class="check ochkl hide"><i class="icons">&#xe2b3;</i>
