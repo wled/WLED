@@ -500,6 +500,6 @@ void registerUsermods()
   #endif
 
   #ifdef USERMOD_SBUS_CONTROL
-  usermods.add(new SbusControl());
+  UsermodManager::add(new SbusControl());
   #endif
 }

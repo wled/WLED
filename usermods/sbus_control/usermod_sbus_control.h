@@ -10,12 +10,27 @@ class  SbusControl : public  Usermod {
 
         void setup() override 
         {
-            sbus_rx_ = bfs::SbusRx(&Serial1, static_cast<int8_t>(sbus_pin_), 0, true);
+            PinManagerPinType pins[2] = {
+                { sbus_pin_rx_, false },
+                { sbus_pin_tx_, true }
+            };
+            if (!PinManager::allocateMultiplePins(pins, 2, PinOwner::UM_SBUS_CONTROL))
+            {
+                DEBUG_PRINTF("SBUS_CONTROL pin allocation failed! Pin rx %d, Pin tx %d\n", sbus_pin_rx_, sbus_pin_tx_);
+                return;
+            }
+            sbus_rx_ = bfs::SbusRx(&Serial1, sbus_pin_rx_, sbus_pin_tx_, true);
             sbus_rx_.Begin();
+            is_enabled_ = true;
         }
 
         void loop() override 
         {
+            if (!is_enabled_)
+            {
+                return;
+            }
+
             const uint32_t ts_ms = millis();
 
             if (ts_ms < (last_ts_ms_ + update_period_ms_))
@@ -59,7 +74,8 @@ class  SbusControl : public  Usermod {
             top[kConfigNodeBrightnessCh] = ch_brightness_;
             top[kConfigNodeMode1Ch] = ch_mode_select_1_;
             top[kConfigNodeMode2Ch] = ch_mode_select_2_;
-            top[kConfigNodeSbusPin] = sbus_pin_;
+            top[kConfigNodeSbusPinRx] = sbus_pin_rx_;
+            top[kConfigNodeSbusPinTx] = sbus_pin_tx_;
             top[kConfigNodeUpdatePeriod] = update_period_ms_;
         }
 
@@ -72,7 +88,8 @@ class  SbusControl : public  Usermod {
             configComplete &= getJsonValue(top[kConfigNodeBrightnessCh], ch_brightness_, ch_brightness_);
             configComplete &= getJsonValue(top[kConfigNodeMode1Ch], ch_mode_select_1_, ch_mode_select_1_);
             configComplete &= getJsonValue(top[kConfigNodeMode2Ch], ch_mode_select_2_, ch_mode_select_2_);
-            configComplete &= getJsonValue(top[kConfigNodeSbusPin], sbus_pin_, sbus_pin_);
+            configComplete &= getJsonValue(top[kConfigNodeSbusPinRx], sbus_pin_rx_, sbus_pin_rx_);
+            configComplete &= getJsonValue(top[kConfigNodeSbusPinTx], sbus_pin_tx_, sbus_pin_tx_);
             configComplete &= getJsonValue(top[kConfigNodeUpdatePeriod], update_period_ms_, update_period_ms_);
             return configComplete;
         }
@@ -87,12 +104,14 @@ class  SbusControl : public  Usermod {
         static constexpr auto* kConfigNodeBrightnessCh PROGMEM = "brightnessChannel";
         static constexpr auto* kConfigNodeMode1Ch PROGMEM = "ModeSelect1Channel";
         static constexpr auto* kConfigNodeMode2Ch PROGMEM = "ModeSelect2Channel";
-        static constexpr auto* kConfigNodeSbusPin PROGMEM = "SbusPin";
+        static constexpr auto* kConfigNodeSbusPinRx PROGMEM = "SbusPinRx";
+        static constexpr auto* kConfigNodeSbusPinTx PROGMEM = "SbusPinTx";
         static constexpr auto* kConfigNodeUpdatePeriod PROGMEM = "UpdatePrtiodMs";
         
         uint32_t update_period_ms_ = 1000; 
 
-        uint8_t sbus_pin_ = 16;
+        int8_t sbus_pin_rx_ = 16;
+        int8_t sbus_pin_tx_ = 17;
         uint8_t ch_mode_select_1_ = 10;
         uint8_t ch_mode_select_2_ = 11;
         uint8_t ch_brightness_ = 12;
@@ -100,12 +119,12 @@ class  SbusControl : public  Usermod {
         uint32_t last_ts_ms_ = 0;
         uint8_t last_mode_ = 1;
         uint8_t last_bri_ = 1;
+        bool is_enabled_ = false;
 
-        bfs::SbusRx sbus_rx_= {&Serial1, static_cast<int8_t>(sbus_pin_), 0, true};
+        bfs::SbusRx sbus_rx_ = {&Serial1, static_cast<int8_t>(sbus_pin_rx_), static_cast<int8_t>(sbus_pin_tx_), true};
 
         uint8_t getSwitchPosition(int16_t ch_value)
         {
-            Serial.println(ch_value);
             // Decoding a switch position from ch_values
             if (ch_value < 666) return 0;
             if (ch_value < 1333) return 1;
