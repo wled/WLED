@@ -251,7 +251,11 @@
 #endif
 
 #ifdef USERMOD_BRIGHTNESS_FOLLOW_SUN
-  #include "../usermods/usermod_v2_brightness_follow_sun/usermod_v2_brightness_follow_sun.h"
+#include "../usermods/usermod_v2_brightness_follow_sun/usermod_v2_brightness_follow_sun.h"
+#endif
+
+#ifdef USERMOD_SBUS_CONTROL
+  #include "../usermods/sbus_control/usermod_sbus_control.h"
 #endif
 
 void registerUsermods()
@@ -493,5 +497,9 @@ void registerUsermods()
 
   #ifdef USERMOD_BRIGHTNESS_FOLLOW_SUN
   UsermodManager::add(new UsermodBrightnessFollowSun());
+  #endif
+
+  #ifdef USERMOD_SBUS_CONTROL
+  UsermodManager::add(new SbusControl());
   #endif
 }
