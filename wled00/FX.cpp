@@ -10032,7 +10032,6 @@ uint16_t mode_particle1DsonicStream(void) {
     PartSys->sources[0].source.x = 0; // at start
     //PartSys->sources[1].source.x = PartSys->maxX; // at end
     PartSys->sources[0].var = 0;//SEGMENT.custom1 >> 3;
-    PartSys->sources[0].sat = 255;
   }
   else
     PartSys = reinterpret_cast<ParticleSystem1D *>(SEGENV.data); // if not first call, just set the pointer to the PS
@@ -10043,7 +10042,6 @@ uint16_t mode_particle1DsonicStream(void) {
   PartSys->updateSystem(); // update system properties (dimensions and data pointers)
   PartSys->setMotionBlur(20 + (SEGMENT.custom2 >> 1)); // anable motion blur
   PartSys->setSmearBlur(200); // smooth out the edges
-
   PartSys->sources[0].v = 5 + (SEGMENT.speed >> 2);
 
   // FFT processing
@@ -10064,6 +10062,7 @@ uint16_t mode_particle1DsonicStream(void) {
 
   // color
   uint32_t hueincrement = (SEGMENT.custom1 >> 3); // 0-31
+  PartSys->sources[0].sat = SEGMENT.custom1 > 0 ? 255 : 0; // color slider at zero: set to white
   PartSys->setColorByPosition(SEGMENT.custom1 == 255);
 
   // particle manipulation
