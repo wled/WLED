@@ -47,7 +47,7 @@
 				scanLoops = 0;
 
 				if (networks.length > 0) {
-					let cs = d.querySelectorAll("#wifi_entries input[type=text]");
+					let cs = d.querySelectorAll("#wifi_entries input[type=text][name^=CS]");
 					for (let input of (cs||[])) {
 						let found = false;
 						let select = cE("select");
@@ -64,7 +64,7 @@
 							const option = cE("option");
 
 							option.setAttribute("value", networks[i].ssid);
-							option.textContent = `${networks[i].ssid} (${networks[i].rssi} dBm)`;
+							option.textContent = `${networks[i].ssid} (${networks[i].rssi} dBm)`; // [${networks[i].bssid.replaceAll(':','')}]
 
 							if (networks[i].ssid === input.value) {
 								option.setAttribute("selected", "selected");
@@ -109,12 +109,13 @@
 			gId("wifi_add").style.display = (i<maxNetworks) ? "inline":"none";
 			gId("wifi_rem").style.display = (i>1) ? "inline":"none";
 		}
-		function addWiFi(ssid="",pass="",ip=0,gw=0,sn=0x00ffffff) { // little endian
+		function addWiFi(ssid="",pass="",bssid="",ip=0,gw=0,sn=0x00ffffff) { // little endian
 			var i = gId("wifi_entries").childNodes.length;
 			if (i >= maxNetworks) return;
 			var b = `<div id="net${i}"><hr class="sml">
 Network name (SSID${i==0?", empty to not connect":""}):<br><input type="text" id="CS${i}" name="CS${i}" maxlength="32" value="${ssid}" ${i>0?"required":""}><br>
 Network password:<br><input type="password" name="PW${i}" maxlength="64" value="${pass}"><br>
+BSSID (optional):<br><input type="text" id="BS${i}" name="BS${i}" maxlength="12" value="${bssid}"><br>
 Static IP (leave at 0.0.0.0 for DHCP)${i==0?"<br>Also used by Ethernet":""}:<br>
 <input name="IP${i}0" type="number" class="s" min="0" max="255" value="${ip&0xFF}" required>.<input name="IP${i}1" type="number" class="s" min="0" max="255" value="${(ip>>8)&0xFF}" required>.<input name="IP${i}2" type="number" class="s" min="0" max="255" value="${(ip>>16)&0xFF}" required>.<input name="IP${i}3" type="number" class="s" min="0" max="255" value="${(ip>>24)&0xFF}" required><br>
 Static gateway:<br>

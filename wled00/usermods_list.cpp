@@ -250,8 +250,12 @@
   #include "../usermods/usermod_v2_RF433/usermod_v2_RF433.h"
 #endif
 
+#ifdef USERMOD_BRIGHTNESS_FOLLOW_SUN
+#include "../usermods/usermod_v2_brightness_follow_sun/usermod_v2_brightness_follow_sun.h"
+#endif
+
 #ifdef USERMOD_SBUS_CONTROL
-#include "../usermods/sbus_control/usermod_sbus_control.h"
+  #include "../usermods/sbus_control/usermod_sbus_control.h"
 #endif
 
 void registerUsermods()
@@ -489,6 +493,10 @@ void registerUsermods()
 
   #ifdef USERMOD_RF433
   UsermodManager::add(new RF433Usermod());
+  #endif
+
+  #ifdef USERMOD_BRIGHTNESS_FOLLOW_SUN
+  UsermodManager::add(new UsermodBrightnessFollowSun());
   #endif
 
   #ifdef USERMOD_SBUS_CONTROL

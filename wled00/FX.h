@@ -1,3 +1,4 @@
+#pragma once
 /*
   WS2812FX.h - Library for WS2812 LED effects.
   Harm Aldick - 2016
@@ -8,12 +9,15 @@
   Adapted from code originally licensed under the MIT license
 
   Modified for WLED
+
+  Segment class/struct (c) 2022 Blaz Kristan (@blazoncek)
 */
 
 #ifndef WS2812FX_h
 #define WS2812FX_h
 
 #include <vector>
+#include "wled.h"
 
 #include "const.h"
 #include "bus_manager.h"
@@ -71,18 +75,15 @@ extern byte realtimeMode;           // used in getMappedPixelIndex()
 /* each segment uses 82 bytes of SRAM memory, so if you're application fails because of
   insufficient memory, decreasing MAX_NUM_SEGMENTS may help */
 #ifdef ESP8266
-  #define MAX_NUM_SEGMENTS    16
+  #define MAX_NUM_SEGMENTS  16
   /* How much data bytes all segments combined may allocate */
   #define MAX_SEGMENT_DATA  5120
+#elif defined(CONFIG_IDF_TARGET_ESP32S2)
+  #define MAX_NUM_SEGMENTS  20
+  #define MAX_SEGMENT_DATA  (MAX_NUM_SEGMENTS*512)  // 10k by default (S2 is short on free RAM)
 #else
-  #ifndef MAX_NUM_SEGMENTS
-    #define MAX_NUM_SEGMENTS  32
-  #endif
-  #if defined(ARDUINO_ARCH_ESP32S2)
-    #define MAX_SEGMENT_DATA  (MAX_NUM_SEGMENTS*768)  // 24k by default (S2 is short on free RAM)
-  #else
-    #define MAX_SEGMENT_DATA  (MAX_NUM_SEGMENTS*1280) // 40k by default
-  #endif
+  #define MAX_NUM_SEGMENTS  32  // warning: going beyond 32 may consume too much RAM for stable operation
+  #define MAX_SEGMENT_DATA  (MAX_NUM_SEGMENTS*1280) // 40k by default
 #endif
 
 /* How much data bytes each segment should max allocate to leave enough space for other segments,
@@ -322,8 +323,35 @@ extern byte realtimeMode;           // used in getMappedPixelIndex()
 #define FX_MODE_WAVESINS               184
 #define FX_MODE_ROCKTAVES              185
 #define FX_MODE_2DAKEMI                186
-
-#define MODE_COUNT                     187
+#define FX_MODE_PARTICLEVOLCANO        187
+#define FX_MODE_PARTICLEFIRE           188
+#define FX_MODE_PARTICLEFIREWORKS      189
+#define FX_MODE_PARTICLEVORTEX         190
+#define FX_MODE_PARTICLEPERLIN         191
+#define FX_MODE_PARTICLEPIT            192
+#define FX_MODE_PARTICLEBOX            193
+#define FX_MODE_PARTICLEATTRACTOR      194
+#define FX_MODE_PARTICLEIMPACT         195
+#define FX_MODE_PARTICLEWATERFALL      196
+#define FX_MODE_PARTICLESPRAY          197
+#define FX_MODE_PARTICLESGEQ           198
+#define FX_MODE_PARTICLECENTERGEQ      199
+#define FX_MODE_PARTICLEGHOSTRIDER     200
+#define FX_MODE_PARTICLEBLOBS          201
+#define FX_MODE_PSDRIP                 202
+#define FX_MODE_PSPINBALL              203
+#define FX_MODE_PSDANCINGSHADOWS       204
+#define FX_MODE_PSFIREWORKS1D          205
+#define FX_MODE_PSSPARKLER             206
+#define FX_MODE_PSHOURGLASS            207
+#define FX_MODE_PS1DSPRAY              208
+#define FX_MODE_PSBALANCE              209
+#define FX_MODE_PSCHASE                210
+#define FX_MODE_PSSTARBURST            211
+#define FX_MODE_PS1DGEQ                212
+#define FX_MODE_PSFIRE1D               213
+#define FX_MODE_PS1DSONICSTREAM        214
+#define MODE_COUNT                     215
 
 
 #define BLEND_STYLE_FADE            0x00  // universal
@@ -480,6 +508,7 @@ typedef struct Segment {
       uint8_t       _prevPaletteBlends; // number of previous palette blends (there are max 255 blends possible)
       unsigned long _start;       // must accommodate millis()
       uint16_t      _dur;
+      // -> here is one byte of padding
       Transition(uint16_t dur=750)
         : _palT(CRGBPalette16(CRGB::Black))
         , _prevPaletteBlends(0)
@@ -571,11 +600,14 @@ typedef struct Segment {
     inline uint16_t groupLength()        const { return grouping + spacing; }
     inline uint8_t  getLightCapabilities() const { return _capabilities; }
     inline void     deactivate()               { setGeometry(0,0); }
+    inline Segment &clearName()                { if (name) free(name); name = nullptr; return *this; }
+    inline Segment &setName(const String &name) { return setName(name.c_str()); }
 
     inline static unsigned getUsedSegmentData()            { return Segment::_usedSegmentData; }
     inline static void     addUsedSegmentData(int len)     { Segment::_usedSegmentData += len; }
     #ifndef WLED_DISABLE_MODE_BLEND
     inline static void     modeBlend(bool blend)           { _modeBlend = blend; }
+    inline static bool     getmodeBlend(void)              { return _modeBlend; }
     #endif
     inline static unsigned vLength()                       { return Segment::_vLength; }
     inline static unsigned vWidth()                        { return Segment::_vWidth; }
@@ -593,6 +625,7 @@ typedef struct Segment {
     Segment &setOption(uint8_t n, bool val);
     Segment &setMode(uint8_t fx, bool loadDefaults = false);
     Segment &setPalette(uint8_t pal);
+    Segment &setName(const char* name);
     uint8_t differs(const Segment& b) const;
     void    refreshLightCapabilities();
 
@@ -623,6 +656,7 @@ typedef struct Segment {
     uint8_t  currentMode() const;                            // currently active effect/mode (while in transition)
     [[gnu::hot]] uint32_t currentColor(uint8_t slot) const;  // currently active segment color (blended while in transition)
     CRGBPalette16 &loadPalette(CRGBPalette16 &tgt, uint8_t pal);
+    void     loadOldPalette(); // loads old FX palette into _currentPalette
 
     // 1D strip
     [[gnu::hot]] uint16_t virtualLength() const;
@@ -674,7 +708,6 @@ typedef struct Segment {
     }
   #ifndef WLED_DISABLE_2D
     inline bool is2D() const                                                            { return (width()>1 && height()>1); }
-    [[gnu::hot]] int  XY(int x, int y) const; // support function to get relative index within segment
     [[gnu::hot]] void setPixelColorXY(int x, int y, uint32_t c) const; // set relative pixel within segment with color
     inline void setPixelColorXY(unsigned x, unsigned y, uint32_t c) const               { setPixelColorXY(int(x), int(y), c); }
     inline void setPixelColorXY(int x, int y, byte r, byte g, byte b, byte w = 0) const { setPixelColorXY(x, y, RGBW32(r,g,b,w)); }
@@ -711,8 +744,7 @@ typedef struct Segment {
     void wu_pixel(uint32_t x, uint32_t y, CRGB c);
     inline void fill_solid(CRGB c) { fill(RGBW32(c.r,c.g,c.b,0)); }
   #else
-    inline constexpr bool is2D() const                                            { return false; }
-    inline int  XY(int x, int y) const                                            { return x; }
+    inline bool is2D() const                                                      { return false; }
     inline void setPixelColorXY(int x, int y, uint32_t c)                         { setPixelColor(x, c); }
     inline void setPixelColorXY(unsigned x, unsigned y, uint32_t c)               { setPixelColor(int(x), c); }
     inline void setPixelColorXY(int x, int y, byte r, byte g, byte b, byte w = 0) { setPixelColor(x, RGBW32(r,g,b,w)); }

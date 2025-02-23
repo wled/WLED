@@ -23,6 +23,7 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
     for (size_t n = 0; n < WLED_MAX_WIFI_COUNT; n++) {
       char cs[4] = "CS"; cs[2] = 48+n; cs[3] = 0; //client SSID
       char pw[4] = "PW"; pw[2] = 48+n; pw[3] = 0; //client password
+      char bs[4] = "BS"; bs[2] = 48+n; bs[3] = 0; //BSSID
       char ip[5] = "IP"; ip[2] = 48+n; ip[4] = 0; //IP address
       char gw[5] = "GW"; gw[2] = 48+n; gw[4] = 0; //GW address
       char sn[5] = "SN"; sn[2] = 48+n; sn[4] = 0; //subnet mask
@@ -39,6 +40,7 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
           strlcpy(multiWiFi[n].clientPass, request->arg(pw).c_str(), 65);
           forceReconnect = true;
         }
+        fillStr2MAC(multiWiFi[n].bssid, request->arg(bs).c_str());
         for (size_t i = 0; i < 4; i++) {
           ip[3] = 48+i;
           gw[3] = 48+i;
@@ -93,9 +95,9 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
     strlwr(linked_remote);  //Normalize MAC format to lowercase
     #endif
 
-    #ifdef WLED_USE_ETHERNET
+    #if defined(ARDUINO_ARCH_ESP32) && defined(WLED_USE_ETHERNET)
     ethernetType = request->arg(F("ETH")).toInt();
-    WLED::instance().initEthernet();
+    initEthernet();
     #endif
   }
 
@@ -134,11 +136,13 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
     strip.correctWB = request->hasArg(F("CCT"));
     strip.cctFromRgb = request->hasArg(F("CR"));
     cctICused = request->hasArg(F("IC"));
-    uint8_t cctBlending = request->arg(F("CB")).toInt();
-    Bus::setCCTBlend(cctBlending);
+    Bus::setCCTBlend(request->arg(F("CB")).toInt());
     Bus::setGlobalAWMode(request->arg(F("AW")).toInt());
     strip.setTargetFps(request->arg(F("FR")).toInt());
     useGlobalLedBuffer = request->hasArg(F("LD"));
+    #if defined(ARDUINO_ARCH_ESP32) && !defined(CONFIG_IDF_TARGET_ESP32C3)
+    useParallelI2S = request->hasArg(F("PR"));
+    #endif
 
     bool busesChanged = false;
     for (int s = 0; s < WLED_MAX_BUSSES+WLED_MIN_VIRTUAL_BUSSES; s++) {
@@ -208,8 +212,7 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
       type |= request->hasArg(rf) << 7; // off refresh override
       // actual finalization is done in WLED::loop() (removing old busses and adding new)
       // this may happen even before this loop is finished so we do "doInitBusses" after the loop
-      if (busConfigs[s] != nullptr) delete busConfigs[s];
-      busConfigs[s] = new(std::nothrow) BusConfig(type, pins, start, length, colorOrder | (channelSwap<<4), request->hasArg(cv), skip, awmode, freq, useGlobalLedBuffer, maPerLed, maMax);
+      busConfigs.push_back(std::move(BusConfig(type, pins, start, length, colorOrder | (channelSwap<<4), request->hasArg(cv), skip, awmode, freq, useGlobalLedBuffer, maPerLed, maMax)));
       busesChanged = true;
     }
     //doInitBusses = busesChanged; // we will do that below to ensure all input data is processed
