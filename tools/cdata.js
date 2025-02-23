@@ -26,7 +26,7 @@ const packageJson = require("../package.json");
 // Export functions for testing
 module.exports = { isFileNewerThan, isAnyFileInFolderNewerThan };
 
-const output = ["wled00/html_ui.h", "wled00/html_pixart.h", "wled00/html_cpal.h", "wled00/html_pxmagic.h", "wled00/html_settings.h", "wled00/html_other.h"]
+const output = ["wled00/html_ui.h", "wled00/html_pixart.h", "wled00/html_cpal.h", "wled00/html_pxmagic.h", "wled00/html_gifplayer.h", "wled00/html_settings.h", "wled00/html_other.h"]
 
 // \x1b[34m is blue, \x1b[36m is cyan, \x1b[0m is reset
 const wledBanner = `
@@ -241,6 +241,7 @@ writeHtmlGzipped("wled00/data/index.htm", "wled00/html_ui.h", 'index');
 writeHtmlGzipped("wled00/data/pixart/pixart.htm", "wled00/html_pixart.h", 'pixart');
 writeHtmlGzipped("wled00/data/cpal/cpal.htm", "wled00/html_cpal.h", 'cpal');
 writeHtmlGzipped("wled00/data/pxmagic/pxmagic.htm", "wled00/html_pxmagic.h", 'pxmagic');
+writeHtmlGzipped("wled00/data/gifplayer/gifplayer.htm", "wled00/html_gifplayer.h", 'gifplayer');
 
 writeChunks(
   "wled00/data",
