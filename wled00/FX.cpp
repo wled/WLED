@@ -10057,7 +10057,7 @@ uint16_t mode_particle1DsonicStream(void) {
   uint32_t threshold = 140 - (SEGMENT.intensity >> 1);
   if (SEGMENT.check2) { // enable low pass filter for dynamic threshold
     SEGMENT.step = (SEGMENT.step * 31500 + loudness * (32768 - 31500)) >> 15; // low pass filter for simple beat detection: add average to base threshold
-    threshold = 20 + (threshold >> 2) + SEGMENT.step; // add average to threshold
+    threshold = 20 + (threshold >> 1) + SEGMENT.step; // add average to threshold
   }
 
   // color
@@ -10155,8 +10155,8 @@ uint16_t mode_particle1DsonicBoom(void) {
     loudness = loudness << 2; // double loudness for high frequencies (better detecion)
   uint32_t threshold = 150 - (SEGMENT.intensity >> 1);
   if (SEGMENT.check2) { // enable low pass filter for dynamic threshold
-    SEGMENT.step = (SEGMENT.step * 31000 + loudness * (32768 - 31000)) >> 15; // low pass filter for simple beat detection: add average to base threshold
-    threshold = 20 + (threshold >> 2) + SEGMENT.step; // add average to threshold
+    SEGMENT.step = (SEGMENT.step * 31500 + loudness * (32768 - 31500)) >> 15; // low pass filter for simple beat detection: add average to base threshold
+    threshold = 20 + (threshold >> 1) + SEGMENT.step; // add average to threshold
   }
 
   // particle manipulation
@@ -10173,12 +10173,12 @@ uint16_t mode_particle1DsonicBoom(void) {
   if (loudness > threshold) {
     if(SEGMENT.aux1 == 0) { // edge detected, code only runs once per "beat"
       // update position
-      if(SEGMENT.custom2 < 128)
+      if(SEGMENT.custom2 < 128) // fixed position
         PartSys->sources[0].source.x = map(SEGMENT.custom2, 0, 127, 0, PartSys->maxX);
-      else if(SEGMENT.custom2 < 255) {
+      else if(SEGMENT.custom2 < 255) { // advances on each "beat"
         int32_t step = PartSys->maxX / ((262 - (SEGMENT.custom2) >> 2)); // step: 2 - 33 steps for full segment width
         PartSys->sources[0].source.x = (PartSys->sources[0].source.x + step) % PartSys->maxX;
-        if(PartSys->sources[0].source.x < (step >> 1)) // align to be symmetrical by making the first position half a step from start
+        if(PartSys->sources[0].source.x < step) // align to be symmetrical by making the first position half a step from start
           PartSys->sources[0].source.x = step >> 1;
       }
       else // position set to max, use random postion per beat
