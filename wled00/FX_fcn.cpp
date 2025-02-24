@@ -1499,15 +1499,15 @@ void WS2812FX::finalizeInit() {
   Segment::maxWidth  = _length;
   Segment::maxHeight = 1;
 
-  // allocate frame buffer
-  if (pixels) pixels = static_cast<uint32_t*>(d_realloc(pixels, _length * sizeof(uint32_t)));
-  else        pixels = static_cast<uint32_t*>(d_malloc(_length * sizeof(uint32_t)));
-
   //segments are created in makeAutoSegments();
   DEBUG_PRINTLN(F("Loading custom palettes"));
   loadCustomPalettes(); // (re)load all custom palettes
   DEBUG_PRINTLN(F("Loading custom ledmaps"));
   deserializeMap();     // (re)load default ledmap (will also setUpMatrix() if ledmap does not exist)
+
+  // allocate frame buffer after matrix has been set up (gaps!)
+  if (pixels) pixels = static_cast<uint32_t*>(d_realloc(pixels, getLengthTotal() * sizeof(uint32_t)));
+  else        pixels = static_cast<uint32_t*>(d_malloc(getLengthTotal() * sizeof(uint32_t)));
 }
 
 void WS2812FX::service() {
@@ -1647,8 +1647,6 @@ void WS2812FX::service() {
     _segment_index++;
   }
   Segment::setClippingRect(0, 0);             // disable clipping for overlays
-  _isServicing = false;
-  _triggered = false;
 
   #ifdef WLED_DEBUG_FX
   if (millis() - nowUp > _frametime) DEBUGFX_PRINTF_P(PSTR("Slow effects %u/%d.\n"), (unsigned)(millis()-nowUp), (int)_frametime);
@@ -1661,6 +1659,9 @@ void WS2812FX::service() {
   #ifdef WLED_DEBUG_FX
   if (millis() - nowUp > _frametime) DEBUGFX_PRINTF_P(PSTR("Slow strip %u/%d.\n"), (unsigned)(millis()-nowUp), (int)_frametime);
   #endif
+
+  _triggered = false;
+  _isServicing = false;
 }
 
 // https://en.wikipedia.org/wiki/Blend_modes but using a for top layer & b for bottom layer
@@ -1789,15 +1790,13 @@ void WS2812FX::blendSegment(const Segment &topSegment) {
 }
 
 void IRAM_ATTR WS2812FX::setPixelColor(unsigned i, uint32_t col) const {
-  i = getMappedPixelIndex(i);
-  if (i >= _length) return;
-  BusManager::setPixelColor(i, col);
+  if (i >= getLengthTotal()) return;
+  pixels[i] = col;
 }
 
 uint32_t IRAM_ATTR WS2812FX::getPixelColor(unsigned i) const {
-  i = getMappedPixelIndex(i);
-  if (i >= _length) return 0;
-  return BusManager::getPixelColor(i);
+  if (i >= getLengthTotal()) return 0;
+  return pixels[i];
 }
 
 // To disable brightness limiter we either set output max current to 0 or single LED current to 0
@@ -1865,28 +1864,31 @@ void WS2812FX::show() {
   size_t diff = showNow - _lastShow;
 
   size_t totalLen = getLengthTotal();
-  for (size_t i = 0; i < totalLen; i++) pixels[i] = BLACK; // clear frame buffer; memset(pixels, 0, sizeof(uint32_t) * getLengthTotal());
+  if (realtimeMode == REALTIME_MODE_INACTIVE || useMainSegmentOnly || realtimeOverride > REALTIME_OVERRIDE_NONE) {
+    // clear frame buffer
+    for (size_t i = 0; i < totalLen; i++) pixels[i] = BLACK; // memset(pixels, 0, sizeof(uint32_t) * getLengthTotal());
+    // blend all segments into (cleared) buffer
+    for (const auto &seg : _segments) if (seg.isActive() && seg.on) blendSegment(seg); // blend all render buffers into frame buffer
+  }
 
-  // blend all segments
-  for (const auto &seg : _segments) if (seg.isActive() && seg.on) blendSegment(seg); // blend all render buffers into frame buffer
+  // avoid race condition, capture _callback value
+  show_callback callback = _callback;
+  if (callback) callback(); // will call setPixelColor or setRealtimePixelColor
 
   // determine ABL brightness
   uint8_t newBri = estimateCurrentAndLimitBri(_brightness, pixels);
   if (newBri != _brightness) BusManager::setBrightness(newBri);
 
   // paint actuall pixels
-  for (size_t i = 0; i < totalLen; i++) setPixelColor(i, pixels[i]);
-
-  // avoid race condition, capture _callback value
-  show_callback callback = _callback;
-  if (callback) callback();
+  for (size_t i = 0; i < totalLen; i++) BusManager::setPixelColor(i, pixels[i]);
 
   // some buses send asynchronously and this method will return before
   // all of the data has been sent.
   // See https://github.com/Makuna/NeoPixelBus/wiki/ESP32-NeoMethods#neoesp32rmt-methods
   BusManager::show();
 
-  if (newBri != _brightness) BusManager::setBrightness(_brightness); // restore brightness for next frame
+  // restore brightness for next frame
+  if (newBri != _brightness) BusManager::setBrightness(_brightness);
 
   if (diff > 0) { // skip calculation if no time has passed
     size_t fpsCurr = (1000 << FPS_CALC_SHIFT) / diff; // fixed point math
