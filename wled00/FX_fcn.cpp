@@ -1508,6 +1508,9 @@ void WS2812FX::finalizeInit() {
   // allocate frame buffer after matrix has been set up (gaps!)
   if (pixels) pixels = static_cast<uint32_t*>(d_realloc(pixels, getLengthTotal() * sizeof(uint32_t)));
   else        pixels = static_cast<uint32_t*>(d_malloc(getLengthTotal() * sizeof(uint32_t)));
+  DEBUG_PRINTF_P(PSTR("strip buffer size: %uB\n"), getLengthTotal() * sizeof(uint32_t));
+
+  DEBUG_PRINTF_P(PSTR("Heap after strip init: %uB\n"), ESP.getFreeHeap());
 }
 
 void WS2812FX::service() {
@@ -2238,7 +2241,7 @@ bool WS2812FX::deserializeMap(unsigned n) {
   filter[F("width")]  = true;
   filter[F("height")] = true;
   if (!readObjectFromFile(fileName, nullptr, pDoc, &filter)) {
-    DEBUGFX_PRINT(F("ERROR Invalid ledmap in ")); DEBUGFX_PRINTLN(fileName);
+    DEBUG_PRINT(F("ERROR Invalid ledmap in ")); DEBUGFX_PRINTLN(fileName);
     releaseJSONBufferLock();
     return false; // if file does not load properly then exit
   }
@@ -2256,7 +2259,8 @@ bool WS2812FX::deserializeMap(unsigned n) {
   customMappingTable = static_cast<uint16_t*>(d_malloc(sizeof(uint16_t)*getLengthTotal())); // do not use SPI RAM
 
   if (customMappingTable) {
-    DEBUGFX_PRINT(F("Reading LED map from ")); DEBUGFX_PRINTLN(fileName);
+    DEBUG_PRINTF_P(PSTR("ledmap allocated: %uB\n"), sizeof(uint16_t)*getLengthTotal());
+    DEBUG_PRINTF_P(PSTR("Reading LED map from %s\n"), fileName);
     File f = WLED_FS.open(fileName, "r");
     f.find("\"map\":[");
     while (f.available()) { // f.position() < f.size() - 1
@@ -2281,13 +2285,13 @@ bool WS2812FX::deserializeMap(unsigned n) {
     currentLedmap = n;
     f.close();
 
-    #ifdef WLED_DEBUG_FX
-    DEBUGFX_PRINT(F("Loaded ledmap:"));
+    #ifdef WLED_DEBUG
+    DEBUG_PRINT(F("Loaded ledmap:"));
     for (unsigned i=0; i<customMappingSize; i++) {
-      if (!(i%Segment::maxWidth)) DEBUGFX_PRINTLN();
-      DEBUGFX_PRINTF_P(PSTR("%4d,"), customMappingTable[i]);
+      if (!(i%Segment::maxWidth)) DEBUG_PRINTLN();
+      DEBUG_PRINTF_P(PSTR("%4d,"), customMappingTable[i]);
     }
-    DEBUGFX_PRINTLN();
+    DEBUG_PRINTLN();
     #endif
 /*
     JsonArray map = root[F("map")];
@@ -2298,7 +2302,7 @@ bool WS2812FX::deserializeMap(unsigned n) {
     }
 */
   } else {
-    DEBUGFX_PRINTLN(F("ERROR LED map allocation error."));
+    DEBUG_PRINTLN(F("ERROR LED map allocation error."));
   }
 
   resume();
