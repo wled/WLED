@@ -36,14 +36,30 @@ public:
         return std::make_unique<Self>(effectInformation);
     }
 
+    static void nextFrame(Effect* effect) {
+        static_cast<Self*>(effect)->nextFrameImpl();
+    }
+
+    static constexpr void nextRow(Effect* effect, int y) {
+        static_cast<Self*>(effect)->nextRowImpl(y);
+    }
+
+    static uint32_t getPixelColor(Effect* effect, int x, int y, uint32_t currentColor) {
+        return static_cast<Self*>(effect)->getPixelColorImpl(x, y, currentColor);
+    }
+
     static constexpr EffectInformation effectInformation {
         "Palette@Shift,Size,Rotation,,,Animate Shift,Animate Rotation,Anamorphic;;!;12;ix=112,c1=0,o1=1,o2=0,o3=1",
         FX_MODE_PALETTE,
         0u,
         &Self::makeEffect,
+        &Self::nextFrame,
+        &Self::nextRow,
+        &Self::getPixelColor,
     };
 
-    void nextFrame() override {
+private:
+    void nextFrameImpl() {
         const bool isMatrix = strip.isMatrix;
         const int cols = SEG_W;
         const int rows = isMatrix ? SEG_H : strip.getActiveSegmentsNum();
@@ -74,12 +90,12 @@ public:
         scale = std::abs(sinTheta) + (std::abs(cosTheta) * maxYOut / maxXOut);
     }
 
-    void nextRow(int y) override {
+    constexpr void nextRowImpl(int y) {
         // translate, scale, rotate
         ytCosTheta = mathType((wideMathType(cosTheta) * wideMathType(y * sInt16Scale - centerY * maxYIn))/wideMathType(maxYIn * scale));
     }
 
-    uint32_t getPixelColor(int x, int y, uint32_t currentColor) override {
+    uint32_t getPixelColorImpl(int x, int y, uint32_t currentColor) {
         const int  inputSize            = SEGMENT.intensity;
         const bool inputAnimateShift    = SEGMENT.check1;
         const int  inputShift           = SEGMENT.speed;

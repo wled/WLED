@@ -4,20 +4,30 @@
 #include "Effect.h"
 
 class StaticEffect : public Effect {
+private:
+    using Self = StaticEffect;
 public:
     using Effect::Effect;
     static std::unique_ptr<Effect> makeEffect() {
         return std::make_unique<StaticEffect>(effectInformation);
     }
 
-    uint32_t getPixelColor(int x, int y, uint32_t currentColor) override {
-        return SEGCOLOR(0);
+    static uint32_t getPixelColor(Effect* effect, int x, int y, uint32_t currentColor) {
+        return static_cast<Self*>(effect)->getPixelColorImpl(x, y, currentColor);
     }
 
     static constexpr EffectInformation effectInformation {
         "Solid",
         FX_MODE_STATIC,
         0u,
-        &StaticEffect::makeEffect,
+        &Self::makeEffect,
+        &Effect::nextFrameNoop,
+        &Effect::nextRowNoop,
+        &Self::getPixelColor,
     };
+
+private:
+    uint32_t getPixelColorImpl(int x, int y, uint32_t currentColor) {
+        return SEGCOLOR(0);
+    }
 };
