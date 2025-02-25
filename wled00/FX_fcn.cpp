@@ -687,37 +687,25 @@ unsigned Segment::virtualHeight() const {
 
 // Constants for mapping mode "Pinwheel"
 #ifndef WLED_DISABLE_2D
-constexpr int Pinwheel_Steps_Small = 72;       // no holes up to 16x16
-constexpr int Pinwheel_Size_Small  = 16;       // larger than this -> use "Medium"
-constexpr int Pinwheel_Steps_Medium = 192;     // no holes up to 32x32
-constexpr int Pinwheel_Size_Medium  = 32;      // larger than this -> use "Big"
-constexpr int Pinwheel_Steps_Big = 304;        // no holes up to 50x50
-constexpr int Pinwheel_Size_Big  = 50;         // larger than this -> use "XL"
-constexpr int Pinwheel_Steps_XL  = 368;
-constexpr float Int_to_Rad_Small = (DEG_TO_RAD * 360) / Pinwheel_Steps_Small;  // conversion: from 0...72 to Radians
-constexpr float Int_to_Rad_Med =   (DEG_TO_RAD * 360) / Pinwheel_Steps_Medium; // conversion: from 0...192 to Radians
-constexpr float Int_to_Rad_Big =   (DEG_TO_RAD * 360) / Pinwheel_Steps_Big;    // conversion: from 0...304 to Radians
-constexpr float Int_to_Rad_XL =    (DEG_TO_RAD * 360) / Pinwheel_Steps_XL;     // conversion: from 0...368 to Radians
-
-constexpr int Fixed_Scale = 512;               // fixpoint scaling factor (9bit for fraction)
-
-// Pinwheel helper function: pixel index to radians
-static float getPinwheelAngle(int i, int vW, int vH) {
-  int maxXY = max(vW, vH);
-  if (maxXY <= Pinwheel_Size_Small)  return float(i) * Int_to_Rad_Small;
-  if (maxXY <= Pinwheel_Size_Medium) return float(i) * Int_to_Rad_Med;
-  if (maxXY <= Pinwheel_Size_Big)    return float(i) * Int_to_Rad_Big;
-  // else
-  return float(i) * Int_to_Rad_XL;
-}
+constexpr int Fixed_Scale = 16384; // fixpoint scaling factor (14bit for fraction)
 // Pinwheel helper function: matrix dimensions to number of rays
 static int getPinwheelLength(int vW, int vH) {
-  int maxXY = max(vW, vH);
-  if (maxXY <= Pinwheel_Size_Small)  return Pinwheel_Steps_Small;
-  if (maxXY <= Pinwheel_Size_Medium) return Pinwheel_Steps_Medium;
-  if (maxXY <= Pinwheel_Size_Big)    return Pinwheel_Steps_Big;
-  // else
-  return Pinwheel_Steps_XL;
+  // Returns multiple of 8, prevents over drawing 
+  return (max(vW, vH) + 15) & ~7;
+}
+static void setPinwheelParameters(int i, int vW, int vH, int& startx, int& starty, int* cosVal, int* sinVal, bool getPixel = false) {
+  int steps = getPinwheelLength(vW, vH);
+  int baseAngle = ((0xFFFF + steps / 2) / steps);  // 360° / steps, in 16 bit scale round to nearest integer
+  int rotate = 0;
+  if (getPixel) rotate = baseAngle / 2; // rotate by half a ray width when reading pixel color
+  for (int k = 0; k < 2; k++) // angular steps for two consecutive rays
+  {
+    int angle = (i + k) * baseAngle + rotate;
+    cosVal[k] = (cos16_t(angle) * Fixed_Scale) >> 15; // step per pixel in fixed point, cos16 output is -0x7FFF to +0x7FFF
+    sinVal[k] = (sin16_t(angle) * Fixed_Scale) >> 15; // using explicit bit shifts as dividing negative numbers is not equivalent (rounding error is acceptable)
+  }
+  startx = (vW * Fixed_Scale) / 2; // + cosVal[0] / 4; // starting position = center + 1/4 pixel (in fixed point)
+  starty = (vH * Fixed_Scale) / 2; // + sinVal[0] / 4; 
 }
 #endif
 
@@ -852,55 +840,103 @@ void IRAM_ATTR_YN Segment::setPixelColor(int i, uint32_t col) const
         for (int x = 0; x <= i; x++) setPixelColorXY(x, i, col);
         for (int y = 0; y <  i; y++) setPixelColorXY(i, y, col);
         break;
-      case M12_sPinwheel: {
-        // i = angle --> 0 - 296  (Big), 0 - 192  (Medium), 0 - 72 (Small)
-        float centerX = roundf((vW-1) / 2.0f);
-        float centerY = roundf((vH-1) / 2.0f);
-        float angleRad = getPinwheelAngle(i, vW, vH); // angle in radians
-        float cosVal = cos_t(angleRad);
-        float sinVal = sin_t(angleRad);
-
-        // avoid re-painting the same pixel
-        int lastX = INT_MIN; // impossible position
-        int lastY = INT_MIN; // impossible position
-        // draw line at angle, starting at center and ending at the segment edge
-        // we use fixed point math for better speed. Starting distance is 0.5 for better rounding
-        // int_fast16_t and int_fast32_t types changed to int, minimum bits commented
-        int posx = (centerX + 0.5f * cosVal) * Fixed_Scale; // X starting position in fixed point 18 bit
-        int posy = (centerY + 0.5f * sinVal) * Fixed_Scale; // Y starting position in fixed point 18 bit
-        int inc_x = cosVal * Fixed_Scale; // X increment per step (fixed point) 10 bit
-        int inc_y = sinVal * Fixed_Scale; // Y increment per step (fixed point) 10 bit
-
-        int32_t maxX = vW * Fixed_Scale; // X edge in fixedpoint
-        int32_t maxY = vH * Fixed_Scale; // Y edge in fixedpoint
-
-        // Odd rays start further from center if prevRay started at center.
-        static int prevRay = INT_MIN; // previous ray number
-        if ((i % 2 == 1) && (i - 1 == prevRay || i + 1 == prevRay)) {
-          int jump = min(vW/3, vH/3); // can add 2 if using medium pinwheel
-          posx += inc_x * jump;
-          posy += inc_y * jump;
+        case M12_sPinwheel: {
+          // Uses Bresenham's algorithm to place coordinates of two lines in arrays then draws between them
+          int startX, startY, cosVal[2], sinVal[2]; // in fixed point scale
+          setPinwheelParameters(i, vW, vH, startX, startY, cosVal, sinVal);
+  
+          unsigned maxLineLength = max(vW, vH) + 2; // pixels drawn is always smaller than dx or dy, +1 pair for rounding errors
+          uint16_t lineCoords[2][maxLineLength];    // uint16_t to save ram
+          int lineLength[2] = {0};
+  
+          static int prevRays[2] = {INT_MAX, INT_MAX}; // previous two ray numbers
+          int closestEdgeIdx = INT_MAX; // index of the closest edge pixel
+  
+          for (int lineNr = 0; lineNr < 2; lineNr++) {
+            int x0 = startX; // x, y coordinates in fixed scale
+            int y0 = startY;
+            int x1 = (startX + (cosVal[lineNr] << 9)); // outside of grid
+            int y1 = (startY + (sinVal[lineNr] << 9)); // outside of grid
+            const int dx =  abs(x1-x0), sx = x0<x1 ? 1 : -1; // x distance & step
+            const int dy = -abs(y1-y0), sy = y0<y1 ? 1 : -1; // y distance & step
+            uint16_t* coordinates = lineCoords[lineNr]; // 1D access is faster
+            int* length = &lineLength[lineNr];          // faster access
+            x0 /= Fixed_Scale; // convert to pixel coordinates
+            y0 /= Fixed_Scale;
+  
+            // Bresenham's algorithm
+            int idx = 0;
+            int err = dx + dy;
+            while (true) {
+              if (unsigned(x0) >= vW || unsigned(y0) >= vH) {
+                closestEdgeIdx = min(closestEdgeIdx, idx-2);
+                break; // stop if outside of grid (exploit unsigned int overflow)
+              }
+              coordinates[idx++] = x0;
+              coordinates[idx++] = y0;
+              (*length)++;
+              // note: since endpoint is out of grid, no need to check if endpoint is reached
+              int e2 = 2 * err;
+              if (e2 >= dy) { err += dy; x0 += sx; }
+              if (e2 <= dx) { err += dx; y0 += sy; }
+            }
+          }
+  
+          // fill up the shorter line with missing coordinates, so block filling works correctly and efficiently
+          int diff = lineLength[0] - lineLength[1];
+          int longLineIdx = (diff > 0) ? 0 : 1;
+          int shortLineIdx = longLineIdx ? 0 : 1;
+          if (diff != 0) {
+            int idx = (lineLength[shortLineIdx] - 1) * 2; // last valid coordinate index
+            int lastX = lineCoords[shortLineIdx][idx++];
+            int lastY = lineCoords[shortLineIdx][idx++];
+            bool keepX = lastX == 0 || lastX == vW - 1;
+            for (int d = 0; d < abs(diff); d++) {
+              lineCoords[shortLineIdx][idx] = keepX ? lastX :lineCoords[longLineIdx][idx];
+              idx++;
+              lineCoords[shortLineIdx][idx] =  keepX ? lineCoords[longLineIdx][idx] : lastY;
+              idx++;
+            }
+          }
+  
+          // draw and block-fill the line coordinates. Note: block filling only efficient if angle between lines is small
+          closestEdgeIdx += 2;
+          int max_i = getPinwheelLength(vW, vH) - 1;
+          bool drawFirst = !(prevRays[0] == i - 1 || (i == 0 && prevRays[0] == max_i)); // draw first line if previous ray was not adjacent including wrap
+          bool drawLast  = !(prevRays[0] == i + 1 || (i == max_i && prevRays[0] == 0)); // same as above for last line
+          for (int idx = 0; idx < lineLength[longLineIdx] * 2;) { //!! should be long line idx!
+            int x1 = lineCoords[0][idx];
+            int x2 = lineCoords[1][idx++];
+            int y1 = lineCoords[0][idx];
+            int y2 = lineCoords[1][idx++];
+            int minX, maxX, minY, maxY;
+            (x1 < x2) ? (minX = x1, maxX = x2) : (minX = x2, maxX = x1);
+            (y1 < y2) ? (minY = y1, maxY = y2) : (minY = y2, maxY = y1);
+  
+            // fill the block between the two x,y points
+            bool alwaysDraw = (drawFirst && drawLast) || // No adjacent rays, draw all pixels
+                              (idx > closestEdgeIdx)  || // Edge pixels on uneven lines are always drawn
+                              (i == 0 && idx == 2)    || // Center pixel special case
+                              (i == prevRays[1]);        // Effect drawing twice in 1 frame
+            for (int x = minX; x <= maxX; x++) {
+              for (int y = minY; y <= maxY; y++) {
+                bool onLine1 = x == x1 && y == y1;
+                bool onLine2 = x == x2 && y == y2;
+                if ((alwaysDraw) ||
+                    (!onLine1 && (!onLine2 || drawLast))  || // Middle pixels and line2 if drawLast
+                    (!onLine2 && (!onLine1 || drawFirst))    // Middle pixels and line1 if drawFirst
+                  ) {
+                  setPixelColorXY(x, y, col);
+                }
+              }
+            }
+          }
+          prevRays[1] = prevRays[0];
+          prevRays[0] = i;
+          break;
         }
-        prevRay = i;
-
-        // draw ray until we hit any edge
-        while ((posx >= 0) && (posy >= 0) && (posx < maxX)  && (posy < maxY))  {
-          // scale down to integer (compiler will replace division with appropriate bitshift)
-          int x = posx / Fixed_Scale;
-          int y = posy / Fixed_Scale;
-          // set pixel
-          if (x != lastX || y != lastY) setPixelColorXY(x, y, col);  // only paint if pixel position is different
-          lastX = x;
-          lastY = y;
-          // advance to next position
-          posx += inc_x;
-          posy += inc_y;
-        }
-        break;
       }
-    }
-    _colorScaled = false;
-    return;
+      return;
   } else if (Segment::maxHeight != 1 && (width() == 1 || height() == 1)) {
     if (start < Segment::maxWidth*Segment::maxHeight) {
       // we have a vertical or horizontal 1D segment (WARNING: virtual...() may be transposed)
@@ -1032,31 +1068,17 @@ uint32_t IRAM_ATTR_YN Segment::getPixelColor(int i) const
         break;
       case M12_sPinwheel:
         // not 100% accurate, returns pixel at outer edge
-        // i = angle --> 0 - 296  (Big), 0 - 192  (Medium), 0 - 72 (Small)
-        float centerX = roundf((vW-1) / 2.0f);
-        float centerY = roundf((vH-1) / 2.0f);
-        float angleRad = getPinwheelAngle(i, vW, vH); // angle in radians
-        float cosVal = cos_t(angleRad);
-        float sinVal = sin_t(angleRad);
-
-        int posx = (centerX + 0.5f * cosVal) * Fixed_Scale; // X starting position in fixed point 18 bit
-        int posy = (centerY + 0.5f * sinVal) * Fixed_Scale; // Y starting position in fixed point 18 bit
-        int inc_x = cosVal * Fixed_Scale; // X increment per step (fixed point) 10 bit
-        int inc_y = sinVal * Fixed_Scale; // Y increment per step (fixed point) 10 bit
-        int32_t maxX = vW * Fixed_Scale; // X edge in fixedpoint
-        int32_t maxY = vH * Fixed_Scale; // Y edge in fixedpoint
-
-        // trace ray from center until we hit any edge - to avoid rounding problems, we use the same method as in setPixelColor
-        int x = INT_MIN;
-        int y = INT_MIN;
-        while ((posx >= 0) && (posy >= 0) && (posx < maxX)  && (posy < maxY))  {
-          // scale down to integer (compiler will replace division with appropriate bitshift)
-          x = posx / Fixed_Scale;
-          y = posy / Fixed_Scale;
-          // advance to next position
-          posx += inc_x;
-          posy += inc_y;
+        int x, y, cosVal[2], sinVal[2];
+        setPinwheelParameters(i, vW, vH, x, y, cosVal, sinVal, true);
+        int maxX = (vW-1) * Fixed_Scale;
+        int maxY = (vH-1) * Fixed_Scale;
+        // trace ray from center until we hit any edge - to avoid rounding problems, we use fixed point coordinates
+        while ((x < maxX)  && (y < maxY) && (x > Fixed_Scale) && (y > Fixed_Scale)) {
+          x += cosVal[0]; // advance to next position
+          y += sinVal[0];
         }
+        x /= Fixed_Scale;
+        y /= Fixed_Scale;
         return getPixelColorXY(x, y);
         break;
       }
