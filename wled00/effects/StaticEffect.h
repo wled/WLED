@@ -12,7 +12,7 @@ public:
         return std::make_unique<StaticEffect>(effectInformation);
     }
 
-    static uint32_t getPixelColor(Effect* effect, int x, int y, uint32_t currentColor) {
+    static uint32_t getPixelColor(Effect* effect, int x, int y, const LazyColor& currentColor) {
         return static_cast<Self*>(effect)->getPixelColorImpl(x, y, currentColor);
     }
 
@@ -27,7 +27,7 @@ public:
     };
 
 private:
-    uint32_t getPixelColorImpl(int x, int y, uint32_t currentColor) {
+    uint32_t getPixelColorImpl(int x, int y, const LazyColor& currentColor) {
         return SEGCOLOR(0);
     }
 };

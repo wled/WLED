@@ -44,7 +44,7 @@ public:
         static_cast<Self*>(effect)->nextRowImpl(y);
     }
 
-    static uint32_t getPixelColor(Effect* effect, int x, int y, uint32_t currentColor) {
+    static uint32_t getPixelColor(Effect* effect, int x, int y, const LazyColor& currentColor) {
         return static_cast<Self*>(effect)->getPixelColorImpl(x, y, currentColor);
     }
 
@@ -95,7 +95,7 @@ private:
         ytCosTheta = mathType((wideMathType(cosTheta) * wideMathType(y * sInt16Scale - centerY * maxYIn))/wideMathType(maxYIn * scale));
     }
 
-    uint32_t getPixelColorImpl(int x, int y, uint32_t currentColor) {
+    uint32_t getPixelColorImpl(int x, int y, const LazyColor& currentColor) {
         const int  inputSize            = SEGMENT.intensity;
         const bool inputAnimateShift    = SEGMENT.check1;
         const int  inputShift           = SEGMENT.speed;

@@ -1,15 +1,16 @@
 #pragma once
 
-#include "../wled.h" // for debug prints
+#include <memory>
 
 class Effect;
+class LazyColor;
 
 // Kinda emulates a v-table without needing an actual v-table.
 struct EffectInformation {
     using MakeEffectFunction    = std::unique_ptr<Effect> (*)();
     using NextFrameFunction     = void (*)(Effect* effect);
     using NextRowFunction       = void (*)(Effect* effect, int y);
-    using GetPixelColorFunction = uint32_t (*)(Effect* effect, int x, int y, uint32_t currentColor);
+    using GetPixelColorFunction = uint32_t (*)(Effect* effect, int x, int y, const LazyColor& currentColor);
 
     const char* metaData;
     const uint8_t effectId;
@@ -37,7 +38,7 @@ public:
     constexpr void nextRow(int y) {
         info.nextRow(this, y);
     }
-    constexpr uint32_t getPixelColor(int x, int y, uint32_t currentColor) {
+    constexpr uint32_t getPixelColor(int x, int y, const LazyColor& currentColor) {
         return info.getPixelColor(this, x, y, currentColor);
     }
 
@@ -45,7 +46,7 @@ public:
     }
     constexpr static void nextRowNoop(Effect* effect, int y) {
     }
-    constexpr static uint32_t getPixelColorNoop(Effect* effect, int x, int y, uint32_t currentColor) {
+    constexpr static uint32_t getPixelColorNoop(Effect* effect, int x, int y, const LazyColor& currentColor) {
         return 0;
     }
 
