@@ -504,9 +504,6 @@ void Segment::setGeometry(uint16_t i1, uint16_t i2, uint8_t grp, uint8_t spc, ui
   boundsUnchanged &= (startY == i1Y && stopY == i2Y); // 2D
   #endif
 
-  if (stop && (spc > 0 || m12 != map1D2D)) clear();
-  stateChanged = true; // send UDP/WS broadcast
-
   if (grp) { // prevent assignment of 0
     grouping = grp;
     spacing = spc;
@@ -514,12 +511,16 @@ void Segment::setGeometry(uint16_t i1, uint16_t i2, uint8_t grp, uint8_t spc, ui
     grouping = 1;
     spacing = 0;
   }
+  if (stop && (spc > 0 || m12 != map1D2D)) boundsUnchanged = false;
+
+  if (boundsUnchanged) return;
+
   if (ofs < UINT16_MAX) offset = ofs;
   map1D2D  = constrain(m12, 0, 7);
 
   DEBUGFX_PRINTF_P(PSTR("Segment geometry: %d,%d -> %d,%d\n"), (int)i1, (int)i2, (int)i1Y, (int)i2Y);
   markForReset();
-  if (boundsUnchanged) return;
+  stateChanged = true; // send UDP/WS broadcast
 
   // apply change immediately
   if (i2 <= i1) { //disable segment
@@ -1883,7 +1884,7 @@ void WS2812FX::show() {
   if (newBri != _brightness) BusManager::setBrightness(newBri);
 
   // paint actuall pixels
-  for (size_t i = 0; i < totalLen; i++) BusManager::setPixelColor(i, pixels[i]);
+  for (size_t i = 0; i < totalLen; i++) BusManager::setPixelColor(getMappedPixelIndex(i), pixels[i]);
 
   // some buses send asynchronously and this method will return before
   // all of the data has been sent.
