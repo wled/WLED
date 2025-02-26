@@ -1,132 +1,46 @@
-### Configure PlatformIO
+# ✨ Usermod FSEQ ✨
 
-Add the following configuration to your `platformio_override.ini` (or `platformio.ini`) to enable the necessary build flags and define the usermod:
+> **Created by: Andrej Chrcek**
 
-```ini
-[env:esp32dev_V4]
-build_flags = 
-  -D WLED_DEBUG
-  -D WLED_USE_SD_SPI
-  -D USERMOD_FPP
-  -D USERMOD_FSEQ
-  -I wled00/src/dependencies/json
+Welcome to the **Usermod FSEQ** project! This innovative module empowers your WLED setup by enabling FSEQ file playback from an SD card, complete with a sleek web UI and UDP remote control. Dive into a world where creativity meets functionality and transform your lighting experience.
 
-### 3. Update the WLED Web Interface / optional
-
-To integrate the new FSEQ functionality into the WLED UI, add a new button in your wled00/data/index.htm file. For example, insert the following button into the navigation area:
-
-<!-- New button for SD & FSEQ Manager -->
-			<button onclick="window.location.href=getURL('/sd/ui');"><i class="icons">&#xe0d2;</i><p class="tab-label">Fseq</p></button>
-
-
-
-### 1. Modify `usermods_list.cpp`
-
-Add the following lines to register the FSEQ usermod. Make sure that you **do not** include any conflicting modules (e.g. `usermod_sd_card.h`):
-
-```cpp
-#ifdef USERMOD_FSEQ
-  #include "../usermods/FSEQ/usermod_fseq.h"
-#endif
-
-#ifdef USERMOD_FSEQ
-  UsermodManager::add(new UsermodFseq());
-#endif
-
-delete or uncoment
-  //#include "../usermods/sd_card/usermod_sd_card.h"
-
-  //#ifdef SD_ADAPTER
-  //UsermodManager::add(new UsermodSdCard());
-  //#endif
-
-
-
-
-
-Below is a list of the HTTP endpoints (commands) included in the code along with their descriptions and usage:
-	•	GET /sd/ui
-Description: Returns an HTML page with a user interface for managing SD files and FSEQ files.
-Usage: Open this URL in a browser to view the SD & FSEQ Manager interface.
-	•	GET /sd/list
-Description: Displays an HTML page listing all files on the SD card. It also includes options to delete files and a form to upload new files.
-Usage: Access this endpoint via a browser or an HTTP GET request to list the SD card files.
-	•	POST /sd/upload
-Description: Handles file uploads to the SD card. The file is sent as part of a multipart/form-data POST request.
-Usage: Use a file upload form or an HTTP client to send a POST request with the file data to this endpoint.
-	•	GET /sd/delete
-Description: Deletes a specified file from the SD card. It requires a query parameter named path which specifies the file to delete.
-Usage: Example: /sd/delete?path=/example.fseq to delete the file named example.fseq.
-	•	GET /fseq/list
-Description: Returns an HTML page listing all FSEQ files (files ending with .fseq or .FSEQ) available on the SD card. Each file is accompanied by a button to play it.
-Usage: Navigate to this URL in a browser to view and interact with the FSEQ file list.
-	•	GET /fseq/start
-Description: Starts the playback of a selected FSEQ file. This endpoint requires a file query parameter for the file path and optionally a t parameter (in seconds) to specify a starting time offset.
-Usage: Example: /fseq/start?file=/animation.fseq&t=10 starts the playback of animation.fseq from 10 seconds into the sequence.
-	•	GET /fseq/stop
-Description: Stops the current FSEQ playback and clears the active playback session.
-Usage: Simply send an HTTP GET request to this endpoint to stop the playback.
-
-
-
-
-
-
-
-
-
-
+# SWEB UI http://yourIP/sd/ui
 
 # SD & FSEQ Usermod for WLED
 
-This usermod adds support for playing FSEQ files from an SD card and provides a web interface for managing SD files and FSEQ playback. Follow the instructions below to install and use this usermod.
+This usermod adds support for playing FSEQ files from an SD card and provides a web interface for managing SD files and controlling FSEQ playback via HTTP and UDP. It also supports configurable SPI pin settings for SD SPI. The usermod exposes several HTTP endpoints for file management and playback control.
+
+---
+
+## Features
+
+- **FSEQ Playback:** Play FSEQ files from an SD card.
+- **Web UI:** Manage SD files (list, upload, delete) and control FSEQ playback.
+- **UDP Synchronization:** Remote control via UDP packets.
+- **Configurable SPI Pins:** SPI pin assignments are configurable through WLED’s configuration JSON.
 
 ---
 
 ## Installation
 
-### 1. Modify `usermods_list.cpp`
+### 1. Configure PlatformIO
 
-Add the following lines to register the FSEQ usermod. Make sure that you **do not** include any conflicting modules (e.g. `usermod_sd_card.h`):
+Add the following configuration to your `platformio_override.ini` (or `platformio.ini`) file:
 
-```cpp
-#ifdef USERMOD_FSEQ
-  #include "../usermods/FSEQ/usermod_fseq.h"
-#endif
-
-#ifdef USERMOD_FSEQ
-  UsermodManager::add(new UsermodFseq());
-#endif
-
-delete or uncoment
-  //#include "../usermods/sd_card/usermod_sd_card.h"
-
-  //#ifdef SD_ADAPTER
-  //UsermodManager::add(new UsermodSdCard());
-  //#endif
-
-
-### 2. Configure PlatformIO
-
-Add the following configuration to your platformio_override.ini (or platformio.ini) to enable the necessary build flags and define the usermod:
-
-
+```ini
 [env:esp32dev_V4]
 build_flags = 
-  -D WLED_DEBUG
   -D WLED_USE_SD_SPI
-  -D WLED_PIN_SCK=18    ; CLK
-  -D WLED_PIN_MISO=19   ; Data Out (POCI)
-  -D WLED_PIN_MOSI=23   ; Data In (PICO)
-  -D WLED_PIN_SS=5      ; Chip Select (CS)
+  -D USERMOD_FPP
   -D USERMOD_FSEQ
-  -std=gnu++17
+  -I wled00/src/dependencies/json
+  ; optional:
+  ; -D WLED_DEBUG
 
 
+### 2. Update the WLED Web Interface (Optional)
 
-### 3. Update the WLED Web Interface
-
-To integrate the new FSEQ functionality into the WLED UI, add a new button in your index.htm file. For example, insert the following button into the navigation area:
+To integrate the new FSEQ functionality into the WLED UI, add a new button to the navigation area in your `wled00/data/index.htm` file. For example:
 
 <!-- New button for SD & FSEQ Manager -->
 <button onclick="window.location.href=getURL('/sd/ui');">
@@ -134,20 +48,70 @@ To integrate the new FSEQ functionality into the WLED UI, add a new button in yo
   <p class="tab-label">Fseq</p>
 </button>
 
+### 3. Modify usermods_list.cpp
 
-This button will take you to the SD & FSEQ Manager interface.
+Register the FSEQ usermod by adding the following lines to `usermods_list.cpp`. Ensure no conflicting modules are included:
+
+```cpp
+#ifdef USERMOD_FSEQ
+  #include "../usermods/FSEQ/usermod_fseq.h"
+#endif
+
+#ifdef USERMOD_FSEQ
+  UsermodManager::add(new UsermodFseq());
+#endif
+
+// Remove or comment out any conflicting SD card usermod:
+// //#include "../usermods/sd_card/usermod_sd_card.h"
+// //#ifdef SD_ADAPTER
+// //UsermodManager::add(new UsermodSdCard());
+// //#endif
+
+HTTP Endpoints
+
+The following endpoints are available:
+	• GET /sd/ui  
+	  Description: Returns an HTML page with the SD & FSEQ Manager interface.  
+	  Usage: Open this URL in a browser.
+	• GET /sd/list  
+	  Description: Displays an HTML page listing all files on the SD card, with options to delete files and a form to upload new files.  
+	  Usage: Access this URL to view the SD file list.
+	• POST /sd/upload  
+	  Description: Handles file uploads to the SD card using a multipart/form-data POST request.  
+	  Usage: Use a file upload form or an HTTP client.
+	• GET /sd/delete  
+	  Description: Deletes a specified file from the SD card. Requires a query parameter path indicating the file path.  
+	  Usage: Example: /sd/delete?path=/example.fseq.
+	• GET /fseq/list  
+	  Description: Returns an HTML page listing all FSEQ files (with .fseq or .FSEQ extensions) on the SD card. Each file includes a button to play it.  
+	  Usage: Open this URL in a browser to view and interact with the file list.
+	• GET /fseq/start  
+	  Description: Starts playback of a selected FSEQ file. Requires a file query parameter and optionally a t parameter (time offset in seconds).  
+	  Usage: Example: /fseq/start?file=/animation.fseq&t=10.
+	• GET /fseq/stop  
+	  Description: Stops the current FSEQ playback and clears the active playback session.  
+	  Usage: Send an HTTP GET request to stop playback.
+	• GET /fseqfilelist  
+	  Description: Returns a JSON list of all FSEQ files found on the SD card.  
+	  Usage: Open this URL or send an HTTP GET request to retrieve the file list.
 
 
+Configurable SPI Pin Settings
 
-###Usage
-	•	Web Interface:
-Access the SD & FSEQ Manager by clicking the Fseq button in the main UI. The interface allows you to view, upload, and delete SD card files as well as control FSEQ playback.
-	•	File Management:
-The SD file manager displays all files on the SD card. You can upload new files via the provided form and delete files using the red “Delete” button. 
-	•	FSEQ Playback:
-Once an FSEQ file is loaded, the usermod will play the sequence on the LED strip. Use the provided web interface to start and stop playback.
+The default SPI pin assignments for SD SPI are defined as follows:
 
+#ifdef WLED_USE_SD_SPI
+int8_t UsermodFseq::configPinSourceSelect = 5;
+int8_t UsermodFseq::configPinSourceClock  = 18;
+int8_t UsermodFseq::configPinPoci         = 19;
+int8_t UsermodFseq::configPinPico         = 23;
+#endif
 
+These values can be modified via WLED’s configuration JSON using the addToConfig() and readFromConfig() methods. This allows you to change the pin settings without recompiling the firmware.
 
+Summary
 
+The SD & FSEQ Usermod for WLED enables FSEQ file playback from an SD card with a full-featured web UI and UDP synchronization for remote control. With configurable SPI pin settings, this usermod integrates seamlessly into WLED, providing additional functionality without modifying core code.
+
+For further customization or support, please refer to the project documentation or open an issue on GitHub.
 

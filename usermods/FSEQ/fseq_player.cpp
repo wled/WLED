@@ -197,3 +197,30 @@ void FSEQPlayer::clearLastPlayback() {
   }
   frame = 0;
 }
+
+
+  bool FSEQPlayer::isPlaying() {
+    return recordingFile && recordingFile.available();
+  }
+  
+  void FSEQPlayer::syncPlayback(float secondsElapsed) {
+    if (!isPlaying()) {
+      DEBUG_PRINTLN("[FSEQ] Sync: Playback not active, cannot sync.");
+      return;
+    }
+    
+    uint32_t expectedFrame = (uint32_t)((secondsElapsed * 1000.0f) / file_header.step_time);
+    int32_t diff = (int32_t)expectedFrame - (int32_t)frame;
+    
+    if (abs(diff) > 2) {
+      frame = expectedFrame;
+      uint32_t offset = file_header.channel_data_offset + file_header.channel_count * frame;
+      if (recordingFile.seek(offset)) {
+        DEBUG_PRINTF("[FSEQ] Sync: Adjusted frame to %lu (diff=%ld)\n", expectedFrame, diff);
+      } else {
+        DEBUG_PRINTLN("[FSEQ] Sync: Failed to seek to new frame");
+      }
+    } else {
+      DEBUG_PRINTF("[FSEQ] Sync: No adjustment needed (current frame: %lu, expected: %lu)\n", frame, expectedFrame);
+    }
+  }

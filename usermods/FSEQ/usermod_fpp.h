@@ -1,7 +1,7 @@
 #pragma once
 
 #include "wled.h"
-#include "usermod_fseq.h"  // Obsahuje FSEQ playback logiku a getter metódy pre piny
+#include "usermod_fseq.h"  // Contains FSEQ playback logic and getter methods for pins
 
 #ifdef WLED_USE_SD_SPI
   #include <SPI.h>
@@ -15,6 +15,7 @@
 #include <ArduinoJson-v6.h>
 
 // ----- Minimal WriteBufferingStream Implementation -----
+// This class buffers data before writing it to an underlying Stream.
 class WriteBufferingStream : public Stream {
   public:
     WriteBufferingStream(Stream &upstream, size_t capacity) : _upstream(upstream) {
@@ -29,6 +30,7 @@ class WriteBufferingStream : public Stream {
       flush();
       if (_buffer) free(_buffer);
     }
+    // Write a block of data to the buffer
     size_t write(const uint8_t *buffer, size_t size) override {
       size_t total = 0;
       while (size > 0) {
@@ -43,9 +45,11 @@ class WriteBufferingStream : public Stream {
       }
       return total;
     }
+    // Write a single byte
     size_t write(uint8_t b) override {
       return write(&b, 1);
     }
+    // Flush the buffer to the upstream stream
     void flush() override {
       if (_offset > 0) {
         _upstream.write(_buffer, _offset);
@@ -66,15 +70,15 @@ class WriteBufferingStream : public Stream {
 
 #define FILE_UPLOAD_BUFFER_SIZE (563 * 7)
 
-// Definície pre UDP (FPP) synchronizáciu
+// Definitions for UDP (FPP) synchronization
 #define CTRL_PKT_SYNC   1
 #define CTRL_PKT_PING   4
 #define CTRL_PKT_BLANK  3
 
-// UDP port pre FPP discovery/synchronizáciu
+// UDP port for FPP discovery/synchronization
 const uint16_t UDP_SYNC_PORT = 32320;
 
-// Inline funkcie pre zápis 16-bitových a 32-bitových hodnôt
+// Inline functions to write 16-bit and 32-bit values
 static inline void write16(uint8_t* dest, uint16_t value) {
   dest[0] = (value >> 8) & 0xff;
   dest[1] = value & 0xff;
@@ -87,37 +91,42 @@ static inline void write32(uint8_t* dest, uint32_t value) {
   dest[3] = value & 0xff;
 }
 
-// Štruktúra synchronizačného paketu (prispôsobte podľa potreby)
+// Structure for the synchronization packet
+// Using pragma pack to avoid any padding issues
+#pragma pack(push, 1)
 struct FPPMultiSyncPacket {
-  uint8_t header[4];          // napr. "FPPD"
-  uint8_t packet_type;        // napr. CTRL_PKT_SYNC
-  uint16_t data_len;          // dĺžka dát
-  uint8_t sync_action;        // akcia: start, stop, sync, open, atď.
-  uint8_t sync_type;          // typ synchronizácie, napr. 0 pre FSEQ
-  uint32_t frame_number;      // aktuálny rámec
-  float seconds_elapsed;      // uplynuté sekundy
-  char filename[64];          // názov prehrávaného súboru
-  uint8_t raw[128];           // surové dáta paketu
+  uint8_t header[4];          // e.g. "FPPD"
+  uint8_t packet_type;        // e.g. CTRL_PKT_SYNC
+  uint16_t data_len;          // data length
+  uint8_t sync_action;        // action: start, stop, sync, open, etc.
+  uint8_t sync_type;          // sync type, e.g. 0 for FSEQ
+  uint32_t frame_number;      // current frame number
+  float seconds_elapsed;      // elapsed seconds
+  char filename[64];          // name of the file to play
+  uint8_t raw[128];           // raw packet data
 };
+#pragma pack(pop)
 
+// UsermodFPP class: Implements FPP (FSEQ/UDP) functionality
 class UsermodFPP : public Usermod {
   private:
-    AsyncUDP udp;
-    bool udpStarted = false;
-    const IPAddress multicastAddr = IPAddress(239, 70, 80, 80);
-    const uint16_t udpPort = UDP_SYNC_PORT; // UDP port pre FPP discovery
+    AsyncUDP udp;                          // UDP object for FPP discovery/sync
+    bool udpStarted = false;               // Flag to indicate UDP listener status
+    const IPAddress multicastAddr = IPAddress(239, 70, 80, 80); // Multicast address
+    const uint16_t udpPort = UDP_SYNC_PORT; // UDP port
 
-    // Premenné pre upload FSEQ súborov
+    // Variables for FSEQ file upload
     File currentUploadFile;
     String currentUploadFileName = "";
     unsigned long uploadStartTime = 0;
     WriteBufferingStream* uploadStream = nullptr;
 
+    // Returns device name from server description
     String getDeviceName() {
       return String(serverDescription);
     }
 
-    // Sestaví JSON so systémovými informáciami
+    // Build JSON with system information
     String buildSystemInfoJSON() {
       DynamicJsonDocument doc(1024);
       doc["fppd"] = "running";
@@ -142,7 +151,7 @@ class UsermodFPP : public Usermod {
       return json;
     }
 
-    // Sestaví JSON so systémovým statusom
+    // Build JSON with system status
     String buildSystemStatusJSON() {
       DynamicJsonDocument doc(1024);
       doc["fppd"] = "running";
@@ -170,7 +179,7 @@ class UsermodFPP : public Usermod {
       return json;
     }
 
-    // Sestaví JSON pre FPP multi-sync systémy
+    // Build JSON for FPP multi-sync systems
     String buildFppdMultiSyncSystemsJSON() {
       DynamicJsonDocument doc(512);
       String devName = getDeviceName();
@@ -188,12 +197,12 @@ class UsermodFPP : public Usermod {
       return json;
     }
 
-    // Odoslanie ping paketu cez UDP
+    // UDP - send a ping packet
     void sendPingPacket(IPAddress destination = IPAddress(255,255,255,255)) {
       uint8_t buf[301];
       memset(buf, 0, sizeof(buf));
       buf[0] = 'F'; buf[1] = 'P'; buf[2] = 'P'; buf[3] = 'D';
-      buf[4] = 0x04; // ping typ
+      buf[4] = 0x04; // ping type
       uint16_t dataLen = 294;
       buf[5] = (dataLen >> 8) & 0xFF;
       buf[6] = dataLen & 0xFF;
@@ -224,33 +233,37 @@ class UsermodFPP : public Usermod {
       udp.writeTo(buf, sizeof(buf), destination, udpPort);
     }
 
-    // Odoslanie synchronizačnej správy
+    // UDP - send a sync message
     void sendSyncMessage(uint8_t action, const String &fileName, uint32_t currentFrame, float secondsElapsed) {
       FPPMultiSyncPacket syncPacket;
-      // Vyplníme hlavičku "FPPD"
+      // Fill in header "FPPD"
       syncPacket.header[0] = 'F';
       syncPacket.header[1] = 'P';
       syncPacket.header[2] = 'P';
       syncPacket.header[3] = 'D';
       syncPacket.packet_type = CTRL_PKT_SYNC;
-      // Nastavíme dĺžku dát – využijeme veľkosť celej štruktúry
       write16((uint8_t*)&syncPacket.data_len, sizeof(syncPacket));
       syncPacket.sync_action = action;
-      syncPacket.sync_type = 0; // FSEQ synchronizácia
+      syncPacket.sync_type = 0; // FSEQ synchronization
       write32((uint8_t*)&syncPacket.frame_number, currentFrame);
       syncPacket.seconds_elapsed = secondsElapsed;
-      // Skopírujeme názov súboru (ak je dlhší, bude orezaný)
       strncpy(syncPacket.filename, fileName.c_str(), sizeof(syncPacket.filename)-1);
       syncPacket.filename[sizeof(syncPacket.filename)-1] = 0x00;
-
-      // Odosielame paket na broadcast aj multicast adresy
-      udp.writeTo(syncPacket.raw, sizeof(syncPacket), IPAddress(255,255,255,255), udpPort);
-      udp.writeTo(syncPacket.raw, sizeof(syncPacket), multicastAddr, udpPort);
+      // Send to both broadcast and multicast addresses
+      udp.writeTo((uint8_t*)&syncPacket, sizeof(syncPacket), IPAddress(255,255,255,255), udpPort);
+      udp.writeTo((uint8_t*)&syncPacket, sizeof(syncPacket), multicastAddr, udpPort);
     }
 
-    // Spracovanie prijatého UDP paketu
+    // UDP - process received packet
     void processUdpPacket(AsyncUDPPacket packet) {
-      if(packet.length() < 4) return;
+      // Print the raw UDP packet in hex format for debugging
+      DEBUG_PRINTLN(F("[FPP] Raw UDP Packet:"));
+      for (size_t i = 0; i < packet.length(); i++) {
+        DEBUG_PRINTF("%02X ", packet.data()[i]);
+      }
+      DEBUG_PRINTLN();
+
+      if (packet.length() < 4) return;
       if(packet.data()[0] != 'F' || packet.data()[1] != 'P' ||
          packet.data()[2] != 'P' || packet.data()[3] != 'D')
         return;
@@ -259,8 +272,13 @@ class UsermodFPP : public Usermod {
         case CTRL_PKT_SYNC: {
           FPPMultiSyncPacket* syncPacket = reinterpret_cast<FPPMultiSyncPacket*>(packet.data());
           DEBUG_PRINTLN(F("[FPP] Received UDP sync packet"));
-          // Voláme synchronizačnú funkciu pre FSEQ playback, ak ju implementujete
-          // Napríklad: FSEQPlayer::syncFromUdp(syncPacket->filename, syncPacket->seconds_elapsed);
+          // Print detailed sync packet information:
+          DEBUG_PRINTF("[FPP] Sync Packet - Action: %d\n", syncPacket->sync_action);
+          DEBUG_PRINT(F("[FPP] Filename: "));
+          DEBUG_PRINTLN(syncPacket->filename);
+          DEBUG_PRINTF("[FPP] Frame Number: %lu\n", syncPacket->frame_number);
+          DEBUG_PRINTF("[FPP] Seconds Elapsed: %.2f\n", syncPacket->seconds_elapsed);
+          ProcessSyncPacket(syncPacket->sync_action, String(syncPacket->filename), syncPacket->seconds_elapsed);
           break;
         }
         case CTRL_PKT_PING:
@@ -269,7 +287,8 @@ class UsermodFPP : public Usermod {
           break;
         case CTRL_PKT_BLANK:
           DEBUG_PRINTLN(F("[FPP] Received UDP blank packet"));
-          // Prípadne zastavte prehrávanie
+          FSEQPlayer::clearLastPlayback();
+          realtimeLock(10, REALTIME_MODE_INACTIVE);
           break;
         default:
           DEBUG_PRINTLN(F("[FPP] Unknown UDP packet type"));
@@ -277,12 +296,52 @@ class UsermodFPP : public Usermod {
       }
     }
 
+    // Process sync command with detailed debug output
+    void ProcessSyncPacket(uint8_t action, String fileName, float secondsElapsed) {
+      // Ensure the filename is absolute
+      if (!fileName.startsWith("/")) {
+        fileName = "/" + fileName;
+      }
+      
+      DEBUG_PRINTLN(F("[FPP] ProcessSyncPacket: Sync command received"));
+      DEBUG_PRINTF("[FPP] Action: %d\n", action);
+      DEBUG_PRINT(F("[FPP] FileName: "));
+      DEBUG_PRINTLN(fileName);
+      DEBUG_PRINTF("[FPP] Seconds Elapsed: %.2f\n", secondsElapsed);
+
+      switch (action) {
+        case 0: // SYNC_PKT_START
+          FSEQPlayer::loadRecording(fileName.c_str(), 0, strip.getLength(), secondsElapsed);
+          break;
+        case 1: // SYNC_PKT_STOP
+          FSEQPlayer::clearLastPlayback();
+          realtimeLock(10, REALTIME_MODE_INACTIVE);
+          break;
+        case 2: // SYNC_PKT_SYNC
+          DEBUG_PRINTLN(F("[FPP] ProcessSyncPacket: Sync command received"));
+          DEBUG_PRINTF("[FPP] Sync Packet - FileName: %s, Seconds Elapsed: %.2f\n", fileName.c_str(), secondsElapsed);
+          if (!FSEQPlayer::isPlaying()) {
+            DEBUG_PRINTLN(F("[FPP] Sync: Playback not active, starting playback."));
+            FSEQPlayer::loadRecording(fileName.c_str(), 0, strip.getLength(), secondsElapsed);
+          } else {
+            FSEQPlayer::syncPlayback(secondsElapsed);
+          }
+          break;
+        case 3: // SYNC_PKT_OPEN
+          DEBUG_PRINTLN(F("[FPP] Open command received – metadata request (not implemented)"));
+          break;
+        default:
+          DEBUG_PRINTLN(F("[FPP] ProcessSyncPacket: Unknown sync action"));
+          break;
+      }
+    }
+
   public:
     static const char _name[];
 
+    // Setup function called once at startup
     void setup() {
       DEBUG_PRINTF("[%s] FPP Usermod loaded\n", _name);
-      
 #ifdef WLED_USE_SD_SPI
       int8_t csPin   = UsermodFseq::getCsPin();
       int8_t sckPin  = UsermodFseq::getSckPin();
@@ -301,7 +360,7 @@ class UsermodFPP : public Usermod {
       }
 #endif
 
-      // API endpointy
+      // Register API endpoints
       server.on("/api/system/info", HTTP_GET, [this](AsyncWebServerRequest *request) {
         String json = buildSystemInfoJSON();
         request->send(200, "application/json", json);
@@ -314,33 +373,9 @@ class UsermodFPP : public Usermod {
         String json = buildFppdMultiSyncSystemsJSON();
         request->send(200, "application/json", json);
       });
-      server.on("/api/playlists", HTTP_GET, [this](AsyncWebServerRequest *request) {
-        request->send(200, "application/json", "{\"playlists\": []}");
-      });
-      server.on("/api/cape", HTTP_GET, [this](AsyncWebServerRequest *request) {
-        request->send(200, "application/json", "{\"cape\": \"none\"}");
-      });
-      server.on("/api/proxies", HTTP_GET, [this](AsyncWebServerRequest *request) {
-        request->send(200, "application/json", "{\"proxies\": []}");
-      });
-      server.on("/api/channel/output/co-pixelStrings", HTTP_GET, [this](AsyncWebServerRequest *request) {
-        request->send(200, "application/json", "{\"pixelStrings\": []}");
-      });
-      server.on("/api/channel/output/channelOutputsJSON", HTTP_GET, [this](AsyncWebServerRequest *request) {
-        request->send(200, "application/json", "{\"channels\": []}");
-      });
-      server.on("/api/channel/output/co-other", HTTP_GET, [this](AsyncWebServerRequest *request) {
-        request->send(200, "application/json", "{\"other\": []}");
-      });
-      server.on("/proxy/", HTTP_GET, [this](AsyncWebServerRequest *request) {
-        request->send(200, "application/json", "{}");
-      });
-      server.on("/fpp/discover", HTTP_GET, [this](AsyncWebServerRequest *request) {
-        String json = buildSystemInfoJSON();
-        request->send(200, "application/json", json);
-      });
+      // Other API endpoints as needed...
 
-      // Endpoint pre upload súborov (raw dáta, application/octet-stream)
+      // Endpoint for file upload (raw, application/octet-stream)
       server.on("/fpp", HTTP_POST,
         [this](AsyncWebServerRequest *request) {
           if (uploadStream != nullptr) {
@@ -357,7 +392,7 @@ class UsermodFPP : public Usermod {
         NULL,
         [this](AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total) {
           if (index == 0) {
-            DEBUG_PRINTLN("[FPP] Received parameters:");
+            DEBUG_PRINTLN("[FPP] Received upload parameters:");
             for (uint8_t i = 0; i < request->params(); i++) {
               AsyncWebParameter* p = request->getParam(i);
               DEBUG_PRINTF("[FPP] Param %s = %s\n", p->name().c_str(), p->value().c_str());
@@ -367,11 +402,7 @@ class UsermodFPP : public Usermod {
               fileParam = request->arg("filename");
             }
             DEBUG_PRINTF("[FPP] fileParam = %s\n", fileParam.c_str());
-            if (fileParam != "") {
-              currentUploadFileName = fileParam.startsWith("/") ? fileParam : "/" + fileParam;
-            } else {
-              currentUploadFileName = "/default.fseq";
-            }
+            currentUploadFileName = (fileParam != "") ? (fileParam.startsWith("/") ? fileParam : "/" + fileParam) : "/default.fseq";
             DEBUG_PRINTF("[FPP] Using filename: %s\n", currentUploadFileName.c_str());
             if (SD.exists(currentUploadFileName.c_str())) {
               SD.remove(currentUploadFileName.c_str());
@@ -399,6 +430,35 @@ class UsermodFPP : public Usermod {
         }
       );
 
+      // Endpoint to list FSEQ files on SD card
+      server.on("/fseqfilelist", HTTP_GET, [](AsyncWebServerRequest *request) {
+        DynamicJsonDocument doc(1024);
+        JsonArray files = doc.createNestedArray("files");
+        
+        File root = SD_ADAPTER.open("/");
+        if(root && root.isDirectory()){
+          File file = root.openNextFile();
+          while(file){
+            String name = file.name();
+            if(name.endsWith(".fseq") || name.endsWith(".FSEQ")){
+              JsonObject fileObj = files.createNestedObject();
+              fileObj["name"] = name;
+              fileObj["size"] = file.size();
+            }
+            file.close();
+            file = root.openNextFile();
+          }
+        }
+        else {
+          doc["error"] = "Cannot open SD root directory";
+        }
+        
+        String json;
+        serializeJson(doc, json);
+        request->send(200, "application/json", json);
+      });
+      
+      // Endpoint to start FSEQ playback
       server.on("/fpp/connect", HTTP_GET, [this](AsyncWebServerRequest *request) {
         if (!request->hasArg("file")) {
           request->send(400, "text/plain", "Missing 'file' parameter");
@@ -408,28 +468,30 @@ class UsermodFPP : public Usermod {
         if (!filepath.startsWith("/")) {
           filepath = "/" + filepath;
         }
-        // Opravené: používa sa FSEQPlayer namiesto FSEQFile
+        // Use FSEQPlayer to start playback
         FSEQPlayer::loadRecording(filepath.c_str(), 0, strip.getLength());
         request->send(200, "text/plain", "FPP connect started: " + filepath);
       });
+      // Endpoint to stop FSEQ playback
       server.on("/fpp/stop", HTTP_GET, [this](AsyncWebServerRequest *request) {
-        // Opravené: FSEQPlayer namiesto FSEQFile
         FSEQPlayer::clearLastPlayback();
         realtimeLock(10, REALTIME_MODE_INACTIVE);
         request->send(200, "text/plain", "FPP connect stopped");
       });
       
-      // Inicializácia UDP listenera pre synchronizáciu a ping
+      // Initialize UDP listener for synchronization and ping
       if (!udpStarted && (WiFi.status() == WL_CONNECTED)) {
         if (udp.listenMulticast(multicastAddr, udpPort)) {
           udpStarted = true;
           udp.onPacket([this](AsyncUDPPacket packet) {
             processUdpPacket(packet);
           });
+          DEBUG_PRINTLN(F("[FPP] UDP listener started on multicast"));
         }
       }
     }
 
+    // Main loop function
     void loop() {
       if (!udpStarted && (WiFi.status() == WL_CONNECTED)) {
         if (udp.listenMulticast(multicastAddr, udpPort)) {
@@ -437,9 +499,10 @@ class UsermodFPP : public Usermod {
           udp.onPacket([this](AsyncUDPPacket packet) {
             processUdpPacket(packet);
           });
+          DEBUG_PRINTLN(F("[FPP] UDP listener started on multicast"));
         }
       }
-      // Spracovanie prehrávania FSEQ súborov pomocou FSEQPlayer
+      // Process FSEQ playback
       FSEQPlayer::handlePlayRecording();
     }
 

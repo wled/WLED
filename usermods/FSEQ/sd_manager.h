@@ -13,9 +13,9 @@
 class SDManager {
   public:
     SDManager() {}
-    bool begin();      // Inicializácia SD
-    void end();        // Deinitializácia SD
-    String listFiles(const char* dirname);  // Výpis súborov vo forme HTML
+    bool begin();
+    void end();
+    String listFiles(const char* dirname);
     bool deleteFile(const char* path);
 };
 

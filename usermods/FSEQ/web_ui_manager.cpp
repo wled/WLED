@@ -67,7 +67,6 @@ void WebUIManager::registerEndpoints() {
     html += "<div id='uploadStatus'></div>";
     html += "<p><a href='/sd/ui' class='backLink'>BACK</a></p>";
     html += "<script>";
-    // Upload funkcia - rovnako ako predtým
     html += "document.getElementById('uploadForm').addEventListener('submit', function(e) {";
     html += "  e.preventDefault();";
     html += "  var formData = new FormData(this);";
@@ -98,7 +97,7 @@ void WebUIManager::registerEndpoints() {
     request->send(200, "text/html", html);
   });
 
-  // Endpoint pre upload súborov na SD kartu
+  // Endpoint for uploadind files
   server.on("/sd/upload", HTTP_POST, [](AsyncWebServerRequest *request) {
     request->send(200, "text/plain", "Upload complete");
   }, [](AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool final) {
@@ -124,7 +123,7 @@ void WebUIManager::registerEndpoints() {
     }
   });
 
-  // Endpoint pre mazanie súborov zo SD karty
+  // Endpoint for deleting files
   server.on("/sd/delete", HTTP_GET, [](AsyncWebServerRequest *request) {
     if (!request->hasArg("path")) {
       request->send(400, "text/plain", "Missing 'path' parameter");
@@ -137,7 +136,7 @@ void WebUIManager::registerEndpoints() {
     request->send(200, "text/plain", msg);
   });
   
-  // Výpis FSEQ súborov
+  //  FSEQ list
   server.on("/fseq/list", HTTP_GET, [](AsyncWebServerRequest *request) {
     String html = "<html><head><meta charset='utf-8'><title>FSEQ Files</title>";
     html += "<style>";
@@ -185,7 +184,7 @@ void WebUIManager::registerEndpoints() {
     request->send(200, "text/html", html);
   });
   
-  // Endpoint pre spustenie FSEQ prehrávania
+  // Endpoint for playing FSEQ
   server.on("/fseq/start", HTTP_GET, [](AsyncWebServerRequest *request) {
     if (!request->hasArg("file")) {
       request->send(400, "text/plain", "Missing 'file' parameter");
@@ -197,7 +196,7 @@ void WebUIManager::registerEndpoints() {
     request->send(200, "text/plain", "FSEQ started: " + filepath);
   });
   
-  // Endpoint pre zastavenie FSEQ prehrávania
+  // Endpoint for stop playing FSEQ 
   server.on("/fseq/stop", HTTP_GET, [](AsyncWebServerRequest *request) {
     FSEQPlayer::clearLastPlayback();
     realtimeLock(10, REALTIME_MODE_INACTIVE);

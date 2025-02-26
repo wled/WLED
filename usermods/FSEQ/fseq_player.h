@@ -36,6 +36,8 @@ public:
   static void loadRecording(const char* filepath, uint16_t startLed, uint16_t stopLed, float secondsElapsed = 0.0f);
   static void handlePlayRecording();
   static void clearLastPlayback();
+  static void syncPlayback(float secondsElapsed);
+  static bool isPlaying();
 
 private:
   FSEQPlayer() {}

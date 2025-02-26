@@ -3,7 +3,7 @@
 
 #include "wled.h"
 
-// Trieda zodpovedná za registráciu web endpointov pre SD a FSEQ správu.
+
 class WebUIManager {
   public:
     WebUIManager() {}
