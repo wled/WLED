@@ -503,7 +503,9 @@ void Segment::setGeometry(uint16_t i1, uint16_t i2, uint8_t grp, uint8_t spc, ui
   #ifndef WLED_DISABLE_2D
   boundsUnchanged &= (startY == i1Y && stopY == i2Y); // 2D
   #endif
+  boundsUnchanged &= (grouping == grp && spacing == spc); // changing grouping and/or spacing changes virtual segment length (painting dimensions)
 
+  if (stop && (spc > 0 || m12 != map1D2D)) clear();
   if (grp) { // prevent assignment of 0
     grouping = grp;
     spacing = spc;
@@ -511,14 +513,12 @@ void Segment::setGeometry(uint16_t i1, uint16_t i2, uint8_t grp, uint8_t spc, ui
     grouping = 1;
     spacing = 0;
   }
-  if (stop && (spc > 0 || m12 != map1D2D)) boundsUnchanged = false;
-
-  if (boundsUnchanged) return;
-
   if (ofs < UINT16_MAX) offset = ofs;
   map1D2D  = constrain(m12, 0, 7);
 
-  DEBUGFX_PRINTF_P(PSTR("Segment geometry: %d,%d -> %d,%d\n"), (int)i1, (int)i2, (int)i1Y, (int)i2Y);
+  if (boundsUnchanged) return;
+
+  DEBUGFX_PRINTF_P(PSTR("Segment geometry: %d,%d -> %d,%d [%d,%d]\n"), (int)i1, (int)i2, (int)i1Y, (int)i2Y, (int)grp, (int)spc);
   markForReset();
   stateChanged = true; // send UDP/WS broadcast
 
@@ -1708,13 +1708,13 @@ void WS2812FX::blendSegment(const Segment &topSegment) {
   const auto func  = funcs[blendMode]; // blendMode % (sizeof(funcs) / sizeof(FuncType))
   const auto blend = [&](uint32_t top, uint32_t bottom){ return RGBW32(func(R(top),R(bottom)), func(G(top),G(bottom)), func(B(top),B(bottom)), func(W(top),W(bottom))); };
 
-  topSegment.setDrawDimensions();         // required for seg.getPixelColor()
-  const int  len = topSegment.length();   // physical segment length (counts all pixels in 2D segment)
-  const auto XY  = [](int x, int y){ return x + y*Segment::maxWidth; };
-  const size_t matrixSize = Segment::maxWidth * Segment::maxHeight;
-  const size_t startIndx  = XY(topSegment.start, topSegment.startY);
-  const size_t stopIndx   = startIndx + len;
-  const unsigned opacity  = topSegment.currentBri(); // determines amount of a applied over b in blend fuctions
+  topSegment.setDrawDimensions();                     // required for seg.getPixelColor()
+  const int     length     = topSegment.length();     // physical segment length (counts all pixels in 2D segment)
+  const uint8_t opacity    = topSegment.currentBri(); // determines amount of a applied over b in blend fuctions
+  const auto    XY         = [](int x, int y){ return x + y*Segment::maxWidth; };
+  const size_t  matrixSize = Segment::maxWidth * Segment::maxHeight;
+  const size_t  startIndx  = XY(topSegment.start, topSegment.startY);
+  const size_t  stopIndx   = startIndx + length;
 
   if (isMatrix && stopIndx <= matrixSize) {
 #ifndef WLED_DISABLE_2D
@@ -1722,6 +1722,7 @@ void WS2812FX::blendSegment(const Segment &topSegment) {
     const int height = topSegment.height();
     const int cols = Segment::vWidth();   // use precalculated value from setDrawDimensions()
     const int rows = Segment::vHeight();  // use precalculated value from setDrawDimensions()
+
     const auto setMirroredPixel = [&](int x, int y, uint32_t col) {
       const int baseX = topSegment.start  + x;
       const int baseY = topSegment.startY + y;
@@ -1739,6 +1740,7 @@ void WS2812FX::blendSegment(const Segment &topSegment) {
         if (topSegment.mirror && topSegment.mirror_y) pixels[idxMM] = color_blend(pixels[idxMM], blend(col, pixels[idxMM]), opacity);
       }
     };
+
     for (int r = 0; r < rows; r++) for (int c = 0; c < cols; c++) {
       // get segment's pixel
       const uint32_t c_a = topSegment.getPixelColorXY(c,r);
@@ -1766,19 +1768,21 @@ void WS2812FX::blendSegment(const Segment &topSegment) {
 #endif
   } else {
     const int vLen = Segment::vLength();   // use precalculated value from setDrawDimensions()
+
     const auto setMirroredPixel = [&](int i, uint32_t col) {
       int indx = topSegment.start + i;
       // Apply mirroring
       if (topSegment.mirror) {
         unsigned indxM = topSegment.stop - i - 1;
         indxM += topSegment.offset; // offset/phase
-        if (indxM >= topSegment.stop) indxM -= len; // wrap
+        if (indxM >= topSegment.stop) indxM -= length; // wrap
         pixels[indxM] = color_blend(pixels[indxM], blend(col, pixels[indxM]), opacity);
       }
       indx += topSegment.offset; // offset/phase
-      if (indx >= topSegment.stop) indx -= len; // wrap
+      if (indx >= topSegment.stop) indx -= length; // wrap
       pixels[indx] = color_blend(pixels[indx], blend(col, pixels[indx]), opacity);
     };
+
     for (int k = 0; k < vLen; k++) {
       // get segment's pixel
       const uint32_t c_a = topSegment.getPixelColor(k);
@@ -1787,7 +1791,7 @@ void WS2812FX::blendSegment(const Segment &topSegment) {
       // expand pixel
       i *= topSegment.groupLength();
       // set all the pixels in the group
-      const int maxI = std::min(i + topSegment.grouping, len); // make sure to not go beyond physical length
+      const int maxI = std::min(i + topSegment.grouping, length); // make sure to not go beyond physical length
       while (i < maxI) setMirroredPixel(i++, c_a);
     }
   }
