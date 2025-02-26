@@ -1628,15 +1628,17 @@ void WS2812FX::service() {
               break;
           }
           frameDelay = (*_mode[m])();         // run new/current mode
-          // now run old/previous mode
-          Segment::tmpsegd_t _tmpSegData;
-          Segment::modeBlend(true);           // set semaphore
-          seg.swapSegenv(_tmpSegData);        // temporarily store new mode state (and swap it with transitional state)
-          seg.beginDraw();                    // set up parameters for get/setPixelColor()
-          frameDelay = min(frameDelay, (unsigned)(*_mode[seg.currentMode()])());  // run old mode
-          seg.call++;                         // increment old mode run counter
-          seg.restoreSegenv(_tmpSegData);     // restore mode state (will also update transitional state)
-          Segment::modeBlend(false);          // unset semaphore
+          if (!(sameEffect && blendingStyle == BLEND_STYLE_FADE)) {
+            // now run old/previous mode if it is different or blend style != FADE
+            Segment::tmpsegd_t _tmpSegData;
+            Segment::modeBlend(true);         // set semaphore
+            seg.swapSegenv(_tmpSegData);      // temporarily store new mode state (and swap it with transitional state)
+            seg.beginDraw();                  // set up parameters for get/setPixelColor()
+            frameDelay = min(frameDelay, (unsigned)(*_mode[seg.currentMode()])());  // run old mode
+            seg.call++;                       // increment old mode run counter
+            seg.restoreSegenv(_tmpSegData);   // restore mode state (will also update transitional state)
+            Segment::modeBlend(false);        // unset semaphore
+          }
           blendingStyle = orgBS;              // restore blending style if it was modified for single pixel segment
         } else
 #endif
