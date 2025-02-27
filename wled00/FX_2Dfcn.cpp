@@ -143,34 +143,9 @@ void WS2812FX::setUpMatrix() {
 ///////////////////////////////////////////////////////////
 
 #ifndef WLED_DISABLE_2D
-/*
-// raw setColor function without checks (checks are done in setPixelColorXY())
-void IRAM_ATTR Segment::_setPixelColorXY_raw(int x, int y, uint32_t col) const {
-  const int baseX = start + x;
-  const int baseY = startY + y;
-#ifndef WLED_DISABLE_MODE_BLEND
-  // if blending modes, blend with underlying pixel
-  if (_modeBlend && blendingStyle == BLEND_STYLE_FADE) col = color_blend16(strip.getPixelColorXY(baseX, baseY), col, 0xFFFFU - progress());
-#endif
-  strip.setPixelColorXY(baseX, baseY, col);
-
-  // Apply mirroring
-  if (mirror || mirror_y) {
-    const int mirrorX = start + width() - x - 1;
-    const int mirrorY = startY + height() - y - 1;
-    if (mirror)             strip.setPixelColorXY(transpose ? baseX : mirrorX, transpose ? mirrorY : baseY, col);
-    if (mirror_y)           strip.setPixelColorXY(transpose ? mirrorX : baseX, transpose ? baseY : mirrorY, col);
-    if (mirror && mirror_y) strip.setPixelColorXY(mirrorX, mirrorY, col);
-  }
-}
-*/
-
-// pixel is clipped if it falls outside clipping range (_modeBlend==true) or is inside clipping range (_modeBlend==false)
+// pixel is clipped if it falls outside clipping range (Segment::isPreviousMode()) or is inside clipping range (!Segment::isPreviousMode())
 // if clipping start > stop the clipping range is inverted
-// _modeBlend==true  -> old effect during transition
-// _modeBlend==false -> new effect during transition
 bool IRAM_ATTR Segment::isPixelXYClipped(int x, int y) const {
-#ifndef WLED_DISABLE_MODE_BLEND
   if (_clipStart != _clipStop && blendingStyle != BLEND_STYLE_FADE) {
     const bool invertX = _clipStart > _clipStop;
     const bool invertY = _clipStartY > _clipStopY;
@@ -188,11 +163,10 @@ bool IRAM_ATTR Segment::isPixelXYClipped(int x, int y) const {
     }
     bool xInside = (x >= startX && x < stopX); if (invertX) xInside = !xInside;
     bool yInside = (y >= startY && y < stopY); if (invertY) yInside = !yInside;
-    const bool clip = (invertX && invertY) ? !_modeBlend : _modeBlend;
+    const bool clip = (invertX && invertY) ? !Segment::isPreviousMode() : Segment::isPreviousMode();
     if (xInside && yInside) return clip; // covers window & corners (inverted)
     return !clip;
   }
-#endif
   return false;
 }
 
@@ -204,48 +178,9 @@ void IRAM_ATTR Segment::setPixelColorXY(int x, int y, uint32_t col) const
   const int vH = vHeight();  // segment height in logical pixels (is always >= 1)
   const auto XY = [&](int x, int y){ return x + y*vW; };
 
-#ifndef WLED_DISABLE_MODE_BLEND
-  unsigned prog = 0xFFFF - progress();
-  if (!prog && !_modeBlend && (blendingStyle & BLEND_STYLE_PUSH_MASK)) {
-    unsigned dX = (blendingStyle == BLEND_STYLE_PUSH_UP   || blendingStyle == BLEND_STYLE_PUSH_DOWN)  ? 0 : prog * vW / 0xFFFF;
-    unsigned dY = (blendingStyle == BLEND_STYLE_PUSH_LEFT || blendingStyle == BLEND_STYLE_PUSH_RIGHT) ? 0 : prog * vH / 0xFFFF;
-    if (blendingStyle == BLEND_STYLE_PUSH_LEFT || blendingStyle == BLEND_STYLE_PUSH_TL || blendingStyle == BLEND_STYLE_PUSH_BL) x += dX;
-    else                                                                                                                        x -= dX;
-    if (blendingStyle == BLEND_STYLE_PUSH_DOWN || blendingStyle == BLEND_STYLE_PUSH_TL || blendingStyle == BLEND_STYLE_PUSH_TR) y -= dY;
-    else                                                                                                                        y += dY;
-  }
-#endif
+  if (x >= vW || y >= vH || x < 0 || y < 0) return;  // if pixel would fall out of virtual segment just exit
 
-  if (x >= vW || y >= vH || x < 0 || y < 0 || isPixelXYClipped(x,y)) return;  // if pixel would fall out of virtual segment just exit
-
-  // if color is unscaled
-  //if (!_colorScaled) col = color_fade(col, _segBri);
-
-#ifndef WLED_DISABLE_MODE_BLEND
-  // if blending modes, blend with underlying pixel
-  if (_modeBlend && blendingStyle == BLEND_STYLE_FADE) col = color_blend16(pixels[XY(x,y)], col, prog);
-#endif
   pixels[XY(x,y)] = col;
-/*
-  if (reverse  ) x = vW - x - 1;
-  if (reverse_y) y = vH - y - 1;
-  if (transpose) { std::swap(x,y); } // swap X & Y if segment transposed
-  unsigned groupLen = groupLength();
-
-  if (groupLen > 1) {
-    x *= groupLen; // expand to physical pixels
-    y *= groupLen; // expand to physical pixels
-    const int maxY = std::min(y + grouping, vH);
-    const int maxX = std::min(x + grouping, vW);
-    for (int yY = y; yY < maxY; yY++) {
-      for (int xX = x; xX < maxX; xX++) {
-        _setPixelColorXY_raw(xX, yY, col);
-      }
-    }
-  } else {
-    _setPixelColorXY_raw(x, y, col);
-  }
-*/
 }
 
 #ifdef WLED_USE_AA_PIXELS
@@ -299,30 +234,9 @@ uint32_t IRAM_ATTR Segment::getPixelColorXY(int x, int y) const {
   const int vH = vHeight();
   const auto XY = [&](int x, int y){ return x + y*vW; };
 
-#ifndef WLED_DISABLE_MODE_BLEND
-  unsigned prog = 0xFFFF - progress();
-  if (!prog && !_modeBlend && (blendingStyle & BLEND_STYLE_PUSH_MASK)) {
-    unsigned dX = (blendingStyle == BLEND_STYLE_PUSH_UP   || blendingStyle == BLEND_STYLE_PUSH_DOWN)  ? 0 : prog * vW / 0xFFFF;
-    unsigned dY = (blendingStyle == BLEND_STYLE_PUSH_LEFT || blendingStyle == BLEND_STYLE_PUSH_RIGHT) ? 0 : prog * vH / 0xFFFF;
-    if (blendingStyle == BLEND_STYLE_PUSH_LEFT || blendingStyle == BLEND_STYLE_PUSH_TL || blendingStyle == BLEND_STYLE_PUSH_BL) x -= dX;
-    else                                                                                                                        x += dX;
-    if (blendingStyle == BLEND_STYLE_PUSH_DOWN || blendingStyle == BLEND_STYLE_PUSH_TL || blendingStyle == BLEND_STYLE_PUSH_TR) y -= dY;
-    else                                                                                                                        y += dY;
-  }
-#endif
-
-  if (x >= vW || y >= vH || x<0 || y<0 || isPixelXYClipped(x,y)) return 0;  // if pixel would fall out of virtual segment just exit
+  if (x >= vW || y >= vH || x<0 || y<0) return 0;  // if pixel would fall out of virtual segment just exit
 
   return pixels[XY(x,y)];
-/*
-  if (reverse  ) x = vW - x - 1;
-  if (reverse_y) y = vH - y - 1;
-  if (transpose) { std::swap(x,y); } // swap X & Y if segment transposed
-  x *= groupLength(); // expand to physical pixels
-  y *= groupLength(); // expand to physical pixels
-  if (x >= width() || y >= height()) return 0;
-  return strip.getPixelColorXY(start + x, startY + y);
-*/
 }
 
 // 2D blurring, can be asymmetrical

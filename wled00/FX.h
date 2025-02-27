@@ -101,8 +101,10 @@ extern byte realtimeMode;           // used in getMappedPixelIndex()
 #define MIN_SHOW_DELAY   (_frametime < 16 ? 8 : 15)
 
 #define NUM_COLORS       3 /* number of colors per segment */
-#define SEGMENT          strip._segments[strip.getCurrSegmentId()]
-#define SEGENV           strip._segments[strip.getCurrSegmentId()]
+//#define SEGMENT          strip._segments[strip.getCurrSegmentId()]
+//#define SEGENV           strip._segments[strip.getCurrSegmentId()]
+#define SEGMENT          (*strip._currentSegment)
+#define SEGENV           (*strip._currentSegment)
 #define SEGCOLOR(x)      Segment::getCurrentColor(x)
 #define SEGPALETTE       Segment::getCurrentPalette()
 #define SEGLEN           Segment::vLength()
@@ -389,37 +391,6 @@ typedef struct Segment {
     byte     *data; // effect data pointer
     static uint16_t maxWidth, maxHeight;  // these define matrix width & height (max. segment dimensions)
 
-    typedef struct TemporarySegmentData {
-      uint16_t _optionsT;
-      uint32_t _colorT[NUM_COLORS];
-      uint8_t  _speedT;
-      uint8_t  _intensityT;
-      uint8_t  _custom1T, _custom2T;   // custom FX parameters/sliders
-      struct {
-        uint8_t _custom3T : 5;        // reduced range slider (0-31)
-        bool    _check1T  : 1;        // checkmark 1
-        bool    _check2T  : 1;        // checkmark 2
-        bool    _check3T  : 1;        // checkmark 3
-      };
-      uint16_t _aux0T;
-      uint16_t _aux1T;
-      uint32_t _stepT;
-      uint32_t _callT;
-      uint8_t *_dataT;
-      unsigned _dataLenT;
-      TemporarySegmentData()
-        : _dataT(nullptr) // just in case...
-        , _dataLenT(0)
-      {}
-      /*
-      // oddly enough this adds 160 bytes to the code
-      ~TemporarySegmentData() {
-        d_free(_dataT);
-        _dataT = nullptr;
-      }
-      */
-    } tmpsegd_t;
-
   private:
     union {
       uint8_t  _capabilities;
@@ -442,27 +413,17 @@ typedef struct Segment {
     static CRGBPalette16 _currentPalette;     // palette used for current effect (includes transition, used in color_from_palette())
     static CRGBPalette16 _randomPalette;      // actual random palette
     static CRGBPalette16 _newRandomPalette;   // target random palette
-    static uint16_t _lastPaletteChange;       // last random palette change time in millis()/1000
-    static uint16_t _lastPaletteBlend;        // blend palette according to set Transition Delay in millis()%0xFFFF
-    static uint16_t _transitionProgress;      // transition progression between 0-65535
-    #ifndef WLED_DISABLE_MODE_BLEND
+    static uint16_t      _lastPaletteChange;  // last random palette change time in millis()/1000
+    static uint16_t      _lastPaletteBlend;   // blend palette according to set Transition Delay in millis()%0xFFFF
+    static uint16_t      _transitionProgress; // transition progression between 0-65535
     static bool          _modeBlend;          // mode/effect blending semaphore
     // clipping
     static uint16_t _clipStart, _clipStop;
     static uint8_t  _clipStartY, _clipStopY;
-    #endif
 
     // transition data, valid only if transitional==true, holds values during transition (72 bytes)
     struct Transition {
-      #ifndef WLED_DISABLE_MODE_BLEND
-      tmpsegd_t     _segT;        // previous segment environment
-      uint8_t       _modeT;       // previous mode/effect
-      #else
-      uint32_t      _colorT[NUM_COLORS];
-      #endif
-      uint8_t       _palTid;      // previous palette
-      uint8_t       _briT;        // temporary brightness
-      uint8_t       _cctT;        // temporary CCT
+      Segment      *_oldSegment;  // previous segment environment
       CRGBPalette16 _palT;        // temporary palette
       uint8_t       _prevPaletteBlends; // number of previous palette blends (there are max 255 blends possible)
       unsigned long _start;       // must accommodate millis()
@@ -473,11 +434,11 @@ typedef struct Segment {
         , _start(millis())
         , _dur(dur)
       {}
+      ~Transition() {
+        _oldSegment->~Segment();
+        d_free(_oldSegment);
+      }
     } *_t;
-
-  #ifndef WLED_DISABLE_2D
-    [[gnu::hot]] void _setPixelColorXY_raw(int x, int y, uint32_t col) const; // set pixel without mapping (internal use only)
-  #endif
 
   public:
 
@@ -516,9 +477,7 @@ typedef struct Segment {
       _dataLen(0),
       _t(nullptr)
     {
-      #ifdef WLED_DEBUG_FX
-      //Serial.printf("-- Creating segment: %p\n", this);
-      #endif
+      DEBUGFX_PRINTF_P(PSTR("-- Creating segment: %p\n"), this);
       // allocate render buffer
       pixels = static_cast<uint32_t*>(d_malloc(sizeof(uint32_t) * (stop-start) * (stopY-startY))); // it is good here not to use virtualLength() as groupSize()==1
     }
@@ -528,10 +487,9 @@ typedef struct Segment {
 
     ~Segment() {
       #ifdef WLED_DEBUG_FX
-      //Serial.printf("-- Destroying segment: %p", this);
-      //if (name) Serial.printf(" %s (%p)", name, name);
-      //if (data) Serial.printf(" %d->(%p)", (int)_dataLen, data);
-      //Serial.println();
+      DEBUGFX_PRINTF_P(PSTR("-- Destroying segment: %p"), this);
+      if (name) DEBUGFX_PRINTF_P(PSTR(" %s (%p)"), name, name);
+      if (data) DEBUGFX_PRINTF_P(PSTR(" %d->(%p)\n"), (int)_dataLen, data);
       #endif
       clearName();
       stopTransition();
@@ -564,9 +522,8 @@ typedef struct Segment {
 
     inline static unsigned getUsedSegmentData()            { return Segment::_usedSegmentData; }
     inline static void     addUsedSegmentData(int len)     { Segment::_usedSegmentData += len; }
-    #ifndef WLED_DISABLE_MODE_BLEND
-    inline static void     modeBlend(bool blend)           { _modeBlend = blend; }
-    #endif
+    inline static void     modeBlend(bool blend)           { Segment::_modeBlend = blend; }
+    inline static bool     isPreviousMode()                { return Segment::_modeBlend; }
     inline static unsigned vLength()                       { return Segment::_vLength; }
     inline static unsigned vWidth()                        { return Segment::_vWidth; }
     inline static unsigned vHeight()                       { return Segment::_vHeight; }
@@ -604,23 +561,20 @@ typedef struct Segment {
     // transition functions
     void     startTransition(uint16_t dur);     // transition has to start before actual segment values change
     void     stopTransition();                  // ends transition mode by destroying transition structure (does nothing if not in transition)
-    inline void handleTransition() {            // only used once, hence inline
+    inline void updateTransitionProgress() {
       Segment::_transitionProgress = 0xFFFF;
       if (isInTransition()) {
         unsigned diff = millis() - _t->_start;
         if (_t->_dur > 0 && diff < _t->_dur) Segment::_transitionProgress = diff * 0xFFFFU / _t->_dur;
-        if (Segment::_transitionProgress == 0xFFFFU) stopTransition();
       }
     }
-    #ifndef WLED_DISABLE_MODE_BLEND
-    void     saveSegenv(tmpsegd_t &tmpSeg) const; // save current segment runtime data to a (temporary) struct
-    void     loadSegenv(const tmpsegd_t &tmpSeg); // loads (temporary) segment runtime data into current segment
-    void     swapSegenv(tmpsegd_t &tmpSegD);      // saves current segment runtime data and loads transition runtime data into current segment
-    void     restoreSegenv(const tmpsegd_t &tmpSegD); // restores segment runtime data from buffer and updates transition runtime data
-    #endif
-    inline unsigned progress() const { return _t ? Segment::_transitionProgress : 0xFFFFU; } // relies on handleTransition() to update progression variable
+    inline void handleTransition() {
+      updateTransitionProgress();
+      if (progress() == 0xFFFFU) stopTransition();
+    }
+    inline unsigned progress() const { return Segment::_transitionProgress; } // relies on handleTransition() to update progression variable
+    inline Segment *getOldSegment() const { if (isInTransition()) return _t->_oldSegment; else return nullptr; }
     uint8_t  currentBri(bool useCct = false) const; // current segment brightness/CCT (blended while in transition)
-    uint8_t  currentMode() const;                   // currently active effect/mode (while in transition)
     uint32_t currentColor(uint8_t slot) const;      // currently active segment color (blended while in transition)
     CRGBPalette16 &loadPalette(CRGBPalette16 &tgt, uint8_t pal);
 
@@ -635,9 +589,7 @@ typedef struct Segment {
     inline void setPixelColor(float i, uint8_t r, uint8_t g, uint8_t b, uint8_t w = 0, bool aa = true) const { setPixelColor(i, RGBW32(r,g,b,w), aa); }
     inline void setPixelColor(float i, CRGB c, bool aa = true) const                                         { setPixelColor(i, RGBW32(c.r,c.g,c.b,0), aa); }
     #endif
-    #ifndef WLED_DISABLE_MODE_BLEND
     static inline void setClippingRect(int startX, int stopX, int startY = 0, int stopY = 1) { _clipStart = startX; _clipStop = stopX; _clipStartY = startY; _clipStopY = stopY; };
-    #endif
     [[gnu::hot]] bool isPixelClipped(int i) const;
     [[gnu::hot]] uint32_t getPixelColor(int i) const;
     // 1D support functions (some implement 2D as well)
@@ -834,7 +786,7 @@ class WS2812FX {  // 96 bytes
       makeAutoSegments(bool forceReset = false),  // will create segments based on configured outputs
       fixInvalidSegments(),                       // fixes incorrect segment configuration
       setPixelColor(unsigned n, uint32_t c) const,      // paints absolute strip pixel with index n and color c
-      blendSegment(const Segment &topSegment),
+      blendSegment(Segment &topSegment) const,    // blends topSegment into pixels
       show(),                                     // initiates LED output
       setTargetFps(unsigned fps),
       setupEffectData();                          // add default effects to the list; defined in FX.cpp
@@ -964,11 +916,13 @@ class WS2812FX {  // 96 bytes
       bool cctFromRgb   : 1;
     };
 
-    std::vector<segment> _segments;
+    Segment *_currentSegment;
     friend struct Segment;
 
   private:
     volatile bool _suspend;
+
+    std::vector<segment> _segments;
 
     uint16_t _length;
     uint8_t  _brightness;
