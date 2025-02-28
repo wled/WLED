@@ -100,6 +100,7 @@ Segment::Segment(const Segment &orig) {
   name = nullptr;
   data = nullptr;
   _dataLen = 0;
+  effect.release(); // The ownership still lies with orig, but unique_ptr was memcpy'd, so remove the pointer here without destroying the effect.
   if (orig.name) { name = static_cast<char*>(malloc(strlen(orig.name)+1)); if (name) strcpy(name, orig.name); }
   if (orig.data) { if (allocateData(orig._dataLen)) memcpy(data, orig.data, orig._dataLen); }
 }
@@ -112,6 +113,7 @@ Segment::Segment(Segment &&orig) noexcept {
   orig.name = nullptr;
   orig.data = nullptr;
   orig._dataLen = 0;
+  orig.effect.release(); // The ownership lies with this, but unique_ptr was memcpy'd, so remove the pointer in orig without destroying the effect.
 }
 
 // copy assignment
@@ -127,6 +129,7 @@ Segment& Segment::operator= (const Segment &orig) {
     // erase pointers to allocated data
     data = nullptr;
     _dataLen = 0;
+    effect.release(); // The ownership still lies with orig, but unique_ptr was memcpy'd, so remove the pointer here without destroying the effect.
     // copy source data
     if (orig.name) { name = static_cast<char*>(malloc(strlen(orig.name)+1)); if (name) strcpy(name, orig.name); }
     if (orig.data) { if (allocateData(orig._dataLen)) memcpy(data, orig.data, orig._dataLen); }
@@ -146,6 +149,7 @@ Segment& Segment::operator= (Segment &&orig) noexcept {
     orig.data = nullptr;
     orig._dataLen = 0;
     orig._t   = nullptr; // old segment cannot be in transition
+    orig.effect.release(); // The ownership lies with this, but unique_ptr was memcpy'd, so remove the pointer in orig without destroying the effect.
   }
   return *this;
 }

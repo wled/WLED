@@ -578,6 +578,7 @@ typedef struct Segment {
       if (name) { free(name); name = nullptr; }
       stopTransition();
       deallocateData();
+      effect = nullptr;
     }
 
     Segment& operator= (const Segment &orig); // copy assignment
