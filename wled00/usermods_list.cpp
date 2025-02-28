@@ -479,6 +479,10 @@ void registerUsermods()
   UsermodManager::add(new UsermodINA226());
   #endif
   
+  #ifdef USERMOD_INA219
+  UsermodManager::add(new UsermodINA219());
+  #endif
+  
   #ifdef USERMOD_LD2410
   UsermodManager::add(new LD2410Usermod());
   #endif
@@ -497,9 +501,5 @@ void registerUsermods()
   
   #ifdef USERMOD_BRIGHTNESS_FOLLOW_SUN
   UsermodManager::add(new UsermodBrightnessFollowSun());
-  #endif
-  
-  #ifdef USERMOD_INA219
-  UsermodManager::add(new UsermodINA219());
   #endif
 }
