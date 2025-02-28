@@ -309,9 +309,10 @@ void Segment::stopTransition() {
 uint8_t Segment::currentBri(bool useCct) const {
   unsigned prog = progress();
   uint32_t curBri = useCct ? cct : (on ? opacity : 0);
-  if (prog < 0xFFFFU && !Segment::isPreviousMode() && blendingStyle == BLEND_STYLE_FADE) {
+  if (prog < 0xFFFFU) {
     // this will blend opacity/CCT in new mode if style is FADE (single effect call)
-    uint8_t tmpBri = useCct ? _t->_oldSegment->cct : _t->_oldSegment->opacity;
+    uint8_t tmpBri = useCct ? _t->_oldSegment->cct : (_t->_oldSegment->options & 0x0004 ? _t->_oldSegment->opacity : 0);
+    if (blendingStyle != BLEND_STYLE_FADE) return Segment::isPreviousMode() ? tmpBri : curBri;
     curBri *=  prog;
     curBri += tmpBri * (0xFFFFU - prog);
     return curBri / 0xFFFFU;
@@ -319,14 +320,29 @@ uint8_t Segment::currentBri(bool useCct) const {
   return curBri;
 }
 
+uint8_t Segment::currentMode() const {
+  unsigned prog = progress();
+  if (prog == 0xFFFFU) return mode;
+  if (blendingStyle != BLEND_STYLE_FADE) {
+    // workaround for on/off transition to respect blending style
+    uint8_t modeT = (bri != briT) &&  bri ? FX_MODE_STATIC : _t->_oldSegment->mode; // On/Off transition active (bri!=briT) and final bri>0 : old mode is STATIC
+    uint8_t modeS = (bri != briT) && !bri ? FX_MODE_STATIC : mode;                  // On/Off transition active (bri!=briT) and final bri==0 : new mode is STATIC
+    return Segment::isPreviousMode() ? modeT : modeS;
+  }
+  return Segment::isPreviousMode() ? _t->_oldSegment->mode : mode;
+}
+
 uint32_t Segment::currentColor(uint8_t slot) const {
   if (slot >= NUM_COLORS) slot = 0;
   unsigned prog = progress();
-  if (prog < 0xFFFFU && !Segment::isPreviousMode() && blendingStyle == BLEND_STYLE_FADE) {
-    // this will blend old and new colors in new mode if style is FADE (single effect call)
-    return color_blend16(_t->_oldSegment->colors[slot], colors[slot], prog);
+  if (prog == 0xFFFFU) return colors[slot];
+  if (blendingStyle != BLEND_STYLE_FADE) {
+    // workaround for on/off transition to respect blending style
+    uint32_t colT = (bri != briT) &&  bri ? BLACK : _t->_oldSegment->colors[slot];  // On/Off transition active (bri!=briT) and final bri>0 : old color is BLACK
+    uint32_t colS = (bri != briT) && !bri ? BLACK : colors[slot];             // On/Off transition active (bri!=briT) and final bri==0 : new color is BLACK
+    return Segment::isPreviousMode() ? colT : colS;    // _modeBlend==true -> old effect
   }
-  return colors[slot];
+  return color_blend16(_t->_oldSegment->colors[slot], colors[slot], prog);
 }
 
 // pre-calculate drawing parameters for faster access (based on the idea from @softhack007 from MM fork)
@@ -1395,7 +1411,7 @@ static uint8_t _softlight (uint8_t a, uint8_t b) { return (b * b * (255 - 2 * a)
 static uint8_t _dodge     (uint8_t a, uint8_t b) { return _divide(~a,b); }
 static uint8_t _burn      (uint8_t a, uint8_t b) { return ~_divide(a,~b); }
 
-void WS2812FX::blendSegment(Segment &topSegment) const {
+void WS2812FX::blendSegment(const Segment &topSegment) const {
 
   typedef uint8_t(*FuncType)(uint8_t, uint8_t);
   FuncType funcs[] = {

@@ -575,6 +575,7 @@ typedef struct Segment {
     inline unsigned progress() const { return Segment::_transitionProgress; } // relies on handleTransition() to update progression variable
     inline Segment *getOldSegment() const { if (isInTransition()) return _t->_oldSegment; else return nullptr; }
     uint8_t  currentBri(bool useCct = false) const; // current segment brightness/CCT (blended while in transition)
+    uint8_t  currentMode() const;                   // currently active effect/mode (while in transition)
     uint32_t currentColor(uint8_t slot) const;      // currently active segment color (blended while in transition)
     CRGBPalette16 &loadPalette(CRGBPalette16 &tgt, uint8_t pal);
 
@@ -786,7 +787,7 @@ class WS2812FX {  // 96 bytes
       makeAutoSegments(bool forceReset = false),  // will create segments based on configured outputs
       fixInvalidSegments(),                       // fixes incorrect segment configuration
       setPixelColor(unsigned n, uint32_t c) const,      // paints absolute strip pixel with index n and color c
-      blendSegment(Segment &topSegment) const,    // blends topSegment into pixels
+      blendSegment(const Segment &topSegment) const,    // blends topSegment into pixels
       show(),                                     // initiates LED output
       setTargetFps(unsigned fps),
       setupEffectData();                          // add default effects to the list; defined in FX.cpp
