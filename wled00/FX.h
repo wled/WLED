@@ -405,7 +405,6 @@ typedef struct Segment {
     uint8_t         _default_palette;         // palette number that gets assigned to pal0
     unsigned        _dataLen;
     static unsigned _usedSegmentData;
-    static uint8_t  _segBri;                  // brightness of segment for current effect
     static unsigned _vLength;                 // 1D dimension used for current effect
     static unsigned _vWidth, _vHeight;        // 2D dimensions used for current effect
     static uint32_t _currentColors[NUM_COLORS]; // colors used for current effect
@@ -529,7 +528,6 @@ typedef struct Segment {
     inline static unsigned vHeight()                       { return Segment::_vHeight; }
     inline static uint32_t getCurrentColor(unsigned i)     { return Segment::_currentColors[i]; } // { return i < 3 ? Segment::_currentColors[i] : 0; }
     inline static const CRGBPalette16 &getCurrentPalette() { return Segment::_currentPalette; }
-    inline static uint8_t getCurrentBrightness()           { return Segment::_segBri; }
     static void handleRandomPalette();
 
     inline void setDrawDimensions() const { Segment::_vWidth = virtualWidth(); Segment::_vHeight = virtualHeight(); Segment::_vLength = virtualLength(); }
@@ -787,7 +785,7 @@ class WS2812FX {  // 96 bytes
       makeAutoSegments(bool forceReset = false),  // will create segments based on configured outputs
       fixInvalidSegments(),                       // fixes incorrect segment configuration
       setPixelColor(unsigned n, uint32_t c) const,      // paints absolute strip pixel with index n and color c
-      blendSegment(const Segment &topSegment) const,    // blends topSegment into pixels
+      blendSegment(const Segment &topSegment, uint8_t opacity, unsigned progress) const,    // blends topSegment into pixels
       show(),                                     // initiates LED output
       setTargetFps(unsigned fps),
       setupEffectData();                          // add default effects to the list; defined in FX.cpp
