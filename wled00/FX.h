@@ -1038,28 +1038,29 @@ extern const char JSON_mode_names[];
 extern const char JSON_palette_names[];
 
 class LazyColor {
-  public:
-      explicit constexpr LazyColor(Segment& seg, int x, int y)
-          : seg(seg),
-            x(x),
-            y(y)
-      {
-      }
+public:
+    explicit constexpr LazyColor(Segment& seg, int x, int y)
+        : seg(seg),
+          x(x),
+          y(y)
+    {
+    }
 
-      uint32_t getColor(int x, int y) const {
-          if (!loaded) {
-              color = seg.getPixelColorXY(x, y);
-              loaded = true;
-          }
-          return color;
-      }
+    uint32_t getColor(int x, int y) const {
+        if (!loaded) {
+            color = seg.getPixelColorXY(x, y);
+            loaded = true;
+        }
+        return color;
+    }
 
-  private:
-      Segment& seg;
-      int x = 0;
-      int y = 0;
-      mutable bool loaded = false;
-      mutable uint32_t color = 0;
-  };
+private:
+    Segment& seg;
+    int x = 0;
+    int y = 0;
+    mutable bool loaded = false;
+    mutable uint32_t color = 0;
+};
+
 
 #endif
