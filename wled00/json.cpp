@@ -15,6 +15,34 @@
  * JSON API (De)serialization
  */
 
+namespace {
+bool differs(const Segment& segment, const std::array<std::byte, sizeof(Segment)>& backup) {
+  const Segment& segmentBackup = *reinterpret_cast<const Segment*>(backup.data());
+  if (segment.start != segmentBackup.start)         return true;
+  if (segment.stop != segmentBackup.stop)           return true;
+  if (segment.offset != segmentBackup.offset)       return true;
+  if (segment.grouping != segmentBackup.grouping)   return true;
+  if (segment.spacing != segmentBackup.spacing)     return true;
+  if (segment.opacity != segmentBackup.opacity)     return true;
+  if (segment.mode != segmentBackup.mode)           return true;
+  if (segment.speed != segmentBackup.speed)         return true;
+  if (segment.intensity != segmentBackup.intensity) return true;
+  if (segment.palette != segmentBackup.palette)     return true;
+  if (segment.custom1 != segmentBackup.custom1)     return true;
+  if (segment.custom2 != segmentBackup.custom2)     return true;
+  if (segment.custom3 != segmentBackup.custom3)     return true;
+  if (segment.startY != segmentBackup.startY)       return true;
+  if (segment.stopY != segmentBackup.stopY)         return true;
+
+  //bit pattern: (msb first)
+  // set:2, sound:2, mapping:3, transposed, mirrorY, reverseY, [reset,] paused, mirrored, on, reverse, [selected]
+  if ((segment.options & 0b1111111111011110U) != (segmentBackup.options & 0b1111111111011110U)) return true;
+  for (unsigned i = 0; i < NUM_COLORS; i++) if (segment.colors[i] != segmentBackup.colors[i])   return true;
+
+  return false;
+}
+}
+
 bool deserializeSegment(JsonObject elem, byte it, byte presetId)
 {
   byte id = elem["id"] | it;
@@ -34,7 +62,8 @@ bool deserializeSegment(JsonObject elem, byte it, byte presetId)
   //DEBUG_PRINTLN(F("-- JSON deserialize segment."));
   Segment& seg = strip.getSegment(id);
   //DEBUG_PRINTF_P(PSTR("--  Original segment: %p (%p)\n"), &seg, seg.data);
-  const Segment prev = seg; //make a backup so we can tell if something changed (calling copy constructor)
+  alignas(Segment) std::array<std::byte, sizeof(Segment)> segmentBackup; //make a backup so we can tell if something changed (voiding copy constructor)
+  std::memcpy(segmentBackup.data(), &seg, sizeof(Segment));
   //DEBUG_PRINTF_P(PSTR("--  Duplicate segment: %p (%p)\n"), &prev, prev.data);
 
   int start = elem["start"] | seg.start;
@@ -293,7 +322,7 @@ bool deserializeSegment(JsonObject elem, byte it, byte presetId)
     strip.trigger(); // force segment update
   }
   // send UDP/WS if segment options changed (except selection; will also deselect current preset)
-  if (seg.differs(prev) & 0x7F) stateChanged = true;
+  stateChanged = stateChanged || differs(seg, segmentBackup);
 
   return true;
 }

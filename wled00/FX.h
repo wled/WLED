@@ -626,7 +626,6 @@ typedef struct Segment {
     Segment &setMode(uint8_t fx, bool loadDefaults = false);
     Segment &setPalette(uint8_t pal);
     Segment &setName(const char* name);
-    uint8_t differs(const Segment& b) const;
     void    refreshLightCapabilities();
 
     // runtime data functions

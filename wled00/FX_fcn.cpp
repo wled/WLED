@@ -1084,33 +1084,6 @@ uint32_t IRAM_ATTR_YN Segment::getPixelColor(int i) const
   return strip.getPixelColor(i);
 }
 
-uint8_t Segment::differs(const Segment& b) const {
-  uint8_t d = 0;
-  if (start != b.start)         d |= SEG_DIFFERS_BOUNDS;
-  if (stop != b.stop)           d |= SEG_DIFFERS_BOUNDS;
-  if (offset != b.offset)       d |= SEG_DIFFERS_GSO;
-  if (grouping != b.grouping)   d |= SEG_DIFFERS_GSO;
-  if (spacing != b.spacing)     d |= SEG_DIFFERS_GSO;
-  if (opacity != b.opacity)     d |= SEG_DIFFERS_BRI;
-  if (mode != b.mode)           d |= SEG_DIFFERS_FX;
-  if (speed != b.speed)         d |= SEG_DIFFERS_FX;
-  if (intensity != b.intensity) d |= SEG_DIFFERS_FX;
-  if (palette != b.palette)     d |= SEG_DIFFERS_FX;
-  if (custom1 != b.custom1)     d |= SEG_DIFFERS_FX;
-  if (custom2 != b.custom2)     d |= SEG_DIFFERS_FX;
-  if (custom3 != b.custom3)     d |= SEG_DIFFERS_FX;
-  if (startY != b.startY)       d |= SEG_DIFFERS_BOUNDS;
-  if (stopY != b.stopY)         d |= SEG_DIFFERS_BOUNDS;
-
-  //bit pattern: (msb first)
-  // set:2, sound:2, mapping:3, transposed, mirrorY, reverseY, [reset,] paused, mirrored, on, reverse, [selected]
-  if ((options & 0b1111111111011110U) != (b.options & 0b1111111111011110U)) d |= SEG_DIFFERS_OPT;
-  if ((options & 0x0001U) != (b.options & 0x0001U))                         d |= SEG_DIFFERS_SEL;
-  for (unsigned i = 0; i < NUM_COLORS; i++) if (colors[i] != b.colors[i])   d |= SEG_DIFFERS_COL;
-
-  return d;
-}
-
 void Segment::refreshLightCapabilities() {
   unsigned capabilities = 0;
   unsigned segStartIdx = 0xFFFFU;
@@ -1790,7 +1763,7 @@ void WS2812FX::resetSegments() {
   #else
   segment seg = Segment(0, _length);
   #endif
-  _segments.push_back(seg);
+  _segments.push_back(std::move(seg));
   _segments.shrink_to_fit(); // just in case ...
   _mainSegment = 0;
 }
