@@ -882,7 +882,7 @@ class WS2812FX {  // 96 bytes
     inline void trigger()                                     { _triggered = true; }  // Forces the next frame to be computed on all active segments.
     inline void setShowCallback(show_callback cb)             { _callback = cb; }
     inline void setTransition(uint16_t t)                     { _transitionDur = t; } // sets transition time (in ms)
-    inline void appendSegment(const Segment &seg = Segment()) { if (_segments.size() < getMaxSegments()) _segments.push_back(seg); }
+    inline void appendSegment(Segment &&seg = Segment())      { if (_segments.size() < getMaxSegments()) _segments.push_back(std::move(seg)); }
     inline void suspend()                                     { _suspend = true; }    // will suspend (and canacel) strip.service() execution
     inline void resume()                                      { _suspend = false; }   // will resume strip.service() execution
 
