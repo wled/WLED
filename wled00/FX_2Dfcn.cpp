@@ -161,6 +161,18 @@ bool IRAM_ATTR Segment::isPixelXYClipped(int x, int y) const {
       const unsigned pos = (shuffled * 0xFFFFU) / len;
       return progress() > pos;
     }
+    if (blendingStyle == BLEND_STYLE_CIRCULAR_IN || blendingStyle == BLEND_STYLE_CIRCULAR_OUT) {
+      const int cx = (stopX-startX+1) / 2;
+      const int cy = (stopY-startY+1) / 2;
+      const bool out = (blendingStyle == BLEND_STYLE_CIRCULAR_OUT);
+      const unsigned prog = out ? progress() : 0xFFFFU - progress();
+      unsigned radius2 = max(2*cx*cx, 2*cy*cy) * prog / 0xFFFFU;
+      if (radius2 == 0) return out;
+      const int dx = x - cx;
+      const int dy = y - cy;
+      const bool outside = dx * dx + dy * dy > radius2;
+      return out ? outside : !outside;
+    }
     bool xInside = (x >= startX && x < stopX); if (invertX) xInside = !xInside;
     bool yInside = (y >= startY && y < stopY); if (invertY) yInside = !yInside;
     const bool clip = (invertX && invertY) ? !Segment::isPreviousMode() : Segment::isPreviousMode();

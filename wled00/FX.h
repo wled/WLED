@@ -315,6 +315,12 @@ extern byte realtimeMode;           // used in getMappedPixelIndex()
 #define BLEND_STYLE_SWIPE_DOWN      0x07  // 2D
 #define BLEND_STYLE_OPEN_H          0x08  // 2D
 #define BLEND_STYLE_OPEN_V          0x09  // 2D
+#define BLEND_STYLE_SWIPE_TL        0x0A  // 2D
+#define BLEND_STYLE_SWIPE_TR        0x0B  // 2D
+#define BLEND_STYLE_SWIPE_BR        0x0C  // 2D
+#define BLEND_STYLE_SWIPE_BL        0x0D  // 2D
+#define BLEND_STYLE_CIRCULAR_OUT    0x0E  // 2D
+#define BLEND_STYLE_CIRCULAR_IN     0x0F  // 2D
 // as there are many push variants to optimise if statements they are groupped together
 #define BLEND_STYLE_PUSH_RIGHT      0x10  // 1D or 2D (& 0b00010000)
 #define BLEND_STYLE_PUSH_LEFT       0x11  // 1D or 2D (& 0b00010000)

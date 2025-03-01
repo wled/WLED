@@ -1438,6 +1438,8 @@ void WS2812FX::blendSegment(const Segment &topSegment) const {
   const unsigned orgBS = blendingStyle;
   if (width*height == 1) blendingStyle = BLEND_STYLE_FADE; // disable style for single pixel segments (use fade instead)
   switch (blendingStyle) {
+    case BLEND_STYLE_CIRCULAR_IN: // (must set entire segment, see isPixelXYClipped())
+    case BLEND_STYLE_CIRCULAR_OUT:// (must set entire segment, see isPixelXYClipped())
     case BLEND_STYLE_FAIRY_DUST:  // fairy dust (must set entire segment, see isPixelXYClipped())
       Segment::setClippingRect(0, width, 0, height);
       break;
@@ -1469,15 +1471,19 @@ void WS2812FX::blendSegment(const Segment &topSegment) const {
     case BLEND_STYLE_OPEN_V:      // vertical-outward (2D)
       Segment::setClippingRect(0, width, (height - dh)/2, (height + dh)/2);
       break;
+    case BLEND_STYLE_SWIPE_TL:    // TL-to-BR (2D)
     case BLEND_STYLE_PUSH_TL:     // TL-to-BR (2D)
       Segment::setClippingRect(0, dw, 0, dh);
       break;
+    case BLEND_STYLE_SWIPE_TR:    // TR-to-BL (2D)
     case BLEND_STYLE_PUSH_TR:     // TR-to-BL (2D)
       Segment::setClippingRect(width - dw, width, 0, dh);
       break;
+    case BLEND_STYLE_SWIPE_BR:    // BR-to-TL (2D)
     case BLEND_STYLE_PUSH_BR:     // BR-to-TL (2D)
       Segment::setClippingRect(width - dw, width, height - dh, height);
       break;
+    case BLEND_STYLE_SWIPE_BL:    // BL-to-TR (2D)
     case BLEND_STYLE_PUSH_BL:     // BL-to-TR (2D)
       Segment::setClippingRect(0, dw, height - dh, height);
       break;
@@ -1507,8 +1513,8 @@ void WS2812FX::blendSegment(const Segment &topSegment) const {
     };
 
     // if we blend using "swipe" style we need to "shift" canvas to left/right/up/down
-    unsigned offsetX = (blendingStyle == BLEND_STYLE_SWIPE_UP   || blendingStyle == BLEND_STYLE_SWIPE_DOWN)  ? 0 : progInv * cols / 0xFFFFU;
-    unsigned offsetY = (blendingStyle == BLEND_STYLE_SWIPE_LEFT || blendingStyle == BLEND_STYLE_SWIPE_RIGHT) ? 0 : progInv * rows / 0xFFFFU;
+    unsigned offsetX = (blendingStyle == BLEND_STYLE_PUSH_UP   || blendingStyle == BLEND_STYLE_PUSH_DOWN)  ? 0 : progInv * cols / 0xFFFFU;
+    unsigned offsetY = (blendingStyle == BLEND_STYLE_PUSH_LEFT || blendingStyle == BLEND_STYLE_PUSH_RIGHT) ? 0 : progInv * rows / 0xFFFFU;
 
     for (int r = 0; r < rows; r++) for (int c = 0; c < cols; c++) {
       const bool clipped = topSegment.isInTransition() && topSegment.isPixelXYClipped(c, r);
@@ -1517,10 +1523,10 @@ void WS2812FX::blendSegment(const Segment &topSegment) const {
       int y = r;
       // if segment is in transition and pixel is clipped take old segment's pixel and opacity
       switch (blendingStyle) {
-        case BLEND_STYLE_SWIPE_RIGHT: x = (x + offsetX) % cols;        break;
-        case BLEND_STYLE_SWIPE_LEFT:  x = (x - offsetX + cols) % cols; break;
-        case BLEND_STYLE_SWIPE_DOWN:  y = (y + offsetY) % rows;        break;
-        case BLEND_STYLE_SWIPE_UP:    y = (y - offsetY + rows) % rows; break;
+        case BLEND_STYLE_PUSH_RIGHT: x = (x + offsetX) % cols;        break;
+        case BLEND_STYLE_PUSH_LEFT:  x = (x - offsetX + cols) % cols; break;
+        case BLEND_STYLE_PUSH_DOWN:  y = (y + offsetY) % rows;        break;
+        case BLEND_STYLE_PUSH_UP:    y = (y - offsetY + rows) % rows; break;
       }
       seg->setDrawDimensions();
       uint32_t c_a = seg->getPixelColorXY(x, y);
@@ -1834,14 +1840,9 @@ Segment& WS2812FX::getSegment(unsigned id) {
 }
 
 void WS2812FX::resetSegments() {
-  _segments.clear(); // destructs all Segment as part of clearing
-  #ifndef WLED_DISABLE_2D
-  segment seg = isMatrix ? Segment(0, Segment::maxWidth, 0, Segment::maxHeight) : Segment(0, _length);
-  #else
-  segment seg = Segment(0, _length);
-  #endif
-  _segments.push_back(seg);
-  _segments.shrink_to_fit(); // just in case ...
+  _segments.clear();          // destructs all Segment as part of clearing
+  _segments.emplace_back(0, isMatrix ? Segment::maxWidth : _length, 0, isMatrix ? Segment::maxHeight : 1);
+  _segments.shrink_to_fit();  // just in case ...
   _mainSegment = 0;
 }
 
