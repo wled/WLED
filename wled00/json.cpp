@@ -16,7 +16,7 @@
  */
 
 namespace {
-bool differs(const Segment& segment, const std::array<std::byte, sizeof(Segment)>& backup) {
+bool differs(const Segment& segment, const std::array<byte, sizeof(Segment)>& backup) {
   const Segment& segmentBackup = *reinterpret_cast<const Segment*>(backup.data());
   if (segment.start != segmentBackup.start)         return true;
   if (segment.stop != segmentBackup.stop)           return true;
@@ -62,8 +62,8 @@ bool deserializeSegment(JsonObject elem, byte it, byte presetId)
   //DEBUG_PRINTLN(F("-- JSON deserialize segment."));
   Segment& seg = strip.getSegment(id);
   //DEBUG_PRINTF_P(PSTR("--  Original segment: %p (%p)\n"), &seg, seg.data);
-  alignas(Segment) std::array<std::byte, sizeof(Segment)> segmentBackup; //make a backup so we can tell if something changed (voiding copy constructor)
-  std::memcpy(segmentBackup.data(), &seg, sizeof(Segment));
+  alignas(Segment) std::array<byte, sizeof(Segment)> segmentBackup; //make a backup so we can tell if something changed (voiding copy constructor)
+  memcpy(segmentBackup.data(), &seg, sizeof(Segment));
   //DEBUG_PRINTF_P(PSTR("--  Duplicate segment: %p (%p)\n"), &prev, prev.data);
 
   int start = elem["start"] | seg.start;
