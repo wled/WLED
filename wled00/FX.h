@@ -785,7 +785,7 @@ class WS2812FX {  // 96 bytes
       makeAutoSegments(bool forceReset = false),  // will create segments based on configured outputs
       fixInvalidSegments(),                       // fixes incorrect segment configuration
       setPixelColor(unsigned n, uint32_t c) const,      // paints absolute strip pixel with index n and color c
-      blendSegment(const Segment &topSegment, uint8_t opacity, unsigned progress) const,    // blends topSegment into pixels
+      blendSegment(const Segment &topSegment) const,    // blends topSegment into pixels
       show(),                                     // initiates LED output
       setTargetFps(unsigned fps),
       setupEffectData();                          // add default effects to the list; defined in FX.cpp
