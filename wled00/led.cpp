@@ -28,21 +28,27 @@ void setValuesFromSegment(uint8_t s)
 // problem: if the first selected segment already has the value to be set, other selected segments are not updated
 void applyValuesToSelectedSegs()
 {
-  // copy of first selected segment to tell if value was updated
-  unsigned firstSel = strip.getFirstSelectedSegId();
-  Segment selsegPrev = strip.getSegment(firstSel);
-  for (unsigned i = 0; i < strip.getSegmentsNum(); i++) {
-    Segment& seg = strip.getSegment(i);
-    if (i != firstSel && (!seg.isActive() || !seg.isSelected())) continue;
+  // copy of first selected segment data to tell if value was updated
+  const uint8_t  firstSel = strip.getFirstSelectedSegId();
+  const Segment& firstSelectedSegment = strip.getSegment(firstSel);
+  const uint8_t  previousSpeed     = firstSelectedSegment.speed;
+  const uint8_t  previousIntensity = firstSelectedSegment.intensity;
+  const uint32_t previousColor0    = firstSelectedSegment.colors[0];
+  const uint8_t  previousPalette   = firstSelectedSegment.palette;
+  const uint8_t  previousMode      = firstSelectedSegment.mode;
+  const uint32_t previousColor1    = firstSelectedSegment.colors[1];
 
-    if (effectSpeed     != selsegPrev.speed)     {seg.speed     = effectSpeed;     stateChanged = true;}
-    if (effectIntensity != selsegPrev.intensity) {seg.intensity = effectIntensity; stateChanged = true;}
-    if (effectPalette   != selsegPrev.palette)   {seg.setPalette(effectPalette);}
-    if (effectCurrent   != selsegPrev.mode)      {seg.setMode(effectCurrent);}
-    uint32_t col0 = RGBW32(   col[0],    col[1],    col[2],    col[3]);
-    uint32_t col1 = RGBW32(colSec[0], colSec[1], colSec[2], colSec[3]);
-    if (col0 != selsegPrev.colors[0])            {seg.setColor(0, col0);}
-    if (col1 != selsegPrev.colors[1])            {seg.setColor(1, col1);}
+  const uint32_t col0 = RGBW32(   col[0],    col[1],    col[2],    col[3]);
+  const uint32_t col1 = RGBW32(colSec[0], colSec[1], colSec[2], colSec[3]);
+  for (Segment& seg : strip._segments) {
+    if (&seg != &firstSelectedSegment && (!seg.isActive() || !seg.isSelected())) continue;
+
+    if (effectSpeed     != previousSpeed)     {seg.speed     = effectSpeed;     stateChanged = true;}
+    if (effectIntensity != previousIntensity) {seg.intensity = effectIntensity; stateChanged = true;}
+    if (effectPalette   != previousPalette)   {seg.setPalette(effectPalette);}
+    if (effectCurrent   != previousMode)      {seg.setMode(effectCurrent);}
+    if (col0 != previousColor0) {seg.setColor(0, col0);}
+    if (col1 != previousColor1) {seg.setColor(1, col1);}
   }
 }
 
