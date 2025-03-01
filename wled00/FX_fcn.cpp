@@ -1759,11 +1759,14 @@ Segment& WS2812FX::getSegment(unsigned id) {
 void WS2812FX::resetSegments() {
   _segments.clear(); // destructs all Segment as part of clearing
   #ifndef WLED_DISABLE_2D
-  segment seg = isMatrix ? Segment(0, Segment::maxWidth, 0, Segment::maxHeight) : Segment(0, _length);
+  if (isMatrix) {
+    _segments.emplace_back(0, Segment::maxWidth, 0, Segment::maxHeight);
+  } else {
+    _segments.emplace_back(0, _length);
+  }
   #else
-  segment seg = Segment(0, _length);
+  _segments.emplace_back(0, _length);
   #endif
-  _segments.push_back(std::move(seg));
   _segments.shrink_to_fit(); // just in case ...
   _mainSegment = 0;
 }
@@ -1811,12 +1814,12 @@ void WS2812FX::makeAutoSegments(bool forceReset) {
     // there is always at least one segment (but we need to differentiate between 1D and 2D)
     #ifndef WLED_DISABLE_2D
     if (isMatrix)
-      _segments.push_back(Segment(0, Segment::maxWidth, 0, Segment::maxHeight));
+      _segments.emplace_back(0, Segment::maxWidth, 0, Segment::maxHeight);
     else
     #endif
-      _segments.push_back(Segment(segStarts[0], segStops[0]));
+      _segments.emplace_back(segStarts[0], segStops[0]);
     for (size_t i = 1; i < s; i++) {
-      _segments.push_back(Segment(segStarts[i], segStops[i]));
+      _segments.emplace_back(segStarts[i], segStops[i]);
     }
     DEBUG_PRINTF_P(PSTR("%d auto segments created.\n"), _segments.size());
 
