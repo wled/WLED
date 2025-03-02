@@ -42,16 +42,31 @@ public:
         return info.getPixelColor(this, x, y, currentColor);
     }
 
-    constexpr static void nextFrameNoop(Effect* effect) {
-    }
-    constexpr static void nextRowNoop(Effect* effect, int y) {
-    }
-    constexpr static uint32_t getPixelColorNoop(Effect* effect, int x, int y, const LazyColor& currentColor) {
-        return 0;
-    }
-
 private:
     const EffectInformation& info;
+};
+
+template<typename T>
+class BaseEffect : public Effect {
+    using Base = Effect;
+public:
+    using Base::Base;
+
+    static std::unique_ptr<Effect> makeEffect() {
+        return std::make_unique<T>(T::effectInformation);
+    }
+
+    static void nextFrame(Effect* effect) {
+        static_cast<T*>(effect)->nextFrameImpl();
+    }
+
+    static void nextRow(Effect* effect, int y) {
+        static_cast<T*>(effect)->nextRowImpl(y);
+    }
+
+    static uint32_t getPixelColor(Effect* effect, int x, int y, const LazyColor& currentColor) {
+        return static_cast<T*>(effect)->getPixelColorImpl(x, y, currentColor);
+    }
 };
 
 class EffectFactory {

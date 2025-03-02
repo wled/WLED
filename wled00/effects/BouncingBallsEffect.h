@@ -3,7 +3,7 @@
 #include "../FX.h"
 #include "Effect.h"
 
-class BouncingBallsEffect : public Effect {
+class BouncingBallsEffect : public BaseEffect<BouncingBallsEffect> {
     struct Ball {
         unsigned long lastBounceTime{strip.now};
         float impactVelocity{};
@@ -13,30 +13,12 @@ class BouncingBallsEffect : public Effect {
     };
 
 private:
-    using Base = Effect;
+    using Base = BaseEffect<BouncingBallsEffect>;
     using Self = BouncingBallsEffect;
     static constexpr unsigned maxNumBalls = 16;
 
 public:
     using Base::Base;
-
-    static std::unique_ptr<Effect> makeEffect() {
-        Effect * ptr = new Self(effectInformation);
-        std::unique_ptr<Effect> effect(ptr);
-        return std::move(effect);
-    }
-
-    static void nextFrame(Effect* effect) {
-        static_cast<Self*>(effect)->nextFrameImpl();
-    }
-
-    static void nextRow(Effect* effect, int y) {
-        static_cast<Self*>(effect)->nextRowImpl(y);
-    }
-
-    static uint32_t getPixelColor(Effect* effect, int x, int y, const LazyColor& currentColor) {
-        return static_cast<Self*>(effect)->getPixelColorImpl(x, y, currentColor);
-    }
 
     static constexpr EffectInformation effectInformation {
         "Bouncing Balls@Gravity,balls per line,,,lines,,Overlay;!,!,!;!;1;m12=1",
@@ -48,7 +30,6 @@ public:
         &Self::getPixelColor,
     };
 
-private:
     void nextFrameImpl() {
         numBalls = (SEGMENT.intensity * (maxNumBalls - 1)) / 255 + 1; // minimum 1 ball
         strips = SEGMENT.custom3;
@@ -87,6 +68,7 @@ private:
             return currentColor.getColor(x, y);
     }
 
+private:
     // virtualStrip idea by @ewowi (Ewoud Wijma)
     // requires virtual strip # to be embedded into upper 16 bits of index in setPixelColor()
     // the following functions will not work on virtual strips: fill(), fade_out(), fadeToBlack(), blur()

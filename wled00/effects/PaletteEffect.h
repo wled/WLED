@@ -4,9 +4,11 @@
 #include "Effect.h"
 #include <algorithm>
 
-class PaletteEffect : public Effect {
+class PaletteEffect : public BaseEffect<PaletteEffect> {
 private:
     using Self = PaletteEffect;
+    using Base = BaseEffect<PaletteEffect>;
+
     // Set up some compile time constants so that we can handle integer and float based modes using the same code base.
     #ifdef ESP8266
     using mathType = int32_t;
@@ -29,24 +31,9 @@ private:
     static constexpr float (*sinFunction)(float)    = &sin_t;
     static constexpr float (*cosFunction)(float)    = &cos_t;
     #endif
+
 public:
-    using Effect::Effect;
-
-    static std::unique_ptr<Effect> makeEffect() {
-        return std::make_unique<Self>(effectInformation);
-    }
-
-    static void nextFrame(Effect* effect) {
-        static_cast<Self*>(effect)->nextFrameImpl();
-    }
-
-    static constexpr void nextRow(Effect* effect, int y) {
-        static_cast<Self*>(effect)->nextRowImpl(y);
-    }
-
-    static uint32_t getPixelColor(Effect* effect, int x, int y, const LazyColor& currentColor) {
-        return static_cast<Self*>(effect)->getPixelColorImpl(x, y, currentColor);
-    }
+    using Base::Base;
 
     static constexpr EffectInformation effectInformation {
         "Palette@Shift,Size,Rotation,,,Animate Shift,Animate Rotation,Anamorphic;;!;12;ix=112,c1=0,o1=1,o2=0,o3=1",
@@ -58,7 +45,6 @@ public:
         &Self::getPixelColor,
     };
 
-private:
     void nextFrameImpl() {
         const bool isMatrix = strip.isMatrix;
         const int cols = SEG_W;

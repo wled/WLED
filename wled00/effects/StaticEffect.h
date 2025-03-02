@@ -3,30 +3,30 @@
 #include "../FX.h"
 #include "Effect.h"
 
-class StaticEffect : public Effect {
+class StaticEffect : public BaseEffect<StaticEffect> {
 private:
     using Self = StaticEffect;
-public:
-    using Effect::Effect;
-    static std::unique_ptr<Effect> makeEffect() {
-        return std::make_unique<StaticEffect>(effectInformation);
-    }
+    using Base = BaseEffect<StaticEffect>;
 
-    static uint32_t getPixelColor(Effect* effect, int x, int y, const LazyColor& currentColor) {
-        return static_cast<Self*>(effect)->getPixelColorImpl(x, y, currentColor);
-    }
+public:
+    using Base::Base;
 
     static constexpr EffectInformation effectInformation {
         "Solid",
         FX_MODE_STATIC,
         0u,
         &Self::makeEffect,
-        &Effect::nextFrameNoop,
-        &Effect::nextRowNoop,
+        &Self::nextFrame,
+        &Self::nextRow,
         &Self::getPixelColor,
     };
 
-private:
+    constexpr void nextFrameImpl() {
+    }
+
+    constexpr void nextRowImpl(int y) {
+    }
+
     uint32_t getPixelColorImpl(int x, int y, const LazyColor& currentColor) {
         return SEGCOLOR(0);
     }
