@@ -272,7 +272,7 @@ static void parseNotifyPacket(const uint8_t *udpIn) {
       DEBUG_PRINTF_P(PSTR("UDP segment received: %u\n"), id);
       if      (id >  strip.getSegmentsNum()) break;
       else if (id == strip.getSegmentsNum()) {
-        if (receiveSegmentBounds && id < strip.getMaxSegments()) strip.appendSegment();
+        if (receiveSegmentBounds && id < strip.getMaxSegments()) strip.emplaceSegment();
         else break;
       }
       DEBUG_PRINTF_P(PSTR("UDP segment check: %u\n"), id);

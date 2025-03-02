@@ -54,7 +54,7 @@ bool deserializeSegment(JsonObject elem, byte it, byte presetId)
   // append segment
   if (id >= strip.getSegmentsNum()) {
     if (stop <= 0) return false; // ignore empty/inactive segments
-    strip.appendSegment(Segment(0, strip.getLengthTotal()));
+    strip.emplaceSegment(0, strip.getLengthTotal());
     id = strip.getSegmentsNum()-1; // segments are added at the end of list
     newSeg = true;
   }
