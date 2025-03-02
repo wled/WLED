@@ -495,7 +495,8 @@ typedef struct Segment {
       #ifdef WLED_DEBUG_FX
       DEBUGFX_PRINTF_P(PSTR("-- Destroying segment: %p"), this);
       if (name) DEBUGFX_PRINTF_P(PSTR(" %s (%p)"), name, name);
-      if (data) DEBUGFX_PRINTF_P(PSTR(" %d->(%p)\n"), (int)_dataLen, data);
+      if (data) DEBUGFX_PRINTF_P(PSTR(" %d->(%p)"), (int)_dataLen, data);
+      DEBUGFX_PRINTLN();
       #endif
       clearName();
       stopTransition();
