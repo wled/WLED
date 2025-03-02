@@ -383,7 +383,7 @@ bool deserializeState(JsonObject root, byte callMode, byte presetId)
     // we may be called during strip.service() so we must not modify segments while effects are executing
     strip.suspend();
     unsigned long maxWait = millis() + 2*strip.getFrameTime();
-    while (strip.isServicing() && maxWait > millis()) yield(); // wait until frame is over
+    while (strip.isServicing() && maxWait > millis()) delay(1); // wait until frame is over (yield() crashes on 8266)
     #ifdef WLED_DEBUG
     if (millis() >= maxWait) DEBUG_PRINTLN(F("JSON: Waited for strip to finish servicing."));
     #endif
