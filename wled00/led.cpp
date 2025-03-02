@@ -29,12 +29,11 @@ void setValuesFromSegment(uint8_t s)
 void applyValuesToSelectedSegs()
 {
   // copy of first selected segment to tell if value was updated
-  unsigned firstSel = strip.getFirstSelectedSegId();
+  const unsigned firstSel   = strip.getFirstSelectedSegId();
   const Segment& selsegPrev = strip.getSegment(firstSel);
   for (unsigned i = 0; i < strip.getSegmentsNum(); i++) {
     Segment& seg = strip.getSegment(i);
-    if (i != firstSel && (!seg.isActive() || !seg.isSelected())) continue;
-
+    if (i == firstSel || !(seg.isActive() && seg.isSelected())) continue;
     if (effectSpeed     != selsegPrev.speed)     {seg.speed     = effectSpeed;     stateChanged = true;}
     if (effectIntensity != selsegPrev.intensity) {seg.intensity = effectIntensity; stateChanged = true;}
     if (effectPalette   != selsegPrev.palette)   {seg.setPalette(effectPalette);}

@@ -277,6 +277,7 @@ CRGBPalette16 &Segment::loadPalette(CRGBPalette16 &targetPalette, uint8_t pal) {
   return targetPalette;
 }
 
+// starting a transition has to occur before change so we get current values 1st
 void Segment::startTransition(uint16_t dur) {
   if (dur == 0) {
     if (isInTransition()) _t->_dur = dur; // this will stop transition in next handleTransition()
@@ -284,22 +285,22 @@ void Segment::startTransition(uint16_t dur) {
   }
   if (isInTransition() || !isActive()) return; // already in transition or inactive no need to store anything
 
+  // no previous transition running, start by allocating memory for segment copy
   Segment *tmpData = static_cast<Segment*>(d_malloc(sizeof(Segment)));
   if (!tmpData) return; // failed to allocate data
 
-  // starting a transition has to occur before change so we get current values 1st
-  _t = new(std::nothrow) Transition(dur); // no previous transition running
-  if (!_t) return; // failed to allocate data
-  _t->_oldSegment = new (tmpData) Segment(*this); // store current segment settings
-
-  DEBUGFX_PRINTF_P(PSTR("-- Started transition: S=%p (%p)\n"), this, _t);
-  loadPalette(_t->_palT, palette);
+  _t = new(std::nothrow) Transition(dur);
+  if (_t) {
+    _t->_oldSegment = new (tmpData) Segment(*this); // store/copy current segment settings using placement new
+    loadPalette(_t->_palT, palette);
+    DEBUGFX_PRINTF_P(PSTR("-- Started transition: S=%p (%p)\n"), this, _t);
+  } else d_free(tmpData);
 }
 
 void Segment::stopTransition() {
   if (isInTransition()) {
     DEBUGFX_PRINTF_P(PSTR("-- Stopping transition: S=%p\n"), this);
-    delete _t;
+    delete _t;  // will also destroy segment's copy (see destructor)
     _t = nullptr;
   }
 }
@@ -307,15 +308,13 @@ void Segment::stopTransition() {
 uint8_t Segment::currentBri(bool useCct) const {
   unsigned prog = progress();
   uint32_t curBri = useCct ? cct : (on ? opacity : 0);
-  if (prog < 0xFFFFU && _t) {
-    // this will blend opacity/CCT in new mode if style is FADE (single effect call)
-    uint8_t tmpBri = useCct ? _t->_oldSegment->cct : (_t->_oldSegment->on ? _t->_oldSegment->opacity : 0);
-    if (blendingStyle != BLEND_STYLE_FADE) return Segment::isPreviousMode() ? tmpBri : curBri;
-    curBri *=  prog;
-    curBri += tmpBri * (0xFFFFU - prog);
-    return curBri / 0xFFFFU;
-  }
-  return curBri;
+  if (progress() == 0xFFFFU || !_t) return curBri;
+  // this will blend opacity/CCT in new mode if style is FADE (single effect call)
+  uint8_t tmpBri = useCct ? _t->_oldSegment->cct : (_t->_oldSegment->on ? _t->_oldSegment->opacity : 0);
+  if (blendingStyle != BLEND_STYLE_FADE) return Segment::isPreviousMode() ? tmpBri : curBri;
+  curBri *=  prog;
+  curBri += tmpBri * (0xFFFFU - prog);
+  return curBri / 0xFFFFU;
 }
 
 uint8_t Segment::currentMode() const {
@@ -1309,7 +1308,7 @@ void WS2812FX::service() {
   for (segment &seg : _segments) {
     if (_suspend) break; // immediately stop processing segments if suspend requested during service()
 
-    // process transition
+    // process transition (also pre-calculates progress value)
     seg.handleTransition();
     // reset the segment runtime data if needed
     seg.resetIfRequired();
@@ -1343,8 +1342,8 @@ void WS2812FX::service() {
           // now run old/previous mode if it is different or blend style != FADE
           if (segO && (seg.mode != segO->mode || blendingStyle != BLEND_STYLE_FADE)) {
             Segment::modeBlend(true);       // set semaphore for beginDraw() to blend colors and palette
-            seg.beginDraw();                // set up palette & colors
-            segO->setDrawDimensions();      // set up boundaries for get/setPixelColor()
+            seg.beginDraw();                // set up palette & colors (also sets draw dimensions)
+            segO->setDrawDimensions();      // override/set up boundaries for get/setPixelColor()
             _currentSegment = segO;         // set current segment
             frameDelay = min(frameDelay, (unsigned)(*_mode[seg.currentMode()])());  // run old mode (needed for bri workaround; semaphore!!)
             segO->call++;                   // increment old mode run counter

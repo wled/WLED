@@ -434,13 +434,14 @@ typedef struct Segment {
       unsigned long _start;       // must accommodate millis()
       uint16_t      _dur;
       Transition(uint16_t dur=750)
-        : _palT(CRGBPalette16(CRGB::Black))
+        : _oldSegment(nullptr)
+        , _palT(CRGBPalette16(CRGB::Black))
         , _prevPaletteBlends(0)
         , _start(millis())
         , _dur(dur)
       {}
       ~Transition() {
-        _oldSegment->~Segment();
+        if (_oldSegment) _oldSegment->~Segment();
         d_free(_oldSegment);
       }
     } *_t;
