@@ -242,8 +242,8 @@ bool getJsonValue(const JsonVariant& element, DestType& destination, const Defau
 
 //led.cpp
 void setValuesFromSegment(uint8_t s);
-void setValuesFromMainSeg();
-void setValuesFromFirstSelectedSeg();
+#define setValuesFromMainSeg()          setValuesFromSegment(strip.getMainSegmentId())
+#define setValuesFromFirstSelectedSeg() setValuesFromSegment(strip.getFirstSelectedSegId())
 void toggleOnOff();
 void applyBri();
 void applyFinalBri();

@@ -4,10 +4,8 @@
  * LED methods
  */
 
-void setValuesFromMainSeg()          { setValuesFromSegment(strip.getMainSegmentId()); }
-void setValuesFromFirstSelectedSeg() { setValuesFromSegment(strip.getFirstSelectedSegId()); }
-void setValuesFromSegment(uint8_t s)
-{
+ // applies chosen setment properties to legacy values
+void setValuesFromSegment(uint8_t s) {
   const Segment& seg = strip.getSegment(s);
   colPri[0] = R(seg.colors[0]);
   colPri[1] = G(seg.colors[0]);
@@ -24,24 +22,19 @@ void setValuesFromSegment(uint8_t s)
 }
 
 
-// applies global legacy values (col, colSec, effectCurrent...)
-// problem: if the first selected segment already has the value to be set, other selected segments are not updated
-void applyValuesToSelectedSegs()
-{
-  // copy of first selected segment to tell if value was updated
-  const unsigned firstSel   = strip.getFirstSelectedSegId();
-  const Segment& selsegPrev = strip.getSegment(firstSel);
+// applies global legacy values (colPri, colSec, effectCurrent...) to each selected segment
+void applyValuesToSelectedSegs() {
   for (unsigned i = 0; i < strip.getSegmentsNum(); i++) {
     Segment& seg = strip.getSegment(i);
-    if (i == firstSel || !(seg.isActive() && seg.isSelected())) continue;
-    if (effectSpeed     != selsegPrev.speed)     {seg.speed     = effectSpeed;     stateChanged = true;}
-    if (effectIntensity != selsegPrev.intensity) {seg.intensity = effectIntensity; stateChanged = true;}
-    if (effectPalette   != selsegPrev.palette)   {seg.setPalette(effectPalette);}
-    if (effectCurrent   != selsegPrev.mode)      {seg.setMode(effectCurrent);}
+    if (!(seg.isActive() && seg.isSelected())) continue;
+    if (effectSpeed     != seg.speed)     {seg.speed     = effectSpeed;     stateChanged = true;}
+    if (effectIntensity != seg.intensity) {seg.intensity = effectIntensity; stateChanged = true;}
+    if (effectPalette   != seg.palette)   {seg.setPalette(effectPalette);}
+    if (effectCurrent   != seg.mode)      {seg.setMode(effectCurrent);}
     uint32_t col0 = RGBW32(colPri[0], colPri[1], colPri[2], colPri[3]);
     uint32_t col1 = RGBW32(colSec[0], colSec[1], colSec[2], colSec[3]);
-    if (col0 != selsegPrev.colors[0])            {seg.setColor(0, col0);}
-    if (col1 != selsegPrev.colors[1])            {seg.setColor(1, col1);}
+    if (col0 != seg.colors[0])            {seg.setColor(0, col0);}
+    if (col1 != seg.colors[1])            {seg.setColor(1, col1);}
   }
 }
 
@@ -94,7 +87,7 @@ void applyFinalBri() {
 void stateUpdated(byte callMode) {
   //call for notifier -> 0: init 1: direct change 2: button 3: notification 4: nightlight 5: other (No notification)
   //                     6: fx changed 7: hue 8: preset cycle 9: blynk 10: alexa 11: ws send only 12: button preset
-  setValuesFromFirstSelectedSeg();
+  setValuesFromFirstSelectedSeg();  // a much better approach would be to use main segment: setValuesFromMainSeg()
 
   if (bri != briOld || stateChanged) {
     if (stateChanged) currentPreset = 0; //something changed, so we are no longer in the preset
