@@ -170,7 +170,7 @@ public:
 			power_mW = truncateDecimals(_ina219->getBusPower());
 			power = truncateDecimals(_ina219->getBusPower() / 1000.0); // Convert from mW to W
 			loadVoltage = truncateDecimals(busVoltage + (shuntVoltage / 1000));
-			overflow = truncateDecimals(_ina219->getOverflow());
+			overflow = _ina219->getOverflow() != 0;
 
 			// Update energy consumption
 			updateEnergy(power, lastCheck - lastPublishTime);
