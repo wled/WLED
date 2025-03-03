@@ -2,204 +2,343 @@
 #include "sd_manager.h"
 #include "fseq_player.h"
 
-// Registrácia všetkých web endpointov
+static const char PAGE_HTML[] PROGMEM = R"rawliteral(
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Unified UI</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1">
+  <meta name="theme-color" content="#222222">
+  <style>
+    body { margin: 0; background: #000; color: #eee; font-family: sans-serif; }
+    nav { display: flex; }
+    nav button {
+      flex: 1; padding: 10px; border: none; cursor: pointer;
+      background: #222; color: #ccc; font-size: 1rem;
+    }
+    nav button:hover { background: #333; color: #fff; }
+    nav button.active { background: #444; color: #fff; }
+    .btn {
+      display: inline-block; color: #0f0; border: 1px solid #0f0;
+      background: #111; padding: 6px 12px; text-decoration: none;
+      margin: 4px; border-radius: 4px; cursor: pointer;
+    }
+    .btn:hover { background: #0f0; color: #000; }
+    /* Stop buttons will have a red background */
+    .btn-stop { background: #f00; color: #000; }
+    .tab-content { display: none; padding: 20px; }
+    .tab-content.active { display: block; }
+    h1 { margin-top: 0; }
+    ul { list-style: none; margin: 0; padding: 0; }
+    li { margin-bottom: 8px; }
+    .btn-delete { color: #f00; border-color: #f00; }
+    .btn-delete:hover { background: #f00; color: #000; }
+  </style>
+  <script>
+    // --- Functions for SD and FSEQ operations ---
+    function showTab(tabName) {
+      document.getElementById('tabSd').classList.remove('active');
+      document.getElementById('tabFseq').classList.remove('active');
+      if(tabName === 'sd') {
+        document.getElementById('tabSd').classList.add('active');
+        document.getElementById('tabSdBtn').classList.add('active');
+        document.getElementById('tabFseqBtn').classList.remove('active');
+      } else {
+        document.getElementById('tabFseq').classList.add('active');
+        document.getElementById('tabFseqBtn').classList.add('active');
+        document.getElementById('tabSdBtn').classList.remove('active');
+      }
+    }
+    
+    function loadSDList() {
+      fetch('/api/sd/list')
+        .then(res => res.json())
+        .then(files => {
+          const ul = document.getElementById('sdList');
+          ul.innerHTML = '';
+          files.forEach(f => {
+            const li = document.createElement('li');
+            li.innerHTML = `${f.name} (${f.size} KB)
+              <a href="#" class="btn btn-delete" onclick="deleteFile('${f.name}')">Delete</a>`;
+            ul.appendChild(li);
+          });
+        })
+        .catch(err => console.log(err));
+    }
+    
+    function loadFseqList() {
+      fetch('/api/fseq/list')
+        .then(res => res.json())
+        .then(files => {
+          const ul = document.getElementById('fseqList');
+          ul.innerHTML = '';
+          files.forEach(f => {
+            const li = document.createElement('li');
+            li.innerHTML = `
+              ${f.name}
+              <button class="btn" id="btn_normal_${f.name}" onclick="toggleFseq('${f.name}')">Play</button>
+              <button class="btn" id="btn_loop_${f.name}" onclick="toggleFseqLoop('${f.name}')">Play Loop</button>
+            `;
+            ul.appendChild(li);
+          });
+        })
+        .catch(err => console.log(err));
+    }
+    
+    function deleteFile(name) {
+      if(!confirm("Delete " + name + "?")) return;
+      fetch('/api/sd/delete?path=' + encodeURIComponent(name))
+        .then(res => res.text())
+        .then(msg => {
+          document.getElementById('uploadStatus').textContent = msg;
+          loadSDList();
+          loadFseqList(); // Update FSEQ list as well
+        })
+        .catch(err => {
+          document.getElementById('uploadStatus').textContent = "Delete failed";
+        });
+    }
+    
+    function toggleFseq(fname) {
+      let btn = document.getElementById('btn_normal_' + fname);
+      if(btn.innerText === 'Play') {
+        fetch('/api/fseq/start?file=' + encodeURIComponent(fname))
+          .then(res => res.text())
+          .then(_ => { 
+            btn.innerText = 'Stop';
+            btn.classList.add('btn-stop');
+          });
+      } else {
+        fetch('/api/fseq/stop')
+          .then(res => res.text())
+          .then(_ => { 
+            btn.innerText = 'Play';
+            btn.classList.remove('btn-stop');
+          });
+      }
+    }
+    
+    function toggleFseqLoop(fname) {
+      let btn = document.getElementById('btn_loop_' + fname);
+      if(btn.innerText === 'Play Loop') {
+        fetch('/api/fseq/startloop?file=' + encodeURIComponent(fname))
+          .then(res => res.text())
+          .then(_ => { 
+            btn.innerText = 'Stop';
+            btn.classList.add('btn-stop');
+          });
+      } else {
+        fetch('/api/fseq/stop')
+          .then(res => res.text())
+          .then(_ => { 
+            btn.innerText = 'Play Loop';
+            btn.classList.remove('btn-stop');
+          });
+      }
+    }
+    
+    function checkFseqStatus() {
+      fetch('/api/fseq/status')
+        .then(res => res.json())
+        .then(status => {
+          if (!status.playing) {
+            document.querySelectorAll("button[id^='btn_normal_']").forEach(btn => {
+              if (btn.innerText === "Stop") {
+                btn.innerText = "Play";
+                btn.classList.remove("btn-stop");
+              }
+            });
+            document.querySelectorAll("button[id^='btn_loop_']").forEach(btn => {
+              if (btn.innerText === "Stop") {
+                btn.innerText = "Play Loop";
+                btn.classList.remove("btn-stop");
+              }
+            });
+          }
+        })
+        .catch(err => console.log(err));
+    }
+    
+    document.addEventListener('DOMContentLoaded', () => {
+      loadSDList();
+      loadFseqList();
+      
+      // Handle file upload form submission
+      document.getElementById('uploadForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        let formData = new FormData(this);
+        fetch('/api/sd/upload', {
+          method: 'POST',
+          body: formData
+        })
+        .then(res => res.text())
+        .then(msg => {
+          document.getElementById('uploadStatus').textContent = msg;
+          loadSDList();
+          loadFseqList(); // Update FSEQ list as well
+        })
+        .catch(err => {
+          document.getElementById('uploadStatus').textContent = "Upload failed";
+        });
+      });
+      
+      // Start polling for FSEQ status every 500 ms
+      setInterval(checkFseqStatus, 500);
+    });
+  </script>
+</head>
+<body>
+  <!-- Navigation Bar: SD Files and FSEQ -->
+  <nav>
+    <button id="tabSdBtn" class="active" onclick="showTab('sd')">SD Files</button>
+    <button id="tabFseqBtn" onclick="showTab('fseq')">FSEQ</button>
+  </nav>
+  
+  <!-- Tab Content -->
+  <div id="tabSd" class="tab-content active">
+    <h1>SD Files</h1>
+    <ul id="sdList"></ul>
+    <h2>Upload File</h2>
+    <form id="uploadForm">
+      <input type="file" name="upload"><br><br>
+      <button class="btn" type="submit">Upload</button>
+    </form>
+    <div id="uploadStatus"></div>
+  </div>
+  
+  <div id="tabFseq" class="tab-content">
+    <h1>FSEQ Files</h1>
+    <ul id="fseqList"></ul>
+  </div>
+</body>
+</html>
+)rawliteral";
+
 void WebUIManager::registerEndpoints() {
-  // Hlavná stránka SD & FSEQ manažéra
-  server.on("/sd/ui", HTTP_GET, [](AsyncWebServerRequest *request) {
-    String html = "<html><head><meta charset='utf-8'><title>SD & FSEQ Manager</title>";
-    html += "<style>";
-    html += "body { font-family: sans-serif; font-size: 24px; color: #00FF00; background-color: #000; margin: 0; padding: 20px; }";
-    html += "h1 { margin-top: 0; }";
-    html += "ul { list-style: none; padding: 0; margin: 0 0 20px 0; }";
-    html += "li { margin-bottom: 10px; }";
-    html += "a, button { display: inline-block; font-size: 24px; color: #00FF00; border: 2px solid #00FF00; background-color: transparent; padding: 10px 20px; margin: 5px; text-decoration: none; }";
-    html += "a:hover, button:hover { background-color: #00FF00; color: #000; }";
-    html += "</style></head><body>";
-    html += "<h1>SD & FSEQ Manager</h1>";
-    html += "<ul>";
-    html += "<li><a href='/sd/list'>SD Files</a></li>";
-    html += "<li><a href='/fseq/list'>FSEQ Files</a></li>";
-    html += "</ul>";
-    html += "<a href='/'>BACK</a>";
-    html += "</body></html>";
-    request->send(200, "text/html", html);
+
+  // Main UI page (navigation, SD and FSEQ tabs)
+  server.on("/fsequi", HTTP_GET, [](AsyncWebServerRequest *request) {
+    request->send_P(200, "text/html", PAGE_HTML);
   });
 
-  // Výpis súborov na SD karte s tlačidlom Delete a možnosťou uploadu
-  server.on("/sd/list", HTTP_GET, [](AsyncWebServerRequest *request) {
-    String html = "<html><head><meta charset='utf-8'><title>SD Card Files</title>";
-    html += "<style>";
-    html += "body { font-family: sans-serif; font-size: 24px; color: #00FF00; background-color: #000; margin: 0; padding: 20px; }";
-    html += "h1 { margin-top: 0; }";
-    html += "ul { list-style: none; margin: 0; padding: 0; }";
-    html += "li { margin-bottom: 10px; }";
-    html += "a, button { display: inline-block; font-size: 24px; color: #00FF00; border: 2px solid #00FF00; background-color: transparent; padding: 10px 20px; margin: 5px; text-decoration: none; }";
-    html += "a:hover, button:hover { background-color: #00FF00; color: #000; }";
-    html += ".deleteLink { border-color: #FF0000; color: #FF0000; }";
-    html += ".deleteLink:hover { background-color: #FF0000; color: #000; }";
-    html += ".backLink { border: 2px solid #00FF00; padding: 10px 20px; }";
-    html += "</style></head><body>";
-    html += "<h1>SD Card Files</h1><ul>";
-    
-    SDManager sd;
+  // API - List SD files (size in KB)
+  server.on("/api/sd/list", HTTP_GET, [](AsyncWebServerRequest *request){
     File root = SD_ADAPTER.open("/");
+    String json = "[";
     if(root && root.isDirectory()){
+      bool first = true;
       File file = root.openNextFile();
       while(file){
-        String name = file.name();
-        html += "<li>" + name + " (" + String(file.size()) + " bytes) ";
-        // Namiesto priameho linku voláme funkciu deleteFile()
-        html += "<a href='#' class='deleteLink' onclick=\"deleteFile('" + name + "')\">Delete</a></li>";
+        if(!first) json += ",";
+        first = false;
+        float sizeKB = file.size() / 1024.0;
+        json += "{";
+        json += "\"name\":\"" + String(file.name()) + "\",";
+        json += "\"size\":" + String(sizeKB, 2);
+        json += "}";
         file.close();
         file = root.openNextFile();
       }
-    } else {
-      html += "<li>Failed to open directory: /</li>";
     }
     root.close();
-    
-    html += "</ul>";
-    html += "<h2>Upload File</h2>";
-    html += "<form id='uploadForm' enctype='multipart/form-data'>";
-    html += "Select file: <input type='file' name='upload'><br><br>";
-    html += "<input type='submit' value='Upload'>";
-    html += "</form>";
-    html += "<div id='uploadStatus'></div>";
-    html += "<p><a href='/sd/ui' class='backLink'>BACK</a></p>";
-    html += "<script>";
-    html += "document.getElementById('uploadForm').addEventListener('submit', function(e) {";
-    html += "  e.preventDefault();";
-    html += "  var formData = new FormData(this);";
-    html += "  document.getElementById('uploadStatus').innerText = 'Uploading...';";
-    html += "  fetch('/sd/upload', { method: 'POST', body: formData })";
-    html += "    .then(response => response.text())";
-    html += "    .then(data => {";
-    html += "      document.getElementById('uploadStatus').innerText = data;";
-    html += "      setTimeout(function() { location.reload(); }, 1000);";
-    html += "    })";
-    html += "    .catch(err => {";
-    html += "      document.getElementById('uploadStatus').innerText = 'Upload failed';";
-    html += "    });";
-    html += "});";
-    // Upravená funkcia pre mazanie súborov, ktorá spracováva požiadavku asynchrónne
-    html += "function deleteFile(filename) {";
-    html += "  if (!confirm('Are you sure you want to delete ' + filename + '?')) return;";
-    html += "  fetch('/sd/delete?path=' + encodeURIComponent(filename))";
-    html += "    .then(response => response.text())";
-    html += "    .then(data => {";
-    html += "       alert(data);";
-    html += "       setTimeout(function() { location.reload(); }, 1000);";
-    html += "    })";
-    html += "    .catch(err => { alert('Delete failed'); });";
-    html += "}";
-    html += "</script>";
-    html += "</body></html>";
-    request->send(200, "text/html", html);
+    json += "]";
+    request->send(200, "application/json", json);
   });
 
-  // Endpoint for uploadind files
-  server.on("/sd/upload", HTTP_POST, [](AsyncWebServerRequest *request) {
-    request->send(200, "text/plain", "Upload complete");
-  }, [](AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool final) {
-    static File uploadFile;
-    String path = filename;
-    if (!filename.startsWith("/")) path = "/" + filename;
-    if(index == 0) {
-      DEBUG_PRINTF("[SD] Starting upload for file: %s\n", path.c_str());
-      uploadFile = SD_ADAPTER.open(path.c_str(), FILE_WRITE);
-      if (!uploadFile) {
-        DEBUG_PRINTF("[SD] Failed to open file for writing: %s\n", path.c_str());
-      }
-    }
-    if(uploadFile) {
-      size_t written = uploadFile.write(data, len);
-      DEBUG_PRINTF("[SD] Writing %d bytes to file: %s (written: %d bytes)\n", len, path.c_str(), written);
-    }
-    if(final) {
-      if(uploadFile) {
-        uploadFile.close();
-        DEBUG_PRINTF("[SD] Upload complete and file closed: %s\n", path.c_str());
-      }
-    }
-  });
-
-  // Endpoint for deleting files
-  server.on("/sd/delete", HTTP_GET, [](AsyncWebServerRequest *request) {
-    if (!request->hasArg("path")) {
-      request->send(400, "text/plain", "Missing 'path' parameter");
-      return;
-    }
-    String path = request->arg("path");
-    if (!path.startsWith("/")) path = "/" + path;
-    bool res = SD_ADAPTER.remove(path.c_str());
-    String msg = res ? "File deleted" : "Delete failed";
-    request->send(200, "text/plain", msg);
-  });
-  
-  //  FSEQ list
-  server.on("/fseq/list", HTTP_GET, [](AsyncWebServerRequest *request) {
-    String html = "<html><head><meta charset='utf-8'><title>FSEQ Files</title>";
-    html += "<style>";
-    html += "body { font-family: sans-serif; font-size: 24px; color: #00FF00; background-color: #000; margin: 0; padding: 20px; }";
-    html += "h1 { margin-top: 0; }";
-    html += "ul { list-style: none; margin: 0; padding: 0; }";
-    html += "li { margin-bottom: 10px; }";
-    html += "a, button { display: inline-block; font-size: 24px; color: #00FF00; border: 2px solid #00FF00; background-color: transparent; padding: 10px 20px; margin: 5px; text-decoration: none; }";
-    html += "a:hover, button:hover { background-color: #00FF00; color: #000; }";
-    html += "</style></head><body>";
-    html += "<h1>FSEQ Files</h1><ul>";
-    
+  // API - List FSEQ files
+  server.on("/api/fseq/list", HTTP_GET, [](AsyncWebServerRequest *request){
     File root = SD_ADAPTER.open("/");
+    String json = "[";
     if(root && root.isDirectory()){
+      bool first = true;
       File file = root.openNextFile();
       while(file){
         String name = file.name();
         if(name.endsWith(".fseq") || name.endsWith(".FSEQ")){
-          html += "<li>" + name + " ";
-          html += "<button id='btn_" + name + "' onclick=\"toggleFseq('" + name + "')\">Play</button>";
-          html += "</li>";
+          if(!first) json += ",";
+          first = false;
+          json += "{";
+          json += "\"name\":\"" + name + "\"";
+          json += "}";
         }
         file.close();
         file = root.openNextFile();
       }
     }
     root.close();
-    html += "</ul>";
-    html += "<p><a href='/sd/ui'>BACK</a></p>";
-    html += "<script>";
-    html += "function toggleFseq(file){";
-    html += "  var btn = document.getElementById('btn_' + file);";
-    html += "  if(btn.innerText === 'Play'){";
-    html += "    fetch('/fseq/start?file=' + encodeURIComponent(file))";
-    html += "      .then(response => response.text())";
-    html += "      .then(data => { btn.innerText = 'Stop'; });";
-    html += "  } else {";
-    html += "    fetch('/fseq/stop?file=' + encodeURIComponent(file))";
-    html += "      .then(response => response.text())";
-    html += "      .then(data => { btn.innerText = 'Play'; });";
-    html += "  }";
-    html += "}";
-    html += "</script>";
-    html += "</body></html>";
-    request->send(200, "text/html", html);
+    json += "]";
+    request->send(200, "application/json", json);
   });
-  
-  // Endpoint for playing FSEQ
-  server.on("/fseq/start", HTTP_GET, [](AsyncWebServerRequest *request) {
-    if (!request->hasArg("file")) {
-      request->send(400, "text/plain", "Missing 'file' parameter");
+
+  // API - File Upload
+  server.on("/api/sd/upload", HTTP_POST,
+    [](AsyncWebServerRequest *request){
+      request->send(200, "text/plain", "Upload complete");
+    },
+    [](AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool final){
+      static File uploadFile;
+      if(index == 0) {
+        if(!filename.startsWith("/")) filename = "/" + filename;
+        uploadFile = SD_ADAPTER.open(filename.c_str(), FILE_WRITE);
+      }
+      if(uploadFile) {
+        uploadFile.write(data, len);
+        if(final) uploadFile.close();
+      }
+    }
+  );
+
+  // API - File Delete
+  server.on("/api/sd/delete", HTTP_GET, [](AsyncWebServerRequest *request){
+    if(!request->hasArg("path")) {
+      request->send(400, "text/plain", "Missing path");
+      return;
+    }
+    String path = request->arg("path");
+    if (!path.startsWith("/")) path = "/" + path;
+    bool res = SD_ADAPTER.remove(path.c_str());
+    request->send(200, "text/plain", res ? "File deleted" : "Delete failed");
+  });
+
+  // API - Start FSEQ (normal playback)
+  server.on("/api/fseq/start", HTTP_GET, [](AsyncWebServerRequest *request){
+    if(!request->hasArg("file")){
+      request->send(400, "text/plain", "Missing file param");
       return;
     }
     String filepath = request->arg("file");
-    if (!filepath.startsWith("/")) filepath = "/" + filepath;
+    if(!filepath.startsWith("/")) filepath = "/" + filepath;
     FSEQPlayer::loadRecording(filepath.c_str(), 0, uint16_t(-1), 0.0f);
-    request->send(200, "text/plain", "FSEQ started: " + filepath);
+    request->send(200, "text/plain", "FSEQ started");
   });
-  
-  // Endpoint for stop playing FSEQ 
-  server.on("/fseq/stop", HTTP_GET, [](AsyncWebServerRequest *request) {
+
+  // API - Start FSEQ in loop mode
+  server.on("/api/fseq/startloop", HTTP_GET, [](AsyncWebServerRequest *request){
+    if(!request->hasArg("file")){
+      request->send(400, "text/plain", "Missing file param");
+      return;
+    }
+    String filepath = request->arg("file");
+    if(!filepath.startsWith("/")) filepath = "/" + filepath;
+    // Passing 1.0f enables loop mode in loadRecording()
+    FSEQPlayer::loadRecording(filepath.c_str(), 0, uint16_t(-1), 1.0f);
+    request->send(200, "text/plain", "FSEQ loop started");
+  });
+
+  // API - Stop FSEQ
+  server.on("/api/fseq/stop", HTTP_GET, [](AsyncWebServerRequest *request){
     FSEQPlayer::clearLastPlayback();
     realtimeLock(10, REALTIME_MODE_INACTIVE);
     request->send(200, "text/plain", "FSEQ stopped");
+  });
+  
+  // API - FSEQ Status
+  server.on("/api/fseq/status", HTTP_GET, [](AsyncWebServerRequest *request){
+    bool playing = FSEQPlayer::isPlaying();
+    String json = "{\"playing\":";
+    json += (playing ? "true" : "false");
+    json += "}";
+    request->send(200, "application/json", json);
   });
 }

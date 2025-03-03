@@ -92,7 +92,7 @@ public:
     JsonArray arr = user.createNestedArray("Usermod FSEQ UI");
     
     String ip = WiFi.localIP().toString();
-    arr.add("http://" + ip + "/sd/ui"); // value
+    arr.add("http://" + ip + "/fsequi"); // value
   }
 
   // Save your SPI pins to WLED config JSON

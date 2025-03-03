@@ -43,7 +43,7 @@ build_flags =
 To integrate the new FSEQ functionality into the WLED UI, add a new button to the navigation area in your `wled00/data/index.htm` file. For example:
 
 <!-- New button for SD & FSEQ Manager -->
-<button onclick="window.location.href=getURL('/sd/ui');">
+<button onclick="window.location.href=getURL('/fsequi');">
   <i class="icons">&#xe0d2;</i>
   <p class="tab-label">Fseq</p>
 </button>

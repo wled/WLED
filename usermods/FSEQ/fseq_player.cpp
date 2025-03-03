@@ -90,10 +90,13 @@ void FSEQPlayer::processFrameData() {
 bool FSEQPlayer::stopBecauseAtTheEnd() {
   if (!recordingFile.available()) {
     if (recordingRepeats == RECORDING_REPEAT_LOOP) {
+      // Reset file pointer and frame counter for continuous loop
       recordingFile.seek(0);
+      frame = 0;
     } else if (recordingRepeats > 0) {
       recordingFile.seek(0);
       recordingRepeats--;
+      frame = 0;
       DEBUG_PRINTF("Repeat recording again for: %d\n", recordingRepeats);
     } else {
       DEBUG_PRINTLN("Finished playing recording, disabling realtime mode");
@@ -187,7 +190,12 @@ void FSEQPlayer::loadRecording(const char* filepath, uint16_t startLed, uint16_t
   if (frame >= file_header.frame_count) {
     frame = file_header.frame_count - 1;
   }
-  recordingRepeats = RECORDING_REPEAT_DEFAULT;
+  // Set loop mode if secondsElapsed is exactly 1.0f
+  if (secondsElapsed == 1.0f) {
+    recordingRepeats = RECORDING_REPEAT_LOOP;
+  } else {
+    recordingRepeats = RECORDING_REPEAT_DEFAULT;
+  }
   playNextRecordingFrame();
 }
 
@@ -198,29 +206,28 @@ void FSEQPlayer::clearLastPlayback() {
   frame = 0;
 }
 
+bool FSEQPlayer::isPlaying() {
+  return recordingFile && recordingFile.available();
+}
 
-  bool FSEQPlayer::isPlaying() {
-    return recordingFile && recordingFile.available();
+void FSEQPlayer::syncPlayback(float secondsElapsed) {
+  if (!isPlaying()) {
+    DEBUG_PRINTLN("[FSEQ] Sync: Playback not active, cannot sync.");
+    return;
   }
   
-  void FSEQPlayer::syncPlayback(float secondsElapsed) {
-    if (!isPlaying()) {
-      DEBUG_PRINTLN("[FSEQ] Sync: Playback not active, cannot sync.");
-      return;
-    }
-    
-    uint32_t expectedFrame = (uint32_t)((secondsElapsed * 1000.0f) / file_header.step_time);
-    int32_t diff = (int32_t)expectedFrame - (int32_t)frame;
-    
-    if (abs(diff) > 2) {
-      frame = expectedFrame;
-      uint32_t offset = file_header.channel_data_offset + file_header.channel_count * frame;
-      if (recordingFile.seek(offset)) {
-        DEBUG_PRINTF("[FSEQ] Sync: Adjusted frame to %lu (diff=%ld)\n", expectedFrame, diff);
-      } else {
-        DEBUG_PRINTLN("[FSEQ] Sync: Failed to seek to new frame");
-      }
+  uint32_t expectedFrame = (uint32_t)((secondsElapsed * 1000.0f) / file_header.step_time);
+  int32_t diff = (int32_t)expectedFrame - (int32_t)frame;
+  
+  if (abs(diff) > 2) {
+    frame = expectedFrame;
+    uint32_t offset = file_header.channel_data_offset + file_header.channel_count * frame;
+    if (recordingFile.seek(offset)) {
+      DEBUG_PRINTF("[FSEQ] Sync: Adjusted frame to %lu (diff=%ld)\n", expectedFrame, diff);
     } else {
-      DEBUG_PRINTF("[FSEQ] Sync: No adjustment needed (current frame: %lu, expected: %lu)\n", frame, expectedFrame);
+      DEBUG_PRINTLN("[FSEQ] Sync: Failed to seek to new frame");
     }
+  } else {
+    DEBUG_PRINTF("[FSEQ] Sync: No adjustment needed (current frame: %lu, expected: %lu)\n", frame, expectedFrame);
   }
+}
