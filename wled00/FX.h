@@ -796,7 +796,8 @@ class WS2812FX {  // 96 bytes
       blendSegment(const Segment &topSegment) const,    // blends topSegment into pixels
       show(),                                     // initiates LED output
       setTargetFps(unsigned fps),
-      setupEffectData();                          // add default effects to the list; defined in FX.cpp
+      setupEffectData(),                          // add default effects to the list; defined in FX.cpp
+      waitForIt();                                // wait until frame is over (service() has finished or time for 1 frame has passed)
 
     inline void resetTimebase()                 { timebase = 0UL - millis(); }
     inline void restartRuntime()                { for (Segment &seg : _segments) { seg.markForReset().resetIfRequired(); } }

@@ -820,10 +820,13 @@ void Segment::setPixelColor(float i, uint32_t col, bool aa) const
 
 uint32_t IRAM_ATTR Segment::getPixelColor(int i) const
 {
-  if (!isActive()) return 0; // not active
+  if (!isActive() || i < 0) return 0; // not active or invalid index
 
-  int vL = vLength();
-  if (i >= vL || i < 0) return 0;
+#ifndef WLED_DISABLE_2D
+  int vStrip = i>>16; // virtual strips are only relevant in Bar expansion mode
+  i &= 0xFFFF;
+#endif
+  if (i >= vLength()) return 0;
 
 #ifndef WLED_DISABLE_2D
   if (is2D()) {
@@ -833,16 +836,16 @@ uint32_t IRAM_ATTR Segment::getPixelColor(int i) const
       case M12_Pixels:
         return getPixelColorXY(i % vW, i / vW);
         break;
-      case M12_pBar: {
-        int vStrip = i>>16; // virtual strips are only relevant in Bar expansion mode
+      case M12_pBar:
         if (vStrip > 0) return getPixelColorXY(vStrip - 1, vH - (i & 0xFFFF) -1);
         else            return getPixelColorXY(0, vH - i -1);
-        break; }
+        break;
       case M12_pArc:
         if (i >= vW && i >= vH) {
           unsigned vI = sqrt16(i*i/2);
           return getPixelColorXY(vI,vI); // use diagonal
         }
+        // otherwise fallthrough
       case M12_pCorner:
         // use longest dimension
         return vW>vH ? getPixelColorXY(i, 0) : getPixelColorXY(0, i);
@@ -1714,6 +1717,15 @@ void WS2812FX::show() {
     _lastShow = showNow;
   }
 }
+
+// wait until frame is over (service() has finished or time for 1 frame has passed; yield() crashes on 8266)
+void WS2812FX::waitForIt() {
+  unsigned long maxWait = millis() + getFrameTime();
+  while (isServicing() && maxWait > millis()) delay(1);
+  #ifdef WLED_DEBUG_FX
+  if (millis() >= maxWait) DEBUGFX_PRINTLN(F("Waited for strip to finish servicing."));
+  #endif
+};
 
 void WS2812FX::setTargetFps(unsigned fps) {
   if (fps > 0 && fps <= 120) _targetFps = fps;
