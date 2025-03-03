@@ -16,6 +16,7 @@
 #include "effects/BouncingBallsEffect.h"
 #include "effects/PaletteEffect.h"
 #include "effects/StaticEffect.h"
+#include "effects/TetrixEffect.h"
 #include <memory>
 
 #if !(defined(WLED_DISABLE_PARTICLESYSTEM2D) && defined(WLED_DISABLE_PARTICLESYSTEM1D))
@@ -10155,6 +10156,7 @@ void WS2812FX::setupEffectData(size_t modeCount) {
   // Solid must be first! (assuming vector is empty upon call to setup)
   addEffect(std::make_unique<EffectFactory>(StaticEffect::effectInformation));
   addEffect(std::make_unique<EffectFactory>(PaletteEffect::effectInformation));
+  addEffect(std::make_unique<EffectFactory>(TetrixEffect::effectInformation));
   addEffect(std::make_unique<EffectFactory>(BouncingBallsEffect::effectInformation));
   // fill reserved word in case there will be any gaps in the array
   for (size_t i=1; i<modeCount; i++) {
