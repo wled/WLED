@@ -101,8 +101,8 @@ static bool remoteJson(int button)
   char objKey[10];
   bool parsed = false;
 
-  unsigned long start = millis();
-  while (strip.isUpdating() && millis()-start < ESPNOW_DELAY_PROCESSING) delay(1); // we are not in ISR/callback
+  unsigned long maxWait = millis() + strip.getFrameTime();
+  while (strip.isUpdating() && millis() < maxWait) delay(1); // wait for strip to finish updating, accessing FS during sendout causes glitches
 
   if (!requestJSONBufferLock(22)) return false;
 

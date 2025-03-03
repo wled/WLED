@@ -198,10 +198,8 @@ void handleAnalog(uint8_t b)
 
   // Unomment the next lines if you still see flickering related to potentiometer
   // This waits until strip finishes updating (why: strip was not updating at the start of handleButton() but may have started during analogRead()?)
-  //unsigned long wait_started = millis();
-  //while(strip.isUpdating() && (millis() - wait_started < STRIP_WAIT_TIME)) {
-  //  delay(1);
-  //}
+  //unsigned long wait = millis() + STRIP_WAIT_TIME;
+  //while (strip.isUpdating() && millis() < wait) delay(1);
 
   oldRead[b] = aRead;
 

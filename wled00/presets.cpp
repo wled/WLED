@@ -29,8 +29,9 @@ bool presetNeedsSaving() {
 static void doSaveState() {
   bool persist = (presetToSave < 251);
 
-  unsigned long start = millis();
-  while (strip.isUpdating() && millis()-start < (2*FRAMETIME_FIXED)+1) yield(); // wait 2 frames
+  unsigned long maxWait = millis() + strip.getFrameTime();
+  while (strip.isUpdating() && millis() < maxWait) delay(1); // wait for strip to finish updating, accessing FS during sendout causes glitches
+
   if (!requestJSONBufferLock(10)) return;
 
   initPresetsFile(); // just in case if someone deleted presets.json using /edit
@@ -165,8 +166,8 @@ void handlePresets()
   DEBUG_PRINTF_P(PSTR("Applying preset: %u\n"), (unsigned)tmpPreset);
 
   #if defined(ARDUINO_ARCH_ESP32S2) || defined(ARDUINO_ARCH_ESP32C3)
-  unsigned long start = millis();
-  while (strip.isUpdating() && millis() - start < strip.getFrameTime()) yield(); // wait for strip to finish updating, accessing FS during sendout causes glitches
+  unsigned long maxWait = millis() + strip.getFrameTime();
+  while (strip.isUpdating() && millis() < maxWait) delay(1); // wait for strip to finish updating, accessing FS during sendout causes glitches
   #endif
 
   #ifdef ARDUINO_ARCH_ESP32
