@@ -4,50 +4,43 @@
 
 // Enabled setting
 #ifndef INA219_ENABLED
-	#define INA219_ENABLED false  // Default disabled value
+	#define INA219_ENABLED false // Default disabled value
 #endif
 
-// I2C Address (default is 0x40 if not defined)
 #ifndef INA219_I2C_ADDRESS
-	#define INA219_I2C_ADDRESS 0x40  // Default I2C address
+	#define INA219_I2C_ADDRESS 0x40 // Default I2C address
 #endif
 
-// Check Interval (in seconds, default 5 seconds if not defined)
 #ifndef INA219_CHECK_INTERVAL
-	#define INA219_CHECK_INTERVAL 5  // Default 5 seconds
+	#define INA219_CHECK_INTERVAL 5 // Default 5 seconds (will be converted to ms)
 #endif
 
-// Conversion Time (default to 12-bit resolution)
 #ifndef INA219_CONVERSION_TIME
-	#define INA219_CONVERSION_TIME BIT_MODE_12  // Default 12-bit resolution
+	#define INA219_CONVERSION_TIME BIT_MODE_12 // Conversion Time, Default 12-bit resolution
 #endif
 
-// Decimal factor for current/power readings (default to 3 decimal places)
 #ifndef INA219_DECIMAL_FACTOR
-	#define INA219_DECIMAL_FACTOR 3  // Default 3 decimal places
+	#define INA219_DECIMAL_FACTOR 3 // Decimal factor for current/power readings. Default 3 decimal places
 #endif
 
-// Shunt Resistor value (default to 0.1 ohms)
 #ifndef INA219_SHUNT_RESISTOR
-	#define INA219_SHUNT_RESISTOR 0.1  // Default 0.1 ohms
+	#define INA219_SHUNT_RESISTOR 0.1 // Shunt Resistor value. Default 0.1 ohms
 #endif
 
-// Correction factor (default to 1.0)
 #ifndef INA219_CORRECTION_FACTOR
-	#define INA219_CORRECTION_FACTOR 1.0  // Default correction factor
+	#define INA219_CORRECTION_FACTOR 1.0 // Default correction factor. Default 1.0
 #endif
 
-// MQTT Publish Settings
 #ifndef INA219_MQTT_PUBLISH
-	#define INA219_MQTT_PUBLISH false  // Default: false (do not publish to MQTT)
+	#define INA219_MQTT_PUBLISH false // Default: do not publish to MQTT
 #endif
 
 #ifndef INA219_MQTT_PUBLISH_ALWAYS
-	#define INA219_MQTT_PUBLISH_ALWAYS false  // Default: false (only publish changes)
+	#define INA219_MQTT_PUBLISH_ALWAYS false // Default: only publish on change
 #endif
 
 #ifndef INA219_HA_DISCOVERY
-	#define INA219_HA_DISCOVERY false  // Default: false (Home Assistant discovery disabled)
+	#define INA219_HA_DISCOVERY false // Default: Home Assistant discovery disabled
 #endif
 
 #include "wled.h"
@@ -57,15 +50,15 @@ class UsermodINA219 : public Usermod {
 private:
 	static const char _name[];  // Name of the usermod
 
-	bool initDone = false;  // Flag to check if initialization is complete
-	unsigned long lastCheck = 0;  // Timestamp for the last check
+	bool initDone = false;  // Flag for successful initialization
+	unsigned long lastCheck = 0; // Timestamp for the last check
 
 	// Define the variables using the pre-defined or default values
 	bool enabled = INA219_ENABLED;
 	uint8_t _i2cAddress = INA219_I2C_ADDRESS;
 	uint16_t _checkInterval = INA219_CHECK_INTERVAL;
-	uint16_t checkInterval = _checkInterval * 1000; // Convert to milliseconds
-	INA219_ADC_MODE conversionTime = static_cast<INA219_ADC_MODE>(INA219_CONVERSION_TIME); // Cast from int
+	uint16_t checkInterval = _checkInterval * 1000; // Convert seconds to milliseconds
+	INA219_ADC_MODE conversionTime = static_cast<INA219_ADC_MODE>(INA219_CONVERSION_TIME);
 	uint8_t _decimalFactor = INA219_DECIMAL_FACTOR;
 	float shuntResistor = INA219_SHUNT_RESISTOR;
 	float correctionFactor = INA219_CORRECTION_FACTOR;
@@ -85,7 +78,7 @@ private:
 	float loadVoltage = 0;
 	bool overflow = false;
 
-	//Last sent variables
+	// Last sent variables
 	float last_sent_shuntVoltage = 0;
 	float last_sent_busVoltage = 0;
 	float last_sent_loadVoltage = 0;
@@ -101,8 +94,8 @@ private:
 	unsigned long lastPublishTime = 0; // Track the last publish time
 
 	// Variables to store last reset timestamps
-	unsigned long dailyResetTime = 0; // Reset time in seconds
-	unsigned long monthlyResetTime = 0; // Reset time in seconds
+	unsigned long dailyResetTime = 0;
+	unsigned long monthlyResetTime = 0;
 
 	// Variables to track last sent readings
 	float _lastCurrentSent = 0;
@@ -114,18 +107,21 @@ private:
 
 	// Function to truncate decimals based on the configured decimal factor
 	float truncateDecimals(float val) {
-		// If _decimalFactor is 0, round to the nearest whole number
 		if (_decimalFactor == 0) {
-			return roundf(val); 
+			return roundf(val);
 		}
-		// For decimal factors 1 and above, round to the appropriate number of decimal places
-		float factor = pow(10, _decimalFactor); 
+		float factor = pow(10, _decimalFactor);
 		return roundf(val * factor) / factor;
 	}
 
-	// Function to update INA219 settings
+	// Update INA219 settings and reinitialize sensor if necessary
 	void updateINA219Settings() {
-		if (i2c_scl<0 || i2c_sda<0) { enabled = false;  return; }
+		// Validate I2C pins; if invalid, disable usermod and log message
+		if (i2c_scl < 0 || i2c_sda < 0) {
+			enabled = false;
+			DEBUG_PRINTLN(F("INA219 disabled: Invalid I2C pins. Check global I2C settings."));
+			return;
+		}
 		DEBUG_PRINT(F("Using I2C SDA: "));
 		DEBUG_PRINTLN(i2c_sda);
 		DEBUG_PRINT(F("Using I2C SCL: "));
@@ -136,9 +132,10 @@ private:
 			delete _ina219;
 		}
 		_ina219 = new INA219_WE(_i2cAddress);
+
 		if (!_ina219->init()) {
 			DEBUG_PRINTLN(F("INA219 initialization failed!"));
-			enabled = false; // Disable further sensor reads
+			enabled = false;
 			return;
 		}
 		_ina219->setShuntSizeInOhms(shuntResistor);
@@ -147,14 +144,14 @@ private:
 	}
 
 public:
-	// Destructor to clean up the INA219 object
+	// Destructor to clean up INA219 object
 	~UsermodINA219() {
 		delete _ina219;
 		_ina219 = nullptr;
 	}
 
 	// Setup function called once on boot or restart
-	void setup() override {		
+	void setup() override {
 		updateINA219Settings();  // Configure INA219 settings
 		initDone = true;  // Mark initialization as complete
 	}
@@ -163,24 +160,24 @@ public:
 	void loop() override {
 		// Check if the usermod is enabled and the check interval has elapsed
 		if (enabled && millis() - lastCheck > checkInterval) {
-			lastCheck = millis();  // Update last check timestamp
+			lastCheck = millis();
 
-			// Read sensor values
+			// Fetch sensor data
 			shuntVoltage = truncateDecimals(_ina219->getShuntVoltage_mV());
 			busVoltage = truncateDecimals(_ina219->getBusVoltage_V());
 			current_mA = truncateDecimals(_ina219->getCurrent_mA());
-			current = truncateDecimals(_ina219->getCurrent_mA() / 1000.0);  // Convert from mA to A
+			current = truncateDecimals(_ina219->getCurrent_mA() / 1000.0); // Convert from mA to A
 			power_mW = truncateDecimals(_ina219->getBusPower());
-			power = truncateDecimals(_ina219->getBusPower() / 1000.0);      // Convert from mW to W
+			power = truncateDecimals(_ina219->getBusPower() / 1000.0); // Convert from mW to W
 			loadVoltage = truncateDecimals(busVoltage + (shuntVoltage / 1000));
 			overflow = truncateDecimals(_ina219->getOverflow());
 
-			// Update energy values based on power for this duration
+			// Update energy consumption
 			updateEnergy(power, lastCheck - lastPublishTime);
-			lastPublishTime = lastCheck;  // Update last publish time
+			lastPublishTime = lastCheck;
 
-		#ifndef WLED_DISABLE_MQTT     
-			// Publish to MQTT if enabled
+		#ifndef WLED_DISABLE_MQTT
+			// Publish sensor data via MQTT if connected and enabled
 			if (WLED_MQTT_CONNECTED) {
 				if (mqttPublish) {
 					if (mqttPublishAlways || hasValueChanged()) {
@@ -199,34 +196,31 @@ public:
 					}
 				} else if (!mqttPublish && mqttPublishSent) {
 					char sensorTopic[128];
-					snprintf_P(sensorTopic, 127, "%s/sensor/ina219", mqttDeviceTopic);  // Discovery config topic for each sensor
+					snprintf_P(sensorTopic, 127, "%s/sensor/ina219", mqttDeviceTopic);
 
-					// Publish an empty message with retain to delete the sensor from Home Assistant
+					// Publishing an empty retained message to delete the sensor from Home Assistant
 					mqtt->publish(sensorTopic, 0, true, "");
-
 					mqttPublishSent = false;
 				}
 			}
 
-			// Optionally publish to Home Assistant via MQTT discovery
+			// Publish Home Assistant discovery data if enabled
 			if (haDiscovery && !haDiscoverySent) {
 				if (WLED_MQTT_CONNECTED) {
 					char topic[128];
-					snprintf_P(topic, 127, "%s/sensor/ina219", mqttDeviceTopic);  // Common topic for all INA219 data
+					snprintf_P(topic, 127, "%s/sensor/ina219", mqttDeviceTopic); // Common topic for all INA219 data
 
-					mqttCreateHassSensor(F("Current"), topic, F("current"), F("A"), F("current"), F("sensor"));
+					mqttCreateHassSensor(F("Current"), topic, F("current"), F("A"), F("current_A"), F("sensor"));
 					mqttCreateHassSensor(F("Voltage"), topic, F("voltage"), F("V"), F("bus_voltage_V"), F("sensor"));
-					mqttCreateHassSensor(F("Power"), topic, F("power"), F("W"), F("power"), F("sensor"));
+					mqttCreateHassSensor(F("Power"), topic, F("power"), F("W"), F("power_W"), F("sensor"));
 					mqttCreateHassSensor(F("Shunt Voltage"), topic, F("voltage"), F("mV"), F("shunt_voltage_mV"), F("sensor"));
 					mqttCreateHassSensor(F("Shunt Resistor"), topic, F(""), F("Ω"), F("shunt_resistor_Ohms"), F("sensor"));
-					//mqttCreateHassSensor(F("Overflow"), topic, F(""), F(""), F("overflow"), F("binary_sensor")); //Binary Sensor does not show value in Home Assistant, so switching to sensor
 					mqttCreateHassSensor(F("Overflow"), topic, F(""), F(""), F("overflow"), F("sensor"));
 					mqttCreateHassSensor(F("Daily Energy"), topic, F("energy"), F("kWh"), F("daily_energy_kWh"), F("sensor"));
 					mqttCreateHassSensor(F("Monthly Energy"), topic, F("energy"), F("kWh"), F("monthly_energy_kWh"), F("sensor"));
 					mqttCreateHassSensor(F("Total Energy"), topic, F("energy"), F("kWh"), F("total_energy_kWh"), F("sensor"));
 
-					// Mark as sent to avoid repeating
-					haDiscoverySent = true;
+					haDiscoverySent = true; // Mark as sent to avoid repeating
 				}
 			} else if (!haDiscovery && haDiscoverySent) {
 				if (WLED_MQTT_CONNECTED) {
@@ -234,16 +228,14 @@ public:
 					mqttRemoveHassSensor(F("Current"), F("sensor"));
 					mqttRemoveHassSensor(F("Voltage"), F("sensor"));
 					mqttRemoveHassSensor(F("Power"), F("sensor"));
-					mqttRemoveHassSensor(F("Shunt-Voltage"), F("sensor"));
-					mqttRemoveHassSensor(F("Daily-Energy"), F("sensor"));
-					mqttRemoveHassSensor(F("Monthly-Energy"), F("sensor"));
-					mqttRemoveHassSensor(F("Total-Energy"), F("sensor"));
-					mqttRemoveHassSensor(F("Shunt-Resistor"), F("sensor"));
-					//mqttRemoveHassSensor(F("Overflow"), F("binary_sensor"));
+					mqttRemoveHassSensor(F("Shunt Voltage"), F("sensor"));
+					mqttRemoveHassSensor(F("Daily Energy"), F("sensor"));
+					mqttRemoveHassSensor(F("Monthly Energy"), F("sensor"));
+					mqttRemoveHassSensor(F("Total Energy"), F("sensor"));
+					mqttRemoveHassSensor(F("Shunt Resistor"), F("sensor"));
 					mqttRemoveHassSensor(F("Overflow"), F("sensor"));
 
-					// Mark as sent to avoid repeating
-					haDiscoverySent = false;
+					haDiscoverySent = false; // Mark as sent to avoid repeating
 				}
 			}
 		#endif
@@ -296,7 +288,7 @@ public:
 	}
 	
 	/**
-	** Subscribe to MQTT topic for controlling usermod
+	** Subscribe to MQTT topic for controlling the usermod
 	**/
 	void onMqttConnect(bool sessionPresent) override {
 		if (!enabled) return;
@@ -324,30 +316,28 @@ public:
 				StaticJsonDocument<1024> jsonDoc;
 
 				// Populate the JSON document with sensor readings
-				jsonDoc["shunt_voltage_mV"] = shuntVoltage; // Shunt voltage in millivolts
-				jsonDoc["bus_voltage_V"] = busVoltage;       // Bus voltage in volts
-				jsonDoc["load_voltage_V"] = loadVoltage;     // Load voltage in volts
-				jsonDoc["current"] = current;                 // Current in unspecified units
-				jsonDoc["current_mA"] = current_mA;          // Current in milliamperes
-				jsonDoc["power"] = power;                     // Power in unspecified units
-				jsonDoc["power_mW"] = power_mW;               // Power in milliwatts
-				jsonDoc["overflow"] = overflow;               // Overflow status (true/false)
-				//jsonDoc["overflow"] = overflow ? "on" : "off"; 
-				jsonDoc["shunt_resistor_Ohms"] = shuntResistor; // Shunt resistor value in Ohms
+				jsonDoc["shunt_voltage_mV"] = shuntVoltage;
+				jsonDoc["bus_voltage_V"] = busVoltage;
+				jsonDoc["load_voltage_V"] = loadVoltage;
+				jsonDoc["current_A"] = current;
+				jsonDoc["current_mA"] = current_mA;
+				jsonDoc["power_W"] = power;
+				jsonDoc["power_mW"] = power_mW;
+				jsonDoc["overflow"] = overflow;
+				jsonDoc["shunt_resistor_Ohms"] = shuntResistor;
 
 				// Energy calculations
-				jsonDoc["daily_energy_kWh"] = dailyEnergy_kWh; // Daily energy in kilowatt-hours
-				jsonDoc["monthly_energy_kWh"] = monthlyEnergy_kWh; // Monthly energy in kilowatt-hours
-				jsonDoc["total_energy_kWh"] = totalEnergy_kWh; // Total energy in kilowatt-hours
+				jsonDoc["daily_energy_kWh"] = dailyEnergy_kWh;
+				jsonDoc["monthly_energy_kWh"] = monthlyEnergy_kWh;
+				jsonDoc["total_energy_kWh"] = totalEnergy_kWh;
 
 				// Reset timestamps
-				jsonDoc["dailyResetTime"] = dailyResetTime;   // Timestamp of the last daily reset
-				jsonDoc["monthlyResetTime"] = monthlyResetTime; // Timestamp of the last monthly reset
+				jsonDoc["dailyResetTime"] = dailyResetTime;
+				jsonDoc["monthlyResetTime"] = monthlyResetTime;
 					
 				// Serialize the JSON document into a character buffer
 				char buffer[1024];
-				size_t payload_size;
-				payload_size = serializeJson(jsonDoc, buffer);
+				size_t payload_size = serializeJson(jsonDoc, buffer);
 
 				// Construct the MQTT topic using the device topic
 				char topic[128];
@@ -365,44 +355,43 @@ public:
 	void mqttCreateHassSensor(const String &name, const String &topic, 
 							const String &deviceClass, const String &unitOfMeasurement, 
 							const String &jsonKey, const String &SensorType) {
-		// Sanitize the name by replacing spaces with hyphens
 		String sanitizedName = name;
 		sanitizedName.replace(' ', '-');
 
 		String sanitizedMqttClientID = sanitizeMqttClientID(mqttClientID);
+		sanitizedMqttClientID += "-" + String(escapedMac.c_str());
 
 		// Create a JSON document for the sensor configuration
 		StaticJsonDocument<1024> doc;
 
 		// Populate the JSON document with sensor configuration details
-		doc[F("name")] = name;                                // Sensor name
-		doc[F("state_topic")] = topic;                        // Topic for sensor state
-		doc[F("unique_id")] = String(sanitizedMqttClientID) + "-" + sanitizedName; // Unique ID for the sensor
+		doc[F("name")] = name;
+		doc[F("state_topic")] = topic;
+		doc[F("unique_id")] = String(sanitizedMqttClientID) + "-" + sanitizedName;
 
 		// Template to extract specific value from JSON
-		doc[F("value_template")] = String("{{ value_json.") + jsonKey + String(" }}");  
+		doc[F("value_template")] = String("{{ value_json.") + jsonKey + String(" }}");
 		if (unitOfMeasurement != "")
-			doc[F("unit_of_measurement")] = unitOfMeasurement; // Optional unit of measurement
+			doc[F("unit_of_measurement")] = unitOfMeasurement;
 		if (deviceClass != "")
-			doc[F("device_class")] = deviceClass;              // Optional device class
+			doc[F("device_class")] = deviceClass;
 		if (SensorType != "binary_sensor")
-			doc[F("expire_after")] = 1800;                     // Expiration time for non-binary sensors
+			doc[F("expire_after")] = 1800;
 
 		// Device details nested object
 		JsonObject device = doc.createNestedObject(F("device"));
-		device[F("name")] = serverDescription;                // Server description as device name
-		device[F("identifiers")] = "wled-sensor-" + String(sanitizedMqttClientID); // Unique identifier for the device
-		device[F("manufacturer")] = F(WLED_BRAND);           // Manufacturer name
-		device[F("model")] = F(WLED_PRODUCT_NAME);           // Product model name
-		device[F("sw_version")] = versionString;              // Software version
+		device[F("name")] = serverDescription;
+		device[F("identifiers")] = "wled-sensor-" + String(sanitizedMqttClientID);
+		device[F("manufacturer")] = F(WLED_BRAND);
+		device[F("model")] = F(WLED_PRODUCT_NAME);
+		device[F("sw_version")] = versionString;
 
 		// Serialize the JSON document into a temporary string
 		char buffer[1024];
-		size_t payload_size;
-		payload_size = serializeJson(doc, buffer);
+		size_t payload_size = serializeJson(doc, buffer);
 
 		char topic_S[128];
-		snprintf_P(topic_S, sizeof(topic_S), "homeassistant/%s/%s/%s/config", SensorType, sanitizedMqttClientID, sanitizedName);
+		snprintf_P(topic_S, sizeof(topic_S), "homeassistant/%s/%s/%s/config", SensorType, sanitizedMqttClientID.c_str(), sanitizedName.c_str());
 
 		// Debug output for the Home Assistant topic and configuration
 		DEBUG_PRINTLN(topic_S);
@@ -413,105 +402,92 @@ public:
 	}
 	
 	void mqttRemoveHassSensor(const String &name, const String &SensorType) {
+		String sanitizedName = name;
+		sanitizedName.replace(' ', '-');
+
+		String sanitizedMqttClientID = sanitizeMqttClientID(mqttClientID);
+		sanitizedMqttClientID += "-" + String(escapedMac.c_str());
+
 		char sensorTopic[128];
-		snprintf_P(sensorTopic, 127, "homeassistant/%s/%s/%s/config", SensorType.c_str(), sanitizeMqttClientID(mqttClientID).c_str(), name.c_str());  // Discovery config topic for each sensor
+		snprintf_P(sensorTopic, 127, "homeassistant/%s/%s/%s/config", SensorType.c_str(), sanitizedMqttClientID.c_str(), sanitizedName.c_str());
 
 		// Publish an empty message with retain to delete the sensor from Home Assistant
 		mqtt->publish(sensorTopic, 0, true, "");
 	}
-	
-	// Function to sanitize the mqttClientID with nicer replacements
+
+	// Sanitize the mqttClientID by replacing invalid characters.
 	String sanitizeMqttClientID(const String &clientID) {
 		String sanitizedID;
 
-		// Loop through the string
 		for (unsigned int i = 0; i < clientID.length(); i++) {
-			char c = clientID[i]; // Get the character directly
+			char c = clientID[i];
 
-			// Handle specific cases for accented letters using byte values
+			// Handle common accented characters using simple mapping
 			if (c == '\xC3' && i + 1 < clientID.length()) {
-				if (clientID[i + 1] == '\xBC') { // ü
-					//sanitizedID += "ue"; // Replace ü with ue
-					sanitizedID += "u"; // Replace ü with ue
-					i++; // Skip the next byte
-				} else if (clientID[i + 1] == '\x9C') { // Ü
-					//sanitizedID += "Ue"; // Replace Ü with Ue
-					sanitizedID += "U"; // Replace Ü with Ue
-					i++; // Skip the next byte
-				} else if (clientID[i + 1] == '\xA4') { // ä
-					//sanitizedID += "ae"; // Replace ä with ae
-					sanitizedID += "a"; // Replace ä with ae
-					i++; // Skip the next byte
-				} else if (clientID[i + 1] == '\xC4') { // Ä
-					//sanitizedID += "Ae"; // Replace Ä with Ae
-					sanitizedID += "A"; // Replace Ä with Ae
-					i++; // Skip the next byte
-				} else if (clientID[i + 1] == '\xB6') { // ö
-					//sanitizedID += "oe"; // Replace ö with oe
-					sanitizedID += "o"; // Replace ö with oe
-					i++; // Skip the next byte
-				} else if (clientID[i + 1] == '\xD6') { // Ö
-					//sanitizedID += "Oe"; // Replace Ö with Oe
-					sanitizedID += "O"; // Replace Ö with Oe
-					i++; // Skip the next byte
-				} else if (clientID[i + 1] == '\x9F') { // ß
-					//sanitizedID += "ss"; // Replace ß with ss
-					sanitizedID += "s"; // Replace ß with ss
-					i++; // Skip the next byte
+				char next = clientID[i + 1];
+				if (next == '\xBC' || next == '\x9C') { // ü or Ü
+					sanitizedID += (next == '\xBC' ? "u" : "U");
+					i++;
+					continue;
+				} else if (next == '\xA4' || next == '\xC4') { // ä or Ä
+					sanitizedID += (next == '\xA4' ? "a" : "A");
+					i++;
+					continue;
+				} else if (next == '\xB6' || next == '\xD6') { // ö or Ö
+					sanitizedID += (next == '\xB6' ? "o" : "O");
+					i++;
+					continue;
+				} else if (next == '\x9F') { // ß
+					sanitizedID += "s";
+					i++;
+					continue;
 				}
 			}
 			// Allow valid characters [a-zA-Z0-9_-]
-			else if ((c >= 'a' && c <= 'z') || 
-					(c >= 'A' && c <= 'Z') || 
-					(c >= '0' && c <= '9') || 
+			if ((c >= 'a' && c <= 'z') ||
+					(c >= 'A' && c <= 'Z') ||
+					(c >= '0' && c <= '9') ||
 					c == '-' || c == '_') {
-				sanitizedID += c; // Directly append valid characters
-			}
-			// Replace any other invalid character with an underscore
-			else {
-				sanitizedID += '_'; // Replace invalid character with underscore
+				sanitizedID += c;
+			} else { // Replace any other invalid character with an underscore
+				sanitizedID += '_';
 			}
 		}
-		return sanitizedID; // Return the sanitized client ID
+		return sanitizedID;
 	}
 
 	/**
 	** Function to update energy calculations based on power and duration
 	**/
 	void updateEnergy(float power, unsigned long durationMs) {
-		// Convert duration from milliseconds to hours
-		float durationHours = durationMs / 3600000.0;
+		float durationHours = durationMs / 3600000.0; // Milliseconds to hours
+		float energy_kWh = (power / 1000.0) * durationHours; // Watts to kilowatt-hours (kWh)
+		totalEnergy_kWh += energy_kWh; // Update total energy consumed
 
-		// Convert power from watts to kilowatt-hours (kWh)
-		float energy_kWh = (power / 1000.0) * durationHours;
-
-		// Update total energy consumed
-		totalEnergy_kWh += energy_kWh;
-
-		// Update daily energy consumption
-		if (dailyResetTime >= 86400) { // 86400 seconds = 24 hours
-			dailyEnergy_kWh = 0;        // Reset daily energy to zero
-			dailyResetTime = 0;         // Reset daily reset time to zero
+		// Reset daily energy if 86400 seconds (24 hours) elapsed.
+		if (dailyResetTime >= 86400UL) {
+			dailyEnergy_kWh = 0;
+			dailyResetTime = 0;
 		}
-		dailyEnergy_kWh += energy_kWh;  // Add to daily energy
-		dailyResetTime += durationMs / 1000; // Increment daily reset time in seconds
+		dailyEnergy_kWh += energy_kWh;
+		dailyResetTime += durationMs / 1000;
 
-		// Update monthly energy consumption
-		if (monthlyResetTime >= 2592000) { // 2592000 seconds = 30 days
-			monthlyEnergy_kWh = 0;       // Reset monthly energy to zero
-			monthlyResetTime = 0;        // Reset monthly reset time to zero
+		// Reset monthly energy if 2592000 seconds (30 days) elapsed.
+		if (monthlyResetTime >= 2592000UL) {
+			monthlyEnergy_kWh = 0;
+			monthlyResetTime = 0;
 		}
-		monthlyEnergy_kWh += energy_kWh; // Add to monthly energy
-		monthlyResetTime += durationMs / 1000; // Increment monthly reset time in seconds
+		monthlyEnergy_kWh += energy_kWh;
+		monthlyResetTime += durationMs / 1000;
 	}
 	
 	/**
-	** Function to add energy consumption data to a JSON object for reporting
+	** Add energy consumption data to a JSON object for reporting
 	**/
 	void addToJsonInfo(JsonObject &root) {
 		JsonObject user = root[F("u")];
 		if (user.isNull()) {
-			user = root.createNestedObject(F("u")); // Create a nested object for user data
+			user = root.createNestedObject(F("u"));
 		}
 
 		// Create a nested array for energy data
@@ -520,37 +496,36 @@ public:
 		JsonArray energy_json = user.createNestedArray(F("Energy Consumption:"));
 
 		if (!enabled) {
-			energy_json.add(F("disabled")); // Indicate that the module is disabled
-		} else {	
+			energy_json.add(F("disabled"));
+		} else {
 			// Create a nested array for daily energy
 			JsonArray dailyEnergy_json = user.createNestedArray(F("Daily Energy"));
-			dailyEnergy_json.add(dailyEnergy_kWh); // Add daily energy in kWh
-			dailyEnergy_json.add(F(" kWh")); // Add unit of measurement
+			dailyEnergy_json.add(dailyEnergy_kWh);
+			dailyEnergy_json.add(F(" kWh"));
 
 			// Create a nested array for monthly energy
 			JsonArray monthlyEnergy_json = user.createNestedArray(F("Monthly Energy"));
-			monthlyEnergy_json.add(monthlyEnergy_kWh); // Add monthly energy in kWh
-			monthlyEnergy_json.add(F(" kWh")); // Add unit of measurement
+			monthlyEnergy_json.add(monthlyEnergy_kWh);
+			monthlyEnergy_json.add(F(" kWh"));
 
 			// Create a nested array for total energy
 			JsonArray totalEnergy_json = user.createNestedArray(F("Total Energy"));
-			totalEnergy_json.add(totalEnergy_kWh); // Add total energy in kWh
-			totalEnergy_json.add(F(" kWh")); // Add unit of measurement
+			totalEnergy_json.add(totalEnergy_kWh);
+			totalEnergy_json.add(F(" kWh"));
 		}
 	}
 	
 	/**
-	** Function to add the current state of energy consumption to a JSON object
+	** Add the current state of energy consumption to a JSON object
 	**/
 	void addToJsonState(JsonObject& root) override {
-		if (!initDone) return;  // Prevent crashes on boot if initialization is not done
+		if (!initDone) return;
 
 		JsonObject usermod = root[FPSTR(_name)];
 		if (usermod.isNull()) {
-			usermod = root.createNestedObject(FPSTR(_name)); // Create nested object for the usermod
+			usermod = root.createNestedObject(FPSTR(_name));
 		}
 
-		// Add energy consumption data to the usermod JSON object
 		usermod["totalEnergy_kWh"] = totalEnergy_kWh;
 		usermod["dailyEnergy_kWh"] = dailyEnergy_kWh;
 		usermod["monthlyEnergy_kWh"] = monthlyEnergy_kWh;
@@ -559,7 +534,7 @@ public:
 	}
 	
 	/**
-	** Function to read energy consumption data from a JSON object
+	** Read energy consumption data from a JSON object
 	**/
 	void readFromJsonState(JsonObject& root) override {
 		if (!initDone) return; // Prevent crashes on boot if initialization is not done
@@ -576,16 +551,16 @@ public:
 	}
 	
 	/**
-	** Function to handle settings in the Usermod menu
+	** Append configuration options to the Usermod menu.
 	**/
 	void addToConfig(JsonObject& root) override {
-		JsonObject top = root.createNestedObject(F("INA219")); // Create nested object for INA219 settings
-		top["Enabled"] = enabled;                             // Store enabled status
-		top["i2c_address"] = static_cast<uint8_t>(_i2cAddress); // Store I2C address
-		top["check_interval"] = checkInterval / 1000;       // Store check interval in seconds
-		top["conversion_time"] = conversionTime;             // Store conversion time
-		top["decimals"] = _decimalFactor;                    // Store decimal factor
-		top["shunt_resistor"] = shuntResistor;              // Store shunt resistor value
+		JsonObject top = root.createNestedObject(F("INA219"));
+		top["Enabled"] = enabled;
+		top["i2c_address"] = static_cast<uint8_t>(_i2cAddress);
+		top["check_interval"] = checkInterval / 1000;
+		top["conversion_time"] = conversionTime;
+		top["decimals"] = _decimalFactor;
+		top["shunt_resistor"] = shuntResistor;
 
 		#ifndef WLED_DISABLE_MQTT
 			// Store MQTT settings if MQTT is not disabled
@@ -596,12 +571,12 @@ public:
 	}
 	
 	/**
-	** Function to append configuration options to the Usermod menu
+	** Append configuration UI data for the usermod menu.
 	**/
 	void appendConfigData() override {
 		// Append the dropdown for I2C address selection
 		oappend(F("dd=addDropdown('INA219','i2c_address');"));
-		oappend(F("addOption(dd,'0x40 - Default',0x40, true);")); // Default option
+		oappend(F("addOption(dd,'0x40 - Default',0x40, true);"));
 		oappend(F("addOption(dd,'0x41 - A0 soldered',0x41);"));
 		oappend(F("addOption(dd,'0x44 - A1 soldered',0x44);"));
 		oappend(F("addOption(dd,'0x45 - A0 and A1 soldered',0x45);"));
@@ -611,7 +586,7 @@ public:
 		oappend("addOption(ct,'9-Bit (84 µs)',0);");
 		oappend("addOption(ct,'10-Bit (148 µs)',1);");
 		oappend("addOption(ct,'11-Bit (276 µs)',2);");
-		oappend("addOption(ct,'12-Bit (532 µs)',3, true);"); // Default option
+		oappend("addOption(ct,'12-Bit (532 µs)',3, true);");
 		oappend("addOption(ct,'2 samples (1.06 ms)',9);");
 		oappend("addOption(ct,'4 samples (2.13 ms)',10);");
 		oappend("addOption(ct,'8 samples (4.26 ms)',11);");
@@ -623,33 +598,30 @@ public:
 		// Append the dropdown for decimal precision (0 to 10)
 		oappend(F("df=addDropdown('INA219','decimals');"));
 		for (int i = 0; i <= 3; i++) {
-			oappend(String("addOption(df,'" + String(i) + "'," + String(i) + (i == 2 ? ", true);" : ");")).c_str());  // Default to 2 decimals
+			oappend(String("addOption(df,'" + String(i) + "'," + String(i) + (i == 2 ? ", true);" : ");")).c_str());
 		}
 	}
 	
 	/**
-	** Function to read settings from the Usermod menu configuration
+	** Read settings from the Usermod menu configuration
 	**/
 	bool readFromConfig(JsonObject& root) override {
 		JsonObject top = root[FPSTR(_name)];
 
-		bool configComplete = !top.isNull(); // Check if the configuration exists
-
-		// Read configuration values and update local variables
+		bool configComplete = !top.isNull();
 		configComplete &= getJsonValue(top["Enabled"], enabled);
 		configComplete &= getJsonValue(top[F("i2c_address")], _i2cAddress);
 
-		// Read check interval and convert to milliseconds if necessary
 		if (getJsonValue(top[F("check_interval")], checkInterval)) {
-			if (1 <= checkInterval && checkInterval <= 600)
-				checkInterval *= 1000; // Convert seconds to milliseconds
-			else
-				checkInterval = _checkInterval * 1000; // Fallback to defined value
+			if (1 <= checkInterval && checkInterval <= 600) {
+				checkInterval *= 1000;
+			} else {
+				DEBUG_PRINTLN(F("INA219: Invalid check_interval value; using default."));
+				checkInterval = _checkInterval * 1000;
+			}
 		} else {
-			configComplete = false; // Configuration is incomplete
+			configComplete = false;
 		}
-	    
-		// Read other configuration values
 		configComplete &= getJsonValue(top["conversion_time"], conversionTime);
 		configComplete &= getJsonValue(top["decimals"], _decimalFactor);
 		configComplete &= getJsonValue(top["shunt_resistor"], shuntResistor);
@@ -662,16 +634,16 @@ public:
 			haDiscoverySent = !haDiscovery;
 		#endif
 
-		updateINA219Settings(); // Apply any updated settings to the INA219
+		updateINA219Settings();
 
-		return configComplete; // Return whether the configuration was complete
+		return configComplete;
 	}
 	
 	/**
-	** Function to get the unique identifier for this usermod
+	** Get the unique identifier for this usermod.
 	**/
 	uint16_t getId() override {
-		return USERMOD_ID_INA219; // Return the unique identifier for the INA219 usermod
+		return USERMOD_ID_INA219;
 	}
 };
 
