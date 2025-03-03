@@ -46,9 +46,8 @@ private:
     const EffectInformation& info;
 };
 
-template<typename T>
-class BaseEffect : public Effect {
-    using Base = Effect;
+template<typename T, typename Base = Effect>
+class BaseEffect : public Base {
 public:
     using Base::Base;
 
