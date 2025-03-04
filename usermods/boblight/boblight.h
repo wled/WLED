@@ -81,7 +81,7 @@ class BobLightUsermod : public Usermod {
         while (bcount <= bottom/2) {
           float btop = bcurrent - brange;
           String name = "b"+String(bcount);
-          strncpy(lights[lightcount].lightname, name.c_str(), 4);
+          strlcpy(lights[lightcount].lightname, name.c_str(), 5);
           lights[lightcount].hscan[0] = btop;
           lights[lightcount].hscan[1] = bcurrent;
           lights[lightcount].vscan[0] = 100 - pct_scan;
@@ -100,7 +100,7 @@ class BobLightUsermod : public Usermod {
         while (lcount <= left) {
           float ltop = lcurrent - lrange;
           String name = "l"+String(lcount);
-          strncpy(lights[lightcount].lightname, name.c_str(), 4);
+          strlcpy(lights[lightcount].lightname, name.c_str(), 5);
           lights[lightcount].hscan[0] = 0;
           lights[lightcount].hscan[1] = pct_scan;
           lights[lightcount].vscan[0] = ltop;
@@ -119,7 +119,7 @@ class BobLightUsermod : public Usermod {
         while (tcount <= top) {
           float ttop = tcurrent + trange;
           String name = "t"+String(tcount);
-          strncpy(lights[lightcount].lightname, name.c_str(), 4);
+          strlcpy(lights[lightcount].lightname, name.c_str(), 5);
           lights[lightcount].hscan[0] = tcurrent;
           lights[lightcount].hscan[1] = ttop;
           lights[lightcount].vscan[0] = 0;
@@ -138,7 +138,7 @@ class BobLightUsermod : public Usermod {
         while (rcount <= right) {
           float rtop = rcurrent + rrange;
           String name = "r"+String(rcount);
-          strncpy(lights[lightcount].lightname, name.c_str(), 4);
+          strlcpy(lights[lightcount].lightname, name.c_str(), 5);
           lights[lightcount].hscan[0] = 100-pct_scan;
           lights[lightcount].hscan[1] = 100;
           lights[lightcount].vscan[0] = rcurrent;
@@ -159,7 +159,7 @@ class BobLightUsermod : public Usermod {
         while (bcount <= bottom) {
           float btop = bcurrent - brange;
           String name = "b"+String(bcount);
-          strncpy(lights[lightcount].lightname, name.c_str(), 4);
+          strlcpy(lights[lightcount].lightname, name.c_str(), 5);
           lights[lightcount].hscan[0] = btop;
           lights[lightcount].hscan[1] = bcurrent;
           lights[lightcount].vscan[0] = 100 - pct_scan;

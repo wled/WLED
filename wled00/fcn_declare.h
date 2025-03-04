@@ -42,8 +42,8 @@ typedef struct WiFiConfig {
   , staticGW(gw)
   , staticSN(subnet)
   {
-    strncpy(clientSSID, ssid, 32); clientSSID[32] = 0;
-    strncpy(clientPass, pass, 64); clientPass[64] = 0;
+    strlcpy(clientSSID, ssid, 33);
+    strlcpy(clientPass, pass, 65);
     memset(bssid, 0, sizeof(bssid));
   }
 } wifi_config;

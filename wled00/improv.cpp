@@ -198,7 +198,7 @@ void sendImprovInfoResponse() {
   #ifdef ESP8266
   strcpy(bString, "esp8266");
   #else // ESP32
-  strncpy(bString, ESP.getChipModel(), 31);
+  strlcpy(bString, ESP.getChipModel(), 32);
   #if CONFIG_IDF_TARGET_ESP32
   bString[5] = '\0'; // disregard chip revision for classic ESP32
   #else
