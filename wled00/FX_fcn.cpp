@@ -1607,16 +1607,6 @@ void WS2812FX::blendSegment(const Segment &topSegment) const {
   Segment::setClippingRect(0, 0);             // disable clipping for overlays
 }
 
-void IRAM_ATTR WS2812FX::setPixelColor(unsigned i, uint32_t col) const {
-  if (i >= getLengthTotal()) return;
-  pixels[i] = col;
-}
-
-uint32_t IRAM_ATTR WS2812FX::getPixelColor(unsigned i) const {
-  if (i >= getLengthTotal()) return 0;
-  return pixels[i];
-}
-
 // To disable brightness limiter we either set output max current to 0 or single LED current to 0
 static uint8_t estimateCurrentAndLimitBri(uint8_t brightness, uint32_t *pixels) {
   unsigned milliAmpsMax = BusManager::ablMilliampsMax();

@@ -792,19 +792,19 @@ class WS2812FX {  // 96 bytes
       resetSegments(),                            // marks all segments for reset
       makeAutoSegments(bool forceReset = false),  // will create segments based on configured outputs
       fixInvalidSegments(),                       // fixes incorrect segment configuration
-      setPixelColor(unsigned n, uint32_t c) const,      // paints absolute strip pixel with index n and color c
       blendSegment(const Segment &topSegment) const,    // blends topSegment into pixels
       show(),                                     // initiates LED output
       setTargetFps(unsigned fps),
       setupEffectData(),                          // add default effects to the list; defined in FX.cpp
       waitForIt();                                // wait until frame is over (service() has finished or time for 1 frame has passed)
 
-    inline void resetTimebase()                 { timebase = 0UL - millis(); }
-    inline void restartRuntime()                { for (Segment &seg : _segments) { seg.markForReset().resetIfRequired(); } }
-    inline void setTransitionMode(bool t)       { for (Segment &seg : _segments) seg.startTransition(t ? _transitionDur : 0); }
+    inline void setPixelColor(unsigned n, uint32_t c) const   { if (n < getLengthTotal()) pixels[n] = c; }  // paints absolute strip pixel with index n and color c
+    inline void resetTimebase()                               { timebase = 0UL - millis(); }
+    inline void restartRuntime()                              { for (Segment &seg : _segments) { seg.markForReset().resetIfRequired(); } }
+    inline void setTransitionMode(bool t)                     { for (Segment &seg : _segments) seg.startTransition(t ? _transitionDur : 0); }
     inline void setPixelColor(unsigned n, uint8_t r, uint8_t g, uint8_t b, uint8_t w = 0) const { setPixelColor(n, RGBW32(r,g,b,w)); }
     inline void setPixelColor(unsigned n, CRGB c) const                                         { setPixelColor(n, c.red, c.green, c.blue); }
-    inline void fill(uint32_t c) const          { for (unsigned i = 0; i < getLengthTotal(); i++) setPixelColor(i, c); } // fill whole strip with color (inline)
+    inline void fill(uint32_t c) const                        { for (size_t i = 0; i < getLengthTotal(); i++) setPixelColor(i, c); } // fill whole strip with color (inline)
     inline void trigger()                                     { _triggered = true; }  // Forces the next frame to be computed on all active segments.
     inline void setShowCallback(show_callback cb)             { _callback = cb; }
     inline void setTransition(uint16_t t)                     { _transitionDur = t; } // sets transition time (in ms)
@@ -858,12 +858,11 @@ class WS2812FX {  // 96 bytes
     };
 
     unsigned long now, timebase;
-    uint32_t getPixelColor(unsigned) const;
+    inline uint32_t getPixelColor(unsigned n) const { return (n < getLengthTotal()) ? pixels[n] : 0; } // returns color of pixel n
+    inline uint32_t getLastShow() const             { return _lastShow; }                 // returns millis() timestamp of last strip.show() call
 
-    inline uint32_t getLastShow() const   { return _lastShow; }           // returns millis() timestamp of last strip.show() call
-
-    const char *getModeData(unsigned id = 0) const { return (id && id < _modeCount) ? _modeData[id] : PSTR("Solid"); }
-    inline const char **getModeDataSrc()  { return &(_modeData[0]); } // vectors use arrays for underlying data
+    const char *getModeData(unsigned id = 0) const  { return (id && id < _modeCount) ? _modeData[id] : PSTR("Solid"); }
+    inline const char **getModeDataSrc()            { return &(_modeData[0]); }           // vectors use arrays for underlying data
 
     Segment&        getSegment(unsigned id);
     inline Segment& getFirstSelectedSeg() { return _segments[getFirstSelectedSegId()]; }  // returns reference to first segment that is "selected"
@@ -906,12 +905,10 @@ class WS2812FX {  // 96 bytes
 
     void setUpMatrix();     // sets up automatic matrix ledmap from panel configuration
 
-    // outsmart the compiler :) by correctly overloading
-    inline void setPixelColorXY(int x, int y, uint32_t c) const   { setPixelColor((unsigned)(y * Segment::maxWidth + x), c); }
-    inline void setPixelColorXY(int x, int y, byte r, byte g, byte b, byte w = 0) const { setPixelColorXY(x, y, RGBW32(r,g,b,w)); }
-    inline void setPixelColorXY(int x, int y, CRGB c) const       { setPixelColorXY(x, y, RGBW32(c.r,c.g,c.b,0)); }
-
-    inline uint32_t getPixelColorXY(int x, int y) const           { return getPixelColor(isMatrix ? y * Segment::maxWidth + x : x); }
+    inline void     setPixelColorXY(unsigned x, unsigned y, uint32_t c) const { setPixelColor(y * Segment::maxWidth + x, c); }
+    inline void     setPixelColorXY(unsigned x, unsigned y, byte r, byte g, byte b, byte w = 0) const { setPixelColorXY(x, y, RGBW32(r,g,b,w)); }
+    inline void     setPixelColorXY(unsigned x, unsigned y, CRGB c) const     { setPixelColorXY(x, y, RGBW32(c.r,c.g,c.b,0)); }
+    inline uint32_t getPixelColorXY(unsigned x, unsigned y) const             { return getPixelColor(y * Segment::maxWidth + x); }
 
   // end 2D support
 
