@@ -324,7 +324,7 @@ WLED_GLOBAL bool rlyOpenDrain _INIT(RLYODRAIN);
 WLED_GLOBAL char ntpServerName[33] _INIT("0.wled.pool.ntp.org");   // NTP server to use
 
 // WiFi CONFIG (all these can be changed via web UI, no need to set them here)
-WLED_GLOBAL std::vector<WiFiConfig> multiWiFi;
+WLED_GLOBAL std::vector<WiFiConfig> multiWiFi _INIT_N(({CLIENT_SSID,CLIENT_PASS})); // initialise vector with default WiFi
 WLED_GLOBAL IPAddress dnsAddress _INIT_N(((  8,   8,  8,  8)));   // Google's DNS
 WLED_GLOBAL char cmDNS[33]       _INIT(MDNS_NAME);                // mDNS address (*.local, replaced by wledXXXXXX if default is used)
 WLED_GLOBAL char apSSID[33]      _INIT("");                       // AP off by default (unless setup)

@@ -28,7 +28,7 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
       char gw[5] = "GW"; gw[2] = 48+n; gw[4] = 0; //GW address
       char sn[5] = "SN"; sn[2] = 48+n; sn[4] = 0; //subnet mask
       if (request->hasArg(cs)) {
-        if (n >= multiWiFi.size()) multiWiFi.push_back(WiFiConfig()); // expand vector by one
+        if (n >= multiWiFi.size()) multiWiFi.emplace_back(); // expand vector by one
         char oldSSID[33]; strcpy(oldSSID, multiWiFi[n].clientSSID);
         char oldPass[65]; strcpy(oldPass, multiWiFi[n].clientPass);
 
