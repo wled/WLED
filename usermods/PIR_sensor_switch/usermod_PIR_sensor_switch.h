@@ -245,11 +245,6 @@ void PIRsensorSwitch::switchStrip(bool switchOn)
       applyPreset(m_onPreset, CALL_MODE_BUTTON_PRESET);
       return;
     }
-    // preset not assigned
-    if (bri == 0) {
-      bri = briLast;
-      stateUpdated(CALL_MODE_BUTTON);
-    }
   } else {
     if (m_offPreset) {
       applyPreset(m_offPreset, CALL_MODE_BUTTON_PRESET);
@@ -264,12 +259,11 @@ void PIRsensorSwitch::switchStrip(bool switchOn)
       prevPreset = 0;
       return;
     }
+  }
+  if ((bool)bri ^ switchOn) {
     // preset not assigned
-    if (bri != 0) {
-      briLast = bri;
-      bri = 0;
-      stateUpdated(CALL_MODE_BUTTON);
-    }
+    toggleOnOff();
+    stateUpdated(CALL_MODE_BUTTON);
   }
 }
 
