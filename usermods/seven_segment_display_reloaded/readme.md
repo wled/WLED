@@ -101,6 +101,7 @@ All settings can be controlled via the usermod settings page. Some settings can 
 
 The following is an example of an LED layout for a seven segment display. The diagram below shows the segment positions:
 
+```
   <  A  >
 /\       /\
 F         B
@@ -110,6 +111,7 @@ F         B
 E         C
 \/       \/
   <  D  >
+```
 
 LED ranges or individual LED numbers are defined using commas (,) and ranges using a hyphen (-). Segments for each digit are separated by semicolons (;) and digits are separated by a colon (:).
 
@@ -161,6 +163,8 @@ This project, available on [Thingiverse](https://www.thingiverse.com/thing:42075
 
 my_config.h Settings:
 --------------------------------
+
+```
 #define USERMOD_SSDR
 
 #define umSSDR_ENABLED                  true        // Enable SSDR usermod
@@ -187,6 +191,7 @@ my_config.h Settings:
 // Brightness limits
 #define umSSDR_BRIGHTNESS_MIN           0            // Minimum brightness
 #define umSSDR_BRIGHTNESS_MAX           128          // Maximum brightness
+```
 
 --------------------------------
 
@@ -200,6 +205,8 @@ The EleksTube project, available at [EleksTube Retro Glows Analog Nixie Tube Clo
 
 my_config.h Settings:
 --------------------------------
+
+```
 #define umSSDR_ENABLED                  true        // Enable SSDR usermod
 #define umSSDR_ENABLE_AUTO_BRIGHTNESS   false       // Enable auto brightness (requires USERMOD_SN_PHOTORESISTOR)
 #define umSSDR_INVERTED                 false       // Inverted display
@@ -238,6 +245,8 @@ my_config.h Settings:
     { 0, 0, 0, 0, 1, 0, 0, 0, 0, 0 }, /* 9 */ \
     { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 }  /* Blank */ \
 }
+```
+
 --------------------------------
 
 With these modifications, the SSDR usermod becomes even more versatile, allowing it to be used on a wide variety of segment clocks and projects.
