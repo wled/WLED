@@ -216,24 +216,9 @@ void Segment::resetIfRequired() {
 
 CRGBPalette16 &Segment::loadPalette(CRGBPalette16 &targetPalette, uint8_t pal) {
   if (pal < 245 && pal > GRADIENT_PALETTE_COUNT+13) pal = 0;
-  if (pal > 245 && (strip.customPalettes.size() == 0 || 255U-pal > strip.customPalettes.size()-1)) pal = 0; // TODO remove strip dependency by moving customPalettes out of strip
+  if (pal > 245 && (customPalettes.size() == 0 || 255U-pal > customPalettes.size()-1)) pal = 0;
   //default palette. Differs depending on effect
   if (pal == 0) pal = _default_palette; // _default_palette is set in setMode()
-/*
-  if (pal == 0) switch (mode) {
-    case FX_MODE_FIRE_2012  : pal = 35; break; // heat palette
-    case FX_MODE_COLORWAVES : pal = 26; break; // landscape 33
-    case FX_MODE_FILLNOISE8 : pal =  9; break; // ocean colors
-    case FX_MODE_NOISE16_1  : pal = 20; break; // Drywet
-    case FX_MODE_NOISE16_2  : pal = 43; break; // Blue cyan yellow
-    case FX_MODE_NOISE16_3  : pal = 35; break; // heat palette
-    case FX_MODE_NOISE16_4  : pal = 26; break; // landscape 33
-    case FX_MODE_GLITTER    : pal = 11; break; // rainbow colors
-    case FX_MODE_SUNRISE    : pal = 35; break; // heat palette
-    case FX_MODE_RAILWAY    : pal =  3; break; // prim + sec
-    case FX_MODE_2DSOAP     : pal = 11; break; // rainbow colors
-  }
-*/
   switch (pal) {
     case 0: //default palette. Exceptions for specific effects above
       targetPalette = PartyColors_p; break;
@@ -264,7 +249,7 @@ CRGBPalette16 &Segment::loadPalette(CRGBPalette16 &targetPalette, uint8_t pal) {
       break;}
     default: //progmem palettes
       if (pal>245) {
-        targetPalette = strip.customPalettes[255-pal]; // we checked bounds above
+        targetPalette = customPalettes[255-pal]; // we checked bounds above
       } else if (pal < 13) { // palette 6 - 12, fastled palettes
         targetPalette = *fastledPalettes[pal-6];
       } else {
@@ -522,7 +507,7 @@ Segment &Segment::setMode(uint8_t fx, bool loadDefaults) {
 
 Segment &Segment::setPalette(uint8_t pal) {
   if (pal < 245 && pal > GRADIENT_PALETTE_COUNT+13) pal = 0; // built in palettes
-  if (pal > 245 && (strip.customPalettes.size() == 0 || 255U-pal > strip.customPalettes.size()-1)) pal = 0; // custom palettes
+  if (pal > 245 && (customPalettes.size() == 0 || 255U-pal > customPalettes.size()-1)) pal = 0; // custom palettes
   if (pal != palette) {
     //DEBUGFX_PRINTF_P(PSTR("- Starting palette transition: %d\n"), pal);
     startTransition(strip.getTransition());
@@ -1978,55 +1963,6 @@ void WS2812FX::printSize() {
   DEBUGFX_PRINTF_P(PSTR("Map: %d*%d=%uB\n"), sizeof(uint16_t), (int)customMappingSize, customMappingSize*sizeof(uint16_t));
 }
 #endif
-
-void WS2812FX::loadCustomPalettes() {
-  byte tcp[72]; //support gradient palettes with up to 18 entries
-  CRGBPalette16 targetPalette;
-  customPalettes.clear(); // start fresh
-  for (int index = 0; index<10; index++) {
-    char fileName[32];
-    sprintf_P(fileName, PSTR("/palette%d.json"), index);
-
-    StaticJsonDocument<1536> pDoc; // barely enough to fit 72 numbers
-    if (WLED_FS.exists(fileName)) {
-      DEBUGFX_PRINT(F("Reading palette from "));
-      DEBUGFX_PRINTLN(fileName);
-
-      if (readObjectFromFile(fileName, nullptr, &pDoc)) {
-        JsonArray pal = pDoc[F("palette")];
-        if (!pal.isNull() && pal.size()>3) { // not an empty palette (at least 2 entries)
-          if (pal[0].is<int>() && pal[1].is<const char *>()) {
-            // we have an array of index & hex strings
-            size_t palSize = MIN(pal.size(), 36);
-            palSize -= palSize % 2; // make sure size is multiple of 2
-            for (size_t i=0, j=0; i<palSize && pal[i].as<int>()<256; i+=2, j+=4) {
-              uint8_t rgbw[] = {0,0,0,0};
-              tcp[ j ] = (uint8_t) pal[ i ].as<int>(); // index
-              colorFromHexString(rgbw, pal[i+1].as<const char *>()); // will catch non-string entires
-              for (size_t c=0; c<3; c++) tcp[j+1+c] = gamma8(rgbw[c]); // only use RGB component
-              DEBUGFX_PRINTF_P(PSTR("%d(%d) : %d %d %d\n"), i, int(tcp[j]), int(tcp[j+1]), int(tcp[j+2]), int(tcp[j+3]));
-            }
-          } else {
-            size_t palSize = MIN(pal.size(), 72);
-            palSize -= palSize % 4; // make sure size is multiple of 4
-            for (size_t i=0; i<palSize && pal[i].as<int>()<256; i+=4) {
-              tcp[ i ] = (uint8_t) pal[ i ].as<int>(); // index
-              tcp[i+1] = gamma8((uint8_t) pal[i+1].as<int>()); // R
-              tcp[i+2] = gamma8((uint8_t) pal[i+2].as<int>()); // G
-              tcp[i+3] = gamma8((uint8_t) pal[i+3].as<int>()); // B
-              DEBUGFX_PRINTF_P(PSTR("%d(%d) : %d %d %d\n"), i, int(tcp[i]), int(tcp[i+1]), int(tcp[i+2]), int(tcp[i+3]));
-            }
-          }
-          customPalettes.push_back(targetPalette.loadDynamicGradientPalette(tcp));
-        } else {
-          DEBUGFX_PRINTLN(F("Wrong palette format."));
-        }
-      }
-    } else {
-      break;
-    }
-  }
-}
 
 //load custom mapping table from JSON file (called from finalizeInit() or deserializeState())
 bool WS2812FX::deserializeMap(unsigned n) {

@@ -360,7 +360,7 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
     DEBUG_PRINTLN(F("Enumerating ledmaps"));
     enumerateLedmaps();
     DEBUG_PRINTLN(F("Loading custom palettes"));
-    strip.loadCustomPalettes(); // (re)load all custom palettes
+    loadCustomPalettes(); // (re)load all custom palettes
   }
 
   //SYNC
@@ -1036,7 +1036,7 @@ bool handleSet(AsyncWebServerRequest *request, const String& req, bool apply)
   }
   speedChanged     = updateVal(req.c_str(), "SX=", speedIn);
   intensityChanged = updateVal(req.c_str(), "IX=", intensityIn);
-  paletteChanged   = updateVal(req.c_str(), "FP=", paletteIn, 0, strip.getPaletteCount()-1);
+  paletteChanged   = updateVal(req.c_str(), "FP=", paletteIn, 0, getPaletteCount()-1);
   custom1Changed   = updateVal(req.c_str(), "X1=", custom1In);
   custom2Changed   = updateVal(req.c_str(), "X2=", custom2In);
   custom3Changed   = updateVal(req.c_str(), "X3=", custom3In);

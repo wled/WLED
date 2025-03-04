@@ -212,7 +212,7 @@ static bool deserializeSegment(JsonObject elem, byte it, byte presetId)
 
   uint8_t pal = seg.palette;
   if (seg.getLightCapabilities() & 1) {  // ignore palette for White and On/Off segments
-    if (getVal(elem["pal"], pal, 0, strip.getPaletteCount())) seg.setPalette(pal);
+    if (getVal(elem["pal"], pal, 0, getPaletteCount())) seg.setPalette(pal);
   }
 
   getVal(elem["c1"], seg.custom1);
@@ -455,11 +455,11 @@ bool deserializeState(JsonObject root, byte callMode, byte presetId)
   }
 
   if (root.containsKey(F("rmcpal")) && root[F("rmcpal")].as<bool>()) {
-    if (strip.customPalettes.size()) {
+    if (customPalettes.size()) {
       char fileName[32];
-      sprintf_P(fileName, PSTR("/palette%d.json"), strip.customPalettes.size()-1);
+      sprintf_P(fileName, PSTR("/palette%d.json"), customPalettes.size()-1);
       if (WLED_FS.exists(fileName)) WLED_FS.remove(fileName);
-      strip.loadCustomPalettes();
+      loadCustomPalettes();
     }
   }
 
@@ -690,8 +690,8 @@ void serializeInfo(JsonObject root)
   #endif
 
   root[F("fxcount")] = strip.getModeCount();
-  root[F("palcount")] = strip.getPaletteCount();
-  root[F("cpalcount")] = strip.customPalettes.size(); //number of custom palettes
+  root[F("palcount")] = getPaletteCount();
+  root[F("cpalcount")] = customPalettes.size(); //number of custom palettes
 
   JsonArray ledmaps = root.createNestedArray(F("maps"));
   for (size_t i=0; i<WLED_MAX_LEDMAPS; i++) {
@@ -854,15 +854,15 @@ void serializePalettes(JsonObject root, int page)
   int itemPerPage = 8;
   #endif
 
-  int customPalettes = strip.customPalettes.size();
-  int palettesCount = strip.getPaletteCount() - customPalettes;
+  int customPalettesCount = customPalettes.size();
+  int palettesCount = getPaletteCount() - customPalettesCount;
 
-  int maxPage = (palettesCount + customPalettes -1) / itemPerPage;
+  int maxPage = (palettesCount + customPalettesCount -1) / itemPerPage;
   if (page > maxPage) page = maxPage;
 
   int start = itemPerPage * page;
   int end = start + itemPerPage;
-  if (end > palettesCount + customPalettes) end = palettesCount + customPalettes;
+  if (end > palettesCount + customPalettesCount) end = palettesCount + customPalettesCount;
 
   root[F("m")] = maxPage; // inform caller how many pages there are
   JsonObject palettes  = root.createNestedObject("p");
@@ -898,7 +898,7 @@ void serializePalettes(JsonObject root, int page)
         break;
       default:
         if (i >= palettesCount)
-          setPaletteColors(curPalette, strip.customPalettes[i - palettesCount]);
+          setPaletteColors(curPalette, customPalettes[i - palettesCount]);
         else if (i < 13) // palette 6 - 12, fastled palettes
           setPaletteColors(curPalette, *fastledPalettes[i-6]);
         else {

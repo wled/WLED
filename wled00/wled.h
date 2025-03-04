@@ -598,6 +598,7 @@ WLED_GLOBAL bool wasConnected _INIT(false);
 
 // color
 WLED_GLOBAL byte lastRandomIndex _INIT(0);        // used to save last random color so the new one is not the same
+WLED_GLOBAL std::vector<CRGBPalette16> customPalettes;  // custom palettes
 
 // transitions
 WLED_GLOBAL uint8_t       blendingStyle            _INIT(0);      // effect blending/transitionig style

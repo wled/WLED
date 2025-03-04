@@ -151,6 +151,8 @@ inline uint32_t color_blend16(uint32_t c1, uint32_t c2, uint16_t b) { return col
 [[gnu::hot, gnu::pure]] uint32_t ColorFromPaletteWLED(const CRGBPalette16 &pal, unsigned index, uint8_t brightness = (uint8_t)255U, TBlendType blendType = LINEARBLEND);
 CRGBPalette16 generateHarmonicRandomPalette(const CRGBPalette16 &basepalette);
 CRGBPalette16 generateRandomPalette();
+void loadCustomPalettes();
+#define getPaletteCount() (13 + GRADIENT_PALETTE_COUNT + customPalettes.size())
 inline uint32_t colorFromRgbw(byte* rgbw) { return uint32_t((byte(rgbw[3]) << 24) | (byte(rgbw[0]) << 16) | (byte(rgbw[1]) << 8) | (byte(rgbw[2]))); }
 void hsv2rgb(const CHSV32& hsv, uint32_t& rgb);
 void colorHStoRGB(uint16_t hue, byte sat, byte* rgb);

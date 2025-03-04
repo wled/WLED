@@ -773,7 +773,6 @@ class WS2812FX {  // 96 bytes
 #ifndef WLED_DISABLE_2D
       panel.clear();
 #endif
-      customPalettes.clear();
     }
 
     static WS2812FX* getInstance() { return instance; }
@@ -839,7 +838,6 @@ class WS2812FX {  // 96 bytes
     inline uint8_t getSegmentsNum() const   { return _segments.size(); }  // returns currently present segments
     inline uint8_t getCurrSegmentId() const { return _segment_index; }    // returns current segment index (only valid while strip.isServicing())
     inline uint8_t getMainSegmentId() const { return _mainSegment; }      // returns main segment index
-    inline uint8_t getPaletteCount() const  { return 13 + GRADIENT_PALETTE_COUNT + customPalettes.size(); }
     inline uint8_t getTargetFps() const     { return _targetFps; }        // returns rough FPS value for las 2s interval
     inline uint8_t getModeCount() const     { return _modeCount; }        // returns number of registered modes/effects
 
@@ -911,9 +909,6 @@ class WS2812FX {  // 96 bytes
     inline uint32_t getPixelColorXY(unsigned x, unsigned y) const             { return getPixelColor(y * Segment::maxWidth + x); }
 
   // end 2D support
-
-    void loadCustomPalettes(); // loads custom palettes from JSON
-    std::vector<CRGBPalette16> customPalettes; // TODO: move custom palettes out of WS2812FX class
 
     struct {
       bool autoSegments : 1;

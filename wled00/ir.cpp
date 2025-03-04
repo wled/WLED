@@ -425,8 +425,8 @@ static void decodeIR44(uint32_t code)
     case IR44_COLDWHITE2  : changeColor(COLOR_COLDWHITE2,   255); changeEffect(FX_MODE_STATIC);  break;
     case IR44_REDPLUS     : changeEffect(relativeChange(effectCurrent,  1, 0, strip.getModeCount() -1));               break;
     case IR44_REDMINUS    : changeEffect(relativeChange(effectCurrent, -1, 0, strip.getModeCount() -1));               break;
-    case IR44_GREENPLUS   : changePalette(relativeChange(effectPalette,  1, 0, strip.getPaletteCount() -1)); break;
-    case IR44_GREENMINUS  : changePalette(relativeChange(effectPalette, -1, 0, strip.getPaletteCount() -1)); break;
+    case IR44_GREENPLUS   : changePalette(relativeChange(effectPalette,  1, 0, getPaletteCount() -1)); break;
+    case IR44_GREENMINUS  : changePalette(relativeChange(effectPalette, -1, 0, getPaletteCount() -1)); break;
     case IR44_BLUEPLUS    : changeEffectIntensity( 16);                  break;
     case IR44_BLUEMINUS   : changeEffectIntensity(-16);                  break;
     case IR44_QUICK       : changeEffectSpeed( 16);                      break;
@@ -484,7 +484,7 @@ static void decodeIR6(uint32_t code)
     case IR6_CHANNEL_UP:   incBrightness();                                                  break;
     case IR6_CHANNEL_DOWN: decBrightness();                                                  break;
     case IR6_VOLUME_UP:    changeEffect(relativeChange(effectCurrent, 1, 0, strip.getModeCount() -1)); break;
-    case IR6_VOLUME_DOWN:  changePalette(relativeChange(effectPalette, 1, 0, strip.getPaletteCount() -1));
+    case IR6_VOLUME_DOWN:  changePalette(relativeChange(effectPalette, 1, 0, getPaletteCount() -1));
       switch(lastIR6ColourIdx) {
         case 0: changeColor(COLOR_RED);       break;
         case 1: changeColor(COLOR_REDDISH);   break;

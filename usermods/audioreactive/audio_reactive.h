@@ -2937,7 +2937,7 @@ class AudioReactive : public Usermod {
     }
 
     void onStateChange(uint8_t callMode) override {
-      if (initDone && enabled && addPalettes && palettes==0 && strip.customPalettes.size()<10) {
+      if (initDone && enabled && addPalettes && palettes==0 && customPalettes.size()<10) {
         // if palettes were removed during JSON call re-add them
         createAudioPalettes();
       }
@@ -3168,20 +3168,20 @@ class AudioReactive : public Usermod {
 void AudioReactive::removeAudioPalettes(void) {
   DEBUGSR_PRINTLN(F("Removing audio palettes."));
   while (palettes>0) {
-    strip.customPalettes.pop_back();
+    customPalettes.pop_back();
     DEBUGSR_PRINTLN(palettes);
     palettes--;
   }
-  DEBUGSR_PRINT(F("Total # of palettes: ")); DEBUGSR_PRINTLN(strip.customPalettes.size());
+  DEBUGSR_PRINT(F("Total # of palettes: ")); DEBUGSR_PRINTLN(customPalettes.size());
 }
 
 void AudioReactive::createAudioPalettes(void) {
-  DEBUGSR_PRINT(F("Total # of palettes: ")); DEBUGSR_PRINTLN(strip.customPalettes.size());
+  DEBUGSR_PRINT(F("Total # of palettes: ")); DEBUGSR_PRINTLN(customPalettes.size());
   if (palettes) return;
   DEBUGSR_PRINTLN(F("Adding audio palettes."));
   for (int i=0; i<MAX_PALETTES; i++)
-    if (strip.customPalettes.size() < 10) {
-      strip.customPalettes.push_back(CRGBPalette16(CRGB(BLACK)));
+    if (customPalettes.size() < 10) {
+      customPalettes.push_back(CRGBPalette16(CRGB(BLACK)));
       palettes++;
       DEBUGSR_PRINTLN(palettes);
     } else break;
@@ -3218,7 +3218,7 @@ CRGB AudioReactive::getCRGBForBand(int x, int pal) {
 
 void AudioReactive::fillAudioPalettes() {
   if (!palettes) return;
-  size_t lastCustPalette = strip.customPalettes.size();
+  size_t lastCustPalette = customPalettes.size();
   if (int(lastCustPalette) >= palettes) lastCustPalette -= palettes;
   for (int pal=0; pal<palettes; pal++) {
     uint8_t tcp[16];  // Needs to be 4 times however many colors are being used.
@@ -3247,7 +3247,7 @@ void AudioReactive::fillAudioPalettes() {
     tcp[14] = rgb.g;
     tcp[15] = rgb.b;
 
-    strip.customPalettes[lastCustPalette+pal].loadDynamicGradientPalette(tcp);
+    customPalettes[lastCustPalette+pal].loadDynamicGradientPalette(tcp);
   }
 }
 
