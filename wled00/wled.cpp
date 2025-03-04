@@ -62,7 +62,7 @@ void WLED::loop()
   handleSerial();
   #endif
   handleImprovWifiScan();
-  handleNotifications();
+  handleNotifications(); // handles UDP packets
   handleTransitions();
   #ifdef WLED_ENABLE_DMX
   handleDMX();
@@ -435,11 +435,12 @@ void WLED::setup()
   escapedMac.toLowerCase();
 
   WLED_SET_AP_SSID(); // otherwise it is empty on first boot until config is saved
-  //multiWiFi.emplace_back(CLIENT_SSID,CLIENT_PASS); // initialise vector with default WiFi
+  multiWiFi.emplace_back(CLIENT_SSID,CLIENT_PASS); // initialise vector with default WiFi
 
   DEBUG_PRINTLN(F("Reading config"));
   deserializeConfigFromFS();
   DEBUG_PRINTF_P(PSTR("heap %u\n"), ESP.getFreeHeap());
+  //for (int i=0; i<multiWiFi.size(); i++) DEBUG_PRINTF_P(PSTR("WiFi: configured SSID: %s/\n"), multiWiFi[i].clientSSID, multiWiFi[i].clientPass);
 
 #if defined(STATUSLED) && STATUSLED>=0
   if (!PinManager::isPinAllocated(STATUSLED)) {
@@ -489,6 +490,7 @@ void WLED::setup()
     Serial.println(F("Ada"));
   }
   #endif
+  DEBUG_PRINTF_P(PSTR("heap %u\n"), ESP.getFreeHeap());
 
   // fill in unique mdns default
   if (strcmp(cmDNS, DEFAULT_MDNS_NAME) == 0) sprintf_P(cmDNS, PSTR("wled-%*s"), 6, escapedMac.c_str() + 6);
@@ -522,9 +524,7 @@ void WLED::setup()
   initDMX();
 #endif
 
-#ifdef WLED_ENABLE_ADALIGHT
   if (serialCanRX && Serial.available() > 0 && Serial.peek() == 'I') handleImprovPacket();
-#endif
 
   // HTTP server page init
   DEBUG_PRINTLN(F("initServer"));
@@ -604,7 +604,8 @@ void WLED::stopAP(bool stopESPNow) {
   }
 #endif
   dnsServer.stop();
-  WiFi.softAPdisconnect(true); // disengage AP mode on stop
+  WiFi.softAPdisconnect(true);  // disengage AP mode on stop
+  delay(5);                     // wait for hardware to be ready
   apActive = false;
 }
 
@@ -628,6 +629,7 @@ void WLED::initAP(bool resetAP)
   DEBUG_PRINTF_P(PSTR("WiFi: Opening access point %s @ %lus\n"), apSSID, millis()/1000);
   WiFi.softAPConfig(IPAddress(4, 3, 2, 1), IPAddress(4, 3, 2, 1), IPAddress(255, 255, 255, 0)); // will also engage WIFI_MODE_AP
   bool success = WiFi.softAP(apSSID, apPass, apChannel, apHide); // WiFi mode can be either WIFI_MODE_AP or WIFI_MODE_APSTA(==WIFI_MODE_STA | WIFI_MODE_AP)
+  delay(5);                 // wait for hardware to be ready
 
   if (!apActive && success) // start captive portal if AP active
   {
@@ -667,6 +669,7 @@ void WLED::initConnection()
 {
   DEBUG_PRINTF_P(PSTR("initConnection() called @ %lus.\n"), millis()/1000);
   WiFi.disconnect(); // close old connections
+  //delay(5);          // wait for hardware to be ready
 
   lastReconnectAttempt = millis();
 
@@ -697,6 +700,7 @@ void WLED::initConnection()
     const uint8_t *bssid = i < sizeof(multiWiFi[selectedWiFi].bssid) ? multiWiFi[selectedWiFi].bssid : nullptr;
     // WiFi mode can be either WIFI_MODE_STA or WIFI_MODE_APSTA(==WIFI_MODE_STA | WIFI_MODE_AP)
     WiFi.begin(multiWiFi[selectedWiFi].clientSSID, multiWiFi[selectedWiFi].clientPass, 0, bssid); // no harm if called multiple times
+    delay(5);            // wait for hardware to be ready
     // once WiFi is configured and begin() called, ESP will keep connecting to the specified SSID in the background
     // until connection is established or new configuration is submitted or disconnect() is called
 #ifndef WLED_DISABLE_ESPNOW
@@ -879,6 +883,7 @@ ESP-NOW  inited in AP mode (channel: 6/1).
         // restart WiF in hidden AP mode
         WiFi.mode(WIFI_MODE_AP);
         WiFi.softAP(apSSID, apPass, apChannel, true);
+        delay(5);              // wait for hardware to be ready
       }
       return;
     }
@@ -890,6 +895,8 @@ ESP-NOW  inited in AP mode (channel: 6/1).
     int found = findWiFi(); // find strongest WiFi
     if (found == WIFI_SCAN_FAILED) {
       // fallback if scan returned error
+      DEBUG_PRINTF_P(PSTR("WiFi: Initial connect or forced reconnect. @ %lus\n"), now/1000);
+      DEBUG_PRINTF_P(PSTR("WiFi: Restarting scan. @ %lus\n"), now/1000);
       findWiFi(true);
       selectedWiFi = 0;
     } else if (found >= 0) {
@@ -975,6 +982,7 @@ ESP-NOW  inited in AP mode (channel: 6/1).
     if (!isSTAmode) {
       quickEspNow.stop();
       WiFi.softAPdisconnect(true);
+      delay(5);              // wait for hardware to be ready
       WiFi.mode(WIFI_MODE_STA);
     }
     findWiFi(true);

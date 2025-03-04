@@ -46,7 +46,7 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
   JsonArray nw_ins = nw["ins"];
   if (!nw_ins.isNull()) {
     // as password are stored separately in wsec.json when reading configuration vector resize happens there, but for dynamic config we need to resize if necessary
-    if (nw_ins.size() > 1 && nw_ins.size() > multiWiFi.size()) multiWiFi.resize(nw_ins.size()); // resize constructs objects while resizing
+    if (nw_ins.size() > 1 && nw_ins.size() > multiWiFi.size()) multiWiFi.resize(min(nw_ins.size(), (size_t)WLED_MAX_WIFI_COUNT)); // resize constructs objects while resizing
     for (JsonObject wifi : nw_ins) {
       JsonArray ip = wifi["ip"];
       JsonArray gw = wifi["gw"];

@@ -288,6 +288,7 @@ void initESPNow(bool resetAP) {
     if (resetAP) {
       DEBUG_PRINTLN(F("ESP-NOW init hidden AP."));
       WiFi.disconnect(true);                            // stop STA mode (also stop connecting to WiFi)
+      delay(5);
       WiFi.mode(WIFI_MODE_AP);                          // force AP mode to fix channel
       if (!WiFi.softAP(apSSID, apPass, channelESPNow, true)) DEBUG_PRINTLN(F("WARNING! softAP failed.")); // hide AP (do not bother with initialising interfaces)
       delay(100);
@@ -408,6 +409,7 @@ bool isWiFiConfigured() {
   #define ARDUINO_EVENT_ETH_START               SYSTEM_EVENT_ETH_START
   #define ARDUINO_EVENT_ETH_CONNECTED           SYSTEM_EVENT_ETH_CONNECTED
   #define ARDUINO_EVENT_ETH_DISCONNECTED        SYSTEM_EVENT_ETH_DISCONNECTED
+  #define ARDUINO_EVENT_ETH_GOT_IP              SYSTEM_EVENT_ETH_GOT_IP
 #endif
 
 //handle Ethernet connection event
@@ -487,11 +489,18 @@ void WiFiEvent(WiFiEvent_t event)
     case ARDUINO_EVENT_ETH_START:
       DEBUG_PRINTF_P(PSTR("ETH-E: Started. @ %lus\n"), millis()/1000);
       break;
+    case ARDUINO_EVENT_ETH_GOT_IP:
+      DEBUG_PRINTF_P(PSTR("ETH-E: Got IP. @ %lus\n"), millis()/1000);
+      if (apActive) WLED::instance().stopAP(true);  // stop AP & ESP-NOW
+      else          WiFi.disconnect(true);          // disable SSID scanning
+      delay(5);
+      break;
     case ARDUINO_EVENT_ETH_CONNECTED:
       {
       DEBUG_PRINTF_P(PSTR("ETH-E: Connected. @ %lus\n"), millis()/1000);
-      if (apActive) WLED::instance().stopAP(true);  // stop AP & ESP-NOW
-      else          WiFi.disconnect(true);          // disable SSID scanning
+      //if (apActive) WLED::instance().stopAP(true);  // stop AP & ESP-NOW
+      //else          WiFi.disconnect(true);          // disable SSID scanning
+      //delay(5);
       // WLED::connected() will take care of ESP-NOW
       if (multiWiFi[0].staticIP != (uint32_t)0x00000000 && multiWiFi[0].staticGW != (uint32_t)0x00000000) {
         ETH.config(multiWiFi[0].staticIP, multiWiFi[0].staticGW, multiWiFi[0].staticSN, dnsAddress);
@@ -523,7 +532,7 @@ void WiFiEvent(WiFiEvent_t event)
     #endif
   #endif
     default:
-      DEBUG_PRINTF_P(PSTR("WiFi-E: Unhadled event %d @ %lus\n"), (int)event, millis()/1000);
+      DEBUG_PRINTF_P(PSTR("WiFi-E: Unhandled event %d @ %lus\n"), (int)event, millis()/1000);
       break;
   }
 }
