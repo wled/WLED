@@ -342,7 +342,7 @@ typedef enum mapping1D2D {
   M12_sPinwheel = 4
 } mapping1D2D_t;
 
-// segment, 68 bytes
+// segment, 76 bytes
 typedef struct Segment {
   public:
     uint16_t start; // start index / start X coordinate 2D (left)
@@ -382,11 +382,11 @@ typedef struct Segment {
       uint8_t blendMode : 4;      // segment blending modes: top, bottom, add, subtract, difference, multiply, divide, lighten, darken, screen, overlay, hardlight, softlight, dodge, burn
       uint8_t reserved  : 4;      // for future use
     };
-    uint8_t startY;  // start Y coodrinate 2D (top); there should be no more than 255 rows
-    uint8_t stopY;   // stop Y coordinate 2D (bottom); there should be no more than 255 rows
+    uint8_t   startY;   // start Y coodrinate 2D (top); there should be no more than 255 rows
+    uint8_t   stopY;    // stop Y coordinate 2D (bottom); there should be no more than 255 rows
     //note: here are 3 free bytes of padding
-    char    *name;
-    uint32_t *pixels;
+    char     *name;     // segment name
+    uint32_t *pixels;   // pixel data
 
     // runtime data
     unsigned long next_time;  // millis() of next update
@@ -399,7 +399,7 @@ typedef struct Segment {
 
   private:
     union {
-      uint8_t  _capabilities;
+      uint8_t  _capabilities; // determines segment capabilities in terms of what is available: RGB, W, CCT, manual W, etc.
       struct {
         bool    _isRGB    : 1;
         bool    _hasW     : 1;
@@ -410,11 +410,10 @@ typedef struct Segment {
     };
     uint8_t         _default_palette;         // palette number that gets assigned to pal0
     unsigned        _dataLen;
-    static unsigned _usedSegmentData;
+    static unsigned _usedSegmentData;         // amount of data used by all segments
     static unsigned _vLength;                 // 1D dimension used for current effect
     static unsigned _vWidth, _vHeight;        // 2D dimensions used for current effect
-    static uint32_t _currentColors[NUM_COLORS]; // colors used for current effect
-    //static bool     _colorScaled;             // color has been scaled prior to setPixelColor() call
+    static uint32_t _currentColors[NUM_COLORS]; // colors used for current effect (faster access from effect functions)
     static CRGBPalette16 _currentPalette;     // palette used for current effect (includes transition, used in color_from_palette())
     static CRGBPalette16 _randomPalette;      // actual random palette
     static CRGBPalette16 _newRandomPalette;   // target random palette
@@ -429,7 +428,7 @@ typedef struct Segment {
     // transition data, valid only if transitional==true, holds values during transition (72 bytes)
     struct Transition {
       Segment      *_oldSegment;  // previous segment environment
-      CRGBPalette16 _palT;        // temporary palette
+      CRGBPalette16 _palT;        // temporary palette (slowly being morphed from old to new)
       uint8_t       _prevPaletteBlends; // number of previous palette blends (there are max 255 blends possible)
       unsigned long _start;       // must accommodate millis()
       uint16_t      _dur;
@@ -484,8 +483,8 @@ typedef struct Segment {
       _t(nullptr)
     {
       DEBUGFX_PRINTF_P(PSTR("-- Creating segment: %p\n"), this);
-      // allocate render buffer
-      pixels = static_cast<uint32_t*>(d_malloc(sizeof(uint32_t) * (stop-start) * (stopY-startY))); // it is good here not to use virtualLength() as groupSize()==1
+      // allocate render buffer (always entire segment)
+      pixels = static_cast<uint32_t*>(d_malloc(sizeof(uint32_t) * (stop-start) * (stopY-startY))); // do not use virtualLength()
     }
 
     Segment(const Segment &orig); // copy constructor
@@ -567,7 +566,7 @@ typedef struct Segment {
     // transition functions
     void     startTransition(uint16_t dur);     // transition has to start before actual segment values change
     void     stopTransition();                  // ends transition mode by destroying transition structure (does nothing if not in transition)
-    inline void updateTransitionProgress() {
+    inline void updateTransitionProgress() {    // sets transition progress (0-65535) based on time passed since transition start
       Segment::_transitionProgress = 0xFFFF;
       if (isInTransition()) {
         unsigned diff = millis() - _t->_start;
@@ -578,7 +577,7 @@ typedef struct Segment {
       updateTransitionProgress();
       if (progress() == 0xFFFFU) stopTransition();
     }
-    inline unsigned progress() const { return Segment::_transitionProgress; } // relies on handleTransition() to update progression variable
+    inline unsigned progress() const { return Segment::_transitionProgress; } // relies on handleTransition()/updateTransitionProgress() to update progression variable
     inline Segment *getOldSegment() const { if (isInTransition()) return _t->_oldSegment; else return nullptr; }
     uint8_t  currentBri(bool useCct = false) const; // current segment brightness/CCT (blended while in transition)
     uint8_t  currentMode() const;                   // currently active effect/mode (while in transition)
@@ -705,7 +704,7 @@ typedef struct Segment {
 //static int segSize = sizeof(Segment);
 
 // main "strip" class
-class WS2812FX {  // 96 bytes
+class WS2812FX {  // 116 bytes
   typedef uint16_t (*mode_ptr)(); // pointer to mode function
   typedef void (*show_callback)(); // pre show callback
   typedef struct ModeData {
@@ -714,8 +713,6 @@ class WS2812FX {  // 96 bytes
     const char *_data; // mode (effect) name and its UI control data
     ModeData(uint8_t id, uint16_t (*fcn)(void), const char *data) : _id(id), _fcn(fcn), _data(data) {}
   } mode_data_t;
-
-  static WS2812FX* instance;
 
   uint32_t *pixels;
 
@@ -727,9 +724,6 @@ class WS2812FX {  // 96 bytes
       now(millis()),
       timebase(0),
       isMatrix(false),
-#ifndef WLED_DISABLE_2D
-      panels(1),
-#endif
 #ifdef WLED_AUTOSEGMENTS
       autoSegments(true),
 #else
@@ -737,12 +731,12 @@ class WS2812FX {  // 96 bytes
 #endif
       correctWB(false),
       cctFromRgb(false),
+      panels(),
       // true private variables
       _suspend(false),
       _length(DEFAULT_LED_COUNT),
       _brightness(DEFAULT_BRIGHTNESS),
       _transitionDur(750),
-      _targetFps(WLED_FPS),
       _frametime(FRAMETIME_FIXED),
       _cumulativeFps(50 << FPS_CALC_SHIFT),
       _isServicing(false),
@@ -757,7 +751,6 @@ class WS2812FX {  // 96 bytes
       _segment_index(0),
       _mainSegment(0)
     {
-      WS2812FX::instance = this;
       _mode.reserve(_modeCount);     // allocate memory to prevent initial fragmentation (does not increase size())
       _modeData.reserve(_modeCount); // allocate memory to prevent initial fragmentation (does not increase size())
       if (_mode.capacity() <= 1 || _modeData.capacity() <= 1) _modeCount = 1; // memory allocation failed only show Solid
@@ -774,8 +767,6 @@ class WS2812FX {  // 96 bytes
       panel.clear();
 #endif
     }
-
-    static WS2812FX* getInstance() { return instance; }
 
     void
 #ifdef WLED_DEBUG_FX
@@ -872,9 +863,7 @@ class WS2812FX {  // 96 bytes
       isMatrix;
 
 #ifndef WLED_DISABLE_2D
-    #define WLED_MAX_PANELS 18
-    uint8_t
-      panels;
+    //uint8_t panels;
 
     typedef struct panel_t {
       uint16_t xOffset; // x offset relative to the top left of matrix in LEDs
@@ -914,6 +903,7 @@ class WS2812FX {  // 96 bytes
       bool autoSegments : 1;
       bool correctWB    : 1;
       bool cctFromRgb   : 1;
+      uint8_t panels    : 5;
     };
 
     Segment *_currentSegment;

@@ -151,6 +151,8 @@
   #endif
 #endif
 
+#define WLED_MAX_PANELS 18                      // must not be more than 32
+
 //Usermod IDs
 #define USERMOD_ID_RESERVED               0     //Unused. Might indicate no usermod present
 #define USERMOD_ID_UNSPECIFIED            1     //Default value for a general user mod that does not specify a custom ID
@@ -481,25 +483,27 @@
 
 //maximum number of rendered LEDs - this does not have to match max. physical LEDs, e.g. if there are virtual busses
 #ifndef MAX_LEDS
-#ifdef ESP8266
-#define MAX_LEDS 1664 //can't rely on memory limit to limit this to 1600 LEDs
-#elif defined(CONFIG_IDF_TARGET_ESP32S2)
-#define MAX_LEDS 2048 //due to memory constraints
-#else
-#define MAX_LEDS 8192
-#endif
+  #ifdef ESP8266
+    #define MAX_LEDS 1536 //can't rely on memory limit to limit this to 1536 LEDs
+  #elif defined(CONFIG_IDF_TARGET_ESP32S2)
+    #define MAX_LEDS 2048 //due to memory constraints S2
+  #elif defined(CONFIG_IDF_TARGET_ESP32C3)
+    #define MAX_LEDS 4096
+  #else
+    #define MAX_LEDS 16384
+  #endif
 #endif
 
 #ifndef MAX_LED_MEMORY
   #ifdef ESP8266
-    #define MAX_LED_MEMORY 4000
+    #define MAX_LED_MEMORY 4096
   #else
     #if defined(ARDUINO_ARCH_ESP32S2)
-      #define MAX_LED_MEMORY 16000
+      #define MAX_LED_MEMORY 16384
     #elif defined(ARDUINO_ARCH_ESP32C3)
-      #define MAX_LED_MEMORY 32000
+      #define MAX_LED_MEMORY 32768
     #else
-      #define MAX_LED_MEMORY 64000
+      #define MAX_LED_MEMORY 65536
     #endif
   #endif
 #endif

@@ -141,7 +141,6 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
     Bus::setCCTBlend(cctBlending);
     Bus::setGlobalAWMode(request->arg(F("AW")).toInt());
     strip.setTargetFps(request->arg(F("FR")).toInt());
-    //useGlobalLedBuffer = request->hasArg(F("LD"));
     #if defined(ARDUINO_ARCH_ESP32) && !defined(CONFIG_IDF_TARGET_ESP32C3)
     useParallelI2S = request->hasArg(F("PR"));
     #endif
@@ -214,7 +213,7 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
       type |= request->hasArg(rf) << 7; // off refresh override
       // actual finalization is done in WLED::loop() (removing old busses and adding new)
       // this may happen even before this loop is finished so we do "doInitBusses" after the loop
-      busConfigs.emplace_back(type, pins, start, length, colorOrder | (channelSwap<<4), request->hasArg(cv), skip, awmode, freq, /*useGlobalLedBuffer,*/ maPerLed, maMax);
+      busConfigs.emplace_back(type, pins, start, length, colorOrder | (channelSwap<<4), request->hasArg(cv), skip, awmode, freq, maPerLed, maMax);
       busesChanged = true;
     }
     //doInitBusses = busesChanged; // we will do that below to ensure all input data is processed
@@ -762,9 +761,9 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
   if (subPage == SUBPAGE_2D)
   {
     strip.isMatrix = request->arg(F("SOMP")).toInt();
-    strip.panel.clear(); // release memory if allocated
+    strip.panel.clear();
     if (strip.isMatrix) {
-      strip.panels  = MAX(1,MIN(WLED_MAX_PANELS,request->arg(F("MPC")).toInt()));
+      strip.panels = constrain(request->arg(F("MPC")).toInt(), 1, WLED_MAX_PANELS);
       strip.panel.reserve(strip.panels); // pre-allocate memory
       for (unsigned i=0; i<strip.panels; i++) {
         WS2812FX::Panel p;
@@ -784,13 +783,11 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
         pO[l] = 'H'; p.height      = request->arg(pO).toInt();
         strip.panel.push_back(p);
       }
-      strip.setUpMatrix(); // will check limits
-      strip.makeAutoSegments(true);
-      strip.deserializeMap();
-    } else {
-      Segment::maxWidth  = strip.getLengthTotal();
-      Segment::maxHeight = 1;
     }
+    strip.panel.shrink_to_fit();  // release unused memory
+    strip.panels = strip.panel.size();  // match vector size
+    strip.deserializeMap(); // (re)load default ledmap (will also setUpMatrix() if ledmap does not exist)
+    strip.makeAutoSegments(true); // force re-creation of segments
   }
   #endif
 

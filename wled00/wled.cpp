@@ -178,23 +178,21 @@ void WLED::loop()
     heapTime = millis();
   }
 
-  //LED settings need to be saved, re-init busses
-  //This code block causes severe FPS drop on ESP32 with the original "if (busConfigs[0] != nullptr)" conditional. Investigate!
-  if (doInit & INIT_2D) {
-    doInit &= ~INIT_2D;
-    strip.setUpMatrix(); // will check limits
-    strip.makeAutoSegments(true);
-    strip.deserializeMap();
-  }
+  // LED settings need to be saved, re-init busses
   if (doInit & INIT_BUS) {
-    doInit &= ~INIT_BUS;
+    doInit = 0;
     DEBUG_PRINTLN(F("Re-init busses."));
     bool aligned = strip.checkSegmentAlignment(); //see if old segments match old bus(ses)
-    strip.finalizeInit(); // will create buses and also load default ledmap if present
+    strip.finalizeInit(); // will create buses and also load default ledmap if present (fixing 2D if needed)
     if (aligned) strip.makeAutoSegments();
     else strip.fixInvalidSegments();
     doSerializeConfig = true;
+  } else if (doInit & INIT_2D) {
+    // 2D needs to be reinitilaised if configuration was changed via /json/cfg endpoint (not needed if done via set.cpp)
+    doInit &= ~INIT_2D;
+    strip.deserializeMap(); // (re)load default ledmap (will also setUpMatrix() if ledmap does not exist)
   }
+  // new ledmap was requested via JSON
   if (loadLedmap >= 0) {
     strip.deserializeMap(loadLedmap);
     loadLedmap = -1;
@@ -678,10 +676,10 @@ void WLED::initConnection()
     DEBUG_PRINTF_P(PSTR("WiFi: Connecting to %s... @ %lus\n"), multiWiFi[selectedWiFi].clientSSID, millis()/1000);
 
     // determine if using DHCP or static IP address, will also engage STA mode if not already
-    if (multiWiFi[selectedWiFi].staticIP != 0U && multiWiFi[selectedWiFi].staticGW != 0U) {
+    if (multiWiFi[selectedWiFi].staticIP != IPAddress() && multiWiFi[selectedWiFi].staticGW != IPAddress()) {
       WiFi.config(multiWiFi[selectedWiFi].staticIP, multiWiFi[selectedWiFi].staticGW, multiWiFi[selectedWiFi].staticSN, dnsAddress);
     } else {
-      WiFi.config(IPAddress((uint32_t)0), IPAddress((uint32_t)0), IPAddress((uint32_t)0));
+      WiFi.config(IPAddress(), IPAddress(), IPAddress()); // empty IP address == 0.0.0.0
     }
 
     // convert the "serverDescription" into a valid DNS hostname (alphanumeric)

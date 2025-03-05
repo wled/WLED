@@ -120,7 +120,6 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
   uint8_t cctBlending = hw_led[F("cb")] | Bus::getCCTBlend();
   Bus::setCCTBlend(cctBlending);
   strip.setTargetFps(hw_led["fps"]); //NOP if 0, default 42 FPS
-//  CJSON(useGlobalLedBuffer, hw_led[F("ld")]);
   #if defined(ARDUINO_ARCH_ESP32) && !defined(CONFIG_IDF_TARGET_ESP32C3)
   CJSON(useParallelI2S, hw_led[F("prl")]);
   #endif
@@ -131,11 +130,12 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
   if (!matrix.isNull()) {
     strip.isMatrix = true;
     CJSON(strip.panels, matrix[F("mpc")]);
+    strip.panels = constrain(strip.panels, 1, WLED_MAX_PANELS);
     strip.panel.clear();
     JsonArray panels = matrix[F("panels")];
     int s = 0;
     if (!panels.isNull()) {
-      strip.panel.reserve(max(1U,min((size_t)strip.panels,(size_t)WLED_MAX_PANELS)));  // pre-allocate memory for panels
+      strip.panel.reserve(strip.panels);  // pre-allocate default 8x8 panels
       for (JsonObject pnl : panels) {
         WS2812FX::Panel p;
         CJSON(p.bottomStart, pnl["b"]);
@@ -147,18 +147,12 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
         CJSON(p.height,      pnl["h"]);
         CJSON(p.width,       pnl["w"]);
         strip.panel.push_back(p);
-        if (++s >= WLED_MAX_PANELS || s >= strip.panels) break; // max panels reached
+        if (++s >= strip.panels) break; // max panels reached
       }
-    } else {
-      // fallback
-      WS2812FX::Panel p;
-      strip.panels = 1;
-      p.height = p.width = 8;
-      p.xOffset = p.yOffset = 0;
-      p.options = 0;
-      strip.panel.push_back(p);
     }
-    // cannot call strip.setUpMatrix() here due to already locked JSON buffer
+    strip.panel.shrink_to_fit();  // release unused memory
+    strip.panels = strip.panel.size();  // safety to match vector size
+    // cannot call strip.deserializeLedmap()/strip.setUpMatrix() here due to already locked JSON buffer
     if (!fromFS) doInit |= INIT_2D; // if called at boot (fromFS==true), WLED::beginStrip() will take care of setting up matrix
   }
   #endif
@@ -198,8 +192,7 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
       }
       ledType |= refresh << 7; // hack bit 7 to indicate strip requires off refresh
 
-      //busConfigs.push_back(std::move(BusConfig(ledType, pins, start, length, colorOrder, reversed, skipFirst, AWmode, freqkHz, /*useGlobalLedBuffer,*/ maPerLed, maMax)));
-      busConfigs.emplace_back(ledType, pins, start, length, colorOrder, reversed, skipFirst, AWmode, freqkHz, /*useGlobalLedBuffer,*/ maPerLed, maMax);
+      busConfigs.emplace_back(ledType, pins, start, length, colorOrder, reversed, skipFirst, AWmode, freqkHz, maPerLed, maMax);
       doInit |= INIT_BUS;  // finalization done in beginStrip()
       if (!Bus::isVirtual(ledType)) s++; // have as many virtual buses as you want
     }
@@ -782,14 +775,12 @@ void serializeConfig() {
   JsonObject hw_led = hw.createNestedObject("led");
   hw_led[F("total")] = strip.getLengthTotal(); //provided for compatibility on downgrade and per-output ABL
   hw_led[F("maxpwr")] = BusManager::ablMilliampsMax();
-//  hw_led[F("ledma")] = 0; // no longer used
   hw_led["cct"] = strip.correctWB;
   hw_led[F("cr")] = strip.cctFromRgb;
   hw_led[F("ic")] = cctICused;
   hw_led[F("cb")] = Bus::getCCTBlend();
   hw_led["fps"] = strip.getTargetFps();
   hw_led[F("rgbwm")] = Bus::getGlobalAWMode(); // global auto white mode override
-//  hw_led[F("ld")] = useGlobalLedBuffer; // no longer used
   #if defined(ARDUINO_ARCH_ESP32) && !defined(CONFIG_IDF_TARGET_ESP32C3)
   hw_led[F("prl")] = BusManager::hasParallelOutput();
   #endif

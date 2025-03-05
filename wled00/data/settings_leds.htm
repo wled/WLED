@@ -202,7 +202,6 @@
 				if (maxM >= 10000) { //ESP32 RMT uses double buffer?
 					mul = 2;
 				}
-				//if (d.Sf.LD.checked) dbl = len * ch; // double buffering
 			}
 			return len * ch * mul + dbl;
 		}
@@ -636,7 +635,6 @@ Swap: <select id="xw${s}" name="XW${s}">
 							d.getElementsByName("MA"+i)[0].value   = v.maxpwr;
 						});
 						d.getElementsByName("PR")[0].checked  = l.prl | 0;
-						//d.getElementsByName("LD")[0].checked  = l.ld;
 						d.getElementsByName("MA")[0].value    = l.maxpwr;
 						d.getElementsByName("ABL")[0].checked = l.maxpwr > 0;
 					}
@@ -818,7 +816,6 @@ Swap: <select id="xw${s}" name="XW${s}">
 		<div id="prl" class="hide">Use parallel I2S: <input type="checkbox" name="PR"><br></div>
 		Make a segment for each output: <input type="checkbox" name="MS"><br>
 		Custom bus start indices: <input type="checkbox" onchange="tglSi(this.checked)" id="si"><br>
-		<!--Use global LED buffer: <input type="checkbox" name="LD" onchange="UI()"><br>-->
 		<hr class="sml">
 		<div id="color_order_mapping">
 			Color Order Override:

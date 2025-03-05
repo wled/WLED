@@ -43,9 +43,13 @@ void WS2812FX::setUpMatrix() {
       Segment::maxHeight = 1;
       panels = 0;
       panel.clear(); // release memory allocated by panels
+      panel.shrink_to_fit(); // release memory if allocated
       resetSegments();
       return;
     }
+
+    suspend();
+    waitForIt();
 
     customMappingSize = 0; // prevent use of mapping if anything goes wrong
 
@@ -113,6 +117,7 @@ void WS2812FX::setUpMatrix() {
 
       // delete gap array as we no longer need it
       w_free(gapTable);
+      resume();
 
       #ifdef WLED_DEBUG_FX
       DEBUGFX_PRINT(F("Matrix ledmap:"));
@@ -503,7 +508,6 @@ void Segment::drawCircle(uint16_t cx, uint16_t cy, uint8_t radius, uint32_t col,
         d += 4 * x + 6;
       }
     }
-    //_colorScaled = false;
   }
 }
 
@@ -562,8 +566,6 @@ void Segment::drawLine(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1, uint3
       int y = int(intersectY);
       if (steep) std::swap(x,y);  // temporaryly swap if steep
       // pixel coverage is determined by fractional part of y co-ordinate
-      //setPixelColorXY(x, y, color_blend(c, getPixelColorXY(x, y), keep));
-      //setPixelColorXY(x+int(steep), y+int(!steep), color_blend(c, getPixelColorXY(x+int(steep), y+int(!steep)), seep));
       blendPixelColorXY(x, y, c, seep);
       blendPixelColorXY(x+int(steep), y+int(!steep), c, keep);
       intersectY += gradient;

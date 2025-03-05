@@ -630,9 +630,6 @@ bool IRAM_ATTR Segment::isPixelClipped(int i) const {
       return (progress() <= pos) ^ Segment::isPreviousMode();
     }
     const bool iInside = (i >= start && i < stop);
-    //if (!invert &&  iInside) return Segment::isPreviousMode();
-    //if ( invert && !iInside) return Segment::isPreviousMode();
-    //return !Segment::isPreviousMode();
     return !iInside ^ invert ^ Segment::isPreviousMode(); // thanks @willmmiles (https://github.com/Aircoookie/WLED/pull/3877#discussion_r1554633876)
   }
   return false;
@@ -811,7 +808,7 @@ uint32_t IRAM_ATTR Segment::getPixelColor(int i) const
   int vStrip = i>>16; // virtual strips are only relevant in Bar expansion mode
   i &= 0xFFFF;
 #endif
-  if (i >= vLength()) return 0;
+  if (i >= (int)vLength()) return 0;
 
 #ifndef WLED_DISABLE_2D
   if (is2D()) {
@@ -1244,7 +1241,7 @@ void WS2812FX::finalizeInit() {
       // analog always has length 1
       if (Bus::isPWM(dataType) || Bus::isOnOff(dataType)) count = 1;
       prevLen += count;
-      BusConfig defCfg = BusConfig(dataType, defPin, start, count, DEFAULT_LED_COLOR_ORDER, false, 0, RGBW_MODE_MANUAL_ONLY, 0/*, useGlobalLedBuffer*/);
+      BusConfig defCfg = BusConfig(dataType, defPin, start, count, DEFAULT_LED_COLOR_ORDER, false, 0, RGBW_MODE_MANUAL_ONLY, 0);
       mem += defCfg.memUsage(Bus::isDigital(dataType) && !Bus::is2Pin(dataType) ? digitalCount++ : 0);
       if (BusManager::add(defCfg) == -1) break;
     }
@@ -1964,10 +1961,9 @@ void WS2812FX::printSize() {
 }
 #endif
 
-//load custom mapping table from JSON file (called from finalizeInit() or deserializeState())
+// load custom mapping table from JSON file (called from finalizeInit() or deserializeState())
+// if this is a matrix set-up and default ledmap.json file does not exist, create mapping table using setUpMatrix() from panel information
 bool WS2812FX::deserializeMap(unsigned n) {
-  // 2D support creates its own ledmap (on the fly) if a ledmap.json exists it will overwrite built one.
-
   char fileName[32];
   strcpy_P(fileName, PSTR("/ledmap"));
   if (n) sprintf(fileName +7, "%d", n);
@@ -1979,6 +1975,7 @@ bool WS2812FX::deserializeMap(unsigned n) {
   if (n == 0 || isFile) interfaceUpdateCallMode = CALL_MODE_WS_SEND; // schedule WS update (to inform UI)
 
   if (!isFile && n==0 && isMatrix) {
+    // 2D panel support creates its own ledmap (on the fly) if a ledmap.json does not exist
     setUpMatrix();
     return false;
   }
@@ -1989,18 +1986,21 @@ bool WS2812FX::deserializeMap(unsigned n) {
   filter[F("width")]  = true;
   filter[F("height")] = true;
   if (!readObjectFromFile(fileName, nullptr, pDoc, &filter)) {
-    DEBUG_PRINT(F("ERROR Invalid ledmap in ")); DEBUGFX_PRINTLN(fileName);
+    DEBUG_PRINTF_P(PSTR("ERROR Invalid ledmap in %s\n"), fileName);
     releaseJSONBufferLock();
     return false; // if file does not load properly then exit
-  }
+  } else
+    DEBUG_PRINTF_P(PSTR("Reading LED map from %s\n"), fileName);
 
   suspend();
+  waitForIt();
 
   JsonObject root = pDoc->as<JsonObject>();
   // if we are loading default ledmap (at boot) set matrix width and height from the ledmap (compatible with WLED MM ledmaps)
-  if (isMatrix && n == 0 && (!root[F("width")].isNull() || !root[F("height")].isNull())) {
-    Segment::maxWidth  = min(max(root[F("width")].as<int>(), 1), 128);
-    Segment::maxHeight = min(max(root[F("height")].as<int>(), 1), 128);
+  if (n == 0 && (!root[F("width")].isNull() || !root[F("height")].isNull())) {
+    Segment::maxWidth  = min(max(root[F("width")].as<int>(), 1), 255);
+    Segment::maxHeight = min(max(root[F("height")].as<int>(), 1), 255);
+    isMatrix = true;
   }
 
   d_free(customMappingTable);
@@ -2008,7 +2008,6 @@ bool WS2812FX::deserializeMap(unsigned n) {
 
   if (customMappingTable) {
     DEBUG_PRINTF_P(PSTR("ledmap allocated: %uB\n"), sizeof(uint16_t)*getLengthTotal());
-    DEBUG_PRINTF_P(PSTR("Reading LED map from %s\n"), fileName);
     File f = WLED_FS.open(fileName, "r");
     f.find("\"map\":[");
     while (f.available()) { // f.position() < f.size() - 1
@@ -2059,8 +2058,6 @@ bool WS2812FX::deserializeMap(unsigned n) {
   return (customMappingSize > 0);
 }
 
-
-WS2812FX* WS2812FX::instance = nullptr;
 
 const char JSON_mode_names[] PROGMEM = R"=====(["FX names moved"])=====";
 const char JSON_palette_names[] PROGMEM = R"=====([
