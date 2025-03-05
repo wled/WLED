@@ -245,7 +245,7 @@ private:
           }
           break;
         case 'L':
-          if (!lightDone) { // only call _setColons once as all colons are printed when the first colon is found
+          if (!lightDone) { // only call _showElements once
             _showElements(&umSSDRLight, 0, 1, 0);
             lightDone = true;
           }
