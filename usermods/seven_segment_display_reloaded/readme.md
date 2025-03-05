@@ -249,6 +249,20 @@ my_config.h Settings:
 }
 ```
 
+### 3. Lazy Clock(s) by paralyze
+[Lazy 7 Quick build edition](https://www.instructables.com/Lazy-7-Quick-Build-Edition/). The SSDR usermod can be used to drive this and other clock designs by [paralyze](https://www.instructables.com/member/parallyze/)
+For example the Lazy 7 Quick build edition has the following settings - depending on the orientation.
+
+- hour "59,46;47-48;50-51;52-53;54-55;57-58;49,56:0,13;1-2;4-5;6-7;8-9;11-12;3,10"
+
+- minute "37-38;39-40;42-43;44,31;32-33;35-36;34,41:21-22;23-24;26-27;28,15;16-17;19-20;18,25"
+
+or
+
+- hour "6,7;8,9;11,12;13,0;1,2;4,5;3,10:52,53;54,55;57,58;59,46;47,48;50,51;49,56"
+
+- minute "15,28;16,17;19,20;21,22;23,24;26,27;18,25:31,44;32,33;35,36;37,38;39,40;42,43;34,41"
+
 --------------------------------
 
 With these modifications, the SSDR usermod becomes even more versatile, allowing it to be used on a wide variety of segment clocks and projects.
