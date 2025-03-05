@@ -113,7 +113,9 @@ E         C
   <  D  >
 ```
 
-LED ranges or individual LED numbers are defined using commas (,) and ranges using a hyphen (-). Segments for each digit are separated by semicolons (;) and digits are separated by a colon (:).
+A digit segment can consist of single LED numbers and LED ranges, separated by commas (,)
+An example would be 1,3,6-8,23,30-32. In this example the LEDs with the numbers 1,3,6,7,8,23,30,31 and 32 would make up a Segment.
+Segments for each digit are separated by semicolons (;) and digits are separated by a colon (:).
 
 ### Example for a Clock Display
 
