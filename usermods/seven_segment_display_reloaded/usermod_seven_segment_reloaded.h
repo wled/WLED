@@ -69,6 +69,10 @@ private:
     //  y - 21 last two positions of year
     //  Y - 2021 year
     //  L - Light LED
+    //  This option defines a separate LED (or set of LEDs) that can be controlled independently 
+    //  from the other clock display LEDs. It can be switched on or off to provide additional 
+    //  lighting for the display or serve as an ambient light source, without affecting the 
+    //  clock's visual display of time and date.
     //  : for a colon
     */
   
