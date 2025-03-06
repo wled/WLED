@@ -14,9 +14,9 @@
 
 #define IBN 5100
 
-// paletteBlend: 0 - wrap when moving, 1 - always wrap, 2 - never wrap, 3 - none (undefined)
-#define PALETTE_SOLID_WRAP   (strip.paletteBlend == 1 || strip.paletteBlend == 3)
-#define PALETTE_MOVING_WRAP !(strip.paletteBlend == 2 || (strip.paletteBlend == 0 && SEGMENT.speed == 0))
+// paletteBlend: 0 - blend, wrap when moving, 1 - blend, always wrap, 2 - blend, never wrap, 3 - no blend, no wrap
+#define PALETTE_FIXED  (false) // i.e. never moving
+#define PALETTE_MOVING (SEGMENT.speed > 0)
 
 #define indexToVStrip(index, stripNr) ((index) | (int((stripNr)+1)<<16))
 
@@ -94,7 +94,7 @@ uint16_t blink(uint32_t color1, uint32_t color2, bool strobe, bool do_palette) {
   if (color == color1 && do_palette)
   {
     for (unsigned i = 0; i < SEGLEN; i++) {
-      SEGMENT.setPixelColor(i, SEGMENT.color_from_palette(i, true, PALETTE_SOLID_WRAP, 0));
+      SEGMENT.setPixelColor(i, SEGMENT.color_from_palette(i, true, PALETTE_FIXED, 0));
     }
   } else SEGMENT.fill(color);
 
@@ -181,7 +181,7 @@ uint16_t color_wipe(bool rev, bool useRandomColors) {
   for (unsigned i = 0; i < SEGLEN; i++)
   {
     unsigned index = (rev && back)? SEGLEN -1 -i : i;
-    uint32_t col0 = useRandomColors? SEGMENT.color_wheel(SEGENV.aux0) : SEGMENT.color_from_palette(index, true, PALETTE_SOLID_WRAP, 0);
+    uint32_t col0 = useRandomColors? SEGMENT.color_wheel(SEGENV.aux0) : SEGMENT.color_from_palette(index, true, PALETTE_FIXED, 0);
 
     if (i < ledIndex)
     {
@@ -316,7 +316,7 @@ uint16_t mode_breath(void) {
 
   unsigned lum = 30 + var;
   for (unsigned i = 0; i < SEGLEN; i++) {
-    SEGMENT.setPixelColor(i, color_blend(SEGCOLOR(1), SEGMENT.color_from_palette(i, true, PALETTE_SOLID_WRAP, 0), lum));
+    SEGMENT.setPixelColor(i, color_blend(SEGCOLOR(1), SEGMENT.color_from_palette(i, true, PALETTE_FIXED, 0), lum));
   }
 
   return FRAMETIME;
@@ -332,7 +332,7 @@ uint16_t mode_fade(void) {
   uint8_t lum = triwave16(counter) >> 8;
 
   for (unsigned i = 0; i < SEGLEN; i++) {
-    SEGMENT.setPixelColor(i, color_blend(SEGCOLOR(1), SEGMENT.color_from_palette(i, true, PALETTE_SOLID_WRAP, 0), lum));
+    SEGMENT.setPixelColor(i, color_blend(SEGCOLOR(1), SEGMENT.color_from_palette(i, true, PALETTE_FIXED, 0), lum));
   }
 
   return FRAMETIME;
@@ -361,12 +361,12 @@ uint16_t mode_scan(void) {
   if (dual) {
     for (int j = led_offset; j < led_offset + size; j++) {
       unsigned i2 = SEGLEN -1 -j;
-      SEGMENT.setPixelColor(i2, SEGMENT.color_from_palette(i2, true, PALETTE_SOLID_WRAP, (SEGCOLOR(2))? 2:0));
+      SEGMENT.setPixelColor(i2, SEGMENT.color_from_palette(i2, true, PALETTE_FIXED, (SEGCOLOR(2))? 2:0));
     }
   }
 
   for (int j = led_offset; j < led_offset + size; j++) {
-    SEGMENT.setPixelColor(j, SEGMENT.color_from_palette(j, true, PALETTE_SOLID_WRAP, 0));
+    SEGMENT.setPixelColor(j, SEGMENT.color_from_palette(j, true, PALETTE_FIXED, 0));
   }
 
   return FRAMETIME;
@@ -422,7 +422,7 @@ uint16_t mode_theater_chase() {
   uint32_t it = strip.now / cycleTime;
 
   for (unsigned i = 0; i < SEGLEN; i++) {
-    uint32_t c1 = SEGMENT.color_from_palette(i, true, false, 0);
+    uint32_t c1 = SEGMENT.color_from_palette(i, true, PALETTE_FIXED, 0);
     uint32_t c2 = SEGCOLOR(1);
     if (animate) {
       c1 = SEGMENT.color_wheel(SEGENV.step); // sets moving palette and rainbow for default
@@ -530,7 +530,7 @@ uint16_t mode_twinkle(void) {
     PRNG16 = (uint16_t)(PRNG16 * 2053) + 13849; // next 'random' number
     uint32_t p = (uint32_t)SEGLEN * (uint32_t)PRNG16;
     unsigned j = p >> 16;
-    SEGMENT.setPixelColor(j, SEGMENT.color_from_palette(j, true, PALETTE_SOLID_WRAP, 0));
+    SEGMENT.setPixelColor(j, SEGMENT.color_from_palette(j, true, PALETTE_FIXED, 0));
   }
 
   return FRAMETIME;
@@ -556,7 +556,7 @@ uint16_t dissolve(uint32_t color) {
         unsigned i = hw_random16(SEGLEN);
         if (SEGENV.aux0) { //dissolve to primary/palette
           if (SEGMENT.getPixelColor(i) == SEGCOLOR(1)) {
-            SEGMENT.setPixelColor(i, color == SEGCOLOR(0) ? SEGMENT.color_from_palette(i, true, PALETTE_SOLID_WRAP, 0) : color);
+            SEGMENT.setPixelColor(i, color == SEGCOLOR(0) ? SEGMENT.color_from_palette(i, true, PALETTE_FIXED, 0) : color);
             break; //only spawn 1 new pixel per frame per 50 LEDs
           }
         } else { //dissolve to secondary
@@ -715,7 +715,7 @@ static const char _data_FX_MODE_MULTI_STROBE[] PROGMEM = "Strobe Mega@!,!,,,,Ani
 uint16_t mode_android(void) {
 
   for (unsigned i = 0; i < SEGLEN; i++) {
-    SEGMENT.setPixelColor(i, SEGMENT.color_from_palette(i, true, PALETTE_SOLID_WRAP, 1));
+    SEGMENT.setPixelColor(i, SEGMENT.color_from_palette(i, true, PALETTE_FIXED, 1));
   }
 
   if (SEGENV.aux1 > (SEGMENT.intensity*SEGLEN)/255)
@@ -793,7 +793,7 @@ static uint16_t chase(uint32_t color1, uint32_t color2, uint32_t color3, bool do
   if (do_palette)
   {
     for (unsigned i = 0; i < SEGLEN; i++) {
-      SEGMENT.setPixelColor(i, SEGMENT.color_from_palette(i, true, PALETTE_SOLID_WRAP, 1));
+      SEGMENT.setPixelColor(i, SEGMENT.color_from_palette(i, true, PALETTE_FIXED, 1));
     }
   } else SEGMENT.fill(color1);
 
@@ -893,7 +893,7 @@ uint16_t mode_colorful(void) {
       unsigned fac = 80;
       if (SEGMENT.palette == 52) {numColors = 5; fac = 61;} //C9 2 has 5 colors
       for (size_t i = 0; i < numColors; i++) {
-        cols[i] = SEGMENT.color_from_palette(i*fac, false, true, 255);
+        cols[i] = SEGMENT.color_from_palette(i*fac, false, PALETTE_MOVING, 255);
       }
     }
   } else if (SEGMENT.intensity < 80) //pastel (easter) colors
@@ -930,7 +930,7 @@ static const char _data_FX_MODE_COLORFUL[] PROGMEM = "Colorful@!,Saturation;1,2,
 uint16_t mode_traffic_light(void) {
   if (SEGLEN <= 1) return mode_static();
   for (unsigned i=0; i < SEGLEN; i++)
-    SEGMENT.setPixelColor(i, SEGMENT.color_from_palette(i, true, PALETTE_SOLID_WRAP, 1));
+    SEGMENT.setPixelColor(i, SEGMENT.color_from_palette(i, true, PALETTE_FIXED, 1));
   uint32_t mdelay = 500;
   for (unsigned i = 0; i < SEGLEN-2 ; i+=3)
   {
@@ -1138,14 +1138,14 @@ uint16_t mode_comet(void) {
 
   SEGMENT.fade_out(SEGMENT.intensity);
 
-  SEGMENT.setPixelColor( index, SEGMENT.color_from_palette(index, true, PALETTE_SOLID_WRAP, 0));
+  SEGMENT.setPixelColor( index, SEGMENT.color_from_palette(index, true, PALETTE_FIXED, 0));
   if (index > SEGENV.aux0) {
     for (unsigned i = SEGENV.aux0; i < index ; i++) {
-       SEGMENT.setPixelColor( i, SEGMENT.color_from_palette(i, true, PALETTE_SOLID_WRAP, 0));
+       SEGMENT.setPixelColor( i, SEGMENT.color_from_palette(i, true, PALETTE_FIXED, 0));
     }
   } else if (index < SEGENV.aux0 && index < 10) {
     for (unsigned i = 0; i < index ; i++) {
-       SEGMENT.setPixelColor( i, SEGMENT.color_from_palette(i, true, PALETTE_SOLID_WRAP, 0));
+       SEGMENT.setPixelColor( i, SEGMENT.color_from_palette(i, true, PALETTE_FIXED, 0));
     }
   }
   SEGENV.aux0 = index++;
@@ -1188,7 +1188,7 @@ uint16_t mode_fireworks() {
       unsigned index = hw_random16(width*height);
       x = index % width;
       y = index / width;
-      uint32_t col = SEGMENT.color_from_palette(hw_random8(), false, false, 0);
+      uint32_t col = SEGMENT.color_from_palette(hw_random8(), false, PALETTE_FIXED, 0);
       if (is2D) SEGMENT.setPixelColorXY(x, y, col);
       else      SEGMENT.setPixelColor(index, col);
       SEGENV.aux1 = SEGENV.aux0;  // old spark
@@ -1254,7 +1254,7 @@ uint16_t mode_fire_flicker(void) {
     if (SEGMENT.palette == 0) {
       SEGMENT.setPixelColor(i, MAX(r - flicker, 0), MAX(g - flicker, 0), MAX(b - flicker, 0), MAX(w - flicker, 0));
     } else {
-      SEGMENT.setPixelColor(i, SEGMENT.color_from_palette(i, true, PALETTE_SOLID_WRAP, 0, 255 - flicker));
+      SEGMENT.setPixelColor(i, SEGMENT.color_from_palette(i, true, PALETTE_FIXED, 0, 255 - flicker));
     }
   }
 
@@ -1286,7 +1286,7 @@ uint16_t gradient_base(bool loading) {
       val = min(abs(pp-i),min(abs(p1-i),abs(p2-i)));
     }
     val = (brd > val) ? (val * 255) / brd : 255;
-    SEGMENT.setPixelColor(i, color_blend(SEGCOLOR(0), SEGMENT.color_from_palette(i, true, PALETTE_SOLID_WRAP, 1), uint8_t(val)));
+    SEGMENT.setPixelColor(i, color_blend(SEGCOLOR(0), SEGMENT.color_from_palette(i, true, PALETTE_FIXED, 1), uint8_t(val)));
   }
 
   return FRAMETIME;
@@ -1353,7 +1353,7 @@ uint16_t mode_fairy() {
   uint16_t PRNG16 = 5100 + strip.getCurrSegmentId();
   for (unsigned i = 0; i < SEGLEN; i++) {
     PRNG16 = (uint16_t)(PRNG16 * 2053) + 1384; //next 'random' number
-    SEGMENT.setPixelColor(i, SEGMENT.color_from_palette(PRNG16 >> 8, false, false, 0));
+    SEGMENT.setPixelColor(i, SEGMENT.color_from_palette(PRNG16 >> 8, false, PALETTE_FIXED, 0));
   }
 
   //amount of flasher pixels depending on intensity (0: none, 255: every LED)
@@ -1410,10 +1410,10 @@ uint16_t mode_fairy() {
       uint8_t bri = (flasherBri[f - firstFlasher] * globalPeakBri) / 255;
       PRNG16 = (uint16_t)(PRNG16 * 2053) + 1384; //next 'random' number
       unsigned flasherPos = f*flasherDistance;
-      SEGMENT.setPixelColor(flasherPos, color_blend(SEGCOLOR(1), SEGMENT.color_from_palette(PRNG16 >> 8, false, false, 0), bri));
+      SEGMENT.setPixelColor(flasherPos, color_blend(SEGCOLOR(1), SEGMENT.color_from_palette(PRNG16 >> 8, false, PALETTE_FIXED, 0), bri));
       for (unsigned i = flasherPos+1; i < flasherPos+flasherDistance && i < SEGLEN; i++) {
         PRNG16 = (uint16_t)(PRNG16 * 2053) + 1384; //next 'random' number
-        SEGMENT.setPixelColor(i, SEGMENT.color_from_palette(PRNG16 >> 8, false, false, 0, globalPeakBri));
+        SEGMENT.setPixelColor(i, SEGMENT.color_from_palette(PRNG16 >> 8, false, PALETTE_FIXED, 0, globalPeakBri));
       }
     }
   }
@@ -1465,7 +1465,7 @@ uint16_t mode_fairytwinkle() {
       PRNG16 = (uint16_t)(PRNG16 * 2053) + 1384; //next 'random' number
       diff = (PRNG16 > lastR) ? PRNG16 - lastR : lastR - PRNG16;
     }
-    SEGMENT.setPixelColor(f, color_blend(SEGCOLOR(1), SEGMENT.color_from_palette(PRNG16 >> 8, false, false, 0), flasherBri));
+    SEGMENT.setPixelColor(f, color_blend(SEGCOLOR(1), SEGMENT.color_from_palette(PRNG16 >> 8, false, PALETTE_FIXED, 0), flasherBri));
   }
   return FRAMETIME;
 }
@@ -1485,7 +1485,7 @@ uint16_t mode_tricolor_chase(void) {
     if (index > (width*3)-1) index = 0;
 
     uint32_t color = SEGCOLOR(2);
-    if (index > (width<<1)-1) color = SEGMENT.color_from_palette(i, true, PALETTE_SOLID_WRAP, 1);
+    if (index > (width<<1)-1) color = SEGMENT.color_from_palette(i, true, PALETTE_FIXED, 1);
     else if (index > width-1) color = SEGCOLOR(0);
 
     SEGMENT.setPixelColor(SEGLEN - i -1, color);
@@ -1507,7 +1507,7 @@ uint16_t mode_icu(void) {
   if (!SEGMENT.check2) SEGMENT.fill(SEGCOLOR(1));
 
   byte pindex = map(dest, 0, SEGLEN-space, 0, 255);
-  uint32_t col = SEGMENT.step < cycleTime + 200/FRAMETIME && SEGMENT.step > cycleTime ? SEGCOLOR(1) : SEGMENT.color_from_palette(pindex, false, false, 0);
+  uint32_t col = SEGMENT.step < cycleTime + 200/FRAMETIME && SEGMENT.step > cycleTime ? SEGCOLOR(1) : SEGMENT.color_from_palette(pindex, false, PALETTE_FIXED, 0);
 
   if (SEGMENT.step < cycleTime) {
     SEGMENT.step = cycleTime + 1;
@@ -1547,7 +1547,7 @@ uint16_t mode_tricolor_wipe(void) {
 
   for (unsigned i = 0; i < SEGLEN; i++)
   {
-    SEGMENT.setPixelColor(i, SEGMENT.color_from_palette(i, true, PALETTE_SOLID_WRAP, 2));
+    SEGMENT.setPixelColor(i, SEGMENT.color_from_palette(i, true, PALETTE_FIXED, 2));
   }
 
   if(ledIndex < SEGLEN) { //wipe from 0 to 1
@@ -1605,9 +1605,9 @@ uint16_t mode_tricolor_fade(void) {
   for (unsigned i = 0; i < SEGLEN; i++) {
     uint32_t color;
     if (stage == 2) {
-      color = color_blend(SEGMENT.color_from_palette(i, true, PALETTE_SOLID_WRAP, 2), color2, stp);
+      color = color_blend(SEGMENT.color_from_palette(i, true, PALETTE_FIXED, 2), color2, stp);
     } else if (stage == 1) {
-      color = color_blend(color1, SEGMENT.color_from_palette(i, true, PALETTE_SOLID_WRAP, 2), stp);
+      color = color_blend(color1, SEGMENT.color_from_palette(i, true, PALETTE_FIXED, 2), stp);
     } else {
       color = color_blend(color1, color2, stp);
     }
@@ -1639,10 +1639,10 @@ uint16_t mode_multi_comet(void) {
       unsigned index = comets[i];
       if (SEGCOLOR(2) != 0)
       {
-        SEGMENT.setPixelColor(index, i % 2 ? SEGMENT.color_from_palette(index, true, PALETTE_SOLID_WRAP, 0) : SEGCOLOR(2));
+        SEGMENT.setPixelColor(index, i % 2 ? SEGMENT.color_from_palette(index, true, PALETTE_FIXED, 0) : SEGCOLOR(2));
       } else
       {
-        SEGMENT.setPixelColor(index, SEGMENT.color_from_palette(index, true, PALETTE_SOLID_WRAP, 0));
+        SEGMENT.setPixelColor(index, SEGMENT.color_from_palette(index, true, PALETTE_FIXED, 0));
       }
       comets[i]++;
     } else {
@@ -1776,7 +1776,7 @@ uint16_t mode_lightning(void) {
   if (SEGENV.aux1 > 3 && !(SEGENV.aux1 & 0x01)) { //flash on even number >2
     for (unsigned i = ledstart; i < ledstart + ledlen; i++)
     {
-      SEGMENT.setPixelColor(i,SEGMENT.color_from_palette(i, true, PALETTE_SOLID_WRAP, 0, bri));
+      SEGMENT.setPixelColor(i,SEGMENT.color_from_palette(i, true, PALETTE_FIXED, 0, bri));
     }
     SEGENV.aux1--;
 
@@ -1843,7 +1843,7 @@ uint16_t mode_colorwaves_pride_base(bool isPride2015) {
       CRGB newcolor = CHSV(hue8, sat8, bri8);
       SEGMENT.blendPixelColor(i, newcolor, 64);
     } else {
-      SEGMENT.blendPixelColor(i, SEGMENT.color_from_palette(hue8, false, PALETTE_SOLID_WRAP, 0, bri8), 128);
+      SEGMENT.blendPixelColor(i, SEGMENT.color_from_palette(hue8, false, PALETTE_FIXED, 0, bri8), 128);
     }
   }
 
@@ -2076,7 +2076,7 @@ uint16_t mode_bpm() {
   uint32_t stp = (strip.now / 20) & 0xFF;
   uint8_t beat = beatsin8_t(SEGMENT.speed, 64, 255);
   for (unsigned i = 0; i < SEGLEN; i++) {
-    SEGMENT.setPixelColor(i, SEGMENT.color_from_palette(stp + (i * 2), false, PALETTE_SOLID_WRAP, 0, beat - stp + (i * 10)));
+    SEGMENT.setPixelColor(i, SEGMENT.color_from_palette(stp + (i * 2), false, PALETTE_FIXED, 0, beat - stp + (i * 10)));
   }
 
   return FRAMETIME;
@@ -2088,7 +2088,7 @@ uint16_t mode_fillnoise8() {
   if (SEGENV.call == 0) SEGENV.step = hw_random();
   for (unsigned i = 0; i < SEGLEN; i++) {
     unsigned index = inoise8(i * SEGLEN, SEGENV.step + i * SEGLEN);
-    SEGMENT.setPixelColor(i, SEGMENT.color_from_palette(index, false, PALETTE_SOLID_WRAP, 0));
+    SEGMENT.setPixelColor(i, SEGMENT.color_from_palette(index, false, PALETTE_FIXED, 0));
   }
   SEGENV.step += beatsin8_t(SEGMENT.speed, 1, 6); //10,1,4
 
@@ -2110,7 +2110,7 @@ uint16_t mode_noise16_1() {
     unsigned noise = inoise16(real_x, real_y, real_z) >> 8;   // get the noise data and scale it down
     unsigned index = sin8_t(noise * 3);                         // map LED color based on noise data
 
-    SEGMENT.setPixelColor(i, SEGMENT.color_from_palette(index, false, PALETTE_SOLID_WRAP, 0));
+    SEGMENT.setPixelColor(i, SEGMENT.color_from_palette(index, false, PALETTE_FIXED, 0));
   }
 
   return FRAMETIME;
@@ -2128,7 +2128,7 @@ uint16_t mode_noise16_2() {
     unsigned noise = inoise16(real_x, 0, 4223) >> 8;            // get the noise data and scale it down
     unsigned index = sin8_t(noise * 3);                           // map led color based on noise data
 
-    SEGMENT.setPixelColor(i, SEGMENT.color_from_palette(index, false, PALETTE_SOLID_WRAP, 0, noise));
+    SEGMENT.setPixelColor(i, SEGMENT.color_from_palette(index, false, PALETTE_FIXED, 0, noise));
   }
 
   return FRAMETIME;
@@ -2149,7 +2149,7 @@ uint16_t mode_noise16_3() {
     unsigned noise = inoise16(real_x, real_y, real_z) >> 8;   // get the noise data and scale it down
     unsigned index = sin8_t(noise * 3);                         // map led color based on noise data
 
-    SEGMENT.setPixelColor(i, SEGMENT.color_from_palette(index, false, PALETTE_SOLID_WRAP, 0, noise));
+    SEGMENT.setPixelColor(i, SEGMENT.color_from_palette(index, false, PALETTE_FIXED, 0, noise));
   }
 
   return FRAMETIME;
@@ -2162,7 +2162,7 @@ uint16_t mode_noise16_4() {
   uint32_t stp = (strip.now * SEGMENT.speed) >> 7;
   for (unsigned i = 0; i < SEGLEN; i++) {
     int index = inoise16(uint32_t(i) << 12, stp);
-    SEGMENT.setPixelColor(i, SEGMENT.color_from_palette(index, false, PALETTE_SOLID_WRAP, 0));
+    SEGMENT.setPixelColor(i, SEGMENT.color_from_palette(index, false, PALETTE_FIXED, 0));
   }
   return FRAMETIME;
 }
@@ -2234,7 +2234,7 @@ uint16_t mode_lake() {
   {
     int index = cos8_t((i*15)+ wave1)/2 + cubicwave8((i*23)+ wave2)/2;
     uint8_t lum = (index > wave3) ? index - wave3 : 0;
-    SEGMENT.setPixelColor(i, SEGMENT.color_from_palette(index, false, false, 0, lum));
+    SEGMENT.setPixelColor(i, SEGMENT.color_from_palette(index, false, PALETTE_FIXED, 0, lum));
   }
 
   return FRAMETIME;
@@ -2286,7 +2286,7 @@ uint16_t mode_meteor() {
           mcol = 255;
         }
       }
-      c = SEGMENT.color_from_palette(index, !gradient, false, mcol, mbri);
+      c = SEGMENT.color_from_palette(index, !gradient, PALETTE_FIXED, mcol, mbri);
       SEGMENT.setPixelColor(i, c);
     }
   }
@@ -2297,7 +2297,7 @@ uint16_t mode_meteor() {
     trail[index] = max;
     int mbri = smooth ? trail[index] : 255;
     int mcol = gradient ? 255 : 0;
-    c = SEGMENT.color_from_palette(index, !gradient, false, mcol, mbri);
+    c = SEGMENT.color_from_palette(index, !gradient, PALETTE_FIXED, mcol, mbri);
     if (smooth) SEGMENT.blendPixelColor(index, c, 48);
     else        SEGMENT.setPixelColor(index, c);
   }
@@ -2328,10 +2328,10 @@ uint16_t mode_railway() {
   if (SEGENV.aux0) pos = 255 - pos;
   for (unsigned i = 0; i < SEGLEN; i += 2)
   {
-    SEGMENT.setPixelColor(i, SEGMENT.color_from_palette(255 - pos, false, false, 255)); // do not use color 1 or 2, always use palette
+    SEGMENT.setPixelColor(i, SEGMENT.color_from_palette(255 - pos, false, PALETTE_FIXED, 255)); // do not use color 1 or 2, always use palette
     if (i < SEGLEN -1)
     {
-      SEGMENT.setPixelColor(i + 1, SEGMENT.color_from_palette(pos, false, false, 255)); // do not use color 1 or 2, always use palette
+      SEGMENT.setPixelColor(i + 1, SEGMENT.color_from_palette(pos, false, PALETTE_FIXED, 255)); // do not use color 1 or 2, always use palette
     }
   }
   SEGENV.step += FRAMETIME;
@@ -2371,7 +2371,7 @@ static uint16_t ripple_base() {
     if (ripplestate) {
       unsigned rippledecay = (SEGMENT.speed >> 4) +1; //faster decay if faster propagation
       unsigned rippleorigin = ripples[i].pos;
-      uint32_t col = SEGMENT.color_from_palette(ripples[i].color, false, false, 255);
+      uint32_t col = SEGMENT.color_from_palette(ripples[i].color, false, PALETTE_FIXED, 255);
       unsigned propagation = ((ripplestate/rippledecay - 1) * (SEGMENT.speed + 1));
       int propI = propagation >> 8;
       unsigned propF = propagation & 0xFF;
@@ -2656,7 +2656,7 @@ uint16_t mode_halloween_eyes()
       constexpr uint32_t minimumOnTimeEnd = 1024u;
       const uint32_t fadeInAnimationState = elapsedTime * uint32_t{256u * 8u} / duration;
       const uint32_t backgroundColor = SEGCOLOR(1);
-      const uint32_t eyeColor = SEGMENT.color_from_palette(data.color, false, false, 0);
+      const uint32_t eyeColor = SEGMENT.color_from_palette(data.color, false, PALETTE_FIXED, 0);
       uint32_t c = eyeColor;
       if (fadeInAnimationState < 256u) {
         c = color_blend(backgroundColor, eyeColor, uint8_t(fadeInAnimationState));
@@ -2754,7 +2754,7 @@ uint16_t mode_static_pattern()
   unsigned cnt = 0;
 
   for (unsigned i = 0; i < SEGLEN; i++) {
-    SEGMENT.setPixelColor(i, (drawingLit) ? SEGMENT.color_from_palette(i, true, PALETTE_SOLID_WRAP, 0) : SEGCOLOR(1));
+    SEGMENT.setPixelColor(i, (drawingLit) ? SEGMENT.color_from_palette(i, true, PALETTE_FIXED, 0) : SEGCOLOR(1));
     cnt++;
     if (cnt >= ((drawingLit) ? lit : unlit)) {
       cnt = 0;
@@ -2812,7 +2812,7 @@ static uint16_t spots_base(uint16_t threshold)
       if (wave > threshold) {
         unsigned index = 0 + pos + i;
         unsigned s = (wave - threshold)*255 / (0xFFFF - threshold);
-        SEGMENT.setPixelColor(index, color_blend(SEGMENT.color_from_palette(index, true, PALETTE_SOLID_WRAP, 0), SEGCOLOR(1), uint8_t(255-s)));
+        SEGMENT.setPixelColor(index, color_blend(SEGMENT.color_from_palette(index, true, PALETTE_FIXED, 0), SEGCOLOR(1), uint8_t(255-s)));
       }
     }
   }
@@ -3007,7 +3007,7 @@ static uint16_t rolling_balls(void) {
     uint32_t color = SEGCOLOR(0);
     if (SEGMENT.palette) {
       //color = SEGMENT.color_wheel(i*(256/MAX(numBalls, 8)));
-      color = SEGMENT.color_from_palette(i*255/numBalls, false, PALETTE_SOLID_WRAP, 0);
+      color = SEGMENT.color_from_palette(i*255/numBalls, false, PALETTE_FIXED, 0);
     } else if (hasCol2) {
       color = SEGCOLOR(i % NUM_COLORS);
     }
@@ -3035,14 +3035,14 @@ uint16_t mode_sinelon() {
   SEGMENT.fade_out(SEGMENT.intensity);
   unsigned pos = beatsin16_t(SEGMENT.speed/10,0,SEGLEN-1);
   if (SEGENV.call == 0) SEGENV.aux0 = pos;
-  uint32_t color1 = SEGMENT.color_from_palette(pos, true, false, 0);
+  uint32_t color1 = SEGMENT.color_from_palette(pos, true, PALETTE_FIXED, 0);
   uint32_t color2 = SEGCOLOR(2);
   if (rainbow) {
     color1 = SEGMENT.color_wheel((pos & 0x07) * 32);
   }
   SEGMENT.setPixelColor(pos, color1);
   if (dual) {
-    if (!color2) color2 = SEGMENT.color_from_palette(pos, true, false, 0);
+    if (!color2) color2 = SEGMENT.color_from_palette(pos, true, PALETTE_FIXED, 0);
     if (rainbow) color2 = color1; //rainbow
     SEGMENT.setPixelColor(SEGLEN-1-pos, color2);
   }
@@ -3092,7 +3092,7 @@ uint16_t mode_glitter()
     }
     for (unsigned i = 0; i < SEGLEN; i++) {
       unsigned colorIndex = (i * 255 / SEGLEN) - counter;
-      SEGMENT.setPixelColor(i, SEGMENT.color_from_palette(colorIndex, false, true, 255));
+      SEGMENT.setPixelColor(i, SEGMENT.color_from_palette(colorIndex, false, PALETTE_MOVING, 255));
     }
   }
   if (SEGMENT.intensity > hw_random8()) SEGMENT.setPixelColor(hw_random16(SEGLEN), SEGCOLOR(2) ? SEGCOLOR(2) : ULTRAWHITE);
@@ -3246,12 +3246,12 @@ uint16_t mode_candle() {
     }
 
     if (i > 0) {
-      SEGMENT.setPixelColor(i, color_blend(SEGCOLOR(1), SEGMENT.color_from_palette(i, true, PALETTE_SOLID_WRAP, 0), uint8_t(s)));
+      SEGMENT.setPixelColor(i, color_blend(SEGCOLOR(1), SEGMENT.color_from_palette(i, true, PALETTE_FIXED, 0), uint8_t(s)));
 
       SEGENV.data[d] = s; SEGENV.data[d+1] = s_target; SEGENV.data[d+2] = fadeStep;
     } else {
       for (unsigned j = 0; j < SEGLEN; j++) {
-        SEGMENT.setPixelColor(j, color_blend(SEGCOLOR(1), SEGMENT.color_from_palette(j, true, PALETTE_SOLID_WRAP, 0), s));
+        SEGMENT.setPixelColor(j, color_blend(SEGCOLOR(1), SEGMENT.color_from_palette(j, true, PALETTE_FIXED, 0), s));
       }
 
       SEGENV.aux0 = s; SEGENV.aux1 = s_target; SEGENV.step = fadeStep;
@@ -3685,7 +3685,7 @@ uint16_t mode_tetrix(void) {
           drop->pos -= drop->speed;       // may add gravity as: speed += gravity
           if (int(drop->pos) < int(drop->stack)) drop->pos = drop->stack;
           for (unsigned i = unsigned(drop->pos); i < SEGLEN; i++) {
-            uint32_t col = i < unsigned(drop->pos)+drop->brick ? SEGMENT.color_from_palette(drop->col, false, false, 0) : SEGCOLOR(1);
+            uint32_t col = i < unsigned(drop->pos)+drop->brick ? SEGMENT.color_from_palette(drop->col, false, PALETTE_FIXED, 0) : SEGCOLOR(1);
             SEGMENT.setPixelColor(indexToVStrip(i, stripNr), col);
           }
         } else {                          // we hit bottom
@@ -3733,7 +3733,7 @@ uint16_t mode_plasma(void) {
     unsigned colorIndex = cubicwave8((i*(2+ 3*(SEGMENT.speed >> 5))+thisPhase) & 0xFF)/2   // factor=23 // Create a wave and add a phase change and add another wave with its own phase change.
                               + cos8_t((i*(1+ 2*(SEGMENT.speed >> 5))+thatPhase) & 0xFF)/2;  // factor=15 // Hey, you can even change the frequencies if you wish.
     unsigned thisBright = qsub8(colorIndex, beatsin8_t(7,0, (128 - (SEGMENT.intensity>>1))));
-    SEGMENT.setPixelColor(i, SEGMENT.color_from_palette(colorIndex, false, PALETTE_SOLID_WRAP, 0, thisBright));
+    SEGMENT.setPixelColor(i, SEGMENT.color_from_palette(colorIndex, false, PALETTE_FIXED, 0, thisBright));
   }
 
   return FRAMETIME;
@@ -3760,9 +3760,9 @@ uint16_t mode_percent(void) {
     for (unsigned i = 0; i < SEGLEN; i++) {
     	if (i < SEGENV.aux1) {
         if (oneColor)
-          SEGMENT.setPixelColor(i, SEGMENT.color_from_palette(map(percent,0,100,0,255), false, false, 0));
+          SEGMENT.setPixelColor(i, SEGMENT.color_from_palette(map(percent,0,100,0,255), false, PALETTE_FIXED, 0));
         else
-          SEGMENT.setPixelColor(i, SEGMENT.color_from_palette(i, true, PALETTE_SOLID_WRAP, 0));
+          SEGMENT.setPixelColor(i, SEGMENT.color_from_palette(i, true, PALETTE_FIXED, 0));
     	}
     	else {
         SEGMENT.setPixelColor(i, SEGCOLOR(1));
@@ -3775,9 +3775,9 @@ uint16_t mode_percent(void) {
     	}
     	else {
         if (oneColor)
-          SEGMENT.setPixelColor(i, SEGMENT.color_from_palette(map(percent,100,200,255,0), false, false, 0));
+          SEGMENT.setPixelColor(i, SEGMENT.color_from_palette(map(percent,100,200,255,0), false, PALETTE_FIXED, 0));
         else
-          SEGMENT.setPixelColor(i, SEGMENT.color_from_palette(i, true, PALETTE_SOLID_WRAP, 0));
+          SEGMENT.setPixelColor(i, SEGMENT.color_from_palette(i, true, PALETTE_FIXED, 0));
     	}
     }
   }
@@ -3820,7 +3820,7 @@ uint16_t mode_heartbeat(void) {
   }
 
   for (unsigned i = 0; i < SEGLEN; i++) {
-    SEGMENT.setPixelColor(i, color_blend(SEGMENT.color_from_palette(i, true, PALETTE_SOLID_WRAP, 0), SEGCOLOR(1), 255 - (SEGENV.aux1 >> 8)));
+    SEGMENT.setPixelColor(i, color_blend(SEGMENT.color_from_palette(i, true, PALETTE_FIXED, 0), SEGCOLOR(1), 255 - (SEGENV.aux1 >> 8)));
   }
 
   return FRAMETIME;
@@ -3983,9 +3983,9 @@ uint16_t mode_sunrise() {
     wave = (wave >> 8) + ((wave * SEGMENT.intensity) >> 15);
     uint32_t c;
     if (wave > 240) { //clipped, full white sun
-      c = SEGMENT.color_from_palette( 240, false, true, 255);
+      c = SEGMENT.color_from_palette( 240, false, PALETTE_MOVING, 255);
     } else { //transition
-      c = SEGMENT.color_from_palette(wave, false, true, 255);
+      c = SEGMENT.color_from_palette(wave, false, PALETTE_MOVING, 255);
     }
     SEGMENT.setPixelColor(i, c);
     SEGMENT.setPixelColor(SEGLEN - i - 1, c);
@@ -4016,7 +4016,7 @@ static uint16_t phased_base(uint8_t moder) {                  // We're making si
     val += *phase * (i % modVal +1) /2;                          // This sets the varying phase change of the waves. By Andrew Tuline.
     unsigned b = cubicwave8(val);                                 // Now we make an 8 bit sinewave.
     b = (b > cutOff) ? (b - cutOff) : 0;                         // A ternary operator to cutoff the light.
-    SEGMENT.setPixelColor(i, color_blend(SEGCOLOR(1), SEGMENT.color_from_palette(index, false, false, 0), uint8_t(b)));
+    SEGMENT.setPixelColor(i, color_blend(SEGCOLOR(1), SEGMENT.color_from_palette(index, false, PALETTE_FIXED, 0), uint8_t(b)));
     index += 256 / SEGLEN;
     if (SEGLEN > 256) index ++;                                  // Correction for segments longer than 256 LEDs
   }
@@ -4045,7 +4045,7 @@ uint16_t mode_twinkleup(void) {                 // A very short twinkle routine 
     unsigned ranstart = random8();               // The starting value (aka brightness) for each pixel. Must be consistent each time through the loop for this to work.
     unsigned pixBri = sin8_t(ranstart + 16 * strip.now/(256-SEGMENT.speed));
     if (random8() > SEGMENT.intensity) pixBri = 0;
-    SEGMENT.setPixelColor(i, color_blend(SEGCOLOR(1), SEGMENT.color_from_palette(random8()+strip.now/100, false, PALETTE_SOLID_WRAP, 0), pixBri));
+    SEGMENT.setPixelColor(i, color_blend(SEGCOLOR(1), SEGMENT.color_from_palette(random8()+strip.now/100, false, PALETTE_FIXED, 0), pixBri));
   }
 
   random16_set_seed(prevSeed); // restore original seed so other effects can use "random" PRNG
@@ -4104,7 +4104,7 @@ uint16_t mode_sinewave(void) {             // Adjustable sinewave. By Andrew Tul
   for (unsigned i = 0; i < SEGLEN; i++) {                 // For each of the LED's in the strand, set a brightness based on a wave as follows:
     int pixBri = cubicwave8((i*freq)+SEGENV.step);//qsuba(cubicwave8((i*freq)+SEGENV.step), (255-SEGMENT.intensity)); // qsub sets a minimum value called thiscutoff. If < thiscutoff, then bright = 0. Otherwise, bright = 128 (as defined in qsub)..
     //setPixCol(i, i*colorIndex/255, pixBri);
-    SEGMENT.setPixelColor(i, color_blend(SEGCOLOR(1), SEGMENT.color_from_palette(i*colorIndex/255, false, PALETTE_SOLID_WRAP, 0), pixBri));
+    SEGMENT.setPixelColor(i, color_blend(SEGCOLOR(1), SEGMENT.color_from_palette(i*colorIndex/255, false, PALETTE_FIXED, 0), pixBri));
   }
 
   return FRAMETIME;
@@ -4131,7 +4131,7 @@ uint16_t mode_flow(void)
   unsigned zoneLen = SEGLEN / zones;
   unsigned offset = (SEGLEN - zones * zoneLen) >> 1;
 
-  SEGMENT.fill(SEGMENT.color_from_palette(-counter, false, true, 255));
+  SEGMENT.fill(SEGMENT.color_from_palette(-counter, false, PALETTE_MOVING, 255));
 
   for (unsigned z = 0; z < zones; z++)
   {
@@ -4141,7 +4141,7 @@ uint16_t mode_flow(void)
       unsigned colorIndex = (i * 255 / zoneLen) - counter;
       unsigned led = (z & 0x01) ? i : (zoneLen -1) -i;
       if (SEGMENT.reverse) led = (zoneLen -1) -led;
-      SEGMENT.setPixelColor(pos + led, SEGMENT.color_from_palette(colorIndex, false, true, 255));
+      SEGMENT.setPixelColor(pos + led, SEGMENT.color_from_palette(colorIndex, false, PALETTE_MOVING, 255));
     }
   }
 
@@ -4168,7 +4168,7 @@ uint16_t mode_chunchun(void)
     unsigned megumin = sin16_t(counter) + 0x8000;
     unsigned bird = uint32_t(megumin * SEGLEN) >> 16;
     if (bird >= SEGLEN) bird = SEGLEN-1U;
-    SEGMENT.setPixelColor(bird, SEGMENT.color_from_palette((i * 255)/ numBirds, false, false, 0)); // no palette wrapping
+    SEGMENT.setPixelColor(bird, SEGMENT.color_from_palette((i * 255)/ numBirds, false, PALETTE_FIXED, 0)); // no palette wrapping
   }
   return FRAMETIME;
 }
@@ -4259,7 +4259,7 @@ uint16_t mode_dancing_shadows(void)
       spotlights[i].type = hw_random8(SPOT_TYPES_COUNT);
     }
 
-    uint32_t color = SEGMENT.color_from_palette(spotlights[i].colorIdx, false, false, 255);
+    uint32_t color = SEGMENT.color_from_palette(spotlights[i].colorIdx, false, PALETTE_FIXED, 255);
     int start = spotlights[i].position;
 
     if (spotlights[i].width <= 1) {
@@ -4335,7 +4335,7 @@ uint16_t mode_washing_machine(void) {
 
   for (unsigned i = 0; i < SEGLEN; i++) {
     uint8_t col = sin8_t(((SEGMENT.intensity / 25 + 1) * 255 * i / SEGLEN) + (SEGENV.step >> 7));
-    SEGMENT.setPixelColor(i, SEGMENT.color_from_palette(col, false, PALETTE_SOLID_WRAP, 3));
+    SEGMENT.setPixelColor(i, SEGMENT.color_from_palette(col, false, PALETTE_FIXED, 3));
   }
 
   return FRAMETIME;
@@ -4353,7 +4353,7 @@ uint16_t mode_blends(void) {
   unsigned shift = (strip.now * ((SEGMENT.speed >> 3) +1)) >> 8;
 
   for (unsigned i = 0; i < pixelLen; i++) {
-    SEGMENT.blendPixelColor(i, SEGMENT.color_from_palette(shift + quadwave8((i + 1) * 16), false, PALETTE_SOLID_WRAP, 255), blendSpeed);
+    SEGMENT.blendPixelColor(i, SEGMENT.color_from_palette(shift + quadwave8((i + 1) * 16), false, PALETTE_FIXED, 255), blendSpeed);
     shift += 3;
   }
 
@@ -4618,7 +4618,7 @@ uint16_t mode_aurora(void) {
     waves = reinterpret_cast<AuroraWave*>(SEGENV.data);
 
     for (int i = 0; i < SEGENV.aux1; i++) {
-      waves[i].init(SEGLEN, CRGB(SEGMENT.color_from_palette(hw_random8(), false, false, hw_random8(0, 3))));
+      waves[i].init(SEGLEN, CRGB(SEGMENT.color_from_palette(hw_random8(), false, PALETTE_FIXED, hw_random8(0, 3))));
     }
   } else {
     waves = reinterpret_cast<AuroraWave*>(SEGENV.data);
@@ -4630,7 +4630,7 @@ uint16_t mode_aurora(void) {
 
     if(!(waves[i].stillAlive())) {
       //If a wave dies, reinitialize it starts over.
-      waves[i].init(SEGLEN, CRGB(SEGMENT.color_from_palette(hw_random8(), false, false, hw_random8(0, 3))));
+      waves[i].init(SEGLEN, CRGB(SEGMENT.color_from_palette(hw_random8(), false, PALETTE_FIXED, hw_random8(0, 3))));
     }
   }
 
@@ -4672,7 +4672,7 @@ uint16_t mode_perlinmove(void) {
   for (int i = 0; i < SEGMENT.intensity/16 + 1; i++) {
     unsigned locn = inoise16(strip.now*128/(260-SEGMENT.speed)+i*15000, strip.now*128/(260-SEGMENT.speed)); // Get a new pixel location from moving noise.
     unsigned pixloc = map(locn, 50*256, 192*256, 0, SEGLEN-1);                                            // Map that to the length of the strand, and ensure we don't go over.
-    SEGMENT.setPixelColor(pixloc, SEGMENT.color_from_palette(pixloc%255, false, PALETTE_SOLID_WRAP, 0));
+    SEGMENT.setPixelColor(pixloc, SEGMENT.color_from_palette(pixloc%255, false, PALETTE_FIXED, 0));
   }
 
   return FRAMETIME;
@@ -4690,7 +4690,7 @@ uint16_t mode_wavesins(void) {
     uint8_t bri = sin8_t(strip.now/4 + i * SEGMENT.intensity);
     uint8_t index = beatsin8_t(SEGMENT.speed, SEGMENT.custom1, SEGMENT.custom1+SEGMENT.custom2, 0, i * (SEGMENT.custom3<<3)); // custom3 is reduced resolution slider
     //SEGMENT.setPixelColor(i, ColorFromPalette(SEGPALETTE, index, bri, LINEARBLEND));
-    SEGMENT.setPixelColor(i, SEGMENT.color_from_palette(index, false, true, 0, bri));
+    SEGMENT.setPixelColor(i, SEGMENT.color_from_palette(index, false, PALETTE_MOVING, 0, bri));
   }
 
   return FRAMETIME;
@@ -4742,13 +4742,13 @@ uint16_t mode_2DBlackHole(void) {            // By: Stepko https://editor.soulma
   for (size_t i = 0; i < 8; i++) {
     x = beatsin8_t(SEGMENT.custom1>>3,   0, cols - 1, 0, ((i % 2) ? 128 : 0) + t * i);
     y = beatsin8_t(SEGMENT.intensity>>3, 0, rows - 1, 0, ((i % 2) ? 192 : 64) + t * i);
-    SEGMENT.addPixelColorXY(x, y, SEGMENT.color_from_palette(i*32, false, PALETTE_SOLID_WRAP, oneColor?0:255));
+    SEGMENT.addPixelColorXY(x, y, SEGMENT.color_from_palette(i*32, false, PALETTE_FIXED, oneColor?0:255));
   }
   // inner stars
   for (size_t i = 0; i < 4; i++) {
     x = beatsin8_t(SEGMENT.custom2>>3, cols/4, cols - 1 - cols/4, 0, ((i % 2) ? 128 : 0) + t * i);
     y = beatsin8_t(SEGMENT.custom3   , rows/4, rows - 1 - rows/4, 0, ((i % 2) ? 192 : 64) + t * i);
-    SEGMENT.addPixelColorXY(x, y, SEGMENT.color_from_palette(255-i*64, false, PALETTE_SOLID_WRAP, oneColor?0:255));
+    SEGMENT.addPixelColorXY(x, y, SEGMENT.color_from_palette(255-i*64, false, PALETTE_FIXED, oneColor?0:255));
   }
   // central white dot
   SEGMENT.setPixelColorXY(cols/2, rows/2, WHITE);
@@ -5004,7 +5004,7 @@ uint16_t mode_2Dgameoflife(void) { // Written by Ewoud Wijma, inspired by https:
       if (state == 0)
         SEGMENT.setPixelColorXY(x,y, backgroundColor);
       else
-        SEGMENT.setPixelColorXY(x,y, SEGMENT.color_from_palette(hw_random8(), false, PALETTE_SOLID_WRAP, 255));
+        SEGMENT.setPixelColorXY(x,y, SEGMENT.color_from_palette(hw_random8(), false, PALETTE_FIXED, 255));
     }
 
     for (int y = 0; y < rows; y++) for (int x = 0; x < cols; x++) prevLeds[XY(x,y)] = CRGB::Black;
@@ -5061,7 +5061,7 @@ uint16_t mode_2Dgameoflife(void) { // Written by Ewoud Wijma, inspired by https:
       // assign the dominant color w/ a bit of randomness to avoid "gliders"
       if (dominantColorCount.count > 0 && hw_random8(128)) SEGMENT.setPixelColorXY(x,y, dominantColorCount.color);
     } else if ((col == bgc) && (neighbors == 2) && !hw_random8(128)) {               // Mutation
-      SEGMENT.setPixelColorXY(x,y, SEGMENT.color_from_palette(hw_random8(), false, PALETTE_SOLID_WRAP, 255));
+      SEGMENT.setPixelColorXY(x,y, SEGMENT.color_from_palette(hw_random8(), false, PALETTE_FIXED, 255));
     }
     // else do nothing!
   } //x,y
@@ -5094,7 +5094,7 @@ uint16_t mode_2DHiphotic() {                        //  By: ldirko  https://edit
 
   for (int x = 0; x < cols; x++) {
     for (int y = 0; y < rows; y++) {
-      SEGMENT.setPixelColorXY(x, y, SEGMENT.color_from_palette(sin8_t(cos8_t(x * SEGMENT.speed/16 + a / 3) + sin8_t(y * SEGMENT.intensity/16 + a / 4) + a), false, PALETTE_SOLID_WRAP, 0));
+      SEGMENT.setPixelColorXY(x, y, SEGMENT.color_from_palette(sin8_t(cos8_t(x * SEGMENT.speed/16 + a / 3) + sin8_t(y * SEGMENT.intensity/16 + a / 4) + a), false, PALETTE_FIXED, 0));
     }
   }
 
@@ -5207,7 +5207,7 @@ uint16_t mode_2DJulia(void) {                           // An animated Julia set
       if (iter == maxIterations) {
         SEGMENT.setPixelColorXY(i, j, 0);
       } else {
-        SEGMENT.setPixelColorXY(i, j, SEGMENT.color_from_palette(iter*255/maxIterations, false, PALETTE_SOLID_WRAP, 0));
+        SEGMENT.setPixelColorXY(i, j, SEGMENT.color_from_palette(iter*255/maxIterations, false, PALETTE_FIXED, 0));
       }
       x += dx;
     }
@@ -5240,7 +5240,7 @@ uint16_t mode_2DLissajous(void) {            // By: Andrew Tuline
     uint_fast8_t ylocn = cos8_t(phase/2 + i*2);
     xlocn = (cols < 2) ? 1 : (map(2*xlocn, 0,511, 0,2*(cols-1)) +1) /2;    // softhack007: "(2* ..... +1) /2" for proper rounding
     ylocn = (rows < 2) ? 1 : (map(2*ylocn, 0,511, 0,2*(rows-1)) +1) /2;    // "rows > 1" is needed to avoid div/0 in map()
-    SEGMENT.setPixelColorXY((uint8_t)xlocn, (uint8_t)ylocn, SEGMENT.color_from_palette(strip.now/100+i, false, PALETTE_SOLID_WRAP, 0));
+    SEGMENT.setPixelColorXY((uint8_t)xlocn, (uint8_t)ylocn, SEGMENT.color_from_palette(strip.now/100+i, false, PALETTE_FIXED, 0));
   }
 
   return FRAMETIME;
@@ -5363,9 +5363,9 @@ uint16_t mode_2Dmetaballs(void) {   // Metaballs by Stefan Petrick. Cannot have 
 
       // map color between thresholds
       if (color > 0 and color < 60) {
-        SEGMENT.setPixelColorXY(x, y, SEGMENT.color_from_palette(map(color * 9, 9, 531, 0, 255), false, PALETTE_SOLID_WRAP, 0));
+        SEGMENT.setPixelColorXY(x, y, SEGMENT.color_from_palette(map(color * 9, 9, 531, 0, 255), false, PALETTE_FIXED, 0));
       } else {
-        SEGMENT.setPixelColorXY(x, y, SEGMENT.color_from_palette(0, false, PALETTE_SOLID_WRAP, 0));
+        SEGMENT.setPixelColorXY(x, y, SEGMENT.color_from_palette(0, false, PALETTE_FIXED, 0));
       }
       // show the 3 points, too
       SEGMENT.setPixelColorXY(x1, y1, WHITE);
@@ -5930,7 +5930,7 @@ uint16_t mode_2Dfloatingblobs(void) {
         blob->grow[i] = true;
       }
     }
-    uint32_t c = SEGMENT.color_from_palette(blob->color[i], false, false, 0);
+    uint32_t c = SEGMENT.color_from_palette(blob->color[i], false, PALETTE_FIXED, 0);
     if (blob->r[i] > 1.f) SEGMENT.fillCircle(roundf(blob->x[i]), roundf(blob->y[i]), roundf(blob->r[i]), c);
     else                  SEGMENT.setPixelColorXY((int)roundf(blob->x[i]), (int)roundf(blob->y[i]), c);
     // move x
@@ -6067,7 +6067,7 @@ uint16_t mode_2Dscrollingtext(void) {
   for (int i = 0; i < numberOfLetters; i++) {
     int xoffset = int(cols) - int(SEGENV.aux0) + rotLW*i;
     if (xoffset + rotLW < 0) continue; // don't draw characters off-screen
-    uint32_t col1 = SEGMENT.color_from_palette(SEGENV.aux1, false, PALETTE_SOLID_WRAP, 0);
+    uint32_t col1 = SEGMENT.color_from_palette(SEGENV.aux1, false, PALETTE_FIXED, 0);
     uint32_t col2 = BLACK;
     if (SEGMENT.check1 && SEGMENT.palette == 0) {
       col1 = SEGCOLOR(0);
@@ -6144,7 +6144,7 @@ uint16_t mode_2Dplasmarotozoom() {
     for (int j = 0; j < rows; j++) {
         byte u = abs8(u1 - j * sinus) % cols;
         byte v = abs8(v1 + j * kosinus) % rows;
-        SEGMENT.setPixelColorXY(i, j, SEGMENT.color_from_palette(plasma[v*cols+u], false, PALETTE_SOLID_WRAP, 255));
+        SEGMENT.setPixelColorXY(i, j, SEGMENT.color_from_palette(plasma[v*cols+u], false, PALETTE_FIXED, 255));
     }
   }
   *a -= 0.03f + float(SEGENV.speed-128)*0.0002f;  // rotation speed

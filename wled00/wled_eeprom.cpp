@@ -225,7 +225,7 @@ void loadSettingsFromEEPROM()
   if (lastEEPROMversion > 7)
   {
     //strip.paletteFade  = EEPROM.read(374);
-    strip.paletteBlend = EEPROM.read(382);
+    paletteBlend = EEPROM.read(382);
 
     for (int i = 0; i < 8; ++i)
     {

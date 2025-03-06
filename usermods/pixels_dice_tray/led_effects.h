@@ -40,7 +40,7 @@ static pixels::RollEvent GetLastRollForSegment() {
  * Alternating pixels running function (copied static function).
  */
 // paletteBlend: 0 - wrap when moving, 1 - always wrap, 2 - never wrap, 3 - none (undefined)
-#define PALETTE_SOLID_WRAP   (strip.paletteBlend == 1 || strip.paletteBlend == 3)
+#define PALETTE_SOLID   (false)
 static uint16_t running_copy(uint32_t color1, uint32_t color2, bool theatre = false) {
   int width = (theatre ? 3 : 1) + (SEGMENT.intensity >> 4);  // window
   uint32_t cycleTime = 50 + (255 - SEGMENT.speed);
@@ -49,7 +49,7 @@ static uint16_t running_copy(uint32_t color1, uint32_t color2, bool theatre = fa
 
   for (int i = 0; i < SEGLEN; i++) {
     uint32_t col = color2;
-    if (usePalette) color1 = SEGMENT.color_from_palette(i, true, PALETTE_SOLID_WRAP, 0);
+    if (usePalette) color1 = SEGMENT.color_from_palette(i, true, PALETTE_SOLID, 0);
     if (theatre) {
       if ((i % width) == SEGENV.aux0) col = color1;
     } else {

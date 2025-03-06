@@ -343,7 +343,7 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
     nightlightMode = request->arg(F("TW")).toInt();
 
     t = request->arg(F("PB")).toInt();
-    if (t >= 0 && t < 4) strip.paletteBlend = t;
+    if (t >= 0 && t < 4) paletteBlend = t;
     t = request->arg(F("BF")).toInt();
     if (t > 0) briMultiplier = t;
 

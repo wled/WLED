@@ -1068,7 +1068,7 @@ void Segment::blur(uint8_t blur_amount, bool smear) const {
  * Inspired by the Adafruit examples.
  */
 uint32_t Segment::color_wheel(uint8_t pos) const {
-  if (palette) return color_from_palette(pos, false, true, 0); // perhaps "strip.paletteBlend < 2" should be better instead of "true"
+  if (palette) return color_from_palette(pos, false, true, 0); // perhaps "paletteBlend < 2" should be better instead of "true"
   uint8_t w = W(getCurrentColor(0));
   pos = 255 - pos;
   if (pos < 85) {
@@ -1098,13 +1098,12 @@ uint32_t Segment::color_from_palette(uint16_t i, bool mapping, bool moving, uint
     return color_fade(color, pbri, true);
   }
 
-  const int vL = vLength();
   unsigned paletteIndex = i;
-  if (mapping && vL > 1) paletteIndex = (i*255)/(vL -1);
+  if (mapping) paletteIndex = min((i*255)/vLength(), 255U);
   // paletteBlend: 0 - wrap when moving, 1 - always wrap, 2 - never wrap, 3 - none (undefined/no interpolation of palette entries)
   // ColorFromPalette interpolations are: NOBLEND, LINEARBLEND, LINEARBLEND_NOWRAP
   TBlendType blend = NOBLEND;
-  switch (strip.paletteBlend) { // NOTE: paletteBlend should be global
+  switch (paletteBlend) {
     case 0: blend = moving ? LINEARBLEND : LINEARBLEND_NOWRAP; break;
     case 1: blend = LINEARBLEND; break;
     case 2: blend = LINEARBLEND_NOWRAP; break;
