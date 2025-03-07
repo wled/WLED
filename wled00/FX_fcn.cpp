@@ -462,11 +462,12 @@ Segment &Segment::setOpacity(uint8_t o) {
 }
 
 Segment &Segment::setOption(uint8_t n, bool val) {
-  bool prevOn = on;
-  if (n == SEG_OPTION_ON && val != prevOn) startTransition(strip.getTransition()); // start transition prior to change
+  bool prev = (options >> n) & 0x01;
+  if (val == prev) return *this;
+  if (n == SEG_OPTION_ON) startTransition(strip.getTransition()); // start transition prior to change
   if (val) options |=   0x01 << n;
   else     options &= ~(0x01 << n);
-  if (!(n == SEG_OPTION_SELECTED || n == SEG_OPTION_RESET)) stateChanged = true; // send UDP/WS broadcast
+  stateChanged = true; // send UDP/WS broadcast
   return *this;
 }
 
@@ -896,7 +897,7 @@ uint8_t Segment::differs(const Segment& b) const {
   return d;
 }
 
-void Segment::refreshLightCapabilities() {
+void Segment::refreshLightCapabilities() const {
   unsigned capabilities = 0;
   unsigned segStartIdx = 0xFFFFU;
   unsigned segStopIdx  = 0;
@@ -1274,8 +1275,8 @@ void WS2812FX::finalizeInit() {
   deserializeMap();     // (re)load default ledmap (will also setUpMatrix() if ledmap does not exist)
 
   // allocate frame buffer after matrix has been set up (gaps!)
-  if (pixels) pixels = static_cast<uint32_t*>(d_realloc(pixels, getLengthTotal() * sizeof(uint32_t)));
-  else        pixels = static_cast<uint32_t*>(d_malloc(getLengthTotal() * sizeof(uint32_t)));
+  if (_pixels) _pixels = static_cast<uint32_t*>(d_realloc(_pixels, getLengthTotal() * sizeof(uint32_t)));
+  else         _pixels = static_cast<uint32_t*>(d_malloc(getLengthTotal() * sizeof(uint32_t)));
   DEBUG_PRINTF_P(PSTR("strip buffer size: %uB\n"), getLengthTotal() * sizeof(uint32_t));
 
   DEBUG_PRINTF_P(PSTR("Heap after strip init: %uB\n"), ESP.getFreeHeap());
@@ -1290,7 +1291,7 @@ void WS2812FX::service() {
   _isServicing = true;
   _segment_index = 0;
 
-  for (segment &seg : _segments) {
+  for (Segment &seg : _segments) {
     if (_suspend) break; // immediately stop processing segments if suspend requested during service()
 
     // process transition (also pre-calculates progress value)
@@ -1485,7 +1486,7 @@ void WS2812FX::blendSegment(const Segment &topSegment) const {
       const int baseX = topSegment.start  + x;
       const int baseY = topSegment.startY + y;
       size_t indx = XY(baseX, baseY); // absolute address on strip
-      pixels[indx] = color_blend(pixels[indx], blend(col, pixels[indx]), opacity);
+      _pixels[indx] = color_blend(_pixels[indx], blend(col, _pixels[indx]), opacity);
       // Apply mirroring
       if (topSegment.mirror || topSegment.mirror_y) {
         const int mirrorX = topSegment.start  + width  - x - 1;
@@ -1493,9 +1494,9 @@ void WS2812FX::blendSegment(const Segment &topSegment) const {
         const size_t idxMX = XY(topSegment.transpose ? baseX : mirrorX, topSegment.transpose ? mirrorY : baseY);
         const size_t idxMY = XY(topSegment.transpose ? mirrorX : baseX, topSegment.transpose ? baseY : mirrorY);
         const size_t idxMM = XY(mirrorX, mirrorY);
-        if (topSegment.mirror)                        pixels[idxMX] = color_blend(pixels[idxMX], blend(col, pixels[idxMX]), opacity);
-        if (topSegment.mirror_y)                      pixels[idxMY] = color_blend(pixels[idxMY], blend(col, pixels[idxMY]), opacity);
-        if (topSegment.mirror && topSegment.mirror_y) pixels[idxMM] = color_blend(pixels[idxMM], blend(col, pixels[idxMM]), opacity);
+        if (topSegment.mirror)                        _pixels[idxMX] = color_blend(_pixels[idxMX], blend(col, _pixels[idxMX]), opacity);
+        if (topSegment.mirror_y)                      _pixels[idxMY] = color_blend(_pixels[idxMY], blend(col, _pixels[idxMY]), opacity);
+        if (topSegment.mirror && topSegment.mirror_y) _pixels[idxMM] = color_blend(_pixels[idxMM], blend(col, _pixels[idxMM]), opacity);
       }
     };
 
@@ -1553,11 +1554,11 @@ void WS2812FX::blendSegment(const Segment &topSegment) const {
         unsigned indxM = topSegment.stop - i - 1;
         indxM += topSegment.offset; // offset/phase
         if (indxM >= topSegment.stop) indxM -= length; // wrap
-        pixels[indxM] = color_blend(pixels[indxM], blend(col, pixels[indxM]), opacity);
+        _pixels[indxM] = color_blend(_pixels[indxM], blend(col, _pixels[indxM]), opacity);
       }
       indx += topSegment.offset; // offset/phase
       if (indx >= topSegment.stop) indx -= length; // wrap
-      pixels[indx] = color_blend(pixels[indx], blend(col, pixels[indx]), opacity);
+      _pixels[indx] = color_blend(_pixels[indx], blend(col, _pixels[indx]), opacity);
     };
 
     // if we blend using "swipe" style we need to "shift" canvas to left or right
@@ -1659,9 +1660,9 @@ void WS2812FX::show() {
   size_t totalLen = getLengthTotal();
   if (realtimeMode == REALTIME_MODE_INACTIVE || useMainSegmentOnly || realtimeOverride > REALTIME_OVERRIDE_NONE) {
     // clear frame buffer
-    for (size_t i = 0; i < totalLen; i++) pixels[i] = BLACK; // memset(pixels, 0, sizeof(uint32_t) * getLengthTotal());
+    for (size_t i = 0; i < totalLen; i++) _pixels[i] = BLACK; // memset(_pixels, 0, sizeof(uint32_t) * getLengthTotal());
     // blend all segments into (cleared) buffer
-    for (auto &seg : _segments) if (seg.isActive() && (seg.on || seg.isInTransition())) {
+    for (Segment &seg : _segments) if (seg.isActive() && (seg.on || seg.isInTransition())) {
       seg.updateTransitionProgress(); // needed for progress()
       blendSegment(seg);              // blend segment's buffer into frame buffer
     }
@@ -1672,11 +1673,11 @@ void WS2812FX::show() {
   if (callback) callback(); // will call setPixelColor or setRealtimePixelColor
 
   // determine ABL brightness
-  uint8_t newBri = estimateCurrentAndLimitBri(_brightness, pixels);
+  uint8_t newBri = estimateCurrentAndLimitBri(_brightness, _pixels);
   if (newBri != _brightness) BusManager::setBrightness(newBri);
 
   // paint actuall pixels
-  for (size_t i = 0; i < totalLen; i++) BusManager::setPixelColor(getMappedPixelIndex(i), pixels[i]);
+  for (size_t i = 0; i < totalLen; i++) BusManager::setPixelColor(getMappedPixelIndex(i), _pixels[i]);
 
   // some buses send asynchronously and this method will return before
   // all of the data has been sent.
@@ -1687,8 +1688,8 @@ void WS2812FX::show() {
   if (newBri != _brightness) BusManager::setBrightness(_brightness);
 
   if (diff > 0) { // skip calculation if no time has passed
-    size_t fpsCurr = (1000 << FPS_CALC_SHIFT) / diff; // fixed point math
-    _cumulativeFps = (FPS_CALC_AVG * _cumulativeFps + fpsCurr + FPS_CALC_AVG / 2) / (FPS_CALC_AVG + 1);   // "+FPS_CALC_AVG/2" for proper rounding
+    int fpsCurr = (1000 << FPS_CALC_SHIFT) / diff; // fixed point math (shift left for better precision)
+    _cumulativeFps += ((fpsCurr - (_cumulativeFps << FPS_CALC_SHIFT)) / FPS_CALC_AVG + ((1<<FPS_CALC_SHIFT)/FPS_CALC_AVG)) >> FPS_CALC_SHIFT; // simple PI controller over FPS_CALC_AVG frames
     _lastShow = showNow;
   }
 }
@@ -1708,7 +1709,7 @@ void WS2812FX::setTargetFps(unsigned fps) {
 }
 
 void WS2812FX::setCCT(uint16_t k) {
-  for (segment &seg : _segments) {
+  for (Segment &seg : _segments) {
     if (seg.isActive() && seg.isSelected()) {
       seg.setCCT(k);
     }
@@ -1722,9 +1723,7 @@ void WS2812FX::setBrightness(uint8_t b, bool direct) {
   if (_brightness == b) return;
   _brightness = b;
   if (_brightness == 0) { //unfreeze all segments on power off
-    for (segment &seg : _segments) {
-      seg.freeze = false;
-    }
+    for (const Segment &seg : _segments) seg.freeze = false; // freeze is mutable
   }
   // setting brightness with NeoPixelBusLg has no effect on already painted pixels,
   // so we need to force an update to existing buffer
@@ -1737,7 +1736,7 @@ void WS2812FX::setBrightness(uint8_t b, bool direct) {
 
 uint8_t WS2812FX::getActiveSegsLightCapabilities(bool selectedOnly) const {
   uint8_t totalLC = 0;
-  for (const segment &seg : _segments) {
+  for (const Segment &seg : _segments) {
     if (seg.isActive() && (!selectedOnly || seg.isSelected())) totalLC |= seg.getLightCapabilities();
   }
   return totalLC;
@@ -1745,7 +1744,7 @@ uint8_t WS2812FX::getActiveSegsLightCapabilities(bool selectedOnly) const {
 
 uint8_t WS2812FX::getFirstSelectedSegId() const {
   size_t i = 0;
-  for (const segment &seg : _segments) {
+  for (const Segment &seg : _segments) {
     if (seg.isActive() && seg.isSelected()) return i;
     i++;
   }
@@ -1754,8 +1753,8 @@ uint8_t WS2812FX::getFirstSelectedSegId() const {
 }
 
 void WS2812FX::setMainSegmentId(unsigned n) {
-  _mainSegment = 0;
-  if (n < _segments.size()) {
+  _mainSegment = getLastActiveSegmentId();
+  if (n < _segments.size() && _segments[n].isActive()) {  // only set if segment is active
     _mainSegment = n;
   }
   return;
@@ -1770,7 +1769,7 @@ uint8_t WS2812FX::getLastActiveSegmentId() const {
 
 uint8_t WS2812FX::getActiveSegmentsNum() const {
   unsigned c = 0;
-  for (const segment &seg : _segments) if (seg.isActive()) c++;
+  for (const Segment &seg : _segments) if (seg.isActive()) c++;
   return c;
 }
 
@@ -1926,7 +1925,7 @@ void WS2812FX::fixInvalidSegments() {
   // if any segments were deleted free memory
   purgeSegments();
   // this is always called as the last step after finalizeInit(), update covered bus types
-  for (segment &seg : _segments)
+  for (const Segment &seg : _segments)
     seg.refreshLightCapabilities();
 }
 
@@ -1934,7 +1933,7 @@ void WS2812FX::fixInvalidSegments() {
 //irrelevant in 2D set-up
 bool WS2812FX::checkSegmentAlignment() const {
   bool aligned = false;
-  for (const segment &seg : _segments) {
+  for (const Segment &seg : _segments) {
     for (unsigned b = 0; b<BusManager::getNumBusses(); b++) {
       const Bus *bus = BusManager::getBus(b);
       if (!bus || !bus->isOk()) break;

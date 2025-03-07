@@ -25,8 +25,7 @@ void WS2812FX::setUpMatrix() {
     // calculate width dynamically because it may have gaps
     Segment::maxWidth = 1;
     Segment::maxHeight = 1;
-    for (size_t i = 0; i < panel.size(); i++) {
-      Panel &p = panel[i];
+    for (const Panel &p : panel) {
       if (p.xOffset + p.width > Segment::maxWidth) {
         Segment::maxWidth = p.xOffset + p.width;
       }
@@ -99,8 +98,7 @@ void WS2812FX::setUpMatrix() {
       }
 
       unsigned x, y, pix=0; //pixel
-      for (size_t pan = 0; pan < panel.size(); pan++) {
-        Panel &p = panel[pan];
+      for (const Panel &p : panel) {
         unsigned h = p.vertical ? p.height : p.width;
         unsigned v = p.vertical ? p.width  : p.height;
         for (size_t j = 0; j < v; j++){
