@@ -182,6 +182,10 @@
   #include "../usermods/Internal_Temperature_v2/usermod_internal_temperature.h"
 #endif
 
+#ifdef USERMOD_INA219
+  #include "../usermods/INA219/usermod_ina219.h"
+#endif
+
 #if defined(WLED_USE_SD_MMC) || defined(WLED_USE_SD_SPI)
 // This include of SD.h and SD_MMC.h must happen here, else they won't be
 // resolved correctly (when included in mod's header only)
@@ -475,6 +479,10 @@ void registerUsermods()
   UsermodManager::add(new UsermodINA226());
   #endif
   
+  #ifdef USERMOD_INA219
+  UsermodManager::add(new UsermodINA219());
+  #endif
+  
   #ifdef USERMOD_LD2410
   UsermodManager::add(new LD2410Usermod());
   #endif
@@ -490,7 +498,7 @@ void registerUsermods()
   #ifdef USERMOD_RF433
   UsermodManager::add(new RF433Usermod());
   #endif
-
+  
   #ifdef USERMOD_BRIGHTNESS_FOLLOW_SUN
   UsermodManager::add(new UsermodBrightnessFollowSun());
   #endif
