@@ -1119,7 +1119,7 @@ uint32_t calculateNumberOfSources2D(uint32_t pixels, uint32_t requestedsources) 
   numberofSources = max(1, min(numberofSources, ESP32_MAXSOURCES)); // limit to 1 - 64
 #endif
   // make sure it is a multiple of 4 for proper memory alignment
-  numberofSources = ((numberofSources+3) >> 2) << 2;
+  numberofSources = ((numberofSources+3) & ~3U); // >> 2) << 2;
   return numberofSources;
 }
 
@@ -2175,7 +2175,7 @@ void updateRenderingBuffer(uint32_t requiredpixels, bool isFramebuffer, bool ini
   PSPRINTLN("updateRenderingBuffer");
   uint16_t& targetBufferSize = isFramebuffer ? frameBufferSize : renderBufferSize; // corresponding buffer size
 
-  // if(isFramebuffer) return; // debug/testing only: disable frame-buffer
+  if(isFramebuffer) return; // debug/testing only: disable frame-buffer
 
   if(targetBufferSize < requiredpixels) { // check current buffer size
     CRGB** targetBuffer = isFramebuffer ? &framebuffer : &renderbuffer; // pointer to target buffer
