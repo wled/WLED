@@ -1,0 +1,6 @@
+{
+  "name:": "AHT10_v2",
+  "dependencies": {
+    "enjoyneering/AHT10":"~1.1.0"
+  }
+}

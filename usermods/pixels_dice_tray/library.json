@@ -1,0 +1,8 @@
+{
+  "name:": "pixels_dice_tray",
+  "build": { "libArchive": false},
+  "dependencies": {
+    "arduino-pixels-dice":"https://github.com/axlan/arduino-pixels-dice.git",
+    "BLE":"*"
+  }
+}

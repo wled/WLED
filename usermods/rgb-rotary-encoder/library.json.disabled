@@ -1,0 +1,7 @@
+{
+  "name:": "rgb-rotary-encoder",
+  "build": { "libArchive": false},
+  "dependencies": {
+    "lennarthennigs/ESP Rotary":"^2.1.1"
+  }
+}

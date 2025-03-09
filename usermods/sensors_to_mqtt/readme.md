@@ -60,25 +60,6 @@ SCL_PIN = 5;
 SDA_PIN = 4;
 ```
 
-## Enable in WLED
-
-1. Copy `usermod_v2_SensorsToMqtt.h` into the `wled00` directory.
-2. Add to `build_flags` in platformio.ini:
-
-```
-  -D USERMOD_SENSORSTOMQTT
-```
-
-3. And add to `lib_deps` in platformio.ini:
-
-```
-  adafruit/Adafruit BMP280 Library @ 2.1.0
-  adafruit/Adafruit CCS811 Library @ 1.0.4
-  adafruit/Adafruit Si7021 Library @ 1.4.0
-```
-
-The #ifdefs in `usermods_list.cpp` should do the rest
-
 # Credits
 
 - Aircoookie for making WLED

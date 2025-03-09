@@ -1,0 +1,4 @@
+{
+  "name:": "Fix_unreachable_netservices_v2",
+  "platforms": ["espressif8266"]
+}

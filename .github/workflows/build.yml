@@ -57,6 +57,7 @@ jobs:
           cache: 'pip'
     - name: Install PlatformIO
       run: pip install -r requirements.txt
+
     - name: Build firmware
       run: pio run -e ${{ matrix.environment }}
     - uses: actions/upload-artifact@v4

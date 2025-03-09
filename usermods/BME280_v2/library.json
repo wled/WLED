@@ -1,0 +1,6 @@
+{
+  "name:": "BME280_v2",
+  "dependencies": {
+    "finitespace/BME280":"~3.0.0"
+  }
+}

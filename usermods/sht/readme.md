@@ -5,26 +5,21 @@ Usermod to support various SHT i2c sensors like the SHT30, SHT31, SHT35 and SHT8
 * "SHT85" by Rob Tillaart, v0.2 or higher: https://github.com/RobTillaart/SHT85
 
 ## Usermod installation
-Simply copy the below block (build task) to your `platformio_override.ini` and compile WLED using this new build task. Or use an existing one, add the buildflag `-D USERMOD_SHT` and the below library dependencies.
+
+Simply copy the below block (build task) to your `platformio_override.ini` and compile WLED using this new build task. Or use an existing one, add the custom_usermod `sht`.
 
 ESP32:
 ```
 [env:custom_esp32dev_usermod_sht]
 extends = env:esp32dev
-build_flags = ${common.build_flags_esp32}
-  -D USERMOD_SHT
-lib_deps = ${esp32.lib_deps}
-    robtillaart/SHT85@~0.3.3
+custom_usermods = ${env:esp32dev.custom_usermods} sht
 ```
 
 ESP8266:
 ```
 [env:custom_d1_mini_usermod_sht]
 extends = env:d1_mini
-build_flags = ${common.build_flags_esp8266}
-  -D USERMOD_SHT
-lib_deps = ${esp8266.lib_deps}
-    robtillaart/SHT85@~0.3.3
+custom_usermods = ${env:d1_mini.custom_usermods} sht
 ```
 
 ## MQTT Discovery for Home Assistant

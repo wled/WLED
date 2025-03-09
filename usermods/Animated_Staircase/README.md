@@ -15,10 +15,9 @@ To include this usermod in your WLED setup, you have to be able to [compile WLED
 
 Before compiling, you have to make the following modifications:
 
-Edit `usermods_list.cpp`:
-1. Open `wled00/usermods_list.cpp`
-2. add `#include "../usermods/Animated_Staircase/Animated_Staircase.h"` to the top of the file
-3. add `UsermodManager::add(new Animated_Staircase());` to the end of the `void registerUsermods()` function.
+Edit your environment in `platformio_override.ini`
+1. Open `platformio_override.ini`
+2. add `Animated_Staircase` to the `custom_usermods` line for your environment
 
 You can configure usermod using the Usermods settings page.
 Please enter GPIO pins for PIR or ultrasonic sensors (trigger and echo).

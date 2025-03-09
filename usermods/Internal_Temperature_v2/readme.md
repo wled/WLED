@@ -23,8 +23,7 @@
 
 
 ## Installation
-- Add a build flag `-D USERMOD_INTERNAL_TEMPERATURE` to your `platformio.ini` (or `platformio_override.ini`).
-
+- Add `Internal_Temperature` to `custom_usermods` in your `platformio.ini` (or `platformio_override.ini`).
 
 ## 📝 Change Log
 

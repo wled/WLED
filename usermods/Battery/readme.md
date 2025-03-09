@@ -23,9 +23,7 @@ Enables battery level monitoring of your project.
 
 ## 🎈 Installation
 
-| **Option 1** | **Option 2** |
-|--------------|--------------|
-| In `wled00/my_config.h`<br>Add the line: `#define USERMOD_BATTERY`<br><br>[Example: my_config.h](assets/installation_my_config_h.png) | In `platformio_override.ini` (or `platformio.ini`)<br>Under: `build_flags =`, add the line: `-D USERMOD_BATTERY`<br><br>[Example: platformio_override.ini](assets/installation_platformio_override_ini.png) |
+In `platformio_override.ini` (or `platformio.ini`)<br>Under: `custom_usermods =`, add the line: `Battery`<br><br>[Example: platformio_override.ini](assets/installation_platformio_override_ini.png) |
 
 <br><br>
 

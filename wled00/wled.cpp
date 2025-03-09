@@ -392,9 +392,6 @@ void WLED::setup()
   PinManager::allocatePin(2, true, PinOwner::DMX);
 #endif
 
-  DEBUG_PRINTLN(F("Registering usermods ..."));
-  registerUsermods();
-
   DEBUG_PRINTF_P(PSTR("heap %u\n"), ESP.getFreeHeap());
 
   bool fsinit = false;

@@ -27,11 +27,7 @@ Currently ESP8266 is not supported, due to low speed and small RAM of this chip.
 There are however plans to create a lightweight audioreactive for the 8266, with reduced features.
 ## Installation 
 
-### using latest _arduinoFFT_ library version 2.x
-The latest arduinoFFT release version should be used for audioreactive.
-
-* `build_flags` = `-D USERMOD_AUDIOREACTIVE -D sqrt_internal=sqrtf`
-* `lib_deps`= `kosme/arduinoFFT @ 2.0.1`
+Add 'ADS1115_v2' to `custom_usermods` in your platformio environment.
 
 ## Configuration
 

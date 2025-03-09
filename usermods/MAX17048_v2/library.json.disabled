@@ -1,0 +1,7 @@
+{
+  "name:": "MAX17048_v2",
+  "build": { "libArchive": false},
+  "dependencies": {
+    "Adafruit_MAX1704X":"https://github.com/adafruit/Adafruit_MAX1704X#1.0.2"
+  }
+}

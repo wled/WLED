@@ -1,0 +1,6 @@
+{
+  "name:": "BH1750_v2",
+  "dependencies": {
+    "claws/BH1750":"^1.2.0"
+  }
+}
