@@ -15,6 +15,36 @@
  * JSON API (De)serialization
  */
 
+namespace {
+bool differs(const Segment& segment, const std::array<std::byte, sizeof(Segment)>& backup) {
+  const Segment& segmentBackup = *reinterpret_cast<const Segment*>(backup.data());
+  Serial.println("differs 00");
+  Serial.printf("differs 01 %p %p\n", (void*)segment.getCurrentEffect(), (void*)segmentBackup.getCurrentEffect());
+  if (segment.start != segmentBackup.start)         return true;
+  if (segment.stop != segmentBackup.stop)           return true;
+  if (segment.offset != segmentBackup.offset)       return true;
+  if (segment.grouping != segmentBackup.grouping)   return true;
+  if (segment.spacing != segmentBackup.spacing)     return true;
+  if (segment.opacity != segmentBackup.opacity)     return true;
+  if (segment.getCurrentEffect() != segmentBackup.getCurrentEffect()) return true;
+  if (segment.speed != segmentBackup.speed)         return true;
+  if (segment.intensity != segmentBackup.intensity) return true;
+  if (segment.palette != segmentBackup.palette)     return true;
+  if (segment.custom1 != segmentBackup.custom1)     return true;
+  if (segment.custom2 != segmentBackup.custom2)     return true;
+  if (segment.custom3 != segmentBackup.custom3)     return true;
+  if (segment.startY != segmentBackup.startY)       return true;
+  if (segment.stopY != segmentBackup.stopY)         return true;
+
+  //bit pattern: (msb first)
+  // set:2, sound:2, mapping:3, transposed, mirrorY, reverseY, [reset,] paused, mirrored, on, reverse, [selected]
+  if ((segment.options & 0b1111111111011110U) != (segmentBackup.options & 0b1111111111011110U)) return true;
+  for (unsigned i = 0; i < NUM_COLORS; i++) if (segment.colors[i] != segmentBackup.colors[i])   return true;
+
+  return false;
+}
+}
+
 bool deserializeSegment(JsonObject elem, byte it, byte presetId)
 {
   byte id = elem["id"] | it;
@@ -34,7 +64,8 @@ bool deserializeSegment(JsonObject elem, byte it, byte presetId)
   //DEBUG_PRINTLN(F("-- JSON deserialize segment."));
   Segment& seg = strip.getSegment(id);
   //DEBUG_PRINTF_P(PSTR("--  Original segment: %p (%p)\n"), &seg, seg.data);
-  const Segment prev = seg; //make a backup so we can tell if something changed (calling copy constructor)
+  alignas(Segment) std::array<std::byte, sizeof(Segment)> segmentBackup; //make a backup so we can tell if something changed (voiding copy constructor)
+  std::memcpy(segmentBackup.data(), &seg, sizeof(Segment));
   //DEBUG_PRINTF_P(PSTR("--  Duplicate segment: %p (%p)\n"), &prev, prev.data);
 
   int start = elem["start"] | seg.start;
@@ -179,7 +210,7 @@ bool deserializeSegment(JsonObject elem, byte it, byte presetId)
         if (!colValid) continue;
 
         seg.setColor(i, RGBW32(rgbw[0],rgbw[1],rgbw[2],rgbw[3]));
-        if (seg.mode == FX_MODE_STATIC) strip.trigger(); //instant refresh
+        if (seg.getEffectId() == FX_MODE_STATIC) strip.trigger(); //instant refresh
       }
     } else {
       // non RGB & non White segment (usually On/Off bus)
@@ -216,10 +247,10 @@ bool deserializeSegment(JsonObject elem, byte it, byte presetId)
   if (seg.is2D() && seg.map1D2D == M12_pArc && (reverse != seg.reverse || reverse_y != seg.reverse_y || mirror != seg.mirror || mirror_y != seg.mirror_y)) seg.fill(BLACK); // clear entire segment (in case of Arc 1D to 2D expansion)
   #endif
 
-  byte fx = seg.mode;
+  byte fx = seg.getEffectId();
   if (getVal(elem["fx"], &fx, 0, strip.getModeCount())) {
     if (!presetId && currentPlaylist>=0) unloadPlaylist();
-    if (fx != seg.mode) seg.setMode(fx, elem[F("fxdef")]);
+    seg.setMode(fx, elem[F("fxdef")]);
   }
 
   getVal(elem["sx"], &seg.speed);
@@ -293,7 +324,7 @@ bool deserializeSegment(JsonObject elem, byte it, byte presetId)
     strip.trigger(); // force segment update
   }
   // send UDP/WS if segment options changed (except selection; will also deselect current preset)
-  if (seg.differs(prev) & 0x7F) stateChanged = true;
+  stateChanged = stateChanged || differs(seg, segmentBackup);
 
   return true;
 }
@@ -543,7 +574,7 @@ void serializeSegment(const JsonObject& root, const Segment& seg, byte id, bool 
   strcat(colstr, "]");
   root["col"] = serialized(colstr);
 
-  root["fx"]  = seg.mode;
+  root["fx"]  = seg.getEffectId();
   root["sx"]  = seg.speed;
   root["ix"]  = seg.intensity;
   root["pal"] = seg.palette;

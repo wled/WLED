@@ -94,7 +94,7 @@ void handleOverlayDraw() {
     for (unsigned i = 0; i < strip.getSegmentsNum(); i++) {
       const Segment& segment = segments[i];
       if (!segment.isActive()) continue;
-      if (segment.mode > 0 || segment.colors[0] > 0) {
+      if (segment.getEffectId() > 0 || segment.colors[0] > 0) {
         return;
       }
     }

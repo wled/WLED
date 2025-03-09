@@ -505,7 +505,7 @@ bool requestJSONBufferLock(uint8_t moduleID=255);
 void releaseJSONBufferLock();
 uint8_t extractModeName(uint8_t mode, const char *src, char *dest, uint8_t maxLen);
 uint8_t extractModeSlider(uint8_t mode, uint8_t slider, char *dest, uint8_t maxLen, uint8_t *var = nullptr);
-int16_t extractModeDefaults(uint8_t mode, const char *segVar);
+int16_t extractModeDefaults(const char *metaData, const char *segVar);
 void checkSettingsPIN(const char *pin);
 uint16_t crc16(const unsigned char* data_p, size_t length);
 uint16_t beatsin88_t(accum88 beats_per_minute_88, uint16_t lowest = 0, uint16_t highest = 65535, uint32_t timebase = 0, uint16_t phase_offset = 0);

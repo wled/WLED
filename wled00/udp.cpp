@@ -48,7 +48,7 @@ void notify(byte callMode, bool followUp)
   udpOut[5] = B(col);
   udpOut[6] = nightlightActive;
   udpOut[7] = nightlightDelayMins;
-  udpOut[8] = mainseg.mode;
+  udpOut[8] = mainseg.getEffectId();
   udpOut[9] = mainseg.speed;
   udpOut[10] = W(col);
   //compatibilityVersionByte:
@@ -118,7 +118,7 @@ void notify(byte callMode, bool followUp)
     udpOut[8 +ofs] = selseg.offset & 0xFF;
     udpOut[9 +ofs] = selseg.options & 0x8F; //only take into account selected, mirrored, on, reversed, reverse_y (for 2D); ignore freeze, reset, transitional
     udpOut[10+ofs] = selseg.opacity;
-    udpOut[11+ofs] = selseg.mode;
+    udpOut[11+ofs] = selseg.getEffectId();
     udpOut[12+ofs] = selseg.speed;
     udpOut[13+ofs] = selseg.intensity;
     udpOut[14+ofs] = selseg.palette;
