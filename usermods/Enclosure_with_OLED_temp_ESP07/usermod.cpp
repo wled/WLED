@@ -1,11 +1,12 @@
-#ifndef WLED_ENABLE_MQTT
-#error "This user mod requires MQTT to be enabled."
-#endif
-
 #include "wled.h"
 #include <Arduino.h>
 #include <U8x8lib.h> // from https://github.com/olikraus/u8g2/
 #include <DallasTemperature.h> //Dallastemperature sensor
+
+#ifdef WLED_DISABLE_MQTT
+#error "This user mod requires MQTT to be enabled."
+#endif
+
 //The SCL and SDA pins are defined here. 
 //Lolin32 boards use SCL=5 SDA=4 
 #define U8X8_PIN_SCL 5

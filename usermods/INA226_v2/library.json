@@ -1,0 +1,6 @@
+{
+  "name:": "INA226_v2",
+  "dependencies": {
+    "wollewald/INA226_WE":"~1.2.9"
+  }
+}

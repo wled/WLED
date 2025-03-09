@@ -6,5 +6,5 @@ Configuration is performed via the Usermod menu. There are no parameters to set 
 
 ## Installation 
 
-Add the build flag `-D USERMOD_ADS1115` to your platformio environment.
-Uncomment libraries with comment `#For ADS1115 sensor uncomment following`
+Add 'ADS1115' to `custom_usermods` in your platformio environment.
+

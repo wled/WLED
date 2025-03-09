@@ -1,0 +1,8 @@
+{
+  "name:": "quinled-an-penta",
+  "build": { "libArchive": false},
+  "dependencies": {
+    "olikraus/U8g2":"~2.28.8",
+    "robtillaart/SHT85":"~0.3.3"
+  }
+}

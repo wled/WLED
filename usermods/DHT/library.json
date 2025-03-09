@@ -1,0 +1,7 @@
+{
+  "name:": "DHT",
+  "build": { "libArchive": false},
+  "dependencies": {
+    "DHT_nonblocking":"https://github.com/alwynallan/DHT_nonblocking"
+  }
+}

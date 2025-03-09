@@ -41,9 +41,7 @@ When a relay is switched, a message is published:
 
 ## Usermod installation
 
-1. Register the usermod by adding `#include "../usermods/multi_relay/usermod_multi_relay.h"` at the top and `UsermodManager::add(new MultiRelay());` at the bottom of `usermods_list.cpp`.
-or
-2. Use `#define USERMOD_MULTI_RELAY` in wled.h or `-D USERMOD_MULTI_RELAY` in your platformio.ini
+Add `multi_relay` to the `custom_usermods` of your platformio.ini environment.
 
 You can override the default maximum number of relays (which is 4) by defining MULTI_RELAY_MAX_RELAYS.
 
@@ -64,38 +62,6 @@ The following definitions should be a list of values (maximum number of entries 
 #define MULTI_RELAY_INVERTS false,false
 ```
 These can be set via your `platformio_override.ini` file or as `#define` in your `my_config.h` (remember to set `WLED_USE_MY_CONFIG` in your `platformio_override.ini`)
-
-Example **usermods_list.cpp**:
-
-```cpp
-#include "wled.h"
-/*
- * Register your v2 usermods here!
- *   (for v1 usermods using just usermod.cpp, you can ignore this file)
- */
-
-/*
- * Add/uncomment your usermod filename here (and once more below)
- * || || ||
- * \/ \/ \/
- */
-//#include "usermod_v2_example.h"
-//#include "usermod_temperature.h"
-#include "../usermods/usermod_multi_relay.h"
-
-void registerUsermods()
-{
-  /*
-   * Add your usermod class name here
-   * || || ||
-   * \/ \/ \/
-   */
-  //UsermodManager::add(new MyExampleUsermod());
-  //UsermodManager::add(new UsermodTemperature());
-  UsermodManager::add(new MultiRelay());
-
-}
-```
 
 ## Configuration
 

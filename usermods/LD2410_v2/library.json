@@ -1,0 +1,6 @@
+{
+  "name:": "LD2410_v2",
+  "dependencies": {
+    "ncmreynolds/ld2410":"^0.1.3"
+  }
+}

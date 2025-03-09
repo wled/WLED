@@ -27,19 +27,6 @@ This usermod enables display of the following:
 
 ### Platformio.ini changes
 
-In the `platformio.ini` file, uncomment the `TFT_eSPI` line within the [common] section, under `lib_deps`:
-
-```ini
-# platformio.ini
-...
-[common]
-...
-lib_deps =
-    ...
-  #For use of the TTGO T-Display ESP32 Module with integrated TFT display uncomment the following line  
-    #TFT_eSPI
-...
-```
 
 In the `platformio.ini` file, you must change the environment setup to build for just the esp32dev platform as follows:
 
