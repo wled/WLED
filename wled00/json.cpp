@@ -189,6 +189,12 @@ static bool deserializeSegment(JsonObject elem, byte it, byte presetId)
   }
   #endif
 
+  // if segment's virtual dimensions change we need to restart effect (segment blending and PS rely on dimensions)
+  if (seg.mirror != mirror) seg.markForReset();
+  #ifndef WLED_DISABLE_2D
+  if (seg.mirror_y != mirror_y || seg.transpose != transpose) seg.markForReset();
+  #endif
+
   //seg.map1D2D   = constrain(map1D2D, 0, 7); // done in setGeometry()
   seg.set       = constrain(set, 0, 3);
   seg.soundSim  = constrain(soundSim, 0, 3);

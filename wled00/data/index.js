@@ -806,7 +806,7 @@ function populateSegments(s)
 						`</select></div>`+
 					`</div>`;
 		let blend = `<div class="lbl-l">Blend mode<br>`+
-						`<div class="sel-p"><select class="sel-p" id="seg${i}bm" onchange="setBm(${i})">`+
+						`<div class="sel-p"><select class="sel-ple" id="seg${i}bm" onchange="setBm(${i})">`+
 							`<option value="0" ${inst.bm==0?' selected':''}>Top/Default</option>`+
 							`<option value="1" ${inst.bm==1?' selected':''}>Bottom/None</option>`+
 							`<option value="2" ${inst.bm==2?' selected':''}>Add</option>`+
