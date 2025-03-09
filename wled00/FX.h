@@ -16,6 +16,7 @@
 #ifndef WS2812FX_h
 #define WS2812FX_h
 
+#include <array>
 #include <vector>
 #include "wled.h"
 
@@ -385,6 +386,8 @@ typedef enum mapping1D2D {
   M12_sPinwheel = 4
 } mapping1D2D_t;
 
+struct SegmentSettings;
+
 // segment, 68 bytes
 typedef struct Segment {
   public:
@@ -414,7 +417,7 @@ typedef struct Segment {
     };
     uint8_t  grouping, spacing;
     uint8_t  opacity;
-    uint32_t colors[NUM_COLORS];
+    std::array<uint32_t, NUM_COLORS> colors;
     uint8_t  cct;                 //0==1900K, 255==10091K
     uint8_t  custom1, custom2;    // custom FX parameters/sliders
     struct {
@@ -565,7 +568,7 @@ typedef struct Segment {
       stopY  = sStopY;
     }
 
-    Segment(const Segment &orig); // copy constructor
+    Segment(const Segment&) = delete;
     Segment(Segment &&orig) noexcept; // move constructor
 
     ~Segment() {
@@ -580,7 +583,7 @@ typedef struct Segment {
       deallocateData();
     }
 
-    Segment& operator= (const Segment &orig); // copy assignment
+    Segment& operator= (const Segment&) = delete;
     Segment& operator= (Segment &&orig) noexcept; // move assignment
 
 #ifdef WLED_DEBUG
@@ -626,7 +629,7 @@ typedef struct Segment {
     Segment &setMode(uint8_t fx, bool loadDefaults = false);
     Segment &setPalette(uint8_t pal);
     Segment &setName(const char* name);
-    uint8_t differs(const Segment& b) const;
+    uint8_t differs(const SegmentSettings& b) const;
     void    refreshLightCapabilities();
 
     // runtime data functions
@@ -784,6 +787,48 @@ typedef struct Segment {
 } segment;
 //static int segSize = sizeof(Segment);
 
+struct SegmentSettings
+{
+  explicit SegmentSettings(const Segment& b)
+    : start{b.start}
+    , stop{b.stop}
+    , offset{b.offset}
+    , grouping{b.grouping}
+    , spacing{b.spacing}
+    , opacity{b.opacity}
+    , mode{b.mode}
+    , speed{b.speed}
+    , intensity{b.intensity}
+    , palette{b.palette}
+    , custom1{b.custom1}
+    , custom2{b.custom2}
+    , custom3{b.custom3}
+    , startY{b.startY}
+    , stopY{b.stopY}
+    , colors{b.colors}
+    , options{b.options}
+  {}
+
+  uint16_t start;
+  uint16_t stop;
+  uint16_t offset;
+  uint8_t grouping;
+  uint8_t spacing;
+  uint8_t opacity;
+  uint8_t mode;
+  uint8_t speed;
+  uint8_t intensity;
+  uint8_t palette;
+  uint8_t custom1;
+  uint8_t custom2;
+  uint8_t custom3;
+  // also include check1/2/3 ?
+  uint8_t startY;
+  uint8_t stopY;
+  std::array<uint32_t, NUM_COLORS> colors;
+  uint16_t options;
+};
+
 // main "strip" class
 class WS2812FX {  // 96 bytes
   typedef uint16_t (*mode_ptr)(); // pointer to mode function
@@ -798,6 +843,10 @@ class WS2812FX {  // 96 bytes
   static WS2812FX* instance;
 
   public:
+    WS2812FX(const WS2812FX&) = delete;
+    WS2812FX(WS2812FX&&) = default;
+    WS2812FX& operator=(const WS2812FX&) = delete;
+    WS2812FX& operator=(WS2812FX&&) = default;
 
     WS2812FX() :
       paletteBlend(0),
@@ -883,7 +932,7 @@ class WS2812FX {  // 96 bytes
     inline void trigger()                                     { _triggered = true; }  // Forces the next frame to be computed on all active segments.
     inline void setShowCallback(show_callback cb)             { _callback = cb; }
     inline void setTransition(uint16_t t)                     { _transitionDur = t; } // sets transition time (in ms)
-    inline void appendSegment(const Segment &seg = Segment()) { if (_segments.size() < getMaxSegments()) _segments.push_back(seg); }
+    inline void appendSegment(Segment &&seg = Segment())      { if (_segments.size() < getMaxSegments()) _segments.push_back(std::move(seg)); }
     inline void suspend()                                     { _suspend = true; }    // will suspend (and canacel) strip.service() execution
     inline void resume()                                      { _suspend = false; }   // will resume strip.service() execution
 
