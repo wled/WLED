@@ -1084,33 +1084,6 @@ uint32_t IRAM_ATTR_YN Segment::getPixelColor(int i) const
   return strip.getPixelColor(i);
 }
 
-uint8_t Segment::differs(const Segment& b) const {
-  uint8_t d = 0;
-  if (start != b.start)         d |= SEG_DIFFERS_BOUNDS;
-  if (stop != b.stop)           d |= SEG_DIFFERS_BOUNDS;
-  if (offset != b.offset)       d |= SEG_DIFFERS_GSO;
-  if (grouping != b.grouping)   d |= SEG_DIFFERS_GSO;
-  if (spacing != b.spacing)     d |= SEG_DIFFERS_GSO;
-  if (opacity != b.opacity)     d |= SEG_DIFFERS_BRI;
-  if (mode != b.mode)           d |= SEG_DIFFERS_FX;
-  if (speed != b.speed)         d |= SEG_DIFFERS_FX;
-  if (intensity != b.intensity) d |= SEG_DIFFERS_FX;
-  if (palette != b.palette)     d |= SEG_DIFFERS_FX;
-  if (custom1 != b.custom1)     d |= SEG_DIFFERS_FX;
-  if (custom2 != b.custom2)     d |= SEG_DIFFERS_FX;
-  if (custom3 != b.custom3)     d |= SEG_DIFFERS_FX;
-  if (startY != b.startY)       d |= SEG_DIFFERS_BOUNDS;
-  if (stopY != b.stopY)         d |= SEG_DIFFERS_BOUNDS;
-
-  //bit pattern: (msb first)
-  // set:2, sound:2, mapping:3, transposed, mirrorY, reverseY, [reset,] paused, mirrored, on, reverse, [selected]
-  if ((options & 0b1111111111011110U) != (b.options & 0b1111111111011110U)) d |= SEG_DIFFERS_OPT;
-  if ((options & 0x0001U) != (b.options & 0x0001U))                         d |= SEG_DIFFERS_SEL;
-  for (unsigned i = 0; i < NUM_COLORS; i++) if (colors[i] != b.colors[i])   d |= SEG_DIFFERS_COL;
-
-  return d;
-}
-
 void Segment::refreshLightCapabilities() {
   unsigned capabilities = 0;
   unsigned segStartIdx = 0xFFFFU;
@@ -1783,11 +1756,14 @@ Segment& WS2812FX::getSegment(unsigned id) {
 void WS2812FX::resetSegments() {
   _segments.clear(); // destructs all Segment as part of clearing
   #ifndef WLED_DISABLE_2D
-  segment seg = isMatrix ? Segment(0, Segment::maxWidth, 0, Segment::maxHeight) : Segment(0, _length);
+  if (isMatrix) {
+    _segments.emplace_back(0, Segment::maxWidth, 0, Segment::maxHeight);
+  } else {
+    _segments.emplace_back(0, _length);
+  }
   #else
-  segment seg = Segment(0, _length);
+  _segments.emplace_back(0, _length);
   #endif
-  _segments.push_back(seg);
   _segments.shrink_to_fit(); // just in case ...
   _mainSegment = 0;
 }
@@ -1836,12 +1812,12 @@ void WS2812FX::makeAutoSegments(bool forceReset) {
     // there is always at least one segment (but we need to differentiate between 1D and 2D)
     #ifndef WLED_DISABLE_2D
     if (isMatrix)
-      _segments.push_back(Segment(0, Segment::maxWidth, 0, Segment::maxHeight));
+      _segments.emplace_back(0, Segment::maxWidth, 0, Segment::maxHeight);
     else
     #endif
-      _segments.push_back(Segment(segStarts[0], segStops[0]));
+      _segments.emplace_back(segStarts[0], segStops[0]);
     for (size_t i = 1; i < s; i++) {
-      _segments.push_back(Segment(segStarts[i], segStops[i]));
+      _segments.emplace_back(segStarts[i], segStops[i]);
     }
     DEBUG_PRINTF_P(PSTR("%d auto segments created.\n"), _segments.size());
 
