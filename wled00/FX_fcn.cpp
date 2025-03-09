@@ -98,7 +98,7 @@ Segment::Segment(const Segment &orig) {
   if (!isActive()) return;
   if (orig.name) { name = static_cast<char*>(d_malloc(strlen(orig.name)+1)); if (name) strcpy(name, orig.name); }
   if (orig.data) { if (allocateData(orig._dataLen)) memcpy(data, orig.data, orig._dataLen); }
-  if (orig.pixels) { pixels = static_cast<uint32_t*>(d_malloc(sizeof(uint32_t) * virtualLength())); if (pixels) memcpy(pixels, orig.pixels, sizeof(uint32_t) * virtualLength()); }
+  if (orig.pixels) { pixels = static_cast<uint32_t*>(d_malloc(sizeof(uint32_t) * orig.length())); if (pixels) memcpy(pixels, orig.pixels, sizeof(uint32_t) * orig.length()); }
 }
 
 // move constructor
@@ -118,8 +118,9 @@ Segment& Segment::operator= (const Segment &orig) {
   if (this != &orig) {
     // clean destination
     if (name) { d_free(name); name = nullptr; }
-    stopTransition();
+    if (_t) stopTransition(); // also erases _t
     deallocateData();
+    d_free(pixels);
     // copy source
     memcpy((void*)this, (void*)&orig, sizeof(Segment));
     // erase pointers to allocated data
@@ -130,7 +131,7 @@ Segment& Segment::operator= (const Segment &orig) {
     // copy source data
     if (orig.name) { name = static_cast<char*>(d_malloc(strlen(orig.name)+1)); if (name) strcpy(name, orig.name); }
     if (orig.data) { if (allocateData(orig._dataLen)) memcpy(data, orig.data, orig._dataLen); }
-    if (orig.pixels) { pixels = static_cast<uint32_t*>(d_malloc(sizeof(uint32_t) * virtualLength())); if (pixels) memcpy(pixels, orig.pixels, sizeof(uint32_t) * virtualLength()); }
+    if (orig.pixels) { pixels = static_cast<uint32_t*>(d_malloc(sizeof(uint32_t) * orig.length())); if (pixels) memcpy(pixels, orig.pixels, sizeof(uint32_t) * orig.length()); }
   }
   return *this;
 }
@@ -140,14 +141,15 @@ Segment& Segment::operator= (Segment &&orig) noexcept {
   //DEBUGFX_PRINTF_P(PSTR("-- Moving segment: %p -> %p\n"), &orig, this);
   if (this != &orig) {
     if (name) { d_free(name); name = nullptr; } // free old name
-    stopTransition();
+    if (_t) stopTransition(); // also erases _t
     deallocateData(); // free old runtime data
+    d_free(pixels);
     memcpy((void*)this, (void*)&orig, sizeof(Segment));
     orig.name = nullptr;
     orig.data = nullptr;
     orig._dataLen = 0;
     orig.pixels = nullptr;
-    orig._t   = nullptr; // old segment cannot be in transition
+    orig._t = nullptr; // old segment cannot be in transition
   }
   return *this;
 }
@@ -266,7 +268,7 @@ CRGBPalette16 &Segment::loadPalette(CRGBPalette16 &targetPalette, uint8_t pal) {
 // starting a transition has to occur before change so we get current values 1st
 void Segment::startTransition(uint16_t dur) {
   if (dur == 0) {
-    if (isInTransition()) _t->_dur = dur; // this will stop transition in next handleTransition()
+    if (isInTransition()) stopTransition();
     return;
   }
   if (isInTransition() || !isActive()) return; // already in transition or inactive no need to store anything
@@ -279,16 +281,17 @@ void Segment::startTransition(uint16_t dur) {
   if (_t) {
     _t->_oldSegment = new (tmpData) Segment(*this); // store/copy current segment settings using placement new
     loadPalette(_t->_palT, palette);
-    DEBUGFX_PRINTF_P(PSTR("-- Started transition: S=%p (%p)\n"), this, _t);
+    //DEBUGFX_PRINTF_P(PSTR("-- Started transition: S=%p T(%p) O[%p] OP[%p]\n"), this, _t, _t->_oldSegment, _t->_oldSegment->pixels);
   } else d_free(tmpData);
 }
 
 void Segment::stopTransition() {
-  if (isInTransition()) {
-    DEBUGFX_PRINTF_P(PSTR("-- Stopping transition: S=%p\n"), this);
-    delete _t;  // will also destroy segment's copy (see destructor)
-    _t = nullptr;
-  }
+  //DEBUGFX_PRINTF_P(PSTR("-- Stopping transition: S=%p T(%p) O[%p]\n"), this, _t, _t->_oldSegment);
+  if (_t->_oldSegment) _t->_oldSegment->~Segment();
+  d_free(_t->_oldSegment);
+  _t->_oldSegment = nullptr;
+  delete _t;  // will also destroy segment's copy (see destructor)
+  _t = nullptr;
 }
 
 uint8_t Segment::currentBri(bool useCct) const {
@@ -388,6 +391,8 @@ void Segment::setGeometry(uint16_t i1, uint16_t i2, uint8_t grp, uint8_t spc, ui
 
   if (boundsUnchanged) return;
 
+  unsigned oldLength = length();
+
   DEBUGFX_PRINTF_P(PSTR("Segment geometry: %d,%d -> %d,%d [%d,%d]\n"), (int)i1, (int)i2, (int)i1Y, (int)i2Y, (int)grp, (int)spc);
   markForReset();
   stateChanged = true; // send UDP/WS broadcast
@@ -417,8 +422,10 @@ void Segment::setGeometry(uint16_t i1, uint16_t i2, uint8_t grp, uint8_t spc, ui
     return;
   }
   // re-allocate FX render buffer
-  if (pixels) pixels = static_cast<uint32_t*>(d_realloc(pixels, sizeof(uint32_t) * virtualLength()));
-  else        pixels = static_cast<uint32_t*>(d_malloc(sizeof(uint32_t) * virtualLength()));
+  if (length() != oldLength) {
+    if (pixels) pixels = static_cast<uint32_t*>(d_realloc(pixels, sizeof(uint32_t) * length()));
+    else        pixels = static_cast<uint32_t*>(d_malloc(sizeof(uint32_t) * length()));
+  }
   refreshLightCapabilities();
 }
 
@@ -464,6 +471,7 @@ Segment &Segment::setOpacity(uint8_t o) {
 Segment &Segment::setOption(uint8_t n, bool val) {
   bool prev = (options >> n) & 0x01;
   if (val == prev) return *this;
+  //DEBUGFX_PRINTF_P(PSTR("- Starting option transition: %d\n"), n);
   if (n == SEG_OPTION_ON) startTransition(strip.getTransition()); // start transition prior to change
   if (val) options |=   0x01 << n;
   else     options &= ~(0x01 << n);
@@ -661,20 +669,21 @@ void IRAM_ATTR Segment::setPixelColor(int i, uint32_t col) const
   if (is2D()) {
     const int vW = vWidth();   // segment width in logical pixels (can be 0 if segment is inactive)
     const int vH = vHeight();  // segment height in logical pixels (is always >= 1)
+    const auto XY = [&](unsigned x, unsigned y){ return x + y*vW;};
     switch (map1D2D) {
       case M12_Pixels:
         // use all available pixels as a long strip
-        setPixelColorXY(i % vW, i / vW, col);
+        setPixelColorRaw(XY(i % vW, i / vW), col);
         break;
       case M12_pBar:
         // expand 1D effect vertically or have it play on virtual strips
-        if (vStrip > 0) setPixelColorXY(vStrip - 1, vH - i - 1, col);
-        else for (int x = 0; x < vW; x++) setPixelColorXY(x, vH - i - 1, col);
+        if (vStrip > 0)                   setPixelColorRaw(XY(vStrip - 1, vH - i - 1), col);
+        else for (int x = 0; x < vW; x++) setPixelColorRaw(XY(x, vH - i - 1), col);
         break;
       case M12_pArc:
         // expand in circular fashion from center
         if (i == 0)
-          setPixelColorXY(0, 0, col);
+          setPixelColorRaw(XY(0, 0), col);
         else {
           float r = i;
           float step = HALF_PI / (2.8284f * r + 4); // we only need (PI/4)/(r/sqrt(2)+1) steps
@@ -702,8 +711,8 @@ void IRAM_ATTR Segment::setPixelColor(int i, uint32_t col) const
         }
         break;
       case M12_pCorner:
-        for (int x = 0; x <= i; x++) setPixelColorXY(x, i, col);
-        for (int y = 0; y <  i; y++) setPixelColorXY(i, y, col);
+        for (int x = 0; x <= i; x++) setPixelColorRaw(XY(x, i), col);
+        for (int y = 0; y <  i; y++) setPixelColorRaw(XY(i, y), col);
         break;
       case M12_sPinwheel: {
         // i = angle --> 0 - 296  (Big), 0 - 192  (Medium), 0 - 72 (Small)
@@ -764,7 +773,7 @@ void IRAM_ATTR Segment::setPixelColor(int i, uint32_t col) const
     }
   }
 #endif
-  pixels[i] = col;
+  setPixelColorRaw(i, col);
 }
 
 #ifdef WLED_USE_AA_PIXELS
@@ -867,7 +876,7 @@ uint32_t IRAM_ATTR Segment::getPixelColor(int i) const
     return 0;
   }
 #endif
-  return pixels[i];
+  return getPixelColorRaw(i);
 }
 
 uint8_t Segment::differs(const Segment& b) const {
@@ -962,12 +971,7 @@ void Segment::clear() const {
  */
 void Segment::fill(uint32_t c) const {
   if (!isActive()) return; // not active
-  const int cols = is2D() ? vWidth() : vLength();
-  const int rows = vHeight(); // will be 1 for 1D
-  for (int y = 0; y < rows; y++) for (int x = 0; x < cols; x++) {
-    if (is2D()) setPixelColorXY(x, y, c);
-    else        setPixelColor(x, c);
-  }
+  for (unsigned i = 0; i < vLength(); i++) setPixelColorRaw(i,c);
 }
 
 /*
@@ -977,14 +981,10 @@ void Segment::fill(uint32_t c) const {
  */
 void Segment::fade_out(uint8_t rate) const {
   if (!isActive()) return; // not active
-  const int cols = is2D() ? vWidth() : vLength();
-  const int rows = vHeight(); // will be 1 for 1D
-
   rate = (256-rate) >> 1;
   const int mappedRate = 256 / (rate + 1);
-
-  for (int y = 0; y < rows; y++) for (int x = 0; x < cols; x++) {
-    uint32_t color = is2D() ? getPixelColorXY(x, y) : getPixelColor(x);
+  for (unsigned j = 0; j < vLength(); j++) {
+    uint32_t color = getPixelColorRaw(j);
     if (color == colors[1]) continue; // already at target color
     for (int i = 0; i < 32; i += 8) {
       uint8_t c2 = (colors[1]>>i);  // get background channel
@@ -997,33 +997,20 @@ void Segment::fade_out(uint8_t rate) const {
       color &= ~(0xFF<<i);
       color |= ((c1 + delta) & 0xFF) << i;
     }
-    if (is2D()) setPixelColorXY(x, y, color);
-    else        setPixelColor(x, color);
+    setPixelColorRaw(j, color);
   }
 }
 
 // fades all pixels to secondary color
 void Segment::fadeToSecondaryBy(uint8_t fadeBy) const {
   if (!isActive() || fadeBy == 0) return;   // optimization - no scaling to apply
-  const int cols = is2D() ? vWidth() : vLength();
-  const int rows = vHeight(); // will be 1 for 1D
-
-  for (int y = 0; y < rows; y++) for (int x = 0; x < cols; x++) {
-    if (is2D()) setPixelColorXY(x, y, color_blend(getPixelColorXY(x,y), colors[1], fadeBy));
-    else        setPixelColor(x, color_blend(getPixelColor(x), colors[1], fadeBy));
-  }
+  for (unsigned i = 0; i < vLength(); i++) setPixelColorRaw(i, color_blend(getPixelColorRaw(i), colors[1], fadeBy));
 }
 
 // fades all pixels to black using nscale8()
 void Segment::fadeToBlackBy(uint8_t fadeBy) const {
   if (!isActive() || fadeBy == 0) return;   // optimization - no scaling to apply
-  const int cols = is2D() ? vWidth() : vLength();
-  const int rows = vHeight(); // will be 1 for 1D
-
-  for (int y = 0; y < rows; y++) for (int x = 0; x < cols; x++) {
-    if (is2D()) setPixelColorXY(x, y, color_fade(getPixelColorXY(x,y), 255-fadeBy));
-    else        setPixelColor(x, color_fade(getPixelColor(x), 255-fadeBy));
-  }
+  for (unsigned i = 0; i < vLength(); i++) setPixelColorRaw(i, color_fade(getPixelColorRaw(i), 255-fadeBy));
 }
 
 /*
@@ -1048,20 +1035,20 @@ void Segment::blur(uint8_t blur_amount, bool smear) const {
   uint32_t last;
   uint32_t curnew = BLACK;
   for (unsigned i = 0; i < vlength; i++) {
-    uint32_t cur = getPixelColor(i);
+    uint32_t cur = getPixelColorRaw(i);
     uint32_t part = color_fade(cur, seep);
     curnew = color_fade(cur, keep);
     if (i > 0) {
       if (carryover) curnew = color_add(curnew, carryover);
       uint32_t prev = color_add(lastnew, part);
       // optimization: only set pixel if color has changed
-      if (last != prev) setPixelColor(i - 1, prev);
-    } else setPixelColor(i, curnew); // first pixel
+      if (last != prev) setPixelColorRaw(i - 1, prev);
+    } else setPixelColorRaw(i, curnew); // first pixel
     lastnew = curnew;
     last = cur; // save original value for comparison on next iteration
     carryover = part;
   }
-  setPixelColor(vlength - 1, curnew);
+  setPixelColorRaw(vlength - 1, curnew);
 }
 
 /*
@@ -1405,6 +1392,7 @@ void WS2812FX::blendSegment(const Segment &topSegment) const {
   const auto blend = [&](uint32_t top, uint32_t bottom){ return RGBW32(func(R(top),R(bottom)), func(G(top),G(bottom)), func(B(top),B(bottom)), func(W(top),W(bottom))); };
 
   topSegment.setDrawDimensions();                     // required for seg.getPixelColor()
+  topSegment.updateTransitionProgress();              // needed for progress()
   const int     length     = topSegment.length();     // physical segment length (counts all pixels in 2D segment)
   const int     width      = topSegment.width();
   const int     height     = topSegment.height();
@@ -1663,7 +1651,6 @@ void WS2812FX::show() {
     for (size_t i = 0; i < totalLen; i++) _pixels[i] = BLACK; // memset(_pixels, 0, sizeof(uint32_t) * getLengthTotal());
     // blend all segments into (cleared) buffer
     for (Segment &seg : _segments) if (seg.isActive() && (seg.on || seg.isInTransition())) {
-      seg.updateTransitionProgress(); // needed for progress()
       blendSegment(seg);              // blend segment's buffer into frame buffer
     }
   }

@@ -452,26 +452,27 @@ class Segment {
     static uint16_t _clipStart, _clipStop;
     static uint8_t  _clipStartY, _clipStopY;
 
-    // transition data, valid only if transitional==true, holds values during transition (72 bytes)
+    // transition data, holds values during transition (60 bytes)
     struct Transition {
       Segment      *_oldSegment;  // previous segment environment
-      CRGBPalette16 _palT;        // temporary palette (slowly being morphed from old to new)
-      uint8_t       _prevPaletteBlends; // number of previous palette blends (there are max 255 blends possible)
       unsigned long _start;       // must accommodate millis()
       uint16_t      _dur;
-      // -> here is one byte of padding
+      CRGBPalette16 _palT;        // temporary palette (slowly being morphed from old to new)
+      uint8_t       _prevPaletteBlends; // number of previous palette blends (there are max 255 blends possible)
       Transition(uint16_t dur=750)
         : _oldSegment(nullptr)
-        , _palT(CRGBPalette16(CRGB::Black))
-        , _prevPaletteBlends(0)
         , _start(millis())
         , _dur(dur)
+        , _palT(CRGBPalette16(CRGB::Black))
+        , _prevPaletteBlends(0)
       {}
       ~Transition() {
-        if (_oldSegment) _oldSegment->~Segment();
-        d_free(_oldSegment);
+        //DEBUGFX_PRINTF_P(PSTR("-- Destroying transition: %p\n"), this);
       }
     } *_t;
+
+    inline void     setPixelColorRaw(unsigned i, uint32_t c) const  { pixels[i] = c; }
+    inline uint32_t getPixelColorRaw(unsigned i) const              { return pixels[i]; };
 
   public:
 
@@ -510,7 +511,7 @@ class Segment {
       _dataLen(0),
       _t(nullptr)
     {
-      DEBUGFX_PRINTF_P(PSTR("-- Creating segment: %p\n"), this);
+      DEBUGFX_PRINTF_P(PSTR("-- Creating segment: %p [%d,%d:%d,%d]\n"), this, (int)start, (int)stop, (int)startY, (int)stopY);
       // allocate render buffer (always entire segment)
       pixels = static_cast<uint32_t*>(d_malloc(sizeof(uint32_t) * (stop-start) * (stopY-startY))); // do not use virtualLength()
     }
@@ -520,13 +521,13 @@ class Segment {
 
     ~Segment() {
       #ifdef WLED_DEBUG_FX
-      DEBUGFX_PRINTF_P(PSTR("-- Destroying segment: %p"), this);
+      DEBUGFX_PRINTF_P(PSTR("-- Destroying segment: %p [%d,%d:%d,%d]"), this, (int)start, (int)stop, (int)startY, (int)stopY);
       if (name) DEBUGFX_PRINTF_P(PSTR(" %s (%p)"), name, name);
       if (data) DEBUGFX_PRINTF_P(PSTR(" %d->(%p)"), (int)_dataLen, data);
+      DEBUGFX_PRINTF_P(PSTR(" T[%p]"), _t);
       DEBUGFX_PRINTLN();
       #endif
       clearName();
-      stopTransition();
       deallocateData();
       d_free(pixels);
     }
@@ -594,7 +595,7 @@ class Segment {
     // transition functions
     void     startTransition(uint16_t dur);     // transition has to start before actual segment values change
     void     stopTransition();                  // ends transition mode by destroying transition structure (does nothing if not in transition)
-    inline void updateTransitionProgress() {    // sets transition progress (0-65535) based on time passed since transition start
+    inline void updateTransitionProgress() const {  // sets transition progress (0-65535) based on time passed since transition start
       Segment::_transitionProgress = 0xFFFF;
       if (isInTransition()) {
         unsigned diff = millis() - _t->_start;
@@ -603,10 +604,10 @@ class Segment {
     }
     inline void handleTransition() {
       updateTransitionProgress();
-      if (progress() == 0xFFFFU) stopTransition();
+      if (isInTransition() && progress() == 0xFFFFU) stopTransition();
     }
-    inline unsigned progress() const { return Segment::_transitionProgress; } // relies on handleTransition()/updateTransitionProgress() to update progression variable
-    inline Segment *getOldSegment() const { if (isInTransition()) return _t->_oldSegment; else return nullptr; }
+    inline unsigned progress() const      { return Segment::_transitionProgress; } // relies on handleTransition()/updateTransitionProgress() to update progression variable
+    inline Segment *getOldSegment() const { return isInTransition() ? _t->_oldSegment : nullptr; }
     uint8_t  currentBri(bool useCct = false) const; // current segment brightness/CCT (blended while in transition)
     uint8_t  currentMode() const;                   // currently active effect/mode (while in transition)
     uint32_t currentColor(uint8_t slot) const;      // currently active segment color (blended while in transition)
