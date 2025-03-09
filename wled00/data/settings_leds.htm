@@ -139,7 +139,7 @@
 			gId("ppldis").style.display = ppl ? 'inline' : 'none';
 			// set PPL minimum value and clear actual PPL limit if ABL is disabled
 			d.Sf.querySelectorAll("#mLC input[name^=MA]").forEach((i,x)=>{
-				var n = String.fromCharCode((x<10?48:55)+x);
+				var n = chrID(x);
 				gId("PSU"+n).style.display = ppl ? "inline" : "none";
 				const t = parseInt(d.Sf["LT"+n].value); // LED type SELECT
 				const c = parseInt(d.Sf["LC"+n].value); //get LED count
@@ -170,7 +170,7 @@
 			// select appropriate LED current
 			d.Sf.querySelectorAll("#mLC select[name^=LAsel]").forEach((sel,x)=>{
 				sel.value = 0; // set custom
-				var n = String.fromCharCode((x<10?48:55)+x);
+				var n = chrID(x);
 				if (en)
 					switch (parseInt(d.Sf["LA"+n].value)) {
 						case 0: break; // disable ABL
@@ -401,7 +401,7 @@
 		}
 		function lastEnd(i) {
 			if (i-- < 1) return 0;
-			var s = String.fromCharCode((i<10?48:55)+i);
+			var s = chrID(i);
 			v = parseInt(d.getElementsByName("LS"+s)[0].value) + parseInt(d.getElementsByName("LC"+s)[0].value);
 			var t = parseInt(d.getElementsByName("LT"+s)[0].value);
 			if (isPWM(t)) v = 1; //PWM busses
@@ -508,7 +508,7 @@ mA/LED: <select name="LAsel${s}" onchange="enLA(this,'${s}');UI();">
 		function addCOM(start=0,len=1,co=0) {
 			var i = gEBCN("com_entry").length;
 			if (i >= maxCO) return;
-			var s = String.fromCharCode((i<10?48:55)+i);
+			var s = chrID(i);
 			var b = `<div class="com_entry">
 <hr class="sml">
 ${i+1}: Start: <input type="number" name="XS${s}" id="xs${s}" class="l starts" min="0" max="65535" value="${start}" oninput="UI();" required="">&nbsp;
@@ -562,7 +562,7 @@ Swap: <select id="xw${s}" name="XW${s}">
 
 		function addBtn(i,p,t) {
 			var c = gId("btns").innerHTML;
-			var s = String.fromCharCode((i<10?48:55)+i);
+			var s = chrID(i);
 			c += `Button ${i} GPIO: <input type="number" name="BT${s}" onchange="UI()" class="xs" value="${p}">`;
 			c += `&nbsp;<select name="BE${s}">`
 			c += `<option value="0" ${t==0?"selected":""}>Disabled</option>`;
@@ -586,8 +586,10 @@ Swap: <select id="xw${s}" name="XW${s}">
 		function checkSi() { //on load, checks whether there are custom start fields
 			var cs = false;
 			for (var i=1; i < gEBCN("iST").length; i++) {
-				var v = parseInt(gId("ls"+(i-1)).value) + parseInt(gN("LC"+(i-1)).value);
-				if (v != parseInt(gId("ls"+i).value)) {cs = true; startsDirty[i] = true;}
+				var s = chrID(i);
+				var p = chrID(i-1); // cover edge case 'A' previous char being '9' 
+				var v = parseInt(gId("ls"+p).value) + parseInt(gN("LC"+p).value);
+				if (v != parseInt(gId("ls"+s).value)) {cs = true; startsDirty[i] = true;}
 			}
 			if (gId("ls0") && parseInt(gId("ls0").value) != 0) {cs = true; startsDirty[0] = true;}
 			gId("si").checked = cs;

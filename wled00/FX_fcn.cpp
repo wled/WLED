@@ -270,7 +270,7 @@ void Segment::startTransition(uint16_t dur) {
   _t->_briT           = on ? opacity : 0;
   _t->_cctT           = cct;
 #ifndef WLED_DISABLE_MODE_BLEND
-  swapSegenv(_t->_segT);
+  swapSegenv(_t->_segT); // copy runtime data to temporary
   _t->_modeT          = mode;
   _t->_segT._dataLenT = 0;
   _t->_segT._dataT    = nullptr;
@@ -282,6 +282,13 @@ void Segment::startTransition(uint16_t dur) {
       _t->_segT._dataLenT = _dataLen;
     }
   }
+  DEBUG_PRINTF_P(PSTR("-- pal: %d, bri: %d, C:[%08X,%08X,%08X], m: %d\n"),
+    (int)_t->_palTid,
+    (int)_t->_briT,
+    _t->_segT._colorT[0],
+    _t->_segT._colorT[1],
+    _t->_segT._colorT[2],
+    (int)_t->_modeT);
 #else
   for (size_t i=0; i<NUM_COLORS; i++) _t->_colorT[i] = colors[i];
 #endif
@@ -502,21 +509,17 @@ void Segment::setGeometry(uint16_t i1, uint16_t i2, uint8_t grp, uint8_t spc, ui
   #ifndef WLED_DISABLE_2D
   if (Segment::maxHeight>1) boundsUnchanged &= (startY == i1Y && stopY == i2Y); // 2D
   #endif
+
+  if (stop && (spc > 0 || m12 != map1D2D)) clear();
+/*
   if (boundsUnchanged
       && (!grp || (grouping == grp && spacing == spc))
       && (ofs == UINT16_MAX || ofs == offset)
       && (m12 == map1D2D)
      ) return;
-
+*/
   stateChanged = true; // send UDP/WS broadcast
 
-  if (stop || spc != spacing || m12 != map1D2D) {
-    _vWidth  = virtualWidth();
-    _vHeight = virtualHeight();
-    _vLength = virtualLength();
-    _segBri  = currentBri();
-    fill(BLACK); // turn old segment range off or clears pixels if changing spacing (requires _vWidth/_vHeight/_vLength/_segBri)
-  }
   if (grp) { // prevent assignment of 0
     grouping = grp;
     spacing = spc;
@@ -527,10 +530,7 @@ void Segment::setGeometry(uint16_t i1, uint16_t i2, uint8_t grp, uint8_t spc, ui
   if (ofs < UINT16_MAX) offset = ofs;
   map1D2D  = constrain(m12, 0, 7);
 
-  DEBUG_PRINT(F("setUp segment: ")); DEBUG_PRINT(i1);
-  DEBUG_PRINT(','); DEBUG_PRINT(i2);
-  DEBUG_PRINT(F(" -> ")); DEBUG_PRINT(i1Y);
-  DEBUG_PRINT(','); DEBUG_PRINTLN(i2Y);
+  DEBUG_PRINTF_P(PSTR("Segment geometry: %d,%d -> %d,%d\n"), (int)i1, (int)i2, (int)i1Y, (int)i2Y);
   markForReset();
   if (boundsUnchanged) return;
 
@@ -1157,6 +1157,26 @@ void Segment::refreshLightCapabilities() {
 }
 
 /*
+ * Fills segment with black
+ */
+void Segment::clear() {
+  if (!isActive()) return; // not active
+    unsigned oldVW = _vWidth;
+    unsigned oldVH = _vHeight;
+    unsigned oldVL = _vLength;
+    unsigned oldSB = _segBri;
+    _vWidth  = virtualWidth();
+    _vHeight = virtualHeight();
+    _vLength = virtualLength();
+    _segBri  = currentBri();
+    fill(BLACK);
+    _vWidth  = oldVW;
+    _vHeight = oldVH;
+    _vLength = oldVL;
+    _segBri  = oldSB;
+}
+
+/*
  * Fills segment with color
  */
 void Segment::fill(uint32_t c) {
@@ -1175,42 +1195,45 @@ void Segment::fill(uint32_t c) {
 
 /*
  * fade out function, higher rate = quicker fade
+ * fading is highly dependant on frame rate (higher frame rates, faster fading)
+ * each frame will fade at max 9% or as little as 0.8%
  */
 void Segment::fade_out(uint8_t rate) {
   if (!isActive()) return; // not active
   const int cols = is2D() ? vWidth() : vLength();
   const int rows = vHeight(); // will be 1 for 1D
 
-  rate = (255-rate) >> 1;
-  float mappedRate = 1.0f / (float(rate) + 1.1f);
-
-  uint32_t color = colors[1]; // SEGCOLOR(1); // target color
-  int w2 = W(color);
-  int r2 = R(color);
-  int g2 = G(color);
-  int b2 = B(color);
+  rate = (256-rate) >> 1;
+  const int mappedRate = 256 / (rate + 1);
 
   for (int y = 0; y < rows; y++) for (int x = 0; x < cols; x++) {
-    color = is2D() ? getPixelColorXY(x, y) : getPixelColor(x);
+    uint32_t color = is2D() ? getPixelColorXY(x, y) : getPixelColor(x);
     if (color == colors[1]) continue; // already at target color
-    int w1 = W(color);
-    int r1 = R(color);
-    int g1 = G(color);
-    int b1 = B(color);
+    for (int i = 0; i < 32; i += 8) {
+      uint8_t c2 = (colors[1]>>i);  // get background channel
+      uint8_t c1 = (color>>i);      // get foreground channel
+      // we can't use bitshift since we are using int
+      int delta = (c2 - c1) * mappedRate / 256;
+      // if fade isn't complete, make sure delta is at least 1 (fixes rounding issues)
+      if (delta == 0) delta += (c2 == c1) ? 0 : (c2 > c1) ? 1 : -1;
+      // stuff new value back into color
+      color &= ~(0xFF<<i);
+      color |= ((c1 + delta) & 0xFF) << i;
+    }
+    if (is2D()) setPixelColorXY(x, y, color);
+    else        setPixelColor(x, color);
+  }
+}
 
-    int wdelta = (w2 - w1) * mappedRate;
-    int rdelta = (r2 - r1) * mappedRate;
-    int gdelta = (g2 - g1) * mappedRate;
-    int bdelta = (b2 - b1) * mappedRate;
+// fades all pixels to secondary color
+void Segment::fadeToSecondaryBy(uint8_t fadeBy) {
+  if (!isActive() || fadeBy == 0) return;   // optimization - no scaling to apply
+  const int cols = is2D() ? vWidth() : vLength();
+  const int rows = vHeight(); // will be 1 for 1D
 
-    // if fade isn't complete, make sure delta is at least 1 (fixes rounding issues)
-    wdelta += (w2 == w1) ? 0 : (w2 > w1) ? 1 : -1;
-    rdelta += (r2 == r1) ? 0 : (r2 > r1) ? 1 : -1;
-    gdelta += (g2 == g1) ? 0 : (g2 > g1) ? 1 : -1;
-    bdelta += (b2 == b1) ? 0 : (b2 > b1) ? 1 : -1;
-
-    if (is2D()) setPixelColorXY(x, y, r1 + rdelta, g1 + gdelta, b1 + bdelta, w1 + wdelta);
-    else        setPixelColor(x, r1 + rdelta, g1 + gdelta, b1 + bdelta, w1 + wdelta);
+  for (int y = 0; y < rows; y++) for (int x = 0; x < cols; x++) {
+    if (is2D()) setPixelColorXY(x, y, color_blend(getPixelColorXY(x,y), colors[1], fadeBy));
+    else        setPixelColor(x, color_blend(getPixelColor(x), colors[1], fadeBy));
   }
 }
 
@@ -1288,12 +1311,12 @@ uint32_t Segment::color_wheel(uint8_t pos) const {
  * Gets a single color from the currently selected palette.
  * @param i Palette Index (if mapping is true, the full palette will be _virtualSegmentLength long, if false, 255). Will wrap around automatically.
  * @param mapping if true, LED position in segment is considered for color
- * @param wrap FastLED palettes will usually wrap back to the start smoothly. Set false to get a hard edge
+ * @param moving FastLED palettes will usually wrap back to the start smoothly. Set to true if effect has moving palette and you want wrap.
  * @param mcol If the default palette 0 is selected, return the standard color 0, 1 or 2 instead. If >2, Party palette is used instead
  * @param pbri Value to scale the brightness of the returned color by. Default is 255. (no scaling)
  * @returns Single color from palette
  */
-uint32_t Segment::color_from_palette(uint16_t i, bool mapping, bool wrap, uint8_t mcol, uint8_t pbri) const {
+uint32_t Segment::color_from_palette(uint16_t i, bool mapping, bool moving, uint8_t mcol, uint8_t pbri) const {
   uint32_t color = getCurrentColor(mcol < NUM_COLORS ? mcol : 0);
   // default palette or no RGB support on segment
   if ((palette == 0 && mcol < NUM_COLORS) || !_isRGB) {
@@ -1303,9 +1326,15 @@ uint32_t Segment::color_from_palette(uint16_t i, bool mapping, bool wrap, uint8_
   const int vL = vLength();
   unsigned paletteIndex = i;
   if (mapping && vL > 1) paletteIndex = (i*255)/(vL -1);
-  // paletteBlend: 0 - wrap when moving, 1 - always wrap, 2 - never wrap, 3 - none (undefined)
-  if (!wrap && strip.paletteBlend != 3) paletteIndex = scale8(paletteIndex, 240); //cut off blend at palette "end"
-  CRGBW palcol = ColorFromPaletteWLED(_currentPalette, paletteIndex, pbri, (strip.paletteBlend == 3)? NOBLEND:LINEARBLEND); // NOTE: paletteBlend should be global
+  // paletteBlend: 0 - wrap when moving, 1 - always wrap, 2 - never wrap, 3 - none (undefined/no interpolation of palette entries)
+  // ColorFromPalette interpolations are: NOBLEND, LINEARBLEND, LINEARBLEND_NOWRAP
+  TBlendType blend = NOBLEND;
+  switch (strip.paletteBlend) { // NOTE: paletteBlend should be global
+    case 0: blend = moving ? LINEARBLEND : LINEARBLEND_NOWRAP; break;
+    case 1: blend = LINEARBLEND; break;
+    case 2: blend = LINEARBLEND_NOWRAP; break;
+  }
+  CRGBW palcol = ColorFromPalette(_currentPalette, paletteIndex, pbri, blend);
   palcol.w = W(color);
 
   return palcol.color32;
@@ -1487,7 +1516,7 @@ void WS2812FX::service() {
   _segment_index = 0;
 
   for (segment &seg : _segments) {
-    if (_suspend) return; // immediately stop processing segments if suspend requested during service()
+    if (_suspend) break; // immediately stop processing segments if suspend requested during service()
 
     // process transition (mode changes in the middle of transition)
     seg.handleTransition();
@@ -1518,6 +1547,11 @@ void WS2812FX::service() {
 #ifndef WLED_DISABLE_MODE_BLEND
         Segment::setClippingRect(0, 0); // disable clipping (just in case)
         if (seg.isInTransition()) {
+          // a hack to determine if effect has changed
+          uint8_t  m = seg.currentMode();
+          Segment::modeBlend(true);           // set semaphore
+          bool     sameEffect = (m == seg.currentMode());
+          Segment::modeBlend(false);          // clear semaphore
           // set clipping rectangle
           // new mode is run inside clipping area and old mode outside clipping area
           unsigned p = seg.progress();
@@ -1526,7 +1560,20 @@ void WS2812FX::service() {
           unsigned dw = p * w / 0xFFFFU + 1;
           unsigned dh = p * h / 0xFFFFU + 1;
           unsigned orgBS = blendingStyle;
-          if (w*h == 1) blendingStyle = BLEND_STYLE_FADE; // disable belending for single pixel segments (use fade instead)
+          if (w*h == 1) blendingStyle = BLEND_STYLE_FADE; // disable style for single pixel segments (use fade instead)
+          else if (sameEffect && (blendingStyle & BLEND_STYLE_PUSH_MASK)) {
+            // when effect stays the same push will look awful, change it to swipe
+            switch (blendingStyle) {
+              case BLEND_STYLE_PUSH_BR:
+              case BLEND_STYLE_PUSH_TR:
+              case BLEND_STYLE_PUSH_RIGHT: blendingStyle = BLEND_STYLE_SWIPE_RIGHT; break;
+              case BLEND_STYLE_PUSH_BL:
+              case BLEND_STYLE_PUSH_TL:
+              case BLEND_STYLE_PUSH_LEFT:  blendingStyle = BLEND_STYLE_SWIPE_LEFT;  break;
+              case BLEND_STYLE_PUSH_DOWN:  blendingStyle = BLEND_STYLE_SWIPE_DOWN;  break;
+              case BLEND_STYLE_PUSH_UP:    blendingStyle = BLEND_STYLE_SWIPE_UP;    break;
+            }
+          }
           switch (blendingStyle) {
             case BLEND_STYLE_FAIRY_DUST:  // fairy dust (must set entire segment, see isPixelXYClipped())
               Segment::setClippingRect(0, w, 0, h);
@@ -1572,7 +1619,7 @@ void WS2812FX::service() {
               Segment::setClippingRect(0, dw, h - dh, h);
               break;
           }
-          frameDelay = (*_mode[seg.currentMode()])();  // run new/current mode
+          frameDelay = (*_mode[m])();         // run new/current mode
           // now run old/previous mode
           Segment::tmpsegd_t _tmpSegData;
           Segment::modeBlend(true);           // set semaphore
@@ -1608,8 +1655,8 @@ void WS2812FX::service() {
   if (doShow) {
     yield();
     Segment::handleRandomPalette(); // slowly transition random palette; move it into for loop when each segment has individual random palette
-    show();
     _lastServiceShow = nowUp; // update timestamp, for precise FPS control
+    if (!_suspend) show();
   }
   #ifdef WLED_DEBUG
   if ((_targetFps != FPS_UNLIMITED) && (millis() - nowUp > _frametime)) DEBUG_PRINTF_P(PSTR("Slow strip %u/%d.\n"), (unsigned)(millis()-nowUp), (int)_frametime);

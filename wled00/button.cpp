@@ -40,7 +40,7 @@ void longPressAction(uint8_t b)
 {
   if (!macroLongPress[b]) {
     switch (b) {
-      case 0: setRandomColor(col); colorUpdated(CALL_MODE_BUTTON); break;
+      case 0: setRandomColor(colPri); colorUpdated(CALL_MODE_BUTTON); break;
       case 1: 
         if(buttonBriDirection) {
           if (bri == 255) break; // avoid unnecessary updates to brightness
@@ -230,7 +230,7 @@ void handleAnalog(uint8_t b)
       effectPalette = constrain(effectPalette, 0, strip.getPaletteCount()-1);  // map is allowed to "overshoot", so we need to contrain the result
     } else if (macroDoublePress[b] == 200) {
       // primary color, hue, full saturation
-      colorHStoRGB(aRead*256,255,col);
+      colorHStoRGB(aRead*256,255,colPri);
     } else {
       // otherwise use "double press" for segment selection
       Segment& seg = strip.getSegment(macroDoublePress[b]);
