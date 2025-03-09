@@ -4137,7 +4137,7 @@ uint16_t mode_flow(void)
   unsigned zoneLen = SEGLEN / zones;
   unsigned offset = (SEGLEN - zones * zoneLen) >> 1;
 
-  SEGMENT.fill(SEGMENT.color_from_palette(-counter, false, PALETTE_MOVING, 255));
+  SEGMENT.fill(SEGMENT.color_from_palette(counter, false, PALETTE_MOVING, 255));
 
   for (unsigned z = 0; z < zones; z++)
   {
