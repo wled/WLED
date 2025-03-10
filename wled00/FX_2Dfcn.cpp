@@ -684,9 +684,7 @@ void Segment::drawCharacter(unsigned char chr, int16_t x, int16_t y, uint8_t w, 
       case 60: bits = pgm_read_byte_near(&console_font_5x12[(chr * h) + i]); break; // 5x12 font
       default: return;
     }
-    uint32_t c = ColorFromPaletteWLED(grad, (i+1)*255/h, 255, NOBLEND);
-    // pre-scale color for all pixels
-    c = color_fade(c, _segBri);
+    CRGBW c = ColorFromPalette(grad, (i+1)*255/h, _segBri, LINEARBLEND_NOWRAP);
     _colorScaled = true;
     for (int j = 0; j<w; j++) { // character width
       int x0, y0;
@@ -699,7 +697,7 @@ void Segment::drawCharacter(unsigned char chr, int16_t x, int16_t y, uint8_t w, 
       }
       if (x0 < 0 || x0 >= (int)vWidth() || y0 < 0 || y0 >= (int)vHeight()) continue; // drawing off-screen
       if (((bits>>(j+(8-w))) & 0x01)) { // bit set
-        setPixelColorXY(x0, y0, c);
+        setPixelColorXY(x0, y0, c.color32);
       }
     }
     _colorScaled = false;
