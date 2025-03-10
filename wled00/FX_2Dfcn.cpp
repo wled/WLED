@@ -614,7 +614,7 @@ void Segment::drawCharacter(unsigned char chr, int16_t x, int16_t y, uint8_t w, 
       case 60: bits = pgm_read_byte_near(&console_font_5x12[(chr * h) + i]); break; // 5x12 font
       default: return;
     }
-    uint32_t c = ColorFromPalette(grad, (i+1)*255/h, 255, LINEARBLEND_NOWRAP);
+    CRGBW c = ColorFromPalette(grad, (i+1)*255/h, 255, LINEARBLEND_NOWRAP);
     for (int j = 0; j<w; j++) { // character width
       int x0, y0;
       switch (rotate) {
@@ -626,7 +626,7 @@ void Segment::drawCharacter(unsigned char chr, int16_t x, int16_t y, uint8_t w, 
       }
       if (x0 < 0 || x0 >= (int)vWidth() || y0 < 0 || y0 >= (int)vHeight()) continue; // drawing off-screen
       if (((bits>>(j+(8-w))) & 0x01)) { // bit set
-        setPixelColorRaw(XY(x0, y0), c);
+        setPixelColorXY(x0, y0, c.color32);
       }
     }
   }
