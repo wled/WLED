@@ -25,8 +25,8 @@
   "dependencies": {
     "clean-css": "^5.3.3",
     "html-minifier-terser": "^7.2.0",
-    "inliner": "^1.13.1",
-    "nodemon": "^3.1.7"
+    "web-resource-inliner": "^7.0.0",
+    "nodemon": "^3.1.9"
   },
   "engines": {
     "node": ">=20.0.0"
