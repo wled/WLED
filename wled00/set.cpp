@@ -761,6 +761,7 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
         DEBUG_PRINTF_P(PSTR(" = %s\n"), value.c_str());
       }
     }
+    DEBUG_PRINTLN(F("Re-init UsermodManager::"));
     UsermodManager::readFromConfig(um);  // force change of usermod parameters
     DEBUG_PRINTLN(F("Done re-init UsermodManager::"));
     releaseJSONBufferLock();
