@@ -789,8 +789,11 @@ Swap: <select id="xw${s}" name="XW${s}">
 			</div>
 		</div>
 		<h3>Hardware setup</h3>
-		<div id="mLC">LED outputs:</div>
-		<hr class="sml">
+		<div id="mLC">
+			LED outputs:<br>
+			<hr class="sml">
+			<i>Only last output can be changed. Remove to edit others.</i><br>
+		</div>
 		<button type="button" id="+" onclick="addLEDs(1,false)">+</button>
 		<button type="button" id="-" onclick="addLEDs(-1,false)">-</button><br>
 		LED memory usage: <span id="m0">0</span> / <span id="m1">?</span> B<br>
