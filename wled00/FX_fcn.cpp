@@ -90,15 +90,23 @@ uint8_t  Segment::_clipStopY = 1;
 Segment::Segment(const Segment &orig) {
   //DEBUGFX_PRINTF_P(PSTR("-- Copy segment constructor: %p -> %p\n"), &orig, this);
   memcpy((void*)this, (void*)&orig, sizeof(Segment));
-  _t = nullptr; // copied segment cannot be in transition
+  _t   = nullptr; // copied segment cannot be in transition
   name = nullptr;
   data = nullptr;
   _dataLen = 0;
   pixels = nullptr;
-  if (!isActive()) return;
+  if (!stop) return;  // nothing to do if segment is inactive/invalid
   if (orig.name) { name = static_cast<char*>(d_malloc(strlen(orig.name)+1)); if (name) strcpy(name, orig.name); }
   if (orig.data) { if (allocateData(orig._dataLen)) memcpy(data, orig.data, orig._dataLen); }
-  if (orig.pixels) { pixels = static_cast<uint32_t*>(d_malloc(sizeof(uint32_t) * orig.length())); if (pixels) memcpy(pixels, orig.pixels, sizeof(uint32_t) * orig.length()); }
+  if (orig.pixels) {
+    pixels = static_cast<uint32_t*>(d_malloc(sizeof(uint32_t) * orig.length()));
+    if (pixels) memcpy(pixels, orig.pixels, sizeof(uint32_t) * orig.length());
+    else {
+      DEBUGFX_PRINTLN(F("!!! Not enough RAM for pixel buffer !!!"));
+      errorFlag = ERR_NORAM_PX;
+      stop = 0; // mark segment as inactive/invalid
+    }
+  } else stop = 0; // mark segment as inactive/invalid
 }
 
 // move constructor
@@ -127,11 +135,19 @@ Segment& Segment::operator= (const Segment &orig) {
     data = nullptr;
     _dataLen = 0;
     pixels = nullptr;
-    if (!isActive()) return *this;
+    if (!stop) return *this;  // nothing to do if segment is inactive/invalid
     // copy source data
     if (orig.name) { name = static_cast<char*>(d_malloc(strlen(orig.name)+1)); if (name) strcpy(name, orig.name); }
     if (orig.data) { if (allocateData(orig._dataLen)) memcpy(data, orig.data, orig._dataLen); }
-    if (orig.pixels) { pixels = static_cast<uint32_t*>(d_malloc(sizeof(uint32_t) * orig.length())); if (pixels) memcpy(pixels, orig.pixels, sizeof(uint32_t) * orig.length()); }
+    if (orig.pixels) {
+      pixels = static_cast<uint32_t*>(d_malloc(sizeof(uint32_t) * orig.length()));
+      if (pixels) memcpy(pixels, orig.pixels, sizeof(uint32_t) * orig.length());
+      else {
+        DEBUGFX_PRINTLN(F("!!! Not enough RAM for pixel buffer !!!"));
+        errorFlag = ERR_NORAM_PX;
+        stop = 0; // mark segment as inactive/invalid
+      }
+    } else stop = 0; // mark segment as inactive/invalid
   }
   return *this;
 }
@@ -143,7 +159,8 @@ Segment& Segment::operator= (Segment &&orig) noexcept {
     if (name) { d_free(name); name = nullptr; } // free old name
     if (_t) stopTransition(); // also erases _t
     deallocateData(); // free old runtime data
-    d_free(pixels);
+    d_free(pixels);   // free old pixel buffer
+    // move source data
     memcpy((void*)this, (void*)&orig, sizeof(Segment));
     orig.name = nullptr;
     orig.data = nullptr;
@@ -212,7 +229,7 @@ void Segment::resetIfRequired() {
   if (!reset || !isActive()) return;
   //DEBUGFX_PRINTF_P(PSTR("-- Segment reset: %p\n"), this);
   if (data && _dataLen > 0) memset(data, 0, _dataLen);  // prevent heap fragmentation (just erase buffer instead of deallocateData())
-  if (pixels) for (size_t i = 0; i < virtualLength(); i++) pixels[i] = BLACK; // clear pixel buffer
+  if (pixels) for (size_t i = 0; i < length(); i++) pixels[i] = BLACK; // clear pixel buffer
   next_time = 0; step = 0; call = 0; aux0 = 0; aux1 = 0;
   reset = false;
 }
@@ -274,23 +291,23 @@ void Segment::startTransition(uint16_t dur) {
   if (isInTransition() || !isActive()) return; // already in transition or inactive no need to store anything
 
   // no previous transition running, start by allocating memory for segment copy
-  Segment *tmpData = static_cast<Segment*>(d_malloc(sizeof(Segment)));
-  if (!tmpData) return; // failed to allocate data
-
   _t = new(std::nothrow) Transition(dur);
   if (_t) {
-    _t->_oldSegment = new (tmpData) Segment(*this); // store/copy current segment settings using placement new
-    loadPalette(_t->_palT, palette);
-    //DEBUGFX_PRINTF_P(PSTR("-- Started transition: S=%p T(%p) O[%p] OP[%p]\n"), this, _t, _t->_oldSegment, _t->_oldSegment->pixels);
-  } else d_free(tmpData);
+    _t->_oldSegment = new(std::nothrow) Segment(*this); // store/copy current segment settings using placement new
+    if (_t->_oldSegment) {
+      loadPalette(_t->_palT, palette);
+      //DEBUGFX_PRINTF_P(PSTR("-- Started transition: S=%p T(%p) O[%p] OP[%p]\n"), this, _t, _t->_oldSegment, _t->_oldSegment->pixels);
+    } else {
+      delete _t;
+      _t = nullptr;
+    }
+  };
 }
 
 void Segment::stopTransition() {
   //DEBUGFX_PRINTF_P(PSTR("-- Stopping transition: S=%p T(%p) O[%p]\n"), this, _t, _t->_oldSegment);
-  if (_t->_oldSegment) _t->_oldSegment->~Segment();
-  d_free(_t->_oldSegment);
-  _t->_oldSegment = nullptr;
-  delete _t;  // will also destroy segment's copy (see destructor)
+  delete _t->_oldSegment;
+  delete _t;
   _t = nullptr;
 }
 
@@ -395,6 +412,7 @@ void Segment::setGeometry(uint16_t i1, uint16_t i2, uint8_t grp, uint8_t spc, ui
 
   DEBUGFX_PRINTF_P(PSTR("Segment geometry: %d,%d -> %d,%d [%d,%d]\n"), (int)i1, (int)i2, (int)i1Y, (int)i2Y, (int)grp, (int)spc);
   markForReset();
+  startTransition(strip.getTransition()); // start transition prior to change
   stateChanged = true; // send UDP/WS broadcast
 
   // apply change immediately
@@ -425,6 +443,12 @@ void Segment::setGeometry(uint16_t i1, uint16_t i2, uint8_t grp, uint8_t spc, ui
   if (length() != oldLength) {
     if (pixels) pixels = static_cast<uint32_t*>(d_realloc(pixels, sizeof(uint32_t) * length()));
     else        pixels = static_cast<uint32_t*>(d_malloc(sizeof(uint32_t) * length()));
+    if (!pixels) {
+      DEBUGFX_PRINTLN(F("!!! Not enough RAM for pixel buffer !!!"));
+      errorFlag = ERR_NORAM_PX;
+      stop = 0;
+      return;
+    }
   }
   refreshLightCapabilities();
 }

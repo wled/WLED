@@ -478,7 +478,7 @@ class Segment {
 
     Segment(uint16_t sStart=0, uint16_t sStop=30, uint16_t sStartY = 0, uint16_t sStopY = 1) :
       start(sStart),
-      stop(sStop),
+      stop(sStop > sStart ? sStop : sStart+1), // minimum length is 1
       offset(0),
       speed(DEFAULT_SPEED),
       intensity(DEFAULT_INTENSITY),
@@ -498,7 +498,7 @@ class Segment {
       check3(false),
       blendMode(0),
       startY(sStartY),
-      stopY(sStopY),
+      stopY(sStopY > sStartY ? sStopY : sStartY+1), // minimum height is 1
       name(nullptr),
       next_time(0),
       step(0),
@@ -513,7 +513,13 @@ class Segment {
     {
       DEBUGFX_PRINTF_P(PSTR("-- Creating segment: %p [%d,%d:%d,%d]\n"), this, (int)start, (int)stop, (int)startY, (int)stopY);
       // allocate render buffer (always entire segment)
-      pixels = static_cast<uint32_t*>(d_malloc(sizeof(uint32_t) * (stop-start) * (stopY-startY))); // do not use virtualLength()
+      pixels = static_cast<uint32_t*>(d_calloc(sizeof(uint32_t), length())); // error handling is also done in isActive()
+      if (!pixels) {
+        DEBUGFX_PRINTLN(F("!!! Not enough RAM for pixel buffer !!!"));
+        extern byte errorFlag;
+        errorFlag = ERR_NORAM_PX;
+        stop = 0; // mark segment as inactive/invalid
+      }
     }
 
     Segment(const Segment &orig); // copy constructor
@@ -542,11 +548,11 @@ class Segment {
     inline bool     getOption(uint8_t n)   const { return ((options >> n) & 0x01); }
     inline bool     isSelected()           const { return selected; }
     inline bool     isInTransition()       const { return _t != nullptr; }
-    inline bool     isActive()             const { return stop > start; }
+    inline bool     isActive()             const { return stop > start && pixels; }
     inline bool     hasRGB()               const { return _isRGB; }
     inline bool     hasWhite()             const { return _hasW; }
     inline bool     isCCT()                const { return _isCCT; }
-    inline uint16_t width()                const { return isActive() ? (stop - start) : 0; }  // segment width in physical pixels (length if 1D)
+    inline uint16_t width()                const { return stop > start ? (stop - start) : 0; }// segment width in physical pixels (length if 1D)
     inline uint16_t height()               const { return stopY - startY; }                   // segment height (if 2D) in physical pixels (it *is* always >=1)
     inline uint16_t length()               const { return width() * height(); }               // segment length (count) in physical pixels
     inline uint16_t groupLength()          const { return grouping + spacing; }
