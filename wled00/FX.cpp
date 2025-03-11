@@ -5997,7 +5997,8 @@ uint16_t mode_2Dscrollingtext(void) {
     case 5: letterWidth = 5; letterHeight = 12; break;
   }
   // letters are rotated
-  if (((SEGMENT.custom3+1)>>3) % 2) {
+  const int8_t rotate = map(SEGMENT.custom3, 0, 31, -2, 2);
+  if (rotate == 1 || rotate == -1) {
     rotLH = letterWidth;
     rotLW = letterHeight;
   } else {
@@ -6070,17 +6071,22 @@ uint16_t mode_2Dscrollingtext(void) {
   }
 
   if (!SEGMENT.check2) SEGMENT.fade_out(255 - (SEGMENT.custom1>>4));  // trail
+  uint32_t col1 = SEGMENT.color_from_palette(SEGENV.aux1, false, PALETTE_FIXED, 0);
+  uint32_t col2 = BLACK;
+  // if gradient is selected and palette is default (0) drawCharacter() uses gradient from SEGCOLOR(0) to SEGCOLOR(2)
+  // otherwise col2 == BLACK means use currently selected palette for gradient
+  // if gradient is not selected set both colors the same
+  if (SEGMENT.check1) { // use gradient
+    if (SEGMENT.palette == 0) { // use colors for gradient
+      col1 = SEGCOLOR(0);
+      col2 = SEGCOLOR(2);
+    }
+  } else col2 = col1;
 
   for (int i = 0; i < numberOfLetters; i++) {
     int xoffset = int(cols) - int(SEGENV.aux0) + rotLW*i;
     if (xoffset + rotLW < 0) continue; // don't draw characters off-screen
-    uint32_t col1 = SEGMENT.color_from_palette(SEGENV.aux1, false, PALETTE_FIXED, 0);
-    uint32_t col2 = BLACK;
-    if (SEGMENT.check1 && SEGMENT.palette == 0) {
-      col1 = SEGCOLOR(0);
-      col2 = SEGCOLOR(2);
-    }
-    SEGMENT.drawCharacter(text[i], xoffset, yoffset, letterWidth, letterHeight, col1, col2, map(SEGMENT.custom3, 0, 31, -2, 2));
+    SEGMENT.drawCharacter(text[i], xoffset, yoffset, letterWidth, letterHeight, col1, col2, rotate);
   }
 
   return FRAMETIME;

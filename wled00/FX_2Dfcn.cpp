@@ -601,20 +601,20 @@ void Segment::drawCharacter(unsigned char chr, int16_t x, int16_t y, uint8_t w, 
   const auto XY = [](unsigned x, unsigned y){ return x + y*vWidth(); };
 
   CRGB col = CRGB(color);
-  CRGBPalette16 grad = CRGBPalette16(col, col2 ? CRGB(col2) : col);
+  CRGBPalette16 grad = col2 ? CRGBPalette16(col, CRGB(col2)) : SEGPALETTE; // selected palette as gradient
 
   //if (w<5 || w>6 || h!=8) return;
   for (int i = 0; i<h; i++) { // character height
     uint8_t bits = 0;
     switch (font) {
-      case 24: bits = pgm_read_byte_near(&console_font_4x6[(chr * h) + i]); break;  // 5x8 font
+      case 24: bits = pgm_read_byte_near(&console_font_4x6[(chr * h) + i]); break;  // 4x6 font
       case 40: bits = pgm_read_byte_near(&console_font_5x8[(chr * h) + i]); break;  // 5x8 font
       case 48: bits = pgm_read_byte_near(&console_font_6x8[(chr * h) + i]); break;  // 6x8 font
       case 63: bits = pgm_read_byte_near(&console_font_7x9[(chr * h) + i]); break;  // 7x9 font
       case 60: bits = pgm_read_byte_near(&console_font_5x12[(chr * h) + i]); break; // 5x12 font
       default: return;
     }
-    CRGBW c = ColorFromPalette(grad, (i+1)*255/h, 255, LINEARBLEND_NOWRAP);
+    CRGBW c = ColorFromPalette(grad, (i+1)*255/h, 255, LINEARBLEND_NOWRAP); // NOBLEND is faster
     for (int j = 0; j<w; j++) { // character width
       int x0, y0;
       switch (rotate) {
@@ -626,7 +626,7 @@ void Segment::drawCharacter(unsigned char chr, int16_t x, int16_t y, uint8_t w, 
       }
       if (x0 < 0 || x0 >= (int)vWidth() || y0 < 0 || y0 >= (int)vHeight()) continue; // drawing off-screen
       if (((bits>>(j+(8-w))) & 0x01)) { // bit set
-        setPixelColorXY(x0, y0, c.color32);
+        setPixelColorRaw(XY(x0, y0), c.color32);
       }
     }
   }
