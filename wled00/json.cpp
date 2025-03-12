@@ -305,6 +305,7 @@ bool deserializeState(JsonObject root, byte callMode, byte presetId)
 
   bool onBefore = bri;
   getVal(root["bri"], bri);
+  if (bri != briOld) stateChanged = true;
 
   bool on = root["on"] | (bri > 0);
   if (!on != !bri) toggleOnOff();
@@ -345,6 +346,7 @@ bool deserializeState(JsonObject root, byte callMode, byte presetId)
   if (tr >= 0) strip.timebase = (unsigned long)tr - millis();
 
   JsonObject nl       = root["nl"];
+  if (!nl.isNull()) stateChanged = true;
   nightlightActive    = getBoolVal(nl["on"], nightlightActive);
   nightlightDelayMins = nl["dur"]     | nightlightDelayMins;
   nightlightMode      = nl["mode"]    | nightlightMode;
@@ -482,7 +484,7 @@ bool deserializeState(JsonObject root, byte callMode, byte presetId)
     //if (restart) forceReconnect = true;
   }
 
-  stateUpdated(callMode);
+  if (stateChanged) stateUpdated(callMode);
   if (presetToRestore) currentPreset = presetToRestore;
 
   return stateResponse;

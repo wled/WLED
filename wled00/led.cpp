@@ -97,7 +97,6 @@ void stateUpdated(byte callMode) {
 
     //set flag to update ws and mqtt
     interfaceUpdateCallMode = callMode;
-    stateChanged = false;
   } else {
     if (nightlightActive && !nightlightActiveOld && callMode != CALL_MODE_NOTIFICATION && callMode != CALL_MODE_NO_NOTIFY) {
       notify(CALL_MODE_NIGHTLIGHT);
@@ -128,15 +127,15 @@ void stateUpdated(byte callMode) {
     transitionActive = false;
     applyFinalBri();
     strip.trigger();
-    return;
+  } else {
+    if (transitionActive) {
+      briOld = briT;
+    } else if (bri != briOld || stateChanged)
+      strip.setTransitionMode(true); // force all segments to transition mode
+    transitionActive = true;
+    transitionStartTime = now;
   }
-
-  if (transitionActive) {
-    briOld = briT;
-  } else
-    strip.setTransitionMode(true); // force all segments to transition mode
-  transitionActive = true;
-  transitionStartTime = now;
+  stateChanged = false;
 }
 
 
