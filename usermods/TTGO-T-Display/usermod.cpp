@@ -48,7 +48,6 @@ TFT_eSPI tft = TFT_eSPI(135, 240); // Invoke custom library
 
 //gets called once at boot. Do all initialization that doesn't depend on network here
 void userSetup() {
-    Serial.begin(115200);
     DEBUG_PRINTLN("Start");
     tft.init();
     tft.setRotation(3);  //Rotation here is set up for the text to be readable with the port on the left. Use 1 to flip.
