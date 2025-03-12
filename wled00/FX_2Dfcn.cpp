@@ -162,7 +162,7 @@ bool IRAM_ATTR Segment::isPixelXYClipped(int x, int y) const {
       if (len < 2) return false;
       const unsigned shuffled = hashInt(x + y * width) % len;
       const unsigned pos = (shuffled * 0xFFFFU) / len;
-      return progress() > pos;
+      return progress() <= pos;
     }
     if (blendingStyle == BLEND_STYLE_CIRCULAR_IN || blendingStyle == BLEND_STYLE_CIRCULAR_OUT) {
       const int cx   = (stopX-startX+1) / 2;
@@ -179,7 +179,7 @@ bool IRAM_ATTR Segment::isPixelXYClipped(int x, int y) const {
     }
     bool xInside = (x >= startX && x < stopX); if (invertX) xInside = !xInside;
     bool yInside = (y >= startY && y < stopY); if (invertY) yInside = !yInside;
-    const bool clip = (invertX && invertY) ? !Segment::isPreviousMode() : Segment::isPreviousMode();
+    const bool clip = (invertX && invertY); // ? !Segment::isPreviousMode() : Segment::isPreviousMode();
     if (xInside && yInside) return clip; // covers window & corners (inverted)
     return !clip;
   }
@@ -600,10 +600,8 @@ void Segment::drawCharacter(unsigned char chr, int16_t x, int16_t y, uint8_t w, 
   const int font = w*h;
   const auto XY = [](unsigned x, unsigned y){ return x + y*vWidth(); };
 
-  CRGB col = CRGB(color);
-  CRGBPalette16 grad = col2 ? CRGBPalette16(col, CRGB(col2)) : SEGPALETTE; // selected palette as gradient
+  CRGBPalette16 grad = col2 ? CRGBPalette16(CRGB(color), CRGB(col2)) : SEGPALETTE; // selected palette as gradient
 
-  //if (w<5 || w>6 || h!=8) return;
   for (int i = 0; i<h; i++) { // character height
     uint8_t bits = 0;
     switch (font) {

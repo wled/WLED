@@ -457,14 +457,19 @@ class Segment {
       Segment      *_oldSegment;  // previous segment environment
       unsigned long _start;       // must accommodate millis()
       uint16_t      _dur;
+      uint32_t      _colors[NUM_COLORS]; // current colors
       CRGBPalette16 _palT;        // temporary palette (slowly being morphed from old to new)
       uint8_t       _prevPaletteBlends; // number of previous palette blends (there are max 255 blends possible)
+      uint8_t       _bri, _cct;
       Transition(uint16_t dur=750)
         : _oldSegment(nullptr)
         , _start(millis())
         , _dur(dur)
+        , _colors{0,0,0}
         , _palT(CRGBPalette16(CRGB::Black))
         , _prevPaletteBlends(0)
+        , _bri(0)
+        , _cct(0)
       {}
       ~Transition() {
         //DEBUGFX_PRINTF_P(PSTR("-- Destroying transition: %p\n"), this);
@@ -614,9 +619,8 @@ class Segment {
     }
     inline unsigned progress() const      { return Segment::_transitionProgress; } // relies on handleTransition()/updateTransitionProgress() to update progression variable
     inline Segment *getOldSegment() const { return isInTransition() ? _t->_oldSegment : nullptr; }
-    uint8_t  currentBri(bool useCct = false) const; // current segment brightness/CCT (blended while in transition)
-    uint8_t  currentMode() const;                   // currently active effect/mode (while in transition)
-    uint32_t currentColor(uint8_t slot) const;      // currently active segment color (blended while in transition)
+    uint8_t  currentCCT() const; // current segment's CCT (blended while in transition)
+    uint8_t  currentBri() const; // current segment's opacity/brightness (blended while in transition)
     CRGBPalette16 &loadPalette(CRGBPalette16 &tgt, uint8_t pal);
 
     // 1D strip
