@@ -25,12 +25,11 @@ void setValuesFromSegment(uint8_t s)
 
 
 // applies global legacy values (col, colSec, effectCurrent...)
-// problem: if the first selected segment already has the value to be set, other selected segments are not updated
 void applyValuesToSelectedSegs()
 {
-  // copy of first selected segment to tell if value was updated
-  unsigned firstSel = strip.getFirstSelectedSegId();
-  Segment selsegPrev = strip.getSegment(firstSel);
+  // compare against first selected segment to tell if value was updated
+  const unsigned firstSel = strip.getFirstSelectedSegId();
+  const Segment& selsegPrev = strip.getSegment(firstSel);
   for (unsigned i = 0; i < strip.getSegmentsNum(); i++) {
     Segment& seg = strip.getSegment(i);
     if (i != firstSel && (!seg.isActive() || !seg.isSelected())) continue;
