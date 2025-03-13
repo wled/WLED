@@ -121,7 +121,7 @@ bool deserializeSegment(JsonObject elem, byte it, byte presetId)
   if (stop > start && of > len -1) of = len -1;
 
   // update segment (delete if necessary)
-  seg.setGeometry(start, stop, grp, spc, of, startY, stopY); // strip needs to be suspended for this to work without issues
+  seg.setGeometry(start, stop, grp, spc, of, startY, stopY, map1D2D); // strip needs to be suspended for this to work without issues
 
   if (newSeg) seg.refreshLightCapabilities(); // fix for #3403
 
@@ -396,10 +396,10 @@ bool deserializeState(JsonObject root, byte callMode, byte presetId)
   if (!segVar.isNull()) {
     // we may be called during strip.service() so we must not modify segments while effects are executing
     strip.suspend();
-    const unsigned long start = millis();
-    while (strip.isServicing() && millis() - start < strip.getFrameTime()) yield(); // wait until frame is over
+    const unsigned long waitUntil = millis() + strip.getFrameTime();
+    while (strip.isServicing() && millis() < waitUntil) delay(1); // wait until frame is over
     #ifdef WLED_DEBUG
-    if (millis() - start > 0) DEBUG_PRINTLN(F("JSON: Waited for strip to finish servicing."));
+    if (millis() >= waitUntil) DEBUG_PRINTLN(F("JSON: Waited for strip to finish servicing."));
     #endif
     if (segVar.is<JsonObject>()) {
       int id = segVar["id"] | -1;

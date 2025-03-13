@@ -280,7 +280,7 @@ void Segment::startTransition(uint16_t dur) {
   _t->_cctT           = cct;
 #ifndef WLED_DISABLE_MODE_BLEND
   if (modeBlending) {
-    swapSegenv(_t->_segT); // copy runtime data to temporary
+    swapSegenv(_t->_segT);
     _t->_modeT          = mode;
     _t->_segT._dataLenT = 0;
     _t->_segT._dataT    = nullptr;
@@ -291,19 +291,13 @@ void Segment::startTransition(uint16_t dur) {
         memcpy(_t->_segT._dataT, data, _dataLen);
         _t->_segT._dataLenT = _dataLen;
       }
-    } else {
-      for (size_t i=0; i<NUM_COLORS; i++) _t->_segT._colorT[i] = colors[i];
     }
-    DEBUG_PRINTF_P(PSTR("-- pal: %d, bri: %d, C:[%08X,%08X,%08X], m: %d\n"),
-      (int)_t->_palTid,
-      (int)_t->_briT,
-      _t->_segT._colorT[0],
-      _t->_segT._colorT[1],
-      _t->_segT._colorT[2],
-      (int)_t->_modeT);
-  } else
-# endif
+  } else {
+    for (size_t i=0; i<NUM_COLORS; i++) _t->_segT._colorT[i] = colors[i];
+  }
+#else
   for (size_t i=0; i<NUM_COLORS; i++) _t->_colorT[i] = colors[i];
+#endif
 }
 
 void Segment::stopTransition() {
@@ -462,14 +456,15 @@ void Segment::handleRandomPalette() {
 }
 
 // segId is given when called from network callback, changes are queued if that segment is currently in its effect function
-void Segment::setGeometry(uint16_t i1, uint16_t i2, uint8_t grp, uint8_t spc, uint16_t ofs, uint16_t i1Y, uint16_t i2Y) {
+void Segment::setGeometry(uint16_t i1, uint16_t i2, uint8_t grp, uint8_t spc, uint16_t ofs, uint16_t i1Y, uint16_t i2Y, uint8_t m12) {
   // return if neither bounds nor grouping have changed
   bool boundsUnchanged = (start == i1 && stop == i2);
   #ifndef WLED_DISABLE_2D
   if (Segment::maxHeight>1) boundsUnchanged &= (startY == i1Y && stopY == i2Y); // 2D
   #endif
 
-  if (stop && (spc > 0 || m12 != map1D2D)) clear();
+  m12 = constrain(m12, 0, 7);
+  if (stop && (spc > 0 || m12 != map1D2D)) fill(BLACK);
 /*
   if (boundsUnchanged
       && (!grp || (grouping == grp && spacing == spc))
@@ -1044,26 +1039,6 @@ void Segment::refreshLightCapabilities() {
     }
   }
   _capabilities = capabilities;
-}
-
-/*
- * Fills segment with black
- */
-void Segment::clear() {
-  if (!isActive()) return; // not active
-    unsigned oldVW = _vWidth;
-    unsigned oldVH = _vHeight;
-    unsigned oldVL = _vLength;
-    unsigned oldSB = _segBri;
-    _vWidth  = virtualWidth();
-    _vHeight = virtualHeight();
-    _vLength = virtualLength();
-    _segBri  = currentBri();
-    fill(BLACK);
-    _vWidth  = oldVW;
-    _vHeight = oldVH;
-    _vLength = oldVL;
-    _segBri  = oldSB;
 }
 
 /*
