@@ -323,35 +323,11 @@ extern byte realtimeMode;           // used in getMappedPixelIndex()
 #define FX_MODE_WAVESINS               184
 #define FX_MODE_ROCKTAVES              185
 #define FX_MODE_2DAKEMI                186
-#define FX_MODE_PARTICLEVOLCANO        187
-#define FX_MODE_PARTICLEFIRE           188
-#define FX_MODE_PARTICLEFIREWORKS      189
-#define FX_MODE_PARTICLEVORTEX         190
-#define FX_MODE_PARTICLEPERLIN         191
-#define FX_MODE_PARTICLEPIT            192
-#define FX_MODE_PARTICLEBOX            193
-#define FX_MODE_PARTICLEATTRACTOR      194
-#define FX_MODE_PARTICLEIMPACT         195
-#define FX_MODE_PARTICLEWATERFALL      196
-#define FX_MODE_PARTICLESPRAY          197
-#define FX_MODE_PARTICLESGEQ           198
-#define FX_MODE_PARTICLECENTERGEQ      199
-#define FX_MODE_PARTICLEGHOSTRIDER     200
-#define FX_MODE_PARTICLEBLOBS          201
-#define FX_MODE_PSDRIP                 202
-#define FX_MODE_PSPINBALL              203
-#define FX_MODE_PSDANCINGSHADOWS       204
-#define FX_MODE_PSFIREWORKS1D          205
-#define FX_MODE_PSSPARKLER             206
-#define FX_MODE_PSHOURGLASS            207
-#define FX_MODE_PS1DSPRAY              208
-#define FX_MODE_PSBALANCE              209
-#define FX_MODE_PSCHASE                210
-#define FX_MODE_PSSTARBURST            211
-#define FX_MODE_PS1DGEQ                212
-#define FX_MODE_PSFIRE1D               213
-#define FX_MODE_PS1DSONICSTREAM        214
-#define MODE_COUNT                     215
+
+#define FX_MODE_BLINKER                187
+#define FX_MODE_PARKING                188
+
+#define MODE_COUNT                     189
 
 
 #define BLEND_STYLE_FADE            0x00  // universal
@@ -508,7 +484,6 @@ typedef struct Segment {
       uint8_t       _prevPaletteBlends; // number of previous palette blends (there are max 255 blends possible)
       unsigned long _start;       // must accommodate millis()
       uint16_t      _dur;
-      // -> here is one byte of padding
       Transition(uint16_t dur=750)
         : _palT(CRGBPalette16(CRGB::Black))
         , _prevPaletteBlends(0)
@@ -607,7 +582,6 @@ typedef struct Segment {
     inline static void     addUsedSegmentData(int len)     { Segment::_usedSegmentData += len; }
     #ifndef WLED_DISABLE_MODE_BLEND
     inline static void     modeBlend(bool blend)           { _modeBlend = blend; }
-    inline static bool     getmodeBlend(void)              { return _modeBlend; }
     #endif
     inline static unsigned vLength()                       { return Segment::_vLength; }
     inline static unsigned vWidth()                        { return Segment::_vWidth; }
@@ -656,7 +630,6 @@ typedef struct Segment {
     uint8_t  currentMode() const;                            // currently active effect/mode (while in transition)
     [[gnu::hot]] uint32_t currentColor(uint8_t slot) const;  // currently active segment color (blended while in transition)
     CRGBPalette16 &loadPalette(CRGBPalette16 &tgt, uint8_t pal);
-    void     loadOldPalette(); // loads old FX palette into _currentPalette
 
     // 1D strip
     [[gnu::hot]] uint16_t virtualLength() const;
@@ -676,10 +649,8 @@ typedef struct Segment {
     [[gnu::hot]] uint32_t getPixelColor(int i) const;
     // 1D support functions (some implement 2D as well)
     void blur(uint8_t, bool smear = false);
-    void clear();
     void fill(uint32_t c);
     void fade_out(uint8_t r);
-    void fadeToSecondaryBy(uint8_t fadeBy);
     void fadeToBlackBy(uint8_t fadeBy);
     inline void blendPixelColor(int n, uint32_t color, uint8_t blend)    { setPixelColor(n, color_blend(getPixelColor(n), color, blend)); }
     inline void blendPixelColor(int n, CRGB c, uint8_t blend)            { blendPixelColor(n, RGBW32(c.r,c.g,c.b,0), blend); }

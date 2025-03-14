@@ -9,6 +9,8 @@
 #define WLEDPACKETSIZE (41+(MAX_NUM_SEGMENTS*UDP_SEG_SIZE)+0)
 #define UDP_IN_MAXSIZE 1472
 #define PRESUMED_NETWORK_DELAY 3 //how many ms could it take on avg to reach the receiver? This will be added to transmitted times
+extern bool leftBlinkerActive;
+extern bool rightBlinkerActive;
 
 typedef struct PartialEspNowPacket {
   uint8_t magic;
@@ -474,9 +476,11 @@ void handleNotifications()
   IPAddress localIP;
 
   //send second notification if enabled
-  if(udpConnected && (notificationCount < udpNumRetries) && ((millis()-notificationSentTime) > 250)){
-    notify(notificationSentCallMode,true);
-  }
+  if (udpConnected && (notificationCount < udpNumRetries) && ((millis()-notificationSentTime) > 250)){
+    if (!(leftBlinkerActive || rightBlinkerActive)) { // Do not sync when blinker is on
+        notify(notificationSentCallMode, true);
+    }
+}
 
   if (e131NewData && millis() - strip.getLastShow() > 15)
   {
@@ -485,7 +489,7 @@ void handleNotifications()
   }
 
   //unlock strip when realtime UDP times out
-  if (realtimeMode && millis() > realtimeTimeout) exitRealtime();
+  if (realtimeMode && !(leftBlinkerActive || rightBlinkerActive) && millis() > realtimeTimeout) exitRealtime();
 
   //receive UDP notifications
   if (!udpConnected) return;
@@ -502,6 +506,10 @@ void handleNotifications()
     packetSize = rgbUdp.parsePacket();
     if (packetSize) {
       if (!receiveDirect) return;
+      // Ignore sync updates if the blinker is active
+      if ((leftBlinkerActive || rightBlinkerActive)) {
+        return;  // Do not process sync messages, keep local blinker mode
+      }
       if (packetSize > UDP_IN_MAXSIZE || packetSize < 3) return;
       realtimeIP = rgbUdp.remoteIP();
       DEBUG_PRINTLN(rgbUdp.remoteIP());

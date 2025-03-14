@@ -325,15 +325,15 @@ bool writeObjectToFile(const char* file, const char* key, const JsonDocument* co
   return true;
 }
 
-bool readObjectFromFileUsingId(const char* file, uint16_t id, JsonDocument* dest, const JsonDocument* filter)
+bool readObjectFromFileUsingId(const char* file, uint16_t id, JsonDocument* dest)
 {
   char objKey[10];
   sprintf(objKey, "\"%d\":", id);
-  return readObjectFromFile(file, objKey, dest, filter);
+  return readObjectFromFile(file, objKey, dest);
 }
 
 //if the key is a nullptr, deserialize entire object
-bool readObjectFromFile(const char* file, const char* key, JsonDocument* dest, const JsonDocument* filter)
+bool readObjectFromFile(const char* file, const char* key, JsonDocument* dest)
 {
   if (doCloseFile) closeFile();
   #ifdef WLED_DEBUG_FS
@@ -352,8 +352,7 @@ bool readObjectFromFile(const char* file, const char* key, JsonDocument* dest, c
     return false;
   }
 
-  if (filter) deserializeJson(*dest, f, DeserializationOption::Filter(*filter));
-  else        deserializeJson(*dest, f);
+  deserializeJson(*dest, f);
 
   f.close();
   DEBUGFS_PRINTF("Read, took %d ms\n", millis() - s);
@@ -420,7 +419,7 @@ static const uint8_t *getPresetCache(size_t &size) {
 
 bool handleFileRead(AsyncWebServerRequest* request, String path){
   DEBUG_PRINT(F("WS FileRead: ")); DEBUG_PRINTLN(path);
-  if(path.endsWith("/")) path += "index.htm";
+  if(path.endsWith("/")) path += "simple.htm";
   if(path.indexOf(F("sec")) > -1) return false;
   #ifdef ARDUINO_ARCH_ESP32
   if (psramSafe && psramFound() && path.endsWith(FPSTR(getPresetsFileName()))) {

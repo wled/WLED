@@ -7,7 +7,6 @@
 #define DS1307RTC_h
 
 #include "TimeLib.h"
-#include "Wire.h"
 
 // library interface description
 class DS1307RTC

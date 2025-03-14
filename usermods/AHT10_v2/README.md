@@ -22,9 +22,15 @@ Dependencies, These must be added under `lib_deps` in your `platform.ini` (or `p
 
 # Compiling
 
-To enable, add 'AHT10' to `custom_usermods` in your platformio encrionment  (e.g. in `platformio_override.ini`)
+To enable, compile with `USERMOD_AHT10` defined  (e.g. in `platformio_override.ini`)
 ```ini
 [env:aht10_example]
 extends = env:esp32dev
-custom_usermods = ${env:esp32dev.custom_usermods} AHT10
+build_flags =
+  ${common.build_flags} ${esp32.build_flags}
+  -D USERMOD_AHT10
+  ; -D USERMOD_AHT10_DEBUG ; -- add a debug status to the info modal
+lib_deps = 
+  ${esp32.lib_deps}
+  enjoyneering/AHT10@~1.1.0
 ```

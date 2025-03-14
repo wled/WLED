@@ -19,9 +19,6 @@ public:
   void disable();
   void enable();
 
-  /// True if dmx is currently connected
-  bool isConnected() const { return connected; }
-
 private:
   /// @return true if rdm identify is active
   bool isIdentifyOn() const;

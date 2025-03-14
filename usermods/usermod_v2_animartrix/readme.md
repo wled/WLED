@@ -6,5 +6,9 @@ CC BY-NC 3.0 licensed effects by Stefan Petrick, include this usermod only if yo
 
 ## Installation 
 
-Add 'animartrix' to 'custom_usermods' in your platformio_override.ini.
+Please uncomment the two references to ANIMartRIX in your platform.ini 
+
+lib_dep to a version of https://github.com/netmindz/animartrix.git
+and the build_flags  -D USERMOD_ANIMARTRIX
+
 

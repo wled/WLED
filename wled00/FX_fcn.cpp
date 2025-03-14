@@ -11,7 +11,6 @@
 */
 #include "wled.h"
 #include "FX.h"
-#include "FXparticleSystem.h"  // TODO: better define the required function (mem service) in FX.h?
 #include "palettes.h"
 
 /*
@@ -270,7 +269,7 @@ void Segment::startTransition(uint16_t dur) {
   _t->_briT           = on ? opacity : 0;
   _t->_cctT           = cct;
 #ifndef WLED_DISABLE_MODE_BLEND
-  swapSegenv(_t->_segT); // copy runtime data to temporary
+  swapSegenv(_t->_segT);
   _t->_modeT          = mode;
   _t->_segT._dataLenT = 0;
   _t->_segT._dataT    = nullptr;
@@ -282,13 +281,6 @@ void Segment::startTransition(uint16_t dur) {
       _t->_segT._dataLenT = _dataLen;
     }
   }
-  DEBUG_PRINTF_P(PSTR("-- pal: %d, bri: %d, C:[%08X,%08X,%08X], m: %d\n"),
-    (int)_t->_palTid,
-    (int)_t->_briT,
-    _t->_segT._colorT[0],
-    _t->_segT._colorT[1],
-    _t->_segT._colorT[2],
-    (int)_t->_modeT);
 #else
   for (size_t i=0; i<NUM_COLORS; i++) _t->_colorT[i] = colors[i];
 #endif
@@ -478,12 +470,6 @@ void Segment::beginDraw() {
   }
 }
 
-// loads palette of the old FX during transitions (used by particle system)
-void Segment::loadOldPalette(void) {
-  if(isInTransition())
-    loadPalette(_currentPalette, _t->_palTid);
-}
-
 // relies on WS2812FX::service() to call it for each frame
 void Segment::handleRandomPalette() {
   // is it time to generate a new palette?
@@ -509,17 +495,21 @@ void Segment::setGeometry(uint16_t i1, uint16_t i2, uint8_t grp, uint8_t spc, ui
   #ifndef WLED_DISABLE_2D
   if (Segment::maxHeight>1) boundsUnchanged &= (startY == i1Y && stopY == i2Y); // 2D
   #endif
-
-  if (stop && (spc > 0 || m12 != map1D2D)) clear();
-/*
   if (boundsUnchanged
       && (!grp || (grouping == grp && spacing == spc))
       && (ofs == UINT16_MAX || ofs == offset)
       && (m12 == map1D2D)
      ) return;
-*/
+
   stateChanged = true; // send UDP/WS broadcast
 
+  if (stop || spc != spacing || m12 != map1D2D) {
+    _vWidth  = virtualWidth();
+    _vHeight = virtualHeight();
+    _vLength = virtualLength();
+    _segBri  = currentBri();
+    fill(BLACK); // turn old segment range off or clears pixels if changing spacing (requires _vWidth/_vHeight/_vLength/_segBri)
+  }
   if (grp) { // prevent assignment of 0
     grouping = grp;
     spacing = spc;
@@ -530,7 +520,10 @@ void Segment::setGeometry(uint16_t i1, uint16_t i2, uint8_t grp, uint8_t spc, ui
   if (ofs < UINT16_MAX) offset = ofs;
   map1D2D  = constrain(m12, 0, 7);
 
-  DEBUG_PRINTF_P(PSTR("Segment geometry: %d,%d -> %d,%d\n"), (int)i1, (int)i2, (int)i1Y, (int)i2Y);
+  DEBUG_PRINT(F("setUp segment: ")); DEBUG_PRINT(i1);
+  DEBUG_PRINT(','); DEBUG_PRINT(i2);
+  DEBUG_PRINT(F(" -> ")); DEBUG_PRINT(i1Y);
+  DEBUG_PRINT(','); DEBUG_PRINTLN(i2Y);
   markForReset();
   if (boundsUnchanged) return;
 
@@ -775,7 +768,7 @@ bool IRAM_ATTR_YN Segment::isPixelClipped(int i) const {
     //if (!invert &&  iInside) return _modeBlend;
     //if ( invert && !iInside) return _modeBlend;
     //return !_modeBlend;
-    return !iInside ^ invert ^ _modeBlend; // thanks @willmmiles (https://github.com/wled-dev/WLED/pull/3877#discussion_r1554633876)
+    return !iInside ^ invert ^ _modeBlend; // thanks @willmmiles (https://github.com/Aircoookie/WLED/pull/3877#discussion_r1554633876)
   }
 #endif
   return false;
@@ -1138,9 +1131,12 @@ void Segment::refreshLightCapabilities() {
   }
 
   for (unsigned b = 0; b < BusManager::getNumBusses(); b++) {
-    const Bus *bus = BusManager::getBus(b);
-    if (!bus || !bus->isOk()) break;
-    if (bus->getStart() >= segStopIdx || bus->getStart() + bus->getLength() <= segStartIdx) continue;
+    Bus *bus = BusManager::getBus(b);
+    if (bus == nullptr || bus->getLength()==0) break;
+    if (!bus->isOk()) continue;
+    if (bus->getStart() >= segStopIdx) continue;
+    if (bus->getStart() + bus->getLength() <= segStartIdx) continue;
+
     if (bus->hasRGB() || (strip.cctFromRgb && bus->hasCCT())) capabilities |= SEG_CAPABILITY_RGB;
     if (!strip.cctFromRgb && bus->hasCCT())                   capabilities |= SEG_CAPABILITY_CCT;
     if (strip.correctWB && (bus->hasRGB() || bus->hasCCT()))  capabilities |= SEG_CAPABILITY_CCT; //white balance correction (CCT slider)
@@ -1154,26 +1150,6 @@ void Segment::refreshLightCapabilities() {
     }
   }
   _capabilities = capabilities;
-}
-
-/*
- * Fills segment with black
- */
-void Segment::clear() {
-  if (!isActive()) return; // not active
-    unsigned oldVW = _vWidth;
-    unsigned oldVH = _vHeight;
-    unsigned oldVL = _vLength;
-    unsigned oldSB = _segBri;
-    _vWidth  = virtualWidth();
-    _vHeight = virtualHeight();
-    _vLength = virtualLength();
-    _segBri  = currentBri();
-    fill(BLACK);
-    _vWidth  = oldVW;
-    _vHeight = oldVH;
-    _vLength = oldVL;
-    _segBri  = oldSB;
 }
 
 /*
@@ -1195,45 +1171,42 @@ void Segment::fill(uint32_t c) {
 
 /*
  * fade out function, higher rate = quicker fade
- * fading is highly dependant on frame rate (higher frame rates, faster fading)
- * each frame will fade at max 9% or as little as 0.8%
  */
 void Segment::fade_out(uint8_t rate) {
   if (!isActive()) return; // not active
   const int cols = is2D() ? vWidth() : vLength();
   const int rows = vHeight(); // will be 1 for 1D
 
-  rate = (256-rate) >> 1;
-  const int mappedRate = 256 / (rate + 1);
+  rate = (255-rate) >> 1;
+  float mappedRate = 1.0f / (float(rate) + 1.1f);
+
+  uint32_t color = colors[1]; // SEGCOLOR(1); // target color
+  int w2 = W(color);
+  int r2 = R(color);
+  int g2 = G(color);
+  int b2 = B(color);
 
   for (int y = 0; y < rows; y++) for (int x = 0; x < cols; x++) {
-    uint32_t color = is2D() ? getPixelColorXY(x, y) : getPixelColor(x);
+    color = is2D() ? getPixelColorXY(x, y) : getPixelColor(x);
     if (color == colors[1]) continue; // already at target color
-    for (int i = 0; i < 32; i += 8) {
-      uint8_t c2 = (colors[1]>>i);  // get background channel
-      uint8_t c1 = (color>>i);      // get foreground channel
-      // we can't use bitshift since we are using int
-      int delta = (c2 - c1) * mappedRate / 256;
-      // if fade isn't complete, make sure delta is at least 1 (fixes rounding issues)
-      if (delta == 0) delta += (c2 == c1) ? 0 : (c2 > c1) ? 1 : -1;
-      // stuff new value back into color
-      color &= ~(0xFF<<i);
-      color |= ((c1 + delta) & 0xFF) << i;
-    }
-    if (is2D()) setPixelColorXY(x, y, color);
-    else        setPixelColor(x, color);
-  }
-}
+    int w1 = W(color);
+    int r1 = R(color);
+    int g1 = G(color);
+    int b1 = B(color);
 
-// fades all pixels to secondary color
-void Segment::fadeToSecondaryBy(uint8_t fadeBy) {
-  if (!isActive() || fadeBy == 0) return;   // optimization - no scaling to apply
-  const int cols = is2D() ? vWidth() : vLength();
-  const int rows = vHeight(); // will be 1 for 1D
+    int wdelta = (w2 - w1) * mappedRate;
+    int rdelta = (r2 - r1) * mappedRate;
+    int gdelta = (g2 - g1) * mappedRate;
+    int bdelta = (b2 - b1) * mappedRate;
 
-  for (int y = 0; y < rows; y++) for (int x = 0; x < cols; x++) {
-    if (is2D()) setPixelColorXY(x, y, color_blend(getPixelColorXY(x,y), colors[1], fadeBy));
-    else        setPixelColor(x, color_blend(getPixelColor(x), colors[1], fadeBy));
+    // if fade isn't complete, make sure delta is at least 1 (fixes rounding issues)
+    wdelta += (w2 == w1) ? 0 : (w2 > w1) ? 1 : -1;
+    rdelta += (r2 == r1) ? 0 : (r2 > r1) ? 1 : -1;
+    gdelta += (g2 == g1) ? 0 : (g2 > g1) ? 1 : -1;
+    bdelta += (b2 == b1) ? 0 : (b2 > b1) ? 1 : -1;
+
+    if (is2D()) setPixelColorXY(x, y, r1 + rdelta, g1 + gdelta, b1 + bdelta, w1 + wdelta);
+    else        setPixelColor(x, r1 + rdelta, g1 + gdelta, b1 + bdelta, w1 + wdelta);
   }
 }
 
@@ -1311,12 +1284,12 @@ uint32_t Segment::color_wheel(uint8_t pos) const {
  * Gets a single color from the currently selected palette.
  * @param i Palette Index (if mapping is true, the full palette will be _virtualSegmentLength long, if false, 255). Will wrap around automatically.
  * @param mapping if true, LED position in segment is considered for color
- * @param moving FastLED palettes will usually wrap back to the start smoothly. Set to true if effect has moving palette and you want wrap.
+ * @param wrap FastLED palettes will usually wrap back to the start smoothly. Set false to get a hard edge
  * @param mcol If the default palette 0 is selected, return the standard color 0, 1 or 2 instead. If >2, Party palette is used instead
  * @param pbri Value to scale the brightness of the returned color by. Default is 255. (no scaling)
  * @returns Single color from palette
  */
-uint32_t Segment::color_from_palette(uint16_t i, bool mapping, bool moving, uint8_t mcol, uint8_t pbri) const {
+uint32_t Segment::color_from_palette(uint16_t i, bool mapping, bool wrap, uint8_t mcol, uint8_t pbri) const {
   uint32_t color = getCurrentColor(mcol < NUM_COLORS ? mcol : 0);
   // default palette or no RGB support on segment
   if ((palette == 0 && mcol < NUM_COLORS) || !_isRGB) {
@@ -1326,15 +1299,9 @@ uint32_t Segment::color_from_palette(uint16_t i, bool mapping, bool moving, uint
   const int vL = vLength();
   unsigned paletteIndex = i;
   if (mapping && vL > 1) paletteIndex = (i*255)/(vL -1);
-  // paletteBlend: 0 - wrap when moving, 1 - always wrap, 2 - never wrap, 3 - none (undefined/no interpolation of palette entries)
-  // ColorFromPalette interpolations are: NOBLEND, LINEARBLEND, LINEARBLEND_NOWRAP
-  TBlendType blend = NOBLEND;
-  switch (strip.paletteBlend) { // NOTE: paletteBlend should be global
-    case 0: blend = moving ? LINEARBLEND : LINEARBLEND_NOWRAP; break;
-    case 1: blend = LINEARBLEND; break;
-    case 2: blend = LINEARBLEND_NOWRAP; break;
-  }
-  CRGBW palcol = ColorFromPalette(_currentPalette, paletteIndex, pbri, blend);
+  // paletteBlend: 0 - wrap when moving, 1 - always wrap, 2 - never wrap, 3 - none (undefined)
+  if (!wrap && strip.paletteBlend != 3) paletteIndex = scale8(paletteIndex, 240); //cut off blend at palette "end"
+  CRGBW palcol = ColorFromPaletteWLED(_currentPalette, paletteIndex, pbri, (strip.paletteBlend == 3)? NOBLEND:LINEARBLEND); // NOTE: paletteBlend should be global
   palcol.w = W(color);
 
   return palcol.color32;
@@ -1475,7 +1442,8 @@ void WS2812FX::finalizeInit() {
   _length = 0;
   for (int i=0; i<BusManager::getNumBusses(); i++) {
     Bus *bus = BusManager::getBus(i);
-    if (!bus || !bus->isOk() || bus->getStart() + bus->getLength() > MAX_LEDS) break;
+    if (bus == nullptr) continue;
+    if (bus->getStart() + bus->getLength() > MAX_LEDS) break;
     //RGBW mode is enabled if at least one of the strips is RGBW
     _hasWhiteChannel |= bus->hasWhite();
     //refresh is required to remain off if at least one of the strips requires the refresh.
@@ -1485,7 +1453,6 @@ void WS2812FX::finalizeInit() {
 
     // This must be done after all buses have been created, as some kinds (parallel I2S) interact
     bus->begin();
-    bus->setBrightness(bri);
   }
   DEBUG_PRINTF_P(PSTR("Heap after buses: %d\n"), ESP.getFreeHeap());
 
@@ -1516,7 +1483,7 @@ void WS2812FX::service() {
   _segment_index = 0;
 
   for (segment &seg : _segments) {
-    if (_suspend) break; // immediately stop processing segments if suspend requested during service()
+    if (_suspend) return; // immediately stop processing segments if suspend requested during service()
 
     // process transition (mode changes in the middle of transition)
     seg.handleTransition();
@@ -1547,11 +1514,6 @@ void WS2812FX::service() {
 #ifndef WLED_DISABLE_MODE_BLEND
         Segment::setClippingRect(0, 0); // disable clipping (just in case)
         if (seg.isInTransition()) {
-          // a hack to determine if effect has changed
-          uint8_t  m = seg.currentMode();
-          Segment::modeBlend(true);           // set semaphore
-          bool     sameEffect = (m == seg.currentMode());
-          Segment::modeBlend(false);          // clear semaphore
           // set clipping rectangle
           // new mode is run inside clipping area and old mode outside clipping area
           unsigned p = seg.progress();
@@ -1560,20 +1522,7 @@ void WS2812FX::service() {
           unsigned dw = p * w / 0xFFFFU + 1;
           unsigned dh = p * h / 0xFFFFU + 1;
           unsigned orgBS = blendingStyle;
-          if (w*h == 1) blendingStyle = BLEND_STYLE_FADE; // disable style for single pixel segments (use fade instead)
-          else if (sameEffect && (blendingStyle & BLEND_STYLE_PUSH_MASK)) {
-            // when effect stays the same push will look awful, change it to swipe
-            switch (blendingStyle) {
-              case BLEND_STYLE_PUSH_BR:
-              case BLEND_STYLE_PUSH_TR:
-              case BLEND_STYLE_PUSH_RIGHT: blendingStyle = BLEND_STYLE_SWIPE_RIGHT; break;
-              case BLEND_STYLE_PUSH_BL:
-              case BLEND_STYLE_PUSH_TL:
-              case BLEND_STYLE_PUSH_LEFT:  blendingStyle = BLEND_STYLE_SWIPE_LEFT;  break;
-              case BLEND_STYLE_PUSH_DOWN:  blendingStyle = BLEND_STYLE_SWIPE_DOWN;  break;
-              case BLEND_STYLE_PUSH_UP:    blendingStyle = BLEND_STYLE_SWIPE_UP;    break;
-            }
-          }
+          if (w*h == 1) blendingStyle = BLEND_STYLE_FADE; // disable belending for single pixel segments (use fade instead)
           switch (blendingStyle) {
             case BLEND_STYLE_FAIRY_DUST:  // fairy dust (must set entire segment, see isPixelXYClipped())
               Segment::setClippingRect(0, w, 0, h);
@@ -1619,7 +1568,7 @@ void WS2812FX::service() {
               Segment::setClippingRect(0, dw, h - dh, h);
               break;
           }
-          frameDelay = (*_mode[m])();         // run new/current mode
+          frameDelay = (*_mode[seg.currentMode()])();  // run new/current mode
           // now run old/previous mode
           Segment::tmpsegd_t _tmpSegData;
           Segment::modeBlend(true);           // set semaphore
@@ -1643,9 +1592,6 @@ void WS2812FX::service() {
     _segment_index++;
   }
   Segment::setClippingRect(0, 0);             // disable clipping for overlays
-  #if !(defined(WLED_DISABLE_PARTICLESYSTEM2D) && defined(WLED_DISABLE_PARTICLESYSTEM1D))
-  servicePSmem(); // handle segment particle system memory
-  #endif
   _isServicing = false;
   _triggered = false;
 
@@ -1655,8 +1601,8 @@ void WS2812FX::service() {
   if (doShow) {
     yield();
     Segment::handleRandomPalette(); // slowly transition random palette; move it into for loop when each segment has individual random palette
+    show();
     _lastServiceShow = nowUp; // update timestamp, for precise FPS control
-    if (!_suspend) show();
   }
   #ifdef WLED_DEBUG
   if ((_targetFps != FPS_UNLIMITED) && (millis() - nowUp > _frametime)) DEBUG_PRINTF_P(PSTR("Slow strip %u/%d.\n"), (unsigned)(millis()-nowUp), (int)_frametime);
@@ -1791,8 +1737,8 @@ uint16_t WS2812FX::getLengthPhysical() const {
 //not influenced by auto-white mode, also true if white slider does not affect output white channel
 bool WS2812FX::hasRGBWBus() const {
   for (size_t b = 0; b < BusManager::getNumBusses(); b++) {
-    const Bus *bus = BusManager::getBus(b);
-    if (!bus || !bus->isOk()) break;
+    Bus *bus = BusManager::getBus(b);
+    if (bus == nullptr || bus->getLength()==0) break;
     if (bus->hasRGB() && bus->hasWhite()) return true;
   }
   return false;
@@ -1801,8 +1747,8 @@ bool WS2812FX::hasRGBWBus() const {
 bool WS2812FX::hasCCTBus() const {
   if (cctFromRgb && !correctWB) return false;
   for (size_t b = 0; b < BusManager::getNumBusses(); b++) {
-    const Bus *bus = BusManager::getBus(b);
-    if (!bus || !bus->isOk()) break;
+    Bus *bus = BusManager::getBus(b);
+    if (bus == nullptr || bus->getLength()==0) break;
     if (bus->hasCCT()) return true;
   }
   return false;
@@ -1855,11 +1801,10 @@ void WS2812FX::makeAutoSegments(bool forceReset) {
     #endif
 
     for (size_t i = s; i < BusManager::getNumBusses(); i++) {
-      const Bus *bus = BusManager::getBus(i);
-      if (!bus || !bus->isOk()) break;
+      Bus* b = BusManager::getBus(i);
 
-      segStarts[s] = bus->getStart();
-      segStops[s]  = segStarts[s] + bus->getLength();
+      segStarts[s] = b->getStart();
+      segStops[s]  = segStarts[s] + b->getLength();
 
       #ifndef WLED_DISABLE_2D
       if (isMatrix && segStops[s] <= Segment::maxWidth*Segment::maxHeight) continue; // ignore buses comprising matrix
@@ -1949,8 +1894,7 @@ bool WS2812FX::checkSegmentAlignment() const {
   bool aligned = false;
   for (const segment &seg : _segments) {
     for (unsigned b = 0; b<BusManager::getNumBusses(); b++) {
-      const Bus *bus = BusManager::getBus(b);
-      if (!bus || !bus->isOk()) break;
+      Bus *bus = BusManager::getBus(b);
       if (seg.start == bus->getStart() && seg.stop == bus->getStart() + bus->getLength()) aligned = true;
     }
     if (seg.start == 0 && seg.stop == _length) aligned = true;
@@ -2047,16 +1991,11 @@ bool WS2812FX::deserializeMap(unsigned n) {
 
   if (!isFile || !requestJSONBufferLock(7)) return false;
 
-  StaticJsonDocument<64> filter;
-  filter[F("width")]  = true;
-  filter[F("height")] = true;
-  if (!readObjectFromFile(fileName, nullptr, pDoc, &filter)) {
+  if (!readObjectFromFile(fileName, nullptr, pDoc)) {
     DEBUG_PRINT(F("ERROR Invalid ledmap in ")); DEBUG_PRINTLN(fileName);
     releaseJSONBufferLock();
     return false; // if file does not load properly then exit
   }
-
-  suspend();
 
   JsonObject root = pDoc->as<JsonObject>();
   // if we are loading default ledmap (at boot) set matrix width and height from the ledmap (compatible with WLED MM ledmaps)
@@ -2070,51 +2009,15 @@ bool WS2812FX::deserializeMap(unsigned n) {
 
   if (customMappingTable) {
     DEBUG_PRINT(F("Reading LED map from ")); DEBUG_PRINTLN(fileName);
-    File f = WLED_FS.open(fileName, "r");
-    f.find("\"map\":[");
-    while (f.available()) { // f.position() < f.size() - 1
-      char number[32];
-      size_t numRead = f.readBytesUntil(',', number, sizeof(number)-1); // read a single number (may include array terminating "]" but not number separator ',')
-      number[numRead] = 0;
-      if (numRead > 0) {
-        char *end = strchr(number,']'); // we encountered end of array so stop processing if no digit found
-        bool foundDigit = (end == nullptr);
-        int i = 0;
-        if (end != nullptr) do {
-          if (number[i] >= '0' && number[i] <= '9') foundDigit = true;
-          if (foundDigit || &number[i++] == end) break;
-        } while (i < 32);
-        if (!foundDigit) break;
-        int index = atoi(number);
-        if (index < 0 || index > 16384) index = 0xFFFF;
-        customMappingTable[customMappingSize++] = index;
-        if (customMappingSize > getLengthTotal()) break;
-      } else break; // there was nothing to read, stop
-    }
-    currentLedmap = n;
-    f.close();
-
-    #ifdef WLED_DEBUG
-    DEBUG_PRINT(F("Loaded ledmap:"));
-    for (unsigned i=0; i<customMappingSize; i++) {
-      if (!(i%Segment::maxWidth)) DEBUG_PRINTLN();
-      DEBUG_PRINTF_P(PSTR("%4d,"), customMappingTable[i]);
-    }
-    DEBUG_PRINTLN();
-    #endif
-/*
     JsonArray map = root[F("map")];
     if (!map.isNull() && map.size()) {  // not an empty map
       customMappingSize = min((unsigned)map.size(), (unsigned)getLengthTotal());
       for (unsigned i=0; i<customMappingSize; i++) customMappingTable[i] = (uint16_t) (map[i]<0 ? 0xFFFFU : map[i]);
       currentLedmap = n;
     }
-*/
   } else {
     DEBUG_PRINTLN(F("ERROR LED map allocation error."));
   }
-
-  resume();
 
   releaseJSONBufferLock();
   return (customMappingSize > 0);

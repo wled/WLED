@@ -530,7 +530,7 @@ static void decodeIR9(uint32_t code)
 
 /*
 This allows users to customize IR actions without the need to edit C code and compile.
-From the https://github.com/wled-dev/WLED/wiki/Infrared-Control page, download the starter
+From the https://github.com/Aircoookie/WLED/wiki/Infrared-Control page, download the starter
 ir.json file that corresponds to the number of buttons on your remote.
 Many of the remotes with the same number of buttons emit the same codes, but will have
 different labels or colors. Once you edit the ir.json file, upload it to your controller
