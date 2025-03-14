@@ -149,7 +149,7 @@ void WS2812FX::setUpMatrix() {
 // pixel is clipped if it falls outside clipping range (Segment::isPreviousMode()) or is inside clipping range (!Segment::isPreviousMode())
 // if clipping start > stop the clipping range is inverted
 bool IRAM_ATTR Segment::isPixelXYClipped(int x, int y) const {
-  if (_clipStart != _clipStop && blendingStyle != BLEND_STYLE_FADE) {
+  if (isInTransition() && _clipStart != _clipStop && blendingStyle != BLEND_STYLE_FADE) {
     const bool invertX = _clipStart > _clipStop;
     const bool invertY = _clipStartY > _clipStopY;
     const int startX   = invertX ? _clipStop : _clipStart;

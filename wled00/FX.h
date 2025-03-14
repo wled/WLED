@@ -396,9 +396,8 @@ class Segment {
       };
     };
     uint8_t  grouping, spacing;
-    uint8_t  opacity;
+    uint8_t  opacity,  cct;       // 0==1900K, 255==10091K
     uint32_t colors[NUM_COLORS];
-    uint8_t  cct;                 //0==1900K, 255==10091K
     uint8_t  custom1, custom2;    // custom FX parameters/sliders
     struct {
       uint8_t custom3 : 5;        // reduced range slider (0-31)
@@ -424,7 +423,9 @@ class Segment {
     static uint16_t maxWidth, maxHeight;  // these define matrix width & height (max. segment dimensions)
 
   private:
-    uint32_t *pixels;   // pixel data
+    uint32_t *pixels;                 // pixel data
+    unsigned  _dataLen;
+    uint8_t   _default_palette;       // palette number that gets assigned to pal0
     union {
       mutable uint8_t  _capabilities; // determines segment capabilities in terms of what is available: RGB, W, CCT, manual W, etc.
       struct {
@@ -435,12 +436,12 @@ class Segment {
         uint8_t _reserved : 4;
       };
     };
-    uint8_t         _default_palette;         // palette number that gets assigned to pal0
-    unsigned        _dataLen;
-    static unsigned _usedSegmentData;         // amount of data used by all segments
-    static unsigned _vLength;                 // 1D dimension used for current effect
-    static unsigned _vWidth, _vHeight;        // 2D dimensions used for current effect
-    static uint32_t _currentColors[NUM_COLORS]; // colors used for current effect (faster access from effect functions)
+
+    // static variables are use to speed up effect calculations by stashing common pre-calculated values
+    static unsigned      _usedSegmentData;    // amount of data used by all segments
+    static unsigned      _vLength;            // 1D dimension used for current effect
+    static unsigned      _vWidth, _vHeight;   // 2D dimensions used for current effect
+    static uint32_t      _currentColors[NUM_COLORS]; // colors used for current effect (faster access from effect functions)
     static CRGBPalette16 _currentPalette;     // palette used for current effect (includes transition, used in color_from_palette())
     static CRGBPalette16 _randomPalette;      // actual random palette
     static CRGBPalette16 _newRandomPalette;   // target random palette
@@ -448,73 +449,80 @@ class Segment {
     static uint16_t      _lastPaletteBlend;   // blend palette according to set Transition Delay in millis()%0xFFFF
     static uint16_t      _transitionProgress; // transition progression between 0-65535
     static bool          _modeBlend;          // mode/effect blending semaphore
-    // clipping
-    static uint16_t _clipStart, _clipStop;
-    static uint8_t  _clipStartY, _clipStopY;
+    // clipping rectangle used for blending
+    static uint16_t      _clipStart, _clipStop;
+    static uint8_t       _clipStartY, _clipStopY;
 
     // transition data, holds values during transition (60 bytes)
     struct Transition {
-      Segment      *_oldSegment;  // previous segment environment
-      unsigned long _start;       // must accommodate millis()
-      uint16_t      _dur;
-      uint32_t      _colors[NUM_COLORS]; // current colors
-      CRGBPalette16 _palT;        // temporary palette (slowly being morphed from old to new)
-      uint8_t       _prevPaletteBlends; // number of previous palette blends (there are max 255 blends possible)
-      uint8_t       _bri, _cct;
+      Segment      *_oldSegment;          // previous segment environment (may be nullptr if effect did not change)
+      unsigned long _start;               // must accommodate millis()
+      uint32_t      _colors[NUM_COLORS];  // current colors
+      CRGBPalette16 _palT;                // temporary palette (slowly being morphed from old to new)
+      uint16_t      _dur;                 // duration of transition in ms
+      uint8_t       _prevPaletteBlends;   // number of previous palette blends (there are max 255 blends possible)
+      uint8_t       _bri, _cct;           // brightness and CCT at the start of transition (brightness will be 0 if segment was off)
       Transition(uint16_t dur=750)
-        : _oldSegment(nullptr)
-        , _start(millis())
-        , _dur(dur)
-        , _colors{0,0,0}
-        , _palT(CRGBPalette16(CRGB::Black))
-        , _prevPaletteBlends(0)
-        , _bri(0)
-        , _cct(0)
+      : _oldSegment(nullptr)
+      , _start(millis())
+      , _colors{0,0,0}
+      , _palT(CRGBPalette16(CRGB::Black))
+      , _dur(dur)
+      , _prevPaletteBlends(0)
+      , _bri(0)
+      , _cct(0)
       {}
       ~Transition() {
-        //DEBUGFX_PRINTF_P(PSTR("-- Destroying transition: %p\n"), this);
+        DEBUGFX_PRINTF_P(PSTR("-- Destroying transition: %p\n"), this);
+        if (_oldSegment) delete _oldSegment;
       }
     } *_t;
 
+  protected:
+
     inline void     setPixelColorRaw(unsigned i, uint32_t c) const  { pixels[i] = c; }
     inline uint32_t getPixelColorRaw(unsigned i) const              { return pixels[i]; };
+  #ifndef WLED_DISABLE_2D
+    inline void     setPixelColorXYRaw(unsigned x, unsigned y, uint32_t c) const  { auto XY = [](unsigned x, unsigned y){ return x + y*Segment::vWidth(); }; pixels[XY(x,y)] = c; }
+    inline uint32_t getPixelColorXYRaw(unsigned x, unsigned y) const              { auto XY = [](unsigned x, unsigned y){ return x + y*Segment::vWidth(); }; return pixels[XY(x,y)]; };
+  #endif
 
   public:
 
-    Segment(uint16_t sStart=0, uint16_t sStop=30, uint16_t sStartY = 0, uint16_t sStopY = 1) :
-      start(sStart),
-      stop(sStop > sStart ? sStop : sStart+1), // minimum length is 1
-      offset(0),
-      speed(DEFAULT_SPEED),
-      intensity(DEFAULT_INTENSITY),
-      palette(0),
-      mode(DEFAULT_MODE),
-      options(SELECTED | SEGMENT_ON),
-      grouping(1),
-      spacing(0),
-      opacity(255),
-      colors{DEFAULT_COLOR,BLACK,BLACK},
-      cct(127),
-      custom1(DEFAULT_C1),
-      custom2(DEFAULT_C2),
-      custom3(DEFAULT_C3),
-      check1(false),
-      check2(false),
-      check3(false),
-      blendMode(0),
-      startY(sStartY),
-      stopY(sStopY > sStartY ? sStopY : sStartY+1), // minimum height is 1
-      name(nullptr),
-      next_time(0),
-      step(0),
-      call(0),
-      aux0(0),
-      aux1(0),
-      data(nullptr),
-      _capabilities(0),
-      _default_palette(6),
-      _dataLen(0),
-      _t(nullptr)
+    Segment(uint16_t sStart=0, uint16_t sStop=30, uint16_t sStartY = 0, uint16_t sStopY = 1)
+    : start(sStart)
+    , stop(sStop > sStart ? sStop : sStart+1) // minimum length is 1
+    , offset(0)
+    , speed(DEFAULT_SPEED)
+    , intensity(DEFAULT_INTENSITY)
+    , palette(0)
+    , mode(DEFAULT_MODE)
+    , options(SELECTED | SEGMENT_ON)
+    , grouping(1)
+    , spacing(0)
+    , opacity(255)
+    , cct(127)
+    , colors{DEFAULT_COLOR,BLACK,BLACK}
+    , custom1(DEFAULT_C1)
+    , custom2(DEFAULT_C2)
+    , custom3(DEFAULT_C3)
+    , check1(false)
+    , check2(false)
+    , check3(false)
+    , blendMode(0)
+    , startY(sStartY)
+    , stopY(sStopY > sStartY ? sStopY : sStartY+1) // minimum height is 1
+    , name(nullptr)
+    , next_time(0)
+    , step(0)
+    , call(0)
+    , aux0(0)
+    , aux1(0)
+    , data(nullptr)
+    , _dataLen(0)
+    , _default_palette(6)
+    , _capabilities(0)
+    , _t(nullptr)
     {
       DEBUGFX_PRINTF_P(PSTR("-- Creating segment: %p [%d,%d:%d,%d]\n"), this, (int)start, (int)stop, (int)startY, (int)stopY);
       // allocate render buffer (always entire segment)
@@ -547,7 +555,7 @@ class Segment {
     Segment& operator= (Segment &&orig) noexcept; // move assignment
 
 #ifdef WLED_DEBUG_FX
-    size_t getSize() const { return sizeof(Segment) + (data?_dataLen:0) + (name?strlen(name):0) + (_t?sizeof(Transition):0); }
+    size_t getSize() const { return sizeof(Segment) + (data?_dataLen:0) + (name?strlen(name):0) + (_t?sizeof(Transition):0) + (pixels?length()*sizeof(uint32_t):0); }
 #endif
 
     inline bool     getOption(uint8_t n)   const { return ((options >> n) & 0x01); }
@@ -604,15 +612,9 @@ class Segment {
     inline Segment &markForReset() { reset = true; return *this; }  // setOption(SEG_OPTION_RESET, true)
 
     // transition functions
-    void     startTransition(uint16_t dur);     // transition has to start before actual segment values change
-    void     stopTransition();                  // ends transition mode by destroying transition structure (does nothing if not in transition)
-    inline void updateTransitionProgress() const {  // sets transition progress (0-65535) based on time passed since transition start
-      Segment::_transitionProgress = 0xFFFF;
-      if (isInTransition()) {
-        unsigned diff = millis() - _t->_start;
-        if (_t->_dur > 0 && diff < _t->_dur) Segment::_transitionProgress = diff * 0xFFFFU / _t->_dur;
-      }
-    }
+    void startTransition(uint16_t dur, bool segmentCopy = true);    // transition has to start before actual segment values change
+    void stopTransition();                  // ends transition mode by destroying transition structure (does nothing if not in transition)
+    void updateTransitionProgress() const;  // sets transition progress (0-65535) based on time passed since transition start
     inline void handleTransition() {
       updateTransitionProgress();
       if (isInTransition() && progress() == 0xFFFFU) stopTransition();

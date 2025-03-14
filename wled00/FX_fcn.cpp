@@ -283,12 +283,21 @@ CRGBPalette16 &Segment::loadPalette(CRGBPalette16 &targetPalette, uint8_t pal) {
 }
 
 // starting a transition has to occur before change so we get current values 1st
-void Segment::startTransition(uint16_t dur) {
-  if (dur == 0) {
-    if (isInTransition()) stopTransition();
+void Segment::startTransition(uint16_t dur, bool segmentCopy) {
+  if (dur == 0 || !isActive()) {
+    if (isInTransition()) _t->_dur = 0;
     return;
   }
-  if (isInTransition() || !isActive()) return; // already in transition or inactive no need to store anything
+  if (isInTransition()) {
+    if (segmentCopy && !_t->_oldSegment) {
+      // already in transition but segment copy requested and not yet created
+      _t->_oldSegment = new(std::nothrow) Segment(*this); // store/copy current segment settings
+      _t->_start = millis();                              // restart countdown
+      _t->_dur   = dur;
+      DEBUGFX_PRINTF_P(PSTR("-- Updated transition with segment copy: S=%p T(%p) O[%p] OP[%p]\n"), this, _t, _t->_oldSegment, _t->_oldSegment->pixels);
+    }
+    return;
+  }
 
   // no previous transition running, start by allocating memory for segment copy
   _t = new(std::nothrow) Transition(dur);
@@ -297,31 +306,39 @@ void Segment::startTransition(uint16_t dur) {
     _t->_cct = cct;
     loadPalette(_t->_palT, palette);
     for (int i=0; i<NUM_COLORS; i++) _t->_colors[i] = colors[i];
-    _t->_oldSegment = new(std::nothrow) Segment(*this); // store/copy current segment settings using placement new
+    if (segmentCopy) _t->_oldSegment = new(std::nothrow) Segment(*this); // store/copy current segment settings
+    #ifdef WLED_DEBUG_FX
     if (_t->_oldSegment) {
-      //DEBUGFX_PRINTF_P(PSTR("-- Started transition: S=%p T(%p) O[%p] OP[%p]\n"), this, _t, _t->_oldSegment, _t->_oldSegment->pixels);
+      DEBUGFX_PRINTF_P(PSTR("-- Started transition: S=%p T(%p) O[%p] OP[%p]\n"), this, _t, _t->_oldSegment, _t->_oldSegment->pixels);
     } else {
-      delete _t;
-      _t = nullptr;
+      DEBUGFX_PRINTF_P(PSTR("-- Started transition without old segment: S=%p T(%p)\n"), this, _t);
     }
+    #endif
   };
 }
 
 void Segment::stopTransition() {
-  //DEBUGFX_PRINTF_P(PSTR("-- Stopping transition: S=%p T(%p) O[%p]\n"), this, _t, _t->_oldSegment);
-  delete _t->_oldSegment;
+  DEBUGFX_PRINTF_P(PSTR("-- Stopping transition: S=%p T(%p) O[%p]\n"), this, _t, _t->_oldSegment);
   delete _t;
   _t = nullptr;
+}
+
+void Segment::updateTransitionProgress() const {  // sets transition progress (0-65535) based on time passed since transition start
+  Segment::_transitionProgress = 0xFFFF;
+  if (isInTransition()) {
+    unsigned diff = millis() - _t->_start;
+    if (_t->_dur > 0 && diff < _t->_dur) Segment::_transitionProgress = diff * 0xFFFFU / _t->_dur;
+  }
 }
 
 // will return segment's opacity during a transition
 uint8_t Segment::currentCCT() const {
   unsigned prog = progress();
-  if (prog == 0xFFFFU) return cct;
-  // this will blend CCT in new mode if style is FADE (single effect call)
-  if (blendingStyle != BLEND_STYLE_FADE) return Segment::isPreviousMode() ? _t->_cct : cct;
-  unsigned tmpBri = cct * prog + (_t->_cct * (0xFFFFU - prog));
-  return tmpBri / 0xFFFFU;
+  if (prog < 0xFFFFU && _t) {
+    unsigned tmpBri = cct * prog + (_t->_cct * (0xFFFFU - prog));
+    return tmpBri / 0xFFFFU;
+  }
+  return cct;
 }
 
 // will return segment's opacity during a transition (blending it with old in case of FADE transition)
@@ -330,35 +347,24 @@ uint8_t Segment::currentBri() const {
   unsigned curBri = on ? opacity : 0;
   if (prog < 0xFFFFU && _t) {
     // this will blend opacity in new mode if style is FADE (single effect call)
-    unsigned oldBri = _t->_bri;
-    if (blendingStyle == BLEND_STYLE_FADE) curBri = (prog * curBri + oldBri * (0xFFFFU - prog)) / 0xFFFFU;
-    else curBri = Segment::isPreviousMode() ? oldBri : curBri;
+    if (blendingStyle == BLEND_STYLE_FADE) curBri = (prog * curBri + _t->_bri * (0xFFFFU - prog)) / 0xFFFFU;
+    else curBri = Segment::isPreviousMode() ? _t->_bri : curBri;
   }
   return curBri;
 }
 
 // pre-calculate drawing parameters for faster access (based on the idea from @softhack007 from MM fork)
-// must never be called from the temporary segment copy (in transition)
-// for drawing in temporary segment copy use setDrawDimensions()
+// if called from the temporary segment copy (while parent segment is in transition), it is never in transition
 void Segment::beginDraw() {
+  updateTransitionProgress(); // just in case if called form old segment's context
   unsigned prog = progress();
   setDrawDimensions();
   // adjust gamma for effects
-  for (unsigned i = 0; i < NUM_COLORS; i++) _currentColors[i] = gamma32(colors[i]);
-  if (prog < 0xFFFFU && !Segment::isPreviousMode()) {
-    for (unsigned i = 0; i < NUM_COLORS; i++) {
-      if (blendingStyle != BLEND_STYLE_FADE) {
-        // workaround for on/off transition to respect blending style
-        uint32_t colT = (bri != briT) &&  bri ? BLACK : _t->_colors[i];  // On/Off transition active (bri!=briT) and final bri>0 : old color is BLACK
-        uint32_t colS = (bri != briT) && !bri ? BLACK : colors[i];       // On/Off transition active (bri!=briT) and final bri==0 : new color is BLACK
-        _currentColors[i] = Segment::isPreviousMode() ? colT : colS;    // _modeBlend==true -> old effect
-      } else
-        _currentColors[i] = color_blend16(_t->_colors[i], colors[i], prog);
-    }
-  }
+  for (unsigned i = 0; i < NUM_COLORS; i++)
+    _currentColors[i] = gamma32((prog < 0xFFFFU && blendingStyle == BLEND_STYLE_FADE) ? color_blend16(_t->_colors[i], colors[i], prog) : colors[i]);
   // load palette into _currentPalette
   loadPalette(Segment::_currentPalette, palette);
-  if (prog < 0xFFFFU && !Segment::isPreviousMode() && blendingStyle == BLEND_STYLE_FADE) {
+  if (prog < 0xFFFFU && blendingStyle == BLEND_STYLE_FADE) {
     // blend palettes
     // there are about 255 blend passes of 48 "blends" to completely blend two palettes (in _dur time)
     // minimum blend time is 100ms maximum is 65535ms
@@ -412,7 +418,7 @@ void Segment::setGeometry(uint16_t i1, uint16_t i2, uint8_t grp, uint8_t spc, ui
 
   DEBUGFX_PRINTF_P(PSTR("Segment geometry: %d,%d -> %d,%d [%d,%d]\n"), (int)i1, (int)i2, (int)i1Y, (int)i2Y, (int)grp, (int)spc);
   markForReset();
-  startTransition(strip.getTransition()); // start transition prior to change
+  startTransition(strip.getTransition()); // start transition prior to change (if segment is deactivated (start>stop) no transition will happen)
   stateChanged = true; // send UDP/WS broadcast
 
   // apply change immediately
@@ -461,7 +467,7 @@ Segment &Segment::setColor(uint8_t slot, uint32_t c) {
     if (slot == 1 && c != BLACK) return *this; // on/off segment cannot have secondary color non black
   }
   //DEBUGFX_PRINTF_P(PSTR("- Starting color transition: %d [0x%X]\n"), slot, c);
-  startTransition(strip.getTransition()); // start transition prior to change
+  startTransition(strip.getTransition(), false); // start transition prior to change (no need to copy segment)
   colors[slot] = c;
   stateChanged = true; // send UDP/WS broadcast
   return *this;
@@ -475,7 +481,7 @@ Segment &Segment::setCCT(uint16_t k) {
   }
   if (cct != k) {
     //DEBUGFX_PRINTF_P(PSTR("- Starting CCT transition: %d\n"), k);
-    startTransition(strip.getTransition()); // start transition prior to change
+    startTransition(strip.getTransition(), false); // start transition prior to change (no need to copy segment)
     cct = k;
     stateChanged = true; // send UDP/WS broadcast
   }
@@ -485,7 +491,7 @@ Segment &Segment::setCCT(uint16_t k) {
 Segment &Segment::setOpacity(uint8_t o) {
   if (opacity != o) {
     //DEBUGFX_PRINTF_P(PSTR("- Starting opacity transition: %d\n"), o);
-    startTransition(strip.getTransition()); // start transition prior to change
+    startTransition(strip.getTransition(), false); // start transition prior to change (no need to copy segment)
     opacity = o;
     stateChanged = true; // send UDP/WS broadcast
   }
@@ -496,7 +502,7 @@ Segment &Segment::setOption(uint8_t n, bool val) {
   bool prev = (options >> n) & 0x01;
   if (val == prev) return *this;
   //DEBUGFX_PRINTF_P(PSTR("- Starting option transition: %d\n"), n);
-  if (n == SEG_OPTION_ON) startTransition(strip.getTransition()); // start transition prior to change
+  if (n == SEG_OPTION_ON) startTransition(strip.getTransition(), false); // start transition prior to change (no need to copy segment)
   if (val) options |=   0x01 << n;
   else     options &= ~(0x01 << n);
   stateChanged = true; // send UDP/WS broadcast
@@ -509,7 +515,7 @@ Segment &Segment::setMode(uint8_t fx, bool loadDefaults) {
   if (fx >= strip.getModeCount()) fx = 0; // set solid mode
   // if we have a valid mode & is not reserved
   if (fx != mode) {
-    startTransition(strip.getTransition()); // set effect transitions
+    startTransition(strip.getTransition(), true); // set effect transitions (must create segment copy)
     mode = fx;
     int sOpt;
     // load default values from effect string
@@ -544,7 +550,7 @@ Segment &Segment::setPalette(uint8_t pal) {
   if (pal > 245 && (customPalettes.size() == 0 || 255U-pal > customPalettes.size()-1)) pal = 0; // custom palettes
   if (pal != palette) {
     //DEBUGFX_PRINTF_P(PSTR("- Starting palette transition: %d\n"), pal);
-    startTransition(strip.getTransition());
+    startTransition(strip.getTransition(), false); // start transition prior to change (no need to copy segment)
     palette = pal;
     stateChanged = true; // send UDP/WS broadcast
   }
@@ -652,7 +658,7 @@ uint16_t Segment::virtualLength() const {
 // pixel is clipped if it falls outside clipping range (Segment::isPreviousMode()) or is inside clipping range (!Segment::isPreviousMode())
 // if clipping start > stop the clipping range is inverted
 bool IRAM_ATTR Segment::isPixelClipped(int i) const {
-  if (_clipStart != _clipStop && blendingStyle != BLEND_STYLE_FADE) {
+  if (isInTransition() && _clipStart != _clipStop && blendingStyle != BLEND_STYLE_FADE) {
     bool invert = _clipStart > _clipStop;  // ineverted start & stop
     int start = invert ? _clipStop : _clipStart;
     int stop  = invert ? _clipStart : _clipStop;
@@ -1330,7 +1336,9 @@ void WS2812FX::service() {
         // workaround for on/off transition to respect blending style
         frameDelay = (*_mode[seg.mode])();  // run new/current mode (needed for bri workaround)
         seg.call++;
-        Segment *segO = seg.getOldSegment();  // if segment is not in transition this returns nullptr
+        // if segment is in transition and no old segment exists we don't need to run the old mode
+        // (blendSegments() takes care of On/Off transitions and clipping)
+        Segment *segO = seg.getOldSegment();
         if (segO && (seg.mode != segO->mode || blendingStyle != BLEND_STYLE_FADE)) {
           Segment::modeBlend(true);       // set semaphore for beginDraw() to blend colors and palette
           segO->beginDraw();              // set up palette & colors (also sets draw dimensions)
@@ -1507,8 +1515,9 @@ void WS2812FX::blendSegment(const Segment &topSegment) const {
     unsigned offsetY = (blendingStyle == BLEND_STYLE_PUSH_LEFT || blendingStyle == BLEND_STYLE_PUSH_RIGHT) ? 0 : progInv * rows / 0xFFFFU;
 
     for (int r = 0; r < rows; r++) for (int c = 0; c < cols; c++) {
-      const bool clipped = topSegment.isInTransition() && topSegment.isPixelXYClipped(c, r);
-      const Segment *seg = clipped && topSegment.getOldSegment() ? topSegment.getOldSegment() : &topSegment;  // pixel is never clipped for FADE
+      const bool clipped = topSegment.isPixelXYClipped(c, r);
+      const Segment *segO = topSegment.getOldSegment();
+      const Segment *seg = clipped && segO ? segO : &topSegment;  // pixel is never clipped for FADE
       int x = c;
       int y = r;
       // if segment is in transition and pixel is clipped take old segment's pixel and opacity
@@ -1519,10 +1528,10 @@ void WS2812FX::blendSegment(const Segment &topSegment) const {
         case BLEND_STYLE_PUSH_UP:    y = (y - offsetY + rows) % rows; break;
       }
       seg->setDrawDimensions();
-      uint32_t c_a = seg->getPixelColorXY(x, y); // will get clipped pixel from old segment or unclipped pixel from new segment
-      if (topSegment.getOldSegment() && blendingStyle == BLEND_STYLE_FADE && topSegment.mode != topSegment.getOldSegment()->mode) {
+      uint32_t c_a = seg->getPixelColorXYRaw(x, y); // will get clipped pixel from old segment or unclipped pixel from new segment
+      if (segO && blendingStyle == BLEND_STYLE_FADE && topSegment.mode != segO->mode) {
         // we need to blend old segment using fade as pixels ae not clipped
-        c_a = color_blend16(c_a, topSegment.getOldSegment()->getPixelColorXY(x, y), progInv);
+        c_a = color_blend16(c_a, segO->getPixelColorXYRaw(x, y), progInv);
       } else if (blendingStyle != BLEND_STYLE_FADE) {
         // workaround for On/Off transition
         // (bri != briT) && !bri => from On to Off
@@ -1572,8 +1581,9 @@ void WS2812FX::blendSegment(const Segment &topSegment) const {
     unsigned offsetI = progInv * vLen / 0xFFFFU;
 
     for (int k = 0; k < vLen; k++) {
-      const bool clipped = topSegment.isInTransition() && topSegment.isPixelClipped(k);
-      const Segment *seg = clipped && topSegment.getOldSegment() ? topSegment.getOldSegment() : &topSegment;  // pixel is never clipped for FADE
+      const bool clipped = topSegment.isPixelClipped(k);
+      const Segment *segO = topSegment.getOldSegment();
+      const Segment *seg = clipped && segO ? segO : &topSegment;  // pixel is never clipped for FADE
       int i = k;
       // if segment is in transition and pixel is clipped take old segment's pixel and opacity
       switch (blendingStyle) {
@@ -1581,10 +1591,10 @@ void WS2812FX::blendSegment(const Segment &topSegment) const {
         case BLEND_STYLE_SWIPE_LEFT:  i = (i - offsetI + vLen) % vLen; break;
       }
       seg->setDrawDimensions();
-      uint32_t c_a = seg->getPixelColor(i);
-      if (topSegment.getOldSegment() && blendingStyle == BLEND_STYLE_FADE && topSegment.mode != topSegment.getOldSegment()->mode) {
+      uint32_t c_a = seg->getPixelColorRaw(i); // will get clipped pixel from old segment or unclipped pixel from new segment
+      if (segO && blendingStyle == BLEND_STYLE_FADE && topSegment.mode != segO->mode) {
         // we need to blend old segment using fade as pixels are not clipped
-        c_a = color_blend16(c_a, topSegment.getOldSegment()->getPixelColor(i), progInv);
+        c_a = color_blend16(c_a, segO->getPixelColorRaw(i), progInv);
       } else if (blendingStyle != BLEND_STYLE_FADE) {
         // workaround for On/Off transition
         // (bri != briT) && !bri => from On to Off

@@ -6081,7 +6081,7 @@ uint16_t mode_2Dscrollingtext(void) {
       col1 = SEGCOLOR(0);
       col2 = SEGCOLOR(2);
     }
-  } else col2 = col1;
+  } else col2 = col1; // force characters to use single color (from palette)
 
   for (int i = 0; i < numberOfLetters; i++) {
     int xoffset = int(cols) - int(SEGENV.aux0) + rotLW*i;
