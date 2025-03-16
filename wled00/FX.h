@@ -209,6 +209,7 @@ extern byte realtimeMode;           // used in getMappedPixelIndex()
 #define FX_MODE_COLORTWINKLE            74
 #define FX_MODE_LAKE                    75
 #define FX_MODE_METEOR                  76
+#define FX_MODE_COPY                    77
 //#define FX_MODE_METEOR_SMOOTH           77 // merged with meteor
 #define FX_MODE_RAILWAY                 78
 #define FX_MODE_RIPPLE                  79
@@ -935,6 +936,7 @@ class WS2812FX {  // 96 bytes
 
     unsigned long now, timebase;
     uint32_t getPixelColor(unsigned i) const;
+    uint32_t getRenderedPixelXY(uint8_t segid, unsigned x, unsigned y = 0) const;
 
     inline uint32_t getLastShow() const   { return _lastShow; }           // returns millis() timestamp of last strip.show() call
 
