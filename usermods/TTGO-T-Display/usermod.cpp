@@ -75,20 +75,20 @@ void userSetup() {
 void userConnected() {}
 
 // needRedraw marks if redraw is required to prevent often redrawing.
-bool needRedraw = true;
+static bool needRedraw = true;
 
 // Next variables hold the previous known values to determine if redraw is
 // required.
-String knownSsid = "";
-IPAddress knownIp;
-uint8_t knownBrightness = 0;
-uint8_t knownMode = 0;
-uint8_t knownPalette = 0;
-uint8_t tftcharwidth = 19;  // Number of chars that fit on screen with text size set to 2
+static String knownSsid = "";
+static IPAddress knownIp;
+static uint8_t knownBrightness = 0;
+static uint8_t knownMode = 0;
+static uint8_t knownPalette = 0;
+static uint8_t tftcharwidth = 19;  // Number of chars that fit on screen with text size set to 2
 
-long lastUpdate_mod = 0;
-long lastRedraw = 0;
-bool displayTurnedOff = false;
+static long lastUpdate_mod = 0;
+static long lastRedraw = 0;
+static bool displayTurnedOff = false;
 // How often we are redrawing screen
 #define USER_LOOP_REFRESH_RATE_MS 5000
 
