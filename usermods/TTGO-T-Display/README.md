@@ -49,27 +49,5 @@ Once the platformio_override.ini file has been copied as described above, the pl
 ### Change to the WLED_T-Display environment
 This should appear as an option in the bottom toolbar.
 
-### TFT_eSPI Library Adjustments (board selection)
-You need to modify a file in the `TFT_eSPI` library to select the correct board.  If you followed the directions to modify and save the `platformio.ini` file above, the `User_Setup_Select.h` file can be found in the `/.pio/libdeps/WLED_T-Display/TFT_eSPI` folder.
-
-Modify the  `User_Setup_Select.h` file as follows:
-* Comment out the following line (which is the 'default' setup file):
-```ini
-//#include <User_Setup.h>           // Default setup is root library folder
-```
-* Uncomment the following line (which points to the setup file for the TTGO T-Display):
-```ini
-#include <User_Setups/Setup25_TTGO_T_Display.h>    // Setup file for ESP32 and TTGO T-Display ST7789V SPI bus TFT
-```
-
-Build the file.  If you see a failure like this:
-```ini
-xtensa-esp32-elf-g++: error: wled00\wled00.ino.cpp: No such file or directory
-xtensa-esp32-elf-g++: fatal error: no input files
-```
-try building again. Sometimes this happens on the first build attempt and subsequent attempts build correctly.
-
 Once the compilation is done and loaded onto the TTGO T-Display module, the display should show "Loading...", and then it will show the IP of the WLED access point.
 
-## Arduino IDE
-- UNTESTED
