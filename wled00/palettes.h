@@ -14,6 +14,125 @@
 #ifndef PalettesWLED_h
 #define PalettesWLED_h
 
+// Cloudy color palette
+const TProgmemRGBPalette16 CloudColors_p PROGMEM = {
+    CRGB::Blue,
+    CRGB::DarkBlue,
+    CRGB::DarkBlue,
+    CRGB::DarkBlue,
+
+    CRGB::DarkBlue,
+    CRGB::DarkBlue,
+    CRGB::DarkBlue,
+    CRGB::DarkBlue,
+
+    CRGB::Blue,
+    CRGB::DarkBlue,
+    CRGB::SkyBlue,
+    CRGB::SkyBlue,
+
+    CRGB::LightBlue,
+    CRGB::White,
+    CRGB::LightBlue,
+    CRGB::SkyBlue
+};
+
+// Lava color palette
+const TProgmemRGBPalette16 LavaColors_p PROGMEM = {
+    CRGB::Black,
+    CRGB::Maroon,
+    CRGB::Black,
+    CRGB::Maroon,
+
+    CRGB::DarkRed,
+    CRGB::DarkRed,
+    CRGB::Maroon,
+    CRGB::DarkRed,
+
+    CRGB::DarkRed,
+    CRGB::DarkRed,
+    CRGB::Red,
+    CRGB::Orange,
+
+    CRGB::White,
+    CRGB::Orange,
+    CRGB::Red,
+    CRGB::DarkRed
+};
+
+// Ocean colors, blues and whites
+const TProgmemRGBPalette16 OceanColors_p PROGMEM = {
+    CRGB::MidnightBlue,
+    CRGB::DarkBlue,
+    CRGB::MidnightBlue,
+    CRGB::Navy,
+
+    CRGB::DarkBlue,
+    CRGB::MediumBlue,
+    CRGB::SeaGreen,
+    CRGB::Teal,
+
+    CRGB::CadetBlue,
+    CRGB::Blue,
+    CRGB::DarkCyan,
+    CRGB::CornflowerBlue,
+
+    CRGB::Aquamarine,
+    CRGB::SeaGreen,
+    CRGB::Aqua,
+    CRGB::LightSkyBlue
+};
+
+/// Forest colors, greens
+const TProgmemRGBPalette16 ForestColors_p PROGMEM = {
+    CRGB::DarkGreen,
+    CRGB::DarkGreen,
+    CRGB::DarkOliveGreen,
+    CRGB::DarkGreen,
+
+    CRGB::Green,
+    CRGB::ForestGreen,
+    CRGB::OliveDrab,
+    CRGB::Green,
+
+    CRGB::SeaGreen,
+    CRGB::MediumAquamarine,
+    CRGB::LimeGreen,
+    CRGB::YellowGreen,
+
+    CRGB::LightGreen,
+    CRGB::LawnGreen,
+    CRGB::MediumAquamarine,
+    CRGB::ForestGreen
+};
+
+/// HSV Rainbow
+const TProgmemRGBPalette16 RainbowColors_p PROGMEM = {
+    0xFF0000, 0xD52A00, 0xAB5500, 0xAB7F00,
+    0xABAB00, 0x56D500, 0x00FF00, 0x00D52A,
+    0x00AB55, 0x0056AA, 0x0000FF, 0x2A00D5,
+    0x5500AB, 0x7F0081, 0xAB0055, 0xD5002B};
+
+/// Alias of RainbowStripeColors_p
+#define RainbowStripesColors_p RainbowStripeColors_p
+
+/// HSV Rainbow colors with alternatating stripes of black
+const TProgmemRGBPalette16 RainbowStripeColors_p PROGMEM = {
+    0xFF0000, 0x000000, 0xAB5500, 0x000000,
+    0xABAB00, 0x000000, 0x00FF00, 0x000000,
+    0x00AB55, 0x000000, 0x0000FF, 0x000000,
+    0x5500AB, 0x000000, 0xAB0055, 0x000000};
+
+/// HSV color ramp: blue, purple, pink, red, orange, yellow (and back). 
+/// Basically, everything but the greens, which tend to make
+/// people's skin look unhealthy.  This palette is good for
+/// lighting at a club or party, where it'll be shining on people.
+const TProgmemRGBPalette16 PartyColors_p PROGMEM = {
+    0x5500AB, 0x84007C, 0xB5004B, 0xE5001B,
+    0xE81700, 0xB84700, 0xAB7700, 0xABAB00,
+    0xAB5500, 0xDD2200, 0xF2000E, 0xC2003E,
+    0x8F0071, 0x5F00A1, 0x2F00D0, 0x0007F9};
+
 const byte ib_jul01_gp[] PROGMEM = {
     0, 194,  1,  1,
    94,   1, 29, 18,

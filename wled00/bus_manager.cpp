@@ -24,24 +24,13 @@
 #include "bus_manager.h"
 #include "bus_wrapper.h"
 #include <bits/unique_ptr.h>
+#include "colors.h"
 
 extern bool cctICused;
 extern bool useParallelI2S;
 
-//colors.cpp
-uint32_t colorBalanceFromKelvin(uint16_t kelvin, uint32_t rgb);
-
 //udp.cpp
 uint8_t realtimeBroadcast(uint8_t type, IPAddress client, uint16_t length, const uint8_t* buffer, uint8_t bri=255, bool isRGBW=false);
-
-
-//color mangling macros
-#define RGBW32(r,g,b,w) (uint32_t((byte(w) << 24) | (byte(r) << 16) | (byte(g) << 8) | (byte(b))))
-#define R(c) (byte((c) >> 16))
-#define G(c) (byte((c) >> 8))
-#define B(c) (byte(c))
-#define W(c) (byte((c) >> 24))
-
 
 bool ColorOrderMap::add(uint16_t start, uint16_t len, uint8_t colorOrder) {
   if (count() >= WLED_MAX_COLOR_ORDER_MAPPINGS || len == 0 || (colorOrder & 0x0F) > COL_ORDER_MAX) return false; // upper nibble contains W swap information

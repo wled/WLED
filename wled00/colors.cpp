@@ -1,5 +1,6 @@
 #include "wled.h"
-
+#include "fcn_declare.h"
+//#include "colors.h" // todo: needed? its already included in fcn declare -> seems to compile fine without this include -> remove?
 /*
  * Color conversion & utility methods
  */
@@ -259,6 +260,139 @@ void hsv2rgb(const CHSV32& hsv, uint32_t& rgb) // convert HSV (16bit hue) to RGB
   }
 }
 
+inline CRGB hsv2rgb(const CHSV& hsv) {  // CHSV to CRGB
+  CHSV32 hsv32(hsv);
+  uint32_t rgb;
+  hsv2rgb(hsv32, rgb);
+  return CRGB(rgb);
+}
+
+
+/// @cond
+#define K255 255
+#define K171 171
+#define K170 170
+#define K85  85
+/// @endcond
+
+// rainbow spectrum, adapted from fastled //!!! TODO: check and optimized this function
+
+void hsv2rgb_rainbow(const CHSV& hsv, CRGB& rgb) {
+    uint8_t hue = hsv.hue;
+    uint8_t sat = hsv.sat;
+    uint8_t val = hsv.val;
+    uint8_t offset = hue & 0x1F; // 0..31
+    uint8_t offset8 = offset << 3; // offset8 = offset * 8
+    uint8_t third = scale8( offset8, (256 / 3)); // max = 85
+    uint8_t r, g, b;
+    if( ! (hue & 0x80) ) {
+        // 0XX
+        if( ! (hue & 0x40) ) {
+            // 00X
+            //section 0-1
+            if( ! (hue & 0x20) ) {
+                // 000
+                //case 0: // R -> O
+                r = K255 - third;
+                g = third;
+                b = 0;
+            } else {
+                    r = K171;
+                    g = K85 + third ;
+                    b = 0;
+            }
+        } else {
+            //01X
+            // section 2-3
+            if( !  (hue & 0x20) ) {
+
+                    //uint8_t twothirds = (third << 1);
+                    uint8_t twothirds = scale8( offset8, ((256 * 2) / 3)); // max=170
+                    r = K171 - twothirds;
+                    g = K170 + third;
+                    b = 0;
+
+            } else {
+                // 011
+                // case 3: // G -> A
+                r = 0;
+                g = K255 - third;
+                b = third;
+            }
+        }
+    } else {
+        // section 4-7
+        // 1XX
+        if( ! (hue & 0x40) ) {
+            // 10X
+            if( ! ( hue & 0x20) ) {
+                // 100
+                //case 4: // A -> B
+                r = 0;
+                //uint8_t twothirds = (third << 1);
+                uint8_t twothirds = scale8( offset8, ((256 * 2) / 3)); // max=170
+                g = K171 - twothirds; //K170?
+                b = K85  + twothirds;
+            } else {
+                // 101
+                //case 5: // B -> P
+                r = third;
+                g = 0;
+                b = K255 - third;
+            }
+        } else {
+            if( !  (hue & 0x20)  ) {
+                // 110
+                //case 6: // P -- K
+                r = K85 + third;
+                g = 0;
+                b = K171 - third;
+            } else {
+                // 111
+                //case 7: // K -> R
+                r = K170 + third;
+                g = 0;
+                b = K85 - third;
+            }
+        }
+    }
+    // Scale down colors if we're desaturated at all
+    // and add the brightness_floor to r, g, and b.
+    if( sat != 255 ) {
+        if( sat == 0) {
+            r = 255; b = 255; g = 255;
+        } else {
+            uint8_t desat = 255 - sat;
+            desat = scale8_video( desat, desat);
+            uint8_t satscale = 255 - desat;
+            if( r ) r = scale8( r, satscale) + 1;
+            if( g ) g = scale8( g, satscale) + 1;
+            if( b ) b = scale8( b, satscale) + 1;
+
+            uint8_t brightness_floor = desat;
+            r += brightness_floor;
+            g += brightness_floor;
+            b += brightness_floor;
+        }
+    }
+
+    // Now scale everything down if we're at value < 255.
+    if( val != 255 ) {
+        val = scale8_video( val, val);
+        if( val == 0 ) {
+            r=0; g=0; b=0;
+        } else {
+            if( r ) r = scale8( r, val) + 1;
+            if( g ) g = scale8( g, val) + 1;
+            if( b ) b = scale8( b, val) + 1;
+        }
+    }
+
+    rgb.r = r;
+    rgb.g = g;
+    rgb.b = b;
+}
+
 void rgb2hsv(const uint32_t rgb, CHSV32& hsv) // convert RGB to HSV (16bit hue), much more accurate and faster than fastled version
 {
     hsv.raw = 0;
@@ -278,6 +412,12 @@ void rgb2hsv(const uint32_t rgb, CHSV32& hsv) // convert RGB to HSV (16bit hue),
     if (maxval == r) hsv.h = (10923 * (g - b)) / delta;
     else if (maxval == g)  hsv.h = 21845 + (10923 * (b - r)) / delta;
     else hsv.h = 43690 + (10923 * (r - g)) / delta;
+}
+
+inline CHSV rgb2hsv(const CRGB c) {  // CRGB to CHSV
+  CHSV32 hsv;
+  rgb2hsv((uint32_t((byte(c.r) << 16) | (byte(c.g) << 8) | (byte(c.b)))), hsv);
+  return CHSV(hsv);
 }
 
 void colorHStoRGB(uint16_t hue, byte sat, byte* rgb) { //hue, sat to rgb
@@ -333,6 +473,27 @@ void colorCTtoRGB(uint16_t mired, byte* rgb) //white spectrum to rgb, bins
   } else {
     rgb[0]=237;rgb[1]=255;rgb[2]=239;//150
   }
+}
+
+// black body radiation to RGB (from fastled)
+CRGB HeatColor(uint8_t temperature) {
+    CRGB heatcolor;
+    uint8_t t192 = (((int)temperature * 191) >> 8) + (temperature ? 1 : 0); // scale down, but keep 1 as minimum
+    // calculate a value that ramps up from zero to 255 in each 'third' of the scale.
+    uint8_t heatramp = t192 & 0x3F; // 0..63
+    heatramp <<= 2; // scale up to 0..252
+    heatcolor.r = 255;
+    heatcolor.b = 0;
+    if( t192 & 0x80) { // we're in the hottest third
+        heatcolor.g = 255; // full green
+        heatcolor.b = heatramp; // ramp up blue
+    } else if( t192 & 0x40 ) { // we're in the middle third
+        heatcolor.g = heatramp; // ramp up green
+    } else { // we're in the coolest third
+        heatcolor.r = heatramp; // ramp up red
+        heatcolor.g = 0; // no green
+    }
+    return heatcolor;
 }
 
 #ifndef WLED_DISABLE_HUESYNC
@@ -542,4 +703,86 @@ uint32_t IRAM_ATTR_YN NeoGammaWLEDMethod::Correct32(uint32_t color)
   g = gammaT[g];
   b = gammaT[b];
   return RGBW32(r, g, b, w);
+}
+
+// CRGB color fill functions (from fastled, used for color palettes)
+void fill_solid_RGB(CRGB* colors, uint32_t num, const CRGB& c1) {
+  for(uint32_t i = 0; i < num; i++) {
+    colors[i] = c1;
+  }
+}
+
+// fill CRGB array with a color gradient
+void fill_gradient_RGB(CRGB* colors, uint32_t startpos, CRGB startcolor, uint32_t endpos, CRGB endcolor) {
+  if(endpos < startpos) { // if the points are in the wrong order, flip them
+      uint32_t t = endpos;
+      CRGB tc = endcolor;
+      endcolor = startcolor;
+      endpos = startpos;
+      startpos = t;
+      startcolor = tc;
+  }
+  int32_t rdistance = endcolor.r - startcolor.r;
+  int32_t gdistance = endcolor.g - startcolor.g;
+  int32_t bdistance = endcolor.b - startcolor.b;
+
+  int32_t divisor = endpos - startpos;
+  divisor = divisor == 0 ? 1 : divisor; // prevent division by zero
+
+  int32_t rdelta = (rdistance << 16) / divisor;
+  int32_t gdelta = (gdistance << 16) / divisor;
+  int32_t bdelta = (bdistance << 16) / divisor;
+
+  int32_t rshifted = startcolor.r << 16;
+  int32_t gshifted = startcolor.g << 16;
+  int32_t bshifted = startcolor.b << 16;
+
+  for (int32_t i = startpos; i <= endpos; i++) {
+    colors[i] = CRGB(rshifted >> 16, gshifted >> 16, bshifted >> 16);
+    rshifted += rdelta;
+    gshifted += gdelta;
+    bshifted += bdelta;
+  }
+}
+
+void fill_gradient_RGB(CRGB* colors, uint32_t num, const CRGB& c1, const CRGB& c2) {
+  uint32_t last = num - 1;
+  fill_gradient_RGB(colors, 0, c1, last, c2);
+}
+
+void fill_gradient_RGB(CRGB* colors, uint32_t num, const CRGB& c1, const CRGB& c2, const CRGB& c3) {
+  uint32_t half = (num / 2);
+  uint32_t last = num - 1;
+  fill_gradient_RGB(colors,    0, c1, half, c2);
+  fill_gradient_RGB(colors, half, c2, last, c3);
+}
+
+void fill_gradient_RGB(CRGB* colors, uint32_t num, const CRGB& c1, const CRGB& c2, const CRGB& c3, const CRGB& c4) {
+  uint32_t onethird = (num / 3);
+  uint32_t twothirds = ((num * 2) / 3);
+  uint32_t last = num - 1;
+  fill_gradient_RGB(colors,         0, c1,  onethird, c2);
+  fill_gradient_RGB(colors,  onethird, c2, twothirds, c3);
+  fill_gradient_RGB(colors, twothirds, c3,      last, c4);
+}
+
+// palette blending
+void nblendPaletteTowardPalette(CRGBPalette16& current, CRGBPalette16& target, uint8_t maxChanges) {
+  uint8_t* p1;
+  uint8_t* p2;
+  uint32_t changes = 0;
+  p1 = (uint8_t*)current.entries;
+  p2 = (uint8_t*)target.entries;
+  const uint32_t totalChannels = sizeof(CRGBPalette16);
+  for (uint32_t i = 0; i < totalChannels; ++i) {
+    if (p1[i] == p2[i]) continue; // if the values are equal, no changes are needed
+    if (p1[i] < p2[i]) { ++p1[i]; ++changes; } // if the current value is less than the target, increase it by one
+    if (p1[i] > p2[i] ) { // if the current value is greater than the target, increase it by one (or two if it's still greater).
+      --p1[i]; ++changes;
+      if (p1[i] > p2[i])
+        --p1[i];
+    }
+    if( changes >= maxChanges)
+      break;
+  }
 }

@@ -514,10 +514,6 @@ void WLED::setup()
   DEBUG_PRINTF_P(PSTR("heap %u\n"), ESP.getFreeHeap());
 #endif
 
-  // Seed FastLED random functions with an esp random value, which already works properly at this point.
-  const uint32_t seed32 = hw_random();
-  random16_set_seed((uint16_t)seed32);
-
   #if WLED_WATCHDOG_TIMEOUT > 0
   enableWatchdog();
   #endif

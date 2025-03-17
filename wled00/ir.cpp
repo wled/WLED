@@ -2,6 +2,7 @@
 
 #ifndef WLED_DISABLE_INFRARED
 #include "ir_codes.h"
+#include "colors.h"
 
 /*
  * Infrared sensor support for several generic RGB remotes and custom JSON remote
@@ -128,22 +129,20 @@ static void changeEffectSpeed(int8_t amount)
     }
   } else { // if Effect == "solid Color", change the hue of the primary color
     Segment& sseg = irApplyToAllSelected ? strip.getFirstSelectedSeg() : strip.getMainSegment();
-    CRGB fastled_col = CRGB(sseg.colors[0]);
-    CHSV prim_hsv = rgb2hsv(fastled_col);
-    int16_t new_val = (int16_t)prim_hsv.h + amount;
-    if (new_val > 255) new_val -= 255;  // roll-over if  bigger than 255
-    if (new_val < 0) new_val += 255;    // roll-over if smaller than 0
-    prim_hsv.h = (byte)new_val;
-    hsv2rgb_rainbow(prim_hsv, fastled_col);
+    CHSV32 prim_hsv = sseg.colors[0];
+    prim_hsv.h += (amount<<8);
+    CRGBW newcolor;
+    hsv2rgb(prim_hsv, newcolor.color32);
+    newcolor.w = W(sseg.colors[0]);
     if (irApplyToAllSelected) {
       for (unsigned i = 0; i < strip.getSegmentsNum(); i++) {
         Segment& seg = strip.getSegment(i);
         if (!seg.isActive() || !seg.isSelected()) continue;
-        seg.colors[0] = RGBW32(fastled_col.red, fastled_col.green, fastled_col.blue, W(sseg.colors[0]));
+        seg.colors[0] = newcolor.color32;
       }
       setValuesFromFirstSelectedSeg();
     } else {
-      strip.getMainSegment().colors[0] = RGBW32(fastled_col.red, fastled_col.green, fastled_col.blue, W(sseg.colors[0]));
+      strip.getMainSegment().colors[0] = newcolor.color32;
       setValuesFromMainSeg();
     }
   }
@@ -172,20 +171,22 @@ static void changeEffectIntensity(int8_t amount)
     }
   } else { // if Effect == "solid Color", change the saturation of the primary color
     Segment& sseg = irApplyToAllSelected ? strip.getFirstSelectedSeg() : strip.getMainSegment();
-    CRGB fastled_col = CRGB(sseg.colors[0]);
-    CHSV prim_hsv = rgb2hsv(fastled_col);
-    int16_t new_val = (int16_t) prim_hsv.s + amount;
+
+    CHSV32 prim_hsv = sseg.colors[0];
+    int32_t new_val = (int32_t)prim_hsv.s + amount;
     prim_hsv.s = (byte)constrain(new_val,0,255);  // constrain to 0-255
-    hsv2rgb_rainbow(prim_hsv, fastled_col);
+    CRGBW newcolor;
+    hsv2rgb(prim_hsv, newcolor.color32);
+    newcolor.w = W(sseg.colors[0]);
     if (irApplyToAllSelected) {
       for (unsigned i = 0; i < strip.getSegmentsNum(); i++) {
         Segment& seg = strip.getSegment(i);
         if (!seg.isActive() || !seg.isSelected()) continue;
-        seg.colors[0] = RGBW32(fastled_col.red, fastled_col.green, fastled_col.blue, W(sseg.colors[0]));
+        seg.colors[0] = newcolor;
       }
       setValuesFromFirstSelectedSeg();
     } else {
-      strip.getMainSegment().colors[0] = RGBW32(fastled_col.red, fastled_col.green, fastled_col.blue, W(sseg.colors[0]));
+      strip.getMainSegment().colors[0] = newcolor;
       setValuesFromMainSeg();
     }
   }
