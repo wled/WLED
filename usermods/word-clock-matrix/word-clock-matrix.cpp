@@ -36,8 +36,8 @@ public:
     //other segments are text
     for (int i = 1; i < 10; i++)
     {
-      Segment &seg = strip.getSegment(i);
-      seg.colors[0] = ((0 << 24) | ((0 & 0xFF) << 16) | ((190 & 0xFF) << 8) | ((180 & 0xFF)));
+      Segment &text_seg = strip.getSegment(i);
+      text_seg.colors[0] = ((0 << 24) | ((0 & 0xFF) << 16) | ((190 & 0xFF) << 8) | ((180 & 0xFF)));
       strip.getSegment(i).setOption(0, true);
       strip.setBrightness(64);
     }
@@ -67,7 +67,7 @@ public:
     //strip.resetSegments();
     selectWordSegments(true);
     colorUpdated(CALL_MODE_FX_CHANGED);
-    savePreset(13, false);
+    savePreset(13);
     selectWordSegments(false);
     //strip.getSegment(0).setOption(0, true);
     strip.getSegment(0).setOption(2, true);
@@ -329,7 +329,7 @@ public:
 
     uint16_t getId()
     {
-      return USERMOD_ID_WORD_CLOCK_MATRIX;
+      return 500;
     }
 
 
