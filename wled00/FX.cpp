@@ -5697,7 +5697,7 @@ uint16_t mode_2DSunradiation(void) {                   // By: ldirko https://edi
   uint8_t someVal = SEGMENT.speed/4;             // Was 25.
   for (int j = 0; j < (rows + 2); j++) {
     for (int i = 0; i < (cols + 2); i++) {
-      byte col = (inoise8_raw(i * someVal, j * someVal, t)) / 2;
+      byte col = ((int16_t)perlin8(i * someVal, j * someVal, t) - 0x7F) / 3;
       bump[index++] = col;
     }
   }

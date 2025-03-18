@@ -18,9 +18,9 @@ struct CHSV;
 struct CRGBW;
 struct CHSV32;
 class CRGBPalette16;
-uint8_t scale8( uint8_t i, uint8_t scale );
-uint8_t qadd8( uint8_t i, uint8_t j);
-uint8_t qsub8( uint8_t i, uint8_t j);
+uint8_t scale8(uint8_t i, uint8_t scale);
+uint8_t qadd8(uint8_t i, uint8_t j);
+uint8_t qsub8(uint8_t i, uint8_t j);
 int8_t abs8(int8_t i);
 
 typedef uint32_t TProgmemRGBPalette16[16];
@@ -127,18 +127,16 @@ struct CHSV {
     inline CHSV() __attribute__((always_inline)) = default;
 
     ///Allow construction from hue, saturation, and value
-    inline CHSV( uint8_t ih, uint8_t is, uint8_t iv) __attribute__((always_inline))
-        : h(ih), s(is), v(iv)
-    {
-    }
+    inline CHSV(uint8_t ih, uint8_t is, uint8_t iv) __attribute__((always_inline))
+      : h(ih), s(is), v(iv) { }
 
-    /// Allow copy construction
+    // allow copy construction
     inline CHSV(const CHSV& rhs) __attribute__((always_inline)) = default;
 
-    /// Allow copy construction
+    // allow copy construction
     inline CHSV& operator= (const CHSV& rhs) __attribute__((always_inline)) = default;
 
-    /// Assign new HSV values
+    // assign new HSV values
     inline CHSV& setHSV(uint8_t ih, uint8_t is, uint8_t iv) __attribute__((always_inline)) {
         h = ih;
         s = is;
@@ -147,7 +145,7 @@ struct CHSV {
     }
 };
 
-// Representation of an RGB pixel (Red, Green, Blue)
+// representation of an RGB pixel (Red, Green, Blue)
 struct CRGB {
   union {
     struct {
@@ -167,1020 +165,679 @@ struct CRGB {
     uint8_t raw[3]; // order is: 0 = red, 1 = green, 2 = blue
   };
 
-  inline uint8_t& operator[] (uint8_t x) __attribute__((always_inline)) {
-    return raw[x];
-  }
+  inline uint8_t& operator[] (uint8_t x) __attribute__((always_inline)) { return raw[x]; }
 
-  /// Array access operator to index into the CRGB object
-  /// @param x the index to retrieve (0-2)
-  /// @returns the CRGB::raw value for the given index
-  inline const uint8_t& operator[] (uint8_t x) const __attribute__((always_inline))
-  {
-    return raw[x];
-  }
+  // array access operator to index into the CRGB object
+  inline const uint8_t& operator[] (uint8_t x) const __attribute__((always_inline)) { return raw[x]; }
 
-  /// Default constructor
-  /// @warning Default values are UNITIALIZED!
+  // default constructor (uninitialized)
   inline CRGB() __attribute__((always_inline)) = default;
 
-  /// Allow construction from red, green, and blue
-  /// @param ir input red value
-  /// @param ig input green value
-  /// @param ib input blue value
-  inline CRGB( uint8_t ir, uint8_t ig, uint8_t ib)  __attribute__((always_inline)): r(ir), g(ig), b(ib)
-  {
-  }
+  // allow construction from red, green, and blue
+  inline CRGB(uint8_t ir, uint8_t ig, uint8_t ib)  __attribute__((always_inline))
+    : r(ir), g(ig), b(ib) { }
 
-  /// Allow construction from 32-bit (really 24-bit) bit 0xRRGGBB color code
-  /// @param colorcode a packed 24 bit color code
-  inline CRGB( uint32_t colorcode)  __attribute__((always_inline))
-  : r((colorcode >> 16) & 0xFF), g((colorcode >> 8) & 0xFF), b((colorcode >> 0) & 0xFF)
-  {
-  }
-/*
-  /// Allow construction from a LEDColorCorrection enum
-  /// @param colorcode an LEDColorCorrect enumeration value
-  inline CRGB( LEDColorCorrection colorcode) __attribute__((always_inline))
-  : r((colorcode >> 16) & 0xFF), g((colorcode >> 8) & 0xFF), b((colorcode >> 0) & 0xFF)
-  {
+  // allow construction from 32-bit (really 24-bit) bit 0xRRGGBB color code
+  inline CRGB(uint32_t colorcode)  __attribute__((always_inline))
+    : r(R(colorcode)), g(G(colorcode)), b(B(colorcode)) { }
 
-  }
-
-  /// Allow construction from a ColorTemperature enum
-  /// @param colorcode an ColorTemperature enumeration value
-  inline CRGB( ColorTemperature colorcode) __attribute__((always_inline))
-  : r((colorcode >> 16) & 0xFF), g((colorcode >> 8) & 0xFF), b((colorcode >> 0) & 0xFF)
-  {
-
-  }
-*/
-  /// Allow copy construction
+  // allow copy construction
   inline CRGB(const CRGB& rhs) __attribute__((always_inline)) = default;
 
-  /// Allow construction from a CHSV color
+  // allow construction from a CHSV color
   inline CRGB(const CHSV& rhs) __attribute__((always_inline))  {
-    hsv2rgb_rainbow( rhs, *this);
+    hsv2rgb_rainbow(rhs, *this);
   }
-  /// Allow assignment from hue, saturation, and value
+  // allow assignment from hue, saturation, and value
   inline CRGB& setHSV (uint8_t hue, uint8_t sat, uint8_t val) __attribute__((always_inline))
   {
-      hsv2rgb_rainbow( CHSV(hue, sat, val), *this);
-      return *this;
+    hsv2rgb_rainbow(CHSV(hue, sat, val), *this);
+    return *this;
   }
 
-  /// Allow assignment from just a hue.
-  /// Saturation and value (brightness) are set automatically to max.
-  /// @param hue color hue
+  // Allow assignment from just a hue, sat and val are set to max
   inline CRGB& setHue (uint8_t hue) __attribute__((always_inline))
   {
-      hsv2rgb_rainbow( CHSV(hue, 255, 255), *this);
-      return *this;
+    hsv2rgb_rainbow(CHSV(hue, 255, 255), *this);
+    return *this;
   }
 
   /// Allow assignment from HSV color
   inline CRGB& operator= (const CHSV& rhs) __attribute__((always_inline))
   {
-      hsv2rgb_rainbow(rhs, *this);
-      return *this;
+    hsv2rgb_rainbow(rhs, *this);
+    return *this;
   }
-  /// Allow assignment from one RGB struct to another
+  // allow assignment from one RGB struct to another
   inline CRGB& operator= (const CRGB& rhs) __attribute__((always_inline)) = default;
 
-  /// Allow assignment from 32-bit (really 24-bit) 0xRRGGBB color code
-  /// @param colorcode a packed 24 bit color code
-  inline CRGB& operator= (const uint32_t colorcode) __attribute__((always_inline))
-  {
-      r = (colorcode >> 16) & 0xFF;
-      g = (colorcode >>  8) & 0xFF;
-      b = (colorcode >>  0) & 0xFF;
-      return *this;
-  }
-
-  /// Allow assignment from red, green, and blue
-  /// @param nr new red value
-  /// @param ng new green value
-  /// @param nb new blue value
-  inline CRGB& setRGB (uint8_t nr, uint8_t ng, uint8_t nb) __attribute__((always_inline))
-  {
-      r = nr;
-      g = ng;
-      b = nb;
-      return *this;
-  }
-
-
-  /// Allow assignment from 32-bit (really 24-bit) 0xRRGGBB color code
-  /// @param colorcode a packed 24 bit color code
-  inline CRGB& setColorCode (uint32_t colorcode) __attribute__((always_inline))
-  {
-      r = (colorcode >> 16) & 0xFF;
-      g = (colorcode >>  8) & 0xFF;
-      b = (colorcode >>  0) & 0xFF;
-      return *this;
-  }
-
-
-  /// Add one CRGB to another, saturating at 0xFF for each channel
-  inline CRGB& operator+= (const CRGB& rhs )
-  {
-      r = qadd8( r, rhs.r);
-      g = qadd8( g, rhs.g);
-      b = qadd8( b, rhs.b);
-      return *this;
-  }
-
-  /// Add a constant to each channel, saturating at 0xFF. 
-  /// @note This is NOT an operator+= overload because the compiler
-  /// can't usefully decide when it's being passed a 32-bit
-  /// constant (e.g. CRGB::Red) and an 8-bit one (CRGB::Blue)
-  inline CRGB& addToRGB (uint8_t d )
-  {
-      r = qadd8( r, d);
-      g = qadd8( g, d);
-      b = qadd8( b, d);
-      return *this;
-  }
-
-  /// Subtract one CRGB from another, saturating at 0x00 for each channel
-  inline CRGB& operator-= (const CRGB& rhs )
-  {
-      r = qsub8( r, rhs.r);
-      g = qsub8( g, rhs.g);
-      b = qsub8( b, rhs.b);
-      return *this;
-  }
-
-  /// Subtract a constant from each channel, saturating at 0x00. 
-  /// @note This is NOT an operator+= overload because the compiler
-  /// can't usefully decide when it's being passed a 32-bit
-  /// constant (e.g. CRGB::Red) and an 8-bit one (CRGB::Blue)
-  inline CRGB& subtractFromRGB(uint8_t d )
-  {
-      r = qsub8( r, d);
-      g = qsub8( g, d);
-      b = qsub8( b, d);
-      return *this;
-  }
-
-  /// Subtract a constant of '1' from each channel, saturating at 0x00
-  inline CRGB& operator-- ()  __attribute__((always_inline))
-  {
-      subtractFromRGB(1);
-      return *this;
-  }
-
-  /// @copydoc operator--
-  inline CRGB operator-- (int )  __attribute__((always_inline))
-  {
-      CRGB retval(*this);
-      --(*this);
-      return retval;
-  }
-
-  /// Add a constant of '1' from each channel, saturating at 0xFF
-  inline CRGB& operator++ ()  __attribute__((always_inline))
-  {
-      addToRGB(1);
-      return *this;
-  }
-
-  /// @copydoc operator++
-  inline CRGB operator++ (int )  __attribute__((always_inline))
-  {
-      CRGB retval(*this);
-      ++(*this);
-      return retval;
-  }
-
-  /// Divide each of the channels by a constant
-  inline CRGB& operator/= (uint8_t d )
-  {
-      r /= d;
-      g /= d;
-      b /= d;
-      return *this;
-  }
-
-  /// Right shift each of the channels by a constant
-  inline CRGB& operator>>= (uint8_t d)
-  {
-      r >>= d;
-      g >>= d;
-      b >>= d;
-      return *this;
-  }
-
-  /// Multiply each of the channels by a constant,
-  /// saturating each channel at 0xFF.
-  inline CRGB& operator*= (uint8_t d )
-  {
-      unsigned red = (unsigned)r * (unsigned)d;
-      unsigned green = (unsigned)r * (unsigned)d;
-      unsigned blue = (unsigned)r * (unsigned)d;
-      if( red > 255) red = 255;
-      if( green > 255) green = 255;
-      if( blue > 255) blue = 255;
-      r = red;
-      g = green;
-      b = blue;
-      return *this;
-  }
-
-  inline CRGB& nscale8_video(uint8_t scaledown) {
-    uint8_t nonzeroscale = (scaledown != 0) ? 1 : 0;
-    r = (r == 0) ? 0 : (((int)r * (int)(scaledown) ) >> 8) + nonzeroscale;
-    g = (g == 0) ? 0 : (((int)g * (int)(scaledown) ) >> 8) + nonzeroscale;
-    b = (b == 0) ? 0 : (((int)b * (int)(scaledown) ) >> 8) + nonzeroscale;
+  // allow assignment from 32-bit (really 24-bit) 0xRRGGBB color code
+  inline CRGB& operator= (const uint32_t colorcode) __attribute__((always_inline)) {
+    r = R(colorcode);
+    g = G(colorcode);
+    b = B(colorcode);
     return *this;
   }
 
-/*
-    /// fadeLightBy is a synonym for nscale8_video(), as a fade instead of a scale
-    /// @param fadefactor the amount to fade, sent to nscale8_video() as (255 - fadefactor)
-    inline CRGB& fadeLightBy (uint8_t fadefactor )
-    {
-        nscale8x3_video( r, g, b, 255 - fadefactor);
-        return *this;
-    }
-*/
-    /// Scale down a RGB to N/256ths of its current brightness, using
-    /// "plain math" dimming rules. "Plain math" dimming rules means that the low light
-    /// levels may dim all the way to 100% black.
-    /// @see nscale8x3
-    inline CRGB& nscale8 (uint8_t scaledown )
-    {
-        uint32_t scale_fixed = scaledown + 1;
-        r = (((uint32_t)r) * scale_fixed) >> 8;
-        g = (((uint32_t)g) * scale_fixed) >> 8;
-        b = (((uint32_t)b) * scale_fixed) >> 8;
-        return *this;
-    }
+  /// allow assignment from red, green, and blue
+  inline CRGB& setRGB (uint8_t nr, uint8_t ng, uint8_t nb) __attribute__((always_inline)) {
+    r = nr;
+    g = ng;
+    b = nb;
+    return *this;
+  }
+#define R(c) (byte((c) >> 16))
+#define G(c) (byte((c) >> 8))
+#define B(c) (byte(c))
 
-    /// Scale down a RGB to N/256ths of its current brightness, using
-    /// "plain math" dimming rules. "Plain math" dimming rules means that the low light
-    /// levels may dim all the way to 100% black.
-    /// @see ::scale8
-    inline CRGB& nscale8 (const CRGB & scaledown )
-    {
-        r = ::scale8(r, scaledown.r);
-        g = ::scale8(g, scaledown.g);
-        b = ::scale8(b, scaledown.b);
-        return *this;
-    }
+  /// Allow assignment from 32-bit (really 24-bit) 0xRRGGBB color code
+  inline CRGB& setColorCode (uint32_t colorcode) __attribute__((always_inline)) {
+    r = R(colorcode);
+    g = G(colorcode);
+    b = B(colorcode);
+    return *this;
+  }
 
-    /// Return a CRGB object that is a scaled down version of this object
-    inline CRGB scale8 (uint8_t scaledown ) const
-    {
-        CRGB out = *this;
-        uint32_t scale_fixed = scaledown + 1;
-        out.r = (((uint32_t)out.r) * scale_fixed) >> 8;
-        out.g = (((uint32_t)out.g) * scale_fixed) >> 8;
-        out.b = (((uint32_t)out.b) * scale_fixed) >> 8;
-        return out;
-    }
 
-    /// Return a CRGB object that is a scaled down version of this object
-    inline CRGB scale8 (const CRGB & scaledown ) const
-    {
-        CRGB out;
-        out.r = ::scale8(r, scaledown.r);
-        out.g = ::scale8(g, scaledown.g);
-        out.b = ::scale8(b, scaledown.b);
-        return out;
-    }
+  // add one CRGB to another, saturating at 0xFF for each channel
+  inline CRGB& operator+= (const CRGB& rhs) {
+    r = qadd8(r, rhs.r);
+    g = qadd8(g, rhs.g);
+    b = qadd8(b, rhs.b);
+    return *this;
+  }
 
-    /// fadeToBlackBy is a synonym for nscale8(), as a fade instead of a scale
-    /// @param fadefactor the amount to fade, sent to nscale8() as (255 - fadefactor)
-    inline CRGB& fadeToBlackBy (uint8_t fadefactor )
-    {
-        uint32_t scale_fixed = 256 - fadefactor;
-        r = (((uint32_t)r) * scale_fixed) >> 8;
-        g = (((uint32_t)g) * scale_fixed) >> 8;
-        b = (((uint32_t)b) * scale_fixed) >> 8;
-        return *this;
-    }
+  // add a constant to each channel, saturating at 0xFF
+  inline CRGB& addToRGB (uint8_t d) {
+    r = qadd8(r, d);
+    g = qadd8(g, d);
+    b = qadd8(b, d);
+    return *this;
+  }
 
-    /// "or" operator brings each channel up to the higher of the two values
-    inline CRGB& operator|= (const CRGB& rhs )
-    {
-        if( rhs.r > r) r = rhs.r;
-        if( rhs.g > g) g = rhs.g;
-        if( rhs.b > b) b = rhs.b;
-        return *this;
-    }
+  // subtract one CRGB from another, saturating at 0x00 for each channel
+  inline CRGB& operator-= (const CRGB& rhs) {
+    r = qsub8(r, rhs.r);
+    g = qsub8(g, rhs.g);
+    b = qsub8(b, rhs.b);
+    return *this;
+  }
 
-    /// @copydoc operator|=
-    inline CRGB& operator|= (uint8_t d )
-    {
-        if( d > r) r = d;
-        if( d > g) g = d;
-        if( d > b) b = d;
-        return *this;
-    }
+  // subtract a constant from each channel, saturating at 0x00
+  inline CRGB& subtractFromRGB(uint8_t d) {
+    r = qsub8(r, d);
+    g = qsub8(g, d);
+    b = qsub8(b, d);
+    return *this;
+  }
 
-    /// "and" operator brings each channel down to the lower of the two values
-    inline CRGB& operator&= (const CRGB& rhs )
-    {
-        if( rhs.r < r) r = rhs.r;
-        if( rhs.g < g) g = rhs.g;
-        if( rhs.b < b) b = rhs.b;
-        return *this;
-    }
+  // subtract a constant of '1' from each channel, saturating at 0x00
+  inline CRGB& operator-- () __attribute__((always_inline)) {
+    subtractFromRGB(1);
+    return *this;
+  }
 
-    /// @copydoc operator&=
-    inline CRGB& operator&= (uint8_t d )
-    {
-        if( d < r) r = d;
-        if( d < g) g = d;
-        if( d < b) b = d;
-        return *this;
-    }
+  // operator--
+  inline CRGB operator-- (int) __attribute__((always_inline)) {
+    CRGB retval(*this);
+    --(*this);
+    return retval;
+  }
 
-    /// This allows testing a CRGB for zero-ness
-    inline explicit operator bool() const __attribute__((always_inline))
-    {
-        return r || g || b;
-    }
+  // add a constant of '1' to each channel, saturating at 0xFF
+  inline CRGB& operator++ () __attribute__((always_inline)) {
+    addToRGB(1);
+    return *this;
+  }
 
-    /// Converts a CRGB to a 32-bit color having an alpha of 255.
-    inline explicit operator uint32_t() const
-    {
-        return uint32_t{0xff000000} |
-               (uint32_t{r} << 16) |
-               (uint32_t{g} << 8) |
-               uint32_t{b};
-    }
+  // operator++
+  inline CRGB operator++ (int) __attribute__((always_inline)) {
+    CRGB retval(*this);
+    ++(*this);
+    return retval;
+  }
 
-    /// Invert each channel
-    inline CRGB operator- () const
-    {
-        CRGB retval;
-        retval.r = 255 - r;
-        retval.g = 255 - g;
-        retval.b = 255 - b;
-        return retval;
-    }
+  // divide each of the channels by a constant
+  inline CRGB& operator/= (uint8_t d) {
+    r /= d;
+    g /= d;
+    b /= d;
+    return *this;
+  }
 
-    /// Get the average of the R, G, and B values
-    inline uint8_t getAverageLight( )  const {
-        return ((r + g + b) * 21846) >> 16; // x*21846>>16 is equal to "divide by 3"
-    }
+  // right shift each of the channels by a constant
+  inline CRGB& operator>>= (uint8_t d) {
+    r >>= d;
+    g >>= d;
+    b >>= d;
+    return *this;
+  }
 
-    /// Predefined RGB colors
-    typedef enum {
-        AliceBlue=0xF0F8FF,             ///< @htmlcolorblock{F0F8FF}
-        Amethyst=0x9966CC,              ///< @htmlcolorblock{9966CC}
-        AntiqueWhite=0xFAEBD7,          ///< @htmlcolorblock{FAEBD7}
-        Aqua=0x00FFFF,                  ///< @htmlcolorblock{00FFFF}
-        Aquamarine=0x7FFFD4,            ///< @htmlcolorblock{7FFFD4}
-        Azure=0xF0FFFF,                 ///< @htmlcolorblock{F0FFFF}
-        Beige=0xF5F5DC,                 ///< @htmlcolorblock{F5F5DC}
-        Bisque=0xFFE4C4,                ///< @htmlcolorblock{FFE4C4}
-        Black=0x000000,                 ///< @htmlcolorblock{000000}
-        BlanchedAlmond=0xFFEBCD,        ///< @htmlcolorblock{FFEBCD}
-        Blue=0x0000FF,                  ///< @htmlcolorblock{0000FF}
-        BlueViolet=0x8A2BE2,            ///< @htmlcolorblock{8A2BE2}
-        Brown=0xA52A2A,                 ///< @htmlcolorblock{A52A2A}
-        BurlyWood=0xDEB887,             ///< @htmlcolorblock{DEB887}
-        CadetBlue=0x5F9EA0,             ///< @htmlcolorblock{5F9EA0}
-        Chartreuse=0x7FFF00,            ///< @htmlcolorblock{7FFF00}
-        Chocolate=0xD2691E,             ///< @htmlcolorblock{D2691E}
-        Coral=0xFF7F50,                 ///< @htmlcolorblock{FF7F50}
-        CornflowerBlue=0x6495ED,        ///< @htmlcolorblock{6495ED}
-        Cornsilk=0xFFF8DC,              ///< @htmlcolorblock{FFF8DC}
-        Crimson=0xDC143C,               ///< @htmlcolorblock{DC143C}
-        Cyan=0x00FFFF,                  ///< @htmlcolorblock{00FFFF}
-        DarkBlue=0x00008B,              ///< @htmlcolorblock{00008B}
-        DarkCyan=0x008B8B,              ///< @htmlcolorblock{008B8B}
-        DarkGoldenrod=0xB8860B,         ///< @htmlcolorblock{B8860B}
-        DarkGray=0xA9A9A9,              ///< @htmlcolorblock{A9A9A9}
-        DarkGrey=0xA9A9A9,              ///< @htmlcolorblock{A9A9A9}
-        DarkGreen=0x006400,             ///< @htmlcolorblock{006400}
-        DarkKhaki=0xBDB76B,             ///< @htmlcolorblock{BDB76B}
-        DarkMagenta=0x8B008B,           ///< @htmlcolorblock{8B008B}
-        DarkOliveGreen=0x556B2F,        ///< @htmlcolorblock{556B2F}
-        DarkOrange=0xFF8C00,            ///< @htmlcolorblock{FF8C00}
-        DarkOrchid=0x9932CC,            ///< @htmlcolorblock{9932CC}
-        DarkRed=0x8B0000,               ///< @htmlcolorblock{8B0000}
-        DarkSalmon=0xE9967A,            ///< @htmlcolorblock{E9967A}
-        DarkSeaGreen=0x8FBC8F,          ///< @htmlcolorblock{8FBC8F}
-        DarkSlateBlue=0x483D8B,         ///< @htmlcolorblock{483D8B}
-        DarkSlateGray=0x2F4F4F,         ///< @htmlcolorblock{2F4F4F}
-        DarkSlateGrey=0x2F4F4F,         ///< @htmlcolorblock{2F4F4F}
-        DarkTurquoise=0x00CED1,         ///< @htmlcolorblock{00CED1}
-        DarkViolet=0x9400D3,            ///< @htmlcolorblock{9400D3}
-        DeepPink=0xFF1493,              ///< @htmlcolorblock{FF1493}
-        DeepSkyBlue=0x00BFFF,           ///< @htmlcolorblock{00BFFF}
-        DimGray=0x696969,               ///< @htmlcolorblock{696969}
-        DimGrey=0x696969,               ///< @htmlcolorblock{696969}
-        DodgerBlue=0x1E90FF,            ///< @htmlcolorblock{1E90FF}
-        FireBrick=0xB22222,             ///< @htmlcolorblock{B22222}
-        FloralWhite=0xFFFAF0,           ///< @htmlcolorblock{FFFAF0}
-        ForestGreen=0x228B22,           ///< @htmlcolorblock{228B22}
-        Fuchsia=0xFF00FF,               ///< @htmlcolorblock{FF00FF}
-        Gainsboro=0xDCDCDC,             ///< @htmlcolorblock{DCDCDC}
-        GhostWhite=0xF8F8FF,            ///< @htmlcolorblock{F8F8FF}
-        Gold=0xFFD700,                  ///< @htmlcolorblock{FFD700}
-        Goldenrod=0xDAA520,             ///< @htmlcolorblock{DAA520}
-        Gray=0x808080,                  ///< @htmlcolorblock{808080}
-        Grey=0x808080,                  ///< @htmlcolorblock{808080}
-        Green=0x008000,                 ///< @htmlcolorblock{008000}
-        GreenYellow=0xADFF2F,           ///< @htmlcolorblock{ADFF2F}
-        Honeydew=0xF0FFF0,              ///< @htmlcolorblock{F0FFF0}
-        HotPink=0xFF69B4,               ///< @htmlcolorblock{FF69B4}
-        IndianRed=0xCD5C5C,             ///< @htmlcolorblock{CD5C5C}
-        Indigo=0x4B0082,                ///< @htmlcolorblock{4B0082}
-        Ivory=0xFFFFF0,                 ///< @htmlcolorblock{FFFFF0}
-        Khaki=0xF0E68C,                 ///< @htmlcolorblock{F0E68C}
-        Lavender=0xE6E6FA,              ///< @htmlcolorblock{E6E6FA}
-        LavenderBlush=0xFFF0F5,         ///< @htmlcolorblock{FFF0F5}
-        LawnGreen=0x7CFC00,             ///< @htmlcolorblock{7CFC00}
-        LemonChiffon=0xFFFACD,          ///< @htmlcolorblock{FFFACD}
-        LightBlue=0xADD8E6,             ///< @htmlcolorblock{ADD8E6}
-        LightCoral=0xF08080,            ///< @htmlcolorblock{F08080}
-        LightCyan=0xE0FFFF,             ///< @htmlcolorblock{E0FFFF}
-        LightGoldenrodYellow=0xFAFAD2,  ///< @htmlcolorblock{FAFAD2}
-        LightGreen=0x90EE90,            ///< @htmlcolorblock{90EE90}
-        LightGrey=0xD3D3D3,             ///< @htmlcolorblock{D3D3D3}
-        LightPink=0xFFB6C1,             ///< @htmlcolorblock{FFB6C1}
-        LightSalmon=0xFFA07A,           ///< @htmlcolorblock{FFA07A}
-        LightSeaGreen=0x20B2AA,         ///< @htmlcolorblock{20B2AA}
-        LightSkyBlue=0x87CEFA,          ///< @htmlcolorblock{87CEFA}
-        LightSlateGray=0x778899,        ///< @htmlcolorblock{778899}
-        LightSlateGrey=0x778899,        ///< @htmlcolorblock{778899}
-        LightSteelBlue=0xB0C4DE,        ///< @htmlcolorblock{B0C4DE}
-        LightYellow=0xFFFFE0,           ///< @htmlcolorblock{FFFFE0}
-        Lime=0x00FF00,                  ///< @htmlcolorblock{00FF00}
-        LimeGreen=0x32CD32,             ///< @htmlcolorblock{32CD32}
-        Linen=0xFAF0E6,                 ///< @htmlcolorblock{FAF0E6}
-        Magenta=0xFF00FF,               ///< @htmlcolorblock{FF00FF}
-        Maroon=0x800000,                ///< @htmlcolorblock{800000}
-        MediumAquamarine=0x66CDAA,      ///< @htmlcolorblock{66CDAA}
-        MediumBlue=0x0000CD,            ///< @htmlcolorblock{0000CD}
-        MediumOrchid=0xBA55D3,          ///< @htmlcolorblock{BA55D3}
-        MediumPurple=0x9370DB,          ///< @htmlcolorblock{9370DB}
-        MediumSeaGreen=0x3CB371,        ///< @htmlcolorblock{3CB371}
-        MediumSlateBlue=0x7B68EE,       ///< @htmlcolorblock{7B68EE}
-        MediumSpringGreen=0x00FA9A,     ///< @htmlcolorblock{00FA9A}
-        MediumTurquoise=0x48D1CC,       ///< @htmlcolorblock{48D1CC}
-        MediumVioletRed=0xC71585,       ///< @htmlcolorblock{C71585}
-        MidnightBlue=0x191970,          ///< @htmlcolorblock{191970}
-        MintCream=0xF5FFFA,             ///< @htmlcolorblock{F5FFFA}
-        MistyRose=0xFFE4E1,             ///< @htmlcolorblock{FFE4E1}
-        Moccasin=0xFFE4B5,              ///< @htmlcolorblock{FFE4B5}
-        NavajoWhite=0xFFDEAD,           ///< @htmlcolorblock{FFDEAD}
-        Navy=0x000080,                  ///< @htmlcolorblock{000080}
-        OldLace=0xFDF5E6,               ///< @htmlcolorblock{FDF5E6}
-        Olive=0x808000,                 ///< @htmlcolorblock{808000}
-        OliveDrab=0x6B8E23,             ///< @htmlcolorblock{6B8E23}
-        Orange=0xFFA500,                ///< @htmlcolorblock{FFA500}
-        OrangeRed=0xFF4500,             ///< @htmlcolorblock{FF4500}
-        Orchid=0xDA70D6,                ///< @htmlcolorblock{DA70D6}
-        PaleGoldenrod=0xEEE8AA,         ///< @htmlcolorblock{EEE8AA}
-        PaleGreen=0x98FB98,             ///< @htmlcolorblock{98FB98}
-        PaleTurquoise=0xAFEEEE,         ///< @htmlcolorblock{AFEEEE}
-        PaleVioletRed=0xDB7093,         ///< @htmlcolorblock{DB7093}
-        PapayaWhip=0xFFEFD5,            ///< @htmlcolorblock{FFEFD5}
-        PeachPuff=0xFFDAB9,             ///< @htmlcolorblock{FFDAB9}
-        Peru=0xCD853F,                  ///< @htmlcolorblock{CD853F}
-        Pink=0xFFC0CB,                  ///< @htmlcolorblock{FFC0CB}
-        Plaid=0xCC5533,                 ///< @htmlcolorblock{CC5533}
-        Plum=0xDDA0DD,                  ///< @htmlcolorblock{DDA0DD}
-        PowderBlue=0xB0E0E6,            ///< @htmlcolorblock{B0E0E6}
-        Purple=0x800080,                ///< @htmlcolorblock{800080}
-        Red=0xFF0000,                   ///< @htmlcolorblock{FF0000}
-        RosyBrown=0xBC8F8F,             ///< @htmlcolorblock{BC8F8F}
-        RoyalBlue=0x4169E1,             ///< @htmlcolorblock{4169E1}
-        SaddleBrown=0x8B4513,           ///< @htmlcolorblock{8B4513}
-        Salmon=0xFA8072,                ///< @htmlcolorblock{FA8072}
-        SandyBrown=0xF4A460,            ///< @htmlcolorblock{F4A460}
-        SeaGreen=0x2E8B57,              ///< @htmlcolorblock{2E8B57}
-        Seashell=0xFFF5EE,              ///< @htmlcolorblock{FFF5EE}
-        Sienna=0xA0522D,                ///< @htmlcolorblock{A0522D}
-        Silver=0xC0C0C0,                ///< @htmlcolorblock{C0C0C0}
-        SkyBlue=0x87CEEB,               ///< @htmlcolorblock{87CEEB}
-        SlateBlue=0x6A5ACD,             ///< @htmlcolorblock{6A5ACD}
-        SlateGray=0x708090,             ///< @htmlcolorblock{708090}
-        SlateGrey=0x708090,             ///< @htmlcolorblock{708090}
-        Snow=0xFFFAFA,                  ///< @htmlcolorblock{FFFAFA}
-        SpringGreen=0x00FF7F,           ///< @htmlcolorblock{00FF7F}
-        SteelBlue=0x4682B4,             ///< @htmlcolorblock{4682B4}
-        Tan=0xD2B48C,                   ///< @htmlcolorblock{D2B48C}
-        Teal=0x008080,                  ///< @htmlcolorblock{008080}
-        Thistle=0xD8BFD8,               ///< @htmlcolorblock{D8BFD8}
-        Tomato=0xFF6347,                ///< @htmlcolorblock{FF6347}
-        Turquoise=0x40E0D0,             ///< @htmlcolorblock{40E0D0}
-        Violet=0xEE82EE,                ///< @htmlcolorblock{EE82EE}
-        Wheat=0xF5DEB3,                 ///< @htmlcolorblock{F5DEB3}
-        White=0xFFFFFF,                 ///< @htmlcolorblock{FFFFFF}
-        WhiteSmoke=0xF5F5F5,            ///< @htmlcolorblock{F5F5F5}
-        Yellow=0xFFFF00,                ///< @htmlcolorblock{FFFF00}
-        YellowGreen=0x9ACD32,           ///< @htmlcolorblock{9ACD32}
+  // multiply each of the channels by a constant, saturating each channel at 0xFF.
+  inline CRGB& operator*= (uint8_t d) {
+    unsigned red = (unsigned)r * (unsigned)d;
+    unsigned green = (unsigned)r * (unsigned)d;
+    unsigned blue = (unsigned)r * (unsigned)d;
+    if(red > 255) red = 255;
+    if(green > 255) green = 255;
+    if(blue > 255) blue = 255;
+    r = red;
+    g = green;
+    b = blue;
+    return *this;
+  }
 
-        // LED RGB color that roughly approximates
-        // the color of incandescent fairy lights,
-        // assuming that you're using FastLED
-        // color correction on your LEDs (recommended).
-        FairyLight=0xFFE42D,           ///< @htmlcolorblock{FFE42D}
+  // scale down a RGB to N/256ths of its current brightness (will not scale all the way to black)
+  inline CRGB& nscale8_video(uint8_t scaledown) {
+    uint8_t nonzeroscale = (scaledown != 0) ? 1 : 0;
+    r = (r == 0) ? 0 : (((int)r * (int)(scaledown)) >> 8) + nonzeroscale;
+    g = (g == 0) ? 0 : (((int)g * (int)(scaledown)) >> 8) + nonzeroscale;
+    b = (b == 0) ? 0 : (((int)b * (int)(scaledown)) >> 8) + nonzeroscale;
+    return *this;
+  }
 
-        // If you are using no color correction, use this
-        FairyLightNCC=0xFF9D2A         ///< @htmlcolorblock{FFE42D}
+  // scale down a RGB to N/256ths of its current brightness (can scale to black)
+  inline CRGB& nscale8(uint8_t scaledown) {
+    uint32_t scale_fixed = scaledown + 1;
+    r = (((uint32_t)r) * scale_fixed) >> 8;
+    g = (((uint32_t)g) * scale_fixed) >> 8;
+    b = (((uint32_t)b) * scale_fixed) >> 8;
+    return *this;
+  }
 
-    } HTMLColorCode;
+  inline CRGB& nscale8(const CRGB& scaledown) {
+    r = ::scale8(r, scaledown.r);
+    g = ::scale8(g, scaledown.g);
+    b = ::scale8(b, scaledown.b);
+    return *this;
+  }
+
+  /// Return a CRGB object that is a scaled down version of this object
+  inline CRGB scale8(uint8_t scaledown) const {
+    CRGB out = *this;
+    uint32_t scale_fixed = scaledown + 1;
+    out.r = (((uint32_t)out.r) * scale_fixed) >> 8;
+    out.g = (((uint32_t)out.g) * scale_fixed) >> 8;
+    out.b = (((uint32_t)out.b) * scale_fixed) >> 8;
+    return out;
+  }
+
+  /// Return a CRGB object that is a scaled down version of this object
+  inline CRGB scale8(const CRGB& scaledown) const {
+    CRGB out;
+    out.r = ::scale8(r, scaledown.r);
+    out.g = ::scale8(g, scaledown.g);
+    out.b = ::scale8(b, scaledown.b);
+    return out;
+  }
+
+  /// fadeToBlackBy is a synonym for nscale8(), as a fade instead of a scale
+  /// @param fadefactor the amount to fade, sent to nscale8() as (255 - fadefactor)
+  inline CRGB& fadeToBlackBy(uint8_t fadefactor) {
+    uint32_t scale_fixed = 256 - fadefactor;
+    r = (((uint32_t)r) * scale_fixed) >> 8;
+    g = (((uint32_t)g) * scale_fixed) >> 8;
+    b = (((uint32_t)b) * scale_fixed) >> 8;
+    return *this;
+  }
+
+  /// "or" operator brings each channel up to the higher of the two values
+  inline CRGB& operator|=(const CRGB& rhs) {
+    if (rhs.r > r) r = rhs.r;
+    if (rhs.g > g) g = rhs.g;
+    if (rhs.b > b) b = rhs.b;
+    return *this;
+  }
+
+  /// @copydoc operator|=
+  inline CRGB& operator|=(uint8_t d) {
+    if (d > r) r = d;
+    if (d > g) g = d;
+    if (d > b) b = d;
+    return *this;
+  }
+
+  /// "and" operator brings each channel down to the lower of the two values
+  inline CRGB& operator&=(const CRGB& rhs) {
+    if (rhs.r < r) r = rhs.r;
+    if (rhs.g < g) g = rhs.g;
+    if (rhs.b < b) b = rhs.b;
+    return *this;
+  }
+
+  /// @copydoc operator&=
+  inline CRGB& operator&=(uint8_t d) {
+    if (d < r) r = d;
+    if (d < g) g = d;
+    if (d < b) b = d;
+    return *this;
+  }
+
+  /// This allows testing a CRGB for zero-ness
+  inline explicit operator bool() const __attribute__((always_inline)) {
+    return r || g || b;
+  }
+
+  /// Converts a CRGB to a 32-bit color with white = 0
+  inline explicit operator uint32_t() const {
+    return (uint32_t{r} << 16) |
+           (uint32_t{g} << 8)  |
+            uint32_t{b};
+  }
+
+  // invert each channel
+  inline CRGB operator-() const {
+    CRGB retval;
+    retval.r = 255 - r;
+    retval.g = 255 - g;
+    retval.b = 255 - b;
+    return retval;
+  }
+
+  // get the average of the R, G, and B values
+  inline uint8_t getAverageLight() const {
+    return ((r + g + b) * 21846) >> 16; // x*21846>>16 is equal to "divide by 3"
+  }
+
+  typedef enum {
+    AliceBlue=0xF0F8FF,
+    Amethyst=0x9966CC,
+    AntiqueWhite=0xFAEBD7,
+    Aqua=0x00FFFF,
+    Aquamarine=0x7FFFD4,
+    Azure=0xF0FFFF,
+    Beige=0xF5F5DC,
+    Bisque=0xFFE4C4,
+    Black=0x000000,
+    BlanchedAlmond=0xFFEBCD,
+    Blue=0x0000FF,
+    BlueViolet=0x8A2BE2,
+    Brown=0xA52A2A,
+    BurlyWood=0xDEB887,
+    CadetBlue=0x5F9EA0,
+    Chartreuse=0x7FFF00,
+    Chocolate=0xD2691E,
+    Coral=0xFF7F50,
+    CornflowerBlue=0x6495ED,
+    Cornsilk=0xFFF8DC,
+    Crimson=0xDC143C,
+    Cyan=0x00FFFF,
+    DarkBlue=0x00008B,
+    DarkCyan=0x008B8B,
+    DarkGoldenrod=0xB8860B,
+    DarkGray=0xA9A9A9,
+    DarkGrey=0xA9A9A9,
+    DarkGreen=0x006400,
+    DarkKhaki=0xBDB76B,
+    DarkMagenta=0x8B008B,
+    DarkOliveGreen=0x556B2F,
+    DarkOrange=0xFF8C00,
+    DarkOrchid=0x9932CC,
+    DarkRed=0x8B0000,
+    DarkSalmon=0xE9967A,
+    DarkSeaGreen=0x8FBC8F,
+    DarkSlateBlue=0x483D8B,
+    DarkSlateGray=0x2F4F4F,
+    DarkSlateGrey=0x2F4F4F,
+    DarkTurquoise=0x00CED1,
+    DarkViolet=0x9400D3,
+    DeepPink=0xFF1493,
+    DeepSkyBlue=0x00BFFF,
+    DimGray=0x696969,
+    DimGrey=0x696969,
+    DodgerBlue=0x1E90FF,
+    FireBrick=0xB22222,
+    FloralWhite=0xFFFAF0,
+    ForestGreen=0x228B22,
+    Fuchsia=0xFF00FF,
+    Gainsboro=0xDCDCDC,
+    GhostWhite=0xF8F8FF,
+    Gold=0xFFD700,
+    Goldenrod=0xDAA520,
+    Gray=0x808080,
+    Grey=0x808080,
+    Green=0x008000,
+    GreenYellow=0xADFF2F,
+    Honeydew=0xF0FFF0,
+    HotPink=0xFF69B4,
+    IndianRed=0xCD5C5C,
+    Indigo=0x4B0082,
+    Ivory=0xFFFFF0,
+    Khaki=0xF0E68C,
+    Lavender=0xE6E6FA,
+    LavenderBlush=0xFFF0F5,
+    LawnGreen=0x7CFC00,
+    LemonChiffon=0xFFFACD,
+    LightBlue=0xADD8E6,
+    LightCoral=0xF08080,
+    LightCyan=0xE0FFFF,
+    LightGoldenrodYellow=0xFAFAD2,
+    LightGreen=0x90EE90,
+    LightGrey=0xD3D3D3,
+    LightPink=0xFFB6C1,
+    LightSalmon=0xFFA07A,
+    LightSeaGreen=0x20B2AA,
+    LightSkyBlue=0x87CEFA,
+    LightSlateGray=0x778899,
+    LightSlateGrey=0x778899,
+    LightSteelBlue=0xB0C4DE,
+    LightYellow=0xFFFFE0,
+    Lime=0x00FF00,
+    LimeGreen=0x32CD32,
+    Linen=0xFAF0E6,
+    Magenta=0xFF00FF,
+    Maroon=0x800000,
+    MediumAquamarine=0x66CDAA,
+    MediumBlue=0x0000CD,
+    MediumOrchid=0xBA55D3,
+    MediumPurple=0x9370DB,
+    MediumSeaGreen=0x3CB371,
+    MediumSlateBlue=0x7B68EE,
+    MediumSpringGreen=0x00FA9A,
+    MediumTurquoise=0x48D1CC,
+    MediumVioletRed=0xC71585,
+    MidnightBlue=0x191970,
+    MintCream=0xF5FFFA,
+    MistyRose=0xFFE4E1,
+    Moccasin=0xFFE4B5,
+    NavajoWhite=0xFFDEAD,
+    Navy=0x000080,
+    OldLace=0xFDF5E6,
+    Olive=0x808000,
+    OliveDrab=0x6B8E23,
+    Orange=0xFFA500,
+    OrangeRed=0xFF4500,
+    Orchid=0xDA70D6,
+    PaleGoldenrod=0xEEE8AA,
+    PaleGreen=0x98FB98,
+    PaleTurquoise=0xAFEEEE,
+    PaleVioletRed=0xDB7093,
+    PapayaWhip=0xFFEFD5,
+    PeachPuff=0xFFDAB9,
+    Peru=0xCD853F,
+    Pink=0xFFC0CB,
+    Plaid=0xCC5533,
+    Plum=0xDDA0DD,
+    PowderBlue=0xB0E0E6,
+    Purple=0x800080,
+    Red=0xFF0000,
+    RosyBrown=0xBC8F8F,
+    RoyalBlue=0x4169E1,
+    SaddleBrown=0x8B4513,
+    Salmon=0xFA8072,
+    SandyBrown=0xF4A460,
+    SeaGreen=0x2E8B57,
+    Seashell=0xFFF5EE,
+    Sienna=0xA0522D,
+    Silver=0xC0C0C0,
+    SkyBlue=0x87CEEB,
+    SlateBlue=0x6A5ACD,
+    SlateGray=0x708090,
+    SlateGrey=0x708090,
+    Snow=0xFFFAFA,
+    SpringGreen=0x00FF7F,
+    SteelBlue=0x4682B4,
+    Tan=0xD2B48C,
+    Teal=0x008080,
+    Thistle=0xD8BFD8,
+    Tomato=0xFF6347,
+    Turquoise=0x40E0D0,
+    Violet=0xEE82EE,
+    Wheat=0xF5DEB3,
+    White=0xFFFFFF,
+    WhiteSmoke=0xF5F5F5,
+    Yellow=0xFFFF00,
+    YellowGreen=0x9ACD32,
+    FairyLight=0xFFE42D,    // LED RGB color that roughly approximates the color of incandescent fairy lights
+    FairyLightNCC=0xFF9D2A  // if using no color correction, use this
+  } HTMLColorCode;
 };
 
 __attribute__((always_inline)) inline CRGB operator+(const CRGB& p1, const CRGB& p2) {
-    return CRGB( qadd8( p1.r, p2.r), qadd8( p1.g, p2.g), qadd8( p1.b, p2.b));
+  return CRGB(qadd8(p1.r, p2.r), qadd8(p1.g, p2.g), qadd8(p1.b, p2.b));
 }
 
 __attribute__((always_inline)) inline CRGB operator-(const CRGB& p1, const CRGB& p2) {
-    return CRGB( qsub8( p1.r, p2.r), qsub8( p1.g, p2.g), qsub8( p1.b, p2.b));
+  return CRGB(qsub8(p1.r, p2.r), qsub8(p1.g, p2.g), qsub8(p1.b, p2.b));
 }
 
 __attribute__((always_inline)) inline bool operator== (const CRGB& lhs, const CRGB& rhs) {
-    return (lhs.r == rhs.r) && (lhs.g == rhs.g) && (lhs.b == rhs.b);
+  return (lhs.r == rhs.r) && (lhs.g == rhs.g) && (lhs.b == rhs.b);
 }
 
 __attribute__((always_inline)) inline bool operator!= (const CRGB& lhs, const CRGB& rhs) {
-    return !(lhs == rhs);
+  return !(lhs == rhs);
 }
 
-/*
-/// HSV color palette with 16 discrete values
-class CHSVPalette16 {
-public:
-    CHSV entries[16];  ///< the color entries that make up the palette
-
-    /// @copydoc CHSV::CHSV()
-    CHSVPalette16() {};
-
-    /// Create palette from 16 CHSV values
-    CHSVPalette16( const CHSV& c00,const CHSV& c01,const CHSV& c02,const CHSV& c03,
-                    const CHSV& c04,const CHSV& c05,const CHSV& c06,const CHSV& c07,
-                    const CHSV& c08,const CHSV& c09,const CHSV& c10,const CHSV& c11,
-                    const CHSV& c12,const CHSV& c13,const CHSV& c14,const CHSV& c15 )
-    {
-        entries[0]=c00; entries[1]=c01; entries[2]=c02; entries[3]=c03;
-        entries[4]=c04; entries[5]=c05; entries[6]=c06; entries[7]=c07;
-        entries[8]=c08; entries[9]=c09; entries[10]=c10; entries[11]=c11;
-        entries[12]=c12; entries[13]=c13; entries[14]=c14; entries[15]=c15;
-    };
-
-    /// Copy constructor
-    CHSVPalette16( const CHSVPalette16& rhs)
-    {
-        memmove( (void *) &(entries[0]), &(rhs.entries[0]), sizeof( entries));
-    }
-
-    /// @copydoc CHSVPalette16(const CHSVPalette16& rhs)
-    CHSVPalette16& operator=( const CHSVPalette16& rhs)
-    {
-        memmove( (void *) &(entries[0]), &(rhs.entries[0]), sizeof( entries));
-        return *this;
-    }
-
-    /// Create palette from palette stored in PROGMEM
-    CHSVPalette16( const TProgmemHSVPalette16& rhs)
-    {
-        for( uint8_t i = 0; i < 16; ++i) {
-            CRGB xyz   =  FL_PGM_READ_DWORD_NEAR( rhs + i);
-            entries[i].hue = xyz.red;
-            entries[i].sat = xyz.green;
-            entries[i].val = xyz.blue;
-        }
-    }
-
-    /// @copydoc CHSVPalette16(const TProgmemHSVPalette16&)
-    CHSVPalette16& operator=( const TProgmemHSVPalette16& rhs)
-    {
-        for( uint8_t i = 0; i < 16; ++i) {
-            CRGB xyz   =  FL_PGM_READ_DWORD_NEAR( rhs + i);
-            entries[i].hue = xyz.red;
-            entries[i].sat = xyz.green;
-            entries[i].val = xyz.blue;
-        }
-        return *this;
-    }
-
-    /// Array access operator to index into the gradient entries
-    /// @param x the index to retrieve
-    /// @returns reference to an entry in the palette's color array
-    /// @note This does not perform any interpolation like ColorFromPalette(),
-    /// it accesses the underlying entries that make up the gradient. Beware
-    /// of bounds issues!
-    inline CHSV& operator[] (uint8_t x) __attribute__((always_inline))
-    {
-        return entries[x];
-    }
-
-    /// @copydoc operator[]
-    inline const CHSV& operator[] (uint8_t x) const __attribute__((always_inline))
-    {
-        return entries[x];
-    }
-
-    /// @copydoc operator[]
-    inline CHSV& operator[] (int x) __attribute__((always_inline))
-    {
-        return entries[(uint8_t)x];
-    }
-
-    /// @copydoc operator[]
-    inline const CHSV& operator[] (int x) const __attribute__((always_inline))
-    {
-        return entries[(uint8_t)x];
-    }
-
-    /// Get the underlying pointer to the CHSV entries making up the palette
-    operator CHSV*()
-    {
-        return &(entries[0]);
-    }
-
-    /// Check if two palettes have the same color entries
-    bool operator==( const CHSVPalette16 &rhs) const
-    {
-        const uint8_t* p = (const uint8_t*)(&(this->entries[0]));
-        const uint8_t* q = (const uint8_t*)(&(rhs.entries[0]));
-        if( p == q) return true;
-        for( uint8_t i = 0; i < (sizeof( entries)); ++i) {
-            if( *p != *q) return false;
-            ++p;
-            ++q;
-        }
-        return true;
-    }
-
-    /// Check if two palettes do not have the same color entries
-    bool operator!=( const CHSVPalette16 &rhs) const
-    {
-        return !( *this == rhs);
-    }
-
-    /// Create palette filled with one color
-    /// @param c1 the color to fill the palette with
-    CHSVPalette16( const CHSV& c1)
-    {
-        fill_solid( &(entries[0]), 16, c1);
-    }
-
-    /// Create palette with a gradient from one color to another
-    /// @param c1 the starting color for the gradient
-    /// @param c2 the end color for the gradient
-    CHSVPalette16( const CHSV& c1, const CHSV& c2)
-    {
-        fill_gradient( &(entries[0]), 16, c1, c2);
-    }
-
-    /// Create palette with three-color gradient
-    /// @param c1 the starting color for the gradient
-    /// @param c2 the middle color for the gradient
-    /// @param c3 the end color for the gradient
-    CHSVPalette16( const CHSV& c1, const CHSV& c2, const CHSV& c3)
-    {
-        fill_gradient( &(entries[0]), 16, c1, c2, c3);
-    }
-
-    /// Create palette with four-color gradient
-    /// @param c1 the starting color for the gradient
-    /// @param c2 the first middle color for the gradient
-    /// @param c3 the second middle color for the gradient
-    /// @param c4 the end color for the gradient
-    CHSVPalette16( const CHSV& c1, const CHSV& c2, const CHSV& c3, const CHSV& c4)
-    {
-        fill_gradient( &(entries[0]), 16, c1, c2, c3, c4);
-    }
-
-};
-*/
-
-/// RGB color palette with 16 discrete values
+// RGB color palette with 16 discrete values
 class CRGBPalette16 {
 public:
-    CRGB entries[16];
-    CRGBPalette16() {
-        memset(entries, 0, sizeof(entries)); // default constructor: set all to black
-    }
+  CRGB entries[16];
+  CRGBPalette16() {
+    memset(entries, 0, sizeof(entries)); // default constructor: set all to black
+  }
 
-    // Create palette from 16 CRGB values
-    CRGBPalette16( const CRGB& c00,const CRGB& c01,const CRGB& c02,const CRGB& c03,
-                   const CRGB& c04,const CRGB& c05,const CRGB& c06,const CRGB& c07,
-                   const CRGB& c08,const CRGB& c09,const CRGB& c10,const CRGB& c11,
-                   const CRGB& c12,const CRGB& c13,const CRGB& c14,const CRGB& c15 ) 
-    {
-        entries[0]=c00; entries[1]=c01; entries[2]=c02; entries[3]=c03;
-        entries[4]=c04; entries[5]=c05; entries[6]=c06; entries[7]=c07;
-        entries[8]=c08; entries[9]=c09; entries[10]=c10; entries[11]=c11;
-        entries[12]=c12; entries[13]=c13; entries[14]=c14; entries[15]=c15;
-    };
+  // Create palette from 16 CRGB values
+  CRGBPalette16(const CRGB& c00, const CRGB& c01, const CRGB& c02, const CRGB& c03,
+                const CRGB& c04, const CRGB& c05, const CRGB& c06, const CRGB& c07,
+                const CRGB& c08, const CRGB& c09, const CRGB& c10, const CRGB& c11,
+                const CRGB& c12, const CRGB& c13, const CRGB& c14, const CRGB& c15) {
+    entries[0]  = c00; entries[1]  = c01; entries[2]  = c02; entries[3]  = c03;
+    entries[4]  = c04; entries[5]  = c05; entries[6]  = c06; entries[7]  = c07;
+    entries[8]  = c08; entries[9]  = c09; entries[10] = c10; entries[11] = c11;
+    entries[12] = c12; entries[13] = c13; entries[14] = c14; entries[15] = c15;
+  };
 
-    /// Copy constructor
-    CRGBPalette16( const CRGBPalette16& rhs)
-    {
-        memmove( (void *) &(entries[0]), &(rhs.entries[0]), sizeof( entries));
+  // Copy constructor
+  CRGBPalette16(const CRGBPalette16& rhs) {
+    memmove((void*)&(entries[0]), &(rhs.entries[0]), sizeof(entries));
+  }
+
+  // Create palette from array of CRGB colors
+  CRGBPalette16(const CRGB rhs[16]) {
+    memmove((void*)&(entries[0]), &(rhs[0]), sizeof(entries));
+  }
+
+  // Copy assignment operator
+  CRGBPalette16& operator=(const CRGBPalette16& rhs) {
+    memmove((void*)&(entries[0]), &(rhs.entries[0]), sizeof(entries));
+    return *this;
+  }
+
+  // Create palette from array of CRGB colors
+  CRGBPalette16& operator=(const CRGB rhs[16]) {
+    memmove((void*)&(entries[0]), &(rhs[0]), sizeof(entries));
+    return *this;
+  }
+
+  // Create palette from palette stored in PROGMEM
+  CRGBPalette16(const TProgmemRGBPalette16& rhs) {
+    for (int i = 0; i < 16; ++i) {
+      entries[i] = *(const uint32_t*)(rhs + i);
     }
-    /// Create palette from array of CRGB colors
-    CRGBPalette16( const CRGB rhs[16])
-    {
-        memmove( (void *) &(entries[0]), &(rhs[0]), sizeof( entries));
+  }
+
+  // Copy assignment operator for PROGMEM palette
+  CRGBPalette16& operator=(const TProgmemRGBPalette16& rhs) {
+    for (int i = 0; i < 16; ++i) {
+      entries[i] = *(const uint32_t*)(rhs + i);
     }
-    /// @copydoc CRGBPalette16(const CRGBPalette16&)
-    CRGBPalette16& operator=( const CRGBPalette16& rhs)
-    {
-        memmove( (void *) &(entries[0]), &(rhs.entries[0]), sizeof( entries));
-        return *this;
+    return *this;
+  }
+
+  // Equality operator
+  bool operator==(const CRGBPalette16& rhs) const {
+    const uint8_t* p = (const uint8_t*)(&(this->entries[0]));
+    const uint8_t* q = (const uint8_t*)(&(rhs.entries[0]));
+    if (p == q) return true;
+    for (int i = 0; i < (sizeof(entries)); ++i) {
+      if (*p != *q) return false;
+      ++p;
+      ++q;
     }
-    /// Create palette from array of CRGB colors
-    CRGBPalette16& operator=( const CRGB rhs[16])
-    {
-        memmove( (void *) &(entries[0]), &(rhs[0]), sizeof( entries));
-        return *this;
-    }
-/*
-    /// Create palette from CHSV palette
-    CRGBPalette16( const CHSVPalette16& rhs)
-    {
-        for( uint8_t i = 0; i < 16; ++i) {
-            entries[i] = rhs.entries[i]; // implicit HSV-to-RGB conversion
+    return true;
+  }
+
+  // Inequality operator
+  bool operator!=(const CRGBPalette16& rhs) const {
+    return !(*this == rhs);
+  }
+
+  // Array subscript operator
+  inline CRGB& operator[](uint8_t x) __attribute__((always_inline)) {
+    return entries[x];
+  }
+
+  // Array subscript operator (const)
+  inline const CRGB& operator[](uint8_t x) const __attribute__((always_inline)) {
+    return entries[x];
+  }
+
+  // Array subscript operator
+  inline CRGB& operator[](int x) __attribute__((always_inline)) {
+    return entries[(uint8_t)x];
+  }
+
+  // Array subscript operator (const)
+  inline const CRGB& operator[](int x) const __attribute__((always_inline)) {
+    return entries[(uint8_t)x];
+  }
+
+  // Get the underlying pointer to the CRGB entries making up the palette
+  operator CRGB*() {
+    return &(entries[0]);
+  }
+
+  // Create palette from a single CRGB color
+  CRGBPalette16(const CRGB& c1) {
+    fill_solid_RGB(&(entries[0]), 16, c1);
+  }
+
+  // Create palette from two CRGB colors
+  CRGBPalette16(const CRGB& c1, const CRGB& c2) {
+    fill_gradient_RGB(&(entries[0]), 16, c1, c2);
+  }
+
+  // Create palette from three CRGB colors
+  CRGBPalette16(const CRGB& c1, const CRGB& c2, const CRGB& c3) {
+    fill_gradient_RGB(&(entries[0]), 16, c1, c2, c3);
+  }
+
+  // Create palette from four CRGB colors
+  CRGBPalette16(const CRGB& c1, const CRGB& c2, const CRGB& c3, const CRGB& c4) {
+    fill_gradient_RGB(&(entries[0]), 16, c1, c2, c3, c4);
+  }
+
+  // Creates a palette from a gradient palette in PROGMEM.
+  //
+  // Gradient palettes are loaded into CRGBPalettes in such a way
+  // that, if possible, every color represented in the gradient palette
+  // is also represented in the CRGBPalette, this may not preserve original
+  // color spacing, but will try to not omit small color bands.
+
+  CRGBPalette16(TProgmemRGBGradientPalette_bytes progpal) {
+    *this = progpal;
+  }
+
+  CRGBPalette16& operator=(TProgmemRGBGradientPalette_bytes progpal) {
+    TRGBGradientPaletteEntryUnion* progent = (TRGBGradientPaletteEntryUnion*)(progpal);
+    TRGBGradientPaletteEntryUnion u;
+
+    // Count entries
+    uint32_t count = 0;
+    do {
+      u.dword = *(const uint32_t*)(progent + count);
+      ++count;
+    } while (u.index != 255);
+
+    int32_t lastSlotUsed = -1;
+
+    u.dword = *(const uint32_t*)(progent);
+    CRGB rgbstart(u.r, u.g, u.b);
+
+    uint32_t indexstart = 0;
+    uint32_t istart8 = 0;
+    uint32_t iend8 = 0;
+    while (indexstart < 255) {
+      ++progent;
+      u.dword = *(const uint32_t*)(progent);
+      uint32_t indexend = u.index;
+      CRGB rgbend(u.r, u.g, u.b);
+      istart8 = indexstart / 16;
+      iend8 = indexend / 16;
+      if (count < 16) {
+        if ((istart8 <= lastSlotUsed) && (lastSlotUsed < 15)) {
+          istart8 = lastSlotUsed + 1;
+          if (iend8 < istart8) {
+            iend8 = istart8;
+          }
         }
-    }*/
+        lastSlotUsed = iend8;
+      }
+      fill_gradient_RGB(&(entries[0]), istart8, rgbstart, iend8, rgbend);
+      indexstart = indexend;
+      rgbstart = rgbend;
+    }
+    return *this;
+  }
 
-/*
-    /// Create palette from array of CHSV colors
-    CRGBPalette16( const CHSV rhs[16])
-    {
-        for( uint8_t i = 0; i < 16; ++i) {
-            entries[i] = rhs[i]; // implicit HSV-to-RGB conversion
+  // Creates a palette from a gradient palette in dynamic (heap) memory.
+  CRGBPalette16& loadDynamicGradientPalette(TDynamicRGBGradientPalette_bytes gpal) {
+    TRGBGradientPaletteEntryUnion* ent = (TRGBGradientPaletteEntryUnion*)(gpal);
+    TRGBGradientPaletteEntryUnion u;
+
+    // Count entries
+    uint16_t count = 0;
+    do {
+      u = *(ent + count);
+      ++count;
+    } while (u.index != 255);
+
+    int8_t lastSlotUsed = -1;
+
+    u = *ent;
+    CRGB rgbstart(u.r, u.g, u.b);
+
+    int indexstart = 0;
+    uint8_t istart8 = 0;
+    uint8_t iend8 = 0;
+    while (indexstart < 255) {
+      ++ent;
+      u = *ent;
+      int indexend = u.index;
+      CRGB rgbend(u.r, u.g, u.b);
+      istart8 = indexstart / 16;
+      iend8 = indexend / 16;
+      if (count < 16) {
+        if ((istart8 <= lastSlotUsed) && (lastSlotUsed < 15)) {
+          istart8 = lastSlotUsed + 1;
+          if (iend8 < istart8) {
+            iend8 = istart8;
+          }
         }
-    }*/
-
-    /*
-    /// @copydoc CRGBPalette16(const CHSVPalette16&)
-    CRGBPalette16& operator=( const CHSVPalette16& rhs)
-    {
-        for( uint8_t i = 0; i < 16; ++i) {
-    		entries[i] = rhs.entries[i]; // implicit HSV-to-RGB conversion
-        }
-        return *this;
+        lastSlotUsed = iend8;
+      }
+      fill_gradient_RGB(&(entries[0]), istart8, rgbstart, iend8, rgbend);
+      indexstart = indexend;
+      rgbstart = rgbend;
     }
-
-
-    /// Create palette from array of CHSV colors
-    CRGBPalette16& operator=( const CHSV rhs[16])
-    {
-        for( uint8_t i = 0; i < 16; ++i) {
-            entries[i] = rhs[i]; // implicit HSV-to-RGB conversion
-        }
-        return *this;
-    }*/
-
-
-    /// Create palette from palette stored in PROGMEM
-    CRGBPalette16( const TProgmemRGBPalette16& rhs)
-    {
-        for( uint8_t i = 0; i < 16; ++i) {
-            entries[i] =  *(const uint32_t*)(rhs + i);
-        }
-    }
-    /// @copydoc CRGBPalette16(const TProgmemRGBPalette16&)
-    CRGBPalette16& operator=( const TProgmemRGBPalette16& rhs)
-    {
-        for( uint8_t i = 0; i < 16; ++i) {
-            entries[i] =  *(const uint32_t*)( rhs + i);
-        }
-        return *this;
-    }
-
-    /// @copydoc CHSVPalette16::operator==
-    bool operator==( const CRGBPalette16 &rhs) const
-    {
-        const uint8_t* p = (const uint8_t*)(&(this->entries[0]));
-        const uint8_t* q = (const uint8_t*)(&(rhs.entries[0]));
-        if( p == q) return true;
-        for( uint8_t i = 0; i < (sizeof( entries)); ++i) {
-            if( *p != *q) return false;
-            ++p;
-            ++q;
-        }
-        return true;
-    }
-    /// @copydoc CHSVPalette16::operator!=
-    bool operator!=( const CRGBPalette16 &rhs) const
-    {
-        return !( *this == rhs);
-    }
-    /// @copydoc CHSVPalette16::operator[]
-    inline CRGB& operator[] (uint8_t x) __attribute__((always_inline))
-    {
-        return entries[x];
-    }
-    /// @copydoc CHSVPalette16::operator[]
-    inline const CRGB& operator[] (uint8_t x) const __attribute__((always_inline))
-    {
-        return entries[x];
-    }
-
-    /// @copydoc CHSVPalette16::operator[]
-    inline CRGB& operator[] (int x) __attribute__((always_inline))
-    {
-        return entries[(uint8_t)x];
-    }
-    /// @copydoc CHSVPalette16::operator[]
-    inline const CRGB& operator[] (int x) const __attribute__((always_inline))
-    {
-        return entries[(uint8_t)x];
-    }
-
-    /// Get the underlying pointer to the CHSV entries making up the palette
-    operator CRGB*()
-    {
-        return &(entries[0]);
-    }
-    
-/*
-    /// @copydoc CHSVPalette16::CHSVPalette16(const CHSV&)
-    CRGBPalette16( const CHSV& c1)
-    {
-        fill_solid( &(entries[0]), 16, c1);
-    }
-    
-    /// @copydoc CHSVPalette16::CHSVPalette16(const CHSV&, const CHSV&)
-    CRGBPalette16( const CHSV& c1, const CHSV& c2)
-    {
-        fill_gradient( &(entries[0]), 16, c1, c2);
-    }
-    /// @copydoc CHSVPalette16::CHSVPalette16(const CHSV&, const CHSV&, const CHSV&)
-    CRGBPalette16( const CHSV& c1, const CHSV& c2, const CHSV& c3)
-    {
-        fill_gradient( &(entries[0]), 16, c1, c2, c3);
-    }
-    /// @copydoc CHSVPalette16::CHSVPalette16(const CHSV&, const CHSV&, const CHSV&, const CHSV&)
-    CRGBPalette16( const CHSV& c1, const CHSV& c2, const CHSV& c3, const CHSV& c4)
-    {
-        fill_gradient( &(entries[0]), 16, c1, c2, c3, c4);
-    }
-*/
-    /// @copydoc CHSVPalette16::CHSVPalette16(const CHSV&)
-    CRGBPalette16( const CRGB& c1)
-    {
-        fill_solid_RGB(&(entries[0]), 16, c1);
-    }
-    /// @copydoc CHSVPalette16::CHSVPalette16(const CHSV&, const CHSV&)
-    CRGBPalette16( const CRGB& c1, const CRGB& c2)
-    {
-        fill_gradient_RGB(&(entries[0]), 16, c1, c2);
-    }
-    /// @copydoc CHSVPalette16::CHSVPalette16(const CHSV&, const CHSV&, const CHSV&)
-    CRGBPalette16( const CRGB& c1, const CRGB& c2, const CRGB& c3)
-    {
-        fill_gradient_RGB(&(entries[0]), 16, c1, c2, c3);
-    }
-    /// @copydoc CHSVPalette16::CHSVPalette16(const CHSV&, const CHSV&, const CHSV&, const CHSV&)
-    CRGBPalette16( const CRGB& c1, const CRGB& c2, const CRGB& c3, const CRGB& c4)
-    {
-        fill_gradient_RGB(&(entries[0]), 16, c1, c2, c3, c4);
-    }
-
-    /// Creates a palette from a gradient palette in PROGMEM. 
-    ///
-    /// Gradient palettes are loaded into CRGBPalettes in such a way
-    /// that, if possible, every color represented in the gradient palette
-    /// is also represented in the CRGBPalette.  
-    ///
-    /// For example, consider a gradient palette that is all black except
-    /// for a single, one-element-wide (1/256th!) spike of red in the middle:
-    ///   @code
-    ///     0,   0,0,0
-    ///   124,   0,0,0
-    ///   125, 255,0,0  // one 1/256th-palette-wide red stripe
-    ///   126,   0,0,0
-    ///   255,   0,0,0
-    ///   @endcode
-    /// A naive conversion of this 256-element palette to a 16-element palette
-    /// might accidentally completely eliminate the red spike, rendering the
-    /// palette completely black. 
-    ///
-    /// However, the conversions provided here would attempt to include a
-    /// the red stripe in the output, more-or-less as faithfully as possible.
-    /// So in this case, the resulting CRGBPalette16 palette would have a red
-    /// stripe in the middle which was 1/16th of a palette wide -- the
-    /// narrowest possible in a CRGBPalette16. 
-    ///
-    /// This means that the relative width of stripes in a CRGBPalette16
-    /// will be, by definition, different from the widths in the gradient
-    /// palette.  This code attempts to preserve "all the colors", rather than
-    /// the exact stripe widths at the expense of dropping some colors.
-
-    CRGBPalette16( TProgmemRGBGradientPalette_bytes progpal )
-    {
-        *this = progpal;
-    }
-    /// @copydoc CRGBPalette16(TProgmemRGBGradientPalette_bytes)
-    CRGBPalette16& operator=( TProgmemRGBGradientPalette_bytes progpal )
-    {
-        TRGBGradientPaletteEntryUnion* progent = (TRGBGradientPaletteEntryUnion*)(progpal);
-        TRGBGradientPaletteEntryUnion u;
-
-        // Count entries
-        uint16_t count = 0;
-        do {
-            u.dword = *(const uint32_t*)(progent + count);
-            ++count;
-        } while ( u.index != 255);
-
-        int8_t lastSlotUsed = -1;
-
-        u.dword = *(const uint32_t*)( progent);
-        CRGB rgbstart( u.r, u.g, u.b);
-
-        int indexstart = 0;
-        uint8_t istart8 = 0;
-        uint8_t iend8 = 0;
-        while( indexstart < 255) {
-            ++progent;
-            u.dword = *(const uint32_t*)( progent);
-            int indexend  = u.index;
-            CRGB rgbend( u.r, u.g, u.b);
-            istart8 = indexstart / 16;
-            iend8   = indexend   / 16;
-            if( count < 16) {
-                if( (istart8 <= lastSlotUsed) && (lastSlotUsed < 15)) {
-                    istart8 = lastSlotUsed + 1;
-                    if( iend8 < istart8) {
-                        iend8 = istart8;
-                    }
-                }
-                lastSlotUsed = iend8;
-            }
-            //fill_gradient_RGB( &(entries[0]), istart8, rgbstart, iend8, rgbend); //!!! todo: implement fill gradient function
-            indexstart = indexend;
-            rgbstart = rgbend;
-        }
-        return *this;
-    }
-    
-    /// Creates a palette from a gradient palette in dynamic (heap) memory. 
-    /// @copydetails CRGBPalette16::CRGBPalette16(TProgmemRGBGradientPalette_bytes)
-    CRGBPalette16& loadDynamicGradientPalette( TDynamicRGBGradientPalette_bytes gpal )
-    {
-        TRGBGradientPaletteEntryUnion* ent = (TRGBGradientPaletteEntryUnion*)(gpal);
-        TRGBGradientPaletteEntryUnion u;
-
-        // Count entries
-        uint16_t count = 0;
-        do {
-            u = *(ent + count);
-            ++count;
-        } while ( u.index != 255);
-
-        int8_t lastSlotUsed = -1;
-
-
-        u = *ent;
-        CRGB rgbstart( u.r, u.g, u.b);
-
-        int indexstart = 0;
-        uint8_t istart8 = 0;
-        uint8_t iend8 = 0;
-        while( indexstart < 255) {
-            ++ent;
-            u = *ent;
-            int indexend  = u.index;
-            CRGB rgbend( u.r, u.g, u.b);
-            istart8 = indexstart / 16;
-            iend8   = indexend   / 16;
-            if( count < 16) {
-                if( (istart8 <= lastSlotUsed) && (lastSlotUsed < 15)) {
-                    istart8 = lastSlotUsed + 1;
-                    if( iend8 < istart8) {
-                        iend8 = istart8;
-                    }
-                }
-                lastSlotUsed = iend8;
-            }
-            //fill_gradient_RGB( &(entries[0]), istart8, rgbstart, iend8, rgbend); //!!! todo: implement fill gradient function
-            indexstart = indexend;
-            rgbstart = rgbend;
-        }
-        return *this;
-    }
-
+    return *this;
+  }
 };
 
-
-// CRGBW can be used to manipulate 32bit colors faster. However: if it is passed to functions, it adds overhead compared to a uint32_t color
-// use with caution and pay attention to flash size. Usually converting a uint32_t to CRGBW to extract r, g, b, w values is slower than using bitshifts
-// it can be useful to avoid back and forth conversions between uint32_t and fastled CRGB
-struct CRGBW {
+  // CRGBW can be used to manipulate 32bit colors faster. However: if it is passed to functions, it adds overhead compared to a uint32_t color
+  // use with caution and pay attention to flash size. Usually converting a uint32_t to CRGBW to extract r, g, b, w values is slower than using bitshifts
+  // it can be useful to avoid back and forth conversions between uint32_t and fastled CRGB
+  struct CRGBW {
     union {
-        uint32_t color32; // Access as a 32-bit value (0xWWRRGGBB)
-        struct {
-            uint8_t b;
-            uint8_t g;
-            uint8_t r;
-            uint8_t w;
-        };
-        uint8_t raw[4];   // Access as an array in the order B, G, R, W (matches 32 bit colors)
+      uint32_t color32; // Access as a 32-bit value (0xWWRRGGBB)
+      struct {
+        uint8_t b;
+        uint8_t g;
+        uint8_t r;
+        uint8_t w;
+      };
+      uint8_t raw[4];   // Access as an array in the order B, G, R, W (matches 32 bit colors)
     };
 
     // Default constructor
@@ -1196,7 +853,7 @@ struct CRGBW {
     constexpr CRGBW(CRGB rgb) __attribute__((always_inline)) : b(rgb.b), g(rgb.g), r(rgb.r), w(0) {}
 
     // Access as an array
-    inline const uint8_t& operator[] (uint8_t x) const __attribute__((always_inline)) { return raw[x]; }
+    inline const uint8_t& operator[](uint8_t x) const __attribute__((always_inline)) { return raw[x]; }
 
     // Assignment from 32-bit color
     inline CRGBW& operator=(uint32_t color) __attribute__((always_inline)) { color32 = color; return *this; }
@@ -1209,35 +866,11 @@ struct CRGBW {
       return color32;
     }
 
-    //inline bool operator==(const CRGBW& clr) const __attribute__((always_inline)) {
-    //    return color32 == clr.color32;
-    //}
-
-    //inline bool operator==(const uint32_t clr) const __attribute__((always_inline)) {
-    //    return color32 == clr;
-    //}
-    /*
-    // Conversion operator to CRGB
-    inline operator CRGB() const __attribute__((always_inline)) {
-      return CRGB(r, g, b);
+    // get the average of the R, G, B and W values
+    uint8_t getAverageLight() const {
+      return (r + g + b + w) >> 2;
     }
-
-    CRGBW& scale32 (uint8_t scaledown) // 32bit math
-    {
-      if (color32 == 0) return *this; // 2 extra instructions, worth it if called a lot on black (which probably is true) adding check if scaledown is zero adds much more overhead as its 8bit
-      uint32_t scale = scaledown + 1;
-      uint32_t rb = (((color32 & 0x00FF00FF) * scale) >> 8) & 0x00FF00FF; // scale red and blue
-      uint32_t wg = (((color32 & 0xFF00FF00) >> 8) * scale) & 0xFF00FF00; // scale white and green
-          color32 =  rb | wg;
-      return *this;
-    }*/
-
-    /// Get the average of the R, G, B and W values
-    uint8_t getAverageLight( ) const {
-        return (r + g + b + w) >> 2;
-    }
-
-};
+  };
 
 struct CHSV32 { // 32bit HSV color with 16bit hue for more accurate conversions
   union {
@@ -1266,11 +899,6 @@ struct CHSV32 { // 32bit HSV color with 16bit hue for more accurate conversions
       rgb2hsv(rgb, *this);
       return *this;
   }
-
 };
-
-
-
-
 
 #endif
