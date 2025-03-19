@@ -94,55 +94,55 @@ void nblendPaletteTowardPalette(CRGBPalette16& current, CRGBPalette16& target, u
 
 // Representation of an HSV pixel (hue, saturation, value (aka brightness)).
 struct CHSV {
-    union {
-        struct {
-            union {
-                uint8_t hue;
-                uint8_t h;
-            };
-            union {
-                uint8_t saturation;
-                uint8_t sat;
-                uint8_t s;
-            };
-            union {
-                uint8_t value;
-                uint8_t val;
-                uint8_t v;
-            };
-        };
-        uint8_t raw[3]; // order is: hue [0], saturation [1], value [2]
+  union {
+    struct {
+      union {
+        uint8_t hue;
+        uint8_t h;
+      };
+      union {
+        uint8_t saturation;
+        uint8_t sat;
+        uint8_t s;
+      };
+      union {
+        uint8_t value;
+        uint8_t val;
+        uint8_t v;
+      };
     };
+    uint8_t raw[3]; // order is: hue [0], saturation [1], value [2]
+  };
 
-    inline uint8_t& operator[] (uint8_t x) __attribute__((always_inline)) {
-      return raw[x];
-    }
+  inline uint8_t& operator[] (uint8_t x) __attribute__((always_inline)) {
+    return raw[x];
+  }
 
-    inline const uint8_t& operator[] (uint8_t x) const __attribute__((always_inline)) {
-       return raw[x];
-    }
+  inline const uint8_t& operator[] (uint8_t x) const __attribute__((always_inline)) {
+    return raw[x];
+  }
 
-    // Default constructor
-    // @warning Default values are UNITIALIZED!
-    inline CHSV() __attribute__((always_inline)) = default;
+  // Default constructor
+  // @warning Default values are UNITIALIZED!
+  inline CHSV() __attribute__((always_inline)) = default;
 
-    ///Allow construction from hue, saturation, and value
-    inline CHSV(uint8_t ih, uint8_t is, uint8_t iv) __attribute__((always_inline))
-      : h(ih), s(is), v(iv) { }
+  ///Allow construction from hue, saturation, and value
+  inline CHSV(uint8_t ih, uint8_t is, uint8_t iv) __attribute__((always_inline))
+  : h(ih), s(is), v(iv) { }
 
-    // allow copy construction
-    inline CHSV(const CHSV& rhs) __attribute__((always_inline)) = default;
+  // allow copy construction
+  inline CHSV(const CHSV& rhs) __attribute__((always_inline)) = default;
 
-    // allow copy construction
-    inline CHSV& operator= (const CHSV& rhs) __attribute__((always_inline)) = default;
+  // allow copy construction
+  inline CHSV& operator= (const CHSV& rhs) __attribute__((always_inline)) = default;
 
-    // assign new HSV values
-    inline CHSV& setHSV(uint8_t ih, uint8_t is, uint8_t iv) __attribute__((always_inline)) {
-        h = ih;
-        s = is;
-        v = iv;
-        return *this;
-    }
+  // assign new HSV values
+  inline CHSV& setHSV(uint8_t ih, uint8_t is, uint8_t iv) __attribute__((always_inline)) {
+    h = ih;
+    s = is;
+    v = iv;
+    return *this;
+  }
 };
 
 // representation of an RGB pixel (Red, Green, Blue)

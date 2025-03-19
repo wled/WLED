@@ -267,19 +267,19 @@ inline CRGB hsv2rgb(const CHSV& hsv) {  // CHSV to CRGB
   return CRGB(rgb);
 }
 
-// rainbow spectrum, adapted from fastled //!!! TODO: check and optimized this function
-void hsv2rgb_rainbow(const CHSV& hsv, CRGB& rgb) {
-  uint8_t hue = hsv.hue;
-  uint8_t sat = hsv.sat;
-  uint8_t val = hsv.val;
-  uint8_t offset = hue & 0x1F; // 0..31
-  uint8_t offset8 = offset << 3; // offset8 = offset * 8
-  uint8_t third = scale8(offset8, (256 / 3)); // max = 85
-  uint8_t r, g, b;
 
-  if (!(hue & 0x80)) {
-    if (!(hue & 0x40)) { // section 0-1
-      if (!(hue & 0x20)) {
+// rainbow spectrum, adapted from fastled //!!! TODO: check and optimized this function
+void hsv2rgb_rainbow16(const CHSV32& hsv, CRGB& rgb) {
+  uint32_t hue = hsv.h;
+  uint32_t sat = hsv.s;
+  uint32_t val = hsv.v;
+  uint32_t offset = hue & 0x1FFF; // offset in current sector 0..8191 (8 sectors)
+  uint32_t third = (offset * 21846) >> 21 ; // equal to: (offset*8/3))>>8
+  uint32_t r, g, b;
+
+  if (!(hue & 0x8000)) {   // section 0-3
+    if (!(hue & 0x4000)) { // section 0-1
+      if (!(hue & 0x2000)) {
         r = 255 - third;
         g = third;
         b = 0;
@@ -289,9 +289,8 @@ void hsv2rgb_rainbow(const CHSV& hsv, CRGB& rgb) {
         b = 0;
       }
     } else { // section 2-3
-      if (!(hue & 0x20)) {
-        // uint8_t twothirds = (third << 1);
-        uint8_t twothirds = scale8(offset8, ((256 * 2) / 3)); // max=170
+      if (!(hue & 0x2000)) {
+        uint32_t twothirds = (offset * 21846) >> 20 ; // equal to: (2*offset*8/3)>>8
         r = 171 - twothirds;
         g = 170 + third;
         b = 0;
@@ -302,12 +301,11 @@ void hsv2rgb_rainbow(const CHSV& hsv, CRGB& rgb) {
       }
     }
   } else { // section 4-7
-    if (!(hue & 0x40)) {
-      if (!(hue & 0x20)) {
+    if (!(hue & 0x4000)) {
+      if (!(hue & 0x2000)) {
         r = 0;
-        // uint8_t twothirds = (third << 1);
-        uint8_t twothirds = scale8(offset8, ((256 * 2) / 3)); // max=170
-        g = 171 - twothirds; // K170?
+        uint32_t twothirds = (offset * 21846) >> 20 ; // equal to: (2*offset*8/3)>>8
+        g = 171 - twothirds;
         b = 85 + twothirds;
       } else {
         r = third;
@@ -315,7 +313,7 @@ void hsv2rgb_rainbow(const CHSV& hsv, CRGB& rgb) {
         b = 255 - third;
       }
     } else {
-      if (!(hue & 0x20)) {
+      if (!(hue & 0x2000)) {
         r = 85 + third;
         g = 0;
         b = 171 - third;
@@ -366,6 +364,11 @@ void hsv2rgb_rainbow(const CHSV& hsv, CRGB& rgb) {
   rgb.r = r;
   rgb.g = g;
   rgb.b = b;
+}
+
+// rainbow spectrum, adapted from fastled //!!! TODO: check and optimized this function
+void hsv2rgb_rainbow(const CHSV& hsv, CRGB& rgb) {
+  hsv2rgb_rainbow16(CHSV32(hsv), rgb);
 }
 
 void rgb2hsv(const uint32_t rgb, CHSV32& hsv) // convert RGB to HSV (16bit hue), much more accurate and faster than fastled version
