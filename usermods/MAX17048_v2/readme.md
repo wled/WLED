@@ -14,7 +14,7 @@ To enable, compile with `USERMOD_MAX17048` define in the build_flags (e.g. in `p
 ```ini
 [env:usermod_max17048_d1_mini]
 extends = env:d1_mini
-custom_usermods = ${env:d1_mini.custom_usermods} AHT10
+custom_usermods = ${env:d1_mini.custom_usermods} MAX17048_v2
 ```
 
 ### Configuration Options
