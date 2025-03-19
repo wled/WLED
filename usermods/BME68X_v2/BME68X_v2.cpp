@@ -1,5 +1,5 @@
 /**
- * @file usermod_BMW68X.h
+ * @file usermod_BMW68X.cpp
  * @author Gabriel A. Sieben  (GeoGab)
  * @brief Usermod for WLED to implement the BME680/BME688 sensor
  * @version 1.0.0
@@ -33,10 +33,10 @@
 
 /* Debug Print Special Text */
 #define INFO_COLUMN ESC_CURSOR_COLUMN(60)
-#define OK   INFO_COLUMN "[" ESC_FGCOLOR_GREEN "OK" ESC_STYLE_RESET "]"
-#define FAIL INFO_COLUMN "[" ESC_FGCOLOR_RED "FAIL" ESC_STYLE_RESET "]"
-#define WARN INFO_COLUMN "[" ESC_FGCOLOR_YELLOW "WARN" ESC_STYLE_RESET "]"
-#define DONE INFO_COLUMN "[" ESC_FGCOLOR_CYAN "DONE" ESC_STYLE_RESET "]"
+#define OK_MSG   INFO_COLUMN "[" ESC_FGCOLOR_GREEN "OK" ESC_STYLE_RESET "]"
+#define FAIL_MSG INFO_COLUMN "[" ESC_FGCOLOR_RED "FAIL" ESC_STYLE_RESET "]"
+#define WARN_MSG INFO_COLUMN "[" ESC_FGCOLOR_YELLOW "WARN" ESC_STYLE_RESET "]"
+#define DONE_MSG INFO_COLUMN "[" ESC_FGCOLOR_CYAN "DONE" ESC_STYLE_RESET "]"
 
 #include "bsec.h" // Bosch sensor library
 #include "wled.h"
@@ -328,7 +328,7 @@ void UsermodBME68X::setup() {
 	/* Check, if i2c is activated */
 	if (i2c_scl < 0 || i2c_sda < 0) {
 		settings.enabled = false;												// Disable usermod once i2c is not running
-		DEBUG_PRINTLN(F(UMOD_DEBUG_NAME "I2C is not activated. Please activate I2C first." FAIL));
+		DEBUG_PRINTLN(F(UMOD_DEBUG_NAME "I2C is not activated. Please activate I2C first." FAIL_MSG));
 		return;
 	}
 
@@ -352,7 +352,7 @@ void UsermodBME68X::setup() {
 	loadState();                                                 				// Load the old calibration data
 	checkIaqSensorStatus();                                      				// Check the sensor status
 	// HomeAssistantDiscovery();
-	DEBUG_PRINTLN(F(INFO_COLUMN DONE));
+	DEBUG_PRINTLN(F(INFO_COLUMN DONE_MSG));
 }
 
 /**
@@ -564,7 +564,7 @@ void UsermodBME68X::HomeAssistantDiscovery() {
 	MQTT_PublishHASensor(_nameStabStatus,	"", 						_unitNone, 			settings.publishSensorState - 1, 1);
 	MQTT_PublishHASensor(_nameRunInStatus,	"", 						_unitNone, 			settings.publishSensorState - 1, 1);
 
-	DEBUG_PRINTLN(UMOD_DEBUG_NAME DONE);
+	DEBUG_PRINTLN(UMOD_DEBUG_NAME DONE_MSG);
 }
 
 /**
@@ -750,7 +750,7 @@ void UsermodBME68X::addToConfig(JsonObject& root) {
 	sensors_json[FPSTR(_nameVoc)] = 			settings.decimals.Voc;
 	sensors_json[FPSTR(_nameGasPer)] =			settings.decimals.gasPerc;
 
-	DEBUG_PRINTLN(F(OK));
+	DEBUG_PRINTLN(F(OK_MSG));
 }
 
 /**
@@ -831,7 +831,7 @@ bool UsermodBME68X::readFromConfig(JsonObject& root) {
 	configComplete &= getJsonValue(top["Sensors"][FPSTR(_nameVoc)], 			settings.decimals.Voc, 						0		);
 	configComplete &= getJsonValue(top["Sensors"][FPSTR(_nameGasPer)], 			settings.decimals.gasPerc, 					0		);
 
-	DEBUG_PRINTLN(F(OK));	
+	DEBUG_PRINTLN(F(OK_MSG));	
 
 	/* Set the selected temperature unit */
 	if (settings.tempScale) {
@@ -845,10 +845,10 @@ bool UsermodBME68X::readFromConfig(JsonObject& root) {
 		DEBUG_PRINT(F(UMOD_DEBUG_NAME "Deleting Calibration File"));
 		flags.DeleteCaibration = false;
 		if (WLED_FS.remove(CALIB_FILE_NAME)) {
-			DEBUG_PRINTLN(F(OK));
+			DEBUG_PRINTLN(F(OK_MSG));
 		}
 		else {
-			DEBUG_PRINTLN(F(FAIL));
+			DEBUG_PRINTLN(F(FAIL_MSG));
 		}
 	}
 
@@ -1026,11 +1026,11 @@ void UsermodBME68X::checkIaqSensorStatus() {
 		flags.InitSuccessful = false;
 		if (iaqSensor.bsecStatus < BSEC_OK) {
 			InfoPageStatusLine += " Error Code : " + String(iaqSensor.bsecStatus);
-			DEBUG_PRINTLN(FAIL);
+			DEBUG_PRINTLN(FAIL_MSG);
 		}
 		else {
 			InfoPageStatusLine += " Warning Code : " + String(iaqSensor.bsecStatus);
-			DEBUG_PRINTLN(WARN);
+			DEBUG_PRINTLN(WARN_MSG);
 		}
 	}
 	else {
@@ -1041,16 +1041,16 @@ void UsermodBME68X::checkIaqSensorStatus() {
 			flags.InitSuccessful = false;
 			if (iaqSensor.bme68xStatus < BME68X_OK) {
 				InfoPageStatusLine += "error code: " + String(iaqSensor.bme68xStatus);
-				DEBUG_PRINTLN(FAIL);
+				DEBUG_PRINTLN(FAIL_MSG);
 			}
 			else {
 				InfoPageStatusLine += "warning code: " + String(iaqSensor.bme68xStatus);
-				DEBUG_PRINTLN(WARN);
+				DEBUG_PRINTLN(WARN_MSG);
 			}
 		}
 		else {
 			InfoPageStatusLine += F("OK");
-			DEBUG_PRINTLN(OK);
+			DEBUG_PRINTLN(OK_MSG);
 		}
 	}
 }
@@ -1063,12 +1063,12 @@ void UsermodBME68X::loadState() {
 		DEBUG_PRINT(F(UMOD_DEBUG_NAME "Read the calibration file: "));
 		File file = WLED_FS.open(CALIB_FILE_NAME, FILE_READ);
 		if (!file) {
-			DEBUG_PRINTLN(FAIL);
+			DEBUG_PRINTLN(FAIL_MSG);
 		}
 		else {
 			file.read(bsecState, BSEC_MAX_STATE_BLOB_SIZE);
 			file.close();
-			DEBUG_PRINTLN(OK);
+			DEBUG_PRINTLN(OK_MSG);
 			iaqSensor.setState(bsecState);
 		}
 	}
@@ -1084,14 +1084,14 @@ void UsermodBME68X::saveState() {
 	DEBUG_PRINT(F(UMOD_DEBUG_NAME "Write the calibration file  "));
 	File file = WLED_FS.open(CALIB_FILE_NAME, FILE_WRITE);
 	if (!file) {
-		DEBUG_PRINTLN(FAIL);
+		DEBUG_PRINTLN(FAIL_MSG);
 	}
 	else {
 		iaqSensor.getState(bsecState);
 		file.write(bsecState, BSEC_MAX_STATE_BLOB_SIZE);
 		file.close();
 		stateUpdateCounter++;
-		DEBUG_PRINTF("(saved %d times)" OK "\n", stateUpdateCounter);
+		DEBUG_PRINTF("(saved %d times)" OK_MSG "\n", stateUpdateCounter);
 		flags.SaveState = false; // Clear save state flag
 
 		char contbuffer[30];
