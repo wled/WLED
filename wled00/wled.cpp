@@ -439,7 +439,7 @@ void WLED::setup()
   beginStrip();
   DEBUG_PRINTF_P(PSTR("heap %u\n"), ESP.getFreeHeap());
 
-  DEBUG_PRINTLN(F("Usermods setup"));
+  DEBUG_PRINTF_P(PSTR("Usermods setup (%d mods loaded)\n"), UsermodManager::getModCount());
   userSetup();
   UsermodManager::setup();
   DEBUG_PRINTF_P(PSTR("heap %u\n"), ESP.getFreeHeap());

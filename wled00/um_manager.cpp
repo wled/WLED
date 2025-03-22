@@ -19,7 +19,12 @@ static size_t getCount() {
 
 
 //Usermod Manager internals
-void UsermodManager::setup()             { for (auto mod = _usermod_table_begin; mod < _usermod_table_end; ++mod) (*mod)->setup(); }
+void UsermodManager::setup()             { 
+  for (auto mod = _usermod_table_begin; mod < _usermod_table_end; ++mod) {
+    DEBUG_PRINTF_P(PSTR("Setting up usermod %u\n"), (*mod)->getId());
+    (*mod)->setup();
+  }
+}
 void UsermodManager::connected()         { for (auto mod = _usermod_table_begin; mod < _usermod_table_end; ++mod) (*mod)->connected(); }
 void UsermodManager::loop()              { for (auto mod = _usermod_table_begin; mod < _usermod_table_end; ++mod) (*mod)->loop();  }
 void UsermodManager::handleOverlayDraw() { for (auto mod = _usermod_table_begin; mod < _usermod_table_end; ++mod) (*mod)->handleOverlayDraw(); }
