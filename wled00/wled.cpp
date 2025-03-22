@@ -193,14 +193,14 @@ void WLED::loop()
     if (aligned) strip.makeAutoSegments();
     else strip.fixInvalidSegments();
     BusManager::setBrightness(bri); // fix re-initialised bus' brightness
-    doSerializeConfig = true;
+    configNeedsWrite = true;
   }
   if (loadLedmap >= 0) {
     strip.deserializeMap(loadLedmap);
     loadLedmap = -1;
   }
   yield();
-  if (doSerializeConfig) serializeConfig();
+  if (configNeedsWrite) serializeConfigToFS();
 
   yield();
   handleWs();
@@ -223,7 +223,7 @@ void WLED::loop()
   }
 #endif
 
-  if (doReboot && (!doInitBusses || !doSerializeConfig)) // if busses have to be inited & saved, wait until next iteration
+  if (doReboot && (!doInitBusses || !configNeedsWrite)) // if busses have to be inited & saved, wait until next iteration
     reset();
 
 // DEBUG serial logging (every 30s)
