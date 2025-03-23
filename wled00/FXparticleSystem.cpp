@@ -657,7 +657,7 @@ void ParticleSystem2D::ParticleSys_render() {
         CHSV32 baseHSV;
         rgb2hsv((uint32_t((byte(baseRGB.r) << 16) | (byte(baseRGB.g) << 8) | (byte(baseRGB.b)))), baseHSV); // convert to HSV
         baseHSV.s = particles[i].sat; // set the saturation
-        uint32_t tempcolor;
+        CRGBW tempcolor;
         hsv2rgb(baseHSV, tempcolor); // convert back to RGB
         baseRGB = (CRGB)tempcolor;
       }
@@ -1587,7 +1587,7 @@ void ParticleSystem1D::ParticleSys_render() {
         CHSV32 baseHSV;
         rgb2hsv((uint32_t((byte(baseRGB.r) << 16) | (byte(baseRGB.g) << 8) | (byte(baseRGB.b)))), baseHSV); // convert to HSV
         baseHSV.s = advPartProps[i].sat; // set the saturation
-        uint32_t tempcolor;
+        CRGBW tempcolor;
         hsv2rgb(baseHSV, tempcolor); // convert back to RGB
         baseRGB = (CRGB)tempcolor;
       }

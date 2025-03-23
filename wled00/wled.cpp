@@ -52,7 +52,78 @@ void WLED::loop()
   static size_t        avgStripMillis = 0;
   unsigned long        stripMillis;
 #endif
+/*
+uint32_t start;
+  uint32_t end;
+  uint32_t time;
+  volatile uint32_t temp;
+  
+  CHSV32 hsv32;
+  CRGBW rgbw;
+  start = micros();
+  hsv32.s = 255;
+  hsv32.v = 255;
+  for(int i = 0; i < 1000000; i++){
+    hsv32.h = i;
+    //hsv2rgb_rainbow16(hsv32, rgbw);
+    hsv2rgb_rainbow16(hsv32.h, hsv32.s, hsv32.v, rgbw.raw, true);
+    temp+=rgbw.r;
+  }
+  end = micros();
+  time = end - start;
+  Serial.print("s=255,v=255: ");
+  Serial.print(temp);
+  Serial.print(" time: ");
+  Serial.println(time);
 
+    start = micros();
+  hsv32.s = 255;
+  hsv32.v = 250;
+  for(int i = 0; i < 1000000; i++){
+    hsv32.h = i;
+    //hsv2rgb_rainbow16(hsv32, rgbw);
+    hsv2rgb_rainbow16(hsv32.h, hsv32.s, hsv32.v, rgbw.raw, true);
+    temp+=rgbw.r;
+  }
+  end = micros();
+  time = end - start;
+  Serial.print("s=255,v=250: ");
+  Serial.print(temp);
+  Serial.print(" time: ");
+  Serial.println(time);
+
+    start = micros();
+  hsv32.s = 220;
+  hsv32.v = 255;
+  for(int i = 0; i < 1000000; i++){
+    hsv32.h = i;
+    //hsv2rgb_rainbow16(hsv32, rgbw);
+    hsv2rgb_rainbow16(hsv32.h, hsv32.s, hsv32.v, rgbw.raw, true);
+    temp+=rgbw.r;
+  }
+  end = micros();
+  time = end - start;
+  Serial.print("s=220,v=255: ");
+  Serial.print(temp);
+  Serial.print(" time: ");
+  Serial.println(time);
+
+    start = micros();
+  hsv32.s = 220;
+  hsv32.v = 210;
+  for(int i = 0; i < 1000000; i++){
+    hsv32.h = i;
+    //hsv2rgb_rainbow16(hsv32, rgbw);
+    hsv2rgb_rainbow16(hsv32.h, hsv32.s, hsv32.v, rgbw.raw, true);
+    temp+=rgbw.r;
+  }
+  end = micros();
+  time = end - start;
+  Serial.print("s=220,v=210: ");
+  Serial.print(temp);
+  Serial.print(" time: ");
+  Serial.println(time);
+*/
   handleTime();
   #ifndef WLED_DISABLE_INFRARED
   handleIR();        // 2nd call to function needed for ESP32 to return valid results -- should be good for ESP8266, too

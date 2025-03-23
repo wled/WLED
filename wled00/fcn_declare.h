@@ -487,8 +487,12 @@ uint16_t ease16InOutCubic(uint16_t i);
 uint8_t ease8InOutQuad(uint8_t i);
 
 // inline math functions
-__attribute__ ((always_inline)) inline uint8_t  scale8(uint8_t i, uint8_t scale ) { return ((uint32_t)i * (1 + (uint32_t)scale)) >> 8; }
-__attribute__ ((always_inline)) inline uint8_t  scale8_video(uint8_t i, uint8_t scale ) { return (((uint32_t)i * (uint32_t)scale) >> 8) + ((i&&scale)?1:0); }
+__attribute__ ((always_inline)) inline uint8_t  scale8(uint8_t i, uint8_t scale ) { return ((int)i * (1 + (int)scale)) >> 8; }
+__attribute__ ((always_inline)) inline uint8_t  scale8_video(uint8_t i, uint8_t scale ) { return (((int)i * (int)scale) >> 8) + ((i&&scale)?1:0); }
+//original fastled:
+//__attribute__ ((always_inline)) inline uint8_t  scale8(uint8_t i, uint8_t scale ) { return (((uint16_t)i) * (1 + (uint16_t)(scale))) >> 8; }
+//__attribute__ ((always_inline)) inline uint8_t  scale8_video(uint8_t i, uint8_t scale ) { uint8_t j = (((int)i * (int)scale) >> 8) + ((i && scale) ? 1 : 0); return j; }
+
 __attribute__ ((always_inline)) inline uint16_t scale16(uint16_t i, uint16_t scale ) { return ((uint32_t)i * (1 + (uint32_t)scale)) >> 16; }
 __attribute__ ((always_inline)) inline uint8_t  qadd8(uint8_t i, uint8_t j) { unsigned t = i + j; return t > 255 ? 255 : t; }
 __attribute__ ((always_inline)) inline uint8_t  qsub8(uint8_t i, uint8_t j) { int t = i - j; return t < 0 ? 0 : t; }

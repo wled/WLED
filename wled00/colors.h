@@ -69,8 +69,11 @@ inline uint32_t color_blend16(uint32_t c1, uint32_t c2, uint16_t b) { return col
 CRGBPalette16 generateHarmonicRandomPalette(const CRGBPalette16 &basepalette);
 CRGBPalette16 generateRandomPalette();
 
-void hsv2rgb(const CHSV32& hsv, uint32_t& rgb);
+//void hsv2rgb(const CHSV32& hsv, uint32_t& rgb);
+void hsv2rgb(const CHSV32& hsv, CRGBW& rgb);
 CRGB hsv2rgb(const CHSV& hsv);
+//void hsv2rgb_rainbow16(const CHSV32& hsv, CRGBW& rgb);
+void hsv2rgb_rainbow16(uint16_t h, uint8_t s, uint8_t v, uint8_t* rgbdata, bool isRGBW = false); 
 void hsv2rgb_rainbow(const CHSV& hsv, CRGB& rgb);
 void colorHStoRGB(uint16_t hue, byte sat, byte* rgb);
 void rgb2hsv(const uint32_t rgbw, CHSV32& hsv);
@@ -91,6 +94,10 @@ void fill_gradient_RGB(CRGB* colors, uint32_t num, const CRGB& c1, const CRGB& c
 void fill_gradient_RGB(CRGB* colors, uint32_t num, const CRGB& c1, const CRGB& c2, const CRGB& c3);
 void fill_gradient_RGB(CRGB* colors, uint32_t num, const CRGB& c1, const CRGB& c2, const CRGB& c3, const CRGB& c4);
 void nblendPaletteTowardPalette(CRGBPalette16& current, CRGBPalette16& target, uint8_t maxChanges);
+
+//test only: remove again once settled
+void hsv2rgb_rainbow16_ptr(const CHSV32& hsv, uint8_t* rgb);
+
 
 // Representation of an HSV pixel (hue, saturation, value (aka brightness)).
 struct CHSV {
@@ -879,7 +886,7 @@ struct CHSV32 { // 32bit HSV color with 16bit hue for more accurate conversions
         uint8_t s;   // saturation
         uint8_t v;   // value
     };
-    uint32_t raw;    // 32bit access
+    uint32_t hsv32;    // 32bit access
   };
   inline CHSV32() __attribute__((always_inline)) = default; // default constructor
 
