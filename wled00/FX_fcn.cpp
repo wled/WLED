@@ -602,8 +602,8 @@ static void setPinwheelParameters(int i, int vW, int vH, int& startx, int& start
   for (int k = 0; k < 2; k++) // angular steps for two consecutive rays
   {
     int angle = (i + k) * baseAngle + rotate;
-    cosVal[k] = (cos16(angle) * Fixed_Scale) >> 15; // step per pixel in fixed point, cos16 output is -0x7FFF to +0x7FFF
-    sinVal[k] = (sin16(angle) * Fixed_Scale) >> 15; // using explicit bit shifts as dividing negative numbers is not equivalent (rounding error is acceptable)
+    cosVal[k] = (cos16_t(angle) * Fixed_Scale) >> 15; // step per pixel in fixed point, cos16 output is -0x7FFF to +0x7FFF
+    sinVal[k] = (sin16_t(angle) * Fixed_Scale) >> 15; // using explicit bit shifts as dividing negative numbers is not equivalent (rounding error is acceptable)
   }
   startx = (vW * Fixed_Scale) / 2; // + cosVal[0] / 4; // starting position = center + 1/4 pixel (in fixed point)
   starty = (vH * Fixed_Scale) / 2; // + sinVal[0] / 4; 
@@ -760,7 +760,7 @@ void IRAM_ATTR Segment::setPixelColor(int i, uint32_t col) const
           int idx = 0;
           int err = dx + dy;
           while (true) {
-            if (unsigned(x0) >= vW || unsigned(y0) >= vH) {
+            if ((unsigned)x0 >= (unsigned)vW || (unsigned)y0 >= (unsigned)vH) {
               closestEdgeIdx = min(closestEdgeIdx, idx-2);
               break; // stop if outside of grid (exploit unsigned int overflow)
             }
@@ -892,27 +892,30 @@ uint32_t IRAM_ATTR Segment::getPixelColor(int i) const
   if (is2D()) {
     const int vW = vWidth();   // segment width in logical pixels (can be 0 if segment is inactive)
     const int vH = vHeight();  // segment height in logical pixels (is always >= 1)
+    int x = 0, y = 0;
     switch (map1D2D) {
       case M12_Pixels:
-        return getPixelColorXY(i % vW, i / vW);
+        x = i % vW;
+        y = i / vW;
         break;
       case M12_pBar:
-        if (vStrip > 0) return getPixelColorXY(vStrip - 1, vH - (i & 0xFFFF) -1);
-        else            return getPixelColorXY(0, vH - i -1);
+        if (vStrip > 0) { x = vStrip - 1; y = vH - i - 1; }
+        else            { y = vH - i - 1; };
         break;
       case M12_pArc:
-        if (i >= vW && i >= vH) {
-          unsigned vI = sqrt16(i*i/2);
-          return getPixelColorXY(vI,vI); // use diagonal
+        if (i > vW && i > vH) {
+          x = y = sqrt16(i*i/2);
+          break; // use diagonal
         }
         // otherwise fallthrough
       case M12_pCorner:
         // use longest dimension
-        return vW>vH ? getPixelColorXY(i, 0) : getPixelColorXY(0, i);
+        if (vW > vH) x = i;
+        else         y = i;
         break;
-      case M12_sPinwheel:
+      case M12_sPinwheel: {
         // not 100% accurate, returns pixel at outer edge
-        int x, y, cosVal[2], sinVal[2];
+        int cosVal[2], sinVal[2];
         setPinwheelParameters(i, vW, vH, x, y, cosVal, sinVal, true);
         int maxX = (vW-1) * Fixed_Scale;
         int maxY = (vH-1) * Fixed_Scale;
@@ -923,10 +926,10 @@ uint32_t IRAM_ATTR Segment::getPixelColor(int i) const
         }
         x /= Fixed_Scale;
         y /= Fixed_Scale;
-        return getPixelColorXY(x, y);
         break;
       }
-    return 0;
+    }
+    return getPixelColorXY(x, y);
   }
 #endif
   return getPixelColorRaw(i);
