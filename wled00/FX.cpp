@@ -3297,7 +3297,8 @@ static const char _data_FX_MODE_ANTS[] PROGMEM = "Ants@Ant speed,# of ants,Ant s
 *    modification of the Rolling Balls effect) - Bob Loeffler -  Jan-Feb 2025
 *
 *   The first slider is for speed.
-*   Checkbox1 is for displaying white dots that PacMan eats.  Enabled will show white dots.  Disabled will not show any white dots (all leds will be black).
+*   Checkbox1 is for displaying White Dots that PacMan eats.  Enabled will show white dots.  Disabled will not show any white dots (all leds will be black).
+*   Checkbox2 is for the Compact Dots mode of displaying white dots that PacMan eats.  Enabled will show white dots in every LED.  Disabled will show black LEDs between the white dots.
 *   aux0 is for boolean flags:
 *       bit 1 is for the direction of character movement (0=ghosts chasing PacMan; 1=PacMan chasing ghosts)
 *       bit 2 is for whether the ghosts should be blue color (1=yes; 0=no)
@@ -3308,7 +3309,6 @@ static const char _data_FX_MODE_ANTS[] PROGMEM = "Ants@Ant speed,# of ants,Ant s
 typedef struct PacManChars {
   unsigned  pos;
   unsigned  topPos;
-  unsigned  size;
   uint32_t  color;
 } pacmancharacters_t;
 
@@ -3326,7 +3326,7 @@ static uint16_t mode_pacman(void) {
   constexpr unsigned numPowerDots = 2;
   //allocate segment data
   unsigned dataSize = sizeof(pacmancharacters_t) * (numGhosts + 1 + numPowerDots);       // 4 ghosts + 1 PacMan + 2 Power dots 
-  if (SEGLEN <= 15 || !SEGENV.allocateData(dataSize)) return mode_static();     // allocation failed
+  if (SEGLEN <= 27 || !SEGENV.allocateData(dataSize)) return mode_static();     // allocation failed or segment length is too short to have a nice display
   pacmancharacters_t *character = reinterpret_cast<pacmancharacters_t *>(SEGENV.data);
 
   unsigned startBlinkingGhostsLED;                                              // the first LED when the blue ghosts will start blinking 
@@ -3337,10 +3337,6 @@ static uint16_t mode_pacman(void) {
     startBlinkingGhostsLED = SEGLEN/3;                                          // for short strips, start blinking the ghosts when there is 1/3rd of the LEDs left
 
   if (SEGENV.call == 0) {
-    for (int i = 0; i < 7; i++) {                                               // make all 6 characters (4 ghosts + 1 PacMan + 2 Power dots) the same size
-      character[i].size = 1;                                                    //   Not actually used now, but maybe a different size (2 pixels?) in the future?
-    }
-
     character[PACMAN].color  = YELLOW;                                          // PacMan character[0]
     character[PACMAN].pos    = 10;
     character[PACMAN].topPos = character[PACMAN].pos;                           // Top position (highest LED on the segment) reached by the PacMan character
@@ -3383,11 +3379,18 @@ static uint16_t mode_pacman(void) {
       SEGMENT.setPixelColor(i-2, BLACK);
     }
 
-    if (SEGMENT.check1) {                                                       // White Dots option is selected, so draw white dots (and black LEDs between them) in front of PacMan
-      for (int i = SEGLEN-1; i > character[PACMAN].topPos; i--) {
-        SEGMENT.setPixelColor(i, WHITEISH);                                     // white dots
-        SEGMENT.setPixelColor(i-1, BLACK);                                      // black LEDS between each white dot
-        i--;                                                                    // skip a dot so the dots are not next to each other
+    if (SEGMENT.check1) {                                                       // If White Dots option is selected, draw white dots (and black LEDs between them) in front of PacMan
+      if (SEGMENT.check2) {                                                     // If Compact Dots option is selected, draw white dots without black LEDs between them (only works if White Dots is also selected)
+        for (int i = SEGLEN-1; i > character[PACMAN].topPos; i--) {
+          SEGMENT.setPixelColor(i, WHITEISH);                                   // white dots
+        }
+      }
+      else {                                                                    // draw white dots with black LEDs between them
+        for (int i = SEGLEN-1; i > character[PACMAN].topPos; i--) {
+          SEGMENT.setPixelColor(i, WHITEISH);                                   // white dots
+          SEGMENT.setPixelColor(i-1, BLACK);                                    // black LEDS between each white dot
+          i--;                                                                  // skip a dot so the dots are not next to each other
+        }
       }
     }
     else {                                                                      // White Dots option is NOT selected, so draw black LEDs in front of PacMan
@@ -3411,19 +3414,6 @@ static uint16_t mode_pacman(void) {
     else
       character[6].color = ORANGEYELLOW;
   }
-
-  /*
-  if (SEGENV.aux1 % 5 == 0) {                                                                     // blink blue ghosts every 5 ticks of the ticker timer 
-    if ((SEGENV.aux0 & GHOSTSBLUE_FLAG) && (character[PACMAN].pos <= startBlinkingGhostsLED)) {   // if the ghost is blue and nearing the beginning of the strip, blink the ghosts
-      for (int i = 1; i < numGhosts + 1; i++) {                                                   // ...draw the 4 ghosts (and black dots surrounding each ghost)
-        if (character[i].color == BLUE)
-            character[i].color = BLACK;
-        else
-            character[i].color = BLUE;
-      }
-    }
-  }
-  */
 
   // blink last power dot (at the end of the segment) only if it has not been eaten yet
   if (((character[PACMAN].topPos < character[5].pos) && (SEGENV.aux0 & DIRECTION_FLAG)) || ((character[PACMAN].topPos < character[5].pos) && (SEGENV.aux0 | ~DIRECTION_FLAG)))
@@ -3516,7 +3506,7 @@ static uint16_t mode_pacman(void) {
 
   return FRAMETIME;
 }
-static const char _data_FX_MODE_PACMAN[] PROGMEM = "PacMan@Speed,,,,,White dots,,;,,;!;1;m12=0,o1=1";
+static const char _data_FX_MODE_PACMAN[] PROGMEM = "PacMan@Speed,,,,,White dots,Compact dots,;,,;!;1;m12=0,o1=1";
 
 
 /*
