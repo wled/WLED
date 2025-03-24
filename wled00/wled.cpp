@@ -871,6 +871,7 @@ ESP-NOW  inited in AP mode (channel: 6/1).
   // WL_DISCONNECTED     = 6
   // WL_NO_SHIELD        = 255
 
+#ifndef WLED_DISABLE_ESPNOW
   // WL_NO_SHIELD means WiFi is turned off while WL_IDLE_STATUS means we are not trying to connect to SSID (but we may be in AP mode)
   // so need to occasionally check if we can reconnect to restart WiFi
   if (wifiState == WL_NO_SHIELD || (wifiState == WL_IDLE_STATUS && lastReconnectAttempt > 0 && !apClients && !apActive)) {
@@ -890,6 +891,7 @@ ESP-NOW  inited in AP mode (channel: 6/1).
       return;
     }
   }
+#endif
 
   // handling new or forced connection
   if (wifiConfigured && (forceReconnect || lastReconnectAttempt == 0)) {
@@ -975,9 +977,9 @@ ESP-NOW  inited in AP mode (channel: 6/1).
 
   const bool isSTAmode = WiFi.getMode() & WIFI_MODE_STA;
   const bool isAPmode  = WiFi.getMode() & WIFI_MODE_AP;
+#ifndef WLED_DISABLE_ESPNOW
   const bool isESPNowMasterDefined = masterESPNow[0] | masterESPNow[1] | masterESPNow[2] | masterESPNow[3] | masterESPNow[4] | masterESPNow[5];
 
-#ifndef WLED_DISABLE_ESPNOW
   // if we are syncing via ESP-NOW and master has not been heard in a while we shoud retry WiFi
   if (useESPNowSync && !sendNotificationsRT && now > lastReconnectAttempt + 300000 && heartbeatESPNow > 0 && now > heartbeatESPNow + 120000) {
     DEBUG_PRINTF_P(PSTR("WiFi: ESP-NOW HB Timeout conn: %lus, HB: %lus @ %lus.\n"), lastReconnectAttempt/1000, heartbeatESPNow/1000, now/1000);
