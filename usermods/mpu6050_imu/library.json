@@ -1,7 +1,6 @@
 {
-  "name:": "mpu6050_imu",
-  "build": { "libArchive": false},
+  "name": "mpu6050_imu",
   "dependencies": {
-    "electroniccats/MPU6050":"1.0.1"
+    "adafruit/Adafruit MPU6050": "^2.2.6"
   }
 }

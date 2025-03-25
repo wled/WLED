@@ -447,9 +447,9 @@ void registerUsermods()
   UsermodManager::add(new HttpPullLightControl());
   #endif
 
-  #ifdef USERMOD_MPU6050_IMU
-  static MPU6050Driver mpu6050; UsermodManager::add(&mpu6050);
-  #endif
+  //#ifdef USERMOD_MPU6050_IMU
+  //static MPU6050Driver mpu6050; UsermodManager::add(&mpu6050);
+  //#endif
 
   #ifdef USERMOD_GYRO_SURGE
   static GyroSurge gyro_surge; UsermodManager::add(&gyro_surge);
