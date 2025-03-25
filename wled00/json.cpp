@@ -513,6 +513,7 @@ static void serializeSegment(JsonObject& root, const Segment& seg, byte id, bool
   root["bri"]    = (segbri) ? segbri : 255;
   root["cct"]    = seg.cct;
   root[F("set")] = seg.set;
+  root["lc"]     = seg.getLightCapabilities();
 
   if (seg.name != nullptr) root["n"] = reinterpret_cast<const char *>(seg.name); //not good practice, but decreases required JSON buffer
   else if (forPreset) root["n"] = "";
@@ -644,13 +645,13 @@ void serializeInfo(JsonObject root)
   #endif
 
   unsigned totalLC = 0;
-  JsonArray lcarr = leds.createNestedArray(F("seglc"));
+  JsonArray lcarr = leds.createNestedArray(F("seglc")); // deprecated, use state.seg[].lc
   size_t nSegs = strip.getSegmentsNum();
   for (size_t s = 0; s < nSegs; s++) {
     if (!strip.getSegment(s).isActive()) continue;
     unsigned lc = strip.getSegment(s).getLightCapabilities();
     totalLC |= lc;
-    lcarr.add(lc);
+    lcarr.add(lc); // deprecated, use state.seg[].lc
   }
 
   leds["lc"] = totalLC;

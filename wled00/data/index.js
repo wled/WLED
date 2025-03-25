@@ -57,7 +57,7 @@ function handleVisibilityChange() {if (!d.hidden && new Date () - lastUpdate > 3
 function sCol(na, col) {d.documentElement.style.setProperty(na, col);}
 function gId(c) {return d.getElementById(c);}
 function gEBCN(c) {return d.getElementsByClassName(c);}
-function isEmpty(o) {return Object.keys(o).length === 0;}
+function isEmpty(o) {for (const i in o) return false; return true;}
 function isObj(i) {return (i && typeof i === 'object' && !Array.isArray(i));}
 function isNumeric(n) {return !isNaN(parseFloat(n)) && isFinite(n);}
 
@@ -1469,41 +1469,32 @@ function readState(s,command=false)
 	else gId('bsp').classList.remove('hide')
 
 	populateSegments(s);
-	var selc=0;
-	var sellvl=0; // 0: selc is invalid, 1: selc is mainseg, 2: selc is first selected
 	hasRGB = hasWhite = hasCCT = has2D = false;
-	segLmax = 0;
-	for (let i = 0; i < (s.seg||[]).length; i++)
-	{
-		if (sellvl == 0 && s.seg[i].id == s.mainseg) {
-			selc = i;
-			sellvl = 1;
-		}
-		if (s.seg[i].sel) {
-			if (sellvl < 2) selc = i; // get first selected segment
-			sellvl = 2;
-			let w  = (s.seg[i].stop - s.seg[i].start);
-			let h  = s.seg[i].stopY ? (s.seg[i].stopY - s.seg[i].startY) : 1;
-			let lc = lastinfo.leds.seglc[i];
+	let i = {};
+	// determine light capabilities from selected segments
+	for (let seg of (s.seg||[])) {
+		let w  = (seg.stop - seg.start);
+		let h  = seg.stopY ? (seg.stopY - seg.startY) : 1;
+		let lc = seg.lc;
+		if (w*h > segLmax) segLmax = w*h;
+		if (seg.sel) {
+			if (isEmpty(i) || (i.id == s.mainseg && !i.sel)) i = seg; // get first selected segment (and replace mainseg if it is not selected)
 			hasRGB   |= !!(lc & 0x01);
 			hasWhite |= !!(lc & 0x02);
 			hasCCT   |= !!(lc & 0x04);
 			has2D    |= w > 1 && h > 1;
-			if (w*h > segLmax) segLmax = w*h;
-		}
+		} else if (isEmpty(i) && seg.id == s.mainseg) i = seg; // assign mainseg if no segments are selected
 	}
-	var i=s.seg[selc];
-	if (sellvl == 1) {
-		let lc = lastinfo.leds.seglc[selc];
-		hasRGB   = !!(lc & 0x01);
-		hasWhite = !!(lc & 0x02);
-		hasCCT   = !!(lc & 0x04);
-		has2D    = (i.stop - i.start) > 1 && (i.stopY ? (i.stopY - i.startY) : 1) > 1;
-	}
-	if (!i) {
-		showToast('No Segments!', true);
+	if (isEmpty(i)) {
+		showToast('No segments!', true);
 		updateUI();
 		return true;
+	} else if (i.id == s.mainseg) {
+		// fallback if no segments are selected but we have mainseg
+		hasRGB   |= !!(i.lc & 0x01);
+		hasWhite |= !!(i.lc & 0x02);
+		hasCCT   |= !!(i.lc & 0x04);
+		has2D    |= (i.stop - i.start) > 1 && (i.stopY ? (i.stopY - i.startY) : 1) > 1;
 	}
 
 	var cd = gId('csl').querySelectorAll("button");

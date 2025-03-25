@@ -964,44 +964,34 @@ uint8_t Segment::differs(const Segment& b) const {
 
 void Segment::refreshLightCapabilities() const {
   unsigned capabilities = 0;
-  unsigned segStartIdx = 0xFFFFU;
-  unsigned segStopIdx  = 0;
 
   if (!isActive()) {
     _capabilities = 0;
     return;
   }
 
-  if (start < Segment::maxWidth * Segment::maxHeight) {
-    // we are withing 2D matrix (includes 1D segments)
-    for (int y = startY; y < stopY; y++) for (int x = start; x < stop; x++) {
-      unsigned index = strip.getMappedPixelIndex(x + Segment::maxWidth * y); // convert logical address to physical
-      if (index < 0xFFFFU) {
-        if (segStartIdx > index) segStartIdx = index;
-        if (segStopIdx  < index) segStopIdx  = index;
+  // we must traverse each pixel in segment to determine its capabilities (as pixel may be mapped)
+  for (unsigned y = startY; y < stopY; y++) for (unsigned x = start; x < stop; x++) {
+    unsigned index = x + Segment::maxWidth * y;
+    index = strip.getMappedPixelIndex(index); // convert logical address to physical
+    if (index == 0xFFFF) continue;  // invalid/missing  pixel
+    for (unsigned b = 0; b < BusManager::getNumBusses(); b++) {
+      const Bus *bus = BusManager::getBus(b);
+      if (!bus || !bus->isOk()) break;
+      if (bus->containsPixel(index)) {
+        if (bus->hasRGB() || (strip.cctFromRgb && bus->hasCCT())) capabilities |= SEG_CAPABILITY_RGB;
+        if (!strip.cctFromRgb && bus->hasCCT())                   capabilities |= SEG_CAPABILITY_CCT;
+        if (strip.correctWB && (bus->hasRGB() || bus->hasCCT()))  capabilities |= SEG_CAPABILITY_CCT; //white balance correction (CCT slider)
+        if (bus->hasWhite()) {
+          unsigned aWM = Bus::getGlobalAWMode() == AW_GLOBAL_DISABLED ? bus->getAutoWhiteMode() : Bus::getGlobalAWMode();
+          bool whiteSlider = (aWM == RGBW_MODE_DUAL || aWM == RGBW_MODE_MANUAL_ONLY); // white slider allowed
+          // if auto white calculation from RGB is active (Accurate/Brighter), force RGB controls even if there are no RGB busses
+          if (!whiteSlider) capabilities |= SEG_CAPABILITY_RGB;
+          // if auto white calculation from RGB is disabled/optional (None/Dual), allow white channel adjustments
+          if ( whiteSlider) capabilities |= SEG_CAPABILITY_W;
+        }
+        break;
       }
-      if (segStartIdx == segStopIdx) segStopIdx++; // we only have 1 pixel segment
-    }
-  } else {
-    // we are on the strip located after the matrix
-    segStartIdx = start;
-    segStopIdx  = stop;
-  }
-
-  for (unsigned b = 0; b < BusManager::getNumBusses(); b++) {
-    const Bus *bus = BusManager::getBus(b);
-    if (!bus || !bus->isOk()) break;
-    if (bus->getStart() >= segStopIdx || bus->getStart() + bus->getLength() <= segStartIdx) continue;
-    if (bus->hasRGB() || (strip.cctFromRgb && bus->hasCCT())) capabilities |= SEG_CAPABILITY_RGB;
-    if (!strip.cctFromRgb && bus->hasCCT())                   capabilities |= SEG_CAPABILITY_CCT;
-    if (strip.correctWB && (bus->hasRGB() || bus->hasCCT()))  capabilities |= SEG_CAPABILITY_CCT; //white balance correction (CCT slider)
-    if (bus->hasWhite()) {
-      unsigned aWM = Bus::getGlobalAWMode() == AW_GLOBAL_DISABLED ? bus->getAutoWhiteMode() : Bus::getGlobalAWMode();
-      bool whiteSlider = (aWM == RGBW_MODE_DUAL || aWM == RGBW_MODE_MANUAL_ONLY); // white slider allowed
-      // if auto white calculation from RGB is active (Accurate/Brighter), force RGB controls even if there are no RGB busses
-      if (!whiteSlider) capabilities |= SEG_CAPABILITY_RGB;
-      // if auto white calculation from RGB is disabled/optional (None/Dual), allow white channel adjustments
-      if ( whiteSlider) capabilities |= SEG_CAPABILITY_W;
     }
   }
   _capabilities = capabilities;
