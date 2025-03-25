@@ -577,7 +577,7 @@ void ParticleSystem2D::ParticleSys_render() {
   if(blendingStyle == BLEND_STYLE_FADE && SEGMENT.isInTransition() && lastRender + (strip.getFrameTime() >> 1) > strip.now) // fixes speedup during transitions TODO: find a better solution
     return;
   lastRender = strip.now;
-  CRGB baseRGB;
+  CRGBW baseRGB;
   uint32_t brightness; // particle brightness, fades if dying
   static bool useAdditiveTransfer = false; // use add instead of set for buffer transferring (must persist between calls)
   bool isNonFadeTransition = (pmem->inTransition || pmem->finalTransfer) && blendingStyle != BLEND_STYLE_FADE;
@@ -654,15 +654,12 @@ void ParticleSystem2D::ParticleSys_render() {
       brightness = min((particles[i].ttl << 1), (int)255);
       baseRGB = ColorFromPaletteWLED(SEGPALETTE, particles[i].hue, 255);
       if (particles[i].sat < 255) {
-        CHSV32 baseHSV;
-        rgb2hsv((uint32_t((byte(baseRGB.r) << 16) | (byte(baseRGB.g) << 8) | (byte(baseRGB.b)))), baseHSV); // convert to HSV
+        CHSV32 baseHSV = baseRGB;
         baseHSV.s = particles[i].sat; // set the saturation
-        CRGBW tempcolor;
-        hsv2rgb(baseHSV, tempcolor); // convert back to RGB
-        baseRGB = (CRGB)tempcolor;
+        hsv2rgb_spectrum(baseHSV, baseRGB); // convert back to RGB
       }
     }
-    renderParticle(i, brightness, baseRGB, particlesettings.wrapX, particlesettings.wrapY);
+    renderParticle(i, brightness, CRGB(baseRGB), particlesettings.wrapX, particlesettings.wrapY);
   }
 
   if (particlesize > 1) {
@@ -1533,7 +1530,7 @@ void ParticleSystem1D::ParticleSys_render() {
   if(blendingStyle == BLEND_STYLE_FADE && SEGMENT.isInTransition() && lastRender + (strip.getFrameTime() >> 1) > strip.now) // fixes speedup during transitions TODO: find a better solution
     return;
   lastRender = strip.now;
-  CRGB baseRGB;
+  CRGBW baseRGB;
   uint32_t brightness; // particle brightness, fades if dying
  // bool useAdditiveTransfer; // use add instead of set for buffer transferring
   bool isNonFadeTransition = (pmem->inTransition || pmem->finalTransfer) && blendingStyle != BLEND_STYLE_FADE;
@@ -1584,15 +1581,12 @@ void ParticleSystem1D::ParticleSys_render() {
 
     if (advPartProps) { //saturation is advanced property in 1D system
       if (advPartProps[i].sat < 255) {
-        CHSV32 baseHSV;
-        rgb2hsv((uint32_t((byte(baseRGB.r) << 16) | (byte(baseRGB.g) << 8) | (byte(baseRGB.b)))), baseHSV); // convert to HSV
+        CHSV32 baseHSV = baseRGB;
         baseHSV.s = advPartProps[i].sat; // set the saturation
-        CRGBW tempcolor;
-        hsv2rgb(baseHSV, tempcolor); // convert back to RGB
-        baseRGB = (CRGB)tempcolor;
+        hsv2rgb_spectrum(baseHSV, baseRGB); // convert back to RGB
       }
     }
-    renderParticle(i, brightness, baseRGB, particlesettings.wrap);
+    renderParticle(i, brightness, CRGB(baseRGB), particlesettings.wrap);
   }
   // apply smear-blur to rendered frame
   if(globalSmear > 0) {

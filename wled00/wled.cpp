@@ -52,21 +52,25 @@ void WLED::loop()
   static size_t        avgStripMillis = 0;
   unsigned long        stripMillis;
 #endif
-/*
+
 uint32_t start;
   uint32_t end;
   uint32_t time;
   volatile uint32_t temp;
   
-  CHSV32 hsv32;
-  CRGBW rgbw;
+  CHSV32 hsv;
+  CRGBW rgbw = hw_random();
+  CRGB rgb;
   start = micros();
-  hsv32.s = 255;
-  hsv32.v = 255;
+  hsv.s = 255;
+  hsv.v = 255;
   for(int i = 0; i < 1000000; i++){
-    hsv32.h = i;
-    //hsv2rgb_rainbow16(hsv32, rgbw);
-    hsv2rgb_rainbow16(hsv32.h, hsv32.s, hsv32.v, rgbw.raw, true);
+    rgbw = hw_random();
+    //hsv2rgb_rainbow(hsv32, rgbw); // this is slower...  546ms for 1mio calls
+    //rgbw.color32 = i;//&0xFFFF00;
+    //rgb2hsv(rgbw, hsv);
+    //temp+=hsv.h;
+    rgbw.adjust_hue(-i);
     temp+=rgbw.r;
   }
   end = micros();
@@ -76,13 +80,15 @@ uint32_t start;
   Serial.print(" time: ");
   Serial.println(time);
 
+/*
     start = micros();
-  hsv32.s = 255;
-  hsv32.v = 250;
+  hsv.s = 255;
+  hsv.v = 250;
   for(int i = 0; i < 1000000; i++){
-    hsv32.h = i;
-    //hsv2rgb_rainbow16(hsv32, rgbw);
-    hsv2rgb_rainbow16(hsv32.h, hsv32.s, hsv32.v, rgbw.raw, true);
+    hsv.h = i;
+    //hsv2rgb_rainbow(hsv32, rgbw);
+    //hsv2rgb_rainbow16(hsv32.h, hsv32.s, hsv32.v, rgbw.raw, true);
+    rgbw = hsv;
     temp+=rgbw.r;
   }
   end = micros();
@@ -93,12 +99,13 @@ uint32_t start;
   Serial.println(time);
 
     start = micros();
-  hsv32.s = 220;
-  hsv32.v = 255;
+  hsv.s = 220;
+  hsv.v = 255;
   for(int i = 0; i < 1000000; i++){
-    hsv32.h = i;
-    //hsv2rgb_rainbow16(hsv32, rgbw);
-    hsv2rgb_rainbow16(hsv32.h, hsv32.s, hsv32.v, rgbw.raw, true);
+    hsv.h = i;
+    //hsv2rgb_rainbow(hsv32, rgbw);
+    //hsv2rgb_rainbow16(hsv32.h, hsv32.s, hsv32.v, rgbw.raw, true);
+    rgbw = hsv;
     temp+=rgbw.r;
   }
   end = micros();
@@ -108,13 +115,14 @@ uint32_t start;
   Serial.print(" time: ");
   Serial.println(time);
 
-    start = micros();
-  hsv32.s = 220;
-  hsv32.v = 210;
+  start = micros();
+  hsv.s = 220;
+  hsv.v = 210;
   for(int i = 0; i < 1000000; i++){
-    hsv32.h = i;
-    //hsv2rgb_rainbow16(hsv32, rgbw);
-    hsv2rgb_rainbow16(hsv32.h, hsv32.s, hsv32.v, rgbw.raw, true);
+    hsv.h = i;
+    //hsv2rgb_rainbow(hsv32, rgbw);
+    //hsv2rgb_rainbow16(hsv32.h, hsv32.s, hsv32.v, rgbw.raw, true);
+     rgbw = hsv;
     temp+=rgbw.r;
   }
   end = micros();

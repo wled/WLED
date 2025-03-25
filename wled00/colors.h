@@ -65,19 +65,17 @@ class NeoGammaWLEDMethod {
 inline uint32_t color_blend16(uint32_t c1, uint32_t c2, uint16_t b) { return color_blend(c1, c2, b >> 8); };
 [[gnu::hot, gnu::pure]] uint32_t color_add(uint32_t, uint32_t, bool preserveCR = false);
 [[gnu::hot, gnu::pure]] uint32_t color_fade(uint32_t c1, uint8_t amount, bool video=false);
+void adjust_color(CRGBW& rgb, int32_t hueShift, int32_t valueChange, int32_t satChange);
 [[gnu::hot, gnu::pure]] uint32_t ColorFromPaletteWLED(const CRGBPalette16 &pal, unsigned index, uint8_t brightness = (uint8_t)255U, TBlendType blendType = LINEARBLEND);
 CRGBPalette16 generateHarmonicRandomPalette(const CRGBPalette16 &basepalette);
 CRGBPalette16 generateRandomPalette();
 
-//void hsv2rgb(const CHSV32& hsv, uint32_t& rgb);
-void hsv2rgb(const CHSV32& hsv, CRGBW& rgb);
-CRGB hsv2rgb(const CHSV& hsv);
-//void hsv2rgb_rainbow16(const CHSV32& hsv, CRGBW& rgb);
-void hsv2rgb_rainbow16(uint16_t h, uint8_t s, uint8_t v, uint8_t* rgbdata, bool isRGBW = false); 
-void hsv2rgb_rainbow(const CHSV& hsv, CRGB& rgb);
+
+void hsv2rgb_spectrum(const CHSV32& hsv, CRGBW& rgb);
+void hsv2rgb_spectrum(const CHSV& hsv, CRGB& rgb);
+void hsv2rgb_rainbow(uint16_t h, uint8_t s, uint8_t v, uint8_t* rgbdata, bool isRGBW);
+void rgb2hsv(const CRGBW& rgb, CHSV32& hsv);
 void colorHStoRGB(uint16_t hue, byte sat, byte* rgb);
-void rgb2hsv(const uint32_t rgbw, CHSV32& hsv);
-CHSV rgb2hsv(const CRGB c);
 void colorKtoRGB(uint16_t kelvin, byte* rgb);
 void colorCTtoRGB(uint16_t mired, byte* rgb); //white spectrum to rgb
 CRGB HeatColor(uint8_t temperature); // black body radiation
@@ -94,10 +92,6 @@ void fill_gradient_RGB(CRGB* colors, uint32_t num, const CRGB& c1, const CRGB& c
 void fill_gradient_RGB(CRGB* colors, uint32_t num, const CRGB& c1, const CRGB& c2, const CRGB& c3);
 void fill_gradient_RGB(CRGB* colors, uint32_t num, const CRGB& c1, const CRGB& c2, const CRGB& c3, const CRGB& c4);
 void nblendPaletteTowardPalette(CRGBPalette16& current, CRGBPalette16& target, uint8_t maxChanges);
-
-//test only: remove again once settled
-void hsv2rgb_rainbow16_ptr(const CHSV32& hsv, uint8_t* rgb);
-
 
 // Representation of an HSV pixel (hue, saturation, value (aka brightness)).
 struct CHSV {
@@ -193,27 +187,22 @@ struct CRGB {
 
   // allow construction from a CHSV color
   inline CRGB(const CHSV& rhs) __attribute__((always_inline))  {
-    hsv2rgb_rainbow(rhs, *this);
+    hsv2rgb_rainbow(rhs.h<<8, rhs.s, rhs.v, raw, false);
   }
+
   // allow assignment from hue, saturation, and value
-  inline CRGB& setHSV (uint8_t hue, uint8_t sat, uint8_t val) __attribute__((always_inline))
-  {
-    hsv2rgb_rainbow(CHSV(hue, sat, val), *this);
-    return *this;
+  inline CRGB& setHSV (uint8_t hue, uint8_t sat, uint8_t val) __attribute__((always_inline)) {
+    hsv2rgb_rainbow(hue<<8, sat, val, raw, false); return *this;
   }
 
   // Allow assignment from just a hue, sat and val are set to max
-  inline CRGB& setHue (uint8_t hue) __attribute__((always_inline))
-  {
-    hsv2rgb_rainbow(CHSV(hue, 255, 255), *this);
-    return *this;
+  inline CRGB& setHue (uint8_t hue) __attribute__((always_inline)) {
+    hsv2rgb_rainbow(hue<<8, 255, 255, raw, false); return *this;
   }
 
   /// Allow assignment from HSV color
-  inline CRGB& operator= (const CHSV& rhs) __attribute__((always_inline))
-  {
-    hsv2rgb_rainbow(rhs, *this);
-    return *this;
+  inline CRGB& operator= (const CHSV& rhs) __attribute__((always_inline)) {
+    hsv2rgb_rainbow(rhs.h<<8, rhs.s, rhs.v, raw, false); return *this;
   }
   // allow assignment from one RGB struct to another
   inline CRGB& operator= (const CRGB& rhs) __attribute__((always_inline)) = default;
@@ -832,53 +821,6 @@ public:
   }
 };
 
-  // CRGBW can be used to manipulate 32bit colors faster. However: if it is passed to functions, it adds overhead compared to a uint32_t color
-  // use with caution and pay attention to flash size. Usually converting a uint32_t to CRGBW to extract r, g, b, w values is slower than using bitshifts
-  // it can be useful to avoid back and forth conversions between uint32_t and fastled CRGB
-  struct CRGBW {
-    union {
-      uint32_t color32; // Access as a 32-bit value (0xWWRRGGBB)
-      struct {
-        uint8_t b;
-        uint8_t g;
-        uint8_t r;
-        uint8_t w;
-      };
-      uint8_t raw[4];   // Access as an array in the order B, G, R, W (matches 32 bit colors)
-    };
-
-    // Default constructor
-    inline CRGBW() __attribute__((always_inline)) = default;
-
-    // Constructor from a 32-bit color (0xWWRRGGBB)
-    constexpr CRGBW(uint32_t color) __attribute__((always_inline)) : color32(color) {}
-
-    // Constructor with r, g, b, w values
-    constexpr CRGBW(uint8_t red, uint8_t green, uint8_t blue, uint8_t white = 0) __attribute__((always_inline)) : b(blue), g(green), r(red), w(white) {}
-
-    // Constructor from CRGB
-    constexpr CRGBW(CRGB rgb) __attribute__((always_inline)) : b(rgb.b), g(rgb.g), r(rgb.r), w(0) {}
-
-    // Access as an array
-    inline const uint8_t& operator[](uint8_t x) const __attribute__((always_inline)) { return raw[x]; }
-
-    // Assignment from 32-bit color
-    inline CRGBW& operator=(uint32_t color) __attribute__((always_inline)) { color32 = color; return *this; }
-
-    // Assignment from r, g, b, w
-    inline CRGBW& operator=(const CRGB& rgb) __attribute__((always_inline)) { b = rgb.b; g = rgb.g; r = rgb.r; w = 0; return *this; }
-
-    // Conversion operator to uint32_t
-    inline operator uint32_t() const __attribute__((always_inline)) {
-      return color32;
-    }
-
-    // get the average of the R, G, B and W values
-    uint8_t getAverageLight() const {
-      return (r + g + b + w) >> 2;
-    }
-  };
-
 struct CHSV32 { // 32bit HSV color with 16bit hue for more accurate conversions
   union {
     struct {
@@ -899,13 +841,85 @@ struct CHSV32 { // 32bit HSV color with 16bit hue for more accurate conversions
     : h((uint16_t)chsv.h << 8), s(chsv.s), v(chsv.v) {}
   inline operator CHSV() const { return CHSV((uint8_t)(h >> 8), s, v); } // typecast to CHSV
   // construction from a 32bit rgb color (white channel is ignored)
-  inline CHSV32(const uint32_t rgb) __attribute__((always_inline)) {
-    rgb2hsv(rgb, *this);
+  inline CHSV32(const CRGBW& rgb) __attribute__((always_inline));
+  inline CHSV32& operator= (const CRGBW& rgb) __attribute__((always_inline)); // assignment from 32bit rgb color (white channel is ignored)
+
+  //TODO: allow assignment/construction from 32bit rgb color? or is that ambiguous? -> its not clear inherently, so bettter use a cast (CHSV32 = CRGBW(rgb))
+};
+
+// CRGBW can be used to manipulate 32bit colors faster. However: if it is passed to functions, it adds overhead compared to a uint32_t color
+// use with caution and pay attention to flash size. Usually converting a uint32_t to CRGBW to extract r, g, b, w values is slower than using bitshifts
+// it can be useful to avoid back and forth conversions between uint32_t and fastled CRGB
+struct CRGBW {
+  union {
+    uint32_t color32; // Access as a 32-bit value (0xWWRRGGBB)
+    struct {
+      uint8_t b;
+      uint8_t g;
+      uint8_t r;
+      uint8_t w;
+    };
+    uint8_t raw[4];   // Access as an array in the order B, G, R, W (matches 32 bit colors)
+  };
+
+  // Default constructor
+  inline CRGBW() __attribute__((always_inline)) = default;
+
+  // Constructor from a 32-bit color (0xWWRRGGBB)
+  constexpr CRGBW(uint32_t color) __attribute__((always_inline)) : color32(color) {}
+
+  // Constructor with r, g, b, w values
+  constexpr CRGBW(uint8_t red, uint8_t green, uint8_t blue, uint8_t white = 0) __attribute__((always_inline)) : b(blue), g(green), r(red), w(white) {}
+
+  // Constructor from CRGB
+  constexpr CRGBW(CRGB rgb) __attribute__((always_inline)) : b(rgb.b), g(rgb.g), r(rgb.r), w(0) {}
+
+  // Constructor from CHSV32
+  inline CRGBW(CHSV32 hsv) __attribute__((always_inline)) { hsv2rgb_rainbow(hsv.h, hsv.s, hsv.v, raw, true); }
+
+  // Constructor from CHSV
+  inline CRGBW(CHSV hsv) __attribute__((always_inline)) { hsv2rgb_rainbow(hsv.h<<8, hsv.s, hsv.v, raw, true); }
+
+  // Access as an array
+  inline const uint8_t& operator[](uint8_t x) const __attribute__((always_inline)) { return raw[x]; }
+
+  // Assignment from 32-bit color
+  inline CRGBW& operator=(uint32_t color) __attribute__((always_inline)) { color32 = color; return *this; }
+
+  // Assignment from CHSV32
+  inline CRGBW& operator=(CHSV32 hsv) __attribute__((always_inline)) { hsv2rgb_rainbow(hsv.h, hsv.s, hsv.v, raw, true); return *this; }
+
+  // Assignment from CHSV
+  inline CRGBW& operator=(CHSV hsv) __attribute__((always_inline)) { hsv2rgb_rainbow(hsv.h<<8, hsv.s, hsv.v, raw, true); return *this; }
+
+  // Assignment from r, g, b, w
+  inline CRGBW& operator=(const CRGB& rgb) __attribute__((always_inline)) { b = rgb.b; g = rgb.g; r = rgb.r; w = 0; return *this; }
+
+  // Conversion operator to uint32_t
+  inline operator uint32_t() const __attribute__((always_inline)) {
+    return color32;
   }
-  inline CHSV32& operator= (const uint32_t& rgb) __attribute__((always_inline)) { // assignment from 32bit rgb color (white channel is ignored)
-      rgb2hsv(rgb, *this);
-      return *this;
+
+  // adjust hue: input is 0-255 for full color cycle, input can be negative
+  inline void adjust_hue(int hueshift) __attribute__((always_inline)) {
+    CHSV32 hsv = *this;
+    hsv.h += hueshift << 8;
+    hsv2rgb_spectrum(hsv, *this);
+  }
+
+  // get the average of the R, G, B and W values
+  uint8_t getAverageLight() const {
+    return (r + g + b + w) >> 2;
   }
 };
+
+inline CHSV32::CHSV32(const CRGBW& rgb) {
+  rgb2hsv(rgb, *this);
+}
+inline CHSV32& CHSV32::operator= (const CRGBW& rgb) { // assignment from 32bit rgb color (white channel is ignored)
+  rgb2hsv(rgb, *this);
+  return *this;
+}
+
 
 #endif

@@ -2,7 +2,16 @@
 #include "fcn_declare.h"
 //#include "colors.h" // todo: needed? its already included in fcn declare -> seems to compile fine without this include -> remove?
 /*
- * Color conversion & utility methods
+  Color conversion & utility methods
+
+  Note on color types and conversions:
+  - WLED uses 32bit colors (RGBW), if possible, use CRGBW instead of CRGB for better performance (no conversion in setPixelColor)
+  - use CRGB if RAM usage is of concern (i.e. for larger color arrays)
+  - fastled replacements are mostly optimized for CHSV32 and CRGBW but using CRGB and HSV are equally fast
+  - direct conversion (assignment or construction) from CHSV/CHSV32 to CRGB/CRGBW use the "rainbow" method (nicer colors)
+  - converting CRGB(W) to HSV32 color is quite accurate but still not 100% (but much more accurate than fastled's "hsv2rgb_approximate" function)
+  - when converting CRGB(W) to HSV32, use "hsv2rgb_spectrum" function to convert it back (better color accuracy, rainbow causes slight color shift)
+  - to manipulate an RGB color in HSV space, use the 
  */
 
 /*
@@ -84,6 +93,22 @@ uint32_t color_fade(uint32_t c1, uint8_t amount, bool video)
   return scaledcolor;
 }
 
+
+/*
+  color adjustment in HSV color space (converts RGB to HSV and back), color conversions are not 100% accurate
+  note: inputs are 32bit to speed up the function, useful input value ranges are -255 to +255
+  note2: if only one hue change is needed, use CRGBW.adjust_hue() instead (much faster)
+*/
+__attribute__((optimize("O3"))) void adjust_color(CRGBW& rgb, int32_t hueShift, int32_t valueChange, int32_t satChange) {
+  if(rgb.color32 == 0 && valueChange <= 0) return; // black and no value change -> return black
+  CHSV32 hsv;
+  rgb2hsv(rgb, hsv); //convert to HSV
+  hsv.h += (hueShift << 8); // shift hue (hue is 16 bits)
+  hsv.s = (int)hsv.s + satChange < 0 ? 0 : ((int)hsv.s + satChange > 255 ? 255 : (int)hsv.s + satChange);
+  hsv.v = (int)hsv.v + valueChange < 0 ? 0 : ((int)hsv.v + valueChange > 255 ? 255 : (int)hsv.v + valueChange);
+  hsv2rgb_spectrum(hsv, rgb); // convert back to RGB
+}
+
 // 1:1 replacement of fastled function optimized for ESP, slightly faster, more accurate and uses less flash (~ -200bytes)
 uint32_t ColorFromPaletteWLED(const CRGBPalette16& pal, unsigned index, uint8_t brightness, TBlendType blendType)
 {
@@ -128,7 +153,7 @@ CRGBPalette16 generateHarmonicRandomPalette(const CRGBPalette16 &basepalette)
 {
   CHSV palettecolors[4]; // array of colors for the new palette
   uint8_t keepcolorposition = hw_random8(4); // color position of current random palette to keep
-  palettecolors[keepcolorposition] = rgb2hsv(basepalette.entries[keepcolorposition*5]); // read one of the base colors of the current palette
+  //!!! update this palettecolors[keepcolorposition] = rgb2hsv(basepalette.entries[keepcolorposition*5]); // read one of the base colors of the current palette
   palettecolors[keepcolorposition].hue += hw_random8(10)-5; // +/- 5 randomness of base color
   // generate 4 saturation and brightness value numbers
   // only one saturation is allowed to be below 200 creating mostly vibrant colors
@@ -230,13 +255,10 @@ CRGBPalette16 generateRandomPalette()  // generate fully random palette
 }
 
 // convert HSV (16bit hue) to RGB (32bit with white = 0), optimized for speed
-//__attribute__((optimize("O3"))) 
-void hsv2rgb(const CHSV32& hsv, CRGBW& rgb) {
+__attribute__((optimize("O3"))) void hsv2rgb_spectrum(const CHSV32& hsv, CRGBW& rgb) {
   unsigned p, q, t;
   unsigned region = ((unsigned)hsv.h * 6) >> 16; // h / (65536 / 6)
   unsigned remainder = (hsv.h - (region * 10923)) * 6; // 10923 = (65536 / 6)
-  //unsigned region = (unsigned)hsv.h / 10923;  // 65536 / 6 = 10923
-  //unsigned  remainder = ((unsigned)hsv.h - (region * 10923)) * 6;
 
   // check for zero saturation
   if (hsv.s == 0) {
@@ -281,15 +303,18 @@ void hsv2rgb(const CHSV32& hsv, CRGBW& rgb) {
   }
 }
 
-inline CRGB hsv2rgb(const CHSV& hsv) {  // CHSV to CRGB
+// CHSV to CRGB, dumb conversion: slower so this should not be used in time critical code, use rainbow version instead
+void hsv2rgb_spectrum(const CHSV& hsv, CRGB& rgb) {
   CHSV32 hsv32(hsv);
-  CRGBW rgb;
-  hsv2rgb(hsv32, rgb);
-  return CRGB(rgb);
+  CRGBW rgb32;
+  hsv2rgb_spectrum(hsv32, rgb32);
+  rgb = CRGB(rgb32);
 }
 
-
-void hsv2rgb_rainbow16(uint16_t h, uint8_t s, uint8_t v, uint8_t* rgbdata, bool isRGBW) {
+// convert HSV (16bit hue) to RGB (24bit), optimized for speed (integer types and function arguments were very carefully chosen for best performance)
+// this does the same as the FastLED hsv2rgb_rainbow function but with 16bit hue and optimizations for use with CRGB as well as CRGBW
+// note: this function is used when converting CHSV->CRGB or CHSV32->CRGBW by assignment or constructor, there is no need to call it explicitly
+__attribute__((optimize("O3"))) void hsv2rgb_rainbow(uint16_t h, uint8_t s, uint8_t v, uint8_t* rgbdata, bool isRGBW) {
   uint8_t hue = h>>8;
   uint8_t sat = s;
   uint32_t val = v;
@@ -297,7 +322,6 @@ void hsv2rgb_rainbow16(uint16_t h, uint8_t s, uint8_t v, uint8_t* rgbdata, bool 
   uint32_t third16 = (offset * 21846); // offset16 = offset * 1/3<<16
   uint8_t third = third16 >> 21; // max = 85
   uint8_t r, g, b; // note: making these 32bit is significantly slower
-
 
   if (!(hue & 0x80)) {
     if (!(hue & 0x40)) { // section 0-1
@@ -392,474 +416,41 @@ void hsv2rgb_rainbow16(uint16_t h, uint8_t s, uint8_t v, uint8_t* rgbdata, bool 
     rgbdata[1] = g;
     rgbdata[2] = b;
   }
-  //rgb.r = r;
-  //rgb.g = g;
-  //rgb.b = b;
 }
 
-/*
-// rainbow spectrum, adapted from fastled
-// note: integer types are carefully chosen to maximize performance
-void hsv2rgb_rainbow16(const CHSV32& hsv, CRGBW& rgb) { 
-
-  uint8_t hue = hsv.h>>8;
-  uint8_t sat = hsv.s;
-  uint32_t val = hsv.v;
-  uint8_t offset = hsv.h & 0x1FFF; // 0..31
-  uint32_t third16 = ((int)offset * 21846); // offset16 = offset * 1/3<<16
-  uint8_t third = third16 >> 21; // max = 85
-  uint8_t r, g, b; // note: making these 32bit is significantly slower
-
-  if (!(hue & 0x80)) {
-    if (!(hue & 0x40)) { // section 0-1
-      if (!(hue & 0x20)) {
-        r = 255 - third;
-        g = third;
-        b = 0;
-      } else {
-        r = 171;
-        g = 85 + third;
-        b = 0;
-      }
-    } else { // section 2-3
-      if (!(hue & 0x20)) {
-        uint8_t twothirds = third16 >> 20; // max=170
-        r = 171 - twothirds;
-        g = 170 + third;
-        b = 0;
-      } else {
-        r = 0;
-        g = 255 - third;
-        b = third;
-      }
-    }
-  } else { // section 4-7
-    if (!(hue & 0x40)) {
-      if (!(hue & 0x20)) {
-        r = 0;
-        uint8_t twothirds = third16 >> 20; // max=170
-        g = 171 - twothirds;
-        b = 85 + twothirds;
-      } else {
-        r = third;
-        g = 0;
-        b = 255 - third;
-      }
-    } else {
-      if (!(hue & 0x20)) {
-        r = 85 + third;
-        g = 0;
-        b = 171 - third;
-      } else {
-        r = 170 + third;
-        g = 0;
-        b = 85 - third;
-      }
-    }
-  }
-
-  // scale down colors if desaturated and add the brightness_floor to r, g, and b.
-  if (sat != 255) {
-    if (sat == 0) {
-      r = 255;
-      g = 255;
-      b = 255;
-    } else {
-      //we know sat is < 255 and > 1, lets use that: scale8video is always +1, so drop the conditional
-      uint32_t desat = 255 - sat;
-      desat = (desat * desat); // scale8_video(desat, desat) but more accurate, dropped the "+1" for speed: visual difference is negligible
-      uint8_t brightness_floor = desat >> 8;
-      uint32_t satscale = 0xFFFF - desat;
-      if (r) r = ((r * satscale) >> 16);
-      if (g) g = ((g * satscale) >> 16);
-      if (b) b = ((b * satscale) >> 16);
-
-      r += brightness_floor;
-      g += brightness_floor;
-      b += brightness_floor;
-    }
-  }
-
-  // scale everything down if value < 255.
-  if (val != 255) {
-    if (val == 0) {
-      r = 0;
-      g = 0;
-      b = 0;
-    } else {
-       val = val*val + 512; // = scale8_video(val,val)+2;
-      if (r) r = ((r * val) >> 16) + 1;
-      if (g) g = ((g * val) >> 16) + 1;
-      if (b) b = ((b * val) >> 16) + 1;
-    }
-  }
-
-  rgb.r = r;
-  rgb.g = g;
-  rgb.b = b;
-}
-*/
-
-// note: code duplication is for speed, using conversion functions, makes it much slower (about half the speed)
-// in order to remove the duplication without much speed impact: add a conversion function, but remove all looped calls to it and raplace those with the 16bit version.
-// all attempts using pointers, references or inline functions did not result in a speedup
-
-
-
-#define FORCE_REFERENCE(var)  asm volatile( "" : : "r" (var) )
- 
- 
-#define K255 255
-#define K171 171
-#define K170 170
-#define K85  85
- 
-void hsv2rgb_rainbow( const CHSV& hsv, CRGB& rgb)
-{
-    // Yellow has a higher inherent brightness than
-    // any other color; 'pure' yellow is perceived to
-    // be 93% as bright as white.  In order to make
-    // yellow appear the correct relative brightness,
-    // it has to be rendered brighter than all other
-    // colors.
-    // Level Y1 is a moderate boost, the default.
-    // Level Y2 is a strong boost.
-    const uint8_t Y1 = 1;
-    const uint8_t Y2 = 0;
-    
-    // G2: Whether to divide all greens by two.
-    // Depends GREATLY on your particular LEDs
-    const uint8_t G2 = 0;
-    
-    // Gscale: what to scale green down by.
-    // Depends GREATLY on your particular LEDs
-    const uint8_t Gscale = 0;
-    
-    
-    uint8_t hue = hsv.hue;
-    uint8_t sat = hsv.sat;
-    uint8_t val = hsv.val;
-    
-    uint8_t offset = hue & 0x1F; // 0..31
-    
-    // offset8 = offset * 8
-    uint8_t offset8 = offset;
-    {
-#if defined(__AVR__)
-        // Left to its own devices, gcc turns "x <<= 3" into a loop
-        // It's much faster and smaller to just do three single-bit shifts
-        // So this business is to force that.
-        offset8 <<= 1;
-        asm volatile("");
-        offset8 <<= 1;
-        asm volatile("");
-        offset8 <<= 1;
-#else
-        // On ARM and other non-AVR platforms, we just shift 3.
-        offset8 <<= 3;
-#endif
-    }
-    
-    uint8_t third = scale8( offset8, (256 / 3)); // max = 85
-    
-    uint8_t r, g, b;
-    
-    if( ! (hue & 0x80) ) {
-        // 0XX
-        if( ! (hue & 0x40) ) {
-            // 00X
-            //section 0-1
-            if( ! (hue & 0x20) ) {
-                // 000
-                //case 0: // R -> O
-                r = K255 - third;
-                g = third;
-                b = 0;
-                FORCE_REFERENCE(b);
-            } else {
-                // 001
-                //case 1: // O -> Y
-                if( Y1 ) {
-                    r = K171;
-                    g = K85 + third ;
-                    b = 0;
-                    FORCE_REFERENCE(b);
-                }
-                if( Y2 ) {
-                    r = K170 + third;
-                    //uint8_t twothirds = (third << 1);
-                    uint8_t twothirds = scale8( offset8, ((256 * 2) / 3)); // max=170
-                    g = K85 + twothirds;
-                    b = 0;
-                    FORCE_REFERENCE(b);
-                }
-            }
-        } else {
-            //01X
-            // section 2-3
-            if( !  (hue & 0x20) ) {
-                // 010
-                //case 2: // Y -> G
-                if( Y1 ) {
-                    //uint8_t twothirds = (third << 1);
-                    uint8_t twothirds = scale8( offset8, ((256 * 2) / 3)); // max=170
-                    r = K171 - twothirds;
-                    g = K170 + third;
-                    b = 0;
-                    FORCE_REFERENCE(b);
-                }
-                if( Y2 ) {
-                    r = K255 - offset8;
-                    g = K255;
-                    b = 0;
-                    FORCE_REFERENCE(b);
-                }
-            } else {
-                // 011
-                // case 3: // G -> A
-                r = 0;
-                FORCE_REFERENCE(r);
-                g = K255 - third;
-                b = third;
-            }
-        }
-    } else {
-        // section 4-7
-        // 1XX
-        if( ! (hue & 0x40) ) {
-            // 10X
-            if( ! ( hue & 0x20) ) {
-                // 100
-                //case 4: // A -> B
-                r = 0;
-                FORCE_REFERENCE(r);
-                //uint8_t twothirds = (third << 1);
-                uint8_t twothirds = scale8( offset8, ((256 * 2) / 3)); // max=170
-                g = K171 - twothirds; //K170?
-                b = K85  + twothirds;
-                
-            } else {
-                // 101
-                //case 5: // B -> P
-                r = third;
-                g = 0;
-                FORCE_REFERENCE(g);
-                b = K255 - third;
-                
-            }
-        } else {
-            if( !  (hue & 0x20)  ) {
-                // 110
-                //case 6: // P -- K
-                r = K85 + third;
-                g = 0;
-                FORCE_REFERENCE(g);
-                b = K171 - third;
-                
-            } else {
-                // 111
-                //case 7: // K -> R
-                r = K170 + third;
-                g = 0;
-                FORCE_REFERENCE(g);
-                b = K85 - third;
-                
-            }
-        }
-    }
-    
-    // This is one of the good places to scale the green down,
-    // although the client can scale green down as well.
-    if( G2 ) g = g >> 1;
-    if( Gscale ) g = scale8_video( g, Gscale);
-    
-    // Scale down colors if we're desaturated at all
-    // and add the brightness_floor to r, g, and b.
-    if( sat != 255 ) {
-        if( sat == 0) {
-            r = 255; b = 255; g = 255;
-        } else {
-            uint8_t desat = 255 - sat;
-            desat = scale8_video( desat, desat);
- 
-            uint8_t satscale = 255 - desat;
-            //satscale = sat; // uncomment to revert to pre-2021 saturation behavior
- 
-
-            if( r ) r = scale8( r, satscale) + 1;
-            if( g ) g = scale8( g, satscale) + 1;
-            if( b ) b = scale8( b, satscale) + 1;
-
-            uint8_t brightness_floor = desat;
-            r += brightness_floor;
-            g += brightness_floor;
-            b += brightness_floor;
-        }
-    }
-    
-    // Now scale everything down if we're at value < 255.
-    if( val != 255 ) {
-        
-        val = scale8_video( val, val);
-        if( val == 0 ) {
-            r=0; g=0; b=0;
-        } else {
-            // nscale8x3_video( r, g, b, val);
-
-            if( r ) r = scale8( r, val) + 1;
-            if( g ) g = scale8( g, val) + 1;
-            if( b ) b = scale8( b, val) + 1;
-        }
-    }
-    
-    // Here we have the old AVR "missing std X+n" problem again
-    // It turns out that fixing it winds up costing more than
-    // not fixing it.
-    // To paraphrase Dr Bronner, profile! profile! profile!
-    //asm volatile(  ""  :  :  : "r26", "r27" );
-    //asm volatile (" movw r30, r26 \n" : : : "r30", "r31");
-    rgb.r = r;
-    rgb.g = g;
-    rgb.b = b;
-}
-/*
-// rainbow spectrum, adapted from fastled
-// note: integer types are carefully chosen to maximize performance
-void hsv2rgb_rainbow(const CHSV& hsv, CRGB& rgb) {
-  
-  // slower version using conversion functions
-  //CHSV32 hsv32(hsv);
-  //CRGBW rgbw;
-  //hsv2rgb_rainbow16(hsv32, rgbw);
-  //rgb = CRGB(rgbw);
-  
-  uint8_t hue = hsv.hue;
-  uint8_t sat = hsv.sat;
-  uint32_t val = hsv.val;
-  uint8_t offset = hue & 0x1F; // 0..31
-  uint32_t third16 = ((int)offset * 21846); // offset16 = offset * 1/3<<16
-  uint8_t third = third16 >> 13; // max = 85
-  uint8_t r, g, b;
-
-  if (!(hue & 0x80)) {
-    if (!(hue & 0x40)) { // section 0-1
-      if (!(hue & 0x20)) {
-        r = 255 - third;
-        g = third;
-        b = 0;
-      } else {
-        r = 171;
-        g = 85 + third;
-        b = 0;
-      }
-    } else { // section 2-3
-      if (!(hue & 0x20)) {
-        uint8_t twothirds = third16 >> 12; // max=170
-        r = 171 - twothirds;
-        g = 170 + third;
-        b = 0;
-      } else {
-        r = 0;
-        g = 255 - third;
-        b = third;
-      }
-    }
-  } else { // section 4-7
-    if (!(hue & 0x40)) {
-      if (!(hue & 0x20)) {
-        r = 0;
-        uint8_t twothirds = third16 >> 12; // max=170
-        g = 171 - twothirds;
-        b = 85 + twothirds;
-      } else {
-        r = third;
-        g = 0;
-        b = 255 - third;
-      }
-    } else {
-      if (!(hue & 0x20)) {
-        r = 85 + third;
-        g = 0;
-        b = 171 - third;
-      } else {
-        r = 170 + third;
-        g = 0;
-        b = 85 - third;
-      }
-    }
-  }
-
-  // scale down colors if desaturated and add the brightness_floor to r, g, and b.
-  if (sat != 255) {
-    if (sat == 0) {
-      r = 255;
-      g = 255;
-      b = 255;
-    } else {
-      //we know sat is < 255 and > 1, lets use that: scale8video is always +1, so drop the conditional
-      uint32_t desat = 255 - sat;
-      desat = (desat * desat); // scale8_video(desat, desat) but more accurate, dropped the "+1" for speed: visual difference is negligible
-      uint8_t brightness_floor = desat >> 8;
-      uint32_t satscale = 0xFFFF - desat;
-      if (r) r = ((r * satscale) >> 16);
-      if (g) g = ((g * satscale) >> 16);
-      if (b) b = ((b * satscale) >> 16);
-
-      r += brightness_floor;
-      g += brightness_floor;
-      b += brightness_floor;
-    }
-  }
-
-  // scale everything down if value < 255.
-  if (val != 255) {
-    if (val == 0) {
-      r = 0;
-      g = 0;
-      b = 0;
-    } else {
-       val = val*val + 512; // = scale8_video(val,val)+2;
-      if (r) r = ((r * val) >> 16) + 1;
-      if (g) g = ((g * val) >> 16) + 1;
-      if (b) b = ((b * val) >> 16) + 1;
-    }
-  }
-
-  rgb.r = r;
-  rgb.g = g;
-  rgb.b = b;
-}
-*/
-void rgb2hsv(const uint32_t rgb, CHSV32& hsv) // convert RGB to HSV (16bit hue), much more accurate and faster than fastled version
-{
-    hsv.hsv32 = 0;
-    int32_t r = (rgb>>16)&0xFF;
-    int32_t g = (rgb>>8)&0xFF;
-    int32_t b = rgb&0xFF;
+// convert RGB to HSV (16bit hue), much more accurate than fastled version. note: using "O3" makes it ~5% faster at minimal flash cost (~20 bytes)
+__attribute__((optimize("O3"))) void rgb2hsv(const CRGBW& rgb, CHSV32& hsv) {
+    int32_t r = rgb.r; // note: using 32bit variables tested faster than 8bit
+    int32_t g = rgb.g;
+    int32_t b = rgb.b;
     int32_t minval, maxval, delta;
-    minval = min(r, g);
-    minval = min(minval, b);
-    maxval = max(r, g);
-    maxval = max(maxval, b);
-    if (maxval == 0)  return; // black
+    // find min/max value. note: faster than using min/max functions (lets compiler optimize more when using "O3"), other variants (nested ifs, xor) tested slower
+    maxval = (r > g) ? ((r > b) ? r : b) : ((g > b) ? g : b);
+    if (maxval == 0) {
+      hsv.hsv32 = 0;
+      return; // black, avoids division by zero
+    }
+    minval = (r < g) ? ((r < b) ? r : b) : ((g < b) ? g : b);
     hsv.v = maxval;
     delta = maxval - minval;
-    hsv.s = (255 * delta) / maxval;
-    if (hsv.s == 0)  return; // gray value
+    hsv.s = delta == maxval ? 255 : (255 * delta) / maxval; // faster on fully saturated colors, slightly slower otherwise TODO: this is faster on C3, is it slower on ESP32?
+    //hsv.s = (255 * delta) / maxval;
+    //if (hsv.s == 0)  return; // gray value // assuming gray values are passed rarely, this can be omitted to increase speed
     if (maxval == r) hsv.h = (10923 * (g - b)) / delta;
     else if (maxval == g)  hsv.h = 21845 + (10923 * (b - r)) / delta;
     else hsv.h = 43690 + (10923 * (r - g)) / delta;
 }
 
-inline CHSV rgb2hsv(const CRGB c) {  // CRGB to CHSV
+/*
+CHSV rgb2hsv(const CRGB c) {  // CRGB to CHSV
   CHSV32 hsv;
   rgb2hsv((uint32_t((byte(c.r) << 16) | (byte(c.g) << 8) | (byte(c.b)))), hsv);
   return CHSV(hsv);
-}
+}*/
 
 void colorHStoRGB(uint16_t hue, byte sat, byte* rgb) { //hue, sat to rgb
   CRGBW crgb;
-  hsv2rgb(CHSV32(hue, sat, 255), crgb);
+  hsv2rgb_spectrum(CHSV32(hue, sat, 255), crgb);
   rgb[0] = crgb.r;
   rgb[1] = crgb.g;
   rgb[2] = crgb.b;
