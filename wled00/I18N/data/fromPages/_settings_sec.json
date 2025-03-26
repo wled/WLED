@@ -1,0 +1,170 @@
+[
+    {
+        "content": "Misc Settings"
+    },
+    {
+        "content": "Back",
+        "path": "form_s/[1]/[3]/[0]"
+    },
+    {
+        "content": "Save",
+        "path": "form_s/[1]/[4]/[0]"
+    },
+    {
+        "content": "Security & Update setup",
+        "path": "form_s/[3]/[0]"
+    },
+    {
+        "content": "\n\t\tSettings PIN: ",
+        "path": "form_s/[4]"
+    },
+    {
+        "attr": "title",
+        "content": "Please enter a 4 digit number",
+        "path": "PIN"
+    },
+    {
+        "content": "\u26a0 Unencrypted transmission. Be prudent when selecting PIN, do NOT use your banking, door, SIM, etc. pin!",
+        "path": "form_s/[8]/[0]"
+    },
+    {
+        "content": "\n\t\tLock wireless (OTA) software update: ",
+        "path": "form_s/[10]"
+    },
+    {
+        "content": "\n\t\tPassphrase: ",
+        "path": "form_s/[13]"
+    },
+    {
+        "content": "\n\t\tTo enable OTA, for security reasons you need to also enter the correct password!",
+        "path": "form_s/[16]"
+    },
+    {
+        "content": "\n\t\tThe password should be changed when OTA is enabled.",
+        "path": "form_s/[18]"
+    },
+    {
+        "content": "Disable OTA when not in use, otherwise an attacker can reflash device software!",
+        "path": "form_s/[21]/[0]"
+    },
+    {
+        "content": "Settings on this page are only changable if OTA lock is disabled!",
+        "path": "form_s/[24]/[0]"
+    },
+    {
+        "content": "\n\t\tDeny access to WiFi settings if locked: ",
+        "path": "form_s/[26]"
+    },
+    {
+        "content": "\n\t\tFactory reset: ",
+        "path": "form_s/[30]"
+    },
+    {
+        "content": "\n\t\tAll settings and presets will be erased.",
+        "path": "form_s/[33]"
+    },
+    {
+        "content": "\u26a0 Unencrypted transmission. An attacker on the same network can intercept form data!",
+        "path": "form_s/[37]/[0]"
+    },
+    {
+        "content": "Software Update",
+        "path": "form_s/[41]/[0]"
+    },
+    {
+        "content": "Manual OTA Update",
+        "path": "form_s/[43]/[0]"
+    },
+    {
+        "content": "\n\t\tEnable ArduinoOTA: ",
+        "path": "form_s/[45]"
+    },
+    {
+        "content": "Backup & Restore",
+        "path": "form_s/[50]/[0]"
+    },
+    {
+        "content": "\u26a0 Restoring presets/configuration will OVERWRITE your current presets/configuration.",
+        "path": "form_s/[52]/[0]"
+    },
+    {
+        "content": "\n\t\tIncorrect upload or configuration may require a factory reset or re-flashing of your ESP.",
+        "path": "form_s/[52]/[2]"
+    },
+    {
+        "content": "\n\t\tFor security reasons, passwords are not backed up.\n\t\t",
+        "path": "form_s/[53]"
+    },
+    {
+        "content": "Backup presets",
+        "path": "bckcfg/[0]"
+    },
+    {
+        "content": "Restore presets",
+        "path": "form_s/[57]/[0]"
+    },
+    {
+        "content": "Upload",
+        "path": "form_s/[57]/[4]/[0]"
+    },
+    {
+        "content": "Backup configuration",
+        "path": "bckpresets/[0]"
+    },
+    {
+        "content": "Restore configuration",
+        "path": "form_s/[63]/[0]"
+    },
+    {
+        "content": "Upload",
+        "path": "form_s/[63]/[4]/[0]"
+    },
+    {
+        "content": "About",
+        "path": "form_s/[67]/[0]"
+    },
+    {
+        "content": "WLED",
+        "path": "form_s/[69]/[0]"
+    },
+    {
+        "content": " version ##VERSION##",
+        "path": "form_s/[70]"
+    },
+    {
+        "content": "Contributors, dependencies and special thanks",
+        "path": "form_s/[75]/[0]"
+    },
+    {
+        "content": "\n\t\tA huge thank you to everyone who helped me create WLED!",
+        "path": "form_s/[77]"
+    },
+    {
+        "content": "\n\t\t(c) 2016-2024 Christian Schwinne ",
+        "path": "form_s/[80]"
+    },
+    {
+        "content": "Licensed under the ",
+        "path": "form_s/[83]/[0]"
+    },
+    {
+        "content": "EUPL v1.2 license",
+        "path": "form_s/[83]/[1]/[0]"
+    },
+    {
+        "content": "\n\t\tServer message: ",
+        "path": "form_s/[86]"
+    },
+    {
+        "content": " Response error! ",
+        "path": "form_s/[87]/[0]"
+    },
+    {
+        "content": "Back",
+        "path": "form_s/[92]/[0]"
+    },
+    {
+        "content": "Save",
+        "path": "form_s/[93]/[0]"
+    }
+]

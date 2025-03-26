@@ -1,0 +1,468 @@
+[
+    {
+        "content": "Sync Settings"
+    },
+    {
+        "content": "Back",
+        "path": "form_s/[1]/[3]/[0]"
+    },
+    {
+        "content": "Save",
+        "path": "form_s/[1]/[4]/[0]"
+    },
+    {
+        "content": "Sync setup",
+        "path": "form_s/[3]/[0]"
+    },
+    {
+        "content": "WLED Broadcast",
+        "path": "form_s/[5]/[0]"
+    },
+    {
+        "content": "\nUDP Port: ",
+        "path": "form_s/[6]"
+    },
+    {
+        "content": "\n2nd Port: ",
+        "path": "form_s/[9]"
+    },
+    {
+        "content": "ESP-NOW support is disabled.",
+        "path": "NoESPNOW/[1]/[0]"
+    },
+    {
+        "content": "\nUse ESP-NOW sync: ",
+        "path": "ESPNOW/[0]"
+    },
+    {
+        "content": "(in AP mode or no WiFi)",
+        "path": "ESPNOW/[3]/[0]"
+    },
+    {
+        "content": "Sync groups",
+        "path": "form_s/[17]/[0]"
+    },
+    {
+        "content": "Send:",
+        "path": "form_s/[24]/[1]/[2]/[1]/[0]"
+    },
+    {
+        "content": "Receive:",
+        "path": "form_s/[24]/[1]/[4]/[1]/[0]"
+    },
+    {
+        "content": "Receive",
+        "path": "form_s/[26]/[0]"
+    },
+    {
+        "content": "Brightness,",
+        "path": "form_s/[28]/[1]"
+    },
+    {
+        "content": "Color,",
+        "path": "form_s/[30]/[1]"
+    },
+    {
+        "content": "Effects,",
+        "path": "form_s/[32]/[1]"
+    },
+    {
+        "content": "and ",
+        "path": "form_s/[34]/[0]"
+    },
+    {
+        "content": "Palette",
+        "path": "form_s/[34]/[2]"
+    },
+    {
+        "content": " Segment options, ",
+        "path": "form_s/[38]"
+    },
+    {
+        "content": " bounds\n",
+        "path": "form_s/[40]"
+    },
+    {
+        "content": "Send",
+        "path": "form_s/[41]/[0]"
+    },
+    {
+        "content": "\nEnable Sync on start: ",
+        "path": "form_s/[42]"
+    },
+    {
+        "content": "\nSend notifications on direct change: ",
+        "path": "form_s/[45]"
+    },
+    {
+        "content": "\nSend notifications on button press or IR: ",
+        "path": "form_s/[48]"
+    },
+    {
+        "content": "\nSend Alexa notifications: ",
+        "path": "form_s/[51]"
+    },
+    {
+        "content": "\nSend Philips Hue change notifications: ",
+        "path": "form_s/[54]"
+    },
+    {
+        "content": "\nUDP packet retransmissions: ",
+        "path": "form_s/[57]"
+    },
+    {
+        "content": "Reboot required to apply changes. ",
+        "path": "form_s/[62]/[0]"
+    },
+    {
+        "content": "Instance List",
+        "path": "form_s/[66]/[0]"
+    },
+    {
+        "content": "\nEnable instance list: ",
+        "path": "form_s/[67]"
+    },
+    {
+        "content": "\nMake this instance discoverable: ",
+        "path": "form_s/[70]"
+    },
+    {
+        "content": "Realtime",
+        "path": "form_s/[75]/[0]"
+    },
+    {
+        "content": "\nReceive UDP realtime: ",
+        "path": "form_s/[76]"
+    },
+    {
+        "content": "\nUse main segment only: ",
+        "path": "form_s/[79]"
+    },
+    {
+        "content": "\nRespect LED Maps: ",
+        "path": "form_s/[82]"
+    },
+    {
+        "content": "Network DMX input",
+        "path": "form_s/[87]/[0]"
+    },
+    {
+        "content": "\nType:\n",
+        "path": "form_s/[89]"
+    },
+    {
+        "content": "E1.31 (sACN)",
+        "path": "form_s/[90]/[1]/[0]"
+    },
+    {
+        "content": "Art-Net",
+        "path": "form_s/[90]/[3]/[0]"
+    },
+    {
+        "content": "Custom port",
+        "path": "form_s/[90]/[5]/[0]"
+    },
+    {
+        "content": "Port: ",
+        "path": "xp/[0]"
+    },
+    {
+        "content": "\nMulticast: ",
+        "path": "form_s/[94]"
+    },
+    {
+        "content": "\nStart universe: ",
+        "path": "form_s/[97]"
+    },
+    {
+        "content": "Reboot required.",
+        "path": "form_s/[101]/[0]"
+    },
+    {
+        "content": " Check out ",
+        "path": "form_s/[102]"
+    },
+    {
+        "content": "LedFx",
+        "path": "form_s/[103]/[0]"
+    },
+    {
+        "content": "\nSkip out-of-sequence packets: ",
+        "path": "form_s/[106]"
+    },
+    {
+        "content": "\nDMX start address: ",
+        "path": "form_s/[109]"
+    },
+    {
+        "content": "\nDMX segment spacing: ",
+        "path": "form_s/[112]"
+    },
+    {
+        "content": "\nE1.31 port priority: ",
+        "path": "form_s/[115]"
+    },
+    {
+        "content": "\nDMX mode:\n",
+        "path": "form_s/[118]"
+    },
+    {
+        "content": "Disabled",
+        "path": "form_s/[119]/[1]/[0]"
+    },
+    {
+        "content": "Single RGB",
+        "path": "form_s/[119]/[3]/[0]"
+    },
+    {
+        "content": "Single DRGB",
+        "path": "form_s/[119]/[5]/[0]"
+    },
+    {
+        "content": "Effect",
+        "path": "form_s/[119]/[7]/[0]"
+    },
+    {
+        "content": "Effect + White",
+        "path": "form_s/[119]/[9]/[0]"
+    },
+    {
+        "content": "Effect Segment",
+        "path": "form_s/[119]/[11]/[0]"
+    },
+    {
+        "content": "Effect Segment + White",
+        "path": "form_s/[119]/[13]/[0]"
+    },
+    {
+        "content": "Multi RGB",
+        "path": "form_s/[119]/[15]/[0]"
+    },
+    {
+        "content": "Dimmer + Multi RGB",
+        "path": "form_s/[119]/[17]/[0]"
+    },
+    {
+        "content": "Multi RGBW",
+        "path": "form_s/[119]/[19]/[0]"
+    },
+    {
+        "content": "Preset",
+        "path": "form_s/[119]/[21]/[0]"
+    },
+    {
+        "content": "E1.31 info",
+        "path": "form_s/[122]/[0]"
+    },
+    {
+        "content": "\nTimeout: ",
+        "path": "form_s/[124]"
+    },
+    {
+        "content": " ms",
+        "path": "form_s/[126]"
+    },
+    {
+        "content": "\nForce max brightness: ",
+        "path": "form_s/[128]"
+    },
+    {
+        "content": "\nDisable realtime gamma correction: ",
+        "path": "form_s/[131]"
+    },
+    {
+        "content": "\nRealtime LED offset: ",
+        "path": "form_s/[134]"
+    },
+    {
+        "content": "Alexa Voice Assistant",
+        "path": "form_s/[139]/[0]"
+    },
+    {
+        "content": "This firmware build does not include Alexa support.",
+        "path": "NoAlexa/[1]/[0]"
+    },
+    {
+        "content": "\nEmulate Alexa device: ",
+        "path": "Alexa/[0]"
+    },
+    {
+        "content": "\nAlexa invocation name: ",
+        "path": "Alexa/[3]"
+    },
+    {
+        "content": "\nAlso emulate devices to call the first ",
+        "path": "Alexa/[6]"
+    },
+    {
+        "content": " presets",
+        "path": "Alexa/[8]"
+    },
+    {
+        "content": "MQTT and Hue sync all connect to external hosts!",
+        "path": "form_s/[147]/[1]/[0]"
+    },
+    {
+        "content": "\nThis may impact the responsiveness of WLED.",
+        "path": "form_s/[147]/[1]/[2]"
+    },
+    {
+        "content": "\nFor best results, only use one of these services at a time.",
+        "path": "form_s/[148]"
+    },
+    {
+        "content": "\n(alternatively, connect a second ESP to them and use the UDP sync)\n",
+        "path": "form_s/[150]"
+    },
+    {
+        "content": "MQTT",
+        "path": "form_s/[153]/[0]"
+    },
+    {
+        "content": "This firmware build does not include MQTT support.",
+        "path": "NoMQTT/[1]/[0]"
+    },
+    {
+        "content": "\nEnable MQTT: ",
+        "path": "MQTT/[0]"
+    },
+    {
+        "content": "\nBroker: ",
+        "path": "MQTT/[3]"
+    },
+    {
+        "content": "\nPort: ",
+        "path": "MQTT/[5]"
+    },
+    {
+        "content": "The MQTT credentials are sent over an unsecured connection.",
+        "path": "MQTT/[9]/[0]"
+    },
+    {
+        "content": "\nNever use the MQTT password for another service!",
+        "path": "MQTT/[9]/[2]"
+    },
+    {
+        "content": "\nUsername: ",
+        "path": "MQTT/[11]"
+    },
+    {
+        "content": "\nPassword: ",
+        "path": "MQTT/[14]"
+    },
+    {
+        "content": "\nClient ID: ",
+        "path": "MQTT/[17]"
+    },
+    {
+        "content": "\nDevice Topic: ",
+        "path": "MQTT/[20]"
+    },
+    {
+        "content": "\nGroup Topic: ",
+        "path": "MQTT/[23]"
+    },
+    {
+        "content": "\nPublish on button press: ",
+        "path": "MQTT/[26]"
+    },
+    {
+        "content": "\nRetain brightness & color messages: ",
+        "path": "MQTT/[29]"
+    },
+    {
+        "content": "Reboot required to apply changes. ",
+        "path": "MQTT/[33]/[0]"
+    },
+    {
+        "content": "MQTT info",
+        "path": "MQTT/[34]/[0]"
+    },
+    {
+        "content": "Philips Hue",
+        "path": "form_s/[159]/[0]"
+    },
+    {
+        "content": "This firmware build does not include Philips Hue support.",
+        "path": "NoHue/[1]/[0]"
+    },
+    {
+        "content": "You can find the bridge IP and the light number in the 'About' section of the hue app.",
+        "path": "Hue/[1]/[0]"
+    },
+    {
+        "content": "\nPoll Hue light ",
+        "path": "Hue/[3]"
+    },
+    {
+        "content": " every ",
+        "path": "Hue/[5]"
+    },
+    {
+        "content": " ms: ",
+        "path": "Hue/[7]"
+    },
+    {
+        "content": "\nThen, receive ",
+        "path": "Hue/[10]"
+    },
+    {
+        "content": " On/Off, ",
+        "path": "Hue/[12]"
+    },
+    {
+        "content": " Brightness, and ",
+        "path": "Hue/[14]"
+    },
+    {
+        "content": " Color",
+        "path": "Hue/[16]"
+    },
+    {
+        "content": "\nHue Bridge IP:",
+        "path": "Hue/[18]"
+    },
+    {
+        "content": "Press the pushlink button on the bridge, after that save this page!",
+        "path": "Hue/[30]/[0]"
+    },
+    {
+        "content": "\n(when first connecting)",
+        "path": "Hue/[32]"
+    },
+    {
+        "content": "\nHue status: ",
+        "path": "Hue/[34]"
+    },
+    {
+        "content": " Disabled in this build ",
+        "path": "Hue/[35]/[0]"
+    },
+    {
+        "content": "Serial",
+        "path": "form_s/[165]/[0]"
+    },
+    {
+        "content": "This firmware build does not support Serial interface.",
+        "path": "NoSerial/[1]/[0]"
+    },
+    {
+        "content": "\nBaud rate:\n",
+        "path": "Serial/[0]"
+    },
+    {
+        "content": "Keep at 115200 to use Improv. Some boards may not support high rates.",
+        "path": "Serial/[4]/[0]"
+    },
+    {
+        "content": "Back",
+        "path": "form_s/[173]/[0]"
+    },
+    {
+        "content": "Save",
+        "path": "form_s/[174]/[0]"
+    },
+    {
+        "content": "Sync Settings"
+    }
+]

@@ -266,6 +266,18 @@ writeChunks(
       filter: "js-minify",
     },
     {
+      file: "L12N.js",
+      name: "JS_L12N",
+      method: "gzip",
+      filter: "js-minify",
+    },
+    {
+      file: "langcodes.json",
+      name: "JSON_LANGCODES",
+      method: "gzip",
+      filter: "plain",
+    },
+    {
       file: "settings.htm",
       name: "PAGE_settings",
       method: "gzip",

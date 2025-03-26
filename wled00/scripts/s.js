@@ -1,0 +1,1 @@
+function GetV(){var d=document;d.Sf.DS.value="WLED";d.Sf.ST.checked=0;/*toggle('Simple');*/}

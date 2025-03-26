@@ -238,8 +238,8 @@ Y: <input name="P${i}Y" type="number" min="0" max="255" value="0" oninput="UI()"
 	}
 	</script>
 	<style>@import url("style.css");</style>
-</head>
-<body onload="S()">
+<script src='/L12N.js'></script></head>
+<body onload='try { S() } finally { runI18N(); }'>
 	<form id="form_s" name="Sf" method="post">
 	<div class="toprow">
 		<div class="helpB"><button type="button" onclick="H('features/2D')">?</button></div>

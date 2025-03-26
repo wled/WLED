@@ -1,0 +1,325 @@
+[
+    {
+        "content": "Time Settings"
+    },
+    {
+        "content": "Back",
+        "path": "form_s/[1]/[3]/[0]"
+    },
+    {
+        "content": "Save",
+        "path": "form_s/[1]/[4]/[0]"
+    },
+    {
+        "content": "Time setup",
+        "path": "form_s/[3]/[0]"
+    },
+    {
+        "content": "\n\t\tGet time from NTP server: ",
+        "path": "form_s/[4]"
+    },
+    {
+        "content": "\n\t\tUse 24h format: ",
+        "path": "form_s/[10]"
+    },
+    {
+        "content": "\n\t\tTime zone: \n\t\t",
+        "path": "form_s/[13]"
+    },
+    {
+        "content": "GMT(UTC)",
+        "path": "form_s/[14]/[1]/[0]"
+    },
+    {
+        "content": "GMT/BST",
+        "path": "form_s/[14]/[3]/[0]"
+    },
+    {
+        "content": "CET/CEST",
+        "path": "form_s/[14]/[5]/[0]"
+    },
+    {
+        "content": "EET/EEST",
+        "path": "form_s/[14]/[7]/[0]"
+    },
+    {
+        "content": "US-EST/EDT",
+        "path": "form_s/[14]/[9]/[0]"
+    },
+    {
+        "content": "US-CST/CDT",
+        "path": "form_s/[14]/[11]/[0]"
+    },
+    {
+        "content": "US-MST/MDT",
+        "path": "form_s/[14]/[13]/[0]"
+    },
+    {
+        "content": "US-AZ",
+        "path": "form_s/[14]/[15]/[0]"
+    },
+    {
+        "content": "US-PST/PDT",
+        "path": "form_s/[14]/[17]/[0]"
+    },
+    {
+        "content": "CST (AWST, PHST)",
+        "path": "form_s/[14]/[19]/[0]"
+    },
+    {
+        "content": "JST (KST)",
+        "path": "form_s/[14]/[21]/[0]"
+    },
+    {
+        "content": "AEST/AEDT",
+        "path": "form_s/[14]/[23]/[0]"
+    },
+    {
+        "content": "NZST/NZDT",
+        "path": "form_s/[14]/[25]/[0]"
+    },
+    {
+        "content": "North Korea",
+        "path": "form_s/[14]/[27]/[0]"
+    },
+    {
+        "content": "IST (India)",
+        "path": "form_s/[14]/[29]/[0]"
+    },
+    {
+        "content": "CA-Saskatchewan",
+        "path": "form_s/[14]/[31]/[0]"
+    },
+    {
+        "content": "ACST",
+        "path": "form_s/[14]/[33]/[0]"
+    },
+    {
+        "content": "ACST/ACDT",
+        "path": "form_s/[14]/[35]/[0]"
+    },
+    {
+        "content": "HST (Hawaii)",
+        "path": "form_s/[14]/[37]/[0]"
+    },
+    {
+        "content": "NOVT (Novosibirsk)",
+        "path": "form_s/[14]/[39]/[0]"
+    },
+    {
+        "content": "AKST/AKDT (Anchorage)",
+        "path": "form_s/[14]/[41]/[0]"
+    },
+    {
+        "content": "MX-CST",
+        "path": "form_s/[14]/[43]/[0]"
+    },
+    {
+        "content": "PKT (Pakistan)",
+        "path": "form_s/[14]/[45]/[0]"
+    },
+    {
+        "content": "BRT (Bras\u00edlia)",
+        "path": "form_s/[14]/[47]/[0]"
+    },
+    {
+        "content": "\n\t\tUTC offset: ",
+        "path": "form_s/[16]"
+    },
+    {
+        "content": " seconds (max. 18 hours)",
+        "path": "form_s/[18]"
+    },
+    {
+        "content": "\n\t\tCurrent local time is ",
+        "path": "form_s/[20]"
+    },
+    {
+        "content": "unknown",
+        "path": "form_s/[21]/[0]"
+    },
+    {
+        "content": "\n\t\tLatitude: ",
+        "path": "form_s/[24]"
+    },
+    {
+        "content": "N",
+        "path": "form_s/[25]/[0]/[0]"
+    },
+    {
+        "content": "S",
+        "path": "form_s/[25]/[1]/[0]"
+    },
+    {
+        "content": "\n\t\tLongitude: ",
+        "path": "form_s/[28]"
+    },
+    {
+        "content": "E",
+        "path": "form_s/[29]/[0]/[0]"
+    },
+    {
+        "content": "W",
+        "path": "form_s/[29]/[1]/[0]"
+    },
+    {
+        "content": "Get location",
+        "path": "locbtn/[0]"
+    },
+    {
+        "content": "(opens new tab, only works in browser)",
+        "path": "form_s/[35]/[0]/[0]"
+    },
+    {
+        "content": "Clock",
+        "path": "form_s/[39]/[0]"
+    },
+    {
+        "content": "\n\t\tAnalog Clock overlay: ",
+        "path": "form_s/[40]"
+    },
+    {
+        "content": "\n\t\t\tFirst LED: ",
+        "path": "cac/[0]"
+    },
+    {
+        "content": " Last LED: ",
+        "path": "cac/[2]"
+    },
+    {
+        "content": "\n\t\t\t12h LED: ",
+        "path": "cac/[5]"
+    },
+    {
+        "content": "\n\t\t\tShow 5min marks: ",
+        "path": "cac/[8]"
+    },
+    {
+        "content": "\n\t\t\tSeconds (as trail): ",
+        "path": "cac/[11]"
+    },
+    {
+        "content": "\n\t\t\tShow clock overlay only if all LEDs are solid black: ",
+        "path": "cac/[14]"
+    },
+    {
+        "content": "\n\t\tCountdown Mode: ",
+        "path": "form_s/[45]"
+    },
+    {
+        "content": "\n\t\tCountdown Goal:",
+        "path": "form_s/[48]"
+    },
+    {
+        "content": "\n\t\tDate:\u00a0",
+        "path": "form_s/[50]"
+    },
+    {
+        "content": "\n\t\tTime:\u00a0",
+        "path": "form_s/[53]"
+    },
+    {
+        "content": "Macro presets",
+        "path": "form_s/[57]/[0]"
+    },
+    {
+        "content": "Macros have moved!",
+        "path": "form_s/[59]/[0]"
+    },
+    {
+        "content": "Presets now also can be used as macros to save both JSON and HTTP API commands.",
+        "path": "form_s/[62]/[0]"
+    },
+    {
+        "content": "\n\t\tJust enter the preset ID below!",
+        "path": "form_s/[62]/[2]"
+    },
+    {
+        "content": "Use 0 for the default action instead of a preset",
+        "path": "form_s/[64]/[0]"
+    },
+    {
+        "content": "\n\t\tAlexa On/Off Preset: ",
+        "path": "form_s/[66]"
+    },
+    {
+        "content": "\n\t\tCountdown-Over Preset: ",
+        "path": "form_s/[71]"
+    },
+    {
+        "content": "\n\t\tTimed-Light-Over Presets: ",
+        "path": "form_s/[74]"
+    },
+    {
+        "content": "Button actions",
+        "path": "form_s/[78]/[0]"
+    },
+    {
+        "content": "push",
+        "path": "macros/[1]/[1]/[1]/[0]"
+    },
+    {
+        "content": "switch",
+        "path": "macros/[1]/[1]/[1]/[2]"
+    },
+    {
+        "content": "short",
+        "path": "macros/[1]/[1]/[3]/[0]"
+    },
+    {
+        "content": "on->off",
+        "path": "macros/[1]/[1]/[3]/[2]"
+    },
+    {
+        "content": "long",
+        "path": "macros/[1]/[1]/[5]/[0]"
+    },
+    {
+        "content": "off->on",
+        "path": "macros/[1]/[1]/[5]/[2]"
+    },
+    {
+        "content": "double",
+        "path": "macros/[1]/[1]/[7]/[0]"
+    },
+    {
+        "content": "N/A",
+        "path": "macros/[1]/[1]/[7]/[2]"
+    },
+    {
+        "content": "Analog Button setup",
+        "path": "form_s/[82]/[0]"
+    },
+    {
+        "content": "Time-controlled presets",
+        "path": "form_s/[84]/[0]"
+    },
+    {
+        "content": "Back",
+        "path": "form_s/[90]/[0]"
+    },
+    {
+        "content": "Save",
+        "path": "form_s/[91]/[0]"
+    },
+    {
+        "attr": "value",
+        "content": "N",
+        "path": "form_s/[25]/[0]"
+    },
+    {
+        "attr": "value",
+        "content": "S",
+        "path": "form_s/[25]/[1]"
+    },
+    {
+        "attr": "value",
+        "content": "E",
+        "path": "form_s/[29]/[0]"
+    },
+    {
+        "attr": "value",
+        "content": "W",
+        "path": "form_s/[29]/[1]"
+    }
+]

@@ -150,6 +150,12 @@
 		localStorage.removeItem('wledP');
 		localStorage.removeItem('wledPmt');
 		localStorage.removeItem('wledPalx');
+
+		// Remove all the language data
+		Object.keys(localStorage).
+			filter(x => x.startsWith("I18N.langs.")).
+			forEach(k => localStorage.removeItem(k));
+
 		showToast("Cleared.");
 	}
 	
@@ -167,6 +173,8 @@
 			GetLS();
 		});	// If we set async false, file is loaded and executed, then next statement is processed
 		if (loc) d.Sf.action = getURL('/settings/ui');
+
+		populateLangCodeSelector();
 	}
 	function UI()
 	{
@@ -207,10 +215,43 @@
 		if (gId("theme_bg_rnd").checked) toggle("Image");
 		gId("theme_bg_rnd").checked = false;
 	}
+	function populateLangCodeSelector()
+	{
+		fetch('/langcodes.json', {
+		method: 'get'
+		})
+		.then(res => {
+			console.log(1);
+			return res.json();
+		})
+		.then(codes => {
+			console.log(3,codes)
+			selLangCode = d.getElementById("idLangCode")
+			for(i=0; i < codes.length; ++i) {
+				entry = codes[i];
+				option = d.createElement("option");
+				langCode = entry["lc"];
+				option.setAttribute("value", langCode);
+				option.textContent = entry["t"];
+				if(localStorage.getItem("I18N.langCode") == langCode)
+					option.setAttribute("selected","true");
+				
+				selLangCode.appendChild(option);
+			}
+			return;
+		})
+	}
+
+	function OnChangeLangCode(e)	{
+		var idx = e.selectedIndex; 
+		var langCode = e.options[idx].value;
+		console.log("onChangeLangCode",langCode);
+		I18N.singleton.setLang(langCode);
+	}
 	</script>
 	<style>@import url("style.css");</style>
-</head>
-<body onload="S()">
+<script src='/L12N.js'></script></head>
+<body onload="try { S(); } finally { runI18N(); }">
 	<form id="form_s" name="Sf" method="post">
 		<div class="toprow">
 		<div class="helpB"><button type="button" onclick="H('features/settings/#user-interface-settings')">?</button></div>
@@ -220,7 +261,11 @@
 		</div>
 		<h2>Web Setup</h2>
 		Server description: <input type="text" name="DS" maxlength="32"><br>
-		<!-- Sync button toggles both send and receive: <input type="checkbox" name="ST"><br> -->
+		Sync button toggles both send and receive: <input type="checkbox" name="ST"><br>
+		Set display language:
+		<select id="idLangCode" name="LangCode" onchange="OnChangeLangCode(this)">
+			<option value="en">English</option>
+		</select><br>
 		Enable simplified UI: <input type="checkbox" name="SU"><br>
 		<i>The following UI customization settings are unique both to the WLED device and this browser.<br>
 		You will need to set them again if using a different browser, device or WLED IP address.<br>

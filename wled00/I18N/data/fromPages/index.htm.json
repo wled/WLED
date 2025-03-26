@@ -1,0 +1,3355 @@
+[
+    {
+        "content": "WLED"
+    },
+    {
+        "content": "Loading WLED UI...",
+        "index": "cv/[0]"
+    },
+    {
+        "content": "<div class=\"overlay\" style=\"opacity:1;\">Sorry, WLED UI needs JavaScript!</div>",
+        "index": "/[3]/[0]"
+    },
+    {
+        "content": "Power",
+        "index": "buttonPower/[1]/[0]"
+    },
+    {
+        "content": "Timer",
+        "index": "buttonNl/[1]/[0]"
+    },
+    {
+        "content": "Sync",
+        "index": "buttonSync/[1]/[0]"
+    },
+    {
+        "content": "Peek",
+        "index": "buttonSr/[1]/[0]"
+    },
+    {
+        "content": "Info",
+        "index": "buttonI/[1]/[0]"
+    },
+    {
+        "content": "Nodes",
+        "index": "buttonNodes/[1]/[0]"
+    },
+    {
+        "content": "Config",
+        "index": "top/[1]/[1]/[13]/[1]/[0]"
+    },
+    {
+        "content": "PC Mode",
+        "index": "buttonPcm/[1]/[0]"
+    },
+    {
+        "content": "Brightness",
+        "index": "briwrap/[1]/[0]"
+    },
+    {
+        "attr": "title",
+        "content": "Hue",
+        "path": "hwrap/[1]"
+    },
+    {
+        "attr": "title",
+        "content": "Saturation",
+        "path": "swrap/[1]"
+    },
+    {
+        "attr": "title",
+        "content": "Value/Brightness",
+        "path": "vwrap/[1]"
+    },
+    {
+        "attr": "title",
+        "content": "Kelvin/Temperature",
+        "path": "kwrap/[1]"
+    },
+    {
+        "attr": "title",
+        "content": "Red channel",
+        "path": "rwrap/[1]"
+    },
+    {
+        "attr": "title",
+        "content": "Green channel",
+        "path": "gwrap/[1]"
+    },
+    {
+        "attr": "title",
+        "content": "Blue channel",
+        "path": "bwrap/[1]"
+    },
+    {
+        "attr": "title",
+        "content": "White channel",
+        "path": "whibri"
+    },
+    {
+        "attr": "title",
+        "content": "White balance",
+        "path": "wbal/[1]"
+    },
+    {
+        "attr": "title",
+        "content": "Random",
+        "path": "qcs-w/[22]"
+    },
+    {
+        "content": "R",
+        "index": "qcs-w/[22]/[0]"
+    },
+    {
+        "attr": "title",
+        "content": "Select slot",
+        "path": "csl0"
+    },
+    {
+        "attr": "title",
+        "content": "Select slot",
+        "path": "csl1"
+    },
+    {
+        "attr": "title",
+        "content": "Select slot",
+        "path": "csl2"
+    },
+    {
+        "attr": "title",
+        "content": "Hex RGB",
+        "path": "hexc"
+    },
+    {
+        "attr": "title",
+        "content": "File editor",
+        "path": "edit"
+    },
+    {
+        "attr": "title",
+        "content": "Pixel Magic Tool",
+        "path": "pxmb"
+    },
+    {
+        "attr": "title",
+        "content": "Add custom palette",
+        "path": "btns/[5]"
+    },
+    {
+        "attr": "title",
+        "content": "Remove last custom palette",
+        "path": "rmPal"
+    },
+    {
+        "content": " Color palette",
+        "index": "pall/[1]"
+    },
+    {
+        "attr": "placeholder",
+        "content": "Search",
+        "path": "palw/[1]/[1]"
+    },
+    {
+        "content": "\n\t\t\t\t\t\t\t\tLoading...\n\t\t\t\t\t\t\t",
+        "index": "pallist/[1]/[1]/[1]/[1]/[0]"
+    },
+    {
+        "content": "Effect mode",
+        "index": "modeLabel/[0]"
+    },
+    {
+        "attr": "placeholder",
+        "content": "Search",
+        "path": "fxFind/[1]"
+    },
+    {
+        "attr": "title",
+        "content": "Uses palette",
+        "path": "filterPal"
+    },
+    {
+        "attr": "title",
+        "content": "Single pixel",
+        "path": "filter0D"
+    },
+    {
+        "attr": "title",
+        "content": "1D",
+        "path": "filter1D"
+    },
+    {
+        "attr": "title",
+        "content": "2D",
+        "path": "filter2D"
+    },
+    {
+        "attr": "title",
+        "content": "Volume",
+        "path": "filterVol"
+    },
+    {
+        "attr": "title",
+        "content": "Frequency",
+        "path": "filterFreq"
+    },
+    {
+        "content": "\n\t\t\t\t\t\t\t\tLoading...\n\t\t\t\t\t\t\t",
+        "index": "fxlist/[1]/[1]/[1]/[1]/[0]"
+    },
+    {
+        "attr": "title",
+        "content": "Freeze",
+        "path": "slider0/[1]"
+    },
+    {
+        "attr": "title",
+        "content": "Effect speed",
+        "path": "slider0/[3]"
+    },
+    {
+        "attr": "title",
+        "content": "Toggle labels",
+        "path": "slider1/[1]"
+    },
+    {
+        "attr": "title",
+        "content": "Effect intensity",
+        "path": "slider1/[3]"
+    },
+    {
+        "attr": "title",
+        "content": "Custom 1",
+        "path": "slider2/[3]"
+    },
+    {
+        "attr": "title",
+        "content": "Custom 2",
+        "path": "slider3/[3]"
+    },
+    {
+        "attr": "title",
+        "content": "Custom 3",
+        "path": "slider4/[3]"
+    },
+    {
+        "attr": "title",
+        "content": "Check 1",
+        "path": "opt0"
+    },
+    {
+        "attr": "title",
+        "content": "Check 2",
+        "path": "opt1"
+    },
+    {
+        "attr": "title",
+        "content": "Check 3",
+        "path": "opt2"
+    },
+    {
+        "content": "Segments",
+        "index": "segLabel/[0]"
+    },
+    {
+        "content": "\n\t\t\tLoading...\n\t\t",
+        "index": "segcont/[0]"
+    },
+    {
+        "content": "Add segment",
+        "index": "segutil/[0]/[1]/[1]"
+    },
+    {
+        "attr": "title",
+        "content": "Select group",
+        "path": "segutil/[0]/[2]/[0]"
+    },
+    {
+        "content": "Reset segments",
+        "index": "rsbtn/[0]"
+    },
+    {
+        "content": "Transition: ",
+        "index": "Segments/[9]/[0]"
+    },
+    {
+        "content": "\u00a0s",
+        "index": "Segments/[9]/[2]"
+    },
+    {
+        "content": "Presets",
+        "index": "Presets/[3]/[0]"
+    },
+    {
+        "attr": "placeholder",
+        "content": "Search",
+        "path": "psFind/[1]"
+    },
+    {
+        "content": "Loading...",
+        "index": "pcont/[1]/[0]"
+    },
+    {
+        "content": "Preset",
+        "index": "putil/[0]/[1]"
+    },
+    {
+        "content": "Playlist",
+        "index": "putil/[1]/[1]"
+    },
+    {
+        "content": "Colors",
+        "index": "bot/[1]/[1]/[0]"
+    },
+    {
+        "content": "Effects",
+        "index": "bot/[3]/[1]/[0]"
+    },
+    {
+        "content": "Segments",
+        "index": "bot/[5]/[1]/[0]"
+    },
+    {
+        "content": "Presets",
+        "index": "bot/[7]/[1]/[0]"
+    },
+    {
+        "content": "Loading...",
+        "index": "kv/[0]"
+    },
+    {
+        "content": "Refresh",
+        "index": "info/[8]/[1]/[0]"
+    },
+    {
+        "content": "Instance List",
+        "index": "info/[8]/[3]/[0]"
+    },
+    {
+        "content": "Update WLED",
+        "index": "info/[8]/[5]/[0]"
+    },
+    {
+        "content": "Reboot WLED",
+        "index": "resetbtn/[0]"
+    },
+    {
+        "content": "Made with ",
+        "index": "info/[12]/[0]"
+    },
+    {
+        "content": " by ",
+        "index": "info/[12]/[2]"
+    },
+    {
+        "content": "Aircoookie",
+        "index": "info/[12]/[3]/[0]"
+    },
+    {
+        "content": " and the ",
+        "index": "info/[12]/[4]"
+    },
+    {
+        "content": "WLED community",
+        "index": "info/[12]/[5]/[0]"
+    },
+    {
+        "content": "WLED instances",
+        "index": "ndlt/[0]"
+    },
+    {
+        "content": "Loading...",
+        "index": "kn/[0]"
+    },
+    {
+        "content": "Refresh",
+        "index": "nodes/[7]/[1]/[0]"
+    },
+    {
+        "content": "Loading...",
+        "index": "klv2D/[0]"
+    },
+    {
+        "content": "\n\tTo use built-in effects, use an override button below.",
+        "index": "rover/[7]"
+    },
+    {
+        "content": "\n\tYou can return to realtime mode by pressing the star in the top left corner.",
+        "index": "rover/[9]"
+    },
+    {
+        "content": "Override once",
+        "index": "rover/[12]/[0]"
+    },
+    {
+        "content": "Override until reboot",
+        "index": "rover/[14]/[0]"
+    },
+    {
+        "content": "For best performance, it is recommended to turn off the streaming source when not in use.",
+        "index": "rover/[17]/[0]"
+    },
+    {
+        "content": "Default",
+        "index": "pallist/[0]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "* Color 1",
+        "index": "pallist/[1]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "* Color Gradient",
+        "index": "pallist/[2]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "* Colors 1&2",
+        "index": "pallist/[3]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "* Colors Only",
+        "index": "pallist/[4]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "* Random Cycle",
+        "index": "pallist/[5]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Analogous",
+        "index": "pallist/[6]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "April Night",
+        "index": "pallist/[7]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Aqua Flash",
+        "index": "pallist/[8]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Atlantica",
+        "index": "pallist/[9]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Aurora",
+        "index": "pallist/[10]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Aurora 2",
+        "index": "pallist/[11]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Autumn",
+        "index": "pallist/[12]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Beach",
+        "index": "pallist/[13]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Beech",
+        "index": "pallist/[14]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Blink Red",
+        "index": "pallist/[15]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Breeze",
+        "index": "pallist/[16]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "C9",
+        "index": "pallist/[17]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "C9 2",
+        "index": "pallist/[18]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "C9 New",
+        "index": "pallist/[19]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Candy",
+        "index": "pallist/[20]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Candy2",
+        "index": "pallist/[21]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Cloud",
+        "index": "pallist/[22]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Cyane",
+        "index": "pallist/[23]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Departure",
+        "index": "pallist/[24]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Drywet",
+        "index": "pallist/[25]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Fairy Reaf",
+        "index": "pallist/[26]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Fire",
+        "index": "pallist/[27]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Forest",
+        "index": "pallist/[28]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Grintage",
+        "index": "pallist/[29]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Hult",
+        "index": "pallist/[30]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Hult 64",
+        "index": "pallist/[31]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Icefire",
+        "index": "pallist/[32]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Jul",
+        "index": "pallist/[33]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Landscape",
+        "index": "pallist/[34]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Lava",
+        "index": "pallist/[35]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Light Pink",
+        "index": "pallist/[36]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Lite Light",
+        "index": "pallist/[37]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Magenta",
+        "index": "pallist/[38]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Magred",
+        "index": "pallist/[39]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Ocean",
+        "index": "pallist/[40]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Orange & Teal",
+        "index": "pallist/[41]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Orangery",
+        "index": "pallist/[42]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Party",
+        "index": "pallist/[43]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Pastel",
+        "index": "pallist/[44]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Pink Candy",
+        "index": "pallist/[45]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Rainbow",
+        "index": "pallist/[46]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Rainbow Bands",
+        "index": "pallist/[47]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Red & Blue",
+        "index": "pallist/[48]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Red Flash",
+        "index": "pallist/[49]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Red Reaf",
+        "index": "pallist/[50]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Red Shift",
+        "index": "pallist/[51]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Red Tide",
+        "index": "pallist/[52]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Retro Clown",
+        "index": "pallist/[53]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Rewhi",
+        "index": "pallist/[54]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Rivendell",
+        "index": "pallist/[55]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Sakura",
+        "index": "pallist/[56]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Semi Blue",
+        "index": "pallist/[57]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Sherbet",
+        "index": "pallist/[58]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Splash",
+        "index": "pallist/[59]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Sunset",
+        "index": "pallist/[60]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Sunset 2",
+        "index": "pallist/[61]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Temperature",
+        "index": "pallist/[62]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Tertiary",
+        "index": "pallist/[63]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Tiamat",
+        "index": "pallist/[64]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Toxy Reaf",
+        "index": "pallist/[65]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Vintage",
+        "index": "pallist/[66]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Yelblu",
+        "index": "pallist/[67]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Yelblu Hot",
+        "index": "pallist/[68]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Yellowout",
+        "index": "pallist/[69]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Yelmag",
+        "index": "pallist/[70]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Fx",
+        "index": "csl0/[0]"
+    },
+    {
+        "content": " Color palette not used",
+        "index": "pall/[1]"
+    },
+    {
+        "content": "Solid ",
+        "index": "fxlist/[0]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Akemi \ud83c\udfa8\u25a6\u266b",
+        "index": "fxlist/[1]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Android \ud83c\udfa8\u22ee",
+        "index": "fxlist/[2]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Aurora \ud83c\udfa8\u22ee",
+        "index": "fxlist/[3]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Black Hole \ud83c\udfa8\u25a6",
+        "index": "fxlist/[4]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Blends \ud83c\udfa8\u22ee",
+        "index": "fxlist/[5]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Blink \ud83c\udfa8\u2022\u22ee",
+        "index": "fxlist/[6]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Blink Rainbow \ud83c\udfa8\u2022\u22ee",
+        "index": "fxlist/[7]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Blobs \ud83c\udfa8\u25a6",
+        "index": "fxlist/[8]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Blurz \ud83c\udfa8\u22ee\u266b",
+        "index": "fxlist/[9]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Bouncing Balls \ud83c\udfa8\u22ee",
+        "index": "fxlist/[10]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Bpm \ud83c\udfa8\u22ee",
+        "index": "fxlist/[11]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Breathe \ud83c\udfa8\u2022\u22ee",
+        "index": "fxlist/[12]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Candle \ud83c\udfa8\u2022\u22ee",
+        "index": "fxlist/[13]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Candle Multi \ud83c\udfa8\u22ee",
+        "index": "fxlist/[14]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Chase \ud83c\udfa8\u22ee",
+        "index": "fxlist/[15]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Chase 2 \ud83c\udfa8\u22ee",
+        "index": "fxlist/[16]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Chase 3 \ud83c\udfa8\u22ee",
+        "index": "fxlist/[17]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Chase Flash \ud83c\udfa8\u22ee",
+        "index": "fxlist/[18]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Chase Flash Rnd \ud83c\udfa8\u22ee",
+        "index": "fxlist/[19]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Chase Rainbow \ud83c\udfa8\u22ee",
+        "index": "fxlist/[20]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Chase Random \ud83c\udfa8\u22ee",
+        "index": "fxlist/[21]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Chunchun \ud83c\udfa8\u22ee",
+        "index": "fxlist/[22]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Colored Bursts \ud83c\udfa8\u25a6",
+        "index": "fxlist/[23]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Colorful \ud83c\udfa8\u22ee",
+        "index": "fxlist/[24]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Colorloop \ud83c\udfa8\u2022\u22ee",
+        "index": "fxlist/[25]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Colortwinkles \ud83c\udfa8\u22ee",
+        "index": "fxlist/[26]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Colorwaves \ud83c\udfa8\u22ee",
+        "index": "fxlist/[27]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Crazy Bees \u25a6",
+        "index": "fxlist/[28]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Dancing Shadows \ud83c\udfa8\u22ee",
+        "index": "fxlist/[29]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Dissolve \ud83c\udfa8\u22ee",
+        "index": "fxlist/[30]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Dissolve Rnd \ud83c\udfa8\u22ee",
+        "index": "fxlist/[31]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Distortion Waves \u25a6",
+        "index": "fxlist/[32]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "DJ Light \u22ee\u266b",
+        "index": "fxlist/[33]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "DNA \ud83c\udfa8\u25a6",
+        "index": "fxlist/[34]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "DNA Spiral \ud83c\udfa8\u25a6",
+        "index": "fxlist/[35]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Drift \ud83c\udfa8\u25a6",
+        "index": "fxlist/[36]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Drift Rose \u25a6",
+        "index": "fxlist/[37]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Drip \ud83c\udfa8\u22ee",
+        "index": "fxlist/[38]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Dynamic \ud83c\udfa8\u22ee",
+        "index": "fxlist/[39]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Dynamic Smooth \ud83c\udfa8\u22ee",
+        "index": "fxlist/[40]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Fade \ud83c\udfa8\u2022\u22ee",
+        "index": "fxlist/[41]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Fairy \ud83c\udfa8\u22ee",
+        "index": "fxlist/[42]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Fairytwinkle \ud83c\udfa8\u22ee",
+        "index": "fxlist/[43]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Fill Noise \ud83c\udfa8\u22ee",
+        "index": "fxlist/[44]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Fire 2012 \ud83c\udfa8\u22ee",
+        "index": "fxlist/[45]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Fire Flicker \ud83c\udfa8\u2022\u22ee",
+        "index": "fxlist/[46]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Firenoise \ud83c\udfa8\u25a6",
+        "index": "fxlist/[47]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Fireworks \ud83c\udfa8\u22ee\u25a6",
+        "index": "fxlist/[48]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Fireworks 1D \ud83c\udfa8\u22ee\u25a6",
+        "index": "fxlist/[49]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Fireworks Starburst \ud83c\udfa8\u22ee",
+        "index": "fxlist/[50]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Flow \ud83c\udfa8\u22ee",
+        "index": "fxlist/[51]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Flow Stripe \u22ee",
+        "index": "fxlist/[52]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Freqmap \ud83c\udfa8\u22ee\u266b",
+        "index": "fxlist/[53]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Freqmatrix \u22ee\u266b",
+        "index": "fxlist/[54]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Freqpixels \ud83c\udfa8\u22ee\u266b",
+        "index": "fxlist/[55]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Freqwave \u22ee\u266b",
+        "index": "fxlist/[56]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Frizzles \ud83c\udfa8\u25a6",
+        "index": "fxlist/[57]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Funky Plank \u25a6\u266b",
+        "index": "fxlist/[58]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Game Of Life \ud83c\udfa8\u25a6",
+        "index": "fxlist/[59]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "GEQ \ud83c\udfa8\u25a6\u266b",
+        "index": "fxlist/[60]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Ghost Rider \ud83c\udfa8\u25a6",
+        "index": "fxlist/[61]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Glitter \ud83c\udfa8\u22ee",
+        "index": "fxlist/[62]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Gradient \ud83c\udfa8\u22ee",
+        "index": "fxlist/[63]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Gravcenter \ud83c\udfa8\u22ee\u266a",
+        "index": "fxlist/[64]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Gravcentric \ud83c\udfa8\u22ee\u266a",
+        "index": "fxlist/[65]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Gravfreq \ud83c\udfa8\u22ee\u266b",
+        "index": "fxlist/[66]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Gravimeter \ud83c\udfa8\u22ee\u266a",
+        "index": "fxlist/[67]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Halloween Eyes \ud83c\udfa8\u22ee\u25a6",
+        "index": "fxlist/[68]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Heartbeat \ud83c\udfa8\u2022\u22ee",
+        "index": "fxlist/[69]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Hiphotic \ud83c\udfa8\u25a6",
+        "index": "fxlist/[70]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "ICU \ud83c\udfa8\u22ee",
+        "index": "fxlist/[71]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Juggle \ud83c\udfa8\u22ee",
+        "index": "fxlist/[72]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Juggles \ud83c\udfa8\u22ee\u266a",
+        "index": "fxlist/[73]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Julia \ud83c\udfa8\u25a6",
+        "index": "fxlist/[74]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Lake \ud83c\udfa8\u22ee",
+        "index": "fxlist/[75]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Lighthouse \ud83c\udfa8\u22ee",
+        "index": "fxlist/[76]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Lightning \ud83c\udfa8\u22ee",
+        "index": "fxlist/[77]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Lissajous \ud83c\udfa8\u25a6",
+        "index": "fxlist/[78]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Loading \ud83c\udfa8\u22ee",
+        "index": "fxlist/[79]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Matripix \ud83c\udfa8\u22ee\u266a",
+        "index": "fxlist/[80]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Matrix \u25a6",
+        "index": "fxlist/[81]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Metaballs \ud83c\udfa8\u25a6",
+        "index": "fxlist/[82]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Meteor \ud83c\udfa8\u22ee",
+        "index": "fxlist/[83]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Meteor Smooth \ud83c\udfa8\u22ee",
+        "index": "fxlist/[84]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Midnoise \ud83c\udfa8\u22ee\u266a",
+        "index": "fxlist/[85]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Multi Comet \ud83c\udfa8\u22ee",
+        "index": "fxlist/[86]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Noise 1 \ud83c\udfa8\u22ee",
+        "index": "fxlist/[87]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Noise 2 \ud83c\udfa8\u22ee",
+        "index": "fxlist/[88]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Noise 3 \ud83c\udfa8\u22ee",
+        "index": "fxlist/[89]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Noise 4 \ud83c\udfa8\u22ee",
+        "index": "fxlist/[90]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Noise Pal \ud83c\udfa8\u22ee",
+        "index": "fxlist/[91]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Noise2D \ud83c\udfa8\u25a6",
+        "index": "fxlist/[92]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Noisefire \u22ee\u266a",
+        "index": "fxlist/[93]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Noisemeter \ud83c\udfa8\u22ee\u266a",
+        "index": "fxlist/[94]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Noisemove \ud83c\udfa8\u22ee\u266b",
+        "index": "fxlist/[95]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Octopus \ud83c\udfa8\u25a6",
+        "index": "fxlist/[96]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Oscillate \ud83c\udfa8\u22ee",
+        "index": "fxlist/[97]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Pacifica \ud83c\udfa8\u22ee",
+        "index": "fxlist/[98]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Palette \ud83c\udfa8\u22ee",
+        "index": "fxlist/[99]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Percent \ud83c\udfa8\u22ee",
+        "index": "fxlist/[100]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Perlin Move \ud83c\udfa8\u22ee",
+        "index": "fxlist/[101]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Phased \ud83c\udfa8\u22ee",
+        "index": "fxlist/[102]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Phased Noise \ud83c\udfa8\u22ee",
+        "index": "fxlist/[103]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Pixels \ud83c\udfa8\u22ee\u266a",
+        "index": "fxlist/[104]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Pixelwave \ud83c\udfa8\u22ee\u266a",
+        "index": "fxlist/[105]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Plasma \ud83c\udfa8\u22ee",
+        "index": "fxlist/[106]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Plasma Ball \ud83c\udfa8\u25a6",
+        "index": "fxlist/[107]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Plasmoid \ud83c\udfa8\u22ee\u266a",
+        "index": "fxlist/[108]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Polar Angular Chase \ud83c\udfa8",
+        "index": "fxlist/[109]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Polar Lights \u25a6",
+        "index": "fxlist/[110]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Polar Radial Chase \ud83c\udfa8",
+        "index": "fxlist/[111]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Popcorn \ud83c\udfa8\u22ee",
+        "index": "fxlist/[112]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Pride 2015 \u22ee",
+        "index": "fxlist/[113]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Puddlepeak \ud83c\udfa8\u22ee\u266a",
+        "index": "fxlist/[114]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Puddles \ud83c\udfa8\u22ee\u266a",
+        "index": "fxlist/[115]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Pulser \ud83c\udfa8\u25a6",
+        "index": "fxlist/[116]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Railway \ud83c\udfa8\u22ee",
+        "index": "fxlist/[117]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Rain \ud83c\udfa8\u22ee\u25a6",
+        "index": "fxlist/[118]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Rainbow \ud83c\udfa8\u22ee",
+        "index": "fxlist/[119]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Rainbow Runner \ud83c\udfa8\u22ee",
+        "index": "fxlist/[120]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Random Colors \ud83c\udfa8\u2022\u22ee",
+        "index": "fxlist/[121]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Ripple \ud83c\udfa8\u22ee\u25a6",
+        "index": "fxlist/[122]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Ripple Peak \ud83c\udfa8\u22ee\u266a",
+        "index": "fxlist/[123]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Ripple Rainbow \ud83c\udfa8\u22ee\u25a6",
+        "index": "fxlist/[124]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Rocktaves \ud83c\udfa8\u22ee\u266b",
+        "index": "fxlist/[125]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Rolling Balls \ud83c\udfa8\u22ee",
+        "index": "fxlist/[126]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Running \ud83c\udfa8\u22ee",
+        "index": "fxlist/[127]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Running Dual \ud83c\udfa8\u22ee",
+        "index": "fxlist/[128]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Saw \ud83c\udfa8\u22ee",
+        "index": "fxlist/[129]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Scan \ud83c\udfa8\u22ee",
+        "index": "fxlist/[130]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Scan Dual \ud83c\udfa8\u22ee",
+        "index": "fxlist/[131]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Scanner \ud83c\udfa8\u22ee",
+        "index": "fxlist/[132]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Scanner Dual \ud83c\udfa8\u22ee",
+        "index": "fxlist/[133]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Scrolling Text \ud83c\udfa8\u25a6",
+        "index": "fxlist/[134]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Sindots \ud83c\udfa8\u25a6",
+        "index": "fxlist/[135]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Sine \ud83c\udfa8\u22ee",
+        "index": "fxlist/[136]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Sinelon \ud83c\udfa8\u22ee",
+        "index": "fxlist/[137]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Sinelon Dual \ud83c\udfa8\u22ee",
+        "index": "fxlist/[138]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Sinelon Rainbow \ud83c\udfa8\u22ee",
+        "index": "fxlist/[139]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Soap \ud83c\udfa8\u25a6",
+        "index": "fxlist/[140]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Solid Glitter \u22ee",
+        "index": "fxlist/[141]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Solid Pattern \ud83c\udfa8\u22ee",
+        "index": "fxlist/[142]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Solid Pattern Tri \u22ee",
+        "index": "fxlist/[143]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Spaceships \ud83c\udfa8\u25a6",
+        "index": "fxlist/[144]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Sparkle \ud83c\udfa8\u22ee",
+        "index": "fxlist/[145]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Sparkle Dark \ud83c\udfa8\u22ee",
+        "index": "fxlist/[146]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Sparkle+ \ud83c\udfa8\u22ee",
+        "index": "fxlist/[147]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Spots \ud83c\udfa8\u22ee",
+        "index": "fxlist/[148]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Spots Fade \ud83c\udfa8\u22ee",
+        "index": "fxlist/[149]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Squared Swirl \ud83c\udfa8\u25a6",
+        "index": "fxlist/[150]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Stream \ud83c\udfa8\u22ee",
+        "index": "fxlist/[151]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Stream 2 \u22ee",
+        "index": "fxlist/[152]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Strobe \ud83c\udfa8\u2022\u22ee",
+        "index": "fxlist/[153]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Strobe Mega \ud83c\udfa8\u2022\u22ee",
+        "index": "fxlist/[154]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Strobe Rainbow \ud83c\udfa8\u2022\u22ee",
+        "index": "fxlist/[155]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Sun Radiation \u25a6",
+        "index": "fxlist/[156]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Sunrise \ud83c\udfa8\u22ee",
+        "index": "fxlist/[157]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Sweep \ud83c\udfa8\u22ee",
+        "index": "fxlist/[158]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Sweep Random \ud83c\udfa8\u22ee",
+        "index": "fxlist/[159]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Swirl \ud83c\udfa8\u25a6\u266a",
+        "index": "fxlist/[160]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Tartan \ud83c\udfa8\u25a6",
+        "index": "fxlist/[161]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Tetrix \ud83c\udfa8\u22ee",
+        "index": "fxlist/[162]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Theater \ud83c\udfa8\u22ee",
+        "index": "fxlist/[163]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Theater Rainbow \ud83c\udfa8\u22ee",
+        "index": "fxlist/[164]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Traffic Light \ud83c\udfa8\u22ee",
+        "index": "fxlist/[165]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Tri Fade \ud83c\udfa8\u22ee",
+        "index": "fxlist/[166]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Tri Wipe \ud83c\udfa8\u22ee",
+        "index": "fxlist/[167]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "TV Simulator \u22ee",
+        "index": "fxlist/[168]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Twinkle \ud83c\udfa8\u22ee",
+        "index": "fxlist/[169]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Twinklecat \ud83c\udfa8\u22ee",
+        "index": "fxlist/[170]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Twinklefox \ud83c\udfa8\u22ee",
+        "index": "fxlist/[171]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Twinkleup \ud83c\udfa8\u22ee",
+        "index": "fxlist/[172]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Two Dots \ud83c\udfa8\u22ee",
+        "index": "fxlist/[173]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Washing Machine \ud83c\udfa8\u22ee",
+        "index": "fxlist/[174]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Waterfall \ud83c\udfa8\u22ee\u266b",
+        "index": "fxlist/[175]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Waverly \ud83c\udfa8\u25a6\u266a",
+        "index": "fxlist/[176]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Wavesins \ud83c\udfa8\u22ee",
+        "index": "fxlist/[177]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Waving Cell \ud83c\udfa8\u25a6",
+        "index": "fxlist/[178]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Wipe \ud83c\udfa8\u22ee",
+        "index": "fxlist/[179]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Wipe Random \ud83c\udfa8\u22ee",
+        "index": "fxlist/[180]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Fx",
+        "index": "csl0/[0]"
+    },
+    {
+        "content": " Color palette not used",
+        "index": "pall/[1]"
+    },
+    {
+        "content": "Default",
+        "index": "pallist/[0]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "* Color 1",
+        "index": "pallist/[1]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "* Color Gradient",
+        "index": "pallist/[2]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "* Colors 1&2",
+        "index": "pallist/[3]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "* Colors Only",
+        "index": "pallist/[4]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "* Random Cycle",
+        "index": "pallist/[5]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Analogous",
+        "index": "pallist/[6]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "April Night",
+        "index": "pallist/[7]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Aqua Flash",
+        "index": "pallist/[8]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Atlantica",
+        "index": "pallist/[9]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Aurora",
+        "index": "pallist/[10]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Aurora 2",
+        "index": "pallist/[11]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Autumn",
+        "index": "pallist/[12]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Beach",
+        "index": "pallist/[13]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Beech",
+        "index": "pallist/[14]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Blink Red",
+        "index": "pallist/[15]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Breeze",
+        "index": "pallist/[16]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "C9",
+        "index": "pallist/[17]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "C9 2",
+        "index": "pallist/[18]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "C9 New",
+        "index": "pallist/[19]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Candy",
+        "index": "pallist/[20]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Candy2",
+        "index": "pallist/[21]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Cloud",
+        "index": "pallist/[22]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Cyane",
+        "index": "pallist/[23]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Departure",
+        "index": "pallist/[24]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Drywet",
+        "index": "pallist/[25]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Fairy Reaf",
+        "index": "pallist/[26]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Fire",
+        "index": "pallist/[27]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Forest",
+        "index": "pallist/[28]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Grintage",
+        "index": "pallist/[29]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Hult",
+        "index": "pallist/[30]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Hult 64",
+        "index": "pallist/[31]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Icefire",
+        "index": "pallist/[32]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Jul",
+        "index": "pallist/[33]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Landscape",
+        "index": "pallist/[34]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Lava",
+        "index": "pallist/[35]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Light Pink",
+        "index": "pallist/[36]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Lite Light",
+        "index": "pallist/[37]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Magenta",
+        "index": "pallist/[38]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Magred",
+        "index": "pallist/[39]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Ocean",
+        "index": "pallist/[40]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Orange & Teal",
+        "index": "pallist/[41]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Orangery",
+        "index": "pallist/[42]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Party",
+        "index": "pallist/[43]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Pastel",
+        "index": "pallist/[44]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Pink Candy",
+        "index": "pallist/[45]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Rainbow",
+        "index": "pallist/[46]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Rainbow Bands",
+        "index": "pallist/[47]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Red & Blue",
+        "index": "pallist/[48]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Red Flash",
+        "index": "pallist/[49]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Red Reaf",
+        "index": "pallist/[50]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Red Shift",
+        "index": "pallist/[51]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Red Tide",
+        "index": "pallist/[52]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Retro Clown",
+        "index": "pallist/[53]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Rewhi",
+        "index": "pallist/[54]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Rivendell",
+        "index": "pallist/[55]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Sakura",
+        "index": "pallist/[56]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Semi Blue",
+        "index": "pallist/[57]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Sherbet",
+        "index": "pallist/[58]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Splash",
+        "index": "pallist/[59]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Sunset",
+        "index": "pallist/[60]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Sunset 2",
+        "index": "pallist/[61]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Temperature",
+        "index": "pallist/[62]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Tertiary",
+        "index": "pallist/[63]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Tiamat",
+        "index": "pallist/[64]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Toxy Reaf",
+        "index": "pallist/[65]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Vintage",
+        "index": "pallist/[66]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Yelblu",
+        "index": "pallist/[67]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Yelblu Hot",
+        "index": "pallist/[68]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Yellowout",
+        "index": "pallist/[69]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Yelmag",
+        "index": "pallist/[70]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "attr": "title",
+        "content": "(un)Freeze",
+        "path": "seg0frz"
+    },
+    {
+        "content": "Segment 0",
+        "index": "seg0/[1]/[1]",
+        "pattern": "^Segment ([0-9]+)$"
+    },
+    {
+        "content": "New segment 1",
+        "index": "seg0/[1]/[1]",
+        "pattern": "^New segment ([0-9]+)$"
+    },
+    {
+        "attr": "title",
+        "content": "Set group",
+        "path": "seg0/[1]/[2]/[0]"
+    },
+    {
+        "attr": "title",
+        "content": "Edit",
+        "path": "seg0nedit"
+    },
+    {
+        "attr": "placeholder",
+        "content": "Enter name...",
+        "path": "seg0t"
+    },
+    {
+        "content": "Start LED",
+        "index": "seg0in/[1]/[0]/[0]/[0]/[0]"
+    },
+    {
+        "content": "Stop LED",
+        "index": "seg0in/[1]/[0]/[0]/[1]/[0]"
+    },
+    {
+        "content": "Offset",
+        "index": "seg0in/[1]/[0]/[0]/[2]/[0]"
+    },
+    {
+        "content": "Grouping",
+        "index": "seg0in/[1]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Spacing",
+        "index": "seg0in/[1]/[0]/[2]/[1]/[0]"
+    },
+    {
+        "attr": "title",
+        "content": "Update",
+        "path": "seg0in/[1]/[0]/[3]/[2]/[0]"
+    },
+    {
+        "content": "91 LEDs",
+        "index": "seg0len/[0]"
+    },
+    {
+        "content": "Reverse direction",
+        "index": "seg0in/[3]/[0]"
+    },
+    {
+        "content": "Sound sim",
+        "index": "seg0in/[4]/[0]"
+    },
+    {
+        "content": "BeatSin",
+        "index": "seg0si/[0]/[0]"
+    },
+    {
+        "content": "WeWillRockYou",
+        "index": "seg0si/[1]/[0]"
+    },
+    {
+        "content": "Mirror effect",
+        "index": "seg0lbtm/[0]"
+    },
+    {
+        "attr": "title",
+        "content": "Repeat until end",
+        "path": "segr0"
+    },
+    {
+        "attr": "title",
+        "content": "Delete",
+        "path": "segd0"
+    },
+    {
+        "content": "Add segment",
+        "index": "segutil/[0]/[1]/[1]"
+    },
+    {
+        "content": "WLED",
+        "index": "namelabel/[0]"
+    },
+    {
+        "attr": "placeholder",
+        "content": "Enter name...",
+        "path": "p0txt"
+    },
+    {
+        "content": "Quick load label: ",
+        "path": "putil/[0]/[2]/[0]"
+    },
+    {
+        "content": "(leave empty for no Quick load button)",
+        "path": "putil/[0]/[4]/[0]"
+    },
+    {
+        "content": "Use current state",
+        "path": "putil/[0]/[6]/[1]/[1]/[0]"
+    },
+    {
+        "content": "API command",
+        "path": "p0o2/[0]"
+    },
+    {
+        "content": "Include brightness",
+        "path": "p0o1/[0]/[1]/[0]"
+    },
+    {
+        "content": "Save segment bounds",
+        "path": "p0o1/[2]/[1]/[0]"
+    },
+    {
+        "content": "Checked segments only",
+        "path": "p0o1/[4]/[1]/[0]"
+    },
+    {
+        "content": "Apply at boot",
+        "path": "putil/[0]/[12]/[1]/[0]"
+    },
+    {
+        "content": "Save to ID ",
+        "path": "putil/[0]/[14]/[0]"
+    },
+    {
+        "content": "Save",
+        "path": "putil/[0]/[16]/[1]/[1]"
+    },
+    {
+        "content": "Cancel",
+        "path": "putil/[0]/[16]/[3]/[0]"
+    },
+    {
+        "content": "Quick load",
+        "path": "pql/[0]/[0]"
+    },
+    {
+        "attr": "title",
+        "content": "Solid",
+        "path": "p1qlb"
+    },
+    {
+        "content": "XX",
+        "path": "p1qlb/[0]"
+    },
+    {
+        "content": "Solid\n\t",
+        "path": "p1o/[1]/[0]"
+    },
+    {
+        "content": "Fx",
+        "path": "csl0/[0]"
+    },
+    {
+        "content": " Color palette not used",
+        "path": "pall/[1]"
+    },
+    {
+        "content": "Default",
+        "path": "pallist/[0]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "* Color 1",
+        "path": "pallist/[1]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "* Color Gradient",
+        "path": "pallist/[2]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "* Colors 1&2",
+        "path": "pallist/[3]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "* Colors Only",
+        "path": "pallist/[4]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "* Random Cycle",
+        "path": "pallist/[5]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Analogous",
+        "path": "pallist/[6]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "April Night",
+        "path": "pallist/[7]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Aqua Flash",
+        "path": "pallist/[8]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Atlantica",
+        "path": "pallist/[9]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Aurora",
+        "path": "pallist/[10]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Aurora 2",
+        "path": "pallist/[11]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Autumn",
+        "path": "pallist/[12]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Beach",
+        "path": "pallist/[13]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Beech",
+        "path": "pallist/[14]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Blink Red",
+        "path": "pallist/[15]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Breeze",
+        "path": "pallist/[16]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "C9",
+        "path": "pallist/[17]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "C9 2",
+        "path": "pallist/[18]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "C9 New",
+        "path": "pallist/[19]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Candy",
+        "path": "pallist/[20]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Candy2",
+        "path": "pallist/[21]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Cloud",
+        "path": "pallist/[22]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Cyane",
+        "path": "pallist/[23]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Departure",
+        "path": "pallist/[24]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Drywet",
+        "path": "pallist/[25]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Fairy Reaf",
+        "path": "pallist/[26]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Fire",
+        "path": "pallist/[27]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Forest",
+        "path": "pallist/[28]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Grintage",
+        "path": "pallist/[29]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Hult",
+        "path": "pallist/[30]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Hult 64",
+        "path": "pallist/[31]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Icefire",
+        "path": "pallist/[32]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Jul",
+        "path": "pallist/[33]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Landscape",
+        "path": "pallist/[34]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Lava",
+        "path": "pallist/[35]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Light Pink",
+        "path": "pallist/[36]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Lite Light",
+        "path": "pallist/[37]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Magenta",
+        "path": "pallist/[38]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Magred",
+        "path": "pallist/[39]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Ocean",
+        "path": "pallist/[40]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Orange & Teal",
+        "path": "pallist/[41]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Orangery",
+        "path": "pallist/[42]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Party",
+        "path": "pallist/[43]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Pastel",
+        "path": "pallist/[44]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Pink Candy",
+        "path": "pallist/[45]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Rainbow",
+        "path": "pallist/[46]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Rainbow Bands",
+        "path": "pallist/[47]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Red & Blue",
+        "path": "pallist/[48]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Red Flash",
+        "path": "pallist/[49]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Red Reaf",
+        "path": "pallist/[50]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Red Shift",
+        "path": "pallist/[51]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Red Tide",
+        "path": "pallist/[52]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Retro Clown",
+        "path": "pallist/[53]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Rewhi",
+        "path": "pallist/[54]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Rivendell",
+        "path": "pallist/[55]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Sakura",
+        "path": "pallist/[56]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Semi Blue",
+        "path": "pallist/[57]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Sherbet",
+        "path": "pallist/[58]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Splash",
+        "path": "pallist/[59]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Sunset",
+        "path": "pallist/[60]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Sunset 2",
+        "path": "pallist/[61]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Temperature",
+        "path": "pallist/[62]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Tertiary",
+        "path": "pallist/[63]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Tiamat",
+        "path": "pallist/[64]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Toxy Reaf",
+        "path": "pallist/[65]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Vintage",
+        "path": "pallist/[66]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Yelblu",
+        "path": "pallist/[67]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Yelblu Hot",
+        "path": "pallist/[68]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Yellowout",
+        "path": "pallist/[69]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Yelmag",
+        "path": "pallist/[70]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Start LED",
+        "path": "seg0in/[1]/[0]/[0]/[0]/[0]"
+    },
+    {
+        "content": "Stop LED",
+        "path": "seg0in/[1]/[0]/[0]/[1]/[0]"
+    },
+    {
+        "content": "Offset",
+        "path": "seg0in/[1]/[0]/[0]/[2]/[0]"
+    },
+    {
+        "content": "Grouping",
+        "path": "seg0in/[1]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Spacing",
+        "path": "seg0in/[1]/[0]/[2]/[1]/[0]"
+    },
+    {
+        "content": "91 LEDs",
+        "path": "seg0len/[0]"
+    },
+    {
+        "content": "Reverse direction",
+        "path": "seg0in/[3]/[0]"
+    },
+    {
+        "content": "Sound sim",
+        "path": "seg0in/[4]/[0]"
+    },
+    {
+        "content": "BeatSin",
+        "path": "seg0si/[0]/[0]"
+    },
+    {
+        "content": "WeWillRockYou",
+        "path": "seg0si/[1]/[0]"
+    },
+    {
+        "content": "Mirror effect",
+        "path": "seg0lbtm/[0]"
+    },
+    {
+        "content": "Add segment",
+        "path": "segutil/[0]/[1]/[1]"
+    },
+    {
+        "content": "WLED",
+        "path": "namelabel/[0]"
+    },
+    {
+        "content": "v0.14.2 \"Kuuhaku\"",
+        "path": "kv/[0]"
+    },
+    {
+        "content": "Build",
+        "path": "kv/[3]/[1]/[0]/[0]/[0]"
+    },
+    {
+        "content": "Signal strength",
+        "path": "kv/[3]/[1]/[2]/[0]/[0]"
+    },
+    {
+        "content": "48% (-76 dBm)",
+        "path": "kv/[3]/[1]/[2]/[1]/[0]"
+    },
+    {
+        "content": "Uptime",
+        "path": "kv/[3]/[1]/[4]/[0]/[0]"
+    },
+    {
+        "content": "6 hours, 22 min",
+        "path": "kv/[3]/[1]/[4]/[1]/[0]"
+    },
+    {
+        "content": "Time",
+        "path": "kv/[3]/[1]/[6]/[0]/[0]"
+    },
+    {
+        "content": "Free heap",
+        "path": "kv/[3]/[1]/[8]/[0]/[0]"
+    },
+    {
+        "content": "17.7 kB",
+        "path": "kv/[3]/[1]/[8]/[1]/[0]"
+    },
+    {
+        "content": "Estimated current",
+        "path": "kv/[3]/[1]/[10]/[0]/[0]"
+    },
+    {
+        "content": "850 mA",
+        "path": "kv/[3]/[1]/[10]/[1]/[0]"
+    },
+    {
+        "content": "Average FPS",
+        "path": "kv/[3]/[1]/[12]/[0]/[0]"
+    },
+    {
+        "content": "MAC address",
+        "path": "kv/[3]/[1]/[14]/[0]/[0]"
+    },
+    {
+        "content": "e09806e2b2b0",
+        "path": "kv/[3]/[1]/[14]/[1]/[0]"
+    },
+    {
+        "content": "CPU clock",
+        "path": "kv/[3]/[1]/[16]/[0]/[0]"
+    },
+    {
+        "content": "undefined MHz",
+        "path": "kv/[3]/[1]/[16]/[1]/[0]"
+    },
+    {
+        "content": "Flash size",
+        "path": "kv/[3]/[1]/[18]/[0]/[0]"
+    },
+    {
+        "content": "undefined MB",
+        "path": "kv/[3]/[1]/[18]/[1]/[0]"
+    },
+    {
+        "content": "Filesystem",
+        "path": "kv/[3]/[1]/[20]/[0]/[0]"
+    },
+    {
+        "content": "32/499 kB (6%)",
+        "path": "kv/[3]/[1]/[20]/[1]/[0]"
+    },
+    {
+        "content": "Environment",
+        "path": "kv/[3]/[1]/[22]/[0]/[0]"
+    },
+    {
+        "content": "esp8266 3.1.2 (2)",
+        "path": "kv/[3]/[1]/[22]/[1]/[0]"
+    },
+    {
+        "attr": "placeholder",
+        "content": "New segment 1",
+        "path": "seg1t"
+    },
+    {
+        "content": "Start LED",
+        "path": "segutil/[0]/[0]/[1]/[0]/[0]/[0]/[0]"
+    },
+    {
+        "content": "Stop LED",
+        "path": "segutil/[0]/[0]/[1]/[0]/[0]/[1]/[0]"
+    },
+    {
+        "content": "Start Y",
+        "path": "mkSYH/[0]/[0]"
+    },
+    {
+        "content": "Stop Y",
+        "path": "mkSYH/[1]/[0]"
+    },
+    {
+        "content": "91 LEDs",
+        "path": "seg1len/[0]"
+    },
+    {
+        "content": "Cancel",
+        "path": "segutil/[0]/[0]/[3]/[0]/[0]"
+    },
+    {
+        "content": "Preset",
+        "path": "putil/[0]/[1]"
+    },
+    {
+        "content": "Playlist",
+        "path": "putil/[1]/[1]"
+    },
+    {
+        "content": "You need at least 2 presets to make a playlist!",
+        "path": "toast/[0]"
+    },
+    {
+        "content": "WLED"
+    },
+    {
+        "content": "Loading WLED UI...",
+        "path": "cv/[0]"
+    },
+    {
+        "content": "<div class=\"overlay\" style=\"opacity:1;\">Sorry, WLED UI needs JavaScript!</div>",
+        "path": "/[3]/[0]"
+    },
+    {
+        "content": "Power",
+        "path": "buttonPower/[1]/[0]"
+    },
+    {
+        "content": "Timer",
+        "path": "buttonNl/[1]/[0]"
+    },
+    {
+        "content": "Sync",
+        "path": "buttonSync/[1]/[0]"
+    },
+    {
+        "content": "Peek",
+        "path": "buttonSr/[1]/[0]"
+    },
+    {
+        "content": "Info",
+        "path": "buttonI/[1]/[0]"
+    },
+    {
+        "content": "Nodes",
+        "path": "buttonNodes/[1]/[0]"
+    },
+    {
+        "content": "Config",
+        "path": "top/[1]/[1]/[13]/[1]/[0]"
+    },
+    {
+        "content": "PC Mode",
+        "path": "buttonPcm/[1]/[0]"
+    },
+    {
+        "content": "Brightness",
+        "path": "briwrap/[1]/[0]"
+    },
+    {
+        "content": "R",
+        "path": "qcs-w/[22]/[0]"
+    },
+    {
+        "content": " Color palette",
+        "path": "pall/[1]"
+    },
+    {
+        "content": "\n\t\t\t\t\t\t\t\tLoading...\n\t\t\t\t\t\t\t",
+        "path": "pallist/[1]/[1]/[1]/[1]/[0]"
+    },
+    {
+        "content": "Effect mode",
+        "path": "modeLabel/[0]"
+    },
+    {
+        "content": "\n\t\t\t\t\t\t\t\tLoading...\n\t\t\t\t\t\t\t",
+        "path": "fxlist/[1]/[1]/[1]/[1]/[0]"
+    },
+    {
+        "content": "Segments",
+        "path": "segLabel/[0]"
+    },
+    {
+        "content": "\n\t\t\tLoading...\n\t\t",
+        "path": "segcont/[0]"
+    },
+    {
+        "content": "Reset segments",
+        "path": "rsbtn/[0]"
+    },
+    {
+        "content": "Transition: ",
+        "path": "Segments/[9]/[0]"
+    },
+    {
+        "content": "\u00a0s",
+        "path": "Segments/[9]/[2]"
+    },
+    {
+        "content": "Presets",
+        "path": "Presets/[3]/[0]"
+    },
+    {
+        "content": "Loading...",
+        "path": "pcont/[1]/[0]"
+    },
+    {
+        "content": "Colors",
+        "path": "bot/[1]/[1]/[0]"
+    },
+    {
+        "content": "Effects",
+        "path": "bot/[3]/[1]/[0]"
+    },
+    {
+        "content": "Segments",
+        "path": "bot/[5]/[1]/[0]"
+    },
+    {
+        "content": "Presets",
+        "path": "bot/[7]/[1]/[0]"
+    },
+    {
+        "content": "Loading...",
+        "path": "kv/[0]"
+    },
+    {
+        "content": "Refresh",
+        "path": "info/[8]/[1]/[0]"
+    },
+    {
+        "content": "Instance List",
+        "path": "info/[8]/[3]/[0]"
+    },
+    {
+        "content": "Update WLED",
+        "path": "info/[8]/[5]/[0]"
+    },
+    {
+        "content": "Reboot WLED",
+        "path": "resetbtn/[0]"
+    },
+    {
+        "content": "Made with ",
+        "path": "info/[12]/[0]"
+    },
+    {
+        "content": " by ",
+        "path": "info/[12]/[2]"
+    },
+    {
+        "content": "Aircoookie",
+        "path": "info/[12]/[3]/[0]"
+    },
+    {
+        "content": " and the ",
+        "path": "info/[12]/[4]"
+    },
+    {
+        "content": "WLED community",
+        "path": "info/[12]/[5]/[0]"
+    },
+    {
+        "content": "WLED instances",
+        "path": "ndlt/[0]"
+    },
+    {
+        "content": "Loading...",
+        "path": "kn/[0]"
+    },
+    {
+        "content": "Refresh",
+        "path": "nodes/[7]/[1]/[0]"
+    },
+    {
+        "content": "Loading...",
+        "path": "klv2D/[0]"
+    },
+    {
+        "content": "\n\tTo use built-in effects, use an override button below.",
+        "path": "rover/[7]"
+    },
+    {
+        "content": "\n\tYou can return to realtime mode by pressing the star in the top left corner.",
+        "path": "rover/[9]"
+    },
+    {
+        "content": "Override once",
+        "path": "rover/[12]/[0]"
+    },
+    {
+        "content": "Override until reboot",
+        "path": "rover/[14]/[0]"
+    },
+    {
+        "content": "For best performance, it is recommended to turn off the streaming source when not in use.",
+        "path": "rover/[17]/[0]"
+    },
+    {
+        "content": "Solid ",
+        "path": "fxlist/[0]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Akemi \ud83c\udfa8\u25a6\u266b",
+        "path": "fxlist/[1]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Android \ud83c\udfa8\u22ee",
+        "path": "fxlist/[2]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Aurora \ud83c\udfa8\u22ee",
+        "path": "fxlist/[3]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Black Hole \ud83c\udfa8\u25a6",
+        "path": "fxlist/[4]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Blends \ud83c\udfa8\u22ee",
+        "path": "fxlist/[5]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Blink \ud83c\udfa8\u2022\u22ee",
+        "path": "fxlist/[6]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Blink Rainbow \ud83c\udfa8\u2022\u22ee",
+        "path": "fxlist/[7]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Blobs \ud83c\udfa8\u25a6",
+        "path": "fxlist/[8]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Blurz \ud83c\udfa8\u22ee\u266b",
+        "path": "fxlist/[9]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Bouncing Balls \ud83c\udfa8\u22ee",
+        "path": "fxlist/[10]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Bpm \ud83c\udfa8\u22ee",
+        "path": "fxlist/[11]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Breathe \ud83c\udfa8\u2022\u22ee",
+        "path": "fxlist/[12]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Candle \ud83c\udfa8\u2022\u22ee",
+        "path": "fxlist/[13]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Candle Multi \ud83c\udfa8\u22ee",
+        "path": "fxlist/[14]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Chase \ud83c\udfa8\u22ee",
+        "path": "fxlist/[15]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Chase 2 \ud83c\udfa8\u22ee",
+        "path": "fxlist/[16]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Chase 3 \ud83c\udfa8\u22ee",
+        "path": "fxlist/[17]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Chase Flash \ud83c\udfa8\u22ee",
+        "path": "fxlist/[18]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Chase Flash Rnd \ud83c\udfa8\u22ee",
+        "path": "fxlist/[19]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Chase Rainbow \ud83c\udfa8\u22ee",
+        "path": "fxlist/[20]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Chase Random \ud83c\udfa8\u22ee",
+        "path": "fxlist/[21]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Chunchun \ud83c\udfa8\u22ee",
+        "path": "fxlist/[22]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Colored Bursts \ud83c\udfa8\u25a6",
+        "path": "fxlist/[23]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Colorful \ud83c\udfa8\u22ee",
+        "path": "fxlist/[24]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Colorloop \ud83c\udfa8\u2022\u22ee",
+        "path": "fxlist/[25]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Colortwinkles \ud83c\udfa8\u22ee",
+        "path": "fxlist/[26]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Colorwaves \ud83c\udfa8\u22ee",
+        "path": "fxlist/[27]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Crazy Bees \u25a6",
+        "path": "fxlist/[28]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Dancing Shadows \ud83c\udfa8\u22ee",
+        "path": "fxlist/[29]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Dissolve \ud83c\udfa8\u22ee",
+        "path": "fxlist/[30]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Dissolve Rnd \ud83c\udfa8\u22ee",
+        "path": "fxlist/[31]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Distortion Waves \u25a6",
+        "path": "fxlist/[32]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "DJ Light \u22ee\u266b",
+        "path": "fxlist/[33]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "DNA \ud83c\udfa8\u25a6",
+        "path": "fxlist/[34]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "DNA Spiral \ud83c\udfa8\u25a6",
+        "path": "fxlist/[35]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Drift \ud83c\udfa8\u25a6",
+        "path": "fxlist/[36]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Drift Rose \u25a6",
+        "path": "fxlist/[37]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Drip \ud83c\udfa8\u22ee",
+        "path": "fxlist/[38]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Dynamic \ud83c\udfa8\u22ee",
+        "path": "fxlist/[39]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Dynamic Smooth \ud83c\udfa8\u22ee",
+        "path": "fxlist/[40]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Fade \ud83c\udfa8\u2022\u22ee",
+        "path": "fxlist/[41]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Fairy \ud83c\udfa8\u22ee",
+        "path": "fxlist/[42]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Fairytwinkle \ud83c\udfa8\u22ee",
+        "path": "fxlist/[43]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Fill Noise \ud83c\udfa8\u22ee",
+        "path": "fxlist/[44]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Fire 2012 \ud83c\udfa8\u22ee",
+        "path": "fxlist/[45]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Fire Flicker \ud83c\udfa8\u2022\u22ee",
+        "path": "fxlist/[46]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Firenoise \ud83c\udfa8\u25a6",
+        "path": "fxlist/[47]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Fireworks \ud83c\udfa8\u22ee\u25a6",
+        "path": "fxlist/[48]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Fireworks 1D \ud83c\udfa8\u22ee\u25a6",
+        "path": "fxlist/[49]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Fireworks Starburst \ud83c\udfa8\u22ee",
+        "path": "fxlist/[50]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Flow \ud83c\udfa8\u22ee",
+        "path": "fxlist/[51]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Flow Stripe \u22ee",
+        "path": "fxlist/[52]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Freqmap \ud83c\udfa8\u22ee\u266b",
+        "path": "fxlist/[53]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Freqmatrix \u22ee\u266b",
+        "path": "fxlist/[54]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Freqpixels \ud83c\udfa8\u22ee\u266b",
+        "path": "fxlist/[55]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Freqwave \u22ee\u266b",
+        "path": "fxlist/[56]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Frizzles \ud83c\udfa8\u25a6",
+        "path": "fxlist/[57]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Funky Plank \u25a6\u266b",
+        "path": "fxlist/[58]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Game Of Life \ud83c\udfa8\u25a6",
+        "path": "fxlist/[59]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "GEQ \ud83c\udfa8\u25a6\u266b",
+        "path": "fxlist/[60]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Ghost Rider \ud83c\udfa8\u25a6",
+        "path": "fxlist/[61]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Glitter \ud83c\udfa8\u22ee",
+        "path": "fxlist/[62]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Gradient \ud83c\udfa8\u22ee",
+        "path": "fxlist/[63]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Gravcenter \ud83c\udfa8\u22ee\u266a",
+        "path": "fxlist/[64]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Gravcentric \ud83c\udfa8\u22ee\u266a",
+        "path": "fxlist/[65]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Gravfreq \ud83c\udfa8\u22ee\u266b",
+        "path": "fxlist/[66]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Gravimeter \ud83c\udfa8\u22ee\u266a",
+        "path": "fxlist/[67]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Halloween Eyes \ud83c\udfa8\u22ee\u25a6",
+        "path": "fxlist/[68]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Heartbeat \ud83c\udfa8\u2022\u22ee",
+        "path": "fxlist/[69]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Hiphotic \ud83c\udfa8\u25a6",
+        "path": "fxlist/[70]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "ICU \ud83c\udfa8\u22ee",
+        "path": "fxlist/[71]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Juggle \ud83c\udfa8\u22ee",
+        "path": "fxlist/[72]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Juggles \ud83c\udfa8\u22ee\u266a",
+        "path": "fxlist/[73]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Julia \ud83c\udfa8\u25a6",
+        "path": "fxlist/[74]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Lake \ud83c\udfa8\u22ee",
+        "path": "fxlist/[75]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Lighthouse \ud83c\udfa8\u22ee",
+        "path": "fxlist/[76]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Lightning \ud83c\udfa8\u22ee",
+        "path": "fxlist/[77]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Lissajous \ud83c\udfa8\u25a6",
+        "path": "fxlist/[78]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Loading \ud83c\udfa8\u22ee",
+        "path": "fxlist/[79]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Matripix \ud83c\udfa8\u22ee\u266a",
+        "path": "fxlist/[80]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Matrix \u25a6",
+        "path": "fxlist/[81]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Metaballs \ud83c\udfa8\u25a6",
+        "path": "fxlist/[82]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Meteor \ud83c\udfa8\u22ee",
+        "path": "fxlist/[83]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Meteor Smooth \ud83c\udfa8\u22ee",
+        "path": "fxlist/[84]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Midnoise \ud83c\udfa8\u22ee\u266a",
+        "path": "fxlist/[85]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Multi Comet \ud83c\udfa8\u22ee",
+        "path": "fxlist/[86]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Noise 1 \ud83c\udfa8\u22ee",
+        "path": "fxlist/[87]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Noise 2 \ud83c\udfa8\u22ee",
+        "path": "fxlist/[88]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Noise 3 \ud83c\udfa8\u22ee",
+        "path": "fxlist/[89]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Noise 4 \ud83c\udfa8\u22ee",
+        "path": "fxlist/[90]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Noise Pal \ud83c\udfa8\u22ee",
+        "path": "fxlist/[91]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Noise2D \ud83c\udfa8\u25a6",
+        "path": "fxlist/[92]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Noisefire \u22ee\u266a",
+        "path": "fxlist/[93]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Noisemeter \ud83c\udfa8\u22ee\u266a",
+        "path": "fxlist/[94]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Noisemove \ud83c\udfa8\u22ee\u266b",
+        "path": "fxlist/[95]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Octopus \ud83c\udfa8\u25a6",
+        "path": "fxlist/[96]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Oscillate \ud83c\udfa8\u22ee",
+        "path": "fxlist/[97]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Pacifica \ud83c\udfa8\u22ee",
+        "path": "fxlist/[98]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Palette \ud83c\udfa8\u22ee",
+        "path": "fxlist/[99]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Percent \ud83c\udfa8\u22ee",
+        "path": "fxlist/[100]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Perlin Move \ud83c\udfa8\u22ee",
+        "path": "fxlist/[101]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Phased \ud83c\udfa8\u22ee",
+        "path": "fxlist/[102]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Phased Noise \ud83c\udfa8\u22ee",
+        "path": "fxlist/[103]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Pixels \ud83c\udfa8\u22ee\u266a",
+        "path": "fxlist/[104]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Pixelwave \ud83c\udfa8\u22ee\u266a",
+        "path": "fxlist/[105]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Plasma \ud83c\udfa8\u22ee",
+        "path": "fxlist/[106]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Plasma Ball \ud83c\udfa8\u25a6",
+        "path": "fxlist/[107]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Plasmoid \ud83c\udfa8\u22ee\u266a",
+        "path": "fxlist/[108]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Polar Angular Chase \ud83c\udfa8",
+        "path": "fxlist/[109]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Polar Lights \u25a6",
+        "path": "fxlist/[110]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Polar Radial Chase \ud83c\udfa8",
+        "path": "fxlist/[111]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Popcorn \ud83c\udfa8\u22ee",
+        "path": "fxlist/[112]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Pride 2015 \u22ee",
+        "path": "fxlist/[113]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Puddlepeak \ud83c\udfa8\u22ee\u266a",
+        "path": "fxlist/[114]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Puddles \ud83c\udfa8\u22ee\u266a",
+        "path": "fxlist/[115]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Pulser \ud83c\udfa8\u25a6",
+        "path": "fxlist/[116]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Railway \ud83c\udfa8\u22ee",
+        "path": "fxlist/[117]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Rain \ud83c\udfa8\u22ee\u25a6",
+        "path": "fxlist/[118]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Rainbow \ud83c\udfa8\u22ee",
+        "path": "fxlist/[119]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Rainbow Runner \ud83c\udfa8\u22ee",
+        "path": "fxlist/[120]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Random Colors \ud83c\udfa8\u2022\u22ee",
+        "path": "fxlist/[121]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Ripple \ud83c\udfa8\u22ee\u25a6",
+        "path": "fxlist/[122]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Ripple Peak \ud83c\udfa8\u22ee\u266a",
+        "path": "fxlist/[123]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Ripple Rainbow \ud83c\udfa8\u22ee\u25a6",
+        "path": "fxlist/[124]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Rocktaves \ud83c\udfa8\u22ee\u266b",
+        "path": "fxlist/[125]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Rolling Balls \ud83c\udfa8\u22ee",
+        "path": "fxlist/[126]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Running \ud83c\udfa8\u22ee",
+        "path": "fxlist/[127]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Running Dual \ud83c\udfa8\u22ee",
+        "path": "fxlist/[128]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Saw \ud83c\udfa8\u22ee",
+        "path": "fxlist/[129]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Scan \ud83c\udfa8\u22ee",
+        "path": "fxlist/[130]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Scan Dual \ud83c\udfa8\u22ee",
+        "path": "fxlist/[131]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Scanner \ud83c\udfa8\u22ee",
+        "path": "fxlist/[132]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Scanner Dual \ud83c\udfa8\u22ee",
+        "path": "fxlist/[133]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Scrolling Text \ud83c\udfa8\u25a6",
+        "path": "fxlist/[134]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Sindots \ud83c\udfa8\u25a6",
+        "path": "fxlist/[135]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Sine \ud83c\udfa8\u22ee",
+        "path": "fxlist/[136]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Sinelon \ud83c\udfa8\u22ee",
+        "path": "fxlist/[137]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Sinelon Dual \ud83c\udfa8\u22ee",
+        "path": "fxlist/[138]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Sinelon Rainbow \ud83c\udfa8\u22ee",
+        "path": "fxlist/[139]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Soap \ud83c\udfa8\u25a6",
+        "path": "fxlist/[140]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Solid Glitter \u22ee",
+        "path": "fxlist/[141]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Solid Pattern \ud83c\udfa8\u22ee",
+        "path": "fxlist/[142]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Solid Pattern Tri \u22ee",
+        "path": "fxlist/[143]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Spaceships \ud83c\udfa8\u25a6",
+        "path": "fxlist/[144]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Sparkle \ud83c\udfa8\u22ee",
+        "path": "fxlist/[145]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Sparkle Dark \ud83c\udfa8\u22ee",
+        "path": "fxlist/[146]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Sparkle+ \ud83c\udfa8\u22ee",
+        "path": "fxlist/[147]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Spots \ud83c\udfa8\u22ee",
+        "path": "fxlist/[148]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Spots Fade \ud83c\udfa8\u22ee",
+        "path": "fxlist/[149]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Squared Swirl \ud83c\udfa8\u25a6",
+        "path": "fxlist/[150]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Stream \ud83c\udfa8\u22ee",
+        "path": "fxlist/[151]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Stream 2 \u22ee",
+        "path": "fxlist/[152]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Strobe \ud83c\udfa8\u2022\u22ee",
+        "path": "fxlist/[153]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Strobe Mega \ud83c\udfa8\u2022\u22ee",
+        "path": "fxlist/[154]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Strobe Rainbow \ud83c\udfa8\u2022\u22ee",
+        "path": "fxlist/[155]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Sun Radiation \u25a6",
+        "path": "fxlist/[156]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Sunrise \ud83c\udfa8\u22ee",
+        "path": "fxlist/[157]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Sweep \ud83c\udfa8\u22ee",
+        "path": "fxlist/[158]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Sweep Random \ud83c\udfa8\u22ee",
+        "path": "fxlist/[159]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Swirl \ud83c\udfa8\u25a6\u266a",
+        "path": "fxlist/[160]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Tartan \ud83c\udfa8\u25a6",
+        "path": "fxlist/[161]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Tetrix \ud83c\udfa8\u22ee",
+        "path": "fxlist/[162]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Theater \ud83c\udfa8\u22ee",
+        "path": "fxlist/[163]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Theater Rainbow \ud83c\udfa8\u22ee",
+        "path": "fxlist/[164]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Traffic Light \ud83c\udfa8\u22ee",
+        "path": "fxlist/[165]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Tri Fade \ud83c\udfa8\u22ee",
+        "path": "fxlist/[166]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Tri Wipe \ud83c\udfa8\u22ee",
+        "path": "fxlist/[167]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "TV Simulator \u22ee",
+        "path": "fxlist/[168]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Twinkle \ud83c\udfa8\u22ee",
+        "path": "fxlist/[169]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Twinklecat \ud83c\udfa8\u22ee",
+        "path": "fxlist/[170]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Twinklefox \ud83c\udfa8\u22ee",
+        "path": "fxlist/[171]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Twinkleup \ud83c\udfa8\u22ee",
+        "path": "fxlist/[172]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Two Dots \ud83c\udfa8\u22ee",
+        "path": "fxlist/[173]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Washing Machine \ud83c\udfa8\u22ee",
+        "path": "fxlist/[174]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Waterfall \ud83c\udfa8\u22ee\u266b",
+        "path": "fxlist/[175]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Waverly \ud83c\udfa8\u25a6\u266a",
+        "path": "fxlist/[176]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Wavesins \ud83c\udfa8\u22ee",
+        "path": "fxlist/[177]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Waving Cell \ud83c\udfa8\u25a6",
+        "path": "fxlist/[178]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Wipe \ud83c\udfa8\u22ee",
+        "path": "fxlist/[179]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Wipe Random \ud83c\udfa8\u22ee",
+        "path": "fxlist/[180]/[0]/[2]/[0]/[0]"
+    },
+    {
+        "content": "Quick load label: ",
+        "path": "seg100/[2]/[0]"
+    },
+    {
+        "content": "(leave empty for no Quick load button)",
+        "path": "seg100/[4]/[0]"
+    },
+    {
+        "content": "Show playlist editor",
+        "path": "seg100/[6]/[1]/[1]/[0]"
+    },
+    {
+        "content": "Playlist entries",
+        "path": "ple0/[0]/[0]"
+    },
+    {
+        "content": "Solid",
+        "path": "ple0/[1]/[3]/[1]/[0]/[1]/[1]/[0]/[1]/[0]"
+    },
+    {
+        "content": "Duration",
+        "path": "ple0/[1]/[3]/[1]/[2]/[1]/[0]"
+    },
+    {
+        "content": "Transition",
+        "path": "ple0/[1]/[3]/[1]/[2]/[3]/[0]"
+    },
+    {
+        "attr": "placeholder",
+        "content": "Duration",
+        "path": "ple0/[1]/[3]/[1]/[4]/[1]/[0]"
+    },
+    {
+        "content": "s",
+        "path": "ple0/[1]/[3]/[1]/[4]/[1]/[1]"
+    },
+    {
+        "attr": "placeholder",
+        "content": "Transition",
+        "path": "ple0/[1]/[3]/[1]/[4]/[3]/[0]"
+    },
+    {
+        "content": "s",
+        "path": "ple0/[1]/[3]/[1]/[4]/[3]/[1]"
+    },
+    {
+        "content": "Shuffle\n\t",
+        "path": "p0o1/[1]/[0]"
+    },
+    {
+        "content": "Repeat indefinitely\n\t",
+        "path": "p0o1/[3]/[0]"
+    },
+    {
+        "content": "Repeat ",
+        "path": "pl0o1/[1]/[0]"
+    },
+    {
+        "content": " times",
+        "path": "pl0o1/[1]/[2]"
+    },
+    {
+        "content": "End preset:",
+        "path": "pl0o1/[3]/[0]"
+    },
+    {
+        "content": "None",
+        "path": "pl0selEnd/[1]/[0]"
+    },
+    {
+        "content": "Restore preset",
+        "path": "pl0selEnd/[3]/[0]"
+    },
+    {
+        "content": "Solid",
+        "path": "pl0selEnd/[5]/[0]"
+    },
+    {
+        "content": "Test",
+        "path": "p0o1/[7]/[0]/[1]"
+    },
+    {
+        "content": "Apply at boot",
+        "path": "seg100/[12]/[1]/[0]"
+    },
+    {
+        "content": "Save to ID ",
+        "path": "seg100/[14]/[0]"
+    },
+    {
+        "content": "Save",
+        "path": "seg100/[16]/[1]/[1]"
+    },
+    {
+        "content": "Cancel",
+        "path": "seg100/[16]/[3]/[0]"
+    },
+    {
+        "content": "WLED"
+    },
+    {
+        "content": "No other instances found.",
+        "path": "kn/[0]"
+    },
+    {
+        "content": "Current instance:",
+        "path": "kn/[1]/[1]/[0]/[0]/[0]"
+    }
+]

@@ -1,0 +1,450 @@
+[
+    {
+        "content": "LED Settings"
+    },
+    {
+        "content": "Back",
+        "path": "form_s/[1]/[3]/[0]"
+    },
+    {
+        "content": "Save",
+        "path": "form_s/[1]/[4]/[0]"
+    },
+    {
+        "content": "LED & Hardware setup",
+        "path": "form_s/[3]/[0]"
+    },
+    {
+        "content": "\n\t\tTotal LEDs: ",
+        "path": "form_s/[4]"
+    },
+    {
+        "content": "Recommended power supply for brightest white:",
+        "path": "form_s/[10]/[0]"
+    },
+    {
+        "content": "\n\t\tEnable automatic brightness limiter: ",
+        "path": "form_s/[19]"
+    },
+    {
+        "content": "Automatically limits brightness to stay close to the limit.",
+        "path": "abl/[1]/[0]"
+    },
+    {
+        "content": "\n\t\t\t\tKeep at <1A if poweing LEDs directly from the ESP 5V pin!",
+        "path": "abl/[1]/[2]"
+    },
+    {
+        "content": "\n\t\t\t\tIf using multiple outputs it is recommended to use per-output limiter.",
+        "path": "abl/[1]/[4]"
+    },
+    {
+        "content": "\n\t\t\t\tAnalog (PWM) and virtual LEDs cannot use automatic brightness limiter.",
+        "path": "abl/[1]/[6]"
+    },
+    {
+        "content": "Maximum PSU Current: ",
+        "path": "psuMA/[0]"
+    },
+    {
+        "content": " mA",
+        "path": "psuMA/[2]"
+    },
+    {
+        "content": "\n\t\t\tUse per-output limiter: ",
+        "path": "abl/[4]"
+    },
+    {
+        "content": "Make sure you enter correct value for each LED output.",
+        "path": "ppldis/[1]/[0]"
+    },
+    {
+        "content": "\n\t\t\t\tIf using multiple outputs with only one PSU, distribute its power proportionally amongst outputs.",
+        "path": "ppldis/[1]/[2]"
+    },
+    {
+        "content": "\n\t\t\t\t\u26a0 Your power supply provides high current.",
+        "path": "ampwarning/[0]"
+    },
+    {
+        "content": "\n\t\t\t\tTo improve the safety of your setup,",
+        "path": "ampwarning/[2]"
+    },
+    {
+        "content": "\n\t\t\t\tplease use thick cables,",
+        "path": "ampwarning/[4]"
+    },
+    {
+        "content": "\n\t\t\t\tmultiple power injection points and a fuse!",
+        "path": "ampwarning/[6]"
+    },
+    {
+        "content": "Hardware setup",
+        "path": "form_s/[25]/[0]"
+    },
+    {
+        "content": "LED outputs:",
+        "path": "mLC/[0]"
+    },
+    {
+        "content": "\n\t\tLED memory usage: ",
+        "path": "form_s/[35]"
+    },
+    {
+        "content": " B",
+        "path": "form_s/[39]"
+    },
+    {
+        "content": "\n\t\t\t\u26a0 You might run into stability or lag issues.",
+        "path": "ledwarning/[0]"
+    },
+    {
+        "content": "\n\t\t\tUse less than ",
+        "path": "ledwarning/[2]"
+    },
+    {
+        "content": "800 LEDs per output",
+        "path": "wreason/[0]"
+    },
+    {
+        "content": " for the best experience!",
+        "path": "ledwarning/[4]"
+    },
+    {
+        "content": "\n\t\tMake a segment for each output: ",
+        "path": "form_s/[48]"
+    },
+    {
+        "content": "\n\t\tCustom bus start indices: ",
+        "path": "form_s/[51]"
+    },
+    {
+        "content": "\n\t\tUse global LED buffer: ",
+        "path": "form_s/[54]"
+    },
+    {
+        "content": "\n\t\t\tColor Order Override:\n\t\t\t",
+        "path": "color_order_mapping/[0]"
+    },
+    {
+        "content": "\n\t\tDisable internal pull-up/down: ",
+        "path": "form_s/[65]"
+    },
+    {
+        "content": "\n\t\tTouch threshold: ",
+        "path": "form_s/[68]"
+    },
+    {
+        "content": "\n\t\tIR GPIO: ",
+        "path": "form_s/[73]"
+    },
+    {
+        "content": "Remote disabled",
+        "path": "form_s/[75]/[1]/[0]"
+    },
+    {
+        "content": "24-key RGB",
+        "path": "form_s/[75]/[3]/[0]"
+    },
+    {
+        "content": "24-key with CT",
+        "path": "form_s/[75]/[5]/[0]"
+    },
+    {
+        "content": "40-key blue",
+        "path": "form_s/[75]/[7]/[0]"
+    },
+    {
+        "content": "44-key RGB",
+        "path": "form_s/[75]/[9]/[0]"
+    },
+    {
+        "content": "21-key RGB",
+        "path": "form_s/[75]/[11]/[0]"
+    },
+    {
+        "content": "6-key black",
+        "path": "form_s/[75]/[13]/[0]"
+    },
+    {
+        "content": "9-key red",
+        "path": "form_s/[75]/[15]/[0]"
+    },
+    {
+        "content": "JSON remote",
+        "path": "form_s/[75]/[17]/[0]"
+    },
+    {
+        "content": "\n\t\tApply IR change to main segment only: ",
+        "path": "form_s/[78]"
+    },
+    {
+        "content": "JSON file: ",
+        "path": "json/[0]"
+    },
+    {
+        "content": "Upload",
+        "path": "json/[2]/[0]"
+    },
+    {
+        "content": "IR info",
+        "path": "form_s/[84]/[0]"
+    },
+    {
+        "content": "\n\t\tRelay GPIO: ",
+        "path": "form_s/[88]"
+    },
+    {
+        "content": "\n\t\tInvert ",
+        "path": "form_s/[92]"
+    },
+    {
+        "content": " Open drain ",
+        "path": "form_s/[94]"
+    },
+    {
+        "content": "Defaults",
+        "path": "form_s/[100]/[0]"
+    },
+    {
+        "content": "\n\t\tTurn LEDs on after power up/reset: ",
+        "path": "form_s/[101]"
+    },
+    {
+        "content": "\n\t\tDefault brightness: ",
+        "path": "form_s/[104]"
+    },
+    {
+        "content": "\n\t\tApply preset ",
+        "path": "form_s/[109]"
+    },
+    {
+        "content": " at boot (0 uses values from above)",
+        "path": "form_s/[111]"
+    },
+    {
+        "content": "\n\t\tUse Gamma correction for color: ",
+        "path": "form_s/[114]"
+    },
+    {
+        "content": " (strongly recommended)",
+        "path": "form_s/[116]"
+    },
+    {
+        "content": "\n\t\tUse Gamma correction for brightness: ",
+        "path": "form_s/[118]"
+    },
+    {
+        "content": " (not recommended)",
+        "path": "form_s/[120]"
+    },
+    {
+        "content": "\n\t\tUse Gamma value: ",
+        "path": "form_s/[122]"
+    },
+    {
+        "content": "\n\t\tBrightness factor: ",
+        "path": "form_s/[126]"
+    },
+    {
+        "content": "Transitions",
+        "path": "form_s/[129]/[0]"
+    },
+    {
+        "content": "\n\t\tEnable transitions: ",
+        "path": "form_s/[130]"
+    },
+    {
+        "content": "\n\t\t\tEffect blending: ",
+        "path": "tran/[0]"
+    },
+    {
+        "content": "\n\t\t\tDefault transition time: ",
+        "path": "tran/[3]"
+    },
+    {
+        "content": " ms",
+        "path": "tran/[5]"
+    },
+    {
+        "content": "\n\t\t\tPalette transitions: ",
+        "path": "tran/[7]"
+    },
+    {
+        "content": "Random Cycle",
+        "path": "form_s/[136]/[0]"
+    },
+    {
+        "content": " Palette Time: ",
+        "path": "form_s/[137]"
+    },
+    {
+        "content": " s",
+        "path": "form_s/[139]"
+    },
+    {
+        "content": "\n\t\tUse harmonic ",
+        "path": "form_s/[141]"
+    },
+    {
+        "content": "Random Cycle",
+        "path": "form_s/[142]/[0]"
+    },
+    {
+        "content": " Palette: ",
+        "path": "form_s/[143]"
+    },
+    {
+        "content": "Timed light",
+        "path": "form_s/[147]/[0]"
+    },
+    {
+        "content": "\n\t\tDefault duration: ",
+        "path": "form_s/[148]"
+    },
+    {
+        "content": " min",
+        "path": "form_s/[150]"
+    },
+    {
+        "content": "\n\t\tDefault target brightness: ",
+        "path": "form_s/[152]"
+    },
+    {
+        "content": "\n\t\tMode:\n\t\t",
+        "path": "form_s/[155]"
+    },
+    {
+        "content": "Wait and set",
+        "path": "form_s/[156]/[1]/[0]"
+    },
+    {
+        "content": "Fade",
+        "path": "form_s/[156]/[3]/[0]"
+    },
+    {
+        "content": "Fade Color",
+        "path": "form_s/[156]/[5]/[0]"
+    },
+    {
+        "content": "Sunrise",
+        "path": "form_s/[156]/[7]/[0]"
+    },
+    {
+        "content": "White management",
+        "path": "form_s/[158]/[0]"
+    },
+    {
+        "content": "\n\t\tWhite Balance correction: ",
+        "path": "form_s/[159]"
+    },
+    {
+        "content": "\n\t\t\tGlobal override for Auto-calculate white:",
+        "path": "wc/[0]"
+    },
+    {
+        "content": "Disabled",
+        "path": "wc/[3]/[1]/[0]"
+    },
+    {
+        "content": "None",
+        "path": "wc/[3]/[3]/[0]"
+    },
+    {
+        "content": "Brighter",
+        "path": "wc/[3]/[5]/[0]"
+    },
+    {
+        "content": "Accurate",
+        "path": "wc/[3]/[7]/[0]"
+    },
+    {
+        "content": "Dual",
+        "path": "wc/[3]/[9]/[0]"
+    },
+    {
+        "content": "Max",
+        "path": "wc/[3]/[11]/[0]"
+    },
+    {
+        "content": "\n\t\t\tCalculate CCT from RGB: ",
+        "path": "wc/[6]"
+    },
+    {
+        "content": "\n\t\t\tCCT IC used (Athom 15W): ",
+        "path": "wc/[9]"
+    },
+    {
+        "content": "\n\t\t\tCCT additive blending: ",
+        "path": "wc/[12]"
+    },
+    {
+        "content": "WARNING: When using H-bridge for reverse polarity (2-wire) CCT LED strip",
+        "path": "wc/[17]/[0]"
+    },
+    {
+        "content": "make sure this value is 0",
+        "path": "wc/[17]/[2]/[0]"
+    },
+    {
+        "content": "(ESP32 variants only, ESP8266 does not support H-bridges)",
+        "path": "wc/[17]/[5]"
+    },
+    {
+        "content": "Advanced",
+        "path": "form_s/[165]/[0]"
+    },
+    {
+        "content": "\n\t\tPalette wrapping:\n\t\t",
+        "path": "form_s/[166]"
+    },
+    {
+        "content": "Linear (wrap if moving)",
+        "path": "form_s/[167]/[1]/[0]"
+    },
+    {
+        "content": "Linear (always wrap)",
+        "path": "form_s/[167]/[3]/[0]"
+    },
+    {
+        "content": "Linear (never wrap)",
+        "path": "form_s/[167]/[5]/[0]"
+    },
+    {
+        "content": "None (not recommended)",
+        "path": "form_s/[167]/[7]/[0]"
+    },
+    {
+        "content": "\n\t\tTarget refresh rate: ",
+        "path": "form_s/[169]"
+    },
+    {
+        "content": " FPS\n\t\t",
+        "path": "form_s/[171]"
+    },
+    {
+        "content": "Config template: ",
+        "path": "cfg/[0]"
+    },
+    {
+        "content": "Apply",
+        "path": "cfg/[2]/[0]"
+    },
+    {
+        "content": "Back",
+        "path": "form_s/[178]/[0]"
+    },
+    {
+        "content": "Save",
+        "path": "form_s/[179]/[0]"
+    },
+    {
+        "content": "LED Settings"
+    },
+    {
+        "content": "LED Settings"
+    },
+    {
+        "content": "LED Settings"
+    }
+]
