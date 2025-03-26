@@ -1995,12 +1995,12 @@ CRGB AudioReactive::getCRGBForBand(int x, int pal) {
     case 2:
       b = map(x, 0, 255, 0, NUM_GEQ_CHANNELS/2); // convert palette position to lower half of freq band
       hsv = CHSV(fftResult[b], 255, x);
-      hsv2rgb_rainbow(hsv, value);  // convert to R,G,B
+      value = hsv;  // convert to R,G,B
       break;
     case 1:
       b = map(x, 1, 255, 0, 10); // convert palette position to lower half of freq band
       hsv = CHSV(fftResult[b], 255, map(fftResult[b], 0, 255, 30, 255));  // pick hue
-      hsv2rgb_rainbow(hsv, value);  // convert to R,G,B
+      value = hsv;  // convert to R,G,B
       break;
     default:
       if (x == 1) {

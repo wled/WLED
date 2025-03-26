@@ -118,65 +118,9 @@ static um_data_t* getAudioData() {
  * No blinking. Just plain old static light.
  */
 uint16_t mode_static(void) {
-// fill the segment using hsv2rgb_rainbow and hsv2rgb alternatingly every 0.5 second
-static bool useRainbow = true;
-static uint32_t lastSwitch = 0;
-static uint8_t sat = 255;
-static uint8_t val = 255;
-static int offset = 0;
-if (millis() - lastSwitch > 2000) {
-  useRainbow = !useRainbow;
-  lastSwitch = millis();
- // if (useRainbow) sat--;
-    if (useRainbow) val--;
+  SEGMENT.fill(SEGCOLOR(0));
+  return strip.isOffRefreshRequired() ? FRAMETIME : 350;
 }
-
-offset++;//=100;
-delay(50);
-
-
-for (unsigned i = 0; i < SEGLEN; i++) {
-  if (useRainbow) {
-    //CHSV hsvColor = CHSV(((i+offset) * (0xFF))/(2*255), sat, val);
-    //CRGB rgbColor = hsvColor;
-    //hsv2rgb_rainbow(hsvColor, rgbColor);
-    //hsv2rgb_rainbow16(hsvColor.h<<8, hsvColor.s, hsvColor.v, rgbColor.raw, false); 
-    //SEGMENT.setPixelColor(i, rgbColor.r, rgbColor.g, rgbColor.b);
-    CHSV32 hsv32Color;
-    hsv32Color.h = (((i+offset) * (0xFFFF))/(2*255));
-    hsv32Color.s = sat;
-    hsv32Color.v = val;
-    CRGBW rgbwColor = hsv32Color;
-    //CHSV32 hsv_t = rgbwColor;
-    SEGMENT.setPixelColor(i, rgbwColor);
-    if(i == 0)  SEGMENT.setPixelColor(i, SEGCOLOR(0)); // paint corner
-    //SEGMENT.fill(SEGCOLOR(0));
-  } else {
-    CHSV32 hsv32Color;
-    hsv32Color.h = (((i+offset) * (0xFFFF))/(2*255));
-    hsv32Color.s = sat;
-    hsv32Color.v = 255;
-    CRGBW rgbwColor_t = hsv32Color;
-    CHSV32 hsv_t = rgbwColor_t;
-    //hsv_t.h += 1;
-    //hsv_t.s = 254;
-    hsv_t.v = val;
-    //CRGBW rgbwColor = hsv_t;
-    CRGBW rgbwColor;
-    hsv2rgb_spectrum(hsv_t, rgbwColor);
-    //hsv2rgb_rainbow(hsv32Color, rgbwColor);
-    //hsv2rgb_rainbow16(hsv32Color.h, hsv32Color.s, hsv32Color.v, rgbwColor.raw, true);
-    SEGMENT.setPixelColor(i, rgbwColor);
-    //SEGMENT.fill(SEGCOLOR(0));
-  }
-}
-
-  return FRAMETIME;
-}
-
-//  SEGMENT.fill(SEGCOLOR(0));
-//  return strip.isOffRefreshRequired() ? FRAMETIME : 350;
-//}
 static const char _data_FX_MODE_STATIC[] PROGMEM = "Solid";
 
 

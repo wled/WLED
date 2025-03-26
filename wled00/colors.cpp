@@ -1,6 +1,5 @@
 #include "wled.h"
 #include "fcn_declare.h"
-//#include "colors.h" // todo: needed? its already included in fcn declare -> seems to compile fine without this include -> remove?
 /*
   Color conversion & utility methods
 
@@ -10,9 +9,9 @@
   - fastled replacements are mostly optimized for CHSV32 and CRGBW but using CRGB and HSV are equally fast
   - direct conversion (assignment or construction) from CHSV/CHSV32 to CRGB/CRGBW use the "rainbow" method (nicer colors)
   - converting CRGB(W) to HSV32 color is quite accurate but still not 100% (but much more accurate than fastled's "hsv2rgb_approximate" function)
-  - when converting CRGB(W) to HSV32, use "hsv2rgb_spectrum" function to convert it back (better color accuracy, rainbow causes slight color shift)
-  - to manipulate an RGB color in HSV space, use the 
- */
+  - when converting CRGB(W) to HSV32 and back, "hsv2rgb_spectrum" preserves the colors better than the _rainbow version
+  - to manipulate an RGB color in HSV space, use the adjust_color function or the CRGBW.adjust_hue method
+*/
 
 /*
  * color blend function, based on FastLED blend function
@@ -34,8 +33,7 @@ uint32_t color_blend(uint32_t color1, uint32_t color2, uint8_t blend) {
  * original idea: https://github.com/wled-dev/WLED/pull/2465 by https://github.com/Proto-molecule
  * speed optimisations by @dedehai
  */
-uint32_t color_add(uint32_t c1, uint32_t c2, bool preserveCR)
-{
+uint32_t color_add(uint32_t c1, uint32_t c2, bool preserveCR) {
   if (c1 == BLACK) return c2;
   if (c2 == BLACK) return c1;
   uint32_t rb = (c1 & 0x00FF00FF) + (c2 & 0x00FF00FF); // mask and add two colors at once
@@ -46,13 +44,9 @@ uint32_t color_add(uint32_t c1, uint32_t c2, bool preserveCR)
   uint32_t g = wg & 0xFFFF;
 
   if (preserveCR) { // preserve color ratios
-    uint32_t max = std::max(r,g); // check for overflow note
+    uint32_t max = std::max(r,g); // check for overflow
     max = std::max(max,b);
     max = std::max(max,w);
-    //unsigned max = r; // check for overflow note
-    //max = g > max ? g : max;
-    //max = b > max ? b : max;
-    //max = w > max ? w : max;
     if (max > 255) {
       uint32_t scale = (uint32_t(255)<<8) / max; // division of two 8bit (shifted) values does not work -> use bit shifts and multiplaction instead
       rb = ((rb * scale) >> 8) & 0x00FF00FF; //
@@ -72,9 +66,7 @@ uint32_t color_add(uint32_t c1, uint32_t c2, bool preserveCR)
  * fades color toward black
  * if using "video" method the resulting color will never become black unless it is already black
  */
-
-uint32_t color_fade(uint32_t c1, uint8_t amount, bool video)
-{
+uint32_t color_fade(uint32_t c1, uint8_t amount, bool video) {
   if (amount == 255) return c1;
   if (c1 == BLACK || amount == 0) return BLACK;
   uint32_t scaledcolor; // color order is: W R G B from MSB to LSB
@@ -110,7 +102,7 @@ __attribute__((optimize("O3"))) void adjust_color(CRGBW& rgb, int32_t hueShift, 
 }
 
 // 1:1 replacement of fastled function optimized for ESP, slightly faster, more accurate and uses less flash (~ -200bytes)
-uint32_t ColorFromPaletteWLED(const CRGBPalette16& pal, unsigned index, uint8_t brightness, TBlendType blendType)
+uint32_t ColorFromPalette(const CRGBPalette16& pal, unsigned index, uint8_t brightness, TBlendType blendType)
 {
   if (blendType == LINEARBLEND_NOWRAP) {
     index = (index * 0xF0) >> 8; // Blend range is affected by lo4 blend of values, remap to avoid wrapping
@@ -153,7 +145,7 @@ CRGBPalette16 generateHarmonicRandomPalette(const CRGBPalette16 &basepalette)
 {
   CHSV palettecolors[4]; // array of colors for the new palette
   uint8_t keepcolorposition = hw_random8(4); // color position of current random palette to keep
-  //!!! update this palettecolors[keepcolorposition] = rgb2hsv(basepalette.entries[keepcolorposition*5]); // read one of the base colors of the current palette
+  palettecolors[keepcolorposition] = rgb2hsv(basepalette.entries[keepcolorposition*5]); // read one of the base colors of the current palette
   palettecolors[keepcolorposition].hue += hw_random8(10)-5; // +/- 5 randomness of base color
   // generate 4 saturation and brightness value numbers
   // only one saturation is allowed to be below 200 creating mostly vibrant colors
@@ -311,7 +303,7 @@ void hsv2rgb_spectrum(const CHSV& hsv, CRGB& rgb) {
   rgb = CRGB(rgb32);
 }
 
-// convert HSV (16bit hue) to RGB (24bit), optimized for speed (integer types and function arguments were very carefully chosen for best performance)
+// convert HSV (16bit hue) to RGB (24bit), optimized for speed (integer types and function arguments were very carefully selected for best performance)
 // this does the same as the FastLED hsv2rgb_rainbow function but with 16bit hue and optimizations for use with CRGB as well as CRGBW
 // note: this function is used when converting CHSV->CRGB or CHSV32->CRGBW by assignment or constructor, there is no need to call it explicitly
 __attribute__((optimize("O3"))) void hsv2rgb_rainbow(uint16_t h, uint8_t s, uint8_t v, uint8_t* rgbdata, bool isRGBW) {
@@ -433,7 +425,7 @@ __attribute__((optimize("O3"))) void rgb2hsv(const CRGBW& rgb, CHSV32& hsv) {
     minval = (r < g) ? ((r < b) ? r : b) : ((g < b) ? g : b);
     hsv.v = maxval;
     delta = maxval - minval;
-    hsv.s = delta == maxval ? 255 : (255 * delta) / maxval; // faster on fully saturated colors, slightly slower otherwise TODO: this is faster on C3, is it slower on ESP32?
+    hsv.s = delta == maxval ? 255 : (255 * delta) / maxval; // faster on fully saturated colors, slightly slower otherwise
     //hsv.s = (255 * delta) / maxval;
     //if (hsv.s == 0)  return; // gray value // assuming gray values are passed rarely, this can be omitted to increase speed
     if (maxval == r) hsv.h = (10923 * (g - b)) / delta;
@@ -441,12 +433,11 @@ __attribute__((optimize("O3"))) void rgb2hsv(const CRGBW& rgb, CHSV32& hsv) {
     else hsv.h = 43690 + (10923 * (r - g)) / delta;
 }
 
-/*
 CHSV rgb2hsv(const CRGB c) {  // CRGB to CHSV
   CHSV32 hsv;
-  rgb2hsv((uint32_t((byte(c.r) << 16) | (byte(c.g) << 8) | (byte(c.b)))), hsv);
+  rgb2hsv(CRGBW(c), hsv);
   return CHSV(hsv);
-}*/
+}
 
 void colorHStoRGB(uint16_t hue, byte sat, byte* rgb) { //hue, sat to rgb
   CRGBW crgb;

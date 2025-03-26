@@ -3,8 +3,6 @@
 
 // note: some functions/structs have been copied from fastled library, modified and optimized for WLED
 
-#define ColorFromPalette ColorFromPaletteWLED // override fastled version //!!!todo: rename
-
 // 32bit color mangling macros
 #define RGBW32(r,g,b,w) (uint32_t((byte(w) << 24) | (byte(r) << 16) | (byte(g) << 8) | (byte(b))))
 #define R(c) (byte((c) >> 16))
@@ -66,7 +64,7 @@ inline uint32_t color_blend16(uint32_t c1, uint32_t c2, uint16_t b) { return col
 [[gnu::hot, gnu::pure]] uint32_t color_add(uint32_t, uint32_t, bool preserveCR = false);
 [[gnu::hot, gnu::pure]] uint32_t color_fade(uint32_t c1, uint8_t amount, bool video=false);
 void adjust_color(CRGBW& rgb, int32_t hueShift, int32_t valueChange, int32_t satChange);
-[[gnu::hot, gnu::pure]] uint32_t ColorFromPaletteWLED(const CRGBPalette16 &pal, unsigned index, uint8_t brightness = (uint8_t)255U, TBlendType blendType = LINEARBLEND);
+[[gnu::hot, gnu::pure]] uint32_t ColorFromPalette(const CRGBPalette16 &pal, unsigned index, uint8_t brightness = (uint8_t)255U, TBlendType blendType = LINEARBLEND);
 CRGBPalette16 generateHarmonicRandomPalette(const CRGBPalette16 &basepalette);
 CRGBPalette16 generateRandomPalette();
 
@@ -75,6 +73,7 @@ void hsv2rgb_spectrum(const CHSV32& hsv, CRGBW& rgb);
 void hsv2rgb_spectrum(const CHSV& hsv, CRGB& rgb);
 void hsv2rgb_rainbow(uint16_t h, uint8_t s, uint8_t v, uint8_t* rgbdata, bool isRGBW);
 void rgb2hsv(const CRGBW& rgb, CHSV32& hsv);
+CHSV rgb2hsv(const CRGB c);
 void colorHStoRGB(uint16_t hue, byte sat, byte* rgb);
 void colorKtoRGB(uint16_t kelvin, byte* rgb);
 void colorCTtoRGB(uint16_t mired, byte* rgb); //white spectrum to rgb
@@ -843,8 +842,6 @@ struct CHSV32 { // 32bit HSV color with 16bit hue for more accurate conversions
   // construction from a 32bit rgb color (white channel is ignored)
   inline CHSV32(const CRGBW& rgb) __attribute__((always_inline));
   inline CHSV32& operator= (const CRGBW& rgb) __attribute__((always_inline)); // assignment from 32bit rgb color (white channel is ignored)
-
-  //TODO: allow assignment/construction from 32bit rgb color? or is that ambiguous? -> its not clear inherently, so bettter use a cast (CHSV32 = CRGBW(rgb))
 };
 
 // CRGBW can be used to manipulate 32bit colors faster. However: if it is passed to functions, it adds overhead compared to a uint32_t color
