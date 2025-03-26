@@ -738,29 +738,29 @@ void fill_solid_RGB(CRGB* colors, uint32_t num, const CRGB& c1) {
 // fill CRGB array with a color gradient
 void fill_gradient_RGB(CRGB* colors, uint32_t startpos, CRGB startcolor, uint32_t endpos, CRGB endcolor) {
   if(endpos < startpos) { // if the points are in the wrong order, flip them
-    uint32_t t = endpos;
+    unsigned t = endpos;
     CRGB tc = endcolor;
     endcolor = startcolor;
     endpos = startpos;
     startpos = t;
     startcolor = tc;
   }
-  int32_t rdistance = endcolor.r - startcolor.r;
-  int32_t gdistance = endcolor.g - startcolor.g;
-  int32_t bdistance = endcolor.b - startcolor.b;
+  int rdistance = endcolor.r - startcolor.r;
+  int gdistance = endcolor.g - startcolor.g;
+  int bdistance = endcolor.b - startcolor.b;
 
-  int32_t divisor = endpos - startpos;
+  int divisor = endpos - startpos;
   divisor = divisor == 0 ? 1 : divisor; // prevent division by zero
 
-  int32_t rdelta = (rdistance << 16) / divisor;
-  int32_t gdelta = (gdistance << 16) / divisor;
-  int32_t bdelta = (bdistance << 16) / divisor;
+  int rdelta = (rdistance << 16) / divisor;
+  int gdelta = (gdistance << 16) / divisor;
+  int bdelta = (bdistance << 16) / divisor;
 
-  int32_t rshifted = startcolor.r << 16;
-  int32_t gshifted = startcolor.g << 16;
-  int32_t bshifted = startcolor.b << 16;
+  int rshifted = startcolor.r << 16;
+  int gshifted = startcolor.g << 16;
+  int bshifted = startcolor.b << 16;
 
-  for (int32_t i = startpos; i <= endpos; i++) {
+  for (unsigned i = startpos; i <= endpos; i++) {
     colors[i] = CRGB(rshifted >> 16, gshifted >> 16, bshifted >> 16);
     rshifted += rdelta;
     gshifted += gdelta;

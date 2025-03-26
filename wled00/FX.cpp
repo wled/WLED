@@ -4922,7 +4922,6 @@ uint16_t mode_2DColoredBursts() {              // By: ldirko   https://editor.so
       byte dy = lerp8by8(x2, y2, rate);
       //SEGMENT.setPixelColorXY(dx, dy, grad ? color_fade(color, (255-rate), true) : color); // use addPixelColorXY for different look
       SEGMENT.addPixelColorXY(dx, dy, color); // use setPixelColorXY for different look
-      color_fade(color, (255-rate), true);
       if (grad) SEGMENT.fadePixelColorXY(dx, dy, rate);
     }
 

@@ -22,29 +22,29 @@ uint8_t qsub8(uint8_t i, uint8_t j);
 int8_t abs8(int8_t i);
 
 typedef uint32_t TProgmemRGBPalette16[16];
-typedef uint8_t TDynamicRGBGradientPalette_byte;  ///< Byte of an RGB gradient entry, stored in dynamic (heap) memory
-typedef const TDynamicRGBGradientPalette_byte *TDynamicRGBGradientPalette_bytes;  ///< Pointer to bytes of an RGB gradient, stored in dynamic (heap) memory
-typedef TDynamicRGBGradientPalette_bytes TDynamicRGBGradientPalettePtr;  ///< Alias of ::TDynamicRGBGradientPalette_bytes
+typedef uint8_t TDynamicRGBGradientPalette_byte;  // Byte of an RGB gradient entry, stored in dynamic (heap) memory
+typedef const TDynamicRGBGradientPalette_byte *TDynamicRGBGradientPalette_bytes;  // Pointer to bytes of an RGB gradient, stored in dynamic (heap) memory
+typedef TDynamicRGBGradientPalette_bytes TDynamicRGBGradientPalettePtr;  // Alias of ::TDynamicRGBGradientPalette_bytes
 typedef const uint8_t TProgmemRGBGradientPalette_byte;
 typedef const TProgmemRGBGradientPalette_byte *TProgmemRGBGradientPalette_bytes;
 typedef TProgmemRGBGradientPalette_bytes TProgmemRGBGradientPalettePtr;
 
-/// Color interpolation options for palette
+// color interpolation options for palette
 typedef enum {
-  NOBLEND=0,            ///< No interpolation between palette entries
-  LINEARBLEND=1,        ///< Linear interpolation between palette entries, with wrap-around from end to the beginning again
-  LINEARBLEND_NOWRAP=2  ///< Linear interpolation between palette entries, but no wrap-around
+  NOBLEND=0,            // No interpolation between palette entries
+  LINEARBLEND=1,        // Linear interpolation between palette entries, with wrap-around from end to the beginning again
+  LINEARBLEND_NOWRAP=2  // Linear interpolation between palette entries, but no wrap-around
 } TBlendType;
 
 typedef union {
   struct {
-    uint8_t index;  ///< index of the color entry in the gradient
-    uint8_t r;      ///< CRGB::red channel value of the color entry
-    uint8_t g;      ///< CRGB::green channel value of the color entry
-    uint8_t b;      ///< CRGB::blue channel value of the color entry
+    uint8_t index;  // index of the color entry in the gradient
+    uint8_t r;
+    uint8_t g;
+    uint8_t b;
   };
-  uint32_t dword;     ///< values as a packed 32-bit double word
-  uint8_t  bytes[4];  ///< values as an array
+  uint32_t dword;     // values packed as 32-bit
+  uint8_t  bytes[4];  // values as an array
 } TRGBGradientPaletteEntryUnion;
 
 // similar to NeoPixelBus NeoGammaTableMethod but allows dynamic changes (superseded by NPB::NeoGammaDynamicTableMethod)
@@ -122,11 +122,11 @@ struct CHSV {
     return raw[x];
   }
 
-  // Default constructor
-  // @warning Default values are UNITIALIZED!
+  // default constructor
+  // @warning default values are UNITIALIZED!
   inline CHSV() __attribute__((always_inline)) = default;
 
-  ///Allow construction from hue, saturation, and value
+  // allow construction from hue, saturation, and value
   inline CHSV(uint8_t ih, uint8_t is, uint8_t iv) __attribute__((always_inline))
   : h(ih), s(is), v(iv) { }
 
@@ -194,12 +194,12 @@ struct CRGB {
     hsv2rgb_rainbow(hue<<8, sat, val, raw, false); return *this;
   }
 
-  // Allow assignment from just a hue, sat and val are set to max
+  // allow assignment from just a hue, sat and val are set to max
   inline CRGB& setHue (uint8_t hue) __attribute__((always_inline)) {
     hsv2rgb_rainbow(hue<<8, 255, 255, raw, false); return *this;
   }
 
-  /// Allow assignment from HSV color
+  // allow assignment from HSV color
   inline CRGB& operator= (const CHSV& rhs) __attribute__((always_inline)) {
     hsv2rgb_rainbow(rhs.h<<8, rhs.s, rhs.v, raw, false); return *this;
   }
@@ -214,7 +214,7 @@ struct CRGB {
     return *this;
   }
 
-  /// allow assignment from red, green, and blue
+  // allow assignment from red, green, and blue
   inline CRGB& setRGB (uint8_t nr, uint8_t ng, uint8_t nb) __attribute__((always_inline)) {
     r = nr;
     g = ng;
@@ -222,14 +222,13 @@ struct CRGB {
     return *this;
   }
 
-  /// Allow assignment from 32-bit (really 24-bit) 0xRRGGBB color code
+  // allow assignment from 32-bit (really 24-bit) 0xRRGGBB color code
   inline CRGB& setColorCode (uint32_t colorcode) __attribute__((always_inline)) {
     r = R(colorcode);
     g = G(colorcode);
     b = B(colorcode);
     return *this;
   }
-
 
   // add one CRGB to another, saturating at 0xFF for each channel
   inline CRGB& operator+= (const CRGB& rhs) {
@@ -344,7 +343,7 @@ struct CRGB {
     return *this;
   }
 
-  /// Return a CRGB object that is a scaled down version of this object
+  // return a CRGB object that is a scaled down version of this object
   inline CRGB scale8(uint8_t scaledown) const {
     CRGB out = *this;
     uint32_t scale_fixed = scaledown + 1;
@@ -354,7 +353,7 @@ struct CRGB {
     return out;
   }
 
-  /// Return a CRGB object that is a scaled down version of this object
+  // return a CRGB object that is a scaled down version of this object
   inline CRGB scale8(const CRGB& scaledown) const {
     CRGB out;
     out.r = ::scale8(r, scaledown.r);
@@ -363,8 +362,7 @@ struct CRGB {
     return out;
   }
 
-  /// fadeToBlackBy is a synonym for nscale8(), as a fade instead of a scale
-  /// @param fadefactor the amount to fade, sent to nscale8() as (255 - fadefactor)
+  // fadeToBlackBy is a synonym for nscale8(), as a fade instead of a scale
   inline CRGB& fadeToBlackBy(uint8_t fadefactor) {
     uint32_t scale_fixed = 256 - fadefactor;
     r = (((uint32_t)r) * scale_fixed) >> 8;
@@ -373,7 +371,7 @@ struct CRGB {
     return *this;
   }
 
-  /// "or" operator brings each channel up to the higher of the two values
+  // "or" operator brings each channel up to the higher of the two values
   inline CRGB& operator|=(const CRGB& rhs) {
     if (rhs.r > r) r = rhs.r;
     if (rhs.g > g) g = rhs.g;
@@ -381,7 +379,6 @@ struct CRGB {
     return *this;
   }
 
-  /// @copydoc operator|=
   inline CRGB& operator|=(uint8_t d) {
     if (d > r) r = d;
     if (d > g) g = d;
@@ -389,7 +386,7 @@ struct CRGB {
     return *this;
   }
 
-  /// "and" operator brings each channel down to the lower of the two values
+  // "and" operator brings each channel down to the lower of the two values
   inline CRGB& operator&=(const CRGB& rhs) {
     if (rhs.r < r) r = rhs.r;
     if (rhs.g < g) g = rhs.g;
@@ -397,7 +394,6 @@ struct CRGB {
     return *this;
   }
 
-  /// @copydoc operator&=
   inline CRGB& operator&=(uint8_t d) {
     if (d < r) r = d;
     if (d < g) g = d;
@@ -405,12 +401,12 @@ struct CRGB {
     return *this;
   }
 
-  /// This allows testing a CRGB for zero-ness
+  // this allows testing a CRGB for zero-ness
   inline explicit operator bool() const __attribute__((always_inline)) {
     return r || g || b;
   }
 
-  /// Converts a CRGB to a 32-bit color with white = 0
+  // converts a CRGB to a 32-bit color with white = 0
   inline explicit operator uint32_t() const {
     return (uint32_t{r} << 16) |
            (uint32_t{g} << 8)  |
@@ -662,7 +658,7 @@ public:
     const uint8_t* p = (const uint8_t*)(&(this->entries[0]));
     const uint8_t* q = (const uint8_t*)(&(rhs.entries[0]));
     if (p == q) return true;
-    for (int i = 0; i < (sizeof(entries)); ++i) {
+    for (unsigned i = 0; i < (sizeof(entries)); ++i) {
       if (*p != *q) return false;
       ++p;
       ++q;
@@ -736,24 +732,24 @@ public:
     TRGBGradientPaletteEntryUnion u;
 
     // Count entries
-    uint32_t count = 0;
+    int count = 0;
     do {
       u.dword = *(const uint32_t*)(progent + count);
       ++count;
     } while (u.index != 255);
 
-    int32_t lastSlotUsed = -1;
+    int lastSlotUsed = -1;
 
     u.dword = *(const uint32_t*)(progent);
     CRGB rgbstart(u.r, u.g, u.b);
 
-    uint32_t indexstart = 0;
-    uint32_t istart8 = 0;
-    uint32_t iend8 = 0;
+    int indexstart = 0;
+    int istart8 = 0;
+    int iend8 = 0;
     while (indexstart < 255) {
       ++progent;
       u.dword = *(const uint32_t*)(progent);
-      uint32_t indexend = u.index;
+      int indexend = u.index;
       CRGB rgbend(u.r, u.g, u.b);
       istart8 = indexstart / 16;
       iend8 = indexend / 16;
@@ -779,20 +775,20 @@ public:
     TRGBGradientPaletteEntryUnion u;
 
     // Count entries
-    uint16_t count = 0;
+    unsigned count = 0;
     do {
       u = *(ent + count);
       ++count;
     } while (u.index != 255);
 
-    int8_t lastSlotUsed = -1;
+    int lastSlotUsed = -1;
 
     u = *ent;
     CRGB rgbstart(u.r, u.g, u.b);
 
     int indexstart = 0;
-    uint8_t istart8 = 0;
-    uint8_t iend8 = 0;
+    int istart8 = 0;
+    int iend8 = 0;
     while (indexstart < 255) {
       ++ent;
       u = *ent;
