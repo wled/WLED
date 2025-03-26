@@ -109,7 +109,6 @@ void WLED::loop()
     if (WLED_CONNECTED && aOtaEnabled && !otaLock && correctPIN) ArduinoOTA.handle();
     #endif
     handleNightlight();
-    handlePlaylist();
     yield();
 
     #ifndef WLED_DISABLE_HUESYNC
@@ -117,6 +116,10 @@ void WLED::loop()
     yield();
     #endif
 
+    if (!presetNeedsSaving()) {
+      handlePlaylist();
+      yield();
+    }
     handlePresets();
     yield();
 
@@ -392,9 +395,6 @@ void WLED::setup()
   PinManager::allocatePin(2, true, PinOwner::DMX);
 #endif
 
-  DEBUG_PRINTLN(F("Registering usermods ..."));
-  registerUsermods();
-
   DEBUG_PRINTF_P(PSTR("heap %u\n"), ESP.getFreeHeap());
 
   bool fsinit = false;
@@ -464,7 +464,7 @@ void WLED::setup()
   #endif
 
   // fill in unique mdns default
-  if (strcmp(cmDNS, "x") == 0) sprintf_P(cmDNS, PSTR("wled-%*s"), 6, escapedMac.c_str() + 6);
+  if (strcmp(cmDNS, DEFAULT_MDNS_NAME) == 0) sprintf_P(cmDNS, PSTR("wled-%*s"), 6, escapedMac.c_str() + 6);
 #ifndef WLED_DISABLE_MQTT
   if (mqttDeviceTopic[0] == 0) sprintf_P(mqttDeviceTopic, PSTR("wled/%*s"), 6, escapedMac.c_str() + 6);
   if (mqttClientID[0] == 0)    sprintf_P(mqttClientID, PSTR("WLED-%*s"), 6, escapedMac.c_str() + 6);
@@ -543,16 +543,16 @@ void WLED::beginStrip()
         Segment &seg = strip.getSegment(i);
         if (seg.isActive()) seg.colors[0] = BLACK;
       }
-      col[0] = col[1] = col[2] = col[3] = 0;  // needed for colorUpdated()
+      colPri[0] = colPri[1] = colPri[2] = colPri[3] = 0;  // needed for colorUpdated()
     }
     briLast = briS; bri = 0;
     strip.fill(BLACK);
     strip.show();
   }
+  colorUpdated(CALL_MODE_INIT); // will not send notification but will initiate transition
   if (bootPreset > 0) {
     applyPreset(bootPreset, CALL_MODE_INIT);
   }
-  colorUpdated(CALL_MODE_INIT); // will not send notification
 
   // init relay pin
   if (rlyPin >= 0) {

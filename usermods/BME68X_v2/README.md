@@ -118,23 +118,6 @@ Methods also exist to read the read/calculated values from other WLED modules th
 - getStabStatus();
 - getRunInStatus();
 
-
-## Compiling
-
-To enable, compile with `USERMOD_BME68X` defined (e.g. in `platformio_override.ini`) and add the `BSEC Software Library` to the lib_deps.
-
-```
-[env:esp32-BME680]
-board = 		esp32dev
-platform = 		${esp32.platform}
-platform_packages = 	${esp32.platform_packages}
-lib_deps = 		${esp32.lib_deps}
-           		boschsensortec/BSEC Software Library @ ^1.8.1492      	; USERMOD: BME680                                          
-build_unflags = 	${common.build_unflags}
-build_flags = 		${common.build_flags_esp32} 
-              		-D USERMOD_BME68X                      			; USERMOD: BME680
-```
-
 ## Revision History
 ### Version 1.0.0
 - First version of the BME68X_v user module

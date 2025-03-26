@@ -22,6 +22,10 @@ const char *getPresetsFileName(bool persistent) {
   return persistent ? presets_json : tmp_json;
 }
 
+bool presetNeedsSaving() {
+  return presetToSave;
+}
+
 static void doSaveState() {
   bool persist = (presetToSave < 251);
 
@@ -269,7 +273,7 @@ void savePreset(byte index, const char* pname, JsonObject sObj)
       quickLoad = nullptr;
     } else {
       // store playlist
-      // WARNING: playlist will be loaded in json.cpp after this call and will have repeat counter increased by 1
+      // WARNING: playlist will be loaded in json.cpp after this call and will have repeat counter increased by 1 it will also be randomised if selected
       includeBri   = true; // !sObj["on"].isNull();
       playlistSave = true;
     }

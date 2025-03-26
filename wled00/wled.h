@@ -218,6 +218,10 @@ using PSRAMDynamicJsonDocument = BasicJsonDocument<PSRAM_Allocator>;
   #define WLED_AP_PASS DEFAULT_AP_PASS
 #endif
 
+#ifndef WLED_PIN
+  #define WLED_PIN ""
+#endif
+
 #ifndef SPIFFS_EDITOR_AIRCOOOKIE
   #error You are not using the Aircoookie fork of the ESPAsyncWebserver library.\
   Using upstream puts your WiFi password at risk of being served by the filesystem.\
@@ -278,7 +282,11 @@ WLED_GLOBAL char releaseString[] _INIT(WLED_RELEASE_NAME); // must include the q
 
 // AP and OTA default passwords (for maximum security change them!)
 WLED_GLOBAL char apPass[65]  _INIT(WLED_AP_PASS);
+#ifdef WLED_OTA_PASS
+WLED_GLOBAL char otaPass[33] _INIT(WLED_OTA_PASS);
+#else
 WLED_GLOBAL char otaPass[33] _INIT(DEFAULT_OTA_PASS);
+#endif
 
 // Hardware and pin config
 #ifndef BTNPIN
@@ -412,7 +420,7 @@ WLED_GLOBAL bool gammaCorrectCol    _INIT(true);  // use gamma correction on col
 WLED_GLOBAL bool gammaCorrectBri    _INIT(false); // use gamma correction on brightness
 WLED_GLOBAL float gammaCorrectVal   _INIT(2.8f);  // gamma correction value
 
-WLED_GLOBAL byte col[]    _INIT_N(({ 255, 160, 0, 0 }));  // current RGB(W) primary color. col[] should be updated if you want to change the color.
+WLED_GLOBAL byte colPri[] _INIT_N(({ 255, 160, 0, 0 }));  // current RGB(W) primary color. colPri[] should be updated if you want to change the color.
 WLED_GLOBAL byte colSec[] _INIT_N(({ 0, 0, 0, 0 }));      // current RGB(W) secondary color
 
 WLED_GLOBAL byte nightlightTargetBri _INIT(0);      // brightness after nightlight is over
@@ -571,11 +579,15 @@ WLED_GLOBAL byte macroLongPress[WLED_MAX_BUTTONS]     _INIT({0});
 WLED_GLOBAL byte macroDoublePress[WLED_MAX_BUTTONS]   _INIT({0});
 
 // Security CONFIG
-WLED_GLOBAL bool otaLock     _INIT(false);  // prevents OTA firmware updates without password. ALWAYS enable if system exposed to any public networks
-WLED_GLOBAL bool wifiLock    _INIT(false);  // prevents access to WiFi settings when OTA lock is enabled
-WLED_GLOBAL bool aOtaEnabled _INIT(true);   // ArduinoOTA allows easy updates directly from the IDE. Careful, it does not auto-disable when OTA lock is on
-WLED_GLOBAL char settingsPIN[5] _INIT("");  // PIN for settings pages
-WLED_GLOBAL bool correctPIN     _INIT(true);
+#ifdef WLED_OTA_PASS
+WLED_GLOBAL bool otaLock        _INIT(true);     // prevents OTA firmware updates without password. ALWAYS enable if system exposed to any public networks
+#else
+WLED_GLOBAL bool otaLock        _INIT(false);     // prevents OTA firmware updates without password. ALWAYS enable if system exposed to any public networks
+#endif
+WLED_GLOBAL bool wifiLock       _INIT(false);     // prevents access to WiFi settings when OTA lock is enabled
+WLED_GLOBAL bool aOtaEnabled    _INIT(true);      // ArduinoOTA allows easy updates directly from the IDE. Careful, it does not auto-disable when OTA lock is on
+WLED_GLOBAL char settingsPIN[5] _INIT(WLED_PIN);  // PIN for settings pages
+WLED_GLOBAL bool correctPIN     _INIT(!strlen(settingsPIN));
 WLED_GLOBAL unsigned long lastEditTime _INIT(0);
 
 WLED_GLOBAL uint16_t userVar0 _INIT(0), userVar1 _INIT(0); //available for use in usermod
@@ -896,12 +908,11 @@ WLED_GLOBAL ESPAsyncE131 ddp  _INIT_N(((handleE131Packet)));
 WLED_GLOBAL bool e131NewData _INIT(false);
 
 // led fx library object
-WLED_GLOBAL BusManager busses _INIT(BusManager());
-WLED_GLOBAL WS2812FX strip _INIT(WS2812FX());
-WLED_GLOBAL std::vector<BusConfig> busConfigs; //temporary, to remember values from network callback until after
-WLED_GLOBAL bool doInitBusses _INIT(false);
-WLED_GLOBAL int8_t loadLedmap _INIT(-1);
-WLED_GLOBAL uint8_t currentLedmap _INIT(0);
+WLED_GLOBAL WS2812FX   strip         _INIT(WS2812FX());
+WLED_GLOBAL std::vector<BusConfig> busConfigs;    //temporary, to remember values from network callback until after
+WLED_GLOBAL bool       doInitBusses  _INIT(false);
+WLED_GLOBAL int8_t     loadLedmap    _INIT(-1);
+WLED_GLOBAL uint8_t    currentLedmap _INIT(0);
 #ifndef ESP8266
 WLED_GLOBAL char  *ledmapNames[WLED_MAX_LEDMAPS-1] _INIT_N(({nullptr}));
 #endif

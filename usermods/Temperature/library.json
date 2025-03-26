@@ -1,0 +1,7 @@
+{
+  "name:": "Temperature",
+  "build": { "libArchive": false},
+  "dependencies": {
+    "paulstoffregen/OneWire":"~2.3.8"
+  }
+}
