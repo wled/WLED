@@ -364,7 +364,7 @@ uint16_t mode_scan(void) {
   int size = 1 + ((SEGMENT.intensity * SEGLEN) >> 9);
   int ledIndex = (prog * ((SEGLEN *2) - size *2)) >> 16;
 
-  if (!SEGMENT.check2) SEGMENT.fill(SEGCOLOR(1));
+  SEGMENT.fill(SEGCOLOR(1));
 
   int led_offset = ledIndex - (SEGLEN - size);
   led_offset = abs(led_offset);
@@ -382,7 +382,7 @@ uint16_t mode_scan(void) {
 
   return FRAMETIME;
 }
-static const char _data_FX_MODE_SCAN[] PROGMEM = "Scan@!,Size,,,,,Overlay,Dual;!,!,!;!;1;o1=0";
+static const char _data_FX_MODE_SCAN[] PROGMEM = "Scan@!,Size,,,,,,Dual;!,!,!;!;1;o1=0";
 
 
 /*
@@ -617,7 +617,7 @@ uint16_t mode_sparkle(void) {
   uint32_t cycleTime = 10 + (255 - SEGMENT.speed)*2;
   uint32_t it = strip.now / cycleTime;
   const bool moving = SEGMENT.check1;
-  if (!SEGMENT.check2) for(unsigned i = 0; i < SEGLEN; i++) {
+  for(unsigned i = 0; i < SEGLEN; i++) {
     unsigned palIdx = moving ? (i+it)%SEGLEN : i;
     SEGMENT.setPixelColor(i, SEGMENT.color_from_palette(palIdx, true, moving, 1));
   }
@@ -630,7 +630,7 @@ uint16_t mode_sparkle(void) {
   SEGMENT.setPixelColor(SEGENV.aux0, SEGCOLOR(0));
   return FRAMETIME;
 }
-static const char _data_FX_MODE_SPARKLE[] PROGMEM = "Sparkle@!,,,,,Animate palette,Overlay;!,!;!;;m12=0,01=0";
+static const char _data_FX_MODE_SPARKLE[] PROGMEM = "Sparkle@!,,,,,Animate palette,;!,!;!;;m12=0,01=0";
 
 
 /*
@@ -641,7 +641,7 @@ uint16_t mode_flash_sparkle(void) {
   uint32_t cycleTime = 10 + (255 - SEGMENT.speed)*2;
   uint32_t it = strip.now / cycleTime;
   const bool moving = SEGMENT.check1;
-  if (!SEGMENT.check2) for (unsigned i = 0; i < SEGLEN; i++) {
+  for (unsigned i = 0; i < SEGLEN; i++) {
     unsigned palIdx = moving ? (i+it)%SEGLEN : i;
     SEGMENT.setPixelColor(i, SEGMENT.color_from_palette(palIdx, true, moving, 0));
   }
@@ -655,7 +655,7 @@ uint16_t mode_flash_sparkle(void) {
   }
   return FRAMETIME;
 }
-static const char _data_FX_MODE_FLASH_SPARKLE[] PROGMEM = "Sparkle Dark@!,!,,,,Animate palette,Overlay;Bg,Fx;!;;m12=0";
+static const char _data_FX_MODE_FLASH_SPARKLE[] PROGMEM = "Sparkle Dark@!,!,,,,Animate palette;Bg,Fx;!;;m12=0";
 
 
 /*
@@ -666,7 +666,7 @@ uint16_t mode_hyper_sparkle(void) {
   uint32_t cycleTime = 10 + (255 - SEGMENT.speed)*2;
   uint32_t it = strip.now / cycleTime;
   const bool moving = SEGMENT.check1;
-  if (!SEGMENT.check2) for (unsigned i = 0; i < SEGLEN; i++) {
+  for (unsigned i = 0; i < SEGLEN; i++) {
     unsigned palIdx = moving ? (i+it)%SEGLEN : i;
     SEGMENT.setPixelColor(i, SEGMENT.color_from_palette(palIdx, true, moving, 0));
   }
@@ -683,7 +683,7 @@ uint16_t mode_hyper_sparkle(void) {
   }
   return FRAMETIME;
 }
-static const char _data_FX_MODE_HYPER_SPARKLE[] PROGMEM = "Sparkle+@!,!,,,,Animate palette,Overlay;Bg,Fx;!;;m12=0";
+static const char _data_FX_MODE_HYPER_SPARKLE[] PROGMEM = "Sparkle+@!,!,,,,Animate palette;Bg,Fx;!;;m12=0";
 
 
 /*
@@ -1328,7 +1328,7 @@ uint16_t mode_two_dots() {
   const unsigned offset = it % SEGLEN;
   unsigned width = ((SEGLEN*(SEGMENT.intensity+1))>>9); //max width is half the strip
   if (!width) width = 1;
-  if (!SEGMENT.check2) SEGMENT.fill(SEGCOLOR(2));
+  SEGMENT.fill(SEGCOLOR(2));
   const uint32_t color1 = SEGCOLOR(0);
   const uint32_t color2 = (SEGCOLOR(1) == SEGCOLOR(2)) ? color1 : SEGCOLOR(1);
   for (unsigned i = 0; i < width; i++) {
@@ -1339,7 +1339,7 @@ uint16_t mode_two_dots() {
   }
   return FRAMETIME;
 }
-static const char _data_FX_MODE_TWO_DOTS[] PROGMEM = "Two Dots@!,Dot size,,,,,Overlay;1,2,Bg;!";
+static const char _data_FX_MODE_TWO_DOTS[] PROGMEM = "Two Dots@!,Dot size;1,2,Bg;!";
 
 
 /*
@@ -1511,7 +1511,7 @@ uint16_t mode_icu(void) {
   const unsigned space = max(2U, SEGLEN/(((255-SEGMENT.intensity) >> 3) +2));
   const unsigned cycleTime = 5 + 50*(255-SEGMENT.speed)/SEGLEN; // aka SPEED_FORMULA_L
 
-  if (!SEGMENT.check2) SEGMENT.fill(SEGCOLOR(1));
+  SEGMENT.fill(SEGCOLOR(1));
 
   byte pindex = map(dest, 0, SEGLEN-space, 0, 255);
   uint32_t col = SEGMENT.step < cycleTime + 200/FRAMETIME && SEGMENT.step > cycleTime ? SEGCOLOR(1) : SEGMENT.color_from_palette(pindex, false, PALETTE_FIXED, 0);
@@ -1539,7 +1539,7 @@ uint16_t mode_icu(void) {
 
   return FRAMETIME; // was SPEED_FORMULA_L;
 }
-static const char _data_FX_MODE_ICU[] PROGMEM = "ICU@!,Eye width,,,,,Overlay;!,!;!,1";
+static const char _data_FX_MODE_ICU[] PROGMEM = "ICU@!,Eye width;!,!;!,1";
 
 
 /*
@@ -1779,7 +1779,7 @@ uint16_t mode_lightning(void) {
     SEGENV.aux0 = 200; //200ms delay after leader
   }
 
-  if (!SEGMENT.check2) SEGMENT.fill(SEGCOLOR(1));
+  SEGMENT.fill(SEGCOLOR(1));
 
   if (SEGENV.aux1 > 3 && !(SEGENV.aux1 & 0x01)) { //flash on even number >2
     for (unsigned i = ledstart; i < ledstart + ledlen; i++)
@@ -1804,7 +1804,7 @@ uint16_t mode_lightning(void) {
   }
   return FRAMETIME;
 }
-static const char _data_FX_MODE_LIGHTNING[] PROGMEM = "Lightning@!,!,,,,,Overlay;!,!;!";
+static const char _data_FX_MODE_LIGHTNING[] PROGMEM = "Lightning@!,!;!,!;!";
 
 
 // Pride2015 & Colorwaves
@@ -2433,11 +2433,10 @@ uint16_t mode_ripple(void) {
   } else {
     SEGENV.aux0--;
   }
-  if (!SEGMENT.check2) SEGMENT.fill(SEGMENT.check1 ? color_blend(SEGMENT.color_wheel(SEGENV.aux0),BLACK,uint8_t(240)) : SEGCOLOR(1));
-  else                 SEGMENT.fade_out(250);
+  SEGMENT.fill(SEGMENT.check1 ? color_blend(SEGMENT.color_wheel(SEGENV.aux0),BLACK,uint8_t(240)) : SEGCOLOR(1));
   return ripple_base();
 }
-static const char _data_FX_MODE_RIPPLE[] PROGMEM = "Ripple@!,Waves,,,,Palette BG,Overlay;,!;!;12;o1=0";
+static const char _data_FX_MODE_RIPPLE[] PROGMEM = "Ripple@!,Waves,,,,Palette BG;,!;!;12;o1=0";
 
 
 //uint16_t mode_ripple_rainbow(void) {
@@ -2629,7 +2628,7 @@ uint16_t mode_halloween_eyes()
   if (!SEGENV.allocateData(sizeof(EyeData))) return mode_static(); //allocation failed
   EyeData& data = *reinterpret_cast<EyeData*>(SEGENV.data);
 
-  if (!SEGMENT.check2) SEGMENT.fill(SEGCOLOR(1)); //fill background
+  SEGMENT.fill(SEGCOLOR(1)); //fill background
 
   data.state = static_cast<eyeState>(data.state % eyeState::count);
   unsigned duration = max(uint16_t{1u}, data.duration);
@@ -2751,7 +2750,7 @@ uint16_t mode_halloween_eyes()
 
   return FRAMETIME;
 }
-static const char _data_FX_MODE_HALLOWEEN_EYES[] PROGMEM = "Halloween Eyes@Eye off time,Eye on time,,,,,Overlay;!,!;!;12";
+static const char _data_FX_MODE_HALLOWEEN_EYES[] PROGMEM = "Halloween Eyes@Eye off time,Eye on time;!,!;!;12";
 
 
 //Speed slider sets amount of LEDs lit, intensity sets unlit
@@ -2805,7 +2804,7 @@ static const char _data_FX_MODE_TRI_STATIC_PATTERN[] PROGMEM = "Solid Pattern Tr
 static uint16_t spots_base(uint16_t threshold)
 {
   if (SEGLEN <= 1) return mode_static();
-  if (!SEGMENT.check2) SEGMENT.fill(SEGCOLOR(1));
+  SEGMENT.fill(SEGCOLOR(1));
 
   unsigned maxZones = SEGLEN >> 2;
   unsigned zones = 1 + ((SEGMENT.intensity * maxZones) >> 8);
@@ -2835,7 +2834,7 @@ uint16_t mode_spots()
 {
   return spots_base((255 - SEGMENT.speed) << 8);
 }
-static const char _data_FX_MODE_SPOTS[] PROGMEM = "Spots@Spread,Width,,,,,Overlay;!,!;!";
+static const char _data_FX_MODE_SPOTS[] PROGMEM = "Spots@Spread,Width;!,!;!";
 
 
 //Intensity slider sets number of "lights", LEDs per light fade in and out
@@ -2846,7 +2845,7 @@ uint16_t mode_spots_fade()
   unsigned tr = (t >> 1) + (t >> 2);
   return spots_base(tr);
 }
-static const char _data_FX_MODE_SPOTS_FADE[] PROGMEM = "Spots Fade@Spread,Width,,,,,Overlay;!,!;!";
+static const char _data_FX_MODE_SPOTS_FADE[] PROGMEM = "Spots Fade@Spread,Width;!,!;!";
 
 //each needs 12 bytes
 typedef struct Ball {
@@ -2868,7 +2867,7 @@ uint16_t mode_bouncing_balls(void) {
 
   Ball* balls = reinterpret_cast<Ball*>(SEGENV.data);
 
-  if (!SEGMENT.check2) SEGMENT.fill(SEGCOLOR(2) ? BLACK : SEGCOLOR(1));
+  SEGMENT.fill(SEGCOLOR(2) ? BLACK : SEGCOLOR(1));
 
   // virtualStrip idea by @ewowi (Ewoud Wijma)
   // requires virtual strip # to be embedded into upper 16 bits of index in setPixelColor()
@@ -2929,7 +2928,7 @@ uint16_t mode_bouncing_balls(void) {
 
   return FRAMETIME;
 }
-static const char _data_FX_MODE_BOUNCINGBALLS[] PROGMEM = "Bouncing Balls@Gravity,# of balls,,,,,Overlay;!,!,!;!;1;m12=1"; //bar
+static const char _data_FX_MODE_BOUNCINGBALLS[] PROGMEM = "Bouncing Balls@Gravity,# of balls;!,!,!;!;1;m12=1"; //bar
 
 #ifdef WLED_PS_DONT_REPLACE_FX
 /*
@@ -2945,7 +2944,7 @@ typedef struct RollingBall {
   float height;
 } rball_t;
 
-static uint16_t rolling_balls(void) {
+static uint16_t rolling_balls() {
   //allocate segment data
   const unsigned maxNumBalls = 16; // 255/16 + 1
   unsigned dataSize = sizeof(rball_t) * maxNumBalls;
@@ -2972,9 +2971,7 @@ static uint16_t rolling_balls(void) {
   float cfac = float(scale8(8, 255-SEGMENT.speed) +1)*20000.0f; // this uses the Aircoookie conversion factor for scaling time using speed slider
 
   if (SEGMENT.check3) SEGMENT.fade_out(250); // 2-8 pixel trails (optional)
-  else {
-  	if (!SEGMENT.check2) SEGMENT.fill(hasCol2 ? BLACK : SEGCOLOR(1)); // don't fill with background color if user wants to see trails
-  }
+  else                SEGMENT.fill(hasCol2 ? BLACK : SEGCOLOR(1)); // don't fill with background color if user wants to see trails
 
   for (unsigned i = 0; i < numBalls; i++) {
     float timeSinceLastUpdate = float((strip.now - balls[i].lastBounceUpdate))/cfac;
@@ -3030,7 +3027,7 @@ static uint16_t rolling_balls(void) {
 
   return FRAMETIME;
 }
-static const char _data_FX_MODE_ROLLINGBALLS[] PROGMEM = "Rolling Balls@!,# of balls,,,,Collide,Overlay,Trails;!,!,!;!;1;m12=1"; //bar
+static const char _data_FX_MODE_ROLLINGBALLS[] PROGMEM = "Rolling Balls@!,# of balls,,,,Collide,,Trails;!,!,!;!;1;m12=1"; //bar
 #endif // WLED_PS_DONT_REPLACE_FX
 
 /*
@@ -3091,22 +3088,21 @@ static const char _data_FX_MODE_SINELON[] PROGMEM = "Sinelon@!,Trail,,,,Rainbow,
 //Glitter with palette background, inspired by https://gist.github.com/kriegsman/062e10f7f07ba8518af6
 uint16_t mode_glitter()
 {
-  if (!SEGMENT.check2) { // use "* Color 1" palette for solid background (replacing "Solid glitter")
-    unsigned counter = 0;
-    if (SEGMENT.speed != 0) {
-      // animate palette
-      counter = (strip.now * ((SEGMENT.speed >> 3) +1)) & 0xFFFF;
-      counter = counter >> 8;
-    }
-    for (unsigned i = 0; i < SEGLEN; i++) {
-      unsigned colorIndex = (i * 255 / SEGLEN) - counter;
-      SEGMENT.setPixelColor(i, SEGMENT.color_from_palette(colorIndex, false, PALETTE_MOVING, 255));
-    }
+  // use "* Color 1" palette for solid background (replacing "Solid glitter")
+  unsigned counter = 0;
+  if (SEGMENT.speed != 0) {
+    // animate palette
+    counter = (strip.now * ((SEGMENT.speed >> 3) +1)) & 0xFFFF;
+    counter = counter >> 8;
+  }
+  for (unsigned i = 0; i < SEGLEN; i++) {
+    unsigned colorIndex = (i * 255 / SEGLEN) - counter;
+    SEGMENT.setPixelColor(i, SEGMENT.color_from_palette(colorIndex, false, PALETTE_MOVING, 255));
   }
   if (SEGMENT.intensity > hw_random8()) SEGMENT.setPixelColor(hw_random16(SEGLEN), SEGCOLOR(2) ? SEGCOLOR(2) : ULTRAWHITE);
   return FRAMETIME;
 }
-static const char _data_FX_MODE_GLITTER[] PROGMEM = "Glitter@!,!,,,,,Overlay;,,Glitter color;!;;pal=11,m12=0"; //pixels
+static const char _data_FX_MODE_GLITTER[] PROGMEM = "Glitter@!,!;,,Glitter color;!;;pal=11,m12=0"; //pixels
 
 
 //Solid colour background with glitter (can be replaced by Glitter)
@@ -3144,7 +3140,7 @@ uint16_t mode_popcorn(void) {
   Spark* popcorn = reinterpret_cast<Spark*>(SEGENV.data);
 
   bool hasCol2 = SEGCOLOR(2);
-  if (!SEGMENT.check2) SEGMENT.fill(hasCol2 ? BLACK : SEGCOLOR(1));
+  SEGMENT.fill(hasCol2 ? BLACK : SEGCOLOR(1));
 
   struct virtualStrip {
     static void runStrip(uint16_t stripNr, Spark* popcorn, unsigned usablePopcorns) {
@@ -3191,7 +3187,7 @@ uint16_t mode_popcorn(void) {
 
   return FRAMETIME;
 }
-static const char _data_FX_MODE_POPCORN[] PROGMEM = "Popcorn@!,!,,,,,Overlay;!,!,!;!;;m12=1"; //bar
+static const char _data_FX_MODE_POPCORN[] PROGMEM = "Popcorn@!,!;!,!,!;!;;m12=1"; //bar
 
 //values close to 100 produce 5Hz flicker, which looks very candle-y
 //Inspired by https://github.com/avanhanegem/ArduinoCandleEffectNeoPixel
@@ -3335,7 +3331,7 @@ uint16_t mode_starburst(void) {
     }
   }
 
-  if (!SEGMENT.check2) SEGMENT.fill(SEGCOLOR(1));
+  SEGMENT.fill(SEGCOLOR(1));
 
   for (unsigned j=0; j<numStars; j++)
   {
@@ -3399,7 +3395,7 @@ uint16_t mode_starburst(void) {
   return FRAMETIME;
 }
 #undef STARBURST_MAX_FRAG
-static const char _data_FX_MODE_STARBURST[] PROGMEM = "Fireworks Starburst@Chance,Fragments,,,,,Overlay;,!;!;;pal=11,m12=0";
+static const char _data_FX_MODE_STARBURST[] PROGMEM = "Fireworks Starburst@Chance,Fragments;,!;!;;pal=11,m12=0";
 #endif // WLED_PS_DONT_REPLACE_FX
 
 #ifdef WLED_PS_DONT_REPLACE_FX
@@ -3559,7 +3555,7 @@ uint16_t mode_drip(void)
   if (!SEGENV.allocateData(dataSize * strips)) return mode_static(); //allocation failed
   Spark* drops = reinterpret_cast<Spark*>(SEGENV.data);
 
-  if (!SEGMENT.check2) SEGMENT.fill(SEGCOLOR(1));
+  SEGMENT.fill(SEGCOLOR(1));
 
   struct virtualStrip {
     static void runStrip(uint16_t stripNr, Spark* drops) {
@@ -3629,7 +3625,7 @@ uint16_t mode_drip(void)
 
   return FRAMETIME;
 }
-static const char _data_FX_MODE_DRIP[] PROGMEM = "Drip@Gravity,# of drips,,,,,Overlay;!,!;;;m12=1"; //bar
+static const char _data_FX_MODE_DRIP[] PROGMEM = "Drip@Gravity,# of drips;!,!;;;m12=1"; //bar
 
 /*
  * Tetris or Stacking (falling bricks) Effect
@@ -4137,7 +4133,7 @@ uint16_t mode_flow(void)
   unsigned zoneLen = SEGLEN / zones;
   unsigned offset = (SEGLEN - zones * zoneLen) >> 1;
 
-  SEGMENT.fill(SEGMENT.color_from_palette(-counter, false, PALETTE_MOVING, 255));
+  SEGMENT.fill(SEGMENT.color_from_palette(counter, false, PALETTE_MOVING, 255));
 
   for (unsigned z = 0; z < zones; z++)
   {
@@ -5997,7 +5993,8 @@ uint16_t mode_2Dscrollingtext(void) {
     case 5: letterWidth = 5; letterHeight = 12; break;
   }
   // letters are rotated
-  if (((SEGMENT.custom3+1)>>3) % 2) {
+  const int8_t rotate = map(SEGMENT.custom3, 0, 31, -2, 2);
+  if (rotate == 1 || rotate == -1) {
     rotLH = letterWidth;
     rotLW = letterHeight;
   } else {
@@ -6069,23 +6066,28 @@ uint16_t mode_2Dscrollingtext(void) {
     SEGENV.step = strip.now + map(SEGMENT.speed, 0, 255, 250, 50); // shift letters every ~250ms to ~50ms
   }
 
-  if (!SEGMENT.check2) SEGMENT.fade_out(255 - (SEGMENT.custom1>>4));  // trail
+  SEGMENT.fade_out(255 - (SEGMENT.custom1>>4));  // trail
+  uint32_t col1 = SEGMENT.color_from_palette(SEGENV.aux1, false, PALETTE_FIXED, 0);
+  uint32_t col2 = BLACK;
+  // if gradient is selected and palette is default (0) drawCharacter() uses gradient from SEGCOLOR(0) to SEGCOLOR(2)
+  // otherwise col2 == BLACK means use currently selected palette for gradient
+  // if gradient is not selected set both colors the same
+  if (SEGMENT.check1) { // use gradient
+    if (SEGMENT.palette == 0) { // use colors for gradient
+      col1 = SEGCOLOR(0);
+      col2 = SEGCOLOR(2);
+    }
+  } else col2 = col1; // force characters to use single color (from palette)
 
   for (int i = 0; i < numberOfLetters; i++) {
     int xoffset = int(cols) - int(SEGENV.aux0) + rotLW*i;
     if (xoffset + rotLW < 0) continue; // don't draw characters off-screen
-    uint32_t col1 = SEGMENT.color_from_palette(SEGENV.aux1, false, PALETTE_FIXED, 0);
-    uint32_t col2 = BLACK;
-    if (SEGMENT.check1 && SEGMENT.palette == 0) {
-      col1 = SEGCOLOR(0);
-      col2 = SEGCOLOR(2);
-    }
-    SEGMENT.drawCharacter(text[i], xoffset, yoffset, letterWidth, letterHeight, col1, col2, map(SEGMENT.custom3, 0, 31, -2, 2));
+    SEGMENT.drawCharacter(text[i], xoffset, yoffset, letterWidth, letterHeight, col1, col2, rotate);
   }
 
   return FRAMETIME;
 }
-static const char _data_FX_MODE_2DSCROLLTEXT[] PROGMEM = "Scrolling Text@!,Y Offset,Trail,Font size,Rotate,Gradient,Overlay,Reverse;!,!,Gradient;!;2;ix=128,c1=0,rev=0,mi=0,rY=0,mY=0";
+static const char _data_FX_MODE_2DSCROLLTEXT[] PROGMEM = "Scrolling Text@!,Y Offset,Trail,Font size,Rotate,Gradient,,Reverse;!,!,Gradient;!;2;ix=128,c1=0,rev=0,mi=0,rY=0,mY=0";
 
 
 ////////////////////////////

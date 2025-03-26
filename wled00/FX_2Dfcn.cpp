@@ -149,7 +149,7 @@ void WS2812FX::setUpMatrix() {
 // pixel is clipped if it falls outside clipping range (Segment::isPreviousMode()) or is inside clipping range (!Segment::isPreviousMode())
 // if clipping start > stop the clipping range is inverted
 bool IRAM_ATTR Segment::isPixelXYClipped(int x, int y) const {
-  if (_clipStart != _clipStop && blendingStyle != BLEND_STYLE_FADE) {
+  if (isInTransition() && _clipStart != _clipStop && blendingStyle != BLEND_STYLE_FADE) {
     const bool invertX = _clipStart > _clipStop;
     const bool invertY = _clipStartY > _clipStopY;
     const int startX   = invertX ? _clipStop : _clipStart;
@@ -162,7 +162,7 @@ bool IRAM_ATTR Segment::isPixelXYClipped(int x, int y) const {
       if (len < 2) return false;
       const unsigned shuffled = hashInt(x + y * width) % len;
       const unsigned pos = (shuffled * 0xFFFFU) / len;
-      return progress() > pos;
+      return progress() <= pos;
     }
     if (blendingStyle == BLEND_STYLE_CIRCULAR_IN || blendingStyle == BLEND_STYLE_CIRCULAR_OUT) {
       const int cx   = (stopX-startX+1) / 2;
@@ -179,7 +179,7 @@ bool IRAM_ATTR Segment::isPixelXYClipped(int x, int y) const {
     }
     bool xInside = (x >= startX && x < stopX); if (invertX) xInside = !xInside;
     bool yInside = (y >= startY && y < stopY); if (invertY) yInside = !yInside;
-    const bool clip = (invertX && invertY) ? !Segment::isPreviousMode() : Segment::isPreviousMode();
+    const bool clip = (invertX && invertY); // ? !Segment::isPreviousMode() : Segment::isPreviousMode();
     if (xInside && yInside) return clip; // covers window & corners (inverted)
     return !clip;
   }
@@ -192,11 +192,11 @@ void IRAM_ATTR Segment::setPixelColorXY(int x, int y, uint32_t col) const
 
   const int vW = vWidth();   // segment width in logical pixels (can be 0 if segment is inactive)
   const int vH = vHeight();  // segment height in logical pixels (is always >= 1)
-  const auto XY = [&](int x, int y){ return x + y*vW; };
+  const auto XY = [&](unsigned x, unsigned y){ return x + y*vW; };
 
   if (x >= vW || y >= vH || x < 0 || y < 0) return;  // if pixel would fall out of virtual segment just exit
 
-  pixels[XY(x,y)] = col;
+  setPixelColorRaw(XY(x,y), col);
 }
 
 #ifdef WLED_USE_AA_PIXELS
@@ -252,7 +252,7 @@ uint32_t IRAM_ATTR Segment::getPixelColorXY(int x, int y) const {
 
   if (x >= vW || y >= vH || x<0 || y<0) return 0;  // if pixel would fall out of virtual segment just exit
 
-  return pixels[XY(x,y)];
+  return getPixelColorRaw(XY(x,y));
 }
 
 // 2D blurring, can be asymmetrical
@@ -260,6 +260,7 @@ void Segment::blur2D(uint8_t blur_x, uint8_t blur_y, bool smear) const {
   if (!isActive()) return; // not active
   const unsigned cols = vWidth();
   const unsigned rows = vHeight();
+  const auto XY = [&](unsigned x, unsigned y){ return x + y*cols; };
   uint32_t lastnew;
   uint32_t last;
   if (blur_x) {
@@ -269,20 +270,20 @@ void Segment::blur2D(uint8_t blur_x, uint8_t blur_y, bool smear) const {
       uint32_t carryover = BLACK;
       uint32_t curnew = BLACK;
       for (unsigned x = 0; x < cols; x++) {
-        uint32_t cur = getPixelColorXY(x, row);
+        uint32_t cur = getPixelColorRaw(XY(x, row));
         uint32_t part = color_fade(cur, seepx);
         curnew = color_fade(cur, keepx);
         if (x > 0) {
           if (carryover) curnew = color_add(curnew, carryover);
           uint32_t prev = color_add(lastnew, part);
           // optimization: only set pixel if color has changed
-          if (last != prev) setPixelColorXY(x - 1, row, prev);
-        } else setPixelColorXY(x, row, curnew); // first pixel
+          if (last != prev) setPixelColorRaw(XY(x - 1, row), prev);
+        } else setPixelColorRaw(XY(x, row), curnew); // first pixel
         lastnew = curnew;
         last = cur; // save original value for comparison on next iteration
         carryover = part;
       }
-      setPixelColorXY(cols-1, row, curnew); // set last pixel
+      setPixelColorRaw(XY(cols-1, row), curnew); // set last pixel
     }
   }
   if (blur_y) {
@@ -292,20 +293,20 @@ void Segment::blur2D(uint8_t blur_x, uint8_t blur_y, bool smear) const {
       uint32_t carryover = BLACK;
       uint32_t curnew = BLACK;
       for (unsigned y = 0; y < rows; y++) {
-        uint32_t cur = getPixelColorXY(col, y);
+        uint32_t cur = getPixelColorRaw(XY(col, y));
         uint32_t part = color_fade(cur, seepy);
         curnew = color_fade(cur, keepy);
         if (y > 0) {
           if (carryover) curnew = color_add(curnew, carryover);
           uint32_t prev = color_add(lastnew, part);
           // optimization: only set pixel if color has changed
-          if (last != prev) setPixelColorXY(col, y - 1, prev);
-        } else setPixelColorXY(col, y, curnew); // first pixel
+          if (last != prev) setPixelColorRaw(XY(col, y - 1), prev);
+        } else setPixelColorRaw(XY(col, y), curnew); // first pixel
         lastnew = curnew;
         last = cur; //save original value for comparison on next iteration
         carryover = part;
       }
-      setPixelColorXY(col, rows - 1, curnew);
+      setPixelColorRaw(XY(col, rows - 1), curnew);
     }
   }
 }
@@ -388,6 +389,7 @@ void Segment::moveX(int delta, bool wrap) const {
   if (!isActive() || !delta) return; // not active
   const int vW = vWidth();   // segment width in logical pixels (can be 0 if segment is inactive)
   const int vH = vHeight();  // segment height in logical pixels (is always >= 1)
+  const auto XY = [&](unsigned x, unsigned y){ return x + y*vW; };
   int absDelta = abs(delta);
   if (absDelta >= vW) return;
   uint32_t newPxCol[vW];
@@ -404,9 +406,9 @@ void Segment::moveX(int delta, bool wrap) const {
     for (int x = 0; x < stop; x++) {
       int srcX = x + newDelta;
       if (wrap) srcX %= vW; // Wrap using modulo when `wrap` is true
-      newPxCol[x] = getPixelColorXY(srcX, y);
+      newPxCol[x] = getPixelColorRaw(XY(srcX, y));
     }
-    for (int x = 0; x < stop; x++) setPixelColorXY(x + start, y, newPxCol[x]);
+    for (int x = 0; x < stop; x++) setPixelColorRaw(XY(x + start, y), newPxCol[x]);
   }
 }
 
@@ -414,6 +416,7 @@ void Segment::moveY(int delta, bool wrap) const {
   if (!isActive() || !delta) return; // not active
   const int vW = vWidth();   // segment width in logical pixels (can be 0 if segment is inactive)
   const int vH = vHeight();  // segment height in logical pixels (is always >= 1)
+  const auto XY = [&](unsigned x, unsigned y){ return x + y*vW; };
   int absDelta = abs(delta);
   if (absDelta >= vH) return;
   uint32_t newPxCol[vH];
@@ -430,9 +433,9 @@ void Segment::moveY(int delta, bool wrap) const {
     for (int y = 0; y < stop; y++) {
       int srcY = y + newDelta;
       if (wrap) srcY %= vH; // Wrap using modulo when `wrap` is true
-      newPxCol[y] = getPixelColorXY(x, srcY);
+      newPxCol[y] = getPixelColorRaw(XY(x, srcY));
     }
-    for (int y = 0; y < stop; y++) setPixelColorXY(x, y + start, newPxCol[y]);
+    for (int y = 0; y < stop; y++) setPixelColorRaw(XY(x, y + start), newPxCol[y]);
   }
 }
 
@@ -595,22 +598,21 @@ void Segment::drawCharacter(unsigned char chr, int16_t x, int16_t y, uint8_t w, 
   if (chr < 32 || chr > 126) return; // only ASCII 32-126 supported
   chr -= 32; // align with font table entries
   const int font = w*h;
+  const auto XY = [](unsigned x, unsigned y){ return x + y*vWidth(); };
 
-  CRGB col = CRGB(color);
-  CRGBPalette16 grad = CRGBPalette16(col, col2 ? CRGB(col2) : col);
+  CRGBPalette16 grad = col2 ? CRGBPalette16(CRGB(color), CRGB(col2)) : SEGPALETTE; // selected palette as gradient
 
-  //if (w<5 || w>6 || h!=8) return;
   for (int i = 0; i<h; i++) { // character height
     uint8_t bits = 0;
     switch (font) {
-      case 24: bits = pgm_read_byte_near(&console_font_4x6[(chr * h) + i]); break;  // 5x8 font
+      case 24: bits = pgm_read_byte_near(&console_font_4x6[(chr * h) + i]); break;  // 4x6 font
       case 40: bits = pgm_read_byte_near(&console_font_5x8[(chr * h) + i]); break;  // 5x8 font
       case 48: bits = pgm_read_byte_near(&console_font_6x8[(chr * h) + i]); break;  // 6x8 font
       case 63: bits = pgm_read_byte_near(&console_font_7x9[(chr * h) + i]); break;  // 7x9 font
       case 60: bits = pgm_read_byte_near(&console_font_5x12[(chr * h) + i]); break; // 5x12 font
       default: return;
     }
-    uint32_t c = ColorFromPalette(grad, (i+1)*255/h, 255, LINEARBLEND_NOWRAP);
+    CRGBW c = ColorFromPalette(grad, (i+1)*255/h, 255, LINEARBLEND_NOWRAP); // NOBLEND is faster
     for (int j = 0; j<w; j++) { // character width
       int x0, y0;
       switch (rotate) {
@@ -622,7 +624,7 @@ void Segment::drawCharacter(unsigned char chr, int16_t x, int16_t y, uint8_t w, 
       }
       if (x0 < 0 || x0 >= (int)vWidth() || y0 < 0 || y0 >= (int)vHeight()) continue; // drawing off-screen
       if (((bits>>(j+(8-w))) & 0x01)) { // bit set
-        setPixelColorXY(x0, y0, c);
+        setPixelColorRaw(XY(x0, y0), c.color32);
       }
     }
   }

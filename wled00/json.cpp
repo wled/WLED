@@ -89,6 +89,12 @@ static bool deserializeSegment(JsonObject elem, byte it, byte presetId)
   bool     transpose = getBoolVal(elem[F("tp")], seg.transpose);
   #endif
 
+  // if segment's virtual dimensions change we need to restart effect (segment blending and PS rely on dimensions)
+  if (seg.mirror != mirror) seg.markForReset();
+  #ifndef WLED_DISABLE_2D
+  if (seg.mirror_y != mirror_y || seg.transpose != transpose) seg.markForReset();
+  #endif
+
   int len = (stop > start) ? stop - start : 1;
   int offset = elem[F("of")] | INT32_MAX;
   if (offset != INT32_MAX) {
@@ -111,7 +117,7 @@ static bool deserializeSegment(JsonObject elem, byte it, byte presetId)
 
   byte segbri = seg.opacity;
   if (getVal(elem["bri"], segbri)) {
-    if (segbri > 0) seg.setOpacity(segbri);
+    if (segbri > 0) seg.setOpacity(segbri); // use transition
     seg.setOption(SEG_OPTION_ON, segbri); // use transition
   }
 
@@ -167,13 +173,13 @@ static bool deserializeSegment(JsonObject elem, byte it, byte presetId)
 
         if (!colValid) continue;
 
-        seg.setColor(i, RGBW32(rgbw[0],rgbw[1],rgbw[2],rgbw[3]));
+        seg.setColor(i, RGBW32(rgbw[0],rgbw[1],rgbw[2],rgbw[3])); // use transition
         if (seg.mode == FX_MODE_STATIC) strip.trigger(); //instant refresh
       }
     } else {
       // non RGB & non White segment (usually On/Off bus)
-      seg.setColor(0, ULTRAWHITE);
-      seg.setColor(1, BLACK);
+      seg.setColor(0, ULTRAWHITE); // use transition
+      seg.setColor(1, BLACK); // use transition
     }
   }
 
@@ -189,7 +195,6 @@ static bool deserializeSegment(JsonObject elem, byte it, byte presetId)
   }
   #endif
 
-  //seg.map1D2D   = constrain(map1D2D, 0, 7); // done in setGeometry()
   seg.set       = constrain(set, 0, 3);
   seg.soundSim  = constrain(soundSim, 0, 3);
   seg.selected  = selected;
@@ -204,7 +209,7 @@ static bool deserializeSegment(JsonObject elem, byte it, byte presetId)
   byte fx = seg.mode;
   if (getVal(elem["fx"], fx, 0, strip.getModeCount())) {
     if (!presetId && currentPlaylist>=0) unloadPlaylist();
-    if (fx != seg.mode) seg.setMode(fx, elem[F("fxdef")]);
+    if (fx != seg.mode) seg.setMode(fx, elem[F("fxdef")]); // use transition (WARNING: may change map1D2D causing geometry change)
   }
 
   getVal(elem["sx"], seg.speed);
@@ -236,7 +241,7 @@ static bool deserializeSegment(JsonObject elem, byte it, byte presetId)
 
     // set brightness immediately and disable transition
     jsonTransitionOnce = true;
-    seg.stopTransition();
+    if (seg.isInTransition()) seg.stopTransition();
     strip.setTransition(0);
     strip.setBrightness(scaledBri(bri), true);
 
@@ -246,11 +251,12 @@ static bool deserializeSegment(JsonObject elem, byte it, byte presetId)
       seg.fill(BLACK);
     }
 
-    start = 0, stop = 0;
-    set = 0; //0 nothing set, 1 start set, 2 range set
+    // shadow function variables
+    unsigned start = 0, stop = 0;
+    unsigned set = 0; //0 nothing set, 1 start set, 2 range set
 
     for (size_t i = 0; i < iarr.size(); i++) {
-      if(iarr[i].is<JsonInteger>()) {
+      if (iarr[i].is<JsonInteger>()) {
         if (!set) {
           start = abs(iarr[i].as<int>());
           set++;
@@ -299,6 +305,7 @@ bool deserializeState(JsonObject root, byte callMode, byte presetId)
 
   bool onBefore = bri;
   getVal(root["bri"], bri);
+  if (bri != briOld) stateChanged = true;
 
   bool on = root["on"] | (bri > 0);
   if (!on != !bri) toggleOnOff();
@@ -339,6 +346,7 @@ bool deserializeState(JsonObject root, byte callMode, byte presetId)
   if (tr >= 0) strip.timebase = (unsigned long)tr - millis();
 
   JsonObject nl       = root["nl"];
+  if (!nl.isNull()) stateChanged = true;
   nightlightActive    = getBoolVal(nl["on"], nightlightActive);
   nightlightDelayMins = nl["dur"]     | nightlightDelayMins;
   nightlightMode      = nl["mode"]    | nightlightMode;
@@ -476,7 +484,7 @@ bool deserializeState(JsonObject root, byte callMode, byte presetId)
     //if (restart) forceReconnect = true;
   }
 
-  stateUpdated(callMode);
+  if (stateChanged) stateUpdated(callMode);
   if (presetToRestore) currentPreset = presetToRestore;
 
   return stateResponse;

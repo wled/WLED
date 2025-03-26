@@ -10,13 +10,13 @@
  */
 uint32_t color_blend(uint32_t color1, uint32_t color2, uint8_t blend) {
   // min / max blend checking is omitted: calls with 0 or 255 are rare, checking lowers overall performance
-  const uint32_t mask = 0x00FF00FF;
-  uint32_t rb1 = color1 & mask;
-  uint32_t wg1 = (color1 >> 8) & mask;
-  uint32_t rb2 = color2 & mask;
-  uint32_t wg2 = (color2 >> 8) & mask;
-  uint32_t rb3 = ((((rb1 << 8) | rb2) + (rb2 * blend) - (rb1 * blend)) >> 8) & mask;
-  uint32_t wg3 = ((((wg1 << 8) | wg2) + (wg2 * blend) - (wg1 * blend))) & ~mask;
+  const uint32_t TWO_CHANNEL_MASK = 0x00FF00FF;     // mask for R and B channels or W and G if negated (poorman's SIMD; https://github.com/wled/WLED/pull/4568#discussion_r1986587221)
+  uint32_t rb1 =  color1       & TWO_CHANNEL_MASK;  // extract R & B channels from color1
+  uint32_t wg1 = (color1 >> 8) & TWO_CHANNEL_MASK;  // extract W & G channels from color1 (shifted for multiplication later)
+  uint32_t rb2 =  color2       & TWO_CHANNEL_MASK;  // extract R & B channels from color2
+  uint32_t wg2 = (color2 >> 8) & TWO_CHANNEL_MASK;  // extract W & G channels from color2 (shifted for multiplication later)
+  uint32_t rb3 = ((((rb1 << 8) | rb2) + (rb2 * blend) - (rb1 * blend)) >> 8) &  TWO_CHANNEL_MASK; // blend red and blue
+  uint32_t wg3 = ((((wg1 << 8) | wg2) + (wg2 * blend) - (wg1 * blend)))      & ~TWO_CHANNEL_MASK; // negated mask for white and green
   return rb3 | wg3;
 }
 
@@ -29,9 +29,9 @@ uint32_t color_add(uint32_t c1, uint32_t c2, bool preserveCR)
 {
   if (c1 == BLACK) return c2;
   if (c2 == BLACK) return c1;
-  const uint32_t mask = 0x00FF00FF;
-  uint32_t rb = (c1 & mask) + (c2 & mask); // mask and add two colors at once
-  uint32_t wg = ((c1>>8) & mask) + ((c2>>8) & mask);
+  const uint32_t TWO_CHANNEL_MASK = 0x00FF00FF; // mask for R and B channels or W and G if negated
+  uint32_t rb = ( c1     & TWO_CHANNEL_MASK) + ( c2     & TWO_CHANNEL_MASK); // mask and add two colors at once
+  uint32_t wg = ((c1>>8) & TWO_CHANNEL_MASK) + ((c2>>8) & TWO_CHANNEL_MASK);
   uint32_t r = rb >> 16; // extract single color values
   uint32_t b = rb & 0xFFFF;
   uint32_t w = wg >> 16;
@@ -47,9 +47,9 @@ uint32_t color_add(uint32_t c1, uint32_t c2, bool preserveCR)
     //max = w > max ? w : max;
     if (max > 255) {
       const uint32_t scale = (uint32_t(255)<<8) / max; // division of two 8bit (shifted) values does not work -> use bit shifts and multiplaction instead
-      rb = ((rb * scale) >> 8) & mask; //
-      wg = (wg * scale) & ~mask;
-    } else wg = wg << 8; //shift white and green back to correct position
+      rb = ((rb * scale) >> 8) &  TWO_CHANNEL_MASK;
+      wg =  (wg * scale)       & ~TWO_CHANNEL_MASK;
+    } else wg <<= 8; //shift white and green back to correct position
     return rb | wg;
   } else {
     r = r > 255 ? 255 : r;
@@ -79,9 +79,9 @@ uint32_t color_fade(uint32_t c1, uint8_t amount, bool video)
     addRemains |= B(c1) ? 0x00000001 : 0;
     addRemains |= W(c1) ? 0x01000000 : 0;
   }
-  const uint32_t mask = 0x00FF00FF;
-  uint32_t rb = (((c1 &  mask) * scale) >> 8) &  mask;  // scale red and blue
-  uint32_t wg = (((c1 & ~mask) >> 8) * scale) & ~mask;  // scale white and green
+  const uint32_t TWO_CHANNEL_MASK = 0x00FF00FF;
+  uint32_t rb = (((c1 &  TWO_CHANNEL_MASK) * scale) >> 8) &  TWO_CHANNEL_MASK; // scale red and blue
+  uint32_t wg = (((c1 & ~TWO_CHANNEL_MASK) >> 8) * scale) & ~TWO_CHANNEL_MASK; // scale white and green
   scaledcolor = (rb | wg) + addRemains;
   return scaledcolor;
 }

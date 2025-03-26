@@ -90,15 +90,23 @@ uint8_t  Segment::_clipStopY = 1;
 Segment::Segment(const Segment &orig) {
   //DEBUGFX_PRINTF_P(PSTR("-- Copy segment constructor: %p -> %p\n"), &orig, this);
   memcpy((void*)this, (void*)&orig, sizeof(Segment));
-  _t = nullptr; // copied segment cannot be in transition
+  _t   = nullptr; // copied segment cannot be in transition
   name = nullptr;
   data = nullptr;
   _dataLen = 0;
   pixels = nullptr;
-  if (!isActive()) return;
+  if (!stop) return;  // nothing to do if segment is inactive/invalid
   if (orig.name) { name = static_cast<char*>(d_malloc(strlen(orig.name)+1)); if (name) strcpy(name, orig.name); }
   if (orig.data) { if (allocateData(orig._dataLen)) memcpy(data, orig.data, orig._dataLen); }
-  if (orig.pixels) { pixels = static_cast<uint32_t*>(d_malloc(sizeof(uint32_t) * virtualLength())); if (pixels) memcpy(pixels, orig.pixels, sizeof(uint32_t) * virtualLength()); }
+  if (orig.pixels) {
+    pixels = static_cast<uint32_t*>(d_malloc(sizeof(uint32_t) * orig.length()));
+    if (pixels) memcpy(pixels, orig.pixels, sizeof(uint32_t) * orig.length());
+    else {
+      DEBUGFX_PRINTLN(F("!!! Not enough RAM for pixel buffer !!!"));
+      errorFlag = ERR_NORAM_PX;
+      stop = 0; // mark segment as inactive/invalid
+    }
+  } else stop = 0; // mark segment as inactive/invalid
 }
 
 // move constructor
@@ -118,19 +126,28 @@ Segment& Segment::operator= (const Segment &orig) {
   if (this != &orig) {
     // clean destination
     if (name) { d_free(name); name = nullptr; }
-    stopTransition();
+    if (_t) stopTransition(); // also erases _t
     deallocateData();
+    d_free(pixels);
     // copy source
     memcpy((void*)this, (void*)&orig, sizeof(Segment));
     // erase pointers to allocated data
     data = nullptr;
     _dataLen = 0;
     pixels = nullptr;
-    if (!isActive()) return *this;
+    if (!stop) return *this;  // nothing to do if segment is inactive/invalid
     // copy source data
     if (orig.name) { name = static_cast<char*>(d_malloc(strlen(orig.name)+1)); if (name) strcpy(name, orig.name); }
     if (orig.data) { if (allocateData(orig._dataLen)) memcpy(data, orig.data, orig._dataLen); }
-    if (orig.pixels) { pixels = static_cast<uint32_t*>(d_malloc(sizeof(uint32_t) * virtualLength())); if (pixels) memcpy(pixels, orig.pixels, sizeof(uint32_t) * virtualLength()); }
+    if (orig.pixels) {
+      pixels = static_cast<uint32_t*>(d_malloc(sizeof(uint32_t) * orig.length()));
+      if (pixels) memcpy(pixels, orig.pixels, sizeof(uint32_t) * orig.length());
+      else {
+        DEBUGFX_PRINTLN(F("!!! Not enough RAM for pixel buffer !!!"));
+        errorFlag = ERR_NORAM_PX;
+        stop = 0; // mark segment as inactive/invalid
+      }
+    } else stop = 0; // mark segment as inactive/invalid
   }
   return *this;
 }
@@ -140,14 +157,16 @@ Segment& Segment::operator= (Segment &&orig) noexcept {
   //DEBUGFX_PRINTF_P(PSTR("-- Moving segment: %p -> %p\n"), &orig, this);
   if (this != &orig) {
     if (name) { d_free(name); name = nullptr; } // free old name
-    stopTransition();
+    if (_t) stopTransition(); // also erases _t
     deallocateData(); // free old runtime data
+    d_free(pixels);   // free old pixel buffer
+    // move source data
     memcpy((void*)this, (void*)&orig, sizeof(Segment));
     orig.name = nullptr;
     orig.data = nullptr;
     orig._dataLen = 0;
     orig.pixels = nullptr;
-    orig._t   = nullptr; // old segment cannot be in transition
+    orig._t = nullptr; // old segment cannot be in transition
   }
   return *this;
 }
@@ -210,7 +229,7 @@ void Segment::resetIfRequired() {
   if (!reset || !isActive()) return;
   //DEBUGFX_PRINTF_P(PSTR("-- Segment reset: %p\n"), this);
   if (data && _dataLen > 0) memset(data, 0, _dataLen);  // prevent heap fragmentation (just erase buffer instead of deallocateData())
-  if (pixels) for (size_t i = 0; i < virtualLength(); i++) pixels[i] = BLACK; // clear pixel buffer
+  if (pixels) for (size_t i = 0; i < length(); i++) pixels[i] = BLACK; // clear pixel buffer
   next_time = 0; step = 0; call = 0; aux0 = 0; aux1 = 0;
   reset = false;
 }
@@ -264,81 +283,88 @@ CRGBPalette16 &Segment::loadPalette(CRGBPalette16 &targetPalette, uint8_t pal) {
 }
 
 // starting a transition has to occur before change so we get current values 1st
-void Segment::startTransition(uint16_t dur) {
-  if (dur == 0) {
-    if (isInTransition()) _t->_dur = dur; // this will stop transition in next handleTransition()
+void Segment::startTransition(uint16_t dur, bool segmentCopy) {
+  if (dur == 0 || !isActive()) {
+    if (isInTransition()) _t->_dur = 0;
     return;
   }
-  if (isInTransition() || !isActive()) return; // already in transition or inactive no need to store anything
+  if (isInTransition()) {
+    if (segmentCopy && !_t->_oldSegment) {
+      // already in transition but segment copy requested and not yet created
+      _t->_oldSegment = new(std::nothrow) Segment(*this); // store/copy current segment settings
+      _t->_start = millis();                              // restart countdown
+      _t->_dur   = dur;
+      DEBUGFX_PRINTF_P(PSTR("-- Updated transition with segment copy: S=%p T(%p) O[%p] OP[%p]\n"), this, _t, _t->_oldSegment, _t->_oldSegment->pixels);
+    }
+    return;
+  }
 
   // no previous transition running, start by allocating memory for segment copy
-  Segment *tmpData = static_cast<Segment*>(d_malloc(sizeof(Segment)));
-  if (!tmpData) return; // failed to allocate data
-
   _t = new(std::nothrow) Transition(dur);
   if (_t) {
-    _t->_oldSegment = new (tmpData) Segment(*this); // store/copy current segment settings using placement new
+    _t->_bri = on ? opacity : 0;
+    _t->_cct = cct;
     loadPalette(_t->_palT, palette);
-    DEBUGFX_PRINTF_P(PSTR("-- Started transition: S=%p (%p)\n"), this, _t);
-  } else d_free(tmpData);
+    for (int i=0; i<NUM_COLORS; i++) _t->_colors[i] = colors[i];
+    if (segmentCopy) _t->_oldSegment = new(std::nothrow) Segment(*this); // store/copy current segment settings
+    #ifdef WLED_DEBUG_FX
+    if (_t->_oldSegment) {
+      DEBUGFX_PRINTF_P(PSTR("-- Started transition: S=%p T(%p) O[%p] OP[%p]\n"), this, _t, _t->_oldSegment, _t->_oldSegment->pixels);
+    } else {
+      DEBUGFX_PRINTF_P(PSTR("-- Started transition without old segment: S=%p T(%p)\n"), this, _t);
+    }
+    #endif
+  };
 }
 
 void Segment::stopTransition() {
+  DEBUGFX_PRINTF_P(PSTR("-- Stopping transition: S=%p T(%p) O[%p]\n"), this, _t, _t->_oldSegment);
+  delete _t;
+  _t = nullptr;
+}
+
+void Segment::updateTransitionProgress() const {  // sets transition progress (0-65535) based on time passed since transition start
+  Segment::_transitionProgress = 0xFFFF;
   if (isInTransition()) {
-    DEBUGFX_PRINTF_P(PSTR("-- Stopping transition: S=%p\n"), this);
-    delete _t;  // will also destroy segment's copy (see destructor)
-    _t = nullptr;
+    unsigned diff = millis() - _t->_start;
+    if (_t->_dur > 0 && diff < _t->_dur) Segment::_transitionProgress = diff * 0xFFFFU / _t->_dur;
   }
 }
 
-uint8_t Segment::currentBri(bool useCct) const {
+// will return segment's opacity during a transition
+uint8_t Segment::currentCCT() const {
   unsigned prog = progress();
-  uint32_t curBri = useCct ? cct : (on ? opacity : 0);
-  if (progress() == 0xFFFFU || !_t) return curBri;
-  // this will blend opacity/CCT in new mode if style is FADE (single effect call)
-  uint8_t tmpBri = useCct ? _t->_oldSegment->cct : (_t->_oldSegment->on ? _t->_oldSegment->opacity : 0);
-  if (blendingStyle != BLEND_STYLE_FADE) return Segment::isPreviousMode() ? tmpBri : curBri;
-  curBri *=  prog;
-  curBri += tmpBri * (0xFFFFU - prog);
-  return curBri / 0xFFFFU;
+  if (prog < 0xFFFFU && _t) {
+    unsigned tmpBri = cct * prog + (_t->_cct * (0xFFFFU - prog));
+    return tmpBri / 0xFFFFU;
+  }
+  return cct;
 }
 
-uint8_t Segment::currentMode() const {
+// will return segment's opacity during a transition (blending it with old in case of FADE transition)
+uint8_t Segment::currentBri() const {
   unsigned prog = progress();
-  if (prog == 0xFFFFU || !_t) return mode;
-  if (blendingStyle != BLEND_STYLE_FADE) {
-    // workaround for on/off transition to respect blending style
-    uint8_t modeT = (bri != briT) &&  bri ? FX_MODE_STATIC : _t->_oldSegment->mode; // On/Off transition active (bri!=briT) and final bri>0 : old mode is STATIC
-    uint8_t modeS = (bri != briT) && !bri ? FX_MODE_STATIC : mode;                  // On/Off transition active (bri!=briT) and final bri==0 : new mode is STATIC
-    return Segment::isPreviousMode() ? modeT : modeS;
+  unsigned curBri = on ? opacity : 0;
+  if (prog < 0xFFFFU && _t) {
+    // this will blend opacity in new mode if style is FADE (single effect call)
+    if (blendingStyle == BLEND_STYLE_FADE) curBri = (prog * curBri + _t->_bri * (0xFFFFU - prog)) / 0xFFFFU;
+    else curBri = Segment::isPreviousMode() ? _t->_bri : curBri;
   }
-  return Segment::isPreviousMode() ? _t->_oldSegment->mode : mode;
-}
-
-uint32_t Segment::currentColor(uint8_t slot) const {
-  if (slot >= NUM_COLORS) slot = 0;
-  unsigned prog = progress();
-  if (prog == 0xFFFFU || !_t) return colors[slot];
-  if (blendingStyle != BLEND_STYLE_FADE) {
-    // workaround for on/off transition to respect blending style
-    uint32_t colT = (bri != briT) &&  bri ? BLACK : _t->_oldSegment->colors[slot];  // On/Off transition active (bri!=briT) and final bri>0 : old color is BLACK
-    uint32_t colS = (bri != briT) && !bri ? BLACK : colors[slot];             // On/Off transition active (bri!=briT) and final bri==0 : new color is BLACK
-    return Segment::isPreviousMode() ? colT : colS;    // _modeBlend==true -> old effect
-  }
-  return color_blend16(_t->_oldSegment->colors[slot], colors[slot], prog);
+  return curBri;
 }
 
 // pre-calculate drawing parameters for faster access (based on the idea from @softhack007 from MM fork)
-// must never be called from the temporary segment copy (in transition)
-// for drawing in temporary segment copy use setDrawDimensions()
+// if called from the temporary segment copy (while parent segment is in transition), it is never in transition
 void Segment::beginDraw() {
+  updateTransitionProgress(); // just in case if called form old segment's context
+  unsigned prog = progress();
   setDrawDimensions();
   // adjust gamma for effects
-  for (unsigned i = 0; i < NUM_COLORS; i++) _currentColors[i] = gamma32(currentColor(i));
+  for (unsigned i = 0; i < NUM_COLORS; i++)
+    _currentColors[i] = gamma32((prog < 0xFFFFU && blendingStyle == BLEND_STYLE_FADE) ? color_blend16(_t->_colors[i], colors[i], prog) : colors[i]);
   // load palette into _currentPalette
   loadPalette(Segment::_currentPalette, palette);
-  unsigned prog = progress();
-  if (prog < 0xFFFFU && !Segment::isPreviousMode() && blendingStyle == BLEND_STYLE_FADE) {
+  if (prog < 0xFFFFU && blendingStyle == BLEND_STYLE_FADE) {
     // blend palettes
     // there are about 255 blend passes of 48 "blends" to completely blend two palettes (in _dur time)
     // minimum blend time is 100ms maximum is 65535ms
@@ -388,8 +414,11 @@ void Segment::setGeometry(uint16_t i1, uint16_t i2, uint8_t grp, uint8_t spc, ui
 
   if (boundsUnchanged) return;
 
+  unsigned oldLength = length();
+
   DEBUGFX_PRINTF_P(PSTR("Segment geometry: %d,%d -> %d,%d [%d,%d]\n"), (int)i1, (int)i2, (int)i1Y, (int)i2Y, (int)grp, (int)spc);
   markForReset();
+  startTransition(strip.getTransition()); // start transition prior to change (if segment is deactivated (start>stop) no transition will happen)
   stateChanged = true; // send UDP/WS broadcast
 
   // apply change immediately
@@ -417,8 +446,16 @@ void Segment::setGeometry(uint16_t i1, uint16_t i2, uint8_t grp, uint8_t spc, ui
     return;
   }
   // re-allocate FX render buffer
-  if (pixels) pixels = static_cast<uint32_t*>(d_realloc(pixels, sizeof(uint32_t) * virtualLength()));
-  else        pixels = static_cast<uint32_t*>(d_malloc(sizeof(uint32_t) * virtualLength()));
+  if (length() != oldLength) {
+    if (pixels) pixels = static_cast<uint32_t*>(d_realloc(pixels, sizeof(uint32_t) * length()));
+    else        pixels = static_cast<uint32_t*>(d_malloc(sizeof(uint32_t) * length()));
+    if (!pixels) {
+      DEBUGFX_PRINTLN(F("!!! Not enough RAM for pixel buffer !!!"));
+      errorFlag = ERR_NORAM_PX;
+      stop = 0;
+      return;
+    }
+  }
   refreshLightCapabilities();
 }
 
@@ -430,7 +467,7 @@ Segment &Segment::setColor(uint8_t slot, uint32_t c) {
     if (slot == 1 && c != BLACK) return *this; // on/off segment cannot have secondary color non black
   }
   //DEBUGFX_PRINTF_P(PSTR("- Starting color transition: %d [0x%X]\n"), slot, c);
-  startTransition(strip.getTransition()); // start transition prior to change
+  startTransition(strip.getTransition(), false); // start transition prior to change (no need to copy segment)
   colors[slot] = c;
   stateChanged = true; // send UDP/WS broadcast
   return *this;
@@ -444,7 +481,7 @@ Segment &Segment::setCCT(uint16_t k) {
   }
   if (cct != k) {
     //DEBUGFX_PRINTF_P(PSTR("- Starting CCT transition: %d\n"), k);
-    startTransition(strip.getTransition()); // start transition prior to change
+    startTransition(strip.getTransition(), false); // start transition prior to change (no need to copy segment)
     cct = k;
     stateChanged = true; // send UDP/WS broadcast
   }
@@ -454,7 +491,7 @@ Segment &Segment::setCCT(uint16_t k) {
 Segment &Segment::setOpacity(uint8_t o) {
   if (opacity != o) {
     //DEBUGFX_PRINTF_P(PSTR("- Starting opacity transition: %d\n"), o);
-    startTransition(strip.getTransition()); // start transition prior to change
+    startTransition(strip.getTransition(), false); // start transition prior to change (no need to copy segment)
     opacity = o;
     stateChanged = true; // send UDP/WS broadcast
   }
@@ -464,7 +501,8 @@ Segment &Segment::setOpacity(uint8_t o) {
 Segment &Segment::setOption(uint8_t n, bool val) {
   bool prev = (options >> n) & 0x01;
   if (val == prev) return *this;
-  if (n == SEG_OPTION_ON) startTransition(strip.getTransition()); // start transition prior to change
+  //DEBUGFX_PRINTF_P(PSTR("- Starting option transition: %d\n"), n);
+  if (n == SEG_OPTION_ON) startTransition(strip.getTransition(), false); // start transition prior to change (no need to copy segment)
   if (val) options |=   0x01 << n;
   else     options &= ~(0x01 << n);
   stateChanged = true; // send UDP/WS broadcast
@@ -477,7 +515,7 @@ Segment &Segment::setMode(uint8_t fx, bool loadDefaults) {
   if (fx >= strip.getModeCount()) fx = 0; // set solid mode
   // if we have a valid mode & is not reserved
   if (fx != mode) {
-    startTransition(strip.getTransition()); // set effect transitions
+    startTransition(strip.getTransition(), true); // set effect transitions (must create segment copy)
     mode = fx;
     int sOpt;
     // load default values from effect string
@@ -512,7 +550,7 @@ Segment &Segment::setPalette(uint8_t pal) {
   if (pal > 245 && (customPalettes.size() == 0 || 255U-pal > customPalettes.size()-1)) pal = 0; // custom palettes
   if (pal != palette) {
     //DEBUGFX_PRINTF_P(PSTR("- Starting palette transition: %d\n"), pal);
-    startTransition(strip.getTransition());
+    startTransition(strip.getTransition(), false); // start transition prior to change (no need to copy segment)
     palette = pal;
     stateChanged = true; // send UDP/WS broadcast
   }
@@ -550,37 +588,25 @@ unsigned Segment::virtualHeight() const {
 
 // Constants for mapping mode "Pinwheel"
 #ifndef WLED_DISABLE_2D
-constexpr int Pinwheel_Steps_Small = 72;       // no holes up to 16x16
-constexpr int Pinwheel_Size_Small  = 16;       // larger than this -> use "Medium"
-constexpr int Pinwheel_Steps_Medium = 192;     // no holes up to 32x32
-constexpr int Pinwheel_Size_Medium  = 32;      // larger than this -> use "Big"
-constexpr int Pinwheel_Steps_Big = 304;        // no holes up to 50x50
-constexpr int Pinwheel_Size_Big  = 50;         // larger than this -> use "XL"
-constexpr int Pinwheel_Steps_XL  = 368;
-constexpr float Int_to_Rad_Small = (DEG_TO_RAD * 360) / Pinwheel_Steps_Small;  // conversion: from 0...72 to Radians
-constexpr float Int_to_Rad_Med =   (DEG_TO_RAD * 360) / Pinwheel_Steps_Medium; // conversion: from 0...192 to Radians
-constexpr float Int_to_Rad_Big =   (DEG_TO_RAD * 360) / Pinwheel_Steps_Big;    // conversion: from 0...304 to Radians
-constexpr float Int_to_Rad_XL =    (DEG_TO_RAD * 360) / Pinwheel_Steps_XL;     // conversion: from 0...368 to Radians
-
-constexpr int Fixed_Scale = 512;               // fixpoint scaling factor (9bit for fraction)
-
-// Pinwheel helper function: pixel index to radians
-static float getPinwheelAngle(int i, int vW, int vH) {
-  int maxXY = max(vW, vH);
-  if (maxXY <= Pinwheel_Size_Small)  return float(i) * Int_to_Rad_Small;
-  if (maxXY <= Pinwheel_Size_Medium) return float(i) * Int_to_Rad_Med;
-  if (maxXY <= Pinwheel_Size_Big)    return float(i) * Int_to_Rad_Big;
-  // else
-  return float(i) * Int_to_Rad_XL;
-}
+constexpr int Fixed_Scale = 16384; // fixpoint scaling factor (14bit for fraction)
 // Pinwheel helper function: matrix dimensions to number of rays
 static int getPinwheelLength(int vW, int vH) {
-  int maxXY = max(vW, vH);
-  if (maxXY <= Pinwheel_Size_Small)  return Pinwheel_Steps_Small;
-  if (maxXY <= Pinwheel_Size_Medium) return Pinwheel_Steps_Medium;
-  if (maxXY <= Pinwheel_Size_Big)    return Pinwheel_Steps_Big;
-  // else
-  return Pinwheel_Steps_XL;
+  // Returns multiple of 8, prevents over drawing 
+  return (max(vW, vH) + 15) & ~7;
+}
+static void setPinwheelParameters(int i, int vW, int vH, int& startx, int& starty, int* cosVal, int* sinVal, bool getPixel = false) {
+  int steps = getPinwheelLength(vW, vH);
+  int baseAngle = ((0xFFFF + steps / 2) / steps);  // 360° / steps, in 16 bit scale round to nearest integer
+  int rotate = 0;
+  if (getPixel) rotate = baseAngle / 2; // rotate by half a ray width when reading pixel color
+  for (int k = 0; k < 2; k++) // angular steps for two consecutive rays
+  {
+    int angle = (i + k) * baseAngle + rotate;
+    cosVal[k] = (cos16_t(angle) * Fixed_Scale) >> 15; // step per pixel in fixed point, cos16 output is -0x7FFF to +0x7FFF
+    sinVal[k] = (sin16_t(angle) * Fixed_Scale) >> 15; // using explicit bit shifts as dividing negative numbers is not equivalent (rounding error is acceptable)
+  }
+  startx = (vW * Fixed_Scale) / 2; // + cosVal[0] / 4; // starting position = center + 1/4 pixel (in fixed point)
+  starty = (vH * Fixed_Scale) / 2; // + sinVal[0] / 4; 
 }
 #endif
 
@@ -620,7 +646,7 @@ uint16_t Segment::virtualLength() const {
 // pixel is clipped if it falls outside clipping range (Segment::isPreviousMode()) or is inside clipping range (!Segment::isPreviousMode())
 // if clipping start > stop the clipping range is inverted
 bool IRAM_ATTR Segment::isPixelClipped(int i) const {
-  if (_clipStart != _clipStop && blendingStyle != BLEND_STYLE_FADE) {
+  if (isInTransition() && _clipStart != _clipStop && blendingStyle != BLEND_STYLE_FADE) {
     bool invert = _clipStart > _clipStop;  // ineverted start & stop
     int start = invert ? _clipStop : _clipStart;
     int stop  = invert ? _clipStart : _clipStop;
@@ -629,10 +655,10 @@ bool IRAM_ATTR Segment::isPixelClipped(int i) const {
       if (len < 2) return false;
       unsigned shuffled = hashInt(i) % len;
       unsigned pos = (shuffled * 0xFFFFU) / len;
-      return (progress() <= pos) ^ Segment::isPreviousMode();
+      return progress() <= pos;
     }
     const bool iInside = (i >= start && i < stop);
-    return !iInside ^ invert ^ Segment::isPreviousMode(); // thanks @willmmiles (https://github.com/Aircoookie/WLED/pull/3877#discussion_r1554633876)
+    return !iInside ^ invert; // thanks @willmmiles (https://github.com/Aircoookie/WLED/pull/3877#discussion_r1554633876)
   }
   return false;
 }
@@ -661,20 +687,21 @@ void IRAM_ATTR Segment::setPixelColor(int i, uint32_t col) const
   if (is2D()) {
     const int vW = vWidth();   // segment width in logical pixels (can be 0 if segment is inactive)
     const int vH = vHeight();  // segment height in logical pixels (is always >= 1)
+    const auto XY = [&](unsigned x, unsigned y){ return x + y*vW;};
     switch (map1D2D) {
       case M12_Pixels:
         // use all available pixels as a long strip
-        setPixelColorXY(i % vW, i / vW, col);
+        setPixelColorRaw(XY(i % vW, i / vW), col);
         break;
       case M12_pBar:
         // expand 1D effect vertically or have it play on virtual strips
-        if (vStrip > 0) setPixelColorXY(vStrip - 1, vH - i - 1, col);
-        else for (int x = 0; x < vW; x++) setPixelColorXY(x, vH - i - 1, col);
+        if (vStrip > 0)                   setPixelColorRaw(XY(vStrip - 1, vH - i - 1), col);
+        else for (int x = 0; x < vW; x++) setPixelColorRaw(XY(x, vH - i - 1), col);
         break;
       case M12_pArc:
         // expand in circular fashion from center
         if (i == 0)
-          setPixelColorXY(0, 0, col);
+          setPixelColorRaw(XY(0, 0), col);
         else {
           float r = i;
           float step = HALF_PI / (2.8284f * r + 4); // we only need (PI/4)/(r/sqrt(2)+1) steps
@@ -702,53 +729,102 @@ void IRAM_ATTR Segment::setPixelColor(int i, uint32_t col) const
         }
         break;
       case M12_pCorner:
-        for (int x = 0; x <= i; x++) setPixelColorXY(x, i, col);
-        for (int y = 0; y <  i; y++) setPixelColorXY(i, y, col);
+        for (int x = 0; x <= i; x++) setPixelColorRaw(XY(x, i), col);
+        for (int y = 0; y <  i; y++) setPixelColorRaw(XY(i, y), col);
         break;
       case M12_sPinwheel: {
-        // i = angle --> 0 - 296  (Big), 0 - 192  (Medium), 0 - 72 (Small)
-        float centerX = roundf((vW-1) / 2.0f);
-        float centerY = roundf((vH-1) / 2.0f);
-        float angleRad = getPinwheelAngle(i, vW, vH); // angle in radians
-        float cosVal = cos_t(angleRad);
-        float sinVal = sin_t(angleRad);
+        // Uses Bresenham's algorithm to place coordinates of two lines in arrays then draws between them
+        int startX, startY, cosVal[2], sinVal[2]; // in fixed point scale
+        setPinwheelParameters(i, vW, vH, startX, startY, cosVal, sinVal);
 
-        // avoid re-painting the same pixel
-        int lastX = INT_MIN; // impossible position
-        int lastY = INT_MIN; // impossible position
-        // draw line at angle, starting at center and ending at the segment edge
-        // we use fixed point math for better speed. Starting distance is 0.5 for better rounding
-        // int_fast16_t and int_fast32_t types changed to int, minimum bits commented
-        int posx = (centerX + 0.5f * cosVal) * Fixed_Scale; // X starting position in fixed point 18 bit
-        int posy = (centerY + 0.5f * sinVal) * Fixed_Scale; // Y starting position in fixed point 18 bit
-        int inc_x = cosVal * Fixed_Scale; // X increment per step (fixed point) 10 bit
-        int inc_y = sinVal * Fixed_Scale; // Y increment per step (fixed point) 10 bit
+        unsigned maxLineLength = max(vW, vH) + 2; // pixels drawn is always smaller than dx or dy, +1 pair for rounding errors
+        uint16_t lineCoords[2][maxLineLength];    // uint16_t to save ram
+        int lineLength[2] = {0};
 
-        int32_t maxX = vW * Fixed_Scale; // X edge in fixedpoint
-        int32_t maxY = vH * Fixed_Scale; // Y edge in fixedpoint
+        static int prevRays[2] = {INT_MAX, INT_MAX}; // previous two ray numbers
+        int closestEdgeIdx = INT_MAX; // index of the closest edge pixel
 
-        // Odd rays start further from center if prevRay started at center.
-        static int prevRay = INT_MIN; // previous ray number
-        if ((i % 2 == 1) && (i - 1 == prevRay || i + 1 == prevRay)) {
-          int jump = min(vW/3, vH/3); // can add 2 if using medium pinwheel
-          posx += inc_x * jump;
-          posy += inc_y * jump;
+        for (int lineNr = 0; lineNr < 2; lineNr++) {
+          int x0 = startX; // x, y coordinates in fixed scale
+          int y0 = startY;
+          int x1 = (startX + (cosVal[lineNr] << 9)); // outside of grid
+          int y1 = (startY + (sinVal[lineNr] << 9)); // outside of grid
+          const int dx =  abs(x1-x0), sx = x0<x1 ? 1 : -1; // x distance & step
+          const int dy = -abs(y1-y0), sy = y0<y1 ? 1 : -1; // y distance & step
+          uint16_t* coordinates = lineCoords[lineNr]; // 1D access is faster
+          int* length = &lineLength[lineNr];          // faster access
+          x0 /= Fixed_Scale; // convert to pixel coordinates
+          y0 /= Fixed_Scale;
+
+          // Bresenham's algorithm
+          int idx = 0;
+          int err = dx + dy;
+          while (true) {
+            if ((unsigned)x0 >= (unsigned)vW || (unsigned)y0 >= (unsigned)vH) {
+              closestEdgeIdx = min(closestEdgeIdx, idx-2);
+              break; // stop if outside of grid (exploit unsigned int overflow)
+            }
+            coordinates[idx++] = x0;
+            coordinates[idx++] = y0;
+            (*length)++;
+            // note: since endpoint is out of grid, no need to check if endpoint is reached
+            int e2 = 2 * err;
+            if (e2 >= dy) { err += dy; x0 += sx; }
+            if (e2 <= dx) { err += dx; y0 += sy; }
+          }
         }
-        prevRay = i;
 
-        // draw ray until we hit any edge
-        while ((posx >= 0) && (posy >= 0) && (posx < maxX)  && (posy < maxY))  {
-          // scale down to integer (compiler will replace division with appropriate bitshift)
-          int x = posx / Fixed_Scale;
-          int y = posy / Fixed_Scale;
-          // set pixel
-          if (x != lastX || y != lastY) setPixelColorXY(x, y, col);  // only paint if pixel position is different
-          lastX = x;
-          lastY = y;
-          // advance to next position
-          posx += inc_x;
-          posy += inc_y;
+        // fill up the shorter line with missing coordinates, so block filling works correctly and efficiently
+        int diff = lineLength[0] - lineLength[1];
+        int longLineIdx = (diff > 0) ? 0 : 1;
+        int shortLineIdx = longLineIdx ? 0 : 1;
+        if (diff != 0) {
+          int idx = (lineLength[shortLineIdx] - 1) * 2; // last valid coordinate index
+          int lastX = lineCoords[shortLineIdx][idx++];
+          int lastY = lineCoords[shortLineIdx][idx++];
+          bool keepX = lastX == 0 || lastX == vW - 1;
+          for (int d = 0; d < abs(diff); d++) {
+            lineCoords[shortLineIdx][idx] = keepX ? lastX :lineCoords[longLineIdx][idx];
+            idx++;
+            lineCoords[shortLineIdx][idx] =  keepX ? lineCoords[longLineIdx][idx] : lastY;
+            idx++;
+          }
         }
+
+        // draw and block-fill the line coordinates. Note: block filling only efficient if angle between lines is small
+        closestEdgeIdx += 2;
+        int max_i = getPinwheelLength(vW, vH) - 1;
+        bool drawFirst = !(prevRays[0] == i - 1 || (i == 0 && prevRays[0] == max_i)); // draw first line if previous ray was not adjacent including wrap
+        bool drawLast  = !(prevRays[0] == i + 1 || (i == max_i && prevRays[0] == 0)); // same as above for last line
+        for (int idx = 0; idx < lineLength[longLineIdx] * 2;) { //!! should be long line idx!
+          int x1 = lineCoords[0][idx];
+          int x2 = lineCoords[1][idx++];
+          int y1 = lineCoords[0][idx];
+          int y2 = lineCoords[1][idx++];
+          int minX, maxX, minY, maxY;
+          (x1 < x2) ? (minX = x1, maxX = x2) : (minX = x2, maxX = x1);
+          (y1 < y2) ? (minY = y1, maxY = y2) : (minY = y2, maxY = y1);
+
+          // fill the block between the two x,y points
+          bool alwaysDraw = (drawFirst && drawLast) || // No adjacent rays, draw all pixels
+                            (idx > closestEdgeIdx)  || // Edge pixels on uneven lines are always drawn
+                            (i == 0 && idx == 2)    || // Center pixel special case
+                            (i == prevRays[1]);        // Effect drawing twice in 1 frame
+          for (int x = minX; x <= maxX; x++) {
+            for (int y = minY; y <= maxY; y++) {
+              bool onLine1 = x == x1 && y == y1;
+              bool onLine2 = x == x2 && y == y2;
+              if ((alwaysDraw) ||
+                  (!onLine1 && (!onLine2 || drawLast))  || // Middle pixels and line2 if drawLast
+                  (!onLine2 && (!onLine1 || drawFirst))    // Middle pixels and line1 if drawFirst
+                ) {
+                setPixelColorXY(x, y, col);
+              }
+            }
+          }
+        }
+        prevRays[1] = prevRays[0];
+        prevRays[0] = i;
         break;
       }
     }
@@ -764,7 +840,7 @@ void IRAM_ATTR Segment::setPixelColor(int i, uint32_t col) const
     }
   }
 #endif
-  pixels[i] = col;
+  setPixelColorRaw(i, col);
 }
 
 #ifdef WLED_USE_AA_PIXELS
@@ -816,58 +892,47 @@ uint32_t IRAM_ATTR Segment::getPixelColor(int i) const
   if (is2D()) {
     const int vW = vWidth();   // segment width in logical pixels (can be 0 if segment is inactive)
     const int vH = vHeight();  // segment height in logical pixels (is always >= 1)
+    int x = 0, y = 0;
     switch (map1D2D) {
       case M12_Pixels:
-        return getPixelColorXY(i % vW, i / vW);
+        x = i % vW;
+        y = i / vW;
         break;
       case M12_pBar:
-        if (vStrip > 0) return getPixelColorXY(vStrip - 1, vH - (i & 0xFFFF) -1);
-        else            return getPixelColorXY(0, vH - i -1);
+        if (vStrip > 0) { x = vStrip - 1; y = vH - i - 1; }
+        else            { y = vH - i - 1; };
         break;
       case M12_pArc:
-        if (i >= vW && i >= vH) {
-          unsigned vI = sqrt16(i*i/2);
-          return getPixelColorXY(vI,vI); // use diagonal
+        if (i > vW && i > vH) {
+          x = y = sqrt16(i*i/2);
+          break; // use diagonal
         }
         // otherwise fallthrough
       case M12_pCorner:
         // use longest dimension
-        return vW>vH ? getPixelColorXY(i, 0) : getPixelColorXY(0, i);
+        if (vW > vH) x = i;
+        else         y = i;
         break;
-      case M12_sPinwheel:
+      case M12_sPinwheel: {
         // not 100% accurate, returns pixel at outer edge
-        // i = angle --> 0 - 296  (Big), 0 - 192  (Medium), 0 - 72 (Small)
-        float centerX = roundf((vW-1) / 2.0f);
-        float centerY = roundf((vH-1) / 2.0f);
-        float angleRad = getPinwheelAngle(i, vW, vH); // angle in radians
-        float cosVal = cos_t(angleRad);
-        float sinVal = sin_t(angleRad);
-
-        int posx = (centerX + 0.5f * cosVal) * Fixed_Scale; // X starting position in fixed point 18 bit
-        int posy = (centerY + 0.5f * sinVal) * Fixed_Scale; // Y starting position in fixed point 18 bit
-        int inc_x = cosVal * Fixed_Scale; // X increment per step (fixed point) 10 bit
-        int inc_y = sinVal * Fixed_Scale; // Y increment per step (fixed point) 10 bit
-        int32_t maxX = vW * Fixed_Scale; // X edge in fixedpoint
-        int32_t maxY = vH * Fixed_Scale; // Y edge in fixedpoint
-
-        // trace ray from center until we hit any edge - to avoid rounding problems, we use the same method as in setPixelColor
-        int x = INT_MIN;
-        int y = INT_MIN;
-        while ((posx >= 0) && (posy >= 0) && (posx < maxX)  && (posy < maxY))  {
-          // scale down to integer (compiler will replace division with appropriate bitshift)
-          x = posx / Fixed_Scale;
-          y = posy / Fixed_Scale;
-          // advance to next position
-          posx += inc_x;
-          posy += inc_y;
+        int cosVal[2], sinVal[2];
+        setPinwheelParameters(i, vW, vH, x, y, cosVal, sinVal, true);
+        int maxX = (vW-1) * Fixed_Scale;
+        int maxY = (vH-1) * Fixed_Scale;
+        // trace ray from center until we hit any edge - to avoid rounding problems, we use fixed point coordinates
+        while ((x < maxX)  && (y < maxY) && (x > Fixed_Scale) && (y > Fixed_Scale)) {
+          x += cosVal[0]; // advance to next position
+          y += sinVal[0];
         }
-        return getPixelColorXY(x, y);
+        x /= Fixed_Scale;
+        y /= Fixed_Scale;
         break;
       }
-    return 0;
+    }
+    return getPixelColorXY(x, y);
   }
 #endif
-  return pixels[i];
+  return getPixelColorRaw(i);
 }
 
 uint8_t Segment::differs(const Segment& b) const {
@@ -962,12 +1027,7 @@ void Segment::clear() const {
  */
 void Segment::fill(uint32_t c) const {
   if (!isActive()) return; // not active
-  const int cols = is2D() ? vWidth() : vLength();
-  const int rows = vHeight(); // will be 1 for 1D
-  for (int y = 0; y < rows; y++) for (int x = 0; x < cols; x++) {
-    if (is2D()) setPixelColorXY(x, y, c);
-    else        setPixelColor(x, c);
-  }
+  for (unsigned i = 0; i < vLength(); i++) setPixelColorRaw(i,c);
 }
 
 /*
@@ -977,14 +1037,10 @@ void Segment::fill(uint32_t c) const {
  */
 void Segment::fade_out(uint8_t rate) const {
   if (!isActive()) return; // not active
-  const int cols = is2D() ? vWidth() : vLength();
-  const int rows = vHeight(); // will be 1 for 1D
-
   rate = (256-rate) >> 1;
   const int mappedRate = 256 / (rate + 1);
-
-  for (int y = 0; y < rows; y++) for (int x = 0; x < cols; x++) {
-    uint32_t color = is2D() ? getPixelColorXY(x, y) : getPixelColor(x);
+  for (unsigned j = 0; j < vLength(); j++) {
+    uint32_t color = getPixelColorRaw(j);
     if (color == colors[1]) continue; // already at target color
     for (int i = 0; i < 32; i += 8) {
       uint8_t c2 = (colors[1]>>i);  // get background channel
@@ -997,33 +1053,20 @@ void Segment::fade_out(uint8_t rate) const {
       color &= ~(0xFF<<i);
       color |= ((c1 + delta) & 0xFF) << i;
     }
-    if (is2D()) setPixelColorXY(x, y, color);
-    else        setPixelColor(x, color);
+    setPixelColorRaw(j, color);
   }
 }
 
 // fades all pixels to secondary color
 void Segment::fadeToSecondaryBy(uint8_t fadeBy) const {
   if (!isActive() || fadeBy == 0) return;   // optimization - no scaling to apply
-  const int cols = is2D() ? vWidth() : vLength();
-  const int rows = vHeight(); // will be 1 for 1D
-
-  for (int y = 0; y < rows; y++) for (int x = 0; x < cols; x++) {
-    if (is2D()) setPixelColorXY(x, y, color_blend(getPixelColorXY(x,y), colors[1], fadeBy));
-    else        setPixelColor(x, color_blend(getPixelColor(x), colors[1], fadeBy));
-  }
+  for (unsigned i = 0; i < vLength(); i++) setPixelColorRaw(i, color_blend(getPixelColorRaw(i), colors[1], fadeBy));
 }
 
 // fades all pixels to black using nscale8()
 void Segment::fadeToBlackBy(uint8_t fadeBy) const {
   if (!isActive() || fadeBy == 0) return;   // optimization - no scaling to apply
-  const int cols = is2D() ? vWidth() : vLength();
-  const int rows = vHeight(); // will be 1 for 1D
-
-  for (int y = 0; y < rows; y++) for (int x = 0; x < cols; x++) {
-    if (is2D()) setPixelColorXY(x, y, color_fade(getPixelColorXY(x,y), 255-fadeBy));
-    else        setPixelColor(x, color_fade(getPixelColor(x), 255-fadeBy));
-  }
+  for (unsigned i = 0; i < vLength(); i++) setPixelColorRaw(i, color_fade(getPixelColorRaw(i), 255-fadeBy));
 }
 
 /*
@@ -1048,20 +1091,20 @@ void Segment::blur(uint8_t blur_amount, bool smear) const {
   uint32_t last;
   uint32_t curnew = BLACK;
   for (unsigned i = 0; i < vlength; i++) {
-    uint32_t cur = getPixelColor(i);
+    uint32_t cur = getPixelColorRaw(i);
     uint32_t part = color_fade(cur, seep);
     curnew = color_fade(cur, keep);
     if (i > 0) {
       if (carryover) curnew = color_add(curnew, carryover);
       uint32_t prev = color_add(lastnew, part);
       // optimization: only set pixel if color has changed
-      if (last != prev) setPixelColor(i - 1, prev);
-    } else setPixelColor(i, curnew); // first pixel
+      if (last != prev) setPixelColorRaw(i - 1, prev);
+    } else setPixelColorRaw(i, curnew); // first pixel
     lastnew = curnew;
     last = cur; // save original value for comparison on next iteration
     carryover = part;
   }
-  setPixelColor(vlength - 1, curnew);
+  setPixelColorRaw(vlength - 1, curnew);
 }
 
 /*
@@ -1312,29 +1355,24 @@ void WS2812FX::service() {
         // when correctWB is true we need to correct/adjust RGB value according to desired CCT value, but it will also affect actual WW/CW ratio
         // when cctFromRgb is true we implicitly calculate WW and CW from RGB values
         if (cctFromRgb) BusManager::setSegmentCCT(-1);
-        else            BusManager::setSegmentCCT(seg.currentBri(true), correctWB);
+        else            BusManager::setSegmentCCT(seg.currentCCT(), correctWB);
         // Effect blending
-        // When two effects are being blended, each may have different segment data, this
-        // data needs to be saved first and then restored before running previous mode.
-        // The blending will largely depend on the effect behaviour since actual output (LEDs) may be
-        // overwritten by later effect. To enable seamless blending for every effect, additional LED buffer
-        // would need to be allocated for each effect and then blended together for each pixel.
         seg.beginDraw();                    // set up parameters for get/setPixelColor() (will also blend colors and palette if blend style is FADE)
         _currentSegment = &seg;             // set current segment for effect functions (SEGMENT & SEGENV)
-        frameDelay = (*_mode[seg.currentMode()])();  // run new/current mode (needed for bri workaround)
+        // workaround for on/off transition to respect blending style
+        frameDelay = (*_mode[seg.mode])();  // run new/current mode (needed for bri workaround)
         seg.call++;
-        if (seg.isInTransition()) {
-          Segment *segO = seg.getOldSegment();
-          // now run old/previous mode if it is different or blend style != FADE
-          if (segO && (seg.mode != segO->mode || blendingStyle != BLEND_STYLE_FADE)) {
-            Segment::modeBlend(true);       // set semaphore for beginDraw() to blend colors and palette
-            seg.beginDraw();                // set up palette & colors (also sets draw dimensions)
-            segO->setDrawDimensions();      // override/set up boundaries for get/setPixelColor()
-            _currentSegment = segO;         // set current segment
-            frameDelay = min(frameDelay, (unsigned)(*_mode[seg.currentMode()])());  // run old mode (needed for bri workaround; semaphore!!)
-            segO->call++;                   // increment old mode run counter
-            Segment::modeBlend(false);      // unset semaphore
-          }
+        // if segment is in transition and no old segment exists we don't need to run the old mode
+        // (blendSegments() takes care of On/Off transitions and clipping)
+        Segment *segO = seg.getOldSegment();
+        if (segO && (seg.mode != segO->mode || blendingStyle != BLEND_STYLE_FADE)) {
+          Segment::modeBlend(true);       // set semaphore for beginDraw() to blend colors and palette
+          segO->beginDraw();              // set up palette & colors (also sets draw dimensions)
+          _currentSegment = segO;         // set current segment
+          // workaround for on/off transition to respect blending style
+          frameDelay = min(frameDelay, (unsigned)(*_mode[segO->mode])());  // run old mode (needed for bri workaround; semaphore!!)
+          segO->call++;                   // increment old mode run counter
+          Segment::modeBlend(false);      // unset semaphore
         }
         if (seg.isInTransition() && frameDelay > FRAMETIME) frameDelay = FRAMETIME; // force faster updates during transition
         BusManager::setSegmentCCT(oldCCT);  // restore old CCT for ABL adjustments
@@ -1405,6 +1443,7 @@ void WS2812FX::blendSegment(const Segment &topSegment) const {
   const auto blend = [&](uint32_t top, uint32_t bottom){ return RGBW32(func(R(top),R(bottom)), func(G(top),G(bottom)), func(B(top),B(bottom)), func(W(top),W(bottom))); };
 
   topSegment.setDrawDimensions();                     // required for seg.getPixelColor()
+  topSegment.updateTransitionProgress();              // needed for progress()
   const int     length     = topSegment.length();     // physical segment length (counts all pixels in 2D segment)
   const int     width      = topSegment.width();
   const int     height     = topSegment.height();
@@ -1414,10 +1453,7 @@ void WS2812FX::blendSegment(const Segment &topSegment) const {
   const size_t  stopIndx   = startIndx + length;
   const unsigned progress  = topSegment.progress();
   const unsigned progInv   = 0xFFFFU - progress;
-  uint8_t       opacity    = topSegment.currentBri();
-//  Segment::modeBlend(true);
-//  uint8_t       opacityO   = topSegment.currentBri();
-//  Segment::modeBlend(false);
+  uint8_t       opacity    = topSegment.currentBri(); // returns transitioned opacity for style FADE
 
   Segment::setClippingRect(0, 0);             // disable clipping by default
 
@@ -1505,8 +1541,9 @@ void WS2812FX::blendSegment(const Segment &topSegment) const {
     unsigned offsetY = (blendingStyle == BLEND_STYLE_PUSH_LEFT || blendingStyle == BLEND_STYLE_PUSH_RIGHT) ? 0 : progInv * rows / 0xFFFFU;
 
     for (int r = 0; r < rows; r++) for (int c = 0; c < cols; c++) {
-      const bool clipped = topSegment.isInTransition() && topSegment.isPixelXYClipped(c, r);
-      const Segment *seg = clipped ? topSegment.getOldSegment() : &topSegment;  // never clipped for FADE
+      const bool clipped = topSegment.isPixelXYClipped(c, r);
+      const Segment *segO = topSegment.getOldSegment();
+      const Segment *seg = clipped && segO ? segO : &topSegment;  // pixel is never clipped for FADE
       int x = c;
       int y = r;
       // if segment is in transition and pixel is clipped take old segment's pixel and opacity
@@ -1517,10 +1554,15 @@ void WS2812FX::blendSegment(const Segment &topSegment) const {
         case BLEND_STYLE_PUSH_UP:    y = (y - offsetY + rows) % rows; break;
       }
       seg->setDrawDimensions();
-      uint32_t c_a = seg->getPixelColorXY(x, y);
-      if (topSegment.isInTransition() && blendingStyle == BLEND_STYLE_FADE) {
-        // we need to blend old segment using fade
-        c_a = color_blend16(c_a, topSegment.getOldSegment()->getPixelColorXY(x, y), progInv);
+      uint32_t c_a = seg->getPixelColorXYRaw(x, y); // will get clipped pixel from old segment or unclipped pixel from new segment
+      if (segO && blendingStyle == BLEND_STYLE_FADE && topSegment.mode != segO->mode) {
+        // we need to blend old segment using fade as pixels ae not clipped
+        c_a = color_blend16(c_a, segO->getPixelColorXYRaw(x, y), progInv);
+      } else if (blendingStyle != BLEND_STYLE_FADE) {
+        // workaround for On/Off transition
+        // (bri != briT) && !bri => from On to Off
+        // (bri != briT) &&  bri => from Off to On
+        if ((!clipped && (bri != briT) && !bri) || (clipped && (bri != briT) && bri)) c_a = BLACK;
       }
       // map it into frame buffer
       x = c;
@@ -1565,8 +1607,9 @@ void WS2812FX::blendSegment(const Segment &topSegment) const {
     unsigned offsetI = progInv * vLen / 0xFFFFU;
 
     for (int k = 0; k < vLen; k++) {
-      const bool clipped = topSegment.isInTransition() && topSegment.isPixelClipped(k);
-      const Segment *seg = clipped ? topSegment.getOldSegment() : &topSegment;  // never clipped for FADE
+      const bool clipped = topSegment.isPixelClipped(k);
+      const Segment *segO = topSegment.getOldSegment();
+      const Segment *seg = clipped && segO ? segO : &topSegment;  // pixel is never clipped for FADE
       int i = k;
       // if segment is in transition and pixel is clipped take old segment's pixel and opacity
       switch (blendingStyle) {
@@ -1574,10 +1617,15 @@ void WS2812FX::blendSegment(const Segment &topSegment) const {
         case BLEND_STYLE_SWIPE_LEFT:  i = (i - offsetI + vLen) % vLen; break;
       }
       seg->setDrawDimensions();
-      uint32_t c_a = seg->getPixelColor(i);
-      if (topSegment.isInTransition() && blendingStyle == BLEND_STYLE_FADE) {
-        // we need to blend old segment using fade
-        c_a = color_blend16(c_a, topSegment.getOldSegment()->getPixelColor(i), progInv);
+      uint32_t c_a = seg->getPixelColorRaw(i); // will get clipped pixel from old segment or unclipped pixel from new segment
+      if (segO && blendingStyle == BLEND_STYLE_FADE && topSegment.mode != segO->mode) {
+        // we need to blend old segment using fade as pixels are not clipped
+        c_a = color_blend16(c_a, segO->getPixelColorRaw(i), progInv);
+      } else if (blendingStyle != BLEND_STYLE_FADE) {
+        // workaround for On/Off transition
+        // (bri != briT) && !bri => from On to Off
+        // (bri != briT) &&  bri => from Off to On
+        if ((!clipped && (bri != briT) && !bri) || (clipped && (bri != briT) && bri)) c_a = BLACK;
       }
       // map into frame buffer
       if (topSegment.reverse) i = vLen - i - 1; // is segment reversed?
@@ -1663,7 +1711,6 @@ void WS2812FX::show() {
     for (size_t i = 0; i < totalLen; i++) _pixels[i] = BLACK; // memset(_pixels, 0, sizeof(uint32_t) * getLengthTotal());
     // blend all segments into (cleared) buffer
     for (Segment &seg : _segments) if (seg.isActive() && (seg.on || seg.isInTransition())) {
-      seg.updateTransitionProgress(); // needed for progress()
       blendSegment(seg);              // blend segment's buffer into frame buffer
     }
   }
