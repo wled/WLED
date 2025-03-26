@@ -381,6 +381,7 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
     receiveNotificationEffects = request->hasArg(F("RX"));
     receiveNotificationPalette = request->hasArg(F("RP"));
     receiveSegmentOptions = request->hasArg(F("SO"));
+    receiveSegmentName = request->hasArg(F("SN"));
     receiveSegmentBounds = request->hasArg(F("SG"));
     sendNotifications = request->hasArg(F("SS"));
     notifyDirect = request->hasArg(F("SD"));
