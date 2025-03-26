@@ -738,12 +738,12 @@ void fill_solid_RGB(CRGB* colors, uint32_t num, const CRGB& c1) {
 // fill CRGB array with a color gradient
 void fill_gradient_RGB(CRGB* colors, uint32_t startpos, CRGB startcolor, uint32_t endpos, CRGB endcolor) {
   if(endpos < startpos) { // if the points are in the wrong order, flip them
-      uint32_t t = endpos;
-      CRGB tc = endcolor;
-      endcolor = startcolor;
-      endpos = startpos;
-      startpos = t;
-      startcolor = tc;
+    uint32_t t = endpos;
+    CRGB tc = endcolor;
+    endcolor = startcolor;
+    endpos = startpos;
+    startpos = t;
+    startcolor = tc;
   }
   int32_t rdistance = endcolor.r - startcolor.r;
   int32_t gdistance = endcolor.g - startcolor.g;

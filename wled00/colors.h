@@ -221,9 +221,6 @@ struct CRGB {
     b = nb;
     return *this;
   }
-#define R(c) (byte((c) >> 16))
-#define G(c) (byte((c) >> 8))
-#define B(c) (byte(c))
 
   /// Allow assignment from 32-bit (really 24-bit) 0xRRGGBB color code
   inline CRGB& setColorCode (uint32_t colorcode) __attribute__((always_inline)) {
