@@ -266,7 +266,7 @@ void registerUsermods()
    */
   //UsermodManager::add(new MyExampleUsermod());
 
-  UsermodManager::add(new MPU6050Driver());
+  //UsermodManager::add(new MPU6050Driver());
   #ifdef USERMOD_BATTERY
   UsermodManager::add(new UsermodBattery());
   #endif
