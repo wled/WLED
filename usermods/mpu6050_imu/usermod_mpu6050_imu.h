@@ -71,7 +71,7 @@ class MPU6050Driver : public Usermod {
     void setup() {
       Serial.begin(115200);
       while (!Serial) delay(10);  // Wait for Serial connection to initialize (especially needed on some USB setups)
-      Wire.begin(5, 6);  // SDA = GPIO5, SCL = GPIO6
+      Wire.begin();  // SDA = GPIO5, SCL = GPIO6
 
       if (!mpu.begin()) {
         Serial.println("MPU6050 not found!");

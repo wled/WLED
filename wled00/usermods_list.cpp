@@ -11,7 +11,7 @@
  */
 //#include "../usermods/EXAMPLE_v2/usermod_v2_example.h"
 
-#include "../usermods/mpu6050_imu/usermod_mpu6050_imu.h"
+//#include "../usermods/mpu6050_imu/usermod_mpu6050_imu.h"
 
 
 #ifdef USERMOD_BATTERY
@@ -207,10 +207,6 @@
 
 #ifdef USERMOD_MPU6050_IMU
   #include "../usermods/mpu6050_imu/usermod_mpu6050_imu.h"
-#endif
-
-#ifdef USERMOD_MPU6050_IMU
-  #include "../usermods/mpu6050_imu/usermod_gyro_surge.h"
 #endif
 
 #ifdef USERMOD_LDR_DUSK_DAWN
@@ -447,9 +443,9 @@ void registerUsermods()
   UsermodManager::add(new HttpPullLightControl());
   #endif
 
-  //#ifdef USERMOD_MPU6050_IMU
-  //static MPU6050Driver mpu6050; UsermodManager::add(&mpu6050);
-  //#endif
+  #ifdef USERMOD_MPU6050_IMU
+  static MPU6050Driver mpu6050; UsermodManager::add(&mpu6050);
+  #endif
 
   #ifdef USERMOD_GYRO_SURGE
   static GyroSurge gyro_surge; UsermodManager::add(&gyro_surge);
