@@ -494,6 +494,7 @@ __attribute__ ((always_inline)) inline uint8_t  scale8_video(uint8_t i, uint8_t 
 __attribute__ ((always_inline)) inline uint16_t scale16(uint16_t i, uint16_t scale ) { return ((uint32_t)i * (1 + (uint32_t)scale)) >> 16; }
 __attribute__ ((always_inline)) inline uint8_t  qadd8(uint8_t i, uint8_t j) { unsigned t = i + j; return t > 255 ? 255 : t; }
 __attribute__ ((always_inline)) inline uint8_t  qsub8(uint8_t i, uint8_t j) { int t = i - j; return t < 0 ? 0 : t; }
+__attribute__ ((always_inline)) inline uint8_t  qmul8(uint8_t i, uint8_t j) { unsigned p = (unsigned)i * (unsigned)j; return p > 255 ? 255 : p; }
 __attribute__ ((always_inline)) inline int8_t   abs8(int8_t i) { return i < 0 ? -i : i; }
 __attribute__ ((always_inline)) inline int8_t   lerp8by8(uint8_t a, uint8_t b, uint8_t frac) { return a + ((((int32_t)b - (int32_t)a) * ((int32_t)frac+1)) >> 8); }
 /*

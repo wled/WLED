@@ -19,6 +19,7 @@ class CRGBPalette16;
 uint8_t scale8(uint8_t i, uint8_t scale);
 uint8_t qadd8(uint8_t i, uint8_t j);
 uint8_t qsub8(uint8_t i, uint8_t j);
+uint8_t qmul8(uint8_t i, uint8_t j);
 int8_t abs8(int8_t i);
 
 typedef uint32_t TProgmemRGBPalette16[16];
@@ -306,15 +307,9 @@ struct CRGB {
 
   // multiply each of the channels by a constant, saturating each channel at 0xFF.
   inline CRGB& operator*= (uint8_t d) {
-    unsigned red = (unsigned)r * (unsigned)d;
-    unsigned green = (unsigned)r * (unsigned)d;
-    unsigned blue = (unsigned)r * (unsigned)d;
-    if(red > 255) red = 255;
-    if(green > 255) green = 255;
-    if(blue > 255) blue = 255;
-    r = red;
-    g = green;
-    b = blue;
+    r = qmul8(r, d);
+    g = qmul8(g, d);
+    b = qmul8(b, d);
     return *this;
   }
 
