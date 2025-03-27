@@ -35,7 +35,7 @@ void WS2812FX::setUpMatrix() {
     }
 
     // safety check
-    if (Segment::maxWidth * Segment::maxHeight > MAX_LEDS || Segment::maxWidth <= 1 || Segment::maxHeight <= 1) {
+    if (Segment::maxWidth * Segment::maxHeight > MAX_LEDS || Segment::maxWidth > 255 || Segment::maxHeight > 255 || Segment::maxWidth <= 1 || Segment::maxHeight <= 1) {
       DEBUGFX_PRINTLN(F("2D Bounds error."));
       isMatrix = false;
       Segment::maxWidth = _length;
@@ -53,7 +53,7 @@ void WS2812FX::setUpMatrix() {
     customMappingSize = 0; // prevent use of mapping if anything goes wrong
 
     d_free(customMappingTable);
-    customMappingTable = static_cast<uint16_t*>(d_malloc(sizeof(uint16_t)*getLengthTotal())); // do not use SPI RAM
+    customMappingTable = static_cast<uint16_t*>(d_malloc(sizeof(uint16_t)*getLengthTotal())); // prefer to not use SPI RAM
 
     if (customMappingTable) {
       customMappingSize = getLengthTotal();
