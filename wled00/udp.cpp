@@ -671,12 +671,6 @@ void setRealtimePixel(uint16_t i, byte r, byte g, byte b, byte w)
 {
   unsigned pix = i + arlsOffset;
   if (pix < strip.getLengthTotal()) {
-    if (!arlsDisableGammaCorrection && gammaCorrectCol) {
-      r = gamma8(r);
-      g = gamma8(g);
-      b = gamma8(b);
-      w = gamma8(w);
-    }
     uint32_t col = RGBW32(r,g,b,w);
     if (useMainSegmentOnly) {
       strip.getMainSegment().setPixelColor(pix, col); // this expects that strip.getMainSegment().beginDraw() has been called in handleNotification()

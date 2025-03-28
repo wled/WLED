@@ -246,22 +246,25 @@ CRGBPalette16 &Segment::loadPalette(CRGBPalette16 &targetPalette, uint8_t pal) {
       targetPalette = _randomPalette; //random palette is generated at intervals in handleRandomPalette() 
       break;
     case 2: {//primary color only
-      CRGB prim = gamma32(colors[0]);
-      targetPalette = CRGBPalette16(prim); break;}
+      CRGB prim = colors[0];
+      targetPalette = CRGBPalette16(prim);
+      break;}
     case 3: {//primary + secondary
-      CRGB prim = gamma32(colors[0]);
-      CRGB sec  = gamma32(colors[1]);
-      targetPalette = CRGBPalette16(prim,prim,sec,sec); break;}
+      CRGB prim = colors[0];
+      CRGB sec  = colors[1];
+      targetPalette = CRGBPalette16(prim,prim,sec,sec);
+      break;}
     case 4: {//primary + secondary + tertiary
-      CRGB prim = gamma32(colors[0]);
-      CRGB sec  = gamma32(colors[1]);
-      CRGB ter  = gamma32(colors[2]);
-      targetPalette = CRGBPalette16(ter,sec,prim); break;}
+      CRGB prim = colors[0];
+      CRGB sec  = colors[1];
+      CRGB ter  = colors[2];
+      targetPalette = CRGBPalette16(ter,sec,prim);
+      break;}
     case 5: {//primary + secondary (+tertiary if not off), more distinct
-      CRGB prim = gamma32(colors[0]);
-      CRGB sec  = gamma32(colors[1]);
+      CRGB prim = colors[0];
+      CRGB sec  = colors[1];
       if (colors[2]) {
-        CRGB ter = gamma32(colors[2]);
+        CRGB ter = colors[2];
         targetPalette = CRGBPalette16(prim,prim,prim,prim,prim,sec,sec,sec,sec,sec,ter,ter,ter,ter,ter,prim);
       } else {
         targetPalette = CRGBPalette16(prim,prim,prim,prim,prim,prim,prim,prim,sec,sec,sec,sec,sec,sec,sec,sec);
@@ -361,7 +364,7 @@ void Segment::beginDraw() {
   setDrawDimensions();
   // adjust gamma for effects
   for (unsigned i = 0; i < NUM_COLORS; i++)
-    _currentColors[i] = gamma32((prog < 0xFFFFU && blendingStyle == BLEND_STYLE_FADE) ? color_blend16(_t->_colors[i], colors[i], prog) : colors[i]);
+    _currentColors[i] = (prog < 0xFFFFU && blendingStyle == BLEND_STYLE_FADE) ? color_blend16(_t->_colors[i], colors[i], prog) : colors[i];
   // load palette into _currentPalette
   loadPalette(Segment::_currentPalette, palette);
   if (prog < 0xFFFFU && blendingStyle == BLEND_STYLE_FADE) {
@@ -1721,7 +1724,7 @@ void WS2812FX::show() {
   if (newBri != _brightness) BusManager::setBrightness(newBri);
 
   // paint actuall pixels
-  for (size_t i = 0; i < totalLen; i++) BusManager::setPixelColor(getMappedPixelIndex(i), _pixels[i]);
+  for (size_t i = 0; i < totalLen; i++) BusManager::setPixelColor(getMappedPixelIndex(i), realtimeMode && arlsDisableGammaCorrection ? _pixels[i] : gamma32(_pixels[i]));
 
   // some buses send asynchronously and this method will return before
   // all of the data has been sent.

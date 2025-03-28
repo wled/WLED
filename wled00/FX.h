@@ -769,7 +769,6 @@ class WS2812FX {
 #endif
       correctWB(false),
       cctFromRgb(false),
-      panels(),
       // true private variables
       _pixels(nullptr),
       _suspend(false),
@@ -941,7 +940,6 @@ class WS2812FX {
       bool autoSegments : 1;
       bool correctWB    : 1;
       bool cctFromRgb   : 1;
-      uint8_t panels    : 5;
     };
 
     Segment *_currentSegment;

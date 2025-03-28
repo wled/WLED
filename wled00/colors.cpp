@@ -217,7 +217,7 @@ CRGBPalette16 generateHarmonicRandomPalette(const CRGBPalette16 &basepalette)
       palettecolors[i].saturation -= 160; //desaturate all four colors
     }
     RGBpalettecolors[i] = (CRGB)palettecolors[i]; //convert to RGB
-    RGBpalettecolors[i] = gamma32(((uint32_t)RGBpalettecolors[i]) & 0x00FFFFFFU); //strip alpha from CRGB
+    RGBpalettecolors[i] = ((uint32_t)RGBpalettecolors[i]) & 0x00FFFFFFU; //strip alpha from CRGB
   }
 
   return CRGBPalette16(RGBpalettecolors[0],
@@ -254,20 +254,20 @@ void loadCustomPalettes() {
             palSize -= palSize % 2; // make sure size is multiple of 2
             for (size_t i=0, j=0; i<palSize && pal[i].as<int>()<256; i+=2, j+=4) {
               uint8_t rgbw[] = {0,0,0,0};
-              tcp[ j ] = (uint8_t) pal[ i ].as<int>(); // index
-              colorFromHexString(rgbw, pal[i+1].as<const char *>()); // will catch non-string entires
-              for (size_t c=0; c<3; c++) tcp[j+1+c] = gamma8(rgbw[c]); // only use RGB component
-              DEBUGFX_PRINTF_P(PSTR("%d(%d) : %d %d %d\n"), i, int(tcp[j]), int(tcp[j+1]), int(tcp[j+2]), int(tcp[j+3]));
+              if (colorFromHexString(rgbw, pal[i+1].as<const char *>())) { // will catch non-string entires
+                tcp[ j ] = (uint8_t) pal[ i ].as<int>(); // index
+                for (size_t c=0; c<3; c++) tcp[j+1+c] = rgbw[c]; // only use RGB component
+                DEBUGFX_PRINTF_P(PSTR("%2u -> %3d [%3d,%3d,%3d]\n"), i, int(tcp[j]), int(tcp[j+1]), int(tcp[j+2]), int(tcp[j+3]));
+                j += 4;
+              }
             }
           } else {
             size_t palSize = MIN(pal.size(), 72);
             palSize -= palSize % 4; // make sure size is multiple of 4
             for (size_t i=0; i<palSize && pal[i].as<int>()<256; i+=4) {
               tcp[ i ] = (uint8_t) pal[ i ].as<int>(); // index
-              tcp[i+1] = gamma8((uint8_t) pal[i+1].as<int>()); // R
-              tcp[i+2] = gamma8((uint8_t) pal[i+2].as<int>()); // G
-              tcp[i+3] = gamma8((uint8_t) pal[i+3].as<int>()); // B
-              DEBUGFX_PRINTF_P(PSTR("%d(%d) : %d %d %d\n"), i, int(tcp[i]), int(tcp[i+1]), int(tcp[i+2]), int(tcp[i+3]));
+              for (size_t c=0; c<3; c++) tcp[i+1+c] = (uint8_t) pal[i+1+c].as<int>();
+              DEBUGFX_PRINTF_P(PSTR("%2u -> %3d [%3d,%3d,%3d]\n"), i, int(tcp[i]), int(tcp[i+1]), int(tcp[i+2]), int(tcp[i+3]));
             }
           }
           customPalettes.push_back(targetPalette.loadDynamicGradientPalette(tcp));

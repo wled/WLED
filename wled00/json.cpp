@@ -278,10 +278,10 @@ static bool deserializeSegment(JsonObject elem, byte it, byte presetId)
           }
         }
 
-        if (set < 2 || stop <= start) stop = start + 1;
-        uint32_t c = RGBW32(gamma8(rgbw[0]), gamma8(rgbw[1]), gamma8(rgbw[2]), gamma8(rgbw[3]));
-        while (start < stop) seg.setPixelColor(start++, c);
-        set = 0;
+        if (iSet < 2 || iStop <= iStart) iStop = iStart + 1;
+        uint32_t c = RGBW32(rgbw[0], rgbw[1], rgbw[2], rgbw[3]);
+        while (iStart < iStop) seg.setPixelColor(iStart++, c);
+        iSet = 0;
       }
     }
     seg.map1D2D = oldMap1D2D; // restore mapping
