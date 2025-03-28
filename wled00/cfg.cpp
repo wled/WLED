@@ -129,13 +129,13 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
   JsonObject matrix = hw_led[F("matrix")];
   if (!matrix.isNull()) {
     strip.isMatrix = true;
-    CJSON(strip.panels, matrix[F("mpc")]);
-    strip.panels = constrain(strip.panels, 1, WLED_MAX_PANELS);
+    unsigned numPanels = matrix[F("mpc")] | 1;
+    numPanels = constrain(numPanels, 1, WLED_MAX_PANELS);
     strip.panel.clear();
     JsonArray panels = matrix[F("panels")];
     int s = 0;
     if (!panels.isNull()) {
-      strip.panel.reserve(strip.panels);  // pre-allocate default 8x8 panels
+      strip.panel.reserve(numPanels);  // pre-allocate default 8x8 panels
       for (JsonObject pnl : panels) {
         WS2812FX::Panel p;
         CJSON(p.bottomStart, pnl["b"]);
@@ -147,11 +147,10 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
         CJSON(p.height,      pnl["h"]);
         CJSON(p.width,       pnl["w"]);
         strip.panel.push_back(p);
-        if (++s >= strip.panels) break; // max panels reached
+        if (++s >= numPanels) break; // max panels reached
       }
     }
-    strip.panel.shrink_to_fit();  // release unused memory
-    strip.panels = strip.panel.size();  // safety to match vector size
+    strip.panel.shrink_to_fit();  // release unused memory (just in case)
     // cannot call strip.deserializeLedmap()/strip.setUpMatrix() here due to already locked JSON buffer
     if (!fromFS) doInit |= INIT_2D; // if called at boot (fromFS==true), WLED::beginStrip() will take care of setting up matrix
   }
@@ -789,7 +788,7 @@ void serializeConfig() {
   // 2D Matrix Settings
   if (strip.isMatrix) {
     JsonObject matrix = hw_led.createNestedObject(F("matrix"));
-    matrix[F("mpc")] = strip.panels;
+    matrix[F("mpc")] = strip.panel.size();
     JsonArray panels = matrix.createNestedArray(F("panels"));
     for (size_t i = 0; i < strip.panel.size(); i++) {
       JsonObject pnl = panels.createNestedObject();

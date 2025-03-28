@@ -763,12 +763,12 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
     strip.isMatrix = request->arg(F("SOMP")).toInt();
     strip.panel.clear();
     if (strip.isMatrix) {
-      strip.panels = constrain(request->arg(F("MPC")).toInt(), 1, WLED_MAX_PANELS);
-      strip.panel.reserve(strip.panels); // pre-allocate memory
-      for (unsigned i=0; i<strip.panels; i++) {
+      unsigned panels = constrain(request->arg(F("MPC")).toInt(), 1, WLED_MAX_PANELS);
+      strip.panel.reserve(panels); // pre-allocate memory
+      for (unsigned i=0; i<panels; i++) {
         WS2812FX::Panel p;
         char pO[8] = { '\0' };
-        snprintf_P(pO, 7, PSTR("P%d"), i);       // MAX_PANELS is 64 so pO will always only be 4 characters or less
+        snprintf_P(pO, 7, PSTR("P%d"), i);       // WLED_MAX_PANELS is less than 100 so pO will always only be 4 characters or less
         pO[7] = '\0';
         unsigned l = strlen(pO);
         // create P0B, P1B, ..., P63B, etc for other PxxX
@@ -785,7 +785,6 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
       }
     }
     strip.panel.shrink_to_fit();  // release unused memory
-    strip.panels = strip.panel.size();  // match vector size
     strip.deserializeMap(); // (re)load default ledmap (will also setUpMatrix() if ledmap does not exist)
     strip.makeAutoSegments(true); // force re-creation of segments
   }

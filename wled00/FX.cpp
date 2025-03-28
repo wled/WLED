@@ -1405,7 +1405,6 @@ uint16_t mode_fairy() {
         }
       }
       if (stateTime > 255) stateTime = 255; //for flasher brightness calculation, fades in first 255 ms of state
-      //flasherBri[f - firstFlasher] = (flashers[f].stateOn) ? 255-SEGMENT.gamma8((510 - stateTime) >> 1) : SEGMENT.gamma8((510 - stateTime) >> 1);
       flasherBri[f - firstFlasher] = (flashers[f].stateOn) ? stateTime : 255 - (stateTime >> 0);
       flasherBriSum += flasherBri[f - firstFlasher];
     }
@@ -1465,7 +1464,7 @@ uint16_t mode_fairytwinkle() {
     if (flashers[f].stateOn && flashers[f].stateDur > maxDur) flashers[f].stateDur = maxDur; //react more quickly on intensity change
     if (stateTime > riseFallTime) stateTime = riseFallTime; //for flasher brightness calculation, fades in first 255 ms of state
     unsigned fadeprog = 255 - ((stateTime * 255) / riseFallTime);
-    uint8_t flasherBri = (flashers[f].stateOn) ? 255-gamma8(fadeprog) : gamma8(fadeprog);
+    uint8_t flasherBri = (flashers[f].stateOn) ? 255-fadeprog : fadeprog;
     unsigned lastR = PRNG16;
     unsigned diff = 0;
     while (diff < 0x4000) { //make sure colors of two adjacent LEDs differ enough
@@ -4451,10 +4450,9 @@ uint16_t mode_tv_simulator(void) {
         tvSimulator->actualColorB = temp[n    ];
       }
     }
-    // Apply gamma correction, further expand to 16/16/16
-    nr = (uint8_t)gamma8(tvSimulator->actualColorR) * 257; // New R/G/B
-    ng = (uint8_t)gamma8(tvSimulator->actualColorG) * 257;
-    nb = (uint8_t)gamma8(tvSimulator->actualColorB) * 257;
+    nr = tvSimulator->actualColorR * 257; // New R/G/B
+    ng = tvSimulator->actualColorG * 257;
+    nb = tvSimulator->actualColorB * 257;
 
   if (SEGENV.aux0 == 0) {  // initialize next iteration
     SEGENV.aux0 = 1;
@@ -4707,21 +4705,21 @@ static const char _data_FX_MODE_WAVESINS[] PROGMEM = "Wavesins@!,Brightness vari
 uint16_t mode_FlowStripe(void) {
   if (SEGLEN <= 1) return mode_static();
   const auto abs  = [](int x) { return x<0 ? -x : x; };
-  const int hl = SEGLEN * 10 / 13;
+  const int hl = SEGLEN * 10 / 13; // 77% of segment
   uint8_t hue = strip.now / (SEGMENT.speed+1);
-  uint32_t t = strip.now / (SEGMENT.intensity/8+1);
+  uint32_t t = strip.now / (((255-SEGMENT.intensity)>>3)+1);
 
   for (unsigned i = 0; i < SEGLEN; i++) {
     int c = (abs((int)i - hl) / hl) * 127;
     c = sin8_t(c);
     c = sin8_t(c / 2 + t);
     byte b = sin8_t(c + t/8);
-    SEGMENT.setPixelColor(i, CHSV(b + hue, 255, 255));
+    SEGMENT.setPixelColor(i, SEGMENT.color_wheel(b+hue));
   }
 
   return FRAMETIME;
 } // mode_FlowStripe()
-static const char _data_FX_MODE_FLOWSTRIPE[] PROGMEM = "Flow Stripe@Hue speed,Effect speed;;";
+static const char _data_FX_MODE_FLOWSTRIPE[] PROGMEM = "Flow Stripe@Hue speed,Effect speed;;!;1";
 
 
 #ifndef WLED_DISABLE_2D
@@ -6109,13 +6107,13 @@ uint16_t mode_2Ddriftrose(void) {
     float angle = radians(i * 10);
     uint32_t x = (CX + (sin_t(angle) * (beatsin8_t(i, 0, L*2)-L))) * 255.f;
     uint32_t y = (CY + (cos_t(angle) * (beatsin8_t(i, 0, L*2)-L))) * 255.f;
-    SEGMENT.wu_pixel(x, y, CHSV(i * 10, 255, 255));
+    SEGMENT.wu_pixel(x, y, SEGMENT.palette==0 ? (uint32_t)CRGBW(CHSV(i * 10, 255, 255)) : ColorFromPalette(SEGPALETTE, map(i, 1,37, 0,255), 255, LINEARBLEND));
   }
-  SEGMENT.blur(SEGMENT.intensity>>4);
+  if (SEGMENT.intensity>>4) SEGMENT.blur(SEGMENT.intensity>>4);
 
   return FRAMETIME;
 }
-static const char _data_FX_MODE_2DDRIFTROSE[] PROGMEM = "Drift Rose@Fade,Blur;;;2";
+static const char _data_FX_MODE_2DDRIFTROSE[] PROGMEM = "Drift Rose@Fade,Blur;;!;2";
 
 /////////////////////////////
 //  2D PLASMA ROTOZOOMER   //
@@ -6205,9 +6203,9 @@ uint16_t mode_2Ddistortionwaves() {
       byte valueG = gdistort+ w*  (a2-( ((xoffs - cx1) * (xoffs - cx1) + (yoffs - cy1) * (yoffs - cy1))>>7 ));
       byte valueB = bdistort+ w*  (a3-( ((xoffs - cx2) * (xoffs - cx2) + (yoffs - cy2) * (yoffs - cy2))>>7 ));
 
-      valueR = gamma8(cos8_t(valueR));
-      valueG = gamma8(cos8_t(valueG));
-      valueB = gamma8(cos8_t(valueB));
+      valueR = cos8_t(valueR);
+      valueG = cos8_t(valueG);
+      valueB = cos8_t(valueB);
 
       SEGMENT.setPixelColorXY(x, y, RGBW32(valueR, valueG, valueB, 0));
     }

@@ -278,10 +278,10 @@ static bool deserializeSegment(JsonObject elem, byte it, byte presetId)
           }
         }
 
-        if (set < 2 || stop <= start) stop = start + 1;
-        uint32_t c = RGBW32(gamma8(rgbw[0]), gamma8(rgbw[1]), gamma8(rgbw[2]), gamma8(rgbw[3]));
-        while (start < stop) seg.setPixelColor(start++, c);
-        set = 0;
+        if (iSet < 2 || iStop <= iStart) iStop = iStart + 1;
+        uint32_t c = RGBW32(rgbw[0], rgbw[1], rgbw[2], rgbw[3]);
+        while (iStart < iStop) seg.setPixelColor(iStart++, c);
+        iSet = 0;
       }
     }
     seg.map1D2D = oldMap1D2D; // restore mapping
@@ -472,7 +472,7 @@ bool deserializeState(JsonObject root, byte callMode, byte presetId)
   }
 
   doAdvancePlaylist = root[F("np")] | doAdvancePlaylist; //advances to next preset in playlist when true
-  
+
   JsonObject wifi = root[F("wifi")];
   if (!wifi.isNull()) {
     bool apMode = getBoolVal(wifi[F("ap")], apActive);
@@ -1006,7 +1006,7 @@ class LockedJsonResponse: public AsyncJsonResponse {
   // if the lock was not acquired (using JSONBufferGuard class) previous implementation still cleared existing buffer
   inline LockedJsonResponse(JsonDocument* doc, bool isArray) : AsyncJsonResponse(doc, isArray), _holding_lock(true) {};
 
-  virtual size_t _fillBuffer(uint8_t *buf, size_t maxLen) { 
+  virtual size_t _fillBuffer(uint8_t *buf, size_t maxLen) {
     size_t result = AsyncJsonResponse::_fillBuffer(buf, maxLen);
     // Release lock as soon as we're done filling content
     if (((result + _sentLength) >= (_contentLength)) && _holding_lock) {
@@ -1123,7 +1123,7 @@ bool serveLiveLeds(AsyncWebServerRequest* request, uint32_t wsClient)
   }
 #endif
 
-  DynamicBuffer buffer(9 + (9*(1+(used/n))) + 7 + 5 + 6 + 5 + 6 + 5 + 2);  
+  DynamicBuffer buffer(9 + (9*(1+(used/n))) + 7 + 5 + 6 + 5 + 6 + 5 + 2);
   char* buf = buffer.data();      // assign buffer for oappnd() functions
   strncpy_P(buffer.data(), PSTR("{\"leds\":["), buffer.size());
   buf += 9; // sizeof(PSTR()) from last line
@@ -1153,7 +1153,7 @@ bool serveLiveLeds(AsyncWebServerRequest* request, uint32_t wsClient)
 #endif
   (*buf++) = '}';
   (*buf++) = 0;
-  
+
   if (request) {
     request->send(200, FPSTR(CONTENT_TYPE_JSON), toString(std::move(buffer)));
   }
@@ -1161,7 +1161,7 @@ bool serveLiveLeds(AsyncWebServerRequest* request, uint32_t wsClient)
   else {
     wsc->text(toString(std::move(buffer)));
   }
-  #endif  
+  #endif
   return true;
 }
 #endif
