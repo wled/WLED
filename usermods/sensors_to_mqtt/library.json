@@ -1,5 +1,5 @@
 {
-  "name:": "sensors_to_mqtt",
+  "name": "sensors_to_mqtt",
   "build": { "libArchive": false},
   "dependencies": {
     "adafruit/Adafruit BMP280 Library":"2.6.8",
