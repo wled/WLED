@@ -438,18 +438,20 @@ void Segment::setCurrentPalette() {
 
 // relies on WS2812FX::service() to call it for each frame
 void Segment::handleRandomPalette() {
+  uint16_t time_ms = millis();
+  uint16_t time_s  = millis()/1000U;
   // is it time to generate a new palette?
-  if ((uint16_t)((uint16_t)(millis() / 1000U) - _lastPaletteChange) > randomPaletteChangeTime){
-        _newRandomPalette = useHarmonicRandomPalette ? generateHarmonicRandomPalette(_randomPalette) : generateRandomPalette();
-        _lastPaletteChange = (uint16_t)(millis() / 1000U);
-        _lastPaletteBlend = (uint16_t)((uint16_t)millis() - 512); // starts blending immediately   
+  if ((uint16_t)(time_s - _lastPaletteChange) > randomPaletteChangeTime) {
+    _newRandomPalette = useHarmonicRandomPalette ? generateHarmonicRandomPalette(_randomPalette) : generateRandomPalette();
+    _lastPaletteChange = time_s;
+    _lastPaletteBlend = time_ms - 512; // starts blending immediately
   }
 
   // if palette transitions is enabled, blend it according to Transition Time (if longer than minimum given by service calls)
   if (strip.paletteFade) {
     // assumes that 128 updates are sufficient to blend a palette, so shift by 7 (can be more, can be less)
     // in reality there need to be 255 blends to fully blend two entirely different palettes
-    if ((uint16_t)((uint16_t)millis() - _lastPaletteBlend) < strip.getTransition() >> 7) return; // not yet time to fade, delay the update
+    if ((uint16_t)(time_ms - _lastPaletteBlend) < strip.getTransition() >> 7) return; // not yet time to fade, delay the update
     _lastPaletteBlend = (uint16_t)millis();
   }
   nblendPaletteTowardPalette(_randomPalette, _newRandomPalette, 48);
