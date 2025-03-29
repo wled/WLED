@@ -113,7 +113,9 @@ bool isButtonPressed(uint8_t b)
         #ifdef SOC_TOUCH_VERSION_2 //ESP32 S2 and S3 provide a function to check touch state (state is updated in interrupt)
         if (touchInterruptGetLastStatus(pin)) return true;
         #else
+        #if !defined(CONFIG_IDF_TARGET_ESP32C6)
         if (digitalPinToTouchChannel(btnPin[b]) >= 0 && touchRead(pin) <= touchThreshold) return true;
+        #endif
         #endif
       #endif
      break;
