@@ -17,7 +17,7 @@ Distributed as-is; no warranty is given.
 #if defined(ARDUINO_ARCH_ESP32)
 
 #include <Arduino.h>
-#if !defined(CONFIG_IDF_TARGET_ESP32C3)  && !defined(CONFIG_IDF_TARGET_ESP32S2)
+#if !defined(CONFIG_IDF_TARGET_ESP32C3)  && !defined(CONFIG_IDF_TARGET_ESP32S2) && !defined(CONFIG_IDF_TARGET_ESP32C6)
 
 #include "SparkFunDMX.h"
 #include <HardwareSerial.h>
