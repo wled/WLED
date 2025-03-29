@@ -18,7 +18,7 @@
 static uint32_t pinAlloc = 0UL;     // 1 bit per pin, we use first 17bits
 #else
 static uint64_t pinAlloc = 0ULL;     // 1 bit per pin, we use 50 bits on ESP32-S3
-static uint16_t ledcAlloc = 0;    // up to 16 LEDC channels (WLED_MAX_ANALOG_CHANNELS)  
+static uint16_t ledcAlloc = 0;    // up to 16 LEDC channels (WLED_MAX_ANALOG_CHANNELS)
 #endif
 static uint8_t i2cAllocCount = 0; // allow multiple allocation of I2C bus pins but keep track of allocations
 static uint8_t spiAllocCount = 0; // allow multiple allocation of SPI bus pins but keep track of allocations
