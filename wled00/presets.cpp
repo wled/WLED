@@ -242,7 +242,7 @@ void savePreset(byte index, const char* pname, JsonObject sObj)
   if (!sObj[FPSTR(bootPS)].isNull()) {
     bootPreset = sObj[FPSTR(bootPS)] | bootPreset;
     sObj.remove(FPSTR(bootPS));
-    doSerializeConfig = true;
+    configNeedsWrite = true;
   }
 
   if (sObj.size()==0 || sObj["o"].isNull()) { // no "o" means not a playlist or custom API call, saving of state is async (not immediately)

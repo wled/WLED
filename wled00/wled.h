@@ -877,7 +877,7 @@ WLED_GLOBAL byte errorFlag _INIT(0);
 WLED_GLOBAL String messageHead, messageSub;
 WLED_GLOBAL byte optionType;
 
-WLED_GLOBAL bool doSerializeConfig _INIT(false);        // flag to initiate saving of config
+WLED_GLOBAL bool configNeedsWrite  _INIT(false);        // flag to initiate saving of config
 WLED_GLOBAL bool doReboot          _INIT(false);        // flag to initiate reboot from async handlers
 
 WLED_GLOBAL bool psramSafe         _INIT(true);         // is it safe to use PSRAM (on ESP32 rev.1; compiler fix used "-mfix-esp32-psram-cache-issue")

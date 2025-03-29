@@ -671,7 +671,7 @@ void deserializeConfigFromFS() {
     // call readFromConfig() with an empty object so that usermods can initialize to defaults prior to saving
     JsonObject empty = JsonObject();
     UsermodManager::readFromConfig(empty);
-    serializeConfig();
+    serializeConfigToFS();
     // init Ethernet (in case default type is set at compile time)
     #if defined(ARDUINO_ARCH_ESP32) && defined(WLED_USE_ETHERNET)
     initEthernet();
@@ -685,10 +685,10 @@ void deserializeConfigFromFS() {
   bool needsSave = deserializeConfig(root, true);
   releaseJSONBufferLock();
 
-  if (needsSave) serializeConfig(); // usermods required new parameters
+  if (needsSave) serializeConfigToFS(); // usermods required new parameters
 }
 
-void serializeConfig() {
+void serializeConfigToFS() {
   serializeConfigSec();
 
   DEBUG_PRINTLN(F("Writing settings to /cfg.json..."));
@@ -697,6 +697,17 @@ void serializeConfig() {
 
   JsonObject root = pDoc->to<JsonObject>();
 
+  serializeConfig(root);
+
+  File f = WLED_FS.open(FPSTR(s_cfg_json), "w");
+  if (f) serializeJson(root, f);
+  f.close();
+  releaseJSONBufferLock();
+
+  configNeedsWrite = false;
+}
+
+void serializeConfig(JsonObject root) {
   JsonArray rev = root.createNestedArray("rev");
   rev.add(1); //major settings revision
   rev.add(0); //minor settings revision
@@ -1111,13 +1122,6 @@ void serializeConfig() {
 
   JsonObject usermods_settings = root.createNestedObject("um");
   UsermodManager::addToConfig(usermods_settings);
-
-  File f = WLED_FS.open(FPSTR(s_cfg_json), "w");
-  if (f) serializeJson(root, f);
-  f.close();
-  releaseJSONBufferLock();
-
-  doSerializeConfig = false;
 }
 
 

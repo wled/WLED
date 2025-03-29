@@ -13,7 +13,7 @@
 	function S() {
 		getLoc();
 		// load settings and insert values into DOM
-		fetch(getURL('/cfg.json'), {
+		fetch(getURL('/json/cfg'), {
 			method: 'get'
 		})
 		.then(res => {
