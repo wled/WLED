@@ -624,6 +624,8 @@ void WLED::initConnection()
   WiFi.setPhyMode(force802_3g ? WIFI_PHY_MODE_11G : WIFI_PHY_MODE_11N);
 #endif
 
+// Check if static IP and gateway are set by comparing against default-constructed IPAddress()
+// This is safer and more portable than using 0U, which may not work reliably across all platforms (e.g., ESP32-C6)
 if (multiWiFi[selectedWiFi].staticIP != IPAddress() && multiWiFi[selectedWiFi].staticGW != IPAddress()) {
   WiFi.config(multiWiFi[selectedWiFi].staticIP, multiWiFi[selectedWiFi].staticGW, multiWiFi[selectedWiFi].staticSN, dnsAddress);
 } else {
