@@ -7,7 +7,7 @@
 #ifdef ARDUINO_ARCH_ESP32
 #include "driver/ledc.h"
 #include "soc/ledc_struct.h"
-  #if !(defined(CONFIG_IDF_TARGET_ESP32C3) || defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32S3))
+  #if !(defined(CONFIG_IDF_TARGET_ESP32C3) || defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32S3) || defined(CONFIG_IDF_TARGET_ESP32C6))
     #define LEDC_MUTEX_LOCK()    do {} while (xSemaphoreTake(_ledc_sys_lock, portMAX_DELAY) != pdPASS)
     #define LEDC_MUTEX_UNLOCK()  xSemaphoreGive(_ledc_sys_lock)
     extern xSemaphoreHandle _ledc_sys_lock;
@@ -478,7 +478,7 @@ BusPwm::BusPwm(const BusConfig &bc)
     _pins[i] = bc.pins[i]; // store only after allocateMultiplePins() succeeded
     #ifdef ESP8266
     pinMode(_pins[i], OUTPUT);
-    #else
+    #elif !defined(CONFIG_IDF_TARGET_ESP32C6)
     unsigned channel = _ledcStart + i;
     ledcSetup(channel, _frequency, _depth - (dithering*4)); // with dithering _frequency doesn't really matter as resolution is 8 bit
     ledcAttachPin(_pins[i], channel);
@@ -646,7 +646,7 @@ void BusPwm::deallocatePins() {
     if (!PinManager::isPinOk(_pins[i])) continue;
     #ifdef ESP8266
     digitalWrite(_pins[i], LOW); //turn off PWM interrupt
-    #else
+    #elif !defined(CONFIG_IDF_TARGET_ESP32C6)
     if (_ledcStart < WLED_MAX_ANALOG_CHANNELS) ledcDetachPin(_pins[i]);
     #endif
   }
