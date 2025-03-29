@@ -107,6 +107,9 @@
 #include <SPI.h>
 
 #include "src/dependencies/network/Network.h"
+#if defined(CONFIG_IDF_TARGET_ESP32C6)
+#define Network Network_C6
+#endif
 
 #ifdef WLED_USE_MY_CONFIG
   #include "my_config.h"

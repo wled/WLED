@@ -88,4 +88,8 @@ bool NetworkClass::isEthernet()
   return false;
 }
 
+#if defined(CONFIG_IDF_TARGET_ESP32C6)
+NetworkClass Network_C6;
+#else
 NetworkClass Network;
+#endif
