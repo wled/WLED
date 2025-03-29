@@ -404,13 +404,12 @@ class Segment {
       bool    check1  : 1;        // checkmark 1
       bool    check2  : 1;        // checkmark 2
       bool    check3  : 1;        // checkmark 3
-      uint8_t blendMode : 4;      // segment blending modes: top, bottom, add, subtract, difference, multiply, divide, lighten, darken, screen, overlay, hardlight, softlight, dodge, burn
-      uint8_t reserved  : 4;      // for future use
+      //uint8_t blendMode : 4;      // segment blending modes: top, bottom, add, subtract, difference, multiply, divide, lighten, darken, screen, overlay, hardlight, softlight, dodge, burn
     };
-    uint8_t   startY;   // start Y coodrinate 2D (top); there should be no more than 255 rows
-    uint8_t   stopY;    // stop Y coordinate 2D (bottom); there should be no more than 255 rows
-    //note: here are 3 free bytes of padding
-    char     *name;     // segment name
+    uint8_t   blendMode;          // segment blending modes: top, bottom, add, subtract, difference, multiply, divide, lighten, darken, screen, overlay, hardlight, softlight, dodge, burn
+    uint16_t  startY;             // start Y coodrinate 2D (top); there should be no more than 255 rows
+    uint16_t  stopY;              // stop Y coordinate 2D (bottom); there should be no more than 255 rows
+    char     *name;               // segment name
 
     // runtime data
     mutable unsigned long next_time;  // millis() of next update
@@ -486,6 +485,21 @@ class Segment {
     inline void     setPixelColorXYRaw(unsigned x, unsigned y, uint32_t c) const  { auto XY = [](unsigned x, unsigned y){ return x + y*Segment::vWidth(); }; pixels[XY(x,y)] = c; }
     inline uint32_t getPixelColorXYRaw(unsigned x, unsigned y) const              { auto XY = [](unsigned x, unsigned y){ return x + y*Segment::vWidth(); }; return pixels[XY(x,y)]; };
   #endif
+    void resetIfRequired();         // sets all SEGENV variables to 0 and clears data buffer
+    CRGBPalette16 &loadPalette(CRGBPalette16 &tgt, uint8_t pal);
+
+    // transition functions
+    void stopTransition();                  // ends transition mode by destroying transition structure (does nothing if not in transition)
+    void updateTransitionProgress() const;  // sets transition progress (0-65535) based on time passed since transition start
+    inline void handleTransition() {
+      updateTransitionProgress();
+      if (isInTransition() && progress() == 0xFFFFU) stopTransition();
+    }
+    inline unsigned progress() const          { return Segment::_transitionProgress; } // relies on handleTransition()/updateTransitionProgress() to update progression variable
+    inline Segment *getOldSegment() const     { return isInTransition() ? _t->_oldSegment : nullptr; }
+
+    inline static void modeBlend(bool blend)  { Segment::_modeBlend = blend; }
+    inline static void setClippingRect(int startX, int stopX, int startY = 0, int stopY = 1) { _clipStart = startX; _clipStop = stopX; _clipStartY = startY; _clipStopY = stopY; };
 
   public:
 
@@ -576,16 +590,17 @@ class Segment {
 
     inline static unsigned getUsedSegmentData()            { return Segment::_usedSegmentData; }
     inline static void     addUsedSegmentData(int len)     { Segment::_usedSegmentData += len; }
-    inline static void     modeBlend(bool blend)           { Segment::_modeBlend = blend; }
     inline static bool     isPreviousMode()                { return Segment::_modeBlend; }
     inline static unsigned vLength()                       { return Segment::_vLength; }
     inline static unsigned vWidth()                        { return Segment::_vWidth; }
     inline static unsigned vHeight()                       { return Segment::_vHeight; }
     inline static uint32_t getCurrentColor(unsigned i)     { return Segment::_currentColors[i]; } // { return i < 3 ? Segment::_currentColors[i] : 0; }
     inline static const CRGBPalette16 &getCurrentPalette() { return Segment::_currentPalette; }
+
     static void handleRandomPalette();
 
     inline void setDrawDimensions() const { Segment::_vWidth = virtualWidth(); Segment::_vHeight = virtualHeight(); Segment::_vLength = virtualLength(); }
+
     void    beginDraw();            // set up parameters for current effect
     void    setGeometry(uint16_t i1, uint16_t i2, uint8_t grp=1, uint8_t spc=0, uint16_t ofs=UINT16_MAX, uint16_t i1Y=0, uint16_t i2Y=1, uint8_t m12=0);
     Segment &setColor(uint8_t slot, uint32_t c);
@@ -602,7 +617,6 @@ class Segment {
     inline uint16_t dataSize() const { return _dataLen; }
     bool allocateData(size_t len);  // allocates effect data buffer in heap and clears it
     void deallocateData();          // deallocates (frees) effect data buffer from heap
-    void resetIfRequired();         // sets all SEGENV variables to 0 and clears data buffer
     /**
       * Flags that before the next effect is calculated,
       * the internal segment state should be reset.
@@ -611,19 +625,9 @@ class Segment {
       */
     inline Segment &markForReset() { reset = true; return *this; }  // setOption(SEG_OPTION_RESET, true)
 
-    // transition functions
     void startTransition(uint16_t dur, bool segmentCopy = true);    // transition has to start before actual segment values change
-    void stopTransition();                  // ends transition mode by destroying transition structure (does nothing if not in transition)
-    void updateTransitionProgress() const;  // sets transition progress (0-65535) based on time passed since transition start
-    inline void handleTransition() {
-      updateTransitionProgress();
-      if (isInTransition() && progress() == 0xFFFFU) stopTransition();
-    }
-    inline unsigned progress() const      { return Segment::_transitionProgress; } // relies on handleTransition()/updateTransitionProgress() to update progression variable
-    inline Segment *getOldSegment() const { return isInTransition() ? _t->_oldSegment : nullptr; }
     uint8_t  currentCCT() const; // current segment's CCT (blended while in transition)
     uint8_t  currentBri() const; // current segment's opacity/brightness (blended while in transition)
-    CRGBPalette16 &loadPalette(CRGBPalette16 &tgt, uint8_t pal);
 
     // 1D strip
     uint16_t virtualLength() const;
@@ -636,7 +640,6 @@ class Segment {
     inline void setPixelColor(float i, uint8_t r, uint8_t g, uint8_t b, uint8_t w = 0, bool aa = true) const { setPixelColor(i, RGBW32(r,g,b,w), aa); }
     inline void setPixelColor(float i, CRGB c, bool aa = true) const                                         { setPixelColor(i, RGBW32(c.r,c.g,c.b,0), aa); }
     #endif
-    static inline void setClippingRect(int startX, int stopX, int startY = 0, int stopY = 1) { _clipStart = startX; _clipStop = stopX; _clipStartY = startY; _clipStopY = stopY; };
     [[gnu::hot]] bool isPixelClipped(int i) const;
     [[gnu::hot]] uint32_t getPixelColor(int i) const;
     // 1D support functions (some implement 2D as well)
@@ -829,8 +832,6 @@ class WS2812FX {
 
     inline void setPixelColor(unsigned n, uint32_t c) const   { if (n < getLengthTotal()) _pixels[n] = c; }  // paints absolute strip pixel with index n and color c
     inline void resetTimebase()                               { timebase = 0UL - millis(); }
-    inline void restartRuntime()                              { for (Segment &seg : _segments) seg.markForReset().resetIfRequired(); }
-    inline void setTransitionMode(bool t)                     { for (Segment &seg : _segments) seg.startTransition(t ? _transitionDur : 0); }
     inline void setPixelColor(unsigned n, uint8_t r, uint8_t g, uint8_t b, uint8_t w = 0) const
                                                               { setPixelColor(n, RGBW32(r,g,b,w)); }
     inline void setPixelColor(unsigned n, CRGB c) const       { setPixelColor(n, c.red, c.green, c.blue); }
@@ -843,11 +844,13 @@ class WS2812FX {
     inline void suspend()                                     { _suspend = true; }    // will suspend (and canacel) strip.service() execution
     inline void resume()                                      { _suspend = false; }   // will resume strip.service() execution
 
-    bool
-      checkSegmentAlignment() const,
-      hasRGBWBus() const,
-      hasCCTBus() const,
-      deserializeMap(unsigned n = 0);
+    void restartRuntime();
+    void setTransitionMode(bool t);
+
+    bool checkSegmentAlignment() const;
+    bool hasRGBWBus() const;
+    bool hasCCTBus() const;
+    bool deserializeMap(unsigned n = 0);
 
     inline bool isUpdating() const           { return !BusManager::canAllShow(); } // return true if the strip is being sent pixel updates
     inline bool isServicing() const          { return _isServicing; }           // returns true if strip.service() is executing
@@ -856,13 +859,12 @@ class WS2812FX {
     inline bool isSuspended() const          { return _suspend; }               // returns true if strip.service() execution is suspended
     inline bool needsUpdate() const          { return _triggered; }             // returns true if strip received a trigger() request
 
-    uint8_t
-      paletteBlend,
-      getActiveSegmentsNum() const,
-      getFirstSelectedSegId() const,
-      getLastActiveSegmentId() const,
-      getActiveSegsLightCapabilities(bool selectedOnly = false) const,
-      addEffect(uint8_t id, mode_ptr mode_fn, const char *mode_name);         // add effect to the list; defined in FX.cpp;
+    uint8_t paletteBlend;
+    uint8_t getActiveSegmentsNum() const;
+    uint8_t getFirstSelectedSegId() const;
+    uint8_t getLastActiveSegmentId() const;
+    uint8_t getActiveSegsLightCapabilities(bool selectedOnly = false) const;
+    uint8_t addEffect(uint8_t id, mode_ptr mode_fn, const char *mode_name);         // add effect to the list; defined in FX.cpp;
 
     inline uint8_t getBrightness() const    { return _brightness; }       // returns current strip brightness
     inline static constexpr unsigned getMaxSegments() { return MAX_NUM_SEGMENTS; }  // returns maximum number of supported segments (fixed value)
@@ -872,9 +874,8 @@ class WS2812FX {
     inline uint8_t getTargetFps() const     { return _targetFps; }        // returns rough FPS value for las 2s interval
     inline uint8_t getModeCount() const     { return _modeCount; }        // returns number of registered modes/effects
 
-    uint16_t
-      getLengthPhysical() const,
-      getLengthTotal() const; // will include virtual/nonexistent pixels in matrix
+    uint16_t getLengthPhysical() const;
+    uint16_t getLengthTotal() const; // will include virtual/nonexistent pixels in matrix
 
     inline uint16_t getFps() const          { return (millis() - _lastShow > 2000) ? 0 : _cumulativeFps; } // Returns the refresh rate of the LED strip
     inline uint16_t getFrameTime() const    { return _frametime; }        // returns amount of time a frame should take (in ms)
