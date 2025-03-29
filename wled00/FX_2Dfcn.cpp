@@ -148,23 +148,23 @@ void WS2812FX::setUpMatrix() {
 // if clipping start > stop the clipping range is inverted
 bool IRAM_ATTR Segment::isPixelXYClipped(int x, int y) const {
   if (isInTransition() && _clipStart != _clipStop && blendingStyle != BLEND_STYLE_FADE) {
-    const bool invertX = _clipStart > _clipStop;
+    const bool invertX = _clipStart  > _clipStop;
     const bool invertY = _clipStartY > _clipStopY;
-    const int startX   = invertX ? _clipStop : _clipStart;
-    const int stopX    = invertX ? _clipStart : _clipStop;
-    const int startY   = invertY ? _clipStopY : _clipStartY;
-    const int stopY    = invertY ? _clipStartY : _clipStopY;
+    const int  cStartX = invertX ? _clipStop   : _clipStart;
+    const int  cStopX  = invertX ? _clipStart  : _clipStop;
+    const int  cStartY = invertY ? _clipStopY  : _clipStartY;
+    const int  cStopY  = invertY ? _clipStartY : _clipStopY;
     if (blendingStyle == BLEND_STYLE_FAIRY_DUST) {
-      const unsigned width = stopX - startX;          // assumes full segment width (faster than virtualWidth())
-      const unsigned len = width * (stopY - startY);  // assumes full segment height (faster than virtualHeight())
+      const unsigned width = cStopX - cStartX;          // assumes full segment width (faster than virtualWidth())
+      const unsigned len = width * (cStopY - cStartY);  // assumes full segment height (faster than virtualHeight())
       if (len < 2) return false;
       const unsigned shuffled = hashInt(x + y * width) % len;
       const unsigned pos = (shuffled * 0xFFFFU) / len;
       return progress() <= pos;
     }
     if (blendingStyle == BLEND_STYLE_CIRCULAR_IN || blendingStyle == BLEND_STYLE_CIRCULAR_OUT) {
-      const int cx   = (stopX-startX+1) / 2;
-      const int cy   = (stopY-startY+1) / 2;
+      const int cx   = (cStopX-cStartX+1) / 2;
+      const int cy   = (cStopY-cStartY+1) / 2;
       const bool out = (blendingStyle == BLEND_STYLE_CIRCULAR_OUT);
       const unsigned prog = out ? progress() : 0xFFFFU - progress();
       int radius2    = max(cx, cy) * prog / 0xFFFF;
@@ -175,8 +175,8 @@ bool IRAM_ATTR Segment::isPixelXYClipped(int x, int y) const {
       const bool outside = dx * dx + dy * dy > radius2;
       return out ? outside : !outside;
     }
-    bool xInside = (x >= startX && x < stopX); if (invertX) xInside = !xInside;
-    bool yInside = (y >= startY && y < stopY); if (invertY) yInside = !yInside;
+    bool xInside = (x >= cStartX && x < cStopX); if (invertX) xInside = !xInside;
+    bool yInside = (y >= cStartY && y < cStopY); if (invertY) yInside = !yInside;
     const bool clip = (invertX && invertY); // ? !Segment::isPreviousMode() : Segment::isPreviousMode();
     if (xInside && yInside) return clip; // covers window & corners (inverted)
     return !clip;

@@ -241,20 +241,21 @@ static bool deserializeSegment(JsonObject elem, byte it, byte presetId)
 
     // set brightness immediately and disable transition
     jsonTransitionOnce = true;
-    if (seg.isInTransition()) seg.stopTransition();
+    if (seg.isInTransition()) seg.startTransition(0); // setting transition time to 0 will stop transition in next frame
     strip.setTransition(0);
     strip.setBrightness(scaledBri(bri), true);
 
     // freeze and init to black
     if (!seg.freeze) {
       seg.freeze = true;
-      seg.fill(BLACK);
+      seg.clear();
     }
 
     // shadow function variables
     unsigned start = 0, stop = 0;
     unsigned set = 0; //0 nothing set, 1 start set, 2 range set
 
+    seg.setDrawDimensions(); // needed for setPixelColor() (strip is in suspend mode prior to this call so it is safe)
     for (size_t i = 0; i < iarr.size(); i++) {
       if (iarr[i].is<JsonInteger>()) {
         if (!set) {

@@ -1392,10 +1392,10 @@ void WS2812FX::service() {
   #ifdef WLED_DEBUG_FX
   if (millis() - nowUp > _frametime) DEBUGFX_PRINTF_P(PSTR("Slow effects %u/%d.\n"), (unsigned)(millis()-nowUp), (int)_frametime);
   #endif
-  if (doShow) {
+  if (doShow && !_suspend) {
     yield();
     Segment::handleRandomPalette(); // slowly transition random palette; move it into for loop when each segment has individual random palette
-    if (!_suspend) show();
+    show();
   }
   #ifdef WLED_DEBUG_FX
   if (millis() - nowUp > _frametime) DEBUGFX_PRINTF_P(PSTR("Slow strip %u/%d.\n"), (unsigned)(millis()-nowUp), (int)_frametime);
@@ -1744,6 +1744,22 @@ void WS2812FX::show() {
   }
 }
 
+// reset all segments
+void WS2812FX::restartRuntime() {
+  suspend();
+  waitForIt();
+  for (Segment &seg : _segments) seg.markForReset().resetIfRequired();
+  resume();
+}
+
+// start or stop transition for all segments
+void WS2812FX::setTransitionMode(bool t) {
+  suspend();
+  waitForIt();
+  for (Segment &seg : _segments) seg.startTransition(t ? _transitionDur : 0);
+  resume();
+}
+
 // wait until frame is over (service() has finished or time for 1 frame has passed; yield() crashes on 8266)
 void WS2812FX::waitForIt() {
   unsigned long maxWait = millis() + getFrameTime();
@@ -1775,8 +1791,6 @@ void WS2812FX::setBrightness(uint8_t b, bool direct) {
   if (_brightness == 0) { //unfreeze all segments on power off
     for (const Segment &seg : _segments) seg.freeze = false; // freeze is mutable
   }
-  // setting brightness with NeoPixelBusLg has no effect on already painted pixels,
-  // so we need to force an update to existing buffer
   BusManager::setBrightness(b);
   if (!direct) {
     unsigned long t = millis();
