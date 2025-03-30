@@ -133,7 +133,7 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
     numPanels = constrain(numPanels, 1, WLED_MAX_PANELS);
     strip.panel.clear();
     JsonArray panels = matrix[F("panels")];
-    int s = 0;
+    unsigned s = 0;
     if (!panels.isNull()) {
       strip.panel.reserve(numPanels);  // pre-allocate default 8x8 panels
       for (JsonObject pnl : panels) {

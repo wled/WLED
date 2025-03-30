@@ -1012,14 +1012,14 @@ void Segment::refreshLightCapabilities() const {
  */
 void Segment::clear() const {
   if (!isActive()) return; // not active
-    unsigned oldVW = _vWidth;
-    unsigned oldVH = _vHeight;
-    unsigned oldVL = _vLength;
-    setDrawDimensions();
-    fill(BLACK);
-    _vWidth  = oldVW;
-    _vHeight = oldVH;
-    _vLength = oldVL;
+  unsigned oldVW = _vWidth;
+  unsigned oldVH = _vHeight;
+  unsigned oldVL = _vLength;
+  setDrawDimensions();
+  fill(BLACK);
+  _vWidth  = oldVW;
+  _vHeight = oldVH;
+  _vLength = oldVL;
 }
 
 /*
@@ -1738,6 +1738,15 @@ void WS2812FX::show() {
     int fpsCurr = (1000 << FPS_CALC_SHIFT) / diff; // fixed point math (shift left for better precision)
     _cumulativeFps += ((fpsCurr - (_cumulativeFps << FPS_CALC_SHIFT)) / FPS_CALC_AVG + ((1<<FPS_CALC_SHIFT)/FPS_CALC_AVG)) >> FPS_CALC_SHIFT; // simple PI controller over FPS_CALC_AVG frames
     _lastShow = showNow;
+  }
+}
+
+void WS2812FX::setRealtimePixelColor(unsigned i, uint32_t c) {
+  if (useMainSegmentOnly) {
+    const Segment &seg = getMainSegment();
+    if (seg.isActive() && i < seg.length()) seg.setPixelColorRaw(i, c);
+  } else {
+    setPixelColor(i, c);
   }
 }
 

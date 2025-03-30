@@ -406,13 +406,11 @@ void realtimeLock(uint32_t timeoutMs, byte md)
   if (!realtimeMode && !realtimeOverride) {
     if (useMainSegmentOnly) {
       Segment& mainseg = strip.getMainSegment();
-      mainseg.fill(BLACK); // clear entire segment (in case sender transmits less pixels)
+      mainseg.clear(); // clear entire segment (in case sender transmits less pixels)
       mainseg.freeze = true;
       // if WLED was off and using main segment only, freeze non-main segments so they stay off
       if (bri == 0) {
-        for (size_t s = 0; s < strip.getSegmentsNum(); s++) {
-          strip.getSegment(s).freeze = true;
-        }
+        for (size_t s = 0; s < strip.getSegmentsNum(); s++) strip.getSegment(s).freeze = true;
       }
     } else {
       // clear entire strip
@@ -431,7 +429,7 @@ void realtimeLock(uint32_t timeoutMs, byte md)
 
   if (realtimeOverride) return;
   if (arlsForceMaxBri) strip.setBrightness(scaledBri(255), true);
-  if (briT > 0 && md == REALTIME_MODE_GENERIC) strip.trigger(); //strip.show();
+  if (briT > 0 && md == REALTIME_MODE_GENERIC) strip.show();
 }
 
 void exitRealtime() {
@@ -444,7 +442,7 @@ void exitRealtime() {
   if (useMainSegmentOnly) { // unfreeze live segment again
     strip.getMainSegment().freeze = false;
   } else {
-    strip.trigger(); //strip.show(); // possible fix for #3589
+    strip.show(); // possible fix for #3589
   }
   updateInterfaces(CALL_MODE_WS_SEND);
 }
@@ -472,7 +470,7 @@ void handleNotifications()
   if (e131NewData && millis() - strip.getLastShow() > 15)
   {
     e131NewData = false;
-    strip.trigger(); //strip.show();
+    strip.show();
   }
 
   //unlock strip when realtime UDP times out
@@ -501,11 +499,10 @@ void handleNotifications()
       realtimeLock(realtimeTimeoutMs, REALTIME_MODE_HYPERION);
       if (realtimeOverride && !(realtimeMode && useMainSegmentOnly)) return;
       unsigned totalLen = strip.getLengthTotal();
-      if (useMainSegmentOnly) strip.getMainSegment().beginDraw(); // set up parameters for get/setPixelColor()
       for (size_t i = 0, id = 0; i < packetSize -2 && id < totalLen; i += 3, id++) {
         setRealtimePixel(id, lbuf[i], lbuf[i+1], lbuf[i+2], 0);
       }
-      if (!(realtimeMode && useMainSegmentOnly)) strip.trigger(); //strip.show();
+      if (!(realtimeMode && useMainSegmentOnly)) strip.show();
       return;
     }
   }
@@ -583,13 +580,12 @@ void handleNotifications()
 
     unsigned id = (tpmPayloadFrameSize/3)*(packetNum-1); //start LED
     unsigned totalLen = strip.getLengthTotal();
-    if (useMainSegmentOnly) strip.getMainSegment().beginDraw(); // set up parameters for get/setPixelColor()
     for (size_t i = 6; i < tpmPayloadFrameSize + 4U && id < totalLen; i += 3, id++) {
       setRealtimePixel(id, udpIn[i], udpIn[i+1], udpIn[i+2], 0);
     }
     if (tpmPacketCount == numPackets) { //reset packet count and show if all packets were received
       tpmPacketCount = 0;
-      strip.trigger(); //strip.show();
+      strip.show();
     }
     return;
   }
@@ -611,7 +607,6 @@ void handleNotifications()
     if (realtimeOverride && !(realtimeMode && useMainSegmentOnly)) return;
 
     unsigned totalLen = strip.getLengthTotal();
-    if (useMainSegmentOnly) strip.getMainSegment().beginDraw(); // set up parameters for get/setPixelColor()
     if (udpIn[0] == 1 && packetSize > 5) //warls
     {
       for (size_t i = 2; i < packetSize -3; i += 4)
@@ -645,7 +640,7 @@ void handleNotifications()
         setRealtimePixel(id, udpIn[i], udpIn[i+1], udpIn[i+2], udpIn[i+3]);
       }
     }
-    strip.trigger(); //strip.show();
+    strip.show();
     return;
   }
 
@@ -670,14 +665,7 @@ void handleNotifications()
 void setRealtimePixel(uint16_t i, byte r, byte g, byte b, byte w)
 {
   unsigned pix = i + arlsOffset;
-  if (pix < strip.getLengthTotal()) {
-    uint32_t col = RGBW32(r,g,b,w);
-    if (useMainSegmentOnly) {
-      strip.getMainSegment().setPixelColor(pix, col); // this expects that strip.getMainSegment().beginDraw() has been called in handleNotification()
-    } else {
-      strip.setPixelColor(pix, col);
-    }
-  }
+  strip.setRealtimePixelColor(pix, RGBW32(r,g,b,w));
 }
 
 /*********************************************************************************************\
@@ -1017,8 +1005,8 @@ void espNowReceiveCB(uint8_t* address, uint8_t* data, uint8_t len, signed int rs
       // we are already past max segments, just ignore
       DEBUG_PRINTLN(F("ESP-NOW received segments past maximum."));
       len = 3;
-    } else if ((segsReceived + ((len - 3) / UDP_SEG_SIZE)) >= MAX_NUM_SEGMENTS) {
-      len = ((MAX_NUM_SEGMENTS - segsReceived) * UDP_SEG_SIZE) + 3; // we have reached max number of segments
+    } else if ((unsigned)(segsReceived + ((len - 3) / UDP_SEG_SIZE)) >= WS2812FX::getMaxSegments()) {
+      len = ((WS2812FX::getMaxSegments() - segsReceived) * UDP_SEG_SIZE) + 3; // we have reached max number of segments
     }
     if (len > 3) {
       memcpy(udpIn + 41 + (segsReceived * UDP_SEG_SIZE), buffer->data, len-3);
