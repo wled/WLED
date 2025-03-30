@@ -1850,7 +1850,7 @@ uint16_t mode_colorwaves_pride_base(bool isPride2015) {
       CRGB newcolor = CHSV(hue8, sat8, bri8);
       SEGMENT.blendPixelColor(i, newcolor, 64);
     } else {
-      SEGMENT.blendPixelColor(i, SEGMENT.color_from_palette(hue8, false, PALETTE_FIXED, 0, bri8), 128);
+      SEGMENT.blendPixelColor(i, SEGMENT.color_from_palette(hue8, false, PALETTE_MOVING, 0, bri8), 128);
     }
   }
 
@@ -4065,19 +4065,21 @@ uint16_t mode_noisepal(void) {                                    // Slow noise 
 
   CRGBPalette16* palettes = reinterpret_cast<CRGBPalette16*>(SEGENV.data);
 
+  if (SEGENV.call == 0) palettes[0] = SEGMENT.palette > 0 ? SEGPALETTE : generateRandomPalette();
+
   unsigned changePaletteMs = 4000 + SEGMENT.speed *10; //between 4 - 6.5sec
   if (strip.now - SEGENV.step > changePaletteMs)
   {
     SEGENV.step = strip.now;
 
     unsigned baseI = hw_random8();
-    palettes[1] = CRGBPalette16(CHSV(baseI+hw_random8(64), 255, hw_random8(128,255)), CHSV(baseI+128, 255, hw_random8(128,255)), CHSV(baseI+hw_random8(92), 192, hw_random8(128,255)), CHSV(baseI+hw_random8(92), 255, hw_random8(128,255)));
+    palettes[1] = CRGBPalette16(CHSV(baseI+hw_random8(64), 255, hw_random8(128,255))
+                              , CHSV(baseI+128,            255, hw_random8(128,255))
+                              , CHSV(baseI+hw_random8(92), 192, hw_random8(128,255))
+                              , CHSV(baseI+hw_random8(92), 255, hw_random8(128,255)));
   }
 
-  //EVERY_N_MILLIS(10) { //(don't have to time this, effect function is only called every 24ms)
   nblendPaletteTowardPalette(palettes[0], palettes[1], 48);               // Blend towards the target palette over 48 iterations.
-
-  if (SEGMENT.palette > 0) palettes[0] = SEGPALETTE;
 
   for (unsigned i = 0; i < SEGLEN; i++) {
     unsigned index = inoise8(i*scale, SEGENV.aux0+i*scale);                // Get a value from the noise function. I'm using both x and y axis.
@@ -6107,7 +6109,7 @@ uint16_t mode_2Ddriftrose(void) {
     float angle = radians(i * 10);
     uint32_t x = (CX + (sin_t(angle) * (beatsin8_t(i, 0, L*2)-L))) * 255.f;
     uint32_t y = (CY + (cos_t(angle) * (beatsin8_t(i, 0, L*2)-L))) * 255.f;
-    SEGMENT.wu_pixel(x, y, SEGMENT.palette==0 ? (uint32_t)CRGBW(CHSV(i * 10, 255, 255)) : ColorFromPalette(SEGPALETTE, map(i, 1,37, 0,255), 255, LINEARBLEND));
+    SEGMENT.wu_pixel(x, y, SEGMENT.color_wheel(map(i, 1,37, 0,255)));
   }
   if (SEGMENT.intensity>>4) SEGMENT.blur(SEGMENT.intensity>>4);
 
@@ -6365,7 +6367,6 @@ uint16_t mode_2Doctopus() {
     for (int y = 0; y < rows; y++) {
       byte angle = rMap[XY(x,y)].angle;
       byte radius = rMap[XY(x,y)].radius;
-      //CRGB c = CHSV(SEGENV.step / 2 - radius, 255, sin8_t(sin8_t((angle * 4 - radius) / 4 + SEGENV.step) + radius - SEGENV.step * 2 + angle * (SEGMENT.custom3/3+1)));
       unsigned intensity = sin8_t(sin8_t((angle * 4 - radius) / 4 + SEGENV.step/2) + radius - SEGENV.step + angle * (SEGMENT.custom3/4+1));
       intensity = map((intensity*intensity) & 0xFFFF, 0, 65535, 0, 255); // add a bit of non-linearity for cleaner display
       SEGMENT.setPixelColorXY(x, y, ColorFromPalette(SEGPALETTE, SEGENV.step / 2 - radius, intensity));
