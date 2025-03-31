@@ -1197,7 +1197,7 @@ uint16_t mode_fireworks() {
       unsigned index = hw_random16(width*height);
       x = index % width;
       y = index / width;
-      uint32_t col = SEGMENT.color_from_palette(hw_random8(), false, PALETTE_FIXED, 0);
+      uint32_t col = SEGMENT.color_wheel(hw_random8());
       if (is2D) SEGMENT.setPixelColorXY(x, y, col);
       else      SEGMENT.setPixelColor(index, col);
       SEGENV.aux1 = SEGENV.aux0;  // old spark
@@ -1206,7 +1206,7 @@ uint16_t mode_fireworks() {
   }
   return FRAMETIME;
 }
-static const char _data_FX_MODE_FIREWORKS[] PROGMEM = "Fireworks@,Frequency;!,!;!;12;ix=192,pal=11";
+static const char _data_FX_MODE_FIREWORKS[] PROGMEM = "Fireworks@,Frequency;!,!;!;12;ix=192,pal=0";
 
 //Twinkling LEDs running. Inspired by https://github.com/kitesurfer1404/WS2812FX/blob/master/src/custom/Rain.h
 uint16_t mode_rain() {
@@ -3508,7 +3508,7 @@ uint16_t mode_exploding_fireworks(void)
         if (sparks[i].pos > 0 && sparks[i].pos < rows) {
           if (is2D && !(sparks[i].posX >= 0.0f && int(sparks[i].posX) < cols)) continue;
           unsigned prog = sparks[i].col;
-          uint32_t spColor = (SEGMENT.palette) ? SEGMENT.color_wheel(sparks[i].colIndex) : SEGCOLOR(0);
+          uint32_t spColor = SEGMENT.color_wheel(sparks[i].colIndex);
           CRGBW c = BLACK; //HeatColor(sparks[i].col);
           if (prog > 300) { //fade from white to spark color
             c = color_blend(spColor, WHITE, (prog - 300)*5);
@@ -3537,8 +3537,9 @@ uint16_t mode_exploding_fireworks(void)
   return FRAMETIME;
 }
 #undef MAX_SPARKS
-static const char _data_FX_MODE_EXPLODING_FIREWORKS[] PROGMEM = "Fireworks 1D@Gravity,Firing side;!,!;!;12;pal=11,ix=128";
+static const char _data_FX_MODE_EXPLODING_FIREWORKS[] PROGMEM = "Fireworks 1D@Gravity,Firing side,,,,,,Blur;!,!;!;12;pal=0,ix=128";
 #endif // WLED_PS_DONT_REPLACE_FX
+
 
 /*
  * Drip Effect
@@ -3686,7 +3687,7 @@ uint16_t mode_tetrix(void) {
           drop->pos -= drop->speed;       // may add gravity as: speed += gravity
           if (int(drop->pos) < int(drop->stack)) drop->pos = drop->stack;
           for (unsigned i = unsigned(drop->pos); i < SEGLEN; i++) {
-            uint32_t col = i < unsigned(drop->pos)+drop->brick ? SEGMENT.color_from_palette(drop->col, false, PALETTE_FIXED, 0) : SEGCOLOR(1);
+            uint32_t col = i < unsigned(drop->pos)+drop->brick ? SEGMENT.color_wheel(drop->col) : SEGCOLOR(1);
             SEGMENT.setPixelColor(indexToVStrip(i, stripNr), col);
           }
         } else {                          // we hit bottom
@@ -3715,7 +3716,7 @@ uint16_t mode_tetrix(void) {
 
   return FRAMETIME;
 }
-static const char _data_FX_MODE_TETRIX[] PROGMEM = "Tetrix@!,Width,,,,One color;!,!;!;;sx=0,ix=0,pal=11,m12=1";
+static const char _data_FX_MODE_TETRIX[] PROGMEM = "Tetrix@!,Width,,,,One color;!,!;!;;sx=0,ix=0,pal=0,m12=1";
 
 
 /*
@@ -6257,8 +6258,8 @@ static void soapPixels(bool isRow, uint8_t *noise3d) {
       }
       const int indxA = XY(xA,yA);
       const int indxB = XY(xB,yB);
-      CRGB PixelA = ((zD >= 0) && (zD < tCR)) ? SEGMENT.getPixelColorXY(xA,yA) : ColorFromPalette(SEGPALETTE, ~noise3d[indxA]*3);
-      CRGB PixelB = ((zF >= 0) && (zF < tCR)) ? SEGMENT.getPixelColorXY(xB,yB) : ColorFromPalette(SEGPALETTE, ~noise3d[indxB]*3);
+      CRGB PixelA = ((zD >= 0) && (zD < tCR)) ? SEGMENT.getPixelColorXY(xA,yA) : SEGMENT.color_wheel(~noise3d[indxA]*3);
+      CRGB PixelB = ((zF >= 0) && (zF < tCR)) ? SEGMENT.getPixelColorXY(xB,yB) : SEGMENT.color_wheel(~noise3d[indxB]*3);
       ledsbuff[j] = (PixelA.nscale8(ease8InOutApprox(255 - fraction))) + (PixelB.nscale8(ease8InOutApprox(fraction)));
     }
     for (int j = 0; j < tCR; j++) {
@@ -6306,7 +6307,7 @@ uint16_t mode_2Dsoap() {
     SEGMENT.aux1 = rows;
     for (int i = 0; i < cols; i++) {
       for (int j = 0; j < rows; j++) {
-        SEGMENT.setPixelColorXY(i, j, ColorFromPalette(SEGPALETTE,~noise3d[XY(i,j)]*3));
+        SEGMENT.setPixelColorXY(i, j, SEGMENT.color_wheel(~noise3d[XY(i,j)]*3));
       }
     }
   }
@@ -6316,7 +6317,7 @@ uint16_t mode_2Dsoap() {
 
   return FRAMETIME;
 }
-static const char _data_FX_MODE_2DSOAP[] PROGMEM = "Soap@!,Smoothness,,Shift,Density;;!;2;;pal=11";
+static const char _data_FX_MODE_2DSOAP[] PROGMEM = "Soap@!,Smoothness,,Shift,Density;;!;2;;pal=0";
 
 
 //Idea from https://www.youtube.com/watch?v=HsA-6KIbgto&ab_channel=GreatScott%21
