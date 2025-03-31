@@ -18,8 +18,8 @@
 // local shared functions (used both in 1D and 2D system)
 static int32_t calcForce_dv(const int8_t force, uint8_t &counter);
 static bool checkBoundsAndWrap(int32_t &position, const int32_t max, const int32_t particleradius, const bool wrap); // returns false if out of bounds by more than particleradius
-static void fast_color_add(CRGB &c1, const CRGB &c2, uint32_t scale = 255); // fast and accurate color adding with scaling (scales c2 before adding)
-static void fast_color_scale(CRGB &c, const uint32_t scale); // fast scaling function using 32bit variable and pointer. note: keep 'scale' within 0-255
+static void fast_color_add(CRGB &c1, const CRGB &c2, uint8_t scale = 255); // fast and accurate color adding with scaling (scales c2 before adding)
+static void fast_color_scale(CRGB &c, const uint8_t scale); // fast scaling function using 32bit variable and pointer. note: keep 'scale' within 0-255
 //static CRGB *allocateCRGBbuffer(uint32_t length);
 
 // global variables for memory management
@@ -694,7 +694,7 @@ void ParticleSystem2D::ParticleSys_render() {
 }
 
 // calculate pixel positions and brightness distribution and render the particle to local buffer or global buffer
-void ParticleSystem2D::renderParticle(const uint32_t particleindex, const uint32_t brightness, const CRGB& color, const bool wrapX, const bool wrapY) {
+void ParticleSystem2D::renderParticle(const uint32_t particleindex, const uint8_t brightness, const CRGB& color, const bool wrapX, const bool wrapY) {
   if (particlesize == 0) { // single pixel rendering
     uint32_t x = particles[particleindex].x >> PS_P_RADIUS_SHIFT;
     uint32_t y = particles[particleindex].y >> PS_P_RADIUS_SHIFT;
@@ -706,7 +706,7 @@ void ParticleSystem2D::renderParticle(const uint32_t particleindex, const uint32
     }
     return;
   }
-  int32_t pxlbrightness[4]; // brightness values for the four pixels representing a particle
+  uint8_t pxlbrightness[4]; // brightness values for the four pixels representing a particle
   int32_t pixco[4][2]; // physical pixel coordinates of the four pixels a particle is rendered to. x,y pairs
   bool pixelvalid[4] = {true, true, true, true}; // is set to false if pixel is out of bounds
   bool advancedrender = false; // rendering for advanced particles
@@ -1617,7 +1617,7 @@ void ParticleSystem1D::ParticleSys_render() {
 }
 
 // calculate pixel positions and brightness distribution and render the particle to local buffer or global buffer
-void ParticleSystem1D::renderParticle(const uint32_t particleindex, const uint32_t brightness, const CRGB &color, const bool wrap) {
+void ParticleSystem1D::renderParticle(const uint32_t particleindex, const uint8_t brightness, const CRGB &color, const bool wrap) {
   uint32_t size = particlesize;
   if (advPartProps) { // use advanced size properties
     size = advPartProps[particleindex].size;
@@ -1628,7 +1628,7 @@ void ParticleSystem1D::renderParticle(const uint32_t particleindex, const uint32
       if (framebuffer)
         fast_color_add(framebuffer[x], color, brightness);
       else
-        SEGMENT.addPixelColor(x, color.scale8((uint8_t)brightness), true);
+        SEGMENT.addPixelColor(x, color.scale8(brightness), true);
     }
     return;
   }
@@ -1766,7 +1766,7 @@ void ParticleSystem1D::handleCollisions() {
       for (uint32_t j = i + 1; j < binParticleCount; j++) { // check against higher number particles
         uint32_t idx_j = binIndices[j];
         if (advPartProps) { // use advanced size properties
-          collisiondistance = (PS_P_MINHARDRADIUS_1D << particlesize) + (((uint32_t)advPartProps[idx_i].size + (uint32_t)advPartProps[idx_j].size) >> 1);
+          collisiondistance = (PS_P_MINHARDRADIUS_1D << particlesize) + ((advPartProps[idx_i].size + advPartProps[idx_j].size) >> 1);
         }
         int32_t dx = (particles[idx_j].x + particles[idx_j].vx) - (particles[idx_i].x + particles[idx_i].vx); // distance between particles with lookahead
         uint32_t dx_abs = abs(dx);
@@ -1781,7 +1781,7 @@ void ParticleSystem1D::handleCollisions() {
 // handle a collision if close proximity is detected, i.e. dx and/or dy smaller than 2*PS_P_RADIUS
 // takes two pointers to the particles to collide and the particle hardness (softer means more energy lost in collision, 255 means full hard)
 void ParticleSystem1D::collideParticles(PSparticle1D &particle1, const PSparticleFlags1D &particle1flags, PSparticle1D &particle2, const PSparticleFlags1D &particle2flags, const int32_t dx, const uint32_t dx_abs, const int32_t collisiondistance) {
-  int32_t dv = (int32_t)particle2.vx - (int32_t)particle1.vx;
+  int32_t dv = particle2.vx - particle1.vx;
   int32_t dotProduct = (dx * dv); // is always negative if moving towards each other
 
   if (dotProduct < 0) { // particles are moving towards each other
@@ -2027,7 +2027,7 @@ static bool checkBoundsAndWrap(int32_t &position, const int32_t max, const int32
 // note: result is stored in c1, not using a return value is faster as the CRGB struct does not need to be copied upon return
 // note2: function is mainly used to add scaled colors, so checking if one color is black is slower
 // note3: scale is 255 when using blur, checking for that makes blur faster
-static void fast_color_add(CRGB &c1, const CRGB &c2, const uint32_t scale) {
+ __attribute__((optimize("O2"))) static void fast_color_add(CRGB &c1, const CRGB &c2, const uint8_t scale) {
   uint32_t r, g, b;
   if (scale < 255) {
     r = c1.r + ((c2.r * scale) >> 8);
@@ -2039,9 +2039,9 @@ static void fast_color_add(CRGB &c1, const CRGB &c2, const uint32_t scale) {
     b = c1.b + c2.b;
   }
 
-  uint32_t max = std::max(r,g); // check for overflow, using max() is faster as the compiler can optimize
-  max = std::max(max,b);
-  if (max < 256) {
+  // note: this chained comparison is the fastest method for max of 3 values (faster than std:max() or using xor)
+  uint32_t max = (r > g) ? ((r > b) ? r : b) : ((g > b) ? g : b);
+  if (max <= 255) {
     c1.r = r; // save result to c1
     c1.g = g;
     c1.b = b;
@@ -2054,7 +2054,7 @@ static void fast_color_add(CRGB &c1, const CRGB &c2, const uint32_t scale) {
 }
 
 // faster than fastled color scaling as it does in place scaling
-static void fast_color_scale(CRGB &c, const uint32_t scale) {
+ __attribute__((optimize("O2"))) static void fast_color_scale(CRGB &c, const uint8_t scale) {
   c.r = ((c.r * scale) >> 8);
   c.g = ((c.g * scale) >> 8);
   c.b = ((c.b * scale) >> 8);
