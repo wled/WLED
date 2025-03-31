@@ -297,6 +297,10 @@ void Segment::startTransition(uint16_t dur, bool segmentCopy) {
       _t->_oldSegment = new(std::nothrow) Segment(*this); // store/copy current segment settings
       _t->_start = millis();                              // restart countdown
       _t->_dur   = dur;
+      if (_t->_oldSegment) {
+        _t->_oldSegment->palette = _t->_pal;              // restore original palette and colors (from start of transition)
+        for (unsigned i = 0; i < NUM_COLORS; i++) _t->_oldSegment->colors[i] = _t->_colors[i];
+      }
       DEBUGFX_PRINTF_P(PSTR("-- Updated transition with segment copy: S=%p T(%p) O[%p] OP[%p]\n"), this, _t, _t->_oldSegment, _t->_oldSegment->pixels);
     }
     return;
@@ -362,7 +366,6 @@ void Segment::beginDraw() {
   updateTransitionProgress(); // just in case if called form old segment's context
   unsigned prog = progress();
   setDrawDimensions();
-  // adjust gamma for effects
   for (unsigned i = 0; i < NUM_COLORS; i++)
     _currentColors[i] = (prog < 0xFFFFU && blendingStyle == BLEND_STYLE_FADE) ? color_blend16(_t->_colors[i], colors[i], prog) : colors[i];
   // load palette into _currentPalette
@@ -477,7 +480,7 @@ Segment &Segment::setColor(uint8_t slot, uint32_t c) {
     if (slot == 1 && c != BLACK) return *this; // on/off segment cannot have secondary color non black
   }
   //DEBUGFX_PRINTF_P(PSTR("- Starting color transition: %d [0x%X]\n"), slot, c);
-  startTransition(strip.getTransition(), false); // start transition prior to change (no need to copy segment)
+  startTransition(strip.getTransition(), blendingStyle != BLEND_STYLE_FADE); // start transition prior to change
   colors[slot] = c;
   stateChanged = true; // send UDP/WS broadcast
   return *this;
@@ -501,7 +504,7 @@ Segment &Segment::setCCT(uint16_t k) {
 Segment &Segment::setOpacity(uint8_t o) {
   if (opacity != o) {
     //DEBUGFX_PRINTF_P(PSTR("- Starting opacity transition: %d\n"), o);
-    startTransition(strip.getTransition(), false); // start transition prior to change (no need to copy segment)
+    startTransition(strip.getTransition(), blendingStyle != BLEND_STYLE_FADE); // start transition prior to change
     opacity = o;
     stateChanged = true; // send UDP/WS broadcast
   }
@@ -512,7 +515,7 @@ Segment &Segment::setOption(uint8_t n, bool val) {
   bool prev = (options >> n) & 0x01;
   if (val == prev) return *this;
   //DEBUGFX_PRINTF_P(PSTR("- Starting option transition: %d\n"), n);
-  if (n == SEG_OPTION_ON) startTransition(strip.getTransition(), false); // start transition prior to change (no need to copy segment)
+  if (n == SEG_OPTION_ON) startTransition(strip.getTransition(), blendingStyle != BLEND_STYLE_FADE); // start transition prior to change
   if (val) options |=   0x01 << n;
   else     options &= ~(0x01 << n);
   stateChanged = true; // send UDP/WS broadcast
@@ -560,7 +563,7 @@ Segment &Segment::setPalette(uint8_t pal) {
   if (pal > 245 && (customPalettes.size() == 0 || 255U-pal > customPalettes.size()-1)) pal = 0; // custom palettes
   if (pal != palette) {
     //DEBUGFX_PRINTF_P(PSTR("- Starting palette transition: %d\n"), pal);
-    startTransition(strip.getTransition(), false); // start transition prior to change (no need to copy segment)
+    startTransition(strip.getTransition(), blendingStyle != BLEND_STYLE_FADE); // start transition prior to change (no need to copy segment)
     palette = pal;
     stateChanged = true; // send UDP/WS broadcast
   }
@@ -1113,17 +1116,23 @@ void Segment::blur(uint8_t blur_amount, bool smear) const {
  * Inspired by the Adafruit examples.
  */
 uint32_t Segment::color_wheel(uint8_t pos) const {
-  if (palette) return color_from_palette(pos, false, true, 0); // perhaps "paletteBlend < 2" should be better instead of "true"
+  if (palette) return color_from_palette(pos, false, false, 0); // never wrap palette
   uint8_t w = W(getCurrentColor(0));
   pos = 255 - pos;
-  if (pos < 85) {
-    return RGBW32((255 - pos * 3), 0, (pos * 3), w);
-  } else if (pos < 170) {
-    pos -= 85;
-    return RGBW32(0, (pos * 3), (255 - pos * 3), w);
+  if (useRainbowWheel) {
+    CRGB rgb;
+    hsv2rgb_rainbow(CHSV(pos, 255, 255), rgb);
+    return RGBW32(rgb.r, rgb.g, rgb.b, w);
   } else {
-    pos -= 170;
-    return RGBW32((pos * 3), (255 - pos * 3), 0, w);
+    if (pos < 85) {
+      return RGBW32((255 - pos * 3), 0, (pos * 3), w);
+    } else if (pos < 170) {
+      pos -= 85;
+      return RGBW32(0, (pos * 3), (255 - pos * 3), w);
+    } else {
+      pos -= 170;
+      return RGBW32((pos * 3), (255 - pos * 3), 0, w);
+    }
   }
 }
 

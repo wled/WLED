@@ -460,7 +460,7 @@ class Segment {
       CRGBPalette16 _palT;                // temporary palette (slowly being morphed from old to new)
       uint16_t      _dur;                 // duration of transition in ms
       uint8_t       _prevPaletteBlends;   // number of previous palette blends (there are max 255 blends possible)
-      uint8_t       _bri, _cct;           // brightness and CCT at the start of transition (brightness will be 0 if segment was off)
+      uint8_t       _pal, _bri, _cct;     // palette ID, brightness and CCT at the start of transition (brightness will be 0 if segment was off)
       Transition(uint16_t dur=750)
       : _oldSegment(nullptr)
       , _start(millis())
@@ -468,11 +468,12 @@ class Segment {
       , _palT(CRGBPalette16(CRGB::Black))
       , _dur(dur)
       , _prevPaletteBlends(0)
+      , _pal(0)
       , _bri(0)
       , _cct(0)
       {}
       ~Transition() {
-        DEBUGFX_PRINTF_P(PSTR("-- Destroying transition: %p\n"), this);
+        //DEBUGFX_PRINTF_P(PSTR("-- Destroying transition: %p\n"), this);
         if (_oldSegment) delete _oldSegment;
       }
     } *_t;

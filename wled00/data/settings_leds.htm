@@ -858,7 +858,6 @@ Swap: <select id="xw${s}" name="XW${s}">
 		<h3>Transitions</h3>
 		Default transition time: <input name="TD" type="number" class="xl" min="0" max="65500"> ms<br>
 		<i>Random Cycle</i> Palette Time: <input name="TP" type="number" class="m" min="1" max="255"> s<br>
-		Use harmonic <i>Random Cycle</i> Palette: <input type="checkbox" name="TH"><br>
 		<h3>Timed light</h3>
 		Default duration: <input name="TL" type="number" class="m" min="1" max="255" required> min<br>
 		Default target brightness: <input name="TB" type="number" class="m" min="0" max="255" required><br>
@@ -895,6 +894,8 @@ Swap: <select id="xw${s}" name="XW${s}">
 			<option value="2">Linear (never wrap)</option>
 			<option value="3">None (not recommended)</option>
 		</select><br>
+		Use harmonic <i>Random Cycle</i> palette: <input type="checkbox" name="TH"><br>
+		Use &quot;rainbow&quot; color wheel: <input type="checkbox" name="RW"><br>
 		Target refresh rate: <input type="number" class="s" min="1" max="120" name="FR" required> FPS
 		<hr class="sml">
 		<div id="cfg">Config template: <input type="file" name="data2" accept=".json"><button type="button" class="sml" onclick="loadCfg(d.Sf.data2)">Apply</button><br></div>
