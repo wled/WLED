@@ -416,10 +416,10 @@ void realtimeLock(uint32_t timeoutMs, byte md)
       // clear entire strip
       strip.fill(BLACK);
     }
-  }
-  // if strip is off (bri==0) and not already in RTM
-  if (briT == 0 && !realtimeMode && !realtimeOverride) {
-    strip.setBrightness(scaledBri(briLast), true);
+    // if strip is off (bri==0) and not already in RTM
+    if (briT == 0) {
+      strip.setBrightness(scaledBri(briLast), true);
+    }
   }
 
   if (realtimeTimeout != UINT32_MAX) {
@@ -441,6 +441,7 @@ void exitRealtime() {
   realtimeIP[0] = 0;
   if (useMainSegmentOnly) { // unfreeze live segment again
     strip.getMainSegment().freeze = false;
+    strip.trigger();
   } else {
     strip.show(); // possible fix for #3589
   }
@@ -470,7 +471,8 @@ void handleNotifications()
   if (e131NewData && millis() - strip.getLastShow() > 15)
   {
     e131NewData = false;
-    strip.show();
+    if (useMainSegmentOnly) strip.trigger();
+    else                    strip.show();
   }
 
   //unlock strip when realtime UDP times out
@@ -497,12 +499,13 @@ void handleNotifications()
       uint8_t lbuf[packetSize];
       rgbUdp.read(lbuf, packetSize);
       realtimeLock(realtimeTimeoutMs, REALTIME_MODE_HYPERION);
-      if (realtimeOverride && !(realtimeMode && useMainSegmentOnly)) return;
+      if (realtimeOverride) return;
       unsigned totalLen = strip.getLengthTotal();
       for (size_t i = 0, id = 0; i < packetSize -2 && id < totalLen; i += 3, id++) {
         setRealtimePixel(id, lbuf[i], lbuf[i+1], lbuf[i+2], 0);
       }
-      if (!(realtimeMode && useMainSegmentOnly)) strip.show();
+      if (useMainSegmentOnly) strip.trigger();
+      else                    strip.show();
       return;
     }
   }
@@ -571,7 +574,7 @@ void handleNotifications()
 
     realtimeIP = (isSupp) ? notifier2Udp.remoteIP() : notifierUdp.remoteIP();
     realtimeLock(realtimeTimeoutMs, REALTIME_MODE_TPM2NET);
-    if (realtimeOverride && !(realtimeMode && useMainSegmentOnly)) return;
+    if (realtimeOverride) return;
 
     tpmPacketCount++; //increment the packet count
     if (tpmPacketCount == 1) tpmPayloadFrameSize = (udpIn[2] << 8) + udpIn[3]; //save frame size for the whole payload if this is the first packet
@@ -585,7 +588,8 @@ void handleNotifications()
     }
     if (tpmPacketCount == numPackets) { //reset packet count and show if all packets were received
       tpmPacketCount = 0;
-      strip.show();
+      if (useMainSegmentOnly) strip.trigger();
+      else                    strip.show();
     }
     return;
   }
@@ -597,14 +601,13 @@ void handleNotifications()
     DEBUG_PRINTLN(realtimeIP);
     if (packetSize < 2) return;
 
-    if (udpIn[1] == 0)
-    {
-      realtimeTimeout = 0;
+    if (udpIn[1] == 0) {
+      realtimeTimeout = 0; // cancel realtime mode immediately
       return;
     } else {
       realtimeLock(udpIn[1]*1000 +1, REALTIME_MODE_UDP);
     }
-    if (realtimeOverride && !(realtimeMode && useMainSegmentOnly)) return;
+    if (realtimeOverride) return;
 
     unsigned totalLen = strip.getLengthTotal();
     if (udpIn[0] == 1 && packetSize > 5) //warls
@@ -640,7 +643,8 @@ void handleNotifications()
         setRealtimePixel(id, udpIn[i], udpIn[i+1], udpIn[i+2], udpIn[i+3]);
       }
     }
-    strip.show();
+    if (useMainSegmentOnly) strip.trigger();
+    else                    strip.show();
     return;
   }
 

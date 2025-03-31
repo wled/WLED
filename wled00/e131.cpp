@@ -38,7 +38,7 @@ void handleDDPPacket(e131_packet_t* p) {
   if (realtimeMode != REALTIME_MODE_DDP) ddpSeenPush = false; // just starting, no push yet
   realtimeLock(realtimeTimeoutMs, REALTIME_MODE_DDP);
 
-  if (!realtimeOverride || (realtimeMode && useMainSegmentOnly)) {
+  if (!realtimeOverride) {
     for (unsigned i = start; i < stop; i++, c += ddpChannelsPerLed) {
       setRealtimePixel(i, data[c], data[c+1], data[c+2], ddpChannelsPerLed >3 ? data[c+3] : 0);
     }
@@ -144,7 +144,7 @@ void handleE131Packet(e131_packet_t* p, IPAddress clientIP, byte protocol){
 
       realtimeLock(realtimeTimeoutMs, mde);
 
-      if (realtimeOverride && !(realtimeMode && useMainSegmentOnly)) return;
+      if (realtimeOverride) return;
 
       wChannel = (availDMXLen > 3) ? e131_data[dataOffset+3] : 0;
       for (unsigned i = 0; i < totalLen; i++)
@@ -156,7 +156,7 @@ void handleE131Packet(e131_packet_t* p, IPAddress clientIP, byte protocol){
       if (availDMXLen < 4) return;
 
       realtimeLock(realtimeTimeoutMs, mde);
-      if (realtimeOverride && !(realtimeMode && useMainSegmentOnly)) return;
+      if (realtimeOverride) return;
       wChannel = (availDMXLen > 4) ? e131_data[dataOffset+4] : 0;
 
       if (bri != e131_data[dataOffset+0]) {
@@ -263,7 +263,7 @@ void handleE131Packet(e131_packet_t* p, IPAddress clientIP, byte protocol){
     case DMX_MODE_MULTIPLE_RGB:
     case DMX_MODE_MULTIPLE_RGBW:
       {
-        bool is4Chan = (DMXMode == DMX_MODE_MULTIPLE_RGBW);
+        const bool is4Chan = (DMXMode == DMX_MODE_MULTIPLE_RGBW);
         const unsigned dmxChannelsPerLed = is4Chan ? 4 : 3;
         const unsigned ledsPerUniverse = is4Chan ? MAX_4_CH_LEDS_PER_UNIVERSE : MAX_3_CH_LEDS_PER_UNIVERSE;
         uint8_t stripBrightness = bri;
@@ -295,7 +295,7 @@ void handleE131Packet(e131_packet_t* p, IPAddress clientIP, byte protocol){
         }
 
         realtimeLock(realtimeTimeoutMs, mde);
-        if (realtimeOverride && !(realtimeMode && useMainSegmentOnly)) return;
+        if (realtimeOverride) return;
 
         if (ledsTotal > totalLen) {
           ledsTotal = totalLen;
@@ -308,16 +308,9 @@ void handleE131Packet(e131_packet_t* p, IPAddress clientIP, byte protocol){
           }
         }
 
-        if (!is4Chan) {
-          for (unsigned i = previousLeds; i < ledsTotal; i++) {
-            setRealtimePixel(i, e131_data[dmxOffset], e131_data[dmxOffset+1], e131_data[dmxOffset+2], 0);
-            dmxOffset+=3;
-          }
-        } else {
-          for (unsigned i = previousLeds; i < ledsTotal; i++) {
-            setRealtimePixel(i, e131_data[dmxOffset], e131_data[dmxOffset+1], e131_data[dmxOffset+2], e131_data[dmxOffset+3]);
-            dmxOffset+=4;
-          }
+        for (unsigned i = previousLeds; i < ledsTotal; i++) {
+          setRealtimePixel(i, e131_data[dmxOffset], e131_data[dmxOffset+1], e131_data[dmxOffset+2], is4Chan ? e131_data[dmxOffset+3] : 0);
+          dmxOffset += dmxChannelsPerLed;
         }
         break;
       }

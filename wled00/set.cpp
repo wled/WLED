@@ -1159,6 +1159,7 @@ bool handleSet(AsyncWebServerRequest *request, const String& req, bool apply)
     if (realtimeOverride > 2) realtimeOverride = REALTIME_OVERRIDE_ALWAYS;
     if (realtimeMode && useMainSegmentOnly) {
       strip.getMainSegment().freeze = !realtimeOverride;
+      realtimeOverride = REALTIME_OVERRIDE_NONE;  // ignore request for override if using main segment only
     }
   }
 

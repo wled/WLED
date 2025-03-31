@@ -374,6 +374,7 @@ bool deserializeState(JsonObject root, byte callMode, byte presetId)
   if (realtimeOverride > 2) realtimeOverride = REALTIME_OVERRIDE_ALWAYS;
   if (realtimeMode && useMainSegmentOnly) {
     strip.getMainSegment().freeze = !realtimeOverride;
+    realtimeOverride = REALTIME_OVERRIDE_NONE;  // ignore request for override if using main segment only
   }
 
   if (root.containsKey("live")) {
