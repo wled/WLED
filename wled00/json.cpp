@@ -14,6 +14,57 @@
 /*
  * JSON API (De)serialization
  */
+namespace {
+  typedef struct {
+    uint32_t colors[NUM_COLORS];
+    uint16_t start;
+    uint16_t stop;
+    uint16_t offset;
+    uint16_t grouping;
+    uint16_t spacing;
+    uint16_t startY;
+    uint16_t stopY;
+    uint16_t options;
+    uint8_t  mode;
+    uint8_t  palette;
+    uint8_t  opacity;
+    uint8_t  speed;
+    uint8_t  intensity;
+    uint8_t  custom1;
+    uint8_t  custom2;
+    uint8_t  custom3;
+    bool     check1;
+    bool     check2;
+    bool     check3;
+  } SegmentCopy;
+
+  uint8_t differs(const Segment& b, const SegmentCopy& a) {
+    uint8_t d = 0;
+    if (a.start != b.start)         d |= SEG_DIFFERS_BOUNDS;
+    if (a.stop != b.stop)           d |= SEG_DIFFERS_BOUNDS;
+    if (a.offset != b.offset)       d |= SEG_DIFFERS_GSO;
+    if (a.grouping != b.grouping)   d |= SEG_DIFFERS_GSO;
+    if (a.spacing != b.spacing)     d |= SEG_DIFFERS_GSO;
+    if (a.opacity != b.opacity)     d |= SEG_DIFFERS_BRI;
+    if (a.mode != b.mode)           d |= SEG_DIFFERS_FX;
+    if (a.speed != b.speed)         d |= SEG_DIFFERS_FX;
+    if (a.intensity != b.intensity) d |= SEG_DIFFERS_FX;
+    if (a.palette != b.palette)     d |= SEG_DIFFERS_FX;
+    if (a.custom1 != b.custom1)     d |= SEG_DIFFERS_FX;
+    if (a.custom2 != b.custom2)     d |= SEG_DIFFERS_FX;
+    if (a.custom3 != b.custom3)     d |= SEG_DIFFERS_FX;
+    if (a.startY != b.startY)       d |= SEG_DIFFERS_BOUNDS;
+    if (a.stopY != b.stopY)         d |= SEG_DIFFERS_BOUNDS;
+
+    //bit pattern: (msb first)
+    // set:2, sound:2, mapping:3, transposed, mirrorY, reverseY, [reset,] paused, mirrored, on, reverse, [selected]
+    if ((a.options & 0b1111111111011110U) != (b.options & 0b1111111111011110U)) d |= SEG_DIFFERS_OPT;
+    if ((a.options & 0x0001U) != (b.options & 0x0001U))                         d |= SEG_DIFFERS_SEL;
+    for (unsigned i = 0; i < NUM_COLORS; i++) if (a.colors[i] != b.colors[i])   d |= SEG_DIFFERS_COL;
+
+    return d;
+  }
+}
 
 static bool deserializeSegment(JsonObject elem, byte it, byte presetId)
 {
@@ -33,9 +84,30 @@ static bool deserializeSegment(JsonObject elem, byte it, byte presetId)
 
   //DEBUG_PRINTLN(F("-- JSON deserialize segment."));
   Segment& seg = strip.getSegment(id);
-  //DEBUG_PRINTF_P(PSTR("--  Original segment: %p (%p)\n"), &seg, seg.data);
-  const Segment prev = seg; //make a backup so we can tell if something changed (calling copy constructor)
-  //DEBUG_PRINTF_P(PSTR("--  Duplicate segment: %p (%p)\n"), &prev, prev.data);
+  // we do not want to make segment copy as it may use a lot of RAM (effect data and pixel buffer)
+  // so we will create a copy of segment options and compare it with original segment when done processing
+  SegmentCopy prev = {
+    {seg.colors[0], seg.colors[1], seg.colors[2]},
+    seg.start,
+    seg.stop,
+    seg.offset,
+    seg.grouping,
+    seg.spacing,
+    seg.startY,
+    seg.stopY,
+    seg.options,
+    seg.mode,
+    seg.palette,
+    seg.opacity,
+    seg.speed,
+    seg.intensity,
+    seg.custom1,
+    seg.custom2,
+    seg.custom3,
+    seg.check1,
+    seg.check2,
+    seg.check3
+  };
 
   int start = elem["start"] | seg.start;
   if (stop < 0) {
@@ -289,7 +361,7 @@ static bool deserializeSegment(JsonObject elem, byte it, byte presetId)
     strip.trigger(); // force segment update
   }
   // send UDP/WS if segment options changed (except selection; will also deselect current preset)
-  if (seg.differs(prev) & 0x7F) stateChanged = true;
+  if (differs(seg, prev) & ~SEG_DIFFERS_SEL) stateChanged = true;
 
   return true;
 }

@@ -371,6 +371,7 @@ class WS2812FX;
 // segment, 76 bytes
 class Segment {
   public:
+    uint32_t colors[NUM_COLORS];
     uint16_t start; // start index / start X coordinate 2D (left)
     uint16_t stop;  // stop index / stop X coordinate 2D (right); segment is invalid if stop == 0
     uint16_t offset;
@@ -397,8 +398,7 @@ class Segment {
     };
     uint8_t  grouping, spacing;
     uint8_t  opacity,  cct;       // 0==1900K, 255==10091K
-    uint32_t colors[NUM_COLORS];
-    uint8_t  custom1, custom2;    // custom FX parameters/sliders
+    uint8_t  custom1,  custom2;   // custom FX parameters/sliders
     struct {
       uint8_t custom3 : 5;        // reduced range slider (0-31)
       bool    check1  : 1;        // checkmark 1
@@ -452,23 +452,27 @@ class Segment {
     static uint16_t      _clipStart, _clipStop;
     static uint8_t       _clipStartY, _clipStopY;
 
-    // transition data, holds values during transition (60 bytes)
+    // transition data, holds values during transition (76 bytes/28 bytes)
     struct Transition {
       Segment      *_oldSegment;          // previous segment environment (may be nullptr if effect did not change)
       unsigned long _start;               // must accommodate millis()
       uint32_t      _colors[NUM_COLORS];  // current colors
+      #ifndef WLED_SAVE_RAM
       CRGBPalette16 _palT;                // temporary palette (slowly being morphed from old to new)
+      #endif
       uint16_t      _dur;                 // duration of transition in ms
       uint8_t       _prevPaletteBlends;   // number of previous palette blends (there are max 255 blends possible)
-      uint8_t       _pal, _bri, _cct;     // palette ID, brightness and CCT at the start of transition (brightness will be 0 if segment was off)
+      uint8_t       _palette, _bri, _cct; // palette ID, brightness and CCT at the start of transition (brightness will be 0 if segment was off)
       Transition(uint16_t dur=750)
       : _oldSegment(nullptr)
       , _start(millis())
       , _colors{0,0,0}
+      #ifndef WLED_SAVE_RAM
       , _palT(CRGBPalette16(CRGB::Black))
+      #endif
       , _dur(dur)
       , _prevPaletteBlends(0)
-      , _pal(0)
+      , _palette(0)
       , _bri(0)
       , _cct(0)
       {}
@@ -505,7 +509,8 @@ class Segment {
   public:
 
     Segment(uint16_t sStart=0, uint16_t sStop=30, uint16_t sStartY = 0, uint16_t sStopY = 1)
-    : start(sStart)
+    : colors{DEFAULT_COLOR,BLACK,BLACK}
+    , start(sStart)
     , stop(sStop > sStart ? sStop : sStart+1) // minimum length is 1
     , offset(0)
     , speed(DEFAULT_SPEED)
@@ -517,7 +522,6 @@ class Segment {
     , spacing(0)
     , opacity(255)
     , cct(127)
-    , colors{DEFAULT_COLOR,BLACK,BLACK}
     , custom1(DEFAULT_C1)
     , custom2(DEFAULT_C2)
     , custom3(DEFAULT_C3)
@@ -611,7 +615,6 @@ class Segment {
     Segment &setMode(uint8_t fx, bool loadDefaults = false);
     Segment &setPalette(uint8_t pal);
     Segment &setName(const char* name);
-    uint8_t differs(const Segment& b) const;
     void    refreshLightCapabilities() const;
 
     // runtime data functions

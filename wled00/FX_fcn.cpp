@@ -298,7 +298,7 @@ void Segment::startTransition(uint16_t dur, bool segmentCopy) {
       _t->_start = millis();                              // restart countdown
       _t->_dur   = dur;
       if (_t->_oldSegment) {
-        _t->_oldSegment->palette = _t->_pal;              // restore original palette and colors (from start of transition)
+        _t->_oldSegment->palette = _t->_palette;          // restore original palette and colors (from start of transition)
         for (unsigned i = 0; i < NUM_COLORS; i++) _t->_oldSegment->colors[i] = _t->_colors[i];
       }
       DEBUGFX_PRINTF_P(PSTR("-- Updated transition with segment copy: S=%p T(%p) O[%p] OP[%p]\n"), this, _t, _t->_oldSegment, _t->_oldSegment->pixels);
@@ -311,7 +311,10 @@ void Segment::startTransition(uint16_t dur, bool segmentCopy) {
   if (_t) {
     _t->_bri = on ? opacity : 0;
     _t->_cct = cct;
+    _t->_palette = palette;
+    #ifndef WLED_SAVE_RAM
     loadPalette(_t->_palT, palette);
+    #endif
     for (int i=0; i<NUM_COLORS; i++) _t->_colors[i] = colors[i];
     if (segmentCopy) _t->_oldSegment = new(std::nothrow) Segment(*this); // store/copy current segment settings
     #ifdef WLED_DEBUG_FX
@@ -374,9 +377,17 @@ void Segment::beginDraw() {
     // blend palettes
     // there are about 255 blend passes of 48 "blends" to completely blend two palettes (in _dur time)
     // minimum blend time is 100ms maximum is 65535ms
+    #ifndef WLED_SAVE_RAM
     unsigned noOfBlends = ((255U * prog) / 0xFFFFU) - _t->_prevPaletteBlends;
     for (unsigned i = 0; i < noOfBlends; i++, _t->_prevPaletteBlends++) nblendPaletteTowardPalette(_t->_palT, Segment::_currentPalette, 48);
     Segment::_currentPalette = _t->_palT; // copy transitioning/temporary palette
+    #else
+    unsigned noOfBlends = ((255U * prog) / 0xFFFFU);
+    CRGBPalette16 tmpPalette;
+    loadPalette(tmpPalette, _t->_palette);
+    for (unsigned i = 0; i < noOfBlends; i++) nblendPaletteTowardPalette(tmpPalette, Segment::_currentPalette, 48);
+    Segment::_currentPalette = tmpPalette; // copy transitioning/temporary palette
+    #endif
   }
 }
 
@@ -946,33 +957,6 @@ uint32_t IRAM_ATTR Segment::getPixelColor(int i) const
   }
 #endif
   return getPixelColorRaw(i);
-}
-
-uint8_t Segment::differs(const Segment& b) const {
-  uint8_t d = 0;
-  if (start != b.start)         d |= SEG_DIFFERS_BOUNDS;
-  if (stop != b.stop)           d |= SEG_DIFFERS_BOUNDS;
-  if (offset != b.offset)       d |= SEG_DIFFERS_GSO;
-  if (grouping != b.grouping)   d |= SEG_DIFFERS_GSO;
-  if (spacing != b.spacing)     d |= SEG_DIFFERS_GSO;
-  if (opacity != b.opacity)     d |= SEG_DIFFERS_BRI;
-  if (mode != b.mode)           d |= SEG_DIFFERS_FX;
-  if (speed != b.speed)         d |= SEG_DIFFERS_FX;
-  if (intensity != b.intensity) d |= SEG_DIFFERS_FX;
-  if (palette != b.palette)     d |= SEG_DIFFERS_FX;
-  if (custom1 != b.custom1)     d |= SEG_DIFFERS_FX;
-  if (custom2 != b.custom2)     d |= SEG_DIFFERS_FX;
-  if (custom3 != b.custom3)     d |= SEG_DIFFERS_FX;
-  if (startY != b.startY)       d |= SEG_DIFFERS_BOUNDS;
-  if (stopY != b.stopY)         d |= SEG_DIFFERS_BOUNDS;
-
-  //bit pattern: (msb first)
-  // set:2, sound:2, mapping:3, transposed, mirrorY, reverseY, [reset,] paused, mirrored, on, reverse, [selected]
-  if ((options & 0b1111111111011110U) != (b.options & 0b1111111111011110U)) d |= SEG_DIFFERS_OPT;
-  if ((options & 0x0001U) != (b.options & 0x0001U))                         d |= SEG_DIFFERS_SEL;
-  for (unsigned i = 0; i < NUM_COLORS; i++) if (colors[i] != b.colors[i])   d |= SEG_DIFFERS_COL;
-
-  return d;
 }
 
 void Segment::refreshLightCapabilities() const {
