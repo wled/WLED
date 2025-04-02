@@ -144,10 +144,10 @@ void WS2812FX::setUpMatrix() {
 ///////////////////////////////////////////////////////////
 
 #ifndef WLED_DISABLE_2D
-// pixel is clipped if it falls outside clipping range (Segment::isPreviousMode()) or is inside clipping range (!Segment::isPreviousMode())
+// pixel is clipped if it falls outside clipping range
 // if clipping start > stop the clipping range is inverted
 bool IRAM_ATTR Segment::isPixelXYClipped(int x, int y) const {
-  if (isInTransition() && _clipStart != _clipStop && blendingStyle != BLEND_STYLE_FADE) {
+  if (blendingStyle != BLEND_STYLE_FADE && isInTransition() && _clipStart != _clipStop) {
     const bool invertX = _clipStart  > _clipStop;
     const bool invertY = _clipStartY > _clipStopY;
     const int  cStartX = invertX ? _clipStop   : _clipStart;
@@ -177,7 +177,7 @@ bool IRAM_ATTR Segment::isPixelXYClipped(int x, int y) const {
     }
     bool xInside = (x >= cStartX && x < cStopX); if (invertX) xInside = !xInside;
     bool yInside = (y >= cStartY && y < cStopY); if (invertY) yInside = !yInside;
-    const bool clip = (invertX && invertY); // ? !Segment::isPreviousMode() : Segment::isPreviousMode();
+    const bool clip = (invertX && invertY);
     if (xInside && yInside) return clip; // covers window & corners (inverted)
     return !clip;
   }

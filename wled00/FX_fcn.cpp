@@ -78,7 +78,6 @@ CRGBPalette16 Segment::_randomPalette     = generateRandomPalette();  // was CRG
 CRGBPalette16 Segment::_newRandomPalette  = generateRandomPalette();  // was CRGBPalette16(DEFAULT_COLOR);
 uint16_t      Segment::_lastPaletteChange = 0; // in seconds; perhaps it should be per segment
 uint16_t      Segment::_nextPaletteBlend  = 0; // in millis
-uint16_t      Segment::_transitionProgress= 0xFFFF;
 
 bool     Segment::_modeBlend = false;
 uint16_t Segment::_clipStart = 0;
@@ -333,20 +332,22 @@ void Segment::stopTransition() {
   _t = nullptr;
 }
 
-void Segment::updateTransitionProgress() const {  // sets transition progress (0-65535) based on time passed since transition start
-  Segment::_transitionProgress = 0xFFFF;
+// sets transition progress variable (0-65535) based on time passed since transition start
+void Segment::updateTransitionProgress() const {
   if (isInTransition()) {
+    _t->_progress = 0xFFFF;
     unsigned diff = millis() - _t->_start;
-    if (_t->_dur > 0 && diff < _t->_dur) Segment::_transitionProgress = diff * 0xFFFFU / _t->_dur;
+    if (_t->_dur > 0 && diff < _t->_dur) _t->_progress = diff * 0xFFFFU / _t->_dur;
   }
 }
 
-// will return segment's opacity during a transition
+// will return segment's CCT during a transition
+// isPreviousMode() is actually not implemented for CCT in strip.service() as WLED does not support per-pixel CCT
 uint8_t Segment::currentCCT() const {
   unsigned prog = progress();
-  if (prog < 0xFFFFU && _t) {
-    unsigned tmpBri = cct * prog + (_t->_cct * (0xFFFFU - prog));
-    return tmpBri / 0xFFFFU;
+  if (prog < 0xFFFFU) {
+    if (blendingStyle == BLEND_STYLE_FADE) return (cct * prog + (_t->_cct * (0xFFFFU - prog))) / 0xFFFFU;
+    //else                                   return Segment::isPreviousMode() ? _t->_cct : cct;
   }
   return cct;
 }
@@ -355,25 +356,27 @@ uint8_t Segment::currentCCT() const {
 uint8_t Segment::currentBri() const {
   unsigned prog = progress();
   unsigned curBri = on ? opacity : 0;
-  if (prog < 0xFFFFU && _t) {
+  if (prog < 0xFFFFU) {
     // this will blend opacity in new mode if style is FADE (single effect call)
     if (blendingStyle == BLEND_STYLE_FADE) curBri = (prog * curBri + _t->_bri * (0xFFFFU - prog)) / 0xFFFFU;
-    else curBri = Segment::isPreviousMode() ? _t->_bri : curBri;
+    else                                   curBri = Segment::isPreviousMode() ? _t->_bri : curBri;
   }
   return curBri;
 }
 
 // pre-calculate drawing parameters for faster access (based on the idea from @softhack007 from MM fork)
-// if called from the temporary segment copy (while parent segment is in transition), it is never in transition
-void Segment::beginDraw() {
-  updateTransitionProgress(); // just in case if called form old segment's context
-  unsigned prog = progress();
+// and blends colors and palettes if necessary
+// prog is the progress of the transition (0-65535) and is passed to the function as it may be called in the context of old segment
+// which does not have transition structure
+void Segment::beginDraw(uint16_t prog) {
   setDrawDimensions();
-  for (unsigned i = 0; i < NUM_COLORS; i++)
-    _currentColors[i] = (prog < 0xFFFFU && blendingStyle == BLEND_STYLE_FADE) ? color_blend16(_t->_colors[i], colors[i], prog) : colors[i];
+  // load colors into _currentColors
+  for (unsigned i = 0; i < NUM_COLORS; i++) _currentColors[i] = colors[i];
   // load palette into _currentPalette
   loadPalette(Segment::_currentPalette, palette);
-  if (prog < 0xFFFFU && blendingStyle == BLEND_STYLE_FADE) {
+  if (isInTransition() && prog < 0xFFFFU && blendingStyle == BLEND_STYLE_FADE) {
+    // blend colors
+    for (unsigned i = 0; i < NUM_COLORS; i++) _currentColors[i] = color_blend16(_t->_colors[i], colors[i], prog);
     // blend palettes
     // there are about 255 blend passes of 48 "blends" to completely blend two palettes (in _dur time)
     // minimum blend time is 100ms maximum is 65535ms
@@ -667,10 +670,10 @@ uint16_t Segment::virtualLength() const {
   return vLength;
 }
 
-// pixel is clipped if it falls outside clipping range (Segment::isPreviousMode()) or is inside clipping range (!Segment::isPreviousMode())
+// pixel is clipped if it falls outside clipping range
 // if clipping start > stop the clipping range is inverted
 bool IRAM_ATTR Segment::isPixelClipped(int i) const {
-  if (isInTransition() && _clipStart != _clipStop && blendingStyle != BLEND_STYLE_FADE) {
+  if (blendingStyle != BLEND_STYLE_FADE && isInTransition() && _clipStart != _clipStop) {
     bool invert = _clipStart > _clipStop;  // ineverted start & stop
     int start = invert ? _clipStop : _clipStart;
     int stop  = invert ? _clipStart : _clipStop;
@@ -995,26 +998,11 @@ void Segment::refreshLightCapabilities() const {
 }
 
 /*
- * Fills segment with black
- */
-void Segment::clear() const {
-  if (!isActive()) return; // not active
-  unsigned oldVW = _vWidth;
-  unsigned oldVH = _vHeight;
-  unsigned oldVL = _vLength;
-  setDrawDimensions();
-  fill(BLACK);
-  _vWidth  = oldVW;
-  _vHeight = oldVH;
-  _vLength = oldVL;
-}
-
-/*
  * Fills segment with color
  */
 void Segment::fill(uint32_t c) const {
   if (!isActive()) return; // not active
-  for (unsigned i = 0; i < vLength(); i++) setPixelColorRaw(i,c);
+  for (unsigned i = 0; i < length(); i++) setPixelColorRaw(i,c); // always fill all pixels (blending will take care of grouping, spacing and clipping)
 }
 
 /*
@@ -1130,7 +1118,7 @@ uint32_t Segment::color_wheel(uint8_t pos) const {
  * @returns Single color from palette
  */
 uint32_t Segment::color_from_palette(uint16_t i, bool mapping, bool moving, uint8_t mcol, uint8_t pbri) const {
-  uint32_t color = getCurrentColor(mcol < NUM_COLORS ? mcol : 0);
+  uint32_t color = getCurrentColor(mcol);
   // default palette or no RGB support on segment
   if ((palette == 0 && mcol < NUM_COLORS) || !_isRGB) {
     return color_fade(color, pbri, true);
@@ -1350,7 +1338,8 @@ void WS2812FX::service() {
         if (cctFromRgb) BusManager::setSegmentCCT(-1);
         else            BusManager::setSegmentCCT(seg.currentCCT(), correctWB);
         // Effect blending
-        seg.beginDraw();                    // set up parameters for get/setPixelColor() (will also blend colors and palette if blend style is FADE)
+        uint16_t prog = seg.progress();
+        seg.beginDraw(prog);                // set up parameters for get/setPixelColor() (will also blend colors and palette if blend style is FADE)
         _currentSegment = &seg;             // set current segment for effect functions (SEGMENT & SEGENV)
         // workaround for on/off transition to respect blending style
         frameDelay = (*_mode[seg.mode])();  // run new/current mode (needed for bri workaround)
@@ -1359,13 +1348,13 @@ void WS2812FX::service() {
         // (blendSegments() takes care of On/Off transitions and clipping)
         Segment *segO = seg.getOldSegment();
         if (segO && (seg.mode != segO->mode || blendingStyle != BLEND_STYLE_FADE)) {
-          Segment::modeBlend(true);       // set semaphore for beginDraw() to blend colors and palette
-          segO->beginDraw();              // set up palette & colors (also sets draw dimensions)
-          _currentSegment = segO;         // set current segment
+          Segment::modeBlend(true);         // set semaphore for beginDraw() to blend colors and palette
+          segO->beginDraw(prog);            // set up palette & colors (also sets draw dimensions), parent segment has transition progress
+          _currentSegment = segO;           // set current segment
           // workaround for on/off transition to respect blending style
           frameDelay = min(frameDelay, (unsigned)(*_mode[segO->mode])());  // run old mode (needed for bri workaround; semaphore!!)
-          segO->call++;                   // increment old mode run counter
-          Segment::modeBlend(false);      // unset semaphore
+          segO->call++;                     // increment old mode run counter
+          Segment::modeBlend(false);        // unset semaphore
         }
         if (seg.isInTransition() && frameDelay > FRAMETIME) frameDelay = FRAMETIME; // force faster updates during transition
         BusManager::setSegmentCCT(oldCCT);  // restore old CCT for ABL adjustments
@@ -1435,8 +1424,6 @@ void WS2812FX::blendSegment(const Segment &topSegment) const {
   const auto func  = funcs[blendMode]; // blendMode % (sizeof(funcs) / sizeof(FuncType))
   const auto blend = [&](uint32_t top, uint32_t bottom){ return RGBW32(func(R(top),R(bottom)), func(G(top),G(bottom)), func(B(top),B(bottom)), func(W(top),W(bottom))); };
 
-  topSegment.setDrawDimensions();                     // required for seg.getPixelColor()
-  topSegment.updateTransitionProgress();              // needed for progress()
   const int     length     = topSegment.length();     // physical segment length (counts all pixels in 2D segment)
   const int     width      = topSegment.width();
   const int     height     = topSegment.height();
@@ -1508,14 +1495,17 @@ void WS2812FX::blendSegment(const Segment &topSegment) const {
 
   if (isMatrix && stopIndx <= matrixSize) {
 #ifndef WLED_DISABLE_2D
-    const int cols = Segment::vWidth();   // use precalculated value from setDrawDimensions()
-    const int rows = Segment::vHeight();  // use precalculated value from setDrawDimensions()
+    const int nCols = topSegment.virtualWidth();
+    const int nRows = topSegment.virtualHeight();
+    const Segment *segO = topSegment.getOldSegment();
+    const int oCols = segO ? segO->virtualWidth() : nCols;
+    const int oRows = segO ? segO->virtualHeight() : nRows;
 
-    const auto setMirroredPixel = [&](int x, int y, uint32_t col, uint8_t opacity) {
+    const auto setMirroredPixel = [&](int x, int y, uint32_t c, uint8_t o) {
       const int baseX = topSegment.start  + x;
       const int baseY = topSegment.startY + y;
       size_t indx = XY(baseX, baseY); // absolute address on strip
-      _pixels[indx] = color_blend(_pixels[indx], blend(col, _pixels[indx]), opacity);
+      _pixels[indx] = color_blend(_pixels[indx], blend(c, _pixels[indx]), o);
       // Apply mirroring
       if (topSegment.mirror || topSegment.mirror_y) {
         const int mirrorX = topSegment.start  + width  - x - 1;
@@ -1523,34 +1513,37 @@ void WS2812FX::blendSegment(const Segment &topSegment) const {
         const size_t idxMX = XY(topSegment.transpose ? baseX : mirrorX, topSegment.transpose ? mirrorY : baseY);
         const size_t idxMY = XY(topSegment.transpose ? mirrorX : baseX, topSegment.transpose ? baseY : mirrorY);
         const size_t idxMM = XY(mirrorX, mirrorY);
-        if (topSegment.mirror)                        _pixels[idxMX] = color_blend(_pixels[idxMX], blend(col, _pixels[idxMX]), opacity);
-        if (topSegment.mirror_y)                      _pixels[idxMY] = color_blend(_pixels[idxMY], blend(col, _pixels[idxMY]), opacity);
-        if (topSegment.mirror && topSegment.mirror_y) _pixels[idxMM] = color_blend(_pixels[idxMM], blend(col, _pixels[idxMM]), opacity);
+        if (topSegment.mirror)                        _pixels[idxMX] = color_blend(_pixels[idxMX], blend(c, _pixels[idxMX]), o);
+        if (topSegment.mirror_y)                      _pixels[idxMY] = color_blend(_pixels[idxMY], blend(c, _pixels[idxMY]), o);
+        if (topSegment.mirror && topSegment.mirror_y) _pixels[idxMM] = color_blend(_pixels[idxMM], blend(c, _pixels[idxMM]), o);
       }
     };
 
-    // if we blend using "swipe" style we need to "shift" canvas to left/right/up/down
-    unsigned offsetX = (blendingStyle == BLEND_STYLE_PUSH_UP   || blendingStyle == BLEND_STYLE_PUSH_DOWN)  ? 0 : progInv * cols / 0xFFFFU;
-    unsigned offsetY = (blendingStyle == BLEND_STYLE_PUSH_LEFT || blendingStyle == BLEND_STYLE_PUSH_RIGHT) ? 0 : progInv * rows / 0xFFFFU;
+    // if we blend using "push" style we need to "shift" canvas to left/right/up/down
+    unsigned offsetX = (blendingStyle == BLEND_STYLE_PUSH_UP   || blendingStyle == BLEND_STYLE_PUSH_DOWN)  ? 0 : progInv * nCols / 0xFFFFU;
+    unsigned offsetY = (blendingStyle == BLEND_STYLE_PUSH_LEFT || blendingStyle == BLEND_STYLE_PUSH_RIGHT) ? 0 : progInv * nRows / 0xFFFFU;
 
-    for (int r = 0; r < rows; r++) for (int c = 0; c < cols; c++) {
+    // we only traverse new segment, not old one
+    for (int r = 0; r < nRows; r++) for (int c = 0; c < nCols; c++) {
       const bool clipped = topSegment.isPixelXYClipped(c, r);
-      const Segment *segO = topSegment.getOldSegment();
+      // if segment is in transition and pixel is clipped take old segment's pixel and opacity
       const Segment *seg = clipped && segO ? segO : &topSegment;  // pixel is never clipped for FADE
+      int vCols = seg == segO ? oCols : nCols;         // old segment may have different dimensions
+      int vRows = seg == segO ? oRows : nRows;         // old segment may have different dimensions
       int x = c;
       int y = r;
-      // if segment is in transition and pixel is clipped take old segment's pixel and opacity
+      // if we blend using "push" style we need to "shift" canvas to left/right/up/down
       switch (blendingStyle) {
-        case BLEND_STYLE_PUSH_RIGHT: x = (x + offsetX) % cols;        break;
-        case BLEND_STYLE_PUSH_LEFT:  x = (x - offsetX + cols) % cols; break;
-        case BLEND_STYLE_PUSH_DOWN:  y = (y + offsetY) % rows;        break;
-        case BLEND_STYLE_PUSH_UP:    y = (y - offsetY + rows) % rows; break;
+        case BLEND_STYLE_PUSH_RIGHT: x = (x + offsetX) % nCols;         break;
+        case BLEND_STYLE_PUSH_LEFT:  x = (x - offsetX + nCols) % nCols; break;
+        case BLEND_STYLE_PUSH_DOWN:  y = (y + offsetY) % nRows;         break;
+        case BLEND_STYLE_PUSH_UP:    y = (y - offsetY + nRows) % nRows; break;
       }
-      seg->setDrawDimensions();
-      uint32_t c_a = seg->getPixelColorXYRaw(x, y); // will get clipped pixel from old segment or unclipped pixel from new segment
-      if (segO && blendingStyle == BLEND_STYLE_FADE && topSegment.mode != segO->mode) {
+      uint32_t c_a = BLACK;
+      if (x < vCols && y < vRows) c_a = seg->getPixelColorRaw(x + y*vCols); // will get clipped pixel from old segment or unclipped pixel from new segment
+      if (segO && blendingStyle == BLEND_STYLE_FADE && topSegment.mode != segO->mode && x < oCols && y < oRows) {
         // we need to blend old segment using fade as pixels ae not clipped
-        c_a = color_blend16(c_a, segO->getPixelColorXYRaw(x, y), progInv);
+        c_a = color_blend16(c_a, segO->getPixelColorRaw(x + y*oCols), progInv);
       } else if (blendingStyle != BLEND_STYLE_FADE) {
         // workaround for On/Off transition
         // (bri != briT) && !bri => from On to Off
@@ -1558,11 +1551,12 @@ void WS2812FX::blendSegment(const Segment &topSegment) const {
         if ((!clipped && (bri != briT) && !bri) || (clipped && (bri != briT) && bri)) c_a = BLACK;
       }
       // map it into frame buffer
-      x = c;
+      x = c;  // restore coordiates if we were PUSHing
       y = r;
-      if (topSegment.reverse  ) x = cols - x - 1;
-      if (topSegment.reverse_y) y = rows - y - 1;
+      if (topSegment.reverse  ) x = nCols - x - 1;
+      if (topSegment.reverse_y) y = nRows - y - 1;
       if (topSegment.transpose) std::swap(x,y); // swap X & Y if segment transposed
+      // expand pixel
       const unsigned groupLen = topSegment.groupLength();
       if (groupLen == 1) {
         setMirroredPixel(x, y, c_a, opacity);
@@ -1580,38 +1574,41 @@ void WS2812FX::blendSegment(const Segment &topSegment) const {
     }
 #endif
   } else {
-    const int vLen = Segment::vLength();   // use precalculated value from setDrawDimensions()
+    const int nLen = topSegment.virtualLength();
+    const Segment *segO = topSegment.getOldSegment();
+    const int oLen = segO ? segO->virtualLength() : nLen;
 
-    const auto setMirroredPixel = [&](int i, uint32_t col, uint8_t opacity) {
+    const auto setMirroredPixel = [&](int i, uint32_t c, uint8_t o) {
       int indx = topSegment.start + i;
       // Apply mirroring
       if (topSegment.mirror) {
         unsigned indxM = topSegment.stop - i - 1;
         indxM += topSegment.offset; // offset/phase
         if (indxM >= topSegment.stop) indxM -= length; // wrap
-        _pixels[indxM] = color_blend(_pixels[indxM], blend(col, _pixels[indxM]), opacity);
+        _pixels[indxM] = color_blend(_pixels[indxM], blend(c, _pixels[indxM]), o);
       }
       indx += topSegment.offset; // offset/phase
       if (indx >= topSegment.stop) indx -= length; // wrap
-      _pixels[indx] = color_blend(_pixels[indx], blend(col, _pixels[indx]), opacity);
+      _pixels[indx] = color_blend(_pixels[indx], blend(c, _pixels[indx]), o);
     };
 
-    // if we blend using "swipe" style we need to "shift" canvas to left or right
-    unsigned offsetI = progInv * vLen / 0xFFFFU;
+    // if we blend using "push" style we need to "shift" canvas to left/right/
+    unsigned offsetI = progInv * nLen / 0xFFFFU;
 
-    for (int k = 0; k < vLen; k++) {
+    for (int k = 0; k < nLen; k++) {
       const bool clipped = topSegment.isPixelClipped(k);
-      const Segment *segO = topSegment.getOldSegment();
-      const Segment *seg = clipped && segO ? segO : &topSegment;  // pixel is never clipped for FADE
-      int i = k;
       // if segment is in transition and pixel is clipped take old segment's pixel and opacity
+      const Segment *seg = clipped && segO ? segO : &topSegment;  // pixel is never clipped for FADE
+      const int vLen = seg == segO ? oLen : nLen;
+      int i = k;
+      // if we blend using "push" style we need to "shift" canvas to left or right
       switch (blendingStyle) {
-        case BLEND_STYLE_SWIPE_RIGHT: i = (i + offsetI) % vLen;        break;
-        case BLEND_STYLE_SWIPE_LEFT:  i = (i - offsetI + vLen) % vLen; break;
+        case BLEND_STYLE_PUSH_RIGHT: i = (i + offsetI) % nLen;        break;
+        case BLEND_STYLE_PUSH_LEFT:  i = (i - offsetI + nLen) % nLen; break;
       }
-      seg->setDrawDimensions();
-      uint32_t c_a = seg->getPixelColorRaw(i); // will get clipped pixel from old segment or unclipped pixel from new segment
-      if (segO && blendingStyle == BLEND_STYLE_FADE && topSegment.mode != segO->mode) {
+      uint32_t c_a = BLACK;
+      if (i < vLen) seg->getPixelColorRaw(i); // will get clipped pixel from old segment or unclipped pixel from new segment
+      if (segO && blendingStyle == BLEND_STYLE_FADE && topSegment.mode != segO->mode && i < oLen) {
         // we need to blend old segment using fade as pixels are not clipped
         c_a = color_blend16(c_a, segO->getPixelColorRaw(i), progInv);
       } else if (blendingStyle != BLEND_STYLE_FADE) {
@@ -1621,7 +1618,8 @@ void WS2812FX::blendSegment(const Segment &topSegment) const {
         if ((!clipped && (bri != briT) && !bri) || (clipped && (bri != briT) && bri)) c_a = BLACK;
       }
       // map into frame buffer
-      if (topSegment.reverse) i = vLen - i - 1; // is segment reversed?
+      i = k; // restore index if we were PUSHing
+      if (topSegment.reverse) i = nLen - i - 1; // is segment reversed?
       // expand pixel
       i *= topSegment.groupLength();
       // set all the pixels in the group

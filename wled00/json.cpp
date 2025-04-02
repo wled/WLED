@@ -308,9 +308,6 @@ static bool deserializeSegment(JsonObject elem, byte it, byte presetId)
 
   JsonArray iarr = elem[F("i")]; //set individual LEDs
   if (!iarr.isNull()) {
-    uint8_t oldMap1D2D = seg.map1D2D;
-    seg.map1D2D = M12_Pixels; // no mapping
-
     // set brightness immediately and disable transition
     jsonTransitionOnce = true;
     if (seg.isInTransition()) seg.startTransition(0); // setting transition time to 0 will stop transition in next frame
@@ -327,7 +324,6 @@ static bool deserializeSegment(JsonObject elem, byte it, byte presetId)
     unsigned start = 0, stop = 0;
     unsigned set = 0; //0 nothing set, 1 start set, 2 range set
 
-    seg.setDrawDimensions(); // needed for setPixelColor() (strip is in suspend mode prior to this call so it is safe)
     for (size_t i = 0; i < iarr.size(); i++) {
       if (iarr[i].is<JsonInteger>()) {
         if (!set) {
@@ -353,11 +349,10 @@ static bool deserializeSegment(JsonObject elem, byte it, byte presetId)
 
         if (iSet < 2 || iStop <= iStart) iStop = iStart + 1;
         uint32_t c = RGBW32(rgbw[0], rgbw[1], rgbw[2], rgbw[3]);
-        while (iStart < iStop) seg.setPixelColor(iStart++, c);
+        while (iStart < iStop) seg.setRawPixelColor(iStart++, c); // sets pixel color without 1D->2D expansion, grouping or spacing
         iSet = 0;
       }
     }
-    seg.map1D2D = oldMap1D2D; // restore mapping
     strip.trigger(); // force segment update
   }
   // send UDP/WS if segment options changed (except selection; will also deselect current preset)
