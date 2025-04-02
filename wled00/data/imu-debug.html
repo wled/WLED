@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>MPU6050 Debug</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body { font-family: sans-serif; background: #111; color: #eee; padding: 2rem; text-align: center; }
+    h1 { margin-bottom: 1rem; }
+    .value { font-size: 2rem; margin: 1rem 0; }
+    .label { font-weight: bold; font-size: 1.2rem; }
+  </style>
+</head>
+<body>
+  <h1>MPU6050 Debug Panel</h1>
+  <div class="label">Pitch:</div>
+  <div class="value" id="pitch">--</div>
+  <div class="label">Roll:</div>
+  <div class="value" id="roll">--</div>
+
+  <script>
+    const ip = location.hostname;
+    async function update() {
+      try {
+        const res = await fetch(`http://${ip}/json/info`);
+        const json = await res.json();
+        const imu = json.MPU6050 || {};
+        document.getElementById("pitch").textContent = imu.pitch?.toFixed(1) ?? "--";
+        document.getElementById("roll").textContent = imu.roll?.toFixed(1) ?? "--";
+      } catch (e) {
+        console.warn("Failed to fetch IMU data", e);
+      }
+    }
+    setInterval(update, 200);
+  </script>
+</body>
+</html>
