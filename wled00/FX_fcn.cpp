@@ -242,7 +242,7 @@ CRGBPalette16 &Segment::loadPalette(CRGBPalette16 &targetPalette, uint8_t pal) {
     case 0: //default palette. Exceptions for specific effects above
       targetPalette = PartyColors_p; break;
     case 1: //randomly generated palette
-      targetPalette = _randomPalette; //random palette is generated at intervals in handleRandomPalette() 
+      targetPalette = _randomPalette; //random palette is generated at intervals in handleRandomPalette()
       break;
     case 2: {//primary color only
       CRGB prim = colors[0];
@@ -618,7 +618,7 @@ unsigned Segment::virtualHeight() const {
 constexpr int Fixed_Scale = 16384; // fixpoint scaling factor (14bit for fraction)
 // Pinwheel helper function: matrix dimensions to number of rays
 static int getPinwheelLength(int vW, int vH) {
-  // Returns multiple of 8, prevents over drawing 
+  // Returns multiple of 8, prevents over drawing
   return (max(vW, vH) + 15) & ~7;
 }
 static void setPinwheelParameters(int i, int vW, int vH, int& startx, int& starty, int* cosVal, int* sinVal, bool getPixel = false) {
@@ -633,7 +633,7 @@ static void setPinwheelParameters(int i, int vW, int vH, int& startx, int& start
     sinVal[k] = (sin16_t(angle) * Fixed_Scale) >> 15; // using explicit bit shifts as dividing negative numbers is not equivalent (rounding error is acceptable)
   }
   startx = (vW * Fixed_Scale) / 2; // + cosVal[0] / 4; // starting position = center + 1/4 pixel (in fixed point)
-  starty = (vH * Fixed_Scale) / 2; // + sinVal[0] / 4; 
+  starty = (vH * Fixed_Scale) / 2; // + sinVal[0] / 4;
 }
 #endif
 
@@ -1199,7 +1199,7 @@ void WS2812FX::finalizeInit() {
 
     static_assert(validatePinsAndTypes(defDataTypes, defNumTypes, defNumPins),
                   "The default pin list defined in DATA_PINS does not match the pin requirements for the default buses defined in LED_TYPES");
-    
+
     unsigned prevLen = 0;
     unsigned pinsIndex = 0;
     digitalCount = 0;
@@ -1211,7 +1211,7 @@ void WS2812FX::finalizeInit() {
 
       // if we need more pins than available all outputs have been configured
       if (pinsIndex + busPins > defNumPins) break;
-      
+
       // Assign all pins first so we can check for conflicts on this bus
       for (unsigned j = 0; j < busPins && j < OUTPUT_MAX_PINS; j++) defPin[j] = defDataPins[pinsIndex + j];
 
