@@ -1437,8 +1437,8 @@ void WS2812FX::blendSegment(const Segment &topSegment) const {
 
   Segment::setClippingRect(0, 0);             // disable clipping by default
 
-  const unsigned dw = progress * width / 0xFFFFU + 1;
-  const unsigned dh = progress * height / 0xFFFFU + 1;
+  const unsigned dw = (blendingStyle==BLEND_STYLE_OUTSIDE_IN ? progInv : progress) * width / 0xFFFFU + 1;
+  const unsigned dh = (blendingStyle==BLEND_STYLE_OUTSIDE_IN ? progInv : progress) * height / 0xFFFFU + 1;
   const unsigned orgBS = blendingStyle;
   if (width*height == 1) blendingStyle = BLEND_STYLE_FADE; // disable style for single pixel segments (use fade instead)
   switch (blendingStyle) {
@@ -1455,7 +1455,7 @@ void WS2812FX::blendSegment(const Segment &topSegment) const {
     case BLEND_STYLE_PUSH_LEFT:   // right-to-left
       Segment::setClippingRect(width - dw, width, 0, height);
       break;
-    case BLEND_STYLE_PINCH_OUT:   // corners
+    case BLEND_STYLE_OUTSIDE_IN:   // corners
       Segment::setClippingRect((width + dw)/2, (width - dw)/2, (height + dh)/2, (height - dh)/2); // inverted!!
       break;
     case BLEND_STYLE_INSIDE_OUT:  // outward

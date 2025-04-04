@@ -177,8 +177,7 @@ bool IRAM_ATTR Segment::isPixelXYClipped(int x, int y) const {
     }
     bool xInside = (x >= cStartX && x < cStopX); if (invertX) xInside = !xInside;
     bool yInside = (y >= cStartY && y < cStopY); if (invertY) yInside = !yInside;
-    const bool clip = (invertX && invertY);
-    if (xInside && yInside) return clip; // covers window & corners (inverted)
+    const bool clip = blendingStyle == BLEND_STYLE_OUTSIDE_IN ? xInside || yInside : xInside && yInside;
     return !clip;
   }
   return false;

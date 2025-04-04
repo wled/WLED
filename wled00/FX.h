@@ -333,7 +333,7 @@ extern byte realtimeMode;           // used in getMappedPixelIndex()
 #define BLEND_STYLE_FAIRY_DUST      0x01  // universal
 #define BLEND_STYLE_SWIPE_RIGHT     0x02  // 1D or 2D
 #define BLEND_STYLE_SWIPE_LEFT      0x03  // 1D or 2D
-#define BLEND_STYLE_PINCH_OUT       0x04  // 1D or 2D
+#define BLEND_STYLE_OUTSIDE_IN       0x04  // 1D or 2D
 #define BLEND_STYLE_INSIDE_OUT      0x05  // 1D or 2D
 #define BLEND_STYLE_SWIPE_UP        0x06  // 2D
 #define BLEND_STYLE_SWIPE_DOWN      0x07  // 2D
