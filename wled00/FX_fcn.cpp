@@ -1607,7 +1607,7 @@ void WS2812FX::blendSegment(const Segment &topSegment) const {
         case BLEND_STYLE_PUSH_LEFT:  i = (i - offsetI + nLen) % nLen; break;
       }
       uint32_t c_a = BLACK;
-      if (i < vLen) seg->getPixelColorRaw(i); // will get clipped pixel from old segment or unclipped pixel from new segment
+      if (i < vLen) c_a = seg->getPixelColorRaw(i); // will get clipped pixel from old segment or unclipped pixel from new segment
       if (segO && blendingStyle == BLEND_STYLE_FADE && topSegment.mode != segO->mode && i < oLen) {
         // we need to blend old segment using fade as pixels are not clipped
         c_a = color_blend16(c_a, segO->getPixelColorRaw(i), progInv);
