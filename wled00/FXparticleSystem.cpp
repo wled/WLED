@@ -1735,7 +1735,7 @@ void ParticleSystem1D::handleCollisions() {
   int32_t overlap = particleHardRadius << 1; // overlap bins to include edge particles to neighbouring bins
   if (advPartProps) //may be using individual particle size
     overlap += 256; // add 2 * max radius (approximately)
-  uint32_t maxBinParticles = max((uint32_t)50, (usedParticles + 1) / 4); // do not bin small amounts, limit max to 1/2 of particles
+  uint32_t maxBinParticles = max((uint32_t)50, (usedParticles + 1) / 4); // do not bin small amounts, limit max to 1/4 of particles
   uint32_t numBins = (maxX + (BIN_WIDTH - 1)) / BIN_WIDTH; // calculate number of bins
   uint16_t binIndices[maxBinParticles]; // array to store indices of particles in a bin
   uint32_t binParticleCount; // number of particles in the current bin
