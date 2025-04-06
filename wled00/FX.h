@@ -1,3 +1,4 @@
+#pragma once
 /*
   WS2812FX.h - Library for WS2812 LED effects.
   Harm Aldick - 2016
@@ -8,12 +9,15 @@
   Adapted from code originally licensed under the MIT license
 
   Modified for WLED
+
+  Segment class/struct (c) 2022 Blaz Kristan (@blazoncek)
 */
 
 #ifndef WS2812FX_h
 #define WS2812FX_h
 
 #include <vector>
+#include "wled.h"
 
 #include "const.h"
 #include "bus_manager.h"
@@ -71,18 +75,15 @@ extern byte realtimeMode;           // used in getMappedPixelIndex()
 /* each segment uses 82 bytes of SRAM memory, so if you're application fails because of
   insufficient memory, decreasing MAX_NUM_SEGMENTS may help */
 #ifdef ESP8266
-  #define MAX_NUM_SEGMENTS    16
+  #define MAX_NUM_SEGMENTS  16
   /* How much data bytes all segments combined may allocate */
   #define MAX_SEGMENT_DATA  5120
+#elif defined(CONFIG_IDF_TARGET_ESP32S2)
+  #define MAX_NUM_SEGMENTS  20
+  #define MAX_SEGMENT_DATA  (MAX_NUM_SEGMENTS*512)  // 10k by default (S2 is short on free RAM)
 #else
-  #ifndef MAX_NUM_SEGMENTS
-    #define MAX_NUM_SEGMENTS  32
-  #endif
-  #if defined(ARDUINO_ARCH_ESP32S2)
-    #define MAX_SEGMENT_DATA  (MAX_NUM_SEGMENTS*768)  // 24k by default (S2 is short on free RAM)
-  #else
-    #define MAX_SEGMENT_DATA  (MAX_NUM_SEGMENTS*1280) // 40k by default
-  #endif
+  #define MAX_NUM_SEGMENTS  32  // warning: going beyond 32 may consume too much RAM for stable operation
+  #define MAX_SEGMENT_DATA  (MAX_NUM_SEGMENTS*1280) // 40k by default
 #endif
 
 /* How much data bytes each segment should max allocate to leave enough space for other segments,
@@ -599,6 +600,8 @@ typedef struct Segment {
     inline uint16_t groupLength()        const { return grouping + spacing; }
     inline uint8_t  getLightCapabilities() const { return _capabilities; }
     inline void     deactivate()               { setGeometry(0,0); }
+    inline Segment &clearName()                { if (name) free(name); name = nullptr; return *this; }
+    inline Segment &setName(const String &name) { return setName(name.c_str()); }
 
     inline static unsigned getUsedSegmentData()            { return Segment::_usedSegmentData; }
     inline static void     addUsedSegmentData(int len)     { Segment::_usedSegmentData += len; }
@@ -622,6 +625,7 @@ typedef struct Segment {
     Segment &setOption(uint8_t n, bool val);
     Segment &setMode(uint8_t fx, bool loadDefaults = false);
     Segment &setPalette(uint8_t pal);
+    Segment &setName(const char* name);
     uint8_t differs(const Segment& b) const;
     void    refreshLightCapabilities();
 
@@ -672,8 +676,10 @@ typedef struct Segment {
     [[gnu::hot]] uint32_t getPixelColor(int i) const;
     // 1D support functions (some implement 2D as well)
     void blur(uint8_t, bool smear = false);
+    void clear();
     void fill(uint32_t c);
     void fade_out(uint8_t r);
+    void fadeToSecondaryBy(uint8_t fadeBy);
     void fadeToBlackBy(uint8_t fadeBy);
     inline void blendPixelColor(int n, uint32_t color, uint8_t blend)    { setPixelColor(n, color_blend(getPixelColor(n), color, blend)); }
     inline void blendPixelColor(int n, CRGB c, uint8_t blend)            { blendPixelColor(n, RGBW32(c.r,c.g,c.b,0), blend); }
@@ -704,7 +710,6 @@ typedef struct Segment {
     }
   #ifndef WLED_DISABLE_2D
     inline bool is2D() const                                                            { return (width()>1 && height()>1); }
-    [[gnu::hot]] int  XY(int x, int y) const; // support function to get relative index within segment
     [[gnu::hot]] void setPixelColorXY(int x, int y, uint32_t c) const; // set relative pixel within segment with color
     inline void setPixelColorXY(unsigned x, unsigned y, uint32_t c) const               { setPixelColorXY(int(x), int(y), c); }
     inline void setPixelColorXY(int x, int y, byte r, byte g, byte b, byte w = 0) const { setPixelColorXY(x, y, RGBW32(r,g,b,w)); }
@@ -741,8 +746,7 @@ typedef struct Segment {
     void wu_pixel(uint32_t x, uint32_t y, CRGB c);
     inline void fill_solid(CRGB c) { fill(RGBW32(c.r,c.g,c.b,0)); }
   #else
-    inline constexpr bool is2D() const                                            { return false; }
-    inline int  XY(int x, int y) const                                            { return x; }
+    inline bool is2D() const                                                      { return false; }
     inline void setPixelColorXY(int x, int y, uint32_t c)                         { setPixelColor(x, c); }
     inline void setPixelColorXY(unsigned x, unsigned y, uint32_t c)               { setPixelColor(int(x), c); }
     inline void setPixelColorXY(int x, int y, byte r, byte g, byte b, byte w = 0) { setPixelColor(x, RGBW32(r,g,b,w)); }

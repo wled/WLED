@@ -145,14 +145,6 @@ void WS2812FX::setUpMatrix() {
 
 #ifndef WLED_DISABLE_2D
 
-// XY(x,y) - gets pixel index within current segment (often used to reference leds[] array element)
-int IRAM_ATTR_YN Segment::XY(int x, int y) const
-{
-  const int vW = vWidth();   // segment width in logical pixels (can be 0 if segment is inactive)
-  const int vH = vHeight();  // segment height in logical pixels (is always >= 1)
-  return isActive() ? (x%vW) + (y%vH) * vW : 0;
-}
-
 // raw setColor function without checks (checks are done in setPixelColorXY())
 void IRAM_ATTR_YN Segment::_setPixelColorXY_raw(const int& x, const int& y, uint32_t& col) const
 {
@@ -166,16 +158,11 @@ void IRAM_ATTR_YN Segment::_setPixelColorXY_raw(const int& x, const int& y, uint
 
   // Apply mirroring
   if (mirror || mirror_y) {
-    auto setMirroredPixel = [&](int mx, int my) {
-      strip.setPixelColorXY(mx, my, col);
-    };
-
     const int mirrorX = start + width() - x - 1;
     const int mirrorY = startY + height() - y - 1;
-
-    if (mirror) setMirroredPixel(transpose ? baseX : mirrorX, transpose ? mirrorY : baseY);
-    if (mirror_y) setMirroredPixel(transpose ? mirrorX : baseX, transpose ? baseY : mirrorY);
-    if (mirror && mirror_y) setMirroredPixel(mirrorX, mirrorY);
+    if (mirror) strip.setPixelColorXY(transpose ? baseX : mirrorX, transpose ? mirrorY : baseY, col);
+    if (mirror_y) strip.setPixelColorXY(transpose ? mirrorX : baseX, transpose ? baseY : mirrorY, col);
+    if (mirror && mirror_y) strip.setPixelColorXY(mirrorX, mirrorY, col);
   }
 }
 
@@ -697,9 +684,7 @@ void Segment::drawCharacter(unsigned char chr, int16_t x, int16_t y, uint8_t w, 
       case 60: bits = pgm_read_byte_near(&console_font_5x12[(chr * h) + i]); break; // 5x12 font
       default: return;
     }
-    uint32_t c = ColorFromPaletteWLED(grad, (i+1)*255/h, 255, NOBLEND);
-    // pre-scale color for all pixels
-    c = color_fade(c, _segBri);
+    CRGBW c = ColorFromPalette(grad, (i+1)*255/h, _segBri, LINEARBLEND_NOWRAP);
     _colorScaled = true;
     for (int j = 0; j<w; j++) { // character width
       int x0, y0;
@@ -712,7 +697,7 @@ void Segment::drawCharacter(unsigned char chr, int16_t x, int16_t y, uint8_t w, 
       }
       if (x0 < 0 || x0 >= (int)vWidth() || y0 < 0 || y0 >= (int)vHeight()) continue; // drawing off-screen
       if (((bits>>(j+(8-w))) & 0x01)) { // bit set
-        setPixelColorXY(x0, y0, c);
+        setPixelColorXY(x0, y0, c.color32);
       }
     }
     _colorScaled = false;

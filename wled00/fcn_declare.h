@@ -1,3 +1,4 @@
+#pragma once
 #ifndef WLED_FCN_DECLARE_H
 #define WLED_FCN_DECLARE_H
 
@@ -52,6 +53,7 @@ bool getJsonValue(const JsonVariant& element, DestType& destination, const Defau
 typedef struct WiFiConfig {
   char clientSSID[33];
   char clientPass[65];
+  uint8_t bssid[6];
   IPAddress staticIP;
   IPAddress staticGW;
   IPAddress staticSN;
@@ -62,6 +64,7 @@ typedef struct WiFiConfig {
   {
     strncpy(clientSSID, ssid, 32); clientSSID[32] = 0;
     strncpy(clientPass, pass, 64); clientPass[64] = 0;
+    memset(bssid, 0, sizeof(bssid));
   }
 } wifi_config;
 
@@ -202,14 +205,14 @@ void sendArtnetPollReply(ArtPollReply* reply, IPAddress ipAddress, uint16_t port
 bool handleFileRead(AsyncWebServerRequest*, String path);
 bool writeObjectToFileUsingId(const char* file, uint16_t id, const JsonDocument* content);
 bool writeObjectToFile(const char* file, const char* key, const JsonDocument* content);
-bool readObjectFromFileUsingId(const char* file, uint16_t id, JsonDocument* dest);
-bool readObjectFromFile(const char* file, const char* key, JsonDocument* dest);
+bool readObjectFromFileUsingId(const char* file, uint16_t id, JsonDocument* dest, const JsonDocument* filter = nullptr);
+bool readObjectFromFile(const char* file, const char* key, JsonDocument* dest, const JsonDocument* filter = nullptr);
 void updateFSInfo();
 void closeFile();
 inline bool writeObjectToFileUsingId(const String &file, uint16_t id, const JsonDocument* content) { return writeObjectToFileUsingId(file.c_str(), id, content); };
 inline bool writeObjectToFile(const String &file, const char* key, const JsonDocument* content) { return writeObjectToFile(file.c_str(), key, content); };
-inline bool readObjectFromFileUsingId(const String &file, uint16_t id, JsonDocument* dest) { return readObjectFromFileUsingId(file.c_str(), id, dest); };
-inline bool readObjectFromFile(const String &file, const char* key, JsonDocument* dest) { return readObjectFromFile(file.c_str(), key, dest); };
+inline bool readObjectFromFileUsingId(const String &file, uint16_t id, JsonDocument* dest, const JsonDocument* filter = nullptr) { return readObjectFromFileUsingId(file.c_str(), id, dest); };
+inline bool readObjectFromFile(const String &file, const char* key, JsonDocument* dest, const JsonDocument* filter = nullptr) { return readObjectFromFile(file.c_str(), key, dest); };
 
 //hue.cpp
 void handleHue();
@@ -324,6 +327,7 @@ void serializePlaylist(JsonObject obj);
 
 //presets.cpp
 const char *getPresetsFileName(bool persistent = true);
+bool presetNeedsSaving();
 void initPresetsFile();
 void handlePresets();
 bool applyPreset(byte index, byte callMode = CALL_MODE_DIRECT_CHANGE);
@@ -359,7 +363,12 @@ void espNowReceiveCB(uint8_t* address, uint8_t* data, uint8_t len, signed int rs
 #endif
 
 //network.cpp
-int getSignalQuality(int rssi);
+bool initEthernet(); // result is informational
+int  getSignalQuality(int rssi);
+void fillMAC2Str(char *str, const uint8_t *mac);
+void fillStr2MAC(uint8_t *mac, const char *str);
+int  findWiFi(bool doScan = false);
+bool isWiFiConfigured();
 void WiFiEvent(WiFiEvent_t event);
 
 //um_manager.cpp
@@ -400,7 +409,7 @@ class Usermod {
   protected:
     um_data_t *um_data; // um_data should be allocated using new in (derived) Usermod's setup() or constructor
   public:
-    Usermod() { um_data = nullptr; }
+    Usermod() : um_data(nullptr) {};
     virtual ~Usermod() { if (um_data) delete um_data; }
     virtual void setup() = 0; // pure virtual, has to be overriden
     virtual void loop() = 0;  // pure virtual, has to be overriden
@@ -437,8 +446,6 @@ class Usermod {
 };
 
 namespace UsermodManager {
-  extern byte numMods;
-
   void loop();
   void handleOverlayDraw();
   bool handleButton(uint8_t b);
@@ -460,13 +467,12 @@ namespace UsermodManager {
 #endif
   void onUpdateBegin(bool);
   void onStateChange(uint8_t);
-  bool add(Usermod* um);
   Usermod* lookup(uint16_t mod_id);
-  inline byte getModCount() {return numMods;};
+  size_t getModCount();
 };
 
-//usermods_list.cpp
-void registerUsermods();
+// Register usermods by building a static list via a linker section
+#define REGISTER_USERMOD(x) Usermod* const um_##x __attribute__((__section__(".dtors.tbl.usermods.1"), used)) = &x
 
 //usermod.cpp
 void userSetup();
@@ -480,6 +486,9 @@ void userLoop();
 #include "soc/wdev_reg.h"
 #define HW_RND_REGISTER REG_READ(WDEV_RND_REG)
 #endif
+#define inoise8 perlin8   // fastled legacy alias
+#define inoise16 perlin16 // fastled legacy alias
+#define hex2int(a) (((a)>='0' && (a)<='9') ? (a)-'0' : ((a)>='A' && (a)<='F') ? (a)-'A'+10 : ((a)>='a' && (a)<='f') ? (a)-'a'+10 : 0)
 [[gnu::pure]] int getNumVal(const String* req, uint16_t pos);
 void parseNumber(const char* str, byte* val, byte minv=0, byte maxv=255);
 bool getVal(JsonVariant elem, byte* val, byte vmin=0, byte vmax=255); // getVal supports inc/decrementing and random ("X~Y(r|[w]~[-][Z])" form)
@@ -507,6 +516,15 @@ void enumerateLedmaps();
 [[gnu::hot]] uint8_t get_random_wheel_index(uint8_t pos);
 [[gnu::hot, gnu::pure]] float mapf(float x, float in_min, float in_max, float out_min, float out_max);
 uint32_t hashInt(uint32_t s);
+int32_t perlin1D_raw(uint32_t x, bool is16bit = false);
+int32_t perlin2D_raw(uint32_t x, uint32_t y, bool is16bit = false);
+int32_t perlin3D_raw(uint32_t x, uint32_t y, uint32_t z, bool is16bit = false);
+uint16_t perlin16(uint32_t x);
+uint16_t perlin16(uint32_t x, uint32_t y);
+uint16_t perlin16(uint32_t x, uint32_t y, uint32_t z);
+uint8_t perlin8(uint16_t x);
+uint8_t perlin8(uint16_t x, uint16_t y);
+uint8_t perlin8(uint16_t x, uint16_t y, uint16_t z);
 
 // fast (true) random numbers using hardware RNG, all functions return values in the range lowerlimit to upperlimit-1
 // note: for true random numbers with high entropy, do not call faster than every 200ns (5MHz)

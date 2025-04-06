@@ -42,7 +42,7 @@ To keep this usermod simple and easy to use, it is a very basic implementation o
 
 ## Usermod installation
 
-Use `#define USERMOD_DEEP_SLEEP` in wled.h or `-D USERMOD_DEEP_SLEEP` in your platformio.ini. Settings can be changed in the usermod config UI.
+Add `deep_sleep` to `custom_usermods` in your platformio.ini. Settings can be changed in the usermod config UI.
 
 ### Define Settings
 

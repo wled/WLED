@@ -30,41 +30,6 @@ The usermod supports the following state changes:
 
 ## Installation
 
-1. Copy the file `usermod_Fix_unreachable_netservices.h` to the `wled00` directory.
-2. Register the usermod by adding `#include "usermod_Fix_unreachable_netservices.h"` in the top and `registerUsermod(new FixUnreachableNetServices());` in the bottom of `usermods_list.cpp`.
-
-Example **usermods_list.cpp**:
-
-```cpp
-#include "wled.h"
-/*
- * Register your v2 usermods here!
- *   (for v1 usermods using just usermod.cpp, you can ignore this file)
- */
-
-/*
- * Add/uncomment your usermod filename here (and once more below)
- * || || ||
- * \/ \/ \/
- */
-//#include "usermod_v2_example.h"
-//#include "usermod_temperature.h"
-//#include "usermod_v2_empty.h"
-#include  "usermod_Fix_unreachable_netservices.h"
-
-void registerUsermods()
-{
-  /*
-   * Add your usermod class name here
-   * || || ||
-   * \/ \/ \/
-   */
-  //UsermodManager::add(new MyExampleUsermod());
-  //UsermodManager::add(new UsermodTemperature());
-  //UsermodManager::add(new UsermodRenameMe());
-  UsermodManager::add(new FixUnreachableNetServices());
-
-}
-```
+1. Add `Fix_unreachable_netservices` to `custom_usermods` in your PlatformIO environment.
 
 Hopefully I can help someone with that - @gegu

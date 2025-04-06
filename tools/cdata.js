@@ -17,7 +17,7 @@
 
 const fs = require("node:fs");
 const path = require("path");
-const inliner = require("inliner");
+const inline = require("web-resource-inliner");
 const zlib = require("node:zlib");
 const CleanCSS = require("clean-css");
 const minifyHtml = require("html-minifier-terser").minify;
@@ -89,7 +89,7 @@ function adoptVersionAndRepo(html) {
     repoUrl = repoUrl.replace(/^git\+/, "");
     repoUrl = repoUrl.replace(/\.git$/, "");
     html = html.replaceAll("https://github.com/atuline/WLED", repoUrl);
-    html = html.replaceAll("https://github.com/Aircoookie/WLED", repoUrl);
+    html = html.replaceAll("https://github.com/wled-dev/WLED", repoUrl);
   }
   let version = packageJson.version;
   if (version) {
@@ -128,21 +128,26 @@ async function minify(str, type = "plain") {
 
 async function writeHtmlGzipped(sourceFile, resultFile, page) {
   console.info("Reading " + sourceFile);
-  new inliner(sourceFile, async function (error, html) {
-    if (error) throw error;
+  inline.html({
+    fileContent: fs.readFileSync(sourceFile, "utf8"),
+    relativeTo: path.dirname(sourceFile),
+    strict: true,
+  },
+    async function (error, html) {
+      if (error) throw error;
 
-    html = adoptVersionAndRepo(html);
-    const originalLength = html.length;
-    html = await minify(html, "html-minify");
-    const result = zlib.gzipSync(html, { level: zlib.constants.Z_BEST_COMPRESSION });
-    console.info("Minified and compressed " + sourceFile + " from " + originalLength + " to " + result.length + " bytes");
-    const array = hexdump(result);
-    let src = singleHeader;
-    src += `const uint16_t PAGE_${page}_L = ${result.length};\n`;
-    src += `const uint8_t PAGE_${page}[] PROGMEM = {\n${array}\n};\n\n`;
-    console.info("Writing " + resultFile);
-    fs.writeFileSync(resultFile, src);
-  });
+      html = adoptVersionAndRepo(html);
+      const originalLength = html.length;
+      html = await minify(html, "html-minify");
+      const result = zlib.gzipSync(html, { level: zlib.constants.Z_BEST_COMPRESSION });
+      console.info("Minified and compressed " + sourceFile + " from " + originalLength + " to " + result.length + " bytes");
+      const array = hexdump(result);
+      let src = singleHeader;
+      src += `const uint16_t PAGE_${page}_L = ${result.length};\n`;
+      src += `const uint8_t PAGE_${page}[] PROGMEM = {\n${array}\n};\n\n`;
+      console.info("Writing " + resultFile);
+      fs.writeFileSync(resultFile, src);
+    });
 }
 
 async function specToChunk(srcDir, s) {

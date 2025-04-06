@@ -42,7 +42,7 @@
  * 
  * 
  * Usermods allow you to add own functionality to WLED more easily
- * See: https://github.com/Aircoookie/WLED/wiki/Add-own-functionality
+ * See: https://github.com/wled-dev/WLED/wiki/Add-own-functionality
  * 
  * v2 usermods are class inheritance based and can (but don't have to) implement more functions, each of them is shown in this example.
  * Multiple v2 usermods can be added to one compilation easily.

@@ -54,6 +54,7 @@ ParticleSystem2D::ParticleSystem2D(uint32_t width, uint32_t height, uint32_t num
   smearBlur = 0; //no smearing by default
   emitIndex = 0;
   collisionStartIdx = 0;
+  lastRender = 0;
 
   //initialize some default non-zero values most FX use
   for (uint32_t i = 0; i < numSources; i++) {
@@ -573,6 +574,9 @@ void ParticleSystem2D::pointAttractor(const uint32_t particleindex, PSparticle &
 // warning: do not render out of bounds particles or system will crash! rendering does not check if particle is out of bounds
 // firemode is only used for PS Fire FX
 void ParticleSystem2D::ParticleSys_render() {
+  if(blendingStyle == BLEND_STYLE_FADE && SEGMENT.isInTransition() && lastRender + (strip.getFrameTime() >> 1) > strip.now) // fixes speedup during transitions TODO: find a better solution
+    return;
+  lastRender = strip.now;
   CRGB baseRGB;
   uint32_t brightness; // particle brightness, fades if dying
   static bool useAdditiveTransfer = false; // use add instead of set for buffer transferring (must persist between calls)
@@ -1254,6 +1258,7 @@ ParticleSystem1D::ParticleSystem1D(uint32_t length, uint32_t numberofparticles, 
   smearBlur = 0; //no smearing by default
   emitIndex = 0;
   collisionStartIdx = 0;
+  lastRender = 0;
   // initialize some default non-zero values most FX use
   for (uint32_t i = 0; i < numSources; i++) {
     sources[i].source.ttl = 1; //set source alive
@@ -1525,6 +1530,9 @@ void ParticleSystem1D::applyFriction(int32_t coefficient) {
 // if wrap is set, particles half out of bounds are rendered to the other side of the matrix
 // warning: do not render out of bounds particles or system will crash! rendering does not check if particle is out of bounds
 void ParticleSystem1D::ParticleSys_render() {
+  if(blendingStyle == BLEND_STYLE_FADE && SEGMENT.isInTransition() && lastRender + (strip.getFrameTime() >> 1) > strip.now) // fixes speedup during transitions TODO: find a better solution
+    return;
+  lastRender = strip.now;
   CRGB baseRGB;
   uint32_t brightness; // particle brightness, fades if dying
  // bool useAdditiveTransfer; // use add instead of set for buffer transferring

@@ -2,7 +2,7 @@ var d=document;
 var loc = false, locip, locproto = "http:";
 
 function H(pg="")   { window.open("https://kno.wled.ge/"+pg); }
-function GH()       { window.open("https://github.com/Aircoookie/WLED"); }
+function GH()       { window.open("https://github.com/wled-dev/WLED"); }
 function gId(c)     { return d.getElementById(c); } // getElementById
 function cE(e)      { return d.createElement(e); } // createElement
 function gEBCN(c)   { return d.getElementsByClassName(c); } // getElementsByClassName
@@ -16,7 +16,7 @@ function isI(n)     { return n === +n && n === (n|0); } // isInteger
 function toggle(el) { gId(el).classList.toggle("hide"); gId('No'+el).classList.toggle("hide"); }
 function tooltip(cont=null) {
 	d.querySelectorAll((cont?cont+" ":"")+"[title]").forEach((element)=>{
-		element.addEventListener("mouseover", ()=>{
+		element.addEventListener("pointerover", ()=>{
 			// save title
 			element.setAttribute("data-title", element.getAttribute("title"));
 			const tooltip = d.createElement("span");
@@ -41,7 +41,7 @@ function tooltip(cont=null) {
 			tooltip.classList.add("visible");
 		});
 
-		element.addEventListener("mouseout", ()=>{
+		element.addEventListener("pointerout", ()=>{
 			d.querySelectorAll('.tooltip').forEach((tooltip)=>{
 				tooltip.classList.remove("visible");
 				d.body.removeChild(tooltip);
