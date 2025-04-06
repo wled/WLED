@@ -10206,7 +10206,7 @@ uint16_t mode_particle1DsonicBoom(void) {
       if (SEGMENT.custom2 < 128) // fixed position
         PartSys->sources[0].source.x = map(SEGMENT.custom2, 0, 127, 0, PartSys->maxX);
       else if (SEGMENT.custom2 < 255) { // advances on each "beat"
-        int32_t step = PartSys->maxX / (((262 - SEGMENT.custom2) >> 2)); // step: 2 - 33 steps for full segment width
+        int32_t step = PartSys->maxX / (((270 - SEGMENT.custom2) >> 3)); // step: 2 - 33 steps for full segment width
         PartSys->sources[0].source.x = (PartSys->sources[0].source.x + step) % PartSys->maxX;
         if (PartSys->sources[0].source.x < step) // align to be symmetrical by making the first position half a step from start
           PartSys->sources[0].source.x = step >> 1;
