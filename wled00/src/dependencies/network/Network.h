@@ -19,6 +19,9 @@ public:
   bool isEthernet();
 };
 
+#if defined(CONFIG_IDF_TARGET_ESP32C6)
+extern NetworkClass Network_C6;
+#else
 extern NetworkClass Network;
-
+#endif
 #endif
