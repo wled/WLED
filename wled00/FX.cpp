@@ -9692,7 +9692,7 @@ uint16_t mode_particleBalance(void) {
 
   // Particle System settings
   PartSys->updateSystem(); // update system properties (dimensions and data pointers)
-  PartSys->setMotionBlur(SEGMENT.custom2); // anable motion blur
+  PartSys->setMotionBlur(SEGMENT.custom2); // enable motion blur
   PartSys->setBounce(!SEGMENT.check2);
   PartSys->setWrap(SEGMENT.check2);
   uint8_t hardness = SEGMENT.custom1 > 0 ? map(SEGMENT.custom1, 0, 255, 50, 250) : 200; // set hardness,  make the walls hard if collisions are disabled
@@ -10193,7 +10193,7 @@ uint16_t mode_particle1DsonicBoom(void) {
   for (uint32_t i = 0; i < PartSys->usedParticles; i++) {
     if (SEGMENT.check1) { // modulate colors by mid frequencies
       int mids = sqrt32_bw((int)fftResult[5] + (int)fftResult[6] + (int)fftResult[7] + (int)fftResult[8] + (int)fftResult[9] + (int)fftResult[10]); // average the mids, bin 5 is ~500Hz, bin 10 is ~2kHz (see audio_reactive.h)
-      PartSys->particles[i].hue += (mids * inoise8(PartSys->particles[i].x << 2, SEGMENT.step << 2)) >> 9; // color by perlin noise from mid frequencies
+      PartSys->particles[i].hue += (mids * perlin8(PartSys->particles[i].x << 2, SEGMENT.step << 2)) >> 9; // color by perlin noise from mid frequencies
     }
     if (PartSys->particles[i].ttl > 16) {
       PartSys->particles[i].ttl -= 16; //ttl is linked to brightness, this allows to use higher brightness but still a (very) short lifespan
@@ -10206,7 +10206,7 @@ uint16_t mode_particle1DsonicBoom(void) {
       if (SEGMENT.custom2 < 128) // fixed position
         PartSys->sources[0].source.x = map(SEGMENT.custom2, 0, 127, 0, PartSys->maxX);
       else if (SEGMENT.custom2 < 255) { // advances on each "beat"
-        int32_t step = PartSys->maxX / ((262 - (SEGMENT.custom2) >> 2)); // step: 2 - 33 steps for full segment width
+        int32_t step = PartSys->maxX / (((262 - SEGMENT.custom2) >> 2)); // step: 2 - 33 steps for full segment width
         PartSys->sources[0].source.x = (PartSys->sources[0].source.x + step) % PartSys->maxX;
         if (PartSys->sources[0].source.x < step) // align to be symmetrical by making the first position half a step from start
           PartSys->sources[0].source.x = step >> 1;
@@ -10317,7 +10317,7 @@ uint16_t mode_particleSpringy(void) {
     PartSys->applyForce(PartSys->particles[i], springforce[i], PartSys->advPartProps[i].forcecounter);
     //dampen slow particles to avoid persisting oscillations on higher stiffness
     if (dampenoscillations) {
-      if (abs(PartSys->particles[i].vx) < 3 && abs(springforce[i] < (springK >> 2)))
+      if (abs(PartSys->particles[i].vx) < 3 && abs(springforce[i]) < (springK >> 2))
         PartSys->particles[i].vx = (PartSys->particles[i].vx * 254) / 256; // take out some energy
     }
     PartSys->particles[i].ttl = 300; // reset ttl, cannot use perpetual
@@ -10379,7 +10379,7 @@ uint16_t mode_particleSpringy(void) {
 
   for (int32_t i = 0; i < PartSys->usedParticles; i++) {
     if (SEGMENT.custom2 == 255) { // map speed to hue
-       int speedclr = (abs(PartSys->particles[i].vx) >> 2) << 4; // scale for greater color variation, dump small values to avoid flickering
+       int speedclr = ((int8_t(abs(PartSys->particles[i].vx))) >> 2) << 4; // scale for greater color variation, dump small values to avoid flickering
        //int speed = PartSys->particles[i].vx << 2; // +/- 512
        if (speedclr > 240) speedclr = 240; // limit color to non-wrapping part of palette
        PartSys->particles[i].hue = speedclr;
