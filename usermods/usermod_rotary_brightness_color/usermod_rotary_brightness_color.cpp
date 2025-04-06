@@ -96,14 +96,14 @@ public:
             fastled_col.red = colPri[0];
             fastled_col.green = colPri[1];
             fastled_col.blue = colPri[2];
-            prim_hsv = rgb2hsv_approximate(fastled_col);
+            prim_hsv = rgb2hsv(fastled_col);
             new_val = (int16_t)prim_hsv.h + fadeAmount;
             if (new_val > 255)
               new_val -= 255; // roll-over if  bigger than 255
             if (new_val < 0)
               new_val += 255; // roll-over if smaller than 0
             prim_hsv.h = (byte)new_val;
-            hsv2rgb_rainbow(prim_hsv, fastled_col);
+            fastled_col = prim_hsv ;
             colPri[0] = fastled_col.red;
             colPri[1] = fastled_col.green;
             colPri[2] = fastled_col.blue;
@@ -121,14 +121,14 @@ public:
             fastled_col.red = colPri[0];
             fastled_col.green = colPri[1];
             fastled_col.blue = colPri[2];
-            prim_hsv = rgb2hsv_approximate(fastled_col);
+            prim_hsv = rgb2hsv(fastled_col);
             new_val = (int16_t)prim_hsv.h - fadeAmount;
             if (new_val > 255)
               new_val -= 255; // roll-over if  bigger than 255
             if (new_val < 0)
               new_val += 255; // roll-over if smaller than 0
             prim_hsv.h = (byte)new_val;
-            hsv2rgb_rainbow(prim_hsv, fastled_col);
+            fastled_col = prim_hsv;
             colPri[0] = fastled_col.red;
             colPri[1] = fastled_col.green;
             colPri[2] = fastled_col.blue;

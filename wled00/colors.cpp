@@ -1,8 +1,17 @@
 #include "wled.h"
-
+#include "fcn_declare.h"
 /*
- * Color conversion & utility methods
- */
+  Color conversion & utility methods
+
+  Note on color types and conversions:
+  - WLED uses 32bit colors (RGBW), if possible, use CRGBW instead of CRGB for better performance (no conversion in setPixelColor)
+  - use CRGB if RAM usage is of concern (i.e. for larger color arrays)
+  - fastled replacements are mostly optimized for CHSV32 and CRGBW but using CRGB and HSV are equally fast
+  - direct conversion (assignment or construction) from CHSV/CHSV32 to CRGB/CRGBW use the "rainbow" method (nicer colors)
+  - converting CRGB(W) to HSV32 color is quite accurate but still not 100% (but much more accurate than fastled's "hsv2rgb_approximate" function)
+  - when converting CRGB(W) to HSV32 and back, "hsv2rgb_spectrum" preserves the colors better than the _rainbow version
+  - to manipulate an RGB color in HSV space, use the adjust_color function or the CRGBW.adjust_hue method
+*/
 
 /*
  * color blend function, based on FastLED blend function
@@ -25,8 +34,7 @@ uint32_t color_blend(uint32_t color1, uint32_t color2, uint8_t blend) {
  * original idea: https://github.com/wled-dev/WLED/pull/2465 by https://github.com/Proto-molecule
  * speed optimisations by @dedehai
  */
-uint32_t color_add(uint32_t c1, uint32_t c2, bool preserveCR)
-{
+uint32_t color_add(uint32_t c1, uint32_t c2, bool preserveCR) {
   if (c1 == BLACK) return c2;
   if (c2 == BLACK) return c1;
   const uint32_t TWO_CHANNEL_MASK = 0x00FF00FF; // mask for R and B channels or W and G if negated
@@ -38,13 +46,9 @@ uint32_t color_add(uint32_t c1, uint32_t c2, bool preserveCR)
   uint32_t g = wg & 0xFFFF;
 
   if (preserveCR) { // preserve color ratios
-    uint32_t max = std::max(r,g); // check for overflow note
+    uint32_t max = std::max(r,g); // check for overflow
     max = std::max(max,b);
     max = std::max(max,w);
-    //unsigned max = r; // check for overflow note
-    //max = g > max ? g : max;
-    //max = b > max ? b : max;
-    //max = w > max ? w : max;
     if (max > 255) {
       const uint32_t scale = (uint32_t(255)<<8) / max; // division of two 8bit (shifted) values does not work -> use bit shifts and multiplaction instead
       rb = ((rb * scale) >> 8) &  TWO_CHANNEL_MASK;
@@ -64,9 +68,7 @@ uint32_t color_add(uint32_t c1, uint32_t c2, bool preserveCR)
  * fades color toward black
  * if using "video" method the resulting color will never become black unless it is already black
  */
-
-uint32_t color_fade(uint32_t c1, uint8_t amount, bool video)
-{
+uint32_t color_fade(uint32_t c1, uint8_t amount, bool video) {
   if (amount == 255) return c1;
   if (c1 == BLACK || amount == 0) return BLACK;
   uint32_t scaledcolor; // color order is: W R G B from MSB to LSB
@@ -86,8 +88,24 @@ uint32_t color_fade(uint32_t c1, uint8_t amount, bool video)
   return scaledcolor;
 }
 
+
+/*
+  color adjustment in HSV color space (converts RGB to HSV and back), color conversions are not 100% accurate
+  note: inputs are 32bit to speed up the function, useful input value ranges are -255 to +255
+  note2: if only one hue change is needed, use CRGBW.adjust_hue() instead (much faster)
+*/
+__attribute__((optimize("O3"))) void adjust_color(CRGBW& rgb, int32_t hueShift, int32_t valueChange, int32_t satChange) {
+  if(rgb.color32 == 0 && valueChange <= 0) return; // black and no value change -> return black
+  CHSV32 hsv;
+  rgb2hsv(rgb, hsv); //convert to HSV
+  hsv.h += (hueShift << 8); // shift hue (hue is 16 bits)
+  hsv.s = (int)hsv.s + satChange < 0 ? 0 : ((int)hsv.s + satChange > 255 ? 255 : (int)hsv.s + satChange);
+  hsv.v = (int)hsv.v + valueChange < 0 ? 0 : ((int)hsv.v + valueChange > 255 ? 255 : (int)hsv.v + valueChange);
+  hsv2rgb_spectrum(hsv, rgb); // convert back to RGB
+}
+
 // 1:1 replacement of fastled function optimized for ESP, slightly faster, more accurate and uses less flash (~ -200bytes)
-uint32_t ColorFromPaletteWLED(const CRGBPalette16& pal, unsigned index, uint8_t brightness, TBlendType blendType)
+uint32_t ColorFromPalette(const CRGBPalette16& pal, unsigned index, uint8_t brightness, TBlendType blendType)
 {
   if (blendType == LINEARBLEND_NOWRAP) {
     index = (index * 0xF0) >> 8; // Blend range is affected by lo4 blend of values, remap to avoid wrapping
@@ -232,64 +250,205 @@ CRGBPalette16 generateRandomPalette()  // generate fully random palette
                        CHSV(hw_random8(), hw_random8(160, 255), hw_random8(128, 255)));
 }
 
-void hsv2rgb(const CHSV32& hsv, uint32_t& rgb) // convert HSV (16bit hue) to RGB (32bit with white = 0)
-{
-  unsigned int remainder, region, p, q, t;
-  unsigned int h = hsv.h;
-  unsigned int s = hsv.s;
-  unsigned int v = hsv.v;
-  if (s == 0) {
-      rgb = v << 16 | v << 8 | v;
-      return;
+// convert HSV (16bit hue) to RGB (32bit with white = 0), optimized for speed
+__attribute__((optimize("O3"))) void hsv2rgb_spectrum(const CHSV32& hsv, CRGBW& rgb) {
+  unsigned p, q, t;
+  unsigned region = ((unsigned)hsv.h * 6) >> 16; // h / (65536 / 6)
+  unsigned remainder = (hsv.h - (region * 10923)) * 6; // 10923 = (65536 / 6)
+
+  // check for zero saturation
+  if (hsv.s == 0) {
+    rgb.r = rgb.g = rgb.b = hsv.v;
+    return;
   }
-  region = h / 10923;  // 65536 / 6 = 10923
-  remainder = (h - (region * 10923)) * 6;
-  p = (v * (255 - s)) >> 8;
-  q = (v * (255 - ((s * remainder) >> 16))) >> 8;
-  t = (v * (255 - ((s * (65535 - remainder)) >> 16))) >> 8;
+
+  p = (hsv.v * (255 - hsv.s)) >> 8;
+  q = (hsv.v * (255 - ((hsv.s * remainder) >> 16))) >> 8;
+  t = (hsv.v * (255 - ((hsv.s * (65535 - remainder)) >> 16))) >> 8;
   switch (region) {
     case 0:
-      rgb = v << 16 | t << 8 | p; break;
+      rgb.r = hsv.v;
+      rgb.g = t;
+      rgb.b = p;
+      break;
     case 1:
-      rgb = q << 16 | v << 8 | p; break;
+      rgb.r = q;
+      rgb.g = hsv.v;
+      rgb.b = p;
+      break;
     case 2:
-      rgb = p << 16 | v << 8 | t; break;
+      rgb.r = p;
+      rgb.g = hsv.v;
+      rgb.b = t;
+      break;
     case 3:
-      rgb = p << 16 | q << 8 | v; break;
+      rgb.r = p;
+      rgb.g = q;
+      rgb.b = hsv.v;
+      break;
     case 4:
-      rgb = t << 16 | p << 8 | v; break;
+      rgb.r = t;
+      rgb.g = p;
+      rgb.b = hsv.v;
+      break;
     default:
-      rgb = v << 16 | p << 8 | q; break;
+      rgb.r = hsv.v;
+      rgb.g = p;
+      rgb.b = q;
+      break;
   }
 }
 
-void rgb2hsv(const uint32_t rgb, CHSV32& hsv) // convert RGB to HSV (16bit hue), much more accurate and faster than fastled version
-{
-    hsv.raw = 0;
-    int32_t r = (rgb>>16)&0xFF;
-    int32_t g = (rgb>>8)&0xFF;
-    int32_t b = rgb&0xFF;
+// CHSV to CRGB, dumb conversion: slower so this should not be used in time critical code, use rainbow version instead
+void hsv2rgb_spectrum(const CHSV& hsv, CRGB& rgb) {
+  CHSV32 hsv32(hsv);
+  CRGBW rgb32;
+  hsv2rgb_spectrum(hsv32, rgb32);
+  rgb = CRGB(rgb32);
+}
+
+// convert HSV (16bit hue) to RGB (24bit), optimized for speed (integer types and function arguments were very carefully selected for best performance)
+// this does the same as the FastLED hsv2rgb_rainbow function but with 16bit hue and optimizations for use with CRGB as well as CRGBW
+// note: this function is used when converting CHSV->CRGB or CHSV32->CRGBW by assignment or constructor, there is no need to call it explicitly
+__attribute__((optimize("O3"))) void hsv2rgb_rainbow(uint16_t h, uint8_t s, uint8_t v, uint8_t* rgbdata, bool isRGBW) {
+  uint8_t hue = h>>8;
+  uint8_t sat = s;
+  uint32_t val = v;
+  uint32_t offset = h & 0x1FFF; // 0..31
+  uint32_t third16 = (offset * 21846); // offset16 = offset * 1/3<<16
+  uint8_t third = third16 >> 21; // max = 85
+  uint8_t r, g, b; // note: making these 32bit is significantly slower
+
+  if (!(hue & 0x80)) {
+    if (!(hue & 0x40)) { // section 0-1
+      if (!(hue & 0x20)) {
+        r = 255 - third;
+        g = third;
+        b = 0;
+      } else {
+        r = 171;
+        g = 85 + third;
+        b = 0;
+      }
+    } else { // section 2-3
+      if (!(hue & 0x20)) {
+        uint8_t twothirds = third16 >> 20; // max=170
+        r = 171 - twothirds;
+        g = 170 + third;
+        b = 0;
+      } else {
+        r = 0;
+        g = 255 - third;
+        b = third;
+      }
+    }
+  } else { // section 4-7
+    if (!(hue & 0x40)) {
+      if (!(hue & 0x20)) {
+        r = 0;
+        uint8_t twothirds = third16 >> 20; // max=170
+        g = 171 - twothirds;
+        b = 85 + twothirds;
+      } else {
+        r = third;
+        g = 0;
+        b = 255 - third;
+      }
+    } else {
+      if (!(hue & 0x20)) {
+        r = 85 + third;
+        g = 0;
+        b = 171 - third;
+      } else {
+        r = 170 + third;
+        g = 0;
+        b = 85 - third;
+      }
+    }
+  }
+
+  // scale down colors if desaturated and add the brightness_floor to r, g, and b.
+  if (sat != 255) {
+    if (sat == 0) {
+      r = 255;
+      g = 255;
+      b = 255;
+    } else {
+      //we know sat is < 255 and > 1, lets use that: scale8video is always +1, so drop the conditional
+      uint32_t desat = 255 - sat;
+      desat = (desat * desat); // scale8_video(desat, desat) but more accurate, dropped the "+1" for speed: visual difference is negligible
+      uint8_t brightness_floor = desat >> 8;
+      uint32_t satscale = 0xFFFF - desat;
+      if (r) r = ((r * satscale) >> 16);
+      if (g) g = ((g * satscale) >> 16);
+      if (b) b = ((b * satscale) >> 16);
+
+      r += brightness_floor;
+      g += brightness_floor;
+      b += brightness_floor;
+    }
+  }
+
+  // scale everything down if value < 255.
+  if (val != 255) {
+    if (val == 0) {
+      r = 0;
+      g = 0;
+      b = 0;
+    } else {
+       val = val*val + 512; // = scale8_video(val,val)+2;
+      if (r) r = ((r * val) >> 16) + 1;
+      if (g) g = ((g * val) >> 16) + 1;
+      if (b) b = ((b * val) >> 16) + 1;
+    }
+  }
+  if(isRGBW) {
+    rgbdata[0] = b;
+    rgbdata[1] = g;
+    rgbdata[2] = r;
+    //rgbdata[3] = 0; // white
+  } else {
+    rgbdata[0] = r;
+    rgbdata[1] = g;
+    rgbdata[2] = b;
+  }
+}
+
+// convert RGB to HSV (16bit hue), much more accurate than fastled version. note: using "O3" makes it ~5% faster at minimal flash cost (~20 bytes)
+__attribute__((optimize("O3"))) void rgb2hsv(const CRGBW& rgb, CHSV32& hsv) {
+    int32_t r = rgb.r; // note: using 32bit variables tested faster than 8bit
+    int32_t g = rgb.g;
+    int32_t b = rgb.b;
     int32_t minval, maxval, delta;
-    minval = min(r, g);
-    minval = min(minval, b);
-    maxval = max(r, g);
-    maxval = max(maxval, b);
-    if (maxval == 0)  return; // black
+    // find min/max value. note: faster than using min/max functions (lets compiler optimize more when using "O3"), other variants (nested ifs, xor) tested slower
+    maxval = (r > g) ? ((r > b) ? r : b) : ((g > b) ? g : b);
+    if (maxval == 0) {
+      hsv.hsv32 = 0;
+      return; // black, avoids division by zero
+    }
+    minval = (r < g) ? ((r < b) ? r : b) : ((g < b) ? g : b);
     hsv.v = maxval;
     delta = maxval - minval;
-    hsv.s = (255 * delta) / maxval;
-    if (hsv.s == 0)  return; // gray value
+    hsv.s = delta == maxval ? 255 : (255 * delta) / maxval; // faster on fully saturated colors, slightly slower otherwise
+    //hsv.s = (255 * delta) / maxval;
+    //if (hsv.s == 0)  return; // gray value // assuming gray values are passed rarely, this can be omitted to increase speed
     if (maxval == r) hsv.h = (10923 * (g - b)) / delta;
     else if (maxval == g)  hsv.h = 21845 + (10923 * (b - r)) / delta;
     else hsv.h = 43690 + (10923 * (r - g)) / delta;
 }
 
+CHSV rgb2hsv(const CRGB c) {  // CRGB to CHSV
+  CHSV32 hsv;
+  rgb2hsv(CRGBW(c), hsv);
+  return CHSV(hsv);
+}
+
 void colorHStoRGB(uint16_t hue, byte sat, byte* rgb) { //hue, sat to rgb
-  uint32_t crgb;
-  hsv2rgb(CHSV32(hue, sat, 255), crgb);
-  rgb[0] = byte((crgb) >> 16);
-  rgb[1] = byte((crgb) >> 8);
-  rgb[2] = byte(crgb);
+  CRGBW crgb;
+  hsv2rgb_spectrum(CHSV32(hue, sat, 255), crgb);
+  rgb[0] = crgb.r;
+  rgb[1] = crgb.g;
+  rgb[2] = crgb.b;
 }
 
 //get RGB values from color temperature in K (https://tannerhelland.com/2012/09/18/convert-temperature-rgb-algorithm-code.html)
@@ -337,6 +496,27 @@ void colorCTtoRGB(uint16_t mired, byte* rgb) //white spectrum to rgb, bins
   } else {
     rgb[0]=237;rgb[1]=255;rgb[2]=239;//150
   }
+}
+
+// black body radiation to RGB (from fastled)
+CRGB HeatColor(uint8_t temperature) {
+    CRGB heatcolor;
+    uint8_t t192 = (((int)temperature * 191) >> 8) + (temperature ? 1 : 0); // scale down, but keep 1 as minimum
+    // calculate a value that ramps up from zero to 255 in each 'third' of the scale.
+    uint8_t heatramp = t192 & 0x3F; // 0..63
+    heatramp <<= 2; // scale up to 0..252
+    heatcolor.r = 255;
+    heatcolor.b = 0;
+    if(t192 & 0x80) { // we're in the hottest third
+        heatcolor.g = 255; // full green
+        heatcolor.b = heatramp; // ramp up blue
+    } else if(t192 & 0x40) { // we're in the middle third
+        heatcolor.g = heatramp; // ramp up green
+    } else { // we're in the coolest third
+        heatcolor.r = heatramp; // ramp up red
+        heatcolor.g = 0; // no green
+    }
+    return heatcolor;
 }
 
 #ifndef WLED_DISABLE_HUESYNC
@@ -546,4 +726,86 @@ uint32_t IRAM_ATTR_YN NeoGammaWLEDMethod::Correct32(uint32_t color)
   g = gammaT[g];
   b = gammaT[b];
   return RGBW32(r, g, b, w);
+}
+
+// CRGB color fill functions (from fastled, used for color palettes)
+void fill_solid_RGB(CRGB* colors, uint32_t num, const CRGB& c1) {
+  for(uint32_t i = 0; i < num; i++) {
+    colors[i] = c1;
+  }
+}
+
+// fill CRGB array with a color gradient
+void fill_gradient_RGB(CRGB* colors, uint32_t startpos, CRGB startcolor, uint32_t endpos, CRGB endcolor) {
+  if(endpos < startpos) { // if the points are in the wrong order, flip them
+    unsigned t = endpos;
+    CRGB tc = endcolor;
+    endcolor = startcolor;
+    endpos = startpos;
+    startpos = t;
+    startcolor = tc;
+  }
+  int rdistance = endcolor.r - startcolor.r;
+  int gdistance = endcolor.g - startcolor.g;
+  int bdistance = endcolor.b - startcolor.b;
+
+  int divisor = endpos - startpos;
+  divisor = divisor == 0 ? 1 : divisor; // prevent division by zero
+
+  int rdelta = (rdistance << 16) / divisor;
+  int gdelta = (gdistance << 16) / divisor;
+  int bdelta = (bdistance << 16) / divisor;
+
+  int rshifted = startcolor.r << 16;
+  int gshifted = startcolor.g << 16;
+  int bshifted = startcolor.b << 16;
+
+  for (unsigned i = startpos; i <= endpos; i++) {
+    colors[i] = CRGB(rshifted >> 16, gshifted >> 16, bshifted >> 16);
+    rshifted += rdelta;
+    gshifted += gdelta;
+    bshifted += bdelta;
+  }
+}
+
+void fill_gradient_RGB(CRGB* colors, uint32_t num, const CRGB& c1, const CRGB& c2) {
+  uint32_t last = num - 1;
+  fill_gradient_RGB(colors, 0, c1, last, c2);
+}
+
+void fill_gradient_RGB(CRGB* colors, uint32_t num, const CRGB& c1, const CRGB& c2, const CRGB& c3) {
+  uint32_t half = (num / 2);
+  uint32_t last = num - 1;
+  fill_gradient_RGB(colors,    0, c1, half, c2);
+  fill_gradient_RGB(colors, half, c2, last, c3);
+}
+
+void fill_gradient_RGB(CRGB* colors, uint32_t num, const CRGB& c1, const CRGB& c2, const CRGB& c3, const CRGB& c4) {
+  uint32_t onethird = (num / 3);
+  uint32_t twothirds = ((num * 2) / 3);
+  uint32_t last = num - 1;
+  fill_gradient_RGB(colors,         0, c1,  onethird, c2);
+  fill_gradient_RGB(colors,  onethird, c2, twothirds, c3);
+  fill_gradient_RGB(colors, twothirds, c3,      last, c4);
+}
+
+// palette blending
+void nblendPaletteTowardPalette(CRGBPalette16& current, CRGBPalette16& target, uint8_t maxChanges) {
+  uint8_t* p1;
+  uint8_t* p2;
+  uint32_t changes = 0;
+  p1 = (uint8_t*)current.entries;
+  p2 = (uint8_t*)target.entries;
+  const uint32_t totalChannels = sizeof(CRGBPalette16);
+  for (uint32_t i = 0; i < totalChannels; ++i) {
+    if (p1[i] == p2[i]) continue; // if the values are equal, no changes are needed
+    if (p1[i] < p2[i]) { ++p1[i]; ++changes; } // if the current value is less than the target, increase it by one
+    if (p1[i] > p2[i]) { // if the current value is greater than the target, increase it by one (or two if it's still greater).
+      --p1[i]; ++changes;
+      if (p1[i] > p2[i])
+        --p1[i];
+    }
+    if(changes >= maxChanges)
+      break;
+  }
 }
