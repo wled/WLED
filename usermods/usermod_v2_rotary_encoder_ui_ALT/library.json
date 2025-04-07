@@ -1,3 +1,6 @@
 {
-  "name:": "usermod_v2_rotary_encoder_ui_ALT"
+  "name": "rotary_encoder_ui_ALT",
+  "build": {
+    "extraScript": "setup_deps.py"
+  }
 }
