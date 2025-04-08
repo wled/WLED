@@ -321,18 +321,18 @@ static bool deserializeSegment(JsonObject elem, byte it, byte presetId)
     }
 
     // shadow function variables
-    unsigned start = 0, stop = 0;
-    unsigned set = 0; //0 nothing set, 1 start set, 2 range set
+    unsigned iStart = 0, iStop = 0;
+    unsigned iSet = 0; //0 nothing set, 1 start set, 2 range set
 
     seg.setDrawDimensions(); // needed for setPixelColor() (strip is in suspend mode prior to this call so it is safe)
     for (size_t i = 0; i < iarr.size(); i++) {
       if (iarr[i].is<JsonInteger>()) {
-        if (!set) {
-          start = abs(iarr[i].as<int>());
-          set++;
+        if (!iSet) {
+          iStart = abs(iarr[i].as<int>());
+          iSet++;
         } else {
-          stop = abs(iarr[i].as<int>());
-          set++;
+          iStop = abs(iarr[i].as<int>());
+          iSet++;
         }
       } else { //color
         uint8_t rgbw[] = {0,0,0,0};
