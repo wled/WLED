@@ -19,6 +19,8 @@ class MPU6050Driver : public Usermod {
     bool invertRoll = false;
     bool debugMode = false;
     int turnDetection = 20;             // Degrees of roll
+    float yawThreshold = 20.0;          // deg/s
+    float accelThreshold = 0.2;         // g's
     unsigned long blinkerDelay = 500;   // Milliseconds before triggering blinker
     unsigned long endBlinkerDelay = 1500;
 
@@ -54,6 +56,8 @@ class MPU6050Driver : public Usermod {
     struct MPUData {
       float pitch;
       float roll;
+      float accelX;
+      float accelY;
       float accelZ;
       float gyroX;
       float gyroY;
@@ -77,6 +81,8 @@ class MPU6050Driver : public Usermod {
       return {
         pitch,
         roll,
+        accel.acceleration.x,
+        accel.acceleration.y,
         accel.acceleration.z,
         gyro.gyro.x,
         gyro.gyro.y,
@@ -127,7 +133,6 @@ class MPU6050Driver : public Usermod {
         prevFXColor[i] = seg.colors[0];
 
         seg.setMode(parkFXMode);
-        //seg.speed(parkFXSpeed);
         seg.setColor(0, parkFXColor);
       }
     }
@@ -136,7 +141,6 @@ class MPU6050Driver : public Usermod {
       for (uint8_t i = 0; i < 2; i++) {
         segment& seg = strip.getSegment(i);
         seg.setMode(prevFXMode[i]);
-        //seg.setSpeed(prevFXSpeed[i]);
         seg.setColor(0, prevFXColor[i]);
       }
     }
@@ -159,15 +163,23 @@ class MPU6050Driver : public Usermod {
     void loop() {
       MPUData data = getMPUData();
       if (debugMode) {
-        Serial.print("Pitch: ");
-        Serial.print(lastPitch);
-        Serial.print(" | Roll: ");
-        Serial.println(lastRoll);
+        Serial.print("Pitch: "); Serial.print(data.pitch);
+        Serial.print(" | Roll: "); Serial.print(data.roll);
+        Serial.print(" | GyroZ: "); Serial.print(data.gyroZ);
+        Serial.print(" | AccelX: "); Serial.println(data.accelX);
       }
 
-
       if (blinkerEnabled) {
-        if (abs(data.roll) > turnDetection) {
+        bool turnDetected = false;
+        if (fabs(data.accelX) > accelThreshold) {
+          if (fabs(data.gyroZ) > yawThreshold) {
+            turnDetected = true;
+          } else if (fabs(data.roll) > turnDetection) {
+            turnDetected = true;
+          }
+        }
+
+        if (turnDetected) {
           endTurnStartTime = 0;
           if (turnStartTime == 0) turnStartTime = millis();
           if (millis() - turnStartTime > blinkerDelay) {
@@ -188,9 +200,10 @@ class MPU6050Driver : public Usermod {
           showBlinkerEffect(blinkDirection);
           wasBlinkerActive = true;
         } else if (wasBlinkerActive) {
-            wasBlinkerActive = false;
+          wasBlinkerActive = false;
         }
       }
+
       if (parkModeEnabled) {
         if (abs(data.pitch) > parkDetection &&
             abs(data.gyroX) < stationaryGyroThreshold &&
@@ -207,11 +220,6 @@ class MPU6050Driver : public Usermod {
             startParkFX();
             parkModeActive = true;
           }
-  //        if (parkModeActive && !parkModeEnabled) {
-  //          Serial.println("Parking has been disabled while parked");
-  //          stopParkFX();
-  //          parkModeActive = false;
-  //        }
         } else {
           isStationary = false;
           if (parkModeActive) {
@@ -232,6 +240,8 @@ class MPU6050Driver : public Usermod {
       top["blinkerEnabled"] = blinkerEnabled;
       top["parkModeEnabled"] = parkModeEnabled;
       top["turnThreshold"] = turnDetection;
+      top["yawThreshold"] = yawThreshold;
+      top["accelThreshold"] = accelThreshold;
       top["blinkerDelay"] = blinkerDelay;
       top["endBlinkerDelay"] = endBlinkerDelay;
       top["invertRoll"] = invertRoll;
@@ -247,6 +257,8 @@ class MPU6050Driver : public Usermod {
         blinkerEnabled = top["blinkerEnabled"] | true;
         parkModeEnabled = top["parkModeEnabled"] | true;
         turnDetection = top["turnThreshold"] | 20;
+        yawThreshold = top["yawThreshold"] | 20.0;
+        accelThreshold = top["accelThreshold"] | 0.2;
         blinkerDelay = top["blinkerDelay"] | 500;
         endBlinkerDelay = top["endBlinkerDelay"] | 1500;
         invertRoll = top["invertRoll"] | false;
@@ -263,6 +275,8 @@ class MPU6050Driver : public Usermod {
       imu["blinkerEnabled"] = blinkerEnabled;
       imu["parkModeEnabled"] = parkModeEnabled;
       imu["turnThreshold"] = turnDetection;
+      imu["yawThreshold"] = yawThreshold;
+      imu["accelThreshold"] = accelThreshold;
       imu["blinkerDelay"] = blinkerDelay;
       imu["endBlinkerDelay"] = endBlinkerDelay;
       imu["invertRoll"] = invertRoll;
