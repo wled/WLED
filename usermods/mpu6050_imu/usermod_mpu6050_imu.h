@@ -20,10 +20,11 @@ class MPU6050Driver : public Usermod {
     bool debugMode = false;
     int turnDetection = 20;             // Degrees of roll
     unsigned long blinkerDelay = 500;   // Milliseconds before triggering blinker
+    unsigned long endBlinkerDelay = 1500;
 
     // Park FX settings
-    uint8_t parkFXMode = FX_MODE_BREATH;
-    uint8_t parkFXSpeed = 128;
+    uint8_t parkFXMode = FX_MODE_BLINK_RAINBOW;
+    uint8_t parkFXSpeed = 200;
     uint32_t parkFXColor = 0x0000FF;
 
     // State tracking
@@ -126,7 +127,7 @@ class MPU6050Driver : public Usermod {
         prevFXColor[i] = seg.colors[0];
 
         seg.setMode(parkFXMode);
-        //seg.setSpeed(parkFXSpeed);
+        //seg.speed(parkFXSpeed);
         seg.setColor(0, parkFXColor);
       }
     }
@@ -153,6 +154,7 @@ class MPU6050Driver : public Usermod {
     }
 
     bool blinkerTriggered = false;
+    int blinkDirection = 0;
 
     void loop() {
       MPUData data = getMPUData();
@@ -163,61 +165,65 @@ class MPU6050Driver : public Usermod {
         Serial.println(lastRoll);
       }
 
-      int blinkDirection = 0;
 
-      if (abs(data.roll) > turnDetection) {
-        if (turnStartTime == 0) turnStartTime = millis();
-        if (millis() - turnStartTime > blinkerDelay) {
-          blinkDirection = (data.roll > 0) ? 1 : -1;
-          blinkerTriggered = true;
-        }
-      } else {
-        if (blinkerTriggered) {
+      if (blinkerEnabled) {
+        if (abs(data.roll) > turnDetection) {
+          endTurnStartTime = 0;
+          if (turnStartTime == 0) turnStartTime = millis();
+          if (millis() - turnStartTime > blinkerDelay) {
+            blinkDirection = (data.roll > 0) ? 1 : -1;
+            blinkerTriggered = true;
+          }
+        } else if (blinkerTriggered) {
           if (endTurnStartTime == 0) endTurnStartTime = millis();
-          if(millis() - endTurnStartTime < 1500 ) {
-            showBlinkerEffect(blinkDirection);
-          }
-          else {
+          if (millis() - endTurnStartTime > endBlinkerDelay) {
             blinkerTriggered = false;
+            blinkDirection = 0;
+          }
+        } else {
+          turnStartTime = 0;
+        }
+
+        if (blinkerTriggered) {
+          showBlinkerEffect(blinkDirection);
+          wasBlinkerActive = true;
+        } else if (wasBlinkerActive) {
+            wasBlinkerActive = false;
+        }
+      }
+      if (parkModeEnabled) {
+        if (abs(data.pitch) > parkDetection &&
+            abs(data.gyroX) < stationaryGyroThreshold &&
+            abs(data.gyroY) < stationaryGyroThreshold &&
+            abs(data.gyroZ) < stationaryGyroThreshold) {
+
+          if (!isStationary) {
+            isStationary = true;
+            parkStartTime = millis();
+          }
+
+          if (!parkModeActive && millis() - parkStartTime > 1000) {
+            Serial.println("Parking Mode Triggered");
+            startParkFX();
+            parkModeActive = true;
+          }
+  //        if (parkModeActive && !parkModeEnabled) {
+  //          Serial.println("Parking has been disabled while parked");
+  //          stopParkFX();
+  //          parkModeActive = false;
+  //        }
+        } else {
+          isStationary = false;
+          if (parkModeActive) {
+            stopParkFX();
+            parkModeActive = false;
           }
         }
-        turnStartTime = 0;
-        blinkerTriggered = false;
       }
-
-      if (blinkerTriggered) {
-        showBlinkerEffect(blinkDirection);
-        wasBlinkerActive = true;
-      } else if (wasBlinkerActive) {
-          wasBlinkerActive = false;
-      }
-
-      if (abs(data.pitch) > parkDetection &&
-          abs(data.gyroX) < stationaryGyroThreshold &&
-          abs(data.gyroY) < stationaryGyroThreshold &&
-          abs(data.gyroZ) < stationaryGyroThreshold) {
-
-        if (!isStationary) {
-          isStationary = true;
-          parkStartTime = millis();
-        }
-
-        if (!parkModeActive && millis() - parkStartTime > 1000) {
-          Serial.println("Parking Mode Triggered");
-          startParkFX();
-          parkModeActive = true;
-        }
-        if (parkModeActive && !parkModeEnabled) {
-          Serial.println("Parking has been disabled while parked");
-          stopParkFX();
-          parkModeActive = false;
-        }
-      } else {
-        isStationary = false;
-        if (parkModeActive) {
-          stopParkFX();
-          parkModeActive = false;
-        }
+      if (parkModeActive && !parkModeEnabled) {
+        Serial.println("Parking has been disabled while parked");
+        stopParkFX();
+        parkModeActive = false;
       }
     }
 
@@ -227,6 +233,7 @@ class MPU6050Driver : public Usermod {
       top["parkModeEnabled"] = parkModeEnabled;
       top["turnThreshold"] = turnDetection;
       top["blinkerDelay"] = blinkerDelay;
+      top["endBlinkerDelay"] = endBlinkerDelay;
       top["invertRoll"] = invertRoll;
       top["debugMode"] = debugMode;
       top["parkFXMode"] = parkFXMode;
@@ -241,6 +248,7 @@ class MPU6050Driver : public Usermod {
         parkModeEnabled = top["parkModeEnabled"] | true;
         turnDetection = top["turnThreshold"] | 20;
         blinkerDelay = top["blinkerDelay"] | 500;
+        endBlinkerDelay = top["endBlinkerDelay"] | 1500;
         invertRoll = top["invertRoll"] | false;
         debugMode = top["debugMode"] | false;
         parkFXMode = top["parkFXMode"] | FX_MODE_BREATH;
@@ -256,6 +264,7 @@ class MPU6050Driver : public Usermod {
       imu["parkModeEnabled"] = parkModeEnabled;
       imu["turnThreshold"] = turnDetection;
       imu["blinkerDelay"] = blinkerDelay;
+      imu["endBlinkerDelay"] = endBlinkerDelay;
       imu["invertRoll"] = invertRoll;
       imu["debugMode"] = debugMode;
       imu["pitch"] = lastPitch;
