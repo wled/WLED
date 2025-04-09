@@ -2236,7 +2236,6 @@ void particleHandover(void *buffer, size_t structSize, int32_t numToTransfer) {
     memset(buffer, 0, numToTransfer * structSize); // clear buffer
   }
   uint16_t maxTTL = 0;
-  uint32_t TTLrandom = 0;
   maxTTL = ((unsigned)strip.getTransition() << 1) / FRAMETIME_FIXED; // tie TTL to transition time: limit to double the transition time + some randomness
   #ifndef WLED_DISABLE_PARTICLESYSTEM2D
   if (structSize == sizeof(PSparticle)) { // 2D particle
