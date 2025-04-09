@@ -1495,7 +1495,7 @@ void WS2812FX::finalizeInit() {
   DEBUG_PRINTF_P(PSTR("LED buffer size: %uB/%uB\n"), mem, BusManager::memUsage());
 
   _length = 0;
-  for (int i=0; i<BusManager::getNumBusses(); i++) {
+  for (size_t i=0; i<BusManager::getNumBusses(); i++) {
     Bus *bus = BusManager::getBus(i);
     if (!bus || !bus->isOk() || bus->getStart() + bus->getLength() > MAX_LEDS) break;
     //RGBW mode is enabled if at least one of the strips is RGBW
