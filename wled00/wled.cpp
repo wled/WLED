@@ -750,7 +750,7 @@ void WLED::handleConnection()
   static bool scanDone = true;
   static byte stacO = 0;
   const unsigned long now = millis();
-  const unsigned long nowS = now/1000;
+  const unsigned long __attribute__((unused)) nowS = now/1000;
   const bool wifiConfigured = WLED_WIFI_CONFIGURED;
 
   // ignore connection handling if WiFi is configured and scan still running
