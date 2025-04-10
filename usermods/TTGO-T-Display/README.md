@@ -15,6 +15,8 @@ I have designed a 3D printed case around this board and an ["ElectroCookie"](htt
 
 Based on a rework of the ssd1306_i2c_oled_u8g2 usermod from the WLED repo.
 
+In December 2024, I made some changes to fix compilation errors, and modified the platformio_override.ini file to include ALL changes needed (no more need to edit the origiginal "stock" platformio.ini file).  I am also forcing an older version of the TFT_eSPI library.
+
 ## Hardware
 ![Hardware](assets/ttgo_hardware1.png)
 ![Hardware](assets/ttgo-tdisplay-enclosure1a.png)
@@ -37,38 +39,18 @@ Functionality checked with:
 * As with all usermods, copy the usermod.cpp file from the TTGO-T-Display usermod folder to the wled00 folder (replacing the default usermod.cpp file).
 
 ## Platformio Requirements
+
+### Platformio_override.ini (added)
+Copy the `platformio_override.ini` file which is contained in the `usermods/TTGO-T-Display/` folder into the root of your project folder. This file contains an override that remaps the button pin of WLED to use the on-board button to the right of the USB-C connector (when viewed with the port oriented downward - see hardware photo).  
+
 ### Platformio.ini changes
-Under the root folder of the project, in the `platformio.ini` file, uncomment the `TFT_eSPI` line within the [common] section, under `lib_deps`:
-```ini
-# platformio.ini
-...
-[common]
-...
-lib_deps =
-    ...
-  #For use of the TTGO T-Display ESP32 Module with integrated TFT display uncomment the following line  
-    #TFT_eSPI
-...
-```
+Once the platformio_override.ini file has been copied as described above, the platformio.ini file isn't actually changed, but it is helpful to save the platformio.ini file in the VS Code application.  This should trigger the download of the library dependencies.
 
-In the `platformio.ini` file, you must change the environment setup to build for just the esp32dev platform as follows:
-
-Comment out the line described below:
-```ini
-# Release binaries
-; default_envs = nodemcuv2, esp8266_2m, esp01_1m_full, esp32dev, esp32_eth, esp32s2_saola, esp32c3
-```
-and uncomment the following line in the 'Single binaries' section:
-```ini
-default_envs = esp32dev
-```
-Save the `platformio.ini` file.  Once saved, the required library files should be automatically downloaded for modifications in a later step.
-
-### Platformio_overrides.ini (added)
-Copy the `platformio_overrides.ini` file which is contained in the `usermods/TTGO-T-Display/` folder into the root of your project folder. This file contains an override that remaps the button pin of WLED to use the on-board button to the right of the USB-C connector (when viewed with the port oriented downward - see hardware photo).
+### Change to the WLED_T-Display environment
+This should appear as an option in the bottom toolbar.
 
 ### TFT_eSPI Library Adjustments (board selection)
-You need to modify a file in the `TFT_eSPI` library to select the correct board.  If you followed the directions to modify and save the `platformio.ini` file above, the `User_Setup_Select.h` file can be found in the `/.pio/libdeps/esp32dev/TFT_eSPI_ID1559` folder.
+You need to modify a file in the `TFT_eSPI` library to select the correct board.  If you followed the directions to modify and save the `platformio.ini` file above, the `User_Setup_Select.h` file can be found in the `/.pio/libdeps/WLED_T-Display/TFT_eSPI` folder.
 
 Modify the  `User_Setup_Select.h` file as follows:
 * Comment out the following line (which is the 'default' setup file):
@@ -86,6 +68,8 @@ xtensa-esp32-elf-g++: error: wled00\wled00.ino.cpp: No such file or directory
 xtensa-esp32-elf-g++: fatal error: no input files
 ```
 try building again. Sometimes this happens on the first build attempt and subsequent attempts build correctly.
+
+Once the compilation is done and loaded onto the TTGO T-Display module, the display should show "Loading...", and then it will show the IP of the WLED access point.
 
 ## Arduino IDE
 - UNTESTED
