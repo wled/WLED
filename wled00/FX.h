@@ -367,6 +367,8 @@ typedef enum mapping1D2D {
 } mapping1D2D_t;
 
 class WS2812FX;
+class ParticleSystem1D;
+class ParticleSystem2D;
 
 // segment, 76 bytes
 class Segment {
@@ -752,6 +754,8 @@ class Segment {
     inline void wu_pixel(uint32_t x, uint32_t y, CRGB c) {}
   #endif
   friend class WS2812FX;
+  friend class ParticleSystem1D;
+  friend class ParticleSystem2D;
 };
 
 // main "strip" class (104 bytes)
