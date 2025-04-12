@@ -78,10 +78,10 @@ static int32_t globalSmear = 0; // smear-blur to apply if multiple PS are using 
 #ifndef WLED_DISABLE_PARTICLESYSTEM2D
 
 //non class functions to use for initialization
-static uint32_t calculateNumberOfParticles2D(uint32_t pixels, size_t fraction, size_t requestedSources, bool isadvanced, bool sizecontrol) {
-  size_t numberofParticles = pixels;  // 1 particle per pixel (for example 512 particles on 32x16)
-  const size_t particlelimit = PS_MAXPARTICLES; // maximum number of paticles allowed (based on two segments of 32x32 and 40k effect ram)
-  const size_t maxAllowedMemory = MAX_SEGMENT_DATA/strip.getActiveSegmentsNum() - sizeof(ParticleSystem2D) - requestedSources * sizeof(PSsource); // more segments, less memory
+static uint32_t calculateNumberOfParticles2D(uint32_t pixels, uint32_t fraction, uint32_t requestedSources, bool isadvanced, bool sizecontrol) {
+  uint32_t numberofParticles = pixels;  // 1 particle per pixel (for example 512 particles on 32x16)
+  const uint32_t particlelimit = PS_MAXPARTICLES; // maximum number of paticles allowed (based on two segments of 32x32 and 40k effect ram)
+  const uint32_t maxAllowedMemory = MAX_SEGMENT_DATA/strip.getActiveSegmentsNum() - sizeof(ParticleSystem2D) - requestedSources * sizeof(PSsource); // more segments, less memory
 
   numberofParticles = max((uint32_t)4, min(numberofParticles, particlelimit)); // limit to 4 - particlelimit
   numberofParticles = (numberofParticles * (fraction + 1)) >> 8; // calculate fraction of particles
@@ -90,7 +90,7 @@ static uint32_t calculateNumberOfParticles2D(uint32_t pixels, size_t fraction, s
   // advanced property array needs ram, reduce number of particles
   if (sizecontrol) numberofParticles /= 8; // if advanced size control is used, much fewer particles are needed note: if changing this number, adjust FX using this accordingly
 
-  size_t requiredmemory = numberofParticles * (sizeof(PSparticle) + isadvanced * sizeof(PSadvancedParticle) + sizecontrol * sizeof(PSsizeControl));
+  uint32_t requiredmemory = numberofParticles * (sizeof(PSparticle) + isadvanced * sizeof(PSadvancedParticle) + sizecontrol * sizeof(PSsizeControl));
   // check if we can allocate this many particles
   if (requiredmemory > maxAllowedMemory) {
     numberofParticles = numberofParticles * maxAllowedMemory / requiredmemory; // reduce number of particles to fit in memory
@@ -102,16 +102,16 @@ static uint32_t calculateNumberOfParticles2D(uint32_t pixels, size_t fraction, s
 }
 
 static uint32_t calculateNumberOfSources2D(uint32_t pixels, uint32_t requestedSources) {
-  size_t numberofSources = min(pixels / 4U, requestedSources);
+  uint32_t numberofSources = min(pixels / 4U, requestedSources);
   numberofSources = constrain(numberofSources, 1, PS_MAXSOURCES);
   // make sure it is a multiple of 4 for proper memory alignment
   //numberofSources = ((numberofSources+3) & ~3U);
   return numberofSources;
 }
 
-size_t get2DPSmemoryRequirements(uint16_t cols, uint16_t rows, size_t fraction, size_t requestedSources, bool advanced, bool sizeControl) {
-  size_t numParticles = calculateNumberOfParticles2D(cols * rows, fraction, requestedSources, advanced, sizeControl);
-  size_t numSources = calculateNumberOfSources2D(cols * rows, requestedSources);
+uint32_t get2DPSmemoryRequirements(uint16_t cols, uint16_t rows, uint32_t fraction, uint32_t requestedSources, bool advanced, bool sizeControl) {
+  uint32_t numParticles = calculateNumberOfParticles2D(cols * rows, fraction, requestedSources, advanced, sizeControl);
+  uint32_t numSources = calculateNumberOfSources2D(cols * rows, requestedSources);
   uint32_t requiredmemory = sizeof(ParticleSystem2D);
   requiredmemory += sizeof(PSparticle) * numParticles;
   if (advanced) requiredmemory += sizeof(PSadvancedParticle) * numParticles;
@@ -122,7 +122,7 @@ size_t get2DPSmemoryRequirements(uint16_t cols, uint16_t rows, size_t fraction, 
 }
 
 // TODO: implement fraction of particles used
-ParticleSystem2D::ParticleSystem2D(Segment *s, size_t fraction, uint32_t requestedSources, bool isAdvanced, bool sizeControl) {
+ParticleSystem2D::ParticleSystem2D(Segment *s, uint32_t fraction, uint32_t requestedSources, bool isAdvanced, bool sizeControl) {
   PSPRINTLN("\nParticleSystem2D constructor");
   seg = s; // set segment pointer
   numSources = calculateNumberOfSources2D(Segment::vWidth() * Segment::vHeight(), requestedSources); // number of sources allocated in init
@@ -839,7 +839,7 @@ void ParticleSystem2D::renderParticle(uint32_t particleindex, uint32_t brightnes
         }
         // add particle pixel from render buffer to existing pixel (bounds for setPixelColorXYRaw() are checked above)
         yfb = maxYpixel - yfb;
-        size_t indx = xrb + yrb * 10;
+        uint32_t indx = xrb + yrb * 10;
         uint32_t c = seg->getPixelColorXYRaw(xfb, yfb);
         fast_color_add(c, renderbuffer[indx], brightness);
         seg->setPixelColorXYRaw(xfb, yfb, c);
@@ -1180,13 +1180,13 @@ void blur2D(uint32_t *colorbuffer, uint32_t xsize, uint32_t ysize, uint32_t xblu
 #ifndef WLED_DISABLE_PARTICLESYSTEM1D
 
 //non class functions to use for initialization, fraction is uint8_t: 255 means 100%
-static uint32_t calculateNumberOfParticles1D(size_t numberofParticles, size_t fraction, size_t requestedSources) {
-  const size_t particlelimit = PS_MAXPARTICLES_1D; // maximum number of paticles allowed
-  const size_t maxAllowedMemory = MAX_SEGMENT_DATA/strip.getActiveSegmentsNum() - sizeof(ParticleSystem1D) - requestedSources * sizeof(PSsource1D); // more segments, less memory
+static uint32_t calculateNumberOfParticles1D(uint32_t numberofParticles, uint32_t fraction, uint32_t requestedSources) {
+  const uint32_t particlelimit = PS_MAXPARTICLES_1D; // maximum number of paticles allowed
+  const uint32_t maxAllowedMemory = MAX_SEGMENT_DATA/strip.getActiveSegmentsNum() - sizeof(ParticleSystem1D) - requestedSources * sizeof(PSsource1D); // more segments, less memory
 
   numberofParticles = min(numberofParticles, particlelimit); // limit to particlelimit
   // limit number of particles to fit in memory
-  size_t requiredmemory = numberofParticles * sizeof(PSparticle1D);
+  uint32_t requiredmemory = numberofParticles * sizeof(PSparticle1D);
   if (requiredmemory > maxAllowedMemory) {
     numberofParticles = numberofParticles * maxAllowedMemory / requiredmemory; // reduce number of particles to fit in memory
   }
@@ -1198,21 +1198,21 @@ static uint32_t calculateNumberOfParticles1D(size_t numberofParticles, size_t fr
 }
 
 static uint32_t calculateNumberOfSources1D(uint32_t requestedSources) {
-  size_t numberofSources = min(requestedSources, PS_MAXSOURCES_1D); // limit to 1 - 32
+  uint32_t numberofSources = min(requestedSources, PS_MAXSOURCES_1D); // limit to 1 - 32
   return max(1U, numberofSources);
 }
 
-size_t get1DPSmemoryRequirements(size_t length, size_t fraction, size_t requestedSources) {
-  size_t numParticles = calculateNumberOfParticles1D(length, fraction, requestedSources);
-  size_t numSources = calculateNumberOfSources1D(requestedSources);
-  size_t requiredmemory = sizeof(ParticleSystem1D);
+uint32_t get1DPSmemoryRequirements(uint32_t length, uint32_t fraction, uint32_t requestedSources) {
+  uint32_t numParticles = calculateNumberOfParticles1D(length, fraction, requestedSources);
+  uint32_t numSources = calculateNumberOfSources1D(requestedSources);
+  uint32_t requiredmemory = sizeof(ParticleSystem1D);
   requiredmemory += sizeof(PSparticle1D) * numParticles;
   requiredmemory += sizeof(PSsource1D) * numSources;
   requiredmemory = ((requiredmemory + 7) & ~3U); // add 4 bytes for padding and round up to 4 byte alignment
   return requiredmemory;
 }
 
-ParticleSystem1D::ParticleSystem1D(Segment *s, size_t fraction, uint32_t numberofsources) {
+ParticleSystem1D::ParticleSystem1D(Segment *s, uint32_t fraction, uint32_t numberofsources) {
   seg = s;
   numParticles = calculateNumberOfParticles1D(Segment::vLength(), fraction, numberofsources); // number of particles allocated in init
   numSources = calculateNumberOfSources1D(numberofsources);

@@ -131,7 +131,7 @@ typedef struct {
 // class uses approximately 60 bytes
 class ParticleSystem2D {
 public:
-  ParticleSystem2D(Segment *seg, size_t fraction = 255, uint32_t numberofsources = 1, bool isadvanced = false, bool sizecontrol = false); // constructor
+  ParticleSystem2D(Segment *seg, uint32_t fraction = 255, uint32_t numberofsources = 1, bool isadvanced = false, bool sizecontrol = false); // constructor
   // note: memory is allcated in the FX function, no deconstructor needed
   void update(); //update the particles according to set options and render to the matrix
   void updateFire(const uint8_t intensity, const bool renderonly); // update function for fire, if renderonly is set, particles are not updated (required to fix transitions with frameskips)
@@ -226,7 +226,7 @@ private:
 };
 
 // initialization functions (not part of class)
-size_t get2DPSmemoryRequirements(uint16_t cols, uint16_t rows, size_t fraction = 255, size_t requestedSources = 1, bool advanced = false, bool sizeControl = false);
+uint32_t get2DPSmemoryRequirements(uint16_t cols, uint16_t rows, uint32_t fraction = 255, uint32_t requestedSources = 1, bool advanced = false, bool sizeControl = false);
 #endif // WLED_DISABLE_PARTICLESYSTEM2D
 
 ////////////////////////
@@ -292,7 +292,7 @@ typedef struct {
 
 class ParticleSystem1D {
 public:
-  ParticleSystem1D(Segment *seg, size_t fraction = 255, uint32_t numberofsources = 1); // constructor
+  ParticleSystem1D(Segment *seg, uint32_t fraction = 255, uint32_t numberofsources = 1); // constructor
   // note: memory is allcated in the FX function, no deconstructor needed
   void update(); //update the particles according to set options and render to the matrix
   void updateSystem(Segment *seg); // call at the beginning of every FX, updates pointers and dimensions
@@ -367,5 +367,5 @@ private:
   uint8_t    smearBlur;               // smeared blurring of full frame
 };
 
-size_t get1DPSmemoryRequirements(size_t length, size_t fraction = 255, size_t requestedSources = 1);
+uint32_t get1DPSmemoryRequirements(uint32_t length, uint32_t fraction = 255, uint32_t requestedSources = 1);
 #endif // WLED_DISABLE_PARTICLESYSTEM1D
