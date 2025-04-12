@@ -68,8 +68,6 @@ static inline int32_t limitSpeed(const int32_t speed) {
 static void blur2D(uint32_t *colorbuffer, const uint32_t xsize, uint32_t ysize, const uint32_t xblur, const uint32_t yblur, const uint32_t xstart = 0, uint32_t ystart = 0, const bool isparticle = false);
 static void blur1D(uint32_t *colorbuffer, uint32_t size, uint32_t blur, uint32_t start);
 
-// global variables for memory management
-static int32_t globalSmear = 0; // smear-blur to apply if multiple PS are using the buffer
 #endif
 
 ////////////////////////
@@ -481,19 +479,17 @@ bool ParticleSystem2D::updateSize(PSparticle *particle, PSsizeControl *advsize) 
 }
 
 // calculate x and y size for asymmetrical particles (advanced size control)
-void ParticleSystem2D::getParticleXYsize(PSparticle *particle, PSsizeControl *advsize, uint32_t &xsize, uint32_t &ysize) {
-  if (advsize == nullptr) // if advsize is valid, also advanced properties pointer is valid (handled by updatePSpointers())
-    return;
-  int32_t size = particle->size;
-  int32_t asymdir = advsize->asymdir;
-  int32_t deviation = ((uint32_t)size * ((uint32_t)advsize->asymmetry)) / 255; // deviation from symmetrical size
+void ParticleSystem2D::getParticleXYsize(PSparticle &particle, PSsizeControl &advsize, uint32_t &xsize, uint32_t &ysize) {
+  int32_t size = particle.size;
+  int32_t asymdir = advsize.asymdir;
+  int32_t deviation = ((uint32_t)size * ((uint32_t)advsize.asymmetry) + 255) >> 8; // deviation from symmetrical size
   // Calculate x and y size based on deviation and direction (0 is symmetrical, 64 is x, 128 is symmetrical, 192 is y)
   if (asymdir < 64) {
-    deviation = (asymdir * deviation) / 64;
+    deviation = (asymdir * deviation) >> 6;
   } else if (asymdir < 192) {
-    deviation = ((128 - asymdir) * deviation) / 64;
+    deviation = ((128 - asymdir) * deviation) >> 6;
   } else {
-    deviation = ((asymdir - 255) * deviation) / 64;
+    deviation = ((asymdir - 255) * deviation) >> 6;
   }
   // Calculate x and y size based on deviation, limit to 255 (rendering function cannot handle larger sizes)
   xsize = min((size - deviation), (int32_t)255);
@@ -502,8 +498,7 @@ void ParticleSystem2D::getParticleXYsize(PSparticle *particle, PSsizeControl *ad
 
 // function to bounce a particle from a wall using set parameters (wallHardness and wallRoughness)
 void ParticleSystem2D::bounce(int8_t &incomingspeed, int8_t &parallelspeed, int32_t &position, const uint32_t maxposition) {
-  incomingspeed = -incomingspeed;
-  incomingspeed = (incomingspeed * wallHardness) / 255; // reduce speed as energy is lost on non-hard surface
+  incomingspeed = (-incomingspeed * wallHardness + 255) >> 8; // reduce speed as energy is lost on non-hard surface
   if (position < (int32_t)particleHardRadius)
     position = particleHardRadius; // fast particles will never reach the edge if position is inverted, this looks better
   else
@@ -677,11 +672,7 @@ void ParticleSystem2D::pointAttractor(const uint32_t particleindex, PSparticle &
 void ParticleSystem2D::render() {
   uint32_t baseRGB;
   uint32_t brightness; // particle brightness, fades if dying
-
-  // update global blur (used for blur transitions)
-  //int32_t motionbluramount = motionBlur;
-  int32_t smearamount = smearBlur;
-  globalSmear = smearamount;
+  uint32_t *pixels = seg->getPixels();
 
   if (motionBlur > 0) seg->fadeToSecondaryBy(255 - motionBlur);
   else                seg->fill(SEGCOLOR(1));
@@ -715,30 +706,30 @@ void ParticleSystem2D::render() {
     for (uint32_t i = 0; i < passes; i++) {
       // for the last two passes, use higher amount of blur (results in a nicer brightness gradient with soft edges)
       if (i >= 2) bitshift = 1;
-      seg->blur(bluramount << bitshift, true);
+      blur2D(pixels, maxXpixel + 1, maxYpixel + 1, bluramount << bitshift, bluramount << bitshift);
       bluramount -= 64;
     }
   }
   // apply 2D blur to rendered frame
-  if (globalSmear > 0) {
-    seg->blur(globalSmear, true);
-  }
+  if (smearBlur > 0)
+    blur2D(pixels, maxXpixel + 1, maxYpixel + 1, smearBlur, smearBlur);
 }
 
 // calculate pixel positions and brightness distribution and render the particle to local buffer or global buffer
-void ParticleSystem2D::renderParticle(uint32_t particleindex, uint32_t brightness, uint32_t color, bool wrapX, bool wrapY) {
+void ParticleSystem2D::renderParticle(uint32_t particleindex, uint8_t brightness, uint32_t color, bool wrapX, bool wrapY) {
+  uint32_t *pixels = seg->getPixels();
+  auto XY = [](uint32_t x, uint32_t y){ return x + y * Segment::vWidth(); };
+
   if (particlesize == 0) { // single pixel rendering
     uint32_t x = particles[particleindex].x >> PS_P_RADIUS_SHIFT;
     uint32_t y = particles[particleindex].y >> PS_P_RADIUS_SHIFT;
     if (x <= (uint32_t)maxXpixel && y <= (uint32_t)maxYpixel) {
       // add particle pixel to existing pixel
-      y = maxYpixel - y;
-      uint32_t c = seg->getPixelColorXYRaw(x, y);
-      fast_color_add(c, color, brightness);
-      seg->setPixelColorXYRaw(x, y, c);
+      fast_color_add(pixels[XY(x, maxYpixel - y)], color, brightness);
     }
     return;
   }
+
   int32_t pxlbrightness[4]; // brightness values for the four pixels representing a particle
   struct {        // 0,1 [(x-1,y-1), (x,y-1)]
     int32_t x,y;  // 3,2 [(x-1,y)  , (x,y)  ]
@@ -790,7 +781,7 @@ void ParticleSystem2D::renderParticle(uint32_t particleindex, uint32_t brightnes
     uint32_t ysize = maxsize;
     if (advPartSize) { // use advanced size control
       if (advPartSize[particleindex].asymmetry > 0)
-        getParticleXYsize(&particles[particleindex], &advPartSize[particleindex], xsize, ysize);
+        getParticleXYsize(particles[particleindex], advPartSize[particleindex], xsize, ysize);
       maxsize = (xsize > ysize) ? xsize : ysize; // choose the bigger of the two
     }
     maxsize = maxsize/64 + 1; // number of blur passes depends on maxsize, four passes max
@@ -837,12 +828,10 @@ void ParticleSystem2D::renderParticle(uint32_t particleindex, uint32_t brightnes
           } else
             continue;
         }
-        // add particle pixel from render buffer to existing pixel (bounds for setPixelColorXYRaw() are checked above)
+        // add particle pixel from render buffer to existing pixel (bounds are checked above)
         yfb = maxYpixel - yfb;
         uint32_t indx = xrb + yrb * 10;
-        uint32_t c = seg->getPixelColorXYRaw(xfb, yfb);
-        fast_color_add(c, renderbuffer[indx], brightness);
-        seg->setPixelColorXYRaw(xfb, yfb, c);
+        fast_color_add(pixels[XY(xfb, yfb)], renderbuffer[indx], brightness);
       }
     }
   } else { // standard rendering (2x2 pixels)
@@ -879,10 +868,8 @@ void ParticleSystem2D::renderParticle(uint32_t particleindex, uint32_t brightnes
 
     for (uint32_t i = 0; i < 4; i++) {
       if (pixelvalid[i]) {
-        // add particle pixel to existing pixel (bounds for setPixelColorXYRaw() are checked above)
-        uint32_t c = seg->getPixelColorXYRaw(pixco[i].x, maxYpixel - pixco[i].y);
-        fast_color_add(c, color, pxlbrightness[i]);
-        seg->setPixelColorXYRaw(pixco[i].x, maxYpixel - pixco[i].y, c);
+        // add particle pixel to existing pixel (bounds are checked above)
+        fast_color_add(pixels[XY(pixco[i].x, maxYpixel - pixco[i].y)], color, pxlbrightness[i]);
       }
     }
   }
@@ -1323,8 +1310,7 @@ void ParticleSystem1D::setGravity(const int8_t force) {
   if (force) {
     gforce = force;
     particlesettings.useGravity = true;
-  }
-  else
+  } else
     particlesettings.useGravity = false;
 }
 
@@ -1491,11 +1477,7 @@ void ParticleSystem1D::applyFriction(int32_t coefficient) {
 void ParticleSystem1D::render() {
   uint32_t baseRGB;
   uint32_t brightness; // particle brightness, fades if dying
-
-  // update global blur (used for blur transitions)
-  //int32_t motionbluramount = motionBlur;
-  int32_t smearamount = smearBlur;
-  globalSmear = smearamount;
+  uint32_t *pixels = seg->getPixels();
 
   if (motionBlur > 0) seg->fadeToSecondaryBy(255 - motionBlur);
   else                seg->fill(SEGCOLOR(1)); // clear the buffer before rendering to it
@@ -1518,22 +1500,20 @@ void ParticleSystem1D::render() {
     renderParticle(i, brightness, baseRGB, particlesettings.wrapX);
   }
   // apply smear-blur to rendered frame
-  if (globalSmear > 0) {
-    seg->blur(globalSmear, true);
-  }
+  if (smearBlur)
+    blur1D(pixels, maxXpixel + 1, smearBlur, 0);
 }
 
 // calculate pixel positions and brightness distribution and render the particle to local buffer or global buffer
 void ParticleSystem1D::renderParticle(uint32_t particleindex, uint32_t brightness, uint32_t color, bool wrap) {
+  uint32_t *pixels = seg->getPixels();
   //uint32_t size = particlesize;
   uint32_t size = particles[particleindex].size;
   if (size == 0) { //single pixel particle, can be out of bounds as oob checking is made for 2-pixel particles (and updating it uses more code)
     uint32_t x =  particles[particleindex].x >> PS_P_RADIUS_SHIFT_1D;
     if (x <= (uint32_t)maxXpixel) { //by making x unsigned there is no need to check < 0 as it will overflow
       // add particle pixel to existing pixel
-      uint32_t c = seg->getPixelColorRaw(x);
-      fast_color_add(c, color, brightness);
-      seg->setPixelColorRaw(x, c);
+      fast_color_add(pixels[x], color, brightness);
     }
     return;
   }
@@ -1596,9 +1576,7 @@ void ParticleSystem1D::renderParticle(uint32_t particleindex, uint32_t brightnes
           continue;
       }
       // add particle pixel to existing pixel
-      uint32_t c = seg->getPixelColorRaw(xfb);
-      fast_color_add(c, renderbuffer[xrb]);
-      seg->setPixelColorRaw(xfb, c);
+      fast_color_add(pixels[xfb], renderbuffer[xrb]);
     }
   } else { // standard rendering (2 pixels per particle)
     // check if any pixels are out of frame
@@ -1617,9 +1595,7 @@ void ParticleSystem1D::renderParticle(uint32_t particleindex, uint32_t brightnes
     for (uint32_t i = 0; i < 2; i++) {
       if (pxlisinframe[i]) {
         // add particle pixel to existing pixel
-        uint32_t c = seg->getPixelColorRaw(pixco[i]);
-        fast_color_add(c, color, pxlbrightness[i]);
-        seg->setPixelColorRaw(pixco[i], c);
+        fast_color_add(pixels[pixco[i]], color, pxlbrightness[i]);
       }
     }
   }

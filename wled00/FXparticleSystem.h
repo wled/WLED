@@ -189,7 +189,7 @@ public:
 private:
   //rendering functions
   void render();
-  [[gnu::hot]] void renderParticle(uint32_t particleindex, uint32_t brightness, uint32_t color, bool wrapX, bool wrapY);
+  [[gnu::hot]] void renderParticle(uint32_t particleindex, uint8_t brightness, uint32_t color, bool wrapX, bool wrapY);
 
   // paricle physics applied by system if flags are set
   void applyGravity(); // applies gravity to all particles
@@ -200,7 +200,7 @@ private:
   // utility functions
   void updatePSpointers(bool isadvanced, bool sizecontrol); // update the data pointers to current segment data space
   bool updateSize(PSparticle *part, PSsizeControl *advsize); // advanced size control
-  void getParticleXYsize(PSparticle *particle, PSsizeControl *advsize, uint32_t &xsize, uint32_t &ysize);
+  void getParticleXYsize(PSparticle &particle, PSsizeControl &advsize, uint32_t &xsize, uint32_t &ysize);
   [[gnu::hot]] void bounce(int8_t &incomingspeed, int8_t &parallelspeed, int32_t &position, const uint32_t maxposition); // bounce on a wall
 
   // note: variables that are accessed often are 32bit for speed

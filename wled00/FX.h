@@ -490,6 +490,7 @@ class Segment {
     inline static unsigned getUsedSegmentData()            { return Segment::_usedSegmentData; }
     inline static void     addUsedSegmentData(int len)     { Segment::_usedSegmentData += len; }
 
+    inline uint32_t *getPixels() const                              { return pixels; }
     inline void     setPixelColorRaw(unsigned i, uint32_t c) const  { pixels[i] = c; }
     inline uint32_t getPixelColorRaw(unsigned i) const              { return pixels[i]; };
   #ifndef WLED_DISABLE_2D
