@@ -1,6 +1,6 @@
 #include "wled.h"
 
-#ifndef WLED_ENABLE_MQTT
+#ifdef WLED_DISABLE_MQTT
 #error "This user mod requires MQTT to be enabled."
 #endif
 
@@ -707,23 +707,23 @@ public:
       DEBUG_PRINTLN(F(": No config found. (Using defaults.)"));
       return false;
     }
-    umSSDRDisplayTime      		  = (top[FPSTR(_str_timeEnabled)] | umSSDRDisplayTime);
-    umSSDREnableLDR        		  = (top[FPSTR(_str_ldrEnabled)] | umSSDREnableLDR);
-    umSSDRInverted         		  = (top[FPSTR(_str_inverted)] | umSSDRInverted);
-    umSSDRColonblink       		  = (top[FPSTR(_str_colonblink)] | umSSDRColonblink);
-    umSSDRLeadingZero      		  = (top[FPSTR(_str_leadingZero)] | umSSDRLeadingZero);
-    umSSDRDisplayMask      		  = top[FPSTR(_str_displayMask)] | umSSDRDisplayMask;
-    umSSDRHours            		  = top[FPSTR(_str_hours)] | umSSDRHours;
-    umSSDRMinutes          		  = top[FPSTR(_str_minutes)] | umSSDRMinutes;
-    umSSDRSeconds          		  = top[FPSTR(_str_seconds)] | umSSDRSeconds;
-    umSSDRColons           		  = top[FPSTR(_str_colons)] | umSSDRColons;
-    umSSDRLight        	  		  = top[FPSTR(_str_light)] | umSSDRLight;
-    umSSDRDays             		  = top[FPSTR(_str_days)] | umSSDRDays;
-    umSSDRMonths           		  = top[FPSTR(_str_months)] | umSSDRMonths;
-    umSSDRYears            		  = top[FPSTR(_str_years)] | umSSDRYears;
-    umSSDRBrightnessMin    		  = top[FPSTR(_str_minBrightness)] | umSSDRBrightnessMin;
-    umSSDRBrightnessMax    		  = top[FPSTR(_str_maxBrightness)] | umSSDRBrightnessMax;
-    umSSDRLuxMin                = top[FPSTR(_str_luxMin)] | umSSDRLuxMin;
+    umSSDRDisplayTime			= (top[FPSTR(_str_timeEnabled)] | umSSDRDisplayTime);
+    umSSDREnableLDR				= (top[FPSTR(_str_ldrEnabled)] | umSSDREnableLDR);
+    umSSDRInverted				= (top[FPSTR(_str_inverted)] | umSSDRInverted);
+    umSSDRColonblink			= (top[FPSTR(_str_colonblink)] | umSSDRColonblink);
+    umSSDRLeadingZero			= (top[FPSTR(_str_leadingZero)] | umSSDRLeadingZero);
+    umSSDRDisplayMask			= top[FPSTR(_str_displayMask)] | umSSDRDisplayMask;
+    umSSDRHours					= top[FPSTR(_str_hours)] | umSSDRHours;
+    umSSDRMinutes				= top[FPSTR(_str_minutes)] | umSSDRMinutes;
+    umSSDRSeconds				= top[FPSTR(_str_seconds)] | umSSDRSeconds;
+    umSSDRColons				= top[FPSTR(_str_colons)] | umSSDRColons;
+    umSSDRLight					= top[FPSTR(_str_light)] | umSSDRLight;
+    umSSDRDays					= top[FPSTR(_str_days)] | umSSDRDays;
+    umSSDRMonths				= top[FPSTR(_str_months)] | umSSDRMonths;
+    umSSDRYears					= top[FPSTR(_str_years)] | umSSDRYears;
+    umSSDRBrightnessMin			= top[FPSTR(_str_minBrightness)] | umSSDRBrightnessMin;
+    umSSDRBrightnessMax			= top[FPSTR(_str_maxBrightness)] | umSSDRBrightnessMax;
+    umSSDRLuxMin				= top[FPSTR(_str_luxMin)] | umSSDRLuxMin;
     umSSDRLuxMax                = top[FPSTR(_str_luxMax)] | umSSDRLuxMax;
     umSSDRInvertAutoBrightness  = top[FPSTR(_str_invertAutoBrightness)] | umSSDRInvertAutoBrightness;
 
