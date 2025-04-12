@@ -255,7 +255,7 @@ size_t get2DPSmemoryRequirements(uint16_t cols, uint16_t rows, size_t fraction =
 
 //struct for a single particle (10 bytes)
 typedef struct {
-  int16_t  x;   // x position in particle system (2)
+  int32_t  x;   // x position in particle system (4)
   uint16_t ttl; // time to live in frames (2)
   int8_t   vx;  // horizontal velocity (1)
   uint8_t  hue; // color hue (1)

@@ -62,30 +62,24 @@ uint32_t color_add(uint32_t c1, uint32_t c2, bool preserveCR)
 
 void fast_color_add(uint32_t &c1, uint32_t c2, uint8_t scale) {
   const uint32_t TWO_CHANNEL_MASK = 0x00FF00FF; // mask for R and B channels or W and G if negated
-  uint32_t c2_rb = scale == 255 ?  c2     & TWO_CHANNEL_MASK : ((( c2     & TWO_CHANNEL_MASK) * scale) >> 8) & TWO_CHANNEL_MASK; // mask and add two colors at once
-  uint32_t c2_wg = scale == 255 ? (c2>>8) & TWO_CHANNEL_MASK : ((((c2>>8) & TWO_CHANNEL_MASK) * scale) >> 8) & TWO_CHANNEL_MASK; // mask and add two colors at once
-  register uint32_t rb = ( c1     & TWO_CHANNEL_MASK) + c2_rb; // mask and add two colors at once
-  register uint32_t wg = ((c1>>8) & TWO_CHANNEL_MASK) + c2_wg; // mask and add two colors at once
-  uint32_t r = rb >> 16; // extract single color values
-  uint32_t b = rb & 0xFFFF;
-  uint32_t w = wg >> 16;
-  uint32_t g = wg & 0xFFFF;
-
-  uint32_t maxC = std::max(r,g); // check for overflow
-  maxC = std::max(maxC,b);
-  maxC = std::max(maxC,w);
+  if (scale < 255) fast_color_scale(c2, scale);
+  register uint32_t rb = ( c1     & TWO_CHANNEL_MASK) + ( c2     & TWO_CHANNEL_MASK); // mask and add two colors at once
+  register uint32_t wg = ((c1>>8) & TWO_CHANNEL_MASK) + ((c2>>8) & TWO_CHANNEL_MASK); // mask and add two colors at once
+  register uint32_t maxC = std::max(rb >> 16, rb & 0xFFFF); // check for overflow
+  maxC = std::max(maxC, wg & 0xFFFF);
+  maxC = std::max(maxC, wg >> 16);
   if (maxC > 255) { // maxC cannot be greater than 0x1FE (0xFF+0xFF)
-    uint32_t newscale = (255U<<8) / maxC;
-    rb = ((rb * newscale) >> 8) & TWO_CHANNEL_MASK;
-    wg = ((wg * newscale) >> 8) & TWO_CHANNEL_MASK;
+    maxC = (255U<<8) / maxC;  // 0x80 - 0xFF (0x1FE - 0x100)
+    rb = ((rb * maxC) >> 8) & TWO_CHANNEL_MASK;
+    wg = ((wg * maxC) >> 8) & TWO_CHANNEL_MASK;
   }
   c1 = rb | (wg<<8);
 }
 
 void fast_color_scale(uint32_t &c1, uint8_t scale) {
   const uint32_t TWO_CHANNEL_MASK = 0x00FF00FF; // mask for R and B channels or W and G if negated
-  uint32_t rb = (( c1     & TWO_CHANNEL_MASK) * scale) >> 8;
-  uint32_t wg = (((c1>>8) & TWO_CHANNEL_MASK) * scale) >> 8;
+  register uint32_t rb = (( c1     & TWO_CHANNEL_MASK) * scale) >> 8;
+  register uint32_t wg = (((c1>>8) & TWO_CHANNEL_MASK) * scale) >> 8;
   c1 = rb | (wg<<8);
 }
 

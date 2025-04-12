@@ -149,6 +149,9 @@ ParticleSystem2D::ParticleSystem2D(Segment *s, size_t fraction, uint32_t request
     sources[i].source.sat = 255; //set saturation to max by default
     sources[i].source.ttl = 1; //set source alive
   }
+  for (uint32_t i = 0; i < numParticles; i++) {
+    particles[i].sat = 255; // set full saturation
+  }
 }
 
 // update function applies gravity, moves the particles, handles collisions and renders the particles
@@ -731,7 +734,7 @@ void ParticleSystem2D::renderParticle(uint32_t particleindex, uint32_t brightnes
       // add particle pixel to existing pixel
       y = maxYpixel - y;
       uint32_t c = seg->getPixelColorXYRaw(x, y);
-      c = color_add(c, color_fade(color, brightness), true);
+      fast_color_add(c, color, brightness);
       seg->setPixelColorXYRaw(x, y, c);
     }
     return;
@@ -776,10 +779,6 @@ void ParticleSystem2D::renderParticle(uint32_t particleindex, uint32_t brightnes
     // render particle to a bigger size
     // particle size to pixels: < 64 is 4x4, < 128 is 6x6, < 192 is 8x8, bigger is 10x10
     // first, render the pixel to the center of the renderbuffer, then apply 2D blurring
-    //renderbuffer[4 + (4 * 10)] = color_add(renderbuffer[4 + (4 * 10)], color_fade(color, pxlbrightness[0])); // order is: bottom left, bottom right, top right, top left
-    //renderbuffer[5 + (4 * 10)] = color_add(renderbuffer[5 + (4 * 10)], color_fade(color, pxlbrightness[1]));
-    //renderbuffer[5 + (5 * 10)] = color_add(renderbuffer[5 + (5 * 10)], color_fade(color, pxlbrightness[2]));
-    //renderbuffer[4 + (5 * 10)] = color_add(renderbuffer[4 + (5 * 10)], color_fade(color, pxlbrightness[3]));
     fast_color_add(renderbuffer[4 + (4 * 10)], color, pxlbrightness[0]); // order is: bottom left, bottom right, top right, top left
     fast_color_add(renderbuffer[5 + (4 * 10)], color, pxlbrightness[1]);
     fast_color_add(renderbuffer[5 + (5 * 10)], color, pxlbrightness[2]);
@@ -842,7 +841,7 @@ void ParticleSystem2D::renderParticle(uint32_t particleindex, uint32_t brightnes
         yfb = maxYpixel - yfb;
         size_t indx = xrb + yrb * 10;
         uint32_t c = seg->getPixelColorXYRaw(xfb, yfb);
-        c = color_add(c, renderbuffer[indx], true);
+        fast_color_add(c, renderbuffer[indx], brightness);
         seg->setPixelColorXYRaw(xfb, yfb, c);
       }
     }
@@ -882,7 +881,7 @@ void ParticleSystem2D::renderParticle(uint32_t particleindex, uint32_t brightnes
       if (pixelvalid[i]) {
         // add particle pixel to existing pixel (bounds for setPixelColorXYRaw() are checked above)
         uint32_t c = seg->getPixelColorXYRaw(pixco[i].x, maxYpixel - pixco[i].y);
-        c = color_add(c, color_fade(color, pxlbrightness[i]), true);
+        fast_color_add(c, color, pxlbrightness[i]);
         seg->setPixelColorXYRaw(pixco[i].x, maxYpixel - pixco[i].y, c);
       }
     }
@@ -1133,16 +1132,16 @@ void blur2D(uint32_t *colorbuffer, uint32_t xsize, uint32_t ysize, uint32_t xblu
     width = 10; // buffer size is 10x10
   }
 
-  for(uint32_t y = ystart; y < ystart + ysize; y++) {
+  for (uint32_t y = ystart; y < ystart + ysize; y++) {
     carryover = BLACK;
     uint32_t indexXY = xstart + y * width;
-    for(uint32_t x = xstart; x < xstart + xsize; x++) {
+    for (uint32_t x = xstart; x < xstart + xsize; x++) {
       seeppart = colorbuffer[indexXY]; // create copy of current color
       seeppart = color_fade(seeppart, seep); // scale it and seep to neighbours
       if (x > 0) {
-        colorbuffer[indexXY - 1] = color_add(colorbuffer[indexXY - 1], seeppart);
-        if(carryover) // note: check adds overhead but is faster on average
-        colorbuffer[indexXY] = color_add(colorbuffer[indexXY], carryover);
+        fast_color_add(colorbuffer[indexXY - 1], seeppart);
+        if (carryover) // note: check adds overhead but is faster on average
+          fast_color_add(colorbuffer[indexXY], carryover);
       }
       carryover = seeppart;
       indexXY++; // next pixel in x direction
@@ -1155,16 +1154,16 @@ void blur2D(uint32_t *colorbuffer, uint32_t xsize, uint32_t ysize, uint32_t xblu
   }
 
   seep = yblur >> 1;
-  for(uint32_t x = xstart; x < xstart + xsize; x++) {
+  for (uint32_t x = xstart; x < xstart + xsize; x++) {
     carryover = BLACK;
     uint32_t indexXY = x + ystart * width;
     for(uint32_t y = ystart; y < ystart + ysize; y++) {
       seeppart = colorbuffer[indexXY]; // create copy of current color
       seeppart = color_fade(seeppart, seep); // scale it and seep to neighbours
       if (y > 0) {
-        colorbuffer[indexXY - width] = color_add(colorbuffer[indexXY - width], seeppart);
-        if(carryover) // note: check adds overhead but is faster on average
-        colorbuffer[indexXY] = color_add(colorbuffer[indexXY], carryover);
+        fast_color_add(colorbuffer[indexXY - width], seeppart);
+        if (carryover) // note: check adds overhead but is faster on average
+          fast_color_add(colorbuffer[indexXY], carryover);
       }
       carryover = seeppart;
       indexXY += width; // next pixel in y direction
@@ -1183,7 +1182,7 @@ void blur2D(uint32_t *colorbuffer, uint32_t xsize, uint32_t ysize, uint32_t xblu
 //non class functions to use for initialization, fraction is uint8_t: 255 means 100%
 static uint32_t calculateNumberOfParticles1D(size_t numberofParticles, size_t fraction, size_t requestedSources) {
   const size_t particlelimit = PS_MAXPARTICLES_1D; // maximum number of paticles allowed
-  const size_t maxAllowedMemory = MAX_SEGMENT_DATA/strip.getActiveSegmentsNum() - sizeof(ParticleSystem1D) - requestedSources*sizeof(PSsource1D); // more segments, less memory
+  const size_t maxAllowedMemory = MAX_SEGMENT_DATA/strip.getActiveSegmentsNum() - sizeof(ParticleSystem1D) - requestedSources * sizeof(PSsource1D); // more segments, less memory
 
   numberofParticles = min(numberofParticles, particlelimit); // limit to particlelimit
   // limit number of particles to fit in memory
@@ -1230,6 +1229,7 @@ ParticleSystem1D::ParticleSystem1D(Segment *s, size_t fraction, uint32_t numbero
   collisionStartIdx = 0;
   // initialize some default non-zero values most FX use
   for (uint32_t i = 0; i < numSources; i++) {
+    sources[i].source.sat = 255; // set full saturation
     sources[i].source.ttl = 1; //set source alive
   }
   for (uint32_t i = 0; i < numParticles; i++) {
@@ -1532,7 +1532,7 @@ void ParticleSystem1D::renderParticle(uint32_t particleindex, uint32_t brightnes
     if (x <= (uint32_t)maxXpixel) { //by making x unsigned there is no need to check < 0 as it will overflow
       // add particle pixel to existing pixel
       uint32_t c = seg->getPixelColorRaw(x);
-      c = color_add(c, color_fade(color, brightness), true);
+      fast_color_add(c, color, brightness);
       seg->setPixelColorRaw(x, c);
     }
     return;
@@ -1564,8 +1564,6 @@ void ParticleSystem1D::renderParticle(uint32_t particleindex, uint32_t brightnes
     //render particle to a bigger size
     //particle size to pixels: 2 - 63 is 4 pixels, < 128 is 6pixels, < 192 is 8 pixels, bigger is 10 pixels
     //first, render the pixel to the center of the renderbuffer, then apply 1D blurring
-    //renderbuffer[4] = color_add(renderbuffer[4], color_fade(color, pxlbrightness[0]));
-    //renderbuffer[5] = color_add(renderbuffer[5], color_fade(color, pxlbrightness[1]));
     fast_color_add(renderbuffer[4], color, pxlbrightness[0]);
     fast_color_add(renderbuffer[5], color, pxlbrightness[1]);
     uint32_t rendersize = 2; // initialize render size, minimum is 4 pixels, it is incremented int he loop below to start with 4
@@ -1599,7 +1597,7 @@ void ParticleSystem1D::renderParticle(uint32_t particleindex, uint32_t brightnes
       }
       // add particle pixel to existing pixel
       uint32_t c = seg->getPixelColorRaw(xfb);
-      c = color_add(c, renderbuffer[xrb], true);
+      fast_color_add(c, renderbuffer[xrb]);
       seg->setPixelColorRaw(xfb, c);
     }
   } else { // standard rendering (2 pixels per particle)
@@ -1620,7 +1618,7 @@ void ParticleSystem1D::renderParticle(uint32_t particleindex, uint32_t brightnes
       if (pxlisinframe[i]) {
         // add particle pixel to existing pixel
         uint32_t c = seg->getPixelColorRaw(pixco[i]);
-        c = color_add(c, color_fade(color, pxlbrightness[i]), true);
+        fast_color_add(c, color, pxlbrightness[i]);
         seg->setPixelColorRaw(pixco[i], c);
       }
     }
@@ -1788,9 +1786,9 @@ void blur1D(uint32_t *colorbuffer, uint32_t size, uint32_t blur, uint32_t start)
     seeppart = colorbuffer[x]; // create copy of current color
     seeppart = color_fade(seeppart, seep); // scale it and seep to neighbours
     if (x > 0) {
-      colorbuffer[x-1] = color_add(colorbuffer[x-1], seeppart);
+      fast_color_add(colorbuffer[x-1], seeppart);
       if (carryover) // note: check adds overhead but is faster on average
-      colorbuffer[x] = color_add(colorbuffer[x], carryover); // is black on first pass
+        fast_color_add(colorbuffer[x], carryover); // is black on first pass
     }
     carryover = seeppart;
   }
