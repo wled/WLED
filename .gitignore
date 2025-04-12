@@ -23,4 +23,3 @@ wled-update.sh
 /wled00/Release
 /wled00/wled00.ino.cpp
 /wled00/html_*.h
-.buildcache
