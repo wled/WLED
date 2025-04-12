@@ -78,8 +78,8 @@ void fast_color_add(uint32_t &c1, uint32_t c2, uint8_t scale) {
 
 void fast_color_scale(uint32_t &c1, uint8_t scale) {
   const uint32_t TWO_CHANNEL_MASK = 0x00FF00FF; // mask for R and B channels or W and G if negated
-  register uint32_t rb = (( c1     & TWO_CHANNEL_MASK) * scale) >> 8;
-  register uint32_t wg = (((c1>>8) & TWO_CHANNEL_MASK) * scale) >> 8;
+  register uint32_t rb = ((( c1     & TWO_CHANNEL_MASK) * scale) >> 8) & TWO_CHANNEL_MASK;
+  register uint32_t wg = ((((c1>>8) & TWO_CHANNEL_MASK) * scale) >> 8) & TWO_CHANNEL_MASK;
   c1 = rb | (wg<<8);
 }
 
