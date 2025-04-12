@@ -8,9 +8,14 @@ Very loosely based on the existing usermod "seven segment display".
 
 Add the compile-time option `-D USERMOD_SSDR` to your `platformio.ini` (or `platformio_override.ini`) or use `#define USERMOD_SSDR` in `my_config.h`.
 
-In your `platformio.ini` you also need to add this to your env:
+# Compiling
 
-- custom_usermods = seven_segment_display_reloaded_v2
+To enable, add `seven_segment_display_reloaded_v2` to your `custom_usermods`  (e.g. in `platformio_override.ini`)
+```ini
+[env:usermod_ssdr_d1_mini]
+extends = env:d1_mini
+custom_usermods = ${env:d1_mini.custom_usermods} seven_segment_display_reloaded_v2
+```
 
 For the auto brightness option, the usermod **SN_Photoresistor** or **BH1750_V2** has to be installed as well. See [SN_Photoresistor/readme.md](SN_Photoresistor/readme.md) or [BH1750_V2/readme.md](BH1750_V2/readme.md) for instructions.
 
