@@ -1,7 +1,7 @@
 #include "wled.h"
 #include "fcn_declare.h"
 #include "const.h"
-
+#include "src/dependencies/fastled/fastled_fcn.h"
 
 //helper to get int value at a position in string
 int getNumVal(const String* req, uint16_t pos)
@@ -376,7 +376,10 @@ uint16_t crc16(const unsigned char* data_p, size_t length) {
   return crc;
 }
 
-// fastled beat per minute and beatsin replacements
+// FastLED Reference
+// -----------------
+// The following beat functions derived from FastLED @ 3.6.0 (https://github.com/FastLED/FastLED) are licensed under the MIT license
+// See /src/dependencies/fastled/LICENSE.txt for details
 
 // Generates a 16-bit "sawtooth" wave at a given BPM, with BPM specified in Q8.8 fixed-point format:
 // for 120 BPM it would be 120*256 = 30720. If you just want to specify "120", use beat16() or beat8().
@@ -425,25 +428,7 @@ uint8_t beatsin8_t(uint16_t beats_per_minute, uint8_t lowest, uint8_t highest, u
   uint8_t result = lowest + scaledbeat;
   return result;
 }
-
-// triangular wave generator
-uint8_t triwave8(uint8_t in) {
-  if (in & 0x80) in = 255 - in;
-  return in << 1;
-}
-
-uint16_t triwave16(uint16_t in) {
-  if (in < 0x8000) return in *2;
-  return 0xFFFF - (in - 0x8000)*2;
-}
-// quadratic waveform generator. Spends just a little more time at the limits than "sine" does.
-uint8_t quadwave8(uint8_t in) {
-  return ease8InOutQuad(triwave8(in));
-}
-// cubic waveform generator. Spends visibly more time at the limits than "sine" does.
-uint8_t cubicwave8(uint8_t in) {
-  return ease8InOutCubic(triwave8(in));
-}
+// end of FastLED functions
 
 ///////////////////////////////////////////////////////////////////////////////
 // Begin simulateSound (to enable audio enhanced effects to display something)

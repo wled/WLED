@@ -38,13 +38,6 @@
 #define MAX(a,b) ((a)>(b)?(a):(b))
 #endif
 
-/*
-//color mangling macros
-#ifndef RGBW32
-#define RGBW32(r,g,b,w) (uint32_t((byte(w) << 24) | (byte(r) << 16) | (byte(g) << 8) | (byte(b))))
-#endif
-**/
-
 extern bool realtimeRespectLedMaps; // used in getMappedPixelIndex()
 extern byte realtimeMode;           // used in getMappedPixelIndex()
 

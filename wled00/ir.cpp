@@ -129,10 +129,8 @@ static void changeEffectSpeed(int8_t amount)
     }
   } else { // if Effect == "solid Color", change the hue of the primary color
     Segment& sseg = irApplyToAllSelected ? strip.getFirstSelectedSeg() : strip.getMainSegment();
-    CHSV32 prim_hsv = CRGBW(sseg.colors[0]);
-    prim_hsv.h += (amount<<8);
-    CRGBW newcolor;
-    newcolor = prim_hsv;
+    CRGBW newcolor = CRGBW(sseg.colors[0]);
+    newcolor.adjust_hue(amount);
     newcolor.w = W(sseg.colors[0]);
     if (irApplyToAllSelected) {
       for (unsigned i = 0; i < strip.getSegmentsNum(); i++) {
@@ -175,8 +173,7 @@ static void changeEffectIntensity(int8_t amount)
     CHSV32 prim_hsv = CRGBW(sseg.colors[0]);
     int32_t new_val = (int32_t)prim_hsv.s + amount;
     prim_hsv.s = (byte)constrain(new_val,0,255);  // constrain to 0-255
-    CRGBW newcolor;
-    newcolor = prim_hsv;
+    CRGBW newcolor = prim_hsv;
     newcolor.w = W(sseg.colors[0]);
     if (irApplyToAllSelected) {
       for (unsigned i = 0; i < strip.getSegmentsNum(); i++) {

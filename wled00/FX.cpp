@@ -14,6 +14,7 @@
 #include "FX.h"
 #include "fcn_declare.h"
 #include "colors.h"
+#include "prng.h"
 
 #if !(defined(WLED_DISABLE_PARTICLESYSTEM2D) && defined(WLED_DISABLE_PARTICLESYSTEM1D))
   #include "FXparticleSystem.h"
@@ -69,7 +70,7 @@
 //#define MAX_FREQUENCY   5120
 //#define MAX_FREQ_LOG10  3.71f
 
-PRNG prng; // pseudo-random number generator class
+static PRNG prng(hw_random()); // pseudo-random number generator class, seed = hardware random number
 
 // effect utility functions
 uint8_t sin_gap(uint16_t in) {
@@ -4144,17 +4145,17 @@ static const char _data_FX_MODE_PHASEDNOISE[] PROGMEM = "Phased Noise@!,!;!,!;!"
 
 
 uint16_t mode_twinkleup(void) {                 // A very short twinkle routine with fade-in and dual controls. By Andrew Tuline.
-  unsigned prevSeed = prng.getSeed();      // save seed so we can restore it at the end of the function
-  prng.setSeed(535);                       // The randomizer needs to be re-set each time through the loop in order for the same 'random' numbers to be the same each time through.
+  unsigned prevSeed = prng.getSeed();           // save seed so we can restore it at the end of the function
+  prng.setSeed(535);                            // The randomizer needs to be re-set each time through the loop in order for the same 'random' numbers to be the same each time through.
 
   for (unsigned i = 0; i < SEGLEN; i++) {
-    unsigned ranstart = prng.random8();               // The starting value (aka brightness) for each pixel. Must be consistent each time through the loop for this to work.
+    unsigned ranstart = prng.random8();         // The starting value (aka brightness) for each pixel. Must be consistent each time through the loop for this to work.
     unsigned pixBri = sin8_t(ranstart + 16 * strip.now/(256-SEGMENT.speed));
     if (prng.random8() > SEGMENT.intensity) pixBri = 0;
     SEGMENT.setPixelColor(i, color_blend(SEGCOLOR(1), SEGMENT.color_from_palette(prng.random8()+strip.now/100, false, PALETTE_SOLID_WRAP, 0), pixBri));
   }
 
-  prng.setSeed(prevSeed); // restore original seed so other effects can use "random" PRNG
+  prng.setSeed(prevSeed);                       // restore original seed so other effects can use "random" PRNG
   return FRAMETIME;
 }
 static const char _data_FX_MODE_TWINKLEUP[] PROGMEM = "Twinkleup@!,Intensity;!,!;!;;m12=0";
@@ -6011,7 +6012,7 @@ uint16_t mode_2Dfloatingblobs(void) {
 
   // Bounce balls around
   for (size_t i = 0; i < Amount; i++) {
-    if (SEGENV.step < strip.now) blob->color[i] = blob->color[i] + 4; // slowly change color
+    if (SEGENV.step < strip.now) blob->color[i] += 4; // slowly change color
     // change radius if needed
     if (blob->grow[i]) {
       // enlarge radius until it is >= 4
