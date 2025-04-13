@@ -60,27 +60,32 @@ uint32_t color_add(uint32_t c1, uint32_t c2, bool preserveCR)
   }
 }
 
-void fast_color_add(uint32_t &c1, uint32_t c2, uint8_t scale) {
-  const uint32_t TWO_CHANNEL_MASK = 0x00FF00FF; // mask for R and B channels or W and G if negated
-  if (scale < 255) fast_color_scale(c2, scale);
+__attribute__((optimize("-O2"))) void fast_color_add(uint32_t &c1, uint32_t c2, uint8_t scale) {
+  if (c2 == BLACK) return;                              // adding black does nothing
+  fast_color_scale(c2, scale);                          // scale added color
+  if (c1 == BLACK) { c1 = c2; return; }                 // source is black, just assign c2
+  const uint32_t TWO_CHANNEL_MASK = 0x00FF00FF;         // mask for R and B channels or W and G if negated
+  auto max = [](uint32_t a, uint32_t b){ return a > b ? a : b; };
   register uint32_t rb = ( c1     & TWO_CHANNEL_MASK) + ( c2     & TWO_CHANNEL_MASK); // mask and add two colors at once
   register uint32_t wg = ((c1>>8) & TWO_CHANNEL_MASK) + ((c2>>8) & TWO_CHANNEL_MASK); // mask and add two colors at once
-  register uint32_t maxC = std::max(rb >> 16, rb & 0xFFFF); // check for overflow
-  maxC = std::max(maxC, wg & 0xFFFF);
-  maxC = std::max(maxC, wg >> 16);
-  if (maxC > 255) { // maxC cannot be greater than 0x1FE (0xFF+0xFF)
-    maxC = (255U<<8) / maxC;  // 0x80 - 0xFF (0x1FE - 0x100)
-    rb = ((rb * maxC) >> 8) & TWO_CHANNEL_MASK;
-    wg = ((wg * maxC) >> 8) & TWO_CHANNEL_MASK;
-  }
-  c1 = rb | (wg<<8);
+  register uint32_t maxC = max(rb >> 16, rb & 0xFFFF);  // check for overflow
+  maxC = max(maxC, wg & 0xFFFF);
+  maxC = max(maxC, wg >> 16);
+  if (maxC > 255) {                                     // maxC cannot be greater than 0x1FE (0xFF+0xFF)
+    maxC = (255U<<8) / maxC;                            // 0x80 - 0xFF (0x1FE - 0x100)
+    rb = ((rb * maxC) >> 8) &  TWO_CHANNEL_MASK;         // mask out unused lower bits
+    wg =  (wg * maxC)       & ~TWO_CHANNEL_MASK;         // mask out unused lower bits
+  } else wg <<= 8;
+  c1 = rb | wg;
 }
 
-void fast_color_scale(uint32_t &c1, uint8_t scale) {
+__attribute__((optimize("-O2"))) void fast_color_scale(uint32_t &c1, uint8_t scale) {
+  if (scale == 255) return;
+  if (scale == 0) { c1 = 0; return; }
   const uint32_t TWO_CHANNEL_MASK = 0x00FF00FF; // mask for R and B channels or W and G if negated
-  register uint32_t rb = ((( c1     & TWO_CHANNEL_MASK) * scale) >> 8) & TWO_CHANNEL_MASK;
-  register uint32_t wg = ((((c1>>8) & TWO_CHANNEL_MASK) * scale) >> 8) & TWO_CHANNEL_MASK;
-  c1 = rb | (wg<<8);
+  register uint32_t rb = ((( c1     & TWO_CHANNEL_MASK) * scale) >> 8) &  TWO_CHANNEL_MASK;
+  register uint32_t wg =  (((c1>>8) & TWO_CHANNEL_MASK) * scale)       & ~TWO_CHANNEL_MASK;
+  c1 = rb | wg;
 }
 
 /*
@@ -103,8 +108,8 @@ uint32_t color_fade(uint32_t c1, uint8_t amount, bool video)
     addRemains |= W(c1) ? 0x01000000 : 0;
   }
   const uint32_t TWO_CHANNEL_MASK = 0x00FF00FF;
-  uint32_t rb = (((c1 &  TWO_CHANNEL_MASK) * scale) >> 8) &  TWO_CHANNEL_MASK; // scale red and blue
-  uint32_t wg = (((c1 & ~TWO_CHANNEL_MASK) >> 8) * scale) & ~TWO_CHANNEL_MASK; // scale white and green
+  uint32_t rb = ((( c1     & TWO_CHANNEL_MASK) * scale) >> 8) &  TWO_CHANNEL_MASK; // scale red and blue
+  uint32_t wg =  (((c1>>8) & TWO_CHANNEL_MASK) * scale)       & ~TWO_CHANNEL_MASK; // scale white and green
   scaledcolor = (rb | wg) + addRemains;
   return scaledcolor;
 }
