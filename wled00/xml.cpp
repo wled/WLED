@@ -420,6 +420,7 @@ void getSettingsJS(byte subPage, Print& settingsScript)
     printSetFormCheckbox(settingsScript,PSTR("RX"),receiveNotificationEffects);
     printSetFormCheckbox(settingsScript,PSTR("RP"),receiveNotificationPalette);
     printSetFormCheckbox(settingsScript,PSTR("SO"),receiveSegmentOptions);
+    printSetFormCheckbox(settingsScript,PSTR("SN"),receiveSegmentName);
     printSetFormCheckbox(settingsScript,PSTR("SG"),receiveSegmentBounds);
     printSetFormCheckbox(settingsScript,PSTR("SS"),sendNotifications);
     printSetFormCheckbox(settingsScript,PSTR("SD"),notifyDirect);

@@ -447,6 +447,7 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
   CJSON(receiveNotificationPalette, if_sync_recv["pal"]);
   CJSON(receiveGroups, if_sync_recv["grp"]);
   CJSON(receiveSegmentOptions, if_sync_recv["seg"]);
+  CJSON(receiveSegmentName, if_sync_recv["sn"]);
   CJSON(receiveSegmentBounds, if_sync_recv["sb"]);
 
   JsonObject if_sync_send = if_sync[F("send")];
@@ -967,6 +968,7 @@ void serializeConfig(JsonObject root) {
   if_sync_recv["pal"] = receiveNotificationPalette;
   if_sync_recv["grp"] = receiveGroups;
   if_sync_recv["seg"] = receiveSegmentOptions;
+  if_sync_recv["sn"]  = receiveSegmentName;
   if_sync_recv["sb"]  = receiveSegmentBounds;
 
   JsonObject if_sync_send = if_sync.createNestedObject(F("send"));
