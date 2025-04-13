@@ -1124,7 +1124,7 @@ void blur2D(uint32_t *colorbuffer, uint32_t xsize, uint32_t ysize, uint32_t xblu
     uint32_t indexXY = xstart + y * width;
     for (uint32_t x = xstart; x < xstart + xsize; x++) {
       seeppart = colorbuffer[indexXY]; // create copy of current color
-      seeppart = color_fade(seeppart, seep); // scale it and seep to neighbours
+      fast_color_scale(seeppart, seep); // scale it and seep to neighbours
       if (x > 0) {
         fast_color_add(colorbuffer[indexXY - 1], seeppart);
         if (carryover) // note: check adds overhead but is faster on average
@@ -1146,7 +1146,7 @@ void blur2D(uint32_t *colorbuffer, uint32_t xsize, uint32_t ysize, uint32_t xblu
     uint32_t indexXY = x + ystart * width;
     for(uint32_t y = ystart; y < ystart + ysize; y++) {
       seeppart = colorbuffer[indexXY]; // create copy of current color
-      seeppart = color_fade(seeppart, seep); // scale it and seep to neighbours
+      fast_color_scale(seeppart, seep); // scale it and seep to neighbours
       if (y > 0) {
         fast_color_add(colorbuffer[indexXY - width], seeppart);
         if (carryover) // note: check adds overhead but is faster on average
@@ -1760,7 +1760,7 @@ void blur1D(uint32_t *colorbuffer, uint32_t size, uint32_t blur, uint32_t start)
   carryover =  BLACK;
   for (uint32_t x = start; x < start + size; x++) {
     seeppart = colorbuffer[x]; // create copy of current color
-    seeppart = color_fade(seeppart, seep); // scale it and seep to neighbours
+    fast_color_scale(seeppart, seep); // scale it and seep to neighbours
     if (x > 0) {
       fast_color_add(colorbuffer[x-1], seeppart);
       if (carryover) // note: check adds overhead but is faster on average
