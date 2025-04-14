@@ -23,6 +23,7 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
     for (size_t n = 0; n < WLED_MAX_WIFI_COUNT; n++) {
       char cs[4] = "CS"; cs[2] = 48+n; cs[3] = 0; //client SSID
       char pw[4] = "PW"; pw[2] = 48+n; pw[3] = 0; //client password
+      char bs[4] = "BS"; bs[2] = 48+n; bs[3] = 0; //BSSID
       char ip[5] = "IP"; ip[2] = 48+n; ip[4] = 0; //IP address
       char gw[5] = "GW"; gw[2] = 48+n; gw[4] = 0; //GW address
       char sn[5] = "SN"; sn[2] = 48+n; sn[4] = 0; //subnet mask
@@ -39,6 +40,7 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
           strlcpy(multiWiFi[n].clientPass, request->arg(pw).c_str(), 65);
           forceReconnect = true;
         }
+        fillStr2MAC(multiWiFi[n].bssid, request->arg(bs).c_str());
         for (size_t i = 0; i < 4; i++) {
           ip[3] = 48+i;
           gw[3] = 48+i;
@@ -93,9 +95,9 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
     strlwr(linked_remote);  //Normalize MAC format to lowercase
     #endif
 
-    #ifdef WLED_USE_ETHERNET
+    #if defined(ARDUINO_ARCH_ESP32) && defined(WLED_USE_ETHERNET)
     ethernetType = request->arg(F("ETH")).toInt();
-    WLED::instance().initEthernet();
+    initEthernet();
     #endif
   }
 
@@ -143,8 +145,8 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
     #endif
 
     bool busesChanged = false;
-    for (int s = 0; s < WLED_MAX_BUSSES+WLED_MIN_VIRTUAL_BUSSES; s++) {
-      int offset = s < 10 ? 48 : 55;
+    for (int s = 0; s < 36; s++) { // theoretical limit is 36 : "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+      int offset = s < 10 ? '0' : 'A';
       char lp[4] = "L0"; lp[2] = offset+s; lp[3] = 0; //ascii 0-9 //strip data pin
       char lc[4] = "LC"; lc[2] = offset+s; lc[3] = 0; //strip length
       char co[4] = "CO"; co[2] = offset+s; co[3] = 0; //strip color order
@@ -159,11 +161,11 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
       char la[4] = "LA"; la[2] = offset+s; la[3] = 0; //LED mA
       char ma[4] = "MA"; ma[2] = offset+s; ma[3] = 0; //max mA
       if (!request->hasArg(lp)) {
-        DEBUG_PRINTF_P(PSTR("No data for %d\n"), s);
+        DEBUG_PRINTF_P(PSTR("# of buses: %d\n"), s+1);
         break;
       }
       for (int i = 0; i < 5; i++) {
-        lp[1] = offset+i;
+        lp[1] = '0'+i;
         if (!request->hasArg(lp)) break;
         pins[i] = (request->arg(lp).length() > 0) ? request->arg(lp).toInt() : 255;
       }
@@ -210,7 +212,7 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
       type |= request->hasArg(rf) << 7; // off refresh override
       // actual finalization is done in WLED::loop() (removing old busses and adding new)
       // this may happen even before this loop is finished so we do "doInitBusses" after the loop
-      busConfigs.push_back(std::move(BusConfig(type, pins, start, length, colorOrder | (channelSwap<<4), request->hasArg(cv), skip, awmode, freq, useGlobalLedBuffer, maPerLed, maMax)));
+      busConfigs.emplace_back(type, pins, start, length, colorOrder | (channelSwap<<4), request->hasArg(cv), skip, awmode, freq, useGlobalLedBuffer, maPerLed, maMax);
       busesChanged = true;
     }
     //doInitBusses = busesChanged; // we will do that below to ensure all input data is processed
@@ -218,7 +220,7 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
     // we will not bother with pre-allocating ColorOrderMappings vector
     BusManager::getColorOrderMap().reset();
     for (int s = 0; s < WLED_MAX_COLOR_ORDER_MAPPINGS; s++) {
-      int offset = s < 10 ? 48 : 55;
+      int offset = s < 10 ? '0' : 'A';
       char xs[4] = "XS"; xs[2] = offset+s; xs[3] = 0; //start LED
       char xc[4] = "XC"; xc[2] = offset+s; xc[3] = 0; //strip length
       char xo[4] = "XO"; xo[2] = offset+s; xo[3] = 0; //color order
@@ -257,7 +259,7 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
     disablePullUp = (bool)request->hasArg(F("IP"));
     touchThreshold = request->arg(F("TT")).toInt();
     for (int i = 0; i < WLED_MAX_BUTTONS; i++) {
-      int offset = i < 10 ? 48 : 55;
+      int offset = i < 10 ? '0' : 'A';
       char bt[4] = "BT"; bt[2] = offset+i; bt[3] = 0; // button pin (use A,B,C,... if WLED_MAX_BUTTONS>10)
       char be[4] = "BE"; be[2] = offset+i; be[3] = 0; // button type (use A,B,C,... if WLED_MAX_BUTTONS>10)
       int hw_btn_pin = request->arg(bt).toInt();
@@ -803,8 +805,8 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
 
   lastEditTime = millis();
   // do not save if factory reset or LED settings (which are saved after LED re-init)
-  doSerializeConfig = subPage != SUBPAGE_LEDS && !(subPage == SUBPAGE_SEC && doReboot);
-  if (subPage == SUBPAGE_UM) doReboot = request->hasArg(F("RBT")); // prevent race condition on dual core system (set reboot here, after doSerializeConfig has been set)
+  configNeedsWrite = subPage != SUBPAGE_LEDS && !(subPage == SUBPAGE_SEC && doReboot);
+  if (subPage == SUBPAGE_UM) doReboot = request->hasArg(F("RBT")); // prevent race condition on dual core system (set reboot here, after configNeedsWrite has been set)
   #ifndef WLED_DISABLE_ALEXA
   if (subPage == SUBPAGE_SYNC) alexaInit();
   #endif
@@ -1191,7 +1193,7 @@ bool handleSet(AsyncWebServerRequest *request, const String& req, bool apply)
   }
   // you can add more if you need
 
-  // global col[], effectCurrent, ... are updated in stateChanged()
+  // global colPri[], effectCurrent, ... are updated in stateChanged()
   if (!apply) return true; // when called by JSON API, do not call colorUpdated() here
 
   pos = req.indexOf(F("&NN")); //do not send UDP notifications this time

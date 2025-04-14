@@ -6,22 +6,11 @@ The luminance is displayed in both the Info section of the web UI, as well as pu
 ## Dependencies
 - Libraries
   - `claws/BH1750 @^1.2.0`
-  - This must be added under `lib_deps` in your `platformio.ini` (or `platformio_override.ini`).
 - Data is published over MQTT - make sure you've enabled the MQTT sync interface.
 
 ## Compilation
 
-To enable, compile with `USERMOD_BH1750` defined  (e.g. in `platformio_override.ini`)
-```ini
-[env:usermod_BH1750_d1_mini]
-extends = env:d1_mini
-build_flags =
-    ${common.build_flags_esp8266}
-    -D USERMOD_BH1750
-lib_deps = 
-    ${esp8266.lib_deps}
-    claws/BH1750 @ ^1.2.0
-```
+To enable, compile with `BH1750` in `custom_usermods` (e.g. in `platformio_override.ini`)
 
 ### Configuration Options
 The following settings can be set at compile-time but are configurable on the usermod menu (except First Measurement time):

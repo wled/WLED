@@ -18,9 +18,16 @@ jobs:
     - uses: actions/download-artifact@v4
       with:
         merge-multiple: true
+    - name: "✏️ Generate release changelog"
+      id: changelog
+      uses: janheinrichmerker/action-github-changelog-generator@v2.3
+      with:
+          token: ${{ secrets.GITHUB_TOKEN }} 
+          sinceTag: v0.15.0        
     - name: Create draft release
       uses: softprops/action-gh-release@v1
       with:
+        body: ${{ steps.changelog.outputs.changelog }}
         draft: True
         files: |
           *.bin

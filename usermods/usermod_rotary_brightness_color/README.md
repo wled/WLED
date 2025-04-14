@@ -37,6 +37,7 @@ Open Usermod Settings in WLED to change settings:
 No special requirements.
 
 ## Change Log
-
-2021-07
-* Upgraded to work with the latest WLED code, and make settings configurable in Usermod Settings
+- 2021-07<br>
+Upgraded to work with the latest WLED code, and make settings configurable in Usermod Settings
+- 2025-03<br>
+Upgraded to work with the latest WLED code

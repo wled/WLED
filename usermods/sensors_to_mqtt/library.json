@@ -1,0 +1,10 @@
+{
+  "name:": "sensors_to_mqtt",
+  "build": { "libArchive": false},
+  "dependencies": {
+    "adafruit/Adafruit BMP280 Library":"2.6.8",
+    "adafruit/Adafruit CCS811 Library":"1.1.3",
+    "adafruit/Adafruit Si7021 Library":"1.5.3",
+    "adafruit/Adafruit Unified Sensor":"^1.1.15"
+  }
+}

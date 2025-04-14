@@ -22,13 +22,6 @@ The following settings can be configured in the Usermod Menu:
 - **MqttPublishAlways**: Publish always, regardless if there is a change.
 - **MqttHomeAssistantDiscovery**: Enable Home Assistant discovery.
 
-## Dependencies
-
-These must be added under `lib_deps` in your `platform.ini` (or `platform_override.ini`).
-
-- Libraries
-  - `wollewald/INA226_WE@~1.2.9` (by [wollewald](https://registry.platformio.org/libraries/wollewald/INA226_WE))
-  - `Wire`
 
 ## Understanding Samples and Conversion Times
 
@@ -62,16 +55,12 @@ For detailed programming information and register configurations, refer to the [
 
 ## Compiling
 
-To enable, compile with `USERMOD_INA226` defined (e.g. in `platformio_override.ini`).
+To enable, compile with `INA226` in `custom_usermods` (e.g. in `platformio_override.ini`).
 
 ```ini
 [env:ina226_example]
 extends = env:esp32dev
-build_flags =
-  ${common.build_flags} ${esp32.build_flags}
-  -D USERMOD_INA226
+custom_usermods = ${env:esp32dev.custom_usermods} INA226
+build_flags = ${env:esp32dev.build_flags}
   ; -D USERMOD_INA226_DEBUG ; -- add a debug status to the info modal
-lib_deps = 
-  ${esp32.lib_deps}
-  wollewald/INA226_WE@~1.2.9
 ```
