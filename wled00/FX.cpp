@@ -977,12 +977,12 @@ uint16_t mode_chase_color(void) {
 }
 static const char _data_FX_MODE_CHASE_COLOR[] PROGMEM = "Chase@!,Width;!,!,!;!";
 
-/* 
-* Chase Race with 3 color strips 
-*/
-uint16_t mode_chase_race()
+/*
+ * Chase Race with 3 color strips
+ */
+uint16_t chase_race()
 {
-  return chase_race(SEGCOLOR(0), SEGCOLOR(1), SEGCOLOR(2));  
+  return chase_race(SEGCOLOR(0), SEGCOLOR(1), SEGCOLOR(2));
 }
 static const char _data_FX_MODE_CHASE_RACE[] PROGMEM = "Chase Race@!,Width;!,!,!;!";
 
@@ -10242,8 +10242,7 @@ void WS2812FX::setupEffectData() {
   addEffect(FX_MODE_MULTI_STROBE, &mode_multi_strobe, _data_FX_MODE_MULTI_STROBE);
   addEffect(FX_MODE_BLINK_RAINBOW, &mode_blink_rainbow, _data_FX_MODE_BLINK_RAINBOW);
   addEffect(FX_MODE_ANDROID, &mode_android, _data_FX_MODE_ANDROID);
-  addEffect(FX_MODE_CHASE_COLOR, &mode_chase_color, _data_FX_MODE_CHASE_COLOR);
-  addEffect(FX_MODE_CHASE_RACE, &mode_chase_race, _data_FX_MODE_CHASE_RACE);
+  addEffect(FX_MODE_CHASE_COLOR, &mode_chase_color, _data_FX_MODE_CHASE_COLOR); 
   addEffect(FX_MODE_CHASE_RANDOM, &mode_chase_random, _data_FX_MODE_CHASE_RANDOM);
   addEffect(FX_MODE_CHASE_RAINBOW, &mode_chase_rainbow, _data_FX_MODE_CHASE_RAINBOW);
   addEffect(FX_MODE_CHASE_FLASH, &mode_chase_flash, _data_FX_MODE_CHASE_FLASH);
@@ -10253,6 +10252,7 @@ void WS2812FX::setupEffectData() {
   addEffect(FX_MODE_TRAFFIC_LIGHT, &mode_traffic_light, _data_FX_MODE_TRAFFIC_LIGHT);
   addEffect(FX_MODE_COLOR_SWEEP_RANDOM, &mode_color_sweep_random, _data_FX_MODE_COLOR_SWEEP_RANDOM);
   addEffect(FX_MODE_RUNNING_COLOR, &mode_running_color, _data_FX_MODE_RUNNING_COLOR);
+  addEffect(FX_MODE_CHASE_RACE, &chase_race, _data_FX_MODE_CHASE_RACE);
   addEffect(FX_MODE_AURORA, &mode_aurora, _data_FX_MODE_AURORA);
   addEffect(FX_MODE_RUNNING_RANDOM, &mode_running_random, _data_FX_MODE_RUNNING_RANDOM);
   addEffect(FX_MODE_LARSON_SCANNER, &mode_larson_scanner, _data_FX_MODE_LARSON_SCANNER);
