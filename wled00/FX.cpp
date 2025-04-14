@@ -3319,19 +3319,19 @@ typedef struct PacManChars {
 
 static uint16_t mode_pacman(void) {
   constexpr unsigned numGhosts = 4;
-  static constexpr unsigned MAX_POWERDOTS = 5;                                  // Maximum number of power dots (this may change to 10 or more in the future)
+  unsigned maxPowerDots = SEGLEN / 5;                                          // Maximum number of power dots depends on segment length, max is 1 every 5 Pixels
   
-  //unsigned numPowerDots = map(SEGMENT.intensity, 0, 255, 1, 5);                 // number of Power Dots (between 1 and 5) based on intensity slider setting
-  unsigned numPowerDots = 5;      // for troubleshooting only
+  unsigned numPowerDots = map(SEGMENT.intensity, 0, 255, 1, maxPowerDots);                 // number of Power Dots (between 1 and 5) based on intensity slider setting
 
-  unsigned everyXLeds = round(SEGLEN / numPowerDots);
+  //update power dots
+  unsigned everyXLeds = (SEGLEN - 10) / numPowerDots;
 
   //allocate segment data
-  unsigned dataSize = sizeof(pacmancharacters_t) * (numGhosts + 1 + MAX_POWERDOTS);    // 4 ghosts + 1 PacMan + max number of Power dots 
+  unsigned dataSize = sizeof(pacmancharacters_t) * (numGhosts + 1 + maxPowerDots);    // 4 ghosts + 1 PacMan + max number of Power dots
   if (SEGLEN <= 27 || !SEGENV.allocateData(dataSize)) return mode_static();     // allocation failed or segment length is too short to have a nice display
   pacmancharacters_t *character = reinterpret_cast<pacmancharacters_t *>(SEGENV.data);
 
-  unsigned startBlinkingGhostsLED;                                              // the first LED when the blue ghosts will start blinking 
+  unsigned startBlinkingGhostsLED;                                              // the first LED when the blue ghosts will start blinking
   if (SEGLEN > 150)
     startBlinkingGhostsLED = SEGLEN/4;                                          // For longer strips, start blinking the ghosts when there is only 1/4th of the LEDs left
   else
@@ -3343,7 +3343,7 @@ static uint16_t mode_pacman(void) {
       character[i].blue = false;
     }
     // PacMan character[0]
-    character[PACMAN].color = YELLOW;                                           
+    character[PACMAN].color = YELLOW;
     character[PACMAN].pos = 10;                                                 // initial LED position
     character[PACMAN].topPos = character[PACMAN].pos;                           // Top position (highest LED on the segment) reached by the PacMan character
 
@@ -3363,22 +3363,18 @@ static uint16_t mode_pacman(void) {
     character[4].color = ORANGE;                                                // turns blue when the power dot is eaten; blinks just before it turns back to normal color
     character[4].pos = 0;                                                       // initial LED position
 
-    // Power dots
-    for (int i = 0; i < numPowerDots; i++) {
+    // Power dot at end of Segment
+    character[5].pos = SEGLEN-1;                                                // put the first power dot at the end of the segment
+
+    // Power dots, position is set dynamically below
+    for (int i = 0; i < maxPowerDots; i++) {
       character[i+5].color = ORANGEYELLOW;                                      // orange-ish power dots
-
-      if (i == 0)
-        character[i+5].pos = SEGLEN-1;                                          // put the first power dot at the end of the segment
-      else
-        character[i+5].pos = i * everyXLeds;                                    // and additional power dots every X LEDs/pixels
-
       character[i+5].eaten = false;                                             // initially not eaten yet, so set this to false
-      SEGMENT.setPixelColor(character[i+5].pos, character[i+5].color);          // draw the power dots
     }
   }
 
   if (strip.now > SEGENV.step) {
-    SEGENV.step = strip.now;                                                    // "+ 100" creates a very jerky movement as the characters jump ahead several pixels each time they move
+    SEGENV.step = strip.now;                            // "+ 100" creates a very jerky movement as the characters jump ahead several pixels each time they move
     SEGENV.aux1++;
   }
 
@@ -3388,7 +3384,7 @@ static uint16_t mode_pacman(void) {
 
   // draw white dots (or black LEDs) so PacMan can start eating them
   if (SEGMENT.check1) {                                                         // If White Dots option is selected, draw white dots in front of PacMan
-    for (int i = SEGLEN-1; i > character[PACMAN].topPos+1; i--) {
+    for (int i = SEGLEN-1; i >= character[PACMAN].topPos+1; i--) {
       SEGMENT.setPixelColor(i, WHITEISH);                                       //   white dots
       if (!SEGMENT.check2) {                                                    // If Compact Dots option is NOT selected, draw black LEDs between the white dots (only works if White Dots is also selected)
         SEGMENT.setPixelColor(i-1, BLACK);                                      //   black LEDS between each white dot
@@ -3406,13 +3402,19 @@ static uint16_t mode_pacman(void) {
         SEGMENT.setPixelColor(i, BLACK);
   };
 
+  // update power dot positions: can change if user selects a different number of power dots
+  for (int i = 1; i < maxPowerDots; i++) {
+    character[i+5].pos = 10 + i * everyXLeds;                                   // additional power dots every X LEDs/pixels, character[5] is power dot at end of strip
+  }
+
   // blink power dots every 10 ticks of the ticker timer by changing their color between orangish color and black
   if (SEGENV.aux1 % 10 == 0) {
-    for (int i = 0; i < numPowerDots; i++) {
-      if (character[i+5].color == ORANGEYELLOW)
-        character[i+5].color = BLACK;
+    if (character[5].color == ORANGEYELLOW)
+        character[5].color = BLACK;
       else
-        character[i+5].color = ORANGEYELLOW;
+        character[5].color = ORANGEYELLOW;
+    for (int i = 1; i < maxPowerDots; i++) {
+      character[i+5].color = character[5].color;                                // blink in sync with the last power dot
     }
   }
 
