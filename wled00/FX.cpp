@@ -7887,7 +7887,7 @@ uint16_t mode_particlefireworks(void) {
           counter = 0;
           speed += 3 + ((SEGMENT.intensity >> 6)); // increase speed to form a second wave
           PartSys->sources[j].source.hue += hueincrement; // new color for next circle
-          PartSys->sources[j].source.sat = min((uint16_t)150, hw_random16());
+          PartSys->sources[j].source.sat = 100 + hw_random16(156);
           PartSys->sources[j].source.sat = 100 + hw_random16(156);
         }
         angle += angleincrement; // set angle for next particle
