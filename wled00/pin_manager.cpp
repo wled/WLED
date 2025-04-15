@@ -207,6 +207,10 @@ bool PinManager::isPinOk(byte gpio, bool output)
     #if ARDUINO_USB_CDC_ON_BOOT == 1 || ARDUINO_USB_DFU_ON_BOOT == 1
     if (gpio > 17 && gpio < 20) return false;     // 18-19 USB-JTAG
     #endif
+  #elif defined(CONFIG_IDF_TARGET_ESP32C6)
+    // strapping pins: 4, 5, 8, 9
+    if (gpio > 11 && gpio < 14) return false;     // 12-13 USB-JTAG
+    if (gpio > 23 && gpio < 31) return false;     // 24-30 SPI FLASH
   #elif defined(CONFIG_IDF_TARGET_ESP32S3)
     // 00 to 18 are for general use. Be careful about straping pins GPIO0 and GPIO3 - these may be pulled-up or pulled-down on your board.
     #if ARDUINO_USB_CDC_ON_BOOT == 1 || ARDUINO_USB_DFU_ON_BOOT == 1
