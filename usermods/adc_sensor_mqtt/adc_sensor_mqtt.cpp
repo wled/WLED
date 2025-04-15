@@ -42,7 +42,7 @@ public:
 #endif
       adc_value[i] = 0;
       adc_Percentage[i] = 0;
-      adc_last_value[i] = 0; 
+      adc_last_value[i] = 0;
       device_class[i] = "voltage"; // default device class
       unit_of_meas[i] = "V"; // default unit of measurement
     }
@@ -51,14 +51,14 @@ public:
 
   void setup()
   {
-    uint8_t valid_pins = 0; // count valid pins so at least one pin is valid to enable adc , otherwise ignore invalud pins 
+    uint8_t valid_pins = 0; // count valid pins so at least one pin is valid to enable adc , otherwise ignore invalud pins
     for (uint8_t i = 0; i < UM_ADC_MQTT_PIN_MAX_NUMBER; i++)
     {
       // register adc_pin
       if ((adc_pin[i] != -1) && adc_enabled)
       {
 #ifdef ESP8266
-        if (adc_pin[i] == 17) // only one Pin supported : A0 for esp8266 // 
+        if (adc_pin[i] == 17) // only one Pin supported : A0 for esp8266 //
 #else
         if ((adc_pin[i] >= 32) && PinManager::allocatePin(adc_pin[i], false, PinOwner::UM_ADC_MQTT)) // ESP32 only pins 32-39 are available for ADC
 #endif
@@ -159,9 +159,12 @@ public:
       // debug
       DEBUG_PRINT(F("configuring adc_sensor_mqtt: Pin "));
       DEBUG_PRINT(i);
+#ifndef ESP8266 // esp8266 always use A0 no use of pin choice
       String adc_pin_name = F("AdcPin_");
       adc_pin_name += String(i);
       top[adc_pin_name] = adc_pin[i];
+#endif
+      // debug print new pin
       String device_class_name = F("DeviceClass_");
       device_class_name += String(i);
       top[device_class_name] = device_class[i].c_str();
@@ -211,24 +214,24 @@ public:
       // DEBUG_PRINT(i);
       // DEBUG_PRINT(F("="));
       // DEBUG_PRINTLN(adc_pin[i]);
-#ifndef ESP8266 // esp8266 always use A0 no use of pin choice 
+#ifndef ESP8266 // esp8266 always use A0 no use of pin choice
       configComplete &= getJsonValue(top[adc_pin_name], adc_pin[i]);
-      if ( (adc_pin[i] < 32) ||  !PinManager::isPinOk(adc_pin[i], false)) // // ESP32 only pins 32-39 are available for ADC
+      if ((adc_pin[i] < 32) || !PinManager::isPinOk(adc_pin[i], false)) // // ESP32 only pins 32-39 are available for ADC
       {
         DEBUG_PRINT(F("adc_sensor_mqtt: Pin "));
         DEBUG_PRINT(i);
         DEBUG_PRINT(F(" is not valid!"));
         configComplete = false; // pin not valid -> disable usermod
+        adc_pin[i] = -1;        // invalid pin -> disable usermod
       }
+      else
       {
-        DEBUG_PRINTLN(F("adc_sensor_mqtt isPinOk = false"));
-        adc_pin[i] = -1; // invalid pin -> disable usermod
-      }
-      if (initDone && oldLdrPin[i] != -1)
-      {
-        // config changed - un-register previous pin, register new pin
-        DEBUG_PRINTLN(F("adc_sensor_mqtt: Pin changed , deallocating old pin..."));
-        PinManager::deallocatePin(oldLdrPin[i], PinOwner::UM_ADC_MQTT);
+        if (initDone && oldLdrPin[i] != -1) // if pin was allocated , try to de allocate it  
+        {
+          // config changed - un-register previous pin, register new pin
+          DEBUG_PRINTLN(F("adc_sensor_mqtt: Pin changed , deallocating old pin..."));
+          PinManager::deallocatePin(oldLdrPin[i], PinOwner::UM_ADC_MQTT);
+        }
       }
 #endif
     }
@@ -238,7 +241,7 @@ public:
     configComplete &= getJsonValue(top["ChangeThreshould"], change_threshold);
     configComplete &= getJsonValue(top["HomeAssistantDiscovery"], HomeAssistantDiscovery);
     configComplete &= getJsonValue(top["PublishRawValue"], publishRawValue);
-    // if pin changed after init - 
+    // if pin changed after init -
     if (adc_enabled && initDone)
     {
       if (HomeAssistantDiscovery)
