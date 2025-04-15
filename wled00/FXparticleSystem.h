@@ -211,7 +211,7 @@ public:
 private:
   //rendering functions
   void ParticleSys_render();
-  [[gnu::hot]] void renderParticle(const uint32_t particleindex, const uint32_t brightness, const CRGB& color, const bool wrapX, const bool wrapY);
+  [[gnu::hot]] void renderParticle(const uint32_t particleindex, const uint8_t brightness, const CRGB& color, const bool wrapX, const bool wrapY);
   //paricle physics applied by system if flags are set
   void applyGravity(); // applies gravity to all particles
   void handleCollisions();
@@ -343,7 +343,7 @@ public:
   int32_t sprayEmit(const PSsource1D &emitter);
   void particleMoveUpdate(PSparticle1D &part, PSparticleFlags1D &partFlags, PSsettings1D *options = NULL, PSadvancedParticle1D *advancedproperties = NULL); // move function
   //particle physics
-  [[gnu::hot]]  void applyForce(PSparticle1D &part, const int8_t xforce, uint8_t &counter); //apply a force to a single particle
+  [[gnu::hot]] void applyForce(PSparticle1D &part, const int8_t xforce, uint8_t &counter); //apply a force to a single particle
   void applyForce(const int8_t xforce); // apply a force to all particles
   void applyGravity(PSparticle1D &part, PSparticleFlags1D &partFlags); // applies gravity to single particle (use this for sources)
   void applyFriction(const int32_t coefficient); // apply friction to all used particles
@@ -378,12 +378,12 @@ public:
 private:
   //rendering functions
   void ParticleSys_render(void);
-  void renderParticle(const uint32_t particleindex, const uint32_t brightness, const CRGB &color, const bool wrap);
+  [[gnu::hot]] void renderParticle(const uint32_t particleindex, const uint8_t brightness, const CRGB &color, const bool wrap);
 
   //paricle physics applied by system if flags are set
   void applyGravity(); // applies gravity to all particles
   void handleCollisions();
-  [[gnu::hot]] void collideParticles(PSparticle1D &particle1, const PSparticleFlags1D &particle1flags, PSparticle1D &particle2, const PSparticleFlags1D &particle2flags, int32_t dx, int32_t relativeVx, const int32_t collisiondistance);
+  [[gnu::hot]] void collideParticles(PSparticle1D &particle1, const PSparticleFlags1D &particle1flags, PSparticle1D &particle2, const PSparticleFlags1D &particle2flags, const int32_t dx, const uint32_t dx_abs, const int32_t collisiondistance);
 
   //utility functions
   void updatePSpointers(const bool isadvanced); // update the data pointers to current segment data space
