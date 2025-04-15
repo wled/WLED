@@ -91,19 +91,20 @@ bool deserializeSegment(JsonObject elem, byte it, byte presetId)
     }
   }
 
-  uint16_t grp = elem["grp"] | seg.grouping;
-  uint16_t spc = elem[F("spc")] | seg.spacing;
-  uint16_t of  = seg.offset;
-  uint8_t  soundSim = elem["si"] | seg.soundSim;
-  uint8_t  map1D2D  = elem["m12"] | seg.map1D2D;
-
-  if ((spc>0 && spc!=seg.spacing) || seg.map1D2D!=map1D2D) seg.fill(BLACK); // clear spacing gaps
-
-  seg.map1D2D  = constrain(map1D2D, 0, 7);
-  seg.soundSim = constrain(soundSim, 0, 3);
-
-  uint8_t set = elem[F("set")] | seg.set;
-  seg.set = constrain(set, 0, 3);
+  uint16_t grp       = elem["grp"] | seg.grouping;
+  uint16_t spc       = elem[F("spc")] | seg.spacing;
+  uint16_t of        = seg.offset;
+  uint8_t  soundSim  = elem["si"] | seg.soundSim;
+  uint8_t  map1D2D   = elem["m12"] | seg.map1D2D;
+  uint8_t  set       = elem[F("set")] | seg.set;
+  bool     selected  = getBoolVal(elem["sel"], seg.selected);
+  bool     reverse   = getBoolVal(elem["rev"], seg.reverse);
+  bool     mirror    = getBoolVal(elem["mi"] , seg.mirror);
+  #ifndef WLED_DISABLE_2D
+  bool     reverse_y = getBoolVal(elem["rY"]   , seg.reverse_y);
+  bool     mirror_y  = getBoolVal(elem["mY"]   , seg.mirror_y);
+  bool     transpose = getBoolVal(elem[F("tp")], seg.transpose);
+  #endif
 
   int len = 1;
   if (stop > start) len = stop - start;
@@ -117,7 +118,7 @@ bool deserializeSegment(JsonObject elem, byte it, byte presetId)
   if (stop > start && of > len -1) of = len -1;
 
   // update segment (delete if necessary)
-  seg.setGeometry(start, stop, grp, spc, of, startY, stopY); // strip needs to be suspended for this to work without issues
+  seg.setGeometry(start, stop, grp, spc, of, startY, stopY, map1D2D); // strip needs to be suspended for this to work without issues
 
   if (newSeg) seg.refreshLightCapabilities(); // fix for #3403
 
@@ -206,20 +207,16 @@ bool deserializeSegment(JsonObject elem, byte it, byte presetId)
   }
   #endif
 
+  //seg.map1D2D   = constrain(map1D2D, 0, 7); // done in setGeometry()
+  seg.set       = constrain(set, 0, 3);
+  seg.soundSim  = constrain(soundSim, 0, 3);
+  seg.selected  = selected;
+  seg.reverse   = reverse;
+  seg.mirror    = mirror;
   #ifndef WLED_DISABLE_2D
-  bool reverse  = seg.reverse;
-  bool mirror   = seg.mirror;
-  #endif
-  seg.selected  = getBoolVal(elem["sel"], seg.selected);
-  seg.reverse   = getBoolVal(elem["rev"], seg.reverse);
-  seg.mirror    = getBoolVal(elem["mi"] , seg.mirror);
-  #ifndef WLED_DISABLE_2D
-  bool reverse_y = seg.reverse_y;
-  bool mirror_y  = seg.mirror_y;
-  seg.reverse_y  = getBoolVal(elem["rY"]   , seg.reverse_y);
-  seg.mirror_y   = getBoolVal(elem["mY"]   , seg.mirror_y);
-  seg.transpose  = getBoolVal(elem[F("tp")], seg.transpose);
-  if (seg.is2D() && seg.map1D2D == M12_pArc && (reverse != seg.reverse || reverse_y != seg.reverse_y || mirror != seg.mirror || mirror_y != seg.mirror_y)) seg.fill(BLACK); // clear entire segment (in case of Arc 1D to 2D expansion)
+  seg.reverse_y = reverse_y;
+  seg.mirror_y  = mirror_y;
+  seg.transpose = transpose;
   #endif
 
   byte fx = seg.mode;
@@ -393,35 +390,38 @@ bool deserializeState(JsonObject root, byte callMode, byte presetId)
 
   int it = 0;
   JsonVariant segVar = root["seg"];
-  if (!segVar.isNull()) strip.suspend();
-  if (segVar.is<JsonObject>())
-  {
-    int id = segVar["id"] | -1;
-    //if "seg" is not an array and ID not specified, apply to all selected/checked segments
-    if (id < 0) {
-      //apply all selected segments
-      //bool didSet = false;
-      for (size_t s = 0; s < strip.getSegmentsNum(); s++) {
-        Segment &sg = strip.getSegment(s);
-        if (sg.isActive() && sg.isSelected()) {
-          deserializeSegment(segVar, s, presetId);
-          //didSet = true;
+  if (!segVar.isNull()) {
+    // we may be called during strip.service() so we must not modify segments while effects are executing
+    strip.suspend();
+    const unsigned long waitUntil = millis() + strip.getFrameTime();
+    while (strip.isServicing() && millis() < waitUntil) delay(1); // wait until frame is over
+    #ifdef WLED_DEBUG
+    if (millis() >= waitUntil) DEBUG_PRINTLN(F("JSON: Waited for strip to finish servicing."));
+    #endif
+    if (segVar.is<JsonObject>()) {
+      int id = segVar["id"] | -1;
+      //if "seg" is not an array and ID not specified, apply to all selected/checked segments
+      if (id < 0) {
+        //apply all selected segments
+        for (size_t s = 0; s < strip.getSegmentsNum(); s++) {
+          Segment &sg = strip.getSegment(s);
+          if (sg.isActive() && sg.isSelected()) {
+            deserializeSegment(segVar, s, presetId);
+          }
         }
+      } else {
+        deserializeSegment(segVar, id, presetId); //apply only the segment with the specified ID
       }
-      //TODO: not sure if it is good idea to change first active but unselected segment
-      //if (!didSet) deserializeSegment(segVar, strip.getMainSegmentId(), presetId);
     } else {
-      deserializeSegment(segVar, id, presetId); //apply only the segment with the specified ID
+      size_t deleted = 0;
+      JsonArray segs = segVar.as<JsonArray>();
+      for (JsonObject elem : segs) {
+        if (deserializeSegment(elem, it++, presetId) && !elem["stop"].isNull() && elem["stop"]==0) deleted++;
+      }
+      if (strip.getSegmentsNum() > 3 && deleted >= strip.getSegmentsNum()/2U) strip.purgeSegments(); // batch deleting more than half segments
     }
-  } else {
-    size_t deleted = 0;
-    JsonArray segs = segVar.as<JsonArray>();
-    for (JsonObject elem : segs) {
-      if (deserializeSegment(elem, it++, presetId) && !elem["stop"].isNull() && elem["stop"]==0) deleted++;
-    }
-    if (strip.getSegmentsNum() > 3 && deleted >= strip.getSegmentsNum()/2U) strip.purgeSegments(); // batch deleting more than half segments
+    strip.resume();
   }
-  strip.resume();
 
   UsermodManager::readFromJsonState(root);
 

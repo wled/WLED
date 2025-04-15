@@ -9,10 +9,10 @@ void setValuesFromFirstSelectedSeg() { setValuesFromSegment(strip.getFirstSelect
 void setValuesFromSegment(uint8_t s)
 {
   Segment& seg = strip.getSegment(s);
-  col[0] = R(seg.colors[0]);
-  col[1] = G(seg.colors[0]);
-  col[2] = B(seg.colors[0]);
-  col[3] = W(seg.colors[0]);
+  colPri[0] = R(seg.colors[0]);
+  colPri[1] = G(seg.colors[0]);
+  colPri[2] = B(seg.colors[0]);
+  colPri[3] = W(seg.colors[0]);
   colSec[0] = R(seg.colors[1]);
   colSec[1] = G(seg.colors[1]);
   colSec[2] = B(seg.colors[1]);
@@ -39,7 +39,7 @@ void applyValuesToSelectedSegs()
     if (effectIntensity != selsegPrev.intensity) {seg.intensity = effectIntensity; stateChanged = true;}
     if (effectPalette   != selsegPrev.palette)   {seg.setPalette(effectPalette);}
     if (effectCurrent   != selsegPrev.mode)      {seg.setMode(effectCurrent);}
-    uint32_t col0 = RGBW32(   col[0],    col[1],    col[2],    col[3]);
+    uint32_t col0 = RGBW32(colPri[0], colPri[1], colPri[2], colPri[3]);
     uint32_t col1 = RGBW32(colSec[0], colSec[1], colSec[2], colSec[3]);
     if (col0 != selsegPrev.colors[0])            {seg.setColor(0, col0);}
     if (col1 != selsegPrev.colors[1])            {seg.setColor(1, col1);}
@@ -157,14 +157,14 @@ void updateInterfaces(uint8_t callMode)
 
   sendDataWs();
   lastInterfaceUpdate = millis();
-  interfaceUpdateCallMode = 0; //disable further updates
+  interfaceUpdateCallMode = CALL_MODE_INIT; //disable further updates
 
   if (callMode == CALL_MODE_WS_SEND) return;
 
   #ifndef WLED_DISABLE_ALEXA
   if (espalexaDevice != nullptr && callMode != CALL_MODE_ALEXA) {
     espalexaDevice->setValue(bri);
-    espalexaDevice->setColor(col[0], col[1], col[2]);
+    espalexaDevice->setColor(colPri[0], colPri[1], colPri[2]);
   }
   #endif
   #ifndef WLED_DISABLE_MQTT
@@ -221,7 +221,7 @@ void handleNightlight()
       nightlightDelayMs = (unsigned)(nightlightDelayMins*60000);
       nightlightActiveOld = true;
       briNlT = bri;
-      for (unsigned i=0; i<4; i++) colNlT[i] = col[i]; // remember starting color
+      for (unsigned i=0; i<4; i++) colNlT[i] = colPri[i]; // remember starting color
       if (nightlightMode == NL_MODE_SUN)
       {
         //save current
@@ -246,7 +246,7 @@ void handleNightlight()
       bri = briNlT + ((nightlightTargetBri - briNlT)*nper);
       if (nightlightMode == NL_MODE_COLORFADE)                                         // color fading only is enabled with "NF=2"
       {
-        for (unsigned i=0; i<4; i++) col[i] = colNlT[i]+ ((colSec[i] - colNlT[i])*nper);   // fading from actual color to secondary color
+        for (unsigned i=0; i<4; i++) colPri[i] = colNlT[i]+ ((colSec[i] - colNlT[i])*nper);   // fading from actual color to secondary color
       }
       colorUpdated(CALL_MODE_NO_NOTIFY);
     }

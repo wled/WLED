@@ -458,19 +458,24 @@ void Segment::handleRandomPalette() {
 }
 
 // segId is given when called from network callback, changes are queued if that segment is currently in its effect function
-void Segment::setGeometry(uint16_t i1, uint16_t i2, uint8_t grp, uint8_t spc, uint16_t ofs, uint16_t i1Y, uint16_t i2Y) {
+void Segment::setGeometry(uint16_t i1, uint16_t i2, uint8_t grp, uint8_t spc, uint16_t ofs, uint16_t i1Y, uint16_t i2Y, uint8_t m12) {
   // return if neither bounds nor grouping have changed
   bool boundsUnchanged = (start == i1 && stop == i2);
   #ifndef WLED_DISABLE_2D
   if (Segment::maxHeight>1) boundsUnchanged &= (startY == i1Y && stopY == i2Y); // 2D
   #endif
+
+  m12 = constrain(m12, 0, 7);
+  if (stop && (spc > 0 || m12 != map1D2D)) fill(BLACK);
+  if (m12 != map1D2D) map1D2D = m12;
+/*
   if (boundsUnchanged
       && (!grp || (grouping == grp && spacing == spc))
-      && (ofs == UINT16_MAX || ofs == offset)) return;
-
+      && (m12 == map1D2D)
+     ) return;
+*/
   stateChanged = true; // send UDP/WS broadcast
 
-  if (stop) fill(BLACK); // turn old segment range off (clears pixels if changing spacing)
   if (grp) { // prevent assignment of 0
     grouping = grp;
     spacing = spc;
@@ -480,10 +485,7 @@ void Segment::setGeometry(uint16_t i1, uint16_t i2, uint8_t grp, uint8_t spc, ui
   }
   if (ofs < UINT16_MAX) offset = ofs;
 
-  DEBUG_PRINT(F("setUp segment: ")); DEBUG_PRINT(i1);
-  DEBUG_PRINT(','); DEBUG_PRINT(i2);
-  DEBUG_PRINT(F(" -> ")); DEBUG_PRINT(i1Y);
-  DEBUG_PRINT(','); DEBUG_PRINTLN(i2Y);
+  DEBUG_PRINTF_P(PSTR("Segment geometry: %d,%d -> %d,%d\n"), (int)i1, (int)i2, (int)i1Y, (int)i2Y);
   markForReset();
   if (boundsUnchanged) return;
 
@@ -1063,36 +1065,25 @@ void Segment::fade_out(uint8_t rate) {
   const int cols = is2D() ? virtualWidth() : virtualLength();
   const int rows = virtualHeight(); // will be 1 for 1D
 
-  rate = (255-rate) >> 1;
-  float mappedRate = 1.0f / (float(rate) + 1.1f);
-
-  uint32_t color = colors[1]; // SEGCOLOR(1); // target color
-  int w2 = W(color);
-  int r2 = R(color);
-  int g2 = G(color);
-  int b2 = B(color);
+  rate = (256-rate) >> 1;
+  const int mappedRate = 256 / (rate + 1);
 
   for (int y = 0; y < rows; y++) for (int x = 0; x < cols; x++) {
-    color = is2D() ? getPixelColorXY(x, y) : getPixelColor(x);
+    uint32_t color = is2D() ? getPixelColorXY(x, y) : getPixelColor(x);
     if (color == colors[1]) continue; // already at target color
-    int w1 = W(color);
-    int r1 = R(color);
-    int g1 = G(color);
-    int b1 = B(color);
-
-    int wdelta = (w2 - w1) * mappedRate;
-    int rdelta = (r2 - r1) * mappedRate;
-    int gdelta = (g2 - g1) * mappedRate;
-    int bdelta = (b2 - b1) * mappedRate;
-
-    // if fade isn't complete, make sure delta is at least 1 (fixes rounding issues)
-    wdelta += (w2 == w1) ? 0 : (w2 > w1) ? 1 : -1;
-    rdelta += (r2 == r1) ? 0 : (r2 > r1) ? 1 : -1;
-    gdelta += (g2 == g1) ? 0 : (g2 > g1) ? 1 : -1;
-    bdelta += (b2 == b1) ? 0 : (b2 > b1) ? 1 : -1;
-
-    if (is2D()) setPixelColorXY(x, y, r1 + rdelta, g1 + gdelta, b1 + bdelta, w1 + wdelta);
-    else        setPixelColor(x, r1 + rdelta, g1 + gdelta, b1 + bdelta, w1 + wdelta);
+    for (int i = 0; i < 32; i += 8) {
+      uint8_t c2 = (colors[1]>>i);  // get background channel
+      uint8_t c1 = (color>>i);      // get foreground channel
+      // we can't use bitshift since we are using int
+      int delta = (c2 - c1) * mappedRate / 256;
+      // if fade isn't complete, make sure delta is at least 1 (fixes rounding issues)
+      if (delta == 0) delta += (c2 == c1) ? 0 : (c2 > c1) ? 1 : -1;
+      // stuff new value back into color
+      color &= ~(0xFF<<i);
+      color |= ((c1 + delta) & 0xFF) << i;
+    }
+    if (is2D()) setPixelColorXY(x, y, color);
+    else        setPixelColor(x, color);
   }
 }
 
@@ -1366,7 +1357,7 @@ void WS2812FX::service() {
   _segment_index = 0;
 
   for (segment &seg : _segments) {
-    if (_suspend) return; // immediately stop processing segments if suspend requested during service()
+    if (_suspend) break; // immediately stop processing segments if suspend requested during service()
 
     // process transition (mode changes in the middle of transition)
     seg.handleTransition();
@@ -1431,8 +1422,8 @@ void WS2812FX::service() {
   if (doShow) {
     yield();
     Segment::handleRandomPalette(); // slowly transition random palette; move it into for loop when each segment has individual random palette
-    show();
     _lastServiceShow = nowUp; // update timestamp, for precise FPS control
+    if (!_suspend) show();
   }
   #ifdef WLED_DEBUG
   if ((_targetFps != FPS_UNLIMITED) && (millis() - nowUp > _frametime)) DEBUG_PRINTF_P(PSTR("Slow strip %u/%d.\n"), (unsigned)(millis()-nowUp), (int)_frametime);
