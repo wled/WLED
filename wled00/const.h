@@ -210,7 +210,7 @@
 #define USERMOD_ID_DEEP_SLEEP            55     //Usermod "usermod_deep_sleep.h"
 #define USERMOD_ID_RF433                 56     //Usermod "usermod_v2_RF433.h"
 #define USERMOD_ID_BRIGHTNESS_FOLLOW_SUN 57     //Usermod "usermod_v2_brightness_follow_sun.h"
-#define USERMOD_PHOTORESISTOR_MQTT_V2 58     //Usermod "usermod_photoresistor_sensor_mqtt_v2.h"
+#define USERMOD_ID_ADC_MQTT 58     //Usermod "usermod_photoresistor_sensor_mqtt_v2.h"
 //Access point behavior
 #define AP_BEHAVIOR_BOOT_NO_CONN          0     //Open AP when no connection after boot
 #define AP_BEHAVIOR_NO_CONN               1     //Open when no connection (either after boot or if connection is lost)

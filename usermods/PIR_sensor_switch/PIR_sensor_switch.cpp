@@ -310,16 +310,12 @@ void PIRsensorSwitch::publishHomeAssistantAutodiscovery()
     doc[F("uniq_id")] = uid;
     doc[F("dev_cla")] = F("motion");
     doc[F("exp_aft")] = 1800;
-
     JsonObject device = doc.createNestedObject(F("device")); // attach the sensor to the same device
     device[F("name")] = serverDescription;
     device[F("ids")]  = String(F("wled-sensor-")) + mqttClientID;
     device[F("mf")]   = F(WLED_BRAND);
     device[F("mdl")]  = F(WLED_PRODUCT_NAME);
     device[F("sw")]   = versionString;
-    JsonArray connections = device[F("connections")].createNestedArray();
-    connections.add(F("mac"));
-    connections.add(WiFi.macAddress());
     sprintf_P(buf, PSTR("homeassistant/binary_sensor/%s/config"), uid);
     DEBUG_PRINTLN(buf);
     size_t payload_size = serializeJson(doc, json_str);
