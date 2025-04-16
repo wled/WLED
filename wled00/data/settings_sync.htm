@@ -80,7 +80,7 @@
 <div class="helpB"><button type="button" onclick="H()">?</button></div>
 <button type="button" onclick="B()">Back</button><button type="submit">Save</button><hr>
 </div>
-<h2>Sync setup</h2>
+<h2>Sync Interfaces</h2>
 <h3>WLED Broadcast</h3>
 UDP Port: <input name="UP" type="number" min="1" max="65535" class="d5" required><br>
 2nd Port: <input name="U2" type="number" min="1" max="65535" class="d5" required><br>
@@ -139,7 +139,7 @@ Make this instance discoverable: <input type="checkbox" name="NB">
 <h3>Realtime</h3>
 Receive UDP realtime: <input type="checkbox" name="RD"><br>
 Use main segment only: <input type="checkbox" name="MO"><br><br>
-<i>Network DMX input</i><br>
+<i>Network DMX</i><br>
 Type:
 <select name=DI onchange="SP(); adj();">
 <option value=5568>E1.31 (sACN)</option>
@@ -148,7 +148,7 @@ Type:
 </select><br>
 <div id=xp>Port: <input name="EP" type="number" min="1" max="65535" value="5568" class="d5" required><br></div>
 Multicast: <input type="checkbox" name="EM"><br>
-Start universe: <input name="EU" type="number" min="0" max="63999" required><br>
+Start universe: <input name="EU" type="number" min="0" max="63999" required> (Also used for sending Art-Net)<br>
 <i>Reboot required.</i> Check out <a href="https://github.com/LedFx/LedFx" target="_blank">LedFx</a>!<br>
 Skip out-of-sequence packets: <input type="checkbox" name="ES"><br>
 DMX start address: <input name="DA" type="number" min="1" max="510" required><br>
