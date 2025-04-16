@@ -926,11 +926,32 @@ static uint16_t chase(uint32_t color1, uint32_t color2, uint32_t color3, bool do
 
 /**
  * Chase_Race function to allow 3 colored bands to race along the LEDs with black between the colors.
- * color1, color2, and color3 = colors of the three leaders in the race
+ * Uses segment palette colors SEGCOLOR(0), SEGCOLOR(1), and SEGCOLOR(2).
  */
-
-uint16_t chase_race(uint32_t color1, uint32_t color2, uint32_t color3)
+uint16_t chase_race()
 {
+  // Handle edge cases
+  if (SEGLEN == 0)
+  {
+    return FRAMETIME; // Skip rendering for zero LEDs
+  }
+  if (SEGLEN == 1)
+  {
+    // For one LED, cycle through colors based on time
+    uint16_t counter = strip.now * ((SEGMENT.speed >> 2) + 1);
+    uint8_t phase = (counter >> 8) % 3; // Cycle every ~256ms
+    uint32_t color = (phase == 0) ? SEGCOLOR(0) : (phase == 1) ? SEGCOLOR(1)
+                                                               : SEGCOLOR(2);
+    SEGMENT.setPixelColor(0, color);
+    return FRAMETIME;
+  }
+
+  // Use segment palette colors
+  uint32_t color1 = SEGCOLOR(0);
+  uint32_t color2 = SEGCOLOR(1);
+  uint32_t color3 = SEGCOLOR(2);
+
+  // Original animation logic
   uint16_t counter = strip.now * ((SEGMENT.speed >> 2) + 1);
   uint16_t a = (counter * SEGLEN) >> 16;
 
@@ -948,22 +969,22 @@ uint16_t chase_race(uint32_t color1, uint32_t color2, uint32_t color3)
       (a + size * 3 + gap * 2) % SEGLEN  // End of color3
   };
 
-  // Define compact lambda for filling LED segments using modulo
-  auto fillSegment = [](uint16_t start, uint16_t end, uint32_t color)
-  {
-    for (unsigned count = 0; count < SEGLEN && count < end - start + (end < start ? SEGLEN : 0); count++)
-    {
-      SEGMENT.setPixelColor((start + count) % SEGLEN, color);
-    }
-  };
-
   // Set background to black
   SEGMENT.fill(0);
 
-  // Fill the three color segments
-  fillSegment(positions[0], positions[1], color1);
-  fillSegment(positions[2], positions[3], color2);
-  fillSegment(positions[4], positions[5], color3);
+  // Fill the three color segments directly
+  for (unsigned count = 0; count < positions[1] - positions[0] + (positions[1] < positions[0] ? SEGLEN : 0); count++)
+  {
+    SEGMENT.setPixelColor((positions[0] + count) % SEGLEN, color1);
+  }
+  for (unsigned count = 0; count < positions[3] - positions[2] + (positions[3] < positions[2] ? SEGLEN : 0); count++)
+  {
+    SEGMENT.setPixelColor((positions[2] + count) % SEGLEN, color2);
+  }
+  for (unsigned count = 0; count < positions[5] - positions[4] + (positions[5] < positions[4] ? SEGLEN : 0); count++)
+  {
+    SEGMENT.setPixelColor((positions[4] + count) % SEGLEN, color3);
+  }
 
   return FRAMETIME;
 }
@@ -979,10 +1000,6 @@ static const char _data_FX_MODE_CHASE_COLOR[] PROGMEM = "Chase@!,Width;!,!,!;!";
 /*
  * Chase Race with 3 color strips
  */
-uint16_t chase_race()
-{
-  return chase_race(SEGCOLOR(0), SEGCOLOR(1), SEGCOLOR(2));
-}
 static const char _data_FX_MODE_CHASE_RACE[] PROGMEM = "Chase Race@!,Width;!,!,!;!";
 
 /*
@@ -10244,7 +10261,7 @@ void WS2812FX::setupEffectData() {
   addEffect(FX_MODE_TRAFFIC_LIGHT, &mode_traffic_light, _data_FX_MODE_TRAFFIC_LIGHT);
   addEffect(FX_MODE_COLOR_SWEEP_RANDOM, &mode_color_sweep_random, _data_FX_MODE_COLOR_SWEEP_RANDOM);
   addEffect(FX_MODE_RUNNING_COLOR, &mode_running_color, _data_FX_MODE_RUNNING_COLOR);
-  addEffect(FX_MODE_CHASE_RACE, &chase_race, _data_FX_MODE_CHASE_RACE);
+  addEffect(FX_MODE_CHASE_RACE, &chase_race, _data_FX_MODE_CHASE_RACE);  
   addEffect(FX_MODE_AURORA, &mode_aurora, _data_FX_MODE_AURORA);
   addEffect(FX_MODE_RUNNING_RANDOM, &mode_running_random, _data_FX_MODE_RUNNING_RANDOM);
   addEffect(FX_MODE_LARSON_SCANNER, &mode_larson_scanner, _data_FX_MODE_LARSON_SCANNER);
