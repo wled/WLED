@@ -5,17 +5,21 @@
 #include <Arduino.h>
 #include <HTTPClient.h>
 
+// Variável global para o contador
+static int mockCounter = -1;
+
 class InstagramStrategy : public SocialNetworkStrategy
 {
 public:
   bool fetchFollowerCount(const String &link, int &count) override
   {
-    // Implementação para buscar contagem de seguidores do Instagram
-    // Para evitar problemas de dependência, usamos um método simplificado
-    // sem parse de JSON
+    // Incrementa o contador a cada chamada
+    mockCounter = (mockCounter + 1) % 100; // Incrementa de 0 a 99
 
-    // Para demonstração, retorna um número aleatório
-    count = random(1000, 10000);
+    // Retorna o valor atual do contador
+    count = mockCounter;
+
+    Serial.printf("[MOCK] Instagram contador: %d\n", count);
     return true;
   }
 
