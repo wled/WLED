@@ -7886,7 +7886,7 @@ uint16_t mode_particlefireworks(void) {
         else if (PartSys->sources[j].source.vy < 0) { // rocket is exploded and time is up (ttl=0 and negative speed), relaunch it
           PartSys->sources[j].source.y = PS_P_RADIUS; // start from bottom
           PartSys->sources[j].source.x = (PartSys->maxX >> 2) + hw_random(PartSys->maxX >> 1); // centered half
-          PartSys->sources[j].source.vy = (SEGMENT.custom3) + random16(SEGMENT.custom1 >> 3) + 5; // rocket speed TODO: need to adjust for segment height
+          PartSys->sources[j].source.vy = (SEGMENT.custom3) + hw_random16(SEGMENT.custom1 >> 3) + 5; // rocket speed TODO: need to adjust for segment height
           PartSys->sources[j].source.vx = hw_random16(7) - 3; // not perfectly straight up
           PartSys->sources[j].source.sat = 30; // low saturation -> exhaust is off-white
           PartSys->sources[j].source.ttl = hw_random16(SEGMENT.custom1) + (SEGMENT.custom1 >> 1); // set fuse time
@@ -7956,7 +7956,7 @@ uint16_t mode_particlefireworks(void) {
           counter = 0;
           speed += 3 + ((SEGMENT.intensity >> 6)); // increase speed to form a second wave
           PartSys->sources[j].source.hue += hueincrement; // new color for next circle
-          PartSys->sources[j].source.sat = min((uint16_t)150, random16());
+          PartSys->sources[j].source.sat = 100 + hw_random16(156);
         }
         angle += angleincrement; // set angle for next particle
       }
@@ -9582,44 +9582,36 @@ uint16_t mode_particleHourglass(void) {
   PartSys->updateSystem(); // update system properties (dimensions and data pointers)
   settingTracker = reinterpret_cast<uint32_t *>(PartSys->PSdataEnd);  //assign data pointer
   direction = reinterpret_cast<bool *>(PartSys->PSdataEnd + 4);  //assign data pointer
-  PartSys->setUsedParticles(map(SEGMENT.intensity, 0, 255, 1, 255));
+  PartSys->setUsedParticles(1 + ((SEGMENT.intensity * 255) >> 8));
   PartSys->setMotionBlur(SEGMENT.custom2); // anable motion blur
   PartSys->setGravity(map(SEGMENT.custom3, 0, 31, 1, 30));
-  PartSys->enableParticleCollisions(true, 34); // hardness value found by experimentation on different settings
+  PartSys->enableParticleCollisions(true, 32); // hardness value found by experimentation on different settings
 
   uint32_t colormode = SEGMENT.custom1 >> 5; // 0-7
 
   if ((SEGMENT.intensity | (PartSys->getAvailableParticles() << 8)) != *settingTracker) { // initialize, getAvailableParticles changes while in FX transition
     *settingTracker = SEGMENT.intensity | (PartSys->getAvailableParticles() << 8);
     for (uint32_t i = 0; i < PartSys->usedParticles; i++) {
-      PartSys->particleFlags[i].reversegrav = true;
+      PartSys->particleFlags[i].reversegrav = true; // resting particles dont fall
       *direction = 0; // down
       SEGENV.aux1 = 1; // initialize below
     }
     SEGENV.aux0 = PartSys->usedParticles - 1; // initial state, start with highest number particle
   }
 
+  // calculate target position depending on direction
+  auto calcTargetPos = [&](size_t i) {
+    return PartSys->particleFlags[i].reversegrav ?
+          PartSys->maxX - i * PS_P_RADIUS_1D - positionOffset
+        : (PartSys->usedParticles - i) * PS_P_RADIUS_1D - positionOffset;
+  };
+
+
   for (uint32_t i = 0; i < PartSys->usedParticles; i++) { // check if particle reached target position after falling
-    int32_t targetposition;
-    if (PartSys->particleFlags[i].fixed == false) { // && abs(PartSys->particles[i].vx) < 8) {
-      // calculate target position depending on direction
-      bool closeToTarget = false;
-      bool reachedTarget = false;
-      if (PartSys->particleFlags[i].reversegrav) { // up
-        targetposition = PartSys->maxX - (i * PS_P_RADIUS_1D) - positionOffset; // target resting position
-        if (targetposition - PartSys->particles[i].x <= 5 * PS_P_RADIUS_1D)
-          closeToTarget = true;
-        if (PartSys->particles[i].x >= targetposition) // particle has reached target position, pin it. if not pinned, they do not stack well on larger piles
-          reachedTarget = true;
-      }
-      else { // down, highest index particle drops first
-        targetposition = (PartSys->usedParticles - i) * PS_P_RADIUS_1D - positionOffset; // target resting position note: using -offset instead of -1 + offset
-        if (PartSys->particles[i].x - targetposition <= 5 * PS_P_RADIUS_1D)
-          closeToTarget = true;
-        if (PartSys->particles[i].x <= targetposition) // particle has reached target position, pin it. if not pinned, they do not stack well on larger piles
-          reachedTarget = true;
-      }
-      if (reachedTarget || (closeToTarget && abs(PartSys->particles[i].vx) < 10)) { // reached target or close to target and slow speed
+    if (PartSys->particleFlags[i].fixed == false && abs(PartSys->particles[i].vx) < 5) {
+      int32_t targetposition = calcTargetPos(i);
+      bool closeToTarget = abs(targetposition - PartSys->particles[i].x) < 3 * PS_P_RADIUS_1D;
+      if (closeToTarget) { // close to target and slow speed
         PartSys->particles[i].x = targetposition; // set exact position
         PartSys->particleFlags[i].fixed = true;   // pin particle
       }
@@ -9644,19 +9636,20 @@ uint16_t mode_particleHourglass(void) {
       PartSys->particles[i].hue += 120;
   }
 
+  // re-order particles in case collisions flipped particles (highest number index particle is on the "bottom")
+  for (int i = 0; i < PartSys->usedParticles - 1; i++) {
+    if (PartSys->particles[i].x < PartSys->particles[i+1].x && PartSys->particleFlags[i].fixed == false && PartSys->particleFlags[i+1].fixed == false) {
+      std::swap(PartSys->particles[i].x, PartSys->particles[i+1].x);
+    }
+  }
+
+
   if (SEGENV.aux1 == 1) { // last countdown call before dropping starts, reset all particles
     for (uint32_t i = 0; i < PartSys->usedParticles; i++) {
       PartSys->particleFlags[i].collide = true;
       PartSys->particleFlags[i].perpetual = true;
       PartSys->particles[i].ttl = 260;
-      uint32_t targetposition;
-      //calculate target position depending on direction
-      if (PartSys->particleFlags[i].reversegrav)
-         targetposition = PartSys->maxX - (i * PS_P_RADIUS_1D + positionOffset); // target resting position
-      else
-        targetposition = (PartSys->usedParticles - i) * PS_P_RADIUS_1D - positionOffset; // target resting position  -5 - PS_P_RADIUS_1D/2
-
-      PartSys->particles[i].x = targetposition;
+      PartSys->particles[i].x = calcTargetPos(i);
       PartSys->particleFlags[i].fixed = true;
     }
   }
@@ -9767,7 +9760,7 @@ uint16_t mode_particleBalance(void) {
 
   // Particle System settings
   PartSys->updateSystem(); // update system properties (dimensions and data pointers)
-  PartSys->setMotionBlur(SEGMENT.custom2); // anable motion blur
+  PartSys->setMotionBlur(SEGMENT.custom2); // enable motion blur
   PartSys->setBounce(!SEGMENT.check2);
   PartSys->setWrap(SEGMENT.check2);
   uint8_t hardness = SEGMENT.custom1 > 0 ? map(SEGMENT.custom1, 0, 255, 50, 250) : 200; // set hardness,  make the walls hard if collisions are disabled
@@ -9783,6 +9776,17 @@ uint16_t mode_particleBalance(void) {
     }
   }
   SEGENV.aux1 = PartSys->usedParticles;
+
+  // re-order particles in case collisions flipped particles
+  for (i = 0; i < PartSys->usedParticles - 1; i++) {
+    if (PartSys->particles[i].x > PartSys->particles[i+1].x) {
+      if (SEGMENT.check2) { // check for wrap around
+        if (PartSys->particles[i].x - PartSys->particles[i+1].x > 3 * PS_P_RADIUS_1D)
+          continue;
+      }
+      std::swap(PartSys->particles[i].x, PartSys->particles[i+1].x);
+    }
+  }
 
   if (SEGMENT.call % (((255 - SEGMENT.speed) >> 6) + 1) == 0) { // how often the force is applied depends on speed setting
     int32_t xgravity;
@@ -9824,7 +9828,7 @@ by DedeHai (Damian Schneider)
 uint16_t mode_particleChase(void) {
   ParticleSystem1D *PartSys = nullptr;
   if (SEGMENT.call == 0) { // initialization
-    if (!initParticleSystem1D(PartSys, 1, 255, 3, true)) // init
+    if (!initParticleSystem1D(PartSys, 1, 255, 2, true)) // init
       return mode_static(); // allocation failed or is single pixel
     SEGENV.aux0 = 0xFFFF; // invalidate
     *PartSys->PSdataEnd = 1; // huedir
@@ -9834,39 +9838,43 @@ uint16_t mode_particleChase(void) {
     PartSys = reinterpret_cast<ParticleSystem1D *>(SEGENV.data); // if not first call, just set the pointer to the PS
   if (PartSys == nullptr)
     return mode_static(); // something went wrong, no data!
-
   // Particle System settings
   PartSys->updateSystem(); // update system properties (dimensions and data pointers)
   PartSys->setColorByPosition(SEGMENT.check3);
-  PartSys->setMotionBlur(8 + ((SEGMENT.custom3) << 3)); // anable motion blur
-  // uint8_t* basehue = (PartSys->PSdataEnd + 2);  //assign data pointer
-
+  PartSys->setMotionBlur(7 + ((SEGMENT.custom3) << 3)); // anable motion blur
+  uint32_t numParticles = 1 + map(SEGMENT.intensity, 0, 255, 2, 255 / (1 + (SEGMENT.custom1 >> 6))); // depends on intensity and particle size (custom1), minimum 1
+  numParticles = min(numParticles, PartSys->usedParticles); // limit to available particles
+  int32_t huestep = 1 + ((((uint32_t)SEGMENT.custom2 << 19) / numParticles) >> 16); // hue increment
   uint32_t settingssum = SEGMENT.speed + SEGMENT.intensity + SEGMENT.custom1 + SEGMENT.custom2 + SEGMENT.check1 + SEGMENT.check2 + SEGMENT.check3 + PartSys->getAvailableParticles(); // note: getAvailableParticles is used to enforce update during transitions
   if (SEGENV.aux0 != settingssum) { // settings changed changed, update
-    uint32_t numParticles = map(SEGMENT.intensity, 0, 255, 2, 255 / (1 + (SEGMENT.custom1 >> 6))); // depends on intensity and particle size (custom1)
-    if (numParticles == 0) numParticles = 1; // minimum 1 particle
-    PartSys->setUsedParticles(numParticles);
-    SEGENV.step = (PartSys->maxX + (PS_P_RADIUS_1D << 5)) / PartSys->usedParticles; // spacing between particles
+    if (SEGMENT.check1)
+      SEGENV.step = PartSys->advPartProps[0].size / 2 + (PartSys->maxX / numParticles);
+    else
+      SEGENV.step = (PartSys->maxX + (PS_P_RADIUS_1D << 5)) / numParticles; // spacing between particles
     for (int32_t i = 0; i < (int32_t)PartSys->usedParticles; i++) {
       PartSys->advPartProps[i].sat = 255;
       PartSys->particles[i].x = (i - 1) * SEGENV.step; // distribute evenly (starts out of frame for i=0)
-      PartSys->particles[i].vx =  SEGMENT.speed >> 1;
+      PartSys->particles[i].vx =  SEGMENT.speed >> 2;
       PartSys->advPartProps[i].size = SEGMENT.custom1;
       if (SEGMENT.custom2 < 255)
-        PartSys->particles[i].hue = (i * (SEGMENT.custom2 << 3)) / PartSys->usedParticles; // gradient distribution
+        PartSys->particles[i].hue = i * huestep; // gradient distribution
       else
         PartSys->particles[i].hue = hw_random16();
     }
     SEGENV.aux0 = settingssum;
   }
 
-  int32_t huestep = (((uint32_t)SEGMENT.custom2 << 19) / PartSys->usedParticles) >> 16; // hue increment
+  if(SEGMENT.check1) {
+    huestep = 1 + (max((int)huestep, 3)  * ((int(sin16_t(strip.now * 3) + 32767))) >> 15); // changes gradient spread (scale hue step)
+  }
 
   // wrap around (cannot use particle system wrap if distributing colors manually, it also wraps rendering which does not look good)
   for (int32_t i = (int32_t)PartSys->usedParticles - 1; i >= 0; i--) { // check from the back, last particle wraps first, multiple particles can overrun per frame
     if (PartSys->particles[i].x > PartSys->maxX + PS_P_RADIUS_1D + PartSys->advPartProps[i].size) { // wrap it around
       uint32_t nextindex = (i + 1) % PartSys->usedParticles;
-      PartSys->particles[i].x =  PartSys->particles[nextindex].x - (int)SEGENV.step;
+      PartSys->particles[i].x = PartSys->particles[nextindex].x - (int)SEGENV.step;
+      if(SEGMENT.check1) // playful mode, vary size
+        PartSys->advPartProps[i].size = max(1 + (SEGMENT.custom1 >> 1), ((int(sin16_t(strip.now << 1) + 32767)) >> 8)); // cycle size
       if (SEGMENT.custom2 < 255)
         PartSys->particles[i].hue = PartSys->particles[nextindex].hue - huestep;
       else
@@ -9875,11 +9883,37 @@ uint16_t mode_particleChase(void) {
     PartSys->particles[i].ttl = 300; // reset ttl, cannot use perpetual because memmanager can change pointer at any time
   }
 
+  if (SEGMENT.check1) { // playful mode, changes hue, size, speed, density dynamically
+    int8_t* huedir = reinterpret_cast<int8_t *>(PartSys->PSdataEnd);  //assign data pointer
+    int8_t* stepdir = reinterpret_cast<int8_t *>(PartSys->PSdataEnd + 1);
+    if(*stepdir == 0) *stepdir = 1; // initialize directions
+    if(*huedir == 0) *huedir = 1;
+    if (SEGENV.step >= (PartSys->advPartProps[0].size + PS_P_RADIUS_1D * 4) + PartSys->maxX / numParticles)
+      *stepdir = -1; // increase density (decrease space between particles)
+    else if (SEGENV.step <= (PartSys->advPartProps[0].size >> 1) + ((PartSys->maxX / numParticles)))
+      *stepdir = 1; // decrease density
+    if (SEGENV.aux1 > 512)
+      *huedir = -1;
+    else if (SEGENV.aux1 < 50)
+      *huedir = 1;
+    if (SEGMENT.call % (1024 / (1 + (SEGMENT.speed >> 2))) == 0)
+      SEGENV.aux1 += *huedir;
+    int8_t globalhuestep = 0; // global hue increment
+    if (SEGMENT.call % (1 + (int(sin16_t(strip.now) + 32767) >> 12))  == 0)
+      globalhuestep = 2; // global hue change to add some color variation
+    if ((SEGMENT.call & 0x1F) == 0)
+      SEGENV.step += *stepdir; // change density
+    for(int32_t i = 0; i < PartSys->usedParticles; i++) {
+      PartSys->particles[i].hue -= globalhuestep; // shift global hue (both directions)
+      PartSys->particles[i].vx = 1 + (SEGMENT.speed >> 2) + ((int32_t(sin16_t(strip.now >> 1) + 32767) * (SEGMENT.speed >> 2)) >> 16);
+    }
+  }
+
   PartSys->setParticleSize(SEGMENT.custom1); // if custom1 == 0 this sets rendering size to one pixel
   PartSys->update(); // update and render
   return FRAMETIME;
 }
-static const char _data_FX_MODE_PS_CHASE[] PROGMEM = "PS Chase@!,Density,Size,Hue,Blur,,,Position Color;,!;!;1;pal=11,sx=50,c2=5,c3=0";
+static const char _data_FX_MODE_PS_CHASE[] PROGMEM = "PS Chase@!,Density,Size,Hue,Blur,Playful,,Position Color;,!;!;1;pal=11,sx=50,c2=5,c3=0";
 
 /*
   Particle Fireworks Starburst replacement (smoother rendering, more settings)
@@ -10084,10 +10118,9 @@ static const char _data_FX_MODE_PS_FIRE1D[] PROGMEM = "PS Fire 1D@!,!,Cooling,Bl
 
 /*
   Particle based AR effect, swoop particles along the strip with selected frequency loudness
-  Uses palette for particle color
   by DedeHai (Damian Schneider)
 */
-uint16_t mode_particle1Dsonicstream(void) {
+uint16_t mode_particle1DsonicStream(void) {
   ParticleSystem1D *PartSys = nullptr;
 
   if (SEGMENT.call == 0) { // initialization
@@ -10097,7 +10130,6 @@ uint16_t mode_particle1Dsonicstream(void) {
     PartSys->sources[0].source.x = 0; // at start
     //PartSys->sources[1].source.x = PartSys->maxX; // at end
     PartSys->sources[0].var = 0;//SEGMENT.custom1 >> 3;
-    PartSys->sources[0].sat = 255;
   }
   else
     PartSys = reinterpret_cast<ParticleSystem1D *>(SEGENV.data); // if not first call, just set the pointer to the PS
@@ -10108,7 +10140,6 @@ uint16_t mode_particle1Dsonicstream(void) {
   PartSys->updateSystem(); // update system properties (dimensions and data pointers)
   PartSys->setMotionBlur(20 + (SEGMENT.custom2 >> 1)); // anable motion blur
   PartSys->setSmearBlur(200); // smooth out the edges
-
   PartSys->sources[0].v = 5 + (SEGMENT.speed >> 2);
 
   // FFT processing
@@ -10118,11 +10149,10 @@ uint16_t mode_particle1Dsonicstream(void) {
   uint32_t baseBin = SEGMENT.custom3 >> 1; // 0 - 15 map(SEGMENT.custom3, 0, 31, 0, 14);
 
   loudness = fftResult[baseBin];// + fftResult[baseBin + 1];
-  int mids = sqrt16((int)fftResult[5] + (int)fftResult[6] + (int)fftResult[7] + (int)fftResult[8] + (int)fftResult[9] + (int)fftResult[10]); // average the mids, bin 5 is ~500Hz, bin 10 is ~2kHz (see audio_reactive.h)
   if (baseBin > 12)
     loudness = loudness << 2; // double loudness for high frequencies (better detecion)
 
-  uint32_t threshold = 150 - (SEGMENT.intensity >> 1);
+  uint32_t threshold = 140 - (SEGMENT.intensity >> 1);
   if (SEGMENT.check2) { // enable low pass filter for dynamic threshold
     SEGMENT.step = (SEGMENT.step * 31500 + loudness * (32768 - 31500)) >> 15; // low pass filter for simple beat detection: add average to base threshold
     threshold = 20 + (threshold >> 1) + SEGMENT.step; // add average to threshold
@@ -10130,6 +10160,7 @@ uint16_t mode_particle1Dsonicstream(void) {
 
   // color
   uint32_t hueincrement = (SEGMENT.custom1 >> 3); // 0-31
+  PartSys->sources[0].sat = SEGMENT.custom1 > 0 ? 255 : 0; // color slider at zero: set to white
   PartSys->setColorByPosition(SEGMENT.custom1 == 255);
 
   // particle manipulation
@@ -10140,8 +10171,10 @@ uint16_t mode_particle1Dsonicstream(void) {
       }
       else PartSys->particles[i].ttl = 0;
     }
-    if (SEGMENT.check1) // modulate colors by mid frequencies
+    if (SEGMENT.check1) { // modulate colors by mid frequencies
+      int mids = sqrt32_bw((int)fftResult[5] + (int)fftResult[6] + (int)fftResult[7] + (int)fftResult[8] + (int)fftResult[9] + (int)fftResult[10]); // average the mids, bin 5 is ~500Hz, bin 10 is ~2kHz (see audio_reactive.h)
       PartSys->particles[i].hue += (mids * perlin8(PartSys->particles[i].x << 2, SEGMENT.step << 2)) >> 9; // color by perlin noise from mid frequencies
+    }
   }
 
   if (loudness > threshold) {
@@ -10185,6 +10218,266 @@ uint16_t mode_particle1Dsonicstream(void) {
   return FRAMETIME;
 }
 static const char _data_FX_MODE_PS_SONICSTREAM[] PROGMEM = "PS Sonic Stream@!,!,Color,Blur,Bin,Mod,Filter,Push;,!;!;1f;c3=0,o2=1";
+
+
+/*
+  Particle based AR effect, creates exploding particles on beats
+  by DedeHai (Damian Schneider)
+*/
+uint16_t mode_particle1DsonicBoom(void) {
+  ParticleSystem1D *PartSys = nullptr;
+  if (SEGMENT.call == 0) { // initialization
+    if (!initParticleSystem1D(PartSys, 1, 255, 0, true)) // init, no additional data needed
+      return mode_static(); // allocation failed or is single pixel
+    PartSys->setKillOutOfBounds(true);
+  }
+  else
+    PartSys = reinterpret_cast<ParticleSystem1D *>(SEGENV.data); // if not first call, just set the pointer to the PS
+  if (PartSys == nullptr)
+    return mode_static(); // something went wrong, no data!
+
+  // Particle System settings
+  PartSys->updateSystem(); // update system properties (dimensions and data pointers)
+  PartSys->setMotionBlur(180 * SEGMENT.check3);
+  PartSys->setSmearBlur(64 * SEGMENT.check3);
+  PartSys->sources[0].var = map(SEGMENT.speed, 0, 255, 10, 127);
+
+  // FFT processing
+  um_data_t *um_data = getAudioData();
+  uint8_t *fftResult = (uint8_t *)um_data->u_data[2]; // 16 bins with FFT data, log mapped already, each band contains frequency amplitude 0-255
+  uint32_t loudness;
+  uint32_t baseBin = SEGMENT.custom3 >> 1; // 0 - 15 map(SEGMENT.custom3, 0, 31, 0, 14);
+  loudness = fftResult[baseBin];// + fftResult[baseBin + 1];
+
+  if (baseBin > 12)
+    loudness = loudness << 2; // double loudness for high frequencies (better detecion)
+  uint32_t threshold = 150 - (SEGMENT.intensity >> 1);
+  if (SEGMENT.check2) { // enable low pass filter for dynamic threshold
+    SEGMENT.step = (SEGMENT.step * 31500 + loudness * (32768 - 31500)) >> 15; // low pass filter for simple beat detection: add average to base threshold
+    threshold = 20 + (threshold >> 1) + SEGMENT.step; // add average to threshold
+  }
+
+  // particle manipulation
+  for (uint32_t i = 0; i < PartSys->usedParticles; i++) {
+    if (SEGMENT.check1) { // modulate colors by mid frequencies
+      int mids = sqrt32_bw((int)fftResult[5] + (int)fftResult[6] + (int)fftResult[7] + (int)fftResult[8] + (int)fftResult[9] + (int)fftResult[10]); // average the mids, bin 5 is ~500Hz, bin 10 is ~2kHz (see audio_reactive.h)
+      PartSys->particles[i].hue += (mids * perlin8(PartSys->particles[i].x << 2, SEGMENT.step << 2)) >> 9; // color by perlin noise from mid frequencies
+    }
+    if (PartSys->particles[i].ttl > 16) {
+      PartSys->particles[i].ttl -= 16; //ttl is linked to brightness, this allows to use higher brightness but still a (very) short lifespan
+    }
+  }
+
+  if (loudness > threshold) {
+    if (SEGMENT.aux1 == 0) { // edge detected, code only runs once per "beat"
+      // update position
+      if (SEGMENT.custom2 < 128) // fixed position
+        PartSys->sources[0].source.x = map(SEGMENT.custom2, 0, 127, 0, PartSys->maxX);
+      else if (SEGMENT.custom2 < 255) { // advances on each "beat"
+        int32_t step = PartSys->maxX / (((270 - SEGMENT.custom2) >> 3)); // step: 2 - 33 steps for full segment width
+        PartSys->sources[0].source.x = (PartSys->sources[0].source.x + step) % PartSys->maxX;
+        if (PartSys->sources[0].source.x < step) // align to be symmetrical by making the first position half a step from start
+          PartSys->sources[0].source.x = step >> 1;
+      }
+      else // position set to max, use random postion per beat
+        PartSys->sources[0].source.x = hw_random(PartSys->maxX);
+
+      // update color
+      //PartSys->setColorByPosition(SEGMENT.custom1 == 255);     // color slider at max: particle color by position
+      PartSys->sources[0].sat = SEGMENT.custom1 > 0 ? 255 : 0; // color slider at zero: set to white
+      if (SEGMENT.custom1 == 255) // emit color by position
+        SEGMENT.aux0 = map(PartSys->sources[0].source.x , 0, PartSys->maxX, 0, 255);
+      else if (SEGMENT.custom1 > 0)
+        SEGMENT.aux0 += (SEGMENT.custom1 >> 1); // change emit color per "beat"
+    }
+    SEGMENT.aux1 = 1; // track edge detection
+
+    PartSys->sources[0].minLife = 200;
+    PartSys->sources[0].maxLife = PartSys->sources[0].minLife + (((unsigned)SEGMENT.intensity * loudness * loudness) >> 13);
+    PartSys->sources[0].source.hue = SEGMENT.aux0;
+    PartSys->sources[0].size = 1; //SEGMENT.speed>>3;
+    uint32_t explosionsize = 4 + (PartSys->maxXpixel >> 2);
+    explosionsize = hw_random16((explosionsize * loudness) >> 10);
+    for (uint32_t e = 0; e < explosionsize; e++) { // emit explosion particles
+        PartSys->sprayEmit(PartSys->sources[0]); // emit a particle
+      }
+  }
+  else
+    SEGMENT.aux1 = 0; // reset edge detection
+
+  PartSys->update(); // update and render (needs to be done before manipulation for initial particle spacing to be right)
+  return FRAMETIME;
+}
+static const char _data_FX_MODE_PS_SONICBOOM[] PROGMEM = "PS Sonic Boom@!,!,Color,Position,Bin,Mod,Filter,Blur;,!;!;1f;c2=63,c3=0,o2=1";
+
+/*
+Particles bound by springs
+by DedeHai (Damian Schneider)
+*/
+uint16_t mode_particleSpringy(void) {
+  ParticleSystem1D *PartSys = nullptr;
+  if (SEGMENT.call == 0) { // initialization
+    if (!initParticleSystem1D(PartSys, 1, 128, 0, true)) // init
+      return mode_static(); // allocation failed or is single pixel
+    SEGENV.aux0 = SEGENV.aux1 = 0xFFFF; // invalidate settings
+  }
+  else
+    PartSys = reinterpret_cast<ParticleSystem1D *>(SEGENV.data); // if not first call, just set the pointer to the PS
+  if (PartSys == nullptr)
+    return mode_static(); // something went wrong, no data!
+  // Particle System settings
+  PartSys->updateSystem(); // update system properties (dimensions and data pointers)
+  PartSys->setMotionBlur(220 * SEGMENT.check1); // anable motion blur
+  PartSys->setSmearBlur(50); // smear a little
+  PartSys->setUsedParticles(map(SEGMENT.custom1, 0, 255, 30 >> SEGMENT.check2, 255  >> (SEGMENT.check2*2))); // depends on density and particle size
+ // PartSys->enableParticleCollisions(true, 140); // enable particle collisions, can not be set too hard or impulses will not strech the springs if soft.
+  int32_t springlength = PartSys->maxX / (PartSys->usedParticles); // spring length (spacing between particles)
+  int32_t springK = map(SEGMENT.speed, 0, 255, 5, 35); // spring constant (stiffness)
+
+  uint32_t settingssum = SEGMENT.custom1 + SEGMENT.check2 + PartSys->getAvailableParticles(); // note: getAvailableParticles is used to enforce update during transitions
+  if (SEGENV.aux0 != settingssum) { // number of particles changed, update distribution
+    for (int32_t i = 0; i < (int32_t)PartSys->usedParticles; i++) {
+      PartSys->advPartProps[i].sat = 255; // full saturation
+      //PartSys->particleFlags[i].collide = true; // enable collision for particles
+      PartSys->particles[i].x = (i+1) * ((PartSys->maxX) / (PartSys->usedParticles)); // distribute
+      //PartSys->particles[i].vx = 0; //reset speed
+      PartSys->advPartProps[i].size = SEGMENT.check2 ? 190 : 2; // set size, small or big
+    }
+    SEGENV.aux0 = settingssum;
+  }
+  int dxlimit = (2 + ((255 - SEGMENT.speed) >> 5)) * springlength; // limit for spring length to avoid overstretching
+
+  int springforce[PartSys->usedParticles]; // spring forces
+  memset(springforce, 0, PartSys->usedParticles * sizeof(int32_t)); // reset spring forces
+
+  // calculate spring forces and limit particle positions
+  if (PartSys->particles[0].x < -springlength)
+    PartSys->particles[0].x = -springlength; // limit the spring length
+  else if (PartSys->particles[0].x > dxlimit)
+    PartSys->particles[0].x = dxlimit; // limit the spring length
+  springforce[0] += ((springlength >> 1) - (PartSys->particles[0].x)) * springK; // first particle anchors to x=0
+
+  for (int32_t i = 1; i < PartSys->usedParticles; i++) {
+    // reorder particles if they are out of order to prevent chaos
+    if (PartSys->particles[i].x < PartSys->particles[i-1].x)
+        std::swap(PartSys->particles[i].x, PartSys->particles[i-1].x); // swap particle positions to maintain order
+    int dx = PartSys->particles[i].x - PartSys->particles[i-1].x; // distance, always positive
+    if (dx > dxlimit) { // limit the spring length
+      PartSys->particles[i].x = PartSys->particles[i-1].x + dxlimit;
+      dx = dxlimit;
+    }
+    int dxleft = (springlength - dx); // offset from spring resting position
+    springforce[i] += dxleft * springK;
+    springforce[i-1] -= dxleft * springK;
+    if (i == (PartSys->usedParticles - 1)) {
+     if (PartSys->particles[i].x >= PartSys->maxX + springlength)
+        PartSys->particles[i].x = PartSys->maxX + springlength;
+      int dxright = (springlength >> 1) - (PartSys->maxX - PartSys->particles[i].x); // last particle anchors to x=maxX
+      springforce[i] -= dxright * springK;
+    }
+  }
+  // apply spring forces to particles
+  bool dampenoscillations = (SEGMENT.call % (9 - (SEGMENT.speed >> 5))) == 0; // dampen oscillation if particles are slow, more damping on stiffer springs
+  for (int32_t i = 0; i < PartSys->usedParticles; i++) {
+    springforce[i] = springforce[i] / 64; // scale spring force (cannot use shifts because of negative values)
+    int maxforce = 120; // limit spring force
+    springforce[i] = springforce[i] > maxforce ? maxforce : springforce[i] < -maxforce ? -maxforce : springforce[i]; // limit spring force
+    PartSys->applyForce(PartSys->particles[i], springforce[i], PartSys->advPartProps[i].forcecounter);
+    //dampen slow particles to avoid persisting oscillations on higher stiffness
+    if (dampenoscillations) {
+      if (abs(PartSys->particles[i].vx) < 3 && abs(springforce[i]) < (springK >> 2))
+        PartSys->particles[i].vx = (PartSys->particles[i].vx * 254) / 256; // take out some energy
+    }
+    PartSys->particles[i].ttl = 300; // reset ttl, cannot use perpetual
+  }
+
+  if (SEGMENT.call % ((65 - ((SEGMENT.intensity * (1 + (SEGMENT.speed>>3))) >> 7))) == 0) // more damping for higher stiffness
+    PartSys->applyFriction((SEGMENT.intensity >> 2));
+
+  // add a small resetting force so particles return to resting position even under high damping
+  for (int32_t i = 1; i < PartSys->usedParticles - 1; i++) {
+    int restposition = (springlength >> 1) + i * springlength; // resting position
+    int dx = restposition - PartSys->particles[i].x; // distance, always positive
+    PartSys->applyForce(PartSys->particles[i], dx > 0 ? 1 : (dx < 0 ? -1 : 0), PartSys->advPartProps[i].forcecounter);
+  }
+
+  // Modes
+  if (SEGMENT.check3) { // use AR, custom 3 becomes frequency band to use, applies velocity to center particle according to loudness
+    um_data_t *um_data = getAudioData();
+    uint8_t *fftResult = (uint8_t *)um_data->u_data[2]; // 16 bins with FFT data, log mapped already, each band contains frequency amplitude 0-255
+    uint32_t baseBin = map(SEGMENT.custom3, 0, 31, 0, 14);
+    uint32_t loudness = fftResult[baseBin] + fftResult[baseBin+1];
+    uint32_t threshold = 80; //150 - (SEGMENT.intensity >> 1);
+    if (loudness > threshold) {
+        int offset = (PartSys->maxX >> 1) - PartSys->particles[PartSys->usedParticles>>1].x; // offset from center
+        if (abs(offset) < PartSys->maxX >> 5) // push particle around in center sector
+          PartSys->particles[PartSys->usedParticles>>1].vx = ((PartSys->particles[PartSys->usedParticles>>1].vx > 0 ? 1 : -1)) * (loudness >> 3);
+    }
+  }
+  else{
+    if (SEGMENT.custom3 <= 10) { // periodic pulse: 0-5 apply at start, 6-10 apply at center
+      if (strip.now > SEGMENT.step) {
+        int speed = (SEGMENT.custom3 > 5) ? (SEGMENT.custom3 - 6) : SEGMENT.custom3;
+        SEGMENT.step = strip.now + 7500 - ((SEGMENT.speed << 3) + (speed << 10));
+        int amplitude = 40 + (SEGMENT.custom1 >> 2);
+        int index = (SEGMENT.custom3 > 5) ? (PartSys->usedParticles / 2) : 0; // center or start particle
+        PartSys->particles[index].vx += amplitude;
+      }
+    }
+    else if (SEGMENT.custom3 <= 30) { // sinusoidal wave: 11-20 apply at start, 21-30 apply at center
+      int index = (SEGMENT.custom3 > 20) ? (PartSys->usedParticles / 2) : 0; // center or start particle
+      int restposition = 0;
+      if (index > 0) restposition = PartSys->maxX >> 1; // center
+      //int amplitude = 5 + (SEGMENT.speed >> 3) + (SEGMENT.custom1 >> 2); // amplitude depends on density
+      int amplitude = 5 + (SEGMENT.custom1 >> 2); // amplitude depends on density
+      int speed = SEGMENT.custom3 - 10 - (index ? 10 : 0); // map 11-20 and 21-30 to 1-10
+      int phase = strip.now * ((1 + (SEGMENT.speed >> 4)) * speed);
+      if (SEGMENT.check2) amplitude <<= 1; // double amplitude for XL particles
+      //PartSys->applyForce(PartSys->particles[index], (sin16_t(phase) * amplitude) >> 15, PartSys->advPartProps[index].forcecounter); // apply acceleration
+      PartSys->particles[index].x = restposition + ((sin16_t(phase) * amplitude) >> 12); // apply position
+    }
+    else {
+      if (hw_random16() < 656) { // ~1% chance to add a pulse
+        int amplitude = 60;
+        if (SEGMENT.check2) amplitude <<= 1; // double amplitude for XL particles
+        PartSys->particles[PartSys->usedParticles >> 1].vx += hw_random16(amplitude << 1) - amplitude; // apply acceleration
+      }
+    }
+  }
+
+  for (int32_t i = 0; i < PartSys->usedParticles; i++) {
+    if (SEGMENT.custom2 == 255) { // map speed to hue
+       int speedclr = ((int8_t(abs(PartSys->particles[i].vx))) >> 2) << 4; // scale for greater color variation, dump small values to avoid flickering
+       //int speed = PartSys->particles[i].vx << 2; // +/- 512
+       if (speedclr > 240) speedclr = 240; // limit color to non-wrapping part of palette
+       PartSys->particles[i].hue = speedclr;
+    }
+    else if (SEGMENT.custom2 > 0)
+      PartSys->particles[i].hue = i * (SEGMENT.custom2 >> 2); // gradient distribution
+    else {
+      // map hue to particle density
+      int deviation;
+      if (i == 0) // First particle: measure density based on distance to anchor point
+        deviation = springlength/2 - PartSys->particles[i].x;
+      else if (i == PartSys->usedParticles - 1) // Last particle: measure density based on distance to right boundary
+        deviation = springlength/2 - (PartSys->maxX - PartSys->particles[i].x);
+      else {
+        // Middle particles: average of compression/expansion from both sides
+        int leftDx = PartSys->particles[i].x - PartSys->particles[i-1].x;
+        int rightDx = PartSys->particles[i+1].x - PartSys->particles[i].x;
+        int avgDistance = (leftDx + rightDx) >> 1;
+        if (avgDistance < 0) avgDistance = 0; // avoid negative distances (not sure why this happens)
+        deviation = (springlength - avgDistance);
+      }
+      deviation = constrain(deviation, -127, 112); // limit deviation to -127..112 (do not go intwo wrapping part of palette)
+      PartSys->particles[i].hue = 127 + deviation; // map density to hue
+    }
+  }
+  PartSys->update(); // update and render
+  return FRAMETIME;
+}
+static const char _data_FX_MODE_PS_SPRINGY[] PROGMEM = "PS Springy@Stiffness,Damping,Density,Hue,Mode,Smear,XL,AR;,!;!;1f;pal=54,c2=0,c3=23";
+
 #endif // WLED_DISABLE_PARTICLESYSTEM1D
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -10454,7 +10747,9 @@ addEffect(FX_MODE_PSCHASE, &mode_particleChase, _data_FX_MODE_PS_CHASE);
 addEffect(FX_MODE_PSSTARBURST, &mode_particleStarburst, _data_FX_MODE_PS_STARBURST);
 addEffect(FX_MODE_PS1DGEQ, &mode_particle1DGEQ, _data_FX_MODE_PS_1D_GEQ);
 addEffect(FX_MODE_PSFIRE1D, &mode_particleFire1D, _data_FX_MODE_PS_FIRE1D);
-addEffect(FX_MODE_PS1DSONICSTREAM, &mode_particle1Dsonicstream, _data_FX_MODE_PS_SONICSTREAM);
+addEffect(FX_MODE_PS1DSONICSTREAM, &mode_particle1DsonicStream, _data_FX_MODE_PS_SONICSTREAM);
+addEffect(FX_MODE_PS1DSONICBOOM, &mode_particle1DsonicBoom, _data_FX_MODE_PS_SONICBOOM);
+addEffect(FX_MODE_PS1DSPRINGY, &mode_particleSpringy, _data_FX_MODE_PS_SPRINGY);
 #endif // WLED_DISABLE_PARTICLESYSTEM1D
 
 }
