@@ -911,7 +911,7 @@ uint8_t IRAM_ATTR_YN realtimeBroadcast(uint8_t type, IPAddress client, uint16_t 
       const uint_fast16_t ARTNET_CHANNELS_PER_PACKET = isRGBW?512:510; // 512/4=128 RGBW LEDs, 510/3=170 RGB LEDs
       
       uint_fast16_t bufferOffset = 0;
-      uint_fast16_t hardware_output_universe = 0;
+      uint_fast16_t hardware_output_universe = e131Universe; // start at the universe defined in Sync Setup
       
       sequenceNumber++;
 
