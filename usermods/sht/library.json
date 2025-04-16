@@ -1,5 +1,5 @@
 {
-  "name:": "sht",
+  "name": "sht",
   "dependencies": {
     "robtillaart/SHT85": "~0.3.3"
   }

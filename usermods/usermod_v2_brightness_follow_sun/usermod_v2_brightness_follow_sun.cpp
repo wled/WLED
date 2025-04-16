@@ -1,5 +1,3 @@
-#pragma once
-
 #include "wled.h"
 
 //v2 usermod that allows to change brightness and color using a rotary encoder, 
@@ -128,3 +126,6 @@ const char UsermodBrightnessFollowSun::_update_interval[]     PROGMEM = "Update 
 const char UsermodBrightnessFollowSun::_min_bri[]             PROGMEM = "Min Brightness";
 const char UsermodBrightnessFollowSun::_max_bri[]             PROGMEM = "Max Brightness";
 const char UsermodBrightnessFollowSun::_relax_hour[]          PROGMEM = "Relax Hour";
+
+static UsermodBrightnessFollowSun usermod_brightness_follow_sun;
+REGISTER_USERMOD(usermod_brightness_follow_sun);

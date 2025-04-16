@@ -1,7 +1,5 @@
-#pragma once
-
 //WLED custom fonts, curtesy of @Benji (https://github.com/Proto-molecule)
-
+#pragma once
 
 /*
   Fontname: wled_logo_akemi_4x4
