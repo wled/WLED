@@ -1836,53 +1836,61 @@ class AudioReactive : public Usermod {
       agcSensitivity = 128.0f; // substitute - V1 format does not include this value
     }
 
-    bool receiveAudioData()   // check & process new data. return TRUE in case that new audio data was received. 
-    {
+    bool receiveAudioData() {
       if (!udpSyncConnected) return false;
       bool haveFreshData = false;
-
       size_t packetSize = 0;
-      // WLEDMM use exception handler to catch out-of-memory errors
-      #if __cpp_exceptions
-        try{
+      static uint8_t fftUdpBuffer[UDPSOUND_MAX_PACKET + 1] = {0};
+      size_t lastValidPacketSize = 0;
+
+      // Loop to read all available packets
+      while (true) {
+        #if __cpp_exceptions
+        try {
           packetSize = fftUdp.parsePacket();
-        } catch(...) {
-          packetSize = 0; // low heap memory -> discard packet.
-#ifdef ARDUINO_ARCH_ESP32
-          fftUdp.flush();  // this does not work on 8266
-#endif
+        } catch (...) {
+          packetSize = 0;
+          #ifdef ARDUINO_ARCH_ESP32
+          fftUdp.flush();
+          #endif
           DEBUG_PRINTLN(F("receiveAudioData: parsePacket out of memory exception caught!"));
           USER_FLUSH();
+          continue; // Skip to next iteration
         }
-      #else
+        #else
         packetSize = fftUdp.parsePacket();
-      #endif
+        #endif
 
-#ifdef ARDUINO_ARCH_ESP32
-      if ((packetSize > 0) && ((packetSize < 5) || (packetSize > UDPSOUND_MAX_PACKET))) fftUdp.flush(); // discard invalid packets (too small or too big)
-#endif
-      if ((packetSize > 5) && (packetSize <= UDPSOUND_MAX_PACKET)) {
-        static uint8_t fftUdpBuffer[UDPSOUND_MAX_PACKET+1] = { 0 }; // static buffer for receiving, to reuse the same memory and avoid heap fragmentation
-        //DEBUGSR_PRINTLN("Received UDP Sync Packet");
-        fftUdp.read(fftUdpBuffer, packetSize);
+        #ifdef ARDUINO_ARCH_ESP32
+        if ((packetSize > 0) && ((packetSize < 5) || (packetSize > UDPSOUND_MAX_PACKET))) {
+          fftUdp.flush();
+          continue; // Skip invalid packets
+        }
+        #endif
 
-        // VERIFY THAT THIS IS A COMPATIBLE PACKET
-        if (packetSize == sizeof(audioSyncPacket) && (isValidUdpSyncVersion((const char *)fftUdpBuffer))) {
+        if (packetSize == 0) break; // No more packets available
+
+        if ((packetSize > 5) && (packetSize <= UDPSOUND_MAX_PACKET)) {
+          fftUdp.read(fftUdpBuffer, packetSize);
+          lastValidPacketSize = packetSize;
+        }
+      }
+
+      // Process only the last valid packet
+      if (lastValidPacketSize > 0) {
+        if (lastValidPacketSize == sizeof(audioSyncPacket) && (isValidUdpSyncVersion((const char *)fftUdpBuffer))) {
           receivedFormat = 2;
-          haveFreshData = decodeAudioData(packetSize, fftUdpBuffer);
-          //DEBUGSR_PRINTLN("Finished parsing UDP Sync Packet v2");
+          haveFreshData = decodeAudioData(lastValidPacketSize, fftUdpBuffer);
+        } else if (lastValidPacketSize == sizeof(audioSyncPacket_v1) && (isValidUdpSyncVersion_v1((const char *)fftUdpBuffer))) {
+          decodeAudioData_v1(lastValidPacketSize, fftUdpBuffer);
+          receivedFormat = 1;
+          haveFreshData = true;
         } else {
-          if (packetSize == sizeof(audioSyncPacket_v1) && (isValidUdpSyncVersion_v1((const char *)fftUdpBuffer))) {
-            decodeAudioData_v1(packetSize, fftUdpBuffer);
-            receivedFormat = 1;
-            //DEBUGSR_PRINTLN("Finished parsing UDP Sync Packet v1");
-            haveFreshData = true;
-          } else receivedFormat = 0; // unknown format
+          receivedFormat = 0; // unknown format
         }
       }
       return haveFreshData;
     }
-
 
     //////////////////////
     // usermod functions//
@@ -2319,6 +2327,7 @@ class AudioReactive : public Usermod {
           static float syncVolumeSmth = 0;
           bool have_new_sample = false;
           if (millis() - lastTime > delayMs) {
+            // DEBUG_PRINTF(F("AR reading at %d compared to %d max\n"), millis() - lastTime, delayMs); // TroyHacks
             have_new_sample = receiveAudioData();
             if (have_new_sample) {
               last_UDPTime = millis();

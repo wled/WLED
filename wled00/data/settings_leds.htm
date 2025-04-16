@@ -246,11 +246,12 @@
 							gId("dig"+n+"W").innerHTML = "<br />You need at least 1 output!";
 						}
 						if (outputs > 1 && fps_limit > 33333/leds_per_output) gId("dig"+n+"W").innerHTML += "<br />FPS limit may be too high for WS281x pixels.";
-						if (outputs*leds_per_output != total_leds) gId("dig"+n+"W").innerHTML += "<br />Total LEDs doesn't match outputs * LEDs per output.";
+						if (outputs*leds_per_output != total_leds) gId("dig"+n+"W").innerHTML += "<br />Length ("+total_leds+") doesn't match Number of Outputs * LEDs Per Output ("+outputs*leds_per_output+").";
 						if (last_octet == 255) {
 							if (total_leds <= 1024) gId("dig"+n+"W").innerHTML += "<br />Art-Net is in broadcast mode.";
 							if (total_leds  > 1024) gId("dig"+n+"W").innerHTML += "<br />You are sending a lot of broadcast data. Be cautious.";
 						}
+						gId("dig"+n+"W").innerHTML += "<br />Art-Net starting universe is "+d.e131Universe+". Change this in <a href='/settings/sync'>Sync Interfaces</a>.";
 					}
 					if (!(t > 28 && t < 32)) d.getElementsByName("WO"+n)[0].value = 0; // reset swapping
 					gId("dig"+n+"c").style.display = ((t >= 40 && t < 48)||(t >= 100 && t < 110)) ? "none":"inline";  // hide count for analog and HUB75
@@ -422,6 +423,7 @@ ${i+1}:
 <option value="80">DDP RGB (network)</option>
 <!--option value="81">E1.31 RGB (network)</option-->
 <option value="82">Art-Net RGB (network)</option>
+<option value="83">Art-Net RGBW (network)</option>
 <option value="88">DDP RGBW (network)</option>
 <option value="101">Hub75Matrix 32x32</option>
 <option value="102">Hub75Matrix 64x32</option>
