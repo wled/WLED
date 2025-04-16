@@ -487,6 +487,11 @@ void getSettingsJS(AsyncWebServerRequest* request, byte subPage, char* dest) //W
       oappendi(bus->getMaxPixels()); oappend(SET_F(");"));
 
     }
+    
+    oappend(SET_F("d.e131Universe="));
+    oappendi(e131Universe); // Art-Net start universe
+    oappend(SET_F(";"));
+  
     sappend('v',SET_F("MA"),strip.ablMilliampsMax);
     sappend('v',SET_F("LA"),strip.milliampsPerLed);
     if (strip.currentMilliamps)

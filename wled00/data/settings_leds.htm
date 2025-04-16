@@ -251,6 +251,7 @@
 							if (total_leds <= 1024) gId("dig"+n+"W").innerHTML += "<br />Art-Net is in broadcast mode.";
 							if (total_leds  > 1024) gId("dig"+n+"W").innerHTML += "<br />You are sending a lot of broadcast data. Be cautious.";
 						}
+						gId("dig"+n+"W").innerHTML += "<br />Art-Net starting universe is "+d.e131Universe+".";
 					}
 					if (!(t > 28 && t < 32)) d.getElementsByName("WO"+n)[0].value = 0; // reset swapping
 					gId("dig"+n+"c").style.display = ((t >= 40 && t < 48)||(t >= 100 && t < 110)) ? "none":"inline";  // hide count for analog and HUB75
