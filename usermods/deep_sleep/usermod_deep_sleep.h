@@ -116,6 +116,10 @@ class DeepSleepUsermod : public Usermod {
     }
 
     int findNextTimerInterval() {
+      if (localTime < 100000) { 
+        DEBUG_PRINTLN("Invalid local time, skipping timer check.");
+        return -1;
+      }
       int currentHour = hour(localTime), currentMinute = minute(localTime),
           currentWeekday = weekdayMondayFirst();
       int minDifference = INT_MAX;
@@ -203,20 +207,18 @@ class DeepSleepUsermod : public Usermod {
       pinMode(wakeupPin, INPUT); // make sure GPIO is input with pullup/pulldown disabled
       esp_sleep_disable_wakeup_source(ESP_SLEEP_WAKEUP_ALL); //disable all wake-up sources (just in case)
 
-      int nextWakeupMin = 0;
+      uint32_t wakeupAfterSec = 0;
       if (presetWake) {
-        nextWakeupMin = findNextTimerInterval() - 1; // wakeup before next preset
+        wakeupAfterSec = (findNextTimerInterval() - 1) * 60; // wakeup before next preset
       }
       if (wakeupAfter) {
-        nextWakeupMin = nextWakeupMin < wakeupAfter / 60.0
-                            ? nextWakeupMin
-                            : wakeupAfter / 60.0;
+        wakeupAfterSec = wakeupAfterSec < wakeupAfter
+                            ? wakeupAfterSec
+                            : wakeupAfter;
       }
-      if (nextWakeupMin > 0) {
-        esp_sleep_enable_timer_wakeup(nextWakeupMin * 60ULL *
-                                      (uint64_t)1e6);
-        DEBUG_PRINTF("wakeup after %d minites", nextWakeupMin);
-        DEBUG_PRINTLN("");
+      if (wakeupAfterSec > 0) {
+        esp_sleep_enable_timer_wakeup(wakeupAfterSec * (uint64_t)1e6);
+        DEBUG_PRINTF("wakeup after %d seconds\n", wakeupAfterSec);
       }
 
     #if defined(CONFIG_IDF_TARGET_ESP32C3) // ESP32 C3
@@ -251,14 +253,11 @@ class DeepSleepUsermod : public Usermod {
     else
       halerror = esp_sleep_enable_ext1_wakeup(1ULL << wakeupPin,
                                                   ESP_EXT1_WAKEUP_ALL_LOW);
+    if (enableTouchWakeup && touchPin) {
+      touchSleepWakeUpEnable(touchPin, touchThreshold);
+    }
   #endif
-      WiFi.disconnect();
       WiFi.mode(WIFI_OFF);  // Completely shut down the Wi-Fi module
-      #ifndef CONFIG_IDF_TARGET_ESP32C3
-        if (enableTouchWakeup && touchPin) {
-          touchSleepWakeUpEnable(touchPin, touchThreshold);
-        }
-      #endif
       delay(1); // wait for pin to be ready
       if(halerror == ESP_OK) esp_deep_sleep_start(); // go into deep sleep
       else DEBUG_PRINTLN(F("sleep failed"));
