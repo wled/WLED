@@ -3141,65 +3141,63 @@ typedef struct Ants {
 
 static uint16_t mode_ants(void) {
   //allocate segment data
-  uint32_t bgcolor = BLACK;
-  static constexpr unsigned MAX_ANTS = 32;                                     // Maximum number of ants
-  static constexpr unsigned DEFAULT_ANT_SIZE = 1;                               
+  uint32_t bgcolor = SEGCOLOR(1);
+  constexpr unsigned MAX_ANTS = 32;                                                     // Maximum number of ants
+  constexpr unsigned DEFAULT_ANT_SIZE = 1;                               
   unsigned antSize = DEFAULT_ANT_SIZE;
   unsigned dataSize = sizeof(ant_t) * MAX_ANTS;
-  if (!SEGENV.allocateData(dataSize)) return mode_static();                    // allocation failed
+  if (!SEGENV.allocateData(dataSize)) return mode_static();                             // allocation failed
 
-  int confusedAnt;                                                             // the first random ant to go backwards
+  int confusedAnt;                                                                      // the first random ant to go backwards
   ant_t *ants = reinterpret_cast<ant_t *>(SEGENV.data);
 
-  unsigned numAnts = 1 + (SEGLEN * SEGMENT.intensity >> 12);                   // number of ants based on intensity setting
-  if (numAnts > 32) numAnts = MAX_ANTS;                                        //   max of 32 ants
+  unsigned numAnts = 1 + (SEGLEN * SEGMENT.intensity >> 12);                            // number of ants based on intensity setting
+  if (numAnts > 32) numAnts = MAX_ANTS;                                                 //   max of 32 ants
 
-  bool passBy = SEGMENT.check3;                                                // see if the user wants the ants to pass by each other without colliding with them
+  bool passBy = SEGMENT.check3;                                                         // see if the user wants the ants to pass by each other without colliding with them
 
-  antSize = map(SEGMENT.custom1, 0, 255, 1, 20);                               // the size/length of each ant is user selectable (1 to 20 pixels) with a slider
-  if (SEGMENT.check1)                                                          // if checkbox 1 (Gather food) is enabled, add one pixel to the ant size to make it look like food is in it's mouth.
+  antSize = map(SEGMENT.custom1, 0, 255, 1, 20);                                        // the size/length of each ant is user selectable (1 to 20 pixels) with a slider
+  if (SEGMENT.check1)                                                                   // if checkbox 1 (Gather food) is enabled, add one pixel to the ant size to make it look like food is in it's mouth.
     antSize += 1;
   
   if (SEGENV.call == 0) {
     confusedAnt = hw_random(0,numAnts-1);
     for (int i = 0; i < MAX_ANTS; i++) {
       ants[i].lastBounceUpdate = strip.now;
-      ants[i].velocity = 10.0f * float(hw_random16(1000, 5000))/5000.0f;       // Random number from 1 to 5
-      if (i == confusedAnt)                                                    // make ant[i] go in the opposite direction
+      ants[i].velocity = 10.0f * float(hw_random16(1000, 5000))/5000.0f;                // Random number from 1 to 5
+      if (i == confusedAnt)                                                             // make ant[i] go in the opposite direction
         ants[i].velocity = -ants[i].velocity;
-      ants[i].height = (float(hw_random16(0, 10000)) / 10000.0f);              // Random number from 0 to 1  (used for the position of the ant on the strip)
+      ants[i].height = (float(hw_random16(0, 10000)) / 10000.0f);                       // Random number from 0 to 1  (used for the position of the ant on the strip)
     }
   }
 
-  float cfac = float(scale8(8, 255-SEGMENT.speed) +1)*20000.0f;                // this uses the Aircoookie conversion factor for scaling time using speed slider
+  float cfac = float(scale8(8, 255-SEGMENT.speed) +1)*20000.0f;                         // this uses the Aircoookie conversion factor for scaling time using speed slider
 
-  if (!SEGMENT.check2) {
-    bgcolor = SEGCOLOR(1);
-    SEGMENT.fill(bgcolor);                                                     // fill all LEDs with background color (Bg) if the user didn't select Overlay checkbox
+  if (!SEGMENT.check2) {                                                                // if Overlay option is not selected...
+    SEGMENT.fill(bgcolor);                                                              // fill all LEDs with background color (Bg)
   }
 
-  for (int i = 0; i < numAnts; i++) {                                                // for each Ant, do this...
+  for (int i = 0; i < numAnts; i++) {                                                   // for each Ant, do this...
     float timeSinceLastUpdate = float((strip.now - ants[i].lastBounceUpdate))/cfac;
-    float thisHeight = ants[i].height + ants[i].velocity * timeSinceLastUpdate;      // this method keeps higher resolution
+    float thisHeight = ants[i].height + ants[i].velocity * timeSinceLastUpdate;         // this method keeps higher resolution
 
     // test if intensity level was increased and some ants are way off the track then put them back
     if (thisHeight < -0.5f || thisHeight > 1.5f) {
-      thisHeight = ants[i].height = (float(hw_random16(0, 10000)) / 10000.0f);       // from 0.0 to 1.0
+      thisHeight = ants[i].height = (float(hw_random16(0, 10000)) / 10000.0f);          // from 0.0 to 1.0
       ants[i].lastBounceUpdate = strip.now;
     }
 
     // check if reached past the beginning of the strip.
     if (thisHeight <= 0.0f && ants[i].velocity < 0.0f) {
-      if (SEGMENT.check1) {                                               // if looking for food, stop and go back the other way
+      if (SEGMENT.check1) {                                                             // if looking for food, stop and go back the other way
         thisHeight = 0.0f;
-        ants[i].velocity = -ants[i].velocity;                             // reverse direction
+        ants[i].velocity = -ants[i].velocity;                                           // reverse direction
         ants[i].lastBounceUpdate = strip.now;
         ants[i].height = thisHeight;
-        ants[i].hasFood = true;                                           // found food
-        passBy = true;                                                    // when looking for food, pass by other ants without bumping into them
-        SEGMENT.check3 = true;                                            // when looking for food, pass by other ants without bumping into them
+        ants[i].hasFood = true;                                                         // found food
+        passBy = true;                                                                  // when looking for food, pass by other ants without bumping into them
       }
-      else {                                                              // If not looking for food, wrap around
+      else {                                                                            // If not looking for food, wrap around
         thisHeight = 1.0f;
         ants[i].lastBounceUpdate = strip.now;
         ants[i].height = thisHeight;
@@ -3208,16 +3206,15 @@ static uint16_t mode_ants(void) {
 
     // check if reached past the end of the strip.
     if (thisHeight >= 1.0f && ants[i].velocity > 0.0f) {
-      if (SEGMENT.check1) {                                               // if looking for food, stop and go back the other way
+      if (SEGMENT.check1) {                                                             // if looking for food, stop and go back the other way
         thisHeight = 1.0f;
-        ants[i].velocity = -ants[i].velocity;                             // reverse direction
+        ants[i].velocity = -ants[i].velocity;                                           // reverse direction
         ants[i].lastBounceUpdate = strip.now;
         ants[i].height = thisHeight;
-        ants[i].hasFood = false;                                          // dropped off the food, now going back for more
-        passBy = true;                                                    // when looking for food, pass by other ants without bumping into them
-        SEGMENT.check3 = true;                                            // when looking for food, pass by other ants without bumping into them
+        ants[i].hasFood = false;                                                        // dropped off the food, now going back for more
+        passBy = true;                                                                  // when looking for food, pass by other ants without bumping into them
       }
-      else {                                                              // If not looking for food, wrap around
+      else {                                                                            // If not looking for food, wrap around
         thisHeight = 0.0f;
         ants[i].lastBounceUpdate = strip.now;
         ants[i].height = thisHeight;
@@ -3225,7 +3222,7 @@ static uint16_t mode_ants(void) {
     }
 
     // check for "passing by" or "bumping into" other ants
-    if (!passBy) {                                           // Ants bump into each other and some reverse direction if checkbox #3 (Pass by) is not "checked"; they pass each other if "checked"
+    if (!passBy) {                                                                      // Ants bump into each other and some reverse direction if checkbox #3 (Pass by) is not "checked"; they pass each other if "checked"
       for (int j = i + 1; j < numAnts; j++) {
         if (ants[j].velocity != ants[i].velocity) {
           //  tcollided + ants[j].lastBounceUpdate is acutal time of collision (this keeps precision with long to float conversions)
@@ -3249,6 +3246,7 @@ static uint16_t mode_ants(void) {
     }
 
     uint32_t color;
+
     if (SEGMENT.palette != 0 ) {                                                        // if a Palette is selected (besides the Default palette), use the palette's colors
       color = SEGMENT.color_from_palette(i*255/numAnts, false, PALETTE_SOLID_WRAP,255);
     }
@@ -3264,25 +3262,40 @@ static uint16_t mode_ants(void) {
     if (thisHeight > 1.0f) thisHeight = 1.0f;
     unsigned pos = round(thisHeight * (SEGLEN - 1));
 
-    for (int z = 0; z < antSize; z++) {                                                 // make each ant the selected size (between 1 and 20 pixels)
+    // make each ant the selected size (between 1 and 20 pixels)
+    for (int z = 0; z < antSize; z++) {
       if (ants[i].velocity < 0) {
-        if (z == 0 && SEGMENT.check1 && ants[i].hasFood) {                              // make the food pixel white, but if the ant is white, make the food pixel yellow;
-          if (color == WHITE)                                                           // ...but if the bg is yellow, make the food pixel gray.  If the bg is white, make it yellow.
-            color = bgcolor==YELLOW?GRAY:YELLOW;
-          else
-            color = bgcolor==WHITE?YELLOW:WHITE;
+        if (SEGMENT.check1 && ants[i].hasFood) {                                        // if the ants are gathering food and this ant has food
+          if (z==0) {                                                                   // is it the food pixel (first pixel of the ant)
+            if (color == WHITE)                                                         // if the ant color is white...
+              SEGMENT.setPixelColor(pos, bgcolor==YELLOW?GRAY:YELLOW);                  // draw food color (gray or yellow) depending on ant color and bg color
+            else
+              SEGMENT.setPixelColor(pos, bgcolor==WHITE?YELLOW:WHITE);                  // draw food color (white or yellow) depending on ant color and bg color
+          }
+          else {
+            SEGMENT.setPixelColor(pos, color);                                          // not the food pixel, so draw regular ant color
+          }
         }
+        else
+          SEGMENT.setPixelColor(pos, color);                                            // either not gathering food or the ant doesn't have food, so draw regular ant color
       }
       else {  // velocity > 0
-        if (z == antSize-1 && SEGMENT.check1 && ants[i].hasFood) {                      // make the food pixel white, but if the ant is white, make the food pixel yellow;
-          if (color == WHITE)                                                           // ...but if the bg is yellow, make the food pixel gray.  If the bg is white, make it yellow.
-            color = bgcolor==YELLOW?GRAY:YELLOW;
-          else
-            color = bgcolor==WHITE?YELLOW:WHITE;
+        if (SEGMENT.check1 && ants[i].hasFood) {                                        // if the ants are gathering food and this ant has food
+          if (z == antSize-1) {                                                         // the food pixel (first pixel of the ant when it's going in the other direction)
+            if (color == WHITE)                                                         // if the ant color is white...
+              SEGMENT.setPixelColor(pos, bgcolor==YELLOW?GRAY:YELLOW);                  // draw food color (gray or yellow) depending on ant color and bg color
+            else
+              SEGMENT.setPixelColor(pos, bgcolor==WHITE?YELLOW:WHITE);                  // draw food color (white or yellow) depending on ant color and bg color
+          }
+          else {
+            SEGMENT.setPixelColor(pos, color);                                          // not the food pixel, so draw regular ant color
+          }
         }
+        else
+          SEGMENT.setPixelColor(pos, color);                                            // either not gathering food or the ant doesn't have food, so draw regular ant color
       }
-      SEGMENT.setPixelColor(pos, color);                                                // draw the pixel with the correct color
-      pos += 1;
+
+      pos += 1;                                                                         // get ready to draw the next pixel of the ant
     }
 
     ants[i].lastBounceUpdate = strip.now;
@@ -3302,6 +3315,7 @@ static const char _data_FX_MODE_ANTS[] PROGMEM = "Ants@Ant speed,# of ants,Ant s
 *   The second slider is for selecting the number of power dots.
 *   Checkbox1 is for displaying White Dots that PacMan eats.  Enabled will show white dots.  Disabled will not show any white dots (all leds will be black).
 *   Checkbox2 is for the Compact Dots mode of displaying white dots that PacMan eats.  Enabled will show white dots in every LED.  Disabled will show black LEDs between the white dots.
+    aux0 is used to keep track of the previous number of power dots in case the user selects a different number with the second slider.
 *   aux1 is the main counter for timing
 */
 typedef struct PacManChars {
@@ -3319,16 +3333,19 @@ typedef struct PacManChars {
 
 static uint16_t mode_pacman(void) {
   constexpr unsigned numGhosts = 4;
-  unsigned maxPowerDots = SEGLEN / 5;                                          // Maximum number of power dots depends on segment length, max is 1 every 5 Pixels
-  
-  unsigned numPowerDots = map(SEGMENT.intensity, 0, 255, 1, maxPowerDots);                 // number of Power Dots (between 1 and 5) based on intensity slider setting
+  unsigned maxPowerDots = SEGLEN / 10;                                          // Maximum number of power dots depends on segment length, max is 1 every 10 Pixels
+  unsigned numPowerDots = map(SEGMENT.intensity, 0, 255, 1, maxPowerDots);      // number of Power Dots (between 1 and x) based on intensity slider setting
 
-  //update power dots
+  if (numPowerDots != SEGENV.aux0)                                              // if the user selected a different number of power dots, reinitialize the animation.
+    SEGENV.call = 0;
+  SEGENV.aux0 = numPowerDots;
+
+  //figure out how far apart the power dots will be
   unsigned everyXLeds = (SEGLEN - 10) / numPowerDots;
 
   //allocate segment data
   unsigned dataSize = sizeof(pacmancharacters_t) * (numGhosts + 1 + maxPowerDots);    // 4 ghosts + 1 PacMan + max number of Power dots
-  if (SEGLEN <= 27 || !SEGENV.allocateData(dataSize)) return mode_static();     // allocation failed or segment length is too short to have a nice display
+  if (SEGLEN <= 20 || !SEGENV.allocateData(dataSize)) return mode_static();     // allocation failed or segment length is too short to have a nice display
   pacmancharacters_t *character = reinterpret_cast<pacmancharacters_t *>(SEGENV.data);
 
   unsigned startBlinkingGhostsLED;                                              // the first LED when the blue ghosts will start blinking
@@ -3374,7 +3391,7 @@ static uint16_t mode_pacman(void) {
   }
 
   if (strip.now > SEGENV.step) {
-    SEGENV.step = strip.now;                            // "+ 100" creates a very jerky movement as the characters jump ahead several pixels each time they move
+    SEGENV.step = strip.now;                                                    // "+ 100" creates a very jerky movement as the characters jump ahead several pixels each time they move
     SEGENV.aux1++;
   }
 
@@ -3404,7 +3421,7 @@ static uint16_t mode_pacman(void) {
 
   // update power dot positions: can change if user selects a different number of power dots
   for (int i = 1; i < maxPowerDots; i++) {
-    character[i+5].pos = 10 + i * everyXLeds;                                   // additional power dots every X LEDs/pixels, character[5] is power dot at end of strip
+      character[i+5].pos = 10 + i * everyXLeds;                                 // additional power dots every X LEDs/pixels, character[5] is power dot at end of strip
   }
 
   // blink power dots every 10 ticks of the ticker timer by changing their color between orangish color and black
@@ -3415,6 +3432,20 @@ static uint16_t mode_pacman(void) {
         character[5].color = ORANGEYELLOW;
     for (int i = 1; i < maxPowerDots; i++) {
       character[i+5].color = character[5].color;                                // blink in sync with the last power dot
+    }
+  }
+
+  // if the ghosts are blue and nearing the beginning of the strip, blink them every 15 ticks of the ticker timer by changing their color between blue and black
+  if (SEGENV.aux1 % 15 == 0) {    
+    if (character[1].blue && (character[PACMAN].pos <= startBlinkingGhostsLED)) {
+      if (character[1].color == BLUE)
+          character[1].color = BLACK;
+      else
+          character[1].color = BLUE;
+
+      for (int i = 1; i < numGhosts; i++) {
+        character[i+1].color = character[1].color;                              // blink in sync with the first ghost
+      }
     }
   }
 
@@ -3463,7 +3494,7 @@ static uint16_t mode_pacman(void) {
 
   // display the characters
   if (character[PACMAN].direction) {                                            // Going forward from the beginning of the segment...
-    if (SEGENV.aux1 % map(SEGMENT.speed, 0, 255, 20, 1) == 0) {                 // User-selectable speed of PacMan and the Ghosts
+    if (SEGENV.aux1 % map(SEGMENT.speed, 0, 255, 15, 1) == 0) {                 // User-selectable speed of PacMan and the Ghosts
       SEGMENT.setPixelColor(character[PACMAN].pos, character[PACMAN].color);    // draw PacMan
       SEGMENT.setPixelColor(character[PACMAN].pos-1, BLACK);                    //   and the black dot behind him
       character[PACMAN].pos += 1;                                               // update PacMan's position forwards for the next frame draw
@@ -3479,22 +3510,13 @@ static uint16_t mode_pacman(void) {
     }
   }
   else {                                                                        // Going backward (after PacMan ate a power dot)...
-    if (SEGENV.aux1 % map(SEGMENT.speed, 0, 255, 20, 1) == 0) {                 // User-selectable speed of PacMan and the Ghosts
-      SEGMENT.setPixelColor(character[PACMAN].pos+1, BLACK);                    // TODO: This causes a white dot to be deleted right after the powerdot when it's eaten; not sure how to fix it.
+    if (SEGENV.aux1 % map(SEGMENT.speed, 0, 255, 15, 1) == 0) {                 // User-selectable speed of PacMan and the Ghosts
+      SEGMENT.setPixelColor(character[PACMAN].pos+1, BLACK);
       SEGMENT.setPixelColor(character[PACMAN].pos, character[PACMAN].color);    // draw PacMan
       SEGMENT.setPixelColor(character[PACMAN].pos-1, BLACK);                    //   and the black dot behind him
       character[PACMAN].pos -= 1;                                               // update PacMan's position backwards for the next frame draw
 
       for (int i = 1; i < numGhosts + 1; i++) {                                 // ...draw the 4 ghosts (and black dots surrounding each ghost)
-
-        // if the ghost is blue and nearing the beginning of the strip, blink the ghosts.  TODO: The ghosts blink too fast or too slow, depending on the Speed slider's value; not sure how to fix it. 
-        if (character[1].blue && (character[PACMAN].pos <= startBlinkingGhostsLED)) {
-          if (character[i].color == BLUE)
-              character[i].color = BLACK;
-          else
-              character[i].color = BLUE;
-        }
-
         SEGMENT.setPixelColor(character[i].pos+1, BLACK);
         SEGMENT.setPixelColor(character[i].pos, character[i].color);
         SEGMENT.setPixelColor(character[i].pos-1, BLACK);
@@ -3505,7 +3527,7 @@ static uint16_t mode_pacman(void) {
 
   return FRAMETIME;
 }
-static const char _data_FX_MODE_PACMAN[] PROGMEM = "PacMan@Speed,# of Power Dots,,,,White dots,Compact dots,;,,;!;1;m12=0,o1=1";
+static const char _data_FX_MODE_PACMAN[] PROGMEM = "PacMan@Speed,# of Power Dots,,,,White dots,Compact dots,;;!;1;m12=0,o1=1";
 
 
 /*
