@@ -1665,9 +1665,6 @@ void WS2812FX::service() {
     _segment_index++;
   }
   Segment::setClippingRect(0, 0);             // disable clipping for overlays
-  #if !(defined(WLED_DISABLE_PARTICLESYSTEM2D) && defined(WLED_DISABLE_PARTICLESYSTEM1D))
-  servicePSmem(); // handle segment particle system memory
-  #endif
   _isServicing = false;
   _triggered = false;
 

@@ -9521,8 +9521,8 @@ uint16_t mode_particleHourglass(void) {
 
   uint32_t colormode = SEGMENT.custom1 >> 5; // 0-7
 
-  if ((SEGMENT.intensity | (PartSys->getAvailableParticles() << 8)) != *settingTracker) { // initialize, getAvailableParticles changes while in FX transition
-    *settingTracker = SEGMENT.intensity | (PartSys->getAvailableParticles() << 8);
+  if (SEGMENT.intensity != *settingTracker) { // initialize
+    *settingTracker = SEGMENT.intensity;
     for (uint32_t i = 0; i < PartSys->usedParticles; i++) {
       PartSys->particleFlags[i].reversegrav = true; // resting particles dont fall
       *direction = 0; // down
@@ -9777,7 +9777,7 @@ uint16_t mode_particleChase(void) {
   uint32_t numParticles = 1 + map(SEGMENT.intensity, 0, 255, 2, 255 / (1 + (SEGMENT.custom1 >> 6))); // depends on intensity and particle size (custom1), minimum 1
   numParticles = min(numParticles, PartSys->usedParticles); // limit to available particles
   int32_t huestep = 1 + ((((uint32_t)SEGMENT.custom2 << 19) / numParticles) >> 16); // hue increment
-  uint32_t settingssum = SEGMENT.speed + SEGMENT.intensity + SEGMENT.custom1 + SEGMENT.custom2 + SEGMENT.check1 + SEGMENT.check2 + SEGMENT.check3 + PartSys->getAvailableParticles(); // note: getAvailableParticles is used to enforce update during transitions
+  uint32_t settingssum = SEGMENT.speed + SEGMENT.intensity + SEGMENT.custom1 + SEGMENT.custom2 + SEGMENT.check1 + SEGMENT.check2 + SEGMENT.check3;
   if (SEGENV.aux0 != settingssum) { // settings changed changed, update
     if (SEGMENT.check1)
       SEGENV.step = PartSys->advPartProps[0].size / 2 + (PartSys->maxX / numParticles);
@@ -10266,7 +10266,7 @@ uint16_t mode_particleSpringy(void) {
   int32_t springlength = PartSys->maxX / (PartSys->usedParticles); // spring length (spacing between particles)
   int32_t springK = map(SEGMENT.speed, 0, 255, 5, 35); // spring constant (stiffness)
 
-  uint32_t settingssum = SEGMENT.custom1 + SEGMENT.check2 + PartSys->getAvailableParticles(); // note: getAvailableParticles is used to enforce update during transitions
+  uint32_t settingssum = SEGMENT.custom1 + SEGMENT.check2;
   if (SEGENV.aux0 != settingssum) { // number of particles changed, update distribution
     for (int32_t i = 0; i < (int32_t)PartSys->usedParticles; i++) {
       PartSys->advPartProps[i].sat = 255; // full saturation
