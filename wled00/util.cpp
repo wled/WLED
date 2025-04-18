@@ -1,7 +1,7 @@
 #include "wled.h"
 #include "fcn_declare.h"
 #include "const.h"
-
+#include "src/dependencies/fastled/fastled_fcn.h"
 
 //helper to get int value at a position in string
 int getNumVal(const String* req, uint16_t pos)
@@ -376,39 +376,59 @@ uint16_t crc16(const unsigned char* data_p, size_t length) {
   return crc;
 }
 
-// fastled beatsin: 1:1 replacements to remove the use of fastled sin16()
-// Generates a 16-bit sine wave at a given BPM that oscillates within a given range. see fastled for details.
-uint16_t beatsin88_t(accum88 beats_per_minute_88, uint16_t lowest, uint16_t highest, uint32_t timebase, uint16_t phase_offset)
-{
-    uint16_t beat = beat88( beats_per_minute_88, timebase);
-    uint16_t beatsin (sin16_t( beat + phase_offset) + 32768);
-    uint16_t rangewidth = highest - lowest;
-    uint16_t scaledbeat = scale16( beatsin, rangewidth);
-    uint16_t result = lowest + scaledbeat;
-    return result;
+// FastLED Reference
+// -----------------
+// The following beat functions derived from FastLED @ 3.6.0 (https://github.com/FastLED/FastLED) are licensed under the MIT license
+// See /src/dependencies/fastled/LICENSE.txt for details
+
+// Generates a 16-bit "sawtooth" wave at a given BPM, with BPM specified in Q8.8 fixed-point format:
+// for 120 BPM it would be 120*256 = 30720. If you just want to specify "120", use beat16() or beat8().
+// timebase is the time offset of the wave from the millis() timer
+uint16_t beat88(uint16_t beats_per_minute_88, uint32_t timebase) {
+  return ((millis() - timebase) * beats_per_minute_88 * 280) >> 16;
+}
+
+// Generates a 16-bit "sawtooth" wave at a given BPM
+uint16_t beat16(uint16_t beats_per_minute, uint32_t timebase) {
+  if (beats_per_minute < 256) beats_per_minute <<= 8;
+  return beat88(beats_per_minute, timebase);
+}
+
+/// Generates an 8-bit "sawtooth" wave at a given BPM
+uint8_t beat8(uint16_t beats_per_minute, uint32_t timebase) {
+  return beat16(beats_per_minute, timebase) >> 8;
 }
 
 // Generates a 16-bit sine wave at a given BPM that oscillates within a given range. see fastled for details.
-uint16_t beatsin16_t(accum88 beats_per_minute, uint16_t lowest, uint16_t highest, uint32_t timebase, uint16_t phase_offset)
-{
-    uint16_t beat = beat16( beats_per_minute, timebase);
-    uint16_t beatsin = (sin16_t( beat + phase_offset) + 32768);
-    uint16_t rangewidth = highest - lowest;
-    uint16_t scaledbeat = scale16( beatsin, rangewidth);
-    uint16_t result = lowest + scaledbeat;
-    return result;
+uint16_t beatsin88_t(uint16_t beats_per_minute_88, uint16_t lowest, uint16_t highest, uint32_t timebase, uint16_t phase_offset) {
+  uint16_t beat = beat88(beats_per_minute_88, timebase);
+  uint16_t beatsin = (sin16_t( beat + phase_offset) + 32768);
+  uint16_t rangewidth = highest - lowest;
+  uint16_t scaledbeat = scale16(beatsin, rangewidth);
+  uint16_t result = lowest + scaledbeat;
+  return result;
+}
+
+// Generates a 16-bit sine wave at a given BPM that oscillates within a given range. see fastled for details.
+uint16_t beatsin16_t(uint16_t beats_per_minute, uint16_t lowest, uint16_t highest, uint32_t timebase, uint16_t phase_offset) {
+  uint16_t beat = beat16(beats_per_minute, timebase);
+  uint16_t beatsin = sin16_t(beat + phase_offset) + 32768;
+  uint16_t rangewidth = highest - lowest;
+  uint16_t scaledbeat = scale16(beatsin, rangewidth);
+  uint16_t result = lowest + scaledbeat;
+  return result;
 }
 
 // Generates an 8-bit sine wave at a given BPM that oscillates within a given range. see fastled for details.
-uint8_t beatsin8_t(accum88 beats_per_minute, uint8_t lowest, uint8_t highest, uint32_t timebase, uint8_t phase_offset)
-{
-    uint8_t beat = beat8( beats_per_minute, timebase);
-    uint8_t beatsin = sin8_t( beat + phase_offset);
-    uint8_t rangewidth = highest - lowest;
-    uint8_t scaledbeat = scale8( beatsin, rangewidth);
-    uint8_t result = lowest + scaledbeat;
-    return result;
+uint8_t beatsin8_t(uint16_t beats_per_minute, uint8_t lowest, uint8_t highest, uint32_t timebase, uint8_t phase_offset) {
+  uint8_t beat = beat8(beats_per_minute, timebase);
+  uint8_t beatsin = sin8_t(beat + phase_offset);
+  uint8_t rangewidth = highest - lowest;
+  uint8_t scaledbeat = scale8(beatsin, rangewidth);
+  uint8_t result = lowest + scaledbeat;
+  return result;
 }
+// end of FastLED functions
 
 ///////////////////////////////////////////////////////////////////////////////
 // Begin simulateSound (to enable audio enhanced effects to display something)
@@ -635,7 +655,7 @@ static inline __attribute__((always_inline)) int32_t hashToGradient(uint32_t h) 
 }
 
 // Gradient functions for 1D, 2D and 3D Perlin noise  note: forcing inline produces smaller code and makes it 3x faster!
-static inline __attribute__((always_inline)) int32_t gradient1D(uint32_t x0, int32_t dx) {
+static int32_t gradient1D(uint32_t x0, int32_t dx) {
   uint32_t h = x0 * 0x27D4EB2D;
   h ^= h >> 15;
   h *= 0x92C3412B;
