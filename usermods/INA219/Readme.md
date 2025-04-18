@@ -7,7 +7,7 @@ This Usermod integrates the INA219 sensor with WLED to monitor energy consumptio
 - Monitors bus voltage, shunt voltage, current, and power.
 - Calculates total energy consumed in kilowatt-hours (kWh).
 - Supports MQTT publishing of sensor data.
-- Publishes energy data to Home Assistant for easy integration.
+- Publishes energy data to Home Assistant directly to the WLED entitie for easy integration.
 - Displays daily, monthly and total energy used in the WLED GUI under the info section.
 - Configurable through WLED's web interface.
 
@@ -81,21 +81,28 @@ This Usermod integrates the INA219 sensor with WLED to monitor energy consumptio
 		| `0x44`              | 0x44 - A1 soldered                 | 0x44    |
 		| `0x45`              | 0x45 - A0 and A1 soldered          | 0x45    |
 
+## Installation
+
+Add the compile-time option `-D USERMOD_INA219` to your `platformio.ini` (or `platformio_override.ini`) or use `#define USERMOD_INA219` in `my_config.h`.
+
+# Compiling
+
+To enable, add `INA219_v2` to your `custom_usermods`  (e.g. in `platformio_override.ini`)
+```ini
+[env:usermod_ina219_d1_mini]
+extends = env:d1_mini
+custom_usermods = ${env:d1_mini.custom_usermods} INA219_v2
+```
+
 ## Usage
 
-1. Include this usermod in your WLED project by adding `#define USERMOD_INA219` to the `my_config.h` file.
+1. Setup SDA/SCL Pin - see at the readme bottom → ### I2C Configuration (Mandatory) 
 
-2. **Dependencies**  
-   These libraries must be added under `lib_deps` in your `platformio.ini` (or `platform_override.ini`):
-   - `wollewald/INA219_WE@~1.3.8` (by [wollewald](https://github.com/wollewald/INA219_WE))
+2. Configure the parameters in the web interface or via the `my_config.h` file (see step 4).
 
-3. Setup SDA/SCL Pin - see at the readme bottom → ### I2C Configuration (Mandatory) 
+3. Monitor your energy consumption through the WLED interface or via MQTT.
 
-4. Configure the parameters in the web interface or via the `my_config.h` file (see step 6).
-
-5. Monitor your energy consumption through the WLED interface or via MQTT.
-
-6. Optional to predefine options:
+4. Optional to predefine options:
 
 		#define INA219_ENABLED             false
 		#define INA219_I2C_ADDRESS         0x40
@@ -115,13 +122,6 @@ This Usermod integrates the INA219 sensor with WLED to monitor energy consumptio
 - **Monthly Energy** resets after 30 days.
 
 To reset daily or monthly energy calculations, you can implement corresponding functions within your main application.
-
-## Dependencies
-
-Before enabling the INA219 usermod, ensure the following requirements are met:
-
-### Required Library  
-- [INA219_WE](https://github.com/wollewald/INA219_WE) (Must be installed for INA219 support)
 
 ### I2C Configuration (Mandatory)  
 The INA219 sensor communicates via I2C, so the SDA and SCL pins must be correctly set before enabling the usermod.
