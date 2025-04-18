@@ -1,5 +1,3 @@
-#pragma once
-
 // Configurable settings for the INA219 Usermod
 
 // Enabled setting
@@ -110,7 +108,7 @@ private:
 		if (_decimalFactor == 0) {
 			return roundf(val);
 		}
-		float factor = pow(10, _decimalFactor);
+		float factor = powf(10.0f, _decimalFactor);
 		return roundf(val * factor) / factor;
 	}
 
@@ -263,27 +261,25 @@ public:
 	** Function to publish sensor data to MQTT
 	**/
 	bool onMqttMessage(char* topic, char* payload) override {
-		if (!WLED_MQTT_CONNECTED) return false;
-		if (enabled) {
-			// Check if the message is for the correct topic
-			if (strcmp_P(topic, PSTR("/sensor/ina219")) == 0) {
-				StaticJsonDocument<512> jsonDoc;
+		if (!WLED_MQTT_CONNECTED || !enabled) return false;
+		// Check if the message is for the correct topic
+		if (strstr(topic, "/sensor/ina219") != nullptr) {
+			StaticJsonDocument<512> jsonDoc;
 
-				// Parse the JSON payload
-				DeserializationError error = deserializeJson(jsonDoc, payload);
-				if (error) {
-					return false;
-				}
-
-				// Update the energy values
-				dailyEnergy_kWh = jsonDoc["daily_energy_kWh"];
-				monthlyEnergy_kWh = jsonDoc["monthly_energy_kWh"];
-				totalEnergy_kWh = jsonDoc["total_energy_kWh"];
-				dailyResetTime = jsonDoc["dailyResetTime"];
-				monthlyResetTime = jsonDoc["monthlyResetTime"];
-
-				return true;
+			// Parse the JSON payload
+			DeserializationError error = deserializeJson(jsonDoc, payload);
+			if (error) {
+				return false;
 			}
+
+			// Update the energy values
+			dailyEnergy_kWh = jsonDoc["daily_energy_kWh"];
+			monthlyEnergy_kWh = jsonDoc["monthly_energy_kWh"];
+			totalEnergy_kWh = jsonDoc["total_energy_kWh"];
+			dailyResetTime = jsonDoc["dailyResetTime"];
+			monthlyResetTime = jsonDoc["monthlyResetTime"];
+
+			return true;
 		}
 		return false;
 	}
