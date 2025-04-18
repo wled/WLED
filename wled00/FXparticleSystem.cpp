@@ -14,13 +14,13 @@
 
 #if !(defined(WLED_DISABLE_PARTICLESYSTEM2D) && defined(WLED_DISABLE_PARTICLESYSTEM1D)) // not both disabled
 #include "FXparticleSystem.h"
-#endif
 // local shared functions (used both in 1D and 2D system)
 static int32_t calcForce_dv(const int8_t force, uint8_t &counter);
 static bool checkBoundsAndWrap(int32_t &position, const int32_t max, const int32_t particleradius, const bool wrap); // returns false if out of bounds by more than particleradius
 static void fast_color_add(CRGB &c1, const CRGB &c2, uint8_t scale = 255); // fast and accurate color adding with scaling (scales c2 before adding)
 static void fast_color_scale(CRGB &c, const uint8_t scale); // fast scaling function using 32bit variable and pointer. note: keep 'scale' within 0-255
 //static CRGB *allocateCRGBbuffer(uint32_t length);
+#endif
 
 #ifndef WLED_DISABLE_PARTICLESYSTEM2D
 ParticleSystem2D::ParticleSystem2D(uint32_t width, uint32_t height, uint32_t numberofparticles, uint32_t numberofsources, bool isadvanced, bool sizecontrol) {
@@ -625,7 +625,7 @@ void ParticleSystem2D::render() {
 }
 
 // calculate pixel positions and brightness distribution and render the particle to local buffer or global buffer
-void ParticleSystem2D::renderParticle(const uint32_t particleindex, const uint8_t brightness, const CRGB& color, const bool wrapX, const bool wrapY) {
+__attribute__((optimize("O2"))) void ParticleSystem2D::renderParticle(const uint32_t particleindex, const uint8_t brightness, const CRGB& color, const bool wrapX, const bool wrapY) {
   if (particlesize == 0) { // single pixel rendering
     uint32_t x = particles[particleindex].x >> PS_P_RADIUS_SHIFT;
     uint32_t y = particles[particleindex].y >> PS_P_RADIUS_SHIFT;
@@ -635,7 +635,9 @@ void ParticleSystem2D::renderParticle(const uint32_t particleindex, const uint8_
     return;
   }
   uint8_t pxlbrightness[4]; // brightness values for the four pixels representing a particle
-  int32_t pixco[4][2]; // physical pixel coordinates of the four pixels a particle is rendered to. x,y pairs
+  struct {
+    int32_t x,y;
+  } pixco[4]; // particle pixel coordinates, the order is bottom left [0], bottom right[1], top right [2], top left [3] (thx @blazoncek for improved readability struct)
   bool pixelvalid[4] = {true, true, true, true}; // is set to false if pixel is out of bounds
 
   // add half a radius as the rendering algorithm always starts at the bottom left, this leaves things positive, so shifts can be used, then shift coordinate by a full pixel (x--/y-- below)
@@ -646,13 +648,13 @@ void ParticleSystem2D::renderParticle(const uint32_t particleindex, const uint8_
   int32_t x = (xoffset >> PS_P_RADIUS_SHIFT); // divide by PS_P_RADIUS which is 64, so can bitshift (compiler can not optimize integer)
   int32_t y = (yoffset >> PS_P_RADIUS_SHIFT);
 
-  // set the four raw pixel coordinates, the order is bottom left [0], bottom right[1], top right [2], top left [3]
-  pixco[1][0] = pixco[2][0] = x;  // bottom right & top right
-  pixco[2][1] = pixco[3][1] = y;  // top right & top left
+  // set the four raw pixel coordinates
+  pixco[1].x = pixco[2].x = x;  // bottom right & top right
+  pixco[2].y = pixco[3].y = y;  // top right & top left
   x--; // shift by a full pixel here, this is skipped above to not do -1 and then +1
   y--;
-  pixco[0][0] = pixco[3][0] = x;      // bottom left & top left
-  pixco[0][1] = pixco[1][1] = y;      // bottom left & bottom right
+  pixco[0].x = pixco[3].x = x;      // bottom left & top left
+  pixco[0].y = pixco[1].y = y;      // bottom left & bottom right
 
   // calculate brightness values for all four pixels representing a particle using linear interpolation
   // could check for out of frame pixels here but calculating them is faster (very few are out)
@@ -737,14 +739,14 @@ void ParticleSystem2D::renderParticle(const uint32_t particleindex, const uint8_
     // check for out of frame pixels and wrap them if required: x,y is bottom left pixel coordinate of the particle
     if (x < 0) { // left pixels out of frame
       if (wrapX) { // wrap x to the other side if required
-        pixco[0][0] = pixco[3][0] = maxXpixel;
+        pixco[0].x = pixco[3].x = maxXpixel;
       } else {
         pixelvalid[0] = pixelvalid[3] = false; // out of bounds
       }
     }
-    else if (pixco[1][0] > (int32_t)maxXpixel) { // right pixels, only has to be checked if left pixel is in frame
+    else if (pixco[1].x > (int32_t)maxXpixel) { // right pixels, only has to be checked if left pixel is in frame
       if (wrapX) { // wrap y to the other side if required
-        pixco[1][0] = pixco[2][0] = 0;
+        pixco[1].x = pixco[2].x = 0;
       } else {
         pixelvalid[1] = pixelvalid[2] = false; // out of bounds
       }
@@ -752,21 +754,21 @@ void ParticleSystem2D::renderParticle(const uint32_t particleindex, const uint8_
 
     if (y < 0) { // bottom pixels out of frame
       if (wrapY) { // wrap y to the other side if required
-        pixco[0][1] = pixco[1][1] = maxYpixel;
+        pixco[0].y = pixco[1].y = maxYpixel;
       } else {
         pixelvalid[0] = pixelvalid[1] = false; // out of bounds
       }
     }
-    else if (pixco[2][1] > maxYpixel) { // top pixels
+    else if (pixco[2].y > maxYpixel) { // top pixels
       if (wrapY) { // wrap y to the other side if required
-        pixco[2][1] = pixco[3][1] = 0;
+        pixco[2].y = pixco[3].y = 0;
       } else {
         pixelvalid[2] = pixelvalid[3] = false; // out of bounds
       }
     }
     for (uint32_t i = 0; i < 4; i++) {
       if (pixelvalid[i])
-        fast_color_add(framebuffer[pixco[i][0] + (maxYpixel - pixco[i][1]) * (maxXpixel + 1)], color, pxlbrightness[i]); // order is: bottom left, bottom right, top right, top left
+        fast_color_add(framebuffer[pixco[i].x + (maxYpixel - pixco[i].y) * (maxXpixel + 1)], color, pxlbrightness[i]); // order is: bottom left, bottom right, top right, top left
     }
   }
 }
@@ -835,7 +837,7 @@ void ParticleSystem2D::handleCollisions() {
 
 // handle a collision if close proximity is detected, i.e. dx and/or dy smaller than 2*PS_P_RADIUS
 // takes two pointers to the particles to collide and the particle hardness (softer means more energy lost in collision, 255 means full hard)
-void ParticleSystem2D::collideParticles(PSparticle &particle1, PSparticle &particle2, int32_t dx, int32_t dy, const int32_t collDistSq) {
+__attribute__((optimize("O2"))) void ParticleSystem2D::collideParticles(PSparticle &particle1, PSparticle &particle2, int32_t dx, int32_t dy, const int32_t collDistSq) {
   int32_t distanceSquared = dx * dx + dy * dy;
   // Calculate relative velocity note: could zero check but that does not improve overall speed but deminish it as that is rarely the case and pushing is still required
   int32_t relativeVx = (int32_t)particle2.vx - (int32_t)particle1.vx;
@@ -1467,7 +1469,7 @@ void ParticleSystem1D::render() {
 }
 
 // calculate pixel positions and brightness distribution and render the particle to local buffer or global buffer
-void ParticleSystem1D::renderParticle(const uint32_t particleindex, const uint8_t brightness, const CRGB &color, const bool wrap) {
+__attribute__((optimize("O2"))) void ParticleSystem1D::renderParticle(const uint32_t particleindex, const uint8_t brightness, const CRGB &color, const bool wrap) {
   uint32_t size = particlesize;
   if (advPartProps) { // use advanced size properties
     size = advPartProps[particleindex].size;
@@ -1626,7 +1628,7 @@ void ParticleSystem1D::handleCollisions() {
 }
 // handle a collision if close proximity is detected, i.e. dx and/or dy smaller than 2*PS_P_RADIUS
 // takes two pointers to the particles to collide and the particle hardness (softer means more energy lost in collision, 255 means full hard)
-void ParticleSystem1D::collideParticles(PSparticle1D &particle1, const PSparticleFlags1D &particle1flags, PSparticle1D &particle2, const PSparticleFlags1D &particle2flags, const int32_t dx, const uint32_t dx_abs, const int32_t collisiondistance) {
+__attribute__((optimize("O2"))) void ParticleSystem1D::collideParticles(PSparticle1D &particle1, const PSparticleFlags1D &particle1flags, PSparticle1D &particle2, const PSparticleFlags1D &particle2flags, const int32_t dx, const uint32_t dx_abs, const int32_t collisiondistance) {
   int32_t dv = particle2.vx - particle1.vx;
   int32_t dotProduct = (dx * dv); // is always negative if moving towards each other
 
