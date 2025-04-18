@@ -170,6 +170,7 @@ public:
 			power_mW = truncateDecimals(_ina219->getBusPower());
 			power = truncateDecimals(_ina219->getBusPower() / 1000.0); // Convert from mW to W
 			loadVoltage = truncateDecimals(busVoltage + (shuntVoltage / 1000));
+			//overflow = truncateDecimals(_ina219->getOverflow());
 			overflow = _ina219->getOverflow() != 0;
 
 			// Update energy consumption
@@ -366,25 +367,36 @@ public:
 
 		// Populate the JSON document with sensor configuration details
 		doc[F("name")] = name;
-		doc[F("state_topic")] = topic;
-		doc[F("unique_id")] = String(sanitizedMqttClientID) + "-" + sanitizedName;
+		doc[F("stat_t")] = topic;
+    
+		String uid = escapedMac.c_str();
+		uid += "_" + sanitizedName;
+		doc[F("uniq_id")] = uid;
 
 		// Template to extract specific value from JSON
-		doc[F("value_template")] = String("{{ value_json.") + jsonKey + String(" }}");
+		doc[F("val_tpl")] = String("{{ value_json.") + jsonKey + String(" }}");
 		if (unitOfMeasurement != "")
-			doc[F("unit_of_measurement")] = unitOfMeasurement;
+			doc[F("unit_of_meas")] = unitOfMeasurement;
 		if (deviceClass != "")
-			doc[F("device_class")] = deviceClass;
+			doc[F("dev_cla")] = deviceClass;
 		if (SensorType != "binary_sensor")
-			doc[F("expire_after")] = 1800;
+			doc[F("exp_aft")] = 1800;
 
 		// Device details nested object
 		JsonObject device = doc.createNestedObject(F("device"));
 		device[F("name")] = serverDescription;
-		device[F("identifiers")] = "wled-sensor-" + String(sanitizedMqttClientID);
-		device[F("manufacturer")] = F(WLED_BRAND);
-		device[F("model")] = F(WLED_PRODUCT_NAME);
-		device[F("sw_version")] = versionString;
+		device[F("ids")] = serverDescription;
+		device[F("mf")] = F(WLED_BRAND);
+		device[F("mdl")] = F(WLED_PRODUCT_NAME);
+		device[F("sw")] = versionString;
+		#ifdef ESP32
+			device[F("hw")] = F("esp32");
+		#else
+			device[F("hw")] = F("esp8266");
+		#endif
+		JsonArray connections = device[F("cns")].createNestedArray();
+		connections.add(F("mac"));
+		connections.add(WiFi.macAddress());
 
 		// Serialize the JSON document into a temporary string
 		char buffer[1024];
@@ -648,3 +660,6 @@ public:
 };
 
 const char UsermodINA219::_name[] PROGMEM = "INA219";
+
+static UsermodINA219 ina219_v2;
+REGISTER_USERMOD(ina219_v2);
