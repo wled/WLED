@@ -54,8 +54,8 @@ private:
 	// Define the variables using the pre-defined or default values
 	bool enabled = INA219_ENABLED;
 	uint8_t _i2cAddress = INA219_I2C_ADDRESS;
-	uint16_t _checkInterval = INA219_CHECK_INTERVAL;
-	uint16_t checkInterval = _checkInterval * 1000; // Convert seconds to milliseconds
+	uint16_t _checkInterval = INA219_CHECK_INTERVAL; // seconds
+	uint32_t checkInterval  = static_cast<uint32_t>(_checkInterval) * 1000UL; // ms
 	INA219_ADC_MODE conversionTime = static_cast<INA219_ADC_MODE>(INA219_CONVERSION_TIME);
 	uint8_t _decimalFactor = INA219_DECIMAL_FACTOR;
 	float shuntResistor = INA219_SHUNT_RESISTOR;
@@ -172,7 +172,9 @@ public:
 			overflow = _ina219->getOverflow() != 0;
 
 			// Update energy consumption
-			updateEnergy(power, lastCheck - lastPublishTime);
+			if (lastPublishTime != 0) {
+				updateEnergy(power, lastCheck - lastPublishTime);
+			}
 			lastPublishTime = lastCheck;
 
 		#ifndef WLED_DISABLE_MQTT
