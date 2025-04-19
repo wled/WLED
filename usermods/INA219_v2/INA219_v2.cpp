@@ -95,12 +95,6 @@ private:
 	unsigned long dailyResetTime = 0;
 	unsigned long monthlyResetTime = 0;
 
-	// Variables to track last sent readings
-	float _lastCurrentSent = 0;
-	float _lastVoltageSent = 0;
-	float _lastPowerSent = 0;
-	float _lastShuntVoltageSent = 0;
-
 	INA219_WE *_ina219 = nullptr; // INA219 sensor object
 
 	// Function to truncate decimals based on the configured decimal factor
@@ -168,7 +162,6 @@ public:
 			power_mW = truncateDecimals(_ina219->getBusPower());
 			power = truncateDecimals(_ina219->getBusPower() / 1000.0); // Convert from mW to W
 			loadVoltage = truncateDecimals(busVoltage + (shuntVoltage / 1000));
-			//overflow = truncateDecimals(_ina219->getOverflow());
 			overflow = _ina219->getOverflow() != 0;
 
 			// Update energy consumption
@@ -513,7 +506,7 @@ public:
 		}
 
 		// Create a nested array for energy data
-		JsonArray energy_json_seperator = user.createNestedArray(F("------------------------------------"));
+		JsonArray energy_json_separator = user.createNestedArray(F("------------------------------------"));
 				
 		JsonArray energy_json = user.createNestedArray(F("Energy Consumption:"));
 
