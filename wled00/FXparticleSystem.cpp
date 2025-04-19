@@ -778,7 +778,7 @@ __attribute__((optimize("O2"))) void ParticleSystem2D::renderParticle(const uint
 // for code simplicity, no y slicing is done, making very tall matrix configurations less efficient
 // note: also tested adding y slicing, it gives diminishing returns, some FX even get slower. FX not using gravity would benefit with a 10% FPS improvement
 void ParticleSystem2D::handleCollisions() {
-  int32_t collDistSq = particleHardRadius << 1; // distance is double the radius note: particleHardRadius is updated when setting global particle size
+  uint32_t collDistSq = particleHardRadius << 1; // distance is double the radius note: particleHardRadius is updated when setting global particle size
   collDistSq = collDistSq * collDistSq; // square it for faster comparison (square is one operation)
   // note: partices are binned in x-axis, assumption is that no more than half of the particles are in the same bin
   // if they are, collisionStartIdx is increased so each particle collides at least every second frame (which still gives decent collisions)
@@ -801,13 +801,15 @@ void ParticleSystem2D::handleCollisions() {
 
     // fill the binIndices array for this bin
     for (uint32_t i = 0; i < usedParticles; i++) {
-      if (particles[pidx].ttl > 0 && particleFlags[pidx].outofbounds == 0 && particleFlags[pidx].collide) { // colliding particle
+      if (particles[pidx].ttl > 0) { // is alive
         if (particles[pidx].x >= binStart && particles[pidx].x <= binEnd) { // >= and <= to include particles on the edge of the bin (overlap to ensure boarder particles collide with adjacent bins)
-          if (binParticleCount >= maxBinParticles) { // bin is full, more particles in this bin so do the rest next frame
-            nextFrameStartIdx = pidx; // bin overflow can only happen once as bin size is at least half of the particles (or half +1)
-            break;
+          if(particleFlags[pidx].outofbounds == 0 && particleFlags[pidx].collide) { // particle is in frame and does collide note: checking flags is quite slow and usually these are set, so faster to check here
+            if (binParticleCount >= maxBinParticles) { // bin is full, more particles in this bin so do the rest next frame
+              nextFrameStartIdx = pidx; // bin overflow can only happen once as bin size is at least half of the particles (or half +1)
+              break;
+            }
+            binIndices[binParticleCount++] = pidx;
           }
-          binIndices[binParticleCount++] = pidx;
         }
       }
       pidx++;
@@ -837,7 +839,7 @@ void ParticleSystem2D::handleCollisions() {
 
 // handle a collision if close proximity is detected, i.e. dx and/or dy smaller than 2*PS_P_RADIUS
 // takes two pointers to the particles to collide and the particle hardness (softer means more energy lost in collision, 255 means full hard)
-__attribute__((optimize("O2"))) void ParticleSystem2D::collideParticles(PSparticle &particle1, PSparticle &particle2, int32_t dx, int32_t dy, const int32_t collDistSq) {
+__attribute__((optimize("O2"))) void ParticleSystem2D::collideParticles(PSparticle &particle1, PSparticle &particle2, int32_t dx, int32_t dy, const uint32_t collDistSq) {
   int32_t distanceSquared = dx * dx + dy * dy;
   // Calculate relative velocity note: could zero check but that does not improve overall speed but deminish it as that is rarely the case and pushing is still required
   int32_t relativeVx = (int32_t)particle2.vx - (int32_t)particle1.vx;
@@ -1418,6 +1420,12 @@ void ParticleSystem1D::render() {
   CRGB baseRGB;
   uint32_t brightness; // particle brightness, fades if dying
 
+  #ifdef ESP8266 // no local buffer on ESP8266
+  if (motionBlur)
+    SEGMENT.fadeToBlackBy(255 - motionBlur);
+  else
+    SEGMENT.fill(BLACK); // clear the buffer before rendering to it
+  #else
   if (motionBlur) { // blurring active
     for (int32_t x = 0; x <= maxXpixel; x++) {
       fast_color_scale(framebuffer[x], motionBlur);
@@ -1426,7 +1434,7 @@ void ParticleSystem1D::render() {
   else { // no blurring: clear buffer
     memset(framebuffer, 0, (maxXpixel+1) * sizeof(CRGB));
   }
-
+  #endif
   // go over particles and render them to the buffer
   for (uint32_t i = 0; i < usedParticles; i++) {
     if ( particles[i].ttl == 0 || particleFlags[i].outofbounds)
@@ -1450,7 +1458,11 @@ void ParticleSystem1D::render() {
   }
   // apply smear-blur to rendered frame
   if (smearBlur) {
+    #ifdef ESP8266
+    SEGMENT.blur(smearBlur, true); // no local buffer on ESP8266
+    #else
     blur1D(framebuffer, maxXpixel + 1, smearBlur, 0);
+    #endif
   }
 
   // add background color
@@ -1458,14 +1470,20 @@ void ParticleSystem1D::render() {
   if (bg_color > 0) { //if not black
     CRGB bg_color_crgb = bg_color; // convert to CRGB
     for (int32_t i = 0; i <= maxXpixel; i++) {
+      #ifdef ESP8266 // no local buffer on ESP8266
+      SEGMENT.addPixelColor(i, bg_color, true);
+      #else
       fast_color_add(framebuffer[i], bg_color_crgb);
+      #endif
     }
   }
 
+  #ifndef ESP8266
   // transfer the frame-buffer to segment
   for (int x = 0; x <= maxXpixel; x++) {
     SEGMENT.setPixelColor(x, framebuffer[x]);
   }
+  #endif
 }
 
 // calculate pixel positions and brightness distribution and render the particle to local buffer or global buffer
@@ -1477,10 +1495,11 @@ __attribute__((optimize("O2"))) void ParticleSystem1D::renderParticle(const uint
   if (size == 0) { //single pixel particle, can be out of bounds as oob checking is made for 2-pixel particles (and updating it uses more code)
     uint32_t x =  particles[particleindex].x >> PS_P_RADIUS_SHIFT_1D;
     if (x <= (uint32_t)maxXpixel) { //by making x unsigned there is no need to check < 0 as it will overflow
-      if (framebuffer)
-        fast_color_add(framebuffer[x], color, brightness);
-      else
-        SEGMENT.addPixelColor(x, color.scale8(brightness), true);
+      #ifdef ESP8266 // no local buffer on ESP8266
+      SEGMENT.addPixelColor(x, color.scale8(brightness), true);
+      #else
+      fast_color_add(framebuffer[x], color, brightness);
+      #endif
     }
     return;
   }
@@ -1542,10 +1561,11 @@ __attribute__((optimize("O2"))) void ParticleSystem1D::renderParticle(const uint
         else
           continue;
       }
-      if (framebuffer)
-        fast_color_add(framebuffer[xfb], renderbuffer[xrb]);
-      else
-      SEGMENT.addPixelColor(xfb, renderbuffer[xrb]);
+      #ifdef ESP8266 // no local buffer on ESP8266
+      SEGMENT.addPixelColor(xfb, renderbuffer[xrb], true);
+      #else
+      fast_color_add(framebuffer[xfb], renderbuffer[xrb]);
+      #endif
     }
   }
   else { // standard rendering (2 pixels per particle)
@@ -1564,10 +1584,11 @@ __attribute__((optimize("O2"))) void ParticleSystem1D::renderParticle(const uint
     }
     for (uint32_t i = 0; i < 2; i++) {
       if (pxlisinframe[i]) {
-        if (framebuffer)
-          fast_color_add(framebuffer[pixco[i]], color, pxlbrightness[i]);
-        else
-            SEGMENT.addPixelColor(pixco[i], color.scale8((uint8_t)pxlbrightness[i]), true);
+        #ifdef ESP8266 // no local buffer on ESP8266
+        SEGMENT.addPixelColor(pixco[i], color.scale8((uint8_t)pxlbrightness[i]), true);
+        #else
+        fast_color_add(framebuffer[pixco[i]], color, pxlbrightness[i]);
+        #endif
       }
     }
   }
@@ -1576,10 +1597,10 @@ __attribute__((optimize("O2"))) void ParticleSystem1D::renderParticle(const uint
 
 // detect collisions in an array of particles and handle them
 void ParticleSystem1D::handleCollisions() {
-  int32_t collisiondistance = particleHardRadius << 1;
+  uint32_t collisiondistance = particleHardRadius << 1;
   // note: partices are binned by position, assumption is that no more than half of the particles are in the same bin
   // if they are, collisionStartIdx is increased so each particle collides at least every second frame (which still gives decent collisions)
-  constexpr int BIN_WIDTH = 32 * PS_P_RADIUS_1D; // width of each bin, a compromise between speed and accuracy (lareger bins are faster but collapse more)
+  constexpr int BIN_WIDTH = 32 * PS_P_RADIUS_1D; // width of each bin, a compromise between speed and accuracy (larger bins are faster but collapse more)
   int32_t overlap = particleHardRadius << 1; // overlap bins to include edge particles to neighbouring bins
   if (advPartProps) //may be using individual particle size
     overlap += 256; // add 2 * max radius (approximately)
@@ -1596,13 +1617,15 @@ void ParticleSystem1D::handleCollisions() {
 
     // fill the binIndices array for this bin
     for (uint32_t i = 0; i < usedParticles; i++) {
-      if (particles[pidx].ttl > 0 && particleFlags[pidx].outofbounds == 0 && particleFlags[pidx].collide) { // colliding particle
+      if (particles[pidx].ttl > 0) { // alivee
         if (particles[pidx].x >= binStart && particles[pidx].x <= binEnd) { // >= and <= to include particles on the edge of the bin (overlap to ensure boarder particles collide with adjacent bins)
-          if (binParticleCount >= maxBinParticles) { // bin is full, more particles in this bin so do the rest next frame
-            nextFrameStartIdx = pidx; // bin overflow can only happen once as bin size is at least half of the particles (or half +1)
-            break;
+          if(particleFlags[pidx].outofbounds == 0 && particleFlags[pidx].collide) { // particle is in frame and does collide note: checking flags is quite slow and usually these are set, so faster to check here
+            if (binParticleCount >= maxBinParticles) { // bin is full, more particles in this bin so do the rest next frame
+              nextFrameStartIdx = pidx; // bin overflow can only happen once as bin size is at least half of the particles (or half +1)
+              break;
+            }
+            binIndices[binParticleCount++] = pidx;
           }
-          binIndices[binParticleCount++] = pidx;
         }
       }
       pidx++;
@@ -1628,7 +1651,7 @@ void ParticleSystem1D::handleCollisions() {
 }
 // handle a collision if close proximity is detected, i.e. dx and/or dy smaller than 2*PS_P_RADIUS
 // takes two pointers to the particles to collide and the particle hardness (softer means more energy lost in collision, 255 means full hard)
-__attribute__((optimize("O2"))) void ParticleSystem1D::collideParticles(PSparticle1D &particle1, const PSparticleFlags1D &particle1flags, PSparticle1D &particle2, const PSparticleFlags1D &particle2flags, const int32_t dx, const uint32_t dx_abs, const int32_t collisiondistance) {
+__attribute__((optimize("O2"))) void ParticleSystem1D::collideParticles(PSparticle1D &particle1, const PSparticleFlags1D &particle1flags, PSparticle1D &particle2, const PSparticleFlags1D &particle2flags, const int32_t dx, const uint32_t dx_abs, const uint32_t collisiondistance) {
   int32_t dv = particle2.vx - particle1.vx;
   int32_t dotProduct = (dx * dv); // is always negative if moving towards each other
 
@@ -1716,11 +1739,15 @@ void ParticleSystem1D::updatePSpointers(bool isadvanced) {
   particleFlags = reinterpret_cast<PSparticleFlags1D *>(this + 1); // pointer to particle flags
   particles = reinterpret_cast<PSparticle1D *>(particleFlags + numParticles); // pointer to particles
   sources = reinterpret_cast<PSsource1D *>(particles + numParticles); // pointer to source(s)
+  #ifdef ESP8266 // no local buffer on ESP8266
+  PSdataEnd = reinterpret_cast<uint8_t *>(sources + numSources);
+  #else
   framebuffer = reinterpret_cast<CRGB *>(sources + numSources); // pointer to framebuffer
   // align pointer after framebuffer to 4bytes
   uintptr_t p = reinterpret_cast<uintptr_t>(framebuffer + (maxXpixel+1));
   p = (p + 3) & ~0x03; // align to 4-byte boundary
   PSdataEnd = reinterpret_cast<uint8_t *>(p); // pointer to first available byte after the PS for FX additional data
+  #endif
   if (isadvanced) {
     advPartProps = reinterpret_cast<PSadvancedParticle1D *>(PSdataEnd);
     PSdataEnd = reinterpret_cast<uint8_t *>(advPartProps + numParticles);
@@ -1776,7 +1803,9 @@ bool allocateParticleSystemMemory1D(const uint32_t numparticles, const uint32_t 
   requiredmemory += sizeof(PSparticleFlags1D) * numparticles;
   requiredmemory += sizeof(PSparticle1D) * numparticles;
   requiredmemory += sizeof(PSsource1D) * numsources;
+  #ifndef ESP8266 // no local buffer on ESP8266
   requiredmemory += sizeof(CRGB) * SEGMENT.virtualLength();
+  #endif
   requiredmemory += additionalbytes + 3; // add 3 to ensure room for stuffing bytes to make it 4 byte aligned
   if (isadvanced)
     requiredmemory += sizeof(PSadvancedParticle1D) * numparticles;
