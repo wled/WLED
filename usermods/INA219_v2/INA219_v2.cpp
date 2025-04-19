@@ -474,21 +474,33 @@ public:
 		float energy_kWh = (power / 1000.0) * durationHours; // Watts to kilowatt-hours (kWh)
 		totalEnergy_kWh += energy_kWh; // Update total energy consumed
 
-		// Reset daily energy if 86400 seconds (24 hours) elapsed.
-		if (dailyResetTime >= 86400UL) {
+		// Get current time
+		time_t now = time(nullptr);
+		if (now <= 0) return; // Safety check if time isn't available yet
+
+		struct tm *timeinfo = localtime(&now);
+
+		// Calculate day identifier (days since epoch)
+		long currentDay = now / 86400;
+
+		// Reset daily energy at midnight or if day changed
+		if ((timeinfo->tm_hour == 0 && timeinfo->tm_min == 0 && dailyResetTime != currentDay) || 
+			(currentDay > dailyResetTime && dailyResetTime > 0)) {
 			dailyEnergy_kWh = 0;
-			dailyResetTime = 0;
+			dailyResetTime = currentDay;
 		}
 		dailyEnergy_kWh += energy_kWh;
-		dailyResetTime += durationMs / 1000;
 
-		// Reset monthly energy if 2592000 seconds (30 days) elapsed.
-		if (monthlyResetTime >= 2592000UL) {
+		// Calculate month identifier (year*12 + month)
+		long currentMonth = (timeinfo->tm_year + 1900) * 12 + timeinfo->tm_mon;
+		
+		// Reset monthly energy on first day of month or if month changed
+		if ((timeinfo->tm_mday == 1 && timeinfo->tm_hour == 0 && timeinfo->tm_min == 0 && 
+			 monthlyResetTime != currentMonth) || (currentMonth > monthlyResetTime && monthlyResetTime > 0)) {
 			monthlyEnergy_kWh = 0;
-			monthlyResetTime = 0;
+			monthlyResetTime = currentMonth;
 		}
 		monthlyEnergy_kWh += energy_kWh;
-		monthlyResetTime += durationMs / 1000;
 	}
 	
 	/**
