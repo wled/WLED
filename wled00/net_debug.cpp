@@ -43,21 +43,15 @@ size_t NetworkDebugPrinter::write(uint8_t c) {
 size_t NetworkDebugPrinter::write(const uint8_t *buf, size_t size) {
   if (!WLED_CONNECTED || buf == nullptr || !netDebugEnabled) return 0;
   
-  // Check if we can find a newline in the buffer
-  bool hasNewline = false;
-  size_t lastNewlinePos = 0;
-  
   for (size_t i = 0; i < size; i++) {
     buffer += (char)buf[i];
     if (buf[i] == '\n') {
-      hasNewline = true;
-      lastNewlinePos = i;
       flushBuffer();
     }
   }
   
   // If buffer is large but no newline was found, flush anyway
-  if (!hasNewline && buffer.length() >= MAX_BUFFER_SIZE) {
+  if (buffer.length() >= MAX_BUFFER_SIZE) {
     flushBuffer();
   }
   
