@@ -336,7 +336,7 @@ public:
 					
 				// Serialize the JSON document into a character buffer
 				char buffer[1024];
-				size_t payload_size = serializeJson(jsonDoc, buffer);
+				size_t payload_size = serializeJson(jsonDoc, buffer, sizeof(buffer));
 
 				// Construct the MQTT topic using the device topic
 				char topic[128];
@@ -398,7 +398,7 @@ public:
 
 		// Serialize the JSON document into a temporary string
 		char buffer[1024];
-		size_t payload_size = serializeJson(doc, buffer);
+		size_t payload_size = serializeJson(doc, buffer, sizeof(buffer));
 
 		char topic_S[128];
 		snprintf_P(topic_S, sizeof(topic_S), "homeassistant/%s/%s/%s/config", SensorType, sanitizedMqttClientID.c_str(), sanitizedName.c_str());
@@ -624,10 +624,10 @@ public:
 
 		if (getJsonValue(top[F("check_interval")], checkInterval)) {
 			if (1 <= checkInterval && checkInterval <= 600) {
-				checkInterval *= 1000;
+				checkInterval *= 1000UL;
 			} else {
 				DEBUG_PRINTLN(F("INA219: Invalid check_interval value; using default."));
-				checkInterval = _checkInterval * 1000;
+				checkInterval = _checkInterval * 1000UL;
 			}
 		} else {
 			configComplete = false;
