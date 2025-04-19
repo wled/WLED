@@ -30,8 +30,8 @@ ParticleSystem2D::ParticleSystem2D(uint32_t width, uint32_t height, uint32_t num
   usedParticles = numParticles; // use all particles by default
   advPartProps = nullptr; //make sure we start out with null pointers (just in case memory was not cleared)
   advPartSize = nullptr;
-  updatePSpointers(isadvanced, sizecontrol); // set the particle and sources pointer (call this before accessing sprays or particles)
   setMatrixSize(width, height);
+  updatePSpointers(isadvanced, sizecontrol); // set the particle and sources pointer (call this before accessing sprays or particles)
   setWallHardness(255); // set default wall hardness to max
   setWallRoughness(0); // smooth walls by default
   setGravity(0); //gravity disabled by default
@@ -1143,8 +1143,8 @@ ParticleSystem1D::ParticleSystem1D(uint32_t length, uint32_t numberofparticles, 
   usedParticles = numParticles; // use all particles by default
   advPartProps = nullptr; //make sure we start out with null pointers (just in case memory was not cleared)
   //advPartSize = nullptr;
-  updatePSpointers(isadvanced); // set the particle and sources pointer (call this before accessing sprays or particles)
   setSize(length);
+  updatePSpointers(isadvanced); // set the particle and sources pointer (call this before accessing sprays or particles)
   setWallHardness(255); // set default wall hardness to max
   setGravity(0); //gravity disabled by default
   setParticleSize(0); // 1 pixel size by default
