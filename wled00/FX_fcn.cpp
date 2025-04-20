@@ -13,6 +13,7 @@
 #include "FX.h"
 #include "FXparticleSystem.h"  // TODO: better define the required function (mem service) in FX.h?
 #include "palettes.h"
+#include "colors.h"
 
 /*
   Custom per-LED mapping has moved!
@@ -76,7 +77,7 @@ unsigned      Segment::_vHeight           = 0;
 uint8_t       Segment::_segBri            = 0;
 uint32_t      Segment::_currentColors[NUM_COLORS] = {0,0,0};
 bool          Segment::_colorScaled       = false;
-CRGBPalette16 Segment::_currentPalette    = CRGBPalette16(CRGB::Black);
+CRGBPalette16 Segment::_currentPalette    = CRGBPalette16();
 CRGBPalette16 Segment::_randomPalette     = generateRandomPalette();  // was CRGBPalette16(DEFAULT_COLOR);
 CRGBPalette16 Segment::_newRandomPalette  = generateRandomPalette();  // was CRGBPalette16(DEFAULT_COLOR);
 uint16_t      Segment::_lastPaletteChange = 0; // perhaps it should be per segment
