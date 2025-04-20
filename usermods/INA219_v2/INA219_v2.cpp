@@ -150,6 +150,8 @@ private:
 		if (!_ina219->init()) {
 			DEBUG_PRINTLN(F("INA219 initialization failed!"));
 			enabled = false;
+			delete _ina219;
+			_ina219 = nullptr;
 			return false;
 		}
 		_ina219->setShuntSizeInOhms(shuntResistor);
@@ -399,7 +401,9 @@ public:
 
 		// Update energy consumption
 		if (lastPublishTime != 0) {
-			updateEnergy(power, lastCheck - lastPublishTime);
+			if (power >= 0) {
+				updateEnergy(power, lastCheck - lastPublishTime);
+			}
 		}
 		lastPublishTime = lastCheck;
 
