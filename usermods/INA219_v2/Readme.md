@@ -81,10 +81,6 @@ This Usermod integrates the INA219 sensor with WLED to monitor energy consumptio
 		| `0x44`              | 0x44 - A1 soldered                 | 0x44    |
 		| `0x45`              | 0x45 - A0 and A1 soldered          | 0x45    |
 
-## Installation
-
-Add the compile-time option `-D USERMOD_INA219` to your `platformio.ini` (or `platformio_override.ini`) or use `#define USERMOD_INA219` in `my_config.h`.
-
 # Compiling
 
 To enable, add `INA219_v2` to your `custom_usermods`  (e.g. in `platformio_override.ini`)
