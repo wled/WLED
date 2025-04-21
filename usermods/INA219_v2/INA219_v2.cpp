@@ -208,19 +208,20 @@ private:
 	void updateEnergy(float power, unsigned long durationMs) {
 		float durationHours = durationMs / 3600000.0; // Milliseconds to hours
 		float energy_kWh = (power / 1000.0) * durationHours; // Watts to kilowatt-hours (kWh)
+
+		// Skip negative values or unrealistic spikes
+		if (energy_kWh < 0 || energy_kWh > 10.0) { // 10 kWh in a few seconds is unrealistic
+			DEBUG_PRINTLN(F("SKIPPED: Energy value out of range"));
+			return;
+		}
+
 		totalEnergy_kWh += energy_kWh; // Update total energy consumed
 
-		// Get current time
-		time_t now = time(nullptr);
-		if (now <= 0) return; // Safety check if time isn't available yet
-
-		struct tm *timeinfo = localtime(&now);
-
 		// Calculate day identifier (days since epoch)
-		long currentDay = now / 86400;
+		long currentDay = localTime / 86400;
 
 		// Reset daily energy at midnight or if day changed
-		if ((timeinfo->tm_hour == 0 && timeinfo->tm_min == 0 && dailyResetTime != currentDay) || 
+		if ((hour(localTime) == 0 && minute(localTime) == 0 && dailyResetTime != currentDay) ||
 			(currentDay > dailyResetTime && dailyResetTime > 0)) {
 			dailyEnergy_kWh = 0;
 			dailyResetTime = currentDay;
@@ -228,10 +229,10 @@ private:
 		dailyEnergy_kWh += energy_kWh;
 
 		// Calculate month identifier (year*12 + month)
-		long currentMonth = (timeinfo->tm_year + 1900) * 12 + timeinfo->tm_mon;
+		long currentMonth = year(localTime) * 12 + month(localTime) - 1; // month() is 1-12
 		
 		// Reset monthly energy on first day of month or if month changed
-		if ((timeinfo->tm_mday == 1 && timeinfo->tm_hour == 0 && timeinfo->tm_min == 0 && 
+		if ((day(localTime) == 1 && hour(localTime) == 0 && minute(localTime) == 0 &&
 			 monthlyResetTime != currentMonth) || (currentMonth > monthlyResetTime && monthlyResetTime > 0)) {
 			monthlyEnergy_kWh = 0;
 			monthlyResetTime = currentMonth;
