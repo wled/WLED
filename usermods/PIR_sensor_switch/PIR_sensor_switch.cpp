@@ -71,7 +71,7 @@ private:
   bool m_offOnly            = false;
   bool m_offMode            = offMode;
   bool m_override           = false;
-
+  
   // Home Assistant
   bool HomeAssistantDiscovery = false;        // is HA discovery turned on
   int16_t idx = -1; // Domoticz virtual switch idx
@@ -317,7 +317,15 @@ void PIRsensorSwitch::publishHomeAssistantAutodiscovery()
     device[F("mf")]   = F(WLED_BRAND);
     device[F("mdl")]  = F(WLED_PRODUCT_NAME);
     device[F("sw")]   = versionString;
-    
+
+    String mqtt_avail_topic = mqttDeviceTopic;
+    mqtt_avail_topic += F("/status");
+    doc[F("avty_t")] = mqtt_avail_topic.c_str();
+    JsonArray connections = device[F("connections")].createNestedArray();
+    connections.add(F("mac"));
+    connections.add(WiFi.macAddress());
+    connections.add(F("ip"));
+    connections.add(WiFi.localIP().toString());
     sprintf_P(buf, PSTR("homeassistant/binary_sensor/%s/config"), uid);
     DEBUG_PRINTLN(buf);
     size_t payload_size = serializeJson(doc, json_str);
