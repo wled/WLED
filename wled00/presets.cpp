@@ -22,6 +22,10 @@ const char *getPresetsFileName(bool persistent) {
   return persistent ? presets_json : tmp_json;
 }
 
+bool presetNeedsSaving() {
+  return presetToSave;
+}
+
 static void doSaveState() {
   bool persist = (presetToSave < 251);
 
@@ -76,8 +80,8 @@ static void doSaveState() {
   // clean up
   saveLedmap   = -1;
   presetToSave = 0;
-  delete[] saveName;
-  delete[] quickLoad;
+  free(saveName);
+  free(quickLoad);
   saveName = nullptr;
   quickLoad = nullptr;
   playlistSave = false;
@@ -164,7 +168,7 @@ void handlePresets()
 
   DEBUG_PRINTF_P(PSTR("Applying preset: %u\n"), (unsigned)tmpPreset);
 
-  #if defined(ARDUINO_ARCH_ESP32S2) || defined(ARDUINO_ARCH_ESP32C3)
+  #if defined(ARDUINO_ARCH_ESP32S3) || defined(ARDUINO_ARCH_ESP32S2) || defined(ARDUINO_ARCH_ESP32C3)
   unsigned long start = millis();
   while (strip.isUpdating() && millis() - start < FRAMETIME_FIXED) yield(); // wait for strip to finish updating, accessing FS during sendout causes glitches
   #endif
@@ -216,8 +220,8 @@ void handlePresets()
 //called from handleSet(PS=) [network callback (sObj is empty), IR (irrational), deserializeState, UDP] and deserializeState() [network callback (filedoc!=nullptr)]
 void savePreset(byte index, const char* pname, JsonObject sObj)
 {
-  if (!saveName) saveName = new char[33];
-  if (!quickLoad) quickLoad = new char[9];
+  if (!saveName) saveName = static_cast<char*>(malloc(33));
+  if (!quickLoad) quickLoad = static_cast<char*>(malloc(9));
   if (!saveName || !quickLoad) return;
 
   if (index == 0 || (index > 250 && index < 255)) return;
@@ -238,7 +242,7 @@ void savePreset(byte index, const char* pname, JsonObject sObj)
   if (!sObj[FPSTR(bootPS)].isNull()) {
     bootPreset = sObj[FPSTR(bootPS)] | bootPreset;
     sObj.remove(FPSTR(bootPS));
-    doSerializeConfig = true;
+    configNeedsWrite = true;
   }
 
   if (sObj.size()==0 || sObj["o"].isNull()) { // no "o" means not a playlist or custom API call, saving of state is async (not immediately)
@@ -263,13 +267,13 @@ void savePreset(byte index, const char* pname, JsonObject sObj)
         presetsModifiedTime = toki.second(); //unix time
         updateFSInfo();
       }
-      delete[] saveName;
-      delete[] quickLoad;
+      free(saveName);
+      free(quickLoad);
       saveName = nullptr;
       quickLoad = nullptr;
     } else {
       // store playlist
-      // WARNING: playlist will be loaded in json.cpp after this call and will have repeat counter increased by 1
+      // WARNING: playlist will be loaded in json.cpp after this call and will have repeat counter increased by 1 it will also be randomised if selected
       includeBri   = true; // !sObj["on"].isNull();
       playlistSave = true;
     }

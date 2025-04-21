@@ -27,6 +27,7 @@ read -a JSON_TINY_TARGETS <<< $(replicate "json/nodes")
 read -a JSON_SMALL_TARGETS <<< $(replicate "json/info")
 read -a JSON_LARGE_TARGETS <<< $(replicate "json/si")
 read -a JSON_LARGER_TARGETS <<< $(replicate "json/fxdata")
+read -a INDEX_TARGETS <<< $(replicate "")
 
 # Expand target URLS to full arguments for curl
 TARGETS=(${TARGET_STR[@]})

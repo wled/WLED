@@ -6,6 +6,7 @@
 	<meta name="theme-color" content="#222222">
 	<meta content="yes" name="apple-mobile-web-app-capable">
 	<link rel="shortcut icon" href="data:image/x-icon;base64,AAABAAEAEBAAAAEAGACGAAAAFgAAAIlQTkcNChoKAAAADUlIRFIAAAAQAAAAEAgGAAAAH/P/YQAAAE1JREFUOI1j/P//PwOxgNGeAUMxE9G6cQCKDWAhpADZ2f8PMjBS3QW08QK20KaZC2gfC9hCnqouoNgARgY7zMxAyNlUdQHlXiAlO2MDAD63EVqNHAe0AAAAAElFTkSuQmCC"/>
+	<link rel="apple-touch-icon" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAALQAAAC0CAMAAAAKE/YAAAAANlBMVEUAAAAAKacAPv8APv8APv8APv8APv8AKacAQv8AJZsAKacAKacAPv8APv8AL8MAPv8APv8AQv/mTD7uAAAAEHRSTlMAf1mvpgzzka9/Vy3wnX9ic6GVaQAAAQhJREFUeNrt3EtuwkAQRdGGYAyYT9j/ZqN4GNkv9gSV4ZwVXJU8cVerGwAAAAAAUNTl9LXY6dJq6J/fiz37VsNuTfSu1SB6hmjRgWjRgWjRgWjRgWjRgehf5y1G70r/2Ha3w5T7foWhvVg3Pbxzq6w7lv5MRa8iWnQgWnQgWnQgWnQgWnQgenQtHT3spzxqT7p/+/MX0aJFj0SLDkSLDkSLDkSLDkSL/s/n7OhXRR8fNXb0q6KvrbSZSXetMtEzRIsORIsORIsORIsORIsORIdr/i+PHvYr3A9Tbsui7egn+2pf83//ky7RokWPRIsORIsORIsORIsORG/2gbhNPsUHAAAAAAD89QMg+PZb+jO0tAAAAABJRU5ErkJggg==" sizes="180x180"/>
 	<title>WLED</title>
 	<link rel="stylesheet" href="index.css">
 </head>
@@ -128,7 +129,7 @@
 		<div style="padding: 8px 0;" id="btns">
 			<button class="btn btn-xs" title="File editor" type="button" id="edit" onclick="window.location.href=getURL('/edit')"><i class="icons btn-icon">&#xe2c6;</i></button>
 			<button class="btn btn-xs" title="Pixel Magic Tool" type="button" id="pxmb" onclick="window.location.href=getURL('/pxmagic.htm')"><i class="icons btn-icon">&#xe410;</i></button>
-			<button class="btn btn-xs" title="Add custom palette" type="button" onclick="window.location.href=getURL('/cpal.htm')"><i class="icons btn-icon">&#xe18a;</i></button>
+			<button class="btn btn-xs" title="Add custom palette" type="button" id="adPal" onclick="window.location.href=getURL('/cpal.htm')"><i class="icons btn-icon">&#xe18a;</i></button>
 			<button class="btn btn-xs" title="Remove last custom palette" type="button" id="rmPal" onclick="palettesData=null;localStorage.removeItem('wledPalx');requestJson({rmcpal:true});setTimeout(loadPalettes,250,loadPalettesData);"><i class="icons btn-icon">&#xe037;</i></button>
 		</div>
 		<p class="labels hd" id="pall"><i class="icons sel-icon" onclick="tglHex()">&#xe2b3;</i> Color palette</p>
@@ -266,7 +267,29 @@
 		<div id="segutil2">
 			<button class="btn btn-s" id="rsbtn" onclick="rSegs()">Reset segments</button>
 		</div>
-		<p>Transition: <input id="tt" type="number" min="0" max="65.5" step="0.1" value="0.7">&nbsp;s</p>
+		<p>Transition: <input id="tt" type="number" min="0" max="65.5" step="0.1" value="0.7" onchange="parseFloat(this.value)===0?gId('bsp').classList.add('hide'):gId('bsp').classList.remove('hide');">&nbsp;s</p>
+		<p id="bsp">Blend:
+			<select id="bs" class="sel-sg" onchange="requestJson({'bs':parseInt(this.value)})">
+				<option value="0">Fade</option>
+				<option value="1">Fairy Dust</option>
+				<option value="2">Swipe right</option>
+				<option value="3">Swipe left</option>
+				<option value="16">Push right</option>
+				<option value="17">Push left</option>
+				<option value="4">Pinch-out</option>
+				<option value="5">Inside-out</option>
+				<option value="6" data-type="2D">Swipe up</option>
+				<option value="7" data-type="2D">Swipe down</option>
+				<option value="8" data-type="2D">Open H</option>
+				<option value="9" data-type="2D">Open V</option>
+				<option value="18" data-type="2D">Push up</option>
+				<option value="19" data-type="2D">Push down</option>
+				<option value="20" data-type="2D">Push TL</option>
+				<option value="21" data-type="2D">Push TR</option>
+				<option value="22" data-type="2D">Push BR</option>
+				<option value="23" data-type="2D">Push BL</option>
+			</select>
+		</p>
 		<p id="ledmap" class="hide"></p>
 	</div>
 
@@ -340,7 +363,7 @@
 
 <!-- 
 	If you want to load iro.js and rangetouch.js as consecutive requests, you can do it like it was done in 0.14.0:
-	https://github.com/Aircoookie/WLED/blob/v0.14.0/wled00/data/index.htm
+	https://github.com/wled-dev/WLED/blob/v0.14.0/wled00/data/index.htm
 -->
 <script src="iro.js"></script>
 <script src="rangetouch.js"></script>

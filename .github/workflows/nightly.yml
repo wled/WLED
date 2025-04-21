@@ -1,0 +1,47 @@
+
+name: Deploy Nightly
+on:
+  # This can be used to automatically publish nightlies at UTC nighttime
+  schedule:
+    - cron: '0 2 * * *' # run at 2 AM UTC
+  # This can be used to allow manually triggering nightlies from the web interface
+  workflow_dispatch:
+
+jobs:
+  wled_build:
+    uses: ./.github/workflows/build.yml
+  nightly:
+    name: Deploy nightly
+    runs-on: ubuntu-latest
+    needs: wled_build
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          merge-multiple: true
+      - name: Show Files
+        run: ls -la
+      - name: "✏️ Generate release changelog"
+        id: changelog
+        uses: janheinrichmerker/action-github-changelog-generator@v2.3
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }} 
+          sinceTag: v0.15.0
+      - name: Update Nightly Release
+        uses: andelf/nightly-release@main
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: nightly
+          name: 'Nightly Release $$'
+          prerelease: true
+          body: ${{ steps.changelog.outputs.changelog }}
+          files: |
+            *.bin
+            *.bin.gz
+      - name: Repository Dispatch
+        uses: peter-evans/repository-dispatch@v3
+        with:
+          repository: wled/WLED-WebInstaller
+          event-type: release-nightly
+          token: ${{ secrets.PAT_PUBLIC }}

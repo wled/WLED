@@ -24,6 +24,7 @@
 		function is16b(t)  { return !!(gT(t).c & 0x10); }           // is digital 16 bit type
 		function mustR(t)  { return !!(gT(t).c & 0x20); }           // Off refresh is mandatory
 		function numPins(t){ return Math.max(gT(t).t.length, 1); }  // type length determines number of GPIO pins
+		function chrID(x)  { return String.fromCharCode((x<10?48:55)+x); }
 		function S() {
 			getLoc();
 			loadJS(getURL('/settings/s.js?p=2'), false, ()=>{
@@ -42,10 +43,10 @@
 			if (loc) d.Sf.action = getURL('/settings/leds');
 		}
 		function bLimits(b,v,p,m,l,o=5,d=2,a=6) {
-			oMaxB = maxB = b; // maxB - max buses (can be changed if using ESP32 parallel I2S)
-			maxD  = d; // maxD - max digital channels (can be changed if using ESP32 parallel I2S)
-			maxA  = a; // maxA - max analog channels
-			maxV  = v; // maxV - min virtual buses
+			oMaxB = maxB = b; // maxB - max buses (can be changed if using ESP32 parallel I2S): 20 - ESP32, 14 - S3/S2, 6 - C3, 4 - 8266
+			maxD  = d; // maxD - max digital channels (can be changed if using ESP32 parallel I2S): 17 - ESP32, 12 - S3/S2, 2 - C3, 3 - 8266
+			maxA  = a; // maxA - max analog channels: 16 - ESP32, 8 - S3/S2, 6 - C3, 5 - 8266
+			maxV  = v; // maxV - min virtual buses: 6 - ESP32/S3, 4 - S2/C3, 3 - ESP8266 (only used to distinguish S2/S3)
 			maxPB = p; // maxPB - max LEDs per bus
 			maxM  = m; // maxM - max LED memory
 			maxL  = l; // maxL - max LEDs (will serve to determine ESP >1664 == ESP32)
@@ -138,7 +139,7 @@
 			gId("ppldis").style.display = ppl ? 'inline' : 'none';
 			// set PPL minimum value and clear actual PPL limit if ABL is disabled
 			d.Sf.querySelectorAll("#mLC input[name^=MA]").forEach((i,x)=>{
-				var n = String.fromCharCode((x<10?48:55)+x);
+				var n = chrID(x);
 				gId("PSU"+n).style.display = ppl ? "inline" : "none";
 				const t = parseInt(d.Sf["LT"+n].value); // LED type SELECT
 				const c = parseInt(d.Sf["LC"+n].value); //get LED count
@@ -169,7 +170,7 @@
 			// select appropriate LED current
 			d.Sf.querySelectorAll("#mLC select[name^=LAsel]").forEach((sel,x)=>{
 				sel.value = 0; // set custom
-				var n = String.fromCharCode((x<10?48:55)+x);
+				var n = chrID(x);
 				if (en)
 					switch (parseInt(d.Sf["LA"+n].value)) {
 						case 0: break; // disable ABL
@@ -250,6 +251,7 @@
 			}
 
 			// enable/disable LED fields
+			let dC = 0; // count of digital buses (for parallel I2S)
 			let LTs = d.Sf.querySelectorAll("#mLC select[name^=LT]");
 			LTs.forEach((s,i)=>{
 				if (i < LTs.length-1) s.disabled = true; // prevent changing type (as we can't update options)
@@ -257,6 +259,7 @@
 				var n = s.name.substring(2);
 				var t = parseInt(s.value);
 				memu += getMem(t, n); // calc memory
+				dC += (isDig(t) && !isD2P(t));
 				setPinConfig(n,t);
 				gId("abl"+n).style.display = (!abl || !isDig(t)) ? "none" : "inline"; // show/hide individual ABL settings
 				if (change) { // did we change LED type?
@@ -295,8 +298,7 @@
 				// do we have a led count field
 				if (nm=="LC") {
 					let c = parseInt(LC.value,10); //get LED count
-					if (c > 300 && i < 8) maxB = oMaxB - Math.max(maxD-7,0); //TODO: hard limit for buses when using ESP32 parallel I2S
-					if (!customStarts || !startsDirty[n]) gId("ls"+n).value=sLC; //update start value
+					if (!customStarts || !startsDirty[n]) gId("ls"+n).value = sLC; //update start value
 					gId("ls"+n).disabled = !customStarts; //enable/disable field editing
 					if (c) {
 						let s = parseInt(gId("ls"+n).value); //start value
@@ -350,6 +352,18 @@
 						else LC.style.color = d.ro_gpio.some((e)=>e==parseInt(LC.value)) ? "orange" : "#fff";
 					}
 			});
+			const S2 = (oMaxB == 14) && (maxV == 4);
+			const S3 = (oMaxB == 14) && (maxV == 6);
+			if (oMaxB == 19 || S2 || S3) { // TODO: crude ESP32 & S2/S3 detection
+				if (maxLC > 300 || dC <= 2) {
+					d.Sf["PR"].checked = false;
+					gId("prl").classList.add("hide");
+				} else
+					gId("prl").classList.remove("hide");
+				// S2 supports mono I2S as well as parallel so we need to take that into account; S3 only supports parallel
+				maxD = (S2 || S3 ? 4 : 8) + (d.Sf["PR"].checked ? 8 : S2); // TODO: use bLimits() : 4/8RMT + (x1/x8 parallel) I2S1
+				maxB = oMaxB - (d.Sf["PR"].checked ? 0 : 7 + S3); // S2 (maxV==4) does support mono I2S
+			}
 			// distribute ABL current if not using PPL
 			enPPL(sDI);
 
@@ -387,7 +401,7 @@
 		}
 		function lastEnd(i) {
 			if (i-- < 1) return 0;
-			var s = String.fromCharCode((i<10?48:55)+i);
+			var s = chrID(i);
 			v = parseInt(d.getElementsByName("LS"+s)[0].value) + parseInt(d.getElementsByName("LC"+s)[0].value);
 			var t = parseInt(d.getElementsByName("LT"+s)[0].value);
 			if (isPWM(t)) v = 1; //PWM busses
@@ -409,8 +423,8 @@
 				if (isVir(t)) virtB++;
 			});
 
-			if ((n==1 && i>=maxB+maxV) || (n==-1 && i==0)) return;
-			var s = String.fromCharCode((i<10?48:55)+i);
+			if ((n==1 && i>=36) || (n==-1 && i==0)) return; // used to be i>=maxB+maxV when virtual buses were limited (now :"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ")
+			var s = chrID(i);
 
 			if (n==1) {
 // npm run build has trouble minimizing spaces inside string
@@ -470,21 +484,20 @@ mA/LED: <select name="LAsel${s}" onchange="enLA(this,'${s}');UI();">
 						}
 					}
 				});
+				enLA(d.Sf["LAsel"+s],s); // update LED mA
 				// disable inappropriate LED types
 				let sel = d.getElementsByName("LT"+s)[0]
 				if (i >= maxB || digitalB >= maxD) disable(sel,'option[data-type="D"]'); // NOTE: see isDig()
 				if (i >= maxB || twopinB >= 1)     disable(sel,'option[data-type="2P"]'); // NOTE: see isD2P()
 				disable(sel,`option[data-type^="${'A'.repeat(maxA-analogB+1)}"]`); // NOTE: see isPWM()
 				sel.selectedIndex = sel.querySelector('option:not(:disabled)').index;
-			    // initialize current limiter
-				enLA(d.Sf["LAsel"+s],s);
 			}
 			if (n==-1) {
 				o[--i].remove();--i;
 				o[i].querySelector("[name^=LT]").disabled = false;
 			}
 
-			gId("+").style.display = (i<maxB+maxV-1) ? "inline":"none";
+			gId("+").style.display = (i<35) ? "inline":"none"; // was maxB+maxV-1 when virtual buses were limited (now :"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ")
 			gId("-").style.display = (i>0) ? "inline":"none";
 
 			if (!init) {
@@ -495,7 +508,7 @@ mA/LED: <select name="LAsel${s}" onchange="enLA(this,'${s}');UI();">
 		function addCOM(start=0,len=1,co=0) {
 			var i = gEBCN("com_entry").length;
 			if (i >= maxCO) return;
-			var s = String.fromCharCode((i<10?48:55)+i);
+			var s = chrID(i);
 			var b = `<div class="com_entry">
 <hr class="sml">
 ${i+1}: Start: <input type="number" name="XS${s}" id="xs${s}" class="l starts" min="0" max="65535" value="${start}" oninput="UI();" required="">&nbsp;
@@ -549,7 +562,7 @@ Swap: <select id="xw${s}" name="XW${s}">
 
 		function addBtn(i,p,t) {
 			var c = gId("btns").innerHTML;
-			var s = String.fromCharCode((i<10?48:55)+i);
+			var s = chrID(i);
 			c += `Button ${i} GPIO: <input type="number" name="BT${s}" onchange="UI()" class="xs" value="${p}">`;
 			c += `&nbsp;<select name="BE${s}">`
 			c += `<option value="0" ${t==0?"selected":""}>Disabled</option>`;
@@ -573,8 +586,10 @@ Swap: <select id="xw${s}" name="XW${s}">
 		function checkSi() { //on load, checks whether there are custom start fields
 			var cs = false;
 			for (var i=1; i < gEBCN("iST").length; i++) {
-				var v = parseInt(gId("ls"+(i-1)).value) + parseInt(gN("LC"+(i-1)).value);
-				if (v != parseInt(gId("ls"+i).value)) {cs = true; startsDirty[i] = true;}
+				var s = chrID(i);
+				var p = chrID(i-1); // cover edge case 'A' previous char being '9' 
+				var v = parseInt(gId("ls"+p).value) + parseInt(gN("LC"+p).value);
+				if (v != parseInt(gId("ls"+s).value)) {cs = true; startsDirty[i] = true;}
 			}
 			if (gId("ls0") && parseInt(gId("ls0").value) != 0) {cs = true; startsDirty[0] = true;}
 			gId("si").checked = cs;
@@ -603,22 +618,32 @@ Swap: <select id="xw${s}" name="XW${s}">
 
 			function receivedText(e) {
 				let lines = e.target.result;
-				var c = JSON.parse(lines); 
+				let c = JSON.parse(lines); 
 				if (c.hw) {
 					if (c.hw.led) {
-						for (var i=0; i<10; i++) addLEDs(-1);
-						var l = c.hw.led;
+						// remove all existing outputs
+						for (const i=0; i<36; i++) addLEDs(-1); // was i<maxb+maxV when number of virtual buses was limited (now :"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ")
+						let l = c.hw.led;
 						l.ins.forEach((v,i,a)=>{
 							addLEDs(1);
 							for (var j=0; j<v.pin.length; j++) d.getElementsByName(`L${j}${i}`)[0].value = v.pin[j];
-							d.getElementsByName("LT"+i)[0].value = v.type;
-							d.getElementsByName("LS"+i)[0].value = v.start;
-							d.getElementsByName("LC"+i)[0].value = v.len;
-							d.getElementsByName("CO"+i)[0].value = v.order;
-							d.getElementsByName("SL"+i)[0].value = v.skip;
+							d.getElementsByName("LT"+i)[0].value   = v.type;
+							d.getElementsByName("LS"+i)[0].value   = v.start;
+							d.getElementsByName("LC"+i)[0].value   = v.len;
+							d.getElementsByName("CO"+i)[0].value   = v.order & 0x0F;
+							d.getElementsByName("SL"+i)[0].value   = v.skip;
 							d.getElementsByName("RF"+i)[0].checked = v.ref;
 							d.getElementsByName("CV"+i)[0].checked = v.rev;
+							d.getElementsByName("AW"+i)[0].value   = v.rgbwm;
+							d.getElementsByName("WO"+i)[0].value   = (v.order>>4) & 0x0F;
+							d.getElementsByName("SP"+i)[0].value   = v.freq;
+							d.getElementsByName("LA"+i)[0].value   = v.ledma;
+							d.getElementsByName("MA"+i)[0].value   = v.maxpwr;
 						});
+						d.getElementsByName("PR")[0].checked  = l.prl | 0;
+						d.getElementsByName("LD")[0].checked  = l.ld;
+						d.getElementsByName("MA")[0].value    = l.maxpwr;
+						d.getElementsByName("ABL")[0].checked = l.maxpwr > 0;
 					}
 					if(c.hw.com) {
 						resetCOM();
@@ -626,22 +651,28 @@ Swap: <select id="xw${s}" name="XW${s}">
 							addCOM(e.start, e.len, e.order);
 						});
 					}
-					if (c.hw.btn) {
-						var b = c.hw.btn;
+					let b = c.hw.btn;
+					if (b) {
 						if (Array.isArray(b.ins)) gId("btns").innerHTML = "";
 						b.ins.forEach((v,i,a)=>{
 							addBtn(i,v.pin[0],v.type);
 						});
 						d.getElementsByName("TT")[0].value = b.tt;
 					}
-					if (c.hw.ir) {
-						d.getElementsByName("IR")[0].value = c.hw.ir.pin;
-						d.getElementsByName("IT")[0].value = c.hw.ir.type;
+					let ir = c.hw.ir;
+					if (ir) {
+						d.getElementsByName("IR")[0].value = ir.pin;
+						d.getElementsByName("IT")[0].value = ir.type;
 					}
-					if (c.hw.relay) {
-						d.getElementsByName("RL")[0].value = c.hw.relay.pin;
-						d.getElementsByName("RM")[0].checked = c.hw.relay.rev;
-						d.getElementsByName("RO")[0].checked = c.hw.relay.odrain;
+					let rl = c.hw.relay;
+					if (rl) {
+						d.getElementsByName("RL")[0].value   = rl.pin;
+						d.getElementsByName("RM")[0].checked = rl.rev;
+						d.getElementsByName("RO")[0].checked = rl.odrain;
+					}
+					let li = c.light;
+					if (li) {
+						d.getElementsByName("MS")[0].checked  = li.aseg;
 					}
 					UI();
 				}
@@ -789,6 +820,7 @@ Swap: <select id="xw${s}" name="XW${s}">
 			Use less than <span id="wreason">800 LEDs per output</span> for the best experience!<br>
 		</div>
 		<hr class="sml">
+		<div id="prl" class="hide">Use parallel I2S: <input type="checkbox" name="PR"><br></div>
 		Make a segment for each output: <input type="checkbox" name="MS"><br>
 		Custom bus start indices: <input type="checkbox" onchange="tglSi(this.checked)" id="si"><br>
 		Use global LED buffer: <input type="checkbox" name="LD" onchange="UI()"><br>
@@ -832,12 +864,7 @@ Swap: <select id="xw${s}" name="XW${s}">
 		Use Gamma value: <input name="GV" type="number" class="m" placeholder="2.8" min="1" max="3" step="0.1" required><br><br>
 		Brightness factor: <input name="BF" type="number" class="m" min="1" max="255" required> %
 		<h3>Transitions</h3>
-		Enable transitions: <input type="checkbox" name="TF" onchange="gId('tran').style.display=this.checked?'inline':'none';"><br>
-		<span id="tran">
-			Effect blending: <input type="checkbox" name="EB"><br>
-			Default transition time: <input name="TD" type="number" class="xl" min="0" max="65500"> ms<br>
-			Palette transitions: <input type="checkbox" name="PF"><br>
-		</span>
+		Default transition time: <input name="TD" type="number" class="xl" min="0" max="65500"> ms<br>
 		<i>Random Cycle</i> Palette Time: <input name="TP" type="number" class="m" min="1" max="255"> s<br>
 		Use harmonic <i>Random Cycle</i> Palette: <input type="checkbox" name="TH"><br>
 		<h3>Timed light</h3>

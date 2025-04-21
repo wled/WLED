@@ -37,7 +37,7 @@
 #endif
 
 #ifndef WLED_MAX_USERMODS
-  #ifdef ESP8266
+  #if defined(ESP8266) || defined(CONFIG_IDF_TARGET_ESP32S2)
     #define WLED_MAX_USERMODS 4
   #else
     #define WLED_MAX_USERMODS 6
@@ -49,31 +49,31 @@
     #define WLED_MAX_DIGITAL_CHANNELS 3
     #define WLED_MAX_ANALOG_CHANNELS 5
     #define WLED_MAX_BUSSES 4                 // will allow 3 digital & 1 analog RGB
-    #define WLED_MIN_VIRTUAL_BUSSES 2
+    #define WLED_MIN_VIRTUAL_BUSSES 3         // no longer used for bus creation but used to distinguish S2/S3 in UI
   #else
     #define WLED_MAX_ANALOG_CHANNELS (LEDC_CHANNEL_MAX*LEDC_SPEED_MODE_MAX)
     #if defined(CONFIG_IDF_TARGET_ESP32C3)    // 2 RMT, 6 LEDC, only has 1 I2S but NPB does not support it ATM
       #define WLED_MAX_BUSSES 6               // will allow 2 digital & 2 analog RGB or 6 PWM white
       #define WLED_MAX_DIGITAL_CHANNELS 2
       //#define WLED_MAX_ANALOG_CHANNELS 6
-      #define WLED_MIN_VIRTUAL_BUSSES 3
+      #define WLED_MIN_VIRTUAL_BUSSES 4       // no longer used for bus creation but used to distinguish S2/S3 in UI
     #elif defined(CONFIG_IDF_TARGET_ESP32S2)  // 4 RMT, 8 LEDC, only has 1 I2S bus, supported in NPB
       // the 5th bus (I2S) will prevent Audioreactive usermod from functioning (it is last used though)
       #define WLED_MAX_BUSSES 7               // will allow 5 digital & 2 analog RGB
       #define WLED_MAX_DIGITAL_CHANNELS 5
       //#define WLED_MAX_ANALOG_CHANNELS 8
-      #define WLED_MIN_VIRTUAL_BUSSES 3
-    #elif defined(CONFIG_IDF_TARGET_ESP32S3)  // 4 RMT, 8 LEDC, has 2 I2S but NPB does not support them ATM
-      #define WLED_MAX_BUSSES 6               // will allow 4 digital & 2 analog RGB
-      #define WLED_MAX_DIGITAL_CHANNELS 4
+      #define WLED_MIN_VIRTUAL_BUSSES 4       // no longer used for bus creation but used to distinguish S2/S3 in UI
+    #elif defined(CONFIG_IDF_TARGET_ESP32S3)  // 4 RMT, 8 LEDC, has 2 I2S but NPB supports parallel x8 LCD on I2S1
+      #define WLED_MAX_BUSSES 14              // will allow 12 digital & 2 analog RGB
+      #define WLED_MAX_DIGITAL_CHANNELS 12    // x4 RMT + x8 I2S-LCD
       //#define WLED_MAX_ANALOG_CHANNELS 8
-      #define WLED_MIN_VIRTUAL_BUSSES 4
+      #define WLED_MIN_VIRTUAL_BUSSES 6       // no longer used for bus creation but used to distinguish S2/S3 in UI
     #else
       // the last digital bus (I2S0) will prevent Audioreactive usermod from functioning
-      #define WLED_MAX_BUSSES 20              // will allow 17 digital & 3 analog RGB
-      #define WLED_MAX_DIGITAL_CHANNELS 17
+      #define WLED_MAX_BUSSES 19              // will allow 16 digital & 3 analog RGB
+      #define WLED_MAX_DIGITAL_CHANNELS 16    // x1/x8 I2S1 + x8 RMT
       //#define WLED_MAX_ANALOG_CHANNELS 16
-      #define WLED_MIN_VIRTUAL_BUSSES 4
+      #define WLED_MIN_VIRTUAL_BUSSES 6       // no longer used for bus creation but used to distinguish S2/S3 in UI
     #endif
   #endif
 #else
@@ -87,7 +87,7 @@
     #ifndef WLED_MAX_DIGITAL_CHANNELS
       #error You must also define WLED_MAX_DIGITAL_CHANNELS.
     #endif
-    #define WLED_MIN_VIRTUAL_BUSSES (5-WLED_MAX_BUSSES)
+    #define WLED_MIN_VIRTUAL_BUSSES 3
   #else
     #if WLED_MAX_BUSSES > 20
       #error Maximum number of buses is 20.
@@ -98,7 +98,11 @@
     #ifndef WLED_MAX_DIGITAL_CHANNELS
       #error You must also define WLED_MAX_DIGITAL_CHANNELS.
     #endif
-    #define WLED_MIN_VIRTUAL_BUSSES (20-WLED_MAX_BUSSES)
+    #if defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32C3)
+      #define WLED_MIN_VIRTUAL_BUSSES 4
+    #else
+      #define WLED_MIN_VIRTUAL_BUSSES 6
+    #endif
   #endif
 #endif
 
@@ -115,7 +119,7 @@
   #endif
 #endif
 
-#ifdef ESP8266
+#if defined(ESP8266) || defined(CONFIG_IDF_TARGET_ESP32S2)
 #define WLED_MAX_COLOR_ORDER_MAPPINGS 5
 #else
 #define WLED_MAX_COLOR_ORDER_MAPPINGS 10
@@ -125,7 +129,7 @@
   #undef WLED_MAX_LEDMAPS
 #endif
 #ifndef WLED_MAX_LEDMAPS
-  #ifdef ESP8266
+  #if defined(ESP8266) || defined(CONFIG_IDF_TARGET_ESP32S2)
     #define WLED_MAX_LEDMAPS 10
   #else
     #define WLED_MAX_LEDMAPS 16
@@ -204,6 +208,8 @@
 #define USERMOD_ID_POV_DISPLAY           53     //Usermod "usermod_pov_display.h"
 #define USERMOD_ID_PIXELS_DICE_TRAY      54     //Usermod "pixels_dice_tray.h"
 #define USERMOD_ID_DEEP_SLEEP            55     //Usermod "usermod_deep_sleep.h"
+#define USERMOD_ID_RF433                 56     //Usermod "usermod_v2_RF433.h"
+#define USERMOD_ID_BRIGHTNESS_FOLLOW_SUN 57     //Usermod "usermod_v2_brightness_follow_sun.h"
 
 //Access point behavior
 #define AP_BEHAVIOR_BOOT_NO_CONN          0     //Open AP when no connection after boot
@@ -249,6 +255,7 @@
 #define REALTIME_MODE_ARTNET      6
 #define REALTIME_MODE_TPM2NET     7
 #define REALTIME_MODE_DDP         8
+#define REALTIME_MODE_DMX         9
 
 //realtime override modes
 #define REALTIME_OVERRIDE_NONE    0
@@ -474,6 +481,8 @@
 #ifndef MAX_LEDS
 #ifdef ESP8266
 #define MAX_LEDS 1664 //can't rely on memory limit to limit this to 1600 LEDs
+#elif defined(CONFIG_IDF_TARGET_ESP32S2)
+#define MAX_LEDS 2048 //due to memory constraints
 #else
 #define MAX_LEDS 8192
 #endif
@@ -483,7 +492,9 @@
   #ifdef ESP8266
     #define MAX_LED_MEMORY 4000
   #else
-    #if defined(ARDUINO_ARCH_ESP32S2) || defined(ARDUINO_ARCH_ESP32C3)
+    #if defined(ARDUINO_ARCH_ESP32S2)
+      #define MAX_LED_MEMORY 16000
+    #elif defined(ARDUINO_ARCH_ESP32C3)
       #define MAX_LED_MEMORY 32000
     #else
       #define MAX_LED_MEMORY 64000
@@ -558,8 +569,25 @@
   #endif
 #endif
 
-//#define MIN_HEAP_SIZE (8k for AsyncWebServer)
-#define MIN_HEAP_SIZE 8192
+//#define MIN_HEAP_SIZE
+#define MIN_HEAP_SIZE 2048
+
+// Web server limits
+#ifdef ESP8266
+// Minimum heap to consider handling a request
+#define WLED_REQUEST_MIN_HEAP (8*1024)
+// Estimated maximum heap required by any one request
+#define WLED_REQUEST_HEAP_USAGE (6*1024)
+#else
+// ESP32 TCP stack needs much more RAM than ESP8266
+// Minimum heap remaining before queuing a request
+#define WLED_REQUEST_MIN_HEAP (12*1024)
+// Estimated maximum heap required by any one request
+#define WLED_REQUEST_HEAP_USAGE (12*1024)
+#endif
+// Maximum number of requests in queue; absolute cap on web server resource usage.
+// Websockets do not count against this limit.
+#define WLED_REQUEST_MAX_QUEUE 6
 
 // Maximum size of node map (list of other WLED instances)
 #ifdef ESP8266

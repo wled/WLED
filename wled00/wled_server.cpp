@@ -21,7 +21,7 @@ static const char s_accessdenied[]   PROGMEM = "Access Denied";
 static const char _common_js[]       PROGMEM = "/common.js";
 
 //Is this an IP?
-static bool isIp(String str) {
+static bool isIp(const String &str) {
   for (size_t i = 0; i < str.length(); i++) {
     int c = str.charAt(i);
     if (c != '.' && (c < '0' || c > '9')) {
@@ -152,9 +152,9 @@ static String msgProcessor(const String& var)
   return String();
 }
 
-static void handleUpload(AsyncWebServerRequest *request, const String& filename, size_t index, uint8_t *data, size_t len, bool final) {
+static void handleUpload(AsyncWebServerRequest *request, const String& filename, size_t index, uint8_t *data, size_t len, bool isFinal) {
   if (!correctPIN) {
-    if (final) request->send(401, FPSTR(CONTENT_TYPE_PLAIN), FPSTR(s_unlock_cfg));
+    if (isFinal) request->send(401, FPSTR(CONTENT_TYPE_PLAIN), FPSTR(s_unlock_cfg));
     return;
   }
   if (!index) {
@@ -170,7 +170,7 @@ static void handleUpload(AsyncWebServerRequest *request, const String& filename,
   if (len) {
     request->_tempFile.write(data,len);
   }
-  if (final) {
+  if (isFinal) {
     request->_tempFile.close();
     if (filename.indexOf(F("cfg.json")) >= 0) { // check for filename with or without slash
       doReboot = true;
@@ -288,7 +288,7 @@ void initServer()
     bool isConfig = false;
 
     if (!requestJSONBufferLock(14)) {
-      serveJsonError(request, 503, ERR_NOBUF);
+      request->deferResponse();
       return;
     }
 
@@ -328,7 +328,7 @@ void initServer()
         interfaceUpdateCallMode = CALL_MODE_WS_SEND; // schedule WS update
         serveJson(request); return; //if JSON contains "v"
       } else {
-        doSerializeConfig = true; //serializeConfig(); //Save new settings to FS
+        configNeedsWrite = true; //Save new settings to FS
       }
     }
     request->send(200, CONTENT_TYPE_JSON, F("{\"success\":true}"));
@@ -359,7 +359,7 @@ void initServer()
 
   server.on(F("/upload"), HTTP_POST, [](AsyncWebServerRequest *request) {},
         [](AsyncWebServerRequest *request, const String& filename, size_t index, uint8_t *data,
-                      size_t len, bool final) {handleUpload(request, filename, index, data, len, final);}
+                      size_t len, bool isFinal) {handleUpload(request, filename, index, data, len, isFinal);}
   );
 
   createEditHandler(correctPIN);
@@ -389,7 +389,7 @@ void initServer()
       serveMessage(request, 200, F("Update successful!"), F("Rebooting..."), 131);
       doReboot = true;
     }
-  },[](AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool final){
+  },[](AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool isFinal){
     if (!correctPIN || otaLock) return;
     if(!index){
       DEBUG_PRINTLN(F("OTA Update Start"));
@@ -406,7 +406,7 @@ void initServer()
       Update.begin((ESP.getFreeSketchSpace() - 0x1000) & 0xFFFFF000);
     }
     if(!Update.hasError()) Update.write(data, len);
-    if(final){
+    if(isFinal){
       if(Update.end(true)){
         DEBUG_PRINTLN(F("Update Success"));
       } else {
@@ -567,13 +567,14 @@ void serveSettings(AsyncWebServerRequest* request, bool post) {
   //else if (url.indexOf("/edit")   >= 0) subPage = 10;
   else subPage = SUBPAGE_WELCOME;
 
-  if (!correctPIN && strlen(settingsPIN) > 0 && (subPage > 0 && subPage < 11)) {
+  bool pinRequired = !correctPIN && strlen(settingsPIN) > 0 && (subPage > (WLED_WIFI_CONFIGURED ? SUBPAGE_MENU : SUBPAGE_WIFI) && subPage < SUBPAGE_LOCK);
+  if (pinRequired) {
     originalSubPage = subPage;
     subPage = SUBPAGE_PINREQ; // require PIN
   }
 
   // if OTA locked or too frequent PIN entry requests fail hard
-  if ((subPage == SUBPAGE_WIFI && wifiLock && otaLock) || (post && !correctPIN && millis()-lastEditTime < PIN_RETRY_COOLDOWN))
+  if ((subPage == SUBPAGE_WIFI && wifiLock && otaLock) || (post && pinRequired && millis()-lastEditTime < PIN_RETRY_COOLDOWN))
   {
     serveMessage(request, 401, FPSTR(s_accessdenied), FPSTR(s_unlock_ota), 254); return;
   }
@@ -609,7 +610,7 @@ void serveSettings(AsyncWebServerRequest* request, bool post) {
       if (!s2[0]) strcpy_P(s2, s_redirecting);
 
       bool redirectAfter9s = (subPage == SUBPAGE_WIFI || ((subPage == SUBPAGE_SEC || subPage == SUBPAGE_UM) && doReboot));
-      serveMessage(request, (correctPIN ? 200 : 401), s, s2, redirectAfter9s ? 129 : (correctPIN ? 1 : 3));
+      serveMessage(request, (!pinRequired ? 200 : 401), s, s2, redirectAfter9s ? 129 : (!pinRequired ? 1 : 3));
       return;
     }
   }

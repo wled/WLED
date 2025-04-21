@@ -50,8 +50,8 @@ void WS2812FX::setUpMatrix() {
 
     customMappingSize = 0; // prevent use of mapping if anything goes wrong
 
-    if (customMappingTable) delete[] customMappingTable;
-    customMappingTable = new uint16_t[getLengthTotal()];
+    if (customMappingTable) free(customMappingTable);
+    customMappingTable = static_cast<uint16_t*>(malloc(sizeof(uint16_t)*getLengthTotal()));
 
     if (customMappingTable) {
       customMappingSize = getLengthTotal();
@@ -68,7 +68,7 @@ void WS2812FX::setUpMatrix() {
       // content of the file is just raw JSON array in the form of [val1,val2,val3,...]
       // there are no other "key":"value" pairs in it
       // allowed values are: -1 (missing pixel/no LED attached), 0 (inactive/unused pixel), 1 (active/used pixel)
-      char    fileName[32]; strcpy_P(fileName, PSTR("/2d-gaps.json")); // reduce flash footprint
+      char    fileName[32]; strcpy_P(fileName, PSTR("/2d-gaps.json"));
       bool    isFile = WLED_FS.exists(fileName);
       size_t  gapSize = 0;
       int8_t *gapTable = nullptr;
@@ -85,7 +85,7 @@ void WS2812FX::setUpMatrix() {
           JsonArray map = pDoc->as<JsonArray>();
           gapSize = map.size();
           if (!map.isNull() && gapSize >= matrixSize) { // not an empty map
-            gapTable = new int8_t[gapSize];
+            gapTable = static_cast<int8_t*>(malloc(gapSize));
             if (gapTable) for (size_t i = 0; i < gapSize; i++) {
               gapTable[i] = constrain(map[i], -1, 1);
             }
@@ -113,7 +113,7 @@ void WS2812FX::setUpMatrix() {
       }
 
       // delete gap array as we no longer need it
-      if (gapTable) delete[] gapTable;
+      if (gapTable) free(gapTable);
 
       #ifdef WLED_DEBUG
       DEBUG_PRINT(F("Matrix ledmap:"));
@@ -145,48 +145,78 @@ void WS2812FX::setUpMatrix() {
 
 #ifndef WLED_DISABLE_2D
 
-// XY(x,y) - gets pixel index within current segment (often used to reference leds[] array element)
-uint16_t IRAM_ATTR_YN Segment::XY(int x, int y)
-{
-  const int vW = vWidth();   // segment width in logical pixels (can be 0 if segment is inactive)
-  const int vH = vHeight();  // segment height in logical pixels (is always >= 1)
-  return isActive() ? (x%vW) + (y%vH) * vW : 0;
-}
-
 // raw setColor function without checks (checks are done in setPixelColorXY())
-void IRAM_ATTR_YN Segment::_setPixelColorXY_raw(int& x, int& y, uint32_t& col)
+void IRAM_ATTR_YN Segment::_setPixelColorXY_raw(const int& x, const int& y, uint32_t& col) const
 {
   const int baseX = start + x;
   const int baseY = startY + y;
 #ifndef WLED_DISABLE_MODE_BLEND
   // if blending modes, blend with underlying pixel
-  if (_modeBlend) col = color_blend16(strip.getPixelColorXY(baseX, baseY), col, 0xFFFFU - progress());
+  if (_modeBlend && blendingStyle == BLEND_STYLE_FADE) col = color_blend16(strip.getPixelColorXY(baseX, baseY), col, 0xFFFFU - progress());
 #endif
   strip.setPixelColorXY(baseX, baseY, col);
 
   // Apply mirroring
   if (mirror || mirror_y) {
-    auto setMirroredPixel = [&](int mx, int my) {
-      strip.setPixelColorXY(mx, my, col);
-    };
-
     const int mirrorX = start + width() - x - 1;
     const int mirrorY = startY + height() - y - 1;
-
-    if (mirror) setMirroredPixel(transpose ? baseX : mirrorX, transpose ? mirrorY : baseY);
-    if (mirror_y) setMirroredPixel(transpose ? mirrorX : baseX, transpose ? baseY : mirrorY);
-    if (mirror && mirror_y) setMirroredPixel(mirrorX, mirrorY);
+    if (mirror) strip.setPixelColorXY(transpose ? baseX : mirrorX, transpose ? mirrorY : baseY, col);
+    if (mirror_y) strip.setPixelColorXY(transpose ? mirrorX : baseX, transpose ? baseY : mirrorY, col);
+    if (mirror && mirror_y) strip.setPixelColorXY(mirrorX, mirrorY, col);
   }
 }
 
-void IRAM_ATTR_YN Segment::setPixelColorXY(int x, int y, uint32_t col)
+// pixel is clipped if it falls outside clipping range (_modeBlend==true) or is inside clipping range (_modeBlend==false)
+// if clipping start > stop the clipping range is inverted
+// _modeBlend==true  -> old effect during transition
+// _modeBlend==false -> new effect during transition
+bool IRAM_ATTR_YN Segment::isPixelXYClipped(int x, int y) const {
+#ifndef WLED_DISABLE_MODE_BLEND
+  if (_clipStart != _clipStop && blendingStyle != BLEND_STYLE_FADE) {
+    const bool invertX = _clipStart > _clipStop;
+    const bool invertY = _clipStartY > _clipStopY;
+    const int startX   = invertX ? _clipStop : _clipStart;
+    const int stopX    = invertX ? _clipStart : _clipStop;
+    const int startY   = invertY ? _clipStopY : _clipStartY;
+    const int stopY    = invertY ? _clipStartY : _clipStopY;
+    if (blendingStyle == BLEND_STYLE_FAIRY_DUST) {
+      const unsigned width = stopX - startX;          // assumes full segment width (faster than virtualWidth())
+      const unsigned len = width * (stopY - startY);  // assumes full segment height (faster than virtualHeight())
+      if (len < 2) return false;
+      const unsigned shuffled = hashInt(x + y * width) % len;
+      const unsigned pos = (shuffled * 0xFFFFU) / len;
+      return progress() > pos;
+    }
+    bool xInside = (x >= startX && x < stopX); if (invertX) xInside = !xInside;
+    bool yInside = (y >= startY && y < stopY); if (invertY) yInside = !yInside;
+    const bool clip = (invertX && invertY) ? !_modeBlend : _modeBlend;
+    if (xInside && yInside) return clip; // covers window & corners (inverted)
+    return !clip;
+  }
+#endif
+  return false;
+}
+
+void IRAM_ATTR_YN Segment::setPixelColorXY(int x, int y, uint32_t col) const
 {
   if (!isActive()) return; // not active
 
   const int vW = vWidth();   // segment width in logical pixels (can be 0 if segment is inactive)
   const int vH = vHeight();  // segment height in logical pixels (is always >= 1)
-  // negative values of x & y cast into unsigend will become very large values and will therefore be greater than vW/vH
-  if (unsigned(x) >= unsigned(vW) || unsigned(y) >= unsigned(vH)) return;  // if pixel would fall out of virtual segment just exit
+
+#ifndef WLED_DISABLE_MODE_BLEND
+  unsigned prog = 0xFFFF - progress();
+  if (!prog && !_modeBlend && (blendingStyle & BLEND_STYLE_PUSH_MASK)) {
+    unsigned dX = (blendingStyle == BLEND_STYLE_PUSH_UP   || blendingStyle == BLEND_STYLE_PUSH_DOWN)  ? 0 : prog * vW / 0xFFFF;
+    unsigned dY = (blendingStyle == BLEND_STYLE_PUSH_LEFT || blendingStyle == BLEND_STYLE_PUSH_RIGHT) ? 0 : prog * vH / 0xFFFF;
+    if (blendingStyle == BLEND_STYLE_PUSH_LEFT || blendingStyle == BLEND_STYLE_PUSH_TL || blendingStyle == BLEND_STYLE_PUSH_BL) x += dX;
+    else                                                                                                                        x -= dX;
+    if (blendingStyle == BLEND_STYLE_PUSH_DOWN || blendingStyle == BLEND_STYLE_PUSH_TL || blendingStyle == BLEND_STYLE_PUSH_TR) y -= dY;
+    else                                                                                                                        y += dY;
+  }
+#endif
+
+  if (x >= vW || y >= vH || x < 0 || y < 0 || isPixelXYClipped(x,y)) return;  // if pixel would fall out of virtual segment just exit
 
   // if color is unscaled
   if (!_colorScaled) col = color_fade(col, _segBri);
@@ -215,7 +245,7 @@ void IRAM_ATTR_YN Segment::setPixelColorXY(int x, int y, uint32_t col)
 
 #ifdef WLED_USE_AA_PIXELS
 // anti-aliased version of setPixelColorXY()
-void Segment::setPixelColorXY(float x, float y, uint32_t col, bool aa)
+void Segment::setPixelColorXY(float x, float y, uint32_t col, bool aa) const
 {
   if (!isActive()) return; // not active
   if (x<0.0f || x>1.0f || y<0.0f || y>1.0f) return; // not normalized
@@ -259,9 +289,24 @@ void Segment::setPixelColorXY(float x, float y, uint32_t col, bool aa)
 // returns RGBW values of pixel
 uint32_t IRAM_ATTR_YN Segment::getPixelColorXY(int x, int y) const {
   if (!isActive()) return 0; // not active
+
   const int vW = vWidth();
   const int vH = vHeight();
-  if (unsigned(x) >= unsigned(vW) || unsigned(y) >= unsigned(vH)) return 0;  // if pixel would fall out of virtual segment just exit
+
+#ifndef WLED_DISABLE_MODE_BLEND
+  unsigned prog = 0xFFFF - progress();
+  if (!prog && !_modeBlend && (blendingStyle & BLEND_STYLE_PUSH_MASK)) {
+    unsigned dX = (blendingStyle == BLEND_STYLE_PUSH_UP   || blendingStyle == BLEND_STYLE_PUSH_DOWN)  ? 0 : prog * vW / 0xFFFF;
+    unsigned dY = (blendingStyle == BLEND_STYLE_PUSH_LEFT || blendingStyle == BLEND_STYLE_PUSH_RIGHT) ? 0 : prog * vH / 0xFFFF;
+    if (blendingStyle == BLEND_STYLE_PUSH_LEFT || blendingStyle == BLEND_STYLE_PUSH_TL || blendingStyle == BLEND_STYLE_PUSH_BL) x -= dX;
+    else                                                                                                                        x += dX;
+    if (blendingStyle == BLEND_STYLE_PUSH_DOWN || blendingStyle == BLEND_STYLE_PUSH_TL || blendingStyle == BLEND_STYLE_PUSH_TR) y -= dY;
+    else                                                                                                                        y += dY;
+  }
+#endif
+
+  if (x >= vW || y >= vH || x<0 || y<0 || isPixelXYClipped(x,y)) return 0;  // if pixel would fall out of virtual segment just exit
+
   if (reverse  ) x = vW - x - 1;
   if (reverse_y) y = vH - y - 1;
   if (transpose) { std::swap(x,y); } // swap X & Y if segment transposed
@@ -276,7 +321,7 @@ void Segment::blur2D(uint8_t blur_x, uint8_t blur_y, bool smear) {
   if (!isActive()) return; // not active
   const unsigned cols = vWidth();
   const unsigned rows = vHeight();
-  uint32_t lastnew;
+  uint32_t lastnew;   // not necessary to initialize lastnew and last, as both will be initialized by the first loop iteration
   uint32_t last;
   if (blur_x) {
     const uint8_t keepx = smear ? 255 : 255 - blur_x;
@@ -639,9 +684,7 @@ void Segment::drawCharacter(unsigned char chr, int16_t x, int16_t y, uint8_t w, 
       case 60: bits = pgm_read_byte_near(&console_font_5x12[(chr * h) + i]); break; // 5x12 font
       default: return;
     }
-    uint32_t c = ColorFromPaletteWLED(grad, (i+1)*255/h, 255, NOBLEND);
-    // pre-scale color for all pixels
-    c = color_fade(c, _segBri);
+    CRGBW c = ColorFromPalette(grad, (i+1)*255/h, _segBri, LINEARBLEND_NOWRAP);
     _colorScaled = true;
     for (int j = 0; j<w; j++) { // character width
       int x0, y0;
@@ -654,7 +697,7 @@ void Segment::drawCharacter(unsigned char chr, int16_t x, int16_t y, uint8_t w, 
       }
       if (x0 < 0 || x0 >= (int)vWidth() || y0 < 0 || y0 >= (int)vHeight()) continue; // drawing off-screen
       if (((bits>>(j+(8-w))) & 0x01)) { // bit set
-        setPixelColorXY(x0, y0, c);
+        setPixelColorXY(x0, y0, c.color32);
       }
     }
     _colorScaled = false;

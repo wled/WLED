@@ -116,6 +116,11 @@ void handleE131Packet(e131_packet_t* p, IPAddress clientIP, byte protocol){
 
   // update status info
   realtimeIP = clientIP;
+
+  handleDMXData(uni, dmxChannels, e131_data, mde, previousUniverses);
+}
+
+void handleDMXData(uint16_t uni, uint16_t dmxChannels, uint8_t* e131_data, uint8_t mde, uint8_t previousUniverses) {
   byte wChannel = 0;
   unsigned totalLen = strip.getLengthTotal();
   unsigned availDMXLen = 0;
@@ -130,7 +135,7 @@ void handleE131Packet(e131_packet_t* p, IPAddress clientIP, byte protocol){
   }
 
   // DMX data in Art-Net packet starts at index 0, for E1.31 at index 1
-  if (protocol == P_ARTNET && dataOffset > 0) {
+  if (mde == REALTIME_MODE_ARTNET && dataOffset > 0) {
     dataOffset--;
   }
 
@@ -211,7 +216,7 @@ void handleE131Packet(e131_packet_t* p, IPAddress clientIP, byte protocol){
           else
             dataOffset = DMXAddress;
           // Modify address for Art-Net data
-          if (protocol == P_ARTNET && dataOffset > 0)
+          if (mde == REALTIME_MODE_ARTNET && dataOffset > 0)
             dataOffset--;
           // Skip out of universe addresses
           if (dataOffset > dmxChannels - dmxEffectChannels + 1)
@@ -285,7 +290,7 @@ void handleE131Packet(e131_packet_t* p, IPAddress clientIP, byte protocol){
           }
         } else {
           // All subsequent universes start at the first channel.
-          dmxOffset = (protocol == P_ARTNET) ? 0 : 1;
+          dmxOffset = (mde == REALTIME_MODE_ARTNET) ? 0 : 1;
           const unsigned dimmerOffset = (DMXMode == DMX_MODE_MULTIPLE_DRGB) ? 1 : 0;
           unsigned ledsInFirstUniverse = (((MAX_CHANNELS_PER_UNIVERSE - DMXAddress) + dmxLenOffset) - dimmerOffset) / dmxChannelsPerLed;
           previousLeds = ledsInFirstUniverse + (previousUniverses - 1) * ledsPerUniverse;

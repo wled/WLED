@@ -27,7 +27,7 @@ Github will pick up the changes so your PR stays up-to-date.
 > For example, we regularly lost review comments when the PR author force-pushes code changes. So, pretty please, do not force-push.
 
 
-You can find a collection of very useful tips and tricks here: https://github.com/Aircoookie/WLED/wiki/How-to-properly-submit-a-PR
+You can find a collection of very useful tips and tricks here: https://github.com/wled-dev/WLED/wiki/How-to-properly-submit-a-PR
 
 
 ### Code style

@@ -15,7 +15,7 @@
 // ESP8266-01 (blue) got too little storage space to work with WLED. 0.10.2 is the last release supporting this unit.
 
 // ESP8266-01 (black) has 1MB flash and can thus fit the whole program, although OTA update is not possible. Use 1M(128K SPIFFS).
-// 2-step OTA may still be possible: https://github.com/Aircoookie/WLED/issues/2040#issuecomment-981111096
+// 2-step OTA may still be possible: https://github.com/wled-dev/WLED/issues/2040#issuecomment-981111096
 // Uncomment some of the following lines to disable features:
 // Alternatively, with platformio pass your chosen flags to your custom build target in platformio_override.ini
 
@@ -144,6 +144,10 @@
  #endif
 #endif
 
+#ifdef WLED_ENABLE_DMX_INPUT
+  #include "dmx_input.h"
+#endif
+
 #include "src/dependencies/e131/ESPAsyncE131.h"
 #ifndef WLED_DISABLE_MQTT
 #include "src/dependencies/async-mqtt-client/AsyncMqttClient.h"
@@ -213,6 +217,10 @@ using PSRAMDynamicJsonDocument = BasicJsonDocument<PSRAM_Allocator>;
   #define WLED_AP_PASS DEFAULT_AP_PASS
 #endif
 
+#ifndef WLED_PIN
+  #define WLED_PIN ""
+#endif
+
 #ifndef SPIFFS_EDITOR_AIRCOOOKIE
   #error You are not using the Aircoookie fork of the ESPAsyncWebserver library.\
   Using upstream puts your WiFi password at risk of being served by the filesystem.\
@@ -269,11 +277,15 @@ using PSRAMDynamicJsonDocument = BasicJsonDocument<PSRAM_Allocator>;
 // Global Variable definitions
 WLED_GLOBAL char versionString[] _INIT(TOSTRING(WLED_VERSION));
 WLED_GLOBAL char releaseString[] _INIT(WLED_RELEASE_NAME); // must include the quotes when defining, e.g -D WLED_RELEASE_NAME=\"ESP32_MULTI_USREMODS\"
-#define WLED_CODENAME "Kōsen"
+#define WLED_CODENAME "Niji"
 
 // AP and OTA default passwords (for maximum security change them!)
 WLED_GLOBAL char apPass[65]  _INIT(WLED_AP_PASS);
+#ifdef WLED_OTA_PASS
+WLED_GLOBAL char otaPass[33] _INIT(WLED_OTA_PASS);
+#else
 WLED_GLOBAL char otaPass[33] _INIT(DEFAULT_OTA_PASS);
+#endif
 
 // Hardware and pin config
 #ifndef BTNPIN
@@ -355,7 +367,7 @@ WLED_GLOBAL wifi_options_t wifiOpt _INIT_N(({0, 1, false, AP_BEHAVIOR_BOOT_NO_CO
 #define noWifiSleep  wifiOpt.noWifiSleep
 #define force802_3g  wifiOpt.force802_3g
 #else
-WLED_GLOBAL uint8_t selectedWiFi _INIT(0);
+WLED_GLOBAL int8_t selectedWiFi  _INIT(0);
 WLED_GLOBAL byte apChannel       _INIT(1);                        // 2.4GHz WiFi AP channel (1-13)
 WLED_GLOBAL byte apHide          _INIT(0);                        // hidden AP SSID
 WLED_GLOBAL byte apBehavior      _INIT(AP_BEHAVIOR_BOOT_NO_CONN); // access point opens when no connection after boot by default
@@ -367,15 +379,15 @@ WLED_GLOBAL bool noWifiSleep _INIT(false);
 WLED_GLOBAL bool force802_3g _INIT(false);
 #endif // WLED_SAVE_RAM
 #ifdef ARDUINO_ARCH_ESP32
-  #if defined(LOLIN_WIFI_FIX) && (defined(ARDUINO_ARCH_ESP32C3) || defined(ARDUINO_ARCH_ESP32S2) || defined(ARDUINO_ARCH_ESP32S3))
+  #if defined(LOLIN_WIFI_FIX) && (defined(CONFIG_IDF_TARGET_ESP32C3) || defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32S3))
 WLED_GLOBAL uint8_t txPower _INIT(WIFI_POWER_8_5dBm);
   #else
 WLED_GLOBAL uint8_t txPower _INIT(WIFI_POWER_19_5dBm);
   #endif
 #endif
-#define WLED_WIFI_CONFIGURED (strlen(multiWiFi[0].clientSSID) >= 1 && strcmp(multiWiFi[0].clientSSID, DEFAULT_CLIENT_SSID) != 0)
+#define WLED_WIFI_CONFIGURED isWiFiConfigured()
 
-#ifdef WLED_USE_ETHERNET
+#if defined(ARDUINO_ARCH_ESP32) && defined(WLED_USE_ETHERNET)
   #ifdef WLED_ETH_DEFAULT                                          // default ethernet board type if specified
     WLED_GLOBAL int ethernetType _INIT(WLED_ETH_DEFAULT);          // ethernet board type
   #else
@@ -394,6 +406,9 @@ WLED_GLOBAL byte bootPreset   _INIT(0);                   // save preset to load
 WLED_GLOBAL bool useGlobalLedBuffer _INIT(false); // double buffering disabled on ESP8266
 #else
 WLED_GLOBAL bool useGlobalLedBuffer _INIT(true);  // double buffering enabled on ESP32
+  #ifndef CONFIG_IDF_TARGET_ESP32C3
+WLED_GLOBAL bool useParallelI2S     _INIT(false); // parallel I2S for ESP32
+  #endif
 #endif
 #ifdef WLED_USE_IC_CCT
 WLED_GLOBAL bool cctICused          _INIT(true);  // CCT IC used (Athom 15W bulbs)
@@ -404,7 +419,7 @@ WLED_GLOBAL bool gammaCorrectCol    _INIT(true);  // use gamma correction on col
 WLED_GLOBAL bool gammaCorrectBri    _INIT(false); // use gamma correction on brightness
 WLED_GLOBAL float gammaCorrectVal   _INIT(2.8f);  // gamma correction value
 
-WLED_GLOBAL byte col[]    _INIT_N(({ 255, 160, 0, 0 }));  // current RGB(W) primary color. col[] should be updated if you want to change the color.
+WLED_GLOBAL byte colPri[] _INIT_N(({ 255, 160, 0, 0 }));  // current RGB(W) primary color. colPri[] should be updated if you want to change the color.
 WLED_GLOBAL byte colSec[] _INIT_N(({ 0, 0, 0, 0 }));      // current RGB(W) secondary color
 
 WLED_GLOBAL byte nightlightTargetBri _INIT(0);      // brightness after nightlight is over
@@ -459,7 +474,15 @@ WLED_GLOBAL bool arlsForceMaxBri _INIT(false);                    // enable to f
   WLED_GLOBAL uint16_t DMXStart _INIT(10);        // start address of the first fixture
   WLED_GLOBAL uint16_t DMXStartLED _INIT(0);      // LED from which DMX fixtures start
 #endif
-WLED_GLOBAL uint16_t e131Universe _INIT(1);                       // settings for E1.31 (sACN) protocol (only DMX_MODE_MULTIPLE_* can span over consecutive universes)
+#ifdef WLED_ENABLE_DMX_INPUT
+  WLED_GLOBAL int dmxInputTransmitPin _INIT(0);
+  WLED_GLOBAL int dmxInputReceivePin _INIT(0);
+  WLED_GLOBAL int dmxInputEnablePin _INIT(0);
+  WLED_GLOBAL int dmxInputPort _INIT(2);
+  WLED_GLOBAL DMXInput dmxInput;
+#endif
+
+WLED_GLOBAL uint16_t e131Universe _INIT(1);                       // settings for E1.31 (sACN) protocol (only DMX_MODE_MULTIPLE_* can span over consequtive universes)
 WLED_GLOBAL uint16_t e131Port _INIT(5568);                        // DMX in port. E1.31 default is 5568, Art-Net is 6454
 WLED_GLOBAL byte e131Priority _INIT(0);                           // E1.31 port priority (if != 0 priority handling is active)
 WLED_GLOBAL E131Priority highPriority _INIT(3);                   // E1.31 highest priority tracking, init = timeout in seconds
@@ -482,10 +505,10 @@ WLED_GLOBAL unsigned long lastMqttReconnectAttempt _INIT(0);  // used for other 
   #endif
 WLED_GLOBAL AsyncMqttClient *mqtt _INIT(NULL);
 WLED_GLOBAL bool mqttEnabled _INIT(false);
-WLED_GLOBAL char mqttStatusTopic[40] _INIT("");            // this must be global because of async handlers
-WLED_GLOBAL char mqttDeviceTopic[MQTT_MAX_TOPIC_LEN+1] _INIT("");         // main MQTT topic (individual per device, default is wled/mac)
-WLED_GLOBAL char mqttGroupTopic[MQTT_MAX_TOPIC_LEN+1]  _INIT("wled/all"); // second MQTT topic (for example to group devices)
-WLED_GLOBAL char mqttServer[MQTT_MAX_SERVER_LEN+1]     _INIT("");         // both domains and IPs should work (no SSL)
+WLED_GLOBAL char mqttStatusTopic[MQTT_MAX_TOPIC_LEN + 8] _INIT("");         // this must be global because of async handlers
+WLED_GLOBAL char mqttDeviceTopic[MQTT_MAX_TOPIC_LEN + 1] _INIT("");         // main MQTT topic (individual per device, default is wled/mac)
+WLED_GLOBAL char mqttGroupTopic[MQTT_MAX_TOPIC_LEN + 1]  _INIT("wled/all"); // second MQTT topic (for example to group devices)
+WLED_GLOBAL char mqttServer[MQTT_MAX_SERVER_LEN + 1]     _INIT("");         // both domains and IPs should work (no SSL)
 WLED_GLOBAL char mqttUser[41] _INIT("");                   // optional: username for MQTT auth
 WLED_GLOBAL char mqttPass[65] _INIT("");                   // optional: password for MQTT auth
 WLED_GLOBAL char mqttClientID[41] _INIT("");               // override the client ID
@@ -535,7 +558,7 @@ WLED_GLOBAL byte currentTimezone _INIT(WLED_TIMEZONE);    // Timezone ID. Refer 
 WLED_GLOBAL int utcOffsetSecs    _INIT(WLED_UTC_OFFSET);  // Seconds to offset from UTC before timzone calculation
 
 WLED_GLOBAL byte overlayCurrent _INIT(0);    // 0: no overlay 1: analog clock 2: was single-digit clock 3: was cronixie
-WLED_GLOBAL byte overlayMin _INIT(0), overlayMax _INIT(DEFAULT_LED_COUNT - 1);   // boundaries of overlay mode
+WLED_GLOBAL uint16_t overlayMin _INIT(0), overlayMax _INIT(DEFAULT_LED_COUNT - 1);   // boundaries of overlay mode
 
 WLED_GLOBAL byte analogClock12pixel _INIT(0);               // The pixel in your strip where "midnight" would be
 WLED_GLOBAL bool analogClockSecondsTrail _INIT(false);      // Display seconds as trail of LEDs instead of a single pixel
@@ -555,11 +578,15 @@ WLED_GLOBAL byte macroLongPress[WLED_MAX_BUTTONS]     _INIT({0});
 WLED_GLOBAL byte macroDoublePress[WLED_MAX_BUTTONS]   _INIT({0});
 
 // Security CONFIG
-WLED_GLOBAL bool otaLock     _INIT(false);  // prevents OTA firmware updates without password. ALWAYS enable if system exposed to any public networks
-WLED_GLOBAL bool wifiLock    _INIT(false);  // prevents access to WiFi settings when OTA lock is enabled
-WLED_GLOBAL bool aOtaEnabled _INIT(true);   // ArduinoOTA allows easy updates directly from the IDE. Careful, it does not auto-disable when OTA lock is on
-WLED_GLOBAL char settingsPIN[5] _INIT("");  // PIN for settings pages
-WLED_GLOBAL bool correctPIN     _INIT(true);
+#ifdef WLED_OTA_PASS
+WLED_GLOBAL bool otaLock        _INIT(true);     // prevents OTA firmware updates without password. ALWAYS enable if system exposed to any public networks
+#else
+WLED_GLOBAL bool otaLock        _INIT(false);     // prevents OTA firmware updates without password. ALWAYS enable if system exposed to any public networks
+#endif
+WLED_GLOBAL bool wifiLock       _INIT(false);     // prevents access to WiFi settings when OTA lock is enabled
+WLED_GLOBAL bool aOtaEnabled    _INIT(true);      // ArduinoOTA allows easy updates directly from the IDE. Careful, it does not auto-disable when OTA lock is on
+WLED_GLOBAL char settingsPIN[5] _INIT(WLED_PIN);  // PIN for settings pages
+WLED_GLOBAL bool correctPIN     _INIT(!strlen(settingsPIN));
 WLED_GLOBAL unsigned long lastEditTime _INIT(0);
 
 WLED_GLOBAL uint16_t userVar0 _INIT(0), userVar1 _INIT(0); //available for use in usermod
@@ -567,6 +594,7 @@ WLED_GLOBAL uint16_t userVar0 _INIT(0), userVar1 _INIT(0); //available for use i
 // internal global variable declarations
 // wifi
 WLED_GLOBAL bool apActive _INIT(false);
+WLED_GLOBAL byte apClients _INIT(0);
 WLED_GLOBAL bool forceReconnect _INIT(false);
 WLED_GLOBAL unsigned long lastReconnectAttempt _INIT(0);
 WLED_GLOBAL bool interfacesInited _INIT(false);
@@ -576,8 +604,7 @@ WLED_GLOBAL bool wasConnected _INIT(false);
 WLED_GLOBAL byte lastRandomIndex _INIT(0);        // used to save last random color so the new one is not the same
 
 // transitions
-WLED_GLOBAL bool          fadeTransition           _INIT(true);   // enable crossfading brightness/color
-WLED_GLOBAL bool          modeBlending             _INIT(true);   // enable effect blending
+WLED_GLOBAL uint8_t       blendingStyle            _INIT(0);      // effect blending/transitionig style
 WLED_GLOBAL bool          transitionActive         _INIT(false);
 WLED_GLOBAL uint16_t      transitionDelay          _INIT(750);    // global transition duration
 WLED_GLOBAL uint16_t      transitionDelayDefault   _INIT(750);    // default transition time (stored in cfg.json)
@@ -850,7 +877,7 @@ WLED_GLOBAL byte errorFlag _INIT(0);
 WLED_GLOBAL String messageHead, messageSub;
 WLED_GLOBAL byte optionType;
 
-WLED_GLOBAL bool doSerializeConfig _INIT(false);        // flag to initiate saving of config
+WLED_GLOBAL bool configNeedsWrite  _INIT(false);        // flag to initiate saving of config
 WLED_GLOBAL bool doReboot          _INIT(false);        // flag to initiate reboot from async handlers
 
 WLED_GLOBAL bool psramSafe         _INIT(true);         // is it safe to use PSRAM (on ESP32 rev.1; compiler fix used "-mfix-esp32-psram-cache-issue")
@@ -863,7 +890,7 @@ WLED_GLOBAL bool ledStatusState _INIT(false); // the current LED state
 #endif
 
 // server library objects
-WLED_GLOBAL AsyncWebServer server _INIT_N(((80)));
+WLED_GLOBAL AsyncWebServer server _INIT_N(((80, {0, WLED_REQUEST_MAX_QUEUE, WLED_REQUEST_MIN_HEAP, WLED_REQUEST_HEAP_USAGE})));
 #ifdef WLED_ENABLE_WEBSOCKETS
 WLED_GLOBAL AsyncWebSocket ws _INIT_N((("/ws")));
 #endif
@@ -880,12 +907,11 @@ WLED_GLOBAL ESPAsyncE131 ddp  _INIT_N(((handleE131Packet)));
 WLED_GLOBAL bool e131NewData _INIT(false);
 
 // led fx library object
-WLED_GLOBAL BusManager busses _INIT(BusManager());
-WLED_GLOBAL WS2812FX strip _INIT(WS2812FX());
-WLED_GLOBAL BusConfig* busConfigs[WLED_MAX_BUSSES+WLED_MIN_VIRTUAL_BUSSES] _INIT({nullptr}); //temporary, to remember values from network callback until after
-WLED_GLOBAL bool doInitBusses _INIT(false);
-WLED_GLOBAL int8_t loadLedmap _INIT(-1);
-WLED_GLOBAL uint8_t currentLedmap _INIT(0);
+WLED_GLOBAL WS2812FX   strip         _INIT(WS2812FX());
+WLED_GLOBAL std::vector<BusConfig> busConfigs;    //temporary, to remember values from network callback until after
+WLED_GLOBAL bool       doInitBusses  _INIT(false);
+WLED_GLOBAL int8_t     loadLedmap    _INIT(-1);
+WLED_GLOBAL uint8_t    currentLedmap _INIT(0);
 #ifndef ESP8266
 WLED_GLOBAL char  *ledmapNames[WLED_MAX_LEDMAPS-1] _INIT_N(({nullptr}));
 #endif
@@ -894,9 +920,6 @@ WLED_GLOBAL uint32_t ledMaps _INIT(0); // bitfield representation of available l
 #else
 WLED_GLOBAL uint16_t ledMaps _INIT(0); // bitfield representation of available ledmaps
 #endif
-
-// Usermod manager
-WLED_GLOBAL UsermodManager usermods _INIT(UsermodManager());
 
 // global I2C SDA pin (used for usermods)
 #ifndef I2CSDAPIN
@@ -1038,11 +1061,9 @@ public:
 
   void beginStrip();
   void handleConnection();
-  bool initEthernet(); // result is informational
   void initAP(bool resetAP = false);
   void initConnection();
   void initInterfaces();
-  int8_t findWiFi(bool doScan = false);
   #if defined(STATUSLED)
   void handleStatusLED();
   #endif

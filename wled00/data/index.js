@@ -409,7 +409,9 @@ function pName(i)
 
 function isPlaylist(i)
 {
-	return pJson[i].playlist && pJson[i].playlist.ps;
+	if (isNumeric(i)) return pJson[i].playlist && pJson[i].playlist.ps;
+	if (isObj(i)) return i.playlist && i.playlist.ps;
+	return false;
 }
 
 function papiVal(i)
@@ -677,8 +679,10 @@ function parseInfo(i) {
 	isM = mw>0 && mh>0;
 	if (!isM) {
 		gId("filter2D").classList.add('hide');
+		gId('bs').querySelectorAll('option[data-type="2D"]').forEach((o,i)=>{o.style.display='none';});
 	} else {
 		gId("filter2D").classList.remove('hide');
+		gId('bs').querySelectorAll('option[data-type="2D"]').forEach((o,i)=>{o.style.display='';});
 	}
 //	if (i.noaudio) {
 //		gId("filterVol").classList.add("hide");
@@ -773,8 +777,8 @@ function populateSegments(s)
 		}
 
 		let segp = `<div id="segp${i}" class="sbs">`+
-						`<i class="icons slider-icon pwr ${inst.on ? "act":""}" id="seg${i}pwr" onclick="setSegPwr(${i})">&#xe08f;</i>`+
-						`<div class="sliderwrap il">`+
+						`<i class="icons slider-icon pwr ${inst.on ? "act":""}" id="seg${i}pwr" title="Power" onclick="setSegPwr(${i})">&#xe08f;</i>`+
+						`<div class="sliderwrap il" title="Opacity/Brightness">`+
 							`<input id="seg${i}bri" class="noslide" onchange="setSegBri(${i})" oninput="updateTrail(this)" max="255" min="1" type="range" value="${inst.bri}" />`+
 							`<div class="sliderdisplay"></div>`+
 						`</div>`+
@@ -805,12 +809,14 @@ function populateSegments(s)
 						`<div class="sel-p"><select class="sel-p" id="seg${i}si" onchange="setSi(${i})">`+
 							`<option value="0" ${inst.si==0?' selected':''}>BeatSin</option>`+
 							`<option value="1" ${inst.si==1?' selected':''}>WeWillRockYou</option>`+
+							`<option value="2" ${inst.si==2?' selected':''}>10/13</option>`+
+							`<option value="3" ${inst.si==3?' selected':''}>14/3</option>`+
 						`</select></div>`+
 					`</div>`;
 		cn += `<div class="seg lstI ${i==s.mainseg && !simplifiedUI ? 'selected' : ''} ${exp ? "expanded":""}" id="seg${i}" data-set="${inst.set}">`+
 				`<label class="check schkl ${smpl}">`+
 					`<input type="checkbox" id="seg${i}sel" onchange="selSeg(${i})" ${inst.sel ? "checked":""}>`+
-					`<span class="checkmark"></span>`+
+					`<span class="checkmark" title="Select"></span>`+
 				`</label>`+
 				`<div class="segname ${smpl}" onclick="selSegEx(${i})">`+
 					`<i class="icons e-icon frz" id="seg${i}frz" title="(un)Freeze" onclick="event.preventDefault();tglFreeze(${i});">&#x${inst.frz ? (li.live && li.liveseg==i?'e410':'e0e8') : 'e325'};</i>`+
@@ -1414,7 +1420,7 @@ function makeWS() {
 		ws = null;
 	}
 	ws.onopen = (e)=>{
-		//ws.send("{'v':true}"); // unnecessary (https://github.com/Aircoookie/WLED/blob/master/wled00/ws.cpp#L18)
+		//ws.send("{'v':true}"); // unnecessary (https://github.com/wled-dev/WLED/blob/main/wled00/ws.cpp#L18)
 		wsRpt = 0;
 		reqsLegal = true;
 	}
@@ -1437,6 +1443,9 @@ function readState(s,command=false)
 
 	tr = s.transition;
 	gId('tt').value = tr/10;
+	gId('bs').value = s.bs || 0;
+	if (tr===0) gId('bsp').classList.add('hide')
+	else gId('bsp').classList.remove('hide')
 
 	populateSegments(s);
 	var selc=0;
@@ -1659,13 +1668,17 @@ function setEffectParameters(idx)
 			paOnOff[0] = paOnOff[0].substring(0,dPos);
 		}
 		if (paOnOff.length>0 && paOnOff[0] != "!") text = paOnOff[0];
+		gId("adPal").classList.remove("hide");
+		if (lastinfo.cpalcount>0) gId("rmPal").classList.remove("hide");
 	} else {
 		// disable palette list
 		text += ' not used';
 		palw.style.display = "none";
+		gId("adPal").classList.add("hide");
+		gId("rmPal").classList.add("hide");
 		// Close palette dialog if not available
-		if (gId("palw").lastElementChild.tagName == "DIALOG") {
-			gId("palw").lastElementChild.close();
+		if (palw.lastElementChild.tagName == "DIALOG") {
+			palw.lastElementChild.close();
 		}
 	}
 	pall.innerHTML = icon + text;
@@ -1698,6 +1711,7 @@ function requestJson(command=null)
 			var tn = parseInt(t.value*10);
 			if (tn != tr) command.transition = tn;
 		}
+		//command.bs = parseInt(gId('bs').value);
 		req = JSON.stringify(command);
 		if (req.length > 1340) useWs = false; // do not send very long requests over websocket
 		if (req.length >  500 && lastinfo && lastinfo.arch == "esp8266") useWs = false; // esp8266 can only handle 500 bytes
@@ -1879,7 +1893,7 @@ function makeSeg()
 function resetUtil(off=false)
 {
 	gId('segutil').innerHTML = `<div class="seg btn btn-s${off?' off':''}" style="padding:0;margin-bottom:12px;">`
-	+ '<label class="check schkl"><input type="checkbox" id="selall" onchange="selSegAll(this)"><span class="checkmark"></span></label>'
+	+ '<label class="check schkl"><input type="checkbox" id="selall" onchange="selSegAll(this)"><span class="checkmark" title="Select all"></span></label>'
 	+ `<div class="segname" ${off?'':'onclick="makeSeg()"'}><i class="icons btn-icon">&#xe18a;</i>Add segment</div>`
 	+ '<div class="pop hide" onclick="event.stopPropagation();">'
 	+ `<i class="icons g-icon" title="Select group" onclick="this.nextElementSibling.classList.toggle('hide');">&#xE34B;</i>`
@@ -1893,15 +1907,16 @@ function resetUtil(off=false)
 	if (lSeg>2) d.querySelectorAll("#Segments .pop").forEach((e)=>{e.classList.remove("hide");});
 }
 
-function makePlSel(el, incPl=false)
+function makePlSel(p, el)
 {
 	var plSelContent = "";
 	delete pJson["0"];	// remove filler preset
 	Object.entries(pJson).sort(cmpP).forEach((a)=>{
 		var n = a[1].n ? a[1].n : "Preset " + a[0];
+		if (isPlaylist(a[1])) n += ' &#9654;'; // mark playlist
 		if (cfg.comp.idsort) n = a[0] + ' ' + n;
-		if (!(!incPl && a[1].playlist && a[1].playlist.ps)) // skip playlists, sub-playlists not yet supported
-			plSelContent += `<option value="${a[0]}" ${a[0]==el?"selected":""}>${n}</option>`;
+		// skip endless playlists and itself
+		if (!isPlaylist(a[1]) || (a[1].playlist.repeat > 0 && a[0]!=p)) plSelContent += `<option value="${a[0]}" ${a[0]==el?"selected":""}>${n}</option>`;
 	});
 	return plSelContent;
 }
@@ -1926,21 +1941,23 @@ function refreshPlE(p)
 	});
 }
 
-// p: preset ID, i: ps index
+// p: preset ID, i: playlist item index
 function addPl(p,i)
 {
-	plJson[p].ps.splice(i+1,0,0);
-	plJson[p].dur.splice(i+1,0,plJson[p].dur[i]);
-	plJson[p].transition.splice(i+1,0,plJson[p].transition[i]);
+	const pl = plJson[p];
+	pl.ps.splice(i+1,0,1);
+	pl.dur.splice(i+1,0,pl.dur[i]);
+	pl.transition.splice(i+1,0,pl.transition[i]);
 	refreshPlE(p);
 }
 
 function delPl(p,i)
 {
-	if (plJson[p].ps.length < 2) return;
-	plJson[p].ps.splice(i,1);
-	plJson[p].dur.splice(i,1);
-	plJson[p].transition.splice(i,1);
+	const pl = plJson[p];
+	if (pl.ps.length < 2) return;
+	pl.ps.splice(i,1);
+	pl.dur.splice(i,1);
+	pl.transition.splice(i,1);
 	refreshPlE(p);
 }
 
@@ -1957,6 +1974,13 @@ function pleDur(p,i,field)
 
 function pleTr(p,i,field)
 {
+	const du = gId(`pl${p}du${i}`);
+	const dv = parseFloat(du.value);
+	if (dv > 0) {
+		field.max = dv;
+		if (parseFloat(field.value) > dv)
+			field.value = du.value;
+	}
 	if (field.validity.valid)
 		plJson[p].transition[i] = Math.floor(field.value*10);
 }
@@ -1976,6 +2000,17 @@ function plR(p)
 	}
 }
 
+function plM(p)
+{
+	const man = gId(`pl${p}manual`).checked;
+	plJson[p].dur.forEach((e,i)=>{
+		const d = gId(`pl${p}du${i}`);
+		plJson[p].dur[i] = e = man ? 0 : 100;
+		d.value = e/10; // 10s default 
+		d.readOnly = man;
+	});
+}
+
 function makeP(i,pl)
 {
 	var content = "";
@@ -1989,10 +2024,15 @@ function makeP(i,pl)
 			r: false,
 			end: 0
 		};
-		var rep = plJson[i].repeat ? plJson[i].repeat : 0;
+		const rep = plJson[i].repeat ? plJson[i].repeat : 0;
+		const man = plJson[i].dur == 0;
 		content =
 `<div id="ple${i}" style="margin-top:10px;"></div><label class="check revchkl">Shuffle
 	<input type="checkbox" id="pl${i}rtgl" onchange="plR(${i})" ${plJson[i].r||rep<0?"checked":""}>
+	<span class="checkmark"></span>
+</label>
+<label class="check revchkl">Manual advance
+	<input type="checkbox" id="pl${i}manual" onchange="plM(${i})" ${man?"checked":""}>
 	<span class="checkmark"></span>
 </label>
 <label class="check revchkl">Repeat indefinitely
@@ -2005,7 +2045,7 @@ function makeP(i,pl)
 <div class="sel-p"><select class="sel-ple" id="pl${i}selEnd" onchange="plR(${i})" data-val=${plJson[i].end?plJson[i].end:0}>
 <option value="0">None</option>
 <option value="255" ${plJson[i].end && plJson[i].end==255?"selected":""}>Restore preset</option>
-${makePlSel(plJson[i].end?plJson[i].end:0, true)}
+${makePlSel(i, plJson[i].end?plJson[i].end:0)}
 </select></div></div>
 </div>
 <div class="c"><button class="btn btn-p" onclick="testPl(${i}, this)"><i class='icons btn-icon'>&#xe139;</i>Test</button></div>`;
@@ -2078,25 +2118,26 @@ function makePUtil()
 
 function makePlEntry(p,i)
 {
+	const man = gId(`pl${p}manual`).checked;
 	return `<div class="plentry">
 	<div class="hrz"></div>
 	<table>
 	<tr>
 		<td width="80%" colspan=2>
 			<div class="sel-p"><select class="sel-pl" onchange="plePs(${p},${i},this)" data-val="${plJson[p].ps[i]}" data-index="${i}">
-			${makePlSel(plJson[p].ps[i])}
+			${makePlSel(p, plJson[p].ps[i])}
 			</select></div>
 		</td>
 		<td class="c"><button class="btn btn-pl-add" onclick="addPl(${p},${i})"><i class="icons btn-icon">&#xe18a;</i></button></td>
 	</tr>
 	<tr>
-		<td class="c">Duration</td>
+		<td class="c">Duration <i style="font-size:70%;">(0=inf.)</i></td>
 		<td class="c">Transition</td>
 		<td class="c">#${i+1}</td>
 	</tr>
 	<tr>
-		<td class="c" width="40%"><input class="segn" type="number" placeholder="Duration" max=6553.0 min=0.2 step=0.1 oninput="pleDur(${p},${i},this)" value="${plJson[p].dur[i]/10.0}">s</td>
-		<td class="c" width="40%"><input class="segn" type="number" placeholder="Transition" max=65.0 min=0.0 step=0.1 oninput="pleTr(${p},${i},this)" value="${plJson[p].transition[i]/10.0}">s</td>
+		<td class="c" width="40%"><input class="segn" type="number" placeholder="Duration" max=6553.0 min=0.0 step=0.1 oninput="pleDur(${p},${i},this)" value="${plJson[p].dur[i]/10.0}" id="pl${p}du${i}" ${man?"readonly":""}>s</td>
+		<td class="c" width="40%"><input class="segn" type="number" placeholder="Transition" max=65.0 min=0.0 step=0.1 oninput="pleTr(${p},${i},this)" onfocus="pleTr(${p},${i},this)" value="${plJson[p].transition[i]/10.0}">s</td>
 		<td class="c"><button class="btn btn-pl-del" onclick="delPl(${p},${i})"><i class="icons btn-icon">&#xe037;</i></button></div></td>
 	</tr>
 	</table>
@@ -2649,28 +2690,28 @@ function fromRgb()
 	var g = gId('sliderG').value;
 	var b = gId('sliderB').value;
 	setPicker(`rgb(${r},${g},${b})`);
-	let cd = gId('csl').children; // color slots
-	cd[csel].dataset.r = r;
-	cd[csel].dataset.g = g;
-	cd[csel].dataset.b = b;
-	setCSL(cd[csel]);
+	let cd = gId('csl').children[csel]; // color slots
+	cd.dataset.r = r;
+	cd.dataset.g = g;
+	cd.dataset.b = b;
+	setCSL(cd);
 }
 
 function fromW()
 {
 	let w = gId('sliderW');
-	let cd = gId('csl').children; // color slots
-	cd[csel].dataset.w = w.value;
-	setCSL(cd[csel]);
+	let cd = gId('csl').children[csel]; // color slots
+	cd.dataset.w = w.value;
+	setCSL(cd);
 	updateTrail(w);
 }
 
 // sr 0: from RGB sliders, 1: from picker, 2: from hex
 function setColor(sr)
 {
-	var cd = gId('csl').children; // color slots
-	let cdd = cd[csel].dataset;
-	let w = 0, r,g,b;
+	var cd = gId('csl').children[csel]; // color slots
+	let cdd = cd.dataset;
+	let w = parseInt(cdd.w), r = parseInt(cdd.r), g = parseInt(cdd.g), b = parseInt(cdd.b);
 	if (sr == 1 && isRgbBlack(cdd)) cpick.color.setChannel('hsv', 'v', 100);
 	if (sr != 2 && hasWhite) w = parseInt(gId('sliderW').value);
 	var col = cpick.color.rgb;
@@ -2678,7 +2719,7 @@ function setColor(sr)
 	cdd.g = g = hasRGB ? col.g : w;
 	cdd.b = b = hasRGB ? col.b : w;
 	cdd.w = w;
-	setCSL(cd[csel]);
+	setCSL(cd);
 	var obj = {"seg": {"col": [[],[],[]]}};
 	obj.seg.col[csel] = [r, g, b, w];
 	requestJson(obj);
@@ -2721,7 +2762,7 @@ setInterval(()=>{
 	gId('heart').style.color = `hsl(${hc}, 100%, 50%)`;
 }, 910);
 
-function openGH() { window.open("https://github.com/Aircoookie/WLED/wiki"); }
+function openGH() { window.open("https://github.com/wled-dev/WLED/wiki"); }
 
 var cnfr = false;
 function cnfReset()
@@ -3114,10 +3155,9 @@ function mergeDeep(target, ...sources)
 	return mergeDeep(target, ...sources);
 }
 
-function tooltip(cont=null)
-{
+function tooltip(cont=null) {
 	d.querySelectorAll((cont?cont+" ":"")+"[title]").forEach((element)=>{
-		element.addEventListener("mouseover", ()=>{
+		element.addEventListener("pointerover", ()=>{
 			// save title
 			element.setAttribute("data-title", element.getAttribute("title"));
 			const tooltip = d.createElement("span");
@@ -3142,7 +3182,7 @@ function tooltip(cont=null)
 			tooltip.classList.add("visible");
 		});
 
-		element.addEventListener("mouseout", ()=>{
+		element.addEventListener("pointerout", ()=>{
 			d.querySelectorAll('.tooltip').forEach((tooltip)=>{
 				tooltip.classList.remove("visible");
 				d.body.removeChild(tooltip);

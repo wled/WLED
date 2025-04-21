@@ -1,0 +1,7 @@
+{
+  "name:": "EleksTube_IPS",
+  "dependencies": {
+    "TFT_eSPI" : "2.5.33"
+  } 
+}
+# Seems to add 300kb to the RAM requirement???

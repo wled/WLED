@@ -1,0 +1,6 @@
+{
+  "name:": "PWM_fan",
+  "build": {
+    "extraScript": "setup_deps.py"
+  }
+}

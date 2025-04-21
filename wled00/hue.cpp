@@ -195,9 +195,9 @@ void onHueData(void* arg, AsyncClient* client, void *data, size_t len)
   {
     switch(hueColormode)
     {
-      case 1: if (hueX != hueXLast || hueY != hueYLast) colorXYtoRGB(hueX,hueY,col); hueXLast = hueX; hueYLast = hueY; break;
-      case 2: if (hueHue != hueHueLast || hueSat != hueSatLast) colorHStoRGB(hueHue,hueSat,col); hueHueLast = hueHue; hueSatLast = hueSat; break;
-      case 3: if (hueCt != hueCtLast) colorCTtoRGB(hueCt,col); hueCtLast = hueCt; break;
+      case 1: if (hueX != hueXLast || hueY != hueYLast) colorXYtoRGB(hueX,hueY,colPri); hueXLast = hueX; hueYLast = hueY; break;
+      case 2: if (hueHue != hueHueLast || hueSat != hueSatLast) colorHStoRGB(hueHue,hueSat,colPri); hueHueLast = hueHue; hueSatLast = hueSat; break;
+      case 3: if (hueCt != hueCtLast) colorCTtoRGB(hueCt,colPri); hueCtLast = hueCt; break;
     }
   }
   hueReceived = true;

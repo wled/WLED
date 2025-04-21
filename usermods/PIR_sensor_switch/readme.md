@@ -5,7 +5,7 @@ This usermod-v2 modification allows the connection of a PIR sensor to switch on 
 _Story:_
 
 I use the PIR Sensor to automatically turn on the WLED analog clock in my home office room when I am there.
-The LED strip is switched [using a relay](https://github.com/Aircoookie/WLED/wiki/Control-a-relay-with-WLED) to keep the power consumption low when it is switched off.
+The LED strip is switched [using a relay](https://kno.wled.ge/features/relay-control/) to keep the power consumption low when it is switched off.
 
 ## Web interface
 

@@ -10,26 +10,28 @@
  */
 uint32_t color_blend(uint32_t color1, uint32_t color2, uint8_t blend) {
   // min / max blend checking is omitted: calls with 0 or 255 are rare, checking lowers overall performance
-  uint32_t rb1 = color1 & 0x00FF00FF;
-  uint32_t wg1 = (color1>>8) & 0x00FF00FF;
-  uint32_t rb2 = color2 & 0x00FF00FF;
-  uint32_t wg2 = (color2>>8) & 0x00FF00FF;
-  uint32_t rb3 = ((((rb1 << 8) | rb2) + (rb2 * blend) - (rb1 * blend)) >> 8) & 0x00FF00FF;
-  uint32_t wg3 = ((((wg1 << 8) | wg2) + (wg2 * blend) - (wg1 * blend))) & 0xFF00FF00;
+  const uint32_t TWO_CHANNEL_MASK = 0x00FF00FF;     // mask for R and B channels or W and G if negated (poorman's SIMD; https://github.com/wled/WLED/pull/4568#discussion_r1986587221)
+  uint32_t rb1 =  color1       & TWO_CHANNEL_MASK;  // extract R & B channels from color1
+  uint32_t wg1 = (color1 >> 8) & TWO_CHANNEL_MASK;  // extract W & G channels from color1 (shifted for multiplication later)
+  uint32_t rb2 =  color2       & TWO_CHANNEL_MASK;  // extract R & B channels from color2
+  uint32_t wg2 = (color2 >> 8) & TWO_CHANNEL_MASK;  // extract W & G channels from color2 (shifted for multiplication later)
+  uint32_t rb3 = ((((rb1 << 8) | rb2) + (rb2 * blend) - (rb1 * blend)) >> 8) &  TWO_CHANNEL_MASK; // blend red and blue
+  uint32_t wg3 = ((((wg1 << 8) | wg2) + (wg2 * blend) - (wg1 * blend)))      & ~TWO_CHANNEL_MASK; // negated mask for white and green
   return rb3 | wg3;
 }
 
 /*
  * color add function that preserves ratio
- * original idea: https://github.com/Aircoookie/WLED/pull/2465 by https://github.com/Proto-molecule
+ * original idea: https://github.com/wled-dev/WLED/pull/2465 by https://github.com/Proto-molecule
  * speed optimisations by @dedehai
  */
 uint32_t color_add(uint32_t c1, uint32_t c2, bool preserveCR)
 {
   if (c1 == BLACK) return c2;
   if (c2 == BLACK) return c1;
-  uint32_t rb = (c1 & 0x00FF00FF) + (c2 & 0x00FF00FF); // mask and add two colors at once
-  uint32_t wg = ((c1>>8) & 0x00FF00FF) + ((c2>>8) & 0x00FF00FF);
+  const uint32_t TWO_CHANNEL_MASK = 0x00FF00FF; // mask for R and B channels or W and G if negated
+  uint32_t rb = ( c1     & TWO_CHANNEL_MASK) + ( c2     & TWO_CHANNEL_MASK); // mask and add two colors at once
+  uint32_t wg = ((c1>>8) & TWO_CHANNEL_MASK) + ((c2>>8) & TWO_CHANNEL_MASK);
   uint32_t r = rb >> 16; // extract single color values
   uint32_t b = rb & 0xFFFF;
   uint32_t w = wg >> 16;
@@ -44,10 +46,10 @@ uint32_t color_add(uint32_t c1, uint32_t c2, bool preserveCR)
     //max = b > max ? b : max;
     //max = w > max ? w : max;
     if (max > 255) {
-      uint32_t scale = (uint32_t(255)<<8) / max; // division of two 8bit (shifted) values does not work -> use bit shifts and multiplaction instead
-      rb = ((rb * scale) >> 8) & 0x00FF00FF; //
-      wg = (wg * scale) & 0xFF00FF00;
-    } else wg = wg << 8; //shift white and green back to correct position
+      const uint32_t scale = (uint32_t(255)<<8) / max; // division of two 8bit (shifted) values does not work -> use bit shifts and multiplaction instead
+      rb = ((rb * scale) >> 8) &  TWO_CHANNEL_MASK;
+      wg =  (wg * scale)       & ~TWO_CHANNEL_MASK;
+    } else wg <<= 8; //shift white and green back to correct position
     return rb | wg;
   } else {
     r = r > 255 ? 255 : r;
@@ -77,8 +79,9 @@ uint32_t color_fade(uint32_t c1, uint8_t amount, bool video)
     addRemains |= B(c1) ? 0x00000001 : 0;
     addRemains |= W(c1) ? 0x01000000 : 0;
   }
-  uint32_t rb = (((c1 & 0x00FF00FF) * scale) >> 8) & 0x00FF00FF; // scale red and blue
-  uint32_t wg = (((c1 & 0xFF00FF00) >> 8) * scale) & 0xFF00FF00; // scale white and green
+  const uint32_t TWO_CHANNEL_MASK = 0x00FF00FF;
+  uint32_t rb = (((c1 & TWO_CHANNEL_MASK) * scale) >> 8) &  TWO_CHANNEL_MASK; // scale red and blue
+  uint32_t wg = (((c1 >> 8) & TWO_CHANNEL_MASK) * scale) & ~TWO_CHANNEL_MASK; // scale white and green
   scaledcolor = (rb | wg) + addRemains;
   return scaledcolor;
 }
@@ -87,25 +90,27 @@ uint32_t color_fade(uint32_t c1, uint8_t amount, bool video)
 uint32_t ColorFromPaletteWLED(const CRGBPalette16& pal, unsigned index, uint8_t brightness, TBlendType blendType)
 {
   if (blendType == LINEARBLEND_NOWRAP) {
-    index = (index*240) >> 8; // Blend range is affected by lo4 blend of values, remap to avoid wrapping
+    index = (index * 0xF0) >> 8; // Blend range is affected by lo4 blend of values, remap to avoid wrapping
   }
   unsigned hi4 = byte(index) >> 4;
-  const CRGB* entry = (CRGB*)((uint8_t*)(&(pal[0])) + (hi4 * sizeof(CRGB)));
+  unsigned lo4 = (index & 0x0F);
+  const CRGB* entry = (CRGB*)&(pal[0]) + hi4;
   unsigned red1   = entry->r;
   unsigned green1 = entry->g;
   unsigned blue1  = entry->b;
-  if (blendType != NOBLEND) {
+  if (lo4 && blendType != NOBLEND) {
     if (hi4 == 15) entry = &(pal[0]);
     else ++entry;
-    unsigned f2 = ((index & 0x0F) << 4) + 1; // +1 so we scale by 256 as a max value, then result can just be shifted by 8
-    unsigned f1 = (257 - f2); // f2 is 1 minimum, so this is 256 max
-    red1   = (red1 * f1 + (unsigned)entry->r * f2) >> 8;
+    unsigned f2 = (lo4 << 4);
+    unsigned f1 = 256 - f2;
+    red1   = (red1 * f1 + (unsigned)entry->r * f2) >> 8; // note: using color_blend() is 20% slower
     green1 = (green1 * f1 + (unsigned)entry->g * f2) >> 8;
     blue1  = (blue1 * f1 + (unsigned)entry->b * f2) >> 8;
   }
   if (brightness < 255) { // note: zero checking could be done to return black but that is hardly ever used so it is omitted
+    // actually color_fade(c1, brightness)
     uint32_t scale = brightness + 1; // adjust for rounding (bitshift)
-    red1   = (red1 * scale) >> 8;
+    red1   = (red1 * scale) >> 8; // note: using color_fade() is 30% slower
     green1 = (green1 * scale) >> 8;
     blue1  = (blue1 * scale) >> 8;
   }
@@ -122,7 +127,7 @@ void setRandomColor(byte* rgb)
  * generates a random palette based on harmonic color theory
  * takes a base palette as the input, it will choose one color of the base palette and keep it
  */
-CRGBPalette16 generateHarmonicRandomPalette(CRGBPalette16 &basepalette)
+CRGBPalette16 generateHarmonicRandomPalette(const CRGBPalette16 &basepalette)
 {
   CHSV palettecolors[4]; // array of colors for the new palette
   uint8_t keepcolorposition = hw_random8(4); // color position of current random palette to keep
@@ -391,7 +396,7 @@ void colorXYtoRGB(float x, float y, byte* rgb) //coordinates to rgb (https://www
   rgb[2] = byte(255.0f*b);
 }
 
-void colorRGBtoXY(byte* rgb, float* xy) //rgb to coordinates (https://www.developers.meethue.com/documentation/color-conversions-rgb-xy)
+void colorRGBtoXY(const byte* rgb, float* xy) //rgb to coordinates (https://www.developers.meethue.com/documentation/color-conversions-rgb-xy)
 {
   float X = rgb[0] * 0.664511f + rgb[1] * 0.154324f + rgb[2] * 0.162028f;
   float Y = rgb[0] * 0.283881f + rgb[1] * 0.668433f + rgb[2] * 0.047685f;
@@ -402,7 +407,7 @@ void colorRGBtoXY(byte* rgb, float* xy) //rgb to coordinates (https://www.develo
 #endif // WLED_DISABLE_HUESYNC
 
 //RRGGBB / WWRRGGBB order for hex
-void colorFromDecOrHexString(byte* rgb, char* in)
+void colorFromDecOrHexString(byte* rgb, const char* in)
 {
   if (in[0] == 0) return;
   char first = in[0];
