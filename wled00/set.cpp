@@ -96,7 +96,6 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
       char rm[4];
       snprintf(rm, sizeof(rm), "RM%d", n); // "RM0" to "RM9"
       if (request->hasArg(rm)) {
-        Serial.printf_P(PSTR("Adding remote %s\n"), request->arg(rm).c_str());//!!!
         const String& arg = request->arg(rm);
         if (arg.isEmpty()) continue;
         std::array<char, 13> mac{};
