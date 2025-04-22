@@ -137,11 +137,67 @@ Static subnet mask:<br>
 			loadJS(getURL('/settings/s.js?p=1'), false);	// If we set async false, file is loaded and executed, then next statement is processed
 			if (loc) d.Sf.action = getURL('/settings/wifi');
 		}
+
+    var remoteCount = 0;
+    // Initialize empty list for remotes
+    function resetRemotes() {
+      d.getElementById('rmlist').innerHTML = '';
+      remoteCount = 0;
+      updateRMArray();
+    }
+
+    // Add a Remote MAC to the list
+    function addRemote(id, mac) {
+      if (!mac || mac === 'None') return;
+      if (remoteCount >= 10) return;
+      let inputs = d.getElementById('rmlist').getElementsByTagName('input');
+      for (let i = 0; i < inputs.length; i++) {
+        if (inputs[i].value === mac) return;
+      }
+      let list = d.getElementById('rmlist');
+      let row = d.createElement('div');
+      let inp = d.createElement('input');
+      inp.type = 'text';
+      inp.name = id;
+      inp.value = mac;
+      inp.maxLength = 12;
+      inp.minLength = 12;
+      inp.onchange = updateRMArray;
+      row.appendChild(inp);
+      let btn = d.createElement('button');
+      btn.type = 'button';
+      btn.className = 'btn btn-xs';
+      btn.innerText = 'Remove';
+      btn.onclick = function() {
+        removeRemote(row);
+      };
+      row.appendChild(btn);
+      list.appendChild(row);
+      remoteCount++;
+      updateRMArray();
+    }
+    // Remove a remote from the list
+    function removeRemote(element) {
+      element.remove();
+      updateRMArray();
+    }
+    // Update hidden input with JSON array of MACs
+    function updateRMArray() {
+      let macs = [];
+      let inputs = d.getElementById('rmlist').getElementsByTagName('input');
+      for (let i = 0; i < inputs.length; i++) {
+        if (inputs[i].value && inputs[i].value !== '') {
+          macs.push(inputs[i].value);
+        }
+      }
+      d.getElementById('rmacs').value = JSON.stringify(macs);
+      return true; // Allow form submission to continue
+    }
 	</script>
 	<style>@import url("style.css");</style>
 </head>
 <body onload="S()">
-	<form id="form_s" name="Sf" method="post">
+  <form id="form_s" name="Sf" method="post" onsubmit="return updateRMArray()">
 		<div class="toprow">
 		<div class="helpB"><button type="button" onclick="H('features/settings/#wifi-settings')">?</button></div>
 		<button type="button" onclick="B()">Back</button><button type="submit">Save & Connect</button><hr>
@@ -205,8 +261,12 @@ Static subnet mask:<br>
 			Enable ESP-NOW: <input type="checkbox" name="RE"><br>
 			<i>Listen for events over ESP-NOW<br>
 			Keep disabled if not using a remote or wireless sync, increases power consumption.<br></i>
-			Paired Remote MAC: <input type="text" name="RMAC" minlength="12" maxlength="12"><br>
-			Last device seen: <span class="rlid" onclick="d.Sf.RMAC.value=this.textContent;" style="cursor:pointer;">None</span> <br>
+      Last device seen: <span class="rlid">None</span>
+      <button type="button" class="btn btn-xs" onclick="addRemote('RM'+remoteCount,this.parentElement.querySelector('.rlid').textContent)">Add</button><br>
+      Linked MACs:<br>
+      <div id="rmlist">
+      </div>
+      <input type="hidden" name="RMA" id="rmacs">
 		</div>
 
 		<div id="ethd">

@@ -959,14 +959,22 @@ void espNowReceiveCB(uint8_t* address, uint8_t* data, uint8_t len, signed int rs
   // usermods hook can override processing
   if (UsermodManager::onEspNowMessage(address, data, len)) return;
 
-  // handle WiZ Mote data
-  if (data[0] == 0x91 || data[0] == 0x81 || data[0] == 0x80) {
-    handleWiZdata(data, len);
+  bool knownRemote = false;
+  for (const auto& mac : linked_remotes) {
+    if (strlen(mac.data()) == 12 && strcmp(last_signal_src, mac.data()) == 0) {
+      knownRemote = true;
+      break;
+    }
+  }
+  if (!knownRemote) {
+    DEBUG_PRINT(F("ESP Now Message Received from Unlinked Sender: "));
+    DEBUG_PRINTLN(last_signal_src);
     return;
   }
 
-  if (strlen(linked_remote) == 12 && strcmp(last_signal_src, linked_remote) != 0) {
-    DEBUG_PRINTLN(F("ESP-NOW unpaired remote sender."));
+  // handle WiZ Mote data
+  if (data[0] == 0x91 || data[0] == 0x81 || data[0] == 0x80) {
+    handleWiZdata(data, len);
     return;
   }
 

@@ -216,7 +216,10 @@ void getSettingsJS(byte subPage, Print& settingsScript)
 
     #ifndef WLED_DISABLE_ESPNOW
     printSetFormCheckbox(settingsScript,PSTR("RE"),enableESPNow);
-    printSetFormValue(settingsScript,PSTR("RMAC"),linked_remote);
+    settingsScript.printf_P(PSTR("resetRemotes();"));
+    for (size_t i = 0; i < linked_remotes.size(); i++) {
+      settingsScript.printf_P(PSTR("addRemote(\"RM%u\",\"%s\");"), i, linked_remotes[i].data());
+    }
     #else
     //hide remote settings if not compiled
     settingsScript.print(F("toggle('ESPNOW');"));  // hide ESP-NOW setting

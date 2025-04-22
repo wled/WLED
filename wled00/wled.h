@@ -538,7 +538,8 @@ WLED_GLOBAL bool     serialCanTX _INIT(false);
 WLED_GLOBAL bool enableESPNow        _INIT(false);  // global on/off for ESP-NOW
 WLED_GLOBAL byte statusESPNow        _INIT(ESP_NOW_STATE_UNINIT); // state of ESP-NOW stack (0 uninitialised, 1 initialised, 2 error)
 WLED_GLOBAL bool useESPNowSync       _INIT(false);  // use ESP-NOW wireless technology for sync
-WLED_GLOBAL char linked_remote[13]   _INIT("");     // MAC of ESP-NOW remote (Wiz Mote)
+//WLED_GLOBAL char linked_remote[13]   _INIT("");     // MAC of ESP-NOW remote (Wiz Mote)
+WLED_GLOBAL std::vector<std::array<char, 13>> linked_remotes; // MAC of ESP-NOW remotes (Wiz Mote)
 WLED_GLOBAL char last_signal_src[13] _INIT("");     // last seen ESP-NOW sender
 #endif
 
