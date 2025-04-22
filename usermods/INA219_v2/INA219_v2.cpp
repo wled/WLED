@@ -207,6 +207,13 @@ private:
 	**/
 	void updateEnergy(float power, unsigned long durationMs) {
 		float durationHours = durationMs / 3600000.0; // Milliseconds to hours
+
+		// Skip negligible power values to avoid accumulating rounding errors
+		if (power < 0.01) {
+			DEBUG_PRINT(F("SKIPPED: Power too low (")); DEBUG_PRINT(power); DEBUG_PRINTLN(F(" W) — skipping to avoid rounding errors"));
+			return;
+		}
+
 		float energy_kWh = (power / 1000.0) * durationHours; // Watts to kilowatt-hours (kWh)
 
 		// Skip negative values or unrealistic spikes
@@ -337,7 +344,10 @@ private:
 		size_t payload_size = serializeJson(doc, buffer, sizeof(buffer));
 
 		char topic_S[128];
-		snprintf_P(topic_S, sizeof(topic_S), "homeassistant/%s/%s/%s/config", SensorType.c_str(), sanitizedMqttClientID.c_str(), sanitizedName.c_str());
+		int length = snprintf_P(topic_S, sizeof(topic_S), "homeassistant/%s/%s/%s/config", SensorType.c_str(), sanitizedMqttClientID.c_str(), sanitizedName.c_str());
+		if (length >= sizeof(topic_S)) {
+			DEBUG_PRINTLN(F("HA topic truncated - potential buffer overflow"));
+		}
 
 		// Debug output for the Home Assistant topic and configuration
 		DEBUG_PRINTLN(topic_S);
@@ -355,7 +365,10 @@ private:
 		sanitizedMqttClientID += "-" + String(escapedMac.c_str());
 
 		char sensorTopic[128];
-		snprintf_P(sensorTopic, 127, "homeassistant/%s/%s/%s/config", SensorType.c_str(), sanitizedMqttClientID.c_str(), sanitizedName.c_str());
+		int length = snprintf_P(sensorTopic, sizeof(sensorTopic), "homeassistant/%s/%s/%s/config", SensorType.c_str(), sanitizedMqttClientID.c_str(), sanitizedName.c_str());
+		if (length >= sizeof(sensorTopic)) {
+			DEBUG_PRINTLN(F("HA sensor topic truncated - potential buffer overflow"));
+		}
 
 		// Publish an empty message with retain to delete the sensor from Home Assistant
 		mqtt->publish(sensorTopic, 0, true, "");
