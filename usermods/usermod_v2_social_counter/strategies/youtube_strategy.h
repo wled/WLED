@@ -1,7 +1,7 @@
 #pragma once
 
-#include "SocialNetworkStrategy.h"
-#include "SocialNetworkTypes.h"
+#include "social_network_strategy.h"
+#include "../social_network_types.h"
 #include <Arduino.h>
 #include <HTTPClient.h>
 

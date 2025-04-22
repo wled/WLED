@@ -1,11 +1,11 @@
 #pragma once
 
-#include "strategies/SocialNetworkStrategy.h"
-#include "SocialNetworkTypes.h"
-#include "strategies/InstagramStrategy.h"
-#include "strategies/YouTubeStrategy.h"
-#include "strategies/TikTokStrategy.h"
-#include "strategies/TwitchStrategy.h"
+#include "strategies/social_network_strategy.h"
+#include "social_network_types.h"
+#include "strategies/instagram_strategy.h"
+#include "strategies/youtube_strategy.h"
+#include "strategies/tiktok_strategy.h"
+#include "strategies/twitch_strategy.h"
 #include <memory>
 
 class SocialNetworkFactory

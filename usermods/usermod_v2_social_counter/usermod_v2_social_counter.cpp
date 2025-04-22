@@ -1,7 +1,7 @@
 #include "wled.h"
-#include "SocialNetworkTypes.h"
-#include "strategies/SocialNetworkStrategy.h"
-#include "SocialNetworkFactory.h"
+#include "social_network_types.h"
+#include "strategies/social_network_strategy.h"
+#include "social_network_factory.h"
 #include <memory>
 
 #define SOCIAL_SEGMENT_INDEX 0
@@ -41,8 +41,9 @@ private:
   bool segmentValid = false;
 
   // Configurações do display de 7 segmentos
-  int ledsPerSegment = 2; // Quantidade de LEDs por segmento
-  int digitSpacing = 0;   // Espaço entre dígitos
+  int ledsPerSegment = 2;       // Quantidade de LEDs por segmento
+  int digitSpacing = 0;         // Espaço entre dígitos
+  bool showLeadingZeros = true; // Controla se zeros à esquerda devem ser exibidos (alterado para true por padrão)
 
   // Posições dos segmentos no hardware (wire layout: FABCDEG)
   typedef enum
@@ -175,8 +176,9 @@ private:
       return;
     }
 
-    // Forçamos no mínimo 2 dígitos para valores entre 0-99
-    int minDigits = 2;
+    // Forçamos minDigits = 1 para garantir que pelo menos um dígito seja exibido
+    // A exibição de zeros à esquerda é controlada por showLeadingZeros
+    int minDigits = 1;
 
     // Limita o número ao máximo de dígitos disponíveis
     int maxValue = 1;
@@ -185,6 +187,18 @@ private:
       maxValue *= 10;
     }
     number = number % maxValue;
+
+    // Calcula quantos dígitos o número possui
+    int tempNumber = number;
+    int numDigits = 0;
+    do
+    {
+      numDigits++;
+      tempNumber /= 10;
+    } while (tempNumber > 0);
+
+    // Garantir que temos pelo menos o número mínimo de dígitos
+    numDigits = max(numDigits, minDigits);
 
     // Exibe cada dígito - primeiro preparamos um mapa dos LEDs ativos
     bool ledActive[segmentLength];
@@ -200,18 +214,31 @@ private:
     {
       int digitValue = number % 10;
 
-      // Para cada segmento do dígito
-      for (int seg = 0; seg < 7; seg++)
+      // Decide se mostra este dígito baseado nas configurações de zeros à esquerda
+      bool showDigit = true;
+
+      // Se este dígito é zero e está além dos dígitos significativos do número
+      // e não estamos mostrando zeros à esquerda, pulamos este dígito
+      if (digitValue == 0 && digit >= numDigits && !showLeadingZeros)
       {
-        if (digitSegments[digitValue][seg])
+        showDigit = false;
+      }
+
+      if (showDigit)
+      {
+        // Para cada segmento do dígito
+        for (int seg = 0; seg < 7; seg++)
         {
-          // Este segmento deve estar ativo
-          int ledStart = getSegmentLedIndex(digit, seg) - segmentStart;
-          for (int i = 0; i < ledsPerSegment; i++)
+          if (digitSegments[digitValue][seg])
           {
-            if (ledStart + i < segmentLength)
+            // Este segmento deve estar ativo
+            int ledStart = getSegmentLedIndex(digit, seg) - segmentStart;
+            for (int i = 0; i < ledsPerSegment; i++)
             {
-              ledActive[ledStart + i] = true;
+              if (ledStart + i < segmentLength)
+              {
+                ledActive[ledStart + i] = true;
+              }
             }
           }
         }
@@ -263,9 +290,9 @@ public:
 
   void updateIntervalTimer()
   {
-    // apiCallInterval = ((unsigned long)updateIntervalSeconds) * 1000;
+    // Usa o valor configurado pelo usuário
+    apiCallInterval = ((unsigned long)updateIntervalSeconds) * 1000;
 
-    apiCallInterval = 500; // para agilizar os testes
     Serial.print("Setting update interval to: ");
     Serial.print(updateIntervalSeconds);
     Serial.print(" seconds (");
@@ -406,6 +433,7 @@ public:
     // Configurações do display de 7 segmentos
     top["ledsPerSegment"] = ledsPerSegment;
     top["digitSpacing"] = digitSpacing;
+    top["showLeadingZeros"] = showLeadingZeros;
   }
 
   bool readFromConfig(JsonObject &root) override
@@ -430,6 +458,7 @@ public:
     // Configurações do display de 7 segmentos
     configComplete &= getJsonValue(top["ledsPerSegment"], ledsPerSegment, 2);
     configComplete &= getJsonValue(top["digitSpacing"], digitSpacing, 0);
+    configComplete &= getJsonValue(top["showLeadingZeros"], showLeadingZeros, true);
 
     updateIntervalTimer();
 
@@ -457,6 +486,11 @@ public:
     oappend(String(FPSTR(_name)).c_str());
     oappend(F(":digitSpacing"));
     oappend(F("',1,'<i>Espaço entre dígitos (default: 0)</i>');"));
+
+    oappend(F("addInfo('"));
+    oappend(String(FPSTR(_name)).c_str());
+    oappend(F(":showLeadingZeros"));
+    oappend(F("',1,'<i>Mostrar zeros à esquerda (default: true)</i>');"));
 
     oappend(F("dd=addDropdown('"));
     oappend(String(FPSTR(_name)).c_str());

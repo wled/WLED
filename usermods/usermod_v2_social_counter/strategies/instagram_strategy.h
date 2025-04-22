@@ -1,7 +1,7 @@
 #pragma once
 
-#include "SocialNetworkStrategy.h"
-#include "SocialNetworkTypes.h"
+#include "social_network_strategy.h"
+#include "../social_network_types.h"
 #include <Arduino.h>
 #include <HTTPClient.h>
 
@@ -14,10 +14,17 @@ public:
   bool fetchFollowerCount(const String &link, int &count) override
   {
     // Incrementa o contador a cada chamada
-    mockCounter = (mockCounter + 1) % 100; // Incrementa de 0 a 99
+    mockCounter = (mockCounter + 1) % 10; // Incrementa de 0 a 9 para cada dígito
 
-    // Retorna o valor atual do contador
-    count = mockCounter;
+    // Gera uma sequência de 6 dígitos repetidos (111111, 222222, etc)
+    int repeatedDigits = 0;
+    for (int i = 0; i < 6; i++)
+    {
+      repeatedDigits = repeatedDigits * 10 + mockCounter;
+    }
+
+    // Retorna o valor com dígitos repetidos
+    count = repeatedDigits;
 
     Serial.printf("[MOCK] Instagram contador: %d\n", count);
     return true;
