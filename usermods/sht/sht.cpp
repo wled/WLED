@@ -143,8 +143,15 @@ void ShtUsermod::appendDeviceToMqttDiscoveryMessage(JsonDocument& root) {
   device[F("ids")] = escapedMac.c_str();
   device[F("name")] = serverDescription;
   device[F("sw")] = versionString;
-  device[F("mdl")] = ESP.getChipModel();
+  // device[F("mdl")] =  ESP.getChipModel(); // getChipModel() is not supported ! compile error 
   device[F("mf")] = F("espressif");
+  device[F("mdl")]  = F(WLED_PRODUCT_NAME);
+  device[F("mf")]   = F(WLED_BRAND);
+  JsonArray connections = device[F("connections")].createNestedArray(); // array of connections defined by hass discovery rule 
+  connections.add(F("mac"));
+  connections.add(WiFi.macAddress()); // MAC address of the device to match WLED hass integration MAC : this is reponsible for the device ID in Home Assistant to merge with the WLED device ID
+  connections.add(F("ip"));
+  connections.add(WiFi.localIP().toString()); // IP address of the device to match WLED hass integration
 }
 
 /**

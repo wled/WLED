@@ -71,7 +71,6 @@ private:
   bool m_offOnly            = false;
   bool m_offMode            = offMode;
   bool m_override           = false;
-  
   // Home Assistant
   bool HomeAssistantDiscovery = false;        // is HA discovery turned on
   int16_t idx = -1; // Domoticz virtual switch idx
@@ -320,12 +319,12 @@ void PIRsensorSwitch::publishHomeAssistantAutodiscovery()
 
     String mqtt_avail_topic = mqttDeviceTopic;
     mqtt_avail_topic += F("/status");
-    doc[F("avty_t")] = mqtt_avail_topic.c_str();
-    JsonArray connections = device[F("connections")].createNestedArray();
+    doc[F("avty_t")] = mqtt_avail_topic.c_str(); // availability topic to indicate sensor device is online
+    JsonArray connections = device[F("connections")].createNestedArray(); // array of connections defined by hass discovery rule 
     connections.add(F("mac"));
-    connections.add(WiFi.macAddress());
+    connections.add(WiFi.macAddress()); // MAC address of the device to match WLED hass integration MAC : this is reponsible for the device ID in Home Assistant to merge with the WLED device ID
     connections.add(F("ip"));
-    connections.add(WiFi.localIP().toString());
+    connections.add(WiFi.localIP().toString()); // IP address of the device to match WLED hass integration
     sprintf_P(buf, PSTR("homeassistant/binary_sensor/%s/config"), uid);
     DEBUG_PRINTLN(buf);
     size_t payload_size = serializeJson(doc, json_str);
