@@ -45,7 +45,7 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
       std::array<char, 13> entry{};
       getStringFromJson(entry.data(), lrem[i], 13);
       entry[12] = '\0';
-      linked_remotes.push_back(entry); // TODO: is this a good way to check for invalid MAC?
+      linked_remotes.push_back(entry); // TODO: need to check for invalid MAC?
     }
   }
   else { // legacy support for single MAC address in config
