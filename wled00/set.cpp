@@ -144,7 +144,7 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
 
     bool busesChanged = false;
     for (int s = 0; s < WLED_MAX_BUSSES+WLED_MIN_VIRTUAL_BUSSES; s++) {
-      int offset = s < 10 ? '0' : 'A';
+      int offset = s < 10 ? '0' : 'A' - 10;
       char lp[4] = "L0"; lp[2] = offset+s; lp[3] = 0; //ascii 0-9 //strip data pin
       char lc[4] = "LC"; lc[2] = offset+s; lc[3] = 0; //strip length
       char co[4] = "CO"; co[2] = offset+s; co[3] = 0; //strip color order
@@ -218,7 +218,7 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
     // we will not bother with pre-allocating ColorOrderMappings vector
     BusManager::getColorOrderMap().reset();
     for (int s = 0; s < WLED_MAX_COLOR_ORDER_MAPPINGS; s++) {
-      int offset = s < 10 ? '0' : 'A';
+      int offset = s < 10 ? '0' : 'A' - 10;
       char xs[4] = "XS"; xs[2] = offset+s; xs[3] = 0; //start LED
       char xc[4] = "XC"; xc[2] = offset+s; xc[3] = 0; //strip length
       char xo[4] = "XO"; xo[2] = offset+s; xo[3] = 0; //color order
@@ -257,7 +257,7 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
     disablePullUp = (bool)request->hasArg(F("IP"));
     touchThreshold = request->arg(F("TT")).toInt();
     for (int i = 0; i < WLED_MAX_BUTTONS; i++) {
-      int offset = i < 10 ? '0' : 'A';
+      int offset = i < 10 ? '0' : 'A' - 10;
       char bt[4] = "BT"; bt[2] = offset+i; bt[3] = 0; // button pin (use A,B,C,... if WLED_MAX_BUTTONS>10)
       char be[4] = "BE"; be[2] = offset+i; be[3] = 0; // button type (use A,B,C,... if WLED_MAX_BUTTONS>10)
       int hw_btn_pin = request->arg(bt).toInt();
