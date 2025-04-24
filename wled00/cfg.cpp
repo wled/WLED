@@ -39,7 +39,7 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
 #ifndef WLED_DISABLE_ESPNOW
   CJSON(enableESPNow, nw[F("espnow")]);
   linked_remotes.clear();
-  JsonArray lrem = nw[F("lrem")]; // array of MAC addresses
+  JsonArray lrem = nw[F("linked_remote")]; // array of MAC addresses
   if (!lrem.isNull()) {
     for (size_t i = 0; i < lrem.size(); i++) {
       std::array<char, 13> entry{};
@@ -739,7 +739,7 @@ void serializeConfig(JsonObject root) {
   JsonObject nw = root.createNestedObject("nw");
 #ifndef WLED_DISABLE_ESPNOW
   nw[F("espnow")] = enableESPNow;
-  JsonArray lrem = nw.createNestedArray(F("lrem"));
+  JsonArray lrem = nw.createNestedArray(F("linked_remote"));
   for (size_t i = 0; i < linked_remotes.size(); i++) {
     lrem.add(linked_remotes[i].data());
   }
