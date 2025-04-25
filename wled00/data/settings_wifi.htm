@@ -136,70 +136,70 @@ Static subnet mask:<br>
 			getLoc();
 			loadJS(getURL('/settings/s.js?p=1'), false);	// If we set async false, file is loaded and executed, then next statement is processed
 			if (loc) d.Sf.action = getURL('/settings/wifi');
-      setTimeout(tE, 500); // wait for DOM to load before calling tE()
+			setTimeout(tE, 500); // wait for DOM to load before calling tE()
 		}
 
-    var rC = 0; // remote count
-    // toggle visibility of ESP-NOW remote list based on checkbox state
-    function tE() {
-      const e = d.querySelector('input[name="RE"]').checked;
-      const l = gId('rlc');  // remote list container
-      // keep the hidden input with MAC addresses, only toggle visibility of the list UI
-      if (l) l.style.display = e ? 'block' : 'none';
-    }
-    // reset remotes: initialize empty list (called from xml.cpp)
-    function rstR() {
-      gId('rml').innerHTML = ''; // clear remote list
-      rC = 0;
-      uR(); // update remote list
-    }
-    // add remote MAC to the list
-    function aR(id, mac) {
-      if (!/^[0-9A-F]{12}$/i.test(mac)) return; // check for valid hex string
-      if (rC >= 10) return;
-      let inputs = gId('rml').getElementsByTagName('input');
-      for (let i = 0; i < inputs.length; i++) {
-        if (inputs[i].value === mac) return;
-      }
-      let list = gId('rml');
-      let row = cE('div');
-      let inp = cE('input');
-      inp.type = 'text';
-      inp.name = id;
-      inp.value = mac;
-      inp.maxLength = 12;
-      inp.minLength = 12;
-      inp.onchange = uR;
-      row.appendChild(inp);
-      let btn = d.createElement('button');
-      btn.type = 'button';
-      btn.className = 'btn btn-xs';
-      btn.innerText = 'Remove';
-      btn.onclick = function() {
-        rR(row);
-      };
-      row.appendChild(btn);
-      list.appendChild(row);
-      rC++;
-      uR();
-    }
-    // remove a remote from the list
-    function rR(e) {
-      e.remove();
-      uR();
-    }
-    // update remote list
-    function uR() {
-      let macs = [];
-      let inputs = gId('rml').getElementsByTagName('input');
-      for (let i = 0; i < inputs.length; i++) {
-        if (inputs[i].value && inputs[i].value !== '') {
-          macs.push(inputs[i].value);
-        }
-      }
-      gId('rmacs').value = JSON.stringify(macs);
-      return true; // Allow form submission to continue
-    }
+		var rC = 0; // remote count
+		// toggle visibility of ESP-NOW remote list based on checkbox state
+		function tE() {
+			const e = d.querySelector('input[name="RE"]').checked;
+			const l = gId('rlc');  // remote list container
+			// keep the hidden input with MAC addresses, only toggle visibility of the list UI
+			if (l) l.style.display = e ? 'block' : 'none';
+		}
+		// reset remotes: initialize empty list (called from xml.cpp)
+		function rstR() {
+			gId('rml').innerHTML = ''; // clear remote list
+			rC = 0;
+			uR(); // update remote list
+		}
+		// add remote MAC to the list
+		function aR(id, mac) {
+			if (!/^[0-9A-F]{12}$/i.test(mac)) return; // check for valid hex string
+			if (rC >= 10) return;
+			let inputs = gId('rml').getElementsByTagName('input');
+			for (let i = 0; i < inputs.length; i++) {
+				if (inputs[i].value === mac) return;
+			}
+			let list = gId('rml');
+			let row = cE('div');
+			let inp = cE('input');
+			inp.type = 'text';
+			inp.name = id;
+			inp.value = mac;
+			inp.maxLength = 12;
+			inp.minLength = 12;
+			inp.onchange = uR;
+			row.appendChild(inp);
+			let btn = d.createElement('button');
+			btn.type = 'button';
+			//btn.className = 'btn btn-xs';
+			btn.innerText = '-';
+			btn.onclick = function() {
+				rR(row);
+			};
+			row.appendChild(btn);
+			list.appendChild(row);
+			rC++;
+			uR();
+		}
+		// remove a remote from the list
+		function rR(e) {
+			e.remove();
+			uR();
+		}
+		// update remote list
+		function uR() {
+			let macs = [];
+			let inputs = gId('rml').getElementsByTagName('input');
+			for (let i = 0; i < inputs.length; i++) {
+				if (inputs[i].value && inputs[i].value !== '') {
+					macs.push(inputs[i].value);
+				}
+			}
+			gId('rmacs').value = JSON.stringify(macs);
+			return true; // Allow form submission to continue
+		}
 	</script>
 	<style>@import url("style.css");</style>
 </head>
@@ -265,17 +265,17 @@ Static subnet mask:<br>
 			<i class="warn">This firmware build does not include ESP-NOW support.<br></i>
 		</div>
 		<div id="ESPNOW">
-      Enable ESP-NOW: <input type="checkbox" name="RE" onchange="tE()"><br>
+			Enable ESP-NOW: <input type="checkbox" name="RE" onchange="tE()"><br>
 			<i>Listen for events over ESP-NOW<br>
 			Keep disabled if not using a remote or wireless sync, increases power consumption.<br></i>
-      <div id="rlc">
-        Last device seen: <span class="rlid" id="ld">None</span>
-        <button type="button" class="btn btn-xs" onclick="aR('RM'+rC,gId('ld').textContent)">Add</button><br>
-        Linked MACs:<br>
-        <div id="rml">
-        </div>
-      </div>
-      <input type="hidden" name="RMA" id="rmacs">
+			<div id="rlc">
+				Last device seen: <span class="rlid" id="ld">None</span>
+				<button type="button" onclick="aR('RM'+rC,gId('ld').textContent)">+</button><br>
+				Linked MACs:<br>
+				<div id="rml">
+				</div>
+			</div>
+			<input type="hidden" name="RMA" id="rmacs">
 		</div>
 
 		<div id="ethd">

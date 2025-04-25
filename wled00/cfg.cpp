@@ -39,20 +39,22 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
 #ifndef WLED_DISABLE_ESPNOW
   CJSON(enableESPNow, nw[F("espnow")]);
   linked_remotes.clear();
-  JsonArray lrem = nw[F("linked_remote")]; // array of MAC addresses
+  JsonVariant lrem = nw[F("linked_remote")];
   if (!lrem.isNull()) {
-    for (size_t i = 0; i < lrem.size(); i++) {
-      std::array<char, 13> entry{};
-      getStringFromJson(entry.data(), lrem[i], 13);
-      entry[12] = '\0';
-      linked_remotes.push_back(entry); // TODO: need to check for invalid MAC?
+     if (lrem.is<JsonArray>()) {
+      for (size_t i = 0; i < lrem.size(); i++) {
+        std::array<char, 13> entry{};
+        getStringFromJson(entry.data(), lrem[i], 13);
+        entry[12] = '\0';
+        linked_remotes.emplace_back(entry);
+      }
     }
-  }
-  else { // legacy support for single MAC address in config
-    std::array<char, 13> entry{};
-    getStringFromJson(entry.data(), nw[F("linked_remote")], 13);
-    entry[12] = '\0';
-    linked_remotes.push_back(entry);
+    else { // legacy support for single MAC address in config
+      std::array<char, 13> entry{};
+      getStringFromJson(entry.data(), lrem, 13);
+      entry[12] = '\0';
+      linked_remotes.emplace_back(entry);
+    }
   }
 #endif
 

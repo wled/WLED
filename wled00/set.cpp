@@ -102,7 +102,7 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
         strlcpy(mac.data(), request->arg(rm).c_str(), 13);
         strlwr(mac.data());
         if (mac[0] != '\0') {
-          linked_remotes.push_back(mac);
+          linked_remotes.emplace_back(mac);
         }
       }
     }
