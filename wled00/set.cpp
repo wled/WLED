@@ -472,6 +472,28 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
     t = request->arg(F("BD")).toInt();
     if (t >= 96 && t <= 15000) serialBaud = t;
     updateBaudRate(serialBaud *100);
+
+    #ifdef WLED_ENABLE_SYSLOG
+    syslogEnabled   = request->hasArg(F("SL_en"));
+    strlcpy(syslogHost, request->arg(F("SL_host")).c_str(), sizeof(syslogHost));
+
+    t = request->arg(F("SL_port")).toInt();
+    if (t > 0) syslogPort = t;
+
+    t = request->arg(F("SL_proto")).toInt();
+    if (t >= SYSLOG_PROTO_BSD && t <= SYSLOG_PROTO_RAW) syslogProtocol = t;
+
+    t = request->arg(F("SL_fac")).toInt();
+    if (t >= SYSLOG_KERN && t <= SYSLOG_LOCAL7) syslogFacility = t;
+
+    t = request->arg(F("SL_sev")).toInt();
+    if (t >= SYSLOG_EMERG && t <= SYSLOG_DEBUG) syslogSeverity = t;
+
+    Syslog.begin(syslogHost, syslogPort,
+      syslogFacility, syslogSeverity, syslogProtocol);
+
+    Syslog.setAppName("WLED");
+    #endif
   }
 
   //TIME

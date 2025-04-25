@@ -964,7 +964,33 @@ WLED_GLOBAL JsonDocument *pDoc _INIT(&gDoc);
 WLED_GLOBAL volatile uint8_t jsonBufferLock _INIT(0);
 
 // enable additional debug output
-#if defined(WLED_DEBUG_HOST)
+#if defined(WLED_ENABLE_SYSLOG)
+  #include "syslog.h"
+  // On the host side, use a standard syslog server or tools like rsyslog
+  // use -D WLED_ENABLE_SYSLOG and -D WLED_DEBUG
+  #define DEBUGOUT Syslog
+  WLED_GLOBAL bool syslogEnabled _INIT(true);
+  #ifndef WLED_SYSLOG_HOST
+    #define WLED_SYSLOG_HOST ""
+  #endif
+  WLED_GLOBAL char syslogHost[33] _INIT(WLED_SYSLOG_HOST);
+  #ifndef WLED_SYSLOG_PORT
+    #define WLED_SYSLOG_PORT 514
+  #endif
+  WLED_GLOBAL int syslogPort _INIT(WLED_SYSLOG_PORT);
+  #ifndef WLED_SYSLOG_PROTOCOL
+    #define WLED_SYSLOG_PROTOCOL SYSLOG_PROTO_BSD
+  #endif
+  WLED_GLOBAL uint8_t syslogProtocol _INIT(WLED_SYSLOG_PROTOCOL);
+  #ifndef WLED_SYSLOG_FACILITY
+    #define WLED_SYSLOG_FACILITY SYSLOG_LOCAL4
+  #endif
+  WLED_GLOBAL uint8_t syslogFacility _INIT(WLED_SYSLOG_FACILITY);
+  #ifndef WLED_SYSLOG_SEVERITY
+    #define WLED_SYSLOG_SEVERITY SYSLOG_DEBUG
+  #endif
+  WLED_GLOBAL uint8_t syslogSeverity _INIT(WLED_SYSLOG_SEVERITY);
+#elif defined(WLED_DEBUG_HOST)
   #include "net_debug.h"
   // On the host side, use netcat to receive the log statements: nc -l 7868 -u
   // use -D WLED_DEBUG_HOST='"192.168.xxx.xxx"' or FQDN within quotes

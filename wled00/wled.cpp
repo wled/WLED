@@ -329,7 +329,7 @@ void WLED::setup()
   #if defined(WLED_DEBUG) && defined(ARDUINO_ARCH_ESP32) && (defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32C3) || ARDUINO_USB_CDC_ON_BOOT)
   delay(2500);  // allow CDC USB serial to initialise
   #endif
-  #if !defined(WLED_DEBUG) && defined(ARDUINO_ARCH_ESP32) && !defined(WLED_DEBUG_HOST) && ARDUINO_USB_CDC_ON_BOOT
+  #if !defined(WLED_DEBUG) && defined(ARDUINO_ARCH_ESP32) && !defined(WLED_DEBUG_HOST) && !defined(WLED_ENABLE_SYSLOG) && ARDUINO_USB_CDC_ON_BOOT
   Serial.setDebugOutput(false); // switch off kernel messages when using USBCDC
   #endif
   DEBUG_PRINTLN();
@@ -387,7 +387,7 @@ void WLED::setup()
   usePWMFixedNMI(); // link the NMI fix
 #endif
 
-#if defined(WLED_DEBUG) && !defined(WLED_DEBUG_HOST)
+#if defined(WLED_DEBUG) && !defined(WLED_DEBUG_HOST) && !defined(WLED_ENABLE_SYSLOG)
   PinManager::allocatePin(hardwareTX, true, PinOwner::DebugOut); // TX (GPIO1 on ESP32) reserved for debug output
 #endif
 #ifdef WLED_ENABLE_DMX //reserve GPIO2 as hardcoded DMX pin
@@ -421,6 +421,13 @@ void WLED::setup()
 
   WLED_SET_AP_SSID(); // otherwise it is empty on first boot until config is saved
   multiWiFi.push_back(WiFiConfig(CLIENT_SSID,CLIENT_PASS)); // initialise vector with default WiFi
+
+#ifdef WLED_ENABLE_SYSLOG
+  // Configure and initialize Syslog client
+  Syslog.begin(syslogHost, syslogPort,
+    syslogFacility, syslogSeverity, syslogProtocol);
+  Syslog.setAppName("WLED");
+#endif
 
   DEBUG_PRINTLN(F("Reading config"));
   deserializeConfigFromFS();
