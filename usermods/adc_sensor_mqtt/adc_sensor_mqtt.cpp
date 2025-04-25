@@ -13,24 +13,28 @@
 #endif
 #endif
 
-
 #ifdef ARDUINO_ARCH_ESP32 // esp8266 always use A0 no use of pin choice
 #if defined(CONFIG_IDF_TARGET_ESP32)
-      #define _valid_adc_pin(__pin)  (__pin >= 32U && __pin <= 39U) // only ADC1 available on ESP32 with wifi
+#define _valid_adc_pin(__pin) (__pin >= 32U && __pin <= 39U) // only ADC1 available on ESP32 with wifi
+#define ADC_SUPPORTED_PINS "32..39"
 #elif defined(CONFIG_IDF_TARGET_ESP32S3) || defined(CONFIG_IDF_TARGET_ESP32S2)
-      #define _valid_adc_pin(__pin) (__pin >= 1 && __pin <= 10) // only ADC1 available on ESP32-S2/ S3 with wifi
+#define _valid_adc_pin(__pin) (__pin >= 1 && __pin <= 10) // only ADC1 available on ESP32-S2/ S3 with wifi
+#define ADC_SUPPORTED_PINS "1..10"
 #elif defined(CONFIG_IDF_TARGET_ESP32C3)
-      #define _valid_adc_pin(__pin)  (__pin < 5) // only ADC1 available on ESP32-C3 with wifi
+#define _valid_adc_pin(__pin) (__pin < 5 && __pin >= 0) // only ADC1 available on ESP32-C3 with wifi
+#define ADC_SUPPORTED_PINS "0..4"
 #else
 #error "Unknown ESP32 target"
 #endif
-#endif 
+#endif
+
+#define NUMBER_OF_DEFAULT_SENSOR_CLASSES 5
 
 class adc_sensor_mqtt : public Usermod
 {
 private:
-  unsigned long update_interval = 2000;
-  float change_threshold = 1;
+  uint16_t update_interval = 2000;
+  uint16_t change_threshold = 1;
   static const char MQTT_TOPIC[];
   static const char _name[];
   bool HomeAssistantDiscovery = true; // is HA discovery turned on by default
@@ -46,7 +50,10 @@ private:
   bool initDone = false;
   String device_class[UM_ADC_MQTT_PIN_MAX_NUMBER];
   String unit_of_meas[UM_ADC_MQTT_PIN_MAX_NUMBER];
+  String device_classes[NUMBER_OF_DEFAULT_SENSOR_CLASSES];
+  String device_unit_of_measurement[NUMBER_OF_DEFAULT_SENSOR_CLASSES];
   bool published_initial_value = false;
+
 public:
   adc_sensor_mqtt()
   {
@@ -60,10 +67,20 @@ public:
       adc_value[i] = 0;
       adc_Percentage[i] = 0;
       adc_last_value[i] = 0;
-      device_class[i] = "voltage"; // default device class
-      unit_of_meas[i] = "V";       // default unit of measurement
+      device_class[i] = F("voltage"); // default device class
+      unit_of_meas[i] = F("V");       // default unit of measurement
     }
     // customize here your hass adc device class and unit of measurement
+    device_classes[0] = F("illuminance");                                        // default device class
+    device_classes[1] = F("current");                                            // default device class
+    device_classes[2] = F("power");                                              // default device class
+    device_classes[3] = F("temperature");                                        // default device class
+    device_classes[(NUMBER_OF_DEFAULT_SENSOR_CLASSES - 1)] = F("voltage");       // default device class
+    device_unit_of_measurement[0] = F("lx");                                     // default unit of measurement
+    device_unit_of_measurement[1] = F("A");                                      // default unit of measurement
+    device_unit_of_measurement[2] = F("W");                                      // default unit of measurement
+    device_unit_of_measurement[3] = F("°C");                                     // default unit of measurement
+    device_unit_of_measurement[(NUMBER_OF_DEFAULT_SENSOR_CLASSES - 1)] = F("V"); // default unit of measurement
   }
 
   void setup()
@@ -77,7 +94,7 @@ public:
 #ifdef ESP8266
         if (adc_pin[i] == 17) // only one Pin supported : A0 for esp8266 //
 #else
-        if ((adc_pin[i] >= 32) && PinManager::allocatePin(adc_pin[i], false, PinOwner::UM_ADC_MQTT)) // ESP32 only pins 32-39 are available for ADC
+        if ((_valid_adc_pin(adc_pin[i])) && PinManager::allocatePin(adc_pin[i], false, PinOwner::UM_ADC_MQTT)) // ESP32 only pins 32-39 are available for ADC
 #endif
         {
           pinMode(adc_pin[i], INPUT); // alloc success -> configure pin for input
@@ -85,7 +102,7 @@ public:
         }
         else
         {
-          DEBUG_PRINT(F("adc_sensor_mqtt: Pin allocation failed!"));
+          DEBUG_PRINTLN(F("adc_sensor_mqtt: Pin allocation failed!"));
           adc_pin[i] = -1; // invalid pin -> disable this pin
         }
       }
@@ -113,14 +130,35 @@ public:
     }
   }
 
+  static inline float mapFloat(int x, int in_min, int in_max, float out_min, float out_max)
+  {
+    return ((float)(x - in_min) * (out_max - out_min)) / (float)(in_max - in_min) + out_min;
+  }
+
+  float read_adc_mapping(uint16_t rawValue)
+  {
+#ifdef ESP32
+    const uint16_t mapping = 4096; // ESP32 ADC resolution is 12 bit, so 4096 values
+#else
+    const uint16_t mapping = 1024; // ESP8266 ADC resolution is 10 bit, so 1024 values
+#endif
+    if (this->inverted) // default mapping value to 0-100  -- replace here your own mapping for your own unit of measurement 
+    {
+      return mapFloat(rawValue, 0, mapping, 100, 0); // map raw value to percentage
+    }
+    else
+    {
+      return mapFloat(rawValue, 0, mapping, 0, 100); // map raw value to percentage
+    }
+  }
   void loop()
   {
     if (initDone && adc_enabled)
     {
-       // force first update if mqtt is connected and no value was published yet
+      // force first update if mqtt is connected and no value was published yet
       bool force_update = (millis() - lastTime) > (update_interval * 100); // to keep the mqtt alive if the light is not changing
       bool regular_update = (millis() - lastTime) > update_interval;
-      if (regular_update || force_update ) // force update if the time is up or if the light is not changing to retain mqtt hass activity in case
+      if (regular_update || force_update) // force update if the time is up or if the light is not changing to retain mqtt hass activity in case
       {
         bool force_first_update = ((published_initial_value == false) && WLED_MQTT_CONNECTED);
         lastTime = millis(); // reset lastTime to current time
@@ -132,20 +170,7 @@ public:
             continue; // skip if pin is not valid
           }
           adc_value[i] = analogRead(adc_pin[i]);
-#ifdef ESP32
-          const float mapping = 4096.0; // ESP32 ADC resolution is 12 bit, so 4096 values
-#else
-          const float mapping = 1024.0; // ESP8266 ADC resolution is 10 bit, so 1024 values
-#endif
-          if (inverted)
-          {
-            adc_Percentage[i] = 100.0 - ((float)adc_value[i] * -1 + mapping) / mapping * 100.0f;
-          }
-          else
-          {
-            adc_Percentage[i] = ((float)adc_value[i] * -1 + mapping) / mapping * 100.0f;
-          }
-
+          adc_Percentage[i] = read_adc_mapping(adc_value[i]); // read adc value and map it to percentage
           if (abs(adc_value[i] - adc_last_value[i]) > change_threshold || force_update || force_first_update)
           {
             adc_last_value[i] = adc_value[i];
@@ -173,31 +198,27 @@ public:
   void addToConfig(JsonObject &root)
   {
     JsonObject top = root.createNestedObject(FPSTR(_name));
-    top["Enabled"] = adc_enabled;
+    top[F("Enabled")] = adc_enabled;
+    top[F("AdcUpdateInterval")] = update_interval;
+    top[F("Inverted")] = inverted;
+    top[F("ChangeThreshold")] = change_threshold;
+    top[F("HASS")] = HomeAssistantDiscovery;
+    top[F("Raw")] = publishRawValue;
     for (uint8_t i = 0; i < UM_ADC_MQTT_PIN_MAX_NUMBER; i++)
     {
       // debug
       DEBUG_PRINT(F("configuring adc_sensor_mqtt: Pin "));
       DEBUG_PRINT(i);
-#ifndef ESP8266 // esp8266 always use A0 no use of pin choice
-      String adc_pin_name = F("AdcPin_");
-      adc_pin_name += String(i);
-      top[adc_pin_name] = adc_pin[i];
+      char str2[32];
+      sprintf_P(str2, PSTR("ADC %d"), i);
+      JsonObject ADC_object = top.createNestedObject(str2);
+#ifndef ESP8266                                                            // esp8266 always use A0 no use of pin choice
+      ADC_object[F("Pin")] = _valid_adc_pin(adc_pin[i]) ? adc_pin[i] : -1; // store pin number in config
 #endif
       // debug print new pin
-      String device_class_name = F("DeviceClass_");
-      device_class_name += String(i);
-      top[device_class_name] = device_class[i].c_str();
-      String unit_of_meas_name = F("UnitOfMeas_");
-      unit_of_meas_name += String(i);
-      top[unit_of_meas_name] = unit_of_meas[i].c_str();
+      ADC_object[F("DeviceClass")] = device_class[i]; // store device class in config
+      ADC_object[F("UnitOfMeas")] = unit_of_meas[i];  // store unit of measurement in config
     }
-    top["AdcUpdateInterval"] = update_interval;
-    top["Inverted"] = inverted;
-    top["ChangeThreshold"] = change_threshold;
-    top["HASS"] = HomeAssistantDiscovery;
-    top["Raw"] = publishRawValue;
-    DEBUG_PRINTLN(F("adc_sensor_mqtt: Config saved."));
     // print config
     // String jsonString;
     // serializeJson(top, jsonString);
@@ -221,22 +242,19 @@ public:
       DEBUG_PRINT(F("adc_sensor_mqtt: old Pin "));
       DEBUG_PRINTLN(adc_pin[i]);
       oldLdrPin[i] = adc_pin[i]; // store old pin for later deallocation
-      String adc_pin_name = F("AdcPin_");
-      adc_pin_name += String(i);
-      String device_class_name = F("DeviceClass_");
-      device_class_name += String(i);
-      String unit_of_meas_name = F("UnitOfMeas_");
-      unit_of_meas_name += String(i);
-      configComplete &= getJsonValue(top[device_class_name], device_class[i]);
-      configComplete &= getJsonValue(top[unit_of_meas_name], unit_of_meas[i]);
+      char str[10];
+      sprintf_P(str, PSTR("ADC %d"), i);
+      configComplete &= getJsonValue(top[str][F("DeviceClass")], device_class[i]);
+      configComplete &= getJsonValue(top[str][F("UnitOfMeas")], unit_of_meas[i]);
+
 #ifdef ARDUINO_ARCH_ESP32 // esp8266 always use A0 no use of pin choice
-      configComplete &= getJsonValue(top[adc_pin_name], adc_pin[i]);
-      const bool valid_adc_pin = _valid_adc_pin(adc_pin[i]);  // only ADC1 available on ESP32 with wifi
+      configComplete &= getJsonValue(top[str][F("Pin")], adc_pin[i]);
+      const bool valid_adc_pin = _valid_adc_pin(adc_pin[i]);         // only ADC1 available on ESP32 with wifi
       if (!valid_adc_pin || !PinManager::isPinOk(adc_pin[i], false)) // // ESP32 only pins 32-39 are available for ADC
       {
         DEBUG_PRINT(F("adc_sensor_mqtt: Pin "));
         DEBUG_PRINT(i);
-        DEBUG_PRINT(F(" is not valid!"));
+        DEBUG_PRINTLN(F(" is not valid!"));
         configComplete = false; // pin not valid -> disable usermod
         adc_pin[i] = -1;        // invalid pin -> disable usermod
       }
@@ -250,12 +268,12 @@ public:
       }
 #endif // ESP8266 always use A0 no use of pin choice
     }
-    configComplete &= getJsonValue(top["Enabled"], adc_enabled);
-    configComplete &= getJsonValue(top["AdcUpdateInterval"], update_interval);
-    configComplete &= getJsonValue(top["Inverted"], inverted);
-    configComplete &= getJsonValue(top["ChangeThreshold"], change_threshold);
-    configComplete &= getJsonValue(top["HASS"], HomeAssistantDiscovery);
-    configComplete &= getJsonValue(top["Raw"], publishRawValue);
+    configComplete &= getJsonValue(top[F("Enabled")], adc_enabled);
+    configComplete &= getJsonValue(top[F("AdcUpdateInterval")], update_interval);
+    configComplete &= getJsonValue(top[F("Inverted")], inverted);
+    configComplete &= getJsonValue(top[F("ChangeThreshold")], change_threshold);
+    configComplete &= getJsonValue(top[F("HASS")], HomeAssistantDiscovery);
+    configComplete &= getJsonValue(top[F("Raw")], publishRawValue);
     // if pin changed after init -
     if (adc_enabled && initDone)
     {
@@ -268,28 +286,56 @@ public:
     }
     return configComplete;
   }
+
   void appendConfigData(Print &uiScript) override
   {
-    uiScript.print(F("addInfo('adc_sensor_mqtt:HASS',1,'HASS=Home Assistant Discovery');"));              // 0 is field type, 1 is actual field
-    uiScript.print(F("addInfo('adc_sensor_mqtt:Enabled',1,'ADC enabled');"));                             // 0 is field type, 1 is actual field
-    uiScript.print(F("addInfo('adc_sensor_mqtt:AdcUpdateInterval',1,'ADC update interval');"));           // 0 is field type, 1 is actual field
-    uiScript.print(F("addInfo('adc_sensor_mqtt:Inverted',1,'ADC mapping voltage inverted');"));           // 0 is field type, 1 is actual field
-    uiScript.print(F("addInfo('adc_sensor_mqtt:ChangeThreshold',1,'ADC change threshold');"));            // 0 is field type, 1 is actual field
-    uiScript.print(F("addInfo('adc_sensor_mqtt:Raw',1,'ADC publish raw value instead of percentage');")); // 0 is field type, 1 is actual field
-    uiScript.print(F("addInfo('adc_sensor_mqtt:DeviceClass_1',1,'ADC HASS device class');"));             // 0 is field type, 1 is actual field
-    uiScript.print(F("addInfo('adc_sensor_mqtt:UnitOfMeas_1',1,'ADC HASS unit of measurement');"));       // 0 is field type, 1 is actual field
+    uiScript.print(F("addInfo('adc_sensor_mqtt:Enabled',1,'<i>ADC enabled</i>');"));
+    uiScript.print(F("addInfo('adc_sensor_mqtt:HASS',1,'<i>Home Assistant Sensor Discovery</i>');"));
+    uiScript.print(F("addInfo('adc_sensor_mqtt:AdcUpdateInterval',1,'<i>ADC update interval</i>');"));
+    uiScript.print(F("addInfo('adc_sensor_mqtt:Inverted',1,'<i>ADC mapping voltage inverted</i>');"));
+    uiScript.print(F("addInfo('adc_sensor_mqtt:ChangeThreshold',1,'<i>ADC change threshold</i>');"));
+    uiScript.print(F("addInfo('adc_sensor_mqtt:Raw',1,'<i>ADC publish raw value</i> <small>(ignores UnitOfMeas)</small>');"));
+    // uiScript.print(F("addInfo('adc_sensor_mqtt','this will cause HASS to ignore device measurement unit')"));
+    uiScript.print(F("ux='adc_sensor_mqtt';"));
+    for (uint8_t i = 0; i < UM_ADC_MQTT_PIN_MAX_NUMBER; i++)
+    {
+      // Use consistent field name
+      char str[128];
+#ifndef ESP8266 // only A0 is supported on ESP8266
+      sprintf_P(str, PSTR("addInfo('adc_sensor_mqtt:ADC %d:Pin',1,'<i>ADC pin <small>(%s)</small><i> ');"), i, ADC_SUPPORTED_PINS);
+      uiScript.print(str);
+#endif
+      sprintf_P(str, PSTR("addInfo('adc_sensor_mqtt:ADC %d:DeviceClass',1,'<i>Sensor Device Class</i>');"), i);
+      uiScript.print(str);
+      sprintf_P(str, PSTR("addInfo('adc_sensor_mqtt:ADC %d:UnitOfMeas',1,'<i>the unit of measurement</i>');"), i);
+      uiScript.print(str);
+      sprintf_P(str, PSTR("dd=addDropdown(ux,'ADC %d:DeviceClass');"), i);
+      uiScript.print(str);
+      for (uint8_t j = 0; j < NUMBER_OF_DEFAULT_SENSOR_CLASSES; j++)
+      {
+        sprintf_P(str, PSTR("addOption(dd,'%s','%s');"), device_classes[j].c_str(), device_classes[j].c_str());
+        uiScript.print(str);
+      }
+      sprintf_P(str, PSTR("dd=addDropdown(ux,'ADC %d:UnitOfMeas');"), i);
+      uiScript.print(str);
+      for (uint8_t j = 0; j < NUMBER_OF_DEFAULT_SENSOR_CLASSES; j++)
+      {
+        sprintf_P(str, PSTR("addOption(dd,'%s','%s');"), device_unit_of_measurement[j].c_str(), device_unit_of_measurement[j].c_str());
+        uiScript.print(str);
+      }
+    }
   }
 
   void addToJsonInfo(JsonObject &root)
   {
     // If "u" object does not exist yet we need to create it
-    JsonObject user = root["u"];
+    JsonObject user = root[F("u")];
     if (user.isNull())
-      user = root.createNestedObject("u");
+      user = root.createNestedObject(F("u"));
 
     if (!adc_enabled)
     {
-      JsonArray adc_Enabled = user.createNestedArray("ADC enabled");
+      JsonArray adc_Enabled = user.createNestedArray(F("ADC enabled"));
       adc_Enabled.add(adc_enabled);
       return; // do not add more if usermod is disabled
     }
@@ -310,8 +356,6 @@ public:
       {
         adc_pin_value += F("(");
         adc_pin_value += device_class[i];
-        adc_pin_value += F("-");
-        adc_pin_value += unit_of_meas[i];
         adc_pin_value += F("):");
       }
       if (publishRawValue)
@@ -322,7 +366,7 @@ public:
       else
       {
         adc_pin_value += String(adc_Percentage[i]);
-        adc_pin_value += F("%");
+        adc_pin_value += unit_of_meas[i];
       }
       adc_Reading.add(adc_pin_value);
     }
@@ -377,7 +421,10 @@ public:
     mqtt_stat_topic += String(pin_number);
     doc[F("stat_t")] = mqtt_stat_topic;
     doc[F("dev_cla")] = device_class[pin_number].c_str();
-    doc[F("unit_of_meas")] = unit_of_meas[pin_number].c_str();
+    if (publishRawValue == false)
+    {
+      doc[F("unit_of_meas")] = unit_of_meas[pin_number].c_str();
+    }
     doc[F("val_tpl")] = F("{{ value }}");
     // availablity topic
     String mqtt_avail_topic = mqttDeviceTopic;
