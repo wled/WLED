@@ -157,29 +157,17 @@ Static subnet mask:<br>
 		function aR(id, mac) {
 			if (!/^[0-9A-F]{12}$/i.test(mac)) return; // check for valid hex string
 			if (rC >= 10) return;
-			let inputs = gId('rml').getElementsByTagName('input');
-			for (let i = 0; i < inputs.length; i++) {
-				if (inputs[i].value === mac) return;
+			let inputs = d.querySelectorAll("#rml input");
+			for (let i of (inputs || [])) {
+				if (i.value === mac) return;
 			}
-			let list = gId('rml');
-			let row = cE('div');
-			let inp = cE('input');
-			inp.type = 'text';
-			inp.name = id;
-			inp.value = mac;
-			inp.maxLength = 12;
-			inp.minLength = 12;
-			inp.onchange = uR;
-			row.appendChild(inp);
-			let btn = d.createElement('button');
-			btn.type = 'button';
-			//btn.className = 'btn btn-xs';
-			btn.innerText = '-';
-			btn.onclick = function() {
-				rR(row);
-			};
-			row.appendChild(btn);
-			list.appendChild(row);
+			let l = gId('rml'), r = cE('div'), i = cE('input');
+			i.type = 'text'; i.name = id; i.value = mac; i.maxLength = 12; i.minLength = 12; i.onchange = uR;
+			r.appendChild(i);
+			let b = cE('button');
+			b.type = 'button'; b.innerText = '-'; b.onclick = () => rR(r);
+			r.appendChild(b);
+			l.appendChild(r);
 			rC++;
 			uR();
 		}
@@ -191,12 +179,9 @@ Static subnet mask:<br>
 		// update remote list
 		function uR() {
 			let macs = [];
-			let inputs = gId('rml').getElementsByTagName('input');
-			for (let i = 0; i < inputs.length; i++) {
-				if (inputs[i].value && inputs[i].value !== '') {
-					macs.push(inputs[i].value);
-				}
-			}
+			d.querySelectorAll('#rml input').forEach(o => {
+				if (o.value) macs.push(o.value);
+			});
 			gId('rmacs').value = JSON.stringify(macs);
 			return true; // Allow form submission to continue
 		}
