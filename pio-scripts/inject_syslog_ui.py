@@ -74,7 +74,7 @@ SYSLOG_HTML = """
 </div>
 """
 
-def inject_syslog_ui(source, target, env):
+def inject_syslog_ui(source, target, env, retry_count=0):
     print("\033[44m==== inject_syslog_ui.py (PRE BUILD) ====\033[0m")
     if not is_full_build:
         print("\033[43mNot a full build, skipping Syslog UI operations.\033[0m")
@@ -155,7 +155,11 @@ def inject_syslog_ui(source, target, env):
         if '<!-- SYSLOG-START -->' not in content or '<!-- SYSLOG-END -->' not in content:
             print("Backup exists but SYSLOG markers missing—forcing re-injection.")
             os.remove(bak)
-            inject_syslog_ui(source, target, env)
+            # only retry up to 3 times
+            if retry_count < 3:
+                inject_syslog_ui(source, target, env, retry_count + 1)
+            else:
+                print("\033[41mToo many retry attempts. Manual intervention required.\033[0m")
         else:
             print("Backup exists and markers found; already injected.")
 
