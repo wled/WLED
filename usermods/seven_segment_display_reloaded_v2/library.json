@@ -1,3 +1,6 @@
 {
-  "name:": "seven_segment_display_reloaded_v2"
+  "name": "seven_segment_display_reloaded_v2",
+  "build": {
+    "extraScript": "setup_deps.py"
+  }  
 }
