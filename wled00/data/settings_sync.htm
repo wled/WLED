@@ -237,59 +237,7 @@ Baud rate:
 </select><br>
 <i>Keep at 115200 to use Improv. Some boards may not support high rates.</i>
 </div>
-<h3>Syslog</h3>
-<div id="NoSyslog" class="hide">
-	<em class="warn">This firmware build does not support Syslog interface.<br></em>
-</div>
-<div id="Syslog">
-Enable Syslog: <input type="checkbox" name="SL_en"><br>
-Host: <input type="text"   name="SL_host" maxlength="32"><br>
-Port: <input type="number" name="SL_port" min="1" max="65535" value="%SL_port%"><br>
-Protocol:
-<select name=SL_proto>
-<option value="0">BSD (RFC3164)</option>
-<option value="1">RFC5424</option>
-<option value="2">Raw</option>
-</select><br>
-Facility:
-<select name=SL_fac>
-<option value="0">KERN</option>
-<option value="1">USER</option>
-<option value="2">MAIL</option>
-<option value="3">DAEMON</option>
-<option value="4">AUTH</option>
-<option value="5">SYSLOG</option>
-<option value="6">LPR</option>
-<option value="7">NEWS</option>
-<option value="8">UUCP</option>
-<option value="9">CRON</option>
-<option value="10">AUTHPRIV</option>
-<option value="11">FTP</option>
-<option value="12">NTP</option>
-<option value="13">LOG_AUDIT</option>
-<option value="14">LOG_ALERT</option>
-<option value="15">CLOCK_DAEMON</option>
-<option value="16">LOCAL0</option>
-<option value="17">LOCAL1</option>
-<option value="18">LOCAL2</option>
-<option value="19">LOCAL3</option>
-<option value="20">LOCAL4</option>
-<option value="21">LOCAL5</option>
-<option value="22">LOCAL6</option>
-<option value="23">LOCAL7</option>
-</select><br>
-Severity:
-<select name=SL_sev>
-<option value="0">EMERG</option>
-<option value="1">ALERT</option>
-<option value="2">CRIT</option>
-<option value="3">ERR</option>
-<option value="4">WARNING</option>
-<option value="5">NOTICE</option>
-<option value="6">INFO</option>
-<option value="7">DEBUG</option>
-</select><br>
-</div>
+<!-- SYSLOG-START --><!-- SYSLOG-END -->
 <hr>
 <button type="button" onclick="B()">Back</button><button type="submit">Save</button>
 </form>
