@@ -1,4 +1,14 @@
 # pio-scripts/inject_syslog_ui.py
+
+"""
+PlatformIO build script to conditionally inject Syslog UI elements into the settings HTML file.
+
+This script:
+1. Injects Syslog UI elements when WLED_ENABLE_SYSLOG is defined in build flags
+2. Restores the original HTML file after build completion
+3. Tracks state between builds to force UI rebuilds when necessary
+"""
+
 import os, shutil
 from SCons.Script import Import
 
@@ -157,6 +167,9 @@ def inject_syslog_ui(source, target, env, retry_count=0):
             os.remove(bak)
             # only retry up to 3 times
             if retry_count < 3:
+                # Add a small delay before retrying
+                import time
+                time.sleep(0.5 * (retry_count + 1))  # Increasing delay with each retry
                 inject_syslog_ui(source, target, env, retry_count + 1)
             else:
                 print("\033[41mToo many retry attempts. Manual intervention required.\033[0m")
