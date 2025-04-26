@@ -49,15 +49,21 @@ class SyslogPrinter : public Print {
     WiFiUDP syslogUdp; // needs to be here otherwise UDP messages get truncated upon destruction
     IPAddress syslogHostIP;
     bool resolveHostname();
+    bool _lastOperationSucceeded;
+    String _lastErrorMessage;
     
     // Syslog configuration
     uint8_t _facility;
     uint8_t _severity;
     uint8_t _protocol;
     String _appName;
-    bool test = true;
+
     // Buffer management
-    char _buffer[128]; // Buffer for collecting characters
+    #ifndef SYSLOG_BUFFER_SIZE
+      #define SYSLOG_BUFFER_SIZE 128
+    #endif
+    char _buffer[SYSLOG_BUFFER_SIZE]; // Buffer for collecting characters
+
     size_t _bufferIndex;
     void flushBuffer();
     
@@ -75,6 +81,10 @@ class SyslogPrinter : public Print {
     
     // Severity override for specific messages
     size_t write(const uint8_t *buf, size_t size, uint8_t severity);
+
+    // Error handling
+    bool lastOperationSucceeded() const { return _lastOperationSucceeded; }
+    String getLastErrorMessage() const { return _lastErrorMessage; }
 };
 
 // Default instance

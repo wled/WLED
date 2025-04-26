@@ -120,8 +120,27 @@ size_t SyslogPrinter::write(const uint8_t *buf, size_t size) {
 }
 
 size_t SyslogPrinter::write(const uint8_t *buf, size_t size, uint8_t severity) {
-  if (!WLED_CONNECTED || buf == nullptr || !syslogEnabled) return 0;
-  if (!resolveHostname()) return 0;
+  _lastOperationSucceeded = true;
+  if (!WLED_CONNECTED) {
+    _lastOperationSucceeded = false;
+    _lastErrorMessage = F("Network not connected");
+    return 0;
+  }
+  if (buf == nullptr) {
+    _lastOperationSucceeded = false;
+    _lastErrorMessage = F("Null buffer provided");
+    return 0;
+  }
+  if (!syslogEnabled) {
+    _lastOperationSucceeded = false;
+    _lastErrorMessage = F("Syslog is disabled");
+    return 0;
+  }
+  if (!resolveHostname()) {
+    _lastOperationSucceeded = false;
+    _lastErrorMessage = F("Failed to resolve hostname");
+    return 0;
+  }
   
   syslogUdp.beginPacket(syslogHostIP, syslogPort);
   
