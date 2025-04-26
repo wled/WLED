@@ -1,5 +1,5 @@
 # pio-scripts/inject_syslog_ui.py
-import os, shutil, sys
+import os, shutil
 from SCons.Script import Import
 
 Import("env")
@@ -117,7 +117,8 @@ def inject_syslog_ui(source, target, env):
         print("Backing up and injecting Syslog UI...")
         shutil.copyfile(html_path, bak)
         try:
-            original = open(html_path, 'r', encoding='utf8').read()
+            with open(html_path, 'r', encoding='utf8') as f:
+                original = f.read()
             modified = original
 
             # replace existing section if present
@@ -146,8 +147,20 @@ def inject_syslog_ui(source, target, env):
             print("\033[42mSyslog UI injected successfully!\033[0m")
         except Exception as e:
             print(f"\033[41mError during injection: {e}\033[0m")
+            # injection failed → remove backup so we’ll retry next time
+            if os.path.exists(bak):
+                os.remove(bak)
     else:
         print("Backup exists; assume already injected.")
+        # verify that SYSLOG markers really are in the file
+        with open(html_path, 'r', encoding='utf8') as f:
+            content = f.read()
+        if '<!-- SYSLOG-START -->' not in content or '<!-- SYSLOG-END -->' not in content:
+            print("Backup exists but SYSLOG markers missing—forcing re-injection.")
+            os.remove(bak)
+            inject_syslog_ui(source, target, env)
+        else:
+            print("Backup exists and markers found; already injected.")
 
 def restore_syslog_ui(source, target, env):
     print("\033[44m==== inject_syslog_ui.py (POST BUILD) ====\033[0m")
