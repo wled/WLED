@@ -524,8 +524,6 @@ void getSettingsJS(byte subPage, Print& settingsScript)
     printSetFormValue   (settingsScript,PSTR("SL_proto"), syslogProtocol); // protocol
     printSetFormValue   (settingsScript,PSTR("SL_fac"), syslogFacility);   // facility
     printSetFormValue   (settingsScript,PSTR("SL_sev"), syslogSeverity);   // severity
-    #else
-    settingsScript.print(F("toggle('Syslog');"));    // hide Syslog Sync settings
     #endif
 
     #ifndef WLED_ENABLE_ADALIGHT

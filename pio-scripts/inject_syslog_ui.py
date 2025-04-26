@@ -23,9 +23,6 @@ def set_syslog_state(project_dir, enabled):
 # This is the HTML we want to inject
 SYSLOG_HTML = """
 <h3>Syslog</h3>
-<div id="NoSyslog" class="hide">
-  <em class="warn">This firmware build does not support Syslog interface.<br></em>
-</div>
 <div id="Syslog">
   Enable Syslog: <input type="checkbox" name="SL_en"><br>
   Host: <input type="text" name="SL_host" maxlength="32"><br>
