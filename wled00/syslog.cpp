@@ -22,7 +22,9 @@ SyslogPrinter::SyslogPrinter() :
   _severity(SYSLOG_DEBUG), 
   _protocol(SYSLOG_PROTO_BSD),
   _appName("WLED"),
-  _bufferIndex(0) {}
+  _bufferIndex(0),
+  _lastOperationSucceeded(true),
+  _lastErrorMessage("") {}
 
 void SyslogPrinter::begin(const char* host, uint16_t port,
 					  uint8_t facility, uint8_t severity, uint8_t protocol) {
