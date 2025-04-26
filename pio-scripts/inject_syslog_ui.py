@@ -9,7 +9,7 @@ This script:
 3. Tracks state between builds to force UI rebuilds when necessary
 """
 
-import os, shutil
+import os, re, shutil
 from SCons.Script import Import
 
 Import("env")
@@ -94,7 +94,7 @@ def inject_syslog_ui(source, target, env, retry_count=0):
     build_flags = env.get("BUILD_FLAGS", "")
     if isinstance(build_flags, list):
         build_flags = " ".join(build_flags)
-    has_syslog = ("-D WLED_ENABLE_SYSLOG" in build_flags or "-DWLED_ENABLE_SYSLOG" in build_flags)
+    has_syslog = bool(re.search(r'-D\s*WLED_ENABLE_SYSLOG', build_flags))
 
     project_dir = env.subst("$PROJECT_DIR")
     html_path = os.path.join(project_dir, "wled00/data/settings_sync.htm")
@@ -152,8 +152,14 @@ def inject_syslog_ui(source, target, env, retry_count=0):
             with open(html_path, 'w', encoding='utf8') as f:
                 f.write(modified)
             print("\033[42mSyslog UI injected successfully!\033[0m")
+            
+        except (IOError, OSError) as e:
+            print(f"\033[41mFile operation error during injection: {e}\033[0m")
+            # injection failed → remove backup so we'll retry next time
+            if os.path.exists(bak):
+                os.remove(bak)
         except Exception as e:
-            print(f"\033[41mError during injection: {e}\033[0m")
+            print(f"\033[41mUnexpected error during injection: {e}\033[0m")
             # injection failed → remove backup so we’ll retry next time
             if os.path.exists(bak):
                 os.remove(bak)
