@@ -1,0 +1,9 @@
+{
+    "name:": "EnableDisableWiFi",
+    "build": {
+        "libArchive": false,
+        "extraScript": "setup_deps.py"
+    },
+    "dependencies": {}
+}
+  
