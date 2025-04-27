@@ -200,13 +200,13 @@ class UsermodSSDR : public Usermod {
     #ifdef USERMOD_SN_PHOTORESISTOR
       Usermod_SN_Photoresistor *photoResistor = nullptr;
     #else
-      #define photoResistor nullptr;
+      #define photoResistor nullptr
     #endif
     
     #ifdef USERMOD_BH1750
       Usermod_BH1750* bh1750 = nullptr;
     #else
-      #define bh1750 nullptr;
+      #define bh1750 nullptr
     #endif
     
   public:
