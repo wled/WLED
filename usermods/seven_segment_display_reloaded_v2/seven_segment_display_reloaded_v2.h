@@ -1,6 +1,10 @@
 #pragma once
 #include "wled.h"
 
+// logging macro:
+#define _logWithPrefix(fmt, ...) \
+	DEBUG_PRINTF("[SSDR] " fmt "\n", ##__VA_ARGS__)
+
 //#define REFRESHTIME 497
 
 class UsermodSSDR : public Usermod {
@@ -157,7 +161,7 @@ class UsermodSSDR : public Usermod {
     String umSSDRYears = umSSDR_YEARS;
     
     bool* umSSDRMask = nullptr;
-    bool disableUmLedControl = false;
+    bool externalLedOutputDisabled = false;
     
     // Forward declarations of private methods
     void _overlaySevenSegmentDraw();
@@ -224,10 +228,15 @@ class UsermodSSDR : public Usermod {
     uint16_t getId() override;
     
     // Public function that can be called from other usermods
+    /**
+    * Allows external usermods to temporarily disable the LED output of this usermod.
+    * This is useful when multiple usermods might be trying to control the same LEDs.
+    * @param state true to disable LED output, false to enable
+    */
     void disableOutputFunction(bool state) {
-      disableUmLedControl = state;
+	  externalLedOutputDisabled = state;
 	  #ifdef DEBUG_PRINTF
-	  	DEBUG_PRINTF("disableOutputFunction was triggered by an external Usermod: %s\n", disableUmLedControl ? "true" : "false");
+	  	_logWithPrefix("disableOutputFunction was triggered by an external Usermod: %s\n", externalLedOutputDisabled ? "true" : "false");
 	  #endif
     }
     
