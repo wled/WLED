@@ -220,6 +220,7 @@ void getSettingsJS(byte subPage, Print& settingsScript)
     for (size_t i = 0; i < linked_remotes.size(); i++) {
       settingsScript.printf_P(PSTR("aR(\"RM%u\",\"%s\");"), i, linked_remotes[i].data()); // add remote to list
     }
+    settingsScript.print(F("tE();")); // fill fields
     #else
     //hide remote settings if not compiled
     settingsScript.print(F("toggle('ESPNOW');"));  // hide ESP-NOW setting

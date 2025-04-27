@@ -142,54 +142,46 @@ Static subnet mask:<br>
 		var rC = 0; // remote count
 		// toggle visibility of ESP-NOW remote list based on checkbox state
 		function tE() {
-			const e = d.querySelector('input[name="RE"]').checked;
-			const l = gId('rlc');  // remote list container
 			// keep the hidden input with MAC addresses, only toggle visibility of the list UI
-			if (l) l.style.display = e ? 'block' : 'none';
+			gId('rlc').style.display = d.Sf.RE.checked ? 'block' : 'none';
 		}
 		// reset remotes: initialize empty list (called from xml.cpp)
 		function rstR() {
 			gId('rml').innerHTML = ''; // clear remote list
-			rC = 0;
-			uR(); // update remote list
 		}
 		// add remote MAC to the list
 		function aR(id, mac) {
 			if (!/^[0-9A-F]{12}$/i.test(mac)) return; // check for valid hex string
-			if (rC >= 10) return;
 			let inputs = d.querySelectorAll("#rml input");
 			for (let i of (inputs || [])) {
 				if (i.value === mac) return;
 			}
 			let l = gId('rml'), r = cE('div'), i = cE('input');
-			i.type = 'text'; i.name = id; i.value = mac; i.maxLength = 12; i.minLength = 12; i.onchange = uR;
+			i.type = 'text';
+			i.name = id;
+			i.value = mac;
+			i.maxLength = 12;
+			i.minLength = 12;
+			//i.onchange = uR;
 			r.appendChild(i);
 			let b = cE('button');
-			b.type = 'button'; b.innerText = '-'; b.onclick = () => rR(r);
+			b.type = 'button';
+			b.className = 'sml';
+			b.innerText = '-';
+			b.onclick = (e) => {
+ 				r.remove();
+ 			};
 			r.appendChild(b);
 			l.appendChild(r);
 			rC++;
-			uR();
+			gId('+').style.display = gId("rml").childElementCount < 10 ? 'inline' : 'none'; // can't append to list anymore, hide button
 		}
-		// remove a remote from the list
-		function rR(e) {
-			e.remove();
-			uR();
-		}
-		// update remote list
-		function uR() {
-			let macs = [];
-			d.querySelectorAll('#rml input').forEach(o => {
-				if (o.value) macs.push(o.value);
-			});
-			gId('rmacs').value = JSON.stringify(macs);
-			return true; // Allow form submission to continue
-		}
+
 	</script>
 	<style>@import url("style.css");</style>
 </head>
 <body onload="S()">
-  <form id="form_s" name="Sf" method="post" onsubmit="return uR()">
+  <form id="form_s" name="Sf" method="post">
 		<div class="toprow">
 		<div class="helpB"><button type="button" onclick="H('features/settings/#wifi-settings')">?</button></div>
 		<button type="button" onclick="B()">Back</button><button type="submit">Save & Connect</button><hr>
@@ -255,12 +247,11 @@ Static subnet mask:<br>
 			Keep disabled if not using a remote or wireless sync, increases power consumption.<br></i>
 			<div id="rlc">
 				Last device seen: <span class="rlid" id="ld">None</span>
-				<button type="button" onclick="aR('RM'+rC,gId('ld').textContent)">+</button><br>
+				<button type="button" class="sml" id="+" onclick="aR('RM'+rC,gId('ld').textContent)">+</button><br>
 				Linked MACs:<br>
 				<div id="rml">
 				</div>
 			</div>
-			<input type="hidden" name="RMA" id="rmacs">
 		</div>
 
 		<div id="ethd">
