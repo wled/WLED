@@ -335,7 +335,7 @@
     _setAllFalse();
 
     #ifdef USERMOD_SN_PHOTORESISTOR
-      ptr = (Usermod_SN_Photoresistor*) UsermodManager::lookup(USERMOD_ID_SN_PHOTORESISTOR);
+      photoResistor = (Usermod_SN_Photoresistor*) UsermodManager::lookup(USERMOD_ID_SN_PHOTORESISTOR);
     #endif
     #ifdef USERMOD_BH1750
       bh1750 = (Usermod_BH1750*) UsermodManager::lookup(USERMOD_ID_BH1750);
@@ -360,12 +360,12 @@
     }
 
     #if defined(USERMOD_SN_PHOTORESISTOR) || defined(USERMOD_BH1750)
-      if(bri != 0 && umSSDREnableLDR && (millis() - umSSDRLastRefresh > umSSDRResfreshTime) && !disableUmLedControl) {
+      if(bri != 0 && umSSDREnableLDR && (millis() - umSSDRLastRefresh > umSSDRRefreshTime) && !disableUmLedControl) {
         float lux = -1; // Initialize lux with an invalid value
 	  
         #ifdef USERMOD_SN_PHOTORESISTOR
-        if (ptr != nullptr) {
-          lux = ptr->getLastLDRValue();
+        if (photoResistor != nullptr) {
+          lux = photoResistor->getLastLDRValue();
         }
         #endif
 
