@@ -9384,7 +9384,7 @@ uint16_t mode_particleFireworks1D(void) {
       uint32_t explosionsize = 8 + (PartSys->maxXpixel >> 2) + (PartSys->sources[0].source.x >> (PS_P_RADIUS_SHIFT_1D - 1));
       explosionsize += hw_random16((explosionsize * SEGMENT.intensity) >> 8);
       for (uint32_t e = 0; e < explosionsize; e++) { // emit explosion particles
-        if (SEGMENT.check1) // colorufl mode
+        if (SEGMENT.check1) // colorful mode
           PartSys->sources[0].source.hue = hw_random16(); //random color for each particle
         PartSys->sprayEmit(PartSys->sources[0]); // emit a particle
       }
