@@ -1,10 +1,3 @@
-#ifdef USERMOD_SN_PHOTORESISTOR
-  #include "SN_Photoresistor.h"
-#endif
-#ifdef USERMOD_BH1750
-  #include "BH1750_v2.h"
-#endif
-
 #include "seven_segment_display_reloaded_v2.h"
 
 #ifdef WLED_DISABLE_MQTT
@@ -69,7 +62,7 @@
             lightDone = true;
           }
           break;
-        _logWithPrefix("Unknown mask char '%c'", c);
+        _logUsermodSSDR("Unknown mask char '%c'", c);
       }
     }
     _setMaskToLeds();
@@ -207,10 +200,10 @@
   void UsermodSSDR::_publishMQTTint_P(const char *subTopic, int value)
   {
     #ifndef WLED_DISABLE_MQTT
-    _logWithPrefix("Entering _publishMQTTint_P topic='%s' value=%d", subTopic, value);
+    _logUsermodSSDR("Entering _publishMQTTint_P topic='%s' value=%d", subTopic, value);
     if (WLED_MQTT_CONNECTED) {
       if(mqtt == NULL){
-        _logWithPrefix("MQTT pointer NULL");
+        _logUsermodSSDR("MQTT pointer NULL");
         return;
       }
         
@@ -222,12 +215,12 @@
 
       int result = snprintf(buffer, sizeof(buffer), "%s/%s/%s", mqttDeviceTopic, nameBuffer, topicBuffer);
       if (result < 0 || result >= sizeof(buffer)) {
-        _logWithPrefix("Buffer overflow in _publishMQTTint_P");
+        _logUsermodSSDR("Buffer overflow in _publishMQTTint_P");
         return;  // Buffer overflow check
       }
       snprintf_P(valBuffer, sizeof(valBuffer), PSTR("%d"), value);
 
-      _logWithPrefix("Publishing INT to: '%s', value: '%s'", buffer, valBuffer);
+      _logUsermodSSDR("Publishing INT to: '%s', value: '%s'", buffer, valBuffer);
       mqtt->publish(buffer, 2, true, valBuffer);
     }
     #endif
@@ -236,10 +229,10 @@
   void UsermodSSDR::_publishMQTTstr_P(const char *subTopic, String Value)
   {
     #ifndef WLED_DISABLE_MQTT
-    _logWithPrefix("Entering _publishMQTTstr_P topic='%s' value='%s'", subTopic, Value.c_str());
+    _logUsermodSSDR("Entering _publishMQTTstr_P topic='%s' value='%s'", subTopic, Value.c_str());
     if (WLED_MQTT_CONNECTED) {
       if(mqtt == NULL){
-        _logWithPrefix("MQTT pointer NULL");
+        _logUsermodSSDR("MQTT pointer NULL");
         return;
       }
 
@@ -250,11 +243,11 @@
 
       int result = snprintf(buffer, sizeof(buffer), "%s/%s/%s", mqttDeviceTopic, nameBuffer, topicBuffer);
       if (result < 0 || result >= sizeof(buffer)) {
-        _logWithPrefix("Buffer overflow in _publishMQTTstr_P");
+        _logUsermodSSDR("Buffer overflow in _publishMQTTstr_P");
         return;  // Buffer overflow check
       }
 
-      _logWithPrefix("Publishing STR to: '%s', value: '%s'", buffer, Value.c_str());
+      _logUsermodSSDR("Publishing STR to: '%s', value: '%s'", buffer, Value.c_str());
       mqtt->publish(buffer, 2, true, Value.c_str(), Value.length());
     }
     #endif
@@ -262,7 +255,7 @@
 
   bool UsermodSSDR::_cmpIntSetting_P(char *topic, char *payload, const char *setting, void *value)
   {
-    _logWithPrefix("._cmpIntSetting topic='%s' payload='%s' setting='%s'", topic, payload, reinterpret_cast<const char*>(setting));
+    _logUsermodSSDR("._cmpIntSetting topic='%s' payload='%s' setting='%s'", topic, payload, reinterpret_cast<const char*>(setting));
     char settingBuffer[30];
     strlcpy(settingBuffer, reinterpret_cast<const char *>(setting), sizeof(settingBuffer));
 
@@ -270,7 +263,7 @@
     {
       int oldValue = *((int *)value);
       *((int *)value) = strtol(payload, nullptr, 10);  // Changed NULL to nullptr
-      _logWithPrefix("Setting updated from %d to %d", oldValue, *((int *)value));
+      _logUsermodSSDR("Setting updated from %d to %d", oldValue, *((int *)value));
       _publishMQTTint_P(setting, *((int *)value));
       return true;
     }
@@ -278,42 +271,42 @@
   }
 
   bool UsermodSSDR::_handleSetting(char *topic, char *payload) {
-    _logWithPrefix("Handling setting. Topic='%s', Payload='%s'", topic, payload);
+    _logUsermodSSDR("Handling setting. Topic='%s', Payload='%s'", topic, payload);
 
     if (_cmpIntSetting_P(topic, payload, _str_timeEnabled, &umSSDRDisplayTime)) {
-      _logWithPrefix("Updated timeEnabled");
+      _logUsermodSSDR("Updated timeEnabled");
       return true;
     }
     if (_cmpIntSetting_P(topic, payload, _str_ldrEnabled, &umSSDREnableLDR)) {
-      _logWithPrefix("Updated ldrEnabled");
+      _logUsermodSSDR("Updated ldrEnabled");
       return true;
     }
     if (_cmpIntSetting_P(topic, payload, _str_inverted, &umSSDRInverted)) {
-      _logWithPrefix("Updated inverted");
+      _logUsermodSSDR("Updated inverted");
       return true;
     }
     if (_cmpIntSetting_P(topic, payload, _str_colonblink, &umSSDRColonblink)) {
-      _logWithPrefix("Updated colonblink");
+      _logUsermodSSDR("Updated colonblink");
       return true;
     }
     if (_cmpIntSetting_P(topic, payload, _str_leadingZero, &umSSDRLeadingZero)) {
-      _logWithPrefix("Updated leadingZero");
+      _logUsermodSSDR("Updated leadingZero");
       return true;
     }
 
     char displayMaskBuffer[30];
     strlcpy(displayMaskBuffer, reinterpret_cast<const char *>(_str_displayMask), sizeof(displayMaskBuffer));
 
-    _logWithPrefix("Comparing '%s' with '%s'", topic, displayMaskBuffer);
+    _logUsermodSSDR("Comparing '%s' with '%s'", topic, displayMaskBuffer);
 
     if (strcmp_P(topic, _str_displayMask) == 0) {
       umSSDRDisplayMask = String(payload);
 
-      _logWithPrefix("Updated displayMask to '%s'", umSSDRDisplayMask.c_str());
+      _logUsermodSSDR("Updated displayMask to '%s'", umSSDRDisplayMask.c_str());
       _publishMQTTstr_P(_str_displayMask, umSSDRDisplayMask);
       return true;
     }
-    _logWithPrefix("No matching setting found");
+    _logUsermodSSDR("No matching setting found");
     return false;
   }
 
@@ -378,7 +371,7 @@
     umSSDRMask = (bool*) calloc(umSSDRLength, sizeof(bool));  // Use calloc to initialize to 0
 	  
     if (umSSDRMask == nullptr) {
-      _logWithPrefix("Failed to allocate memory for SSDR mask");
+      _logUsermodSSDR("Failed to allocate memory for SSDR mask");
       return;  // Early return on memory allocation failure
     }
     _setAllFalse();
@@ -389,7 +382,7 @@
     #ifdef USERMOD_BH1750
       bh1750 = (Usermod_BH1750*) UsermodManager::lookup(USERMOD_ID_BH1750);
     #endif
-    _logWithPrefix("Setup done");
+    _logUsermodSSDR("Setup done");
   }
 
   // Clean up any allocated memory in the destructor
@@ -434,10 +427,10 @@
           } else {
             brightness = map(constrainedLux, umSSDRLuxMin, umSSDRLuxMax, umSSDRBrightnessMax, umSSDRBrightnessMin);
           }
-          _logWithPrefix("Lux=%.2f?brightness=%d",lux,br);
+          _logUsermodSSDR("Lux=%.2f?brightness=%d",lux,br);
 
           if (bri != brightness) {
-            _logWithPrefix("Adjusting brightness based on lux value: %.2f lx, new brightness: %d", lux, brightness);
+            _logUsermodSSDR("Adjusting brightness based on lux value: %.2f lx, new brightness: %d", lux, brightness);
             bri = brightness;
             stateUpdated(1);
           }
@@ -532,9 +525,9 @@
   }
 
   void UsermodSSDR::onMqttConnect(bool sessionPresent) {
-    _logWithPrefix("onMqttConnect sessionPresent=%d", sessionPresent);
+    _logUsermodSSDR("onMqttConnect sessionPresent=%d", sessionPresent);
     if (!umSSDRDisplayTime) {
-      _logWithPrefix("DisplayTime disabled, skipping subscribe");
+      _logUsermodSSDR("DisplayTime disabled, skipping subscribe");
       return;
     }
     #ifndef WLED_DISABLE_MQTT
@@ -544,14 +537,14 @@
       // Copy PROGMEM string to local buffer
       strlcpy(nameBuffer, reinterpret_cast<const char *>(_str_name), sizeof(nameBuffer));
 
-      _logWithPrefix("Connected. DeviceTopic='%s', GroupTopic='%s'", mqttDeviceTopic, mqttGroupTopic);
+      _logUsermodSSDR("Connected. DeviceTopic='%s', GroupTopic='%s'", mqttDeviceTopic, mqttGroupTopic);
 
       if (mqttDeviceTopic[0] != 0)
       {
         _updateMQTT();
         //subscribe for sevenseg messages on the device topic
         sprintf(subBuffer, "%s/%s/+/set", mqttDeviceTopic, nameBuffer);
-        _logWithPrefix("Subscribing to device topic: '%s'", subBuffer);
+        _logUsermodSSDR("Subscribing to device topic: '%s'", subBuffer);
         mqtt->subscribe(subBuffer, 2);
       }
 
@@ -559,7 +552,7 @@
       {
         //subscribe for sevenseg messages on the group topic
         sprintf(subBuffer, "%s/%s/+/set", mqttGroupTopic, nameBuffer);
-        _logWithPrefix("Subscribing to group topic: '%s'", subBuffer);
+        _logUsermodSSDR("Subscribing to group topic: '%s'", subBuffer);
         mqtt->subscribe(subBuffer, 2);
       }
     }
@@ -572,9 +565,9 @@
       //If topic begins with sevenSeg cut it off, otherwise not our message.
       size_t topicPrefixLen = strlen_P(PSTR("/wledSS/"));
       if (strncmp_P(topic, PSTR("/wledSS/"), topicPrefixLen) == 0) {
-        _logWithPrefix("onMqttMessage topic='%s' payload='%s'", topic, payload);
+        _logUsermodSSDR("onMqttMessage topic='%s' payload='%s'", topic, payload);
         topic += topicPrefixLen;
-        _logWithPrefix("Topic starts with /wledSS/, modified topic: '%s'", topic);
+        _logUsermodSSDR("Topic starts with /wledSS/, modified topic: '%s'", topic);
       } else {
         return false;
       }
@@ -588,9 +581,9 @@
       {
         //Trim /set and handle it
         topic[topicLen - 4] = '\0';
-        _logWithPrefix("Processing setting. Setting='%s', Value='%s'", topic, payload);
+        _logUsermodSSDR("Processing setting. Setting='%s', Value='%s'", topic, payload);
         bool result = _handleSetting(topic, payload);
-        _logWithPrefix("Handling result: %s", result ? "success" : "failure");
+        _logUsermodSSDR("Handling result: %s", result ? "success" : "failure");
       }
     }
     return true;
@@ -607,7 +600,7 @@
     JsonObject top = root[FPSTR(_str_name)];
 
     if (top.isNull()) {
-      _logWithPrefix("%s: No config found. (Using defaults.)", reinterpret_cast<const char*>(_str_name));
+      _logUsermodSSDR("%s: No config found. (Using defaults.)", reinterpret_cast<const char*>(_str_name));
       return false;
     }
     umSSDRDisplayTime			= (top[FPSTR(_str_timeEnabled)] | umSSDRDisplayTime);
@@ -630,7 +623,7 @@
     umSSDRLuxMax                = top[FPSTR(_str_luxMax)] | umSSDRLuxMax;
     umSSDRInvertAutoBrightness  = top[FPSTR(_str_invertAutoBrightness)] | umSSDRInvertAutoBrightness;
 
-    _logWithPrefix("%s: config (re)loaded.)", reinterpret_cast<const char*>(_str_name));
+    _logUsermodSSDR("%s: config (re)loaded.)", reinterpret_cast<const char*>(_str_name));
 
     return true;
   }

@@ -2,8 +2,15 @@
 #include "wled.h"
 
 // logging macro:
-#define _logWithPrefix(fmt, ...) \
+#define _logUsermodSSDR(fmt, ...) \
 	DEBUG_PRINTF("[SSDR] " fmt "\n", ##__VA_ARGS__)
+
+#ifdef USERMOD_SN_PHOTORESISTOR
+  #include "SN_Photoresistor.h"
+#endif
+#ifdef USERMOD_BH1750
+  #include "BH1750_v2.h"
+#endif
 
 //#define REFRESHTIME 497
 
@@ -236,7 +243,7 @@ class UsermodSSDR : public Usermod {
     void disableOutputFunction(bool state) {
 	  externalLedOutputDisabled = state;
 	  #ifdef DEBUG_PRINTF
-	  	_logWithPrefix("disableOutputFunction was triggered by an external Usermod: %s\n", externalLedOutputDisabled ? "true" : "false");
+	  	_logUsermodSSDR("disableOutputFunction was triggered by an external Usermod: %s", externalLedOutputDisabled ? "true" : "false");
 	  #endif
     }
     
