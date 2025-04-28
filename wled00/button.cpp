@@ -1,7 +1,5 @@
 #include "wled.h"
-#ifdef USERMOD_ENABLE_DISABLE_WIFI
-  #include "EnableDisableWiFi.h"
-#endif
+
 /*
  * Physical IO
  */

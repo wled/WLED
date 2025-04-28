@@ -566,13 +566,7 @@ void WLED::beginStrip()
 
 void WLED::initAP(bool resetAP)
 {
-  #ifdef USERMOD_ENABLE_DISABLE_WIFI
-    EnableDisableWiFi* mod = UsermodManager::lookup(USERMOD_ID_ENABLE_DISABLE_WIFI);
-    if(mod)
-      if(!mod->isWiFiEnabled())
-        return;
-  #endif
-  if (apBehavior == AP_BEHAVIOR_BUTTON_ONLY && !resetAP)
+  if ((!wifiEnabled || apBehavior == AP_BEHAVIOR_BUTTON_ONLY) && !resetAP)
     return;
 
   DEBUG_PRINTF_P(PSTR("current ap behavior setting:  %d"), apBehavior);
@@ -640,6 +634,9 @@ void WLED::initConnection()
 
   lastReconnectAttempt = millis();
 
+  if (!wifiEnabled)   // wifi disabled, skip the rest of this function
+    return;
+
   if (!WLED_WIFI_CONFIGURED) {
     DEBUG_PRINTLN(F("No connection configured."));
     if (!apActive) initAP();        // instantly go to ap mode
@@ -657,42 +654,41 @@ void WLED::initConnection()
 
   if (WLED_WIFI_CONFIGURED) {
     showWelcomePage = false;
-    
-    DEBUG_PRINTF_P(PSTR("Connecting to %s...\n"), multiWiFi[selectedWiFi].clientSSID);
 
+    DEBUG_PRINTF_P(PSTR("Connecting to %s...\n"), multiWiFi[selectedWiFi].clientSSID);
     // convert the "serverDescription" into a valid DNS hostname (alphanumeric)
     char hostname[25];
     prepareHostname(hostname);
     WiFi.begin(multiWiFi[selectedWiFi].clientSSID, multiWiFi[selectedWiFi].clientPass); // no harm if called multiple times
-
-#ifdef ARDUINO_ARCH_ESP32
+    
+    #ifdef ARDUINO_ARCH_ESP32
     WiFi.setTxPower(wifi_power_t(txPower));
     WiFi.setSleep(!noWifiSleep);
     WiFi.setHostname(hostname);
-#else
+    #else
     wifi_set_sleep_type((noWifiSleep) ? NONE_SLEEP_T : MODEM_SLEEP_T);
     WiFi.hostname(hostname);
-#endif
+    #endif
   }
 
-#ifndef WLED_DISABLE_ESPNOW
-  if (enableESPNow) {
-    quickEspNow.onDataSent(espNowSentCB);     // see udp.cpp
-    quickEspNow.onDataRcvd(espNowReceiveCB);  // see udp.cpp
-    bool espNowOK;
-    if (apActive) {
-      DEBUG_PRINTLN(F("ESP-NOW initing in AP mode."));
-      #ifdef ESP32
-      quickEspNow.setWiFiBandwidth(WIFI_IF_AP, WIFI_BW_HT20); // Only needed for ESP32 in case you need coexistence with ESP8266 in the same network
-      #endif //ESP32
-      espNowOK = quickEspNow.begin(apChannel, WIFI_IF_AP);  // Same channel must be used for both AP and ESP-NOW
-    } else {
-      DEBUG_PRINTLN(F("ESP-NOW initing in STA mode."));
-      espNowOK = quickEspNow.begin(); // Use no parameters to start ESP-NOW on same channel as WiFi, in STA mode
+  #ifndef WLED_DISABLE_ESPNOW
+    if (enableESPNow) {
+      quickEspNow.onDataSent(espNowSentCB);     // see udp.cpp
+      quickEspNow.onDataRcvd(espNowReceiveCB);  // see udp.cpp
+      bool espNowOK;
+      if (apActive) {
+        DEBUG_PRINTLN(F("ESP-NOW initing in AP mode."));
+        #ifdef ESP32
+        quickEspNow.setWiFiBandwidth(WIFI_IF_AP, WIFI_BW_HT20); // Only needed for ESP32 in case you need coexistence with ESP8266 in the same network
+        #endif //ESP32
+        espNowOK = quickEspNow.begin(apChannel, WIFI_IF_AP);  // Same channel must be used for both AP and ESP-NOW
+      } else {
+        DEBUG_PRINTLN(F("ESP-NOW initing in STA mode."));
+        espNowOK = quickEspNow.begin(); // Use no parameters to start ESP-NOW on same channel as WiFi, in STA mode
+      }
+      statusESPNow = espNowOK ? ESP_NOW_STATE_ON : ESP_NOW_STATE_ERROR;
     }
-    statusESPNow = espNowOK ? ESP_NOW_STATE_ON : ESP_NOW_STATE_ERROR;
-  }
-#endif
+  #endif
 }
 
 void WLED::initInterfaces()
@@ -766,7 +762,7 @@ void WLED::handleConnection()
   if ((wifiConfigured && multiWiFi.size() > 1 && WiFi.scanComplete() < 0) || (now < 2000 && (!wifiConfigured || apBehavior == AP_BEHAVIOR_ALWAYS)))
     return;
 
-  if (lastReconnectAttempt == 0 || forceReconnect) {
+  if (wifiEnabled && (lastReconnectAttempt == 0 || forceReconnect)) {
     DEBUG_PRINTF_P(PSTR("Initial connect or forced reconnect (@ %lus).\n"), nowS);
     selectedWiFi = findWiFi(); // find strongest WiFi
     initConnection();
@@ -797,11 +793,7 @@ void WLED::handleConnection()
     }
   }
 
-  if (!Network.isConnected()) {
-    #ifdef USERMOD_ENABLE_DISABLE_WIFI
-      EnableDisableWiFi* mod = UsermodManager::lookup(USERMOD_ID_ENABLE_DISABLE_WIFI);
-      if(mod->isWiFiEnabled()) {
-    #endif
+  if (wifiEnabled && !Network.isConnected()) {
     if (interfacesInited) {
       if (scanDone && multiWiFi.size() > 1) {
         DEBUG_PRINTLN(F("WiFi scan initiated on disconnect."));
@@ -833,9 +825,6 @@ void WLED::handleConnection()
         initAP();  // start AP only within first 5min
       }
     }
-    #ifdef USERMOD_ENABLE_DISABLE_WIFI
-    }
-    #endif
     if (apActive && apBehavior == AP_BEHAVIOR_TEMPORARY && now > WLED_AP_TIMEOUT && stac == 0) { // disconnect AP after 5min if no clients connected
       // if AP was enabled more than 10min after boot or if client was connected more than 10min after boot do not disconnect AP mode
       if (now < 2*WLED_AP_TIMEOUT) {
@@ -849,7 +838,7 @@ void WLED::handleConnection()
     DEBUG_PRINTLN();
     DEBUG_PRINT(F("Connected! IP address: "));
     DEBUG_PRINTLN(Network.localIP());
-    if (improvActive) {
+    if (wifiEnabled && improvActive) {
       if (improvError == 3) sendImprovStateResponse(0x00, true);
       sendImprovStateResponse(0x04);
       if (improvActive > 1) sendImprovIPRPCResult(ImprovRPCType::Command_Wifi);
