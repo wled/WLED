@@ -79,14 +79,17 @@
   }
 
   void UsermodSSDR::_showElements(String *map, int timevar, bool isColon, bool removeZero) {
-    if ((map != nullptr) && (*map != nullptr) && !(*map).equals("")) {
-      int length = (timevar == 0) ? 1 : log10(timevar) + 1;
+    if (map && map->length() > 0) {
+      uint8_t length = (timevar == 0) ? 1
+        : static_cast<uint8_t>(log10(static_cast<float>(timevar))) + 1;
+
       bool addZero = false;
       if (length == 1) {
         length = 2;
         addZero = true;
       }
-      int timeArr[length];
+      uint8_t timeArr[4] = {10,10,10,10};   // supports up to 4 digits (0000-9999)
+      if (length > 4) length = 4;           // safety clamp
 
       if (addZero) {
         if (removeZero) {
@@ -259,7 +262,7 @@
     char settingBuffer[30];
     strlcpy(settingBuffer, reinterpret_cast<const char *>(setting), sizeof(settingBuffer));
 
-    if (strcmp_P(topic, settingBuffer) == 0)
+    if (strcmp(topic, settingBuffer) == 0)
     {
       int oldValue = *((int *)value);
       *((int *)value) = strtol(payload, nullptr, 10);  // Changed NULL to nullptr
@@ -299,7 +302,7 @@
 
     _logUsermodSSDR("Comparing '%s' with '%s'", topic, displayMaskBuffer);
 
-    if (strcmp_P(topic, _str_displayMask) == 0) {
+    if (strcmp(topic, _str_displayMask) == 0) {
       umSSDRDisplayMask = String(payload);
 
       _logUsermodSSDR("Updated displayMask to '%s'", umSSDRDisplayMask.c_str());
