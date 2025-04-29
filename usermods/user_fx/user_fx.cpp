@@ -35,7 +35,10 @@ static uint16_t mode_diffusionfire(void) {
   }
 
   if ((strip.now - SEGENV.step) >= refresh_ms) {
-    uint16_t *tmp_row = (uint16_t *)(SEGMENT.data + SEGMENT.length());
+    // Reserve one extra byte and align to 2-byte boundary to avoid hard-faults
+    uint8_t *bufStart = SEGMENT.data + SEGMENT.length();
+    uintptr_t aligned = (uintptr_t(bufStart) + 1u) & ~uintptr_t(0x1u);
+    uint16_t *tmp_row = reinterpret_cast<uint16_t *>(aligned);
     SEGENV.step = strip.now;
     call++;
 
