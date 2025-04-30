@@ -24,7 +24,7 @@ static uint16_t mode_diffusionfire(void) {
   const uint8_t spark_rate = SEGMENT.intensity;
   const uint8_t turbulence = SEGMENT.custom2;
 
-  unsigned dataSize = SEGMENT.length() + (cols * sizeof(uint16_t));
+  unsigned dataSize = SEGMENT.length() + (cols * sizeof(uint16_t)) + 1;
   if (!SEGENV.allocateData(dataSize))
     return mode_static();  // allocation failed
 
@@ -35,9 +35,10 @@ static uint16_t mode_diffusionfire(void) {
   }
 
   if ((strip.now - SEGENV.step) >= refresh_ms) {
-    // Reserve one extra byte and align to 2-byte boundary to avoid hard-faults
     uint8_t *bufStart = SEGMENT.data + SEGMENT.length();
-    uintptr_t aligned = (uintptr_t(bufStart) + 1u) & ~uintptr_t(0x1u);
+    // Reserve one extra byte and align to 2-byte boundary to avoid hard-faults
+    uintptr_t addr = reinterpret_cast<uintptr_t>(bufStart);
+    uintptr_t aligned = (addr + 1) & ~1;
     uint16_t *tmp_row = reinterpret_cast<uint16_t *>(aligned);
     SEGENV.step = strip.now;
     call++;
