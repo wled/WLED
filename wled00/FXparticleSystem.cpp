@@ -48,6 +48,7 @@ ParticleSystem2D::ParticleSystem2D(uint32_t width, uint32_t height, uint32_t num
   for (uint32_t i = 0; i < numSources; i++) {
     sources[i].source.sat = 255; //set saturation to max by default
     sources[i].source.ttl = 1; //set source alive
+    sources[i].sourceFlags.asByte = 0; // all flags disabled
   }
 
 }
@@ -559,6 +560,10 @@ void ParticleSystem2D::pointAttractor(const uint32_t particleindex, PSparticle &
 void ParticleSystem2D::render() {
   CRGB baseRGB;
   uint32_t brightness; // particle brightness, fades if dying
+  TBlendType blend = LINEARBLEND; // default color rendering: wrap palette
+  if (particlesettings.colorByAge) {
+    blend = LINEARBLEND_NOWRAP;
+  }
 
   if (motionBlur) { // motion-blurring active
     for (int32_t y = 0; y <= maxYpixel; y++) {
@@ -581,11 +586,11 @@ void ParticleSystem2D::render() {
     if (fireIntesity) { // fire mode
       brightness = (uint32_t)particles[i].ttl * (3 + (fireIntesity >> 5)) + 20;
       brightness = min(brightness, (uint32_t)255);
-      baseRGB = ColorFromPaletteWLED(SEGPALETTE, brightness, 255);
+      baseRGB = ColorFromPaletteWLED(SEGPALETTE, brightness, 255, LINEARBLEND_NOWRAP);
     }
     else {
       brightness = min((particles[i].ttl << 1), (int)255);
-      baseRGB = ColorFromPaletteWLED(SEGPALETTE, particles[i].hue, 255);
+      baseRGB = ColorFromPaletteWLED(SEGPALETTE, particles[i].hue, 255, blend);
       if (particles[i].sat < 255) {
         CHSV32 baseHSV;
         rgb2hsv((uint32_t((byte(baseRGB.r) << 16) | (byte(baseRGB.g) << 8) | (byte(baseRGB.b)))), baseHSV); // convert to HSV
@@ -598,6 +603,7 @@ void ParticleSystem2D::render() {
     renderParticle(i, brightness, baseRGB, particlesettings.wrapX, particlesettings.wrapY);
   }
 
+  // apply global size rendering
   if (particlesize > 1) {
     uint32_t passes = particlesize / 64 + 1; // number of blur passes, four passes max
     uint32_t bluramount = particlesize;
@@ -605,7 +611,7 @@ void ParticleSystem2D::render() {
     for (uint32_t i = 0; i < passes; i++) {
       if (i == 2) // for the last two passes, use higher amount of blur (results in a nicer brightness gradient with soft edges)
         bitshift = 1;
-        blur2D(framebuffer, maxXpixel + 1, maxYpixel + 1, bluramount << bitshift, bluramount << bitshift);
+      blur2D(framebuffer, maxXpixel + 1, maxYpixel + 1, bluramount << bitshift, bluramount << bitshift);
       bluramount -= 64;
     }
   }
@@ -626,7 +632,11 @@ void ParticleSystem2D::render() {
 
 // calculate pixel positions and brightness distribution and render the particle to local buffer or global buffer
 __attribute__((optimize("O2"))) void ParticleSystem2D::renderParticle(const uint32_t particleindex, const uint8_t brightness, const CRGB& color, const bool wrapX, const bool wrapY) {
-  if (particlesize == 0) { // single pixel rendering
+  uint32_t size = particlesize;
+  if (advPartProps && advPartProps[particleindex].size > 0) // use advanced size properties (0 means use global size including single pixel rendering)
+    size = advPartProps[particleindex].size;
+
+  if (size == 0) { // single pixel rendering
     uint32_t x = particles[particleindex].x >> PS_P_RADIUS_SHIFT;
     uint32_t y = particles[particleindex].y >> PS_P_RADIUS_SHIFT;
     if (x <= (uint32_t)maxXpixel && y <= (uint32_t)maxYpixel) {
@@ -667,7 +677,7 @@ __attribute__((optimize("O2"))) void ParticleSystem2D::renderParticle(const uint
   pxlbrightness[2] = (dx * precal3) >> PS_P_SURFACE; // top right value equal to (dx * dy * brightness) >> PS_P_SURFACE
   pxlbrightness[3] = (precal1 * precal3) >> PS_P_SURFACE; // top left value equal to ((PS_P_RADIUS-dx) * dy * brightness) >> PS_P_SURFACE
 
-  if (advPartProps && advPartProps[particleindex].size > 0) { //render particle to a bigger size
+  if (advPartProps && advPartProps[particleindex].size > 1) { //render particle to a bigger size
     CRGB renderbuffer[100]; // 10x10 pixel buffer
     memset(renderbuffer, 0, sizeof(renderbuffer)); // clear buffer
     //particle size to pixels: < 64 is 4x4, < 128 is 6x6, < 192 is 8x8, bigger is 10x10
@@ -962,15 +972,13 @@ void ParticleSystem2D::updateSystem(void) {
 // FX handles the PSsources, need to tell this function how many there are
 void ParticleSystem2D::updatePSpointers(bool isadvanced, bool sizecontrol) {
   PSPRINTLN("updatePSpointers");
-  // DEBUG_PRINT(F("*** PS pointers ***"));
-  // DEBUG_PRINTF_P(PSTR("this PS %p "), this);
   // Note on memory alignment:
   // a pointer MUST be 4 byte aligned. sizeof() in a struct/class is always aligned to the largest element. if it contains a 32bit, it will be padded to 4 bytes, 16bit is padded to 2byte alignment.
   // The PS is aligned to 4 bytes, a PSparticle is aligned to 2 and a struct containing only byte sized variables is not aligned at all and may need to be padded when dividing the memoryblock.
   // by making sure that the number of sources and particles is a multiple of 4, padding can be skipped here as alignent is ensured, independent of struct sizes.
-  particleFlags = reinterpret_cast<PSparticleFlags *>(this + 1); // pointer to particle flags
-  particles = reinterpret_cast<PSparticle *>(particleFlags + numParticles); // pointer to particles
-  sources = reinterpret_cast<PSsource *>(particles + numParticles); // pointer to source(s) at data+sizeof(ParticleSystem2D)
+  particles = reinterpret_cast<PSparticle *>(this + 1); // pointer to particles
+  particleFlags = reinterpret_cast<PSparticleFlags *>(particles + numParticles); // pointer to particle flags
+  sources = reinterpret_cast<PSsource *>(particleFlags + numParticles); // pointer to source(s) at data+sizeof(ParticleSystem2D)
   framebuffer = reinterpret_cast<CRGB *>(sources + numSources); // pointer to framebuffer
   // align pointer after framebuffer
   uintptr_t p = reinterpret_cast<uintptr_t>(framebuffer + (maxXpixel+1)*(maxYpixel+1));
@@ -1155,6 +1163,7 @@ ParticleSystem1D::ParticleSystem1D(uint32_t length, uint32_t numberofparticles, 
   // initialize some default non-zero values most FX use
   for (uint32_t i = 0; i < numSources; i++) {
     sources[i].source.ttl = 1; //set source alive
+    sources[i].sourceFlags.asByte = 0; // all flags disabled
   }
 
   if (isadvanced) {
@@ -1269,7 +1278,7 @@ int32_t ParticleSystem1D::sprayEmit(const PSsource1D &emitter) {
       particles[emitIndex].x = emitter.source.x;
       particles[emitIndex].hue = emitter.source.hue;
       particles[emitIndex].ttl = hw_random16(emitter.minLife, emitter.maxLife);
-      particleFlags[emitIndex].collide = emitter.sourceFlags.collide;
+      particleFlags[emitIndex].collide = emitter.sourceFlags.collide; // TODO: could just set all flags (asByte) but need to check if that breaks any of the FX
       particleFlags[emitIndex].reversegrav = emitter.sourceFlags.reversegrav;
       particleFlags[emitIndex].perpetual = emitter.sourceFlags.perpetual;
       if (advPartProps) {
@@ -1419,6 +1428,10 @@ void ParticleSystem1D::applyFriction(int32_t coefficient) {
 void ParticleSystem1D::render() {
   CRGB baseRGB;
   uint32_t brightness; // particle brightness, fades if dying
+  TBlendType blend = LINEARBLEND; // default color rendering: wrap palette
+  if (particlesettings.colorByAge || particlesettings.colorByPosition) {
+    blend = LINEARBLEND_NOWRAP;
+  }
 
   #ifdef ESP8266 // no local buffer on ESP8266
   if (motionBlur)
@@ -1442,7 +1455,7 @@ void ParticleSystem1D::render() {
 
     // generate RGB values for particle
     brightness = min(particles[i].ttl << 1, (int)255);
-    baseRGB = ColorFromPaletteWLED(SEGPALETTE, particles[i].hue, 255);
+    baseRGB = ColorFromPaletteWLED(SEGPALETTE, particles[i].hue, 255, blend);
 
     if (advPartProps) { //saturation is advanced property in 1D system
       if (advPartProps[i].sat < 255) {
@@ -1489,9 +1502,9 @@ void ParticleSystem1D::render() {
 // calculate pixel positions and brightness distribution and render the particle to local buffer or global buffer
 __attribute__((optimize("O2"))) void ParticleSystem1D::renderParticle(const uint32_t particleindex, const uint8_t brightness, const CRGB &color, const bool wrap) {
   uint32_t size = particlesize;
-  if (advPartProps) { // use advanced size properties
+  if (advPartProps) // use advanced size properties (1D system has no large size global rendering TODO: add large global rendering?)
     size = advPartProps[particleindex].size;
-  }
+
   if (size == 0) { //single pixel particle, can be out of bounds as oob checking is made for 2-pixel particles (and updating it uses more code)
     uint32_t x =  particles[particleindex].x >> PS_P_RADIUS_SHIFT_1D;
     if (x <= (uint32_t)maxXpixel) { //by making x unsigned there is no need to check < 0 as it will overflow
@@ -1736,30 +1749,32 @@ void ParticleSystem1D::updatePSpointers(bool isadvanced) {
   // a pointer MUST be 4 byte aligned. sizeof() in a struct/class is always aligned to the largest element. if it contains a 32bit, it will be padded to 4 bytes, 16bit is padded to 2byte alignment.
   // The PS is aligned to 4 bytes, a PSparticle is aligned to 2 and a struct containing only byte sized variables is not aligned at all and may need to be padded when dividing the memoryblock.
   // by making sure that the number of sources and particles is a multiple of 4, padding can be skipped here as alignent is ensured, independent of struct sizes.
-  particleFlags = reinterpret_cast<PSparticleFlags1D *>(this + 1); // pointer to particle flags
-  particles = reinterpret_cast<PSparticle1D *>(particleFlags + numParticles); // pointer to particles
-  sources = reinterpret_cast<PSsource1D *>(particles + numParticles); // pointer to source(s)
+  particles = reinterpret_cast<PSparticle1D *>(this + 1); // pointer to particles
+  particleFlags = reinterpret_cast<PSparticleFlags1D *>(particles + numParticles); // pointer to particle flags
+  sources = reinterpret_cast<PSsource1D *>(particleFlags + numParticles); // pointer to source(s)
   #ifdef ESP8266 // no local buffer on ESP8266
   PSdataEnd = reinterpret_cast<uint8_t *>(sources + numSources);
   #else
   framebuffer = reinterpret_cast<CRGB *>(sources + numSources); // pointer to framebuffer
   // align pointer after framebuffer to 4bytes
-  uintptr_t p = reinterpret_cast<uintptr_t>(framebuffer + (maxXpixel+1));
+  uintptr_t p = reinterpret_cast<uintptr_t>(framebuffer + (maxXpixel+1)); // maxXpixel is SEGMENT.virtualLength() - 1
   p = (p + 3) & ~0x03; // align to 4-byte boundary
   PSdataEnd = reinterpret_cast<uint8_t *>(p); // pointer to first available byte after the PS for FX additional data
   #endif
   if (isadvanced) {
     advPartProps = reinterpret_cast<PSadvancedParticle1D *>(PSdataEnd);
-    PSdataEnd = reinterpret_cast<uint8_t *>(advPartProps + numParticles);
+    PSdataEnd = reinterpret_cast<uint8_t *>(advPartProps + numParticles); // since numParticles is a multiple of 4, this is always aligned to 4 bytes. No need to add padding bytes here
   }
   #ifdef WLED_DEBUG_PS
   PSPRINTLN(" PS Pointers: ");
   PSPRINT(" PS : 0x");
   Serial.println((uintptr_t)this, HEX);
-  PSPRINT(" Sources : 0x");
-  Serial.println((uintptr_t)sources, HEX);
+  PSPRINT(" Particleflags : 0x");
+  Serial.println((uintptr_t)particleFlags, HEX);
   PSPRINT(" Particles : 0x");
   Serial.println((uintptr_t)particles, HEX);
+  PSPRINT(" Sources : 0x");
+  Serial.println((uintptr_t)sources, HEX);
   #endif
 }
 
@@ -1780,6 +1795,7 @@ uint32_t calculateNumberOfParticles1D(const uint32_t fraction, const bool isadva
   numberofParticles = numberofParticles < 20 ? 20 : numberofParticles; // 20 minimum
   //make sure it is a multiple of 4 for proper memory alignment (easier than using padding bytes)
   numberofParticles = (numberofParticles+3) & ~0x03; // note: with a separate particle buffer, this is probably unnecessary
+  PSPRINTLN(" calc numparticles:" + String(numberofParticles))
   return numberofParticles;
 }
 
