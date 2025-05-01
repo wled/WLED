@@ -38,13 +38,6 @@ bool UsermodManager::getUMData(um_data_t **data, uint16_t mod_id) {
   }
   return false;
 }
-bool UsermodManager::isModEnabled(uint16_t mod_id) {
-  for (auto mod = _usermod_table_begin; mod < _usermod_table_end; ++mod) {
-    if (mod_id > 0 && (*mod)->getId() != mod_id) continue;  // only get data from requested usermod if provided
-    return (*mod)->isEnabled();               
-  }
-  return false;
-}
 void UsermodManager::addToJsonState(JsonObject& obj)    { for (auto mod = _usermod_table_begin; mod < _usermod_table_end; ++mod) (*mod)->addToJsonState(obj); }
 void UsermodManager::addToJsonInfo(JsonObject& obj)     { for (auto mod = _usermod_table_begin; mod < _usermod_table_end; ++mod) (*mod)->addToJsonInfo(obj); }
 void UsermodManager::readFromJsonState(JsonObject& obj) { for (auto mod = _usermod_table_begin; mod < _usermod_table_end; ++mod) (*mod)->readFromJsonState(obj); }
