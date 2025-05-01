@@ -9308,7 +9308,7 @@ uint16_t mode_particleFireworks1D(void) {
   uint8_t *forcecounter;
 
   if (SEGMENT.call == 0) { // initialization
-    if (!initParticleSystem1D(PartSys, 4, 150, 4, true)) // init
+    if (!initParticleSystem1D(PartSys, 4, 150, 4, true)) // init advanced particle system
       return mode_static(); // allocation failed or is single pixel
     PartSys->setKillOutOfBounds(true);
     PartSys->sources[0].sourceFlags.custom1 = 1; // set rocket state to standby
@@ -9324,11 +9324,8 @@ uint16_t mode_particleFireworks1D(void) {
   PartSys->setParticleSize(SEGMENT.check3); // 1 or 2 pixel rendering
   PartSys->setMotionBlur(SEGMENT.custom2); // anable motion blur
 
-  int32_t gravity = (1 + (SEGMENT.speed >> 3));
-  if (!SEGMENT.check1) // gravity enabled for sparks
-   PartSys->setGravity(0); // disable
-  else
-   PartSys->setGravity(gravity); // set gravity
+  int32_t gravity = (1 + (SEGMENT.speed >> 3)); // gravity value used for rocket speed calculation
+  PartSys->setGravity(SEGMENT.speed ? gravity : 0); // set gravity
 
   if (PartSys->sources[0].sourceFlags.custom1 == 1) { // rocket is on standby
     PartSys->sources[0].source.ttl--;
@@ -9343,8 +9340,8 @@ uint16_t mode_particleFireworks1D(void) {
       PartSys->sources[0].source.hue = hw_random16();
       PartSys->sources[0].var = 10; // emit variation
       PartSys->sources[0].v = -10; // emit speed
-      PartSys->sources[0].minLife = 100;
-      PartSys->sources[0].maxLife = 300;
+      PartSys->sources[0].minLife = 30;
+      PartSys->sources[0].maxLife = SEGMENT.check2 ? 400 : 40;
       PartSys->sources[0].source.x = 0; // start from bottom
       uint32_t speed = sqrt((gravity * ((PartSys->maxX >> 2) + hw_random16(PartSys->maxX >> 1))) >> 4); // set speed such that rocket explods in frame
       PartSys->sources[0].source.vx = min(speed, (uint32_t)127);
@@ -9383,11 +9380,11 @@ uint16_t mode_particleFireworks1D(void) {
       PartSys->sources[0].maxLife = 1300;
       PartSys->sources[0].source.ttl = 100 + hw_random16(64 - (SEGMENT.speed >> 2)); // standby time til next launch
       PartSys->sources[0].sat = 7 + (SEGMENT.custom3 << 3); //color saturation  TODO: replace saturation with something more useful?
-      PartSys->sources[0].size = hw_random16(64); // random particle size in explosion
+      PartSys->sources[0].size = hw_random16(SEGMENT.intensity); // random particle size in explosion
       uint32_t explosionsize = 8 + (PartSys->maxXpixel >> 2) + (PartSys->sources[0].source.x >> (PS_P_RADIUS_SHIFT_1D - 1));
       explosionsize += hw_random16((explosionsize * SEGMENT.intensity) >> 8);
       for (uint32_t e = 0; e < explosionsize; e++) { // emit explosion particles
-        if (SEGMENT.check2)
+        if (SEGMENT.check1) // colorful mode
           PartSys->sources[0].source.hue = hw_random16(); //random color for each particle
         PartSys->sprayEmit(PartSys->sources[0]); // emit a particle
       }
@@ -9407,7 +9404,7 @@ uint16_t mode_particleFireworks1D(void) {
 
   return FRAMETIME;
 }
-static const char _data_FX_MODE_PS_FIREWORKS1D[] PROGMEM = "PS Fireworks 1D@Gravity,Explosion,Firing side,Blur,Saturation,,Colorful,Smooth;,!;!;1;sx=150,c2=30,c3=31,o2=1";
+static const char _data_FX_MODE_PS_FIREWORKS1D[] PROGMEM = "PS Fireworks 1D@Gravity,Explosion,Firing side,Blur,Saturation,Colorful,Trail,Smooth;,!;!;1;sx=150,c2=30,c3=31,o1=1,o2=1";
 
 /*
   Particle based Sparkle effect
