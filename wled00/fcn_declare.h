@@ -450,7 +450,7 @@ namespace UsermodManager {
   void loop();
   void handleOverlayDraw();
   bool handleButton(uint8_t b);
-  bool getUMData(um_data_t **um_data, uint16_t mod_id = USERMOD_ID_RESERVED); // USERMOD_ID_RESERVED will poll all usermods
+  bool getUMData(um_data_t **um_data, uint8_t mod_id = USERMOD_ID_RESERVED); // USERMOD_ID_RESERVED will poll all usermods
   void setup();
   void connected();
   void appendConfigData(Print&);
