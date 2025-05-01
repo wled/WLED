@@ -9308,6 +9308,7 @@ uint16_t mode_particleFireworks1D(void) {
 
   if (SEGMENT.call == 0) { // initialization
     if (!initParticleSystem1D(PartSys, 4, 150, 4, true)) // init advanced particle system
+    if (!initParticleSystem1D(PartSys, 4, 150, 4, true)) // init advanced particle system
       return mode_static(); // allocation failed or is single pixel
     PartSys->setKillOutOfBounds(true);
     PartSys->sources[0].sourceFlags.custom1 = 1; // set rocket state to standby
