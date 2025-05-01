@@ -20,6 +20,7 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
   if (subPage == SUBPAGE_WIFI)
   {
     unsigned cnt = 0;
+    wifiEnabled = request->hasArg(F("EN"));
     for (size_t n = 0; n < WLED_MAX_WIFI_COUNT; n++) {
       char cs[4] = "CS"; cs[2] = 48+n; cs[3] = 0; //client SSID
       char pw[4] = "PW"; pw[2] = 48+n; pw[3] = 0; //client password

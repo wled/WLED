@@ -319,7 +319,7 @@ int findWiFi(bool doScan) {
 
 
 bool isWiFiConfigured() {
-  return multiWiFi.size() > 1 || (strlen(multiWiFi[0].clientSSID) >= 1 && strcmp_P(multiWiFi[0].clientSSID, PSTR(DEFAULT_CLIENT_SSID)) != 0);
+  return wifiEnabled && (multiWiFi.size() > 1 || (strlen(multiWiFi[0].clientSSID) >= 1 && strcmp_P(multiWiFi[0].clientSSID, PSTR(DEFAULT_CLIENT_SSID)) != 0));
 }
 
 #if defined(ESP8266)
