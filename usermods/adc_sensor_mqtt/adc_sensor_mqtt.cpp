@@ -155,11 +155,11 @@ public:
             {
               if (publishRawValue)
               {
-                publishMqtt(i, adc_value[i]);
+                publishMqtt(i);
               }
               else
               {
-                publishMqtt(i, adc_mapped_value[i]);
+                publishMqtt(i);
               }
               published_initial_value = true;
             }
@@ -338,7 +338,7 @@ public:
       }
       else
       {
-        adc_pin_value += String(adc_mapped_value[i]);
+        adc_pin_value += String(adc_mapped_value[i], 2);
         adc_pin_value += unit_of_meas[i];
       }
       adc_Reading.add(adc_pin_value);
@@ -354,7 +354,7 @@ public:
     return USERMOD_ID_ADC_MQTT;
   }
 
-  void publishMqtt(int index, float state)
+  void publishMqtt(int index)
   {
     if (WLED_MQTT_CONNECTED)
     {
@@ -370,12 +370,12 @@ public:
       String mqtt_stat_topic = mqttDeviceTopic;
       mqtt_stat_topic += MQTT_TOPIC;
       mqtt_stat_topic += String(index);
-      mqtt->publish(mqtt_stat_topic.c_str(), 0, true, String(state, 2).c_str());
+      mqtt->publish(mqtt_stat_topic.c_str(), 0, true, publishRawValue ? String(adc_value[index]).c_str() : String(adc_mapped_value[index], 2).c_str());
       published_initial_value = true;
-      DEBUG_PRINT(F("MQTT message sent: "));
+      DEBUG_PRINT(F("MQTT message sent: on topic "));
       DEBUG_PRINT(mqtt_stat_topic.c_str());
       DEBUG_PRINT(F(" -> "));
-      DEBUG_PRINTLN(state);
+      DEBUG_PRINTLN(publishRawValue ? String(adc_value[index]).c_str() : String(adc_mapped_value[index], 2).c_str());
     }
   }
 
