@@ -34,7 +34,7 @@ class adc_sensor_mqtt : public Usermod
 {
 private:
   uint16_t update_interval = 2000;
-  uint16_t change_threshold = 1;
+  float change_threshold = 1.0f;
   static const char MQTT_TOPIC[];
   static const char _name[];
   bool HomeAssistantDiscovery = true; // is HA discovery turned on by default
@@ -42,8 +42,8 @@ private:
   int8_t adc_pin[UM_ADC_MQTT_PIN_MAX_NUMBER];
   unsigned long lastTime = 0;
   uint16_t adc_value[UM_ADC_MQTT_PIN_MAX_NUMBER];
-  uint16_t adc_last_value[UM_ADC_MQTT_PIN_MAX_NUMBER];
-  float adc_Percentage[UM_ADC_MQTT_PIN_MAX_NUMBER];
+  uint16_t adc_last_mapped_value[UM_ADC_MQTT_PIN_MAX_NUMBER];
+  float adc_mapped_value[UM_ADC_MQTT_PIN_MAX_NUMBER];
   bool hassDiscoverySent = false;
   bool adc_enabled = false;
   bool inverted = false;
@@ -65,8 +65,8 @@ public:
       adc_pin[i] = -1;
 #endif
       adc_value[i] = 0;
-      adc_Percentage[i] = 0;
-      adc_last_value[i] = 0;
+      adc_mapped_value[i] = 0;
+      adc_last_mapped_value[i] = 0;
       device_class[i] = F("voltage"); // default device class
       unit_of_meas[i] = F("V");       // default unit of measurement
     }
@@ -142,7 +142,7 @@ public:
 #else
     const uint16_t mapping = 1024; // ESP8266 ADC resolution is 10 bit, so 1024 values
 #endif
-    if (this->inverted) // default mapping value to 0-100  -- replace here your own mapping for your own unit of measurement 
+    if (this->inverted) // default mapping value to 0-100  -- replace here your own mapping for your own unit of measurement
     {
       return mapFloat(rawValue, 0, mapping, 100, 0); // map raw value to percentage
     }
@@ -170,12 +170,13 @@ public:
             continue; // skip if pin is not valid
           }
           adc_value[i] = analogRead(adc_pin[i]);
-          adc_Percentage[i] = read_adc_mapping(adc_value[i]); // read adc value and map it to percentage
-          if (abs(adc_value[i] - adc_last_value[i]) > change_threshold || force_update || force_first_update)
+          adc_mapped_value[i] = read_adc_mapping(adc_value[i]); // read adc value and map it to percentage
+          bool changed = this->publishRawValue ? (adc_value[i] != adc_last_mapped_value[i]) : (adc_mapped_value[i] != adc_last_mapped_value[i]);
+          if (changed || force_update || force_first_update)
           {
-            adc_last_value[i] = adc_value[i];
+            adc_last_mapped_value[i] = adc_mapped_value[i];
             char buf[64];
-            sprintf_P(buf, PSTR("adc %d: %d (%d)"), i, static_cast<uint8_t>(adc_Percentage[i]), adc_value[i]);
+            sprintf_P(buf, PSTR("adc %d: %d (%d)"), i, static_cast<uint8_t>(adc_mapped_value[i]), adc_value[i]);
             DEBUG_PRINTLN(buf);
             if (WLED_MQTT_CONNECTED)
             {
@@ -185,7 +186,7 @@ public:
               }
               else
               {
-                publishMqtt(i, adc_Percentage[i]);
+                publishMqtt(i, adc_mapped_value[i]);
               }
               published_initial_value = true;
             }
@@ -365,7 +366,7 @@ public:
       }
       else
       {
-        adc_pin_value += String(adc_Percentage[i]);
+        adc_pin_value += String(adc_mapped_value[i]);
         adc_pin_value += unit_of_meas[i];
       }
       adc_Reading.add(adc_pin_value);
