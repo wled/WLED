@@ -28,16 +28,15 @@
 #endif
 #endif
 
-
 class adc_sensor_mqtt : public Usermod
 {
 private:
   static const uint8_t NUMBER_OF_DEFAULT_SENSOR_CLASSES = 5; // number of default sensor classes
-  uint16_t update_interval = 2000; // update interval in ms
-  float change_threshold = 1.0f; // change threshold in mapped / raw value as needed
-  bool HomeAssistantDiscovery = true; // is HA discovery turned on by default
-  bool publishRawValue = false;       // publish raw value to MQTT instead of mapped value
-  int8_t adc_pin[UM_ADC_MQTT_PIN_MAX_NUMBER]; // ADC pin number (A0 for ESP8266, 32-39 for ESP32 ..etc checked in setup)
+  uint16_t update_interval = 2000;                           // update interval in ms
+  float change_threshold = 1.0f;                             // change threshold in mapped / raw value as needed
+  bool HomeAssistantDiscovery = true;                        // is HA discovery turned on by default
+  bool publishRawValue = false;                              // publish raw value to MQTT instead of mapped value
+  int8_t adc_pin[UM_ADC_MQTT_PIN_MAX_NUMBER];                // ADC pin number (A0 for ESP8266, 32-39 for ESP32 ..etc checked in setup)
   unsigned long lastTime = 0;
   uint16_t adc_value[UM_ADC_MQTT_PIN_MAX_NUMBER];
   uint16_t adc_last_mapped_value[UM_ADC_MQTT_PIN_MAX_NUMBER];
@@ -48,12 +47,11 @@ private:
   bool published_initial_value = false;
   String device_class[UM_ADC_MQTT_PIN_MAX_NUMBER];
   String unit_of_meas[UM_ADC_MQTT_PIN_MAX_NUMBER];
-  static const String device_classes[NUMBER_OF_DEFAULT_SENSOR_CLASSES];
-  static const String device_unit_of_measurement[NUMBER_OF_DEFAULT_SENSOR_CLASSES];
+  static const char *device_classes[NUMBER_OF_DEFAULT_SENSOR_CLASSES];
+  static const char *device_unit_of_measurement[NUMBER_OF_DEFAULT_SENSOR_CLASSES];
   static const char MQTT_TOPIC[];
   static const char _name[];
   static bool inverted;
-
 
   static float read_adc_mapping(uint16_t rawValue);
 
@@ -186,7 +184,7 @@ public:
     {
       // debug
       DEBUG_PRINT(F("configuring adc_sensor_mqtt: Pin "));
-      DEBUG_PRINT(i);
+      DEBUG_PRINTLN(i);
       char str2[32];
       sprintf_P(str2, PSTR("ADC %d"), i);
       JsonObject ADC_object = top.createNestedObject(str2);
@@ -269,11 +267,10 @@ public:
   {
     uiScript.print(F("addInfo('adc_sensor_mqtt:Enabled',1,'<i>ADC enabled</i>');"));
     uiScript.print(F("addInfo('adc_sensor_mqtt:HASS',1,'<i>Home Assistant Sensor Discovery</i>');"));
-    uiScript.print(F("addInfo('adc_sensor_mqtt:AdcUpdateInterval',1,'<i>ADC update interval</i>');"));
+    uiScript.print(F("addInfo('adc_sensor_mqtt:AdcUpdateInterval',1,'<i>ADC update interval <small>(in ms)</small> </i>');"));
     uiScript.print(F("addInfo('adc_sensor_mqtt:Inverted',1,'<i>ADC mapping voltage inverted</i>');"));
     uiScript.print(F("addInfo('adc_sensor_mqtt:ChangeThreshold',1,'<i>ADC change threshold</i>');"));
     uiScript.print(F("addInfo('adc_sensor_mqtt:Raw',1,'<i>ADC publish raw value</i> <small>(ignores UnitOfMeas)</small>');"));
-    // uiScript.print(F("addInfo('adc_sensor_mqtt','this will cause HASS to ignore device measurement unit')"));
     uiScript.print(F("ux='adc_sensor_mqtt';"));
     for (uint8_t i = 0; i < UM_ADC_MQTT_PIN_MAX_NUMBER; i++)
     {
@@ -291,14 +288,14 @@ public:
       uiScript.print(str);
       for (uint8_t j = 0; j < NUMBER_OF_DEFAULT_SENSOR_CLASSES; j++)
       {
-        sprintf_P(str, PSTR("addOption(dd,'%s','%s');"), device_classes[j].c_str(), device_classes[j].c_str());
+        sprintf_P(str, PSTR("addOption(dd,'%s','%s');"), device_classes[j], device_classes[j]);
         uiScript.print(str);
       }
       sprintf_P(str, PSTR("dd=addDropdown(ux,'ADC %d:UnitOfMeas');"), i);
       uiScript.print(str);
       for (uint8_t j = 0; j < NUMBER_OF_DEFAULT_SENSOR_CLASSES; j++)
       {
-        sprintf_P(str, PSTR("addOption(dd,'%s','%s');"), device_unit_of_measurement[j].c_str(), device_unit_of_measurement[j].c_str());
+        sprintf_P(str, PSTR("addOption(dd,'%s','%s');"), device_unit_of_measurement[j], device_unit_of_measurement[j]);
         uiScript.print(str);
       }
     }
@@ -442,11 +439,10 @@ const char adc_sensor_mqtt::_name[] PROGMEM = "adc_sensor_mqtt";
 const char adc_sensor_mqtt::MQTT_TOPIC[] PROGMEM = "/adc_";
 bool adc_sensor_mqtt::inverted = false;
 
-//customization settings for the usermod
-// default device class and unit of measurement // edit those for your own needs
-const String adc_sensor_mqtt::device_classes[NUMBER_OF_DEFAULT_SENSOR_CLASSES] PROGMEM = {"illuminance", "current", "power", "temperature", "voltage"}; // default device class
-const String adc_sensor_mqtt::device_unit_of_measurement[NUMBER_OF_DEFAULT_SENSOR_CLASSES] PROGMEM = {"lx", "A", "W", "°C", "V"};                       // default unit of measurement
-
+// customization settings for the usermod
+//  default device class and unit of measurement // edit those for your own needs
+const char *adc_sensor_mqtt::device_classes[NUMBER_OF_DEFAULT_SENSOR_CLASSES] = {"illuminance", "current", "power", "temperature", "voltage"}; // default device class
+const char *adc_sensor_mqtt::device_unit_of_measurement[NUMBER_OF_DEFAULT_SENSOR_CLASSES] = {"lx", "A", "W", "°C", "V"};                       // default unit of measurement
 
 /**
  * @brief Map the raw ADC value to a percentage value or add your own custom mapping.
