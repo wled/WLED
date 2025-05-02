@@ -4,10 +4,14 @@
         "libArchive": false
     },
     "dependencies": [
-        {
-          "owner": "h2zero",      
-          "name": "NimBLE-Arduino",
-          "version": "^2.2.3"
-        }
+        // {
+        //     "owner": "h2zero",      
+        //     "name": "NimBLE-Arduino",
+        //     "version": "^2.2.3"
+        //   },
+          {
+            "owner": "h2zero",      
+            "name": "esp-nimble-cpp"
+          }
     ]
 }
