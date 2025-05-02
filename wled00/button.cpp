@@ -322,15 +322,19 @@ void handleButton()
       bool doublePress = buttonWaitTime[b]; //did we have a short press before?
       buttonWaitTime[b] = 0;
 
-      if (b == 0 && dur > WLED_LONG_AP) { // long press on button 0 (when released)
-        if (dur > WLED_LONG_FACTORY_RESET) { // factory reset if pressed > 10 seconds
-          WLED_FS.format();
-          #ifdef WLED_ADD_EEPROM_SUPPORT
-          clearEEPROM();
-          #endif
-          doReboot = true;
+      if (b == 0){
+        if (dur > WLED_LONG_AP) { // long press on button 0 (when released)
+          if (dur > WLED_LONG_FACTORY_RESET) { // factory reset if pressed > 10 seconds
+            WLED_FS.format();
+            #ifdef WLED_ADD_EEPROM_SUPPORT
+            clearEEPROM();
+            #endif
+            doReboot = true;
+          } else {
+            WLED::instance().initAP(true);
+          }
         } else {
-          WLED::instance().initAP(true);
+          doReboot = true;
         }
       } else if (!buttonLongPressed[b]) { //short press
         //NOTE: this interferes with double click handling in usermods so usermod needs to implement full button handling

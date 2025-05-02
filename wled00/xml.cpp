@@ -198,6 +198,11 @@ void getSettingsJS(byte subPage, Print& settingsScript)
     printSetFormIndex(settingsScript,PSTR("AB"),apBehavior);
     printSetFormValue(settingsScript,PSTR("AS"),apSSID);
     printSetFormCheckbox(settingsScript,PSTR("AH"),apHide);
+    printSetFormCheckbox(settingsScript,PSTR("EN"),wifiEnabled);
+    settingsScript.printf_P(PSTR("gId('scan').disabled=%s;"), wifiEnabled ? PSTR("false") : PSTR("true"));
+    settingsScript.printf_P(PSTR("gN('CS0').disabled=%s;"), wifiEnabled ? PSTR("false") : PSTR("true"));
+    settingsScript.printf_P(PSTR("gN('PW0').disabled=%s;"), wifiEnabled ? PSTR("false") : PSTR("true"));
+    settingsScript.printf_P(PSTR("gN('BS0').disabled=%s;"), wifiEnabled ? PSTR("false") : PSTR("true"));
 
     l = strlen(apPass);
     char fapass[l+1]; //fill password field with ***

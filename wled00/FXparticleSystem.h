@@ -96,7 +96,7 @@ typedef union {
 
 // struct for additional particle settings (option)
 typedef struct { // 2 bytes
-  uint8_t size; // particle size, 255 means 10 pixels in diameter
+  uint8_t size; // particle size, 255 means 10 pixels in diameter, 0  means use global size (including single pixel rendering)
   uint8_t forcecounter; // counter for applying forces to individual particles
 } PSadvancedParticle;
 
@@ -127,7 +127,7 @@ typedef struct {
   int8_t var; // variation of emitted speed (adds random(+/- var) to speed)
   int8_t vx; // emitting speed
   int8_t vy;
-  uint8_t size; // particle size (advanced property)
+  uint8_t size; // particle size (advanced property), global size is added on top to this size
 } PSsource;
 
 // class uses approximately 60 bytes
@@ -214,7 +214,7 @@ private:
   uint8_t gforcecounter; // counter for global gravity
   int8_t gforce; // gravity strength, default is 8 (negative is allowed, positive is downwards)
   // global particle properties for basic particles
-  uint8_t particlesize; // global particle size, 0 = 1 pixel, 1 = 2 pixels, 255 = 10 pixels (note: this is also added to individual sized particles)
+  uint8_t particlesize; // global particle size, 0 = 1 pixel, 1 = 2 pixels, 255 = 10 pixels (note: this is also added to individual sized particles, set to 0 or 1 for standard advanced particle rendering)
   uint8_t motionBlur; // motion blur, values > 100 gives smoother animations. Note: motion blurring does not work if particlesize is > 0
   uint8_t smearBlur; // 2D smeared blurring of full frame
 };
@@ -289,7 +289,7 @@ typedef union {
 // struct for additional particle settings (optional)
 typedef struct {
   uint8_t sat; //color saturation
-  uint8_t size; // particle size, 255 means 10 pixels in diameter
+  uint8_t size; // particle size, 255 means 10 pixels in diameter, this overrides global size setting
   uint8_t forcecounter;
 } PSadvancedParticle1D;
 
@@ -333,7 +333,7 @@ public:
   void setColorByPosition(const bool enable);
   void setMotionBlur(const uint8_t bluramount); // note: motion blur can only be used if 'particlesize' is set to zero
   void setSmearBlur(const uint8_t bluramount); // enable 1D smeared blurring of full frame
-  void setParticleSize(const uint8_t size); //size 0 = 1 pixel, size 1 = 2 pixels, is overruled by advanced particle size
+  void setParticleSize(const uint8_t size); //size 0 = 1 pixel, size 1 = 2 pixels, is overruled if advanced particle is used
   void setGravity(int8_t force = 8);
   void enableParticleCollisions(bool enable, const uint8_t hardness = 255);
 
@@ -377,7 +377,7 @@ private:
   uint8_t forcecounter; // counter for globally applied forces
   uint16_t collisionStartIdx; // particle array start index for collision detection
   //global particle properties for basic particles
-  uint8_t particlesize; // global particle size, 0 = 1 pixel, 1 = 2 pixels
+  uint8_t particlesize; // global particle size, 0 = 1 pixel, 1 = 2 pixels, is overruled by advanced particle size
   uint8_t motionBlur; // enable motion blur, values > 100 gives smoother animations
   uint8_t smearBlur; // smeared blurring of full frame
 };

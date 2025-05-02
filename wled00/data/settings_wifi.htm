@@ -105,6 +105,15 @@
 			for (let i = entries.length; i > 0; i--) entries[i-1].remove();
 			btnWiFi(0);
 		}
+		function tw(obj) {
+			let e = !obj.checked;
+			gId("scan").disabled=e;
+			gN("CS0").disabled=e;
+			gN("PW0").disabled=e;
+			gN("BS0").disabled=e;
+			gId("wifi_add").disabled=e;
+			gId("wifi_rem").disabled=e;
+		}
 		function btnWiFi(i) {
 			gId("wifi_add").style.display = (i<maxNetworks) ? "inline":"none";
 			gId("wifi_rem").style.display = (i>1) ? "inline":"none";
@@ -147,6 +156,10 @@ Static subnet mask:<br>
 		<button type="button" onclick="B()">Back</button><button type="submit">Save & Connect</button><hr>
 		</div>
 		<h2>WiFi setup</h2>
+		<hr class="sml">
+		WiFi Enabled: <input type="checkbox" name="EN" onchange="tw(this);">
+		<h6>(will not take effect until reboot)</h6>
+		<hr class="sml">
 		<h3>Connect to existing network</h3>
 		<button type="button" id="scan" onclick="N()">Scan</button><br>
 		<div id="wifi">

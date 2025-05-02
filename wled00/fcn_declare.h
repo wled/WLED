@@ -430,7 +430,6 @@ class Usermod {
     virtual void onUpdateBegin(bool) {}                                      // fired prior to and after unsuccessful firmware update
     virtual void onStateChange(uint8_t mode) {}                              // fired upon WLED state change
     virtual uint16_t getId() {return USERMOD_ID_UNSPECIFIED;}
-    virtual bool isEnabled() {return true;}                                  // if not overridden and object exists, assume enabled (many mods are enabled just by being there)
 
   // API shims
   private:
@@ -451,7 +450,7 @@ namespace UsermodManager {
   void loop();
   void handleOverlayDraw();
   bool handleButton(uint8_t b);
-  bool getUMData(um_data_t **um_data, uint16_t mod_id = USERMOD_ID_RESERVED); // USERMOD_ID_RESERVED will poll all usermods
+  bool getUMData(um_data_t **um_data, uint8_t mod_id = USERMOD_ID_RESERVED); // USERMOD_ID_RESERVED will poll all usermods
   void setup();
   void connected();
   void appendConfigData(Print&);
@@ -471,7 +470,6 @@ namespace UsermodManager {
   void onStateChange(uint8_t);
   Usermod* lookup(uint16_t mod_id);
   size_t getModCount();
-  bool isModEnabled(uint16_t mod_id = USERMOD_ID_RESERVED);
 };
 
 // Register usermods by building a static list via a linker section

@@ -27,6 +27,10 @@
 // * display network (long press buttion)
 //
 
+#ifdef USERMOD_FOUR_LINE_DISPLAY
+#include "usermod_v2_four_line_display.h"
+#endif
+
 #ifdef USERMOD_MODE_SORT
   #error "Usermod Mode Sort is no longer required. Remove -D USERMOD_MODE_SORT from platformio.ini"
 #endif
