@@ -16,13 +16,13 @@
 #ifdef ARDUINO_ARCH_ESP32 // esp8266 always use A0 no use of pin choice
 #if defined(CONFIG_IDF_TARGET_ESP32)
 #define _valid_adc_pin(__pin) (__pin >= 32U && __pin <= 39U) // only ADC1 available on ESP32 with wifi
-#define ADC_SUPPORTED_PINS "32..39"
+#define ADC_SUPPORTED_PINS F("32..39")
 #elif defined(CONFIG_IDF_TARGET_ESP32S3) || defined(CONFIG_IDF_TARGET_ESP32S2)
 #define _valid_adc_pin(__pin) (__pin >= 1 && __pin <= 10) // only ADC1 available on ESP32-S2/ S3 with wifi
-#define ADC_SUPPORTED_PINS "1..10"
+#define ADC_SUPPORTED_PINS F("1..10")
 #elif defined(CONFIG_IDF_TARGET_ESP32C3)
 #define _valid_adc_pin(__pin) (__pin < 5 && __pin >= 0) // only ADC1 available on ESP32-C3 with wifi
-#define ADC_SUPPORTED_PINS "0..4"
+#define ADC_SUPPORTED_PINS F("0..4")
 #else
 #error "Unknown ESP32 target"
 #endif
@@ -36,15 +36,15 @@ private:
   float change_threshold = 1.0f;                             // change threshold in mapped / raw value as needed
   bool HomeAssistantDiscovery = true;                        // is HA discovery turned on by default
   bool publishRawValue = false;                              // publish raw value to MQTT instead of mapped value
-  int8_t adc_pin[UM_ADC_MQTT_PIN_MAX_NUMBER];                // ADC pin number (A0 for ESP8266, 32-39 for ESP32 ..etc checked in setup)
-  unsigned long lastTime = 0;
-  uint16_t adc_value[UM_ADC_MQTT_PIN_MAX_NUMBER];
-  uint16_t adc_last_mapped_value[UM_ADC_MQTT_PIN_MAX_NUMBER];
-  float adc_mapped_value[UM_ADC_MQTT_PIN_MAX_NUMBER];
-  bool hassDiscoverySent = false;
-  bool adc_enabled = false;
-  bool initDone = false;
-  bool published_initial_value = false;
+  bool hassDiscoverySent = false;                            // flag to check if discovery message was sent
+  bool adc_enabled = false;                                  // flag to check if ADC is enabled
+  bool initDone = false;                                     // flag to check if setup is done
+  bool published_initial_value = false;                      // flag to check if initial value was published
+  unsigned long lastTime = 0;                                // last time the value was published
+
+  int8_t adc_pin[UM_ADC_MQTT_PIN_MAX_NUMBER];         // ADC pin number (A0 for ESP8266, 32-39 for ESP32 ..etc checked in setup)
+  uint16_t adc_value[UM_ADC_MQTT_PIN_MAX_NUMBER];     // raw ADC values
+  float adc_mapped_value[UM_ADC_MQTT_PIN_MAX_NUMBER]; // mapped ADC values
   String device_class[UM_ADC_MQTT_PIN_MAX_NUMBER];
   String unit_of_meas[UM_ADC_MQTT_PIN_MAX_NUMBER];
   static const char *device_classes[NUMBER_OF_DEFAULT_SENSOR_CLASSES];
@@ -72,7 +72,6 @@ public:
 #endif
       adc_value[i] = 0;
       adc_mapped_value[i] = 0;
-      adc_last_mapped_value[i] = 0;
       device_class[i] = F("voltage"); // default device class
       unit_of_meas[i] = F("V");       // default unit of measurement
     }
@@ -144,12 +143,11 @@ public:
             // DEBUG_PRINTLN(F("adc_sensor_mqtt:loop Pin not valid!"));
             continue; // skip if pin is not valid
           }
-          adc_value[i] = analogRead(adc_pin[i]);
-          adc_mapped_value[i] = read_adc_mapping(adc_value[i]); // read adc value and map it to percentage
-          bool changed = this->publishRawValue ? (adc_value[i] != adc_last_mapped_value[i]) : (adc_mapped_value[i] != adc_last_mapped_value[i]);
+          bool changed = this->publishRawValue ? (abs(adc_value[i] - analogRead(adc_pin[i])) > change_threshold) : (abs(adc_mapped_value[i] - read_adc_mapping(analogRead(adc_pin[i]))) > change_threshold);
           if (changed || force_update || force_first_update)
           {
-            adc_last_mapped_value[i] = adc_mapped_value[i];
+            adc_value[i] = analogRead(adc_pin[i]);
+            adc_mapped_value[i] = read_adc_mapping(adc_value[i]); // read adc value and map it to percentage
             char buf[64];
             sprintf_P(buf, PSTR("adc %d: %d (%d)"), i, static_cast<uint8_t>(adc_mapped_value[i]), adc_value[i]);
             DEBUG_PRINTLN(buf);
