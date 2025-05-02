@@ -28,31 +28,39 @@
 #endif
 #endif
 
-#define NUMBER_OF_DEFAULT_SENSOR_CLASSES 5
 
 class adc_sensor_mqtt : public Usermod
 {
 private:
-  uint16_t update_interval = 2000;
-  float change_threshold = 1.0f;
-  static const char MQTT_TOPIC[];
-  static const char _name[];
+  static const uint8_t NUMBER_OF_DEFAULT_SENSOR_CLASSES = 5; // number of default sensor classes
+  uint16_t update_interval = 2000; // update interval in ms
+  float change_threshold = 1.0f; // change threshold in mapped / raw value as needed
   bool HomeAssistantDiscovery = true; // is HA discovery turned on by default
-  bool publishRawValue = false;       // publish raw value to MQTT
-  int8_t adc_pin[UM_ADC_MQTT_PIN_MAX_NUMBER];
+  bool publishRawValue = false;       // publish raw value to MQTT instead of mapped value
+  int8_t adc_pin[UM_ADC_MQTT_PIN_MAX_NUMBER]; // ADC pin number (A0 for ESP8266, 32-39 for ESP32 ..etc checked in setup)
   unsigned long lastTime = 0;
   uint16_t adc_value[UM_ADC_MQTT_PIN_MAX_NUMBER];
   uint16_t adc_last_mapped_value[UM_ADC_MQTT_PIN_MAX_NUMBER];
   float adc_mapped_value[UM_ADC_MQTT_PIN_MAX_NUMBER];
   bool hassDiscoverySent = false;
   bool adc_enabled = false;
-  bool inverted = false;
   bool initDone = false;
+  bool published_initial_value = false;
   String device_class[UM_ADC_MQTT_PIN_MAX_NUMBER];
   String unit_of_meas[UM_ADC_MQTT_PIN_MAX_NUMBER];
-  String device_classes[NUMBER_OF_DEFAULT_SENSOR_CLASSES];
-  String device_unit_of_measurement[NUMBER_OF_DEFAULT_SENSOR_CLASSES];
-  bool published_initial_value = false;
+  static const String device_classes[NUMBER_OF_DEFAULT_SENSOR_CLASSES];
+  static const String device_unit_of_measurement[NUMBER_OF_DEFAULT_SENSOR_CLASSES];
+  static const char MQTT_TOPIC[];
+  static const char _name[];
+  static bool inverted;
+
+
+  static float read_adc_mapping(uint16_t rawValue);
+
+  static inline float mapFloat(int x, int in_min, int in_max, float out_min, float out_max)
+  {
+    return ((float)(x - in_min) * (out_max - out_min)) / (float)(in_max - in_min) + out_min;
+  }
 
 public:
   adc_sensor_mqtt()
@@ -71,16 +79,6 @@ public:
       unit_of_meas[i] = F("V");       // default unit of measurement
     }
     // customize here your hass adc device class and unit of measurement
-    device_classes[0] = F("illuminance");                                        // default device class
-    device_classes[1] = F("current");                                            // default device class
-    device_classes[2] = F("power");                                              // default device class
-    device_classes[3] = F("temperature");                                        // default device class
-    device_classes[(NUMBER_OF_DEFAULT_SENSOR_CLASSES - 1)] = F("voltage");       // default device class
-    device_unit_of_measurement[0] = F("lx");                                     // default unit of measurement
-    device_unit_of_measurement[1] = F("A");                                      // default unit of measurement
-    device_unit_of_measurement[2] = F("W");                                      // default unit of measurement
-    device_unit_of_measurement[3] = F("°C");                                     // default unit of measurement
-    device_unit_of_measurement[(NUMBER_OF_DEFAULT_SENSOR_CLASSES - 1)] = F("V"); // default unit of measurement
   }
 
   void setup()
@@ -130,27 +128,6 @@ public:
     }
   }
 
-  static inline float mapFloat(int x, int in_min, int in_max, float out_min, float out_max)
-  {
-    return ((float)(x - in_min) * (out_max - out_min)) / (float)(in_max - in_min) + out_min;
-  }
-
-  float read_adc_mapping(uint16_t rawValue)
-  {
-#ifdef ESP32
-    const uint16_t mapping = 4096; // ESP32 ADC resolution is 12 bit, so 4096 values
-#else
-    const uint16_t mapping = 1024; // ESP8266 ADC resolution is 10 bit, so 1024 values
-#endif
-    if (this->inverted) // default mapping value to 0-100  -- replace here your own mapping for your own unit of measurement
-    {
-      return mapFloat(rawValue, 0, mapping, 100, 0); // map raw value to percentage
-    }
-    else
-    {
-      return mapFloat(rawValue, 0, mapping, 0, 100); // map raw value to percentage
-    }
-  }
   void loop()
   {
     if (initDone && adc_enabled)
@@ -459,8 +436,41 @@ public:
     hassDiscoverySent = mqtt->publish(discovery_topic.c_str(), 1, true, json_str, payload_size) > 0; // publish discovery message
   }
 };
+
+// Usermod static const variables
 const char adc_sensor_mqtt::_name[] PROGMEM = "adc_sensor_mqtt";
 const char adc_sensor_mqtt::MQTT_TOPIC[] PROGMEM = "/adc_";
+bool adc_sensor_mqtt::inverted = false;
 
+//customization settings for the usermod
+// default device class and unit of measurement // edit those for your own needs
+const String adc_sensor_mqtt::device_classes[NUMBER_OF_DEFAULT_SENSOR_CLASSES] PROGMEM = {"illuminance", "current", "power", "temperature", "voltage"}; // default device class
+const String adc_sensor_mqtt::device_unit_of_measurement[NUMBER_OF_DEFAULT_SENSOR_CLASSES] PROGMEM = {"lx", "A", "W", "°C", "V"};                       // default unit of measurement
+
+
+/**
+ * @brief Map the raw ADC value to a percentage value or add your own custom mapping.
+ *
+ * @param rawValue
+ * @return float
+ */
+float adc_sensor_mqtt::read_adc_mapping(uint16_t rawValue)
+{
+#ifdef ESP32
+  const uint16_t mapping = 4096; // ESP32 ADC resolution is 12 bit, so 4096 values
+#else
+  const uint16_t mapping = 1024; // ESP8266 ADC resolution is 10 bit, so 1024 values
+#endif
+  if (adc_sensor_mqtt::inverted) // default mapping value to 0-100  -- replace here your own mapping for your own unit of measurement
+  {
+    return mapFloat(rawValue, 0, mapping, 100, 0); // map raw value to percentage
+  }
+  else
+  {
+    return mapFloat(rawValue, 0, mapping, 0, 100); // map raw value to percentage
+  }
+}
+
+// Register the usermod in the usermod manager
 static adc_sensor_mqtt adc_sensor_mqtt_instance;
 REGISTER_USERMOD(adc_sensor_mqtt_instance);
