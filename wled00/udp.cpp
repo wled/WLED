@@ -754,6 +754,8 @@ void sendSysInfoUDP()
   data[38] = NODE_TYPE_ID_ESP32S3;
   #elif defined(CONFIG_IDF_TARGET_ESP32S2)
   data[38] = NODE_TYPE_ID_ESP32S2;
+  #elif defined(CONFIG_IDF_TARGET_ESP32C6)
+  data[38] = NODE_TYPE_ID_ESP32C6;
   #elif defined(ARDUINO_ARCH_ESP32)
   data[38] = NODE_TYPE_ID_ESP32;
   #else
