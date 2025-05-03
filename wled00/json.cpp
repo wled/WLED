@@ -477,12 +477,12 @@ bool deserializeState(JsonObject root, byte callMode, byte presetId)
   
   JsonObject wifi = root[F("wifi")];
   if (!wifi.isNull()) {
-     bool apMode = getBoolVal(wifi[F("ap")], apActive);
+    bool apMode = getBoolVal(wifi[F("ap")], apActive);
     if (!apActive && apMode && wifiEnabled) WLED::instance().initAP();  // start AP mode immediately
     else if (apActive && !(wifiEnabled && apMode)) { // stop AP mode immediately
-      dnsServer.stop();
-      WiFi.softAPdisconnect(true);
-      apActive = false;
+        dnsServer.stop();
+        WiFi.softAPdisconnect(true);
+        apActive = false;
     }
     //bool restart = wifi[F("restart")] | false;
     //if (restart) forceReconnect = true;
