@@ -35,8 +35,8 @@
 			cursor: pointer;
 		}
 	</style>
-</head>
-<body onload="S()">
+<script src='/L12N.js'></script></head>
+<body onload='try { S() } finally { runI18N(); }'>
 <button type=submit id="b" onclick="window.location=getURL('/')">Back</button>
 <button type="submit" onclick="window.location=getURL('/settings/wifi')">WiFi Setup</button>
 <button type="submit" onclick="window.location=getURL('/settings/leds')">LED Preferences</button>

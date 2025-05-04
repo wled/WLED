@@ -1,0 +1,26 @@
+[
+    {
+        "content": "Timer active. Your light will turn off after 60 minutes.",
+        "page": "index.htm"
+    },
+    {
+        "content": "Timer deactivated.",
+        "page": "index.htm"
+    },
+    {
+        "content": "Other lights in the network will now sync to this one.",
+        "page": "index.htm"
+    },
+    {
+        "content": "This light and other lights in the network will no longer sync.",
+        "page": "index.htm"
+    },
+    {
+        "content": "Unable to load translation file",
+        "page": "settings_ui.htm"
+    },
+    {
+        "content": "You need at least 2 presets to make a playlist!",
+        "page": "index.htm"
+    }
+]

@@ -270,9 +270,9 @@
 	}
 	</script>
 	<style>@import url("style.css");</style>
-</head>
+<script src='/L12N.js'></script></head>
 
-<body onload="S()">
+<body onload='try { S() } finally { runI18N(); }'>
 	<form id="form_s" name="Sf" method="post" onsubmit="svS(event)">
 		<div class="toprow">
 		<div class="helpB"><button type="button" onclick="H()">?</button></div>

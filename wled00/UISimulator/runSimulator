@@ -1,0 +1,2 @@
+cd wled00
+sudo python3 UISimulator/main.py "$@" 

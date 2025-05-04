@@ -98,8 +98,8 @@
       });
     }
   </script>
-</head>
-<body onload="S()">
+<script src='/L12N.js'></script></head>
+<body onload='try { S() } finally { runI18N(); }'>
   <canvas id="canv"></canvas>
 </body>
 </html>

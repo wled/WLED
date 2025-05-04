@@ -1,0 +1,281 @@
+[
+    {
+        "content": "WiFi Settings"
+    },
+    {
+        "content": "Back",
+        "path": "form_s/[1]/[3]/[0]"
+    },
+    {
+        "content": "Save & Connect",
+        "path": "form_s/[1]/[4]/[0]"
+    },
+    {
+        "content": "WiFi setup",
+        "path": "form_s/[3]/[0]"
+    },
+    {
+        "content": "Connect to existing network",
+        "path": "form_s/[5]/[0]"
+    },
+    {
+        "content": "Scan",
+        "path": "scan/[0]"
+    },
+    {
+        "content": "\n\t\t\tWireless networks\n\t\t\t",
+        "path": "wifi/[0]"
+    },
+    {
+        "content": "\n\t\tDNS server address:",
+        "path": "form_s/[11]"
+    },
+    {
+        "content": "\n\t\tmDNS address (leave empty for no mDNS):",
+        "path": "form_s/[24]"
+    },
+    {
+        "content": "\n\t\thttp:// ",
+        "path": "form_s/[26]"
+    },
+    {
+        "content": " .local",
+        "path": "form_s/[28]"
+    },
+    {
+        "content": "\n\t\tClient IP: ",
+        "path": "form_s/[30]"
+    },
+    {
+        "content": " Not connected ",
+        "path": "form_s/[31]/[0]"
+    },
+    {
+        "content": "Configure Access Point",
+        "path": "form_s/[35]/[0]"
+    },
+    {
+        "content": "\n\t\tAP SSID (leave empty for no AP):",
+        "path": "form_s/[36]"
+    },
+    {
+        "content": "\n\t\tHide AP name: ",
+        "path": "form_s/[41]"
+    },
+    {
+        "content": "\n\t\tAP password (leave empty for open):",
+        "path": "form_s/[44]"
+    },
+    {
+        "attr": "title",
+        "content": "Empty or min. 8 characters",
+        "path": "form_s/[47]"
+    },
+    {
+        "content": "\n\t\tAccess Point WiFi channel: ",
+        "path": "form_s/[49]"
+    },
+    {
+        "content": "\n\t\tAP opens:\n\t\t",
+        "path": "form_s/[52]"
+    },
+    {
+        "content": "No connection after boot",
+        "path": "form_s/[53]/[1]/[0]"
+    },
+    {
+        "content": "Disconnected",
+        "path": "form_s/[53]/[3]/[0]"
+    },
+    {
+        "content": "Always",
+        "path": "form_s/[53]/[5]/[0]"
+    },
+    {
+        "content": "Never (not recommended)",
+        "path": "form_s/[53]/[7]/[0]"
+    },
+    {
+        "content": "Temporary (no connection after boot)",
+        "path": "form_s/[53]/[9]/[0]"
+    },
+    {
+        "content": "\n\t\tAP IP: ",
+        "path": "form_s/[55]"
+    },
+    {
+        "content": " Not active ",
+        "path": "form_s/[56]/[0]"
+    },
+    {
+        "content": "Experimental",
+        "path": "form_s/[59]/[0]"
+    },
+    {
+        "content": "\n\t\tForce 802.11g mode (ESP8266 only): ",
+        "path": "form_s/[60]"
+    },
+    {
+        "content": "\n\t\tDisable WiFi sleep: ",
+        "path": "form_s/[63]"
+    },
+    {
+        "content": "Can help with connectivity issues and Audioreactive sync.",
+        "path": "form_s/[67]/[0]"
+    },
+    {
+        "content": "\n\t\tDisabling WiFi sleep increases power consumption.",
+        "path": "form_s/[67]/[2]"
+    },
+    {
+        "content": "TX power: ",
+        "path": "tx/[0]"
+    },
+    {
+        "content": "19.5 dBm",
+        "path": "tx/[1]/[1]/[0]"
+    },
+    {
+        "content": "19 dBm",
+        "path": "tx/[1]/[3]/[0]"
+    },
+    {
+        "content": "18.5 dBm",
+        "path": "tx/[1]/[5]/[0]"
+    },
+    {
+        "content": "17 dBm",
+        "path": "tx/[1]/[7]/[0]"
+    },
+    {
+        "content": "15 dBm",
+        "path": "tx/[1]/[9]/[0]"
+    },
+    {
+        "content": "13 dBm",
+        "path": "tx/[1]/[11]/[0]"
+    },
+    {
+        "content": "11 dBm",
+        "path": "tx/[1]/[13]/[0]"
+    },
+    {
+        "content": "8.5 dBm",
+        "path": "tx/[1]/[15]/[0]"
+    },
+    {
+        "content": "7 dBm",
+        "path": "tx/[1]/[17]/[0]"
+    },
+    {
+        "content": "5 dBm",
+        "path": "tx/[1]/[19]/[0]"
+    },
+    {
+        "content": "2 dBm",
+        "path": "tx/[1]/[21]/[0]"
+    },
+    {
+        "content": "WARNING: Modifying TX power may render device unreachable.",
+        "path": "tx/[4]/[0]"
+    },
+    {
+        "content": "ESP-NOW Wireless",
+        "path": "form_s/[72]/[0]"
+    },
+    {
+        "content": "This firmware build does not include ESP-NOW support.",
+        "path": "NoESPNOW/[1]/[0]"
+    },
+    {
+        "content": "\n\t\t\tEnable ESP-NOW: ",
+        "path": "ESPNOW/[0]"
+    },
+    {
+        "content": "Listen for events over ESP-NOW",
+        "path": "ESPNOW/[4]/[0]"
+    },
+    {
+        "content": "\n\t\t\tKeep disabled if not using a remote or wireless sync, increases power consumption.",
+        "path": "ESPNOW/[4]/[2]"
+    },
+    {
+        "content": "\n\t\t\tPaired Remote MAC: ",
+        "path": "ESPNOW/[5]"
+    },
+    {
+        "content": "\n\t\t\tLast device seen: ",
+        "path": "ESPNOW/[8]"
+    },
+    {
+        "content": "None",
+        "path": "ESPNOW/[9]/[0]"
+    },
+    {
+        "content": "Ethernet Type",
+        "path": "ethd/[1]/[0]"
+    },
+    {
+        "content": "None",
+        "path": "ethd/[3]/[1]/[0]"
+    },
+    {
+        "content": "ABC! WLED V43 & compatible",
+        "path": "ethd/[3]/[3]/[0]"
+    },
+    {
+        "content": "ESP32-POE",
+        "path": "ethd/[3]/[5]/[0]"
+    },
+    {
+        "content": "ESP32-POE-WROVER",
+        "path": "ethd/[3]/[7]/[0]"
+    },
+    {
+        "content": "ESP32Deux/RGB2Go Tetra",
+        "path": "ethd/[3]/[9]/[0]"
+    },
+    {
+        "content": "KIT-VE",
+        "path": "ethd/[3]/[11]/[0]"
+    },
+    {
+        "content": "LILYGO T-POE Pro",
+        "path": "ethd/[3]/[13]/[0]"
+    },
+    {
+        "content": "QuinLED-Dig-Octa & T-ETH-POE",
+        "path": "ethd/[3]/[15]/[0]"
+    },
+    {
+        "content": "QuinLED-ESP32",
+        "path": "ethd/[3]/[17]/[0]"
+    },
+    {
+        "content": "Serg74-ETH32",
+        "path": "ethd/[3]/[19]/[0]"
+    },
+    {
+        "content": "TwilightLord-ESP32",
+        "path": "ethd/[3]/[21]/[0]"
+    },
+    {
+        "content": "WESP32",
+        "path": "ethd/[3]/[23]/[0]"
+    },
+    {
+        "content": "WT32-ETH01",
+        "path": "ethd/[3]/[25]/[0]"
+    },
+    {
+        "content": "Back",
+        "path": "form_s/[82]/[0]"
+    },
+    {
+        "content": "Save & Connect",
+        "path": "form_s/[83]/[0]"
+    },
+    {
+        "content": "WiFi Settings"
+    }
+]

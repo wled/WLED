@@ -1,0 +1,253 @@
+[
+    {
+        "content": "UI Settings"
+    },
+    {
+        "content": "Back",
+        "path": "form_s/[1]/[3]/[0]"
+    },
+    {
+        "content": "Save",
+        "path": "form_s/[1]/[4]/[0]"
+    },
+    {
+        "content": "\u2714 Local UI settings saved!",
+        "path": "lssuc/[0]"
+    },
+    {
+        "content": "\u26a0 Could not access local storage. Make sure it is enabled in your browser.",
+        "path": "lserr/[0]"
+    },
+    {
+        "content": "Web Setup",
+        "path": "form_s/[3]/[0]"
+    },
+    {
+        "content": "\n\t\tServer description: ",
+        "path": "form_s/[4]"
+    },
+    {
+        "content": "\n\t\tSync button toggles both send and receive: ",
+        "path": "form_s/[7]"
+    },
+    {
+        "content": "\n\t\tSet display language:\n\t\t",
+        "path": "form_s/[10]"
+    },
+    {
+        "content": "English",
+        "path": "idLangCode/[1]/[0]"
+    },
+    {
+        "content": "\n\t\tEnable simplified UI: ",
+        "path": "form_s/[13]"
+    },
+    {
+        "content": "The following UI customization settings are unique both to the WLED device and this browser.",
+        "path": "form_s/[17]/[0]"
+    },
+    {
+        "content": "\n\t\tYou will need to set them again if using a different browser, device or WLED IP address.",
+        "path": "form_s/[17]/[2]"
+    },
+    {
+        "content": "\n\t\tRefresh the main UI to apply changes.",
+        "path": "form_s/[17]/[4]"
+    },
+    {
+        "content": "Loading settings...",
+        "path": "gen/[0]"
+    },
+    {
+        "content": "UI Appearance",
+        "path": "form_s/[22]/[0]"
+    },
+    {
+        "content": "\n\t\tI hate dark mode: ",
+        "path": "form_s/[73]"
+    },
+    {
+        "content": "Why would you? ",
+        "path": "idonthateyou/[0]/[0]"
+    },
+    {
+        "content": "\n\t\tBG image: ",
+        "path": "form_s/[93]"
+    },
+    {
+        "content": "Random BG image settings",
+        "path": "NoImage/[1]/[0]"
+    },
+    {
+        "content": "Custom CSS: ",
+        "path": "skin/[0]"
+    },
+    {
+        "content": "Holidays: ",
+        "path": "holidays/[0]"
+    },
+    {
+        "content": "Clear local storage",
+        "path": "form_s/[126]/[0]"
+    },
+    {
+        "content": "Back",
+        "path": "form_s/[129]/[0]"
+    },
+    {
+        "content": "Save",
+        "path": "form_s/[130]/[0]"
+    },
+    {
+        "content": "UI Settings"
+    },
+    {
+        "content": "French",
+        "path": "idLangCode/[3]/[0]"
+    },
+    {
+        "content": "German",
+        "path": "idLangCode/[4]/[0]"
+    },
+    {
+        "content": "Japanese",
+        "path": "idLangCode/[5]/[0]"
+    },
+    {
+        "content": "Color selection methods",
+        "path": "gen/[0]/[0]"
+    },
+    {
+        "content": "Color Wheel: ",
+        "path": "gen/[1]"
+    },
+    {
+        "content": "RGB sliders: ",
+        "path": "gen/[4]"
+    },
+    {
+        "content": "Quick color selectors: ",
+        "path": "gen/[7]"
+    },
+    {
+        "content": "HEX color input: ",
+        "path": "gen/[10]"
+    },
+    {
+        "content": "Show button labels",
+        "path": "form_s/[24]/[0]"
+    },
+    {
+        "content": "Show bottom tab bar in PC mode",
+        "path": "form_s/[29]/[0]"
+    },
+    {
+        "content": "Show preset IDs",
+        "path": "form_s/[34]/[0]"
+    },
+    {
+        "content": "Set segment length instead of stop LED",
+        "path": "form_s/[39]/[0]"
+    },
+    {
+        "content": "Hide segment power & brightness",
+        "path": "form_s/[44]/[0]"
+    },
+    {
+        "content": "Always expand first segment",
+        "path": "form_s/[49]/[0]"
+    },
+    {
+        "content": "Use effect default parameters",
+        "path": "form_s/[54]/[0]"
+    },
+    {
+        "content": "Power button preset override for On",
+        "path": "form_s/[59]/[0]"
+    },
+    {
+        "content": "Power button preset override for Off",
+        "path": "form_s/[64]/[0]"
+    },
+    {
+        "content": "Sort presets by ID",
+        "path": "form_s/[69]/[0]"
+    },
+    {
+        "content": "Button opacity",
+        "path": "form_s/[79]/[0]"
+    },
+    {
+        "content": "Background opacity",
+        "path": "form_s/[84]/[0]"
+    },
+    {
+        "content": "BG HEX color",
+        "path": "form_s/[89]/[0]"
+    },
+    {
+        "content": "Random BG image",
+        "path": "form_s/[99]/[0]"
+    },
+    {
+        "content": "BG image URL",
+        "path": "bg_url/[1]/[0]"
+    },
+    {
+        "content": "Grayscale",
+        "path": "NoImage/[3]/[0]"
+    },
+    {
+        "content": "Blur",
+        "path": "NoImage/[8]/[0]"
+    },
+    {
+        "content": "Enable custom CSS",
+        "path": "form_s/[109]/[0]"
+    },
+    {
+        "content": "Enable custom Holidays list",
+        "path": "form_s/[116]/[0]"
+    },
+    {
+        "content": "UI Settings"
+    },
+    {
+        "content": "UI Settings"
+    },
+    {
+        "attr": "value",
+        "content": "en",
+        "path": "idLangCode/[1]"
+    },
+    {
+        "attr": "value",
+        "content": "Remove",
+        "path": "form_s/[96]"
+    },
+    {
+        "attr": "value",
+        "content": "Upload",
+        "path": "skin/[3]"
+    },
+    {
+        "attr": "value",
+        "content": "Upload",
+        "path": "holidays/[3]"
+    },
+    {
+        "attr": "value",
+        "content": "fr",
+        "path": "idLangCode/[3]"
+    },
+    {
+        "attr": "value",
+        "content": "de",
+        "path": "idLangCode/[4]"
+    },
+    {
+        "attr": "value",
+        "content": "ja",
+        "path": "idLangCode/[5]"
+    }
+]

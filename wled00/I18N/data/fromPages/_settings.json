@@ -1,0 +1,93 @@
+[
+    {
+        "content": "WLED Settings"
+    },
+    {
+        "content": "Back",
+        "path": "b/[0]"
+    },
+    {
+        "content": "WiFi Setup",
+        "path": "/[3]/[0]"
+    },
+    {
+        "content": "LED Preferences",
+        "path": "/[5]/[0]"
+    },
+    {
+        "content": "2D Configuration",
+        "path": "2dbtn/[0]"
+    },
+    {
+        "content": "User Interface",
+        "path": "/[9]/[0]"
+    },
+    {
+        "content": "DMX Output",
+        "path": "dmxbtn/[0]"
+    },
+    {
+        "content": "Sync Interfaces",
+        "path": "/[13]/[0]"
+    },
+    {
+        "content": "Time & Macros",
+        "path": "/[15]/[0]"
+    },
+    {
+        "content": "Usermods",
+        "path": "/[17]/[0]"
+    },
+    {
+        "content": "Security & Updates",
+        "path": "/[19]/[0]"
+    },
+    {
+        "content": "WLED Settings"
+    },
+    {
+        "content": "WLED Settings"
+    },
+    {
+        "content": "WLED Settings"
+    },
+    {
+        "content": "WLED Settings"
+    },
+    {
+        "content": "WLED Settings"
+    },
+    {
+        "content": "WLED Settings"
+    },
+    {
+        "content": "WLED Settings"
+    },
+    {
+        "content": "WLED Settings"
+    },
+    {
+        "content": "WLED Settings"
+    },
+    {
+        "content": "WLED Settings"
+    },
+    {
+        "content": "WLED Settings"
+    },
+    {
+        "content": "WLED Settings"
+    },
+    {
+        "content": "WLED Settings"
+    },
+    {
+        "content": "WLED Settings"
+    },
+    {
+        "content": "WLED Settings"
+    },
+    {
+        "content": "WLED Settings"
+    }
+]

@@ -19,6 +19,8 @@ static const char s_unlock_cfg [] PROGMEM = "Please unlock settings using PIN co
 static const char s_notimplemented[] PROGMEM = "Not implemented";
 static const char s_accessdenied[]   PROGMEM = "Access Denied";
 static const char _common_js[]       PROGMEM = "/common.js";
+static const char _L12N_js[]       PROGMEM = "/L12N.js";
+static const char _LANGCODES_json[]       PROGMEM = "/langcodes.json";
 
 //Is this an IP?
 static bool isIp(const String &str) {
@@ -240,6 +242,14 @@ void initServer()
 
   server.on(_common_js, HTTP_GET, [](AsyncWebServerRequest *request) {
     handleStaticContent(request, FPSTR(_common_js), 200, FPSTR(CONTENT_TYPE_JAVASCRIPT), JS_common, JS_common_length);
+  });
+
+  server.on(_L12N_js, HTTP_GET, [](AsyncWebServerRequest *request) {
+    handleStaticContent(request, FPSTR(_L12N_js), 200, FPSTR(CONTENT_TYPE_JAVASCRIPT), JS_L12N, JS_L12N_length);
+  });
+
+  server.on(_LANGCODES_json, HTTP_GET, [](AsyncWebServerRequest *request) {
+    handleStaticContent(request, FPSTR(_LANGCODES_json), 200, FPSTR(CONTENT_TYPE_JSON), JSON_LANGCODES, JSON_LANGCODES_length);
   });
 
   //settings page
@@ -518,6 +528,10 @@ void serveSettingsJS(AsyncWebServerRequest* request)
 {
   if (request->url().indexOf(FPSTR(_common_js)) > 0) {
     handleStaticContent(request, FPSTR(_common_js), 200, FPSTR(CONTENT_TYPE_JAVASCRIPT), JS_common, JS_common_length);
+    return;
+  }
+  if (request->url().indexOf(FPSTR(_L12N_js)) > 0) {
+    handleStaticContent(request, FPSTR(_L12N_js), 200, FPSTR(CONTENT_TYPE_JAVASCRIPT), JS_L12N, JS_L12N_length);
     return;
   }
   byte subPage = request->arg(F("p")).toInt();
