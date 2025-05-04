@@ -595,6 +595,10 @@ void getSettingsJS(byte subPage, Print& settingsScript)
     snprintf_P(tmp_buf,sizeof(tmp_buf),PSTR("WLED %s (build %d)"),versionString,VERSION);
     printSetClassElementHTML(settingsScript,PSTR("sip"),0,tmp_buf);
     settingsScript.printf_P(PSTR("sd=\"%s\";"), serverDescription);
+    #ifdef WLED_DISABLE_OTA
+    //hide settings if not compiled
+    settingsScript.print(F("toggle('aOTA');"));  // hide ArduinoOTA checkbox
+    #endif
   }
 
   #ifdef WLED_ENABLE_DMX // include only if DMX is enabled
