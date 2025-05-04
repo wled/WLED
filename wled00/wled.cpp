@@ -648,10 +648,10 @@ void WLED::initConnection()
       }
     }
 
-  if (WLED_WIFI_CONFIGURED) {
-    showWelcomePage = false;
-    
-    DEBUG_PRINTF_P(PSTR("Connecting to %s...\n"), multiWiFi[selectedWiFi].clientSSID);
+    if (WLED_WIFI_CONFIGURED) {
+      showWelcomePage = false;
+      
+      DEBUG_PRINTF_P(PSTR("Connecting to %s...\n"), multiWiFi[selectedWiFi].clientSSID);
 
       // convert the "serverDescription" into a valid DNS hostname (alphanumeric)
       char hostname[25];
@@ -682,6 +682,13 @@ void WLED::initConnection()
       espNowOK = quickEspNow.begin(apChannel, WIFI_IF_AP);  // Same channel must be used for both AP and ESP-NOW
     } else {
       DEBUG_PRINTLN(F("ESP-NOW initing in STA mode."));
+      if(!wifiEnabled && WLED_WIFI_CONFIGURED) {  // this is skipped above if WiFi not enabled
+        #ifdef ARDUINO_ARCH_ESP32
+        WiFi.setSleep(!noWifiSleep);
+        #else
+        wifi_set_sleep_type((noWifiSleep) ? NONE_SLEEP_T : MODEM_SLEEP_T);
+        #endif
+      }
       espNowOK = quickEspNow.begin(); // Use no parameters to start ESP-NOW on same channel as WiFi, in STA mode
     }
     statusESPNow = espNowOK ? ESP_NOW_STATE_ON : ESP_NOW_STATE_ERROR;
