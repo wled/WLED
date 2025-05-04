@@ -9,6 +9,9 @@
 #ifndef WLED_DISABLE_PXMAGIC
   #include "html_pxmagic.h"
 #endif
+#ifndef WLED_DISABLE_GIFPLAYER
+  #include "html_gifplayer.h"
+#endif
 #include "html_cpal.h"
 
 // define flash strings once (saves flash memory)
@@ -456,6 +459,13 @@ void initServer()
   static const char _pxmagic_htm[] PROGMEM = "/pxmagic.htm";
   server.on(_pxmagic_htm, HTTP_GET, [](AsyncWebServerRequest *request) {
     handleStaticContent(request, FPSTR(_pxmagic_htm), 200, FPSTR(CONTENT_TYPE_HTML), PAGE_pxmagic, PAGE_pxmagic_L);
+  });
+#endif
+
+#ifndef WLED_DISABLE_GIFPLAYER
+  static const char _gifplayer_htm[] PROGMEM = "/gifplayer.htm";
+  server.on(_gifplayer_htm, HTTP_GET, [](AsyncWebServerRequest *request) {
+    handleStaticContent(request, FPSTR(_gifplayer_htm), 200, FPSTR(CONTENT_TYPE_HTML), PAGE_gifplayer, PAGE_gifplayer_L);
   });
 #endif
 

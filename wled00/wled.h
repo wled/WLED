@@ -81,6 +81,8 @@
     #define WIFI_MODE_AP WIFI_AP
     #include <QuickEspNow.h>
   #endif
+  #undef  WLED_DISABLE_GIF
+  #define WLED_DISABLE_GIF
 #else // ESP32
   #include <HardwareSerial.h>  // ensure we have the correct "Serial" on new MCUs (depends on ARDUINO_USB_MODE and ARDUINO_USB_CDC_ON_BOOT)
   #include <WiFi.h>
