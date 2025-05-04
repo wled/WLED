@@ -960,8 +960,8 @@ class WS2812FX {  // 96 bytes
     typedef struct panel_t {
       uint16_t xOffset; // x offset relative to the top left of matrix in LEDs
       uint16_t yOffset; // y offset relative to the top left of matrix in LEDs
-      uint8_t  width;   // width of the panel
-      uint8_t  height;  // height of the panel
+      uint16_t width;   // width of the panel
+      uint16_t height;  // height of the panel
       union {
         uint8_t options;
         struct {
