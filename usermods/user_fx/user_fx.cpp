@@ -1,22 +1,25 @@
-#include "user_fx.h"
+#include "wled.h"
 
-#include <cstdint>
+// for information how FX metadata strings work see https://kno.wled.ge/interfaces/json-api/#effect-metadata
 
-#define XY(_x, _y) (_x + SEG_W * (_y))
-
+// static effect, used if an effect fails to initialize
 static uint16_t mode_static(void) {
   SEGMENT.fill(SEGCOLOR(0));
   return strip.isOffRefreshRequired() ? FRAMETIME : 350;
 }
 
-static uint16_t mode_diffusionfire(void) {
-  static uint32_t call = 0;
+/////////////////////////
+//  User FX functions  //
+/////////////////////////
 
+// Diffusion Fire: fire effect intended for 2D setups smaller than 16x16
+static uint16_t mode_diffusionfire(void) {
   if (!strip.isMatrix || !SEGMENT.is2D())
     return mode_static();  // not a 2D set-up
 
   const int cols = SEG_W;
   const int rows = SEG_H;
+  const auto XY = [&](int x, int y) { return x + y * cols; };
 
   const uint8_t refresh_hz = map(SEGMENT.speed, 0, 255, 20, 80);
   const unsigned refresh_ms = 1000 / refresh_hz;
@@ -24,25 +27,18 @@ static uint16_t mode_diffusionfire(void) {
   const uint8_t spark_rate = SEGMENT.intensity;
   const uint8_t turbulence = SEGMENT.custom2;
 
-  unsigned dataSize = SEGMENT.length() + (cols * sizeof(uint16_t)) + 1;
+  unsigned dataSize = SEGMENT.length(); // allocate persistent data for heat value for each pixel
   if (!SEGENV.allocateData(dataSize))
     return mode_static();  // allocation failed
 
   if (SEGENV.call == 0) {
     SEGMENT.fill(BLACK);
     SEGENV.step = 0;
-    call = 0;
   }
 
   if ((strip.now - SEGENV.step) >= refresh_ms) {
-    uint8_t *bufStart = SEGMENT.data + SEGMENT.length();
-    // Reserve one extra byte and align to 2-byte boundary to avoid hard-faults
-    uintptr_t addr = reinterpret_cast<uintptr_t>(bufStart);
-    uintptr_t aligned = (addr + 1) & ~1;
-    uint16_t *tmp_row = reinterpret_cast<uint16_t *>(aligned);
+    uint8_t tmp_row[cols];
     SEGENV.step = strip.now;
-    call++;
-
     // scroll up
     for (unsigned y = 1; y < rows; y++)
       for (unsigned x = 0; x < cols; x++) {
@@ -78,7 +74,7 @@ static uint16_t mode_diffusionfire(void) {
       for (unsigned x = 0; x < cols; x++) {
         SEGMENT.data[XY(x, y)] = tmp_row[x];
         if (SEGMENT.check1) {
-          CRGB color = ColorFromPalette(SEGPALETTE, tmp_row[x], 255, NOBLEND);
+          uint32_t color = ColorFromPalette(SEGPALETTE, tmp_row[x], 255, LINEARBLEND_NOWRAP);
           SEGMENT.setPixelColorXY(x, y, color);
         } else {
           uint32_t color = SEGCOLOR(0);
@@ -89,15 +85,32 @@ static uint16_t mode_diffusionfire(void) {
   }
   return FRAMETIME;
 }
-static const char _data_FX_MODE_DIFFUSIONFIRE[] PROGMEM =
-    "Diffusion Fire@!,Spark rate,Diffusion Speed,Turbulence,,Use "
-    "palette;;Color;;2;pal=35";
+static const char _data_FX_MODE_DIFFUSIONFIRE[] PROGMEM = "Diffusion Fire@!,Spark rate,Diffusion Speed,Turbulence,,Use palette;;Color;;2;pal=35";
 
-void UserFxUsermod::setup() {
-  strip.addEffect(255, &mode_diffusionfire, _data_FX_MODE_DIFFUSIONFIRE);
-}
-void UserFxUsermod::loop() {}
-uint16_t UserFxUsermod::getId() { return USERMOD_ID_USER_FX; }
+
+/////////////////////
+//  UserMod Class  //
+/////////////////////
+
+class UserFxUsermod : public Usermod {
+ private:
+ public:
+  void setup() override {
+    strip.addEffect(255, &mode_diffusionfire, _data_FX_MODE_DIFFUSIONFIRE);
+
+    ////////////////////////////////////////
+    //  add your effect function(s) here  //
+    ////////////////////////////////////////
+
+    // use id=255 for all custom user FX (the final id is assigned when adding the effect)
+
+    // strip.addEffect(255, &mode_your_effect, _data_FX_MODE_YOUR_EFFECT);
+    // strip.addEffect(255, &mode_your_effect2, _data_FX_MODE_YOUR_EFFECT2);
+    // strip.addEffect(255, &mode_your_effect3, _data_FX_MODE_YOUR_EFFECT3);
+  }
+  void loop() override {} // nothing to do in the loop
+  uint16_t getId() override { return USERMOD_ID_USER_FX; }
+};
 
 static UserFxUsermod user_fx;
 REGISTER_USERMOD(user_fx);
