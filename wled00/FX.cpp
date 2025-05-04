@@ -802,56 +802,44 @@ static const char _data_FX_MODE_MULTI_STROBE[] PROGMEM = "Strobe Mega@!,!;!,!;!;
 
 
 /*
- * Android loading circle
+ * Android loading circle, refactored by @dedehai
  */
 uint16_t mode_android(void) {
-
+  if (!SEGENV.allocateData(sizeof(uint32_t))) return mode_static();
+  uint32_t* counter = reinterpret_cast<uint32_t*>(SEGENV.data);
+  unsigned size = SEGENV.aux1 >> 1; // upper 15 bit
+  unsigned shrinking = SEGENV.aux1 & 0x01; // lowest bit
+  if(strip.now >= SEGENV.step) {
+    SEGENV.step = strip.now + 3 + ((8 * (uint32_t)(255 - SEGMENT.speed)) / SEGLEN);
+    if (size > (SEGMENT.intensity * SEGLEN) / 255)
+      shrinking = 1;
+    else if (size < 2)
+      shrinking = 0;
+    if (!shrinking) { // growing
+      if ((*counter % 3) == 1)
+        SEGENV.aux0++; // advance start position
+      else
+        size++;
+    } else { // shrinking
+      SEGENV.aux0++;
+      if ((*counter % 3) != 1)
+        size--;
+    }
+    SEGENV.aux1 = size << 1 | shrinking; // save back
+    (*counter)++;
+    if (SEGENV.aux0 >= SEGLEN) SEGENV.aux0 = 0;
+  }
+  uint32_t start = SEGENV.aux0;
+  uint32_t end = (SEGENV.aux0 + size) % SEGLEN;
   for (unsigned i = 0; i < SEGLEN; i++) {
-    SEGMENT.setPixelColor(i, SEGMENT.color_from_palette(i, true, PALETTE_SOLID_WRAP, 1));
-  }
-
-  if (SEGENV.aux1 > (SEGMENT.intensity*SEGLEN)/255)
-  {
-    SEGENV.aux0 = 1;
-  } else
-  {
-    if (SEGENV.aux1 < 2) SEGENV.aux0 = 0;
-  }
-
-  unsigned a = SEGENV.step & 0xFFFFU;
-
-  if (SEGENV.aux0 == 0)
-  {
-    if (SEGENV.call %3 == 1) {a++;}
-    else {SEGENV.aux1++;}
-  } else
-  {
-    a++;
-    if (SEGENV.call %3 != 1) SEGENV.aux1--;
-  }
-
-  if (a >= SEGLEN) a = 0;
-
-  if (a + SEGENV.aux1 < SEGLEN)
-  {
-    for (unsigned i = a; i < a+SEGENV.aux1; i++) {
+    if ((start < end && i >= start && i < end) || (start >= end && (i >= start || i < end)))
       SEGMENT.setPixelColor(i, SEGCOLOR(0));
-    }
-  } else
-  {
-    for (unsigned i = a; i < SEGLEN; i++) {
-      SEGMENT.setPixelColor(i, SEGCOLOR(0));
-    }
-    for (unsigned i = 0; i < SEGENV.aux1 - (SEGLEN -a); i++) {
-      SEGMENT.setPixelColor(i, SEGCOLOR(0));
-    }
+    else
+      SEGMENT.setPixelColor(i, SEGMENT.color_from_palette(i, true, PALETTE_SOLID_WRAP, 1));
   }
-  SEGENV.step = a;
-
-  return 3 + ((8 * (uint32_t)(255 - SEGMENT.speed)) / SEGLEN);
+  return FRAMETIME;
 }
 static const char _data_FX_MODE_ANDROID[] PROGMEM = "Android@!,Width;!,!;!;;m12=1"; //vertical
-
 
 /*
  * color chase function.
