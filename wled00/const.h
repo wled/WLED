@@ -210,8 +210,7 @@
 #define USERMOD_ID_DEEP_SLEEP            55     //Usermod "usermod_deep_sleep.h"
 #define USERMOD_ID_RF433                 56     //Usermod "usermod_v2_RF433.h"
 #define USERMOD_ID_BRIGHTNESS_FOLLOW_SUN 57     //Usermod "usermod_v2_brightness_follow_sun.h"
-#define USERMOD_ID_DISABLE_WIFI          58     //Usermod "diableWiFi.h"
-#define USERMOD_ID_BLE                   59     //Usermod "BLE.h"
+#define USERMOD_ID_BLE                   58     //Usermod "BLE.h"
 
 //Access point behavior
 #define AP_BEHAVIOR_BOOT_NO_CONN          0     //Open AP when no connection after boot
@@ -376,7 +375,16 @@
 #define BTN_TYPE_ANALOG_INVERTED  8
 #define BTN_TYPE_TOUCH_SWITCH     9
 
-//Ethernet board types
+//Physical IO - Other Button Constants
+#define WLED_DEBOUNCE_THRESHOLD      50 // only consider button input of at least 50ms as valid (debouncing)
+#define WLED_LONG_PRESS             600 // long press if button is released after held for at least 600ms
+#define WLED_DOUBLE_PRESS           350 // double press if another press within 350ms after a short press
+#define WLED_LONG_REPEATED_ACTION   400 // how often a repeated action (e.g. dimming) is fired on long press on button IDs >0
+#define WLED_LONG_AP               5000 // how long button 0 needs to be held to activate WLED-AP
+#define WLED_LONG_FACTORY_RESET   10000 // how long button 0 needs to be held to trigger a factory reset
+#define WLED_LONG_BRI_STEPS          16 // how much to increase/decrease the brightness with each long press repetition
+ 
+ //Ethernet board types
 #define WLED_NUM_ETH_TYPES        13
 
 #define WLED_ETH_NONE              0
