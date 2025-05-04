@@ -3309,18 +3309,18 @@ static const char _data_FX_MODE_ANTS[] PROGMEM = "Ants@Ant speed,# of ants,Ant s
 
 /*
 /  Pac-Man (created by making modifications to the Ants effect which was a
-*    modification of the Rolling Balls effect)  - Bob Loeffler -   January - March 2025
+*    modification of the Rolling Balls effect)  - Bob Loeffler -   January - May 2025
 *
 *   The first slider is for speed.
 *   The second slider is for selecting the number of power dots.
 *   Checkbox1 is for displaying White Dots that PacMan eats.  Enabled will show white dots.  Disabled will not show any white dots (all leds will be black).
-*   Checkbox2 is for the Compact Dots mode of displaying white dots that PacMan eats.  Enabled will show white dots in every LED.  Disabled will show black LEDs between the white dots.
+*   Checkbox2 is for the Compact Dots mode of displaying white dots.  Enabled will show white dots in every LED.  Disabled will show black LEDs between the white dots.
     aux0 is used to keep track of the previous number of power dots in case the user selects a different number with the second slider.
 *   aux1 is the main counter for timing
 */
 typedef struct PacManChars {
-  unsigned  pos;                                                                // is for the LED position of the character (all characters)
-  unsigned  topPos;                                                             // is for the LED position of the farthest that the character has moved (PacMan only)
+  signed    pos;                                                                // is for the LED position of the character (all characters)
+  signed    topPos;                                                             // is for the LED position of the farthest that the character has moved (PacMan only)
   uint32_t  color;                                                              // is for the color of the character (all characters)
   bool      direction;                                                          // is for the direction of the character (true=away from first LED) (PacMan and ghosts)
   bool      blue;                                                               // is for whether the character should be blue color or not (ghosts only)
@@ -3333,7 +3333,7 @@ typedef struct PacManChars {
 
 static uint16_t mode_pacman(void) {
   constexpr unsigned numGhosts = 4;
-  unsigned maxPowerDots = SEGLEN / 10;                                          // Maximum number of power dots depends on segment length, max is 1 every 10 Pixels
+  unsigned maxPowerDots = SEGLEN / 15;                                          // Maximum number of power dots depends on segment length, max is 1 every 15 Pixels
   unsigned numPowerDots = map(SEGMENT.intensity, 0, 255, 1, maxPowerDots);      // number of Power Dots (between 1 and x) based on intensity slider setting
 
   if (numPowerDots != SEGENV.aux0)                                              // if the user selected a different number of power dots, reinitialize the animation.
@@ -3419,7 +3419,7 @@ static uint16_t mode_pacman(void) {
         SEGMENT.setPixelColor(i, BLACK);
   };
 
-  // update power dot positions: can change if user selects a different number of power dots
+  // update power dot positions: can change if user selects a different number of power dots (but not the last one - character[5] - as it will never change)
   for (int i = 1; i < maxPowerDots; i++) {
       character[i+5].pos = 10 + i * everyXLeds;                                 // additional power dots every X LEDs/pixels, character[5] is power dot at end of strip
   }
@@ -3527,6 +3527,9 @@ static uint16_t mode_pacman(void) {
 
   return FRAMETIME;
 }
+#undef ORANGEYELLOW
+#undef WHITEISH
+#undef PACMAN
 static const char _data_FX_MODE_PACMAN[] PROGMEM = "PacMan@Speed,# of Power Dots,,,,White dots,Compact dots,;;!;1;m12=0,o1=1";
 
 
