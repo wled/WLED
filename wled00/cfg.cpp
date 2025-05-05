@@ -38,8 +38,24 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
   JsonObject nw = doc["nw"];
 #ifndef WLED_DISABLE_ESPNOW
   CJSON(enableESPNow, nw[F("espnow")]);
-  getStringFromJson(linked_remote, nw[F("linked_remote")], 13);
-  linked_remote[12] = '\0';
+  linked_remotes.clear();
+  JsonVariant lrem = nw[F("linked_remote")];
+  if (!lrem.isNull()) {
+     if (lrem.is<JsonArray>()) {
+      for (size_t i = 0; i < lrem.size(); i++) {
+        std::array<char, 13> entry{};
+        getStringFromJson(entry.data(), lrem[i], 13);
+        entry[12] = '\0';
+        linked_remotes.emplace_back(entry);
+      }
+    }
+    else { // legacy support for single MAC address in config
+      std::array<char, 13> entry{};
+      getStringFromJson(entry.data(), lrem, 13);
+      entry[12] = '\0';
+      linked_remotes.emplace_back(entry);
+    }
+  }
 #endif
 
   size_t n = 0;
@@ -725,7 +741,10 @@ void serializeConfig(JsonObject root) {
   JsonObject nw = root.createNestedObject("nw");
 #ifndef WLED_DISABLE_ESPNOW
   nw[F("espnow")] = enableESPNow;
-  nw[F("linked_remote")] = linked_remote;
+  JsonArray lrem = nw.createNestedArray(F("linked_remote"));
+  for (size_t i = 0; i < linked_remotes.size(); i++) {
+    lrem.add(linked_remotes[i].data());
+  }
 #endif
 
   JsonArray nw_ins = nw.createNestedArray("ins");

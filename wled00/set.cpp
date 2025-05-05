@@ -91,8 +91,21 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
     bool oldESPNow = enableESPNow;
     enableESPNow = request->hasArg(F("RE"));
     if (oldESPNow != enableESPNow) forceReconnect = true;
-    strlcpy(linked_remote, request->arg(F("RMAC")).c_str(), 13);
-    strlwr(linked_remote);  //Normalize MAC format to lowercase
+    linked_remotes.clear();  // clear old remotes
+    for (size_t n = 0; n < 10; n++) {
+      char rm[4];
+      snprintf(rm, sizeof(rm), "RM%d", n); // "RM0" to "RM9"
+      if (request->hasArg(rm)) {
+        const String& arg = request->arg(rm);
+        if (arg.isEmpty()) continue;
+        std::array<char, 13> mac{};
+        strlcpy(mac.data(), request->arg(rm).c_str(), 13);
+        strlwr(mac.data());
+        if (mac[0] != '\0') {
+          linked_remotes.emplace_back(mac);
+        }
+      }
+    }
     #endif
 
     #if defined(ARDUINO_ARCH_ESP32) && defined(WLED_USE_ETHERNET)
