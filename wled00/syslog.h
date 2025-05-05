@@ -6,20 +6,8 @@
 // Syslog facility codes
 #define SYSLOG_KERN     	0  // kernel messages
 #define SYSLOG_USER     	1  // user-level messages
-#define SYSLOG_MAIL     	2  // mail system
 #define SYSLOG_DAEMON   	3  // system daemons
-#define SYSLOG_AUTH     	4  // security/authorization messages
 #define SYSLOG_SYSLOG   	5  // messages generated internally by syslogd
-#define SYSLOG_LPR      	6  // line printer subsystem
-#define SYSLOG_NEWS     	7  // network news subsystem
-#define SYSLOG_UUCP     	8  // UUCP subsystem
-#define SYSLOG_CRON     	9  // clock daemon
-#define SYSLOG_AUTHPRIV 	10 // security/authorization messages (private)
-#define SYSLOG_FTP      	11 // FTP daemon
-#define SYSLOG_NTP      	12 // NTP subsystem (used in some systems)
-#define SYSLOG_LOG_AUDIT 	13 // log audit (used in some systems like Linux auditd)
-#define SYSLOG_LOG_ALERT 	14 // log alert
-#define SYSLOG_CLOCK_DAEMON 15 // clock daemon (alternate)
 #define SYSLOG_LOCAL0   	16 // local use 0
 #define SYSLOG_LOCAL1   	17 // local use 1
 #define SYSLOG_LOCAL2   	18 // local use 2
@@ -70,7 +58,7 @@ class SyslogPrinter : public Print {
   public:
     SyslogPrinter();
 	void begin(const char* host, uint16_t port,
-               uint8_t facility = SYSLOG_LOCAL4,
+               uint8_t facility = SYSLOG_LOCAL0,
                uint8_t severity = SYSLOG_DEBUG,
                uint8_t protocol = SYSLOG_PROTO_BSD);
     void setAppName(const String &appName);

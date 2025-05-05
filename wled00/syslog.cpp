@@ -4,21 +4,31 @@
 #include "syslog.h"
 
 static const __FlashStringHelper* protoNames[] = { F("BSD"), F("RFC5424"), F("RAW") };
-static const char* facilityNames[] = {
-  "KERN",  "USER",  "MAIL",  "DAEM",
-  "AUTH",  "SYSL",  "LPR",   "NEWS",
-  "UUCP",  "CRON",  "APRV",  "FTP",
-  "NTP",   "AUDT",  "ALRT",  "CLCK",
-  "LCL0",  "LCL1",  "LCL2",  "LCL3",
-  "LCL4",  "LCL5",  "LCL6",  "LCL7"
-};
+
+const char* getFacilityName(uint8_t code) {
+  switch (code) {
+    case 0:  return "KERN";
+    case 1:  return "USER";
+    case 3:  return "DAEMON";
+    case 5:  return "SYSLOG";
+    case 16: return "LCL0";
+    case 17: return "LCL1";
+    case 18: return "LCL2";
+    case 19: return "LCL3";
+    case 20: return "LCL4";
+    case 21: return "LCL5";
+    case 22: return "LCL6";
+    case 23: return "LCL7";
+    default: return "UNKNOWN";
+  }
+}
 
 static const char* severityNames[] = {
   "EMERG","ALERT","CRIT","ERR","WARNING","NOTICE","INFO","DEBUG"
 };
 
 SyslogPrinter::SyslogPrinter() : 
-  _facility(SYSLOG_LOCAL4), 
+  _facility(SYSLOG_LOCAL0), 
   _severity(SYSLOG_DEBUG), 
   _protocol(SYSLOG_PROTO_BSD),
   _appName("WLED"),
@@ -39,9 +49,7 @@ void SyslogPrinter::begin(const char* host, uint16_t port,
   );
   DEBUG_PRINTF_P(PSTR(" Facility:   %u (%s)\n"),
                  (unsigned)facility,
-                 (facility <  sizeof(facilityNames)/sizeof(facilityNames[0]))
-                   ? facilityNames[facility]
-                   : PSTR("UNKNOWN"));
+                 getFacilityName(facility));
   DEBUG_PRINTF_P(PSTR(" Severity:   %u (%s)\n"),
                  (unsigned)severity,
                  (severity <  sizeof(severityNames)/sizeof(severityNames[0]))

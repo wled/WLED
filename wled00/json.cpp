@@ -301,6 +301,7 @@ bool deserializeState(JsonObject root, byte callMode, byte presetId)
     netDebugEnabled = root[F("debug")] | netDebugEnabled;
   #elif defined(WLED_DEBUG) && defined(WLED_ENABLE_SYSLOG)
     syslogEnabled = root[F("debug")] | syslogEnabled;
+    doSerializeConfig = true;
     DEBUG_PRINTF_P(PSTR("Syslog: %s\n"), syslogEnabled ? PSTR("ENABLED") : PSTR("DISABLED") );
   #endif
 

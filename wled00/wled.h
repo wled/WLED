@@ -983,7 +983,7 @@ WLED_GLOBAL volatile uint8_t jsonBufferLock _INIT(0);
   #endif
   WLED_GLOBAL uint8_t syslogProtocol _INIT(WLED_SYSLOG_PROTOCOL);
   #ifndef WLED_SYSLOG_FACILITY
-    #define WLED_SYSLOG_FACILITY SYSLOG_LOCAL4
+    #define WLED_SYSLOG_FACILITY SYSLOG_LOCAL0
   #endif
   WLED_GLOBAL uint8_t syslogFacility _INIT(WLED_SYSLOG_FACILITY);
   #ifndef WLED_SYSLOG_SEVERITY
