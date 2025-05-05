@@ -62,7 +62,9 @@
             lightDone = true;
           }
           break;
-        _logUsermodSSDR("Unknown mask char '%c'", c);
+        default:
+          _logUsermodSSDR("Unknown mask char '%c'", c);
+          break;
       }
     }
     _setMaskToLeds();
@@ -80,8 +82,8 @@
 
   void UsermodSSDR::_showElements(String *map, int timevar, bool isColon, bool removeZero) {
     if (map && map->length() > 0) {
-      uint8_t length = (timevar == 0) ? 1
-        : static_cast<uint8_t>(log10(static_cast<float>(timevar))) + 1;
+      uint8_t length = 1;
+      for (int tmp = timevar; tmp >= 10; tmp /= 10) ++length;
 
       bool addZero = false;
       if (length == 1) {
@@ -164,7 +166,7 @@
 
     if (!(colon && umSSDRColonblink) && ((number < 0) || (countSegments < 0))) return;
     
-    if ((colon && umSSDRColonblink) || umSSDRNumbers[number][countSegments]) {
+    if ((colon && umSSDRColonblink) || (number < 10 && umSSDRNumbers[number][countSegments])) {
       if (range) {
         for(int i = max(0, lastSeenLedNr); i <= lednr; i++) {
           umSSDRMask[i] = true;
@@ -210,7 +212,7 @@
         return;
       }
         
-      char buffer[64], nameBuffer[30], topicBuffer[30], valBuffer[12];
+      char buffer[128], nameBuffer[30], topicBuffer[30], valBuffer[12];
 
       // Copy PROGMEM strings to local buffers
       strlcpy(nameBuffer, reinterpret_cast<const char *>(_str_name), sizeof(nameBuffer));
@@ -239,7 +241,7 @@
         return;
       }
 
-      char buffer[64], nameBuffer[30], topicBuffer[30];
+      char buffer[128], nameBuffer[30], topicBuffer[30];
 
       strlcpy(nameBuffer, reinterpret_cast<const char *>(_str_name), sizeof(nameBuffer));
       strlcpy(topicBuffer, reinterpret_cast<const char *>(subTopic), sizeof(topicBuffer));
