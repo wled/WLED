@@ -258,23 +258,6 @@
     #endif
   }
 
-  bool UsermodSSDR::_cmpIntSetting_P(char *topic, char *payload, const char *setting, void *value)
-  {
-    _logUsermodSSDR("._cmpIntSetting topic='%s' payload='%s' setting='%s'", topic, payload, reinterpret_cast<const char*>(setting));
-    char settingBuffer[30];
-    strlcpy(settingBuffer, reinterpret_cast<const char *>(setting), sizeof(settingBuffer));
-
-    if (strcmp(topic, settingBuffer) == 0)
-    {
-      int oldValue = *((int *)value);
-      *((int *)value) = strtol(payload, nullptr, 10);  // Changed NULL to nullptr
-      _logUsermodSSDR("Setting updated from %d to %d", oldValue, *((int *)value));
-      _publishMQTTint_P(setting, *((int *)value));
-      return true;
-    }
-    return false;
-  }
-
   bool UsermodSSDR::_handleSetting(char *topic, char *payload) {
     _logUsermodSSDR("Handling setting. Topic='%s', Payload='%s'", topic, payload);
 
@@ -304,7 +287,7 @@
 
     _logUsermodSSDR("Comparing '%s' with '%s'", topic, displayMaskBuffer);
 
-    if (strcmp(topic, _str_displayMask) == 0) {
+    if (strcmp(topic, displayMaskBuffer) == 0) {
       umSSDRDisplayMask = String(payload);
 
       _logUsermodSSDR("Updated displayMask to '%s'", umSSDRDisplayMask.c_str());
@@ -424,13 +407,15 @@
 
         if (lux >= 0) { // Ensure we got a valid lux value
           uint16_t brightness;
-          // Constrain lux values within defined range
-          float constrainedLux = constrain(lux, umSSDRLuxMin, umSSDRLuxMax);
+          // float linear interpolation to preserve full 0–255 resolution
+          float spanLux   = umSSDRLuxMax   - umSSDRLuxMin;
+          float spanBright = umSSDRBrightnessMax - umSSDRBrightnessMin;
+          float ratio = (constrainedLux - umSSDRLuxMin) / spanLux;
           
           if (!umSSDRInvertAutoBrightness) {
-            brightness = map(constrainedLux, umSSDRLuxMin, umSSDRLuxMax, umSSDRBrightnessMin, umSSDRBrightnessMax);
+            brightness = static_cast<uint16_t>(ratio * spanBright + umSSDRBrightnessMin);
           } else {
-            brightness = map(constrainedLux, umSSDRLuxMin, umSSDRLuxMax, umSSDRBrightnessMax, umSSDRBrightnessMin);
+            brightness = static_cast<uint16_t>((1.0f - ratio) * spanBright + umSSDRBrightnessMin);
           }
           _logUsermodSSDR("Lux=%.2f?brightness=%d",lux,br);
 
@@ -535,6 +520,7 @@
     }
     #ifndef WLED_DISABLE_MQTT
     if (WLED_MQTT_CONNECTED) {
+      int written;
       char subBuffer[48], nameBuffer[30];
 
       // Copy PROGMEM string to local buffer
@@ -546,7 +532,11 @@
       {
         _updateMQTT();
         //subscribe for sevenseg messages on the device topic
-        sprintf(subBuffer, "%s/%s/+/set", mqttDeviceTopic, nameBuffer);
+        written = snprintf(subBuffer, sizeof(subBuffer), "%s/%s/+/set", mqttDeviceTopic, nameBuffer);
+        if (written < 0 || written >= int(sizeof(subBuffer))) {
+          _logUsermodSSDR("subBuffer overflow – device topic too long");
+          return;
+        }
         _logUsermodSSDR("Subscribing to device topic: '%s'", subBuffer);
         mqtt->subscribe(subBuffer, 2);
       }
@@ -554,7 +544,11 @@
       if (mqttGroupTopic[0] != 0)
       {
         //subscribe for sevenseg messages on the group topic
-        sprintf(subBuffer, "%s/%s/+/set", mqttGroupTopic, nameBuffer);
+        written = snprintf(subBuffer, sizeof(subBuffer), "%s/%s/+/set", mqttGroupTopic, nameBuffer);
+        if (written < 0 || written >= int(sizeof(subBuffer))) {
+          _logUsermodSSDR("subBuffer overflow – group topic too long");
+          return;
+        }
         _logUsermodSSDR("Subscribing to group topic: '%s'", subBuffer);
         mqtt->subscribe(subBuffer, 2);
       }
