@@ -3327,21 +3327,17 @@ typedef struct PacManChars {
   bool      eaten;                                                              // is for whether the power dot was eaten or not (power dots only)
 } pacmancharacters_t;
 
-#define ORANGEYELLOW  (uint32_t)0xFF8800
-#define WHITEISH      (uint32_t)0x999999
-#define PACMAN 0                                                                // PacMan is character[0]
-
 static uint16_t mode_pacman(void) {
   constexpr unsigned numGhosts = 4;
+  constexpr unsigned ORANGEYELLOW = 0xFF8800;
+  constexpr unsigned WHITEISH     = 0x999999;
+  constexpr unsigned PACMAN       = 0;                                          // PacMan is character[0]
   unsigned maxPowerDots = SEGLEN / 10;                                          // Maximum number of power dots depends on segment length, max is 1 every 10 Pixels
   unsigned numPowerDots = map(SEGMENT.intensity, 0, 255, 1, maxPowerDots);      // number of Power Dots (between 1 and x) based on intensity slider setting
 
   if (numPowerDots != SEGENV.aux0)                                              // if the user selected a different number of power dots, reinitialize the animation.
     SEGENV.call = 0;
   SEGENV.aux0 = numPowerDots;
-
-  //figure out how far apart the power dots will be
-  unsigned everyXLeds = (SEGLEN - 10) / numPowerDots;
 
   //allocate segment data
   unsigned dataSize = sizeof(pacmancharacters_t) * (numGhosts + 1 + maxPowerDots);    // 4 ghosts + 1 PacMan + max number of Power dots
@@ -3410,18 +3406,14 @@ static uint16_t mode_pacman(void) {
     }
   }
   else {                                                                        // White Dots option is NOT selected, so draw black LEDs in front of PacMan
-    if (character[PACMAN].direction) {
-      for (int i = SEGLEN-1; i > character[PACMAN].pos; i--)                    // start at the end of the segment and draw black LEDs to the PacMan character
-        SEGMENT.setPixelColor(i, BLACK);
-    }
-    else                                                                        // this is needed so we don't draw a black LED on top of the PacMan character (it was causing a flicker of the PacMan LED when chasing the ghosts)
-      for (int i = SEGLEN-1; i > character[PACMAN].pos+1; i--)                  // start at the end of the segment and draw black LEDs to the LED just before the PacMan character
-        SEGMENT.setPixelColor(i, BLACK);
+    for (int i = SEGLEN-1; i > character[PACMAN].pos + !character[PACMAN].direction; i--) // start at the end of the segment and draw black LEDs to the PacMan character
+      SEGMENT.setPixelColor(i, BLACK);
   };
 
   // update power dot positions: can change if user selects a different number of power dots
+  unsigned everyXLeds = ((SEGLEN - 10) << 8) / numPowerDots;                    //figure out how far apart the power dots will be
   for (int i = 1; i < maxPowerDots; i++) {
-      character[i+5].pos = 10 + i * everyXLeds;                                 // additional power dots every X LEDs/pixels, character[5] is power dot at end of strip
+      character[i+5].pos = 10 + (i * everyXLeds) >> 8;                          // additional power dots every X LEDs/pixels, character[5] is power dot at end of strip
   }
 
   // blink power dots every 10 ticks of the ticker timer by changing their color between orangish color and black
@@ -3436,7 +3428,7 @@ static uint16_t mode_pacman(void) {
   }
 
   // if the ghosts are blue and nearing the beginning of the strip, blink them every 15 ticks of the ticker timer by changing their color between blue and black
-  if (SEGENV.aux1 % 15 == 0) {    
+  if (SEGENV.aux1 % 15 == 0) {
     if (character[1].blue && (character[PACMAN].pos <= startBlinkingGhostsLED)) {
       if (character[1].color == BLUE)
           character[1].color = BLACK;
