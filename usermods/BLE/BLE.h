@@ -12,24 +12,34 @@
 #include "wled.h"
 #include <NimBLEDevice.h>
 
-// See the following for generating UUIDs:
-// https://www.uuidgenerator.net/
-// #define SERVICE_UUID        "9b01c315-9649-4360-9b3c-2599f6f28d65"
-// #define CHARACTERISTIC_UUID "220f62a4-b861-40d4-bffa-91e911ace3a4"
+class BLEUsermod : public Usermod {
+    private:    
+    bool                  deviceConnected     = false;
+    bool                  oldDeviceConnected  = false;
+    bool                  enabled             = false;
+    bool                  initDone            = false;
+    unsigned long         lastTime            = 0;
+  
+    static const char _name[];
+    static const char _enabled[];
+  
+    // Private class members. You can declare variables and functions only accessible to your usermod here
+    NimBLEServer*         pServer             = nullptr;
+    NimBLEService*        pService            = nullptr;
+    NimBLECharacteristic* pCharacteristic     = nullptr;
+    NimBLEAdvertising*    pAdvertising        = nullptr;
+ 
+    void startServicesAndAdvertising();
 
-// /** Time in milliseconds to advertise */
-// static uint32_t advTime = 5000;
-
-// /** Time to sleep between advertisements */
-// static uint32_t sleepSeconds = 20;
-
-// /** Primary PHY used for advertising, can be one of BLE_HCI_LE_PHY_1M or BLE_HCI_LE_PHY_CODED */
-// static uint8_t primaryPhy = BLE_HCI_LE_PHY_1M;
-
-// /**
-//  *  Secondary PHY used for advertising and connecting,
-//  *  can be one of BLE_HCI_LE_PHY_1M, BLE_HCI_LE_PHY_2M or BLE_HCI_LE_PHY_CODED
-//  */
-// static uint8_t secondaryPhy = BLE_HCI_LE_PHY_1M;
-
-
+    public:
+    void setup() override;
+    void loop() override;
+    void connected() override;
+    void addToJsonState(JsonObject& root) override;
+    void readFromJsonState(JsonObject& root) override;
+    bool readFromConfig(JsonObject& root) override;
+    void addToConfig(JsonObject &root) override;
+    bool handleButton(uint8_t b) override;
+    uint16_t getId() override {return USERMOD_ID_BLE;}
+    void disableBLE();
+};

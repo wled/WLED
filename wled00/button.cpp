@@ -1,5 +1,7 @@
 #include "wled.h"
-
+#ifdef USERMOD_BLE
+  #include "../usermods/BLE/BLE.h"
+#endif
 static const char _mqtt_topic_button[] PROGMEM = "%s/button/%d";  // optimize flash usage
 static bool buttonBriDirection = false; // true: increase brightness, false: decrease brightness
 
@@ -319,6 +321,10 @@ void handleButton()
             #endif
             doReboot = true;
           } else {
+            #ifdef USERMOD_BLE
+            BLEUsermod* ble = (BLEUsermod*)UsermodManager::lookup(USERMOD_ID_BLE);
+            if(ble) ble->disableBLE();
+            #endif
             WLED::instance().initAP(true);
           }
         } else {
