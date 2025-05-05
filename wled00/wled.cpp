@@ -566,7 +566,7 @@ void WLED::beginStrip()
 
 void WLED::initAP(bool resetAP)
 {
-  if ((!wifiEnabled || apBehavior == AP_BEHAVIOR_BUTTON_ONLY) && !resetAP)
+  if (apBehavior == AP_BEHAVIOR_BUTTON_ONLY && !resetAP)
     return;
 
   if (resetAP) {
@@ -632,41 +632,39 @@ void WLED::initConnection()
 
   lastReconnectAttempt = millis();
 
-  if (wifiEnabled) {
-    if (!WLED_WIFI_CONFIGURED) {
-      DEBUG_PRINTLN(F("No connection configured."));
-      if (!apActive) initAP();        // instantly go to ap mode
-      return;
-    } else if (!apActive) {
-      if (apBehavior == AP_BEHAVIOR_ALWAYS) {
-        DEBUG_PRINTLN(F("Access point ALWAYS enabled."));
-        initAP();
-      } else {
-        DEBUG_PRINTLN(F("Access point disabled (init)."));
-        WiFi.softAPdisconnect(true);
-        WiFi.mode(WIFI_STA);
-      }
+  if (!WLED_WIFI_CONFIGURED) {
+    DEBUG_PRINTLN(F("No connection configured."));
+    if (!apActive) initAP();        // instantly go to ap mode
+    return;
+  } else if (!apActive) {
+    if (apBehavior == AP_BEHAVIOR_ALWAYS) {
+      DEBUG_PRINTLN(F("Access point ALWAYS enabled."));
+      initAP();
+    } else {
+      DEBUG_PRINTLN(F("Access point disabled (init)."));
+      WiFi.softAPdisconnect(true);
+      WiFi.mode(WIFI_STA);
     }
+  }
 
-    if (WLED_WIFI_CONFIGURED) {
-      showWelcomePage = false;
-      
-      DEBUG_PRINTF_P(PSTR("Connecting to %s...\n"), multiWiFi[selectedWiFi].clientSSID);
+  if (WLED_WIFI_CONFIGURED) {
+    showWelcomePage = false;
+    
+    DEBUG_PRINTF_P(PSTR("Connecting to %s...\n"), multiWiFi[selectedWiFi].clientSSID);
 
-      // convert the "serverDescription" into a valid DNS hostname (alphanumeric)
-      char hostname[25];
-      prepareHostname(hostname);
-      WiFi.begin(multiWiFi[selectedWiFi].clientSSID, multiWiFi[selectedWiFi].clientPass); // no harm if called multiple times
-      
-      #ifdef ARDUINO_ARCH_ESP32
-      WiFi.setTxPower(wifi_power_t(txPower));
-      WiFi.setSleep(!noWifiSleep);
-      WiFi.setHostname(hostname);
-      #else
-      wifi_set_sleep_type((noWifiSleep) ? NONE_SLEEP_T : MODEM_SLEEP_T);
-      WiFi.hostname(hostname);
-      #endif
-    }
+    // convert the "serverDescription" into a valid DNS hostname (alphanumeric)
+    char hostname[25];
+    prepareHostname(hostname);
+    WiFi.begin(multiWiFi[selectedWiFi].clientSSID, multiWiFi[selectedWiFi].clientPass); // no harm if called multiple times
+    
+    #ifdef ARDUINO_ARCH_ESP32
+    WiFi.setTxPower(wifi_power_t(txPower));
+    WiFi.setSleep(!noWifiSleep);
+    WiFi.setHostname(hostname);
+    #else
+    wifi_set_sleep_type((noWifiSleep) ? NONE_SLEEP_T : MODEM_SLEEP_T);
+    WiFi.hostname(hostname);
+    #endif
   }
 
 #ifndef WLED_DISABLE_ESPNOW
@@ -682,13 +680,6 @@ void WLED::initConnection()
       espNowOK = quickEspNow.begin(apChannel, WIFI_IF_AP);  // Same channel must be used for both AP and ESP-NOW
     } else {
       DEBUG_PRINTLN(F("ESP-NOW initing in STA mode."));
-      if(!wifiEnabled && WLED_WIFI_CONFIGURED) {  // this is skipped above if WiFi not enabled
-        #ifdef ARDUINO_ARCH_ESP32
-        WiFi.setSleep(!noWifiSleep);
-        #else
-        wifi_set_sleep_type((noWifiSleep) ? NONE_SLEEP_T : MODEM_SLEEP_T);
-        #endif
-      }
       espNowOK = quickEspNow.begin(); // Use no parameters to start ESP-NOW on same channel as WiFi, in STA mode
     }
     statusESPNow = espNowOK ? ESP_NOW_STATE_ON : ESP_NOW_STATE_ERROR;
@@ -762,12 +753,13 @@ void WLED::handleConnection()
   const unsigned long nowS = now/1000;
   const bool wifiConfigured = WLED_WIFI_CONFIGURED;
 
+  if (!wifiEnabled) return;
   // ignore connection handling if WiFi is configured and scan still running
   // or within first 2s if WiFi is not configured or AP is always active
-  if (wifiEnabled && ((wifiConfigured && multiWiFi.size() > 1 && WiFi.scanComplete() < 0) || (now < 2000 && (!wifiConfigured || apBehavior == AP_BEHAVIOR_ALWAYS))))
+  if ((wifiConfigured && multiWiFi.size() > 1 && WiFi.scanComplete() < 0) || (now < 2000 && (!wifiConfigured || apBehavior == AP_BEHAVIOR_ALWAYS)))
     return;
 
-  if (wifiEnabled && (lastReconnectAttempt == 0 || forceReconnect)) {
+  if (lastReconnectAttempt == 0 || forceReconnect) {
     DEBUG_PRINTF_P(PSTR("Initial connect or forced reconnect (@ %lus).\n"), nowS);
     selectedWiFi = findWiFi(); // find strongest WiFi
     initConnection();
@@ -798,7 +790,7 @@ void WLED::handleConnection()
     }
   }
 
-  if (wifiEnabled && !Network.isConnected()) {
+  if (!Network.isConnected()) {
     if (interfacesInited) {
       if (scanDone && multiWiFi.size() > 1) {
         DEBUG_PRINTLN(F("WiFi scan initiated on disconnect."));
@@ -843,7 +835,7 @@ void WLED::handleConnection()
     DEBUG_PRINTLN();
     DEBUG_PRINT(F("Connected! IP address: "));
     DEBUG_PRINTLN(Network.localIP());
-    if (wifiEnabled && improvActive) {
+    if (improvActive) {
       if (improvError == 3) sendImprovStateResponse(0x00, true);
       sendImprovStateResponse(0x04);
       if (improvActive > 1) sendImprovIPRPCResult(ImprovRPCType::Command_Wifi);

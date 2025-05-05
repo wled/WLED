@@ -97,7 +97,6 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
   */
 
   JsonObject wifi = doc[F("wifi")];
-  wifiEnabled = wifi[F("en")] | wifiEnabled;
   noWifiSleep = !(wifi[F("sleep")] | !noWifiSleep); // inverted
   //noWifiSleep = !noWifiSleep;
   CJSON(force802_3g, wifi[F("phy")]); //force phy mode g?
