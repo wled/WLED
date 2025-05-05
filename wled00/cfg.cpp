@@ -765,7 +765,6 @@ void serializeConfig(JsonObject root) {
   ap_ip.add(1);
 
   JsonObject wifi = root.createNestedObject(F("wifi"));
-  wifi[F("en")] = wifiEnabled;
   wifi[F("sleep")] = !noWifiSleep;
   wifi[F("phy")] = force802_3g;
 #ifdef ARDUINO_ARCH_ESP32

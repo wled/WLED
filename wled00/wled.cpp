@@ -656,15 +656,15 @@ void WLED::initConnection()
     char hostname[25];
     prepareHostname(hostname);
     WiFi.begin(multiWiFi[selectedWiFi].clientSSID, multiWiFi[selectedWiFi].clientPass); // no harm if called multiple times
-    
-    #ifdef ARDUINO_ARCH_ESP32
+
+#ifdef ARDUINO_ARCH_ESP32
     WiFi.setTxPower(wifi_power_t(txPower));
     WiFi.setSleep(!noWifiSleep);
     WiFi.setHostname(hostname);
-    #else
+#else
     wifi_set_sleep_type((noWifiSleep) ? NONE_SLEEP_T : MODEM_SLEEP_T);
     WiFi.hostname(hostname);
-    #endif
+#endif
   }
 
 #ifndef WLED_DISABLE_ESPNOW
@@ -818,7 +818,7 @@ void WLED::handleConnection()
     }
     if (!apActive && now - lastReconnectAttempt > 12000 && (!wasConnected || apBehavior == AP_BEHAVIOR_NO_CONN)) {
       if (!(apBehavior == AP_BEHAVIOR_TEMPORARY && now > WLED_AP_TIMEOUT) && (apBehavior != AP_BEHAVIOR_BUTTON_ONLY)) {
-        DEBUG_PRINTF_P(PSTR("Not connected AP (@ %lus). Behavior setting: %d\n"), nowS, apBehavior);
+        DEBUG_PRINTF_P(PSTR("Not connected AP (@ %lus).\n"), nowS);
         initAP();  // start AP only within first 5min
       }
     }
