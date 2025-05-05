@@ -27,7 +27,8 @@ void IRAM_ATTR touchButtonISR();
 bool deserializeConfig(JsonObject doc, bool fromFS = false);
 void deserializeConfigFromFS();
 bool deserializeConfigSec();
-void serializeConfig();
+void serializeConfig(JsonObject doc);
+void serializeConfigToFS();
 void serializeConfigSec();
 
 template<typename DestType>

@@ -2,15 +2,6 @@
 
 #include "palettes.h"
 
-#define JSON_PATH_STATE      1
-#define JSON_PATH_INFO       2
-#define JSON_PATH_STATE_INFO 3
-#define JSON_PATH_NODES      4
-#define JSON_PATH_PALETTES   5
-#define JSON_PATH_FXDATA     6
-#define JSON_PATH_NETWORKS   7
-#define JSON_PATH_EFFECTS    8
-
 /*
  * JSON API (De)serialization
  */
@@ -1036,16 +1027,21 @@ class LockedJsonResponse: public AsyncJsonResponse {
 
 void serveJson(AsyncWebServerRequest* request)
 {
-  byte subJson = 0;
+  enum class json_target {
+    all, state, info, state_info, nodes, effects, palettes, fxdata, networks, config
+  };
+  json_target subJson = json_target::all;
+
   const String& url = request->url();
-  if      (url.indexOf("state")    > 0) subJson = JSON_PATH_STATE;
-  else if (url.indexOf("info")     > 0) subJson = JSON_PATH_INFO;
-  else if (url.indexOf("si")       > 0) subJson = JSON_PATH_STATE_INFO;
-  else if (url.indexOf(F("nodes")) > 0) subJson = JSON_PATH_NODES;
-  else if (url.indexOf(F("eff"))   > 0) subJson = JSON_PATH_EFFECTS;
-  else if (url.indexOf(F("palx"))  > 0) subJson = JSON_PATH_PALETTES;
-  else if (url.indexOf(F("fxda"))  > 0) subJson = JSON_PATH_FXDATA;
-  else if (url.indexOf(F("net"))   > 0) subJson = JSON_PATH_NETWORKS;
+  if      (url.indexOf("state")    > 0) subJson = json_target::state;
+  else if (url.indexOf("info")     > 0) subJson = json_target::info;
+  else if (url.indexOf("si")       > 0) subJson = json_target::state_info;
+  else if (url.indexOf(F("nodes")) > 0) subJson = json_target::nodes;
+  else if (url.indexOf(F("eff"))   > 0) subJson = json_target::effects;
+  else if (url.indexOf(F("palx"))  > 0) subJson = json_target::palettes;
+  else if (url.indexOf(F("fxda"))  > 0) subJson = json_target::fxdata;
+  else if (url.indexOf(F("net"))   > 0) subJson = json_target::networks;
+  else if (url.indexOf(F("cfg"))   > 0) subJson = json_target::config;
   #ifdef WLED_ENABLE_JSONLIVE
   else if (url.indexOf("live")     > 0) {
     serveLiveLeds(request);
@@ -1054,9 +1050,6 @@ void serveJson(AsyncWebServerRequest* request)
   #endif
   else if (url.indexOf("pal") > 0) {
     request->send_P(200, FPSTR(CONTENT_TYPE_JSON), JSON_palette_names);
-    return;
-  }
-  else if (url.indexOf(F("cfg")) > 0 && handleFileRead(request, F("/cfg.json"))) {
     return;
   }
   else if (url.length() > 6) { //not just /json
@@ -1070,32 +1063,35 @@ void serveJson(AsyncWebServerRequest* request)
   }
   // releaseJSONBufferLock() will be called when "response" is destroyed (from AsyncWebServer)
   // make sure you delete "response" if no "request->send(response);" is made
-  LockedJsonResponse *response = new LockedJsonResponse(pDoc, subJson==JSON_PATH_FXDATA || subJson==JSON_PATH_EFFECTS); // will clear and convert JsonDocument into JsonArray if necessary
+  LockedJsonResponse *response = new LockedJsonResponse(pDoc, subJson==json_target::fxdata || subJson==json_target::effects); // will clear and convert JsonDocument into JsonArray if necessary
 
   JsonVariant lDoc = response->getRoot();
 
   switch (subJson)
   {
-    case JSON_PATH_STATE:
+    case json_target::state:
       serializeState(lDoc); break;
-    case JSON_PATH_INFO:
+    case json_target::info:
       serializeInfo(lDoc); break;
-    case JSON_PATH_NODES:
+    case json_target::nodes:
       serializeNodes(lDoc); break;
-    case JSON_PATH_PALETTES:
+    case json_target::palettes:
       serializePalettes(lDoc, request->hasParam(F("page")) ? request->getParam(F("page"))->value().toInt() : 0); break;
-    case JSON_PATH_EFFECTS:
+    case json_target::effects:
       serializeModeNames(lDoc); break;
-    case JSON_PATH_FXDATA:
+    case json_target::fxdata:
       serializeModeData(lDoc); break;
-    case JSON_PATH_NETWORKS:
+    case json_target::networks:
       serializeNetworks(lDoc); break;
-    default: //all
+    case json_target::config:
+      serializeConfig(lDoc); break;
+    case json_target::state_info:
+    case json_target::all:
       JsonObject state = lDoc.createNestedObject("state");
       serializeState(state);
       JsonObject info = lDoc.createNestedObject("info");
       serializeInfo(info);
-      if (subJson != JSON_PATH_STATE_INFO)
+      if (subJson == json_target::all)
       {
         JsonArray effects = lDoc.createNestedArray(F("effects"));
         serializeModeNames(effects); // remove WLED-SR extensions from effect names

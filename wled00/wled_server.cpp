@@ -328,7 +328,7 @@ void initServer()
         interfaceUpdateCallMode = CALL_MODE_WS_SEND; // schedule WS update
         serveJson(request); return; //if JSON contains "v"
       } else {
-        doSerializeConfig = true; //serializeConfig(); //Save new settings to FS
+        configNeedsWrite = true; //Save new settings to FS
       }
     }
     request->send(200, CONTENT_TYPE_JSON, F("{\"success\":true}"));
