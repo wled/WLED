@@ -536,6 +536,16 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
     CJSON(hueIP[i], if_hue_ip[i]);
 #endif
 
+#ifdef WLED_ENABLE_SYSLOG
+  JsonObject if_syslog = interfaces["syslog"];
+  CJSON(syslogEnabled, if_syslog["en"]);
+  getStringFromJson(syslogHost, if_syslog[F("host")], 33);
+  CJSON(syslogPort, if_syslog["port"]);
+  CJSON(syslogProtocol, if_syslog["proto"]);
+  CJSON(syslogFacility, if_syslog["fac"]);
+  CJSON(syslogSeverity, if_syslog["sev"]);
+#endif
+
   JsonObject if_ntp = interfaces[F("ntp")];
   CJSON(ntpEnabled, if_ntp["en"]);
   getStringFromJson(ntpServerName, if_ntp[F("host")], 33); // "1.wled.pool.ntp.org"
@@ -1049,6 +1059,16 @@ void serializeConfig(JsonObject root) {
   for (unsigned i = 0; i < 4; i++) {
     if_hue_ip.add(hueIP[i]);
   }
+#endif
+
+#ifdef WLED_ENABLE_SYSLOG
+  JsonObject if_syslog = interfaces.createNestedObject("syslog");
+  if_syslog["en"]    = syslogEnabled;
+  if_syslog["host"]  = syslogHost;
+  if_syslog["port"]  = syslogPort;
+  if_syslog["proto"] = syslogProtocol;
+  if_syslog["fac"]   = syslogFacility;
+  if_syslog["sev"]   = syslogSeverity;
 #endif
 
   JsonObject if_ntp = interfaces.createNestedObject("ntp");
