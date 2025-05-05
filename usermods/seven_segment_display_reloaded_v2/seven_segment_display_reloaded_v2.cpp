@@ -461,26 +461,25 @@
     }
 	
     // Create a nested array for energy data
-    JsonArray ssr_json_seperator = user.createNestedArray(F("-----------------------------------"));
-        
     JsonArray ssr_json = user.createNestedArray(F("Seven segment reloaded:"));
   
     if (!umSSDRDisplayTime) {
       ssr_json.add(F("disabled")); // Indicate that the module is disabled
     } else {
-      JsonArray invert = user.createNestedArray("Time inverted");
+      // File needs to be UTF-8 to show an arrow that points down and right instead of an question mark
+      JsonArray invert = user.createNestedArray("⤷ Time inverted");
       invert.add(umSSDRInverted);
       
-      JsonArray blink = user.createNestedArray("Blinking colon");
+      JsonArray blink = user.createNestedArray("⤷ Blinking colon");
       blink.add(umSSDRColonblink);
       
-      JsonArray zero = user.createNestedArray("Show hour leading zero");
+      JsonArray zero = user.createNestedArray("⤷ Show hour leading zero");
       zero.add(umSSDRLeadingZero);
       
-      JsonArray ldrEnable = user.createNestedArray(F("Auto Brightness enabled"));
+      JsonArray ldrEnable = user.createNestedArray(F("⤷ Auto Brightness enabled"));
       ldrEnable.add(umSSDREnableLDR);
       
-      JsonArray ldrInvert = user.createNestedArray(F("Auto Brightness inverted"));
+      JsonArray ldrInvert = user.createNestedArray(F("⤷ Auto Brightness inverted"));
       ldrInvert.add(umSSDRInvertAutoBrightness);
     }
   }
@@ -528,7 +527,6 @@
   }
 
   void UsermodSSDR::onMqttConnect(bool sessionPresent) {
-    _logUsermodSSDR("onMqttConnect sessionPresent=%d", sessionPresent);
     if (!umSSDRDisplayTime) {
       _logUsermodSSDR("DisplayTime disabled, skipping subscribe");
       return;
@@ -595,7 +593,8 @@
 
   void UsermodSSDR::addToConfig(JsonObject &root) {
      _addJSONObject(root);
-	 
+
+     if (!umSSDRDisplayTime) return;
      _updateMQTT();
   }
 
