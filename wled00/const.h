@@ -206,7 +206,7 @@
 #define USERMOD_ID_DEEP_SLEEP            55     //Usermod "usermod_deep_sleep.h"
 #define USERMOD_ID_RF433                 56     //Usermod "usermod_v2_RF433.h"
 #define USERMOD_ID_BRIGHTNESS_FOLLOW_SUN 57     //Usermod "usermod_v2_brightness_follow_sun.h"
-#define USERMOD_ID_INA219                58     // Usermod "INA219_v2.cpp"
+#define USERMOD_ID_INA2XX                58     // Usermod "INA2XX_v2.cpp"
 
 //Access point behavior
 #define AP_BEHAVIOR_BOOT_NO_CONN          0     //Open AP when no connection after boot

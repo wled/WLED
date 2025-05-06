@@ -1,4 +1,8 @@
-// Configurable settings for the INA219 Usermod
+// Configurable settings for the INA2xx Usermod
+
+// logging macro:
+#define _logUsermodInaSensor(fmt, ...) \
+	DEBUG_PRINTF("[INA2xx_Sensor] " fmt "\n", ##__VA_ARGS__)
 
 // Enabled setting
 #ifndef INA219_ENABLED
@@ -29,6 +33,18 @@
 	#define INA219_CORRECTION_FACTOR 1.0 // Default correction factor. Default 1.0
 #endif
 
+#ifndef INA219_P_GAIN
+	#define INA219_P_GAIN PG_320 // PG_40, PG_80, PG_160, PG_320
+#endif
+
+#ifndef INA219_BUSRANGE
+	#define INA219_BUSRANGE BRNG_32 // BRNG_16, BRNG_32
+#endif
+
+#ifndef INA219_SHUNT_VOLT_OFFSET
+	#define INA219_SHUNT_VOLT_OFFSET 0.0 // mV offset at zero current
+#endif
+
 #ifndef INA219_MQTT_PUBLISH
 	#define INA219_MQTT_PUBLISH false // Default: do not publish to MQTT
 #endif
@@ -44,12 +60,13 @@
 #include "wled.h"
 #include <INA219_WE.h>
 
-class UsermodINA219 : public Usermod {
+class UsermodINA2xx : public Usermod {
 private:
 	static const char _name[];  // Name of the usermod
 
 	bool initDone = false;  // Flag for successful initialization
 	unsigned long lastCheck = 0; // Timestamp for the last check
+	bool alreadyLoggedDisabled = false;
 
 	// Define the variables using the pre-defined or default values
 	bool enabled = INA219_ENABLED;
@@ -60,6 +77,9 @@ private:
 	uint8_t _decimalFactor = INA219_DECIMAL_FACTOR;
 	float shuntResistor = INA219_SHUNT_RESISTOR;
 	float correctionFactor = INA219_CORRECTION_FACTOR;
+	INA219_PGAIN pGain            = static_cast<INA219_PGAIN>(INA219_P_GAIN);
+	INA219_BUS_RANGE busRange     = static_cast<INA219_BUS_RANGE>(INA219_BUSRANGE);
+	float shuntVoltOffset_mV      = INA219_SHUNT_VOLT_OFFSET;
 	bool mqttPublish = INA219_MQTT_PUBLISH;
 	bool mqttPublishSent = !INA219_MQTT_PUBLISH;
 	bool mqttPublishAlways = INA219_MQTT_PUBLISH_ALWAYS;
@@ -95,10 +115,13 @@ private:
 	unsigned long dailyResetTime = 0;
 	unsigned long monthlyResetTime = 0;
 
-	INA219_WE *_ina219 = nullptr; // INA219 sensor object
+	bool mqttStateRestored = false;
+
+	INA219_WE *_ina2xx = nullptr; // INA2xx sensor object
 
 	// Function to truncate decimals based on the configured decimal factor
 	float truncateDecimals(float val) {
+		_logUsermodInaSensor("Truncating value %.6f with factor %d", val, _decimalFactor);
 		if (_decimalFactor == 0) {
 			return roundf(val);
 		}
@@ -107,11 +130,15 @@ private:
 	}
 
 	bool hasSignificantChange(float oldValue, float newValue, float threshold = 0.01f) {
-		return fabsf(oldValue - newValue) > threshold;
+		bool changed = fabsf(oldValue - newValue) > threshold;
+		if (changed) {
+			_logUsermodInaSensor("Significant change detected: old=%.6f, new=%.6f, diff=%.6f", oldValue, newValue, fabsf(oldValue - newValue));
+		}
+		return changed;
 	}
 
 	bool hasValueChanged() {
-		return hasSignificantChange(last_sent_shuntVoltage, shuntVoltage) ||
+		bool changed = hasSignificantChange(last_sent_shuntVoltage, shuntVoltage) ||
 			hasSignificantChange(last_sent_busVoltage, busVoltage) ||
 			hasSignificantChange(last_sent_loadVoltage, loadVoltage) ||
 			hasSignificantChange(last_sent_current, current) ||
@@ -119,44 +146,72 @@ private:
 			hasSignificantChange(last_sent_power, power) ||
 			hasSignificantChange(last_sent_power_mW, power_mW) ||
 			(last_sent_overflow != overflow);
+
+			if (changed) {
+				_logUsermodInaSensor("Values changed, need to publish");
+			}
+			return changed;
 	}
 
-	// Update INA219 settings and reinitialize sensor if necessary
-	bool updateINA219Settings() {
+	// Update INA2xx settings and reinitialize sensor if necessary
+	bool updateINA2xxSettings() {
+		_logUsermodInaSensor("Updating INA2xx sensor settings");
+
 		// Validate I2C pins; if invalid, disable usermod and log message
 		if (i2c_scl < 0 || i2c_sda < 0) {
 			enabled = false;
-			DEBUG_PRINTLN(F("INA219 disabled: Invalid I2C pins. Check global I2C settings."));
+			_logUsermodInaSensor("INA2xx disabled: Invalid I2C pins. Check global I2C settings.");
 			return false;
 		}
-		DEBUG_PRINT(F("Using I2C SDA: "));
-		DEBUG_PRINTLN(i2c_sda);
-		DEBUG_PRINT(F("Using I2C SCL: "));
-		DEBUG_PRINTLN(i2c_scl);
+		_logUsermodInaSensor("Using I2C SDA: %d", i2c_sda);
+		_logUsermodInaSensor("Using I2C SCL: %d", i2c_scl);
 
-		// Reinitialize the INA219 instance with updated settings
-		if (_ina219 != nullptr) {
-			delete _ina219;
-			_ina219 = nullptr;
+		// Reinitialize the INA2xx instance with updated settings
+		if (_ina2xx != nullptr) {
+			_logUsermodInaSensor("Freeing existing INA2xx instance");
+			delete _ina2xx;
+			_ina2xx = nullptr;
 		}
-		_ina219 = new INA219_WE(_i2cAddress);
 
-		if (!_ina219) {
-			DEBUG_PRINTLN(F("Failed to allocate memory for INA219 sensor!"));
+		if (!enabled) return true;
+
+		_logUsermodInaSensor("Creating new INA2xx instance with address 0x%02X", _i2cAddress);
+		_ina2xx = new INA219_WE(_i2cAddress);
+
+		if (!_ina2xx) {
+			_logUsermodInaSensor("Failed to allocate memory for INA2xx sensor!");
 			enabled = false;
 			return false;
 		}
 
-		if (!_ina219->init()) {
-			DEBUG_PRINTLN(F("INA219 initialization failed!"));
+		_logUsermodInaSensor("Initializing INA2xx sensor");
+		if (!_ina2xx->init()) {
+			_logUsermodInaSensor("INA2xx initialization failed!");
 			enabled = false;
-			delete _ina219;
-			_ina219 = nullptr;
+			delete _ina2xx;
+			_ina2xx = nullptr;
 			return false;
 		}
-		_ina219->setShuntSizeInOhms(shuntResistor);
-		_ina219->setADCMode(conversionTime);
-		_ina219->setCorrectionFactor(correctionFactor);
+
+		_logUsermodInaSensor("Setting shunt resistor to %.4f Ohms", shuntResistor);
+		_ina2xx->setShuntSizeInOhms(shuntResistor);
+
+		_logUsermodInaSensor("Setting ADC mode to %d", conversionTime);
+		_ina2xx->setADCMode(conversionTime);
+
+		_logUsermodInaSensor("Setting correction factor to %.4f", correctionFactor);
+		_ina2xx->setCorrectionFactor(correctionFactor);
+
+		_logUsermodInaSensor("Setting PGA gain to %d", pGain);
+		_ina2xx->setPGain(pGain);
+
+		_logUsermodInaSensor("Setting bus range to %d", busRange);
+		_ina2xx->setBusRange(busRange);
+
+		_logUsermodInaSensor("Setting shunt voltage offset to %.3f mV", shuntVoltOffset_mV);
+		_ina2xx->setShuntVoltOffset_mV(shuntVoltOffset_mV);
+
+		_logUsermodInaSensor("INA2xx sensor configured successfully");
 
 		return true;
 	}
@@ -164,6 +219,7 @@ private:
 	// Sanitize the mqttClientID by replacing invalid characters.
 	String sanitizeMqttClientID(const String &clientID) {
 		String sanitizedID;
+		_logUsermodInaSensor("Sanitizing MQTT client ID: %s", clientID.c_str());
 
 		for (unsigned int i = 0; i < clientID.length(); i++) {
 			char c = clientID[i];
@@ -199,6 +255,7 @@ private:
 				sanitizedID += '_';
 			}
 		}
+		_logUsermodInaSensor("Sanitized MQTT client ID: %s", sanitizedID.c_str());
 		return sanitizedID;
 	}
 
@@ -207,54 +264,68 @@ private:
 	**/
 	void updateEnergy(float power, unsigned long durationMs) {
 		float durationHours = durationMs / 3600000.0; // Milliseconds to hours
+		_logUsermodInaSensor("Updating energy - Power: %.3f W, Duration: %lu ms (%.6f hours)", power, durationMs, durationHours);
 
 		// Skip negligible power values to avoid accumulating rounding errors
 		if (power < 0.01) {
-			DEBUG_PRINT(F("SKIPPED: Power too low (")); DEBUG_PRINT(power); DEBUG_PRINTLN(F(" W) — skipping to avoid rounding errors"));
+			_logUsermodInaSensor("SKIPPED: Power too low (%.3f W) — skipping to avoid rounding errors.", power);
 			return;
 		}
 
 		float energy_kWh = (power / 1000.0) * durationHours; // Watts to kilowatt-hours (kWh)
+		_logUsermodInaSensor("Calculated energy: %.6f kWh", energy_kWh);
 
 		// Skip negative values or unrealistic spikes
 		if (energy_kWh < 0 || energy_kWh > 10.0) { // 10 kWh in a few seconds is unrealistic
-			DEBUG_PRINTLN(F("SKIPPED: Energy value out of range"));
+			_logUsermodInaSensor("SKIPPED: Energy value out of range (%.6f kWh)", energy_kWh);
 			return;
 		}
 
 		totalEnergy_kWh += energy_kWh; // Update total energy consumed
+		_logUsermodInaSensor("Total energy updated to: %.6f kWh", totalEnergy_kWh);
 
 		// Calculate day identifier (days since epoch)
 		long currentDay = localTime / 86400;
+		_logUsermodInaSensor("Current day: %ld, Last reset day: %lu", currentDay, dailyResetTime);
 
 		// Reset daily energy at midnight or if day changed
 		if ((hour(localTime) == 0 && minute(localTime) == 0 && dailyResetTime != currentDay) ||
 			(currentDay > dailyResetTime && dailyResetTime > 0)) {
+			_logUsermodInaSensor("Resetting daily energy counter (day change detected)");
 			dailyEnergy_kWh = 0;
 			dailyResetTime = currentDay;
 		}
 		dailyEnergy_kWh += energy_kWh;
+		_logUsermodInaSensor("Daily energy updated to: %.6f kWh", dailyEnergy_kWh);
 
 		// Calculate month identifier (year*12 + month)
 		long currentMonth = year(localTime) * 12 + month(localTime) - 1; // month() is 1-12
+		_logUsermodInaSensor("Current month: %ld, Last reset month: %lu", currentMonth, monthlyResetTime);
 		
 		// Reset monthly energy on first day of month or if month changed
 		if ((day(localTime) == 1 && hour(localTime) == 0 && minute(localTime) == 0 &&
 			 monthlyResetTime != currentMonth) || (currentMonth > monthlyResetTime && monthlyResetTime > 0)) {
+			_logUsermodInaSensor("Resetting monthly energy counter (month change detected)");
 			monthlyEnergy_kWh = 0;
 			monthlyResetTime = currentMonth;
 		}
 		monthlyEnergy_kWh += energy_kWh;
+		_logUsermodInaSensor("Monthly energy updated to: %.6f kWh", monthlyEnergy_kWh);
 	}
 
 #ifndef WLED_DISABLE_MQTT
 	/**
-	** Function to publish INA219 sensor data to MQTT
+	** Function to publish INA2xx sensor data to MQTT
 	**/
 	void publishMqtt(float shuntVoltage, float busVoltage, float loadVoltage, 
 					float current, float current_mA, float power, 
 					float power_mW, bool overflow) {
-		if (!WLED_MQTT_CONNECTED) return;
+		if (!WLED_MQTT_CONNECTED) {
+			_logUsermodInaSensor("MQTT not connected, skipping publish");
+			return;
+		}
+
+		_logUsermodInaSensor("Publishing sensor data to MQTT");
 
 		// Create a JSON document to hold sensor data
 		StaticJsonDocument<1024> jsonDoc;
@@ -270,10 +341,14 @@ private:
 		jsonDoc["overflow"] = overflow;
 		jsonDoc["shunt_resistor_Ohms"] = shuntResistor;
 
-		// Energy calculations
-		jsonDoc["daily_energy_kWh"] = dailyEnergy_kWh;
-		jsonDoc["monthly_energy_kWh"] = monthlyEnergy_kWh;
-		jsonDoc["total_energy_kWh"] = totalEnergy_kWh;
+		if (mqttStateRestored) { // only add energy_kWh fields after retained state arrives from mqtt
+			// Energy calculations
+			jsonDoc["daily_energy_kWh"] = dailyEnergy_kWh;
+			jsonDoc["monthly_energy_kWh"] = monthlyEnergy_kWh;
+			jsonDoc["total_energy_kWh"] = totalEnergy_kWh;
+		} else {
+			_logUsermodInaSensor("Skipping energy fields until MQTT state restored");
+		}
 
 		// Reset timestamps
 		jsonDoc["dailyResetTime"] = dailyResetTime;
@@ -285,10 +360,12 @@ private:
 
 		// Construct the MQTT topic using the device topic
 		char topic[128];
-		snprintf_P(topic, sizeof(topic), "%s/sensor/ina219", mqttDeviceTopic);
+		snprintf_P(topic, sizeof(topic), "%s/sensor/ina2xx", mqttDeviceTopic);
+		_logUsermodInaSensor("MQTT topic: %s", topic);
 
 		// Publish the serialized JSON data to the specified MQTT topic
 		mqtt->publish(topic, 0, true, buffer, payload_size);
+		_logUsermodInaSensor("MQTT publish complete, payload size: %d bytes", payload_size);
 	}
 
 	/**
@@ -299,6 +376,7 @@ private:
 							const String &jsonKey, const String &SensorType) {
 		String sanitizedName = name;
 		sanitizedName.replace(' ', '-');
+		_logUsermodInaSensor("Creating HA sensor: %s", sanitizedName.c_str());
 
 		String sanitizedMqttClientID = sanitizeMqttClientID(mqttClientID);
 		sanitizedMqttClientID += "-" + String(escapedMac.c_str());
@@ -313,6 +391,7 @@ private:
 		String uid = escapedMac.c_str();
 		uid += "_" + sanitizedName;
 		doc[F("uniq_id")] = uid;
+		_logUsermodInaSensor("Sensor unique ID: %s", uid.c_str());
 
 		// Template to extract specific value from JSON
 		doc[F("val_tpl")] = String("{{ value_json.") + jsonKey + String(" }}");
@@ -346,20 +425,22 @@ private:
 		char topic_S[128];
 		int length = snprintf_P(topic_S, sizeof(topic_S), "homeassistant/%s/%s/%s/config", SensorType.c_str(), sanitizedMqttClientID.c_str(), sanitizedName.c_str());
 		if (length >= sizeof(topic_S)) {
-			DEBUG_PRINTLN(F("HA topic truncated - potential buffer overflow"));
+			_logUsermodInaSensor("HA topic truncated - potential buffer overflow");
 		}
 
 		// Debug output for the Home Assistant topic and configuration
-		DEBUG_PRINTLN(topic_S);
-		DEBUG_PRINTLN(buffer);
+		_logUsermodInaSensor("Topic: %s", topic_S);
+		_logUsermodInaSensor("Buffer: %s", buffer);
 
 		// Publish the sensor configuration to Home Assistant
 		mqtt->publish(topic_S, 0, true, buffer, payload_size);
+		_logUsermodInaSensor("Home Assistant sensor %s created", sanitizedName.c_str());
 	}
 
 	void mqttRemoveHassSensor(const String &name, const String &SensorType) {
 		String sanitizedName = name;
 		sanitizedName.replace(' ', '-');
+		_logUsermodInaSensor("Removing HA sensor: %s", sanitizedName.c_str());
 
 		String sanitizedMqttClientID = sanitizeMqttClientID(mqttClientID);
 		sanitizedMqttClientID += "-" + String(escapedMac.c_str());
@@ -367,57 +448,74 @@ private:
 		char sensorTopic[128];
 		int length = snprintf_P(sensorTopic, sizeof(sensorTopic), "homeassistant/%s/%s/%s/config", SensorType.c_str(), sanitizedMqttClientID.c_str(), sanitizedName.c_str());
 		if (length >= sizeof(sensorTopic)) {
-			DEBUG_PRINTLN(F("HA sensor topic truncated - potential buffer overflow"));
+			_logUsermodInaSensor("HA sensor topic truncated - potential buffer overflow");
 		}
 
 		// Publish an empty message with retain to delete the sensor from Home Assistant
 		mqtt->publish(sensorTopic, 0, true, "");
+		_logUsermodInaSensor("Published empty message to remove sensor: %s", sensorTopic);
 	}
 #endif
 
 public:
-	// Destructor to clean up INA219 object
-	~UsermodINA219() {
-		if (_ina219) {
-			delete _ina219;
-			_ina219 = nullptr;
+	// Destructor to clean up INA2xx object
+	~UsermodINA2xx() {
+		if (_ina2xx) {
+			_logUsermodInaSensor("Cleaning up INA2xx sensor object");
+			delete _ina2xx;
+			_ina2xx = nullptr;
 		}
 	}
 
 	// Setup function called once on boot or restart
 	void setup() override {
-		initDone = updateINA219Settings();  // Configure INA219 settings
+		_logUsermodInaSensor("Setting up INA2xx sensor usermod");
+		initDone = updateINA2xxSettings();  // Configure INA2xx settings
+		if (initDone) {
+			_logUsermodInaSensor("INA2xx setup complete and successful");
+		} else {
+			_logUsermodInaSensor("INA2xx setup failed");
+		}
 	}
 
 	// Loop function called continuously
 	void loop() override {
 		// Check if the usermod is enabled and the check interval has elapsed
-		if (!enabled || !initDone || !_ina219 || millis() - lastCheck < checkInterval) {
+		if (!enabled || !initDone || !_ina2xx || millis() - lastCheck < checkInterval) {
 			return;
 		}
 
 		lastCheck = millis();
+		_logUsermodInaSensor("Reading sensor data at %lu ms", lastCheck);
 
 		// Fetch sensor data
-		shuntVoltage = truncateDecimals(_ina219->getShuntVoltage_mV());
-		busVoltage = truncateDecimals(_ina219->getBusVoltage_V());
+		shuntVoltage = truncateDecimals(_ina2xx->getShuntVoltage_mV());
+		busVoltage = truncateDecimals(_ina2xx->getBusVoltage_V());
 		
-		float rawCurrent_mA = _ina219->getCurrent_mA();
+		float rawCurrent_mA = _ina2xx->getCurrent_mA();
 		current_mA = truncateDecimals(rawCurrent_mA);
 		current = truncateDecimals(rawCurrent_mA / 1000.0); // Convert from mA to A
 
-		float rawPower_mW = _ina219->getBusPower();
+		float rawPower_mW = _ina2xx->getBusPower();
 		power_mW = truncateDecimals(rawPower_mW);
 		power = truncateDecimals(rawPower_mW / 1000.0); // Convert from mW to W
 
 		loadVoltage = truncateDecimals(busVoltage + (shuntVoltage / 1000));
-		overflow = _ina219->getOverflow() != 0;
+		overflow = _ina2xx->getOverflow() != 0;
+
+		_logUsermodInaSensor("Sensor readings - Shunt: %.3f mV, Bus: %.3f V, Load: %.3f V", shuntVoltage, busVoltage, loadVoltage);
+		_logUsermodInaSensor("Sensor readings - Current: %.3f A (%.3f mA), Power: %.3f W (%.3f mW)", current, current_mA, power, power_mW);
+		_logUsermodInaSensor("Overflow status: %s", overflow ? "TRUE" : "FALSE");
 
 		// Update energy consumption
 		if (lastPublishTime != 0) {
 			if (power >= 0) {
 				updateEnergy(power, lastCheck - lastPublishTime);
+			} else {
+				_logUsermodInaSensor("Skipping energy update due to negative power: %.3f W", power);
 			}
+		} else {
+			_logUsermodInaSensor("First reading - establishing baseline for energy calculation");
 		}
 		lastPublishTime = lastCheck;
 
@@ -426,6 +524,7 @@ public:
 		if (WLED_MQTT_CONNECTED) {
 			if (mqttPublish) {
 				if (mqttPublishAlways || hasValueChanged()) {
+					_logUsermodInaSensor("Publishing MQTT data (always=%d, changed=%d)", mqttPublishAlways, hasValueChanged());
 					publishMqtt(shuntVoltage, busVoltage, loadVoltage, current, current_mA, power, power_mW, overflow);
 
 					last_sent_shuntVoltage = shuntVoltage;
@@ -438,10 +537,13 @@ public:
 					last_sent_overflow = overflow;
 
 					mqttPublishSent = true;
+				} else {
+					_logUsermodInaSensor("No significant change in values, skipping MQTT publish");
 				}
 			} else if (!mqttPublish && mqttPublishSent) {
+				_logUsermodInaSensor("MQTT publishing disabled, removing previous retained message");
 				char sensorTopic[128];
-				snprintf_P(sensorTopic, 127, "%s/sensor/ina219", mqttDeviceTopic);
+				snprintf_P(sensorTopic, 127, "%s/sensor/ina2xx", mqttDeviceTopic);
 
 				// Publishing an empty retained message to delete the sensor from Home Assistant
 				mqtt->publish(sensorTopic, 0, true, "");
@@ -452,8 +554,9 @@ public:
 		// Publish Home Assistant discovery data if enabled
 		if (haDiscovery && !haDiscoverySent) {
 			if (WLED_MQTT_CONNECTED) {
+				_logUsermodInaSensor("Setting up Home Assistant discovery");
 				char topic[128];
-				snprintf_P(topic, 127, "%s/sensor/ina219", mqttDeviceTopic); // Common topic for all INA219 data
+				snprintf_P(topic, 127, "%s/sensor/ina2xx", mqttDeviceTopic); // Common topic for all INA2xx data
 
 				mqttCreateHassSensor(F("Current"), topic, F("current"), F("A"), F("current_A"), F("sensor"));
 				mqttCreateHassSensor(F("Voltage"), topic, F("voltage"), F("V"), F("bus_voltage_V"), F("sensor"));
@@ -466,9 +569,11 @@ public:
 				mqttCreateHassSensor(F("Total Energy"), topic, F("energy"), F("kWh"), F("total_energy_kWh"), F("sensor"));
 
 				haDiscoverySent = true; // Mark as sent to avoid repeating
+				_logUsermodInaSensor("Home Assistant discovery complete");
 			}
 		} else if (!haDiscovery && haDiscoverySent) {
 			if (WLED_MQTT_CONNECTED) {
+				_logUsermodInaSensor("Removing Home Assistant discovery sensors");
 				// Remove previously created sensors
 				mqttRemoveHassSensor(F("Current"), F("sensor"));
 				mqttRemoveHassSensor(F("Voltage"), F("sensor"));
@@ -481,6 +586,7 @@ public:
 				mqttRemoveHassSensor(F("Overflow"), F("sensor"));
 
 				haDiscoverySent = false; // Mark as sent to avoid repeating
+				_logUsermodInaSensor("Home Assistant discovery removal complete");
 			}
 		}
 	#endif
@@ -494,29 +600,43 @@ public:
 		if (!WLED_MQTT_CONNECTED || !enabled) return false;
 
 		// Check if the message is for the correct topic
-		if (strstr(topic, "/sensor/ina219") != nullptr) {
+		if (strstr(topic, "/sensor/ina2xx") != nullptr) {
+			_logUsermodInaSensor("MQTT message received on INA2xx topic");
 			StaticJsonDocument<512> jsonDoc;
 
 			// Parse the JSON payload
 			DeserializationError error = deserializeJson(jsonDoc, payload);
 			if (error) {
-				DEBUG_PRINT(F("JSON Parse Error: "));
-				DEBUG_PRINTLN(error.c_str());
+				_logUsermodInaSensor("JSON Parse Error: %s", error.c_str());
 				return false;
 			}
 
 			// Update the energy values
-			if (jsonDoc.containsKey("daily_energy_kWh"))
-				dailyEnergy_kWh = jsonDoc["daily_energy_kWh"];
-			if (jsonDoc.containsKey("monthly_energy_kWh"))
-				monthlyEnergy_kWh = jsonDoc["monthly_energy_kWh"];
-			if (jsonDoc.containsKey("total_energy_kWh"))
-				totalEnergy_kWh = jsonDoc["total_energy_kWh"];
-			if (jsonDoc.containsKey("dailyResetTime"))
-				dailyResetTime = jsonDoc["dailyResetTime"];
-			if (jsonDoc.containsKey("monthlyResetTime"))
-				monthlyResetTime = jsonDoc["monthlyResetTime"];
-
+			if (!mqttStateRestored) {
+				// Only merge in retained MQTT values once!
+				if (jsonDoc.containsKey("daily_energy_kWh")) {
+					float restored = jsonDoc["daily_energy_kWh"];
+					if (!isnan(restored)) {
+						dailyEnergy_kWh += restored;
+						_logUsermodInaSensor("Merged daily energy from MQTT: +%.6f kWh => %.6f kWh", restored, dailyEnergy_kWh);
+					}
+				}
+				if (jsonDoc.containsKey("monthly_energy_kWh")) {
+					float restored = jsonDoc["monthly_energy_kWh"];
+					if (!isnan(restored)) {
+						monthlyEnergy_kWh += restored;
+						_logUsermodInaSensor("Merged monthly energy from MQTT: +%.6f kWh => %.6f kWh", restored, monthlyEnergy_kWh);
+					}
+				}
+				if (jsonDoc.containsKey("total_energy_kWh")) {
+					float restored = jsonDoc["total_energy_kWh"];
+					if (!isnan(restored)) {
+						totalEnergy_kWh += restored;
+						_logUsermodInaSensor("Merged total energy from MQTT: +%.6f kWh => %.6f kWh", restored, totalEnergy_kWh);
+					}
+				}
+				mqttStateRestored = true;  // Only do this once!
+			}
 			return true;
 		}
 		return false;
@@ -531,10 +651,9 @@ public:
 			char subuf[64];
 			if (mqttDeviceTopic[0] != 0) {
 				strcpy(subuf, mqttDeviceTopic);
-				strcat_P(subuf, PSTR("/sensor/ina219"));
+				strcat_P(subuf, PSTR("/sensor/ina2xx"));
 				mqtt->subscribe(subuf, 0);
-				DEBUG_PRINT(F("Subscribed to MQTT topic: "));
-				DEBUG_PRINTLN(subuf);
+				_logUsermodInaSensor("Subscribed to MQTT topic: %s", subuf);
 			}
 		}
 	}
@@ -549,13 +668,19 @@ public:
 			user = root.createNestedObject(F("u"));
 		}
 
-		JsonArray energy_json = user.createNestedArray(F("INA219:"));
+		JsonArray energy_json = user.createNestedArray(F("INA2xx:"));
 
 		if (!enabled || !initDone) {
 			energy_json.add(F("disabled"));
+			if (!alreadyLoggedDisabled) {
+				_logUsermodInaSensor("Adding disabled status to JSON info");
+				alreadyLoggedDisabled = true;
+			}
 			return;
 		}
+		alreadyLoggedDisabled = false;
 
+		// File needs to be UTF-8 to show an arrow that points down and right instead of an question mark
 		// Create a nested array for daily energy
 		JsonArray dailyEnergy_json = user.createNestedArray(F("⤷ Daily Energy"));
 		dailyEnergy_json.add(dailyEnergy_kWh);
@@ -570,13 +695,19 @@ public:
 		JsonArray totalEnergy_json = user.createNestedArray(F("⤷ Total Energy"));
 		totalEnergy_json.add(totalEnergy_kWh);
 		totalEnergy_json.add(F(" kWh"));
+
+		_logUsermodInaSensor("Added energy data to JSON info: daily=%.6f, monthly=%.6f, total=%.6f kWh", dailyEnergy_kWh, monthlyEnergy_kWh, totalEnergy_kWh);
 	}
 
 	/**
 	** Add the current state of energy consumption to a JSON object
 	**/
 	void addToJsonState(JsonObject& root) override {
-		if (!initDone) return;
+		if (!enabled) return;
+		if (!initDone) {
+			_logUsermodInaSensor("Not adding to JSON state - initialization not complete");
+			return;
+		}
 
 		JsonObject usermod = root[FPSTR(_name)];
 		if (usermod.isNull()) {
@@ -597,29 +728,72 @@ public:
 		usermod["monthlyEnergy_kWh"] = monthlyEnergy_kWh;
 		usermod["dailyResetTime"] = dailyResetTime;
 		usermod["monthlyResetTime"] = monthlyResetTime;
+
+		_logUsermodInaSensor("Added sensor readings to JSON state: V=%.3fV, I=%.3fA, P=%.3fW", loadVoltage, current, power);
 	}
 	
 	/**
 	** Read energy consumption data from a JSON object
 	**/
 	void readFromJsonState(JsonObject& root) override {
-		if (!initDone) return; // Prevent crashes on boot if initialization is not done
+		if (!enabled) return;
+		if (!initDone) { // Prevent crashes on boot if initialization is not done
+			_logUsermodInaSensor("Not reading from JSON state - initialization not complete");
+			return;
+		}
 
 		JsonObject usermod = root[FPSTR(_name)];
 		if (!usermod.isNull()) {
 			// Read values from JSON or retain existing values if not present
-			if (usermod.containsKey("enabled"))
-				enabled = usermod["enabled"] | enabled;
-			if (usermod.containsKey("totalEnergy_kWh"))
+			if (usermod.containsKey("enabled")) {
+				bool prevEnabled = enabled;
+				enabled = usermod["enabled"] | enabled;	
+				if (prevEnabled != enabled) {
+					_logUsermodInaSensor("Enabled state changed: %s", enabled ? "enabled" : "disabled");
+				}
+			}
+
+			if (usermod.containsKey("totalEnergy_kWh")) {
+				float prevTotal = totalEnergy_kWh;
 				totalEnergy_kWh = usermod["totalEnergy_kWh"] | totalEnergy_kWh;
-			if (usermod.containsKey("dailyEnergy_kWh"))
+				if (totalEnergy_kWh != prevTotal) {
+					_logUsermodInaSensor("Total energy updated from JSON: %.6f kWh", totalEnergy_kWh);
+				}
+			}
+
+			if (usermod.containsKey("dailyEnergy_kWh")) {
+				float prevDaily = dailyEnergy_kWh;
 				dailyEnergy_kWh = usermod["dailyEnergy_kWh"] | dailyEnergy_kWh;
-			if (usermod.containsKey("monthlyEnergy_kWh"))
+				if (dailyEnergy_kWh != prevDaily) {
+					_logUsermodInaSensor("Daily energy updated from JSON: %.6f kWh", dailyEnergy_kWh);
+				}
+			}
+
+			if (usermod.containsKey("monthlyEnergy_kWh")) {
+				float prevMonthly = monthlyEnergy_kWh;
 				monthlyEnergy_kWh = usermod["monthlyEnergy_kWh"] | monthlyEnergy_kWh;
-			if (usermod.containsKey("dailyResetTime"))
+				if (monthlyEnergy_kWh != prevMonthly) {
+					_logUsermodInaSensor("Monthly energy updated from JSON: %.6f kWh", monthlyEnergy_kWh);
+				}
+			}
+
+			if (usermod.containsKey("dailyResetTime")) {
+				unsigned long prevDailyReset = dailyResetTime;
 				dailyResetTime = usermod["dailyResetTime"] | dailyResetTime;
-			if (usermod.containsKey("monthlyResetTime"))
+				if (dailyResetTime != prevDailyReset) {
+					_logUsermodInaSensor("Daily reset time updated from JSON: %lu", dailyResetTime);
+				}
+			}
+
+			if (usermod.containsKey("monthlyResetTime")) {
+				unsigned long prevMonthlyReset = monthlyResetTime;
 				monthlyResetTime = usermod["monthlyResetTime"] | monthlyResetTime;
+				if (monthlyResetTime != prevMonthlyReset) {
+					_logUsermodInaSensor("Monthly reset time updated from JSON: %lu", monthlyResetTime);
+				}
+			}
+		} else {
+			_logUsermodInaSensor("No usermod data found in JSON state");
 		}
 	}
 
@@ -627,13 +801,17 @@ public:
 	** Append configuration options to the Usermod menu.
 	**/
 	void addToConfig(JsonObject& root) override {
-		JsonObject top = root.createNestedObject(F("INA219"));
+		JsonObject top = root.createNestedObject(F("INA2xx"));
 		top["Enabled"] = enabled;
 		top["i2c_address"] = static_cast<uint8_t>(_i2cAddress);
 		top["check_interval"] = checkInterval / 1000;
 		top["conversion_time"] = conversionTime;
 		top["decimals"] = _decimalFactor;
 		top["shunt_resistor"] = shuntResistor;
+		top["correction_factor"] = correctionFactor;
+		top["pga_gain"]        = pGain;
+		top["bus_range"]       = busRange;
+		top["shunt_offset"]    = shuntVoltOffset_mV;
 
 		#ifndef WLED_DISABLE_MQTT
 			// Store MQTT settings if MQTT is not disabled
@@ -648,14 +826,14 @@ public:
 	**/
 	void appendConfigData() override {
 		// Append the dropdown for I2C address selection
-		oappend(F("dd=addDropdown('INA219','i2c_address');"));
-		oappend(F("addOption(dd,'0x40 - Default',0x40, true);"));
-		oappend(F("addOption(dd,'0x41 - A0 soldered',0x41);"));
-		oappend(F("addOption(dd,'0x44 - A1 soldered',0x44);"));
-		oappend(F("addOption(dd,'0x45 - A0 and A1 soldered',0x45);"));
+		oappend("dd=addDropdown('INA2xx','i2c_address');");
+		oappend("addOption(dd,'0x40 - Default',0x40, true);");
+		oappend("addOption(dd,'0x41 - A0 soldered',0x41);");
+		oappend("addOption(dd,'0x44 - A1 soldered',0x44);");
+		oappend("addOption(dd,'0x45 - A0 and A1 soldered',0x45);");
 
 		// Append the dropdown for ADC mode (resolution + samples)
-		oappend(F("ct=addDropdown('INA219','conversion_time');"));
+		oappend("ct=addDropdown('INA2xx','conversion_time');");
 		oappend("addOption(ct,'9-Bit (84 µs)',0);");
 		oappend("addOption(ct,'10-Bit (148 µs)',1);");
 		oappend("addOption(ct,'11-Bit (276 µs)',2);");
@@ -669,10 +847,20 @@ public:
 		oappend("addOption(ct,'128 samples (68.10 ms)',15);");
 
 		// Append the dropdown for decimal precision (0 to 3)
-		oappend(F("df=addDropdown('INA219','decimals');"));
+		oappend("df=addDropdown('INA2xx','decimals');");
 		for (int i = 0; i <= 3; i++) {
 			oappend(String("addOption(df,'" + String(i) + "'," + String(i) + (i == 2 ? ", true);" : ");")).c_str());
 		}
+
+		oappend("pg=addDropdown('INA2xx','pga_gain');");
+		oappend("addOption(pg,'40mV',0);");
+		oappend("addOption(pg,'80mV',2048);");
+		oappend("addOption(pg,'160mV',4096);");
+		oappend("addOption(pg,'320mV',6144, true);");
+
+		oappend("br=addDropdown('INA2xx','bus_range');");
+		oappend("addOption(br,'16V',0);");
+		oappend("addOption(br,'32V',8192, true);");
 	}
 	
 	/**
@@ -682,34 +870,152 @@ public:
 		JsonObject top = root[FPSTR(_name)];
 
 		bool configComplete = !top.isNull();
-		configComplete &= getJsonValue(top["Enabled"], enabled);
-		configComplete &= getJsonValue(top[F("i2c_address")], _i2cAddress);
+
+		bool tempEnabled = enabled;
+		if (getJsonValue(top["Enabled"], tempEnabled)) {
+			if (tempEnabled != enabled) {
+				_logUsermodInaSensor("Enabled state changed to: %s", tempEnabled ? "enabled" : "disabled");
+				enabled = tempEnabled;
+			}
+		} else {
+			configComplete = false;
+		}
+
+		uint8_t tempI2cAddress = _i2cAddress;
+		if (getJsonValue(top[F("i2c_address")], tempI2cAddress)) {
+			if (tempI2cAddress != _i2cAddress) {
+				_logUsermodInaSensor("I2C address updated to: 0x%02X", tempI2cAddress);
+				_i2cAddress = tempI2cAddress;
+			}
+		} else {
+			configComplete = false;
+		}
 
 		uint16_t tempInterval = 0;
 		if (getJsonValue(top[F("check_interval")], tempInterval)) {
 			if (1 <= tempInterval && tempInterval <= 600) {
-				checkInterval = static_cast<uint32_t>(tempInterval) * 1000UL;
+				uint32_t newInterval = static_cast<uint32_t>(tempInterval) * 1000UL;
+				if (newInterval != checkInterval) {
+					_logUsermodInaSensor("Check interval updated to: %u ms", newInterval);
+					checkInterval = newInterval;
+				}
 			} else {
-				DEBUG_PRINTLN(F("INA219: Invalid check_interval value; using default."));
+				_logUsermodInaSensor("Invalid check_interval value %u; using default %u seconds", tempInterval, INA219_CHECK_INTERVAL);
 				checkInterval = static_cast<uint32_t>(_checkInterval) * 1000UL;
 			}
 		} else {
 			configComplete = false;
 		}
 
-		configComplete &= getJsonValue(top["conversion_time"], conversionTime);
-		configComplete &= getJsonValue(top["decimals"], _decimalFactor);
-		configComplete &= getJsonValue(top["shunt_resistor"], shuntResistor);
+		INA219_ADC_MODE tempConversionTime = conversionTime;
+		if (getJsonValue(top["conversion_time"], tempConversionTime)) {
+			if (tempConversionTime != conversionTime) {
+				_logUsermodInaSensor("Conversion time updated to: %u", tempConversionTime);
+				conversionTime = tempConversionTime;
+			}
+		} else {
+			configComplete = false;
+		}
+
+		uint8_t tempDecimalFactor = _decimalFactor;
+		if (getJsonValue(top["decimals"], tempDecimalFactor)) {
+			if (tempDecimalFactor != _decimalFactor) {
+				_logUsermodInaSensor("Decimal factor updated to: %u", tempDecimalFactor);
+				_decimalFactor = tempDecimalFactor;
+			}
+		} else {
+			configComplete = false;
+		}
+
+		float tempShuntResistor = shuntResistor;
+		if (getJsonValue(top["shunt_resistor"], tempShuntResistor)) {
+			if (tempShuntResistor != shuntResistor) {
+				_logUsermodInaSensor("Shunt resistor updated to: %.6f Ohms", tempShuntResistor);
+				shuntResistor = tempShuntResistor;
+			}
+		} else {
+			configComplete = false;
+		}
+
+		float tempCorrectionFactor = correctionFactor;
+		if (getJsonValue(top["correction_factor"], tempCorrectionFactor)) {
+			if (tempCorrectionFactor != correctionFactor) {
+				_logUsermodInaSensor("Correction factor updated to: %.3f", tempCorrectionFactor);
+				correctionFactor = tempCorrectionFactor;
+			}
+		} else {
+			configComplete = false;
+		}
+
+		INA219_PGAIN tempPGain = pGain;
+		if (getJsonValue(top[F("pga_gain")], tempPGain)) {
+			if (tempPGain != pGain) {
+				_logUsermodInaSensor("PGA gain updated to: %d", tempPGain);
+				pGain = tempPGain;
+			}
+		} else {
+			configComplete = false;
+		}
+
+		INA219_BUS_RANGE tempBusRange = busRange;
+		if (getJsonValue(top[F("bus_range")], tempBusRange)) {
+			if (tempBusRange != busRange) {
+				_logUsermodInaSensor("Bus range updated to: %d", tempBusRange);
+				busRange = tempBusRange;
+			}
+		} else {
+			configComplete = false;
+		}
+
+		float tempShuntVoltOffset = shuntVoltOffset_mV;
+		if (getJsonValue(top[F("shunt_offset")], tempShuntVoltOffset)) {
+			if (tempShuntVoltOffset != shuntVoltOffset_mV) {
+				_logUsermodInaSensor("Shunt voltage offset updated to: %.3f mV", tempShuntVoltOffset);
+				shuntVoltOffset_mV = tempShuntVoltOffset;
+			}
+		} else {
+			configComplete = false;
+		}
 
 		#ifndef WLED_DISABLE_MQTT
-			configComplete &= getJsonValue(top["mqtt_publish"], mqttPublish);
-			configComplete &= getJsonValue(top["mqtt_publish_always"], mqttPublishAlways);
-			configComplete &= getJsonValue(top["ha_discovery"], haDiscovery);
+			bool tempMqttPublish = mqttPublish;
+			if (getJsonValue(top["mqtt_publish"], tempMqttPublish)) {
+				if (tempMqttPublish != mqttPublish) {
+					_logUsermodInaSensor("MQTT publish setting updated to: %s", tempMqttPublish ? "enabled" : "disabled");
+					mqttPublish = tempMqttPublish;
+				}
+			} else {
+				configComplete = false;
+			}
 
-			haDiscoverySent = !haDiscovery;
+			bool tempMqttPublishAlways = mqttPublishAlways;
+			if (getJsonValue(top["mqtt_publish_always"], tempMqttPublishAlways)) {
+				if (tempMqttPublishAlways != mqttPublishAlways) {
+					_logUsermodInaSensor("MQTT publish always updated to: %s", tempMqttPublishAlways ? "true" : "false");
+					mqttPublishAlways = tempMqttPublishAlways;
+				}
+			} else {
+				configComplete = false;
+			}
+
+			bool tempHaDiscovery = haDiscovery;
+			if (getJsonValue(top["ha_discovery"], tempHaDiscovery)) {
+				if (tempHaDiscovery != haDiscovery) {
+					_logUsermodInaSensor("HA discovery setting updated to: %s", tempHaDiscovery ? "enabled" : "disabled");
+					haDiscovery = tempHaDiscovery;
+					haDiscoverySent = !haDiscovery;
+				}
+			} else {
+				configComplete = false;
+			}
 		#endif
 
-		initDone = updateINA219Settings();  // Configure INA219 settings
+		bool prevInitDone = initDone;
+		initDone = updateINA2xxSettings();  // Configure INA2xx settings
+
+		if (prevInitDone != initDone) {
+			_logUsermodInaSensor("Sensor initialization %s", initDone ? "succeeded" : "failed");
+		}
 
 		return configComplete;
 	}
@@ -718,11 +1024,11 @@ public:
 	** Get the unique identifier for this usermod.
 	**/
 	uint16_t getId() override {
-		return USERMOD_ID_INA219;
+		return USERMOD_ID_INA2XX;
 	}
 };
 
-const char UsermodINA219::_name[] PROGMEM = "INA219";
+const char UsermodINA2xx::_name[] PROGMEM = "INA2xx";
 
-static UsermodINA219 ina219_v2;
-REGISTER_USERMOD(ina219_v2);
+static UsermodINA2xx ina2xx_v2;
+REGISTER_USERMOD(ina2xx_v2);
