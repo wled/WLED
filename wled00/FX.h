@@ -210,6 +210,7 @@ extern byte realtimeMode;           // used in getMappedPixelIndex()
 #define FX_MODE_LAKE                    75
 #define FX_MODE_METEOR                  76
 //#define FX_MODE_METEOR_SMOOTH           77 // merged with meteor
+#define FX_MODE_ANTS                    77 // gap fill
 #define FX_MODE_RAILWAY                 78
 #define FX_MODE_RIPPLE                  79
 #define FX_MODE_TWINKLEFOX              80
@@ -288,6 +289,7 @@ extern byte realtimeMode;           // used in getMappedPixelIndex()
 #define FX_MODE_2DFIRENOISE            149
 #define FX_MODE_2DSQUAREDSWIRL         150
 // #define FX_MODE_2DFIRE2012             151
+#define FX_MODE_PACMAN                 151 // gap fill - not SR
 #define FX_MODE_2DDNA                  152
 #define FX_MODE_2DMATRIX               153
 #define FX_MODE_2DMETABALLS            154
@@ -354,7 +356,6 @@ extern byte realtimeMode;           // used in getMappedPixelIndex()
 #define FX_MODE_PS1DSONICBOOM          215
 #define FX_MODE_PS1DSPRINGY            216
 #define MODE_COUNT                     217
-
 
 #define BLEND_STYLE_FADE            0x00  // universal
 #define BLEND_STYLE_FAIRY_DUST      0x01  // universal
