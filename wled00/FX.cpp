@@ -3304,7 +3304,7 @@ static uint16_t mode_ants(void) {
 
   return FRAMETIME;
 }
-static const char _data_FX_MODE_ANTS[] PROGMEM = "Ants@Ant speed,# of ants,Ant size,,,Gathering food,Overlay,Pass by;!,!,!;!;1;sx=192,ix=255,c1=32";
+static const char _data_FX_MODE_ANTS[] PROGMEM = "Ants@Ant speed,# of ants,Ant size,,,Gathering food,Overlay,Pass by;!,!,!;!;1;sx=192,ix=255,c1=32,o1=1,o3=1";
 
 
 /*
@@ -3391,9 +3391,8 @@ static uint16_t mode_pacman(void) {
     SEGENV.aux1++;
   }
 
-  // black out LEDs behind the last ghost (character[4]) in case they are on from a previous effect (transition)
-  for (int i = character[4].pos; i > 1; i--)
-    SEGMENT.setPixelColor(i-2, BLACK);
+  // fill all LEDs/pixels with black (off)
+  SEGMENT.fill(BLACK);
 
   // draw white dots (or black LEDs) so PacMan can start eating them
   if (SEGMENT.check1) {                                                         // If White Dots option is selected, draw white dots in front of PacMan
@@ -3405,15 +3404,11 @@ static uint16_t mode_pacman(void) {
       }
     }
   }
-  else {                                                                        // White Dots option is NOT selected, so draw black LEDs in front of PacMan
-    for (int i = SEGLEN-1; i > character[PACMAN].pos + !character[PACMAN].direction; i--) // start at the end of the segment and draw black LEDs to the PacMan character
-      SEGMENT.setPixelColor(i, BLACK);
-  };
 
   // update power dot positions: can change if user selects a different number of power dots
   unsigned everyXLeds = ((SEGLEN - 10) << 8) / numPowerDots;                    //figure out how far apart the power dots will be
   for (int i = 1; i < maxPowerDots; i++) {
-      character[i+5].pos = 10 + (i * everyXLeds) >> 8;                          // additional power dots every X LEDs/pixels, character[5] is power dot at end of strip
+      character[i+5].pos = 10 + ((i * everyXLeds) >> 8);                        // additional power dots every X LEDs/pixels, character[5] is power dot at end of strip
   }
 
   // blink power dots every 10 ticks of the ticker timer by changing their color between orangish color and black
@@ -3485,37 +3480,25 @@ static uint16_t mode_pacman(void) {
   }
 
   // display the characters
-  if (character[PACMAN].direction) {                                            // Going forward from the beginning of the segment...
-    if (SEGENV.aux1 % map(SEGMENT.speed, 0, 255, 15, 1) == 0) {                 // User-selectable speed of PacMan and the Ghosts
-      SEGMENT.setPixelColor(character[PACMAN].pos, character[PACMAN].color);    // draw PacMan
-      SEGMENT.setPixelColor(character[PACMAN].pos-1, BLACK);                    //   and the black dot behind him
-      character[PACMAN].pos += 1;                                               // update PacMan's position forwards for the next frame draw
+  if (SEGENV.aux1 % map(SEGMENT.speed, 0, 255, 15, 1) == 0) {                   // User-selectable speed of PacMan and the Ghosts.  Is it time to update their position?
+    character[PACMAN].pos += character[PACMAN].direction?1:-1;                  // Yes, it's time to update PacMan's position (forwards or backwards)
+    SEGMENT.setPixelColor(character[PACMAN].pos, character[PACMAN].color);      // draw PacMan
 
-      if (character[PACMAN].topPos < character[PACMAN].pos)                     // keep track of the top (farthest) position of the PacMan character
-        character[PACMAN].topPos = character[PACMAN].pos;
-
-      for (int i = 1; i < numGhosts + 1; i++) {                                 // ...draw the 4 ghosts (and the black dot behind each ghost)
-        SEGMENT.setPixelColor(character[i].pos, character[i].color);
-        SEGMENT.setPixelColor(character[i].pos-1, BLACK);
-        character[i].pos += 1;                                                  // update their positions forwards for the next frame draw
-      }
+    for (int i = 1; i < numGhosts + 1; i++) {                                   // ...draw the 4 ghosts
+      character[i].pos += character[PACMAN].direction?1:-1;                     // update their positions (forwards or backwards)
+      SEGMENT.setPixelColor(character[i].pos, character[i].color);              // draw the ghosts in new positions
     }
   }
-  else {                                                                        // Going backward (after PacMan ate a power dot)...
-    if (SEGENV.aux1 % map(SEGMENT.speed, 0, 255, 15, 1) == 0) {                 // User-selectable speed of PacMan and the Ghosts
-      SEGMENT.setPixelColor(character[PACMAN].pos+1, BLACK);
-      SEGMENT.setPixelColor(character[PACMAN].pos, character[PACMAN].color);    // draw PacMan
-      SEGMENT.setPixelColor(character[PACMAN].pos-1, BLACK);                    //   and the black dot behind him
-      character[PACMAN].pos -= 1;                                               // update PacMan's position backwards for the next frame draw
+  else {                                                                        // No, it's NOT time to update the characters' positions yet
+    SEGMENT.setPixelColor(character[PACMAN].pos, character[PACMAN].color);      // draw PacMan in same position
 
-      for (int i = 1; i < numGhosts + 1; i++) {                                 // ...draw the 4 ghosts (and black dots surrounding each ghost)
-        SEGMENT.setPixelColor(character[i].pos+1, BLACK);
-        SEGMENT.setPixelColor(character[i].pos, character[i].color);
-        SEGMENT.setPixelColor(character[i].pos-1, BLACK);
-        character[i].pos -= 1;                                                  // update their positions backwards for the next frame draw
-      }
+    for (int i = 1; i < numGhosts + 1; i++) {                                   // ...draw the 4 ghosts
+      SEGMENT.setPixelColor(character[i].pos, character[i].color);              // draw ghosts in same positions
     }
   }
+
+  if (character[PACMAN].topPos < character[PACMAN].pos)                         // keep track of the top (farthest) position of the PacMan character
+      character[PACMAN].topPos = character[PACMAN].pos;
 
   return FRAMETIME;
 }
