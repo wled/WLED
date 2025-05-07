@@ -60,6 +60,19 @@
 #include "wled.h"
 #include <INA219_WE.h>
 
+#define UPDATE_CONFIG(obj, key, var, fmt)                     \
+  do {                                                         \
+    auto _tmp = var;                                           \
+    if ( getJsonValue((obj)[(key)], _tmp) ) {                  \
+      if (_tmp != var) {                                       \
+        _logUsermodInaSensor("%s updated to: " fmt, key, _tmp);\
+        var = _tmp;                                            \
+      }                                                        \
+    } else {                                                   \
+      configComplete = false;                                  \
+    }                                                          \
+  } while(0)
+
 class UsermodINA2xx : public Usermod {
 private:
 	static const char _name[];  // Name of the usermod
@@ -120,12 +133,16 @@ private:
 	INA219_WE *_ina2xx = nullptr; // INA2xx sensor object
 
 	// Function to truncate decimals based on the configured decimal factor
-	float truncateDecimals(float val) {
+	float roundDecimals(float val) {
 		_logUsermodInaSensor("Truncating value %.6f with factor %d", val, _decimalFactor);
 		if (_decimalFactor == 0) {
 			return roundf(val);
 		}
-		float factor = powf(10.0f, _decimalFactor);
+
+		static const float factorLUT[4] = {1.f, 10.f, 100.f, 1000.f};
+		float factor = (_decimalFactor <= 3) ? factorLUT[_decimalFactor]
+										: powf(10.0f, _decimalFactor);
+
 		return roundf(val * factor) / factor;
 	}
 
@@ -489,18 +506,18 @@ public:
 		_logUsermodInaSensor("Reading sensor data at %lu ms", lastCheck);
 
 		// Fetch sensor data
-		shuntVoltage = truncateDecimals(_ina2xx->getShuntVoltage_mV());
-		busVoltage = truncateDecimals(_ina2xx->getBusVoltage_V());
+		shuntVoltage = roundDecimals(_ina2xx->getShuntVoltage_mV());
+		busVoltage = roundDecimals(_ina2xx->getBusVoltage_V());
 		
 		float rawCurrent_mA = _ina2xx->getCurrent_mA();
-		current_mA = truncateDecimals(rawCurrent_mA);
-		current = truncateDecimals(rawCurrent_mA / 1000.0); // Convert from mA to A
+		current_mA = roundDecimals(rawCurrent_mA);
+		current = roundDecimals(rawCurrent_mA / 1000.0); // Convert from mA to A
 
 		float rawPower_mW = _ina2xx->getBusPower();
-		power_mW = truncateDecimals(rawPower_mW);
-		power = truncateDecimals(rawPower_mW / 1000.0); // Convert from mW to W
+		power_mW = roundDecimals(rawPower_mW);
+		power = roundDecimals(rawPower_mW / 1000.0); // Convert from mW to W
 
-		loadVoltage = truncateDecimals(busVoltage + (shuntVoltage / 1000));
+		loadVoltage = roundDecimals(busVoltage + (shuntVoltage / 1000));
 		overflow = _ina2xx->getOverflow() != 0;
 
 		_logUsermodInaSensor("Sensor readings - Shunt: %.3f mV, Bus: %.3f V, Load: %.3f V", shuntVoltage, busVoltage, loadVoltage);
@@ -871,25 +888,25 @@ public:
 
 		bool configComplete = !top.isNull();
 
-		bool tempEnabled = enabled;
-		if (getJsonValue(top["Enabled"], tempEnabled)) {
-			if (tempEnabled != enabled) {
-				_logUsermodInaSensor("Enabled state changed to: %s", tempEnabled ? "enabled" : "disabled");
-				enabled = tempEnabled;
-			}
-		} else {
-			configComplete = false;
-		}
+		_logUsermodInaSensor("Checking if configuration has changed:");
+		UPDATE_CONFIG(top, "Enabled", enabled, "%u");
+		UPDATE_CONFIG(top, "i2c_address",       _i2cAddress,       "0x%02X");
+		UPDATE_CONFIG(top, "conversion_time",    conversionTime,    "%u");
+		UPDATE_CONFIG(top, "decimals",           _decimalFactor,    "%u");
+		UPDATE_CONFIG(top, "shunt_resistor",     shuntResistor,     "%.6f Ohms");
+		UPDATE_CONFIG(top, "correction_factor",  correctionFactor,  "%.3f");
+		UPDATE_CONFIG(top, "pga_gain",           pGain,             "%d");
+		UPDATE_CONFIG(top, "bus_range",          busRange,          "%d");
+		UPDATE_CONFIG(top, "shunt_offset",       shuntVoltOffset_mV,"%.3f mV");
 
-		uint8_t tempI2cAddress = _i2cAddress;
-		if (getJsonValue(top[F("i2c_address")], tempI2cAddress)) {
-			if (tempI2cAddress != _i2cAddress) {
-				_logUsermodInaSensor("I2C address updated to: 0x%02X", tempI2cAddress);
-				_i2cAddress = tempI2cAddress;
-			}
-		} else {
-			configComplete = false;
-		}
+		#ifndef WLED_DISABLE_MQTT
+			UPDATE_CONFIG(top, "mqtt_publish",         mqttPublish,       "%u");
+			UPDATE_CONFIG(top, "mqtt_publish_always",  mqttPublishAlways, "%u");
+
+			bool tempHaDiscovery = haDiscovery;
+			UPDATE_CONFIG(top, "ha_discovery", haDiscovery, "%u");
+			if (haDiscovery != tempHaDiscovery) haDiscoverySent = !haDiscovery;
+		#endif
 
 		uint16_t tempInterval = 0;
 		if (getJsonValue(top[F("check_interval")], tempInterval)) {
@@ -906,109 +923,6 @@ public:
 		} else {
 			configComplete = false;
 		}
-
-		INA219_ADC_MODE tempConversionTime = conversionTime;
-		if (getJsonValue(top["conversion_time"], tempConversionTime)) {
-			if (tempConversionTime != conversionTime) {
-				_logUsermodInaSensor("Conversion time updated to: %u", tempConversionTime);
-				conversionTime = tempConversionTime;
-			}
-		} else {
-			configComplete = false;
-		}
-
-		uint8_t tempDecimalFactor = _decimalFactor;
-		if (getJsonValue(top["decimals"], tempDecimalFactor)) {
-			if (tempDecimalFactor != _decimalFactor) {
-				_logUsermodInaSensor("Decimal factor updated to: %u", tempDecimalFactor);
-				_decimalFactor = tempDecimalFactor;
-			}
-		} else {
-			configComplete = false;
-		}
-
-		float tempShuntResistor = shuntResistor;
-		if (getJsonValue(top["shunt_resistor"], tempShuntResistor)) {
-			if (tempShuntResistor != shuntResistor) {
-				_logUsermodInaSensor("Shunt resistor updated to: %.6f Ohms", tempShuntResistor);
-				shuntResistor = tempShuntResistor;
-			}
-		} else {
-			configComplete = false;
-		}
-
-		float tempCorrectionFactor = correctionFactor;
-		if (getJsonValue(top["correction_factor"], tempCorrectionFactor)) {
-			if (tempCorrectionFactor != correctionFactor) {
-				_logUsermodInaSensor("Correction factor updated to: %.3f", tempCorrectionFactor);
-				correctionFactor = tempCorrectionFactor;
-			}
-		} else {
-			configComplete = false;
-		}
-
-		INA219_PGAIN tempPGain = pGain;
-		if (getJsonValue(top[F("pga_gain")], tempPGain)) {
-			if (tempPGain != pGain) {
-				_logUsermodInaSensor("PGA gain updated to: %d", tempPGain);
-				pGain = tempPGain;
-			}
-		} else {
-			configComplete = false;
-		}
-
-		INA219_BUS_RANGE tempBusRange = busRange;
-		if (getJsonValue(top[F("bus_range")], tempBusRange)) {
-			if (tempBusRange != busRange) {
-				_logUsermodInaSensor("Bus range updated to: %d", tempBusRange);
-				busRange = tempBusRange;
-			}
-		} else {
-			configComplete = false;
-		}
-
-		float tempShuntVoltOffset = shuntVoltOffset_mV;
-		if (getJsonValue(top[F("shunt_offset")], tempShuntVoltOffset)) {
-			if (tempShuntVoltOffset != shuntVoltOffset_mV) {
-				_logUsermodInaSensor("Shunt voltage offset updated to: %.3f mV", tempShuntVoltOffset);
-				shuntVoltOffset_mV = tempShuntVoltOffset;
-			}
-		} else {
-			configComplete = false;
-		}
-
-		#ifndef WLED_DISABLE_MQTT
-			bool tempMqttPublish = mqttPublish;
-			if (getJsonValue(top["mqtt_publish"], tempMqttPublish)) {
-				if (tempMqttPublish != mqttPublish) {
-					_logUsermodInaSensor("MQTT publish setting updated to: %s", tempMqttPublish ? "enabled" : "disabled");
-					mqttPublish = tempMqttPublish;
-				}
-			} else {
-				configComplete = false;
-			}
-
-			bool tempMqttPublishAlways = mqttPublishAlways;
-			if (getJsonValue(top["mqtt_publish_always"], tempMqttPublishAlways)) {
-				if (tempMqttPublishAlways != mqttPublishAlways) {
-					_logUsermodInaSensor("MQTT publish always updated to: %s", tempMqttPublishAlways ? "true" : "false");
-					mqttPublishAlways = tempMqttPublishAlways;
-				}
-			} else {
-				configComplete = false;
-			}
-
-			bool tempHaDiscovery = haDiscovery;
-			if (getJsonValue(top["ha_discovery"], tempHaDiscovery)) {
-				if (tempHaDiscovery != haDiscovery) {
-					_logUsermodInaSensor("HA discovery setting updated to: %s", tempHaDiscovery ? "enabled" : "disabled");
-					haDiscovery = tempHaDiscovery;
-					haDiscoverySent = !haDiscovery;
-				}
-			} else {
-				configComplete = false;
-			}
-		#endif
 
 		bool prevInitDone = initDone;
 		initDone = updateINA2xxSettings();  // Configure INA2xx settings
