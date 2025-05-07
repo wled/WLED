@@ -375,6 +375,10 @@ private:
 		char buffer[1024];
 		size_t payload_size = serializeJson(jsonDoc, buffer, sizeof(buffer));
 
+		if (payload_size >= sizeof(buffer) - 1) {
+			_logUsermodInaSensor("JSON serialization truncated – buffer too small (%u bytes)", sizeof(buffer));
+		}
+
 		// Construct the MQTT topic using the device topic
 		char topic[128];
 		snprintf_P(topic, sizeof(topic), "%s/sensor/ina2xx", mqttDeviceTopic);
@@ -438,6 +442,10 @@ private:
 		// Serialize the JSON document into a temporary string
 		char buffer[1024];
 		size_t payload_size = serializeJson(doc, buffer, sizeof(buffer));
+
+		if (payload_size >= sizeof(buffer) - 1) {
+			_logUsermodInaSensor("HA config JSON truncated – buffer too small (%u bytes)", sizeof(buffer));
+		}
 
 		char topic_S[128];
 		int length = snprintf_P(topic_S, sizeof(topic_S), "homeassistant/%s/%s/%s/config", SensorType.c_str(), sanitizedMqttClientID.c_str(), sanitizedName.c_str());
@@ -527,7 +535,11 @@ public:
 		// Update energy consumption
 		if (lastPublishTime != 0) {
 			if (power >= 0) {
-				updateEnergy(power, lastCheck - lastPublishTime);
+				// Handle millis() overflow when calculating duration
+				unsigned long duration = (lastCheck >= lastPublishTime)
+						? (lastCheck - lastPublishTime)
+						: (0xFFFFFFFFUL - lastPublishTime + lastCheck + 1);
+				updateEnergy(power, duration);
 			} else {
 				_logUsermodInaSensor("Skipping energy update due to negative power: %.3f W", power);
 			}
