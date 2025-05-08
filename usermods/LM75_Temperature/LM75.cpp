@@ -1,17 +1,17 @@
 #include "LM75.h"
 
-static Generic_LM75 LM75temperature(USERMOD_LM75TEMPERATURE_I2C_ADRESS);
+static Generic_LM75 LM75temperature(USERMOD_LM75TEMPERATURE_I2C_ADDRESS);
 
-void  UsermodLM75Temperature::overtempfailure(){
-    overtemptriggered = true;
+void  UsermodLM75Temperature::overtempFailure(){
+    overtempTriggered = true;
     if(bri >0){
       toggleOnOff();
       stateUpdated(CALL_MODE_BUTTON);
     }
   }
   
-  void  UsermodLM75Temperature::overtempreset(){
-    overtemptriggered = false;
+  void  UsermodLM75Temperature::overtempReset(){
+    overtempTriggered = false;
     if(bri == 0){
       toggleOnOff();
       stateUpdated(CALL_MODE_BUTTON);
@@ -56,7 +56,7 @@ void  UsermodLM75Temperature::overtempfailure(){
   bool UsermodLM75Temperature::findSensor() {
     uint8_t devicepresent;
     //Let's try to communicate with the LM75 sensor
-    Wire.beginTransmission(USERMOD_LM75TEMPERATURE_I2C_ADRESS);
+    Wire.beginTransmission(USERMOD_LM75TEMPERATURE_I2C_ADDRESS);
     // End Transmission will return 0 is device has acknowledged communication 
     devicepresent = Wire.endTransmission();
     if(devicepresent == 0){
@@ -133,15 +133,14 @@ void UsermodLM75Temperature::readTemperature() {
     // is complete the the reading is finished
     if (now - lastMeasurement < readingInterval) return;
   
-    DEBUG_PRINTLN(F("IDKFA"));
     readTemperature();
   
     if(autoOffEnabled){
-      if (!overtemptriggered && temperature >= autoOffHighThreshold){
-        overtempfailure();
+      if (!overtempTriggered && temperature >= autoOffHighThreshold){
+        overtempFailure();
       }
-      else if(overtemptriggered && temperature <= autoOffLowThreshold){
-        overtempreset();
+      else if(overtempTriggered && temperature <= autoOffLowThreshold){
+        overtempReset();
       }
     }
      
@@ -157,12 +156,6 @@ void UsermodLM75Temperature::readTemperature() {
     #endif
   }
   
-  
-  /**
-   * connected() is called every time the WiFi is (re)connected
-   * Use it to initialize network interfaces
-   */
-  //void UsermodLM75Temperature::connected() {}
   
   #ifndef WLED_DISABLE_MQTT
   /**
@@ -295,6 +288,11 @@ void UsermodLM75Temperature::readTemperature() {
     
   }
   
+
+  /**
++ * Gets the current temperature in the configured unit (C or F)
++ * @return Temperature in the unit specified by degC setting
++ */
   float UsermodLM75Temperature::getTemperature() {
     return temperature;
   }

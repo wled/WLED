@@ -9,8 +9,8 @@
 #endif
 
 // auto-off feature
-#ifndef USERMOD_LM75TEMPERATURE_AUTO_OFF_ENABLED
-  #define USERMOD_LM75TEMPERATURE_AUTO_OFF_ENABLED true
+#ifndef USERMOD_LM75TEMPERATURE_ENABLED
+  #define USERMOD_LM75TEMPERATURE_ENABLED true
 #endif
 
 #ifndef USERMOD_LM75TEMPERATURE_AUTO_OFF_HIGH_THRESHOLD
@@ -25,11 +25,9 @@
   #define USERMOD_LM75TEMPERATURE_AUTO_TEMPERATURE_OFF_ENABLED true
 #endif
 
-#ifndef USERMOD_LM75TEMPERATURE_I2C_ADRESS
-  #define USERMOD_LM75TEMPERATURE_I2C_ADRESS 0x48
+#ifndef USERMOD_LM75TEMPERATURE_I2C_ADDRESS
+  #define USERMOD_LM75TEMPERATURE_I2C_ADDRESS 0x48
 #endif
-
-//Generic_LM75 LM75temperature(0x4F);
 
 class UsermodLM75Temperature : public Usermod {
 
@@ -43,9 +41,7 @@ class UsermodLM75Temperature : public Usermod {
     unsigned long readingInterval = USERMOD_LM75TEMPERATURE_MEASUREMENT_INTERVAL;
     // set last reading as "40 sec before boot", so first reading is taken after 20 sec
     unsigned long lastMeasurement = UINT32_MAX - USERMOD_LM75TEMPERATURE_MEASUREMENT_INTERVAL;
-    // last time requestTemperatures was called
-    // used to determine when we can read the sensors temperature
-    // we have to wait at least 93.75 ms after requestTemperatures() is called
+    // Tracks the last time temperature was requested from the sensor
     unsigned long lastTemperaturesRequest;
     float temperature;
     // flag set at startup if LM75 sensor not found, avoids trying to keep getting
@@ -55,10 +51,11 @@ class UsermodLM75Temperature : public Usermod {
     uint8_t autoOffHighThreshold = USERMOD_LM75TEMPERATURE_AUTO_OFF_HIGH_THRESHOLD;
     uint8_t autoOffLowThreshold = USERMOD_LM75TEMPERATURE_AUTO_OFF_LOW_THRESHOLD;
     // Has an overtemperature event occured ?
-    bool overtemptriggered = false;
+    bool overtempTriggered = false;
 
-    bool enabled = USERMOD_LM75TEMPERATURE_AUTO_OFF_ENABLED;
+    bool enabled = USERMOD_LM75TEMPERATURE_ENABLED;
 
+    // Tracks whether Home Assistant autodiscovery has been published
     bool HApublished = false;
 
     // auto shutdown/shutoff/master off feature
@@ -80,7 +77,7 @@ class UsermodLM75Temperature : public Usermod {
 #endif
 
     /*
-     * API calls te enable data exchan)ge between WLED modules
+     * API calls to enable data exchange between WLED modules
      */
     float getTemperature();
     const char *getTemperatureUnit();
@@ -99,8 +96,8 @@ class UsermodLM75Temperature : public Usermod {
 
     void appendConfigData();
 
-    void overtempfailure();
-    void overtempreset();
+    void overtempFailure();
+    void overtempReset();
     int8_t getAutoOffHighThreshold();
     int8_t getAutoOffLowThreshold();
     void setAutoOffHighThreshold(uint8_t threshold);
