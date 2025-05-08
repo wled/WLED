@@ -16,6 +16,18 @@
 #define USERMOD_DALLASTEMPERATURE_MEASUREMENT_INTERVAL 60000
 #endif
 
+#ifndef USERMOD_DALLASTEMPERATURE_AUTO_OFF_HIGH_THRESHOLD
+  #define USERMOD_DALLASTEMPERATURE_AUTO_OFF_HIGH_THRESHOLD 60
+#endif
+
+#ifndef USERMOD_DALLASTEMPERATURE_AUTO_OFF_LOW_THRESHOLD
+  #define USERMOD_DALLASTEMPERATURE_AUTO_OFF_LOW_THRESHOLD 40
+#endif
+
+#ifndef USERMOD_DALLASTEMPERATURE_AUTO_TEMPERATURE_OFF_ENABLED
+  #define USERMOD_DALLASTEMPERATURE_AUTO_TEMPERATURE_OFF_ENABLED true
+#endif
+
 class UsermodTemperature : public Usermod {
 
   private:
@@ -49,6 +61,16 @@ class UsermodTemperature : public Usermod {
     bool HApublished = false;
     int16_t idx = -1;   // Domoticz virtual sensor idx
 
+    // Temperature limits for master off feature
+    uint8_t autoOffHighThreshold = USERMOD_DALLASTEMPERATURE_AUTO_OFF_HIGH_THRESHOLD;
+    uint8_t autoOffLowThreshold = USERMOD_DALLASTEMPERATURE_AUTO_OFF_LOW_THRESHOLD;
+
+    // Has an overtemperature event occured ?
+    bool overtemptriggered = false;
+
+    // auto shutdown/shutoff/master off feature
+    bool autoOffEnabled =   USERMOD_DALLASTEMPERATURE_AUTO_TEMPERATURE_OFF_ENABLED;
+
     // strings to reduce flash memory usage (used more than twice)
     static const char _name[];
     static const char _enabled[];
@@ -60,6 +82,9 @@ class UsermodTemperature : public Usermod {
     static const char _temperature[];
     static const char _Temperature[];
     static const char _data_fx[];
+    static const char _ao[];
+    static const char _thresholdhigh[];
+    static const char _thresholdlow[];
     
     //Dallas sensor quick (& dirty) reading. Credit to - Author: Peter Scargill, August 17th, 2013
     float readDallas();
@@ -104,5 +129,12 @@ class UsermodTemperature : public Usermod {
     bool readFromConfig(JsonObject &root) override;
 
     void appendConfigData() override;
+
+    void overtempfailure();
+    void overtempreset();
+    int8_t getAutoOffHighThreshold();
+    int8_t getAutoOffLowThreshold();
+    void setAutoOffHighThreshold(int8_t threshold);
+    void setAutoOffLowThreshold(int8_t threshold);
 };
 

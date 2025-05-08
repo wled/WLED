@@ -2,6 +2,57 @@
 
 static uint16_t mode_temperature();
 
+void UsermodTemperature::overtempfailure(){
+  overtemptriggered = true;
+  if(bri >0){
+    toggleOnOff();
+    stateUpdated(CALL_MODE_BUTTON);
+  }
+}
+
+void UsermodTemperature::overtempreset(){
+  overtemptriggered = false;
+  if(bri == 0){
+    toggleOnOff();
+    stateUpdated(CALL_MODE_BUTTON);
+  }
+}
+
+
+/**
+ * Get auto off Temperature at which WLED Output is swiched off
+ */
+int8_t UsermodTemperature::getAutoOffHighThreshold()
+{
+  return autoOffHighThreshold;
+}
+
+/**
+ * Get auto off Temperature at which WLED Output is swiched on again
+ */
+int8_t UsermodTemperature::getAutoOffLowThreshold()
+{
+  return autoOffLowThreshold;
+}
+
+/**
+ * Set auto off Temperature at which WLED Output is swiched off 
+ */
+void UsermodTemperature::setAutoOffHighThreshold(int8_t threshold)
+{
+  autoOffHighThreshold = min((int8_t)100, max((int8_t)1, threshold));
+}
+
+/**
+ * Set auto off Temperature at which WLED Output is swiched on again
+ */
+void UsermodTemperature::setAutoOffLowThreshold(int8_t threshold)
+{
+  autoOffLowThreshold = min((int8_t)100, max((int8_t)0, threshold));
+  // when low power indicator is enabled the auto-off threshold cannot be above indicator threshold
+  autoOffLowThreshold  = autoOffEnabled /*&& autoOffEnabled*/ ? min(autoOffHighThreshold-1, (int)autoOffLowThreshold) : autoOffLowThreshold;
+}
+
 //Dallas sensor quick (& dirty) reading. Credit to - Author: Peter Scargill, August 17th, 2013
 float UsermodTemperature::readDallas() {
   byte data[9];
@@ -169,6 +220,14 @@ void UsermodTemperature::loop() {
     }
     errorCount = 0;
 
+    if(temperature > -100.0f && autoOffEnabled){
+      if (!overtemptriggered && temperature >= autoOffHighThreshold){
+        overtempfailure();
+      }
+      else if(overtemptriggered && temperature <= autoOffLowThreshold){
+        overtempreset();
+      } 
+
 #ifndef WLED_DISABLE_MQTT
     if (WLED_MQTT_CONNECTED) {
       char subuf[128];
@@ -277,6 +336,12 @@ void UsermodTemperature::addToConfig(JsonObject &root) {
   top[FPSTR(_parasite)] = parasite;
   top[FPSTR(_parasitePin)] = parasitePin;
   top[FPSTR(_domoticzIDX)] = idx;
+
+  JsonObject ao = top.createNestedObject(FPSTR(_ao));  // auto off section
+  ao[FPSTR(_enabled)] = autoOffEnabled;
+  ao[FPSTR(_thresholdhigh)] = autoOffHighThreshold;
+  ao[FPSTR(_thresholdlow)] = autoOffLowThreshold;
+
   DEBUG_PRINTLN(F("Temperature config saved."));
 }
 
@@ -305,6 +370,11 @@ bool UsermodTemperature::readFromConfig(JsonObject &root) {
   parasitePin       = top[FPSTR(_parasitePin)] | parasitePin;
   idx               = top[FPSTR(_domoticzIDX)] | idx;
 
+  JsonObject ao = top[FPSTR(_ao)];
+  autoOffEnabled        = ao[FPSTR(_enabled)] | autoOffEnabled;
+  setAutoOffHighThreshold (ao[FPSTR(_thresholdhigh)] | autoOffHighThreshold);
+  setAutoOffLowThreshold (ao[FPSTR(_thresholdlow)] | autoOffLowThreshold);
+
   if (!initDone) {
     // first run: reading from cfg.json
     temperaturePin = newTemperaturePin;
@@ -332,6 +402,11 @@ void UsermodTemperature::appendConfigData() {
   oappend(F("',1,'<i>(if no Vcc connected)</i>');"));  // 0 is field type, 1 is actual field
   oappend(F("addInfo('")); oappend(String(FPSTR(_name)).c_str()); oappend(F(":")); oappend(String(FPSTR(_parasitePin)).c_str());
   oappend(F("',1,'<i>(for external MOSFET)</i>');"));  // 0 is field type, 1 is actual field
+
+  oappend(SET_F("addInfo('")); oappend(String(FPSTR(_name)).c_str()); oappend(SET_F(":")); oappend(String(FPSTR(_ao)).c_str()); oappend(SET_F(":")); oappend(String(FPSTR(_thresholdhigh)).c_str());
+  oappend(SET_F("',1,'°C');"));  // 0 is field type, 1 is actual field
+  oappend(SET_F("addInfo('")); oappend(String(FPSTR(_name)).c_str()); oappend(SET_F(":")); oappend(String(FPSTR(_ao)).c_str()); oappend(SET_F(":")); oappend(String(FPSTR(_thresholdlow)).c_str());
+  oappend(SET_F("',1,'°C');"));  // 0 is field type, 1 is actual field
 }
 
 float UsermodTemperature::getTemperature() {
@@ -355,6 +430,9 @@ const char UsermodTemperature::_sensor[]       PROGMEM = "sensor";
 const char UsermodTemperature::_temperature[]  PROGMEM = "temperature";
 const char UsermodTemperature::_Temperature[]  PROGMEM = "/temperature";
 const char UsermodTemperature::_data_fx[]      PROGMEM = "Temperature@Min,Max;;!;01;pal=54,sx=255,ix=0";
+const char UsermodTemperature::_ao[]           PROGMEM = "Overtemperature-Protection";
+const char UsermodTemperature::_thresholdhigh[] PROGMEM = "shutdown-temperature";
+const char UsermodTemperature::_thresholdlow[] PROGMEM = "reactivate-temperature";
 
 static uint16_t mode_temperature() {
   float low  = roundf(mapf((float)SEGMENT.speed, 0.f, 255.f, -150.f, 150.f));    // default: 15°C, range: -15°C to 15°C
