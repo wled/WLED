@@ -1,0 +1,8 @@
+{
+    "name": "LM75Temperature",
+    "build": { "libArchive": false},
+    "dependencies": {
+      "jeremycole/I2C Temperature Sensors derived from the LM75":"~1.0.3"
+    }
+  }
+  
