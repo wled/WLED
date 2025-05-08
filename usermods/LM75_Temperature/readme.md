@@ -10,8 +10,8 @@ It is based on the regular temperature usermod for One Wire sensors.
 | DegC                   | Switch between °C and °F                                                                                                                                             | °C      |
 | Read Interval          | Time between temperature measurements                                                                                                                                | 60 s    |
 | Overtemperature Enable | Enables or disables temperature protection. According to the defined limits                                                                                          | Enabled |
-| Shutdown Temperature   | Temperature at which the WLED output is switched off. Value can be between 1 and 100                                                                                       | 60°C    |
-| Reactivate Temperature | Switches the WLED output back on once the temperature drops below set value. Has a hysteresis of minimum 1 towards the shutdown temperature. Value can be beween 0 and 99°C | 40°C  |
+| Shutdown Temperature   | Temperature at which the WLED output is switched off. Value can be between 1 and 100°C                                                                                      | 60°C    |
+| Reactivate Temperature | Switches the WLED output back on once the temperature drops below set value. Has a hysteresis of minimum 1 towards the shutdown temperature. Value can be between 0 and 99°C | 40°C  |
 
 ## Compilation:
 - modify `platformio.ini` and add wanted `build_flags` to your configuration
@@ -22,7 +22,7 @@ It is based on the regular temperature usermod for One Wire sensors.
   Parameter time in ms
 <br>
 
-- `-D USERMOD_LM75TEMPERATURE_AUTO_OFF_ENABLED=true` 
+- `-D USERMOD_LM75TEMPERATURE_ENABLED=true` 
   Parameter true or false
 <br>
 
@@ -35,11 +35,11 @@ It is based on the regular temperature usermod for One Wire sensors.
 <br>
 
 - `-D USERMOD_LM75TEMPERATURE_AUTO_TEMPERATURE_OFF_ENABLED=true`
-  Paremeter true or flase
+  Paremeter true or false
 <br>
 
-- `-D USERMOD_LM75TEMPERATURE_I2C_ADRESS=0x48` 
-  Parameter I2C Adress of the LM75 IC in Hex 0x**
+- `-D USERMOD_LM75TEMPERATURE_I2C_ADDRESS=0x48` 
+  Parameter I2C Address of the LM75 IC in Hex 0x**
 
 ## Remarks
 The °F setting is not optimal to be used in combination with the overtemperature protection feature. WLED only allows uint8 values as inputs. Hence, the maximum temperature is capped at 212 °F or 100 °C. Also be carefull not to set the lower limit below 32 °F to avoid negative values in the inner workings of the mod.
