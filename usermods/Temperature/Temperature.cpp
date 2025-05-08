@@ -50,7 +50,7 @@ void UsermodTemperature::setAutoOffLowThreshold(int8_t threshold)
 {
   autoOffLowThreshold = min((int8_t)100, max((int8_t)0, threshold));
   // when low power indicator is enabled the auto-off threshold cannot be above indicator threshold
-  autoOffLowThreshold  = autoOffEnabled /*&& autoOffEnabled*/ ? min(autoOffHighThreshold-1, (int)autoOffLowThreshold) : autoOffLowThreshold;
+  autoOffLowThreshold  = autoOffEnabled ? min(autoOffHighThreshold-1, (int)autoOffLowThreshold) : autoOffLowThreshold;
 }
 
 
