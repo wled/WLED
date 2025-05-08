@@ -53,6 +53,7 @@ void UsermodTemperature::setAutoOffLowThreshold(int8_t threshold)
   autoOffLowThreshold  = autoOffEnabled /*&& autoOffEnabled*/ ? min(autoOffHighThreshold-1, (int)autoOffLowThreshold) : autoOffLowThreshold;
 }
 
+
 //Dallas sensor quick (& dirty) reading. Credit to - Author: Peter Scargill, August 17th, 2013
 float UsermodTemperature::readDallas() {
   byte data[9];
@@ -220,13 +221,14 @@ void UsermodTemperature::loop() {
     }
     errorCount = 0;
 
-    if(temperature > -100.0f && autoOffEnabled){
-      if (!overtemptriggered && temperature >= autoOffHighThreshold){
-        overtempfailure();
-      }
-      else if(overtemptriggered && temperature <= autoOffLowThreshold){
-        overtempreset();
-      } 
+  if(temperature > -100.0f && autoOffEnabled){
+    if (!overtemptriggered && temperature >= autoOffHighThreshold){
+      overtempfailure();
+    }
+    else if(overtemptriggered && temperature <= autoOffLowThreshold){
+      overtempreset();
+    } 
+  }
 
 #ifndef WLED_DISABLE_MQTT
     if (WLED_MQTT_CONNECTED) {

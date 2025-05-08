@@ -58,18 +58,17 @@ class UsermodTemperature : public Usermod {
 
     bool enabled = true;
 
-    bool HApublished = false;
-    int16_t idx = -1;   // Domoticz virtual sensor idx
-
     // Temperature limits for master off feature
     uint8_t autoOffHighThreshold = USERMOD_DALLASTEMPERATURE_AUTO_OFF_HIGH_THRESHOLD;
     uint8_t autoOffLowThreshold = USERMOD_DALLASTEMPERATURE_AUTO_OFF_LOW_THRESHOLD;
-
     // Has an overtemperature event occured ?
     bool overtemptriggered = false;
-
     // auto shutdown/shutoff/master off feature
     bool autoOffEnabled =   USERMOD_DALLASTEMPERATURE_AUTO_TEMPERATURE_OFF_ENABLED;
+    
+
+    bool HApublished = false;
+    int16_t idx = -1;   // Domoticz virtual sensor idx
 
     // strings to reduce flash memory usage (used more than twice)
     static const char _name[];
@@ -137,4 +136,3 @@ class UsermodTemperature : public Usermod {
     void setAutoOffHighThreshold(int8_t threshold);
     void setAutoOffLowThreshold(int8_t threshold);
 };
-
