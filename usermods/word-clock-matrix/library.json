@@ -1,3 +1,4 @@
 {
-  "name": "word-clock-matrix"
+  "name": "word-clock-matrix",
+  "build": { "libArchive": false }
 }
