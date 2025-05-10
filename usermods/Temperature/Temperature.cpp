@@ -2,7 +2,10 @@
 
 static uint16_t mode_temperature();
 
-void UsermodTemperature::overtempfailure(){
+/**
+ * When overtemperature was triggered and the light is still on, we switch it off to hopefully reduce the temperature
+ */
+void UsermodTemperature::overtempfailure() {
   overtemptriggered = true;
   if(bri >0){
     toggleOnOff();
@@ -10,7 +13,10 @@ void UsermodTemperature::overtempfailure(){
   }
 }
 
-void UsermodTemperature::overtempreset(){
+/**
+ * When the temperature has droped enough we try to turn on the light again
+ */
+void UsermodTemperature::overtempreset() {
   overtemptriggered = false;
   if(bri == 0){
     toggleOnOff();
@@ -18,41 +24,35 @@ void UsermodTemperature::overtempreset(){
   }
 }
 
-
 /**
  * Get auto off Temperature at which WLED Output is swiched off
  */
-int8_t UsermodTemperature::getAutoOffHighThreshold()
-{
+int8_t UsermodTemperature::getAutoOffHighThreshold() {
   return autoOffHighThreshold;
 }
 
 /**
  * Get auto off Temperature at which WLED Output is swiched on again
  */
-int8_t UsermodTemperature::getAutoOffLowThreshold()
-{
+int8_t UsermodTemperature::getAutoOffLowThreshold() {
   return autoOffLowThreshold;
 }
 
 /**
  * Set auto off Temperature at which WLED Output is swiched off 
  */
-void UsermodTemperature::setAutoOffHighThreshold(int8_t threshold)
-{
+void UsermodTemperature::setAutoOffHighThreshold(int8_t threshold) {
   autoOffHighThreshold = min((int8_t)100, max((int8_t)1, threshold));
 }
 
 /**
  * Set auto off Temperature at which WLED Output is swiched on again
  */
-void UsermodTemperature::setAutoOffLowThreshold(int8_t threshold)
-{
+void UsermodTemperature::setAutoOffLowThreshold(int8_t threshold) {
   autoOffLowThreshold = min((int8_t)100, max((int8_t)0, threshold));
   // when low power indicator is enabled the auto-off threshold cannot be above indicator threshold
   autoOffLowThreshold  = autoOffEnabled ? min(autoOffHighThreshold-1, (int)autoOffLowThreshold) : autoOffLowThreshold;
 }
-
 
 //Dallas sensor quick (& dirty) reading. Credit to - Author: Peter Scargill, August 17th, 2013
 float UsermodTemperature::readDallas() {
@@ -221,11 +221,11 @@ void UsermodTemperature::loop() {
     }
     errorCount = 0;
 
-  if(temperature > -100.0f && autoOffEnabled){
-    if (!overtemptriggered && temperature >= autoOffHighThreshold){
+  // Check if we have some kind of temperature reading and then decide to turn off or on the light
+  if(temperature > -100.0f && autoOffEnabled) {
+    if (!overtemptriggered && temperature >= autoOffHighThreshold) {
       overtempfailure();
-    }
-    else if(overtemptriggered && temperature <= autoOffLowThreshold){
+    } else if(overtemptriggered && temperature <= autoOffLowThreshold) {
       overtempreset();
     } 
   }
