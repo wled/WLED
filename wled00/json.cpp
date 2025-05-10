@@ -484,21 +484,17 @@ bool deserializeState(JsonObject root, byte callMode, byte presetId)
       WiFi.softAPdisconnect(true);
       apActive = false;
     }
-    //bool restart = wifi[F("restart")] | false;
-    //if (restart) forceReconnect = true;
     if (!wifi[F("on")].isNull()) {
       bool sta = getBoolVal(wifi[F("on")], wifiEnabled);
-      bool pwr = getBoolVal(wifi[F("pwrOff")], false);
+      bool pwrOff = getBoolVal(wifi[F("pwrOff")], false);
       if (Network.isConnected() && !sta){
-        DEBUG_PRINTLN(F("Disconnecting WiFi"));
-        DEBUG_PRINTF_P("Powering off: %s\n", pwr?"true":"false");
-        WiFi.disconnect(pwr);
+        WiFi.disconnect(pwrOff);
       } 
       if (sta) {
-        DEBUG_PRINTLN(F("Reconnecting WiFi"));
         forceReconnect = true;
       }
       wifiEnabled = sta;
+      wifiPower = sta | !pwrOff;
     }
   }
 
