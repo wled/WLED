@@ -105,15 +105,6 @@
 			for (let i = entries.length; i > 0; i--) entries[i-1].remove();
 			btnWiFi(0);
 		}
-		function tw() {
-			let enDiv=gId("enDiv");
-			if(gId("EN1").checked){
-				gId("EN").checked = false;
-				enDiv.classList.toggle("hide", true);
-			}
-			else
-				enDiv.classList.toggle("hide", false);
-		}
 		function btnWiFi(i) {
 			gId("wifi_add").style.display = (i<maxNetworks) ? "inline":"none";
 			gId("wifi_rem").style.display = (i>1) ? "inline":"none";
@@ -156,7 +147,6 @@ Static subnet mask:<br>
 		<button type="button" onclick="B()">Back</button><button type="submit">Save & Connect</button><hr>
 		</div>
 		<h2>WiFi setup</h2>
-		<hr class="sml">
 		<h3>Connect to existing network</h3>
 		<button type="button" id="scan" onclick="N()">Scan</button><br>
 		<div id="wifi">
@@ -236,22 +226,6 @@ Static subnet mask:<br>
 				<option value="3">WESP32</option>
 				<option value="1">WT32-ETH01</option>
 			</select><br><br>
-		</div>
-		<hr class="sml">
-		WiFi Enabled: <input type="checkbox" id="EN1" onchange="tw();">
-		<i class="warn">* requires reboot</i>
-		<div id="enDiv" class="hide">
-			<i class="warn">
-				WARNING: Disabling WiFi requires another way to re-enable
-				<div style="width:50%;margin:auto;">
-					<ul style="text-align:left;font-size:0.75em">
-						<li>Button 0 LongPress</li>
-						<li>Ethernet</li>
-						<li>Another Usermod that provides access to UI</li>
-					</ul>
-				</div>
-				Check to confirm disabling WiFi:<input type="checkbox" id="EN" name="EN">
-			</i>
 		</div>
 		<hr>
 		<button type="button" onclick="B()">Back</button><button type="submit">Save & Connect</button>

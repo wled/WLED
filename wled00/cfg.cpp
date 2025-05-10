@@ -97,7 +97,6 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
   */
 
   JsonObject wifi = doc[F("wifi")];
-  wifiEnabled = wifi[F("en")] | wifiEnabled;
   noWifiSleep = !(wifi[F("sleep")] | !noWifiSleep); // inverted
   //noWifiSleep = !noWifiSleep;
   CJSON(force802_3g, wifi[F("phy")]); //force phy mode g?
@@ -766,7 +765,6 @@ void serializeConfig(JsonObject root) {
   ap_ip.add(1);
 
   JsonObject wifi = root.createNestedObject(F("wifi"));
-  wifi[F("en")] = wifiEnabled;
   wifi[F("sleep")] = !noWifiSleep;
   wifi[F("phy")] = force802_3g;
 #ifdef ARDUINO_ARCH_ESP32

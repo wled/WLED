@@ -478,14 +478,28 @@ bool deserializeState(JsonObject root, byte callMode, byte presetId)
   JsonObject wifi = root[F("wifi")];
   if (!wifi.isNull()) {
     bool apMode = getBoolVal(wifi[F("ap")], apActive);
-    if (!apActive && apMode && wifiEnabled) WLED::instance().initAP();  // start AP mode immediately
-    else if (apActive && !(wifiEnabled && apMode)) { // stop AP mode immediately
-        dnsServer.stop();
-        WiFi.softAPdisconnect(true);
-        apActive = false;
+    if (!apActive && apMode) WLED::instance().initAP();  // start AP mode immediately
+    else if (apActive && !apMode) { // stop AP mode immediately
+      dnsServer.stop();
+      WiFi.softAPdisconnect(true);
+      apActive = false;
     }
-    //bool restart = wifi[F("restart")] | false;
-    //if (restart) forceReconnect = true;
+    if (!wifi[F("on")].isNull()) {
+      bool sta = getBoolVal(wifi[F("on")], wifiEnabled);
+      bool pwrOff = getBoolVal(wifi[F("pwrOff")], false);
+      if(!sta){
+        if(apActive) {
+          dnsServer.stop();
+          WiFi.softAPdisconnect(pwrOff);
+          apActive = false;
+        }
+        if (Network.isConnected()) {
+          WiFi.disconnect(pwrOff);
+        }
+      }
+      wifiEnabled = forceReconnect = sta;
+     wifiPower = sta | !pwrOff;
+    }
   }
 
   stateUpdated(callMode);
@@ -724,7 +738,6 @@ void serializeInfo(JsonObject root)
   wifi_info[F("signal")] = getSignalQuality(qrssi);
   wifi_info[F("channel")] = WiFi.channel();
   wifi_info[F("ap")] = apActive;
-  wifi_info[F("en")] = wifiEnabled;
 
   JsonObject fs_info = root.createNestedObject("fs");
   fs_info["u"] = fsBytesUsed / 1000;
