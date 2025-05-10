@@ -268,28 +268,28 @@
 			<button class="btn btn-s" id="rsbtn" onclick="rSegs()">Reset segments</button>
 		</div>
 		<p>Transition: <input id="tt" type="number" min="0" max="65.5" step="0.1" value="0.7" onchange="parseFloat(this.value)===0?gId('bsp').classList.add('hide'):gId('bsp').classList.remove('hide');">&nbsp;s</p>
-		<p id="bsp">Blend:
-			<select id="bs" class="sel-sg" onchange="requestJson({'bs':parseInt(this.value)})">
-				<option value="0">Fade</option>
-				<option value="1">Fairy Dust</option>
-				<option value="2">Swipe right</option>
-				<option value="3">Swipe left</option>
-				<option value="16">Push right</option>
-				<option value="17">Push left</option>
-				<option value="4">Pinch-out</option>
-				<option value="5">Inside-out</option>
-				<option value="6" data-type="2D">Swipe up</option>
-				<option value="7" data-type="2D">Swipe down</option>
-				<option value="8" data-type="2D">Open H</option>
-				<option value="9" data-type="2D">Open V</option>
-				<option value="18" data-type="2D">Push up</option>
-				<option value="19" data-type="2D">Push down</option>
-				<option value="20" data-type="2D">Push TL</option>
-				<option value="21" data-type="2D">Push TR</option>
-				<option value="22" data-type="2D">Push BR</option>
-				<option value="23" data-type="2D">Push BL</option>
-			</select>
-		</p>
+		<div id="bsp" class="sel-p"><select id="bs" class="sel-ple" onchange="requestJson({'bs':parseInt(this.value)})">
+			<option value="0">Fade</option>
+			<option value="1">Fairy Dust</option>
+			<option value="2">Swipe right</option>
+			<option value="3">Swipe left</option>
+			<option value="16">Push right</option>
+			<option value="17">Push left</option>
+			<option value="4">Outside-in</option>
+			<option value="5">Inside-out</option>
+			<option value="6" data-type="2D">Swipe up</option>
+			<option value="7" data-type="2D">Swipe down</option>
+			<option value="8" data-type="2D">Open H</option>
+			<option value="9" data-type="2D">Open V</option>
+			<option value="18" data-type="2D">Push up</option>
+			<option value="19" data-type="2D">Push down</option>
+			<option value="10" data-type="2D">Swipe TL</option>
+			<option value="11" data-type="2D">Swipe TR</option>
+			<option value="12" data-type="2D">Swipe BR</option>
+			<option value="13" data-type="2D">Swipe BL</option>
+			<option value="14" data-type="2D">Circular Out</option>
+			<option value="15" data-type="2D">Circular In</option>
+		</select></div>
 		<p id="ledmap" class="hide"></p>
 	</div>
 
@@ -363,7 +363,7 @@
 
 <!-- 
 	If you want to load iro.js and rangetouch.js as consecutive requests, you can do it like it was done in 0.14.0:
-	https://github.com/wled-dev/WLED/blob/v0.14.0/wled00/data/index.htm
+	https://github.com/wled/WLED/blob/v0.14.0/wled00/data/index.htm
 -->
 <script src="iro.js"></script>
 <script src="rangetouch.js"></script>

@@ -353,12 +353,12 @@ button {
 	padding: 4px 0 0;
 }
 
-#segutil, #segutil2, #segcont, #putil, #pcont, #pql, #fx, #palw,
+#segutil, #segutil2, #segcont, #putil, #pcont, #pql, #fx, #palw, #bsp,
 .fnd {
 	max-width: 280px;
 }
 
-#putil, #segutil, #segutil2 {
+#putil, #segutil, #segutil2, #bsp {
 	min-height: 42px;
 	margin: 0 auto;
 }
