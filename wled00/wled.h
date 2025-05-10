@@ -345,20 +345,24 @@ typedef class WiFiOptions {
       uint8_t apBehavior   : 3;
       bool    noWifiSleep  : 1;
       bool    force802_3g  : 1;
+      bool    wifiEnabled  : 1;
+      bool    wifiPower    : 1;
     };
-    WiFiOptions(uint8_t s, uint8_t c, bool h, uint8_t b, bool sl, bool g) {
+    WiFiOptions(uint8_t s, uint8_t c, bool h, uint8_t b, bool sl, bool g, bool e, bool p) {
       selectedWiFi = s;
       apChannel = c;
       apHide = h;
       apBehavior = b;
       noWifiSleep = sl;
       force802_3g = g;
+      wifiEnabled = e;
+      wifiPower   = p;
     }
 } __attribute__ ((aligned(1), packed)) wifi_options_t;
   #ifdef ARDUINO_ARCH_ESP32
-WLED_GLOBAL wifi_options_t wifiOpt _INIT_N(({0, 1, false, AP_BEHAVIOR_BOOT_NO_CONN, true, false}));
+WLED_GLOBAL wifi_options_t wifiOpt _INIT_N(({0, 1, false, AP_BEHAVIOR_BOOT_NO_CONN, true, false, true, true}));
   #else
-WLED_GLOBAL wifi_options_t wifiOpt _INIT_N(({0, 1, false, AP_BEHAVIOR_BOOT_NO_CONN, false, false}));
+WLED_GLOBAL wifi_options_t wifiOpt _INIT_N(({0, 1, false, AP_BEHAVIOR_BOOT_NO_CONN, false, false, true, true}));
   #endif
 #define selectedWiFi wifiOpt.selectedWiFi
 #define apChannel    wifiOpt.apChannel
@@ -366,6 +370,8 @@ WLED_GLOBAL wifi_options_t wifiOpt _INIT_N(({0, 1, false, AP_BEHAVIOR_BOOT_NO_CO
 #define apBehavior   wifiOpt.apBehavior
 #define noWifiSleep  wifiOpt.noWifiSleep
 #define force802_3g  wifiOpt.force802_3g
+#define wifiEnabled  wifiOpt.wifiEnabled
+#define wifiPower    wifiOpt.wifiPower
 #else
 WLED_GLOBAL int8_t selectedWiFi  _INIT(0);
 WLED_GLOBAL byte apChannel       _INIT(1);                        // 2.4GHz WiFi AP channel (1-13)
@@ -377,6 +383,8 @@ WLED_GLOBAL bool noWifiSleep _INIT(true);                         // disabling m
 WLED_GLOBAL bool noWifiSleep _INIT(false);
   #endif
 WLED_GLOBAL bool force802_3g _INIT(false);
+WLED_GLOBAL bool wifiEnabled _INIT(true);
+WLED_GLOBAL bool wifiPower   _INIT(true);
 #endif // WLED_SAVE_RAM
 #ifdef ARDUINO_ARCH_ESP32
   #if defined(LOLIN_WIFI_FIX) && (defined(CONFIG_IDF_TARGET_ESP32C3) || defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32S3))
