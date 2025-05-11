@@ -753,6 +753,7 @@ void WLED::handleConnection()
   const unsigned long nowS = now/1000;
   const bool wifiConfigured = WLED_WIFI_CONFIGURED;
 
+  if (!wifiEnabled) return;
   // ignore connection handling if WiFi is configured and scan still running
   // or within first 2s if WiFi is not configured or AP is always active
   if ((wifiConfigured && multiWiFi.size() > 1 && WiFi.scanComplete() < 0) || (now < 2000 && (!wifiConfigured || apBehavior == AP_BEHAVIOR_ALWAYS)))
@@ -816,7 +817,7 @@ void WLED::handleConnection()
       initConnection();
     }
     if (!apActive && now - lastReconnectAttempt > 12000 && (!wasConnected || apBehavior == AP_BEHAVIOR_NO_CONN)) {
-      if (!(apBehavior == AP_BEHAVIOR_TEMPORARY && now > WLED_AP_TIMEOUT)) {
+      if (!(apBehavior == AP_BEHAVIOR_TEMPORARY && now > WLED_AP_TIMEOUT) && (apBehavior != AP_BEHAVIOR_BUTTON_ONLY)) {
         DEBUG_PRINTF_P(PSTR("Not connected AP (@ %lus).\n"), nowS);
         initAP();  // start AP only within first 5min
       }

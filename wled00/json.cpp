@@ -484,8 +484,21 @@ bool deserializeState(JsonObject root, byte callMode, byte presetId)
       WiFi.softAPdisconnect(true);
       apActive = false;
     }
-    //bool restart = wifi[F("restart")] | false;
-    //if (restart) forceReconnect = true;
+    if (!wifi[F("on")].isNull()) {
+      bool sta = getBoolVal(wifi[F("on")], wifiEnabled);
+      bool pwrOff = getBoolVal(wifi[F("pwrOff")], false);
+      if(!sta){
+        if(apActive) {
+          dnsServer.stop();
+          WiFi.softAPdisconnect(pwrOff);
+          apActive = false;
+        } else if (Network.isConnected()) {
+          WiFi.disconnect(pwrOff);
+        }
+      }
+      wifiEnabled = forceReconnect = sta;
+      wifiPower = sta | !pwrOff;
+    }
   }
 
   stateUpdated(callMode);
