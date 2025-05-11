@@ -54,7 +54,7 @@ void  UsermodLM75Temperature::overtempFailure() {
     Wire.beginTransmission(USERMOD_LM75TEMPERATURE_I2C_ADDRESS);
     // End Transmission will return 0 is device has acknowledged communication 
     devicepresent = Wire.endTransmission();
-    if(devicepresent == 0) 
+    if(devicepresent == 0) {
         DEBUG_PRINTLN(F("Sensor found."));
         sensorFound = 1;
         return true;
