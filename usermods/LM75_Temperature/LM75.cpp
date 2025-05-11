@@ -2,52 +2,47 @@
 
 static Generic_LM75 LM75temperature(USERMOD_LM75TEMPERATURE_I2C_ADDRESS);
 
-void  UsermodLM75Temperature::overtempFailure(){
+void  UsermodLM75Temperature::overtempFailure() {
     overtempTriggered = true;
-    if(bri >0){
+    if(bri >0) {
       toggleOnOff();
       stateUpdated(CALL_MODE_BUTTON);
     }
   }
   
-  void  UsermodLM75Temperature::overtempReset(){
+  void  UsermodLM75Temperature::overtempReset() {
     overtempTriggered = false;
-    if(bri == 0){
+    if(bri == 0) {
       toggleOnOff();
       stateUpdated(CALL_MODE_BUTTON);
     }
   }
-  
   
   /**
    * Get auto off Temperature at which WLED Output is swiched off
    */
-  int8_t  UsermodLM75Temperature::getAutoOffHighThreshold()
-  {
+  int8_t  UsermodLM75Temperature::getAutoOffHighThreshold() {
     return autoOffHighThreshold;
   }
   
   /**
    * Get auto off Temperature at which WLED Output is swiched on again
    */
-  int8_t  UsermodLM75Temperature::getAutoOffLowThreshold()
-  {
+  int8_t  UsermodLM75Temperature::getAutoOffLowThreshold() {
     return autoOffLowThreshold;
   }
   
   /**
    * Set auto off Temperature at which WLED Output is swiched off 
    */
-  void  UsermodLM75Temperature::setAutoOffHighThreshold(uint8_t threshold)
-  {
+  void  UsermodLM75Temperature::setAutoOffHighThreshold(uint8_t threshold) {
     autoOffHighThreshold = min((uint8_t)212, max((uint8_t)1, threshold));
   }
   
   /**
    * Set auto off Temperature at which WLED Output is swiched on again
    */
-  void  UsermodLM75Temperature::setAutoOffLowThreshold(uint8_t threshold)
-  {
+  void  UsermodLM75Temperature::setAutoOffLowThreshold(uint8_t threshold) {
     autoOffLowThreshold = min((uint8_t)211, max((uint8_t)0, threshold));
     // when low power indicator is enabled the auto-off threshold cannot be above indicator threshold
     autoOffLowThreshold  = autoOffEnabled ? min(autoOffHighThreshold-1, (int)autoOffLowThreshold) : autoOffLowThreshold;
@@ -59,26 +54,23 @@ void  UsermodLM75Temperature::overtempFailure(){
     Wire.beginTransmission(USERMOD_LM75TEMPERATURE_I2C_ADDRESS);
     // End Transmission will return 0 is device has acknowledged communication 
     devicepresent = Wire.endTransmission();
-    if(devicepresent == 0){
+    if(devicepresent == 0) 
         DEBUG_PRINTLN(F("Sensor found."));
         sensorFound = 1;
         return true;
-    }
-    else{
+    } else {
         DEBUG_PRINTLN(F("Sensor NOT found."));
         return false;
     }
   }
 
 void UsermodLM75Temperature::readTemperature() {
-    if(degC){
+    if(degC) {
       temperature = LM75temperature.readTemperatureC();
-    }
-    else 
+    } else {
       temperature = LM75temperature.readTemperatureF();
-    
+    }
     lastMeasurement = millis();
-  
     DEBUG_PRINT(F("Read temperature "));
     DEBUG_PRINTLN(temperature);
   }
@@ -114,8 +106,8 @@ void UsermodLM75Temperature::readTemperature() {
     if (enabled) {
       // config says we are enabled
       DEBUG_PRINTLN(F("Searching LM75 IC..."));
-          while (!findSensor() && retries--) {
-            delay(25); // try to find sensor
+      while (!findSensor() && retries--) {
+          delay(25); // try to find sensor
       }
       if (sensorFound && !initDone) DEBUG_PRINTLN(F("Init not completed"));
     }
@@ -135,17 +127,14 @@ void UsermodLM75Temperature::readTemperature() {
   
     readTemperature();
   
-    if(autoOffEnabled){
-      if (!overtempTriggered && temperature >= autoOffHighThreshold){
+    if(autoOffEnabled) {
+      if (!overtempTriggered && temperature >= autoOffHighThreshold) {
         overtempFailure();
-      }
-      else if(overtempTriggered && temperature <= autoOffLowThreshold){
+      } else if(overtempTriggered && temperature <= autoOffLowThreshold) {
         overtempReset();
       }
     }
-     
-  
-  
+
     #ifndef WLED_DISABLE_MQTT
         if (WLED_MQTT_CONNECTED) {
             char subuf[64];
@@ -273,13 +262,12 @@ void UsermodLM75Temperature::readTemperature() {
   }
   
   void UsermodLM75Temperature::appendConfigData() {
-    if(degC){
+    if(degC) {
       oappend(SET_F("addInfo('")); oappend(String(FPSTR(_name)).c_str()); oappend(SET_F(":")); oappend(String(FPSTR(_ao)).c_str()); oappend(SET_F(":")); oappend(String(FPSTR(_thresholdhigh)).c_str());
       oappend(SET_F("',1,'°C');"));  // 0 is field type, 1 is actual field
       oappend(SET_F("addInfo('")); oappend(String(FPSTR(_name)).c_str()); oappend(SET_F(":")); oappend(String(FPSTR(_ao)).c_str()); oappend(SET_F(":")); oappend(String(FPSTR(_thresholdlow)).c_str());
       oappend(SET_F("',1,'°C');"));  // 0 is field type, 1 is actual field
-    }
-    else{
+    } else {
       oappend(SET_F("addInfo('")); oappend(String(FPSTR(_name)).c_str()); oappend(SET_F(":")); oappend(String(FPSTR(_ao)).c_str()); oappend(SET_F(":")); oappend(String(FPSTR(_thresholdhigh)).c_str());
       oappend(SET_F("',1,'°F');"));  // 0 is field type, 1 is actual field
       oappend(SET_F("addInfo('")); oappend(String(FPSTR(_name)).c_str()); oappend(SET_F(":")); oappend(String(FPSTR(_ao)).c_str()); oappend(SET_F(":")); oappend(String(FPSTR(_thresholdlow)).c_str());
