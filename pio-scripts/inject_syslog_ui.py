@@ -43,6 +43,8 @@ SYSLOG_HTML = """
     <option value="1">RFC5424</option>
     <option value="2">Raw</option>
   </select><br>
+  
+  <!--
   Facility:
   <select name="SL_fac">
     <option value="0">KERN</option>
@@ -69,6 +71,7 @@ SYSLOG_HTML = """
     <option value="6">INFO</option>
     <option value="7">DEBUG</option>
   </select><br>
+  -->
 </div>
 """
 
