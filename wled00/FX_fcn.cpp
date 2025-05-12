@@ -1694,6 +1694,18 @@ uint32_t IRAM_ATTR WS2812FX::getPixelColor(unsigned i) const {
   return BusManager::getPixelColor(i);
 }
 
+/*
+ * Read rendered pixel back (following mirror/reverse/transpose but ignoring grouping)
+ */
+uint32_t WS2812FX::getRenderedPixelXY(uint8_t segid, unsigned x, unsigned y) const {
+  // For every group-length pixels, add spacing
+  x *= _segments[segid].groupLength(); // expand to physical pixels
+  y *= _segments[segid].groupLength(); // expand to physical pixels
+  if (x >= _segments[segid].width() || y >= _segments[segid].height()) return 0;  // fill out of range pixels with black
+  uint32_t offset = _segments[segid].is2D() ? 0 : _segments[segid].offset; //offset in 2D segments is undefined, set to zero
+  return strip.getPixelColorXY(_segments[segid].start + offset + x, _segments[segid].startY + y);
+}
+
 void WS2812FX::show() {
   // avoid race condition, capture _callback value
   show_callback callback = _callback;
