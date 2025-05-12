@@ -399,7 +399,7 @@ std::vector<LEDType> BusDigital::getLEDTypes() {
     //{TYPE_WS2812_2CH_X3, "D",  PSTR("WS281x CCT")}, // not implemented
     {TYPE_WS2812_WWA,    "D",  PSTR("WS281x WWA")}, // amber ignored
     {TYPE_WS2801,        "2P", PSTR("WS2801")},
-    {TYPE_APA102,        "2P", PSTR("APA102")},
+    {TYPE_APA102,        "2P", PSTR("APA102/SK9822")},
     {TYPE_LPD8806,       "2P", PSTR("LPD8806")},
     {TYPE_LPD6803,       "2P", PSTR("LPD6803")},
     {TYPE_P9813,         "2P", PSTR("PP9813")},
