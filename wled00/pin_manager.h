@@ -3,11 +3,6 @@
 /*
  * Registers pins so there is no attempt for two interfaces to use the same pin
  */
-#include <Arduino.h>
-#ifdef ARDUINO_ARCH_ESP32
-#include "driver/ledc.h" // needed for analog/LEDC channel counts
-#endif
-#include "const.h" // for USERMOD_* values
 
 #ifdef ESP8266
 #define WLED_NUM_PINS (GPIO_PIN_COUNT+1) // somehow they forgot GPIO 16 (0-16==17)

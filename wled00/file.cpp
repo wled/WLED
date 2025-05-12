@@ -39,7 +39,7 @@ void closeFile() {
     uint32_t s = millis();
   #endif
   f.close();
-  DEBUGFS_PRINTF("took %d ms\n", millis() - s);
+  DEBUGFS_PRINTF("took %lu ms\n", millis() - s);
   doCloseFile = false;
 }
 
@@ -69,14 +69,14 @@ static bool bufferedFind(const char *target, bool fromStart = true) {
       if(buf[count] == target[index]) {
         if(++index >= targetLen) { // return true if all chars in the target match
           f.seek((f.position() - bufsize) + count +1);
-          DEBUGFS_PRINTF("Found at pos %d, took %d ms", f.position(), millis() - s);
+          DEBUGFS_PRINTF("Found at pos %d, took %lu ms", f.position(), millis() - s);
           return true;
         }
       }
       count++;
     }
   }
-  DEBUGFS_PRINTF("No match, took %d ms\n", millis() - s);
+  DEBUGFS_PRINTF("No match, took %lu ms\n", millis() - s);
   return false;
 }
 
@@ -111,7 +111,7 @@ static bool bufferedFindSpace(size_t targetLen, bool fromStart = true) {
             f.seek((f.position() - bufsize) + count +1 - targetLen);
             knownLargestSpace = MAX_SPACE; //there may be larger spaces after, so we don't know
           }
-          DEBUGFS_PRINTF("Found at pos %d, took %d ms", f.position(), millis() - s);
+          DEBUGFS_PRINTF("Found at pos %d, took %lu ms", f.position(), millis() - s);
           return true;
         }
       } else {
@@ -125,7 +125,7 @@ static bool bufferedFindSpace(size_t targetLen, bool fromStart = true) {
       count++;
     }
   }
-  DEBUGFS_PRINTF("No match, took %d ms\n", millis() - s);
+  DEBUGFS_PRINTF("No match, took %lu ms\n", millis() - s);
   return false;
 }
 
@@ -151,13 +151,13 @@ static bool bufferedFindObjectEnd() {
       if (buf[count] == '}') objDepth--;
       if (objDepth == 0) {
         f.seek((f.position() - bufsize) + count +1);
-        DEBUGFS_PRINTF("} at pos %d, took %d ms", f.position(), millis() - s);
+        DEBUGFS_PRINTF("} at pos %d, took %lu ms", f.position(), millis() - s);
         return true;
       }
       count++;
     }
   }
-  DEBUGFS_PRINTF("No match, took %d ms\n", millis() - s);
+  DEBUGFS_PRINTF("No match, took %lu ms\n", millis() - s);
   return false;
 }
 
@@ -203,7 +203,7 @@ static bool appendObjectToFile(const char* key, const JsonDocument* content, uin
     if (f.position() > 2) f.write(','); //add comma if not first object
     f.print(key);
     serializeJson(*content, f);
-    DEBUGFS_PRINTF("Inserted, took %d ms (total %d)", millis() - s1, millis() - s);
+    DEBUGFS_PRINTF("Inserted, took %lu ms (total %lu)", millis() - s1, millis() - s);
     doCloseFile = true;
     return true;
   }
@@ -251,7 +251,7 @@ static bool appendObjectToFile(const char* key, const JsonDocument* content, uin
   f.write('}');
 
   doCloseFile = true;
-  DEBUGFS_PRINTF("Appended, took %d ms (total %d)", millis() - s1, millis() - s);
+  DEBUGFS_PRINTF("Appended, took %lu ms (total %lu)", millis() - s1, millis() - s);
   return true;
 }
 
@@ -321,7 +321,7 @@ bool writeObjectToFile(const char* file, const char* key, const JsonDocument* co
   }
 
   doCloseFile = true;
-  DEBUGFS_PRINTF("Replaced/deleted, took %d ms\n", millis() - s);
+  DEBUGFS_PRINTF("Replaced/deleted, took %lu ms\n", millis() - s);
   return true;
 }
 
@@ -356,7 +356,7 @@ bool readObjectFromFile(const char* file, const char* key, JsonDocument* dest, c
   else        deserializeJson(*dest, f);
 
   f.close();
-  DEBUGFS_PRINTF("Read, took %d ms\n", millis() - s);
+  DEBUGFS_PRINTF("Read, took %lu ms\n", millis() - s);
   return true;
 }
 
@@ -392,7 +392,7 @@ static const uint8_t *getPresetCache(size_t &size) {
 
   if ((presetsModifiedTime != presetsCachedTime) || (presetsCachedValidate != cacheInvalidate)) {
     if (presetsCached) {
-      free(presetsCached);
+      p_free(presetsCached);
       presetsCached = nullptr;
     }
   }
@@ -403,7 +403,7 @@ static const uint8_t *getPresetCache(size_t &size) {
       presetsCachedTime = presetsModifiedTime;
       presetsCachedValidate = cacheInvalidate;
       presetsCachedSize = 0;
-      presetsCached = (uint8_t*)ps_malloc(file.size() + 1);
+      presetsCached = (uint8_t*)p_malloc(file.size() + 1);
       if (presetsCached) {
         presetsCachedSize = file.size();
         file.read(presetsCached, presetsCachedSize);
@@ -419,7 +419,7 @@ static const uint8_t *getPresetCache(size_t &size) {
 #endif
 
 bool handleFileRead(AsyncWebServerRequest* request, String path){
-  DEBUG_PRINT(F("WS FileRead: ")); DEBUG_PRINTLN(path);
+  DEBUGFS_PRINT(F("WS FileRead: ")); DEBUGFS_PRINTLN(path);
   if(path.endsWith("/")) path += "index.htm";
   if(path.indexOf(F("sec")) > -1) return false;
   #ifdef ARDUINO_ARCH_ESP32
