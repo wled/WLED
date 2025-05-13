@@ -170,7 +170,7 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
     if (fromFS) BusManager::removeAll(); // can't safely manipulate busses directly in network callback
 
     for (JsonObject elm : ins) {
-      if (s >= WLED_MAX_BUSSES+WLED_MIN_VIRTUAL_BUSSES) break;
+      if (s >= WLED_MAX_BUSSES) break;
       uint8_t pins[5] = {255, 255, 255, 255, 255};
       JsonArray pinArr = elm["pin"];
       if (pinArr.size() == 0) continue;
@@ -199,12 +199,13 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
       }
       ledType |= refresh << 7; // hack bit 7 to indicate strip requires off refresh
 
-      busConfigs.push_back(std::move(BusConfig(ledType, pins, start, length, colorOrder, reversed, skipFirst, AWmode, freqkHz, useGlobalLedBuffer, maPerLed, maMax)));
+      //busConfigs.push_back(std::move(BusConfig(ledType, pins, start, length, colorOrder, reversed, skipFirst, AWmode, freqkHz, useGlobalLedBuffer, maPerLed, maMax)));
+      busConfigs.emplace_back(ledType, pins, start, length, colorOrder, reversed, skipFirst, AWmode, freqkHz, useGlobalLedBuffer, maPerLed, maMax);
       doInitBusses = true;  // finalization done in beginStrip()
-      s++;
+      if (!Bus::isVirtual(ledType)) s++; // have as many virtual buses as you want
     }
   }
-  if (hw_led["rev"]) BusManager::getBus(0)->setReversed(true); //set 0.11 global reversed setting for first bus
+  if (hw_led["rev"] && BusManager::getNumBusses()) BusManager::getBus(0)->setReversed(true); //set 0.11 global reversed setting for first bus
 
   // read color order map configuration
   JsonArray hw_com = hw[F("com")];
@@ -670,7 +671,7 @@ void deserializeConfigFromFS() {
     // call readFromConfig() with an empty object so that usermods can initialize to defaults prior to saving
     JsonObject empty = JsonObject();
     UsermodManager::readFromConfig(empty);
-    serializeConfig();
+    serializeConfigToFS();
     // init Ethernet (in case default type is set at compile time)
     #if defined(ARDUINO_ARCH_ESP32) && defined(WLED_USE_ETHERNET)
     initEthernet();
@@ -684,10 +685,10 @@ void deserializeConfigFromFS() {
   bool needsSave = deserializeConfig(root, true);
   releaseJSONBufferLock();
 
-  if (needsSave) serializeConfig(); // usermods required new parameters
+  if (needsSave) serializeConfigToFS(); // usermods required new parameters
 }
 
-void serializeConfig() {
+void serializeConfigToFS() {
   serializeConfigSec();
 
   DEBUG_PRINTLN(F("Writing settings to /cfg.json..."));
@@ -696,6 +697,17 @@ void serializeConfig() {
 
   JsonObject root = pDoc->to<JsonObject>();
 
+  serializeConfig(root);
+
+  File f = WLED_FS.open(FPSTR(s_cfg_json), "w");
+  if (f) serializeJson(root, f);
+  f.close();
+  releaseJSONBufferLock();
+
+  configNeedsWrite = false;
+}
+
+void serializeConfig(JsonObject root) {
   JsonArray rev = root.createNestedArray("rev");
   rev.add(1); //major settings revision
   rev.add(0); //minor settings revision
@@ -824,8 +836,8 @@ void serializeConfig() {
 
   for (size_t s = 0; s < BusManager::getNumBusses(); s++) {
     DEBUG_PRINTF_P(PSTR("Cfg: Saving bus #%u\n"), s);
-    Bus *bus = BusManager::getBus(s);
-    if (!bus || bus->getLength()==0) break;
+    const Bus *bus = BusManager::getBus(s);
+    if (!bus || !bus->isOk()) break;
     DEBUG_PRINTF_P(PSTR("  (%d-%d, type:%d, CO:%d, rev:%d, skip:%d, AW:%d kHz:%d, mA:%d/%d)\n"),
       (int)bus->getStart(), (int)(bus->getStart()+bus->getLength()),
       (int)(bus->getType() & 0x7F),
@@ -838,28 +850,27 @@ void serializeConfig() {
     );
     JsonObject ins = hw_led_ins.createNestedObject();
     ins["start"] = bus->getStart();
-    ins["len"] = bus->getLength();
+    ins["len"]   = bus->getLength();
     JsonArray ins_pin = ins.createNestedArray("pin");
     uint8_t pins[5];
     uint8_t nPins = bus->getPins(pins);
     for (int i = 0; i < nPins; i++) ins_pin.add(pins[i]);
-    ins[F("order")] = bus->getColorOrder();
-    ins["rev"] = bus->isReversed();
-    ins[F("skip")] = bus->skippedLeds();
-    ins["type"] = bus->getType() & 0x7F;
-    ins["ref"] = bus->isOffRefreshRequired();
-    ins[F("rgbwm")] = bus->getAutoWhiteMode();
-    ins[F("freq")] = bus->getFrequency();
+    ins[F("order")]  = bus->getColorOrder();
+    ins["rev"]       = bus->isReversed();
+    ins[F("skip")]   = bus->skippedLeds();
+    ins["type"]      = bus->getType() & 0x7F;
+    ins["ref"]       = bus->isOffRefreshRequired();
+    ins[F("rgbwm")]  = bus->getAutoWhiteMode();
+    ins[F("freq")]   = bus->getFrequency();
     ins[F("maxpwr")] = bus->getMaxCurrent();
-    ins[F("ledma")] = bus->getLEDCurrent();
+    ins[F("ledma")]  = bus->getLEDCurrent();
   }
 
   JsonArray hw_com = hw.createNestedArray(F("com"));
   const ColorOrderMap& com = BusManager::getColorOrderMap();
   for (size_t s = 0; s < com.count(); s++) {
     const ColorOrderMapEntry *entry = com.get(s);
-    if (!entry) break;
-
+    if (!entry || !entry->len) break;
     JsonObject co = hw_com.createNestedObject();
     co["start"] = entry->start;
     co["len"] = entry->len;
@@ -1111,13 +1122,6 @@ void serializeConfig() {
 
   JsonObject usermods_settings = root.createNestedObject("um");
   UsermodManager::addToConfig(usermods_settings);
-
-  File f = WLED_FS.open(FPSTR(s_cfg_json), "w");
-  if (f) serializeJson(root, f);
-  f.close();
-  releaseJSONBufferLock();
-
-  doSerializeConfig = false;
 }
 
 

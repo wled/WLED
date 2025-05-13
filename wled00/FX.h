@@ -353,7 +353,10 @@ extern byte realtimeMode;           // used in getMappedPixelIndex()
 #define FX_MODE_PS1DGEQ                212
 #define FX_MODE_PSFIRE1D               213
 #define FX_MODE_PS1DSONICSTREAM        214
-#define MODE_COUNT                     215
+#define FX_MODE_PS1DSONICBOOM          215
+#define FX_MODE_PS1DSPRINGY            216
+#define FX_MODE_PARTICLEGALAXY         217
+#define MODE_COUNT                     218
 
 #define BLEND_STYLE_FADE            0x00  // universal
 #define BLEND_STYLE_FAIRY_DUST      0x01  // universal
@@ -677,8 +680,10 @@ typedef struct Segment {
     [[gnu::hot]] uint32_t getPixelColor(int i) const;
     // 1D support functions (some implement 2D as well)
     void blur(uint8_t, bool smear = false);
+    void clear();
     void fill(uint32_t c);
     void fade_out(uint8_t r);
+    void fadeToSecondaryBy(uint8_t fadeBy);
     void fadeToBlackBy(uint8_t fadeBy);
     inline void blendPixelColor(int n, uint32_t color, uint8_t blend)    { setPixelColor(n, color_blend(getPixelColor(n), color, blend)); }
     inline void blendPixelColor(int n, CRGB c, uint8_t blend)            { blendPixelColor(n, RGBW32(c.r,c.g,c.b,0), blend); }

@@ -1,0 +1,6 @@
+{
+  "name": "rotary_encoder_ui_ALT",
+  "build": {
+    "extraScript": "setup_deps.py"
+  }
+}
