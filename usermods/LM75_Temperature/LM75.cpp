@@ -91,7 +91,7 @@ void UsermodLM75Temperature::readTemperature() {
     json[F("state_topic")] = buf;
     json[F("device_class")] = F("temperature");
     json[F("unique_id")] = escapedMac.c_str();
-    json[F("unit_of_measurement")] = F(getTemperatureUnit());
+    json[F("unit_of_measurement")] = getTemperatureUnit();
     payload_size = serializeJson(json, json_str);
   
     sprintf_P(buf, PSTR("homeassistant/sensor/%s/config"), escapedMac.c_str());
