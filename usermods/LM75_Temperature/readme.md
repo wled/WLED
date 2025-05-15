@@ -50,7 +50,7 @@ To avoid flickering of the WLED output, the overtemperature feature has a hyster
 
 <br>
 
-Temperature can be published via MQTT, but the feature is as of now untested. 
+There is no cross check if the user enables or disables the master light output during an overtemperature event. For example this can lead to the following behavior. User switches light off. Still an overtemperature event occurs. Since the light is already switched off, the mod does not change the current status. Now the temperature drops. And the mod will reenable the light, switching it on. 
 
 <br>
 
