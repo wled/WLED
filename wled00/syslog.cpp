@@ -28,13 +28,13 @@ static const char* severityNames[] = {
 };
 
 SyslogPrinter::SyslogPrinter() : 
+  _lastOperationSucceeded(true),
+  _lastErrorMessage(""),
   _facility(SYSLOG_LOCAL0), 
   _severity(SYSLOG_DEBUG), 
   _protocol(SYSLOG_PROTO_BSD),
   _appName("WLED"),
-  _bufferIndex(0),
-  _lastOperationSucceeded(true),
-  _lastErrorMessage("") {}
+  _bufferIndex(0) {}
 
 void SyslogPrinter::begin(const char* host, uint16_t port,
 					  uint8_t facility, uint8_t severity, uint8_t protocol) {
@@ -95,16 +95,32 @@ bool SyslogPrinter::resolveHostname() {
 
 void SyslogPrinter::flushBuffer() {
   if (_bufferIndex == 0) return;
-  
-   // Trim any trailing CR so syslog server won’t show “#015”
-  if (_bufferIndex > 0 && _buffer[_bufferIndex-1] == '\r') _bufferIndex--;
-  
+
+  // Skip pure "#015" lines
+  if (_bufferIndex == 4 && memcmp(_buffer, "#015", 4) == 0) {
+    _bufferIndex = 0;
+    return;
+  }
+
+  // Check if the message contains only whitespace
+  bool onlyWhitespace = true;
+  for (size_t i = 0; i < _bufferIndex; i++) {
+    if (_buffer[i] != ' ' && _buffer[i] != '\t') {
+      onlyWhitespace = false;
+      break;
+    }
+  }
+  if (onlyWhitespace) {
+    _bufferIndex = 0;
+    return;
+  }
+
   // Null-terminate
   _buffer[_bufferIndex] = '\0';
-  
+
   // Send the buffer with default severity
   write((const uint8_t*)_buffer, _bufferIndex, _severity);
-  
+
   // Reset buffer index
   _bufferIndex = 0;
 }
@@ -115,7 +131,7 @@ size_t SyslogPrinter::write(uint8_t c) {
     _buffer[_bufferIndex++] = c;
   }
   
-  // If newline or buffer full, flush
+  // If newline or buffer full, flush buffer
   if (c == '\n' || _bufferIndex >= sizeof(_buffer) - 1) {
     flushBuffer();
   }
@@ -149,12 +165,34 @@ size_t SyslogPrinter::write(const uint8_t *buf, size_t size, uint8_t severity) {
     _lastErrorMessage = F("Failed to resolve hostname");
     return 0;
   }
-  
+
+  // Check for special case - literal "#015" string
+  if (size >= 4 && buf[0] == '#' && buf[1] == '0' && buf[2] == '1' && buf[3] == '5') {
+    return size; // Skip sending this message
+  }
+
+  // Skip empty messages
+  if (size == 0) return 0;
+
+  // Check if the message contains only whitespace
+  bool onlyWhitespace = true;
+  for (size_t i = 0; i < size; i++) {
+    if (buf[i] != ' ' && buf[i] != '\t' && buf[i] != '\r' && buf[i] != '\n') {
+      onlyWhitespace = false;
+      break;
+    }
+  }
+  if (onlyWhitespace) return size; // Skip sending this message
+
   syslogUdp.beginPacket(syslogHostIP, syslogPort);
   
   // Calculate priority value
   uint8_t pri = (_facility << 3) | severity;
-  
+
+  // Add hostname (replacing spaces with underscores) and app name
+  String cleanHostname = String(serverDescription);
+  cleanHostname.replace(' ', '_');
+
   // Handle different syslog protocol formats
   switch (_protocol) {
     case SYSLOG_PROTO_BSD:	  
@@ -178,7 +216,7 @@ size_t SyslogPrinter::write(const uint8_t *buf, size_t size, uint8_t severity) {
       }
       
       // Add hostname and app name
-      syslogUdp.print(serverDescription);
+      syslogUdp.print(cleanHostname);
       syslogUdp.print(" ");
       syslogUdp.print(_appName);
       syslogUdp.print(": ");
@@ -205,7 +243,7 @@ size_t SyslogPrinter::write(const uint8_t *buf, size_t size, uint8_t severity) {
       }
       
       // Add hostname, app name, and other fields (using - for empty fields)
-      syslogUdp.print(serverDescription);
+      syslogUdp.print(cleanHostname);
       syslogUdp.print(" ");
       syslogUdp.print(_appName);
       syslogUdp.print(" - - - "); // PROCID, MSGID, and STRUCTURED-DATA are empty
