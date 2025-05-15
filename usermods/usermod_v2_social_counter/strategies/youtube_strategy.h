@@ -8,7 +8,7 @@
 class YouTubeStrategy : public SocialNetworkStrategy
 {
 public:
-  bool fetchFollowerCount(const String &link, int &count) override
+  bool fetchMetric(int metric, const String &link, int &count) override
   {
     // Implementação simplificada para evitar dependências
 

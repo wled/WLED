@@ -29,9 +29,17 @@ private:
   unsigned long lastTime = 0;
   unsigned long lastAPICall = 0;
   unsigned long apiCallInterval = 0;
+  int lastDisplayedCount = -1;
+  bool isAnimating = false;
+  int animationStep = 0;
+  const int totalAnimationSteps = 10;
+  unsigned long animationStartTime = 0;
+  int previousCount = 0;
+  int selectedMetric = METRIC_FOLLOWERS;
+  int maxDigits = 0;
 
   String link = "";
-  int social = SOCIAL_COUNTER_INSTAGRAM;
+  int social = SOCIAL_COUNTER_MOCK;
   int followerCount = 0;
   int updateIntervalSeconds = 3;
 
@@ -114,6 +122,11 @@ private:
     Serial.printf("[INFO] Segmento %d configurado: LEDs %d a %d (total: %d)\n",
                   SOCIAL_SEGMENT_INDEX, segmentStart, seg.stop - 1, segmentLength);
 
+    int digitWidth = 7 * ledsPerSegment + digitSpacing;
+    maxDigits = segmentLength / digitWidth;
+
+    Serial.printf("[INFO] Capacidade máxima de dígitos: %d\n", maxDigits);
+
     segmentValid = true;
     return true;
   }
@@ -146,12 +159,15 @@ private:
 
     for (int i = 0; i < ledsPerSegment; i++)
     {
-      if (!on)
+      if (on)
       {
-        // Se o segmento deve estar apagado, desligamos o LED
-        strip.setPixelColor(ledIndex + i, 0);
+        uint32_t color = strip.getColor(); // cor global do WLED
+        strip.setPixelColor(ledIndex + i, color);
       }
-      // Se o segmento está ativo, não fazemos nada e mantemos os efeitos originais
+      else
+      {
+        strip.setPixelColor(ledIndex + i, 0); // desliga o LED
+      }
     }
   }
 
@@ -161,111 +177,105 @@ private:
    */
   void displayNumber(int number)
   {
-    if (!segmentValid)
+    if (!segmentValid || maxDigits <= 0)
+      return;
+
+    // Limita o valor ao número máximo de dígitos
+    int maxValue = pow(10, maxDigits);
+    number %= maxValue;
+
+    // Converte número em string
+    String numStr = String(number);
+
+    // Preenche com zeros à esquerda, se necessário
+    while (numStr.length() < maxDigits)
+      numStr = "0" + numStr;
+
+    bool skippingLeading = !showLeadingZeros;
+
+    for (int digit = 0; digit < maxDigits; digit++)
     {
-      return; // Não temos um segmento válido para exibir
+      int index = maxDigits - 1 - digit; // começa do dígito menos significativo
+      char c = numStr.charAt(index);
+
+      // Se estamos ignorando zeros à esquerda
+      if (skippingLeading && c == '0')
+      {
+        // Apaga os segmentos desse dígito
+        for (int seg = 0; seg < 7; seg++)
+          setSegmentLeds(digit, seg, false);
+        continue;
+      }
+
+      skippingLeading = false; // encontrou um dígito significativo
+
+      int digitValue = c - '0';
+
+      for (int seg = 0; seg < 7; seg++)
+      {
+        bool segOn = digitSegments[digitValue][seg];
+        setSegmentLeds(digit, seg, segOn);
+      }
     }
 
-    // Calcula quantos dígitos podem caber no segmento
-    int digitWidth = 7 * ledsPerSegment + digitSpacing;
-    int maxDigits = segmentLength / digitWidth;
+    strip.show();
+  }
 
-    if (maxDigits <= 0)
+  void animateNumberTransition(int from, int to)
+  {
+    if (animationStep >= totalAnimationSteps)
     {
-      Serial.println("[ERRO] Segmento muito pequeno para exibir qualquer dígito!");
+      isAnimating = false;
+      displayNumber(to);
+      lastDisplayedCount = to;
       return;
     }
 
-    // Forçamos minDigits = 1 para garantir que pelo menos um dígito seja exibido
-    // A exibição de zeros à esquerda é controlada por showLeadingZeros
-    int minDigits = 1;
+    // Aplica um efeito simples: piscar ou fade nos segmentos (temporário)
+    float progress = (float)animationStep / totalAnimationSteps;
+    uint8_t fade = 255 * progress;
 
-    // Limita o número ao máximo de dígitos disponíveis
-    int maxValue = 1;
-    for (int i = 0; i < maxDigits; i++)
-    {
-      maxValue *= 10;
-    }
-    number = number % maxValue;
+    // Por enquanto, vamos apenas mostrar o novo número com brilho parcial
+    // Depois podemos simular o deslocamento real com mapeamento avançado
+    // Calcula cor com fade antes do loop
+    uint32_t baseColor = strip.getColor(strip.getSegment(0).colors[0]);
+    uint8_t r = R(baseColor) * progress;
+    uint8_t g = G(baseColor) * progress;
+    uint8_t b = B(baseColor) * progress;
 
-    // Calcula quantos dígitos o número possui
-    int tempNumber = number;
-    int numDigits = 0;
-    do
-    {
-      numDigits++;
-      tempNumber /= 10;
-    } while (tempNumber > 0);
-
-    // Garantir que temos pelo menos o número mínimo de dígitos
-    numDigits = max(numDigits, minDigits);
-
-    // Exibe cada dígito - primeiro preparamos um mapa dos LEDs ativos
-    bool ledActive[segmentLength];
-    // Inicializa todos como inativos
-    for (int i = 0; i < segmentLength; i++)
-    {
-      ledActive[i] = false;
-    }
-
-    // Marca os LEDs que devem estar ativos
-    int digitsShown = 0;
     for (int digit = 0; digit < maxDigits; digit++)
     {
-      int digitValue = number % 10;
+      int fromDigit = (from / (int)pow(10, digit)) % 10;
+      int toDigit = (to / (int)pow(10, digit)) % 10;
 
-      // Decide se mostra este dígito baseado nas configurações de zeros à esquerda
-      bool showDigit = true;
+      int valueToShow = (progress < 0.5) ? fromDigit : toDigit;
 
-      // Se este dígito é zero e está além dos dígitos significativos do número
-      // e não estamos mostrando zeros à esquerda, pulamos este dígito
-      if (digitValue == 0 && digit >= numDigits && !showLeadingZeros)
+      for (int seg = 0; seg < 7; seg++)
       {
-        showDigit = false;
-      }
+        bool on = digitSegments[valueToShow][seg];
+        uint16_t ledIndex = getSegmentLedIndex(digit, seg);
 
-      if (showDigit)
-      {
-        // Para cada segmento do dígito
-        for (int seg = 0; seg < 7; seg++)
+        for (int i = 0; i < ledsPerSegment; i++)
         {
-          if (digitSegments[digitValue][seg])
+          if (on)
           {
-            // Este segmento deve estar ativo
-            int ledStart = getSegmentLedIndex(digit, seg) - segmentStart;
-            for (int i = 0; i < ledsPerSegment; i++)
-            {
-              if (ledStart + i < segmentLength)
-              {
-                ledActive[ledStart + i] = true;
-              }
-            }
+            strip.setPixelColor(ledIndex + i, WS2812FX::Color(r, g, b));
+          }
+          else
+          {
+            strip.setPixelColor(ledIndex + i, 0);
           }
         }
       }
-
-      digitsShown++;
-      number /= 10;
-
-      // Continua exibindo dígitos até atingir o mínimo de dígitos ou zerar o número
-      if (number == 0 && digitsShown >= minDigits)
-        break;
     }
 
-    // Agora, desliga apenas os LEDs que devem estar inativos
-    for (int i = 0; i < segmentLength; i++)
-    {
-      if (!ledActive[i])
-      {
-        strip.setPixelColor(segmentStart + i, 0);
-      }
-    }
+    strip.show();
+    animationStep++;
   }
 
 public:
   static const char _name[];
   static const char _enabled[];
-  static int counter;
 
   void enable(bool enable)
   {
@@ -326,10 +336,29 @@ public:
     }
 
     unsigned long currentMillis = millis();
+
     if (WLED_CONNECTED && (currentMillis - lastAPICall >= apiCallInterval))
     {
       updateFollowerCount();
-      lastAPICall = currentMillis; // Registra o tempo exato da chamada
+      lastAPICall = currentMillis;
+    }
+
+    // Só redesenha se o valor exibido mudou
+    if (enabled && segmentValid)
+    {
+      if (followerCount != lastDisplayedCount && !isAnimating)
+      {
+        previousCount = lastDisplayedCount;
+        isAnimating = true;
+        animationStep = 0;
+        animationStartTime = millis();
+      }
+
+      if (isAnimating && millis() - animationStartTime > 50)
+      { // 50ms por frame
+        animationStartTime = millis();
+        animateNumberTransition(previousCount, followerCount);
+      }
     }
   }
 
@@ -345,12 +374,11 @@ public:
     if (strategy && !link.isEmpty())
     {
       int count = 0;
-      bool success = strategy->fetchFollowerCount(link, count);
+      bool success = strategy->fetchMetric(selectedMetric, link, count);
 
       if (success)
       {
         followerCount = count;
-        counter = followerCount; // Atualiza o contador estático para compatibilidade
         Serial.printf("[INFO] %s followers: %d\n", strategy->getName().c_str(), followerCount);
       }
       else
@@ -388,6 +416,7 @@ public:
     usermod["link"] = link;
     usermod["followers"] = followerCount;
     usermod["updateInterval"] = updateIntervalSeconds;
+    usermod["metric"] = selectedMetric;
   }
 
   void readFromJsonState(JsonObject &root) override
@@ -434,6 +463,7 @@ public:
     top["ledsPerSegment"] = ledsPerSegment;
     top["digitSpacing"] = digitSpacing;
     top["showLeadingZeros"] = showLeadingZeros;
+    top["metric"] = selectedMetric;
   }
 
   bool readFromConfig(JsonObject &root) override
@@ -445,7 +475,7 @@ public:
     configComplete &= getJsonValue(top[FPSTR(_enabled)], enabled, false);
 
     int oldSocial = social;
-    configComplete &= getJsonValue(top["social"], social, SOCIAL_COUNTER_INSTAGRAM);
+    configComplete &= getJsonValue(top["social"], social, SOCIAL_COUNTER_MOCK);
 
     if (oldSocial != social)
     {
@@ -459,6 +489,7 @@ public:
     configComplete &= getJsonValue(top["ledsPerSegment"], ledsPerSegment, 2);
     configComplete &= getJsonValue(top["digitSpacing"], digitSpacing, 0);
     configComplete &= getJsonValue(top["showLeadingZeros"], showLeadingZeros, true);
+    configComplete &= getJsonValue(top["metric"], selectedMetric, METRIC_FOLLOWERS);
 
     updateIntervalTimer();
 
@@ -467,48 +498,64 @@ public:
 
   void appendConfigData() override
   {
+    // Link input info
     oappend(F("addInfo('"));
     oappend(String(FPSTR(_name)).c_str());
     oappend(F(":link"));
-    oappend(F("',1,'<i>Enter your link</i>');"));
+    oappend(F("',1,'<i>Enter the profile link</i>');"));
 
+    // Update interval info
     oappend(F("addInfo('"));
     oappend(String(FPSTR(_name)).c_str());
     oappend(F(":updateInterval"));
-    oappend(F("',1,'<i>Delay in seconds between updates (default: 3)</i>');"));
+    oappend(F("',1,'<i>Delay between updates (in seconds, default: 3)</i>');"));
 
+    // LEDs per segment info
     oappend(F("addInfo('"));
     oappend(String(FPSTR(_name)).c_str());
     oappend(F(":ledsPerSegment"));
-    oappend(F("',1,'<i>LEDs por segmento (default: 2)</i>');"));
+    oappend(F("',1,'<i>LEDs per segment (default: 2)</i>');"));
 
+    // Digit spacing info
     oappend(F("addInfo('"));
     oappend(String(FPSTR(_name)).c_str());
     oappend(F(":digitSpacing"));
-    oappend(F("',1,'<i>Espaço entre dígitos (default: 0)</i>');"));
+    oappend(F("',1,'<i>Spacing between digits (default: 0)</i>');"));
 
+    // Leading zeros info
     oappend(F("addInfo('"));
     oappend(String(FPSTR(_name)).c_str());
     oappend(F(":showLeadingZeros"));
-    oappend(F("',1,'<i>Mostrar zeros à esquerda (default: true)</i>');"));
+    oappend(F("',1,'<i>Show leading zeros (default: true)</i>');"));
 
-    oappend(F("dd=addDropdown('"));
+    // Social network dropdown
+    oappend(F("dds=addDropdown('"));
     oappend(String(FPSTR(_name)).c_str());
     oappend(F("','social');"));
-    oappend(F("addOption(dd,'Instagram',0);"));
-    oappend(F("addOption(dd,'Tiktok',1);"));
-    oappend(F("addOption(dd,'Twitch',2);"));
-    oappend(F("addOption(dd,'Youtube',3);"));
+    oappend(F("addOption(dds,'Mock for Testing',0);"));
+    oappend(F("addOption(dds,'Instagram',1);"));
+    oappend(F("addOption(dds,'TikTok',2);"));
+    oappend(F("addOption(dds,'Twitch',3);"));
+    oappend(F("addOption(dds,'YouTube',4);"));
+
+    // Metric dropdown
+    oappend(F("ddm=addDropdown('"));
+    oappend(String(FPSTR(_name)).c_str());
+    oappend(F("','metric');"));
+    oappend(F("addOption(ddm,'Followers',0);"));
+    oappend(F("addOption(ddm,'Views',1);"));
+    oappend(F("addOption(ddm,'Live',2);"));
+    oappend(F("addOption(ddm,'Subscribers',3);"));
   }
 
-  void handleOverlayDraw() override
-  {
-    // Exibe o número de seguidores no display de 7 segmentos
-    if (enabled && initDone && segmentValid)
-    {
-      displayNumber(followerCount);
-    }
-  }
+  // void handleOverlayDraw() override
+  // {
+  //   // Exibe o número de seguidores no display de 7 segmentos
+  //   if (enabled && initDone && segmentValid)
+  //   {
+  //     displayNumber(followerCount);
+  //   }
+  // }
 
   uint16_t getId() override
   {
@@ -534,7 +581,6 @@ public:
 // Definição das variáveis estáticas
 const char SocialCounterUsermod::_name[] = "Social Counter";
 const char SocialCounterUsermod::_enabled[] = "enabled";
-int SocialCounterUsermod::counter = 0;
 
 static SocialCounterUsermod social_counter;
 REGISTER_USERMOD(social_counter);

@@ -2,6 +2,7 @@
 
 #include "strategies/social_network_strategy.h"
 #include "social_network_types.h"
+#include "strategies/mock_strategy.h"
 #include "strategies/instagram_strategy.h"
 #include "strategies/youtube_strategy.h"
 #include "strategies/tiktok_strategy.h"
@@ -15,6 +16,9 @@ public:
   {
     switch (socialType)
     {
+    case SOCIAL_COUNTER_MOCK:
+      return std::unique_ptr<SocialNetworkStrategy>(new MockStrategy());
+
     case SOCIAL_COUNTER_INSTAGRAM:
       return std::unique_ptr<SocialNetworkStrategy>(new InstagramStrategy());
 

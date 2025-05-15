@@ -8,7 +8,7 @@
 class TikTokStrategy : public SocialNetworkStrategy
 {
 public:
-  bool fetchFollowerCount(const String &link, int &count) override
+  bool fetchMetric(int metric, const String &link, int &count) override
   {
     // TikTok não oferece uma API pública facilmente acessível
     // Esta implementação é simplificada para demonstração
