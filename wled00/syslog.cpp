@@ -212,6 +212,7 @@ size_t SyslogPrinter::write(const uint8_t *buf, size_t size, uint8_t severity) {
   cleanHostname.replace(' ', '_');
 
   // Handle different syslog protocol formats
+  // Note: Only BSD protocol is currently implemented; RFC5424 and RAW are preserved for future use
   // switch (_protocol) {
     // case SYSLOG_PROTO_BSD:
       // RFC 3164 format: <PRI>TIMESTAMP HOSTNAME APP-NAME: MESSAGE

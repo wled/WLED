@@ -54,9 +54,9 @@ class SyslogPrinter : public Print {
     String _lastErrorMessage;
 
     // Syslog configuration - using globals from wled.h
-    uint8_t _facility;  // Fixed to SYSLOG_LOCAL0
-    uint8_t _severity;  // Fixed to SYSLOG_DEBUG
-    uint8_t _protocol;  // Fixed to SYSLOG_PROTO_BSD
+    uint8_t _facility;  // Internal copy of syslogFacility (from wled.h), fixed to SYSLOG_LOCAL0
+    uint8_t _severity;  // Internal copy of syslogSeverity (from wled.h), fixed to SYSLOG_DEBUG
+    uint8_t _protocol;  // Internal copy of syslogProtocol (from wled.h), fixed to SYSLOG_PROTO_BSD
     String _appName;
 
     char _buffer[SYSLOG_BUFFER_SIZE]; // Buffer for collecting characters

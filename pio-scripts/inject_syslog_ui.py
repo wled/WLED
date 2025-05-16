@@ -38,6 +38,7 @@ SYSLOG_HTML = """
   Host: <input type="text" name="SL_host" maxlength="32"><br>
   Port: <input type="number" name="SL_port" min="1" max="65535" value="%SL_port%"><br>
 
+  <!-- These UI elements are commented out but preserved for potential future use -->
   <!--
   Protocol:
   <select name="SL_proto">
