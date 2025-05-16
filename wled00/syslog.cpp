@@ -3,6 +3,8 @@
 
 #include "syslog.h"
 
+// Comment out but preserve the protocol names
+/*
 static const char* const protoNames[] PROGMEM = {
   PSTR("BSD"),
   PSTR("RFC5424"),
@@ -10,7 +12,11 @@ static const char* const protoNames[] PROGMEM = {
   PSTR("UNKNOWN")
 };
 static const uint8_t protoCount = sizeof(protoNames)/sizeof(*protoNames);
+*/
 
+// Comment out but preserve facility names
+/*
+//  We fill invalid entries with PSTR("UNKNOWN") so we can index 0..24 safely
 static const char* const facilityNames[] PROGMEM = {
   PSTR("KERN"),   PSTR("USER"),   PSTR("UNKNOWN"), PSTR("DAEMON"),
   PSTR("UNKNOWN"),PSTR("SYSLOG"), PSTR("UNKNOWN"), PSTR("UNKNOWN"),
@@ -21,13 +27,17 @@ static const char* const facilityNames[] PROGMEM = {
   PSTR("UNKNOWN")  // catch-all at index 24
 };
 static const uint8_t facCount   = sizeof(facilityNames)/sizeof(*facilityNames);
+*/
 
+// Comment out but preserve severity names
+/* 
 static const char* const severityNames[] PROGMEM = {
   PSTR("EMERG"), PSTR("ALERT"), PSTR("CRIT"),  PSTR("ERR"),
   PSTR("WARN"),  PSTR("NOTE"),  PSTR("INFO"),  PSTR("DEBUG"),
   PSTR("UNKNOWN")
 };
 static const uint8_t sevCount = sizeof(severityNames) / sizeof(*severityNames);
+*/
 
 SyslogPrinter::SyslogPrinter() : 
   _lastOperationSucceeded(true),
@@ -46,6 +56,7 @@ void SyslogPrinter::begin(const char* host, uint16_t port,
   DEBUG_PRINTF_P(PSTR(" Cached IP: %s\n"), syslogHostIP.toString().c_str());
   DEBUG_PRINTF_P(PSTR(" Port:      %u\n"), (unsigned)port);
 
+  /*
   // Protocol
   uint8_t pidx = protocol < (protoCount - 1) ? protocol : (protoCount - 1);
   const char* pstr = (const char*)pgm_read_ptr(&protoNames[pidx]);
@@ -60,6 +71,7 @@ void SyslogPrinter::begin(const char* host, uint16_t port,
   uint8_t idx = severity < sevCount-1 ? severity : sevCount-1;
   const char* sevStr = (const char*)pgm_read_ptr(&severityNames[idx]);
   DEBUG_PRINTF_P(PSTR(" Severity:  %u (%s)\n"), (unsigned)severity, sevStr);
+  */
 
   DEBUG_PRINTF_P(PSTR("======================================\n"));
 
@@ -200,8 +212,8 @@ size_t SyslogPrinter::write(const uint8_t *buf, size_t size, uint8_t severity) {
   cleanHostname.replace(' ', '_');
 
   // Handle different syslog protocol formats
-  switch (_protocol) {
-    case SYSLOG_PROTO_BSD:
+  // switch (_protocol) {
+    // case SYSLOG_PROTO_BSD:
       // RFC 3164 format: <PRI>TIMESTAMP HOSTNAME APP-NAME: MESSAGE
       syslogUdp.printf("<%d>", pri);
       
@@ -231,6 +243,7 @@ size_t SyslogPrinter::write(const uint8_t *buf, size_t size, uint8_t severity) {
       
       // Add message content
       size = syslogUdp.write(buf, size);
+      /* 
       break;
       
     case SYSLOG_PROTO_RFC5424:	  
@@ -266,6 +279,7 @@ size_t SyslogPrinter::write(const uint8_t *buf, size_t size, uint8_t severity) {
       size = syslogUdp.write(buf, size);
       break;
   }
+  */
   
   syslogUdp.endPacket();
   return size;

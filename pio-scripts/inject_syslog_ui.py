@@ -37,14 +37,14 @@ SYSLOG_HTML = """
   Enable Syslog: <input type="checkbox" name="SL_en"><br>
   Host: <input type="text" name="SL_host" maxlength="32"><br>
   Port: <input type="number" name="SL_port" min="1" max="65535" value="%SL_port%"><br>
+
+  <!--
   Protocol:
   <select name="SL_proto">
     <option value="0">BSD (RFC3164)</option>
     <option value="1">RFC5424</option>
     <option value="2">Raw</option>
   </select><br>
-  
-  <!--
   Facility:
   <select name="SL_fac">
     <option value="0">KERN</option>

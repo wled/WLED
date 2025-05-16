@@ -480,14 +480,14 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
     t = request->arg(F("SL_port")).toInt();
     if (t > 0) syslogPort = t;
 
-    t = request->arg(F("SL_proto")).toInt();
-    if (t >= SYSLOG_PROTO_BSD && t <= SYSLOG_PROTO_RAW) syslogProtocol = t;
+    // t = request->arg(F("SL_proto")).toInt();
+    // if (t >= SYSLOG_PROTO_BSD && t <= SYSLOG_PROTO_RAW) syslogProtocol = t;
 
-    t = request->arg(F("SL_fac")).toInt();
-    if (t >= SYSLOG_KERN && t <= SYSLOG_LOCAL7) syslogFacility = t;
+    // t = request->arg(F("SL_fac")).toInt();
+    // if (t >= SYSLOG_KERN && t <= SYSLOG_LOCAL7) syslogFacility = t;
 
-    t = request->arg(F("SL_sev")).toInt();
-    if (t >= SYSLOG_EMERG && t <= SYSLOG_DEBUG) syslogSeverity = t;
+    // t = request->arg(F("SL_sev")).toInt();
+    // if (t >= SYSLOG_EMERG && t <= SYSLOG_DEBUG) syslogSeverity = t;
 
     Syslog.begin(syslogHost, syslogPort,
       syslogFacility, syslogSeverity, syslogProtocol);

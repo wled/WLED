@@ -541,9 +541,9 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
   CJSON(syslogEnabled, if_syslog["en"]);
   getStringFromJson(syslogHost, if_syslog[F("host")], 33);
   CJSON(syslogPort, if_syslog["port"]);
-  CJSON(syslogProtocol, if_syslog["proto"]);
-  CJSON(syslogFacility, if_syslog["fac"]);
-  CJSON(syslogSeverity, if_syslog["sev"]);
+  // CJSON(syslogProtocol, if_syslog["proto"]);
+  // CJSON(syslogFacility, if_syslog["fac"]);
+  // CJSON(syslogSeverity, if_syslog["sev"]);
 #endif
 
   JsonObject if_ntp = interfaces[F("ntp")];
@@ -1066,9 +1066,9 @@ void serializeConfig(JsonObject root) {
   if_syslog["en"]    = syslogEnabled;
   if_syslog["host"]  = syslogHost;
   if_syslog["port"]  = syslogPort;
-  if_syslog["proto"] = syslogProtocol;
-  if_syslog["fac"]   = syslogFacility;
-  if_syslog["sev"]   = syslogSeverity;
+  // if_syslog["proto"] = syslogProtocol;
+  // if_syslog["fac"]   = syslogFacility;
+  // if_syslog["sev"]   = syslogSeverity;
 #endif
 
   JsonObject if_ntp = interfaces.createNestedObject("ntp");
