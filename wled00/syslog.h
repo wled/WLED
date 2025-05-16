@@ -3,6 +3,11 @@
 #include <WString.h>
 #include <WiFiUdp.h>
 
+// Buffer management
+#ifndef SYSLOG_BUFFER_SIZE
+  #define SYSLOG_BUFFER_SIZE 128
+#endif
+
 // Syslog facility codes
 #define SYSLOG_KERN     	0  // kernel messages
 #define SYSLOG_USER     	1  // user-level messages
@@ -46,15 +51,11 @@ class SyslogPrinter : public Print {
     uint8_t _protocol;
     String _appName;
 
-    // Buffer management
-    #ifndef SYSLOG_BUFFER_SIZE
-      #define SYSLOG_BUFFER_SIZE 128
-    #endif
     char _buffer[SYSLOG_BUFFER_SIZE]; // Buffer for collecting characters
 
     size_t _bufferIndex;
     void flushBuffer();
-    
+
   public:
     SyslogPrinter();
 	void begin(const char* host, uint16_t port,
@@ -62,11 +63,11 @@ class SyslogPrinter : public Print {
                uint8_t severity = SYSLOG_DEBUG,
                uint8_t protocol = SYSLOG_PROTO_BSD);
     void setAppName(const String &appName);
-    
+
     // Print interface implementation
     virtual size_t write(uint8_t c);
     virtual size_t write(const uint8_t *buf, size_t size);
-    
+
     // Severity override for specific messages
     size_t write(const uint8_t *buf, size_t size, uint8_t severity);
 
