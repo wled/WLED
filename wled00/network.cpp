@@ -363,8 +363,7 @@ void WiFiEvent(WiFiEvent_t event)
     case ARDUINO_EVENT_WIFI_STA_CONNECTED:
       // followed by IDLE and SCAN_DONE
       DEBUG_PRINTF_P(PSTR("WiFi-E: Connected! @ %lus\n"), millis()/1000);
-      if(!wifiEnabled) WiFi.disconnect(!wifiPower);
-      else wasConnected = true;
+      wasConnected = true;
       break;
     case ARDUINO_EVENT_WIFI_STA_DISCONNECTED:
       if (wasConnected && interfacesInited) {

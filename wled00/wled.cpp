@@ -603,6 +603,13 @@ void WLED::initAP(bool resetAP)
   apActive = true;
 }
 
+void WLED::shutdownAP()
+{
+  dnsServer.stop();
+  WiFi.softAPdisconnect(true);
+  apActive = false;
+}
+
 void WLED::initConnection()
 {
   DEBUG_PRINTF_P(PSTR("initConnection() called @ %lus.\n"), millis()/1000);
@@ -642,7 +649,7 @@ void WLED::initConnection()
       initAP();
     } else {
       DEBUG_PRINTLN(F("Access point disabled (init)."));
-      WiFi.softAPdisconnect(true);
+      shutdownAP();
       WiFi.mode(WIFI_STA);
     }
   }
@@ -825,9 +832,7 @@ void WLED::handleConnection()
     if (apActive && apBehavior == AP_BEHAVIOR_TEMPORARY && now > WLED_AP_TIMEOUT && stac == 0) { // disconnect AP after 5min if no clients connected
       // if AP was enabled more than 10min after boot or if client was connected more than 10min after boot do not disconnect AP mode
       if (now < 2*WLED_AP_TIMEOUT) {
-        dnsServer.stop();
-        WiFi.softAPdisconnect(true);
-        apActive = false;
+        shutdownAP();
         DEBUG_PRINTF_P(PSTR("Temporary AP disabled (@ %lus).\n"), nowS);
       }
     }
@@ -847,9 +852,7 @@ void WLED::handleConnection()
 
     // shut down AP
     if (apBehavior != AP_BEHAVIOR_ALWAYS && apActive) {
-      dnsServer.stop();
-      WiFi.softAPdisconnect(true);
-      apActive = false;
+      shutdownAP();
       DEBUG_PRINTLN(F("Access point disabled (connected)."));
     }
   }
