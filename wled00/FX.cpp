@@ -9540,10 +9540,10 @@ uint16_t mode_particleSparkler(void) {
     PartSys->sources[i].var = 0; // sparks stationary
     PartSys->sources[i].minLife = 150 + SEGMENT.intensity;
     PartSys->sources[i].maxLife = 250 + (SEGMENT.intensity << 1);
-    uint32_t speed = SEGMENT.speed >> 1;
+    int32_t speed = SEGMENT.speed >> 1;
     if (SEGMENT.check1) // sparks move (slide option)
       PartSys->sources[i].var = SEGMENT.intensity >> 3;
-    PartSys->sources[i].source.vx = speed; // update speed, do not change direction
+    PartSys->sources[i].source.vx = PartSys->sources[i].source.vx > 0 ? speed : -speed; // update speed, do not change direction
     PartSys->sources[i].source.ttl = 400; // replenish its life (setting it perpetual uses more code)
     PartSys->sources[i].sat = SEGMENT.custom1; // color saturation
     PartSys->sources[i].size = SEGMENT.check3 ? 120 : 0;
