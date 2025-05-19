@@ -7,7 +7,9 @@
 #include "soc/soc.h"
 #include "soc/rtc_cntl_reg.h"
 #endif
-
+#ifdef USERMOD_BLE
+#include "BLE.h"
+#endif
 extern "C" void usePWMFixedNMI();
 
 /*
@@ -257,6 +259,7 @@ void WLED::loop()
       wifiStateChangedTime = millis();
     }
     lastWifiState = WiFi.status();
+    DEBUG_PRINTF_P(PSTR("WiFi enabled: %d\n"), wifiEnabled);
     DEBUG_PRINTF_P(PSTR("State time: %lu\n"),        wifiStateChangedTime);
     DEBUG_PRINTF_P(PSTR("NTP last sync: %lu\n"),     ntpLastSyncTime);
     DEBUG_PRINTF_P(PSTR("Client IP: %u.%u.%u.%u\n"), Network.localIP()[0], Network.localIP()[1], Network.localIP()[2], Network.localIP()[3]);
@@ -266,6 +269,15 @@ void WLED::loop()
       DEBUG_PRINTF_P(PSTR("UM time[ms]: %u/%lu\n"),   avgUsermodMillis/loops, maxUsermodMillis);
       DEBUG_PRINTF_P(PSTR("Strip time[ms]:%u/%lu\n"), avgStripMillis/loops,   maxStripMillis);
     }
+    #ifdef USERMOD_BLE
+    BLEUsermod* ble = (BLEUsermod*)UsermodManager::lookup(USERMOD_ID_BLE);
+    DEBUG_PRINTF_P(PSTR("BLE enabled: %d\n"), ble->isEnabled());
+    if(ble->isEnabled())
+    {
+      DEBUG_PRINTF_P(PSTR("BLE advertising started: %d\n"), ble->isAdvertising());
+    }
+    #endif
+
     strip.printSize();
     server.printStatus(DEBUGOUT);
     loops = 0;
@@ -311,6 +323,7 @@ void WLED::disableWatchdog() {
 
 void WLED::setup()
 {
+  // wifiEnabled =  false;
   #if defined(ARDUINO_ARCH_ESP32) && defined(WLED_DISABLE_BROWNOUT_DET)
   WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 0); //disable brownout detection
   #endif
@@ -443,13 +456,15 @@ void WLED::setup()
   UsermodManager::setup();
   DEBUG_PRINTF_P(PSTR("heap %u\n"), ESP.getFreeHeap());
 
-  if (strcmp(multiWiFi[0].clientSSID, DEFAULT_CLIENT_SSID) == 0)
-    showWelcomePage = true;
-  WiFi.persistent(false);
-  WiFi.onEvent(WiFiEvent);
-  WiFi.mode(WIFI_STA); // enable scanning
-  findWiFi(true);      // start scanning for available WiFi-s
-
+  // if(wifiEnabled) {
+    DEBUG_PRINTLN(F("is this called???????????????????????????????????????????????????"));
+    if (strcmp(multiWiFi[0].clientSSID, DEFAULT_CLIENT_SSID) == 0)
+      showWelcomePage = true;
+    WiFi.persistent(false);
+    WiFi.onEvent(WiFiEvent);
+    WiFi.mode(WIFI_STA); // enable scanning
+    findWiFi(true);      // start scanning for available WiFi-s
+  // }
   // all GPIOs are allocated at this point
   serialCanRX = !PinManager::isPinAllocated(hardwareRX); // Serial RX pin (GPIO 3 on ESP32 and ESP8266)
   serialCanTX = !PinManager::isPinAllocated(hardwareTX) || PinManager::getPinOwner(hardwareTX) == PinOwner::DebugOut; // Serial TX pin (GPIO 1 on ESP32 and ESP8266)

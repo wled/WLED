@@ -323,7 +323,7 @@ void handleButton()
           } else {
             #ifdef USERMOD_BLE
             BLEUsermod* ble = (BLEUsermod*)UsermodManager::lookup(USERMOD_ID_BLE);
-            if(ble) ble->disableBLE();
+            if(ble) ble->stop();
             #endif
             WLED::instance().initAP(true);
           }
