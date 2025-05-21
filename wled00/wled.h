@@ -585,7 +585,11 @@ WLED_GLOBAL bool otaLock        _INIT(true);     // prevents OTA firmware update
 WLED_GLOBAL bool otaLock        _INIT(false);     // prevents OTA firmware updates without password. ALWAYS enable if system exposed to any public networks
 #endif
 WLED_GLOBAL bool wifiLock       _INIT(false);     // prevents access to WiFi settings when OTA lock is enabled
+#ifndef WLED_DISABLE_OTA
 WLED_GLOBAL bool aOtaEnabled    _INIT(true);      // ArduinoOTA allows easy updates directly from the IDE. Careful, it does not auto-disable when OTA lock is on
+#else
+WLED_GLOBAL bool aOtaEnabled    _INIT(false);     // ArduinoOTA allows easy updates directly from the IDE. Careful, it does not auto-disable when OTA lock is on
+#endif
 WLED_GLOBAL char settingsPIN[5] _INIT(WLED_PIN);  // PIN for settings pages
 WLED_GLOBAL bool correctPIN     _INIT(!strlen(settingsPIN));
 WLED_GLOBAL unsigned long lastEditTime _INIT(0);

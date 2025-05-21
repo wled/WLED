@@ -606,7 +606,9 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
     {
       otaLock = request->hasArg(F("NO"));
       wifiLock = request->hasArg(F("OW"));
+      #ifndef WLED_DISABLE_OTA
       aOtaEnabled = request->hasArg(F("AO"));
+      #endif
       //createEditHandler(correctPIN && !otaLock);
     }
   }
