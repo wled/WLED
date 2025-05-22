@@ -27,7 +27,7 @@ static void parseMQTTBriPayload(char* payload)
 static void onMqttConnect(bool sessionPresent)
 {
   //(re)subscribe to required topics
-  char subuf[MQTT_MAX_TOPIC_LEN + 6];
+  char subuf[MQTT_MAX_TOPIC_LEN + 9];
 
   if (mqttDeviceTopic[0] != 0) {
     strlcpy(subuf, mqttDeviceTopic, MQTT_MAX_TOPIC_LEN + 1);
@@ -52,6 +52,13 @@ static void onMqttConnect(bool sessionPresent)
   UsermodManager::onMqttConnect(sessionPresent);
 
   DEBUG_PRINTLN(F("MQTT ready"));
+
+#ifndef USERMOD_SMARTNEST
+  strlcpy(subuf, mqttDeviceTopic, MQTT_MAX_TOPIC_LEN + 1);
+  strcat_P(subuf, PSTR("/status"));
+  mqtt->publish(subuf, 0, true, "online"); // retain message for a LWT
+#endif
+
   publishMqtt();
 }
 
@@ -173,10 +180,6 @@ void publishMqtt()
   strlcpy(subuf, mqttDeviceTopic, MQTT_MAX_TOPIC_LEN + 1);
   strcat_P(subuf, PSTR("/c"));
   mqtt->publish(subuf, 0, retainMqttMsg, s);         // optionally retain message (#2263)
-
-  strlcpy(subuf, mqttDeviceTopic, MQTT_MAX_TOPIC_LEN + 1);
-  strcat_P(subuf, PSTR("/status"));
-  mqtt->publish(subuf, 0, true, "online");          // retain message for a LWT
 
   // TODO: use a DynamicBufferList.  Requires a list-read-capable MQTT client API.
   DynamicBuffer buf(1024);
