@@ -738,9 +738,6 @@ void WLED::initInterfaces()
   e131.begin(e131Multicast, e131Port, e131Universe, E131_MAX_UNIVERSE_COUNT);
   ddp.begin(false, DDP_DEFAULT_PORT);
   reconnectHue();
-#ifndef WLED_DISABLE_MQTT
-  initMqtt();
-#endif
   interfacesInited = true;
   wasConnected = true;
 }
