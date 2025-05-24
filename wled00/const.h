@@ -176,7 +176,7 @@
 #define USERMOD_ID_SEVEN_SEGMENT_DISPLAY 21     //Usermod "usermod_v2_seven_segment_display.h"
 #define USERMOD_RGB_ROTARY_ENCODER       22     //Usermod "rgb-rotary-encoder.h"
 #define USERMOD_ID_QUINLED_AN_PENTA      23     //Usermod "quinled-an-penta.h"
-#define USERMOD_ID_SSDR                  24     //Usermod "usermod_v2_seven_segment_display_reloaded.h"
+#define USERMOD_ID_SSDR                  24     //Usermod "seven_segment_display_reloaded_v2.cpp"
 #define USERMOD_ID_CRONIXIE              25     //Usermod "usermod_cronixie.h"
 #define USERMOD_ID_WIZLIGHTS             26     //Usermod "wizlights.h"
 #define USERMOD_ID_WORDCLOCK             27     //Usermod "usermod_v2_word_clock.h"
