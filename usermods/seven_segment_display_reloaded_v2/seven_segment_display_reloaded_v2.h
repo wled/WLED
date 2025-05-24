@@ -24,100 +24,100 @@ class UsermodSSDR : public Usermod {
     // Configurable settings for the SSDR Usermod
     // Enabled usermod
     #ifndef umSSDR_ENABLED
-		#define umSSDR_ENABLED false
+      #define umSSDR_ENABLED false
     #endif
 
     #ifndef umSSDR_ENABLE_AUTO_BRIGHTNESS
-		#define umSSDR_ENABLE_AUTO_BRIGHTNESS false
+      #define umSSDR_ENABLE_AUTO_BRIGHTNESS false
     #endif
 
     #ifndef umSSDR_BRIGHTNESS_MIN
-		#define umSSDR_BRIGHTNESS_MIN 0
+      #define umSSDR_BRIGHTNESS_MIN 0
     #endif
 
     #ifndef umSSDR_BRIGHTNESS_MAX
-		#define umSSDR_BRIGHTNESS_MAX 255
+      #define umSSDR_BRIGHTNESS_MAX 255
     #endif
 
     #ifndef umSSDR_INVERT_AUTO_BRIGHTNESS
-		#define umSSDR_INVERT_AUTO_BRIGHTNESS false
+      #define umSSDR_INVERT_AUTO_BRIGHTNESS false
     #endif
 
     #ifndef umSSDR_LUX_MIN
-		#define umSSDR_LUX_MIN 0
+      #define umSSDR_LUX_MIN 0
     #endif
 
     #ifndef umSSDR_LUX_MAX
-		#define umSSDR_LUX_MAX 1000
+      #define umSSDR_LUX_MAX 1000
     #endif
 
     #ifndef umSSDR_INVERTED
-		#define umSSDR_INVERTED false
+      #define umSSDR_INVERTED false
     #endif
 
     #ifndef umSSDR_COLONBLINK
-		#define umSSDR_COLONBLINK true
+      #define umSSDR_COLONBLINK true
     #endif
 
     #ifndef umSSDR_LEADING_ZERO
-		#define umSSDR_LEADING_ZERO false
+      #define umSSDR_LEADING_ZERO false
     #endif
 
-	// Display mask for physical layout
-	/*//  H - 00-23 hours
-	//  h - 01-12 hours
-	//  k - 01-24 hours
-	//  m - 00-59 minutes
-	//  s - 00-59 seconds
-	//  d - 01-31 day of month
-	//  M - 01-12 month
-	//  y - 21 last two positions of year
-	//  Y - 2021 year
-	//  L - Light LED
-	//  This option defines a separate LED (or set of LEDs) that can be controlled independently 
-	//  from the other clock display LEDs. It can be switched on or off to provide additional 
-	//  lighting for the display or serve as an ambient light source, without affecting the 
-	//  clock's visual display of time and date.
-	//  : for a colon
-	*/
+    // Display mask for physical layout
+    /*//  H - 00-23 hours
+    //  h - 01-12 hours
+    //  k - 01-24 hours
+    //  m - 00-59 minutes
+    //  s - 00-59 seconds
+    //  d - 01-31 day of month
+    //  M - 01-12 month
+    //  y - 21 last two positions of year
+    //  Y - 2021 year
+    //  L - Light LED
+    //  This option defines a separate LED (or set of LEDs) that can be controlled independently 
+    //  from the other clock display LEDs. It can be switched on or off to provide additional 
+    //  lighting for the display or serve as an ambient light source, without affecting the 
+    //  clock's visual display of time and date.
+    //  : for a colon
+    */
 
-	#ifndef umSSDR_DISPLAY_MASK
-		#define umSSDR_DISPLAY_MASK "H:m"
-	#endif
+    #ifndef umSSDR_DISPLAY_MASK
+      #define umSSDR_DISPLAY_MASK "H:m"
+    #endif
 
-	#ifndef umSSDR_HOURS
-		#define umSSDR_HOURS ""
-	#endif
+    #ifndef umSSDR_HOURS
+      #define umSSDR_HOURS ""
+    #endif
 
-	#ifndef umSSDR_MINUTES
-		#define umSSDR_MINUTES ""
-	#endif
+    #ifndef umSSDR_MINUTES
+      #define umSSDR_MINUTES ""
+    #endif
 
-	#ifndef umSSDR_SECONDS
-		#define umSSDR_SECONDS ""
-	#endif
+    #ifndef umSSDR_SECONDS
+      #define umSSDR_SECONDS ""
+    #endif
 
-	#ifndef umSSDR_COLONS
-		#define umSSDR_COLONS ""
-	#endif
+    #ifndef umSSDR_COLONS
+      #define umSSDR_COLONS ""
+    #endif
 
-	#ifndef umSSDR_LIGHT
-		#define umSSDR_LIGHT ""
-	#endif
+    #ifndef umSSDR_LIGHT
+      #define umSSDR_LIGHT ""
+    #endif
 
-	#ifndef umSSDR_DAYS
-		#define umSSDR_DAYS ""
-	#endif
+    #ifndef umSSDR_DAYS
+      #define umSSDR_DAYS ""
+    #endif
 
-	#ifndef umSSDR_MONTHS
-		#define umSSDR_MONTHS ""
-	#endif
+    #ifndef umSSDR_MONTHS
+      #define umSSDR_MONTHS ""
+    #endif
 
-	#ifndef umSSDR_YEARS
-		#define umSSDR_YEARS ""
-	#endif
+    #ifndef umSSDR_YEARS
+      #define umSSDR_YEARS ""
+    #endif
 
-	#ifndef umSSDR_NUMBERS
+    #ifndef umSSDR_NUMBERS
 		/* Segment order, seen from the front:
 		  <  A  >
 		/\       /\
@@ -129,7 +129,7 @@ class UsermodSSDR : public Usermod {
 		\/       \/
 		  <  D  >
 		*/
-		uint8_t umSSDRNumbers[11][7] = {
+      uint8_t umSSDRNumbers[11][7] = {
 			//  A    B    C    D    E    F    G
 			{   1,   1,   1,   1,   1,   1,   0 },  // 0
 			{   0,   1,   1,   0,   0,   0,   0 },  // 1
@@ -142,30 +142,30 @@ class UsermodSSDR : public Usermod {
 			{   1,   1,   1,   1,   1,   1,   1 },  // 8
 			{   1,   1,   1,   1,   0,   1,   1 },  // 9
 			{   0,   0,   0,   0,   0,   0,   0 }   // blank
-		};
-	#else
-		uint8_t umSSDRNumbers[11][10] = umSSDR_NUMBERS;
-	#endif
+      };
+    #else
+      uint8_t umSSDRNumbers[11][10] = umSSDR_NUMBERS;
+    #endif
 
-	bool umSSDRDisplayTime = umSSDR_ENABLED;
-	bool umSSDREnableLDR = umSSDR_ENABLE_AUTO_BRIGHTNESS;
-	uint16_t umSSDRBrightnessMin = umSSDR_BRIGHTNESS_MIN;
-	uint16_t umSSDRBrightnessMax = umSSDR_BRIGHTNESS_MAX;
-	bool umSSDRInvertAutoBrightness = umSSDR_INVERT_AUTO_BRIGHTNESS;
-	uint16_t umSSDRLuxMin = umSSDR_LUX_MIN;
-	uint16_t umSSDRLuxMax = umSSDR_LUX_MAX;
-	bool umSSDRInverted = umSSDR_INVERTED;
-	bool umSSDRColonblink = umSSDR_COLONBLINK;
-	bool umSSDRLeadingZero = umSSDR_LEADING_ZERO;
-	String umSSDRDisplayMask = umSSDR_DISPLAY_MASK;
-	String umSSDRHours = umSSDR_HOURS;
-	String umSSDRMinutes = umSSDR_MINUTES;
-	String umSSDRSeconds = umSSDR_SECONDS;
-	String umSSDRColons = umSSDR_COLONS;
-	String umSSDRLight = umSSDR_LIGHT;
-	String umSSDRDays = umSSDR_DAYS;
-	String umSSDRMonths = umSSDR_MONTHS;
-	String umSSDRYears = umSSDR_YEARS;
+    bool umSSDRDisplayTime = umSSDR_ENABLED;
+    bool umSSDREnableLDR = umSSDR_ENABLE_AUTO_BRIGHTNESS;
+    uint16_t umSSDRBrightnessMin = umSSDR_BRIGHTNESS_MIN;
+    uint16_t umSSDRBrightnessMax = umSSDR_BRIGHTNESS_MAX;
+    bool umSSDRInvertAutoBrightness = umSSDR_INVERT_AUTO_BRIGHTNESS;
+    uint16_t umSSDRLuxMin = umSSDR_LUX_MIN;
+    uint16_t umSSDRLuxMax = umSSDR_LUX_MAX;
+    bool umSSDRInverted = umSSDR_INVERTED;
+    bool umSSDRColonblink = umSSDR_COLONBLINK;
+    bool umSSDRLeadingZero = umSSDR_LEADING_ZERO;
+    String umSSDRDisplayMask = umSSDR_DISPLAY_MASK;
+    String umSSDRHours = umSSDR_HOURS;
+    String umSSDRMinutes = umSSDR_MINUTES;
+    String umSSDRSeconds = umSSDR_SECONDS;
+    String umSSDRColons = umSSDR_COLONS;
+    String umSSDRLight = umSSDR_LIGHT;
+    String umSSDRDays = umSSDR_DAYS;
+    String umSSDRMonths = umSSDR_MONTHS;
+    String umSSDRYears = umSSDR_YEARS;
     
     bool* umSSDRMask = nullptr;
     bool externalLedOutputDisabled = false;
