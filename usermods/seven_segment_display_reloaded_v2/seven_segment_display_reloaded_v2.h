@@ -180,7 +180,23 @@ class UsermodSSDR : public Usermod {
     int _checkForNumber(int count, int index, String *map);
     void _publishMQTTint_P(const char *subTopic, int value);
     void _publishMQTTstr_P(const char *subTopic, String Value);
-    bool _cmpIntSetting_P(char *topic, char *payload, const char *setting, void *value);
+
+	template<typename T>
+	bool _cmpIntSetting_P(char *topic, char *payload, const char *setting, T *value) {
+	  char settingBuffer[30];
+	  strlcpy(settingBuffer, setting, sizeof(settingBuffer));
+
+	  _logUsermodSSDR("Checking topic='%s' payload='%s' against setting='%s'", topic, payload, settingBuffer);
+
+	  if (strcmp(topic, settingBuffer) != 0) return false;
+
+	  T oldValue = *value;
+	  *value = static_cast<T>(strtol(payload, nullptr, 10));
+	  _publishMQTTint_P(setting, static_cast<int>(*value));
+	  _logUsermodSSDR("Setting '%s' updated from %d to %d", setting, static_cast<int>(oldValue), static_cast<int>(*value));
+	  return true;
+	}
+
     bool _handleSetting(char *topic, char *payload);
     void _updateMQTT();
     void _addJSONObject(JsonObject& root);

@@ -407,6 +407,10 @@
 
         if (lux >= 0) { // Ensure we got a valid lux value
           uint16_t brightness;
+
+          // Constrain lux values within defined range
+          float constrainedLux = constrain(lux, umSSDRLuxMin, umSSDRLuxMax);
+
           // float linear interpolation to preserve full 0–255 resolution
           float spanLux   = umSSDRLuxMax   - umSSDRLuxMin;
           float spanBright = umSSDRBrightnessMax - umSSDRBrightnessMin;
@@ -417,7 +421,7 @@
           } else {
             brightness = static_cast<uint16_t>((1.0f - ratio) * spanBright + umSSDRBrightnessMin);
           }
-          _logUsermodSSDR("Lux=%.2f?brightness=%d",lux,br);
+          _logUsermodSSDR("Lux=%.2f brightness=%d", lux, brightness)
 
           if (bri != brightness) {
             _logUsermodSSDR("Adjusting brightness based on lux value: %.2f lx, new brightness: %d", lux, brightness);
