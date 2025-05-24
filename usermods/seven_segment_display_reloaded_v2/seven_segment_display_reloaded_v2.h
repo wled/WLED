@@ -181,8 +181,8 @@ class UsermodSSDR : public Usermod {
     void _publishMQTTint_P(const char *subTopic, int value);
     void _publishMQTTstr_P(const char *subTopic, String Value);
 
-	template<typename T>
-	bool _cmpIntSetting_P(char *topic, char *payload, const char *setting, T *value) {
+    template<typename T>
+    bool _cmpIntSetting_P(char *topic, char *payload, const char *setting, T *value) {
 	  char settingBuffer[30];
 	  strlcpy(settingBuffer, setting, sizeof(settingBuffer));
 
@@ -195,7 +195,7 @@ class UsermodSSDR : public Usermod {
 	  _publishMQTTint_P(setting, static_cast<int>(*value));
 	  _logUsermodSSDR("Setting '%s' updated from %d to %d", setting, static_cast<int>(oldValue), static_cast<int>(*value));
 	  return true;
-	}
+    }
 
     bool _handleSetting(char *topic, char *payload);
     void _updateMQTT();
