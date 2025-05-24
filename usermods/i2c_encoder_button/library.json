@@ -1,0 +1,9 @@
+{
+  "name": "i2c_encoder_button",
+  "version": "1.0.0",
+  "description": "WLED usermod for DUPPA I2C Encoder rotary encoder.",
+  "dependencies": {
+    "Wire": "Wire",
+    "ArduinoDuPPaLib": "https://github.com/Fattoresaimon/ArduinoDuPPaLib#v1.4.1"
+  }
+}
