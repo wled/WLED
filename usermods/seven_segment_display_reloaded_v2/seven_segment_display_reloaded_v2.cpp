@@ -421,7 +421,7 @@
           } else {
             brightness = static_cast<uint16_t>((1.0f - ratio) * spanBright + umSSDRBrightnessMin);
           }
-          _logUsermodSSDR("Lux=%.2f brightness=%d", lux, brightness)
+          _logUsermodSSDR("Lux=%.2f brightness=%d", lux, brightness);
 
           if (bri != brightness) {
             _logUsermodSSDR("Adjusting brightness based on lux value: %.2f lx, new brightness: %d", lux, brightness);

@@ -21,47 +21,47 @@ class UsermodSSDR : public Usermod {
     unsigned long umSSDRRefreshTime = 3000;
     uint16_t umSSDRLength = 0;
     
-	// Configurable settings for the SSDR Usermod
-	// Enabled usermod
-	#ifndef umSSDR_ENABLED
-	  #define umSSDR_ENABLED false
-	#endif
+    // Configurable settings for the SSDR Usermod
+    // Enabled usermod
+    #ifndef umSSDR_ENABLED
+		#define umSSDR_ENABLED false
+    #endif
 
-	#ifndef umSSDR_ENABLE_AUTO_BRIGHTNESS
-	  #define umSSDR_ENABLE_AUTO_BRIGHTNESS false
-	#endif
+    #ifndef umSSDR_ENABLE_AUTO_BRIGHTNESS
+		#define umSSDR_ENABLE_AUTO_BRIGHTNESS false
+    #endif
 
-	#ifndef umSSDR_BRIGHTNESS_MIN
-	  #define umSSDR_BRIGHTNESS_MIN 0
-	#endif
+    #ifndef umSSDR_BRIGHTNESS_MIN
+		#define umSSDR_BRIGHTNESS_MIN 0
+    #endif
 
-	#ifndef umSSDR_BRIGHTNESS_MAX
-	  #define umSSDR_BRIGHTNESS_MAX 255
-	#endif
+    #ifndef umSSDR_BRIGHTNESS_MAX
+		#define umSSDR_BRIGHTNESS_MAX 255
+    #endif
 
-	#ifndef umSSDR_INVERT_AUTO_BRIGHTNESS
-	  #define umSSDR_INVERT_AUTO_BRIGHTNESS false
-	#endif
+    #ifndef umSSDR_INVERT_AUTO_BRIGHTNESS
+		#define umSSDR_INVERT_AUTO_BRIGHTNESS false
+    #endif
 
-	#ifndef umSSDR_LUX_MIN
-	  #define umSSDR_LUX_MIN 0
-	#endif
+    #ifndef umSSDR_LUX_MIN
+		#define umSSDR_LUX_MIN 0
+    #endif
 
-	#ifndef umSSDR_LUX_MAX
-	  #define umSSDR_LUX_MAX 1000
-	#endif
+    #ifndef umSSDR_LUX_MAX
+		#define umSSDR_LUX_MAX 1000
+    #endif
 
-	#ifndef umSSDR_INVERTED
-	  #define umSSDR_INVERTED false
-	#endif
+    #ifndef umSSDR_INVERTED
+		#define umSSDR_INVERTED false
+    #endif
 
-	#ifndef umSSDR_COLONBLINK
-	  #define umSSDR_COLONBLINK true
-	#endif
+    #ifndef umSSDR_COLONBLINK
+		#define umSSDR_COLONBLINK true
+    #endif
 
-	#ifndef umSSDR_LEADING_ZERO
-	  #define umSSDR_LEADING_ZERO false
-	#endif
+    #ifndef umSSDR_LEADING_ZERO
+		#define umSSDR_LEADING_ZERO false
+    #endif
 
 	// Display mask for physical layout
 	/*//  H - 00-23 hours
@@ -82,43 +82,43 @@ class UsermodSSDR : public Usermod {
 	*/
 
 	#ifndef umSSDR_DISPLAY_MASK
-	  #define umSSDR_DISPLAY_MASK "H:m"
+		#define umSSDR_DISPLAY_MASK "H:m"
 	#endif
 
 	#ifndef umSSDR_HOURS
-	  #define umSSDR_HOURS ""
+		#define umSSDR_HOURS ""
 	#endif
 
 	#ifndef umSSDR_MINUTES
-	  #define umSSDR_MINUTES ""
+		#define umSSDR_MINUTES ""
 	#endif
 
 	#ifndef umSSDR_SECONDS
-	  #define umSSDR_SECONDS ""
+		#define umSSDR_SECONDS ""
 	#endif
 
 	#ifndef umSSDR_COLONS
-	  #define umSSDR_COLONS ""
+		#define umSSDR_COLONS ""
 	#endif
 
 	#ifndef umSSDR_LIGHT
-	  #define umSSDR_LIGHT ""
+		#define umSSDR_LIGHT ""
 	#endif
 
 	#ifndef umSSDR_DAYS
-	  #define umSSDR_DAYS ""
+		#define umSSDR_DAYS ""
 	#endif
 
 	#ifndef umSSDR_MONTHS
-	  #define umSSDR_MONTHS ""
+		#define umSSDR_MONTHS ""
 	#endif
 
 	#ifndef umSSDR_YEARS
-	  #define umSSDR_YEARS ""
+		#define umSSDR_YEARS ""
 	#endif
 
 	#ifndef umSSDR_NUMBERS
-	  /* Segment order, seen from the front:
+		/* Segment order, seen from the front:
 		  <  A  >
 		/\       /\
 		F        B
@@ -128,23 +128,23 @@ class UsermodSSDR : public Usermod {
 		E        C
 		\/       \/
 		  <  D  >
-	  */
-	  uint8_t umSSDRNumbers[11][7] = {
-		//  A    B    C    D    E    F    G
-		{   1,   1,   1,   1,   1,   1,   0 },  // 0
-		{   0,   1,   1,   0,   0,   0,   0 },  // 1
-		{   1,   1,   0,   1,   1,   0,   1 },  // 2
-		{   1,   1,   1,   1,   0,   0,   1 },  // 3
-		{   0,   1,   1,   0,   0,   1,   1 },  // 4
-		{   1,   0,   1,   1,   0,   1,   1 },  // 5
-		{   1,   0,   1,   1,   1,   1,   1 },  // 6
-		{   1,   1,   1,   0,   0,   0,   0 },  // 7
-		{   1,   1,   1,   1,   1,   1,   1 },  // 8
-		{   1,   1,   1,   1,   0,   1,   1 },  // 9
-		{   0,   0,   0,   0,   0,   0,   0 }   // blank
-	};
+		*/
+		uint8_t umSSDRNumbers[11][7] = {
+			//  A    B    C    D    E    F    G
+			{   1,   1,   1,   1,   1,   1,   0 },  // 0
+			{   0,   1,   1,   0,   0,   0,   0 },  // 1
+			{   1,   1,   0,   1,   1,   0,   1 },  // 2
+			{   1,   1,   1,   1,   0,   0,   1 },  // 3
+			{   0,   1,   1,   0,   0,   1,   1 },  // 4
+			{   1,   0,   1,   1,   0,   1,   1 },  // 5
+			{   1,   0,   1,   1,   1,   1,   1 },  // 6
+			{   1,   1,   1,   0,   0,   0,   0 },  // 7
+			{   1,   1,   1,   1,   1,   1,   1 },  // 8
+			{   1,   1,   1,   1,   0,   1,   1 },  // 9
+			{   0,   0,   0,   0,   0,   0,   0 }   // blank
+		};
 	#else
-	  uint8_t umSSDRNumbers[11][10] = umSSDR_NUMBERS;
+		uint8_t umSSDRNumbers[11][10] = umSSDR_NUMBERS;
 	#endif
 
 	bool umSSDRDisplayTime = umSSDR_ENABLED;
@@ -162,10 +162,10 @@ class UsermodSSDR : public Usermod {
 	String umSSDRMinutes = umSSDR_MINUTES;
 	String umSSDRSeconds = umSSDR_SECONDS;
 	String umSSDRColons = umSSDR_COLONS;
-    String umSSDRLight = umSSDR_LIGHT;
-    String umSSDRDays = umSSDR_DAYS;
-    String umSSDRMonths = umSSDR_MONTHS;
-    String umSSDRYears = umSSDR_YEARS;
+	String umSSDRLight = umSSDR_LIGHT;
+	String umSSDRDays = umSSDR_DAYS;
+	String umSSDRMonths = umSSDR_MONTHS;
+	String umSSDRYears = umSSDR_YEARS;
     
     bool* umSSDRMask = nullptr;
     bool externalLedOutputDisabled = false;
