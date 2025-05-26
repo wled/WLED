@@ -1,6 +1,5 @@
 Import('env')
 
-
 usermods = env.GetProjectOption("custom_usermods","").split()
 # Check for partner usermods
 if "SN_Photoresistor" in usermods:
