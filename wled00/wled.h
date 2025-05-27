@@ -64,6 +64,9 @@
 //This is generally a terrible idea, but improves boot success on boards with a 3.3v regulator + cap setup that can't provide 400mA peaks
 //#define WLED_DISABLE_BROWNOUT_DET
 
+#include <cstddef>
+#include <vector>
+
 // Library inclusions.
 #include <Arduino.h>
 #ifdef ESP8266
@@ -607,6 +610,8 @@ WLED_GLOBAL bool wasConnected _INIT(false);
 
 // color
 WLED_GLOBAL byte lastRandomIndex _INIT(0);        // used to save last random color so the new one is not the same
+WLED_GLOBAL std::vector<CRGBPalette16> customPalettes;  // custom palettes
+WLED_GLOBAL uint8_t paletteBlend _INIT(0);        // determines blending and wrapping of palette: 0: blend, wrap if moving (SEGMENT.speed>0); 1: blend, always wrap; 2: blend, never wrap; 3: don't blend or wrap
 
 // transitions
 WLED_GLOBAL uint8_t       blendingStyle            _INIT(0);      // effect blending/transitionig style
@@ -617,6 +622,7 @@ WLED_GLOBAL unsigned long transitionStartTime;
 WLED_GLOBAL bool          jsonTransitionOnce       _INIT(false);  // flag to override transitionDelay (playlist, JSON API: "live" & "seg":{"i"} & "tt")
 WLED_GLOBAL uint8_t       randomPaletteChangeTime  _INIT(5);      // amount of time [s] between random palette changes (min: 1s, max: 255s)
 WLED_GLOBAL bool          useHarmonicRandomPalette _INIT(true);   // use *harmonic* random palette generation (nicer looking) or truly random
+WLED_GLOBAL bool          useRainbowWheel          _INIT(false);  // use "rainbow" color wheel instead of "spectrum" color wheel
 
 // nightlight
 WLED_GLOBAL bool nightlightActive _INIT(false);

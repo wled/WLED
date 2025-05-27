@@ -291,12 +291,11 @@ void getSettingsJS(byte subPage, Print& settingsScript)
     printSetFormValue(settingsScript,PSTR("CB"),Bus::getCCTBlend());
     printSetFormValue(settingsScript,PSTR("FR"),strip.getTargetFps());
     printSetFormValue(settingsScript,PSTR("AW"),Bus::getGlobalAWMode());
-    printSetFormCheckbox(settingsScript,PSTR("LD"),useGlobalLedBuffer);
     printSetFormCheckbox(settingsScript,PSTR("PR"),BusManager::hasParallelOutput());  // get it from bus manager not global variable
 
     unsigned sumMa = 0;
-    for (int s = 0; s < BusManager::getNumBusses(); s++) {
-      const Bus* bus = BusManager::getBus(s);
+    for (size_t s = 0; s < BusManager::getNumBusses(); s++) {
+      const Bus *bus = BusManager::getBus(s);
       if (!bus || !bus->isOk()) break; // should not happen but for safety
       int offset = s < 10 ? '0' : 'A' - 10;
       char lp[4] = "L0"; lp[2] = offset+s; lp[3] = 0; //ascii 0-9 //strip data pin
@@ -380,7 +379,8 @@ void getSettingsJS(byte subPage, Print& settingsScript)
     printSetFormValue(settingsScript,PSTR("TB"),nightlightTargetBri);
     printSetFormValue(settingsScript,PSTR("TL"),nightlightDelayMinsDefault);
     printSetFormValue(settingsScript,PSTR("TW"),nightlightMode);
-    printSetFormIndex(settingsScript,PSTR("PB"),strip.paletteBlend);
+    printSetFormIndex(settingsScript,PSTR("PB"),paletteBlend);
+    printSetFormCheckbox(settingsScript,PSTR("RW"),useRainbowWheel);
     printSetFormValue(settingsScript,PSTR("RL"),rlyPin);
     printSetFormCheckbox(settingsScript,PSTR("RM"),rlyMde);
     printSetFormCheckbox(settingsScript,PSTR("RO"),rlyOpenDrain);
@@ -670,16 +670,14 @@ void getSettingsJS(byte subPage, Print& settingsScript)
     #ifndef WLED_DISABLE_2D
     settingsScript.printf_P(PSTR("maxPanels=%d;resetPanels();"),WLED_MAX_PANELS);
     if (strip.isMatrix) {
-      if(strip.panels>0){
-        printSetFormValue(settingsScript,PSTR("PW"),strip.panel[0].width); //Set generator Width and Height to first panel size for convenience
-        printSetFormValue(settingsScript,PSTR("PH"),strip.panel[0].height);
-      }
-      printSetFormValue(settingsScript,PSTR("MPC"),strip.panels);
+      printSetFormValue(settingsScript,PSTR("PW"),strip.panel.size()>0?strip.panel[0].width:8); //Set generator Width and Height to first panel size for convenience
+      printSetFormValue(settingsScript,PSTR("PH"),strip.panel.size()>0?strip.panel[0].height:8);
+      printSetFormValue(settingsScript,PSTR("MPC"),strip.panel.size());
       // panels
-      for (unsigned i=0; i<strip.panels; i++) {
+      for (unsigned i=0; i<strip.panel.size(); i++) {
         settingsScript.printf_P(PSTR("addPanel(%d);"), i);
         char pO[8] = { '\0' };
-        snprintf_P(pO, 7, PSTR("P%d"), i);       // WLED_MAX_PANELS is 18 so pO will always only be 4 characters or less
+        snprintf_P(pO, 7, PSTR("P%d"), i);       // WLED_WLED_MAX_PANELS is less than 100 so pO will always only be 4 characters or less
         pO[7] = '\0';
         unsigned l = strlen(pO);
         // create P0B, P1B, ..., P63B, etc for other PxxX

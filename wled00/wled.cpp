@@ -529,6 +529,7 @@ void WLED::setup()
 void WLED::beginStrip()
 {
   // Initialize NeoPixel Strip and button
+  strip.setTransition(0); // temporarily prevent transitions to reduce segment copies
   strip.finalizeInit(); // busses created during deserializeConfig() if config existed
   strip.makeAutoSegments();
   strip.setBrightness(0);
@@ -556,6 +557,8 @@ void WLED::beginStrip()
   if (bootPreset > 0) {
     applyPreset(bootPreset, CALL_MODE_INIT);
   }
+
+  strip.setTransition(transitionDelayDefault);  // restore transitions
 
   // init relay pin
   if (rlyPin >= 0) {
@@ -747,7 +750,9 @@ void WLED::handleConnection()
   static bool scanDone = true;
   static byte stacO = 0;
   const unsigned long now = millis();
+  #ifdef WLED_DEBUG
   const unsigned long nowS = now/1000;
+  #endif
   const bool wifiConfigured = WLED_WIFI_CONFIGURED;
 
   // ignore connection handling if WiFi is configured and scan still running

@@ -75,8 +75,8 @@ static void onMqttMessage(char* topic, char* payload, AsyncMqttClientMessageProp
   }
 
   if (index == 0) {                       // start (1st partial packet or the only packet)
-    if (payloadStr) free(payloadStr);     // fail-safe: release buffer
-    payloadStr = static_cast<char*>(malloc(total+1)); // allocate new buffer
+    p_free(payloadStr);                   // release buffer if it exists
+    payloadStr = static_cast<char*>(p_malloc(total+1)); // allocate new buffer
   }
   if (payloadStr == nullptr) return;      // buffer not allocated
 
@@ -101,7 +101,7 @@ static void onMqttMessage(char* topic, char* payload, AsyncMqttClientMessageProp
     } else {
       // Non-Wled Topic used here. Probably a usermod subscribed to this topic.
       UsermodManager::onMqttMessage(topic, payloadStr);
-      free(payloadStr);
+      p_free(payloadStr);
       payloadStr = nullptr;
       return;
     }
@@ -131,7 +131,7 @@ static void onMqttMessage(char* topic, char* payload, AsyncMqttClientMessageProp
     // topmost topic (just wled/MAC)
     parseMQTTBriPayload(payloadStr);
   }
-  free(payloadStr);
+  p_free(payloadStr);
   payloadStr = nullptr;
 }
 
@@ -199,7 +199,8 @@ bool initMqtt()
   if (!mqttEnabled || mqttServer[0] == 0 || !WLED_CONNECTED) return false;
 
   if (mqtt == nullptr) {
-    mqtt = new AsyncMqttClient();
+    void *ptr = p_malloc(sizeof(AsyncMqttClient));
+    mqtt = new (ptr) AsyncMqttClient(); // use placement new (into PSRAM), client will never be deleted
     if (!mqtt) return false;
     mqtt->onMessage(onMqttMessage);
     mqtt->onConnect(onMqttConnect);
