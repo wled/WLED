@@ -319,8 +319,10 @@
 #define FX_MODE_CUSTOM_DIAMOND_SPIN    189
 #define FX_MODE_CUSTOM_D_DIAMOND_SPIN  190
 #define FX_MODE_CUSTOM_BEN             191
+#define FX_MODE_HERTZ_TESTING          192
+#define FX_MODE_HIGH_FREQ_TEST         193
 
-#define MODE_COUNT                     192
+#define MODE_COUNT                     194
 
 typedef enum mapping1D2D {
   M12_Pixels = 0,

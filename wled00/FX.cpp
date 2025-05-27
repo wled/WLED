@@ -7471,8 +7471,10 @@ static const char _data_FX_MODE_2DDISTORTIONWAVES[] PROGMEM = "Distortion Waves@
 
 struct Frame {
     const uint8_t *data;
-    uint16_t duration; // Duration in seconds (0 = use speed-based timing)
-    uint16_t pulseFrequency; // Flashing frequency in Hz (0 = always on)
+    uint16_t width;           // Pattern width
+    uint16_t height;          // Pattern height  
+    uint16_t baseDuration;    // Base duration in ms (modified by speed)
+    uint16_t basePulseFreq;   // Base pulse frequency in Hz (modified by intensity)
 };
 
 // Define frames as arrays of 0s and 1s (binary map)
@@ -7510,48 +7512,162 @@ const uint8_t frame2[] = {
 };
 
 uint16_t mode_custom_shapes(const Frame frames[], uint16_t frameCount) {
-    // static bool strobeOn = true;
-    static uint32_t lastFrameTime = 0;
-    static uint8_t currentFrame = 0;
-    static uint32_t lastStrobeTime = 0; // Tracks strobe toggling
-    static bool strobeState = true;     // Tracks LED flashing state
-
-    uint32_t currentTime = millis();
-
-    // Retrieve current frame settings
+    // Basic input validation
+    if (!frames || frameCount == 0) return FRAMETIME;
+    
+    // Initialize on first call only
+    if (SEGENV.call == 0) {
+        SEGENV.aux0 = millis();
+        SEGENV.aux1 = 0;
+    }
+    
+    // Safe frame index
+    uint16_t currentFrame = SEGENV.aux1;
+    if (currentFrame >= frameCount) {
+        currentFrame = 0;
+        SEGENV.aux1 = 0;
+    }
+    
+    // Get frame data
     const Frame &frame = frames[currentFrame];
-    uint32_t frameTime = (frame.duration > 0) ? frame.duration * 1000 : map(SEGMENT.speed, 0, 255, 1000, 100);
-
-    // Update frame index if needed
-    if (currentTime - lastFrameTime > frameTime) {
-        lastFrameTime = currentTime;
-        currentFrame = (currentFrame + 1) % frameCount;
+    if (!frame.data || frame.width == 0 || frame.height == 0) {
+        return FRAMETIME;
     }
-
-    // Determine strobe behavior for the current frame
-    uint32_t cycleTime = (frame.pulseFrequency > 0) ? (1000 / frame.pulseFrequency) : 0;
-
-    if (frame.pulseFrequency > 0 && (currentTime - lastStrobeTime > cycleTime / 2)) {
-        lastStrobeTime = currentTime;
-        strobeState = !strobeState; // Toggle strobe state
-    } else if (frame.pulseFrequency == 0) {
-        strobeState = true; // Always on
+    
+    // Speed controls frame switching (use frame.baseDuration as base timing)
+    uint32_t frameTime = map(SEGMENT.speed, 0, 255, 
+                            frame.baseDuration * 2, 
+                            frame.baseDuration / 4);
+    if (frameTime < 100) frameTime = 100; // Minimum 100ms
+    
+    // Update frame timing
+    uint32_t now = millis();
+    if (now - SEGENV.aux0 > frameTime) {
+        SEGENV.aux0 = now;
+        SEGENV.aux1 = (currentFrame + 1) % frameCount;
     }
-
-    // Get the current frame data
-    const uint8_t *currentColors = frame.data;
-
-    // Apply the frame and strobe effect
-    for (uint16_t i = 0; i < SEGLEN; i++) {
-        uint8_t color = currentColors[i];
-        if (!strobeState || color == 0) {
-            SEGMENT.setPixelColor(i, 0); // Turn off LED
+    
+    // Calculate pattern size
+    uint32_t patternSize = (uint32_t)frame.width * frame.height;
+    if (patternSize == 0) return FRAMETIME;
+    
+    // Intensity controls pulse frequency - 0 = solid, 1-255 = pulsing at different rates
+    bool isOn = true; // Default to always on (solid pattern)
+    if (SEGMENT.intensity > 0) {
+        // Same frequency array as phosphene pulse for reliability
+        const uint16_t frequencies[] = { 1, 2, 4, 5, 8, 10, 12, 15, 20 };
+        const uint8_t freqCount = sizeof(frequencies) / sizeof(frequencies[0]);
+        
+        uint8_t freqIndex = map(SEGMENT.intensity, 1, 255, 0, freqCount - 1);
+        uint16_t pulseHz = frequencies[freqIndex];
+        
+        // Clean timing calculation
+        uint32_t period = 1000 / pulseHz;
+        uint32_t phase = now % period;
+        isOn = (phase < (period / 2));
+    }
+    // If intensity = 0, isOn stays true (solid pattern, no pulsing)
+    
+    // Apply pattern to pixels
+    uint16_t pixelCount = (SEGLEN < 300) ? SEGLEN : 300; // Limit to 300 LEDs max
+    for (uint16_t i = 0; i < pixelCount; i++) {
+        uint8_t patternValue = 0;
+        
+        if (patternSize > 0) {
+            uint32_t index = i % patternSize;
+            patternValue = frame.data[index];
+        }
+        
+        if (!isOn || patternValue == 0) {
+            SEGMENT.setPixelColor(i, BLACK);
         } else {
-            uint32_t ledColor = SEGMENT.color_from_palette(0, true, PALETTE_SOLID_WRAP, 0);
-            SEGMENT.setPixelColor(i, ledColor);
+            SEGMENT.setPixelColor(i, SEGCOLOR(0)); // Use segment primary color
         }
     }
+    
+    return FRAMETIME;
+}
 
+uint16_t mode_hertz_testing() {
+    // Hardware-reliable frequency steps (tested up to 20Hz)
+    // Focus on physiologically useful frequencies for closed-eye effects
+    const uint16_t frequencies[] = {
+        1, 2, 4, 5, 8, 10, 12, 15, 20
+    };
+    const uint8_t freqCount = sizeof(frequencies) / sizeof(frequencies[0]);
+    
+    // Map speed slider to frequency array index
+    uint8_t freqIndex = map(SEGMENT.speed, 0, 255, 0, freqCount - 1);
+    uint16_t targetHz = frequencies[freqIndex];
+    
+    // Use intensity to control brightness
+    uint8_t brightness = SEGMENT.intensity;
+    
+    // Calculate clean period (always whole milliseconds)
+    uint32_t period = 1000 / targetHz;
+    uint32_t halfPeriod = period / 2;
+    
+    // Simple, stable timing calculation
+    uint32_t now = millis();
+    uint32_t phase = now % period;
+    bool isOn = (phase < halfPeriod);
+    
+    // Set color
+    uint32_t color = BLACK;
+    if (isOn && brightness > 0) {
+        // Use simple white for consistent performance
+        uint8_t val = brightness;
+        color = ((uint32_t)val << 16) | ((uint32_t)val << 8) | val;
+    }
+    
+    // Adaptive pixel count for performance
+    uint16_t maxPixels;
+    if (targetHz >= 40) {
+        maxPixels = 100;  // High frequency: fewer pixels
+    } else if (targetHz >= 20) {
+        maxPixels = 200;  // Medium frequency: medium pixels
+    } else {
+        maxPixels = 500;  // Low frequency: more pixels
+    }
+    
+    uint16_t pixelCount = (SEGLEN < maxPixels) ? SEGLEN : maxPixels;
+    
+    // Update pixels
+    for (uint16_t i = 0; i < pixelCount; i++) {
+        SEGMENT.setPixelColor(i, color);
+    }
+    
+    return FRAMETIME;
+}
+
+uint16_t mode_high_frequency_test() {
+    // Dedicated high-frequency testing (25-50Hz)
+    // Minimal processing for maximum performance
+    const uint16_t highFreqs[] = { 25, 30, 40, 50 };
+    const uint8_t freqCount = sizeof(highFreqs) / sizeof(highFreqs[0]);
+    
+    uint8_t freqIndex = map(SEGMENT.speed, 0, 255, 0, freqCount - 1);
+    uint16_t targetHz = highFreqs[freqIndex];
+    uint8_t brightness = SEGMENT.intensity;
+    
+    // Ultra-simple timing for maximum performance
+    uint32_t period = 1000 / targetHz;
+    uint32_t now = millis();
+    bool isOn = ((now / period) & 1) == 0;
+    
+    // Minimal pixel count for high frequency
+    uint16_t pixelCount = (SEGLEN < 50) ? SEGLEN : 50;
+    
+    uint32_t color = BLACK;
+    if (isOn && brightness > 0) {
+        uint8_t val = brightness;
+        color = ((uint32_t)val << 16) | ((uint32_t)val << 8) | val;
+    }
+    
+    for (uint16_t i = 0; i < pixelCount; i++) {
+        SEGMENT.setPixelColor(i, color);
+    }
+    
     return FRAMETIME;
 }
 
@@ -7640,13 +7756,12 @@ uint16_t mode_custom_shapes(const Frame frames[], uint16_t frameCount) {
 static const char _data_FX_MODE_CUSTOM[] PROGMEM = "Custom Squares@!,!,,,,Smooth;;!";
 
 uint16_t mode_custom_squares() {
-  const uint8_t *frames[] = {frame0, frame1, frame2}; // Create an array of pointers
   const Frame sframes[] = {
-    { frame0, 10, 0 },  // Show for 2 seconds
-    { frame1, 2, 0 },  // Show for 3 seconds
-    { frame2, 10, 0 },  // Show for 1 second
-};
-  const uint16_t frameCount = sizeof(frames) / sizeof(frames[0]);
+    { frame0, 8, 8, 2000, 5 },  // 8x8 pattern, 2s base duration, 5Hz base pulse
+    { frame1, 8, 8, 3000, 3 },  // 8x8 pattern, 3s base duration, 3Hz base pulse
+    { frame2, 8, 8, 1000, 8 },  // 8x8 pattern, 1s base duration, 8Hz base pulse
+  };
+  const uint16_t frameCount = sizeof(sframes) / sizeof(sframes[0]);
   return mode_custom_shapes(sframes, frameCount); 
 }
 
@@ -7719,16 +7834,15 @@ const uint8_t dsframe5[] = {
 };
 
 uint16_t mode_custom_diamond_spin() {
-  const uint8_t *frames[] = {dsframe0, dsframe1, dsframe2, dsframe3, dsframe4, dsframe5}; // Create an array of pointers
   const Frame dsframes[] = {
-    { dsframe0, 10, 50 },  // Show for 2 seconds
-    { dsframe1, 2, 30 },  // Show for 3 seconds
-    { dsframe2, 10, 50 },  // Show for 1 second
-    { dsframe3, 10, 30},  // Show for 2 seconds
-    { dsframe4, 2, 50 },  // Show for 3 seconds
-    { dsframe5, 10, 30 }  // Show for 1 second
-};
-  const uint16_t frameCount = sizeof(frames) / sizeof(frames[0]);
+    { dsframe0, 39, 1, 2000, 10 },  // 39 element pattern, 2s base duration, 10Hz base pulse
+    { dsframe1, 39, 1, 500, 6 },    // 39 element pattern, 0.5s base duration, 6Hz base pulse
+    { dsframe2, 39, 1, 2000, 10 },  // 39 element pattern, 2s base duration, 10Hz base pulse
+    { dsframe3, 39, 1, 2000, 6 },   // 39 element pattern, 2s base duration, 6Hz base pulse
+    { dsframe4, 39, 1, 500, 10 },   // 39 element pattern, 0.5s base duration, 10Hz base pulse
+    { dsframe5, 39, 1, 2000, 6 }    // 39 element pattern, 2s base duration, 6Hz base pulse
+  };
+  const uint16_t frameCount = sizeof(dsframes) / sizeof(dsframes[0]);
   return mode_custom_shapes(dsframes, frameCount); 
 }
 
@@ -7820,18 +7934,17 @@ const uint8_t dframe7[] = {
 };
 
 uint16_t mode_custom_drunk_diamond_spin() {
-  const uint8_t *frames[] = {dframe0, dframe1, dframe2, dframe3, dframe4, dframe5, dframe6, dframe7}; // Create an array of pointers
   const Frame dframes[] = {
-    { dframe0, 10, 50 },  // Show for 2 seconds
-    { dframe1, 2, 30 },  // Show for 3 seconds
-    { dframe2, 10, 35 },  // Show for 1 second
-    { dframe3, 10, 40 },  // Show for 2 seconds
-    { dframe4, 2, 0 },  // Show for 3 seconds
-    { dframe5, 10, 0 },  // Show for 1 second
-    { dframe6, 2, 0 },  // Show for 3 seconds
-    { dframe7, 10, 50 }  // Show for 1 second
-};
-  const uint16_t frameCount = sizeof(frames) / sizeof(frames[0]);
+    { dframe0, 39, 1, 2000, 10 },  // 39 element pattern, 2s base duration, 10Hz base pulse
+    { dframe1, 39, 1, 500, 6 },    // 39 element pattern, 0.5s base duration, 6Hz base pulse
+    { dframe2, 39, 1, 2000, 7 },   // 39 element pattern, 2s base duration, 7Hz base pulse
+    { dframe3, 39, 1, 2000, 8 },   // 39 element pattern, 2s base duration, 8Hz base pulse
+    { dframe4, 39, 1, 500, 0 },    // 39 element pattern, 0.5s base duration, no pulse
+    { dframe5, 39, 1, 2000, 0 },   // 39 element pattern, 2s base duration, no pulse
+    { dframe6, 39, 1, 500, 0 },    // 39 element pattern, 0.5s base duration, no pulse
+    { dframe7, 39, 1, 2000, 10 }   // 39 element pattern, 2s base duration, 10Hz base pulse
+  };
+  const uint16_t frameCount = sizeof(dframes) / sizeof(dframes[0]);
   return mode_custom_shapes(dframes, frameCount); 
 }
 
@@ -7870,18 +7983,23 @@ const uint8_t bframe2[] = {
 };
 
 uint16_t mode_custom_ben() {
-  const uint8_t *frames[] = {bframe0, bframe1, bframe2}; // Create an array of pointers
   const Frame bframes[] = {
-    { bframe0, 10, 0 },  // Show for 2 seconds
-    { bframe1, 2, 0 },  // Show for 3 seconds
-    { bframe2, 10, 0},  // Show for 1 second
-};
-  const uint16_t frameCount = sizeof(frames) / sizeof(frames[0]);
+    { bframe0, 39, 1, 2000, 0 },  // 39 element pattern, 2s base duration, no pulse
+    { bframe1, 39, 1, 500, 0 },   // 39 element pattern, 0.5s base duration, no pulse
+    { bframe2, 39, 1, 2000, 0 },  // 39 element pattern, 2s base duration, no pulse
+  };
+  const uint16_t frameCount = sizeof(bframes) / sizeof(bframes[0]);
   return mode_custom_shapes(bframes, frameCount); 
 }
 
 // Metadata for the custom effect
 static const char _data_FX_MODE_CUSTOM_BEN[] PROGMEM = "Ben@!,!,,,,Smooth;;!";
+
+// Metadata for hertz testing effect
+static const char _data_FX_MODE_HERTZ_TESTING[] PROGMEM = "Phosphene Pulse@Frequency Steps,Brightness;;!;";
+
+// Metadata for high frequency testing
+static const char _data_FX_MODE_HIGH_FREQ_TEST[] PROGMEM = "High Freq Test@Speed (25-50Hz),Brightness;;!;";
 
 
 
@@ -7955,16 +8073,21 @@ const uint8_t cframe5[] = {
 };
 
 uint16_t mode_custom_circles() {
-  const uint8_t *frames[] = {cframe0, cframe1, cframe2, cframe3, cframe4, cframe5}; // Create an array of pointers
   const Frame cframes[] = {
-    { cframe0, 10, 0 },  // Show for 2 seconds
-    { cframe1, 2, 0},  // Show for 3 seconds
-    { cframe2, 10, 0 },  // Show for 1 second
-    { cframe3, 10, 0 },  // Show for 2 seconds
-    { cframe4, 2, 0 },  // Show for 3 seconds
-    { cframe5, 10, 0 }  // Show for 1 second
-};
-  const uint16_t frameCount = sizeof(frames) / sizeof(frames[0]);
+    { cframe0, 8, 8, 2000, 0 },  // 8x8 pattern, 2s base duration, no pulse
+    { cframe1, 8, 8, 500, 0 },   // 8x8 pattern, 0.5s base duration, no pulse
+    { cframe2, 8, 8, 2000, 0 },  // 8x8 pattern, 2s base duration, no pulse
+    { cframe3, 8, 8, 2000, 0 },  // 8x8 pattern, 2s base duration, no pulse
+    { cframe4, 8, 8, 500, 0 },   // 8x8 pattern, 0.5s base duration, no pulse
+    { cframe5, 8, 8, 2000, 0 },  // 8x8 pattern, 2s base duration, no pulse
+    { cframe0, 8, 8, 200, 0 },   // 8x8 pattern, 0.2s base duration, no pulse
+    { cframe1, 8, 8, 8000, 4 },  // 8x8 pattern, 8s base duration, 4Hz base pulse
+    { cframe5, 8, 8, 2000, 0 },  // 8x8 pattern, 2s base duration, no pulse
+    { cframe3, 8, 8, 200, 0 },   // 8x8 pattern, 0.2s base duration, no pulse
+    { cframe4, 8, 8, 500, 0 },   // 8x8 pattern, 0.5s base duration, no pulse
+    { cframe5, 8, 8, 2000, 0 },  // 8x8 pattern, 2s base duration, no pulse
+  };
+  const uint16_t frameCount = sizeof(cframes) / sizeof(cframes[0]);
   return mode_custom_shapes(cframes, frameCount); 
   // static uint32_t lastFrameTime = 0;
   // static uint8_t currentFrame = 0; // Frame index: 0, 1, or 2
@@ -8231,6 +8354,8 @@ void WS2812FX::setupEffectData() {
   // now replace all pre-allocated effects
   // --- 1D non-audio effects ---
   addEffect(FX_MODE_CUSTOM_BEN, &mode_custom_ben, _data_FX_MODE_CUSTOM_BEN);
+  addEffect(FX_MODE_HERTZ_TESTING, &mode_hertz_testing, _data_FX_MODE_HERTZ_TESTING);
+  addEffect(FX_MODE_HIGH_FREQ_TEST, &mode_high_frequency_test, _data_FX_MODE_HIGH_FREQ_TEST);
   addEffect(FX_MODE_CUSTOM_D_DIAMOND_SPIN, &mode_custom_drunk_diamond_spin, _data_FX_MODE_CUSTOM_D_DIAMOND_SPIN);
   addEffect(FX_MODE_CUSTOM_DIAMOND_SPIN, &mode_custom_diamond_spin, _data_FX_MODE_CUSTOM_DIAMOND_SPIN);
   addEffect(FX_MODE_CUSTOM_SQUARES, &mode_custom_squares, _data_FX_MODE_CUSTOM);
