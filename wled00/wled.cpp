@@ -326,7 +326,7 @@ void WLED::setup()
   Serial.setTimeout(50);  // this causes troubles on new MCUs that have a "virtual" USB Serial (HWCDC)
   #else
   #endif
-  #if defined(WLED_DEBUG) && defined(ARDUINO_ARCH_ESP32) && (defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32C3) || ARDUINO_USB_CDC_ON_BOOT)
+  #if defined(WLED_DEBUG) && defined(ARDUINO_ARCH_ESP32) && (defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32C3) || ARDUINO_USB_CDC_ON_BOOT || defined(CONFIG_IDF_TARGET_ESP32C6))
   delay(2500);  // allow CDC USB serial to initialise
   #endif
   #if !defined(WLED_DEBUG) && defined(ARDUINO_ARCH_ESP32) && !defined(WLED_DEBUG_HOST) && ARDUINO_USB_CDC_ON_BOOT
@@ -370,7 +370,7 @@ void WLED::setup()
 
 #if defined(ARDUINO_ARCH_ESP32)
   // BOARD_HAS_PSRAM also means that a compiler flag "-mfix-esp32-psram-cache-issue" was used and so PSRAM is safe to use on rev.1 ESP32
-  #if !defined(BOARD_HAS_PSRAM) && !(defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32S3) || defined(CONFIG_IDF_TARGET_ESP32C3))
+  #if !defined(BOARD_HAS_PSRAM) && !(defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32S3) || defined(CONFIG_IDF_TARGET_ESP32C3) || defined(CONFIG_IDF_TARGET_ESP32C6))
   if (psramFound() && ESP.getChipRevision() < 3) psramSafe = false;
   if (!psramSafe) DEBUG_PRINTLN(F("Not using PSRAM."));
   #endif
@@ -624,11 +624,13 @@ void WLED::initConnection()
   WiFi.setPhyMode(force802_3g ? WIFI_PHY_MODE_11G : WIFI_PHY_MODE_11N);
 #endif
 
-  if (multiWiFi[selectedWiFi].staticIP != 0U && multiWiFi[selectedWiFi].staticGW != 0U) {
-    WiFi.config(multiWiFi[selectedWiFi].staticIP, multiWiFi[selectedWiFi].staticGW, multiWiFi[selectedWiFi].staticSN, dnsAddress);
-  } else {
-    WiFi.config(IPAddress((uint32_t)0), IPAddress((uint32_t)0), IPAddress((uint32_t)0));
-  }
+// Check if static IP and gateway are set by comparing against default-constructed IPAddress()
+// This is safer and more portable than using 0U, which may not work reliably across all platforms (e.g., ESP32-C6)
+if (multiWiFi[selectedWiFi].staticIP != IPAddress() && multiWiFi[selectedWiFi].staticGW != IPAddress()) {
+  WiFi.config(multiWiFi[selectedWiFi].staticIP, multiWiFi[selectedWiFi].staticGW, multiWiFi[selectedWiFi].staticSN, dnsAddress);
+} else {
+  WiFi.config(IPAddress(), IPAddress(), IPAddress());
+}
 
   lastReconnectAttempt = millis();
 
