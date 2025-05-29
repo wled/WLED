@@ -122,6 +122,7 @@ void handleE131Packet(e131_packet_t* p, IPAddress clientIP, byte protocol){
 
 void handleDMXData(uint16_t uni, uint16_t dmxChannels, uint8_t* e131_data, uint8_t mde, uint8_t previousUniverses) {
   byte wChannel = 0;
+  unsigned dmxChannelCount = 0;
   unsigned totalLen = strip.getLengthTotal();
   unsigned availDMXLen = 0;
   unsigned dataOffset = DMXAddress;
@@ -144,35 +145,38 @@ void handleDMXData(uint16_t uni, uint16_t dmxChannels, uint8_t* e131_data, uint8
       return;  // nothing to do
       break;
 
-    case DMX_MODE_SINGLE_RGB:   // 3 channel: [R,G,B]
+    case DMX_MODE_SINGLE_RGB:   // 3-4 channels: [R,G,B] + W (if present)
       if (uni != e131Universe) return;
-      if (availDMXLen < 3) return;
 
       realtimeLock(realtimeTimeoutMs, mde);
-
       if (realtimeOverride && !(realtimeMode && useMainSegmentOnly)) return;
 
-      wChannel = (availDMXLen > 3) ? e131_data[dataOffset+3] : 0;
+      dmxChannelCount = (useMainSegmentOnly ? strip.getMainSegment().hasWhite() : strip.hasWhiteChannel()) ? 4 : 3;
+      if (availDMXLen < dmxChannelCount) return;
+
+      wChannel = dmxChannelCount == 4 ? e131_data[dataOffset+3] : 0;
       if (useMainSegmentOnly) strip.getMainSegment().beginDraw();
-      for (unsigned i = 0; i < totalLen; i++)
+      for (unsigned i = 0; i < useMainSegmentOnly ? strip.getMainSegment().length() : totalLen; i++)
         setRealtimePixel(i, e131_data[dataOffset+0], e131_data[dataOffset+1], e131_data[dataOffset+2], wChannel);
       break;
 
-    case DMX_MODE_SINGLE_DRGB:  // 4 channel: [Dimmer,R,G,B]
+    case DMX_MODE_SINGLE_DRGB:  // 4-5 channels: [Dimmer,R,G,B] + W (if present)
       if (uni != e131Universe) return;
-      if (availDMXLen < 4) return;
 
       realtimeLock(realtimeTimeoutMs, mde);
       if (realtimeOverride && !(realtimeMode && useMainSegmentOnly)) return;
-      wChannel = (availDMXLen > 4) ? e131_data[dataOffset+4] : 0;
+      
+      dmxChannelCount = (useMainSegmentOnly ? strip.getMainSegment().hasWhite() : strip.hasWhiteChannel()) ? 5 : 4;
+      if (availDMXLen < dmxChannelCount) return;
 
       if (bri != e131_data[dataOffset+0]) {
         bri = e131_data[dataOffset+0];
         strip.setBrightness(bri, true);
       }
 
+      wChannel = dmxChannelCount == 5 ? e131_data[dataOffset+4] : 0;
       if (useMainSegmentOnly) strip.getMainSegment().beginDraw();
-      for (unsigned i = 0; i < totalLen; i++)
+      for (unsigned i = 0; i < useMainSegmentOnly ? strip.getMainSegment().length() : totalLen; i++)
         setRealtimePixel(i, e131_data[dataOffset+1], e131_data[dataOffset+2], e131_data[dataOffset+3], wChannel);
       break;
 
