@@ -5,14 +5,14 @@ v2 Usermod to to control PWM fan with RPM feedback and temperature control
 This usermod requires the Dallas Temperature usermod to obtain temperature information. If it's not available, the fan will run at 100% speed.
 If the fan does not have _tachometer_ (RPM) output you can set the _tachometer-pin_ to -1 to disable that feature.
 
-You can also set the thershold temperature at which fan runs at lowest speed. If the measured temperature is 3°C greater than the threshold temperature, the fan will run at 100%.
+You can also set the threshold temperature at which fan runs at lowest speed. If the measured temperature is 3°C greater than the threshold temperature, the fan will run at 100%.
 
 If the _tachometer_ is supported, the current speed (in RPM) will be displayed on the WLED Info page.
 
 ## Installation
 
-Add the compile-time option `-D USERMOD_PWM_FAN` to your `platformio.ini` (or `platformio_override.ini`) or use `#define USERMOD_PWM_FAN` in `myconfig.h`.
-You will also need `-D USERMOD_DALLASTEMPERATURE`.
+Add the `PWM_fan` to `custom_usermods` in your `platformio.ini` (or `platformio_override.ini`)
+You will also need `Temperature` or `sht`.
 
 ### Define Your Options
 
@@ -22,7 +22,7 @@ This includes:
 * PWM output pin (can be configured at compile time `-D PWM_PIN=xx`)
 * tachometer input pin (can be configured at compile time `-D TACHO_PIN=xx`)
 * sampling frequency in seconds
-* threshold temperature in degees C
+* threshold temperature in degrees Celsius
 
 _NOTE:_ You may also need to tweak Dallas Temperature usermod sampling frequency to match PWM fan sampling frequency.
 
@@ -40,6 +40,9 @@ If the fan speed is unlocked, it will revert to temperature controlled speed on 
 ## Change Log
 
 2021-10
+
 * First public release
+
 2022-05
+
 * Added JSON API call to allow changing of speed

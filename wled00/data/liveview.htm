@@ -6,23 +6,33 @@
   <meta name="theme-color" content="#222222">
   <title>WLED Live Preview</title>
   <style>
-  body {
-    margin: 0;
-  }
-  #canv {
-    background: black;
-    filter: brightness(175%);
-    width: 100%;
-    height: 100%;
-    position: absolute;
-  }
+    body {
+      margin: 0;
+    }
+    #canv {
+      background: black;
+      filter: brightness(175%);
+      width: 100%;
+      height: 100%;
+      position: absolute;
+    }
   </style>
   <script>
+    var d = document;
     var ws;
     var tmout = null;
-    function update() // via HTTP (/json/live)
-    {
-      if (document.hidden) {
+    var c;
+    var ctx;
+    function draw(start, skip, leds, fill) {
+      c.width = d.documentElement.clientWidth;
+      let w = (c.width * skip) / (leds.length - start);
+      for (let i = start; i < leds.length; i += skip) {
+        ctx.fillStyle = fill(leds,i);
+        ctx.fillRect(Math.round((i - start) * w / skip), 0, Math.ceil(w), c.height);
+      }
+    }
+    function update() { // via HTTP (/json/live)
+      if (d.hidden) {
         clearTimeout(tmout);
         tmout = setTimeout(update, 250);
         return;
@@ -36,27 +46,20 @@
         return res.json();
       })
       .then(json => {
-        var str = "linear-gradient(90deg,";
-        var len = json.leds.length;
-        for (i = 0; i < len; i++) {
-          var leddata = json.leds[i];
-          if (leddata.length > 6) leddata = leddata.substring(2);
-          str += "#" + leddata;
-          if (i < len -1) str += ","
-        }
-        str += ")";
-        document.getElementById("canv").style.background = str;
+        draw(0, 1, json.leds, (a,i) => "#" + ((a[i].length > 6) ? a[i].substring(2) : a[i]));
         clearTimeout(tmout);
         tmout = setTimeout(update, 40);
       })
-      .catch(function (error) {
+      .catch((error)=>{
+        //console.error("Peek HTTP error:",error);
         clearTimeout(tmout);
         tmout = setTimeout(update, 2500);
       })
     }
     function S() { // Startup function (onload)
-      let wsOn = (window.location.href.indexOf("?ws") > 0);
-      if (!wsOn) {update(); return;}
+      c = d.getElementById('canv');
+      ctx = c.getContext('2d');
+      if (window.location.href.indexOf("?ws") == -1) {update(); return;}
 
       // Initialize WebSocket connection
       try {
@@ -86,15 +89,8 @@
           if (toString.call(e.data) === '[object ArrayBuffer]') {
             let leds = new Uint8Array(event.data);
             if (leds[0] != 76) return; //'L'
-            let str = "linear-gradient(90deg,";
-            let len = leds.length;
-            let start = leds[1]==2 ? 4 : 2; // 1 = 1D, 2 = 1D/2D (leds[2]=w, leds[3]=h)
-            for (i = start; i < len; i+=3) {
-              str += `rgb(${leds[i]},${leds[i+1]},${leds[i+2]})`;
-              if (i < len -3) str += ","
-            }
-            str += ")";
-            document.getElementById("canv").style.background = str;
+            // leds[1] = 1: 1D; leds[1] = 2: 1D/2D (leds[2]=w, leds[3]=h)
+            draw(leds[1]==2 ? 4 : 2, 3, leds, (a,i) => `rgb(${a[i]},${a[i+1]},${a[i+2]})`);
           }
         } catch (err) {
           console.error("Peek WS error:",err);
@@ -104,6 +100,6 @@
   </script>
 </head>
 <body onload="S()">
-  <div id="canv"></div>
+  <canvas id="canv"></canvas>
 </body>
 </html>

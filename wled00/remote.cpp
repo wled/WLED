@@ -1,6 +1,8 @@
 #include "wled.h"
 #ifndef WLED_DISABLE_ESPNOW
 
+#define ESPNOW_BUSWAIT_TIMEOUT 24 // one frame timeout to wait for bus to finish updating
+
 #define NIGHT_MODE_DEACTIVATED     -1
 #define NIGHT_MODE_BRIGHTNESS      5
 
@@ -14,17 +16,22 @@
 #define WIZMOTE_BUTTON_BRIGHT_UP   9
 #define WIZMOTE_BUTTON_BRIGHT_DOWN 8
 
+#define WIZ_SMART_BUTTON_ON          100
+#define WIZ_SMART_BUTTON_OFF         101
+#define WIZ_SMART_BUTTON_BRIGHT_UP   102
+#define WIZ_SMART_BUTTON_BRIGHT_DOWN 103
+
 // This is kind of an esoteric strucure because it's pulled from the "Wizmote"
 // product spec. That remote is used as the baseline for behavior and availability
 // since it's broadly commercially available and works out of the box as a drop-in
 typedef struct WizMoteMessageStructure {
   uint8_t program;  // 0x91 for ON button, 0x81 for all others
   uint8_t seq[4];   // Incremetal sequence number 32 bit unsigned integer LSB first
-  uint8_t byte5;    // Unknown (seen 0x20)
+  uint8_t dt1;      // Button Data Type (0x32)
   uint8_t button;   // Identifies which button is being pressed
-  uint8_t byte8;    // Unknown, but always 0x01
-  uint8_t byte9;    // Unnkown, but always 0x64
-
+  uint8_t dt2;      // Battery Level Data Type (0x01)
+  uint8_t batLevel; // Battery Level 0-100
+  
   uint8_t byte10;   // Unknown, maybe checksum
   uint8_t byte11;   // Unknown, maybe checksum
   uint8_t byte12;   // Unknown, maybe checksum
@@ -33,6 +40,7 @@ typedef struct WizMoteMessageStructure {
 
 static uint32_t last_seq = UINT32_MAX;
 static int brightnessBeforeNightMode = NIGHT_MODE_DEACTIVATED;
+static int16_t ESPNowButton = -1; // set in callback if new button value is received
 
 // Pulled from the IR Remote logic but reduced to 10 steps with a constant of 3
 static const byte brightnessSteps[] = {
@@ -63,7 +71,7 @@ static bool resetNightMode() {
 static void brightnessUp() {
   if (nightModeActive()) return;
   // dumb incremental search is efficient enough for so few items
-  for (uint8_t index = 0; index < numBrightnessSteps; ++index) {
+  for (unsigned index = 0; index < numBrightnessSteps; ++index) {
     if (brightnessSteps[index] > bri) {
       bri = brightnessSteps[index];
       break;
@@ -103,7 +111,6 @@ static void setOff() {
 
 void presetWithFallback(uint8_t presetID, uint8_t effectID, uint8_t paletteID) {
   resetNightMode();
-  unloadPlaylist();
   applyPresetWithFallback(presetID, CALL_MODE_BUTTON_PRESET, effectID, paletteID);
 }
 
@@ -117,12 +124,15 @@ static bool remoteJson(int button)
 
   sprintf_P(objKey, PSTR("\"%d\":"), button);
 
+  unsigned long start = millis();
+  while (strip.isUpdating() && millis()-start < ESPNOW_BUSWAIT_TIMEOUT) yield(); // wait for strip to finish updating, accessing FS during sendout causes glitches
+
   // attempt to read command from remote.json
-  readObjectFromFile("/remote.json", objKey, &doc);
-  JsonObject fdo = doc.as<JsonObject>();
+  readObjectFromFile(PSTR("/remote.json"), objKey, pDoc);
+  JsonObject fdo = pDoc->as<JsonObject>();
   if (fdo.isNull()) {
     // the received button does not exist
-    if (!WLED_FS.exists("/remote.json")) errorFlag = ERR_FS_RMLOAD; //warn if file itself doesn't exist
+    //if (!WLED_FS.exists(F("/remote.json"))) errorFlag = ERR_FS_RMLOAD; //warn if file itself doesn't exist
     releaseJSONBufferLock();
     return parsed;
   }
@@ -142,7 +152,7 @@ static bool remoteJson(int button)
         parsed = true;
       } else if (cmdStr.startsWith(F("!presetF"))) { //!presetFallback
         uint8_t p1 = fdo["PL"] | 1;
-        uint8_t p2 = fdo["FX"] | random8(strip.getModeCount() -1);
+        uint8_t p2 = fdo["FX"] | hw_random8(strip.getModeCount() -1);
         uint8_t p3 = fdo["FP"] | 0;
         presetWithFallback(p1, p2, p3);
         parsed = true;
@@ -171,19 +181,12 @@ static bool remoteJson(int button)
   return parsed;
 }
 
-// Callback function that will be executed when data is received
-void handleRemote(uint8_t *incomingData, size_t len) {
+// Callback function that will be executed when data is received from a linked remote
+void handleWiZdata(uint8_t *incomingData, size_t len) {
   message_structure_t *incoming = reinterpret_cast<message_structure_t *>(incomingData);
 
-  if (strcmp(last_signal_src, linked_remote) != 0) {
-    DEBUG_PRINT(F("ESP Now Message Received from Unlinked Sender: "));
-    DEBUG_PRINTLN(last_signal_src);
-    return;
-  }
-
   if (len != sizeof(message_structure_t)) {
-    DEBUG_PRINT(F("Unknown incoming ESP Now message received of length "));
-    DEBUG_PRINTLN(len);
+    DEBUG_PRINTF_P(PSTR("Unknown incoming ESP Now message received of length %u\n"), len);
     return;
   }
 
@@ -199,8 +202,15 @@ void handleRemote(uint8_t *incomingData, size_t len) {
   DEBUG_PRINT(F("] button: "));
   DEBUG_PRINTLN(incoming->button);
 
-  if (!remoteJson(incoming->button))
-    switch (incoming->button) {
+  ESPNowButton = incoming->button; // save state, do not process in callback (can cause glitches)
+  last_seq = cur_seq;
+}
+
+// process ESPNow button data (acesses FS, should not be called while update to avoid glitches)
+void handleRemote() {
+  if(ESPNowButton >= 0) {
+  if (!remoteJson(ESPNowButton))
+    switch (ESPNowButton) {
       case WIZMOTE_BUTTON_ON             : setOn();                                         break;
       case WIZMOTE_BUTTON_OFF            : setOff();                                        break;
       case WIZMOTE_BUTTON_ONE            : presetWithFallback(1, FX_MODE_STATIC,        0); break;
@@ -210,11 +220,16 @@ void handleRemote(uint8_t *incomingData, size_t len) {
       case WIZMOTE_BUTTON_NIGHT          : activateNightMode();                             break;
       case WIZMOTE_BUTTON_BRIGHT_UP      : brightnessUp();                                  break;
       case WIZMOTE_BUTTON_BRIGHT_DOWN    : brightnessDown();                                break;
+      case WIZ_SMART_BUTTON_ON           : setOn();                                         break;
+      case WIZ_SMART_BUTTON_OFF          : setOff();                                        break;
+      case WIZ_SMART_BUTTON_BRIGHT_UP    : brightnessUp();                                  break;
+      case WIZ_SMART_BUTTON_BRIGHT_DOWN  : brightnessDown();                                break;
       default: break;
     }
-  last_seq = cur_seq;
+  }
+  ESPNowButton = -1;
 }
 
 #else
-void handleRemote(uint8_t *incomingData, size_t len) {}
+void handleRemote() {}
 #endif

@@ -17,7 +17,7 @@ The number of individual LEDs per segment. 7 segments per digit.
 #### perPeriod -- ssLEDPerPeriod
 The number of individual LEDs per period. A ':' (colon) has two periods.
 #### startIdx -- ssStartLED
-Index of the LED the display starts at. Enabless a seven segment display to be in the middle of a string.
+Index of the LED the display starts at. Enables a seven segment display to be in the middle of a string.
 #### timeEnable -- ssTimeEnabled
 When true, when displayMask is configured for a time output and no message is set, the time will be displayed.
 #### scrollSpd -- ssScrollSpeed

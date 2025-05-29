@@ -2,7 +2,7 @@
 
 **Attention: This usermod compiles only for ESP8266**
 
-This usermod-v2 modification performs a ping request to a local IP address every 60 seconds. This ensures WLED net services remain accessible in some problematic WLAN environments.
+This usermod-v2 modification performs a ping request to a local IP address every 60 seconds. This ensures WLED net services remain accessible in some problematic WiFi environments.
 
 The modification works with static or DHCP IP address configuration.
 
@@ -24,47 +24,12 @@ The usermod supports the following state changes:
 
 | JSON key    | Value range      | Description                     |
 |-------------|------------------|---------------------------------|
-| PingDelayMs | 5000 to 18000000 | Deactivdate/activate the sensor |
+| PingDelayMs | 5000 to 18000000 | Deactivate/activate the sensor  |
 
  Changes also persist after a reboot.
 
 ## Installation
 
-1. Copy the file `usermod_Fix_unreachable_netservices.h` to the `wled00` directory.
-2. Register the usermod by adding `#include "usermod_Fix_unreachable_netservices.h"` in the top and `registerUsermod(new FixUnreachableNetServices());` in the bottom of `usermods_list.cpp`.
-
-Example **usermods_list.cpp**:
-
-```cpp
-#include "wled.h"
-/*
- * Register your v2 usermods here!
- *   (for v1 usermods using just usermod.cpp, you can ignore this file)
- */
-
-/*
- * Add/uncomment your usermod filename here (and once more below)
- * || || ||
- * \/ \/ \/
- */
-//#include "usermod_v2_example.h"
-//#include "usermod_temperature.h"
-//#include "usermod_v2_empty.h"
-#include  "usermod_Fix_unreachable_netservices.h"
-
-void registerUsermods()
-{
-  /*
-   * Add your usermod class name here
-   * || || ||
-   * \/ \/ \/
-   */
-  //usermods.add(new MyExampleUsermod());
-  //usermods.add(new UsermodTemperature());
-  //usermods.add(new UsermodRenameMe());
-  usermods.add(new FixUnreachableNetServices());
-
-}
-```
+1. Add `Fix_unreachable_netservices` to `custom_usermods` in your PlatformIO environment.
 
 Hopefully I can help someone with that - @gegu

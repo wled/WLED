@@ -69,7 +69,7 @@ function getPixelRGBValues(base64Image) {
     let sizeY = szY.value;
 
     if (color != accentColor || sizeX < 1 || sizeY < 1){
-      //image will not be rezised Set desitred size to original size
+      //image will not be resized Set desired size to original size
       sizeX = image.width;
       sizeY = image.height;
       //failsafe for not generating huge images automatically
@@ -153,7 +153,7 @@ function getPixelRGBValues(base64Image) {
     let curentColorIndex = 0
     let commandArray = [];
 
-    //For evry pixel in the LED array
+    //For every pixel in the LED array
     for (let i = 0; i < maxi; i++) {
       let pixel = ledRGBValues[i];
       let r = pixel[0];

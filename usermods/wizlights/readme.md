@@ -1,6 +1,6 @@
 # Controlling Wiz lights
 
-Enabless controlling [WiZ](https://www.wizconnected.com/en/consumer/) lights that are part of the same network as the WLED controller.
+Enables controlling [WiZ](https://www.wizconnected.com/en/consumer/) lights that are part of the same network as the WLED controller.
 
 The mod takes the colors from the first few pixels and sends them to the lights.
 
@@ -8,7 +8,7 @@ The mod takes the colors from the first few pixels and sends them to the lights.
 
 - Interval (ms)
     - How frequently to update the WiZ lights, in milliseconds.
-    - Setting it too low may causse the ESP to become unresponsive.
+    - Setting it too low may cause the ESP to become unresponsive.
 - Send Delay (ms)
     - An optional millisecond delay after updating each WiZ light. 
     - Can help smooth out effects when using a large number of WiZ lights

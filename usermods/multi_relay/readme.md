@@ -2,7 +2,7 @@
 
 This usermod-v2 modification allows the connection of multiple relays, each with individual delay and on/off mode.
 Usermod supports PCF8574 I2C port expander to reduce GPIO use.
-PCF8574 supports 8 outputs and each output corresponds to a relay in WLED (relay 0 = port 0, etc). I you are using more than 8 relays with multiple PCF8574 make sure their addresses are set conscutively (e.g. 0x20 and 0x21). You can set address of first expander in settings.
+PCF8574 supports 8 outputs and each output corresponds to a relay in WLED (relay 0 = port 0, etc). I you are using more than 8 relays with multiple PCF8574 make sure their addresses are set in sequence (e.g. 0x20 and 0x21). You can set address of first expander in settings.
 (**NOTE:** Will require Wire library and global I2C pins defined.)
 
 ## HTTP API
@@ -41,9 +41,7 @@ When a relay is switched, a message is published:
 
 ## Usermod installation
 
-1. Register the usermod by adding `#include "../usermods/multi_relay/usermod_multi_relay.h"` at the top and `usermods.add(new MultiRelay());` at the bottom of `usermods_list.cpp`.
-or
-2. Use `#define USERMOD_MULTI_RELAY` in wled.h or `-D USERMOD_MULTI_RELAY` in your platformio.ini
+Add `multi_relay` to the `custom_usermods` of your platformio.ini environment.
 
 You can override the default maximum number of relays (which is 4) by defining MULTI_RELAY_MAX_RELAYS.
 
@@ -64,38 +62,6 @@ The following definitions should be a list of values (maximum number of entries 
 #define MULTI_RELAY_INVERTS false,false
 ```
 These can be set via your `platformio_override.ini` file or as `#define` in your `my_config.h` (remember to set `WLED_USE_MY_CONFIG` in your `platformio_override.ini`)
-
-Example **usermods_list.cpp**:
-
-```cpp
-#include "wled.h"
-/*
- * Register your v2 usermods here!
- *   (for v1 usermods using just usermod.cpp, you can ignore this file)
- */
-
-/*
- * Add/uncomment your usermod filename here (and once more below)
- * || || ||
- * \/ \/ \/
- */
-//#include "usermod_v2_example.h"
-//#include "usermod_temperature.h"
-#include "../usermods/usermod_multi_relay.h"
-
-void registerUsermods()
-{
-  /*
-   * Add your usermod class name here
-   * || || ||
-   * \/ \/ \/
-   */
-  //usermods.add(new MyExampleUsermod());
-  //usermods.add(new UsermodTemperature());
-  usermods.add(new MultiRelay());
-
-}
-```
 
 ## Configuration
 

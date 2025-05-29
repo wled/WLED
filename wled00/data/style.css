@@ -81,6 +81,7 @@ input:disabled {
 }
 input[type="text"],
 input[type="number"],
+input[type="password"],
 select {
     font-size: medium;
     margin: 2px;
