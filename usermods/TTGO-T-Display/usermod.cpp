@@ -21,43 +21,46 @@
 //Use userVar0 and userVar1 (API calls &U0=,&U1=, uint16_t)
 
 #include "wled.h"
-#include <TFT_eSPI.h>
 #include <SPI.h>
+#include <TFT_eSPI.h>
 #include "WiFi.h"
 #include <Wire.h>
 
-#ifndef TFT_DISPOFF
-#define TFT_DISPOFF 0x28
-#endif
+// #ifndef TFT_DISPOFF
+// #define TFT_DISPOFF 0x28
+// #endif
 
-#ifndef TFT_SLPIN
-#define TFT_SLPIN   0x10
-#endif
+// #ifndef TFT_SLPIN
+// #define TFT_SLPIN   0x10
+// #endif
 
-#define TFT_MOSI            19
-#define TFT_SCLK            18
-#define TFT_CS              5
-#define TFT_DC              16
-#define TFT_RST             23
+// #define TFT_MOSI            19
+// #define TFT_SCLK            18
+// #define TFT_CS              5
+// #define TFT_DC              16
+// #define TFT_RST             23
 
-#define TFT_BL          4  // Display backlight control pin
-#define ADC_EN          14  // Used for enabling battery voltage measurements - not used in this program
+//#define TFT_BL          4  // Display backlight control pin
+//#define ADC_EN          14  // Used for enabling battery voltage measurements - not used in this program
+//#define WLED_WATCHDOG_TIMEOUT 3
 
 TFT_eSPI tft = TFT_eSPI(135, 240); // Invoke custom library
 
 //gets called once at boot. Do all initialization that doesn't depend on network here
 void userSetup() {
-    Serial.begin(115200);
-    Serial.println("Start");
+    DEBUG_PRINTLN("Start");
     tft.init();
     tft.setRotation(3);  //Rotation here is set up for the text to be readable with the port on the left. Use 1 to flip.
     tft.fillScreen(TFT_BLACK);
     tft.setTextSize(2);
+    //tft.setTextSize(1);
     tft.setTextColor(TFT_WHITE);
     tft.setCursor(1, 10);
     tft.setTextDatum(MC_DATUM);
     tft.setTextSize(3);
+    //tft.setTextSize(1);
     tft.print("Loading...");
+    DEBUG_PRINTLN("Loading...");
 
     if (TFT_BL > 0) { // TFT_BL has been set in the TFT_eSPI library in the User Setup file TTGO_T_Display.h
          pinMode(TFT_BL, OUTPUT); // Set backlight pin to output mode
@@ -83,7 +86,7 @@ uint8_t knownMode = 0;
 uint8_t knownPalette = 0;
 uint8_t tftcharwidth = 19;  // Number of chars that fit on screen with text size set to 2
 
-long lastUpdate = 0;
+long lastUpdate_mod = 0;
 long lastRedraw = 0;
 bool displayTurnedOff = false;
 // How often we are redrawing screen
@@ -92,10 +95,10 @@ bool displayTurnedOff = false;
 void userLoop() {
 
   // Check if we time interval for redrawing passes.
-  if (millis() - lastUpdate < USER_LOOP_REFRESH_RATE_MS) {
+  if (millis() - lastUpdate_mod < USER_LOOP_REFRESH_RATE_MS) {
     return;
   }
-  lastUpdate = millis();
+  lastUpdate_mod = millis();
   
   // Turn off display after 5 minutes with no change.
    if(!displayTurnedOff && millis() - lastRedraw > 5*60*1000) {
@@ -140,6 +143,7 @@ void userLoop() {
   knownPalette = strip.getMainSegment().palette;
 
   tft.fillScreen(TFT_BLACK);
+  //tft.setTextColor(TFT_WHITE);
   tft.setTextSize(2);
   // First row with Wifi name
   tft.setCursor(1, 1);
@@ -156,7 +160,7 @@ void userLoop() {
   //   tft.print(apPass);
   // else
   //   tft.print(knownIp);
-
+  DEBUG_PRINTLN("Print known AP");
   if (apActive) {
     tft.print("AP IP: ");
     tft.print(knownIp);
@@ -165,6 +169,7 @@ void userLoop() {
     tft.print(apPass);
   }
   else {
+    DEBUG_PRINTLN("Print IP");
     tft.print("IP: ");
     tft.print(knownIp);
     tft.setCursor(1,46);
@@ -180,16 +185,23 @@ void userLoop() {
   char lineBuffer[tftcharwidth+1];
   extractModeName(knownMode, JSON_mode_names, lineBuffer, tftcharwidth);
   tft.print(lineBuffer);
+  DEBUG_PRINTLN("Print mode name");
 
   // Fourth row with palette name
   tft.setCursor(1, 90);
   extractModeName(knownPalette, JSON_palette_names, lineBuffer, tftcharwidth);
   tft.print(lineBuffer);
+  DEBUG_PRINTLN("Print palette");
 
   // Fifth row with estimated mA usage
   tft.setCursor(1, 112);
   // Print estimated milliamp usage (must specify the LED type in LED prefs for this to be a reasonable estimate).
-  tft.print(strip.currentMilliamps);
+  //tft.print(strip.currentMilliamps);
+  tft.print(BusManager::currentMilliamps());
+  DEBUG_PRINTLN(BusManager::currentMilliamps());
+  DEBUG_PRINTLN(" mA (estimated)");
+  //tft.print("test ");
   tft.print("mA (estimated)");
+  DEBUG_PRINTLN("Print estimated current");
   
 }
