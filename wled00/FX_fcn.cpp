@@ -1286,9 +1286,9 @@ static uint8_t _average   (uint8_t a, uint8_t b) { return (a + b) >> 1; }
 #ifdef CONFIG_IDF_TARGET_ESP32C3
 static uint8_t _multiply  (uint8_t a, uint8_t b) { return ((a * b) + 255) >> 8; } // faster than division on C3 but slightly less accurate
 #else
-static uint8_t _multiply  (uint8_t a, uint8_t b) { return (a * b) / 255; } // origianl uses a & b in range [0,1]
+static uint8_t _multiply  (uint8_t a, uint8_t b) { return (a * b) / 255; } // original uses a & b in range [0,1]
 #endif
-static uint8_t _divide    (uint8_t a, uint8_t b) { return a > b ? (b * 255) / a : 255; }
+static uint8_t _divide    (uint8_t a, uint8_t b) { return a > 0 ? (b * 255) / a : 255; }
 static uint8_t _lighten   (uint8_t a, uint8_t b) { return a > b ? a : b; }
 static uint8_t _darken    (uint8_t a, uint8_t b) { return a < b ? a : b; }
 static uint8_t _screen    (uint8_t a, uint8_t b) { return 255 - _multiply(~a,~b); } // 255 - (255-a)*(255-b)/255
