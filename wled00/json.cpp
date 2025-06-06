@@ -15,7 +15,7 @@
  * JSON API (De)serialization
  */
 namespace {
-  typedef struct {
+  struct SegmentCopy {
     uint32_t colors[NUM_COLORS];
     uint16_t start;
     uint16_t stop;
@@ -33,40 +33,35 @@ namespace {
     uint8_t  custom1;
     uint8_t  custom2;
     uint8_t  custom3;
-    bool     check1;
-    bool     check2;
-    bool     check3;
-  } SegmentCopy;
+  };
 
-  uint8_t differs(const Segment& b, const SegmentCopy& a) {
-    uint8_t d = 0;
-    if (a.start != b.start)         d |= SEG_DIFFERS_BOUNDS;
-    if (a.stop != b.stop)           d |= SEG_DIFFERS_BOUNDS;
-    if (a.offset != b.offset)       d |= SEG_DIFFERS_GSO;
-    if (a.grouping != b.grouping)   d |= SEG_DIFFERS_GSO;
-    if (a.spacing != b.spacing)     d |= SEG_DIFFERS_GSO;
-    if (a.opacity != b.opacity)     d |= SEG_DIFFERS_BRI;
-    if (a.mode != b.mode)           d |= SEG_DIFFERS_FX;
-    if (a.speed != b.speed)         d |= SEG_DIFFERS_FX;
-    if (a.intensity != b.intensity) d |= SEG_DIFFERS_FX;
-    if (a.palette != b.palette)     d |= SEG_DIFFERS_FX;
-    if (a.custom1 != b.custom1)     d |= SEG_DIFFERS_FX;
-    if (a.custom2 != b.custom2)     d |= SEG_DIFFERS_FX;
-    if (a.custom3 != b.custom3)     d |= SEG_DIFFERS_FX;
-    if (a.startY != b.startY)       d |= SEG_DIFFERS_BOUNDS;
-    if (a.stopY != b.stopY)         d |= SEG_DIFFERS_BOUNDS;
+  bool differs(const Segment& segment, const SegmentCopy& segmentBackup) {
+    if (segment.start != segmentBackup.start)         return true;
+    if (segment.stop != segmentBackup.stop)           return true;
+    if (segment.offset != segmentBackup.offset)       return true;
+    if (segment.grouping != segmentBackup.grouping)   return true;
+    if (segment.spacing != segmentBackup.spacing)     return true;
+    if (segment.opacity != segmentBackup.opacity)     return true;
+    if (segment.mode != segmentBackup.mode)           return true;
+    if (segment.speed != segmentBackup.speed)         return true;
+    if (segment.intensity != segmentBackup.intensity) return true;
+    if (segment.palette != segmentBackup.palette)     return true;
+    if (segment.custom1 != segmentBackup.custom1)     return true;
+    if (segment.custom2 != segmentBackup.custom2)     return true;
+    if (segment.custom3 != segmentBackup.custom3)     return true;
+    if (segment.startY != segmentBackup.startY)       return true;
+    if (segment.stopY != segmentBackup.stopY)         return true;
 
     //bit pattern: (msb first)
     // set:2, sound:2, mapping:3, transposed, mirrorY, reverseY, [reset,] paused, mirrored, on, reverse, [selected]
-    if ((a.options & 0b1111111111011110U) != (b.options & 0b1111111111011110U)) d |= SEG_DIFFERS_OPT;
-    if ((a.options & 0x0001U) != (b.options & 0x0001U))                         d |= SEG_DIFFERS_SEL;
-    for (unsigned i = 0; i < NUM_COLORS; i++) if (a.colors[i] != b.colors[i])   d |= SEG_DIFFERS_COL;
+    if ((segment.options & 0b1111111111011110U) != (segmentBackup.options & 0b1111111111011110U)) return true;
+    for (unsigned i = 0; i < NUM_COLORS; i++) if (segment.colors[i] != segmentBackup.colors[i])   return true;
 
-    return d;
+    return false;
   }
 }
 
-static bool deserializeSegment(JsonObject elem, byte it, byte presetId = 0)
+static bool deserializeSegment(JsonObject elem, byte it, byte presetId)
 {
   byte id = elem["id"] | it;
   if (id >= WS2812FX::getMaxSegments()) return false;
@@ -77,7 +72,7 @@ static bool deserializeSegment(JsonObject elem, byte it, byte presetId = 0)
   // append segment
   if (id >= strip.getSegmentsNum()) {
     if (stop <= 0) return false; // ignore empty/inactive segments
-    strip.appendSegment(0, strip.getLengthTotal());
+    strip.emplaceSegment(0, strip.getLengthTotal());
     id = strip.getSegmentsNum()-1; // segments are added at the end of list
     newSeg = true;
   }
@@ -103,10 +98,7 @@ static bool deserializeSegment(JsonObject elem, byte it, byte presetId = 0)
     seg.intensity,
     seg.custom1,
     seg.custom2,
-    seg.custom3,
-    seg.check1,
-    seg.check2,
-    seg.check3
+    seg.custom3
   };
 
   int start = elem["start"] | seg.start;
@@ -355,7 +347,7 @@ static bool deserializeSegment(JsonObject elem, byte it, byte presetId = 0)
     strip.trigger(); // force segment update
   }
   // send UDP/WS if segment options changed (except selection; will also deselect current preset)
-  if (differs(seg, prev) & ~SEG_DIFFERS_SEL) stateChanged = true;
+  stateChanged = stateChanged || differs(seg, prev);
 
   return true;
 }
