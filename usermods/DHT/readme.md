@@ -15,7 +15,6 @@ Copy the example `platformio_override.ini` to the root directory.  This file sho
 
 ### Define Your Options
 
-* `USERMOD_DHT`                      - define this to include this user mod wled00\usermods_list.cpp
 * `USERMOD_DHT_DHTTYPE`              - DHT model: 11, 21, 22 for DHT11, DHT21, or DHT22, defaults to 22/DHT22
 * `USERMOD_DHT_PIN`                  - pin to which DTH is connected, defaults to Q2 pin on QuinLed Dig-Uno's board
 * `USERMOD_DHT_CELSIUS`              - define this to report temperatures in degrees Celsius, otherwise Fahrenheit will be reported

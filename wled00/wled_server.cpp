@@ -176,7 +176,7 @@ static void handleUpload(AsyncWebServerRequest *request, const String& filename,
       doReboot = true;
       request->send(200, FPSTR(CONTENT_TYPE_PLAIN), F("Configuration restore successful.\nRebooting..."));
     } else {
-      if (filename.indexOf(F("palette")) >= 0 && filename.indexOf(F(".json")) >= 0) strip.loadCustomPalettes();
+      if (filename.indexOf(F("palette")) >= 0 && filename.indexOf(F(".json")) >= 0) loadCustomPalettes();
       request->send(200, FPSTR(CONTENT_TYPE_PLAIN), F("File Uploaded!"));
     }
     cacheInvalidate++;
@@ -328,7 +328,7 @@ void initServer()
         interfaceUpdateCallMode = CALL_MODE_WS_SEND; // schedule WS update
         serveJson(request); return; //if JSON contains "v"
       } else {
-        doSerializeConfig = true; //serializeConfig(); //Save new settings to FS
+        configNeedsWrite = true; //Save new settings to FS
       }
     }
     request->send(200, CONTENT_TYPE_JSON, F("{\"success\":true}"));
@@ -365,7 +365,6 @@ void initServer()
   createEditHandler(correctPIN);
 
   static const char _update[] PROGMEM = "/update";
-#ifndef WLED_DISABLE_OTA
   //init ota page
   server.on(_update, HTTP_GET, [](AsyncWebServerRequest *request){
     if (otaLock) {
@@ -419,12 +418,6 @@ void initServer()
       }
     }
   });
-#else
-  server.on(_update, HTTP_GET, [](AsyncWebServerRequest *request){
-    serveMessage(request, 501, FPSTR(s_notimplemented), F("OTA updating is disabled in this build."), 254);
-  });
-#endif
-
 
 #ifdef WLED_ENABLE_DMX
   server.on(F("/dmxmap"), HTTP_GET, [](AsyncWebServerRequest *request){
@@ -567,13 +560,14 @@ void serveSettings(AsyncWebServerRequest* request, bool post) {
   //else if (url.indexOf("/edit")   >= 0) subPage = 10;
   else subPage = SUBPAGE_WELCOME;
 
-  if (!correctPIN && strlen(settingsPIN) > 0 && (subPage > 0 && subPage < 11)) {
+  bool pinRequired = !correctPIN && strlen(settingsPIN) > 0 && (subPage > (WLED_WIFI_CONFIGURED ? SUBPAGE_MENU : SUBPAGE_WIFI) && subPage < SUBPAGE_LOCK);
+  if (pinRequired) {
     originalSubPage = subPage;
     subPage = SUBPAGE_PINREQ; // require PIN
   }
 
   // if OTA locked or too frequent PIN entry requests fail hard
-  if ((subPage == SUBPAGE_WIFI && wifiLock && otaLock) || (post && !correctPIN && millis()-lastEditTime < PIN_RETRY_COOLDOWN))
+  if ((subPage == SUBPAGE_WIFI && wifiLock && otaLock) || (post && pinRequired && millis()-lastEditTime < PIN_RETRY_COOLDOWN))
   {
     serveMessage(request, 401, FPSTR(s_accessdenied), FPSTR(s_unlock_ota), 254); return;
   }
@@ -609,7 +603,7 @@ void serveSettings(AsyncWebServerRequest* request, bool post) {
       if (!s2[0]) strcpy_P(s2, s_redirecting);
 
       bool redirectAfter9s = (subPage == SUBPAGE_WIFI || ((subPage == SUBPAGE_SEC || subPage == SUBPAGE_UM) && doReboot));
-      serveMessage(request, (correctPIN ? 200 : 401), s, s2, redirectAfter9s ? 129 : (correctPIN ? 1 : 3));
+      serveMessage(request, (!pinRequired ? 200 : 401), s, s2, redirectAfter9s ? 129 : (!pinRequired ? 1 : 3));
       return;
     }
   }

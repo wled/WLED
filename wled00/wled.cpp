@@ -109,7 +109,6 @@ void WLED::loop()
     if (WLED_CONNECTED && aOtaEnabled && !otaLock && correctPIN) ArduinoOTA.handle();
     #endif
     handleNightlight();
-    handlePlaylist();
     yield();
 
     #ifndef WLED_DISABLE_HUESYNC
@@ -117,6 +116,10 @@ void WLED::loop()
     yield();
     #endif
 
+    if (!presetNeedsSaving()) {
+      handlePlaylist();
+      yield();
+    }
     handlePresets();
     yield();
 
@@ -190,14 +193,14 @@ void WLED::loop()
     if (aligned) strip.makeAutoSegments();
     else strip.fixInvalidSegments();
     BusManager::setBrightness(bri); // fix re-initialised bus' brightness
-    doSerializeConfig = true;
+    configNeedsWrite = true;
   }
   if (loadLedmap >= 0) {
     strip.deserializeMap(loadLedmap);
     loadLedmap = -1;
   }
   yield();
-  if (doSerializeConfig) serializeConfig();
+  if (configNeedsWrite) serializeConfigToFS();
 
   yield();
   handleWs();
@@ -220,7 +223,7 @@ void WLED::loop()
   }
 #endif
 
-  if (doReboot && (!doInitBusses || !doSerializeConfig)) // if busses have to be inited & saved, wait until next iteration
+  if (doReboot && (!doInitBusses || !configNeedsWrite)) // if busses have to be inited & saved, wait until next iteration
     reset();
 
 // DEBUG serial logging (every 30s)
@@ -339,7 +342,6 @@ void WLED::setup()
   #else
     DEBUG_PRINTLN(F("arduino-esp32 v1.0.x\n"));  // we can't say in more detail.
   #endif
-
   DEBUG_PRINTF_P(PSTR("CPU:   %s rev.%d, %d core(s), %d MHz.\n"), ESP.getChipModel(), (int)ESP.getChipRevision(), ESP.getChipCores(), ESP.getCpuFreqMHz());
   DEBUG_PRINTF_P(PSTR("FLASH: %d MB, Mode %d "), (ESP.getFlashChipSize()/1024)/1024, (int)ESP.getFlashChipMode());
   #ifdef WLED_DEBUG
@@ -391,9 +393,6 @@ void WLED::setup()
 #ifdef WLED_ENABLE_DMX //reserve GPIO2 as hardcoded DMX pin
   PinManager::allocatePin(2, true, PinOwner::DMX);
 #endif
-
-  DEBUG_PRINTLN(F("Registering usermods ..."));
-  registerUsermods();
 
   DEBUG_PRINTF_P(PSTR("heap %u\n"), ESP.getFreeHeap());
 
@@ -464,7 +463,7 @@ void WLED::setup()
   #endif
 
   // fill in unique mdns default
-  if (strcmp(cmDNS, "x") == 0) sprintf_P(cmDNS, PSTR("wled-%*s"), 6, escapedMac.c_str() + 6);
+  if (strcmp(cmDNS, DEFAULT_MDNS_NAME) == 0) sprintf_P(cmDNS, PSTR("wled-%*s"), 6, escapedMac.c_str() + 6);
 #ifndef WLED_DISABLE_MQTT
   if (mqttDeviceTopic[0] == 0) sprintf_P(mqttDeviceTopic, PSTR("wled/%*s"), 6, escapedMac.c_str() + 6);
   if (mqttClientID[0] == 0)    sprintf_P(mqttClientID, PSTR("WLED-%*s"), 6, escapedMac.c_str() + 6);
@@ -530,6 +529,7 @@ void WLED::setup()
 void WLED::beginStrip()
 {
   // Initialize NeoPixel Strip and button
+  strip.setTransition(0); // temporarily prevent transitions to reduce segment copies
   strip.finalizeInit(); // busses created during deserializeConfig() if config existed
   strip.makeAutoSegments();
   strip.setBrightness(0);
@@ -547,16 +547,18 @@ void WLED::beginStrip()
         Segment &seg = strip.getSegment(i);
         if (seg.isActive()) seg.colors[0] = BLACK;
       }
-      col[0] = col[1] = col[2] = col[3] = 0;  // needed for colorUpdated()
+      colPri[0] = colPri[1] = colPri[2] = colPri[3] = 0;  // needed for colorUpdated()
     }
     briLast = briS; bri = 0;
     strip.fill(BLACK);
     strip.show();
   }
+  colorUpdated(CALL_MODE_INIT); // will not send notification but will initiate transition
   if (bootPreset > 0) {
     applyPreset(bootPreset, CALL_MODE_INIT);
   }
-  colorUpdated(CALL_MODE_INIT); // will not send notification
+
+  strip.setTransition(transitionDelayDefault);  // restore transitions
 
   // init relay pin
   if (rlyPin >= 0) {
@@ -739,9 +741,6 @@ void WLED::initInterfaces()
   e131.begin(e131Multicast, e131Port, e131Universe, E131_MAX_UNIVERSE_COUNT);
   ddp.begin(false, DDP_DEFAULT_PORT);
   reconnectHue();
-#ifndef WLED_DISABLE_MQTT
-  initMqtt();
-#endif
   interfacesInited = true;
   wasConnected = true;
 }
@@ -751,7 +750,9 @@ void WLED::handleConnection()
   static bool scanDone = true;
   static byte stacO = 0;
   const unsigned long now = millis();
+  #ifdef WLED_DEBUG
   const unsigned long nowS = now/1000;
+  #endif
   const bool wifiConfigured = WLED_WIFI_CONFIGURED;
 
   // ignore connection handling if WiFi is configured and scan still running

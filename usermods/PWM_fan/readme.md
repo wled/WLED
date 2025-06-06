@@ -11,8 +11,8 @@ If the _tachometer_ is supported, the current speed (in RPM) will be displayed o
 
 ## Installation
 
-Add the compile-time option `-D USERMOD_PWM_FAN` to your `platformio.ini` (or `platformio_override.ini`) or use `#define USERMOD_PWM_FAN` in `myconfig.h`.
-You will also need `-D USERMOD_DALLASTEMPERATURE`.
+Add the `PWM_fan` to `custom_usermods` in your `platformio.ini` (or `platformio_override.ini`)
+You will also need `Temperature` or `sht`.
 
 ### Define Your Options
 
@@ -40,6 +40,9 @@ If the fan speed is unlocked, it will revert to temperature controlled speed on 
 ## Change Log
 
 2021-10
+
 * First public release
+
 2022-05
+
 * Added JSON API call to allow changing of speed
