@@ -15,7 +15,7 @@
  * JSON API (De)serialization
  */
 namespace {
-  typedef struct {
+  struct SegmentCopy {
     uint32_t colors[NUM_COLORS];
     uint16_t start;
     uint16_t stop;
@@ -33,10 +33,7 @@ namespace {
     uint8_t  custom1;
     uint8_t  custom2;
     uint8_t  custom3;
-    bool     check1;
-    bool     check2;
-    bool     check3;
-  } SegmentCopy;
+  };
 
   bool differs(const Segment& segment, const SegmentCopy& segmentBackup) {
     if (segment.start != segmentBackup.start)         return true;
@@ -101,10 +98,7 @@ static bool deserializeSegment(JsonObject elem, byte it, byte presetId)
     seg.intensity,
     seg.custom1,
     seg.custom2,
-    seg.custom3,
-    seg.check1,
-    seg.check2,
-    seg.check3
+    seg.custom3
   };
 
   int start = elem["start"] | seg.start;
