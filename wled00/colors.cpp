@@ -564,14 +564,17 @@ uint16_t approximateKelvinFromRGB(uint32_t rgb) {
   }
 }
 
-// gamma lookup table used for color correction (filled on 1st use (cfg.cpp & set.cpp))
+// gamma lookup tables used for color correction (filled on 1st use (cfg.cpp & set.cpp))
 uint8_t NeoGammaWLEDMethod::gammaT[256];
+uint8_t NeoGammaWLEDMethod::gammaT_inv[256];
 
-// re-calculates & fills gamma table
+// re-calculates & fills gamma tables
 void NeoGammaWLEDMethod::calcGammaTable(float gamma)
 {
+  float gamma_inv = 1.0f / gamma; // inverse gamma
   for (size_t i = 0; i < 256; i++) {
     gammaT[i] = (int)(powf((float)i / 255.0f, gamma) * 255.0f + 0.5f);
+    gammaT_inv[i] = (int)(powf((float)i / 255.0f, gamma_inv) * 255.0f + 0.5f);
   }
 }
 
