@@ -571,15 +571,10 @@ uint8_t NeoGammaWLEDMethod::gammaT_inv[256];
 // re-calculates & fills gamma tables
 void NeoGammaWLEDMethod::calcGammaTable(float gamma)
 {
+  float gamma_inv = 1.0f / gamma; // inverse gamma
   for (size_t i = 0; i < 256; i++) {
     gammaT[i] = (int)(powf((float)i / 255.0f, gamma) * 255.0f + 0.5f);
-  }
-}
-
-void NeoGammaWLEDMethod::calcInverseGammaTable(float gamma)
-{
-  for (size_t i = 0; i < 256; i++) {
-    gammaT_inv[i] = (int)(powf((float)i / 255.0f, 1/gamma) * 255.0f + 0.5f); //inverse
+    gammaT_inv[i] = (int)(powf((float)i / 255.0f, gamma_inv) * 255.0f + 0.5f);
   }
 }
 

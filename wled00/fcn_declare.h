@@ -158,8 +158,7 @@ class NeoGammaWLEDMethod {
   public:
     [[gnu::hot]] static uint8_t Correct(uint8_t value);         // apply Gamma to single channel
     [[gnu::hot]] static uint32_t Correct32(uint32_t color);     // apply Gamma to RGBW32 color (WLED specific, not used by NPB)
-    static void calcGammaTable(float gamma);                              // re-calculates & fills gamma table
-    static void calcInverseGammaTable(float gamma);                       // re-calculates & fills inverse gamma table
+    static void calcGammaTable(float gamma);                    // re-calculates & fills gamma tables
     static inline uint8_t rawGamma8(uint8_t val) { return gammaT[val]; }  // get value from Gamma table (WLED specific, not used by NPB)
     static inline uint8_t rawInverseGamma8(uint8_t val) { return gammaT_inv[val]; }  // get value from inverse Gamma table (WLED specific, not used by NPB)
   private:
