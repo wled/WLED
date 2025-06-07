@@ -1,0 +1,286 @@
+#!/bin/bash
+
+# WLED Tools
+# A utility for managing WLED devices in a local network
+# https://github.com/wled/WLED
+
+# Color Definitions
+GREEN="\e[32m"
+RED="\e[31m"
+BLUE="\e[34m"
+YELLOW="\e[33m"
+RESET="\e[0m"
+
+# Logging function
+log() {
+    local category="$1"
+    local color="$2"
+    local text="$3"
+
+    if [ "$quiet" = true ]; then
+        return
+    fi
+
+    if [ -t 1 ]; then  # Check if output is a terminal
+        echo -e "${color}[${category}]${RESET} ${text}"
+    else
+        echo "[${category}] ${text}"
+    fi
+}
+
+# Generic curl handler function
+curl_handler() {
+    local command="$1"
+    local hostname="$2"
+
+    response=$($command -w "%{http_code}" -o /dev/null)
+    curl_exit_code=$?
+
+    if [ "$response" -ge 200 ] && [ "$response" -lt 300 ]; then
+        return 0
+    elif [ $curl_exit_code -ne 0 ]; then
+        log "ERROR" "$RED" "Connection error during request to $hostname (curl exit code: $curl_exit_code)."
+        return 1
+    elif [ "$response" -ge 400 ]; then
+        log "ERROR" "$RED" "Server error during request to $hostname (HTTP status code: $response)."
+        return 2
+    else
+        log "ERROR" "$RED" "Unexpected response from $hostname (HTTP status code: $response)."
+        return 3
+    fi
+}
+
+# Print help message
+show_help() {
+    cat << EOF
+Usage: wled-tools.sh [OPTIONS] COMMAND [ARGS...]
+
+Options:
+  -h, --help              Show this help message and exit.
+  -t, --target <IP/Host>  Specify a single WLED device by IP address or hostname.
+  -D, --discover          Discover multiple WLED devices using mDNS.
+  -d, --directory <Path>  Specify a directory for saving backups (default: working directory).
+  -f, --firmware <File>   Specify the firmware file for updating devices.
+  -q, --quiet             Suppress logging output (also makes discover output hostnames only).
+
+Commands:
+  backup      Backup the current state of a WLED device or multiple discovered devices.
+  update      Update the firmware of a WLED device or multiple discovered devices.
+  discover    Discover WLED devices using mDNS and list their IP addresses and names.
+
+Examples:
+  # Discover all WLED devices on the network
+  ./wled-tools discover
+
+  # Backup a specific WLED device
+  ./wled-tools -t 192.168.1.100 backup
+
+  # Backup all discovered WLED devices to a specific directory
+  ./wled-tools -D -d /path/to/backups backup
+
+  # Update firmware on all discovered WLED devices
+  ./wled-tools -D -f /path/to/firmware.bin update
+
+EOF
+}
+
+# Discover devices using mDNS
+discover_devices() {  
+    if ! command -v avahi-browse &> /dev/null; then  
+        log "ERROR" "$RED" "'avahi-browse' is required but not installed, please install avahi-utils using your preferred package manager."
+        exit 1  
+    fi  
+
+    # Map avahi responses to strings seperated by 0x1F (unit separator)
+    mapfile -t raw_devices < <(avahi-browse _wled._tcp --terminate -r -p | awk -F';' '/^=/ {print $7"\x1F"$8"\x1F"$9}')  
+
+    local devices_array=()  
+    for device in "${raw_devices[@]}"; do  
+        IFS=$'\x1F' read -r hostname address port <<< "$device"  
+        devices_array+=("$hostname" "$address" "$port")  
+    done  
+
+    echo "${devices_array[@]}"  
+}  
+
+# Backup one device
+backup_one() {
+    local hostname="$1"
+    local address="$2"
+    local port="$3"
+
+    log "INFO" "$YELLOW" "Backing up device config/presets: $hostname ($address:$port)"
+
+    mkdir -p "$backup_dir"
+
+    local cfg_url="http://$address:$port/cfg.json"
+    local presets_url="http://$address:$port/presets.json"
+    local cfg_dest="${backup_dir}/${hostname}.cfg.json"
+    local presets_dest="${backup_dir}/${hostname}.presets.json"
+
+    # Write to ".tmp" files first, then move when success, to ensure we don't write partial files
+    local curl_command_cfg="curl -s "$cfg_url" -o "$cfg_dest.tmp""
+    local curl_command_presets="curl -s "$presets_url" -o "$presets_dest.tmp""
+
+    if ! curl_handler "$curl_command_cfg" "$hostname"; then  
+        log "ERROR" "$RED" "Failed to backup configuration for $hostname"  
+        rm -f "$cfg_dest.tmp"  
+        return 1  
+    fi  
+    
+    if ! curl_handler "$curl_command_presets" "$hostname"; then  
+        log "ERROR" "$RED" "Failed to backup presets for $hostname"  
+        rm -f "$presets_dest.tmp"  
+        return 1  
+    fi 
+
+    mv "$cfg_dest.tmp" "$cfg_dest"
+    mv "$presets_dest.tmp" "$presets_dest"
+    log "INFO" "$GREEN" "Successfully backed up config and presets for $hostname"
+    return 0
+}
+
+# Update one device
+update_one() {
+    local hostname="$1"
+    local address="$2"
+    local port="$3"
+    local firmware="$4"
+
+    log "INFO" "$YELLOW" "Starting firmware update for device: $hostname ($address:$port)"
+
+    local url="http://$address:$port/update"
+    local curl_command="curl -s -X POST -F "file=@$firmware" "$url""
+
+    if ! curl_handler "$curl_command" "$hostname"; then
+        log "ERROR" "$RED" "Failed to update firmware for $hostname"
+        return 1
+    fi
+    
+    log "INFO" "$GREEN" "Successfully initiated firmware update for $hostname"
+    return 0
+}
+
+# Command-line arguments processing
+command=""
+target=""
+discover=false
+quiet=false
+backup_dir="./"
+firmware_file=""
+
+if [ $# -eq 0 ]; then
+    show_help
+    exit 0
+fi
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        -h|--help)
+            show_help
+            exit 0
+            ;;
+        -t|--target)
+            if [ -z "$2" ] || [[ "$2" == -* ]]; then
+                log "ERROR" "$RED" "The --target option requires an argument."
+                exit 1
+            fi
+            target="$2"
+            shift 2
+            ;;
+        -D|--discover)
+            discover=true
+            shift
+            ;;
+        -d|--directory)
+            if [ -z "$2" ] || [[ "$2" == -* ]]; then
+                log "ERROR" "$RED" "The --directory option requires an argument."
+                exit 1
+            fi
+            backup_dir="$2"
+            shift 2
+            ;;
+        -f|--firmware)
+            if [ -z "$2" ] || [[ "$2" == -* ]]; then
+                log "ERROR" "$RED" "The --firmware option requires an argument."
+                exit 1
+            fi
+            firmware_file="$2"
+            shift 2
+            ;;
+        -q|--quiet)
+            quiet=true
+            shift
+            ;;
+        backup|update|discover)
+            command="$1"
+            shift
+            ;;
+        *)
+            log "ERROR" "$RED" "Unknown argument: $1"
+            exit 1
+            ;;
+    esac
+done
+
+# Execute the appropriate command
+case "$command" in
+    discover)
+        read -ra devices <<< "$(discover_devices)"
+        for ((i=0; i<${#devices[@]}; i+=3)); do
+            hostname="${devices[$i]}"
+            address="${devices[$i+1]}"
+            port="${devices[$i+2]}"
+
+            if [ "$quiet" = true ]; then
+                echo "$hostname"
+            else
+                log "INFO" "$BLUE" "Discovered device: Hostname=$hostname, Address=$address, Port=$port"
+            fi
+        done
+        ;;
+    backup)
+        if [ -n "$target" ]; then
+            # Assume target is both the hostname and address, with port 80
+            backup_one "$target" "$target" "80"
+        elif [ "$discover" = true ]; then
+            read -ra devices <<< "$(discover_devices)"
+            for ((i=0; i<${#devices[@]}; i+=3)); do
+                hostname="${devices[$i]}"
+                address="${devices[$i+1]}"
+                port="${devices[$i+2]}"
+                backup_one "$hostname" "$address" "$port"
+            done
+        else
+            log "ERROR" "$RED" "No target specified. Use --target or --discover."
+            exit 1
+        fi
+        ;;
+    update)
+        # Validate firmware before proceeding
+        if [ -z "$firmware_file" ] || [ ! -f "$firmware_file" ]; then
+            log "ERROR" "$RED" "Please provide a file in --firmware that exists"
+            exit 1
+        fi
+        
+        if [ -n "$target" ]; then
+            # Assume target is both the hostname and address, with port 80
+            update_one "$target" "$target" "80" "$firmware_file"
+        elif [ "$discover" = true ]; then
+            read -ra devices <<< "$(discover_devices)"
+            for ((i=0; i<${#devices[@]}; i+=3)); do
+                hostname="${devices[$i]}"
+                address="${devices[$i+1]}"
+                port="${devices[$i+2]}"
+                update_one "$hostname" "$address" "$port" "$firmware_file"
+            done
+        else
+            log "ERROR" "$RED" "No target specified. Use --target or --discover."
+            exit 1
+        fi
+        ;;
+    *)
+        show_help
+        exit 1
+        ;;
+esac
