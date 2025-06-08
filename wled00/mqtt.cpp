@@ -27,7 +27,7 @@ static void parseMQTTBriPayload(char* payload)
 static void onMqttConnect(bool sessionPresent)
 {
   //(re)subscribe to required topics
-  char subuf[MQTT_MAX_TOPIC_LEN + 6];
+  char subuf[MQTT_MAX_TOPIC_LEN + 9];
 
   if (mqttDeviceTopic[0] != 0) {
     strlcpy(subuf, mqttDeviceTopic, MQTT_MAX_TOPIC_LEN + 1);
@@ -52,6 +52,13 @@ static void onMqttConnect(bool sessionPresent)
   UsermodManager::onMqttConnect(sessionPresent);
 
   DEBUG_PRINTLN(F("MQTT ready"));
+
+#ifndef USERMOD_SMARTNEST
+  strlcpy(subuf, mqttDeviceTopic, MQTT_MAX_TOPIC_LEN + 1);
+  strcat_P(subuf, PSTR("/status"));
+  mqtt->publish(subuf, 0, true, "online"); // retain message for a LWT
+#endif
+
   publishMqtt();
 }
 
@@ -68,8 +75,8 @@ static void onMqttMessage(char* topic, char* payload, AsyncMqttClientMessageProp
   }
 
   if (index == 0) {                       // start (1st partial packet or the only packet)
-    if (payloadStr) free(payloadStr);     // fail-safe: release buffer
-    payloadStr = static_cast<char*>(malloc(total+1)); // allocate new buffer
+    p_free(payloadStr);                   // release buffer if it exists
+    payloadStr = static_cast<char*>(p_malloc(total+1)); // allocate new buffer
   }
   if (payloadStr == nullptr) return;      // buffer not allocated
 
@@ -94,7 +101,7 @@ static void onMqttMessage(char* topic, char* payload, AsyncMqttClientMessageProp
     } else {
       // Non-Wled Topic used here. Probably a usermod subscribed to this topic.
       UsermodManager::onMqttMessage(topic, payloadStr);
-      free(payloadStr);
+      p_free(payloadStr);
       payloadStr = nullptr;
       return;
     }
@@ -103,7 +110,7 @@ static void onMqttMessage(char* topic, char* payload, AsyncMqttClientMessageProp
   //Prefix is stripped from the topic at this point
 
   if (strcmp_P(topic, PSTR("/col")) == 0) {
-    colorFromDecOrHexString(col, payloadStr);
+    colorFromDecOrHexString(colPri, payloadStr);
     colorUpdated(CALL_MODE_DIRECT_CHANGE);
   } else if (strcmp_P(topic, PSTR("/api")) == 0) {
     if (requestJSONBufferLock(15)) {
@@ -124,7 +131,7 @@ static void onMqttMessage(char* topic, char* payload, AsyncMqttClientMessageProp
     // topmost topic (just wled/MAC)
     parseMQTTBriPayload(payloadStr);
   }
-  free(payloadStr);
+  p_free(payloadStr);
   payloadStr = nullptr;
 }
 
@@ -169,14 +176,10 @@ void publishMqtt()
   strcat_P(subuf, PSTR("/g"));
   mqtt->publish(subuf, 0, retainMqttMsg, s);         // optionally retain message (#2263)
 
-  sprintf_P(s, PSTR("#%06X"), (col[3] << 24) | (col[0] << 16) | (col[1] << 8) | (col[2]));
+  sprintf_P(s, PSTR("#%06X"), (colPri[3] << 24) | (colPri[0] << 16) | (colPri[1] << 8) | (colPri[2]));
   strlcpy(subuf, mqttDeviceTopic, MQTT_MAX_TOPIC_LEN + 1);
   strcat_P(subuf, PSTR("/c"));
   mqtt->publish(subuf, 0, retainMqttMsg, s);         // optionally retain message (#2263)
-
-  strlcpy(subuf, mqttDeviceTopic, MQTT_MAX_TOPIC_LEN + 1);
-  strcat_P(subuf, PSTR("/status"));
-  mqtt->publish(subuf, 0, true, "online");          // retain message for a LWT
 
   // TODO: use a DynamicBufferList.  Requires a list-read-capable MQTT client API.
   DynamicBuffer buf(1024);
@@ -196,7 +199,8 @@ bool initMqtt()
   if (!mqttEnabled || mqttServer[0] == 0 || !WLED_CONNECTED) return false;
 
   if (mqtt == nullptr) {
-    mqtt = new AsyncMqttClient();
+    void *ptr = p_malloc(sizeof(AsyncMqttClient));
+    mqtt = new (ptr) AsyncMqttClient(); // use placement new (into PSRAM), client will never be deleted
     if (!mqtt) return false;
     mqtt->onMessage(onMqttMessage);
     mqtt->onConnect(onMqttConnect);

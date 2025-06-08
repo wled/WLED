@@ -4,6 +4,9 @@
 const char HttpPullLightControl::_name[]    PROGMEM = "HttpPullLightControl";
 const char HttpPullLightControl::_enabled[] PROGMEM = "Enable";
 
+static HttpPullLightControl http_pull_usermod;
+REGISTER_USERMOD(http_pull_usermod);
+
 void HttpPullLightControl::setup() {
   //Serial.begin(115200);
 
@@ -297,10 +300,10 @@ void HttpPullLightControl::handleResponse(String& responseStr) {
     // Check for valid JSON, otherwise we brick the program runtime
     if (jsonStr[0] == '{' || jsonStr[0] == '[') {
       // Attempt to deserialize the JSON response
-      DeserializationError error = deserializeJson(doc, jsonStr);
+      DeserializationError error = deserializeJson(*pDoc, jsonStr);
       if (error == DeserializationError::Ok) {
         // Get JSON object from th doc
-        JsonObject obj = doc.as<JsonObject>();
+        JsonObject obj = pDoc->as<JsonObject>();
         // Parse the object throuhg deserializeState  (use CALL_MODE_NO_NOTIFY or OR CALL_MODE_DIRECT_CHANGE)
         deserializeState(obj, CALL_MODE_NO_NOTIFY);
       } else {

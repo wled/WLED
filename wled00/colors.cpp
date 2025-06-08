@@ -10,12 +10,13 @@
  */
 uint32_t color_blend(uint32_t color1, uint32_t color2, uint8_t blend) {
   // min / max blend checking is omitted: calls with 0 or 255 are rare, checking lowers overall performance
-  uint32_t rb1 = color1 & 0x00FF00FF;
-  uint32_t wg1 = (color1>>8) & 0x00FF00FF;
-  uint32_t rb2 = color2 & 0x00FF00FF;
-  uint32_t wg2 = (color2>>8) & 0x00FF00FF;
-  uint32_t rb3 = ((((rb1 << 8) | rb2) + (rb2 * blend) - (rb1 * blend)) >> 8) & 0x00FF00FF;
-  uint32_t wg3 = ((((wg1 << 8) | wg2) + (wg2 * blend) - (wg1 * blend))) & 0xFF00FF00;
+  const uint32_t TWO_CHANNEL_MASK = 0x00FF00FF;     // mask for R and B channels or W and G if negated (poorman's SIMD; https://github.com/wled/WLED/pull/4568#discussion_r1986587221)
+  uint32_t rb1 =  color1       & TWO_CHANNEL_MASK;  // extract R & B channels from color1
+  uint32_t wg1 = (color1 >> 8) & TWO_CHANNEL_MASK;  // extract W & G channels from color1 (shifted for multiplication later)
+  uint32_t rb2 =  color2       & TWO_CHANNEL_MASK;  // extract R & B channels from color2
+  uint32_t wg2 = (color2 >> 8) & TWO_CHANNEL_MASK;  // extract W & G channels from color2 (shifted for multiplication later)
+  uint32_t rb3 = ((((rb1 << 8) | rb2) + (rb2 * blend) - (rb1 * blend)) >> 8) &  TWO_CHANNEL_MASK; // blend red and blue
+  uint32_t wg3 = ((((wg1 << 8) | wg2) + (wg2 * blend) - (wg1 * blend)))      & ~TWO_CHANNEL_MASK; // negated mask for white and green
   return rb3 | wg3;
 }
 
@@ -28,8 +29,9 @@ uint32_t color_add(uint32_t c1, uint32_t c2, bool preserveCR)
 {
   if (c1 == BLACK) return c2;
   if (c2 == BLACK) return c1;
-  uint32_t rb = (c1 & 0x00FF00FF) + (c2 & 0x00FF00FF); // mask and add two colors at once
-  uint32_t wg = ((c1>>8) & 0x00FF00FF) + ((c2>>8) & 0x00FF00FF);
+  const uint32_t TWO_CHANNEL_MASK = 0x00FF00FF; // mask for R and B channels or W and G if negated
+  uint32_t rb = ( c1     & TWO_CHANNEL_MASK) + ( c2     & TWO_CHANNEL_MASK); // mask and add two colors at once
+  uint32_t wg = ((c1>>8) & TWO_CHANNEL_MASK) + ((c2>>8) & TWO_CHANNEL_MASK);
   uint32_t r = rb >> 16; // extract single color values
   uint32_t b = rb & 0xFFFF;
   uint32_t w = wg >> 16;
@@ -44,10 +46,10 @@ uint32_t color_add(uint32_t c1, uint32_t c2, bool preserveCR)
     //max = b > max ? b : max;
     //max = w > max ? w : max;
     if (max > 255) {
-      uint32_t scale = (uint32_t(255)<<8) / max; // division of two 8bit (shifted) values does not work -> use bit shifts and multiplaction instead
-      rb = ((rb * scale) >> 8) & 0x00FF00FF; //
-      wg = (wg * scale) & 0xFF00FF00;
-    } else wg = wg << 8; //shift white and green back to correct position
+      const uint32_t scale = (uint32_t(255)<<8) / max; // division of two 8bit (shifted) values does not work -> use bit shifts and multiplaction instead
+      rb = ((rb * scale) >> 8) &  TWO_CHANNEL_MASK;
+      wg =  (wg * scale)       & ~TWO_CHANNEL_MASK;
+    } else wg <<= 8; //shift white and green back to correct position
     return rb | wg;
   } else {
     r = r > 255 ? 255 : r;
@@ -77,8 +79,9 @@ uint32_t color_fade(uint32_t c1, uint8_t amount, bool video)
     addRemains |= B(c1) ? 0x00000001 : 0;
     addRemains |= W(c1) ? 0x01000000 : 0;
   }
-  uint32_t rb = (((c1 & 0x00FF00FF) * scale) >> 8) & 0x00FF00FF; // scale red and blue
-  uint32_t wg = (((c1 & 0xFF00FF00) >> 8) * scale) & 0xFF00FF00; // scale white and green
+  const uint32_t TWO_CHANNEL_MASK = 0x00FF00FF;
+  uint32_t rb = (((c1 & TWO_CHANNEL_MASK) * scale) >> 8) &  TWO_CHANNEL_MASK; // scale red and blue
+  uint32_t wg = (((c1 >> 8) & TWO_CHANNEL_MASK) * scale) & ~TWO_CHANNEL_MASK; // scale white and green
   scaledcolor = (rb | wg) + addRemains;
   return scaledcolor;
 }
@@ -112,7 +115,7 @@ uint32_t ColorFromPaletteWLED(const CRGBPalette16& pal, unsigned index, uint8_t 
   unsigned red1   = entry->r;
   unsigned green1 = entry->g;
   unsigned blue1  = entry->b;
-  if(lo4 && blendType != NOBLEND) {
+  if (lo4 && blendType != NOBLEND) {
     if (hi4 == 15) entry = &(pal[0]);
     else ++entry;
     unsigned f2 = (lo4 << 4);
@@ -122,6 +125,7 @@ uint32_t ColorFromPaletteWLED(const CRGBPalette16& pal, unsigned index, uint8_t 
     blue1  = (blue1 * f1 + (unsigned)entry->b * f2) >> 8;
   }
   if (brightness < 255) { // note: zero checking could be done to return black but that is hardly ever used so it is omitted
+    // actually color_fade(c1, brightness)
     uint32_t scale = brightness + 1; // adjust for rounding (bitshift)
     red1   = (red1 * scale) >> 8; // note: using color_fade() is 30% slower
     green1 = (green1 * scale) >> 8;
@@ -221,14 +225,14 @@ CRGBPalette16 generateHarmonicRandomPalette(const CRGBPalette16 &basepalette)
     makepastelpalette = true;
   }
 
-  // apply saturation & gamma correction
+  // apply saturation
   CRGB RGBpalettecolors[4];
   for (int i = 0; i < 4; i++) {
     if (makepastelpalette && palettecolors[i].saturation > 180) {
       palettecolors[i].saturation -= 160; //desaturate all four colors
     }
     RGBpalettecolors[i] = (CRGB)palettecolors[i]; //convert to RGB
-    RGBpalettecolors[i] = gamma32(((uint32_t)RGBpalettecolors[i]) & 0x00FFFFFFU); //strip alpha from CRGB
+    RGBpalettecolors[i] = ((uint32_t)RGBpalettecolors[i]) & 0x00FFFFFFU; //strip alpha from CRGB
   }
 
   return CRGBPalette16(RGBpalettecolors[0],
@@ -243,6 +247,54 @@ CRGBPalette16 generateRandomPalette()  // generate fully random palette
                        CHSV(hw_random8(), hw_random8(160, 255), hw_random8(128, 255)),
                        CHSV(hw_random8(), hw_random8(160, 255), hw_random8(128, 255)),
                        CHSV(hw_random8(), hw_random8(160, 255), hw_random8(128, 255)));
+}
+
+void loadCustomPalettes() {
+  byte tcp[72]; //support gradient palettes with up to 18 entries
+  CRGBPalette16 targetPalette;
+  customPalettes.clear(); // start fresh
+  for (int index = 0; index<10; index++) {
+    char fileName[32];
+    sprintf_P(fileName, PSTR("/palette%d.json"), index);
+
+    StaticJsonDocument<1536> pDoc; // barely enough to fit 72 numbers
+    if (WLED_FS.exists(fileName)) {
+      DEBUGFX_PRINTF_P(PSTR("Reading palette from %s\n"), fileName);
+      if (readObjectFromFile(fileName, nullptr, &pDoc)) {
+        JsonArray pal = pDoc[F("palette")];
+        if (!pal.isNull() && pal.size()>3) { // not an empty palette (at least 2 entries)
+          memset(tcp, 255, sizeof(tcp));
+          if (pal[0].is<int>() && pal[1].is<const char *>()) {
+            // we have an array of index & hex strings
+            size_t palSize = MIN(pal.size(), 36);
+            palSize -= palSize % 2; // make sure size is multiple of 2
+            for (size_t i=0, j=0; i<palSize && pal[i].as<int>()<256; i+=2) {
+              uint8_t rgbw[] = {0,0,0,0};
+              if (colorFromHexString(rgbw, pal[i+1].as<const char *>())) { // will catch non-string entires
+                tcp[ j ] = (uint8_t) pal[ i ].as<int>(); // index
+                for (size_t c=0; c<3; c++) tcp[j+1+c] = rgbw[c]; // only use RGB component
+                DEBUGFX_PRINTF_P(PSTR("%2u -> %3d [%3d,%3d,%3d]\n"), i, int(tcp[j]), int(tcp[j+1]), int(tcp[j+2]), int(tcp[j+3]));
+                j += 4;
+              }
+            }
+          } else {
+            size_t palSize = MIN(pal.size(), 72);
+            palSize -= palSize % 4; // make sure size is multiple of 4
+            for (size_t i=0; i<palSize && pal[i].as<int>()<256; i+=4) {
+              tcp[ i ] = (uint8_t) pal[ i ].as<int>(); // index
+              for (size_t c=0; c<3; c++) tcp[i+1+c] = (uint8_t) pal[i+1+c].as<int>();
+              DEBUGFX_PRINTF_P(PSTR("%2u -> %3d [%3d,%3d,%3d]\n"), i, int(tcp[i]), int(tcp[i+1]), int(tcp[i+2]), int(tcp[i+3]));
+            }
+          }
+          customPalettes.push_back(targetPalette.loadDynamicGradientPalette(tcp));
+        } else {
+          DEBUGFX_PRINTLN(F("Wrong palette format."));
+        }
+      }
+    } else {
+      break;
+    }
+  }
 }
 
 void hsv2rgb(const CHSV32& hsv, uint32_t& rgb) // convert HSV (16bit hue) to RGB (32bit with white = 0)
@@ -529,14 +581,17 @@ uint16_t approximateKelvinFromRGB(uint32_t rgb) {
   }
 }
 
-// gamma lookup table used for color correction (filled on 1st use (cfg.cpp & set.cpp))
+// gamma lookup tables used for color correction (filled on 1st use (cfg.cpp & set.cpp))
 uint8_t NeoGammaWLEDMethod::gammaT[256];
+uint8_t NeoGammaWLEDMethod::gammaT_inv[256];
 
-// re-calculates & fills gamma table
+// re-calculates & fills gamma tables
 void NeoGammaWLEDMethod::calcGammaTable(float gamma)
 {
+  float gamma_inv = 1.0f / gamma; // inverse gamma
   for (size_t i = 0; i < 256; i++) {
     gammaT[i] = (int)(powf((float)i / 255.0f, gamma) * 255.0f + 0.5f);
+    gammaT_inv[i] = (int)(powf((float)i / 255.0f, gamma_inv) * 255.0f + 0.5f);
   }
 }
 
