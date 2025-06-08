@@ -1,5 +1,8 @@
 {
   "name": "ina2xx_v2",
+  "build": {
+    "libArchive": false
+  },
   "dependencies": {
     "wollewald/INA219_WE":"~1.3.8",
     "wollewald/INA226_WE":"~1.2.12"
