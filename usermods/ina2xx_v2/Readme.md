@@ -170,7 +170,7 @@ custom_usermods = ${env:d1_mini.custom_usermods} INA2XX_v2
 
 To reset daily or monthly energy calculations, you can implement corresponding functions within your main application.
 
-### I2C Configuration (Mandatory)  
+### I2C Configuration (Mandatory)
 The INA2XX sensor communicates via I2C, so the SDA and SCL pins must be correctly set before enabling the usermod.
 
 1. Open the **WLED Web Interface**.
@@ -179,3 +179,16 @@ The INA2XX sensor communicates via I2C, so the SDA and SCL pins must be correctl
 4. Save the settings and **reboot WLED**.
 
 🚀 **After rebooting, you can enable the **INA219** or **INA226** usermod in the settings.**
+
+
+### INA226 Wiring Tip
+
+- Measuring bus voltage: Tie the INA226’s VIN– pin directly to the VBUS line (load side). This ensures the sensor reads the full voltage drop across your bus.
+
+### Sensor Pinouts
+
+The following diagrams show the typical I2C pin configurations for both INA219 and INA226 modules.
+
+| INA219 Pinout                                       | INA226 Pinout                                       |
+|-----------------------------------------------------|-----------------------------------------------------|
+| ![INA219 Pinout](./img/INA219-Pin-Outs.png)         | ![INA226 Pinout](./img/INA226-Pin-Outs.png)         |
