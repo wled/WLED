@@ -594,7 +594,7 @@ void ParticleSystem2D::render() {
       if (particles[i].sat < 255) {
         CHSV32 baseHSV;
         rgb2hsv((uint32_t((byte(baseRGB.r) << 16) | (byte(baseRGB.g) << 8) | (byte(baseRGB.b)))), baseHSV); // convert to HSV
-        baseHSV.s = particles[i].sat; // set the saturation
+        baseHSV.s = min(baseHSV.s, particles[i].sat); // set the saturation but don't increase it
         uint32_t tempcolor;
         hsv2rgb(baseHSV, tempcolor); // convert back to RGB
         baseRGB = (CRGB)tempcolor;
@@ -1177,7 +1177,7 @@ ParticleSystem1D::ParticleSystem1D(uint32_t length, uint32_t numberofparticles, 
 
   if (isadvanced) {
     for (uint32_t i = 0; i < numParticles; i++) {
-      advPartProps[i].sat = 255; // set full saturation (for particles that are transferred from non-advanced system)
+      advPartProps[i].sat = 255; // set full saturation
     }
   }
 }
@@ -1470,7 +1470,7 @@ void ParticleSystem1D::render() {
       if (advPartProps[i].sat < 255) {
         CHSV32 baseHSV;
         rgb2hsv((uint32_t((byte(baseRGB.r) << 16) | (byte(baseRGB.g) << 8) | (byte(baseRGB.b)))), baseHSV); // convert to HSV
-        baseHSV.s = advPartProps[i].sat; // set the saturation
+        baseHSV.s = min(baseHSV.s, advPartProps[i].sat); // set the saturation but don't increase it
         uint32_t tempcolor;
         hsv2rgb(baseHSV, tempcolor); // convert back to RGB
         baseRGB = (CRGB)tempcolor;

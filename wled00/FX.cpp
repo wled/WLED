@@ -8034,6 +8034,7 @@ uint16_t mode_particlefire(void) {
   PartSys->updateSystem(); // update system properties (dimensions and data pointers)
   PartSys->setWrapX(SEGMENT.check2);
   PartSys->setMotionBlur(SEGMENT.check1 * 170); // anable/disable motion blur
+  PartSys->setSmearBlur(!SEGMENT.check1 * 60);  // enable smear blur if motion blur is not enabled
 
   uint32_t firespeed = max((uint8_t)100, SEGMENT.speed); //limit speed to 100 minimum, reduce frame rate to make it slower (slower speeds than 100 do not look nice)
   if (SEGMENT.speed < 100) { //slow, limit FPS
@@ -8062,7 +8063,7 @@ uint16_t mode_particlefire(void) {
       PartSys->sources[i].source.ttl = 20 + hw_random16((SEGMENT.custom1 * SEGMENT.custom1) >> 8) / (1 + (firespeed >> 5)); //'hotness' of fire, faster flames reduce the effect or flame height will scale too much with speed
       PartSys->sources[i].maxLife = hw_random16(SEGMENT.virtualHeight() >> 1) + 16; // defines flame height together with the vy speed, vy speed*maxlife/PS_P_RADIUS is the average flame height
       PartSys->sources[i].minLife = PartSys->sources[i].maxLife >> 1;
-      PartSys->sources[i].vx = hw_random16(4) - 2; // emitting speed (sideways)
+      PartSys->sources[i].vx = hw_random16(5) - 2; // emitting speed (sideways)
       PartSys->sources[i].vy = (SEGMENT.virtualHeight() >> 1) + (firespeed >> 4) + (SEGMENT.custom1 >> 4); // emitting speed (upwards)
       PartSys->sources[i].var = 2 + hw_random16(2 + (firespeed >> 4)); // speed variation around vx,vy (+/- var)
     }
@@ -8085,6 +8086,20 @@ uint16_t mode_particlefire(void) {
           int32_t curl = ((int32_t)perlin8(PartSys->particles[i].x, PartSys->particles[i].y, SEGENV.step << 4) - 127);
           PartSys->particles[i].vx += (curl * (firespeed + 10)) >> 9;
         }
+      }
+    }
+  }
+
+  // emit faster sparks at first flame position, amount and speed mostly dependends on intensity
+  if(hw_random8() < 10 + (SEGMENT.intensity >> 2)) {
+    for (i = 0; i < PartSys->usedParticles; i++) {
+      if (PartSys->particles[i].ttl == 0) { // find a dead particle
+        PartSys->particles[i].ttl = hw_random16(SEGMENT.virtualHeight()) + 30;
+        PartSys->particles[i].x = PartSys->sources[0].source.x;
+        PartSys->particles[i].y = PartSys->sources[0].source.y;
+        PartSys->particles[i].vx = PartSys->sources[0].source.vx;
+        PartSys->particles[i].vy = (SEGMENT.virtualHeight() >> 1) + (firespeed >> 4) + ((30 + (SEGMENT.intensity >> 1) + SEGMENT.custom1) >> 4); // emitting speed (upwards)
+        break; // emit only one particle
       }
     }
   }
