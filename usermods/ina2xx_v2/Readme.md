@@ -17,9 +17,9 @@ This Usermod integrates the INA219 **and** INA226 sensor with WLED to monitor en
 
 ### Info, Home Assistant and Pin Selection under Usermod
 
-| Info screen                                    | Home Assistant                                               | Settings page - Pin Selection												  |
-|------------------------------------------------|--------------------------------------------------------------|-----------------------------------------------------------------------------|
-| ![Info screen](./img/info.png "Info screen")   | ![Home Assistant](./img/homeassistant.png "Home Assistant")  | ![Pin Selection](./img/usermod_settings_pins_selection.png "Pin Selection") |
+| Info screen                                    | Home Assistant                                               | Usermod Settings page - Pin Selection												  |
+|------------------------------------------------|--------------------------------------------------------------|-------------------------------------------------------------------------------------|
+| ![Info screen](./img/info.png "Info screen")   | ![Home Assistant](./img/homeassistant.png "Home Assistant")  | ![Pin Selection](./img/usermod_settings_pins_selection.png "Pin Selection")         |
 
 ### Settings - Usermod
 
@@ -132,9 +132,9 @@ custom_usermods = ${env:d1_mini.custom_usermods} INA2XX_v2
 
 1. Define your sensor in my_config.h or via build flags:
 
-> ```cpp
-> #define INA_SENSOR_TYPE 219   // or 226
-> ```
+```cpp
+#define INA_SENSOR_TYPE 219   // or 226
+```
 
 2. Setup SDA/SCL Pin - see at the readme bottom → ### I2C Configuration (Mandatory)
 
@@ -142,23 +142,23 @@ custom_usermods = ${env:d1_mini.custom_usermods} INA2XX_v2
 
 3. Configure parameters in the web interface or predefine them in my_config.h:
 
-> ```cpp
-> #define INA2XX_ENABLED             false
-> #define INA2XX_I2C_ADDRESS         0x40
-> #define INA2XX_CHECK_INTERVAL      5
-> #define INA2XX_CONVERSION_TIME     BIT_MODE_12      // or CONV_TIME_1100
-> #define INA2XX_DECIMAL_FACTOR      3
-> #define INA2XX_SHUNT_RESISTOR      0.1
-> #define INA2XX_CORRECTION_FACTOR   1.0
-> #define INA2XX_BUSRANGE            BRNG_32          // INA219 only
-> #define INA2XX_P_GAIN              PG_320           // INA219 only
-> #define INA2XX_SHUNT_VOLT_OFFSET   0.0              // INA219 only
-> #define INA2XX_AVERAGES            AVERAGE_1        // INA226 only
-> #define INA2XX_RANGE               1.3              // INA226 only
-> #define INA2XX_MQTT_PUBLISH        false
-> #define INA2XX_MQTT_PUBLISH_ALWAYS false
-> #define INA2XX_HA_DISCOVERY        false
-> ```
+```cpp
+#define INA2XX_ENABLED             false
+#define INA2XX_I2C_ADDRESS         0x40
+#define INA2XX_CHECK_INTERVAL      5
+#define INA2XX_CONVERSION_TIME     BIT_MODE_12      // or CONV_TIME_1100
+#define INA2XX_DECIMAL_FACTOR      3
+#define INA2XX_SHUNT_RESISTOR      0.1
+#define INA2XX_CORRECTION_FACTOR   1.0
+#define INA2XX_BUSRANGE            BRNG_32          // INA219 only
+#define INA2XX_P_GAIN              PG_320           // INA219 only
+#define INA2XX_SHUNT_VOLT_OFFSET   0.0              // INA219 only
+#define INA2XX_AVERAGES            AVERAGE_1        // INA226 only
+#define INA2XX_RANGE               1.3              // INA226 only
+#define INA2XX_MQTT_PUBLISH        false
+#define INA2XX_MQTT_PUBLISH_ALWAYS false
+#define INA2XX_HA_DISCOVERY        false
+```
 
 4. Monitor your energy consumption through the WLED interface or via MQTT.
 
