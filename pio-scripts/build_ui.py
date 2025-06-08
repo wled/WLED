@@ -10,7 +10,7 @@ if node_ex is None:
 else:
     # Install the necessary node packages for the pre-build asset bundling script
     print('\x1b[6;33;42m' + 'Installing node packages' + '\x1b[0m')
-    env.Execute("npm install")
+    env.Execute("npm ci")
 
     # Call the bundling script
     exitCode = env.Execute("npm run build")

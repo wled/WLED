@@ -30,28 +30,6 @@
   #define PSPRINTLN(x)
 #endif
 
-// memory and transition manager
-struct partMem {
-  void* particleMemPointer;   // pointer to particle memory
-  uint32_t buffersize;        // buffer size in bytes
-  uint8_t particleType;       // type of particles currently in memory: 0 = none, particle struct size otherwise (required for 1D<->2D transitions)
-  uint8_t id;                 // ID of segment this memory belongs to
-  uint8_t watchdog;           // counter to handle deallocation
-  uint8_t inTransition;       // to track PS to PS FX transitions (is set to new FX ID during transitions), not set if not both FX are PS FX
-  uint8_t currentFX;          // current FX ID, is set when transition is complete, used to detect back and forth transitions
-  bool finalTransfer;         // used to update buffer in rendering function after transition has ended
-  bool transferParticles;     // if set, particles in buffer are transferred to new FX
-};
-
-void* particleMemoryManager(const uint32_t requestedParticles, size_t structSize, uint32_t &availableToPS, uint32_t numParticlesUsed, const uint8_t effectID); // update particle memory pointer, handles memory transitions
-void particleHandover(void *buffer, size_t structSize, int32_t numParticles);
-void updateUsedParticles(const uint32_t allocated, const uint32_t available, const uint8_t percentage, uint32_t &used);
-bool segmentIsOverlay(void); // check if segment is fully overlapping with at least one underlying segment
-partMem* getPartMem(void); // returns pointer to memory struct for current segment or nullptr
-void updateRenderingBuffer(uint32_t requiredpixels, bool isFramebuffer, bool initialize); // allocate CRGB rendering buffer, update size if needed
-void transferBuffer(uint32_t width, uint32_t height, bool useAdditiveTransfer = false); // transfer the buffer to the segment (supports 1D and 2D)
-void servicePSmem(); // increments watchdog, frees memory if idle too long
-
 // limit speed of particles (used in 1D and 2D)
 static inline int32_t limitSpeed(const int32_t speed) {
   return speed > PS_P_MAXSPEED ? PS_P_MAXSPEED : (speed < -PS_P_MAXSPEED ? -PS_P_MAXSPEED : speed); // note: this is slightly faster than using min/max at the cost of 50bytes of flash
@@ -60,7 +38,7 @@ static inline int32_t limitSpeed(const int32_t speed) {
 
 #ifndef WLED_DISABLE_PARTICLESYSTEM2D
 // memory allocation
-#define ESP8266_MAXPARTICLES 300 // enough up to 20x20 pixels
+#define ESP8266_MAXPARTICLES 256 // enough up to 16x16 pixels
 #define ESP8266_MAXSOURCES 24
 #define ESP32S2_MAXPARTICLES 1024 // enough up to 32x32 pixels
 #define ESP32S2_MAXSOURCES 64
@@ -118,7 +96,7 @@ typedef union {
 
 // struct for additional particle settings (option)
 typedef struct { // 2 bytes
-  uint8_t size; // particle size, 255 means 10 pixels in diameter
+  uint8_t size; // particle size, 255 means 10 pixels in diameter, 0  means use global size (including single pixel rendering)
   uint8_t forcecounter; // counter for applying forces to individual particles
 } PSadvancedParticle;
 
@@ -149,7 +127,7 @@ typedef struct {
   int8_t var; // variation of emitted speed (adds random(+/- var) to speed)
   int8_t vx; // emitting speed
   int8_t vy;
-  uint8_t size; // particle size (advanced property)
+  uint8_t size; // particle size (advanced property), global size is added on top to this size
 } PSsource;
 
 // class uses approximately 60 bytes
@@ -178,7 +156,6 @@ public:
   void pointAttractor(const uint32_t particleindex, PSparticle &attractor, const uint8_t strength, const bool swallow);
   // set options  note: inlining the set function uses more flash so dont optimize
   void setUsedParticles(const uint8_t percentage);  // set the percentage of particles used in the system, 255=100%
-  inline uint32_t getAvailableParticles(void) { return availableParticles; } // available particles in the buffer, use this to check if buffer changed during FX init
   void setCollisionHardness(const uint8_t hardness); // hardness for particle collisions (255 means full hard)
   void setWallHardness(const uint8_t hardness); // hardness for bouncing on the wall if bounceXY is set
   void setWallRoughness(const uint8_t roughness); // wall roughness randomizes wall collisions
@@ -210,12 +187,12 @@ public:
 
 private:
   //rendering functions
-  void ParticleSys_render();
-  [[gnu::hot]] void renderParticle(const uint32_t particleindex, const uint32_t brightness, const CRGB& color, const bool wrapX, const bool wrapY);
+  void render();
+  [[gnu::hot]] void renderParticle(const uint32_t particleindex, const uint8_t brightness, const CRGB& color, const bool wrapX, const bool wrapY);
   //paricle physics applied by system if flags are set
   void applyGravity(); // applies gravity to all particles
   void handleCollisions();
-  [[gnu::hot]] void collideParticles(PSparticle &particle1, PSparticle &particle2, const int32_t dx, const int32_t dy, const int32_t collDistSq);
+  [[gnu::hot]] void collideParticles(PSparticle &particle1, PSparticle &particle2, const int32_t dx, const int32_t dy, const uint32_t collDistSq);
   void fireParticleupdate();
   //utility functions
   void updatePSpointers(const bool isadvanced, const bool sizecontrol); // update the data pointers to current segment data space
@@ -223,9 +200,9 @@ private:
   void getParticleXYsize(PSadvancedParticle *advprops, PSsizeControl *advsize, uint32_t &xsize, uint32_t &ysize);
   [[gnu::hot]] void bounce(int8_t &incomingspeed, int8_t &parallelspeed, int32_t &position, const uint32_t maxposition); // bounce on a wall
   // note: variables that are accessed often are 32bit for speed
+  CRGB *framebuffer; // local frame buffer for rendering
   PSsettings2D particlesettings; // settings used when updating particles (can also used by FX to move sources), do not edit properties directly, use functions above
-  uint32_t numParticles;  // total number of particles allocated by this system note: during transitions, less are available, use availableParticles
-  uint32_t availableParticles; // number of particles available for use (can be more or less than numParticles, assigned by memory manager)
+  uint32_t numParticles;  // total number of particles allocated by this system
   uint32_t emitIndex; // index to count through particles to emit so searching for dead pixels is faster
   int32_t collisionHardness;
   uint32_t wallHardness;
@@ -233,16 +210,13 @@ private:
   uint32_t particleHardRadius; // hard surface radius of a particle, used for collision detection (32bit for speed)
   uint16_t collisionStartIdx; // particle array start index for collision detection
   uint8_t fireIntesity = 0; // fire intensity, used for fire mode (flash use optimization, better than passing an argument to render function)
-  uint8_t fractionOfParticlesUsed; // percentage of particles used in the system (255=100%), used during transition updates
   uint8_t forcecounter; // counter for globally applied forces
   uint8_t gforcecounter; // counter for global gravity
   int8_t gforce; // gravity strength, default is 8 (negative is allowed, positive is downwards)
   // global particle properties for basic particles
-  uint8_t particlesize; // global particle size, 0 = 1 pixel, 1 = 2 pixels, 255 = 10 pixels (note: this is also added to individual sized particles)
+  uint8_t particlesize; // global particle size, 0 = 1 pixel, 1 = 2 pixels, 255 = 10 pixels (note: this is also added to individual sized particles, set to 0 or 1 for standard advanced particle rendering)
   uint8_t motionBlur; // motion blur, values > 100 gives smoother animations. Note: motion blurring does not work if particlesize is > 0
   uint8_t smearBlur; // 2D smeared blurring of full frame
-  uint8_t effectID; // ID of the effect that is using this particle system, used for transitions
-  uint32_t lastRender; // last time the particles were rendered, intermediate fix for speedup
 };
 
 void blur2D(CRGB *colorbuffer, const uint32_t xsize, uint32_t ysize, const uint32_t xblur, const uint32_t yblur, const uint32_t xstart = 0, uint32_t ystart = 0, const bool isparticle = false);
@@ -258,7 +232,7 @@ bool allocateParticleSystemMemory2D(const uint32_t numparticles, const uint32_t 
 ////////////////////////
 #ifndef WLED_DISABLE_PARTICLESYSTEM1D
 // memory allocation
-#define ESP8266_MAXPARTICLES_1D 450
+#define ESP8266_MAXPARTICLES_1D 320
 #define ESP8266_MAXSOURCES_1D 16
 #define ESP32S2_MAXPARTICLES_1D 1300
 #define ESP32S2_MAXSOURCES_1D 32
@@ -315,7 +289,7 @@ typedef union {
 // struct for additional particle settings (optional)
 typedef struct {
   uint8_t sat; //color saturation
-  uint8_t size; // particle size, 255 means 10 pixels in diameter
+  uint8_t size; // particle size, 255 means 10 pixels in diameter, this overrides global size setting
   uint8_t forcecounter;
 } PSadvancedParticle1D;
 
@@ -343,13 +317,12 @@ public:
   int32_t sprayEmit(const PSsource1D &emitter);
   void particleMoveUpdate(PSparticle1D &part, PSparticleFlags1D &partFlags, PSsettings1D *options = NULL, PSadvancedParticle1D *advancedproperties = NULL); // move function
   //particle physics
-  [[gnu::hot]]  void applyForce(PSparticle1D &part, const int8_t xforce, uint8_t &counter); //apply a force to a single particle
+  [[gnu::hot]] void applyForce(PSparticle1D &part, const int8_t xforce, uint8_t &counter); //apply a force to a single particle
   void applyForce(const int8_t xforce); // apply a force to all particles
   void applyGravity(PSparticle1D &part, PSparticleFlags1D &partFlags); // applies gravity to single particle (use this for sources)
   void applyFriction(const int32_t coefficient); // apply friction to all used particles
   // set options
   void setUsedParticles(const uint8_t percentage); // set the percentage of particles used in the system, 255=100%
-  inline uint32_t getAvailableParticles(void) { return availableParticles; } // available particles in the buffer, use this to check if buffer changed during FX init
   void setWallHardness(const uint8_t hardness); // hardness for bouncing on the wall if bounceXY is set
   void setSize(const uint32_t x); //set particle system size (= strip length)
   void setWrap(const bool enable);
@@ -360,7 +333,7 @@ public:
   void setColorByPosition(const bool enable);
   void setMotionBlur(const uint8_t bluramount); // note: motion blur can only be used if 'particlesize' is set to zero
   void setSmearBlur(const uint8_t bluramount); // enable 1D smeared blurring of full frame
-  void setParticleSize(const uint8_t size); //size 0 = 1 pixel, size 1 = 2 pixels, is overruled by advanced particle size
+  void setParticleSize(const uint8_t size); //size 0 = 1 pixel, size 1 = 2 pixels, is overruled if advanced particle is used
   void setGravity(int8_t force = 8);
   void enableParticleCollisions(bool enable, const uint8_t hardness = 255);
 
@@ -377,23 +350,24 @@ public:
 
 private:
   //rendering functions
-  void ParticleSys_render(void);
-  void renderParticle(const uint32_t particleindex, const uint32_t brightness, const CRGB &color, const bool wrap);
+  void render(void);
+  [[gnu::hot]] void renderParticle(const uint32_t particleindex, const uint8_t brightness, const CRGB &color, const bool wrap);
 
   //paricle physics applied by system if flags are set
   void applyGravity(); // applies gravity to all particles
   void handleCollisions();
-  [[gnu::hot]] void collideParticles(PSparticle1D &particle1, const PSparticleFlags1D &particle1flags, PSparticle1D &particle2, const PSparticleFlags1D &particle2flags, int32_t dx, int32_t relativeVx, const int32_t collisiondistance);
+  [[gnu::hot]] void collideParticles(PSparticle1D &particle1, const PSparticleFlags1D &particle1flags, PSparticle1D &particle2, const PSparticleFlags1D &particle2flags, const int32_t dx, const uint32_t dx_abs, const uint32_t collisiondistance);
 
   //utility functions
   void updatePSpointers(const bool isadvanced); // update the data pointers to current segment data space
   //void updateSize(PSadvancedParticle *advprops, PSsizeControl *advsize); // advanced size control
   [[gnu::hot]] void bounce(int8_t &incomingspeed, int8_t &parallelspeed, int32_t &position, const uint32_t maxposition); // bounce on a wall
   // note: variables that are accessed often are 32bit for speed
+  #ifndef ESP8266
+  CRGB *framebuffer; // local frame buffer for rendering
+  #endif
   PSsettings1D particlesettings; // settings used when updating particles
-  uint32_t numParticles;  // total number of particles allocated by this system note: never use more than this, even if more are available (only this many advanced particles are allocated)
-  uint32_t availableParticles; // number of particles available for use (can be more or less than numParticles, assigned by memory manager)
-  uint8_t fractionOfParticlesUsed; // percentage of particles used in the system (255=100%), used during transition updates
+  uint32_t numParticles;  // total number of particles allocated by this system
   uint32_t emitIndex; // index to count through particles to emit so searching for dead pixels is faster
   int32_t collisionHardness;
   uint32_t particleHardRadius; // hard surface radius of a particle, used for collision detection
@@ -403,11 +377,9 @@ private:
   uint8_t forcecounter; // counter for globally applied forces
   uint16_t collisionStartIdx; // particle array start index for collision detection
   //global particle properties for basic particles
-  uint8_t particlesize; // global particle size, 0 = 1 pixel, 1 = 2 pixels
+  uint8_t particlesize; // global particle size, 0 = 1 pixel, 1 = 2 pixels, is overruled by advanced particle size
   uint8_t motionBlur; // enable motion blur, values > 100 gives smoother animations
   uint8_t smearBlur; // smeared blurring of full frame
-  uint8_t effectID; // ID of the effect that is using this particle system, used for transitions
-  uint32_t lastRender; // last time the particles were rendered, intermediate fix for speedup
 };
 
 bool initParticleSystem1D(ParticleSystem1D *&PartSys, const uint32_t requestedsources, const uint8_t fractionofparticles = 255, const uint32_t additionalbytes = 0, const bool advanced = false);

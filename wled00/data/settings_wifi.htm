@@ -136,12 +136,52 @@ Static subnet mask:<br>
 			getLoc();
 			loadJS(getURL('/settings/s.js?p=1'), false);	// If we set async false, file is loaded and executed, then next statement is processed
 			if (loc) d.Sf.action = getURL('/settings/wifi');
+			setTimeout(tE, 500); // wait for DOM to load before calling tE()
 		}
+
+		var rC = 0; // remote count
+		// toggle visibility of ESP-NOW remote list based on checkbox state
+		function tE() {
+			// keep the hidden input with MAC addresses, only toggle visibility of the list UI
+			gId('rlc').style.display = d.Sf.RE.checked ? 'block' : 'none';
+		}
+		// reset remotes: initialize empty list (called from xml.cpp)
+		function rstR() {
+			gId('rml').innerHTML = ''; // clear remote list
+		}
+		// add remote MAC to the list
+		function aR(id, mac) {
+			if (!/^[0-9A-F]{12}$/i.test(mac)) return; // check for valid hex string
+			let inputs = d.querySelectorAll("#rml input");
+			for (let i of (inputs || [])) {
+				if (i.value === mac) return;
+			}
+			let l = gId('rml'), r = cE('div'), i = cE('input');
+			i.type = 'text';
+			i.name = id;
+			i.value = mac;
+			i.maxLength = 12;
+			i.minLength = 12;
+			//i.onchange = uR;
+			r.appendChild(i);
+			let b = cE('button');
+			b.type = 'button';
+			b.className = 'sml';
+			b.innerText = '-';
+			b.onclick = (e) => {
+ 				r.remove();
+ 			};
+			r.appendChild(b);
+			l.appendChild(r);
+			rC++;
+			gId('+').style.display = gId("rml").childElementCount < 10 ? 'inline' : 'none'; // can't append to list anymore, hide button
+		}
+
 	</script>
 	<style>@import url("style.css");</style>
 </head>
 <body onload="S()">
-	<form id="form_s" name="Sf" method="post">
+  <form id="form_s" name="Sf" method="post">
 		<div class="toprow">
 		<div class="helpB"><button type="button" onclick="H('features/settings/#wifi-settings')">?</button></div>
 		<button type="button" onclick="B()">Back</button><button type="submit">Save & Connect</button><hr>
@@ -202,11 +242,16 @@ Static subnet mask:<br>
 			<i class="warn">This firmware build does not include ESP-NOW support.<br></i>
 		</div>
 		<div id="ESPNOW">
-			Enable ESP-NOW: <input type="checkbox" name="RE"><br>
+			Enable ESP-NOW: <input type="checkbox" name="RE" onchange="tE()"><br>
 			<i>Listen for events over ESP-NOW<br>
-			Keep disabled if not using a remote or wireless sync, increases power consumption.<br></i>
-			Paired Remote MAC: <input type="text" name="RMAC" minlength="12" maxlength="12"><br>
-			Last device seen: <span class="rlid" onclick="d.Sf.RMAC.value=this.textContent;" style="cursor:pointer;">None</span> <br>
+			Keep disabled if not using a remote or ESP-NOW sync, increases power consumption.<br></i>
+			<div id="rlc">
+				Last device seen: <span class="rlid" id="ld">None</span>
+				<button type="button" class="sml" id="+" onclick="aR('RM'+rC,gId('ld').textContent)">+</button><br>
+				Linked MACs (10 max):<br>
+				<div id="rml">
+				</div>
+			</div>
 		</div>
 
 		<div id="ethd">
