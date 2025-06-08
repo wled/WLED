@@ -140,7 +140,7 @@ custom_usermods = ${env:d1_mini.custom_usermods} INA2XX_v2
 
 3. Enable the usermod in WLED’s web interface (Settings → Usermod → INA2XX).
 
-3. Configure parameters in the web interface or predefine them in my_config.h:
+4. Configure parameters in the web interface or predefine them in my_config.h:
 
 ```cpp
 #define INA2XX_ENABLED             false
@@ -160,7 +160,7 @@ custom_usermods = ${env:d1_mini.custom_usermods} INA2XX_v2
 #define INA2XX_HA_DISCOVERY        false
 ```
 
-4. Monitor your energy consumption through the WLED interface or via MQTT.
+5. Monitor your energy consumption through the WLED interface or via MQTT.
 
 ## Energy Calculation
 
