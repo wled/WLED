@@ -1584,9 +1584,6 @@ static uint8_t estimateCurrentAndLimitBri(uint8_t brightness, uint32_t *pixels) 
   return brightness;
 }
 
-/*
- * Read rendered pixel back (following mirror/reverse/transpose but ignoring grouping)
- */
 void WS2812FX::show() {
   unsigned long showNow = millis();
   size_t diff = showNow - _lastShow;
