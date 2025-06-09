@@ -1,5 +1,5 @@
-#include "pin_manager.h"
 #include "wled.h"
+#include "pin_manager.h"
 
 #ifdef ARDUINO_ARCH_ESP32
   #ifdef bitRead

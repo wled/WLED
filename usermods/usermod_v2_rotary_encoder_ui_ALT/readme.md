@@ -5,6 +5,7 @@ This usermod supports the UI of the `usermod_v2_rotary_encoder_ui_ALT`.
 ## Functionalities
 
 Press the encoder to cycle through the options:
+
 * Brightness
 * Speed
 * Intensity
@@ -39,4 +40,5 @@ No special requirements.
 ## Change Log
 
 2021-10
+
 * First public release

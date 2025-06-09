@@ -5,6 +5,7 @@ This usermod could be used in compination with `usermod_v2_rotary_encoder_ui_ALT
 ## Functionalities
 
 Press the encoder to cycle through the options:
+
 * Brightness
 * Speed
 * Intensity
@@ -35,15 +36,15 @@ These options are configurable in Config > Usermods
 
 * `enabled` - enable/disable usermod
 * `type` - display type in numeric format
-    * 1 = I2C SSD1306 128x32
-    * 2 = I2C SH1106 128x32
-    * 3 = I2C SSD1306 128x64 (4 double-height lines)
-    * 4 = I2C SSD1305 128x32
-    * 5 = I2C SSD1305 128x64 (4 double-height lines)
-    * 6 = SPI SSD1306 128x32
-    * 7 = SPI SSD1306 128x64 (4 double-height lines)
-    * 8 = SPI SSD1309 128x64 (4 double-height lines)
-    * 9 = I2C SSD1309 128x64 (4 double-height lines)
+  * 1 = I2C SSD1306 128x32
+  * 2 = I2C SH1106 128x32
+  * 3 = I2C SSD1306 128x64 (4 double-height lines)
+  * 4 = I2C SSD1305 128x32
+  * 5 = I2C SSD1305 128x64 (4 double-height lines)
+  * 6 = SPI SSD1306 128x32
+  * 7 = SPI SSD1306 128x64 (4 double-height lines)
+  * 8 = SPI SSD1309 128x64 (4 double-height lines)
+  * 9 = I2C SSD1309 128x64 (4 double-height lines)
 * `pin` - GPIO pins used for display; SPI displays can use SCK, MOSI, CS, DC & RST
 * `flip` - flip/rotate display 180°
 * `contrast` - set display contrast (higher contrast may reduce display lifetime)
@@ -53,7 +54,6 @@ These options are configurable in Config > Usermods
 * `showSeconds` - Show seconds on the clock display
 * `i2c-freq-kHz` - I2C clock frequency in kHz (may help reduce dropped frames, range: 400-3400)
 
-
 ### PlatformIO requirements
 
 Note: the Four Line Display usermod requires the libraries `U8g2` and `Wire`.
@@ -61,4 +61,5 @@ Note: the Four Line Display usermod requires the libraries `U8g2` and `Wire`.
 ## Change Log
 
 2021-10
+
 * First public release

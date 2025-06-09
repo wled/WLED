@@ -802,56 +802,44 @@ static const char _data_FX_MODE_MULTI_STROBE[] PROGMEM = "Strobe Mega@!,!;!,!;!;
 
 
 /*
- * Android loading circle
+ * Android loading circle, refactored by @dedehai
  */
 uint16_t mode_android(void) {
-
+  if (!SEGENV.allocateData(sizeof(uint32_t))) return mode_static();
+  uint32_t* counter = reinterpret_cast<uint32_t*>(SEGENV.data);
+  unsigned size = SEGENV.aux1 >> 1; // upper 15 bit
+  unsigned shrinking = SEGENV.aux1 & 0x01; // lowest bit
+  if(strip.now >= SEGENV.step) {
+    SEGENV.step = strip.now + 3 + ((8 * (uint32_t)(255 - SEGMENT.speed)) / SEGLEN);
+    if (size > (SEGMENT.intensity * SEGLEN) / 255)
+      shrinking = 1;
+    else if (size < 2)
+      shrinking = 0;
+    if (!shrinking) { // growing
+      if ((*counter % 3) == 1)
+        SEGENV.aux0++; // advance start position
+      else
+        size++;
+    } else { // shrinking
+      SEGENV.aux0++;
+      if ((*counter % 3) != 1)
+        size--;
+    }
+    SEGENV.aux1 = size << 1 | shrinking; // save back
+    (*counter)++;
+    if (SEGENV.aux0 >= SEGLEN) SEGENV.aux0 = 0;
+  }
+  uint32_t start = SEGENV.aux0;
+  uint32_t end = (SEGENV.aux0 + size) % SEGLEN;
   for (unsigned i = 0; i < SEGLEN; i++) {
-    SEGMENT.setPixelColor(i, SEGMENT.color_from_palette(i, true, PALETTE_SOLID_WRAP, 1));
-  }
-
-  if (SEGENV.aux1 > (SEGMENT.intensity*SEGLEN)/255)
-  {
-    SEGENV.aux0 = 1;
-  } else
-  {
-    if (SEGENV.aux1 < 2) SEGENV.aux0 = 0;
-  }
-
-  unsigned a = SEGENV.step & 0xFFFFU;
-
-  if (SEGENV.aux0 == 0)
-  {
-    if (SEGENV.call %3 == 1) {a++;}
-    else {SEGENV.aux1++;}
-  } else
-  {
-    a++;
-    if (SEGENV.call %3 != 1) SEGENV.aux1--;
-  }
-
-  if (a >= SEGLEN) a = 0;
-
-  if (a + SEGENV.aux1 < SEGLEN)
-  {
-    for (unsigned i = a; i < a+SEGENV.aux1; i++) {
+    if ((start < end && i >= start && i < end) || (start >= end && (i >= start || i < end)))
       SEGMENT.setPixelColor(i, SEGCOLOR(0));
-    }
-  } else
-  {
-    for (unsigned i = a; i < SEGLEN; i++) {
-      SEGMENT.setPixelColor(i, SEGCOLOR(0));
-    }
-    for (unsigned i = 0; i < SEGENV.aux1 - (SEGLEN -a); i++) {
-      SEGMENT.setPixelColor(i, SEGCOLOR(0));
-    }
+    else
+      SEGMENT.setPixelColor(i, SEGMENT.color_from_palette(i, true, PALETTE_SOLID_WRAP, 1));
   }
-  SEGENV.step = a;
-
-  return 3 + ((8 * (uint32_t)(255 - SEGMENT.speed)) / SEGLEN);
+  return FRAMETIME;
 }
 static const char _data_FX_MODE_ANDROID[] PROGMEM = "Android@!,Width;!,!;!;;m12=1"; //vertical
-
 
 /*
  * color chase function.
@@ -5053,7 +5041,11 @@ uint16_t mode_2Dfirenoise(void) {               // firenoise2d. By Andrew Tuline
   unsigned yscale = SEGMENT.speed*8;
   unsigned indexx = 0;
 
-  CRGBPalette16 pal = SEGMENT.check1 ? SEGPALETTE : SEGMENT.loadPalette(pal, 35);  
+  //CRGBPalette16 pal = SEGMENT.check1 ? SEGPALETTE : SEGMENT.loadPalette(pal, 35);  
+  CRGBPalette16 pal = SEGMENT.check1 ? SEGPALETTE : CRGBPalette16(CRGB::Black,     CRGB::Black,      CRGB::Black,  CRGB::Black,
+                                                                  CRGB::Red,       CRGB::Red,        CRGB::Red,    CRGB::DarkOrange,
+                                                                  CRGB::DarkOrange,CRGB::DarkOrange, CRGB::Orange, CRGB::Orange,
+                                                                  CRGB::Yellow,    CRGB::Orange,     CRGB::Yellow, CRGB::Yellow);
   for (int j=0; j < cols; j++) {
     for (int i=0; i < rows; i++) {
       indexx = perlin8(j*yscale*rows/255, i*xscale+strip.now/4);                                               // We're moving along our Perlin map.
@@ -6088,7 +6080,8 @@ uint16_t mode_2Dscrollingtext(void) {
     case 5: letterWidth = 5; letterHeight = 12; break;
   }
   // letters are rotated
-  if (((SEGMENT.custom3+1)>>3) % 2) {
+  const int8_t rotate = map(SEGMENT.custom3, 0, 31, -2, 2);
+  if (rotate == 1 || rotate == -1) {
     rotLH = letterWidth;
     rotLW = letterHeight;
   } else {
@@ -6126,6 +6119,7 @@ uint16_t mode_2Dscrollingtext(void) {
     else if (!strncmp_P(text,PSTR("#DD"),3))   sprintf  (text, zero?    ("%02d")          :    ("%d"),         day(localTime));
     else if (!strncmp_P(text,PSTR("#DAY"),4))  sprintf  (text,          ("%s")                       ,         dayShortStr(day(localTime)));
     else if (!strncmp_P(text,PSTR("#DDDD"),5)) sprintf  (text,          ("%s")                       ,         dayStr(day(localTime)));
+    else if (!strncmp_P(text,PSTR("#DAYL"),5)) sprintf  (text,          ("%s")                       ,         dayStr(day(localTime)));
     else if (!strncmp_P(text,PSTR("#MO"),3))   sprintf  (text, zero?    ("%02d")          :    ("%d"),         month(localTime));
     else if (!strncmp_P(text,PSTR("#MON"),4))  sprintf  (text,          ("%s")                       ,         monthShortStr(month(localTime)));
     else if (!strncmp_P(text,PSTR("#MMMM"),5)) sprintf  (text,          ("%s")                       ,         monthStr(month(localTime)));
@@ -6159,27 +6153,28 @@ uint16_t mode_2Dscrollingtext(void) {
     SEGENV.step = strip.now + map(SEGMENT.speed, 0, 255, 250, 50); // shift letters every ~250ms to ~50ms
   }
 
-  if (!SEGMENT.check2) SEGMENT.fade_out(255 - (SEGMENT.custom1>>4));  // trail
-  bool usePaletteGradient = false;
+  SEGMENT.fade_out(255 - (SEGMENT.custom1>>4));  // trail
   uint32_t col1 = SEGMENT.color_from_palette(SEGENV.aux1, false, PALETTE_SOLID_WRAP, 0);
   uint32_t col2 = BLACK;
+  // if gradient is selected and palette is default (0) drawCharacter() uses gradient from SEGCOLOR(0) to SEGCOLOR(2)
+  // otherwise col2 == BLACK means use currently selected palette for gradient
+  // if gradient is not selected set both colors the same
   if (SEGMENT.check1) { // use gradient
-    if(SEGMENT.palette == 0) { // use colors for gradient
-    col1 = SEGCOLOR(0);
-    col2 = SEGCOLOR(2);
+    if (SEGMENT.palette == 0) { // use colors for gradient
+      col1 = SEGCOLOR(0);
+      col2 = SEGCOLOR(2);
     }
-    else usePaletteGradient = true;
-  }
+  } else col2 = col1; // force characters to use single color (from palette)
 
   for (int i = 0; i < numberOfLetters; i++) {
     int xoffset = int(cols) - int(SEGENV.aux0) + rotLW*i;
     if (xoffset + rotLW < 0) continue; // don't draw characters off-screen
-    SEGMENT.drawCharacter(text[i], xoffset, yoffset, letterWidth, letterHeight, col1, col2, map(SEGMENT.custom3, 0, 31, -2, 2), usePaletteGradient);
+    SEGMENT.drawCharacter(text[i], xoffset, yoffset, letterWidth, letterHeight, col1, col2, rotate);
   }
 
   return FRAMETIME;
 }
-static const char _data_FX_MODE_2DSCROLLTEXT[] PROGMEM = "Scrolling Text@!,Y Offset,Trail,Font size,Rotate,Gradient,Overlay,Reverse;!,!,Gradient;!;2;ix=128,c1=0,rev=0,mi=0,rY=0,mY=0";
+static const char _data_FX_MODE_2DSCROLLTEXT[] PROGMEM = "Scrolling Text@!,Y Offset,Trail,Font size,Rotate,Gradient,,Reverse;!,!,Gradient;!;2;ix=128,c1=0,rev=0,mi=0,rY=0,mY=0";
 
 
 ////////////////////////////
@@ -7412,7 +7407,7 @@ static const char _data_FX_MODE_2DAKEMI[] PROGMEM = "Akemi@Color speed,Dance;Hea
 
 // Distortion waves - ldirko
 // https://editor.soulmatelights.com/gallery/1089-distorsion-waves
-// adapted for WLED by @blazoncek
+// adapted for WLED by @blazoncek, improvements by @dedehai
 uint16_t mode_2Ddistortionwaves() {
   if (!strip.isMatrix || !SEGMENT.is2D()) return mode_static(); // not a 2D set-up
 
@@ -7421,20 +7416,23 @@ uint16_t mode_2Ddistortionwaves() {
 
   uint8_t speed = SEGMENT.speed/32;
   uint8_t scale = SEGMENT.intensity/32;
-
-  uint8_t  w = 2;
+  if(SEGMENT.check2) scale += 192 / (cols+rows); // zoom out some more. note: not changing scale slider for backwards compatibility
 
   unsigned a  = strip.now/32;
   unsigned a2 = a/2;
   unsigned a3 = a/3;
+  unsigned colsScaled = cols * scale;
+  unsigned rowsScaled = rows * scale;
 
-  unsigned cx =  beatsin8_t(10-speed,0,cols-1)*scale;
-  unsigned cy =  beatsin8_t(12-speed,0,rows-1)*scale;
-  unsigned cx1 = beatsin8_t(13-speed,0,cols-1)*scale;
-  unsigned cy1 = beatsin8_t(15-speed,0,rows-1)*scale;
-  unsigned cx2 = beatsin8_t(17-speed,0,cols-1)*scale;
-  unsigned cy2 = beatsin8_t(14-speed,0,rows-1)*scale;
-  
+  unsigned cx =  beatsin16_t(10-speed,0,colsScaled);
+  unsigned cy =  beatsin16_t(12-speed,0,rowsScaled);
+  unsigned cx1 = beatsin16_t(13-speed,0,colsScaled);
+  unsigned cy1 = beatsin16_t(15-speed,0,rowsScaled);
+  unsigned cx2 = beatsin16_t(17-speed,0,colsScaled);
+  unsigned cy2 = beatsin16_t(14-speed,0,rowsScaled);
+
+  byte rdistort, gdistort, bdistort;
+
   unsigned xoffs = 0;
   for (int x = 0; x < cols; x++) {
     xoffs += scale;
@@ -7443,25 +7441,49 @@ uint16_t mode_2Ddistortionwaves() {
     for (int y = 0; y < rows; y++) {
        yoffs += scale;
 
-      byte rdistort = cos8_t((cos8_t(((x<<3)+a )&255)+cos8_t(((y<<3)-a2)&255)+a3   )&255)>>1; 
-      byte gdistort = cos8_t((cos8_t(((x<<3)-a2)&255)+cos8_t(((y<<3)+a3)&255)+a+32 )&255)>>1; 
-      byte bdistort = cos8_t((cos8_t(((x<<3)+a3)&255)+cos8_t(((y<<3)-a) &255)+a2+64)&255)>>1; 
+      if(SEGMENT.check3) {
+        // alternate mode from original code
+        rdistort = cos8_t (((x+y)*8+a2)&255)>>1;
+        gdistort = cos8_t (((x+y)*8+a3+32)&255)>>1;
+        bdistort = cos8_t (((x+y)*8+a+64)&255)>>1;
+      } else {
+        rdistort = cos8_t((cos8_t(((x<<3)+a )&255)+cos8_t(((y<<3)-a2)&255)+a3   )&255)>>1;
+        gdistort = cos8_t((cos8_t(((x<<3)-a2)&255)+cos8_t(((y<<3)+a3)&255)+a+32 )&255)>>1;
+        bdistort = cos8_t((cos8_t(((x<<3)+a3)&255)+cos8_t(((y<<3)-a) &255)+a2+64)&255)>>1;
+      }
 
-      byte valueR = rdistort+ w*  (a- ( ((xoffs - cx)  * (xoffs - cx)  + (yoffs - cy)  * (yoffs - cy))>>7  ));
-      byte valueG = gdistort+ w*  (a2-( ((xoffs - cx1) * (xoffs - cx1) + (yoffs - cy1) * (yoffs - cy1))>>7 ));
-      byte valueB = bdistort+ w*  (a3-( ((xoffs - cx2) * (xoffs - cx2) + (yoffs - cy2) * (yoffs - cy2))>>7 ));
+      byte valueR = rdistort + ((a- ( ((xoffs - cx)  * (xoffs - cx)  + (yoffs - cy)  * (yoffs - cy))>>7  ))<<1);
+      byte valueG = gdistort + ((a2-( ((xoffs - cx1) * (xoffs - cx1) + (yoffs - cy1) * (yoffs - cy1))>>7 ))<<1);
+      byte valueB = bdistort + ((a3-( ((xoffs - cx2) * (xoffs - cx2) + (yoffs - cy2) * (yoffs - cy2))>>7 ))<<1);
 
       valueR = gamma8(cos8_t(valueR));
       valueG = gamma8(cos8_t(valueG));
       valueB = gamma8(cos8_t(valueB));
 
-      SEGMENT.setPixelColorXY(x, y, RGBW32(valueR, valueG, valueB, 0)); 
+      if(SEGMENT.palette == 0) {
+        // use RGB values (original color mode)
+        SEGMENT.setPixelColorXY(x, y, RGBW32(valueR, valueG, valueB, 0));
+      } else {
+        // use palette
+        uint8_t brightness = (valueR + valueG + valueB) / 3;
+        if(SEGMENT.check1) { // map brightness to palette index
+          SEGMENT.setPixelColorXY(x, y, ColorFromPalette(SEGPALETTE, brightness, 255, LINEARBLEND_NOWRAP));
+        } else {
+          // color mapping: calculate hue from pixel color, map it to palette index
+          CHSV hsvclr = rgb2hsv_approximate(CRGB(valueR>>2, valueG>>2, valueB>>2)); // scale colors down to not saturate for better hue extraction
+          SEGMENT.setPixelColorXY(x, y, ColorFromPalette(SEGPALETTE, hsvclr.h, brightness));
+        }
+      }
     }
   }
 
+  // palette mode and not filling: smear-blur to cover up palette wrapping artefacts
+  if(!SEGMENT.check1 && SEGMENT.palette)
+    SEGMENT.blur(200, true);
+
   return FRAMETIME;
 }
-static const char _data_FX_MODE_2DDISTORTIONWAVES[] PROGMEM = "Distortion Waves@!,Scale;;;2";
+static const char _data_FX_MODE_2DDISTORTIONWAVES[] PROGMEM = "Distortion Waves@!,Scale,,,,Fill,Zoom,Alt;;!;2;pal=0";
 
 
 //Soap
@@ -8012,6 +8034,7 @@ uint16_t mode_particlefire(void) {
   PartSys->updateSystem(); // update system properties (dimensions and data pointers)
   PartSys->setWrapX(SEGMENT.check2);
   PartSys->setMotionBlur(SEGMENT.check1 * 170); // anable/disable motion blur
+  PartSys->setSmearBlur(!SEGMENT.check1 * 60);  // enable smear blur if motion blur is not enabled
 
   uint32_t firespeed = max((uint8_t)100, SEGMENT.speed); //limit speed to 100 minimum, reduce frame rate to make it slower (slower speeds than 100 do not look nice)
   if (SEGMENT.speed < 100) { //slow, limit FPS
@@ -8040,7 +8063,7 @@ uint16_t mode_particlefire(void) {
       PartSys->sources[i].source.ttl = 20 + hw_random16((SEGMENT.custom1 * SEGMENT.custom1) >> 8) / (1 + (firespeed >> 5)); //'hotness' of fire, faster flames reduce the effect or flame height will scale too much with speed
       PartSys->sources[i].maxLife = hw_random16(SEGMENT.virtualHeight() >> 1) + 16; // defines flame height together with the vy speed, vy speed*maxlife/PS_P_RADIUS is the average flame height
       PartSys->sources[i].minLife = PartSys->sources[i].maxLife >> 1;
-      PartSys->sources[i].vx = hw_random16(4) - 2; // emitting speed (sideways)
+      PartSys->sources[i].vx = hw_random16(5) - 2; // emitting speed (sideways)
       PartSys->sources[i].vy = (SEGMENT.virtualHeight() >> 1) + (firespeed >> 4) + (SEGMENT.custom1 >> 4); // emitting speed (upwards)
       PartSys->sources[i].var = 2 + hw_random16(2 + (firespeed >> 4)); // speed variation around vx,vy (+/- var)
     }
@@ -8063,6 +8086,20 @@ uint16_t mode_particlefire(void) {
           int32_t curl = ((int32_t)perlin8(PartSys->particles[i].x, PartSys->particles[i].y, SEGENV.step << 4) - 127);
           PartSys->particles[i].vx += (curl * (firespeed + 10)) >> 9;
         }
+      }
+    }
+  }
+
+  // emit faster sparks at first flame position, amount and speed mostly dependends on intensity
+  if(hw_random8() < 10 + (SEGMENT.intensity >> 2)) {
+    for (i = 0; i < PartSys->usedParticles; i++) {
+      if (PartSys->particles[i].ttl == 0) { // find a dead particle
+        PartSys->particles[i].ttl = hw_random16(SEGMENT.virtualHeight()) + 30;
+        PartSys->particles[i].x = PartSys->sources[0].source.x;
+        PartSys->particles[i].y = PartSys->sources[0].source.y;
+        PartSys->particles[i].vx = PartSys->sources[0].source.vx;
+        PartSys->particles[i].vy = (SEGMENT.virtualHeight() >> 1) + (firespeed >> 4) + ((30 + (SEGMENT.intensity >> 1) + SEGMENT.custom1) >> 4); // emitting speed (upwards)
+        break; // emit only one particle
       }
     }
   }
@@ -8958,6 +8995,108 @@ uint16_t mode_particleblobs(void) {
   return FRAMETIME;
 }
 static const char _data_FX_MODE_PARTICLEBLOBS[] PROGMEM = "PS Blobs@Speed,Blobs,Size,Life,Blur,Wobble,Collide,Pulsate;;!;2v;sx=30,ix=64,c1=200,c2=130,c3=0,o3=1";
+
+/*
+  Particle Galaxy, particles spiral like in a galaxy
+  Uses palette for particle color
+  by DedeHai (Damian Schneider)
+*/
+uint16_t mode_particlegalaxy(void) {
+  ParticleSystem2D *PartSys = nullptr;
+  PSsettings2D sourcesettings;
+  sourcesettings.asByte = 0b00001100; // PS settings for bounceY, bounceY used for source movement (it always bounces whereas particles do not)
+  if (SEGMENT.call == 0) { // initialization
+    if (!initParticleSystem2D(PartSys, 1, 0, true)) // init using 1 source and advanced particle settings
+      return mode_static(); // allocation failed or not 2D
+    PartSys->sources[0].source.vx = -4; // will collide with wall and get random bounce direction
+    PartSys->sources[0].source.x =  PartSys->maxX >> 1; // start in the center
+    PartSys->sources[0].source.y =  PartSys->maxY >> 1;
+    PartSys->sources[0].sourceFlags.perpetual = true; //source does not age
+    PartSys->sources[0].maxLife = 4000; // lifetime in frames
+    PartSys->sources[0].minLife = 800;
+    PartSys->sources[0].source.hue = hw_random16(); // start with random color
+    PartSys->setWallHardness(255);  //bounce forever
+    PartSys->setWallRoughness(200); //randomize wall bounce
+  }
+  else {
+    PartSys = reinterpret_cast<ParticleSystem2D *>(SEGENV.data); // if not first call, just set the pointer to the PS
+  }
+  if (PartSys == nullptr)
+    return mode_static(); // something went wrong, no data!
+  // Particle System settings
+  PartSys->updateSystem(); // update system properties (dimensions and data pointers)
+  uint8_t particlesize = SEGMENT.custom1;
+  if(SEGMENT.check3)
+    particlesize =  SEGMENT.custom1 ? 1 : 0; // set size to 0 (single pixel) or 1 (quad pixel) so motion blur works and adds streaks
+  PartSys->setParticleSize(particlesize); // set size globally
+  PartSys->setMotionBlur(250 * SEGMENT.check3); // adds trails to single/quad pixel particles, no effect if size > 1
+
+  if ((SEGMENT.call % ((33 - SEGMENT.custom3) >> 1)) == 0) // change hue of emitted particles
+    PartSys->sources[0].source.hue+=2;
+
+  if (hw_random8() < (10 + (SEGMENT.intensity >> 1))) // 5%-55% chance to emit a particle in this frame
+    PartSys->sprayEmit(PartSys->sources[0]);
+
+  if ((SEGMENT.call & 0x3) == 0) // every 4th frame, move the emitter
+    PartSys->particleMoveUpdate(PartSys->sources[0].source, PartSys->sources[0].sourceFlags, &sourcesettings);
+
+  // move alive particles in a spiral motion (or almost straight in fast starfield mode)
+  int32_t centerx = PartSys->maxX >> 1; // center of matrix in subpixel coordinates
+  int32_t centery = PartSys->maxY >> 1;
+  if (SEGMENT.check2) { // starfield mode
+    PartSys->setKillOutOfBounds(true);
+    PartSys->sources[0].var = 7; // emiting variation
+    PartSys->sources[0].source.x =  centerx; // set emitter to center
+    PartSys->sources[0].source.y =  centery;
+  }
+  else {
+    PartSys->setKillOutOfBounds(false);
+    PartSys->sources[0].var = 1; // emiting variation
+  }
+  for (uint32_t i = 0; i < PartSys->usedParticles; i++) { //check all particles
+    if (PartSys->particles[i].ttl == 0) continue; //skip dead particles
+    // (dx/dy): vector pointing from particle to center
+    int32_t dx = centerx - PartSys->particles[i].x;
+    int32_t dy = centery - PartSys->particles[i].y;
+    //speed towards center:
+    int32_t distance = sqrt32_bw(dx * dx + dy * dy); // absolute distance to center
+    if (distance < 20) distance = 20; // avoid division by zero, keep a minimum
+    int32_t speedfactor;
+    if (SEGMENT.check2) { // starfield mode
+      speedfactor = 1 + (1 + (SEGMENT.speed >> 1)) * distance; // speed increases towards edge
+      //apply velocity
+      PartSys->particles[i].x += (-speedfactor * dx) / 400000 - (dy >> 6);
+      PartSys->particles[i].y += (-speedfactor * dy) / 400000 + (dx >> 6);
+    }
+    else {
+      speedfactor = 2 + (((50 + SEGMENT.speed) << 6) / distance); // speed increases towards center
+      // rotate clockwise
+      int32_t tempVx = (-speedfactor * dy); // speed is orthogonal to center vector
+      int32_t tempVy =  (speedfactor * dx);
+      //add speed towards center to make particles spiral in
+      int vxc = (dx << 9) / (distance - 19); // subtract value from distance to make the pull-in force a bit stronger (helps on faster speeds)
+      int vyc = (dy << 9) / (distance - 19);
+      //apply velocity
+      PartSys->particles[i].x += (tempVx + vxc) / 1024; // note: cannot use bit shift as that causes asymmetric rounding
+      PartSys->particles[i].y += (tempVy + vyc) / 1024;
+
+      if (distance < 128) { // close to center
+        if (PartSys->particles[i].ttl > 3)
+          PartSys->particles[i].ttl -= 4; //age fast
+        PartSys->particles[i].sat = distance << 1; // turn white towards center
+      }
+    }
+    if(SEGMENT.custom3 == 31) // color by age but mapped to 1024 as particles have a long life, since age is random, this gives more or less random colors
+      PartSys->particles[i].hue = PartSys->particles[i].ttl >> 2;
+    else if(SEGMENT.custom3 == 0) // color by distance
+      PartSys->particles[i].hue = map(distance, 20, (PartSys->maxX + PartSys->maxY) >> 2, 0, 180); // color by distance to center
+  }
+
+  PartSys->update(); // update and render
+  return FRAMETIME;
+}
+static const char _data_FX_MODE_PARTICLEGALAXY[] PROGMEM = "PS Galaxy@!,!,Size,,Color,,Starfield,Trace;;!;2;pal=59,sx=80,c1=2,c3=4";
+
 #endif //WLED_DISABLE_PARTICLESYSTEM2D
 #endif // WLED_DISABLE_2D
 
@@ -9450,10 +9589,10 @@ uint16_t mode_particleSparkler(void) {
     PartSys->sources[i].var = 0; // sparks stationary
     PartSys->sources[i].minLife = 150 + SEGMENT.intensity;
     PartSys->sources[i].maxLife = 250 + (SEGMENT.intensity << 1);
-    uint32_t speed = SEGMENT.speed >> 1;
+    int32_t speed = SEGMENT.speed >> 1;
     if (SEGMENT.check1) // sparks move (slide option)
       PartSys->sources[i].var = SEGMENT.intensity >> 3;
-    PartSys->sources[i].source.vx = speed; // update speed, do not change direction
+    PartSys->sources[i].source.vx = PartSys->sources[i].source.vx > 0 ? speed : -speed; // update speed, do not change direction
     PartSys->sources[i].source.ttl = 400; // replenish its life (setting it perpetual uses more code)
     PartSys->sources[i].sat = SEGMENT.custom1; // color saturation
     PartSys->sources[i].size = SEGMENT.check3 ? 120 : 0;
@@ -10657,6 +10796,7 @@ void WS2812FX::setupEffectData() {
   addEffect(FX_MODE_PARTICLECENTERGEQ, &mode_particlecenterGEQ, _data_FX_MODE_PARTICLECIRCULARGEQ);
   addEffect(FX_MODE_PARTICLEGHOSTRIDER, &mode_particleghostrider, _data_FX_MODE_PARTICLEGHOSTRIDER);
   addEffect(FX_MODE_PARTICLEBLOBS, &mode_particleblobs, _data_FX_MODE_PARTICLEBLOBS);
+  addEffect(FX_MODE_PARTICLEGALAXY, &mode_particlegalaxy, _data_FX_MODE_PARTICLEGALAXY);
 #endif // WLED_DISABLE_PARTICLESYSTEM2D
 #endif // WLED_DISABLE_2D
 

@@ -35,9 +35,10 @@ var cfg = {
 // [year, month (0 -> January, 11 -> December), day, duration in days, image url]
 var hol = [
 	[0, 11, 24, 4, "https://aircoookie.github.io/xmas.png"],		// christmas
-	[0, 2, 17, 1, "https://images.alphacoders.com/491/491123.jpg"], // st. Patrick's day
-	[2025, 3, 20, 2, "https://aircoookie.github.io/easter.png"],	// easter 2025
-	[2024, 2, 31, 2, "https://aircoookie.github.io/easter.png"],	// easter 2024
+	[0, 2, 17, 1, "https://images.alphacoders.com/491/491123.jpg"],	// st. Patrick's day
+	[2026, 3, 5, 2, "https://aircoookie.github.io/easter.png"],		// easter 2026
+	[2027, 2, 28, 2, "https://aircoookie.github.io/easter.png"],	// easter 2027
+	//[2028, 3, 16, 2, "https://aircoookie.github.io/easter.png"],	// easter 2028
 	[0, 6, 4, 1, "https://images.alphacoders.com/516/516792.jpg"],	// 4th of July
 	[0, 0, 1, 1, "https://images.alphacoders.com/119/1198800.jpg"]	// new year
 ];
@@ -57,7 +58,7 @@ function handleVisibilityChange() {if (!d.hidden && new Date () - lastUpdate > 3
 function sCol(na, col) {d.documentElement.style.setProperty(na, col);}
 function gId(c) {return d.getElementById(c);}
 function gEBCN(c) {return d.getElementsByClassName(c);}
-function isEmpty(o) {return Object.keys(o).length === 0;}
+function isEmpty(o) {for (const i in o) return false; return true;}
 function isObj(i) {return (i && typeof i === 'object' && !Array.isArray(i));}
 function isNumeric(n) {return !isNaN(parseFloat(n)) && isFinite(n);}
 
@@ -805,6 +806,26 @@ function populateSegments(s)
 							`<option value="4" ${inst.m12==4?' selected':''}>Pinwheel</option>`+
 						`</select></div>`+
 					`</div>`;
+		let blend = `<div class="lbl-l">Blend mode<br>`+
+						`<div class="sel-p"><select class="sel-ple" id="seg${i}bm" onchange="setBm(${i})">`+
+							`<option value="0" ${inst.bm==0?' selected':''}>Top/Default</option>`+
+							`<option value="1" ${inst.bm==1?' selected':''}>Bottom/None</option>`+
+							`<option value="2" ${inst.bm==2?' selected':''}>Add</option>`+
+							`<option value="3" ${inst.bm==3?' selected':''}>Subtract</option>`+
+							`<option value="4" ${inst.bm==4?' selected':''}>Difference</option>`+
+							`<option value="5" ${inst.bm==5?' selected':''}>Average</option>`+
+							`<option value="6" ${inst.bm==6?' selected':''}>Multiply</option>`+
+							`<option value="7" ${inst.bm==7?' selected':''}>Divide</option>`+
+							`<option value="8" ${inst.bm==8?' selected':''}>Lighten</option>`+
+							`<option value="9" ${inst.bm==9?' selected':''}>Darken</option>`+
+							`<option value="10" ${inst.bm==10?' selected':''}>Screen</option>`+
+							`<option value="11" ${inst.bm==11?' selected':''}>Overlay</option>`+
+							`<option value="12" ${inst.bm==12?' selected':''}>Hard Light</option>`+
+							`<option value="13" ${inst.bm==13?' selected':''}>Soft Light</option>`+
+							`<option value="14" ${inst.bm==14?' selected':''}>Dodge</option>`+
+							`<option value="15" ${inst.bm==15?' selected':''}>Burn</option>`+
+						`</select></div>`+
+					`</div>`;
 		let sndSim = `<div data-snd="si" class="lbl-s hide">Sound sim<br>`+
 						`<div class="sel-p"><select class="sel-p" id="seg${i}si" onchange="setSi(${i})">`+
 							`<option value="0" ${inst.si==0?' selected':''}>BeatSin</option>`+
@@ -860,6 +881,7 @@ function populateSegments(s)
 					`</tr>`+
 					`</table>`+
 					`<div class="h bp" id="seg${i}len"></div>`+
+					blend +
 					(!isMSeg ? rvXck : '') +
 					(isMSeg&&stoY-staY>1&&stoX-staX>1 ? map2D : '') +
 					(s.AudioReactive && s.AudioReactive.on ? "" : sndSim) +
@@ -1420,7 +1442,7 @@ function makeWS() {
 		ws = null;
 	}
 	ws.onopen = (e)=>{
-		//ws.send("{'v':true}"); // unnecessary (https://github.com/wled-dev/WLED/blob/main/wled00/ws.cpp#L18)
+		//ws.send("{'v':true}"); // unnecessary (https://github.com/wled/WLED/blob/master/wled00/ws.cpp#L18)
 		wsRpt = 0;
 		reqsLegal = true;
 	}
@@ -1448,41 +1470,32 @@ function readState(s,command=false)
 	else gId('bsp').classList.remove('hide')
 
 	populateSegments(s);
-	var selc=0;
-	var sellvl=0; // 0: selc is invalid, 1: selc is mainseg, 2: selc is first selected
 	hasRGB = hasWhite = hasCCT = has2D = false;
-	segLmax = 0;
-	for (let i = 0; i < (s.seg||[]).length; i++)
-	{
-		if (sellvl == 0 && s.seg[i].id == s.mainseg) {
-			selc = i;
-			sellvl = 1;
-		}
-		if (s.seg[i].sel) {
-			if (sellvl < 2) selc = i; // get first selected segment
-			sellvl = 2;
-			let w  = (s.seg[i].stop - s.seg[i].start);
-			let h  = s.seg[i].stopY ? (s.seg[i].stopY - s.seg[i].startY) : 1;
-			let lc = lastinfo.leds.seglc[i];
+	let i = {};
+	// determine light capabilities from selected segments
+	for (let seg of (s.seg||[])) {
+		let w  = (seg.stop - seg.start);
+		let h  = seg.stopY ? (seg.stopY - seg.startY) : 1;
+		let lc = seg.lc;
+		if (w*h > segLmax) segLmax = w*h;
+		if (seg.sel) {
+			if (isEmpty(i) || (i.id == s.mainseg && !i.sel)) i = seg; // get first selected segment (and replace mainseg if it is not selected)
 			hasRGB   |= !!(lc & 0x01);
 			hasWhite |= !!(lc & 0x02);
 			hasCCT   |= !!(lc & 0x04);
 			has2D    |= w > 1 && h > 1;
-			if (w*h > segLmax) segLmax = w*h;
-		}
+		} else if (isEmpty(i) && seg.id == s.mainseg) i = seg; // assign mainseg if no segments are selected
 	}
-	var i=s.seg[selc];
-	if (sellvl == 1) {
-		let lc = lastinfo.leds.seglc[selc];
-		hasRGB   = !!(lc & 0x01);
-		hasWhite = !!(lc & 0x02);
-		hasCCT   = !!(lc & 0x04);
-		has2D    = (i.stop - i.start) > 1 && (i.stopY ? (i.stopY - i.startY) : 1) > 1;
-	}
-	if (!i) {
-		showToast('No Segments!', true);
+	if (isEmpty(i)) {
+		showToast('No segments!', true);
 		updateUI();
 		return true;
+	} else if (i.id == s.mainseg) {
+		// fallback if no segments are selected but we have mainseg
+		hasRGB   |= !!(i.lc & 0x01);
+		hasWhite |= !!(i.lc & 0x02);
+		hasCCT   |= !!(i.lc & 0x04);
+		has2D    |= (i.stop - i.start) > 1 && (i.stopY ? (i.stopY - i.startY) : 1) > 1;
 	}
 
 	var cd = gId('csl').querySelectorAll("button");
@@ -2339,6 +2352,13 @@ function setSi(s)
 	requestJson(obj);
 }
 
+function setBm(s)
+{
+	var value = gId(`seg${s}bm`).selectedIndex;
+	var obj = {"seg": {"id": s, "bm": value}};
+	requestJson(obj);
+}
+
 function setTp(s)
 {
 	var tp = gId(`seg${s}tp`).checked;
@@ -2762,7 +2782,7 @@ setInterval(()=>{
 	gId('heart').style.color = `hsl(${hc}, 100%, 50%)`;
 }, 910);
 
-function openGH() { window.open("https://github.com/wled-dev/WLED/wiki"); }
+function openGH() { window.open("https://github.com/wled/WLED/wiki"); }
 
 var cnfr = false;
 function cnfReset()
@@ -3155,7 +3175,8 @@ function mergeDeep(target, ...sources)
 	return mergeDeep(target, ...sources);
 }
 
-function tooltip(cont=null) {
+function tooltip(cont=null)
+{
 	d.querySelectorAll((cont?cont+" ":"")+"[title]").forEach((element)=>{
 		element.addEventListener("pointerover", ()=>{
 			// save title

@@ -39,7 +39,13 @@ bool UsermodManager::getUMData(um_data_t **data, uint8_t mod_id) {
   return false;
 }
 void UsermodManager::addToJsonState(JsonObject& obj)    { for (auto mod = _usermod_table_begin; mod < _usermod_table_end; ++mod) (*mod)->addToJsonState(obj); }
-void UsermodManager::addToJsonInfo(JsonObject& obj)     { for (auto mod = _usermod_table_begin; mod < _usermod_table_end; ++mod) (*mod)->addToJsonInfo(obj); }
+void UsermodManager::addToJsonInfo(JsonObject& obj)     {
+  auto um_id_list = obj.createNestedArray("um");  
+  for (auto mod = _usermod_table_begin; mod < _usermod_table_end; ++mod) {
+    um_id_list.add((*mod)->getId());
+    (*mod)->addToJsonInfo(obj);
+  }
+}
 void UsermodManager::readFromJsonState(JsonObject& obj) { for (auto mod = _usermod_table_begin; mod < _usermod_table_end; ++mod) (*mod)->readFromJsonState(obj); }
 void UsermodManager::addToConfig(JsonObject& obj)       { for (auto mod = _usermod_table_begin; mod < _usermod_table_end; ++mod) (*mod)->addToConfig(obj); }
 bool UsermodManager::readFromConfig(JsonObject& obj)    {

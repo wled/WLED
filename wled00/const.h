@@ -1,3 +1,4 @@
+#pragma once
 #ifndef WLED_CONST_H
 #define WLED_CONST_H
 
@@ -44,66 +45,51 @@
   #endif
 #endif
 
-#ifndef WLED_MAX_BUSSES
-  #ifdef ESP8266
-    #define WLED_MAX_DIGITAL_CHANNELS 3
-    #define WLED_MAX_ANALOG_CHANNELS 5
-    #define WLED_MAX_BUSSES 4                 // will allow 3 digital & 1 analog RGB
-    #define WLED_MIN_VIRTUAL_BUSSES 3         // no longer used for bus creation but used to distinguish S2/S3 in UI
-  #else
-    #define WLED_MAX_ANALOG_CHANNELS (LEDC_CHANNEL_MAX*LEDC_SPEED_MODE_MAX)
-    #if defined(CONFIG_IDF_TARGET_ESP32C3)    // 2 RMT, 6 LEDC, only has 1 I2S but NPB does not support it ATM
-      #define WLED_MAX_BUSSES 6               // will allow 2 digital & 2 analog RGB or 6 PWM white
-      #define WLED_MAX_DIGITAL_CHANNELS 2
-      //#define WLED_MAX_ANALOG_CHANNELS 6
-      #define WLED_MIN_VIRTUAL_BUSSES 4       // no longer used for bus creation but used to distinguish S2/S3 in UI
-    #elif defined(CONFIG_IDF_TARGET_ESP32S2)  // 4 RMT, 8 LEDC, only has 1 I2S bus, supported in NPB
-      // the 5th bus (I2S) will prevent Audioreactive usermod from functioning (it is last used though)
-      #define WLED_MAX_BUSSES 7               // will allow 5 digital & 2 analog RGB
-      #define WLED_MAX_DIGITAL_CHANNELS 5
-      //#define WLED_MAX_ANALOG_CHANNELS 8
-      #define WLED_MIN_VIRTUAL_BUSSES 4       // no longer used for bus creation but used to distinguish S2/S3 in UI
-    #elif defined(CONFIG_IDF_TARGET_ESP32S3)  // 4 RMT, 8 LEDC, has 2 I2S but NPB supports parallel x8 LCD on I2S1
-      #define WLED_MAX_BUSSES 14              // will allow 12 digital & 2 analog RGB
-      #define WLED_MAX_DIGITAL_CHANNELS 12    // x4 RMT + x8 I2S-LCD
-      //#define WLED_MAX_ANALOG_CHANNELS 8
-      #define WLED_MIN_VIRTUAL_BUSSES 6       // no longer used for bus creation but used to distinguish S2/S3 in UI
-    #else
-      // the last digital bus (I2S0) will prevent Audioreactive usermod from functioning
-      #define WLED_MAX_BUSSES 19              // will allow 16 digital & 3 analog RGB
-      #define WLED_MAX_DIGITAL_CHANNELS 16    // x1/x8 I2S1 + x8 RMT
-      //#define WLED_MAX_ANALOG_CHANNELS 16
-      #define WLED_MIN_VIRTUAL_BUSSES 6       // no longer used for bus creation but used to distinguish S2/S3 in UI
-    #endif
-  #endif
+#ifdef ESP8266
+  #define WLED_MAX_DIGITAL_CHANNELS 3
+  #define WLED_MAX_ANALOG_CHANNELS 5
+  #define WLED_MIN_VIRTUAL_BUSSES 3         // no longer used for bus creation but used to distinguish S2/S3 in UI
 #else
-  #ifdef ESP8266
-    #if WLED_MAX_BUSSES > 5
-      #error Maximum number of buses is 5.
-    #endif
-    #ifndef WLED_MAX_ANALOG_CHANNELS
-      #error You must also define WLED_MAX_ANALOG_CHANNELS.
-    #endif
-    #ifndef WLED_MAX_DIGITAL_CHANNELS
-      #error You must also define WLED_MAX_DIGITAL_CHANNELS.
-    #endif
-    #define WLED_MIN_VIRTUAL_BUSSES 3
-  #else
-    #if WLED_MAX_BUSSES > 20
-      #error Maximum number of buses is 20.
-    #endif
-    #ifndef WLED_MAX_ANALOG_CHANNELS
-      #error You must also define WLED_MAX_ANALOG_CHANNELS.
-    #endif
-    #ifndef WLED_MAX_DIGITAL_CHANNELS
-      #error You must also define WLED_MAX_DIGITAL_CHANNELS.
-    #endif
-    #if defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32C3)
-      #define WLED_MIN_VIRTUAL_BUSSES 4
-    #else
-      #define WLED_MIN_VIRTUAL_BUSSES 6
-    #endif
+  #if !defined(LEDC_CHANNEL_MAX) || !defined(LEDC_SPEED_MODE_MAX)
+    #include "driver/ledc.h" // needed for analog/LEDC channel counts
   #endif
+  #define WLED_MAX_ANALOG_CHANNELS (LEDC_CHANNEL_MAX*LEDC_SPEED_MODE_MAX)
+  #if defined(CONFIG_IDF_TARGET_ESP32C3)    // 2 RMT, 6 LEDC, only has 1 I2S but NPB does not support it ATM
+    #define WLED_MAX_DIGITAL_CHANNELS 2
+    //#define WLED_MAX_ANALOG_CHANNELS 6
+    #define WLED_MIN_VIRTUAL_BUSSES 4       // no longer used for bus creation but used to distinguish S2/S3 in UI
+  #elif defined(CONFIG_IDF_TARGET_ESP32S2)  // 4 RMT, 8 LEDC, only has 1 I2S bus, supported in NPB
+    // the 5th bus (I2S) will prevent Audioreactive usermod from functioning (it is last used though)
+    #define WLED_MAX_DIGITAL_CHANNELS 12    // x4 RMT + x1/x8 I2S0
+    //#define WLED_MAX_ANALOG_CHANNELS 8
+    #define WLED_MIN_VIRTUAL_BUSSES 4       // no longer used for bus creation but used to distinguish S2/S3 in UI
+  #elif defined(CONFIG_IDF_TARGET_ESP32S3)  // 4 RMT, 8 LEDC, has 2 I2S but NPB supports parallel x8 LCD on I2S1
+    #define WLED_MAX_DIGITAL_CHANNELS 12    // x4 RMT + x8 I2S-LCD
+    //#define WLED_MAX_ANALOG_CHANNELS 8
+    #define WLED_MIN_VIRTUAL_BUSSES 6       // no longer used for bus creation but used to distinguish S2/S3 in UI
+  #else
+    // the last digital bus (I2S0) will prevent Audioreactive usermod from functioning
+    #define WLED_MAX_DIGITAL_CHANNELS 16    // x1/x8 I2S1 + x8 RMT
+    //#define WLED_MAX_ANALOG_CHANNELS 16
+    #define WLED_MIN_VIRTUAL_BUSSES 6       // no longer used for bus creation but used to distinguish S2/S3 in UI
+  #endif
+#endif
+// WLED_MAX_BUSSES was used to define the size of busses[] array which is no longer needed
+// instead it will help determine max number of buses that can be defined at compile time
+#ifdef WLED_MAX_BUSSES
+  #undef WLED_MAX_BUSSES
+#endif
+#define WLED_MAX_BUSSES (WLED_MAX_DIGITAL_CHANNELS+WLED_MAX_ANALOG_CHANNELS)
+static_assert(WLED_MAX_BUSSES <= 32, "WLED_MAX_BUSSES exceeds hard limit");
+
+// Maximum number of pins per output. 5 for RGBCCT analog LEDs.
+#define OUTPUT_MAX_PINS 5
+
+// for pin manager
+#ifdef ESP8266
+#define WLED_NUM_PINS (GPIO_PIN_COUNT+1) // somehow they forgot GPIO 16 (0-16==17)
+#else
+#define WLED_NUM_PINS (GPIO_PIN_COUNT)
 #endif
 
 #ifndef WLED_MAX_BUTTONS
@@ -150,6 +136,8 @@
     #warning WLED UI does not support modified maximum segment name length!
   #endif
 #endif
+
+#define WLED_MAX_PANELS 18                      // must not be more than 32
 
 //Usermod IDs
 #define USERMOD_ID_RESERVED               0     //Unused. Might indicate no usermod present
@@ -210,6 +198,7 @@
 #define USERMOD_ID_DEEP_SLEEP            55     //Usermod "usermod_deep_sleep.h"
 #define USERMOD_ID_RF433                 56     //Usermod "usermod_v2_RF433.h"
 #define USERMOD_ID_BRIGHTNESS_FOLLOW_SUN 57     //Usermod "usermod_v2_brightness_follow_sun.h"
+#define USERMOD_ID_USER_FX               58     //Usermod "user_fx"
 
 //Access point behavior
 #define AP_BEHAVIOR_BOOT_NO_CONN          0     //Open AP when no connection after boot
@@ -336,18 +325,6 @@
 #define TYPE_NET_ARTNET_RGBW     89            //network ArtNet RGB bus (master broadcast bus, unused)
 #define TYPE_VIRTUAL_MAX         95
 
-/*
-// old macros that have been moved to Bus class
-#define IS_TYPE_VALID(t) ((t) > 15 && (t) < 128)
-#define IS_DIGITAL(t)    (((t) > 15 && (t) < 40) || ((t) > 47 && (t) < 64)) //digital are 16-39 and 48-63
-#define IS_2PIN(t)       ((t) > 47 && (t) < 64)
-#define IS_16BIT(t)      ((t) == TYPE_UCS8903 || (t) == TYPE_UCS8904)
-#define IS_ONOFF(t)      ((t) == 40)
-#define IS_PWM(t)        ((t) > 40 && (t) < 46)     //does not include on/Off type
-#define NUM_PWM_PINS(t)  ((t) - 40)                 //for analog PWM 41-45 only
-#define IS_VIRTUAL(t)    ((t) >= 80 && (t) < 96)    //this was a poor choice a better would be 96-111
-*/
-
 //Color orders
 #define COL_ORDER_GRB             0           //GRB(w),defaut
 #define COL_ORDER_RGB             1           //common for WS2811
@@ -435,6 +412,7 @@
 #define ERR_CONCURRENCY  2  // Conurrency (client active)
 #define ERR_NOBUF        3  // JSON buffer was not released in time, request cannot be handled at this time
 #define ERR_NOT_IMPL     4  // Not implemented
+#define ERR_NORAM_PX     7  // not enough RAM for pixels
 #define ERR_NORAM        8  // effect RAM depleted
 #define ERR_JSON         9  // JSON parsing failed (input too large?)
 #define ERR_FS_BEGIN    10  // Could not init filesystem (no partition?)
@@ -474,30 +452,29 @@
 #define NTP_PACKET_SIZE 48       // size of NTP receive buffer
 #define NTP_MIN_PACKET_SIZE 48   // min expected size - NTP v4 allows for "extended information" appended to the standard fields
 
-// Maximum number of pins per output. 5 for RGBCCT analog LEDs.
-#define OUTPUT_MAX_PINS 5
-
 //maximum number of rendered LEDs - this does not have to match max. physical LEDs, e.g. if there are virtual busses
 #ifndef MAX_LEDS
-#ifdef ESP8266
-#define MAX_LEDS 1664 //can't rely on memory limit to limit this to 1600 LEDs
-#elif defined(CONFIG_IDF_TARGET_ESP32S2)
-#define MAX_LEDS 2048 //due to memory constraints
-#else
-#define MAX_LEDS 8192
-#endif
+  #ifdef ESP8266
+    #define MAX_LEDS 1536 //can't rely on memory limit to limit this to 1536 LEDs
+  #elif defined(CONFIG_IDF_TARGET_ESP32S2)
+    #define MAX_LEDS 2048 //due to memory constraints S2
+  #elif defined(CONFIG_IDF_TARGET_ESP32C3)
+    #define MAX_LEDS 4096
+  #else
+    #define MAX_LEDS 16384
+  #endif
 #endif
 
 #ifndef MAX_LED_MEMORY
   #ifdef ESP8266
-    #define MAX_LED_MEMORY 4000
+    #define MAX_LED_MEMORY 4096
   #else
     #if defined(ARDUINO_ARCH_ESP32S2)
-      #define MAX_LED_MEMORY 16000
+      #define MAX_LED_MEMORY 16384
     #elif defined(ARDUINO_ARCH_ESP32C3)
-      #define MAX_LED_MEMORY 32000
+      #define MAX_LED_MEMORY 32768
     #else
-      #define MAX_LED_MEMORY 64000
+      #define MAX_LED_MEMORY 65536
     #endif
   #endif
 #endif
