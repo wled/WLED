@@ -1,3 +1,4 @@
 {
-  "name": "user_fx"
+  "name": "user_fx",
+  "build": { "libArchive": false }
 }

@@ -1459,7 +1459,8 @@ void WS2812FX::blendSegment(const Segment &topSegment) const {
         const int maxX = std::min(x + topSegment.grouping, width);
         const int maxY = std::min(y + topSegment.grouping, height);
         while (y < maxY) {
-          while (x < maxX) setMirroredPixel(x++, y, c_a, opacity);
+          int _x = x;
+          while (_x < maxX) setMirroredPixel(_x++, y, c_a, opacity);
           y++;
         }
       }
