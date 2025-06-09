@@ -132,41 +132,49 @@ static const char _data_FX_MODE_STATIC[] PROGMEM = "Solid";
 uint16_t mode_copy_segment(void) {
   uint32_t sourceid = SEGMENT.custom3;
   if (sourceid >= strip.getSegmentsNum() || sourceid == strip.getCurrSegmentId()) { // invalid source
-    SEGMENT.fadeToBlackBy(5); // fade out, clears pixels and allows overlapping segments
+    SEGMENT.fadeToBlackBy(5); // fade out
     return FRAMETIME;
   }
   Segment sourcesegment = strip.getSegment(sourceid);
   if (sourcesegment.isActive()) {
     uint32_t sourcecolor;
-    if(!sourcesegment.is2D()) { // 1D source, source can be expanded into 2D
-      uint32_t cl; // length to copy
-      for (unsigned i = 0; i < SEGMENT.virtualLength(); i++) {
-        sourcecolor = strip.getRenderedPixelXY(sourceid, i);
-        uint32_t color = adjust_color(sourcecolor, SEGMENT.intensity, SEGMENT.custom1, SEGMENT.custom2);
-        if(SEGMENT.check3) // overlay
-          SEGMENT.addPixelColor(i, color);
-        else
-          SEGMENT.setPixelColor(i, color);
-      }
-    } else { // 2D source, note: 2D to 1D just copies the first row (or first column if 'Switch axis' is checked in FX)
-      for (unsigned y = 0; y <  SEGMENT.virtualHeight(); y++) {
-        for (unsigned x = 0; x < SEGMENT.virtualWidth(); x++) {
-          if(SEGMENT.check2)
-            sourcecolor = strip.getRenderedPixelXY(sourceid, y, x); // flip reading axis (for 2D -> 1D, in 2D Segments this does the same as 'Transpose')
-          else
-            sourcecolor = strip.getRenderedPixelXY(sourceid, x, y);
-          uint32_t color = adjust_color(sourcecolor, SEGMENT.intensity, SEGMENT.custom1, SEGMENT.custom2);
-          if(SEGMENT.check3) // overlay
-            SEGMENT.addPixelColorXY(x, y, color);
-          else
-            SEGMENT.setPixelColorXY(x, y, color);
+    uint32_t destcolor;
+    if(sourcesegment.is2D()) { // 2D source, note: 2D to 1D just copies the first row (or first column if 'Switch axis' is checked in FX)
+      for (unsigned y = 0; y < SEGMENT.vHeight(); y++) {
+        for (unsigned x = 0; x < SEGMENT.vWidth(); x++) {
+          unsigned sx = x; // source coordinates
+          unsigned sy = y;
+          if(SEGMENT.check1) std::swap(sx, sy); // flip axis
+          if(SEGMENT.check2) {
+            sourcecolor = strip.getPixelColorXY(sx + sourcesegment.start, sy + sourcesegment.startY); // read from global buffer (reads the last rendered frame)
+          }
+          else {
+            sourcesegment.setDrawDimensions(); // set to source segment dimensions
+            sourcecolor = sourcesegment.getPixelColorXY(sx, sy); // read from segment buffer
+          }
+          destcolor = adjust_color(sourcecolor, SEGMENT.intensity, SEGMENT.custom1, SEGMENT.custom2);
+          SEGMENT.setDrawDimensions(); // reset to current segment dimensions
+          SEGMENT.setPixelColorXY(x, y, destcolor);
         }
+      }
+    } else { // 1D source, source can be expanded into 2D
+      for (unsigned i = 0; i < SEGMENT.vLength(); i++) {
+        if(SEGMENT.check2) {
+          sourcecolor = strip.getPixelColor(i + sourcesegment.start); // read from global buffer (reads the last rendered frame)
+        }
+        else {
+          sourcesegment.setDrawDimensions(); // set to source segment dimensions
+          sourcecolor = sourcesegment.getPixelColor(i);
+        }
+        destcolor = adjust_color(sourcecolor, SEGMENT.intensity, SEGMENT.custom1, SEGMENT.custom2);
+        SEGMENT.setDrawDimensions(); // reset to current segment dimensions
+        SEGMENT.setPixelColor(i, destcolor);
       }
     }
   }
   return FRAMETIME;
 }
-static const char _data_FX_MODE_COPY[] PROGMEM = "Copy Segment@,Color shift,Lighten,Brighten,ID,,Axis(2D),Overlay;;;12;ix=0,c1=0,c2=0,c3=0";
+static const char _data_FX_MODE_COPY[] PROGMEM = "Copy Segment@,Color shift,Lighten,Brighten,ID,Axis(2D),FullStack(last frame);;;12;ix=0,c1=0,c2=0,c3=0";
 
 
 /*
