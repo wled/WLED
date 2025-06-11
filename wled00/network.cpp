@@ -386,7 +386,7 @@ void WiFiEvent(WiFiEvent_t event)
     case ARDUINO_EVENT_WIFI_AP_STOP:
       DEBUG_PRINTLN(F("WiFi-E: AP Stopped"));
       break;
-    #if defined(WLED_USE_ETHERNET)
+    #ifdef WLED_USE_ETHERNET
     case ARDUINO_EVENT_ETH_START:
       DEBUG_PRINTLN(F("ETH-E: Started"));
       break;
@@ -402,8 +402,8 @@ void WiFiEvent(WiFiEvent_t event)
         ETH.config(INADDR_NONE, INADDR_NONE, INADDR_NONE);
       }
       // convert the "serverDescription" into a valid DNS hostname (alphanumeric)
-      char hostname[64];
-      prepareHostname(hostname);
+      char hostname[33];
+      prepareHostname(hostname, sizeof(hostname)-1);
       ETH.setHostname(hostname);
       showWelcomePage = false;
       break;

@@ -505,7 +505,7 @@ size_t printSetFormValue(Print& settingsScript, const char* key, int val);
 size_t printSetFormValue(Print& settingsScript, const char* key, const char* val);
 size_t printSetFormIndex(Print& settingsScript, const char* key, int index);
 size_t printSetClassElementHTML(Print& settingsScript, const char* key, const int index, const char* val);
-void prepareHostname(char* hostname);
+void prepareHostname(char* hostname, size_t maxLen = 32);
 [[gnu::pure]] bool isAsterisksOnly(const char* str, byte maxLen);
 bool requestJSONBufferLock(uint8_t moduleID=255);
 void releaseJSONBufferLock();

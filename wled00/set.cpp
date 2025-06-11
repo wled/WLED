@@ -63,16 +63,23 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
       dnsAddress = IPAddress(request->arg(F("D0")).toInt(),request->arg(F("D1")).toInt(),request->arg(F("D2")).toInt(),request->arg(F("D3")).toInt());
     }
 
-    strlcpy(cmDNS, request->arg(F("CM")).c_str(), 33);
+    strlcpy(cmDNS, request->arg(F("CM")).c_str(), sizeof(cmDNS));
+    char hostname[25];
+    prepareHostname(hostname, sizeof(hostname)-1);
+    #ifdef ARDUINO_ARCH_ESP32
+    WiFi.setHostname(hostname);
+    #else
+    WiFi.hostname(hostname);
+    #endif
 
     apBehavior = request->arg(F("AB")).toInt();
     char oldSSID[33]; strcpy(oldSSID, apSSID);
-    strlcpy(apSSID, request->arg(F("AS")).c_str(), 33);
+    strlcpy(apSSID, request->arg(F("AS")).c_str(), sizeof(apSSID));
     if (!strcmp(oldSSID, apSSID) && apActive) forceReconnect = true;
     apHide = request->hasArg(F("AH"));
     int passlen = request->arg(F("AP")).length();
-    if (passlen == 0 || (passlen > 7 && !isAsterisksOnly(request->arg(F("AP")).c_str(), 65))) {
-      strlcpy(apPass, request->arg(F("AP")).c_str(), 65);
+    if (passlen == 0 || (passlen > 7 && !isAsterisksOnly(request->arg(F("AP")).c_str(), sizeof(apPass)))) {
+      strlcpy(apPass, request->arg(F("AP")).c_str(), sizeof(apPass));
       forceReconnect = true;
     }
     int t = request->arg(F("AC")).toInt();
@@ -368,6 +375,13 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
   if (subPage == SUBPAGE_UI)
   {
     strlcpy(serverDescription, request->arg(F("DS")).c_str(), 33);
+    char hostname[25];
+    prepareHostname(hostname, sizeof(hostname)-1);
+    #ifdef ARDUINO_ARCH_ESP32
+    WiFi.setHostname(hostname);
+    #else
+    WiFi.hostname(hostname);
+    #endif
     //syncToggleReceive = request->hasArg(F("ST"));
     simplifiedUI = request->hasArg(F("SU"));
     DEBUG_PRINTLN(F("Enumerating ledmaps"));
