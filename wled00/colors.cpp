@@ -599,7 +599,7 @@ uint32_t IRAM_ATTR_YN NeoGammaWLEDMethod::Correct32(uint32_t color)
   return RGBW32(r, g, b, w);
 }
 
-uint32_t IRAM_ATTR_YN NeoGammaWLEDMethod::invertGamma32(uint32_t color)
+uint32_t IRAM_ATTR_YN NeoGammaWLEDMethod::inverseGamma32(uint32_t color)
 {
   if (!gammaCorrectCol) return color;
   uint8_t w = W(color);
