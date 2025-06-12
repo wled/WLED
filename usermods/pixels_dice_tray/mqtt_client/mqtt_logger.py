@@ -60,7 +60,12 @@ def main():
     parser.add_argument(
         "--topic",
         type=str,
-        help="Optional MQTT topic to listen to. For example if topic is 'wled/e5a658/dice/', subscript to  to 'wled/e5a658/dice/#'. By default, listen to all topics looking for ones that end in 'roll_label' and 'roll'.",
+        help=(
+            "Optional MQTT topic to listen to. For example, if topic is "
+            "'wled/e5a658/dice/', subscribe to 'wled/e5a658/dice/#'. By default, "
+            "listen to all topics looking for ones that end in 'roll_label' and "
+            "'roll'."
+        ),
     )
     parser.add_argument(
         "-o",
@@ -75,7 +80,7 @@ def main():
     os.makedirs(args.output_dir, exist_ok=True)
     state["csv_fd"] = open(args.output_dir / f"roll_log_{timestr}.csv", "a")
 
-    # Create `an MQTT client
+    # Create an MQTT client
     client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
 
     # Set MQTT callbacks

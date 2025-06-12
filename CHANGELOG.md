@@ -14,7 +14,7 @@
 -   Added BRT timezone (#4188 by @LuisFadini)
 -   Fixed the positioning of the "Download the latest binary" button (#4184 by @maxi4329)
 -   Add WLED_AUTOSEGMENTS compile flag (#4183 by @PaoloTK)
--   New 512kB FS parition map for 4MB devices
+-   New 512kB FS partition map for 4MB devices
 -   Internal API change: Static PinManager & UsermodManager
 -   Change in Improv chip ID and version generation
 -   Various optimisations, bugfixes and enhancements (#4005, #4174 & #4175 by @Xevel, #4180, #4168, #4154, #4189 by @dosipod)
@@ -26,7 +26,7 @@
 -   Fix AsyncWebServer version pin
 
 #### Build 2409140
--   Configure different kinds of busses at compile (#4107 by @PaoloTK)
+-   Configure different kinds of buses at compile (#4107 by @PaoloTK)
     - BREAKING: removes LEDPIN and DEFAULT_LED_TYPE compile overrides
 -   Fetch LED types from Bus classes (dynamic UI) (#4129 by @netmindz, @blazoncek, @dedehai)
 -   Temperature usermod: update OneWire to 2.3.8 (#4131 by @iammattcoleman)
@@ -233,7 +233,7 @@
 
 #### Build 2309120 till build 2402010
 -   WLED version 0.15.0-a0
--   Multi-WiFi support. Add up to 3 (or more via cusom compile) WiFis to connect to (with help from @JPZV)
+-   Multi-WiFi support. Add up to 3 (or more via custom compile) WiFis to connect to (with help from @JPZV)
 -   Temporary AP. Use your WLED in public with temporary AP.
 -   Github CI build system enhancements (#3718 by @WoodyLetsCode)
 -   Accessibility: Node list ( #3715 by @WoodyLetsCode)
@@ -605,7 +605,7 @@
 
 #### Build 2203190
 
--   Fixed `/json/cfg` unable to set busses (#2589)
+-   Fixed `/json/cfg` unable to set buses (#2589)
 -   Fixed Peek with odd LED counts > 255 (#2586)
 
 #### Build 2203160
@@ -649,7 +649,7 @@
 -   Dynamic hiding of unused color controls in UI (PR #2567)
 -   Removed native Cronixie support and added Cronixie usermod
 -   Fixed disabled timed preset expanding calendar
--   Fixed Color Order setting shown for analog busses
+-   Fixed Color Order setting shown for analog buses
 -   Fixed incorrect operator (#2566)
 
 #### Build 2203011
@@ -754,7 +754,7 @@
 
 #### Build 2110060
 
--   Added virtual network DDP busses (PR #2245)
+-   Added virtual network DDP buses (PR #2245)
 -   Allow playlist as end preset in playlist
 -   Improved bus start field UX
 -   Pin reservations improvements (PR #2214)
@@ -825,7 +825,7 @@
 
 #### Build 2107090
 
--   Busses extend total configured LEDs if required
+-   Buses extend total configured LEDs if required
 -   Fixed extra button pins defaulting to 0 on first boot
 
 #### Build 2107080
@@ -906,7 +906,7 @@
 
 -   BREAKING: Added ability for usermods to force a config save if config incomplete. `readFromConfig()` needs to return a `bool` to indicate if the config is complete
 -   Updated usermods implementing `readFromConfig()`
--   Auto-create segments based on configured busses
+-   Auto-create segments based on configured buses
 
 #### Build 2106200
 
@@ -1002,7 +1002,7 @@
 
 #### Build 2104150
 
--   Added ability to add multiple busses as compile time defaults using the esp32_multistrip usermod define syntax
+-   Added ability to add multiple buses as compile time defaults using the esp32_multistrip usermod define syntax
 
 #### Build 2104141
 
@@ -1076,7 +1076,7 @@
 
 -   Version bump to 0.12.0-b0 "Hikari"
 -   Added palette preview and search (PR #1637)
--   Added Reverse checkbox for PWM busses - reverses logic level for on
+-   Added Reverse checkbox for PWM buses - reverses logic level for on
 -   Fixed various problems with the Playlist feature (PR #1724)
 -   Replaced "Layer" icon with "i" icon for Info button
 -   Chunchun effect more fitting for various segment lengths (PR #1804)
@@ -1124,7 +1124,7 @@
 
 -   Version bump to 0.12.0-a0 "Hikari"
 -   Added FPS indication in info
--   Bumped max outputs from 7 to 10 busses for ESP32
+-   Bumped max outputs from 7 to 10 buses for ESP32
 
 #### Build 2101310
 

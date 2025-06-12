@@ -607,7 +607,7 @@ static const char _data_FX_MODE_SAW[] PROGMEM = "Saw@!,Width;!,!;!";
 
 /*
  * Blink several LEDs in random colors on, reset, repeat.
- * Inspired by www.tweaking4all.com/hardware/arduino/adruino-led-strip-effects/
+ * Inspired by www.tweaking4all.com/hardware/arduino/arduino-led-strip-effects/
  */
 uint16_t mode_twinkle(void) {
   SEGMENT.fade_out(224);
@@ -706,7 +706,7 @@ static const char _data_FX_MODE_DISSOLVE_RANDOM[] PROGMEM = "Dissolve Rnd@Repeat
 
 /*
  * Blinks one LED at a time.
- * Inspired by www.tweaking4all.com/hardware/arduino/adruino-led-strip-effects/
+ * Inspired by www.tweaking4all.com/hardware/arduino/arduino-led-strip-effects/
  */
 uint16_t mode_sparkle(void) {
   if (!SEGMENT.check2) for (unsigned i = 0; i < SEGLEN; i++) {
@@ -728,7 +728,7 @@ static const char _data_FX_MODE_SPARKLE[] PROGMEM = "Sparkle@!,,,,,,Overlay;!,!;
 
 /*
  * Lights all LEDs in the color. Flashes single col 1 pixels randomly. (List name: Sparkle Dark)
- * Inspired by www.tweaking4all.com/hardware/arduino/adruino-led-strip-effects/
+ * Inspired by www.tweaking4all.com/hardware/arduino/arduino-led-strip-effects/
  */
 uint16_t mode_flash_sparkle(void) {
   if (!SEGMENT.check2) for (unsigned i = 0; i < SEGLEN; i++) {
@@ -749,7 +749,7 @@ static const char _data_FX_MODE_FLASH_SPARKLE[] PROGMEM = "Sparkle Dark@!,!,,,,,
 
 /*
  * Like flash sparkle. With more flash.
- * Inspired by www.tweaking4all.com/hardware/arduino/adruino-led-strip-effects/
+ * Inspired by www.tweaking4all.com/hardware/arduino/arduino-led-strip-effects/
  */
 uint16_t mode_hyper_sparkle(void) {
   if (!SEGMENT.check2) for (unsigned i = 0; i < SEGLEN; i++) {
@@ -2327,8 +2327,8 @@ static const char _data_FX_MODE_LAKE[] PROGMEM = "Lake@!;Fx;!";
 
 
 // meteor effect & meteor smooth (merged by @dedehai)
-// send a meteor from begining to to the end of the strip with a trail that randomly decays.
-// adapted from https://www.tweaking4all.com/hardware/arduino/adruino-led-strip-effects/#LEDStripEffectMeteorRain
+// send a meteor from beginning to the end of the strip with a trail that randomly decays.
+// adapted from https://www.tweaking4all.com/hardware/arduino/arduino-led-strip-effects/#LEDStripEffectMeteorRain
 uint16_t mode_meteor() {
   if (SEGLEN <= 1) return mode_static();
   if (!SEGENV.allocateData(SEGLEN)) return mode_static(); //allocation failed
@@ -5717,6 +5717,36 @@ uint16_t mode_2DSunradiation(void) {                   // By: ldirko https://edi
   return FRAMETIME;
 } // mode_2DSunradiation()
 static const char _data_FX_MODE_2DSUNRADIATION[] PROGMEM = "Sun Radiation@Variance,Brightness;;;2";
+
+//////////////////////////////
+//     2D Radial Wave      //
+//////////////////////////////
+uint16_t mode_2DRadialWave(void) {
+  if (!strip.isMatrix || !SEGMENT.is2D()) return mode_static(); // not a 2D set-up
+
+  const int cols = SEG_W;
+  const int rows = SEG_H;
+  int cx = cols / 2;
+  int cy = rows / 2;
+
+  uint8_t freq = (SEGMENT.intensity >> 4) + 1; // wave frequency
+  uint8_t time = strip.now / ((SEGMENT.speed >> 3) + 1);
+  bool inward = SEGMENT.check1; // direction
+
+  for (int x = 0; x < cols; x++) {
+    for (int y = 0; y < rows; y++) {
+      int dx = x - cx;
+      int dy = y - cy;
+      uint16_t dist = sqrt32_bw(dx * dx + dy * dy);
+      int16_t idx = inward ? (int16_t)time - (dist * freq) : (int16_t)time + (dist * freq);
+      uint8_t colorIndex = uint8_t(idx);
+      SEGMENT.setPixelColorXY(x, y, SEGMENT.color_from_palette(colorIndex, false, false, 0));
+    }
+  }
+
+  return FRAMETIME;
+}
+static const char _data_FX_MODE_2DRADIALWAVE[] PROGMEM = "Radial Wave@!,Frequency,,,Reverse;;!;2";
 
 
 /////////////////////////
@@ -10763,6 +10793,7 @@ void WS2812FX::setupEffectData() {
   addEffect(FX_MODE_2DDRIFT, &mode_2DDrift, _data_FX_MODE_2DDRIFT);
   addEffect(FX_MODE_2DWAVERLY, &mode_2DWaverly, _data_FX_MODE_2DWAVERLY); // audio
   addEffect(FX_MODE_2DSUNRADIATION, &mode_2DSunradiation, _data_FX_MODE_2DSUNRADIATION);
+  addEffect(FX_MODE_2DRADIALWAVE, &mode_2DRadialWave, _data_FX_MODE_2DRADIALWAVE);
   addEffect(FX_MODE_2DCOLOREDBURSTS, &mode_2DColoredBursts, _data_FX_MODE_2DCOLOREDBURSTS);
   addEffect(FX_MODE_2DJULIA, &mode_2DJulia, _data_FX_MODE_2DJULIA);
   addEffect(FX_MODE_2DGAMEOFLIFE, &mode_2Dgameoflife, _data_FX_MODE_2DGAMEOFLIFE);
