@@ -57,6 +57,7 @@ class AutoSaveUsermod : public Usermod {
     uint8_t knownEffectIntensity = 0;
     uint8_t knownMode = 0;
     uint8_t knownPalette = 0;
+    boolean knownPowerState = false; // power state of the strip, used to detect changes
 
     #ifdef USERMOD_FOUR_LINE_DISPLAY
     FourLineDisplayUsermod* display;
@@ -110,6 +111,7 @@ class AutoSaveUsermod : public Usermod {
       knownEffectIntensity = effectIntensity;
       knownMode = strip.getMainSegment().mode;
       knownPalette = strip.getMainSegment().palette;
+      knownPowerState = offMode;
     }
 
     // gets called every time WiFi is (re-)connected. Initialize own network
@@ -141,6 +143,9 @@ class AutoSaveUsermod : public Usermod {
         autoSaveAfter = wouldAutoSaveAfter;
       } else if (knownPalette != currentPalette) {
         knownPalette = currentPalette;
+        autoSaveAfter = wouldAutoSaveAfter;
+      } else if (knownPowerState != offMode) {
+        knownPowerState = offMode;
         autoSaveAfter = wouldAutoSaveAfter;
       }
 
