@@ -1918,7 +1918,8 @@ uint16_t mode_colorwaves_pride_base(bool isPride2015) {
     bri8 += (255 - brightdepth);
 
     if (isPride2015) {
-      CRGB newcolor = CHSV(hue8, sat8, bri8);
+      CRGBW newcolor = CRGB(CHSV(hue8, sat8, bri8));
+      newcolor.color32 = gamma32inv(newcolor.color32);
       SEGMENT.blendPixelColor(i, newcolor, 64);
     } else {
       SEGMENT.blendPixelColor(i, SEGMENT.color_from_palette(hue8, false, PALETTE_SOLID_WRAP, 0, bri8), 128);
