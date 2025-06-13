@@ -1,9 +1,13 @@
 # Clock Overlay usermod
 
-This usermod displays a digital clock on top of the WLED effects.
-It works best using a 32x8 matrix LED. 
-TODO => on a 16x16 matrix the characters won't fit sideways, so use the 'Hours over minutes'option to display the hours at the top left and the minutes in the right bottom corners.
-TODO => make cloxel website
+This usermod displays a digital clock on top of the WLED effects. Since it combines a clock with pixel we named it Cloxel.
+See the following instructable for more information:
+https://www.instructables.com/Cloxel-WLED-Pixel-Clock/
+
+Future work:
+- Make the Clock overlay compatible with 16x16 matrix as well. Add an option to display the hours at the top left and the minutes in the right bottom corners.
+- Alternating weekday/date/time modes
+- Message integration into main WLED screen 
 
 ## Installation 
 
@@ -22,11 +26,6 @@ Notes for configuring the 32x8 LED matrix:
         - Dimensions are 32x8
         - Offset X and Y are both 0
 
-
-All parameters are runtime configurable.
-
-
-
 ## Release notes
 
-2025-05 Initial implementation by @myriadbits (AKA Jochem Bakker)
+2025-06 Initial implementation by @myriadbits (AKA Jochem Bakker)
