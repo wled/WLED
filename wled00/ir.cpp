@@ -751,22 +751,19 @@ void handleIR()
     irCheckedTime = currentTime;
     if (IrReceiver.decode()) {
       auto &results = IrReceiver.decodedIRData;
-      if (results.numberOfBits > 0) {
-        if (serialCanTX && results.protocol != UNKNOWN ) { // only print results if anything is received ( != 0 )
-            Serial.printf_P(PSTR("  Protocol Received: %s\n"), decodeTypeToStr(results.protocol));
-            Serial.printf_P(PSTR("  Raw Data: %d\n"), results.decodedRawData);
-            Serial.printf_P(PSTR("  Address: 0x%X\n"), results.address);
-            Serial.printf_P(PSTR("  Command: 0x%lX\n"), (unsigned long)results.command);
-            Serial.printf_P(PSTR("  Num Bits: %d\n"), results.numberOfBits);
+      uint32_t code = esp8266Value((uint32_t)results.decodedRawData);
+      if (results.numberOfBits != 0 && serialCanTX && results.protocol != UNKNOWN ) { // only print results if anything is received ( != 0 )
+          Serial.printf_P(PSTR("  Protocol Received: %s\n"), decodeTypeToStr(results.protocol));
+          Serial.printf_P(PSTR("  Raw Data: %d\n"), results.decodedRawData);
+          Serial.printf_P(PSTR("  Address: 0x%X\n"), results.address);
+          Serial.printf_P(PSTR("  Command: 0x%lX\n"), (unsigned long)results.command);
+          Serial.printf_P(PSTR("  Num Bits: %d\n"), results.numberOfBits);
+          Serial.printf_P(PSTR("  Code: 0x%06lX\n"), (unsigned long)code);
 
-            Serial.println();
-            Serial.println(F("========================="));
-        }
-
-        uint32_t code = esp8266Value((uint32_t)results.decodedRawData);
-        Serial.printf_P(PSTR("  Code: 0x%06lX\n"), (unsigned long)code);
-        decodeIR(code);
+          Serial.println();
+          Serial.println(F("========================="));
       }
+      decodeIR(code);
       IrReceiver.resume();
     }
   }
