@@ -709,7 +709,8 @@ void deInitIR()
 }
 
 // to make it easy to tell what's incoming when we're debugging
-const char* decodeTypeToStr(uint8_t type) {
+const char* decodeTypeToStr(uint8_t type) 
+{
   switch (type) {
     case LG :       return "LG";
     case NEC:       return "NEC";
@@ -722,7 +723,8 @@ const char* decodeTypeToStr(uint8_t type) {
 }
 
 // reverse the bit-order of a single byte
-static uint8_t reverse8(uint8_t b) {
+static uint8_t reverse8(uint8_t b) 
+{
   b = (b & 0xF0) >> 4 | (b & 0x0F) << 4;
   b = (b & 0xCC) >> 2 | (b & 0x33) << 2;
   b = (b & 0xAA) >> 1 | (b & 0x55) << 1;
@@ -730,7 +732,8 @@ static uint8_t reverse8(uint8_t b) {
 }
 
 // mimic the old ESP8266 results.value so we don't have to rebuild them
-static uint32_t esp8266Value(uint32_t raw) {
+static uint32_t esp8266Value(uint32_t raw) 
+{
   // shift off the low “address” byte
   uint32_t w = raw >> 8;   // e.g. 0x00A35CFF
   uint8_t b2 = reverse8((w >> 16) & 0xFF);
