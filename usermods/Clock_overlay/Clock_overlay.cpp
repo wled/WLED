@@ -65,9 +65,21 @@ class ClockOverlay : public Usermod
           return;
       }
 
-      if (pLedMask == nullptr) {
-        ledMaskSize = seg1.width() * seg1.height();
-        pLedMask = new uint8_t[ledMaskSize];
+      // Dynamically allocate the ledmask buffer
+      int requiredLedMaskSize = seg1.width() * seg1.height();
+      if (ledMaskSize != requiredLedMaskSize || pLedMask == nullptr) {
+        if (pLedMask) {
+            delete[] pLedMask;
+        }
+        pLedMask = new (std::nothrow) uint8_t[requiredLedMaskSize];
+        if (!pLedMask) {
+            ledMaskSize = 0;
+            return;
+        }
+        ledMaskSize = requiredLedMaskSize;
+      }
+      if (ledMaskSize == 0) {
+        return;
       }
 
       int posX = x;
@@ -176,9 +188,7 @@ class ClockOverlay : public Usermod
           int minutes = minute(localTime);
           int hours = hour(localTime);
 
-          for (int x = 0; x < ledMaskSize; x++) {
-              pLedMask[x] = 0;
-          }
+          if (pLedMask) memset(pLedMask, 0, ledMaskSize);
 
           EFontType fontType = EFontType::FT_36;
           switch (configTimeFont) {
@@ -380,7 +390,7 @@ class ClockOverlay : public Usermod
     void handleOverlayDraw()
     {
       // check if usermod is active
-      if (this->configEnabled) {
+      if (this->configEnabled && pLedMask) {
         Segment& seg = strip.getSegment(configSegmentId);
         if (!seg.isActive()) return;
 
