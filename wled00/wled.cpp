@@ -396,6 +396,10 @@ void WLED::setup()
 
   DEBUG_PRINTF_P(PSTR("heap %u\n"), ESP.getFreeHeap());
 
+  // Set all button pins without an assigned type to -1.
+  // This is necessary because partially initializing an array fills the remaining elements with 0, which is a valid GPIO.
+  for (unsigned i=0; i<WLED_MAX_BUTTONS; i++) if (buttonType[i] == BTN_TYPE_NONE) btnPin[i] = -1;
+
   bool fsinit = false;
   DEBUGFS_PRINTLN(F("Mount FS"));
 #ifdef ARDUINO_ARCH_ESP32
