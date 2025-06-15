@@ -34,14 +34,14 @@ class ClockOverlay : public Usermod
     uint8_t configSegmentId = 0;
     uint8_t configTimeOptions = 0;
     uint8_t configTimeFont = 1;
-    uint32_t configTimeColor = 0xFFFFFF;
+    CRGB configTimeColor = CRGB(0xFFFFFF);
     uint configBackgroundFade = 70;
     uint32_t configMessageOptions = 0;
 
     String displayMsg;
     int displayTime = 0;
-    uint32_t activeTextColor = 0xFFFFFF;
-    uint32_t activeBkColor = 0x000000;
+    CRGB activeTextColor = CRGB(0xFFFFFF);
+    CRGB activeBkColor = CRGB(0x000000);
     
     // overall mask to define which LEDs are displaying the time or message
     int ledMaskSize = 0;
@@ -116,7 +116,7 @@ class ClockOverlay : public Usermod
               if (bits & bit) {
                 int idx = posX + xx + yoffset;
                 if (idx >= 0 && idx < ledMaskSize) {
-                  pLedMask[posX + xx + yoffset] = 1;
+                  pLedMask[idx] = 1;
                 }
               }
               bit = bit >> 1;
@@ -283,17 +283,17 @@ class ClockOverlay : public Usermod
     /*
      * Convert a hex color to a string
      */
-    String colorToRGBString(uint32_t c)
+    String colorToRGBString(CRGB c)
     {
       char buffer[9];
-      sprintf(buffer, "%06X", c);
+      sprintf(buffer, "%02X%02X%02X", c.r, c.g, c.b);
       return buffer;
     }
 
     /*
      * Convert a hex string to a color code
      */
-    bool rgbStringToColor(String const &s, uint32_t &c, uint32_t def)
+    bool rgbStringToColor(String const &s, CRGB &c, CRGB def)
     {
       char *ep;
       unsigned long long r = strtoull(s.c_str(), &ep, 16);
@@ -366,7 +366,7 @@ class ClockOverlay : public Usermod
       configComplete &= getJsonValue(top[F("Active")], configEnabled);
       configComplete &= getJsonValue(top[F("Segment Id")], configSegmentId);
       configComplete &= getJsonValue(top[F("Time options")], configTimeOptions);
-      configComplete &= getJsonValue(top[F("Time color (RRGGBB)")], color, F("FFFFFF")) && rgbStringToColor(color, configTimeColor, 0xFFFFFF);
+      configComplete &= getJsonValue(top[F("Time color (RRGGBB)")], color, F("FFFFFF")) && rgbStringToColor(color, configTimeColor, CRGB(0xFFFFFF));
       configComplete &= getJsonValue(top[F("Background fade")], configBackgroundFade);
       configComplete &= getJsonValue(top[F("Message options")], configMessageOptions);
       getJsonValue(top[F("Time font")], configTimeFont);
@@ -381,20 +381,24 @@ class ClockOverlay : public Usermod
     {
       // check if usermod is active
       if (this->configEnabled) {
+        Segment& seg = strip.getSegment(configSegmentId);
+        if (!seg.isActive()) return;
+
         // loop over all leds
         for (int x = 0; x < ledMaskSize; x++) {
           // check mask
+          int realIdx = seg.start + x;
           if (pLedMask[x] == 1 && activeTextColor != 0x000000) {
             // Clock or mesage text
-            strip.setPixelColor(x, activeTextColor);
+            strip.setPixelColor(realIdx, activeTextColor);
           }
           else {
             if (displayTime > 0 && activeBkColor != 0x000000) {
-              strip.setPixelColor(x, activeBkColor);
+              strip.setPixelColor(realIdx, activeBkColor);
             } else {
               // Make the clock text stand out by fading the other pixels to black
               uint32_t color = strip.getPixelColor(x);
-              strip.setPixelColor(x, color_fade(color, configBackgroundFade));
+              strip.setPixelColor(realIdx, color_fade(color, configBackgroundFade));
             }
           }
         }

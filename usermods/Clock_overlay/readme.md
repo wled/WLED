@@ -28,6 +28,7 @@ Notes for configuring the 32x8 LED matrix:
 ## Using the message functionality
 On the 'state' URL api call: http://<IP address or localname>/json/state.
 POST the following json data:
+```json
 {
   "clock_overlay": {
     "msg": "PIZZA!",
