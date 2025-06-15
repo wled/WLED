@@ -43,11 +43,9 @@ class ClockOverlay : public Usermod
     uint32_t activeTextColor = 0xFFFFFF;
     uint32_t activeBkColor = 0x000000;
     
-    // defines for mask sizes
-    #define maskSizeLeds        256 // TODO Dynamic!
-    
     // overall mask to define which LEDs are displaying the time or message
-    int maskLedsOn[maskSizeLeds];
+    int ledMaskSize = 0;
+    uint8_t* pLedMask = nullptr;
     
     //
     // @brief  Draw characters on the LED panel using a specific font
@@ -65,6 +63,11 @@ class ClockOverlay : public Usermod
         case EFontType::FT_47: pFont = &MyriadbitsFont4x7; break;
         default:
           return;
+      }
+
+      if (pLedMask == nullptr) {
+        ledMaskSize = seg1.width() * seg1.height();
+        pLedMask = new uint8_t[ledMaskSize];
       }
 
       int posX = x;
@@ -111,7 +114,10 @@ class ClockOverlay : public Usermod
                 bit = 0x80;
               }
               if (bits & bit) {
-                maskLedsOn[posX + xx + yoffset] = 1;
+                int idx = posX + xx + yoffset;
+                if (idx >= 0 && idx < ledMaskSize) {
+                  pLedMask[posX + xx + yoffset] = 1;
+                }
               }
               bit = bit >> 1;
             }
@@ -170,13 +176,14 @@ class ClockOverlay : public Usermod
           int minutes = minute(localTime);
           int hours = hour(localTime);
 
-          for (int x = 0; x < maskSizeLeds; x++) {
-              maskLedsOn[x] = 0;
+          for (int x = 0; x < ledMaskSize; x++) {
+              pLedMask[x] = 0;
           }
 
           EFontType fontType = EFontType::FT_36;
           switch (configTimeFont) {
             case 0: fontType = EFontType::FT_35; break; 
+            case 1: fontType = EFontType::FT_36; break;
             case 2: fontType = EFontType::FT_38; break;
             case 3: fontType = EFontType::FT_47; break;
             default: fontType = EFontType::FT_36; break;
@@ -273,16 +280,20 @@ class ClockOverlay : public Usermod
       }
     }
 
-    // TODO
-    String colorToHexString(uint32_t c)
+    /*
+     * Convert a hex color to a string
+     */
+    String colorToRGBString(uint32_t c)
     {
       char buffer[9];
       sprintf(buffer, "%06X", c);
       return buffer;
     }
 
-    // TODO
-    bool hexStringToColor(String const &s, uint32_t &c, uint32_t def)
+    /*
+     * Convert a hex string to a color code
+     */
+    bool rgbStringToColor(String const &s, uint32_t &c, uint32_t def)
     {
       char *ep;
       unsigned long long r = strtoull(s.c_str(), &ep, 16);
@@ -309,7 +320,7 @@ class ClockOverlay : public Usermod
       top[F("Segment Id")] = configSegmentId;
       top[F("Time options")] = configTimeOptions;
       top[F("Time font")] = configTimeFont;
-      top[F("Time color (RRGGBB)")] = colorToHexString(configTimeColor);
+      top[F("Time color (RRGGBB)")] = colorToRGBString(configTimeColor);
       top[F("Background fade")] = configBackgroundFade;
       top[F("Message options")] = configMessageOptions;
     }
@@ -355,25 +366,25 @@ class ClockOverlay : public Usermod
       configComplete &= getJsonValue(top[F("Active")], configEnabled);
       configComplete &= getJsonValue(top[F("Segment Id")], configSegmentId);
       configComplete &= getJsonValue(top[F("Time options")], configTimeOptions);
-      configComplete &= getJsonValue(top[F("Time color (RRGGBB)")], color, F("FFFFFF")) && hexStringToColor(color, configTimeColor, 0xFFFFFF);
+      configComplete &= getJsonValue(top[F("Time color (RRGGBB)")], color, F("FFFFFF")) && rgbStringToColor(color, configTimeColor, 0xFFFFFF);
       configComplete &= getJsonValue(top[F("Background fade")], configBackgroundFade);
       configComplete &= getJsonValue(top[F("Message options")], configMessageOptions);
       getJsonValue(top[F("Time font")], configTimeFont);
 
-      return true;//configComplete;
+      return configComplete;
     }
 
     /*
-     * TODO
+     * Draw the overlay 
      */
     void handleOverlayDraw()
     {
       // check if usermod is active
       if (this->configEnabled) {
         // loop over all leds
-        for (int x = 0; x < maskSizeLeds; x++) {
+        for (int x = 0; x < ledMaskSize; x++) {
           // check mask
-          if (maskLedsOn[x] == 1 && activeTextColor != 0x000000) {
+          if (pLedMask[x] == 1 && activeTextColor != 0x000000) {
             // Clock or mesage text
             strip.setPixelColor(x, activeTextColor);
           }
@@ -398,9 +409,6 @@ class ClockOverlay : public Usermod
     {
       return 255;
     }
-
-   //More methods can be added in the future, this example will then be extended.
-   //Your usermod will remain compatible as it does not need to implement all methods from the Usermod base class!
 };
 
 static ClockOverlay usermod_clock_overlay;

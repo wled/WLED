@@ -1,3 +1,4 @@
 {
-  "name": "clock_overlay"
+  "name": "clock_overlay",
+  "build": { "libArchive": false }
 }
