@@ -9,8 +9,10 @@
 #ifndef WLED_DISABLE_PXMAGIC
   #include "html_pxmagic.h"
 #endif
-#ifndef WLED_DISABLE_GIFPLAYER
-  #include "html_gifplayer.h"
+#ifdef WLED_ENABLE_GIF
+  #ifndef WLED_DISABLE_GIFPLAYER
+    #include "html_gifplayer.h"
+  #endif
 #endif
 #include "html_cpal.h"
 
@@ -462,11 +464,13 @@ void initServer()
   });
 #endif
 
-#ifndef WLED_DISABLE_GIFPLAYER
+#ifdef WLED_ENABLE_GIF
+  #ifndef WLED_DISABLE_GIFPLAYER
   static const char _gifplayer_htm[] PROGMEM = "/gifplayer.htm";
   server.on(_gifplayer_htm, HTTP_GET, [](AsyncWebServerRequest *request) {
     handleStaticContent(request, FPSTR(_gifplayer_htm), 200, FPSTR(CONTENT_TYPE_HTML), PAGE_gifplayer, PAGE_gifplayer_L);
   });
+  #endif
 #endif
 
   static const char _cpal_htm[] PROGMEM = "/cpal.htm";
