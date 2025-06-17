@@ -3306,6 +3306,134 @@ function simplifyUI() {
 	gId("btns").style.display = "none";
 }
 
+
+function genPresets()
+{
+	var result = "";
+	var sep = "{";
+
+	var effects = eJson;
+	var playlistPS = JSON.parse("{}");
+	var playlistSep = JSON.parse("{}");
+	var playlistDur = JSON.parse("{}");
+	var playlistTrans = JSON.parse("{}");
+	var playlistQL = JSON.parse("{}");
+	function addToPlaylist(m, id, ql = undefined) {
+		if (!playlistPS[m]) playlistPS[m] = "";
+		if (!playlistDur[m]) playlistDur[m] = "";
+		if (!playlistTrans[m]) playlistTrans[m] = "";
+		if (!playlistSep[m]) playlistSep[m] = "";
+		playlistPS[m] += playlistSep[m] + `${id}`;
+		playlistDur[m] += playlistSep[m] + "100";
+		playlistTrans[m] += playlistSep[m] + "7";
+		playlistSep[m] = ",";
+		if(ql) playlistQL[m] = `${ql}`;
+	}
+	var seq=230; //Playlist start here
+	for (let ef of effects) {
+		if (ef.name.indexOf("RSVD") < 0) {
+			if (Array.isArray(fxdata) && fxdata.length>ef.id) {
+				let fd = fxdata[ef.id];
+				let eP = (fd == '')?[]:fd.split(";"); // effect parameters
+				let m = (eP.length<4 || eP[3]==='')?'1':eP[3]; // flags
+				// console.log(ef, eP);
+				//transform key values in json format
+				var defaultString = "";
+				//if key/values defined, convert them to json in defaultString
+				if (eP.length>4) {
+					let defaults = (eP[4] == '')?[]:eP[4].split(",");
+					for (let i=0; i<defaults.length;i++) {
+						let keyValue = (defaults[i] == '')?[]:defaults[i].split("=");
+						defaultString += `,"${keyValue[0]}":${keyValue[1]}`;
+					}
+				}
+				//if not defined set to default
+				if (!defaultString.includes("sx")) defaultString += ',"sx":128'; //Speed
+				if (!defaultString.includes("ix")) defaultString += ',"ix":128'; //Intensity
+				if (!defaultString.includes("c1")) defaultString += ',"c1":128'; //Custom 1
+				if (!defaultString.includes("c2")) defaultString += ',"c2":128'; //Custom 2
+				if (!defaultString.includes("c3")) defaultString += ',"c3":16'; //Custom 3
+				if (!defaultString.includes("o1")) defaultString += ',"o1":0'; //Check 1
+				if (!defaultString.includes("o2")) defaultString += ',"o2":0'; //Check 2
+				if (!defaultString.includes("o3")) defaultString += ',"o3":0'; //Check 3
+				if (!defaultString.includes("pal")) defaultString += ',"pal":11'; //Temporary for deterministic effects test: Set to 11/Raibow instead of 1/Random smooth palette (if not set different)
+				if (!defaultString.includes("m12") && m.includes("1") && !m.includes("1.5") && !m.includes("12")) 
+					defaultString += ',"rev":true,"mi":true,"rY":true,"mY":true,"m12":2'; //Arc expansion
+				else {
+					if (!defaultString.includes("rev")) defaultString += ',"rev":false';
+					if (!defaultString.includes("mi")) defaultString += ',"mi":false';
+					if (!defaultString.includes("rY")) defaultString += ',"rY":false';
+					if (!defaultString.includes("mY")) defaultString += ',"mY":false';
+				}
+				result += `${sep}"${ef.id}":{"n":"${ef.name}","mainseg":0,"seg":[{"id":0,"fx":${ef.id}${defaultString}}]}`;
+				sep = "\n,";
+				if(m.length <= 3) {
+					addToPlaylist(m, ef.id, m);
+				}
+				else {
+					addToPlaylist(m, ef.id);
+				}
+				addToPlaylist("All", ef.id, "ALL");
+				if(ef.name.startsWith("Y💡")) addToPlaylist("AnimARTrix", ef.id, "AM");
+				if (m.includes("1")) addToPlaylist("All 1D", ef.id, "1D");
+				if (m.includes("2")) addToPlaylist("All 2D", ef.id, "2D");
+
+				seq = Math.max(seq, (parseInt(ef.id) + 1));
+			} //fxdata is array
+		} //not RSVD
+	} //all effects
+
+	// console.log(playlistPS, playlistDur, playlistTrans);
+	for (const m in playlistPS) {
+		if(!playlistQL[m]) playlistQL[m] = seq;
+		let playListString = `\n,"${seq}":{"n":"${m} Playlist","ql":"${playlistQL[m]}","on":true,"playlist":{"ps":[${playlistPS[m]}],"dur":[${playlistDur[m]}],"transition":[${playlistTrans[m]}],"repeat":0,"end":0,"r":1}}`;
+		// console.log(playListString);
+		result += playListString;
+		seq++;
+	}
+
+	result += "}";
+
+	//assign result and show text and save button
+	gId("genPresets").hidden = true;
+	gId("savePresetsGen").hidden = false;
+	gId("presetsGen").hidden = false;
+	gId("presetsGen").value = result;
+	// console.log(result);
+
+}
+
+
+function uploadFileWithText(name, text)
+{
+  var req = new XMLHttpRequest();
+  req.addEventListener('load', function(){showToast(this.responseText,this.status >= 400)});
+  req.addEventListener('error', function(e){showToast(e.stack,true);});
+  req.open("POST", "/upload");
+  var formData = new FormData();
+
+  var blob = new Blob([text], {type : 'application/text'});
+  var fileOfBlob = new File([blob], name);
+  formData.append("upload", fileOfBlob);
+
+  req.send(formData);
+}
+
+function savePresetsGen()
+{
+       if (!confirm('Are you sure to (over)write presets.json?')) return;
+
+       uploadFileWithText("/presets.json", gId("presetsGen").value);
+}
+
+function savePresetsGen()
+{
+	if (!confirm('Are you sure to (over)write presets.json?')) return;
+
+	uploadFileWithText("/presets.json", gId("presetsGen").value);
+}
+
+
 size();
 _C.style.setProperty('--n', N);
 
