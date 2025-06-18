@@ -288,7 +288,7 @@ void getSettingsJS(byte subPage, Print& settingsScript)
     printSetFormCheckbox(settingsScript,PSTR("CCT"),strip.correctWB);
     printSetFormCheckbox(settingsScript,PSTR("IC"),cctICused);
     printSetFormCheckbox(settingsScript,PSTR("CR"),strip.cctFromRgb);
-    printSetFormValue(settingsScript,PSTR("CB"),Bus::getCCTBlend());
+    printSetFormValue(settingsScript,PSTR("CB"),(Bus::getCCTBlend() * 100 + 64) / 127); // 100% = 127, +64 for rounding
     printSetFormValue(settingsScript,PSTR("FR"),strip.getTargetFps());
     printSetFormValue(settingsScript,PSTR("AW"),Bus::getGlobalAWMode());
     printSetFormCheckbox(settingsScript,PSTR("PR"),BusManager::hasParallelOutput());  // get it from bus manager not global variable

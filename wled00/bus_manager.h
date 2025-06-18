@@ -190,8 +190,8 @@ class Bus {
     static inline uint8_t  getGlobalAWMode()          { return _gAWM; }
     static inline void     setCCT(int16_t cct)        { _cct = cct; }
     static inline uint8_t  getCCTBlend()              { return _cctBlend; }
-    static inline void     setCCTBlend(uint8_t b) {
-      _cctBlend = (std::min((int)b,100) * 127) / 100;
+    static inline void     setCCTBlend(uint8_t b) {        // input is 0-100
+      _cctBlend = (std::min((int)b,100) * 127 + 50) / 100; // +50 for rounding, b=100% -> 127
       //compile-time limiter for hardware that can't power both white channels at max
       #ifdef WLED_MAX_CCT_BLEND
         if (_cctBlend > WLED_MAX_CCT_BLEND) _cctBlend = WLED_MAX_CCT_BLEND;
