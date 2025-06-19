@@ -2555,9 +2555,9 @@ static CRGB twinklefox_one_twinkle(uint32_t ms, uint8_t salt, bool cat)
     // This is like 'triwave8', which produces a
     // symmetrical up-and-down triangle sawtooth waveform, except that this
     // function produces a triangle wave with a faster attack and a slower decay
-    if (cat) { //twinklecat, variant where the leds instantly turn on
+    if (cat) { //twinklecat, variant where the leds instantly turn on and fade off
       bright = 255 - ph;
-      if (SEGMENT.check2) { //invert checkbox, variant where the leds fade on and instantly turn off
+      if (SEGMENT.check2) { //reverse checkbox, reverses the leds to fade on and instantly turn off
         bright = ph;
       }
     } else { //vanilla twinklefox
@@ -2667,7 +2667,7 @@ uint16_t mode_twinklecat()
 {
   return twinklefox_base(true);
 }
-static const char _data_FX_MODE_TWINKLECAT[] PROGMEM = "Twinklecat@!,Twinkle rate,,,,Cool;!,!;!,Invert";
+static const char _data_FX_MODE_TWINKLECAT[] PROGMEM = "Twinklecat@!,Twinkle rate,,,,Cool;!,!;!,Reverse";
 
 
 uint16_t mode_halloween_eyes()
