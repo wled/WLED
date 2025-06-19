@@ -2534,7 +2534,7 @@ static const char _data_FX_MODE_RIPPLE_RAINBOW[] PROGMEM = "Ripple Rainbow@!,Wav
 //
 //  TwinkleFOX: Twinkling 'holiday' lights that fade in and out.
 //  Colors are chosen from a palette. Read more about this effect using the link above!
-static CRGB twinklefox_one_twinkle(uint32_t ms, uint8_t salt, bool cat, bool instantOff)
+static CRGB twinklefox_one_twinkle(uint32_t ms, uint8_t salt, bool cat)
 {
   // Overall twinkle speed (changed)
   unsigned ticks = ms / SEGENV.aux0;
@@ -2557,7 +2557,7 @@ static CRGB twinklefox_one_twinkle(uint32_t ms, uint8_t salt, bool cat, bool ins
     // function produces a triangle wave with a faster attack and a slower decay
     if (cat) { //twinklecat, variant where the leds instantly turn on
       bright = 255 - ph;
-    } else if (instantOff) { //instantOff, variant where the leds fade on and instantly turn off
+    } else if (SEGMENT.check2) { //invert checkbox, variant where the leds fade on and instantly turn off
       bright = ph;
     } else { //vanilla twinklefox
       if (ph < 86) {
@@ -2595,7 +2595,7 @@ static CRGB twinklefox_one_twinkle(uint32_t ms, uint8_t salt, bool cat, bool ins
 //  "CalculateOneTwinkle" on each pixel.  It then displays
 //  either the twinkle color of the background color,
 //  whichever is brighter.
-static uint16_t twinklefox_base(bool cat, bool instantOff)
+static uint16_t twinklefox_base(bool cat)
 {
   // "PRNG16" is the pseudorandom number generator
   // It MUST be reset to the same starting value each time
@@ -2633,7 +2633,7 @@ static uint16_t twinklefox_base(bool cat, bool instantOff)
     // We now have the adjusted 'clock' for this pixel, now we call
     // the function that computes what color the pixel should be based
     // on the "brightness = f( time )" idea.
-    CRGB c = twinklefox_one_twinkle(myclock30, myunique8, cat, instantOff);
+    CRGB c = twinklefox_one_twinkle(myclock30, myunique8, cat);
 
     unsigned cbright = c.getAverageLight();
     int deltabright = cbright - backgroundBrightness;
@@ -2657,23 +2657,16 @@ static uint16_t twinklefox_base(bool cat, bool instantOff)
 
 uint16_t mode_twinklefox()
 {
-  return twinklefox_base(false, false);
+  return twinklefox_base(false);
 }
 static const char _data_FX_MODE_TWINKLEFOX[] PROGMEM = "Twinklefox@!,Twinkle rate,,,,Cool;!,!;!";
 
 
 uint16_t mode_twinklecat()
 {
-  return twinklefox_base(true, false);
+  return twinklefox_base(true);
 }
 static const char _data_FX_MODE_TWINKLECAT[] PROGMEM = "Twinklecat@!,Twinkle rate,,,,Cool;!,!;!";
-
-
-uint16_t mode_twinklefadein()
-{
-  return twinklefox_base(false, true);
-}
-static const char _data_FX_MODE_TWINKLEFADEIN[] PROGMEM = "Twinklefadein@!,Twinkle rate,,,,Cool;!,!;!";
 
 
 uint16_t mode_halloween_eyes()
@@ -10671,7 +10664,6 @@ void WS2812FX::setupEffectData() {
   addEffect(FX_MODE_RIPPLE, &mode_ripple, _data_FX_MODE_RIPPLE);
   addEffect(FX_MODE_TWINKLEFOX, &mode_twinklefox, _data_FX_MODE_TWINKLEFOX);
   addEffect(FX_MODE_TWINKLECAT, &mode_twinklecat, _data_FX_MODE_TWINKLECAT);
-  addEffect(FX_MODE_TWINKLEFADEIN, &mode_twinklefadein, _data_FX_MODE_TWINKLEFADEIN);
   addEffect(FX_MODE_HALLOWEEN_EYES, &mode_halloween_eyes, _data_FX_MODE_HALLOWEEN_EYES);
   addEffect(FX_MODE_STATIC_PATTERN, &mode_static_pattern, _data_FX_MODE_STATIC_PATTERN);
   addEffect(FX_MODE_TRI_STATIC_PATTERN, &mode_tri_static_pattern, _data_FX_MODE_TRI_STATIC_PATTERN);
