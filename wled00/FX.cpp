@@ -2557,8 +2557,9 @@ static CRGB twinklefox_one_twinkle(uint32_t ms, uint8_t salt, bool cat)
     // function produces a triangle wave with a faster attack and a slower decay
     if (cat) { //twinklecat, variant where the leds instantly turn on
       bright = 255 - ph;
-    } else if (SEGMENT.check2) { //invert checkbox, variant where the leds fade on and instantly turn off
-      bright = ph;
+      if (SEGMENT.check2) { //invert checkbox, variant where the leds fade on and instantly turn off
+        bright = ph;
+      }
     } else { //vanilla twinklefox
       if (ph < 86) {
       bright = ph * 3;
