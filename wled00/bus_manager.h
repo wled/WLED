@@ -24,7 +24,10 @@ make_unique(Args&&... args)
 #endif
 
 // enable additional debug output
-#if defined(WLED_DEBUG_HOST)
+#if defined(WLED_ENABLE_SYSLOG)
+  #include "syslog.h"
+  #define DEBUGOUT Syslog
+#elif defined(WLED_DEBUG_HOST)
   #include "net_debug.h"
   #define DEBUGOUT NetDebug
 #else
