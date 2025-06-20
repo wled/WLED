@@ -6107,7 +6107,6 @@ uint16_t mode_2Dscrollingtext(void) {
   if (SEGMENT.name) len = strlen(SEGMENT.name); // note: SEGMENT.name is limited to WLED_MAX_SEGNAME_LEN
   if (len == 0) { // fallback if empty segment name: display date and time
     sprintf_P(text, PSTR("%s %d, %d %d:%02d%s"), monthShortStr(month(localTime)), day(localTime), year(localTime), AmPmHour, minute(localTime), sec);
-    Serial.println("no seg name");
   } else {
     size_t i = 0;
     while (i < len) {
@@ -6125,7 +6124,7 @@ uint16_t mode_2Dscrollingtext(void) {
         int advance = 5; // number of chars to advance in 'text' after processing the token
 
         // Process token
-        char temp[32]; //todo: udpate this block
+        char temp[32];
         if      (!strncmp_P(token,PSTR("#DATE"),5))  sprintf_P(temp, zero?PSTR("%02d.%02d.%04d"):PSTR("%d.%d.%d"),   day(localTime),   month(localTime),  year(localTime));
         else if (!strncmp_P(token,PSTR("#DDMM"),5))  sprintf_P(temp, zero?PSTR("%02d.%02d")     :PSTR("%d.%d"),      day(localTime),   month(localTime));
         else if (!strncmp_P(token,PSTR("#MMDD"),5))  sprintf_P(temp, zero?PSTR("%02d/%02d")     :PSTR("%d/%d"),      month(localTime), day(localTime));
@@ -6139,7 +6138,7 @@ uint16_t mode_2Dscrollingtext(void) {
         else if (!strncmp_P(token,PSTR("#MM"),3))  { sprintf  (temp, zero?    ("%02d")          :    ("%d"),         minute(localTime)); advance = 3; }
         else if (!strncmp_P(token,PSTR("#SS"),3))  { sprintf  (temp, zero?    ("%02d")          :    ("%d"),         second(localTime)); advance = 3; }
         else if (!strncmp_P(token,PSTR("#MON"),4)) { sprintf  (temp,          ("%s")                       ,         monthShortStr(month(localTime))); advance = 4; }
-        else if (!strncmp_P(token,PSTR("#MO"),3))  { sprintf  (temp, zero?    ("%02d")          :    ("%d"),         month(localTime)); advance = 4; }
+        else if (!strncmp_P(token,PSTR("#MO"),3))  { sprintf  (temp, zero?    ("%02d")          :    ("%d"),         month(localTime)); advance = 3; }
         else if (!strncmp_P(token,PSTR("#DAY"),4)) { sprintf  (temp,          ("%s")                       ,         dayShortStr(weekday(localTime))); advance = 4; }
         else if (!strncmp_P(token,PSTR("#DD"),3))  { sprintf  (temp, zero?    ("%02d")          :    ("%d"),         day(localTime)); advance = 3; }
         else { temp[0] = '#'; temp[1] = '\0'; zero = false; advance = 1; } // Unknown token, just copy the #
@@ -6154,7 +6153,10 @@ uint16_t mode_2Dscrollingtext(void) {
         i += advance;
       }
       else {
-        text[result_pos++] = SEGMENT.name[i++]; // no token, just copy char
+        if (result_pos < WLED_MAX_SEGNAME_LEN) {
+          text[result_pos++] = SEGMENT.name[i++]; // no token, just copy char
+        } else
+          break; // buffer full
       }
     }
   }
