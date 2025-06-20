@@ -54,7 +54,7 @@ class RgbRotaryEncoderUsermod : public Usermod
 
     void initLedBus()
     {
-      byte _pins[5] = {(byte)ledIo, 255, 255, 255, 255};
+      byte _pins[OUTPUT_MAX_PINS] = {(byte)ledIo, 255, 255, 255, 255};
       BusConfig busCfg = BusConfig(TYPE_WS2812_RGB, _pins, 0, numLeds, COL_ORDER_GRB, false, 0);
 
       ledBus = new BusDigital(busCfg, WLED_MAX_BUSSES - 1);
