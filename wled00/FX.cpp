@@ -6132,7 +6132,7 @@ uint16_t mode_2Dscrollingtext(void) {
         else if (!strncmp_P(token,PSTR("#HHMM"),5))  sprintf_P(temp, zero?PSTR("%02d:%02d")     :PSTR("%d:%02d"),    AmPmHour,         minute(localTime));
         else if (!strncmp_P(token,PSTR("#YYYY"),5))  sprintf_P(temp,          PSTR("%04d")                 ,         year(localTime));
         else if (!strncmp_P(token,PSTR("#MONL"),5))  sprintf  (temp,          ("%s")                       ,         monthStr(month(localTime)));
-        else if (!strncmp_P(token,PSTR("#DAYL"),5))  sprintf  (temp,          ("%s")                       ,         dayStr(weekday(localTime)));
+        else if (!strncmp_P(token,PSTR("#DDDD"),5))  sprintf  (temp,          ("%s")                       ,         dayStr(weekday(localTime)));
         else if (!strncmp_P(token,PSTR("#YY"),3))  { sprintf  (temp,          ("%02d")                     ,         year(localTime)%100); advance = 3; }
         else if (!strncmp_P(token,PSTR("#HH"),3))  { sprintf  (temp, zero?    ("%02d")          :    ("%d"),         AmPmHour); advance = 3; }
         else if (!strncmp_P(token,PSTR("#MM"),3))  { sprintf  (temp, zero?    ("%02d")          :    ("%d"),         minute(localTime)); advance = 3; }
