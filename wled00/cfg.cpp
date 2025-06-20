@@ -775,8 +775,8 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
 static const char s_cfg_json[] PROGMEM = "/cfg.json";
 
 void deserializeConfigFromFS() {
-  [[maybe_unused]] bool success = deserializeConfigSec();
   #ifdef WLED_ADD_EEPROM_SUPPORT
+  bool success = deserializeConfigSec();
   if (!success) { //if file does not exist, try reading from EEPROM
     deEEPSettings();
   }
@@ -785,8 +785,10 @@ void deserializeConfigFromFS() {
   if (!requestJSONBufferLock(1)) return;
 
   DEBUG_PRINTLN(F("Reading settings from /cfg.json..."));
-
+  
+  #ifdef WLED_ADD_EEPROM_SUPPORT
   success = readObjectFromFile(s_cfg_json, nullptr, pDoc);
+  #endif
 
   // NOTE: This routine deserializes *and* applies the configuration
   //       Therefore, must also initialize ethernet from this function
@@ -1270,13 +1272,13 @@ bool deserializeConfigSec() {
   JsonObject ap = root["ap"];
   getStringFromJson(apPass, ap["psk"] , 65);
 
-  [[maybe_unused]] JsonObject interfaces = root["if"];
-
+#if !defined(WLED_DISABLE_MQTT) || !defined(WLED_DISABLE_HUESYNC)
+  JsonObject interfaces = root["if"];
+#endif
 #ifndef WLED_DISABLE_MQTT
   JsonObject if_mqtt = interfaces["mqtt"];
   getStringFromJson(mqttPass, if_mqtt["psk"], 65);
 #endif
-
 #ifndef WLED_DISABLE_HUESYNC
   getStringFromJson(hueApiKey, interfaces["hue"][F("key")], 47);
 #endif
@@ -1314,7 +1316,9 @@ void serializeConfigSec() {
   JsonObject ap = root.createNestedObject("ap");
   ap["psk"] = apPass;
 
-  [[maybe_unused]] JsonObject interfaces = root.createNestedObject("if");
+#if !defined(WLED_DISABLE_MQTT) || !defined(WLED_DISABLE_HUESYNC)
+  JsonObject interfaces = root.createNestedObject("if");
+#endif
 #ifndef WLED_DISABLE_MQTT
   JsonObject if_mqtt = interfaces.createNestedObject("mqtt");
   if_mqtt["psk"] = mqttPass;
