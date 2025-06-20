@@ -7856,10 +7856,11 @@ uint16_t mode_particlefireworks(void) {
   // check each rocket's state and emit particles according to its state: moving up = emit exhaust, at top = explode; falling down = standby time
   uint32_t emitparticles, frequency, baseangle, hueincrement; // number of particles to emit for each rocket's state
   // variables for circular explosions
-  [[maybe_unused]] int32_t speed, currentspeed, speedvariation, percircle;
+  [[maybe_unused]] int32_t speed = 2; // just init to min value
+  [[maybe_unused]] int32_t currentspeed, percircle;
   int32_t counter = 0;
-  [[maybe_unused]] uint16_t angle;
-  [[maybe_unused]] unsigned angleincrement;
+  [[maybe_unused]] uint16_t angle = 0; // just init to zero
+  [[maybe_unused]] unsigned angleincrement = 2730; // minimum 15°
   bool circularexplosion = false;
 
   // emit particles for each rocket
