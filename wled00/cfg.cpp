@@ -740,6 +740,8 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
     CJSON(aOtaEnabled, ota[F("aota")]);
     #endif
     getStringFromJson(otaPass, pwd, 33); //normally not present due to security
+    interfaceUpdateCallMode = CALL_MODE_WS_SEND;
+    stateChanged = true;
   }
 
   #ifdef WLED_ENABLE_DMX

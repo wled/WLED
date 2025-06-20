@@ -612,6 +612,8 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
       aOtaEnabled = request->hasArg(F("AO"));
       #endif
       //createEditHandler(correctPIN && !otaLock);
+      interfaceUpdateCallMode = CALL_MODE_WS_SEND;
+      stateChanged = true;
     }
   }
 

@@ -164,6 +164,7 @@ void WLED::loop()
   if (strlen(settingsPIN)>0 && correctPIN && millis() - lastEditTime > PIN_TIMEOUT) {
     correctPIN = false;
     createEditHandler(false);
+    interfaceUpdateCallMode = CALL_MODE_WS_SEND; // schedule WS update
   }
 
   // reconnect WiFi to clear stale allocations if heap gets too low
