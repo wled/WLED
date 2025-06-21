@@ -1,0 +1,4 @@
+{
+  "name": "clock_overlay",
+  "build": { "libArchive": false }
+}
