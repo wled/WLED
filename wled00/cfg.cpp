@@ -740,6 +740,7 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
     CJSON(aOtaEnabled, ota[F("aota")]);
     #endif
     getStringFromJson(otaPass, pwd, 33); //normally not present due to security
+    CJSON(otaSameSubnet, ota[F("same-subnet")]);
   }
 
   #ifdef WLED_ENABLE_DMX
@@ -1218,6 +1219,7 @@ void serializeConfig(JsonObject root) {
   #ifndef WLED_DISABLE_OTA
   ota[F("aota")] = aOtaEnabled;
   #endif
+  ota[F("same-subnet")] = otaSameSubnet;
 
   #ifdef WLED_ENABLE_DMX
   JsonObject dmx = root.createNestedObject("dmx");

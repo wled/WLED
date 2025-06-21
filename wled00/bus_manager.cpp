@@ -545,7 +545,7 @@ void BusPwm::show() {
     unsigned duty = (_data[i] * pwmBri) / 255;
     unsigned deadTime = 0;
 
-    if (_type == TYPE_ANALOG_2CH && Bus::getCCTBlend() == 0) {
+    if (_type == TYPE_ANALOG_2CH && Bus::_cctBlend == 0) {
       // add dead time between signals (when using dithering, two full 8bit pulses are required)
       deadTime = (1+dithering) << bitShift;
       // we only need to take care of shortening the signal at (almost) full brightness otherwise pulses may overlap
@@ -972,7 +972,7 @@ bool PolyBus::_useParallelI2S = false;
 
 // Bus static member definition
 int16_t Bus::_cct = -1;
-uint8_t Bus::_cctBlend = 0;
+uint8_t Bus::_cctBlend = 0; // 0 - 127
 uint8_t Bus::_gAWM = 255;
 
 uint16_t BusDigital::_milliAmpsTotal = 0;
