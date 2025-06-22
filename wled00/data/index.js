@@ -3405,12 +3405,7 @@ function savePresetsGen()
        uploadFileWithText("/presets.json", gId("presetsGen").value);
 }
 
-function savePresetsGen()
-{
-	if (!confirm('Are you sure to (over)write presets.json?')) return;
-
-	uploadFileWithText("/presets.json", gId("presetsGen").value);
-}
+// (duplicate savePresetsGen removed)
 
 
 size();
