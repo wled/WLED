@@ -134,7 +134,7 @@ class AudioSource {
        Read num_samples from the microphone, and store them in the provided
        buffer
     */
-    virtual void getSamples(float *buffer, uint16_t num_samples) = 0;
+    virtual void getSamples(void *buffer, uint16_t num_samples) = 0;
 
     /* check if the audio source driver was initialized successfully */
     virtual bool isInitialized(void) {return(_initialized);}
@@ -314,7 +314,7 @@ class I2SSource : public AudioSource {
       if (_mclkPin != I2S_PIN_NO_CHANGE) PinManager::deallocatePin(_mclkPin, PinOwner::UM_Audioreactive);
     }
 
-    virtual void getSamples(float *buffer, uint16_t num_samples) {
+    virtual void getSamples(void *buffer, uint16_t num_samples) {
       if (_initialized) {
         esp_err_t err;
         size_t bytes_read = 0;        /* Counter variable to check if we actually got enough data */
@@ -333,18 +333,35 @@ class I2SSource : public AudioSource {
         }
 
         // Store samples in sample buffer and update DC offset
-        for (int i = 0; i < num_samples; i++) {
-
-          newSamples[i] = postProcessSample(newSamples[i]);  // perform postprocessing (needed for ADC samples)
-          
-          float currSample = 0.0f;
-#ifdef I2S_SAMPLE_DOWNSCALE_TO_16BIT
-              currSample = (float) newSamples[i] / 65536.0f;      // 32bit input -> 16bit; keeping lower 16bits as decimal places
+#if defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32C3)
+        int16_t* _buffer = static_cast<int16_t*>(buffer); // use integer samples on ESP32-S2 and ESP32-C3
+        constexpr int32_t FIXEDSHIFT = 8; // shift by 8 bits for fixed point math (no loss at 24bit input sample resolution)
+        int32_t intSampleScale = _sampleScale * (1<<FIXEDSHIFT); // _sampleScale is <= 1.0f, shift for fixed point math
 #else
-              currSample = (float) newSamples[i];                 // 16bit input -> use as-is
+        float* _buffer = static_cast<float*>(buffer);
 #endif
-          buffer[i] = currSample;
-          buffer[i] *= _sampleScale;                              // scale samples
+
+        for (int i = 0; i < num_samples; i++) {
+          newSamples[i] = postProcessSample(newSamples[i]);  // perform postprocessing (needed for ADC samples)
+
+#if defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32C3)
+  #ifdef I2S_SAMPLE_DOWNSCALE_TO_16BIT
+          int32_t currSample = newSamples[i] >> FIXEDSHIFT;   // shift to avoid overlow in multiplication
+          currSample = (currSample * intSampleScale) >> 16;    // scale samples, shift down to 16bit
+  #else
+          int32_t currSample = newSamples[i];                 // 16bit input -> use as-is
+  #endif
+          _buffer[i] = (int16_t)currSample;
+#else
+          float currSample = 0.0f;
+  #ifdef I2S_SAMPLE_DOWNSCALE_TO_16BIT
+          currSample = (float) newSamples[i] / 65536.0f;      // 32bit input -> 16bit; keeping lower 16bits as decimal places
+  #else
+          currSample = (float) newSamples[i];                 // 16bit input -> use as-is
+  #endif
+          _buffer[i] = currSample;
+          _buffer[i] *= _sampleScale;                         // scale samples
+#endif
         }
       }
     }
