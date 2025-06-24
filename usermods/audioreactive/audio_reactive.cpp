@@ -24,6 +24,8 @@
  * ....
  */
 
+#define FFT_PREFER_EXACT_PEAKS  // use different FFT windowing -> results in "sharper" peaks and less "leaking" into other frequencies
+
 #if !defined(FFTTASK_PRIORITY)
 #define FFTTASK_PRIORITY 1 // standard: looptask prio
 //#define FFTTASK_PRIORITY 2 // above looptask, below asyc_tcp
@@ -193,12 +195,20 @@ constexpr uint16_t samplesFFT = 512;            // Samples in an FFT batch - Thi
 constexpr uint16_t samplesFFT_2 = 256;          // meaningfull part of FFT results - only the "lower half" contains useful information.
 // the following are observed values, supported by a bit of "educated guessing"
 //#define FFT_DOWNSCALE 0.65f                             // 20kHz - downscaling factor for FFT results - "Flat-Top" window @20Khz, old freq channels 
+#ifdef FFT_PREFER_EXACT_PEAKS
+#define FFT_DOWNSCALE 0.40f                             // downscaling factor for FFT results, RMS averaging for "Blackman-Harris" Window @22kHz (credit to MM)
+#else
 #define FFT_DOWNSCALE 0.46f                             // downscaling factor for FFT results - for "Flat-Top" window @22Khz, new freq channels
+#endif
 #define LOG_256  5.54517744f                            // log(256)
 
 // These are the input and output vectors.  Input vectors receive computed results from FFT.
-static float* valFFT = nullptr;                // FFT sample inputs / freq output -  these are our raw result bins
-//static float* vImag = nullptr;                  // imaginary parts
+#if !defined(CONFIG_IDF_TARGET_ESP32S2) && !defined(CONFIG_IDF_TARGET_ESP32C3)
+static float* valFFT = nullptr;
+#else
+static int16_t* valFFT = nullptr;
+#endif
+
 
 // pre-computed window function
 #if defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32C3)
@@ -216,17 +226,31 @@ __attribute__((aligned(16))) float* windowFFT;
 // Below options are forcing ArduinoFFT to use sqrtf() instead of sqrt()
 // #define sqrt_internal sqrtf          // see https://github.com/kosme/arduinoFFT/pull/83 - since v2.0.0 this must be done in build_flags
 
-//#include <arduinoFFT.h>             // FFT object is created in FFTcode
-#include "esp_dsp.h"                // ESP-IDF DSP library for FFT and window functions
+// ESP-IDF DSP library for FFT and window functions
+#include "dsps_fft2r.h"
+#ifdef FFT_PREFER_EXACT_PEAKS
+#include "dsps_wind_blackman_harris.h"
+#else
+#include "dsps_wind_flat_top.h"
+#endif
+
 // Helper functions
 
 // compute average of several FFT result bins
-static float fftAddAvg(int from, int to) { //!!!TODO: need to hanlde integer values
+static float fftAddAvg(int from, int to) { //!!!TODO: need to hanlde integer values and save as float for S2 and C3
+  #if !defined(CONFIG_IDF_TARGET_ESP32S2) && !defined(CONFIG_IDF_TARGET_ESP32C3)
   float result = 0.0f;
   for (int i = from; i <= to; i++) {
     result += valFFT[i];
   }
-  return result / float(to - from + 1);
+  #else
+  int32_t result = 0;
+  for (int i = from; i <= to; i++) {
+    result += valFFT[i];
+  }
+  result *= 64; // scale result to match float values. note: scaling value of 64 was found by using simulated sine waves and comparing the results.
+  #endif
+  return float(result) / float(to - from + 1); // return average as float
 }
 
 //
@@ -236,33 +260,41 @@ void FFTcode(void * parameter)
 {
   DEBUGSR_PRINT("FFT started on core: "); DEBUGSR_PRINTLN(xPortGetCoreID());
 
+#if !defined(CONFIG_IDF_TARGET_ESP32S2) && !defined(CONFIG_IDF_TARGET_ESP32C3)
   // allocate and initialize FFT buffers on first call
   if (valFFT == nullptr) valFFT = (float*) calloc(sizeof(float), samplesFFT * 2);
   if ((valFFT == nullptr)) return; // something went wrong
-
   // create window
-#if defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32C3)
-  if (windowFFT == nullptr) windowFFT = (int16_t*) calloc(sizeof(int16_t), samplesFFT);
-  if ((windowFFT == nullptr)) return; // something went wrong
-  if (dsps_fft2r_init_sc16(NULL, samplesFFT) != ESP_OK) return; // initialize FFT tables
-
-  // create window function for FFT, "abuse" valFFT[] as temporary storage
-  //dsps_wind_hann_f32(valFFT, samplesFFT);
-  //dsps_wind_blackman_harris_f32(valFFT, samplesFFT);
-  dsps_wind_flat_top_f32(valFFT, samplesFFT);
-  // convert float window to 16-bit int
-  for (int i = 0; i < samplesFFT; i++) {
-    windowFFT[i] = (int16_t)(valFFT[i] * 32767.0f);
-  }
-  int16_t* valFFT16 = (int16_t*)valFFT; // alias to use float buffer as int16_t storage (intermediately during FFT processing)
-#else
   if (windowFFT == nullptr) windowFFT = (float*) calloc(sizeof(float), samplesFFT);
   if ((windowFFT == nullptr)) return; // something went wrong
   if (dsps_fft2r_init_fc32(NULL, samplesFFT) != ESP_OK) return; // initialize FFT tables
   // create window function for FFT
-  //dsps_wind_hann_f32(windowFFT, samplesFFT);
-  //dsps_wind_blackman_harris_f32(windowFFT, samplesFFT);
+#ifdef FFT_PREFER_EXACT_PEAKS
+  dsps_wind_blackman_harris_f32(windowFFT, samplesFFT);
+#else
   dsps_wind_flat_top_f32(windowFFT, samplesFFT);
+#endif
+#else
+// allocate and initialize FFT buffers on first call
+  if (valFFT == nullptr) valFFT = (int16_t*) calloc(sizeof(int16_t), samplesFFT * 2);
+  if ((valFFT == nullptr)) return; // something went wrong
+  // create window
+  if (windowFFT == nullptr) windowFFT = (int16_t*) calloc(sizeof(int16_t), samplesFFT);
+  if ((windowFFT == nullptr)) return; // something went wrong
+  if (dsps_fft2r_init_sc16(NULL, samplesFFT) != ESP_OK) return; // initialize FFT tables
+  // create window function for FFT
+  float *windowFloat = (float*) calloc(sizeof(float), samplesFFT); // temporary buffer for window function
+  if ((windowFloat == nullptr)) return; // something went wrong
+#ifdef FFT_PREFER_EXACT_PEAKS
+  dsps_wind_blackman_harris_f32(windowFloat, samplesFFT);
+#else
+  dsps_wind_flat_top_f32(windowFloat, samplesFFT);
+#endif
+  // convert float window to 16-bit int
+  for (int i = 0; i < samplesFFT; i++) {
+    windowFFT[i] = (int16_t)(windowFloat[i] * 32767.0f);
+  }
+  free(windowFloat); // free temporary buffer
 #endif
 
 
@@ -291,19 +323,19 @@ void FFTcode(void * parameter)
 #if defined(WLED_DEBUG) || defined(SR_DEBUG)
     if (start < esp_timer_get_time()) { // filter out overflows
       uint64_t sampleTimeInMillis = (esp_timer_get_time() - start +5ULL) / 10ULL; // "+5" to ensure proper rounding
-      sampleTime = (sampleTimeInMillis*3 + sampleTime*7)/10; // smooth
+      sampleTime = (sampleTimeInMillis + sampleTime*49)/50; // smooth !!! revert change debug only
     }
     start = esp_timer_get_time(); // start measuring FFT time
 #endif
 
     xLastWakeTime = xTaskGetTickCount();       // update "last unblocked time" for vTaskDelay
 
-    // band pass filter - can reduce noise floor by a factor of 50
+    // band pass filter - can reduce noise floor by a factor of 50 and avoid aliasing effects to base & high frequency bands
     // downside: frequencies below 100Hz will be ignored
     #if !defined(CONFIG_IDF_TARGET_ESP32S2) && !defined(CONFIG_IDF_TARGET_ESP32C3)
-    if (useBandPassFilter) runMicFilter(samplesFFT, valFFT);
+   // if (useBandPassFilter) runMicFilter(samplesFFT, valFFT);
     #else
-    if (useBandPassFilter) runMicFilter(samplesFFT, valFFT16); // TODO: test this function!!!
+    if (useBandPassFilter) runMicFilter(samplesFFT, valFFT);
     #endif
 
     // find highest sample in the batch
@@ -318,8 +350,8 @@ void FFTcode(void * parameter)
     int32_t maxSample = 0;                         // max sample from FFT batch
     for (int i=0; i < samplesFFT; i++) {
 	    // pick our  our current mic sample - we take the max value from all samples that go into FFT
-	    if ((valFFT16[i] <= (INT16_MAX - 1024)) && (valFFT16[i] >= (INT16_MIN + 1024)))  //skip extreme values - normally these are artefacts
-        if (abs(valFFT16[i]) > maxSample) maxSample = abs(valFFT16[i]);
+	    if ((valFFT[i] <= (INT16_MAX - 1024)) && (valFFT[i] >= (INT16_MIN + 1024)))  //skip extreme values - normally these are artefacts
+        if (abs(valFFT[i]) > maxSample) maxSample = abs(valFFT[i]);
     }
     #endif
     // release highest sample to volume reactive effects early - not strictly necessary here - could also be done at the end of the function
@@ -348,46 +380,42 @@ void FFTcode(void * parameter)
       }
 #ifdef CONFIG_IDF_TARGET_ESP32S3
       dsps_fft2r_fc32_aes3(valFFT, samplesFFT); // ESP32 S3 optimized version of FFT
-#else
+#elif defined(CONFIG_IDF_TARGET_ESP32)
       dsps_fft2r_fc32_ae32(valFFT, samplesFFT); // ESP32 optimized version of FFT
+#else
+      dsps_fft2r_fc32_ansi(valFFT, samplesFFT); // perform FFT
 #endif
-      dsps_bit_rev_fc32(valFFT, samplesFFT);  // bit reverse
+      dsps_bit_rev_fc32(valFFT, samplesFFT);    // bit reverse
 
       // convert to magnitude
-      for (int i = 1; i < samplesFFT_2; i++) { // skip [0] as it is DC offset
+      for (int i = 1; i < samplesFFT_2; i++) {  // skip [0] as it is DC offset
         float real_part = valFFT[i * 2];
         float imag_part = valFFT[i * 2 + 1];
-        valFFT[i] = sqrtf(real_part * real_part + imag_part * imag_part); //TODO: would the use of the more accurate sqrt() make a difference?
+        valFFT[i] = sqrtf(real_part * real_part + imag_part * imag_part);
+        //valFFT[i] = valFFT[i] / 16.0f;          // Reduce magnitude. Want end result to be scaled linear and ~4096 max.  !!! 
       }
 #else
       // remove DC offset
       int32_t sum = 0;
-      for (int i = 0; i < samplesFFT; i++) sum += valFFT16[i];
+      for (int i = 0; i < samplesFFT; i++) sum += valFFT[i];
       int32_t mean = sum / samplesFFT;
-      for (int i = 0; i < samplesFFT; i++) valFFT16[i] -= mean;
+      for (int i = 0; i < samplesFFT; i++) valFFT[i] -= mean;
       //apply window function to samples and fill buffer with interleaved complex values [Re,Im,Re,Im,...]
       for (int i = samplesFFT - 1; i >= 0 ; i--) {
         // fill the buffer back to front to avoid overwriting samples
-        int16_t windowed_sample = ((int32_t)valFFT16[i] * (int32_t)windowFFT[i]) >> 15; // both values are ±15bit
-        valFFT16[i * 2] = windowed_sample;
-        valFFT16[i * 2 + 1] = 0; // set imaginary part to zero
+        int16_t windowed_sample = ((int32_t)valFFT[i] * (int32_t)windowFFT[i]) >> 15; // both values are ±15bit
+        valFFT[i * 2] = windowed_sample;
+        valFFT[i * 2 + 1] = 0; // set imaginary part to zero
       }
 
-      dsps_fft2r_sc16_ansi(valFFT16, samplesFFT); // perform FFT on complex value pairs (Re,Im)
-      dsps_bit_rev_sc16(valFFT16, samplesFFT);    // bit reverse i.e. "unshuffle" the results
+      dsps_fft2r_sc16_ansi(valFFT, samplesFFT); // perform FFT on complex value pairs (Re,Im)
+      dsps_bit_rev_sc16(valFFT, samplesFFT);    // bit reverse i.e. "unshuffle" the results
 
       // convert to magnitude, FFT returns interleaved complex values [Re,Im,Re,Im,...]
       for (int i = 1; i < samplesFFT_2; i++) { // skip [0], it is DC offset
-        int32_t real_part = valFFT16[i * 2];
-        int32_t imag_part = valFFT16[i * 2 + 1];
-        valFFT16[i] = sqrt32_bw(real_part * real_part + imag_part * imag_part); // note: this should never overflow as Re and Im form a vector of maximum length 32767
-      }
-
-      // convert to float for further processing TODO: continue in integer math?
-      for (int i = samplesFFT_2-1; i > 0; i--) {
-        float scaledvalue = (float)valFFT16[i] * 64.0f; // scale to match float FFT and convert to float: back to front to avoid overwriting samples, skip [0]
-        // note: scaling value of 64 was found by using simulated sine waves and comparing the results.
-        valFFT[i] = scaledvalue;
+        int32_t real_part = valFFT[i * 2];
+        int32_t imag_part = valFFT[i * 2 + 1];
+        valFFT[i] = sqrt32_bw(real_part * real_part + imag_part * imag_part); // note: this should never overflow as Re and Im form a vector of maximum length 32767
       }
 #endif
       valFFT[0] = 0;   // The remaining DC offset on the signal produces a strong spike on position 0 that should be eliminated to avoid issues.
@@ -400,7 +428,7 @@ void FFTcode(void * parameter)
       FFT_MajorPeak = 1;
       FFT_Magnitude = 0.001;
     }
-#if !defined(CONFIG_IDF_TARGET_ESP32S2) && !defined(CONFIG_IDF_TARGET_ESP32C3) // note: for S2 and C3 scaling is done in fftAddAvg to avoid signal loss
+#if !defined(CONFIG_IDF_TARGET_ESP32S2) && !defined(CONFIG_IDF_TARGET_ESP32C3) // note: for S2 and C3 scaling is done above
     for (int i = 0; i < samplesFFT; i++) {
       float t = fabsf(valFFT[i]);                      // just to be sure - values in fft bins should be positive any way
       valFFT[i] = t / 16.0f;                           // Reduce magnitude. Want end result to be scaled linear and ~4096 max.
@@ -1295,8 +1323,7 @@ class AudioReactive : public Usermod {
         periph_module_reset(PERIPH_I2S0_MODULE);   // not possible on -C3
       #endif
       delay(100);         // Give that poor microphone some time to setup.
-
-      useBandPassFilter = false;
+      useBandPassFilter = false; //true; !!! // filter fixes aliasing to base & highest frequency bands and reduces noise floor (use for all mic inputs)
 
       #if !defined(CONFIG_IDF_TARGET_ESP32S2) && !defined(CONFIG_IDF_TARGET_ESP32C3)
         if ((i2sckPin == I2S_PIN_NO_CHANGE) && (i2ssdPin >= 0) && (i2swsPin >= 0) && ((dmType == 1) || (dmType == 4)) ) dmType = 5;   // dummy user support: SCK == -1 --means--> PDM microphone
@@ -1338,7 +1365,6 @@ class AudioReactive : public Usermod {
         case 5:
           DEBUGSR_PRINT(F("AR: I2S PDM Microphone - ")); DEBUGSR_PRINTLN(F(I2S_PDM_MIC_CHANNEL_TEXT));
           audioSource = new I2SSource(SAMPLE_RATE, BLOCK_SIZE, 1.0f/4.0f);
-          useBandPassFilter = true;  // this reduces the noise floor on SPM1423 from 5% Vpp (~380) down to 0.05% Vpp (~5)
           delay(100);
           if (audioSource) audioSource->initialize(i2swsPin, i2ssdPin);
           break;
@@ -1346,6 +1372,7 @@ class AudioReactive : public Usermod {
         case 6:
           DEBUGSR_PRINTLN(F("AR: ES8388 Source"));
           audioSource = new ES8388Source(SAMPLE_RATE, BLOCK_SIZE);
+          useBandPassFilter = false;
           delay(100);
           if (audioSource) audioSource->initialize(i2swsPin, i2ssdPin, i2sckPin, mclkPin);
           break;

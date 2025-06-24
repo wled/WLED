@@ -331,48 +331,50 @@ class I2SSource : public AudioSource {
           DEBUGSR_PRINTF("Failed to get enough samples: wanted: %d read: %d\n", sizeof(newSamples), bytes_read);
           return;
         }
-/*
-  //debug function:  Generate sine wave 
- for (int i = 0; i < num_samples; i++) {
-    float time = (float)i / 22000;
-    float sample = 0.0;
-    sample =  sin(2.0 * PI * 1000 * time); // 1000 Hz sine wav
-    sample +=  sin(2.0 * PI * 250 * time); // 1000 Hz sine wav
-    newSamples[i] = (int32_t)(sample * 990848.0); //(float)(millis()<<7));  // scale up
-  }
-*/ //!!!remove
 
+        //debug function:  Generate sine wave
+      for (int i = 0; i < num_samples; i++) {
+          float time = (float)i / 22000;
+          float sample = 0.0;
+          sample =  sin(2.0 * PI * 1000 * time); // 1kHz sine wave
+          sample +=  sin(2.0 * PI * 250 * time); // 250 Hz sine wave
+          sample +=  sin(2.0 * PI * 4000 * time); // 4kHz sine wave
+          newSamples[i] = (int32_t)(sample * 990848.0); //(float)(millis()<<7));  // scale up
+        }
+      //!!!remove
 
 
         // Store samples in sample buffer
-#if defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32C3)
-        int16_t* _buffer = static_cast<int16_t*>(buffer); // use integer samples on ESP32-S2 and ESP32-C3
-        constexpr int32_t FIXEDSHIFT = 8; // shift by 8 bits for fixed point math (no loss at 24bit input sample resolution)
-        int32_t intSampleScale = _sampleScale * (1<<FIXEDSHIFT); // _sampleScale is <= 1.0f, shift for fixed point math
-#else
+#if !defined(CONFIG_IDF_TARGET_ESP32S2) && !defined(CONFIG_IDF_TARGET_ESP32C3)
         float* _buffer = static_cast<float*>(buffer);
+#else
+        int16_t* _buffer = static_cast<int16_t*>(buffer); // use integer samples on ESP32-S2 and ESP32-C3
+        //constexpr int32_t FIXEDSHIFT = 8; // shift by 8 bits for fixed point math (no loss at 24bit input sample resolution)
+        //int32_t intSampleScale = _sampleScale * (1<<FIXEDSHIFT); // _sampleScale <= 1.0f, shift for fixed point math
 #endif
 
         for (int i = 0; i < num_samples; i++) {
           newSamples[i] = postProcessSample(newSamples[i]);  // perform postprocessing (needed for ADC samples)
 
-#if defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32C3)
+#if !defined(CONFIG_IDF_TARGET_ESP32S2) && !defined(CONFIG_IDF_TARGET_ESP32C3)
   #ifdef I2S_SAMPLE_DOWNSCALE_TO_16BIT
-          int32_t currSample = newSamples[i] >> FIXEDSHIFT;   // shift to avoid overlow in multiplication
-          currSample = (currSample * intSampleScale) >> 16;    // scale samples, shift down to 16bit
+          float currSample = (float) newSamples[i] / 65536.0f;      // 32bit input -> 16bit; keeping lower 16bits as decimal places
   #else
-          int32_t currSample = newSamples[i];                 // 16bit input -> use as-is
-  #endif
-          _buffer[i] = (int16_t)currSample;
-#else
-          float currSample = 0.0f;
-  #ifdef I2S_SAMPLE_DOWNSCALE_TO_16BIT
-          currSample = (float) newSamples[i] / 65536.0f;      // 32bit input -> 16bit; keeping lower 16bits as decimal places
-  #else
-          currSample = (float) newSamples[i];                 // 16bit input -> use as-is
+          float currSample = (float) newSamples[i];                 // 16bit input -> use as-is
   #endif
           _buffer[i] = currSample;
-          _buffer[i] *= _sampleScale;                         // scale samples
+          _buffer[i] *= _sampleScale;                               // scale samples
+#else
+  #ifdef I2S_SAMPLE_DOWNSCALE_TO_16BIT
+          // note on sample scaling: scaling is only used for inputs with master clock and those are better suited for ESP32 or S3
+          //int32_t currSample = newSamples[i] >> FIXEDSHIFT;   // shift to avoid overlow in multiplication
+          //currSample = (currSample * intSampleScale) >> 16;   // scale samples, shift down to 16bit
+          int16_t currSample = newSamples[i] >> 16;           // no sample scaling, just shift down to 16bit (not scaling saves ~0.4ms on C3)
+  #else
+          //int32_t currSample = (newSamples[i] * intSampleScale) >> FIXEDSHIFT;   // scale samples, shift back down to 16bit
+          int16_t currSample = newSamples[i];                 // 16bit input -> use as-is
+  #endif
+          _buffer[i] = (int16_t)currSample;
 #endif
         }
       }
