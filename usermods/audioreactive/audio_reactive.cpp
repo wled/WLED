@@ -239,8 +239,6 @@ void FFTcode(void * parameter)
   // allocate and initialize FFT buffers on first call
   if (valFFT == nullptr) valFFT = (float*) calloc(sizeof(float), samplesFFT * 2);
   if ((valFFT == nullptr)) return; // something went wrong
-  // Create FFT object with weighing factor storage
-  //ArduinoFFT<float> FFT = ArduinoFFT<float>( vReal, vImag, samplesFFT, SAMPLE_RATE, true);
 
   // create window
 #if defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32C3)
@@ -256,7 +254,7 @@ void FFTcode(void * parameter)
   for (int i = 0; i < samplesFFT; i++) {
     windowFFT[i] = (int16_t)(valFFT[i] * 32767.0f);
   }
-  int16_t* valFFT16 = (int16_t*)valFFT;         // alias to access buffer as int16_t (intermediately)
+  int16_t* valFFT16 = (int16_t*)valFFT; // alias to use float buffer as int16_t storage (intermediately during FFT processing)
 #else
   if (windowFFT == nullptr) windowFFT = (float*) calloc(sizeof(float), samplesFFT);
   if ((windowFFT == nullptr)) return; // something went wrong
@@ -362,17 +360,6 @@ void FFTcode(void * parameter)
         valFFT[i] = sqrtf(real_part * real_part + imag_part * imag_part); //TODO: would the use of the more accurate sqrt() make a difference?
       }
 #else
-
-//debug function:  Generate sine wave 
-/*
-  for (int i = 0; i < samplesFFT; i++) {
-    float time = (float)i / 22000;
-    float sample = 0.0;
-    sample =  sin(2.0 * PI * 1000 * time); // 1000 Hz sine wav
-    valFFT16[i] = (int16_t)(sample * 2000.0);  // scale up
-  }
-*/ //!!! remove
-  
       // remove DC offset
       int32_t sum = 0;
       for (int i = 0; i < samplesFFT; i++) sum += valFFT16[i];
@@ -384,51 +371,24 @@ void FFTcode(void * parameter)
         int16_t windowed_sample = ((int32_t)valFFT16[i] * (int32_t)windowFFT[i]) >> 15; // both values are ±15bit
         valFFT16[i * 2] = windowed_sample;
         valFFT16[i * 2 + 1] = 0; // set imaginary part to zero
-        
-        // debug: no windowing, just copy samples!!!
-        //valFFT16[i * 2] = valFFT16[i];
-        //valFFT16[i * 2 + 1] = 0; // set imaginary part to zero
-        //Serial.println(windowed_sample); 
       }
-/*
-    for (int i=0; i < samplesFFT; i++) {
-      Serial.println(valFFT16[i*2]); // -> looks correct
-    }*/
 
       dsps_fft2r_sc16_ansi(valFFT16, samplesFFT); // perform FFT on complex value pairs (Re,Im)
       dsps_bit_rev_sc16(valFFT16, samplesFFT);    // bit reverse i.e. "unshuffle" the results
-/*
-         for (int i=0; i < samplesFFT; i++) {
-        Serial.println(valFFT16[i]);
-       }*/ //!!! remove
+
       // convert to magnitude, FFT returns interleaved complex values [Re,Im,Re,Im,...]
-      for (int i = 1; i < samplesFFT_2; i++) { // skip [0] as it is DC offset
+      for (int i = 1; i < samplesFFT_2; i++) { // skip [0], it is DC offset
         int32_t real_part = valFFT16[i * 2];
         int32_t imag_part = valFFT16[i * 2 + 1];
-        
         valFFT16[i] = sqrt32_bw(real_part * real_part + imag_part * imag_part); // note: this should never overflow as Re and Im form a vector of maximum length 32767
-        /*
-        Serial.print(valFFT16[i]);
-        Serial.print(","); Serial.print(real_part);
-        Serial.print(","); Serial.println(imag_part);
-        */ //!!! remove
       }
 
-//Serial.println("*************************************************"); //debug
-      for(int i = 0; i < samplesFFT_2; i++) {
- //Serial.println(valFFT16[i]); //debug
-      }
-  
-      // convert to float
+      // convert to float for further processing TODO: continue in integer math?
       for (int i = samplesFFT_2-1; i > 0; i--) {
-        float scaledvalue = (float)valFFT16[i] / 32.0f; // scale to match float FFT and convert to float: back to front to avoid overwriting samples, skip [0]
+        float scaledvalue = (float)valFFT16[i] * 64.0f; // scale to match float FFT and convert to float: back to front to avoid overwriting samples, skip [0]
+        // note: scaling value of 64 was found by using simulated sine waves and comparing the results.
         valFFT[i] = scaledvalue;
       }
-
-    //Serial.println("*************************************************"); //debug
-    //  Serial.println("*************************************************"); //debug
-
-
 #endif
       valFFT[0] = 0;   // The remaining DC offset on the signal produces a strong spike on position 0 that should be eliminated to avoid issues.
 #if defined(WLED_DEBUG) || defined(SR_DEBUG)

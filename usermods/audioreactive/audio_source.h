@@ -331,8 +331,20 @@ class I2SSource : public AudioSource {
           DEBUGSR_PRINTF("Failed to get enough samples: wanted: %d read: %d\n", sizeof(newSamples), bytes_read);
           return;
         }
+/*
+  //debug function:  Generate sine wave 
+ for (int i = 0; i < num_samples; i++) {
+    float time = (float)i / 22000;
+    float sample = 0.0;
+    sample =  sin(2.0 * PI * 1000 * time); // 1000 Hz sine wav
+    sample +=  sin(2.0 * PI * 250 * time); // 1000 Hz sine wav
+    newSamples[i] = (int32_t)(sample * 990848.0); //(float)(millis()<<7));  // scale up
+  }
+*/ //!!!remove
 
-        // Store samples in sample buffer and update DC offset
+
+
+        // Store samples in sample buffer
 #if defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32C3)
         int16_t* _buffer = static_cast<int16_t*>(buffer); // use integer samples on ESP32-S2 and ESP32-C3
         constexpr int32_t FIXEDSHIFT = 8; // shift by 8 bits for fixed point math (no loss at 24bit input sample resolution)
