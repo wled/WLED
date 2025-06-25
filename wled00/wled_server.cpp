@@ -1,9 +1,11 @@
 #include "wled.h"
 
-#ifdef ESP8266
-  #include <Updater.h>
-#else
-  #include <Update.h>
+#ifndef WLED_DISABLE_OTA
+  #ifdef ESP8266
+    #include <Updater.h>
+  #else
+    #include <Update.h>
+  #endif
 #endif
 #include "html_ui.h"
 #include "html_settings.h"
@@ -387,6 +389,7 @@ void initServer()
   createEditHandler(correctPIN);
 
   static const char _update[] PROGMEM = "/update";
+#ifndef WLED_DISABLE_OTA
   //init ota page
   server.on(_update, HTTP_GET, [](AsyncWebServerRequest *request){
     if (otaLock) {
@@ -446,6 +449,13 @@ void initServer()
       }
     }
   });
+#else
+  const auto notSupported = [](AsyncWebServerRequest *request){
+    serveMessage(request, 501, FPSTR(s_notimplemented), F("This build does not support OTA update."), 254);
+  };
+  server.on(_update, HTTP_GET, notSupported);
+  server.on(_update, HTTP_POST, notSupported);
+#endif
 
 #ifdef WLED_ENABLE_DMX
   server.on(F("/dmxmap"), HTTP_GET, [](AsyncWebServerRequest *request){
@@ -657,6 +667,7 @@ void serveSettings(AsyncWebServerRequest* request, bool post) {
     case SUBPAGE_DMX     :  content = PAGE_settings_dmx;  len = PAGE_settings_dmx_length;  break;
 #endif
     case SUBPAGE_UM      :  content = PAGE_settings_um;   len = PAGE_settings_um_length;   break;
+#ifndef WLED_DISABLE_OTA
     case SUBPAGE_UPDATE  :  content = PAGE_update;        len = PAGE_update_length;
       #ifdef ARDUINO_ARCH_ESP32
       if (request->hasArg(F("revert")) && inLocalSubnet(request->client()->remoteIP()) && Update.canRollBack()) {
@@ -670,6 +681,7 @@ void serveSettings(AsyncWebServerRequest* request, bool post) {
       }
       #endif
       break;
+#endif
 #ifndef WLED_DISABLE_2D
     case SUBPAGE_2D      :  content = PAGE_settings_2D;   len = PAGE_settings_2D_length;   break;
 #endif
