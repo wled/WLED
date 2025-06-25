@@ -332,22 +332,6 @@ class I2SSource : public AudioSource {
           return;
         }
 
-        //debug function:  Generate sine wave
-      for (int i = 0; i < num_samples; i++) {
-          float frequencies[] = {250.0, 1200.0, 2600.0, 5500.0}; // 4 test frequencies
-          float amplitudes[] = {10000, 8000, 6000, 4000};
-          float time = (float)i / 22000;
-          float sample = 0.0;
-          //float scale = 990848.0;
-          sample =  sin(2.0 * PI * frequencies[0] * time)* amplitudes[0] *65536; 
-          sample +=  sin(2.0 * PI * frequencies[1] * time)* amplitudes[1]*65536; 
-          sample +=  sin(2.0 * PI * frequencies[2] * time)* amplitudes[2]*65536; 
-          sample +=  sin(2.0 * PI * frequencies[3] * time)* amplitudes[3]*65536; 
-          newSamples[i] = (int32_t)(sample); //(float)(millis()<<7));  // scale up
-        }
-      //!!!remove
-
-
         // Store samples in sample buffer
 #if !defined(CONFIG_IDF_TARGET_ESP32S2) && !defined(CONFIG_IDF_TARGET_ESP32C3)
         float* _buffer = static_cast<float*>(buffer);
@@ -371,6 +355,7 @@ class I2SSource : public AudioSource {
 #else
   #ifdef I2S_SAMPLE_DOWNSCALE_TO_16BIT
           // note on sample scaling: scaling is only used for inputs with master clock and those are better suited for ESP32 or S3
+          // execution speed is critical on single core MCUs
           //int32_t currSample = newSamples[i] >> FIXEDSHIFT;   // shift to avoid overlow in multiplication
           //currSample = (currSample * intSampleScale) >> 16;   // scale samples, shift down to 16bit
           int16_t currSample = newSamples[i] >> 16;           // no sample scaling, just shift down to 16bit (not scaling saves ~0.4ms on C3)

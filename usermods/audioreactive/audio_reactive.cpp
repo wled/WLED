@@ -24,7 +24,7 @@
  * ....
  */
 
-//#define FFT_PREFER_EXACT_PEAKS  // use different FFT windowing -> results in "sharper" peaks and less "leaking" into other frequencies
+#define FFT_PREFER_EXACT_PEAKS  // use different FFT windowing -> results in "sharper" peaks and less "leaking" into other frequencies
 
 #if !defined(FFTTASK_PRIORITY)
 #define FFTTASK_PRIORITY 1 // standard: looptask prio
@@ -237,7 +237,7 @@ __attribute__((aligned(16))) float* windowFFT;
 // Helper functions
 
 // compute average of several FFT result bins
-static float fftAddAvg(int from, int to) { //!!!TODO: need to hanlde integer values and save as float for S2 and C3
+static float fftAddAvg(int from, int to) {
   #if !defined(CONFIG_IDF_TARGET_ESP32S2) && !defined(CONFIG_IDF_TARGET_ESP32C3)
   float result = 0.0f;
   for (int i = from; i <= to; i++) {
@@ -248,7 +248,7 @@ static float fftAddAvg(int from, int to) { //!!!TODO: need to hanlde integer val
   for (int i = from; i <= to; i++) {
     result += valFFT[i];
   }
-  result *= 128; // scale result to match float values. note: scaling value of was found by using simulated sine waves and comparing the results (the raw factor between float and int FFT is 256) TODO: check  this is correct!!!
+  result *= 32; // scale result to match float values. note: scaling value between float and int is 512, float version is scaled down by 16
   #endif
   return float(result) / float(to - from + 1); // return average as float
 }
@@ -340,7 +340,6 @@ void FFTcode(void * parameter)
 
     // band pass filter - can reduce noise floor by a factor of 50 and avoid aliasing effects to base & high frequency bands
     // downside: frequencies below 100Hz will be ignored
-    useBandPassFilter = false; //!!! debug, remove
     if (useBandPassFilter) runMicFilter(samplesFFT, valFFT);
 
     // find highest sample in the batch
@@ -371,8 +370,6 @@ void FFTcode(void * parameter)
 
       // run FFT (takes ~x ms on ESP32, ~x ms on ESP32-S2, , ~x ms on ESP32-C3)
 #if !defined(CONFIG_IDF_TARGET_ESP32S2) && !defined(CONFIG_IDF_TARGET_ESP32C3)
-      Serial.print("raw: ");
-      for (int i = 0; i < samplesFFT/8; i++) {Serial.print(valFFT[i]); Serial.print(", "); }Serial.println(" ");//!!!
       // remove DC offset
       float sum = 0;
       for (int i = 0; i < samplesFFT; i++) sum += valFFT[i];
@@ -385,12 +382,8 @@ void FFTcode(void * parameter)
         valFFT[i * 2] = windowed_sample;
         valFFT[i * 2 + 1] = 0.0; // set imaginary part to zero
       }
-            //DEBUG:
-     // Serial.print("windowed: ");
-    //  for (int i = 0; i < samplesFFT/8; i++) {Serial.print(valFFT[i*2]); Serial.print(", "); } Serial.println(" ");//!!!
 #ifdef CONFIG_IDF_TARGET_ESP32S3
       dsps_fft2r_fc32_aes3(valFFT, samplesFFT); // ESP32 S3 optimized version of FFT (requires 16bit aligned buffer!)
-      //dsps_fft2r_fc32_ansi(valFFT, samplesFFT); // perform FFT
 #elif defined(CONFIG_IDF_TARGET_ESP32)
       dsps_fft2r_fc32_ae32(valFFT, samplesFFT); // ESP32 optimized version of FFT
 #else
@@ -403,25 +396,12 @@ void FFTcode(void * parameter)
         float real_part = valFFT[i * 2];
         float imag_part = valFFT[i * 2 + 1];
         valFFT[i] = sqrtf(real_part * real_part + imag_part * imag_part);
-        //valFFT[i] = valFFT[i] / 16.0f;          // Reduce magnitude. Want end result to be scaled linear and ~4096 max.  !!! 
+        valFFT[i] = valFFT[i] / 16.0f;          // Reduce magnitude. Want end result to be scaled linear and ~4096 max.
       }
-            //DEBUG:
-            Serial.println("**");
-      for (int i = 0; i < samplesFFT/16; i++) {
-        sum=0;
-        for (int k = i*8; k < i*8 + 8; k++) {
-          sum += valFFT[k];
-        }
-        Serial.print(sum);
-        Serial.print(", ");
-      }
-      Serial.println("**");
 #else
       // remove DC offset
       int32_t sum = 0;
       for (int i = 0; i < samplesFFT; i++) sum += valFFT[i];
-      Serial.print("raw: ");
-      for (int i = 0; i < samplesFFT/8; i++) {Serial.print(valFFT[i]); Serial.print(", "); }Serial.println(" ");//!!!
       int32_t mean = sum / samplesFFT;
       for (int i = 0; i < samplesFFT; i++) valFFT[i] -= mean;
       //apply window function to samples and fill buffer with interleaved complex values [Re,Im,Re,Im,...]
@@ -431,9 +411,6 @@ void FFTcode(void * parameter)
         valFFT[i * 2] = windowed_sample;
         valFFT[i * 2 + 1] = 0; // set imaginary part to zero
       }
-      //DEBUG:
-      //Serial.print("windowed: ");
-      //for (int i = 0; i < samplesFFT/8; i++) {Serial.print(valFFT[i*2]); Serial.print(", "); } Serial.println(" ");//!!!
 
       dsps_fft2r_sc16_ansi(valFFT, samplesFFT); // perform FFT on complex value pairs (Re,Im)
       dsps_bit_rev_sc16(valFFT, samplesFFT);    // bit reverse i.e. "unshuffle" the results
@@ -444,35 +421,20 @@ void FFTcode(void * parameter)
         int32_t imag_part = valFFT[i * 2 + 1];
         valFFT[i] = sqrt32_bw(real_part * real_part + imag_part * imag_part); // note: this should never overflow as Re and Im form a vector of maximum length 32767
       }
-
-      //DEBUG:
-      Serial.println("**");
-      for (int i = 0; i < samplesFFT/16; i++) {
-        sum=0;
-        for (int k = i*8; k < i*8 + 8; k++) {
-          sum += valFFT[k];
-        }
-        Serial.print(sum);
-        Serial.print(", ");
-      }
-      Serial.println("**");
 #endif
       valFFT[0] = 0;   // The remaining DC offset on the signal produces a strong spike on position 0 that should be eliminated to avoid issues.
 #if defined(WLED_DEBUG) || defined(SR_DEBUG)
       haveDoneFFT = true;
 #endif
 
+    //TODO calculate FFT_MajorPeak and FFT_Magnitude, that code was removed from here
+
     } else { // noise gate closed - only clear results as FFT was skipped. MIC samples are still valid when we do this.
       memset(valFFT, 0, samplesFFT * sizeof(float)); // only lower half of buffer contains FFT results, so only clear that part
       FFT_MajorPeak = 1;
       FFT_Magnitude = 0.001;
     }
-#if !defined(CONFIG_IDF_TARGET_ESP32S2) && !defined(CONFIG_IDF_TARGET_ESP32C3) // note: for S2 and C3 scaling is done above
-    for (int i = 0; i < samplesFFT; i++) {
-      float t = fabsf(valFFT[i]);                      // just to be sure - values in fft bins should be positive any way
-      valFFT[i] = t / 16.0f;                           // Reduce magnitude. Want end result to be scaled linear and ~4096 max.
-    } // for()
-#endif
+
     // mapping of FFT result bins to frequency channels
     if (fabsf(sampleAvg) > 0.5f) { // noise gate open
 #if 0
@@ -503,8 +465,7 @@ void FFTcode(void * parameter)
       fftCalc[15] = fftAddAvg(194,250);   // 3880 - 5000 // avoid the last 5 bins, which are usually inaccurate
 #else
       /* new mapping, optimized for 22050 Hz by softhack007 */
-                                                    // bins frequency  range
-      useBandPassFilter = false; //!!! debug, remove
+      // bins frequency  range
       if (useBandPassFilter) {
         // skip frequencies below 100hz
         fftCalc[ 0] = 0.8f * fftAddAvg(3,4);
