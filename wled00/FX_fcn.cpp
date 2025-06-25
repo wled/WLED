@@ -1224,11 +1224,6 @@ void WS2812FX::service() {
       unsigned frameDelay = FRAMETIME;
 
       if (!seg.freeze) { //only run effect function if not frozen
-        int oldCCT = BusManager::getSegmentCCT(); // store original CCT value (actually it is not Segment based)
-        // when correctWB is true we need to correct/adjust RGB value according to desired CCT value, but it will also affect actual WW/CW ratio
-        // when cctFromRgb is true we implicitly calculate WW and CW from RGB values
-        if (cctFromRgb) BusManager::setSegmentCCT(-1);
-        else            BusManager::setSegmentCCT(seg.currentCCT(), correctWB);
         // Effect blending
         uint16_t prog = seg.progress();
         seg.beginDraw(prog);                // set up parameters for get/setPixelColor() (will also blend colors and palette if blend style is FADE)
@@ -1249,7 +1244,6 @@ void WS2812FX::service() {
           Segment::modeBlend(false);        // unset semaphore
         }
         if (seg.isInTransition() && frameDelay > FRAMETIME) frameDelay = FRAMETIME; // force faster updates during transition
-        BusManager::setSegmentCCT(oldCCT);  // restore old CCT for ABL adjustments
       }
 
       seg.next_time = nowUp + frameDelay;
@@ -1324,6 +1318,7 @@ void WS2812FX::blendSegment(const Segment &topSegment) const {
   const unsigned progress  = topSegment.progress();
   const unsigned progInv   = 0xFFFFU - progress;
   uint8_t       opacity    = topSegment.currentBri(); // returns transitioned opacity for style FADE
+  uint8_t       cct        = topSegment.currentCCT();
 
   Segment::setClippingRect(0, 0);             // disable clipping by default
 
@@ -1396,6 +1391,7 @@ void WS2812FX::blendSegment(const Segment &topSegment) const {
       const int baseY = topSegment.startY + y;
       size_t indx = XY(baseX, baseY); // absolute address on strip
       _pixels[indx] = color_blend(_pixels[indx], blend(c, _pixels[indx]), o);
+      if (_pixelCCT) _pixelCCT[indx] = cct;
       // Apply mirroring
       if (topSegment.mirror || topSegment.mirror_y) {
         const int mirrorX = topSegment.start  + width  - x - 1;
@@ -1406,6 +1402,11 @@ void WS2812FX::blendSegment(const Segment &topSegment) const {
         if (topSegment.mirror)                        _pixels[idxMX] = color_blend(_pixels[idxMX], blend(c, _pixels[idxMX]), o);
         if (topSegment.mirror_y)                      _pixels[idxMY] = color_blend(_pixels[idxMY], blend(c, _pixels[idxMY]), o);
         if (topSegment.mirror && topSegment.mirror_y) _pixels[idxMM] = color_blend(_pixels[idxMM], blend(c, _pixels[idxMM]), o);
+        if (_pixelCCT) {
+          if (topSegment.mirror)                        _pixelCCT[idxMX] = cct;
+          if (topSegment.mirror_y)                      _pixelCCT[idxMY] = cct;
+          if (topSegment.mirror && topSegment.mirror_y) _pixelCCT[idxMM] = cct;
+        }
       }
     };
 
@@ -1477,10 +1478,12 @@ void WS2812FX::blendSegment(const Segment &topSegment) const {
         indxM += topSegment.offset; // offset/phase
         if (indxM >= topSegment.stop) indxM -= length; // wrap
         _pixels[indxM] = color_blend(_pixels[indxM], blend(c, _pixels[indxM]), o);
+        if (_pixelCCT) _pixelCCT[indxM] = cct;
       }
       indx += topSegment.offset; // offset/phase
       if (indx >= topSegment.stop) indx -= length; // wrap
       _pixels[indx] = color_blend(_pixels[indx], blend(c, _pixels[indx]), o);
+      if (_pixelCCT) _pixelCCT[indx] = cct;
     };
 
     // if we blend using "push" style we need to "shift" canvas to left/right/
@@ -1588,6 +1591,13 @@ void WS2812FX::show() {
   size_t diff = showNow - _lastShow;
 
   size_t totalLen = getLengthTotal();
+  // WARNING: as WLED doesn't handle CCT on pixel level but on Segment level instead
+  // we need to keep track of each pixel's CCT when blending segments (if CCT is present)
+  // and then set appropriate CCT from that pixel during paint (see below).
+  if ((hasCCTBus() || correctWB) && !cctFromRgb)
+    _pixelCCT = static_cast<uint8_t*>(d_malloc(totalLen * sizeof(uint8_t))); // allocate CCT buffer if necessary
+  if (_pixelCCT) memset(_pixelCCT, 127, totalLen); // set neutral (50:50) CCT
+
   if (realtimeMode == REALTIME_MODE_INACTIVE || useMainSegmentOnly || realtimeOverride > REALTIME_OVERRIDE_NONE) {
     // clear frame buffer
     for (size_t i = 0; i < totalLen; i++) _pixels[i] = BLACK; // memset(_pixels, 0, sizeof(uint32_t) * getLengthTotal());
@@ -1605,8 +1615,22 @@ void WS2812FX::show() {
   uint8_t newBri = estimateCurrentAndLimitBri(_brightness, _pixels);
   if (newBri != _brightness) BusManager::setBrightness(newBri);
 
-  // paint actuall pixels
-  for (size_t i = 0; i < totalLen; i++) BusManager::setPixelColor(getMappedPixelIndex(i), realtimeMode && arlsDisableGammaCorrection ? _pixels[i] : gamma32(_pixels[i]));
+  // paint actual pixels
+  int oldCCT = Bus::getCCT(); // store original CCT value (since it is global)
+  // when cctFromRgb is true we implicitly calculate WW and CW from RGB values (cct==-1)
+  if (cctFromRgb) BusManager::setSegmentCCT(-1);
+  for (size_t i = 0; i < totalLen; i++) {
+    // when correctWB is true setSegmentCCT() will convert CCT into K with which we can then
+    // correct/adjust RGB value according to desired CCT value, it will still affect actual WW/CW ratio
+    if (_pixelCCT) { // cctFromRgb already exluded at allocation
+      if (i == 0 || _pixelCCT[i-1] != _pixelCCT[i]) BusManager::setSegmentCCT(_pixelCCT[i], correctWB);
+    }
+    BusManager::setPixelColor(getMappedPixelIndex(i), realtimeMode && arlsDisableGammaCorrection ? _pixels[i] : gamma32(_pixels[i]));
+  }
+  Bus::setCCT(oldCCT);  // restore old CCT for ABL adjustments
+
+  d_free(_pixelCCT);
+  _pixelCCT = nullptr;
 
   // some buses send asynchronously and this method will return before
   // all of the data has been sent.

@@ -1,5 +1,10 @@
 #include "wled.h"
 
+#ifdef ESP8266
+  #include <Updater.h>
+#else
+  #include <Update.h>
+#endif
 #include "html_ui.h"
 #include "html_settings.h"
 #include "html_other.h"

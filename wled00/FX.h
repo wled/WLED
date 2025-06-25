@@ -802,7 +802,7 @@ class Segment {
   friend class WS2812FX;
 };
 
-// main "strip" class (104 bytes)
+// main "strip" class (108 bytes)
 class WS2812FX {
   typedef uint16_t (*mode_ptr)(); // pointer to mode function
   typedef void (*show_callback)(); // pre show callback
@@ -829,6 +829,7 @@ class WS2812FX {
       cctFromRgb(false),
       // true private variables
       _pixels(nullptr),
+      _pixelCCT(nullptr),
       _suspend(false),
       _brightness(DEFAULT_BRIGHTNESS),
       _length(DEFAULT_LED_COUNT),
@@ -857,6 +858,7 @@ class WS2812FX {
 
     ~WS2812FX() {
       d_free(_pixels);
+      d_free(_pixelCCT); // just in case
       d_free(customMappingTable);
       _mode.clear();
       _modeData.clear();
@@ -1004,6 +1006,7 @@ class WS2812FX {
 
   private:
     uint32_t *_pixels;
+    uint8_t  *_pixelCCT;
     std::vector<Segment> _segments;
 
     volatile bool _suspend;
