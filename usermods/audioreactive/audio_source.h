@@ -334,12 +334,16 @@ class I2SSource : public AudioSource {
 
         //debug function:  Generate sine wave
       for (int i = 0; i < num_samples; i++) {
+          float frequencies[] = {250.0, 1200.0, 2600.0, 5500.0}; // 4 test frequencies
+          float amplitudes[] = {10000, 8000, 6000, 4000};
           float time = (float)i / 22000;
           float sample = 0.0;
-          sample =  sin(2.0 * PI * 1000 * time); // 1kHz sine wave
-          sample +=  sin(2.0 * PI * 250 * time); // 250 Hz sine wave
-          sample +=  sin(2.0 * PI * 4000 * time); // 4kHz sine wave
-          newSamples[i] = (int32_t)(sample * 990848.0); //(float)(millis()<<7));  // scale up
+          //float scale = 990848.0;
+          sample =  sin(2.0 * PI * frequencies[0] * time)* amplitudes[0] *65536; 
+          sample +=  sin(2.0 * PI * frequencies[1] * time)* amplitudes[1]*65536; 
+          sample +=  sin(2.0 * PI * frequencies[2] * time)* amplitudes[2]*65536; 
+          sample +=  sin(2.0 * PI * frequencies[3] * time)* amplitudes[3]*65536; 
+          newSamples[i] = (int32_t)(sample); //(float)(millis()<<7));  // scale up
         }
       //!!!remove
 
