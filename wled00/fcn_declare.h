@@ -257,6 +257,7 @@ void handleIR();
 #include "ESPAsyncWebServer.h"
 #include "src/dependencies/json/ArduinoJson-v6.h"
 #include "src/dependencies/json/AsyncJson-v6.h"
+#include "FX.h"
 
 bool deserializeSegment(JsonObject elem, byte it, byte presetId = 0);
 bool deserializeState(JsonObject root, byte callMode = CALL_MODE_DIRECT_CHANGE, byte presetId = 0);
