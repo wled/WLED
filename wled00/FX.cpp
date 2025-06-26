@@ -7512,80 +7512,119 @@ const uint8_t frame2[] = {
 };
 
 uint16_t mode_custom_shapes(const Frame frames[], uint16_t frameCount) {
-    // Basic input validation
-    if (!frames || frameCount == 0) return FRAMETIME;
-    
-    // Initialize on first call only
-    if (SEGENV.call == 0) {
-        SEGENV.aux0 = millis();
-        SEGENV.aux1 = 0;
+    // Input validation - fail gracefully for invalid parameters
+    if (!frames || frameCount == 0 || frameCount > 255) {
+        return FRAMETIME;
     }
     
-    // Safe frame index
+    // Segment initialization on first call
+    if (SEGENV.call == 0) {
+        SEGENV.aux0 = millis();      // Last frame change time
+        SEGENV.aux1 = 0;             // Current frame index
+        SEGENV.step = 0;             // Frame validation state
+    }
+    
+    // Validate and clamp frame index for segment safety
     uint16_t currentFrame = SEGENV.aux1;
     if (currentFrame >= frameCount) {
         currentFrame = 0;
         SEGENV.aux1 = 0;
     }
     
-    // Get frame data
+    // Get current frame with additional validation
     const Frame &frame = frames[currentFrame];
-    if (!frame.data || frame.width == 0 || frame.height == 0) {
+    if (!frame.data) {
+        // Skip to next frame if current frame is invalid
+        SEGENV.aux1 = (currentFrame + 1) % frameCount;
         return FRAMETIME;
     }
     
-    // Speed controls frame switching (use frame.baseDuration as base timing)
-    uint32_t frameTime = map(SEGMENT.speed, 0, 255, 
-                            frame.baseDuration * 2, 
-                            frame.baseDuration / 4);
-    if (frameTime < 100) frameTime = 100; // Minimum 100ms
+    // Calculate and validate pattern size to prevent overruns
+    uint32_t patternSize = (uint32_t)frame.width * frame.height;
+    if (patternSize == 0 || patternSize > 10000) {  // Reasonable upper limit
+        SEGENV.aux1 = (currentFrame + 1) % frameCount;
+        return FRAMETIME;
+    }
     
-    // Update frame timing
+    // Speed-based timing with improved mapping
+    // Speed 0: 4x slower, Speed 128: normal, Speed 255: 4x faster
+    uint32_t baseDuration = (frame.baseDuration > 0) ? frame.baseDuration : 1000;
+    uint32_t frameTime;
+    
+    if (SEGMENT.speed < 128) {
+        // Slower than normal: linear scaling from 4x to 1x
+        frameTime = map(SEGMENT.speed, 0, 127, baseDuration * 4, baseDuration);
+    } else {
+        // Faster than normal: linear scaling from 1x to 0.25x
+        frameTime = map(SEGMENT.speed, 128, 255, baseDuration, baseDuration / 4);
+    }
+    
+    // Enforce reasonable timing bounds for ESP32 stability
+    frameTime = constrain(frameTime, 33, 10000);  // 33ms (30fps) to 10s max
+    
+    // Non-blocking frame timing using millis() difference
     uint32_t now = millis();
-    if (now - SEGENV.aux0 > frameTime) {
+    bool shouldAdvanceFrame = false;
+    
+    // Handle millis() rollover safely
+    if (now >= SEGENV.aux0) {
+        shouldAdvanceFrame = (now - SEGENV.aux0) >= frameTime;
+    } else {
+        // Rollover occurred, assume time has passed
+        shouldAdvanceFrame = true;
+    }
+    
+    if (shouldAdvanceFrame) {
         SEGENV.aux0 = now;
         SEGENV.aux1 = (currentFrame + 1) % frameCount;
     }
     
-    // Calculate pattern size
-    uint32_t patternSize = (uint32_t)frame.width * frame.height;
-    if (patternSize == 0) return FRAMETIME;
+    // Apply pattern to segment with memory-safe bounds checking
+    uint16_t segmentLength = SEGLEN;
     
-    // Intensity controls pulse frequency - 0 = solid, 1-255 = pulsing at different rates
-    bool isOn = true; // Default to always on (solid pattern)
-    if (SEGMENT.intensity > 0) {
-        // Same frequency array as phosphene pulse for reliability
-        const uint16_t frequencies[] = { 1, 2, 4, 5, 8, 10, 12, 15, 20 };
-        const uint8_t freqCount = sizeof(frequencies) / sizeof(frequencies[0]);
-        
-        uint8_t freqIndex = map(SEGMENT.intensity, 1, 255, 0, freqCount - 1);
-        uint16_t pulseHz = frequencies[freqIndex];
-        
-        // Clean timing calculation
-        uint32_t period = 1000 / pulseHz;
-        uint32_t phase = now % period;
-        isOn = (phase < (period / 2));
+    // Limit processing to reasonable segment sizes for performance
+    if (segmentLength > 1000) {
+        segmentLength = 1000;  // Process max 1000 pixels per frame for stability
     }
-    // If intensity = 0, isOn stays true (solid pattern, no pulsing)
     
-    // Apply pattern to pixels
-    uint16_t pixelCount = (SEGLEN < 300) ? SEGLEN : 300; // Limit to 300 LEDs max
-    for (uint16_t i = 0; i < pixelCount; i++) {
-        uint8_t patternValue = 0;
-        
-        if (patternSize > 0) {
-            uint32_t index = i % patternSize;
-            patternValue = frame.data[index];
+    // Get primary color for the segment
+    uint32_t primaryColor = SEGCOLOR(0);
+    if (primaryColor == BLACK) {
+        // Use palette color as fallback
+        primaryColor = SEGMENT.color_from_palette(128, false, PALETTE_SOLID_WRAP, 0);
+        if (primaryColor == BLACK) {
+            primaryColor = WHITE;  // Final fallback
         }
+    }
+    
+    // Apply pattern with optimized loop and bounds checking
+    for (uint16_t i = 0; i < segmentLength; i++) {
+        uint32_t patternIndex = i % patternSize;
         
-        if (!isOn || patternValue == 0) {
-            SEGMENT.setPixelColor(i, BLACK);
+        // Additional safety check to prevent array overrun
+        if (patternIndex < patternSize && frame.data) {
+            uint8_t patternValue = frame.data[patternIndex];
+            
+            if (patternValue == 0) {
+                SEGMENT.setPixelColor(i, BLACK);
+            } else {
+                // Apply brightness scaling through WLED's built-in system
+                SEGMENT.setPixelColor(i, primaryColor);
+            }
         } else {
-            SEGMENT.setPixelColor(i, SEGCOLOR(0)); // Use segment primary color
+            // Failsafe: turn pixel off if pattern data is invalid
+            SEGMENT.setPixelColor(i, BLACK);
         }
     }
     
-    return FRAMETIME;
+    // Return adaptive timing based on processing complexity
+    if (segmentLength > 500) {
+        return FRAMETIME * 2;  // Slower refresh for large segments
+    } else if (segmentLength > 200) {
+        return FRAMETIME + 10;  // Slightly slower for medium segments
+    } else {
+        return FRAMETIME;      // Normal timing for small segments
+    }
 }
 
 uint16_t mode_hertz_testing() {
@@ -7998,9 +8037,493 @@ static const char _data_FX_MODE_CUSTOM_BEN[] PROGMEM = "Ben@!,!,,,,Smooth;;!";
 // Metadata for hertz testing effect
 static const char _data_FX_MODE_HERTZ_TESTING[] PROGMEM = "Phosphene Pulse@Frequency Steps,Brightness;;!;";
 
+// =============================================================================
+// ADDITIONAL TEST EFFECTS
+// =============================================================================
+
+// 1. BREATHING SQUARE EFFECT - Simple expanding/contracting square pattern
+const uint8_t square1[] = {
+  0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 1, 1, 0, 0, 0,
+  0, 0, 0, 1, 1, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0,
+};
+
+const uint8_t square2[] = {
+  0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 1, 1, 1, 1, 0, 0,
+  0, 0, 1, 0, 0, 1, 0, 0,
+  0, 0, 1, 0, 0, 1, 0, 0,
+  0, 0, 1, 1, 1, 1, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0,
+};
+
+const uint8_t square3[] = {
+  1, 1, 1, 1, 1, 1, 1, 1,
+  1, 0, 0, 0, 0, 0, 0, 1,
+  1, 0, 0, 0, 0, 0, 0, 1,
+  1, 0, 0, 0, 0, 0, 0, 1,
+  1, 0, 0, 0, 0, 0, 0, 1,
+  1, 0, 0, 0, 0, 0, 0, 1,
+  1, 0, 0, 0, 0, 0, 0, 1,
+  1, 1, 1, 1, 1, 1, 1, 1,
+};
+
+uint16_t mode_breathing_square() {
+  const Frame breathFrames[] = {
+    { square1, 8, 8, 800, 0 },   // Small center square, 0.8s duration
+    { square2, 8, 8, 600, 0 },   // Medium square, 0.6s duration  
+    { square3, 8, 8, 800, 0 },   // Large square, 0.8s duration
+    { square2, 8, 8, 600, 0 },   // Back to medium, 0.6s duration
+  };
+  const uint16_t frameCount = sizeof(breathFrames) / sizeof(breathFrames[0]);
+  return mode_custom_shapes(breathFrames, frameCount);
+}
+
+// 2. SPIRAL WAVE EFFECT - Rotating spiral pattern
+const uint8_t spiral1[] = {
+  1, 0, 0, 0, 0, 0, 0, 0,
+  1, 1, 0, 0, 0, 0, 0, 0,
+  0, 1, 1, 0, 0, 0, 0, 0,
+  0, 0, 1, 1, 0, 0, 0, 0,
+  0, 0, 0, 1, 1, 0, 0, 0,
+  0, 0, 0, 0, 1, 1, 0, 0,
+  0, 0, 0, 0, 0, 1, 1, 0,
+  0, 0, 0, 0, 0, 0, 1, 1,
+};
+
+const uint8_t spiral2[] = {
+  0, 1, 0, 0, 0, 0, 0, 0,
+  0, 0, 1, 0, 0, 0, 0, 0,
+  0, 0, 0, 1, 0, 0, 0, 0,
+  0, 0, 0, 0, 1, 0, 0, 0,
+  0, 0, 0, 0, 0, 1, 0, 0,
+  0, 0, 0, 0, 0, 0, 1, 0,
+  0, 0, 0, 0, 0, 0, 0, 1,
+  1, 0, 0, 0, 0, 0, 0, 0,
+};
+
+const uint8_t spiral3[] = {
+  0, 0, 1, 0, 0, 0, 0, 0,
+  0, 0, 0, 1, 0, 0, 0, 0,
+  0, 0, 0, 0, 1, 0, 0, 0,
+  0, 0, 0, 0, 0, 1, 0, 0,
+  0, 0, 0, 0, 0, 0, 1, 0,
+  0, 0, 0, 0, 0, 0, 0, 1,
+  1, 0, 0, 0, 0, 0, 0, 0,
+  0, 1, 0, 0, 0, 0, 0, 0,
+};
+
+const uint8_t spiral4[] = {
+  0, 0, 0, 1, 0, 0, 0, 0,
+  0, 0, 0, 0, 1, 0, 0, 0,
+  0, 0, 0, 0, 0, 1, 0, 0,
+  0, 0, 0, 0, 0, 0, 1, 0,
+  0, 0, 0, 0, 0, 0, 0, 1,
+  1, 0, 0, 0, 0, 0, 0, 0,
+  0, 1, 0, 0, 0, 0, 0, 0,
+  0, 0, 1, 0, 0, 0, 0, 0,
+};
+
+uint16_t mode_spiral_wave() {
+  const Frame spiralFrames[] = {
+    { spiral1, 8, 8, 200, 0 },   // Fast rotation, 0.2s per frame
+    { spiral2, 8, 8, 200, 0 },   
+    { spiral3, 8, 8, 200, 0 },   
+    { spiral4, 8, 8, 200, 0 },   
+  };
+  const uint16_t frameCount = sizeof(spiralFrames) / sizeof(spiralFrames[0]);
+  return mode_custom_shapes(spiralFrames, frameCount);
+}
+
+// 3. PULSING CROSS EFFECT - Cross pattern with varying intensity
+const uint8_t cross1[] = {
+  0, 0, 0, 1, 0, 0, 0,
+  0, 0, 0, 1, 0, 0, 0,
+  0, 0, 0, 1, 0, 0, 0,
+  1, 1, 1, 1, 1, 1, 1,
+  0, 0, 0, 1, 0, 0, 0,
+  0, 0, 0, 1, 0, 0, 0,
+  0, 0, 0, 1, 0, 0, 0,
+};
+
+const uint8_t cross2[] = {
+  0, 0, 1, 1, 1, 0, 0,
+  0, 0, 1, 1, 1, 0, 0,
+  1, 1, 1, 1, 1, 1, 1,
+  1, 1, 1, 1, 1, 1, 1,
+  1, 1, 1, 1, 1, 1, 1,
+  0, 0, 1, 1, 1, 0, 0,
+  0, 0, 1, 1, 1, 0, 0,
+};
+
+const uint8_t cross3[] = {
+  1, 1, 1, 1, 1, 1, 1,
+  1, 1, 1, 1, 1, 1, 1,
+  1, 1, 1, 1, 1, 1, 1,
+  1, 1, 1, 1, 1, 1, 1,
+  1, 1, 1, 1, 1, 1, 1,
+  1, 1, 1, 1, 1, 1, 1,
+  1, 1, 1, 1, 1, 1, 1,
+};
+
+uint16_t mode_pulsing_cross() {
+  const Frame crossFrames[] = {
+    { cross1, 7, 7, 600, 0 },    // Thin cross, 0.6s duration
+    { cross2, 7, 7, 400, 0 },    // Thick cross, 0.4s duration
+    { cross3, 7, 7, 300, 0 },    // Full brightness, 0.3s duration
+    { cross2, 7, 7, 400, 0 },    // Back to thick cross
+  };
+  const uint16_t frameCount = sizeof(crossFrames) / sizeof(crossFrames[0]);
+  return mode_custom_shapes(crossFrames, frameCount);
+}
+
+// 4. LINEAR STRIPE EFFECT - Horizontal stripes moving vertically
+const uint8_t stripe1[] = {
+  1, 1, 1, 1, 1, 1, 1, 1,
+  0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0,
+  1, 1, 1, 1, 1, 1, 1, 1,
+  0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0,
+  1, 1, 1, 1, 1, 1, 1, 1,
+  0, 0, 0, 0, 0, 0, 0, 0,
+};
+
+const uint8_t stripe2[] = {
+  0, 0, 0, 0, 0, 0, 0, 0,
+  1, 1, 1, 1, 1, 1, 1, 1,
+  0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0,
+  1, 1, 1, 1, 1, 1, 1, 1,
+  0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0,
+  1, 1, 1, 1, 1, 1, 1, 1,
+};
+
+const uint8_t stripe3[] = {
+  0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0,
+  1, 1, 1, 1, 1, 1, 1, 1,
+  0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0,
+  1, 1, 1, 1, 1, 1, 1, 1,
+  0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0,
+};
+
+uint16_t mode_moving_stripes() {
+  const Frame stripeFrames[] = {
+    { stripe1, 8, 8, 300, 0 },   // Pattern 1, 0.3s duration
+    { stripe2, 8, 8, 300, 0 },   // Pattern 2, 0.3s duration
+    { stripe3, 8, 8, 300, 0 },   // Pattern 3, 0.3s duration
+  };
+  const uint16_t frameCount = sizeof(stripeFrames) / sizeof(stripeFrames[0]);
+  return mode_custom_shapes(stripeFrames, frameCount);
+}
+
+// 5. CORNER FLASH EFFECT - Alternating corner patterns for stress testing
+const uint8_t corner1[] = {
+  1, 1, 0, 0, 0, 0, 1, 1,
+  1, 1, 0, 0, 0, 0, 1, 1,
+  0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0,
+  1, 1, 0, 0, 0, 0, 1, 1,
+  1, 1, 0, 0, 0, 0, 1, 1,
+};
+
+const uint8_t corner2[] = {
+  0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 1, 1, 1, 1, 0, 0,
+  0, 0, 1, 1, 1, 1, 0, 0,
+  0, 0, 1, 1, 1, 1, 0, 0,
+  0, 0, 1, 1, 1, 1, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0,
+};
+
+uint16_t mode_corner_flash() {
+  const Frame cornerFrames[] = {
+    { corner1, 8, 8, 150, 0 },   // Corners lit, fast 0.15s duration
+    { corner2, 8, 8, 150, 0 },   // Center lit, fast 0.15s duration
+  };
+  const uint16_t frameCount = sizeof(cornerFrames) / sizeof(cornerFrames[0]);
+  return mode_custom_shapes(cornerFrames, frameCount);
+}
+
+// Effect metadata
+static const char _data_FX_MODE_BREATHING_SQUARE[] PROGMEM = "Breathing Square@Speed,Brightness;;!;";
+static const char _data_FX_MODE_SPIRAL_WAVE[] PROGMEM = "Spiral Wave@Speed,Brightness;;!;";
+static const char _data_FX_MODE_PULSING_CROSS[] PROGMEM = "Pulsing Cross@Speed,Brightness;;!;";
+static const char _data_FX_MODE_MOVING_STRIPES[] PROGMEM = "Moving Stripes@Speed,Brightness;;!;";
+static const char _data_FX_MODE_CORNER_FLASH[] PROGMEM = "Corner Flash@Speed,Brightness;;!;";
+
+// Hz-controlled versions metadata
+static const char _data_FX_MODE_BREATHING_SQUARE_HZ[] PROGMEM = "Breathing Square Hz@Pattern Speed,Flash Hz (0-50);;!;";
+static const char _data_FX_MODE_SPIRAL_WAVE_HZ[] PROGMEM = "Spiral Wave Hz@Pattern Speed,Flash Hz (0-50);;!;";
+static const char _data_FX_MODE_PULSING_CROSS_HZ[] PROGMEM = "Pulsing Cross Hz@Pattern Speed,Flash Hz (0-50);;!;";
+static const char _data_FX_MODE_MOVING_STRIPES_HZ[] PROGMEM = "Moving Stripes Hz@Pattern Speed,Flash Hz (0-50);;!;";
+static const char _data_FX_MODE_CORNER_FLASH_HZ[] PROGMEM = "Corner Flash Hz@Pattern Speed,Flash Hz (0-50);;!;";
+
 // Metadata for high frequency testing
 static const char _data_FX_MODE_HIGH_FREQ_TEST[] PROGMEM = "High Freq Test@Speed (25-50Hz),Brightness;;!;";
 
+// =============================================================================
+// HZ-CONTROLLED PATTERN EFFECTS
+// =============================================================================
+// These effects combine pattern animation with Hz-based flashing
+// Speed slider controls pattern animation speed
+// Intensity slider controls flash frequency (0-50Hz)
+
+// Helper function to apply Hz-based flashing to any pattern
+uint16_t mode_pattern_with_hz(const Frame frames[], uint16_t frameCount) {
+    // Get flash frequency from intensity slider (0-50Hz)
+    uint16_t flashHz = 0;
+    if (SEGMENT.intensity > 0) {
+        flashHz = map(SEGMENT.intensity, 1, 255, 1, 50);
+    }
+    
+    // Determine if we should show the pattern based on Hz timing
+    bool showPattern = true;
+    if (flashHz > 0) {
+        uint32_t period = 1000 / flashHz;
+        uint32_t halfPeriod = period / 2;
+        uint32_t now = millis();
+        uint32_t phase = now % period;
+        showPattern = (phase < halfPeriod);
+    }
+    
+    // If not showing pattern, black out all pixels and return
+    if (!showPattern) {
+        for (uint16_t i = 0; i < SEGLEN; i++) {
+            SEGMENT.setPixelColor(i, BLACK);
+        }
+        return FRAMETIME;
+    }
+    
+    // Otherwise, render the pattern normally
+    // This code is adapted from mode_custom_shapes with timing fix for high Hz
+    if (!frames || frameCount == 0 || frameCount > 255) {
+        return FRAMETIME;
+    }
+    
+    if (SEGENV.call == 0) {
+        SEGENV.aux0 = millis();
+        SEGENV.aux1 = 0;
+        SEGENV.step = 0;
+    }
+    
+    uint16_t currentFrame = SEGENV.aux1;
+    if (currentFrame >= frameCount) {
+        currentFrame = 0;
+        SEGENV.aux1 = 0;
+    }
+    
+    const Frame &frame = frames[currentFrame];
+    if (!frame.data) {
+        SEGENV.aux1 = (currentFrame + 1) % frameCount;
+        return FRAMETIME;
+    }
+    
+    uint32_t patternSize = (uint32_t)frame.width * frame.height;
+    if (patternSize == 0 || patternSize > 10000) {
+        SEGENV.aux1 = (currentFrame + 1) % frameCount;
+        return FRAMETIME;
+    }
+    
+    // Speed-based timing for pattern animation
+    uint32_t baseDuration = (frame.baseDuration > 0) ? frame.baseDuration : 1000;
+    uint32_t frameTime;
+    
+    if (SEGMENT.speed < 128) {
+        frameTime = map(SEGMENT.speed, 0, 127, baseDuration * 4, baseDuration);
+    } else {
+        frameTime = map(SEGMENT.speed, 128, 255, baseDuration, baseDuration / 4);
+    }
+    
+    // Allow faster timing for Hz effects (10ms minimum instead of 33ms)
+    frameTime = constrain(frameTime, 10, 10000);
+    
+    uint32_t now = millis();
+    bool shouldAdvanceFrame = false;
+    
+    if (now >= SEGENV.aux0) {
+        shouldAdvanceFrame = (now - SEGENV.aux0) >= frameTime;
+    } else {
+        shouldAdvanceFrame = true;
+    }
+    
+    if (shouldAdvanceFrame) {
+        SEGENV.aux0 = now;
+        SEGENV.aux1 = (currentFrame + 1) % frameCount;
+    }
+    
+    // Apply pattern
+    uint16_t segmentLength = SEGLEN;
+    if (segmentLength > 1000) {
+        segmentLength = 1000;
+    }
+    
+    uint32_t primaryColor = SEGCOLOR(0);
+    if (primaryColor == BLACK) {
+        primaryColor = SEGMENT.color_from_palette(128, false, PALETTE_SOLID_WRAP, 0);
+        if (primaryColor == BLACK) {
+            primaryColor = WHITE;
+        }
+    }
+    
+    for (uint16_t i = 0; i < segmentLength; i++) {
+        uint32_t patternIndex = i % patternSize;
+        
+        if (frame.data) {
+            uint8_t patternValue = frame.data[patternIndex];
+            
+            if (patternValue == 0) {
+                SEGMENT.setPixelColor(i, BLACK);
+            } else {
+                SEGMENT.setPixelColor(i, primaryColor);
+            }
+        } else {
+            SEGMENT.setPixelColor(i, BLACK);
+        }
+    }
+    
+    return FRAMETIME;
+}
+
+// 1. BREATHING SQUARE HZ - Breathing square with Hz control
+uint16_t mode_breathing_square_hz() {
+    const Frame breathFrames[] = {
+        { square1, 8, 8, 800, 0 },
+        { square2, 8, 8, 600, 0 },
+        { square3, 8, 8, 800, 0 },
+        { square2, 8, 8, 600, 0 },
+    };
+    const uint16_t frameCount = sizeof(breathFrames) / sizeof(breathFrames[0]);
+    return mode_pattern_with_hz(breathFrames, frameCount);
+}
+
+// 2. SPIRAL WAVE HZ - Spiral wave with Hz control
+uint16_t mode_spiral_wave_hz() {
+    const Frame spiralFrames[] = {
+        { spiral1, 8, 8, 200, 0 },
+        { spiral2, 8, 8, 200, 0 },
+        { spiral3, 8, 8, 200, 0 },
+        { spiral4, 8, 8, 200, 0 },
+    };
+    const uint16_t frameCount = sizeof(spiralFrames) / sizeof(spiralFrames[0]);
+    return mode_pattern_with_hz(spiralFrames, frameCount);
+}
+
+// 3. PULSING CROSS HZ - Pulsing cross with Hz control
+uint16_t mode_pulsing_cross_hz() {
+    const Frame crossFrames[] = {
+        { cross1, 7, 7, 600, 0 },
+        { cross2, 7, 7, 400, 0 },
+        { cross3, 7, 7, 300, 0 },
+        { cross2, 7, 7, 400, 0 },
+    };
+    const uint16_t frameCount = sizeof(crossFrames) / sizeof(crossFrames[0]);
+    return mode_pattern_with_hz(crossFrames, frameCount);
+}
+
+// 4. MOVING STRIPES HZ - Moving stripes with Hz control
+uint16_t mode_moving_stripes_hz() {
+    const Frame stripeFrames[] = {
+        { stripe1, 8, 8, 300, 0 },
+        { stripe2, 8, 8, 300, 0 },
+        { stripe3, 8, 8, 300, 0 },
+    };
+    const uint16_t frameCount = sizeof(stripeFrames) / sizeof(stripeFrames[0]);
+    return mode_pattern_with_hz(stripeFrames, frameCount);
+}
+
+// 5. CORNER FLASH HZ - Corner flash with Hz control
+uint16_t mode_corner_flash_hz() {
+    const Frame cornerFrames[] = {
+        { corner1, 8, 8, 150, 0 },
+        { corner2, 8, 8, 150, 0 },
+    };
+    const uint16_t frameCount = sizeof(cornerFrames) / sizeof(cornerFrames[0]);
+    return mode_pattern_with_hz(cornerFrames, frameCount);
+}
+
+// STATIC HZ TEST - Pure Hz testing with smooth 0-50Hz control
+uint16_t mode_static_hz_test() {
+    // Get flash frequency from intensity slider (0-50Hz)
+    // Intensity 0 = static on (no flashing)
+    // Intensity 255 = 50Hz
+    uint16_t flashHz = 0;
+    if (SEGMENT.intensity > 0) {
+        flashHz = map(SEGMENT.intensity, 1, 255, 1, 50);
+    }
+    
+    // Get brightness from speed slider
+    uint8_t brightness = SEGMENT.speed;
+    
+    // Determine if we should be on based on Hz timing
+    bool isOn = true;
+    if (flashHz > 0) {
+        uint32_t period = 1000 / flashHz;
+        uint32_t halfPeriod = period / 2;
+        uint32_t now = millis();
+        uint32_t phase = now % period;
+        isOn = (phase < halfPeriod);
+    }
+    
+    // Set color based on state
+    uint32_t color = BLACK;
+    if (isOn && brightness > 0) {
+        // Get primary color or use white
+        color = SEGCOLOR(0);
+        if (color == BLACK) {
+            // Create white with brightness
+            uint8_t val = brightness;
+            color = ((uint32_t)val << 16) | ((uint32_t)val << 8) | val;
+        } else {
+            // Scale existing color by brightness
+            uint8_t r = (color >> 16 & 0xFF) * brightness / 255;
+            uint8_t g = (color >> 8 & 0xFF) * brightness / 255;
+            uint8_t b = (color & 0xFF) * brightness / 255;
+            color = ((uint32_t)r << 16) | ((uint32_t)g << 8) | b;
+        }
+    }
+    
+    // Limit pixel count based on frequency for performance
+    uint16_t maxPixels = SEGLEN;
+    if (flashHz >= 40) {
+        maxPixels = min((uint16_t)100, SEGLEN);  // 40-50Hz: max 100 pixels
+    } else if (flashHz >= 30) {
+        maxPixels = min((uint16_t)200, SEGLEN);  // 30-40Hz: max 200 pixels
+    } else if (flashHz >= 20) {
+        maxPixels = min((uint16_t)500, SEGLEN);  // 20-30Hz: max 500 pixels
+    }
+    // Below 20Hz: no limit needed
+    
+    // Update pixels
+    for (uint16_t i = 0; i < maxPixels; i++) {
+        SEGMENT.setPixelColor(i, color);
+    }
+    
+    // Clear any remaining pixels if we limited the count
+    for (uint16_t i = maxPixels; i < SEGLEN; i++) {
+        SEGMENT.setPixelColor(i, BLACK);
+    }
+    
+    return FRAMETIME;
+}
+
+// Metadata for static Hz test
+static const char _data_FX_MODE_STATIC_HZ_TEST[] PROGMEM = "Static Hz Test@Brightness,Flash Hz (0-50);;!;";
 
 
 // Custom spin
@@ -8360,6 +8883,19 @@ void WS2812FX::setupEffectData() {
   addEffect(FX_MODE_CUSTOM_DIAMOND_SPIN, &mode_custom_diamond_spin, _data_FX_MODE_CUSTOM_DIAMOND_SPIN);
   addEffect(FX_MODE_CUSTOM_SQUARES, &mode_custom_squares, _data_FX_MODE_CUSTOM);
   addEffect(FX_MODE_CUSTOM_CIRCLES, &mode_custom_circles, _data_FX_MODE_CIRCLE);
+  // New test effects
+  addEffect(FX_MODE_BREATHING_SQUARE, &mode_breathing_square, _data_FX_MODE_BREATHING_SQUARE);
+  addEffect(FX_MODE_SPIRAL_WAVE, &mode_spiral_wave, _data_FX_MODE_SPIRAL_WAVE);
+  addEffect(FX_MODE_PULSING_CROSS, &mode_pulsing_cross, _data_FX_MODE_PULSING_CROSS);
+  addEffect(FX_MODE_MOVING_STRIPES, &mode_moving_stripes, _data_FX_MODE_MOVING_STRIPES);
+  addEffect(FX_MODE_CORNER_FLASH, &mode_corner_flash, _data_FX_MODE_CORNER_FLASH);
+  // Hz-controlled pattern effects
+  addEffect(FX_MODE_BREATHING_SQUARE_HZ, &mode_breathing_square_hz, _data_FX_MODE_BREATHING_SQUARE_HZ);
+  addEffect(FX_MODE_SPIRAL_WAVE_HZ, &mode_spiral_wave_hz, _data_FX_MODE_SPIRAL_WAVE_HZ);
+  addEffect(FX_MODE_PULSING_CROSS_HZ, &mode_pulsing_cross_hz, _data_FX_MODE_PULSING_CROSS_HZ);
+  addEffect(FX_MODE_MOVING_STRIPES_HZ, &mode_moving_stripes_hz, _data_FX_MODE_MOVING_STRIPES_HZ);
+  addEffect(FX_MODE_CORNER_FLASH_HZ, &mode_corner_flash_hz, _data_FX_MODE_CORNER_FLASH_HZ);
+  addEffect(FX_MODE_STATIC_HZ_TEST, &mode_static_hz_test, _data_FX_MODE_STATIC_HZ_TEST);
   addEffect(FX_MODE_BLINK, &mode_blink, _data_FX_MODE_BLINK);
   addEffect(FX_MODE_BREATH, &mode_breath, _data_FX_MODE_BREATH);
   addEffect(FX_MODE_COLOR_WIPE, &mode_color_wipe, _data_FX_MODE_COLOR_WIPE);

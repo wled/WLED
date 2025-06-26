@@ -321,8 +321,19 @@
 #define FX_MODE_CUSTOM_BEN             191
 #define FX_MODE_HERTZ_TESTING          192
 #define FX_MODE_HIGH_FREQ_TEST         193
+#define FX_MODE_BREATHING_SQUARE       194
+#define FX_MODE_SPIRAL_WAVE            195
+#define FX_MODE_PULSING_CROSS          196
+#define FX_MODE_MOVING_STRIPES         197
+#define FX_MODE_CORNER_FLASH           198
+#define FX_MODE_BREATHING_SQUARE_HZ    199
+#define FX_MODE_SPIRAL_WAVE_HZ         200
+#define FX_MODE_PULSING_CROSS_HZ       201
+#define FX_MODE_MOVING_STRIPES_HZ      202
+#define FX_MODE_CORNER_FLASH_HZ        203
+#define FX_MODE_STATIC_HZ_TEST         204
 
-#define MODE_COUNT                     194
+#define MODE_COUNT                     205
 
 typedef enum mapping1D2D {
   M12_Pixels = 0,
