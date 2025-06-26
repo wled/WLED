@@ -42,8 +42,10 @@
 
 //#define UM_AUDIOREACTIVE_USE_ESPDSP_FFT
 //#define UM_AUDIOREACTIVE_USE_INTEGER_FFT // use integer FFT if using ESP-IDF DSP library, always used on S2 and C3 (UM_AUDIOREACTIVE_USE_ARDUINO_FFT takes priority)
-#if !defined(UM_AUDIOREACTIVE_USE_ESPDSP_FFT) || ((defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32C3)) && !defined(UM_AUDIOREACTIVE_USE_ARDUINO_FFT))
-#define UM_AUDIOREACTIVE_USE_ARDUINO_FFT // use ArduinoFFT library for FFT instead of ESP-IDF DSP library by default, except ESP32-S2 and ESP32-C3
+//#define UM_AUDIOREACTIVE_USE_ARDUINO_FFT // default on ESP32 and S3
+
+#if !defined(UM_AUDIOREACTIVE_USE_ESPDSP_FFT) && (defined(CONFIG_IDF_TARGET_ESP32S3) || defined(CONFIG_IDF_TARGET_ESP32))
+#define UM_AUDIOREACTIVE_USE_ARDUINO_FFT // use ArduinoFFT library for FFT instead of ESP-IDF DSP library by default on ESP32 and S3
 #endif
 
 
@@ -411,15 +413,20 @@ void FFTcode(void * parameter)
 
 #ifdef UM_AUDIOREACTIVE_USE_ARDUINO_FFT
       // run Arduino FFT (takes 3-5ms on ESP32, ~12ms on ESP32-S2, ~20ms on ESP32-C3)
+      memset(vImag, 0, samplesFFT * sizeof(float));               // set imaginary parts to 0
       FFT.dcRemoval();                                            // remove DC offset
+#ifdef FFT_PREFER_EXACT_PEAKS
+      FFT.windowing(FFTWindow::Blackman_Harris, FFTDirection::Forward);  // Weigh data using "Blackman- Harris" window - sharp peaks due to excellent sideband rejection
+#else
       FFT.windowing( FFTWindow::Flat_top, FFTDirection::Forward); // Weigh data using "Flat Top" function - better amplitude accuracy
-      //FFT.windowing(FFTWindow::Blackman_Harris, FFTDirection::Forward);  // Weigh data using "Blackman- Harris" window - sharp peaks due to excellent sideband rejection
+#endif
       FFT.compute( FFTDirection::Forward );                       // Compute FFT
       FFT.complexToMagnitude();                                   // Compute magnitudes
       valFFT[0] = 0;   // The remaining DC offset on the signal produces a strong spike on position 0 that should be eliminated to avoid issues.
-
-      FFT.majorPeak(&FFT_MajorPeak, &FFT_Magnitude);                // let the effects know which freq was most dominant
-      FFT_MajorPeak = constrain(FFT_MajorPeak, 1.0f, 11025.0f);   // restrict value to range expected by effects
+      FFT.majorPeak(&FFT_MajorPeak, &FFT_Magnitude);              // let the effects know which freq was most dominant
+      for (int i = 1; i < samplesFFT_2; i++) { // skip [0] as it is DC offset
+        valFFT[i] = valFFT[i] / 16.0f;         // Reduce magnitude. Want end result to be scaled linear and ~4096 max.
+      }
 #elif !defined(UM_AUDIOREACTIVE_USE_INTEGER_FFT)
       // run run float DSP FFT (takes ~x ms on ESP32, ~x ms on ESP32-S2, , ~x ms on ESP32-C3) TODO: test and fill in these values
       // remove DC offset
@@ -442,6 +449,7 @@ void FFTcode(void * parameter)
       dsps_fft2r_fc32_ansi(valFFT, samplesFFT); // perform FFT using ANSI C implementation
 #endif
       dsps_bit_rev_fc32(valFFT, samplesFFT);    // bit reverse
+      valFFT[0] = 0;  // set DC bin to 0, as it is not needed and can cause issues
       // convert to magnitude & find FFT_MajorPeak and FFT_Magnitude
       FFT_MajorPeak = 0;
       FFT_Magnitude = 0;
@@ -470,8 +478,8 @@ void FFTcode(void * parameter)
         valFFT[i * 2 + 1] = 0; // set imaginary part to zero
       }
       dsps_fft2r_sc16_ansi(valFFT, samplesFFT); // perform FFT on complex value pairs (Re,Im)
-      dsps_bit_rev_sc16(valFFT, samplesFFT);    // bit reverse i.e. "unshuffle" the results
-
+      dsps_bit_rev_sc16_ansi(valFFT, samplesFFT);    // bit reverse i.e. "unshuffle" the results
+      valFFT[0] = 0; // set DC bin to 0, as it is not needed and can cause issues
       // convert to magnitude, FFT returns interleaved complex values [Re,Im,Re,Im,...]
       int FFT_MajorPeak_int = 0;
       int FFT_Magnitude_int = 0;
@@ -480,7 +488,7 @@ void FFTcode(void * parameter)
         int32_t imag_part = valFFT[i * 2 + 1];
         valFFT[i] = sqrt32_bw(real_part * real_part + imag_part * imag_part); // note: this should never overflow as Re and Im form a vector of maximum length 32767
         if (valFFT[i] > FFT_Magnitude_int) {
-          FFT_Magnitude_int = valFFT[i];
+          FFT_Magnitude_int = valFFT[i] * 512; // scale to match raw float value
           FFT_MajorPeak_int = ((i * SAMPLE_RATE)/samplesFFT);
         }
         // note: scaling is done when converting to float in fftAddAvg(), so we don't scale here
@@ -489,7 +497,7 @@ void FFTcode(void * parameter)
       FFT_Magnitude = FFT_Magnitude_int;
 
 #endif
-      valFFT[0] = 0;   // The remaining DC offset on the signal produces a strong spike on position 0 that should be eliminated to avoid issues.
+      FFT_MajorPeak = constrain(FFT_MajorPeak, 1.0f, 11025.0f);   // restrict value to range expected by effects
 #if defined(WLED_DEBUG) || defined(SR_DEBUG)
       haveDoneFFT = true;
 #endif
