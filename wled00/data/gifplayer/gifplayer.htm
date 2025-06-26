@@ -570,7 +570,6 @@
           <div id="btnBack">
             <div
               class="btn-icon back"
-              id="btnBack"
               onclick="window.location.href = WLED_URL;"
             ></div>
           </div>
@@ -756,7 +755,6 @@
     const hostname = gId("hostname");
     const imgDialog = gId("image-dialog");
     const settingsDialog = gId("settings-dialog");
-    const contentDivConnected = gId("content-connected");
     let selectedImage;
     let presetsJson = {};
 
@@ -1019,7 +1017,7 @@
       // find next lowest ID / ID of existing preset with segment name == image name
       let existingPreset = false;
       existingPreset = findPresetID(selectedImage.name);
-      items = Object.keys(presetsJson);
+      let items = Object.keys(presetsJson);
       const id = existingPreset || parseInt(items.pop()) + 1;
       const pName = existingPreset
         ? presetsJson[id].n
@@ -1068,7 +1066,7 @@
 
     async function upload() {
       const file = gId("source").files[0];
-      formData = new FormData();
+      let formData = new FormData();
       formData.append("data", file, `/${file.name}`);
 
       const url = `${WLED_URL}${urlEdit}`;
@@ -1129,8 +1127,7 @@
 
     async function loadInfo() {
       // await loading of image list, actual images will load asynchronously
-      if (await images());
-      {
+      if (await images()) {
         // await loading of presets.json
         await presets();
         // get storage used/total count
@@ -1153,7 +1150,7 @@
     // reload all info on change of hostname input
     hostname.addEventListener("blur", async () => {
       hostname.value = hostname.value.trim();
-      newWledUrl = `${protocol}//${hostname.value}`;
+      let newWledUrl = `${protocol}//${hostname.value}`;
       if (WLED_URL == newWledUrl) {
         return;
       }
@@ -1193,13 +1190,13 @@
         return;
       }
 
-      source.files = e.dataTransfer.files;
-      const { name } = source.files[0];
+      gId("source").files = e.dataTransfer.files;
+      const { name } = gId("source").files[0];
       upload();
     });
 
     gId("dropzone").addEventListener("click", () => {
-      source.click();
+      gId("source").click();
     });
 
     gId("source").addEventListener("change", (e) => {
