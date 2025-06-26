@@ -454,16 +454,12 @@ void initServer()
     serveMessage(request, 501, FPSTR(s_notimplemented), F("This build does not support OTA update."), 254);
   };
   server.on(_update, HTTP_GET, notSupported);
-  server.on(_update, HTTP_POST, notSupported);
+  server.on(_update, HTTP_POST, notSupported, [](AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool isFinal){});
 #endif
 
 #ifdef WLED_ENABLE_DMX
   server.on(F("/dmxmap"), HTTP_GET, [](AsyncWebServerRequest *request){
-    request->send_P(200, FPSTR(CONTENT_TYPE_HTML), PAGE_dmxmap     , dmxProcessor);
-  });
-#else
-  server.on(F("/dmxmap"), HTTP_GET, [](AsyncWebServerRequest *request){
-    serveMessage(request, 501, FPSTR(s_notimplemented), F("DMX support is not enabled in this build."), 254);
+    request->send_P(200, FPSTR(CONTENT_TYPE_HTML), PAGE_dmxmap, dmxProcessor);
   });
 #endif
 
