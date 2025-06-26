@@ -95,7 +95,8 @@ void WLED::loop()
   #endif
   if (!realtimeMode || realtimeOverride || (realtimeMode && useMainSegmentOnly))  // block stuff if WARLS/Adalight is enabled
   {
-    if (apActive) dnsServer.processNextRequest();
+    // Captive portal disabled
+    // if (apActive) dnsServer.processNextRequest();
     #ifndef WLED_DISABLE_OTA
     if (WLED_CONNECTED && aOtaEnabled && !otaLock && correctPIN) ArduinoOTA.handle();
     #endif
@@ -566,8 +567,9 @@ void WLED::initAP(bool resetAP)
     e131.begin(false, e131Port, e131Universe, E131_MAX_UNIVERSE_COUNT);
     ddp.begin(false, DDP_DEFAULT_PORT);
 
-    dnsServer.setErrorReplyCode(DNSReplyCode::NoError);
-    dnsServer.start(53, "*", WiFi.softAPIP());
+    // Captive portal disabled - no automatic splash page
+    // dnsServer.setErrorReplyCode(DNSReplyCode::NoError);
+    // dnsServer.start(53, "*", WiFi.softAPIP());
   }
   apActive = true;
 }
@@ -888,7 +890,8 @@ void WLED::handleConnection()
 
     // shut down AP
     if (apBehavior != AP_BEHAVIOR_ALWAYS && apActive) {
-      dnsServer.stop();
+      // Captive portal disabled
+      // dnsServer.stop();
       WiFi.softAPdisconnect(true);
       apActive = false;
       DEBUG_PRINTLN(F("Access point disabled (handle)."));

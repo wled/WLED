@@ -7475,6 +7475,7 @@ struct Frame {
     uint16_t height;          // Pattern height  
     uint16_t baseDuration;    // Base duration in ms (modified by speed)
     uint16_t basePulseFreq;   // Base pulse frequency in Hz (modified by intensity)
+    uint8_t brightness;       // Brightness level (0-255)
 };
 
 // Define frames as arrays of 0s and 1s (binary map)
@@ -7512,119 +7513,84 @@ const uint8_t frame2[] = {
 };
 
 uint16_t mode_custom_shapes(const Frame frames[], uint16_t frameCount) {
-    // Input validation - fail gracefully for invalid parameters
-    if (!frames || frameCount == 0 || frameCount > 255) {
-        return FRAMETIME;
-    }
-    
-    // Segment initialization on first call
+    static uint32_t lastFrameTime = 0;
+    static uint8_t currentFrame = 0;
+    static uint32_t lastStrobeTime = 0; // Tracks strobe toggling
+    static bool strobeState = true;     // Tracks LED flashing state
+
+    // Reset on first call of new effect
     if (SEGENV.call == 0) {
-        SEGENV.aux0 = millis();      // Last frame change time
-        SEGENV.aux1 = 0;             // Current frame index
-        SEGENV.step = 0;             // Frame validation state
-    }
-    
-    // Validate and clamp frame index for segment safety
-    uint16_t currentFrame = SEGENV.aux1;
-    if (currentFrame >= frameCount) {
         currentFrame = 0;
-        SEGENV.aux1 = 0;
+        lastFrameTime = 0;
+        lastStrobeTime = 0;
+        strobeState = true;
     }
-    
-    // Get current frame with additional validation
+
+    // Validate frame count and current frame
+    if (frameCount == 0 || currentFrame >= frameCount) {
+        currentFrame = 0;
+    }
+
+    uint32_t currentTime = millis();
+
+    // Retrieve current frame settings
     const Frame &frame = frames[currentFrame];
-    if (!frame.data) {
-        // Skip to next frame if current frame is invalid
-        SEGENV.aux1 = (currentFrame + 1) % frameCount;
-        return FRAMETIME;
+    
+    // Apply speed slider with 3 discrete settings
+    uint32_t frameTime = frame.baseDuration;
+    if (SEGMENT.speed == 0) {
+        frameTime = frame.baseDuration * 2;  // 2x slower
+    } else if (SEGMENT.speed == 255) {
+        frameTime = frame.baseDuration / 2;  // 2x faster
     }
-    
-    // Calculate and validate pattern size to prevent overruns
-    uint32_t patternSize = (uint32_t)frame.width * frame.height;
-    if (patternSize == 0 || patternSize > 10000) {  // Reasonable upper limit
-        SEGENV.aux1 = (currentFrame + 1) % frameCount;
-        return FRAMETIME;
+    // else: 1-254 = normal speed (use baseDuration as-is)
+
+    // Update frame index if needed
+    if (currentTime - lastFrameTime > frameTime) {
+        lastFrameTime = currentTime;
+        currentFrame = (currentFrame + 1) % frameCount;
     }
-    
-    // Speed-based timing with improved mapping
-    // Speed 0: 4x slower, Speed 128: normal, Speed 255: 4x faster
-    uint32_t baseDuration = (frame.baseDuration > 0) ? frame.baseDuration : 1000;
-    uint32_t frameTime;
-    
-    if (SEGMENT.speed < 128) {
-        // Slower than normal: linear scaling from 4x to 1x
-        frameTime = map(SEGMENT.speed, 0, 127, baseDuration * 4, baseDuration);
-    } else {
-        // Faster than normal: linear scaling from 1x to 0.25x
-        frameTime = map(SEGMENT.speed, 128, 255, baseDuration, baseDuration / 4);
+
+    // Determine strobe behavior for the current frame
+    uint32_t cycleTime = (frame.basePulseFreq > 0) ? (1000 / frame.basePulseFreq) : 0;
+
+    if (frame.basePulseFreq > 0 && (currentTime - lastStrobeTime > cycleTime / 2)) {
+        lastStrobeTime = currentTime;
+        strobeState = !strobeState; // Toggle strobe state
+    } else if (frame.basePulseFreq == 0) {
+        strobeState = true; // Always on
     }
-    
-    // Enforce reasonable timing bounds for ESP32 stability
-    frameTime = constrain(frameTime, 33, 10000);  // 33ms (30fps) to 10s max
-    
-    // Non-blocking frame timing using millis() difference
-    uint32_t now = millis();
-    bool shouldAdvanceFrame = false;
-    
-    // Handle millis() rollover safely
-    if (now >= SEGENV.aux0) {
-        shouldAdvanceFrame = (now - SEGENV.aux0) >= frameTime;
-    } else {
-        // Rollover occurred, assume time has passed
-        shouldAdvanceFrame = true;
-    }
-    
-    if (shouldAdvanceFrame) {
-        SEGENV.aux0 = now;
-        SEGENV.aux1 = (currentFrame + 1) % frameCount;
-    }
-    
-    // Apply pattern to segment with memory-safe bounds checking
-    uint16_t segmentLength = SEGLEN;
-    
-    // Limit processing to reasonable segment sizes for performance
-    if (segmentLength > 1000) {
-        segmentLength = 1000;  // Process max 1000 pixels per frame for stability
-    }
-    
-    // Get primary color for the segment
+
+    // Get the current frame data
+    const uint8_t *currentColors = frame.data;
+    uint32_t patternSize = frame.width * frame.height;
+
+    // Get primary color
     uint32_t primaryColor = SEGCOLOR(0);
     if (primaryColor == BLACK) {
-        // Use palette color as fallback
-        primaryColor = SEGMENT.color_from_palette(128, false, PALETTE_SOLID_WRAP, 0);
-        if (primaryColor == BLACK) {
-            primaryColor = WHITE;  // Final fallback
-        }
+        primaryColor = SEGMENT.color_from_palette(0, true, PALETTE_SOLID_WRAP, 0);
     }
-    
-    // Apply pattern with optimized loop and bounds checking
-    for (uint16_t i = 0; i < segmentLength; i++) {
-        uint32_t patternIndex = i % patternSize;
-        
-        // Additional safety check to prevent array overrun
-        if (patternIndex < patternSize && frame.data) {
-            uint8_t patternValue = frame.data[patternIndex];
-            
-            if (patternValue == 0) {
-                SEGMENT.setPixelColor(i, BLACK);
-            } else {
-                // Apply brightness scaling through WLED's built-in system
-                SEGMENT.setPixelColor(i, primaryColor);
-            }
+
+    // Apply frame brightness
+    if (frame.brightness < 255) {
+        uint8_t r = (R(primaryColor) * frame.brightness) >> 8;
+        uint8_t g = (G(primaryColor) * frame.brightness) >> 8;
+        uint8_t b = (B(primaryColor) * frame.brightness) >> 8;
+        uint8_t w = (W(primaryColor) * frame.brightness) >> 8;
+        primaryColor = RGBW32(r, g, b, w);
+    }
+
+    // Apply the frame and strobe effect
+    for (uint16_t i = 0; i < SEGLEN; i++) {
+        uint8_t color = currentColors[i % patternSize];
+        if (!strobeState || color == 0) {
+            SEGMENT.setPixelColor(i, BLACK); // Turn off LED
         } else {
-            // Failsafe: turn pixel off if pattern data is invalid
-            SEGMENT.setPixelColor(i, BLACK);
+            SEGMENT.setPixelColor(i, primaryColor);
         }
     }
-    
-    // Return adaptive timing based on processing complexity
-    if (segmentLength > 500) {
-        return FRAMETIME * 2;  // Slower refresh for large segments
-    } else if (segmentLength > 200) {
-        return FRAMETIME + 10;  // Slightly slower for medium segments
-    } else {
-        return FRAMETIME;      // Normal timing for small segments
-    }
+
+    return FRAMETIME;
 }
 
 uint16_t mode_hertz_testing() {
@@ -7796,9 +7762,9 @@ static const char _data_FX_MODE_CUSTOM[] PROGMEM = "Custom Squares@!,!,,,,Smooth
 
 uint16_t mode_custom_squares() {
   const Frame sframes[] = {
-    { frame0, 8, 8, 2000, 5 },  // 8x8 pattern, 2s base duration, 5Hz base pulse
-    { frame1, 8, 8, 3000, 3 },  // 8x8 pattern, 3s base duration, 3Hz base pulse
-    { frame2, 8, 8, 1000, 8 },  // 8x8 pattern, 1s base duration, 8Hz base pulse
+    { frame0, 8, 8, 2000, 5, 255 },  // 8x8 pattern, 2s base duration, 5Hz base pulse, full brightness
+    { frame1, 8, 8, 3000, 3, 255 },  // 8x8 pattern, 3s base duration, 3Hz base pulse, full brightness
+    { frame2, 8, 8, 1000, 8, 255 },  // 8x8 pattern, 1s base duration, 8Hz base pulse, full brightness
   };
   const uint16_t frameCount = sizeof(sframes) / sizeof(sframes[0]);
   return mode_custom_shapes(sframes, frameCount); 
@@ -7874,12 +7840,12 @@ const uint8_t dsframe5[] = {
 
 uint16_t mode_custom_diamond_spin() {
   const Frame dsframes[] = {
-    { dsframe0, 39, 1, 2000, 10 },  // 39 element pattern, 2s base duration, 10Hz base pulse
-    { dsframe1, 39, 1, 500, 6 },    // 39 element pattern, 0.5s base duration, 6Hz base pulse
-    { dsframe2, 39, 1, 2000, 10 },  // 39 element pattern, 2s base duration, 10Hz base pulse
-    { dsframe3, 39, 1, 2000, 6 },   // 39 element pattern, 2s base duration, 6Hz base pulse
-    { dsframe4, 39, 1, 500, 10 },   // 39 element pattern, 0.5s base duration, 10Hz base pulse
-    { dsframe5, 39, 1, 2000, 6 }    // 39 element pattern, 2s base duration, 6Hz base pulse
+    { dsframe0, 35, 1, 2000, 10, 255 },  // 39 element pattern, 2s base duration, 10Hz base pulse, full brightness
+    { dsframe1, 35, 1, 500, 6, 255 },    // 39 element pattern, 0.5s base duration, 6Hz base pulse, full brightness
+    { dsframe2, 35, 1, 2000, 10, 255 },  // 39 element pattern, 2s base duration, 10Hz base pulse, full brightness
+    { dsframe3, 35, 1, 2000, 6, 255 },   // 39 element pattern, 2s base duration, 6Hz base pulse, full brightness
+    { dsframe4, 35, 1, 500, 10, 255 },   // 39 element pattern, 0.5s base duration, 10Hz base pulse, full brightness
+    { dsframe5, 35, 1, 2000, 6, 255 }    // 39 element pattern, 2s base duration, 6Hz base pulse, full brightness
   };
   const uint16_t frameCount = sizeof(dsframes) / sizeof(dsframes[0]);
   return mode_custom_shapes(dsframes, frameCount); 
@@ -7974,14 +7940,14 @@ const uint8_t dframe7[] = {
 
 uint16_t mode_custom_drunk_diamond_spin() {
   const Frame dframes[] = {
-    { dframe0, 39, 1, 2000, 10 },  // 39 element pattern, 2s base duration, 10Hz base pulse
-    { dframe1, 39, 1, 500, 6 },    // 39 element pattern, 0.5s base duration, 6Hz base pulse
-    { dframe2, 39, 1, 2000, 7 },   // 39 element pattern, 2s base duration, 7Hz base pulse
-    { dframe3, 39, 1, 2000, 8 },   // 39 element pattern, 2s base duration, 8Hz base pulse
-    { dframe4, 39, 1, 500, 0 },    // 39 element pattern, 0.5s base duration, no pulse
-    { dframe5, 39, 1, 2000, 0 },   // 39 element pattern, 2s base duration, no pulse
-    { dframe6, 39, 1, 500, 0 },    // 39 element pattern, 0.5s base duration, no pulse
-    { dframe7, 39, 1, 2000, 10 }   // 39 element pattern, 2s base duration, 10Hz base pulse
+    { dframe0, 35, 1, 2000, 10, 255 },  // 39 element pattern, 2s base duration, 10Hz base pulse, full brightness
+    { dframe1, 35, 1, 500, 6, 255 },    // 39 element pattern, 0.5s base duration, 6Hz base pulse, full brightness
+    { dframe2, 35, 1, 2000, 7, 255 },   // 39 element pattern, 2s base duration, 7Hz base pulse, full brightness
+    { dframe3, 35, 1, 2000, 8, 255 },   // 39 element pattern, 2s base duration, 8Hz base pulse, full brightness
+    { dframe4, 35, 1, 500, 0, 255 },    // 39 element pattern, 0.5s base duration, no pulse, full brightness
+    { dframe5, 35, 1, 2000, 0, 255 },   // 39 element pattern, 2s base duration, no pulse, full brightness
+    { dframe6, 35, 1, 500, 0, 255 },    // 39 element pattern, 0.5s base duration, no pulse, full brightness
+    { dframe7, 35, 1, 2000, 10, 255 }   // 39 element pattern, 2s base duration, 10Hz base pulse, full brightness
   };
   const uint16_t frameCount = sizeof(dframes) / sizeof(dframes[0]);
   return mode_custom_shapes(dframes, frameCount); 
@@ -8023,9 +7989,9 @@ const uint8_t bframe2[] = {
 
 uint16_t mode_custom_ben() {
   const Frame bframes[] = {
-    { bframe0, 39, 1, 2000, 0 },  // 39 element pattern, 2s base duration, no pulse
-    { bframe1, 39, 1, 500, 0 },   // 39 element pattern, 0.5s base duration, no pulse
-    { bframe2, 39, 1, 2000, 0 },  // 39 element pattern, 2s base duration, no pulse
+    { bframe0, 35, 1, 4000, 1, 255 },  // 35 element pattern, 4s base duration, 1Hz pulse, full brightness
+    { bframe1, 35, 1, 4000, 5, 255 },   // 35 element pattern, 4s base duration, 5Hz pulse, full brightness
+    { bframe2, 35, 1, 4000, 20, 255 },  // 35 element pattern, 4s base duration, 20Hz pulse, full brightness
   };
   const uint16_t frameCount = sizeof(bframes) / sizeof(bframes[0]);
   return mode_custom_shapes(bframes, frameCount); 
@@ -8077,10 +8043,10 @@ const uint8_t square3[] = {
 
 uint16_t mode_breathing_square() {
   const Frame breathFrames[] = {
-    { square1, 8, 8, 800, 0 },   // Small center square, 0.8s duration
-    { square2, 8, 8, 600, 0 },   // Medium square, 0.6s duration  
-    { square3, 8, 8, 800, 0 },   // Large square, 0.8s duration
-    { square2, 8, 8, 600, 0 },   // Back to medium, 0.6s duration
+    { square1, 8, 8, 800, 0, 255 },   // Small center square, 0.8s duration, full brightness
+    { square2, 8, 8, 600, 0, 255 },   // Medium square, 0.6s duration, full brightness
+    { square3, 8, 8, 800, 0, 255 },   // Large square, 0.8s duration, full brightness
+    { square2, 8, 8, 600, 0, 255 },   // Back to medium, 0.6s duration, full brightness
   };
   const uint16_t frameCount = sizeof(breathFrames) / sizeof(breathFrames[0]);
   return mode_custom_shapes(breathFrames, frameCount);
@@ -8133,10 +8099,10 @@ const uint8_t spiral4[] = {
 
 uint16_t mode_spiral_wave() {
   const Frame spiralFrames[] = {
-    { spiral1, 8, 8, 200, 0 },   // Fast rotation, 0.2s per frame
-    { spiral2, 8, 8, 200, 0 },   
-    { spiral3, 8, 8, 200, 0 },   
-    { spiral4, 8, 8, 200, 0 },   
+    { spiral1, 8, 8, 200, 0, 255 },   // Fast rotation, 0.2s per frame, full brightness
+    { spiral2, 8, 8, 200, 0, 255 },   // full brightness
+    { spiral3, 8, 8, 200, 0, 255 },   // full brightness
+    { spiral4, 8, 8, 200, 0, 255 },   // full brightness   
   };
   const uint16_t frameCount = sizeof(spiralFrames) / sizeof(spiralFrames[0]);
   return mode_custom_shapes(spiralFrames, frameCount);
@@ -8175,10 +8141,10 @@ const uint8_t cross3[] = {
 
 uint16_t mode_pulsing_cross() {
   const Frame crossFrames[] = {
-    { cross1, 7, 7, 600, 0 },    // Thin cross, 0.6s duration
-    { cross2, 7, 7, 400, 0 },    // Thick cross, 0.4s duration
-    { cross3, 7, 7, 300, 0 },    // Full brightness, 0.3s duration
-    { cross2, 7, 7, 400, 0 },    // Back to thick cross
+    { cross1, 7, 7, 600, 0, 255 },    // Thin cross, 0.6s duration, full brightness
+    { cross2, 7, 7, 400, 0, 255 },    // Thick cross, 0.4s duration, full brightness
+    { cross3, 7, 7, 300, 0, 255 },    // Full brightness, 0.3s duration
+    { cross2, 7, 7, 400, 0, 255 },    // Back to thick cross, full brightness
   };
   const uint16_t frameCount = sizeof(crossFrames) / sizeof(crossFrames[0]);
   return mode_custom_shapes(crossFrames, frameCount);
@@ -8220,9 +8186,9 @@ const uint8_t stripe3[] = {
 
 uint16_t mode_moving_stripes() {
   const Frame stripeFrames[] = {
-    { stripe1, 8, 8, 300, 0 },   // Pattern 1, 0.3s duration
-    { stripe2, 8, 8, 300, 0 },   // Pattern 2, 0.3s duration
-    { stripe3, 8, 8, 300, 0 },   // Pattern 3, 0.3s duration
+    { stripe1, 8, 8, 300, 0, 255 },   // Pattern 1, 0.3s duration, full brightness
+    { stripe2, 8, 8, 300, 0, 255 },   // Pattern 2, 0.3s duration, full brightness
+    { stripe3, 8, 8, 300, 0, 255 },   // Pattern 3, 0.3s duration, full brightness
   };
   const uint16_t frameCount = sizeof(stripeFrames) / sizeof(stripeFrames[0]);
   return mode_custom_shapes(stripeFrames, frameCount);
@@ -8253,8 +8219,8 @@ const uint8_t corner2[] = {
 
 uint16_t mode_corner_flash() {
   const Frame cornerFrames[] = {
-    { corner1, 8, 8, 150, 0 },   // Corners lit, fast 0.15s duration
-    { corner2, 8, 8, 150, 0 },   // Center lit, fast 0.15s duration
+    { corner1, 8, 8, 150, 0, 255 },   // Corners lit, fast 0.15s duration, full brightness
+    { corner2, 8, 8, 150, 0, 255 },   // Center lit, fast 0.15s duration, full brightness
   };
   const uint16_t frameCount = sizeof(cornerFrames) / sizeof(cornerFrames[0]);
   return mode_custom_shapes(cornerFrames, frameCount);
@@ -8403,10 +8369,10 @@ uint16_t mode_pattern_with_hz(const Frame frames[], uint16_t frameCount) {
 // 1. BREATHING SQUARE HZ - Breathing square with Hz control
 uint16_t mode_breathing_square_hz() {
     const Frame breathFrames[] = {
-        { square1, 8, 8, 800, 0 },
-        { square2, 8, 8, 600, 0 },
-        { square3, 8, 8, 800, 0 },
-        { square2, 8, 8, 600, 0 },
+        { square1, 8, 8, 800, 0, 255 },  // full brightness
+        { square2, 8, 8, 600, 0, 255 },  // full brightness
+        { square3, 8, 8, 800, 0, 255 },  // full brightness
+        { square2, 8, 8, 600, 0, 255 },  // full brightness
     };
     const uint16_t frameCount = sizeof(breathFrames) / sizeof(breathFrames[0]);
     return mode_pattern_with_hz(breathFrames, frameCount);
@@ -8415,10 +8381,10 @@ uint16_t mode_breathing_square_hz() {
 // 2. SPIRAL WAVE HZ - Spiral wave with Hz control
 uint16_t mode_spiral_wave_hz() {
     const Frame spiralFrames[] = {
-        { spiral1, 8, 8, 200, 0 },
-        { spiral2, 8, 8, 200, 0 },
-        { spiral3, 8, 8, 200, 0 },
-        { spiral4, 8, 8, 200, 0 },
+        { spiral1, 8, 8, 200, 0, 255 },  // full brightness
+        { spiral2, 8, 8, 200, 0, 255 },  // full brightness
+        { spiral3, 8, 8, 200, 0, 255 },  // full brightness
+        { spiral4, 8, 8, 200, 0, 255 },  // full brightness
     };
     const uint16_t frameCount = sizeof(spiralFrames) / sizeof(spiralFrames[0]);
     return mode_pattern_with_hz(spiralFrames, frameCount);
@@ -8427,10 +8393,10 @@ uint16_t mode_spiral_wave_hz() {
 // 3. PULSING CROSS HZ - Pulsing cross with Hz control
 uint16_t mode_pulsing_cross_hz() {
     const Frame crossFrames[] = {
-        { cross1, 7, 7, 600, 0 },
-        { cross2, 7, 7, 400, 0 },
-        { cross3, 7, 7, 300, 0 },
-        { cross2, 7, 7, 400, 0 },
+        { cross1, 7, 7, 600, 0, 255 },  // full brightness
+        { cross2, 7, 7, 400, 0, 255 },  // full brightness
+        { cross3, 7, 7, 300, 0, 255 },  // full brightness
+        { cross2, 7, 7, 400, 0, 255 },  // full brightness
     };
     const uint16_t frameCount = sizeof(crossFrames) / sizeof(crossFrames[0]);
     return mode_pattern_with_hz(crossFrames, frameCount);
@@ -8439,9 +8405,9 @@ uint16_t mode_pulsing_cross_hz() {
 // 4. MOVING STRIPES HZ - Moving stripes with Hz control
 uint16_t mode_moving_stripes_hz() {
     const Frame stripeFrames[] = {
-        { stripe1, 8, 8, 300, 0 },
-        { stripe2, 8, 8, 300, 0 },
-        { stripe3, 8, 8, 300, 0 },
+        { stripe1, 8, 8, 300, 0, 255 },  // full brightness
+        { stripe2, 8, 8, 300, 0, 255 },  // full brightness
+        { stripe3, 8, 8, 300, 0, 255 },  // full brightness
     };
     const uint16_t frameCount = sizeof(stripeFrames) / sizeof(stripeFrames[0]);
     return mode_pattern_with_hz(stripeFrames, frameCount);
@@ -8450,8 +8416,8 @@ uint16_t mode_moving_stripes_hz() {
 // 5. CORNER FLASH HZ - Corner flash with Hz control
 uint16_t mode_corner_flash_hz() {
     const Frame cornerFrames[] = {
-        { corner1, 8, 8, 150, 0 },
-        { corner2, 8, 8, 150, 0 },
+        { corner1, 8, 8, 150, 0, 255 },  // full brightness
+        { corner2, 8, 8, 150, 0, 255 },  // full brightness
     };
     const uint16_t frameCount = sizeof(cornerFrames) / sizeof(cornerFrames[0]);
     return mode_pattern_with_hz(cornerFrames, frameCount);
@@ -8597,18 +8563,18 @@ const uint8_t cframe5[] = {
 
 uint16_t mode_custom_circles() {
   const Frame cframes[] = {
-    { cframe0, 8, 8, 2000, 0 },  // 8x8 pattern, 2s base duration, no pulse
-    { cframe1, 8, 8, 500, 0 },   // 8x8 pattern, 0.5s base duration, no pulse
-    { cframe2, 8, 8, 2000, 0 },  // 8x8 pattern, 2s base duration, no pulse
-    { cframe3, 8, 8, 2000, 0 },  // 8x8 pattern, 2s base duration, no pulse
-    { cframe4, 8, 8, 500, 0 },   // 8x8 pattern, 0.5s base duration, no pulse
-    { cframe5, 8, 8, 2000, 0 },  // 8x8 pattern, 2s base duration, no pulse
-    { cframe0, 8, 8, 200, 0 },   // 8x8 pattern, 0.2s base duration, no pulse
-    { cframe1, 8, 8, 8000, 4 },  // 8x8 pattern, 8s base duration, 4Hz base pulse
-    { cframe5, 8, 8, 2000, 0 },  // 8x8 pattern, 2s base duration, no pulse
-    { cframe3, 8, 8, 200, 0 },   // 8x8 pattern, 0.2s base duration, no pulse
-    { cframe4, 8, 8, 500, 0 },   // 8x8 pattern, 0.5s base duration, no pulse
-    { cframe5, 8, 8, 2000, 0 },  // 8x8 pattern, 2s base duration, no pulse
+    { cframe0, 8, 8, 2000, 0, 255 },  // 8x8 pattern, 2s base duration, no pulse, full brightness
+    { cframe1, 8, 8, 500, 0, 255 },   // 8x8 pattern, 0.5s base duration, no pulse, full brightness
+    { cframe2, 8, 8, 2000, 0, 255 },  // 8x8 pattern, 2s base duration, no pulse, full brightness
+    { cframe3, 8, 8, 2000, 0, 255 },  // 8x8 pattern, 2s base duration, no pulse, full brightness
+    { cframe4, 8, 8, 500, 0, 255 },   // 8x8 pattern, 0.5s base duration, no pulse, full brightness
+    { cframe5, 8, 8, 2000, 0, 255 },  // 8x8 pattern, 2s base duration, no pulse, full brightness
+    { cframe0, 8, 8, 200, 0, 255 },   // 8x8 pattern, 0.2s base duration, no pulse, full brightness
+    { cframe1, 8, 8, 8000, 4, 255 },  // 8x8 pattern, 8s base duration, 4Hz base pulse, full brightness
+    { cframe5, 8, 8, 2000, 0, 255 },  // 8x8 pattern, 2s base duration, no pulse, full brightness
+    { cframe3, 8, 8, 200, 0, 255 },   // 8x8 pattern, 0.2s base duration, no pulse, full brightness
+    { cframe4, 8, 8, 500, 0, 255 },   // 8x8 pattern, 0.5s base duration, no pulse, full brightness
+    { cframe5, 8, 8, 2000, 0, 255 },  // 8x8 pattern, 2s base duration, no pulse, full brightness
   };
   const uint16_t frameCount = sizeof(cframes) / sizeof(cframes[0]);
   return mode_custom_shapes(cframes, frameCount); 
