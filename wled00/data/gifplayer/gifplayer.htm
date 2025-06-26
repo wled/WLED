@@ -379,8 +379,8 @@
         cursor: pointer;
         margin-bottom: 10px;
         background: var(--gray-medium);
-        border: 1px solid var(--gray-dark);
-        transition: all 0.5s ease-in-out;
+        border: 1px solid transparent;
+        transition: border 0.2s ease-out;
         font-size: 0.875rem;
         font-weight: 600;
         text-wrap: nowrap;
@@ -388,7 +388,7 @@
 
       button:hover {
         background: var(--gray-dark);
-        border: 1px solid var(--gray-medium);
+        border: 1px solid var(--gray-light);
       }
 
       button:last-child {
@@ -463,32 +463,25 @@
       }
 
       dialog {
-        padding: 0;
-        background: rgb(33 33 33 / 70%);
+        padding: 10px 30px;
+        background: rgb(33 33 33 / 0.8);
         color: var(--text);
         max-width: 90vw;
         border-radius: 10px;
-        box-shadow: 0 5px 30px 0 rgb(0 0 0 / 10%);
-        animation: fadeIn 0.3s ease both;
+        box-shadow: 0 5px 30px 0 black;
+        animation: fadeInDialog 0.3s ease both;
         text-align: center;
         margin: auto;
-        align-self: center;
+        margin-top: 10rem;
         border: none;
-        max-inline-size: min(90vw, var(--size-content-3));
-        max-block-size: min(80vh, 100%);
-        max-block-size: min(80dvb, 100%);
         overflow: hidden;
       }
 
       dialog::backdrop {
-        animation: fadeIn 0.3s ease both;
-        background: rgba(0, 0, 0, 0.137);
+        animation: fadeInDialog 0.3s ease both;
+        background: rgba(0, 0, 0, 0.25);
         z-index: 2;
         backdrop-filter: blur(20px);
-      }
-
-      .dialog {
-        padding: 10px 30px;
       }
 
       h3 {
@@ -498,6 +491,10 @@
       }
 
       @media (max-width: 767px) {
+        dialog {
+          margin-top: auto;
+        }
+
         .col-small {
           flex-basis: 50%;
         }
@@ -529,12 +526,24 @@
       }
 
       @keyframes fadeIn {
-        0% {
+        from {
           opacity: 0;
         }
 
-        100% {
+        to {
           opacity: 1;
+        }
+      }
+
+      @keyframes fadeInDialog {
+        from {
+          opacity: 0;
+          translate: 0 -1em;
+        }
+
+        to {
+          opacity: 1;
+          translate: 0 0;
         }
       }
 
@@ -640,7 +649,7 @@
       </div>
     </div>
     <dialog id="image-dialog">
-      <div class="dialog">
+      <div class="dialog-content">
         <h3 id="image-dialog-name"></h3>
         <img class="image-dialog-img" id="image-dialog-img" src="" />
         <div class="row-dialog-button">
@@ -695,7 +704,7 @@
       </div>
     </dialog>
     <dialog id="settings-dialog">
-      <div class="dialog">
+      <div class="dialog-content">
         <h3 id="">Settings</h3>
         <form id="formHostname" novalidate>
           <div class="row-dialog-button">
