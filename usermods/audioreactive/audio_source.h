@@ -22,7 +22,7 @@
 
 // see https://docs.espressif.com/projects/esp-idf/en/latest/esp32s3/hw-reference/chip-series-comparison.html#related-documents
 // and https://docs.espressif.com/projects/esp-idf/en/latest/esp32s3/api-reference/peripherals/i2s.html#overview-of-all-modes
-#if defined(CONFIG_IDF_TARGET_ESP32C2) || defined(CONFIG_IDF_TARGET_ESP32C3) || defined(CONFIG_IDF_TARGET_ESP32C5) || defined(CONFIG_IDF_TARGET_ESP32C6) || defined(CONFIG_IDF_TARGET_ESP32H2) || defined(ESP8266) || defined(ESP8265)
+#if defined(CONFIG_IDF_TARGET_ESP32C2) || defined(CONFIG_IDF_TARGET_ESP32C5) || defined(CONFIG_IDF_TARGET_ESP32C6) || defined(CONFIG_IDF_TARGET_ESP32H2) || defined(ESP8266) || defined(ESP8265)
   // there are two things in these MCUs that could lead to problems with audio processing:
   // * no floating point hardware (FPU) support - FFT uses float calculations. If done in software, a strong slow-down can be expected (between 8x and 20x)
   // * single core, so FFT task might slow down other things like LED updates
@@ -333,7 +333,7 @@ class I2SSource : public AudioSource {
         }
 
         // Store samples in sample buffer
-#if !defined(CONFIG_IDF_TARGET_ESP32S2) && !defined(CONFIG_IDF_TARGET_ESP32C3)
+#if !defined(UM_AUDIOREACTIVE_USE_INTEGER_FFT)
         float* _buffer = static_cast<float*>(buffer);
 #else
         int16_t* _buffer = static_cast<int16_t*>(buffer); // use integer samples on ESP32-S2 and ESP32-C3
@@ -344,7 +344,7 @@ class I2SSource : public AudioSource {
         for (int i = 0; i < num_samples; i++) {
           newSamples[i] = postProcessSample(newSamples[i]);  // perform postprocessing (needed for ADC samples)
 
-#if !defined(CONFIG_IDF_TARGET_ESP32S2) && !defined(CONFIG_IDF_TARGET_ESP32C3)
+#if !defined(UM_AUDIOREACTIVE_USE_INTEGER_FFT)
   #ifdef I2S_SAMPLE_DOWNSCALE_TO_16BIT
           float currSample = (float) newSamples[i] / 65536.0f;      // 32bit input -> 16bit; keeping lower 16bits as decimal places
   #else
