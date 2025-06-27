@@ -107,7 +107,7 @@
         align-items: center;
       }
 
-      .row-dialog-button {
+      .row-button {
         display: flex;
         justify-content: center;
         margin-block: 10px;
@@ -145,7 +145,7 @@
         padding-inline: 5px;
       }
 
-      .col-dialog-button {
+      .col-button {
         min-width: 180px;
         display: flex;
         flex-direction: column;
@@ -407,7 +407,7 @@
         animation: fadeIn 1s ease both, spin 1s linear infinite;
       }
 
-      .show-when-connected {
+      .fade-in {
         animation: fadeIn 1s ease both;
       }
 
@@ -604,10 +604,24 @@
         </div>
 
         <div
-          id="contentConnected"
-          class="show-when-connected"
-          style="display: none"
+          id="reloadSiteBtn"
+          class="fade-in"
+          style="display: none; padding-block: 5px"
         >
+          <div class="row-button">
+            <div class="col-button">
+              <button
+                class="button"
+                style="background-color: var(--blue-medium)"
+                onclick="window.location.reload()"
+              >
+                Reload
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div id="contentConnected" class="fade-in" style="display: none">
           <div class="row">
             <div class="col-small" validate style="position: relative">
               <div class="row-gif-control-buttons">
@@ -639,6 +653,7 @@
             </div>
           </form>
         </div>
+
         <footer>
           <a
             href="https://github.com/Manut38/WLED-GifPlayer-html"
@@ -659,8 +674,8 @@
       <div class="dialog-content">
         <h3 id="image-dialog-name"></h3>
         <div class="image-dialog-img" id="image-dialog-img"></div>
-        <div class="row-dialog-button">
-          <div class="col-dialog-button">
+        <div class="row-button">
+          <div class="col-button">
             <button
               type="button"
               class="button"
@@ -671,8 +686,8 @@
             </button>
           </div>
         </div>
-        <div class="row-dialog-button">
-          <div class="col-dialog-button">
+        <div class="row-button">
+          <div class="col-button">
             <button
               type="button"
               class="button button-dialog"
@@ -683,8 +698,8 @@
             </button>
           </div>
         </div>
-        <div class="row-dialog-button">
-          <div class="col-dialog-button">
+        <div class="row-button">
+          <div class="col-button">
             <button
               type="button"
               class="button button-dialog"
@@ -695,8 +710,8 @@
             </button>
           </div>
         </div>
-        <div class="row-dialog-button">
-          <div class="col-dialog-button">
+        <div class="row-button">
+          <div class="col-button">
             <button
               type="button"
               class="button button-dialog"
@@ -714,8 +729,8 @@
       <div class="dialog-content">
         <h3 id="">Settings</h3>
         <form id="formHostname" novalidate>
-          <div class="row-dialog-button">
-            <div class="col-dialog-button" validate style="position: relative">
+          <div class="row-button">
+            <div class="col-button" validate style="position: relative">
               <label for="hostname">Hostname</label>
               <input
                 type="text"
@@ -726,8 +741,8 @@
               />
             </div>
           </div>
-          <div class="row-dialog-button">
-            <div class="col-dialog-button">
+          <div class="row-button">
+            <div class="col-button">
               <button
                 type="button"
                 class="button"
@@ -739,8 +754,8 @@
             </div>
           </div>
         </form>
-        <div class="row-dialog-button">
-          <div class="col-dialog-button">
+        <div class="row-button">
+          <div class="col-button">
             <button
               type="button"
               class="button button-dialog"
@@ -924,6 +939,7 @@
         console.error(error);
         toast("Failed to get image list, check hostname!", "error", 10000);
         gId("hostname").classList.add("error");
+        gId("reloadSiteBtn").style.display = "block";
         return Promise.reject("Failed to get image list");
       } finally {
         hideLoading();
@@ -1329,6 +1345,7 @@
 
     function showPageContent() {
       gId("contentConnected").style.display = "block";
+      gId("reloadSiteBtn").style.display = "none";
       checkBackBtn();
     }
 
