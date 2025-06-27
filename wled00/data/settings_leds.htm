@@ -353,7 +353,7 @@
 			});
 			const S2 = (oMaxB == 14) && (maxV == 4);
 			const S3 = (oMaxB == 14) && (maxV == 6);
-			if (oMaxB == 19 || S2 || S3) { // TODO: crude ESP32 & S2/S3 detection
+			if (oMaxB == 32 || S2 || S3) { // TODO: crude ESP32 & S2/S3 detection
 				if (maxLC > 300 || dC <= 2) {
 					d.Sf["PR"].checked = false;
 					gId("prl").classList.add("hide");

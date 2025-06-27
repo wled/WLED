@@ -612,6 +612,7 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
       aOtaEnabled = request->hasArg(F("AO"));
       #endif
       //createEditHandler(correctPIN && !otaLock);
+      otaSameSubnet = request->hasArg(F("SU"));
     }
   }
 

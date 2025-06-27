@@ -593,6 +593,7 @@ WLED_GLOBAL bool aOtaEnabled    _INIT(true);      // ArduinoOTA allows easy upda
 #else
 WLED_GLOBAL bool aOtaEnabled    _INIT(false);     // ArduinoOTA allows easy updates directly from the IDE. Careful, it does not auto-disable when OTA lock is on
 #endif
+WLED_GLOBAL bool otaSameSubnet  _INIT(true);      // prevent OTA updates from other subnets (e.g. internet) if no PIN is set
 WLED_GLOBAL char settingsPIN[5] _INIT(WLED_PIN);  // PIN for settings pages
 WLED_GLOBAL bool correctPIN     _INIT(!strlen(settingsPIN));
 WLED_GLOBAL unsigned long lastEditTime _INIT(0);

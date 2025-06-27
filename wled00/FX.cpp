@@ -1969,7 +1969,8 @@ uint16_t mode_colorwaves_pride_base(bool isPride2015) {
     bri8 += (255 - brightdepth);
 
     if (isPride2015) {
-      CRGB newcolor = CHSV(hue8, sat8, bri8);
+      CRGBW newcolor = CRGB(CHSV(hue8, sat8, bri8));
+      newcolor.color32 = gamma32inv(newcolor.color32);
       SEGMENT.blendPixelColor(i, newcolor, 64);
     } else {
       SEGMENT.blendPixelColor(i, SEGMENT.color_from_palette(hue8, false, PALETTE_SOLID_WRAP, 0, bri8), 128);
@@ -4868,7 +4869,7 @@ static const char _data_FX_MODE_WAVESINS[] PROGMEM = "Wavesins@!,Brightness vari
 //////////////////////////////
 //     Flow Stripe          //
 //////////////////////////////
-// By: ldirko  https://editor.soulmatelights.com/gallery/392-flow-led-stripe , modifed by: Andrew Tuline
+// By: ldirko  https://editor.soulmatelights.com/gallery/392-flow-led-stripe , modifed by: Andrew Tuline, fixed by @DedeHai
 uint16_t mode_FlowStripe(void) {
   if (SEGLEN <= 1) return mode_static();
   const int hl = SEGLEN * 10 / 13;
@@ -4876,16 +4877,16 @@ uint16_t mode_FlowStripe(void) {
   uint32_t t = strip.now / (SEGMENT.intensity/8+1);
 
   for (unsigned i = 0; i < SEGLEN; i++) {
-    int c = (abs((int)i - hl) / hl) * 127;
+    int c = ((abs((int)i - hl) * 127) / hl);
     c = sin8_t(c);
     c = sin8_t(c / 2 + t);
     byte b = sin8_t(c + t/8);
-    SEGMENT.setPixelColor(i, CHSV(b + hue, 255, 255));
+    SEGMENT.setPixelColor(i, SEGMENT.color_from_palette(b + hue, false, true, 3));
   }
 
   return FRAMETIME;
 } // mode_FlowStripe()
-static const char _data_FX_MODE_FLOWSTRIPE[] PROGMEM = "Flow Stripe@Hue speed,Effect speed;;";
+static const char _data_FX_MODE_FLOWSTRIPE[] PROGMEM = "Flow Stripe@Hue speed,Effect speed;;!;pal=11";
 
 
 #ifndef WLED_DISABLE_2D

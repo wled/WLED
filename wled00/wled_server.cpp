@@ -1,5 +1,10 @@
 #include "wled.h"
 
+#ifdef ESP8266
+  #include <Updater.h>
+#else
+  #include <Update.h>
+#endif
 #include "html_ui.h"
 #include "html_settings.h"
 #include "html_other.h"
@@ -16,6 +21,7 @@ static const char s_redirecting[] PROGMEM = "Redirecting...";
 static const char s_content_enc[] PROGMEM = "Content-Encoding";
 static const char s_unlock_ota [] PROGMEM = "Please unlock OTA in security settings!";
 static const char s_unlock_cfg [] PROGMEM = "Please unlock settings using PIN code!";
+static const char s_rebooting  [] PROGMEM = "Rebooting now...";
 static const char s_notimplemented[] PROGMEM = "Not implemented";
 static const char s_accessdenied[]   PROGMEM = "Access Denied";
 static const char _common_js[]       PROGMEM = "/common.js";
@@ -29,6 +35,22 @@ static bool isIp(const String &str) {
     }
   }
   return true;
+}
+
+static bool inSubnet(const IPAddress &ip, const IPAddress &subnet, const IPAddress &mask) {
+  return (((uint32_t)ip & (uint32_t)mask) == ((uint32_t)subnet & (uint32_t)mask));
+}
+
+static bool inSameSubnet(const IPAddress &client) {
+  return inSubnet(client, Network.localIP(), Network.subnetMask());
+}
+
+static bool inLocalSubnet(const IPAddress &client) {
+  return  inSubnet(client, IPAddress(10,0,0,0),    IPAddress(255,0,0,0))                  // 10.x.x.x
+      ||  inSubnet(client, IPAddress(192,168,0,0), IPAddress(255,255,0,0))                // 192.168.x.x
+      ||  inSubnet(client, IPAddress(172,16,0,0),  IPAddress(255,240,0,0))                // 172.16.x.x
+      || (inSubnet(client, IPAddress(4,3,2,0),     IPAddress(255,255,255,0)) && apActive) // WLED AP
+      ||  inSameSubnet(client);                                                           // same subnet as WLED device
 }
 
 /*
@@ -130,7 +152,7 @@ static String msgProcessor(const String& var)
     if (optt < 60) //redirect to settings after optionType seconds
     {
       messageBody += F("<script>setTimeout(RS,");
-      messageBody +=String(optt*1000);
+      messageBody += String(optt*1000);
       messageBody += F(")</script>");
     } else if (optt < 120) //redirect back after optionType-60 seconds, unused
     {
@@ -270,7 +292,7 @@ void initServer()
   });
 
   server.on(F("/reset"), HTTP_GET, [](AsyncWebServerRequest *request){
-    serveMessage(request, 200,F("Rebooting now..."),F("Please wait ~10 seconds..."),129);
+    serveMessage(request, 200, FPSTR(s_rebooting), F("Please wait ~10 seconds."), 131);
     doReboot = true;
   });
 
@@ -385,10 +407,16 @@ void initServer()
     if (Update.hasError()) {
       serveMessage(request, 500, F("Update failed!"), F("Please check your file and retry!"), 254);
     } else {
-      serveMessage(request, 200, F("Update successful!"), F("Rebooting..."), 131);
+      serveMessage(request, 200, F("Update successful!"), FPSTR(s_rebooting), 131);
       doReboot = true;
     }
   },[](AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool isFinal){
+    IPAddress client  = request->client()->remoteIP();
+    if (((otaSameSubnet && !inSameSubnet(client)) && !strlen(settingsPIN)) || (!otaSameSubnet && !inLocalSubnet(client))) {
+      DEBUG_PRINTLN(F("Attempted OTA update from different/non-local subnet!"));
+      request->send(401, FPSTR(CONTENT_TYPE_PLAIN), FPSTR(s_accessdenied));
+      return;
+    }
     if (!correctPIN || otaLock) return;
     if(!index){
       DEBUG_PRINTLN(F("OTA Update Start"));
@@ -573,6 +601,11 @@ void serveSettings(AsyncWebServerRequest* request, bool post) {
   }
 
   if (post) { //settings/set POST request, saving
+    IPAddress client = request->client()->remoteIP();
+    if (!inLocalSubnet(client)) { // includes same subnet check
+      serveMessage(request, 401, FPSTR(s_accessdenied), FPSTR(s_redirecting), 123);
+      return;
+    }
     if (subPage != SUBPAGE_WIFI || !(wifiLock && otaLock)) handleSettingsSet(request, subPage);
 
     char s[32];
@@ -624,7 +657,19 @@ void serveSettings(AsyncWebServerRequest* request, bool post) {
     case SUBPAGE_DMX     :  content = PAGE_settings_dmx;  len = PAGE_settings_dmx_length;  break;
 #endif
     case SUBPAGE_UM      :  content = PAGE_settings_um;   len = PAGE_settings_um_length;   break;
-    case SUBPAGE_UPDATE  :  content = PAGE_update;        len = PAGE_update_length;        break;
+    case SUBPAGE_UPDATE  :  content = PAGE_update;        len = PAGE_update_length;
+      #ifdef ARDUINO_ARCH_ESP32
+      if (request->hasArg(F("revert")) && inLocalSubnet(request->client()->remoteIP()) && Update.canRollBack()) {
+        doReboot = Update.rollBack();
+        if (doReboot) {
+          serveMessage(request, 200, F("Reverted to previous version!"), FPSTR(s_rebooting), 133);
+        } else {
+          serveMessage(request, 500, F("Rollback failed!"), F("Please reboot and retry."), 254);
+        }
+        return;
+      }
+      #endif
+      break;
 #ifndef WLED_DISABLE_2D
     case SUBPAGE_2D      :  content = PAGE_settings_2D;   len = PAGE_settings_2D_length;   break;
 #endif
