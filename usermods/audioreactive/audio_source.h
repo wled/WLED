@@ -707,7 +707,8 @@ class I2SAdcSource : public I2SSource {
     }
 
 
-    void getSamples(float *buffer, uint16_t num_samples) {
+    void getSamples(void *buffer, uint16_t num_samples) {
+      float *_buffer = static_cast<float*>(buffer);
       /* Enable ADC. This has to be enabled and disabled directly before and
        * after sampling, otherwise Wifi dies
        */
@@ -722,7 +723,7 @@ class I2SAdcSource : public I2SSource {
           }
         #endif
 
-        I2SSource::getSamples(buffer, num_samples);
+        I2SSource::getSamples(_buffer, num_samples);
 
         #if !defined(I2S_GRAB_ADC1_COMPLETELY)
           // old code - works for me without enable/disable, at least on ESP32.

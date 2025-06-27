@@ -36,54 +36,13 @@
  * - ArduinoFFT is used by default on ESP32 and S3
  * - ESP-IDF DSP FFT with integer math is used by default on S2 and C3
  * - defines:
- *   - UM_AUDIOREACTIVE_USE_ARDUINO_FFT: use ArduinoFFT library for FFT (for S2 and C3)
- *   - UM_AUDIOREACTIVE_USE_ESPDSP_FFT:  use ESP-IDF DSP for FFT (for ESP32 and S3 on IDF >= 4.4)
+ *   - UM_AUDIOREACTIVE_USE_ARDUINO_FFT: use ArduinoFFT library for FFT
+ *   - UM_AUDIOREACTIVE_USE_ESPDSP_FFT:  use ESP-IDF DSP for FFT
 */
 
-//#define UM_AUDIOREACTIVE_USE_ESPDSP_FFT
+//#define UM_AUDIOREACTIVE_USE_ESPDSP_FFT  // default on S2 and C3
 //#define UM_AUDIOREACTIVE_USE_INTEGER_FFT // use integer FFT if using ESP-IDF DSP library, always used on S2 and C3 (UM_AUDIOREACTIVE_USE_ARDUINO_FFT takes priority)
 //#define UM_AUDIOREACTIVE_USE_ARDUINO_FFT // default on ESP32 and S3
-
-#if !defined(UM_AUDIOREACTIVE_USE_ESPDSP_FFT) && (defined(CONFIG_IDF_TARGET_ESP32S3) || defined(CONFIG_IDF_TARGET_ESP32))
-#define UM_AUDIOREACTIVE_USE_ARDUINO_FFT // use ArduinoFFT library for FFT instead of ESP-IDF DSP library by default on ESP32 and S3
-#endif
-
-
-#if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(4, 4, 0)
-#define UM_AUDIOREACTIVE_USE_ARDUINO_FFT // DSP FFT library is not available in ESP-IDF < 4.4
-#endif
-
-#ifdef UM_AUDIOREACTIVE_USE_ARDUINO_FFT
-#include <arduinoFFT.h> // ArduinoFFT library for FFT and window functions
-#else
-#include "dsps_fft2r.h" // ESP-IDF DSP library for FFT and window functions
-#ifdef FFT_PREFER_EXACT_PEAKS
-#include "dsps_wind_blackman_harris.h"
-#else
-#include "dsps_wind_flat_top.h"
-#endif
-#if defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32C3)
-#define UM_AUDIOREACTIVE_USE_INTEGER_FFT // always use integer FFT on ESP32-S2 and ESP32-C3
-#endif
-#endif
-
-// These are the input and output vectors.  Input vectors receive computed results from FFT.
-#if !defined(UM_AUDIOREACTIVE_USE_INTEGER_FFT)
-static float* valFFT = nullptr;
-#else
-static int16_t* valFFT = nullptr;
-#endif
-#ifdef UM_AUDIOREACTIVE_USE_ARDUINO_FFT
-static float* vImag = nullptr; // imaginary part of FFT results
-#endif
-
-// pre-computed window function
-#if !defined(UM_AUDIOREACTIVE_USE_INTEGER_FFT)
-__attribute__((aligned(16))) float* windowFFT;
-#else
-__attribute__((aligned(16))) int16_t* windowFFT;
-#endif
-
 
 #if !defined(FFTTASK_PRIORITY)
 #define FFTTASK_PRIORITY 1 // standard: looptask prio
@@ -211,6 +170,45 @@ static bool useBandPassFilter = false;                    // if true, enables a 
 // Begin FFT Code //
 ////////////////////
 
+#if !defined(UM_AUDIOREACTIVE_USE_ESPDSP_FFT) && (defined(CONFIG_IDF_TARGET_ESP32S3) || defined(CONFIG_IDF_TARGET_ESP32))
+#define UM_AUDIOREACTIVE_USE_ARDUINO_FFT // use ArduinoFFT library for FFT instead of ESP-IDF DSP library by default on ESP32 and S3
+#endif
+
+#if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(4, 4, 0)
+#define UM_AUDIOREACTIVE_USE_ARDUINO_FFT // DSP FFT library is not available in ESP-IDF < 4.4
+#endif
+
+#ifdef UM_AUDIOREACTIVE_USE_ARDUINO_FFT
+#include <arduinoFFT.h> // ArduinoFFT library for FFT and window functions
+#else
+#include "dsps_fft2r.h" // ESP-IDF DSP library for FFT and window functions
+#ifdef FFT_PREFER_EXACT_PEAKS
+#include "dsps_wind_blackman_harris.h"
+#else
+#include "dsps_wind_flat_top.h"
+#endif
+#if defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32C3)
+#define UM_AUDIOREACTIVE_USE_INTEGER_FFT // always use integer FFT on ESP32-S2 and ESP32-C3
+#endif
+#endif
+
+// These are the input and output vectors.  Input vectors receive computed results from FFT.
+#if !defined(UM_AUDIOREACTIVE_USE_INTEGER_FFT)
+static float* valFFT = nullptr;
+#else
+static int16_t* valFFT = nullptr;
+#endif
+#ifdef UM_AUDIOREACTIVE_USE_ARDUINO_FFT
+static float* vImag = nullptr; // imaginary part of FFT results
+#endif
+
+// pre-computed window function
+#if !defined(UM_AUDIOREACTIVE_USE_INTEGER_FFT)
+__attribute__((aligned(16))) float* windowFFT;
+#else
+__attribute__((aligned(16))) int16_t* windowFFT;
+#endif
+
 // some prototypes, to ensure consistent interfaces
 static float fftAddAvg(int from, int to);   // average of several FFT result bins
 void FFTcode(void * parameter);      // audio processing task: read samples, run FFT, fill GEQ channels from FFT results
@@ -308,6 +306,7 @@ void FFTcode(void * parameter)
   ArduinoFFT<float> FFT = ArduinoFFT<float>(valFFT, vImag, samplesFFT, SAMPLE_RATE, true);
 #elif !defined(UM_AUDIOREACTIVE_USE_INTEGER_FFT)
   // allocate and initialize FFT buffers on first call
+  // note: free() is never used on these pointers. If it ever is implemented, this implementation can cause memory leaks (need to free raw pointers)
   if (valFFT == nullptr) {
     float* raw_buffer = (float*)heap_caps_malloc((2 * samplesFFT * sizeof(float)) + 16, MALLOC_CAP_8BIT);
     if ((raw_buffer == nullptr)) return; // something went wrong
@@ -502,7 +501,12 @@ void FFTcode(void * parameter)
       haveDoneFFT = true;
 #endif
     } else { // noise gate closed - only clear results as FFT was skipped. MIC samples are still valid when we do this.
-      memset(valFFT, 0, samplesFFT * sizeof(float)); // only lower half of buffer contains FFT results, so only clear that part
+      // only lower half of buffer contains FFT results, so only clear that part
+      #if !defined(UM_AUDIOREACTIVE_USE_INTEGER_FFT)
+      memset(valFFT, 0, samplesFFT * sizeof(float));
+      #else
+      memset(valFFT, 0, samplesFFT * sizeof(int16_t));
+      #endif
       FFT_MajorPeak = 1;
       FFT_Magnitude = 0.001;
     }
@@ -660,7 +664,7 @@ static void runMicFilter(uint16_t numSamples, int16_t *sampleBuffer)  // pre-fil
     last_vals[1] = last_vals[0];
     last_vals[0] = (int32_t)sampleBuffer[i];
     lowfilt_fp += ALPHA_FP * (highFilteredSample_fp - (lowfilt_fp >> 15)); // low pass filter in 17.15 fixed point format
-    sampleBuffer[i] = highFilteredSample_fp - (lowfilt_fp >> 15);;
+    sampleBuffer[i] = highFilteredSample_fp - (lowfilt_fp >> 15);
   }
 }
 #endif
