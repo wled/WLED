@@ -459,7 +459,9 @@
         min-height: 180px;
         max-height: 180px;
         min-width: 180px;
+        max-width: 180px;
         image-rendering: pixelated;
+        background-size: cover;
       }
 
       dialog {
@@ -651,7 +653,7 @@
     <dialog id="image-dialog">
       <div class="dialog-content">
         <h3 id="image-dialog-name"></h3>
-        <img class="image-dialog-img" id="image-dialog-img" src="" />
+        <div class="image-dialog-img" id="image-dialog-img"></div>
         <div class="row-dialog-button">
           <div class="col-dialog-button">
             <button
@@ -786,37 +788,42 @@
     // load all info on page load
     loadInfo();
 
-    async function loadImages(images, forceReload = false) {
+    async function getImageBlob(src, forceReload = false) {
+      try {
+        const options = forceReload
+          ? { cache: "reload" }
+          : { cache: "force-cache" };
+        const response = await fetch(src, options);
+        return response.blob();
+      } catch (error) {
+        console.error(error);
+      }
+    }
+
+    async function loadImages(imageHolders, forceReload = false) {
       const maxConcurrentRequests = 2;
       let currentIndex = 0;
       let numRequests = 0;
       let allImagesLoaded = false;
-
-      async function loadImage(imageHolder, forceReload = false) {
-        try {
-          const options = forceReload
-            ? { cache: "reload" }
-            : { cache: "force-cache" };
-          const response = await fetch(imageHolder.dataset.src, options);
-          imageHolder.style["background-image"] = `url(${URL.createObjectURL(
-            await response.blob()
-          )})`;
-          imageHolder.classList.remove("loading");
-        } catch (error) {
-          console.error(error);
-        } finally {
-          numRequests--;
-        }
-      }
 
       // continue with requests until all img are loaded
       while (!allImagesLoaded) {
         // watch the concurrent request limit
         while (
           numRequests < maxConcurrentRequests &&
-          currentIndex < images.length
+          currentIndex < imageHolders.length
         ) {
-          loadImage(images[currentIndex], forceReload);
+          imageHolders[currentIndex].style[
+            "background-image"
+          ] = `url(${URL.createObjectURL(
+            await getImageBlob(
+              imageHolders[currentIndex].dataset.src,
+              forceReload
+            ).finally(() => {
+              numRequests--;
+              imageHolders[currentIndex].classList.remove("loading");
+            })
+          )})`;
           currentIndex++;
           numRequests++;
         }
@@ -861,13 +868,16 @@
 
           imageHolder.addEventListener(
             "contextmenu",
-            (event) => {
+            async (event) => {
               event.preventDefault();
               selectedImage = imageHolder.dataset;
-              gId("image-dialog-name").innerText = imageHolder.dataset.name;
-              gId("image-dialog-img").src = "";
-              gId("image-dialog-img").src = imageHolder.dataset.src;
+              gId("image-dialog-name").innerText = selectedImage.name;
               imgDialog.showModal();
+              gId("image-dialog-img").style[
+                "background-image"
+              ] = `url(${URL.createObjectURL(
+                await getImageBlob(selectedImage.src)
+              )})`;
             },
             false
           );
