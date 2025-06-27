@@ -803,8 +803,6 @@
     // pre-fill hostname input
     hostname.value = host;
 
-    checkBackBtn();
-
     // load all info on page load
     loadInfo();
 
@@ -1346,18 +1344,10 @@
     function showPageContent() {
       gId("contentConnected").style.display = "block";
       gId("reloadSiteBtn").style.display = "none";
-      checkBackBtn();
     }
 
     function hidePageContent() {
       gId("contentConnected").style.display = "none";
-      checkBackBtn();
-    }
-
-    // "Back" button will only be shown if served from webserver
-    function checkBackBtn() {
-      gId("btnBack").style.visibility =
-        window.location.protocol === "http:" ? "visible" : "hidden";
     }
 
     function validateFile(file) {
