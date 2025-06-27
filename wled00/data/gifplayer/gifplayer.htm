@@ -8,7 +8,6 @@
       :root {
         --s-thumb: #0006;
         --s-background: #0003;
-        --overlay: rgba(0, 0, 0, 0.5);
         --background: #111;
         --text: #ddd;
         --gray-dark: #222;
@@ -26,6 +25,7 @@
         --warning-dark: #dc2f02;
         --warning-medium: #e85d04;
         --warning-light: #f48c06;
+        --dialog-anim-duration: 0.34s;
       }
 
       ::-webkit-scrollbar {
@@ -469,19 +469,41 @@
         max-width: 90vw;
         border-radius: 10px;
         box-shadow: 0 5px 30px 0 black;
-        animation: fadeInDialog 0.3s ease both;
         text-align: center;
         margin: auto;
         margin-top: 10rem;
         border: none;
         overflow: hidden;
+        translate: 0 0;
+        opacity: 1;
+        transition: translate var(--dialog-anim-duration) ease-out,
+          opacity var(--dialog-anim-duration) ease-out,
+          display var(--dialog-anim-duration) allow-discrete;
+
+        @starting-style {
+          translate: 0 -1vh;
+          opacity: 0;
+        }
+        &:not([open]) {
+          translate: 0 1em;
+          opacity: 0;
+        }
       }
 
       dialog::backdrop {
-        animation: fadeInDialog 0.3s ease both;
         background: rgba(0, 0, 0, 0.25);
         z-index: 2;
         backdrop-filter: blur(20px);
+        opacity: 1;
+        transition: opacity var(--dialog-anim-duration) ease-out,
+          display var(--dialog-anim-duration) ease-in-out allow-discrete;
+
+        @starting-style {
+          opacity: 0;
+        }
+        &:not([open]) {
+          opacity: 0;
+        }
       }
 
       h3 {
@@ -532,18 +554,6 @@
 
         to {
           opacity: 1;
-        }
-      }
-
-      @keyframes fadeInDialog {
-        from {
-          opacity: 0;
-          translate: 0 -1em;
-        }
-
-        to {
-          opacity: 1;
-          translate: 0 0;
         }
       }
 
