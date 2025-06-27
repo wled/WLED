@@ -361,13 +361,6 @@
         );
       }
 
-      .carousel {
-        display: flex;
-        height: 100%;
-        width: 100%;
-        cursor: pointer;
-      }
-
       button {
         width: 100%;
         border: 0;
@@ -772,22 +765,89 @@
     <div id="toast-container"></div>
   </body>
   <script>
-    // define constants
-    const FX_MODE_IMAGE = 53; // set effect mode "Image"
-    const GIF_SPEED = 128; // set effect speed to 128, original gif speed
+    // ===================
+    // Constants
+    // ===================
+    const FX_MODE_IMAGE = 53; // effect mode "Image"
+    const GIF_SPEED = 128; // effect speed 128 = original gif speed
     const ALLOWED_EXT = ["gif", "bmp", "png"];
-    const urlEdit = "/edit";
-    const urlJsonState = "/json/state";
-    const urlJsonInfo = "/json/info";
-    const urlPresets = "/presets.json";
+    const URL_EDIT = "/edit";
+    const URL_JSON_STATE = "/json/state";
+    const URL_JSON_INFO = "/json/info";
+    const URL_PRESETS = "/presets.json";
 
-    // dynamic variables
-    const d = document;
+    // ===================
+    // Utility Functions
+    // ===================
+
+    function gId(id) {
+      return document.getElementById(id);
+    }
+
+    function showLoading() {
+      gId("loading").style.display = "block";
+    }
+
+    function hideLoading() {
+      gId("loading").style.display = "none";
+    }
+
+    function showPageContent() {
+      gId("contentConnected").style.display = "block";
+      gId("reloadSiteBtn").style.display = "none";
+    }
+
+    function hidePageContent() {
+      gId("contentConnected").style.display = "none";
+    }
+
+    function validateFile(file) {
+      const fileExt = file.name.split(".").pop().toLowerCase();
+      if (ALLOWED_EXT.includes(fileExt)) {
+        return true;
+      } else {
+        toast("This file does not have a compatible image format", "error");
+        return false;
+      }
+    }
+
+    /**
+     * Add highlight event listeners to buttons
+     * @param {string[]} btnIds
+     */
+    function addButtonHighlightEvents(btnIds) {
+      btnIds.forEach((btn) => {
+        ["mousedown", "touchstart"].forEach((evt) =>
+          gId(btn).addEventListener(
+            evt,
+            () => gId(btn).classList.add("selected"),
+            false
+          )
+        );
+        ["mouseup", "touchend", "mouseleave"].forEach((evt) =>
+          gId(btn).addEventListener(
+            evt,
+            () => gId(btn).classList.remove("selected"),
+            false
+          )
+        );
+      });
+    }
+
+    // ===================
+    // Global Variables
+    // ===================
+    const doc = document;
     const hostname = gId("hostname");
     const imgDialog = gId("image-dialog");
     const settingsDialog = gId("settings-dialog");
     let selectedImage;
     let presetsJson = {};
+    let WLED_URL = "0.0.0.0";
+
+    // ===================
+    //  On Page Load
+    // ===================
 
     // get host address and build WLED_URL
     const params = new URLSearchParams(window.location.search);
@@ -798,7 +858,7 @@
       : "0.0.0.0";
     const protocol =
       window.location.protocol === "file:" ? "http:" : window.location.protocol;
-    let WLED_URL = `${protocol}//${host}`;
+    WLED_URL = `${protocol}//${host}`;
 
     // pre-fill hostname input
     hostname.value = host;
@@ -806,6 +866,9 @@
     // load all info on page load
     loadInfo();
 
+    // ===================
+    // Functions
+    // ===================
     async function getImageBlob(src, forceReload = false) {
       try {
         const options = forceReload
@@ -853,7 +916,7 @@
     }
 
     async function images(forceReload = false) {
-      const url = `${WLED_URL}${urlEdit}?list=/`;
+      const url = `${WLED_URL}${URL_EDIT}?list=/`;
       // clear image list intially
       gId("image-list").innerHTML = "";
       // reset hostname input color
@@ -877,7 +940,7 @@
         let imageList = gId("image-list");
         let imageHolders = [];
         images.forEach((image) => {
-          const imageHolder = d.createElement("div");
+          const imageHolder = doc.createElement("div");
           imageHolder.classList.add("image-holder");
           imageHolder.classList.add("loading");
           imageHolder.dataset.src = `${WLED_URL}/${image.name}`;
@@ -945,7 +1008,7 @@
     }
 
     async function presets() {
-      const url = `${WLED_URL}${urlPresets}`;
+      const url = `${WLED_URL}${URL_PRESETS}`;
       try {
         const response = await fetch(url);
         presetsJson = await response.json();
@@ -956,7 +1019,7 @@
     }
 
     async function storage() {
-      const url = `${WLED_URL}${urlJsonInfo}`;
+      const url = `${WLED_URL}${URL_JSON_INFO}`;
       try {
         const response = await fetch(url, {
           signal: AbortSignal.timeout(10000),
@@ -972,7 +1035,7 @@
 
     async function deleteImage() {
       if (!confirm("Are you sure you want to delete this image?")) return;
-      formData = new FormData();
+      let formData = new FormData();
       formData.append("path", selectedImage.path);
 
       const url = `${WLED_URL}/edit`;
@@ -1017,7 +1080,7 @@
         });
       }
 
-      const url = `${WLED_URL}${urlJsonState}`;
+      const url = `${WLED_URL}${URL_JSON_STATE}`;
       const options = {
         method: "POST",
         body: JSON.stringify(state),
@@ -1107,7 +1170,7 @@
       let formData = new FormData();
       formData.append("data", file, `/${file.name}`);
 
-      const url = `${WLED_URL}${urlEdit}`;
+      const url = `${WLED_URL}${URL_EDIT}`;
       const options = {
         method: "POST",
         body: formData,
@@ -1130,7 +1193,7 @@
     }
 
     async function powerOff() {
-      const url = `${WLED_URL}${urlJsonState}`;
+      const url = `${WLED_URL}${URL_JSON_STATE}`;
       try {
         const options = {
           method: "POST",
@@ -1147,7 +1210,7 @@
     }
 
     async function playPause() {
-      const url = `${WLED_URL}${urlJsonState}`;
+      const url = `${WLED_URL}${URL_JSON_STATE}`;
       try {
         const options = {
           method: "POST",
@@ -1185,6 +1248,10 @@
       );
     }
 
+    // ===================
+    // Event Listeners
+    // ===================
+
     // reload all info on change of hostname input
     hostname.addEventListener("blur", async () => {
       hostname.value = hostname.value.trim();
@@ -1216,42 +1283,23 @@
       },
       false
     );
-
-    gId("dropzone").addEventListener("dragover", (e) => {
-      e.preventDefault();
-    });
-
+    gId("dropzone").addEventListener("dragover", (e) => e.preventDefault());
     gId("dropzone").addEventListener("drop", (e) => {
       e.preventDefault();
-
-      if (!validateFile(e.dataTransfer.files[0])) {
-        return;
-      }
-
+      if (!validateFile(e.dataTransfer.files[0])) return;
       gId("source").files = e.dataTransfer.files;
-      const { name } = gId("source").files[0];
       upload();
     });
-
-    gId("dropzone").addEventListener("click", () => {
-      gId("source").click();
-    });
-
+    gId("dropzone").addEventListener("click", () => gId("source").click());
     gId("source").addEventListener("change", (e) => {
-      const dropzoneLabel = gId("dropzoneLabel");
       const { value } = e.target;
-
       if (value) {
-        if (!validateFile(e.target.files[0])) {
-          return;
-        }
-        const { name } = e.target.files[0];
+        if (!validateFile(e.target.files[0])) return;
         upload();
       }
     });
-
     // dismiss dialog when clicking somewhere other than its elements
-    d.querySelectorAll("dialog").forEach((dialog) =>
+    doc.querySelectorAll("dialog").forEach((dialog) =>
       dialog.addEventListener(
         "click",
         ({ target: dialog }) => {
@@ -1260,29 +1308,7 @@
         false
       )
     );
-
-    ["mousedown", "touchstart"].forEach((evt) =>
-      ["btnStop", "btnPlayPause"].forEach((btn) =>
-        gId(btn).addEventListener(
-          evt,
-          () => {
-            gId(btn).classList.add("selected");
-          },
-          false
-        )
-      )
-    );
-    ["mouseup", "touchend", "mouseleave"].forEach((evt) =>
-      ["btnStop", "btnPlayPause"].forEach((btn) =>
-        gId(btn).addEventListener(
-          evt,
-          () => {
-            gId(btn).classList.remove("selected");
-          },
-          false
-        )
-      )
-    );
+    addButtonHighlightEvents(["btnStop", "btnPlayPause"]);
     gId("btnStop").addEventListener("click", powerOff, false);
     gId("btnPlayPause").addEventListener("click", playPause, false);
     gId("btnSettings").addEventListener(
@@ -1291,73 +1317,33 @@
       false
     );
 
+    // ===================
+    // Toast Helper
+    // ===================
     function toast(message, type = "success", duration = 5000) {
-      const toast = d.createElement("div");
+      const toast = doc.createElement("div");
       const wait = 100;
-
       toast.style.animation = "fadeInToast";
       toast.style.animationDuration = `${duration + wait}ms`;
       toast.style.animationTimingFunction = "linear";
-
       toast.classList.add("toast", type);
-
-      const body = d.createElement("span");
+      const body = doc.createElement("span");
       body.classList.add("toast-body");
-
       body.textContent = message;
-
       toast.appendChild(body);
-
-      const progress = d.createElement("div");
+      const progress = doc.createElement("div");
       progress.classList.add("toast-progress");
-
       progress.style.animation = "progress";
       progress.style.animationDuration = `${duration + wait}ms`;
       progress.style.animationDelay = "0s";
-
       toast.appendChild(progress);
-
       gId("toast-container").appendChild(toast);
-
       setTimeout(() => {
         toast.style.opacity = 0;
         setTimeout(() => {
           toast.remove();
         }, wait);
       }, duration);
-    }
-
-    function gId(id) {
-      return d.getElementById(id);
-    }
-
-    function showLoading() {
-      const loading = gId("loading");
-      loading.style.display = "block";
-    }
-
-    function hideLoading() {
-      const loading = gId("loading");
-      loading.style.display = "none";
-    }
-
-    function showPageContent() {
-      gId("contentConnected").style.display = "block";
-      gId("reloadSiteBtn").style.display = "none";
-    }
-
-    function hidePageContent() {
-      gId("contentConnected").style.display = "none";
-    }
-
-    function validateFile(file) {
-      var fileExt = file.name.split(".").pop().toLowerCase();
-      if (ALLOWED_EXT.includes(fileExt)) {
-        return true;
-      } else {
-        toast("This file does not have a compatible image format", "error");
-        return false;
-      }
     }
   </script>
 </html>
