@@ -663,10 +663,10 @@
         </footer>
       </div>
     </div>
-    <dialog id="image-dialog">
+    <dialog id="imgDialog">
       <div class="dialog-content">
-        <h3 id="image-dialog-name"></h3>
-        <div class="image-dialog-img" id="image-dialog-img"></div>
+        <h3 id="imgDialogName"></h3>
+        <div class="image-dialog-img" id="imgDialogImg"></div>
         <div class="row-button">
           <div class="col-button">
             <button
@@ -696,6 +696,18 @@
             <button
               type="button"
               class="button button-dialog"
+              id="btnDownloadImg"
+              style="background-color: var(--blue-dark)"
+            >
+              Download
+            </button>
+          </div>
+        </div>
+        <div class="row-button">
+          <div class="col-button">
+            <button
+              type="button"
+              class="button button-dialog"
               id="btnDeleteImg"
               style="background-color: var(--error-dark)"
             >
@@ -709,7 +721,7 @@
               type="button"
               class="button button-dialog"
               id="btnCloseImgDialog"
-              style="background-color: var(--blue-dark)"
+              style="background-color: var(--gray-dark)"
               onclick="imgDialog.close()"
             >
               Close
@@ -718,7 +730,7 @@
         </div>
       </div>
     </dialog>
-    <dialog id="settings-dialog">
+    <dialog id="settingsDialog">
       <div class="dialog-content">
         <h3 id="">Settings</h3>
         <form id="formHostname" novalidate>
@@ -839,8 +851,8 @@
     // ===================
     const doc = document;
     const hostname = gId("hostname");
-    const imgDialog = gId("image-dialog");
-    const settingsDialog = gId("settings-dialog");
+    const imgDialog = gId("imgDialog");
+    const settingsDialog = gId("settingsDialog");
     let selectedImage;
     let presetsJson = {};
     let WLED_URL = "0.0.0.0";
@@ -952,9 +964,9 @@
             async (event) => {
               event.preventDefault();
               selectedImage = imageHolder.dataset;
-              gId("image-dialog-name").innerText = selectedImage.name;
+              gId("imgDialogName").innerText = selectedImage.name;
               imgDialog.showModal();
-              gId("image-dialog-img").style[
+              gId("imgDialogImg").style[
                 "background-image"
               ] = `url(${URL.createObjectURL(
                 await getImageBlob(selectedImage.src)
@@ -1056,6 +1068,17 @@
         console.error(msg);
         toast(msg, "error");
       }
+    }
+
+    async function downloadImg() {
+      const fileURL = URL.createObjectURL(await getImageBlob(selectedImage.src));
+      const a = document.createElement("a");
+      a.href = fileURL;
+      a.download = selectedImage.name;
+      doc.body.appendChild(a);
+      a.click();
+      doc.body.removeChild(a);
+      URL.revokeObjectURL(fileURL);
     }
 
     async function showImg() {
@@ -1272,6 +1295,7 @@
     });
     gId("btnShowImg").addEventListener("click", showImg, false);
     gId("btnSavePreset").addEventListener("click", savePreset, false);
+    gId("btnDownloadImg").addEventListener("click", downloadImg, false);
     gId("btnDeleteImg").addEventListener("click", deleteImage, false);
     gId("btnReloadImages").addEventListener(
       "click",
