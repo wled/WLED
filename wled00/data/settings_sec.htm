@@ -53,13 +53,13 @@
 		Factory reset: <input type="checkbox" name="RS"><br>
 		All settings and presets will be erased.<br><br>
 		<div class="warn">&#9888; Unencrypted transmission. An attacker on the same network can intercept form data!</div>
-		<hr>
+		<span id="OTA"><hr>
 		<h3>Software Update</h3>
 		<button type="button" onclick="U()">Manual OTA Update</button><br>
 		<div id="aOTA">Enable ArduinoOTA: <input type="checkbox" name="AO"></div>
 		Only allow update from same network/WiFi: <input type="checkbox" name="SU"><br>
 		<i class="warn">&#9888; If you are using multiple VLANs (i.e. IoT or guest network) either set PIN or disable this option.<br>
-			Disabling this option will make your device less secure.</i><br>
+			Disabling this option will make your device less secure.</i><br></span>
 		<hr id="backup">
 		<h3>Backup & Restore</h3>
 		<div class="warn">&#9888; Restoring presets/configuration will OVERWRITE your current presets/configuration.<br>
