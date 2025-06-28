@@ -134,7 +134,7 @@ class AudioSource {
        Read num_samples from the microphone, and store them in the provided
        buffer
     */
-    virtual void getSamples(void *buffer, uint16_t num_samples) = 0;
+    virtual void getSamples(FFTsampleType *buffer, uint16_t num_samples) = 0;
 
     /* check if the audio source driver was initialized successfully */
     virtual bool isInitialized(void) {return(_initialized);}
@@ -314,7 +314,7 @@ class I2SSource : public AudioSource {
       if (_mclkPin != I2S_PIN_NO_CHANGE) PinManager::deallocatePin(_mclkPin, PinOwner::UM_Audioreactive);
     }
 
-    virtual void getSamples(void *buffer, uint16_t num_samples) {
+    virtual void getSamples(FFTsampleType *buffer, uint16_t num_samples) {
       if (_initialized) {
         esp_err_t err;
         size_t bytes_read = 0;        /* Counter variable to check if we actually got enough data */
@@ -333,10 +333,7 @@ class I2SSource : public AudioSource {
         }
 
         // Store samples in sample buffer
-#if !defined(UM_AUDIOREACTIVE_USE_INTEGER_FFT)
-        float* _buffer = static_cast<float*>(buffer);
-#else
-        int16_t* _buffer = static_cast<int16_t*>(buffer); // use integer samples on ESP32-S2 and ESP32-C3
+#if defined(UM_AUDIOREACTIVE_USE_INTEGER_FFT)
         //constexpr int32_t FIXEDSHIFT = 8; // shift by 8 bits for fixed point math (no loss at 24bit input sample resolution)
         //int32_t intSampleScale = _sampleScale * (1<<FIXEDSHIFT); // _sampleScale <= 1.0f, shift for fixed point math
 #endif
@@ -350,8 +347,8 @@ class I2SSource : public AudioSource {
   #else
           float currSample = (float) newSamples[i];                 // 16bit input -> use as-is
   #endif
-          _buffer[i] = currSample;
-          _buffer[i] *= _sampleScale;                               // scale samples
+          buffer[i] = currSample;
+          buffer[i] *= _sampleScale;                               // scale samples
 #else
   #ifdef I2S_SAMPLE_DOWNSCALE_TO_16BIT
           // note on sample scaling: scaling is only used for inputs with master clock and those are better suited for ESP32 or S3
@@ -363,7 +360,7 @@ class I2SSource : public AudioSource {
           //int32_t currSample = (newSamples[i] * intSampleScale) >> FIXEDSHIFT;   // scale samples, shift back down to 16bit
           int16_t currSample = newSamples[i];                 // 16bit input -> use as-is
   #endif
-          _buffer[i] = (int16_t)currSample;
+          buffer[i] = (int16_t)currSample;
 #endif
         }
       }
@@ -707,8 +704,7 @@ class I2SAdcSource : public I2SSource {
     }
 
 
-    void getSamples(void *buffer, uint16_t num_samples) {
-      float *_buffer = static_cast<float*>(buffer);
+    void getSamples(FFTsampleType *buffer, uint16_t num_samples) {
       /* Enable ADC. This has to be enabled and disabled directly before and
        * after sampling, otherwise Wifi dies
        */
@@ -723,7 +719,7 @@ class I2SAdcSource : public I2SSource {
           }
         #endif
 
-        I2SSource::getSamples(_buffer, num_samples);
+        I2SSource::getSamples(buffer, num_samples);
 
         #if !defined(I2S_GRAB_ADC1_COMPLETELY)
           // old code - works for me without enable/disable, at least on ESP32.
