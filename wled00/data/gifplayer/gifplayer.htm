@@ -651,7 +651,7 @@
           <div id="reloadImages" style="display: none">
             <span
               >&nbsp;|<span class="link" onclick="loadInfo(true)">
-                Force Reload
+                Clear Cache
               </span></span
             >
           </div>
@@ -1196,9 +1196,9 @@
       }
     }
 
-    async function loadInfo(forceReload = false) {
+    async function loadInfo(clearCache = false) {
       // await loading of image list, actual images will load asynchronously
-      if (await images(forceReload)) {
+      if (await images(clearCache)) {
         // await loading of presets.json
         await presets();
         // get storage used/total count
