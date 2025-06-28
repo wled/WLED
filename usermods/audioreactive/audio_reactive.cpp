@@ -123,6 +123,44 @@ static uint8_t maxVol = 31;          // (was 10) Reasonable value for constant v
 static uint8_t binNum = 8;           // Used to select the bin for FFT based beat detection  (deprecated)
 
 #ifdef ARDUINO_ARCH_ESP32
+#if !defined(UM_AUDIOREACTIVE_USE_ESPDSP_FFT) && (defined(CONFIG_IDF_TARGET_ESP32S3) || defined(CONFIG_IDF_TARGET_ESP32))
+#define UM_AUDIOREACTIVE_USE_ARDUINO_FFT // use ArduinoFFT library for FFT instead of ESP-IDF DSP library by default on ESP32 and S3
+#endif
+
+#if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(4, 4, 0)
+#define UM_AUDIOREACTIVE_USE_ARDUINO_FFT // DSP FFT library is not available in ESP-IDF < 4.4
+#endif
+
+#ifdef UM_AUDIOREACTIVE_USE_ARDUINO_FFT
+#include <arduinoFFT.h> // ArduinoFFT library for FFT and window functions
+#else
+#include "dsps_fft2r.h" // ESP-IDF DSP library for FFT and window functions
+#ifdef FFT_PREFER_EXACT_PEAKS
+#include "dsps_wind_blackman_harris.h"
+#else
+#include "dsps_wind_flat_top.h"
+#endif
+#if defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32C3)
+#define UM_AUDIOREACTIVE_USE_INTEGER_FFT // always use integer FFT on ESP32-S2 and ESP32-C3
+#endif
+#endif
+
+// These are the input and output vectors.  Input vectors receive computed results from FFT.
+#if !defined(UM_AUDIOREACTIVE_USE_INTEGER_FFT)
+static float* valFFT = nullptr;
+#else
+static int16_t* valFFT = nullptr;
+#endif
+#ifdef UM_AUDIOREACTIVE_USE_ARDUINO_FFT
+static float* vImag = nullptr; // imaginary part of FFT results
+#endif
+
+// pre-computed window function
+#if !defined(UM_AUDIOREACTIVE_USE_INTEGER_FFT)
+__attribute__((aligned(16))) float* windowFFT;
+#else
+__attribute__((aligned(16))) int16_t* windowFFT;
+#endif
 
 // use audio source class (ESP32 specific)
 #include "audio_source.h"
@@ -164,50 +202,11 @@ const float agcSampleSmooth[AGC_NUM_PRESETS]  = {  1/12.f,   1/6.f,  1/16.f}; //
 // AGC presets end
 
 static AudioSource *audioSource = nullptr;
-static bool useBandPassFilter = false;                    // if true, enables a bandpass filter 80Hz-16Khz to remove noise. Applies before FFT.
-
+static bool useBandPassFilter = false;                    // if true, enables a hard cutoff bandpass filter. Applies after FFT.
+static bool useMicFilter = false;                         // if true, enables a IIR bandpass filter 80Hz-20Khz to remove noise. Applies before FFT.
 ////////////////////
 // Begin FFT Code //
 ////////////////////
-
-#if !defined(UM_AUDIOREACTIVE_USE_ESPDSP_FFT) && (defined(CONFIG_IDF_TARGET_ESP32S3) || defined(CONFIG_IDF_TARGET_ESP32))
-#define UM_AUDIOREACTIVE_USE_ARDUINO_FFT // use ArduinoFFT library for FFT instead of ESP-IDF DSP library by default on ESP32 and S3
-#endif
-
-#if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(4, 4, 0)
-#define UM_AUDIOREACTIVE_USE_ARDUINO_FFT // DSP FFT library is not available in ESP-IDF < 4.4
-#endif
-
-#ifdef UM_AUDIOREACTIVE_USE_ARDUINO_FFT
-#include <arduinoFFT.h> // ArduinoFFT library for FFT and window functions
-#else
-#include "dsps_fft2r.h" // ESP-IDF DSP library for FFT and window functions
-#ifdef FFT_PREFER_EXACT_PEAKS
-#include "dsps_wind_blackman_harris.h"
-#else
-#include "dsps_wind_flat_top.h"
-#endif
-#if defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32C3)
-#define UM_AUDIOREACTIVE_USE_INTEGER_FFT // always use integer FFT on ESP32-S2 and ESP32-C3
-#endif
-#endif
-
-// These are the input and output vectors.  Input vectors receive computed results from FFT.
-#if !defined(UM_AUDIOREACTIVE_USE_INTEGER_FFT)
-static float* valFFT = nullptr;
-#else
-static int16_t* valFFT = nullptr;
-#endif
-#ifdef UM_AUDIOREACTIVE_USE_ARDUINO_FFT
-static float* vImag = nullptr; // imaginary part of FFT results
-#endif
-
-// pre-computed window function
-#if !defined(UM_AUDIOREACTIVE_USE_INTEGER_FFT)
-__attribute__((aligned(16))) float* windowFFT;
-#else
-__attribute__((aligned(16))) int16_t* windowFFT;
-#endif
 
 // some prototypes, to ensure consistent interfaces
 static float fftAddAvg(int from, int to);   // average of several FFT result bins
@@ -382,8 +381,7 @@ void FFTcode(void * parameter)
 
     // band pass filter - can reduce noise floor by a factor of 50 and avoid aliasing effects to base & high frequency bands
     // downside: frequencies below 100Hz will be ignored
-    if (useBandPassFilter) runMicFilter(samplesFFT, valFFT);
-
+    if (useMicFilter) runMicFilter(samplesFFT, valFFT);
     // find highest sample in the batch
     #if !defined(UM_AUDIOREACTIVE_USE_INTEGER_FFT)
     float maxSample = 0.0f;                         // max sample from FFT batch
@@ -1400,7 +1398,8 @@ class AudioReactive : public Usermod {
         periph_module_reset(PERIPH_I2S0_MODULE);   // not possible on -C3
       #endif
       delay(100);         // Give that poor microphone some time to setup.
-      useBandPassFilter = true; // filter fixes aliasing to base & highest frequency bands and reduces noise floor (use for all mic inputs)
+      useBandPassFilter = false; // filter cuts lowest and highest frequency bands from FFT result (use on very noisy mic inputs)
+      useMicFilter = true;       // filter fixes aliasing to base & highest frequency bands and reduces noise floor (recommended for all mic inputs)
 
       #if !defined(CONFIG_IDF_TARGET_ESP32S2) && !defined(CONFIG_IDF_TARGET_ESP32C3)
         if ((i2sckPin == I2S_PIN_NO_CHANGE) && (i2ssdPin >= 0) && (i2swsPin >= 0) && ((dmType == 1) || (dmType == 4)) ) dmType = 5;   // dummy user support: SCK == -1 --means--> PDM microphone
@@ -1435,6 +1434,7 @@ class AudioReactive : public Usermod {
         case 4:
           DEBUGSR_PRINT(F("AR: Generic I2S Microphone with Master Clock - ")); DEBUGSR_PRINTLN(F(I2S_MIC_CHANNEL_TEXT));
           audioSource = new I2SSource(SAMPLE_RATE, BLOCK_SIZE, 1.0f/24.0f);
+          useMicFilter = false; // I2S with Master Clock is mostly used for line-in, skip sample filtering
           delay(100);
           if (audioSource) audioSource->initialize(i2swsPin, i2ssdPin, i2sckPin, mclkPin);
           break;
@@ -1442,6 +1442,7 @@ class AudioReactive : public Usermod {
         case 5:
           DEBUGSR_PRINT(F("AR: I2S PDM Microphone - ")); DEBUGSR_PRINTLN(F(I2S_PDM_MIC_CHANNEL_TEXT));
           audioSource = new I2SSource(SAMPLE_RATE, BLOCK_SIZE, 1.0f/4.0f);
+          useBandPassFilter = true;  // this reduces the noise floor on SPM1423 from 5% Vpp (~380) down to 0.05% Vpp (~5)
           delay(100);
           if (audioSource) audioSource->initialize(i2swsPin, i2ssdPin);
           break;
@@ -1449,7 +1450,7 @@ class AudioReactive : public Usermod {
         case 6:
           DEBUGSR_PRINTLN(F("AR: ES8388 Source"));
           audioSource = new ES8388Source(SAMPLE_RATE, BLOCK_SIZE);
-          useBandPassFilter = false;
+          useMicFilter = false;
           delay(100);
           if (audioSource) audioSource->initialize(i2swsPin, i2ssdPin, i2sckPin, mclkPin);
           break;
