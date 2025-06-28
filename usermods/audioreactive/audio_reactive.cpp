@@ -604,10 +604,12 @@ void FFTcode(void * parameter)
 #if !defined(UM_AUDIOREACTIVE_USE_INTEGER_FFT)
 static void runMicFilter(uint16_t numSamples, float *sampleBuffer)          // pre-filtering of raw samples (band-pass)
 {
-  // low frequency cutoff parameter - see https://dsp.stackexchange.com/questions/40462/exponential-moving-average-cut-off-frequency
+  // low frequency cutoff parameter - see https://dsp.stackexchange.com/questions/40462/exponential-moving-average-cut-off-frequency (alpha = 2π × fc / fs)
   //constexpr float alpha = 0.04f;   // 150Hz
   //constexpr float alpha = 0.03f;   // 110Hz
-  constexpr float alpha = 0.0225f; // 80hz
+  //constexpr float alpha = 0.0285f; //100Hz
+  constexpr float alpha = 0.0256f; //90Hz
+  //constexpr float alpha = 0.0225f; // 80hz
   //constexpr float alpha = 0.01693f;// 60hz
   // high frequency cutoff  parameter
   //constexpr float beta1 = 0.75f;   // 11Khz
@@ -638,7 +640,9 @@ static void runMicFilter(uint16_t numSamples, int16_t *sampleBuffer)  // pre-fil
   // low frequency cutoff parameter 17.15 fixed point format
   //constexpr int32_t ALPHA_FP = 1311;    // 0.04f * (1<<15) (150Hz)
   //constexpr int32_t ALPHA_FP = 983;     // 0.03f * (1<<15) (110Hz)
-  constexpr int32_t ALPHA_FP = 737;      // 0.0225f * (1<<15) (80Hz)
+  //constexpr int32_t ALPHA_FP = 934;     // 0.0285f * (1<<15) (100Hz)
+  constexpr int32_t ALPHA_FP = 840;       // 0.0256f * (1<<15) (90Hz)
+  //constexpr int32_t ALPHA_FP = 737;     // 0.0225f * (1<<15) (80Hz)
   //constexpr int32_t ALPHA_FP = 555;     // 0.01693f * (1<<15) (60Hz)
 
   // high frequency cutoff parameters 16.16 fixed point format
