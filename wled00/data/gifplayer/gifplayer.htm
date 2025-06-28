@@ -101,17 +101,12 @@
         margin-inline: 20px;
       }
 
-      .row {
-        display: flex;
+      .row-button {
         position: relative;
-        flex-wrap: nowrap;
+        display: flex;
         justify-content: center;
         align-items: center;
-      }
-
-      .row-button {
-        display: flex;
-        justify-content: center;
+        flex-wrap: nowrap;
         margin-block: 10px;
       }
 
@@ -121,30 +116,6 @@
         flex-direction: row;
         flex-wrap: nowrap;
         gap: 10px;
-      }
-
-      .col {
-        flex-basis: calc(50% - 10px);
-        position: relative;
-        padding-inline: 5px;
-      }
-
-      .col-full {
-        flex-basis: 100%;
-        position: relative;
-        padding-inline: 5px;
-      }
-
-      .col-small {
-        flex-basis: 25%;
-        position: relative;
-        padding-inline: 5px;
-      }
-
-      .col-medium {
-        flex-basis: 60%;
-        position: relative;
-        padding-inline: 5px;
       }
 
       .col-button {
@@ -246,25 +217,6 @@
 
       .margin-y {
         margin-top: 20px;
-      }
-
-      input[type="text"],
-      input[type="number"],
-      select,
-      textarea {
-        width: 100%;
-        padding: 10px;
-        border-radius: 50px;
-        background-color: var(--gray-medium);
-        border: 1px solid var(--gray-medium);
-        outline: none;
-        color: var(--gray-light);
-        font-size: 0.875rem;
-        text-align: center;
-      }
-
-      #hostname.error {
-        color: var(--error-light);
       }
 
       .dropzone {
@@ -603,13 +555,9 @@
         </div>
 
         <div id="contentConnected" class="fade-in" style="display: none">
-          <div class="row">
-            <div class="col-small" validate style="position: relative">
-              <div class="row-gif-control-buttons">
-                <div class="btn-icon pause" id="btnPlayPause"></div>
-                <div class="btn-icon stop" id="btnStop"></div>
-              </div>
-            </div>
+          <div class="row-gif-control-buttons">
+            <div class="btn-icon pause" id="btnPlayPause"></div>
+            <div class="btn-icon stop" id="btnStop"></div>
           </div>
           <div class="image-list margin-y" id="image-list">
             <!-- dynamically populated -->
@@ -776,10 +724,6 @@
       }
     }
 
-    /**
-     * Add highlight event listeners to buttons
-     * @param {string[]} btnIds
-     */
     function addButtonHighlightEvents(btnIds) {
       btnIds.forEach((btn) => {
         ["mousedown", "touchstart"].forEach((evt) =>
