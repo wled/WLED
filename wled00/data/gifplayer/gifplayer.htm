@@ -25,7 +25,7 @@
         --warning-dark: #dc2f02;
         --warning-medium: #e85d04;
         --warning-light: #f48c06;
-        --dialog-anim-duration: 0.34s;
+        --dialog-anim-duration: 0.2s;
       }
 
       ::-webkit-scrollbar {
@@ -467,36 +467,13 @@
         margin-top: 10rem;
         border: none;
         overflow: hidden;
-        translate: 0 0;
-        opacity: 1;
-        transition: translate var(--dialog-anim-duration) ease-out,
-          opacity var(--dialog-anim-duration) ease-out,
-          display var(--dialog-anim-duration) allow-discrete;
-
-        @starting-style {
-          translate: 0 -1vh;
-          opacity: 0;
-        }
-        &:not([open]) {
-          translate: 0 1em;
-          opacity: 0;
-        }
+        animation: dialogIn var(--dialog-anim-duration) ease-out both;
       }
 
       dialog::backdrop {
         background: rgba(0, 0, 0, 0.25);
-        z-index: 2;
         backdrop-filter: blur(20px);
-        opacity: 1;
-        transition: opacity var(--dialog-anim-duration) ease-out,
-          display var(--dialog-anim-duration) ease-in-out allow-discrete;
-
-        @starting-style {
-          opacity: 0;
-        }
-        &:not([open]) {
-          opacity: 0;
-        }
+        animation: fadeIn var(--dialog-anim-duration) ease-out both;
       }
 
       h3 {
@@ -546,6 +523,17 @@
         }
 
         to {
+          opacity: 1;
+        }
+      }
+
+      @keyframes dialogIn {
+        from {
+          translate: 0 -1vh;
+          opacity: 0;
+        }
+        to {
+          translate: 0 0;
           opacity: 1;
         }
       }
@@ -906,17 +894,17 @@
           numRequests < maxConcurrentRequests &&
           currentIndex < imageHolders.length
         ) {
+          let blob = await getImageBlob(
+            imageHolders[currentIndex].dataset.src,
+            forceReload
+          ).finally(() => {
+            numRequests--;
+            imageHolders[currentIndex].classList.remove("loading");
+          });
+
           imageHolders[currentIndex].style[
             "background-image"
-          ] = `url(${URL.createObjectURL(
-            await getImageBlob(
-              imageHolders[currentIndex].dataset.src,
-              forceReload
-            ).finally(() => {
-              numRequests--;
-              imageHolders[currentIndex].classList.remove("loading");
-            })
-          )})`;
+          ] = `url(${URL.createObjectURL(blob)})`;
           currentIndex++;
           numRequests++;
         }
@@ -966,11 +954,10 @@
               selectedImage = imageHolder.dataset;
               gId("imgDialogName").innerText = selectedImage.name;
               imgDialog.showModal();
+              let blob = await getImageBlob(selectedImage.src);
               gId("imgDialogImg").style[
                 "background-image"
-              ] = `url(${URL.createObjectURL(
-                await getImageBlob(selectedImage.src)
-              )})`;
+              ] = `url(${URL.createObjectURL(blob)})`;
             },
             false
           );
@@ -1071,7 +1058,9 @@
     }
 
     async function downloadImg() {
-      const fileURL = URL.createObjectURL(await getImageBlob(selectedImage.src));
+      const fileURL = URL.createObjectURL(
+        await getImageBlob(selectedImage.src)
+      );
       const a = document.createElement("a");
       a.href = fileURL;
       a.download = selectedImage.name;
