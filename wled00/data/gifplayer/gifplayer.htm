@@ -77,12 +77,14 @@
         font-weight: 600;
       }
 
-      a {
+      a,
+      .link {
         text-decoration: none;
         color: var(--blue-light);
+        cursor: pointer;
       }
 
-      a:is(:hover, :focus, :active) {
+      :is(a, .link):is(:hover, :focus, :active) {
         color: var(--blue-medium);
       }
 
@@ -156,7 +158,7 @@
         display: flex;
         flex-direction: row;
         padding-block: 20px;
-        justify-content: space-between;
+        justify-content: center;
         align-items: center;
       }
 
@@ -215,15 +217,14 @@
       .btn-icon.pause {
         background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' height='40' viewBox='0 -960 960 960' width='40'%3E%3Cpath d='M400.12-320q14.21 0 23.71-9.58 9.5-9.59 9.5-23.75v-253.34q0-14.16-9.61-23.75-9.62-9.58-23.84-9.58-14.21 0-23.71 9.58-9.5 9.59-9.5 23.75v253.34q0 14.16 9.61 23.75 9.62 9.58 23.84 9.58Zm160 0q14.21 0 23.71-9.58 9.5-9.59 9.5-23.75v-253.34q0-14.16-9.61-23.75-9.62-9.58-23.84-9.58-14.21 0-23.71 9.58-9.5 9.59-9.5 23.75v253.34q0 14.16 9.61 23.75 9.62 9.58 23.84 9.58ZM480.18-80q-82.83 0-155.67-31.5-72.84-31.5-127.18-85.83Q143-251.67 111.5-324.56T80-480.33q0-82.88 31.5-155.78Q143-709 197.33-763q54.34-54 127.23-85.5T480.33-880q82.88 0 155.78 31.5Q709-817 763-763t85.5 127Q880-563 880-480.18q0 82.83-31.5 155.67Q817-251.67 763-197.46q-54 54.21-127 85.84Q563-80 480.18-80Z'/%3E%3C/svg%3E");
       }
-      .btn-icon.settings {
+      .btn-icon.back {
+        position: absolute;
+        left: 0;
+        top: calc(50% - 15px);
         width: 30px;
         height: 30px;
-        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' height='30' viewBox='0 -960 960 960' width='30'%3E%3Cpath d='M425-80q-18.33 0-32.17-12-13.83-12-16.5-30l-13-84.67q-17-6.33-34.83-16.66-17.83-10.34-32.17-21.67l-78 35.33Q200.67-202 183-208q-17.67-6-27.67-22.33L101-327q-10-16.33-5.67-34.33 4.34-18 19.34-29.67l71-52.67q-1.67-8.33-2-18.16-.34-9.84-.34-18.17 0-8.33.34-18.17.33-9.83 2-18.16l-71-52.67q-15-11.67-19.34-29.67Q91-616.67 101-633l54.33-96.67Q165.33-746 183-752t35.33 1.67l78 35.33q14.34-11.33 32.34-21.67 18-10.33 34.66-16l13-85.33q2.67-18 16.5-30 13.84-12 32.17-12h110q18.33 0 32.17 12 13.83 12 16.5 30l13 84.67q17 6.33 35.16 16.33 18.17 10 31.84 22l78-35.33q17.66-7.67 35-1.67Q794-746 804-729.67L859-633q10 16.33 5.67 34.67Q860.33-580 845.33-569l-71 51.33q1.67 9 2 18.84.34 9.83.34 18.83 0 9-.34 18.5Q776-452 774-443l71 52q15 11 19.33 29.33 4.34 18.34-5.66 34.67L804-230.33Q794-214 776.33-208q-17.66 6-35.33-1.67L663.67-245q-14.34 11.33-32 22-17.67 10.67-35 16.33l-13 84.67q-2.67 18-16.5 30Q553.33-80 535-80H425Zm55.67-266.67q55.33 0 94.33-39T614-480q0-55.33-39-94.33t-94.33-39q-55.67 0-94.5 39-38.84 39-38.84 94.33t38.84 94.33q38.83 39 94.5 39Z'/%3E%3C/svg%3E");
-      }
-      .btn-icon.back {
-        width: 35px;
-        height: 35px;
-        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' height='35' viewBox='0 -960 960 960' width='35'%3E%3Cpath d='M287-446.67 503.67-230q10 10 9.83 23.33-.17 13.34-10.17 23.34-10 9.66-23.33 9.83-13.33.17-23.33-9.83L183.33-456.67q-5.33-5.33-7.5-11-2.16-5.66-2.16-12.33t2.16-12.33q2.17-5.67 7.5-11l273.34-273.34q9.66-9.66 23.16-9.66t23.5 9.66q10 10 10 23.5t-10 23.5L287-513.33h479.67q14.33 0 23.83 9.5 9.5 9.5 9.5 23.83 0 14.33-9.5 23.83-9.5 9.5-23.83 9.5H287Z'/%3E%3C/svg%3E");
+        display: block;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' height='30' viewBox='0 -960 960 960' width='30'%3E%3Cpath d='M287-446.67 503.67-230q10 10 9.83 23.33-.17 13.34-10.17 23.34-10 9.66-23.33 9.83-13.33.17-23.33-9.83L183.33-456.67q-5.33-5.33-7.5-11-2.16-5.66-2.16-12.33t2.16-12.33q2.17-5.67 7.5-11l273.34-273.34q9.66-9.66 23.16-9.66t23.5 9.66q10 10 10 23.5t-10 23.5L287-513.33h479.67q14.33 0 23.83 9.5 9.5 9.5 9.5 23.83 0 14.33-9.5 23.83-9.5 9.5-23.83 9.5H287Z'/%3E%3C/svg%3E");
       }
 
       .text-info {
@@ -581,7 +582,6 @@
             /><span class="rainbow">GIF</span
             ><span class="title-player">PLAYER</span></span
           >
-          <div id="btnSettings" class="btn-icon settings"></div>
         </div>
 
         <div
@@ -640,12 +640,19 @@
             href="https://github.com/Manut38/WLED-GifPlayer-html"
             target="_blank"
           >
-            GitHub Source
+            GitHub
           </a>
           <div id="storage" style="display: none">
             <span
               >&nbsp;| Storage:&nbsp;<span id="fsUsed"></span>&nbsp;KB
               /&nbsp;<span id="fsTotal"></span>&nbsp;KB</span
+            >
+          </div>
+          <div id="reloadImages" style="display: none">
+            <span
+              >&nbsp;|<span class="link" onclick="loadInfo(true)">
+                Force Reload
+              </span></span
             >
           </div>
         </footer>
@@ -718,50 +725,6 @@
         </div>
       </div>
     </dialog>
-    <dialog id="settingsDialog">
-      <div class="dialog-content">
-        <h3 id="">Settings</h3>
-        <form id="formHostname" novalidate>
-          <div class="row-button">
-            <div class="col-button" validate style="position: relative">
-              <label for="hostname">Hostname</label>
-              <input
-                type="text"
-                name="hostname"
-                id="hostname"
-                placeholder="Hostname"
-                required
-              />
-            </div>
-          </div>
-          <div class="row-button">
-            <div class="col-button">
-              <button
-                type="button"
-                class="button"
-                id="btnReloadImages"
-                style="background-color: var(--blue-medium)"
-              >
-                Force refresh
-              </button>
-            </div>
-          </div>
-        </form>
-        <div class="row-button">
-          <div class="col-button">
-            <button
-              type="button"
-              class="button button-dialog"
-              id="btnCloseSettingsDialog"
-              style="background-color: var(--blue-dark)"
-              onclick="settingsDialog.close()"
-            >
-              Close
-            </button>
-          </div>
-        </div>
-      </div>
-    </dialog>
     <div id="toast-container"></div>
   </body>
   <script>
@@ -795,10 +758,12 @@
     function showPageContent() {
       gId("contentConnected").style.display = "block";
       gId("reloadSiteBtn").style.display = "none";
+      gId("reloadImages").style.display = "block";
     }
 
     function hidePageContent() {
       gId("contentConnected").style.display = "none";
+      gId("reloadImages").style.display = "none";
     }
 
     function validateFile(file) {
@@ -838,7 +803,6 @@
     // Global Variables
     // ===================
     const doc = document;
-    const hostname = gId("hostname");
     const imgDialog = gId("imgDialog");
     const settingsDialog = gId("settingsDialog");
     let selectedImage;
@@ -859,9 +823,6 @@
     const protocol =
       window.location.protocol === "file:" ? "http:" : window.location.protocol;
     WLED_URL = `${protocol}//${host}`;
-
-    // pre-fill hostname input
-    hostname.value = host;
 
     // load all info on page load
     loadInfo();
@@ -919,8 +880,6 @@
       const url = `${WLED_URL}${URL_EDIT}?list=/`;
       // clear image list intially
       gId("image-list").innerHTML = "";
-      // reset hostname input color
-      gId("hostname").classList.remove("error");
 
       showLoading();
       hidePageContent();
@@ -998,7 +957,6 @@
       } catch (error) {
         console.error(error);
         toast("Failed to get image list", "error", 10000);
-        gId("hostname").classList.add("error");
         gId("reloadSiteBtn").style.display = "block";
         return Promise.reject("Failed to get image list");
       } finally {
@@ -1026,7 +984,7 @@
         const info = await response.json();
         gId("fsUsed").innerHTML = `${info.fs.u}`;
         gId("fsTotal").innerHTML = `${info.fs.t}`;
-        gId("storage").style.display = "flex";
+        gId("storage").style.display = "block";
       } catch (error) {
         console.error(error);
       }
@@ -1238,9 +1196,9 @@
       }
     }
 
-    async function loadInfo() {
+    async function loadInfo(forceReload = false) {
       // await loading of image list, actual images will load asynchronously
-      if (await images()) {
+      if (await images(forceReload)) {
         // await loading of presets.json
         await presets();
         // get storage used/total count
@@ -1263,39 +1221,10 @@
     // ===================
     // Event Listeners
     // ===================
-
-    // reload all info on change of hostname input
-    hostname.addEventListener("blur", async () => {
-      hostname.value = hostname.value.trim();
-      let newWledUrl = `${protocol}//${hostname.value}`;
-      if (WLED_URL == newWledUrl) {
-        return;
-      }
-      WLED_URL = newWledUrl;
-      // replace url in browser
-      var url =
-        window.location.protocol +
-        "//" +
-        window.location.host +
-        window.location.pathname +
-        `?hostname=${hostname.value}`;
-      window.history.pushState({ path: url }, "", url);
-      loadInfo();
-    });
     gId("btnShowImg").addEventListener("click", showImg, false);
     gId("btnSavePreset").addEventListener("click", savePreset, false);
     gId("btnDownloadImg").addEventListener("click", downloadImg, false);
     gId("btnDeleteImg").addEventListener("click", deleteImage, false);
-    gId("btnReloadImages").addEventListener(
-      "click",
-      async () => {
-        settingsDialog.close();
-        await images(true);
-        await presets();
-        storage();
-      },
-      false
-    );
     gId("dropzone").addEventListener("dragover", (e) => e.preventDefault());
     gId("dropzone").addEventListener("drop", (e) => {
       e.preventDefault();
@@ -1324,11 +1253,6 @@
     addButtonHighlightEvents(["btnStop", "btnPlayPause"]);
     gId("btnStop").addEventListener("click", powerOff, false);
     gId("btnPlayPause").addEventListener("click", playPause, false);
-    gId("btnSettings").addEventListener(
-      "click",
-      () => settingsDialog.showModal(),
-      false
-    );
 
     // ===================
     // Toast Helper
