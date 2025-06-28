@@ -1,0 +1,71 @@
+name: Usermod CI
+
+on:
+  push:
+    paths:
+      - usermods/**
+      - .github/workflows/usermods.yml
+    
+jobs:
+
+  get_usermod_envs:
+    name: Gather Usermods
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+        cache: 'pip'
+    - name: Install PlatformIO
+      run: pip install -r requirements.txt
+    - name: Get default environments
+      id: envs
+      run: |
+        echo "usermods=$(find usermods/ -name library.json | xargs dirname | xargs -n 1 basename | jq -R | grep -v PWM_fan | grep -v BME68X_v2| grep -v pixels_dice_tray | jq --slurp -c)" >> $GITHUB_OUTPUT
+    outputs:
+      usermods: ${{ steps.envs.outputs.usermods }}
+
+
+  build:
+    name: Build Enviornments
+    runs-on: ubuntu-latest
+    needs: get_usermod_envs
+    strategy:
+      fail-fast: false
+      matrix:
+        usermod: ${{ fromJSON(needs.get_usermod_envs.outputs.usermods) }}
+        environment: [usermods_esp32, usermods_esp32c3, usermods_esp32s2, usermods_esp32s3]
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version-file: '.nvmrc'
+        cache: 'npm'
+    - run: npm ci
+    - name: Cache PlatformIO
+      uses: actions/cache@v4
+      with:
+        path: |
+              ~/.platformio/.cache
+              ~/.buildcache
+              build_output
+        key: pio-${{ runner.os }}-${{ matrix.environment }}-${{ hashFiles('platformio.ini', 'pio-scripts/output_bins.py') }}-${{ hashFiles('wled00/**', 'usermods/**') }}
+        restore-keys: pio-${{ runner.os }}-${{ matrix.environment }}-${{ hashFiles('platformio.ini', 'pio-scripts/output_bins.py') }}-
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+          python-version: '3.12'
+          cache: 'pip'
+    - name: Install PlatformIO
+      run: pip install -r requirements.txt
+    - name: Add usermods environment
+      run: |
+        cp -v usermods/platformio_override.usermods.ini platformio_override.ini
+        echo >> platformio_override.ini
+        echo  "custom_usermods = ${{ matrix.usermod }}" >> platformio_override.ini
+        cat platformio_override.ini
+
+    - name: Build firmware
+      run: pio run -e ${{ matrix.environment }}    
