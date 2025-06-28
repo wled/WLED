@@ -640,8 +640,8 @@ static void runMicFilter(uint16_t numSamples, FFTsampleType *sampleBuffer)      
     lowfilt_fp += ALPHA_FP * (highFilteredSample_fp - (lowfilt_fp >> 15)); // low pass filter in 17.15 fixed point format
     sampleBuffer[i] = highFilteredSample_fp - (lowfilt_fp >> 15);
   }
-}
 #endif
+}
 
 static void postProcessFFTResults(bool noiseGateOpen, int numberOfChannels) // post-processing and post-amp of GEQ channels
 {
