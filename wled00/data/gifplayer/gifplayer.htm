@@ -230,15 +230,12 @@
         margin-inline: 5px;
       }
 
-      .dropzone:hover {
+      .dropzone:hover,
+      .dropzone.active {
         cursor: pointer;
         color: var(--gray-dark);
         background-color: var(--gray-light);
         border-color: var(--gray-dark);
-      }
-
-      .dropzone.dragover {
-        background-color: var(--gray-medium);
       }
 
       #toast-container {
@@ -1169,7 +1166,13 @@
     gId("btnSavePreset").addEventListener("click", savePreset, false);
     gId("btnDownloadImg").addEventListener("click", downloadImg, false);
     gId("btnDeleteImg").addEventListener("click", deleteImage, false);
-    gId("dropzone").addEventListener("dragover", (e) => e.preventDefault());
+    gId("dropzone").addEventListener("dragover", (e) => {
+      e.preventDefault();
+      gId("dropzone").classList.add("active");
+    });
+    gId("dropzone").addEventListener("dragleave", (e) =>
+      gId("dropzone").classList.remove("active")
+    );
     gId("dropzone").addEventListener("drop", (e) => {
       e.preventDefault();
       if (!validateFile(e.dataTransfer.files[0])) return;
