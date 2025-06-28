@@ -686,6 +686,7 @@
     const URL_JSON_STATE = "/json/state";
     const URL_JSON_INFO = "/json/info";
     const URL_PRESETS = "/presets.json";
+    const MAX_CONCURRENT_REQUESTS = 2;
 
     // ===================
     // Utility Functions
@@ -787,7 +788,6 @@
     }
 
     async function loadImages(imageHolders, forceReload = false) {
-      const maxConcurrentRequests = 2;
       let currentIndex = 0;
       let numRequests = 0;
       let allImagesLoaded = false;
@@ -796,7 +796,7 @@
       while (!allImagesLoaded) {
         // watch the concurrent request limit
         while (
-          numRequests < maxConcurrentRequests &&
+          numRequests < MAX_CONCURRENT_REQUESTS &&
           currentIndex < imageHolders.length
         ) {
           let blob = await getImageBlob(
