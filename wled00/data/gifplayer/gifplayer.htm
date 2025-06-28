@@ -997,7 +997,7 @@
         return Promise.resolve("Image list received");
       } catch (error) {
         console.error(error);
-        toast("Failed to get image list, check hostname!", "error", 10000);
+        toast("Failed to get image list", "error", 10000);
         gId("hostname").classList.add("error");
         gId("reloadSiteBtn").style.display = "block";
         return Promise.reject("Failed to get image list");
@@ -1115,7 +1115,7 @@
         }
       } catch (error) {
         console.error(error);
-        toast(error, "error");
+        toast("Failed to change image", "error");
       }
     }
 
