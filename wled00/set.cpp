@@ -141,6 +141,7 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
     unsigned colorOrder, type, skip, awmode, channelSwap, maPerLed;
     unsigned length, start, maMax;
     uint8_t pins[5] = {255, 255, 255, 255, 255};
+    String text;
 
     // this will set global ABL max current used when per-port ABL is not used
     unsigned ablMilliampsMax = request->arg(F("MA")).toInt();
@@ -174,6 +175,7 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
       char sp[4] = "SP"; sp[2] = offset+s; sp[3] = 0; //bus clock speed (DotStar & PWM)
       char la[4] = "LA"; la[2] = offset+s; la[3] = 0; //LED mA
       char ma[4] = "MA"; ma[2] = offset+s; ma[3] = 0; //max mA
+      char hs[4] = "HS"; hs[2] = offset+s; hs[3] = 0; //hostname (for network types, custom text for others)
       if (!request->hasArg(lp)) {
         DEBUG_PRINTF_P(PSTR("# of buses: %d\n"), s+1);
         break;
@@ -224,9 +226,10 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
         maMax = request->arg(ma).toInt() * request->hasArg(F("PPL")); // if PP-ABL is disabled maMax (per bus) must be 0
       }
       type |= request->hasArg(rf) << 7; // off refresh override
+      text = request->arg(hs).substring(0,31);
       // actual finalization is done in WLED::loop() (removing old busses and adding new)
       // this may happen even before this loop is finished so we do "doInitBusses" after the loop
-      busConfigs.emplace_back(type, pins, start, length, colorOrder | (channelSwap<<4), request->hasArg(cv), skip, awmode, freq, maPerLed, maMax);
+      busConfigs.emplace_back(type, pins, start, length, colorOrder | (channelSwap<<4), request->hasArg(cv), skip, awmode, freq, maPerLed, maMax, text);
       busesChanged = true;
     }
     //doInitBusses = busesChanged; // we will do that below to ensure all input data is processed

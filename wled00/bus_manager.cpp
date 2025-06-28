@@ -4,8 +4,9 @@
 
 #include <Arduino.h>
 #include <IPAddress.h>
-#include "src/dependencies/network/Network.h" // for isConnected() (& WiFi)
 #ifdef ARDUINO_ARCH_ESP32
+#include <ESPmDNS.h>
+#include "src/dependencies/network/Network.h" // for isConnected() (& WiFi)
 #include "driver/ledc.h"
 #include "soc/ledc_struct.h"
   #if !(defined(CONFIG_IDF_TARGET_ESP32C3) || defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32S3))
@@ -26,6 +27,7 @@
 #include "bus_wrapper.h"
 #include <bits/unique_ptr.h>
 
+extern char cmDNS[];
 extern bool cctICused;
 extern bool useParallelI2S;
 
