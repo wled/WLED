@@ -759,8 +759,8 @@
 
     // get host address and build WLED_URL
     const params = new URLSearchParams(window.location.search);
-    const host = params.get("hostname")
-      ? params.get("hostname")
+    const host = params.get("host")
+      ? params.get("host")
       : window.location.host
       ? window.location.host
       : "0.0.0.0";
