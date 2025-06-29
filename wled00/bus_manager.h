@@ -342,6 +342,10 @@ class BusNetwork : public Bus {
     size_t getBusSize() const override  { return sizeof(BusNetwork) + (isOk() ? _len * _UDPchannels : 0); }
     void   show() override;
     void   cleanup();
+    #ifdef ARDUINO_ARCH_ESP32
+    void   resolveHostname();
+    const String getCustomText() const override { return _hostname; }
+    #endif
 
     static std::vector<LEDType> getLEDTypes();
 
@@ -351,6 +355,9 @@ class BusNetwork : public Bus {
     uint8_t   _UDPchannels;
     bool      _broadcastLock;
     uint8_t   *_data;
+    #ifdef ARDUINO_ARCH_ESP32
+    String    _hostname;
+    #endif
 };
 
 
