@@ -208,14 +208,14 @@ CRGBPalette16 generateHarmonicRandomPalette(const CRGBPalette16 &basepalette)
     makepastelpalette = true;
   }
 
-  // apply saturation & gamma correction
+  // apply saturation
   CRGB RGBpalettecolors[4];
   for (int i = 0; i < 4; i++) {
     if (makepastelpalette && palettecolors[i].saturation > 180) {
       palettecolors[i].saturation -= 160; //desaturate all four colors
     }
     RGBpalettecolors[i] = (CRGB)palettecolors[i]; //convert to RGB
-    RGBpalettecolors[i] = gamma32(((uint32_t)RGBpalettecolors[i]) & 0x00FFFFFFU); //strip alpha from CRGB
+    RGBpalettecolors[i] = ((uint32_t)RGBpalettecolors[i]) & 0x00FFFFFFU; //strip alpha from CRGB
   }
 
   return CRGBPalette16(RGBpalettecolors[0],
@@ -230,6 +230,54 @@ CRGBPalette16 generateRandomPalette()  // generate fully random palette
                        CHSV(hw_random8(), hw_random8(160, 255), hw_random8(128, 255)),
                        CHSV(hw_random8(), hw_random8(160, 255), hw_random8(128, 255)),
                        CHSV(hw_random8(), hw_random8(160, 255), hw_random8(128, 255)));
+}
+
+void loadCustomPalettes() {
+  byte tcp[72]; //support gradient palettes with up to 18 entries
+  CRGBPalette16 targetPalette;
+  customPalettes.clear(); // start fresh
+  for (int index = 0; index<10; index++) {
+    char fileName[32];
+    sprintf_P(fileName, PSTR("/palette%d.json"), index);
+
+    StaticJsonDocument<1536> pDoc; // barely enough to fit 72 numbers
+    if (WLED_FS.exists(fileName)) {
+      DEBUGFX_PRINTF_P(PSTR("Reading palette from %s\n"), fileName);
+      if (readObjectFromFile(fileName, nullptr, &pDoc)) {
+        JsonArray pal = pDoc[F("palette")];
+        if (!pal.isNull() && pal.size()>3) { // not an empty palette (at least 2 entries)
+          memset(tcp, 255, sizeof(tcp));
+          if (pal[0].is<int>() && pal[1].is<const char *>()) {
+            // we have an array of index & hex strings
+            size_t palSize = MIN(pal.size(), 36);
+            palSize -= palSize % 2; // make sure size is multiple of 2
+            for (size_t i=0, j=0; i<palSize && pal[i].as<int>()<256; i+=2) {
+              uint8_t rgbw[] = {0,0,0,0};
+              if (colorFromHexString(rgbw, pal[i+1].as<const char *>())) { // will catch non-string entires
+                tcp[ j ] = (uint8_t) pal[ i ].as<int>(); // index
+                for (size_t c=0; c<3; c++) tcp[j+1+c] = rgbw[c]; // only use RGB component
+                DEBUGFX_PRINTF_P(PSTR("%2u -> %3d [%3d,%3d,%3d]\n"), i, int(tcp[j]), int(tcp[j+1]), int(tcp[j+2]), int(tcp[j+3]));
+                j += 4;
+              }
+            }
+          } else {
+            size_t palSize = MIN(pal.size(), 72);
+            palSize -= palSize % 4; // make sure size is multiple of 4
+            for (size_t i=0; i<palSize && pal[i].as<int>()<256; i+=4) {
+              tcp[ i ] = (uint8_t) pal[ i ].as<int>(); // index
+              for (size_t c=0; c<3; c++) tcp[i+1+c] = (uint8_t) pal[i+1+c].as<int>();
+              DEBUGFX_PRINTF_P(PSTR("%2u -> %3d [%3d,%3d,%3d]\n"), i, int(tcp[i]), int(tcp[i+1]), int(tcp[i+2]), int(tcp[i+3]));
+            }
+          }
+          customPalettes.push_back(targetPalette.loadDynamicGradientPalette(tcp));
+        } else {
+          DEBUGFX_PRINTLN(F("Wrong palette format."));
+        }
+      }
+    } else {
+      break;
+    }
+  }
 }
 
 void hsv2rgb(const CHSV32& hsv, uint32_t& rgb) // convert HSV (16bit hue) to RGB (32bit with white = 0)
@@ -516,14 +564,17 @@ uint16_t approximateKelvinFromRGB(uint32_t rgb) {
   }
 }
 
-// gamma lookup table used for color correction (filled on 1st use (cfg.cpp & set.cpp))
+// gamma lookup tables used for color correction (filled on 1st use (cfg.cpp & set.cpp))
 uint8_t NeoGammaWLEDMethod::gammaT[256];
+uint8_t NeoGammaWLEDMethod::gammaT_inv[256];
 
-// re-calculates & fills gamma table
+// re-calculates & fills gamma tables
 void NeoGammaWLEDMethod::calcGammaTable(float gamma)
 {
+  float gamma_inv = 1.0f / gamma; // inverse gamma
   for (size_t i = 0; i < 256; i++) {
     gammaT[i] = (int)(powf((float)i / 255.0f, gamma) * 255.0f + 0.5f);
+    gammaT_inv[i] = (int)(powf((float)i / 255.0f, gamma_inv) * 255.0f + 0.5f);
   }
 }
 
@@ -545,5 +596,19 @@ uint32_t IRAM_ATTR_YN NeoGammaWLEDMethod::Correct32(uint32_t color)
   r = gammaT[r];
   g = gammaT[g];
   b = gammaT[b];
+  return RGBW32(r, g, b, w);
+}
+
+uint32_t IRAM_ATTR_YN NeoGammaWLEDMethod::inverseGamma32(uint32_t color)
+{
+  if (!gammaCorrectCol) return color;
+  uint8_t w = W(color);
+  uint8_t r = R(color);
+  uint8_t g = G(color);
+  uint8_t b = B(color);
+  w = gammaT_inv[w];
+  r = gammaT_inv[r];
+  g = gammaT_inv[g];
+  b = gammaT_inv[b];
   return RGBW32(r, g, b, w);
 }

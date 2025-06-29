@@ -4,17 +4,17 @@
 
 
 //helper to get int value at a position in string
-int getNumVal(const String* req, uint16_t pos)
+int getNumVal(const String &req, uint16_t pos)
 {
-  return req->substring(pos+3).toInt();
+  return req.substring(pos+3).toInt();
 }
 
 
 //helper to get int value with in/decrementing support via ~ syntax
-void parseNumber(const char* str, byte* val, byte minv, byte maxv)
+void parseNumber(const char* str, byte &val, byte minv, byte maxv)
 {
   if (str == nullptr || str[0] == '\0') return;
-  if (str[0] == 'r') {*val = hw_random8(minv,maxv?maxv:255); return;} // maxv for random cannot be 0
+  if (str[0] == 'r') {val = hw_random8(minv,maxv?maxv:255); return;} // maxv for random cannot be 0
   bool wrap = false;
   if (str[0] == 'w' && strlen(str) > 1) {str++; wrap = true;}
   if (str[0] == '~') {
@@ -22,19 +22,19 @@ void parseNumber(const char* str, byte* val, byte minv, byte maxv)
     if (out == 0) {
       if (str[1] == '0') return;
       if (str[1] == '-') {
-        *val = (int)(*val -1) < (int)minv ? maxv : min((int)maxv,(*val -1)); //-1, wrap around
+        val = (int)(val -1) < (int)minv ? maxv : min((int)maxv,(val -1)); //-1, wrap around
       } else {
-        *val = (int)(*val +1) > (int)maxv ? minv : max((int)minv,(*val +1)); //+1, wrap around
+        val = (int)(val +1) > (int)maxv ? minv : max((int)minv,(val +1)); //+1, wrap around
       }
     } else {
-      if (wrap && *val == maxv && out > 0) out = minv;
-      else if (wrap && *val == minv && out < 0) out = maxv;
+      if (wrap && val == maxv && out > 0) out = minv;
+      else if (wrap && val == minv && out < 0) out = maxv;
       else {
-        out += *val;
+        out += val;
         if (out > maxv) out = maxv;
         if (out < minv) out = minv;
       }
-      *val = out;
+      val = out;
     }
     return;
   } else if (minv == maxv && minv == 0) { // limits "unset" i.e. both 0
@@ -49,14 +49,14 @@ void parseNumber(const char* str, byte* val, byte minv, byte maxv)
       }
     }
   }
-  *val = atoi(str);
+  val = atoi(str);
 }
 
 //getVal supports inc/decrementing and random ("X~Y(r|~[w][-][Z])" form)
-bool getVal(JsonVariant elem, byte* val, byte vmin, byte vmax) {
+bool getVal(JsonVariant elem, byte &val, byte vmin, byte vmax) {
   if (elem.is<int>()) {
 		if (elem < 0) return false; //ignore e.g. {"ps":-1}
-    *val = elem;
+    val = elem;
     return true;
   } else if (elem.is<const char*>()) {
     const char* str = elem;
@@ -82,7 +82,7 @@ bool getBoolVal(const JsonVariant &elem, bool dflt) {
 }
 
 
-bool updateVal(const char* req, const char* key, byte* val, byte minv, byte maxv)
+bool updateVal(const char* req, const char* key, byte &val, byte minv, byte maxv)
 {
   const char *v = strstr(req, key);
   if (v) v += strlen(key);
@@ -618,6 +618,68 @@ int32_t hw_random(int32_t lowerlimit, int32_t upperlimit) {
   uint32_t diff = upperlimit - lowerlimit;
   return hw_random(diff) + lowerlimit;
 }
+
+#ifndef ESP8266
+void *p_malloc(size_t size) {
+  int caps1 = MALLOC_CAP_SPIRAM  | MALLOC_CAP_8BIT;
+  int caps2 = MALLOC_CAP_DEFAULT | MALLOC_CAP_8BIT;
+  if (psramSafe) {
+    if (heap_caps_get_free_size(caps2) > 3*MIN_HEAP_SIZE && size < 512) std::swap(caps1, caps2);  // use DRAM for small alloactions & when heap is plenty
+    return heap_caps_malloc_prefer(size, 2, caps1, caps2); // otherwise prefer PSRAM if it exists
+  }
+  return heap_caps_malloc(size, caps2);
+}
+
+void *p_realloc(void *ptr, size_t size) {
+  int caps1 = MALLOC_CAP_SPIRAM  | MALLOC_CAP_8BIT;
+  int caps2 = MALLOC_CAP_DEFAULT | MALLOC_CAP_8BIT;
+  if (psramSafe) {
+    if (heap_caps_get_free_size(caps2) > 3*MIN_HEAP_SIZE && size < 512) std::swap(caps1, caps2);  // use DRAM for small alloactions & when heap is plenty
+    return heap_caps_realloc_prefer(ptr, size, 2, caps1, caps2); // otherwise prefer PSRAM if it exists
+  }
+  return heap_caps_realloc(ptr, size, caps2);
+}
+
+void *p_calloc(size_t count, size_t size) {
+  int caps1 = MALLOC_CAP_SPIRAM  | MALLOC_CAP_8BIT;
+  int caps2 = MALLOC_CAP_DEFAULT | MALLOC_CAP_8BIT;
+  if (psramSafe) {
+    if (heap_caps_get_free_size(caps2) > 3*MIN_HEAP_SIZE && size < 512) std::swap(caps1, caps2);  // use DRAM for small alloactions & when heap is plenty
+    return heap_caps_calloc_prefer(count, size, 2, caps1, caps2); // otherwise prefer PSRAM if it exists
+  }
+  return heap_caps_calloc(count, size, caps2);
+}
+
+void *d_malloc(size_t size) {
+  int caps1 = MALLOC_CAP_DEFAULT | MALLOC_CAP_8BIT;
+  int caps2 = MALLOC_CAP_SPIRAM  | MALLOC_CAP_8BIT;
+  if (psramSafe) {
+    if (size > MIN_HEAP_SIZE) std::swap(caps1, caps2);  // prefer PSRAM for large alloactions
+    return heap_caps_malloc_prefer(size, 2, caps1, caps2); // otherwise prefer DRAM
+  }
+  return heap_caps_malloc(size, caps1);
+}
+
+void *d_realloc(void *ptr, size_t size) {
+  int caps1 = MALLOC_CAP_DEFAULT | MALLOC_CAP_8BIT;
+  int caps2 = MALLOC_CAP_SPIRAM  | MALLOC_CAP_8BIT;
+  if (psramSafe) {
+    if (size > MIN_HEAP_SIZE) std::swap(caps1, caps2);  // prefer PSRAM for large alloactions
+    return heap_caps_realloc_prefer(ptr, size, 2, caps1, caps2); // otherwise prefer DRAM
+  }
+  return heap_caps_realloc(ptr, size, caps1);
+}
+
+void *d_calloc(size_t count, size_t size) {
+  int caps1 = MALLOC_CAP_DEFAULT | MALLOC_CAP_8BIT;
+  int caps2 = MALLOC_CAP_SPIRAM  | MALLOC_CAP_8BIT;
+  if (psramSafe) {
+    if (size > MIN_HEAP_SIZE) std::swap(caps1, caps2);  // prefer PSRAM for large alloactions
+    return heap_caps_calloc_prefer(count, size, 2, caps1, caps2); // otherwise prefer DRAM
+  }
+  return heap_caps_calloc(count, size, caps1);
+}
+#endif
 
 /*
  * Fixed point integer based Perlin noise functions by @dedehai

@@ -202,7 +202,6 @@
 				if (maxM >= 10000) { //ESP32 RMT uses double buffer?
 					mul = 2;
 				}
-				if (d.Sf.LD.checked) dbl = len * ch; // double buffering
 			}
 			return len * ch * mul + dbl;
 		}
@@ -326,7 +325,7 @@
 						LC.style.color="#fff";
 						return; // do not check conflicts
 					} else {
-						LC.max = d.max_gpio;
+						LC.max = d.max_gpio-1;
 						LC.min = -1;
 					}
 				}
@@ -354,7 +353,7 @@
 			});
 			const S2 = (oMaxB == 14) && (maxV == 4);
 			const S3 = (oMaxB == 14) && (maxV == 6);
-			if (oMaxB == 19 || S2 || S3) { // TODO: crude ESP32 & S2/S3 detection
+			if (oMaxB == 32 || S2 || S3) { // TODO: crude ESP32 & S2/S3 detection
 				if (maxLC > 300 || dC <= 2) {
 					d.Sf["PR"].checked = false;
 					gId("prl").classList.add("hide");
@@ -641,7 +640,6 @@ Swap: <select id="xw${s}" name="XW${s}">
 							d.getElementsByName("MA"+i)[0].value   = v.maxpwr;
 						});
 						d.getElementsByName("PR")[0].checked  = l.prl | 0;
-						d.getElementsByName("LD")[0].checked  = l.ld;
 						d.getElementsByName("MA")[0].value    = l.maxpwr;
 						d.getElementsByName("ABL")[0].checked = l.maxpwr > 0;
 					}
@@ -823,7 +821,6 @@ Swap: <select id="xw${s}" name="XW${s}">
 		<div id="prl" class="hide">Use parallel I2S: <input type="checkbox" name="PR"><br></div>
 		Make a segment for each output: <input type="checkbox" name="MS"><br>
 		Custom bus start indices: <input type="checkbox" onchange="tglSi(this.checked)" id="si"><br>
-		Use global LED buffer: <input type="checkbox" name="LD" onchange="UI()"><br>
 		<hr class="sml">
 		<div id="color_order_mapping">
 			Color Order Override:
@@ -866,7 +863,6 @@ Swap: <select id="xw${s}" name="XW${s}">
 		<h3>Transitions</h3>
 		Default transition time: <input name="TD" type="number" class="xl" min="0" max="65500"> ms<br>
 		<i>Random Cycle</i> Palette Time: <input name="TP" type="number" class="m" min="1" max="255"> s<br>
-		Use harmonic <i>Random Cycle</i> Palette: <input type="checkbox" name="TH"><br>
 		<h3>Timed light</h3>
 		Default duration: <input name="TL" type="number" class="m" min="1" max="255" required> min<br>
 		Default target brightness: <input name="TB" type="number" class="m" min="0" max="255" required><br>
@@ -903,8 +899,10 @@ Swap: <select id="xw${s}" name="XW${s}">
 			<option value="2">Linear (never wrap)</option>
 			<option value="3">None (not recommended)</option>
 		</select><br>
+		Use harmonic <i>Random Cycle</i> palette: <input type="checkbox" name="TH"><br>
+		Use &quot;rainbow&quot; color wheel: <input type="checkbox" name="RW"><br>
 		Target refresh rate: <input type="number" class="s" min="0" max="250" name="FR" oninput="UI()" required> FPS
-		<div id="fpsNone" class="warn" style="display: none;">&#9888; Unlimited FPS Mode  is experimental &#9888;<br></div>
+		<div id="fpsNone" class="warn" style="display: none;">&#9888; Unlimited FPS Mode is experimental &#9888;<br></div>
 		<div id="fpsHigh" class="warn" style="display: none;">&#9888; High FPS Mode is experimental.<br></div>
 		<div id="fpsWarn" class="warn" style="display: none;">Please <a class="lnk" href="sec#backup">backup</a> WLED configuration and presets first!<br></div>
 		<hr class="sml">

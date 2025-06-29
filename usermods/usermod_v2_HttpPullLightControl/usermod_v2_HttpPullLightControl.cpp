@@ -4,6 +4,9 @@
 const char HttpPullLightControl::_name[]    PROGMEM = "HttpPullLightControl";
 const char HttpPullLightControl::_enabled[] PROGMEM = "Enable";
 
+static HttpPullLightControl http_pull_usermod;
+REGISTER_USERMOD(http_pull_usermod);
+
 void HttpPullLightControl::setup() {
   //Serial.begin(115200);
 
