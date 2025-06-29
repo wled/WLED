@@ -14,7 +14,7 @@ static Usermod * const _usermod_table_begin[0] __attribute__((__section__(".dtor
 static Usermod * const _usermod_table_end[0] __attribute__((__section__(".dtors.tbl.usermods.99"), unused)) = {};
 
 static size_t getCount() {  
-  return &_usermod_table_end[0] - &_usermod_table_begin[0];
+  return _usermod_table_end - _usermod_table_begin;
 }
 
 

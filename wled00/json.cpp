@@ -1166,7 +1166,7 @@ void serveJson(AsyncWebServerRequest* request)
       //lDoc["m"] = lDoc.memoryUsage(); // JSON buffer usage, for remote debugging
   }
 
-  DEBUG_PRINTF_P(PSTR("JSON buffer size: %u for request: %d\n"), lDoc.memoryUsage(), subJson);
+  DEBUG_PRINTF_P(PSTR("JSON buffer size: %u for request: %d\n"), lDoc.memoryUsage(), (int) subJson);
 
   [[maybe_unused]] size_t len = response->setLength();
   DEBUG_PRINTF_P(PSTR("JSON content length: %u\n"), len);

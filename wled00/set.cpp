@@ -93,7 +93,7 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
     if (oldESPNow != enableESPNow) forceReconnect = true;
     linked_remotes.clear();  // clear old remotes
     for (size_t n = 0; n < 10; n++) {
-      char rm[4];
+      char rm[5];
       snprintf(rm, sizeof(rm), "RM%d", n); // "RM0" to "RM9"
       if (request->hasArg(rm)) {
         const String& arg = request->arg(rm);

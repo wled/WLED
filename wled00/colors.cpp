@@ -568,7 +568,7 @@ uint16_t approximateKelvinFromRGB(uint32_t rgb) {
     if (b < 186) return 3906 + (b-159) *22;
     if (b < 210) return 4500 + (b-186) *25;
     if (b < 230) return 5100 + (b-210) *30;
-                 return 5700 + (b-230) *34;
+    else         return 5700 + (b-230) *34;
   } else {
     //scale red up as if blue was at 255
     uint16_t scale = 0xFFFF / b; //get scale factor (range 257-65535)

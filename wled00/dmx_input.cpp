@@ -151,9 +151,9 @@ void DMXInput::init(uint8_t rxPin, uint8_t txPin, uint8_t enPin, uint8_t inputPo
     const bool pinsAllocated = PinManager::allocateMultiplePins(pins, 3, PinOwner::DMX_INPUT);
     if (!pinsAllocated) {
       DEBUG_PRINTF("DMXInput: Error: Failed to allocate pins for DMX_INPUT. Pins already in use:\n");
-      DEBUG_PRINTF("rx in use by: %s\n", PinManager::getPinOwner(rxPin));
-      DEBUG_PRINTF("tx in use by: %s\n", PinManager::getPinOwner(txPin));
-      DEBUG_PRINTF("en in use by: %s\n", PinManager::getPinOwner(enPin));
+      DEBUG_PRINTF("rx in use by: %d\n", (int) PinManager::getPinOwner(rxPin));
+      DEBUG_PRINTF("tx in use by: %d\n", (int) PinManager::getPinOwner(txPin));
+      DEBUG_PRINTF("en in use by: %d\n", (int) PinManager::getPinOwner(enPin));
       return;
     }
 
