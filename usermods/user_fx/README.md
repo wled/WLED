@@ -3,15 +3,15 @@
 This Usermod is a common place to put various user's WLED Effects.  It gives you a way to load in your own custom WLED effects, or to load in depracated WLED effects that you want to bring back--all without having to mess with the core WLED source code.
 
 Multiple Effects can be specified inside this single usermod, as we will illustrate below.  You will be able to define them with custom names, sliders, etc. as with any other Effect.
-
-* [How The Usermod Works](https://github.com/danewhero/WLED/blob/user_fx/usermods/user_fx/README.md#how-the-usermod-works)
-* [Basic Syntax for WLED Effect Creation](https://github.com/danewhero/WLED/blob/user_fx/usermods/user_fx/README.md#basic-syntax-for-wled-effect-creation)
-* [Understanding 2D WLED Effects](https://github.com/danewhero/WLED/blob/user_fx/usermods/user_fx/README.md#understanding-2d-wled-effects)
-* [The Metadata String](https://github.com/danewhero/WLED/blob/user_fx/usermods/user_fx/README.md#the-metadata-string)
-* [Understanding 1D WLED Effects](https://github.com/danewhero/WLED/blob/user_fx/usermods/user_fx/README.md#understanding-1d-wled-effects)
-* [Combining Multiple Effects in this Usermod](https://github.com/danewhero/WLED/blob/user_fx/usermods/user_fx/README.md#combining-multiple-effects-in-this-usermod)
-* [Compiling](https://github.com/danewhero/WLED/blob/user_fx/usermods/user_fx/README.md#compiling)
-* [Change Log](https://github.com/danewhero/WLED/blob/user_fx/usermods/user_fx/README.md#change-log)
+./README.md#how-the-usermod-works
+* [How The Usermod Works](./README.md#how-the-usermod-works)
+* [Basic Syntax for WLED Effect Creation](./README.md#basic-syntax-for-wled-effect-creation)
+* [Understanding 2D WLED Effects](./README.md#understanding-2d-wled-effects)
+* [The Metadata String](./README.md#the-metadata-string)
+* [Understanding 1D WLED Effects](./README.md#understanding-1d-wled-effects)
+* [Combining Multiple Effects in this Usermod](./README.md#combining-multiple-effects-in-this-usermod)
+* [Compiling](./README.md#compiling)
+* [Change Log](./README.md#change-log)
 
 ## How The Usermod Works
 
