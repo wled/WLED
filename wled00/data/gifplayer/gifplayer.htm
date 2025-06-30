@@ -784,6 +784,22 @@
       }
     }
 
+    async function loadImage(imageHolder, forceReload = false) {
+      const imgSrc = imageHolder.dataset.src;
+      const imgName = imageHolder.dataset.name;
+      try {
+        const blob = await getImageBlob(imgSrc, forceReload);
+        if (!blob) {
+          throw new Error(`Failed to load image: ${imgName}`);
+        }
+        const objectURL = URL.createObjectURL(blob);
+        imageHolder.style.backgroundImage = `url(${objectURL})`;
+        imageHolder.classList.remove("loading");
+      } catch (error) {
+        console.error(error);
+      }
+    }
+
     async function loadImages(imageHolders, forceReload = false) {
       let currentIndex = 0;
       let numRequests = 0;
@@ -796,24 +812,16 @@
           numRequests < MAX_CONCURRENT_REQUESTS &&
           currentIndex < imageHolders.length
         ) {
-          let blob = await getImageBlob(
-            imageHolders[currentIndex].dataset.src,
-            forceReload
-          ).finally(() => {
+          loadImage(imageHolders[currentIndex], forceReload).finally(() => {
             numRequests--;
-            imageHolders[currentIndex].classList.remove("loading");
           });
-
-          imageHolders[currentIndex].style[
-            "background-image"
-          ] = `url(${URL.createObjectURL(blob)})`;
           currentIndex++;
           numRequests++;
         }
         if (currentIndex >= images.length && numRequests === 0) {
           allImagesLoaded = true;
         }
-        await new Promise((resolve) => setTimeout(resolve, 10)); // Add a small delay before checking conditions again
+        await new Promise((resolve) => setTimeout(resolve, 5)); // Add a small delay before checking conditions again
       }
     }
 
@@ -855,9 +863,9 @@
               gId("imgDialogName").innerText = selectedImage.name;
               imgDialog.showModal();
               let blob = await getImageBlob(selectedImage.src);
-              gId("imgDialogImg").style[
-                "background-image"
-              ] = `url(${URL.createObjectURL(blob)})`;
+              const objectURL = URL.createObjectURL(blob);
+              imageHolder.style.backgroundImage = `url(${objectURL})`;
+              gId("imgDialogImg").style.backgroundImage = `url(${objectURL})`;
             },
             false
           );
