@@ -26,9 +26,7 @@
 class UWLCUserMod : public Usermod {
 
   private:
-
-    const uint8_t LED_DRIVER_ADDR = 0x70;
-    const uint8_t LED_PIN = NULL;
+    //const uint8_t LED_PIN = NULL;
     const uint8_t OUTPUT_PIN = 16;
 
 
@@ -118,7 +116,7 @@ class UWLCUserMod : public Usermod {
 
       // Uncomment/edit one of the following lines for your leds arrangement.
       // ## Clockless types ##
-      FastLED.addLeds<WS2812, LED_PIN, GRB>(ledArray, NUM_LEDS); // dummy setup
+      //FastLED.addLeds<WS2812, LED_PIN, GRB>(ledArray, NUM_LEDS); // dummy setup
 
       // Start 2wire comm with the following pins
       Wire.begin(4, 5);
@@ -442,13 +440,13 @@ class UWLCUserMod : public Usermod {
 
 
 // add more strings here to reduce flash memory usage
-const char MyExampleUsermod::_name[]    PROGMEM = "ExampleUsermod";
-const char MyExampleUsermod::_enabled[] PROGMEM = "enabled";
+const char UWLCUserMod::_name[]    PROGMEM = "ExampleUsermod";
+const char UWLCUserMod::_enabled[] PROGMEM = "enabled";
 
 
 // implementation of non-inline member methods
 
-void MyExampleUsermod::publishMqtt(const char* state, bool retain)
+void UWLCUserMod::publishMqtt(const char* state, bool retain)
 {
 #ifndef WLED_DISABLE_MQTT
   //Check if MQTT Connected, otherwise it will crash the 8266
