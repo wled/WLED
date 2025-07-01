@@ -42,19 +42,16 @@ Below are some helpful variables and functions to know as you start your journey
 | `strip.now`                                     | 32-bit | Current timestamp in milliseconds.  (Equivalent to `millis()`, but use `strip.now()` instead.) |
 | `SEGLEN / SEG_W / SEG_H`                        | 16-bit | These variables are macros that help define the length and width of your LED strip/matrix segment. |
 | `hw_random8()`                                  | 8-bit  | Generates a random integer. All random number functions can be found [here](https://github.com/wled/WLED/blob/7b0075d3754fa883fc1bbc9fbbe82aa23a9b97b8/wled00/fcn_declare.h#L535). |
-
 | `SEGCOLOR(x)`                                   | ---    | Gets user-selected colors from UI, where x is an integer 1, 2, or 3 for primary, secondary, and tertiary colors, respectively. (and how it relates to meta string??) |
 | `SEGMENT.setPixelColor / setPixelColorXY`       | ---    | Fuction that paints a single pixel to your specified color.  `setPixelColor` assumes 1D array and requires one positional argument, while  `setPixelColorXY` takes two positional arguments (x and y), and then the RBG color value. |
 | `SEGPALETTE`                                    | ---    | This is the currently selected palette for the currently processing segment. |
-| `SEGMENT.color_from_palette()`                  | ???    | Gets a single color from the currently selected palette for a segment. (This function which should be favoured over `ColorFromPalette()`.) <br />Defined in [FX_fcn.cpp](https://github.com/wled/WLED/blob/main/wled00/FX_fcn.cpp). |
+| `SEGMENT.color_from_palette()`                  | 32-bit | Gets a single color from the currently selected palette for a segment. (This function which should be favoured over `ColorFromPalette()`.) <br />Defined in [FX_fcn.cpp](https://github.com/wled/WLED/blob/main/wled00/FX_fcn.cpp). |
+| `fade`                                          | ---    | There are several different fade functions that make it easy to accomplish different fading tasks; these are all detailed in [FX_fcn.cpp](https://github.com/wled/WLED/blob/main/wled00/FX_fcn.cpp).  An example would be `fadeToBlackBy()` which can be used to fade all pixels to black.  |
+| `move()`                                        | ---    | Moves/shifts pixels in the desired direction. Defined in [FX_fcn.cpp](https://github.com/wled/WLED/blob/main/wled00/FX_fcn.cpp). |
+| `blur / blur2d`                                 | ---    | Blurs all pixels for the desired segment. Defined in [FX_fcn.cpp](https://github.com/wled/WLED/blob/main/wled00/FX_fcn.cpp). |
 
-| `fade`                                          | ???    | There are several different fade functions that make it easy to accomplish different fading tasks; these are all detailed in [FX_fcn.cpp](https://github.com/wled/WLED/blob/main/wled00/FX_fcn.cpp).  An example would be `fadeToBlackBy()` which can be used to fade all pixels to black.  |
-| `move()`                                        | ???    | Moves/shifts pixels in the desired direction. Defined in [FX_fcn.cpp](https://github.com/wled/WLED/blob/main/wled00/FX_fcn.cpp). |
-| `blur / blur2d`                                 | ???    | Blurs all pixels for the desired segment. Defined in [FX_fcn.cpp](https://github.com/wled/WLED/blob/main/wled00/FX_fcn.cpp). |
+Importing `wled.h` brings all of the variables, files, and functions listed above (and more) into your custom effect for your use, as you will see in the examples below.
 
-
-| FX.h
-| `FX_fcn / FX_2Dfcn`                             | ---    | These files contain |
 
 
 ## Understanding 2D WLED Effects
