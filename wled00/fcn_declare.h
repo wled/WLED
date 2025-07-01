@@ -25,7 +25,7 @@ void IRAM_ATTR touchButtonISR();
 
 //cfg.cpp
 bool deserializeConfig(JsonObject doc, bool fromFS = false);
-void deserializeConfigFromFS();
+bool deserializeConfigFromFS();
 bool deserializeConfigSec();
 void serializeConfig(JsonObject doc);
 void serializeConfigToFS();
