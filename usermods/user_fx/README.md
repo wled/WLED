@@ -41,16 +41,16 @@ Below are some helpful variables and functions to know as you start your journey
 | [`SEGENV.call`](https://github.com/wled/WLED/blob/main/wled00/FX.h)                                   | 32-bit | A counter for how many times this effect function has been invoked since it started. |
 | [`strip.now`](https://github.com/wled/WLED/blob/main/wled00/FX.h)                  | 32-bit | Current timestamp in milliseconds.  (Equivalent to `millis()`, but use `strip.now()` instead.) |
 | [`SEGLEN / SEG_W / SEG_H`](https://github.com/wled/WLED/blob/main/wled00/FX_fcn.cpp)                        | 16-bit | These variables are macros that help define the length and width of your LED strip/matrix segment. |
-| [`SEGPALETTE`]((https://github.com/danewhero/WLED/blob/user_fx/wled00/FX.h))                            | ---    | Macro that gets the currently selected palette for the currently processing segment. |
+| [`SEGPALETTE`]((https://github.com/danewhero/WLED/blob/user_fx/wled00/FX.h)                            | ---    | Macro that gets the currently selected palette for the currently processing segment. |
 | [`hw_random8()`](https://github.com/wled/WLED/blob/7b0075d3754fa883fc1bbc9fbbe82aa23a9b97b8/wled00/fcn_declare.h#L535)                               | 8-bit  | One of several functions that generates a random integer. |
-| `SEGCOLOR(x)`                                   | 32-bit | Macro that gets user-selected colors from UI, where x is an integer 1, 2, or 3 for primary, secondary, and tertiary colors, respectively. |
+| [`SEGCOLOR(x)`](https://github.com/wled/WLED/blob/main/wled00/FX.h)                                   | 32-bit | Macro that gets user-selected colors from UI, where x is an integer 1, 2, or 3 for primary, secondary, and tertiary colors, respectively. |
 | [`SEGMENT.setPixelColor`](https://github.com/danewhero/WLED/blob/user_fx/wled00/FX_fcn.cpp) / [`setPixelColorXY`](https://github.com/danewhero/WLED/blob/user_fx/wled00/FX_2Dfcn.cpp)       | ---    | Fuction that paints a single pixel to your specified color.  `setPixelColor` assumes 1D array and requires one positional argument, while  `setPixelColorXY` takes two positional arguments (x and y), and then the RBG color value. |
 | [`SEGMENT.color_from_palette()`](https://github.com/wled/WLED/blob/main/wled00/FX_fcn.cpp)                  | 32-bit | Gets a single color from the currently selected palette for a segment. (This function which should be favoured over `ColorFromPalette()`.) |
 | [`fade`](https://github.com/wled/WLED/blob/main/wled00/FX_fcn.cpp)                                          | ---    | There are several different fade functions that make it easy to accomplish different fading tasks.  An example would be `fadeToBlackBy()` which can be used to fade all pixels to black.  |
 | [`move()`](https://github.com/wled/WLED/blob/main/wled00/FX_fcn.cpp)                            | ---    | Moves/shifts pixels in the desired direction. |
 | [`blur / blur2d`](https://github.com/wled/WLED/blob/main/wled00/FX_fcn.cpp)                      | ---    | Blurs all pixels for the desired segment. |
 
-Importing `wled.h` brings all of the variables, files, and functions listed above (and more) into your custom effect for your use, as you will see in the examples below.
+Importing `wled.h` brings all of the variables, files, and functions listed above (and more) into your custom effect for you to use.  You will see how these syntax elements work in the examples below.
 
 
 
