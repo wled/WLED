@@ -3,7 +3,7 @@
 This Usermod is a common place to put various user's WLED Effects.  It gives you a way to load in your own custom WLED effects, or to load in depracated WLED effects that you want to bring back--all without having to mess with the core WLED source code.
 
 Multiple Effects can be specified inside this single usermod, as we will illustrate below.  You will be able to define them with custom names, sliders, etc. as with any other Effect.
-./README.md#how-the-usermod-works
+
 * [How The Usermod Works](./README.md#how-the-usermod-works)
 * [Basic Syntax for WLED Effect Creation](./README.md#basic-syntax-for-wled-effect-creation)
 * [Understanding 2D WLED Effects](./README.md#understanding-2d-wled-effects)
@@ -36,20 +36,25 @@ Below are some helpful variables and functions to know as you start your journey
 
 | Syntax Element                                  | Size   | Description |
 | :---------------------------------------------- | :----- | :---------- |
-| `SEGMENT.intensity / speed / custom1 etc.`      | 8-bit  | This syntax helps you utilize the UI sliders that can make certain elements of your running code editable by the user.  (These can be controlled by the API as well.)
-| `SEGENV.aux0`                                   | ???    | A temporary state variable to keep track of last position. (how does this relate to aux1?) |
-| `SEGENV.call`                                   | ???    | A counter for how many times this effect function has been invoked since it started. |
-| `strip.now`                                     | ???    | Current timestamp in milliseconds. |
-| `SEGLEN / SEG_W / SEG_H`                        | ???    | These variables are macros that help define the length and width of your LED strip/matrix segment.  They can be changed at any time if the user sets new segment size(s).  |
-| `SEGCOLOR(x)`                                   | ???    | Gets user-selected colors from UI, where x is an integer 1, 2, or 3 fr primary, secondary, and tertiary colors, respectively. (and how it relates to meta string??) |
-| `SEGMENT.setPixelColor`                         | ???    |     |
-| `SEGPALETTE`                                    | ???    |     |
-| `SEGMENT.color_from_palette()`                  | ???    | Easy way to specify a Palette.  This function which should be favoured over `ColorFromPalette()`. |
-| `hw_random8()`                                  | 8-bit  | Generates a random integer. |
-| `FX_2Dfcn`                                      | ???    | |
-| `FX_fcn`                                        | ???    | |
-| `move()`                                        | ???    | |
-| `blur`                                          | ???    | |
+| `SEGMENT.intensity / speed / custom1 etc.`      | 8-bit  | These read-only variables help you control aspects of your custom effect using the UI sliders.  You can edit these vriables through the UI sliders when WLED is running your effect. (These variables can be controlled by the API as well.)
+| `SEGENV.aux0 / aux1`                            | 16-bit | These are state variables that persists between function calls, and they are free to be overwritten by the user for any use case. |
+| `SEGENV.call`                                   | 32-bit | A counter for how many times this effect function has been invoked since it started. |
+| `strip.now`                                     | 32-bit | Current timestamp in milliseconds.  (Equivalent to `millis()`, but use `strip.now()` instead.) |
+| `SEGLEN / SEG_W / SEG_H`                        | 16-bit | These variables are macros that help define the length and width of your LED strip/matrix segment. |
+| `hw_random8()`                                  | 8-bit  | Generates a random integer. All random number functions can be found [here](https://github.com/wled/WLED/blob/7b0075d3754fa883fc1bbc9fbbe82aa23a9b97b8/wled00/fcn_declare.h#L535). |
+
+| `SEGCOLOR(x)`                                   | ---    | Gets user-selected colors from UI, where x is an integer 1, 2, or 3 for primary, secondary, and tertiary colors, respectively. (and how it relates to meta string??) |
+| `SEGMENT.setPixelColor / setPixelColorXY`       | ---    | Fuction that paints a single pixel to your specified color.  `setPixelColor` assumes 1D array and requires one positional argument, while  `setPixelColorXY` takes two positional arguments (x and y), and then the RBG color value. |
+| `SEGPALETTE`                                    | ---    | This is the currently selected palette for the currently processing segment. |
+| `SEGMENT.color_from_palette()`                  | ???    | Gets a single color from the currently selected palette for a segment. (This function which should be favoured over `ColorFromPalette()`.) <br />Defined in [FX_fcn.cpp](https://github.com/wled/WLED/blob/main/wled00/FX_fcn.cpp). |
+
+| `fade`                                          | ???    | There are several different fade functions that make it easy to accomplish different fading tasks; these are all detailed in [FX_fcn.cpp](https://github.com/wled/WLED/blob/main/wled00/FX_fcn.cpp).  An example would be `fadeToBlackBy()` which can be used to fade all pixels to black.  |
+| `move()`                                        | ???    | Moves/shifts pixels in the desired direction. Defined in [FX_fcn.cpp](https://github.com/wled/WLED/blob/main/wled00/FX_fcn.cpp). |
+| `blur / blur2d`                                 | ???    | Blurs all pixels for the desired segment. Defined in [FX_fcn.cpp](https://github.com/wled/WLED/blob/main/wled00/FX_fcn.cpp). |
+
+
+| FX.h
+| `FX_fcn / FX_2Dfcn`                             | ---    | These files contain |
 
 
 ## Understanding 2D WLED Effects
