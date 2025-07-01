@@ -639,16 +639,16 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
 
 static const char s_cfg_json[] PROGMEM = "/cfg.json";
 
-void deserializeConfigFromFS() {
-  bool success = deserializeConfigSec();
+bool deserializeConfigFromFS() {
+  [[maybe_unused]] bool success = deserializeConfigSec();
   #ifdef WLED_ADD_EEPROM_SUPPORT
   if (!success) { //if file does not exist, try reading from EEPROM
     deEEPSettings();
-    return;
+    return true;
   }
   #endif
 
-  if (!requestJSONBufferLock(1)) return;
+  if (!requestJSONBufferLock(1)) return false;
 
   DEBUG_PRINTLN(F("Reading settings from /cfg.json..."));
 
@@ -658,17 +658,11 @@ void deserializeConfigFromFS() {
     #ifdef WLED_ADD_EEPROM_SUPPORT
     deEEPSettings();
     #endif
-
-    // save default values to /cfg.json
-    // call readFromConfig() with an empty object so that usermods can initialize to defaults prior to saving
-    JsonObject empty = JsonObject();
-    UsermodManager::readFromConfig(empty);
-    serializeConfig();
     // init Ethernet (in case default type is set at compile time)
     #ifdef WLED_USE_ETHERNET
     WLED::instance().initEthernet();
     #endif
-    return;
+    return true; // config does not exist (we will need to save it once strip is initialised)
   }
 
   // NOTE: This routine deserializes *and* applies the configuration
@@ -677,7 +671,7 @@ void deserializeConfigFromFS() {
   bool needsSave = deserializeConfig(root, true);
   releaseJSONBufferLock();
 
-  if (needsSave) serializeConfig(); // usermods required new parameters
+  return needsSave;
 }
 
 void serializeConfig() {
