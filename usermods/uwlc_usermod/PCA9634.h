@@ -14,6 +14,7 @@
 
 #define PCA9634_LIB_VERSION         (F("0.4.0"))
 
+#define PCA9634_DEFAULT_ADDRESS 0x70
 
 //  mode codes
 //  NEW
@@ -141,7 +142,7 @@
 class PCA9634
 {
 public:
-  explicit PCA9634(const uint8_t deviceAddress, TwoWire *wire = &Wire);
+  explicit PCA9634(TwoWire *wire = &Wire);
 
   bool     begin(uint8_t mode1_mask = PCA963X_MODE1_ALLCALL,
                  uint8_t mode2_mask = PCA963X_MODE2_NONE);

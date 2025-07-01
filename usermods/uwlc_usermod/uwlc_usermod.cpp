@@ -19,21 +19,24 @@
  * 2. Register the usermod by adding #include "usermod_filename.h" in the top and registerUsermod(new MyUsermodClass()) in the bottom of usermods_list.cpp
  */
 
-#define LED_DRIVER_ADDR 0x70
-#define LED_PIN NULL
-#define OUTPUT_PIN 16
+
 
 
 //class name. Use something descriptive and leave the ": public Usermod" part :)
-class UWLCUserMode : public Usermod {
+class UWLCUserMod : public Usermod {
 
   private:
+
+    const uint8_t LED_DRIVER_ADDR = 0x70;
+    const uint8_t LED_PIN = NULL;
+    const uint8_t OUTPUT_PIN = 16;
+
 
     // Private class members. You can declare variables and functions only accessible to your usermod here
     bool enabled = false;
     bool initDone = false;
     unsigned long lastTime = 0;
-    PCA9634 ledDriver(LED_DRIVER_ADDR);
+    PCA9634 ledDriver;
 
     // set your config variables to their boot default value (this can also be done in readFromConfig() or a constructor if you prefer)
     bool testBool = false;
@@ -458,5 +461,5 @@ void MyExampleUsermod::publishMqtt(const char* state, bool retain)
 #endif
 }
 
-static MyExampleUsermod example_usermod;
-REGISTER_USERMOD(example_usermod);
+static UWLCUserMod uwlc_usermod ;
+REGISTER_USERMOD(uwlc_usermod);

@@ -14,9 +14,9 @@
 //
 //  Constructor
 //
-PCA9634::PCA9634(const uint8_t deviceAddress, TwoWire *wire)
+PCA9634::PCA9634(TwoWire *wire)
 {
-  _address         = deviceAddress;
+  _address         = PCA9634_DEFAULT_ADDRESS;
   _wire            = wire;
   _channelCount    = 8;
   _error           = PCA963X_OK;
