@@ -7268,20 +7268,39 @@ uint16_t mode_single_eqbar(void) {
     // Grab the intensity value for peak decay speed, bound it between 1 and 32, invert for ease of use.
     peakDecay = map(255 - SEGMENT.intensity, 1, 255, 1, 32);
   }
-  int barHeight = map(fftResult[freqBin], 0, 255, 0, SEGLEN); // Grab new bar height
+  int barHeight = 0;
+  if (strip.isMatrix || SEGMENT.is2D()){
+    barHeight = map(fftResult[freqBin], 0, 255, 0, SEG_H); // Grab new bar height
+  } else { 
+    barHeight = map(fftResult[freqBin], 0, 255, 0, SEGLEN); // Grab new bar height
+  }
   if (barHeight > *prevBarHeight) *prevBarHeight = barHeight; // Update the previous bar height if the new height is greater
 
   SEGMENT.fade_out(SEGMENT.speed); // Always fade out existing bars according to speed slider.
 
   // Draw the main bar (but not peak pixel)
   for (int i = 0; i < barHeight; i++) {
-    SEGMENT.setPixelColor(i, SEGMENT.color_from_palette(i, true, PALETTE_SOLID_WRAP, 0));
+    if (strip.isMatrix || SEGMENT.is2D()){
+      // If we are in a matrix or 2D segment, draw the bar vertically
+      for (int j = 0; j < SEG_W; j++) {
+        SEGMENT.setPixelColorXY(j, i, SEGMENT.color_from_palette(i, true, PALETTE_SOLID_WRAP, 0));
+      }
+    } else {
+      // Otherwise draw the bar horizontally
+      SEGMENT.setPixelColor(i, SEGMENT.color_from_palette(i, true, PALETTE_SOLID_WRAP, 0));
+    }
   }
 
   if (peakDecay == 0){
     // No peak pixel if decay is set to zero, just draw the peak pixel of the bar.
     if (barHeight > 0) {
-      SEGMENT.setPixelColor(barHeight, SEGMENT.color_from_palette(barHeight, true, PALETTE_SOLID_WRAP, 0));
+      if (strip.isMatrix || SEGMENT.is2D()) {
+        for (int j = 0; j < SEG_W; j++) {
+          SEGMENT.setPixelColorXY(j, barHeight, SEGMENT.color_from_palette(barHeight, true, PALETTE_SOLID_WRAP, 0));
+        } 
+      } else {
+        SEGMENT.setPixelColor(barHeight, SEGMENT.color_from_palette(barHeight, true, PALETTE_SOLID_WRAP, 0));
+      }
     }
   } else {
     // Decrement prevBarHeight according to peakDecay
@@ -7289,16 +7308,30 @@ uint16_t mode_single_eqbar(void) {
 
     // Set peak pixel and clear pixels over peak (otherwise they would fadewith value from speed slider)
     if (*prevBarHeight > 0) {
-      SEGMENT.setPixelColor(*prevBarHeight, SEGCOLOR(2));
+
+      if (strip.isMatrix || SEGMENT.is2D()) {
+        for (int j = 0; j < SEG_W; j++) {
+          SEGMENT.setPixelColorXY(j, *prevBarHeight, SEGCOLOR(2));
+        }
+      } else {
+        SEGMENT.setPixelColor(*prevBarHeight, SEGCOLOR(2));
+      }
     }
     if (*prevBarHeight < SEGLEN) {
-      SEGMENT.setPixelColor(*prevBarHeight + 1, BLACK); // clear next pixel immediately.
+
+      if (strip.isMatrix || SEGMENT.is2D()) {
+        for (int j = 0; j < SEG_W; j++) {
+          SEGMENT.setPixelColorXY(j, *prevBarHeight + 1, BLACK); // clear next pixel immediately.
+        }
+      } else {
+        SEGMENT.setPixelColor(*prevBarHeight + 1, BLACK); // clear next pixel immediately.
+      }
     }
   }
 
   return FRAMETIME;
 }
-static const char _data_FX_MODE_SINGLE_EQBAR[] PROGMEM = "Single EQ Bar@Fade speed,Peak decay,Frequency bin;!,,Peaks;!;!;1vf;sx=128,ix=170,c1=128,si=0";
+static const char _data_FX_MODE_SINGLE_EQBAR[] PROGMEM = "Single EQ Bar@Fade speed,Peak decay,Frequency bin;!,,Peaks;!;!;12vf;sx=128,ix=170,c1=128,si=0";
 
 /////////////////////////
 //  ** 2D Funky plank  //
