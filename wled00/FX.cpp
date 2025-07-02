@@ -7275,9 +7275,11 @@ uint16_t mode_single_eqbar(void) {
     SEGMENT.setPixelColor(i, SEGMENT.color_from_palette(i, true, PALETTE_SOLID_WRAP, 0));
   }
 
-  if (peakDecay == 0 && barHeight > 0){
+  if (peakDecay == 0){
     // No peak pixel if decay is set to zero, just draw the peak pixel of the bar.
-    SEGMENT.setPixelColor(barHeight, SEGMENT.color_from_palette(barHeight, true, PALETTE_SOLID_WRAP, 0));
+    if (barHeight > 0) {
+      SEGMENT.setPixelColor(barHeight, SEGMENT.color_from_palette(barHeight, true, PALETTE_SOLID_WRAP, 0));
+    }
   } else {
     // Decrement prevBarHeight according to peakDecay
     if (*prevBarHeight > 0 && (SEGENV.call % (peakDecay > 1 ? peakDecay : 1)) == 0) (*prevBarHeight)--;
