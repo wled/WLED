@@ -7263,8 +7263,11 @@ uint16_t mode_single_eqbar(void) {
 
   // User controls. Speed is referenced directly instead of creating a new varible.
   uint8_t freqBin = map(SEGMENT.custom1, 0, 255, 0, 15); // 0-15 (or up to available bins)
-  uint8_t peakDecay = (SEGMENT.intensity == 0) ? 0 : map(255 - SEGMENT.intensity, 1, 255, 1, 32); // Grab the intensity value for peak decay speed. Invert for ease of use.
-
+  uint8_t peakDecay = SEGMENT.intensity;
+  if (peakDecay > 0){
+    // Grab the intensity value for peak decay speed, bound it between 1 and 32, invert for ease of use.
+    peakDecay = map(255 - SEGMENT.intensity, 1, 255, 1, 32);
+  }
   int barHeight = map(fftResult[freqBin], 0, 255, 0, SEGLEN); // Grab new bar height
   if (barHeight > *prevBarHeight) *prevBarHeight = barHeight; // Update the previous bar height if the new height is greater
 
