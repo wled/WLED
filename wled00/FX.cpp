@@ -7260,6 +7260,7 @@ uint16_t mode_single_eqbar(void) {
   um_data_t *um_data = getAudioData();
   uint8_t *fftResult = (uint8_t*)um_data->u_data[2];
   if (!fftResult) return mode_static();
+  bool is2d = (strip.isMatrix || SEGMENT.is2D());
 
   // User controls. Speed is referenced directly instead of creating a new varible.
   uint8_t freqBin = map(SEGMENT.custom1, 0, 255, 0, 15); // 0-15 (or up to available bins)
@@ -7280,7 +7281,7 @@ uint16_t mode_single_eqbar(void) {
 
   // Draw the main bar (but not peak pixel)
   for (int i = 0; i < barHeight; i++) {
-    if (strip.isMatrix || SEGMENT.is2D()){
+    if (is2d){
       // If we are in a matrix or 2D segment, draw the bar vertically
       for (int j = 0; j < SEG_W; j++) {
         SEGMENT.setPixelColorXY(j, i, SEGMENT.color_from_palette(i, true, PALETTE_SOLID_WRAP, 0));
@@ -7294,7 +7295,7 @@ uint16_t mode_single_eqbar(void) {
   if (peakDecay == 0){
     // No peak pixel if decay is set to zero, just draw the peak pixel of the bar.
     if (barHeight > 0) {
-      if (strip.isMatrix || SEGMENT.is2D()) {
+      if (is2d) {
         for (int j = 0; j < SEG_W; j++) {
           SEGMENT.setPixelColorXY(j, barHeight, SEGMENT.color_from_palette(barHeight, true, PALETTE_SOLID_WRAP, 0));
         } 
@@ -7309,7 +7310,7 @@ uint16_t mode_single_eqbar(void) {
     // Set peak pixel and clear pixels over peak (otherwise they would fadewith value from speed slider)
     if (*prevBarHeight > 0) {
 
-      if (strip.isMatrix || SEGMENT.is2D()) {
+      if (is2d) {
         for (int j = 0; j < SEG_W; j++) {
           SEGMENT.setPixelColorXY(j, *prevBarHeight, SEGCOLOR(2));
         }
@@ -7319,7 +7320,7 @@ uint16_t mode_single_eqbar(void) {
     }
     if (*prevBarHeight < SEGLEN) {
 
-      if (strip.isMatrix || SEGMENT.is2D()) {
+      if (is2d) {
         for (int j = 0; j < SEG_W; j++) {
           SEGMENT.setPixelColorXY(j, *prevBarHeight + 1, BLACK); // clear next pixel immediately.
         }
