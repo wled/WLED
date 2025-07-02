@@ -7272,19 +7272,17 @@ uint16_t mode_single_eqbar(void) {
 
   // Draw the main bar (but not peak pixel)
   for (int i = 0; i < barHeight; i++) {
-    if (i < barHeight) {
-      // Draw the main bar according to the palette. Don't draw the top pixel, that's drawn by the peak handling.
-      SEGMENT.setPixelColor(i, SEGMENT.color_from_palette(i, true, PALETTE_SOLID_WRAP, 0));
-    }
+    SEGMENT.setPixelColor(i, SEGMENT.color_from_palette(i, true, PALETTE_SOLID_WRAP, 0));
   }
 
   if (peakDecay == 0 && barHeight > 0){
-    // No peak pixel if decay is set to zero, just draw the bar.
+    // No peak pixel if decay is set to zero, just draw the peak pixel of the bar.
     SEGMENT.setPixelColor(barHeight, SEGMENT.color_from_palette(barHeight, true, PALETTE_SOLID_WRAP, 0));
   } else {
-    // Peak decay, set pixel and handle decay. Clear pixels over peak (otherwise they would fadewith value from speed slider)
+    // Decrement prevBarHeight according to peakDecay
     if (*prevBarHeight > 0 && (SEGENV.call % (peakDecay > 1 ? peakDecay : 1)) == 0) (*prevBarHeight)--;
 
+    // Set peak pixel and clear pixels over peak (otherwise they would fadewith value from speed slider)
     if (*prevBarHeight > 0) {
       SEGMENT.setPixelColor(*prevBarHeight, SEGCOLOR(2));
     }
@@ -7295,7 +7293,7 @@ uint16_t mode_single_eqbar(void) {
 
   return FRAMETIME;
 }
-static const char _data_FX_MODE_SINGLE_EQBAR[] PROGMEM = "Single EQ Bar@Fade speed,Ripple decay,Frequency bin;!,,Peaks;!;!;1vf;c1=0,c2=8,si=0";
+static const char _data_FX_MODE_SINGLE_EQBAR[] PROGMEM = "Single EQ Bar@Fade speed,Peak decay,Frequency bin;!,,Peaks;!;!;1vf;sx=128,ix=170,c1=128,si=0";
 
 /////////////////////////
 //  ** 2D Funky plank  //
