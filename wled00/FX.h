@@ -374,6 +374,7 @@ extern byte realtimeMode;           // used in getMappedPixelIndex()
 #define FX_MODE_PS1DSPRINGY            216
 #define FX_MODE_PARTICLEGALAXY         217
 #define MODE_COUNT                     218
+#define FX_MODE_SINGLE_EQBAR           219
 
 
 #define BLEND_STYLE_FADE            0x00  // universal

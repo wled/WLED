@@ -7248,6 +7248,54 @@ uint16_t mode_2DGEQ(void) { // By Will Tatam. Code reduction by Ewoud Wijma.
 } // mode_2DGEQ()
 static const char _data_FX_MODE_2DGEQ[] PROGMEM = "GEQ@Fade speed,Ripple decay,# of bands,,,Color bars;!,,Peaks;!;2f;c1=255,c2=64,pal=11,si=0"; // Beatsin
 
+/////////////////////////
+//   Single EQ Bar     //
+/////////////////////////
+uint16_t mode_single_eqbar(void) {
+  if (!SEGENV.allocateData(sizeof(uint16_t))) return mode_static();
+  uint16_t *prevBarHeight = (uint16_t*)SEGENV.data;
+  if (SEGENV.call == 0) *prevBarHeight = 0;
+
+  // Grab audio data - we only need the fftResult here, as we want the frequency data
+  um_data_t *um_data = getAudioData();
+  uint8_t *fftResult = (uint8_t*)um_data->u_data[2];
+  if (!fftResult) return mode_static();
+
+  // User controls. Speed is referenced directly instead of creating a new varible.
+  uint8_t freqBin = map(SEGMENT.custom1, 0, 255, 0, 15); // 0-15 (or up to available bins)
+  uint8_t peakDecay = (SEGMENT.intensity == 0) ? 0 : map(255 - SEGMENT.intensity, 1, 255, 1, 32); // Grab the intensity value for peak decay speed. Invert for ease of use.
+
+  int barHeight = map(fftResult[freqBin], 0, 255, 0, SEGLEN); // Grab new bar height
+  if (barHeight > *prevBarHeight) *prevBarHeight = barHeight; // Update the previous bar height if the new height is greater
+
+  SEGMENT.fade_out(SEGMENT.speed); // Always fade out existing bars according to speed slider.
+
+  // Draw the main bar (but not peak pixel)
+  for (int i = 0; i < barHeight; i++) {
+    if (i < barHeight) {
+      // Draw the main bar according to the palette. Don't draw the top pixel, that's drawn by the peak handling.
+      SEGMENT.setPixelColor(i, SEGMENT.color_from_palette(i, true, PALETTE_SOLID_WRAP, 0));
+    }
+  }
+
+  if (peakDecay == 0 && barHeight > 0){
+    // No peak pixel if decay is set to zero, just draw the bar.
+    SEGMENT.setPixelColor(barHeight, SEGMENT.color_from_palette(barHeight, true, PALETTE_SOLID_WRAP, 0));
+  } else {
+    // Peak decay, set pixel and handle decay. Clear pixels over peak (otherwise they would fadewith value from speed slider)
+    if (*prevBarHeight > 0 && (SEGENV.call % (peakDecay > 1 ? peakDecay : 1)) == 0) (*prevBarHeight)--;
+
+    if (*prevBarHeight > 0) {
+      SEGMENT.setPixelColor(*prevBarHeight, SEGCOLOR(2));
+    }
+    if (*prevBarHeight < SEGLEN) {
+      SEGMENT.setPixelColor(*prevBarHeight + 1, BLACK); // clear next pixel immediately.
+    }
+  }
+
+  return FRAMETIME;
+}
+static const char _data_FX_MODE_SINGLE_EQBAR[] PROGMEM = "Single EQ Bar@Fade speed,Ripple decay,Frequency bin;!,,Peaks;!;!;1vf;c1=0,c2=8,si=0";
 
 /////////////////////////
 //  ** 2D Funky plank  //
@@ -10818,5 +10866,6 @@ addEffect(FX_MODE_PS1DSONICSTREAM, &mode_particle1DsonicStream, _data_FX_MODE_PS
 addEffect(FX_MODE_PS1DSONICBOOM, &mode_particle1DsonicBoom, _data_FX_MODE_PS_SONICBOOM);
 addEffect(FX_MODE_PS1DSPRINGY, &mode_particleSpringy, _data_FX_MODE_PS_SPRINGY);
 #endif // WLED_DISABLE_PARTICLESYSTEM1D
+addEffect(FX_MODE_SINGLE_EQBAR, &mode_single_eqbar, _data_FX_MODE_SINGLE_EQBAR);
 
 }
