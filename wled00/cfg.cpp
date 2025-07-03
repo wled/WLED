@@ -57,10 +57,21 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
 #endif
 
   JsonObject id = doc["id"];
-  getStringFromJson(cmDNS, id[F("mdns")], 33);
-  getStringFromJson(serverDescription, id[F("name")], 33);
+  getStringFromJson(cmDNS, id[F("mdns")], sizeof(cmDNS));
+  // fill in unique mDNS name if not set (cmDNS can be empty meaning no mDNS is used)
+  if (strcmp(cmDNS, DEFAULT_MDNS_NAME) == 0) sprintf_P(cmDNS, PSTR("wled-%*s"), 6, escapedMac.c_str() + 6);
+  getStringFromJson(serverDescription, id[F("name")], sizeof(serverDescription));
+  if (!fromFS) {
+    char hostname[25];
+    prepareHostname(hostname, sizeof(hostname)-1);
+    #ifdef ARDUINO_ARCH_ESP32
+    WiFi.setHostname(hostname);
+    #else
+    WiFi.hostname(hostname);
+    #endif
+  }
 #ifndef WLED_DISABLE_ALEXA
-  getStringFromJson(alexaInvocationName, id[F("inv")], 33);
+  getStringFromJson(alexaInvocationName, id[F("inv")], sizeof(alexaInvocationName));
 #endif
   CJSON(simplifiedUI, id[F("sui")]);
 
@@ -637,8 +648,9 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
   getStringFromJson(mqttUser, if_mqtt[F("user")], 41);
   getStringFromJson(mqttPass, if_mqtt["psk"], 65); //normally not present due to security
   getStringFromJson(mqttClientID, if_mqtt[F("cid")], 41);
-
+  if (mqttClientID[0] == 0) sprintf_P(mqttClientID, PSTR("WLED-%*s"), 6, escapedMac.c_str() + 6);
   getStringFromJson(mqttDeviceTopic, if_mqtt[F("topics")][F("device")], MQTT_MAX_TOPIC_LEN+1); // "wled/test"
+  if (mqttDeviceTopic[0] == 0) sprintf_P(mqttDeviceTopic, PSTR("wled/%*s"), 6, escapedMac.c_str() + 6);
   getStringFromJson(mqttGroupTopic, if_mqtt[F("topics")][F("group")], MQTT_MAX_TOPIC_LEN+1); // ""
   CJSON(retainMqttMsg, if_mqtt[F("rtn")]);
 #endif
