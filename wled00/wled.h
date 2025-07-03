@@ -230,12 +230,6 @@ using PSRAMDynamicJsonDocument = BasicJsonDocument<PSRAM_Allocator>;
   Comment out this error message to build regardless.
 #endif
 
-#ifndef WLED_DISABLE_INFRARED
-  #include <IRremoteESP8266.h>
-  #include <IRrecv.h>
-  #include <IRutils.h>
-#endif
-
 //Filesystem to use for preset and config files. SPIFFS or LittleFS on ESP8266, SPIFFS only on ESP32 (now using LITTLEFS port by lorol)
 #ifdef ESP8266
   #define WLED_FS LittleFS

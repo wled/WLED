@@ -1,13 +1,13 @@
 #include "wled.h"
 
 #ifndef WLED_DISABLE_INFRARED
+#include <IRremote.hpp>
 #include "ir_codes.h"
 
 /*
  * Infrared sensor support for several generic RGB remotes and custom JSON remote
  */
 
-IRrecv* irrecv;
 decode_results results;
 unsigned long irCheckedTime = 0;
 uint32_t lastValidCode = 0;
@@ -698,34 +698,64 @@ static void decodeIR(uint32_t code)
 
 void initIR()
 {
-  if (irEnabled > 0) {
-    irrecv = new IRrecv(irPin);
-    if (irrecv) irrecv->enableIRIn();
-  } else irrecv = nullptr;
+  if (irEnabled > 0 ) {
+    IrReceiver.begin(irPin, false);
+  }
 }
 
 void deInitIR()
 {
-  if (irrecv) {
-    irrecv->disableIRIn();
-    delete irrecv;
+  IrReceiver.end();
+}
+
+// to make it easy to tell what's incoming when we're debugging
+const char* decodeTypeToStr(uint8_t type) 
+{
+  switch (type) {
+    case LG :       return "LG";
+    case NEC:       return "NEC";
+    case SONY:      return "SONY";
+    case SAMSUNG:   return "SAMSUNG";
+    case MAGIQUEST: return "MAGIQUEST";
+    // Add other protocol cases as needed...
+    default:        return "UNKNOWN";
   }
-  irrecv = nullptr;
 }
 
 void handleIR()
 {
   unsigned long currentTime = millis();
   unsigned timeDiff = currentTime - irCheckedTime;
-  if (timeDiff > 120 && irEnabled > 0 && irrecv) {
+  if (timeDiff > 120 && irEnabled > 0 ) {
     if (strip.isUpdating() && timeDiff < 240) return;  // be nice, but not too nice
     irCheckedTime = currentTime;
-    if (irrecv->decode(&results)) {
-      if (results.value != 0 && serialCanTX) { // only print results if anything is received ( != 0 )
-        Serial.printf_P(PSTR("IR recv: 0x%lX\n"), (unsigned long)results.value);
+    if (IrReceiver.decode()) {
+      auto &results = IrReceiver.decodedIRData;
+
+      // we need to reverse the bits for NEC, SAMSUNG and SONY remotes to not break backwards compatability
+      uint32_t value;
+      if (results.protocol == NEC || results.protocol == SAMSUNG || results.protocol == SONY) {
+        value = bitreverse32Bit(results.decodedRawData);
       }
-      decodeIR(results.value);
-      irrecv->resume();
+      else {
+        value = results.decodedRawData;
+      }
+
+      // all the returns for IR in case we need to debug a remote
+      DEBUG_PRINTF_P(PSTR("IR Protocol Received: %s\n"), decodeTypeToStr(results.protocol));
+      DEBUG_PRINTF_P(PSTR("  Raw Data: %d\n"), results.decodedRawData);
+      DEBUG_PRINTF_P(PSTR("  Address: 0x%X\n"), results.address);
+      DEBUG_PRINTF_P(PSTR("  Command: 0x%lX\n"), (unsigned long)results.command);
+      DEBUG_PRINTF_P(PSTR("  Num Bits: %d\n"), results.numberOfBits);
+      DEBUG_PRINTF_P(PSTR("  Value: 0x%0lX\n"), (unsigned long)value);
+
+      #ifndef WLED_DEBUG
+        if (results.numberOfBits != 0 && serialCanTX) { // only print results if anything is received ( != 0 )
+            Serial.printf_P(PSTR("  Protocol Received: %s, Value: 0x%0lX\n"), decodeTypeToStr(results.protocol), (unsigned long)value);
+        }
+      #endif
+      decodeIR(value);
+      IrReceiver.resume();
     }
   }
 }
