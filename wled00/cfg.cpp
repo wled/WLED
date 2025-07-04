@@ -421,7 +421,7 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
     for (size_t s = 0; s < WLED_MAX_BUTTONS && s < numPins; s++) {
       type = defTypes[s < numTypes ? s : numTypes - 1]; // use last known type to set current type if types less than pins
       if (type == BTN_TYPE_NONE || defPins[s] < 0 || !PinManager::allocatePin(defPins[s], false, PinOwner::Button)) {
-        //buttons.emplace_back(-1, BTN_TYPE_NONE); // add disabled button to vector
+        if (buttons.size() == 0) buttons.emplace_back(-1, BTN_TYPE_NONE); // add disabled button to vector (so we have at least one button defined)
         continue; // pin not available or invalid, skip configuring this GPIO
       }
       if (disablePullUp) {
