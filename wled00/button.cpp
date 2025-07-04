@@ -17,13 +17,13 @@ static bool buttonBriDirection = false; // true: increase brightness, false: dec
 
 void shortPressAction(uint8_t b)
 {
-  if (!macroButton[b]) {
+  if (!buttons[b].macroButton) {
     switch (b) {
       case 0: toggleOnOff(); stateUpdated(CALL_MODE_BUTTON); break;
       case 1: ++effectCurrent %= strip.getModeCount(); stateChanged = true; colorUpdated(CALL_MODE_BUTTON); break;
     }
   } else {
-    applyPreset(macroButton[b], CALL_MODE_BUTTON_PRESET);
+    applyPreset(buttons[b].macroButton, CALL_MODE_BUTTON_PRESET);
   }
 
 #ifndef WLED_DISABLE_MQTT
@@ -38,7 +38,7 @@ void shortPressAction(uint8_t b)
 
 void longPressAction(uint8_t b)
 {
-  if (!macroLongPress[b]) {
+  if (!buttons[b].macroLongPress) {
     switch (b) {
       case 0: setRandomColor(colPri); colorUpdated(CALL_MODE_BUTTON); break;
       case 1: 
@@ -52,11 +52,11 @@ void longPressAction(uint8_t b)
           else bri -= WLED_LONG_BRI_STEPS;
         }
         stateUpdated(CALL_MODE_BUTTON); 
-        buttonPressedTime[b] = millis();         
+        buttons[b].pressedTime = millis();         
         break; // repeatable action
     }
   } else {
-    applyPreset(macroLongPress[b], CALL_MODE_BUTTON_PRESET);
+    applyPreset(buttons[b].macroLongPress, CALL_MODE_BUTTON_PRESET);
   }
 
 #ifndef WLED_DISABLE_MQTT
@@ -71,13 +71,13 @@ void longPressAction(uint8_t b)
 
 void doublePressAction(uint8_t b)
 {
-  if (!macroDoublePress[b]) {
+  if (!buttons[b].macroDoublePress) {
     switch (b) {
       //case 0: toggleOnOff(); colorUpdated(CALL_MODE_BUTTON); break; //instant short press on button 0 if no macro set
       case 1: ++effectPalette %= getPaletteCount(); colorUpdated(CALL_MODE_BUTTON); break;
     }
   } else {
-    applyPreset(macroDoublePress[b], CALL_MODE_BUTTON_PRESET);
+    applyPreset(buttons[b].macroDoublePress, CALL_MODE_BUTTON_PRESET);
   }
 
 #ifndef WLED_DISABLE_MQTT
@@ -92,10 +92,10 @@ void doublePressAction(uint8_t b)
 
 bool isButtonPressed(uint8_t b)
 {
-  if (btnPin[b]<0) return false;
-  unsigned pin = btnPin[b];
+  if (buttons[b].pin < 0) return false;
+  unsigned pin = buttons[b].pin;
 
-  switch (buttonType[b]) {
+  switch (buttons[b].type) {
     case BTN_TYPE_NONE:
     case BTN_TYPE_RESERVED:
       break;
@@ -113,7 +113,7 @@ bool isButtonPressed(uint8_t b)
         #ifdef SOC_TOUCH_VERSION_2 //ESP32 S2 and S3 provide a function to check touch state (state is updated in interrupt)
         if (touchInterruptGetLastStatus(pin)) return true;
         #else
-        if (digitalPinToTouchChannel(btnPin[b]) >= 0 && touchRead(pin) <= touchThreshold) return true;
+        if (digitalPinToTouchChannel(pin) >= 0 && touchRead(pin) <= touchThreshold) return true;
         #endif
       #endif
      break;
@@ -124,25 +124,25 @@ bool isButtonPressed(uint8_t b)
 void handleSwitch(uint8_t b)
 {
   // isButtonPressed() handles inverted/noninverted logic
-  if (buttonPressedBefore[b] != isButtonPressed(b)) {
+  if (buttons[b].pressedBefore != isButtonPressed(b)) {
     DEBUG_PRINTF_P(PSTR("Switch: State changed %u\n"), b);
-    buttonPressedTime[b] = millis();
-    buttonPressedBefore[b] = !buttonPressedBefore[b];
+    buttons[b].pressedTime = millis();
+    buttons[b].pressedBefore = !buttons[b].pressedBefore; // toggle pressed state
   }
 
-  if (buttonLongPressed[b] == buttonPressedBefore[b]) return;
+  if (buttons[b].longPressed == buttons[b].pressedBefore) return;
 
-  if (millis() - buttonPressedTime[b] > WLED_DEBOUNCE_THRESHOLD) { //fire edge event only after 50ms without change (debounce)
+  if (millis() - buttons[b].pressedTime > WLED_DEBOUNCE_THRESHOLD) { //fire edge event only after 50ms without change (debounce)
     DEBUG_PRINTF_P(PSTR("Switch: Activating  %u\n"), b);
-    if (!buttonPressedBefore[b]) { // on -> off
+    if (!buttons[b].pressedBefore) { // on -> off
       DEBUG_PRINTF_P(PSTR("Switch: On -> Off (%u)\n"), b);
-      if (macroButton[b]) applyPreset(macroButton[b], CALL_MODE_BUTTON_PRESET);
+      if (buttons[b].macroButton) applyPreset(buttons[b].macroButton, CALL_MODE_BUTTON_PRESET);
       else { //turn on
         if (!bri) {toggleOnOff(); stateUpdated(CALL_MODE_BUTTON);}
       }
     } else {  // off -> on
       DEBUG_PRINTF_P(PSTR("Switch: Off -> On (%u)\n"), b);
-      if (macroLongPress[b]) applyPreset(macroLongPress[b], CALL_MODE_BUTTON_PRESET);
+      if (buttons[b].macroLongPress) applyPreset(buttons[b].macroLongPress, CALL_MODE_BUTTON_PRESET);
       else { //turn off
         if (bri) {toggleOnOff(); stateUpdated(CALL_MODE_BUTTON);}
       }
@@ -152,13 +152,13 @@ void handleSwitch(uint8_t b)
     // publish MQTT message
     if (buttonPublishMqtt && WLED_MQTT_CONNECTED) {
       char subuf[MQTT_MAX_TOPIC_LEN + 32];
-      if (buttonType[b] == BTN_TYPE_PIR_SENSOR) sprintf_P(subuf, PSTR("%s/motion/%d"), mqttDeviceTopic, (int)b);
+      if (buttons[b].type == BTN_TYPE_PIR_SENSOR) sprintf_P(subuf, PSTR("%s/motion/%d"), mqttDeviceTopic, (int)b);
       else sprintf_P(subuf, _mqtt_topic_button, mqttDeviceTopic, (int)b);
-      mqtt->publish(subuf, 0, false, !buttonPressedBefore[b] ? "off" : "on");
+      mqtt->publish(subuf, 0, false, !buttons[b].pressedBefore ? "off" : "on");
     }
 #endif
 
-    buttonLongPressed[b] = buttonPressedBefore[b]; //save the last "long term" switch state
+    buttons[b].longPressed = buttons[b].pressedBefore; //save the last "long term" switch state
   }
 }
 
@@ -178,17 +178,17 @@ void handleAnalog(uint8_t b)
   #ifdef ESP8266
   rawReading = analogRead(A0) << 2;   // convert 10bit read to 12bit
   #else
-  if ((btnPin[b] < 0) /*|| (digitalPinToAnalogChannel(btnPin[b]) < 0)*/) return; // pin must support analog ADC - newer esp32 frameworks throw lots of warnings otherwise
-  rawReading = analogRead(btnPin[b]); // collect at full 12bit resolution
+  if ((buttons[b].pin < 0) /*|| (digitalPinToAnalogChannel(buttons[b].pin) < 0)*/) return; // pin must support analog ADC - newer esp32 frameworks throw lots of warnings otherwise
+  rawReading = analogRead(buttons[b].pin); // collect at full 12bit resolution
   #endif
   yield();                            // keep WiFi task running - analog read may take several millis on ESP8266
 
   filteredReading[b] += POT_SMOOTHING * ((float(rawReading) / 16.0f) - filteredReading[b]); // filter raw input, and scale to [0..255]
   unsigned aRead = max(min(int(filteredReading[b]), 255), 0);                               // squash into 8bit
-  if(aRead <= POT_SENSITIVITY) aRead = 0;                                                   // make sure that 0 and 255 are used
-  if(aRead >= 255-POT_SENSITIVITY) aRead = 255;
+  if (aRead <= POT_SENSITIVITY) aRead = 0;                                                   // make sure that 0 and 255 are used
+  if (aRead >= 255-POT_SENSITIVITY) aRead = 255;
 
-  if (buttonType[b] == BTN_TYPE_ANALOG_INVERTED) aRead = 255 - aRead;
+  if (buttons[b].type == BTN_TYPE_ANALOG_INVERTED) aRead = 255 - aRead;
 
   // remove noise & reduce frequency of UI updates
   if (abs(int(aRead) - int(oldRead[b])) <= POT_SENSITIVITY) return;  // no significant change in reading
@@ -206,10 +206,10 @@ void handleAnalog(uint8_t b)
   oldRead[b] = aRead;
 
   // if no macro for "short press" and "long press" is defined use brightness control
-  if (!macroButton[b] && !macroLongPress[b]) {
-    DEBUG_PRINTF_P(PSTR("Analog: Action = %u\n"), macroDoublePress[b]);
+  if (!buttons[b].macroButton && !buttons[b].macroLongPress) {
+    DEBUG_PRINTF_P(PSTR("Analog: Action = %u\n"), buttons[b].macroDoublePress);
     // if "double press" macro defines which option to change
-    if (macroDoublePress[b] >= 250) {
+    if (buttons[b].macroDoublePress >= 250) {
       // global brightness
       if (aRead == 0) {
         briLast = bri;
@@ -218,27 +218,30 @@ void handleAnalog(uint8_t b)
         if (bri == 0) strip.restartRuntime();
         bri = aRead;
       }
-    } else if (macroDoublePress[b] == 249) {
+    } else if (buttons[b].macroDoublePress == 249) {
       // effect speed
       effectSpeed = aRead;
-    } else if (macroDoublePress[b] == 248) {
+    } else if (buttons[b].macroDoublePress == 248) {
       // effect intensity
       effectIntensity = aRead;
-    } else if (macroDoublePress[b] == 247) {
+    } else if (buttons[b].macroDoublePress == 247) {
       // selected palette
       effectPalette = map(aRead, 0, 252, 0, getPaletteCount()-1);
       effectPalette = constrain(effectPalette, 0, getPaletteCount()-1);  // map is allowed to "overshoot", so we need to contrain the result
-    } else if (macroDoublePress[b] == 200) {
+    } else if (buttons[b].macroDoublePress == 200) {
       // primary color, hue, full saturation
-      colorHStoRGB(aRead*256,255,colPri);
+      colorHStoRGB(aRead*256, 255, colPri);
     } else {
       // otherwise use "double press" for segment selection
-      Segment& seg = strip.getSegment(macroDoublePress[b]);
+      Segment& seg = strip.getSegment(buttons[b].macroDoublePress);
       if (aRead == 0) {
-        seg.setOption(SEG_OPTION_ON, false); // off (use transition)
+        seg.on = false; // do not use transition
+        //seg.setOption(SEG_OPTION_ON, false); // off (use transition)
       } else {
-        seg.setOpacity(aRead);
-        seg.setOption(SEG_OPTION_ON, true); // on (use transition)
+        seg.opacity = aRead; // set brightness (opacity) of segment
+        seg.on = true;
+        //seg.setOpacity(aRead);
+        //seg.setOption(SEG_OPTION_ON, true); // on (use transition)
       }
       // this will notify clients of update (websockets,mqtt,etc)
       updateInterfaces(CALL_MODE_BUTTON);
@@ -261,16 +264,16 @@ void handleButton()
   if (strip.isUpdating() && (now - lastRun < ANALOG_BTN_READ_CYCLE+1)) return; // don't interfere with strip update (unless strip is updating continuously, e.g. very long strips)
   lastRun = now;
 
-  for (unsigned b=0; b<WLED_MAX_BUTTONS; b++) {
+  for (unsigned b = 0; b < buttons.size(); b++) {
     #ifdef ESP8266
-    if ((btnPin[b]<0 && !(buttonType[b] == BTN_TYPE_ANALOG || buttonType[b] == BTN_TYPE_ANALOG_INVERTED)) || buttonType[b] == BTN_TYPE_NONE) continue;
+    if ((buttons[b].pin < 0 && !(buttons[b].type == BTN_TYPE_ANALOG || buttons[b].type == BTN_TYPE_ANALOG_INVERTED)) || buttons[b].type == BTN_TYPE_NONE) continue;
     #else
-    if (btnPin[b]<0 || buttonType[b] == BTN_TYPE_NONE) continue;
+    if (buttons[b].pin < 0 || buttons[b].type == BTN_TYPE_NONE) continue;
     #endif
 
     if (UsermodManager::handleButton(b)) continue; // did usermod handle buttons
 
-    if (buttonType[b] == BTN_TYPE_ANALOG || buttonType[b] == BTN_TYPE_ANALOG_INVERTED) { // button is not a button but a potentiometer
+    if (buttons[b].type == BTN_TYPE_ANALOG || buttons[b].type == BTN_TYPE_ANALOG_INVERTED) { // button is not a button but a potentiometer
       if (now - lastAnalogRead > ANALOG_BTN_READ_CYCLE) {
         handleAnalog(b);
       }
@@ -278,7 +281,7 @@ void handleButton()
     }
 
     // button is not momentary, but switch. This is only suitable on pins whose on-boot state does not matter (NOT gpio0)
-    if (buttonType[b] == BTN_TYPE_SWITCH || buttonType[b] == BTN_TYPE_TOUCH_SWITCH || buttonType[b] == BTN_TYPE_PIR_SENSOR) {
+    if (buttons[b].type == BTN_TYPE_SWITCH || buttons[b].type == BTN_TYPE_TOUCH_SWITCH || buttons[b].type == BTN_TYPE_PIR_SENSOR) {
       handleSwitch(b);
       continue;
     }
@@ -287,40 +290,39 @@ void handleButton()
     if (isButtonPressed(b)) { // pressed
 
       // if all macros are the same, fire action immediately on rising edge
-      if (macroButton[b] && macroButton[b] == macroLongPress[b] && macroButton[b] == macroDoublePress[b]) {
-        if (!buttonPressedBefore[b])
-          shortPressAction(b);
-        buttonPressedBefore[b] = true;
-        buttonPressedTime[b] = now; // continually update (for debouncing to work in release handler)
+      if (buttons[b].macroButton && buttons[b].macroButton == buttons[b].macroLongPress && buttons[b].macroButton == buttons[b].macroDoublePress) {
+        if (!buttons[b].pressedBefore) shortPressAction(b);
+        buttons[b].pressedBefore = true;
+        buttons[b].pressedTime = now; // continually update (for debouncing to work in release handler)
         continue;
       }
 
-      if (!buttonPressedBefore[b]) buttonPressedTime[b] = now;
-      buttonPressedBefore[b] = true;
+      if (!buttons[b].pressedBefore) buttons[b].pressedTime = now;
+      buttons[b].pressedBefore = true;
 
-      if (now - buttonPressedTime[b] > WLED_LONG_PRESS) { //long press
-        if (!buttonLongPressed[b]) {
+      if (now - buttons[b].pressedTime > WLED_LONG_PRESS) { //long press
+        if (!buttons[b].longPressed) {
           buttonBriDirection = !buttonBriDirection; //toggle brightness direction on long press
           longPressAction(b);
         } else if (b) { //repeatable action (~5 times per s) on button > 0
           longPressAction(b);
-          buttonPressedTime[b] = now - WLED_LONG_REPEATED_ACTION; //200ms
+          buttons[b].pressedTime = now - WLED_LONG_REPEATED_ACTION; //200ms
         }
-        buttonLongPressed[b] = true;
+        buttons[b].longPressed = true;
       }
 
-    } else if (buttonPressedBefore[b]) { //released
-      long dur = now - buttonPressedTime[b];
+    } else if (buttons[b].pressedBefore) { //released
+      long dur = now - buttons[b].pressedTime;
 
       // released after rising-edge short press action
-      if (macroButton[b] && macroButton[b] == macroLongPress[b] && macroButton[b] == macroDoublePress[b]) {
-        if (dur > WLED_DEBOUNCE_THRESHOLD) buttonPressedBefore[b] = false; // debounce, blocks button for 50 ms once it has been released
+      if (buttons[b].macroButton && buttons[b].macroButton == buttons[b].macroLongPress && buttons[b].macroButton == buttons[b].macroDoublePress) {
+        if (dur > WLED_DEBOUNCE_THRESHOLD) buttons[b].pressedBefore = false; // debounce, blocks button for 50 ms once it has been released
         continue;
       }
 
-      if (dur < WLED_DEBOUNCE_THRESHOLD) {buttonPressedBefore[b] = false; continue;} // too short "press", debounce
-      bool doublePress = buttonWaitTime[b]; //did we have a short press before?
-      buttonWaitTime[b] = 0;
+      if (dur < WLED_DEBOUNCE_THRESHOLD) {buttons[b].pressedBefore = false; continue;} // too short "press", debounce
+      bool doublePress = buttons[b].waitTime; //did we have a short press before?
+      buttons[b].waitTime = 0;
 
       if (b == 0 && dur > WLED_LONG_AP) { // long press on button 0 (when released)
         if (dur > WLED_LONG_FACTORY_RESET) { // factory reset if pressed > 10 seconds
@@ -332,25 +334,25 @@ void handleButton()
         } else {
           WLED::instance().initAP(true);
         }
-      } else if (!buttonLongPressed[b]) { //short press
+      } else if (!buttons[b].longPressed) { //short press
         //NOTE: this interferes with double click handling in usermods so usermod needs to implement full button handling
-        if (b != 1 && !macroDoublePress[b]) { //don't wait for double press on buttons without a default action if no double press macro set
+        if (b != 1 && !buttons[b].macroDoublePress) { //don't wait for double press on buttons without a default action if no double press macro set
           shortPressAction(b);
         } else { //double press if less than 350 ms between current press and previous short press release (buttonWaitTime!=0)
           if (doublePress) {
             doublePressAction(b);
           } else {
-            buttonWaitTime[b] = now;
+            buttons[b].waitTime = now;
           }
         }
       }
-      buttonPressedBefore[b] = false;
-      buttonLongPressed[b] = false;
+      buttons[b].pressedBefore = false;
+      buttons[b].longPressed = false;
     }
 
     //if 350ms elapsed since last short press release it is a short press
-    if (buttonWaitTime[b] && now - buttonWaitTime[b] > WLED_DOUBLE_PRESS && !buttonPressedBefore[b]) {
-      buttonWaitTime[b] = 0;
+    if (buttons[b].waitTime && now - buttons[b].waitTime > WLED_DOUBLE_PRESS && !buttons[b].pressedBefore) {
+      buttons[b].waitTime = 0;
       shortPressAction(b);
     }
   }
