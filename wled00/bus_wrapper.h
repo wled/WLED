@@ -862,12 +862,12 @@ class PolyBus {
       // I2S1 bus or paralell buses
       #ifndef CONFIG_IDF_TARGET_ESP32C3
       case I_32_I2_NEO_3: if (_useParallelI2S) (static_cast<B_32_IP_NEO_3*>(busPtr))->SetPixelColor(pix, RgbColor(col)); else (static_cast<B_32_I2_NEO_3*>(busPtr))->SetPixelColor(pix, RgbColor(col)); break;
-      case I_32_I2_NEO_4: if (_useParallelI2S) (static_cast<B_32_IP_NEO_4*>(busPtr))->SetPixelColor(pix, RgbColor(col)); else (static_cast<B_32_I2_NEO_4*>(busPtr))->SetPixelColor(pix, col); break;
+      case I_32_I2_NEO_4: if (_useParallelI2S) (static_cast<B_32_IP_NEO_4*>(busPtr))->SetPixelColor(pix, col); else (static_cast<B_32_I2_NEO_4*>(busPtr))->SetPixelColor(pix, col); break;
       case I_32_I2_400_3: if (_useParallelI2S) (static_cast<B_32_IP_400_3*>(busPtr))->SetPixelColor(pix, RgbColor(col)); else (static_cast<B_32_I2_400_3*>(busPtr))->SetPixelColor(pix, RgbColor(col)); break;
-      case I_32_I2_TM1_4: if (_useParallelI2S) (static_cast<B_32_IP_TM1_4*>(busPtr))->SetPixelColor(pix, RgbColor(col)); else (static_cast<B_32_I2_TM1_4*>(busPtr))->SetPixelColor(pix, col); break;
+      case I_32_I2_TM1_4: if (_useParallelI2S) (static_cast<B_32_IP_TM1_4*>(busPtr))->SetPixelColor(pix, col); else (static_cast<B_32_I2_TM1_4*>(busPtr))->SetPixelColor(pix, col); break;
       case I_32_I2_TM2_3: if (_useParallelI2S) (static_cast<B_32_IP_TM2_3*>(busPtr))->SetPixelColor(pix, RgbColor(col)); else (static_cast<B_32_I2_TM2_3*>(busPtr))->SetPixelColor(pix, RgbColor(col)); break;
-      case I_32_I2_UCS_3: if (_useParallelI2S) (static_cast<B_32_IP_UCS_3*>(busPtr))->SetPixelColor(pix, RgbColor(col)); else (static_cast<B_32_I2_UCS_3*>(busPtr))->SetPixelColor(pix, Rgb48Color(RgbColor(col))); break;
-      case I_32_I2_UCS_4: if (_useParallelI2S) (static_cast<B_32_IP_UCS_4*>(busPtr))->SetPixelColor(pix, RgbColor(col)); else (static_cast<B_32_I2_UCS_4*>(busPtr))->SetPixelColor(pix, Rgbw64Color(col)); break;
+      case I_32_I2_UCS_3: if (_useParallelI2S) (static_cast<B_32_IP_UCS_3*>(busPtr))->SetPixelColor(pix, Rgb48Color(RgbColor(col))); else (static_cast<B_32_I2_UCS_3*>(busPtr))->SetPixelColor(pix, Rgb48Color(RgbColor(col))); break;
+      case I_32_I2_UCS_4: if (_useParallelI2S) (static_cast<B_32_IP_UCS_4*>(busPtr))->SetPixelColor(pix, Rgbw64Color(col)); else (static_cast<B_32_I2_UCS_4*>(busPtr))->SetPixelColor(pix, Rgbw64Color(col)); break;
       case I_32_I2_APA106_3: if (_useParallelI2S) (static_cast<B_32_IP_APA106_3*>(busPtr))->SetPixelColor(pix, RgbColor(col)); else (static_cast<B_32_I2_APA106_3*>(busPtr))->SetPixelColor(pix, RgbColor(col)); break;
       case I_32_I2_FW6_5: if (_useParallelI2S) (static_cast<B_32_IP_FW6_5*>(busPtr))->SetPixelColor(pix, RgbwwColor(col.R, col.G, col.B, cctWW, cctCW)); else (static_cast<B_32_I2_FW6_5*>(busPtr))->SetPixelColor(pix, RgbwwColor(col.R, col.G, col.B, cctWW, cctCW)); break;
       case I_32_I2_2805_5: if (_useParallelI2S) (static_cast<B_32_IP_2805_5*>(busPtr))->SetPixelColor(pix, RgbwwColor(col.R, col.G, col.B, cctWW, cctCW)); else (static_cast<B_32_I2_2805_5*>(busPtr))->SetPixelColor(pix, RgbwwColor(col.R, col.G, col.B, cctWW, cctCW)); break;
@@ -1423,7 +1423,7 @@ class PolyBus {
           return I_8266_U0_SM16825_5 + offset;
       }
       #else //ESP32
-      uint8_t offset = 0; // 0 = RMT (num 1-8), 1 = I2S0 (used by Audioreactive), 2 = I2S1
+      uint8_t offset = 0; // 0 = RMT (num 1-8), 1 = I2S1 [I2S0 is used by Audioreactive]
       #if defined(CONFIG_IDF_TARGET_ESP32S2)
       // ESP32-S2 only has 4 RMT channels
       if (_useParallelI2S) {
