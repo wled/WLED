@@ -31,14 +31,12 @@ def set_syslog_state(project_dir, enabled):
         f.write("1" if enabled else "0")
 
 # This is the HTML we want to inject
-SYSLOG_HTML = """
-<h3>Syslog</h3>
+SYSLOG_HTML = """<h3>Syslog</h3>
 <div id="Syslog">
   Enable Syslog: <input type="checkbox" name="SL_en"><br>
   Host: <input type="text" name="SL_host" maxlength="32"><br>
   Port: <input type="number" name="SL_port" min="1" max="65535" value="%SL_port%"><br>
-</div>
-"""
+</div>"""
 
 def inject_syslog_ui(source, target, env, retry_count=0):
     print("\033[44m==== inject_syslog_ui.py (PRE BUILD) ====\033[0m")
@@ -50,7 +48,7 @@ def inject_syslog_ui(source, target, env, retry_count=0):
     build_flags = env.get("BUILD_FLAGS", "")
     if isinstance(build_flags, list):
         build_flags = " ".join(build_flags)
-    has_syslog = bool(re.search(r'-D\s*WLED_ENABLE_SYSLOG', build_flags))
+    has_syslog = bool(re.search(r'-D\s*WLED_ENABLE_SYSLOG\b', build_flags))
 
     project_dir = env.subst("$PROJECT_DIR")
     html_path = os.path.join(project_dir, "wled00/data/settings_sync.htm")
@@ -92,6 +90,9 @@ def inject_syslog_ui(source, target, env, retry_count=0):
                 idx = modified.rfind('<hr>')
                 if idx == -1:
                     print("\033[41mCould not find <hr> to insert Syslog UI!\033[0m")
+                    # Clean up backup since injection failed
+                    if os.path.exists(bak):
+                        os.remove(bak)
                     return
                 modified = (
                     modified[:idx]
@@ -118,7 +119,7 @@ def inject_syslog_ui(source, target, env, retry_count=0):
         # verify that SYSLOG markers really are in the file
         with open(html_path, 'r', encoding='utf8') as f:
             content = f.read()
-        if '<!-- SYSLOG-INJECT -->' not in content:
+        if '<h3>Syslog</h3>' not in content:
             print("Backup exists but SYSLOG markers missing—forcing re-injection.")
             os.remove(bak)
             # only retry up to 3 times
@@ -141,8 +142,6 @@ def restore_syslog_ui(source, target, env):
     # restore only if backup file is present
     if os.path.exists(bak):
         print("Restoring original file from backup...")
-        if os.path.exists(html_path):
-            os.chmod(html_path, 0o644)
         shutil.copy2(bak, html_path)
         os.remove(bak)
 
