@@ -37,42 +37,6 @@ SYSLOG_HTML = """
   Enable Syslog: <input type="checkbox" name="SL_en"><br>
   Host: <input type="text" name="SL_host" maxlength="32"><br>
   Port: <input type="number" name="SL_port" min="1" max="65535" value="%SL_port%"><br>
-
-  <!-- These UI elements are commented out but preserved for potential future use -->
-  <!--
-  Protocol:
-  <select name="SL_proto">
-    <option value="0">BSD (RFC3164)</option>
-    <option value="1">RFC5424</option>
-    <option value="2">Raw</option>
-  </select><br>
-  Facility:
-  <select name="SL_fac">
-    <option value="0">KERN</option>
-    <option value="1">USER</option>
-    <option value="3">DAEMON</option>
-    <option value="5">SYSLOG</option>
-    <option value="16">LOCAL0</option>
-    <option value="17">LOCAL1</option>
-    <option value="18">LOCAL2</option>
-    <option value="19">LOCAL3</option>
-    <option value="20">LOCAL4</option>
-    <option value="21">LOCAL5</option>
-    <option value="22">LOCAL6</option>
-    <option value="23">LOCAL7</option>
-  </select><br>
-  Severity:
-  <select name="SL_sev">
-    <option value="0">EMERG</option>
-    <option value="1">ALERT</option>
-    <option value="2">CRIT</option>
-    <option value="3">ERR</option>
-    <option value="4">WARNING</option>
-    <option value="5">NOTICE</option>
-    <option value="6">INFO</option>
-    <option value="7">DEBUG</option>
-  </select><br>
-  -->
 </div>
 """
 
@@ -120,15 +84,9 @@ def inject_syslog_ui(source, target, env, retry_count=0):
                 original = f.read()
             modified = original
 
-            # replace existing section if present
-            if '<!-- SYSLOG-START -->' in modified and '<!-- SYSLOG-END -->' in modified:
-                start = modified.index('<!-- SYSLOG-START -->')
-                end   = modified.index('<!-- SYSLOG-END -->') + len('<!-- SYSLOG-END -->')
-                modified = (
-                    modified[:start]
-                    + '<!-- SYSLOG-START -->\n' + SYSLOG_HTML + '\n<!-- SYSLOG-END -->'
-                    + modified[end:]
-                )
+            # replace the single comment with HTML
+            if '<!-- SYSLOG-INJECT -->' in modified:
+                modified = modified.replace('<!-- SYSLOG-INJECT -->', SYSLOG_HTML)
             else:
                 # insert before last <hr>
                 idx = modified.rfind('<hr>')
@@ -137,7 +95,7 @@ def inject_syslog_ui(source, target, env, retry_count=0):
                     return
                 modified = (
                     modified[:idx]
-                    + '<!-- SYSLOG-START -->\n' + SYSLOG_HTML + '\n<!-- SYSLOG-END -->\n'
+                    + SYSLOG_HTML + '\n'
                     + modified[idx:]
                 )
 
@@ -160,7 +118,7 @@ def inject_syslog_ui(source, target, env, retry_count=0):
         # verify that SYSLOG markers really are in the file
         with open(html_path, 'r', encoding='utf8') as f:
             content = f.read()
-        if '<!-- SYSLOG-START -->' not in content or '<!-- SYSLOG-END -->' not in content:
+        if '<!-- SYSLOG-INJECT -->' not in content:
             print("Backup exists but SYSLOG markers missing—forcing re-injection.")
             os.remove(bak)
             # only retry up to 3 times

@@ -3,42 +3,6 @@
 
 #include "syslog.h"
 
-// Comment out but preserve the protocol names
-/*
-static const char* const protoNames[] PROGMEM = {
-  PSTR("BSD"),
-  PSTR("RFC5424"),
-  PSTR("RAW"),
-  PSTR("UNKNOWN")
-};
-static const uint8_t protoCount = sizeof(protoNames)/sizeof(*protoNames);
-*/
-
-// Comment out but preserve facility names
-/*
-//  We fill invalid entries with PSTR("UNKNOWN") so we can index 0..24 safely
-static const char* const facilityNames[] PROGMEM = {
-  PSTR("KERN"),   PSTR("USER"),   PSTR("UNKNOWN"), PSTR("DAEMON"),
-  PSTR("UNKNOWN"),PSTR("SYSLOG"), PSTR("UNKNOWN"), PSTR("UNKNOWN"),
-  PSTR("UNKNOWN"),PSTR("UNKNOWN"),PSTR("UNKNOWN"), PSTR("UNKNOWN"),
-  PSTR("UNKNOWN"),PSTR("UNKNOWN"),PSTR("UNKNOWN"), PSTR("UNKNOWN"),
-  PSTR("LCL0"),   PSTR("LCL1"),   PSTR("LCL2"),    PSTR("LCL3"),
-  PSTR("LCL4"),   PSTR("LCL5"),   PSTR("LCL6"),    PSTR("LCL7"),
-  PSTR("UNKNOWN")  // catch-all at index 24
-};
-static const uint8_t facCount   = sizeof(facilityNames)/sizeof(*facilityNames);
-*/
-
-// Comment out but preserve severity names
-/* 
-static const char* const severityNames[] PROGMEM = {
-  PSTR("EMERG"), PSTR("ALERT"), PSTR("CRIT"),  PSTR("ERR"),
-  PSTR("WARN"),  PSTR("NOTE"),  PSTR("INFO"),  PSTR("DEBUG"),
-  PSTR("UNKNOWN")
-};
-static const uint8_t sevCount = sizeof(severityNames) / sizeof(*severityNames);
-*/
-
 SyslogPrinter::SyslogPrinter() : 
   _lastOperationSucceeded(true),
   _lastErrorMessage(""),
@@ -55,24 +19,6 @@ void SyslogPrinter::begin(const char* host, uint16_t port,
   DEBUG_PRINTF_P(PSTR(" Hostname:  %s\n"), host);
   DEBUG_PRINTF_P(PSTR(" Cached IP: %s\n"), syslogHostIP.toString().c_str());
   DEBUG_PRINTF_P(PSTR(" Port:      %u\n"), (unsigned)port);
-
-  /*
-  // Protocol
-  uint8_t pidx = protocol < (protoCount - 1) ? protocol : (protoCount - 1);
-  const char* pstr = (const char*)pgm_read_ptr(&protoNames[pidx]);
-  DEBUG_PRINTF_P(PSTR(" Protocol:  %u (%s)\n"), (unsigned)protocol, pstr);
-
-  // — Facility
-  uint8_t fidx = facility < (facCount - 1) ? facility : (facCount - 1);
-  const char* fstr = (const char*)pgm_read_ptr(&facilityNames[fidx]);
-  DEBUG_PRINTF_P(PSTR(" Facility:  %u (%s)\n"), (unsigned)facility, fstr);
-
-  // Severity
-  uint8_t idx = severity < sevCount-1 ? severity : sevCount-1;
-  const char* sevStr = (const char*)pgm_read_ptr(&severityNames[idx]);
-  DEBUG_PRINTF_P(PSTR(" Severity:  %u (%s)\n"), (unsigned)severity, sevStr);
-  */
-
   DEBUG_PRINTF_P(PSTR("======================================\n"));
 
   strlcpy(syslogHost, host, sizeof(syslogHost));
@@ -211,76 +157,35 @@ size_t SyslogPrinter::write(const uint8_t *buf, size_t size, uint8_t severity) {
   String cleanHostname = String(serverDescription);
   cleanHostname.replace(' ', '_');
 
-  // Handle different syslog protocol formats
-  // Note: Only BSD protocol is currently implemented; RFC5424 and RAW are preserved for future use
-  // switch (_protocol) {
-    // case SYSLOG_PROTO_BSD:
-      // RFC 3164 format: <PRI>TIMESTAMP HOSTNAME APP-NAME: MESSAGE
-      syslogUdp.printf("<%d>", pri);
-      
-      if (ntpEnabled && ntpConnected) {
-        // Month abbreviation
-        static const char* const months[] = {
-          "Jan","Feb","Mar","Apr","May","Jun",
-          "Jul","Aug","Sep","Oct","Nov","Dec"
-        };
+  // Note: Only BSD protocol is currently implemented
+  syslogUdp.printf("<%d>", pri);
+  
+  if (ntpEnabled && ntpConnected) {
+    // Month abbreviation
+    static const char* const months[] = {
+      "Jan","Feb","Mar","Apr","May","Jun",
+      "Jul","Aug","Sep","Oct","Nov","Dec"
+    };
 
-        syslogUdp.printf("%s %2d %02d:%02d:%02d ", 
-                        months[month(localTime) - 1], 
-                        day(localTime),
-                        hour(localTime), 
-                        minute(localTime), 
-                        second(localTime));
-      } else {
-        // No valid time available
-        syslogUdp.print(F("Jan 01 00:00:00 "));
-      }
-      
-      // Add hostname and app name
-      syslogUdp.print(cleanHostname);
-      syslogUdp.print(" ");
-      syslogUdp.print(_appName);
-      syslogUdp.print(": ");
-      
-      // Add message content
-      size = syslogUdp.write(buf, size);
-      /* 
-      break;
-      
-    case SYSLOG_PROTO_RFC5424:	  
-      // RFC 5424 format: <PRI>VERSION TIMESTAMP HOSTNAME APP-NAME PROCID MSGID STRUCTURED-DATA MSG
-      syslogUdp.printf("<%d>1 ", pri); // Version is always 1
-      
-      if (ntpEnabled && ntpConnected) {
-        syslogUdp.printf("%04d-%02d-%02dT%02d:%02d:%02dZ ",
-                        year(localTime),
-                        month(localTime),
-                        day(localTime),
-                        hour(localTime),
-                        minute(localTime),
-                        second(localTime));
-      } else {
-        // No valid time available
-        syslogUdp.print(F("1970-01-01T00:00:00Z "));
-      }
-      
-      // Add hostname, app name, and other fields (using - for empty fields)
-      syslogUdp.print(cleanHostname);
-      syslogUdp.print(" ");
-      syslogUdp.print(_appName);
-      syslogUdp.print(F(" - - - ")); // PROCID, MSGID, and STRUCTURED-DATA are empty
-      
-      // Add message content
-      size = syslogUdp.write(buf, size);
-      break;
-      
-    case SYSLOG_PROTO_RAW:
-    default:
-      // Just send the raw message (like original NetDebug)
-      size = syslogUdp.write(buf, size);
-      break;
+    syslogUdp.printf("%s %2d %02d:%02d:%02d ", 
+                    months[month(localTime) - 1], 
+                    day(localTime),
+                    hour(localTime), 
+                    minute(localTime), 
+                    second(localTime));
+  } else {
+    // No valid time available
+    syslogUdp.print(F("Jan 01 00:00:00 "));
   }
-  */
+  
+  // Add hostname and app name
+  syslogUdp.print(cleanHostname);
+  syslogUdp.print(" ");
+  syslogUdp.print(_appName);
+  syslogUdp.print(": ");
+  
+  // Add message content
+  size = syslogUdp.write(buf, size);
   
   syslogUdp.endPacket();
   return size;
