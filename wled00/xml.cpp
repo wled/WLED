@@ -521,9 +521,6 @@ void getSettingsJS(byte subPage, Print& settingsScript)
     printSetFormCheckbox(settingsScript,PSTR("SL_en"), syslogEnabled);     // enable/disable
     printSetFormValue   (settingsScript,PSTR("SL_host"), syslogHost);      // host
     printSetFormValue   (settingsScript,PSTR("SL_port"), syslogPort);      // port
-    // printSetFormValue   (settingsScript,PSTR("SL_proto"), syslogProtocol); // protocol
-    // printSetFormValue   (settingsScript,PSTR("SL_fac"), syslogFacility);   // facility
-    // printSetFormValue   (settingsScript,PSTR("SL_sev"), syslogSeverity);   // severity
     #endif
 
     #ifndef WLED_ENABLE_ADALIGHT

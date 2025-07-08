@@ -978,32 +978,8 @@ WLED_GLOBAL volatile uint8_t jsonBufferLock _INIT(0);
     #define WLED_SYSLOG_PORT 514
   #endif
   WLED_GLOBAL int syslogPort _INIT(WLED_SYSLOG_PORT);
-
-  // Preserved code as comments - protocol setting is now hardcoded
-  /* 
-  #ifndef WLED_SYSLOG_PROTOCOL
-    #define WLED_SYSLOG_PROTOCOL SYSLOG_PROTO_BSD
-  #endif
-  WLED_GLOBAL uint8_t syslogProtocol _INIT(WLED_SYSLOG_PROTOCOL);
-  */
   WLED_GLOBAL uint8_t syslogProtocol _INIT(SYSLOG_PROTO_BSD); // Direct initialization with hardcoded BSD protocol value
-
-  // Preserved code as comments - facility setting is now hardcoded
-  /* 
-  #ifndef WLED_SYSLOG_FACILITY
-    #define WLED_SYSLOG_FACILITY SYSLOG_LOCAL0
-  #endif
-  WLED_GLOBAL uint8_t syslogFacility _INIT(WLED_SYSLOG_FACILITY);
-  */
   WLED_GLOBAL uint8_t syslogFacility _INIT(SYSLOG_LOCAL0); // Direct initialization with hardcoded LOCAL0 facility value
-
-  // Preserved code as comments - severity setting is now hardcoded
-  /* 
-  #ifndef WLED_SYSLOG_SEVERITY
-    #define WLED_SYSLOG_SEVERITY SYSLOG_DEBUG
-  #endif
-  WLED_GLOBAL uint8_t syslogSeverity _INIT(WLED_SYSLOG_SEVERITY);
-  */
   WLED_GLOBAL uint8_t syslogSeverity _INIT(SYSLOG_DEBUG); // Direct initialization with hardcoded DEBUG severity value
 #elif defined(WLED_DEBUG_HOST)
   #include "net_debug.h"
