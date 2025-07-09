@@ -1436,7 +1436,8 @@ class PolyBus {
       // ESP32-S2 only has 4 RMT channels
       if (_useParallelI2S) {
         if (num > 11) return I_NONE;
-        if (num < 8) offset = 1;    // use x8 parallel I2S0 channels (use last to allow Audioreactive)
+        if (num < 8) offset = 1;    // use x8 parallel I2S0 channels followed by RMT
+                                    // Note: conflicts with AudioReactive if enabled
       } else {
         if (num > 4) return I_NONE;
         if (num > 3) offset = 1;  // only one I2S0 (use last to allow Audioreactive)
@@ -1449,7 +1450,7 @@ class PolyBus {
       // On ESP32-S3 only the first 4 RMT channels are usable for transmitting
       if (_useParallelI2S) {
         if (num > 11) return I_NONE;
-        if (num < 8) offset = 1;    // use x8 parallel I2S LCD channels
+        if (num < 8) offset = 1;    // use x8 parallel I2S LCD channels, followed by RMT
       } else {
         if (num > 3) return I_NONE; // do not use single I2S (as it is not supported)
       }
@@ -1457,7 +1458,7 @@ class PolyBus {
       // standard ESP32 has 8 RMT and x1/x8 I2S1 channels
       if (_useParallelI2S) {
         if (num > 15) return I_NONE;
-        if (num < 8) offset = 1;  // 8 RMT followed by 8 I2S
+        if (num < 8) offset = 1;  // 8 I2S followed by 8 RMT
       } else {
         if (num > 9) return I_NONE;
         if (num == 0) offset = 1; // prefer I2S1 for 1st bus (less flickering but more RAM needed)
