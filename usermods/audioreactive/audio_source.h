@@ -755,7 +755,7 @@ class I2SAdcSource : public I2SSource {
 #include "driver/adc.h"
 #include "hal/adc_types.h"
 #define ADC_TIMEOUT 30            // Timout for one full frame of samples in ms (TODO: use (FFT_MIN_CYCLE + 5) but need to move the ifdefs before the include in the cpp file)
-#define ADC_RESULT_BYTE SOC_ADC_DIGI_RESULT_BYTES  //for C3 this is 4 (32bit, first 12bits is ADC result, see adc_digi_output_data_t)
+#define ADC_RESULT_BYTE SOC_ADC_DIGI_RESULT_BYTES  //for C3 & S3 this is 4 bytes, S2 is 2 bytes, first 12bits is ADC result, see adc_digi_output_data_t
 #ifdef CONFIG_IDF_TARGET_ESP32C3
 #define MAX_ADC1_CHANNEL 4  // C3 has 5 channels (0-4)
 #else
@@ -788,7 +788,11 @@ class DMAadcSource : public AudioSource {
           .adc_pattern = &adcpattern,             // Pattern configuration
           .sample_freq_hz = sampleRate,           // sample frequency in Hz
           .conv_mode = ADC_CONV_SINGLE_UNIT_1,    // use ADC1 only
-          .format = ADC_DIGI_OUTPUT_FORMAT_TYPE2, // C3, S2 and S3 use this type, ESP32 uses TYPE1
+#ifdef CONFIG_IDF_TARGET_ESP32S2
+          .format = ADC_DIGI_OUTPUT_FORMAT_TYPE1, // S2 and ESP32 use TYPE1 (there is an error about this for S2 in IDF example)
+#else
+          .format = ADC_DIGI_OUTPUT_FORMAT_TYPE2, // C3 and S3 use TYPE2 format
+#endif
         };
     }
 
@@ -796,14 +800,13 @@ class DMAadcSource : public AudioSource {
     AudioSourceType getType(void) {return(Type_Adc);}
 
     void initialize(int8_t audioPin, int8_t = I2S_PIN_NO_CHANGE, int8_t = I2S_PIN_NO_CHANGE, int8_t = I2S_PIN_NO_CHANGE) {
-      DEBUGSR_PRINTLN(F("DMAadcSource:: initialize()."));
+      DEBUGSR_PRINTLN(F("DMAadcSource::initialize()"));
       _myADCchannel = 0x0F;
       if(!PinManager::allocatePin(audioPin, false, PinOwner::UM_Audioreactive)) {
          DEBUGSR_PRINTF("failed to allocate GPIO for audio analog input: %d\n", audioPin);
         return;
       }
       _audioPin = audioPin;
-
       // Determine Analog channel. Only Channels on ADC1 are supported
       int8_t channel = digitalPinToAnalogChannel(_audioPin);
       if (channel > MAX_ADC1_CHANNEL) {
@@ -812,66 +815,53 @@ class DMAadcSource : public AudioSource {
       } else {
         _myADCchannel = channel;
       }
-
-      adc_dma_config.adc1_chan_mask = (1 << channel);  // update channel mask in DMA config
-      adcpattern.channel = channel;  // update channel in pattern config
-
+      adc_dma_config.adc1_chan_mask = (1 << channel); // update mask in DMA config
+      adcpattern.channel = channel;                   // update pattern config
       if (init_adc_continuous() != ESP_OK)
         return;
-
       adc_digi_start();  //start sampling
-
       _initialized = true;
     }
 
     void getSamples(float *buffer, uint16_t num_samples) {
-
       int32_t framesize = num_samples * ADC_RESULT_BYTE; // size of one sample frame in bytes
-      uint8_t result[framesize];  // create a read buffer
+      uint8_t result[framesize]; // create a read buffer
       uint32_t ret_num;
       uint32_t totalbytes = 0;
       uint32_t j = 0;
       esp_err_t err;
       if (_initialized) {
         do {
-          err = adc_digi_read_bytes(result, framesize, &ret_num, ADC_TIMEOUT); // read samples
-          if ((err == ESP_OK || err == ESP_ERR_INVALID_STATE) && ret_num > 0) {      // in invalid sate (internal buffer overrun), still read the last valid sample, then reset the ADC DMA afterwards (better than not having samples at all)
-            totalbytes += ret_num;                                                   // After an error, DMA buffer can be misaligned, returning partial frames. Found no other solution to re-align or flush the buffers, seems to be yet another IDF4 bug
+          err = adc_digi_read_bytes(result, framesize, &ret_num, ADC_TIMEOUT);   // read samples
+          if ((err == ESP_OK || err == ESP_ERR_INVALID_STATE) && ret_num > 0) {  // in invalid sate (internal buffer overrun), still read the last valid sample, then reset the ADC DMA afterwards (better than not having samples at all)
+            totalbytes += ret_num;                                               // after an error, DMA buffer can be misaligned, returning partial frames. Found no solution to re-align or flush the buffers, seems to be yet another IDF4 bug
 
-            // TODO: anything different if all channels of ADC1 are initialized in DMA init? currently not setting extra channels to zero like in the example.
-
-            if (totalbytes > framesize) {                                      // got too many bytes to fit sample buffer
-              ret_num -= totalbytes - framesize;                               // discard extra samples
+            if (totalbytes > framesize) {        // got too many bytes to fit sample buffer
+              ret_num -= totalbytes - framesize; // discard extra samples
             }
             for (int i = 0; i < ret_num; i += ADC_RESULT_BYTE) {
               adc_digi_output_data_t *p = reinterpret_cast<adc_digi_output_data_t*>(&result[i]);
-              buffer[j++] = float(((p->val & 0x0FFF))); // get the 12bit sample data and convert to float note: works on all format types
-              // for integer math: when scaling up to 16bit: compared to I2S mic the scaling seems about the same when not shifting at all, so need to divide by 16 after FFT if scaling up to 16bit
-              //Serial.print(buffer[j-1]); Serial.print(",");
+              buffer[j++] = float((int(p->val & 0x0FFF))); // get the 12bit sample data and convert to float note: works on both format types
+              // TODO: for integer math: when scaling up to 16bit: compared to I2S mic the scaling seems about the same when not shifting at all, so need to divide by 16 after FFT if scaling up to 16bit
             }
-            //Serial.println("*");
-            //if (j < NUMSAMPLES) Serial.println("***SPLIT SAMPLE***"); // Even with split samples, the data is consistend (no discontinuities in a sine input signal input)
-          } else {  // other read error, usually ESP_ERR_TIMEOUT (if DMA has stopped for some reason)
+          } else {  // no samples or other error: usually ESP_ERR_TIMEOUT (if DMA has stopped for some reason)
             reset_DMA_ADC();
-            DEBUGSR_PRINTF("!!!!!!!! ADC ERROR !!!!!!!!!!\n");
+            DEBUGSR_PRINTF("ADC ERROR!\n");
             return;  // something went very wrong, just exit
           }
-        } while (totalbytes < framesize);
+        } while (totalbytes < framesize); // read more samples if a partial frame was returned (data is still consistent in split frames)
       }
 
-      // remove DC TODO: should really do this in int on C3... -> can use integer math if defined, see other PR
+      // remove DC TODO: should really do this in int on C3 & S2... -> needs an update after PR #248 is merged
       int32_t sum = 0;
       for (int i = 0; i < num_samples; i++) sum += buffer[i];
       int32_t mean = sum / num_samples;
       for (int i = 0; i < num_samples; i++) buffer[i] -= mean; //uses static mean, as it should not change too much over time, deducted above
 
-      if (err == ESP_ERR_INVALID_STATE) {  // error reading data, errors are: ESP_ERR_INVALID_STATE (=buffer overrun) or ESP_ERR_TIMEOUT, in both cases its best to reset the DMA ADC
+      if (err == ESP_ERR_INVALID_STATE) {  // error reading data, error means buffer overrun, need to fully reset the DMA ADC to make it work again
         DEBUGSR_PRINTF("ADC BFR OVERFLOW, RESETTING ADC\n");
-        Serial.println("BFR OVERFLOW");
         reset_DMA_ADC();
       }
-      //Serial.print("bytes:");
-      //Serial.println(totalbytes);
     }
 
     void deinitialize() {
@@ -883,7 +873,7 @@ class DMAadcSource : public AudioSource {
       delay(50);  // just in case, give it some time
       err = adc_digi_deinitialize();
       if (err != ESP_OK) {
-        DEBUGSR_PRINTF("Failed to uninstall adc driver: %d\n", err);
+        DEBUGSR_PRINTF("Failed deinit ADC: %d\n", err);
       }
     }
 
@@ -898,13 +888,13 @@ class DMAadcSource : public AudioSource {
     esp_err_t init_adc_continuous() {
       esp_err_t err = adc_digi_initialize(&adc_dma_config);
       if (err != ESP_OK) {
-        DEBUGSR_PRINTF("Failed to init ADC DMA: %d\n", err);
+        DEBUGSR_PRINTF("Failed init ADC DMA: %d\n", err);
         return err;
       }
 
       err = adc_digi_controller_configure(&dig_cfg);
       if (err != ESP_OK) {
-        DEBUGSR_PRINTF("Failed to init ADC sampling: %d\n", err);
+        DEBUGSR_PRINTF("Failed init ADC sampling: %d\n", err);
       }
       return err;
     }
