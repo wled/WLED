@@ -987,7 +987,8 @@ void Segment::fade_out(uint8_t rate) const {
   if (!isActive()) return; // not active
   rate = (256-rate) >> 1;
   const int mappedRate = 256 / (rate + 1);
-  for (unsigned j = 0; j < vLength(); j++) {
+  const size_t rlength = rawLength();  // calculate only once
+  for (unsigned j = 0; j < rlength; j++) {
     uint32_t color = getPixelColorRaw(j);
     if (color == colors[1]) continue; // already at target color
     for (int i = 0; i < 32; i += 8) {
@@ -1008,13 +1009,15 @@ void Segment::fade_out(uint8_t rate) const {
 // fades all pixels to secondary color
 void Segment::fadeToSecondaryBy(uint8_t fadeBy) const {
   if (!isActive() || fadeBy == 0) return;   // optimization - no scaling to apply
-  for (unsigned i = 0; i < vLength(); i++) setPixelColorRaw(i, color_blend(getPixelColorRaw(i), colors[1], fadeBy));
+  const size_t rlength = rawLength();  // calculate only once
+  for (unsigned i = 0; i < rlength; i++) setPixelColorRaw(i, color_blend(getPixelColorRaw(i), colors[1], fadeBy));
 }
 
 // fades all pixels to black using nscale8()
 void Segment::fadeToBlackBy(uint8_t fadeBy) const {
   if (!isActive() || fadeBy == 0) return;   // optimization - no scaling to apply
-  for (unsigned i = 0; i < vLength(); i++) setPixelColorRaw(i, color_fade(getPixelColorRaw(i), 255-fadeBy));
+  const size_t rlength = rawLength();  // calculate only once
+  for (unsigned i = 0; i < rlength; i++) setPixelColorRaw(i, color_fade(getPixelColorRaw(i), 255-fadeBy));
 }
 
 /*
