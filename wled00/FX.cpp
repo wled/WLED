@@ -7270,6 +7270,7 @@ uint16_t mode_2DGEQ(void) { // By Will Tatam. Code reduction by Ewoud Wijma.
     unsigned colorIndex = band * 17;
     int barHeight  = map(fftResult[band], 0, 255, 0, rows); // do not subtract -1 from rows here
     if (barHeight > previousBarHeight[x]) previousBarHeight[x] = barHeight; //drive the peak up
+
     uint32_t ledColor = BLACK;
     for (int y=0; y < barHeight; y++) {
       if (SEGMENT.check1) //color_vertical / color bars toggle
