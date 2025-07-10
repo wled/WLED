@@ -7258,11 +7258,10 @@ uint16_t mode_2DGEQ(void) { // By Will Tatam. Code reduction by Ewoud Wijma.
 
   for (int x=0; x < cols; x++) {
     int band = map(x, 0, cols, 0, NUM_BANDS);
-    //if (NUM_BANDS < 16) band = map(band, 0, NUM_BANDS - 1, 0, 15); // always use full range. comment out this line to get the previous behaviour.
     if (NUM_BANDS < 16) {
         int startBin = constrain(CENTER_BIN - NUM_BANDS/2, 0, 15 - NUM_BANDS + 1);
         if(NUM_BANDS <= 1)
-          band = CENTER_BIN; // mapping does not work for 1 band
+          band = CENTER_BIN; // map() does not work for single band
         else
           band = map(band, 0, NUM_BANDS - 1, startBin, startBin + NUM_BANDS - 1);
     }
