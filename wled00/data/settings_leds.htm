@@ -18,6 +18,7 @@
 		function isD2P(t)  { return gT(t).t === "2P"; }             // is digital 2 pin type
 		function isNet(t)  { return gT(t).t === "N"; }              // is network type
 		function isVir(t)  { return gT(t).t === "V" || isNet(t); }  // is virtual type
+		function isHub75(t){ return gT(t).t === "H"; }              // is HUB75 type
 		function hasRGB(t) { return !!(gT(t).c & 0x01); }           // has RGB
 		function hasW(t)   { return !!(gT(t).c & 0x02); }           // has white channel
 		function hasCCT(t) { return !!(gT(t).c & 0x04); }           // is white CCT enabled
@@ -60,6 +61,9 @@
 				let nm = LC.name.substring(0,2);
 				let n = LC.name.substring(2);
 				let t = parseInt(d.Sf["LT"+n].value, 10); // LED type SELECT
+				if(isHub75(t)) {
+					return;
+				}
 				// ignore IP address
 				if (nm=="L0" || nm=="L1" || nm=="L2" || nm=="L3") {
 					if (isNet(t)) return;
@@ -234,12 +238,15 @@
 					case 'V': // virtual/non-GPIO based
 						p0d = "Config:"
 						break;
+					case 'H': // HUB75
+						p0d = "Panel size (width x height), Panel count:"
+						break;
 				}
 				gId("p0d"+n).innerText = p0d;
 				gId("p1d"+n).innerText = p1d;
 				gId("off"+n).innerText = off;
 				// secondary pins show/hide (type string length is equivalent to number of pins used; except for network and on/off)
-				let pins = Math.max(gT(t).t.length,1) + 3*isNet(t); // fixes network pins to 4
+				let pins = Math.max(gT(t).t.length,1) + 3*isNet(t) + 2*isHub75(t); // fixes network pins to 4
 				for (let p=1; p<5; p++) {
 					var LK = d.Sf["L"+p+n];
 					if (!LK) continue;
@@ -269,13 +276,13 @@
 				}
 				gId("rf"+n).onclick = mustR(t) ? (()=>{return false}) : (()=>{});           // prevent change change of "Refresh" checkmark when mandatory
 				gRGBW |= hasW(t);                                                           // RGBW checkbox
-				gId("co"+n).style.display = (isVir(t) || isAna(t)) ? "none":"inline";       // hide color order for PWM
+				gId("co"+n).style.display = (isVir(t) || isAna(t) || isHub75(t)) ? "none":"inline";       // hide color order for PWM
 				gId("dig"+n+"w").style.display = (isDig(t) && hasW(t)) ? "inline":"none";   // show swap channels dropdown
 				gId("dig"+n+"w").querySelector("[data-opt=CCT]").disabled = !hasCCT(t);     // disable WW/CW swapping	
 				if (!(isDig(t) && hasW(t))) d.Sf["WO"+n].value = 0;                         // reset swapping
-				gId("dig"+n+"c").style.display = (isAna(t)) ? "none":"inline";              // hide count for analog
+				gId("dig"+n+"c").style.display = (isAna(t) || isHub75(t)) ? "none":"inline";              // hide count for analog
 				gId("dig"+n+"r").style.display = (isVir(t)) ? "none":"inline";              // hide reversed for virtual
-				gId("dig"+n+"s").style.display = (isVir(t) || isAna(t)) ? "none":"inline";  // hide skip 1st for virtual & analog
+				gId("dig"+n+"s").style.display = (isVir(t) || isAna(t) || isHub75(t)) ? "none":"inline";  // hide skip 1st for virtual & analog
 				gId("dig"+n+"f").style.display = (isDig(t) || (isPWM(t) && maxL>2048)) ? "inline":"none"; // hide refresh (PWM hijacks reffresh for dithering on ESP32)
 				gId("dig"+n+"a").style.display = (hasW(t)) ? "inline":"none";               // auto calculate white
 				gId("dig"+n+"l").style.display = (isD2P(t) || isPWM(t)) ? "inline":"none";  // bus clock speed / PWM speed (relative) (not On/Off)
@@ -315,7 +322,13 @@
 				}
 				// do we have led pins for digital leds
 				if (nm=="L0" || nm=="L1") {
-					d.Sf["LC"+n].max = maxPB; // update max led count value
+					if (!isHub75(t)) {
+						d.Sf["LC"+n].max = maxPB; // update max led count value
+					}
+					else {
+						d.Sf["LC"+n].min = undefined;
+						d.Sf["LC"+n].max = undefined;
+					}
 				}
 				// ignore IP address (stored in pins for virtual busses)
 				if (nm=="L0" || nm=="L1" || nm=="L2" || nm=="L3") {
@@ -328,6 +341,20 @@
 						LC.max = d.max_gpio-1;
 						LC.min = -1;
 					}
+				}
+				if (isHub75(t) && (nm=="L0" || nm=="L1")) {
+					// Matrix width and height
+					LC.max = 128;
+					LC.min = 16;
+					LC.style.color="#fff";
+					return; // do not check conflicts
+				}
+				else if (isHub75(t) && nm=="L2") {
+					// Chain length aka Panel Count
+					LC.max = 4;
+					LC.min = 1;
+					LC.style.color="#fff";
+					return; // do not check conflicts
 				}
 				// check for pin conflicts & color fields
 				if (nm=="L0" || nm=="L1" || nm=="L2" || nm=="L3" || nm=="L4")
