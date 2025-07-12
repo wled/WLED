@@ -331,6 +331,9 @@
 		<button class="btn ibtn" onclick="toggleNodes()">Instance List</button>
 		<button class="btn ibtn" onclick="window.open(getURL('/update'),'_self');">Update WLED</button>
 		<button class="btn ibtn" id="resetbtn" onclick="cnfReset()">Reboot WLED</button>
+               <button class="btn infobtn" id="genPresets" onclick="genPresets()">Generate presets</button>
+               <button class="btn infobtn" id="savePresetsGen" onclick="savePresetsGen()" hidden="true">Save generated presets</button>
+               <textarea id="presetsGen" hidden="true"></textarea>
 	</div>
 	<br>
 	<span class="h">Made with&#32;<span id="heart">&#10084;&#xFE0E;</span>&#32;by&#32;<a href="https://github.com/Aircoookie/" target="_blank">Aircoookie</a>&#32;and the&#32;<a href="https://wled.discourse.group/" target="_blank">WLED community</a></span>
