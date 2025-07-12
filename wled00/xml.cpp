@@ -312,7 +312,7 @@ void getSettingsJS(byte subPage, Print& settingsScript)
       char la[4] = "LA"; la[2] = offset+s; la[3] = 0; //LED current
       char ma[4] = "MA"; ma[2] = offset+s; ma[3] = 0; //max per-port PSU current
       settingsScript.print(F("addLEDs(1);"));
-      uint8_t pins[5];
+      uint8_t pins[OUTPUT_MAX_PINS];
       int nPins = bus->getPins(pins);
       for (int i = 0; i < nPins; i++) {
         lp[1] = '0'+i;
@@ -438,8 +438,8 @@ void getSettingsJS(byte subPage, Print& settingsScript)
     printSetFormCheckbox(settingsScript,PSTR("EM"),e131Multicast);
     printSetFormValue(settingsScript,PSTR("EU"),e131Universe);
 #ifdef WLED_ENABLE_DMX
-    settingsScript.print(SET_F("hideNoDMX();"));  // hide "not compiled in" message    
-#endif    
+    settingsScript.print(SET_F("hideNoDMX();"));  // hide "not compiled in" message
+#endif
 #ifndef WLED_ENABLE_DMX_INPUT
     settingsScript.print(SET_F("hideDMXInput();"));  // hide "dmx input" settings
 #else
