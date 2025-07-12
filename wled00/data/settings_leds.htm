@@ -52,6 +52,11 @@
 			maxL  = l; // maxL - max LEDs (will serve to determine ESP >1664 == ESP32)
 			maxCO = o; // maxCO - max Color Order mappings
 		}
+		function is8266() { return maxA ==  5 && maxD ==  3; } // NOTE: see const.h
+		function is32()   { return maxA == 16 && maxD == 16; } // NOTE: see const.h
+		function isC3()   { return maxA ==  6 && maxD ==  2; } // NOTE: see const.h
+		function isS2()   { return maxA ==  8 && maxD == 12 && maxV == 4; } // NOTE: see const.h
+		function isS3()   { return maxA ==  8 && maxD == 12 && maxV == 6; } // NOTE: see const.h
 		function pinsOK() {
 			var ok = true;
 			var nList = d.Sf.querySelectorAll("#mLC input[name^=L]");
@@ -271,7 +276,7 @@
 				gRGBW |= hasW(t);                                                           // RGBW checkbox
 				gId("co"+n).style.display = (isVir(t) || isAna(t)) ? "none":"inline";       // hide color order for PWM
 				gId("dig"+n+"w").style.display = (isDig(t) && hasW(t)) ? "inline":"none";   // show swap channels dropdown
-				gId("dig"+n+"w").querySelector("[data-opt=CCT]").disabled = !hasCCT(t);     // disable WW/CW swapping	
+				gId("dig"+n+"w").querySelector("[data-opt=CCT]").disabled = !hasCCT(t);     // disable WW/CW swapping
 				if (!(isDig(t) && hasW(t))) d.Sf["WO"+n].value = 0;                         // reset swapping
 				gId("dig"+n+"c").style.display = (isAna(t)) ? "none":"inline";              // hide count for analog
 				gId("dig"+n+"r").style.display = (isVir(t)) ? "none":"inline";              // hide reversed for virtual
@@ -281,6 +286,8 @@
 				gId("dig"+n+"l").style.display = (isD2P(t) || isPWM(t)) ? "inline":"none";  // bus clock speed / PWM speed (relative) (not On/Off)
 				gId("rev"+n).innerHTML = isAna(t) ? "Inverted output":"Reversed";           // change reverse text for analog else (rotated 180°)
 				//gId("psd"+n).innerHTML = isAna(t) ? "Index:":"Start:";                      // change analog start description
+				gId("net"+n+"h").style.display = isNet(t) && !is8266() ? "block" : "none";  // show host field for network types except on ESP8266
+				if (!isNet(t) || is8266()) d.Sf["HS"+n].value = "";                         // cleart host field if not network type or ESP8266
 			});
 			// display global white channel overrides
 			gId("wc").style.display = (gRGBW) ? 'inline':'none';
@@ -463,6 +470,7 @@ mA/LED: <select name="LAsel${s}" onchange="enLA(this,'${s}');UI();">
 <span id="p2d${s}"></span><input type="number" name="L2${s}" class="s" onchange="UI();pinUpd(this);"/>
 <span id="p3d${s}"></span><input type="number" name="L3${s}" class="s" onchange="UI();pinUpd(this);"/>
 <span id="p4d${s}"></span><input type="number" name="L4${s}" class="s" onchange="UI();pinUpd(this);"/>
+<div id="net${s}h" class="hide">Host: <input type="text" name="HS${s}" maxlength="32" pattern="[a-zA-Z0-9_\\-]*" onchange="UI()"/>.local</div>
 <div id="dig${s}r" style="display:inline"><br><span id="rev${s}">Reversed</span>: <input type="checkbox" name="CV${s}"></div>
 <div id="dig${s}s" style="display:inline"><br>Skip first LEDs: <input type="number" name="SL${s}" min="0" max="255" value="0" oninput="UI()"></div>
 <div id="dig${s}f" style="display:inline"><br><span id="off${s}">Off Refresh</span>: <input id="rf${s}" type="checkbox" name="RF${s}"></div>
@@ -479,7 +487,7 @@ mA/LED: <select name="LAsel${s}" onchange="enLA(this,'${s}');UI();">
 							if (type.t != undefined && type.t != "") {
 								opt.setAttribute('data-type', type.t);
 							}
-							sel.appendChild(opt);			
+							sel.appendChild(opt);
 						}
 					}
 				});
@@ -586,7 +594,7 @@ Swap: <select id="xw${s}" name="XW${s}">
 			var cs = false;
 			for (var i=1; i < gEBCN("iST").length; i++) {
 				var s = chrID(i);
-				var p = chrID(i-1); // cover edge case 'A' previous char being '9' 
+				var p = chrID(i-1); // cover edge case 'A' previous char being '9'
 				var v = parseInt(gId("ls"+p).value) + parseInt(gN("LC"+p).value);
 				if (v != parseInt(gId("ls"+s).value)) {cs = true; startsDirty[i] = true;}
 			}
@@ -617,7 +625,7 @@ Swap: <select id="xw${s}" name="XW${s}">
 
 			function receivedText(e) {
 				let lines = e.target.result;
-				let c = JSON.parse(lines); 
+				let c = JSON.parse(lines);
 				if (c.hw) {
 					if (c.hw.led) {
 						// remove all existing outputs
