@@ -114,6 +114,7 @@ static um_data_t* getAudioData() {
   return um_data;
 }
 
+
 // effect functions
 
 /*
@@ -124,6 +125,56 @@ uint16_t mode_static(void) {
   return strip.isOffRefreshRequired() ? FRAMETIME : 350;
 }
 static const char _data_FX_MODE_STATIC[] PROGMEM = "Solid";
+
+/*
+ * Copy a segment and perform (optional) color adjustments
+ */
+uint16_t mode_copy_segment(void) {
+  uint32_t sourceid = SEGMENT.custom3;
+  if (sourceid >= strip.getSegmentsNum() || sourceid == strip.getCurrSegmentId()) { // invalid source
+    SEGMENT.fadeToBlackBy(5); // fade out
+    return FRAMETIME;
+  }
+  Segment sourcesegment = strip.getSegment(sourceid);
+  if (sourcesegment.isActive()) {
+    uint32_t sourcecolor;
+    uint32_t destcolor;
+    if(sourcesegment.is2D()) { // 2D source, note: 2D to 1D just copies the first row (or first column if 'Switch axis' is checked in FX)
+      for (unsigned y = 0; y < SEGMENT.vHeight(); y++) {
+        for (unsigned x = 0; x < SEGMENT.vWidth(); x++) {
+          unsigned sx = x; // source coordinates
+          unsigned sy = y;
+          if(SEGMENT.check1) std::swap(sx, sy); // flip axis
+          if(SEGMENT.check2) {
+            sourcecolor = strip.getPixelColorXY(sx + sourcesegment.start, sy + sourcesegment.startY); // read from global buffer (reads the last rendered frame)
+          }
+          else {
+            sourcesegment.setDrawDimensions(); // set to source segment dimensions
+            sourcecolor = sourcesegment.getPixelColorXY(sx, sy); // read from segment buffer
+          }
+          destcolor = adjust_color(sourcecolor, SEGMENT.intensity, SEGMENT.custom1, SEGMENT.custom2);
+          SEGMENT.setDrawDimensions(); // reset to current segment dimensions
+          SEGMENT.setPixelColorXY(x, y, destcolor);
+        }
+      }
+    } else { // 1D source, source can be expanded into 2D
+      for (unsigned i = 0; i < SEGMENT.vLength(); i++) {
+        if(SEGMENT.check2) {
+          sourcecolor = strip.getPixelColor(i + sourcesegment.start); // read from global buffer (reads the last rendered frame)
+        }
+        else {
+          sourcesegment.setDrawDimensions(); // set to source segment dimensions
+          sourcecolor = sourcesegment.getPixelColor(i);
+        }
+        destcolor = adjust_color(sourcecolor, SEGMENT.intensity, SEGMENT.custom1, SEGMENT.custom2);
+        SEGMENT.setDrawDimensions(); // reset to current segment dimensions
+        SEGMENT.setPixelColor(i, destcolor);
+      }
+    }
+  }
+  return FRAMETIME;
+}
+static const char _data_FX_MODE_COPY[] PROGMEM = "Copy Segment@,Color shift,Lighten,Brighten,ID,Axis(2D),FullStack(last frame);;;12;ix=0,c1=0,c2=0,c3=0";
 
 
 /*
@@ -10617,6 +10668,7 @@ void WS2812FX::setupEffectData() {
     _modeData.push_back(_data_RESERVED);
   }
   // now replace all pre-allocated effects
+  addEffect(FX_MODE_COPY, &mode_copy_segment, _data_FX_MODE_COPY);
   // --- 1D non-audio effects ---
   addEffect(FX_MODE_BLINK, &mode_blink, _data_FX_MODE_BLINK);
   addEffect(FX_MODE_BREATH, &mode_breath, _data_FX_MODE_BREATH);
