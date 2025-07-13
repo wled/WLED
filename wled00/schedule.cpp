@@ -76,32 +76,38 @@ void checkSchedule() {
 
 void loadSchedule()
 {
-    if (!WLED_FS.exists(SCHEDULE_FILE))
-        return;
-    File file = WLED_FS.open(SCHEDULE_FILE, "r");
-    if (!file)
-        return;
+    if (!WLED_FS.exists(SCHEDULE_FILE)) return;
 
-    DynamicJsonDocument doc(4096);
-    if (deserializeJson(doc, file))
-    {
-        file.close();
+    requestJSONBufferLock();  //Prevent concurrent JSON access
+
+    File file = WLED_FS.open(SCHEDULE_FILE, "r");
+    if (!file) {
+        releaseJSONBufferLock();
         return;
     }
-    file.close();
+
+    DynamicJsonDocument doc(4096);
+    DeserializationError error = deserializeJson(doc, file);
+    file.close();  // ✅ Close file before releasing lock
+
+    if (error) {
+        DEBUG_PRINTF_P(PSTR("[Schedule] JSON parse failed: %s\n"), error.c_str());
+        releaseJSONBufferLock();
+        return;
+    }
 
     numScheduleEvents = 0;
-    for (JsonObject e : doc.as<JsonArray>())
-    {
-        if (numScheduleEvents >= MAX_SCHEDULE_EVENTS)
-            break;
+    for (JsonObject e : doc.as<JsonArray>()) {
+        if (numScheduleEvents >= MAX_SCHEDULE_EVENTS) break;
+
         scheduleEvents[numScheduleEvents++] = {
             (uint8_t)e["sm"].as<int>(), (uint8_t)e["sd"].as<int>(), // start month, day
             (uint8_t)e["em"].as<int>(), (uint8_t)e["ed"].as<int>(), // end month, day
-            (uint8_t)e["r"].as<int>(), (uint8_t)e["h"].as<int>(), // repeat mask, hour
-            (uint8_t)e["m"].as<int>(), (uint8_t)e["p"].as<int>()}; // minute, preset
+            (uint8_t)e["r"].as<int>(), (uint8_t)e["h"].as<int>(),   // repeat mask, hour
+            (uint8_t)e["m"].as<int>(), (uint8_t)e["p"].as<int>()    // minute, preset
+        };
     }
+
     DEBUG_PRINTF_P(PSTR("[Schedule] Loaded %u schedule entries from schedule.json\n"), numScheduleEvents);
-
+    releaseJSONBufferLock();  // Done safely
 }
-
