@@ -179,28 +179,58 @@ static void handleUpload(AsyncWebServerRequest *request, const String& filename,
     if (isFinal) request->send(401, FPSTR(CONTENT_TYPE_PLAIN), FPSTR(s_unlock_cfg));
     return;
   }
+
+  String finalname = filename;
   if (!index) {
-    String finalname = filename;
     if (finalname.charAt(0) != '/') {
       finalname = '/' + finalname; // prepend slash if missing
     }
 
-    request->_tempFile = WLED_FS.open(finalname, "w");
-    DEBUG_PRINTF_P(PSTR("Uploading %s\n"), finalname.c_str());
-    if (finalname.equals(FPSTR(getPresetsFileName()))) presetsModifiedTime = toki.second();
-  }
-  if (len) {
-    request->_tempFile.write(data,len);
-  }
-  if (isFinal) {
-    request->_tempFile.close();
-    if (filename.indexOf(F("cfg.json")) >= 0) { // check for filename with or without slash
-      doReboot = true;
-      request->send(200, FPSTR(CONTENT_TYPE_PLAIN), F("Configuration restore successful.\nRebooting..."));
+    // Special case: schedule.json upload uses temp file
+    if (finalname.equals(F("/schedule.json"))) {
+      request->_tempFile = WLED_FS.open("/schedule.json.tmp", "w");
+      DEBUG_PRINTLN(F("Uploading to /schedule.json.tmp"));
     } else {
-      if (filename.indexOf(F("palette")) >= 0 && filename.indexOf(F(".json")) >= 0) loadCustomPalettes();
-      request->send(200, FPSTR(CONTENT_TYPE_PLAIN), F("File Uploaded!"));
+      request->_tempFile = WLED_FS.open(finalname, "w");
+      DEBUG_PRINTF_P(PSTR("Uploading %s\n"), finalname.c_str());
+
+      if (finalname.equals(FPSTR(getPresetsFileName()))) {
+        presetsModifiedTime = toki.second();
+      }
     }
+  }
+
+  // Write chunk
+  if (len && request->_tempFile) {
+    request->_tempFile.write(data, len);
+  }
+
+  // Finalize upload
+  if (isFinal) {
+    if (request->_tempFile) request->_tempFile.close();
+
+    if (finalname.equals(F("/schedule.json"))) {
+      // Atomically replace old file
+      WLED_FS.remove("/schedule.json");
+      WLED_FS.rename("/schedule.json.tmp", "/schedule.json");
+
+      // Apply new schedule immediately
+      loadSchedule();
+
+      request->send(200, FPSTR(CONTENT_TYPE_PLAIN), F("Schedule uploaded and applied."));
+      DEBUG_PRINTLN(F("[Schedule] Upload complete and applied."));
+    } else {
+      if (filename.indexOf(F("cfg.json")) >= 0) {
+        doReboot = true;
+        request->send(200, FPSTR(CONTENT_TYPE_PLAIN), F("Configuration restore successful.\nRebooting..."));
+      } else {
+        if (filename.indexOf(F("palette")) >= 0 && filename.indexOf(F(".json")) >= 0) {
+          loadCustomPalettes();
+        }
+        request->send(200, FPSTR(CONTENT_TYPE_PLAIN), F("File Uploaded!"));
+      }
+    }
+
     cacheInvalidate++;
   }
 }

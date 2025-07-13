@@ -1,6 +1,5 @@
 // schedule.cpp
 
-//TODO: make schedule.json trigger loadshedule(); on upload istead of just once a min (line 50)
 
 #include "schedule.h"
 #include <WLED.h>
@@ -47,7 +46,6 @@ void checkSchedule() {
     uint8_t hr = timeinfo->tm_hour;
     uint8_t min = timeinfo->tm_min;
 
-    loadSchedule();
     DEBUG_PRINTF_P(PSTR("[Schedule] Checking schedule at %02u:%02u\n"), hr, min);
 
     for (uint8_t i = 0; i < numScheduleEvents; i++)
