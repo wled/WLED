@@ -66,9 +66,11 @@ void checkSchedule() {
         }
 
         if (match)
+        {
             applyPreset(e.presetId);
             DEBUG_PRINTF_P(PSTR("[Schedule] Applying preset %u at %02u:%02u\n"), e.presetId, hr, min);
-            DEBUG_PRINTF_P(PSTR("[Schedule] Checked event %u: match=%d\n"), i, match);
+        }
+        DEBUG_PRINTF_P(PSTR("[Schedule] Checked event %u: match=%d\n"), i, match);   
     }
 }
 
