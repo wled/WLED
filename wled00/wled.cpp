@@ -54,6 +54,7 @@ void WLED::loop()
 #endif
 
   handleTime();
+  checkSchedule();
   #ifndef WLED_DISABLE_INFRARED
   handleIR();        // 2nd call to function needed for ESP32 to return valid results -- should be good for ESP8266, too
   #endif
@@ -526,6 +527,8 @@ void WLED::setup()
   #if defined(ARDUINO_ARCH_ESP32) && defined(WLED_DISABLE_BROWNOUT_DET)
   WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 1); //enable brownout detector
   #endif
+
+  loadSchedule();
 }
 
 void WLED::beginStrip()

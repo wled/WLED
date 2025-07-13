@@ -66,6 +66,8 @@
 
 #include <cstddef>
 #include <vector>
+#include "schedule.h"
+
 
 // Library inclusions.
 #include <Arduino.h>
