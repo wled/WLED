@@ -94,10 +94,10 @@ void loadSchedule()
         if (numScheduleEvents >= MAX_SCHEDULE_EVENTS)
             break;
         scheduleEvents[numScheduleEvents++] = {
-            (uint8_t)e["sm"], (uint8_t)e["sd"], // start month, day
-            (uint8_t)e["em"], (uint8_t)e["ed"], // end month, day
-            (uint8_t)e["r"], (uint8_t)e["h"], // repeat mask, hour
-            (uint8_t)e["m"], (uint8_t)e["p"]}; // minute, preset
+            (uint8_t)e["sm"].as<int>(), (uint8_t)e["sd"].as<int>(), // start month, day
+            (uint8_t)e["em"].as<int>(), (uint8_t)e["ed"].as<int>(), // end month, day
+            (uint8_t)e["r"].as<int>(), (uint8_t)e["h"].as<int>(), // repeat mask, hour
+            (uint8_t)e["m"].as<int>(), (uint8_t)e["p"].as<int>()}; // minute, preset
     }
     DEBUG_PRINTF_P(PSTR("[Schedule] Loaded %u schedule entries from schedule.json\n"), numScheduleEvents);
 
