@@ -178,6 +178,11 @@
 		Countdown Goal:<br>
 		Date:&nbsp;<nowrap>20<input name="CY" class="xs" type="number" min="0" max="99" required>-<input name="CI" class="xs" type="number" min="1" max="12" required>-<input name="CD" class="xs" type="number" min="1" max="31" required></nowrap><br>
 		Time:&nbsp;<nowrap><input name="CH" class="xs" type="number" min="0" max="23" required>:<input name="CM" class="xs" type="number" min="0" max="59" required>:<input name="CS" class="xs" type="number" min="0" max="59" required></nowrap><br>
+		<h3>Upload Schedule JSON</h3>
+		<input type="file" name="scheduleFile" id="scheduleFile" accept=".json">
+		<input type="button" value="Upload" onclick="uploadFile(d.Sf.scheduleFile, '/schedule.json');">
+		<br>
+		<a class="btn lnk" id="bckschedule" href="/schedule.json" download="schedule">Backup schedule</a><br>
 		<h3>Macro presets</h3>
 		<b>Macros have moved!</b><br>
 		<i>Presets now also can be used as macros to save both JSON and HTTP API commands.<br>
