@@ -6,6 +6,7 @@
 #include <time.h>
 
 #define SCHEDULE_FILE "/schedule.json"
+#define SCHEDULE_JSON_BUFFER_SIZE 4096
 
 // Array to hold scheduled events, max size defined in schedule.h
 ScheduleEvent scheduleEvents[MAX_SCHEDULE_EVENTS];
@@ -96,7 +97,7 @@ bool loadSchedule() {
         return false;
     }
 
-    DynamicJsonDocument doc(4096);
+    DynamicJsonDocument doc(SCHEDULE_JSON_BUFFER_SIZE);
     DeserializationError error = deserializeJson(doc, file);
     file.close();  // Always close file before releasing lock
 
