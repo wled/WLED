@@ -202,7 +202,13 @@ static void handleUpload(AsyncWebServerRequest *request, const String& filename,
 
   // Write chunk
   if (len && request->_tempFile) {
-    request->_tempFile.write(data, len);
+    size_t written = request->_tempFile.write(data, len);
+    if (written != len) {
+      DEBUG_PRINTLN(F("File write error during upload"));
+      request->_tempFile.close();
+      request->_tempFile = File(); // invalidate file handle
+      // Consider sending error response early
+    }
   }
 
   // Finalize upload
