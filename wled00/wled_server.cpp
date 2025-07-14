@@ -26,6 +26,8 @@ static const char s_rebooting  [] PROGMEM = "Rebooting now...";
 static const char s_notimplemented[] PROGMEM = "Not implemented";
 static const char s_accessdenied[]   PROGMEM = "Access Denied";
 static const char _common_js[]       PROGMEM = "/common.js";
+static const char SCHEDULE_JSON_PATH[] PROGMEM = "/schedule.json";
+static const char SCHEDULE_JSON_TMP_PATH[] PROGMEM = "/schedule.json.tmp";
 
 //Is this an IP?
 static bool isIp(const String &str) {
@@ -189,8 +191,8 @@ static void handleUpload(AsyncWebServerRequest *request, const String &filename,
     }
 
     // Special case: schedule.json upload uses temp file
-    if (finalname.equals(F("/schedule.json"))) {
-      request->_tempFile = WLED_FS.open("/schedule.json.tmp", "w");
+    if (finalname.equals(FPSTR(SCHEDULE_JSON_PATH))) {
+      request->_tempFile = WLED_FS.open(FPSTR(SCHEDULE_JSON_TMP_PATH), "w");
       DEBUG_PRINTLN(F("Uploading to /schedule.json.tmp"));
     }
     else {
@@ -219,13 +221,13 @@ static void handleUpload(AsyncWebServerRequest *request, const String &filename,
     if (request->_tempFile)
       request->_tempFile.close();
 
-    if (finalname.equals(F("/schedule.json"))) {
+    if (finalname.equals(FPSTR(SCHEDULE_JSON_PATH))) {
       // Atomically replace old file
       // First try rename (which overwrites on most filesystems)
-      if (!WLED_FS.rename("/schedule.json.tmp", "/schedule.json")) {
+      if (!WLED_FS.rename(FPSTR(SCHEDULE_JSON_TMP_PATH), FPSTR(SCHEDULE_JSON_PATH))) {
         // If rename failed, try remove then rename
-        WLED_FS.remove("/schedule.json");
-        if (!WLED_FS.rename("/schedule.json.tmp", "/schedule.json")) {
+        WLED_FS.remove(FPSTR(SCHEDULE_JSON_PATH));
+        if (!WLED_FS.rename(FPSTR(SCHEDULE_JSON_TMP_PATH), FPSTR(SCHEDULE_JSON_PATH))) {
           DEBUG_PRINTLN(F("[Schedule] Failed to replace schedule file"));
           request->send(500, FPSTR(CONTENT_TYPE_PLAIN), F("Failed to save schedule file."));
           return;
