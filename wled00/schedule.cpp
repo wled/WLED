@@ -116,11 +116,11 @@ bool loadSchedule() {
         int p  = e["p"].as<int>();
 
         // Validate ranges to prevent bad data
-        if (sm < 0 || sm > 12 || em < 0 || em > 12 ||
-            sd < 0 || sd > 31 || ed < 0 || ed > 31 ||
+        if (sm < 1 || sm > 12 || em < 1 || em > 12 ||
+            sd < 1 || sd > 31 || ed < 1 || ed > 31 ||
             h  < 0 || h  > 23 || m  < 0 || m  > 59 ||
             r  < 0 || r  > 127|| p  < 1 || p  > 250) {
-            DEBUG_PRINTF_P(PSTR("[Schedule] Invalid values in event %u, skipping\n"), numScheduleEvents);
+            DEBUG_PRINTF_P(PSTR("[Schedule] Invalid values in event %u, skipping\n"), (uint16_t)scheduleEvents.size());
             continue;
         }
 
