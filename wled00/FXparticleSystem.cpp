@@ -17,8 +17,8 @@
 // local shared functions (used both in 1D and 2D system)
 static int32_t calcForce_dv(const int8_t force, uint8_t &counter);
 static bool checkBoundsAndWrap(int32_t &position, const int32_t max, const int32_t particleradius, const bool wrap); // returns false if out of bounds by more than particleradius
-static void fast_color_add(CRGB &c1, const CRGB &c2, uint8_t scale = 255); // fast and accurate color adding with scaling (scales c2 before adding)
-static void fast_color_scale(CRGB &c, const uint8_t scale); // fast scaling function using 32bit variable and pointer. note: keep 'scale' within 0-255
+static void fast_color_add(CRGBW &c1, const CRGBW &c2, uint8_t scale = 255); // fast and accurate color adding with scaling (scales c2 before adding)
+static void fast_color_scale(CRGBW &c, const uint8_t scale); // fast scaling function using 32bit variable and pointer. note: keep 'scale' within 0-255
 //static CRGB *allocateCRGBbuffer(uint32_t length);
 #endif
 
@@ -558,7 +558,7 @@ void ParticleSystem2D::pointAttractor(const uint32_t particleindex, PSparticle &
 // warning: do not render out of bounds particles or system will crash! rendering does not check if particle is out of bounds
 // firemode is only used for PS Fire FX
 void ParticleSystem2D::render() {
-  CRGB baseRGB;
+  CRGBW baseRGB;
   uint32_t brightness; // particle brightness, fades if dying
   TBlendType blend = LINEARBLEND; // default color rendering: wrap palette
   if (particlesettings.colorByAge) {
@@ -575,7 +575,7 @@ void ParticleSystem2D::render() {
     }
   }
   else { // no blurring: clear buffer
-    memset(framebuffer, 0, (maxXpixel+1) * (maxYpixel+1) * sizeof(CRGB));
+    memset(framebuffer, 0, (maxXpixel+1) * (maxYpixel+1) * sizeof(CRGBW));
   }
 
   // go over particles and render them to the buffer
@@ -593,11 +593,9 @@ void ParticleSystem2D::render() {
       baseRGB = ColorFromPaletteWLED(SEGPALETTE, particles[i].hue, 255, blend);
       if (particles[i].sat < 255) {
         CHSV32 baseHSV;
-        rgb2hsv((uint32_t((byte(baseRGB.r) << 16) | (byte(baseRGB.g) << 8) | (byte(baseRGB.b)))), baseHSV); // convert to HSV
+        rgb2hsv(baseRGB.color32, baseHSV); // convert to HSV
         baseHSV.s = min(baseHSV.s, particles[i].sat); // set the saturation but don't increase it
-        uint32_t tempcolor;
-        hsv2rgb(baseHSV, tempcolor); // convert back to RGB
-        baseRGB = (CRGB)tempcolor;
+        hsv2rgb(baseHSV, baseRGB.color32); // convert back to RGB
       }
     }
     brightness = gamma8(brightness); // apply gamma correction, used for gamma-inverted brightness distribution
@@ -621,18 +619,10 @@ void ParticleSystem2D::render() {
   if (smearBlur) {
     blur2D(framebuffer, maxXpixel + 1, maxYpixel + 1, smearBlur, smearBlur);
   }
-
-  // transfer the framebuffer to the segment
-  for (int y = 0; y <= maxYpixel; y++) {
-    int index = y * (maxXpixel + 1); // current row index for 1D buffer
-    for (int x = 0; x <= maxXpixel; x++) {
-      SEGMENT.setPixelColorXY(x, y, framebuffer[index++]);
-    }
-  }
 }
 
 // calculate pixel positions and brightness distribution and render the particle to local buffer or global buffer
-__attribute__((optimize("O2"))) void ParticleSystem2D::renderParticle(const uint32_t particleindex, const uint8_t brightness, const CRGB& color, const bool wrapX, const bool wrapY) {
+__attribute__((optimize("O2"))) void ParticleSystem2D::renderParticle(const uint32_t particleindex, const uint8_t brightness, const CRGBW& color, const bool wrapX, const bool wrapY) {
   uint32_t size = particlesize;
   if (advPartProps && advPartProps[particleindex].size > 0) // use advanced size properties (0 means use global size including single pixel rendering)
     size = advPartProps[particleindex].size;
@@ -687,7 +677,7 @@ __attribute__((optimize("O2"))) void ParticleSystem2D::renderParticle(const uint
   pxlbrightness[3] = gamma8inv(pxlbrightness[3]);
 
   if (advPartProps && advPartProps[particleindex].size > 1) { //render particle to a bigger size
-    CRGB renderbuffer[100]; // 10x10 pixel buffer
+    CRGBW renderbuffer[100]; // 10x10 pixel buffer
     memset(renderbuffer, 0, sizeof(renderbuffer)); // clear buffer
     //particle size to pixels: < 64 is 4x4, < 128 is 6x6, < 192 is 8x8, bigger is 10x10
     //first, render the pixel to the center of the renderbuffer, then apply 2D blurring
@@ -988,11 +978,8 @@ void ParticleSystem2D::updatePSpointers(bool isadvanced, bool sizecontrol) {
   particles = reinterpret_cast<PSparticle *>(this + 1); // pointer to particles
   particleFlags = reinterpret_cast<PSparticleFlags *>(particles + numParticles); // pointer to particle flags
   sources = reinterpret_cast<PSsource *>(particleFlags + numParticles); // pointer to source(s) at data+sizeof(ParticleSystem2D)
-  framebuffer = reinterpret_cast<CRGB *>(sources + numSources); // pointer to framebuffer
-  // align pointer after framebuffer
-  uintptr_t p = reinterpret_cast<uintptr_t>(framebuffer + (maxXpixel+1)*(maxYpixel+1));
-  p = (p + 3) & ~0x03; // align to 4-byte boundary
-  PSdataEnd = reinterpret_cast<uint8_t *>(p); // pointer to first available byte after the PS for FX additional data
+  framebuffer = reinterpret_cast<CRGBW *>(SEGMENT.getPixels()); // pointer to framebuffer
+  PSdataEnd = reinterpret_cast<uint8_t *>(sources + numSources); // pointer to first available byte after the PS for FX additional data (already aligned to 4 byte boundary)
   if (isadvanced) {
     advPartProps = reinterpret_cast<PSadvancedParticle *>(PSdataEnd);
     PSdataEnd = reinterpret_cast<uint8_t *>(advPartProps + numParticles);
@@ -1015,8 +1002,8 @@ void ParticleSystem2D::updatePSpointers(bool isadvanced, bool sizecontrol) {
 // for speed, 1D array and 32bit variables are used, make sure to limit them to 8bit (0-255) or result is undefined
 // to blur a subset of the buffer, change the xsize/ysize and set xstart/ystart to the desired starting coordinates (default start is 0/0)
 // subset blurring only works on 10x10 buffer (single particle rendering), if other sizes are needed, buffer width must be passed as parameter
-void blur2D(CRGB *colorbuffer, uint32_t xsize, uint32_t ysize, uint32_t xblur, uint32_t yblur, uint32_t xstart, uint32_t ystart, bool isparticle) {
-  CRGB seeppart, carryover;
+void blur2D(CRGBW *colorbuffer, uint32_t xsize, uint32_t ysize, uint32_t xblur, uint32_t yblur, uint32_t xstart, uint32_t ystart, bool isparticle) {
+  CRGBW seeppart, carryover;
   uint32_t seep = xblur >> 1;
   uint32_t width = xsize; // width of the buffer, used to calculate the index of the pixel
 
@@ -1115,7 +1102,7 @@ bool allocateParticleSystemMemory2D(uint32_t numparticles, uint32_t numsources, 
   if (sizecontrol)
     requiredmemory += sizeof(PSsizeControl) * numparticles;
   requiredmemory += sizeof(PSsource) * numsources;
-  requiredmemory += sizeof(CRGB) * SEGMENT.virtualLength(); // virtualLength is witdh * height
+  //requiredmemory += sizeof(CRGB) * SEGMENT.virtualLength(); // virtualLength is witdh * height
   requiredmemory += additionalbytes + 3; // add 3 to ensure there is room for stuffing bytes
   //requiredmemory = (requiredmemory + 3) & ~0x03; // align memory block to next 4-byte boundary
   PSPRINTLN("mem alloc: " + String(requiredmemory));
@@ -1435,19 +1422,13 @@ void ParticleSystem1D::applyFriction(int32_t coefficient) {
 // if wrap is set, particles half out of bounds are rendered to the other side of the matrix
 // warning: do not render out of bounds particles or system will crash! rendering does not check if particle is out of bounds
 void ParticleSystem1D::render() {
-  CRGB baseRGB;
+  CRGBW baseRGB;
   uint32_t brightness; // particle brightness, fades if dying
   TBlendType blend = LINEARBLEND; // default color rendering: wrap palette
   if (particlesettings.colorByAge || particlesettings.colorByPosition) {
     blend = LINEARBLEND_NOWRAP;
   }
 
-  #ifdef ESP8266 // no local buffer on ESP8266
-  if (motionBlur)
-    SEGMENT.fadeToBlackBy(255 - motionBlur);
-  else
-    SEGMENT.fill(BLACK); // clear the buffer before rendering to it
-  #else
   if (motionBlur) { // blurring active
     for (int32_t x = 0; x <= maxXpixel; x++) {
       fast_color_scale(framebuffer[x], motionBlur);
@@ -1456,7 +1437,7 @@ void ParticleSystem1D::render() {
   else { // no blurring: clear buffer
     memset(framebuffer, 0, (maxXpixel+1) * sizeof(CRGB));
   }
-  #endif
+
   // go over particles and render them to the buffer
   for (uint32_t i = 0; i < usedParticles; i++) {
     if ( particles[i].ttl == 0 || particleFlags[i].outofbounds)
@@ -1469,11 +1450,9 @@ void ParticleSystem1D::render() {
     if (advPartProps) { //saturation is advanced property in 1D system
       if (advPartProps[i].sat < 255) {
         CHSV32 baseHSV;
-        rgb2hsv((uint32_t((byte(baseRGB.r) << 16) | (byte(baseRGB.g) << 8) | (byte(baseRGB.b)))), baseHSV); // convert to HSV
+        rgb2hsv(baseRGB.color32, baseHSV); // convert to HSV
         baseHSV.s = min(baseHSV.s, advPartProps[i].sat); // set the saturation but don't increase it
-        uint32_t tempcolor;
-        hsv2rgb(baseHSV, tempcolor); // convert back to RGB
-        baseRGB = (CRGB)tempcolor;
+        hsv2rgb(baseHSV, baseRGB.color32); // convert back to RGB
       }
     }
     brightness = gamma8(brightness); // apply gamma correction, used for gamma-inverted brightness distribution
@@ -1481,11 +1460,7 @@ void ParticleSystem1D::render() {
   }
   // apply smear-blur to rendered frame
   if (smearBlur) {
-    #ifdef ESP8266
-    SEGMENT.blur(smearBlur, true); // no local buffer on ESP8266
-    #else
     blur1D(framebuffer, maxXpixel + 1, smearBlur, 0);
-    #endif
   }
 
   // add background color
@@ -1493,24 +1468,13 @@ void ParticleSystem1D::render() {
   if (bg_color > 0) { //if not black
     CRGB bg_color_crgb = bg_color; // convert to CRGB
     for (int32_t i = 0; i <= maxXpixel; i++) {
-      #ifdef ESP8266 // no local buffer on ESP8266
-      SEGMENT.addPixelColor(i, bg_color, true);
-      #else
       fast_color_add(framebuffer[i], bg_color_crgb);
-      #endif
     }
   }
-
-  #ifndef ESP8266
-  // transfer the frame-buffer to segment
-  for (int x = 0; x <= maxXpixel; x++) {
-    SEGMENT.setPixelColor(x, framebuffer[x]);
-  }
-  #endif
 }
 
 // calculate pixel positions and brightness distribution and render the particle to local buffer or global buffer
-__attribute__((optimize("O2"))) void ParticleSystem1D::renderParticle(const uint32_t particleindex, const uint8_t brightness, const CRGB &color, const bool wrap) {
+__attribute__((optimize("O2"))) void ParticleSystem1D::renderParticle(const uint32_t particleindex, const uint8_t brightness, const CRGBW &color, const bool wrap) {
   uint32_t size = particlesize;
   if (advPartProps) // use advanced size properties (1D system has no large size global rendering TODO: add large global rendering?)
     size = advPartProps[particleindex].size;
@@ -1553,7 +1517,7 @@ __attribute__((optimize("O2"))) void ParticleSystem1D::renderParticle(const uint
 
   // check if particle has advanced size properties and buffer is available
   if (advPartProps && advPartProps[particleindex].size > 1) {
-    CRGB renderbuffer[10]; // 10 pixel buffer
+    CRGBW renderbuffer[10]; // 10 pixel buffer
     memset(renderbuffer, 0, sizeof(renderbuffer)); // clear buffer
     //render particle to a bigger size
     //particle size to pixels: 2 - 63 is 4 pixels, < 128 is 6pixels, < 192 is 8 pixels, bigger is 10 pixels
@@ -1768,15 +1732,8 @@ void ParticleSystem1D::updatePSpointers(bool isadvanced) {
   particles = reinterpret_cast<PSparticle1D *>(this + 1); // pointer to particles
   particleFlags = reinterpret_cast<PSparticleFlags1D *>(particles + numParticles); // pointer to particle flags
   sources = reinterpret_cast<PSsource1D *>(particleFlags + numParticles); // pointer to source(s)
-  #ifdef ESP8266 // no local buffer on ESP8266
-  PSdataEnd = reinterpret_cast<uint8_t *>(sources + numSources);
-  #else
-  framebuffer = reinterpret_cast<CRGB *>(sources + numSources); // pointer to framebuffer
-  // align pointer after framebuffer to 4bytes
-  uintptr_t p = reinterpret_cast<uintptr_t>(framebuffer + (maxXpixel+1)); // maxXpixel is SEGMENT.virtualLength() - 1
-  p = (p + 3) & ~0x03; // align to 4-byte boundary
-  PSdataEnd = reinterpret_cast<uint8_t *>(p); // pointer to first available byte after the PS for FX additional data
-  #endif
+  framebuffer = reinterpret_cast<CRGBW *>(SEGMENT.getPixels()); // pointer to framebuffer
+  PSdataEnd = reinterpret_cast<uint8_t *>(sources + numSources); // pointer to first available byte after the PS for FX additional data (already aligned to 4 byte boundary)
   if (isadvanced) {
     advPartProps = reinterpret_cast<PSadvancedParticle1D *>(PSdataEnd);
     PSdataEnd = reinterpret_cast<uint8_t *>(advPartProps + numParticles); // since numParticles is a multiple of 4, this is always aligned to 4 bytes. No need to add padding bytes here
@@ -1811,7 +1768,7 @@ uint32_t calculateNumberOfParticles1D(const uint32_t fraction, const bool isadva
   numberofParticles = numberofParticles < 20 ? 20 : numberofParticles; // 20 minimum
   //make sure it is a multiple of 4 for proper memory alignment (easier than using padding bytes)
   numberofParticles = (numberofParticles+3) & ~0x03; // note: with a separate particle buffer, this is probably unnecessary
-  PSPRINTLN(" calc numparticles:" + String(numberofParticles))
+  PSPRINTLN(" calc numparticles:" + String(numberofParticles));
   return numberofParticles;
 }
 
@@ -1861,9 +1818,9 @@ bool initParticleSystem1D(ParticleSystem1D *&PartSys, const uint32_t requestedso
 // blur a 1D buffer, sub-size blurring can be done using start and size
 // for speed, 32bit variables are used, make sure to limit them to 8bit (0-255) or result is undefined
 // to blur a subset of the buffer, change the size and set start to the desired starting coordinates
-void blur1D(CRGB *colorbuffer, uint32_t size, uint32_t blur, uint32_t start)
+void blur1D(CRGBW *colorbuffer, uint32_t size, uint32_t blur, uint32_t start)
 {
-  CRGB seeppart, carryover;
+  CRGBW seeppart, carryover;
   uint32_t seep = blur >> 1;
   carryover =  BLACK;
   for (uint32_t x = start; x < start + size; x++) {
@@ -1927,7 +1884,7 @@ static bool checkBoundsAndWrap(int32_t &position, const int32_t max, const int32
 // note: result is stored in c1, not using a return value is faster as the CRGB struct does not need to be copied upon return
 // note2: function is mainly used to add scaled colors, so checking if one color is black is slower
 // note3: scale is 255 when using blur, checking for that makes blur faster
- __attribute__((optimize("O2"))) static void fast_color_add(CRGB &c1, const CRGB &c2, const uint8_t scale) {
+ __attribute__((optimize("O2"))) static void fast_color_add(CRGBW &c1, const CRGBW &c2, const uint8_t scale) {
   uint32_t r, g, b;
   if (scale < 255) {
     r = c1.r + ((c2.r * scale) >> 8);
@@ -1954,7 +1911,7 @@ static bool checkBoundsAndWrap(int32_t &position, const int32_t max, const int32
 }
 
 // faster than fastled color scaling as it does in place scaling
- __attribute__((optimize("O2"))) static void fast_color_scale(CRGB &c, const uint8_t scale) {
+ __attribute__((optimize("O2"))) static void fast_color_scale(CRGBW &c, const uint8_t scale) {
   c.r = ((c.r * scale) >> 8);
   c.g = ((c.g * scale) >> 8);
   c.b = ((c.b * scale) >> 8);

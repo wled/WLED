@@ -808,6 +808,8 @@ class Segment {
     inline void wu_pixel(uint32_t x, uint32_t y, CRGB c) {}
   #endif
   friend class WS2812FX;
+  friend class ParticleSystem2D;
+  friend class ParticleSystem1D;
 };
 
 // main "strip" class (108 bytes)
