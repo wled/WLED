@@ -96,11 +96,31 @@ bool loadSchedule() {
     for (JsonObject e : doc.as<JsonArray>()) {
         if (numScheduleEvents >= MAX_SCHEDULE_EVENTS) break;
 
+        // Extract and validate JSON fields before assignment
+        int sm = e["sm"].as<int>();
+        int sd = e["sd"].as<int>();
+        int em = e["em"].as<int>();
+        int ed = e["ed"].as<int>();
+        int r  = e["r"].as<int>();
+        int h  = e["h"].as<int>();
+        int m  = e["m"].as<int>();
+        int p  = e["p"].as<int>();
+        
+        // Validate ranges: months 1–12, days 1–31, hours 0–23, minutes 0–59,
+        // repeat mask 0–127, preset ID 1–250
+        if (sm < 1 || sm > 12 || em < 1 || em > 12 ||
+            sd < 1 || sd > 31 || ed < 1 || ed > 31 ||
+            h  < 0 || h  > 23 || m  < 0 || m  > 59 ||
+            r  < 0 || r  > 127|| p  < 1 || p  > 250) {
+            DEBUG_PRINTF_P(PSTR("[Schedule] Invalid values in event %u, skipping\n"), numScheduleEvents);
+            continue;
+        }
+
         scheduleEvents[numScheduleEvents++] = {
-            (uint8_t)e["sm"].as<int>(), (uint8_t)e["sd"].as<int>(), // start month, day
-            (uint8_t)e["em"].as<int>(), (uint8_t)e["ed"].as<int>(), // end month, day
-            (uint8_t)e["r"].as<int>(),  (uint8_t)e["h"].as<int>(),  // repeat mask, hour
-            (uint8_t)e["m"].as<int>(),  (uint8_t)e["p"].as<int>()   // minute, preset
+            (uint8_t)sm, (uint8_t)sd,
+            (uint8_t)em, (uint8_t)ed,
+            (uint8_t)r,  (uint8_t)h,
+            (uint8_t)m,  (uint8_t)p
         };
     }
 
