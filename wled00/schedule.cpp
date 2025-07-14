@@ -4,13 +4,13 @@
 #include "schedule.h"
 #include "wled.h"
 #include <time.h>
+#include <vector>
 
 #define SCHEDULE_FILE "/schedule.json"
 #define SCHEDULE_JSON_BUFFER_SIZE 4096
 
 // Array to hold scheduled events, max size defined in schedule.h
-ScheduleEvent scheduleEvents[MAX_SCHEDULE_EVENTS];
-uint8_t numScheduleEvents = 0; // Current count of loaded schedule entries
+std::vector<ScheduleEvent> scheduleEvents;
 
 // Helper function to check if current date (cm, cd) is within the event's start and end date range
 bool isTodayInRange(uint8_t sm, uint8_t sd, uint8_t em, uint8_t ed, uint8_t cm, uint8_t cd)
@@ -51,7 +51,7 @@ void checkSchedule() {
     DEBUG_PRINTF_P(PSTR("[Schedule] Checking schedule at %02u:%02u\n"), hr, min);
 
     // Iterate through all scheduled events
-    for (uint8_t i = 0; i < numScheduleEvents; i++) {
+    for (size_t i = 0; i < scheduleEvents.size(); i++) {
         const ScheduleEvent &e = scheduleEvents[i];
 
         // Skip if hour or minute doesn't match current time
@@ -102,9 +102,8 @@ bool loadSchedule() {
         return false;
     }
 
-    numScheduleEvents = 0;
+    scheduleEvents.clear();
     for (JsonObject e : doc.as<JsonArray>()) {
-        if (numScheduleEvents >= MAX_SCHEDULE_EVENTS) break;
 
         // Read and validate fields with type safety
         int sm = e["sm"].as<int>();
@@ -117,24 +116,23 @@ bool loadSchedule() {
         int p  = e["p"].as<int>();
 
         // Validate ranges to prevent bad data
-        if (sm < 1 || sm > 12 || em < 1 || em > 12 ||
-            sd < 1 || sd > 31 || ed < 1 || ed > 31 ||
+        if (sm < 0 || sm > 12 || em < 0 || em > 12 ||
+            sd < 0 || sd > 31 || ed < 0 || ed > 31 ||
             h  < 0 || h  > 23 || m  < 0 || m  > 59 ||
             r  < 0 || r  > 127|| p  < 1 || p  > 250) {
             DEBUG_PRINTF_P(PSTR("[Schedule] Invalid values in event %u, skipping\n"), numScheduleEvents);
             continue;
         }
 
-        // Store event in the array
-        scheduleEvents[numScheduleEvents++] = {
+        scheduleEvents.push_back({
             (uint8_t)sm, (uint8_t)sd,
             (uint8_t)em, (uint8_t)ed,
             (uint8_t)r,  (uint8_t)h,
             (uint8_t)m,  (uint8_t)p
-        };
+        });
     }
 
-    DEBUG_PRINTF_P(PSTR("[Schedule] Loaded %u schedule entries from schedule.json\n"), numScheduleEvents);
+    DEBUG_PRINTF_P(PSTR("[Schedule] Loaded %u schedule entries from schedule.json\n"), (uint16_t)scheduleEvents.size());
 
     // Release JSON buffer lock after finishing
     releaseJSONBufferLock();
