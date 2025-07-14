@@ -1573,11 +1573,7 @@ __attribute__((optimize("O2"))) void ParticleSystem1D::renderParticle(const uint
     }
     for (uint32_t i = 0; i < 2; i++) {
       if (pxlisinframe[i]) {
-        #ifdef ESP8266 // no local buffer on ESP8266
-        SEGMENT.addPixelColor(pixco[i], color.scale8((uint8_t)pxlbrightness[i]), true);
-        #else
         fast_color_add(framebuffer[pixco[i]], color, pxlbrightness[i]);
-        #endif
       }
     }
   }
