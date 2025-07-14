@@ -1482,11 +1482,7 @@ __attribute__((optimize("O2"))) void ParticleSystem1D::renderParticle(const uint
   if (size == 0) { //single pixel particle, can be out of bounds as oob checking is made for 2-pixel particles (and updating it uses more code)
     uint32_t x =  particles[particleindex].x >> PS_P_RADIUS_SHIFT_1D;
     if (x <= (uint32_t)maxXpixel) { //by making x unsigned there is no need to check < 0 as it will overflow
-      #ifdef ESP8266 // no local buffer on ESP8266
-      SEGMENT.addPixelColor(x, color.scale8(brightness), true);
-      #else
       fast_color_add(framebuffer[x], color, brightness);
-      #endif
     }
     return;
   }
