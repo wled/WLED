@@ -15,6 +15,7 @@
   #include "html_pxmagic.h"
 #endif
 #include "html_cpal.h"
+#include "schedule.h"
 
 // define flash strings once (saves flash memory)
 static const char s_redirecting[] PROGMEM = "Redirecting...";
@@ -174,33 +175,103 @@ static String msgProcessor(const String& var)
   return String();
 }
 
-static void handleUpload(AsyncWebServerRequest *request, const String& filename, size_t index, uint8_t *data, size_t len, bool isFinal) {
-  if (!correctPIN) {
-    if (isFinal) request->send(401, FPSTR(CONTENT_TYPE_PLAIN), FPSTR(s_unlock_cfg));
+static void handleUpload(AsyncWebServerRequest *request, const String &filename, size_t index, uint8_t *data, size_t len, bool isFinal)
+{
+  if (!correctPIN)
+  {
+    if (isFinal)
+      request->send(401, FPSTR(CONTENT_TYPE_PLAIN), FPSTR(s_unlock_cfg));
     return;
   }
-  if (!index) {
-    String finalname = filename;
-    if (finalname.charAt(0) != '/') {
+
+  String finalname = filename;
+  if (!index)
+  {
+    if (finalname.charAt(0) != '/')
+    {
       finalname = '/' + finalname; // prepend slash if missing
     }
 
-    request->_tempFile = WLED_FS.open(finalname, "w");
-    DEBUG_PRINTF_P(PSTR("Uploading %s\n"), finalname.c_str());
-    if (finalname.equals(FPSTR(getPresetsFileName()))) presetsModifiedTime = toki.second();
-  }
-  if (len) {
-    request->_tempFile.write(data,len);
-  }
-  if (isFinal) {
-    request->_tempFile.close();
-    if (filename.indexOf(F("cfg.json")) >= 0) { // check for filename with or without slash
-      doReboot = true;
-      request->send(200, FPSTR(CONTENT_TYPE_PLAIN), F("Configuration restore successful.\nRebooting..."));
-    } else {
-      if (filename.indexOf(F("palette")) >= 0 && filename.indexOf(F(".json")) >= 0) loadCustomPalettes();
-      request->send(200, FPSTR(CONTENT_TYPE_PLAIN), F("File Uploaded!"));
+    // Special case: schedule.json upload uses temp file
+    if (finalname.equals(F("/schedule.json")))
+    {
+      request->_tempFile = WLED_FS.open("/schedule.json.tmp", "w");
+      DEBUG_PRINTLN(F("Uploading to /schedule.json.tmp"));
     }
+    else
+    {
+      request->_tempFile = WLED_FS.open(finalname, "w");
+      DEBUG_PRINTF_P(PSTR("Uploading %s\n"), finalname.c_str());
+
+      if (finalname.equals(FPSTR(getPresetsFileName())))
+      {
+        presetsModifiedTime = toki.second();
+      }
+    }
+  }
+
+  // Write chunk
+  if (len && request->_tempFile)
+  {
+    size_t written = request->_tempFile.write(data, len);
+    if (written != len)
+    {
+      DEBUG_PRINTLN(F("File write error during upload"));
+      request->_tempFile.close();
+      request->_tempFile = File(); // invalidate file handle
+      // Consider sending error response early
+    }
+  }
+
+  // Finalize upload
+  if (isFinal)
+  {
+    if (request->_tempFile)
+      request->_tempFile.close();
+
+    if (finalname.equals(F("/schedule.json")))
+    {
+      // Atomically replace old file
+      // First try rename (which overwrites on most filesystems)
+      if (!WLED_FS.rename("/schedule.json.tmp", "/schedule.json"))
+      {
+        // If rename failed, try remove then rename
+        WLED_FS.remove("/schedule.json");
+        if (!WLED_FS.rename("/schedule.json.tmp", "/schedule.json"))
+        {
+          DEBUG_PRINTLN(F("[Schedule] Failed to replace schedule file"));
+          request->send(500, FPSTR(CONTENT_TYPE_PLAIN), F("Failed to save schedule file."));
+          return;
+        }
+      }
+      request->send(200, FPSTR(CONTENT_TYPE_PLAIN), F("Schedule uploaded and applied."));
+      DEBUG_PRINTLN(F("[Schedule] Upload complete and applied."));
+
+      // Apply new schedule immediately
+      if (!loadSchedule())
+      {
+        DEBUG_PRINTLN(F("[Schedule] Failed to load new schedule"));
+        request->send(500, FPSTR(CONTENT_TYPE_PLAIN), F("Schedule uploaded but failed to load."));
+        return;
+      }
+    }
+    else
+    {
+      if (filename.indexOf(F("cfg.json")) >= 0)
+      {
+        doReboot = true;
+        request->send(200, FPSTR(CONTENT_TYPE_PLAIN), F("Configuration restore successful.\nRebooting..."));
+      }
+      else
+      {
+        if (filename.indexOf(F("palette")) >= 0 && filename.indexOf(F(".json")) >= 0)
+        {
+          loadCustomPalettes();
+        }
+        request->send(200, FPSTR(CONTENT_TYPE_PLAIN), F("File Uploaded!"));
+      }
+    }
+
     cacheInvalidate++;
   }
 }

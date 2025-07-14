@@ -2,6 +2,7 @@
 #include "wled.h"
 #include "wled_ethernet.h"
 #include <Arduino.h>
+#include "schedule.h"
 
 #if defined(ARDUINO_ARCH_ESP32) && defined(WLED_DISABLE_BROWNOUT_DET)
 #include "soc/soc.h"
@@ -54,6 +55,7 @@ void WLED::loop()
 #endif
 
   handleTime();
+  checkSchedule();
   #ifndef WLED_DISABLE_INFRARED
   handleIR();        // 2nd call to function needed for ESP32 to return valid results -- should be good for ESP8266, too
   #endif
@@ -413,6 +415,8 @@ void WLED::setup()
   initPresetsFile();
 #endif
   updateFSInfo();
+
+  loadSchedule();   // Load schedule from file on startup
 
   // generate module IDs must be done before AP setup
   escapedMac = WiFi.macAddress();
