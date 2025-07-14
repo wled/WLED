@@ -16,14 +16,12 @@ uint8_t numScheduleEvents = 0; // Current count of loaded schedule entries
 bool isTodayInRange(uint8_t sm, uint8_t sd, uint8_t em, uint8_t ed, uint8_t cm, uint8_t cd)
 {
     // Handles ranges that wrap over the year end, e.g., Dec to Jan
-    if (sm < em || (sm == em && sd <= ed))
-    {
+    if (sm < em || (sm == em && sd <= ed)) {
         // Normal range within a year
         return (cm > sm || (cm == sm && cd >= sd)) &&
                (cm < em || (cm == em && cd <= ed));
     }
-    else
-    {
+    else {
         // Range wraps year-end (e.g., Nov 20 to Feb 10)
         return (cm > sm || (cm == sm && cd >= sd)) ||
                (cm < em || (cm == em && cd <= ed));
@@ -53,8 +51,7 @@ void checkSchedule() {
     DEBUG_PRINTF_P(PSTR("[Schedule] Checking schedule at %02u:%02u\n"), hr, min);
 
     // Iterate through all scheduled events
-    for (uint8_t i = 0; i < numScheduleEvents; i++)
-    {
+    for (uint8_t i = 0; i < numScheduleEvents; i++) {
         const ScheduleEvent &e = scheduleEvents[i];
 
         // Skip if hour or minute doesn't match current time
@@ -68,15 +65,13 @@ void checkSchedule() {
             match = true;
 
         // Otherwise check if current date is within start and end date range
-        if (e.startMonth)
-        {
+        if (e.startMonth) {
             if (isTodayInRange(e.startMonth, e.startDay, e.endMonth, e.endDay, cm, cd))
                 match = true;
         }
 
         // If match, apply preset and print debug
-        if (match)
-        {
+        if (match) {
             applyPreset(e.presetId);
             DEBUG_PRINTF_P(PSTR("[Schedule] Applying preset %u at %02u:%02u\n"), e.presetId, hr, min);
         }
