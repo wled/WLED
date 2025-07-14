@@ -16,5 +16,5 @@ struct ScheduleEvent {
   uint8_t presetId;
 };
 
-void loadSchedule();
+bool loadSchedule();
 void checkSchedule();
