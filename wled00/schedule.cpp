@@ -2,7 +2,7 @@
 // Handles reading, parsing, and checking the preset schedule from schedule.json
 
 #include "schedule.h"
-#include <WLED.h>
+#include "wled.h"
 #include <time.h>
 
 #define SCHEDULE_FILE "/schedule.json"
