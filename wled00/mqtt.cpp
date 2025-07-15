@@ -215,7 +215,9 @@ bool initMqtt()
   } else {
     #ifdef ARDUINO_ARCH_ESP32
     String mqttMDNS = mqttServer;
-    mqttMDNS.replace(F(".local"), ""); // remove .local if present
+    mqttMDNS.toLowerCase(); // make sure we have a lowercase hostname
+    int pos = mqttMDNS.indexOf(F(".local"));
+    if (pos > 0) mqttMDNS.remove(pos); // remove .local domain if present (and anything following it)
     if (strlen(cmDNS) > 0 && mqttMDNS.length() > 0 && mqttMDNS.indexOf('.') < 0) { // if mDNS is enabled and server does not have domain
       mqttIP = MDNS.queryHost(mqttMDNS.c_str());
       if (mqttIP != IPAddress()) // if MDNS resolved the hostname
