@@ -19,7 +19,6 @@ static int32_t calcForce_dv(const int8_t force, uint8_t &counter);
 static bool checkBoundsAndWrap(int32_t &position, const int32_t max, const int32_t particleradius, const bool wrap); // returns false if out of bounds by more than particleradius
 static void fast_color_add(CRGBW &c1, const CRGBW &c2, uint8_t scale = 255); // fast and accurate color adding with scaling (scales c2 before adding)
 static void fast_color_scale(CRGBW &c, const uint8_t scale); // fast scaling function using 32bit variable and pointer. note: keep 'scale' within 0-255
-//static CRGB *allocateCRGBbuffer(uint32_t length);
 #endif
 
 #ifndef WLED_DISABLE_PARTICLESYSTEM2D
@@ -558,6 +557,10 @@ void ParticleSystem2D::pointAttractor(const uint32_t particleindex, PSparticle &
 // warning: do not render out of bounds particles or system will crash! rendering does not check if particle is out of bounds
 // firemode is only used for PS Fire FX
 void ParticleSystem2D::render() {
+  if(framebuffer == nullptr) {
+    PSPRINTLN(F("PS render: no framebuffer!"));
+    return;
+  }
   CRGBW baseRGB;
   uint32_t brightness; // particle brightness, fades if dying
   TBlendType blend = LINEARBLEND; // default color rendering: wrap palette
@@ -1102,9 +1105,7 @@ bool allocateParticleSystemMemory2D(uint32_t numparticles, uint32_t numsources, 
   if (sizecontrol)
     requiredmemory += sizeof(PSsizeControl) * numparticles;
   requiredmemory += sizeof(PSsource) * numsources;
-  //requiredmemory += sizeof(CRGB) * SEGMENT.virtualLength(); // virtualLength is witdh * height
   requiredmemory += additionalbytes + 3; // add 3 to ensure there is room for stuffing bytes
-  //requiredmemory = (requiredmemory + 3) & ~0x03; // align memory block to next 4-byte boundary
   PSPRINTLN("mem alloc: " + String(requiredmemory));
   return(SEGMENT.allocateData(requiredmemory));
 }
@@ -1422,6 +1423,10 @@ void ParticleSystem1D::applyFriction(int32_t coefficient) {
 // if wrap is set, particles half out of bounds are rendered to the other side of the matrix
 // warning: do not render out of bounds particles or system will crash! rendering does not check if particle is out of bounds
 void ParticleSystem1D::render() {
+  if(framebuffer == nullptr) {
+    PSPRINTLN(F("PS render: no framebuffer!"));
+    return;
+  }
   CRGBW baseRGB;
   uint32_t brightness; // particle brightness, fades if dying
   TBlendType blend = LINEARBLEND; // default color rendering: wrap palette
@@ -1435,7 +1440,7 @@ void ParticleSystem1D::render() {
     }
   }
   else { // no blurring: clear buffer
-    memset(framebuffer, 0, (maxXpixel+1) * sizeof(CRGB));
+    memset(framebuffer, 0, (maxXpixel+1) * sizeof(CRGBW));
   }
 
   // go over particles and render them to the buffer
@@ -1464,11 +1469,10 @@ void ParticleSystem1D::render() {
   }
 
   // add background color
-  uint32_t bg_color = SEGCOLOR(1);
+  CRGBW bg_color = SEGCOLOR(1);
   if (bg_color > 0) { //if not black
-    CRGB bg_color_crgb = bg_color; // convert to CRGB
     for (int32_t i = 0; i <= maxXpixel; i++) {
-      fast_color_add(framebuffer[i], bg_color_crgb);
+      fast_color_add(framebuffer[i], bg_color);
     }
   }
 }
@@ -1784,9 +1788,6 @@ bool allocateParticleSystemMemory1D(const uint32_t numparticles, const uint32_t 
   requiredmemory += sizeof(PSparticleFlags1D) * numparticles;
   requiredmemory += sizeof(PSparticle1D) * numparticles;
   requiredmemory += sizeof(PSsource1D) * numsources;
-  #ifndef ESP8266 // no local buffer on ESP8266
-  requiredmemory += sizeof(CRGB) * SEGMENT.virtualLength();
-  #endif
   requiredmemory += additionalbytes + 3; // add 3 to ensure room for stuffing bytes to make it 4 byte aligned
   if (isadvanced)
     requiredmemory += sizeof(PSadvancedParticle1D) * numparticles;
@@ -1872,8 +1873,8 @@ static bool checkBoundsAndWrap(int32_t &position, const int32_t max, const int32
 
 // fastled color adding is very inaccurate in color preservation (but it is fast)
 // a better color add function is implemented in colors.cpp but it uses 32bit RGBW. to use it colors need to be shifted just to then be shifted back by that function, which is slow
-// this is a fast version for RGB (no white channel, PS does not handle white) and with native CRGB including scaling of second color
-// note: result is stored in c1, not using a return value is faster as the CRGB struct does not need to be copied upon return
+// this is a fast version for RGB (no white channel, PS does not handle white) and with native CRGBW including scaling of second color
+// note: result is stored in c1, not using a return value is faster as the CRGBW struct does not need to be copied upon return
 // note2: function is mainly used to add scaled colors, so checking if one color is black is slower
 // note3: scale is 255 when using blur, checking for that makes blur faster
  __attribute__((optimize("O2"))) static void fast_color_add(CRGBW &c1, const CRGBW &c2, const uint8_t scale) {
