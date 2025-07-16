@@ -55,8 +55,8 @@ static void onMqttConnect(bool sessionPresent)
   DEBUG_PRINTLN(F("MQTT ready"));
 
 #ifndef USERMOD_SMARTNEST
-  snprintf_P(mqttStatusTopic, sizeof(mqttStatusTopic)-1, sTopicFormat, MQTT_MAX_TOPIC_LEN, mqttDeviceTopic, "status");
-  mqtt->setWill(mqttStatusTopic, 0, true, "offline"); // LWT message
+  snprintf_P(subuf, sizeof(subuf)-1, sTopicFormat, MQTT_MAX_TOPIC_LEN, mqttDeviceTopic, "status");
+  mqtt->publish(subuf, 0, true, "online"); // retain message for a LWT
 #endif
 
   publishMqtt();
@@ -231,6 +231,10 @@ bool initMqtt()
   mqtt->setClientId(mqttClientID);
   if (mqttUser[0] && mqttPass[0]) mqtt->setCredentials(mqttUser, mqttPass);
 
+  #ifndef USERMOD_SMARTNEST
+  snprintf_P(mqttStatusTopic, sizeof(mqttStatusTopic)-1, sTopicFormat, MQTT_MAX_TOPIC_LEN, mqttDeviceTopic, "status");
+  mqtt->setWill(mqttStatusTopic, 0, true, "offline"); // LWT message
+  #endif
   mqtt->setKeepAlive(MQTT_KEEP_ALIVE_TIME);
   mqtt->connect();
   return true;
