@@ -64,7 +64,7 @@ void userSetup() {
 
     if (TFT_BL > 0) { // TFT_BL has been set in the TFT_eSPI library in the User Setup file TTGO_T_Display.h
          pinMode(TFT_BL, OUTPUT); // Set backlight pin to output mode
-         digitalWrite(TFT_BL, HIGH); // Turn backlight on. 
+         digitalWrite(TFT_BL, TFT_BACKLIGHT_ON); // Turn backlight on. 
     }
 
     // tft.setRotation(3);
@@ -102,7 +102,7 @@ void userLoop() {
   
   // Turn off display after 5 minutes with no change.
    if(!displayTurnedOff && millis() - lastRedraw > 5*60*1000) {
-    digitalWrite(TFT_BL, LOW); // Turn backlight off. 
+    digitalWrite(TFT_BL, !TFT_BACKLIGHT_ON); // Turn backlight off. 
     displayTurnedOff = true;
   } 
 
