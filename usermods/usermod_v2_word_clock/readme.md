@@ -1,6 +1,6 @@
 # Word Clock Usermod V2
 
-This usermod drives an 11x10 pixel matrix wordclock with WLED. There are 4 additional dots for the minutes.
+This usermod drives an 11x10 or a 11x11 pixel matrix wordclock with WLED. There are 4 additional dots for the minutes.
 The visualisation is described by 4 masks with LED numbers (single dots for minutes, minutes, hours and "clock"). The index of the LEDs in the masks always starts at 0, even if the ledOffset is not 0.
 There are 3 parameters that control behavior:
 
@@ -16,7 +16,7 @@ The original used a long wire to connect DO to DI, from one line to the next lin
 I wired my clock in meander style. So the first LED in the second line is on the right.
 With this method, every other line was inverted and showed the wrong letter.
 
-I added a switch in usermod called "meander wiring?" to enable/disable the alternate wiring pattern.
+I added a switch in usermod called "meanderwiring" to enable/disable the alternate wiring pattern and a switch for the 11x11 grid.
 
 ## Installation
 
