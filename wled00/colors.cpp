@@ -86,6 +86,23 @@ uint32_t color_fade(uint32_t c1, uint8_t amount, bool video)
   return scaledcolor;
 }
 
+/*
+ * color adjustment in HSV color space (converts RGB to HSV and back), color conversions are not 100% accurate!
+   shifts hue, increase brightness, decreases saturation (if not black)
+   note: inputs are 32bit to speed up the function, useful input value ranges are 0-255
+ */
+uint32_t adjust_color(uint32_t rgb, uint32_t hueShift, uint32_t lighten, uint32_t brighten) {
+    if(rgb == 0 | hueShift + lighten + brighten == 0) return rgb; // black or no change
+    CHSV32 hsv;
+    rgb2hsv(rgb, hsv); //convert to HSV
+    hsv.h += (hueShift << 8); // shift hue (hue is 16 bits)
+    hsv.s =  max((int32_t)0, (int32_t)hsv.s - (int32_t)lighten); // desaturate
+    hsv.v =  min((uint32_t)255, (uint32_t)hsv.v + brighten); // increase brightness
+    uint32_t rgb_adjusted;
+    hsv2rgb(hsv, rgb_adjusted); // convert back to RGB TODO: make this into 16 bit conversion
+    return rgb_adjusted;
+}
+
 // 1:1 replacement of fastled function optimized for ESP, slightly faster, more accurate and uses less flash (~ -200bytes)
 uint32_t ColorFromPaletteWLED(const CRGBPalette16& pal, unsigned index, uint8_t brightness, TBlendType blendType)
 {

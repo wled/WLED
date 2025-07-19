@@ -114,6 +114,7 @@ static um_data_t* getAudioData() {
   return um_data;
 }
 
+
 // effect functions
 
 /*
@@ -124,6 +125,56 @@ uint16_t mode_static(void) {
   return strip.isOffRefreshRequired() ? FRAMETIME : 350;
 }
 static const char _data_FX_MODE_STATIC[] PROGMEM = "Solid";
+
+/*
+ * Copy a segment and perform (optional) color adjustments
+ */
+uint16_t mode_copy_segment(void) {
+  uint32_t sourceid = SEGMENT.custom3;
+  if (sourceid >= strip.getSegmentsNum() || sourceid == strip.getCurrSegmentId()) { // invalid source
+    SEGMENT.fadeToBlackBy(5); // fade out
+    return FRAMETIME;
+  }
+  Segment sourcesegment = strip.getSegment(sourceid);
+  if (sourcesegment.isActive()) {
+    uint32_t sourcecolor;
+    uint32_t destcolor;
+    if(sourcesegment.is2D()) { // 2D source, note: 2D to 1D just copies the first row (or first column if 'Switch axis' is checked in FX)
+      for (unsigned y = 0; y < SEGMENT.vHeight(); y++) {
+        for (unsigned x = 0; x < SEGMENT.vWidth(); x++) {
+          unsigned sx = x; // source coordinates
+          unsigned sy = y;
+          if(SEGMENT.check1) std::swap(sx, sy); // flip axis
+          if(SEGMENT.check2) {
+            sourcecolor = strip.getPixelColorXY(sx + sourcesegment.start, sy + sourcesegment.startY); // read from global buffer (reads the last rendered frame)
+          }
+          else {
+            sourcesegment.setDrawDimensions(); // set to source segment dimensions
+            sourcecolor = sourcesegment.getPixelColorXY(sx, sy); // read from segment buffer
+          }
+          destcolor = adjust_color(sourcecolor, SEGMENT.intensity, SEGMENT.custom1, SEGMENT.custom2);
+          SEGMENT.setDrawDimensions(); // reset to current segment dimensions
+          SEGMENT.setPixelColorXY(x, y, destcolor);
+        }
+      }
+    } else { // 1D source, source can be expanded into 2D
+      for (unsigned i = 0; i < SEGMENT.vLength(); i++) {
+        if(SEGMENT.check2) {
+          sourcecolor = strip.getPixelColor(i + sourcesegment.start); // read from global buffer (reads the last rendered frame)
+        }
+        else {
+          sourcesegment.setDrawDimensions(); // set to source segment dimensions
+          sourcecolor = sourcesegment.getPixelColor(i);
+        }
+        destcolor = adjust_color(sourcecolor, SEGMENT.intensity, SEGMENT.custom1, SEGMENT.custom2);
+        SEGMENT.setDrawDimensions(); // reset to current segment dimensions
+        SEGMENT.setPixelColor(i, destcolor);
+      }
+    }
+  }
+  return FRAMETIME;
+}
+static const char _data_FX_MODE_COPY[] PROGMEM = "Copy Segment@,Color shift,Lighten,Brighten,ID,Axis(2D),FullStack(last frame);;;12;ix=0,c1=0,c2=0,c3=0";
 
 
 /*
@@ -6091,9 +6142,7 @@ uint16_t mode_2Dscrollingtext(void) {
   }
 
   char text[WLED_MAX_SEGNAME_LEN+1] = {'\0'};
-  if (SEGMENT.name) for (size_t i=0,j=0; i<strlen(SEGMENT.name); i++) if (SEGMENT.name[i]>31 && SEGMENT.name[i]<128) text[j++] = SEGMENT.name[i];
-  const bool zero = strchr(text, '0') != nullptr;
-
+  size_t result_pos = 0;
   char sec[5];
   int  AmPmHour = hour(localTime);
   bool isitAM = true;
@@ -6105,27 +6154,62 @@ uint16_t mode_2Dscrollingtext(void) {
     sprintf_P(sec, PSTR(":%02d"), second(localTime));
   }
 
-  if (!strlen(text)) { // fallback if empty segment name: display date and time
+  size_t len = 0;
+  if (SEGMENT.name) len = strlen(SEGMENT.name); // note: SEGMENT.name is limited to WLED_MAX_SEGNAME_LEN
+  if (len == 0) { // fallback if empty segment name: display date and time
     sprintf_P(text, PSTR("%s %d, %d %d:%02d%s"), monthShortStr(month(localTime)), day(localTime), year(localTime), AmPmHour, minute(localTime), sec);
   } else {
-    if (text[0] == '#') for (auto &c : text) c = std::toupper(c);
-    if      (!strncmp_P(text,PSTR("#DATE"),5)) sprintf_P(text, zero?PSTR("%02d.%02d.%04d"):PSTR("%d.%d.%d"),   day(localTime),   month(localTime),  year(localTime));
-    else if (!strncmp_P(text,PSTR("#DDMM"),5)) sprintf_P(text, zero?PSTR("%02d.%02d")     :PSTR("%d.%d"),      day(localTime),   month(localTime));
-    else if (!strncmp_P(text,PSTR("#MMDD"),5)) sprintf_P(text, zero?PSTR("%02d/%02d")     :PSTR("%d/%d"),      month(localTime), day(localTime));
-    else if (!strncmp_P(text,PSTR("#TIME"),5)) sprintf_P(text, zero?PSTR("%02d:%02d%s")   :PSTR("%2d:%02d%s"), AmPmHour,         minute(localTime), sec);
-    else if (!strncmp_P(text,PSTR("#HHMM"),5)) sprintf_P(text, zero?PSTR("%02d:%02d")     :PSTR("%d:%02d"),    AmPmHour,         minute(localTime));
-    else if (!strncmp_P(text,PSTR("#HH"),3))   sprintf  (text, zero?    ("%02d")          :    ("%d"),         AmPmHour);
-    else if (!strncmp_P(text,PSTR("#MM"),3))   sprintf  (text, zero?    ("%02d")          :    ("%d"),         minute(localTime));
-    else if (!strncmp_P(text,PSTR("#SS"),3))   sprintf  (text,          ("%02d")                     ,         second(localTime));
-    else if (!strncmp_P(text,PSTR("#DD"),3))   sprintf  (text, zero?    ("%02d")          :    ("%d"),         day(localTime));
-    else if (!strncmp_P(text,PSTR("#DAY"),4))  sprintf  (text,          ("%s")                       ,         dayShortStr(day(localTime)));
-    else if (!strncmp_P(text,PSTR("#DDDD"),5)) sprintf  (text,          ("%s")                       ,         dayStr(day(localTime)));
-    else if (!strncmp_P(text,PSTR("#DAYL"),5)) sprintf  (text,          ("%s")                       ,         dayStr(day(localTime)));
-    else if (!strncmp_P(text,PSTR("#MO"),3))   sprintf  (text, zero?    ("%02d")          :    ("%d"),         month(localTime));
-    else if (!strncmp_P(text,PSTR("#MON"),4))  sprintf  (text,          ("%s")                       ,         monthShortStr(month(localTime)));
-    else if (!strncmp_P(text,PSTR("#MMMM"),5)) sprintf  (text,          ("%s")                       ,         monthStr(month(localTime)));
-    else if (!strncmp_P(text,PSTR("#YY"),3))   sprintf  (text,          ("%02d")                     ,         year(localTime)%100);
-    else if (!strncmp_P(text,PSTR("#YYYY"),5)) sprintf_P(text, zero?PSTR("%04d")          :    ("%d"),         year(localTime));
+    size_t i = 0;
+    while (i < len) {
+      if (SEGMENT.name[i] == '#') {
+        char token[7]; // copy up to 6 chars + null terminator
+        bool zero = false; // a 0 suffix means display leading zeros
+        size_t j = 0;
+        while (j < 6 && i + j < len) {
+          token[j] = std::toupper(SEGMENT.name[i + j]);
+          if(token[j] == '0')
+            zero = true; // 0 suffix found. Note: there is an edge case where a '0' could be part of a trailing text and not the token, handling it is not worth the effort
+          j++;
+        }
+        token[j] = '\0';
+        int advance = 5; // number of chars to advance in 'text' after processing the token
+
+        // Process token
+        char temp[32];
+        if      (!strncmp_P(token,PSTR("#DATE"),5))  sprintf_P(temp, zero?PSTR("%02d.%02d.%04d"):PSTR("%d.%d.%d"),   day(localTime),   month(localTime),  year(localTime));
+        else if (!strncmp_P(token,PSTR("#DDMM"),5))  sprintf_P(temp, zero?PSTR("%02d.%02d")     :PSTR("%d.%d"),      day(localTime),   month(localTime));
+        else if (!strncmp_P(token,PSTR("#MMDD"),5))  sprintf_P(temp, zero?PSTR("%02d/%02d")     :PSTR("%d/%d"),      month(localTime), day(localTime));
+        else if (!strncmp_P(token,PSTR("#TIME"),5))  sprintf_P(temp, zero?PSTR("%02d:%02d%s")   :PSTR("%2d:%02d%s"), AmPmHour,         minute(localTime), sec);
+        else if (!strncmp_P(token,PSTR("#HHMM"),5))  sprintf_P(temp, zero?PSTR("%02d:%02d")     :PSTR("%d:%02d"),    AmPmHour,         minute(localTime));
+        else if (!strncmp_P(token,PSTR("#YYYY"),5))  sprintf_P(temp,          PSTR("%04d")                 ,         year(localTime));
+        else if (!strncmp_P(token,PSTR("#MONL"),5))  sprintf  (temp,          ("%s")                       ,         monthStr(month(localTime)));
+        else if (!strncmp_P(token,PSTR("#DDDD"),5))  sprintf  (temp,          ("%s")                       ,         dayStr(weekday(localTime)));
+        else if (!strncmp_P(token,PSTR("#YY"),3))  { sprintf  (temp,          ("%02d")                     ,         year(localTime)%100); advance = 3; }
+        else if (!strncmp_P(token,PSTR("#HH"),3))  { sprintf  (temp, zero?    ("%02d")          :    ("%d"),         AmPmHour); advance = 3; }
+        else if (!strncmp_P(token,PSTR("#MM"),3))  { sprintf  (temp, zero?    ("%02d")          :    ("%d"),         minute(localTime)); advance = 3; }
+        else if (!strncmp_P(token,PSTR("#SS"),3))  { sprintf  (temp, zero?    ("%02d")          :    ("%d"),         second(localTime)); advance = 3; }
+        else if (!strncmp_P(token,PSTR("#MON"),4)) { sprintf  (temp,          ("%s")                       ,         monthShortStr(month(localTime))); advance = 4; }
+        else if (!strncmp_P(token,PSTR("#MO"),3))  { sprintf  (temp, zero?    ("%02d")          :    ("%d"),         month(localTime)); advance = 3; }
+        else if (!strncmp_P(token,PSTR("#DAY"),4)) { sprintf  (temp,          ("%s")                       ,         dayShortStr(weekday(localTime))); advance = 4; }
+        else if (!strncmp_P(token,PSTR("#DD"),3))  { sprintf  (temp, zero?    ("%02d")          :    ("%d"),         day(localTime)); advance = 3; }
+        else { temp[0] = '#'; temp[1] = '\0'; zero = false; advance = 1; } // Unknown token, just copy the #
+
+        if(zero) advance++; // skip the '0' suffix
+        size_t temp_len = strlen(temp);
+        if (result_pos + temp_len < WLED_MAX_SEGNAME_LEN) {
+          strcpy(text + result_pos, temp);
+          result_pos += temp_len;
+        }
+
+        i += advance;
+      }
+      else {
+        if (result_pos < WLED_MAX_SEGNAME_LEN) {
+          text[result_pos++] = SEGMENT.name[i++]; // no token, just copy char
+        } else
+          break; // buffer full
+      }
+    }
   }
 
   const int  numberOfLetters = strlen(text);
@@ -10584,6 +10668,7 @@ void WS2812FX::setupEffectData() {
     _modeData.push_back(_data_RESERVED);
   }
   // now replace all pre-allocated effects
+  addEffect(FX_MODE_COPY, &mode_copy_segment, _data_FX_MODE_COPY);
   // --- 1D non-audio effects ---
   addEffect(FX_MODE_BLINK, &mode_blink, _data_FX_MODE_BLINK);
   addEffect(FX_MODE_BREATH, &mode_breath, _data_FX_MODE_BREATH);

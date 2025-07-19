@@ -228,6 +228,7 @@ extern byte realtimeMode;           // used in getMappedPixelIndex()
 #define FX_MODE_LAKE                    75
 #define FX_MODE_METEOR                  76
 //#define FX_MODE_METEOR_SMOOTH           77  // replaced by Meteor
+#define FX_MODE_COPY                    77
 #define FX_MODE_RAILWAY                 78
 #define FX_MODE_RIPPLE                  79
 #define FX_MODE_TWINKLEFOX              80
@@ -723,6 +724,13 @@ class Segment {
       return 1;
     #endif
     }
+    inline unsigned rawLength() const {   // returns length of used raw pixel buffer (eg. get/setPixelColorRaw())
+    #ifndef WLED_DISABLE_2D
+      if (is2D()) return virtualWidth() * virtualHeight();
+    #endif
+      return virtualLength();    
+    }
+
   #ifndef WLED_DISABLE_2D
     inline bool is2D() const                                                            { return (width()>1 && height()>1); }
     [[gnu::hot]] void setPixelColorXY(int x, int y, uint32_t c) const; // set relative pixel within segment with color
@@ -763,7 +771,7 @@ class Segment {
     inline void drawCharacter(unsigned char chr, int16_t x, int16_t y, uint8_t w, uint8_t h, CRGB c, CRGB c2 = CRGB::Black, int8_t rotate = 0) const { drawCharacter(chr, x, y, w, h, RGBW32(c.r,c.g,c.b,0), RGBW32(c2.r,c2.g,c2.b,0), rotate); } // automatic inline
     inline void fill_solid(CRGB c) const { fill(RGBW32(c.r,c.g,c.b,0)); }
   #else
-    inline constexpr bool is2D() const                                            { return false; }
+    inline bool is2D() const                                                      { return false; }
     inline void setPixelColorXY(int x, int y, uint32_t c) const                   { setPixelColor(x, c); }
     inline void setPixelColorXY(unsigned x, unsigned y, uint32_t c) const         { setPixelColor(int(x), c); }
     inline void setPixelColorXY(int x, int y, byte r, byte g, byte b, byte w = 0) const { setPixelColor(x, RGBW32(r,g,b,w)); }
@@ -802,7 +810,7 @@ class Segment {
   friend class WS2812FX;
 };
 
-// main "strip" class (104 bytes)
+// main "strip" class (108 bytes)
 class WS2812FX {
   typedef uint16_t (*mode_ptr)(); // pointer to mode function
   typedef void (*show_callback)(); // pre show callback
@@ -829,6 +837,7 @@ class WS2812FX {
       cctFromRgb(false),
       // true private variables
       _pixels(nullptr),
+      _pixelCCT(nullptr),
       _suspend(false),
       _brightness(DEFAULT_BRIGHTNESS),
       _length(DEFAULT_LED_COUNT),
@@ -857,6 +866,7 @@ class WS2812FX {
 
     ~WS2812FX() {
       d_free(_pixels);
+      d_free(_pixelCCT); // just in case
       d_free(customMappingTable);
       _mode.clear();
       _modeData.clear();
@@ -1004,6 +1014,7 @@ class WS2812FX {
 
   private:
     uint32_t *_pixels;
+    uint8_t  *_pixelCCT;
     std::vector<Segment> _segments;
 
     volatile bool _suspend;

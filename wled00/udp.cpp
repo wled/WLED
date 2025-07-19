@@ -600,8 +600,8 @@ void handleNotifications()
     return;
   }
 
-  //UDP realtime: 1 warls 2 drgb 3 drgbw
-  if (udpIn[0] > 0 && udpIn[0] < 5)
+  //UDP realtime: 1 warls 2 drgb 3 drgbw 4 dnrgb 5 dnrgbw
+  if (udpIn[0] > 0 && udpIn[0] < 6)
   {
     realtimeIP = (isSupp) ? notifier2Udp.remoteIP() : notifierUdp.remoteIP();
     DEBUG_PRINTLN(realtimeIP);

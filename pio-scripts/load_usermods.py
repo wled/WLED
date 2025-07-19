@@ -77,17 +77,18 @@ def wrapped_ConfigureProjectLibBuilder(xenv):
   for dep in result.depbuilders:
      cached_add_includes(dep, processed_deps, extra_include_dirs)
 
+  wled_deps = [dep for dep in result.depbuilders if is_wled_module(dep)]
+
   broken_usermods = []
-  for dep in result.depbuilders:
-    if is_wled_module(dep):
-      # Add the wled folder to the include path
-      dep.env.PrependUnique(CPPPATH=str(wled_dir))
-      # Add WLED's own dependencies
-      for dir in extra_include_dirs:
-        dep.env.PrependUnique(CPPPATH=str(dir))
-      # Enforce that libArchive is not set; we must link them directly to the executable
-      if dep.lib_archive:
-        broken_usermods.append(dep)
+  for dep in wled_deps:
+    # Add the wled folder to the include path
+    dep.env.PrependUnique(CPPPATH=str(wled_dir))
+    # Add WLED's own dependencies
+    for dir in extra_include_dirs:
+      dep.env.PrependUnique(CPPPATH=str(dir))
+    # Enforce that libArchive is not set; we must link them directly to the executable
+    if dep.lib_archive:
+      broken_usermods.append(dep)
 
   if broken_usermods:
     broken_usermods = [usermod.name for usermod in broken_usermods]
@@ -96,6 +97,9 @@ def wrapped_ConfigureProjectLibBuilder(xenv):
       fg="red",
       err=True)
     Exit(1)
+
+  # Save the depbuilders list for later validation
+  xenv.Replace(WLED_MODULES=wled_deps)
 
   return result
 
