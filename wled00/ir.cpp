@@ -734,8 +734,14 @@ void handleIR()
 
       // we need to reverse the bits for NEC, SAMSUNG and SONY remotes to not break backwards compatability
       uint32_t value;
-      if (results.protocol == NEC || results.protocol == SAMSUNG || results.protocol == SONY) {
-        value = bitreverse32Bit(results.decodedRawData);
+      if (results.protocol == NEC || results.protocol == SAMSUNG || results.protocol == SONY)
+      { 
+        if ( results.decodedRawData == 0 ) {
+          value = 0xFFFFFFFF; // if we get a 0, we assume it is a repeat code
+        }
+        else { 
+          value = bitreverse32Bit(results.decodedRawData);
+        }
       }
       else {
         value = results.decodedRawData;
