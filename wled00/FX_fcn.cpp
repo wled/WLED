@@ -160,15 +160,13 @@ bool Segment::allocateData(size_t len) {
   }
   // prefer DRAM over SPI RAM on ESP32 since it is slow
   if (data) {
-    void* newData = d_realloc(data, len);
-    if (newData)
-      data = (byte*)newData; // realloc returns null if it fails but does not free the original pointer
-    else {
-      d_free(data); // free old data if realloc failed
-      data = nullptr; // reset pointer to null
+    void* newData = d_realloc(data, len); // note: realloc returns null if it fails but does not free the original pointer
+    if (!newData || newData != data) // realloc failed or used a new memory block causing fragmentation. free and allocate new block
+      d_free(newData);
+      d_free(data);
+      data = nullptr;  // reset pointer to null
       Segment::addUsedSegmentData(-_dataLen); // subtract original buffer size
       _dataLen = 0; // reset data length
-    }
   }
   else data = (byte*)d_malloc(len);
 
@@ -459,8 +457,8 @@ void Segment::setGeometry(uint16_t i1, uint16_t i2, uint8_t grp, uint8_t spc, ui
   }
   // re-allocate FX render buffer
   if (length() != oldLength) {
-    if (pixels) pixels = static_cast<uint32_t*>(d_realloc(pixels, sizeof(uint32_t) * length()));
-    else        pixels = static_cast<uint32_t*>(d_malloc(sizeof(uint32_t) * length()));
+    if (pixels) d_free(pixels); //pixels = static_cast<uint32_t*>(d_realloc(pixels, sizeof(uint32_t) * length())); // using realloc can cause additional fragmentation instead of reducing it
+    pixels = static_cast<uint32_t*>(d_malloc(sizeof(uint32_t) * length()));
     if (!pixels) {
       DEBUG_PRINTLN(F("!!! Not enough RAM for pixel buffer !!!"));
       errorFlag = ERR_NORAM_PX;
@@ -573,8 +571,8 @@ Segment &Segment::setName(const char *newName) {
   if (newName) {
     const int newLen = min(strlen(newName), (size_t)WLED_MAX_SEGNAME_LEN);
     if (newLen) {
-      if (name) name = static_cast<char*>(d_realloc(name, newLen+1));
-      else      name = static_cast<char*>(d_malloc(newLen+1));
+      if (name) d_free(name); // free old name
+      name = static_cast<char*>(d_malloc(newLen+1));
       if (name) strlcpy(name, newName, newLen+1);
       name[newLen] = 0;
       return *this;
@@ -739,8 +737,8 @@ void IRAM_ATTR_YN Segment::setPixelColor(int i, uint32_t col) const
         }
         break;
       case M12_pCorner:
-        for (int x = 0; x <= i; x++) setPixelColorRaw(XY(x, i), col);
-        for (int y = 0; y <  i; y++) setPixelColorRaw(XY(i, y), col);
+        for (int x = 0; x <= i; x++) setPixelColorXY(x, i, col); // note: <= to include i=0. Relies on overflow check in sPC()
+        for (int y = 0; y <  i; y++) setPixelColorXY(i, y, col);
         break;
       case M12_sPinwheel: {
         // Uses Bresenham's algorithm to place coordinates of two lines in arrays then draws between them
@@ -1199,8 +1197,8 @@ void WS2812FX::finalizeInit() {
   deserializeMap();     // (re)load default ledmap (will also setUpMatrix() if ledmap does not exist)
 
   // allocate frame buffer after matrix has been set up (gaps!)
-  if (_pixels) _pixels = static_cast<uint32_t*>(d_realloc(_pixels, getLengthTotal() * sizeof(uint32_t)));
-  else         _pixels = static_cast<uint32_t*>(d_malloc(getLengthTotal() * sizeof(uint32_t)));
+  if (_pixels) d_free(_pixels);
+  _pixels = static_cast<uint32_t*>(d_malloc(getLengthTotal() * sizeof(uint32_t)));
   DEBUG_PRINTF_P(PSTR("strip buffer size: %uB\n"), getLengthTotal() * sizeof(uint32_t));
 
   DEBUG_PRINTF_P(PSTR("Heap after strip init: %uB\n"), ESP.getFreeHeap());
