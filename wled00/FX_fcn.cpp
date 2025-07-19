@@ -160,13 +160,15 @@ bool Segment::allocateData(size_t len) {
   }
   // prefer DRAM over SPI RAM on ESP32 since it is slow
   if (data) {
-    void* newData = d_realloc(data, len); // note: realloc returns null if it fails but does not free the original pointer
-    if (!newData || newData != data) // realloc failed or used a new memory block causing fragmentation. free and allocate new block
-      d_free(newData);
-      d_free(data);
-      data = nullptr;  // reset pointer to null
+    void* newData = d_realloc(data, len);
+    if (newData) // realloc returns null if it fails but does not free the original pointer in that case
+      data = (byte*)newData;
+    else {
+      d_free(data);   // free old data if realloc failed
+      data = nullptr; // reset pointer to null
       Segment::addUsedSegmentData(-_dataLen); // subtract original buffer size
-      _dataLen = 0; // reset data length
+      _dataLen = 0;   // reset data length
+    }
   }
   else data = (byte*)d_malloc(len);
 
