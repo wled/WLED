@@ -159,8 +159,19 @@ bool Segment::allocateData(size_t len) {
     return false;
   }
   // prefer DRAM over SPI RAM on ESP32 since it is slow
-  if (data) data = (byte*)d_realloc(data, len);
-  else      data = (byte*)d_malloc(len);
+  if (data) {
+    void* newData = d_realloc(data, len);
+    if (newData)
+      data = (byte*)newData; // realloc returns null if it fails but does not free the original pointer
+    else {
+      d_free(data); // free old data if realloc failed
+      data = nullptr; // reset pointer to null
+      Segment::addUsedSegmentData(-_dataLen); // subtract original buffer size
+      _dataLen = 0; // reset data length
+    }
+  }
+  else data = (byte*)d_malloc(len);
+
   if (data) {
     memset(data, 0, len);  // erase buffer
     Segment::addUsedSegmentData(len - _dataLen);
@@ -170,7 +181,6 @@ bool Segment::allocateData(size_t len) {
   }
   // allocation failed
   DEBUG_PRINTLN(F("!!! Allocation failed. !!!"));
-  Segment::addUsedSegmentData(-_dataLen); // subtract original buffer size
   errorFlag = ERR_NORAM;
   return false;
 }
@@ -1677,7 +1687,7 @@ void WS2812FX::setTransitionMode(bool t) {
 
 // wait until frame is over (service() has finished or time for 1 frame has passed; yield() crashes on 8266)
 void WS2812FX::waitForIt() {
-  unsigned long maxWait = millis() + getFrameTime();
+  unsigned long maxWait = millis() + getFrameTime() + 100; // TODO: this needs a proper fix for timeout!
   while (isServicing() && maxWait > millis()) delay(1);
   #ifdef WLED_DEBUG
   if (millis() >= maxWait) DEBUG_PRINTLN(F("Waited for strip to finish servicing."));
