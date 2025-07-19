@@ -965,17 +965,17 @@ __attribute__((optimize("O2"))) void ParticleSystem2D::collideParticles(PSpartic
 // update size and pointers (memory location and size can change dynamically)
 // note: do not access the PS class in FX befor running this function (or it messes up SEGENV.data)
 void ParticleSystem2D::updateSystem(void) {
-  PSPRINTLN("updateSystem2D");
+  //PSPRINTLN("updateSystem2D");
   setMatrixSize(SEGMENT.vWidth(), SEGMENT.vHeight());
   updatePSpointers(advPartProps != nullptr, advPartSize != nullptr); // update pointers to PS data, also updates availableParticles
-  PSPRINTLN("\n END update System2D, running FX...");
+  //PSPRINTLN("\n END update System2D, running FX...");
 }
 
 // set the pointers for the class (this only has to be done once and not on every FX call, only the class pointer needs to be reassigned to SEGENV.data every time)
 // function returns the pointer to the next byte available for the FX (if it assigned more memory for other stuff using the above allocate function)
 // FX handles the PSsources, need to tell this function how many there are
 void ParticleSystem2D::updatePSpointers(bool isadvanced, bool sizecontrol) {
-  PSPRINTLN("updatePSpointers");
+  //PSPRINTLN("updatePSpointers");
   // Note on memory alignment:
   // a pointer MUST be 4 byte aligned. sizeof() in a struct/class is always aligned to the largest element. if it contains a 32bit, it will be padded to 4 bytes, 16bit is padded to 2byte alignment.
   // The PS is aligned to 4 bytes, a PSparticle is aligned to 2 and a struct containing only byte sized variables is not aligned at all and may need to be padded when dividing the memoryblock.
@@ -1107,17 +1107,26 @@ bool initParticleSystem2D(ParticleSystem2D *&PartSys, uint32_t requestedsources,
 
   uint32_t numparticles = calculateNumberOfParticles2D(pixels, advanced, sizecontrol);
   PSPRINT(" segmentsize:" + String(cols) + " x " + String(rows));
-  PSPRINT(" request numparticles:" + String(numparticles));
+  PSPRINTLN(" request numparticles:" + String(numparticles));
   uint32_t numsources = calculateNumberOfSources2D(pixels, requestedsources);
-  if (!allocateParticleSystemMemory2D(numparticles, numsources, advanced, sizecontrol, additionalbytes))
-  {
-    DEBUG_PRINT(F("PS init failed: memory depleted"));
-    return false;
+  bool allocsuccess = false;
+  while(numparticles >= 4) { // make sure we have at least 4 particles or quit
+    if (allocateParticleSystemMemory2D(numparticles, numsources, advanced, sizecontrol, additionalbytes)) {
+      PSPRINTLN(F("PS 2D alloc succeeded"));
+      allocsuccess = true;
+      break; // allocation succeeded
+    }
+    numparticles /= 2; // cut number of particles in half and try again
+    PSPRINTLN(F("PS 2D alloc failed, trying with less particles..."));
+  }
+  if (!allocsuccess) {
+    PSPRINTLN(F("PS 2D alloc failed, not enough memory!"));
+    return false; // allocation failed
   }
 
   PartSys = new (SEGENV.data) ParticleSystem2D(cols, rows, numparticles, numsources, advanced, sizecontrol); // particle system constructor
 
-  PSPRINTLN("2D PS init done");
+  PSPRINTLN(F("2D PS init done"));
   return true;
 }
 
@@ -1760,7 +1769,7 @@ uint32_t calculateNumberOfParticles1D(const uint32_t fraction, const bool isadva
   if (isadvanced) // advanced property array needs ram, reduce number of particles to use the same amount
     numberofParticles = (numberofParticles * sizeof(PSparticle1D)) / (sizeof(PSparticle1D) + sizeof(PSadvancedParticle1D));
   numberofParticles = (numberofParticles * (fraction + 1)) >> 8; // calculate fraction of particles
-  numberofParticles = numberofParticles < 20 ? 20 : numberofParticles; // 20 minimum
+  numberofParticles = numberofParticles < 10 ? 10 : numberofParticles; // 10 minimum
   //make sure it is a multiple of 4 for proper memory alignment (easier than using padding bytes)
   numberofParticles = (numberofParticles+3) & ~0x03; // note: with a separate particle buffer, this is probably unnecessary
   PSPRINTLN(" calc numparticles:" + String(numberofParticles));
@@ -1797,9 +1806,19 @@ bool initParticleSystem1D(ParticleSystem1D *&PartSys, const uint32_t requestedso
   if (SEGLEN == 1) return false; // single pixel not supported
   uint32_t numparticles = calculateNumberOfParticles1D(fractionofparticles, advanced);
   uint32_t numsources = calculateNumberOfSources1D(requestedsources);
-  if (!allocateParticleSystemMemory1D(numparticles, numsources, advanced, additionalbytes)) {
-    DEBUG_PRINT(F("PS init failed: memory depleted"));
-    return false;
+  bool allocsuccess = false;
+  while(numparticles >= 10) { // make sure we have at least 10 particles or quit
+    if (allocateParticleSystemMemory1D(numparticles, numsources, advanced, additionalbytes)) {
+      PSPRINT(F("PS 1D alloc succeeded"));
+      allocsuccess = true;
+      break; // allocation succeeded
+    }
+    numparticles /= 2; // cut number of particles in half and try again
+    PSPRINTLN(F("PS 1D alloc failed, trying with less particles..."));
+  }
+  if (!allocsuccess) {
+    PSPRINTLN(F("PS init failed: memory depleted"));
+    return false; // allocation failed
   }
   PartSys = new (SEGENV.data) ParticleSystem1D(SEGMENT.virtualLength(), numparticles, numsources, advanced); // particle system constructor
   return true;
