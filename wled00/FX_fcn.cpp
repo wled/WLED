@@ -645,6 +645,14 @@ uint16_t Segment::virtualLength() const {
   return vLength;
 }
 
+#ifndef WLED_DISABLE_2D
+// maximum length of a mapped 1D segment, used in PS for buffer allocation
+uint16_t Segment::maxMappingLength() const {
+  unsigned vW = virtualWidth();
+  unsigned vH = virtualHeight();
+  return max(sqrt32_bw(vH*vH + vW*vW), (unsigned)getPinwheelLength(vW, vH)); // use diagonal
+}
+#endif
 // pixel is clipped if it falls outside clipping range
 // if clipping start > stop the clipping range is inverted
 bool IRAM_ATTR_YN Segment::isPixelClipped(int i) const {

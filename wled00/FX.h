@@ -686,6 +686,7 @@ class Segment {
 
     // 1D strip
     uint16_t virtualLength() const;
+    uint16_t maxMappingLength() const;
     [[gnu::hot]] void setPixelColor(int n, uint32_t c) const; // set relative pixel within segment with color
     inline void setPixelColor(unsigned n, uint32_t c) const                    { setPixelColor(int(n), c); }
     inline void setPixelColor(int n, byte r, byte g, byte b, byte w = 0) const { setPixelColor(n, RGBW32(r,g,b,w)); }

@@ -37,13 +37,20 @@ static inline int32_t limitSpeed(const int32_t speed) {
 #endif
 
 #ifndef WLED_DISABLE_PARTICLESYSTEM2D
-// memory allocation
-#define ESP8266_MAXPARTICLES 256 // enough up to 16x16 pixels
-#define ESP8266_MAXSOURCES 24
-#define ESP32S2_MAXPARTICLES 1024 // enough up to 32x32 pixels
-#define ESP32S2_MAXSOURCES 64
-#define ESP32_MAXPARTICLES 2048 // enough up to 64x32 pixels
-#define ESP32_MAXSOURCES 128
+// memory allocation (based on reasonable segment size and available FX memory)
+#ifdef ESP8266
+  #define MAXPARTICLES_2D 256
+  #define MAXSOURCES_2D 24
+  #define SOURCEREDUCTIONFACTOR 8
+#elif ARDUINO_ARCH_ESP32S2
+  #define MAXPARTICLES_2D 1024
+  #define MAXSOURCES_2D 64
+  #define SOURCEREDUCTIONFACTOR 6
+#else
+  #define MAXPARTICLES_2D 2048
+  #define MAXSOURCES_2D 128
+  #define SOURCEREDUCTIONFACTOR 4
+#endif
 
 // particle dimensions (subpixel division)
 #define PS_P_RADIUS 64 // subpixel size, each pixel is divided by this for particle movement (must be a power of 2)
@@ -232,12 +239,18 @@ bool allocateParticleSystemMemory2D(const uint32_t numparticles, const uint32_t 
 ////////////////////////
 #ifndef WLED_DISABLE_PARTICLESYSTEM1D
 // memory allocation
-#define ESP8266_MAXPARTICLES_1D 320
-#define ESP8266_MAXSOURCES_1D 16
-#define ESP32S2_MAXPARTICLES_1D 1300
-#define ESP32S2_MAXSOURCES_1D 32
-#define ESP32_MAXPARTICLES_1D 2600
-#define ESP32_MAXSOURCES_1D 64
+#ifdef ESP8266
+  #define MAXPARTICLES_1D 320
+  #define MAXSOURCES_1D 16
+#elif ARDUINO_ARCH_ESP32S2
+  #define MAXPARTICLES_1D 1300
+  #define MAXSOURCES_1D 32
+#else
+  #define MAXPARTICLES_1D 2600
+  #define MAXSOURCES_1D 64
+#endif
+
+
 
 // particle dimensions (subpixel division)
 #define PS_P_RADIUS_1D 32 // subpixel size, each pixel is divided by this for particle movement, if this value is changed, also change the shift defines (next two lines)

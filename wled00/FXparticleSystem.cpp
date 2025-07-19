@@ -601,7 +601,7 @@ void ParticleSystem2D::render() {
         hsv2rgb(baseHSV, baseRGB.color32); // convert back to RGB
       }
     }
-    brightness = gamma8(brightness); // apply gamma correction, used for gamma-inverted brightness distribution
+    if(gammaCorrectBri) brightness = gamma8(brightness); // apply gamma correction, used for gamma-inverted brightness distribution
     renderParticle(i, brightness, baseRGB, particlesettings.wrapX, particlesettings.wrapY);
   }
 
@@ -674,10 +674,12 @@ __attribute__((optimize("O2"))) void ParticleSystem2D::renderParticle(const uint
   // - scale brigthness with gamma correction (done in render())
   // - apply inverse gamma correction to brightness values
   // - gamma is applied again in show() -> the resulting brightness distribution is linear but gamma corrected in total
-  pxlbrightness[0] = gamma8inv(pxlbrightness[0]); // use look-up-table for invers gamma
-  pxlbrightness[1] = gamma8inv(pxlbrightness[1]);
-  pxlbrightness[2] = gamma8inv(pxlbrightness[2]);
-  pxlbrightness[3] = gamma8inv(pxlbrightness[3]);
+  if(gammaCorrectBri) {
+    pxlbrightness[0] = gamma8inv(pxlbrightness[0]); // use look-up-table for invers gamma
+    pxlbrightness[1] = gamma8inv(pxlbrightness[1]);
+    pxlbrightness[2] = gamma8inv(pxlbrightness[2]);
+    pxlbrightness[3] = gamma8inv(pxlbrightness[3]);
+  }
 
   if (advPartProps && advPartProps[particleindex].size > 1) { //render particle to a bigger size
     CRGBW renderbuffer[100]; // 10x10 pixel buffer
@@ -1058,13 +1060,7 @@ void blur2D(CRGBW *colorbuffer, uint32_t xsize, uint32_t ysize, uint32_t xblur, 
 //non class functions to use for initialization
 uint32_t calculateNumberOfParticles2D(uint32_t const pixels, const bool isadvanced, const bool sizecontrol) {
   uint32_t numberofParticles = pixels;  // 1 particle per pixel (for example 512 particles on 32x16)
-#ifdef ESP8266
-  uint32_t particlelimit = ESP8266_MAXPARTICLES; // maximum number of paticles allowed (based on one segment of 16x16 and 4k effect ram)
-#elif ARDUINO_ARCH_ESP32S2
-  uint32_t particlelimit = ESP32S2_MAXPARTICLES; // maximum number of paticles allowed (based on one segment of 32x32 and 24k effect ram)
-#else
-  uint32_t particlelimit = ESP32_MAXPARTICLES; // maximum number of paticles allowed (based on two segments of 32x32 and 40k effect ram)
-#endif
+  uint32_t particlelimit = MAXPARTICLES_2D; // maximum number of paticles allowed
   numberofParticles = max((uint32_t)4, min(numberofParticles, particlelimit)); // limit to 4 - particlelimit
   if (isadvanced) // advanced property array needs ram, reduce number of particles to use the same amount
     numberofParticles = (numberofParticles * sizeof(PSparticle)) / (sizeof(PSparticle) + sizeof(PSadvancedParticle));
@@ -1077,16 +1073,8 @@ uint32_t calculateNumberOfParticles2D(uint32_t const pixels, const bool isadvanc
 }
 
 uint32_t calculateNumberOfSources2D(uint32_t pixels, uint32_t requestedsources) {
-#ifdef ESP8266
-  int numberofSources = min((pixels) / 8, (uint32_t)requestedsources);
-  numberofSources = max(1, min(numberofSources, ESP8266_MAXSOURCES)); // limit
-#elif ARDUINO_ARCH_ESP32S2
-  int numberofSources = min((pixels) / 6, (uint32_t)requestedsources);
-  numberofSources = max(1, min(numberofSources, ESP32S2_MAXSOURCES)); // limit
-#else
-  int numberofSources = min((pixels) / 4, (uint32_t)requestedsources);
-  numberofSources = max(1, min(numberofSources, ESP32_MAXSOURCES)); // limit
-#endif
+  int numberofSources = min((pixels) / SOURCEREDUCTIONFACTOR, (uint32_t)requestedsources);
+  numberofSources = max(1, min(numberofSources, MAXSOURCES_2D)); // limit
   // make sure it is a multiple of 4 for proper memory alignment
   numberofSources = (numberofSources+3) & ~0x03;
   return numberofSources;
@@ -1105,8 +1093,7 @@ bool allocateParticleSystemMemory2D(uint32_t numparticles, uint32_t numsources, 
   if (sizecontrol)
     requiredmemory += sizeof(PSsizeControl) * numparticles;
   requiredmemory += sizeof(PSsource) * numsources;
-  requiredmemory += additionalbytes + 3; // add 3 to ensure there is room for stuffing bytes
-  PSPRINTLN("mem alloc: " + String(requiredmemory));
+  requiredmemory += additionalbytes;
   return(SEGMENT.allocateData(requiredmemory));
 }
 
@@ -1130,7 +1117,7 @@ bool initParticleSystem2D(ParticleSystem2D *&PartSys, uint32_t requestedsources,
 
   PartSys = new (SEGENV.data) ParticleSystem2D(cols, rows, numparticles, numsources, advanced, sizecontrol); // particle system constructor
 
-  PSPRINTLN("******init done, pointers:");
+  PSPRINTLN("2D PS init done");
   return true;
 }
 
@@ -1460,7 +1447,7 @@ void ParticleSystem1D::render() {
         hsv2rgb(baseHSV, baseRGB.color32); // convert back to RGB
       }
     }
-    brightness = gamma8(brightness); // apply gamma correction, used for gamma-inverted brightness distribution
+    if(gammaCorrectBri) brightness = gamma8(brightness); // apply gamma correction, used for gamma-inverted brightness distribution
     renderParticle(i, brightness, baseRGB, particlesettings.wrap);
   }
   // apply smear-blur to rendered frame
@@ -1475,6 +1462,15 @@ void ParticleSystem1D::render() {
       fast_color_add(framebuffer[i], bg_color);
     }
   }
+#ifndef WLED_DISABLE_2D
+  // transfer local buffer to segment if using 1D->2D mapping
+  if(SEGMENT.is2D() && SEGMENT.map1D2D) {
+    for (int x = 0; x <= maxXpixel; x++) {
+    //for (int x = 0; x < SEGMENT.vLength(); x++) {
+      SEGMENT.setPixelColor(x, framebuffer[x]); // this applies the mapping
+    }
+  }
+#endif
 }
 
 // calculate pixel positions and brightness distribution and render the particle to local buffer or global buffer
@@ -1512,9 +1508,10 @@ __attribute__((optimize("O2"))) void ParticleSystem1D::renderParticle(const uint
   // - scale brigthness with gamma correction (done in render())
   // - apply inverse gamma correction to brightness values
   // - gamma is applied again in show() -> the resulting brightness distribution is linear but gamma corrected in total
-  pxlbrightness[0] = gamma8inv(pxlbrightness[0]); // use look-up-table for invers gamma
-  pxlbrightness[1] = gamma8inv(pxlbrightness[1]);
-
+  if(gammaCorrectBri) {
+    pxlbrightness[0] = gamma8inv(pxlbrightness[0]); // use look-up-table for invers gamma
+    pxlbrightness[1] = gamma8inv(pxlbrightness[1]);
+  }
   // check if particle has advanced size properties and buffer is available
   if (advPartProps && advPartProps[particleindex].size > 1) {
     CRGBW renderbuffer[10]; // 10 pixel buffer
@@ -1713,7 +1710,7 @@ __attribute__((optimize("O2"))) void ParticleSystem1D::collideParticles(PSpartic
 // update size and pointers (memory location and size can change dynamically)
 // note: do not access the PS class in FX befor running this function (or it messes up SEGENV.data)
 void ParticleSystem1D::updateSystem(void) {
-  setSize(SEGMENT.virtualLength()); // update size
+  setSize(SEGMENT.vLength()); // update size
   updatePSpointers(advPartProps != nullptr);
 }
 
@@ -1728,8 +1725,16 @@ void ParticleSystem1D::updatePSpointers(bool isadvanced) {
   particles = reinterpret_cast<PSparticle1D *>(this + 1); // pointer to particles
   particleFlags = reinterpret_cast<PSparticleFlags1D *>(particles + numParticles); // pointer to particle flags
   sources = reinterpret_cast<PSsource1D *>(particleFlags + numParticles); // pointer to source(s)
-  framebuffer = reinterpret_cast<CRGBW *>(SEGMENT.getPixels()); // pointer to framebuffer
-  PSdataEnd = reinterpret_cast<uint8_t *>(sources + numSources); // pointer to first available byte after the PS for FX additional data (already aligned to 4 byte boundary)
+  PSdataEnd = reinterpret_cast<uint8_t *>(sources + numSources);   // pointer to first available byte after the PS for FX additional data (already aligned to 4 byte boundary)
+#ifndef WLED_DISABLE_2D
+  if(SEGMENT.is2D() && SEGMENT.map1D2D) {
+    framebuffer = reinterpret_cast<CRGBW *>(sources + numSources); // use local framebuffer for 1D->2D mapping
+    PSdataEnd = reinterpret_cast<uint8_t *>(framebuffer + SEGMENT.maxMappingLength()); // pointer to first available byte after the PS for FX additional data (still aligned to 4 byte boundary)
+  }
+  else
+#endif
+    framebuffer = reinterpret_cast<CRGBW *>(SEGMENT.getPixels());  // use segment buffer for standard 1D rendering
+
   if (isadvanced) {
     advPartProps = reinterpret_cast<PSadvancedParticle1D *>(PSdataEnd);
     PSdataEnd = reinterpret_cast<uint8_t *>(advPartProps + numParticles); // since numParticles is a multiple of 4, this is always aligned to 4 bytes. No need to add padding bytes here
@@ -1750,13 +1755,7 @@ void ParticleSystem1D::updatePSpointers(bool isadvanced) {
 //non class functions to use for initialization, fraction is uint8_t: 255 means 100%
 uint32_t calculateNumberOfParticles1D(const uint32_t fraction, const bool isadvanced) {
   uint32_t numberofParticles = SEGMENT.virtualLength();  // one particle per pixel (if possible)
-#ifdef ESP8266
-  uint32_t particlelimit = ESP8266_MAXPARTICLES_1D; // maximum number of paticles allowed
-#elif ARDUINO_ARCH_ESP32S2
-  uint32_t particlelimit = ESP32S2_MAXPARTICLES_1D; // maximum number of paticles allowed
-#else
-  uint32_t particlelimit = ESP32_MAXPARTICLES_1D; // maximum number of paticles allowed
-#endif
+  uint32_t particlelimit = MAXPARTICLES_1D; // maximum number of paticles allowed
   numberofParticles = min(numberofParticles, particlelimit); // limit to particlelimit
   if (isadvanced) // advanced property array needs ram, reduce number of particles to use the same amount
     numberofParticles = (numberofParticles * sizeof(PSparticle1D)) / (sizeof(PSparticle1D) + sizeof(PSadvancedParticle1D));
@@ -1769,13 +1768,7 @@ uint32_t calculateNumberOfParticles1D(const uint32_t fraction, const bool isadva
 }
 
 uint32_t calculateNumberOfSources1D(const uint32_t requestedsources) {
-#ifdef ESP8266
-   int numberofSources = max(1, min((int)requestedsources,ESP8266_MAXSOURCES_1D)); // limit
-#elif ARDUINO_ARCH_ESP32S2
-  int numberofSources = max(1, min((int)requestedsources, ESP32S2_MAXSOURCES_1D)); // limit
-#else
-  int numberofSources = max(1, min((int)requestedsources, ESP32_MAXSOURCES_1D)); // limit
-#endif
+  int numberofSources = max(1, min((int)requestedsources,MAXSOURCES_1D)); // limit
   // make sure it is a multiple of 4 for proper memory alignment (so minimum is acutally 4)
   numberofSources = (numberofSources+3) & ~0x03;
   return numberofSources;
@@ -1788,7 +1781,11 @@ bool allocateParticleSystemMemory1D(const uint32_t numparticles, const uint32_t 
   requiredmemory += sizeof(PSparticleFlags1D) * numparticles;
   requiredmemory += sizeof(PSparticle1D) * numparticles;
   requiredmemory += sizeof(PSsource1D) * numsources;
-  requiredmemory += additionalbytes + 3; // add 3 to ensure room for stuffing bytes to make it 4 byte aligned
+#ifndef WLED_DISABLE_2D
+  if(SEGMENT.is2D())
+    requiredmemory += sizeof(CRGBW) * SEGMENT.maxMappingLength(); // need local buffer for mapped rendering. CRGBW is 32bit, so this is a multiple of 4 bytes
+#endif
+  requiredmemory += additionalbytes;
   if (isadvanced)
     requiredmemory += sizeof(PSadvancedParticle1D) * numparticles;
   return(SEGMENT.allocateData(requiredmemory));
