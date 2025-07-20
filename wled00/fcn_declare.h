@@ -565,6 +565,9 @@ extern "C" {
   inline void d_free(void *ptr) { heap_caps_free(ptr); }
 }
 #else
+extern "C" {
+  void *realloc_malloc(void *ptr, size_t size);
+}
 #define p_malloc malloc
 #define p_calloc calloc
 #define p_realloc realloc
