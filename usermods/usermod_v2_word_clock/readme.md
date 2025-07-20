@@ -18,6 +18,9 @@ With this method, every other line was inverted and showed the wrong letter.
 
 I added a switch in usermod called "meanderwiring" to enable/disable the alternate wiring pattern and a switch for the 11x11 grid.
 
+## 11x11 Grid
+I integreated the Grafics from https://github.com/panbachi/wordclock/blob/master/graphics/plate/de_DE_s1.svg  
+
 ## Installation
 
 Copy and update the example `platformio_override.ini.sample`
