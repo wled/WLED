@@ -160,12 +160,9 @@ bool Segment::allocateData(size_t len) {
   }
   // prefer DRAM over SPI RAM on ESP32 since it is slow
   if (data) {
-    void* newData = d_realloc(data, len);
-    if (newData) // realloc returns null if it fails but does not free the original pointer in that case
-      data = (byte*)newData;
-    else {
-      d_free(data);   // free old data if realloc failed
-      data = nullptr; // reset pointer to null
+    data = (byte*)d_realloc_malloc(data, len); // realloc with malloc fallback
+    if (!data) {
+      data = nullptr;
       Segment::addUsedSegmentData(-_dataLen); // subtract original buffer size
       _dataLen = 0;   // reset data length
     }
@@ -459,7 +456,7 @@ void Segment::setGeometry(uint16_t i1, uint16_t i2, uint8_t grp, uint8_t spc, ui
   }
   // re-allocate FX render buffer
   if (length() != oldLength) {
-    if (pixels) d_free(pixels); //pixels = static_cast<uint32_t*>(d_realloc(pixels, sizeof(uint32_t) * length())); // using realloc can cause additional fragmentation instead of reducing it
+    if (pixels) d_free(pixels); // using realloc on large buffers can cause additional fragmentation instead of reducing it
     pixels = static_cast<uint32_t*>(d_malloc(sizeof(uint32_t) * length()));
     if (!pixels) {
       DEBUG_PRINTLN(F("!!! Not enough RAM for pixel buffer !!!"));
@@ -1199,7 +1196,7 @@ void WS2812FX::finalizeInit() {
   deserializeMap();     // (re)load default ledmap (will also setUpMatrix() if ledmap does not exist)
 
   // allocate frame buffer after matrix has been set up (gaps!)
-  if (_pixels) d_free(_pixels);
+  if (_pixels) d_free(_pixels); // using realloc on large buffers can cause additional fragmentation instead of reducing it
   _pixels = static_cast<uint32_t*>(d_malloc(getLengthTotal() * sizeof(uint32_t)));
   DEBUG_PRINTF_P(PSTR("strip buffer size: %uB\n"), getLengthTotal() * sizeof(uint32_t));
 
