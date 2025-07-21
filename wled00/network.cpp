@@ -265,6 +265,24 @@ int getSignalQuality(int rssi)
 }
 
 
+IPAddress resolveHostname(const String &hostname, bool useMDNS) {
+  IPAddress clnt;
+  if (Network.isConnected() && hostname.length() > 0) {
+    #ifdef ARDUINO_ARCH_ESP32
+    if (mDNSenabled && useMDNS) {
+      String mDNSname = hostname;
+      mDNSname.toLowerCase(); // make sure we have a lowercase hostname
+      int pos = mDNSname.indexOf(F(".local"));
+      if (pos > 0) mDNSname.remove(pos); // remove .local domain if present (and anything following it)
+      if (mDNSname.indexOf('.') < 0) clnt = MDNS.queryHost(mDNSname.c_str());
+    }
+    #endif
+    if (clnt == IPAddress()) WiFi.hostByName(hostname.c_str(), clnt); // use full hostname if MDNS failed
+  }
+  return clnt;
+}
+
+// fill MAC address string with 6 bytes from mac array
 void fillMAC2Str(char *str, const uint8_t *mac) {
   sprintf_P(str, PSTR("%02x%02x%02x%02x%02x%02x"), MAC2STR(mac));
   byte nul = 0;
@@ -396,15 +414,12 @@ void WiFiEvent(WiFiEvent_t event)
       if (!apActive) {
         WiFi.disconnect(true); // disable WiFi entirely
       }
+      ETH.setHostname(hostName);
       if (multiWiFi[0].staticIP != (uint32_t)0x00000000 && multiWiFi[0].staticGW != (uint32_t)0x00000000) {
         ETH.config(multiWiFi[0].staticIP, multiWiFi[0].staticGW, multiWiFi[0].staticSN, dnsAddress);
       } else {
         ETH.config(INADDR_NONE, INADDR_NONE, INADDR_NONE);
       }
-      // convert the "serverDescription" into a valid DNS hostname (alphanumeric)
-      char hostname[33];
-      prepareHostname(hostname, sizeof(hostname)-1);
-      ETH.setHostname(hostname);
       showWelcomePage = false;
       break;
       }
