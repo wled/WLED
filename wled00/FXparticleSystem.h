@@ -207,7 +207,7 @@ private:
   void getParticleXYsize(PSadvancedParticle *advprops, PSsizeControl *advsize, uint32_t &xsize, uint32_t &ysize);
   [[gnu::hot]] void bounce(int8_t &incomingspeed, int8_t &parallelspeed, int32_t &position, const uint32_t maxposition); // bounce on a wall
   // note: variables that are accessed often are 32bit for speed
-  CRGBW *framebuffer; // frame buffer for rendering
+  uint32_t *framebuffer; // frame buffer for rendering. note: using CRGBW as the buffer is slower, ESP compiler seems to optimize this better giving more consistent FPS
   PSsettings2D particlesettings; // settings used when updating particles (can also used by FX to move sources), do not edit properties directly, use functions above
   uint32_t numParticles;  // total number of particles allocated by this system
   uint32_t emitIndex; // index to count through particles to emit so searching for dead pixels is faster
@@ -226,7 +226,7 @@ private:
   uint8_t smearBlur; // 2D smeared blurring of full frame
 };
 
-void blur2D(CRGBW *colorbuffer, const uint32_t xsize, uint32_t ysize, const uint32_t xblur, const uint32_t yblur, const uint32_t xstart = 0, uint32_t ystart = 0, const bool isparticle = false);
+void blur2D(uint32_t *colorbuffer, const uint32_t xsize, uint32_t ysize, const uint32_t xblur, const uint32_t yblur, const uint32_t xstart = 0, uint32_t ystart = 0, const bool isparticle = false);
 // initialization functions (not part of class)
 bool initParticleSystem2D(ParticleSystem2D *&PartSys, const uint32_t requestedsources, const uint32_t additionalbytes = 0, const bool advanced = false, const bool sizecontrol = false);
 uint32_t calculateNumberOfParticles2D(const uint32_t pixels, const bool advanced, const bool sizecontrol);
@@ -376,7 +376,7 @@ private:
   //void updateSize(PSadvancedParticle *advprops, PSsizeControl *advsize); // advanced size control
   [[gnu::hot]] void bounce(int8_t &incomingspeed, int8_t &parallelspeed, int32_t &position, const uint32_t maxposition); // bounce on a wall
   // note: variables that are accessed often are 32bit for speed
-  CRGBW *framebuffer; // frame buffer for rendering
+  uint32_t *framebuffer; // frame buffer for rendering. note: using CRGBW as the buffer is slower, ESP compiler seems to optimize this better giving more consistent FPS
   PSsettings1D particlesettings; // settings used when updating particles
   uint32_t numParticles;  // total number of particles allocated by this system
   uint32_t emitIndex; // index to count through particles to emit so searching for dead pixels is faster
@@ -397,5 +397,5 @@ bool initParticleSystem1D(ParticleSystem1D *&PartSys, const uint32_t requestedso
 uint32_t calculateNumberOfParticles1D(const uint32_t fraction, const bool isadvanced);
 uint32_t calculateNumberOfSources1D(const uint32_t requestedsources);
 bool allocateParticleSystemMemory1D(const uint32_t numparticles, const uint32_t numsources, const bool isadvanced, const uint32_t additionalbytes);
-void blur1D(CRGBW *colorbuffer, uint32_t size, uint32_t blur, uint32_t start);
+void blur1D(uint32_t *colorbuffer, uint32_t size, uint32_t blur, uint32_t start);
 #endif // WLED_DISABLE_PARTICLESYSTEM1D
