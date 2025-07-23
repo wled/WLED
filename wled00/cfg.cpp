@@ -235,7 +235,8 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
       }
       ledType |= refresh << 7; // hack bit 7 to indicate strip requires off refresh
 
-      busConfigs.emplace_back(ledType, pins, start, length, colorOrder, reversed, skipFirst, AWmode, freqkHz, maPerLed, maMax);
+      String host = elm[F("text")] | String();
+      busConfigs.emplace_back(ledType, pins, start, length, colorOrder, reversed, skipFirst, AWmode, freqkHz, maPerLed, maMax, host);
       doInitBusses = true;  // finalization done in beginStrip()
       if (!Bus::isVirtual(ledType)) s++; // have as many virtual buses as you want
     }
@@ -379,7 +380,7 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
             DEBUG_PRINTF_P(PSTR("PIN ALLOC error: GPIO%d for touch button #%d is not a touch pin!\n"), btnPin[s], s);
             btnPin[s] = -1;
             PinManager::deallocatePin(pin,PinOwner::Button);
-          }          
+          }
           //if touch pin, enable the touch interrupt on ESP32 S2 & S3
           #ifdef SOC_TOUCH_VERSION_2    // ESP32 S2 and S3 have a function to check touch state but need to attach an interrupt to do so
           else
@@ -976,6 +977,7 @@ void serializeConfig(JsonObject root) {
     ins[F("freq")]   = bus->getFrequency();
     ins[F("maxpwr")] = bus->getMaxCurrent();
     ins[F("ledma")]  = bus->getLEDCurrent();
+    ins[F("text")]   = bus->getCustomText();
   }
 
   JsonArray hw_com = hw.createNestedArray(F("com"));
