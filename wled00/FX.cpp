@@ -8837,7 +8837,7 @@ uint16_t mode_particleGEQ(void) {
         //set particle properties TODO: could also use the spray...
         PartSys->particles[i].ttl = 20 + map(SEGMENT.intensity, 0,255, emitspeed>>1, emitspeed + hw_random16(emitspeed)) ; // set particle alive, particle lifespan is in number of frames
         PartSys->particles[i].x = xposition + hw_random16(binwidth) - (binwidth>>1); // position randomly, deviating half a bin width
-        PartSys->particles[i].y = PS_P_RADIUS; // start at the bottom (PS_P_RADIUS is minimum position a particle is fully in frame)
+        PartSys->particles[i].y = 0; // start at the bottom
         PartSys->particles[i].vx = hw_random16(SEGMENT.custom1>>1)-(SEGMENT.custom1>>2) ; //x-speed variation: +/- custom1/4
         PartSys->particles[i].vy = emitspeed;
         PartSys->particles[i].hue = (bin<<4) + hw_random16(17) - 8; // color from palette according to bin

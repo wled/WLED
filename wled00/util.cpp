@@ -619,7 +619,8 @@ int32_t hw_random(int32_t lowerlimit, int32_t upperlimit) {
   return hw_random(diff) + lowerlimit;
 }
 
-#ifndef ESP8266
+#if !defined(ESP8266) && !defined(CONFIG_IDF_TARGET_ESP32C3) // ESP8266 does not support PSRAM, ESP32-C3 does not have PSRAM
+// p_x prefer PSRAM, d_x prefer DRAM
 void *p_malloc(size_t size) {
   int caps1 = MALLOC_CAP_SPIRAM  | MALLOC_CAP_8BIT;
   int caps2 = MALLOC_CAP_DEFAULT | MALLOC_CAP_8BIT;
@@ -640,6 +641,14 @@ void *p_realloc(void *ptr, size_t size) {
   return heap_caps_realloc(ptr, size, caps2);
 }
 
+// realloc with malloc fallback, original buffer is freed if realloc fails but not copied!
+void *p_realloc_malloc(void *ptr, size_t size) {
+  void *newbuf = p_realloc(ptr, size); // try realloc first
+  if (newbuf) return newbuf; // realloc successful
+  p_free(ptr); // free old buffer if realloc failed
+  return p_malloc(size); // fallback to malloc
+}
+
 void *p_calloc(size_t count, size_t size) {
   int caps1 = MALLOC_CAP_SPIRAM  | MALLOC_CAP_8BIT;
   int caps2 = MALLOC_CAP_DEFAULT | MALLOC_CAP_8BIT;
@@ -654,7 +663,7 @@ void *d_malloc(size_t size) {
   int caps1 = MALLOC_CAP_DEFAULT | MALLOC_CAP_8BIT;
   int caps2 = MALLOC_CAP_SPIRAM  | MALLOC_CAP_8BIT;
   if (psramSafe) {
-    if (size > MIN_HEAP_SIZE) std::swap(caps1, caps2);  // prefer PSRAM for large alloactions
+    if (heap_caps_get_largest_free_block(caps1) < 3*MIN_HEAP_SIZE && size > MIN_HEAP_SIZE) std::swap(caps1, caps2);  // prefer PSRAM for large alloactions & when DRAM is low
     return heap_caps_malloc_prefer(size, 2, caps1, caps2); // otherwise prefer DRAM
   }
   return heap_caps_malloc(size, caps1);
@@ -664,10 +673,18 @@ void *d_realloc(void *ptr, size_t size) {
   int caps1 = MALLOC_CAP_DEFAULT | MALLOC_CAP_8BIT;
   int caps2 = MALLOC_CAP_SPIRAM  | MALLOC_CAP_8BIT;
   if (psramSafe) {
-    if (size > MIN_HEAP_SIZE) std::swap(caps1, caps2);  // prefer PSRAM for large alloactions
+    if (heap_caps_get_largest_free_block(caps1) < 3*MIN_HEAP_SIZE && size > MIN_HEAP_SIZE) std::swap(caps1, caps2);  // prefer PSRAM for large alloactions & when DRAM is low
     return heap_caps_realloc_prefer(ptr, size, 2, caps1, caps2); // otherwise prefer DRAM
   }
   return heap_caps_realloc(ptr, size, caps1);
+}
+
+// realloc with malloc fallback, original buffer is freed if realloc fails but not copied!
+void *d_realloc_malloc(void *ptr, size_t size) {
+  void *newbuf = d_realloc(ptr, size); // try realloc first
+  if (newbuf) return newbuf; // realloc successful
+  d_free(ptr); // free old buffer if realloc failed
+  return d_malloc(size); // fallback to malloc
 }
 
 void *d_calloc(size_t count, size_t size) {
@@ -678,6 +695,14 @@ void *d_calloc(size_t count, size_t size) {
     return heap_caps_calloc_prefer(count, size, 2, caps1, caps2); // otherwise prefer DRAM
   }
   return heap_caps_calloc(count, size, caps1);
+}
+#else // ESP8266 & ESP32-C3
+// realloc with malloc fallback, original buffer is freed if realloc fails but not copied!
+void *realloc_malloc(void *ptr, size_t size) {
+  void *newbuf = realloc(ptr, size); // try realloc first
+  if (newbuf) return newbuf; // realloc successful
+  free(ptr); // free old buffer if realloc failed
+  return malloc(size); // fallback to malloc
 }
 #endif
 
