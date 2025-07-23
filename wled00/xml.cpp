@@ -172,6 +172,7 @@ void getSettingsJS(byte subPage, Print& settingsScript)
   if (subPage == SUBPAGE_WIFI)
   {
     size_t l;
+    char s[32];
     settingsScript.printf_P(PSTR("resetWiFi(%d);"), WLED_MAX_WIFI_COUNT);
     for (size_t n = 0; n < multiWiFi.size(); n++) {
       l = strlen(multiWiFi[n].clientPass);
@@ -194,7 +195,8 @@ void getSettingsJS(byte subPage, Print& settingsScript)
     printSetFormValue(settingsScript,PSTR("D2"),dnsAddress[2]);
     printSetFormValue(settingsScript,PSTR("D3"),dnsAddress[3]);
 
-    printSetFormValue(settingsScript,PSTR("CM"),cmDNS);
+    printSetFormValue(settingsScript,PSTR("CM"),hostName);
+    printSetFormCheckbox(settingsScript,PSTR("MD"),mDNSenabled);
     printSetFormIndex(settingsScript,PSTR("AB"),apBehavior);
     printSetFormValue(settingsScript,PSTR("AS"),apSSID);
     printSetFormCheckbox(settingsScript,PSTR("AH"),apHide);
@@ -235,7 +237,6 @@ void getSettingsJS(byte subPage, Print& settingsScript)
 
     if (Network.isConnected()) //is connected
     {
-      char s[32];
       IPAddress localIP = Network.localIP();
       sprintf(s, "%d.%d.%d.%d", localIP[0], localIP[1], localIP[2], localIP[3]);
 
@@ -248,14 +249,14 @@ void getSettingsJS(byte subPage, Print& settingsScript)
       printSetClassElementHTML(settingsScript,PSTR("sip"),0,(char*)F("Not connected"));
     }
 
-    if (WiFi.softAPIP()[0] != 0) //is active
+    if (apActive && WiFi.softAPIP()[0] != 0) //is active
     {
-      char s[16];
       IPAddress apIP = WiFi.softAPIP();
-      sprintf(s, "%d.%d.%d.%d", apIP[0], apIP[1], apIP[2], apIP[3]);
+      snprintf(s, sizeof(s)-1, "%d.%d.%d.%d", apIP[0], apIP[1], apIP[2], apIP[3]);
       printSetClassElementHTML(settingsScript,PSTR("sip"),1,s);
     } else
     {
+      // WiFi.softAPmacAddress() for AP MAC address
       printSetClassElementHTML(settingsScript,PSTR("sip"),1,(char*)F("Not active"));
     }
 
