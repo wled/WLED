@@ -35,3 +35,4 @@ public:
 
   String getId() override { return F("RotaryRackDimmer"); }
 };
+
