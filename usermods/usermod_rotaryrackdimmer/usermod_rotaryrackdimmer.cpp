@@ -6,6 +6,7 @@ Usermod* usermod_rotary = nullptr;
 void userSetup() {
   usermod_rotary = new Usermod_RotaryRackDimmer();
   usermods.add(usermod_rotary);
+  Serial.println(F("[RotaryRackDimmer] usermod geladen!"));
 }
 
 void userConnected() {
@@ -14,4 +15,9 @@ void userConnected() {
 
 void userLoop() {
   // Optioneel, laat usermod zelf zijn werk doen
+}
+
+void Usermod_RotaryRackDimmer::addToJsonInfo(JsonObject &root) {
+  JsonObject user = root["usermod"];
+  user["RotaryRackDimmer"] = "Actief";
 }
