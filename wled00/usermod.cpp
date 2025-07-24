@@ -1,5 +1,5 @@
 #include "wled.h"
-#include "usermods/usermod_rotaryrackdimmer/usermod_rotaryrackdimmer.h"
+#include "../usermods/usermod_rotaryrackdimmer/usermod_rotaryrackdimmer.h"
 
 void registerUsermods() {
   usermods.add(new Usermod_RotaryRackDimmer());
