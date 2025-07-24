@@ -1,10 +1,4 @@
 #include "wled.h"
-#include "usermod_manager.h"
-#include "../usermods/usermod_rotaryrackdimmer/usermod_rotaryrackdimmer.h"
-
-void registerUsermods() {
-  userMods.add(new Usermod_RotaryRackDimmer());
-}
 
 /*
  * This v1 usermod file allows you to add own functionality to WLED more easily
