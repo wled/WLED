@@ -2,17 +2,13 @@
 #include "wled.h"
 
 class Usermod_RotaryRackDimmer : public Usermod {
-  public:
-    void setup() override {
-      Serial.println("RotaryRackDimmer setup klaar!");
-    }
+private:
+  int pinA = 33;  // aanpassen naar jouw GPIO
+  int pinB = 13;
 
-    void loop() override {
-      // Simuleer helderheid verhogen (test!)
-      if (millis() % 5000 < 50) {
-        bri = (bri + 10) % 255;
-        applyBri();
-        Serial.printf("Helderheid aangepast naar: %d\n", bri);
-      }
-    }
+  int lastState = 0;
+
+public:
+  void setup() override;
+  void loop() override;
 };
