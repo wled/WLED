@@ -135,7 +135,7 @@ class WordClockUsermod : public Usermod
     const int maskHours11[13][maskSizeHours11] = 
     {
       { 61,  62,  63,  -1,  -1,  -1}, // 01: ein
-      { 61,  62,  63,  64,  -1,  -1}, // 01: eins
+      { 60,  61,  62,  63,  -1,  -1}, // 01: eins
       { 62,  63,  64,  65,  -1,  -1}, // 02: zwei
       { 67,  68,  69,  70,  -1,  -1}, // 03: drei
       { 77,  78,  79,  80,  -1,  -1}, // 04: vier
