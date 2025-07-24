@@ -1,5 +1,4 @@
 #include "wled.h"
-#include "usermod_manager.h"
 #include "../usermods/usermod_rotaryrackdimmer/usermod_rotaryrackdimmer.h"
 
 void registerUsermods() {
