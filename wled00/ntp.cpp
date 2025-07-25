@@ -1,9 +1,13 @@
 #include "src/dependencies/timezone/Timezone.h"
 #include "wled.h"
 #include "fcn_declare.h"
+#include <vector>
 
 // WARNING: may cause errors in sunset calculations on ESP8266, see #3400
 // building with `-D WLED_USE_REAL_MATH` will prevent those errors at the expense of flash and RAM
+
+// Dynamic timer storage
+std::vector<Timer> timers;
 
 /*
  * Acquires time from NTP server
@@ -371,6 +375,164 @@ bool isTodayInDateRange(byte monthStart, byte dayStart, byte monthEnd, byte dayE
 	return (m == monthStart && d >= dayStart && d <= dayEnd); //just the designated days this month
 }
 
+/*
+ * Timer Management Functions
+ */
+
+// Add a timer to the vector with validation
+void addTimer(uint8_t preset, uint8_t hour, int8_t minute, uint8_t weekdays,
+              uint8_t monthStart, uint8_t monthEnd, 
+              uint8_t dayStart, uint8_t dayEnd) {
+  // Prevent unbounded memory growth by enforcing timer limit
+  if (timers.size() >= maxTimePresets) {
+    DEBUG_PRINTLN(F("Error: Maximum number of timers reached"));
+    return;
+  }
+  
+  // Validate hour (0-23 for regular timers, or special values for sunrise/sunset)
+  if (hour > 23 && hour != TIMER_HOUR_SUNSET && hour != TIMER_HOUR_SUNRISE) {
+    DEBUG_PRINTLN(F("Error: Invalid hour value"));
+    return;
+  }
+  
+  // Validate minute based on timer type
+  if (hour < TIMER_HOUR_SUNSET) { // Regular timer
+    if (minute < 0 || minute > 59) {
+      DEBUG_PRINTLN(F("Error: Invalid minute value for regular timer"));
+      return;
+    }
+  } else { // Sunrise/sunset offset
+    if (minute < -59 || minute > 59) {
+      DEBUG_PRINTLN(F("Error: Invalid minute offset for sunrise/sunset"));
+      return;
+    }
+  }
+  
+  // Validate weekdays (7-bit bitmask: 0-127)
+  weekdays &= 0x7F; // Ensure only valid bits are set
+  
+  // Validate month range
+  monthStart = constrain(monthStart, 1, 12);
+  monthEnd = constrain(monthEnd, 1, 12);
+  
+  // Validate day range
+  dayStart = constrain(dayStart, 1, 31);
+  dayEnd = constrain(dayEnd, 1, 31);
+  
+  // All validation passed, add the timer
+  Timer newTimer(preset, hour, minute, weekdays, monthStart, monthEnd, dayStart, dayEnd);
+  timers.push_back(newTimer);
+  syncTimersToArrays();
+}
+
+// Clear all timers
+void clearTimers() {
+  timers.clear();
+  syncTimersToArrays();
+}
+
+// Legacy array size constants
+const uint8_t LEGACY_TIMER_ARRAY_SIZE = 10;      // Size of main timer arrays
+const uint8_t LEGACY_DATE_ARRAY_SIZE = 8;       // Size of date-related arrays
+const uint8_t LEGACY_REGULAR_TIMER_MAX = 8;     // Maximum number of regular timers (indices 0-7)
+const uint8_t LEGACY_SUNRISE_INDEX = 8;         // Reserved index for sunrise timer
+const uint8_t LEGACY_SUNSET_INDEX = 9;          // Reserved index for sunset timer
+
+// Sync vector timers to legacy arrays for backward compatibility
+void syncTimersToArrays() {
+  // Clear legacy arrays
+  memset(timerMacro, 0, LEGACY_TIMER_ARRAY_SIZE);
+  memset(timerHours, 0, LEGACY_TIMER_ARRAY_SIZE);
+  memset(timerMinutes, 0, LEGACY_TIMER_ARRAY_SIZE);
+  memset(timerWeekday, 0, LEGACY_TIMER_ARRAY_SIZE);
+  memset(timerMonth, 0, LEGACY_DATE_ARRAY_SIZE);
+  memset(timerDay, 0, LEGACY_DATE_ARRAY_SIZE);
+  memset(timerDayEnd, 0, LEGACY_DATE_ARRAY_SIZE);
+  
+  uint8_t regularTimerCount = 0;
+  bool sunriseTimerSynced = false;
+  bool sunsetTimerSynced = false;
+  bool regularTimersDropped = false;
+  
+  for (const auto& timer : timers) {
+    if (timer.isSunrise()) {
+      if (!sunriseTimerSynced) {
+        // Sunrise timer goes to reserved index
+        timerMacro[LEGACY_SUNRISE_INDEX] = timer.preset;
+        timerHours[LEGACY_SUNRISE_INDEX] = timer.hour;
+        timerMinutes[LEGACY_SUNRISE_INDEX] = timer.minute;
+        timerWeekday[LEGACY_SUNRISE_INDEX] = timer.weekdays;
+        sunriseTimerSynced = true;
+      } else {
+        DEBUG_PRINTLN(F("Warning: Multiple sunrise timers found, only first one synced to legacy arrays"));
+      }
+    } else if (timer.isSunset()) {
+      if (!sunsetTimerSynced) {
+        // Sunset timer goes to reserved index
+        timerMacro[LEGACY_SUNSET_INDEX] = timer.preset;
+        timerHours[LEGACY_SUNSET_INDEX] = timer.hour;
+        timerMinutes[LEGACY_SUNSET_INDEX] = timer.minute;
+        timerWeekday[LEGACY_SUNSET_INDEX] = timer.weekdays;
+        sunsetTimerSynced = true;
+      } else {
+        DEBUG_PRINTLN(F("Warning: Multiple sunset timers found, only first one synced to legacy arrays"));
+      }
+    } else if (timer.isRegular()) {
+      if (regularTimerCount < LEGACY_REGULAR_TIMER_MAX) {
+        // Regular timers go to indices 0-7
+        timerMacro[regularTimerCount] = timer.preset;
+        timerHours[regularTimerCount] = timer.hour;
+        timerMinutes[regularTimerCount] = timer.minute;
+        timerWeekday[regularTimerCount] = timer.weekdays;
+        
+        // Date range info (only for regular timers)
+        timerMonth[regularTimerCount] = (timer.monthStart << 4) | (timer.monthEnd & 0x0F);
+        timerDay[regularTimerCount] = timer.dayStart;
+        timerDayEnd[regularTimerCount] = timer.dayEnd;
+        
+        regularTimerCount++;
+      } else {
+        if (!regularTimersDropped) {
+          DEBUG_PRINTLN(F("Warning: Too many regular timers for legacy arrays, some timers not synced"));
+          regularTimersDropped = true; // Only print warning once
+        }
+      }
+    }
+  }
+  
+  if (regularTimerCount == LEGACY_REGULAR_TIMER_MAX && timers.size() > LEGACY_TIMER_ARRAY_SIZE) {
+    DEBUG_PRINTF("Timer sync: %d regular timers synced, %d total timers in vector\n", 
+                 regularTimerCount, timers.size());
+  }
+}
+
+// Get timer count for different types
+uint8_t getTimerCount() {
+  return timers.size();
+}
+
+uint8_t getRegularTimerCount() {
+  uint8_t count = 0;
+  for (const auto& timer : timers) {
+    if (timer.isRegular()) count++;
+  }
+  return count;
+}
+
+bool hasSunriseTimer() {
+  for (const auto& timer : timers) {
+    if (timer.isSunrise()) return true;
+  }
+  return false;
+}
+
+bool hasSunsetTimer() {
+  for (const auto& timer : timers) {
+    if (timer.isSunset()) return true;
+  }
+  return false;
+}
+
 void checkTimers()
 {
   if (lastTimerMinute != minute(localTime)) //only check once a new minute begins
@@ -381,45 +543,46 @@ void checkTimers()
     if (!hour(localTime) && minute(localTime)==1) calculateSunriseAndSunset();
 
     DEBUG_PRINTF_P(PSTR("Local time: %02d:%02d\n"), hour(localTime), minute(localTime));
-    for (unsigned i = 0; i < 8; i++)
-    {
-      if (timerMacro[i] != 0
-          && (timerWeekday[i] & 0x01) //timer is enabled
-          && (timerHours[i] == hour(localTime) || timerHours[i] == 24) //if hour is set to 24, activate every hour
-          && timerMinutes[i] == minute(localTime)
-          && ((timerWeekday[i] >> weekdayMondayFirst()) & 0x01) //timer should activate at current day of week
-          && isTodayInDateRange(((timerMonth[i] >> 4) & 0x0F), timerDay[i], timerMonth[i] & 0x0F, timerDayEnd[i])
-         )
-      {
-        applyPreset(timerMacro[i]);
+    
+    // Check all timers in the vector
+    for (const auto& timer : timers) {
+      if (!timer.isEnabled() || timer.preset == 0) continue;
+      
+      bool shouldTrigger = false;
+      
+      if (timer.isRegular()) {
+        // Regular timer logic
+        shouldTrigger = (timer.hour == hour(localTime) || timer.hour == 24) // 24 = every hour
+                     && timer.minute == minute(localTime)
+                     && ((timer.weekdays >> weekdayMondayFirst()) & 0x01) // weekday check
+                     && isTodayInDateRange(timer.monthStart, timer.dayStart, timer.monthEnd, timer.dayEnd);
       }
-    }
-    // sunrise macro
-    if (sunrise) {
-      time_t tmp = sunrise + timerMinutes[8]*60;  // NOTE: may not be ok
-      DEBUG_PRINTF_P(PSTR("Trigger time: %02d:%02d\n"), hour(tmp), minute(tmp));
-      if (timerMacro[8] != 0
-          && hour(tmp) == hour(localTime)
-          && minute(tmp) == minute(localTime)
-          && (timerWeekday[8] & 0x01) //timer is enabled
-          && ((timerWeekday[8] >> weekdayMondayFirst()) & 0x01)) //timer should activate at current day of week
-      {
-        applyPreset(timerMacro[8]);
-        DEBUG_PRINTF_P(PSTR("Sunrise macro %d triggered."),timerMacro[8]);
+      else if (timer.isSunrise() && sunrise) {
+        // Sunrise timer logic
+        time_t triggerTime = sunrise + timer.minute * 60; // minute is offset for sunrise/sunset
+        shouldTrigger = hour(triggerTime) == hour(localTime)
+                     && minute(triggerTime) == minute(localTime)
+                     && ((timer.weekdays >> weekdayMondayFirst()) & 0x01);
+        
+        if (shouldTrigger) {
+          DEBUG_PRINTF_P(PSTR("Sunrise timer triggered at %02d:%02d\n"), hour(triggerTime), minute(triggerTime));
+        }
       }
-    }
-    // sunset macro
-    if (sunset) {
-      time_t tmp = sunset + timerMinutes[9]*60;  // NOTE: may not be ok
-      DEBUG_PRINTF_P(PSTR("Trigger time: %02d:%02d\n"), hour(tmp), minute(tmp));
-      if (timerMacro[9] != 0
-          && hour(tmp) == hour(localTime)
-          && minute(tmp) == minute(localTime)
-          && (timerWeekday[9] & 0x01) //timer is enabled
-          && ((timerWeekday[9] >> weekdayMondayFirst()) & 0x01)) //timer should activate at current day of week
-      {
-        applyPreset(timerMacro[9]);
-        DEBUG_PRINTF_P(PSTR("Sunset macro %d triggered."),timerMacro[9]);
+      else if (timer.isSunset() && sunset) {
+        // Sunset timer logic
+        time_t triggerTime = sunset + timer.minute * 60; // minute is offset for sunrise/sunset
+        shouldTrigger = hour(triggerTime) == hour(localTime)
+                     && minute(triggerTime) == minute(localTime)
+                     && ((timer.weekdays >> weekdayMondayFirst()) & 0x01);
+        
+        if (shouldTrigger) {
+          DEBUG_PRINTF_P(PSTR("Sunset timer triggered at %02d:%02d\n"), hour(triggerTime), minute(triggerTime));
+        }
+      }
+      
+      if (shouldTrigger) {
+        DEBUG_PRINTF_P(PSTR("Timer triggered: preset %d\n"), timer.preset);
+        applyPreset(timer.preset);
       }
     }
   }

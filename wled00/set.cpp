@@ -539,28 +539,56 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
       macroDoublePress[i] = request->arg(md).toInt();
     }
 
+    // Clear existing timers and rebuild from form data
+    clearTimers();
+    
     char k[3]; k[2] = 0;
-    for (int i = 0; i<10; i++) {
-      k[1] = i+48;//ascii 0,1,2,3,...
-      k[0] = 'H'; //timer hours
-      timerHours[i] = request->arg(k).toInt();
-      k[0] = 'N'; //minutes
-      timerMinutes[i] = request->arg(k).toInt();
-      k[0] = 'T'; //macros
-      timerMacro[i] = request->arg(k).toInt();
-      k[0] = 'W'; //weekdays
-      timerWeekday[i] = request->arg(k).toInt();
-      if (i<8) {
-        k[0] = 'M'; //start month
-        timerMonth[i] = request->arg(k).toInt() & 0x0F;
-        timerMonth[i] <<= 4;
-        k[0] = 'P'; //end month
-        timerMonth[i] += (request->arg(k).toInt() & 0x0F);
-        k[0] = 'D'; //start day
-        timerDay[i] = request->arg(k).toInt();
-        k[0] = 'E'; //end day
-        timerDayEnd[i] = request->arg(k).toInt();
+    for (int i = 0; i < maxTimePresets; i++) {
+      k[1] = (i < 10) ? (i + 48) : (i + 55); // ascii 0-9, then A-F for indices 10-15
+      
+      // Check if this timer entry exists in the form
+      k[0] = 'T'; // preset/macro field
+      if (!request->hasArg(k)) continue;
+      
+      // Extract timer data from form with validation
+      k[0] = 'T'; // preset/macro field
+      uint8_t preset = constrain(request->arg(k).toInt(), 0, 250); // Limit preset to valid range
+      
+      k[0] = 'H'; // hours
+      uint8_t hour = request->arg(k).toInt();
+      // Validate hour: must be 0-23 for regular timers or special values (254, 255) for sunrise/sunset
+      if (hour > 23 && hour != TIMER_HOUR_SUNSET && hour != TIMER_HOUR_SUNRISE) {
+        hour = 0; // Reset to safe value if invalid
       }
+      
+      k[0] = 'N'; // minutes  
+      int8_t minute = request->arg(k).toInt();
+      // For regular timers, minute must be 0-59
+      // For sunrise/sunset, minute is an offset that should be within reasonable bounds (-59 to 59)
+      if (hour < TIMER_HOUR_SUNSET) { // Regular timer
+        minute = constrain(minute, 0, 59);
+      } else { // Sunrise/sunset offset
+        minute = constrain(minute, -59, 59);
+      }
+      
+      k[0] = 'W'; // weekdays
+      uint8_t weekdays = request->arg(k).toInt() & 0x7F; // Ensure only 7 bits used (0-127)
+      
+      // Date range (only for regular timers, not sunrise/sunset)
+      uint8_t monthStart = 1, monthEnd = 12, dayStart = 1, dayEnd = 31;
+      if (hour < 254) { // regular timer
+        k[0] = 'M'; // start month
+        monthStart = request->arg(k).toInt();
+        k[0] = 'P'; // end month  
+        monthEnd = request->arg(k).toInt();
+        k[0] = 'D'; // start day
+        dayStart = request->arg(k).toInt();
+        k[0] = 'E'; // end day
+        dayEnd = request->arg(k).toInt();
+      }
+      
+      // Add timer to the new system
+      addTimer(preset, hour, minute, weekdays, monthStart, monthEnd, dayStart, dayEnd);
     }
   }
 
