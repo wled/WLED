@@ -694,37 +694,35 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
   CJSON(macroCountdown, cntdwn["macro"]);
   setCountdown();
 
+  // Load timers into new vector-based system
+  clearTimers();
+  
   JsonArray timers = tm["ins"];
-  uint8_t it = 0;
   for (JsonObject timer : timers) {
-    if (it > 9) break;
-    if (it<8 && timer[F("hour")]==255) it=8;  // hour==255 -> sunrise/sunset
-    CJSON(timerHours[it], timer[F("hour")]);
-    CJSON(timerMinutes[it], timer["min"]);
-    CJSON(timerMacro[it], timer["macro"]);
-
-    byte dowPrev = timerWeekday[it];
-    //note: act is currently only 0 or 1.
-    //the reason we are not using bool is that the on-disk type in 0.11.0 was already int
-    int actPrev = timerWeekday[it] & 0x01;
-    CJSON(timerWeekday[it], timer[F("dow")]);
-    if (timerWeekday[it] != dowPrev) { //present in JSON
-      timerWeekday[it] <<= 1; //add active bit
-      int act = timer["en"] | actPrev;
-      if (act) timerWeekday[it]++;
-    }
-    if (it<8) {
+    // Extract timer data from JSON
+    uint8_t hour = timer[F("hour")] | 0;
+    int8_t minute = timer["min"] | 0;
+    uint8_t preset = timer["macro"] | 0;
+    
+    // Handle weekdays and enabled state
+    uint8_t weekdays = timer[F("dow")] | 0;
+    weekdays <<= 1; // shift to make room for enabled bit
+    bool enabled = timer["en"] | false;
+    if (enabled) weekdays |= 0x01; // set enabled bit
+    
+    // Handle date range (only for regular timers)
+    uint8_t monthStart = 1, monthEnd = 12, dayStart = 1, dayEnd = 31;
+    if (hour < 254) { // regular timer
       JsonObject start = timer["start"];
-      byte startm = start["mon"];
-      if (startm) timerMonth[it] = (startm << 4);
-      CJSON(timerDay[it], start["day"]);
       JsonObject end = timer["end"];
-      CJSON(timerDayEnd[it], end["day"]);
-      byte endm = end["mon"];
-      if (startm) timerMonth[it] += endm & 0x0F;
-      if (!(timerMonth[it] & 0x0F)) timerMonth[it] += 12; //default end month to 12
+      monthStart = start["mon"] | 1;
+      dayStart = start["day"] | 1;
+      monthEnd = end["mon"] | 12;
+      dayEnd = end["day"] | 31;
     }
-    it++;
+    
+    // Add timer to vector system
+    addTimer(preset, hour, minute, weekdays, monthStart, monthEnd, dayStart, dayEnd);
   }
 
   JsonObject ota = doc["ota"];
@@ -1194,21 +1192,26 @@ void serializeConfig(JsonObject root) {
 
   JsonArray timers_ins = timers.createNestedArray("ins");
 
-  for (unsigned i = 0; i < 10; i++) {
-    if (timerMacro[i] == 0 && timerHours[i] == 0 && timerMinutes[i] == 0) continue; // sunrise/sunset get saved always (timerHours=255)
+  // Access the global timers vector from ntp.cpp
+  for (const auto& timer : ::timers) {
+    // Skip completely empty timers (but save sunrise/sunset even if preset=0)
+    if (timer.preset == 0 && timer.hour < 254 && timer.minute == 0) continue;
+    
     JsonObject timers_ins0 = timers_ins.createNestedObject();
-    timers_ins0["en"] = (timerWeekday[i] & 0x01);
-    timers_ins0[F("hour")] = timerHours[i];
-    timers_ins0["min"] = timerMinutes[i];
-    timers_ins0["macro"] = timerMacro[i];
-    timers_ins0[F("dow")] = timerWeekday[i] >> 1;
-    if (i<8) {
+    timers_ins0["en"] = timer.isEnabled();
+    timers_ins0[F("hour")] = timer.hour;
+    timers_ins0["min"] = timer.minute;
+    timers_ins0["macro"] = timer.preset;
+    timers_ins0[F("dow")] = timer.weekdays >> 1; // remove enabled bit
+    
+    // Add date range for regular timers only
+    if (timer.isRegular()) {
       JsonObject start = timers_ins0.createNestedObject("start");
-      start["mon"] = (timerMonth[i] >> 4) & 0xF;
-      start["day"] = timerDay[i];
+      start["mon"] = timer.monthStart;
+      start["day"] = timer.dayStart;
       JsonObject end = timers_ins0.createNestedObject("end");
-      end["mon"] = timerMonth[i] & 0xF;
-      end["day"] = timerDayEnd[i];
+      end["mon"] = timer.monthEnd;
+      end["day"] = timer.dayEnd;
     }
   }
 

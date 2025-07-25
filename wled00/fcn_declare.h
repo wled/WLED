@@ -318,6 +318,46 @@ void setCountdown();
 byte weekdayMondayFirst();
 void checkTimers();
 void calculateSunriseAndSunset();
+
+// Timer management functions
+void addTimer(uint8_t preset, uint8_t hour, int8_t minute, uint8_t weekdays, uint8_t monthStart, uint8_t monthEnd, uint8_t dayStart, uint8_t dayEnd);
+void clearTimers();
+void syncTimersToArrays();
+uint8_t getTimerCount();
+uint8_t getRegularTimerCount();
+bool hasSunriseTimer();
+bool hasSunsetTimer();
+
+// Timer constants
+const uint8_t maxTimePresets = 16;
+
+// Timer special hour values
+const uint8_t TIMER_HOUR_SUNRISE = 255; // Special value for sunrise timer
+const uint8_t TIMER_HOUR_SUNSET = 254;  // Special value for sunset timer
+
+// External timer declarations
+struct Timer {
+  uint8_t preset;
+  uint8_t hour;
+  int8_t minute;
+  uint8_t weekdays;
+  uint8_t monthStart, monthEnd;
+  uint8_t dayStart, dayEnd;
+  
+  // Constructor
+  Timer(uint8_t p = 0, uint8_t h = 0, int8_t m = 0, uint8_t w = 0, 
+        uint8_t ms = 1, uint8_t me = 12, uint8_t ds = 1, uint8_t de = 31)
+    : preset(p), hour(h), minute(m), weekdays(w), 
+      monthStart(ms), monthEnd(me), dayStart(ds), dayEnd(de) {}
+  
+  bool isEnabled() const { return weekdays != 0; } // Timer is enabled if any weekday bit is set
+  bool isSunrise() const { return hour == TIMER_HOUR_SUNRISE; }
+  bool isSunset() const { return hour == TIMER_HOUR_SUNSET; }
+  bool isRegular() const { return hour < TIMER_HOUR_SUNSET; }
+};
+
+extern std::vector<Timer> timers;
+
 void setTimeFromAPI(uint32_t timein);
 
 //overlay.cpp

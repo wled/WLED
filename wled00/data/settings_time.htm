@@ -8,13 +8,17 @@
 	<script>
 	var el=false;
 	var ms=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+	var maxTimePresets = 16;
+	var currentPresetCount = 0;
+	
 	function S() {
 		getLoc();
-		loadJS(getURL('/settings/s.js?p=5'), false, ()=>{BTa();}, ()=>{
+		loadJS(getURL('/settings/s.js?p=5'), false, ()=>{
+			BTa();
+		}, ()=>{
 			updLatLon();
 			Cs();
-			FC();
-		});	// If we set async false, file is loaded and executed, then next statement is processed
+		});
 		if (loc) d.Sf.action = getURL('/settings/time');
 	}
 	function expand(o,i)
@@ -24,63 +28,93 @@
 		o.innerHTML = t.style.display==="none" ? "&#128197;" : "&#x2715;";
 	}
 	function Cs() { gId("cac").style.display=(gN("OL").checked)?"block":"none"; }
-	function BTa()
-	{
-		var ih="<thead><tr><th>En.</th><th>Hour</th><th>Minute</th><th>Preset</th><th></th></tr></thead>";
-		for (i=0;i<8;i++) {
-			ih+=`<tr><td><input name="W${i}" id="W${i}" type="hidden"><input id="W${i}0" type="checkbox"></td>
-<td><input name="H${i}" class="xs" type="number" min="0" max="24"></td>
-<td><input name="N${i}" class="xs" type="number" min="0" max="59"></td>
-<td><input name="T${i}" class="s" type="number" min="0" max="250"></td>
-<td><div id="CB${i}" onclick="expand(this,${i})" class="cal">&#128197;</div></td></tr>`;
-			ih+=`<tr><td colspan=5><div id="WD${i}" style="display:none;background-color:#444;"><hr>Run on weekdays`;
-			ih+=`<table><tr><th>M</th><th>T</th><th>W</th><th>T</th><th>F</th><th>S</th><th>S</th></tr><tr>`
-			for (j=1;j<8;j++) ih+=`<td><input id="W${i}${j}" type="checkbox"></td>`;
-			ih+=`</tr></table>from <select name="M${i}">`;
-			for (j=0;j<12;j++) ih+=`<option value="${j+1}">${ms[j]}</option>`;
-			ih+=`</select><input name="D${i}" class="xs" type="number" min="1" max="31"></input> to <select name="P${i}">`;
-			for (j=0;j<12;j++) ih+=`<option value="${j+1}">${ms[j]}</option>`;
-			ih+=`</select><input name="E${i}" class="xs" type="number" min="1" max="31"></input>
-		<hr></div></td></tr>`;
+	function BTa() {
+		var ih = "<thead><tr><th>En.</th><th>Hour</th><th>Minute</th><th>Preset</th><th></th></tr></thead><tbody>";
+		
+		// Start with at least 1 timer row
+		currentPresetCount = Math.max(1, currentPresetCount);
+		
+		for (var i = 0; i < currentPresetCount; i++) {
+			ih += generatePresetRow(i);
 		}
-		ih+=`<tr><td><input name="W8" id="W8" type="hidden"><input id="W80" type="checkbox"></td>
-<td>Sunrise<input name="H8" value="255" type="hidden"></td>
-<td><input name="N8" class="xs" type="number" min="-59" max="59"></td>
-<td><input name="T8" class="s" type="number" min="0" max="250"></td>
-<td><div id="CB8" onclick="expand(this,8)" class="cal">&#128197;</div></td></tr><tr><td colspan=5>`;
-		ih+=`<div id="WD8" style="display:none;background-color:#444;"><hr><table><tr><th>M</th><th>T</th><th>W</th><th>T</th><th>F</th><th>S</th><th>S</th></tr><tr>`;
-		for (j=1;j<8;j++) ih+=`<td><input id="W8${j}" type="checkbox"></td>`;
-		ih+="</tr></table><hr></div></td></tr>";
-		ih+=`<tr><td><input name="W9" id="W9" type="hidden"><input id="W90" type="checkbox"></td>
-<td>Sunset<input name="H9" value="255" type="hidden"></td>
-<td><input name="N9" class="xs" type="number" min="-59" max="59"></td>
-<td><input name="T9" class="s" type="number" min="0" max="250"></td>
-<td><div id="CB9" onclick="expand(this,9)" class="cal">&#128197;</div></td></tr><tr><td colspan=5>`;
-		ih+=`<div id="WD9" style="display:none;background-color:#444;"><hr><table><tr><th>M</th><th>T</th><th>W</th><th>T</th><th>F</th><th>S</th><th>S</th></tr><tr>`;
-		for (j=1;j<8;j++) ih+=`<td><input id="W9${j}" type="checkbox"></td>`;
-		ih+="</tr></table><hr></div></td></tr>";
-		gId("TMT").innerHTML=ih;
+		
+		ih += "</tbody>";
+		gId("TMT").innerHTML = ih;
+		updateButtonStates();
 	}
-	function FC()
-	{
-		for(i=0;i<10;i++)
-		{
-			let wd = gId("W"+i).value;
-			for(j=0;j<8;j++) {
-				gId("W"+i+j).checked=wd>>j&1;
-			}
-			if ((wd&254) != 254 || (i<8 && (gN("M"+i).value != 1 || gN("D"+i).value != 1 || gN("P"+i).value != 12 || gN("E"+i).value != 31))) {
-				expand(gId("CB"+i),i); //expand macros with custom DOW or date range set
-			}
+
+	function generatePresetRow(i) {
+		var ih = "";
+		
+		ih += `<tr><td><input name="W${i}" id="W${i}" type="hidden"><input id="W${i}0" type="checkbox" checked></td>`;
+		ih += `<td><input name="H${i}" class="xs" type="number" min="0" max="23"></td>`;
+		ih += `<td><input name="N${i}" class="xs" type="number" min="0" max="59"></td>`;
+		ih += `<td><input name="T${i}" class="s" type="number" min="0" max="250"></td>`;
+		ih += `<td><div id="CB${i}" onclick="expand(this,${i})" class="cal">&#128197;</div></td></tr>`;
+		
+		ih += `<tr><td colspan=5><div id="WD${i}" style="display:none;background-color:#444;"><hr>`;
+		ih += `<div style="text-align:center;">Run on weekdays<br>`;
+		ih += `<table style="margin:10px auto;"><tr><th>M</th><th>T</th><th>W</th><th>T</th><th>F</th><th>S</th><th>S</th></tr><tr>`;
+		for (var j=1;j<8;j++) {
+			ih += `<td><input id="W${i}${j}" type="checkbox" checked></td>`;
 		}
+		ih += "</tr></table>";
+		
+		ih += `from <select name="M${i}">`;
+		for (var j=0;j<12;j++) {
+			ih += `<option value="${j+1}">${ms[j]}</option>`;
+		}
+		ih += `</select><input name="D${i}" class="xs" type="number" min="1" max="31" value="1"> to <select name="P${i}">`;
+		for (var j=0;j<12;j++) {
+			ih += `<option value="${j+1}" ${j==11?'selected':''}>${ms[j]}</option>`;
+		}
+		ih += `</select><input name="E${i}" class="xs" type="number" min="1" max="31" value="31">`;
+		ih += "</div><hr></div></td></tr>";
+		return ih;
 	}
-	function Wd()
-	{
-		a = [0,0,0,0,0,0,0,0,0,0];
-		for (i=0; i<10; i++) {
-			m=1;
-			for(j=0;j<8;j++) { a[i]+=gId(("W"+i)+j).checked*m; m*=2;}
-			gId("W"+i).value=a[i];
+
+	function addTimePreset() {
+		if (currentPresetCount >= maxTimePresets) return;
+		
+		var table = gId("TMT");
+		var tbody = table.querySelector("tbody");
+		var newRowHTML = generatePresetRow(currentPresetCount);
+		tbody.insertAdjacentHTML("beforeend", newRowHTML);
+		
+		currentPresetCount++;
+		updateButtonStates();
+	}
+
+	function removeLastPreset() {
+		if (currentPresetCount <= 1) return;
+		
+		// Remove the last 2 rows (main + detail) from tbody
+		var table = gId("TMT");
+		var tbody = table.querySelector("tbody");
+		var rows = tbody.rows;
+		if (rows.length >= 2) {
+			tbody.deleteRow(rows.length - 1);
+			tbody.deleteRow(rows.length - 1);
+		}
+		
+		currentPresetCount--;
+		updateButtonStates();
+	}
+
+	function updateButtonStates() {
+		gId("+").style.display = (currentPresetCount<maxTimePresets) ? "inline":"none";
+		gId("-").style.display = (currentPresetCount>1) ? "inline":"none";
+	}
+	
+	function Wd() {
+		a = [];
+		for (i=0; i<currentPresetCount; i++) {
+			a[i] = 0;
+			if (gId("W"+i+"0").checked) a[i] |= 0x01;
+			for (j=1; j<=7; j++) {
+				if (gId("W"+i+j).checked) a[i] |= (1 << j);
+			}
+			gId("W"+i).value = a[i];
 		}
 		if (d.Sf.LTR.value==="S") { d.Sf.LT.value = -1*parseFloat(d.Sf.LT.value); }
 		if (d.Sf.LNR.value==="W") { d.Sf.LN.value = -1*parseFloat(d.Sf.LN.value); }
@@ -201,8 +235,12 @@
 		</table>
 		<a href="https://kno.wled.ge/features/macros/#analog-button" target="_blank">Analog Button setup</a>
 		<h3>Time-controlled presets</h3>
-		<div style="display: inline-block">
-		<table id="TMT" style="min-width:330px;"></table>
+		<div style="display: inline-block;">
+			<table id="TMT" style="min-width:330px; margin: 0 auto;"></table>
+			<div style="text-align: center; margin: 10px 0;">
+				<button type="button" id="+" onclick="addTimePreset()">+</button>
+				<button type="button" id="-" onclick="removeLastPreset()">-</button>
+			</div>
 		</div>
 		<hr>
 		<button type="button" onclick="B()">Back</button><button type="submit">Save</button>
