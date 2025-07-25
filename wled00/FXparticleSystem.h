@@ -37,13 +37,20 @@ static inline int32_t limitSpeed(const int32_t speed) {
 #endif
 
 #ifndef WLED_DISABLE_PARTICLESYSTEM2D
-// memory allocation
-#define ESP8266_MAXPARTICLES 256 // enough up to 16x16 pixels
-#define ESP8266_MAXSOURCES 24
-#define ESP32S2_MAXPARTICLES 1024 // enough up to 32x32 pixels
-#define ESP32S2_MAXSOURCES 64
-#define ESP32_MAXPARTICLES 2048 // enough up to 64x32 pixels
-#define ESP32_MAXSOURCES 128
+// memory allocation (based on reasonable segment size and available FX memory)
+#ifdef ESP8266
+  #define MAXPARTICLES_2D 256
+  #define MAXSOURCES_2D 24
+  #define SOURCEREDUCTIONFACTOR 8
+#elif ARDUINO_ARCH_ESP32S2
+  #define MAXPARTICLES_2D 1024
+  #define MAXSOURCES_2D 64
+  #define SOURCEREDUCTIONFACTOR 6
+#else
+  #define MAXPARTICLES_2D 2048
+  #define MAXSOURCES_2D 128
+  #define SOURCEREDUCTIONFACTOR 4
+#endif
 
 // particle dimensions (subpixel division)
 #define PS_P_RADIUS 64 // subpixel size, each pixel is divided by this for particle movement (must be a power of 2)
@@ -188,7 +195,7 @@ public:
 private:
   //rendering functions
   void render();
-  [[gnu::hot]] void renderParticle(const uint32_t particleindex, const uint8_t brightness, const CRGB& color, const bool wrapX, const bool wrapY);
+  [[gnu::hot]] void renderParticle(const uint32_t particleindex, const uint8_t brightness, const CRGBW& color, const bool wrapX, const bool wrapY);
   //paricle physics applied by system if flags are set
   void applyGravity(); // applies gravity to all particles
   void handleCollisions();
@@ -200,13 +207,13 @@ private:
   void getParticleXYsize(PSadvancedParticle *advprops, PSsizeControl *advsize, uint32_t &xsize, uint32_t &ysize);
   [[gnu::hot]] void bounce(int8_t &incomingspeed, int8_t &parallelspeed, int32_t &position, const uint32_t maxposition); // bounce on a wall
   // note: variables that are accessed often are 32bit for speed
-  CRGB *framebuffer; // local frame buffer for rendering
+  uint32_t *framebuffer; // frame buffer for rendering. note: using CRGBW as the buffer is slower, ESP compiler seems to optimize this better giving more consistent FPS
   PSsettings2D particlesettings; // settings used when updating particles (can also used by FX to move sources), do not edit properties directly, use functions above
   uint32_t numParticles;  // total number of particles allocated by this system
   uint32_t emitIndex; // index to count through particles to emit so searching for dead pixels is faster
   int32_t collisionHardness;
   uint32_t wallHardness;
-  uint32_t wallRoughness; // randomizes wall collisions  
+  uint32_t wallRoughness; // randomizes wall collisions
   uint32_t particleHardRadius; // hard surface radius of a particle, used for collision detection (32bit for speed)
   uint16_t collisionStartIdx; // particle array start index for collision detection
   uint8_t fireIntesity = 0; // fire intensity, used for fire mode (flash use optimization, better than passing an argument to render function)
@@ -219,7 +226,7 @@ private:
   uint8_t smearBlur; // 2D smeared blurring of full frame
 };
 
-void blur2D(CRGB *colorbuffer, const uint32_t xsize, uint32_t ysize, const uint32_t xblur, const uint32_t yblur, const uint32_t xstart = 0, uint32_t ystart = 0, const bool isparticle = false);
+void blur2D(uint32_t *colorbuffer, const uint32_t xsize, uint32_t ysize, const uint32_t xblur, const uint32_t yblur, const uint32_t xstart = 0, uint32_t ystart = 0, const bool isparticle = false);
 // initialization functions (not part of class)
 bool initParticleSystem2D(ParticleSystem2D *&PartSys, const uint32_t requestedsources, const uint32_t additionalbytes = 0, const bool advanced = false, const bool sizecontrol = false);
 uint32_t calculateNumberOfParticles2D(const uint32_t pixels, const bool advanced, const bool sizecontrol);
@@ -232,12 +239,18 @@ bool allocateParticleSystemMemory2D(const uint32_t numparticles, const uint32_t 
 ////////////////////////
 #ifndef WLED_DISABLE_PARTICLESYSTEM1D
 // memory allocation
-#define ESP8266_MAXPARTICLES_1D 320
-#define ESP8266_MAXSOURCES_1D 16
-#define ESP32S2_MAXPARTICLES_1D 1300
-#define ESP32S2_MAXSOURCES_1D 32
-#define ESP32_MAXPARTICLES_1D 2600
-#define ESP32_MAXSOURCES_1D 64
+#ifdef ESP8266
+  #define MAXPARTICLES_1D 320
+  #define MAXSOURCES_1D 16
+#elif ARDUINO_ARCH_ESP32S2
+  #define MAXPARTICLES_1D 1300
+  #define MAXSOURCES_1D 32
+#else
+  #define MAXPARTICLES_1D 2600
+  #define MAXSOURCES_1D 64
+#endif
+
+
 
 // particle dimensions (subpixel division)
 #define PS_P_RADIUS_1D 32 // subpixel size, each pixel is divided by this for particle movement, if this value is changed, also change the shift defines (next two lines)
@@ -351,7 +364,7 @@ public:
 private:
   //rendering functions
   void render(void);
-  [[gnu::hot]] void renderParticle(const uint32_t particleindex, const uint8_t brightness, const CRGB &color, const bool wrap);
+  [[gnu::hot]] void renderParticle(const uint32_t particleindex, const uint8_t brightness, const CRGBW &color, const bool wrap);
 
   //paricle physics applied by system if flags are set
   void applyGravity(); // applies gravity to all particles
@@ -363,9 +376,7 @@ private:
   //void updateSize(PSadvancedParticle *advprops, PSsizeControl *advsize); // advanced size control
   [[gnu::hot]] void bounce(int8_t &incomingspeed, int8_t &parallelspeed, int32_t &position, const uint32_t maxposition); // bounce on a wall
   // note: variables that are accessed often are 32bit for speed
-  #ifndef ESP8266
-  CRGB *framebuffer; // local frame buffer for rendering
-  #endif
+  uint32_t *framebuffer; // frame buffer for rendering. note: using CRGBW as the buffer is slower, ESP compiler seems to optimize this better giving more consistent FPS
   PSsettings1D particlesettings; // settings used when updating particles
   uint32_t numParticles;  // total number of particles allocated by this system
   uint32_t emitIndex; // index to count through particles to emit so searching for dead pixels is faster
@@ -386,5 +397,5 @@ bool initParticleSystem1D(ParticleSystem1D *&PartSys, const uint32_t requestedso
 uint32_t calculateNumberOfParticles1D(const uint32_t fraction, const bool isadvanced);
 uint32_t calculateNumberOfSources1D(const uint32_t requestedsources);
 bool allocateParticleSystemMemory1D(const uint32_t numparticles, const uint32_t numsources, const bool isadvanced, const uint32_t additionalbytes);
-void blur1D(CRGB *colorbuffer, uint32_t size, uint32_t blur, uint32_t start);
+void blur1D(uint32_t *colorbuffer, uint32_t size, uint32_t blur, uint32_t start);
 #endif // WLED_DISABLE_PARTICLESYSTEM1D

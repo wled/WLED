@@ -36,25 +36,32 @@ uint8_t realtimeBroadcast(uint8_t type, IPAddress client, uint16_t length, const
 
 //util.cpp
 // PSRAM allocation wrappers
-#ifndef ESP8266
+#if !defined(ESP8266) && !defined(CONFIG_IDF_TARGET_ESP32C3)
 extern "C" {
   void *p_malloc(size_t);           // prefer PSRAM over DRAM
   void *p_calloc(size_t, size_t);   // prefer PSRAM over DRAM
   void *p_realloc(void *, size_t);  // prefer PSRAM over DRAM
+  void *p_realloc_malloc(void *ptr, size_t size); // realloc with malloc fallback, prefer PSRAM over DRAM
   inline void p_free(void *ptr) { heap_caps_free(ptr); }
   void *d_malloc(size_t);           // prefer DRAM over PSRAM
   void *d_calloc(size_t, size_t);   // prefer DRAM over PSRAM
   void *d_realloc(void *, size_t);  // prefer DRAM over PSRAM
+  void *d_realloc_malloc(void *ptr, size_t size); // realloc with malloc fallback, prefer DRAM over PSRAM
   inline void d_free(void *ptr) { heap_caps_free(ptr); }
 }
 #else
+extern "C" {
+  void *realloc_malloc(void *ptr, size_t size);
+}
 #define p_malloc malloc
 #define p_calloc calloc
 #define p_realloc realloc
+#define p_realloc_malloc realloc_malloc
 #define p_free free
 #define d_malloc malloc
 #define d_calloc calloc
 #define d_realloc realloc
+#define d_realloc_malloc realloc_malloc
 #define d_free free
 #endif
 

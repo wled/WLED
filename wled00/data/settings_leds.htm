@@ -7,7 +7,6 @@
 	<script src="common.js" async type="text/javascript"></script>
 	<script>
 		var maxB=1,maxD=1,maxA=1,maxV=0,maxM=4000,maxPB=2048,maxL=1664,maxCO=5; //maximum bytes for LED allocation: 4kB for 8266, 32kB for 32
-		var oMaxB=1;
 		var customStarts=false,startsDirty=[];
 		function off(n)    { gN(n).value = -1;}
 		// these functions correspond to C macros found in const.h
@@ -43,8 +42,8 @@
 			if (loc) d.Sf.action = getURL('/settings/leds');
 		}
 		function bLimits(b,v,p,m,l,o=5,d=2,a=6) {
-			oMaxB = maxB = b; // maxB - max buses (can be changed if using ESP32 parallel I2S): 20 - ESP32, 14 - S3/S2, 6 - C3, 4 - 8266
-			maxD  = d; // maxD - max digital channels (can be changed if using ESP32 parallel I2S): 17 - ESP32, 12 - S3/S2, 2 - C3, 3 - 8266
+			maxB  = b; // maxB - max physical (analog + digital) buses: 32 - ESP32, 14 - S3/S2, 6 - C3, 4 - 8266
+			maxD  = d; // maxD - max digital channels (can be changed if using ESP32 parallel I2S): 16 - ESP32, 12 - S3/S2, 2 - C3, 3 - 8266
 			maxA  = a; // maxA - max analog channels: 16 - ESP32, 8 - S3/S2, 6 - C3, 5 - 8266
 			maxV  = v; // maxV - min virtual buses: 6 - ESP32/S3, 4 - S2/C3, 3 - ESP8266 (only used to distinguish S2/S3)
 			maxPB = p; // maxPB - max LEDs per bus
@@ -52,6 +51,11 @@
 			maxL  = l; // maxL - max LEDs (will serve to determine ESP >1664 == ESP32)
 			maxCO = o; // maxCO - max Color Order mappings
 		}
+		function is8266() { return maxA ==  5 && maxD ==  3; } // NOTE: see const.h
+		function is32()   { return maxA == 16 && maxD == 16; } // NOTE: see const.h
+		function isC3()   { return maxA ==  6 && maxD ==  2; } // NOTE: see const.h
+		function isS2()   { return maxA ==  8 && maxD == 12 && maxV == 4; } // NOTE: see const.h
+		function isS3()   { return maxA ==  8 && maxD == 12 && maxV == 6; } // NOTE: see const.h
 		function pinsOK() {
 			var ok = true;
 			var nList = d.Sf.querySelectorAll("#mLC input[name^=L]");
@@ -212,7 +216,6 @@
 			let busMA = 0;
 			let sLC = 0, sPC = 0, sDI = 0, maxLC = 0;
 			const abl = d.Sf.ABL.checked;
-			maxB = oMaxB; // TODO make sure we start with all possible buses
 			let setPinConfig = (n,t) => {
 				let p0d = "GPIO:";
 				let p1d = "";
@@ -271,7 +274,7 @@
 				gRGBW |= hasW(t);                                                           // RGBW checkbox
 				gId("co"+n).style.display = (isVir(t) || isAna(t)) ? "none":"inline";       // hide color order for PWM
 				gId("dig"+n+"w").style.display = (isDig(t) && hasW(t)) ? "inline":"none";   // show swap channels dropdown
-				gId("dig"+n+"w").querySelector("[data-opt=CCT]").disabled = !hasCCT(t);     // disable WW/CW swapping	
+				gId("dig"+n+"w").querySelector("[data-opt=CCT]").disabled = !hasCCT(t);     // disable WW/CW swapping
 				if (!(isDig(t) && hasW(t))) d.Sf["WO"+n].value = 0;                         // reset swapping
 				gId("dig"+n+"c").style.display = (isAna(t)) ? "none":"inline";              // hide count for analog
 				gId("dig"+n+"r").style.display = (isVir(t)) ? "none":"inline";              // hide reversed for virtual
@@ -289,11 +292,16 @@
 				d.Sf.CR.checked = false;
 			}
 			// update start indexes, max values, calculate current, etc
+			let sameType = 0;
 			var nList = d.Sf.querySelectorAll("#mLC input[name^=L]");
 			nList.forEach((LC,i)=>{
 				let nm = LC.name.substring(0,2);  // field name
 				let n  = LC.name.substring(2);    // bus number
 				let t  = parseInt(d.Sf["LT"+n].value); // LED type SELECT
+				if (isDig(t)) {
+					if (sameType == 0) sameType = t; // first bus type
+					else if (sameType != t) sameType = -1; // different bus type
+				}
 				// do we have a led count field
 				if (nm=="LC") {
 					let c = parseInt(LC.value,10); //get LED count
@@ -351,18 +359,13 @@
 						else LC.style.color = d.ro_gpio.some((e)=>e==parseInt(LC.value)) ? "orange" : "#fff";
 					}
 			});
-			const S2 = (oMaxB == 14) && (maxV == 4);
-			const S3 = (oMaxB == 14) && (maxV == 6);
-			if (oMaxB == 32 || S2 || S3) { // TODO: crude ESP32 & S2/S3 detection
-				if (maxLC > 300 || dC <= 2) {
+			if (is32() || isS2() || isS3()) {
+				if (maxLC > 600 || dC < 2 || sameType <= 0) {
 					d.Sf["PR"].checked = false;
 					gId("prl").classList.add("hide");
 				} else
 					gId("prl").classList.remove("hide");
-				// S2 supports mono I2S as well as parallel so we need to take that into account; S3 only supports parallel
-				maxD = (S2 || S3 ? 4 : 8) + (d.Sf["PR"].checked ? 8 : S2); // TODO: use bLimits() : 4/8RMT + (x1/x8 parallel) I2S1
-				maxB = oMaxB - (d.Sf["PR"].checked ? 0 : 7 + S3); // S2 (maxV==4) does support mono I2S
-			}
+			} else d.Sf["PR"].checked = false;
 			// distribute ABL current if not using PPL
 			enPPL(sDI);
 
@@ -479,15 +482,17 @@ mA/LED: <select name="LAsel${s}" onchange="enLA(this,'${s}');UI();">
 							if (type.t != undefined && type.t != "") {
 								opt.setAttribute('data-type', type.t);
 							}
-							sel.appendChild(opt);			
+							sel.appendChild(opt);
 						}
 					}
 				});
 				enLA(d.Sf["LAsel"+s],s); // update LED mA
 				// disable inappropriate LED types
-				let sel = d.getElementsByName("LT"+s)[0]
-				if (i >= maxB || digitalB >= maxD) disable(sel,'option[data-type="D"]'); // NOTE: see isDig()
-				if (i >= maxB || twopinB >= 1)     disable(sel,'option[data-type="2P"]'); // NOTE: see isD2P()
+				let sel = d.getElementsByName("LT"+s)[0];
+				// 32 & S2 supports mono I2S as well as parallel so we need to take that into account; S3 only supports parallel
+				let maxDB = maxD - (is32() || isS2() || isS3() ? (!d.Sf["PR"].checked)*8 - (!isS3()) : 0); // adjust max digital buses if parallel I2S is not used
+				if (digitalB >= maxDB) disable(sel,'option[data-type="D"]'); // NOTE: see isDig()
+				if (twopinB  >= 2)     disable(sel,'option[data-type="2P"]'); // NOTE: see isD2P() (we will only allow 2 2pin buses)
 				disable(sel,`option[data-type^="${'A'.repeat(maxA-analogB+1)}"]`); // NOTE: see isPWM()
 				sel.selectedIndex = sel.querySelector('option:not(:disabled)').index;
 			}
@@ -586,7 +591,7 @@ Swap: <select id="xw${s}" name="XW${s}">
 			var cs = false;
 			for (var i=1; i < gEBCN("iST").length; i++) {
 				var s = chrID(i);
-				var p = chrID(i-1); // cover edge case 'A' previous char being '9' 
+				var p = chrID(i-1); // cover edge case 'A' previous char being '9'
 				var v = parseInt(gId("ls"+p).value) + parseInt(gN("LC"+p).value);
 				if (v != parseInt(gId("ls"+s).value)) {cs = true; startsDirty[i] = true;}
 			}
@@ -617,7 +622,7 @@ Swap: <select id="xw${s}" name="XW${s}">
 
 			function receivedText(e) {
 				let lines = e.target.result;
-				let c = JSON.parse(lines); 
+				let c = JSON.parse(lines);
 				if (c.hw) {
 					if (c.hw.led) {
 						// remove all existing outputs
