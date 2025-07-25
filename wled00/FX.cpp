@@ -4766,30 +4766,17 @@ class AuroraWave {
 };
 
 uint16_t mode_aurora(void) {
-  //aux1 = Wavecount
-  //aux2 = Intensity in last loop
-
   AuroraWave* waves;
+  SEGENV.aux1 = map(SEGMENT.intensity, 0, 255, 2, W_MAX_COUNT); // aux1 = Wavecount
+  if(!SEGENV.allocateData(sizeof(AuroraWave) * SEGENV.aux1)) {  // 20 on ESP32, 9 on ESP8266
+    return mode_static(); //allocation failed
+  }
+  waves = reinterpret_cast<AuroraWave*>(SEGENV.data);
 
-//TODO: I am not sure this is a correct way of handling memory allocation since if it fails on 1st run
-// it will display static effect but on second run it may crash ESP since data will be nullptr
-
-  if(SEGENV.aux0 != SEGMENT.intensity || SEGENV.call == 0) {
-    //Intensity slider changed or first call
-    SEGENV.aux1 = map(SEGMENT.intensity, 0, 255, 2, W_MAX_COUNT);
-    SEGENV.aux0 = SEGMENT.intensity;
-
-    if(!SEGENV.allocateData(sizeof(AuroraWave) * SEGENV.aux1)) { // 26 on 32 segment ESP32, 9 on 16 segment ESP8266
-      return mode_static(); //allocation failed
-    }
-
-    waves = reinterpret_cast<AuroraWave*>(SEGENV.data);
-
+  if(SEGENV.call == 0) {
     for (int i = 0; i < SEGENV.aux1; i++) {
       waves[i].init(SEGLEN, CRGB(SEGMENT.color_from_palette(hw_random8(), false, false, hw_random8(0, 3))));
     }
-  } else {
-    waves = reinterpret_cast<AuroraWave*>(SEGENV.data);
   }
 
   for (int i = 0; i < SEGENV.aux1; i++) {
@@ -8495,7 +8482,6 @@ static const char _data_FX_MODE_PARTICLEPERLIN[] PROGMEM = "PS Fuzzy Noise@Speed
 #define NUMBEROFSOURCES 8
 uint16_t mode_particleimpact(void) {
   ParticleSystem2D *PartSys = nullptr;
-  uint32_t i = 0;
   uint32_t numMeteors;
   PSsettings2D meteorsettings;
   meteorsettings.asByte = 0b00101000; // PS settings for meteors: bounceY and gravity enabled
@@ -8508,7 +8494,7 @@ uint16_t mode_particleimpact(void) {
     PartSys->setBounceY(true); // always use ground bounce
     PartSys->setWallRoughness(220); // high roughness
     numMeteors = min(PartSys->numSources, (uint32_t)NUMBEROFSOURCES);
-    for (i = 0; i < numMeteors; i++) {
+    for (uint32_t i = 0; i < numMeteors; i++) {
       PartSys->sources[i].source.ttl = hw_random16(10 * i); // set initial delay for meteors
       PartSys->sources[i].source.vy = 10; // at positive speeds, no particles are emitted and if particle dies, it will be relaunched
     }
@@ -8530,7 +8516,7 @@ uint16_t mode_particleimpact(void) {
   numMeteors = min(PartSys->numSources, (uint32_t)NUMBEROFSOURCES);
   uint32_t emitparticles; // number of particles to emit for each rocket's state
 
-  for (i = 0; i < numMeteors; i++) {
+  for (uint32_t i = 0; i < numMeteors; i++) {
     // determine meteor state by its speed:
     if ( PartSys->sources[i].source.vy < 0) // moving down, emit sparks
       emitparticles = 1;
@@ -8546,7 +8532,7 @@ uint16_t mode_particleimpact(void) {
   }
 
   // update the meteors, set the speed state
-  for (i = 0; i < numMeteors; i++) {
+  for (uint32_t i = 0; i < numMeteors; i++) {
     if (PartSys->sources[i].source.ttl) {
       PartSys->sources[i].source.ttl--; // note: this saves an if statement, but moving down particles age twice
       if (PartSys->sources[i].source.vy < 0) { // move down
