@@ -550,7 +550,10 @@ inline uint8_t hw_random8() { return HW_RND_REGISTER; };
 inline uint8_t hw_random8(uint32_t upperlimit) { return (hw_random8() * upperlimit) >> 8; }; // input range 0-255
 inline uint8_t hw_random8(uint32_t lowerlimit, uint32_t upperlimit) { uint32_t range = upperlimit - lowerlimit; return lowerlimit + hw_random8(range); }; // input range 0-255
 
-// PSRAM allocation wrappers
+// memory allocation wrappers
+#ifdef CONFIG_IDF_TARGET_ESP32
+void *pixelbuffer_malloc(size_t size, bool enforcePSRAM = false); // prefer IRAM for pixel buffers if possible
+#endif
 #if !defined(ESP8266) && !defined(CONFIG_IDF_TARGET_ESP32C3)
 extern "C" {
   void *p_malloc(size_t);           // prefer PSRAM over DRAM
@@ -578,6 +581,12 @@ extern "C" {
 #define d_realloc realloc
 #define d_realloc_malloc realloc_malloc
 #define d_free free
+#endif
+bool checkHeapHealth(unsigned minFreeBlockSize = MIN_HEAP_SIZE); // checks heap fragmentation: returns true if contiguous free memory is larger than minFreeBlockSize
+#ifndef ESP8266
+inline unsigned getFreeHeapSize() { return heap_caps_get_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT); } // returns free heap (ESP.getFreeHeap() can include other memory types)
+#else
+inline unsigned getFreeHeapSize() { return ESP.getFreeHeap(); } // returns free heap
 #endif
 
 // RAII guard class for the JSON Buffer lock

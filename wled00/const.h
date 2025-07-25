@@ -546,8 +546,18 @@ static_assert(WLED_MAX_BUSSES <= 32, "WLED_MAX_BUSSES exceeds hard limit");
   #endif
 #endif
 
-// minimum heap size required to process web requests
-#define MIN_HEAP_SIZE 8192
+// minimum heap size required to process web requests: try to keep free heap above this value
+#define MIN_HEAP_SIZE (12*1024)
+
+// threshold for PSRAM use: if heap is running low, requests above PSRAM_THRESHOLD will be allocated in PSRAM
+// if heap is plenty, requests below PSRAM_THRESHOLD will be allocated in DRAM for speed
+#if defined(CONFIG_IDF_TARGET_ESP32S3)
+  #define PSRAM_THRESHOLD 8192
+#elif defined(CONFIG_IDF_TARGET_ESP32)
+  #define PSRAM_THRESHOLD 4096
+#else
+  #define PSRAM_THRESHOLD 2048 // S2 does not have a lot of RAM, C3 and ESP8266 do not support PSRAM: the value is not used
+#endif
 
 // Web server limits
 #ifdef ESP8266

@@ -70,6 +70,12 @@ Segment::Segment(const Segment &orig) {
   if (orig.data) { if (allocateData(orig._dataLen)) memcpy(data, orig.data, orig._dataLen); }
   if (orig.pixels) {
     pixels = static_cast<uint32_t*>(d_malloc(sizeof(uint32_t) * orig.length()));
+
+//  pixels = static_cast<uint32_t*>(heap_caps_malloc(orig.length()* sizeof(uint32_t), MALLOC_CAP_32BIT | MALLOC_CAP_INTERNAL)); // use this for ESP32
+//pixels = static_cast<uint32_t*>(heap_caps_malloc(sizeof(uint32_t) * orig.length(), MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT));
+//pixels = static_cast<uint32_t*>(heap_caps_malloc(sizeof(uint32_t) * orig.length(), MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT));
+
+
     if (pixels) memcpy(pixels, orig.pixels, sizeof(uint32_t) * orig.length());
     else {
       DEBUG_PRINTLN(F("!!! Not enough RAM for pixel buffer !!!"));
@@ -111,6 +117,10 @@ Segment& Segment::operator= (const Segment &orig) {
     if (orig.data) { if (allocateData(orig._dataLen)) memcpy(data, orig.data, orig._dataLen); }
     if (orig.pixels) {
       pixels = static_cast<uint32_t*>(d_malloc(sizeof(uint32_t) * orig.length()));
+      //TODO: also need to put this in 32bit memory on ESP32, maybe make that a function...
+      //pixels = static_cast<uint32_t*>(heap_caps_malloc(sizeof(uint32_t) * orig.length(), MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT));
+      //pixels = static_cast<uint32_t*>(heap_caps_malloc(sizeof(uint32_t) * orig.length(), MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT));
+      
       if (pixels) memcpy(pixels, orig.pixels, sizeof(uint32_t) * orig.length());
       else {
         DEBUG_PRINTLN(F("!!! Not enough RAM for pixel buffer !!!"));
@@ -143,13 +153,22 @@ Segment& Segment::operator= (Segment &&orig) noexcept {
 
 // allocates effect data buffer on heap and initialises (erases) it
 bool Segment::allocateData(size_t len) {
-  if (len == 0) return false; // nothing to do
-  if (data && _dataLen >= len) {          // already allocated enough (reduce fragmentation)
+  if (len == 0) return false;    // nothing to do
+  if (data && _dataLen >= len) { // already allocated enough (reduce fragmentation)
     if (call == 0) {
-      //DEBUG_PRINTF_P(PSTR("--   Clearing data (%d): %p\n"), len, this);
-      memset(data, 0, len);  // erase buffer if called during effect initialisation
+      if(checkHeapHealth()) {
+        //DEBUG_PRINTF_P(PSTR("--   Clearing data (%d): %p\n"), len, this);
+        memset(data, 0, len);  // erase buffer if called during effect initialisation
+        return true; // no need to reallocate
+      }
+      else {
+        d_free(data); // free data and try to allocate again
+        data = nullptr;
+        Segment::addUsedSegmentData(-_dataLen); // subtract buffer size
+      }
     }
-    return true;
+    else
+      return true;
   }
   //DEBUG_PRINTF_P(PSTR("--   Allocating data (%d): %p\n"), len, this);
   if (Segment::getUsedSegmentData() + len - _dataLen > MAX_SEGMENT_DATA) {
@@ -158,23 +177,29 @@ bool Segment::allocateData(size_t len) {
     errorFlag = ERR_NORAM;
     return false;
   }
-  // prefer DRAM over SPI RAM on ESP32 since it is slow
+  // prefer DRAM over PSRAM for speed
   if (data) {
     data = (byte*)d_realloc_malloc(data, len); // realloc with malloc fallback
-    if (!data) {
-      data = nullptr;
+    if (data == nullptr) { // allocation failed
       Segment::addUsedSegmentData(-_dataLen); // subtract original buffer size
       _dataLen = 0;   // reset data length
+      return false;
     }
   }
   else data = (byte*)d_malloc(len);
 
   if (data) {
-    memset(data, 0, len);  // erase buffer
-    Segment::addUsedSegmentData(len - _dataLen);
-    _dataLen = len;
-    //DEBUG_PRINTF_P(PSTR("---  Allocated data (%p): %d/%d -> %p\n"), this, len, Segment::getUsedSegmentData(), data);
-    return true;
+    if(!checkHeapHealth()) {
+      d_free(data);
+      data = nullptr;
+    }
+    else {
+      memset(data, 0, len);  // erase buffer
+      Segment::addUsedSegmentData(len);
+      _dataLen = len;
+      //DEBUG_PRINTF_P(PSTR("---  Allocated data (%p): %d/%d -> %p\n"), this, len, Segment::getUsedSegmentData(), data);
+      return true;
+    }
   }
   // allocation failed
   DEBUG_PRINTLN(F("!!! Allocation failed. !!!"));
@@ -205,7 +230,11 @@ void Segment::deallocateData() {
 void Segment::resetIfRequired() {
   if (!reset || !isActive()) return;
   //DEBUG_PRINTF_P(PSTR("-- Segment reset: %p\n"), this);
-  if (data && _dataLen > 0) memset(data, 0, _dataLen);  // prevent heap fragmentation (just erase buffer instead of deallocateData())
+  if (data && _dataLen > 0) {
+    if(_dataLen > FAIR_DATA_PER_SEG) deallocateData(); // do not keep large allocations
+    else memset(data, 0, _dataLen);  // can prevent heap fragmentation
+    DEBUG_PRINTF_P(PSTR("-- Segment %p reset, data cleared\n"), this);
+  }
   if (pixels) for (size_t i = 0; i < length(); i++) pixels[i] = BLACK; // clear pixel buffer
   next_time = 0; step = 0; call = 0; aux0 = 0; aux1 = 0;
   reset = false;
@@ -454,16 +483,26 @@ void Segment::setGeometry(uint16_t i1, uint16_t i2, uint8_t grp, uint8_t spc, ui
     stop = 0;
     return;
   }
-  // re-allocate FX render buffer
+  // allocate FX render buffer
   if (length() != oldLength) {
-    if (pixels) d_free(pixels); // using realloc on large buffers can cause additional fragmentation instead of reducing it
-    pixels = static_cast<uint32_t*>(d_malloc(sizeof(uint32_t) * length()));
+    if (pixels) free(pixels); // note: using realloc can block larger heap segments
+    #ifdef ARDUINO_ARCH_ESP32
+    pixels = static_cast<uint32_t*>(pixelbuffer_malloc(izeof(uint32_t) * length());
+    #else
+    pixels = static_cast<uint32_t*>(p_malloc(sizeof(uint32_t) * length()));
+    #endif
+
+    if(!checkHeapHealth()) {
+      d_free(pixels);
+      pixels = nullptr;
+    }
     if (!pixels) {
       DEBUG_PRINTLN(F("!!! Not enough RAM for pixel buffer !!!"));
       errorFlag = ERR_NORAM_PX;
       stop = 0;
       return;
     }
+
   }
   refreshLightCapabilities();
 }
@@ -1198,7 +1237,7 @@ void WS2812FX::finalizeInit() {
     bus->begin();
     bus->setBrightness(bri);
   }
-  DEBUG_PRINTF_P(PSTR("Heap after buses: %d\n"), ESP.getFreeHeap());
+  DEBUG_PRINTF_P(PSTR("Heap after buses: %d\n"), getFreeHeapSize());
 
   Segment::maxWidth  = _length;
   Segment::maxHeight = 1;
@@ -1210,11 +1249,17 @@ void WS2812FX::finalizeInit() {
   deserializeMap();     // (re)load default ledmap (will also setUpMatrix() if ledmap does not exist)
 
   // allocate frame buffer after matrix has been set up (gaps!)
-  if (_pixels) d_free(_pixels); // using realloc on large buffers can cause additional fragmentation instead of reducing it
-  _pixels = static_cast<uint32_t*>(d_malloc(getLengthTotal() * sizeof(uint32_t)));
+  if (_pixels) d_free(_pixels);
+#ifdef ARDUINO_ARCH_ESP32
+  _pixels = static_cast<uint32_t*>(pixelbuffer_malloc(getLengthTotal() * sizeof(uint32_t), true)); // use 32bit RAM (IRAM) or PSRAM on ESP32
+#elif !defined(ESP8266)
+  // use PSRAM on S2 and S3 if available (C3 defaults to DRAM). Note: there is no measurable perfomance impact between PSRAM and DRAM on S2/S3 with QSPI PSRAM
+  _pixels = static_cast<uint32_t*>(heap_caps_malloc_prefer(size, 2, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT)); // prefer PSRAM if it exists
+#else
+  _pixels = static_cast<uint32_t*>(malloc(getLengthTotal() * sizeof(uint32_t))); // ESP8266 does not support advanced allocation API
+#endif
   DEBUG_PRINTF_P(PSTR("strip buffer size: %uB\n"), getLengthTotal() * sizeof(uint32_t));
-
-  DEBUG_PRINTF_P(PSTR("Heap after strip init: %uB\n"), ESP.getFreeHeap());
+  DEBUG_PRINTF_P(PSTR("Heap after strip init: %uB\n"), getFreeHeapSize());
 }
 
 void WS2812FX::service() {
@@ -1258,7 +1303,7 @@ void WS2812FX::service() {
         // if segment is in transition and no old segment exists we don't need to run the old mode
         // (blendSegments() takes care of On/Off transitions and clipping)
         Segment *segO = seg.getOldSegment();
-        if (segO && (seg.mode != segO->mode || blendingStyle != BLEND_STYLE_FADE)) {
+        if (segO && (seg.mode != segO->mode || blendingStyle != BLEND_STYLE_FADE)  && segO->isActive()) {
           Segment::modeBlend(true);         // set semaphore for beginDraw() to blend colors and palette
           segO->beginDraw(prog);            // set up palette & colors (also sets draw dimensions), parent segment has transition progress
           _currentSegment = segO;           // set current segment

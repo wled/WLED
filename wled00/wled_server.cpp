@@ -366,7 +366,7 @@ void initServer()
   });
 
   server.on(F("/freeheap"), HTTP_GET, [](AsyncWebServerRequest *request){
-    request->send(200, FPSTR(CONTENT_TYPE_PLAIN), (String)ESP.getFreeHeap());
+    request->send(200, FPSTR(CONTENT_TYPE_PLAIN), (String)getFreeHeapSize());
   });
 
 #ifdef WLED_ENABLE_USERMOD_PAGE

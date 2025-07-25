@@ -829,7 +829,7 @@ void serializeInfo(JsonObject root)
   root[F("lwip")] = LWIP_VERSION_MAJOR;
 #endif
 
-  root[F("freeheap")] = ESP.getFreeHeap();
+  root[F("freeheap")] = getFreeHeapSize();
   #if defined(ARDUINO_ARCH_ESP32)
   if (psramFound()) root[F("psram")] = ESP.getFreePsram();
   #endif
