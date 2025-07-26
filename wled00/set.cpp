@@ -539,105 +539,57 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
       macroDoublePress[i] = request->arg(md).toInt();
     }
 
+    // Helper function for parameter validation with debug logging
+    auto validateTimerParam = [](const String& value, int minVal, int maxVal, const char* paramName, const char* timerType) -> int {
+      int rawValue = value.toInt();
+      if (rawValue < minVal || rawValue > maxVal) {
+        DEBUG_PRINTF("%s timer: Invalid %s %d, constraining to range %d-%d\n", 
+                     timerType, paramName, rawValue, minVal, maxVal);
+      }
+      return constrain(rawValue, minVal, maxVal);
+    };
+
     // Clear existing timers and rebuild from form data
     clearTimers();
     
     // Process sunrise timer (SR_* fields)
     if (request->hasArg("SR_T")) {
-      // Extract and validate preset
-      int presetRaw = request->arg("SR_T").toInt();
-      if (presetRaw < 0 || presetRaw > 250) {
-        DEBUG_PRINTF("Sunrise timer: Invalid preset %d, constraining to range 0-250\n", presetRaw);
-      }
-      uint8_t preset = constrain(presetRaw, 0, 250);
-      
-      // Extract and validate offset
-      int offsetRaw = request->arg("SR_N").toInt();
-      if (offsetRaw < -59 || offsetRaw > 59) {
-        DEBUG_PRINTF("Sunrise timer: Invalid offset %d, constraining to range -59 to +59\n", offsetRaw);
-      }
-      int8_t offset = constrain(offsetRaw, -59, 59);
+      // Extract and validate parameters
+      uint8_t preset = validateTimerParam(request->arg("SR_T"), 0, 250, "preset", "Sunrise");
+      int8_t offset = validateTimerParam(request->arg("SR_N"), -59, 59, "offset", "Sunrise");
       
       // Extract weekdays (preserve all 8 bits: enabled bit + 7 weekdays)
       uint8_t weekdays = request->arg("SR_W").toInt() & 0xFF;
       
       // Extract and validate date range
-      int monthStartRaw = request->arg("SR_M").toInt();
-      if (monthStartRaw < 1 || monthStartRaw > 12) {
-        DEBUG_PRINTF("Sunrise timer: Invalid start month %d, constraining to range 1-12\n", monthStartRaw);
-      }
-      uint8_t monthStart = constrain(monthStartRaw, 1, 12);
+      uint8_t monthStart = validateTimerParam(request->arg("SR_M"), 1, 12, "start month", "Sunrise");
+      uint8_t dayStart = validateTimerParam(request->arg("SR_D"), 1, 31, "start day", "Sunrise");
+      uint8_t monthEnd = validateTimerParam(request->arg("SR_P"), 1, 12, "end month", "Sunrise");
+      uint8_t dayEnd = validateTimerParam(request->arg("SR_E"), 1, 31, "end day", "Sunrise");
       
-      int dayStartRaw = request->arg("SR_D").toInt();
-      if (dayStartRaw < 1 || dayStartRaw > 31) {
-        DEBUG_PRINTF("Sunrise timer: Invalid start day %d, constraining to range 1-31\n", dayStartRaw);
-      }
-      uint8_t dayStart = constrain(dayStartRaw, 1, 31);
-      
-      int monthEndRaw = request->arg("SR_P").toInt();
-      if (monthEndRaw < 1 || monthEndRaw > 12) {
-        DEBUG_PRINTF("Sunrise timer: Invalid end month %d, constraining to range 1-12\n", monthEndRaw);
-      }
-      uint8_t monthEnd = constrain(monthEndRaw, 1, 12);
-      
-      int dayEndRaw = request->arg("SR_E").toInt();
-      if (dayEndRaw < 1 || dayEndRaw > 31) {
-        DEBUG_PRINTF("Sunrise timer: Invalid end day %d, constraining to range 1-31\n", dayEndRaw);
-      }
-      uint8_t dayEnd = constrain(dayEndRaw, 1, 31);
-      
-      // Add sunrise timer if preset is valid or enabled
-      if (preset > 0 || (weekdays & 0x01)) {
+      // Add sunrise timer if preset is valid and enabled
+      if (preset > 0 && (weekdays & 0x01)) {
         addTimer(preset, TIMER_HOUR_SUNRISE, offset, weekdays, monthStart, monthEnd, dayStart, dayEnd);
       }
     }
     
     // Process sunset timer (SS_* fields)
     if (request->hasArg("SS_T")) {
-      // Extract and validate preset
-      int presetRaw = request->arg("SS_T").toInt();
-      if (presetRaw < 0 || presetRaw > 250) {
-        DEBUG_PRINTF("Sunset timer: Invalid preset %d, constraining to range 0-250\n", presetRaw);
-      }
-      uint8_t preset = constrain(presetRaw, 0, 250);
-      
-      // Extract and validate offset
-      int offsetRaw = request->arg("SS_N").toInt();
-      if (offsetRaw < -59 || offsetRaw > 59) {
-        DEBUG_PRINTF("Sunset timer: Invalid offset %d, constraining to range -59 to +59\n", offsetRaw);
-      }
-      int8_t offset = constrain(offsetRaw, -59, 59);
+      // Extract and validate parameters
+      uint8_t preset = validateTimerParam(request->arg("SS_T"), 0, 250, "preset", "Sunset");
+      int8_t offset = validateTimerParam(request->arg("SS_N"), -59, 59, "offset", "Sunset");
       
       // Extract weekdays (preserve all 8 bits: enabled bit + 7 weekdays)
       uint8_t weekdays = request->arg("SS_W").toInt() & 0xFF;
       
       // Extract and validate date range
-      int monthStartRaw = request->arg("SS_M").toInt();
-      if (monthStartRaw < 1 || monthStartRaw > 12) {
-        DEBUG_PRINTF("Sunset timer: Invalid start month %d, constraining to range 1-12\n", monthStartRaw);
-      }
-      uint8_t monthStart = constrain(monthStartRaw, 1, 12);
+      uint8_t monthStart = validateTimerParam(request->arg("SS_M"), 1, 12, "start month", "Sunset");
+      uint8_t dayStart = validateTimerParam(request->arg("SS_D"), 1, 31, "start day", "Sunset");
+      uint8_t monthEnd = validateTimerParam(request->arg("SS_P"), 1, 12, "end month", "Sunset");
+      uint8_t dayEnd = validateTimerParam(request->arg("SS_E"), 1, 31, "end day", "Sunset");
       
-      int dayStartRaw = request->arg("SS_D").toInt();
-      if (dayStartRaw < 1 || dayStartRaw > 31) {
-        DEBUG_PRINTF("Sunset timer: Invalid start day %d, constraining to range 1-31\n", dayStartRaw);
-      }
-      uint8_t dayStart = constrain(dayStartRaw, 1, 31);
-      
-      int monthEndRaw = request->arg("SS_P").toInt();
-      if (monthEndRaw < 1 || monthEndRaw > 12) {
-        DEBUG_PRINTF("Sunset timer: Invalid end month %d, constraining to range 1-12\n", monthEndRaw);
-      }
-      uint8_t monthEnd = constrain(monthEndRaw, 1, 12);
-      
-      int dayEndRaw = request->arg("SS_E").toInt();
-      if (dayEndRaw < 1 || dayEndRaw > 31) {
-        DEBUG_PRINTF("Sunset timer: Invalid end day %d, constraining to range 1-31\n", dayEndRaw);
-      }
-      uint8_t dayEnd = constrain(dayEndRaw, 1, 31);
-      
-      // Add sunset timer if preset is valid or enabled
-      if (preset > 0 || (weekdays & 0x01)) {
+      // Add sunset timer if preset is valid and enabled
+      if (preset > 0 && (weekdays & 0x01)) {
         addTimer(preset, TIMER_HOUR_SUNSET, offset, weekdays, monthStart, monthEnd, dayStart, dayEnd);
       }
     }
