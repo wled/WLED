@@ -8,12 +8,20 @@
 	<script>
 	var el=false;
 	var ms=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-	var maxTimePresets = 16;
+	var maxTimePresets = 32;
 	var currentPresetCount = 0;
 	
 	function S() {
 		getLoc();
 		loadJS(getURL('/settings/s.js?p=5'), false, ()=>{
+			// Initialize currentPresetCount from server data
+			if (typeof d !== 'undefined' && d.Sf) {
+				for (let i = 0; i < maxTimePresets; i++) {
+					if (d.Sf[`W${i}`] && d.Sf[`W${i}`].value) {
+						currentPresetCount = i + 1;
+					}
+				}
+			}
 			BTa();
 		}, ()=>{
 			updLatLon();
@@ -35,7 +43,25 @@
 		currentPresetCount = Math.max(1, currentPresetCount);
 		
 		for (var i = 0; i < currentPresetCount; i++) {
-			ih += generatePresetRow(i);
+			// Extract existing timer data from server if available
+			var timerData = null;
+			if (typeof d !== 'undefined' && d.Sf) {
+				var weekdaysValue = d.Sf[`W${i}`] ? d.Sf[`W${i}`].value : null;
+				if (weekdaysValue !== null) {
+					timerData = {
+						enabled: (weekdaysValue & 0x01) !== 0,
+						hour: d.Sf[`H${i}`] ? d.Sf[`H${i}`].value : '',
+						minute: d.Sf[`N${i}`] ? d.Sf[`N${i}`].value : '',
+						preset: d.Sf[`T${i}`] ? d.Sf[`T${i}`].value : '',
+						weekdays: parseInt(weekdaysValue) || 0x7F,
+						monthStart: d.Sf[`M${i}`] ? parseInt(d.Sf[`M${i}`].value) : 1,
+						dayStart: d.Sf[`D${i}`] ? parseInt(d.Sf[`D${i}`].value) : 1,
+						monthEnd: d.Sf[`P${i}`] ? parseInt(d.Sf[`P${i}`].value) : 12,
+						dayEnd: d.Sf[`E${i}`] ? parseInt(d.Sf[`E${i}`].value) : 31
+					};
+				}
+			}
+			ih += generatePresetRow(i, timerData);
 		}
 		
 		ih += "</tbody>";
@@ -43,33 +69,48 @@
 		updateButtonStates();
 	}
 
-	function generatePresetRow(i) {
+	function generatePresetRow(i, timerData) {
 		var ih = "";
 		
-		ih += `<tr><td><input name="W${i}" id="W${i}" type="hidden"><input id="W${i}0" type="checkbox" checked></td>`;
-		ih += `<td><input name="H${i}" class="xs" type="number" min="0" max="23"></td>`;
-		ih += `<td><input name="N${i}" class="xs" type="number" min="0" max="59"></td>`;
-		ih += `<td><input name="T${i}" class="s" type="number" min="0" max="250"></td>`;
+		// Get existing values or use defaults
+		var enabled = timerData && timerData.enabled !== undefined ? timerData.enabled : true;
+		var hour = timerData && timerData.hour !== undefined ? timerData.hour : '';
+		var minute = timerData && timerData.minute !== undefined ? timerData.minute : '';
+		var preset = timerData && timerData.preset !== undefined ? timerData.preset : '';
+		var weekdays = timerData && timerData.weekdays !== undefined ? timerData.weekdays : 0x7F; // All days by default
+		var monthStart = timerData && timerData.monthStart !== undefined ? timerData.monthStart : 1;
+		var dayStart = timerData && timerData.dayStart !== undefined ? timerData.dayStart : 1;
+		var monthEnd = timerData && timerData.monthEnd !== undefined ? timerData.monthEnd : 12;
+		var dayEnd = timerData && timerData.dayEnd !== undefined ? timerData.dayEnd : 31;
+		
+		ih += `<tr><td><input name="W${i}" id="W${i}" type="hidden"><input id="W${i}0" type="checkbox" ${enabled ? 'checked' : ''}></td>`;
+		ih += `<td><input name="H${i}" class="xs" type="number" min="0" max="23" value="${hour}"></td>`;
+		ih += `<td><input name="N${i}" class="xs" type="number" min="0" max="59" value="${minute}"></td>`;
+		ih += `<td><input name="T${i}" class="s" type="number" min="0" max="250" value="${preset}"></td>`;
 		ih += `<td><div id="CB${i}" onclick="expand(this,${i})" class="cal">&#128197;</div></td></tr>`;
 		
 		ih += `<tr><td colspan=5><div id="WD${i}" style="display:none;background-color:#444;"><hr>`;
 		ih += `<div style="text-align:center;">Run on weekdays<br>`;
 		ih += `<table style="margin:10px auto;"><tr><th>M</th><th>T</th><th>W</th><th>T</th><th>F</th><th>S</th><th>S</th></tr><tr>`;
 		for (var j=1;j<8;j++) {
-			ih += `<td><input id="W${i}${j}" type="checkbox" checked></td>`;
+			var dayChecked = (weekdays & (1 << (j-1))) ? 'checked' : '';
+			ih += `<td><input id="W${i}${j}" type="checkbox" ${dayChecked}></td>`;
 		}
 		ih += "</tr></table>";
 		
 		ih += `from <select name="M${i}">`;
 		for (var j=0;j<12;j++) {
-			ih += `<option value="${j+1}">${ms[j]}</option>`;
+			var monthStartSelected = (j+1 === monthStart) ? 'selected' : '';
+			ih += `<option value="${j+1}" ${monthStartSelected}>${ms[j]}</option>`;
 		}
-		ih += `</select><input name="D${i}" class="xs" type="number" min="1" max="31" value="1"> to <select name="P${i}">`;
+		ih += `</select><input name="D${i}" class="xs" type="number" min="1" max="31" value="${dayStart}"> to <select name="P${i}">`;
 		for (var j=0;j<12;j++) {
-			ih += `<option value="${j+1}" ${j==11?'selected':''}>${ms[j]}</option>`;
+			var monthEndSelected = (j+1 === monthEnd) ? 'selected' : '';
+			ih += `<option value="${j+1}" ${monthEndSelected}>${ms[j]}</option>`;
 		}
-		ih += `</select><input name="E${i}" class="xs" type="number" min="1" max="31" value="31">`;
+		ih += `</select><input name="E${i}" class="xs" type="number" min="1" max="31" value="${dayEnd}">`;
 		ih += "</div><hr></div></td></tr>";
+		
 		return ih;
 	}
 
@@ -102,8 +143,8 @@
 	}
 
 	function updateButtonStates() {
-		gId("+").style.display = (currentPresetCount<maxTimePresets) ? "inline":"none";
-		gId("-").style.display = (currentPresetCount>1) ? "inline":"none";
+		gId("btnAddTimer").style.display = (currentPresetCount<maxTimePresets) ? "inline":"none";
+		gId("btnRemoveTimer").style.display = (currentPresetCount>1) ? "inline":"none";
 	}
 	
 	function Wd() {
@@ -152,11 +193,47 @@
 		if (parseFloat(d.Sf.LT.value)<0) { d.Sf.LTR.value = "S"; d.Sf.LT.value = -1*parseFloat(d.Sf.LT.value); } else d.Sf.LTR.value = "N";
 		if (parseFloat(d.Sf.LN.value)<0) { d.Sf.LNR.value = "W"; d.Sf.LN.value = -1*parseFloat(d.Sf.LN.value); } else d.Sf.LNR.value = "E";
 	}
+	
+	// Sunrise/Sunset timer functions
+	function expandSunrise(o) {
+		var t = gId("SR_WD");
+		t.style.display = t.style.display !== "none" ? "none" : "";
+		o.innerHTML = t.style.display === "none" ? "&#128197;" : "&#x2715;";
+	}
+	
+	function expandSunset(o) {
+		var t = gId("SS_WD");
+		t.style.display = t.style.display !== "none" ? "none" : "";
+		o.innerHTML = t.style.display === "none" ? "&#128197;" : "&#x2715;";
+	}
+	
+	// Process sunrise/sunset timer data before form submission
+	function processSunriseSunsetTimers() {
+		// Process Sunrise timer
+		var srEnabled = gId("SR_W0").checked;
+		var srWeekdays = 0;
+		for (var j = 1; j < 8; j++) {
+			if (gId("SR_W" + j).checked) srWeekdays |= (1 << (j - 1));
+		}
+		srWeekdays <<= 1; // Shift to make room for enabled bit
+		if (srEnabled) srWeekdays |= 0x01; // Set enabled bit
+		gId("SR_W").value = srWeekdays;
+		
+		// Process Sunset timer
+		var ssEnabled = gId("SS_W0").checked;
+		var ssWeekdays = 0;
+		for (var j = 1; j < 8; j++) {
+			if (gId("SS_W" + j).checked) ssWeekdays |= (1 << (j - 1));
+		}
+		ssWeekdays <<= 1; // Shift to make room for enabled bit
+		if (ssEnabled) ssWeekdays |= 0x01; // Set enabled bit
+		gId("SS_W").value = ssWeekdays;
+	}
 	</script>
 	<style>@import url("style.css");</style>
 </head>
 <body onload="S()">
-	<form id="form_s" name="Sf" method="post" onsubmit="Wd()">
+	<form id="form_s" name="Sf" method="post" onsubmit="Wd(); processSunriseSunsetTimers()">
 		<div class="toprow">
 		<div class="helpB"><button type="button" onclick="H('features/settings/#time-settings')">?</button></div>
 		<button type="button" onclick="B()">Back</button><button type="submit">Save</button><hr>
@@ -234,12 +311,131 @@
 			</tbody>
 		</table>
 		<a href="https://kno.wled.ge/features/macros/#analog-button" target="_blank">Analog Button setup</a>
+		<h3>Sunrise/Sunset Presets</h3>
+		<div style="display: inline-block;">
+			<table id="SRSS" style="min-width:330px; margin: 0 auto;">
+			<thead>
+				<tr>
+					<th>En.</th>
+					<th>Type</th>
+					<th>Offset</th>
+					<th>Preset</th>
+					<th></th>
+				</tr>
+			</thead>
+			<tbody>
+				<!-- Sunrise Row -->
+				<tr>
+					<td><input name="SR_W" id="SR_W" type="hidden"><input id="SR_W0" type="checkbox"></td>
+					<td>Sunrise</td>
+					<td><input name="SR_N" class="xs" type="number" min="-59" max="59" value="0"></td>
+					<td><input name="SR_T" class="s" type="number" min="0" max="250" value="0"></td>
+					<td><div id="SR_CB" onclick="expandSunrise(this)" class="cal">&#128197;</div></td>
+				</tr>
+				<tr>
+					<td colspan="5">
+						<div id="SR_WD" style="display:none;background-color:#444;"><hr>
+							Run on weekdays<br>
+							<table style="margin:10px auto; border-collapse: separate; border-spacing: 8px 4px;"><tr><th>M</th><th>T</th><th>W</th><th>T</th><th>F</th><th>S</th><th>S</th></tr><tr>
+								<td style="text-align: center;"><input id="SR_W1" type="checkbox" checked></td>
+								<td style="text-align: center;"><input id="SR_W2" type="checkbox" checked></td>
+								<td style="text-align: center;"><input id="SR_W3" type="checkbox" checked></td>
+								<td style="text-align: center;"><input id="SR_W4" type="checkbox" checked></td>
+								<td style="text-align: center;"><input id="SR_W5" type="checkbox" checked></td>
+								<td style="text-align: center;"><input id="SR_W6" type="checkbox" checked></td>
+								<td style="text-align: center;"><input id="SR_W7" type="checkbox" checked></td>
+							</tr></table>
+							from <select name="SR_M">
+								<option value="1" selected>Jan</option>
+								<option value="2">Feb</option>
+								<option value="3">Mar</option>
+								<option value="4">Apr</option>
+								<option value="5">May</option>
+								<option value="6">Jun</option>
+								<option value="7">Jul</option>
+								<option value="8">Aug</option>
+								<option value="9">Sep</option>
+								<option value="10">Oct</option>
+								<option value="11">Nov</option>
+								<option value="12">Dec</option>
+							</select><input name="SR_D" class="xs" type="number" min="1" max="31" value="1"> to <select name="SR_P">
+								<option value="1">Jan</option>
+								<option value="2">Feb</option>
+								<option value="3">Mar</option>
+								<option value="4">Apr</option>
+								<option value="5">May</option>
+								<option value="6">Jun</option>
+								<option value="7">Jul</option>
+								<option value="8">Aug</option>
+								<option value="9">Sep</option>
+								<option value="10">Oct</option>
+								<option value="11">Nov</option>
+								<option value="12" selected>Dec</option>
+							</select><input name="SR_E" class="xs" type="number" min="1" max="31" value="31">
+						<hr></div>
+					</td>
+				</tr>
+				<!-- Sunset Row -->
+				<tr>
+					<td><input name="SS_W" id="SS_W" type="hidden"><input id="SS_W0" type="checkbox"></td>
+					<td>Sunset</td>
+					<td><input name="SS_N" class="xs" type="number" min="-59" max="59" value="0"></td>
+					<td><input name="SS_T" class="s" type="number" min="0" max="250" value="0"></td>
+					<td><div id="SS_CB" onclick="expandSunset(this)" class="cal">&#128197;</div></td>
+				</tr>
+				<tr>
+					<td colspan="5">
+						<div id="SS_WD" style="display:none;background-color:#444;"><hr>
+							Run on weekdays<br>
+							<table style="margin:10px auto;"><tr><th>M</th><th>T</th><th>W</th><th>T</th><th>F</th><th>S</th><th>S</th></tr><tr>
+								<td><input id="SS_W1" type="checkbox" checked></td>
+								<td><input id="SS_W2" type="checkbox" checked></td>
+								<td><input id="SS_W3" type="checkbox" checked></td>
+								<td><input id="SS_W4" type="checkbox" checked></td>
+								<td><input id="SS_W5" type="checkbox" checked></td>
+								<td><input id="SS_W6" type="checkbox" checked></td>
+								<td><input id="SS_W7" type="checkbox" checked></td>
+							</tr></table>
+							from <select name="SS_M">
+								<option value="1" selected>Jan</option>
+								<option value="2">Feb</option>
+								<option value="3">Mar</option>
+								<option value="4">Apr</option>
+								<option value="5">May</option>
+								<option value="6">Jun</option>
+								<option value="7">Jul</option>
+								<option value="8">Aug</option>
+								<option value="9">Sep</option>
+								<option value="10">Oct</option>
+								<option value="11">Nov</option>
+								<option value="12">Dec</option>
+							</select><input name="SS_D" class="xs" type="number" min="1" max="31" value="1"> to <select name="SS_P">
+								<option value="1">Jan</option>
+								<option value="2">Feb</option>
+								<option value="3">Mar</option>
+								<option value="4">Apr</option>
+								<option value="5">May</option>
+								<option value="6">Jun</option>
+								<option value="7">Jul</option>
+								<option value="8">Aug</option>
+								<option value="9">Sep</option>
+								<option value="10">Oct</option>
+								<option value="11">Nov</option>
+								<option value="12" selected>Dec</option>
+							</select><input name="SS_E" class="xs" type="number" min="1" max="31" value="31">
+						<hr></div>
+					</td>
+				</tr>
+			</tbody>
+			</table>
+		</div>
+		<br>
 		<h3>Time-controlled presets</h3>
 		<div style="display: inline-block;">
 			<table id="TMT" style="min-width:330px; margin: 0 auto;"></table>
 			<div style="text-align: center; margin: 10px 0;">
-				<button type="button" id="+" onclick="addTimePreset()">+</button>
-				<button type="button" id="-" onclick="removeLastPreset()">-</button>
+				<button type="button" id="btnAddTimer" onclick="addTimePreset()">+</button>
+				<button type="button" id="btnRemoveTimer" onclick="removeLastPreset()">-</button>
 			</div>
 		</div>
 		<hr>

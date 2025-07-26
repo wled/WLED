@@ -3,11 +3,53 @@
 #include "fcn_declare.h"
 #include <vector>
 
+#ifdef ESP32
+#include "freertos/semphr.h"
+#endif
+
 // WARNING: may cause errors in sunset calculations on ESP8266, see #3400
 // building with `-D WLED_USE_REAL_MATH` will prevent those errors at the expense of flash and RAM
 
-// Dynamic timer storage
+// Dynamic timer storage with thread safety
 std::vector<Timer> timers;
+
+#ifdef ESP32
+// FreeRTOS mutex for ESP32 dual-core thread safety
+static SemaphoreHandle_t timerMutex = nullptr;
+
+// Initialize mutex (called once at startup)
+static void initTimerMutex() {
+  if (timerMutex == nullptr) {
+    timerMutex = xSemaphoreCreateMutex();
+  }
+}
+
+// Critical section helper for ESP32 dual-core environments
+class TimerCriticalSection {
+public:
+  TimerCriticalSection() {
+    if (timerMutex == nullptr) initTimerMutex();
+    if (timerMutex != nullptr) {
+      xSemaphoreTake(timerMutex, portMAX_DELAY);
+    }
+  }
+  ~TimerCriticalSection() {
+    if (timerMutex != nullptr) {
+      xSemaphoreGive(timerMutex);
+    }
+  }
+};
+#else
+// Simple critical section helper for single-core Arduino/ESP8266
+class TimerCriticalSection {
+public:
+  TimerCriticalSection() { noInterrupts(); }
+  ~TimerCriticalSection() { interrupts(); }
+};
+#endif
+
+// Forward declaration
+static void syncTimersToArraysInternal();
 
 /*
  * Acquires time from NTP server
@@ -383,6 +425,8 @@ bool isTodayInDateRange(byte monthStart, byte dayStart, byte monthEnd, byte dayE
 void addTimer(uint8_t preset, uint8_t hour, int8_t minute, uint8_t weekdays,
               uint8_t monthStart, uint8_t monthEnd, 
               uint8_t dayStart, uint8_t dayEnd) {
+  TimerCriticalSection lock;
+  
   // Prevent unbounded memory growth by enforcing timer limit
   if (timers.size() >= maxTimePresets) {
     DEBUG_PRINTLN(F("Error: Maximum number of timers reached"));
@@ -412,34 +456,39 @@ void addTimer(uint8_t preset, uint8_t hour, int8_t minute, uint8_t weekdays,
   weekdays &= 0x7F; // Ensure only valid bits are set
   
   // Validate month range
-  monthStart = constrain(monthStart, 1, 12);
-  monthEnd = constrain(monthEnd, 1, 12);
+  if (monthStart < 1 || monthStart > 12 || monthEnd < 1 || monthEnd > 12) {
+    DEBUG_PRINTLN(F("Error: Invalid month range"));
+    return;
+  }
   
   // Validate day range
-  dayStart = constrain(dayStart, 1, 31);
-  dayEnd = constrain(dayEnd, 1, 31);
+  if (dayStart < 1 || dayStart > 31 || dayEnd < 1 || dayEnd > 31) {
+    DEBUG_PRINTLN(F("Error: Invalid day range"));
+    return;
+  }
   
   // All validation passed, add the timer
   Timer newTimer(preset, hour, minute, weekdays, monthStart, monthEnd, dayStart, dayEnd);
   timers.push_back(newTimer);
-  syncTimersToArrays();
+  syncTimersToArraysInternal();
 }
 
 // Clear all timers
 void clearTimers() {
+  TimerCriticalSection lock;
   timers.clear();
-  syncTimersToArrays();
+  syncTimersToArraysInternal();
 }
 
 // Legacy array size constants
-const uint8_t LEGACY_TIMER_ARRAY_SIZE = 10;      // Size of main timer arrays
-const uint8_t LEGACY_DATE_ARRAY_SIZE = 8;       // Size of date-related arrays
-const uint8_t LEGACY_REGULAR_TIMER_MAX = 8;     // Maximum number of regular timers (indices 0-7)
-const uint8_t LEGACY_SUNRISE_INDEX = 8;         // Reserved index for sunrise timer
-const uint8_t LEGACY_SUNSET_INDEX = 9;          // Reserved index for sunset timer
+const uint8_t LEGACY_TIMER_ARRAY_SIZE = 34;      // Size of main timer arrays (32 regular + 2 sunrise/sunset)
+const uint8_t LEGACY_DATE_ARRAY_SIZE = 32;       // Size of date-related arrays
+const uint8_t LEGACY_REGULAR_TIMER_MAX = 32;     // Maximum number of regular timers (indices 0-31)
+const uint8_t LEGACY_SUNRISE_INDEX = 32;         // Reserved index for sunrise timer
+const uint8_t LEGACY_SUNSET_INDEX = 33;          // Reserved index for sunset timer
 
-// Sync vector timers to legacy arrays for backward compatibility
-void syncTimersToArrays() {
+// Internal function to sync timers without locking (assumes mutex is already held)
+static void syncTimersToArraysInternal() {
   // Clear legacy arrays
   memset(timerMacro, 0, LEGACY_TIMER_ARRAY_SIZE);
   memset(timerHours, 0, LEGACY_TIMER_ARRAY_SIZE);
@@ -486,6 +535,7 @@ void syncTimersToArrays() {
         timerWeekday[regularTimerCount] = timer.weekdays;
         
         // Date range info (only for regular timers)
+        // Encode monthStart in upper 4 bits, monthEnd in lower 4 bits
         timerMonth[regularTimerCount] = (timer.monthStart << 4) | (timer.monthEnd & 0x0F);
         timerDay[regularTimerCount] = timer.dayStart;
         timerDayEnd[regularTimerCount] = timer.dayEnd;
@@ -506,12 +556,20 @@ void syncTimersToArrays() {
   }
 }
 
+// Public function to sync timers with thread safety
+void syncTimersToArrays() {
+  TimerCriticalSection lock;
+  syncTimersToArraysInternal();
+}
+
 // Get timer count for different types
 uint8_t getTimerCount() {
+  TimerCriticalSection lock;
   return timers.size();
 }
 
 uint8_t getRegularTimerCount() {
+  TimerCriticalSection lock;
   uint8_t count = 0;
   for (const auto& timer : timers) {
     if (timer.isRegular()) count++;
@@ -520,6 +578,7 @@ uint8_t getRegularTimerCount() {
 }
 
 bool hasSunriseTimer() {
+  TimerCriticalSection lock;
   for (const auto& timer : timers) {
     if (timer.isSunrise()) return true;
   }
@@ -527,6 +586,7 @@ bool hasSunriseTimer() {
 }
 
 bool hasSunsetTimer() {
+  TimerCriticalSection lock;
   for (const auto& timer : timers) {
     if (timer.isSunset()) return true;
   }
@@ -544,8 +604,10 @@ void checkTimers()
 
     DEBUG_PRINTF_P(PSTR("Local time: %02d:%02d\n"), hour(localTime), minute(localTime));
     
-    // Check all timers in the vector
-    for (const auto& timer : timers) {
+    // Check all timers in the vector with thread safety
+    {
+      TimerCriticalSection lock;
+      for (const auto& timer : timers) {
       if (!timer.isEnabled() || timer.preset == 0) continue;
       
       bool shouldTrigger = false;
@@ -583,6 +645,7 @@ void checkTimers()
       if (shouldTrigger) {
         DEBUG_PRINTF_P(PSTR("Timer triggered: preset %d\n"), timer.preset);
         applyPreset(timer.preset);
+      }
       }
     }
   }

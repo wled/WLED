@@ -329,7 +329,7 @@ bool hasSunriseTimer();
 bool hasSunsetTimer();
 
 // Timer constants
-const uint8_t maxTimePresets = 16;
+const uint8_t maxTimePresets = 32;
 
 // Timer special hour values
 const uint8_t TIMER_HOUR_SUNRISE = 255; // Special value for sunrise timer
@@ -350,7 +350,7 @@ struct Timer {
     : preset(p), hour(h), minute(m), weekdays(w), 
       monthStart(ms), monthEnd(me), dayStart(ds), dayEnd(de) {}
   
-  bool isEnabled() const { return weekdays != 0; } // Timer is enabled if any weekday bit is set
+  bool isEnabled() const { return weekdays & 0x01; } // Timer is enabled if LSB (bit 0) is set
   bool isSunrise() const { return hour == TIMER_HOUR_SUNRISE; }
   bool isSunset() const { return hour == TIMER_HOUR_SUNSET; }
   bool isRegular() const { return hour < TIMER_HOUR_SUNSET; }
