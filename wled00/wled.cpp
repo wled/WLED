@@ -168,11 +168,7 @@ void WLED::loop()
 
   // reconnect WiFi to clear stale allocations if heap gets too low
   if (millis() - heapTime > 15000) {
-    #ifdef ARDUINO_ARCH_ESP32
-      uint32_t heap = heap_caps_get_largest_free_block(MALLOC_CAP_8BIT | MALLOC_CAP_INTERNAL);
-    #else
-      uint32_t heap = ESP.getMaxFreeBlockSize(); // ESP8266 does not support advanced allocation API
-    #endif
+    uint32_t heap = getFreeHeapSize();
     if (heap < MIN_HEAP_SIZE && lastHeap < MIN_HEAP_SIZE) {
       DEBUG_PRINTF_P(PSTR("Heap too low! %u\n"), heap);
       forceReconnect = true;
@@ -244,7 +240,11 @@ void WLED::loop()
     DEBUG_PRINTLN(F("---DEBUG INFO---"));
     DEBUG_PRINTF_P(PSTR("Runtime: %lu\n"),  millis());
     DEBUG_PRINTF_P(PSTR("Unix time: %u,%03u\n"), toki.getTime().sec, toki.getTime().ms);
-    DEBUG_PRINTF_P(PSTR("Free heap: %u\n"), getFreeHeapSize());
+    DEBUG_PRINTF_P(PSTR("Free heap/contiguous: %u/%u\n"), getFreeHeapSize(), getContiguousFreeHeap());
+    #if defined(CONFIG_IDF_TARGET_ESP32)
+    int dram32_free = heap_caps_get_free_size(MALLOC_CAP_32BIT|MALLOC_CAP_INTERNAL) - getFreeHeapSize();
+    DEBUG_PRINTF_P(PSTR("Free 32bit-heap: %d\n"), dram32_free);
+    #endif
     #if defined(ARDUINO_ARCH_ESP32)
     if (psramFound()) {
       DEBUG_PRINTF_P(PSTR("PSRAM: %dkB/%dkB\n"), ESP.getFreePsram()/1024, ESP.getPsramSize()/1024);

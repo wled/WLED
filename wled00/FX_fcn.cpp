@@ -69,14 +69,9 @@ Segment::Segment(const Segment &orig) {
   if (orig.name) { name = static_cast<char*>(d_malloc(strlen(orig.name)+1)); if (name) strcpy(name, orig.name); }
   if (orig.data) { if (allocateData(orig._dataLen)) memcpy(data, orig.data, orig._dataLen); }
   if (orig.pixels) {
-    pixels = static_cast<uint32_t*>(d_malloc(sizeof(uint32_t) * orig.length()));
-
-//  pixels = static_cast<uint32_t*>(heap_caps_malloc(orig.length()* sizeof(uint32_t), MALLOC_CAP_32BIT | MALLOC_CAP_INTERNAL)); // use this for ESP32
-//pixels = static_cast<uint32_t*>(heap_caps_malloc(sizeof(uint32_t) * orig.length(), MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT));
-//pixels = static_cast<uint32_t*>(heap_caps_malloc(sizeof(uint32_t) * orig.length(), MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT));
-
-
-    if (pixels) memcpy(pixels, orig.pixels, sizeof(uint32_t) * orig.length());
+    // allocate pixel buffer: prefer PSRAM if DRAM is running low
+    pixels = static_cast<uint32_t*>(allocate_buffer(orig.length() * sizeof(uint32_t), BFRALLOC_PREFER_PSRAM | BFRALLOC_NOBYTEACCESS));
+    if (pixels) memcpy(pixels, orig.pixels, orig.length() * sizeof(uint32_t));
     else {
       DEBUG_PRINTLN(F("!!! Not enough RAM for pixel buffer !!!"));
       errorFlag = ERR_NORAM_PX;
@@ -116,12 +111,9 @@ Segment& Segment::operator= (const Segment &orig) {
     if (orig.name) { name = static_cast<char*>(d_malloc(strlen(orig.name)+1)); if (name) strcpy(name, orig.name); }
     if (orig.data) { if (allocateData(orig._dataLen)) memcpy(data, orig.data, orig._dataLen); }
     if (orig.pixels) {
-      pixels = static_cast<uint32_t*>(d_malloc(sizeof(uint32_t) * orig.length()));
-      //TODO: also need to put this in 32bit memory on ESP32, maybe make that a function...
-      //pixels = static_cast<uint32_t*>(heap_caps_malloc(sizeof(uint32_t) * orig.length(), MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT));
-      //pixels = static_cast<uint32_t*>(heap_caps_malloc(sizeof(uint32_t) * orig.length(), MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT));
-      
-      if (pixels) memcpy(pixels, orig.pixels, sizeof(uint32_t) * orig.length());
+      // allocate pixel buffer: prefer PSRAM if DRAM is running low
+      pixels = static_cast<uint32_t*>(allocate_buffer(orig.length() * sizeof(uint32_t), BFRALLOC_PREFER_PSRAM | BFRALLOC_NOBYTEACCESS));
+      if (pixels) memcpy(pixels, orig.pixels, orig.length() * sizeof(uint32_t));
       else {
         DEBUG_PRINTLN(F("!!! Not enough RAM for pixel buffer !!!"));
         errorFlag = ERR_NORAM_PX;
@@ -156,50 +148,41 @@ bool Segment::allocateData(size_t len) {
   if (len == 0) return false;    // nothing to do
   if (data && _dataLen >= len) { // already allocated enough (reduce fragmentation)
     if (call == 0) {
-      if(checkHeapHealth()) {
+      if(_dataLen < FAIR_DATA_PER_SEG) { // segment data is small
         //DEBUG_PRINTF_P(PSTR("--   Clearing data (%d): %p\n"), len, this);
         memset(data, 0, len);  // erase buffer if called during effect initialisation
         return true; // no need to reallocate
-      }
-      else {
-        d_free(data); // free data and try to allocate again
-        data = nullptr;
-        Segment::addUsedSegmentData(-_dataLen); // subtract buffer size
       }
     }
     else
       return true;
   }
   //DEBUG_PRINTF_P(PSTR("--   Allocating data (%d): %p\n"), len, this);
-  if (Segment::getUsedSegmentData() + len - _dataLen > MAX_SEGMENT_DATA) {
-    // not enough memory
-    DEBUG_PRINTF_P(PSTR("!!! Not enough RAM: %d/%d !!!\n"), len, Segment::getUsedSegmentData());
-    errorFlag = ERR_NORAM;
-    return false;
-  }
-  // prefer DRAM over PSRAM for speed
-  if (data) {
-    data = (byte*)d_realloc_malloc(data, len); // realloc with malloc fallback
-    if (data == nullptr) { // allocation failed
-      Segment::addUsedSegmentData(-_dataLen); // subtract original buffer size
-      _dataLen = 0;   // reset data length
+  // limit to MAX_SEGMENT_DATA if there is no PSRAM, otherwise prefer functionality over speed
+  #if defined(ARDUINO_ARCH_ESP32)
+  if(!(psramFound() && psramSafe))
+  #endif
+  {
+    if (Segment::getUsedSegmentData() + len - _dataLen > MAX_SEGMENT_DATA) {
+      // not enough memory
+      DEBUG_PRINTF_P(PSTR("!!! Not enough RAM: %d/%d !!!\n"), len, Segment::getUsedSegmentData());
+      errorFlag = ERR_NORAM;
       return false;
     }
   }
-  else data = (byte*)d_malloc(len);
+  // prefer DRAM over PSRAM for speed
+  if (data) {
+    d_free(data); // free data and try to allocate again (segment buffer may be blocking contiguous heap)
+    Segment::addUsedSegmentData(-_dataLen); // subtract buffer size
+  }
+
+  data = static_cast<byte*>(allocate_buffer(len, BFRALLOC_PREFER_DRAM | BFRALLOC_CLEAR));
 
   if (data) {
-    if(!checkHeapHealth()) {
-      d_free(data);
-      data = nullptr;
-    }
-    else {
-      memset(data, 0, len);  // erase buffer
-      Segment::addUsedSegmentData(len);
-      _dataLen = len;
-      //DEBUG_PRINTF_P(PSTR("---  Allocated data (%p): %d/%d -> %p\n"), this, len, Segment::getUsedSegmentData(), data);
-      return true;
-    }
+    Segment::addUsedSegmentData(len);
+    _dataLen = len;
+    //DEBUG_PRINTF_P(PSTR("---  Allocated data (%p): %d/%d -> %p\n"), this, len, Segment::getUsedSegmentData(), data);
+    return true;
   }
   // allocation failed
   DEBUG_PRINTLN(F("!!! Allocation failed. !!!"));
@@ -486,16 +469,7 @@ void Segment::setGeometry(uint16_t i1, uint16_t i2, uint8_t grp, uint8_t spc, ui
   // allocate FX render buffer
   if (length() != oldLength) {
     if (pixels) free(pixels); // note: using realloc can block larger heap segments
-    #ifdef ARDUINO_ARCH_ESP32
-    pixels = static_cast<uint32_t*>(pixelbuffer_malloc(izeof(uint32_t) * length());
-    #else
-    pixels = static_cast<uint32_t*>(p_malloc(sizeof(uint32_t) * length()));
-    #endif
-
-    if(!checkHeapHealth()) {
-      d_free(pixels);
-      pixels = nullptr;
-    }
+    pixels = static_cast<uint32_t*>(allocate_buffer(length() * sizeof(uint32_t), BFRALLOC_PREFER_PSRAM | BFRALLOC_NOBYTEACCESS));
     if (!pixels) {
       DEBUG_PRINTLN(F("!!! Not enough RAM for pixel buffer !!!"));
       errorFlag = ERR_NORAM_PX;
@@ -1250,14 +1224,8 @@ void WS2812FX::finalizeInit() {
 
   // allocate frame buffer after matrix has been set up (gaps!)
   if (_pixels) d_free(_pixels);
-#ifdef ARDUINO_ARCH_ESP32
-  _pixels = static_cast<uint32_t*>(pixelbuffer_malloc(getLengthTotal() * sizeof(uint32_t), true)); // use 32bit RAM (IRAM) or PSRAM on ESP32
-#elif !defined(ESP8266)
-  // use PSRAM on S2 and S3 if available (C3 defaults to DRAM). Note: there is no measurable perfomance impact between PSRAM and DRAM on S2/S3 with QSPI PSRAM
-  _pixels = static_cast<uint32_t*>(heap_caps_malloc_prefer(size, 2, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT)); // prefer PSRAM if it exists
-#else
-  _pixels = static_cast<uint32_t*>(malloc(getLengthTotal() * sizeof(uint32_t))); // ESP8266 does not support advanced allocation API
-#endif
+  // use PSRAM if available: there is no measurable perfomance impact between PSRAM and DRAM on S2/S3 with QSPI PSRAM for this buffer
+  _pixels = static_cast<uint32_t*>(allocate_buffer(getLengthTotal() * sizeof(uint32_t), BFRALLOC_ENFORCE_PSRAM | BFRALLOC_NOBYTEACCESS | BFRALLOC_CLEAR));
   DEBUG_PRINTF_P(PSTR("strip buffer size: %uB\n"), getLengthTotal() * sizeof(uint32_t));
   DEBUG_PRINTF_P(PSTR("Heap after strip init: %uB\n"), getFreeHeapSize());
 }
