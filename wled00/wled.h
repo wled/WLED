@@ -395,7 +395,7 @@ WLED_GLOBAL bool useGlobalLedBuffer _INIT(false); // double buffering disabled o
 #else
 WLED_GLOBAL bool useGlobalLedBuffer _INIT(true);  // double buffering enabled on ESP32
   #ifndef CONFIG_IDF_TARGET_ESP32C3
-WLED_GLOBAL bool useParallelI2S     _INIT(false); // parallel I2S for ESP32
+WLED_GLOBAL bool useParallelI2S     _INIT(true); // parallel I2S for ESP32
   #endif
 #endif
 #ifdef WLED_USE_IC_CCT

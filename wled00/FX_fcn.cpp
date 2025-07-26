@@ -1217,7 +1217,7 @@ void WS2812FX::finalizeInit() {
   }
   DEBUG_PRINTF_P(PSTR("Maximum LEDs on a bus: %u\nDigital buses: %u\n"), maxLedsOnBus, digitalCount);
   // we may remove 600 LEDs per bus limit when NeoPixelBus is updated beyond 2.8.3
-  if (maxLedsOnBus <= 600 && useParallelI2S) BusManager::useParallelOutput(); // must call before creating buses
+  if (digitalCount > 1 && maxLedsOnBus <= 600 && useParallelI2S) BusManager::useParallelOutput(); // must call before creating buses
   else useParallelI2S = false; // enforce single I2S
   digitalCount = 0;
   #endif
