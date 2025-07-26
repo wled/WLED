@@ -558,8 +558,8 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
       }
       int8_t offset = constrain(offsetRaw, -59, 59);
       
-      // Extract weekdays (no validation needed as we mask to 7 bits)
-      uint8_t weekdays = request->arg("SR_W").toInt() & 0x7F;
+      // Extract weekdays (preserve all 8 bits: enabled bit + 7 weekdays)
+      uint8_t weekdays = request->arg("SR_W").toInt() & 0xFF;
       
       // Extract and validate date range
       int monthStartRaw = request->arg("SR_M").toInt();
@@ -608,8 +608,8 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
       }
       int8_t offset = constrain(offsetRaw, -59, 59);
       
-      // Extract weekdays (no validation needed as we mask to 7 bits)
-      uint8_t weekdays = request->arg("SS_W").toInt() & 0x7F;
+      // Extract weekdays (preserve all 8 bits: enabled bit + 7 weekdays)
+      uint8_t weekdays = request->arg("SS_W").toInt() & 0xFF;
       
       // Extract and validate date range
       int monthStartRaw = request->arg("SS_M").toInt();
