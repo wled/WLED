@@ -148,7 +148,7 @@ bool Segment::allocateData(size_t len) {
   if (len == 0) return false;    // nothing to do
   if (data && _dataLen >= len) { // already allocated enough (reduce fragmentation)
     if (call == 0) {
-      if(_dataLen < FAIR_DATA_PER_SEG) { // segment data is small
+      if (_dataLen < FAIR_DATA_PER_SEG) { // segment data is small
         //DEBUG_PRINTF_P(PSTR("--   Clearing data (%d): %p\n"), len, this);
         memset(data, 0, len);  // erase buffer if called during effect initialisation
         return true; // no need to reallocate
@@ -160,7 +160,7 @@ bool Segment::allocateData(size_t len) {
   //DEBUG_PRINTF_P(PSTR("--   Allocating data (%d): %p\n"), len, this);
   // limit to MAX_SEGMENT_DATA if there is no PSRAM, otherwise prefer functionality over speed
   #if defined(ARDUINO_ARCH_ESP32)
-  if(!(psramFound() && psramSafe))
+  if (!(psramFound() && psramSafe))
   #endif
   {
     if (Segment::getUsedSegmentData() + len - _dataLen > MAX_SEGMENT_DATA) {
@@ -214,7 +214,7 @@ void Segment::resetIfRequired() {
   if (!reset || !isActive()) return;
   //DEBUG_PRINTF_P(PSTR("-- Segment reset: %p\n"), this);
   if (data && _dataLen > 0) {
-    if(_dataLen > FAIR_DATA_PER_SEG) deallocateData(); // do not keep large allocations
+    if (_dataLen > FAIR_DATA_PER_SEG) deallocateData(); // do not keep large allocations
     else memset(data, 0, _dataLen);  // can prevent heap fragmentation
     DEBUG_PRINTF_P(PSTR("-- Segment %p reset, data cleared\n"), this);
   }

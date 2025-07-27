@@ -551,9 +551,6 @@ inline uint8_t hw_random8(uint32_t upperlimit) { return (hw_random8() * upperlim
 inline uint8_t hw_random8(uint32_t lowerlimit, uint32_t upperlimit) { uint32_t range = upperlimit - lowerlimit; return lowerlimit + hw_random8(range); }; // input range 0-255
 
 // memory allocation wrappers
-#ifdef CONFIG_IDF_TARGET_ESP32
-void *pixelbuffer_malloc(size_t size, bool enforcePSRAM = false); // prefer IRAM for pixel buffers if possible
-#endif
 #if !defined(ESP8266) && !defined(CONFIG_IDF_TARGET_ESP32C3)
 extern "C" {
   void *p_malloc(size_t);           // prefer PSRAM over DRAM
@@ -589,12 +586,12 @@ inline size_t getContiguousFreeHeap() { return heap_caps_get_largest_free_block(
 inline size_t getFreeHeapSize() { return ESP.getFreeHeap(); } // returns free heap
 inline size_t getContiguousFreeHeap() { return ESP.getMaxFreeBlockSize(); } // returns largest contiguous free block
 #endif
-#define  BFRALLOC_NOBYTEACCESS    (1 << 0) // ESP32 has 32bit accessible DRAM (usually ~50kB free) that must not be byte-accessed
-#define  BFRALLOC_PREFER_DRAM     (1 << 1) // prefer DRAM over PSRAM
-#define  BFRALLOC_ENFORCE_DRAM    (1 << 2) // use DRAM only, no PSRAM
-#define  BFRALLOC_PREFER_PSRAM    (1 << 3) // prefer PSRAM over DRAM
-#define  BFRALLOC_ENFORCE_PSRAM   (1 << 4) // use PSRAM if available, otherwise fall back to DRAM
-#define  BFRALLOC_CLEAR           (1 << 5) // clear allocated buffer after allocation
+#define BFRALLOC_NOBYTEACCESS    (1 << 0) // ESP32 has 32bit accessible DRAM (usually ~50kB free) that must not be byte-accessed
+#define BFRALLOC_PREFER_DRAM     (1 << 1) // prefer DRAM over PSRAM
+#define BFRALLOC_ENFORCE_DRAM    (1 << 2) // use DRAM only, no PSRAM
+#define BFRALLOC_PREFER_PSRAM    (1 << 3) // prefer PSRAM over DRAM
+#define BFRALLOC_ENFORCE_PSRAM   (1 << 4) // use PSRAM if available, otherwise fall back to DRAM
+#define BFRALLOC_CLEAR           (1 << 5) // clear allocated buffer after allocation
 void *allocate_buffer(size_t size, uint32_t type);
 
 // RAII guard class for the JSON Buffer lock

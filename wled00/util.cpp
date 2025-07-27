@@ -723,31 +723,31 @@ void *allocate_buffer(size_t size, uint32_t type) {
   #else
   #ifdef CONFIG_IDF_TARGET_ESP32
   // only classic ESP32 has this memory type. Using it frees up normal DRAM for other purposes
-  if(type & BFRALLOC_NOBYTEACCESS) {
+  if (type & BFRALLOC_NOBYTEACCESS) {
     buffer = static_cast<uint32_t*>(heap_caps_malloc(size, MALLOC_CAP_INTERNAL | MALLOC_CAP_32BIT)); // try to allocate in 32bit DRAM region
-    if((uintptr_t)buffer < SOC_DRAM_HIGH) {
+    if ((uintptr_t)buffer < SOC_DRAM_HIGH) {
       // buffer did not fit into 32bit DRAM region (located at SOC_IRAM_LOW) and was allocated in 8bit DRAM memory or is nullptr
       // if PSRAM is available and a PSRAM type is set, free the memory and try again
-      if(psramSafe && psramFound() && (type & (BFRALLOC_PREFER_PSRAM | BFRALLOC_ENFORCE_PSRAM))) {
+      if (psramSafe && psramFound() && (type & (BFRALLOC_PREFER_PSRAM | BFRALLOC_ENFORCE_PSRAM))) {
         free(buffer);
         buffer = nullptr;
       }
     }
-    if(buffer)
+    if (buffer)
       type = type & BFRALLOC_CLEAR; // we have a valid buffer, reset any additional flags except BFRALLOC_CLEAR
   }
   #endif
-  if(psramSafe && psramFound()) {
-    if(type & BFRALLOC_PREFER_DRAM) {
+  if (psramSafe && psramFound()) {
+    if (type & BFRALLOC_PREFER_DRAM) {
       buffer = d_malloc(size);
     }
-    else if(type & BFRALLOC_ENFORCE_DRAM) {
+    else if (type & BFRALLOC_ENFORCE_DRAM) {
       buffer = heap_caps_malloc(size, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT); // use DRAM only
     }
-    else if(type & BFRALLOC_PREFER_PSRAM) {
+    else if (type & BFRALLOC_PREFER_PSRAM) {
       buffer = p_malloc(size); // try to allocate in PSRAM
     }
-    else if(type & BFRALLOC_ENFORCE_PSRAM) {
+    else if (type & BFRALLOC_ENFORCE_PSRAM) {
       buffer = heap_caps_malloc(size, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT); // use PSRAM if available
     } else {
       buffer = p_malloc(size); // use PSRAM or DRAM depending on availability
@@ -755,21 +755,21 @@ void *allocate_buffer(size_t size, uint32_t type) {
   }
   else {
     #ifdef CONFIG_IDF_TARGET_ESP32
-    if(!buffer)
-        buffer = d_malloc(size); // no PSRAM available, use DRAM if not already allocated above
+    if (!buffer)
+      buffer = d_malloc(size); // no PSRAM available, use DRAM if not already allocated above
     #else
     buffer = d_malloc(size);     // no PSRAM available, use DRAM
     #endif
   }
   #endif
-  if(buffer) {
+  if (buffer) {
     // check if there is enough heap left for the UI to work
-    if(getFreeHeapSize() < MIN_HEAP_SIZE)
+    if (getFreeHeapSize() < MIN_HEAP_SIZE)
     {
       free(buffer); // free allocated buffer
       return nullptr; // return nullptr to indicate failure
     }
-    if(type & BFRALLOC_CLEAR)
+    if (type & BFRALLOC_CLEAR)
       memset(buffer, 0, size); // clear allocated buffer
   }
   return buffer;
