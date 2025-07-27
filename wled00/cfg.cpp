@@ -774,6 +774,19 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
 
 
 static const char s_cfg_json[] PROGMEM = "/cfg.json";
+static const char s_cfg_bak[]  PROGMEM = "/cfg.bak";
+
+void backupConfig() {
+  DEBUG_PRINTLN(F("Backing up current config to /cfg.bak..."));
+  Serial.println(F("Backing up current config to /cfg.bak..."));
+  copyFile(FPSTR(s_cfg_json), FPSTR(s_cfg_bak));
+}
+
+void restoreConfig() {
+  DEBUG_PRINTLN(F("Restoring backup from /cfg.bak..."));
+  Serial.println(F("Restoring backup from /cfg.bak..."));
+  copyFile(FPSTR(s_cfg_bak), FPSTR(s_cfg_json));
+}
 
 bool deserializeConfigFromFS() {
   [[maybe_unused]] bool success = deserializeConfigSec();
@@ -800,6 +813,7 @@ bool deserializeConfigFromFS() {
 
 void serializeConfigToFS() {
   serializeConfigSec();
+  backupConfig(); // backup before writing new config
 
   DEBUG_PRINTLN(F("Writing settings to /cfg.json..."));
 

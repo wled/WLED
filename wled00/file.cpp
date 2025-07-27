@@ -439,3 +439,34 @@ bool handleFileRead(AsyncWebServerRequest* request, String path){
   }
   return false;
 }
+
+// copy a file, delete dst_path if incomplete to prevent corrupted files
+bool copyFile(const String &src_path, const String &dst_path) {
+  bool success = true;
+  if(!WLED_FS.exists(src_path)) {
+    return false;
+  }
+  File src = WLED_FS.open(src_path, "r");
+  File dst = WLED_FS.open(dst_path, "w");
+  DEBUG_PRINTLN(F("copyFile from ") + src_path + F(" to ") + dst_path);
+  if (src && dst) {
+    uint8_t buf[128];
+    while (true) {
+      size_t bytesRead = src.read(buf, sizeof(buf));
+      if (bytesRead == 0) {
+        break; // EOF or error
+      }
+      size_t bytesWritten = dst.write(buf, bytesRead);
+      if (bytesWritten != bytesRead) {
+        success = false;
+      }
+    }
+  }
+  if(src) src.close();
+  if(dst) dst.close();
+  if (!success) {
+    DEBUG_PRINTLN(F("Copy failed"));
+    WLED_FS.remove(dst_path); // delete incomplete file
+  }
+  return success;
+}

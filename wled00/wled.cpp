@@ -33,7 +33,7 @@ void WLED::reset()
   DEBUG_PRINTLN(F("WLED RESET"));
   ESP.restart();
 }
-
+#include "esp32/rtc.h"      // for bootloop detection TODO: remove this!!! debug only.
 void WLED::loop()
 {
   static uint32_t      lastHeap = UINT32_MAX;
@@ -209,6 +209,32 @@ void WLED::loop()
 #endif
 
   toki.resetTick();
+
+static unsigned long debugTime=0;
+
+if(millis() -debugTime>5000) {
+debugTime=millis();
+//Serial.printf_P(PSTR("Free heap: %u, Contiguous: %u\n"), getFreeHeapSize(), getContiguousFreeHeap());
+
+uint32_t rtcTime = esp_rtc_get_time_us() / 1000;
+
+Serial.printf("RTC time in ms: %lu\n", rtcTime); // update system time, this is needed for the RTC to work properly
+//Serial.printf("tracker: %lu\n", bl_actiontracker); // update system time, this is needed for the RTC to work properly
+ // bl_actiontracker++; // debug!!!
+/*
+if(millis()  > 20000) {
+  // make it crash
+  int *p = nullptr; 
+  *p = 0x12345678; // write to null pointer
+}*/
+
+}
+/*
+// make it crash
+if(!bootLoopDetected) {
+  int *p = nullptr; 
+  *p = 0x12345678; // write to null pointer
+}*/
 
 #if WLED_WATCHDOG_TIMEOUT > 0
   // we finished our mainloop, reset the watchdog timer
@@ -410,6 +436,22 @@ void WLED::setup()
 #ifdef WLED_ADD_EEPROM_SUPPORT
   else deEEP();
 #else
+/*
+// check for bootloop
+if (detectBootLoop()) {
+  restoreConfig();
+
+  // check if backup exists
+  if (WLED_FS.exists(FPSTR(s_cfg_backup))) {
+    // just delete the config and do not overwrite the backup
+    WLED_FS.remove(FPSTR(s_cfg_json));
+  }
+  WLED_FS.rename(FPSTR(s_cfg_json), FPSTR(s_cfg_backup));
+  //reboot:
+  DEBUG_PRINTLN(F("Rebooting..."));
+  delay(1000);
+  ESP.restart();
+}*/
   initPresetsFile();
 #endif
   updateFSInfo();

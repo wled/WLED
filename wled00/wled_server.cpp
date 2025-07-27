@@ -408,6 +408,11 @@ void initServer()
       serveMessage(request, 500, F("Update failed!"), F("Please check your file and retry!"), 254);
     } else {
       serveMessage(request, 200, F("Update successful!"), FPSTR(s_rebooting), 131);
+      // let the bootloop-checker know there was an OTA update
+      #ifndef ESP8266
+      // set the bootlop action to ota revert
+      // todo: set bootloop action to config revert in config safe function
+      #endif
       doReboot = true;
     }
   },[](AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool isFinal){

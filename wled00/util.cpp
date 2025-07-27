@@ -1,7 +1,11 @@
 #include "wled.h"
 #include "fcn_declare.h"
 #include "const.h"
-
+#ifdef ESP8266
+#include "user_interface.h" // for bootloop detection
+#else
+#include "esp32/rtc.h"      // for bootloop detection
+#endif
 
 //helper to get int value at a position in string
 int getNumVal(const String &req, uint16_t pos)
@@ -705,6 +709,86 @@ void *realloc_malloc(void *ptr, size_t size) {
   return malloc(size); // fallback to malloc
 }
 #endif
+
+// bootloop detection and handling
+// checks if the ESP reboots multiple times due to a crash or watchdog timeout
+// if a bootloop is detected: restore settings from backup, then reset settings, then switch boot image (and repeat)
+
+#define BOOTLOOP_THRESHOLD 20     // number of consecutive crashes to trigger boot loop detection
+#ifdef ESP8266
+#include "user_interface.h" // for ESP8266, needed for bootloop detection
+#define BOOTLOOP_INTERVAL_TICKS (5 * 160000) // ~5 seconds in RTC ticks
+#define BOOT_TIME_IDX 0 // index in RTC memory for boot time
+#define CRASH_COUNTER_IDX 1 // index in RTC memory for crash counter
+#else
+#include "esp32/rtc.h" // ESP32
+#define BOOTLOOP_INTERVAL_TICKS 5000  // ~5 seconds
+#define BOOTLOOP_ACTION_RESTORE 0     // if bl_actiontracker is set to this, config is restored from /cfg.bak
+#define BOOTLOOP_ACTION_RESET 1       // if bl_actiontracker is set to this, config is reset (rename /cfg.json to /cfg.fault)
+#define BOOTLOOP_ACTION_OTA 2         // if bl_actiontracker is set to this, the boot partition is swapped
+// variables in RTC_NOINIT memory persist between reboots (but not on hardware reset)
+RTC_NOINIT_ATTR static uint32_t bl_last_boottime;
+RTC_NOINIT_ATTR static uint32_t bl_crashcounter;
+RTC_NOINIT_ATTR static uint32_t bl_actiontracker;
+#endif
+
+bool detectBootLoop() {
+#ifndef ESP8266
+  uint32_t rtctime = esp_rtc_get_time_us() / 1000;  // convert to milliseconds
+  esp_reset_reason_t reason = esp_reset_reason();
+
+  if (!(reason == ESP_RST_PANIC || reason == ESP_RST_WDT || reason == ESP_RST_INT_WDT || reason == ESP_RST_TASK_WDT)) {
+    // no crash detected, init variables
+    bl_crashcounter = 0;
+    bl_last_boottime = rtctime;
+    if(reason == ESP_RST_POWERON) // hardware reset
+      bl_actiontracker = 0;
+  }
+  else {
+    uint32_t rebootinterval = rtctime - bl_last_boottime;
+    bl_last_boottime = rtctime; // store current runtime for next reboot
+    if (rebootinterval < BOOTLOOP_INTERVAL_TICKS) {
+      bl_crashcounter++;
+      if (bl_crashcounter >= BOOTLOOP_THRESHOLD) {
+        DEBUG_PRINTLN(F("BOOTLOOP DETECTED"));
+        bl_crashcounter = 0;
+        return true;
+      }
+    }
+  }
+  return false;
+#else // ESP8266
+  rst_info* resetreason = system_get_rst_info();
+  uint32_t  bl_last_boottime;
+  uint32_t  bl_crashcounter;
+  uint32_t  rtctime = system_get_rtc_time();
+
+  if (!(resetreason->reason == REASON_EXCEPTION_RST || resetreason->reason == REASON_WDT_RST)) {
+    // no crash detected, init variables
+    bl_crashcounter = 0;
+    ESP.rtcUserMemoryWrite(BOOT_TIME_IDX, &rtctime, sizeof(uint32_t));
+    ESP.rtcUserMemoryWrite(CRASH_COUNTER_IDX, &bl_crashcounter, sizeof(uint32_t));
+  } else {
+    // system has crashed
+    ESP.rtcUserMemoryRead(BOOT_TIME_IDX, &bl_last_boottime, sizeof(uint32_t));
+    ESP.rtcUserMemoryRead(CRASH_COUNTER_IDX, &bl_crashcounter, sizeof(uint32_t));
+    uint32_t rebootinterval = rtctime - bl_last_boottime;
+    ESP.rtcUserMemoryWrite(BOOT_TIME_IDX, &rtctime, sizeof(uint32_t)); // store current ticks for next reboot
+    if (rebootinterval < BOOTLOOP_INTERVAL_TICKS) {
+      bl_crashcounter++;
+      ESP.rtcUserMemoryWrite(CRASH_COUNTER_IDX, &bl_crashcounter, sizeof(uint32_t));
+      if (bl_crashcounter >= BOOTLOOP_THRESHOLD) {
+        DEBUG_PRINTLN(F("BOOTLOOP DETECTED"));
+        bl_crashcounter = 0;
+        ESP.rtcUserMemoryWrite(CRASH_COUNTER_IDX, &bl_crashcounter, sizeof(uint32_t));
+        return true;
+      }
+    }
+  }
+  return false;
+#endif
+}
+
 
 /*
  * Fixed point integer based Perlin noise functions by @dedehai
