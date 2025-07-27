@@ -440,25 +440,27 @@ bool handleFileRead(AsyncWebServerRequest* request, String path){
   return false;
 }
 
-// copy a file, delete dst_path if incomplete to prevent corrupted files
+// copy a file, delete destination file if incomplete to prevent corrupted files
 bool copyFile(const String &src_path, const String &dst_path) {
-  bool success = true;
-  if(!WLED_FS.exists(src_path)) {
-    return false;
-  }
+  DEBUG_PRINTLN(F("copyFile from ") + src_path + F(" to ") + dst_path);
+  if(!WLED_FS.exists(src_path)) return false;
+
+  bool success = false;
   File src = WLED_FS.open(src_path, "r");
   File dst = WLED_FS.open(dst_path, "w");
-  DEBUG_PRINTLN(F("copyFile from ") + src_path + F(" to ") + dst_path);
+
   if (src && dst) {
     uint8_t buf[128];
-    while (true) {
+    while (src.available() > 0) {
       size_t bytesRead = src.read(buf, sizeof(buf));
       if (bytesRead == 0) {
-        break; // EOF or error
+        success = false;
+        break; // error, no data read
       }
       size_t bytesWritten = dst.write(buf, bytesRead);
       if (bytesWritten != bytesRead) {
         success = false;
+        break; // error, not all data written
       }
     }
   }

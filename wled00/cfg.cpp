@@ -774,18 +774,23 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
 
 
 static const char s_cfg_json[] PROGMEM = "/cfg.json";
-static const char s_cfg_bak[]  PROGMEM = "/cfg.bak";
+static const char s_cfg_bak[]  PROGMEM = "/cfg.bak.json";
 
-void backupConfig() {
-  DEBUG_PRINTLN(F("Backing up current config to /cfg.bak..."));
-  Serial.println(F("Backing up current config to /cfg.bak..."));
-  copyFile(FPSTR(s_cfg_json), FPSTR(s_cfg_bak));
+bool backupConfig() {
+  DEBUG_PRINTLN(F("Backup config"));
+  return copyFile(FPSTR(s_cfg_json), FPSTR(s_cfg_bak));
 }
 
-void restoreConfig() {
-  DEBUG_PRINTLN(F("Restoring backup from /cfg.bak..."));
-  Serial.println(F("Restoring backup from /cfg.bak..."));
-  copyFile(FPSTR(s_cfg_bak), FPSTR(s_cfg_json));
+bool restoreConfig() {
+  DEBUG_PRINTLN(F("Restore config"));
+  return copyFile(FPSTR(s_cfg_bak), FPSTR(s_cfg_json));
+}
+
+// rename config file and reboot
+void resetConfig() {
+  DEBUG_PRINTLN(F("Reset config"));
+  WLED_FS.rename(FPSTR(s_cfg_json), String(FPSTR(s_cfg_bak)));
+  doReboot = true;
 }
 
 bool deserializeConfigFromFS() {

@@ -715,24 +715,28 @@ void *realloc_malloc(void *ptr, size_t size) {
 // if a bootloop is detected: restore settings from backup, then reset settings, then switch boot image (and repeat)
 
 #define BOOTLOOP_THRESHOLD 20     // number of consecutive crashes to trigger boot loop detection
+#define BOOTLOOP_ACTION_RESTORE 0     // default action: restore config from /cfg.bak
+#define BOOTLOOP_ACTION_RESET   1     // if restore does not work, reset config (rename /cfg.json to /cfg.fault)
+#define BOOTLOOP_ACTION_OTA     2     // swap the boot partition
+#define BOOTLOOP_ACTION_NONE    3     // nothing seems to help, no action is taken (until hardware reset)
 #ifdef ESP8266
 #include "user_interface.h" // for ESP8266, needed for bootloop detection
-#define BOOTLOOP_INTERVAL_TICKS (5 * 160000) // ~5 seconds in RTC ticks
-#define BOOT_TIME_IDX 0 // index in RTC memory for boot time
-#define CRASH_COUNTER_IDX 1 // index in RTC memory for crash counter
+#define BOOTLOOP_INTERVAL_TICKS (5 * 160000) // time limit between crashes: ~5 seconds in RTC ticks
+#define BOOT_TIME_IDX       0 // index in RTC memory for boot time
+#define CRASH_COUNTER_IDX   1 // index in RTC memory for crash counter
+#define ACTIONT_TRACKER_IDX 2 // index in RTC memory for boot action
 #else
 #include "esp32/rtc.h" // ESP32
-#define BOOTLOOP_INTERVAL_TICKS 5000  // ~5 seconds
-#define BOOTLOOP_ACTION_RESTORE 0     // if bl_actiontracker is set to this, config is restored from /cfg.bak
-#define BOOTLOOP_ACTION_RESET 1       // if bl_actiontracker is set to this, config is reset (rename /cfg.json to /cfg.fault)
-#define BOOTLOOP_ACTION_OTA 2         // if bl_actiontracker is set to this, the boot partition is swapped
+#define BOOTLOOP_INTERVAL_TICKS 5000  // time limit between crashes: ~5 seconds in milliseconds
 // variables in RTC_NOINIT memory persist between reboots (but not on hardware reset)
 RTC_NOINIT_ATTR static uint32_t bl_last_boottime;
 RTC_NOINIT_ATTR static uint32_t bl_crashcounter;
 RTC_NOINIT_ATTR static uint32_t bl_actiontracker;
+void bootloopCheckOTA() { bl_actiontracker = BOOTLOOP_ACTION_OTA; } // swap boot image if boot loop is detected instead of restoring config
 #endif
 
-bool detectBootLoop() {
+// detect boot loop by checking the reset reason and the time since last boot
+static bool detectBootLoop() {
 #ifndef ESP8266
   uint32_t rtctime = esp_rtc_get_time_us() / 1000;  // convert to milliseconds
   esp_reset_reason_t reason = esp_reset_reason();
@@ -741,8 +745,8 @@ bool detectBootLoop() {
     // no crash detected, init variables
     bl_crashcounter = 0;
     bl_last_boottime = rtctime;
-    if(reason == ESP_RST_POWERON) // hardware reset
-      bl_actiontracker = 0;
+    if (reason == ESP_RST_POWERON) // hardware reset
+      bl_actiontracker = BOOTLOOP_ACTION_RESTORE;
   }
   else {
     uint32_t rebootinterval = rtctime - bl_last_boottime;
@@ -761,13 +765,16 @@ bool detectBootLoop() {
   rst_info* resetreason = system_get_rst_info();
   uint32_t  bl_last_boottime;
   uint32_t  bl_crashcounter;
+  uint32_t  bl_actiontracker;
   uint32_t  rtctime = system_get_rtc_time();
 
   if (!(resetreason->reason == REASON_EXCEPTION_RST || resetreason->reason == REASON_WDT_RST)) {
     // no crash detected, init variables
     bl_crashcounter = 0;
+    bl_actiontracker = BOOTLOOP_ACTION_RESTORE;
     ESP.rtcUserMemoryWrite(BOOT_TIME_IDX, &rtctime, sizeof(uint32_t));
     ESP.rtcUserMemoryWrite(CRASH_COUNTER_IDX, &bl_crashcounter, sizeof(uint32_t));
+    ESP.rtcUserMemoryWrite(ACTIONT_TRACKER_IDX, &bl_actiontracker, sizeof(uint32_t));
   } else {
     // system has crashed
     ESP.rtcUserMemoryRead(BOOT_TIME_IDX, &bl_last_boottime, sizeof(uint32_t));
@@ -789,6 +796,30 @@ bool detectBootLoop() {
 #endif
 }
 
+void handleBootLoop() {
+  if (!detectBootLoop()) return; // no boot loop detected
+#ifdef ESP8266
+  uint32_t bl_actiontracker;
+  ESP.rtcUserMemoryRead(ACTIONT_TRACKER_IDX, &bl_actiontracker, sizeof(uint32_t));
+#endif
+  if (bl_actiontracker == BOOTLOOP_ACTION_RESET) {
+    restoreConfig();
+    bl_actiontracker = BOOTLOOP_ACTION_RESET; // reset config if it keeps bootlooping
+  } else if (bl_actiontracker == BOOTLOOP_ACTION_RESET) {
+    resetConfig();
+    bl_actiontracker = BOOTLOOP_ACTION_OTA; // swap boot partition if it keeps bootlooping. On ESP8266 this is the same as BOOTLOOP_ACTION_NONE
+  }
+#ifndef ESP8266
+  else if (bl_actiontracker == BOOTLOOP_ACTION_OTA) {
+    if(Update.canRollBack()) {
+      DEBUG_PRINTLN(F("Swapping boot partition..."));
+      Update.rollBack(); // swap boot partition
+    }
+    bl_actiontracker = BOOTLOOP_ACTION_NONE; // out of options
+  }
+#endif
+  ESP.restart(); // restart cleanly and don't wait for another crash
+}
 
 /*
  * Fixed point integer based Perlin noise functions by @dedehai

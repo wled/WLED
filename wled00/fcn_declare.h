@@ -24,8 +24,9 @@ void handleIO();
 void IRAM_ATTR touchButtonISR();
 
 //cfg.cpp
-void backupConfig();
-void restoreConfig();
+bool backupConfig();
+bool restoreConfig();
+void resetConfig();
 bool deserializeConfig(JsonObject doc, bool fromFS = false);
 bool deserializeConfigFromFS();
 bool deserializeConfigSec();
@@ -583,10 +584,9 @@ extern "C" {
 #define d_free free
 #endif
 
-
-void bootloopCheckOTA(); // track bootloop actions, call this in setup() to restore config or reset it
+void handleBootLoop();   // detect and handle boot loops
 #ifndef ESP8266
-bool detectBootLoop();
+void bootloopCheckOTA(); // swap boot image if boot loop is detected instead of restoring config
 #endif
 // RAII guard class for the JSON Buffer lock
 // Modeled after std::lock_guard

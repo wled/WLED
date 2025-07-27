@@ -433,25 +433,12 @@ void WLED::setup()
     DEBUGFS_PRINTLN(F("FS failed!"));
     errorFlag = ERR_FS_BEGIN;
   }
+
+  handleBootLoop(); // check for bootloop and take action (requires WLED_FS)
+
 #ifdef WLED_ADD_EEPROM_SUPPORT
   else deEEP();
 #else
-/*
-// check for bootloop
-if (detectBootLoop()) {
-  restoreConfig();
-
-  // check if backup exists
-  if (WLED_FS.exists(FPSTR(s_cfg_backup))) {
-    // just delete the config and do not overwrite the backup
-    WLED_FS.remove(FPSTR(s_cfg_json));
-  }
-  WLED_FS.rename(FPSTR(s_cfg_json), FPSTR(s_cfg_backup));
-  //reboot:
-  DEBUG_PRINTLN(F("Rebooting..."));
-  delay(1000);
-  ESP.restart();
-}*/
   initPresetsFile();
 #endif
   updateFSInfo();
