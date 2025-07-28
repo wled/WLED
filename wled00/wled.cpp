@@ -453,8 +453,15 @@ void WLED::setup()
   findWiFi(true);      // start scanning for available WiFi-s
 
   // all GPIOs are allocated at this point
+#ifdef ARDUINO_USB_CDC_ON_BOOT
+  // USB CDC means USB D+ D- are used .. pin allocator will always return. force it as enabled instead
+  serialCanRX = true;
+  serialCanTX = true;
+#else 
+ // use RX/TX as set by the framework - these boards do _not_ have RX=3 and TX=1
   serialCanRX = !PinManager::isPinAllocated(hardwareRX); // Serial RX pin (GPIO 3 on ESP32 and ESP8266)
   serialCanTX = !PinManager::isPinAllocated(hardwareTX) || PinManager::getPinOwner(hardwareTX) == PinOwner::DebugOut; // Serial TX pin (GPIO 1 on ESP32 and ESP8266)
+#endif  // ARDUINO_USB_CDC_ON_BOOT
 
   #ifdef WLED_ENABLE_ADALIGHT
   //Serial RX (Adalight, Improv, Serial JSON) only possible if GPIO3 unused
