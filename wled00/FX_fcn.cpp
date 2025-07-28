@@ -1344,6 +1344,11 @@ void WS2812FX::blendSegment(const Segment &topSegment) const {
   uint8_t       opacity    = topSegment.currentBri(); // returns transitioned opacity for style FADE
   uint8_t       cct        = topSegment.currentCCT();
 
+  if (length == 1) {
+    // Can't blend only a single pixel, prevents crash when bus init fails
+    return;
+  }
+
   Segment::setClippingRect(0, 0);             // disable clipping by default
 
   const unsigned dw = (blendingStyle==BLEND_STYLE_OUTSIDE_IN ? progInv : progress) * width / 0xFFFFU + 1;
