@@ -69,7 +69,7 @@ void sendBytes(){
 
 void handleSerial()
 {
-  if (serialCanRX == false) {
+  if (serialCanRX == false && Serial) {
     return;
   }; // arduino docs: `if (Serial)` indicates whether or not the USB CDC serial connection is open. For all non-USB CDC ports, this will always return true
 
