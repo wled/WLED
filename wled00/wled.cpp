@@ -33,7 +33,7 @@ void WLED::reset()
   DEBUG_PRINTLN(F("WLED RESET"));
   ESP.restart();
 }
-#include "esp32/rtc.h"      // for bootloop detection TODO: remove this!!! debug only.
+
 void WLED::loop()
 {
   static uint32_t      lastHeap = UINT32_MAX;
