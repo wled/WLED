@@ -441,16 +441,19 @@ bool handleFileRead(AsyncWebServerRequest* request, String path){
 }
 
 // copy a file, delete destination file if incomplete to prevent corrupted files
-bool copyFile(const String &src_path, const String &dst_path) {
-  DEBUG_PRINTLN(F("copyFile from ") + src_path + F(" to ") + dst_path);
-  if(!WLED_FS.exists(src_path)) return false;
+bool copyFile(const char* src_path, const char* dst_path) {
+  DEBUG_PRINTF("copyFile from %s to %s", src_path, dst_path);
+  if(!WLED_FS.exists(src_path)) {
+   DEBUG_PRINTLN(F("file not found"));
+   return false;
+  }
 
   bool success = false;
   File src = WLED_FS.open(src_path, "r");
   File dst = WLED_FS.open(dst_path, "w");
 
   if (src && dst) {
-    uint8_t buf[128];
+    uint8_t buf[128]; // copy file in 128-byte blocks
     while (src.available() > 0) {
       size_t bytesRead = src.read(buf, sizeof(buf));
       if (bytesRead == 0) {
@@ -467,8 +470,65 @@ bool copyFile(const String &src_path, const String &dst_path) {
   if(src) src.close();
   if(dst) dst.close();
   if (!success) {
-    DEBUG_PRINTLN(F("Copy failed"));
+    DEBUG_PRINTLN(F("copy failed"));
     WLED_FS.remove(dst_path); // delete incomplete file
   }
   return success;
 }
+
+static const char s_backup_json[] PROGMEM = ".bkp.json";
+
+bool backupFile(const char* filename) {
+  DEBUG_PRINTF("backup %s", filename);
+  if (!WLED_FS.exists(filename)) return false;
+  char backupname[32];
+  strcpy(backupname, filename);
+  strcat(backupname, s_backup_json);
+
+  if (copyFile(filename, backupname)) {
+    DEBUG_PRINTLN(F("backup ok"));
+    return true;
+  }
+  DEBUG_PRINTLN(F("backup failed"));
+  return false;
+}
+
+bool restoreFile(const char* filename) {
+  DEBUG_PRINTF("restore %s", filename);
+  char backupname[32];
+  strcpy(backupname, filename);
+  strcat(backupname, s_backup_json);
+
+  if (!WLED_FS.exists(backupname)) {
+    DEBUG_PRINTLN(F("no backup found"));
+    return false;
+  }
+
+  if (copyFile(backupname, filename)) {
+    DEBUG_PRINTLN(F("restore ok"));
+    return true;
+  }
+  DEBUG_PRINTLN(F("restore failed"));
+  return false;
+}
+
+// print contents of all files in root dir to Serial except wsec files
+void dumpFilesToSerial() {
+  File rootdir = WLED_FS.open("/");
+  File rootfile = rootdir.openNextFile();
+  while (rootfile) {
+    size_t len = strlen(rootfile.name());
+    // skip files starting with "wsec" and dont end in .json
+    if (strncmp(rootfile.name(), "wsec", 4) != 0 && len >= 6 && strcmp(rootfile.name() + len - 5, ".json") == 0) {
+      Serial.println(rootfile.name());
+      while (rootfile.available()) {
+        Serial.write(rootfile.read());
+      }
+      Serial.println();
+      Serial.println();
+    }
+    rootfile.close();
+    rootfile = rootdir.openNextFile();
+  }
+}
+

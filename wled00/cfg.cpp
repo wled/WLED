@@ -772,24 +772,23 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
   return (doc["sv"] | true);
 }
 
-
 static const char s_cfg_json[] PROGMEM = "/cfg.json";
-static const char s_cfg_bak[]  PROGMEM = "/cfg.bak.json";
 
 bool backupConfig() {
-  DEBUG_PRINTLN(F("Backup config"));
-  return copyFile(FPSTR(s_cfg_json), FPSTR(s_cfg_bak));
+  return backupFile(s_cfg_json);
 }
 
 bool restoreConfig() {
-  DEBUG_PRINTLN(F("Restore config"));
-  return copyFile(FPSTR(s_cfg_bak), FPSTR(s_cfg_json));
+  return restoreFile(s_cfg_json);
 }
 
 // rename config file and reboot
 void resetConfig() {
   DEBUG_PRINTLN(F("Reset config"));
-  WLED_FS.rename(FPSTR(s_cfg_json), String(FPSTR(s_cfg_bak)));
+  char backupname[32];
+  strcpy(backupname, s_cfg_json);
+  strcat(backupname, ".rst.json");
+  WLED_FS.rename(s_cfg_json, backupname);
   doReboot = true;
 }
 

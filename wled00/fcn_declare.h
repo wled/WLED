@@ -227,6 +227,9 @@ inline bool writeObjectToFile(const String &file, const char* key, const JsonDoc
 inline bool readObjectFromFileUsingId(const String &file, uint16_t id, JsonDocument* dest, const JsonDocument* filter = nullptr) { return readObjectFromFileUsingId(file.c_str(), id, dest); };
 inline bool readObjectFromFile(const String &file, const char* key, JsonDocument* dest, const JsonDocument* filter = nullptr) { return readObjectFromFile(file.c_str(), key, dest); };
 bool copyFile(const String &src_path, const String &dst_path);
+bool backupFile(const char* filename);
+bool restoreFile(const char* filename);
+void dumpFilesToSerial();
 
 //hue.cpp
 void handleHue();
@@ -584,9 +587,9 @@ extern "C" {
 #define d_free free
 #endif
 
-void handleBootLoop();   // detect and handle boot loops
+void handleBootLoop();   // detect and handle bootloops
 #ifndef ESP8266
-void bootloopCheckOTA(); // swap boot image if boot loop is detected instead of restoring config
+void bootloopCheckOTA(); // swap boot image if bootloop is detected instead of restoring config
 #endif
 // RAII guard class for the JSON Buffer lock
 // Modeled after std::lock_guard

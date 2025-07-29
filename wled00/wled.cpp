@@ -210,32 +210,6 @@ void WLED::loop()
 
   toki.resetTick();
 
-static unsigned long debugTime=0;
-
-if(millis() -debugTime>5000) {
-debugTime=millis();
-//Serial.printf_P(PSTR("Free heap: %u, Contiguous: %u\n"), getFreeHeapSize(), getContiguousFreeHeap());
-
-uint32_t rtcTime = esp_rtc_get_time_us() / 1000;
-
-Serial.printf("RTC time in ms: %lu\n", rtcTime); // update system time, this is needed for the RTC to work properly
-//Serial.printf("tracker: %lu\n", bl_actiontracker); // update system time, this is needed for the RTC to work properly
- // bl_actiontracker++; // debug!!!
-/*
-if(millis()  > 20000) {
-  // make it crash
-  int *p = nullptr; 
-  *p = 0x12345678; // write to null pointer
-}*/
-
-}
-/*
-// make it crash
-if(!bootLoopDetected) {
-  int *p = nullptr; 
-  *p = 0x12345678; // write to null pointer
-}*/
-
 #if WLED_WATCHDOG_TIMEOUT > 0
   // we finished our mainloop, reset the watchdog timer
   static unsigned long lastWDTFeed = 0;
