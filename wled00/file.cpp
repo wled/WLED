@@ -514,7 +514,7 @@ bool restoreFile(const char* filename) {
 
 // print contents of all files in root dir to Serial except wsec files
 void dumpFilesToSerial() {
-  File rootdir = WLED_FS.open("/");
+  File rootdir = WLED_FS.open("/", "r");
   File rootfile = rootdir.openNextFile();
   while (rootfile) {
     size_t len = strlen(rootfile.name());
