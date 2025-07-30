@@ -807,17 +807,17 @@ WLED_GLOBAL bool hueStoreAllowed _INIT(false), hueNewKey _INIT(false);
 WLED_GLOBAL unsigned long countdownTime _INIT(1514764800L);
 WLED_GLOBAL bool countdownOverTriggered _INIT(true);
 
-//timer
+//timer - expanded to support 32 regular timers + 2 sunrise/sunset (34 total)
 WLED_GLOBAL byte lastTimerMinute  _INIT(0);
-WLED_GLOBAL byte timerHours[]     _INIT_N(({ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 }));
-WLED_GLOBAL int8_t timerMinutes[] _INIT_N(({ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 }));
-WLED_GLOBAL byte timerMacro[]     _INIT_N(({ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 }));
+WLED_GLOBAL byte timerHours[34]     _INIT_N(({ 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 }));
+WLED_GLOBAL int8_t timerMinutes[34] _INIT_N(({ 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 }));
+WLED_GLOBAL byte timerMacro[34]     _INIT_N(({ 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 }));
 //weekdays to activate on, bit pattern of arr elem: 0b11111111: sun,sat,fri,thu,wed,tue,mon,validity
-WLED_GLOBAL byte timerWeekday[]   _INIT_N(({ 255, 255, 255, 255, 255, 255, 255, 255, 255, 255 }));
-//upper 4 bits start, lower 4 bits end month (default 28: start month 1 and end month 12)
-WLED_GLOBAL byte timerMonth[]     _INIT_N(({28,28,28,28,28,28,28,28}));
-WLED_GLOBAL byte timerDay[]       _INIT_N(({1,1,1,1,1,1,1,1}));
-WLED_GLOBAL byte timerDayEnd[]		_INIT_N(({31,31,31,31,31,31,31,31}));
+WLED_GLOBAL byte timerWeekday[34]   _INIT_N(({ 255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255 }));
+//upper 4 bits start, lower 4 bits end month (default 28: start month 1 and end month 12) - expanded to 32 elements
+WLED_GLOBAL byte timerMonth[32]     _INIT_N(({28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28}));
+WLED_GLOBAL byte timerDay[32]       _INIT_N(({1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1}));
+WLED_GLOBAL byte timerDayEnd[32]		_INIT_N(({31,31,31,31,31,31,31,31,31,31,31,31,31,31,31,31,31,31,31,31,31,31,31,31,31,31,31,31,31,31,31,31}));
 WLED_GLOBAL bool doAdvancePlaylist _INIT(false);
 
 //improv
