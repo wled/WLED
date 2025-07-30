@@ -715,59 +715,59 @@ void *realloc_malloc(void *ptr, size_t size) {
 
 // allocation function for large buffers like pixel-buffers and segment data
 // ensures that a contiguous block of MIN_HEAP_SIZE remains to keep the UI working, otherwise returns nullptr
-// if multiple conflicting types are defined, the lowest bits take priority
+// if multiple conflicting types are defined, the lowest bits of "type" take priority (see fcn_declare.h for types)
 void *allocate_buffer(size_t size, uint32_t type) {
   void *buffer = nullptr;
+
   #if defined(ESP8266) || defined(CONFIG_IDF_TARGET_ESP32C3) // ESP8266 does not support PSRAM, ESP32-C3 does not have PSRAM
   buffer = d_malloc(size);
   #else
   #ifdef CONFIG_IDF_TARGET_ESP32
-  // only classic ESP32 has this memory type. Using it frees up normal DRAM for other purposes
+  // only classic ESP32 has "32bit accessible only" aka IRAM type. Using it frees up normal DRAM for other purposes
+  // this memory region is used for IRAM_ATTR functions, whatever is left is unused and can be used for pixel buffers
+  // prefer this type over PSRAM as it is slightly faster, except for _pixels where it is on-par as PSRAM-caching does a good job for mostly sequential access
   if (type & BFRALLOC_NOBYTEACCESS) {
     buffer = static_cast<uint32_t*>(heap_caps_malloc(size, MALLOC_CAP_INTERNAL | MALLOC_CAP_32BIT)); // try to allocate in 32bit DRAM region
     if ((uintptr_t)buffer < SOC_DRAM_HIGH) {
-      // buffer did not fit into 32bit DRAM region (located at SOC_IRAM_LOW) and was allocated in 8bit DRAM memory or is nullptr
-      // if PSRAM is available and a PSRAM type is set, free the memory and try again
+      // buffer was allocated in normal DRAM and did not fit into 32bit DRAM region located at SOC_IRAM_LOW (or is nullptr)
+      // if PSRAM is available and a PSRAM type is set as an option, free the DRAM memory and continue below
       if (psramSafe && psramFound() && (type & (BFRALLOC_PREFER_PSRAM | BFRALLOC_ENFORCE_PSRAM))) {
         free(buffer);
         buffer = nullptr;
       }
     }
     if (buffer)
-      type = type & BFRALLOC_CLEAR; // we have a valid buffer, reset any additional flags except BFRALLOC_CLEAR
+      type = type & BFRALLOC_CLEAR; // we have a valid buffer, clear any additional flags except BFRALLOC_CLEAR
   }
   #endif
   if (psramSafe && psramFound()) {
     if (type & BFRALLOC_PREFER_DRAM) {
-      buffer = d_malloc(size);
+      buffer = d_malloc(size); // allocate in DRAM if enough free heap is available, PSRAM as fallback
     }
     else if (type & BFRALLOC_ENFORCE_DRAM) {
-      buffer = heap_caps_malloc(size, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT); // use DRAM only
+      buffer = heap_caps_malloc(size, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT); // use DRAM only, otherwise return nullptr
     }
     else if (type & BFRALLOC_PREFER_PSRAM) {
-      buffer = p_malloc(size); // try to allocate in PSRAM
+      buffer = p_malloc(size); // prefer PSRAM: uses DRAM if vast amounts are available to optimize speed
     }
     else if (type & BFRALLOC_ENFORCE_PSRAM) {
-      buffer = heap_caps_malloc(size, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT); // use PSRAM if available
-    } else {
-      buffer = p_malloc(size); // use PSRAM or DRAM depending on availability
+      buffer = heap_caps_malloc(size, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT); // use PSRAM only, otherwise return nullptr
     }
   }
   else {
     #ifdef CONFIG_IDF_TARGET_ESP32
     if (!buffer)
-      buffer = d_malloc(size); // no PSRAM available, use DRAM if not already allocated above
+      buffer = d_malloc(size); // no PSRAM available, use DRAM if not already allocated to 32bit-only region
     #else
-    buffer = d_malloc(size);     // no PSRAM available, use DRAM
+    buffer = d_malloc(size);   // no PSRAM available, use DRAM
     #endif
   }
   #endif
   if (buffer) {
-    // check if there is enough heap left for the UI to work
-    if (getFreeHeapSize() < MIN_HEAP_SIZE)
-    {
-      free(buffer); // free allocated buffer
-      return nullptr; // return nullptr to indicate failure
+    // limit check: leave enough free heap for UI and other tasks
+    if (getContiguousFreeHeap() < MIN_HEAP_SIZE) {
+      free(buffer);   // free allocated buffer
+      return nullptr;
     }
     if (type & BFRALLOC_CLEAR)
       memset(buffer, 0, size); // clear allocated buffer

@@ -550,7 +550,7 @@ static_assert(WLED_MAX_BUSSES <= 32, "WLED_MAX_BUSSES exceeds hard limit");
 #ifdef ESP8266
   #define MIN_HEAP_SIZE (8*1024)
 #else
-  #define MIN_HEAP_SIZE (12*1024)
+  #define MIN_HEAP_SIZE (9*1024)
 #endif
 // threshold for PSRAM use: if heap is running low, requests above PSRAM_THRESHOLD will be allocated in PSRAM
 // if heap is plenty, requests below PSRAM_THRESHOLD will be allocated in DRAM for speed

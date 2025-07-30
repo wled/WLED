@@ -165,18 +165,18 @@ bool Segment::allocateData(size_t len) {
   {
     if (Segment::getUsedSegmentData() + len - _dataLen > MAX_SEGMENT_DATA) {
       // not enough memory
-      DEBUG_PRINTF_P(PSTR("!!! Not enough RAM: %d/%d !!!\n"), len, Segment::getUsedSegmentData());
+      DEBUG_PRINTF_P(PSTR("SegmentData limit reached: %d/%d\n"), len, Segment::getUsedSegmentData());
       errorFlag = ERR_NORAM;
       return false;
     }
   }
-  // prefer DRAM over PSRAM for speed
+
   if (data) {
     d_free(data); // free data and try to allocate again (segment buffer may be blocking contiguous heap)
     Segment::addUsedSegmentData(-_dataLen); // subtract buffer size
   }
 
-  data = static_cast<byte*>(allocate_buffer(len, BFRALLOC_PREFER_DRAM | BFRALLOC_CLEAR));
+  data = static_cast<byte*>(allocate_buffer(len, BFRALLOC_PREFER_DRAM | BFRALLOC_CLEAR));   // prefer DRAM over PSRAM for speed
 
   if (data) {
     Segment::addUsedSegmentData(len);
