@@ -5,6 +5,8 @@
 //#define NPB_CONF_4STEP_CADENCE
 #include "NeoPixelBusLg.h"
 
+uint8_t globalBrightness = 255; // global brightness for digital busses, set by setBrightness()
+
 //Hardware SPI Pins
 #define P_8266_HS_MOSI 13
 #define P_8266_HS_CLK  14
@@ -775,11 +777,29 @@ class PolyBus {
     return true;
   }
 
+#define R(c) (byte((c) >> 16))
+#define G(c) (byte((c) >> 8))
+#define B(c) (byte(c))
+#define W(c) (byte((c) >> 24))
+
   [[gnu::hot]] static void setPixelColor(void* busPtr, uint8_t busType, uint16_t pix, uint32_t c, uint8_t co, uint16_t wwcw = 0) {
-    uint8_t r = c >> 16;
-    uint8_t g = c >> 8;
-    uint8_t b = c >> 0;
-    uint8_t w = c >> 24;
+
+  // apply global brightness using video scaling: keep a minimum of 1 for each channel if non zero
+  uint32_t addRemains = 0;
+  addRemains  = R(c) ? 0x00010000 : 0;
+  addRemains |= G(c) ? 0x00000100 : 0;
+  addRemains |= B(c) ? 0x00000001 : 0;
+  addRemains |= W(c) ? 0x01000000 : 0;
+
+  const uint32_t TWO_CHANNEL_MASK = 0x00FF00FF;
+  uint32_t rb = (((c & TWO_CHANNEL_MASK) * globalBrightness) >> 8) &  TWO_CHANNEL_MASK; // scale red and blue
+  uint32_t wg = (((c >> 8) & TWO_CHANNEL_MASK) * globalBrightness) & ~TWO_CHANNEL_MASK; // scale white and green
+  c = (rb | wg) + addRemains;
+
+    uint8_t r = R(c);
+    uint8_t g = G(c);
+    uint8_t b = B(c);
+    uint8_t w = W(c);
     RgbwColor col;
     uint8_t cctWW = wwcw & 0xFF, cctCW = (wwcw>>8) & 0xFF;
 
@@ -897,99 +917,7 @@ class PolyBus {
   }
 
   static void setBrightness(void* busPtr, uint8_t busType, uint8_t b) {
-    switch (busType) {
-      case I_NONE: break;
-    #ifdef ESP8266
-      case I_8266_U0_NEO_3: (static_cast<B_8266_U0_NEO_3*>(busPtr))->SetLuminance(b); break;
-      case I_8266_U1_NEO_3: (static_cast<B_8266_U1_NEO_3*>(busPtr))->SetLuminance(b); break;
-      case I_8266_DM_NEO_3: (static_cast<B_8266_DM_NEO_3*>(busPtr))->SetLuminance(b); break;
-      case I_8266_BB_NEO_3: (static_cast<B_8266_BB_NEO_3*>(busPtr))->SetLuminance(b); break;
-      case I_8266_U0_NEO_4: (static_cast<B_8266_U0_NEO_4*>(busPtr))->SetLuminance(b); break;
-      case I_8266_U1_NEO_4: (static_cast<B_8266_U1_NEO_4*>(busPtr))->SetLuminance(b); break;
-      case I_8266_DM_NEO_4: (static_cast<B_8266_DM_NEO_4*>(busPtr))->SetLuminance(b); break;
-      case I_8266_BB_NEO_4: (static_cast<B_8266_BB_NEO_4*>(busPtr))->SetLuminance(b); break;
-      case I_8266_U0_400_3: (static_cast<B_8266_U0_400_3*>(busPtr))->SetLuminance(b); break;
-      case I_8266_U1_400_3: (static_cast<B_8266_U1_400_3*>(busPtr))->SetLuminance(b); break;
-      case I_8266_DM_400_3: (static_cast<B_8266_DM_400_3*>(busPtr))->SetLuminance(b); break;
-      case I_8266_BB_400_3: (static_cast<B_8266_BB_400_3*>(busPtr))->SetLuminance(b); break;
-      case I_8266_U0_TM1_4: (static_cast<B_8266_U0_TM1_4*>(busPtr))->SetLuminance(b); break;
-      case I_8266_U1_TM1_4: (static_cast<B_8266_U1_TM1_4*>(busPtr))->SetLuminance(b); break;
-      case I_8266_DM_TM1_4: (static_cast<B_8266_DM_TM1_4*>(busPtr))->SetLuminance(b); break;
-      case I_8266_BB_TM1_4: (static_cast<B_8266_BB_TM1_4*>(busPtr))->SetLuminance(b); break;
-      case I_8266_U0_TM2_3: (static_cast<B_8266_U0_TM2_3*>(busPtr))->SetLuminance(b); break;
-      case I_8266_U1_TM2_3: (static_cast<B_8266_U1_TM2_3*>(busPtr))->SetLuminance(b); break;
-      case I_8266_DM_TM2_3: (static_cast<B_8266_DM_TM2_3*>(busPtr))->SetLuminance(b); break;
-      case I_8266_BB_TM2_3: (static_cast<B_8266_BB_TM2_3*>(busPtr))->SetLuminance(b); break;
-      case I_8266_U0_UCS_3: (static_cast<B_8266_U0_UCS_3*>(busPtr))->SetLuminance(b); break;
-      case I_8266_U1_UCS_3: (static_cast<B_8266_U1_UCS_3*>(busPtr))->SetLuminance(b); break;
-      case I_8266_DM_UCS_3: (static_cast<B_8266_DM_UCS_3*>(busPtr))->SetLuminance(b); break;
-      case I_8266_BB_UCS_3: (static_cast<B_8266_BB_UCS_3*>(busPtr))->SetLuminance(b); break;
-      case I_8266_U0_UCS_4: (static_cast<B_8266_U0_UCS_4*>(busPtr))->SetLuminance(b); break;
-      case I_8266_U1_UCS_4: (static_cast<B_8266_U1_UCS_4*>(busPtr))->SetLuminance(b); break;
-      case I_8266_DM_UCS_4: (static_cast<B_8266_DM_UCS_4*>(busPtr))->SetLuminance(b); break;
-      case I_8266_BB_UCS_4: (static_cast<B_8266_BB_UCS_4*>(busPtr))->SetLuminance(b); break;
-      case I_8266_U0_APA106_3: (static_cast<B_8266_U0_APA106_3*>(busPtr))->SetLuminance(b); break;
-      case I_8266_U1_APA106_3: (static_cast<B_8266_U1_APA106_3*>(busPtr))->SetLuminance(b); break;
-      case I_8266_DM_APA106_3: (static_cast<B_8266_DM_APA106_3*>(busPtr))->SetLuminance(b); break;
-      case I_8266_BB_APA106_3: (static_cast<B_8266_BB_APA106_3*>(busPtr))->SetLuminance(b); break;
-      case I_8266_U0_FW6_5: (static_cast<B_8266_U0_FW6_5*>(busPtr))->SetLuminance(b); break;
-      case I_8266_U1_FW6_5: (static_cast<B_8266_U1_FW6_5*>(busPtr))->SetLuminance(b); break;
-      case I_8266_DM_FW6_5: (static_cast<B_8266_DM_FW6_5*>(busPtr))->SetLuminance(b); break;
-      case I_8266_BB_FW6_5: (static_cast<B_8266_BB_FW6_5*>(busPtr))->SetLuminance(b); break;
-      case I_8266_U0_2805_5: (static_cast<B_8266_U0_2805_5*>(busPtr))->SetLuminance(b); break;
-      case I_8266_U1_2805_5: (static_cast<B_8266_U1_2805_5*>(busPtr))->SetLuminance(b); break;
-      case I_8266_DM_2805_5: (static_cast<B_8266_DM_2805_5*>(busPtr))->SetLuminance(b); break;
-      case I_8266_BB_2805_5: (static_cast<B_8266_BB_2805_5*>(busPtr))->SetLuminance(b); break;
-      case I_8266_U0_TM1914_3: (static_cast<B_8266_U0_TM1914_3*>(busPtr))->SetLuminance(b); break;
-      case I_8266_U1_TM1914_3: (static_cast<B_8266_U1_TM1914_3*>(busPtr))->SetLuminance(b); break;
-      case I_8266_DM_TM1914_3: (static_cast<B_8266_DM_TM1914_3*>(busPtr))->SetLuminance(b); break;
-      case I_8266_BB_TM1914_3: (static_cast<B_8266_BB_TM1914_3*>(busPtr))->SetLuminance(b); break;
-      case I_8266_U0_SM16825_5: (static_cast<B_8266_U0_SM16825_5*>(busPtr))->SetLuminance(b); break;
-      case I_8266_U1_SM16825_5: (static_cast<B_8266_U1_SM16825_5*>(busPtr))->SetLuminance(b); break;
-      case I_8266_DM_SM16825_5: (static_cast<B_8266_DM_SM16825_5*>(busPtr))->SetLuminance(b); break;
-      case I_8266_BB_SM16825_5: (static_cast<B_8266_BB_SM16825_5*>(busPtr))->SetLuminance(b); break;
-    #endif
-    #ifdef ARDUINO_ARCH_ESP32
-      // RMT buses
-      case I_32_RN_NEO_3: (static_cast<B_32_RN_NEO_3*>(busPtr))->SetLuminance(b); break;
-      case I_32_RN_NEO_4: (static_cast<B_32_RN_NEO_4*>(busPtr))->SetLuminance(b); break;
-      case I_32_RN_400_3: (static_cast<B_32_RN_400_3*>(busPtr))->SetLuminance(b); break;
-      case I_32_RN_TM1_4: (static_cast<B_32_RN_TM1_4*>(busPtr))->SetLuminance(b); break;
-      case I_32_RN_TM2_3: (static_cast<B_32_RN_TM2_3*>(busPtr))->SetLuminance(b); break;
-      case I_32_RN_UCS_3: (static_cast<B_32_RN_UCS_3*>(busPtr))->SetLuminance(b); break;
-      case I_32_RN_UCS_4: (static_cast<B_32_RN_UCS_4*>(busPtr))->SetLuminance(b); break;
-      case I_32_RN_APA106_3: (static_cast<B_32_RN_APA106_3*>(busPtr))->SetLuminance(b); break;
-      case I_32_RN_FW6_5: (static_cast<B_32_RN_FW6_5*>(busPtr))->SetLuminance(b); break;
-      case I_32_RN_2805_5: (static_cast<B_32_RN_2805_5*>(busPtr))->SetLuminance(b); break;
-      case I_32_RN_TM1914_3: (static_cast<B_32_RN_TM1914_3*>(busPtr))->SetLuminance(b); break;
-      case I_32_RN_SM16825_5: (static_cast<B_32_RN_SM16825_5*>(busPtr))->SetLuminance(b); break;
-      // I2S1 bus or paralell buses
-      #ifndef CONFIG_IDF_TARGET_ESP32C3
-      case I_32_I2_NEO_3: if (_useParallelI2S) (static_cast<B_32_IP_NEO_3*>(busPtr))->SetLuminance(b); else (static_cast<B_32_I2_NEO_3*>(busPtr))->SetLuminance(b); break;
-      case I_32_I2_NEO_4: if (_useParallelI2S) (static_cast<B_32_IP_NEO_4*>(busPtr))->SetLuminance(b); else (static_cast<B_32_I2_NEO_4*>(busPtr))->SetLuminance(b); break;
-      case I_32_I2_400_3: if (_useParallelI2S) (static_cast<B_32_IP_400_3*>(busPtr))->SetLuminance(b); else (static_cast<B_32_I2_400_3*>(busPtr))->SetLuminance(b); break;
-      case I_32_I2_TM1_4: if (_useParallelI2S) (static_cast<B_32_IP_TM1_4*>(busPtr))->SetLuminance(b); else (static_cast<B_32_I2_TM1_4*>(busPtr))->SetLuminance(b); break;
-      case I_32_I2_TM2_3: if (_useParallelI2S) (static_cast<B_32_IP_TM2_3*>(busPtr))->SetLuminance(b); else (static_cast<B_32_I2_TM2_3*>(busPtr))->SetLuminance(b); break;
-      case I_32_I2_UCS_3: if (_useParallelI2S) (static_cast<B_32_IP_UCS_3*>(busPtr))->SetLuminance(b); else (static_cast<B_32_I2_UCS_3*>(busPtr))->SetLuminance(b); break;
-      case I_32_I2_UCS_4: if (_useParallelI2S) (static_cast<B_32_IP_UCS_4*>(busPtr))->SetLuminance(b); else (static_cast<B_32_I2_UCS_4*>(busPtr))->SetLuminance(b); break;
-      case I_32_I2_APA106_3: if (_useParallelI2S) (static_cast<B_32_IP_APA106_3*>(busPtr))->SetLuminance(b); else (static_cast<B_32_I2_APA106_3*>(busPtr))->SetLuminance(b); break;
-      case I_32_I2_FW6_5: if (_useParallelI2S) (static_cast<B_32_IP_FW6_5*>(busPtr))->SetLuminance(b); else (static_cast<B_32_I2_FW6_5*>(busPtr))->SetLuminance(b); break;
-      case I_32_I2_2805_5: if (_useParallelI2S) (static_cast<B_32_IP_2805_5*>(busPtr))->SetLuminance(b); else (static_cast<B_32_I2_2805_5*>(busPtr))->SetLuminance(b); break;
-      case I_32_I2_TM1914_3: if (_useParallelI2S) (static_cast<B_32_IP_TM1914_3*>(busPtr))->SetLuminance(b); else (static_cast<B_32_I2_TM1914_3*>(busPtr))->SetLuminance(b); break;
-      case I_32_I2_SM16825_5: if (_useParallelI2S) (static_cast<B_32_IP_SM16825_5*>(busPtr))->SetLuminance(b); else (static_cast<B_32_I2_SM16825_5*>(busPtr))->SetLuminance(b); break;
-      #endif
-    #endif
-      case I_HS_DOT_3: (static_cast<B_HS_DOT_3*>(busPtr))->SetLuminance(b); break;
-      case I_SS_DOT_3: (static_cast<B_SS_DOT_3*>(busPtr))->SetLuminance(b); break;
-      case I_HS_LPD_3: (static_cast<B_HS_LPD_3*>(busPtr))->SetLuminance(b); break;
-      case I_SS_LPD_3: (static_cast<B_SS_LPD_3*>(busPtr))->SetLuminance(b); break;
-      case I_HS_LPO_3: (static_cast<B_HS_LPO_3*>(busPtr))->SetLuminance(b); break;
-      case I_SS_LPO_3: (static_cast<B_SS_LPO_3*>(busPtr))->SetLuminance(b); break;
-      case I_HS_WS1_3: (static_cast<B_HS_WS1_3*>(busPtr))->SetLuminance(b); break;
-      case I_SS_WS1_3: (static_cast<B_SS_WS1_3*>(busPtr))->SetLuminance(b); break;
-      case I_HS_P98_3: (static_cast<B_HS_P98_3*>(busPtr))->SetLuminance(b); break;
-      case I_SS_P98_3: (static_cast<B_SS_P98_3*>(busPtr))->SetLuminance(b); break;
-    }
+    globalBrightness = b;
   }
 
   [[gnu::hot]] static uint32_t getPixelColor(void* busPtr, uint8_t busType, uint16_t pix, uint8_t co) {
