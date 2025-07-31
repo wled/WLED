@@ -5,7 +5,7 @@
 //#define NPB_CONF_4STEP_CADENCE
 #include "NeoPixelBusLg.h"
 
-uint8_t globalBrightness = 255; // global brightness for digital busses, set by setBrightness()
+uint32_t globalBrightness = 255; // global brightness for digital busses, set by setBrightness()
 
 //Hardware SPI Pins
 #define P_8266_HS_MOSI 13
@@ -784,27 +784,45 @@ class PolyBus {
 
   [[gnu::hot]] static void setPixelColor(void* busPtr, uint8_t busType, uint16_t pix, uint32_t c, uint8_t co, uint16_t wwcw = 0) {
 
-  // apply global brightness using video scaling: keep a minimum of 1 for each channel if non zero
-  uint32_t addRemains = 0;
-  addRemains  = R(c) ? 0x00010000 : 0;
-  addRemains |= G(c) ? 0x00000100 : 0;
-  addRemains |= B(c) ? 0x00000001 : 0;
-  addRemains |= W(c) ? 0x01000000 : 0;
-
-  const uint32_t TWO_CHANNEL_MASK = 0x00FF00FF;
-  uint32_t rb = (((c & TWO_CHANNEL_MASK) * globalBrightness) >> 8) &  TWO_CHANNEL_MASK; // scale red and blue
-  uint32_t wg = (((c >> 8) & TWO_CHANNEL_MASK) * globalBrightness) & ~TWO_CHANNEL_MASK; // scale white and green
-  c = (rb | wg) + addRemains;
-
-    uint8_t r = R(c);
-    uint8_t g = G(c);
-    uint8_t b = B(c);
-    uint8_t w = W(c);
     RgbwColor col;
     uint8_t cctWW = wwcw & 0xFF, cctCW = (wwcw>>8) & 0xFF;
+    uint8_t r, g, b, w;
+    if(c > 0) {
+      if(globalBrightness < 255) {
+        // apply global brightness using video scaling: keep a minimum of 1 for each channel if non zero but preserve hue
+        uint8_t origR = R(c);
+        uint8_t origG = G(c);
+        uint8_t origB = B(c);
 
-    // reorder channels to selected order
-    switch (co & 0x0F) {
+        // determine dominant channel for hue preservation
+        uint8_t maxc = (origR > origG) ? ((origR > origB) ? origR : origB) : ((origG > origB) ? origG : origB);
+        uint8_t halfMax = maxc >> 1;
+
+        // apply global brightness note: adding +128 for rounding makes virtually no visual difference
+        r = (origR * globalBrightness) >> 8;
+        g = (origG * globalBrightness) >> 8;
+        b = (origB * globalBrightness) >> 8;
+        w = (W(c) *  globalBrightness) >> 8;
+
+        // Hue-preserving rule:
+        r |= ((r == 0) ? 1 : 0) & ((origR > halfMax) ? 1 : 0);
+        g |= ((g == 0) ? 1 : 0) & ((origG > halfMax) ? 1 : 0);
+        b |= ((b == 0) ? 1 : 0) & ((origB > halfMax) ? 1 : 0);
+      }
+      else {
+        r = R(c);
+        g = G(c);
+        b = B(c);
+        w = W(c);
+      }
+
+    }
+    else {
+      col = 0;
+    }
+
+         // reorder channels to selected order
+      switch (co & 0x0F) {
       default: col.G = g; col.R = r; col.B = b; break; //0 = GRB, default
       case  1: col.G = r; col.R = g; col.B = b; break; //1 = RGB, common for WS2811
       case  2: col.G = b; col.R = r; col.B = g; break; //2 = BRG
@@ -917,7 +935,7 @@ class PolyBus {
   }
 
   static void setBrightness(void* busPtr, uint8_t busType, uint8_t b) {
-    globalBrightness = b;
+    globalBrightness = b; // use bit shifts and add 1/2 for proper rounding
   }
 
   [[gnu::hot]] static uint32_t getPixelColor(void* busPtr, uint8_t busType, uint16_t pix, uint8_t co) {
