@@ -133,6 +133,7 @@ class Bus {
     virtual uint16_t getUsedCurrent() const                     { return 0; }
     virtual uint16_t getMaxCurrent() const                      { return 0; }
     virtual size_t   getBusSize() const                         { return sizeof(Bus); }
+    virtual const String getCustomText() const                  { return String(); }
 
     inline  bool     hasRGB() const                             { return _hasRgb; }
     inline  bool     hasWhite() const                           { return _hasWhite; }
@@ -215,7 +216,7 @@ class Bus {
     uint8_t  _autoWhiteMode;
     // global Auto White Calculation override
     static uint8_t _gAWM;
-    // _cct has the following menaings (see calculateCCT() & BusManager::setSegmentCCT()):
+    // _cct has the following meanings (see calculateCCT() & BusManager::setSegmentCCT()):
     //    -1 means to extract approximate CCT value in K from RGB (in calcualteCCT())
     //    [0,255] is the exact CCT value where 0 means warm and 255 cold
     //    [1900,10060] only for color correction expressed in K (colorBalanceFromKelvin())
@@ -342,6 +343,10 @@ class BusNetwork : public Bus {
     size_t getBusSize() const override  { return sizeof(BusNetwork) + (isOk() ? _len * _UDPchannels : 0); }
     void   show() override;
     void   cleanup();
+    #ifdef ARDUINO_ARCH_ESP32
+    void   resolveHostname();
+    const String getCustomText() const override { return _hostname; }
+    #endif
 
     static std::vector<LEDType> getLEDTypes();
 
@@ -351,6 +356,9 @@ class BusNetwork : public Bus {
     uint8_t   _UDPchannels;
     bool      _broadcastLock;
     uint8_t   *_data;
+    #ifdef ARDUINO_ARCH_ESP32
+    String    _hostname;
+    #endif
 };
 
 
@@ -368,8 +376,9 @@ struct BusConfig {
   uint16_t frequency;
   uint8_t milliAmpsPerLed;
   uint16_t milliAmpsMax;
+  String text;
 
-  BusConfig(uint8_t busType, uint8_t* ppins, uint16_t pstart, uint16_t len = 1, uint8_t pcolorOrder = COL_ORDER_GRB, bool rev = false, uint8_t skip = 0, byte aw=RGBW_MODE_MANUAL_ONLY, uint16_t clock_kHz=0U, uint8_t maPerLed=LED_MILLIAMPS_DEFAULT, uint16_t maMax=ABL_MILLIAMPS_DEFAULT)
+  BusConfig(uint8_t busType, uint8_t* ppins, uint16_t pstart, uint16_t len = 1, uint8_t pcolorOrder = COL_ORDER_GRB, bool rev = false, uint8_t skip = 0, byte aw=RGBW_MODE_MANUAL_ONLY, uint16_t clock_kHz=0U, uint8_t maPerLed=LED_MILLIAMPS_DEFAULT, uint16_t maMax=ABL_MILLIAMPS_DEFAULT, String sometext = "")
   : count(std::max(len,(uint16_t)1))
   , start(pstart)
   , colorOrder(pcolorOrder)
@@ -379,6 +388,7 @@ struct BusConfig {
   , frequency(clock_kHz)
   , milliAmpsPerLed(maPerLed)
   , milliAmpsMax(maMax)
+  , text(sometext)
   {
     refreshReq = (bool) GET_BIT(busType,7);
     type = busType & 0x7F;  // bit 7 may be/is hacked to include refresh info (1=refresh in off state, 0=no refresh)

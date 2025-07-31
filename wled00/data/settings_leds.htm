@@ -284,6 +284,8 @@
 				gId("dig"+n+"l").style.display = (isD2P(t) || isPWM(t)) ? "inline":"none";  // bus clock speed / PWM speed (relative) (not On/Off)
 				gId("rev"+n).innerHTML = isAna(t) ? "Inverted output":"Reversed";           // change reverse text for analog else (rotated 180°)
 				//gId("psd"+n).innerHTML = isAna(t) ? "Index:":"Start:";                      // change analog start description
+				gId("net"+n+"h").style.display = isNet(t) && !is8266() ? "block" : "none";  // show host field for network types except on ESP8266
+				if (!isNet(t) || is8266()) d.Sf["HS"+n].value = "";                         // cleart host field if not network type or ESP8266
 			});
 			// display global white channel overrides
 			gId("wc").style.display = (gRGBW) ? 'inline':'none';
@@ -466,6 +468,7 @@ mA/LED: <select name="LAsel${s}" onchange="enLA(this,'${s}');UI();">
 <span id="p2d${s}"></span><input type="number" name="L2${s}" class="s" onchange="UI();pinUpd(this);"/>
 <span id="p3d${s}"></span><input type="number" name="L3${s}" class="s" onchange="UI();pinUpd(this);"/>
 <span id="p4d${s}"></span><input type="number" name="L4${s}" class="s" onchange="UI();pinUpd(this);"/>
+<div id="net${s}h" class="hide">Host: <input type="text" name="HS${s}" maxlength="32" pattern="[a-zA-Z0-9_\\-]*" onchange="UI()"/>.local</div>
 <div id="dig${s}r" style="display:inline"><br><span id="rev${s}">Reversed</span>: <input type="checkbox" name="CV${s}"></div>
 <div id="dig${s}s" style="display:inline"><br>Skip first LEDs: <input type="number" name="SL${s}" min="0" max="255" value="0" oninput="UI()"></div>
 <div id="dig${s}f" style="display:inline"><br><span id="off${s}">Off Refresh</span>: <input id="rf${s}" type="checkbox" name="RF${s}"></div>
