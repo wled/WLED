@@ -3,9 +3,11 @@
 #include "const.h"
 #ifdef ESP8266
 #include "user_interface.h" // for bootloop detection
-#else
+#elif ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(4, 4, 0)
 #include "esp32/rtc.h"      // for bootloop detection
+#include <Update.h>
 #endif
+
 
 //helper to get int value at a position in string
 int getNumVal(const String &req, uint16_t pos)
@@ -720,13 +722,11 @@ void *realloc_malloc(void *ptr, size_t size) {
 #define BOOTLOOP_ACTION_OTA     2     // swap the boot partition
 #define BOOTLOOP_ACTION_DUMP    3     // nothing seems to help, dump files to serial and reboot (until hardware reset)
 #ifdef ESP8266
-#include "user_interface.h" // for ESP8266, needed for bootloop detection
 #define BOOTLOOP_INTERVAL_TICKS (5 * 160000) // time limit between crashes: ~5 seconds in RTC ticks
 #define BOOT_TIME_IDX       0 // index in RTC memory for boot time
 #define CRASH_COUNTER_IDX   1 // index in RTC memory for crash counter
 #define ACTIONT_TRACKER_IDX 2 // index in RTC memory for boot action
 #else
-#include "esp32/rtc.h" // ESP32
 #define BOOTLOOP_INTERVAL_TICKS 5000  // time limit between crashes: ~5 seconds in milliseconds
 // variables in RTC_NOINIT memory persist between reboots (but not on hardware reset)
 RTC_NOINIT_ATTR static uint32_t bl_last_boottime;
@@ -737,7 +737,8 @@ void bootloopCheckOTA() { bl_actiontracker = BOOTLOOP_ACTION_OTA; } // swap boot
 
 // detect bootloop by checking the reset reason and the time since last boot
 static bool detectBootLoop() {
-#ifndef ESP8266
+#if !defined(ESP8266)
+  #if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(4, 4, 0)
   uint32_t rtctime = esp_rtc_get_time_us() / 1000;  // convert to milliseconds
   esp_reset_reason_t reason = esp_reset_reason();
 
@@ -751,7 +752,7 @@ static bool detectBootLoop() {
     // crash due to brownout can't be detected unless using flash memory to store bootloop variables
     // this is a simpler way to preemtively revert the config in case current brownout is caused by a bad choice of settings
     DEBUG_PRINTLN(F("brownout detected"));
-    restoreConfig();
+    //restoreConfig(); // TODO: blindly restoring config if brownout detected is a bad idea, need a better way (if at all)
   } else {
     uint32_t rebootinterval = rtctime - bl_last_boottime;
     bl_last_boottime = rtctime; // store current runtime for next reboot
@@ -764,7 +765,7 @@ static bool detectBootLoop() {
       }
     }
   }
-  return false;
+  #endif
 #else // ESP8266
   rst_info* resetreason = system_get_rst_info();
   uint32_t  bl_last_boottime;
@@ -798,8 +799,8 @@ static bool detectBootLoop() {
       }
     }
   }
-  return false;
 #endif
+  return false; // no bootloop detected
 }
 
 void handleBootLoop() {
@@ -823,10 +824,10 @@ void handleBootLoop() {
       Update.rollBack(); // swap boot partition
     }
     bl_actiontracker = BOOTLOOP_ACTION_DUMP; // out of options
-  } else {
-    dumpFilesToSerial();
   }
-#endif
+  #endif
+  else
+    dumpFilesToSerial();
   ESP.restart(); // restart cleanly and don't wait for another crash
 }
 

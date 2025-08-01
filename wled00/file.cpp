@@ -448,7 +448,7 @@ bool copyFile(const char* src_path, const char* dst_path) {
    return false;
   }
 
-  bool success = false;
+  bool success = true; // is set to false on error
   File src = WLED_FS.open(src_path, "r");
   File dst = WLED_FS.open(dst_path, "w");
 
@@ -466,6 +466,8 @@ bool copyFile(const char* src_path, const char* dst_path) {
         break; // error, not all data written
       }
     }
+  } else {
+    success = false; // error, could not open files
   }
   if(src) src.close();
   if(dst) dst.close();
