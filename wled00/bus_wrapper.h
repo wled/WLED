@@ -3,7 +3,7 @@
 #define BusWrapper_h
 
 //#define NPB_CONF_4STEP_CADENCE
-#include "NeoPixelBusLg.h"
+#include "NeoPixelBus.h"
 
 uint32_t globalBrightness = 255; // global brightness for digital busses, set by setBrightness()
 
@@ -143,65 +143,65 @@ uint32_t globalBrightness = 255; // global brightness for digital busses, set by
 /*** ESP8266 Neopixel methods ***/
 #ifdef ESP8266
 //RGB
-#define B_8266_U0_NEO_3 NeoPixelBusLg<NeoGrbFeature, NeoEsp8266Uart0Ws2813Method, NeoGammaNullMethod> //3 chan, esp8266, gpio1
-#define B_8266_U1_NEO_3 NeoPixelBusLg<NeoGrbFeature, NeoEsp8266Uart1Ws2813Method, NeoGammaNullMethod> //3 chan, esp8266, gpio2
-#define B_8266_DM_NEO_3 NeoPixelBusLg<NeoGrbFeature, NeoEsp8266Dma800KbpsMethod, NeoGammaNullMethod>  //3 chan, esp8266, gpio3
-#define B_8266_BB_NEO_3 NeoPixelBusLg<NeoGrbFeature, NeoEsp8266BitBang800KbpsMethod, NeoGammaNullMethod> //3 chan, esp8266, bb (any pin but 16)
+#define B_8266_U0_NEO_3 NeoPixelBus<NeoGrbFeature, NeoEsp8266Uart0Ws2813Method> //3 chan, esp8266, gpio1
+#define B_8266_U1_NEO_3 NeoPixelBus<NeoGrbFeature, NeoEsp8266Uart1Ws2813Method> //3 chan, esp8266, gpio2
+#define B_8266_DM_NEO_3 NeoPixelBus<NeoGrbFeature, NeoEsp8266Dma800KbpsMethod>  //3 chan, esp8266, gpio3
+#define B_8266_BB_NEO_3 NeoPixelBus<NeoGrbFeature, NeoEsp8266BitBang800KbpsMethod> //3 chan, esp8266, bb (any pin but 16)
 //RGBW
-#define B_8266_U0_NEO_4 NeoPixelBusLg<NeoGrbwFeature, NeoEsp8266Uart0Ws2813Method, NeoGammaNullMethod>   //4 chan, esp8266, gpio1
-#define B_8266_U1_NEO_4 NeoPixelBusLg<NeoGrbwFeature, NeoEsp8266Uart1Ws2813Method, NeoGammaNullMethod>   //4 chan, esp8266, gpio2
-#define B_8266_DM_NEO_4 NeoPixelBusLg<NeoGrbwFeature, NeoEsp8266Dma800KbpsMethod, NeoGammaNullMethod>    //4 chan, esp8266, gpio3
-#define B_8266_BB_NEO_4 NeoPixelBusLg<NeoGrbwFeature, NeoEsp8266BitBang800KbpsMethod, NeoGammaNullMethod> //4 chan, esp8266, bb (any pin)
+#define B_8266_U0_NEO_4 NeoPixelBus<NeoGrbwFeature, NeoEsp8266Uart0Ws2813Method>   //4 chan, esp8266, gpio1
+#define B_8266_U1_NEO_4 NeoPixelBus<NeoGrbwFeature, NeoEsp8266Uart1Ws2813Method>   //4 chan, esp8266, gpio2
+#define B_8266_DM_NEO_4 NeoPixelBus<NeoGrbwFeature, NeoEsp8266Dma800KbpsMethod>    //4 chan, esp8266, gpio3
+#define B_8266_BB_NEO_4 NeoPixelBus<NeoGrbwFeature, NeoEsp8266BitBang800KbpsMethod> //4 chan, esp8266, bb (any pin)
 //400Kbps
-#define B_8266_U0_400_3 NeoPixelBusLg<NeoGrbFeature, NeoEsp8266Uart0400KbpsMethod, NeoGammaNullMethod>   //3 chan, esp8266, gpio1
-#define B_8266_U1_400_3 NeoPixelBusLg<NeoGrbFeature, NeoEsp8266Uart1400KbpsMethod, NeoGammaNullMethod>   //3 chan, esp8266, gpio2
-#define B_8266_DM_400_3 NeoPixelBusLg<NeoGrbFeature, NeoEsp8266Dma400KbpsMethod, NeoGammaNullMethod>     //3 chan, esp8266, gpio3
-#define B_8266_BB_400_3 NeoPixelBusLg<NeoGrbFeature, NeoEsp8266BitBang400KbpsMethod, NeoGammaNullMethod> //3 chan, esp8266, bb (any pin)
+#define B_8266_U0_400_3 NeoPixelBus<NeoGrbFeature, NeoEsp8266Uart0400KbpsMethod>   //3 chan, esp8266, gpio1
+#define B_8266_U1_400_3 NeoPixelBus<NeoGrbFeature, NeoEsp8266Uart1400KbpsMethod>   //3 chan, esp8266, gpio2
+#define B_8266_DM_400_3 NeoPixelBus<NeoGrbFeature, NeoEsp8266Dma400KbpsMethod>     //3 chan, esp8266, gpio3
+#define B_8266_BB_400_3 NeoPixelBus<NeoGrbFeature, NeoEsp8266BitBang400KbpsMethod> //3 chan, esp8266, bb (any pin)
 //TM1814 (RGBW)
-#define B_8266_U0_TM1_4 NeoPixelBusLg<NeoWrgbTm1814Feature, NeoEsp8266Uart0Tm1814Method, NeoGammaNullMethod>
-#define B_8266_U1_TM1_4 NeoPixelBusLg<NeoWrgbTm1814Feature, NeoEsp8266Uart1Tm1814Method, NeoGammaNullMethod>
-#define B_8266_DM_TM1_4 NeoPixelBusLg<NeoWrgbTm1814Feature, NeoEsp8266DmaTm1814Method, NeoGammaNullMethod>
-#define B_8266_BB_TM1_4 NeoPixelBusLg<NeoWrgbTm1814Feature, NeoEsp8266BitBangTm1814Method, NeoGammaNullMethod>
+#define B_8266_U0_TM1_4 NeoPixelBus<NeoWrgbTm1814Feature, NeoEsp8266Uart0Tm1814Method>
+#define B_8266_U1_TM1_4 NeoPixelBus<NeoWrgbTm1814Feature, NeoEsp8266Uart1Tm1814Method>
+#define B_8266_DM_TM1_4 NeoPixelBus<NeoWrgbTm1814Feature, NeoEsp8266DmaTm1814Method>
+#define B_8266_BB_TM1_4 NeoPixelBus<NeoWrgbTm1814Feature, NeoEsp8266BitBangTm1814Method>
 //TM1829 (RGB)
-#define B_8266_U0_TM2_3 NeoPixelBusLg<NeoBrgFeature, NeoEsp8266Uart0Tm1829Method, NeoGammaNullMethod>
-#define B_8266_U1_TM2_3 NeoPixelBusLg<NeoBrgFeature, NeoEsp8266Uart1Tm1829Method, NeoGammaNullMethod>
-#define B_8266_DM_TM2_3 NeoPixelBusLg<NeoBrgFeature, NeoEsp8266DmaTm1829Method, NeoGammaNullMethod>
-#define B_8266_BB_TM2_3 NeoPixelBusLg<NeoBrgFeature, NeoEsp8266BitBangTm1829Method, NeoGammaNullMethod>
+#define B_8266_U0_TM2_3 NeoPixelBus<NeoBrgFeature, NeoEsp8266Uart0Tm1829Method>
+#define B_8266_U1_TM2_3 NeoPixelBus<NeoBrgFeature, NeoEsp8266Uart1Tm1829Method>
+#define B_8266_DM_TM2_3 NeoPixelBus<NeoBrgFeature, NeoEsp8266DmaTm1829Method>
+#define B_8266_BB_TM2_3 NeoPixelBus<NeoBrgFeature, NeoEsp8266BitBangTm1829Method>
 //UCS8903
-#define B_8266_U0_UCS_3 NeoPixelBusLg<NeoRgbUcs8903Feature, NeoEsp8266Uart0Ws2813Method, NeoGammaNullMethod> //3 chan, esp8266, gpio1
-#define B_8266_U1_UCS_3 NeoPixelBusLg<NeoRgbUcs8903Feature, NeoEsp8266Uart1Ws2813Method, NeoGammaNullMethod> //3 chan, esp8266, gpio2
-#define B_8266_DM_UCS_3 NeoPixelBusLg<NeoRgbUcs8903Feature, NeoEsp8266Dma800KbpsMethod, NeoGammaNullMethod>  //3 chan, esp8266, gpio3
-#define B_8266_BB_UCS_3 NeoPixelBusLg<NeoRgbUcs8903Feature, NeoEsp8266BitBang800KbpsMethod, NeoGammaNullMethod> //3 chan, esp8266, bb (any pin but 16)
+#define B_8266_U0_UCS_3 NeoPixelBus<NeoRgbUcs8903Feature, NeoEsp8266Uart0Ws2813Method> //3 chan, esp8266, gpio1
+#define B_8266_U1_UCS_3 NeoPixelBus<NeoRgbUcs8903Feature, NeoEsp8266Uart1Ws2813Method> //3 chan, esp8266, gpio2
+#define B_8266_DM_UCS_3 NeoPixelBus<NeoRgbUcs8903Feature, NeoEsp8266Dma800KbpsMethod>  //3 chan, esp8266, gpio3
+#define B_8266_BB_UCS_3 NeoPixelBus<NeoRgbUcs8903Feature, NeoEsp8266BitBang800KbpsMethod> //3 chan, esp8266, bb (any pin but 16)
 //UCS8904 RGBW
-#define B_8266_U0_UCS_4 NeoPixelBusLg<NeoRgbwUcs8904Feature, NeoEsp8266Uart0Ws2813Method, NeoGammaNullMethod>   //4 chan, esp8266, gpio1
-#define B_8266_U1_UCS_4 NeoPixelBusLg<NeoRgbwUcs8904Feature, NeoEsp8266Uart1Ws2813Method, NeoGammaNullMethod>   //4 chan, esp8266, gpio2
-#define B_8266_DM_UCS_4 NeoPixelBusLg<NeoRgbwUcs8904Feature, NeoEsp8266Dma800KbpsMethod, NeoGammaNullMethod>    //4 chan, esp8266, gpio3
-#define B_8266_BB_UCS_4 NeoPixelBusLg<NeoRgbwUcs8904Feature, NeoEsp8266BitBang800KbpsMethod, NeoGammaNullMethod> //4 chan, esp8266, bb (any pin)
+#define B_8266_U0_UCS_4 NeoPixelBus<NeoRgbwUcs8904Feature, NeoEsp8266Uart0Ws2813Method>   //4 chan, esp8266, gpio1
+#define B_8266_U1_UCS_4 NeoPixelBus<NeoRgbwUcs8904Feature, NeoEsp8266Uart1Ws2813Method>   //4 chan, esp8266, gpio2
+#define B_8266_DM_UCS_4 NeoPixelBus<NeoRgbwUcs8904Feature, NeoEsp8266Dma800KbpsMethod>    //4 chan, esp8266, gpio3
+#define B_8266_BB_UCS_4 NeoPixelBus<NeoRgbwUcs8904Feature, NeoEsp8266BitBang800KbpsMethod> //4 chan, esp8266, bb (any pin)
 //APA106
-#define B_8266_U0_APA106_3 NeoPixelBusLg<NeoRbgFeature, NeoEsp8266Uart0Apa106Method, NeoGammaNullMethod> //3 chan, esp8266, gpio1
-#define B_8266_U1_APA106_3 NeoPixelBusLg<NeoRbgFeature, NeoEsp8266Uart1Apa106Method, NeoGammaNullMethod> //3 chan, esp8266, gpio2
-#define B_8266_DM_APA106_3 NeoPixelBusLg<NeoGrbFeature, NeoEsp8266DmaApa106Method, NeoGammaNullMethod>  //3 chan, esp8266, gpio3
-#define B_8266_BB_APA106_3 NeoPixelBusLg<NeoGrbFeature, NeoEsp8266BitBangApa106Method, NeoGammaNullMethod> //3 chan, esp8266, bb (any pin but 16)
+#define B_8266_U0_APA106_3 NeoPixelBus<NeoRbgFeature, NeoEsp8266Uart0Apa106Method> //3 chan, esp8266, gpio1
+#define B_8266_U1_APA106_3 NeoPixelBus<NeoRbgFeature, NeoEsp8266Uart1Apa106Method> //3 chan, esp8266, gpio2
+#define B_8266_DM_APA106_3 NeoPixelBus<NeoGrbFeature, NeoEsp8266DmaApa106Method>  //3 chan, esp8266, gpio3
+#define B_8266_BB_APA106_3 NeoPixelBus<NeoGrbFeature, NeoEsp8266BitBangApa106Method> //3 chan, esp8266, bb (any pin but 16)
 //FW1906 GRBCW
-#define B_8266_U0_FW6_5 NeoPixelBusLg<NeoGrbcwxFeature, NeoEsp8266Uart0Ws2813Method, NeoGammaNullMethod>   //esp8266, gpio1
-#define B_8266_U1_FW6_5 NeoPixelBusLg<NeoGrbcwxFeature, NeoEsp8266Uart1Ws2813Method, NeoGammaNullMethod>   //esp8266, gpio2
-#define B_8266_DM_FW6_5 NeoPixelBusLg<NeoGrbcwxFeature, NeoEsp8266Dma800KbpsMethod, NeoGammaNullMethod>   //esp8266, gpio3
-#define B_8266_BB_FW6_5 NeoPixelBusLg<NeoGrbcwxFeature, NeoEsp8266BitBang800KbpsMethod, NeoGammaNullMethod>   //esp8266, bb
+#define B_8266_U0_FW6_5 NeoPixelBus<NeoGrbcwxFeature, NeoEsp8266Uart0Ws2813Method>   //esp8266, gpio1
+#define B_8266_U1_FW6_5 NeoPixelBus<NeoGrbcwxFeature, NeoEsp8266Uart1Ws2813Method>   //esp8266, gpio2
+#define B_8266_DM_FW6_5 NeoPixelBus<NeoGrbcwxFeature, NeoEsp8266Dma800KbpsMethod>   //esp8266, gpio3
+#define B_8266_BB_FW6_5 NeoPixelBus<NeoGrbcwxFeature, NeoEsp8266BitBang800KbpsMethod>   //esp8266, bb
 //WS2805 GRBCW
-#define B_8266_U0_2805_5 NeoPixelBusLg<NeoGrbwwFeature, NeoEsp8266Uart0Ws2805Method, NeoGammaNullMethod> //esp8266, gpio1
-#define B_8266_U1_2805_5 NeoPixelBusLg<NeoGrbwwFeature, NeoEsp8266Uart1Ws2805Method, NeoGammaNullMethod> //esp8266, gpio2
-#define B_8266_DM_2805_5 NeoPixelBusLg<NeoGrbwwFeature, NeoEsp8266DmaWs2805Method, NeoGammaNullMethod> //esp8266, gpio3
-#define B_8266_BB_2805_5 NeoPixelBusLg<NeoGrbwwFeature, NeoEsp8266BitBangWs2805Method, NeoGammaNullMethod> //esp8266, bb
+#define B_8266_U0_2805_5 NeoPixelBus<NeoGrbwwFeature, NeoEsp8266Uart0Ws2805Method> //esp8266, gpio1
+#define B_8266_U1_2805_5 NeoPixelBus<NeoGrbwwFeature, NeoEsp8266Uart1Ws2805Method> //esp8266, gpio2
+#define B_8266_DM_2805_5 NeoPixelBus<NeoGrbwwFeature, NeoEsp8266DmaWs2805Method> //esp8266, gpio3
+#define B_8266_BB_2805_5 NeoPixelBus<NeoGrbwwFeature, NeoEsp8266BitBangWs2805Method> //esp8266, bb
 //TM1914 (RGB)
-#define B_8266_U0_TM1914_3 NeoPixelBusLg<NeoRgbTm1914Feature, NeoEsp8266Uart0Tm1914Method, NeoGammaNullMethod>
-#define B_8266_U1_TM1914_3 NeoPixelBusLg<NeoRgbTm1914Feature, NeoEsp8266Uart1Tm1914Method, NeoGammaNullMethod>
-#define B_8266_DM_TM1914_3 NeoPixelBusLg<NeoRgbTm1914Feature, NeoEsp8266DmaTm1914Method, NeoGammaNullMethod>
-#define B_8266_BB_TM1914_3 NeoPixelBusLg<NeoRgbTm1914Feature, NeoEsp8266BitBangTm1914Method, NeoGammaNullMethod>
+#define B_8266_U0_TM1914_3 NeoPixelBus<NeoRgbTm1914Feature, NeoEsp8266Uart0Tm1914Method>
+#define B_8266_U1_TM1914_3 NeoPixelBus<NeoRgbTm1914Feature, NeoEsp8266Uart1Tm1914Method>
+#define B_8266_DM_TM1914_3 NeoPixelBus<NeoRgbTm1914Feature, NeoEsp8266DmaTm1914Method>
+#define B_8266_BB_TM1914_3 NeoPixelBus<NeoRgbTm1914Feature, NeoEsp8266BitBangTm1914Method>
 //Sm16825 (RGBWC)
-#define B_8266_U0_SM16825_5 NeoPixelBusLg<NeoRgbwcSm16825eFeature, NeoEsp8266Uart0Ws2813Method, NeoGammaNullMethod>
-#define B_8266_U1_SM16825_5 NeoPixelBusLg<NeoRgbwcSm16825eFeature, NeoEsp8266Uart1Ws2813Method, NeoGammaNullMethod>
-#define B_8266_DM_SM16825_5 NeoPixelBusLg<NeoRgbwcSm16825eFeature, NeoEsp8266Dma800KbpsMethod, NeoGammaNullMethod>
-#define B_8266_BB_SM16825_5 NeoPixelBusLg<NeoRgbwcSm16825eFeature, NeoEsp8266BitBangWs2813Method, NeoGammaNullMethod>
+#define B_8266_U0_SM16825_5 NeoPixelBus<NeoRgbwcSm16825eFeature, NeoEsp8266Uart0Ws2813Method>
+#define B_8266_U1_SM16825_5 NeoPixelBus<NeoRgbwcSm16825eFeature, NeoEsp8266Uart1Ws2813Method>
+#define B_8266_DM_SM16825_5 NeoPixelBus<NeoRgbwcSm16825eFeature, NeoEsp8266Dma800KbpsMethod>
+#define B_8266_BB_SM16825_5 NeoPixelBus<NeoRgbwcSm16825eFeature, NeoEsp8266BitBangWs2813Method>
 #endif
 
 /*** ESP32 Neopixel methods ***/
@@ -247,84 +247,84 @@ uint32_t globalBrightness = 255; // global brightness for digital busses, set by
 #endif
 
 //RGB
-#define B_32_RN_NEO_3 NeoPixelBusLg<NeoGrbFeature, NeoEsp32RmtNWs2812xMethod, NeoGammaNullMethod> // ESP32, S2, S3, C3
-//#define B_32_IN_NEO_3 NeoPixelBusLg<NeoGrbFeature, NeoEsp32I2sNWs2812xMethod, NeoGammaNullMethod> // ESP32 (dynamic I2S selection)
-#define B_32_I2_NEO_3 NeoPixelBusLg<NeoGrbFeature, X1Ws2812xMethod, NeoGammaNullMethod> // ESP32, S2, S3 (automatic I2S selection, see typedef above)
-#define B_32_IP_NEO_3 NeoPixelBusLg<NeoGrbFeature, X8Ws2812xMethod, NeoGammaNullMethod> // parallel I2S (ESP32, S2, S3)
+#define B_32_RN_NEO_3 NeoPixelBus<NeoGrbFeature, NeoEsp32RmtNWs2812xMethod> // ESP32, S2, S3, C3
+//#define B_32_IN_NEO_3 NeoPixelBus<NeoGrbFeature, NeoEsp32I2sNWs2812xMethod> // ESP32 (dynamic I2S selection)
+#define B_32_I2_NEO_3 NeoPixelBus<NeoGrbFeature, X1Ws2812xMethod> // ESP32, S2, S3 (automatic I2S selection, see typedef above)
+#define B_32_IP_NEO_3 NeoPixelBus<NeoGrbFeature, X8Ws2812xMethod> // parallel I2S (ESP32, S2, S3)
 //RGBW
-#define B_32_RN_NEO_4 NeoPixelBusLg<NeoGrbwFeature, NeoEsp32RmtNSk6812Method, NeoGammaNullMethod>
-#define B_32_I2_NEO_4 NeoPixelBusLg<NeoGrbwFeature, X1Sk6812Method, NeoGammaNullMethod>
-#define B_32_IP_NEO_4 NeoPixelBusLg<NeoGrbwFeature, X8Sk6812Method, NeoGammaNullMethod> // parallel I2S
+#define B_32_RN_NEO_4 NeoPixelBus<NeoGrbwFeature, NeoEsp32RmtNSk6812Method>
+#define B_32_I2_NEO_4 NeoPixelBus<NeoGrbwFeature, X1Sk6812Method>
+#define B_32_IP_NEO_4 NeoPixelBus<NeoGrbwFeature, X8Sk6812Method> // parallel I2S
 //400Kbps
-#define B_32_RN_400_3 NeoPixelBusLg<NeoGrbFeature, NeoEsp32RmtN400KbpsMethod, NeoGammaNullMethod>
-#define B_32_I2_400_3 NeoPixelBusLg<NeoGrbFeature, X1400KbpsMethod, NeoGammaNullMethod>
-#define B_32_IP_400_3 NeoPixelBusLg<NeoGrbFeature, X8400KbpsMethod, NeoGammaNullMethod> // parallel I2S
+#define B_32_RN_400_3 NeoPixelBus<NeoGrbFeature, NeoEsp32RmtN400KbpsMethod>
+#define B_32_I2_400_3 NeoPixelBus<NeoGrbFeature, X1400KbpsMethod>
+#define B_32_IP_400_3 NeoPixelBus<NeoGrbFeature, X8400KbpsMethod> // parallel I2S
 //TM1814 (RGBW)
-#define B_32_RN_TM1_4 NeoPixelBusLg<NeoWrgbTm1814Feature, NeoEsp32RmtNTm1814Method, NeoGammaNullMethod>
-#define B_32_I2_TM1_4 NeoPixelBusLg<NeoWrgbTm1814Feature, X1Tm1814Method, NeoGammaNullMethod>
-#define B_32_IP_TM1_4 NeoPixelBusLg<NeoWrgbTm1814Feature, X8Tm1814Method, NeoGammaNullMethod> // parallel I2S
+#define B_32_RN_TM1_4 NeoPixelBus<NeoWrgbTm1814Feature, NeoEsp32RmtNTm1814Method>
+#define B_32_I2_TM1_4 NeoPixelBus<NeoWrgbTm1814Feature, X1Tm1814Method>
+#define B_32_IP_TM1_4 NeoPixelBus<NeoWrgbTm1814Feature, X8Tm1814Method> // parallel I2S
 //TM1829 (RGB)
-#define B_32_RN_TM2_3 NeoPixelBusLg<NeoBrgFeature, NeoEsp32RmtNTm1829Method, NeoGammaNullMethod>
-#define B_32_I2_TM2_3 NeoPixelBusLg<NeoBrgFeature, X1Tm1829Method, NeoGammaNullMethod>
-#define B_32_IP_TM2_3 NeoPixelBusLg<NeoBrgFeature, X8Tm1829Method, NeoGammaNullMethod> // parallel I2S
+#define B_32_RN_TM2_3 NeoPixelBus<NeoBrgFeature, NeoEsp32RmtNTm1829Method>
+#define B_32_I2_TM2_3 NeoPixelBus<NeoBrgFeature, X1Tm1829Method>
+#define B_32_IP_TM2_3 NeoPixelBus<NeoBrgFeature, X8Tm1829Method> // parallel I2S
 //UCS8903
-#define B_32_RN_UCS_3 NeoPixelBusLg<NeoRgbUcs8903Feature, NeoEsp32RmtNWs2812xMethod, NeoGammaNullMethod>
-#define B_32_I2_UCS_3 NeoPixelBusLg<NeoRgbUcs8903Feature, X1800KbpsMethod, NeoGammaNullMethod>
-#define B_32_IP_UCS_3 NeoPixelBusLg<NeoRgbUcs8903Feature, X8800KbpsMethod, NeoGammaNullMethod> // parallel I2S
+#define B_32_RN_UCS_3 NeoPixelBus<NeoRgbUcs8903Feature, NeoEsp32RmtNWs2812xMethod>
+#define B_32_I2_UCS_3 NeoPixelBus<NeoRgbUcs8903Feature, X1800KbpsMethod>
+#define B_32_IP_UCS_3 NeoPixelBus<NeoRgbUcs8903Feature, X8800KbpsMethod> // parallel I2S
 //UCS8904
-#define B_32_RN_UCS_4 NeoPixelBusLg<NeoRgbwUcs8904Feature, NeoEsp32RmtNWs2812xMethod, NeoGammaNullMethod>
-#define B_32_I2_UCS_4 NeoPixelBusLg<NeoRgbwUcs8904Feature, X1800KbpsMethod, NeoGammaNullMethod>
-#define B_32_IP_UCS_4 NeoPixelBusLg<NeoRgbwUcs8904Feature, X8800KbpsMethod, NeoGammaNullMethod>// parallel I2S
+#define B_32_RN_UCS_4 NeoPixelBus<NeoRgbwUcs8904Feature, NeoEsp32RmtNWs2812xMethod>
+#define B_32_I2_UCS_4 NeoPixelBus<NeoRgbwUcs8904Feature, X1800KbpsMethod>
+#define B_32_IP_UCS_4 NeoPixelBus<NeoRgbwUcs8904Feature, X8800KbpsMethod>// parallel I2S
 //APA106
-#define B_32_RN_APA106_3 NeoPixelBusLg<NeoGrbFeature, NeoEsp32RmtNApa106Method, NeoGammaNullMethod>
-#define B_32_I2_APA106_3 NeoPixelBusLg<NeoGrbFeature, X1Apa106Method, NeoGammaNullMethod>
-#define B_32_IP_APA106_3 NeoPixelBusLg<NeoGrbFeature, X8Apa106Method, NeoGammaNullMethod> // parallel I2S
+#define B_32_RN_APA106_3 NeoPixelBus<NeoGrbFeature, NeoEsp32RmtNApa106Method>
+#define B_32_I2_APA106_3 NeoPixelBus<NeoGrbFeature, X1Apa106Method>
+#define B_32_IP_APA106_3 NeoPixelBus<NeoGrbFeature, X8Apa106Method> // parallel I2S
 //FW1906 GRBCW
-#define B_32_RN_FW6_5 NeoPixelBusLg<NeoGrbcwxFeature, NeoEsp32RmtNWs2812xMethod, NeoGammaNullMethod>
-#define B_32_I2_FW6_5 NeoPixelBusLg<NeoGrbcwxFeature, X1800KbpsMethod, NeoGammaNullMethod>
-#define B_32_IP_FW6_5 NeoPixelBusLg<NeoGrbcwxFeature, X8800KbpsMethod, NeoGammaNullMethod> // parallel I2S
+#define B_32_RN_FW6_5 NeoPixelBus<NeoGrbcwxFeature, NeoEsp32RmtNWs2812xMethod>
+#define B_32_I2_FW6_5 NeoPixelBus<NeoGrbcwxFeature, X1800KbpsMethod>
+#define B_32_IP_FW6_5 NeoPixelBus<NeoGrbcwxFeature, X8800KbpsMethod> // parallel I2S
 //WS2805 RGBWC
-#define B_32_RN_2805_5 NeoPixelBusLg<NeoGrbwwFeature, NeoEsp32RmtNWs2805Method, NeoGammaNullMethod>
-#define B_32_I2_2805_5 NeoPixelBusLg<NeoGrbwwFeature, X1Ws2805Method, NeoGammaNullMethod>
-#define B_32_IP_2805_5 NeoPixelBusLg<NeoGrbwwFeature, X8Ws2805Method, NeoGammaNullMethod> // parallel I2S
+#define B_32_RN_2805_5 NeoPixelBus<NeoGrbwwFeature, NeoEsp32RmtNWs2805Method>
+#define B_32_I2_2805_5 NeoPixelBus<NeoGrbwwFeature, X1Ws2805Method>
+#define B_32_IP_2805_5 NeoPixelBus<NeoGrbwwFeature, X8Ws2805Method> // parallel I2S
 //TM1914 (RGB)
-#define B_32_RN_TM1914_3 NeoPixelBusLg<NeoGrbTm1914Feature, NeoEsp32RmtNTm1914Method, NeoGammaNullMethod>
-#define B_32_I2_TM1914_3 NeoPixelBusLg<NeoGrbTm1914Feature, X1Tm1914Method, NeoGammaNullMethod>
-#define B_32_IP_TM1914_3 NeoPixelBusLg<NeoGrbTm1914Feature, X8Tm1914Method, NeoGammaNullMethod> // parallel I2S
+#define B_32_RN_TM1914_3 NeoPixelBus<NeoGrbTm1914Feature, NeoEsp32RmtNTm1914Method>
+#define B_32_I2_TM1914_3 NeoPixelBus<NeoGrbTm1914Feature, X1Tm1914Method>
+#define B_32_IP_TM1914_3 NeoPixelBus<NeoGrbTm1914Feature, X8Tm1914Method> // parallel I2S
 //Sm16825 (RGBWC)
-#define B_32_RN_SM16825_5 NeoPixelBusLg<NeoRgbcwSm16825eFeature, NeoEsp32RmtNWs2812xMethod, NeoGammaNullMethod>
-#define B_32_I2_SM16825_5 NeoPixelBusLg<NeoRgbcwSm16825eFeature, X1Ws2812xMethod, NeoGammaNullMethod>
-#define B_32_IP_SM16825_5 NeoPixelBusLg<NeoRgbcwSm16825eFeature, X8Ws2812xMethod, NeoGammaNullMethod> // parallel I2S
+#define B_32_RN_SM16825_5 NeoPixelBus<NeoRgbcwSm16825eFeature, NeoEsp32RmtNWs2812xMethod>
+#define B_32_I2_SM16825_5 NeoPixelBus<NeoRgbcwSm16825eFeature, X1Ws2812xMethod>
+#define B_32_IP_SM16825_5 NeoPixelBus<NeoRgbcwSm16825eFeature, X8Ws2812xMethod> // parallel I2S
 #endif
 
 //APA102
 #ifdef WLED_USE_ETHERNET
 // fix for #2542 (by @BlackBird77)
-#define B_HS_DOT_3 NeoPixelBusLg<DotStarBgrFeature, DotStarEsp32HspiHzMethod, NeoGammaNullMethod> //hardware HSPI (was DotStarEsp32DmaHspi5MhzMethod in NPB @ 2.6.9)
+#define B_HS_DOT_3 NeoPixelBus<DotStarBgrFeature, DotStarEsp32HspiHzMethod> //hardware HSPI (was DotStarEsp32DmaHspi5MhzMethod in NPB @ 2.6.9)
 #else
-#define B_HS_DOT_3 NeoPixelBusLg<DotStarBgrFeature, DotStarSpiHzMethod, NeoGammaNullMethod> //hardware VSPI
+#define B_HS_DOT_3 NeoPixelBus<DotStarBgrFeature, DotStarSpiHzMethod> //hardware VSPI
 #endif
-#define B_SS_DOT_3 NeoPixelBusLg<DotStarBgrFeature, DotStarMethod, NeoGammaNullMethod>    //soft SPI
+#define B_SS_DOT_3 NeoPixelBus<DotStarBgrFeature, DotStarMethod>    //soft SPI
 
 //LPD8806
-#define B_HS_LPD_3 NeoPixelBusLg<Lpd8806GrbFeature, Lpd8806SpiHzMethod, NeoGammaNullMethod>
-#define B_SS_LPD_3 NeoPixelBusLg<Lpd8806GrbFeature, Lpd8806Method, NeoGammaNullMethod>
+#define B_HS_LPD_3 NeoPixelBus<Lpd8806GrbFeature, Lpd8806SpiHzMethod>
+#define B_SS_LPD_3 NeoPixelBus<Lpd8806GrbFeature, Lpd8806Method>
 
 //LPD6803
-#define B_HS_LPO_3 NeoPixelBusLg<Lpd6803GrbFeature, Lpd6803SpiHzMethod, NeoGammaNullMethod>
-#define B_SS_LPO_3 NeoPixelBusLg<Lpd6803GrbFeature, Lpd6803Method, NeoGammaNullMethod>
+#define B_HS_LPO_3 NeoPixelBus<Lpd6803GrbFeature, Lpd6803SpiHzMethod>
+#define B_SS_LPO_3 NeoPixelBus<Lpd6803GrbFeature, Lpd6803Method>
 
 //WS2801
 #ifdef WLED_USE_ETHERNET
-#define B_HS_WS1_3 NeoPixelBusLg<NeoRbgFeature, Ws2801MethodBase<TwoWireHspiImple<SpiSpeedHz>>, NeoGammaNullMethod>
+#define B_HS_WS1_3 NeoPixelBus<NeoRbgFeature, Ws2801MethodBase<TwoWireHspiImple<SpiSpeedHz>>>
 #else
-#define B_HS_WS1_3 NeoPixelBusLg<NeoRbgFeature, Ws2801SpiHzMethod, NeoGammaNullMethod>
+#define B_HS_WS1_3 NeoPixelBus<NeoRbgFeature, Ws2801SpiHzMethod>
 #endif
-#define B_SS_WS1_3 NeoPixelBusLg<NeoRbgFeature, Ws2801Method, NeoGammaNullMethod>
+#define B_SS_WS1_3 NeoPixelBus<NeoRbgFeature, Ws2801Method>
 
 //P9813
-#define B_HS_P98_3 NeoPixelBusLg<P9813BgrFeature, P9813SpiHzMethod, NeoGammaNullMethod>
-#define B_SS_P98_3 NeoPixelBusLg<P9813BgrFeature, P9813Method, NeoGammaNullMethod>
+#define B_HS_P98_3 NeoPixelBus<P9813BgrFeature, P9813SpiHzMethod>
+#define B_SS_P98_3 NeoPixelBus<P9813BgrFeature, P9813Method>
 
 // 48bit & 64bit to 24bit & 32bit RGB(W) conversion
 #define toRGBW32(c) (RGBW32((c>>40)&0xFF, (c>>24)&0xFF, (c>>8)&0xFF, (c>>56)&0xFF))
@@ -777,52 +777,16 @@ class PolyBus {
     return true;
   }
 
-#define R(c) (byte((c) >> 16))
-#define G(c) (byte((c) >> 8))
-#define B(c) (byte(c))
-#define W(c) (byte((c) >> 24))
-
   [[gnu::hot]] static void setPixelColor(void* busPtr, uint8_t busType, uint16_t pix, uint32_t c, uint8_t co, uint16_t wwcw = 0) {
-
+    uint8_t r = c >> 16;
+    uint8_t g = c >> 8;
+    uint8_t b = c >> 0;
+    uint8_t w = c >> 24;
     RgbwColor col;
     uint8_t cctWW = wwcw & 0xFF, cctCW = (wwcw>>8) & 0xFF;
-    uint8_t r, g, b, w;
-    if(c > 0) {
-      if(globalBrightness < 255) {
-        // apply global brightness using video scaling: keep a minimum of 1 for each channel if non zero but preserve hue
-        uint8_t origR = R(c);
-        uint8_t origG = G(c);
-        uint8_t origB = B(c);
 
-        // determine dominant channel for hue preservation
-        uint8_t maxc = (origR > origG) ? ((origR > origB) ? origR : origB) : ((origG > origB) ? origG : origB);
-        uint8_t halfMax = maxc >> 1;
-
-        // apply global brightness note: adding +128 for rounding makes virtually no visual difference
-        r = (origR * globalBrightness) >> 8;
-        g = (origG * globalBrightness) >> 8;
-        b = (origB * globalBrightness) >> 8;
-        w = (W(c) *  globalBrightness) >> 8;
-
-        // Hue-preserving rule:
-        r |= ((r == 0) ? 1 : 0) & ((origR > halfMax) ? 1 : 0);
-        g |= ((g == 0) ? 1 : 0) & ((origG > halfMax) ? 1 : 0);
-        b |= ((b == 0) ? 1 : 0) & ((origB > halfMax) ? 1 : 0);
-      }
-      else {
-        r = R(c);
-        g = G(c);
-        b = B(c);
-        w = W(c);
-      }
-
-    }
-    else {
-      col = 0;
-    }
-
-         // reorder channels to selected order
-      switch (co & 0x0F) {
+    // reorder channels to selected order
+    switch (co & 0x0F) {
       default: col.G = g; col.R = r; col.B = b; break; //0 = GRB, default
       case  1: col.G = r; col.R = g; col.B = b; break; //1 = RGB, common for WS2811
       case  2: col.G = b; col.R = r; col.B = g; break; //2 = BRG
