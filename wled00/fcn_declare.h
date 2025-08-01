@@ -24,6 +24,10 @@ void handleIO();
 void IRAM_ATTR touchButtonISR();
 
 //cfg.cpp
+bool backupConfig();
+bool restoreConfig();
+bool verifyConfig();
+void resetConfig();
 bool deserializeConfig(JsonObject doc, bool fromFS = false);
 bool deserializeConfigFromFS();
 bool deserializeConfigSec();
@@ -223,6 +227,11 @@ inline bool writeObjectToFileUsingId(const String &file, uint16_t id, const Json
 inline bool writeObjectToFile(const String &file, const char* key, const JsonDocument* content) { return writeObjectToFile(file.c_str(), key, content); };
 inline bool readObjectFromFileUsingId(const String &file, uint16_t id, JsonDocument* dest, const JsonDocument* filter = nullptr) { return readObjectFromFileUsingId(file.c_str(), id, dest); };
 inline bool readObjectFromFile(const String &file, const char* key, JsonDocument* dest, const JsonDocument* filter = nullptr) { return readObjectFromFile(file.c_str(), key, dest); };
+bool copyFile(const char* src_path, const char* dst_path);
+bool backupFile(const char* filename);
+bool restoreFile(const char* filename);
+bool validateJsonFile(const char* filename);
+void dumpFilesToSerial();
 
 //hue.cpp
 void handleHue();
@@ -580,6 +589,10 @@ extern "C" {
 #define d_free free
 #endif
 
+void handleBootLoop();   // detect and handle bootloops
+#ifndef ESP8266
+void bootloopCheckOTA(); // swap boot image if bootloop is detected instead of restoring config
+#endif
 // RAII guard class for the JSON Buffer lock
 // Modeled after std::lock_guard
 class JSONBufferGuard {
