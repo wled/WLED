@@ -26,6 +26,7 @@ void IRAM_ATTR touchButtonISR();
 //cfg.cpp
 bool backupConfig();
 bool restoreConfig();
+bool verifyConfig();
 void resetConfig();
 bool deserializeConfig(JsonObject doc, bool fromFS = false);
 bool deserializeConfigFromFS();
@@ -229,6 +230,7 @@ inline bool readObjectFromFile(const String &file, const char* key, JsonDocument
 bool copyFile(const char* src_path, const char* dst_path);
 bool backupFile(const char* filename);
 bool restoreFile(const char* filename);
+bool validateJsonFile(const char* filename);
 void dumpFilesToSerial();
 
 //hue.cpp

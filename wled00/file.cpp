@@ -442,7 +442,7 @@ bool handleFileRead(AsyncWebServerRequest* request, String path){
 
 // copy a file, delete destination file if incomplete to prevent corrupted files
 bool copyFile(const char* src_path, const char* dst_path) {
-  DEBUG_PRINTF("copyFile from %s to %s", src_path, dst_path);
+  DEBUG_PRINTF("copyFile from %s to %s\n", src_path, dst_path);
   if(!WLED_FS.exists(src_path)) {
    DEBUG_PRINTLN(F("file not found"));
    return false;
@@ -481,8 +481,11 @@ bool copyFile(const char* src_path, const char* dst_path) {
 static const char s_backup_json[] PROGMEM = ".bkp.json";
 
 bool backupFile(const char* filename) {
-  DEBUG_PRINTF("backup %s", filename);
-  if (!WLED_FS.exists(filename)) return false;
+  DEBUG_PRINTF("backup %s \n", filename);
+  if (!validateJsonFile(filename)) {
+    DEBUG_PRINTLN(F("broken file"));
+    return false;
+  }
   char backupname[32];
   strcpy(backupname, filename);
   strcat(backupname, s_backup_json);
@@ -496,7 +499,7 @@ bool backupFile(const char* filename) {
 }
 
 bool restoreFile(const char* filename) {
-  DEBUG_PRINTF("restore %s", filename);
+  DEBUG_PRINTF("restore %s \n", filename);
   char backupname[32];
   strcpy(backupname, filename);
   strcat(backupname, s_backup_json);
@@ -506,12 +509,32 @@ bool restoreFile(const char* filename) {
     return false;
   }
 
+  if (!validateJsonFile(backupname)) {
+    DEBUG_PRINTLN(F("broken backup"));
+    return false;
+  }
+
   if (copyFile(backupname, filename)) {
     DEBUG_PRINTLN(F("restore ok"));
     return true;
   }
   DEBUG_PRINTLN(F("restore failed"));
   return false;
+}
+
+bool validateJsonFile(const char* filename) {
+  if (!WLED_FS.exists(filename)) return false;
+  File file = WLED_FS.open(filename, "r");
+  if (!file) return false;
+  StaticJsonDocument<0> doc, filter; // https://arduinojson.org/v6/how-to/validate-json/
+  bool result = deserializeJson(doc, file, DeserializationOption::Filter(filter)) == DeserializationError::Ok;
+  file.close();
+  if (!result) {
+    DEBUG_PRINTF("Invalid JSON file %s\n", filename);
+  } else {
+    DEBUG_PRINTF("Valid JSON file %s\n", filename);
+  }
+  return result;
 }
 
 // print contents of all files in root dir to Serial except wsec files

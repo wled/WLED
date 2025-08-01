@@ -782,6 +782,10 @@ bool restoreConfig() {
   return restoreFile(s_cfg_json);
 }
 
+bool verifyConfig() {
+  return validateJsonFile(s_cfg_json);
+}
+
 // rename config file and reboot
 void resetConfig() {
   DEBUG_PRINTLN(F("Reset config"));
