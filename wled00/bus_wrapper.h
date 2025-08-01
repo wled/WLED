@@ -245,7 +245,7 @@
 #endif
 
 // RMT driver selection
-#ifdef __XTENSA__
+#ifndef WLED_USE_SHARED_RMT
 #define NeoEsp32RmtMethod(x) NeoEsp32RmtHIN ## x ## Method
 #else
 #define NeoEsp32RmtMethod(x) NeoEsp32RmtN ## x ## Method
