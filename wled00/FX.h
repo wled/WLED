@@ -88,18 +88,17 @@ extern byte realtimeMode;           // used in getMappedPixelIndex()
 #endif
 #define FPS_CALC_SHIFT 7 // bit shift for fixed point math
 
-/* each segment uses 82 bytes of SRAM memory, so if you're application fails because of
-  insufficient memory, decreasing MAX_NUM_SEGMENTS may help */
+// heap memory limit for effects data, pixel buffers try to reserve it if PSRAM is available
 #ifdef ESP8266
   #define MAX_NUM_SEGMENTS  16
   /* How much data bytes all segments combined may allocate */
-  #define MAX_SEGMENT_DATA  5120
+  #define MAX_SEGMENT_DATA  (MAX_NUM_SEGMENTS*640) // 10k by default
 #elif defined(CONFIG_IDF_TARGET_ESP32S2)
   #define MAX_NUM_SEGMENTS  20
-  #define MAX_SEGMENT_DATA  (MAX_NUM_SEGMENTS*512)  // 10k by default (S2 is short on free RAM)
+  #define MAX_SEGMENT_DATA  (MAX_NUM_SEGMENTS*1024)  // 20k by default (S2 is short on free RAM)
 #else
   #define MAX_NUM_SEGMENTS  32  // warning: going beyond 32 may consume too much RAM for stable operation
-  #define MAX_SEGMENT_DATA  (MAX_NUM_SEGMENTS*1280) // 40k by default
+  #define MAX_SEGMENT_DATA  (MAX_NUM_SEGMENTS*1920) // 60k by default
 #endif
 
 /* How much data bytes each segment should max allocate to leave enough space for other segments,
@@ -600,8 +599,8 @@ class Segment {
     , _t(nullptr)
     {
       DEBUGFX_PRINTF_P(PSTR("-- Creating segment: %p [%d,%d:%d,%d]\n"), this, (int)start, (int)stop, (int)startY, (int)stopY);
-      // allocate render buffer (always entire segment)
-      pixels = static_cast<uint32_t*>(d_calloc(sizeof(uint32_t), length())); // error handling is also done in isActive()
+      // allocate render buffer (always entire segment), prefer PSRAM if DRAM is running low. Note: impact on FPS with PSRAM buffer is low (<2% with QSPI PSRAM)
+      pixels = static_cast<uint32_t*>(allocate_buffer(length() * sizeof(uint32_t), BFRALLOC_PREFER_PSRAM | BFRALLOC_NOBYTEACCESS | BFRALLOC_CLEAR));
       if (!pixels) {
         DEBUGFX_PRINTLN(F("!!! Not enough RAM for pixel buffer !!!"));
         extern byte errorFlag;

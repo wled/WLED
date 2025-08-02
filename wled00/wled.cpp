@@ -171,7 +171,7 @@ void WLED::loop()
 
   // reconnect WiFi to clear stale allocations if heap gets too low
   if (millis() - heapTime > 15000) {
-    uint32_t heap = ESP.getFreeHeap();
+    uint32_t heap = getFreeHeapSize();
     if (heap < MIN_HEAP_SIZE && lastHeap < MIN_HEAP_SIZE) {
       DEBUG_PRINTF_P(PSTR("Heap too low! %u\n"), heap);
       forceReconnect = true;
@@ -243,7 +243,11 @@ void WLED::loop()
     DEBUG_PRINTLN(F("---DEBUG INFO---"));
     DEBUG_PRINTF_P(PSTR("Runtime: %lu\n"),  millis());
     DEBUG_PRINTF_P(PSTR("Unix time: %u,%03u\n"), toki.getTime().sec, toki.getTime().ms);
-    DEBUG_PRINTF_P(PSTR("Free heap: %u\n"), ESP.getFreeHeap());
+    DEBUG_PRINTF_P(PSTR("Free heap/contiguous: %u/%u\n"), getFreeHeapSize(), getContiguousFreeHeap());
+    #if defined(CONFIG_IDF_TARGET_ESP32)
+    int dram32_free = heap_caps_get_free_size(MALLOC_CAP_32BIT|MALLOC_CAP_INTERNAL) - getFreeHeapSize();
+    DEBUG_PRINTF_P(PSTR("Free 32bit-heap: %d\n"), dram32_free);
+    #endif
     #if defined(ARDUINO_ARCH_ESP32)
     if (psramFound()) {
       DEBUG_PRINTF_P(PSTR("PSRAM: %dkB/%dkB\n"), ESP.getFreePsram()/1024, ESP.getPsramSize()/1024);
@@ -369,7 +373,7 @@ void WLED::setup()
   DEBUG_PRINTF_P(PSTR("esp8266 @ %u MHz.\nCore: %s\n"), ESP.getCpuFreqMHz(), ESP.getCoreVersion());
   DEBUG_PRINTF_P(PSTR("FLASH: %u MB\n"), (ESP.getFlashChipSize()/1024)/1024);
 #endif
-  DEBUG_PRINTF_P(PSTR("heap %u\n"), ESP.getFreeHeap());
+  DEBUG_PRINTF_P(PSTR("heap %u\n"), getFreeHeapSize());
 
 #if defined(ARDUINO_ARCH_ESP32)
   // BOARD_HAS_PSRAM also means that a compiler flag "-mfix-esp32-psram-cache-issue" was used and so PSRAM is safe to use on rev.1 ESP32
@@ -397,7 +401,7 @@ void WLED::setup()
   PinManager::allocatePin(2, true, PinOwner::DMX);
 #endif
 
-  DEBUG_PRINTF_P(PSTR("heap %u\n"), ESP.getFreeHeap());
+  DEBUG_PRINTF_P(PSTR("heap %u\n"), getFreeHeapSize());
 
   bool fsinit = false;
   DEBUGFS_PRINTLN(F("Mount FS"));
@@ -427,7 +431,7 @@ void WLED::setup()
 
   DEBUG_PRINTLN(F("Reading config"));
   bool needsCfgSave = deserializeConfigFromFS();
-  DEBUG_PRINTF_P(PSTR("heap %u\n"), ESP.getFreeHeap());
+  DEBUG_PRINTF_P(PSTR("heap %u\n"), getFreeHeapSize());
 
 #if defined(STATUSLED) && STATUSLED>=0
   if (!PinManager::isPinAllocated(STATUSLED)) {
@@ -439,12 +443,12 @@ void WLED::setup()
 
   DEBUG_PRINTLN(F("Initializing strip"));
   beginStrip();
-  DEBUG_PRINTF_P(PSTR("heap %u\n"), ESP.getFreeHeap());
+  DEBUG_PRINTF_P(PSTR("heap %u\n"), getFreeHeapSize());
 
   DEBUG_PRINTLN(F("Usermods setup"));
   userSetup();
   UsermodManager::setup();
-  DEBUG_PRINTF_P(PSTR("heap %u\n"), ESP.getFreeHeap());
+  DEBUG_PRINTF_P(PSTR("heap %u\n"), getFreeHeapSize());
 
   if (needsCfgSave) serializeConfigToFS(); // usermods required new parameters; need to wait for strip to be initialised #4752
 
@@ -509,13 +513,13 @@ void WLED::setup()
   // HTTP server page init
   DEBUG_PRINTLN(F("initServer"));
   initServer();
-  DEBUG_PRINTF_P(PSTR("heap %u\n"), ESP.getFreeHeap());
+  DEBUG_PRINTF_P(PSTR("heap %u\n"), getFreeHeapSize());
 
 #ifndef WLED_DISABLE_INFRARED
   // init IR
   DEBUG_PRINTLN(F("initIR"));
   initIR();
-  DEBUG_PRINTF_P(PSTR("heap %u\n"), ESP.getFreeHeap());
+  DEBUG_PRINTF_P(PSTR("heap %u\n"), getFreeHeapSize());
 #endif
 
   // Seed FastLED random functions with an esp random value, which already works properly at this point.
