@@ -589,10 +589,13 @@ uint8_t NeoGammaWLEDMethod::gammaT_inv[256];
 void NeoGammaWLEDMethod::calcGammaTable(float gamma)
 {
   float gamma_inv = 1.0f / gamma; // inverse gamma
-  for (size_t i = 0; i < 256; i++) {
-    gammaT[i] = (int)(powf((float)i / 255.0f, gamma) * 255.0f + 0.5f);
-    gammaT_inv[i] = (int)(powf((float)i / 255.0f, gamma_inv) * 255.0f + 0.5f);
+  for (size_t i = 1; i < 256; i++) {
+    gammaT[i] = (int)(powf((float)i / 255.0f, gamma) * 255.0f + 0.75f); // +0.75 for more aggressive rounding at low values
+    gammaT_inv[i] = (int)(powf(((float)i - 0.25f) / 255.0f, gamma_inv) * 255.0f + 0.75f);
+    //DEBUG_PRINTF_P(PSTR("gammaT[%d] = %d gammaT_inv[%d] = %d\n"), i, gammaT[i], i, gammaT_inv[i]);
   }
+  gammaT[0] = 0;
+  gammaT_inv[0] = 0;
 }
 
 uint8_t IRAM_ATTR_YN NeoGammaWLEDMethod::Correct(uint8_t value)
