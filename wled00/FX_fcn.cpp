@@ -159,8 +159,16 @@ bool Segment::allocateData(size_t len) {
     return false;
   }
   // prefer DRAM over SPI RAM on ESP32 since it is slow
-  if (data) data = (byte*)d_realloc(data, len);
-  else      data = (byte*)d_malloc(len);
+  if (data) {
+    data = (byte*)d_realloc_malloc(data, len); // realloc with malloc fallback
+    if (!data) {
+      data = nullptr;
+      Segment::addUsedSegmentData(-_dataLen); // subtract original buffer size
+      _dataLen = 0;   // reset data length
+    }
+  }
+  else data = (byte*)d_malloc(len);
+
   if (data) {
     memset(data, 0, len);  // erase buffer
     Segment::addUsedSegmentData(len - _dataLen);
@@ -170,7 +178,6 @@ bool Segment::allocateData(size_t len) {
   }
   // allocation failed
   DEBUG_PRINTLN(F("!!! Allocation failed. !!!"));
-  Segment::addUsedSegmentData(-_dataLen); // subtract original buffer size
   errorFlag = ERR_NORAM;
   return false;
 }
@@ -449,8 +456,8 @@ void Segment::setGeometry(uint16_t i1, uint16_t i2, uint8_t grp, uint8_t spc, ui
   }
   // re-allocate FX render buffer
   if (length() != oldLength) {
-    if (pixels) pixels = static_cast<uint32_t*>(d_realloc(pixels, sizeof(uint32_t) * length()));
-    else        pixels = static_cast<uint32_t*>(d_malloc(sizeof(uint32_t) * length()));
+    if (pixels) d_free(pixels); // using realloc on large buffers can cause additional fragmentation instead of reducing it
+    pixels = static_cast<uint32_t*>(d_malloc(sizeof(uint32_t) * length()));
     if (!pixels) {
       DEBUG_PRINTLN(F("!!! Not enough RAM for pixel buffer !!!"));
       errorFlag = ERR_NORAM_PX;
@@ -563,8 +570,8 @@ Segment &Segment::setName(const char *newName) {
   if (newName) {
     const int newLen = min(strlen(newName), (size_t)WLED_MAX_SEGNAME_LEN);
     if (newLen) {
-      if (name) name = static_cast<char*>(d_realloc(name, newLen+1));
-      else      name = static_cast<char*>(d_malloc(newLen+1));
+      if (name) d_free(name); // free old name
+      name = static_cast<char*>(d_malloc(newLen+1));
       if (name) strlcpy(name, newName, newLen+1);
       name[newLen] = 0;
       return *this;
@@ -645,6 +652,14 @@ uint16_t Segment::virtualLength() const {
   return vLength;
 }
 
+#ifndef WLED_DISABLE_2D
+// maximum length of a mapped 1D segment, used in PS for buffer allocation
+uint16_t Segment::maxMappingLength() const {
+  uint32_t vW = virtualWidth();
+  uint32_t vH = virtualHeight();
+  return max(sqrt32_bw(vH*vH + vW*vW), (uint32_t)getPinwheelLength(vW, vH)); // use diagonal
+}
+#endif
 // pixel is clipped if it falls outside clipping range
 // if clipping start > stop the clipping range is inverted
 bool IRAM_ATTR_YN Segment::isPixelClipped(int i) const {
@@ -729,8 +744,8 @@ void IRAM_ATTR_YN Segment::setPixelColor(int i, uint32_t col) const
         }
         break;
       case M12_pCorner:
-        for (int x = 0; x <= i; x++) setPixelColorRaw(XY(x, i), col);
-        for (int y = 0; y <  i; y++) setPixelColorRaw(XY(i, y), col);
+        for (int x = 0; x <= i; x++) setPixelColorXY(x, i, col); // note: <= to include i=0. Relies on overflow check in sPC()
+        for (int y = 0; y <  i; y++) setPixelColorXY(i, y, col);
         break;
       case M12_sPinwheel: {
         // Uses Bresenham's algorithm to place coordinates of two lines in arrays then draws between them
@@ -987,7 +1002,8 @@ void Segment::fade_out(uint8_t rate) const {
   if (!isActive()) return; // not active
   rate = (256-rate) >> 1;
   const int mappedRate = 256 / (rate + 1);
-  for (unsigned j = 0; j < vLength(); j++) {
+  const size_t rlength = rawLength();  // calculate only once
+  for (unsigned j = 0; j < rlength; j++) {
     uint32_t color = getPixelColorRaw(j);
     if (color == colors[1]) continue; // already at target color
     for (int i = 0; i < 32; i += 8) {
@@ -1008,13 +1024,15 @@ void Segment::fade_out(uint8_t rate) const {
 // fades all pixels to secondary color
 void Segment::fadeToSecondaryBy(uint8_t fadeBy) const {
   if (!isActive() || fadeBy == 0) return;   // optimization - no scaling to apply
-  for (unsigned i = 0; i < vLength(); i++) setPixelColorRaw(i, color_blend(getPixelColorRaw(i), colors[1], fadeBy));
+  const size_t rlength = rawLength();  // calculate only once
+  for (unsigned i = 0; i < rlength; i++) setPixelColorRaw(i, color_blend(getPixelColorRaw(i), colors[1], fadeBy));
 }
 
 // fades all pixels to black using nscale8()
 void Segment::fadeToBlackBy(uint8_t fadeBy) const {
   if (!isActive() || fadeBy == 0) return;   // optimization - no scaling to apply
-  for (unsigned i = 0; i < vLength(); i++) setPixelColorRaw(i, color_fade(getPixelColorRaw(i), 255-fadeBy));
+  const size_t rlength = rawLength();  // calculate only once
+  for (unsigned i = 0; i < rlength; i++) setPixelColorRaw(i, color_fade(getPixelColorRaw(i), 255-fadeBy));
 }
 
 /*
@@ -1136,21 +1154,27 @@ void WS2812FX::finalizeInit() {
   #if defined(ARDUINO_ARCH_ESP32) && !defined(CONFIG_IDF_TARGET_ESP32C3)
   // determine if it is sensible to use parallel I2S outputs on ESP32 (i.e. more than 5 outputs = 1 I2S + 4 RMT)
   unsigned maxLedsOnBus = 0;
+  unsigned busType = 0;
   for (const auto &bus : busConfigs) {
     if (Bus::isDigital(bus.type) && !Bus::is2Pin(bus.type)) {
       digitalCount++;
+      if (busType == 0) busType = bus.type; // remember first bus type
+      if (busType != bus.type) {
+        DEBUG_PRINTF_P(PSTR("Mixed digital bus types detected! Forcing single I2S output.\n"));
+        useParallelI2S = false; // mixed bus types, no parallel I2S
+      }
       if (bus.count > maxLedsOnBus) maxLedsOnBus = bus.count;
     }
   }
   DEBUG_PRINTF_P(PSTR("Maximum LEDs on a bus: %u\nDigital buses: %u\n"), maxLedsOnBus, digitalCount);
-  // we may remove 300 LEDs per bus limit when NeoPixelBus is updated beyond 2.9.0
-  if (maxLedsOnBus <= 300 && useParallelI2S) BusManager::useParallelOutput(); // must call before creating buses
+  // we may remove 600 LEDs per bus limit when NeoPixelBus is updated beyond 2.8.3
+  if (maxLedsOnBus <= 600 && useParallelI2S) BusManager::useParallelOutput(); // must call before creating buses
   else useParallelI2S = false; // enforce single I2S
+  digitalCount = 0;
   #endif
 
   // create buses/outputs
   unsigned mem = 0;
-  digitalCount = 0;
   for (const auto &bus : busConfigs) {
     mem += bus.memUsage(Bus::isDigital(bus.type) && !Bus::is2Pin(bus.type) ? digitalCount++ : 0); // includes global buffer
     if (mem <= MAX_LED_MEMORY) {
@@ -1186,8 +1210,8 @@ void WS2812FX::finalizeInit() {
   deserializeMap();     // (re)load default ledmap (will also setUpMatrix() if ledmap does not exist)
 
   // allocate frame buffer after matrix has been set up (gaps!)
-  if (_pixels) _pixels = static_cast<uint32_t*>(d_realloc(_pixels, getLengthTotal() * sizeof(uint32_t)));
-  else         _pixels = static_cast<uint32_t*>(d_malloc(getLengthTotal() * sizeof(uint32_t)));
+  if (_pixels) d_free(_pixels); // using realloc on large buffers can cause additional fragmentation instead of reducing it
+  _pixels = static_cast<uint32_t*>(d_malloc(getLengthTotal() * sizeof(uint32_t)));
   DEBUG_PRINTF_P(PSTR("strip buffer size: %uB\n"), getLengthTotal() * sizeof(uint32_t));
 
   DEBUG_PRINTF_P(PSTR("Heap after strip init: %uB\n"), ESP.getFreeHeap());
@@ -1319,6 +1343,11 @@ void WS2812FX::blendSegment(const Segment &topSegment) const {
   const unsigned progInv   = 0xFFFFU - progress;
   uint8_t       opacity    = topSegment.currentBri(); // returns transitioned opacity for style FADE
   uint8_t       cct        = topSegment.currentCCT();
+
+  if (length == 1) {
+    // Can't blend only a single pixel, prevents crash when bus init fails
+    return;
+  }
 
   Segment::setClippingRect(0, 0);             // disable clipping by default
 
@@ -1674,7 +1703,7 @@ void WS2812FX::setTransitionMode(bool t) {
 
 // wait until frame is over (service() has finished or time for 1 frame has passed; yield() crashes on 8266)
 void WS2812FX::waitForIt() {
-  unsigned long maxWait = millis() + getFrameTime();
+  unsigned long maxWait = millis() + getFrameTime() + 100; // TODO: this needs a proper fix for timeout!
   while (isServicing() && maxWait > millis()) delay(1);
   #ifdef WLED_DEBUG
   if (millis() >= maxWait) DEBUG_PRINTLN(F("Waited for strip to finish servicing."));

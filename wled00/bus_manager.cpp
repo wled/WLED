@@ -36,25 +36,32 @@ uint8_t realtimeBroadcast(uint8_t type, IPAddress client, uint16_t length, const
 
 //util.cpp
 // PSRAM allocation wrappers
-#ifndef ESP8266
+#if !defined(ESP8266) && !defined(CONFIG_IDF_TARGET_ESP32C3)
 extern "C" {
   void *p_malloc(size_t);           // prefer PSRAM over DRAM
   void *p_calloc(size_t, size_t);   // prefer PSRAM over DRAM
   void *p_realloc(void *, size_t);  // prefer PSRAM over DRAM
+  void *p_realloc_malloc(void *ptr, size_t size); // realloc with malloc fallback, prefer PSRAM over DRAM
   inline void p_free(void *ptr) { heap_caps_free(ptr); }
   void *d_malloc(size_t);           // prefer DRAM over PSRAM
   void *d_calloc(size_t, size_t);   // prefer DRAM over PSRAM
   void *d_realloc(void *, size_t);  // prefer DRAM over PSRAM
+  void *d_realloc_malloc(void *ptr, size_t size); // realloc with malloc fallback, prefer DRAM over PSRAM
   inline void d_free(void *ptr) { heap_caps_free(ptr); }
 }
 #else
+extern "C" {
+  void *realloc_malloc(void *ptr, size_t size);
+}
 #define p_malloc malloc
 #define p_calloc calloc
 #define p_realloc realloc
+#define p_realloc_malloc realloc_malloc
 #define p_free free
 #define d_malloc malloc
 #define d_calloc calloc
 #define d_realloc realloc
+#define d_realloc_malloc realloc_malloc
 #define d_free free
 #endif
 
@@ -153,6 +160,10 @@ BusDigital::BusDigital(const BusConfig &bc, uint8_t nr)
   if (bc.type == TYPE_WS2812_1CH_X3) lenToCreate = NUM_ICS_WS2812_1CH_3X(bc.count); // only needs a third of "RGB" LEDs for NeoPixelBus
   _busPtr = PolyBus::create(_iType, _pins, lenToCreate + _skip, nr);
   _valid = (_busPtr != nullptr) && bc.count > 0;
+  // fix for wled#4759
+  if (_valid) for (unsigned i = 0; i < _skip; i++) {
+    PolyBus::setPixelColor(_busPtr, _iType, i, 0, COL_ORDER_GRB); // set sacrificial pixels to black (CO does not matter here)
+  }
   DEBUGBUS_PRINTF_P(PSTR("Bus: %successfully inited #%u (len:%u, type:%u (RGB:%d, W:%d, CCT:%d), pins:%u,%u [itype:%u] mA=%d/%d)\n"),
     _valid?"S":"Uns",
     (int)nr,
@@ -230,18 +241,18 @@ void BusDigital::show() {
 
   uint8_t cctWW = 0, cctCW = 0;
   unsigned newBri = estimateCurrentAndLimitBri();  // will fill _milliAmpsTotal (TODO: could use PolyBus::CalcTotalMilliAmpere())
-  if (newBri < _bri) PolyBus::setBrightness(_busPtr, _iType, newBri); // limit brightness to stay within current limits
-    if (newBri < _bri) {
-      unsigned hwLen = _len;
-      if (_type == TYPE_WS2812_1CH_X3) hwLen = NUM_ICS_WS2812_1CH_3X(_len); // only needs a third of "RGB" LEDs for NeoPixelBus
-      for (unsigned i = 0; i < hwLen; i++) {
-        // use 0 as color order, actual order does not matter here as we just update the channel values as-is
-        uint32_t c = restoreColorLossy(PolyBus::getPixelColor(_busPtr, _iType, i, 0), _bri);
-        if (hasCCT()) Bus::calculateCCT(c, cctWW, cctCW); // this will unfortunately corrupt (segment) CCT data on every bus
-        PolyBus::setPixelColor(_busPtr, _iType, i, c, 0, (cctCW<<8) | cctWW); // repaint all pixels with new brightness
-      }
+  if (newBri < _bri) {
+    PolyBus::setBrightness(_busPtr, _iType, newBri); // limit brightness to stay within current limits
+    unsigned hwLen = _len;
+    if (_type == TYPE_WS2812_1CH_X3) hwLen = NUM_ICS_WS2812_1CH_3X(_len); // only needs a third of "RGB" LEDs for NeoPixelBus
+    for (unsigned i = 0; i < hwLen; i++) {
+      // use 0 as color order, actual order does not matter here as we just update the channel values as-is
+      uint32_t c = restoreColorLossy(PolyBus::getPixelColor(_busPtr, _iType, i, 0), _bri);
+      if (hasCCT()) Bus::calculateCCT(c, cctWW, cctCW); // this will unfortunately corrupt (segment) CCT data on every bus
+      PolyBus::setPixelColor(_busPtr, _iType, i, c, 0, (cctCW<<8) | cctWW); // repaint all pixels with new brightness
     }
-  PolyBus::show(_busPtr, _iType, false); // faster if buffer consistency is not important
+  }
+  PolyBus::show(_busPtr, _iType, _skip); // faster if buffer consistency is not important (no skipped LEDs)
   // restore bus brightness to its original value
   // this is done right after show, so this is only OK if LED updates are completed before show() returns
   // or async show has a separate buffer (ESP32 RMT and I2S are ok)
@@ -326,7 +337,7 @@ size_t BusDigital::getPins(uint8_t* pinArray) const {
 }
 
 size_t BusDigital::getBusSize() const {
-  return sizeof(BusDigital) + (isOk() ? PolyBus::getDataSize(_busPtr, _iType) /*+ (_data ? _len * getNumberOfChannels() : 0)*/ : 0);
+  return sizeof(BusDigital) + (isOk() ? PolyBus::getDataSize(_busPtr, _iType) : 0);
 }
 
 void BusDigital::setColorOrder(uint8_t colorOrder) {
