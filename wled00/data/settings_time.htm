@@ -4,57 +4,18 @@
 	<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport">
 	<meta charset="utf-8">
 	<title>Time Settings</title>
+	<script src="common.js" async type="text/javascript"></script>
 	<script>
-	var d=document;
-	var loc = false, locip, locproto = "http:";
 	var el=false;
 	var ms=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-	function H() { window.open("https://kno.wled.ge/features/settings/#time-settings"); }
-	function B() { window.open(getURL("/settings"),"_self"); }
-	function gId(s) { return d.getElementById(s); }
-	function gN(s) { return d.getElementsByName(s)[0]; }
-	// https://www.educative.io/edpresso/how-to-dynamically-load-a-js-file-in-javascript
-	function loadJS(FILE_URL, async = true) {
-		let scE = d.createElement("script");
-		scE.setAttribute("src", FILE_URL);
-		scE.setAttribute("type", "text/javascript");
-		scE.setAttribute("async", async);
-		d.body.appendChild(scE);
-		// success event 
-		scE.addEventListener("load", () => {
-			//console.log("File loaded");
-			BTa();GetV();updLoc();Cs();FC();
-		});
-		// error event
-		scE.addEventListener("error", (ev) => {
-			console.log("Error on loading file", ev);
-			alert("Loading of configuration script failed.\nIncomplete page data!");
-		});
-	}
 	function S() {
-		let l = window.location;
-		if (l.protocol == "file:") {
-			loc = true;
-			locip = localStorage.getItem('locIp');
-			if (!locip) {
-				locip = prompt("File Mode. Please enter WLED IP!");
-				localStorage.setItem('locIp', locip);
-			}
-		} else {
-			// detect reverse proxy
-			let path = l.pathname;
-			let paths = path.slice(1,path.endsWith('/')?-1:undefined).split("/");
-			if (paths.length > 2) {
-				locproto = l.protocol;
-				loc = true;
-				locip = l.hostname + (l.port ? ":" + l.port : "") + "/" + paths[0];
-			}
-		}
-		loadJS(getURL('/settings/s.js?p=5'), false);	// If we set async false, file is loaded and executed, then next statement is processed
+		getLoc();
+		loadJS(getURL('/settings/s.js?p=5'), false, ()=>{BTa();}, ()=>{
+			updLatLon();
+			Cs();
+			FC();
+		});	// If we set async false, file is loaded and executed, then next statement is processed
 		if (loc) d.Sf.action = getURL('/settings/time');
-	}
-	function getURL(path) {
-		return (loc ? locproto + "//" + locip : "") + path;
 	}
 	function expand(o,i)
 	{
@@ -139,21 +100,21 @@
 		td = tr.insertCell(3);
 		td.innerHTML = `<input name="MD${b}" type="number" class="s" min="0" max="250" value="${d}" required>`;
 	}
-	function getLoc() {
+	function getLatLon() {
 		if (!el) {
 			window.addEventListener("message", (event) => {
 				if (event.origin !== "https://locate.wled.me") return;
 				if (event.data instanceof Object) {
 					d.Sf.LT.value = event.data.lat;
 					d.Sf.LN.value = event.data.lon;
-					updLoc();
+					updLatLon();
 				}
 			}, false);
 			el = true;
 		}
 		window.open("https://locate.wled.me","_blank");
 	}
-	function updLoc(i) {
+	function updLatLon(i) {
 		if (parseFloat(d.Sf.LT.value)<0) { d.Sf.LTR.value = "S"; d.Sf.LT.value = -1*parseFloat(d.Sf.LT.value); } else d.Sf.LTR.value = "N";
 		if (parseFloat(d.Sf.LN.value)<0) { d.Sf.LNR.value = "W"; d.Sf.LN.value = -1*parseFloat(d.Sf.LN.value); } else d.Sf.LNR.value = "E";
 	}
@@ -163,7 +124,7 @@
 <body onload="S()">
 	<form id="form_s" name="Sf" method="post" onsubmit="Wd()">
 		<div class="toprow">
-		<div class="helpB"><button type="button" onclick="H()">?</button></div>
+		<div class="helpB"><button type="button" onclick="H('features/settings/#time-settings')">?</button></div>
 		<button type="button" onclick="B()">Back</button><button type="submit">Save</button><hr>
 		</div>
 		<h2>Time setup</h2>
@@ -195,21 +156,23 @@
 			<option value="20">AKST/AKDT (Anchorage)</option>
 			<option value="21">MX-CST</option>
 			<option value="22">PKT (Pakistan)</option>
+			<option value="23">BRT (Brasília)</option>
 		</select><br>
 		UTC offset: <input name="UO" type="number" min="-65500" max="65500" required> seconds (max. 18 hours)<br>
 		Current local time is <span class="times">unknown</span>.<br>
 		Latitude: <select name="LTR"><option value="N">N</option><option value="S">S</option></select><input name="LT" type="number" class="xl" min="0" max="66.6" step="0.01"><br>
 		Longitude: <select name="LNR"><option value="E">E</option><option value="W">W</option></select><input name="LN" type="number" class="xl" min="0" max="180" step="0.01"><br>
-		<button type="button" id="locbtn" onclick="getLoc()">Get location</button>
+		<button type="button" id="locbtn" onclick="getLatLon()">Get location</button>
 		<div><i>(opens new tab, only works in browser)</i></div>
 		<div id="sun" class="times"></div>
 		<h3>Clock</h3>
 		Analog Clock overlay: <input type="checkbox" name="OL" onchange="Cs()"><br>
 		<div id="cac">
-			First LED: <input name="O1" type="number" min="0" max="255" required> Last LED: <input name="O2" type="number" min="0" max="255" required><br>
-			12h LED: <input name="OM" type="number" min="0" max="255" required><br>
+			First LED: <input name="O1" type="number" min="0" max="1024" required> Last LED: <input name="O2" type="number" min="0" max="1024" required><br>
+			12h LED: <input name="OM" type="number" min="0" max="1024" required><br>
 			Show 5min marks: <input type="checkbox" name="O5"><br>
 			Seconds (as trail): <input type="checkbox" name="OS"><br>
+			Show clock overlay only if all LEDs are solid black: <input type="checkbox" name="OB"><br>
 		</div>
 		Countdown Mode: <input type="checkbox" name="CE"><br>
 		Countdown Goal:<br>

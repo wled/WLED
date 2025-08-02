@@ -11,7 +11,7 @@
 // - - - - -
 
 /* ----- LIBRARIES ----- */
-#ifdef ESP8266
+#if defined(ESP8266) || defined(CONFIG_IDF_TARGET_ESP32C3) || defined(CONFIG_IDF_TARGET_ESP32S2)
 
 #include <Arduino.h>
 

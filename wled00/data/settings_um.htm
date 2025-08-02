@@ -4,73 +4,55 @@
 	<meta charset="utf-8">
 	<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport">
 	<title>Usermod Settings</title>
+	<script src="common.js" async type="text/javascript"></script>
 	<script>
-	var d = document;
-	d.max_gpio = 50;
-	d.um_p = [];
-	d.rsvd = [];
-	d.ro_gpio = [];
-	d.extra = [];
 	var umCfg = {};
 	var pins = [], pinO = [], owner;
-	var loc = false, locip, locproto = "http:";
 	var urows;
 	var numM = 0;
-	function gId(s) { return d.getElementById(s); }
-	function isO(i) { return (i && typeof i === 'object' && !Array.isArray(i)); }
-	function H() { window.open("https://github.com/Aircoookie/WLED/wiki/Settings#usermod-settings"); }
-	function B() { window.open(getURL("/settings"),"_self"); }
-	// https://www.educative.io/edpresso/how-to-dynamically-load-a-js-file-in-javascript
-	function loadJS(FILE_URL, async = true) {
-		let scE = d.createElement("script");
-		scE.setAttribute("src", FILE_URL);
-		scE.setAttribute("type", "text/javascript");
-		scE.setAttribute("async", async);
-		d.body.appendChild(scE);
-		// success event 
-		scE.addEventListener("load", () => {
-			GetV();
-			for (let r of d.rsvd) { pins.push(r); pinO.push("rsvd"); } // reserved pins
-			if (d.um_p[0]==-1) d.um_p.shift();	// remove filler
-			d.Sf.SDA.max = d.Sf.SCL.max = d.Sf.MOSI.max = d.Sf.SCLK.max = d.Sf.MISO.max = d.max_gpio;
-			//for (let i of d.getElementsByTagName("input")) if (i.type === "number" && i.name.replace("[]","").substr(-3) === "pin") i.max = d.max_gpio;
-			pinDropdowns(); // convert INPUT to SELECT for pins
-		});
-		// error event
-		scE.addEventListener("error", (ev) => {
-			console.log("Error on loading file", ev);
-			alert("Loading of configuration script failed.\nIncomplete page data!");
-		});
-	}
 	function S() {
-		let l = window.location;
-		if (l.protocol == "file:") {
-			loc = true;
-			locip = localStorage.getItem('locIp');
-			if (!locip) {
-				locip = prompt("File Mode. Please enter WLED IP!");
-				localStorage.setItem('locIp', locip);
+		getLoc();
+		// load settings and insert values into DOM
+		fetch(getURL('/json/cfg'), {
+			method: 'get'
+		})
+		.then(res => {
+			if (!res.ok) gId('lserr').style.display = "inline";
+			return res.json();
+		})
+		.then(json => {
+			umCfg = json.um;
+			getPins(json);
+			urows="";
+			if (isO(umCfg)) {
+				for (const [k,o] of Object.entries(umCfg)) {
+					urows += `<hr><h3>${k}</h3>`;
+					addField(k,'unknown',o);
+				}
 			}
-		} else {
-			// detect reverse proxy
-			let path = l.pathname;
-			let paths = path.slice(1,path.endsWith('/')?-1:undefined).split("/");
-			if (paths.length > 2) {
-				locproto = l.protocol;
-				loc = true;
-				locip = l.hostname + (l.port ? ":" + l.port : "") + "/" + paths[0];
-			}
-		}
-		ldS();
+			if (urows==="") urows = "Usermods configuration not found.<br>Press <i>Save</i> to initialize defaults.";
+			gId("um").innerHTML = urows;
+			loadJS(getURL('/settings/s.js?p=8'), false, ()=>{
+				d.max_gpio = 50;
+				d.um_p = [];
+				d.rsvd = [];
+				d.ro_gpio = [];
+				d.extra = [];
+			}, ()=>{
+				for (let r of d.rsvd) { pins.push(r); pinO.push("rsvd"); } // reserved pins
+				if (d.um_p[0]==-1) d.um_p.shift();	// remove filler
+				d.Sf.SDA.max = d.Sf.SCL.max = d.Sf.MOSI.max = d.Sf.SCLK.max = d.Sf.MISO.max = d.max_gpio;
+				//for (let i of d.getElementsByTagName("input")) if (i.type === "number" && i.name.replace("[]","").substr(-3) === "pin") i.max = d.max_gpio;
+				pinDD(); // convert INPUT to SELECT for pins
+			});	// If we set async false, file is loaded and executed, then next statement is processed
+		})
+		.catch((error)=>{
+			gId('lserr').style.display = "inline";
+			console.log(error);
+		});
 		if (!numM) gId("um").innerHTML = "No Usermods installed.";
 		if (loc) d.Sf.action = getURL('/settings/um');
 	}
-	function getURL(path) {
-		return (loc ? locproto + "//" + locip : "") + path;
-	}
-	// https://stackoverflow.com/questions/3885817/how-do-i-check-that-a-number-is-float-or-integer
-	function isF(n) { return n === +n && n !== (n|0); }
-	function isI(n) { return n === +n && n === (n|0); }
 	function check(o,k) {   // input object, pin owner key
 		/* no longer necessary with pin dropdown fields
 		var n = o.name.replace("[]","").substr(-3);
@@ -78,7 +60,7 @@
 			for (var i=0; i<pins.length; i++) {
 				if (k==pinO[i]) continue;
 				if (o.value==pins[i] && pinO[i]==="if") { o.style.color="lime"; break; }
-				if (o.value==pins[i] || o.value<-1 || o.value>d.max_gpio) { o.style.color="red"; break; } else o.style.color=d.ro_gpio.some((e)=>e==parseInt(o.value,10))?"orange":"#fff";
+				if (o.value==pins[i] || o.value<-1 || o.value>d.max_gpio-1) { o.style.color="red"; break; } else o.style.color=d.ro_gpio.some((e)=>e==parseInt(o.value,10))?"orange":"#fff";
 			}
 		} else {
 			switch (o.name) {
@@ -92,7 +74,7 @@
 			for (var i=0; i<pins.length; i++) {
 				//if (k==pinO[i]) continue; // same owner
 				if (o.value==pins[i] && pinO[i]==="if") { o.style.color="tomato"; break; }
-				if (o.value==pins[i] || o.value<-1 || o.value>d.max_gpio) { o.style.color="red"; break; } else o.style.color=d.ro_gpio.some((e)=>e==parseInt(o.value,10))?"orange":"#fff";
+				if (o.value==pins[i] || o.value<-1 || o.value>d.max_gpio-1) { o.style.color="red"; break; } else o.style.color=d.ro_gpio.some((e)=>e==parseInt(o.value,10))?"orange":"#fff";
 			}
 		}
 		*/
@@ -146,7 +128,7 @@
 				case "number":
 					c = `value="${o}"`;
 					if (f.substr(-3)==="pin") {
-						c += ` max="${d.max_gpio}" min="-1" class="s"`;
+						c += ` max="${d.max_gpio-1}" min="-1" class="s"`;
 						t = "int";
 					} else {
 						c += ' step="any" class="xxl"';
@@ -163,25 +145,25 @@
 			urows += `<input type="${t==="int"?"number":t}" name="${k}:${f}${a?"[]":""}" ${c} oninput="check(this,'${k.substr(k.indexOf(":")+1)}')"><br>`;
 		}
 	}
-	function pinDropdowns() {
+	function pinDD() {
 		for (let i of d.Sf.elements) {
 			if (i.type === "number" && (i.name.includes("pin") || ["SDA","SCL","MOSI","MISO","SCLK"].includes(i.name))) { //select all pin select elements
 				let v = parseInt(i.value);
-				let sel = addDropdown(i.name,0);
-				for (var j = -1; j <= d.max_gpio; j++) {
+				let sel = addDD(i.name,0);
+				for (var j = -1; j < d.max_gpio; j++) {
 					if (d.rsvd.includes(j)) continue;
 					let foundPin = pins.indexOf(j);
 					let txt = (j === -1) ? "unused" : `${j}`;
 					if (foundPin >= 0 && j !== v) txt += ` ${pinO[foundPin]=="if"?"global":pinO[foundPin]}`; // already reserved pin
 					if (d.ro_gpio.includes(j)) txt += " (R/O)";
-					let opt = addOption(sel, txt, j);
+					let opt = addO(sel, txt, j);
 					if (j === v) opt.selected = true; // this is "our" pin
 					else if (pins.includes(j)) opt.disabled = true; // someone else's pin
 				}
 				let um = i.name.split(":")[0];
 				d.extra.forEach((o)=>{
 					if (o[um] && o[um].pin) o[um].pin.forEach((e)=>{
-						let opt = addOption(sel,e[0],e[1]);
+						let opt = addO(sel,e[0],e[1]);
 						if (e[1]==v) opt.selected = true;
 					});
 				});
@@ -217,18 +199,18 @@
 		}
 	}
 	// https://stackoverflow.com/questions/39729741/javascript-change-input-text-to-select-option
-	function addDropdown(um,fld) {
-		let sel = d.createElement('select');
+	function addDD(um,fld) {
+		let sel = cE('select');
 		if (typeof(fld) === "string") {	// parameter from usermod (field name)
 			if (fld.includes("pin")) sel.classList.add("pin");
 			um += ":"+fld;
 		} else if (typeof(fld) === "number") sel.classList.add("pin"); // a hack to add a class
 		let arr = d.getElementsByName(um);
 		let idx = arr[0].type==="hidden"?1:0; // ignore hidden field
-		if (arr.length > 2) {
+		if (arr.length > 1+idx) {
 			// we have array of values (usually pins)
 			for (let i of arr) {
-				if (i.type === "number") break;
+				if (i.nodeName === "INPUT" && i.type === "number") break;
 				idx++;
 			}
 		}
@@ -253,9 +235,10 @@
 		}
 		return null;
 	}
-	function addOption(sel,txt,val) {
+	var addDropdown = addDD; // backwards compatibility
+	function addO(sel,txt,val) {
 		if (sel===null) return; // select object missing
-		let opt = d.createElement("option");
+		let opt = cE("option");
 		opt.value = val;
 		opt.text = txt;
 		sel.appendChild(opt);
@@ -265,8 +248,9 @@
 		}
 		return opt;
 	}
+	var addOption = addO; // backwards compatibility
 	// https://stackoverflow.com/questions/26440494/insert-text-after-this-input-element-with-javascript
-	function addInfo(name,el,txt, txt2="") {
+	function addI(name,el,txt, txt2="") {
 		let obj = d.getElementsByName(name);
 		if (!obj.length) return;
 		if (typeof el === "string" && obj[0]) obj[0].placeholder = el;
@@ -275,37 +259,10 @@
 			if (txt2!="") obj[el].insertAdjacentHTML('beforebegin', txt2 + '&nbsp;');  //add pre texts
 		}
 	}
+	var addInfo = addI; // backwards compatibility
 	// add Help Button
 	function addHB(um) {
-		addInfo(um + ':help',0,`<button onclick="location.href='https://kno.wled.ge/usermods/${um}'" type="button">?</button>`);
-	}
-	// load settings and insert values into DOM
-	function ldS() {
-		fetch(getURL('/cfg.json'), {
-			method: 'get'
-		})
-		.then(res => {
-			if (!res.ok) gId('lserr').style.display = "inline";
-			return res.json();
-		})
-		.then(json => {
-			umCfg = json.um;
-			getPins(json);
-			urows="";
-			if (isO(umCfg)) {
-				for (const [k,o] of Object.entries(umCfg)) {
-					urows += `<hr><h3>${k}</h3>`;
-					addField(k,'unknown',o);
-				}
-			}
-			if (urows==="") urows = "Usermods configuration not found.<br>Press <i>Save</i> to initialize defaults.";
-			gId("um").innerHTML = urows;
-			loadJS(getURL('/settings/s.js?p=8'), false);	// If we set async false, file is loaded and executed, then next statement is processed
-		})
-		.catch((error)=>{
-			gId('lserr').style.display = "inline";
-			console.log(error);
-		});
+		addI(um + ':help',0,`<button onclick="location.href='https://kno.wled.ge/usermods/${um}'" type="button">?</button>`);
 	}
 	function svS(e) {
 		e.preventDefault();

@@ -15,35 +15,35 @@ void _overlayAnalogClock()
   float minuteP = ((float)minute(localTime))/60.0f;
   hourP = hourP + minuteP/12.0f;
   float secondP = ((float)second(localTime))/60.0f;
-  int hourPixel = floorf(analogClock12pixel + overlaySize*hourP);
+  unsigned hourPixel = floorf(analogClock12pixel + overlaySize*hourP);
   if (hourPixel > overlayMax) hourPixel = overlayMin -1 + hourPixel - overlayMax;
-  int minutePixel = floorf(analogClock12pixel + overlaySize*minuteP);
+  unsigned minutePixel = floorf(analogClock12pixel + overlaySize*minuteP);
   if (minutePixel > overlayMax) minutePixel = overlayMin -1 + minutePixel - overlayMax;
-  int secondPixel = floorf(analogClock12pixel + overlaySize*secondP);
+  unsigned secondPixel = floorf(analogClock12pixel + overlaySize*secondP);
   if (secondPixel > overlayMax) secondPixel = overlayMin -1 + secondPixel - overlayMax;
   if (analogClockSecondsTrail)
   {
     if (secondPixel < analogClock12pixel)
     {
-      strip.setRange(analogClock12pixel, overlayMax, 0xFF0000);
-      strip.setRange(overlayMin, secondPixel, 0xFF0000);
+      strip.setRange(analogClock12pixel, overlayMax, color_fade(0xFF0000, bri));
+      strip.setRange(overlayMin, secondPixel, color_fade(0xFF0000, bri));
     } else
     {
-      strip.setRange(analogClock12pixel, secondPixel, 0xFF0000);
+      strip.setRange(analogClock12pixel, secondPixel, color_fade(0xFF0000, bri));
     }
   }
   if (analogClock5MinuteMarks)
   {
-    for (byte i = 0; i <= 12; i++)
+    for (unsigned i = 0; i <= 12; i++)
     {
-      int pix = analogClock12pixel + roundf((overlaySize / 12.0f) *i);
+      unsigned pix = analogClock12pixel + roundf((overlaySize / 12.0f) *i);
       if (pix > overlayMax) pix -= overlaySize;
-      strip.setPixelColor(pix, 0x00FFAA);
+      strip.setPixelColor(pix, color_fade(0x00FFAA, bri));
     }
   }
-  if (!analogClockSecondsTrail) strip.setPixelColor(secondPixel, 0xFF0000);
-  strip.setPixelColor(minutePixel, 0x00FF00);
-  strip.setPixelColor(hourPixel, 0x0000FF);
+  if (!analogClockSecondsTrail) strip.setPixelColor(secondPixel, color_fade(0xFF0000, bri));
+  strip.setPixelColor(minutePixel, color_fade(0x00FF00, bri));
+  strip.setPixelColor(hourPixel, color_fade(0x0000FF, bri));
 }
 
 
@@ -88,7 +88,16 @@ void _overlayAnalogCountdown()
 }
 
 void handleOverlayDraw() {
-  usermods.handleOverlayDraw();
+  UsermodManager::handleOverlayDraw();
+  if (analogClockSolidBlack) {
+    for (unsigned i = 0; i < strip.getSegmentsNum(); i++) {
+      const Segment& segment = strip.getSegment(i);
+      if (!segment.isActive()) continue;
+      if (segment.mode > 0 || segment.colors[0] > 0) {
+        return;
+      }
+    }
+  }
   if (overlayCurrent == 1) _overlayAnalogClock();
 }
 

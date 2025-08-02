@@ -4,59 +4,18 @@
 	<meta charset="utf-8">
 	<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport">
 	<title>2D Set-up</title>
+	<script src="common.js" async type="text/javascript"></script>
 	<script>
-	var d=document;
-	var loc = false, locip, locproto = "http:";
 	var maxPanels=64;
-	var ctx = null; // WLEDMM
-	function H(){window.open("https://kno.wled.ge/features/2D");}
-	function B(){window.open(getURL("/settings"),"_self");}
-	function gId(n){return d.getElementById(n);}
+	var ctx = null;
 	function fS(){d.Sf.submit();} // <button type=submit> sometimes didn't work
-	// https://www.educative.io/edpresso/how-to-dynamically-load-a-js-file-in-javascript
-	function loadJS(FILE_URL, async = true) {
-		let scE = d.createElement("script");
-		scE.setAttribute("src", FILE_URL);
-		scE.setAttribute("type", "text/javascript");
-		scE.setAttribute("async", async);
-		d.body.appendChild(scE);
-		// success event 
-		scE.addEventListener("load", () => {
-			//console.log("File loaded");
-			GetV();
+	function S() {
+		getLoc();
+		loadJS(getURL('/settings/s.js?p=10'), false, undefined, ()=>{
 			UI();
 			Sf.MPC.setAttribute("max",maxPanels);
-		});
-		// error event
-		scE.addEventListener("error", (ev) => {
-			console.log("Error on loading file", ev);
-			alert("Loading of configuration script failed.\nIncomplete page data!");
-		});
-	}
-	function S() {
-		let l = window.location;
-		if (l.protocol == "file:") {
-			loc = true;
-			locip = localStorage.getItem('locIp');
-			if (!locip) {
-				locip = prompt("File Mode. Please enter WLED IP!");
-				localStorage.setItem('locIp', locip);
-			}
-		} else {
-			// detect reverse proxy
-			let path = l.pathname;
-			let paths = path.slice(1,path.endsWith('/')?-1:undefined).split("/");
-			if (paths.length > 2) {
-				locproto = l.protocol;
-				loc = true;
-				locip = l.hostname + (l.port ? ":" + l.port : "") + "/" + paths[0];
-			}
-		}
-		loadJS(getURL('/settings/s.js?p=10'), false);	// If we set async false, file is loaded and executed, then next statement is processed
+		});	// If we set async false, file is loaded and executed, then next statement is processed
 		if (loc) d.Sf.action = getURL('/settings/2D');
-	}
-	function getURL(path) {
-			return (loc ? locproto + "//" + locip : "") + path;
 	}
 
 	function UI() {
@@ -67,29 +26,6 @@
 		}
 		gId("mpdiv").style.display = "block";
 		draw();
-	}
-
-	var timeout;
-	function showToast(text, error = false)
-	{
-		var x = gId("toast");
-		x.innerHTML = text;
-		x.className = error ? "error":"show";
-		clearTimeout(timeout);
-		x.style.animation = 'none';
-		timeout = setTimeout(function(){ x.className = x.className.replace("show", ""); }, 2900);
-	}
-
-	function uploadFile(name) {
-		var req = new XMLHttpRequest();
-		req.addEventListener('load', function(){showToast(this.responseText,this.status >= 400)});
-		req.addEventListener('error', function(e){showToast(e.stack,true);});
-		req.open("POST", "/upload");
-		var formData = new FormData();
-		formData.append("data", d.Sf.data.files[0], name);
-		req.send(formData);
-		d.Sf.data.value = '';
-		return false;
 	}
 
 	function addPanels() {
@@ -118,8 +54,8 @@ Orientation: <select name="P${i}V" oninput="UI()">
 </select><br>
 Serpentine: <input type="checkbox" name="P${i}S" oninput="UI()"><br>
 Dimensions (WxH): <input name="P${i}W" type="number" min="1" max="255" value="${pw}" oninput="UI()"> x <input name="P${i}H" type="number" min="1" max="255" value="${ph}" oninput="UI()"><br>
-Offset X:<input name="P${i}X" type="number" min="0" max="255" value="0" oninput="UI()">
-Y:<input name="P${i}Y" type="number" min="0" max="255" value="0" oninput="UI()"><br><i>(offset from top-left corner in # LEDs)</i>
+Offset X: <input name="P${i}X" type="number" min="0" max="255" value="0" oninput="UI()">
+Y: <input name="P${i}Y" type="number" min="0" max="255" value="0" oninput="UI()"><br><i>(offset from top-left corner in # LEDs)</i>
 </div>`;
 		p.insertAdjacentHTML("beforeend", b);
 	}
@@ -306,7 +242,7 @@ Y:<input name="P${i}Y" type="number" min="0" max="255" value="0" oninput="UI()">
 <body onload="S()">
 	<form id="form_s" name="Sf" method="post">
 	<div class="toprow">
-		<div class="helpB"><button type="button" onclick="H()">?</button></div>
+		<div class="helpB"><button type="button" onclick="H('features/2D')">?</button></div>
 		<button type="button" onclick="B()">Back</button><button type="button" onclick="fS()">Save</button><hr>
 	</div>
 	<h2>2D setup</h2>
@@ -349,7 +285,7 @@ Y:<input name="P${i}Y" type="number" min="0" max="255" value="0" oninput="UI()">
 		<hr class="sml">
 		<div id="MD"></div>
 		<canvas id="canvas"></canvas>
-		<div id="json" >Gap file: <input type="file" name="data" accept=".json"><button type="button" class="sml" onclick="uploadFile('/2d-gaps.json')">Upload</button></div>
+		<div id="json" >Gap file: <input type="file" name="data" accept=".json"><button type="button" class="sml" onclick="uploadFile(d.Sf.data,'/2d-gaps.json')">Upload</button></div>
 		<i>Note: Gap file is a <b>.json</b> file containing an array with number of elements equal to the matrix size.<br>
 			A value of -1 means that pixel at that position is missing, a value of 0 means never paint that pixel, and 1 means regular pixel.</i>
 	</div>

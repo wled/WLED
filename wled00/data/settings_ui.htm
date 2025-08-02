@@ -4,10 +4,9 @@
 	<meta charset="utf-8">
 	<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport">
 	<title>UI Settings</title>
+	<script src="common.js" async type="text/javascript"></script>
 	<script>
-	var d = document;
-	var loc = false, locip, locproto = "http:";
-	var initial_ds, initial_st, initial_su;
+	var initial_ds, initial_st, initial_su, oldUrl;
 	var sett = null;
 	var l = {
 		"comp":{
@@ -27,6 +26,8 @@
 			"css": "Enable custom CSS",
 			"hdays": "Enable custom Holidays list",
 			"fxdef": "Use effect default parameters",
+			"on": "Power button preset override for On",
+			"off": "Power button preset override for Off",
 			"idsort": "Sort presets by ID"
 		},
 		"theme":{
@@ -36,18 +37,15 @@
 			},
 			"bg":{
 				"url":"BG image URL",
-				"random":"Random BG image"
+				"rnd":"Random BG image",
+				"rndGrayscale":"Grayscale",
+				"rndBlur":"Blur"
 			},
 			"color":{
 				"bg":"BG HEX color"
 			}
 		}
 	};
-	function gId(s) { return d.getElementById(s); }
-	function toggle(el) { gId(el).classList.toggle("hide"); gId('No'+el).classList.toggle("hide"); }
-	function isObject(item) {
-		return (item && typeof item === 'object' && !Array.isArray(item));
-	}
 	function set(path, obj, val) {
 		var tar = obj;
 		var pList = path.split('_');
@@ -59,23 +57,13 @@
 		}
 		tar[pList[len-1]] = val;
 	}
-	var timeout;
-	function showToast(text, error = false)
-	{
-		var x = gId("toast");
-		x.innerHTML = text;
-		x.classList.add(error ? "error":"show");
-		clearTimeout(timeout);
-		x.style.animation = 'none';
-		timeout = setTimeout(function(){ x.classList.remove("show"); }, 2900);
-	}
 	function addRec(s, path = "", label = null)
 	{
 		var str = "";
-		for (i in s)
+		for (let i in s)
 		{
 			var fk = path + (path?'_':'') + i;
-			if (isObject(s[i])) {
+			if (isO(s[i])) {
 				if (label && label[i] && label[i]["LABEL"]) str += `<h3>${label[i]["LABEL"]}</h3>`;
 				str += addRec(s[i], fk, label? label[i] : null);
 			} else {
@@ -114,8 +102,14 @@
 	function genForm(s) {
 		var str = "";
 		str = addRec(s,"",l);
+		oldUrl = "";
 		
 		gId('gen').innerHTML = str;
+		if (gId('theme_bg_rnd').checked) {
+			toggle("Image");
+		} else if (gId('theme_bg_url').value.startsWith('data:')) {
+			gId("bg_url").classList.add("hide");
+		} else oldUrl = gId("theme_bg_url").value;
 	}
 	function GetLS()
 	{
@@ -161,58 +155,19 @@
 	
 	function Save() {
 		SetLS();
-		if (d.Sf.DS.value != initial_ds || d.Sf.ST.checked != initial_st || d.Sf.SU.checked != initial_su) d.Sf.submit();
+		if (d.Sf.DS.value != initial_ds || /*d.Sf.ST.checked != initial_st ||*/ d.Sf.SU.checked != initial_su) d.Sf.submit();
 	}
 	
-	// https://www.educative.io/edpresso/how-to-dynamically-load-a-js-file-in-javascript
-	function loadJS(FILE_URL, async = true) {
-		let scE = d.createElement("script");
-		scE.setAttribute("src", FILE_URL);
-		scE.setAttribute("type", "text/javascript");
-		scE.setAttribute("async", async);
-		d.body.appendChild(scE);
-		// success event 
-		scE.addEventListener("load", () => {
-			//console.log("File loaded");
-			GetV(); 
+	function S() {
+		getLoc();
+		loadJS(getURL('/settings/s.js?p=3'), false, undefined, ()=>{
 			initial_ds = d.Sf.DS.value;
-			initial_st = d.Sf.ST.checked;
+			//initial_st = d.Sf.ST.checked;
 			initial_su = d.Sf.SU.checked;
 			GetLS();
-		});
-		// error event
-		scE.addEventListener("error", (ev) => {
-			console.log("Error on loading file", ev);
-			alert("Loading of configuration script failed.\nIncomplete page data!");
-		});
-	}
-	function S() {
-		let l = window.location;
-		if (l.protocol == "file:") {
-			loc = true;
-			locip = localStorage.getItem('locIp');
-			if (!locip) {
-				locip = prompt("File Mode. Please enter WLED IP!");
-				localStorage.setItem('locIp', locip);
-			}
-		} else {
-			// detect reverse proxy
-			let path = l.pathname;
-			let paths = path.slice(1,path.endsWith('/')?-1:undefined).split("/");
-			if (paths.length > 2) {
-				locproto = l.protocol;
-				loc = true;
-				locip = l.hostname + (l.port ? ":" + l.port : "") + "/" + paths[0];
-			}
-		}
-		loadJS(getURL('/settings/s.js?p=3'), false);	// If we set async false, file is loaded and executed, then next statement is processed
+		});	// If we set async false, file is loaded and executed, then next statement is processed
 		if (loc) d.Sf.action = getURL('/settings/ui');
 	}
-	function getURL(path) {
-		return (loc ? locproto + "//" + locip : "") + path;
-	}
-	function H() { window.open("https://kno.wled.ge/features/settings/#user-interface-settings"); }
-	function B() { window.open(getURL("/settings"),"_self"); }
 	function UI()
 	{
 		gId('idonthateyou').style.display = (gId('dm').checked) ? 'inline':'none';
@@ -221,31 +176,36 @@
 	}
 
 	// random BG image
-	function setRandomBg() {
-		if (gId("theme_bg_random").checked) {
-			gId("theme_bg_url").value = "https://picsum.photos/1920/1080";
-		} else {
-			gId("theme_bg_url").value = "";
+	function randomBg() {
+		let url = oldUrl;
+		let t = "theme_bg_rnd";
+		if (gId(t).checked) {
+			url = "https://picsum.photos/1920/1080";
+			if (gId(`${t}Grayscale`).checked) url += "?grayscale";
+			if (gId(`${t}Blur`).checked) url += (url.includes("?") ? "&" : "?") + "blur";
+			gId("theme_bg_img").value = "";
+			gId("bg_url").classList.remove("hide");
 		}
-		
+		gId("theme_bg_url").value = url;
 	}
-	function checkRandomBg() {
-		if (gId("theme_bg_url").value === "https://picsum.photos/1920/1080") {
-			gId("theme_bg_random").checked = true;
-		} else {
-			gId("theme_bg_random").checked = false;
+	// own BG image
+	function ownBg(element) {
+		const file = element.files[0];
+		const reader = new FileReader();
+		reader.onload = () => {
+			gId("theme_bg_url").value = reader.result;
+			gId("bg_url").classList.add("hide");
+			if (gId("theme_bg_rnd").checked) toggle("Image");
+			gId("theme_bg_rnd").checked = false;
 		}
+		reader.readAsDataURL(file);
 	}
-	function uploadFile(fO,name) {
-		var req = new XMLHttpRequest();
-		req.addEventListener('load', function(){showToast(this.responseText,this.status >= 400)});
-		req.addEventListener('error', function(e){showToast(e.stack,true);});
-		req.open("POST", "/upload");
-		var formData = new FormData();
-		formData.append("data", fO.files[0], name);
-		req.send(formData);
-		fO.value = '';
-		return false;
+	function removeBgImg() {
+		gId("theme_bg_url").value = "";
+		gId("theme_bg_img").value = "";
+		gId("bg_url").classList.remove("hide");
+		if (gId("theme_bg_rnd").checked) toggle("Image");
+		gId("theme_bg_rnd").checked = false;
 	}
 	</script>
 	<style>@import url("style.css");</style>
@@ -253,18 +213,15 @@
 <body onload="S()">
 	<form id="form_s" name="Sf" method="post">
 		<div class="toprow">
-		<div class="helpB"><button type="button" onclick="H()">?</button></div>
+		<div class="helpB"><button type="button" onclick="H('features/settings/#user-interface-settings')">?</button></div>
 		<button type="button" onclick="B()">Back</button><button type="button" onclick="Save()">Save</button><br>
 		<span id="lssuc" style="color:green; display:none">&#10004; Local UI settings saved!</span>
 		<span id="lserr" style="color:red; display:none">&#9888; Could not access local storage. Make sure it is enabled in your browser.</span><hr>
 		</div>
 		<h2>Web Setup</h2>
 		Server description: <input type="text" name="DS" maxlength="32"><br>
-		Sync button toggles both send and receive: <input type="checkbox" name="ST"><br>
-		<div id="NoSimple" class="hide">
-			<i class="warn">This firmware build does not include simplified UI support.<br></i>
-		</div>
-		<div id="Simple">Enable simplified UI: <input type="checkbox" name="SU"><br></div>
+		<!-- Sync button toggles both send and receive: <input type="checkbox" name="ST"><br> -->
+		Enable simplified UI: <input type="checkbox" name="SU"><br>
 		<i>The following UI customization settings are unique both to the WLED device and this browser.<br>
 		You will need to set them again if using a different browser, device or WLED IP address.<br>
 		Refresh the main UI to apply changes.</i><br>
@@ -279,14 +236,26 @@
 		<span class="l"></span>: <input type="checkbox" id="comp_segpwr" class="agi cb"><br>
 		<span class="l"></span>: <input type="checkbox" id="comp_segexp" class="agi cb"><br>
 		<span class="l"></span>: <input type="checkbox" id="comp_fxdef" class="agi cb"><br>
+		<span class="l"></span>: <input type="number" min=0 max=250 step=1 id="comp_on" class="agi"><br>
+		<span class="l"></span>: <input type="number" min=0 max=250 step=1 id="comp_off" class="agi"><br>
 		<span class="l"></span>: <input type="checkbox" id="comp_idsort" class="agi cb"><br>
 		I hate dark mode: <input type="checkbox" id="dm" onchange="UI()"><br>
 		<span id="idonthateyou" style="display:none"><i>Why would you? </i>&#x1F97A;<br></span>
 		<span class="l"></span>: <input type="number" min=0.0 max=1.0 step=0.01 id="theme_alpha_tab" class="agi"><br>
 		<span class="l"></span>: <input type="number" min=0.0 max=1.0 step=0.01 id="theme_alpha_bg" class="agi"><br>
 		<span class="l"></span>: <input type="text" id="theme_color_bg" maxlength="9" class="agi"><br>
-		<span class="l">BG image URL</span>: <input type="text" id="theme_bg_url" class="agi" oninput="checkRandomBg()"><br>
-		<span class="l">Random BG image</span>: <input type="checkbox" id="theme_bg_random" class="agi cb" onchange="setRandomBg()"><br>
+		BG image: <input type="file" id="theme_bg_img" accept="image/*" onchange="ownBg(this)"> <input type="button" value="Remove" onclick="removeBgImg()"><br>
+		<span class="l"></span>: <input type="checkbox" id="theme_bg_rnd" class="agi cb" onchange="randomBg();toggle('Image');">
+		<div id="Image">
+			<div id="bg_url">
+				<span class="l"></span>: <input type="text" id="theme_bg_url" class="agi"><br>
+			</div>
+		</div>
+		<div id="NoImage" class="hide">
+			<h4>Random BG image settings</h4>
+			<span class="l"></span>: <input type="checkbox" id="theme_bg_rndGrayscale" class="agi cb" onchange="randomBg()"><br>
+			<span class="l"></span>: <input type="checkbox" id="theme_bg_rndBlur" class="agi cb" onchange="randomBg()"><br>
+		</div>
 		<input id="theme_base" class="agi" style="display:none">
 		<span class="l"></span>: <input type="checkbox" id="comp_css" class="agi cb"><br>
 		<div id="skin">Custom CSS: <input type="file" name="data" accept=".css"> <input type="button" value="Upload" onclick="uploadFile(d.Sf.data,'/skin.css');"><br></div>

@@ -24,11 +24,11 @@ bool continuousSendLED = false;
 uint32_t lastUpdate = 0;
 
 void updateBaudRate(uint32_t rate){
-  uint16_t rate100 = rate/100;
+  unsigned rate100 = rate/100;
   if (rate100 == currentBaud || rate100 < 96) return;
   currentBaud = rate100;
 
-  if (!pinManager.isPinAllocated(hardwareTX) || pinManager.getPinOwner(hardwareTX) == PinOwner::DebugOut){
+  if (serialCanTX){
     Serial.print(F("Baud is now ")); Serial.println(rate);
   }
 
@@ -38,10 +38,10 @@ void updateBaudRate(uint32_t rate){
 
 // RGB LED data return as JSON array. Slow, but easy to use on the other end.
 void sendJSON(){
-  if (!pinManager.isPinAllocated(hardwareTX) || pinManager.getPinOwner(hardwareTX) == PinOwner::DebugOut) {
-    uint16_t used = strip.getLengthTotal();
+  if (serialCanTX) {
+    unsigned used = strip.getLengthTotal();
     Serial.write('[');
-    for (uint16_t i=0; i<used; i++) {
+    for (unsigned i=0; i<used; i++) {
       Serial.print(strip.getPixelColor(i));
       if (i != used-1) Serial.write(',');
     }
@@ -51,13 +51,13 @@ void sendJSON(){
 
 // RGB LED data returned as bytes in TPM2 format. Faster, and slightly less easy to use on the other end.
 void sendBytes(){
-  if (!pinManager.isPinAllocated(hardwareTX) || pinManager.getPinOwner(hardwareTX) == PinOwner::DebugOut) {
+  if (serialCanTX) {
     Serial.write(0xC9); Serial.write(0xDA);
-    uint16_t used = strip.getLengthTotal();
-    uint16_t len = used*3;
+    unsigned used = strip.getLengthTotal();
+    unsigned len = used*3;
     Serial.write(highByte(len));
     Serial.write(lowByte(len));
-    for (uint16_t i=0; i < used; i++) {
+    for (unsigned i=0; i < used; i++) {
       uint32_t c = strip.getPixelColor(i);
       Serial.write(qadd8(W(c), R(c))); //R, add white channel to RGB channels as a simple RGBW -> RGB map
       Serial.write(qadd8(W(c), G(c))); //G
@@ -69,10 +69,8 @@ void sendBytes(){
 
 void handleSerial()
 {
-  if (pinManager.isPinAllocated(hardwareRX)) return;
-  if (!Serial) return;              // arduino docs: `if (Serial)` indicates whether or not the USB CDC serial connection is open. For all non-USB CDC ports, this will always return true
+  if (!(serialCanRX && Serial)) return; // arduino docs: `if (Serial)` indicates whether or not the USB CDC serial connection is open. For all non-USB CDC ports, this will always return true
 
-  #ifdef WLED_ENABLE_ADALIGHT
   static auto state = AdaState::Header_A;
   static uint16_t count = 0;
   static uint16_t pixel = 0;
@@ -86,51 +84,43 @@ void handleSerial()
     byte next = Serial.peek();
     switch (state) {
       case AdaState::Header_A:
-        if (next == 'A') state = AdaState::Header_d;
-        else if (next == 0xC9) { //TPM2 start byte
-          state = AdaState::TPM2_Header_Type;
-        }
-        else if (next == 'I') {
-          handleImprovPacket();
-          return;
-        } else if (next == 'v') {
-          Serial.print("WLED"); Serial.write(' '); Serial.println(VERSION);
-
-        } else if (next == 0xB0) {updateBaudRate( 115200);
-        } else if (next == 0xB1) {updateBaudRate( 230400);
-        } else if (next == 0xB2) {updateBaudRate( 460800);
-        } else if (next == 0xB3) {updateBaudRate( 500000);
-        } else if (next == 0xB4) {updateBaudRate( 576000);
-        } else if (next == 0xB5) {updateBaudRate( 921600);
-        } else if (next == 0xB6) {updateBaudRate(1000000);
-        } else if (next == 0xB7) {updateBaudRate(1500000);
-
-        } else if (next == 'l') {sendJSON(); // Send LED data as JSON Array
-        } else if (next == 'L') {sendBytes(); // Send LED data as TPM2 Data Packet
-
-        } else if (next == 'o') {continuousSendLED = false; // Disable Continuous Serial Streaming
-        } else if (next == 'O') {continuousSendLED = true; // Enable Continuous Serial Streaming
-
-        } else if (next == '{') { //JSON API
+        if      (next == 'A')  { state = AdaState::Header_d; }
+        else if (next == 0xC9) { state = AdaState::TPM2_Header_Type; } //TPM2 start byte
+        else if (next == 'I')  { handleImprovPacket(); return; }
+        else if (next == 'v')  { Serial.print("WLED"); Serial.write(' '); Serial.println(VERSION); }
+        else if (next == 0xB0) { updateBaudRate( 115200); }
+        else if (next == 0xB1) { updateBaudRate( 230400); }
+        else if (next == 0xB2) { updateBaudRate( 460800); }
+        else if (next == 0xB3) { updateBaudRate( 500000); }
+        else if (next == 0xB4) { updateBaudRate( 576000); }
+        else if (next == 0xB5) { updateBaudRate( 921600); }
+        else if (next == 0xB6) { updateBaudRate(1000000); }
+        else if (next == 0xB7) { updateBaudRate(1500000); }
+        else if (next == 'l')  { sendJSON(); } // Send LED data as JSON Array
+        else if (next == 'L')  { sendBytes(); } // Send LED data as TPM2 Data Packet
+        else if (next == 'o')  { continuousSendLED = false; } // Disable Continuous Serial Streaming
+        else if (next == 'O')  { continuousSendLED = true; } // Enable Continuous Serial Streaming
+        else if (next == '{')  { //JSON API
           bool verboseResponse = false;
-          if (!requestJSONBufferLock(16)) return;
-          Serial.setTimeout(100);
-          DeserializationError error = deserializeJson(doc, Serial);
-          if (error) {
-            releaseJSONBufferLock();
+          if (!requestJSONBufferLock(16)) {
+            Serial.printf_P(PSTR("{\"error\":%d}\n"), ERR_NOBUF);
             return;
           }
-          verboseResponse = deserializeState(doc.as<JsonObject>());
-          //only send response if TX pin is unused for other purposes
-          if (verboseResponse && (!pinManager.isPinAllocated(hardwareTX) || pinManager.getPinOwner(hardwareTX) == PinOwner::DebugOut)) {
-            doc.clear();
-            JsonObject state = doc.createNestedObject("state");
-            serializeState(state);
-            JsonObject info  = doc.createNestedObject("info");
-            serializeInfo(info);
+          Serial.setTimeout(100);
+          DeserializationError error = deserializeJson(*pDoc, Serial);
+          if (!error) {
+            verboseResponse = deserializeState(pDoc->as<JsonObject>());
+            //only send response if TX pin is unused for other purposes
+            if (verboseResponse && serialCanTX) {
+              pDoc->clear();
+              JsonObject stateDoc = pDoc->createNestedObject("state");
+              serializeState(stateDoc);
+              JsonObject info  = pDoc->createNestedObject("info");
+              serializeInfo(info);
 
-            serializeJson(doc, Serial);
-            Serial.println();
+              serializeJson(*pDoc, Serial);
+              Serial.println();
+            }
           }
           releaseJSONBufferLock();
         }
@@ -196,11 +186,10 @@ void handleSerial()
     // All other received bytes will disable Continuous Serial Streaming
     if (continuousSendLED && next != 'O'){
       continuousSendLED = false;
-      }
+    }
 
     Serial.read(); //discard the byte
   }
-  #endif
 
   // If Continuous Serial Streaming is enabled, send new LED data as bytes
   if (continuousSendLED && (lastUpdate != strip.getLastShow())){

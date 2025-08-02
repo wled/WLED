@@ -34,7 +34,7 @@ struct NodeStruct
 
   NodeStruct() : age(0), nodeType(0), build(0)
   {
-    for (uint8_t i = 0; i < 4; ++i) { ip[i] = 0; }
+    for (unsigned i = 0; i < 4; ++i) { ip[i] = 0; }
   }
 };
 typedef std::map<uint8_t, NodeStruct> NodesMap;

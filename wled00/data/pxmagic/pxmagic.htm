@@ -61,6 +61,7 @@
       }
 
       body {
+        margin: 0;
         display: flex;
         justify-content: center;
         align-items: center;
@@ -72,29 +73,24 @@
         width: 100%;
       }
 
-      form {
-        margin-bottom: 20px;
-      }
-
       small {
         display: block;
         font-weight: 400;
         margin: 2px 0 5px;
         color: var(--gray-light);
-        font-size: 12px;
+        font-size: 0.75rem;
       }
 
       footer {
-        width: 100%;
-        margin: 0 auto 20px;
-        display: block;
-        text-align: center;
+        display: flex;
+        justify-content: center;
+        margin-block: 20px;
       }
 
       a {
         text-decoration: none;
         color: var(--blue-light);
-        font-size: 12px;
+        font-size: 0.75rem;
         font-weight: 600;
       }
 
@@ -103,24 +99,11 @@
       }
 
       #wledEdit {
-        padding: 4px 8px;
+        padding: 1.5px 8px;
         background: var(--blue-light);
         margin-left: 6px;
-        display: inline-block;
         border-radius: 4px;
         color: var(--gray-light);
-      }
-
-      .m-zero {
-        margin: 0 !important;
-      }
-
-      .m-bottom {
-        margin-bottom: 10px !important;
-      }
-
-      .m-top {
-        margin-top: 10px !important;
       }
 
       .container {
@@ -133,7 +116,7 @@
 
       .content {
         width: min(768px, calc(100% - 40px));
-        margin: 20px;
+        margin-inline: 20px;
       }
 
       .row {
@@ -143,14 +126,20 @@
         margin-top: 20px;
       }
 
-      .column {
+      .col {
         flex-basis: calc(50% - 10px);
         position: relative;
         padding-inline: 5px;
       }
 
-      .column-full {
+      .col-full {
         flex-basis: 100%;
+        position: relative;
+        padding-inline: 5px;
+      }
+
+      .col-small {
+        flex-basis: 33.3333%;
         position: relative;
         padding-inline: 5px;
       }
@@ -158,17 +147,40 @@
       .header {
         display: flex;
         flex-direction: column;
-        align-items: center;
-        padding-bottom: 20px;
+        padding-block: 20px;
       }
 
-      .header .brand {
-        width: 100%;
-        max-width: 200px;
-        height: 100%;
-        display: block;
-        outline: none;
-        border: 0;
+      .header .title {
+        font-size: 2.5rem;
+        line-height: 2.5rem;
+        font-weight: 800;
+        color: var(--gray-light);
+        padding-bottom: 5px;
+      }
+
+      .header .subtitle {
+        font-size: 0.75rem;
+        color: var(--text);
+      }
+
+      .header .rainbow {
+        background: linear-gradient(
+          to right,
+          #ef5350,
+          #f48fb1,
+          #7e57c2,
+          #2196f3,
+          #26c6da,
+          #43a047,
+          #eeff41,
+          #f9a825,
+          #ff5722
+        );
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-size: 200% 200%;
+        animation: rainbow 5s linear infinite;
+        transition: background-position 0.5s ease;
       }
 
       label {
@@ -190,15 +202,7 @@
         border: 1px solid var(--gray-medium);
         outline: none;
         color: var(--gray-light);
-        font-size: 14px;
-      }
-
-      input[type="color"] {
-        width: 32px;
-        height: 32px;
-        cursor: pointer;
-        padding-inline: 1px;
-        outline: none;
+        font-size: 0.875rem;
       }
 
       .input-group {
@@ -208,7 +212,7 @@
       }
 
       .input-group input:not([type="range"]) {
-        border-radius: 8px 0 0 8px;
+        border-radius: 50px 0 0 50px;
       }
 
       .input-group .input-description {
@@ -220,15 +224,15 @@
         align-items: center;
         color: var(--gray-dark);
         background: var(--gray-light);
-        border-radius: 0px 8px 8px 0;
+        border-radius: 0px 50px 50px 0;
         border: 1px solid var(--gray-light);
         border-left: 0;
-        font-size: 14px;
-        line-height: 16px;
+        font-size: 0.875rem;
+        line-height: 1rem;
       }
 
       .input-group .square {
-        border-radius: 8px !important;
+        border-radius: 50px !important;
         margin-left: 10px;
       }
 
@@ -242,13 +246,7 @@
 
       textarea {
         resize: none;
-        min-height: 200px;
         border-radius: 8px;
-        overflow-x: hidden;
-      }
-
-      .custom-select {
-        position: relative;
       }
 
       .custom-select select {
@@ -256,7 +254,7 @@
         -webkit-appearance: none;
         -moz-appearance: none;
         background-image: none;
-        padding-right: 20px;
+        padding-right: 39px;
         cursor: pointer;
       }
 
@@ -264,7 +262,7 @@
         content: "";
         position: absolute;
         top: calc(50% + 6px);
-        right: 16px;
+        right: 21px;
         transform: rotate(135deg);
         width: 6px;
         height: 6px;
@@ -456,7 +454,7 @@
         background: var(--gray-medium);
         border: 1px solid var(--gray-dark);
         transition: all 0.5s ease-in-out;
-        font-size: 14px;
+        font-size: 0.875rem;
         font-weight: 600;
       }
 
@@ -512,7 +510,7 @@
         color: var(--error-dark);
         padding-block: 4px;
         font-weight: 600;
-        font-size: 12px;
+        font-size: 0.75rem;
       }
 
       @media (max-width: 767px) {
@@ -522,8 +520,9 @@
           margin: 0;
         }
 
-        .column,
-        .column-full {
+        .col,
+        .col-full,
+        .col-small {
           flex-basis: 100%;
           margin-top: 20px;
           padding: 0;
@@ -554,6 +553,15 @@
           transform: translateY(0);
         }
       }
+
+      @keyframes rainbow {
+        0% {
+          background-position: 0% 0;
+        }
+        100% {
+          background-position: 200% 0;
+        }
+      }
     </style>
   </head>
   <body>
@@ -561,14 +569,21 @@
       <div class="content">
         <form id="formGenerate" novalidate>
           <div class="header">
-            <img src=" data:image/png;base64,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" alt="Pixel Magic Tool" class="brand">
+            <span class="title"
+              >PIXEL <span class="rainbow">MAGIC</span> TOOL</span
+            >
+            <span class="subtitle"
+              >It is a tool that converts any image into code in
+              <strong>JSON WLED</strong> format for
+              <strong>2D Matrix</strong> panels</span
+            >
           </div>
           <div class="row">
-            <div class="column" validate>
+            <div class="col" validate>
               <label for="hostname">Hostname</label>
               <input type="text" name="hostname" id="hostname" required />
             </div>
-            <div class="column" validate>
+            <div class="col" validate>
               <label for="name">Preset Name</label>
               <input
                 type="text"
@@ -579,11 +594,10 @@
             </div>
           </div>
           <div class="row">
-            <div class="column" validate>
+            <div class="col" validate>
               <div class="custom-select">
                 <label for="pattern">Pattern</label>
                 <select name="pattern" id="pattern" required>
-                  <option value="">Select a choice</option>
                   <option value="1" title="['ffffff']">Individual</option>
                   <option value="2" title="[0, 'ffffff']">Index</option>
                   <option value="3" title="[0, 5, 'ffffff']" selected>
@@ -592,11 +606,10 @@
                 </select>
               </div>
             </div>
-            <div class="column" validate>
+            <div class="col" validate>
               <div class="custom-select">
                 <label for="output">Output</label>
                 <select name="output" id="output" required>
-                  <option value="">Select a choice</option>
                   <option value="json" selected>WLED JSON</option>
                   <option value="ha">Home Assistant</option>
                   <option value="curl">CURL</option>
@@ -605,15 +618,15 @@
             </div>
           </div>
           <div class="row output" style="display: none">
-            <div class="column" validate>
+            <div class="col" validate>
               <label for="device">Device</label>
               <input type="text" name="device" id="device" required />
             </div>
-            <div class="column" validate>
+            <div class="col" validate>
               <label for="uniqueId">Unique Id</label>
               <input type="text" name="uniqueId" id="uniqueId" required />
             </div>
-            <div class="column" validate>
+            <div class="col" validate>
               <label for="friendlyName">Friendly Name</label>
               <input
                 type="text"
@@ -623,7 +636,7 @@
             </div>
           </div>
           <div class="row">
-            <div class="column" validate>
+            <div class="col" validate>
               <div class="custom-select">
                 <label for="segments">Segment Id</label>
                 <select name="segments" id="segments">
@@ -633,7 +646,7 @@
                 </select>
               </div>
             </div>
-            <div class="column" validate>
+            <div class="col" validate>
               <label for="brightness">Brightness</label>
               <div class="input-group">
                 <input
@@ -655,7 +668,7 @@
             </div>
           </div>
           <div class="row">
-            <div class="column" validate>
+            <div class="col" validate>
               <label for="animation">Animation</label>
               <label class="switch">
                 <input
@@ -666,7 +679,7 @@
                 <span class="switch-slider"></span>
               </label>
             </div>
-            <div class="column" validate>
+            <div class="col" validate>
               <label for="transparentImage">Transparent Image</label>
               <label class="switch">
                 <input
@@ -677,7 +690,7 @@
                 <span class="switch-slider"></span>
               </label>
             </div>
-            <div class="column" validate>
+            <div class="col" validate>
               <label for="resizeImage">Resize Image</label>
               <label class="switch">
                 <input
@@ -691,21 +704,21 @@
             </div>
           </div>
           <div class="row resizeImage">
-            <div class="column" validate>
+            <div class="col" validate>
               <label for="width">Width</label>
               <input type="number" name="width" id="width" value="16" />
             </div>
-            <div class="column" validate>
+            <div class="col" validate>
               <label for="height">Height</label>
               <input type="number" name="height" id="height" value="16" />
             </div>
           </div>
           <div class="row animation" style="display: none">
-            <div class="column" validate>
+            <div class="col" validate>
               <label for="frames">Frames</label>
               <input type="number" name="frames" id="frames" value="4" />
             </div>
-            <div class="column" validate>
+            <div class="col" validate>
               <label for="duration">Duration</label>
               <div class="input-group">
                 <input
@@ -722,7 +735,7 @@
                 </div>
               </div>
             </div>
-            <div class="column" validate>
+            <div class="col" validate>
               <label for="transition">Transition</label>
               <div class="input-group">
                 <input
@@ -741,7 +754,7 @@
             </div>
           </div>
           <div class="row transparentImage" style="display: none">
-            <div class="column-full" validate>
+            <div class="col-full" validate>
               <label for="color">Choose a color</label>
               <small>
                 Color that will replace the
@@ -751,7 +764,7 @@
             </div>
           </div>
           <div class="row">
-            <div class="column-full" validate>
+            <div class="col-full" validate>
               <div class="custom-select">
                 <label for="images">
                   <span>Images upload to WLED</span>
@@ -773,39 +786,47 @@
               type="file"
               name="source"
               id="source"
-              accept="image/jpg,image/jpeg,image/png,image/gif"
+              accept="image/*"
               style="display: none" />
           </div>
           <div class="row">
-            <div class="column-full">
+            <div class="col-full">
               <button type="button" class="button" id="btnGenerate">
                 Generate
+              </button>
+            </div>
+            <div class="col-small" id="gbth" style="display: none">
+              <button
+                type="button"
+                class="button"
+                onclick="window.location.href = WLED_URL;">
+                Back
               </button>
             </div>
           </div>
         </form>
         <div id="preview" style="display: none">
           <div id="recreatedImage"></div>
-          <textarea name="response" id="response" readonly="readonly">
+          <textarea name="response" id="response" rows="8" readonly="readonly">
           </textarea>
           <div class="buttons">
             <div class="row">
-              <div class="column">
+              <div class="col">
                 <button type="button" class="button" id="btnCopyToClipboard">
                   Copy to Clipboard
                 </button>
               </div>
-              <div class="column">
+              <div class="col">
                 <button type="button" class="button" id="btnSave">Save</button>
               </div>
-              <div class="column">
+              <div class="col">
                 <button type="button" class="button" id="btnDownloadPreset">
                   Download
                 </button>
               </div>
             </div>
             <div class="row" id="simulate" style="display: none">
-              <div class="column-full">
+              <div class="col-full">
                 <button type="button" class="button" id="btnSimulatePreset">
                   Simulate
                 </button>
@@ -836,7 +857,7 @@
 
     let WLED_URL = `${protocol}//${host}`;
 
-    const hostname = element("hostname");
+    const hostname = gId("hostname");
     hostname.value = host;
 
     hostname.addEventListener("blur", async () => {
@@ -848,6 +869,9 @@
       hostnameLabel();
     });
 
+    gId("gbth").style.display =
+      window.location.protocol === "http:" ? "flex" : "none";
+
     let jsonSaveWLED = [];
     let jsonSendWLED = {};
 
@@ -858,19 +882,17 @@
       hostnameLabel();
     })();
 
-    function element(id) {
-      return d.getElementById(id);
-    }
-
+    function gId(e) {return d.getElementById(e);}
+    function cE(e) {return d.createElement(e);}
     function hostnameLabel() {
-      const link = element("wledEdit");
+      const link = gId("wledEdit");
       link.href = WLED_URL + "/edit";
     }
 
     async function playlist() {
-      const { value: duration } = element("duration");
-      const { value: transition } = element("transition");
-      const { value: name } = element("name");
+      const { value: duration } = gId("duration");
+      const { value: transition } = gId("transition");
+      const { value: name } = gId("name");
 
       const urlPreset = `${WLED_URL}/presets.json`;
       const url = `${WLED_URL}/json`;
@@ -1003,7 +1025,7 @@
 
     async function images() {
       const url = `${WLED_URL}/edit?list=/`;
-      const select = element("images");
+      const select = gId("images");
 
       show();
 
@@ -1049,9 +1071,9 @@
     }
 
     async function segments() {
-      const select = element("segments");
-      const width = element("width");
-      const height = element("height");
+      const select = gId("segments");
+      const width = gId("width");
+      const height = gId("height");
 
       show();
 
@@ -1098,32 +1120,27 @@
       }
     }
 
-    const dropzone = element("dropzone");
-    const source = element("source");
-
-    dropzone.addEventListener("dragover", (e) => {
+    gId("dropzone").addEventListener("dragover", (e) => {
       e.preventDefault();
     });
 
-    dropzone.addEventListener("drop", (e) => {
+    gId("dropzone").addEventListener("drop", (e) => {
       e.preventDefault();
-
-      const dropzoneLabel = element("dropzoneLabel");
 
       source.files = e.dataTransfer.files;
 
       const { name } = source.files[0];
-      dropzoneLabel.textContent = `Image ${name} selected!`;
+      gId("dropzoneLabel").textContent = `Image ${name} selected!`;
 
       validate(e);
     });
 
-    dropzone.addEventListener("click", () => {
+    gId("dropzone").addEventListener("click", () => {
       source.click();
     });
 
-    source.addEventListener("change", (e) => {
-      const dropzoneLabel = element("dropzoneLabel");
+    gId("source").addEventListener("change", (e) => {
+      const dropzoneLabel = gId("dropzoneLabel");
       const { value } = e.target;
 
       if (value) {
@@ -1137,7 +1154,7 @@
       validate(e);
     });
 
-    element("btnSimulatePreset").addEventListener("click", async () => {
+    gId("btnSimulatePreset").addEventListener("click", async () => {
       const url = `${WLED_URL}/json/state`;
 
       const options = {
@@ -1161,9 +1178,9 @@
       }
     });
 
-    element("btnSave").addEventListener("click", async () => {
-      const { checked } = element("animation");
-      const { value: name } = element("name");
+    gId("btnSave").addEventListener("click", async () => {
+      const { checked } = gId("animation");
+      const { value: name } = gId("name");
 
       if (checked) {
         await insert(jsonSaveWLED, true);
@@ -1178,8 +1195,8 @@
       }
     });
 
-    element("btnCopyToClipboard").addEventListener("click", async () => {
-      const response = element("response");
+    gId("btnCopyToClipboard").addEventListener("click", async () => {
+      const response = gId("response");
 
       response.select();
 
@@ -1196,9 +1213,9 @@
       }
     });
 
-    element("btnDownloadPreset").addEventListener("click", () => {
-      const { value: response } = element("response");
-      const { value: output } = element("output");
+    gId("btnDownloadPreset").addEventListener("click", () => {
+      const { value: response } = gId("response");
+      const { value: output } = gId("output");
 
       const timestamp = new Date().getTime();
       const filename = `WLED_${timestamp}`;
@@ -1206,55 +1223,42 @@
       downloadFile(response, filename, output);
     });
 
-    element("segments").addEventListener("change", (e) => {
-      const width = element("width");
-      const height = element("height");
+    gId("segments").addEventListener("change", (e) => {
+      const { width, height } = e.target.selectedOptions[0].dataset;
 
-      const { width: w, height: h } = e.target.selectedOptions[0].dataset;
-
-      width.value = w;
-      height.value = h;
+      gId("width").value = w;
+      gId("height").value = h;
     });
 
-    element("output").addEventListener("change", (e) => {
-      const output = d.getElementsByClassName("output");
+    gId("output").addEventListener("change", (e) => {
       const { value } = e.target.selectedOptions[0];
 
-      Array.from(output).forEach(function (element) {
-        if (value === "ha") {
-          element.style.display = "flex";
-        } else {
-          element.style.display = "none";
-        }
-      });
+      d.querySelector(".output").style.display =
+        value === "ha" ? "flex" : "none";
     });
 
-    element("brightnessValue").addEventListener("input", (e) => {
-      const brightness = element("brightness");
+    gId("brightnessValue").addEventListener("input", (e) => {
       const { value } = e.target;
+      const bri = value <= 255 ? value : 255;
 
-      let bri = value <= 255 ? value : 255;
-
-      brightness.value = bri;
+      gId("brightness").value = bri;
       e.target.value = bri;
     });
 
-    element("brightness").addEventListener("input", (e) => {
-      const brightnessValue = element("brightnessValue");
+    gId("brightness").addEventListener("input", (e) => {
       const { value } = e.target;
 
-      brightnessValue.value = value;
+      gId("brightnessValue").value = value;
     });
 
-    element("images").addEventListener("change", (e) => {
-      const dropzone = element("dropzone");
+    gId("images").addEventListener("change", (e) => {
+      const dropzone = gId("dropzone");
       const { value } = e.target.selectedOptions[0];
 
       if (!value) {
-        const dropzoneLabel = element("dropzoneLabel");
-        const source = element("source");
+        const source = gId("source");
 
-        dropzoneLabel.textContent =
+        gId("dropzoneLabel").textContent =
           "Drag and drop a file here or click to select a local file";
         source.value = "";
 
@@ -1264,33 +1268,23 @@
       }
     });
 
-    element("transparentImage").addEventListener("change", (e) => {
-      const transparentImage = d.getElementsByClassName("transparentImage")[0];
+    gId("transparentImage").addEventListener("change", (e) => {
       const { checked } = e.target;
 
-      if (checked) {
-        transparentImage.style.display = "flex";
-      } else {
-        transparentImage.style.display = "none";
-      }
+      d.querySelector(".transparentImage").style.display = checked
+        ? "flex"
+        : "none";
     });
 
-    element("resizeImage").addEventListener("change", (e) => {
-      const resizeImage = d.getElementsByClassName("resizeImage")[0];
-      const pattern = element("pattern");
+    gId("resizeImage").addEventListener("change", (e) => {
       const { checked } = e.target;
 
-      if (checked) {
-        resizeImage.style.display = "flex";
-      } else {
-        resizeImage.style.display = "none";
-      }
+      d.querySelector(".resizeImage").style.display = checked ? "flex" : "none";
     });
 
-    element("animation").addEventListener("change", (e) => {
-      const animation = d.getElementsByClassName("animation")[0];
-      const pattern = element("pattern");
-      const source = element("source");
+    gId("animation").addEventListener("change", (e) => {
+      const animation = d.querySelector(".animation");
+      const source = gId("source");
 
       const { checked } = e.target;
 
@@ -1304,26 +1298,21 @@
         source.setAttribute("accept", "image/gif");
         animation.style.display = "flex";
       } else {
-        source.setAttribute(
-          "accept",
-          "image/jpg,image/jpeg,image/png,image/gif"
-        );
+        source.setAttribute("accept", "image/*");
         animation.style.display = "none";
       }
     });
 
-    element("btnGenerate").addEventListener("click", async (event) => {
-      const { checked } = element("animation");
-
-      const preview = element("preview");
-      const recreatedImage = element("recreatedImage");
-      const simulate = element("simulate");
+    gId("btnGenerate").addEventListener("click", async (event) => {
+      const { checked } = gId("animation");
 
       if (validate(event)) {
         jsonSaveWLED.splice(0);
 
-        preview.style.display = "block";
-        recreatedImage.innerHTML = "";
+        gId("preview").style.display = "block";
+        gId("recreatedImage").innerHTML = "";
+
+        const simulate = gId("simulate");
 
         if (checked) {
           simulate.style.display = "none";
@@ -1335,36 +1324,41 @@
       }
     });
 
-    function loadImage(src) {
+    async function createObjectURL(url) {
+      return fetch(url)
+        .then((response) => response.arrayBuffer())
+        .then((buffer) => {
+          const binaryData = new Uint8Array(buffer);
+          const base64 = btoa(String.fromCharCode(...binaryData));
+          return `data:image/png;base64,${base64}`;
+        });
+    }
+
+    function loadImage(url) {
       return new Promise((resolve, reject) => {
-        const image = new Image();
-
-        image.addEventListener("load", function () {
-          resolve(image);
-        });
-
-        image.addEventListener("error", function () {
-          reject(new Error("Error loading image"));
-        });
-
-        image.src = src;
+        const img = new Image();
+        img.onload = () => resolve(img);
+        img.onerror = (error) => reject(error);
+        img.src = url;
       });
     }
 
     async function generate() {
-      const file = element("source").files[0];
+      const file = gId("source").files[0];
 
-      const { value: images } = element("images");
-      const { value: output } = element("output");
+      const { value: images } = gId("images");
+      const { value: output } = gId("output");
 
       show();
 
       try {
-        const response = element("response");
-        const recreatedImage = element("recreatedImage");
+        const response = gId("response");
+        const recreatedImage = gId("recreatedImage");
 
-        const urlImage = !images ? URL.createObjectURL(file) : images;
-
+        const urlImage = !images
+          ? URL.createObjectURL(file)
+          : await createObjectURL(images);
+					
         const image = await loadImage(urlImage);
         const { canvas, bri, id, i } = recreate(image);
 
@@ -1394,14 +1388,14 @@
     }
 
     async function generateAnimation() {
-      const file = element("source").files[0];
-      const images = element("images");
-      const response = element("response");
+      const file = gId("source").files[0];
+      const images = gId("images");
+      const response = gId("response");
 
-      const { value: presetName } = element("name");
-      const { value: amount } = element("frames");
-      const { value: output } = element("output");
-      const { value: duration } = element("duration");
+      const { value: presetName } = gId("name");
+      const { value: amount } = gId("frames");
+      const { value: output } = gId("output");
+      const { value: duration } = gId("duration");
 
       const { text: imageName, value: imageValue } = images.selectedOptions[0];
 
@@ -1410,7 +1404,7 @@
       try {
         const body = new FormData();
 
-        if (imageValue === "upload") {
+        if (!imageValue) {
           body.append("image", file);
         } else {
           const responseImage = await fetch(imageValue);
@@ -1481,18 +1475,18 @@
     }
 
     function recreate(image) {
-      const { value: pattern } = element("pattern");
-      const { value: segmentId } = element("segments");
-      const { value: brightness } = element("brightness");
-      const { value: inputWidth } = element("width");
-      const { value: inputHeight } = element("height");
-      const { checked: resizeImage } = element("resizeImage");
+      const { value: pattern } = gId("pattern");
+      const { value: segmentId } = gId("segments");
+      const { value: brightness } = gId("brightness");
+      const { value: inputWidth } = gId("width");
+      const { value: inputHeight } = gId("height");
+      const { checked: resizeImage } = gId("resizeImage");
 
       const resizeWidth = parseInt(inputWidth);
       const resizeHeight = parseInt(inputHeight);
 
       const { width: dataWidth, height: dataHeight } =
-        element("segments").selectedOptions[0].dataset;
+        gId("segments").selectedOptions[0].dataset;
 
       const segmentWidth = parseInt(dataWidth);
       const segmentHeight = parseInt(dataHeight);
@@ -1636,8 +1630,8 @@
     }
 
     function pixelColor(r, g, b, a) {
-      const { checked } = element("transparentImage");
-      const { value } = element("color");
+      const { checked } = gId("transparentImage");
+      const { value } = gId("color");
 
       if (a === 0) {
         if (checked) {
@@ -1679,7 +1673,7 @@
     }
 
     function createCanvas(width, height) {
-      const canvas = d.createElement("canvas");
+      const canvas = cE("canvas");
 
       canvas.width = width;
       canvas.height = height;
@@ -1723,7 +1717,7 @@
       const blob = new Blob([text], { type: mimeType });
       const url = URL.createObjectURL(blob);
 
-      const anchorElement = d.createElement("a");
+      const anchorElement = cE("a");
       anchorElement.href = url;
       anchorElement.download = `${filename}.${fileExtension}`;
 
@@ -1733,10 +1727,10 @@
     }
 
     function yaml(jsonData) {
-      const { value: device } = element("device");
-      const { value: friendly_name } = element("friendlyName");
-      const { value: unique_id } = element("uniqueId");
-      const { value: hostname } = element("hostname");
+      const { value: device } = gId("device");
+      const { value: friendly_name } = gId("friendlyName");
+      const { value: unique_id } = gId("uniqueId");
+      const { value: hostname } = gId("hostname");
 
       if (device) {
         const yamlData = {
@@ -1755,7 +1749,7 @@
     }
 
     function curl(jsonData) {
-      const { value: hostname } = element("hostname");
+      const { value: hostname } = gId("hostname");
       return `curl -X POST "http://${hostname}/json/state" -d '${jsonData}' -H "Content-Type: application/json"`;
     }
 
@@ -1793,8 +1787,8 @@
       duration = 2000,
       hideElement = "preview"
     ) {
-      const hide = element(hideElement);
-      const toast = d.createElement("div");
+      const hide = gId(hideElement);
+      const toast = cE("div");
       const wait = 100;
 
       toast.style.animation = "fadeIn";
@@ -1803,14 +1797,14 @@
 
       toast.classList.add("toast", type);
 
-      const body = d.createElement("span");
+      const body = cE("span");
       body.classList.add("toast-body");
 
       body.textContent = message;
 
       toast.appendChild(body);
 
-      const progress = d.createElement("div");
+      const progress = cE("div");
       progress.classList.add("toast-progress");
 
       progress.style.animation = "progress";
@@ -1819,7 +1813,7 @@
 
       toast.appendChild(progress);
 
-      element("toast-container").appendChild(toast);
+      gId("toast-container").appendChild(toast);
 
       setTimeout(() => {
         toast.style.opacity = 0;
@@ -1835,7 +1829,7 @@
 
     function carousel(id, images, delay = 3000) {
       let index = 0;
-      const carousel = d.createElement("div");
+      const carousel = cE("div");
       carousel.classList.add("carousel");
 
       images.forEach((canvas, i) => {
@@ -1847,7 +1841,7 @@
         }
       });
 
-      const container = element(id);
+      const container = gId(id);
       container.innerHTML = "";
       container.appendChild(carousel);
 
@@ -1895,7 +1889,7 @@
     }
 
     function show() {
-      const overlay = element("overlay");
+      const overlay = gId("overlay");
       overlay.classList.add("loading");
       overlay.style.display = "block";
       overlay.style.cursor = "not-allowed";
@@ -1904,7 +1898,7 @@
     }
 
     function hide() {
-      const overlay = element("overlay");
+      const overlay = gId("overlay");
       overlay.classList.remove("loading");
       overlay.style.display = "none";
       overlay.style.cursor = "default";
@@ -1915,7 +1909,7 @@
     function validate(event) {
       event.preventDefault();
 
-      const form = element("formGenerate");
+      const form = gId("formGenerate");
       const inputs = form.querySelectorAll("input, select, textarea");
 
       let isValid = true;
@@ -1963,7 +1957,7 @@
           let errorElement = parent.querySelector(".error-message");
 
           if (!errorElement) {
-            errorElement = d.createElement("div");
+            errorElement = cE("div");
             errorElement.classList.add("error-message");
             parent.appendChild(errorElement);
           }

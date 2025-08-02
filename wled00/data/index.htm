@@ -6,53 +6,11 @@
 	<meta name="theme-color" content="#222222">
 	<meta content="yes" name="apple-mobile-web-app-capable">
 	<link rel="shortcut icon" href="data:image/x-icon;base64,AAABAAEAEBAAAAEAGACGAAAAFgAAAIlQTkcNChoKAAAADUlIRFIAAAAQAAAAEAgGAAAAH/P/YQAAAE1JREFUOI1j/P//PwOxgNGeAUMxE9G6cQCKDWAhpADZ2f8PMjBS3QW08QK20KaZC2gfC9hCnqouoNgARgY7zMxAyNlUdQHlXiAlO2MDAD63EVqNHAe0AAAAAElFTkSuQmCC"/>
+	<link rel="apple-touch-icon" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAALQAAAC0CAMAAAAKE/YAAAAANlBMVEUAAAAAKacAPv8APv8APv8APv8APv8AKacAQv8AJZsAKacAKacAPv8APv8AL8MAPv8APv8AQv/mTD7uAAAAEHRSTlMAf1mvpgzzka9/Vy3wnX9ic6GVaQAAAQhJREFUeNrt3EtuwkAQRdGGYAyYT9j/ZqN4GNkv9gSV4ZwVXJU8cVerGwAAAAAAUNTl9LXY6dJq6J/fiz37VsNuTfSu1SB6hmjRgWjRgWjRgWjRgWjRgehf5y1G70r/2Ha3w5T7foWhvVg3Pbxzq6w7lv5MRa8iWnQgWnQgWnQgWnQgWnQgenQtHT3spzxqT7p/+/MX0aJFj0SLDkSLDkSLDkSLDkSL/s/n7OhXRR8fNXb0q6KvrbSZSXetMtEzRIsORIsORIsORIsORIsORIdr/i+PHvYr3A9Tbsui7egn+2pf83//ky7RokWPRIsORIsORIsORIsORG/2gbhNPsUHAAAAAAD89QMg+PZb+jO0tAAAAABJRU5ErkJggg==" sizes="180x180"/>
 	<title>WLED</title>
-	<script>
-	function feedback(){}
-	// instead of including [script src="iro.js"][/script] and [script src="rangetouch.js"][/script]
-	// (which would be inlined by nodeJS inliner during minimization and compression) we need to load them dynamically
-	// the following is needed to load iro.js and rangetouch.js as consecutive requests to allow ESP8266
-	// to keep up with requests (if requests happent too fast some may not get processed)
-	// it will also call onLoad() after last is loaded (it was removed from [body onload="onLoad()"]).
-	var h  = document.getElementsByTagName('head')[0];
-	var l  = document.createElement('script');
-	l.type = 'application/javascript';
-	l.src = 'iro.js';
-	l.addEventListener('load', (e) => {
-		// after iro is loaded initialize global variable
-		cpick = new iro.ColorPicker("#picker", {
-			width: 260,
-			wheelLightness: false,
-			wheelAngle: 270,
-			wheelDirection: "clockwise",
-			layout: [{
-				component: iro.ui.Wheel,
-				options: {}
-			}]
-		});
-		cpick.on("input:end", () => {setColor(1);});
-		cpick.on("color:change", () => {updatePSliders()});
-		var l  = document.createElement('script');
-		l.type = 'application/javascript';
-		l.src = 'rangetouch.js';
-		l.addEventListener('load', (e) => {
-			// after rangetouch is loaded initialize global variable
-			ranges = RangeTouch.setup('input[type="range"]', {});
-			let stateCheck = setInterval(() => {
-				if (document.readyState === 'complete') {
-					clearInterval(stateCheck);
-					// document ready, start processing UI
-					onLoad();
-				}
-			}, 100);
-		});
-		setTimeout(()=>{h.appendChild(l)},100);
-	});
-	setTimeout(()=>{h.appendChild(l)},100);
-	</script>
 	<link rel="stylesheet" href="index.css">
 </head>
-<body>
+<body onload="onLoad()">
 
 <div id="cv" class="overlay">Loading WLED UI...</div>
 <noscript><div class="overlay" style="opacity:1;">Sorry, WLED UI needs JavaScript!</div></noscript>
@@ -72,8 +30,8 @@
 		</div>
 		<div id="briwrap">
 			<p class="hd">Brightness</p>
-			<div class="slider" style="padding-right:32px;">
-				<i class="icons slider-icon" onclick="tglTheme()" style="transform: translate(-32px,5px);">&#xe2a6;</i>
+			<div class="slider">
+				<i class="icons slider-icon" onclick="tglTheme()" style="transform: translateY(2px);">&#xe2a6;</i>
 				<div class="sliderwrap il">
 					<input id="sliderBri" onchange="setBri()" oninput="updateTrail(this)" max="255" min="1" type="range" value="128" />
 					<div class="sliderdisplay"></div>
@@ -88,99 +46,93 @@
 <div class ="container">
 	<div id="Colors" class="tabcontent">
 		<div id="picker" class="noslide"></div>
-		<div id="hwrap" class="slider" style="margin-top: 20px;">
-			<div class="sliderwrap il">
+		<div id="hwrap" class="slider">
+			<div title="Hue" class="sliderwrap il">
 				<input id="sliderH" class="noslide" oninput="fromH()" onchange="setColor(0)" max="359" min="0" type="range" value="0" step="any">
 				<div class="sliderdisplay" style="background: linear-gradient(90deg, #f00 2%, #ff0 19%, #0f0 35%, #0ff 52%, #00f 68%, #f0f 85%, #f00)"></div>
 			</div>
-			<span class="tooltiptext">Hue</span>
 		</div>
 		<div id="swrap" class="slider">
-			<div class="sliderwrap il">
+			<div title="Saturation" class="sliderwrap il">
 				<input id="sliderS" class="noslide" oninput="fromS()" onchange="setColor(0)" max="100" min="0" type="range" value="100" step="any">
 				<div class="sliderdisplay" style="background: linear-gradient(90deg, #aaa 0%, #f00)"></div>
 			</div>
-			<span class="tooltiptext">Saturation</span>
 		</div>
 		<div id="vwrap" class="slider">
-			<div class="sliderwrap il">
+			<div title="Value/Brightness" class="sliderwrap il">
 				<input id="sliderV" class="noslide" oninput="fromV()" onchange="setColor(0)" max="100" min="0" type="range" value="100" step="any" />
 				<div class="sliderdisplay"></div>
 			</div>
-			<span class="tooltiptext">Value/Brightness</span>
 		</div>
 		<div id="kwrap" class="slider">
-			<div class="sliderwrap il">
+			<div title="Kelvin/Temperature" class="sliderwrap il">
 				<input id="sliderK" class="noslide" oninput="fromK()" onchange="setColor(0)" max="10091" min="1900" type="range" value="6550" />
 				<div class="sliderdisplay"></div>
 			</div>
-			<span class="tooltiptext">Kelvin/Temperature</span>
 		</div>
 		<div id="rgbwrap">
-			<!--p class="labels hd">RGB color</p-->
 			<div id="rwrap" class="slider">
-				<div class="sliderwrap il">
+				<div title="Red channel" class="sliderwrap il">
 					<input id="sliderR" class="noslide" oninput="fromRgb()" onchange="setColor(0)" max="255" min="0" type="range" value="128" />
 					<div class="sliderdisplay"></div>
 				</div>
-				<span class="tooltiptext">Red channel</span>
 			</div>
 			<div id="gwrap" class="slider">
-				<div class="sliderwrap il">
+				<div title="Green channel" class="sliderwrap il">
 					<input id="sliderG" class="noslide" oninput="fromRgb()" onchange="setColor(0)" max="255" min="0" type="range" value="128" />
 					<div class="sliderdisplay"></div>
 				</div>
-				<span class="tooltiptext">Green channel</span>
 			</div>
 			<div id="bwrap" class="slider">
-				<div class="sliderwrap il">
+				<div title="Blue channel" class="sliderwrap il">
 					<input id="sliderB" class="noslide" oninput="fromRgb()" onchange="setColor(0)" max="255" min="0" type="range" value="128" />
 					<div class="sliderdisplay"></div>
 				</div>
-				<span class="tooltiptext">Blue channel</span>
 			</div>
 		</div>
 		<div id="wwrap" class="slider">
-			<!--p class="labels hd">White channel</p-->
-			<div id="whibri" class="sliderwrap il">
+			<div id="whibri" title="White channel" class="sliderwrap il">
 				<input id="sliderW" class="noslide" oninput="fromW()" onchange="setColor(0)" max="255" min="0" type="range" value="128" />
 				<div class="sliderdisplay"></div>
 			</div>
-			<span class="tooltiptext">White channel</span>
 		</div>
 		<div id="wbal" class="slider">
-			<!--p class="labels hd">White balance</p-->
-			<div class="sliderwrap il">
+			<div title="White balance" class="sliderwrap il">
 				<input id="sliderA" class="noslide" onchange="setBalance(this.value)" max="255" min="0" type="range" value="128" />
 				<div class="sliderdisplay"></div>
 			</div>
-			<span class="tooltiptext">White balance</span>
 		</div>
 		<div id="qcs-w">
-			<div class="qcs" onclick="pC('#ff0000');" title="Red" style="background-color:#ff0000;"></div>
-			<div class="qcs" onclick="pC('#ffa000');" title="Orange" style="background-color:#ffa000;"></div>
-			<div class="qcs" onclick="pC('#ffc800');" title="Yellow" style="background-color:#ffc800;"></div>
-			<div class="qcs" onclick="pC('#ffe0a0');" title="Warm White" style="background-color:#ffe0a0;"></div>
-			<div class="qcs" onclick="pC('#ffffff');" title="White" style="background-color:#ffffff;"></div>
-			<div class="qcs qcsb" onclick="pC('#000000');" title="Black" style="background-color:#000000;"></div><br>
-			<div class="qcs" onclick="pC('#ff00ff');" title="Pink" style="background-color:#ff00ff;"></div>
-			<div class="qcs" onclick="pC('#0000ff');" title="Blue" style="background-color:#0000ff;"></div>
-			<div class="qcs" onclick="pC('#00ffc8');" title="Cyan" style="background-color:#00ffc8;"></div>
-			<div class="qcs" onclick="pC('#08ff00');" title="Green" style="background-color:#08ff00;"></div>
+			<div class="qcs" onclick="pC('#ff0000');" style="background-color:#ff0000;"></div>
+			<div class="qcs" onclick="pC('#ffa000');" style="background-color:#ffa000;"></div>
+			<div class="qcs" onclick="pC('#ffc800');" style="background-color:#ffc800;"></div>
+			<div class="qcs" onclick="pC('#ffe0a0');" style="background-color:#ffe0a0;"></div>
+			<div class="qcs qcsw" onclick="pC('#ffffff');" style="background-color:#ffffff;"></div>
+			<div class="qcs qcsb" onclick="pC('#000000');" style="background-color:#000000;"></div><br>
+			<div class="qcs" onclick="pC('#ff00ff');" style="background-color:#ff00ff;"></div>
+			<div class="qcs" onclick="pC('#0000ff');" style="background-color:#0000ff;"></div>
+			<div class="qcs" onclick="pC('#00ffc8');" style="background-color:#00ffc8;"></div>
+			<div class="qcs" onclick="pC('#08ff00');" style="background-color:#08ff00;"></div>
 			<div class="qcs" onclick="pC('rnd');" title="Random" style="background:linear-gradient(to right, red, orange, yellow, green, blue, purple);transform: translateY(-11px);">R</div>
 		</div>
 		<div id="csl">
-			<button id="csl0" class="btn xxs cl" onclick="selectSlot(0);" data-r="0" data-g="0" data-b="0" data-w="0">1</button>
-			<button id="csl1" class="btn xxs cl" onclick="selectSlot(1);" data-r="0" data-g="0" data-b="0" data-w="0">2</button>
-			<button id="csl2" class="btn xxs cl" onclick="selectSlot(2);" data-r="0" data-g="0" data-b="0" data-w="0">3</button>
+			<button id="csl0" title="Select slot" class="btn" onclick="selectSlot(0);" data-r="0" data-g="0" data-b="0" data-w="0">1</button>
+			<button id="csl1" title="Select slot" class="btn" onclick="selectSlot(1);" data-r="0" data-g="0" data-b="0" data-w="0">2</button>
+			<button id="csl2" title="Select slot" class="btn" onclick="selectSlot(2);" data-r="0" data-g="0" data-b="0" data-w="0">3</button>
 		</div>
 		<p class="labels h" id="cslLabel"></p>
 		<div id="hexw">
 			<i class="icons sel-icon" onclick="tglRgb()">&#xe22d;</i>
-			<input id="hexc" type="text" class="noslide" onkeydown="hexEnter()" autocomplete="off" maxlength="8" />
+			<input id="hexc" title="Hex RGB" type="text" class="noslide" onkeydown="hexEnter()" autocomplete="off" maxlength="8" />
 			<button id="hexcnf" class="btn btn-xs" onclick="fromHex();"><i class="icons btn-icon">&#xe390;</i></button>
 		</div>
-		<p class="labels" id="pall"><i class="icons sel-icon" onclick="tglHex()">&#xe2b3;</i> Color palette</p>
+		<div style="padding: 8px 0;" id="btns">
+			<button class="btn btn-xs" title="File editor" type="button" id="edit" onclick="window.location.href=getURL('/edit')"><i class="icons btn-icon">&#xe2c6;</i></button>
+			<button class="btn btn-xs" title="Pixel Magic Tool" type="button" id="pxmb" onclick="window.location.href=getURL('/pxmagic.htm')"><i class="icons btn-icon">&#xe410;</i></button>
+			<button class="btn btn-xs" title="Add custom palette" type="button" id="adPal" onclick="window.location.href=getURL('/cpal.htm')"><i class="icons btn-icon">&#xe18a;</i></button>
+			<button class="btn btn-xs" title="Remove last custom palette" type="button" id="rmPal" onclick="palettesData=null;localStorage.removeItem('wledPalx');requestJson({rmcpal:true});setTimeout(loadPalettes,250,loadPalettesData);"><i class="icons btn-icon">&#xe037;</i></button>
+		</div>
+		<p class="labels hd" id="pall"><i class="icons sel-icon" onclick="tglHex()">&#xe2b3;</i> Color palette</p>
 		<div id="palw" class="il">
 			<div class="staytop fnd">
 				<input type="text" placeholder="Search" oninput="search(this,'pallist')" onfocus="search(this,'pallist')" />
@@ -189,7 +141,7 @@
 			</div>
 			<div id="pallist" class="list">
 				<div class="lstI">
-					<label class="radio schkl" onclick="loadPalettes()"> 
+					<label class="radio schkl" onclick="loadPalettes()">
 						<div class="lstIcontent">
 							<span class="lstIname">
 								Loading...
@@ -199,24 +151,45 @@
 				</div>
 			</div>
 		</div>
-		<div style="padding-block: 10px;">
-			<button class="btn btn-xs" type="button" onclick="window.location.href=getURL('/pxmagic.htm')"><i class="icons btn-icon">&#xe410;</i></button>
-			<button class="btn btn-xs" type="button" onclick="window.location.href=getURL('/cpal.htm')"><i class="icons btn-icon">&#xe18a;</i></button>
-			<button class="btn btn-xs" type="button" onclick="palettesData=null;localStorage.removeItem('wledPalx');requestJson({rmcpal:true});setTimeout(loadPalettes,250,loadPalettesData);"><i class="icons btn-icon">&#xe037;</i></button>
-		</div>
 	</div>
 
 	<div id="Effects" class="tabcontent">
 		<div id="fx">
 			<p class="labels hd" id="modeLabel">Effect mode</p>
-			<div class="staytop fnd" id="fxFind">
-				<input type="text" placeholder="Search" oninput="search(this,'fxlist')" onfocus="search(this,'fxlist');gId('filters').classList.add('fade');" onblur="gId('filters').classList.remove('fade')"/>
+			<div class="staytop fnd" id="fxFind" onmousedown="preventBlur(event);">
+				<input type="text" placeholder="Search" oninput="search(this,'fxlist')" onfocus="filterFocus(event);search(this,'fxlist');" onblur="filterFocus(event);">
 				<i class="icons clear-icon" onclick="clean(this);">&#xe38f;</i>
-				<i class="icons search-icon" onclick="gId('filters').classList.toggle('hide');" style="cursor:pointer;">&#xe0a1;</i>
+				<i class="icons search-icon" style="cursor:pointer;">&#xe0a1;</i>
+				<div id="filters" class="filter fade">
+					<label id="filterPal" title="Uses palette" class="check fchkl">&#x1F3A8;
+						<input type="checkbox" data-flt="&#x1F3A8;" onchange="filterFx();">
+						<span class="checkmark"></span>
+					</label>
+					<label id="filter0D" title="Single pixel" class="check fchkl">&#8226;
+						<input type="checkbox" data-flt="&#8226;" onchange="filterFx();">
+						<span class="checkmark"></span>
+					</label>
+					<label id="filter1D" title="1D" class="check fchkl">&#8942;
+						<input type="checkbox" data-flt="&#8942;" onchange="filterFx();">
+						<span class="checkmark"></span>
+					</label>
+					<label id="filter2D" title="2D" class="check fchkl">&#9638;
+						<input type="checkbox" data-flt="&#9638;" onchange="filterFx();">
+						<span class="checkmark"></span>
+					</label>
+					<label id="filterVol" title="Volume" class="check fchkl">&#9834;
+						<input type="checkbox" data-flt="&#9834;" onchange="filterFx();">
+						<span class="checkmark"></span>
+					</label>
+					<label id="filterFreq" title="Frequency" class="check fchkl">&#9835;
+						<input type="checkbox" data-flt="&#9835;" onchange="filterFx();">
+						<span class="checkmark"></span>
+					</label>
+				</div>
 			</div>
 			<div id="fxlist" class="list">
 				<div class="lstI">
-					<label class="radio schkl" onclick="loadFX()"> 
+					<label class="radio schkl" onclick="loadFX()">
 						<div class="lstIcontent">
 							<span class="lstIname">
 								Loading...
@@ -227,87 +200,56 @@
 			</div>
 		</div>
 		<div id="sliders">
-			<div id="filters" class="filter">
-				<label id="filterPal" class="check fchkl">&#x1F3A8;
-					<input type="checkbox" data-flt="&#x1F3A8;" onchange="filterFx(this)">
-					<span class="checkmark"></span>
-				</label>
-				<label id="filter0D" class="check fchkl hide">&#8226;
-					<input type="checkbox" data-flt="&#8226;" onchange="filterFx(this)">
-					<span class="checkmark"></span>
-				</label>
-				<label id="filter1D" class="check fchkl">&#8942;
-					<input type="checkbox" data-flt="&#8942;" onchange="filterFx(this)">
-					<span class="checkmark"></span>
-				</label>
-				<label id="filter2D" class="check fchkl">&#9638;
-					<input type="checkbox" data-flt="&#9638;" onchange="filterFx(this)">
-					<span class="checkmark"></span>
-				</label>
-				<label id="filterVol" class="check fchkl">&#9834;
-					<input type="checkbox" data-flt="&#9834;" onchange="filterFx(this)">
-					<span class="checkmark"></span>
-				</label>
-				<label id="filterFreq" class="check fchkl">&#9835;
-					<input type="checkbox" data-flt="&#9835;" onchange="filterFx(this)">
-					<span class="checkmark"></span>
-				</label>
-			</div>
 			<div id="slider0" class="slider">
-				<i class="icons slider-icon" onclick="tglFreeze()">&#xe325;</i>
-				<div class="sliderwrap il">
+				<i class="icons slider-icon" title="Freeze" onclick="tglFreeze()">&#xe325;</i>
+				<div title="Effect speed" class="sliderwrap il">
 					<input id="sliderSpeed" class="noslide" onchange="setSpeed()" oninput="updateTrail(this)" max="255" min="0" type="range" value="128" />
 					<div class="sliderdisplay"></div>
 				</div>
 				<output class="sliderbubble"></output>
-				<span id="sliderLabel0" class="tooltiptext">Effect speed</span>
 			</div>
 			<div id="slider1" class="slider">
-				<i class="icons slider-icon" onclick="tglLabels()">&#xe409;</i>
-				<div class="sliderwrap il">
+				<i class="icons slider-icon" title="Toggle labels" onclick="tglLabels()">&#xe409;</i>
+				<div title="Effect intensity" class="sliderwrap il">
 					<input id="sliderIntensity" class="noslide" onchange="setIntensity()" oninput="updateTrail(this)" max="255" min="0" type="range" value="128" />
 					<div class="sliderdisplay"></div>
 				</div>
 				<output class="sliderbubble"></output>
-				<span class="tooltiptext" id="sliderLabel1">Effect intensity</span>
 			</div>
 			<div id="slider2" class="slider hide">
 				<i class="icons slider-icon">&#xe410;</i>
-				<div class="sliderwrap il">
+				<div title="Custom 1" class="sliderwrap il">
 					<input id="sliderC1" class="noslide" onchange="setCustom(1)" oninput="updateTrail(this)" max="255" min="0" type="range" value="0" />
 					<div class="sliderdisplay"></div>
 				</div>
 				<output class="sliderbubble"></output>
-				<span class="tooltiptext" id="sliderLabel2">Custom 1</span>
 			</div>
 			<div id="slider3" class="slider hide">
 				<i class="icons slider-icon">&#xe0a2;</i>
-				<div class="sliderwrap il">
+				<div title="Custom 2" class="sliderwrap il">
 					<input id="sliderC2" class="noslide" onchange="setCustom(2)" oninput="updateTrail(this)" max="255" min="0" type="range" value="0" />
 					<div class="sliderdisplay"></div>
 				</div>
 				<output class="sliderbubble"></output>
-				<span class="tooltiptext" id="sliderLabel3">Custom 2</span>
 			</div>
 			<div id="slider4" class="slider hide">
 				<i class="icons slider-icon">&#xe0e8;</i>
-				<div class="sliderwrap il">
+				<div title="Custom 3" class="sliderwrap il">
 					<input id="sliderC3" class="noslide" onchange="setCustom(3)" oninput="updateTrail(this)" max="31" min="0" type="range" value="0" />
 					<div class="sliderdisplay"></div>
 				</div>
 				<output class="sliderbubble"></output>
-				<span class="tooltiptext" id="sliderLabel4">Custom 3</span>
 			</div>
 			<div id="fxopt" class="option fade">
-				<label id="opt0" class="check ochkl hide"><i class="icons">&#xe2b3;</i><span class="tooltiptext" id="optLabel0">Check 1</span>
+				<label id="opt0" title="Check 1" class="check ochkl hide"><i class="icons">&#xe2b3;</i>
 					<input id="checkO1" type="checkbox" onchange="setOption(1, this.checked)">
 					<span class="checkmark"></span>
 				</label>
-				<label id="opt1" class="check ochkl hide"><i class="icons">&#xe34b;</i><span class="tooltiptext" id="optLabel1">Check 2</span>
+				<label id="opt1" title="Check 2" class="check ochkl hide"><i class="icons">&#xe34b;</i>
 					<input id="checkO2" type="checkbox" onchange="setOption(2, this.checked)">
 					<span class="checkmark"></span>
 				</label>
-				<label id="opt2" class="check ochkl hide"><i class="icons">&#xe04c;</i><span class="tooltiptext" id="optLabel2">Check 3</span>
+				<label id="opt2" title="Check 3" class="check ochkl hide"><i class="icons">&#xe04c;</i>
 					<input id="checkO3" type="checkbox" onchange="setOption(3, this.checked)">
 					<span class="checkmark"></span>
 				</label>
@@ -316,6 +258,7 @@
 	</div>
 
 	<div id="Segments" class="tabcontent">
+		<p class="labels hd" id="segLabel">Segments</p>
 		<div id="segcont">
 			Loading...
 		</div>
@@ -324,7 +267,29 @@
 		<div id="segutil2">
 			<button class="btn btn-s" id="rsbtn" onclick="rSegs()">Reset segments</button>
 		</div>
-		<p>Transition: <input id="tt" type="number" min="0" max="65.5" step="0.1" value="0.7">&nbsp;s</p>
+		<p>Transition: <input id="tt" type="number" min="0" max="65.5" step="0.1" value="0.7" onchange="parseFloat(this.value)===0?gId('bsp').classList.add('hide'):gId('bsp').classList.remove('hide');">&nbsp;s</p>
+		<div id="bsp" class="sel-p"><select id="bs" class="sel-ple" onchange="requestJson({'bs':parseInt(this.value)})">
+			<option value="0">Fade</option>
+			<option value="1">Fairy Dust</option>
+			<option value="2">Swipe right</option>
+			<option value="3">Swipe left</option>
+			<option value="16">Push right</option>
+			<option value="17">Push left</option>
+			<option value="4">Outside-in</option>
+			<option value="5">Inside-out</option>
+			<option value="6" data-type="2D">Swipe up</option>
+			<option value="7" data-type="2D">Swipe down</option>
+			<option value="8" data-type="2D">Open H</option>
+			<option value="9" data-type="2D">Open V</option>
+			<option value="18" data-type="2D">Push up</option>
+			<option value="19" data-type="2D">Push down</option>
+			<option value="10" data-type="2D">Swipe TL</option>
+			<option value="11" data-type="2D">Swipe TR</option>
+			<option value="12" data-type="2D">Swipe BR</option>
+			<option value="13" data-type="2D">Swipe BL</option>
+			<option value="14" data-type="2D">Circular Out</option>
+			<option value="15" data-type="2D">Circular In</option>
+		</select></div>
 		<p id="ledmap" class="hide"></p>
 	</div>
 
@@ -362,13 +327,13 @@
 	</div>
 	<div id="kv">Loading...</div><br>
 	<div>
-		<button class="btn infobtn" onclick="requestJson()">Refresh</button>
-		<button class="btn infobtn" onclick="toggleNodes()">Instance List</button>
-		<button class="btn infobtn" onclick="window.open(getURL('/update'),'_self');">Update WLED</button>
-		<button class="btn infobtn" id="resetbtn" onclick="cnfReset()">Reboot WLED</button>
+		<button class="btn ibtn" onclick="requestJson()">Refresh</button>
+		<button class="btn ibtn" onclick="toggleNodes()">Instance List</button>
+		<button class="btn ibtn" onclick="window.open(getURL('/update'),'_self');">Update WLED</button>
+		<button class="btn ibtn" id="resetbtn" onclick="cnfReset()">Reboot WLED</button>
 	</div>
 	<br>
-	<span class="h">Made with <span id="heart">&#10084;&#xFE0E;</span> by Aircoookie and the <a href="https://wled.discourse.group/" target="_blank">WLED community</a></span>
+	<span class="h">Made with&#32;<span id="heart">&#10084;&#xFE0E;</span>&#32;by&#32;<a href="https://github.com/Aircoookie/" target="_blank">Aircoookie</a>&#32;and the&#32;<a href="https://wled.discourse.group/" target="_blank">WLED community</a></span>
 </div>
 
 <div id="nodes" class="modal">
@@ -376,8 +341,8 @@
 	<div id="ndlt">WLED instances</div>
 	<div id="kn">Loading...</div>
 	<div style="position:sticky;bottom:0;">
-		<button class="btn infobtn" onclick="loadNodes()">Refresh</button>
-	</div>	
+		<button class="btn ibtn" onclick="loadNodes()">Refresh</button>
+	</div>
 </div>
 
 <div id="mlv2D" class="modal">
@@ -389,12 +354,19 @@
 	<div id="lv">?</div><br><br>
 	To use built-in effects, use an override button below.<br>
 	You can return to realtime mode by pressing the star in the top left corner.<br>
-	<button class="btn" onclick="setLor(1)">Override once</button>
-	<button class="btn" onclick="setLor(2)">Override until reboot</button><br>
+	<button class="btn ibtn" onclick="setLor(1)">Override once</button>
+	<button class="btn ibtn" onclick="setLor(2)">Override until reboot</button><br>
 	<span class="h">For best performance, it is recommended to turn off the streaming source when not in use.</span>
 </div>
 
 <i id="roverstar" class="icons huge" onclick="setLor(0)">&#xe410;</i><br>
+
+<!-- 
+	If you want to load iro.js and rangetouch.js as consecutive requests, you can do it like it was done in 0.14.0:
+	https://github.com/wled/WLED/blob/v0.14.0/wled00/data/index.htm
+-->
+<script src="iro.js"></script>
+<script src="rangetouch.js"></script>
 <script src="index.js"></script>
 </body>
 </html>

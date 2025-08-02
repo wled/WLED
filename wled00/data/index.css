@@ -20,8 +20,8 @@
 	--c-g: #2c1;
 	--c-l: #48a;
 	--c-y: #a90;
-	--t-b: 0.5;
-	--c-o: rgba(34, 34, 34, 0.9);
+	--t-b: .5;
+	--c-o: rgba(34, 34, 34, .9);
 	--c-tb : rgba(34, 34, 34, var(--t-b));
 	--c-tba: rgba(102, 102, 102, var(--t-b));
 	--c-tbh: rgba(51, 51, 51, var(--t-b));
@@ -33,7 +33,9 @@
 	--bbp: 9px 0 7px 0;
 	--bhd: none;
 	--sgp: "block";
-	--bmt: 0px;
+	--bmt: 0;
+	--sti: 42px;
+	--stp: 42px;
 }
 
 html {
@@ -88,13 +90,14 @@ a, a:visited {
 }
 
 button {
-	outline: none;
+	outline: 0;
 	cursor: pointer;
 }
 
 .labels {
 	margin: 0;
 	padding: 8px 0 2px 0;
+	font-size: 19px;
 }
 
 #namelabel {
@@ -142,7 +145,7 @@ button {
 }
 
 .huge {
-	font-size: 42px;
+	font-size: 60px !important;
 }
 
 .segt, .plentry TABLE {
@@ -219,7 +222,7 @@ button {
 .pop-c span {
 	padding: 2px 6px;
 }
-  
+
 .search-icon {
 	position: absolute;
 	top: 8px;
@@ -238,7 +241,7 @@ button {
 .flr {
 	color: var(--c-f);
 	transform: rotate(0deg);
-	transition: transform 0.3s;
+	transition: transform .3s;
 	position: absolute;
 	top: 0;
 	right: 0;
@@ -258,13 +261,13 @@ button {
 #liveview {
 	height: 4px;
 	width: 100%;
-	border: 0px;
+	border: 0;
 }
 
 #liveview2D {
 	height: 90%;
 	width: 90%;
-	border: 0px;
+	border: 0;
 	position: absolute;
 	top: 50%;
 	left: 50%;
@@ -287,8 +290,8 @@ button {
 .tab button {
 	background-color: transparent;
 	float: left;
-	border: none;
-	transition: color 0.3s, background-color 0.3s;
+	border: 0;
+	transition: color .3s, background-color .3s;
 	font-size: 17px;
 	color: var(--c-c);
 	min-width: 44px;
@@ -301,7 +304,7 @@ button {
 
 .bot button {
 	padding: var(--bbp);
-	width:25%;
+	width: 25%;
 	margin: 0;
 }
 
@@ -336,36 +339,46 @@ button {
 	width: 100%;
 	width: calc(100%/var(--n));
 	box-sizing: border-box;
-	border: 0px;
-	overflow: auto;
+	border: 0;
+	overflow-y: auto;
+	overflow-x: hidden;
 	height: 100%;
 	overscroll-behavior: none;
 	padding: 0 4px;
 	-webkit-overflow-scrolling: touch;
 }
 
-#segutil, #segutil2, #segcont, #putil, #pcont, #pql, #fx, #palw,
-.fnd {
-	max-width: 280px;
+#Segments, #Presets, #Effects, #Colors {
 	font-size: 19px;
+	padding: 4px 0 0;
 }
 
-#putil, #segutil, #segutil2 {
+#segutil, #segutil2, #segcont, #putil, #pcont, #pql, #fx, #palw, #bsp,
+.fnd {
+	max-width: 280px;
+}
+
+#putil, #segutil, #segutil2, #bsp {
 	min-height: 42px;
-	margin: 13px auto 0;
+	margin: 0 auto;
 }
 
 #segutil .segin {
 	padding-top: 12px;
 }
 
-#fx, #pql, #segcont, #pcont, #sliders, #picker, #qcs-w, #hexw, #pall, #ledmap,
+#fx, #pql, #segcont, #pcont, #sliders, #qcs-w, #hexw, #pall, #ledmap,
 .slider, .filter, .option, .segname, .pname, .fnd {
 	margin: 0 auto;
 }
 
 #putil {
 	padding: 5px 0 0;
+}
+
+/* Quick load magin for simplified UI */
+.simplified #pql, .simplified #palw, .simplified #fx {
+	margin-bottom: 8px;
 }
 
 .smooth { transition: transform	calc(var(--f, 1)*.5s) ease-out }
@@ -388,8 +401,8 @@ button {
 	align-items: center;
 	justify-content: center;
 	z-index: 11;
-	opacity: 0.95;
-	transition: 0.7s;
+	opacity: .95;
+	transition: .7s;
 	pointer-events: none;
 }
 
@@ -399,7 +412,7 @@ button {
 	position: sticky !important;
 	top: 0;
 	z-index: 2;
-    margin: 0 auto auto;
+	margin: 0 auto auto;
 }
 
 .staybot {
@@ -411,6 +424,7 @@ button {
 	position: sticky;
 	bottom: 0;
 	max-width: 300px;
+	z-index: 2;
 }
 
 #sliders .labels {
@@ -456,65 +470,56 @@ button {
 	padding: 4px 2px;
 	position: relative;
 	opacity: 1;
-	transition: opacity 0.5s linear, height 0.5s, transform 0.5s;
+	transition: opacity .25s linear, height .2s, transform .2s;
 }
 
 .filter {
 	z-index: 1;
-	overflow: hidden;
+	/*overflow: visible;*/
+	border-radius: 0 0 16px 16px;
+	max-width: 220px;
+	height: 54px;
+	line-height: 1.5;
+	padding-bottom: 8px;
+	pointer-events: none;
 }
 
-/* Tooltip text */
-.slider .tooltiptext, .option .tooltiptext {
+/* New tooltip */
+.tooltip {
+	position: absolute;
+	opacity: 0;
 	visibility: hidden;
+	transition: opacity .25s ease, visibility .25s ease;
 	background-color: var(--c-5);
-	/*border: 2px solid var(--c-2);*/
 	box-shadow: 4px 4px 10px 4px var(--c-1);
 	color: var(--c-f);
 	text-align: center;
-	padding: 4px 8px;
+	padding: 8px 16px;
 	border-radius: 6px;
-
-	/* Position the tooltip text */
-	width: 160px;
-	position: absolute;
 	z-index: 1;
-	bottom: 80%;
-	left: 50%;
-	margin-left: -92px;
-
-	/* Ensure tooltip goes away when mouse leaves control */
 	pointer-events: none;
+}
 
-	/* Fade in tooltip */
-	opacity: 0;
-	transition: opacity 0.75s;
-}
-.option .tooltiptext {
-	bottom: 120%;
-}
-/* Tooltip arrow */
-.slider .tooltiptext::after, .option .tooltiptext::after {
+ .tooltip::after {
 	content: "";
 	position: absolute;
-	top: 100%;
-	left: 50%;
-	margin-left: -5px;
-	border-width: 5px;
-	border-style: solid;
+	border: 8px solid;
 	border-color: var(--c-5) transparent transparent transparent;
-}
-/* Show the tooltip text when you mouse over the tooltip container */
-.slider:hover .tooltiptext, .option .check:hover .tooltiptext {
-	visibility: visible;
+	top: 100%;
+	left: calc(50% - 8px);
+	z-index: 0;
+ }
+
+.tooltip.visible {
 	opacity: 1;
+	visibility: visible;
 }
 
 .fade {
 	visibility: hidden; /* hide it */
 	opacity: 0; /* make it transparent */
 	transform: scaleY(0); /* shrink content */
-	height: 0px; /* force other elements to move */
+	height: 0; /* force other elements to move */
 	padding: 0; /* remove empty space */
 }
 
@@ -542,24 +547,24 @@ button {
 
 #toast.show {
 	opacity: 1;
-	animation: fadein 0.5s, fadein 0.5s 2.5s reverse;
+	animation: fadein .5s, fadein .5s 2.5s reverse;
 }
 
 #toast.error {
 	opacity: 1;
 	background-color: #b21;
-	animation: fadein 0.5s;
+	animation: fadein .5s;
 }
 
 .modal {
-	position:fixed;
-	left: 0px;
-	bottom: 0px;
-	right: 0px;
+	position: fixed;
+	left: 0;
+	bottom: 0;
+	right: 0;
 	top: calc(var(--th) - 1px);
 	background-color: var(--c-o);
 	transform: translateY(100%);
-	transition: transform 0.4s;
+	transition: transform .4s;
 	padding: 8px;
 	font-size: 20px;
 	overflow: auto;
@@ -578,6 +583,10 @@ button {
 
 #rover {
 	z-index: 3;
+}
+
+#rover .ibtn {
+	margin: 5px;
 }
 
 #ndlt {
@@ -620,12 +629,10 @@ button {
   padding-bottom: 8px;
 }
 
-#info .btn {
+#info .ibtn {
 	margin: 5px;
 }
-#info table .btn, #nodes table .btn {
-	margin: 0;
-}
+
 #info div, #nodes div {
 	max-width: 490px;
 	margin: 0 auto;
@@ -641,7 +648,7 @@ button {
 }
 
 #heart {
-	transition: color 0.9s;
+	transition: color .9s;
 	font-size: 16px;
 	color: #f00;
 }
@@ -720,7 +727,7 @@ input[type=range] {
 }
 
 input[type=range]:focus {
-	outline: none;
+	outline: 0;
 }
 input[type=range]::-webkit-slider-runnable-track {
 	width: 100%;
@@ -743,7 +750,7 @@ input[type=range]::-moz-range-track {
 	background-color: rgba(0, 0, 0, 0);
 }
 input[type=range]::-moz-range-thumb {
-	border: 0px solid rgba(0, 0, 0, 0);
+	border: 0 solid rgba(0, 0, 0, 0);
 	height: 16px;
 	width: 16px;
 	border-radius: 50%;
@@ -761,39 +768,43 @@ input[type=range]::-moz-range-thumb {
 }
 
 #Colors .sliderwrap {
-	margin: 4px 0 0;
+	margin: 2px 0 0;
 }
 
-/* Dynamically hide brightness slider label */
+/* Dynamically hide labels */
 .hd {
 	display: var(--bhd);
 }
+/* Do not hide quick load label in simplified mode on small screen widths */
+.simplified #pql .hd {
+	display: var(--bhd) !important;
+}
 
 #briwrap {
-	min-width: 267px;
+	min-width: 300px;
 	float: right;
 	margin-top: var(--bmt);
 }
 
 #picker {
-	margin-top: 8px !important;
-	max-width: 260px;
+	margin: 4px auto 0 !important;
+	max-width: max-content;
 }
 
 /* buttons */
 .btn {
 	padding: 8px;
-	margin: 10px 4px;
+	/*margin: 10px 4px;*/
 	width: 230px;
 	font-size: 19px;
 	color: var(--c-d);
 	cursor: pointer;
 	border-radius: 25px;
-	transition-duration: 0.3s;
+	transition-duration: .3s;
 	-webkit-backface-visibility: hidden;
-	-webkit-transform:translate3d(0,0,0);
+	-webkit-transform: translate3d(0,0,0);
 	backface-visibility: hidden;
-	transform:translate3d(0,0,0);
+	transform: translate3d(0,0,0);
 	overflow: hidden;
 	text-overflow: ellipsis;
 	border: 1px solid var(--c-3);
@@ -829,20 +840,20 @@ input[type=range]::-moz-range-thumb {
 	text-overflow: clip;
 }
 .btn-xs {
-	margin: 2px 0 0 0;
-}
-#putil .btn-xs {
 	margin: 0;
 }
 #info .btn-xs {
 	border: 1px solid var(--c-4);
+}
+#btns .btn-xs {
+	margin: 0 4px;
 }
 
 #putil .btn-s {
 	width: 135px;
 }
 
-#nodes .infobtn {
+#nodes .ibtn {
 	margin: 0;
 }
 
@@ -854,6 +865,15 @@ input[type=range]::-moz-range-thumb {
 .btn-pl-del, .btn-pl-add {
 	margin: 0;
 	white-space: nowrap;
+}
+a.btn {
+	display: block;
+	white-space: nowrap;
+	text-align: center;
+	padding: 9px 32px 7px 24px;
+	position: relative;
+	box-sizing: border-box;
+	line-height: 24px;
 }
 
 /* Quick color select wrapper div */
@@ -871,12 +891,12 @@ input[type=range]::-moz-range-thumb {
 	line-height: 28px;
 }
 
-/* Quick color select Black button (has white border) */
-.qcsb {
+/* Quick color select Black and White button (has white/black border, depending on the theme) */
+.qcsb, .qcsw {
 	width: 26px;
 	height: 26px;
 	line-height: 26px;
-	border: 1px solid #fff;
+	border: 1px solid var(--c-f);
 }
 
 /* Hex color input wrapper div */
@@ -893,39 +913,37 @@ select {
 	cursor: pointer;
 	border: 0 solid var(--c-2);
 	border-radius: 20px;
-	transition-duration: 0.5s;
+	transition-duration: .5s;
 	-webkit-backface-visibility: hidden;
-	-webkit-transform:translate3d(0,0,0);
-    -webkit-appearance: none;
-    -moz-appearance: none;
+	-webkit-transform: translate3d(0,0,0);
+	-webkit-appearance: none;
+	-moz-appearance: none;
 	backface-visibility: hidden;
-	transform:translate3d(0,0,0);
+	transform: translate3d(0,0,0);
 	text-overflow: ellipsis;
 }
 #tt {
 	text-align: center;
 }
-.cl {
-	background-color: #000;
-}
 select.sel-p, select.sel-pl, select.sel-ple {
 	margin: 5px 0;
 	width: 100%;
 	height: 40px;
+	padding: 0 20px 0 8px;
 }
 div.sel-p {
 	position: relative;
 }
 div.sel-p:after {
-    content: "";
-    position: absolute;
-    right: 10px;
-    top: 22px;
-    width: 0;
-    height: 0;
-    border-left: 8px solid transparent;
-    border-right: 8px solid transparent;
-    border-top: 8px solid var(--c-f);
+	content: "";
+	position: absolute;
+	right: 10px;
+	top: 22px;
+	width: 0;
+	height: 0;
+	border-left: 8px solid transparent;
+	border-right: 8px solid transparent;
+	border-top: 8px solid var(--c-f);
 }
 select.sel-ple {
 	text-align: center;
@@ -942,13 +960,13 @@ input[type=number],
 input[type=text] {
 	background: var(--c-3);
 	color: var(--c-f);
-	border: 0px solid var(--c-2);
+	border: 0 solid var(--c-2);
 	border-radius: 10px;
 	padding: 8px;
 	/*margin: 6px 6px 6px 0;*/
 	font-size: 19px;
-	transition: background-color 0.2s;
-	outline: none;
+	transition: background-color .2s;
+	outline: 0;
 	-webkit-appearance: textfield;
 	-moz-appearance: textfield;
 	appearance: textfield;
@@ -988,7 +1006,7 @@ textarea {
 	height: 90px;
 	border-radius: 5px;
 	border: 2px solid var(--c-5);
-	outline: none;
+	outline: 0;
 	resize: none;
 	font-size: 19px;
 	padding: 5px;
@@ -1010,7 +1028,7 @@ textarea {
 	width: 50px !important;
 }
 
-.segname, .pname, .bname {
+.segname, .pname {
 	white-space: nowrap;
 	text-align: center;
 	overflow: hidden;
@@ -1020,13 +1038,10 @@ textarea {
 	max-width: 170px;
 	position: relative;
 }
-.bname {
-	padding: 0 24px;
-}
 
 .segname .flr, .pname .flr {
 	transform: rotate(0deg);
-	right: -6px;
+	/*right: -6px;*/
 }
 
 /* segment power wrapper */
@@ -1041,7 +1056,7 @@ textarea {
 	top: 1px;
 }
 .plname {
-	top:0;
+	top: 0;
 }
 
 /* preset id number */
@@ -1057,27 +1072,24 @@ textarea {
 .newseg {
 	cursor: default;
 }
-
+/*
 .ic {
 	padding: 6px 0 0 0;
 }
-
-.xxs {
+*/
+/* color selector */
+#csl button {
 	width: 44px;
 	height: 44px;
 	margin: 5px;
+	border: 2px solid var(--c-d) !important;
+	background-color: #000;
 }
-
-.xxs-w {
+/* selected color selector */
+#csl .sl {
 	margin: 2px;
 	width: 50px;
 	height: 50px;
-}
-
-#csl .xxs {
-	border: 2px solid var(--c-d) !important;
-}
-#csl .xxs-w {
 	border-width: 5px !important;
 }
 
@@ -1121,8 +1133,8 @@ textarea {
 }
 
 .revchkl {
-	padding: 4px 0px 0px 35px;
-	margin-bottom: 0px;
+	padding: 4px 0 0 35px;
+	margin-bottom: 0;
 	margin-top: 8px;
 }
 
@@ -1218,9 +1230,9 @@ TD .checkmark, TD .radiomark {
 .seg, .pres {
 	background-color: var(--c-2);
 	/*color: var(--c-f);*/ /* seems to affect only the Add segment button, which should be same color as reset segments */
-	border: 0px solid var(--c-f);
+	border: 0 solid var(--c-f);
 	text-align: left;
-	transition: background-color 0.5s;
+	transition: background-color .5s;
 	border-radius: 21px;
 }
 
@@ -1237,13 +1249,18 @@ TD .checkmark, TD .radiomark {
 /* checkmark labels */
 .filter .fchkl, .option .ochkl {
 	display: inline-block;
-	min-width: 0.7em;
-	padding: 1px 4px 4px 32px;
+	min-width: .7em;
+	padding: 1px 4px 1px 32px;
 	text-align: left;
 	line-height: 24px;
 	vertical-align: middle;
 	-webkit-filter: grayscale(100%); /* Safari 6.0 - 9.0 */
 	filter: grayscale(100%);
+}
+.filter .fchkl {
+	margin: 0 4px;
+	min-width: 20px;
+	pointer-events: auto;
 }
 
 .lbl-l {
@@ -1263,27 +1280,38 @@ TD .checkmark, TD .radiomark {
 /* list wrapper */
 .list {
 	position: relative;
-	transition: background-color 0.5s;
-    margin: auto auto 10px;
+	transition: background-color .5s;
+	margin: auto auto 10px;
 	line-height: 24px;
 }
 
 /* list item */
 .lstI {
 	align-items: center;
-    cursor: pointer;
+	cursor: pointer;
 	background-color: var(--c-2);
 	overflow: hidden;
 	position: -webkit-sticky;
 	position: sticky;
 	border-radius: 21px;
-	margin: 13px auto 0;
+	margin: 0 auto 12px;
 	min-height: 40px;
 	border: 1px solid var(--c-2);
+	width: 100%;
 }
 
-#segutil .lstI {
-	margin-top: 0;
+#segutil {
+	margin-bottom: 12px;
+}
+
+#segcont > div:first-child, #fxFind  {
+	margin-top: 4px;
+}
+
+/* Simplify segments */
+.simplified #segcont .lstI {
+	margin-top: 4px;
+	min-height: unset;
 }
 
 /* selected item/element */
@@ -1293,7 +1321,7 @@ TD .checkmark, TD .radiomark {
 
 #segcont .seg:hover:not([class*="expanded"]),
 .lstI:hover:not([class*="expanded"]) {
-    background: var(--c-5);
+	background: var(--c-5);
 }
 
 .selected .checkmark,
@@ -1313,7 +1341,12 @@ TD .checkmark, TD .radiomark {
 .lstI.sticky,
 .lstI.selected {
 	z-index: 1;
-	box-shadow: 0px 0px 10px 4px var(--c-1);
+	box-shadow: 0 0 10px 4px var(--c-1);
+}
+
+.lstI .flr:hover {
+    background: var(--c-6);
+    border-radius: 100%;
 }
 
 #pcont .selected:not([class*="expanded"]) {
@@ -1322,19 +1355,30 @@ TD .checkmark, TD .radiomark {
 }
 
 #fxlist .lstI.selected {
-	top: 84px;
+	top: calc(var(--sti) + 42px);
+}
+#pallist .lstI.selected {
+	top: calc(var(--stp) + 42px);
+}
+
+dialog::backdrop {
+	backdrop-filter: blur(10px);
+	-webkit-backdrop-filter: blur(10px);
+}
+dialog {
+	max-height: 70%;
+	border: 0;
+	border-radius: 10px;
+	background: linear-gradient(rgba(0, 0, 0, 0.15), rgba(0, 0, 0, 0.1)), var(--c-3);
+	box-shadow: 4px 4px 10px 4px var(--c-1);
+	color: var(--c-f);
 }
 
 #fxlist .lstI.sticky {
-	top: 42px;
+	top: var(--sti);
 }
-
-#pallist .lstI.selected {
-	top: 84px;
-}
-
 #pallist .lstI.sticky {
-	top: 42px;
+	top: var(--stp);
 }
 
 /* list item content */
@@ -1370,8 +1414,8 @@ TD .checkmark, TD .radiomark {
 	display: block;
 	width: 100%;
 	box-sizing: border-box;
-    padding: 8px 40px 8px 44px;
-    margin: 5px auto 0;
+	padding: 8px 40px 8px 44px;
+	margin: 4px auto 12px;
 	text-align: left;
 	border-radius: 21px;
 	background: var(--c-2);
@@ -1389,11 +1433,23 @@ TD .checkmark, TD .radiomark {
 	background-color: var(--c-3);
 }
 
+#fxFind.fnd input[type="text"] {
+	margin-bottom: 0;
+}
+#fxFind {
+	margin-bottom: 12px;
+}
+
 /* segment & preset inner/expanded content */
 .segin,
 .presin {
 	padding: 8px;
 	position: relative;
+}
+
+.presin {
+	width: 100%; 
+	box-sizing: border-box;
 }
 
 .btn-s,
@@ -1457,7 +1513,7 @@ TD .checkmark, TD .radiomark {
 }
 ::-webkit-scrollbar-thumb {
 	background: var(--c-sb);
-	opacity: 0.2;
+	opacity: .2;
 	border-radius: 5px;
 }
 ::-webkit-scrollbar-thumb:hover {
@@ -1483,7 +1539,7 @@ TD .checkmark, TD .radiomark {
 
 @media all and (max-width: 335px) {
 	.sliderbubble {
-    	display: none;
+		display: none;
   	}
 }
 
@@ -1491,10 +1547,10 @@ TD .checkmark, TD .radiomark {
 	#info table .btn, #nodes table .btn {
 		width: 200px;
 	}
-	#info .infobtn, #nodes .infobtn {
+	#info .ibtn, #nodes .ibtn {
 		width: 145px;
 	}
-	#info div, #nodes div {
+	#info div, #nodes div, #nodes a.btn {
 		max-width: 320px;
 	}
 }
@@ -1539,9 +1595,6 @@ TD .checkmark, TD .radiomark {
 		width: 100%;
 		max-width: 280px;
 		font-size: 18px;
-	}
-	#picker {
-		width: 230px;
 	}
 	#putil .btn-s {
 		width: 114px;

@@ -39,7 +39,7 @@ void closeFile() {
     uint32_t s = millis();
   #endif
   f.close();
-  DEBUGFS_PRINTF("took %d ms\n", millis() - s);
+  DEBUGFS_PRINTF("took %lu ms\n", millis() - s);
   doCloseFile = false;
 }
 
@@ -69,14 +69,14 @@ static bool bufferedFind(const char *target, bool fromStart = true) {
       if(buf[count] == target[index]) {
         if(++index >= targetLen) { // return true if all chars in the target match
           f.seek((f.position() - bufsize) + count +1);
-          DEBUGFS_PRINTF("Found at pos %d, took %d ms", f.position(), millis() - s);
+          DEBUGFS_PRINTF("Found at pos %d, took %lu ms", f.position(), millis() - s);
           return true;
         }
       }
       count++;
     }
   }
-  DEBUGFS_PRINTF("No match, took %d ms\n", millis() - s);
+  DEBUGFS_PRINTF("No match, took %lu ms\n", millis() - s);
   return false;
 }
 
@@ -111,7 +111,7 @@ static bool bufferedFindSpace(size_t targetLen, bool fromStart = true) {
             f.seek((f.position() - bufsize) + count +1 - targetLen);
             knownLargestSpace = MAX_SPACE; //there may be larger spaces after, so we don't know
           }
-          DEBUGFS_PRINTF("Found at pos %d, took %d ms", f.position(), millis() - s);
+          DEBUGFS_PRINTF("Found at pos %d, took %lu ms", f.position(), millis() - s);
           return true;
         }
       } else {
@@ -125,7 +125,7 @@ static bool bufferedFindSpace(size_t targetLen, bool fromStart = true) {
       count++;
     }
   }
-  DEBUGFS_PRINTF("No match, took %d ms\n", millis() - s);
+  DEBUGFS_PRINTF("No match, took %lu ms\n", millis() - s);
   return false;
 }
 
@@ -138,7 +138,7 @@ static bool bufferedFindObjectEnd() {
 
   if (!f || !f.size()) return false;
 
-  uint16_t objDepth = 0; //num of '{' minus num of '}'. return once 0
+  unsigned objDepth = 0; //num of '{' minus num of '}'. return once 0
   //size_t start = f.position();
   byte buf[FS_BUFSIZE];
 
@@ -151,13 +151,13 @@ static bool bufferedFindObjectEnd() {
       if (buf[count] == '}') objDepth--;
       if (objDepth == 0) {
         f.seek((f.position() - bufsize) + count +1);
-        DEBUGFS_PRINTF("} at pos %d, took %d ms", f.position(), millis() - s);
+        DEBUGFS_PRINTF("} at pos %d, took %lu ms", f.position(), millis() - s);
         return true;
       }
       count++;
     }
   }
-  DEBUGFS_PRINTF("No match, took %d ms\n", millis() - s);
+  DEBUGFS_PRINTF("No match, took %lu ms\n", millis() - s);
   return false;
 }
 
@@ -176,7 +176,7 @@ static void writeSpace(size_t l)
   if (knownLargestSpace < l) knownLargestSpace = l;
 }
 
-bool appendObjectToFile(const char* key, JsonDocument* content, uint32_t s, uint32_t contentLen = 0)
+static bool appendObjectToFile(const char* key, const JsonDocument* content, uint32_t s, uint32_t contentLen = 0)
 {
   #ifdef WLED_DEBUG_FS
     DEBUGFS_PRINTLN(F("Append"));
@@ -203,7 +203,7 @@ bool appendObjectToFile(const char* key, JsonDocument* content, uint32_t s, uint
     if (f.position() > 2) f.write(','); //add comma if not first object
     f.print(key);
     serializeJson(*content, f);
-    DEBUGFS_PRINTF("Inserted, took %d ms (total %d)", millis() - s1, millis() - s);
+    DEBUGFS_PRINTF("Inserted, took %lu ms (total %lu)", millis() - s1, millis() - s);
     doCloseFile = true;
     return true;
   }
@@ -226,7 +226,7 @@ bool appendObjectToFile(const char* key, JsonDocument* content, uint32_t s, uint
 
   if (pos == 0) //not found
   {
-    DEBUGFS_PRINTLN("not }");
+    DEBUGFS_PRINTLN(F("not }"));
     f.seek(0);
     while (bufferedFind("}",false)) //find last closing bracket in JSON if not last char
     {
@@ -251,18 +251,18 @@ bool appendObjectToFile(const char* key, JsonDocument* content, uint32_t s, uint
   f.write('}');
 
   doCloseFile = true;
-  DEBUGFS_PRINTF("Appended, took %d ms (total %d)", millis() - s1, millis() - s);
+  DEBUGFS_PRINTF("Appended, took %lu ms (total %lu)", millis() - s1, millis() - s);
   return true;
 }
 
-bool writeObjectToFileUsingId(const char* file, uint16_t id, JsonDocument* content)
+bool writeObjectToFileUsingId(const char* file, uint16_t id, const JsonDocument* content)
 {
   char objKey[10];
   sprintf(objKey, "\"%d\":", id);
   return writeObjectToFile(file, objKey, content);
 }
 
-bool writeObjectToFile(const char* file, const char* key, JsonDocument* content)
+bool writeObjectToFile(const char* file, const char* key, const JsonDocument* content)
 {
   uint32_t s = 0; //timing
   #ifdef WLED_DEBUG_FS
@@ -272,8 +272,8 @@ bool writeObjectToFile(const char* file, const char* key, JsonDocument* content)
   #endif
 
   size_t pos = 0;
-  f = WLED_FS.open(file, "r+");
-  if (!f && !WLED_FS.exists(file)) f = WLED_FS.open(file, "w+");
+  char fileName[129]; strncpy_P(fileName, file, 128); fileName[128] = 0; //use PROGMEM safe copy as FS.open() does not
+  f = WLED_FS.open(fileName, WLED_FS.exists(fileName) ? "r+" : "w+");
   if (!f) {
     DEBUGFS_PRINTLN(F("Failed to open!"));
     return false;
@@ -321,26 +321,27 @@ bool writeObjectToFile(const char* file, const char* key, JsonDocument* content)
   }
 
   doCloseFile = true;
-  DEBUGFS_PRINTF("Replaced/deleted, took %d ms\n", millis() - s);
+  DEBUGFS_PRINTF("Replaced/deleted, took %lu ms\n", millis() - s);
   return true;
 }
 
-bool readObjectFromFileUsingId(const char* file, uint16_t id, JsonDocument* dest)
+bool readObjectFromFileUsingId(const char* file, uint16_t id, JsonDocument* dest, const JsonDocument* filter)
 {
   char objKey[10];
   sprintf(objKey, "\"%d\":", id);
-  return readObjectFromFile(file, objKey, dest);
+  return readObjectFromFile(file, objKey, dest, filter);
 }
 
 //if the key is a nullptr, deserialize entire object
-bool readObjectFromFile(const char* file, const char* key, JsonDocument* dest)
+bool readObjectFromFile(const char* file, const char* key, JsonDocument* dest, const JsonDocument* filter)
 {
   if (doCloseFile) closeFile();
   #ifdef WLED_DEBUG_FS
     DEBUGFS_PRINTF("Read from %s with key %s >>>\n", file, (key==nullptr)?"nullptr":key);
     uint32_t s = millis();
   #endif
-  f = WLED_FS.open(file, "r");
+  char fileName[129]; strncpy_P(fileName, file, 128); fileName[128] = 0; //use PROGMEM safe copy as FS.open() does not
+  f = WLED_FS.open(fileName, "r");
   if (!f) return false;
 
   if (key != nullptr && !bufferedFind(key)) //key does not exist in file
@@ -351,10 +352,11 @@ bool readObjectFromFile(const char* file, const char* key, JsonDocument* dest)
     return false;
   }
 
-  deserializeJson(*dest, f);
+  if (filter) deserializeJson(*dest, f, DeserializationOption::Filter(*filter));
+  else        deserializeJson(*dest, f);
 
   f.close();
-  DEBUGFS_PRINTF("Read, took %d ms\n", millis() - s);
+  DEBUGFS_PRINTF("Read, took %lu ms\n", millis() - s);
   return true;
 }
 
@@ -375,37 +377,64 @@ void updateFSInfo() {
 }
 
 
-//Un-comment any file types you need
-static String getContentType(AsyncWebServerRequest* request, String filename){
-  if(request->hasArg("download")) return "application/octet-stream";
-  else if(filename.endsWith(".htm")) return "text/html";
-  else if(filename.endsWith(".html")) return "text/html";
-  else if(filename.endsWith(".css")) return "text/css";
-  else if(filename.endsWith(".js")) return "application/javascript";
-  else if(filename.endsWith(".json")) return "application/json";
-  else if(filename.endsWith(".png")) return "image/png";
-  else if(filename.endsWith(".gif")) return "image/gif";
-  else if(filename.endsWith(".jpg")) return "image/jpeg";
-  else if(filename.endsWith(".ico")) return "image/x-icon";
-//  else if(filename.endsWith(".xml")) return "text/xml";
-//  else if(filename.endsWith(".pdf")) return "application/x-pdf";
-//  else if(filename.endsWith(".zip")) return "application/x-zip";
-//  else if(filename.endsWith(".gz")) return "application/x-gzip";
-  return "text/plain";
+#ifdef ARDUINO_ARCH_ESP32
+// caching presets in PSRAM may prevent occasional flashes seen when HomeAssitant polls WLED
+// original idea by @akaricchi (https://github.com/Akaricchi)
+// returns a pointer to the PSRAM buffer, updates size parameter
+static const uint8_t *getPresetCache(size_t &size) {
+  static unsigned long presetsCachedTime = 0;
+  static uint8_t *presetsCached = nullptr;
+  static size_t presetsCachedSize = 0;
+  static byte presetsCachedValidate = 0;
+
+  //if (presetsModifiedTime != presetsCachedTime) DEBUG_PRINTLN(F("getPresetCache(): presetsModifiedTime changed."));
+  //if (presetsCachedValidate != cacheInvalidate) DEBUG_PRINTLN(F("getPresetCache(): cacheInvalidate changed."));
+
+  if ((presetsModifiedTime != presetsCachedTime) || (presetsCachedValidate != cacheInvalidate)) {
+    if (presetsCached) {
+      p_free(presetsCached);
+      presetsCached = nullptr;
+    }
+  }
+
+  if (!presetsCached) {
+    File file = WLED_FS.open(FPSTR(getPresetsFileName()), "r");
+    if (file) {
+      presetsCachedTime = presetsModifiedTime;
+      presetsCachedValidate = cacheInvalidate;
+      presetsCachedSize = 0;
+      presetsCached = (uint8_t*)p_malloc(file.size() + 1);
+      if (presetsCached) {
+        presetsCachedSize = file.size();
+        file.read(presetsCached, presetsCachedSize);
+        presetsCached[presetsCachedSize] = 0;
+        file.close();
+      }
+    }
+  }
+
+  size = presetsCachedSize;
+  return presetsCached;
 }
+#endif
 
 bool handleFileRead(AsyncWebServerRequest* request, String path){
-  DEBUG_PRINTLN("WS FileRead: " + path);
+  DEBUGFS_PRINT(F("WS FileRead: ")); DEBUGFS_PRINTLN(path);
   if(path.endsWith("/")) path += "index.htm";
-  if(path.indexOf("sec") > -1) return false;
-  String contentType = getContentType(request, path);
-  /*String pathWithGz = path + ".gz";
-  if(WLED_FS.exists(pathWithGz)){
-    request->send(WLED_FS, pathWithGz, contentType);
-    return true;
-  }*/
-  if(WLED_FS.exists(path)) {
-    request->send(WLED_FS, path, contentType);
+  if(path.indexOf(F("sec")) > -1) return false;
+  #ifdef ARDUINO_ARCH_ESP32
+  if (psramSafe && psramFound() && path.endsWith(FPSTR(getPresetsFileName()))) {
+    size_t psize;
+    const uint8_t *presets = getPresetCache(psize);
+    if (presets) {
+      AsyncWebServerResponse *response = request->beginResponse_P(200, FPSTR(CONTENT_TYPE_JSON), presets, psize);
+      request->send(response);
+      return true;
+    }
+  }
+  #endif
+  if(WLED_FS.exists(path) || WLED_FS.exists(path + ".gz")) {
+    request->send(request->beginResponse(WLED_FS, path, {}, request->hasArg(F("download")), {}));
     return true;
   }
   return false;

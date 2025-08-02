@@ -41,43 +41,27 @@ When a relay is switched, a message is published:
 
 ## Usermod installation
 
-1. Register the usermod by adding `#include "../usermods/multi_relay/usermod_multi_relay.h"` at the top and `usermods.add(new MultiRelay());` at the bottom of `usermods_list.cpp`.
-or
-2. Use `#define USERMOD_MULTI_RELAY` in wled.h or `-D USERMOD_MULTI_RELAY` in your platformio.ini
+Add `multi_relay` to the `custom_usermods` of your platformio.ini environment.
 
 You can override the default maximum number of relays (which is 4) by defining MULTI_RELAY_MAX_RELAYS.
 
-Example **usermods_list.cpp**:
+Some settings can be defined (defaults) at compile time by setting the following defines:
 
 ```cpp
-#include "wled.h"
-/*
- * Register your v2 usermods here!
- *   (for v1 usermods using just usermod.cpp, you can ignore this file)
- */
-
-/*
- * Add/uncomment your usermod filename here (and once more below)
- * || || ||
- * \/ \/ \/
- */
-//#include "usermod_v2_example.h"
-//#include "usermod_temperature.h"
-#include "../usermods/usermod_multi_relay.h"
-
-void registerUsermods()
-{
-  /*
-   * Add your usermod class name here
-   * || || ||
-   * \/ \/ \/
-   */
-  //usermods.add(new MyExampleUsermod());
-  //usermods.add(new UsermodTemperature());
-  usermods.add(new MultiRelay());
-
-}
+// enable or disable HA discovery for externally controlled relays
+#define MULTI_RELAY_HA_DISCOVERY true
 ```
+
+The following definitions should be a list of values (maximum number of entries is MULTI_RELAY_MAX_RELAYS) that will be applied to the relays in order:
+(e.g. assuming MULTI_RELAY_MAX_RELAYS=2)
+
+```cpp
+#define MULTI_RELAY_PINS 12,18
+#define MULTI_RELAY_DELAYS 0,0
+#define MULTI_RELAY_EXTERNALS false,true
+#define MULTI_RELAY_INVERTS false,false
+```
+These can be set via your `platformio_override.ini` file or as `#define` in your `my_config.h` (remember to set `WLED_USE_MY_CONFIG` in your `platformio_override.ini`)
 
 ## Configuration
 
@@ -108,3 +92,6 @@ Have fun - @blazoncek
 
 2023-05
 * Added support for PCF8574 I2C port expander (multiple)
+
+2023-11
+* @chrisburrows Added support for compile time defaults for setting DELAY, EXTERNAL, INVERTS and HA discovery

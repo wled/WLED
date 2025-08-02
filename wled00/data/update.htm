@@ -3,9 +3,20 @@
 <head>
 	<meta content='width=device-width' name='viewport'>
 	<title>WLED Update</title>
+	<script src="common.js" async type="text/javascript"></script>
 	<script>
 		function B() { window.history.back(); }
-		function U() { document.getElementById("uf").style.display="none";document.getElementById("msg").style.display="block"; }
+		var cnfr = false;
+		function cR() {
+			if (!cnfr) {
+				var bt = gId('rev');
+				bt.style.color = "red";
+				bt.innerText = "Revert!";
+				cnfr = true;
+				return;
+			}
+			window.open(getURL("/update?revert"),"_self");
+		}
 		function GetV() {/*injected values here*/}
 	</script>
 	<style>
@@ -15,14 +26,17 @@
 
 <body onload="GetV()">
 	<h2>WLED Software Update</h2>
-	<form method='POST' action='./update' id='uf' enctype='multipart/form-data' onsubmit="U()">
+	<form method='POST' action='./update' id='upd' enctype='multipart/form-data' onsubmit="toggle('upd')">
 		Installed version: <span class="sip">##VERSION##</span><br>
-		Download the latest binary: <a href="https://github.com/Aircoookie/WLED/releases" target="_blank">
-		<img src="https://img.shields.io/github/release/Aircoookie/WLED.svg?style=flat-square"></a><br>
+		Download the latest binary: <a href="https://github.com/wled-dev/WLED/releases" target="_blank" 
+		style="vertical-align: text-bottom; display: inline-flex;">
+		<img src="https://img.shields.io/github/release/wled-dev/WLED.svg?style=flat-square"></a><br>
 		<input type='file' name='update' required><br> <!--should have accept='.bin', but it prevents file upload from android app-->
 		<button type="submit">Update!</button><br>
+		<hr class="sml">
+		<button id="rev" type="button" onclick="cR()">Revert update</button><br>
 		<button type="button" onclick="B()">Back</button>
 	</form>
-	<div id="msg"><b>Updating...</b><br>Please do not close or refresh the page :)</div>
+	<div id="Noupd" class="hide"><b>Updating...</b><br>Please do not close or refresh the page :)</div>
 </body>
 </html>

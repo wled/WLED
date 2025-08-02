@@ -4,55 +4,9 @@
 	<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport">
 	<meta charset="utf-8">
 	<title>Misc Settings</title>
+	<script src="common.js" async type="text/javascript"></script>
 	<script>
-		var d = document;
-		var loc = false, locip, locproto = "http:";
-		function H() { window.open("https://kno.wled.ge/features/settings/#security-settings"); }
-		function B() { window.open(getURL("/settings"),"_self"); }
 		function U() { window.open(getURL("/update"),"_self"); }
-		function gId(s) { return d.getElementById(s); }
-		function isObj(o) { return (o && typeof o === 'object' && !Array.isArray(o)); }
-		// https://www.educative.io/edpresso/how-to-dynamically-load-a-js-file-in-javascript
-		function loadJS(FILE_URL, async = true) {
-			let scE = d.createElement("script");
-			scE.setAttribute("src", FILE_URL);
-			scE.setAttribute("type", "text/javascript");
-			scE.setAttribute("async", async);
-			d.body.appendChild(scE);
-			// success event 
-			scE.addEventListener("load", () => {
-				//console.log("File loaded");
-				GetV();
-				setBckFilename(gId("bckcfg"));
-				setBckFilename(gId("bckpresets"));
-			});
-			// error event
-			scE.addEventListener("error", (ev) => {
-				console.log("Error on loading file", ev);
-				alert("Loading of configuration script failed.\nIncomplete page data!");
-			});
-		}
-		var timeout;
-		function showToast(text, error = false)
-		{
-			var x = gId("toast");
-			x.innerHTML = text;
-			x.classList.add(error ? "error":"show");
-			clearTimeout(timeout);
-			x.style.animation = 'none';
-			timeout = setTimeout(function(){ x.classList.remove("show"); }, 2900);
-		}
-		function uploadFile(fO,name) {
-			var req = new XMLHttpRequest();
-			req.addEventListener('load', function(){showToast(this.responseText,this.status >= 400)});
-			req.addEventListener('error', function(e){showToast(e.stack,true);});
-			req.open("POST", getURL("/upload"));
-			var formData = new FormData();
-			formData.append("data", fO.files[0], name);
-			req.send(formData);
-			fO.value = '';
-			return false;
-		}
 		function checkNum(o) {
 			const specialkeys = ["Backspace", "Tab", "Enter", "Shift", "Control", "Alt", "Pause", "CapsLock", "Escape", "Space", "PageUp", "PageDown", "End", "Home", "ArrowLeft", "ArrowUp", "ArrowRight", "ArrowDown", "Insert", "Delete"];
 			// true if key is a number or a special key
@@ -64,33 +18,16 @@
 			x.setAttribute("download","wled_" + x.getAttribute("download") + (sd=="WLED"?"":("_" +sd)));
 		}
 		function S() {
-			let l = window.location;
-			if (l.protocol == "file:") {
-				loc = true;
-				locip = localStorage.getItem('locIp');
-				if (!locip) {
-					locip = prompt("File Mode. Please enter WLED IP!");
-					localStorage.setItem('locIp', locip);
-				}
-			} else {
-				// detect reverse proxy
-				let path = l.pathname;
-				let paths = path.slice(1,path.endsWith('/')?-1:undefined).split("/");
-				if (paths.length > 2) {
-					locproto = l.protocol;
-					loc = true;
-					locip = l.hostname + (l.port ? ":" + l.port : "") + "/" + paths[0];
-				}
-			}
+			getLoc();
 			if (loc) {
 				gId("bckcfg").setAttribute('href',getURL(gId("bckcfg").pathname));
 				gId("bckpresets").setAttribute('href',getURL(gId("bckpresets").pathname));
 			}
-			loadJS(getURL('/settings/s.js?p=6'), false);	// If we set async false, file is loaded and executed, then next statement is processed
+			loadJS(getURL('/settings/s.js?p=6'), false, undefined, ()=>{
+				setBckFilename(gId("bckcfg"));
+				setBckFilename(gId("bckpresets"));
+			});	// If we set async false, file is loaded and executed, then next statement is processed
 			if (loc) d.Sf.action = getURL('/settings/sec');
-		}
-		function getURL(path) {
-			return (loc ? locproto + "//" + locip : "") + path;
 		}
 	</script>
 	<style>
@@ -100,7 +37,7 @@
 <body onload="S()">
 	<form id="form_s" name="Sf" method="post">
 		<div class="toprow">
-		<div class="helpB"><button type="button" onclick="H()">?</button></div>
+		<div class="helpB"><button type="button" onclick="H('features/settings/#security-settings')">?</button></div>
 		<button type="button" onclick="B()">Back</button><button type="submit">Save</button><hr>
 		</div>
 		<h2>Security & Update setup</h2>
@@ -119,23 +56,26 @@
 		<hr>
 		<h3>Software Update</h3>
 		<button type="button" onclick="U()">Manual OTA Update</button><br>
-		Enable ArduinoOTA: <input type="checkbox" name="AO">
-		<hr>
+		<div id="aOTA">Enable ArduinoOTA: <input type="checkbox" name="AO"></div>
+		Only allow update from same network/WiFi: <input type="checkbox" name="SU"><br>
+		<i class="warn">&#9888; If you are using multiple VLANs (i.e. IoT or guest network) either set PIN or disable this option.<br>
+			Disabling this option will make your device less secure.</i><br>
+		<hr id="backup">
 		<h3>Backup & Restore</h3>
+		<div class="warn">&#9888; Restoring presets/configuration will OVERWRITE your current presets/configuration.<br>
+		Incorrect upload or configuration may require a factory reset or re-flashing of your ESP.<br>
+		For security reasons, passwords are not backed up.</div>
 		<a class="btn lnk" id="bckcfg" href="/presets.json" download="presets">Backup presets</a><br>
 		<div>Restore presets<br><input type="file" name="data" accept=".json"> <button type="button" onclick="uploadFile(d.Sf.data,'/presets.json');">Upload</button><br></div><br>
 		<a class="btn lnk" id="bckpresets" href="/cfg.json" download="cfg">Backup configuration</a><br>
 		<div>Restore configuration<br><input type="file" name="data2" accept=".json"> <button type="button" onclick="uploadFile(d.Sf.data2,'/cfg.json');">Upload</button><br></div>
-		<div class="warn">&#9888; Restoring presets/configuration will OVERWRITE your current presets/configuration.<br>
-		Incorrect configuration may require a factory reset or re-flashing of your ESP.</div>
-		For security reasons, passwords are not backed up.
 		<hr>
 		<h3>About</h3>
-		<a href="https://github.com/Aircoookie/WLED/" target="_blank">WLED</a> version ##VERSION##<!-- Autoreplaced from package.json --><br><br>
-		<a href="https://github.com/Aircoookie/WLED/wiki/Contributors-and-credits" target="_blank">Contributors, dependencies and special thanks</a><br>
+		<a href="https://github.com/wled-dev/WLED/" target="_blank">WLED</a>&#32;version ##VERSION##<!-- Autoreplaced from package.json --><br><br>
+		<a href="https://kno.wled.ge/about/contributors/" target="_blank">Contributors, dependencies and special thanks</a><br>
 		A huge thank you to everyone who helped me create WLED!<br><br>
 		(c) 2016-2024 Christian Schwinne <br>
-		<i>Licensed under the <a href="https://github.com/Aircoookie/WLED/blob/master/LICENSE" target="_blank">MIT license</a></i><br><br>
+		<i>Licensed under the <a href="https://github.com/wled-dev/WLED/blob/main/LICENSE" target="_blank">EUPL v1.2 license</a></i><br><br>
 		Server message: <span class="sip"> Response error! </span><hr>
 		<div id="toast"></div>
 		<button type="button" onclick="B()">Back</button><button type="submit">Save</button>

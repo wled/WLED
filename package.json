@@ -1,6 +1,6 @@
 {
   "name": "wled",
-  "version": "0.14.4",
+  "version": "0.16.0-alpha",
   "description": "Tools for WLED project",
   "main": "tools/cdata.js",
   "directories": {
@@ -9,23 +9,26 @@
   },
   "scripts": {
     "build": "node tools/cdata.js",
+    "test": "node --test",
     "dev": "nodemon -e js,html,htm,css,png,jpg,gif,ico,js -w tools/ -w wled00/data/ -x node tools/cdata.js"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Aircoookie/WLED.git"
+    "url": "git+https://github.com/wled-dev/WLED.git"
   },
   "author": "",
   "license": "ISC",
   "bugs": {
-    "url": "https://github.com/Aircoookie/WLED/issues"
+    "url": "https://github.com/wled-dev/WLED/issues"
   },
-  "homepage": "https://github.com/Aircoookie/WLED#readme",
+  "homepage": "https://github.com/wled-dev/WLED#readme",
   "dependencies": {
-    "clean-css": "^4.2.3",
-    "html-minifier-terser": "^5.1.1",
-    "inliner": "^1.13.1",
-    "nodemon": "^2.0.20",
-    "zlib": "^1.0.5"
+    "clean-css": "^5.3.3",
+    "html-minifier-terser": "^7.2.0",
+    "web-resource-inliner": "^7.0.0",
+    "nodemon": "^3.1.9"
+  },
+  "engines": {
+    "node": ">=20.0.0"
   }
 }

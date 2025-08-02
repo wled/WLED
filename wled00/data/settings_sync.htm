@@ -4,32 +4,10 @@
 	<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport">
 	<meta charset="utf-8">
 	<title>Sync Settings</title>
-	<script>var d=document;
-	var loc = false, locip, locproto = "http:";
-	function gId(s){return d.getElementById(s);}
-	function toggle(el){gId(el).classList.toggle("hide"); gId('No'+el).classList.toggle("hide");}
-	function H(){window.open("https://kno.wled.ge/interfaces/udp-notifier/");}
-	function B(){window.open(getURL("/settings"),"_self");}
+	<script src="common.js" async type="text/javascript"></script>
+	<script>
 	function adj(){if (d.Sf.DI.value == 6454) {if (d.Sf.EU.value == 1) d.Sf.EU.value = 0;}
 					else if (d.Sf.DI.value == 5568) {if (d.Sf.DA.value == 0) d.Sf.DA.value = 1; if (d.Sf.EU.value == 0) d.Sf.EU.value = 1;} }
-	// https://www.educative.io/edpresso/how-to-dynamically-load-a-js-file-in-javascript
-	function loadJS(FILE_URL, async = true) {
-		let scE = d.createElement("script");
-		scE.setAttribute("src", FILE_URL);
-		scE.setAttribute("type", "text/javascript");
-		scE.setAttribute("async", async);
-		d.body.appendChild(scE);
-		// success event 
-		scE.addEventListener("load", () => {
-			//console.log("File loaded");
-			GetV();SetVal();
-		});
-		// error event
-		scE.addEventListener("error", (ev) => {
-			console.log("Error on loading file", ev);
-			alert("Loading of configuration script failed.\nIncomplete page data!");
-		});
-	}
 	function FC()
 	{
 		for(j=0;j<8;j++)
@@ -55,42 +33,34 @@
 	function SP(){var p = d.Sf.DI.value; gId("xp").style.display = (p > 0)?"none":"block"; if (p > 0) d.Sf.EP.value = p;}
 	function SetVal(){switch(parseInt(d.Sf.EP.value)){case 5568: d.Sf.DI.value = 5568; break; case 6454: d.Sf.DI.value = 6454; break; case 4048: d.Sf.DI.value = 4048; break; }; SP();FC();}
 	function S(){
-		let l = window.location;
-		if (l.protocol == "file:") {
-			loc = true;
-			locip = localStorage.getItem('locIp');
-			if (!locip) {
-				locip = prompt("File Mode. Please enter WLED IP!");
-				localStorage.setItem('locIp', locip);
-			}
-		} else {
-			// detect reverse proxy
-			let paths = l.pathname.slice(1,l.pathname.endsWith('/')?-1:undefined).split("/");
-			if (paths.length > 2) {
-				locproto = l.protocol;
-				loc = true;
-				locip = l.hostname + (l.port ? ":" + l.port : "") + "/" + paths[0];
-			}
-		}
-		loadJS(getURL('/settings/s.js?p=4'), false);	// If we set async false, file is loaded and executed, then next statement is processed
+		getLoc();
+		loadJS(getURL('/settings/s.js?p=4'), false, undefined, ()=>{SetVal();});	// If we set async false, file is loaded and executed, then next statement is processed
 		if (loc) d.Sf.action = getURL('/settings/sync');
 	}
 	function getURL(path) {
 		return (loc ? locproto + "//" + locip : "") + path;
 	}
+	function hideDMXInput(){gId("dmxInput").style.display="none";}
+	function hideNoDMXInput(){gId("dmxInputOff").style.display="none";}
 	</script>
 	<style>@import url("style.css");</style>
 </head>
 <body onload="S()">
 <form id="form_s" name="Sf" method="post" onsubmit="GC()">
 <div class="toprow">
-<div class="helpB"><button type="button" onclick="H()">?</button></div>
+<div class="helpB"><button type="button" onclick="H('interfaces/udp-notifier/')">?</button></div>
 <button type="button" onclick="B()">Back</button><button type="submit">Save</button><hr>
 </div>
 <h2>Sync setup</h2>
 <h3>WLED Broadcast</h3>
 UDP Port: <input name="UP" type="number" min="1" max="65535" class="d5" required><br>
 2nd Port: <input name="U2" type="number" min="1" max="65535" class="d5" required><br>
+<div id="NoESPNOW" class="hide">
+<i class="warn">ESP-NOW support is disabled.<br></i>
+</div>
+<div id="ESPNOW">
+Use ESP-NOW sync: <input type="checkbox" name="EN"><br><i>(in AP mode or no WiFi)</i><br>
+</div>
 <h3>Sync groups</h3>
 <input name="GS" id="GS" type="number" style="display: none;"><!-- hidden inputs for bitwise group checkboxes -->
 <input name="GR" id="GR" type="number" style="display: none;">
@@ -128,14 +98,16 @@ UDP Port: <input name="UP" type="number" min="1" max="65535" class="d5" required
 		<td><input type="checkbox" id="R7" name="R7"></td>
 		<td><input type="checkbox" id="R8" name="R8"></td>
 	</tr>
-</table><br>
-Receive: <nowrap><input type="checkbox" name="RB">Brightness,</nowrap> <nowrap><input type="checkbox" name="RC">Color,</nowrap> <nowrap>and <input type="checkbox" name="RX">Effects</nowrap><br>
-<input type="checkbox" name="SO"> Segment options, <input type="checkbox" name="SG"> bounds<br>
+</table>
+<h3>Receive</h3>
+<nowrap><input type="checkbox" name="RB">Brightness,</nowrap> <nowrap><input type="checkbox" name="RC">Color,</nowrap> <nowrap><input type="checkbox" name="RX">Effects,</nowrap> <nowrap>and <input type="checkbox" name="RP">Palette</nowrap><br>
+<input type="checkbox" name="SO"> Segment options, <input type="checkbox" name="SG"> bounds
+<h3>Send</h3>
+Enable Sync on start: <input type="checkbox" name="SS"><br>
 Send notifications on direct change: <input type="checkbox" name="SD"><br>
 Send notifications on button press or IR: <input type="checkbox" name="SB"><br>
 Send Alexa notifications: <input type="checkbox" name="SA"><br>
 Send Philips Hue change notifications: <input type="checkbox" name="SH"><br>
-Send Macro notifications: <input type="checkbox" name="SM"><br>
 UDP packet retransmissions: <input name="UR" type="number" min="0" max="30" class="d5" required><br><br>
 <i>Reboot required to apply changes. </i>
 <hr class="sml">
@@ -145,7 +117,8 @@ Make this instance discoverable: <input type="checkbox" name="NB">
 <hr class="sml">
 <h3>Realtime</h3>
 Receive UDP realtime: <input type="checkbox" name="RD"><br>
-Use main segment only: <input type="checkbox" name="MO"><br><br>
+Use main segment only: <input type="checkbox" name="MO"><br>
+Respect LED Maps: <input type="checkbox" name="RLM"><br><br>
 <i>Network DMX input</i><br>
 Type:
 <select name=DI onchange="SP(); adj();">
@@ -180,6 +153,19 @@ Timeout: <input name="ET" type="number" min="1" max="65000" required> ms<br>
 Force max brightness: <input type="checkbox" name="FB"><br>
 Disable realtime gamma correction: <input type="checkbox" name="RG"><br>
 Realtime LED offset: <input name="WO" type="number" min="-255" max="255" required>
+<div id="dmxInput">
+	<h4>Wired DMX Input Pins</h4>
+	DMX RX: <input name="IDMR" type="number" min="-1" max="99">RO<br/>
+	DMX TX: <input name="IDMT" type="number" min="-1" max="99">DI<br/>
+	DMX Enable: <input name="IDME" type="number" min="-1" max="99">RE+DE<br/>
+	DMX Port: <input name="IDMP" type="number" min="1" max="2"><br/>
+</div> 
+<div id="dmxInputOff">
+	<br><em style="color:darkorange">This firmware build does not include DMX Input support. <br></em>
+</div> 
+<div id="dmxOnOff2">
+  <br><em style="color:darkorange">This firmware build does not include DMX output support. <br></em>
+</div> 
 <hr class="sml">
 <h3>Alexa Voice Assistant</h3>
 <div id="NoAlexa" class="hide">
@@ -188,7 +174,7 @@ Realtime LED offset: <input name="WO" type="number" min="-255" max="255" require
 <div id="Alexa">
 Emulate Alexa device: <input type="checkbox" name="AL"><br>
 Alexa invocation name: <input type="text" name="AI" maxlength="32"><br>
-Also emulate devices to call the first <input name="AP" type="number" class="s" min="0" max="9" required> presets<br><br>
+Also emulate devices to call the first <input name="AP" type="number" class="s" min="0" max="9"> presets<br><br>
 </div>
 <hr class="sml">
 <div class="warn">&#9888; <b>MQTT and Hue sync all connect to external hosts!<br>
@@ -234,6 +220,10 @@ Hue Bridge IP:<br>
 Hue status: <span class="sip"> Disabled in this build </span>
 </div>
 <h3>Serial</h3>
+<div id="NoSerial" class="hide">
+	<em class="warn">This firmware build does not support Serial interface.<br></em>
+</div>
+<div id="Serial">
 Baud rate:
 <select name=BD>
 <option value=1152>115200</option>
@@ -246,6 +236,7 @@ Baud rate:
 <option value=15000>1500000</option>
 </select><br>
 <i>Keep at 115200 to use Improv. Some boards may not support high rates.</i>
+</div>
 <hr>
 <button type="button" onclick="B()">Back</button><button type="submit">Save</button>
 </form>

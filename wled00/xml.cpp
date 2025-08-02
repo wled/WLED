@@ -6,85 +6,39 @@
  */
 
 //build XML response to HTTP /win API request
-void XML_response(AsyncWebServerRequest *request, char* dest)
+void XML_response(Print& dest)
 {
-  char sbuf[(dest == nullptr)?1024:1]; //allocate local buffer if none passed
-  obuf = (dest == nullptr)? sbuf:dest;
-
-  olen = 0;
-  oappend(SET_F("<?xml version=\"1.0\" ?><vs><ac>"));
-  oappendi((nightlightActive && nightlightMode > NL_MODE_SET) ? briT : bri);
-  oappend(SET_F("</ac>"));
-
+  dest.printf_P(PSTR("<?xml version=\"1.0\" ?><vs><ac>%d</ac>"), (nightlightActive && nightlightMode > NL_MODE_SET) ? briT : bri);
   for (int i = 0; i < 3; i++)
   {
-   oappend("<cl>");
-   oappendi(col[i]);
-   oappend("</cl>");
+   dest.printf_P(PSTR("<cl>%d</cl>"), colPri[i]);
   }
   for (int i = 0; i < 3; i++)
   {
-   oappend("<cs>");
-   oappendi(colSec[i]);
-   oappend("</cs>");
+    dest.printf_P(PSTR("<cs>%d</cs>"), colSec[i]);
   }
-  oappend(SET_F("<ns>"));
-  oappendi(notifyDirect);
-  oappend(SET_F("</ns><nr>"));
-  oappendi(receiveNotifications);
-  oappend(SET_F("</nr><nl>"));
-  oappendi(nightlightActive);
-  oappend(SET_F("</nl><nf>"));
-  oappendi(nightlightMode > NL_MODE_SET);
-  oappend(SET_F("</nf><nd>"));
-  oappendi(nightlightDelayMins);
-  oappend(SET_F("</nd><nt>"));
-  oappendi(nightlightTargetBri);
-  oappend(SET_F("</nt><fx>"));
-  oappendi(effectCurrent);
-  oappend(SET_F("</fx><sx>"));
-  oappendi(effectSpeed);
-  oappend(SET_F("</sx><ix>"));
-  oappendi(effectIntensity);
-  oappend(SET_F("</ix><fp>"));
-  oappendi(effectPalette);
-  oappend(SET_F("</fp><wv>"));
-  if (strip.hasWhiteChannel()) {
-   oappendi(col[3]);
-  } else {
-   oappend("-1");
-  }
-  oappend(SET_F("</wv><ws>"));
-  oappendi(colSec[3]);
-  oappend(SET_F("</ws><ps>"));
-  oappendi(currentPreset);
-  oappend(SET_F("</ps><cy>"));
-  oappendi(currentPlaylist >= 0);
-  oappend(SET_F("</cy><ds>"));
-  oappend(serverDescription);
-  if (realtimeMode)
-  {
-    oappend(SET_F(" (live)"));
-  }
-  oappend(SET_F("</ds><ss>"));
-  oappendi(strip.getFirstSelectedSegId());
-  oappend(SET_F("</ss></vs>"));
-  if (request != nullptr) request->send(200, "text/xml", obuf);
+  dest.printf_P(PSTR("<ns>%d</ns><nr>%d</nr><nl>%d</nl><nf>%d</nf><nd>%d</nd><nt>%d</nt><fx>%d</fx><sx>%d</sx><ix>%d</ix><fp>%d</fp><wv>%d</wv><ws>%d</ws><ps>%d</ps><cy>%d</cy><ds>%s%s</ds><ss>%d</ss></vs>"),
+    notifyDirect, receiveGroups!=0, nightlightActive, nightlightMode > NL_MODE_SET, nightlightDelayMins,
+    nightlightTargetBri, effectCurrent, effectSpeed, effectIntensity, effectPalette,
+    strip.hasWhiteChannel() ? colPri[3] : -1, colSec[3], currentPreset, currentPlaylist >= 0,
+    serverDescription, realtimeMode ? PSTR(" (live)") : "",
+    strip.getFirstSelectedSegId()
+  );
 }
 
-void extractPin(JsonObject &obj, const char *key) {
+static void extractPin(Print& settingsScript, const JsonObject &obj, const char *key) {
   if (obj[key].is<JsonArray>()) {
     JsonArray pins = obj[key].as<JsonArray>();
     for (JsonVariant pv : pins) {
-      if (pv.as<int>() > -1) { oappend(","); oappendi(pv.as<int>()); }
+      if (pv.as<int>() > -1) { settingsScript.print(","); settingsScript.print(pv.as<int>()); }
     }
   } else {
-    if (obj[key].as<int>() > -1) { oappend(","); oappendi(obj[key].as<int>()); }
+    if (obj[key].as<int>() > -1) { settingsScript.print(","); settingsScript.print(obj[key].as<int>()); }
   }
 }
 
-// oappend used pins by scanning JsonObject (1 level deep)
-void fillUMPins(JsonObject &mods)
+// print used pins by scanning JsonObject (1 level deep)
+static void fillUMPins(Print& settingsScript, const JsonObject &mods)
 {
   for (JsonPair kv : mods) {
     // kv.key() is usermod name or subobject key
@@ -93,7 +47,7 @@ void fillUMPins(JsonObject &mods)
     if (!obj.isNull()) {
       // element is an JsonObject
       if (!obj["pin"].isNull()) {
-        extractPin(obj, "pin");
+        extractPin(settingsScript, obj, "pin");
       } else {
         // scan keys (just one level deep as is possible with usermods)
         for (JsonPair so : obj) {
@@ -102,7 +56,7 @@ void fillUMPins(JsonObject &mods)
             // we found a key containing "pin" substring
             if (strlen(strstr(key, "pin")) == 3) {
               // and it is at the end, we found another pin
-              extractPin(obj, key);
+              extractPin(settingsScript, obj, key);
               continue;
             }
           }
@@ -110,7 +64,7 @@ void fillUMPins(JsonObject &mods)
           JsonObject subObj = obj[so.key()];
           if (!subObj["pin"].isNull()) {
             // get pins from subobject
-            extractPin(subObj, "pin");
+            extractPin(settingsScript, subObj, "pin");
           }
         }
       }
@@ -118,181 +72,165 @@ void fillUMPins(JsonObject &mods)
   }
 }
 
-void appendGPIOinfo() {
-  char nS[8];
-
-  oappend(SET_F("d.um_p=[-1")); // has to have 1 element
+void appendGPIOinfo(Print& settingsScript) {
+  settingsScript.print(F("d.um_p=[-1")); // has to have 1 element
   if (i2c_sda > -1 && i2c_scl > -1) {
-    oappend(","); oappend(itoa(i2c_sda,nS,10));
-    oappend(","); oappend(itoa(i2c_scl,nS,10));
+    settingsScript.printf_P(PSTR(",%d,%d"), i2c_sda, i2c_scl);
   }
   if (spi_mosi > -1 && spi_sclk > -1) {
-    oappend(","); oappend(itoa(spi_mosi,nS,10));
-    oappend(","); oappend(itoa(spi_sclk,nS,10));
+    settingsScript.printf_P(PSTR(",%d,%d"), spi_mosi, spi_sclk);
   }
   // usermod pin reservations will become unnecessary when settings pages will read cfg.json directly
   if (requestJSONBufferLock(6)) {
     // if we can't allocate JSON buffer ignore usermod pins
-    JsonObject mods = doc.createNestedObject(F("um"));
-    usermods.addToConfig(mods);
-    if (!mods.isNull()) fillUMPins(mods);
+    JsonObject mods = pDoc->createNestedObject("um");
+    UsermodManager::addToConfig(mods);
+    if (!mods.isNull()) fillUMPins(settingsScript, mods);
     releaseJSONBufferLock();
   }
-  oappend(SET_F("];"));
+  settingsScript.print(F("];"));
 
-  // add reserved and usermod pins as d.um_p array
-  #if defined(CONFIG_IDF_TARGET_ESP32S2)
-  oappend(SET_F("d.rsvd=[22,23,24,25,26,27,28,29,30,31,32"));
-  #elif defined(CONFIG_IDF_TARGET_ESP32S3)
-  oappend(SET_F("d.rsvd=[19,20,22,23,24,25,26,27,28,29,30,31,32"));  // includes 19+20 for USB OTG (JTAG)
-  #elif defined(CONFIG_IDF_TARGET_ESP32C3)
-  oappend(SET_F("d.rsvd=[11,12,13,14,15,16,17"));
-  #elif defined(ESP32)
-  oappend(SET_F("d.rsvd=[6,7,8,9,10,11,24,28,29,30,31,37,38"));
-  #else
-  oappend(SET_F("d.rsvd=[6,7,8,9,10,11"));
-  #endif
-
+  // add reserved (unusable) pins
+  bool firstPin = true;
+  settingsScript.print(F("d.rsvd=["));
+  for (unsigned i = 0; i < WLED_NUM_PINS; i++) {
+    if (!PinManager::isPinOk(i, false)) {  // include readonly pins
+      if (!firstPin) settingsScript.print(',');
+      settingsScript.print(i);
+      firstPin = false;
+    }
+  }
   #ifdef WLED_ENABLE_DMX
-  oappend(SET_F(",2")); // DMX hardcoded pin
+  if (!firstPin) settingsScript.print(',');
+  settingsScript.print(2); // DMX hardcoded pin
+  firstPin = false;
   #endif
-
-  #ifdef WLED_DEBUG
-  oappend(SET_F(",")); oappend(itoa(hardwareTX,nS,10));// debug output (TX) pin
+  #if defined(WLED_DEBUG) && !defined(WLED_DEBUG_HOST)
+  if (!firstPin) settingsScript.print(',');
+  settingsScript.print(hardwareTX); // debug output (TX) pin
+  firstPin = false;
   #endif
-
-  //Note: Using pin 3 (RX) disables Adalight / Serial JSON
-
-  #if defined(ARDUINO_ARCH_ESP32) && defined(BOARD_HAS_PSRAM)
-    #if !defined(CONFIG_IDF_TARGET_ESP32S2) && !defined(CONFIG_IDF_TARGET_ESP32S3) && !defined(CONFIG_IDF_TARGET_ESP32C3)
-    if (psramFound()) oappend(SET_F(",16,17")); // GPIO16 & GPIO17 reserved for SPI RAM on ESP32 (not on S2, S3 or C3)
-    #elif defined(CONFIG_IDF_TARGET_ESP32S3)
-    if (psramFound()) oappend(SET_F(",33,34,35,36,37")); // in use for "octal" PSRAM or "octal" FLASH -seems that octal PSRAM is very common on S3.
-    #endif
-  #endif
-
-  #ifdef WLED_USE_ETHERNET
+  #if defined(ARDUINO_ARCH_ESP32) && defined(WLED_USE_ETHERNET)
   if (ethernetType != WLED_ETH_NONE && ethernetType < WLED_NUM_ETH_TYPES) {
-    for (uint8_t p=0; p<WLED_ETH_RSVD_PINS_COUNT; p++) { oappend(","); oappend(itoa(esp32_nonconfigurable_ethernet_pins[p].pin,nS,10)); }
-    if (ethernetBoards[ethernetType].eth_power>=0)     { oappend(","); oappend(itoa(ethernetBoards[ethernetType].eth_power,nS,10)); }
-    if (ethernetBoards[ethernetType].eth_mdc>=0)       { oappend(","); oappend(itoa(ethernetBoards[ethernetType].eth_mdc,nS,10)); }
-    if (ethernetBoards[ethernetType].eth_mdio>=0)      { oappend(","); oappend(itoa(ethernetBoards[ethernetType].eth_mdio,nS,10)); }
-    switch (ethernetBoards[ethernetType].eth_clk_mode) {
+    if (!firstPin) settingsScript.print(',');
+    for (unsigned p=0; p<WLED_ETH_RSVD_PINS_COUNT; p++) { settingsScript.printf("%d,",esp32_nonconfigurable_ethernet_pins[p].pin); }
+    if (ethernetBoards[ethernetType].eth_power >= 0)    { settingsScript.printf("%d,",ethernetBoards[ethernetType].eth_power); }
+    if (ethernetBoards[ethernetType].eth_mdc >= 0)      { settingsScript.printf("%d,",ethernetBoards[ethernetType].eth_mdc); }
+    if (ethernetBoards[ethernetType].eth_mdio >= 0)     { settingsScript.printf("%d,",ethernetBoards[ethernetType].eth_mdio); }
+    switch (ethernetBoards[ethernetType].eth_clk_mode)  {
       case ETH_CLOCK_GPIO0_IN:
       case ETH_CLOCK_GPIO0_OUT:
-        oappend(SET_F(",0"));
+        settingsScript.print(0);
         break;
       case ETH_CLOCK_GPIO16_OUT:
-        oappend(SET_F(",16"));
+        settingsScript.print(16);
         break;
       case ETH_CLOCK_GPIO17_OUT:
-        oappend(SET_F(",17"));
+        settingsScript.print(17);
         break;
     }
   }
   #endif
-
-  oappend(SET_F("];"));
+  settingsScript.print(F("];")); // rsvd
 
   // add info for read-only GPIO
-  oappend(SET_F("d.ro_gpio=["));
-  #if defined(CONFIG_IDF_TARGET_ESP32S2)
-  oappendi(46);
-  #elif defined(CONFIG_IDF_TARGET_ESP32S3)
-  // none for S3
-  #elif defined(CONFIG_IDF_TARGET_ESP32C3)
-  // none for C3
-  #elif defined(ESP32)
-  oappend(SET_F("34,35,36,37,38,39"));
-  #else
-  // none for ESP8266
-  #endif
-  oappend(SET_F("];"));
+  settingsScript.print(F("d.ro_gpio=["));
+  firstPin = true;
+  for (unsigned i = 0; i < WLED_NUM_PINS; i++) {
+    if (PinManager::isReadOnlyPin(i)) {
+      // No comma before the first pin
+      if (!firstPin) settingsScript.print(',');
+      settingsScript.print(i);
+      firstPin = false;
+    }
+  }
+  settingsScript.print(F("];"));
 
   // add info about max. # of pins
-  oappend(SET_F("d.max_gpio="));
-  #if defined(CONFIG_IDF_TARGET_ESP32S2)
-  oappendi(46);
-  #elif defined(CONFIG_IDF_TARGET_ESP32S3)
-  oappendi(48);
-  #elif defined(CONFIG_IDF_TARGET_ESP32C3)
-  oappendi(21);
-  #elif defined(ESP32)
-  oappendi(39);
-  #else
-  oappendi(16);
-  #endif
-  oappend(SET_F(";"));
+  settingsScript.printf_P(PSTR("d.max_gpio=%d;"),WLED_NUM_PINS);
 }
 
 //get values for settings form in javascript
-void getSettingsJS(byte subPage, char* dest)
+void getSettingsJS(byte subPage, Print& settingsScript)
 {
   //0: menu 1: wifi 2: leds 3: ui 4: sync 5: time 6: sec
-  DEBUG_PRINT(F("settings resp"));
-  DEBUG_PRINTLN(subPage);
-  obuf = dest;
-  olen = 0;
+  DEBUG_PRINTF_P(PSTR("settings resp %u\n"), (unsigned)subPage);
 
   if (subPage <0 || subPage >10) return;
+  char nS[32];
 
   if (subPage == SUBPAGE_MENU)
   {
   #ifdef WLED_DISABLE_2D // include only if 2D is not compiled in
-    oappend(PSTR("gId('2dbtn').style.display='none';"));
+    settingsScript.print(F("gId('2dbtn').style.display='none';"));
   #endif
   #ifdef WLED_ENABLE_DMX // include only if DMX is enabled
-    oappend(PSTR("gId('dmxbtn').style.display='';"));
+    settingsScript.print(F("gId('dmxbtn').style.display='';"));
   #endif
   }
 
   if (subPage == SUBPAGE_WIFI)
   {
-    sappends('s',SET_F("CS"),clientSSID);
-
-    byte l = strlen(clientPass);
-    char fpass[l+1]; //fill password field with ***
-    fpass[l] = 0;
-    memset(fpass,'*',l);
-    sappends('s',SET_F("CP"),fpass);
-
-    char k[3]; k[2] = 0; //IP addresses
-    for (int i = 0; i<4; i++)
-    {
-      k[1] = 48+i; //ascii 0,1,2,3
-      k[0] = 'I'; sappend('v',k,staticIP[i]);
-      k[0] = 'G'; sappend('v',k,staticGateway[i]);
-      k[0] = 'S'; sappend('v',k,staticSubnet[i]);
+    size_t l;
+    settingsScript.printf_P(PSTR("resetWiFi(%d);"), WLED_MAX_WIFI_COUNT);
+    for (size_t n = 0; n < multiWiFi.size(); n++) {
+      l = strlen(multiWiFi[n].clientPass);
+      char fpass[l+1]; //fill password field with ***
+      fpass[l] = 0;
+      memset(fpass,'*',l);
+      char bssid[13];
+      fillMAC2Str(bssid, multiWiFi[n].bssid);
+      settingsScript.printf_P(PSTR("addWiFi(\"%s\",\"%s\",\"%s\",0x%X,0x%X,0x%X);"),
+        multiWiFi[n].clientSSID,
+        fpass,
+        bssid,
+        (uint32_t) multiWiFi[n].staticIP, // explicit cast required as this is a struct
+        (uint32_t) multiWiFi[n].staticGW,
+        (uint32_t) multiWiFi[n].staticSN);
     }
 
-    sappends('s',SET_F("CM"),cmDNS);
-    sappend('i',SET_F("AB"),apBehavior);
-    sappends('s',SET_F("AS"),apSSID);
-    sappend('c',SET_F("AH"),apHide);
+    printSetFormValue(settingsScript,PSTR("D0"),dnsAddress[0]);
+    printSetFormValue(settingsScript,PSTR("D1"),dnsAddress[1]);
+    printSetFormValue(settingsScript,PSTR("D2"),dnsAddress[2]);
+    printSetFormValue(settingsScript,PSTR("D3"),dnsAddress[3]);
+
+    printSetFormValue(settingsScript,PSTR("CM"),cmDNS);
+    printSetFormIndex(settingsScript,PSTR("AB"),apBehavior);
+    printSetFormValue(settingsScript,PSTR("AS"),apSSID);
+    printSetFormCheckbox(settingsScript,PSTR("AH"),apHide);
 
     l = strlen(apPass);
     char fapass[l+1]; //fill password field with ***
     fapass[l] = 0;
     memset(fapass,'*',l);
-    sappends('s',SET_F("AP"),fapass);
+    printSetFormValue(settingsScript,PSTR("AP"),fapass);
 
-    sappend('v',SET_F("AC"),apChannel);
-    sappend('c',SET_F("FG"),force802_3g);
-    sappend('c',SET_F("WS"),noWifiSleep);
+    printSetFormValue(settingsScript,PSTR("AC"),apChannel);
+    #ifdef ARDUINO_ARCH_ESP32
+    printSetFormValue(settingsScript,PSTR("TX"),txPower);
+    #else
+    settingsScript.print(F("gId('tx').style.display='none';"));
+    #endif
+    printSetFormCheckbox(settingsScript,PSTR("FG"),force802_3g);
+    printSetFormCheckbox(settingsScript,PSTR("WS"),noWifiSleep);
 
     #ifndef WLED_DISABLE_ESPNOW
-    sappend('c',SET_F("RE"),enable_espnow_remote);
-    sappends('s',SET_F("RMAC"),linked_remote);
+    printSetFormCheckbox(settingsScript,PSTR("RE"),enableESPNow);
+    settingsScript.printf_P(PSTR("rstR();")); // reset remote list
+    for (size_t i = 0; i < linked_remotes.size(); i++) {
+      settingsScript.printf_P(PSTR("aR(\"RM%u\",\"%s\");"), i, linked_remotes[i].data()); // add remote to list
+    }
+    settingsScript.print(F("tE();")); // fill fields
     #else
     //hide remote settings if not compiled
-    oappend(SET_F("document.getElementById('remd').style.display='none';"));
+    settingsScript.print(F("toggle('ESPNOW');"));  // hide ESP-NOW setting
     #endif
 
-    #ifdef WLED_USE_ETHERNET
-    sappend('v',SET_F("ETH"),ethernetType);
+    #if defined(ARDUINO_ARCH_ESP32) && defined(WLED_USE_ETHERNET)
+    printSetFormValue(settingsScript,PSTR("ETH"),ethernetType);
     #else
     //hide ethernet setting if not compiled in
-    oappend(SET_F("document.getElementById('ethd').style.display='none';"));
+    settingsScript.print(F("gId('ethd').style.display='none';"));
     #endif
 
     if (Network.isConnected()) //is connected
@@ -302,12 +240,12 @@ void getSettingsJS(byte subPage, char* dest)
       sprintf(s, "%d.%d.%d.%d", localIP[0], localIP[1], localIP[2], localIP[3]);
 
       #if defined(ARDUINO_ARCH_ESP32) && defined(WLED_USE_ETHERNET)
-      if (Network.isEthernet()) strcat_P(s ,SET_F(" (Ethernet)"));
+      if (Network.isEthernet()) strcat_P(s ,PSTR(" (Ethernet)"));
       #endif
-      sappends('m',SET_F("(\"sip\")[0]"),s);
+      printSetClassElementHTML(settingsScript,PSTR("sip"),0,s);
     } else
     {
-      sappends('m',SET_F("(\"sip\")[0]"),(char*)F("Not connected"));
+      printSetClassElementHTML(settingsScript,PSTR("sip"),0,(char*)F("Not connected"));
     }
 
     if (WiFi.softAPIP()[0] != 0) //is active
@@ -315,90 +253,91 @@ void getSettingsJS(byte subPage, char* dest)
       char s[16];
       IPAddress apIP = WiFi.softAPIP();
       sprintf(s, "%d.%d.%d.%d", apIP[0], apIP[1], apIP[2], apIP[3]);
-      sappends('m',SET_F("(\"sip\")[1]"),s);
+      printSetClassElementHTML(settingsScript,PSTR("sip"),1,s);
     } else
     {
-      sappends('m',SET_F("(\"sip\")[1]"),(char*)F("Not active"));
+      printSetClassElementHTML(settingsScript,PSTR("sip"),1,(char*)F("Not active"));
     }
 
     #ifndef WLED_DISABLE_ESPNOW
-    if (last_signal_src[0] != 0) //Have seen an ESP-NOW Remote
-    {
-      sappends('m',SET_F("(\"rlid\")[0]"),last_signal_src);
-    } else if (!enable_espnow_remote)
-    {
-      sappends('m',SET_F("(\"rlid\")[0]"),(char*)F("(Enable remote to listen)"));
-    } else 
-    {
-      sappends('m',SET_F("(\"rlid\")[0]"),(char*)F("None"));
+    if (strlen(last_signal_src) > 0) { //Have seen an ESP-NOW Remote
+      printSetClassElementHTML(settingsScript,PSTR("rlid"),0,last_signal_src);
     }
     #endif
   }
 
   if (subPage == SUBPAGE_LEDS)
   {
-    char nS[32];
+    appendGPIOinfo(settingsScript);
 
-    appendGPIOinfo();
+    settingsScript.printf_P(PSTR("d.ledTypes=%s;"), BusManager::getLEDTypesJSONString().c_str());
 
     // set limits
-    oappend(SET_F("bLimits("));
-    oappend(itoa(WLED_MAX_BUSSES,nS,10));  oappend(",");
-    oappend(itoa(WLED_MIN_VIRTUAL_BUSSES,nS,10));  oappend(",");
-    oappend(itoa(MAX_LEDS_PER_BUS,nS,10)); oappend(",");
-    oappend(itoa(MAX_LED_MEMORY,nS,10));   oappend(",");
-    oappend(itoa(MAX_LEDS,nS,10));
-    oappend(SET_F(");"));
+    settingsScript.printf_P(PSTR("bLimits(%d,%d,%d,%d,%d,%d,%d,%d);"),
+      WLED_MAX_BUSSES,
+      WLED_MIN_VIRTUAL_BUSSES, // irrelevant, but kept to distinguish S2/S3 in UI
+      MAX_LEDS_PER_BUS,
+      MAX_LED_MEMORY,
+      MAX_LEDS,
+      WLED_MAX_COLOR_ORDER_MAPPINGS,
+      WLED_MAX_DIGITAL_CHANNELS,
+      WLED_MAX_ANALOG_CHANNELS
+    );
 
-    sappend('c',SET_F("MS"),autoSegments);
-    sappend('c',SET_F("CCT"),correctWB);
-    sappend('c',SET_F("CR"),cctFromRgb);
-    sappend('v',SET_F("CB"),strip.cctBlending);
-    sappend('v',SET_F("FR"),strip.getTargetFps());
-    sappend('v',SET_F("AW"),Bus::getGlobalAWMode());
-    sappend('c',SET_F("LD"),useGlobalLedBuffer);
+    printSetFormCheckbox(settingsScript,PSTR("MS"),strip.autoSegments);
+    printSetFormCheckbox(settingsScript,PSTR("CCT"),strip.correctWB);
+    printSetFormCheckbox(settingsScript,PSTR("IC"),cctICused);
+    printSetFormCheckbox(settingsScript,PSTR("CR"),strip.cctFromRgb);
+    printSetFormValue(settingsScript,PSTR("CB"),Bus::getCCTBlend());
+    printSetFormValue(settingsScript,PSTR("FR"),strip.getTargetFps());
+    printSetFormValue(settingsScript,PSTR("AW"),Bus::getGlobalAWMode());
+    printSetFormCheckbox(settingsScript,PSTR("PR"),BusManager::hasParallelOutput());  // get it from bus manager not global variable
 
-    for (uint8_t s=0; s < busses.getNumBusses(); s++) {
-      Bus* bus = busses.getBus(s);
-      if (bus == nullptr) continue;
-      char lp[4] = "L0"; lp[2] = 48+s; lp[3] = 0; //ascii 0-9 //strip data pin
-      char lc[4] = "LC"; lc[2] = 48+s; lc[3] = 0; //strip length
-      char co[4] = "CO"; co[2] = 48+s; co[3] = 0; //strip color order
-      char lt[4] = "LT"; lt[2] = 48+s; lt[3] = 0; //strip type
-      char ls[4] = "LS"; ls[2] = 48+s; ls[3] = 0; //strip start LED
-      char cv[4] = "CV"; cv[2] = 48+s; cv[3] = 0; //strip reverse
-      char sl[4] = "SL"; sl[2] = 48+s; sl[3] = 0; //skip 1st LED
-      char rf[4] = "RF"; rf[2] = 48+s; rf[3] = 0; //off refresh
-      char aw[4] = "AW"; aw[2] = 48+s; aw[3] = 0; //auto white mode
-      char wo[4] = "WO"; wo[2] = 48+s; wo[3] = 0; //swap channels
-      char sp[4] = "SP"; sp[2] = 48+s; sp[3] = 0; //bus clock speed
-      oappend(SET_F("addLEDs(1);"));
+    unsigned sumMa = 0;
+    for (size_t s = 0; s < BusManager::getNumBusses(); s++) {
+      const Bus *bus = BusManager::getBus(s);
+      if (!bus || !bus->isOk()) break; // should not happen but for safety
+      int offset = s < 10 ? '0' : 'A' - 10;
+      char lp[4] = "L0"; lp[2] = offset+s; lp[3] = 0; //ascii 0-9 //strip data pin
+      char lc[4] = "LC"; lc[2] = offset+s; lc[3] = 0; //strip length
+      char co[4] = "CO"; co[2] = offset+s; co[3] = 0; //strip color order
+      char lt[4] = "LT"; lt[2] = offset+s; lt[3] = 0; //strip type
+      char ls[4] = "LS"; ls[2] = offset+s; ls[3] = 0; //strip start LED
+      char cv[4] = "CV"; cv[2] = offset+s; cv[3] = 0; //strip reverse
+      char sl[4] = "SL"; sl[2] = offset+s; sl[3] = 0; //skip 1st LED
+      char rf[4] = "RF"; rf[2] = offset+s; rf[3] = 0; //off refresh
+      char aw[4] = "AW"; aw[2] = offset+s; aw[3] = 0; //auto white mode
+      char wo[4] = "WO"; wo[2] = offset+s; wo[3] = 0; //swap channels
+      char sp[4] = "SP"; sp[2] = offset+s; sp[3] = 0; //bus clock speed
+      char la[4] = "LA"; la[2] = offset+s; la[3] = 0; //LED current
+      char ma[4] = "MA"; ma[2] = offset+s; ma[3] = 0; //max per-port PSU current
+      settingsScript.print(F("addLEDs(1);"));
       uint8_t pins[5];
-      uint8_t nPins = bus->getPins(pins);
-      for (uint8_t i = 0; i < nPins; i++) {
-        lp[1] = 48+i;
-        if (pinManager.isPinOk(pins[i]) || bus->getType()>=TYPE_NET_DDP_RGB) sappend('v',lp,pins[i]);
+      int nPins = bus->getPins(pins);
+      for (int i = 0; i < nPins; i++) {
+        lp[1] = '0'+i;
+        if (PinManager::isPinOk(pins[i]) || bus->isVirtual()) printSetFormValue(settingsScript,lp,pins[i]);
       }
-      sappend('v',lc,bus->getLength());
-      sappend('v',lt,bus->getType());
-      sappend('v',co,bus->getColorOrder() & 0x0F);
-      sappend('v',ls,bus->getStart());
-      sappend('c',cv,bus->isReversed());
-      sappend('v',sl,bus->skippedLeds());
-      sappend('c',rf,bus->isOffRefreshRequired());
-      sappend('v',aw,bus->getAutoWhiteMode());
-      sappend('v',wo,bus->getColorOrder() >> 4);
-      uint16_t speed = bus->getFrequency();
-      if (bus->getType() > TYPE_ONOFF && bus->getType() < 48) {
+      printSetFormValue(settingsScript,lc,bus->getLength());
+      printSetFormValue(settingsScript,lt,bus->getType());
+      printSetFormValue(settingsScript,co,bus->getColorOrder() & 0x0F);
+      printSetFormValue(settingsScript,ls,bus->getStart());
+      printSetFormCheckbox(settingsScript,cv,bus->isReversed());
+      printSetFormValue(settingsScript,sl,bus->skippedLeds());
+      printSetFormCheckbox(settingsScript,rf,bus->isOffRefreshRequired());
+      printSetFormValue(settingsScript,aw,bus->getAutoWhiteMode());
+      printSetFormValue(settingsScript,wo,bus->getColorOrder() >> 4);
+      unsigned speed = bus->getFrequency();
+      if (bus->isPWM()) {
         switch (speed) {
-          case WLED_PWM_FREQ/3 : speed = 0; break;
-          case WLED_PWM_FREQ/2 : speed = 1; break;
+          case WLED_PWM_FREQ/2    : speed = 0; break;
+          case WLED_PWM_FREQ*2/3  : speed = 1; break;
           default:
-          case WLED_PWM_FREQ   : speed = 2; break;
-          case WLED_PWM_FREQ*2 : speed = 3; break;
-          case WLED_PWM_FREQ*3 : speed = 4; break;
+          case WLED_PWM_FREQ      : speed = 2; break;
+          case WLED_PWM_FREQ*2    : speed = 3; break;
+          case WLED_PWM_FREQ*10/3 : speed = 4; break; // uint16_t max (19531 * 3.333)
         }
-      } else {
+      } else if (bus->is2Pin()) {
         switch (speed) {
           case  1000 : speed = 0; break;
           case  2000 : speed = 1; break;
@@ -408,153 +347,157 @@ void getSettingsJS(byte subPage, char* dest)
           case 20000 : speed = 4; break;
         }
       }
-      sappend('v',sp,speed);
+      printSetFormValue(settingsScript,sp,speed);
+      printSetFormValue(settingsScript,la,bus->getLEDCurrent());
+      printSetFormValue(settingsScript,ma,bus->getMaxCurrent());
+      sumMa += bus->getMaxCurrent();
     }
-    sappend('v',SET_F("MA"),strip.ablMilliampsMax);
-    sappend('v',SET_F("LA"),strip.milliampsPerLed);
-    if (strip.currentMilliamps)
-    {
-      sappends('m',SET_F("(\"pow\")[0]"),(char*)"");
-      olen -= 2; //delete ";
-      oappendi(strip.currentMilliamps);
-      oappend(SET_F("mA\";"));
-    }
+    printSetFormValue(settingsScript,PSTR("MA"),BusManager::ablMilliampsMax() ? BusManager::ablMilliampsMax() : sumMa);
+    printSetFormCheckbox(settingsScript,PSTR("ABL"),BusManager::ablMilliampsMax() || sumMa > 0);
+    printSetFormCheckbox(settingsScript,PSTR("PPL"),!BusManager::ablMilliampsMax() && sumMa > 0);
 
-    oappend(SET_F("resetCOM("));
-    oappend(itoa(WLED_MAX_COLOR_ORDER_MAPPINGS,nS,10));
-    oappend(SET_F(");"));
-    const ColorOrderMap& com = busses.getColorOrderMap();
-    for (uint8_t s=0; s < com.count(); s++) {
+    settingsScript.printf_P(PSTR("resetCOM(%d);"), WLED_MAX_COLOR_ORDER_MAPPINGS);
+    const ColorOrderMap& com = BusManager::getColorOrderMap();
+    for (int s = 0; s < com.count(); s++) {
       const ColorOrderMapEntry* entry = com.get(s);
-      if (entry == nullptr) break;
-      oappend(SET_F("addCOM("));
-      oappend(itoa(entry->start,nS,10));  oappend(",");
-      oappend(itoa(entry->len,nS,10));  oappend(",");
-      oappend(itoa(entry->colorOrder,nS,10));  oappend(");");
+      if (!entry || !entry->len) break;
+      settingsScript.printf_P(PSTR("addCOM(%d,%d,%d);"), entry->start, entry->len, entry->colorOrder);
     }
 
-    sappend('v',SET_F("CA"),briS);
+    printSetFormValue(settingsScript,PSTR("CA"),briS);
 
-    sappend('c',SET_F("BO"),turnOnAtBoot);
-    sappend('v',SET_F("BP"),bootPreset);
+    printSetFormCheckbox(settingsScript,PSTR("BO"),turnOnAtBoot);
+    printSetFormValue(settingsScript,PSTR("BP"),bootPreset);
 
-    sappend('c',SET_F("GB"),gammaCorrectBri);
-    sappend('c',SET_F("GC"),gammaCorrectCol);
-    dtostrf(gammaCorrectVal,3,1,nS); sappends('s',SET_F("GV"),nS);
-    sappend('c',SET_F("TF"),fadeTransition);
-    sappend('c',SET_F("EB"),modeBlending);
-    sappend('v',SET_F("TD"),transitionDelayDefault);
-    sappend('c',SET_F("PF"),strip.paletteFade);
-    sappend('v',SET_F("TP"),randomPaletteChangeTime);
-    sappend('v',SET_F("BF"),briMultiplier);
-    sappend('v',SET_F("TB"),nightlightTargetBri);
-    sappend('v',SET_F("TL"),nightlightDelayMinsDefault);
-    sappend('v',SET_F("TW"),nightlightMode);
-    sappend('i',SET_F("PB"),strip.paletteBlend);
-    sappend('v',SET_F("RL"),rlyPin);
-    sappend('c',SET_F("RM"),rlyMde);
-    for (uint8_t i=0; i<WLED_MAX_BUTTONS; i++) {
-      oappend(SET_F("addBtn("));
-      oappend(itoa(i,nS,10));  oappend(",");
-      oappend(itoa(btnPin[i],nS,10)); oappend(",");
-      oappend(itoa(buttonType[i],nS,10));
-      oappend(SET_F(");"));
+    printSetFormCheckbox(settingsScript,PSTR("GB"),gammaCorrectBri);
+    printSetFormCheckbox(settingsScript,PSTR("GC"),gammaCorrectCol);
+    dtostrf(gammaCorrectVal,3,1,nS); printSetFormValue(settingsScript,PSTR("GV"),nS);
+    printSetFormValue(settingsScript,PSTR("TD"),transitionDelayDefault);
+    printSetFormValue(settingsScript,PSTR("TP"),randomPaletteChangeTime);
+    printSetFormCheckbox(settingsScript,PSTR("TH"),useHarmonicRandomPalette);
+    printSetFormValue(settingsScript,PSTR("BF"),briMultiplier);
+    printSetFormValue(settingsScript,PSTR("TB"),nightlightTargetBri);
+    printSetFormValue(settingsScript,PSTR("TL"),nightlightDelayMinsDefault);
+    printSetFormValue(settingsScript,PSTR("TW"),nightlightMode);
+    printSetFormIndex(settingsScript,PSTR("PB"),paletteBlend);
+    printSetFormCheckbox(settingsScript,PSTR("RW"),useRainbowWheel);
+    printSetFormValue(settingsScript,PSTR("RL"),rlyPin);
+    printSetFormCheckbox(settingsScript,PSTR("RM"),rlyMde);
+    printSetFormCheckbox(settingsScript,PSTR("RO"),rlyOpenDrain);
+    for (int i = 0; i < WLED_MAX_BUTTONS; i++) {
+      settingsScript.printf_P(PSTR("addBtn(%d,%d,%d);"), i, btnPin[i], buttonType[i]);
     }
-    sappend('c',SET_F("IP"),disablePullUp);
-    sappend('v',SET_F("TT"),touchThreshold);
-    sappend('v',SET_F("IR"),irPin);
-    sappend('v',SET_F("IT"),irEnabled);
-    sappend('c',SET_F("MSO"),!irApplyToAllSelected);
+    printSetFormCheckbox(settingsScript,PSTR("IP"),disablePullUp);
+    printSetFormValue(settingsScript,PSTR("TT"),touchThreshold);
+#ifndef WLED_DISABLE_INFRARED
+    printSetFormValue(settingsScript,PSTR("IR"),irPin);
+    printSetFormValue(settingsScript,PSTR("IT"),irEnabled);
+#endif    
+    printSetFormCheckbox(settingsScript,PSTR("MSO"),!irApplyToAllSelected);
   }
 
   if (subPage == SUBPAGE_UI)
   {
-    sappends('s',SET_F("DS"),serverDescription);
-    sappend('c',SET_F("ST"),syncToggleReceive);
-  #ifdef WLED_ENABLE_SIMPLE_UI
-    sappend('c',SET_F("SU"),simplifiedUI);
-  #else
-    oappend(SET_F("toggle('Simple');"));    // hide Simplified UI settings
-  #endif
+    printSetFormValue(settingsScript,PSTR("DS"),serverDescription);
+    printSetFormCheckbox(settingsScript,PSTR("SU"),simplifiedUI);
   }
 
   if (subPage == SUBPAGE_SYNC)
   {
-    [[maybe_unused]] char nS[32];
-    sappend('v',SET_F("UP"),udpPort);
-    sappend('v',SET_F("U2"),udpPort2);
-    sappend('v',SET_F("GS"),syncGroups);
-    sappend('v',SET_F("GR"),receiveGroups);
+    printSetFormValue(settingsScript,PSTR("UP"),udpPort);
+    printSetFormValue(settingsScript,PSTR("U2"),udpPort2);
+  #ifndef WLED_DISABLE_ESPNOW
+    if (enableESPNow) printSetFormCheckbox(settingsScript,PSTR("EN"),useESPNowSync);
+    else              settingsScript.print(F("toggle('ESPNOW');"));  // hide ESP-NOW setting
+  #else
+    settingsScript.print(F("toggle('ESPNOW');"));  // hide ESP-NOW setting
+  #endif
+    printSetFormValue(settingsScript,PSTR("GS"),syncGroups);
+    printSetFormValue(settingsScript,PSTR("GR"),receiveGroups);
 
-    sappend('c',SET_F("RB"),receiveNotificationBrightness);
-    sappend('c',SET_F("RC"),receiveNotificationColor);
-    sappend('c',SET_F("RX"),receiveNotificationEffects);
-    sappend('c',SET_F("SO"),receiveSegmentOptions);
-    sappend('c',SET_F("SG"),receiveSegmentBounds);
-    sappend('c',SET_F("SD"),notifyDirectDefault);
-    sappend('c',SET_F("SB"),notifyButton);
-    sappend('c',SET_F("SH"),notifyHue);
-    sappend('c',SET_F("SM"),notifyMacro);
-    sappend('v',SET_F("UR"),udpNumRetries);
+    printSetFormCheckbox(settingsScript,PSTR("RB"),receiveNotificationBrightness);
+    printSetFormCheckbox(settingsScript,PSTR("RC"),receiveNotificationColor);
+    printSetFormCheckbox(settingsScript,PSTR("RX"),receiveNotificationEffects);
+    printSetFormCheckbox(settingsScript,PSTR("RP"),receiveNotificationPalette);
+    printSetFormCheckbox(settingsScript,PSTR("SO"),receiveSegmentOptions);
+    printSetFormCheckbox(settingsScript,PSTR("SG"),receiveSegmentBounds);
+    printSetFormCheckbox(settingsScript,PSTR("SS"),sendNotifications);
+    printSetFormCheckbox(settingsScript,PSTR("SD"),notifyDirect);
+    printSetFormCheckbox(settingsScript,PSTR("SB"),notifyButton);
+    printSetFormCheckbox(settingsScript,PSTR("SH"),notifyHue);
+    printSetFormValue(settingsScript,PSTR("UR"),udpNumRetries);
 
-    sappend('c',SET_F("NL"),nodeListEnabled);
-    sappend('c',SET_F("NB"),nodeBroadcastEnabled);
+    printSetFormCheckbox(settingsScript,PSTR("NL"),nodeListEnabled);
+    printSetFormCheckbox(settingsScript,PSTR("NB"),nodeBroadcastEnabled);
 
-    sappend('c',SET_F("RD"),receiveDirect);
-    sappend('c',SET_F("MO"),useMainSegmentOnly);
-    sappend('v',SET_F("EP"),e131Port);
-    sappend('c',SET_F("ES"),e131SkipOutOfSequence);
-    sappend('c',SET_F("EM"),e131Multicast);
-    sappend('v',SET_F("EU"),e131Universe);
-    sappend('v',SET_F("DA"),DMXAddress);
-    sappend('v',SET_F("XX"),DMXSegmentSpacing);
-    sappend('v',SET_F("PY"),e131Priority);
-    sappend('v',SET_F("DM"),DMXMode);
-    sappend('v',SET_F("ET"),realtimeTimeoutMs);
-    sappend('c',SET_F("FB"),arlsForceMaxBri);
-    sappend('c',SET_F("RG"),arlsDisableGammaCorrection);
-    sappend('v',SET_F("WO"),arlsOffset);
-    sappend('c',SET_F("AL"),alexaEnabled);
-    sappends('s',SET_F("AI"),alexaInvocationName);
-    sappend('c',SET_F("SA"),notifyAlexa);
-    sappend('v',SET_F("AP"),alexaNumPresets);
-    #ifdef WLED_DISABLE_ALEXA
-    oappend(SET_F("toggle('Alexa');"));  // hide Alexa settings
+    printSetFormCheckbox(settingsScript,PSTR("RD"),receiveDirect);
+    printSetFormCheckbox(settingsScript,PSTR("MO"),useMainSegmentOnly);
+    printSetFormCheckbox(settingsScript,PSTR("RLM"),realtimeRespectLedMaps);
+    printSetFormValue(settingsScript,PSTR("EP"),e131Port);
+    printSetFormCheckbox(settingsScript,PSTR("ES"),e131SkipOutOfSequence);
+    printSetFormCheckbox(settingsScript,PSTR("EM"),e131Multicast);
+    printSetFormValue(settingsScript,PSTR("EU"),e131Universe);
+#ifdef WLED_ENABLE_DMX
+    settingsScript.print(SET_F("hideNoDMX();"));  // hide "not compiled in" message    
+#endif    
+#ifndef WLED_ENABLE_DMX_INPUT
+    settingsScript.print(SET_F("hideDMXInput();"));  // hide "dmx input" settings
+#else
+    settingsScript.print(SET_F("hideNoDMXInput();"));  //hide "not compiled in" message
+    printSetFormValue(settingsScript,SET_F("IDMT"),dmxInputTransmitPin);
+    printSetFormValue(settingsScript,SET_F("IDMR"),dmxInputReceivePin);
+    printSetFormValue(settingsScript,SET_F("IDME"),dmxInputEnablePin);
+    printSetFormValue(settingsScript,SET_F("IDMP"),dmxInputPort);
+#endif
+    printSetFormValue(settingsScript,PSTR("DA"),DMXAddress);
+    printSetFormValue(settingsScript,PSTR("XX"),DMXSegmentSpacing);
+    printSetFormValue(settingsScript,PSTR("PY"),e131Priority);
+    printSetFormValue(settingsScript,PSTR("DM"),DMXMode);
+    printSetFormValue(settingsScript,PSTR("ET"),realtimeTimeoutMs);
+    printSetFormCheckbox(settingsScript,PSTR("FB"),arlsForceMaxBri);
+    printSetFormCheckbox(settingsScript,PSTR("RG"),arlsDisableGammaCorrection);
+    printSetFormValue(settingsScript,PSTR("WO"),arlsOffset);
+    #ifndef WLED_DISABLE_ALEXA
+    printSetFormCheckbox(settingsScript,PSTR("AL"),alexaEnabled);
+    printSetFormValue(settingsScript,PSTR("AI"),alexaInvocationName);
+    printSetFormCheckbox(settingsScript,PSTR("SA"),notifyAlexa);
+    printSetFormValue(settingsScript,PSTR("AP"),alexaNumPresets);
+    #else
+    settingsScript.print(F("toggle('Alexa');"));  // hide Alexa settings
     #endif
 
-    #ifdef WLED_ENABLE_MQTT
-    sappend('c',SET_F("MQ"),mqttEnabled);
-    sappends('s',SET_F("MS"),mqttServer);
-    sappend('v',SET_F("MQPORT"),mqttPort);
-    sappends('s',SET_F("MQUSER"),mqttUser);
+    #ifndef WLED_DISABLE_MQTT
+    printSetFormCheckbox(settingsScript,PSTR("MQ"),mqttEnabled);
+    printSetFormValue(settingsScript,PSTR("MS"),mqttServer);
+    printSetFormValue(settingsScript,PSTR("MQPORT"),mqttPort);
+    printSetFormValue(settingsScript,PSTR("MQUSER"),mqttUser);
     byte l = strlen(mqttPass);
     char fpass[l+1]; //fill password field with ***
     fpass[l] = 0;
     memset(fpass,'*',l);
-    sappends('s',SET_F("MQPASS"),fpass);
-    sappends('s',SET_F("MQCID"),mqttClientID);
-    sappends('s',"MD",mqttDeviceTopic);
-    sappends('s',SET_F("MG"),mqttGroupTopic);
-    sappend('c',SET_F("BM"),buttonPublishMqtt);
-    sappend('c',SET_F("RT"),retainMqttMsg);
-    oappend(SET_F("d.Sf.MD.maxlength=")); oappend(itoa(MQTT_MAX_TOPIC_LEN,nS,10));  oappend(SET_F(";"));
-    oappend(SET_F("d.Sf.MG.maxlength=")); oappend(itoa(MQTT_MAX_TOPIC_LEN,nS,10));  oappend(SET_F(";"));
-    oappend(SET_F("d.Sf.MS.maxlength=")); oappend(itoa(MQTT_MAX_SERVER_LEN,nS,10));  oappend(SET_F(";"));
+    printSetFormValue(settingsScript,PSTR("MQPASS"),fpass);
+    printSetFormValue(settingsScript,PSTR("MQCID"),mqttClientID);
+    printSetFormValue(settingsScript,PSTR("MD"),mqttDeviceTopic);
+    printSetFormValue(settingsScript,PSTR("MG"),mqttGroupTopic);
+    printSetFormCheckbox(settingsScript,PSTR("BM"),buttonPublishMqtt);
+    printSetFormCheckbox(settingsScript,PSTR("RT"),retainMqttMsg);
+    settingsScript.printf_P(PSTR("d.Sf.MD.maxLength=%d;d.Sf.MG.maxLength=%d;d.Sf.MS.maxLength=%d;"),
+                  MQTT_MAX_TOPIC_LEN, MQTT_MAX_TOPIC_LEN, MQTT_MAX_SERVER_LEN);
     #else
-    oappend(SET_F("toggle('MQTT');"));    // hide MQTT settings
+    settingsScript.print(F("toggle('MQTT');"));    // hide MQTT settings
     #endif
 
     #ifndef WLED_DISABLE_HUESYNC
-    sappend('v',SET_F("H0"),hueIP[0]);
-    sappend('v',SET_F("H1"),hueIP[1]);
-    sappend('v',SET_F("H2"),hueIP[2]);
-    sappend('v',SET_F("H3"),hueIP[3]);
-    sappend('v',SET_F("HL"),huePollLightId);
-    sappend('v',SET_F("HI"),huePollIntervalMs);
-    sappend('c',SET_F("HP"),huePollingEnabled);
-    sappend('c',SET_F("HO"),hueApplyOnOff);
-    sappend('c',SET_F("HB"),hueApplyBri);
-    sappend('c',SET_F("HC"),hueApplyColor);
+    printSetFormValue(settingsScript,PSTR("H0"),hueIP[0]);
+    printSetFormValue(settingsScript,PSTR("H1"),hueIP[1]);
+    printSetFormValue(settingsScript,PSTR("H2"),hueIP[2]);
+    printSetFormValue(settingsScript,PSTR("H3"),hueIP[3]);
+    printSetFormValue(settingsScript,PSTR("HL"),huePollLightId);
+    printSetFormValue(settingsScript,PSTR("HI"),huePollIntervalMs);
+    printSetFormCheckbox(settingsScript,PSTR("HP"),huePollingEnabled);
+    printSetFormCheckbox(settingsScript,PSTR("HO"),hueApplyOnOff);
+    printSetFormCheckbox(settingsScript,PSTR("HB"),hueApplyBri);
+    printSetFormCheckbox(settingsScript,PSTR("HC"),hueApplyColor);
     char hueErrorString[25];
     switch (hueError)
     {
@@ -568,57 +511,56 @@ void getSettingsJS(byte subPage, char* dest)
       default: sprintf_P(hueErrorString,PSTR("Bridge Error %i"),hueError);
     }
 
-    sappends('m',SET_F("(\"sip\")[0]"),hueErrorString);
+    printSetClassElementHTML(settingsScript,PSTR("sip"),0,hueErrorString);
     #else
-    oappend(SET_F("toggle('Hue');"));    // hide Hue Sync settings
+    settingsScript.print(F("toggle('Hue');"));    // hide Hue Sync settings
     #endif
-    sappend('v',SET_F("BD"),serialBaud);
+    printSetFormValue(settingsScript,PSTR("BD"),serialBaud);
+    #ifndef WLED_ENABLE_ADALIGHT
+    settingsScript.print(F("toggle('Serial');"));
+    #endif
   }
 
   if (subPage == SUBPAGE_TIME)
   {
-    sappend('c',SET_F("NT"),ntpEnabled);
-    sappends('s',SET_F("NS"),ntpServerName);
-    sappend('c',SET_F("CF"),!useAMPM);
-    sappend('i',SET_F("TZ"),currentTimezone);
-    sappend('v',SET_F("UO"),utcOffsetSecs);
+    printSetFormCheckbox(settingsScript,PSTR("NT"),ntpEnabled);
+    printSetFormValue(settingsScript,PSTR("NS"),ntpServerName);
+    printSetFormCheckbox(settingsScript,PSTR("CF"),!useAMPM);
+    printSetFormIndex(settingsScript,PSTR("TZ"),currentTimezone);
+    printSetFormValue(settingsScript,PSTR("UO"),utcOffsetSecs);
     char tm[32];
     dtostrf(longitude,4,2,tm);
-    sappends('s',SET_F("LN"),tm);
+    printSetFormValue(settingsScript,PSTR("LN"),tm);
     dtostrf(latitude,4,2,tm);
-    sappends('s',SET_F("LT"),tm);
+    printSetFormValue(settingsScript,PSTR("LT"),tm);
     getTimeString(tm);
-    sappends('m',SET_F("(\"times\")[0]"),tm);
+    printSetClassElementHTML(settingsScript,PSTR("times"),0,tm);
     if ((int)(longitude*10.0f) || (int)(latitude*10.0f)) {
       sprintf_P(tm, PSTR("Sunrise: %02d:%02d Sunset: %02d:%02d"), hour(sunrise), minute(sunrise), hour(sunset), minute(sunset));
-      sappends('m',SET_F("(\"times\")[1]"),tm);
+      printSetClassElementHTML(settingsScript,PSTR("times"),1,tm);
     }
-    sappend('c',SET_F("OL"),overlayCurrent);
-    sappend('v',SET_F("O1"),overlayMin);
-    sappend('v',SET_F("O2"),overlayMax);
-    sappend('v',SET_F("OM"),analogClock12pixel);
-    sappend('c',SET_F("OS"),analogClockSecondsTrail);
-    sappend('c',SET_F("O5"),analogClock5MinuteMarks);
+    printSetFormCheckbox(settingsScript,PSTR("OL"),overlayCurrent);
+    printSetFormValue(settingsScript,PSTR("O1"),overlayMin);
+    printSetFormValue(settingsScript,PSTR("O2"),overlayMax);
+    printSetFormValue(settingsScript,PSTR("OM"),analogClock12pixel);
+    printSetFormCheckbox(settingsScript,PSTR("OS"),analogClockSecondsTrail);
+    printSetFormCheckbox(settingsScript,PSTR("O5"),analogClock5MinuteMarks);
+    printSetFormCheckbox(settingsScript,PSTR("OB"),analogClockSolidBlack);
 
-    sappend('c',SET_F("CE"),countdownMode);
-    sappend('v',SET_F("CY"),countdownYear);
-    sappend('v',SET_F("CI"),countdownMonth);
-    sappend('v',SET_F("CD"),countdownDay);
-    sappend('v',SET_F("CH"),countdownHour);
-    sappend('v',SET_F("CM"),countdownMin);
-    sappend('v',SET_F("CS"),countdownSec);
+    printSetFormCheckbox(settingsScript,PSTR("CE"),countdownMode);
+    printSetFormValue(settingsScript,PSTR("CY"),countdownYear);
+    printSetFormValue(settingsScript,PSTR("CI"),countdownMonth);
+    printSetFormValue(settingsScript,PSTR("CD"),countdownDay);
+    printSetFormValue(settingsScript,PSTR("CH"),countdownHour);
+    printSetFormValue(settingsScript,PSTR("CM"),countdownMin);
+    printSetFormValue(settingsScript,PSTR("CS"),countdownSec);
 
-    sappend('v',SET_F("A0"),macroAlexaOn);
-    sappend('v',SET_F("A1"),macroAlexaOff);
-    sappend('v',SET_F("MC"),macroCountdown);
-    sappend('v',SET_F("MN"),macroNl);
-    for (uint8_t i=0; i<WLED_MAX_BUTTONS; i++) {
-      oappend(SET_F("addRow("));
-      oappend(itoa(i,tm,10));  oappend(",");
-      oappend(itoa(macroButton[i],tm,10)); oappend(",");
-      oappend(itoa(macroLongPress[i],tm,10)); oappend(",");
-      oappend(itoa(macroDoublePress[i],tm,10));
-      oappend(SET_F(");"));
+    printSetFormValue(settingsScript,PSTR("A0"),macroAlexaOn);
+    printSetFormValue(settingsScript,PSTR("A1"),macroAlexaOff);
+    printSetFormValue(settingsScript,PSTR("MC"),macroCountdown);
+    printSetFormValue(settingsScript,PSTR("MN"),macroNl);
+    for (unsigned i=0; i<WLED_MAX_BUTTONS; i++) {
+      settingsScript.printf_P(PSTR("addRow(%d,%d,%d,%d);"), i, macroButton[i], macroLongPress[i], macroDoublePress[i]);
     }
 
     char k[4];
@@ -626,15 +568,15 @@ void getSettingsJS(byte subPage, char* dest)
     for (int i = 0; i<10; i++)
     {
       k[1] = 48+i; //ascii 0,1,2,3
-      if (i<8) { k[0] = 'H'; sappend('v',k,timerHours[i]); }
-      k[0] = 'N'; sappend('v',k,timerMinutes[i]);
-      k[0] = 'T'; sappend('v',k,timerMacro[i]);
-      k[0] = 'W'; sappend('v',k,timerWeekday[i]);
+      if (i<8) { k[0] = 'H'; printSetFormValue(settingsScript,k,timerHours[i]); }
+      k[0] = 'N'; printSetFormValue(settingsScript,k,timerMinutes[i]);
+      k[0] = 'T'; printSetFormValue(settingsScript,k,timerMacro[i]);
+      k[0] = 'W'; printSetFormValue(settingsScript,k,timerWeekday[i]);
       if (i<8) {
-        k[0] = 'M'; sappend('v',k,(timerMonth[i] >> 4) & 0x0F);
-				k[0] = 'P'; sappend('v',k,timerMonth[i] & 0x0F);
-        k[0] = 'D'; sappend('v',k,timerDay[i]);
-				k[0] = 'E'; sappend('v',k,timerDayEnd[i]);
+        k[0] = 'M'; printSetFormValue(settingsScript,k,(timerMonth[i] >> 4) & 0x0F);
+				k[0] = 'P'; printSetFormValue(settingsScript,k,timerMonth[i] & 0x0F);
+        k[0] = 'D'; printSetFormValue(settingsScript,k,timerDay[i]);
+				k[0] = 'E'; printSetFormValue(settingsScript,k,timerDayEnd[i]);
       }
     }
   }
@@ -645,119 +587,116 @@ void getSettingsJS(byte subPage, char* dest)
     char fpass[l+1]; //fill PIN field with 0000
     fpass[l] = 0;
     memset(fpass,'0',l);
-    sappends('s',SET_F("PIN"),fpass);
-    sappend('c',SET_F("NO"),otaLock);
-    sappend('c',SET_F("OW"),wifiLock);
-    sappend('c',SET_F("AO"),aOtaEnabled);
-    sappends('m',SET_F("(\"sip\")[0]"),(char*)F("WLED "));
-    olen -= 2; //delete ";
-    oappend(versionString);
-    oappend(SET_F(" (build "));
-    oappendi(VERSION);
-    oappend(SET_F(")\";"));
-    oappend(SET_F("sd=\""));
-    oappend(serverDescription);
-    oappend(SET_F("\";"));
+    printSetFormValue(settingsScript,PSTR("PIN"),fpass);
+    printSetFormCheckbox(settingsScript,PSTR("NO"),otaLock);
+    printSetFormCheckbox(settingsScript,PSTR("OW"),wifiLock);
+    printSetFormCheckbox(settingsScript,PSTR("AO"),aOtaEnabled);
+    printSetFormCheckbox(settingsScript,PSTR("SU"),otaSameSubnet);
+    char tmp_buf[128];
+    snprintf_P(tmp_buf,sizeof(tmp_buf),PSTR("WLED %s (build %d)"),versionString,VERSION);
+    printSetClassElementHTML(settingsScript,PSTR("sip"),0,tmp_buf);
+    settingsScript.printf_P(PSTR("sd=\"%s\";"), serverDescription);
+    #ifdef WLED_DISABLE_OTA
+    //hide settings if not compiled
+    settingsScript.print(F("toggle('aOTA');"));  // hide ArduinoOTA checkbox
+    #endif
   }
 
   #ifdef WLED_ENABLE_DMX // include only if DMX is enabled
   if (subPage == SUBPAGE_DMX)
   {
-    sappend('v',SET_F("PU"),e131ProxyUniverse);
+    printSetFormValue(settingsScript,PSTR("PU"),e131ProxyUniverse);
 
-    sappend('v',SET_F("CN"),DMXChannels);
-    sappend('v',SET_F("CG"),DMXGap);
-    sappend('v',SET_F("CS"),DMXStart);
-    sappend('v',SET_F("SL"),DMXStartLED);
+    printSetFormValue(settingsScript,PSTR("CN"),DMXChannels);
+    printSetFormValue(settingsScript,PSTR("CG"),DMXGap);
+    printSetFormValue(settingsScript,PSTR("CS"),DMXStart);
+    printSetFormValue(settingsScript,PSTR("SL"),DMXStartLED);
 
-    sappend('i',SET_F("CH1"),DMXFixtureMap[0]);
-    sappend('i',SET_F("CH2"),DMXFixtureMap[1]);
-    sappend('i',SET_F("CH3"),DMXFixtureMap[2]);
-    sappend('i',SET_F("CH4"),DMXFixtureMap[3]);
-    sappend('i',SET_F("CH5"),DMXFixtureMap[4]);
-    sappend('i',SET_F("CH6"),DMXFixtureMap[5]);
-    sappend('i',SET_F("CH7"),DMXFixtureMap[6]);
-    sappend('i',SET_F("CH8"),DMXFixtureMap[7]);
-    sappend('i',SET_F("CH9"),DMXFixtureMap[8]);
-    sappend('i',SET_F("CH10"),DMXFixtureMap[9]);
-    sappend('i',SET_F("CH11"),DMXFixtureMap[10]);
-    sappend('i',SET_F("CH12"),DMXFixtureMap[11]);
-    sappend('i',SET_F("CH13"),DMXFixtureMap[12]);
-    sappend('i',SET_F("CH14"),DMXFixtureMap[13]);
-    sappend('i',SET_F("CH15"),DMXFixtureMap[14]);
+    printSetFormIndex(settingsScript,PSTR("CH1"),DMXFixtureMap[0]);
+    printSetFormIndex(settingsScript,PSTR("CH2"),DMXFixtureMap[1]);
+    printSetFormIndex(settingsScript,PSTR("CH3"),DMXFixtureMap[2]);
+    printSetFormIndex(settingsScript,PSTR("CH4"),DMXFixtureMap[3]);
+    printSetFormIndex(settingsScript,PSTR("CH5"),DMXFixtureMap[4]);
+    printSetFormIndex(settingsScript,PSTR("CH6"),DMXFixtureMap[5]);
+    printSetFormIndex(settingsScript,PSTR("CH7"),DMXFixtureMap[6]);
+    printSetFormIndex(settingsScript,PSTR("CH8"),DMXFixtureMap[7]);
+    printSetFormIndex(settingsScript,PSTR("CH9"),DMXFixtureMap[8]);
+    printSetFormIndex(settingsScript,PSTR("CH10"),DMXFixtureMap[9]);
+    printSetFormIndex(settingsScript,PSTR("CH11"),DMXFixtureMap[10]);
+    printSetFormIndex(settingsScript,PSTR("CH12"),DMXFixtureMap[11]);
+    printSetFormIndex(settingsScript,PSTR("CH13"),DMXFixtureMap[12]);
+    printSetFormIndex(settingsScript,PSTR("CH14"),DMXFixtureMap[13]);
+    printSetFormIndex(settingsScript,PSTR("CH15"),DMXFixtureMap[14]);
   }
   #endif
 
   if (subPage == SUBPAGE_UM) //usermods
   {
-    appendGPIOinfo();
-    oappend(SET_F("numM="));
-    oappendi(usermods.getModCount());
-    oappend(";");
-    sappend('v',SET_F("SDA"),i2c_sda);
-    sappend('v',SET_F("SCL"),i2c_scl);
-    sappend('v',SET_F("MOSI"),spi_mosi);
-    sappend('v',SET_F("MISO"),spi_miso);
-    sappend('v',SET_F("SCLK"),spi_sclk);
-    oappend(SET_F("addInfo('SDA','"));  oappendi(HW_PIN_SDA);      oappend(SET_F("');"));
-    oappend(SET_F("addInfo('SCL','"));  oappendi(HW_PIN_SCL);      oappend(SET_F("');"));
-    oappend(SET_F("addInfo('MOSI','")); oappendi(HW_PIN_DATASPI);  oappend(SET_F("');"));
-    oappend(SET_F("addInfo('MISO','")); oappendi(HW_PIN_MISOSPI);  oappend(SET_F("');"));
-    oappend(SET_F("addInfo('SCLK','")); oappendi(HW_PIN_CLOCKSPI); oappend(SET_F("');"));
-    usermods.appendConfigData();
+    appendGPIOinfo(settingsScript);
+    settingsScript.printf_P(PSTR("numM=%d;"), UsermodManager::getModCount());
+    printSetFormValue(settingsScript,PSTR("SDA"),i2c_sda);
+    printSetFormValue(settingsScript,PSTR("SCL"),i2c_scl);
+    printSetFormValue(settingsScript,PSTR("MOSI"),spi_mosi);
+    printSetFormValue(settingsScript,PSTR("MISO"),spi_miso);
+    printSetFormValue(settingsScript,PSTR("SCLK"),spi_sclk);
+    settingsScript.printf_P(PSTR("addInfo('SDA','%d');"
+                 "addInfo('SCL','%d');"
+                 "addInfo('MOSI','%d');"
+                 "addInfo('MISO','%d');"
+                 "addInfo('SCLK','%d');"),
+      HW_PIN_SDA, HW_PIN_SCL, HW_PIN_DATASPI, HW_PIN_MISOSPI, HW_PIN_CLOCKSPI
+    );
+    UsermodManager::appendConfigData(settingsScript);
   }
 
   if (subPage == SUBPAGE_UPDATE) // update
   {
-    sappends('m',SET_F("(\"sip\")[0]"),(char*)F("WLED "));
-    olen -= 2; //delete ";
-    oappend(versionString);
-    oappend(SET_F("<br>("));
+    char tmp_buf[128];
+    snprintf_P(tmp_buf,sizeof(tmp_buf),PSTR("WLED %s<br>%s<br>(%s build %d)"),
+      versionString,
+      releaseString,
     #if defined(ARDUINO_ARCH_ESP32)
-    oappend(ESP.getChipModel());
+      ESP.getChipModel(),
     #else
-    oappend("esp8266");
+      "esp8266",
     #endif
-    oappend(SET_F(" build "));
-    oappendi(VERSION);
-    oappend(SET_F(")\";"));
+      VERSION);
+
+    printSetClassElementHTML(settingsScript,PSTR("sip"),0,tmp_buf);
+    #ifndef ARDUINO_ARCH_ESP32
+    settingsScript.print(F("toggle('rev');"));  // hide revert button on ESP8266
+    #endif
   }
 
   if (subPage == SUBPAGE_2D) // 2D matrices
   {
-    sappend('v',SET_F("SOMP"),strip.isMatrix);
+    printSetFormValue(settingsScript,PSTR("SOMP"),strip.isMatrix);
     #ifndef WLED_DISABLE_2D
-    oappend(SET_F("maxPanels=")); oappendi(WLED_MAX_PANELS); oappend(SET_F(";"));
-    oappend(SET_F("resetPanels();"));
+    settingsScript.printf_P(PSTR("maxPanels=%d;resetPanels();"),WLED_MAX_PANELS);
     if (strip.isMatrix) {
-      if(strip.panels>0){
-        sappend('v',SET_F("PW"),strip.panel[0].width); //Set generator Width and Height to first panel size for convenience
-        sappend('v',SET_F("PH"),strip.panel[0].height);
-      }
-      sappend('v',SET_F("MPC"),strip.panels);
+      printSetFormValue(settingsScript,PSTR("PW"),strip.panel.size()>0?strip.panel[0].width:8); //Set generator Width and Height to first panel size for convenience
+      printSetFormValue(settingsScript,PSTR("PH"),strip.panel.size()>0?strip.panel[0].height:8);
+      printSetFormValue(settingsScript,PSTR("MPC"),strip.panel.size());
       // panels
-      for (uint8_t i=0; i<strip.panels; i++) {
-        char n[5];
-        oappend(SET_F("addPanel("));
-        oappend(itoa(i,n,10));
-        oappend(SET_F(");"));
+      for (unsigned i=0; i<strip.panel.size(); i++) {
+        settingsScript.printf_P(PSTR("addPanel(%d);"), i);
         char pO[8] = { '\0' };
-        snprintf_P(pO, 7, PSTR("P%d"), i);       // MAX_PANELS is 64 so pO will always only be 4 characters or less
+        snprintf_P(pO, 7, PSTR("P%d"), i);       // WLED_WLED_MAX_PANELS is less than 100 so pO will always only be 4 characters or less
         pO[7] = '\0';
-        uint8_t l = strlen(pO);
+        unsigned l = strlen(pO);
         // create P0B, P1B, ..., P63B, etc for other PxxX
-        pO[l] = 'B'; sappend('v',pO,strip.panel[i].bottomStart);
-        pO[l] = 'R'; sappend('v',pO,strip.panel[i].rightStart);
-        pO[l] = 'V'; sappend('v',pO,strip.panel[i].vertical);
-        pO[l] = 'S'; sappend('c',pO,strip.panel[i].serpentine);
-        pO[l] = 'X'; sappend('v',pO,strip.panel[i].xOffset);
-        pO[l] = 'Y'; sappend('v',pO,strip.panel[i].yOffset);
-        pO[l] = 'W'; sappend('v',pO,strip.panel[i].width);
-        pO[l] = 'H'; sappend('v',pO,strip.panel[i].height);
+        pO[l] = 'B'; printSetFormValue(settingsScript,pO,strip.panel[i].bottomStart);
+        pO[l] = 'R'; printSetFormValue(settingsScript,pO,strip.panel[i].rightStart);
+        pO[l] = 'V'; printSetFormValue(settingsScript,pO,strip.panel[i].vertical);
+        pO[l] = 'S'; printSetFormCheckbox(settingsScript,pO,strip.panel[i].serpentine);
+        pO[l] = 'X'; printSetFormValue(settingsScript,pO,strip.panel[i].xOffset);
+        pO[l] = 'Y'; printSetFormValue(settingsScript,pO,strip.panel[i].yOffset);
+        pO[l] = 'W'; printSetFormValue(settingsScript,pO,strip.panel[i].width);
+        pO[l] = 'H'; printSetFormValue(settingsScript,pO,strip.panel[i].height);
       }
     }
     #else
-    oappend(SET_F("gId(\"somp\").remove(1);")); // remove 2D option from dropdown
+    settingsScript.print(F("gId(\"somp\").remove(1);")); // remove 2D option from dropdown
     #endif
   }
 }

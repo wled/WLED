@@ -16,29 +16,6 @@ As a memento to a long trip I was on, I built an icosahedron globe. I put lights
 I wanted to integrate an IMU to allow either on-board, or off-board effects that would
 react to the globes orientation. See the blog post on building it <https://www.robopenguins.com/icosahedron-travel-globe/> or a video demo <https://youtu.be/zYjybxHBsHM> .
 
-## Adding Dependencies
-
-I2Cdev and MPU6050 must be installed.
-
-To install them, add I2Cdevlib-MPU6050@fbde122cc5 to lib_deps in the platformio.ini file.
-
-You also need to change lib_compat_mode from strict to soft in platformio.ini (This ignores that I2Cdevlib-MPU6050 doesn't list platform compatibility)
-
-For example:
-
-```
-lib_compat_mode = soft
-lib_deps =
-    FastLED@3.3.2
-    NeoPixelBus@2.5.7
-    ESPAsyncTCP@1.2.0
-    ESPAsyncUDP@697c75a025
-    AsyncTCP@1.0.3
-    Esp Async WebServer@1.2.0
-    IRremoteESP8266@2.7.3
-    jrowberg/I2Cdevlib-MPU6050@^1.0.0
-```
-
 ## Wiring
 
 The connections needed to the MPU6050 are as follows:
@@ -77,18 +54,13 @@ to the info object
 
 ## Usermod installation
 
-1. Copy the file `usermod_mpu6050_imu.h` to the `wled00` directory.
-2. Register the usermod by adding `#include "usermod_mpu6050_imu.h"` in the top and `registerUsermod(new MPU6050Driver());` in the bottom of `usermods_list.cpp`.
+Add `mpu6050_imu` to `custom_usermods` in your platformio_override.ini.
 
-Example **usermods_list.cpp**:
+Example **platformio_override.ini**:
 
-```cpp
-#include "wled.h"
-
-#include "usermod_mpu6050_imu.h"
-
-void registerUsermods()
-{
-  usermods.add(new MPU6050Driver());
-}
+```ini
+[env:usermod_mpu6050_imu_esp32dev]
+extends = env:esp32dev
+custom_usermods = ${env:esp32dev.custom_usermods} 
+  mpu6050_imu
 ```

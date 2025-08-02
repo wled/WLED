@@ -16,6 +16,9 @@ hr {
 hr.sml {
   width: 260px;
 }
+h4 {
+  margin: 0;
+}
 a, a:hover {
   color: #28f;
   text-decoration: none;
@@ -78,6 +81,7 @@ input:disabled {
 }
 input[type="text"],
 input[type="number"],
+input[type="password"],
 select {
     font-size: medium;
     margin: 2px;
