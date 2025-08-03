@@ -21,6 +21,12 @@
 
 // You are required to disable over-the-air updates:
 //#define WLED_DISABLE_OTA         // saves 14kb
+#ifdef WLED_ENABLE_AOTA
+  #if defined(WLED_DISABLE_OTA)
+    #warning WLED_DISABLE_OTA was defined but it will be ignored due to WLED_ENABLE_AOTA.
+  #endif
+  #undef WLED_DISABLE_OTA
+#endif
 
 // You can choose some of these features to disable:
 //#define WLED_DISABLE_ALEXA       // saves 11kb
@@ -121,10 +127,6 @@
 #endif
 #include <WiFiUdp.h>
 #include <DNSServer.h>
-#ifndef WLED_DISABLE_OTA
-  #define NO_OTA_PORT
-  #include <ArduinoOTA.h>
-#endif
 #include <SPIFFSEditor.h>
 #include "src/dependencies/time/TimeLib.h"
 #include "src/dependencies/timezone/Timezone.h"
@@ -588,7 +590,7 @@ WLED_GLOBAL bool otaLock        _INIT(true);     // prevents OTA firmware update
 WLED_GLOBAL bool otaLock        _INIT(false);     // prevents OTA firmware updates without password. ALWAYS enable if system exposed to any public networks
 #endif
 WLED_GLOBAL bool wifiLock       _INIT(false);     // prevents access to WiFi settings when OTA lock is enabled
-#ifndef WLED_DISABLE_OTA
+#ifdef WLED_ENABLE_AOTA
 WLED_GLOBAL bool aOtaEnabled    _INIT(true);      // ArduinoOTA allows easy updates directly from the IDE. Careful, it does not auto-disable when OTA lock is on
 #else
 WLED_GLOBAL bool aOtaEnabled    _INIT(false);     // ArduinoOTA allows easy updates directly from the IDE. Careful, it does not auto-disable when OTA lock is on
@@ -1024,11 +1026,7 @@ WLED_GLOBAL volatile uint8_t jsonBufferLock _INIT(0);
   WLED_GLOBAL unsigned loops _INIT(0);
 #endif
 
-#ifdef ARDUINO_ARCH_ESP32
-  #define WLED_CONNECTED (WiFi.status() == WL_CONNECTED || ETH.localIP()[0] != 0)
-#else
-  #define WLED_CONNECTED (WiFi.status() == WL_CONNECTED)
-#endif
+#define WLED_CONNECTED (Network.isConnected())
 
 #ifndef WLED_AP_SSID_UNIQUE
   #define WLED_SET_AP_SSID() do { \

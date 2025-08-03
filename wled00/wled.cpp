@@ -1,7 +1,10 @@
 #define WLED_DEFINE_GLOBAL_VARS //only in one source file, wled.cpp!
 #include "wled.h"
 #include "wled_ethernet.h"
-#include <Arduino.h>
+#ifdef WLED_ENABLE_AOTA
+  #define NO_OTA_PORT
+  #include <ArduinoOTA.h>
+#endif
 
 #if defined(ARDUINO_ARCH_ESP32) && defined(WLED_DISABLE_BROWNOUT_DET)
 #include "soc/soc.h"
@@ -105,8 +108,8 @@ void WLED::loop()
   if (!realtimeMode || realtimeOverride || (realtimeMode && useMainSegmentOnly))  // block stuff if WARLS/Adalight is enabled
   {
     if (apActive) dnsServer.processNextRequest();
-    #ifndef WLED_DISABLE_OTA
-    if (WLED_CONNECTED && aOtaEnabled && !otaLock && correctPIN) ArduinoOTA.handle();
+    #ifdef WLED_ENABLE_AOTA
+    if (Network.isConnected() && aOtaEnabled && !otaLock && correctPIN) ArduinoOTA.handle();
     #endif
     handleNightlight();
     yield();
@@ -471,7 +474,7 @@ void WLED::setup()
   if (mqttClientID[0] == 0)    sprintf_P(mqttClientID, PSTR("WLED-%*s"), 6, escapedMac.c_str() + 6);
 #endif
 
-#ifndef WLED_DISABLE_OTA
+#ifdef WLED_ENABLE_AOTA
   if (aOtaEnabled) {
     ArduinoOTA.onStart([]() {
       #ifdef ESP8266
@@ -711,9 +714,8 @@ void WLED::initInterfaces()
     alexaInit();
 #endif
 
-#ifndef WLED_DISABLE_OTA
-  if (aOtaEnabled)
-    ArduinoOTA.begin();
+#ifdef WLED_ENABLE_AOTA
+  if (aOtaEnabled) ArduinoOTA.begin();
 #endif
 
   // Set up mDNS responder:
@@ -784,7 +786,7 @@ void WLED::handleConnection()
     if (stac != stacO) {
       stacO = stac;
       DEBUG_PRINTF_P(PSTR("Connected AP clients: %d\n"), (int)stac);
-      if (!WLED_CONNECTED && wifiConfigured) {        // trying to connect, but not connected
+      if (!Network.isConnected() && wifiConfigured) {        // trying to connect, but not connected
         if (stac)
           WiFi.disconnect();        // disable search so that AP can work
         else
@@ -859,7 +861,7 @@ void WLED::handleConnection()
 }
 
 // If status LED pin is allocated for other uses, does nothing
-// else blink at 1Hz when WLED_CONNECTED is false (no WiFi, ?? no Ethernet ??)
+// else blink at 1Hz when Network.isConnected() is false (no WiFi, ?? no Ethernet ??)
 // else blink at 2Hz when MQTT is enabled but not connected
 // else turn the status LED off
 #if defined(STATUSLED)
@@ -873,7 +875,7 @@ void WLED::handleStatusLED()
   }
   #endif
 
-  if (WLED_CONNECTED) {
+  if (Network.isConnected()) {
     c = RGBW32(0,255,0,0);
     ledStatusType = 2;
   } else if (WLED_MQTT_CONNECTED) {

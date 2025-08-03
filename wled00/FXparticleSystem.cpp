@@ -601,7 +601,7 @@ void ParticleSystem2D::render() {
         hsv2rgb(baseHSV, baseRGB.color32); // convert back to RGB
       }
     }
-    if(gammaCorrectBri) brightness = gamma8(brightness); // apply gamma correction, used for gamma-inverted brightness distribution
+    if(gammaCorrectCol) brightness = gamma8(brightness); // apply gamma correction, used for gamma-inverted brightness distribution
     renderParticle(i, brightness, baseRGB, particlesettings.wrapX, particlesettings.wrapY);
   }
 
@@ -675,7 +675,7 @@ __attribute__((optimize("O2"))) void ParticleSystem2D::renderParticle(const uint
   // - scale brigthness with gamma correction (done in render())
   // - apply inverse gamma correction to brightness values
   // - gamma is applied again in show() -> the resulting brightness distribution is linear but gamma corrected in total
-  if(gammaCorrectBri) {
+  if(gammaCorrectCol) {
     pxlbrightness[0] = gamma8inv(pxlbrightness[0]); // use look-up-table for invers gamma
     pxlbrightness[1] = gamma8inv(pxlbrightness[1]);
     pxlbrightness[2] = gamma8inv(pxlbrightness[2]);
@@ -1458,7 +1458,7 @@ void ParticleSystem1D::render() {
         hsv2rgb(baseHSV, baseRGB.color32); // convert back to RGB
       }
     }
-    if(gammaCorrectBri) brightness = gamma8(brightness); // apply gamma correction, used for gamma-inverted brightness distribution
+    if(gammaCorrectCol) brightness = gamma8(brightness); // apply gamma correction, used for gamma-inverted brightness distribution
     renderParticle(i, brightness, baseRGB, particlesettings.wrap);
   }
   // apply smear-blur to rendered frame
@@ -1519,7 +1519,7 @@ __attribute__((optimize("O2"))) void ParticleSystem1D::renderParticle(const uint
   // - scale brigthness with gamma correction (done in render())
   // - apply inverse gamma correction to brightness values
   // - gamma is applied again in show() -> the resulting brightness distribution is linear but gamma corrected in total
-  if(gammaCorrectBri) {
+  if(gammaCorrectCol) {
     pxlbrightness[0] = gamma8inv(pxlbrightness[0]); // use look-up-table for invers gamma
     pxlbrightness[1] = gamma8inv(pxlbrightness[1]);
   }

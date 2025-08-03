@@ -5,6 +5,8 @@
 #include <Arduino.h>
 #include <IPAddress.h>
 #ifdef ARDUINO_ARCH_ESP32
+#include <ESPmDNS.h>
+#include "src/dependencies/network/Network.h" // for isConnected() (& WiFi)
 #include "driver/ledc.h"
 #include "soc/ledc_struct.h"
   #if !(defined(CONFIG_IDF_TARGET_ESP32C3) || defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32S3))
@@ -25,6 +27,7 @@
 #include "bus_wrapper.h"
 #include <bits/unique_ptr.h>
 
+extern char cmDNS[];
 extern bool cctICused;
 extern bool useParallelI2S;
 
@@ -102,7 +105,7 @@ void Bus::calculateCCT(uint32_t c, uint8_t &ww, uint8_t &cw) {
   } else {
     cct = (approximateKelvinFromRGB(c) - 1900) >> 5;  // convert K (from RGB value) to relative format
   }
-  
+
   //0 - linear (CCT 127 = 50% warm, 50% cold), 127 - additive CCT blending (CCT 127 = 100% warm, 100% cold)
   if (cct       < _cctBlend) ww = 255;
   else                       ww = ((255-cct) * 255) / (255 - _cctBlend);
@@ -699,6 +702,10 @@ BusNetwork::BusNetwork(const BusConfig &bc)
   _hasCCT = false;
   _UDPchannels = _hasWhite + 3;
   _client = IPAddress(bc.pins[0],bc.pins[1],bc.pins[2],bc.pins[3]);
+  #ifdef ARDUINO_ARCH_ESP32
+  _hostname = bc.text;
+  resolveHostname(); // resolve hostname to IP address if needed
+  #endif
   _data = (uint8_t*)d_calloc(_len, _UDPchannels);
   _valid = (_data != nullptr);
   DEBUGBUS_PRINTF_P(PSTR("%successfully inited virtual strip with type %u and IP %u.%u.%u.%u\n"), _valid?"S":"Uns", bc.type, bc.pins[0], bc.pins[1], bc.pins[2], bc.pins[3]);
@@ -732,6 +739,19 @@ size_t BusNetwork::getPins(uint8_t* pinArray) const {
   if (pinArray) for (unsigned i = 0; i < 4; i++) pinArray[i] = _client[i];
   return 4;
 }
+
+#ifdef ARDUINO_ARCH_ESP32
+void BusNetwork::resolveHostname() {
+  static unsigned long nextResolve = 0;
+  if (Network.isConnected() && millis() > nextResolve && _hostname.length() > 0) {
+    nextResolve = millis() + 600000; // resolve only every 10 minutes
+    IPAddress clnt;
+    if (strlen(cmDNS) > 0) clnt = MDNS.queryHost(_hostname);
+    else WiFi.hostByName(_hostname.c_str(), clnt);
+    if (clnt != IPAddress()) _client = clnt;
+  }
+}
+#endif
 
 // credit @willmmiles & @netmindz https://github.com/wled/WLED/pull/4056
 std::vector<LEDType> BusNetwork::getLEDTypes() {
@@ -917,6 +937,13 @@ void BusManager::on() {
         }
       }
     }
+  }
+  #else
+  for (auto &bus : busses) if (bus->isVirtual()) {
+    // virtual/network bus should check for IP change if hostname is specified
+    // otherwise there are no endpoints to force DNS resolution
+    BusNetwork &b = static_cast<BusNetwork&>(*bus);
+    b.resolveHostname();
   }
   #endif
   #ifdef ESP32_DATA_IDLE_HIGH
