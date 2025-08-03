@@ -172,13 +172,5 @@ class UsermodPROplus : public Usermod {
     void setAllHue(uint8_t h) {}
     void saveConfiguration() {}
 };
-
-
-/**
- * @brief Global instance of the UsermodPROplus class.
- *
- * This object provides the functionality for the PROplus usermod,
- * enabling custom features and integrations for WLED.
- * Ensure only one instance is created to avoid conflicts.
- */
+/// @brief 
 UsermodPROplus usermodPROplus;

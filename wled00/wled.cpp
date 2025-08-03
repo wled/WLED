@@ -451,7 +451,17 @@ void WLED::setup()
   if (strcmp(multiWiFi[0].clientSSID, DEFAULT_CLIENT_SSID) == 0)
     showWelcomePage = true;
   WiFi.persistent(false);
+#if defined(ARDUINO_ARCH_ESP32)
   WiFi.onEvent(WiFiEvent);
+#elif defined(ARDUINO_ARCH_ESP8266)
+  WiFi.onEvent(WiFiEvent); // Registers WiFiEvent for all events
+  WiFi.onStationModeConnected(WiFiEvent);
+  WiFi.onStationModeDisconnected(WiFiEvent);
+  WiFi.onStationModeAuthModeChanged(WiFiEvent);
+  WiFi.onStationModeGotIP(WiFiEvent);
+  WiFi.onSoftAPModeStationConnected(WiFiEvent);
+  WiFi.onSoftAPModeStationDisconnected(WiFiEvent);
+#endif
   WiFi.mode(WIFI_STA); // enable scanning
   findWiFi(true);      // start scanning for available WiFi-s
 
@@ -818,7 +828,8 @@ void WLED::handleConnection()
     if (now - lastReconnectAttempt > ((stac) ? 300000 : 18000) && wifiConfigured) {
       if (improvActive == 2) improvActive = 3;
       DEBUG_PRINTF_P(PSTR("Last reconnect (%lus) too old (@ %lus).\n"), lastReconnectAttempt/1000, nowS);
-      if (++selectedWiFi >= multiWiFi.size()) selectedWiFi = 0; // we couldn't connect, try with another network from the list
+      ++selectedWiFi;
+      if (static_cast<std::vector<WiFiConfig>::size_type>(selectedWiFi) >= multiWiFi.size()) selectedWiFi = 0; // we couldn't connect, try with another network from the list
       initConnection();
     }
     if (!apActive && now - lastReconnectAttempt > 12000 && (!wasConnected || apBehavior == AP_BEHAVIOR_NO_CONN)) {
