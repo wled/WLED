@@ -727,17 +727,52 @@ WLED_GLOBAL send_notification_t    notifyG  _INIT(0b00001111);
 #define notifyAlexa  notifyG.Alexa
 #define notifyHue    notifyG.Hue
 #else
-WLED_GLOBAL bool receiveNotificationBrightness _INIT(true);       // apply brightness from incoming notifications
-WLED_GLOBAL bool receiveNotificationColor      _INIT(true);       // apply color
-WLED_GLOBAL bool receiveNotificationEffects    _INIT(true);       // apply effects setup
-WLED_GLOBAL bool receiveNotificationPalette    _INIT(true);       // apply palette
-WLED_GLOBAL bool receiveSegmentOptions         _INIT(false);      // apply segment options
-WLED_GLOBAL bool receiveSegmentBounds          _INIT(false);      // apply segment bounds (start, stop, offset)
-WLED_GLOBAL bool receiveDirect _INIT(true);                       // receive UDP/Hyperion realtime
-WLED_GLOBAL bool notifyDirect _INIT(false);                       // send notification if change via UI or HTTP API
-WLED_GLOBAL bool notifyButton _INIT(false);                       // send if updated by button or infrared remote
-WLED_GLOBAL bool notifyAlexa  _INIT(false);                       // send notification if updated via Alexa
-WLED_GLOBAL bool notifyHue    _INIT(true);                        // send notification if Hue light changes
+    #ifndef SYNC_RECV_BRIGHTNESS
+    #define SYNC_RECV_BRIGHTNESS true
+    #endif
+    #ifndef SYNC_RECV_COLOR
+    #define SYNC_RECV_COLOR true
+    #endif
+    #ifndef SYNC_RECV_EFFECTS
+    #define SYNC_RECV_EFFECTS true
+    #endif
+    #ifndef SYNC_RECV_PALETTE
+    #define SYNC_RECV_PALETTE true
+    #endif
+    #ifndef SYNC_RECV_SEGMENT_OPTIONS
+    #define SYNC_RECV_SEGMENT_OPTIONS false
+    #endif
+    #ifndef SYNC_RECV_SEGMENT_BOUNDS
+    #define SYNC_RECV_SEGMENT_BOUNDS false
+    #endif
+    #ifndef SYNC_RECV_DIRECT
+    #define SYNC_RECV_DIRECT true
+    #endif
+    #ifndef SYNC_SEND_DIRECT
+    #define SYNC_SEND_DIRECT false
+    #endif
+    #ifndef SYNC_SEND_BUTTON
+    #define SYNC_SEND_BUTTON false
+    #endif
+    #ifndef SYNC_SEND_ALEXA
+    #define SYNC_SEND_ALEXA false
+    #endif
+    #ifndef SYNC_SEND_HUE
+    #define SYNC_SEND_HUE false
+    #endif
+
+WLED_GLOBAL bool receiveNotificationBrightness _INIT(SYNC_RECV_BRIGHTNESS);  // apply brightness from incoming notifications
+WLED_GLOBAL bool receiveNotificationColor      _INIT(SYNC_RECV_COLOR);       // apply color
+WLED_GLOBAL bool receiveNotificationEffects    _INIT(SYNC_RECV_EFFECTS);     // apply effects setup
+WLED_GLOBAL bool receiveNotificationPalette    _INIT(SYNC_RECV_PALETTE);     // apply palette
+WLED_GLOBAL bool receiveSegmentOptions         _INIT(SYNC_RECV_SEGMENT_OPTIONS); // apply segment options
+WLED_GLOBAL bool receiveSegmentBounds          _INIT(SYNC_RECV_SEGMENT_BOUNDS);  // apply segment bounds (start, stop, offset)
+WLED_GLOBAL bool receiveDirect                 _INIT(SYNC_RECV_DIRECT);      // receive UDP/Hyperion realtime
+
+WLED_GLOBAL bool notifyDirect                  _INIT(SYNC_SEND_DIRECT);      // send notification if change via UI or HTTP API
+WLED_GLOBAL bool notifyButton                  _INIT(SYNC_SEND_BUTTON);      // send if updated by button or infrared remote
+WLED_GLOBAL bool notifyAlexa                   _INIT(SYNC_SEND_ALEXA);       // send notification if updated via Alexa
+WLED_GLOBAL bool notifyHue                     _INIT(SYNC_SEND_HUE);         // send notification if Hue light changes
 #endif
 
 // effects
