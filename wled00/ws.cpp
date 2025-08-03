@@ -1,4 +1,5 @@
 #include "wled.h"
+#include "handler_queue.h"
 
 /*
  * WebSockets server for bidirectional communication
@@ -34,8 +35,7 @@ void wsEvent(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventTyp
           client->text(F("pong"));
           return;
         }
-
-        bool verboseResponse = false;
+        
         if (!requestJSONBufferLock(11)) {
           client->text(F("{\"error\":3}")); // ERR_NOBUF
           return;
@@ -47,26 +47,31 @@ void wsEvent(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventTyp
           releaseJSONBufferLock();
           return;
         }
-        if (root["v"] && root.size() == 1) {
-          //if the received value is just "{"v":true}", send only to this client
-          verboseResponse = true;
-        } else if (root.containsKey("lv")) {
-          wsLiveClientId = root["lv"] ? client->id() : 0;
-        } else {
-          verboseResponse = deserializeState(root);
-        }
-        releaseJSONBufferLock();
 
-        if (!interfaceUpdateCallMode) { // individual client response only needed if no WS broadcast soon
-          if (verboseResponse) {
-            sendDataWs(client);
+        // Handle the rest on the main task
+        HandlerQueue::callOnMainTask([=](){
+          bool verboseResponse = false;
+          if (root["v"] && root.size() == 1) {
+            //if the received value is just "{"v":true}", send only to this client
+            verboseResponse = true;
+          } else if (root.containsKey("lv")) {
+            wsLiveClientId = root["lv"] ? client->id() : 0;
           } else {
-            // we have to send something back otherwise WS connection closes
-            client->text(F("{\"success\":true}"));
+            verboseResponse = deserializeState(root);
           }
-          // force broadcast in 500ms after updating client
-          //lastInterfaceUpdate = millis() - (INTERFACE_UPDATE_COOLDOWN -500); // ESP8266 does not like this
-        }
+          releaseJSONBufferLock();
+
+          if (!interfaceUpdateCallMode) { // individual client response only needed if no WS broadcast soon
+            if (verboseResponse) {
+              sendDataWs(client);
+            } else {
+              // we have to send something back otherwise WS connection closes
+              client->text(F("{\"success\":true}"));
+            }
+            // force broadcast in 500ms after updating client
+            //lastInterfaceUpdate = millis() - (INTERFACE_UPDATE_COOLDOWN -500); // ESP8266 does not like this
+          }
+        });
       }
     } else {
       //message is comprised of multiple frames or the frame is split into multiple packets

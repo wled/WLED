@@ -1,4 +1,5 @@
 #include "wled.h"
+#include "handler_queue.h"
 
 #ifndef WLED_DISABLE_OTA
   #ifdef ESP8266
@@ -299,7 +300,7 @@ void initServer()
   });
 
   server.on(F("/settings"), HTTP_POST, [](AsyncWebServerRequest *request){
-    serveSettings(request, true);
+    HandlerQueue::callOnMainTask([=]{ serveSettings(request, true); });    
   });
 
   const static char _json[] PROGMEM = "/json";
@@ -308,10 +309,7 @@ void initServer()
   });
 
   AsyncCallbackJsonWebHandler* handler = new AsyncCallbackJsonWebHandler(FPSTR(_json), [](AsyncWebServerRequest *request) {
-    bool verboseResponse = false;
-    bool isConfig = false;
-
-    if (!requestJSONBufferLock(14)) {
+    if (!requestJSONBufferLock(14, false)) {
       request->deferResponse();
       return;
     }
@@ -325,37 +323,42 @@ void initServer()
     }
     if (root.containsKey("pin")) checkSettingsPIN(root["pin"].as<const char*>());
 
-    const String& url = request->url();
-    isConfig = url.indexOf(F("cfg")) > -1;
-    if (!isConfig) {
-      /*
-      #ifdef WLED_DEBUG
-        DEBUG_PRINTLN(F("Serialized HTTP"));
-        serializeJson(root,Serial);
-        DEBUG_PRINTLN();
-      #endif
-      */
-      verboseResponse = deserializeState(root);
-    } else {
-      if (!correctPIN && strlen(settingsPIN)>0) {
-        releaseJSONBufferLock();
-        serveJsonError(request, 401, ERR_DENIED);
-        return;
-      }
-      verboseResponse = deserializeConfig(root); //use verboseResponse to determine whether cfg change should be saved immediately
-    }
-    releaseJSONBufferLock();
+    HandlerQueue::callOnMainTask([=](){
+      bool verboseResponse = false;
+      bool isConfig = false;
 
-    if (verboseResponse) {
+      const String& url = request->url();
+      isConfig = url.indexOf(F("cfg")) > -1;
       if (!isConfig) {
-        lastInterfaceUpdate = millis(); // prevent WS update until cooldown
-        interfaceUpdateCallMode = CALL_MODE_WS_SEND; // schedule WS update
-        serveJson(request); return; //if JSON contains "v"
+        /*
+        #ifdef WLED_DEBUG
+          DEBUG_PRINTLN(F("Serialized HTTP"));
+          serializeJson(root,Serial);
+          DEBUG_PRINTLN();
+        #endif
+        */
+        verboseResponse = deserializeState(root);
       } else {
-        configNeedsWrite = true; //Save new settings to FS
+        if (!correctPIN && strlen(settingsPIN)>0) {
+          releaseJSONBufferLock();
+          serveJsonError(request, 401, ERR_DENIED);
+          return;
+        }
+        verboseResponse = deserializeConfig(root); //use verboseResponse to determine whether cfg change should be saved immediately
       }
-    }
-    request->send(200, CONTENT_TYPE_JSON, F("{\"success\":true}"));
+      releaseJSONBufferLock();
+
+      if (verboseResponse) {
+        if (!isConfig) {
+          lastInterfaceUpdate = millis(); // prevent WS update until cooldown
+          interfaceUpdateCallMode = CALL_MODE_WS_SEND; // schedule WS update
+          serveJson(request); return; //if JSON contains "v"
+        } else {
+          configNeedsWrite = true; //Save new settings to FS
+        }
+      }
+      request->send(200, CONTENT_TYPE_JSON, F("{\"success\":true}"));
+    });
   }, JSON_BUFFER_SIZE);
   server.addHandler(handler);
 
@@ -509,7 +512,10 @@ void initServer()
       return;
     }
 
-    if(handleSet(request, request->url())) return;
+    if (request->url().indexOf("win") >= 0) {
+      HandlerQueue::callOnMainTask([=]() { handleSet(request, request->url()); });
+      return;
+    }
     #ifndef WLED_DISABLE_ALEXA
     if(espalexa.handleAlexaApiCall(request)) return;
     #endif
