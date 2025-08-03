@@ -1076,26 +1076,23 @@ void Segment::blur(uint8_t blur_amount, bool smear) const {
 /*
  * Put a value 0 to 255 in to get a color value.
  * The colours are a transition r -> g -> b -> back to r
- * Inspired by the Adafruit examples.
+ * Rotates the color in HSV space, where pos is H. (0=0deg, 256=360deg)
  */
 uint32_t Segment::color_wheel(uint8_t pos) const {
   if (palette) return color_from_palette(pos, false, false, 0); // never wrap palette
   uint8_t w = W(getCurrentColor(0));
-  pos = 255 - pos;
-  if (useRainbowWheel) {
-    CRGB rgb;
-    hsv2rgb_rainbow(CHSV(pos, 255, 255), rgb);
-    return RGBW32(rgb.r, rgb.g, rgb.b, w);
-  } else {
-    if (pos < 85) {
-      return RGBW32((255 - pos * 3), 0, (pos * 3), w);
-    } else if (pos < 170) {
-      pos -= 85;
-      return RGBW32(0, (pos * 3), (255 - pos * 3), w);
-    } else {
-      pos -= 170;
-      return RGBW32((pos * 3), (255 - pos * 3), 0, w);
-    }
+  // These h and f values are the same h and f you have in the regular HSV to RGB conversion.
+  // The whole funciton really is just a HSV conversion, but assuming H=pos, S=1 and V=1.
+  const uint32_t h = (pos * 3) / 128;
+  const uint32_t f = (pos * 6) % 256;
+  switch (h) {
+    case 0: return RGBW32(255    , f      , 0      , w);
+    case 1: return RGBW32(255 - f, 255    , 0      , w);
+    case 2: return RGBW32(0      , 255    , f      , w);
+    case 3: return RGBW32(0      , 255 - f, 255    , w);
+    case 4: return RGBW32(f      , 0      , 255    , w);
+    case 5: return RGBW32(255    , 0      , 255 - f, w);
+    default: return 0;
   }
 }
 
