@@ -311,6 +311,7 @@ void getSettingsJS(byte subPage, Print& settingsScript)
       char sp[4] = "SP"; sp[2] = offset+s; sp[3] = 0; //bus clock speed
       char la[4] = "LA"; la[2] = offset+s; la[3] = 0; //LED current
       char ma[4] = "MA"; ma[2] = offset+s; ma[3] = 0; //max per-port PSU current
+      char hs[4] = "HS"; hs[2] = offset+s; hs[3] = 0; //hostname (for network types, custom text for others)
       settingsScript.print(F("addLEDs(1);"));
       uint8_t pins[5];
       int nPins = bus->getPins(pins);
@@ -350,6 +351,7 @@ void getSettingsJS(byte subPage, Print& settingsScript)
       printSetFormValue(settingsScript,sp,speed);
       printSetFormValue(settingsScript,la,bus->getLEDCurrent());
       printSetFormValue(settingsScript,ma,bus->getMaxCurrent());
+      printSetFormValue(settingsScript,hs,bus->getCustomText().c_str());
       sumMa += bus->getMaxCurrent();
     }
     printSetFormValue(settingsScript,PSTR("MA"),BusManager::ablMilliampsMax() ? BusManager::ablMilliampsMax() : sumMa);
@@ -596,8 +598,11 @@ void getSettingsJS(byte subPage, Print& settingsScript)
     snprintf_P(tmp_buf,sizeof(tmp_buf),PSTR("WLED %s (build %d)"),versionString,VERSION);
     printSetClassElementHTML(settingsScript,PSTR("sip"),0,tmp_buf);
     settingsScript.printf_P(PSTR("sd=\"%s\";"), serverDescription);
-    #ifdef WLED_DISABLE_OTA
     //hide settings if not compiled
+    #ifdef WLED_DISABLE_OTA
+    settingsScript.print(F("toggle('OTA');"));  // hide update section
+    #endif
+    #ifndef WLED_ENABLE_AOTA
     settingsScript.print(F("toggle('aOTA');"));  // hide ArduinoOTA checkbox
     #endif
   }
