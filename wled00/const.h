@@ -546,8 +546,8 @@ static_assert(WLED_MAX_BUSSES <= 32, "WLED_MAX_BUSSES exceeds hard limit");
   #endif
 #endif
 
-//#define MIN_HEAP_SIZE
-#define MIN_HEAP_SIZE 2048
+// minimum heap size required to process web requests
+#define MIN_HEAP_SIZE 8192
 
 // Web server limits
 #ifdef ESP8266
