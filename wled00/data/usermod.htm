@@ -150,5 +150,6 @@ class UsermodPROplus : public Usermod {
         char b[64]; size_t n=serializeJson(d,b);
         mqtt->publish(mqttTopicCmd.c_str(),b,n,true);
       }
+
     }
 };
