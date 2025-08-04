@@ -1985,7 +1985,6 @@ void WS2812FX::printSize() {
 // load custom mapping table from JSON file (called from finalizeInit() or deserializeState())
 // if this is a matrix set-up and default ledmap.json file does not exist, create mapping table using setUpMatrix() from panel information
 bool WS2812FX::deserializeMap(unsigned n) {
-  Serial.println(F("Deserializing LED map..."));
   char fileName[32];
   strcpy_P(fileName, PSTR("/ledmap"));
   if (n) sprintf(fileName +7, "%d", n);
