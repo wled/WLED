@@ -49,14 +49,16 @@ void WS2812FX::setUpMatrix() {
     suspend();
     waitForIt();
 
-    uint16_t matrixSize = Segment::maxWidth * Segment::maxHeight;
-    customMappingSize = max(getLengthTotal(), matrixSize); // is reset to 0 in case of error
+    customMappingSize = 0; // prevent use of mapping if anything goes wrong
 
     d_free(customMappingTable);
-    customMappingTable = static_cast<uint16_t*>(d_malloc(sizeof(uint16_t)*customMappingSize)); // prefer to not use SPI RAM
+    customMappingTable = static_cast<uint16_t*>(d_malloc(sizeof(uint16_t)*getLengthTotal())); // prefer to not use SPI RAM
 
     if (customMappingTable) {
+      customMappingSize = getLengthTotal();
+
       // fill with empty in case we don't fill the entire matrix
+      unsigned matrixSize = Segment::maxWidth * Segment::maxHeight;
       for (unsigned i = 0; i<matrixSize; i++) customMappingTable[i] = 0xFFFFU;
       for (unsigned i = matrixSize; i<getLengthTotal(); i++) customMappingTable[i] = i; // trailing LEDs for ledmap (after matrix) if it exist
 
@@ -124,7 +126,6 @@ void WS2812FX::setUpMatrix() {
       #endif
     } else { // memory allocation error
       DEBUG_PRINTLN(F("ERROR 2D LED map allocation error."));
-      customMappingSize = 0; // prevent use of mapping
       isMatrix = false;
       panel.clear();
       Segment::maxWidth = _length;
