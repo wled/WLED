@@ -456,6 +456,10 @@ class WordClockUsermod : public Usermod
      */
     void addToJsonState(JsonObject& root)
     {
+      // Create a nested object for the usermod
+      JsonObject usermodJson = root.createNestedObject("WordClockUsermod");
+      // Add the current state of the 'usermodActive' variable
+      usermodJson["active"] = usermodActive;
     }
 
     /*
@@ -464,6 +468,13 @@ class WordClockUsermod : public Usermod
      */
     void readFromJsonState(JsonObject& root)
     {
+      JsonObject usermodJson = root["WordClockUsermod"];
+      if (!usermodJson.isNull()) {
+      // Check if the 'active' key is present and update the variable
+       if (usermodJson.containsKey("active")) {
+        usermodActive = usermodJson["active"].as<bool>();
+       }
+      }
     }
 
     /*
