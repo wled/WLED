@@ -50,8 +50,8 @@ Add the following complete code block to your configuration.yaml file.
 
 YAML
 
-# configuration.yaml
-
+`configuration.yaml`
+```
 # 1. REST command to send on/off commands to the WLED usermod
 rest_command:
   wled_wordclock_set:
@@ -70,7 +70,6 @@ rest:
     sensor:
       - name: "WLED Wordclock Status"
         unique_id: wled_wordclock_status_sensor
-        # Reads the value from the JSON; the path is without ".um" because the value is in the root object
         value_template: "{{ value_json.WordClockUsermod.active }}"
 
 # 3. Template switch that combines the commands and the sensor into a UI element
@@ -98,13 +97,14 @@ template:
           {% else %}
             mdi:clock-outline
           {% endif %}
+```
 Step 2.2: Adjust the IP Address
 
 In the YAML code, replace the placeholder YOUR_WLED_IP_ADDRESS in both places with the actual IP address of your WLED controller.
 
 Step 2.3: Restart Home Assistant
 
-Save the configuration.yaml file.
+Save the `configuration.yaml` file.
 
 Check the configuration under Settings > System > Restart > Check Configuration.
 
