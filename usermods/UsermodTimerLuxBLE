@@ -1,0 +1,54 @@
+
+#pragma once
+#include "wled.h"
+
+class UsermodTimerLuxBLE : public Usermod {
+  private:
+    unsigned long ostatniRuch = 0;
+    const unsigned long czasWylaczenia = 60000; // 1 minuta w ms
+
+    const int PIN_CZUJNIK1 = 12; // GPIO 12
+    const int PIN_CZUJNIK2 = 33; // GPIO 33
+    const int PIN_LDR = A0;
+
+    const int progSwiatla = 500; // Im niższy, tym ciemniej
+
+  public:
+    void setup() {
+      pinMode(PIN_CZUJNIK1, INPUT_PULLUP);
+      pinMode(PIN_CZUJNIK2, INPUT_PULLUP);
+      pinMode(PIN_LDR, INPUT);
+    }
+
+    void loop() {
+      unsigned long teraz = millis();
+      int poziomLux = analogRead(PIN_LDR);
+
+      // Czujnik 1 (np. wejście z dołu)
+      if (digitalRead(PIN_CZUJNIK1) == LOW && poziomLux < progSwiatla) {
+        effectCurrent = 75; // Twój efekt schody góra
+        colorUpdated(CALL_MODE_BUTTON);
+        ostatniRuch = teraz;
+      }
+
+      // Czujnik 2 (np. wejście z góry)
+      if (digitalRead(PIN_CZUJNIK2) == LOW && poziomLux < progSwiatla) {
+        effectCurrent = 78; // Twój efekt schody dół
+        colorUpdated(CALL_MODE_BUTTON);
+        ostatniRuch = teraz;
+      }
+
+      // Auto-wyłączenie po 1 minucie bez ruchu
+      if (teraz - ostatniRuch > czasWylaczenia && bri > 0) {
+        bri = 0;
+        colorUpdated(CALL_MODE_BUTTON);
+      }
+    }
+
+    void addToJsonInfo(JsonObject &root) {
+      JsonObject blok = root.createNestedObject(F("AutoOff"));
+      blok["LUX"] = analogRead(PIN_LDR);
+      blok["OstatniRuch_s"] = (millis() - ostatniRuch) / 1000;
+    }
+};
+CT
