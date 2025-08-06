@@ -46,9 +46,9 @@ class UsermodTimerLux : public Usermod {
     }
 
     void addToJsonInfo(JsonObject &root) {
-      JsonObject blok = root.createNestedObject(F("AutoOff"));
-      blok["LUX"] = analogRead(PIN_LDR);
-      blok["OstatniRuch_s"] = (millis() - ostatniRuch) / 1000;
+      JsonObject info = root.createNestedObject(F("Motion Sensor"));
+      info["light-level"] = analogRead(PIN_LDR);
+      info["last-motion-sec"] = (millis() - ostatniRuch) / 1000;
     }
 };
 CT
