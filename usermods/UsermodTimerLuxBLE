@@ -4,14 +4,14 @@
 
 class UsermodTimerLux : public Usermod {
   private:
-    unsigned long ostatniRuch = 0;
-    const unsigned long czasWylaczenia = 60000; // 1 minuta w ms
+    unsigned long lastMotionTime = 0;
+    const unsigned long autoOffDelay = 60000; // 1 minute in ms
 
     const int PIN_CZUJNIK1 = 12; // GPIO 12
     const int PIN_CZUJNIK2 = 33; // GPIO 33
     const int PIN_LDR = A0;
 
-    const int progSwiatla = 500; // Im niższy, tym ciemniej
+    const int lightThreshold = 500; // Lower value means darker
 
   public:
     void setup() {
