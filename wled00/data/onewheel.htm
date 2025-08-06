@@ -1,0 +1,736 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1">
+    <meta charset="utf-8">
+    <meta name="theme-color" content="#222222">
+    <meta content="yes" name="apple-mobile-web-app-capable">
+    <title>Onewheel WLED</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #1a1a1a;
+            color: #ffffff;
+            margin: 0;
+            padding: 20px;
+            text-align: center;
+        }
+        
+        .container {
+            max-width: 400px;
+            margin: 0 auto;
+            background: #2a2a2a;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+        }
+        
+        h1 {
+            color: #4CAF50;
+            margin-bottom: 30px;
+            font-size: 24px;
+        }
+        
+        .riding-mode {
+            margin-bottom: 30px;
+            padding: 20px;
+            background: #333;
+            border-radius: 10px;
+        }
+        
+        .mode-button {
+            display: inline-block;
+            padding: 15px 25px;
+            margin: 5px;
+            background: #555;
+            border: none;
+            border-radius: 8px;
+            color: white;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .mode-button.active {
+            background: #4CAF50;
+            box-shadow: 0 0 10px rgba(76, 175, 80, 0.5);
+        }
+        
+        .mode-button:hover {
+            background: #666;
+        }
+        
+        .mode-button.active:hover {
+            background: #45a049;
+        }
+        
+        .control-section {
+            margin-bottom: 25px;
+            padding: 15px;
+            background: #333;
+            border-radius: 10px;
+        }
+        
+        .control-section h3 {
+            margin-top: 0;
+            color: #4CAF50;
+            font-size: 18px;
+        }
+        
+        .brightness-control {
+            margin: 15px 0;
+        }
+        
+        .slider {
+            width: 100%;
+            height: 8px;
+            border-radius: 5px;
+            background: #555;
+            outline: none;
+            margin: 10px 0;
+        }
+        
+        .slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #4CAF50;
+            cursor: pointer;
+        }
+        
+        .toggle-switch {
+            position: relative;
+            display: inline-block;
+            width: 60px;
+            height: 34px;
+            margin: 0 10px;
+        }
+        
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        
+        .toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+            border-radius: 34px;
+        }
+        
+        .toggle-slider:before {
+            position: absolute;
+            content: "";
+            height: 26px;
+            width: 26px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+        
+        input:checked + .toggle-slider {
+            background-color: #4CAF50;
+        }
+        
+        input:checked + .toggle-slider:before {
+            transform: translateX(26px);
+        }
+        
+        .effect-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        
+        .effect-button {
+            padding: 12px;
+            background: #555;
+            border: none;
+            border-radius: 8px;
+            color: white;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+        
+        .effect-button.active {
+            background: #FF9500;
+        }
+        
+        .effect-button:hover {
+            background: #666;
+        }
+        
+        .status-display {
+            margin-top: 20px;
+            padding: 15px;
+            background: #444;
+            border-radius: 10px;
+            font-size: 14px;
+        }
+        
+        select {
+            background: #555;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            padding: 8px;
+            font-size: 14px;
+            width: 150px;
+        }
+        
+        select:focus {
+            outline: none;
+            background: #666;
+        }
+        
+        .power-button {
+            width: 100%;
+            padding: 20px;
+            background: #f44336;
+            border: none;
+            border-radius: 10px;
+            color: white;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            margin-bottom: 20px;
+            transition: all 0.3s;
+        }
+        
+        .power-button.on {
+            background: #4CAF50;
+        }
+        
+        .segment-control {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin: 10px 0;
+        }
+        
+        .segment-control label {
+            flex: 1;
+            text-align: left;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🛹 ARKLight Controller</h1>
+        
+        <button id="powerBtn" class="power-button" onclick="togglePower()">
+            <span id="powerText">Turn On</span>
+        </button>
+        
+        <!-- Riding Mode Selection -->
+        <div class="riding-mode">
+            <h3>🌙 Riding Mode</h3>
+            <button id="standardMode" class="mode-button active" onclick="setRidingMode('standard')">
+                Standard
+            </button>
+            <button id="nightMode" class="mode-button" onclick="setRidingMode('night')">
+                Night Riding
+            </button>
+            <button id="effectMode" class="mode-button" onclick="setRidingMode('effect')">
+                Effect Mode
+            </button>
+        </div>
+        
+        <!-- Brightness Control -->
+        <div class="control-section">
+            <h3>💡 Brightness</h3>
+            <input type="range" id="brightnessSlider" class="slider" min="1" max="255" value="128" oninput="setBrightness(this.value)">
+            <div>Current: <span id="brightnessValue">128</span></div>
+        </div>
+        
+        <!-- MPU Controls -->
+        <div class="control-section">
+            <h3>🎛️ Motion Controls</h3>
+            <div class="segment-control">
+                <label>Auto Blinkers:</label>
+                <label class="toggle-switch">
+                    <input type="checkbox" id="blinkersToggle" checked onchange="toggleBlinkers()">
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
+            <div class="segment-control">
+                <label>Parking Effect:</label>
+                <label class="toggle-switch">
+                    <input type="checkbox" id="parkingToggle" checked onchange="toggleParking()">
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
+            <div class="segment-control">
+                <label>Direction Swap:</label>
+                <label class="toggle-switch">
+                    <input type="checkbox" id="directionToggle" onchange="toggleDirectionSwap()">
+                    <span class="toggle-slider"></span>
+                </label>
+                <small style="color: #aaa; display: block; margin-top: 5px;">Auto-swap head/tail lights when moving backward</small>
+            </div>
+        </div>
+        
+        <!-- Light Segment Controls -->
+        <div class="control-section">
+            <h3>🔦 Light Controls</h3>
+            <div class="segment-control">
+                <label>Headlight:</label>
+                <label class="toggle-switch">
+                    <input type="checkbox" id="headlightToggle" checked onchange="toggleSegment(0)">
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
+            <div class="segment-control">
+                <label>Taillight:</label>
+                <label class="toggle-switch">
+                    <input type="checkbox" id="taillightToggle" checked onchange="toggleSegment(1)">
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
+        </div>
+        
+        <!-- Effect Selection -->
+        <div class="control-section">
+            <h3 id="effectSectionTitle">✨ Taillight Effects</h3>
+            <div class="effect-grid" id="effectGrid">
+                <!-- Effects will be populated dynamically -->
+            </div>
+        </div>
+        
+        <!-- Parking Mode Configuration -->
+        <div class="control-section">
+            <h3>🅿️ Parking Mode Setup</h3>
+            <div class="segment-control">
+                <label>Parking Effect:</label>
+                <select id="parkingEffectSelect" onchange="setParkingEffect()">
+                    <option value="2">Loading...</option>
+                </select>
+            </div>
+            <div class="segment-control">
+                <label>Effect Speed:</label>
+                <input type="range" id="parkingSpeedSlider" class="slider" min="1" max="255" value="200" oninput="setParkingSpeed(this.value)">
+                <span id="parkingSpeedValue">200</span>
+            </div>
+        </div>
+        
+        <!-- Advanced Options -->
+        <div class="control-section">
+            <h3>⚙️ Advanced Options</h3>
+            <div class="segment-control">
+                <label>Advanced UI Mode:</label>
+                <label class="toggle-switch">
+                    <input type="checkbox" id="advancedToggle" onchange="toggleAdvancedMode()">
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
+            <div id="advancedOptions" style="display: none; margin-top: 15px;">
+                <button class="mode-button" onclick="openFullWLED()" style="width: 100%; margin: 5px 0;">
+                    🔧 Full WLED Interface
+                </button>
+                <button class="mode-button" onclick="openWLEDSettings()" style="width: 100%; margin: 5px 0;">
+                    ⚙️ WLED Settings
+                </button>
+                <button class="mode-button" onclick="openFileManager()" style="width: 100%; margin: 5px 0;">
+                    📁 File Manager
+                </button>
+                <div style="margin-top: 10px; font-size: 12px; color: #888;">
+                    ⚠️ Advanced mode provides full WLED control but may be complex for basic onewheel use.
+                </div>
+            </div>
+        </div>
+
+        <!-- Status Display -->
+        <div class="status-display">
+            <div><strong>Status:</strong> <span id="status">Ready</span></div>
+            <div><strong>Mode:</strong> <span id="currentMode">Standard</span></div>
+            <div><strong>MPU:</strong> <span id="mpuStatus">Connecting...</span></div>
+            <div><strong>Blinker:</strong> <span id="blinkerStatus">Ready</span></div>
+            <div><strong>Parking:</strong> <span id="parkingStatus">Ready</span></div>
+            <div id="tiltInfo" style="display: none;">
+                <strong>Tilt:</strong> Pitch: <span id="pitchValue">0</span>° Roll: <span id="rollValue">0</span>°
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let isPoweredOn = false;
+        let currentRidingMode = 'standard';
+        let currentEffect = 0;
+        let availableEffects = [];
+        let currentParkingEffect = 2;  // Default to Breathe
+        
+        // WLED API functions
+        function makeRequest(endpoint, data = null) {
+            const url = window.location.origin + endpoint;
+            const options = {
+                method: data ? 'POST' : 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            };
+            
+            if (data) {
+                options.body = JSON.stringify(data);
+            }
+            
+            return fetch(url, options)
+                .then(response => response.json())
+                .catch(error => {
+                    console.error('Request failed:', error);
+                    updateStatus('Connection Error');
+                });
+        }
+        
+        function togglePower() {
+            isPoweredOn = !isPoweredOn;
+            const powerBtn = document.getElementById('powerBtn');
+            const powerText = document.getElementById('powerText');
+            
+            if (isPoweredOn) {
+                powerBtn.classList.add('on');
+                powerText.textContent = 'Turn Off';
+                updateStatus('On');
+                initializeOnewheel();
+            } else {
+                powerBtn.classList.remove('on');
+                powerText.textContent = 'Turn On';
+                updateStatus('Off');
+            }
+            
+            makeRequest('/json/state', {
+                on: isPoweredOn,
+                bri: isPoweredOn ? parseInt(document.getElementById('brightnessSlider').value) : 0
+            });
+        }
+        
+        function setBrightness(value) {
+            document.getElementById('brightnessValue').textContent = value;
+            if (isPoweredOn) {
+                makeRequest('/json/state', {
+                    bri: parseInt(value)
+                });
+            }
+        }
+        
+        function setRidingMode(mode) {
+            currentRidingMode = mode;
+            let modeText = 'Standard';
+            if (mode === 'night') modeText = 'Night Riding';
+            else if (mode === 'effect') modeText = 'Effect Mode';
+            
+            document.getElementById('currentMode').textContent = modeText;
+            document.getElementById('effectSectionTitle').textContent = 
+                mode === 'effect' ? '✨ Both Segments Effects' : '✨ Taillight Effects';
+            
+            // Update mode buttons
+            document.getElementById('standardMode').classList.toggle('active', mode === 'standard');
+            document.getElementById('nightMode').classList.toggle('active', mode === 'night');
+            document.getElementById('effectMode').classList.toggle('active', mode === 'effect');
+            
+            if (isPoweredOn) {
+                applyRidingMode(mode);
+            }
+        }
+        
+        function applyRidingMode(mode) {
+            if (mode === 'night') {
+                // Night mode: bright white headlight, keep taillight effect
+                setSegmentState(0, true, 255, 255, 255, 255, 0); // Bright white headlight
+                setSegmentState(1, true, 200, 255, 0, 0, currentEffect); // Red taillight with effect
+            } else if (mode === 'effect') {
+                // Effect mode: both segments can run effects
+                setSegmentState(0, true, 200, 255, 255, 255, currentEffect); // White headlight with effect
+                setSegmentState(1, true, 200, 255, 0, 0, currentEffect); // Red taillight with effect
+            } else {
+                // Standard mode: normal white headlight, red taillight
+                setSegmentState(0, true, 200, 255, 255, 255, 0); // White headlight
+                setSegmentState(1, true, 200, 255, 0, 0, currentEffect); // Red taillight with effect
+            }
+        }
+        
+        function setEffect(effectId) {
+            currentEffect = effectId;
+            
+            // Update effect buttons
+            document.querySelectorAll('.effect-button').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+            
+            if (isPoweredOn) {
+                // Apply current riding mode with new effect
+                applyRidingMode(currentRidingMode);
+            }
+        }
+        
+        function setParkingEffect() {
+            const select = document.getElementById('parkingEffectSelect');
+            currentParkingEffect = parseInt(select.value);
+            
+            // Update the usermod configuration
+            makeRequest('/json/state', {
+                MPU6050: {
+                    parkFXMode: currentParkingEffect
+                }
+            });
+        }
+        
+        function setParkingSpeed(speed) {
+            document.getElementById('parkingSpeedValue').textContent = speed;
+            
+            // Update the usermod configuration
+            makeRequest('/json/state', {
+                MPU6050: {
+                    parkFXSpeed: parseInt(speed)
+                }
+            });
+        }
+        
+        function toggleAdvancedMode() {
+            const enabled = document.getElementById('advancedToggle').checked;
+            const advancedOptions = document.getElementById('advancedOptions');
+            
+            if (enabled) {
+                advancedOptions.style.display = 'block';
+                updateStatus('Advanced mode enabled');
+            } else {
+                advancedOptions.style.display = 'none';
+                updateStatus('Simple mode active');
+            }
+        }
+        
+        function openFullWLED() {
+            // Open the full WLED interface in the same window
+            window.location.href = '/index.htm';
+        }
+        
+        function openWLEDSettings() {
+            // Open WLED settings
+            window.location.href = '/settings';
+        }
+        
+        function openFileManager() {
+            // Open the file manager
+            window.location.href = '/edit';
+        }
+        
+        function toggleBlinkers() {
+            const enabled = document.getElementById('blinkersToggle').checked;
+            makeRequest('/json/state', {
+                MPU6050: {
+                    blinkerEnabled: enabled
+                }
+            });
+        }
+        
+        function toggleParking() {
+            const enabled = document.getElementById('parkingToggle').checked;
+            makeRequest('/json/state', {
+                MPU6050: {
+                    parkModeEnabled: enabled
+                }
+            });
+        }
+        
+        function toggleDirectionSwap() {
+            const enabled = document.getElementById('directionToggle').checked;
+            makeRequest('/json/state', {
+                MPU6050: {
+                    directionSwapEnabled: enabled
+                }
+            });
+        }
+        
+        function toggleSegment(segmentId) {
+            const enabled = segmentId === 0 ? 
+                document.getElementById('headlightToggle').checked : 
+                document.getElementById('taillightToggle').checked;
+            
+            makeRequest('/json/state', {
+                seg: [{
+                    id: segmentId,
+                    on: enabled
+                }]
+            });
+        }
+        
+        function setSegmentState(segmentId, on, brightness, r, g, b, effect) {
+            makeRequest('/json/state', {
+                seg: [{
+                    id: segmentId,
+                    on: on,
+                    bri: brightness,
+                    col: [[r, g, b]],
+                    fx: effect
+                }]
+            });
+        }
+        
+        function initializeOnewheel() {
+            // Set up initial state based on current mode
+            applyRidingMode(currentRidingMode);
+        }
+        
+        function loadEffects() {
+            makeRequest('/json/effects')
+                .then(data => {
+                    if (data) {
+                        availableEffects = Object.entries(data).map(([id, name]) => ({
+                            id: parseInt(id),
+                            name: name
+                        }));
+                        
+                        populateEffectButtons();
+                        populateParkingEffectSelect();
+                    }
+                });
+        }
+        
+        function populateEffectButtons() {
+            const effectGrid = document.getElementById('effectGrid');
+            const preferredEffects = [0, 2, 8, 13, 26, 36]; // Solid, Breathe, Rainbow, Chase, Blink Rainbow, Twinkle
+            
+            let html = '';
+            preferredEffects.forEach((effectId, index) => {
+                const effect = availableEffects.find(e => e.id === effectId);
+                if (effect) {
+                    const activeClass = index === 0 ? ' active' : '';
+                    html += `<button class="effect-button${activeClass}" onclick="setEffect(${effect.id})">${effect.name}</button>`;
+                }
+            });
+            
+            effectGrid.innerHTML = html;
+        }
+        
+        function populateParkingEffectSelect() {
+            const select = document.getElementById('parkingEffectSelect');
+            select.innerHTML = '';
+            
+            // Add good parking effects (visual, attention-grabbing)
+            const parkingEffects = [2, 8, 26, 36, 1, 13]; // Breathe, Rainbow, Blink Rainbow, Twinkle, Blink, Chase
+            
+            parkingEffects.forEach(effectId => {
+                const effect = availableEffects.find(e => e.id === effectId);
+                if (effect) {
+                    const option = document.createElement('option');
+                    option.value = effect.id;
+                    option.textContent = effect.name;
+                    if (effect.id === currentParkingEffect) {
+                        option.selected = true;
+                    }
+                    select.appendChild(option);
+                }
+            });
+        }
+        
+        function updateStatus(status) {
+            document.getElementById('status').textContent = status;
+        }
+        
+        function updateMPUStatus() {
+            makeRequest('/json/info')
+                .then(data => {
+                    if (data && data.MPU6050) {
+                        document.getElementById('mpuStatus').textContent = 'Connected';
+                        
+                        // Update toggle states from MPU settings
+                        document.getElementById('blinkersToggle').checked = data.MPU6050.blinkerEnabled;
+                        document.getElementById('parkingToggle').checked = data.MPU6050.parkModeEnabled;
+                        document.getElementById('directionToggle').checked = data.MPU6050.directionSwapEnabled || false;
+                        
+                        // Update parking configuration
+                        if (data.MPU6050.parkFXMode !== undefined) {
+                            currentParkingEffect = data.MPU6050.parkFXMode;
+                            const select = document.getElementById('parkingEffectSelect');
+                            if (select && select.options.length > 0) {
+                                select.value = currentParkingEffect;
+                            }
+                        }
+                        
+                        if (data.MPU6050.parkFXSpeed !== undefined) {
+                            const speedSlider = document.getElementById('parkingSpeedSlider');
+                            const speedValue = document.getElementById('parkingSpeedValue');
+                            speedSlider.value = data.MPU6050.parkFXSpeed;
+                            speedValue.textContent = data.MPU6050.parkFXSpeed;
+                        }
+                        
+                        // Update status indicators
+                        document.getElementById('blinkerStatus').textContent = 
+                            data.MPU6050.blinkerActive ? `Active (${data.MPU6050.blinkDirection > 0 ? 'Right' : data.MPU6050.blinkDirection < 0 ? 'Left' : 'None'})` : 
+                            data.MPU6050.blinkerEnabled ? 'Ready' : 'Disabled';
+                        
+                        document.getElementById('parkingStatus').textContent = 
+                            data.MPU6050.parkModeActive ? 'Parked' : 
+                            data.MPU6050.parkModeEnabled ? 'Ready' : 'Disabled';
+                        
+                        // Update direction status if available
+                        if (data.MPU6050.isMovingForward !== undefined) {
+                            const directionText = data.MPU6050.isMovingForward ? 'Forward' : 'Backward';
+                            document.getElementById('currentMode').textContent = 
+                                currentRidingMode.charAt(0).toUpperCase() + currentRidingMode.slice(1) + ` (${directionText})`;
+                        }
+                        
+                        // Show tilt info if available
+                        if (data.MPU6050.pitch !== undefined && data.MPU6050.roll !== undefined) {
+                            document.getElementById('pitchValue').textContent = data.MPU6050.pitch.toFixed(1);
+                            document.getElementById('rollValue').textContent = data.MPU6050.roll.toFixed(1);
+                            document.getElementById('tiltInfo').style.display = 'block';
+                        }
+                    } else {
+                        document.getElementById('mpuStatus').textContent = 'Not Found';
+                        document.getElementById('blinkerStatus').textContent = 'N/A';
+                        document.getElementById('parkingStatus').textContent = 'N/A';
+                        document.getElementById('tiltInfo').style.display = 'none';
+                    }
+                });
+        }
+        
+        function getCurrentState() {
+            makeRequest('/json/state')
+                .then(data => {
+                    if (data) {
+                        isPoweredOn = data.on;
+                        const powerBtn = document.getElementById('powerBtn');
+                        const powerText = document.getElementById('powerText');
+                        
+                        if (isPoweredOn) {
+                            powerBtn.classList.add('on');
+                            powerText.textContent = 'Turn Off';
+                            updateStatus('On');
+                        } else {
+                            powerBtn.classList.remove('on');
+                            powerText.textContent = 'Turn On';
+                            updateStatus('Off');
+                        }
+                        
+                        if (data.bri) {
+                            document.getElementById('brightnessSlider').value = data.bri;
+                            document.getElementById('brightnessValue').textContent = data.bri;
+                        }
+                    }
+                });
+        }
+        
+        // Initialize on page load
+        window.onload = function() {
+            updateStatus('Initializing...');
+            loadEffects();
+            getCurrentState();
+            updateMPUStatus();
+            
+            // Refresh MPU status every 5 seconds
+            setInterval(updateMPUStatus, 5000);
+        };
+    </script>
+</body>
+</html>
