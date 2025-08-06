@@ -137,7 +137,11 @@ class LDR_PIR : public Usermod {
 
 				if ( (pirState != lastPir) || (abs(ldrVal-lastLight)>32) ) {
 					lastLight = ldrVal;
-					brightness = roundf( (float)ldrVal*100/(float)4095 )/100;
+#ifdef ESP32
+    brightness = roundf( (float)ldrVal*100/(float)4095 )/100;
+#else
+    brightness = roundf( (float)ldrVal*100/(float)1023 )/100;
+#endif
 					if (pirState != lastPir) {
 						if (pirState) {
 							publishMqtt("motion","ON");
