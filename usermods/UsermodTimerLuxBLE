@@ -2,7 +2,7 @@
 #pragma once
 #include "wled.h"
 
-class UsermodTimerLuxBLE : public Usermod {
+class UsermodTimerLux : public Usermod {
   private:
     unsigned long ostatniRuch = 0;
     const unsigned long czasWylaczenia = 60000; // 1 minuta w ms
