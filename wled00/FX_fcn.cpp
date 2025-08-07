@@ -1670,11 +1670,6 @@ void WS2812FX::show() {
         addRemains  = r && r > quarterMax ? 0x00010000 : 0;
         addRemains |= g && g > quarterMax ? 0x00000100 : 0;
         addRemains |= b && b > quarterMax ? 0x00000001 : 0;
-       /*
-        addRemains  = r ? 0x00010000 : 0;  // rainbowbands looks MUCH better without the color preservation, so does normal rainbow
-        addRemains |= g ? 0x00000100 : 0;  // but: PS fire looks pink without preservation...
-        addRemains |= b ? 0x00000001 : 0;
-*/
         const uint32_t TWO_CHANNEL_MASK = 0x00FF00FF;
         uint32_t rb = (((c & TWO_CHANNEL_MASK) * newBri) >> 8) &  TWO_CHANNEL_MASK; // scale red and blue
         uint32_t wg = (((c >> 8) & TWO_CHANNEL_MASK) * newBri) & ~TWO_CHANNEL_MASK; // scale white and green
