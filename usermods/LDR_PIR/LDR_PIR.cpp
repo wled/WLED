@@ -51,11 +51,8 @@ class LDR_PIR : public Usermod {
 		// Procedure to define all MQTT discovery Topics 
 		void _mqttInitialize()
 		{
-			char mqttMotionTopic[128];
-			char mqttLightTopic[128];
-			snprintf_P(mqttMotionTopic, 127, PSTR("%s/motion"), mqttDeviceTopic);
-			snprintf_P(mqttLightTopic, 127, PSTR("%s/light"), mqttDeviceTopic);
-
+			String mqttMotionTopic = String(mqttDeviceTopic) + "/motion";
+			String mqttLightTopic = String(mqttDeviceTopic) + "/light";
 
 			if (HomeAssistantDiscovery) {
 				_createMqttSensor(F("Motion"), mqttMotionTopic, "motion", "");
@@ -138,9 +135,9 @@ class LDR_PIR : public Usermod {
 				if ( (pirState != lastPir) || (abs(ldrVal-lastLight)>32) ) {
 					lastLight = ldrVal;
 #ifdef ESP32
-    brightness = roundf( (float)ldrVal*100/(float)4095 )/100;
+					brightness = roundf( (float)ldrVal*100/(float)4095 )/100;
 #else
-    brightness = roundf( (float)ldrVal*100/(float)1023 )/100;
+					brightness = roundf( (float)ldrVal*100/(float)1023 )/100;
 #endif
 					if (pirState != lastPir) {
 						if (pirState) {
