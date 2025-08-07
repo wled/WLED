@@ -66,13 +66,15 @@ Segment::Segment(const Segment &orig) {
   _dataLen = 0;
   pixels = nullptr;
   if (!stop) return;  // nothing to do if segment is inactive/invalid
-  if (orig.name) { name = static_cast<char*>(d_malloc(strlen(orig.name)+1)); if (name) strcpy(name, orig.name); }
-  if (orig.data) { if (allocateData(orig._dataLen)) memcpy(data, orig.data, orig._dataLen); }
   if (orig.pixels) {
+    // allocate pixel buffer: prefer IRAM/PSRAM
     pixels = static_cast<uint32_t*>(d_malloc(sizeof(uint32_t) * orig.length()));
-    if (pixels) memcpy(pixels, orig.pixels, sizeof(uint32_t) * orig.length());
-    else {
-      DEBUG_PRINTLN(F("!!! Not enough RAM for pixel buffer !!!"));
+    if (pixels) {
+      memcpy(pixels, orig.pixels, sizeof(uint32_t) * orig.length());
+      if (orig.name) { name = static_cast<char*>(d_malloc(strlen(orig.name)+1)); if (name) strcpy(name, orig.name); }
+      if (orig.data) { if (allocateData(orig._dataLen)) memcpy(data, orig.data, orig._dataLen); }
+    } else {
+      DEBUGFX_PRINTLN(F("!!! Not enough RAM for pixel buffer !!!"));
       errorFlag = ERR_NORAM_PX;
       stop = 0; // mark segment as inactive/invalid
     }
@@ -107,12 +109,14 @@ Segment& Segment::operator= (const Segment &orig) {
     pixels = nullptr;
     if (!stop) return *this;  // nothing to do if segment is inactive/invalid
     // copy source data
-    if (orig.name) { name = static_cast<char*>(d_malloc(strlen(orig.name)+1)); if (name) strcpy(name, orig.name); }
-    if (orig.data) { if (allocateData(orig._dataLen)) memcpy(data, orig.data, orig._dataLen); }
     if (orig.pixels) {
+      // allocate pixel buffer: prefer IRAM/PSRAM
       pixels = static_cast<uint32_t*>(d_malloc(sizeof(uint32_t) * orig.length()));
-      if (pixels) memcpy(pixels, orig.pixels, sizeof(uint32_t) * orig.length());
-      else {
+      if (pixels) {
+        memcpy(pixels, orig.pixels, sizeof(uint32_t) * orig.length());
+        if (orig.name) { name = static_cast<char*>(d_malloc(strlen(orig.name)+1)); if (name) strcpy(name, orig.name); }
+        if (orig.data) { if (allocateData(orig._dataLen)) memcpy(data, orig.data, orig._dataLen); }
+      } else {
         DEBUG_PRINTLN(F("!!! Not enough RAM for pixel buffer !!!"));
         errorFlag = ERR_NORAM_PX;
         stop = 0; // mark segment as inactive/invalid
@@ -281,8 +285,9 @@ void Segment::startTransition(uint16_t dur, bool segmentCopy) {
       if (_t->_oldSegment) {
         _t->_oldSegment->palette = _t->_palette;          // restore original palette and colors (from start of transition)
         for (unsigned i = 0; i < NUM_COLORS; i++) _t->_oldSegment->colors[i] = _t->_colors[i];
+        DEBUGFX_PRINTF_P(PSTR("-- Updated transition with segment copy: S=%p T(%p) O[%p] OP[%p]\n"), this, _t, _t->_oldSegment, _t->_oldSegment->pixels);
+        if (!_t->_oldSegment->isActive()) stopTransition();
       }
-      DEBUG_PRINTF_P(PSTR("-- Updated transition with segment copy: S=%p T(%p) O[%p] OP[%p]\n"), this, _t, _t->_oldSegment, _t->_oldSegment->pixels);
     }
     return;
   }
@@ -298,13 +303,12 @@ void Segment::startTransition(uint16_t dur, bool segmentCopy) {
     #endif
     for (int i=0; i<NUM_COLORS; i++) _t->_colors[i] = colors[i];
     if (segmentCopy) _t->_oldSegment = new(std::nothrow) Segment(*this); // store/copy current segment settings
-    #ifdef WLED_DEBUG
     if (_t->_oldSegment) {
-      DEBUG_PRINTF_P(PSTR("-- Started transition: S=%p T(%p) O[%p] OP[%p]\n"), this, _t, _t->_oldSegment, _t->_oldSegment->pixels);
+      DEBUGFX_PRINTF_P(PSTR("-- Started transition: S=%p T(%p) O[%p] OP[%p]\n"), this, _t, _t->_oldSegment, _t->_oldSegment->pixels);
+      if (!_t->_oldSegment->isActive()) stopTransition();
     } else {
-      DEBUG_PRINTF_P(PSTR("-- Started transition without old segment: S=%p T(%p)\n"), this, _t);
+      DEBUGFX_PRINTF_P(PSTR("-- Started transition without old segment: S=%p T(%p)\n"), this, _t);
     }
-    #endif
   };
 }
 
@@ -425,14 +429,15 @@ void Segment::setGeometry(uint16_t i1, uint16_t i2, uint8_t grp, uint8_t spc, ui
 
   unsigned oldLength = length();
 
-  DEBUG_PRINTF_P(PSTR("Segment geometry: %d,%d -> %d,%d [%d,%d]\n"), (int)i1, (int)i2, (int)i1Y, (int)i2Y, (int)grp, (int)spc);
+  DEBUGFX_PRINTF_P(PSTR("Segment geometry: %d,%d -> %d,%d [%d,%d]\n"), (int)i1, (int)i2, (int)i1Y, (int)i2Y, (int)grp, (int)spc);
   markForReset();
-  startTransition(strip.getTransition()); // start transition prior to change (if segment is deactivated (start>stop) no transition will happen)
-  stateChanged = true; // send UDP/WS broadcast
+  if (_t) stopTransition(); // we can't use transition if segment dimensions changed
+  stateChanged = true;      // send UDP/WS broadcast
 
   // apply change immediately
   if (i2 <= i1) { //disable segment
-    d_free(pixels);
+    deallocateData();
+    p_free(pixels);
     pixels = nullptr;
     stop = 0;
     return;
@@ -449,21 +454,25 @@ void Segment::setGeometry(uint16_t i1, uint16_t i2, uint8_t grp, uint8_t spc, ui
   #endif
   // safety check
   if (start >= stop || startY >= stopY) {
-    d_free(pixels);
+    deallocateData();
+    p_free(pixels);
     pixels = nullptr;
     stop = 0;
     return;
   }
-  // re-allocate FX render buffer
+  // allocate FX render buffer
   if (length() != oldLength) {
-    if (pixels) d_free(pixels); // using realloc on large buffers can cause additional fragmentation instead of reducing it
+    // allocate render buffer (always entire segment), prefer IRAM/PSRAM. Note: impact on FPS with PSRAM buffer is low (<2% with QSPI PSRAM) on S2/S3
+    p_free(pixels);
     pixels = static_cast<uint32_t*>(d_malloc(sizeof(uint32_t) * length()));
     if (!pixels) {
-      DEBUG_PRINTLN(F("!!! Not enough RAM for pixel buffer !!!"));
+      DEBUGFX_PRINTLN(F("!!! Not enough RAM for pixel buffer !!!"));
+      deallocateData();
       errorFlag = ERR_NORAM_PX;
       stop = 0;
       return;
     }
+
   }
   refreshLightCapabilities();
 }
@@ -572,8 +581,8 @@ Segment &Segment::setName(const char *newName) {
     if (newLen) {
       if (name) d_free(name); // free old name
       name = static_cast<char*>(d_malloc(newLen+1));
+      if (mode == FX_MODE_2DSCROLLTEXT) startTransition(strip.getTransition(), true); // if the name changes in scrolling text mode, we need to copy the segment for blending
       if (name) strlcpy(name, newName, newLen+1);
-      name[newLen] = 0;
       return *this;
     }
   }
@@ -1210,10 +1219,9 @@ void WS2812FX::finalizeInit() {
   deserializeMap();     // (re)load default ledmap (will also setUpMatrix() if ledmap does not exist)
 
   // allocate frame buffer after matrix has been set up (gaps!)
-  if (_pixels) d_free(_pixels); // using realloc on large buffers can cause additional fragmentation instead of reducing it
+  d_free(_pixels); // using realloc on large buffers can cause additional fragmentation instead of reducing it
   _pixels = static_cast<uint32_t*>(d_malloc(getLengthTotal() * sizeof(uint32_t)));
   DEBUG_PRINTF_P(PSTR("strip buffer size: %uB\n"), getLengthTotal() * sizeof(uint32_t));
-
   DEBUG_PRINTF_P(PSTR("Heap after strip init: %uB\n"), ESP.getFreeHeap());
 }
 
@@ -1258,7 +1266,8 @@ void WS2812FX::service() {
         // if segment is in transition and no old segment exists we don't need to run the old mode
         // (blendSegments() takes care of On/Off transitions and clipping)
         Segment *segO = seg.getOldSegment();
-        if (segO && (seg.mode != segO->mode || blendingStyle != BLEND_STYLE_FADE)) {
+        if (segO && segO->isActive() && (seg.mode != segO->mode || blendingStyle != BLEND_STYLE_FADE ||
+            (segO->name != seg.name && segO->name && seg.name && strncmp(segO->name, seg.name, WLED_MAX_SEGNAME_LEN) != 0))) {
           Segment::modeBlend(true);         // set semaphore for beginDraw() to blend colors and palette
           segO->beginDraw(prog);            // set up palette & colors (also sets draw dimensions), parent segment has transition progress
           _currentSegment = segO;           // set current segment
@@ -1461,8 +1470,10 @@ void WS2812FX::blendSegment(const Segment &topSegment) const {
       }
       uint32_t c_a = BLACK;
       if (x < vCols && y < vRows) c_a = seg->getPixelColorRaw(x + y*vCols); // will get clipped pixel from old segment or unclipped pixel from new segment
-      if (segO && blendingStyle == BLEND_STYLE_FADE && topSegment.mode != segO->mode && x < oCols && y < oRows) {
-        // we need to blend old segment using fade as pixels ae not clipped
+      if (segO && blendingStyle == BLEND_STYLE_FADE
+        && (topSegment.mode != segO->mode || (segO->name != topSegment.name && segO->name && topSegment.name && strncmp(segO->name, topSegment.name, WLED_MAX_SEGNAME_LEN) != 0))
+        && x < oCols && y < oRows) {
+        // we need to blend old segment using fade as pixels are not clipped
         c_a = color_blend16(c_a, segO->getPixelColorRaw(x + y*oCols), progInv);
       } else if (blendingStyle != BLEND_STYLE_FADE) {
         // workaround for On/Off transition
@@ -1616,6 +1627,8 @@ static uint8_t estimateCurrentAndLimitBri(uint8_t brightness, uint32_t *pixels) 
 }
 
 void WS2812FX::show() {
+  if (!_pixels) return; // no pixels allocated, nothing to show
+
   unsigned long showNow = millis();
   size_t diff = showNow - _lastShow;
 
@@ -1888,7 +1901,7 @@ void WS2812FX::makeAutoSegments(bool forceReset) {
     for (size_t i = 1; i < s; i++) {
       _segments.emplace_back(segStarts[i], segStops[i]);
     }
-    DEBUG_PRINTF_P(PSTR("%d auto segments created.\n"), _segments.size());
+    DEBUGFX_PRINTF_P(PSTR("%d auto segments created.\n"), _segments.size());
 
   } else {
 
@@ -2012,7 +2025,7 @@ bool WS2812FX::deserializeMap(unsigned n) {
   }
 
   d_free(customMappingTable);
-  customMappingTable = static_cast<uint16_t*>(d_malloc(sizeof(uint16_t)*getLengthTotal())); // do not use SPI RAM
+  customMappingTable = static_cast<uint16_t*>(d_malloc(sizeof(uint16_t)*getLengthTotal())); // prefer DRAM for speed
 
   if (customMappingTable) {
     DEBUG_PRINTF_P(PSTR("ledmap allocated: %uB\n"), sizeof(uint16_t)*getLengthTotal());
