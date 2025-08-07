@@ -5,8 +5,6 @@
 //#define NPB_CONF_4STEP_CADENCE
 #include "NeoPixelBus.h"
 
-uint32_t globalBrightness = 255; // global brightness for digital busses, set by setBrightness()
-
 //Hardware SPI Pins
 #define P_8266_HS_MOSI 13
 #define P_8266_HS_CLK  14
@@ -899,7 +897,7 @@ class PolyBus {
   }
 
   static void setBrightness(void* busPtr, uint8_t busType, uint8_t b) {
-    globalBrightness = b; // use bit shifts and add 1/2 for proper rounding
+
   }
 
   [[gnu::hot]] static uint32_t getPixelColor(void* busPtr, uint8_t busType, uint16_t pix, uint8_t co) {
