@@ -1079,21 +1079,11 @@ void Segment::blur(uint8_t blur_amount, bool smear) const {
  * Rotates the color in HSV space, where pos is H. (0=0deg, 256=360deg)
  */
 uint32_t Segment::color_wheel(uint8_t pos) const {
-  if (palette) return color_from_palette(pos, false, false, 0); // never wrap palette
+  if (palette) return color_from_palette(pos, false, false, 0); // only wrap if "always wrap" is set
   uint8_t w = W(getCurrentColor(0));
-  // These h and f values are the same h and f you have in the regular HSV to RGB conversion.
-  // The whole funciton really is just a HSV conversion, but assuming H=pos, S=1 and V=1.
-  const uint32_t h = (pos * 3) / 128;
-  const uint32_t f = (pos * 6) % 256;
-  switch (h) {
-    case 0: return RGBW32(255    , f      , 0      , w);
-    case 1: return RGBW32(255 - f, 255    , 0      , w);
-    case 2: return RGBW32(0      , 255    , f      , w);
-    case 3: return RGBW32(0      , 255 - f, 255    , w);
-    case 4: return RGBW32(f      , 0      , 255    , w);
-    case 5: return RGBW32(255    , 0      , 255 - f, w);
-    default: return 0;
-  }
+  uint32_t rgb;
+  hsv2rgb(CHSV32(pos, 255, 255), rgb);
+  return rgb | (w << 24); // add white channel
 }
 
 /*
