@@ -10645,9 +10645,9 @@ uint8_t WS2812FX::addEffect(uint8_t id, mode_ptr mode_fn, const char *mode_name)
 }
 
 /*
-  Simple bit strob
+  Simple bit strobe
 */
-uint16_t mode_music_strob(void) {
+uint16_t mode_music_strobe(void) {
   um_data_t *um_data = getAudioData();
   if (!um_data) return FRAMETIME; 
 
@@ -10667,7 +10667,7 @@ uint16_t mode_music_strob(void) {
   return FRAMETIME;
 }
 
-static const char _data_FX_MODE_MUSIC_STROB[] PROGMEM = "Music Strob@Fade speed,Threshold;!,!;!;1v;ix=128,sx=224,si=1";
+static const char _data_FX_MODE_MUSIC_STROBE[] PROGMEM = "Music Strobe@Fade speed,Threshold;!,!;!;1v;ix=128,sx=224,si=1";
 
 /*
   Flame jet
@@ -10890,7 +10890,7 @@ void WS2812FX::setupEffectData() {
   addEffect(FX_MODE_DYNAMIC_SMOOTH, &mode_dynamic_smooth, _data_FX_MODE_DYNAMIC_SMOOTH);
 
   // --- 1D audio effects ---
-  addEffect(FX_MODE_MUSIC_STROB, &mode_music_strob, _data_FX_MODE_MUSIC_STROB); 
+  addEffect(FX_MODE_MUSIC_STROBE, &mode_music_strobe, _data_FX_MODE_MUSIC_STROBE); 
   addEffect(FX_MODE_PIXELS, &mode_pixels, _data_FX_MODE_PIXELS);
   addEffect(FX_MODE_PIXELWAVE, &mode_pixelwave, _data_FX_MODE_PIXELWAVE);
   addEffect(FX_MODE_JUGGLES, &mode_juggles, _data_FX_MODE_JUGGLES);
