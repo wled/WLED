@@ -10669,8 +10669,6 @@ uint16_t mode_music_strob(void) {
 
 static const char _data_FX_MODE_MUSIC_STROB[] PROGMEM = "Music Strob@Fade speed,Threshold;!,!;!;1v;ix=128,sx=224,si=1";
 
-/*--------------------------*/
-
 /*
   Flame jet
 */
@@ -10756,7 +10754,6 @@ uint16_t mode_flame_jet(void) {
   return FRAMETIME;
 }
 
-// Также обновите строку метаданных, убрав из нее "2", чтобы показать, что эффект работает и в 1D
 static const char _data_FX_MODE_FLAME_JET[] PROGMEM = "Flame Jet@Base Speed,Trail Length,Threshold;!;!;1v;ix=192,sx=128,c1=128,pal=35,si=1";
 
 void WS2812FX::setupEffectData() {
