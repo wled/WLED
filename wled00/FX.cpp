@@ -10675,8 +10675,6 @@ static const char _data_FX_MODE_MUSIC_STROB[] PROGMEM = "Music Strob@Fade speed,
   Flame jet
 */
 uint16_t mode_flame_jet(void) {
-  if (!SEGMENT.is2D()) return mode_static();
-
   um_data_t *um_data = getAudioData();
   if (!um_data) return FRAMETIME;
 
@@ -10685,12 +10683,9 @@ uint16_t mode_flame_jet(void) {
 
   long mappedFade = map(SEGMENT.intensity, 0, 255, 0, 64);
   uint8_t fade_by = 255 - mappedFade;
+  SEGMENT.fade_out(fade_by);
 
   uint8_t threshold = SEGMENT.custom1;
-
-  const uint16_t max_height = SEG_H;
-
-  SEGMENT.fade_out(fade_by);
 
   if (samplePeak && volumeRaw > threshold && SEGENV.aux0 == 0) {
     SEGENV.aux0 = 1; // start animation
@@ -10701,42 +10696,68 @@ uint16_t mode_flame_jet(void) {
     long mappedSpeed = map(SEGMENT.speed, 0, 255, 0, 32);
     uint16_t rise_amount = 1 + (uint16_t)(volumeRaw * (1 + (uint16_t)mappedSpeed)) / 2000;
 
-    uint16_t start_y = SEG_H - 1;
-    
-    for (uint16_t y_offset = 0; y_offset < SEGENV.aux0; y_offset++) {
-      uint16_t current_y = start_y - y_offset;
+    if (SEGMENT.is2D()) {
+      // --- 2D LOGIC ---
+      const uint16_t max_height = SEG_H;
+      uint16_t start_y = SEG_H - 1;
+      
+      for (uint16_t y_offset = 0; y_offset < SEGENV.aux0; y_offset++) {
+        uint16_t current_y = start_y - y_offset;
+        if (current_y >= SEG_H) continue; // Boundary check
 
-      if (current_y >= SEG_H) continue;
+        uint32_t base_color = SEGCOLOR(0);
+        CRGB fastled_color = CRGB(base_color);
 
-      uint32_t base_color = SEGCOLOR(0);
-      CRGB fastled_color = CRGB(base_color);
+        uint8_t heat_reduction = map(y_offset, 0, SEG_H, 0, 180);
+        fastled_color.g = qsub8(fastled_color.g, heat_reduction);
+        fastled_color.b = qsub8(fastled_color.b, heat_reduction * 2);
 
-      uint8_t heat_reduction = map(y_offset, 0, SEG_H, 0, 180);
-      fastled_color.g = qsub8(fastled_color.g, heat_reduction);      
-      fastled_color.b = qsub8(fastled_color.b, heat_reduction * 2);  
+        for (uint16_t x = 0; x < SEG_W; x++) {
+          CRGB final_color = fastled_color;
+          if (hw_random8() < 50) {
+            final_color.nscale8(220); 
+          }
+          SEGMENT.setPixelColorXY(x, current_y, final_color);
+        }
+      }
+      SEGENV.aux0 += rise_amount;
+      if (SEGENV.aux0 >= max_height) {
+        SEGENV.aux0 = 0;
+      }
 
-      for (uint16_t x = 0; x < SEG_W; x++) {
-        CRGB final_color = fastled_color;
+    } else {
+      // --- 1D LOGIC ---
+      const uint16_t max_height = SEGLEN;
+      uint16_t start_index = 0; // Or SEGLEN - 1 if you want it from the other end
+
+      for (uint16_t i_offset = 0; i_offset < SEGENV.aux0; i_offset++) {
+        uint16_t current_index = start_index + i_offset;
+        if (current_index >= SEGLEN) continue; // Boundary check
+
+        uint32_t base_color = SEGCOLOR(0);
+        CRGB fastled_color = CRGB(base_color);
+        
+        uint8_t heat_reduction = map(i_offset, 0, SEGLEN, 0, 180);
+        fastled_color.g = qsub8(fastled_color.g, heat_reduction);
+        fastled_color.b = qsub8(fastled_color.b, heat_reduction * 2);
 
         if (hw_random8() < 50) {
-          final_color.nscale8(220); 
+            fastled_color.nscale8(220); 
         }
-        SEGMENT.setPixelColorXY(x, current_y, final_color);
+        SEGMENT.setPixelColor(current_index, fastled_color);
       }
-    }
-
-    SEGENV.aux0 += rise_amount;
-
-    if (SEGENV.aux0 >= max_height) {
-      SEGENV.aux0 = 0;
+      SEGENV.aux0 += rise_amount;
+      if (SEGENV.aux0 >= max_height) {
+        SEGENV.aux0 = 0;
+      }
     }
   }
   
   return FRAMETIME;
 }
 
-static const char _data_FX_MODE_FLAME_JET[] PROGMEM = "Flame Jet@Base Speed,Trail Length,Threshold;!;!;!;2v;ix=192,sx=128,c1=128,pal=35";
-
+// Также обновите строку метаданных, убрав из нее "2", чтобы показать, что эффект работает и в 1D
+static const char _data_FX_MODE_FLAME_JET[] PROGMEM = "Flame Jet@Base Speed,Trail Length,Threshold;!;!;1v;ix=192,sx=128,c1=128,pal=35,si=1";
 
 void WS2812FX::setupEffectData() {
   // Solid must be first! (assuming vector is empty upon call to setup)
