@@ -8,7 +8,7 @@ on:
 jobs:
   
   wled_build:
-    uses: ./.github/workflows/build.yml
+    uses: ./.Update release.yml
     
   release:
     name: Create Release
@@ -24,7 +24,7 @@ jobs:
       with:
           token: ${{ secrets.GITHUB_TOKEN }} 
           sinceTag: v0.15.0
-          releaseBranch: 0_15_x 
+          releaseBranch: 0_15_0
     - name: Create draft release
       uses: softprops/action-gh-release@v1
       with:
