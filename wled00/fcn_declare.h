@@ -481,11 +481,6 @@ namespace UsermodManager {
 // Register usermods by building a static list via a linker section
 #define REGISTER_USERMOD(x) Usermod* const um_##x __attribute__((__section__(".dtors.tbl.usermods.1"), used)) = &x
 
-//usermod.cpp
-void userSetup();
-void userConnected();
-void userLoop();
-
 //util.cpp
 #ifdef ESP8266
 #define HW_RND_REGISTER RANDOM_REG32
