@@ -183,9 +183,9 @@ void WLED::loop()
     bool aligned = strip.checkSegmentAlignment(); //see if old segments match old bus(ses)
     BusManager::removeAll();
     strip.finalizeInit(); // will create buses and also load default ledmap if present
-    BusManager::setBrightness(bri); // fix re-initialised bus' brightness #4005
     if (aligned) strip.makeAutoSegments();
     else strip.fixInvalidSegments();
+    BusManager::setBrightness(scaledBri(bri)); // fix re-initialised bus' brightness #4005 and #4824
     doSerializeConfig = true;
   }
   if (loadLedmap >= 0) {
