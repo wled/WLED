@@ -267,8 +267,10 @@ void handleDMXData(uint16_t uni, uint16_t dmxChannels, uint8_t* e131_data, uint8
     case DMX_MODE_MULTIPLE_DRGB:
     case DMX_MODE_MULTIPLE_RGB:
     case DMX_MODE_MULTIPLE_RGBW:
+    case DMX_MODE_MULTIPLE_DRGBW:
       {
-        const bool is4Chan = (DMXMode == DMX_MODE_MULTIPLE_RGBW);
+        const bool is4Chan = (DMXMode == DMX_MODE_MULTIPLE_RGBW || DMXMode == DMX_MODE_MULTIPLE_DRGBW);
+        const bool hasDimmer = (DMXMode == DMX_MODE_MULTIPLE_DRGB || DMXMode == DMX_MODE_MULTIPLE_DRGBW);
         const unsigned dmxChannelsPerLed = is4Chan ? 4 : 3;
         const unsigned ledsPerUniverse = is4Chan ? MAX_4_CH_LEDS_PER_UNIVERSE : MAX_3_CH_LEDS_PER_UNIVERSE;
         uint8_t stripBrightness = bri;
@@ -278,8 +280,8 @@ void handleDMXData(uint16_t uni, uint16_t dmxChannels, uint8_t* e131_data, uint8
           if (availDMXLen < 1) return;
           dmxOffset = dataOffset;
           previousLeds = 0;
-          // First DMX address is dimmer in DMX_MODE_MULTIPLE_DRGB mode.
-          if (DMXMode == DMX_MODE_MULTIPLE_DRGB) {
+          // First DMX address is dimmer
+          if (hasDimmer) {
             stripBrightness = e131_data[dmxOffset++];
             ledsTotal = (availDMXLen - 1) / dmxChannelsPerLed;
           } else {
@@ -288,7 +290,7 @@ void handleDMXData(uint16_t uni, uint16_t dmxChannels, uint8_t* e131_data, uint8
         } else {
           // All subsequent universes start at the first channel.
           dmxOffset = (mde == REALTIME_MODE_ARTNET) ? 0 : 1;
-          const unsigned dimmerOffset = (DMXMode == DMX_MODE_MULTIPLE_DRGB) ? 1 : 0;
+          const unsigned dimmerOffset = hasDimmer ? 1 : 0;
           unsigned ledsInFirstUniverse = (((MAX_CHANNELS_PER_UNIVERSE - DMXAddress) + dmxLenOffset) - dimmerOffset) / dmxChannelsPerLed;
           previousLeds = ledsInFirstUniverse + (previousUniverses - 1) * ledsPerUniverse;
           ledsTotal = previousLeds + (dmxChannels / dmxChannelsPerLed);
@@ -306,7 +308,7 @@ void handleDMXData(uint16_t uni, uint16_t dmxChannels, uint8_t* e131_data, uint8
           ledsTotal = totalLen;
         }
 
-        if (DMXMode == DMX_MODE_MULTIPLE_DRGB && previousUniverses == 0) {
+        if (hasDimmer && previousUniverses == 0) {
           if (bri != stripBrightness) {
             bri = stripBrightness;
             strip.setBrightness(bri, true);
