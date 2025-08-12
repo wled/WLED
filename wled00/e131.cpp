@@ -353,10 +353,11 @@ void handleArtnetPollReply(IPAddress ipAddress) {
     case DMX_MODE_MULTIPLE_DRGB:
     case DMX_MODE_MULTIPLE_RGB:
     case DMX_MODE_MULTIPLE_RGBW:
+    case DMX_MODE_MULTIPLE_DRGBW:
       {
-        bool is4Chan = (DMXMode == DMX_MODE_MULTIPLE_RGBW);
+        bool is4Chan = (DMXMode == DMX_MODE_MULTIPLE_RGBW || DMXMode == DMX_MODE_MULTIPLE_DRGBW);
         const unsigned dmxChannelsPerLed = is4Chan ? 4 : 3;
-        const unsigned dimmerOffset = (DMXMode == DMX_MODE_MULTIPLE_DRGB) ? 1 : 0;
+        const unsigned dimmerOffset = (DMXMode == DMX_MODE_MULTIPLE_DRGB || DMXMode == DMX_MODE_MULTIPLE_DRGBW) ? 1 : 0;
         const unsigned dmxLenOffset = (DMXAddress == 0) ? 0 : 1; // For legacy DMX start address 0
         const unsigned ledsInFirstUniverse = (((MAX_CHANNELS_PER_UNIVERSE - DMXAddress) + dmxLenOffset) - dimmerOffset) / dmxChannelsPerLed;
         const unsigned totalLen = strip.getLengthTotal();
