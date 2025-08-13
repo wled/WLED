@@ -156,6 +156,12 @@ class UsermodBattery : public Usermod
       device[F("mf")]   = F(WLED_BRAND);
       device[F("mdl")]  = F(WLED_PRODUCT_NAME);
       device[F("sw")]   = versionString;
+      // add device  connection MAC and IP address ( for hass discivery rules to work )
+      JsonArray connections = device[F("connections")].createNestedArray(); // array of connections defined by hass discovery rule 
+      connections.add(F("mac"));
+      connections.add(WiFi.macAddress()); // MAC address of the device to match WLED hass integration MAC : this is reponsible for the device ID in Home Assistant to merge with the WLED device ID
+      connections.add(F("ip"));
+      connections.add(WiFi.localIP().toString()); // IP address of the device to match WLED hass integration
 
       sprintf_P(buf, PSTR("homeassistant/%s/%s/%s/config"), type, mqttClientID, uid);
       DEBUG_PRINTLN(buf);
