@@ -10,7 +10,6 @@
 .vscode
 
 esp01-update.sh
-platformio_override.ini
 replace_fs.py
 wled-update.sh
 
