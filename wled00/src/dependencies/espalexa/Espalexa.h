@@ -344,7 +344,7 @@ public:
     #ifdef ARDUINO_ARCH_ESP32
     udpConnected = espalexaUdp.beginMulticast(IPAddress(239, 255, 255, 250), 1900);
     #else
-    udpConnected = espalexaUdp.beginMulticast(Network.localIP(), IPAddress(239, 255, 255, 250), 1900);
+    udpConnected = espalexaUdp.beginMulticast(WLEDNetwork.localIP(), IPAddress(239, 255, 255, 250), 1900);
     #endif
 
     if (udpConnected){

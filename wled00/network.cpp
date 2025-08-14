@@ -358,7 +358,7 @@ void WiFiEvent(WiFiEvent_t event)
       DEBUG_PRINTF_P(PSTR("WiFi-E: AP Client Connected (%d) @ %lus.\n"), (int)apClients, millis()/1000);
       break;
     case ARDUINO_EVENT_WIFI_STA_GOT_IP:
-      DEBUG_PRINT(F("WiFi-E: IP address: ")); DEBUG_PRINTLN(Network.localIP());
+      DEBUG_PRINT(F("WiFi-E: IP address: ")); DEBUG_PRINTLN(WLEDNetwork.localIP());
       break;
     case ARDUINO_EVENT_WIFI_STA_CONNECTED:
       // followed by IDLE and SCAN_DONE

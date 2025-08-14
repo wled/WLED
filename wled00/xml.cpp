@@ -233,10 +233,10 @@ void getSettingsJS(byte subPage, Print& settingsScript)
     settingsScript.print(F("gId('ethd').style.display='none';"));
     #endif
 
-    if (Network.isConnected()) //is connected
+    if (WLEDNetwork.isConnected()) //is connected
     {
       char s[32];
-      IPAddress localIP = Network.localIP();
+      IPAddress localIP = WLEDNetwork.localIP();
       sprintf(s, "%d.%d.%d.%d", localIP[0], localIP[1], localIP[2], localIP[3]);
 
       #if defined(ARDUINO_ARCH_ESP32) && defined(WLED_USE_ETHERNET)
