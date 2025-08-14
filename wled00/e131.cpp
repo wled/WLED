@@ -407,7 +407,7 @@ void prepareArtnetPollReply(ArtPollReply *reply) {
 
   reply->reply_opcode = ARTNET_OPCODE_OPPOLLREPLY;
 
-  IPAddress localIP = Network.localIP();
+  IPAddress localIP = WLEDNetwork.localIP();
   for (unsigned i = 0; i < 4; i++) {
     reply->reply_ip[i] = localIP[i];
   }
@@ -482,7 +482,7 @@ void prepareArtnetPollReply(ArtPollReply *reply) {
   // A DMX to / from Art-Net device
   reply->reply_style = 0x00;
 
-  Network.localMAC(reply->reply_mac);
+  WLEDNetwork.localMAC(reply->reply_mac);
 
   for (unsigned i = 0; i < 4; i++) {
     reply->reply_bind_ip[i] = localIP[i];
