@@ -7661,7 +7661,7 @@ uint16_t mode_XmasTwinkle(void) {              // by Nicholas Pisarro, Jr.
 
   return FRAMETIME;
 } // mode_XmasTwinkle
-static const char _data_FX_MODE_XMASTWINKLE[] PROGMEM = "Xmas Twinkle@Twinkle speed,Density,,,,Color indices vary;;!;;m12=0";
+static const char _data_FX_MODE_XMASTWINKLE[] PROGMEM = "Xmas Twinkle@Twinkle speed,Density,,,,Color indices vary;;!;012;m12=0";
 
 ////////////////////////////
 //  Elastic Collisions    //
