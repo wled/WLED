@@ -542,28 +542,97 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
       macroDoublePress[i] = request->arg(md).toInt();
     }
 
-    char k[3]; k[2] = 0;
-    for (int i = 0; i<10; i++) {
-      k[1] = i+48;//ascii 0,1,2,3,...
-      k[0] = 'H'; //timer hours
-      timerHours[i] = request->arg(k).toInt();
-      k[0] = 'N'; //minutes
-      timerMinutes[i] = request->arg(k).toInt();
-      k[0] = 'T'; //macros
-      timerMacro[i] = request->arg(k).toInt();
-      k[0] = 'W'; //weekdays
-      timerWeekday[i] = request->arg(k).toInt();
-      if (i<8) {
-        k[0] = 'M'; //start month
-        timerMonth[i] = request->arg(k).toInt() & 0x0F;
-        timerMonth[i] <<= 4;
-        k[0] = 'P'; //end month
-        timerMonth[i] += (request->arg(k).toInt() & 0x0F);
-        k[0] = 'D'; //start day
-        timerDay[i] = request->arg(k).toInt();
-        k[0] = 'E'; //end day
-        timerDayEnd[i] = request->arg(k).toInt();
+    // Helper function for parameter validation with debug logging
+    auto validateTimerParam = [](const String& value, int minVal, int maxVal, const char* paramName, const char* timerType) -> int {
+      int rawValue = value.toInt();
+      if (rawValue < minVal || rawValue > maxVal) {
+        DEBUG_PRINTF("%s timer: Invalid %s %d, constraining to range %d-%d\n", 
+                     timerType, paramName, rawValue, minVal, maxVal);
       }
+      return constrain(rawValue, minVal, maxVal);
+    };
+
+    // Clear existing timers and rebuild from form data
+    clearTimers();
+    
+    // Process sunrise timer (SR_* fields)
+    if (request->hasArg("SR_T")) {
+      // Extract and validate parameters
+      uint8_t preset = validateTimerParam(request->arg("SR_T"), 0, 250, "preset", "Sunrise");
+      int8_t offset = validateTimerParam(request->arg("SR_N"), -59, 59, "offset", "Sunrise");
+      
+      // Extract weekdays (preserve all 8 bits: enabled bit + 7 weekdays)
+      uint8_t weekdays = request->arg("SR_W").toInt() & 0xFF;
+      
+      // Extract and validate date range
+      uint8_t monthStart = validateTimerParam(request->arg("SR_M"), 1, 12, "start month", "Sunrise");
+      uint8_t dayStart = validateTimerParam(request->arg("SR_D"), 1, 31, "start day", "Sunrise");
+      uint8_t monthEnd = validateTimerParam(request->arg("SR_P"), 1, 12, "end month", "Sunrise");
+      uint8_t dayEnd = validateTimerParam(request->arg("SR_E"), 1, 31, "end day", "Sunrise");
+      
+      // Add sunrise timer if preset is valid and enabled
+      if (preset > 0 && (weekdays & 0x01)) {
+        addTimer(preset, TIMER_HOUR_SUNRISE, offset, weekdays, monthStart, monthEnd, dayStart, dayEnd);
+      }
+    }
+    
+    // Process sunset timer (SS_* fields)
+    if (request->hasArg("SS_T")) {
+      // Extract and validate parameters
+      uint8_t preset = validateTimerParam(request->arg("SS_T"), 0, 250, "preset", "Sunset");
+      int8_t offset = validateTimerParam(request->arg("SS_N"), -59, 59, "offset", "Sunset");
+      
+      // Extract weekdays (preserve all 8 bits: enabled bit + 7 weekdays)
+      uint8_t weekdays = request->arg("SS_W").toInt() & 0xFF;
+      
+      // Extract and validate date range
+      uint8_t monthStart = validateTimerParam(request->arg("SS_M"), 1, 12, "start month", "Sunset");
+      uint8_t dayStart = validateTimerParam(request->arg("SS_D"), 1, 31, "start day", "Sunset");
+      uint8_t monthEnd = validateTimerParam(request->arg("SS_P"), 1, 12, "end month", "Sunset");
+      uint8_t dayEnd = validateTimerParam(request->arg("SS_E"), 1, 31, "end day", "Sunset");
+      
+      // Add sunset timer if preset is valid and enabled
+      if (preset > 0 && (weekdays & 0x01)) {
+        addTimer(preset, TIMER_HOUR_SUNSET, offset, weekdays, monthStart, monthEnd, dayStart, dayEnd);
+      }
+    }
+    
+    // Process regular timers (0-9, A-F fields)
+    char k[3]; k[2] = 0;
+    for (int i = 0; i < maxTimePresets; i++) {
+      k[1] = (i < 10) ? (i + 48) : (i + 55); // ascii 0-9, then A-F for indices 10-15
+      
+      // Check if this timer entry exists and has valid content
+      k[0] = 'T'; // preset/macro field
+      if (!request->hasArg(k)) continue;
+      String presetValue = request->arg(k);
+      if (presetValue.isEmpty() || presetValue.toInt() == 0) continue; // Skip empty or zero preset values
+      
+      // Extract timer data from form with validation
+      k[0] = 'T'; // preset/macro field
+      uint8_t preset = constrain(request->arg(k).toInt(), 0, 250); // Limit preset to valid range
+      
+      k[0] = 'H'; // hours
+      uint8_t hour = constrain(request->arg(k).toInt(), 0, 23); // Regular timers: 0-23 hours only
+      
+      k[0] = 'N'; // minutes  
+      int8_t minute = constrain(request->arg(k).toInt(), 0, 59); // Regular timers: 0-59 minutes
+      
+      k[0] = 'W'; // weekdays
+      uint8_t weekdays = request->arg(k).toInt() & 0x7F; // Ensure only 7 bits used (0-127)
+      
+      // Date range for regular timers
+      k[0] = 'M'; // start month
+      uint8_t monthStart = constrain(request->arg(k).toInt(), 1, 12);
+      k[0] = 'P'; // end month  
+      uint8_t monthEnd = constrain(request->arg(k).toInt(), 1, 12);
+      k[0] = 'D'; // start day
+      uint8_t dayStart = constrain(request->arg(k).toInt(), 1, 31);
+      k[0] = 'E'; // end day
+      uint8_t dayEnd = constrain(request->arg(k).toInt(), 1, 31);
+      
+      // Add timer to the new system
+      addTimer(preset, hour, minute, weekdays, monthStart, monthEnd, dayStart, dayEnd);
     }
   }
 
