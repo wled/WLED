@@ -8038,7 +8038,7 @@ uint16_t mode_ElasticCollisions(void) {              // by Nicholas Pisarro, Jr.
 
   return FRAMETIME;
 } // mode_ElasticCollisions
-static const char _data_FXMODE_ELASTICCOLLISIONS[] PROGMEM = "Elastic Collisions@Speed,Count,Uniformity,Lifetime;!,!;!;c1=0,sx=120,c2=64";
+static const char _data_FXMODE_ELASTICCOLLISIONS[] PROGMEM = "Elastic Collisions@Speed,Count,Uniformity,Lifetime;;!;12;c1=0,sx=120,c2=64";
 
 
 // Distortion waves - ldirko
