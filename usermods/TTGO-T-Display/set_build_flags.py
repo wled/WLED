@@ -25,11 +25,15 @@ def find_in_paths(filename, paths):
     return None
 
 lib_builders = env.GetLibBuilders()
-search_paths = [global_env["PROJECT_SRC_DIR"],
-                global_env["PROJECT_INCLUDE_DIR"],
-                *[incdir for lb in lib_builders for incdir in lb.get_include_dirs()]]
+if os.path.isfile(display_setup):
+    display_setup_path = display_setup
+else:
+    search_paths = [global_env["PROJECT_SRC_DIR"],
+                    global_env["PROJECT_INCLUDE_DIR"],
+                    *[incdir for lb in lib_builders for incdir in lb.get_include_dirs()]]
 
-display_setup_path = find_in_paths(display_setup, search_paths)
+    display_setup_path = find_in_paths(display_setup, search_paths)
+    
 if display_setup_path is None:
     print(f"Unable to find {display_setup} in any include path - {[str(path) for path in search_paths]}!")
     raise RuntimeError("Missing display setup; use 'User_Setups/something.h' for setups out of TFT_eSPI, or put your setup in wled00")
