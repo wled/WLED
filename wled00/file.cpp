@@ -478,7 +478,44 @@ bool copyFile(const char* src_path, const char* dst_path) {
   return success;
 }
 
-static const char s_backup_json[] PROGMEM = ".bkp.json";
+// compare two files, return true if identical
+bool compareFiles(const char* path1, const char* path2) {
+  DEBUG_PRINTF("compareFile %s and %s\n", path1, path2);
+  if (!WLED_FS.exists(path1) || !WLED_FS.exists(path2)) {
+    DEBUG_PRINTLN(F("file not found"));
+    return false;
+  }
+
+  bool identical = true; // set to false on mismatch
+  File f1 = WLED_FS.open(path1, "r");
+  File f2 = WLED_FS.open(path2, "r");
+
+  if (f1 && f2) {
+    uint8_t buf1[128], buf2[128];
+    while (f1.available() > 0 || f2.available() > 0) {
+      size_t len1 = f1.read(buf1, sizeof(buf1));
+      size_t len2 = f2.read(buf2, sizeof(buf2));
+
+      if (len1 != len2) {
+        identical = false;
+        break; // files differ in size or read failed
+      }
+
+      if (memcmp(buf1, buf2, len1) != 0) {
+        identical = false;
+        break; // files differ in content
+      }
+    }
+  } else {
+    identical = false; // error opening files
+  }
+
+  if (f1) f1.close();
+  if (f2) f2.close();
+  return identical;
+}
+
+static const char s_backup_json[] PROGMEM = "/bkp.";
 
 bool backupFile(const char* filename) {
   DEBUG_PRINTF("backup %s \n", filename);
@@ -487,8 +524,7 @@ bool backupFile(const char* filename) {
     return false;
   }
   char backupname[32];
-  strcpy(backupname, filename);
-  strcat(backupname, s_backup_json);
+  snprintf(backupname, sizeof(backupname), "%s%s", s_backup_json, filename + 1); // skip leading '/' in filename
 
   if (copyFile(filename, backupname)) {
     DEBUG_PRINTLN(F("backup ok"));
@@ -501,8 +537,7 @@ bool backupFile(const char* filename) {
 bool restoreFile(const char* filename) {
   DEBUG_PRINTF("restore %s \n", filename);
   char backupname[32];
-  strcpy(backupname, filename);
-  strcat(backupname, s_backup_json);
+  snprintf(backupname, sizeof(backupname), "%s%s", s_backup_json, filename + 1); // skip leading '/' in filename
 
   if (!WLED_FS.exists(backupname)) {
     DEBUG_PRINTLN(F("no backup found"));
