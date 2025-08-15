@@ -1,3 +1,4 @@
 {
-  "name:": "sd_card"
+  "name": "sd_card",
+  "build": { "libArchive": false }
 }

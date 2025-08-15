@@ -1,3 +1,4 @@
 {
-  "name:": "Internal_Temperature_v2"
+  "name": "Internal_Temperature_v2",
+  "build": { "libArchive": false }
 }

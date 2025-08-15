@@ -35,19 +35,23 @@ All parameters can be configured at runtime via the Usermods settings page, incl
 
 ## Change Log
 
-2020-09-12 
+2020-09-12
+
 * Changed to use async non-blocking implementation
 * Do not report erroneous low temperatures to MQTT
 * Disable plugin if temperature sensor not detected
 * Report the number of seconds until the first read in the info screen instead of sensor error
 
 2021-04
+
 * Adaptation for runtime configuration.
 
 2023-05
+
 * Rewrite to conform to newer recommendations.
 * Recommended @blazoncek fork of OneWire for ESP32 to avoid Sensor error
 
 2024-09
+
 * Update OneWire to version 2.3.8, which includes stickbreaker's and garyd9's ESP32 fixes:
   blazoncek's fork is no longer needed

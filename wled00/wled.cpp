@@ -1,7 +1,10 @@
 #define WLED_DEFINE_GLOBAL_VARS //only in one source file, wled.cpp!
 #include "wled.h"
 #include "wled_ethernet.h"
-#include <Arduino.h>
+#ifdef WLED_ENABLE_AOTA
+  #define NO_OTA_PORT
+  #include <ArduinoOTA.h>
+#endif
 
 #if defined(ARDUINO_ARCH_ESP32) && defined(WLED_DISABLE_BROWNOUT_DET)
 #include "soc/soc.h"
@@ -105,8 +108,8 @@ void WLED::loop()
   if (!realtimeMode || realtimeOverride || (realtimeMode && useMainSegmentOnly))  // block stuff if WARLS/Adalight is enabled
   {
     if (apActive) dnsServer.processNextRequest();
-    #ifndef WLED_DISABLE_OTA
-    if (WLED_CONNECTED && aOtaEnabled && !otaLock && correctPIN) ArduinoOTA.handle();
+    #ifdef WLED_ENABLE_AOTA
+    if (Network.isConnected() && aOtaEnabled && !otaLock && correctPIN) ArduinoOTA.handle();
     #endif
     handleNightlight();
     yield();
@@ -193,14 +196,14 @@ void WLED::loop()
     if (aligned) strip.makeAutoSegments();
     else strip.fixInvalidSegments();
     BusManager::setBrightness(bri); // fix re-initialised bus' brightness
-    doSerializeConfig = true;
+    configNeedsWrite = true;
   }
   if (loadLedmap >= 0) {
     strip.deserializeMap(loadLedmap);
     loadLedmap = -1;
   }
   yield();
-  if (doSerializeConfig) serializeConfig();
+  if (configNeedsWrite) serializeConfigToFS();
 
   yield();
   handleWs();
@@ -223,7 +226,7 @@ void WLED::loop()
   }
 #endif
 
-  if (doReboot && (!doInitBusses || !doSerializeConfig)) // if busses have to be inited & saved, wait until next iteration
+  if (doReboot && (!doInitBusses || !configNeedsWrite)) // if busses have to be inited & saved, wait until next iteration
     reset();
 
 // DEBUG serial logging (every 30s)
@@ -342,7 +345,6 @@ void WLED::setup()
   #else
     DEBUG_PRINTLN(F("arduino-esp32 v1.0.x\n"));  // we can't say in more detail.
   #endif
-
   DEBUG_PRINTF_P(PSTR("CPU:   %s rev.%d, %d core(s), %d MHz.\n"), ESP.getChipModel(), (int)ESP.getChipRevision(), ESP.getChipCores(), ESP.getCpuFreqMHz());
   DEBUG_PRINTF_P(PSTR("FLASH: %d MB, Mode %d "), (ESP.getFlashChipSize()/1024)/1024, (int)ESP.getFlashChipMode());
   #ifdef WLED_DEBUG
@@ -424,7 +426,7 @@ void WLED::setup()
   multiWiFi.push_back(WiFiConfig(CLIENT_SSID,CLIENT_PASS)); // initialise vector with default WiFi
 
   DEBUG_PRINTLN(F("Reading config"));
-  deserializeConfigFromFS();
+  bool needsCfgSave = deserializeConfigFromFS();
   DEBUG_PRINTF_P(PSTR("heap %u\n"), ESP.getFreeHeap());
 
 #if defined(STATUSLED) && STATUSLED>=0
@@ -443,6 +445,8 @@ void WLED::setup()
   userSetup();
   UsermodManager::setup();
   DEBUG_PRINTF_P(PSTR("heap %u\n"), ESP.getFreeHeap());
+
+  if (needsCfgSave) serializeConfigToFS(); // usermods required new parameters; need to wait for strip to be initialised #4752
 
   if (strcmp(multiWiFi[0].clientSSID, DEFAULT_CLIENT_SSID) == 0)
     showWelcomePage = true;
@@ -470,7 +474,7 @@ void WLED::setup()
   if (mqttClientID[0] == 0)    sprintf_P(mqttClientID, PSTR("WLED-%*s"), 6, escapedMac.c_str() + 6);
 #endif
 
-#ifndef WLED_DISABLE_OTA
+#ifdef WLED_ENABLE_AOTA
   if (aOtaEnabled) {
     ArduinoOTA.onStart([]() {
       #ifdef ESP8266
@@ -530,6 +534,7 @@ void WLED::setup()
 void WLED::beginStrip()
 {
   // Initialize NeoPixel Strip and button
+  strip.setTransition(0); // temporarily prevent transitions to reduce segment copies
   strip.finalizeInit(); // busses created during deserializeConfig() if config existed
   strip.makeAutoSegments();
   strip.setBrightness(0);
@@ -557,6 +562,8 @@ void WLED::beginStrip()
   if (bootPreset > 0) {
     applyPreset(bootPreset, CALL_MODE_INIT);
   }
+
+  strip.setTransition(transitionDelayDefault);  // restore transitions
 
   // init relay pin
   if (rlyPin >= 0) {
@@ -707,9 +714,8 @@ void WLED::initInterfaces()
     alexaInit();
 #endif
 
-#ifndef WLED_DISABLE_OTA
-  if (aOtaEnabled)
-    ArduinoOTA.begin();
+#ifdef WLED_ENABLE_AOTA
+  if (aOtaEnabled) ArduinoOTA.begin();
 #endif
 
   // Set up mDNS responder:
@@ -739,9 +745,6 @@ void WLED::initInterfaces()
   e131.begin(e131Multicast, e131Port, e131Universe, E131_MAX_UNIVERSE_COUNT);
   ddp.begin(false, DDP_DEFAULT_PORT);
   reconnectHue();
-#ifndef WLED_DISABLE_MQTT
-  initMqtt();
-#endif
   interfacesInited = true;
   wasConnected = true;
 }
@@ -751,7 +754,9 @@ void WLED::handleConnection()
   static bool scanDone = true;
   static byte stacO = 0;
   const unsigned long now = millis();
+  #ifdef WLED_DEBUG
   const unsigned long nowS = now/1000;
+  #endif
   const bool wifiConfigured = WLED_WIFI_CONFIGURED;
 
   // ignore connection handling if WiFi is configured and scan still running
@@ -781,7 +786,7 @@ void WLED::handleConnection()
     if (stac != stacO) {
       stacO = stac;
       DEBUG_PRINTF_P(PSTR("Connected AP clients: %d\n"), (int)stac);
-      if (!WLED_CONNECTED && wifiConfigured) {        // trying to connect, but not connected
+      if (!Network.isConnected() && wifiConfigured) {        // trying to connect, but not connected
         if (stac)
           WiFi.disconnect();        // disable search so that AP can work
         else
@@ -856,7 +861,7 @@ void WLED::handleConnection()
 }
 
 // If status LED pin is allocated for other uses, does nothing
-// else blink at 1Hz when WLED_CONNECTED is false (no WiFi, ?? no Ethernet ??)
+// else blink at 1Hz when Network.isConnected() is false (no WiFi, ?? no Ethernet ??)
 // else blink at 2Hz when MQTT is enabled but not connected
 // else turn the status LED off
 #if defined(STATUSLED)
@@ -870,7 +875,7 @@ void WLED::handleStatusLED()
   }
   #endif
 
-  if (WLED_CONNECTED) {
+  if (Network.isConnected()) {
     c = RGBW32(0,255,0,0);
     ledStatusType = 2;
   } else if (WLED_MQTT_CONNECTED) {

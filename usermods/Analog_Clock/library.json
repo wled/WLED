@@ -1,3 +1,4 @@
 {
-  "name:": "Analog_Clock"
+  "name": "Analog_Clock",
+  "build": { "libArchive": false }
 }

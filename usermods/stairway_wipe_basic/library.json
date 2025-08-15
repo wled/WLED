@@ -1,3 +1,4 @@
 {
-  "name:": "stairway_wipe_basic"
+  "name": "stairway_wipe_basic",
+  "build": { "libArchive": false }
 }

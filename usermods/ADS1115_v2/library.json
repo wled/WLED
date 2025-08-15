@@ -1,5 +1,6 @@
 {
-  "name:": "ADS1115_v2",
+  "name": "ADS1115_v2",
+  "build": { "libArchive": false },
   "dependencies": {
     "Adafruit BusIO": "https://github.com/adafruit/Adafruit_BusIO#1.13.2",
     "Adafruit ADS1X15": "https://github.com/adafruit/Adafruit_ADS1X15#2.4.0"

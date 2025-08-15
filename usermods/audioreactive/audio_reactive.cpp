@@ -65,11 +65,14 @@ static bool udpSyncConnected = false;         // UDP connection status -> true i
 
 // audioreactive variables
 #ifdef ARDUINO_ARCH_ESP32
+    #ifndef SR_AGC // Automatic gain control mode
+    #define SR_AGC 0 // default mode = off
+    #endif
 static float    micDataReal = 0.0f;             // MicIn data with full 24bit resolution - lowest 8bit after decimal point
 static float    multAgc = 1.0f;                 // sample * multAgc = sampleAgc. Our AGC multiplier
 static float    sampleAvg = 0.0f;               // Smoothed Average sample - sampleAvg < 1 means "quiet" (simple noise gate)
 static float    sampleAgc = 0.0f;               // Smoothed AGC sample
-static uint8_t  soundAgc = 0;                   // Automagic gain control: 0 - none, 1 - normal, 2 - vivid, 3 - lazy (config value)
+static uint8_t  soundAgc = SR_AGC;              // Automatic gain control: 0 - off, 1 - normal, 2 - vivid, 3 - lazy (config value)
 #endif
 //static float    volumeSmth = 0.0f;              // either sampleAvg or sampleAgc depending on soundAgc; smoothed sample
 static float FFT_MajorPeak = 1.0f;              // FFT: strongest (peak) frequency
@@ -869,7 +872,7 @@ class AudioReactive : public Usermod {
       const int   AGC_preset = (soundAgc > 0)? (soundAgc-1): 0; // make sure the _compiler_ knows this value will not change while we are inside the function
 
       #ifdef WLED_DISABLE_SOUND
-        micIn = inoise8(millis(), millis());          // Simulated analog read
+        micIn = perlin8(millis(), millis());          // Simulated analog read
         micDataReal = micIn;
       #else
         #ifdef ARDUINO_ARCH_ESP32
@@ -1736,7 +1739,7 @@ class AudioReactive : public Usermod {
     }
 
     void onStateChange(uint8_t callMode) override {
-      if (initDone && enabled && addPalettes && palettes==0 && strip.customPalettes.size()<10) {
+      if (initDone && enabled && addPalettes && palettes==0 && customPalettes.size()<10) {
         // if palettes were removed during JSON call re-add them
         createAudioPalettes();
       }
@@ -1966,20 +1969,20 @@ class AudioReactive : public Usermod {
 void AudioReactive::removeAudioPalettes(void) {
   DEBUG_PRINTLN(F("Removing audio palettes."));
   while (palettes>0) {
-    strip.customPalettes.pop_back();
+    customPalettes.pop_back();
     DEBUG_PRINTLN(palettes);
     palettes--;
   }
-  DEBUG_PRINT(F("Total # of palettes: ")); DEBUG_PRINTLN(strip.customPalettes.size());
+  DEBUG_PRINT(F("Total # of palettes: ")); DEBUG_PRINTLN(customPalettes.size());
 }
 
 void AudioReactive::createAudioPalettes(void) {
-  DEBUG_PRINT(F("Total # of palettes: ")); DEBUG_PRINTLN(strip.customPalettes.size());
+  DEBUG_PRINT(F("Total # of palettes: ")); DEBUG_PRINTLN(customPalettes.size());
   if (palettes) return;
   DEBUG_PRINTLN(F("Adding audio palettes."));
   for (int i=0; i<MAX_PALETTES; i++)
-    if (strip.customPalettes.size() < 10) {
-      strip.customPalettes.push_back(CRGBPalette16(CRGB(BLACK)));
+    if (customPalettes.size() < 10) {
+      customPalettes.push_back(CRGBPalette16(CRGB(BLACK)));
       palettes++;
       DEBUG_PRINTLN(palettes);
     } else break;
@@ -2016,7 +2019,7 @@ CRGB AudioReactive::getCRGBForBand(int x, int pal) {
 
 void AudioReactive::fillAudioPalettes() {
   if (!palettes) return;
-  size_t lastCustPalette = strip.customPalettes.size();
+  size_t lastCustPalette = customPalettes.size();
   if (int(lastCustPalette) >= palettes) lastCustPalette -= palettes;
   for (int pal=0; pal<palettes; pal++) {
     uint8_t tcp[16];  // Needs to be 4 times however many colors are being used.
@@ -2045,7 +2048,7 @@ void AudioReactive::fillAudioPalettes() {
     tcp[14] = rgb.g;
     tcp[15] = rgb.b;
 
-    strip.customPalettes[lastCustPalette+pal].loadDynamicGradientPalette(tcp);
+    customPalettes[lastCustPalette+pal].loadDynamicGradientPalette(tcp);
   }
 }
 

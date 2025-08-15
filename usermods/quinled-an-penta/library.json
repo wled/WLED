@@ -1,5 +1,5 @@
 {
-  "name:": "quinled-an-penta",
+  "name": "quinled-an-penta",
   "build": { "libArchive": false},
   "dependencies": {
     "olikraus/U8g2":"~2.28.8",

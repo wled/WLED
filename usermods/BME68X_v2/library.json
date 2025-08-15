@@ -1,6 +1,6 @@
 {
-  "name:": "BME68X_v2",
-  "build": { "libArchive": false},
+  "name": "BME68X",
+  "build": { "libArchive": false },
   "dependencies": {
     "boschsensortec/BSEC Software Library":"^1.8.1492"
   }

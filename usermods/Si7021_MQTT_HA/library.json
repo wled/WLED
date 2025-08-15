@@ -1,7 +1,10 @@
 {
-  "name:": "Si7021_MQTT_HA",
+  "name": "Si7021_MQTT_HA",
+  "build": { "libArchive": false },
   "dependencies": {
     "finitespace/BME280":"3.0.0",
-    "adafruit/Adafruit Si7021 Library" : "1.5.3"
+    "adafruit/Adafruit Si7021 Library" : "1.5.3",
+    "SPI":"*",
+    "adafruit/Adafruit BusIO": "1.17.1"
   }
 }

@@ -272,5 +272,5 @@ void parseWiFiCommand(char* rpcData) {
   improvActive = 2;
 
   forceReconnect = true;
-  serializeConfig();
+  serializeConfigToFS();
 }

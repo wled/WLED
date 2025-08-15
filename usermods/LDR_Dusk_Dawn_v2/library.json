@@ -1,3 +1,4 @@
 {
-  "name:": "LDR_Dusk_Dawn_v2"
+  "name": "LDR_Dusk_Dawn_v2",
+  "build": { "libArchive": false }
 }

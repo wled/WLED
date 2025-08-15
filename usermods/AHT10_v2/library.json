@@ -1,5 +1,6 @@
 {
-  "name:": "AHT10_v2",
+  "name": "AHT10_v2",
+  "build": { "libArchive": false },  
   "dependencies": {
     "enjoyneering/AHT10":"~1.1.0"
   }

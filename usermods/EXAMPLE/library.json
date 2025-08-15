@@ -1,4 +1,5 @@
 {
-  "name:": "EXAMPLE",
+  "name": "EXAMPLE",
+  "build": { "libArchive": false },
   "dependencies": {}
 }
