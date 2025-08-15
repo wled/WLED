@@ -17,9 +17,6 @@
  * when a change in the dipslayed info is detected (within a 5 second interval).
  */
  
-
-//Use userVar0 and userVar1 (API calls &U0=,&U1=, uint16_t)
-
 #include "wled.h"
 #include <SPI.h>
 #include <TFT_eSPI.h>
@@ -44,10 +41,35 @@
 //#define ADC_EN          14  // Used for enabling battery voltage measurements - not used in this program
 //#define WLED_WATCHDOG_TIMEOUT 3
 
-TFT_eSPI tft = TFT_eSPI(135, 240); // Invoke custom library
+// How often we are redrawing screen
+#define USER_LOOP_REFRESH_RATE_MS 5000
+
+class TTGO_T_DisplayMod : public Usermod {
+
+  // Member variables  
+  TFT_eSPI tft; // Invoke custom library
+  // needRedraw marks if redraw is required to prevent often redrawing.
+  bool needRedraw = true;
+  // Next variables hold the previous known values to determine if redraw is
+  // required.
+  String knownSsid = "";
+  IPAddress knownIp;
+  uint8_t knownBrightness = 0;
+  uint8_t knownMode = 0;
+  uint8_t knownPalette = 0;
+  uint8_t tftcharwidth = 19;  
+
+  long lastUpdate_mod = 0;
+  long lastRedraw = 0;
+  bool displayTurnedOff = false;
+
+public:
+
+TTGO_T_DisplayMod() : Usermod()
+{}
 
 //gets called once at boot. Do all initialization that doesn't depend on network here
-void userSetup() {
+void setup() override {
     DEBUG_PRINTLN("Start");
     tft.init();
     tft.setRotation(3);  //Rotation here is set up for the text to be readable with the port on the left. Use 1 to flip.
@@ -70,29 +92,8 @@ void userSetup() {
     // tft.setRotation(3);
 }
 
-// gets called every time WiFi is (re-)connected. Initialize own network
-// interfaces here
-void userConnected() {}
 
-// needRedraw marks if redraw is required to prevent often redrawing.
-static bool needRedraw = true;
-
-// Next variables hold the previous known values to determine if redraw is
-// required.
-static String knownSsid = "";
-static IPAddress knownIp;
-static uint8_t knownBrightness = 0;
-static uint8_t knownMode = 0;
-static uint8_t knownPalette = 0;
-static uint8_t tftcharwidth = 19;  // Number of chars that fit on screen with text size set to 2
-
-static long lastUpdate_mod = 0;
-static long lastRedraw = 0;
-static bool displayTurnedOff = false;
-// How often we are redrawing screen
-#define USER_LOOP_REFRESH_RATE_MS 5000
-
-void userLoop() {
+void loop() override {
 
   // Check if we time interval for redrawing passes.
   if (millis() - lastUpdate_mod < USER_LOOP_REFRESH_RATE_MS) {
@@ -205,3 +206,7 @@ void userLoop() {
   DEBUG_PRINTLN("Print estimated current");
   
 }
+};  // TTGO_T_DisplayMod
+
+static TTGO_T_DisplayMod usermod_ttgo_t_display;
+REGISTER_USERMOD(usermod_ttgo_t_display);
