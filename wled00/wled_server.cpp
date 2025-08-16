@@ -386,7 +386,7 @@ void initServer()
     if (Update.hasError()) {
       serveMessage(request, 500, F("Update failed!"), F("Please check your file and retry!"), 254);
     } else {
-      serveMessage(request, 200, F("Update successful!"), FPSTR(s_rebooting), 131);
+      serveMessage(request, 200, F("Update successful!"), F("Rebooting..."), 131);
       #ifndef ESP8266
       bootloopCheckOTA(); // let the bootloop-checker know there was an OTA update
       #endif
