@@ -6,15 +6,15 @@
 #
 ajsonrpc==1.2.0
     # via platformio
-anyio==4.8.0
+anyio==4.10.0
     # via starlette
-bottle==0.13.2
+bottle==0.13.4
     # via platformio
-certifi==2025.1.31
+certifi==2025.8.3
     # via requests
-charset-normalizer==3.4.1
+charset-normalizer==3.4.3
     # via requests
-click==8.1.8
+click==8.2.2
     # via
     #   platformio
     #   uvicorn
@@ -28,9 +28,9 @@ idna==3.10
     # via
     #   anyio
     #   requests
-marshmallow==3.26.1
+marshmallow==4.0.0
     # via platformio
-packaging==24.2
+packaging==25.0
     # via marshmallow
 platformio==6.1.18
     # via -r requirements.in
@@ -44,15 +44,15 @@ semantic-version==2.10.0
     # via platformio
 sniffio==1.3.1
     # via anyio
-starlette==0.45.3
+starlette==0.47.2
     # via platformio
 tabulate==0.9.0
     # via platformio
-typing-extensions==4.12.2
+typing-extensions==4.14.1
     # via anyio
 urllib3==2.5.0
     # via requests
-uvicorn==0.34.0
+uvicorn==0.35.0
     # via platformio
 wsproto==1.2.0
     # via platformio
