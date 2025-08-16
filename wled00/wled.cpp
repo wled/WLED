@@ -77,7 +77,6 @@ void WLED::loop()
   #ifdef WLED_DEBUG
   unsigned long usermodMillis = millis();
   #endif
-  userLoop();
   UsermodManager::loop();
   #ifdef WLED_DEBUG
   usermodMillis = millis() - usermodMillis;
@@ -450,7 +449,6 @@ void WLED::setup()
   DEBUG_PRINTF_P(PSTR("heap %u\n"), ESP.getFreeHeap());
 
   DEBUG_PRINTLN(F("Usermods setup"));
-  userSetup();
   UsermodManager::setup();
   DEBUG_PRINTF_P(PSTR("heap %u\n"), ESP.getFreeHeap());
 
@@ -854,7 +852,6 @@ void WLED::handleConnection()
       if (improvActive > 1) sendImprovIPRPCResult(ImprovRPCType::Command_Wifi);
     }
     initInterfaces();
-    userConnected();
     UsermodManager::connected();
     lastMqttReconnectAttempt = 0; // force immediate update
 
