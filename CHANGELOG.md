@@ -181,6 +181,10 @@
 -   ESPAsyncWebServer 2.2.0 (#3828 by @willmmiles)
 -   Bugfixes: #3843, #3844
 
+#### Build 2403191
+
+-   Add Image effect (GIF playback from FS support)
+
 #### Build 2403190
 -   limit max PWM frequency (fix incorrect PWM resolution)
 -   Segment UI bugfix
