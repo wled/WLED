@@ -7718,8 +7718,35 @@ public:
 		return distSq <= radiusSum * radiusSum;
 	}
 
-    // Function to simulate the elastic collision and update velocities
-    void handleCollision(MBSphere *sp, bool is2D)
+  /* Make sure two spheres haven't gotten too close.
+   * Note: There is a pathological case where two spheres
+   * can crash into each other so hard, that one actually
+   * ends up insde the other. This function prevents that. */
+  void enforceMinDist(MBSphere *sp)
+  {
+      float dist = radius + sp->radius;
+
+      float dx = sp->x - x;
+      float dy = sp->y - y;
+      float length = sqrt(dx * dx + dy * dy);
+
+      if (length >= dist || length == 0.0)
+          return; // Already long enough, or degenerate point
+
+      // Normalize direction
+      float scale = (dist - length) / (2.0 * length);
+
+      float offsetX = dx * scale;
+      float offsetY = dy * scale;
+
+      x -= offsetX;
+      y -= offsetY;
+      sp->x += offsetX;
+      sp->y += offsetY;
+  }
+
+  // Function to simulate the elastic collision and update velocities
+  void handleCollision(MBSphere *sp, bool is2D)
 	{
 		float m1 = this->mass();
 		float m2 = sp->mass();
@@ -8023,7 +8050,12 @@ uint16_t mode_ElasticCollisions(void) {              // by Nicholas Pisarro, Jr.
     for (int i = 0; i < (SEGMENT.aux0 & SPHERES_ALLOCATED); ++i)
         for (int j = i + 1; j < (SEGMENT.aux0 & SPHERES_ALLOCATED); ++j)
             if (spheres[i].areSpheresColliding(spheres[j]))
+            {
+              /* Make sure the two spheres haven't collided so hard that
+               * one is inside the other. */
+              spheres[i].enforceMinDist(spheres + j);
               spheres[i].handleCollision(spheres + j, is2D);
+            }
     
       // After a while, force a complete recalculation
       if (--SEGMENT.aux1 == 0)
