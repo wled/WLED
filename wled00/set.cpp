@@ -128,12 +128,12 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
       PinManager::deallocatePin(irPin, PinOwner::IR);
     }
     #endif
-    for (unsigned s=0; s<WLED_MAX_BUTTONS; s++) {
-      if (btnPin[s]>=0 && PinManager::isPinAllocated(btnPin[s], PinOwner::Button)) {
-        PinManager::deallocatePin(btnPin[s], PinOwner::Button);
+    for (const auto &button : buttons) {
+      if (button.pin >= 0 && PinManager::isPinAllocated(button.pin, PinOwner::Button)) {
+        PinManager::deallocatePin(button.pin, PinOwner::Button);
         #ifdef SOC_TOUCH_VERSION_2 // ESP32 S2 and S3 have a function to check touch state, detach interrupt
-        if (digitalPinToTouchChannel(btnPin[s]) >= 0) // if touch capable pin
-          touchDetachInterrupt(btnPin[s]);            // if not assigned previously, this will do nothing
+        if (digitalPinToTouchChannel(button.pin) >= 0) // if touch capable pin
+          touchDetachInterrupt(button.pin);            // if not assigned previously, this will do nothing
         #endif
       }
     }
@@ -280,54 +280,56 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
       char bt[4] = "BT"; bt[2] = offset+i; bt[3] = 0; // button pin (use A,B,C,... if WLED_MAX_BUTTONS>10)
       char be[4] = "BE"; be[2] = offset+i; be[3] = 0; // button type (use A,B,C,... if WLED_MAX_BUTTONS>10)
       int hw_btn_pin = request->arg(bt).toInt();
-      if (hw_btn_pin >= 0 && PinManager::allocatePin(hw_btn_pin,false,PinOwner::Button)) {
-        btnPin[i] = hw_btn_pin;
-        buttonType[i] = request->arg(be).toInt();
-      #ifdef ARDUINO_ARCH_ESP32
+      if (i >= buttons.size()) buttons.emplace_back(hw_btn_pin, request->arg(be).toInt()); // add button to vector
+      else {
+        buttons[i].pin  = hw_btn_pin;
+        buttons[i].type = request->arg(be).toInt();
+      }
+      if (buttons[i].pin >= 0 && PinManager::allocatePin(buttons[i].pin, false, PinOwner::Button)) {
+        #ifdef ARDUINO_ARCH_ESP32
         // ESP32 only: check that button pin is a valid gpio
-        if ((buttonType[i] == BTN_TYPE_ANALOG) || (buttonType[i] == BTN_TYPE_ANALOG_INVERTED))
-        {
-          if (digitalPinToAnalogChannel(btnPin[i]) < 0) {
+        if ((buttons[i].type == BTN_TYPE_ANALOG) || (buttons[i].type == BTN_TYPE_ANALOG_INVERTED)) {
+          if (digitalPinToAnalogChannel(buttons[i].pin) < 0) {
             // not an ADC analog pin
-            DEBUG_PRINTF_P(PSTR("PIN ALLOC error: GPIO%d for analog button #%d is not an analog pin!\n"), btnPin[i], i);
-            btnPin[i] = -1;
-            PinManager::deallocatePin(hw_btn_pin,PinOwner::Button);
+            DEBUG_PRINTF_P(PSTR("PIN ALLOC error: GPIO%d for analog button #%d is not an analog pin!\n"), buttons[i].pin, i);
+            PinManager::deallocatePin(buttons[i].pin, PinOwner::Button);
+            buttons[i].type = BTN_TYPE_NONE;
           } else {
             analogReadResolution(12); // see #4040
           }
-        }
-        else if ((buttonType[i] == BTN_TYPE_TOUCH || buttonType[i] == BTN_TYPE_TOUCH_SWITCH))
-        {
-          if (digitalPinToTouchChannel(btnPin[i]) < 0)
-          {
+        } else if ((buttons[i].type == BTN_TYPE_TOUCH || buttons[i].type == BTN_TYPE_TOUCH_SWITCH)) {
+          if (digitalPinToTouchChannel(buttons[i].pin) < 0) {
             // not a touch pin
-            DEBUG_PRINTF_P(PSTR("PIN ALLOC error: GPIO%d for touch button #%d is not an touch pin!\n"), btnPin[i], i);
-            btnPin[i] = -1;
-            PinManager::deallocatePin(hw_btn_pin,PinOwner::Button);
+            DEBUG_PRINTF_P(PSTR("PIN ALLOC error: GPIO%d for touch button #%d is not an touch pin!\n"), buttons[i].pin, i);
+            PinManager::deallocatePin(buttons[i].pin, PinOwner::Button);
+            buttons[i].type = BTN_TYPE_NONE;
           }          
           #ifdef SOC_TOUCH_VERSION_2 // ESP32 S2 and S3 have a fucntion to check touch state but need to attach an interrupt to do so
-          else                    
-          {
-            touchAttachInterrupt(btnPin[i], touchButtonISR, touchThreshold << 4); // threshold on Touch V2 is much higher (1500 is a value given by Espressif example, I measured changes of over 5000)
-          }
-          #endif          
-        }
-        else
-      #endif
+          else touchAttachInterrupt(buttons[i].pin, touchButtonISR, touchThreshold << 4); // threshold on Touch V2 is much higher (1500 is a value given by Espressif example, I measured changes of over 5000)
+          #endif
+        } else
+        #endif
         {
+          // regular buttons and switches
           if (disablePullUp) {
-            pinMode(btnPin[i], INPUT);
+            pinMode(buttons[i].pin, INPUT);
           } else {
             #ifdef ESP32
-            pinMode(btnPin[i], buttonType[i]==BTN_TYPE_PUSH_ACT_HIGH ? INPUT_PULLDOWN : INPUT_PULLUP);
+            pinMode(buttons[i].pin, buttons[i].type==BTN_TYPE_PUSH_ACT_HIGH ? INPUT_PULLDOWN : INPUT_PULLUP);
             #else
-            pinMode(btnPin[i], INPUT_PULLUP);
+            pinMode(buttons[i].pin, INPUT_PULLUP);
             #endif
           }
         }
       } else {
-        btnPin[i] = -1;
-        buttonType[i] = BTN_TYPE_NONE;
+        buttons[i].pin  = -1;
+        buttons[i].type = BTN_TYPE_NONE;
+      }
+    }
+    // we should remove all unused buttons from the vector
+    for (int i = buttons.size()-1; i > 0; i--) {
+      if (buttons[i].pin < 0 && buttons[i].type == BTN_TYPE_NONE) {
+        buttons.erase(buttons.begin() + i); // remove button from vector
       }
     }
 
@@ -531,14 +533,16 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
     macroAlexaOff = request->arg(F("A1")).toInt();
     macroCountdown = request->arg(F("MC")).toInt();
     macroNl = request->arg(F("MN")).toInt();
-    for (unsigned i=0; i<WLED_MAX_BUTTONS; i++) {
-      char mp[4] = "MP"; mp[2] = (i<10?48:55)+i; mp[3] = 0; // short
-      char ml[4] = "ML"; ml[2] = (i<10?48:55)+i; ml[3] = 0; // long
-      char md[4] = "MD"; md[2] = (i<10?48:55)+i; md[3] = 0; // double
+    int i = 0;
+    for (auto &button : buttons) {
+      char mp[4] = "MP"; mp[2] = (i<10?'0':'A'-10)+i; mp[3] = 0; // short
+      char ml[4] = "ML"; ml[2] = (i<10?'0':'A'-10)+i; ml[3] = 0; // long
+      char md[4] = "MD"; md[2] = (i<10?'0':'A'-10)+i; md[3] = 0; // double
       //if (!request->hasArg(mp)) break;
-      macroButton[i] = request->arg(mp).toInt();      // these will default to 0 if not present
-      macroLongPress[i] = request->arg(ml).toInt();
-      macroDoublePress[i] = request->arg(md).toInt();
+      button.macroButton = request->arg(mp).toInt();      // these will default to 0 if not present
+      button.macroLongPress = request->arg(ml).toInt();
+      button.macroDoublePress = request->arg(md).toInt();
+      i++;
     }
 
     char k[3]; k[2] = 0;
