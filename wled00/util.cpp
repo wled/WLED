@@ -3,9 +3,13 @@
 #include "const.h"
 #ifdef ESP8266
 #include "user_interface.h" // for bootloop detection
-#elif ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(4, 4, 0)
-#include "esp32/rtc.h"      // for bootloop detection
+#else
 #include <Update.h>
+#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(4, 4, 0)
+  #include "esp32/rtc.h"    // for bootloop detection
+#elif ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(3, 3, 0)
+  #include "soc/rtc.h"
+#endif
 #endif
 
 
@@ -628,7 +632,12 @@ void bootloopCheckOTA() { bl_actiontracker = BOOTLOOP_ACTION_OTA; } // swap boot
 static bool detectBootLoop() {
 #if !defined(ESP8266)
   #if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(4, 4, 0)
-  uint32_t rtctime = esp_rtc_get_time_us() / 1000;  // convert to milliseconds
+    uint32_t rtctime = esp_rtc_get_time_us() / 1000;  // convert to milliseconds
+  #elif ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(3, 3, 0)
+    uint64_t rtc_ticks = rtc_time_get();
+    uint32_t rtctime = rtc_time_slowclk_to_us(rtc_ticks, rtc_clk_slow_freq_get_hz()) / 1000;  // convert to milliseconds
+  #endif
+
   esp_reset_reason_t reason = esp_reset_reason();
 
   if (!(reason == ESP_RST_PANIC || reason == ESP_RST_WDT || reason == ESP_RST_INT_WDT || reason == ESP_RST_TASK_WDT)) {
@@ -654,7 +663,6 @@ static bool detectBootLoop() {
       }
     }
   }
-  #endif
 #else // ESP8266
   rst_info* resetreason = system_get_rst_info();
   uint32_t  bl_last_boottime;
