@@ -351,7 +351,6 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
     t = request->arg(F("TP")).toInt();
     randomPaletteChangeTime = MIN(255,MAX(1,t));
     useHarmonicRandomPalette = request->hasArg(F("TH"));
-    useRainbowWheel = request->hasArg(F("RW"));
 
     nightlightTargetBri = request->arg(F("TB")).toInt();
     t = request->arg(F("TL")).toInt();

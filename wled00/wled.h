@@ -625,7 +625,6 @@ WLED_GLOBAL unsigned long transitionStartTime;
 WLED_GLOBAL bool          jsonTransitionOnce       _INIT(false);  // flag to override transitionDelay (playlist, JSON API: "live" & "seg":{"i"} & "tt")
 WLED_GLOBAL uint8_t       randomPaletteChangeTime  _INIT(5);      // amount of time [s] between random palette changes (min: 1s, max: 255s)
 WLED_GLOBAL bool          useHarmonicRandomPalette _INIT(true);   // use *harmonic* random palette generation (nicer looking) or truly random
-WLED_GLOBAL bool          useRainbowWheel          _INIT(false);  // use "rainbow" color wheel instead of "spectrum" color wheel
 
 // nightlight
 WLED_GLOBAL bool nightlightActive _INIT(false);
