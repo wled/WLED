@@ -1654,7 +1654,29 @@ void WS2812FX::show() {
     if (_pixelCCT) { // cctFromRgb already exluded at allocation
       if (i == 0 || _pixelCCT[i-1] != _pixelCCT[i]) BusManager::setSegmentCCT(_pixelCCT[i], correctWB);
     }
-    BusManager::setPixelColor(getMappedPixelIndex(i), realtimeMode && arlsDisableGammaCorrection ? _pixels[i] : gamma32(_pixels[i]));
+
+    uint32_t c = _pixels[i]; // need a copy, do not modify _pixels directly (no byte access allowed on ESP32)
+    if(c > 0) {
+      if(!(realtimeMode && arlsDisableGammaCorrection))
+        c = gamma32(c); // apply gamma correction if enabled note: applying gamma after brightness has too much color loss
+      if(newBri < 255) {
+        // apply brightness note: could check if brightness is 255 and skip this step
+        uint8_t r = R(c), g = G(c), b = B(c), w = W(c);
+        uint32_t addRemains = 0;
+        // video scaling: make sure colors do not dim to zero if they started non-zero unless they distort the hue
+        // determine dominant channel for hue preservation
+        uint8_t maxc = (r > g) ? ((r > b) ? r : b) : ((g > b) ? g : b);
+        uint8_t quarterMax = maxc >> 2;
+        addRemains  = r && r > quarterMax ? 0x00010000 : 0;
+        addRemains |= g && g > quarterMax ? 0x00000100 : 0;
+        addRemains |= b && b > quarterMax ? 0x00000001 : 0;
+        const uint32_t TWO_CHANNEL_MASK = 0x00FF00FF;
+        uint32_t rb = (((c & TWO_CHANNEL_MASK) * newBri) >> 8) &  TWO_CHANNEL_MASK; // scale red and blue
+        uint32_t wg = (((c >> 8) & TWO_CHANNEL_MASK) * newBri) & ~TWO_CHANNEL_MASK; // scale white and green
+        c = (rb | wg) + addRemains;
+      }
+    }
+    BusManager::setPixelColor(getMappedPixelIndex(i), c);
   }
   Bus::setCCT(oldCCT);  // restore old CCT for ABL adjustments
 
