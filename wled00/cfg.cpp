@@ -787,13 +787,12 @@ bool verifyConfig() {
 }
 
 // rename config file and reboot
-// if the file doesn't exist, such as after a reset, do nothing
+// if the cfg file doesn't exist, such as after a reset, do nothing
 void resetConfig() {
   if (WLED_FS.exists(s_cfg_json)) {
     DEBUG_PRINTLN(F("Reset config"));
     char backupname[32];
-    strcpy(backupname, s_cfg_json);
-    strcat(backupname, ".rst.json");
+    snprintf_P(backupname, sizeof(backupname), PSTR("/rst.%s"), &s_cfg_json[1]);
     WLED_FS.rename(s_cfg_json, backupname);
     doReboot = true;
   }
