@@ -836,6 +836,9 @@ void handleBootLoop() {
   #endif
   else
     dumpFilesToSerial();
+#ifdef ESP8266
+  ESP.rtcUserMemoryWrite(ACTIONT_TRACKER_IDX, &bl_actiontracker, sizeof(uint32_t));
+#endif
   ESP.restart(); // restart cleanly and don't wait for another crash
 }
 
