@@ -515,7 +515,7 @@ bool compareFiles(const char* path1, const char* path2) {
   return identical;
 }
 
-static const char s_backup_json[] PROGMEM = "/bkp.";
+static const char s_backup_fmt[] PROGMEM = "/bkp.%s";
 
 bool backupFile(const char* filename) {
   DEBUG_PRINTF("backup %s \n", filename);
@@ -524,7 +524,7 @@ bool backupFile(const char* filename) {
     return false;
   }
   char backupname[32];
-  snprintf(backupname, sizeof(backupname), "%s%s", s_backup_json, filename + 1); // skip leading '/' in filename
+  snprintf_P(backupname, sizeof(backupname), s_backup_fmt, filename + 1); // skip leading '/' in filename
 
   if (copyFile(filename, backupname)) {
     DEBUG_PRINTLN(F("backup ok"));
@@ -537,7 +537,7 @@ bool backupFile(const char* filename) {
 bool restoreFile(const char* filename) {
   DEBUG_PRINTF("restore %s \n", filename);
   char backupname[32];
-  snprintf(backupname, sizeof(backupname), "%s%s", s_backup_json, filename + 1); // skip leading '/' in filename
+  snprintf_P(backupname, sizeof(backupname), s_backup_fmt, filename + 1); // skip leading '/' in filename
 
   if (!WLED_FS.exists(backupname)) {
     DEBUG_PRINTLN(F("no backup found"));
@@ -565,9 +565,9 @@ bool validateJsonFile(const char* filename) {
   bool result = deserializeJson(doc, file, DeserializationOption::Filter(filter)) == DeserializationError::Ok;
   file.close();
   if (!result) {
-    DEBUG_PRINTF("Invalid JSON file %s\n", filename);
+    DEBUG_PRINTF_P(PSTR("Invalid JSON file %s\n"), filename);
   } else {
-    DEBUG_PRINTF("Valid JSON file %s\n", filename);
+    DEBUG_PRINTF_P(PSTR("Valid JSON file %s\n"), filename);
   }
   return result;
 }
