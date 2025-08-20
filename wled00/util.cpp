@@ -614,11 +614,15 @@ float mapf(float x, float in_min, float in_max, float out_min, float out_max) {
 #define BOOTLOOP_ACTION_RESET   1     // if restore does not work, reset config (rename /cfg.json to /rst.cfg.json)
 #define BOOTLOOP_ACTION_OTA     2     // swap the boot partition
 #define BOOTLOOP_ACTION_DUMP    3     // nothing seems to help, dump files to serial and reboot (until hardware reset)
+
 #ifdef ESP8266
 #define BOOTLOOP_INTERVAL_TICKS (5 * 160000) // time limit between crashes: ~5 seconds in RTC ticks
-#define BOOT_TIME_IDX       0 // index in RTC memory for boot time
-#define CRASH_COUNTER_IDX   1 // index in RTC memory for crash counter
-#define ACTIONT_TRACKER_IDX 2 // index in RTC memory for boot action
+// Place variables in RTC memory via references, since RTC memory is not exposed via the linker in the Non-OS SDK
+// Use an offset of 32 as there's some hints that the first 128 bytes of "user" memory are used by the OTA system
+// Ref: https://github.com/esp8266/Arduino/blob/78d0d0aceacc1553f45ad8154592b0af22d1eede/cores/esp8266/Esp.cpp#L168
+static volatile uint32_t& bl_last_boottime = *(RTC_USER_MEM + 32);
+static volatile uint32_t& bl_crashcounter = *(RTC_USER_MEM + 33);
+static volatile uint32_t& bl_actiontracker = *(RTC_USER_MEM + 34);
 #else
 #define BOOTLOOP_INTERVAL_TICKS 5000  // time limit between crashes: ~5 seconds in milliseconds
 // variables in RTC_NOINIT memory persist between reboots (but not on hardware reset)
@@ -665,33 +669,24 @@ static bool detectBootLoop() {
   }
 #else // ESP8266
   rst_info* resetreason = system_get_rst_info();
-  uint32_t  bl_last_boottime;
-  uint32_t  bl_crashcounter;
-  uint32_t  bl_actiontracker;
   uint32_t  rtctime = system_get_rtc_time();
 
   if (!(resetreason->reason == REASON_EXCEPTION_RST || resetreason->reason == REASON_WDT_RST)) {
     // no crash detected, init variables
     bl_crashcounter = 0;
-    ESP.rtcUserMemoryWrite(BOOT_TIME_IDX, &rtctime, sizeof(uint32_t));
-    ESP.rtcUserMemoryWrite(CRASH_COUNTER_IDX, &bl_crashcounter, sizeof(uint32_t));
+    bl_last_boottime = rtctime;
     if(resetreason->reason != REASON_SOFT_RESTART) {
       bl_actiontracker = BOOTLOOP_ACTION_RESTORE; // init action tracker if not an intentional reboot (e.g. from OTA or bootloop handler)
-      ESP.rtcUserMemoryWrite(ACTIONT_TRACKER_IDX, &bl_actiontracker, sizeof(uint32_t));
     }
   } else {
     // system has crashed
-    ESP.rtcUserMemoryRead(BOOT_TIME_IDX, &bl_last_boottime, sizeof(uint32_t));
-    ESP.rtcUserMemoryRead(CRASH_COUNTER_IDX, &bl_crashcounter, sizeof(uint32_t));
     uint32_t rebootinterval = rtctime - bl_last_boottime;
-    ESP.rtcUserMemoryWrite(BOOT_TIME_IDX, &rtctime, sizeof(uint32_t)); // store current ticks for next reboot
+    bl_last_boottime = rtctime;
     if (rebootinterval < BOOTLOOP_INTERVAL_TICKS) {
       bl_crashcounter++;
-      ESP.rtcUserMemoryWrite(CRASH_COUNTER_IDX, &bl_crashcounter, sizeof(uint32_t));
       if (bl_crashcounter >= BOOTLOOP_THRESHOLD) {
         DEBUG_PRINTLN(F("BOOTLOOP DETECTED"));
         bl_crashcounter = 0;
-        ESP.rtcUserMemoryWrite(CRASH_COUNTER_IDX, &bl_crashcounter, sizeof(uint32_t));
         return true;
       }
     }
@@ -701,12 +696,9 @@ static bool detectBootLoop() {
 }
 
 void handleBootLoop() {
-  DEBUG_PRINTLN(F("checking for bootloop"));
+  DEBUG_PRINTF_P(PSTR("checking for bootloop: time %d, counter %d, action %d\n"), bl_last_boottime, bl_crashcounter, bl_actiontracker);
   if (!detectBootLoop()) return; // no bootloop detected
-#ifdef ESP8266
-  uint32_t bl_actiontracker;
-  ESP.rtcUserMemoryRead(ACTIONT_TRACKER_IDX, &bl_actiontracker, sizeof(uint32_t));
-#endif
+
   if (bl_actiontracker == BOOTLOOP_ACTION_RESTORE) {
     restoreConfig(); // note: if this fails, could reset immediately. instead just let things play out and save a few lines of code
     bl_actiontracker = BOOTLOOP_ACTION_RESET; // reset config if it keeps bootlooping
@@ -725,8 +717,6 @@ void handleBootLoop() {
   #endif
   else
     dumpFilesToSerial();
-#ifdef ESP8266
-  ESP.rtcUserMemoryWrite(ACTIONT_TRACKER_IDX, &bl_actiontracker, sizeof(uint32_t));
-#endif
-  ESP.restart(); // restart cleanly and don't wait for another crash
+
+   ESP.restart(); // restart cleanly and don't wait for another crash
 }
