@@ -721,8 +721,8 @@ void *realloc_malloc(void *ptr, size_t size) {
 // if a bootloop is detected: restore settings from backup, then reset settings, then switch boot image (and repeat)
 
 #define BOOTLOOP_THRESHOLD      5     // number of consecutive crashes to trigger bootloop detection
-#define BOOTLOOP_ACTION_RESTORE 0     // default action: restore config from /cfg.bak
-#define BOOTLOOP_ACTION_RESET   1     // if restore does not work, reset config (rename /cfg.json to /cfg.fault)
+#define BOOTLOOP_ACTION_RESTORE 0     // default action: restore config from /bak.cfg.json
+#define BOOTLOOP_ACTION_RESET   1     // if restore does not work, reset config (rename /cfg.json to /rst.cfg.json)
 #define BOOTLOOP_ACTION_OTA     2     // swap the boot partition
 #define BOOTLOOP_ACTION_DUMP    3     // nothing seems to help, dump files to serial and reboot (until hardware reset)
 #ifdef ESP8266
@@ -836,6 +836,9 @@ void handleBootLoop() {
   #endif
   else
     dumpFilesToSerial();
+#ifdef ESP8266
+  ESP.rtcUserMemoryWrite(ACTIONT_TRACKER_IDX, &bl_actiontracker, sizeof(uint32_t));
+#endif
   ESP.restart(); // restart cleanly and don't wait for another crash
 }
 
