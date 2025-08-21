@@ -264,7 +264,7 @@ void FourLineDisplayUsermod::setup() {
 // interfaces here
 void FourLineDisplayUsermod::connected() {
   knownSsid = WiFi.SSID();       //apActive ? apSSID : WiFi.SSID(); //apActive ? WiFi.softAPSSID() :
-  knownIp   = Network.localIP(); //apActive ? IPAddress(4, 3, 2, 1) : Network.localIP();
+  knownIp   = WLEDNetwork.localIP(); //apActive ? IPAddress(4, 3, 2, 1) : WLEDNetwork.localIP();
   networkOverlay(PSTR("NETWORK INFO"),7000);
 }
 
