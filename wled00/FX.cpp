@@ -7528,9 +7528,9 @@ uint16_t mode_2Ddistortionwaves() {
       byte valueG = gdistort + ((a2-( ((xoffs - cx1) * (xoffs - cx1) + (yoffs - cy1) * (yoffs - cy1))>>7 ))<<1);
       byte valueB = bdistort + ((a3-( ((xoffs - cx2) * (xoffs - cx2) + (yoffs - cy2) * (yoffs - cy2))>>7 ))<<1);
 
-      valueR = gamma8(cos8_t(valueR));
-      valueG = gamma8(cos8_t(valueG));
-      valueB = gamma8(cos8_t(valueB));
+      valueR = cos8_t(valueR);
+      valueG = cos8_t(valueG);
+      valueB = cos8_t(valueB);
 
       if(SEGMENT.palette == 0) {
         // use RGB values (original color mode)
