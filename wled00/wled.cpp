@@ -619,6 +619,13 @@ void WLED::initAP(bool resetAP)
   apActive = true;
 }
 
+void WLED::shutdownAP()
+{
+  dnsServer.stop();
+  WiFi.softAPdisconnect(true);
+  apActive = false;
+}
+
 void WLED::initConnection()
 {
   DEBUG_PRINTF_P(PSTR("initConnection() called @ %lus.\n"), millis()/1000);
@@ -658,7 +665,7 @@ void WLED::initConnection()
       initAP();
     } else {
       DEBUG_PRINTLN(F("Access point disabled (init)."));
-      WiFi.softAPdisconnect(true);
+      shutdownAP();
       WiFi.mode(WIFI_STA);
     }
   }
@@ -767,6 +774,7 @@ void WLED::handleConnection()
   #endif
   const bool wifiConfigured = WLED_WIFI_CONFIGURED;
 
+  if (!wifiEnabled) return;
   // ignore connection handling if WiFi is configured and scan still running
   // or within first 2s if WiFi is not configured or AP is always active
   if ((wifiConfigured && multiWiFi.size() > 1 && WiFi.scanComplete() < 0) || (now < 2000 && (!wifiConfigured || apBehavior == AP_BEHAVIOR_ALWAYS)))
@@ -830,7 +838,7 @@ void WLED::handleConnection()
       initConnection();
     }
     if (!apActive && now - lastReconnectAttempt > 12000 && (!wasConnected || apBehavior == AP_BEHAVIOR_NO_CONN)) {
-      if (!(apBehavior == AP_BEHAVIOR_TEMPORARY && now > WLED_AP_TIMEOUT)) {
+      if (!(apBehavior == AP_BEHAVIOR_TEMPORARY && now > WLED_AP_TIMEOUT) && (apBehavior != AP_BEHAVIOR_BUTTON_ONLY)) {
         DEBUG_PRINTF_P(PSTR("Not connected AP (@ %lus).\n"), nowS);
         initAP();  // start AP only within first 5min
       }
@@ -838,9 +846,7 @@ void WLED::handleConnection()
     if (apActive && apBehavior == AP_BEHAVIOR_TEMPORARY && now > WLED_AP_TIMEOUT && stac == 0) { // disconnect AP after 5min if no clients connected
       // if AP was enabled more than 10min after boot or if client was connected more than 10min after boot do not disconnect AP mode
       if (now < 2*WLED_AP_TIMEOUT) {
-        dnsServer.stop();
-        WiFi.softAPdisconnect(true);
-        apActive = false;
+        shutdownAP();
         DEBUG_PRINTF_P(PSTR("Temporary AP disabled (@ %lus).\n"), nowS);
       }
     }
@@ -860,9 +866,7 @@ void WLED::handleConnection()
 
     // shut down AP
     if (apBehavior != AP_BEHAVIOR_ALWAYS && apActive) {
-      dnsServer.stop();
-      WiFi.softAPdisconnect(true);
-      apActive = false;
+      shutdownAP();
       DEBUG_PRINTLN(F("Access point disabled (connected)."));
     }
   }
