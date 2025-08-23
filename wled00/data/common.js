@@ -10,8 +10,25 @@ function gN(s)      { return d.getElementsByName(s)[0]; } // getElementsByName
 function isE(o)     { return Object.keys(o).length === 0; } // isEmpty
 function isO(i)     { return (i && typeof i === 'object' && !Array.isArray(i)); } // isObject
 function isN(n)     { return !isNaN(parseFloat(n)) && isFinite(n); } // isNumber
-// https://stackoverflow.com/questions/3885817/how-do-i-check-that-a-number-is-float-or-integer
+/**
+ * Returns true if the argument is a numeric non-integer (has a fractional part).
+ *
+ * Accepts number primitives only; returns false for NaN and non-number types.
+ * Note: +Infinity and -Infinity will return true with this implementation.
+ *
+ * @param {*} n - Value to test.
+ * @return {boolean} True when n is a number and not an integer.
+ */
 function isF(n)     { return n === +n && n !== (n|0); } // isFloat
+/**
+ * Returns true if the given value is an integer representable as a 32-bit signed number.
+ *
+ * Tests whether n is numeric and has no fractional part. Non-numeric values and NaN return false.
+ * Note: because this uses 32-bit integer coercion, integers outside the signed 32-bit range will return false.
+ *
+ * @param {*} n - Value to test for being an integer.
+ * @returns {boolean} True when n is an integer within the signed 32-bit range; otherwise false.
+ */
 function isI(n)     { return n === +n && n === (n|0); } // isInteger
 /**
  * Toggle the "hide" CSS class on the element with id `el` and on its paired element with id `No<el>`.

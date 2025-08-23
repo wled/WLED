@@ -57,6 +57,16 @@ void onHueConnect(void* arg, AsyncClient* client)
   sendHuePoll();
 }
 
+/**
+ * @brief Send a poll request to the Hue bridge for registration or light state.
+ *
+ * Constructs and sends an HTTP request over the global AsyncClient (hueClient):
+ * - If authentication is required, sends a POST /api request to register the device.
+ * - Otherwise, sends a GET /api/<key>/lights/<lightId> request to read the specified light's state.
+ *
+ * Does nothing if the client is null or not connected. Updates the global timestamp
+ * hueLastRequestSent after queuing and sending the request.
+ */
 void sendHuePoll()
 {
   if (hueClient == nullptr || !hueClient->connected()) return;

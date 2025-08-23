@@ -17,6 +17,25 @@ typedef struct PartialEspNowPacket {
   uint8_t data[247];
 } partial_packet_t;
 
+/**
+ * @brief Build and broadcast a WLED notifier packet describing current global and per-segment state.
+ *
+ * Constructs the notifier payload (global state, timebase, system time, sync group, CCT, and one block per active segment)
+ * and transmits it via ESP-NOW (when enabled and configured) and/or UDP broadcast. Updates internal notification state
+ * (notificationSentCallMode, notificationSentTime, notificationCount).
+ *
+ * The function returns immediately without sending if notifications are disabled by configuration, if the callMode is not
+ * configured to trigger outgoing notifications, or if neither UDP nor ESP-NOW transmission is available.
+ *
+ * @param callMode Type of state change triggering this notification (one of the CALL_MODE_* values). Certain call modes are
+ *                 suppressed depending on per-feature notification settings (e.g., notifyButton, notifyHue, notifyDirect, etc.).
+ * @param followUp  If true, this transmission is considered a follow-up retry and increments the internal follow-up counter;
+ *                  if false, the follow-up counter is reset.
+ *
+ * @note The payload format and feature flags are versioned (compatibility byte at udpOut[11]); receivers use that byte to
+ *       interpret available fields. ESP-NOW transmission may fragment the payload into multiple packets; UDP always sends
+ *       the full fixed-size buffer (WLEDPACKETSIZE) as a broadcast.
+ */
 void notify(byte callMode, bool followUp)
 {
 #ifndef WLED_DISABLE_ESPNOW
@@ -985,7 +1004,14 @@ uint8_t realtimeBroadcast(uint8_t type, IPAddress client, uint16_t length, uint8
 }
 
 #ifndef WLED_DISABLE_ESPNOW
-// ESP-NOW message sent callback function
+/**
+ * @brief ESP-NOW transmission completion callback.
+ *
+ * Invoked by the ESP-NOW subsystem when a previously sent frame has completed transmission.
+ *
+ * @param address Pointer to the 6-byte destination MAC address for the sent frame.
+ * @param status  Implementation-specific result code for the transmission (0 commonly indicates success).
+ */
 void espNowSentCB(uint8_t* address, uint8_t status) {
     DEBUG_PRINTF_P(PSTR("Message sent to " MACSTR ", status: %d\n"), MAC2STR(address), status);
 }

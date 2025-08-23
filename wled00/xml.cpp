@@ -83,6 +83,25 @@ static void fillUMPins(Print& settingsScript, JsonObject &mods)
   }
 }
 
+/**
+ * @brief Appends GPIO and pin configuration information to the settings script.
+ *
+ * Writes several JavaScript assignments into the provided output stream so the web UI
+ * can populate pin-related controls:
+ * - `d.um_p` — usermod pin list (starts with -1 and may include I2C/SPI and usermod-reserved pins),
+ * - `d.rsvd` — reserved/unusable pins (based on PinManager plus platform-specific and compile-time reserved pins),
+ * - `d.ro_gpio` — read-only GPIO pins,
+ * - `d.max_gpio` — maximum GPIO count (WLED_NUM_PINS).
+ *
+ * The function will attempt to allocate a small JSON buffer to query usermods via
+ * UsermodManager::addToConfig() and extract their pin reservations (ignored if the buffer
+ * cannot be acquired). The set of reserved pins may also include pins reserved by
+ * DMX, debug TX, and Ethernet depending on build-time flags and runtime ethernetType.
+ *
+ * Side effects:
+ * - Writes directly to `settingsScript`.
+ * - May call into UsermodManager and PinManager.
+ */
 void appendGPIOinfo(Print& settingsScript) {
   settingsScript.print(F("d.um_p=[-1")); // has to have 1 element
   if (i2c_sda > -1 && i2c_scl > -1) {

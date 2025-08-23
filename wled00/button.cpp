@@ -13,7 +13,17 @@
 #define WLED_LONG_BRI_STEPS          16 // how much to increase/decrease the brightness with each long press repetition
 
 static const char _mqtt_topic_button[] PROGMEM = "%s/button/%d";  // optimize flash usage
-static bool buttonBriDirection = false; // true: increase brightness, false: decrease brightness
+static bool buttonBriDirection = false; /**
+ * @brief Handle a short press for the specified button.
+ *
+ * Executes a configured short-press preset for the button if present; otherwise performs the built-in action:
+ * - button 0: toggles power and marks state updated.
+ * - button 1: advances to the next effect and marks state and color updated.
+ *
+ * Also publishes a "short" message to the button MQTT topic when MQTT is enabled and connected.
+ *
+ * @param b Button index (0-based).
+ */
 
 void shortPressAction(uint8_t b)
 {

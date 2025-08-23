@@ -20,6 +20,16 @@ static void parseMQTTBriPayload(char* payload)
 }
 
 
+/**
+ * @brief Handle actions performed immediately after establishing an MQTT connection.
+ *
+ * Subscribes to configured device and group topics (base topic plus "/col" and "/api"),
+ * notifies usermods of the connection, logs readiness, and publishes the current state.
+ *
+ * The function is safe to call on reconnect and will re-subscribe to topics each time.
+ *
+ * @param sessionPresent true if the broker reports an existing session for this client; false otherwise.
+ */
 static void onMqttConnect(bool sessionPresent)
 {
   //(re)subscribe to required topics
@@ -168,8 +178,18 @@ class bufferPrint : public Print {
   }
 
   char* data() const { return _buf; }
-  size_t size() const { return _offset; }
-  size_t capacity() const { return _size; }
+  /**
+ * @brief Number of bytes written into the buffer.
+ *
+ * @return size_t Current write position (bytes stored).
+ */
+size_t size() const { return _offset; }
+  /**
+ * @brief Return the total capacity of the underlying buffer.
+ *
+ * @return size_t Total capacity in bytes (maximum writable size).
+ */
+size_t capacity() const { return _size; }
 };
 }; /**
  * @brief Publish current device state to MQTT topics.

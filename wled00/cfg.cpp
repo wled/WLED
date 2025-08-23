@@ -9,6 +9,16 @@
 //simple macro for ArduinoJSON's or syntax
 #define CJSON(a,b) a = b | a
 
+/**
+ * @brief Safely copy a C-string from a JSON value into a destination buffer.
+ *
+ * Copies up to len-1 bytes from src into dest using strlcpy and ensures null termination.
+ * If src is nullptr, the function does nothing.
+ *
+ * @param dest Destination buffer; must be at least `len` bytes long.
+ * @param src  Source C-string (may be nullptr).
+ * @param len  Size of the destination buffer in bytes.
+ */
 void getStringFromJson(char* dest, const char* src, size_t len) {
   if (src != nullptr) strlcpy(dest, src, len);
 }

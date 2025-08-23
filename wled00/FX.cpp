@@ -1535,17 +1535,16 @@ static const char _data_FX_MODE_FAIRY[] PROGMEM = "Fairy@!,# of flashers;!,!;!";
 
 
 /**
- * @brief "Fairytwinkle" twinkle effect that starts with all LEDs lit and toggles individual LEDs with fades.
+ * @brief "Fairytwinkle" twinkle animation that toggles individual LEDs with smooth fades.
  *
- * Renders a twinkling animation by tracking a per-LED Flasher state (allocated in SEGENV) and blending
- * between the segment's primary color and a palette-derived color for each pixel. Each flasher fades in/out
- * based on segment speed/intensity and a pseudo-random sequence; adjacent LEDs are ensured to have
- * sufficiently different palette indices.
+ * Renders a twinkling effect by maintaining per-LED Flasher state (allocated in SEGENV) and blending
+ * between the segment's base color and a palette-derived color per pixel. Each flasher fades in/out
+ * based on segment speed/intensity and a pseudo-random sequence; adjacent LEDs are ensured sufficiently
+ * different palette indices to avoid identical neighbors.
  *
  * Side effects:
- * - Allocates SEGENV data sized sizeof(Flasher) * SEGLEN; if allocation fails, the function falls back to mode_static().
- * - Writes colors to the current SEGMENT pixel buffer.
- * - Uses approximately 4 bytes of segment data per pixel for the Flasher state.
+ * - Allocates SEGENV data sized sizeof(Flasher) * SEGLEN; on allocation failure the function returns mode_static().
+ * - Writes computed colors to the current SEGMENT pixel buffer.
  *
  * @return uint16_t Frame time in milliseconds until the next update (FRAMETIME).
  */

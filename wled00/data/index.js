@@ -701,7 +701,25 @@ function parseInfo(i) {
 //	  oldScript.parentNode.replaceChild(newScript, oldScript);
 //	});
 //}
-//setInnerHTML(obj, html);
+/**
+ * Render device information into the info panel and refresh any info sliders.
+ *
+ * Takes a device info/state object (as returned by the device JSON API) and
+ * builds an HTML summary inserted into the element with id "kv". After writing
+ * the HTML it updates any slider displays found inside that panel.
+ *
+ * @param {Object} i - Device info/state payload. Fields used include:
+ *   - ver, cn (client name), vid (build id)
+ *   - opt (flags)
+ *   - wifi.signal, wifi.rssi
+ *   - uptime, time
+ *   - freeheap, psram (optional)
+ *   - leds.pwr, leds.fps
+ *   - mac, clock, flash
+ *   - fs.u, fs.t
+ *   - arch, core, lwip
+ *   - u (optional map of additional info rows)
+ */
 
 function populateInfo(i)
 {
@@ -749,16 +767,13 @@ ${inforow("Environment",i.arch + " " + i.core + " (" + i.lwip + ")")}
 }
 
 /**
- * Render and populate the segments editor UI from the device state.
+ * Render and populate the segments editor UI from the given device state.
  *
- * Builds the segment list and controls from s.seg, updates globals (segCount, lowestUnused, lSeg),
- * injects the generated HTML into the DOM (#segcont), initializes per-segment controls (length, brightness,
- * reverse/mirror options, grouping, map/2D options), toggles related UI utilities (new-segment availability,
- * segment utilities, ledmap selector) and invokes helper routines (updateLen, updateTrail, resetUtil, tooltip).
- * This function has no return value and produces DOM side effects.
+ * Builds the segments list in the DOM (#segcont) based on s.seg and updates related global state
+ * (segCount, lowestUnused, lSeg). Initializes per-segment controls (names, start/stop/width, grouping,
+ * brightness/power, reversal/mirroring, 2D/map options) and toggles segment-related utilities and ledmap selector.
  *
- * @param {Object} s - Device state object. Expected to include s.seg (array of segment objects), s.mainseg,
- *                     s.AudioReactive, s.ledmap and optionally s.maps for ledmap selection.
+ * @param {Object} s - Device state object containing segment information and related flags (expected fields include `s.seg`, `s.mainseg`, `s.AudioReactive`, `s.ledmap`, and optionally `s.maps`).
  */
 function populateSegments(s)
 {
@@ -1862,6 +1877,20 @@ function toggleNodes()
 	gId('buttonNodes').className = (isNodes) ? "active":"";
 }
 
+/**
+ * Insert the "create new segment" editor into the UI for the next unused segment slot.
+ *
+ * Builds and injects HTML for a new segment form into the element with id "segutil", pre-filling
+ * start/stop (or start/width) fields based on current global state (lowestUnused, isM, mw, mh,
+ * ledCount, cfg.comp.seglen) and scrolls the editor into view. The generated inputs are wired to
+ * existing handlers (updateLen, segEnter, setSeg) and there is no return value.
+ *
+ * Side effects:
+ * - Replaces the innerHTML of the DOM element with id "segutil".
+ * - Triggers a smooth scroll to bring the new editor into view.
+ * - Relies on global variables: lowestUnused, isM, mw, mh, ledCount, cfg, lastinfo and the functions
+ *   updateLen, segEnter, setSeg.
+ */
 function makeSeg()
 {
 	var ns = 0, ct = isM ? mw : ledCount;
@@ -1907,16 +1936,13 @@ function makeSeg()
 }
 
 /**
- * Render and initialize the segment utility UI (Add segment / Select all / Group selectors).
+ * Render the segment utility controls (Add segment, Select all, Group selectors) into the UI.
  *
- * Replaces the #segutil container contents with the segment utility controls, sets the "select all"
- * checkbox state based on existing segment selection checkboxes, and ensures group popovers are visible
- * on multi-segment setups.
+ * Replaces the contents of the #segutil container with interactive controls for creating segments,
+ * toggling selection of all segments, and selecting color groups. Updates the "selall" checkbox to
+ * reflect current per-segment selection checkboxes and reveals group popovers when there are multiple segments.
  *
- * @param {boolean} off - If true, disables the Add segment action (renders it as non-interactive).
- * @sideeffects Updates DOM: sets innerHTML of element with id "segutil", updates the "selall" checkbox,
- * and toggles visibility of group popovers under #Segments. Expects global identifiers and handlers
- * (lSeg, selSegAll, selGrp, makeSeg and segment elements with ids like "seg{n}" / "seg{n}sel") to be present.
+ * @param {boolean} off - If true, disables the Add segment action (renders it non-interactive).
  */
 function resetUtil(off=false)
 {
@@ -2680,6 +2706,12 @@ function fromV()
 	cpick.color.setChannel('hsv', 'v', gId('sliderV').value);
 }
 
+/**
+ * Set the color picker's color by Kelvin value from the UI K slider.
+ *
+ * Reads the current value of the input with id "sliderK" and updates the global
+ * color picker (cpick) to that color temperature (kelvin).
+ */
 function fromK()
 {
 	cpick.color.set({ kelvin: gId('sliderK').value });
@@ -2721,12 +2753,12 @@ function fromW()
 }
 
 /**
- * Update the currently selected color slot from a color input and send the change to the device.
+ * Update the currently selected color slot from a color input and send the new color to the device.
  *
- * Reads the selected color slot element, updates its dataset (r,g,b,w) from the color picker or RGB sliders
- * according to the source code `sr`, refreshes the slot styling, and sends a segment color update via requestJson.
+ * Reads the active color-slot element, updates its dataset RGB(W) values from the color picker or RGB/W sliders
+ * depending on the source, refreshes the slot's visual state, and sends a segment color update to the device.
  *
- * @param {number} sr - Source of the color update: 0 = RGB sliders, 1 = color picker, 2 = hex input.
+ * @param {number} sr - Source of the update: 0 = RGB sliders, 1 = color picker, 2 = hex input.
  */
 function setColor(sr)
 {
@@ -3140,6 +3172,19 @@ function size()
 	lastw = wW;
 }
 
+/**
+ * Toggle "PC mode" (desktop-like UI) based on window width or explicit user toggle.
+ *
+ * When invoked with fromB=true this flips the stored preference and persists it to localStorage.
+ * Otherwise (typically called from resize handling) PC mode is computed from the saved preference
+ * and current window width. Updates include: resizing the color picker, opening the primary tab
+ * when entering PC mode, toggling the edit panel and bottom bar visibility, setting the bottom
+ * bar height CSS custom property, and adjusting the main container width to match the mode.
+ *
+ * @param {boolean} [fromB=false] - True when the call originates from the UI toggle button (causes
+ *                                  the persisted PC-mode preference to flip); false when called
+ *                                  from window/resize logic (recomputes mode from preference + size).
+ */
 function togglePcMode(fromB = false)
 {
 	let ap = (fromB && !lastinfo) || (lastinfo && lastinfo.wifi && lastinfo.wifi.ap);

@@ -1,19 +1,29 @@
 #include "wled.h"
 
-/*
- * LED methods
+/**
+ * @brief Load color and effect values from the strip's main segment into the global state.
+ *
+ * Delegates to setValuesFromSegment() using strip.getMainSegmentId() to copy the main
+ * segment's primary/secondary colors and effect parameters into the global variables.
  */
 
 void setValuesFromMainSeg()          { setValuesFromSegment(strip.getMainSegmentId()); }
+/**
+ * @brief Load the current global color/effect values from the first selected segment.
+ *
+ * Copies the primary/secondary colors and effect parameters (mode, speed, intensity, palette)
+ * of the strip's first selected segment into the global state by delegating to
+ * setValuesFromSegment with the first selected segment index.
+ */
 void setValuesFromFirstSelectedSeg() { setValuesFromSegment(strip.getFirstSelectedSegId()); }
 /**
- * @brief Load color and effect values from a segment into global state.
+ * @brief Load a segment's RGBW colors and effect parameters into the global state.
  *
  * Copies the segment's primary (colors[0]) and secondary (colors[1]) RGBW values
- * into the global colPri and colSec arrays and updates global effect variables
- * (mode, speed, intensity, palette) to match the segment.
+ * into the global colPri and colSec arrays and updates effectCurrent, effectSpeed,
+ * effectIntensity, and effectPalette to match the segment.
  *
- * @param s Index of the segment to read.
+ * @param s Segment index (0-based) to read from.
  */
 void setValuesFromSegment(uint8_t s)
 {
@@ -35,17 +45,19 @@ void setValuesFromSegment(uint8_t s)
 
 // applies global legacy values (col, colSec, effectCurrent...)
 /**
- * @brief Apply the current global color and effect values to selected segments.
+ * @brief Apply current global effect and color values to all selected segments.
  *
- * Takes a snapshot of the first selected segment as a baseline and updates all
- * segments that are selected (and active) to match the global values where they
- * differ from that baseline. The first selected segment is used as the
- * comparison reference and is also processed by this routine.
+ * Copies the first selected segment as a baseline and updates every segment
+ * that is selected (and active) so its effect parameters and colors match
+ * the global values. The first selected segment is included and serves as
+ * the comparison reference.
  *
- * The routine updates speed, intensity, palette, mode, and both primary and
- * secondary colors. When speed or intensity are changed on a segment, the
- * global flag `stateChanged` is set. Palette, mode and color changes are
- * applied via the segment's setter methods.
+ * Effect fields updated:
+ * - speed and intensity are written directly to the segment (and set the
+ *   global `stateChanged` flag when changed).
+ * - palette and mode are applied via the segment's setter methods.
+ * - primary color (from colPri) and secondary color (from colSec) are applied
+ *   via the segment color setters.
  */
 void applyValuesToSelectedSegs()
 {
@@ -83,7 +95,15 @@ void toggleOnOff()
 }
 
 
-//scales the brightness with the briMultiplier factor
+/**
+ * @brief Scale a brightness value by the global brightness multiplier.
+ *
+ * Multiplies the input brightness by the global `briMultiplier` (percent) and clamps
+ * the result to the 0–255 range.
+ *
+ * @param in Input brightness (0–255).
+ * @return byte Scaled brightness (0–255) after applying `briMultiplier`.
+ */
 byte scaledBri(byte in)
 {
   unsigned val = ((uint16_t)in*briMultiplier)/100;
@@ -95,11 +115,11 @@ byte scaledBri(byte in)
 /**
  * @brief Apply the current target brightness to the LED strip.
  *
- * Sets the strip brightness to scaledBri(briT) unless realtime mode is active and
- * arlsForceMaxBri is set, in which case the strip brightness is left unchanged.
+ * Applies the target brightness value `briT` (after scaling via scaledBri) to the hardware
+ * brightness by calling strip.setBrightness(...). If realtimeMode is active and
+ * arlsForceMaxBri is true, the call is skipped (brightness is left unchanged).
  *
- * Side effects:
- * - Updates the global strip brightness via strip.setBrightness(...).
+ * @note This function has the side effect of updating the global strip brightness state.
  */
 void applyBri() {
   if (!(realtimeMode && arlsForceMaxBri)) {
@@ -110,15 +130,16 @@ void applyBri() {
 
 
 /**
- * @brief Apply the current global brightness immediately (no transition).
+ * @brief Apply the current global brightness immediately and trigger a hardware update.
  *
- * Sets the stored "previous" brightness to the current brightness, updates
- * the target brightness to the current value, applies that brightness to the
- * strip, and triggers an immediate update.
+ * Updates the stored previous brightness and the brightness target to the current
+ * brightness, applies the brightness (via applyBri()), and triggers the strip to
+ * push the change to hardware.
  *
- * Side effects:
- * - Updates global variables `briOld` and `briT`.
- * - Calls applyBri() and strip.trigger() to push the change to hardware.
+ * @note This performs no transition — the change is applied immediately.
+ *
+ * Side effects: updates global variables `briOld` and `briT`, calls applyBri(),
+ * and calls strip.trigger().
  */
 void applyFinalBri() {
   briOld = bri;
@@ -267,7 +288,14 @@ void handleTransitions()
 }
 
 
-// legacy method, applies values from col, effectCurrent, ... to selected segments
+/**
+ * @brief Apply current global color/effect values to selected segments and propagate the state change.
+ *
+ * Copies the global color and effect settings into all selected (and active) segments, then runs the post-update
+ * housekeeping and interface/notification logic represented by stateUpdated.
+ *
+ * @param callMode Code indicating the origin/context of the change (used by stateUpdated to decide which interfaces
+ *                 and notifications to invoke). */
 void colorUpdated(byte callMode) {
   applyValuesToSelectedSegs();
   stateUpdated(callMode);

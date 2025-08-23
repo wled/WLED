@@ -5,25 +5,27 @@
  */
 
 /**
- * @brief Handle POSTed settings form and apply configuration changes for a settings subpage.
+ * @brief Apply settings submitted from the web UI for a specific settings subpage.
  *
- * Processes settings submitted from the web UI and updates WLED runtime configuration and hardware
- * state for the selected subPage (e.g., SUBPAGE_WIFI, SUBPAGE_LEDS, SUBPAGE_UI, SUBPAGE_SYNC,
- * SUBPAGE_TIME, SUBPAGE_SEC, SUBPAGE_DMX, SUBPAGE_UM, SUBPAGE_2D). Validates PIN where required
- * and ignores changes when PIN validation fails.
+ * Processes POSTed form fields for the given settings subPage (e.g. SUBPAGE_WIFI, SUBPAGE_LEDS,
+ * SUBPAGE_UI, SUBPAGE_SYNC, SUBPAGE_TIME, SUBPAGE_SEC, SUBPAGE_DMX, SUBPAGE_UM, SUBPAGE_2D),
+ * validates PIN where required, updates runtime and persistent configuration, and triggers
+ * necessary subsystem updates.
  *
- * This function applies a wide range of side effects depending on the subpage: it updates stored
- * configuration values, (de)allocates and configures hardware pins, builds bus/LED configurations,
- * modifies network/UDP/MQTT/Hue/Alexa settings, updates time/NTP/timers, writes usermod JSON data,
- * (re)initializes subsystems (LED buses, IR, I2C/SPI allocation, Hue/Alexa reconnects, matrix setup),
- * and may schedule an immediate reboot or wipe persistent storage for factory reset.
+ * Depending on the subpage this function may:
+ * - update network/AP/dns settings and schedule WiFi reconnect,
+ * - (de)allocate and configure hardware pins (LED buses, buttons, IR, I2C/SPI, relay),
+ * - build and enqueue new LED bus configurations and mark busses for reinitialization,
+ * - update UI/sync/time/nightlight/DMX/usermod/2D matrix settings,
+ * - write usermod configuration JSON and reinitialize usermods,
+ * - perform a factory reset (format filesystem and optional EEPROM clear) and schedule reboot,
+ * - toggle OTA/wifi locks and store OTA password.
  *
- * @param request The AsyncWebServerRequest containing POST parameters (form fields) for settings.
+ * Side effects are deliberate and broad; callers should expect hardware reconfiguration, persisted
+ * setting changes, and that a reboot or deferred subsystem reinitialization may be scheduled.
+ *
+ * @param request The HTTP request containing POST form fields for the settings.
  * @param subPage One of the SUBPAGE_* constants indicating which settings section to apply.
- *
- * @note Effects include: triggering bus reinitialization, forcing WiFi reconnect, changing pin
- * allocation, modifying persisted settings, formatting filesystem on factory reset, and setting
- * flags to reboot or serialize configuration. PIN/OTA protection is enforced where applicable.
  */
 void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
 {

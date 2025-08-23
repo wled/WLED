@@ -895,6 +895,16 @@ void RotaryEncoderUIUsermod::changeCustom(uint8_t par, bool increase) {
 }
 
 
+/**
+ * Advance or regress the selected color palette and apply it to segments.
+ *
+ * Updates the internal alphabetically-sorted palette index (clamped to [0, totalPalettes-1]),
+ * resolves the active palette id, marks stateChanged, and applies the palette to either all
+ * active segments or the main segment depending on `applyToAll`. Triggers a UI update via
+ * lampUdated() and, if a FourLineDisplay is present, refreshes the display.
+ *
+ * @param increase If true, advance to the next palette; if false, move to the previous palette.
+ */
 void RotaryEncoderUIUsermod::changePalette(bool increase) {
 #ifdef USERMOD_FOUR_LINE_DISPLAY
   if (display && display->wakeDisplay()) {
@@ -968,16 +978,16 @@ void RotaryEncoderUIUsermod::changeHue(bool increase){
 }
 
 /**
- * Adjust the current saturation and apply the resulting RGBW color to segments.
+ * Adjust saturation and apply the resulting RGBW color to segment(s).
  *
- * Increases or decreases the stored saturation (clamped to 0–255 by fadeAmount),
- * converts the updated H/S pair to an RGBW color, and writes that color to either
- * all active segments or only the main segment depending on the `applyToAll` flag.
- * Triggers a state update (lampUdated) so changes take effect. If a FourLineDisplay
- * is present, the display may be woken (causing an early return) or overlaid with
- * the new saturation value.
+ * Adjusts the stored saturation (currentSat1) up or down by `fadeAmount`, clamped to [0,255],
+ * converts the updated H/S pair to an RGBW color (written into `colPri`), and applies that
+ * color to either all active segments or the main segment depending on `applyToAll`.
+ * Triggers a state update via lampUdated() so the change takes effect. If a FourLineDisplay
+ * is present, an overlay showing the new saturation value is shown; if the display requests
+ * a wake (wakeDisplay() returns true) the function will redraw and return early.
  *
- * @param increase If true, increase saturation by fadeAmount; otherwise decrease it.
+ * @param increase If true, increase saturation; otherwise decrease it.
  */
 void RotaryEncoderUIUsermod::changeSat(bool increase){
 #ifdef USERMOD_FOUR_LINE_DISPLAY

@@ -423,6 +423,23 @@ uint32_t IRAM_ATTR_YN Segment::currentColor(uint8_t slot) const {
 #endif
 }
 
+/**
+ * @brief Load the segment's active palette into the working palette and, if a palette transition
+ *        is in progress, advance the palette blend toward the target palette.
+ *
+ * @details
+ * Loads the segment palette identified by _currentPalette into the provided `palette` buffer.
+ * If global palette fading (strip.paletteFade) is enabled and the segment is in a transition
+ * (progress() < 0xFFFF), the function computes how many incremental blend steps are due since
+ * the last call and performs that many calls to `nblendPaletteTowardPalette` (48 sub-steps per
+ * call). Each performed blend increments the transition's `_prevPaletteBlends` counter and the
+ * temporary transition palette `_t->_palT` is then used to replace `_currentPalette`.
+ *
+ * Side effects:
+ * - Modifies the provided `palette` buffer via loadPalette.
+ * - May update `_t->_prevPaletteBlends` and `_t->_palT`.
+ * - Updates the segment's `_currentPalette` to the blended temporary palette when blending occurs.
+ */
 void Segment::setCurrentPalette() {
   loadPalette(_currentPalette, palette);
   unsigned prog = progress();
@@ -472,29 +489,25 @@ void Segment::handleRandomPalette() {
 }
 
 /**
- * @brief Update this segment's geometric bounds and mapping.
+ * @brief Update the segment's geometric bounds, grouping, offset, and mapping mode.
  *
- * Updates the segment's start/stop indices, optional 2D Y bounds, grouping/spacing,
- * index offset, and 1D/2D mapping mode. The mapping mode is clamped to 0–7.
- * Changes mark the segment as stateChanged and request a runtime reset; light
- * capability information is refreshed after the new geometry is applied.
+ * Updates start/stop X indices, optional Y bounds for 2D, grouping/spacing, index
+ * offset, and the 1D/2D mapping mode (clamped to 0–7). Marks the segment as
+ * changed and requests a runtime reset; light capabilities are refreshed after
+ * applying the new geometry.
  *
- * If the new stop index is less than or equal to the new start, the segment is
- * disabled (stop set to 0). If the resulting start/stop or startY/stopY ranges
- * are invalid the segment is likewise disabled. When mapping changes or spacing
- * is non‑zero and the segment was active, the segment is filled with BLACK
- * before applying the new geometry.
+ * If i2 <= i1 or resulting ranges are invalid the segment is disabled (stop = 0).
+ * When mapping changes or spacing is non‑zero and the segment was active, the
+ * segment is filled with BLACK before applying the new geometry.
  *
- * @param i1 Start index (X / 1D start). Must be interpreted relative to the
- *           current strip/matrix dimensions.
+ * @param i1 Start index (X / 1D start).
  * @param i2 Stop index (X / 1D stop). If i2 <= i1 the segment will be disabled.
- * @param grp Grouping value; if 0 the grouping is reset to 1 and spacing to 0.
+ * @param grp Grouping value; if 0 resets grouping to 1 and spacing to 0.
  * @param spc Spacing between groups (used only when grp != 0).
  * @param ofs Index offset; values >= UINT16_MAX are ignored (no change).
- * @param i1Y Start index on Y axis for 2D layouts (ignored on 1D).
- * @param i2Y Stop index on Y axis for 2D layouts (ignored on 1D).
- * @param m12 Mapping mode (0–7). Determines the 1D/2D mapping scheme; value
- *            is constrained to the valid range before use.
+ * @param i1Y Start index on Y axis for 2D layouts (ignored for 1D).
+ * @param i2Y Stop index on Y axis for 2D layouts (ignored for 1D).
+ * @param m12 Mapping mode (0–7); value is constrained to the valid range.
  */
 void Segment::setGeometry(uint16_t i1, uint16_t i2, uint8_t grp, uint8_t spc, uint16_t ofs, uint16_t i1Y, uint16_t i2Y, uint8_t m12) {
   // return if neither bounds nor grouping have changed
@@ -597,6 +610,20 @@ Segment &Segment::setOption(uint8_t n, bool val) {
   return *this;
 }
 
+/**
+ * @brief Set the segment's active effect/mode.
+ *
+ * Selects a new effect by index, skipping reserved entries. If the chosen
+ * index is out of range the solid (mode 0) effect is selected. When the mode
+ * actually changes this updates the segment's runtime state, optionally loads
+ * the effect's default parameters, and requests a reset so the new mode takes
+ * effect. If mode blending is enabled, a transition is started.
+ *
+ * @param fx Effect index to select (will be clamped/skipped if reserved).
+ * @param loadDefaults If true, load per-effect default parameters (speed,
+ *                     intensity, custom fields, mapping, palette, and options).
+ * @return Segment& Reference to this segment (allows chaining).
+ */
 Segment &Segment::setMode(uint8_t fx, bool loadDefaults) {
   // skip reserved
   while (fx < strip.getModeCount() && strncmp_P("RSVD", strip.getModeData(fx), 4) == 0) fx++;
@@ -633,16 +660,16 @@ Segment &Segment::setMode(uint8_t fx, bool loadDefaults) {
 }
 
 /**
- * @brief Selects the active palette for this segment.
+ * @brief Set the active color palette for this segment.
  *
- * Validates the requested palette index against available built-in, gradient,
- * and custom palettes; out-of-range or invalid indices are clamped to the
- * default palette (0). If the selected palette differs from the current one,
- * this updates the segment's palette, marks the segment state as changed, and
- * — when palette fading is enabled on the strip — starts a palette transition.
+ * Selects a built-in, gradient, or custom palette by index. Invalid or out-of-range
+ * indices are clamped to the default palette (0). If the selection changes, the
+ * segment is marked dirty (stateChanged) and, when strip palette fading is enabled,
+ * a palette transition is started.
  *
- * @param pal Palette index (can reference built-in, gradient, or custom palettes).
- * @return Segment& Reference to this segment (allows chaining).
+ * @param pal Palette index (built-in, gradient, or custom). Out-of-range values are
+ *            treated as the default palette (0).
+ * @return Segment& Reference to this segment to allow call chaining.
  */
 Segment &Segment::setPalette(uint8_t pal) {
   if (pal < 245 && pal > GRADIENT_PALETTE_COUNT+13) pal = 0; // built in palettes
@@ -935,7 +962,23 @@ void IRAM_ATTR_YN Segment::setPixelColor(int i, uint32_t col)
 }
 
 #ifdef WLED_USE_AA_PIXELS
-// anti-aliased normalized version of setPixelColor()
+/**
+ * @brief Set a pixel by a normalized coordinate with optional anti-aliasing.
+ *
+ * Writes color into the segment at a normalized position (0.0–1.0). If the segment
+ * is inactive or the normalized coordinate is out of range the call is ignored.
+ * When anti-aliasing is enabled, the color is blended into the two nearest pixels
+ * using a quadratic distance weight; otherwise the color is written to the nearest pixel.
+ * The function uses getPixelColor/setPixelColor for reading/writing and therefore
+ * respects the segment's mapping and grouping rules.
+ *
+ * @param i Normalized position within the segment in the range [0.0, 1.0]. To target
+ *          a specific virtual strip/column, encode the strip index as an integer
+ *          multiple of 10 and supply i = stripIndex*10 + fractional_position (e.g. 10*n + 0.5).
+ * @param col Color value to write (same 24/32-bit color format used by the driver).
+ * @param aa If true, perform anti-aliased blending across the two nearest pixels;
+ *           if false, write to the nearest pixel only.
+ */
 void Segment::setPixelColor(float i, uint32_t col, bool aa)
 {
   if (!isActive()) return; // not active
@@ -1154,8 +1197,15 @@ void Segment::refreshLightCapabilities() {
   _capabilities = capabilities;
 }
 
-/*
- * Fills segment with color
+/**
+ * @brief Fill the entire segment with a single color.
+ *
+ * Fills every logical pixel in the segment with the given 32-bit color value.
+ * If the segment is inactive the call is a no-op. For 2D segments the fill
+ * iterates over the segment's virtual width and height and uses the 2D
+ * mapping; for 1D segments it fills the virtual length using the 1D mapping.
+ *
+ * @param c 32-bit color value to write to each pixel (format used by the engine).
  */
 void Segment::fill(uint32_t c) {
   if (!isActive()) return; // not active
@@ -1168,19 +1218,17 @@ void Segment::fill(uint32_t c) {
 }
 
 /**
- * @brief Gradually fades every pixel in the segment toward the segment's secondary color.
+ * @brief Fade every pixel in the segment toward the segment's secondary color.
  *
- * Performs a per-channel, iterative fade of each pixel toward colors[1]. The fade speed
- * is controlled by `rate` (higher values produce a quicker fade). Pixels already equal
- * to the target color are skipped. The routine operates over the segment's virtual
- * geometry (1D or 2D) and writes updated pixel colors back through the segment's
- * pixel accessors.
+ * Gradually moves each pixel's channels toward colors[1] using per-channel integer
+ * interpolation. Operates over the segment's virtual geometry (1D or 2D) and writes
+ * results back with the segment pixel accessors. Pixels already equal to the target
+ * color are left unchanged. The interpolation enforces a minimum one-step change
+ * when a channel is not yet at the target to avoid stalls due to rounding.
  *
- * @param rate Fade rate in [0..255]; larger values yield faster fades.
+ * @param rate Fade rate in [0..255]; larger values produce faster fades.
  *
- * Side effects:
- * - Modifies pixel colors in this segment.
- * - No effect if the segment is not active.
+ * @note No-op if the segment is inactive. Side effect: modifies pixel colors in this segment.
  */
 void Segment::fade_out(uint8_t rate) {
   if (!isActive()) return; // not active
@@ -1607,6 +1655,16 @@ void IRAM_ATTR WS2812FX::setPixelColor(unsigned i, uint32_t col) {
   BusManager::setPixelColor(i, col);
 }
 
+/**
+ * @brief Get the color of a pixel by virtual index.
+ *
+ * Maps the provided virtual pixel index through any active mapping table and
+ * returns the physical pixel's color. If the mapped index is out of range,
+ * returns 0.
+ *
+ * @param i Virtual pixel index (will be translated via getMappedPixelIndex).
+ * @return uint32_t Packed pixel color (format depends on bus/driver: RGB or RGBW), or 0 if index is out of bounds.
+ */
 uint32_t IRAM_ATTR WS2812FX::getPixelColor(unsigned i) const {
   i = getMappedPixelIndex(i);
   if (i >= _length) return 0;
@@ -1647,8 +1705,14 @@ void WS2812FX::show() {
 }
 
 /**
- * Returns a true value if any of the strips are still being updated.
- * On some hardware (ESP32), strip updates are done asynchronously.
+ * @brief Check whether any LED output buses are still performing an asynchronous update.
+ *
+ * Returns true when one or more underlying bus drivers have not finished showing their
+ * buffered frame (i.e., when show operations are still in progress). On platforms that
+ * update strips asynchronously (for example ESP32 I2S/DMA-based drivers), this indicates
+ * the hardware or driver is still transmitting data.
+ *
+ * @return true if any bus is still updating; false if all buses are ready to accept a new frame.
  */
 bool WS2812FX::isUpdating() const {
   return !BusManager::canAllShow();
@@ -1669,13 +1733,15 @@ uint16_t WS2812FX::getFps() const {
 }
 
 /**
- * @brief Set the target frames-per-second for the renderer.
+ * @brief Set the renderer's target frames per second.
  *
- * Updates the internal target FPS and derives the per-frame delay (frametime) accordingly.
+ * Updates the internal target FPS and computes the per-frame delay (frametime) in milliseconds.
+ * A target of 0 enables "unlimited" rendering, which uses MIN_FRAME_DELAY as the effective frametime.
  *
- * @param fps Target frames per second. A value of 0 enables "unlimited" mode (frametime set to MIN_FRAME_DELAY).
+ * Values greater than 250 are ignored (the previous target is kept). Frametime is stored as an
+ * integer number of milliseconds (1000 / fps) when fps > 0.
  *
- * @note Values greater than 250 are ignored (the previous target is preserved). Frametime is computed as integer milliseconds (1000 / fps).
+ * @param fps Target frames per second (0 = unlimited).
  */
 void WS2812FX::setTargetFps(uint8_t fps) {
   if (fps <= 250) _targetFps = fps;
@@ -1716,6 +1782,14 @@ void WS2812FX::setColor(uint8_t slot, uint32_t c) {
   }
 }
 
+/**
+ * @brief Apply a color-correlated temperature (CCT) value to all active, selected segments.
+ *
+ * Sets the target CCT for every segment that is both active and selected. Each affected segment
+ * will handle the change (including any configured transitions) via its own setCCT implementation.
+ *
+ * @param k Color temperature in Kelvin (e.g., 2700 for warm white, 6500 for daylight).
+ */
 void WS2812FX::setCCT(uint16_t k) {
   for (segment &seg : _segments) {
     if (seg.isActive() && seg.isSelected()) {
@@ -1853,25 +1927,34 @@ void WS2812FX::purgeSegments() {
   }
 }
 
+/**
+ * @brief Returns a segment by index, falling back to the main segment if the index is out of range.
+ *
+ * Retrieves a reference to the Segment at the given zero-based index in the internal segment vector.
+ * If `id` is greater than or equal to the number of segments, the main segment (getMainSegmentId()) is returned.
+ *
+ * @param id Zero-based segment index to retrieve.
+ * @return Segment& Reference to the requested segment or the main segment when `id` is invalid.
+ */
 Segment& WS2812FX::getSegment(uint8_t id) {
   return _segments[id >= _segments.size() ? getMainSegmentId() : id]; // vectors
 }
 
 /**
- * @brief Create or update a segment's geometry and queue the change if the segment is active.
+ * @brief Create, update, or remove a segment's geometry.
  *
- * Updates the specified segment's bounds and geometry (1D/2D grouping, spacing, offset, and Y-range).
- * If segId is out of range and the supplied range is non-empty (i2 > i1), a new segment is appended.
- * Changes are applied while updates are suspended to avoid mid-frame tearing; the update is resumed
- * afterwards. If the call removes the last segment (makes it empty) the segment is erased.
+ * Updates the segment's logical bounds and geometry (range, grouping, spacing, offset and optional Y-range).
+ * If segId is out of range and the supplied range is non-empty (i2 > i1), a new segment is appended and
+ * segId is set to that new segment. The update is performed while engine updates are suspended to avoid
+ * mid-frame tearing and resumes afterwards. If the call makes the last segment empty (i2 <= i1) it is removed.
  *
- * @param segId Index of the segment to modify. If >= current segment count and the provided range is non-empty,
- *              a new segment is appended and segId is adjusted to that new segment.
- * @param i1    Start LED index (inclusive) for the segment's logical range.
- * @param i2    End LED index (exclusive) for the segment's logical range. When i2 <= i1 the range is treated as empty/inactive.
- * @param grouping Number of LEDs per group for grouping behavior.
+ * @param segId Index of the segment to modify; if >= current segment count and the provided range is non-empty,
+ *              a new segment is appended and this call will act on that new segment.
+ * @param i1    Inclusive start LED index of the segment's logical range.
+ * @param i2    Exclusive end LED index of the segment's logical range; treated as empty/inactive when i2 <= i1.
+ * @param grouping Number of LEDs per group for grouped rendering.
  * @param spacing  Number of LEDs skipped between groups.
- * @param offset   Offset applied to the segment's pixel mapping.
+ * @param offset   Pixel offset applied to the segment's mapping.
  * @param startY   Start row (Y) for 2D/matrix segments (ignored for plain 1D segments).
  * @param stopY    Stop row (Y) for 2D/matrix segments (ignored for plain 1D segments).
  */

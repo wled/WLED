@@ -18,7 +18,17 @@ WLED::WLED()
 {
 }
 
-// turns all LEDs off and restarts ESP
+/**
+ * @brief Turn off all LEDs and perform a full device restart.
+ *
+ * Sets target brightness to zero, attempts to flush outgoing websocket responses
+ * (if websockets are enabled), waits briefly to allow clients to receive data,
+ * applies the zero brightness to the LED hardware, logs a reset message, and
+ * triggers an ESP restart.
+ *
+ * @note If websockets support is compiled in, all active websocket connections
+ * are closed with code 1012 before the wait. This function does not return.
+ */
 void WLED::reset()
 {
   briT = 0;
@@ -35,24 +45,26 @@ void WLED::reset()
 }
 
 /**
- * @brief Main runtime loop; performs periodic service tasks and subsystem maintenance.
+ * @brief Main runtime loop: orchestrates periodic tasks, service maintenance, and I/O.
  *
- * This is the central loop executed continuously after setup. It coordinates timekeeping,
- * connection management, input/output handling, user modules, LED strip servicing, and
- * ancillary services (OTA, MQTT, NTP, mDNS, Hue/Alexa/ESP-NOW/DMX where enabled). It also
- * monitors heap usage and can trigger reconnection or segment purging when memory is low,
- * reinitializes LED busses/LED maps when requested, serializes configuration changes,
- * feeds the watchdog, and triggers a reboot when requested.
+ * Runs continuously after setup to keep subsystems alive and responsive. Responsibilities
+ * include timekeeping, connection and interface management (WiFi/AP, mDNS, MQTT, OTA,
+ * ESP-NOW, Hue/Alexa when enabled), input handling (serial/IR/Improv/Adalight), user
+ * callbacks/usermods, notifications/transitions/DMX, LED strip servicing, filesystem
+ * actions, and housekeeping (heap monitoring, bus/map reinitialization, config
+ * serialization, watchdog feeding, and conditional rebooting).
  *
  * Side effects:
- * - Drives network and peripheral services (WiFi, AP, MDNS, DNS, UDP, MQTT, OTA, etc.).
- * - Updates and renders LED strip state; may block strip updates when realtime input is active.
- * - May call reset() to reboot the device if a reboot has been requested.
- * - May reinitialize hardware buses and serialize configuration when configured flags are set.
+ * - Drives network, peripheral, and server activity (may start/stop services as needed).
+ * - Updates and renders LED state via strip.service(); may defer rendering when realtime
+ *   inputs are active.
+ * - May reinitialize LED buses/maps, purge or reset segments, and serialize configuration.
+ * - May trigger device reboot via reset() when requested and safe to do so.
+ * - Feeds the configured watchdog timer.
  *
  * Notes:
- * - Behavior is influenced by many compile-time flags (e.g., WLED_DEBUG, WLED_DISABLE_INFRARED,
- *   WLED_ENABLE_ADALIGHT, WLED_DISABLE_MQTT, WLED_DISABLE_ESPNOW, WLED_DISABLE_HUESYNC, etc.).
+ * - Behavior depends on compile-time feature flags (e.g., WLED_DEBUG, WLED_DISABLE_MQTT,
+ *   WLED_DISABLE_ESPNOW, WLED_DISABLE_HUESYNC, WLED_ENABLE_ADALIGHT, etc.).
  */
 void WLED::loop()
 {
@@ -311,6 +323,14 @@ void WLED::enableWatchdog() {
   #endif
 }
 
+/**
+ * @brief Disables the system watchdog timer.
+ *
+ * Stops the watchdog to prevent automatic resets.
+ *
+ * On ESP32 this removes the current task from the task watchdog; on other platforms
+ * (ESP8266/Arduino) it disables the legacy watchdog timer.
+ */
 void WLED::disableWatchdog() {
   DEBUG_PRINTLN(F("Watchdog: disabled"));
   #ifdef ARDUINO_ARCH_ESP32
@@ -762,7 +782,18 @@ bool WLED::initEthernet()
 }
 
 // performs asynchronous scan for available networks (which may take couple of seconds to finish)
-// returns configured WiFi ID with the strongest signal (or default if no configured networks available)
+/**
+ * @brief Selects the configured WiFi entry with the strongest available signal.
+ *
+ * Scans available networks (asynchronously when needed) and matches discovered SSIDs
+ * against the configured list (multiWiFi). If multiple configured entries are found,
+ * the one with the highest RSSI is chosen; when RSSI differences are small, lower-index
+ * configured entries keep priority.
+ *
+ * @param doScan If true, restarts the WiFi scan before checking results (triggers an asynchronous scan when necessary).
+ * @return int8_t Index of the chosen configured WiFi entry in multiWiFi (0 when only a single configured network exists).
+ *         If a scan is still running or an error occurred, returns the WiFi scan status code (non-negative = number of found networks; negative = scan error/status).
+ */
 int8_t WLED::findWiFi(bool doScan) {
   if (multiWiFi.size() <= 1) {
     DEBUG_PRINTLN(F("Defaulf WiFi used."));
@@ -904,6 +935,23 @@ void WLED::initConnection()
 #endif
 }
 
+/**
+ * @brief Initialize network-dependent interfaces after a Wi-Fi station connection is established.
+ *
+ * Configures and starts station-mode services that require a valid IP address: sets a default Hue sync IP base (if enabled),
+ * initializes Alexa Hue emulation and OTA (if enabled and configured), starts mDNS and advertises HTTP/WLED services,
+ * starts the HTTP server, and opens UDP ports for notifier/RGB/secondary notifier and NTP as configured. Also starts
+ * E1.31 (sACN) and DDP listeners, attempts Hue reconnection, initializes MQTT (if enabled), and marks interfaces as initialized.
+ *
+ * Side effects:
+ * - May call alexaInit(), ArduinoOTA.begin(), MDNS.begin()/addService/addServiceTxt(), server.begin().
+ * - Opens notifier/rgb/notifier2 UDP sockets and the NTP UDP socket when configured.
+ * - Calls e131.begin(), ddp.begin(), reconnectHue(), and initMqtt() (when compiled with MQTT).
+ * - Sets interfacesInited = true and wasConnected = true.
+ *
+ * Preconditions:
+ * - Should be called when the device has a valid station IP (Network.localIP()).
+ */
 void WLED::initInterfaces()
 {
   DEBUG_PRINTLN(F("Init STA interfaces"));

@@ -306,7 +306,15 @@ private:
       }
     }
 
-    void initializeBmeComms()
+    /**
+ * Initialize BME280/BMP280 sensor communications and detect sensor type.
+ *
+ * Configures BME280I2C interface (oversampling, mode, standby, filter, SPI disabled,
+ * and I2C address), applies the settings, and attempts to initialize the sensor.
+ * On success sets `sensorType` to 1 for BME280 or 2 for BMP280; on failure sets
+ * `sensorType` to 0. Emits debug messages indicating the outcome.
+ */
+void initializeBmeComms()
     {
       BME280I2C::Settings settings{
             BME280::OSR_X16,    // Temperature oversampling x16

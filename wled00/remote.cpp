@@ -109,6 +109,17 @@ static void setOff() {
   }
 }
 
+/**
+ * @brief Exit night mode (if active) and apply a stored preset, using fallbacks.
+ *
+ * Ensures night mode is deactivated, then delegates to applyPresetWithFallback()
+ * to apply the preset identified by presetID. The provided effectID and
+ * paletteID are forwarded and may be used to override the preset's defaults.
+ *
+ * @param presetID Preset index/ID to apply.
+ * @param effectID Effect override forwarded to the preset application routine.
+ * @param paletteID Palette override forwarded to the preset application routine.
+ */
 void presetWithFallback(uint8_t presetID, uint8_t effectID, uint8_t paletteID) {
   resetNightMode();
   applyPresetWithFallback(presetID, CALL_MODE_BUTTON_PRESET, effectID, paletteID);
@@ -201,23 +212,21 @@ static bool remoteJson(int button)
 }
 
 /**
- * @brief ESP-NOW receive callback: capture and validate an incoming WizMote/Smart-button packet.
+ * @brief ESP-NOW receive callback that validates and records incoming WizMote/Smart-button packets for deferred processing.
  *
- * Validates sender identity and packet length, deduplicates using a 32-bit sequence number,
- * and stores the received button ID into the global ESPNowButton for deferred processing.
+ * Performs lightweight validation suitable for callback context: verifies the packet originates from the linked remote, 
+ * checks the packet length equals sizeof(message_structure_t), and deduplicates using the 32-bit sequence number encoded
+ * in seq[0..3]. On success the function stores the received button ID into the global ESPNowButton and updates last_seq.
  *
- * This function runs in the ESP-NOW receive callback context and therefore must not perform
- * file I/O or other long-running operations; it only performs lightweight validation and state updates.
+ * This function must remain short-running (no file I/O or blocking operations) since it is invoked from the ESP-NOW
+ * receive callback context.
  *
- * @param incomingData Pointer to the raw incoming packet bytes. Must point to a buffer
- *                     matching the expected WizMote message layout (message_structure_t).
- * @param len         Length of the incoming packet in bytes. Packets with a length different
- *                    from sizeof(message_structure_t) are ignored.
+ * @param incomingData Pointer to the raw incoming packet bytes; must follow the WizMote message layout (message_structure_t).
+ * @param len Length of the incoming packet in bytes; packets with a length different from sizeof(message_structure_t) are ignored.
  *
  * Side effects:
- * - If the packet passes validation, sets the global ESPNowButton to the incoming button value
- *   and updates last_seq with the packet's sequence number.
- * - If the sender does not match linked_remote or the length is invalid, the packet is discarded.
+ * - Sets ESPNowButton to the incoming button value when validation succeeds.
+ * - Updates last_seq with the packet's sequence number to prevent reprocessing duplicates.
  */
 void handleWiZdata(uint8_t *incomingData, size_t len) {
   message_structure_t *incoming = reinterpret_cast<message_structure_t *>(incomingData);
@@ -250,25 +259,24 @@ void handleWiZdata(uint8_t *incomingData, size_t len) {
 }
 
 /**
- * @brief Process a pending ESP-NOW remote button event.
+ * @brief Process a queued ESP-NOW remote button event.
  *
- * Checks the global ESPNowButton value; if set (>= 0) it first attempts to
- * handle the button via remoteJson (which may read /remote.json). If that
- * does not handle the button, maps the button to built-in actions (on/off,
- * presets, night mode, brightness up/down). After processing, the function
- * clears ESPNowButton (sets it to -1).
+ * Checks the global ESPNowButton; if set (>= 0) attempts to handle it via
+ * remoteJson() (which may read /remote.json). If remoteJson() does not handle
+ * the button, the button value is mapped to built-in actions (on/off, presets,
+ * night mode, brightness up/down). After processing the value is cleared (set
+ * to -1).
  *
  * @details
- * - This function performs filesystem access via remoteJson and may apply
- *   state changes (calls like setOn, setOff, presetWithFallback,
- *   activateNightMode, brightnessUp/Down) which trigger stateUpdated callers.
- * - It is intended to be called from the main loop (deferred processing)
- *   rather than directly from the ESP-NOW receive callback to avoid
- *   filesystem/strip-update glitches.
+ * - Intended to be called from the main loop (deferred processing) — not from
+ *   the ESP-NOW receive callback — to avoid doing filesystem work or applying
+ *   state changes inside the interrupt/receive path.
+ * - May perform filesystem access and will trigger state changes (calls such
+ *   as setOn, setOff, presetWithFallback, activateNightMode,
+ *   brightnessUp/brightnessDown) which in turn call stateUpdated().
  *
- * @note Do not call while a strip update or other critical FS activity is in
- * progress; remoteJson performs its own JSON-buffer locking but a concurrent
- * strip update can still cause glitches.
+ * @note remoteJson() performs its own JSON-buffer locking, but this function
+ * may still block briefly while remoteJson accesses storage.
  */
 void handleRemote() {
   if(ESPNowButton >= 0) {

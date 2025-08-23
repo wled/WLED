@@ -184,10 +184,20 @@ virtual uint32_t getPixelColor(unsigned pix) const          { return 0; }
     inline  bool     hasWhite() const                           { return _hasWhite; }
     inline  bool     hasCCT() const                             { return _hasCCT; }
     /**
-     * Return true when this Bus's type represents a digital LED interface (e.g. WS281x-style).
+     * Check whether this bus instance uses a digital LED protocol (e.g., WS281x).
      *
-     * This is a convenience wrapper that queries the static Bus::isDigital(type) predicate
-     * for this instance's configured _type.
+     * Convenience wrapper around the static Bus::isDigital(type) predicate that
+     * queries this instance's configured _type.
+     *
+     * @return true if the bus type is digital, false otherwise.
+     */
+    /**
+     * Check whether this bus instance uses a two-pin LED interface.
+     *
+     * Convenience wrapper around the static Bus::is2Pin(type) predicate that
+     * queries this instance's configured _type.
+     *
+     * @return true if the bus type requires two pins, false otherwise.
      */
     inline  bool     isDigital() const                          { return isDigital(_type); }
     inline  bool     is2Pin() const                             { return is2Pin(_type); }
@@ -199,10 +209,17 @@ virtual uint32_t getPixelColor(unsigned pix) const          { return 0; }
      */
     
     /**
-     * Return true when this Bus instance represents a PWM-driven output type.
+     * Whether this Bus is an on/off (binary) output type.
      *
-     * Evaluates the bus's configured type and returns whether it is PWM-capable.
-     * @return true if the bus type is PWM, false otherwise.
+     * Returns true when the configured bus type represents a simple on/off driver
+     * (no PWM or multilevel brightness).
+     * @return true if this bus is on/off, false otherwise.
+     */
+    /**
+     * Whether this Bus supports PWM (analog) output.
+     *
+     * Returns true when the configured bus type uses PWM for brightness/color control.
+     * @return true if this bus is PWM-capable, false otherwise.
      */
     inline  bool     isOnOff() const                            { return isOnOff(_type); }
     inline  bool     isPWM() const                              { return isPWM(_type); }
@@ -211,8 +228,12 @@ virtual uint32_t getPixelColor(unsigned pix) const          { return 0; }
      * @return true when the bus's configured LED type is virtual; false otherwise.
      */
     /**
-     * Returns true if this bus's LED type uses 16-bit color channels.
-     * @return true when the bus's configured LED type is 16-bit; false otherwise.
+     * Returns true if this bus represents a virtual (non-hardware) LED type.
+     * @return true when the bus type is virtual; false otherwise.
+     */
+    /**
+     * Returns true if this bus's configured LED type uses 16-bit color channels.
+     * @return true when the LED type is 16-bit; false otherwise.
      */
     inline  bool     isVirtual() const                          { return isVirtual(_type); }
     inline  bool     is16bit() const                            { return is16bit(_type); }
@@ -225,25 +246,35 @@ virtual uint32_t getPixelColor(unsigned pix) const          { return 0; }
      * @return true if the bus type must be refreshed periodically, false otherwise.
      */
     /**
-     * Set whether the pixel ordering for this bus is reversed.
+     * Return whether this bus type requires continuous refresh.
      *
-     * When true, pixel indices and rendering will be interpreted in reverse order
-     * relative to the configured start index.
+     * This queries the type-specific mustRefresh predicate for the bus's configured type.
+     * @return true if the bus type requires periodic refresh, false otherwise.
+     */
+    /**
+     * Set whether this bus's pixel indexing is reversed.
      *
-     * @param reversed true to reverse pixel ordering, false for normal ordering.
+     * When reversed is true, pixel indices and rendering are interpreted in reverse
+     * order relative to the configured start index.
+     * @param reversed true to reverse pixel ordering, false for normal ordering
      */
     inline  bool     mustRefresh() const                        { return mustRefresh(_type); }
     inline  void     setReversed(bool reversed)                 { _reversed = reversed; }
     /**
- * Set the zero-based starting pixel index for this bus.
- * @param start Index of the first LED managed by the bus (zero-based).
+ * Set the zero-based starting global pixel index for this bus.
+ *
+ * This updates which global pixel indices map to this bus; it does not
+ * validate or adjust the bus length or bounds — callers must ensure the
+ * start value keeps the bus within the overall strip limits.
+ *
+ * @param start Zero-based index of the first LED managed by this bus.
  */
 inline  void     setStart(uint16_t start)                   { _start = start; }
     /**
- * Set the bus's Auto White Mode (AWM).
+ * Set the bus instance's Auto White Mode (AWM).
  *
- * Valid values are 0–4; values >= 5 are ignored. Updates the instance's
- * auto-white mode used when automatic white channel calculation is applied.
+ * Accepts values 0–4; values outside this range are ignored. The AWM controls
+ * how automatic white-channel calculation is applied for this bus.
  * @param m Auto White Mode (0–4)
  */
 inline  void     setAutoWhiteMode(uint8_t m)                { if (m < 5) _autoWhiteMode = m; }
@@ -265,20 +296,21 @@ inline  void     setAutoWhiteMode(uint8_t m)                { if (m < 5) _autoWh
 inline  bool     containsPixel(uint16_t pix) const          { return pix >= _start && pix < _start + _len; }
 
     /**
- * Get the list of available LED types.
+ * Return the available LED type descriptors.
  *
- * Returns a vector containing a single placeholder entry used when no concrete
- * LED types are registered.
- * @return std::vector<LEDType> Vector with one element: {TYPE_NONE, "", PSTR("None")}.
+ * When no concrete LED types are registered this returns a vector with a
+ * single placeholder entry indicating "None".
+ * @return std::vector<LEDType> Vector containing one element: {TYPE_NONE, "", PSTR("None")}.
  */
 static inline std::vector<LEDType> getLEDTypes()            { return {{TYPE_NONE, "", PSTR("None")}}; } /**
- * Return the required number of physical pins for the given LED bus type.
+ * Get how many physical pins are required by a given LED bus type.
  *
- * For virtual bus types this reports 4 pins, for PWM-based types it delegates to
- * numPWMPins(type), for two-pin types it returns 2, otherwise 1.
+ * For virtual bus types this returns 4. For PWM-driven types this returns
+ * the value from numPWMPins(type). Two-pin types return 2; all other (typical
+ * single-pin digital) types return 1.
  *
- * @param type LED/bus type identifier (as used by the Bus type constants).
- * @return Number of hardware pins the given type requires.
+ * @param type LED/bus type identifier.
+ * @return Number of hardware pins required by the specified type.
  */
     static constexpr unsigned getNumberOfPins(uint8_t type)     { return isVirtual(type) ? 4 : isPWM(type) ? numPWMPins(type) : is2Pin(type) + 1; } /**
  * Return the number of color channels for a given LED type.
@@ -291,7 +323,7 @@ static inline std::vector<LEDType> getLEDTypes()            { return {{TYPE_NONE
  */
     static constexpr unsigned getNumberOfChannels(uint8_t type) { return hasWhite(type) + 3*hasRGB(type) + hasCCT(type); }
     /****
-     * Return whether the specified LED type includes RGB color channels.
+     * Check whether an LED type includes RGB color channels.
      * @param type LED type identifier (one of the TYPE_* constants).
      * @return true if the type supports RGB output; false for single-channel, two-channel analog, or on/off types.
      ****/
@@ -321,8 +353,20 @@ static inline std::vector<LEDType> getLEDTypes()            { return {{TYPE_NONE
     static constexpr bool  mustRefresh(uint8_t type)  { return type == TYPE_TM1814; }
     static constexpr int   numPWMPins(uint8_t type)   { return (type - 40); }
 
-    static inline int16_t  getCCT()                   { return _cct; }
-    static inline void     setGlobalAWMode(uint8_t m) { if (m < 5) _gAWM = m; else _gAWM = AW_GLOBAL_DISABLED; }
+    /**
+ * Get the current correlated color temperature (CCT) used for segments.
+ * @return Current CCT value in Kelvin as an int16_t.
+ */
+static inline int16_t  getCCT()                   { return _cct; }
+    / **
+ * Set the global automatic white (AW) mode.
+ *
+ * If `m` is in the valid range [0..4], the global AW mode is set to `m`.
+ * For any value >= 5, the global AW mode is set to `AW_GLOBAL_DISABLED`.
+ *
+ * @param m Mode index (0–4 for valid AW modes; >=5 disables global AW).
+ */
+static inline void     setGlobalAWMode(uint8_t m) { if (m < 5) _gAWM = m; else _gAWM = AW_GLOBAL_DISABLED; }
     /**
  * Return the current global Auto-White (AW) mode.
  *
@@ -330,9 +374,13 @@ static inline std::vector<LEDType> getLEDTypes()            { return {{TYPE_NONE
  */
 static inline uint8_t  getGlobalAWMode()          { return _gAWM; }
     /**
- * Set the global correlated color temperature (CCT) value used by buses.
+ * Set the global correlated color temperature (CCT) used by all buses.
  *
- * @param cct CCT value to store (int16_t). The units/interpretation follow the surrounding codebase's conventions (e.g., Kelvin). 
+ * This updates the global CCT value that buses use for white/CCT calculations and
+ * rendering. Value is stored as an int16_t representing color temperature in
+ * Kelvin (or the project's CCT units).
+ *
+ * @param cct Global CCT value to apply to subsequent renders.
  */
 static inline void     setCCT(int16_t cct)        { _cct = cct; }
     /**
@@ -515,14 +563,80 @@ static inline uint8_t  getCCTBlend()              { return _cctBlend; }
  */
 
 /**
- * Free allocated PWM resources and mark the internal data pointer as released.
- * After cleanup the bus must be reinitialized with begin() before use.
+ * Release digital bus driver resources and mark the bus as uninitialized.
+ *
+ * Frees any driver/runtime resources associated with this digital output bus,
+ * clears internal runtime pointers so the bus no longer references allocated
+ * buffers, and leaves the bus in a state where begin() must be called before
+ * it can be used again. After cleanup() the bus will not drive hardware until
+ * reinitialized.
+ */
+
+/**
+ * Release PWM resources and mark the bus as uninitialized.
+ *
+ * Deallocates any PWM pins/timers owned by this bus and clears internal
+ * runtime pointers so the bus no longer references allocated buffers. The bus
+ * must be reinitialized with begin() before calling show() or otherwise using
+ * it to drive hardware.
  */
 class BusDigital : public Bus {
   public:
     BusDigital(const BusConfig &bc, uint8_t nr, const ColorOrderMap &com);
     ~BusDigital() { cleanup(); }
 
+    /**
+     * Render the bus's buffered pixel data to the attached digital LED hardware.
+     *
+     * This triggers transmission of the bus's current pixel buffer to the driver/LEDs.
+     */
+    
+    /**
+     * Indicates whether the bus is ready to accept a new show() request.
+     *
+     * @return true if the bus is ready to perform show(); false if a transmission is
+     * in progress or the underlying driver is busy.
+     */
+    
+    /**
+     * Set the runtime brightness for this bus.
+     *
+     * The value updates the bus's internal brightness state used when writing pixels
+     * or rendering; it does not itself transmit data to the hardware.
+     *
+     * @param b brightness level (0-255)
+     */
+    
+    /**
+     * Set a single "status" pixel color for this bus.
+     *
+     * Implementations may use this value for diagnostics or a global status indicator.
+     *
+     * @param c 24/32-bit color value in the bus's native color format (packed RGB/RGBW)
+     */
+    
+    /**
+     * Update the color for a single pixel in this bus's buffer.
+     *
+     * This writes the color into the bus-local pixel buffer but does not transmit it
+     * to the hardware — call show() to apply changes.
+     *
+     * @param pix zero-based pixel index within this bus
+     * @param c   24/32-bit packed color value appropriate for the bus type/color order
+     */
+    
+    /**
+     * Set the color channel ordering used by this bus when interpreting packed pixel values.
+     *
+     * @param colorOrder one of the COL_ORDER_* constants describing channel order (e.g., GRB, RGBW)
+     */
+    
+    /**
+     * Read the stored color for a single pixel from this bus's buffer.
+     *
+     * @param pix zero-based pixel index within this bus
+     * @return the packed 24/32-bit color value currently stored for the pixel
+     */
     void show() override;
     bool canShow() const override;
     void setBrightness(uint8_t b) override;
@@ -537,6 +651,47 @@ class BusDigital : public Bus {
     uint16_t getLEDCurrent() const override  { return _milliAmpsPerLed; }
     uint16_t getUsedCurrent() const override { return _milliAmpsTotal; }
     uint16_t getMaxCurrent() const override  { return _milliAmpsMax; }
+    /**
+     * Return the runtime memory footprint of this BusDigital instance.
+     *
+     * The size includes the concrete BusDigital object and any per-instance
+     * auxiliary buffers accounted by the implementation (if active).
+     *
+     * @return number of bytes used by this bus instance at runtime.
+     */
+    /**
+     * Initialize underlying driver/runtime for this digital bus.
+     *
+     * Allocates and configures hardware resources required for driving LEDs
+     * (timers, DMA, driver state) but does not perform a render. Safe to call
+     * multiple times; implementations should be idempotent where possible.
+     */
+    /**
+     * Release hardware resources allocated by begin().
+     *
+     * Frees pins, driver contexts and any auxiliary buffers and resets internal
+     * pointers so the bus can be re-initialized or destroyed without leaking.
+     */
+    /**
+     * Return a list of LED types supported by the digital bus driver.
+     *
+     * Each entry describes a supported LED/driver variant (id, type, human-readable
+     * name). The returned vector is a snapshot and callers may copy or iterate it.
+     *
+     * @return vector of supported LEDType descriptors.
+     */
+    /**
+     * Restore color components after an earlier lossy brightness scaling.
+     *
+     * This attempts an approximate inverse of a prior integer-brightness scaling
+     * by using `restoreBri` as the brightness that was applied; it operates on
+     * the 32-bit color packed as bytes and returns the adjusted packed color.
+     *
+     * @param c Packed 32-bit color (bytes interpreted as channels).
+     * @param restoreBri Brightness value that was previously applied (0-255).
+     * @return Packed 32-bit color with channels adjusted to partially recover lost
+     *         precision; if `restoreBri >= 255` the input color is returned unchanged.
+     */
     unsigned getBusSize() const override;
     void begin() override;
     void cleanup();
@@ -567,6 +722,16 @@ class BusDigital : public Bus {
       return c;
     }
 
+    /**
+     * Estimate this bus's current draw and compute the maximum allowed brightness.
+     *
+     * Calculates the expected milliamps for the configured LEDs on this bus and determines
+     * an upper brightness limit (0–255) that keeps the estimated draw within configured
+     * per-bus and global ABL limits. This function only performs the estimation and
+     * returns the resulting brightness cap; it does not modify the bus's stored brightness.
+     *
+     * @return Brightness cap in the range 0–255 that should be used to avoid exceeding current limits.
+     */
     uint8_t  estimateCurrentAndLimitBri() const;
 };
 
@@ -581,6 +746,20 @@ class BusPwm : public Bus {
     unsigned getPins(uint8_t* pinArray = nullptr) const override;
     uint16_t getFrequency() const override { return _frequency; }
     unsigned getBusSize() const override   { return sizeof(BusPwm); }
+    /**
+     * Render the prepared PWM output buffer to the configured hardware pins.
+     *
+     * Transfers the bus' current PWM values to timers/PWM drivers so the physical
+     * outputs reflect the in-memory per-pin levels. This should be called when
+     * new pixel data has been written and needs to be applied to the device.
+     */
+    
+    /**
+     * Release PWM resources and reset internal data state.
+     *
+     * Deallocates any pins owned by this PWM bus and clears the internal data
+     * pointer (sets `_data` to nullptr). Safe to call multiple times.
+     */
     void show() override;
     inline void cleanup() { deallocatePins(); _data = nullptr; }
 
@@ -625,6 +804,18 @@ class BusOnOff : public Bus {
     uint32_t getPixelColor(unsigned pix) const override;
     unsigned getPins(uint8_t* pinArray) const override;
     unsigned getBusSize() const override { return sizeof(BusOnOff); }
+    /**
+     * Render the bus's stored on/off state to its configured GPIO pin.
+     *
+     * Updates the hardware output to reflect the current per-bus on/off state so the physical
+     * pin matches the logical pixel state managed by this BusOnOff instance.
+     */
+    
+    /**
+     * Release hardware resources used by this bus.
+     *
+     * Deallocates the configured GPIO pin and clears the internal data pointer.
+     */
     void show() override;
     inline void cleanup() { PinManager::deallocatePin(_pin, PinOwner::BusOnOff); _data = nullptr; }
 
@@ -713,24 +904,24 @@ class BusOnOff : public Bus {
    */
   
   /**
-   * Construct a BusConfig.
+   * Initialize a BusConfig from raw parameters.
    *
-   * The high bit (bit 7) of `busType` is treated as a refresh flag (refreshReq). The effective
-   * bus `type` is `busType & 0x7F`. The constructor copies as many pins from `ppins` as required
-   * by the resolved bus type (Bus::getNumberOfPins(type)).
+   * The constructor decodes the encoded busType where bit 7 sets refreshReq and the
+   * lower 7 bits are the effective bus type. It copies the first N pin values from
+   * ppins where N = Bus::getNumberOfPins(type).
    *
-   * @param busType      Encoded bus type; bit 7 sets the refresh requirement, lower 7 bits are the type.
-   * @param ppins        Pointer to an array of pin numbers (at least Bus::getNumberOfPins(type) entries).
-   * @param pstart       Start index (first pixel) for the bus.
-   * @param len          Number of pixels on the bus (default 1).
-   * @param pcolorOrder  Default color order for pixels on this bus (default COL_ORDER_GRB).
-   * @param rev          Whether the pixel order for the bus is reversed (default false).
-   * @param skip         Number of leading pixels to skip on this bus (default 0).
-   * @param aw           Auto-white mode for this bus (default RGBW_MODE_MANUAL_ONLY).
-   * @param clock_kHz    PWM/clock frequency in kHz for buses that use it (default 0).
-   * @param dblBfr       Whether to use double buffering for this bus (default false).
-   * @param maPerLed     Milliamps budget per LED for this bus (default LED_MILLIAMPS_DEFAULT).
-   * @param maMax        Maximum milliamps allowed for this bus (default ABL_MILLIAMPS_DEFAULT).
+   * @param busType      Encoded bus type: bit 7 = refresh requirement, bits 0–6 = type id.
+   * @param ppins        Pointer to an array of pin numbers; at least Bus::getNumberOfPins(type) entries are read.
+   * @param pstart       Index of the first pixel for this bus.
+   * @param len          Number of pixels on the bus (clamped elsewhere as needed).
+   * @param pcolorOrder  Default color order for pixels on this bus.
+   * @param rev          True if pixel ordering for this bus is reversed.
+   * @param skip         Number of leading pixels on the bus to treat as skipped.
+   * @param aw           Auto‑white mode for this bus.
+   * @param clock_kHz    Clock or PWM frequency in kHz for bus types that use it.
+   * @param dblBfr       Whether to enable double buffering for the bus.
+   * @param maPerLed     Milliamps budget per LED for this bus.
+   * @param maMax        Maximum milliamps allowed for this bus.
    */
   class BusNetwork : public Bus {
   public:

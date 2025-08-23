@@ -3,7 +3,16 @@
 #include "const.h"
 
 
-//helper to get int value at a position in string
+/**
+ * @brief Extracts an integer from a String starting three characters after a position.
+ *
+ * Returns the integer parsed from req->substring(pos + 3). Uses Arduino String::toInt(),
+ * which yields 0 when no valid integer is found.
+ *
+ * @param req Pointer to the input String.
+ * @param pos Base position; parsing begins at pos + 3.
+ * @return int Parsed integer (0 if conversion fails or the substring is empty).
+ */
 int getNumVal(const String* req, uint16_t pos)
 {
   return req->substring(pos+3).toInt();
@@ -11,21 +20,24 @@ int getNumVal(const String* req, uint16_t pos)
 
 
 /**
- * @brief Parse a numeric specification string and update a byte value accordingly.
+ * @brief Parse a compact numeric specification and update a byte value.
  *
- * Parses several compact numeric syntaxes and writes the resulting value to *val.
- * - If str is null or empty: no change.
- * - If str starts with 'r': set *val to a random number in [minv, maxv] (if maxv==0 uses 255).
- * - If str starts with 'w' (and has more characters): enables wrap semantics for subsequent '~' operations.
- * - '~' prefix: increment/decrement or apply a signed offset relative to the current *val with optional wrapping and clamping to [minv, maxv]. A literal "~0" is a no-op; "~-" decrements; "~N" adds N.
- * - If minv==maxv==0 and str contains a "p1~p2~..." pattern: treat as a preset range and recurse to parse a value within [p1,p2].
- * - Otherwise: convert str to an integer and store it (clamped in contexts above where applicable).
+ * Parses short numeric expressions and writes the resulting value to *val.
+ * Supported forms:
+ * - nullptr / empty: leave *val unchanged.
+ * - "r": set *val to a random value in [minv, maxv]. If maxv == 0, the random upper bound is treated as 255.
+ * - "w..." : enable wrap semantics for the following "~" operation (only when the string has additional characters).
+ * - "~..." : relative adjustment based on the current *val:
+ *     - "~0" : no-op.
+ *     - "~-": decrement by 1 (wraps to maxv when below minv if wrap semantics apply).
+ *     - "~N": add signed offset N to *val; respects wrap semantics if enabled, otherwise result is clamped to [minv, maxv].
+ * - If minv == maxv == 0 and the string contains a "p1~p2~..." pattern, the function treats it as a preset range and recursively parses a value within [p1, p2].
+ * - Otherwise the string is converted to an integer and stored into *val.
  *
- * Parameters:
- * @param str   Numeric specification string (supports the forms described above).
- * @param val   Pointer to the byte value to update (in/out).
- * @param minv  Minimum allowed value for clamping/wrap checks.
- * @param maxv  Maximum allowed value for clamping/wrap checks.
+ * Parameter notes:
+ * - str: specification string (see supported forms above).
+ * - val: in/out pointer to the byte value to update.
+ * - minv, maxv: bounds used for clamping or wrapping; when both are zero, special preset-range parsing is enabled.
  */
 void parseNumber(const char* str, byte* val, byte minv, byte maxv)
 {

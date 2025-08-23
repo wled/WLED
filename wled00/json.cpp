@@ -12,28 +12,30 @@
 #define JSON_PATH_EFFECTS    8
 
 /**
- * @brief Apply a JSON-defined update to a single segment (create/modify/delete).
+ * @brief Apply a JSON-defined create/modify/delete update to a single segment.
  *
- * Parses a JSON object describing a segment and applies the described changes to the strip's
- * segment list and segment state. Supported updates include geometry (start/stop, 2D bounds),
- * grouping/spacing/offset, name allocation/removal, RGB/RGBW/cct colors, mode/speed/intensity,
- * palette and custom colors, per-LED addressing, various segment options (on, freeze, selected,
- * reverse, mirror, 2D flags), LOXONE integration fields, and other per-segment flags. The function
- * may append a new segment, delete a segment, update light capabilities, trigger immediate
- * refreshes when necessary, and mark the global state as changed when segment options differ.
+ * Parses a JsonObject describing a segment and applies the described changes to the strip's
+ * segment list and the segment's runtime state. Supported updates include geometry (start/stop,
+ * length, 2D bounds), grouping/spacing/offset, name add/remove, brightness/on/freeze, colors
+ * (RGB/RGBW/cct in various JSON formats), mode/speed/intensity, palette/custom colors,
+ * per-LED addressing, and per-segment flags (selected, reverse, mirror, 2D flags, sound-sim, etc.).
  *
- * Recursive "rpt" handling is supported to replicate a segment across the strip. If a mode change
- * is requested while a playlist is active and this call is not part of a preset application,
- * the playlist will be unloaded.
+ * Side effects:
+ * - May append a new segment or delete an existing one.
+ * - May trigger an immediate segment refresh when colors/mode require it.
+ * - May mark global stateChanged when segment options differ.
+ * - If a mode change is requested while a playlist is active and this call is not part of a
+ *   preset application, the current playlist will be unloaded.
+ * - Supports recursive "rpt" behavior to replicate the segment across subsequent segments.
  *
- * @param elem JSON object containing segment fields (accepted keys: id, start, stop, len, startY, stopY,
- *             n/name, grp, spc, of, si, m12, set, sel, rev, mi, rY, mY, tp, bri, on, frz, cct, col, lx, ly,
- *             fx, fxdef, sx, ix, pal, c1, c2, c3, o1, o2, o3, i, rpt, ...). Fields follow the WLED API
- *             conventions; see implementation for supported formats for colors and per-LED arrays.
+ * @param elem JSON object containing segment data (fields follow the WLED API conventions).
+ *             See implementation for accepted key names and color formats.
  * @param it   Default segment index to use if elem does not contain an "id".
- * @param presetId ID of the preset being applied (0 means not a preset); affects playlist unloading behavior.
- * @return true if the JSON was accepted and applied (or scheduled) successfully; false if the target
- *         segment id is invalid or when attempting to append a segment without a valid stop/length.
+ * @param presetId ID of the preset being applied (0 means not part of a preset); influences
+ *                 playlist-unloading behavior when changing modes.
+ * @return true if the JSON was accepted and applied (or scheduled via recursion); false if the
+ *         target segment id is invalid or when attempting to append a segment without a valid
+ *         stop/length.
  */
 
 bool deserializeSegment(JsonObject elem, byte it, byte presetId)

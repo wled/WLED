@@ -149,7 +149,17 @@ const ethernet_settings ethernetBoards[] = {
 #endif
 
 
-//by https://github.com/tzapu/WiFiManager/blob/master/WiFiManager.cpp
+/**
+ * @brief Convert RSSI (dBm) to a WiFi signal quality percentage (0–100).
+ *
+ * Maps an RSSI value in dBm to an integer quality metric:
+ * - RSSI <= -100 -> 0
+ * - RSSI >= -50  -> 100
+ * - otherwise quality = 2 * (rssi + 100)
+ *
+ * @param rssi RSSI in dBm (typically negative).
+ * @return int Signal quality as a percentage in the range [0, 100].
+ */
 int getSignalQuality(int rssi)
 {
     int quality = 0;

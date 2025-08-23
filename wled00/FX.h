@@ -546,32 +546,41 @@ inline void     deactivate()               { setGeometry(0,0); }
  */
 inline Segment &clearName()                { if (name) free(name); name = nullptr; return *this; }
     /**
- * Set the segment's name using an Arduino String.
- * 
- * @param name Null-terminated name as a String; the content is copied/stored by the segment.
- * @return Reference to the segment (for chaining).
+ * Convenience overload to set the segment name from an Arduino String.
+ *
+ * Forwards to setName(const char*) after obtaining the String's C string.
+ * @return Reference to the segment (allows chaining).
  */
 inline Segment &setName(const String &name) { return setName(name.c_str()); }
 
     /**
- * Get the amount of segment data currently in use.
+ * Get total bytes of segment-specific data currently allocated.
  *
- * Returns the number of bytes of segment-associated data currently allocated/used
- * (range 0..MAX_SEGMENT_DATA).
+ * Returns the cumulative number of bytes allocated for per-segment effect/state
+ * data across all segments (0..MAX_SEGMENT_DATA).
+ *
+ * @return Number of bytes of segment data in use.
  */
 inline static uint16_t getUsedSegmentData()    { return _usedSegmentData; }
     /**
- * Increment the global count of used segment-data bytes.
+ * Adjust the global tally of bytes allocated for segment effect data.
  *
- * Adds the given length to the internal `_usedSegmentData` counter used to
- * track total memory reserved for segment effect data.
+ * Updates the static `_usedSegmentData` counter by adding `len`. `len` may be
+ * positive to increase or negative to decrease the tracked usage. This function
+ * does not perform bounds checking.
  *
- * @param len Number of bytes to add to the used-segment-data counter (may be
- *            positive or negative to increase or decrease the tracked usage).
+ * @param len Number of bytes to add (or subtract if negative) to the counter.
  */
 inline static void addUsedSegmentData(int len) { _usedSegmentData += len; }
     #ifndef WLED_DISABLE_MODE_BLEND
-    inline static void modeBlend(bool blend)       { _modeBlend = blend; }
+    /**
+ * Enable or disable mode blending for transitions.
+ *
+ * When true, mode transitions will blend palettes/values; when false, transitions
+ * apply without blending. This sets the internal `_modeBlend` flag.
+ * @param blend true to enable blending, false to disable it.
+ */
+inline static void modeBlend(bool blend)       { _modeBlend = blend; }
     #endif
     static void     handleRandomPalette();
     /**
@@ -910,8 +919,27 @@ class WS2812FX {  // 96 bytes
      * @return Corresponding physical pixel index (or a mapped index appropriate for the current layout).
      */
     /**
-     * Get the current frame time in milliseconds between updates.
-     * @return Frame time in ms.
+     * Number of physical LEDs present on the controller (actual installed pixels).
+     * @return Count of physical pixels.
+     */
+    /**
+     * Total logical pixel count including virtual/nonexistent pixels used for matrix layouts.
+     * This may be larger than the physical pixel count when panels or virtual spacing are configured.
+     * @return Total logical pixel count.
+     */
+    /**
+     * Current target frames per second used by the renderer.
+     * @return Target frames per second (FPS).
+     */
+    /**
+     * Map a logical pixel index to the physical pixel index used by the LED driver.
+     * This applies custom mappings, panel offsets, and any matrix/virtual-index translations.
+     * @param index Logical pixel index to map.
+     * @return Physical pixel index corresponding to the provided logical index.
+     */
+    /**
+     * Current frame time in milliseconds between updates.
+     * @return Frame time in milliseconds.
      */
 
     uint16_t

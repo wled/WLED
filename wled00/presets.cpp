@@ -132,7 +132,18 @@ bool applyPreset(byte index, byte callMode)
   return true;
 }
 
-// apply preset or fallback to a effect and palette if it doesn't exist
+/**
+ * @brief Queue application of a preset and set fallback effect + palette.
+ *
+ * Queues a request to apply preset `index` using `callMode`. If the preset is not found
+ * or does not override effect/palette when applied, `effectID` and `paletteID` are used
+ * as fallback values by assigning them to the global effect state.
+ *
+ * @param index Preset index to apply (0 means none; valid indices handled elsewhere).
+ * @param callMode How the preset should be applied (e.g., direct, button).
+ * @param effectID Fallback effect ID to use if the preset does not specify one.
+ * @param paletteID Fallback palette ID to use if the preset does not specify one.
+ */
 void applyPresetWithFallback(uint8_t index, uint8_t callMode, uint8_t effectID, uint8_t paletteID)
 {
   applyPreset(index, callMode);

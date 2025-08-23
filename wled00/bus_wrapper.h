@@ -375,25 +375,35 @@ static inline bool isParallelI2S1Output(void) { return _useParallelI2S; }
   }
 
   template <class T>
-  static void beginTM1914(void* busPtr) {
+  static /**
+   * Initialize a TM1914-based bus instance.
+   *
+   * Calls Begin() on the provided bus object and applies default TM1914 pixel settings
+   * (constructed via NeoTm1914Settings). The busPtr must be a pointer to the concrete
+   * TM1914 bus type expected by the caller.
+   *
+   * @param busPtr Pointer to the concrete TM1914 bus instance (will be cast to the
+   *               appropriate bus type internally).
+   */
+  void beginTM1914(void* busPtr) {
     T tm1914_strip = static_cast<T>(busPtr);
     tm1914_strip->Begin();
     tm1914_strip->SetPixelSettings(NeoTm1914Settings());  //NeoTm1914_Mode_DinFdinAutoSwitch, NeoTm1914_Mode_DinOnly, NeoTm1914_Mode_FdinOnly 
   }
 
   /**
-   * Initialize a concrete NeoPixel/DotStar bus instance based on a PolyBus type.
+   * Initialize the given concrete bus instance for the specified PolyBus type.
    *
-   * This dispatches to the appropriate Begin()/initialization routine for the concrete
-   * bus implementation identified by `busType`. For DotStar/LPD style buses the
-   * provided `pins` and `clock_kHz` are used to configure SPI; for other buses those
-   * parameters are ignored. On ESP32, selection between I2S and parallel-I2S variants
-   * may depend on the internal parallel-I2S flag.
+   * Calls the appropriate Begin() or specialized initializer for the concrete
+   * implementation identified by `busType`. For SPI/DotStar-style buses the
+   * provided `pins` and `clock_kHz` configure the SPI interface; other bus types
+   * ignore those values. On ESP32, selection between I2S and parallel-I2S variants
+   * depends on the internal parallel-I2S flag.
    *
-   * @param busPtr Pointer to a previously created concrete bus object (must match `busType`).
-   * @param busType One of the PolyBus I_* constants selecting the concrete bus implementation.
-   * @param pins Pointer to an array of pin numbers; used only by DotStar/SPI initializers (ESP32).
-   * @param clock_kHz DotStar SPI clock in kHz; only used for DotStar/LPD initialization.
+   * @param busPtr Pointer to a concrete bus object whose type must match `busType`.
+   * @param busType PolyBus internal I_* constant that selects the concrete implementation.
+   * @param pins Pointer to an array of pin numbers used only by SPI/DotStar initializers.
+   * @param clock_kHz SPI clock frequency in kHz for DotStar/LPD initialization (0 to use default).
    */
   static void begin(void* busPtr, uint8_t busType, uint8_t* pins, uint16_t clock_kHz /* only used by DotStar */) {
     switch (busType) {
@@ -498,22 +508,24 @@ static inline bool isParallelI2S1Output(void) { return _useParallelI2S; }
   }
 
   /**
-   * Create and allocate a NeoPixel bus instance for the specified busType.
+   * Allocate and construct a concrete NeoPixel bus instance for the given bus type.
    *
-   * Allocates (via `new`) and returns a pointer to a concrete NeoPixelBus object
-   * configured for the given busType, pixel count (`len`), pin array (`pins`)
-   * and optional channel. Returns nullptr for I_NONE or unrecognized busType.
+   * Creates (with `new`) and returns a pointer to a platform-specific NeoPixelBus
+   * implementation configured for `busType`, using `len` pixels, the provided
+   * `pins`, and an optional `channel` (ESP32 only). Returns nullptr for
+   * I_NONE or when `busType` is unrecognized.
    *
    * Notes:
-   * - The function may adjust `channel` for ESP32 targets to map parallel I2S
-   *   and RMT allocations; `channel` is only used on ESP32 variants.
+   * - On ESP32 the `channel` argument is used for RMT/I2S channel selection and
+   *   may be adjusted internally to map parallel I2S vs RMT allocations; the
+   *   value is ignored on ESP8266.
    * - For two-wire SPI-like buses (DotStar/LPD/etc.) `pins` is expected as
-   *   [data, clock]; constructors are invoked with the order (len, clock, data).
+   *   [data, clock]; constructors are invoked as (len, clock, data).
    *
-   * @param busType  Identifier of the bus type to create (one of the I_* constants).
-   * @param pins     Platform-dependent pin list; interpretation varies by bus type.
-   * @param len      Number of pixels (pixel count) for the created bus instance.
-   * @param channel  RMT/I2S channel index (ESP32 only); unused on ESP8266.
+   * @param busType Identifier of the bus type to create (one of the I_* constants).
+   * @param pins    Platform-dependent pin list; interpretation depends on the bus type.
+   * @param len     Number of pixels to allocate for the bus instance.
+   * @param channel RMT/I2S channel index (ESP32 only); unused on ESP8266.
    * @return Pointer to the newly allocated bus object, or nullptr if creation failed.
    */
   static void* create(uint8_t busType, uint8_t* pins, uint16_t len, uint8_t channel) {
@@ -739,6 +751,15 @@ static inline bool isParallelI2S1Output(void) { return _useParallelI2S; }
    *                the concrete bus implementation.
    * @return true if the bus can show/update; false if the underlying bus's CanShow()
    *         reports it cannot. */
+  /**
+   * Query whether the underlying concrete bus instance is ready to show (non-blocking).
+   *
+   * Dispatches based on `busType` to call the concrete bus object's `CanShow()` method.
+   *
+   * @param busPtr Pointer to a concrete bus instance (type selected by `busType`).
+   * @param busType Internal bus type identifier (I_*). I_NONE returns true.
+   * @return true if the targeted bus reports it can show (or for I_NONE / unknown types), otherwise false.
+   */
   static bool canShow(void* busPtr, uint8_t busType) {
     switch (busType) {
       case I_NONE: return true;
@@ -1065,23 +1086,21 @@ static inline bool isParallelI2S1Output(void) { return _useParallelI2S; }
   }
 
   /**
-   * Retrieve a pixel's color from a platform-specific NeoPixel bus and return it as a packed 32-bit value.
+   * Read a pixel from a platform-specific NeoPixel bus and return it as a packed 32-bit color.
    *
-   * This reads the pixel at index `pix` from the concrete bus instance pointed to by `busPtr` (interpreting
-   * the instance according to `busType`), converts any native color type to an R/G/B/W representation, applies
-   * an optional W-channel swap encoded in the high nibble of `co`, and then returns the color packed as:
-   *   (W << 24) | (G_or_selected << 16) | (R_or_selected << 8) | (B_or_selected)
+   * Reads pixel index `pix` from the concrete bus instance pointed to by `busPtr` (interpreted according to
+   * `busType`), converts the native color to R/G/B/W channels, optionally applies a W-channel swap, and
+   * returns a packed value in the form (W<<24) | (G<<16) | (R<<8) | (B<<0) with channel ordering adjusted
+   * by `co`.
    *
-   * The low nibble of `co` selects the channel ordering for the returned 32-bit word (values 0–5 supported;
-   * 0 is treated as GRB by default). If `busType` is unknown or the bus pointer is null/unsupported, the
-   * function returns 0.
-   *
-   * @param busPtr Pointer to the concrete NeoPixel bus instance (type selected by `busType`).
-   * @param busType PolyBus internal bus type identifier that determines how `busPtr` is cast and read.
-   * @param pix Zero-based pixel index to read from the bus.
-   * @param co Color-order mask: lower 4 bits select the output channel order; upper 4 bits (nibble)
-   *           encode a W-channel swap (1=W<->B, 2=W<->G, 3=W<->R).
-   * @return Packed 32-bit color in the form (W<<24) | (G<<16) | (R<<8) | B rearranged according to `co`.
+   * @param busPtr Pointer to the concrete NeoPixel bus instance for the given `busType`.
+   * @param busType PolyBus internal bus type identifier used to cast and read `busPtr`.
+   * @param pix Zero-based pixel index to read.
+   * @param co Color-order mask: lower 4 bits select the returned RGB ordering (values 0–5 supported;
+   *           0 = GRB default, 1 = RGB, 2 = BRG, 3 = RBG, 4 = BGR, 5 = GBR). Upper 4 bits (high nibble)
+   *           specify an optional W swap: 1 = swap W<->B, 2 = swap W<->G, 3 = swap W<->R.
+   * @return Packed 32-bit color arranged per `co` ((W<<24)|(G<<16)|(R<<8)|B). Returns 0 if `busPtr` is null
+   *         or `busType` is unsupported.
    */
   [[gnu::hot]] static uint32_t getPixelColor(void* busPtr, uint8_t busType, uint16_t pix, uint8_t co) {
     RgbwColor col(0,0,0,0);
@@ -1200,13 +1219,14 @@ static inline bool isParallelI2S1Output(void) { return _useParallelI2S; }
 
   /**
    * Delete and free a concrete NeoPixel bus instance created by PolyBus::create.
-   * 
-   * Calls the appropriate destructor/delete for the concrete bus class identified by busType.
-   * No action is taken if busPtr is nullptr or busType is I_NONE. For ESP32 I2S variants the
-   * delete dispatch respects the internal `_useParallelI2S` selection to match the allocated type.
    *
-   * @param busPtr Pointer to the bus instance previously returned by PolyBus::create.
-   * @param busType Integer identifier (I_*) specifying the concrete bus implementation of busPtr.
+   * Deletes the concrete bus object identified by busType and frees its memory.
+   * If busPtr is nullptr, busType is I_NONE, or busType is unrecognized, no action is taken.
+   * For ESP32 I2S-style variants the delete dispatch respects the internal
+   * `_useParallelI2S` selection so the destructor matches the allocation path.
+   *
+   * @param busPtr Pointer previously returned by PolyBus::create (may be nullptr).
+   * @param busType Internal I_* identifier that specifies the concrete bus class of busPtr.
    */
   static void cleanup(void* busPtr, uint8_t busType) {
     if (busPtr == nullptr) return;
@@ -1306,20 +1326,20 @@ static inline bool isParallelI2S1Output(void) { return _useParallelI2S; }
   }
 
   /**
-   * Compute the number of bytes of pixel data allocated/required for a given bus instance.
+   * Calculate the number of bytes used by pixel-data buffers for a concrete bus instance.
    *
-   * Returns the total data buffer size (in bytes) that the specific bus implementation
-   * allocates for its pixel storage (front/back/DMA buffers where applicable). The value
-   * is derived from the bus instance's PixelsSize() multiplied by a bus-specific factor
-   * (e.g., 2 for single-buffer RGB/RGBW paths, 4 for I2S-parallel DMA layouts, 5 for
-   * front+back+small system-managed RMT buffers on some ESP8266/ESP32 variants).
+   * Returns the total number of bytes allocated/required for pixel storage for the
+   * given concrete bus implementation identified by `busType`. The value is computed
+   * from the underlying object's PixelsSize() multiplied by a bus-specific factor
+   * (accounts for front/back buffers, DMA staging, RMT system buffers, parallel I2S
+   * layouts, etc.). For I_NONE or unrecognized types the function returns 0.
    *
-   * @param busPtr Pointer to the concrete bus object corresponding to `busType`.
-   *               Must be a valid instance for the given type; passing an invalid or
-   *               null pointer for non-I_NONE types results in undefined behavior.
+   * @param busPtr Pointer to the concrete bus object for `busType`. Must point to
+   *               an instance of the matching concrete class; passing a mismatched
+   *               or null pointer for non-I_NONE types leads to undefined behavior.
    * @param busType One of the PolyBus I_* constants identifying the concrete bus type.
-   * @return Size in bytes of pixel-related data for that bus instance, or 0 for I_NONE
-   *         or unrecognized/unsupported types.
+   * @return Number of bytes used by pixel-related buffers for the specified bus, or 0
+   *         for I_NONE / unsupported types.
    */
   static unsigned getDataSize(void* busPtr, uint8_t busType) {
     unsigned size = 0;
@@ -1420,18 +1440,19 @@ static inline bool isParallelI2S1Output(void) { return _useParallelI2S; }
   }
 
   /**
-   * Estimate memory (in bytes) required for pixel buffers for a given bus type and pixel count.
+   * Estimate pixel buffer memory usage for a given bus type and pixel count.
    *
-   * Calculates an approximate buffer memory footprint used by the underlying NeoPixel bus
-   * implementation for `count` pixels of type `busType`. The function uses a 3-channel
-   * (RGB) baseline and adjusts the estimate for buses with additional channels (RGBW/CW),
-   * 16-bit-per-channel schemes, front/back buffers, DMA staging buffers, and other
-   * bus-specific buffering strategies. Returns 0 for I_NONE.
+   * Computes an approximate number of bytes required for the pixel buffers that the
+   * underlying NeoPixel bus implementation will allocate for `count` pixels of the
+   * specified internal `busType` (I_*). The routine starts from a 3-channel (RGB)
+   * baseline and adjusts for additional channels (RGBW/WW/CW), 16-bit channels,
+   * and per-bus buffering strategies (front/back buffers, DMA/RMT/I2S staging) as
+   * implemented per architecture and bus variant. Returns 0 for I_NONE.
    *
    * @param count Number of pixels.
-   * @param busType PolyBus internal bus type identifier (I_*). The result varies by
-   *        architecture and specific bus (RMT, DMA, UART, I2S, etc.).
-   * @return Estimated number of bytes required for the bus's pixel buffers.
+   * @param busType Internal PolyBus bus type identifier (I_*); result depends on the
+   *        specific bus variant and target architecture.
+   * @return Estimated number of bytes required for the bus's pixel buffers (0 for I_NONE).
    */
   static unsigned memUsage(unsigned count, unsigned busType) {
     unsigned size = count*3;  // let's assume 3 channels, we will add count or 2*count below for 4 channels or 5 channels

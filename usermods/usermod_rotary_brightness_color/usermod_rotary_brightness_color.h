@@ -32,15 +32,15 @@
  */
  
 /**
- * Read usermod settings from the provided JSON root object.
+ * Read rotary-encoder usermod settings from a JSON object.
  *
- * Loads settings with robust defaults and missing-value handling:
- * - Defaults: fadeAmount = 5; pins = [-1, -1, -1]
- * - Attempts to read the "rotEncBrightness" block and its "fadeAmount" and "pin" entries.
- * If any expected value is missing, defaults are used.
+ * Sets safe defaults (fadeAmount = 5, pins = {-1, -1, -1}) first, then attempts to read the
+ * "rotEncBrightness" object and its "fadeAmount" and "pin" array entries. If any expected value
+ * is missing the corresponding default is left in place.
  *
- * @param root JSON object to read configuration from.
- * @return true if the "rotEncBrightness" block and all expected values were present; false if any values were missing (defaults applied).
+ * @param root JSON root to read the "rotEncBrightness" configuration from.
+ * @return true if the "rotEncBrightness" block and all expected values were present; false if any
+ *         value was missing (defaults remain and the caller may save them). 
  */
 class RotaryEncoderBrightnessColor : public Usermod
 {
