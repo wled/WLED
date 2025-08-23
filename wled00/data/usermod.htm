@@ -40,7 +40,7 @@ class UsermodPROplus : public Usermod {
     uint16_t uiPatternWindow, uiEnableMotion, uiMqtt, uiHttp;
   public:
     String getName() { return "PRO+ UsrMod"; }
-    uint16_t getId()   { return USERMOD_ID + 1; }
+   uint16_t getId()   { return 500; } // unique, hardcoded
     void setup() {
       pinMode(pinSensorUp, INPUT_PULLUP);
       pinMode(pinSensorDown, INPUT_PULLUP);
