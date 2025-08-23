@@ -416,3 +416,92 @@ TEST_CASE(mapf_handles_negative_and_reverse_ranges) {
 }
 
 } // namespace util
+// ==== ADDITIONAL TESTS (Aug 23, 2025) ====
+// Test framework note (repository scan): GoogleTest
+// These tests extend coverage for the diff-touched utilities: parseNumber, getVal, getBoolVal,
+// updateVal, isAsterisksOnly, crc16, get_random_wheel_index, and mapf. They emphasize edge cases,
+// failure conditions, and boundary behaviors to complement existing happy-path tests.
+
+TEST_SUITE(util) {
+
+TEST_CASE(parseNumber_clamps_out_of_range_values) {
+  byte v = 0;
+  parseNumber("300", &v, 0, 255);
+  CHECK_EQ(v, (byte)255); // above max clamps to max
+
+  v = 5;
+  parseNumber("-5", &v, 0, 100);
+  CHECK_EQ(v, (byte)0); // negative clamps to min
+}
+
+TEST_CASE(parseNumber_handles_whitespace_and_plus_sign) {
+  byte v = 0;
+  parseNumber("   +12  ", &v, 0, 255);
+  CHECK_EQ(v, (byte)12);
+}
+
+TEST_CASE(parseNumber_invalid_input_leaves_value_unchanged) {
+  byte v = 9;
+  parseNumber("abc", &v, 0, 10);
+  CHECK_EQ(v, (byte)9);
+}
+
+TEST_CASE(getVal_string_numeric_out_of_range_clamps_to_vmax) {
+  byte out = 0;
+#if __has_include(<ArduinoJson.h>)
+  DynamicJsonDocument doc(64);
+  doc["k"] = "999";
+  CHECK_TRUE(getVal(doc["k"], &out, 3, 10));
+  CHECK_EQ(out, (byte)10);
+#else
+  JsonVariant v; v.kind = JsonVariant::KStr; v.s = "999";
+  CHECK_TRUE(getVal(v, &out, 3, 10));
+  CHECK_EQ(out, (byte)10);
+#endif
+}
+
+TEST_CASE(getVal_returns_false_on_null_variant_and_keeps_value) {
+  byte out = 7;
+#if __has_include(<ArduinoJson.h>)
+  DynamicJsonDocument doc(64);
+  CHECK_FALSE(getVal(doc["missing"], &out, 0, 10));
+  CHECK_EQ(out, (byte)7);
+#else
+  JsonVariant v; v.kind = JsonVariant::KNone;
+  CHECK_FALSE(getVal(v, &out, 0, 10));
+  CHECK_EQ(out, (byte)7);
+#endif
+}
+
+TEST_CASE(updateVal_missing_value_returns_false_and_does_not_mutate) {
+  const char* req = "X=9&YY=17&Z=";
+  byte v = 5;
+  CHECK_FALSE(updateVal(req, "Z=", &v, 0, 255));
+  CHECK_EQ(v, (byte)5);
+}
+
+TEST_CASE(updateVal_avoids_partial_key_matches) {
+  const char* req = "AAA=9&AA=3";
+  byte v = 0;
+  CHECK_TRUE(updateVal(req, "AA=", &v, 0, 10));
+  CHECK_EQ(v, (byte)3);
+}
+
+TEST_CASE(isAsterisksOnly_returns_false_for_maxLen_zero_even_if_nonempty) {
+  CHECK_FALSE(isAsterisksOnly("*", 0));
+}
+
+TEST_CASE(get_random_wheel_index_handles_edge_position_254) {
+  uint8_t p = 254;
+  uint8_t r = get_random_wheel_index(p);
+  uint8_t dx = (uint8_t)std::abs((int)p - (int)r);
+  uint8_t dy = 255 - dx;
+  uint8_t d  = (dx < dy) ? dx : dy;
+  CHECK_GE(d, (uint8_t)42);
+}
+
+TEST_CASE(mapf_extrapolates_beyond_input_range) {
+  CHECK_NEAR(mapf(15.0f, 0.0f, 10.0f, 0.0f, 100.0f), 150.0f, 1e-5f);
+}
+
+} // namespace util

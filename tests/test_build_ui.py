@@ -155,3 +155,111 @@ def test_node_present_install_only_one_call_if_build_result_missing(monkeypatch,
     assert fake_env.calls == ["npm install", "npm run build"]
     out = capsys.readouterr().out
     assert "Installing node packages" in out
+# ---------------------------------------------------------------------------
+# Additional tests appended by CodeRabbit Inc — Testing library: pytest
+# Focused on edge cases from the PR diff behavior.
+# ---------------------------------------------------------------------------
+
+def test_node_present_install_failure_ignored_when_build_succeeds(monkeypatch, capsys, tmp_path):
+    script = _write_temp_script(tmp_path, SCRIPT_CONTENT)
+    monkeypatch.setattr("shutil.which", lambda name: "/usr/bin/node")
+    # Install fails (non-zero) but build succeeds; current script ignores install's result
+    fake_env = FakeEnv(results=[5, 0])
+
+    _exec_script_with_env(str(script), fake_env, monkeypatch)
+
+    assert fake_env.calls == ["npm install", "npm run build"]
+    out = capsys.readouterr().out
+    assert "Installing node packages" in out
+    assert "npm run build fails" not in out
+
+def test_node_present_install_failure_then_build_failure_exits_with_build_code(monkeypatch, capsys, tmp_path):
+    script = _write_temp_script(tmp_path, SCRIPT_CONTENT)
+    monkeypatch.setattr("shutil.which", lambda name: "/usr/bin/node")
+    fake_env = FakeEnv(results=[5, 9])
+
+    try:
+        _exec_script_with_env(str(script), fake_env, monkeypatch)
+        raise AssertionError("Expected SystemExit when build fails after install failure")
+    except SystemExit as e:
+        assert e.code == 9
+
+    assert fake_env.calls == ["npm install", "npm run build"]
+    out = capsys.readouterr().out
+    assert "npm run build fails" in out
+
+def test_shutil_which_called_with_node(monkeypatch, tmp_path, capsys):
+    script = _write_temp_script(tmp_path, SCRIPT_CONTENT)
+    seen = []
+    def which(name):
+        seen.append(name)
+        return "/usr/bin/node"
+    monkeypatch.setattr("shutil.which", which)
+    fake_env = FakeEnv(results=[0, 0])
+
+    _exec_script_with_env(str(script), fake_env, monkeypatch)
+
+    assert seen == ["node"]
+    assert fake_env.calls == ["npm install", "npm run build"]
+
+def test_node_empty_string_treated_as_present(monkeypatch, tmp_path, capsys):
+    script = _write_temp_script(tmp_path, SCRIPT_CONTENT)
+    # Some environments could hypothetically return an empty string; ensure truthy check isn't used for presence
+    monkeypatch.setattr("shutil.which", lambda name: "")
+    fake_env = FakeEnv(results=[0, 0])
+
+    _exec_script_with_env(str(script), fake_env, monkeypatch)
+
+    assert fake_env.calls == ["npm install", "npm run build"]
+    out = capsys.readouterr().out
+    assert "Installing node packages" in out
+
+def test_env_execute_raises_runtime_error_propagates(monkeypatch, tmp_path, capsys):
+    script = _write_temp_script(tmp_path, SCRIPT_CONTENT)
+    monkeypatch.setattr("shutil.which", lambda name: "/usr/bin/node")
+    fake_env = FakeEnv()
+    def raise_exec(cmd):
+        fake_env.calls.append(cmd)
+        raise RuntimeError("boom")
+    fake_env.Execute = raise_exec
+
+    try:
+        _exec_script_with_env(str(script), fake_env, monkeypatch)
+        raise AssertionError("Expected RuntimeError from env.Execute")
+    except RuntimeError as e:
+        assert "boom" in str(e)
+
+    # Only install attempted; build not reached
+    assert fake_env.calls == ["npm install"]
+    out = capsys.readouterr().out
+    assert "Installing node packages" in out
+
+def test_build_exit_code_as_string_propagated(monkeypatch, tmp_path, capsys):
+    script = _write_temp_script(tmp_path, SCRIPT_CONTENT)
+    monkeypatch.setattr("shutil.which", lambda name: "/usr/bin/node")
+    # Build returns a string "1" which is truthy; ensure it's propagated by SystemExit
+    fake_env = FakeEnv(results=[0, "1"])
+
+    try:
+        _exec_script_with_env(str(script), fake_env, monkeypatch)
+        raise AssertionError("Expected SystemExit with string exit code")
+    except SystemExit as e:
+        assert e.code == "1"
+
+    out = capsys.readouterr().out
+    assert "npm run build fails" in out
+
+def test_node_missing_exit_zero_when_env_null_returns_zero(monkeypatch, tmp_path, capsys):
+    script = _write_temp_script(tmp_path, SCRIPT_CONTENT)
+    monkeypatch.setattr("shutil.which", lambda name: None)
+    fake_env = FakeEnv(results=[0])
+
+    try:
+        _exec_script_with_env(str(script), fake_env, monkeypatch)
+        raise AssertionError("Expected SystemExit with code 0")
+    except SystemExit as e:
+        assert e.code == 0
+
+    assert fake_env.calls == ["null"]
+    out = capsys.readouterr().out
+    assert "Node.js is not installed or missing from PATH" in out
