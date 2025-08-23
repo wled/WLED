@@ -8,7 +8,7 @@ on:
 jobs:
   
   wled_build:
-    uses: ./.Update release.yml
+    zastosowania : ./.Update release.yml
     
   release:
     name: Create Release
