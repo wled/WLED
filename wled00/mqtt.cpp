@@ -52,6 +52,29 @@ static void onMqttConnect(bool sessionPresent)
 }
 
 
+/**
+ * @brief Handle incoming MQTT messages for the device.
+ *
+ * Reassembles potentially fragmented MQTT payloads into a null-terminated C string,
+ * strips the configured device/group topic prefix, and dispatches the resulting
+ * topic+payload to the appropriate handler:
+ * - "/col"  — parses color (decimal or hex) into the priority color buffer and triggers a color update.
+ * - "/api"  — if payload starts with '{' it is parsed as JSON and applied to state; otherwise treated as an HTTP-style API request and forwarded to handleSet. JSON processing acquires the JSON buffer lock.
+ * - non-empty remaining topic — forwarded to UsermodManager::onMqttMessage.
+ * - empty remaining topic — interpreted as a brightness/state command and passed to parseMQTTBriPayload.
+ *
+ * The function returns early if payload is null or if the temporary buffer cannot be allocated.
+ *
+ * Side effects: updates global state (colors, brightness, etc.), invokes UsermodManager callbacks,
+ * may allocate/free a temporary buffer for reassembly, and uses JSON buffer locking when handling "/api".
+ *
+ * @param topic MQTT topic for this message (may be modified internally to remove prefix).
+ * @param payload Pointer to the received payload fragment.
+ * @param properties MQTT message properties (unused by this implementation).
+ * @param len Length of the current payload fragment.
+ * @param index Byte offset of this fragment within the reassembled payload.
+ * @param total Total expected size of the reassembled payload.
+ */
 static void onMqttMessage(char* topic, char* payload, AsyncMqttClientMessageProperties properties, size_t len, size_t index, size_t total) {
   static char *payloadStr;
 
@@ -148,7 +171,23 @@ class bufferPrint : public Print {
   size_t size() const { return _offset; }
   size_t capacity() const { return _size; }
 };
-}; // anonymous namespace
+}; /**
+ * @brief Publish current device state to MQTT topics.
+ *
+ * Publishes brightness, color, retained online status, and a full XML state payload
+ * to the configured device MQTT topic when the MQTT client is connected.
+ *
+ * Behavior and side effects:
+ * - No-op if MQTT is not connected.
+ * - Publishes "<deviceTopic>/g" with the current brightness (bri).
+ * - Publishes "<deviceTopic>/c" with a hex color string derived from the priority color buffer (colPri).
+ * - Publishes "<deviceTopic>/status" with the retained payload "online" (used as LWT indicator).
+ * - Builds an XML representation of the full state and publishes it to "<deviceTopic>/v" (payload length provided).
+ * - Uses the global retainMqttMsg flag to decide whether most messages are retained.
+ *
+ * Notes:
+ * - When USERMOD_SMARTNEST is defined, the detailed publish block is excluded (no state publications).
+ */
 
 
 void publishMqtt()

@@ -13,6 +13,27 @@ void getStringFromJson(char* dest, const char* src, size_t len) {
   if (src != nullptr) strlcpy(dest, src, len);
 }
 
+/**
+ * @brief Apply configuration from a parsed JSON object to the running system.
+ *
+ * Parses the provided JSON document and updates in-memory configuration and hardware state
+ * (network, WiFi/AP, Ethernet, LED buses, pins, buttons, I/O, lighting, interfaces, timers,
+ * OTA, DMX, usermods, etc.). Allocates/deallocates pins, updates subsystem settings, and
+ * may schedule bus initialization or a reboot as required by the loaded configuration.
+ *
+ * @param doc JSON object containing configuration (structure matches /cfg.json).
+ * @param fromFS When true the JSON originates from the filesystem load path; this alters
+ *               initialization behavior (e.g., bus removal and allocation semantics) and
+ *               causes the function to return whether the loaded configuration needs to be
+ *               saved back to disk. When false the configuration is treated as an incoming
+ *               runtime update (e.g., via /json/config) and the function returns the
+ *               document's save flag.
+ *
+ * @return bool If called during filesystem load (fromFS == true) returns true when the
+ *              loaded configuration requires being saved back to storage (needsSave).
+ *              Otherwise returns the save flag present in the JSON (or true if absent),
+ *              except when bus initialization is deferred (in which case false is returned).
+ */
 bool deserializeConfig(JsonObject doc, bool fromFS) {
   bool needsSave = false;
   //int rev_major = doc["rev"][0]; // 1
@@ -639,6 +660,18 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
 
 static const char s_cfg_json[] PROGMEM = "/cfg.json";
 
+/**
+ * @brief Load and apply the main configuration from the filesystem (/cfg.json).
+ *
+ * Attempts to read and apply stored configuration and sensitive settings. First calls deserializeConfigSec() to load sensitive values (with an optional EEPROM fallback when enabled). Then acquires the JSON buffer lock and reads /cfg.json:
+ * - If the file is missing, releases the lock, optionally falls back to EEPROM defaults, initializes Ethernet (when compiled with Ethernet support), and returns true to indicate defaults should be saved to the filesystem.
+ * - If the file is read successfully, deserializes and applies the configuration (via deserializeConfig), releases the lock, and returns the boolean result from deserializeConfig indicating whether a save is needed.
+ * - If the JSON buffer lock cannot be acquired, returns false.
+ *
+ * Side effects: applies configuration to in-memory state and hardware (including initializing subsystems such as Ethernet when applicable).
+ *
+ * @return true when defaults were loaded and should be saved, or when deserializeConfig indicates a save is required; false on JSON buffer lock failure or other read/error paths that do not require saving.
+ */
 bool deserializeConfigFromFS() {
   [[maybe_unused]] bool success = deserializeConfigSec();
   #ifdef WLED_ADD_EEPROM_SUPPORT
@@ -674,6 +707,22 @@ bool deserializeConfigFromFS() {
   return needsSave;
 }
 
+/**
+ * @brief Serialize the current runtime configuration to persistent storage (/cfg.json).
+ *
+ * Writes a complete JSON representation of non-sensitive runtime settings (network, hardware,
+ * LED buses, buttons, interfaces, light and overlay settings, timers, OTA flags, DMX and usermods)
+ * to the filesystem. Sensitive credentials are persisted first by calling serializeConfigSec().
+ *
+ * The function obtains a JSON buffer lock before building the document and will return early
+ * without writing if the lock cannot be acquired. On success it opens /cfg.json and serializes
+ * the assembled JSON object, then releases the JSON lock and clears the doSerializeConfig flag.
+ *
+ * Side effects:
+ * - Calls serializeConfigSec() to persist sensitive settings to /wsec.json.
+ * - Writes to the filesystem path "/cfg.json".
+ * - May return early if the JSON buffer lock cannot be obtained (no file written).
+ */
 void serializeConfig() {
   serializeConfigSec();
 

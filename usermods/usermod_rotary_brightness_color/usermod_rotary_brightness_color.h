@@ -3,7 +3,45 @@
 #include "wled.h"
 
 //v2 usermod that allows to change brightness and color using a rotary encoder, 
-//change between modes by pressing a button (many encoders have one included)
+/**
+ * Initialize encoder and optional button pins and set initial timing.
+ *
+ * Configures encoder pins as INPUT_PULLUP and the optional button pin if provided.
+ * Also initializes internal timing variables used by the loop().
+ */
+ 
+/**
+ * Poll the rotary encoder and optional button (called frequently).
+ *
+ * Runs at ~500 Hz (every 2 ms) to:
+ * - Toggle between brightness and color-adjust modes when the optional button transitions to LOW.
+ * - Detect encoder rotation (A falling edge + B state) to increment/decrement:
+ *   - Global brightness (bri) when in brightness mode (select_state == 0), clamped to [0,255].
+ *   - Primary color hue when in color mode (select_state == 1), using HSV conversion with 0–255 wrap-around.
+ * After any rotation-driven change, notifies the system via colorUpdated(CALL_MODE_BUTTON) and updateInterfaces(CALL_MODE_BUTTON).
+ */
+ 
+/**
+ * Write usermod settings into the provided JSON root object.
+ *
+ * Creates a nested object "rotEncBrightness" containing:
+ * - "fadeAmount" : amount to change per encoder step
+ * - "pin" : array of three pin values (DT, CLK, optional button)
+ *
+ * @param root JSON object to which the configuration will be added.
+ */
+ 
+/**
+ * Read usermod settings from the provided JSON root object.
+ *
+ * Loads settings with robust defaults and missing-value handling:
+ * - Defaults: fadeAmount = 5; pins = [-1, -1, -1]
+ * - Attempts to read the "rotEncBrightness" block and its "fadeAmount" and "pin" entries.
+ * If any expected value is missing, defaults are used.
+ *
+ * @param root JSON object to read configuration from.
+ * @return true if the "rotEncBrightness" block and all expected values were present; false if any values were missing (defaults applied).
+ */
 class RotaryEncoderBrightnessColor : public Usermod
 {
 private:
@@ -44,15 +82,27 @@ public:
     loopTime = currentTime;
   }
 
-  /*
-   * loop() is called continuously. Here you can check for events, read sensors, etc.
-   * 
-   * Tips:
-   * 1. You can use "if (WLED_CONNECTED)" to check for a successful network connection.
-   *    Additionally, "if (WLED_MQTT_CONNECTED)" is available to check for a connection to an MQTT broker.
-   * 
-   * 2. Try to avoid using the delay() function. NEVER use delays longer than 10 milliseconds.
-   *    Instead, use a timer check as shown here.
+  /**
+   * Main periodic handler that polls the rotary encoder and optional push-button and applies adjustments.
+   *
+   * Called continuously by the main loop; this routine samples inputs every ~2 ms (500 Hz) and:
+   * - If a button pin (pins[2]) is configured, detects LOW transitions to toggle select_state between
+   *   brightness mode (0) and color/hue mode (1) with simple edge-based debouncing.
+   * - Detects encoder A falling edges to determine rotation direction using the B line:
+   *   - Clockwise (B HIGH): increases brightness (bri) in brightness mode or increases primary hue
+   *     when in color mode.
+   *   - Counter-clockwise (B LOW): decreases brightness or decreases primary hue respectively.
+   * - Hue adjustments are performed in 0–255 space with wrap-around, converting between RGB and HSV
+   *   to update colPri[0..2].
+   * - After any rotation event, notifies the system by calling colorUpdated(CALL_MODE_BUTTON)
+   *   and updateInterfaces(CALL_MODE_BUTTON).
+   *
+   * Side effects:
+   * - Reads digital pins pins[0] (encoder A), pins[1] (encoder B), and optionally pins[2] (button).
+   * - Mutates global state: bri, select_state, colPri[], Enc_A_prev, and timing state used for polling.
+   * - Invokes colorUpdated() and updateInterfaces() on changes.
+   *
+   * Timing: samples inputs only when at least 2 ms have elapsed since the last sample.
    */
   void loop()
   {
