@@ -95,6 +95,8 @@ bool getVal(JsonVariant elem, byte* val, byte vmin, byte vmax) {
     const char* str = elem;
     size_t len = strnlen(str, 14);
     if (len == 0 || len > 12) return false;
+    // Guard: mirror integer-path behavior by rejecting plain negative literals (but allow "~-" forms).
+    if (str[0] == '-' && isdigit((unsigned char)str[1])) return false;
     // fix for #3605 & #4346
     // ignore vmin and vmax and use as specified in API
     if (len > 3 && (strchr(str,'r') || strchr(str,'~') != strrchr(str,'~'))) vmax = vmin = 0; // we have "X~Y(r|~[w][-][Z])" form
