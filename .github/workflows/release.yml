@@ -8,7 +8,9 @@ on:
 jobs:
   
   wled_build:
-    zastosowania : ./.Update release.yml
+prace:
+  wled_build:
+    używa : ./.github/workflows/build.yml
     
   release:
     name: Create Release
