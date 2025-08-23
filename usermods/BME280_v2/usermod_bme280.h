@@ -12,6 +12,143 @@
 #include <BME280I2C.h>               // BME280 sensor
 #include <EnvironmentCalculations.h> // BME280 extended measurements
 
+/**
+ * Read sensor values from the BME280/BMP280 and update internal state.
+ *
+ * Reads temperature, pressure and (when available) humidity from the sensor using the configured
+ * units (Celsius or Fahrenheit). Updates sensorTemperature, sensorHumidity, sensorPressure and
+ * tempScale. For BME280 (sensorType == 1) also computes sensorHeatIndex and sensorDewPoint.
+ *
+ * @param SensorType sensor model identifier (1 = BME280, 2 = BMP280); used to determine whether
+ *                   humidity-derived values should be computed.
+ */
+/**
+ * Initialize MQTT discovery topics and create Home Assistant discovery sensors if enabled.
+ *
+ * Builds topic strings for temperature, humidity, pressure, heat index and dew point and calls
+ * _createMqttSensor(...) for each when HomeAssistantDiscovery is true.
+ */
+/**
+ * Create and publish a Home Assistant discovery payload for a single sensor.
+ *
+ * Constructs the discovery JSON for a sensor (name, state_topic, unique_id, optional unit and
+ * device_class) and attaches device metadata so Home Assistant associates the sensor with the
+ * WLED device, then publishes the payload to the Home Assistant discovery topic.
+ *
+ * @param name Human-readable sensor name (used in discovery topic and sensor name).
+ * @param topic MQTT state topic that the sensor will publish to.
+ * @param deviceClass Optional Home Assistant device_class string (empty to omit).
+ * @param unitOfMeasurement Optional unit string (empty to omit).
+ */
+/**
+ * Publish a single state to the device's MQTT subtree.
+ *
+ * Publishes `state` to the topic formed by "<mqttDeviceTopic>/<topic>" if MQTT is connected.
+ *
+ * @param topic Topic suffix under the device topic (e.g., "temperature").
+ * @param state Null-terminated C-string state payload to publish.
+ */
+/**
+ * Configure and initialize the BME280/BMP280 sensor interface.
+ *
+ * Applies preferred oversampling/mode/standby/filter settings, attempts to start I2C
+ * communication with the configured I2CAddress and sets sensorType:
+ *  - 0: not found/unknown
+ *  - 1: BME280 (temperature, pressure, humidity)
+ *  - 2: BMP280 (temperature, pressure)
+ *
+ * Diagnostic messages are emitted via DEBUG_PRINTLN but no exceptions are thrown.
+ */
+/**
+ * Initialize the usermod: validate I2C pins and initialize sensor communications.
+ *
+ * If I2C pins are invalid the usermod is disabled and sensorType is set to 0. Otherwise calls
+ * initializeBmeComms() and marks initDone.
+ */
+/**
+ * Main periodic handler called from WLED loop().
+ *
+ * When enabled and a sensor is present, periodically reads sensor data at configured
+ * TemperatureInterval and PressureInterval (seconds). Values are rounded to the configured
+ * decimal places and published to MQTT when changed or when PublishAlways is true. Handles
+ * temperature, humidity, pressure, heat index and dew point as appropriate for the detected
+ * sensor type.
+ */
+/**
+ * Called when MQTT connects.
+ *
+ * Performs one-time MQTT discovery initialization (_mqttInitialize) if MQTT is available and
+ * discovery has not been initialized yet.
+ *
+ * @param sessionPresent Indicates whether the MQTT session is a persistent session (passed through).
+ */
+/**
+ * Return the current temperature in Celsius, using the configured rounding and unit preference.
+ *
+ * If UseCelsius is true, returns sensorTemperature rounded to TemperatureDecimals; otherwise
+ * converts the internally-stored temperature to Fahrenheit before returning.
+ */
+/**
+ * Return the current temperature in Fahrenheit, using the configured rounding and unit preference.
+ *
+ * If UseCelsius is true, converts the internally-stored Celsius temperature to Fahrenheit;
+ * otherwise returns the stored temperature rounded to TemperatureDecimals.
+ */
+/**
+ * Return the current humidity rounded to the configured HumidityDecimals.
+ */
+/**
+ * Return the current pressure rounded to the configured PressureDecimals.
+ */
+/**
+ * Return the current dew point in Celsius, honoring UseCelsius and TemperatureDecimals.
+ */
+/**
+ * Return the current dew point in Fahrenheit, honoring UseCelsius and TemperatureDecimals.
+ */
+/**
+ * Return the current heat index in Celsius, honoring UseCelsius and TemperatureDecimals.
+ */
+/**
+ * Return the current heat index in Fahrenheit, honoring UseCelsius and TemperatureDecimals.
+ */
+/**
+ * Add current sensor status and readings to the UI JSON info object.
+ *
+ * Appends a nested "u" object with:
+ *  - "Not Found" when no sensor is present.
+ *  - Temperature and Pressure for BMP280.
+ *  - Temperature, Humidity, Pressure, Heat Index and Dew Point for BME280.
+ *
+ * Values are rounded according to their configured decimal places and temperature entries
+ * include the tempScale unit string.
+ *
+ * @param root JSON object to append info into.
+ */
+/**
+ * Persist usermod configuration into the provided JSON object.
+ *
+ * Writes the user-visible configuration namespace (named by _name) including enabled flag,
+ * I2CAddress, decimal settings, measurement intervals, PublishAlways, UseCelsius and
+ * HomeAssistantDiscovery.
+ *
+ * @param root JSON object to write configuration into.
+ */
+/**
+ * Load usermod configuration from the provided JSON object.
+ *
+ * Reads the configuration block named by _name and updates user-configurable fields.
+ * Sets tempScale according to UseCelsius. On subsequent reloads (when initDone is true)
+ * resets cached sensor values and reinitializes sensor communications.
+ *
+ * @param root JSON object to read configuration from.
+ * @return true if the configuration block was present; false if missing (defaults remain).
+ */
+/**
+ * Return the numeric usermod identifier.
+ *
+ * @return USERMOD_ID_BME280
+ */
 class UsermodBME280 : public Usermod
 {
 private:

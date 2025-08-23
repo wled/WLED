@@ -4,7 +4,27 @@
  * Receives client input
  */
 
-//called upon POST settings form submit
+/**
+ * @brief Handle POSTed settings form and apply configuration changes for a settings subpage.
+ *
+ * Processes settings submitted from the web UI and updates WLED runtime configuration and hardware
+ * state for the selected subPage (e.g., SUBPAGE_WIFI, SUBPAGE_LEDS, SUBPAGE_UI, SUBPAGE_SYNC,
+ * SUBPAGE_TIME, SUBPAGE_SEC, SUBPAGE_DMX, SUBPAGE_UM, SUBPAGE_2D). Validates PIN where required
+ * and ignores changes when PIN validation fails.
+ *
+ * This function applies a wide range of side effects depending on the subpage: it updates stored
+ * configuration values, (de)allocates and configures hardware pins, builds bus/LED configurations,
+ * modifies network/UDP/MQTT/Hue/Alexa settings, updates time/NTP/timers, writes usermod JSON data,
+ * (re)initializes subsystems (LED buses, IR, I2C/SPI allocation, Hue/Alexa reconnects, matrix setup),
+ * and may schedule an immediate reboot or wipe persistent storage for factory reset.
+ *
+ * @param request The AsyncWebServerRequest containing POST parameters (form fields) for settings.
+ * @param subPage One of the SUBPAGE_* constants indicating which settings section to apply.
+ *
+ * @note Effects include: triggering bus reinitialization, forcing WiFi reconnect, changing pin
+ * allocation, modifying persisted settings, formatting filesystem on factory reset, and setting
+ * flags to reboot or serialize configuration. PIN/OTA protection is enforced where applicable.
+ */
 void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
 {
   if (subPage == SUBPAGE_PINREQ)
@@ -804,7 +824,31 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
 }
 
 
-//HTTP API request parser
+/**
+ * @brief Parse and apply an HTTP API "set" request for WLED state and segments.
+ *
+ * Parses an API-style request string (must contain "win") to read and apply
+ * granular runtime changes: segment selection and geometry, colors (primary,
+ * secondary, additional), effects, speed, intensity, palettes, per-segment
+ * custom parameters, brightness/power, nightlight/timers, realtime overrides,
+ * presets/playlist controls, notifications toggles, and several global flags.
+ *
+ * When apply is false the function only parses and updates in-memory variables
+ * (no immediate hardware/state update). When apply is true the function will
+ * call stateUpdated(...) to propagate changes and — if a non-internal HTTP
+ * request is provided — stream an XML response to the requester.
+ *
+ * Parameters:
+ * @param req The API request string to parse (only documented because its role is not obvious from its name).
+ * @param apply If false, parse-only (no stateUpdated or XML response); if true, apply changes and propagate state updates.
+ *
+ * Side effects:
+ * - Updates global and Segment state (colors, FX, timing, selection, etc.).
+ * - May mark reboot/doReboot, advance playlists, modify nightlight and realtime flags.
+ * - When apply==true calls stateUpdated(...) and may send an XML response via the provided request pointer.
+ *
+ * @return true if the request string contained "win" and was processed (even if apply==false); false if the request was ignored.
+ */
 bool handleSet(AsyncWebServerRequest *request, const String& req, bool apply)
 {
   if (!(req.indexOf("win") >= 0)) return false;

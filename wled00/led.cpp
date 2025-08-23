@@ -6,6 +6,15 @@
 
 void setValuesFromMainSeg()          { setValuesFromSegment(strip.getMainSegmentId()); }
 void setValuesFromFirstSelectedSeg() { setValuesFromSegment(strip.getFirstSelectedSegId()); }
+/**
+ * @brief Load color and effect values from a segment into global state.
+ *
+ * Copies the segment's primary (colors[0]) and secondary (colors[1]) RGBW values
+ * into the global colPri and colSec arrays and updates global effect variables
+ * (mode, speed, intensity, palette) to match the segment.
+ *
+ * @param s Index of the segment to read.
+ */
 void setValuesFromSegment(uint8_t s)
 {
   Segment& seg = strip.getSegment(s);
@@ -25,7 +34,19 @@ void setValuesFromSegment(uint8_t s)
 
 
 // applies global legacy values (col, colSec, effectCurrent...)
-// problem: if the first selected segment already has the value to be set, other selected segments are not updated
+/**
+ * @brief Apply the current global color and effect values to selected segments.
+ *
+ * Takes a snapshot of the first selected segment as a baseline and updates all
+ * segments that are selected (and active) to match the global values where they
+ * differ from that baseline. The first selected segment is used as the
+ * comparison reference and is also processed by this routine.
+ *
+ * The routine updates speed, intensity, palette, mode, and both primary and
+ * secondary colors. When speed or intensity are changed on a segment, the
+ * global flag `stateChanged` is set. Palette, mode and color changes are
+ * applied via the segment's setter methods.
+ */
 void applyValuesToSelectedSegs()
 {
   // copy of first selected segment to tell if value was updated
@@ -71,7 +92,15 @@ byte scaledBri(byte in)
 }
 
 
-//applies global brightness
+/**
+ * @brief Apply the current target brightness to the LED strip.
+ *
+ * Sets the strip brightness to scaledBri(briT) unless realtime mode is active and
+ * arlsForceMaxBri is set, in which case the strip brightness is left unchanged.
+ *
+ * Side effects:
+ * - Updates the global strip brightness via strip.setBrightness(...).
+ */
 void applyBri() {
   if (!(realtimeMode && arlsForceMaxBri)) {
     //DEBUG_PRINTF_P(PSTR("Applying strip brightness: %d (%d,%d)\n"), (int)briT, (int)bri, (int)briOld);
@@ -80,7 +109,17 @@ void applyBri() {
 }
 
 
-//applies global brightness and sets it as the "current" brightness (no transition)
+/**
+ * @brief Apply the current global brightness immediately (no transition).
+ *
+ * Sets the stored "previous" brightness to the current brightness, updates
+ * the target brightness to the current value, applies that brightness to the
+ * strip, and triggers an immediate update.
+ *
+ * Side effects:
+ * - Updates global variables `briOld` and `briT`.
+ * - Calls applyBri() and strip.trigger() to push the change to hardware.
+ */
 void applyFinalBri() {
   briOld = bri;
   briT = bri;
@@ -90,7 +129,21 @@ void applyFinalBri() {
 
 
 //called after every state changes, schedules interface updates, handles brightness transition and nightlight activation
-//unlike colorUpdated(), does NOT apply any colors or FX to segments
+/**
+ * @brief Handle global state updates after internal changes (brightness, presets, nightlight, transitions).
+ *
+ * Updates internal bookkeeping and notifiers after a state change without applying segment colors/effects.
+ * - Refreshes global values from the first selected segment.
+ * - Sends notifications (unless suppressed), UDP broadcasts, and schedules interface (WS/MQTT/Alexa) updates when needed.
+ * - Manages nightlight timing/target bookkeeping and deactivation when target reached.
+ * - Invokes Usermods on state changes.
+ * - Handles fade transitions: starts transition timing, marks transition state, finalizes and applies final brightness when done.
+ * - Applies final brightness and triggers the strip when no active fade transition.
+ *
+ * @param callMode Indicator of why this update is called. Typical values include:
+ *                 CALL_MODE_INIT, CALL_MODE_NOTIFICATION, CALL_MODE_NO_NOTIFY, CALL_MODE_NIGHTLIGHT, etc.;
+ *                 controls whether notifications/broadcasts and interface updates are sent.
+ */
 void stateUpdated(byte callMode) {
   //call for notifier -> 0: init 1: direct change 2: button 3: notification 4: nightlight 5: other (No notification)
   //                     6: fx changed 7: hue 8: preset cycle 9: blynk 10: alexa 11: ws send only 12: button preset
@@ -151,6 +204,21 @@ void stateUpdated(byte callMode) {
 }
 
 
+/**
+ * @brief Send pending interface updates (WebSocket, Alexa, MQTT) when allowed.
+ *
+ * Checks whether interface updates are enabled and the cooldown has elapsed; if so,
+ * sends WebSocket data, records the update time, and disables further updates until
+ * re-enabled by the caller. Unless invoked specifically for WebSocket-only sending,
+ * also pushes state to Alexa and publishes MQTT if those integrations are enabled.
+ *
+ * @param callMode Caller context; if set to CALL_MODE_WS_SEND the function will
+ * only perform the WebSocket send and return without updating Alexa or MQTT.
+ *
+ * Side effects:
+ * - Calls sendDataWs() and updates lastInterfaceUpdate and interfaceUpdateCallMode.
+ * - May call Alexa and MQTT publish functions depending on build flags and arguments.
+ */
 void updateInterfaces(uint8_t callMode)
 {
   if (!interfaceUpdateCallMode || millis() - lastInterfaceUpdate < INTERFACE_UPDATE_COOLDOWN) return;
@@ -206,6 +274,27 @@ void colorUpdated(byte callMode) {
 }
 
 
+/**
+ * @brief Manage the nightlight feature (fade, color fade, sun simulation, and set modes).
+ *
+ * This routine is the periodic handler that advances or terminates an active nightlight cycle.
+ * It is rate-limited to roughly 10 updates per second and handles millis() rollover.
+ *
+ * Behavior by mode:
+ * - NL_MODE_SET: immediately applies the target brightness (when the duration ends).
+ * - NL_MODE_FADE: linearly interpolates brightness from the saved start value to the target over the configured delay.
+ * - NL_MODE_COLORFADE: like FADE but additionally cross-fades primary color from the saved start color toward the secondary color.
+ * - NL_MODE_SUN: simulates sunrise/sunset by switching the segment to a sunrise effect for the configured duration; restores prior effect and toggles the strip off when a sunset completes.
+ *
+ * Side effects and interactions:
+ * - Updates global brightness and primary color (bri, colPri[]), and may update briLast.
+ * - On activation, captures the starting brightness and primary color(s) into briNlT and colNlT[].
+ * - In SUN mode, saves and restores effect state (effectCurrent, effectSpeed, effectPalette), sets the segment runtime to a sunrise mode, and may call toggleOnOff().
+ * - Calls colorUpdated() to propagate color/segment changes, applyFinalBri() when appropriate, and applyPreset(macroNl) when a macro is configured at the end of the nightlight.
+ * - Clears nightlightActive and nightlightActiveOld flags when the cycle finishes or is cancelled.
+ *
+ * This function does not return a value.
+ */
 void handleNightlight()
 {
   unsigned long now = millis();

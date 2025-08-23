@@ -5,7 +5,18 @@
  * Sending XML status files to client
  */
 
-//build XML response to HTTP /win API request
+/**
+ * @brief Builds and writes the XML status response for the /win HTTP API.
+ *
+ * Writes a compact XML document to the provided Print stream describing the current
+ * runtime state: active brightness (uses the nightlight target when nightlight is active),
+ * primary and secondary RGB color channels, nightlight configuration and timers,
+ * effect index/speed/intensity/palette, white-channel values (if present), notification and
+ * group/receive flags, current preset and playlist presence, server description (with an
+ * appended " (live)" marker when in realtime mode), and the first selected segment ID.
+ *
+ * The entire XML payload is emitted in a single call sequence to the destination stream.
+ */
 void XML_response(Print& dest)
 {
   dest.printf_P(PSTR("<?xml version=\"1.0\" ?><vs><ac>%d</ac>"), (nightlightActive && nightlightMode > NL_MODE_SET) ? briT : bri);
@@ -150,7 +161,23 @@ void appendGPIOinfo(Print& settingsScript) {
   settingsScript.printf_P(PSTR("d.max_gpio=%d;"),WLED_NUM_PINS);
 }
 
-//get values for settings form in javascript
+/**
+ * @brief Emit JavaScript that initializes the web UI settings form for a given subpage.
+ *
+ * Generates and writes the client-side JavaScript/HTML payload for the requested settings subpage
+ * into the provided Print stream. The emitted script sets form values, checkboxes, lists and
+ * informational elements for pages such as menu, wifi, leds, ui, sync, time, security, DMX,
+ * usermods, update and 2D matrix configuration. Output is adapted by compile-time feature flags
+ * (e.g., DMX, MQTT, Hue Sync, Ethernet, ESP-NOW, 2D) and by current runtime state (network,
+ * bus/LED configuration, usermods, etc.).
+ *
+ * The function has observable side effects only on the provided Print object (writes JavaScript).
+ * If subPage is outside the supported range, the function returns immediately without writing.
+ *
+ * @param subPage Index of the settings subpage to emit. Valid values correspond to SUBPAGE_* constants
+ *                defined elsewhere (e.g., SUBPAGE_MENU, SUBPAGE_WIFI, SUBPAGE_LEDS, ...). Values
+ *                outside the supported range are ignored.
+ */
 void getSettingsJS(byte subPage, Print& settingsScript)
 {
   //0: menu 1: wifi 2: leds 3: ui 4: sync 5: time 6: sec

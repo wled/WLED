@@ -183,7 +183,17 @@ bool PinManager::isPinAllocated(byte gpio, PinOwner tag)
  * Since the ADC2 module is also used by the Wi-Fi, reading operation of adc2_get_raw() may fail between esp_wifi_start() and esp_wifi_stop(). Use the return code to see whether the reading is successful.
  */
 
-// Check if supplied GPIO is ok to use
+/**
+ * @brief Determine whether a GPIO may be used for the requested direction.
+ *
+ * Performs platform- and chip-specific validation (ESP32 variants and non-ESP32)
+ * to exclude pins that are reserved for flash/PSRAM, USB/JTAG, strapping, or
+ * otherwise not safe for general use.
+ *
+ * @param gpio GPIO number to validate.
+ * @param output If true, additionally requires that the pin can be used as an output.
+ * @return true if the pin is permitted for the requested use; false otherwise.
+ */
 bool PinManager::isPinOk(byte gpio, bool output)
 {
   if (gpio >= WLED_NUM_PINS) return false;     // catch error case, to avoid array out-of-bounds access

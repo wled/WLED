@@ -531,17 +531,58 @@ typedef struct Segment {
     inline uint16_t length()             const { return width() * height(); }               // segment length (count) in physical pixels
     inline uint16_t groupLength()        const { return grouping + spacing; }
     inline uint8_t  getLightCapabilities() const { return _capabilities; }
-    inline void     deactivate()               { setGeometry(0,0); }
-    inline Segment &clearName()                { if (name) free(name); name = nullptr; return *this; }
-    inline Segment &setName(const String &name) { return setName(name.c_str()); }
+    /**
+ * Deactivate this segment.
+ *
+ * Clears the segment geometry by setting start/stop to 0 (via setGeometry(0,0)),
+ * effectively disabling the segment so it will no longer cover any LEDs.
+ */
+inline void     deactivate()               { setGeometry(0,0); }
+    /**
+ * Clear and free the segment's name.
+ *
+ * Frees the memory allocated for `name` (if any), sets `name` to nullptr, and
+ * returns a reference to this Segment for chaining.
+ */
+inline Segment &clearName()                { if (name) free(name); name = nullptr; return *this; }
+    /**
+ * Set the segment's name using an Arduino String.
+ * 
+ * @param name Null-terminated name as a String; the content is copied/stored by the segment.
+ * @return Reference to the segment (for chaining).
+ */
+inline Segment &setName(const String &name) { return setName(name.c_str()); }
 
-    inline static uint16_t getUsedSegmentData()    { return _usedSegmentData; }
-    inline static void addUsedSegmentData(int len) { _usedSegmentData += len; }
+    /**
+ * Get the amount of segment data currently in use.
+ *
+ * Returns the number of bytes of segment-associated data currently allocated/used
+ * (range 0..MAX_SEGMENT_DATA).
+ */
+inline static uint16_t getUsedSegmentData()    { return _usedSegmentData; }
+    /**
+ * Increment the global count of used segment-data bytes.
+ *
+ * Adds the given length to the internal `_usedSegmentData` counter used to
+ * track total memory reserved for segment effect data.
+ *
+ * @param len Number of bytes to add to the used-segment-data counter (may be
+ *            positive or negative to increase or decrease the tracked usage).
+ */
+inline static void addUsedSegmentData(int len) { _usedSegmentData += len; }
     #ifndef WLED_DISABLE_MODE_BLEND
     inline static void modeBlend(bool blend)       { _modeBlend = blend; }
     #endif
     static void     handleRandomPalette();
-    inline static const CRGBPalette16 &getCurrentPalette() { return Segment::_currentPalette; }
+    /**
+ * Return the currently active CRGBPalette16 used by segments.
+ *
+ * Returns a const reference to the global palette stored on Segment::_currentPalette.
+ * The reference is valid for the lifetime of the program and must not be modified.
+ *
+ * @return const CRGBPalette16& Reference to the active palette.
+ */
+inline static const CRGBPalette16 &getCurrentPalette() { return Segment::_currentPalette; }
 
     void    setGeometry(uint16_t i1, uint16_t i2, uint8_t grp=1, uint8_t spc=0, uint16_t ofs=UINT16_MAX, uint16_t i1Y=0, uint16_t i2Y=1, uint8_t m12 = 0);
     Segment &setColor(uint8_t slot, uint32_t c);
@@ -849,7 +890,29 @@ class WS2812FX {  // 96 bytes
     inline uint8_t getMainSegmentId() const { return _mainSegment; }      // returns main segment index
     inline uint8_t getPaletteCount() const  { return 13 + GRADIENT_PALETTE_COUNT + customPalettes.size(); }
     inline uint8_t getTargetFps() const     { return _targetFps; }        // returns rough FPS value for las 2s interval
-    inline uint8_t getModeCount() const     { return _modeCount; }        // returns number of registered modes/effects
+    inline uint8_t getModeCount() const     { return _modeCount; }        /**
+     * Get the number of physical pixels on the LED strip (actual hardware LEDs).
+     * @return Number of physical LEDs.
+     */
+    /**
+     * Get the total logical pixel count exposed by the controller.
+     * This includes virtual or non-existent pixels created by matrix/panel mappings.
+     * @return Total logical pixel count.
+     */
+    /**
+     * Get the current target frames-per-second (FPS) used for rendering.
+     * @return Target FPS (may be FPS_UNLIMITED if uncapped).
+     */
+    /**
+     * Map a logical pixel index to the underlying physical pixel index.
+     * For matrix/panel setups this translates virtual indices to real hardware indices.
+     * @param index Logical pixel index to map.
+     * @return Corresponding physical pixel index (or a mapped index appropriate for the current layout).
+     */
+    /**
+     * Get the current frame time in milliseconds between updates.
+     * @return Frame time in ms.
+     */
 
     uint16_t
       getLengthPhysical() const,
