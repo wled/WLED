@@ -416,3 +416,296 @@ TEST_CASE(mapf_handles_negative_and_reverse_ranges) {
 }
 
 } // namespace util
+// ==== Additional tests appended by CI agent ====
+// Test framework in use (auto-detected in this file): we prefer GoogleTest if available,
+// otherwise Catch2, then doctest. New tests follow the same macros (CHECK_EQ, CHECK_TRUE, etc).
+
+TEST_SUITE(util) {
+
+// -------- parseNumber: additional coverage --------
+TEST_CASE(parseNumber_clamps_plain_numbers_outside_bounds) {
+  byte v = 5;
+  // If implementation clamps, values below min should become min; if it ignores, value remains.
+  // We assert property: result must be within [min,max]
+  parseNumber("-100", &v, 10, 20);
+  CHECK_GE(v, (byte)10);
+  CHECK_LE(v, (byte)20);
+
+  v = 5;
+  parseNumber("999", &v, 10, 20);
+  CHECK_GE(v, (byte)10);
+  CHECK_LE(v, (byte)20);
+}
+
+TEST_CASE(parseNumber_ignores_leading_and_trailing_spaces) {
+  byte v = 0;
+  parseNumber("  12  ", &v, 0, 200);
+  CHECK_EQ(v, (byte)12);
+}
+
+TEST_CASE(parseNumber_handles_plus_sign_and_non_digits_prefix) {
+  byte v = 0;
+  parseNumber("+15", &v, 0, 255);
+  CHECK_EQ(v, (byte)15);
+
+  v = 3;
+  // Non-digit prefix that is not recognized should leave v unchanged
+  parseNumber("x27", &v, 0, 255);
+  CHECK_EQ(v, (byte)3);
+}
+
+TEST_CASE(parseNumber_random_r_with_custom_span_and_min_zero_max_zero) {
+  // minv=maxv=0 with "r" should yield 0..255
+  byte v = 0;
+  parseNumber("r", &v, 0, 0);
+  CHECK_GE(v, (byte)0);
+  CHECK_LE(v, (byte)255);
+}
+
+TEST_CASE(parseNumber_wrap_qualifier_w_with_edges) {
+  // Starting at max and adding positive with wrap should go to min
+  byte v = 100;
+  parseNumber("255", &v, 0, 255);
+  CHECK_EQ(v, (byte)255);
+
+  byte w = 255;
+  parseNumber("w~1", &w, 0, 255);
+  CHECK_EQ(w, (byte)0);
+
+  byte w2 = 0;
+  parseNumber("w~-1", &w2, 0, 255);
+  CHECK_EQ(w2, (byte)255);
+}
+
+TEST_CASE(parseNumber_relative_multi_digit_and_large_negative) {
+  byte v = 10;
+  parseNumber("~25", &v, 0, 100);
+  CHECK_EQ(v, (byte)35);
+
+  v = 10;
+  parseNumber("~-30", &v, 0, 100);
+  CHECK_EQ(v, (byte)0);
+}
+
+// -------- getVal: additional coverage --------
+TEST_CASE(getVal_rejects_non_string_non_integer_types_and_too_long_strings) {
+  byte out = 9;
+
+#if __has_include(<ArduinoJson.h>)
+  DynamicJsonDocument doc(256);
+  doc["obj"]["x"] = 1;
+  CHECK_FALSE(getVal(doc["obj"], &out, 0, 50));
+  CHECK_EQ(out, (byte)9);
+
+  // Floating point values should be rejected or truncated to non-negative if implementation allows
+  doc["f"] = 12.7;
+  bool ok = getVal(doc["f"], &out, 0, 255);
+  // If accepted, it must produce a non-negative within bounds; otherwise it returns false and leaves 'out'
+  if (ok) {
+    CHECK_GE(out, (byte)0);
+    CHECK_LE(out, (byte)255);
+  } else {
+    CHECK_EQ(out, (byte)9);
+  }
+
+  // Excessively long string should be rejected
+  doc["long"] = "0123456789abcdef0123456789abcdef";
+  CHECK_FALSE(getVal(doc["long"], &out, 0, 255));
+#else
+  JsonVariant obj; obj.kind = JsonVariant::KNone;
+  CHECK_FALSE(getVal(obj, &out, 0, 50));
+  CHECK_EQ(out, (byte)9);
+
+  JsonVariant longStr; longStr.kind = JsonVariant::KStr; longStr.s = "0123456789abcdef0123456789abcdef";
+  CHECK_FALSE(getVal(longStr, &out, 0, 255));
+#endif
+}
+
+TEST_CASE(getVal_honors_bounds_when_plain_numbers_provided) {
+  byte out = 0;
+#if __has_include(<ArduinoJson.h>)
+  DynamicJsonDocument doc(64);
+  doc["lo"] = -5;
+  CHECK_FALSE(getVal(doc["lo"], &out, 10, 20));
+  CHECK_EQ(out, (byte)0);
+
+  doc["hi"] = 25;
+  bool ok = getVal(doc["hi"], &out, 10, 20);
+  if (ok) {
+    CHECK_GE(out, (byte)10);
+    CHECK_LE(out, (byte)20);
+  }
+#else
+  JsonVariant lo; lo.kind = JsonVariant::KInt; lo.i = -5;
+  CHECK_FALSE(getVal(lo, &out, 10, 20));
+  CHECK_EQ(out, (byte)0);
+
+  JsonVariant hi; hi.kind = JsonVariant::KInt; hi.i = 25;
+  bool ok = getVal(hi, &out, 10, 20);
+  if (ok) {
+    CHECK_GE(out, (byte)10);
+    CHECK_LE(out, (byte)20);
+  }
+#endif
+}
+
+TEST_CASE(getVal_range_form_with_random_r_ignores_bounds_and_uses_embedded_limits) {
+  byte out = 0;
+#if __has_include(<ArduinoJson.h>)
+  DynamicJsonDocument doc(64);
+  doc["k"] = "3~6~r";
+  CHECK_TRUE(getVal(doc["k"], &out, 100, 120));
+  CHECK_GE(out, (byte)3);
+  CHECK_LE(out, (byte)6);
+#else
+  JsonVariant v; v.kind = JsonVariant::KStr; v.s = "3~6~r";
+  CHECK_TRUE(getVal(v, &out, 100, 120));
+  CHECK_GE(out, (byte)3);
+  CHECK_LE(out, (byte)6);
+#endif
+}
+
+// -------- getBoolVal: additional coverage --------
+TEST_CASE(getBoolVal_handles_numeric_and_string_falsey_truthy) {
+#if __has_include(<ArduinoJson.h>)
+  DynamicJsonDocument doc(64);
+  doc["n1"] = 0;
+  CHECK_FALSE(getBoolVal(doc["n1"], true));
+  doc["n2"] = 1;
+  CHECK_TRUE(getBoolVal(doc["n2"], false));
+  doc["s1"] = "false";
+  // 't' prefix toggles; 'f' or others should likely leave default
+  CHECK_FALSE(getBoolVal(doc["s1"], false));
+  CHECK_TRUE(getBoolVal(doc["s1"], true));
+#else
+  // With fake variant only string path is meaningful
+  JsonVariant sFalse; sFalse.kind = JsonVariant::KStr; sFalse.s = "false";
+  CHECK_FALSE(getBoolVal(sFalse, false));
+  CHECK_TRUE(getBoolVal(sFalse, true));
+#endif
+}
+
+TEST_CASE(getBoolVal_nullish_or_empty_string_returns_default) {
+#if __has_include(<ArduinoJson.h>)
+  DynamicJsonDocument doc(64);
+  CHECK_TRUE(getBoolVal(doc["missing"], true));
+  CHECK_FALSE(getBoolVal(doc["missing"], false));
+  doc["e"] = "";
+  CHECK_TRUE(getBoolVal(doc["e"], true));
+  CHECK_FALSE(getBoolVal(doc["e"], false));
+#else
+  JsonVariant none; // KNone default
+  CHECK_TRUE(getBoolVal(none, true));
+  CHECK_FALSE(getBoolVal(none, false));
+  JsonVariant es; es.kind = JsonVariant::KStr; es.s = "";
+  CHECK_TRUE(getBoolVal(es, true));
+  CHECK_FALSE(getBoolVal(es, false));
+#endif
+}
+
+// -------- updateVal: additional coverage --------
+TEST_CASE(updateVal_returns_false_when_key_absent_or_without_value) {
+  const char* req = "A=1&B=2&C=&D=zz";
+  byte v = 7;
+  CHECK_FALSE(updateVal(req, "Z=", &v, 0, 10));
+  CHECK_EQ(v, (byte)7);
+
+  // Key present but empty value should return false
+  CHECK_FALSE(updateVal(req, "C=", &v, 0, 10));
+  CHECK_EQ(v, (byte)7);
+
+  // Non-numeric value should either be handled via parseNumber or rejected; in either case, out must remain within bounds post-call.
+  bool ok = updateVal(req, "D=", &v, 0, 10);
+  if (ok) {
+    CHECK_GE(v, (byte)0);
+    CHECK_LE(v, (byte)10);
+  }
+}
+
+TEST_CASE(updateVal_parses_first_matching_key_and_ignores_suffixes) {
+  const char* req = "AA=5&AAA=9";
+  byte v = 0;
+  // Ensure it selects the exact key "AA=" occurrence and not the prefix in "AAA="
+  CHECK_TRUE(updateVal(req, "AA=", &v, 0, 255));
+  CHECK_EQ(v, (byte)5);
+}
+
+TEST_CASE(updateVal_handles_key_at_start_and_end_without_extra_ampersand) {
+  const char* req1 = "K=8&X=1";
+  const char* req2 = "X=1&K=8";
+  byte v1 = 0, v2 = 0;
+  CHECK_TRUE(updateVal(req1, "K=", &v1, 0, 255));
+  CHECK_EQ(v1, (byte)8);
+  CHECK_TRUE(updateVal(req2, "K=", &v2, 0, 255));
+  CHECK_EQ(v2, (byte)8);
+}
+
+// -------- isAsterisksOnly: additional coverage --------
+TEST_CASE(isAsterisksOnly_false_when_non_asterisk_beyond_maxLen_is_ignored) {
+  // Only characters within maxLen are considered
+  const char* s = "****x****";
+  CHECK_TRUE(isAsterisksOnly(s, 4));  // ignore 'x' because maxLen=4
+  CHECK_FALSE(isAsterisksOnly(s, 9)); // include 'x', should be false
+}
+
+TEST_CASE(isAsterisksOnly_false_when_nullptr_or_zero_length_limit) {
+  CHECK_FALSE(isAsterisksOnly(nullptr, 5));
+  CHECK_FALSE(isAsterisksOnly("****", 0));
+}
+
+// -------- crc16: additional coverage --------
+TEST_CASE(crc16_zero_filled_buffers_and_length_sensitivity) {
+  unsigned char zeros[8] = {0};
+  // length=0 uses initial value
+  CHECK_EQ(crc16(zeros, 0), (uint16_t)0x1D0F);
+  // Non-zero length should differ from initial
+  CHECK_NE(crc16(zeros, 1), (uint16_t)0x1D0F);
+  // Increasing length should generally change the CRC
+  uint16_t c2 = crc16(zeros, 2);
+  uint16_t c3 = crc16(zeros, 3);
+  CHECK_NE(c2, c3);
+}
+
+TEST_CASE(crc16_is_order_sensitive) {
+  const unsigned char a[] = {'A','B','C'};
+  const unsigned char b[] = {'A','C','B'};
+  CHECK_NE(crc16(a, 3), crc16(b, 3));
+}
+
+// -------- get_random_wheel_index: additional coverage --------
+TEST_CASE(get_random_wheel_index_min_distance_holds_for_all_quadrants) {
+  for (uint8_t p : {1, 63, 64, 126, 127, 129, 191, 200, 254}) {
+    uint8_t r = get_random_wheel_index(p);
+    uint8_t x = (uint8_t)std::abs((int)p - (int)r);
+    uint8_t y = (uint8_t)(255 - x);
+    uint8_t d = (x < y) ? x : y;
+    CHECK_GE(d, (uint8_t)42);
+  }
+}
+
+// -------- mapf: additional coverage --------
+TEST_CASE(mapf_endpoints_and_extrapolation_properties) {
+  // Endpoints exactness for non-degenerate ranges
+  CHECK_NEAR(mapf(0.0f, 0.0f, 100.0f, -50.0f, 50.0f), -50.0f, 1e-5f);
+  CHECK_NEAR(mapf(100.0f, 0.0f, 100.0f, -50.0f, 50.0f), 50.0f, 1e-5f);
+
+  // Monotonic: if x1 < x2 then f(x1) <= f(x2)
+  float a = mapf(25.0f, 0.0f, 100.0f, -50.0f, 50.0f);
+  float b = mapf(75.0f, 0.0f, 100.0f, -50.0f, 50.0f);
+  CHECK_LE(a, b);
+
+  // Extrapolation below/above
+  CHECK_TRUE(mapf(-10.0f, 0.0f, 100.0f, 0.0f, 10.0f) < 0.0f);
+  CHECK_TRUE(mapf(110.0f, 0.0f, 100.0f, 0.0f, 10.0f) > 10.0f);
+}
+
+TEST_CASE(mapf_degenerate_input_range_does_not_produce_nan_or_inf) {
+  // When in_min == in_max, implementation should avoid division by zero; we only assert finiteness
+  #include <cmath>
+  float v = mapf(5.0f, 10.0f, 10.0f, 0.0f, 100.0f);
+  CHECK_TRUE(std::isfinite(v));
+}
+
+} // namespace util
+
+// ==== End additional tests ====

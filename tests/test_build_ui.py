@@ -155,3 +155,85 @@ def test_node_present_install_only_one_call_if_build_result_missing(monkeypatch,
     assert fake_env.calls == ["npm install", "npm run build"]
     out = capsys.readouterr().out
     assert "Installing node packages" in out
+
+# ----- Appended tests to expand coverage of the PR diff behavior -----
+
+def test_install_failure_still_runs_build_no_exit(monkeypatch, capsys, tmp_path):
+    """
+    Even if 'npm install' returns non-zero, the script does not check it and should still attempt the build.
+    Verify no SystemExit is raised and build proceeds.
+    """
+    script = _write_temp_script(tmp_path, SCRIPT_CONTENT)
+    monkeypatch.setattr("shutil.which", lambda name: "/usr/bin/node")
+    fake_env = FakeEnv(results=[5, 0])  # install fails, build succeeds
+
+    module = _exec_script_with_env(str(script), fake_env, monkeypatch)
+
+    assert fake_env.calls == ["npm install", "npm run build"]
+    out = capsys.readouterr().out
+    assert "Installing node packages" in out
+    assert "npm run build fails" not in out
+    assert hasattr(module, "exitCode") and module.exitCode == 0
+
+def test_which_called_with_node(monkeypatch, tmp_path):
+    """
+    Ensure the check uses shutil.which('node') specifically.
+    """
+    script = _write_temp_script(tmp_path, SCRIPT_CONTENT)
+    calls = []
+    def fake_which(name):
+        calls.append(name)
+        return "/usr/bin/node"
+    monkeypatch.setattr("shutil.which", fake_which)
+    fake_env = FakeEnv(results=[0, 0])
+
+    _exec_script_with_env(str(script), fake_env, monkeypatch)
+
+    assert calls == ["node"]
+
+def test_success_exposes_exitCode_and_node_ex(monkeypatch, tmp_path):
+    """
+    On success, the module should expose both 'exitCode' (0) and the resolved 'node_ex' path.
+    """
+    script = _write_temp_script(tmp_path, SCRIPT_CONTENT)
+    fake_path = "/usr/local/bin/node"
+    monkeypatch.setattr("shutil.which", lambda name: fake_path)
+    fake_env = FakeEnv(results=[0, 0])
+
+    module = _exec_script_with_env(str(script), fake_env, monkeypatch)
+
+    assert module.node_ex == fake_path
+    assert module.exitCode == 0
+
+def test_build_failure_message_includes_docs_url_and_exit_code(monkeypatch, capsys, tmp_path):
+    """
+    On build failure, verify the failure message includes the documentation URL and that SystemExit uses the build exit code.
+    """
+    script = _write_temp_script(tmp_path, SCRIPT_CONTENT)
+    monkeypatch.setattr("shutil.which", lambda name: "/usr/bin/node")
+    fake_env = FakeEnv(results=[0, 2])
+
+    try:
+        _exec_script_with_env(str(script), fake_env, monkeypatch)
+        raise AssertionError("Expected SystemExit when npm build fails")
+    except SystemExit as e:
+        assert e.code == 2
+
+    out = capsys.readouterr().out
+    assert "npm run build fails" in out
+    assert "https://kno.wled.ge/advanced/compiling-wled/" in out
+
+def test_empty_string_which_treated_as_present(monkeypatch, capsys, tmp_path):
+    """
+    Defensive edge: if shutil.which returns an empty string (falsy but not None), the script's 'is None' check
+    should treat it as present and proceed with install/build.
+    """
+    script = _write_temp_script(tmp_path, SCRIPT_CONTENT)
+    monkeypatch.setattr("shutil.which", lambda name: "")
+    fake_env = FakeEnv(results=[0, 0])
+
+    _exec_script_with_env(str(script), fake_env, monkeypatch)
+
+    assert fake_env.calls == ["npm install", "npm run build"]
+    out = capsys.readouterr().out
+    assert "Installing node packages" in out
