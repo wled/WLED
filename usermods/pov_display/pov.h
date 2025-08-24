@@ -11,10 +11,10 @@ class POV {
          * (3 bytes per pixel, in BGR order). Note: 3, not 4!!!
          *  size should be size of array (number of pixels, not number of bytes)
          */
-        void showLine(byte * line, uint16_t size);
+        void showLine(const byte * line, uint16_t size);
 
         /* Reads from file an image and making it current image */
-        bool loadImage(char * filename);
+        bool loadImage(const char * filename);
 
         /* Show next line of active image
            Retunrs the index of next line to be shown (not yet shown!)

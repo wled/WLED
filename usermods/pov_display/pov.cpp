@@ -30,7 +30,7 @@ void POV::showLine(const byte * line, uint16_t size){
     lastLineUpdate = micros();
 }
 
-bool POV::loadImage(char * filename){
+bool POV::loadImage(const char * filename){
   if(!image.init(filename)) return false;
   if(!image.load()) return false;
   currentLine=0;
