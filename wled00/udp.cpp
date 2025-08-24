@@ -557,6 +557,9 @@ void handleNotifications()
     return;
   }
 
+  // usermods hook can override processing
+  if (UsermodManager::onUdpPacket(udpIn, packetSize)) return;
+
   //wled notifier, ignore if realtime packets active
   if (udpIn[0] == 0 && !realtimeMode && receiveGroups)
   {
