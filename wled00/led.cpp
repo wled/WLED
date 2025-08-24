@@ -24,17 +24,18 @@ void setValuesFromSegment(uint8_t s) {
 
 // applies global legacy values (colPri, colSec, effectCurrent...) to each selected segment
 void applyValuesToSelectedSegs() {
+  const uint32_t col0 = RGBW32(colPri[0], colPri[1], colPri[2], colPri[3]);
+  const uint32_t col1 = RGBW32(colSec[0], colSec[1], colSec[2], colSec[3]);
   for (unsigned i = 0; i < strip.getSegmentsNum(); i++) {
     Segment& seg = strip.getSegment(i);
     if (!(seg.isActive() && seg.isSelected())) continue;
-    if (effectSpeed     != seg.speed)     {seg.speed     = effectSpeed;     stateChanged = true;}
-    if (effectIntensity != seg.intensity) {seg.intensity = effectIntensity; stateChanged = true;}
-    if (effectPalette   != seg.palette)   {seg.setPalette(effectPalette);}
-    if (effectCurrent   != seg.mode)      {seg.setMode(effectCurrent);}
-    uint32_t col0 = RGBW32(colPri[0], colPri[1], colPri[2], colPri[3]);
-    uint32_t col1 = RGBW32(colSec[0], colSec[1], colSec[2], colSec[3]);
-    if (col0 != seg.colors[0])            {seg.setColor(0, col0);}
-    if (col1 != seg.colors[1])            {seg.setColor(1, col1);}
+    stateChanged  = stateChanged || (effectSpeed != seg.speed) || (effectIntensity != seg.intensity);
+    seg.speed     = effectSpeed;
+    seg.intensity = effectIntensity;
+    seg.setPalette(effectPalette);
+    seg.setMode(effectCurrent);
+    seg.setColor(0, col0);
+    seg.setColor(1, col1);
   }
 }
 

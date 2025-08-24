@@ -1832,7 +1832,11 @@ Segment& WS2812FX::getSegment(unsigned id) {
 
 void WS2812FX::resetSegments() {
   _segments.clear();          // destructs all Segment as part of clearing
-  _segments.emplace_back(0, isMatrix ? Segment::maxWidth : _length, 0, isMatrix ? Segment::maxHeight : 1);
+  if (isMatrix) {
+    _segments.emplace_back(0, Segment::maxWidth, 0, Segment::maxHeight);
+  } else {
+    _segments.emplace_back(0, _length, 0, 1);
+  }
   _segments.shrink_to_fit();  // just in case ...
   _mainSegment = 0;
 }
