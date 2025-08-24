@@ -74,7 +74,14 @@ bool BMPimage::init(const char * fn) {
     }
 
     bmpFile.close();
-    strcpy(filename,fn);
+    // Ensure filename fits our buffer (segment name length constraint).
+    size_t len = strlen(fn);
+    if (len > WLED_MAX_SEGNAME_LEN) {
+      return false;
+    }
+    strncpy(filename, fn, sizeof(filename));
+    filename[sizeof(filename) - 1] = '\0';
+    _valid = true;
     return true;
 }
 
@@ -89,18 +96,21 @@ void BMPimage::clear(){
 }
 
 bool BMPimage::load(){
-    uint16_t size= _rowSize * _height;
-    if (BUF_SIZE < size ){
+    const size_t size = (size_t)_rowSize * (size_t)_height;
+    if (size > BUF_SIZE) {
         return false;
     }
-
     File bmpFile = WLED_FS.open(filename);
     if (!bmpFile) {
         return false;
     }
     bmpFile.seek(_imageOffset);
-    bmpFile.read(_buffer, size);
+    const size_t readBytes = bmpFile.read(_buffer, size);
     bmpFile.close();
+    if (readBytes != size) {
+        _loaded = false;
+        return false;
+    }
     _loaded = true;
     return true;
 }
