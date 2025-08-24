@@ -411,6 +411,9 @@ void initServer()
       serveMessage(request, 500, F("Update failed!"), F("Please check your file and retry!"), 254);
     } else {
       serveMessage(request, 200, F("Update successful!"), FPSTR(s_rebooting), 131);
+      #ifndef ESP8266
+      bootloopCheckOTA(); // let the bootloop-checker know there was an OTA update
+      #endif
       doReboot = true;
     }
   },[](AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool isFinal){
@@ -429,8 +432,9 @@ void initServer()
       UsermodManager::onUpdateBegin(true); // notify usermods that update is about to begin (some may require task de-init)
       lastEditTime = millis(); // make sure PIN does not lock during update
       strip.suspend();
-      #ifdef ESP8266
+      backupConfig(); // backup current config in case the update ends badly
       strip.resetSegments();  // free as much memory as you can
+      #ifdef ESP8266
       Update.runAsync(true);
       #endif
       Update.begin((ESP.getFreeSketchSpace() - 0x1000) & 0xFFFFF000);

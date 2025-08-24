@@ -410,6 +410,9 @@ void WLED::setup()
     DEBUGFS_PRINTLN(F("FS failed!"));
     errorFlag = ERR_FS_BEGIN;
   }
+
+  handleBootLoop(); // check for bootloop and take action (requires WLED_FS)
+
 #ifdef WLED_ADD_EEPROM_SUPPORT
   else deEEP();
 #else
@@ -425,6 +428,11 @@ void WLED::setup()
   WLED_SET_AP_SSID(); // otherwise it is empty on first boot until config is saved
   multiWiFi.push_back(WiFiConfig(CLIENT_SSID,CLIENT_PASS)); // initialise vector with default WiFi
 
+  if(!verifyConfig()) {
+    if(!restoreConfig()) {
+      resetConfig();
+    }
+  }
   DEBUG_PRINTLN(F("Reading config"));
   bool needsCfgSave = deserializeConfigFromFS();
   DEBUG_PRINTF_P(PSTR("heap %u\n"), ESP.getFreeHeap());
