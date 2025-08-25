@@ -3,7 +3,7 @@
 
 static const char _data_FX_MODE_POV_IMAGE[] PROGMEM = "POV Image@!;;;;";
 
-POV pov;
+static POV s_pov;
 
 uint16_t mode_pov_image(void) {
   Segment& mainseg = strip.getMainSegment();
@@ -23,13 +23,18 @@ uint16_t mode_pov_image(void) {
     return FRAMETIME;
   }
 
-  const char* current = pov.getFilename();
+  const char* current = s_pov.getFilename();
   if (current && strcmp(segName, current) == 0) {
-     pov.showNextLine();
+     s_pov.showNextLine();
      return FRAMETIME;
    }
 
-  pov.loadImage(segName);
+  static unsigned long s_lastLoadAttemptMs = 0;
+  unsigned long nowMs = millis();
+  // Retry at most twice per second if the image is not yet loaded.
+  if (nowMs - s_lastLoadAttemptMs < 500) return FRAMETIME;
+  s_lastLoadAttemptMs = nowMs;
+  s_pov.loadImage(segName);
   return FRAMETIME;
 }
 
@@ -41,14 +46,12 @@ protected:
   unsigned long lastTime = 0; //WLEDMM
 public:
 
-  PovDisplayUsermod(const char *name, bool enabled) {
-    this->_name=name;
-    this->enabled = enabled;
-  }
+  PovDisplayUsermod(const char *name, bool enabled)
+    : enabled(enabled) , _name(name) {}
   
   void setup() override {
     strip.addEffect(255, &mode_pov_image, _data_FX_MODE_POV_IMAGE);
-    initDone=true;
+    //initDone removed (unused)
   }
 
 
@@ -59,13 +62,8 @@ public:
 
     // do your magic here
     if (millis() - lastTime > 1000) {
-      //Serial.println("I'm alive!");
       lastTime = millis();
     }
-  }
-
-  bool onEspNowMessage(uint8_t* sender, uint8_t* payload, uint8_t len) override {
-    return false;
   }
 
   uint16_t getId() override {
