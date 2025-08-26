@@ -18,7 +18,7 @@ To get it working:
 - Select the “POV Image” effect.
 - Set the segment name to the absolute filesystem path of the image (e.g., “/myimage.bmp”).
 - The path is case-sensitive and must start with “/”.
-- Rotate the segment at approximately 20 RPM.
+- Rotate the pixel strip at approximately 20 RPM.
 - Tune as needed so that one full revolution maps to the image width (if the image appears stretched or compressed, adjust RPM slightly).
 - Enjoy the show!
 
