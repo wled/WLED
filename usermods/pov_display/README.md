@@ -5,11 +5,11 @@ This usermod adds a new effect called “POV Image”.
 ![the usermod at work](pov_display.gif?raw=true)
 
 ###How does it work?
-With proper configuration (see below) the main segment will display a single row of pixel from an image stored on the ESP.
-It will display the image row after row with very fast update.
-If you move the pixel segment at the right speed you will be able to see the full image floating in the air thanks to the persistance of vision.
-It only works with RGB leds, without grouping nor spacing.
-The best results are obtained with high-density strips like 144 leds/meter.
+With proper configuration (see below) the main segment will display a single row of pixels from an image stored on the ESP.
+It displays the image row by row at a high refresh rate.
+If you move the pixel segment at the right speed, you will see the full image floating in the air thanks to the persistence of vision.
+RGB LEDs only (no RGBW), with grouping set to 1 and spacing set to 0.
+Best results with high-density strips (e.g., 144 LEDs/m).
 
 To get it working:
 - Resize your image. The height must match the number of LEDs in your strip/segment.
