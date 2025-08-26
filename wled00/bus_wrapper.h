@@ -896,10 +896,6 @@ class PolyBus {
     }
   }
 
-  static void setBrightness(void* busPtr, uint8_t busType, uint8_t b) {
-
-  }
-
   [[gnu::hot]] static uint32_t getPixelColor(void* busPtr, uint8_t busType, uint16_t pix, uint8_t co) {
     RgbwColor col(0,0,0,0);
     switch (busType) {
