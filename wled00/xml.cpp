@@ -652,6 +652,22 @@ void getSettingsJS(byte subPage, Print& settingsScript)
     printSetFormIndex(settingsScript,PSTR("CH13"),DMXFixtureMap[12]);
     printSetFormIndex(settingsScript,PSTR("CH14"),DMXFixtureMap[13]);
     printSetFormIndex(settingsScript,PSTR("CH15"),DMXFixtureMap[14]);
+
+    printSetFormValue(settingsScript,PSTR("DV1"),DMXChannelsValue[0]);
+    printSetFormValue(settingsScript,PSTR("DV2"),DMXChannelsValue[1]);
+    printSetFormValue(settingsScript,PSTR("DV3"),DMXChannelsValue[2]);
+    printSetFormValue(settingsScript,PSTR("DV4"),DMXChannelsValue[3]);
+    printSetFormValue(settingsScript,PSTR("DV5"),DMXChannelsValue[4]);
+    printSetFormValue(settingsScript,PSTR("DV6"),DMXChannelsValue[5]);
+    printSetFormValue(settingsScript,PSTR("DV7"),DMXChannelsValue[6]);
+    printSetFormValue(settingsScript,PSTR("DV8"),DMXChannelsValue[7]);
+    printSetFormValue(settingsScript,PSTR("DV9"),DMXChannelsValue[8]);
+    printSetFormValue(settingsScript,PSTR("DV10"),DMXChannelsValue[9]);
+    printSetFormValue(settingsScript,PSTR("DV11"),DMXChannelsValue[10]);
+    printSetFormValue(settingsScript,PSTR("DV12"),DMXChannelsValue[11]);
+    printSetFormValue(settingsScript,PSTR("DV13"),DMXChannelsValue[12]);
+    printSetFormValue(settingsScript,PSTR("DV14"),DMXChannelsValue[13]);
+    printSetFormValue(settingsScript,PSTR("DV15"),DMXChannelsValue[14]);
   }
   #endif
 
