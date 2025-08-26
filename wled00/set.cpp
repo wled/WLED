@@ -645,6 +645,11 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
       t = request->arg(argname).toInt();
       DMXFixtureMap[i] = t;
     }
+    for (int i=0; i<15; i++) {
+      String argname = "DV" + String((i+1));
+      t = request->arg(argname).toInt();
+      DMXChannelsValue[i] = t;
+    }
   }
   #endif
 
