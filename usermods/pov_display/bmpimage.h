@@ -45,6 +45,6 @@ class BMPimage {
         bool _valid=false;
 };
 
-extern byte _buffer[];
+extern byte * _buffer;
 
 #endif

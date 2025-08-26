@@ -1,7 +1,7 @@
 #include "bmpimage.h"
 #define BUF_SIZE 64000
 
-byte _buffer[BUF_SIZE];
+byte * _buffer = nullptr;
 
 uint16_t read16(File &f) {
   uint16_t result;
@@ -104,6 +104,11 @@ bool BMPimage::load(){
     if (!bmpFile) {
         return false;
     }
+
+    if (_buffer != nullptr) free(_buffer);
+    _buffer = (byte*)malloc(size);
+    if (_buffer == nullptr) return false;
+
     bmpFile.seek(_imageOffset);
     const size_t readBytes = bmpFile.read(_buffer, size);
     bmpFile.close();
