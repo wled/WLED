@@ -304,13 +304,13 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
             DEBUG_PRINTF_P(PSTR("PIN ALLOC error: GPIO%d for touch button #%d is not an touch pin!\n"), btnPin[i], i);
             btnPin[i] = -1;
             PinManager::deallocatePin(hw_btn_pin,PinOwner::Button);
-          }          
+          }
           #ifdef SOC_TOUCH_VERSION_2 // ESP32 S2 and S3 have a fucntion to check touch state but need to attach an interrupt to do so
-          else                    
+          else
           {
             touchAttachInterrupt(btnPin[i], touchButtonISR, touchThreshold << 4); // threshold on Touch V2 is much higher (1500 is a value given by Espressif example, I measured changes of over 5000)
           }
-          #endif          
+          #endif
         }
         else
       #endif
@@ -952,7 +952,7 @@ bool handleSet(AsyncWebServerRequest *request, const String& req, bool apply)
 
   pos = req.indexOf(F("NP")); //advances to next preset in a playlist
   if (pos > 0) doAdvancePlaylist = true;
-  
+
   //set brightness
   updateVal(req.c_str(), "&A=", bri);
 
