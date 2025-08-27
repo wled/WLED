@@ -633,9 +633,13 @@ static volatile uint32_t& bl_crashcounter = *(RTC_USER_MEM + 33);
 static volatile uint32_t& bl_actiontracker = *(RTC_USER_MEM + 34);
 
 static inline ResetReason rebootReason() {  
-  rst_info* resetreason = system_get_rst_info();  
-  if (resetreason->reason == REASON_EXCEPTION_RST || resetreason->reason == REASON_WDT_RST) return ResetReason::Crash;
-  if (resetreason->reason == REASON_SOFT_RESTART) return ResetReason::Software;
+  uint32_t resetReason = system_get_rst_info()->reason; 
+  if (resetReason == REASON_EXCEPTION_RST
+      || resetReason == REASON_WDT_RST
+      || resetReason == REASON_SOFT_WDT_RST)
+      return ResetReason::Crash;
+  if (resetReason == REASON_SOFT_RESTART)
+    return ResetReason::Software;
   return ResetReason::Power;
 }
 
