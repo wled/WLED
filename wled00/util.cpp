@@ -10,7 +10,23 @@ int getNumVal(const String* req, uint16_t pos)
 }
 
 
-//helper to get int value with in/decrementing support via ~ syntax
+/**
+ * @brief Parse a numeric specification string and update a byte value accordingly.
+ *
+ * Parses several compact numeric syntaxes and writes the resulting value to *val.
+ * - If str is null or empty: no change.
+ * - If str starts with 'r': set *val to a random number in [minv, maxv] (if maxv==0 uses 255).
+ * - If str starts with 'w' (and has more characters): enables wrap semantics for subsequent '~' operations.
+ * - '~' prefix: increment/decrement or apply a signed offset relative to the current *val with optional wrapping and clamping to [minv, maxv]. A literal "~0" is a no-op; "~-" decrements; "~N" adds N.
+ * - If minv==maxv==0 and str contains a "p1~p2~..." pattern: treat as a preset range and recurse to parse a value within [p1,p2].
+ * - Otherwise: convert str to an integer and store it (clamped in contexts above where applicable).
+ *
+ * Parameters:
+ * @param str   Numeric specification string (supports the forms described above).
+ * @param val   Pointer to the byte value to update (in/out).
+ * @param minv  Minimum allowed value for clamping/wrap checks.
+ * @param maxv  Maximum allowed value for clamping/wrap checks.
+ */
 void parseNumber(const char* str, byte* val, byte minv, byte maxv)
 {
   if (str == nullptr || str[0] == '\0') return;
@@ -52,7 +68,24 @@ void parseNumber(const char* str, byte* val, byte minv, byte maxv)
   *val = atoi(str);
 }
 
-//getVal supports inc/decrementing and random ("X~Y(r|~[w][-][Z])" form)
+/**
+ * @brief Interpret a JsonVariant as a numeric byte value.
+ *
+ * Parses an integer or encoded string from a JsonVariant and writes the resulting byte into *val.
+ * Supports direct non-negative integer values and extended string forms (including increment/decrement,
+ * random and range syntax like "X~Y", "X~Y r", "r", "~", or the combined "X~Y(r|~[w][-][Z])" form).
+ *
+ * When elem is an int (>= 0) that value is used. Negative integers are ignored and cause the function
+ * to return false. When elem is a string, it must be 1–12 characters; the string is passed to parseNumber()
+ * to interpret numeric, random, wrap or increment/decrement semantics. For complex forms containing an 'r'
+ * or multiple '~' characters, vmin and vmax are ignored (set to 0) so the API-specified range/rules are honored.
+ *
+ * @param elem JsonVariant containing either an integer or a string encoding a numeric specification.
+ * @param[out] val Pointer to the byte where the parsed value will be stored on success.
+ * @param vmin Minimum allowed value (used by parseNumber for simple forms).
+ * @param vmax Maximum allowed value (used by parseNumber for simple forms).
+ * @return true if a value was successfully parsed and written to *val; false otherwise.
+ */
 bool getVal(JsonVariant elem, byte* val, byte vmin, byte vmax) {
   if (elem.is<int>()) {
 		if (elem < 0) return false; //ignore e.g. {"ps":-1}
@@ -62,6 +95,8 @@ bool getVal(JsonVariant elem, byte* val, byte vmin, byte vmax) {
     const char* str = elem;
     size_t len = strnlen(str, 14);
     if (len == 0 || len > 12) return false;
+    // Guard: mirror integer-path behavior by rejecting plain negative literals (but allow "~-" forms).
+    if (str[0] == '-' && isdigit((unsigned char)str[1])) return false;
     // fix for #3605 & #4346
     // ignore vmin and vmax and use as specified in API
     if (len > 3 && (strchr(str,'r') || strchr(str,'~') != strrchr(str,'~'))) vmax = vmin = 0; // we have "X~Y(r|~[w][-][Z])" form

@@ -216,7 +216,25 @@ static float fftAddAvg(int from, int to) {
 
 //
 // FFT main task
-//
+/**
+ * FFT background task: continuously samples audio, runs FFT, maps bins to GEQ channels,
+ * post-processes results, and updates global audio state used by effects and UDP sync.
+ *
+ * This function is intended to be run as a FreeRTOS task. On first run it allocates
+ * FFT buffers (vReal, vImag) and constructs an ArduinoFFT object. In its main loop it:
+ * - obtains a block of PCM samples from the configured audioSource,
+ * - optionally applies a band-pass prefilter,
+ * - conditionally runs the FFT (noise gate optimization) and computes magnitudes,
+ * - maps FFT bins into NUM_GEQ_CHANNELS buckets, applies pink-noise correction, AGC/post-scaling,
+ *   smoothing and scaling modes in postProcessFFTResults(),
+ * - updates globals such as fftResult[], fftAvg[], FFT_MajorPeak, FFT_Magnitude, micDataReal,
+ *   and peak flags (samplePeak, udpSamplePeak),
+ * - calls detectSamplePeak() and autoResetPeak() to handle peak detection/reset,
+ * - cooperates with the scheduler (vTaskDelayUntil) and respects disableSoundProcessing and
+ *   audioSyncEnabled flags to suspend/skip work when appropriate.
+ *
+ * The task normally loops forever; it returns early only if buffer allocation fails.
+ */
 void FFTcode(void * parameter)
 {
   DEBUGSR_PRINT("FFT started on core: "); DEBUGSR_PRINTLN(xPortGetCoreID());
@@ -535,6 +553,17 @@ static void detectSamplePeak(void) {
 
 #endif
 
+/**
+ * Auto-reset the local peak flags after a short delay tied to the LED strip frame time.
+ *
+ * If the elapsed time since `timeOfPeak` exceeds max(50 ms, strip.getFrameTime()), clears
+ * `samplePeak`. If audio sync via UDP is not enabled (`audioSyncEnabled == 0`), also clears
+ * `udpSamplePeak`.
+ *
+ * Side effects:
+ * - Modifies the global flags `samplePeak` and, conditionally, `udpSamplePeak`.
+ * - Uses `millis()` and `timeOfPeak` to determine elapsed time.
+ */
 static void autoResetPeak(void) {
   uint16_t peakDelay = max(uint16_t(50), strip.getFrameTime());
   if (millis() - timeOfPeak > peakDelay) {          // Auto-reset of samplePeak after at least one complete frame has passed.

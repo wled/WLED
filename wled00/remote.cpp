@@ -114,7 +114,26 @@ void presetWithFallback(uint8_t presetID, uint8_t effectID, uint8_t paletteID) {
   applyPresetWithFallback(presetID, CALL_MODE_BUTTON_PRESET, effectID, paletteID);
 }
 
-// this function follows the same principle as decodeIRJson()
+/**
+ * @brief Process a remote button press by looking up and executing a command in /remote.json.
+ *
+ * Blocks briefly while waiting for any active strip update to finish (up to ESPNOW_BUSWAIT_TIMEOUT)
+ * and requires the JSON buffer lock. Looks for an entry keyed by the decimal button id (e.g. `"5":`)
+ * in /remote.json and interprets its `cmd` value:
+ * - If `cmd` is a string starting with "!" it executes a small set of builtin operations
+ *   (brightness up/down, preset-with-fallback).
+ * - If `cmd` is a non-`!` string it is treated as an API-style command (prefixed with `win&` if missing)
+ *   and passed to handleSet(); a segment selector `SS=` is added if appropriate.
+ * - If `cmd` is a JSON object it is deserialized into state via deserializeState().
+ *
+ * The function may call brightnessUp(), brightnessDown(), presetWithFallback(), handleSet(),
+ * deserializeState(), and stateUpdated(CALL_MODE_BUTTON). It reads /remote.json and holds/releases
+ * the global JSON buffer lock for the duration of the operation.
+ *
+ * @param button Decimal identifier of the remote button to look up in /remote.json.
+ * @return true if a command was found and executed (or deserialized); false if no entry existed,
+ *         the JSON buffer lock could not be acquired, or no action was taken.
+ */
 static bool remoteJson(int button)
 {
   char objKey[10];
@@ -181,7 +200,25 @@ static bool remoteJson(int button)
   return parsed;
 }
 
-// Callback function that will be executed when data is received
+/**
+ * @brief ESP-NOW receive callback: capture and validate an incoming WizMote/Smart-button packet.
+ *
+ * Validates sender identity and packet length, deduplicates using a 32-bit sequence number,
+ * and stores the received button ID into the global ESPNowButton for deferred processing.
+ *
+ * This function runs in the ESP-NOW receive callback context and therefore must not perform
+ * file I/O or other long-running operations; it only performs lightweight validation and state updates.
+ *
+ * @param incomingData Pointer to the raw incoming packet bytes. Must point to a buffer
+ *                     matching the expected WizMote message layout (message_structure_t).
+ * @param len         Length of the incoming packet in bytes. Packets with a length different
+ *                    from sizeof(message_structure_t) are ignored.
+ *
+ * Side effects:
+ * - If the packet passes validation, sets the global ESPNowButton to the incoming button value
+ *   and updates last_seq with the packet's sequence number.
+ * - If the sender does not match linked_remote or the length is invalid, the packet is discarded.
+ */
 void handleWiZdata(uint8_t *incomingData, size_t len) {
   message_structure_t *incoming = reinterpret_cast<message_structure_t *>(incomingData);
 
@@ -212,7 +249,27 @@ void handleWiZdata(uint8_t *incomingData, size_t len) {
   last_seq = cur_seq;
 }
 
-// process ESPNow button data (acesses FS, should not be called while update to avoid glitches)
+/**
+ * @brief Process a pending ESP-NOW remote button event.
+ *
+ * Checks the global ESPNowButton value; if set (>= 0) it first attempts to
+ * handle the button via remoteJson (which may read /remote.json). If that
+ * does not handle the button, maps the button to built-in actions (on/off,
+ * presets, night mode, brightness up/down). After processing, the function
+ * clears ESPNowButton (sets it to -1).
+ *
+ * @details
+ * - This function performs filesystem access via remoteJson and may apply
+ *   state changes (calls like setOn, setOff, presetWithFallback,
+ *   activateNightMode, brightnessUp/Down) which trigger stateUpdated callers.
+ * - It is intended to be called from the main loop (deferred processing)
+ *   rather than directly from the ESP-NOW receive callback to avoid
+ *   filesystem/strip-update glitches.
+ *
+ * @note Do not call while a strip update or other critical FS activity is in
+ * progress; remoteJson performs its own JSON-buffer locking but a concurrent
+ * strip update can still cause glitches.
+ */
 void handleRemote() {
   if(ESPNowButton >= 0) {
   if (!remoteJson(ESPNowButton))
@@ -237,5 +294,17 @@ void handleRemote() {
 }
 
 #else
+/**
+ * @brief Process a pending ESPNOW remote button event.
+ *
+ * Checks for a queued ESPNow button value (set by the packet callback) and, if present,
+ * attempts to handle it via the JSON-defined remote actions in /remote.json. If no JSON
+ * command is found, falls back to built-in mappings (on/off, presets, night mode, brightness
+ * up/down). After processing the button is cleared.
+ *
+ * This function performs state changes (brightness, power, presets, etc.) and triggers
+ * stateUpdated(CALL_MODE_BUTTON) where appropriate. When ESPNOW support is compiled out,
+ * this function is a no-op. Call regularly from the main loop to process incoming remote events.
+ */
 void handleRemote() {}
 #endif

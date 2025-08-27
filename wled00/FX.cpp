@@ -149,10 +149,21 @@ uint16_t mode_strobe_rainbow(void) {
 static const char _data_FX_MODE_STROBE_RAINBOW[] PROGMEM = "Strobe Rainbow@!;,!;!;01";
 
 
-/*
- * Color wipe function
- * LEDs are turned on (color1) in sequence, then turned off (color2) in sequence.
- * if (bool rev == true) then LEDs are turned off in reverse order
+/**
+ * @brief Runs a color-wipe animation that sequentially turns LEDs on with one color and then off with another.
+ *
+ * Renders a forward/backward wipe that alternates between two colors over a timed cycle. When useRandomColors
+ * is true the wipe uses two generated wheel colors that are swapped between phases; otherwise it uses the
+ * segment palette and SEGCOLOR(1). The rev flag reverses the LED order for the "off" sweep.
+ *
+ * Special behaviours:
+ * - If SEGLEN == 1 this delegates to mode_static().
+ * - Cycle duration is derived from SEGMENT.speed; intensity influences the per-pixel blend at the transition.
+ * - Uses and updates SEGENV state (aux fields and step) to coordinate random color generation between cycles.
+ *
+ * @param rev If true, the turn-off sweep runs in reverse LED order.
+ * @param useRandomColors If true, pick and animate random wheel-based colors instead of the segment palette.
+ * @return uint16_t Frame delay in milliseconds (FRAMETIME) until the next update.
  */
 uint16_t color_wipe(bool rev, bool useRandomColors) {
   if (SEGLEN == 1) return mode_static();
@@ -595,8 +606,25 @@ uint16_t mode_twinkle(void) {
 static const char _data_FX_MODE_TWINKLE[] PROGMEM = "Twinkle@!,!;!,!;!;;m12=0"; //pixels
 
 
-/*
- * Dissolve function
+/**
+ * @brief Dissolves the current strip between two color states.
+ *
+ * Renders a probabilistic "dissolve" where individual LEDs flip between the
+ * primary (palette/segment color) and a secondary color over time. Uses a
+ * per-LED buffer allocated in SEGENV.data to track current pixel colors and
+ * flushes that buffer to SEGMENT each frame.
+ *
+ * The dissolve direction toggles each cycle (tracked in SEGENV.aux0). New
+ * pixels are spawned randomly based on SEGMENT.intensity; each frame the
+ * routine makes multiple spawn attempts at random indices. Timing/progression
+ * is driven by SEGENV.step and SEGMENT.speed. If buffer allocation fails,
+ * the function falls back to mode_static().
+ *
+ * @param color Color to dissolve to when SEGENV.aux0 is true. If `color`
+ *              equals SEGCOLOR(0) the palette-provided color for each index
+ *              (SEGMENT.color_from_palette) is used instead.
+ * @return uint16_t Frame delay in milliseconds (FRAMETIME), or the value
+ *                  returned by mode_static() if allocation failed.
  */
 uint16_t dissolve(uint32_t color) {
   unsigned dataSize = sizeof(uint32_t) * SEGLEN;
@@ -1077,8 +1105,21 @@ uint16_t mode_running_color(void) {
 static const char _data_FX_MODE_RUNNING_COLOR[] PROGMEM = "Chase 2@!,Width;!,!;!";
 
 
-/*
- * Random colored pixels running. ("Stream")
+/**
+ * @brief Runs a stream of randomly colored pixels that advance along the strip.
+ *
+ * Renders bands ("zones") of random wheel colors across the segment and advances them over time.
+ * Zone width is derived from the current segment intensity (higher intensity → narrower zones).
+ * Adjacent zone colors are chosen so their wheel index differs by at least 42 to ensure visible contrast.
+ *
+ * Side effects:
+ * - Writes colors to every pixel via SEGMENT.setPixelColor.
+ * - Uses SEGENV.aux0 as a 16-bit PRNG seed (initialized on first call) and updates it when a new seed is generated.
+ * - Stores the last frame index in SEGENV.aux1.
+ *
+ * Timing is driven by SEGMENT.speed; the function returns the frame delay value used by the caller.
+ *
+ * @return uint16_t Frame delay (FRAMETIME) for scheduling the next update.
  */
 uint16_t mode_running_random(void) {
   uint32_t cycleTime = 25 + (3 * (uint32_t)(255 - SEGMENT.speed));
@@ -1404,6 +1445,21 @@ typedef struct Flasher {
 #define FLASHERS_PER_ZONE 6
 #define MAX_SHIMMER 92
 
+/**
+ * @brief Renders a "fairy" shimmer: a randomized palette background with occasional flashing pixels.
+ *
+ * The routine fills the segment with pseudo-random palette colors (stable between frames),
+ * then spawns a number of independent "flasher" spots whose on/off state and brightness
+ * vary over time to produce a twinkling/shimmer effect. Flashers are distributed based
+ * on intensity and grouped into brightness zones to compute a shared dimming factor so
+ * many simultaneous bright flashers reduce surrounding pixel brightness (simulating
+ * voltage/brightness interaction).
+ *
+ * The function allocates per-flasher state from the segment environment (SEGENV);
+ * if allocation fails, the function returns immediately and leaves the display as-is.
+ *
+ * @return uint16_t Frame delay (FRAMETIME) to schedule the next update.
+ */
 uint16_t mode_fairy() {
   //set every pixel to a 'random' color from palette (using seed so it doesn't change between frames)
   uint16_t PRNG16 = 5100 + strip.getCurrSegmentId();
@@ -1478,9 +1534,20 @@ uint16_t mode_fairy() {
 static const char _data_FX_MODE_FAIRY[] PROGMEM = "Fairy@!,# of flashers;!,!;!";
 
 
-/*
- * Fairytwinkle. Like Colortwinkle, but starting from all lit and not relying on strip.getPixelColor
- * Warning: Uses 4 bytes of segment data per pixel
+/**
+ * @brief "Fairytwinkle" twinkle effect that starts with all LEDs lit and toggles individual LEDs with fades.
+ *
+ * Renders a twinkling animation by tracking a per-LED Flasher state (allocated in SEGENV) and blending
+ * between the segment's primary color and a palette-derived color for each pixel. Each flasher fades in/out
+ * based on segment speed/intensity and a pseudo-random sequence; adjacent LEDs are ensured to have
+ * sufficiently different palette indices.
+ *
+ * Side effects:
+ * - Allocates SEGENV data sized sizeof(Flasher) * SEGLEN; if allocation fails, the function falls back to mode_static().
+ * - Writes colors to the current SEGMENT pixel buffer.
+ * - Uses approximately 4 bytes of segment data per pixel for the Flasher state.
+ *
+ * @return uint16_t Frame time in milliseconds until the next update (FRAMETIME).
  */
 uint16_t mode_fairytwinkle() {
   unsigned dataSize = sizeof(flasher) * SEGLEN;
@@ -1723,9 +1790,23 @@ uint16_t mode_multi_comet(void) {
 static const char _data_FX_MODE_MULTI_COMET[] PROGMEM = "Multi Comet@!,Fade;!,!;!;1";
 #undef MAX_COMETS
 
-/*
- * Running random pixels ("Stream 2")
- * Custom mode by Keith Lord: https://github.com/kitesurfer1404/WS2812FX/blob/master/src/custom/RandomChase.h
+/**
+ * @brief Running random pixels ("Stream 2") animation.
+ *
+ * Renders a chasing stream of mostly-consistent random colors across the segment.
+ * On the first frame this mode seeds a base RGB color and a random16 seed. Each frame
+ * it iterates the strip from end to start, choosing each pixel's RGB channels to be
+ * either the base channel value (most of the time) or a new random byte (occasionally),
+ * producing a noisy, streaming chase. When a new iteration begins the current base
+ * color and the random16 seed are updated so the stream's base color evolves over time.
+ *
+ * Side effects:
+ * - Initializes and updates SEGENV.step (base color), SEGENV.aux0 (saved random16 seed),
+ *   and SEGENV.aux1 (frame iteration marker).
+ * - Temporarily changes the global random16 seed while generating the frame but restores
+ *   the previous seed before returning, preserving other effects' PRNG state.
+ *
+ * @return uint16_t Frame delay in milliseconds (FRAMETIME).
  */
 uint16_t mode_random_chase(void) {
   if (SEGENV.call == 0) {
@@ -1766,9 +1847,21 @@ typedef struct Oscillator {
   uint8_t  speed;
 } oscillator;
 
-/*
-/  Oscillating bars of color, updated with standard framerate
-*/
+/**
+ * @brief Renders three oscillating bars of color that move back and forth along the segment.
+ *
+ * Maintains per-effect state for three Oscillator instances in SEGENV.data (allocated on first call).
+ * Each oscillator has a position, half-width (size), direction and speed; they bounce at the ends,
+ * randomize speed on each bounce (faster speeds when SEGMENT.speed > 100), and update position
+ * at a cadence derived from SEGMENT.speed. Bar half-width is computed from SEGLEN and SEGMENT.intensity.
+ *
+ * Side effects:
+ * - Allocates and stores oscillator state in SEGENV.data.
+ * - Updates SEGENV.step with the current time bucket.
+ * - Writes pixel colors to the active SEGMENT via SEGMENT.setPixelColor.
+ *
+ * @return uint16_t Frame delay in milliseconds (FRAMETIME) until this mode should be called again.
+ */
 uint16_t mode_oscillate(void) {
   constexpr unsigned numOscillators = 3;
   constexpr unsigned dataSize = sizeof(oscillator) * numOscillators;
@@ -1925,6 +2018,30 @@ uint16_t mode_juggle(void) {
 static const char _data_FX_MODE_JUGGLE[] PROGMEM = "Juggle@!,Trail;;!;;sx=64,ix=128";
 
 
+/**
+ * @brief Renders a rotated palette-mapped pattern across the segment or matrix.
+ *
+ * Maps each pixel to a virtual, rotated rectangle filled with the current palette and writes the resulting
+ * color to either the 2D XY matrix or a 1D segment line. The palette is sampled left-to-right across the
+ * virtual rectangle; the rectangle is scaled so its left/right bounds align with the display for the
+ * configured rotation, preventing large uniform color regions and using the full palette range.
+ *
+ * Controls (read from global SEGMENT fields):
+ * - SEGMENT.speed: horizontal palette shift (animates when SEGMENT.check1 is set).
+ * - SEGMENT.intensity: palette scale (values <=128 show a fraction of a palette; >128 repeat the palette).
+ * - SEGMENT.custom1: rotation angle (animates when SEGMENT.check2 is set).
+ * - SEGMENT.check1: animate palette shift when true.
+ * - SEGMENT.check2: animate rotation when true.
+ * - SEGMENT.check3: assume square pixel aspect (affects rotation/scale calculation).
+ *
+ * Behavior:
+ * - If strip.isMatrix is true the routine writes to SEGMENT.setPixelColorXY; otherwise it treats each segment
+ *   as one matrix row and writes via SEGMENT.setPixelColor.
+ * - Palette sampling index is computed per-pixel from a rotated/translated coordinate and then shifted by the
+ *   configured palette offset. Final color is obtained via SEGMENT.color_wheel.
+ *
+ * @return Frame time until the next update (FRAMETIME).
+ */
 uint16_t mode_palette() {
   // Set up some compile time constants so that we can handle integer and float based modes using the same code base.
 #ifdef ESP8266
@@ -2553,7 +2670,31 @@ static const char _data_FX_MODE_RIPPLE_RAINBOW[] PROGMEM = "Ripple Rainbow@!,Wav
 //  TwinkleFOX by Mark Kriegsman: https://gist.github.com/kriegsman/756ea6dcae8e30845b5a
 //
 //  TwinkleFOX: Twinkling 'holiday' lights that fade in and out.
-//  Colors are chosen from a palette. Read more about this effect using the link above!
+/**
+ * @brief Compute the color for a single "twinkle" pixel in the TwinkleFox effect.
+ *
+ * Generates a palette-driven CRGB color for one LED based on a timebase, a
+ * per-pixel salt (phase/hue offset), and a mode flag. The returned color will
+ * be black when the pixel is off for the current twinkle cycle.
+ *
+ * Detailed behavior:
+ * - Time scaling is driven by `ms` and the per-effect speed divisor held in
+ *   SEGENV.aux0.
+ * - Twinkle density (how often pixels are lit) is derived from SEGMENT.intensity.
+ * - `salt` offsets both the slow phase (hue/phase) and the effective phase of
+ *   the twinkle waveform so neighboring pixels can be decorrelated.
+ * - When `cat` is true (twinkle-cat variant), pixels turn on instantly rather
+ *   than following the asymmetric attack/decay waveform used by the vanilla
+ *   TwinkleFox behavior.
+ * - When the pixel is fading (not the instant-on cat variant) and SEGMENT.check1
+ *   is false, the color is biased toward red as brightness decreases to mimic
+ *   incandescent cooling.
+ *
+ * @param ms Milliseconds timestamp used to drive the twinkle animation.
+ * @param salt Per-pixel salt/offset that shifts phase and hue (used to decorrelate pixels).
+ * @param cat If true, use the "twinklecat" instant-on variant; otherwise use the default asymmetric waveform.
+ * @return CRGB Palette-mapped color for this pixel at time `ms`; CRGB::Black when the pixel is off.
+ */
 static CRGB twinklefox_one_twinkle(uint32_t ms, uint8_t salt, bool cat)
 {
   // Overall twinkle speed (changed)
@@ -5103,6 +5244,31 @@ typedef struct ColorCount {
   int8_t count;
 } colorCount;
 
+/**
+ * @brief 2D Game of Life cellular automaton renderer for matrix segments.
+ *
+ * Implements a colorized Conway-like Game of Life on SEGMENT's virtual 2D grid.
+ * Alive cells use colors sampled from the segment palette; dead cells use the
+ * segment background color. The implementation:
+ * - Requires the segment to be configured as a 2D matrix (returns the static
+ *   mode when not 2D).
+ * - Allocates a per-frame pixel buffer and a small CRC history buffer via SEGENV
+ *   to store the previous generation and detect repeating states.
+ * - Initializes the matrix to a randomized population on first call or after a
+ *   long idle period.
+ * - Applies standard life rules (underpopulation, overpopulation, reproduction)
+ *   with color-aware neighbor counting so newborn cells inherit the dominant
+ *   neighbor color; occasional random mutations sample the palette.
+ * - Detects stable/repeating patterns using CRC16 across the previous frame
+ *   buffer and updates an internal timer to trigger reseeding when repetition
+ *   persists.
+ *
+ * Note: If SEGENV.allocateData fails or the segment is not 2D, this function
+ * returns mode_static() immediately.
+ *
+ * @return uint16_t Milliseconds until the next frame (FRAMETIME), or the value
+ *         returned by mode_static() when falling back to the static mode.
+ */
 uint16_t mode_2Dgameoflife(void) { // Written by Ewoud Wijma, inspired by https://natureofcode.com/book/chapter-7-cellular-automata/ and https://github.com/DougHaber/nlife-color
   if (!strip.isMatrix || !SEGMENT.is2D()) return mode_static(); // not a 2D set-up
 
@@ -6630,7 +6796,20 @@ static const char _data_FX_MODE_JUGGLES[] PROGMEM = "Juggles@!,# of balls;!,!;!;
 
 //////////////////////
 //   * MATRIPIX     //
-//////////////////////
+/**
+ * @brief Matripix animation: shifting pixels with audio-modulated brightness.
+ *
+ * Renders a left-shifting pixel stream where new pixels on the right are a blend
+ * of the primary segment color and the current palette color, with brightness
+ * modulated by the audio input volume. Uses a per-LED color buffer allocated
+ * from SEGENV to store and shift pixel colors; the buffer is written to the
+ * segment each update.
+ *
+ * If per-LED buffer allocation via SEGENV fails, the function falls back to
+ * mode_static() immediately.
+ *
+ * @return uint16_t Number of milliseconds until the next frame (FRAMETIME).
+ */
 uint16_t mode_matripix(void) {                  // Matripix. By Andrew Tuline.
   // effect can work on single pixels, we just lose the shifting effect
   unsigned dataSize = sizeof(uint32_t) * SEGLEN;
@@ -7281,7 +7460,27 @@ static const char _data_FX_MODE_ROCKTAVES[] PROGMEM = "Rocktaves@;!,!;!;01f;m12=
 ///////////////////////
 //   ** Waterfall    //
 ///////////////////////
-// Combines peak detection with FFT_MajorPeak and FFT_Magnitude.
+/**
+ * @brief Audio-reactive "waterfall" visualization that maps FFT peak and magnitude to a scrolling color column.
+ *
+ * Renders a vertical shift (leftward) waterfall: each triggered audio sample inserts a new column at the end
+ * (highest index) derived from FFT_MajorPeak, magnitude and an optional peak flag, then shifts the existing
+ * per-LED color buffer one position. Allocates a per-segment pixel buffer via SEGENV (falls back to the static
+ * mode if allocation fails) and writes colors to SEGMENT pixels each frame.
+ *
+ * Behavior details:
+ * - Reads audio data (peak flag, FFT_MajorPeak, magnitude, bin selection and max volume) from getAudioData().
+ * - Uses the log10 of FFT_MajorPeak to compute a palette index; underflows below ~182 Hz are clamped to zero.
+ * - If the audio samplePeak flag is set writes a fixed pale color; otherwise blends the segment color with a
+ *   palette color based on computed index and magnitude.
+ * - Updates bin selection and volume comparator via SEGMENT.custom1/custom2 and stores timing state in SEGENV.aux0.
+ *
+ * Side effects:
+ * - Allocates and uses SEGENV.data for a per-LED uint32_t pixel buffer and updates SEGMENT pixels via setPixelColor().
+ * - Mutates SEGMENT.custom1, SEGMENT.custom2 and SEGENV.aux0 (timing) and writes to the segment LED buffer.
+ *
+ * @return uint16_t Frame delay (milliseconds) as FRAMETIME for scheduler timing.
+ */
 uint16_t mode_waterfall(void) {                   // Waterfall. By: Andrew Tuline
   // effect can work on single pixels, we just lose the shifting effect
   unsigned dataSize = sizeof(uint32_t) * SEGLEN;

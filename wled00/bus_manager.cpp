@@ -40,6 +40,22 @@ uint8_t realtimeBroadcast(uint8_t type, IPAddress client, uint16_t length, byte 
 #define W(c) (byte((c) >> 24))
 
 
+/**
+ * @brief Add a color-order mapping for a pixel range.
+ *
+ * Adds a mapping that applies a per-pixel color-order (and optional W-swap in the upper nibble)
+ * to the range [start, start+len). The mapping is appended to the internal list and logged.
+ *
+ * The call fails and returns false if:
+ * - the mapping list is full (>= WLED_MAX_COLOR_ORDER_MAPPINGS),
+ * - len is zero,
+ * - or the lower nibble of colorOrder is greater than COL_ORDER_MAX.
+ *
+ * @param start First pixel index of the mapping.
+ * @param len Number of pixels in the mapping.
+ * @param colorOrder Lower nibble = color order (0..COL_ORDER_MAX); upper nibble reserved for W-swap flags.
+ * @return true if the mapping was added; false on validation failure.
+ */
 bool ColorOrderMap::add(uint16_t start, uint16_t len, uint8_t colorOrder) {
   if (count() >= WLED_MAX_COLOR_ORDER_MAPPINGS || len == 0 || (colorOrder & 0x0F) > COL_ORDER_MAX) return false; // upper nibble contains W swap information
   _mappings.push_back({start,len,colorOrder});
@@ -80,6 +96,23 @@ void Bus::calculateCCT(uint32_t c, uint8_t &ww, uint8_t &cw) {
   cw = (w * cw) / 255;
 }
 
+/**
+ * @brief Convert an RGB or RGBW color to an RGBW value according to the bus auto-white mode.
+ *
+ * Uses the bus's configured auto-white mode (_autoWhiteMode) or the global override (_gAWM)
+ * to decide how to derive a white component from the input color. Behavior by mode:
+ * - RGBW_MODE_MANUAL_ONLY: return the input unchanged.
+ * - RGBW_MODE_DUAL: if the input already contains a non-zero white channel, return unchanged;
+ *   otherwise fall through to standard auto-white behavior.
+ * - RGBW_MODE_MAX: set white to the brightest RGB channel (max(R,G,B)).
+ * - RGBW_MODE_AUTO_ACCURATE: set white to min(R,G,B) and subtract that white amount from R,G,B.
+ * - other auto-white modes: set white to min(R,G,B) without subtracting (standard auto-white).
+ *
+ * The input is interpreted via the R,G,B,W macros and the result is packed with RGBW32.
+ *
+ * @param c Input color (packed 32-bit RGB or RGBW).
+ * @return uint32_t Packed RGBW color after applying the selected auto-white algorithm.
+ */
 uint32_t Bus::autoWhiteCalc(uint32_t c) const {
   unsigned aWM = _autoWhiteMode;
   if (_gAWM < AW_GLOBAL_DISABLED) aWM = _gAWM;
@@ -96,16 +129,52 @@ uint32_t Bus::autoWhiteCalc(uint32_t c) const {
   return RGBW32(r, g, b, w);
 }
 
+/**
+ * @brief Allocate or reallocate the per-bus pixel data buffer.
+ *
+ * Frees any previously allocated buffer, then allocates a zero-initialized
+ * buffer of `size` bytes and stores the pointer in the bus' internal
+ * `_data` member.
+ *
+ * @param size Number of bytes to allocate. If zero, no allocation is made and
+ *             `_data` is set to nullptr.
+ * @return uint8_t* Pointer to the allocated buffer, or nullptr if `size` is
+ *                   zero or allocation failed.
+ */
 uint8_t *Bus::allocateData(size_t size) {
   freeData(); // should not happen, but for safety
   return _data = (uint8_t *)(size>0 ? calloc(size, sizeof(uint8_t)) : nullptr);
 }
 
+/**
+ * @brief Release the bus's allocated pixel data buffer.
+ *
+ * Frees the internal _data buffer if it is non-null and sets _data to nullptr.
+ * Safe to call repeatedly.
+ */
 void Bus::freeData() {
   if (_data) free(_data);
   _data = nullptr;
 }
 
+/**
+ * @brief Construct a digital LED bus from a configuration.
+ *
+ * Initializes a digital output bus: reserves required GPIO pins, determines
+ * the underlying PolyBus I/O type, optionally allocates a per-bus pixel
+ * buffer, and creates the PolyBus instance used for driving the LEDs.
+ *
+ * On success the bus is marked valid; on failure the constructor returns
+ * early after leaving the object in an invalid state (resources that were
+ * already acquired are released where applicable).
+ *
+ * @param bc Bus configuration (type, start, count, pins, frequency, skip amount,
+ *           color order, double-buffer flag, current limits, etc.). If
+ *           `bc.doubleBuffer` is true this constructor attempts to allocate
+ *           a data buffer sized for `bc.count * Bus::getNumberOfChannels(bc.type)`.
+ * @param nr  Index of this bus (used when selecting the PolyBus backend).
+ * @param com Per-bus ColorOrderMap used for per-pixel color-order overrides.
+ */
 BusDigital::BusDigital(const BusConfig &bc, uint8_t nr, const ColorOrderMap &com)
 : Bus(bc.type, bc.start, bc.autoWhite, bc.count, bc.reversed, (bc.refreshReq || bc.type == TYPE_TM1814))
 , _skip(bc.skipAmount) //sacrificial pixels
@@ -158,7 +227,27 @@ BusDigital::BusDigital(const BusConfig &bc, uint8_t nr, const ColorOrderMap &com
 //Stay safe with high amperage and have a reasonable safety margin!
 //I am NOT to be held liable for burned down garages or houses!
 
-// To disable brightness limiter we either set output max current to 0 or single LED current to 0
+/**
+ * @brief Estimate total LED current draw and compute a brightness cap to fit the power budget.
+ *
+ * Computes an estimated milliamp total for this digital bus based on per-pixel color values,
+ * configured per-LED current, and the bus/global current limit. Updates the static
+ * BusDigital::_milliAmpsTotal with the estimated (or budget-clamped) current.
+ *
+ * Behavior notes:
+ * - If the bus-level max current is effectively disabled (too small relative to
+ *   platform reservation per bus) or the per-LED current is 0, the function returns
+ *   the current brightness unchanged.
+ * - A special WS2815 power model is used when _milliAmpsPerLed == 255 (treated as ~12 mA).
+ * - White-channel handling: for RGBW LEDs the summed channel value is scaled to reflect
+ *   lower per-channel contribution.
+ * - If the estimated current exceeds the available power budget, the function returns
+ *   a reduced brightness value scaled to keep current within the budget. The bus's
+ *   stored brightness (_bri) is not modified by this function; the caller should apply
+ *   the returned value as needed.
+ *
+ * @return uint8_t Brightness value to use (possibly reduced to meet current limits).
+ */
 uint8_t BusDigital::estimateCurrentAndLimitBri() const {
   bool useWackyWS2815PowerModel = false;
   byte actualMilliampsPerLed = _milliAmpsPerLed;
@@ -210,6 +299,34 @@ uint8_t BusDigital::estimateCurrentAndLimitBri() const {
   return newBri;
 }
 
+/**
+ * @brief Send the bus pixel buffer (or hardware pixels) to the underlying driver.
+ *
+ * Performs per-pixel color composition, CCT handling, color-order mapping and
+ * current-limiting before pushing pixels to PolyBus and issuing a hardware
+ * show. If current estimates require it, brightness is temporarily reduced
+ * for the update and restored afterwards.
+ *
+ * Detailed behavior:
+ * - Updates BusDigital::_milliAmpsTotal via estimateCurrentAndLimitBri().
+ * - If a per-bus data buffer exists, builds each pixel's 32-bit color from
+ *   the buffer (special-casing TYPE_WS2812_1CH_X3 and WWA/CCT formats),
+ *   applies per-pixel CCT when present by temporarily overriding Bus::_cct,
+ *   applies color-order per pixel, and writes via PolyBus::setPixelColor().
+ * - If no data buffer is present and brightness was limited, reads hardware
+ *   pixels, applies lossy brightness scaling, optionally recalculates CCT,
+ *   and rewrites pixels so the hardware reflects the reduced brightness.
+ * - Paints any configured skipped pixels black.
+ * - Calls PolyBus::show() to flush pixels to hardware and restores the
+ *   original bus brightness if it was reduced.
+ *
+ * Side effects:
+ * - Writes pixel data to the hardware driver via PolyBus.
+ * - May temporarily change the global Bus::_cct value per pixel and restores
+ *   it before returning.
+ * - Temporarily lowers hardware brightness to satisfy current limits and
+ *   restores it after the show.
+ */
 void BusDigital::show() {
   BusDigital::_milliAmpsTotal = 0;
   if (!_valid) return;
@@ -284,7 +401,14 @@ void BusDigital::setBrightness(uint8_t b) {
 }
 
 //If LEDs are skipped, it is possible to use the first as a status LED.
-//TODO only show if no new show due in the next 50ms
+/**
+ * @brief Set the status pixel color for a digital bus and trigger an immediate show if possible.
+ *
+ * Writes the provided packed color to the first logical pixel (index 0) and requests a hardware update
+ * only when the bus is valid and configured with skipped pixels. No effect otherwise.
+ *
+ * @param c Packed 32-bit color value (RGB or RGBW format depending on the bus) to write to the status pixel.
+ */
 void BusDigital::setStatusPixel(uint32_t c) {
   if (_valid && _skip) {
     PolyBus::setPixelColor(_busPtr, _iType, 0, c, _colorOrderMap.getPixelColorOrder(_start, _colorOrder));
@@ -292,6 +416,22 @@ void BusDigital::setStatusPixel(uint32_t c) {
   }
 }
 
+/**
+ * @brief Set the color of a single pixel on a digital bus.
+ *
+ * Applies auto-white and CCT-based color correction, then writes the resulting
+ * color either into the bus's RAM buffer (if present) or directly to the
+ * underlying PolyBus hardware. Handles bus-level transformations such as
+ * reversing, skipped-start offset, per-pixel color-order lookup, and special
+ * per-chip mappings (e.g., TYPE_WS2812_1CH_X3). When a per-bus data buffer
+ * exists, RGB(W) channels are stored sequentially and per-pixel CCT information
+ * is encoded into the buffer if the bus supports CCT.
+ *
+ * If the bus is invalid no action is taken.
+ *
+ * @param pix Zero-based pixel index within this bus.
+ * @param c  32-bit color value (packed RGBW).
+ */
 void IRAM_ATTR BusDigital::setPixelColor(unsigned pix, uint32_t c) {
   if (!_valid) return;
   if (hasWhite()) c = autoWhiteCalc(c);
@@ -332,7 +472,20 @@ void IRAM_ATTR BusDigital::setPixelColor(unsigned pix, uint32_t c) {
   }
 }
 
-// returns original color if global buffering is enabled, else returns lossly restored color from bus
+/**
+ * @brief Retrieve the color of a pixel from this digital bus.
+ *
+ * Returns the original stored color when the bus maintains a local buffer; otherwise
+ * reads the color from the underlying PolyBus and returns a lossy-restored RGBW value
+ * (brightness-limited). Special per-type adjustments are applied:
+ * - TYPE_WS2812_1CH_X3: maps each logical LED to its single-channel IC value and
+ *   expands it to an RGBW grayscale value for that channel position.
+ * - TYPE_WS2812_WWA: combines red/green into a warm-white-like RGBW value.
+ *
+ * If the bus is invalid, returns 0. The returned 32-bit value is in packed RGBW form.
+ *
+ * @return uint32_t Packed RGBW color for the requested pixel (0 on invalid bus).
+ */
 uint32_t IRAM_ATTR BusDigital::getPixelColor(unsigned pix) const {
   if (!_valid) return 0;
   if (_data) {
@@ -367,23 +520,66 @@ uint32_t IRAM_ATTR BusDigital::getPixelColor(unsigned pix) const {
   }
 }
 
+/**
+ * @brief Return the number of pins used by this digital bus and optionally fill an array with them.
+ *
+ * If `pinArray` is non-null, the function writes up to the returned count of pin numbers into it
+ * in bus-specific order.
+ *
+ * @param pinArray Optional output buffer to receive pin numbers; must be large enough for the returned count.
+ * @return unsigned Number of pins used by the bus (1 or 2).
+ */
 unsigned BusDigital::getPins(uint8_t* pinArray) const {
   unsigned numPins = is2Pin(_type) + 1;
   if (pinArray) for (unsigned i = 0; i < numPins; i++) pinArray[i] = _pins[i];
   return numPins;
 }
 
+/**
+ * @brief Compute the total memory footprint of this BusDigital instance.
+ *
+ * Returns the size in bytes occupied by the BusDigital object itself plus any
+ * associated dynamic buffers used when the bus is operational. When the bus
+ * is valid (isOk()), the calculation includes:
+ * - the platform-specific PolyBus internal data size for the underlying bus
+ *   implementation, and
+ * - the per-pixel data buffer size (_len * number of channels) if an external
+ *   data buffer (_data) has been allocated.
+ *
+ * @return unsigned Total number of bytes used by this BusDigital instance and
+ *                 its active dynamic buffers.
+ */
 unsigned BusDigital::getBusSize() const {
   return sizeof(BusDigital) + (isOk() ? PolyBus::getDataSize(_busPtr, _iType) + (_data ? _len * getNumberOfChannels() : 0) : 0);
 }
 
+/**
+ * @brief Set the per-bus color channel ordering.
+ *
+ * Sets the color order used when writing pixel data. The lower nibble
+ * (bits 0–3) selects one of the supported orders (0–5). The upper nibble is
+ * reserved for white-channel swap flags and is preserved. If the lower nibble
+ * is outside 0–5, the call is ignored and the current order is unchanged.
+ *
+ * @param colorOrder Byte encoding color order (lower nibble = order 0–5;
+ *                   upper nibble = W-swap flags).
+ */
 void BusDigital::setColorOrder(uint8_t colorOrder) {
   // upper nibble contains W swap information
   if ((colorOrder & 0x0F) > 5) return;
   _colorOrder = colorOrder;
 }
 
-// credit @willmmiles & @netmindz https://github.com/Aircoookie/WLED/pull/4056
+/**
+ * @brief Return the set of LED hardware types supported by the digital bus.
+ *
+ * Provides a vector of LEDType descriptors representing LED chipset variants
+ * that BusDigital can drive (RGB, RGBW, 1‑channel white variants, and
+ * two‑wire clocked types). Each entry encodes the LED type identifier and a
+ * short transport/category code.
+ *
+ * @return std::vector<LEDType> List of supported LED type descriptors.
+ */
 std::vector<LEDType> BusDigital::getLEDTypes() {
   return {
     {TYPE_WS2812_RGB,    "D",  PSTR("WS281x")},
@@ -409,11 +605,24 @@ std::vector<LEDType> BusDigital::getLEDTypes() {
   };
 }
 
+/**
+ * @brief Initialize and start the underlying digital LED bus.
+ *
+ * If the BusDigital instance is valid, this forwards configuration (bus pointer,
+ * LED type, pin list and frequency) to PolyBus::begin() to initialize the
+ * hardware/driver for subsequent show() calls.
+ */
 void BusDigital::begin() {
   if (!_valid) return;
   PolyBus::begin(_busPtr, _iType, _pins, _frequencykHz);
 }
 
+/**
+ * @brief Release resources and reset state for a digital LED bus.
+ *
+ * Cleans up the underlying PolyBus, frees the per-bus pixel data buffer, deallocates configured pins,
+ * and marks the bus invalid. After this call the BusDigital instance will not drive LEDs until reinitialized.
+ */
 void BusDigital::cleanup() {
   DEBUGBUS_PRINTLN(F("Digital Cleanup."));
   PolyBus::cleanup(_busPtr, _iType);
@@ -452,6 +661,22 @@ void BusDigital::cleanup() {
   #endif
 #endif
 
+/**
+ * @brief Initialize a PWM output bus from a BusConfig.
+ *
+ * Constructs and configures a PWM-based bus according to `bc`: allocates the required GPIOs,
+ * selects PWM frequency and resolution, configures platform-specific PWM hardware (ESP8266
+ * analogWrite or ESP32 LEDC channels/timers), and prepares internal state (RGB/white/CCT flags,
+ * data buffer pointer). When the constructor completes successfully the bus is marked valid.
+ *
+ * @param bc Bus configuration used to determine type, pins, frequency, dithering flag and other options.
+ *
+ * @note Dithering is enabled when the configuration's refresh flag is set (this code reuses that
+ *       field to indicate dithering). On ESP32 LEDC channels/timers are allocated and attached;
+ *       on allocation failure the previously allocated pins/LEDC resources are released and the
+ *       bus remains invalid. The constructor sets pinMode for allocated pins (ESP8266) or attaches
+ *       pins to LEDC channels (ESP32).
+ */
 BusPwm::BusPwm(const BusConfig &bc)
 : Bus(bc.type, bc.start, bc.autoWhite, 1, bc.reversed, bc.refreshReq) // hijack Off refresh flag to indicate usage of dithering
 {
@@ -501,6 +726,32 @@ BusPwm::BusPwm(const BusConfig &bc)
   DEBUGBUS_PRINTF_P(PSTR("%successfully inited PWM strip with type %u, frequency %u, bit depth %u and pins %u,%u,%u,%u,%u\n"), _valid?"S":"Uns", bc.type, _frequency, _depth, _pins[0], _pins[1], _pins[2], _pins[3], _pins[4]);
 }
 
+/**
+ * @brief Set the color for the PWM bus (only the first pixel is supported).
+ *
+ * Updates the internal PWM channel values for this bus according to the provided
+ * 32-bit color value. This function only acts when `pix == 0` and the bus is
+ * valid; other pixel indices are ignored.
+ *
+ * The input color is processed as follows:
+ * - For non-3CH types, automatic white balancing is applied via Bus::autoWhiteCalc.
+ * - If a segment CCT (Bus::_cct) is configured (>= 1900) and the bus is a 3CH or
+ *   4CH analog type, colorCorrection is applied using colorBalanceFromKelvin.
+ *
+ * Channel mapping written into the _data array by bus type:
+ * - TYPE_ANALOG_1CH: _data[0] = W (white)
+ * - TYPE_ANALOG_2CH: _data[0] = W, _data[1] = CCT (either from cct IC or calculated)
+ * - TYPE_ANALOG_3CH: _data[0..2] = R, G, B
+ * - TYPE_ANALOG_4CH: _data[0..2] = R, G, B; _data[3] = W
+ * - TYPE_ANALOG_5CH: _data[0..2] = R, G, B; _data[4] = CCT (and W is calculated/stored as needed)
+ *
+ * If a hardware CCT IC is in use (cctICused), the stored CCT values come from
+ * Bus::_cct (clamped to 0..255 with 127 as a fallback); otherwise CCT/white are
+ * computed with Bus::calculateCCT.
+ *
+ * @param pix Pixel index (only index 0 is used; other values are ignored).
+ * @param c   32-bit color value (format: 0xWWRRGGBB or the codebase's color packing).
+ */
 void BusPwm::setPixelColor(unsigned pix, uint32_t c) {
   if (pix != 0 || !_valid) return; //only react to first pixel
   if (_type != TYPE_ANALOG_3CH) c = autoWhiteCalc(c);
@@ -537,7 +788,23 @@ void BusPwm::setPixelColor(unsigned pix, uint32_t c) {
   }
 }
 
-//does no index check
+/**
+ * @brief Return the color stored in the PWM bus for a given pixel index.
+ *
+ * Maps the internal per-channel PWM values to an RGBW 32-bit color according to the bus type.
+ * If the bus is not valid this returns 0. This function does not perform bounds/index checking.
+ *
+ * Behavior by bus type:
+ * - TYPE_ANALOG_1CH: returns white only (W = _data[0]).
+ * - TYPE_ANALOG_2CH: returns white as either W = _data[0] (when cctICused) or W = _data[0]+_data[1].
+ * - TYPE_ANALOG_3CH: standard RGB (R,G,B from _data[0..2], W=0).
+ * - TYPE_ANALOG_4CH: RGBW (R,G,B,W from _data[0..3]).
+ * - TYPE_ANALOG_5CH: RGB + two whites: when cctICused returns W = _data[3] (cold/warm handled externally),
+ *                    otherwise W = _data[3] + _data[4].
+ *
+ * @param pix Pixel index (ignored for single-address PWM implementations; no range checking).
+ * @return uint32_t 32-bit RGBW color (packed as RGBW32). Returns 0 if the bus is invalid.
+ */
 uint32_t BusPwm::getPixelColor(unsigned pix) const {
   if (!_valid) return 0;
   // TODO getting the reverse from CCT is involved (a quick approximation when CCT blending is ste to 0 implemented)
@@ -558,6 +825,29 @@ uint32_t BusPwm::getPixelColor(unsigned pix) const {
   return RGBW32(_data[0], _data[0], _data[0], _data[0]);
 }
 
+/**
+ * @brief Output the current per-pin PWM color data to hardware.
+ *
+ * Converts stored channel values to PWM duty cycles, applies a perceptual
+ * brightness curve (CIE-inspired), optional temporal dithering, and writes
+ * the resulting duties to the platform PWM backend (analogWrite on ESP8266,
+ * LEDC registers on ESP32). When enabled, phase-shifting is applied across
+ * channels to spread instantaneous load (required for certain 2-wire PWM CCT
+ * H-bridge drivers); dead-time is inserted when using 2-channel CCT with
+ * non-overlapping (additive = 0) white channels.
+ *
+ * Side effects:
+ * - Updates hardware PWM outputs for each configured pin.
+ * - Uses _needsRefresh to enable 4-bit fractional dithering.
+ * - On ESP32, writes directly to LEDC channel registers and calls ledc_update_duty.
+ *
+ * Notes:
+ * - Brightness mapping uses a small linear region for very low values and a
+ *   cubic-like curve for the remainder to better match perceived brightness.
+ * - Phase shifting and dead-time behavior are only meaningful when driving
+ *   reverse-polarity (H-bridge) or 2-wire PWM CCT configurations; for other
+ *   setups it serves to spread PSU load.
+ */
 void BusPwm::show() {
   if (!_valid) return;
   // if _needsRefresh is true (UI hack) we are using dithering (credit @dedehai & @zalatnaicsongor)
@@ -614,6 +904,16 @@ void BusPwm::show() {
   }
 }
 
+/**
+ * @brief Get the number of PWM pins used by this bus and optionally return their GPIO numbers.
+ *
+ * If the bus is not valid this returns 0. When `pinArray` is non-null, the function writes
+ * up to the returned count of pin GPIO numbers into the provided buffer; the caller must
+ * ensure the buffer can hold at least the returned number of elements.
+ *
+ * @param pinArray Optional output buffer to receive GPIO pin numbers; may be nullptr.
+ * @return unsigned Number of PWM pins for this bus (0 if the bus is invalid).
+ */
 unsigned BusPwm::getPins(uint8_t* pinArray) const {
   if (!_valid) return 0;
   unsigned numPins = numPWMPins(_type);
@@ -633,6 +933,17 @@ std::vector<LEDType> BusPwm::getLEDTypes() {
   };
 }
 
+/**
+ * @brief Release PWM pins and related hardware resources used by this bus.
+ *
+ * Deallocates each configured pin from the PinManager and detaches or disables
+ * any platform-specific PWM hardware associated with those pins:
+ * - On ESP8266: writes LOW to the pin to stop PWM interrupts.
+ * - On ESP32: detaches the pin from LEDC and releases the contiguous LEDC
+ *   channel block starting at _ledcStart.
+ *
+ * Safe to call when pins are not initialized; skips pins that are not valid.
+ */
 void BusPwm::deallocatePins() {
   unsigned numPins = getPins();
   for (unsigned i = 0; i < numPins; i++) {
@@ -650,6 +961,18 @@ void BusPwm::deallocatePins() {
 }
 
 
+/**
+ * @brief Construct an On/Off (single-pin) bus from a BusConfig.
+ *
+ * Initializes a simple on/off output bus: validates the bus type, reserves the configured
+ * pin via PinManager, configures it as an OUTPUT, and sets internal capability flags.
+ * On success the instance is marked valid and uses an internal stack-backed data word
+ * (no heap allocation). If the BusConfig type is not an On/Off type or pin allocation
+ * fails, the constructor returns early and the bus remains invalid.
+ *
+ * @param bc Source BusConfig: the constructor uses bc.type, bc.start, bc.autoWhite,
+ *           bc.reversed and bc.pins[0] (the output pin).
+ */
 BusOnOff::BusOnOff(const BusConfig &bc)
 : Bus(bc.type, bc.start, bc.autoWhite, 1, bc.reversed)
 , _onoffdata(0)
@@ -670,6 +993,19 @@ BusOnOff::BusOnOff(const BusConfig &bc)
   DEBUGBUS_PRINTF_P(PSTR("%successfully inited On/Off strip with pin %u\n"), _valid?"S":"Uns", _pin);
 }
 
+/**
+ * @brief Set the on/off state for an on/off bus based on a color input.
+ *
+ * Only the first pixel (index 0) is meaningful for On/Off buses; calls with
+ * any other pixel index are ignored. The provided color is passed through
+ * autoWhiteCalc() before evaluating whether any channel (R, G, B, W) is
+ * nonzero. If the resulting color has any nonzero channel and the bus
+ * brightness is nonzero, the internal state is set to 0xFF (on); otherwise
+ * it is set to 0 (off).
+ *
+ * @param pix Pixel index (only 0 is used).
+ * @param c  32-bit color value (RAW format; R,G,B,W channels accessed).
+ */
 void BusOnOff::setPixelColor(unsigned pix, uint32_t c) {
   if (pix != 0 || !_valid) return; //only react to first pixel
   c = autoWhiteCalc(c);
@@ -680,29 +1016,70 @@ void BusOnOff::setPixelColor(unsigned pix, uint32_t c) {
   _data[0] = bool(r|g|b|w) && bool(_bri) ? 0xFF : 0;
 }
 
+/**
+ * @brief Get the virtual pixel color for an On/Off bus.
+ *
+ * Returns a 32-bit RGBW color representing the bus' on/off state. If the bus
+ * is invalid, returns 0 (off). The returned color uses the same byte value
+ * for R, G, B and W derived from the internal on/off level.
+ *
+ * @param pix Pixel index (ignored for On/Off buses; only the bus-level state is returned).
+ * @return uint32_t 32-bit RGBW color (packed with RGBW32) or 0 if the bus is not valid.
+ */
 uint32_t BusOnOff::getPixelColor(unsigned pix) const {
   if (!_valid) return 0;
   return RGBW32(_data[0], _data[0], _data[0], _data[0]);
 }
 
+/**
+ * @brief Apply the stored on/off state to the configured output pin.
+ *
+ * If the bus is valid, writes a digital HIGH/LOW to the configured pin
+ * using the internal on/off state stored in _data[0]. The _reversed flag
+ * inverts the output when set.
+ */
 void BusOnOff::show() {
   if (!_valid) return;
   digitalWrite(_pin, _reversed ? !(bool)_data[0] : (bool)_data[0]);
 }
 
+/**
+ * @brief Get the pin(s) used by this On/Off bus.
+ *
+ * If a non-null pinArray is provided, the first element will be set to the configured pin.
+ *
+ * @param pinArray Optional output buffer to receive pin numbers (at least 1 element).
+ * @return unsigned Number of pins used: 0 if the bus is invalid, otherwise 1.
+ */
 unsigned BusOnOff::getPins(uint8_t* pinArray) const {
   if (!_valid) return 0;
   if (pinArray) pinArray[0] = _pin;
   return 1;
 }
 
-// credit @willmmiles & @netmindz https://github.com/Aircoookie/WLED/pull/4056
+/**
+ * @brief Return the LED type(s) supported by the On/Off bus.
+ *
+ * @return std::vector<LEDType> A vector containing a single LEDType describing a simple On/Off device.
+ */
 std::vector<LEDType> BusOnOff::getLEDTypes() {
   return {
     {TYPE_ONOFF, "", PSTR("On/Off")},
   };
 }
 
+/**
+ * @brief Construct a virtual network LED bus from a configuration.
+ *
+ * Initializes a network (ArtNet/E1.31/DDP) bus: selects the UDP protocol type based
+ * on the configured bus type, sets RGB/white/CCT capability flags, computes per-pixel
+ * UDP channel count, derives the destination IP from the four configured pins, and
+ * allocates the internal transmit buffer.
+ *
+ * If buffer allocation fails the instance is marked invalid (_valid == false).
+ *
+ * @param bc Source BusConfig containing type, start/count, and 4 bytes of destination IP in pins[0..3].
+ */
 BusNetwork::BusNetwork(const BusConfig &bc)
 : Bus(bc.type, bc.start, bc.autoWhite, bc.count)
 , _broadcastLock(false)
@@ -730,6 +1107,19 @@ BusNetwork::BusNetwork(const BusConfig &bc)
   DEBUGBUS_PRINTF_P(PSTR("%successfully inited virtual strip with type %u and IP %u.%u.%u.%u\n"), _valid?"S":"Uns", bc.type, bc.pins[0], bc.pins[1], bc.pins[2], bc.pins[3]);
 }
 
+/**
+ * @brief Set the color for a pixel in the network (UDP) buffer.
+ *
+ * Updates the internal per-pixel UDP channel buffer for the given pixel index.
+ * If the bus is invalid or the pixel index is out of range, the call is a no-op.
+ * When the bus exposes a white channel, the color is passed through the bus'
+ * auto-white calculation. If a CCT value is active (Bus::_cct >= 1900), the
+ * color is further adjusted by colorBalanceFromKelvin before storing.
+ *
+ * @param pix Zero-based pixel index within this bus.
+ * @param c  32-bit packed color (RGB or RGBW); components are extracted and
+ *           written into the internal UDP channel buffer at index (pix * _UDPchannels).
+ */
 void BusNetwork::setPixelColor(unsigned pix, uint32_t c) {
   if (!_valid || pix >= _len) return;
   if (_hasWhite) c = autoWhiteCalc(c);
@@ -741,12 +1131,33 @@ void BusNetwork::setPixelColor(unsigned pix, uint32_t c) {
   if (_hasWhite) _data[offset+3] = W(c);
 }
 
+/**
+ * @brief Retrieve the packed RGBW color for a network-managed pixel.
+ *
+ * Returns a 32-bit packed color (RGBW) for the pixel at index `pix` from the
+ * network bus' internal buffer. If the bus is invalid or `pix` is out of
+ * range, returns 0.
+ *
+ * @param pix Zero-based pixel index.
+ * @return uint32_t Packed color in RGBW32 format (R,G,B,W). W is 0 when the
+ *                 bus does not provide a white channel.
+ */
 uint32_t BusNetwork::getPixelColor(unsigned pix) const {
   if (!_valid || pix >= _len) return 0;
   unsigned offset = pix * _UDPchannels;
   return RGBW32(_data[offset], _data[offset+1], _data[offset+2], (hasWhite() ? _data[offset+3] : 0));
 }
 
+/**
+ * @brief Send the bus' pixel data over the network.
+ *
+ * If the bus is valid and ready to show, sets an internal broadcast lock,
+ * invokes the realtime broadcast with the bus' UDP type, destination client,
+ * pixel count, data buffer, current brightness, and white-channel flag, then
+ * releases the lock.
+ *
+ * Early-returns without sending if the bus is not valid or cannot show.
+ */
 void BusNetwork::show() {
   if (!_valid || !canShow()) return;
   _broadcastLock = true;
@@ -754,12 +1165,32 @@ void BusNetwork::show() {
   _broadcastLock = false;
 }
 
+/**
+ * @brief Retrieve the 4-byte destination address used by this network bus.
+ *
+ * If a non-null pointer is provided, writes the 4 address octets into pinArray
+ * in network byte order (index 0 = first octet). The buffer must be at least
+ * 4 bytes long.
+ *
+ * @param pinArray Pointer to a 4-byte buffer to receive the address (may be nullptr).
+ * @return unsigned Always returns 4 (number of address octets written/available).
+ */
 unsigned BusNetwork::getPins(uint8_t* pinArray) const {
   if (pinArray) for (unsigned i = 0; i < 4; i++) pinArray[i] = _client[i];
   return 4;
 }
 
-// credit @willmmiles & @netmindz https://github.com/Aircoookie/WLED/pull/4056
+/**
+ * @brief Return the list of LED type descriptors supported by the network bus.
+ *
+ * Returns a vector of LEDType entries describing network-backed LED strip types
+ * that BusNetwork can drive (currently DDP and Art-Net variants for RGB and RGBW).
+ * Each LEDType encodes a numeric type ID, a short "pin/field" format string (used
+ * by the UI/config to determine how many numeric fields the type exposes — e.g. an
+ * "N" denotes a network/address field), and a program-memory description string.
+ *
+ * @return std::vector<LEDType> List of supported network LED type descriptors.
+ */
 std::vector<LEDType> BusNetwork::getLEDTypes() {
   return {
     {TYPE_NET_DDP_RGB,     "N",     PSTR("DDP RGB (network)")},      // should be "NNNN" to determine 4 "pin" fields
@@ -774,6 +1205,12 @@ std::vector<LEDType> BusNetwork::getLEDTypes() {
   };
 }
 
+/**
+ * @brief Tear down the virtual (network) bus and release its resources.
+ *
+ * Marks the BusNetwork as invalid, resets its LED type to I_NONE, and frees
+ * any per-bus pixel data buffer allocated by the bus.
+ */
 void BusNetwork::cleanup() {
   DEBUGBUS_PRINTLN(F("Virtual Cleanup."));
   _type = I_NONE;
@@ -782,7 +1219,24 @@ void BusNetwork::cleanup() {
 }
 
 
-//utility to get the approx. memory usage of a given BusConfig
+/**
+ * @brief Estimate the approximate memory footprint required for this bus configuration.
+ *
+ * Computes an approximate number of bytes that the bus described by this BusConfig
+ * will consume if instantiated. Calculation varies by bus type:
+ * - Network/virtual buses: sizeof(BusNetwork) plus per-pixel channel storage.
+ * - Digital buses: sizeof(BusDigital) plus PolyBus internal buffers (based on
+ *   LED count and bus interface) and optional double-buffer LED data.
+ * - On/Off buses: sizeof(BusOnOff).
+ * - PWM buses: sizeof(BusPwm).
+ *
+ * This is an estimate only and does not perform any allocation. It uses
+ * PolyBus::getI(type, pins, nr) when accounting for PolyBus internals.
+ *
+ * @param nr Index of this bus within the manager (passed to PolyBus helpers to
+ *           select interface-specific memory costs).
+ * @return unsigned Estimated memory usage in bytes for the configured bus.
+ */
 unsigned BusConfig::memUsage(unsigned nr) const {
   if (Bus::isVirtual(type)) {
     return sizeof(BusNetwork) + (count * Bus::getNumberOfChannels(type));
@@ -796,6 +1250,18 @@ unsigned BusConfig::memUsage(unsigned nr) const {
 }
 
 
+/**
+ * @brief Compute the estimated memory footprint required by all configured buses.
+ *
+ * Calculates the total memory used by per-bus buffers and any platform-specific
+ * shared back-buffer allocation for parallel I2S output. On platforms that
+ * support parallel I2S (ESP32, S2, S3), the largest digital bus's back-buffer
+ * portion is treated as a shared allocation and added once; front buffers remain
+ * accounted per-bus. On constrained platforms (ESP32-C3, ESP8266) the special
+ * parallel-I2S sharing logic is skipped.
+ *
+ * @return unsigned Total estimated memory usage (same units returned by getBusSize())
+ */
 unsigned BusManager::memUsage() {
   // when ESP32, S2 & S3 use parallel I2S only the largest bus determines the total memory requirements for back buffers
   // front buffers are always allocated per bus
@@ -824,6 +1290,18 @@ unsigned BusManager::memUsage() {
   return size + maxI2S;
 }
 
+/**
+ * @brief Create and append a new Bus instance from a bus configuration.
+ *
+ * Constructs the appropriate Bus subclass (Network, Digital, On/Off, or PWM)
+ * based on bc.type, allocates it on the heap, and appends it to the manager's
+ * internal bus list. For digital buses a sequential index is assigned based on
+ * existing non-2-pin digital buses.
+ *
+ * @param bc Source configuration describing the bus to create.
+ * @return int New total number of buses on success; -1 if adding would exceed
+ *             the maximum allowed non-virtual buses (no allocation performed).
+ */
 int BusManager::add(const BusConfig &bc) {
   DEBUGBUS_PRINTF_P(PSTR("Bus: Adding bus (%d - %d >= %d)\n"), getNumBusses(), getNumVirtualBusses(), WLED_MAX_BUSSES);
   if (getNumBusses() - getNumVirtualBusses() >= WLED_MAX_BUSSES) return -1;
@@ -858,7 +1336,15 @@ static String LEDTypesToJson(const std::vector<LEDType>& types) {
   return json;
 }
 
-// credit @willmmiles & @netmindz https://github.com/Aircoookie/WLED/pull/4056
+/**
+ * @brief Build a JSON array string listing supported LED type descriptors.
+ *
+ * Collects LED type descriptors from all bus implementations (digital, on/off,
+ * PWM, network) and concatenates them into a single JSON array string.
+ *
+ * @return String A JSON-formatted array (e.g. "[]", or "[{...},{...}]") containing
+ *         LED type descriptor objects as produced by LEDTypesToJson.
+ */
 String BusManager::getLEDTypesJSONString() {
   String json = "[";
   json += LEDTypesToJson(BusDigital::getLEDTypes());
@@ -870,16 +1356,36 @@ String BusManager::getLEDTypesJSONString() {
   return json;
 }
 
+/**
+ * @brief Enable parallel I2S output.
+ *
+ * Sets the system-wide parallel I2S mode by configuring PolyBus for 1-bit
+ * parallel output. Call during initialization when parallel I2S should be used.
+ */
 void BusManager::useParallelOutput() {
   DEBUGBUS_PRINTLN(F("Bus: Enabling parallel I2S."));
   PolyBus::setParallelI2S1Output();
 }
 
+/**
+ * @brief Check if parallel I2S output is enabled for buses.
+ *
+ * @return true if parallel I2S output is active; false otherwise.
+ */
 bool BusManager::hasParallelOutput() {
   return PolyBus::isParallelI2S1Output();
 }
 
-//do not call this method from system context (network callback)
+/**
+ * @brief Remove and destroy all configured buses.
+ *
+ * Blocks until no bus is performing a show, then deletes every Bus instance,
+ * clears the internal bus list, and disables parallel I2S output.
+ *
+ * @note Do not call this from a system/network callback or other restricted
+ *       context — the function may block (calls yield()) while waiting for
+ *       ongoing shows to finish.
+ */
 void BusManager::removeAll() {
   DEBUGBUS_PRINTLN(F("Removing all."));
   //prevents crashes due to deleting busses while in use.
@@ -892,7 +1398,19 @@ void BusManager::removeAll() {
 #ifdef ESP32_DATA_IDLE_HIGH
 // #2478
 // If enabled, RMT idle level is set to HIGH when off
-// to prevent leakage current when using an N-channel MOSFET to toggle LED power
+/**
+ * @brief Invert ESP32 RMT channels' idle output level to prevent MOSFET leakage.
+ *
+ * Iterates configured digital, multi-pin buses and flips the RMT idle level (HIGH->LOW or LOW->HIGH)
+ * for the corresponding RMT channel so that an N-channel MOSFET used for power switching does not
+ * leak current when the bus is idle.
+ *
+ * Only considers buses that are digital, have at least one LED, and are not two-pin buses.
+ * The mapping from bus index to RMT channel is platform-dependent and may early-return if no
+ * corresponding RMT channel is available. The routine assumes a 1:1 bus-to-RMT-channel mapping.
+ *
+ * This function has side effects on ESP32 RMT hardware state via rmt_get_idle_level / rmt_set_idle_level.
+ */
 void BusManager::esp32RMTInvertIdle() {
   bool idle_out;
   unsigned rmt = 0;
@@ -927,6 +1445,15 @@ void BusManager::esp32RMTInvertIdle() {
 }
 #endif
 
+/**
+ * @brief Re-enables hardware buses and platform-specific idle states after system-on.
+ *
+ * Performs platform-specific recovery actions needed when the system is turned on:
+ * - On ESP8266: if the onboard LED pin is owned by a digital bus, reinitialize that bus so the built-in LED state change does not leave the bus hardware in a broken state.
+ * - On ESP32 (when ESP32_DATA_IDLE_HIGH is set): flip the RMT idle polarity to prevent leakage when RMT is idle.
+ *
+ * This function has no return value and may call bus initialization routines as a side effect.
+ */
 void BusManager::on() {
   #ifdef ESP8266
   //Fix for turning off onboard LED breaking bus
@@ -948,6 +1475,17 @@ void BusManager::on() {
   #endif
 }
 
+/**
+ * @brief Perform platform-specific actions when the system is turned off.
+ *
+ * On ESP8266: if the built-in LED is currently owned by a digital bus and no bus
+ * requires an off-refresh, reconfigure the built-in LED pin as a plain output
+ * and drive it HIGH (visible indicator). This will disrupt the digital bus and
+ * requires reinitialization when turning back on.
+ *
+ * On ESP32 (when ESP32_DATA_IDLE_HIGH is defined): invoke esp32RMTInvertIdle()
+ * to flip the RMT idle level for reduced power leakage when the transmitter is idle.
+ */
 void BusManager::off() {
   #ifdef ESP8266
   // turn off built-in LED if strip is turned off
@@ -963,6 +1501,12 @@ void BusManager::off() {
   #endif
 }
 
+/**
+ * @brief Invoke show() on every managed bus and aggregate their current draw.
+ *
+ * Calls each Bus::show() in turn and sums the reported milliamp usage into
+ * BusManager::_milliAmpsUsed.
+ */
 void BusManager::show() {
   _milliAmpsUsed = 0;
   for (auto &bus : busses) {
@@ -971,10 +1515,31 @@ void BusManager::show() {
   }
 }
 
+/**
+ * @brief Set the status pixel color on all managed buses.
+ *
+ * Propagates the given 32-bit packed color to every bus; each bus decides
+ * how to apply or display the status color (for example writing to a
+ * reserved/status pixel).
+ *
+ * @param c 32-bit packed color (RGB or RGBW format depending on bus).
+ */
 void BusManager::setStatusPixel(uint32_t c) {
   for (auto &bus : busses) bus->setStatusPixel(c);
 }
 
+/**
+ * @brief Set color for a global pixel index across managed buses.
+ *
+ * Locates all buses whose pixel range includes the given global pixel index and
+ * forwards the color to each matching bus using its local pixel index.
+ *
+ * @param pix Global pixel index (0-based) across all buses.
+ * @param c  Packed 32-bit color value passed through to the bus' setPixelColor.
+ *
+ * @note If no bus contains the given index, the call is a no-op. If bus ranges
+ * overlap, every bus covering the index will receive the color update.
+ */
 void IRAM_ATTR BusManager::setPixelColor(unsigned pix, uint32_t c) {
   for (auto &bus : busses) {
     unsigned bstart = bus->getStart();
@@ -983,10 +1548,32 @@ void IRAM_ATTR BusManager::setPixelColor(unsigned pix, uint32_t c) {
   }
 }
 
+/**
+ * @brief Set the brightness for all managed buses.
+ *
+ * Propagates the provided brightness level to every Bus owned by the manager.
+ *
+ * @param b Brightness level (0-255) to apply to each bus.
+ */
 void BusManager::setBrightness(uint8_t b) {
   for (auto &bus : busses) bus->setBrightness(b);
 }
 
+/**
+ * @brief Set the global segment CCT (correlated color temperature) for all buses.
+ *
+ * Sets the internal CCT value used by buses. The input is interpreted as follows:
+ * - If cct > 255 it is clamped to 255.
+ * - If cct >= 0 and allowWBCorrection is true, the 0–255 input is converted to a Kelvin
+ *   value via: kelvin = 1900 + (cct << 5).
+ * - If cct < 0 the function stores -1 which signals using a Kelvin approximation derived
+ *   from RGB values instead of an explicit CCT.
+ *
+ * The computed value is forwarded to Bus::setCCT().
+ *
+ * @param cct  CCT value in the 0–255 range, or negative to request RGB-derived approximation.
+ * @param allowWBCorrection  If true and cct >= 0, convert the 0–255 input into a Kelvin value.
+ */
 void BusManager::setSegmentCCT(int16_t cct, bool allowWBCorrection) {
   if (cct > 255) cct = 255;
   if (cct >= 0) {
@@ -996,6 +1583,15 @@ void BusManager::setSegmentCCT(int16_t cct, bool allowWBCorrection) {
   Bus::setCCT(cct);
 }
 
+/**
+ * @brief Retrieve the color of a global pixel index across all managed buses.
+ *
+ * Searches each managed bus for the one that contains the given global pixel index
+ * and returns that bus's pixel color (as a 0xAARRGGBB/0xRRGGBB-packed uint32_t, matching bus conventions).
+ *
+ * @param pix Global pixel index (0-based) across all buses managed by BusManager.
+ * @return uint32_t Color of the pixel if found; 0 if no bus contains the supplied index.
+ */
 uint32_t BusManager::getPixelColor(unsigned pix) {
   for (auto &bus : busses) {
     unsigned bstart = bus->getStart();
@@ -1005,17 +1601,37 @@ uint32_t BusManager::getPixelColor(unsigned pix) {
   return 0;
 }
 
+/**
+ * @brief Checks whether every managed bus is ready to perform a show.
+ *
+ * Iterates all buses held by the manager and queries each bus's canShow()
+ * status. Returns true only if every bus reports it can show.
+ *
+ * @return true if all buses are ready to show; false if any bus cannot.
+ */
 bool BusManager::canAllShow() {
   for (const auto &bus : busses) if (!bus->canShow()) return false;
   return true;
 }
 
+/**
+ * @brief Retrieve a bus by its index.
+ *
+ * @param busNr 0-based index of the bus to retrieve.
+ * @return Bus* Pointer to the Bus at the given index, or nullptr if the index is out of range.
+ */
 Bus* BusManager::getBus(uint8_t busNr) {
   if (busNr >= busses.size()) return nullptr;
   return busses[busNr];
 }
 
-//semi-duplicate of strip.getLengthTotal() (though that just returns strip._length, calculated in finalizeInit())
+/**
+ * @brief Return the total number of LEDs across all configured buses.
+ *
+ * Sums each bus' length and returns the aggregate as a 16-bit value.
+ *
+ * @return uint16_t Total LED count across all buses. If the sum exceeds 65535, the value is truncated/wraps to fit into 16 bits.
+ */
 uint16_t BusManager::getTotalLength() {
   unsigned len = 0;
   for (const auto &bus : busses) len += bus->getLength();
