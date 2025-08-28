@@ -1,9 +1,11 @@
 #include "wled.h"
 
-#ifdef ESP8266
-  #include <Updater.h>
-#else
-  #include <Update.h>
+#ifndef WLED_DISABLE_OTA
+  #ifdef ESP8266
+    #include <Updater.h>
+  #else
+    #include <Update.h>
+  #endif
 #endif
 #include "html_ui.h"
 #include "html_settings.h"
@@ -387,6 +389,7 @@ void initServer()
   createEditHandler(correctPIN);
 
   static const char _update[] PROGMEM = "/update";
+#ifndef WLED_DISABLE_OTA
   //init ota page
   server.on(_update, HTTP_GET, [](AsyncWebServerRequest *request){
     if (otaLock) {
@@ -408,6 +411,9 @@ void initServer()
       serveMessage(request, 500, F("Update failed!"), F("Please check your file and retry!"), 254);
     } else {
       serveMessage(request, 200, F("Update successful!"), FPSTR(s_rebooting), 131);
+      #ifndef ESP8266
+      bootloopCheckOTA(); // let the bootloop-checker know there was an OTA update
+      #endif
       doReboot = true;
     }
   },[](AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool isFinal){
@@ -426,8 +432,9 @@ void initServer()
       UsermodManager::onUpdateBegin(true); // notify usermods that update is about to begin (some may require task de-init)
       lastEditTime = millis(); // make sure PIN does not lock during update
       strip.suspend();
-      #ifdef ESP8266
+      backupConfig(); // backup current config in case the update ends badly
       strip.resetSegments();  // free as much memory as you can
+      #ifdef ESP8266
       Update.runAsync(true);
       #endif
       Update.begin((ESP.getFreeSketchSpace() - 0x1000) & 0xFFFFF000);
@@ -446,14 +453,17 @@ void initServer()
       }
     }
   });
+#else
+  const auto notSupported = [](AsyncWebServerRequest *request){
+    serveMessage(request, 501, FPSTR(s_notimplemented), F("This build does not support OTA update."), 254);
+  };
+  server.on(_update, HTTP_GET, notSupported);
+  server.on(_update, HTTP_POST, notSupported, [](AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool isFinal){});
+#endif
 
 #ifdef WLED_ENABLE_DMX
   server.on(F("/dmxmap"), HTTP_GET, [](AsyncWebServerRequest *request){
-    request->send_P(200, FPSTR(CONTENT_TYPE_HTML), PAGE_dmxmap     , dmxProcessor);
-  });
-#else
-  server.on(F("/dmxmap"), HTTP_GET, [](AsyncWebServerRequest *request){
-    serveMessage(request, 501, FPSTR(s_notimplemented), F("DMX support is not enabled in this build."), 254);
+    request->send_P(200, FPSTR(CONTENT_TYPE_HTML), PAGE_dmxmap, dmxProcessor);
   });
 #endif
 
@@ -657,6 +667,7 @@ void serveSettings(AsyncWebServerRequest* request, bool post) {
     case SUBPAGE_DMX     :  content = PAGE_settings_dmx;  len = PAGE_settings_dmx_length;  break;
 #endif
     case SUBPAGE_UM      :  content = PAGE_settings_um;   len = PAGE_settings_um_length;   break;
+#ifndef WLED_DISABLE_OTA
     case SUBPAGE_UPDATE  :  content = PAGE_update;        len = PAGE_update_length;
       #ifdef ARDUINO_ARCH_ESP32
       if (request->hasArg(F("revert")) && inLocalSubnet(request->client()->remoteIP()) && Update.canRollBack()) {
@@ -670,6 +681,7 @@ void serveSettings(AsyncWebServerRequest* request, bool post) {
       }
       #endif
       break;
+#endif
 #ifndef WLED_DISABLE_2D
     case SUBPAGE_2D      :  content = PAGE_settings_2D;   len = PAGE_settings_2D_length;   break;
 #endif

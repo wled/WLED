@@ -235,7 +235,8 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
       }
       ledType |= refresh << 7; // hack bit 7 to indicate strip requires off refresh
 
-      busConfigs.emplace_back(ledType, pins, start, length, colorOrder, reversed, skipFirst, AWmode, freqkHz, maPerLed, maMax);
+      String host = elm[F("text")] | String();
+      busConfigs.emplace_back(ledType, pins, start, length, colorOrder, reversed, skipFirst, AWmode, freqkHz, maPerLed, maMax, host);
       doInitBusses = true;  // finalization done in beginStrip()
       if (!Bus::isVirtual(ledType)) s++; // have as many virtual buses as you want
     }
@@ -379,7 +380,7 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
             DEBUG_PRINTF_P(PSTR("PIN ALLOC error: GPIO%d for touch button #%d is not a touch pin!\n"), btnPin[s], s);
             btnPin[s] = -1;
             PinManager::deallocatePin(pin,PinOwner::Button);
-          }          
+          }
           //if touch pin, enable the touch interrupt on ESP32 S2 & S3
           #ifdef SOC_TOUCH_VERSION_2    // ESP32 S2 and S3 have a function to check touch state but need to attach an interrupt to do so
           else
@@ -518,7 +519,6 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
   CJSON(briMultiplier, light[F("scale-bri")]);
   CJSON(paletteBlend, light[F("pal-mode")]);
   CJSON(strip.autoSegments, light[F("aseg")]);
-  CJSON(useRainbowWheel, light[F("rw")]);
 
   CJSON(gammaCorrectVal, light["gc"]["val"]); // default 2.2
   float light_gc_bri = light["gc"]["bri"];
@@ -772,8 +772,31 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
   return (doc["sv"] | true);
 }
 
-
 static const char s_cfg_json[] PROGMEM = "/cfg.json";
+
+bool backupConfig() {
+  return backupFile(s_cfg_json);
+}
+
+bool restoreConfig() {
+  return restoreFile(s_cfg_json);
+}
+
+bool verifyConfig() {
+  return validateJsonFile(s_cfg_json);
+}
+
+// rename config file and reboot
+// if the cfg file doesn't exist, such as after a reset, do nothing
+void resetConfig() {
+  if (WLED_FS.exists(s_cfg_json)) {
+    DEBUG_PRINTLN(F("Reset config"));
+    char backupname[32];
+    snprintf_P(backupname, sizeof(backupname), PSTR("/rst.%s"), &s_cfg_json[1]);
+    WLED_FS.rename(s_cfg_json, backupname);
+    doReboot = true;
+  }
+}
 
 bool deserializeConfigFromFS() {
   [[maybe_unused]] bool success = deserializeConfigSec();
@@ -800,6 +823,7 @@ bool deserializeConfigFromFS() {
 
 void serializeConfigToFS() {
   serializeConfigSec();
+  backupConfig(); // backup before writing new config
 
   DEBUG_PRINTLN(F("Writing settings to /cfg.json..."));
 
@@ -976,6 +1000,7 @@ void serializeConfig(JsonObject root) {
     ins[F("freq")]   = bus->getFrequency();
     ins[F("maxpwr")] = bus->getMaxCurrent();
     ins[F("ledma")]  = bus->getLEDCurrent();
+    ins[F("text")]   = bus->getCustomText();
   }
 
   JsonArray hw_com = hw.createNestedArray(F("com"));
@@ -1040,7 +1065,6 @@ void serializeConfig(JsonObject root) {
   light[F("scale-bri")] = briMultiplier;
   light[F("pal-mode")] = paletteBlend;
   light[F("aseg")] = strip.autoSegments;
-  light[F("rw")] = useRainbowWheel;
 
   JsonObject light_gc = light.createNestedObject("gc");
   light_gc["bri"] = (gammaCorrectBri) ? gammaCorrectVal : 1.0f;  // keep compatibility
