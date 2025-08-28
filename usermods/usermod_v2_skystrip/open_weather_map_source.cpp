@@ -20,12 +20,12 @@ static constexpr unsigned DEFAULT_INTERVAL_SEC = 3600;	// 1 hour
 // - these are user visible in the webapp settings UI
 // - they are scoped to this module, don't need to be globally unique
 //
-const char CFG_API_BASE[] = "ApiBase";
-const char CFG_API_KEY[] = "ApiKey";
-const char CFG_LATITUDE[] = "Latitude";
-const char CFG_LONGITUDE[] = "Longitude";
-const char CFG_INTERVAL_SEC[] = "IntervalSec";
-const char CFG_LOCATION[] = "Location";
+const char CFG_API_BASE[] PROGMEM = "ApiBase";
+const char CFG_API_KEY[] PROGMEM = "ApiKey";
+const char CFG_LATITUDE[] PROGMEM = "Latitude";
+const char CFG_LONGITUDE[] PROGMEM = "Longitude";
+const char CFG_INTERVAL_SEC[] PROGMEM = "IntervalSec";
+const char CFG_LOCATION[] PROGMEM = "Location";
 
 // keep commas; encode spaces etc.
 static void urlEncode(const char* src, char* dst, size_t dstSize) {
@@ -46,6 +46,27 @@ static void urlEncode(const char* src, char* dst, size_t dstSize) {
   dst[di] = '\0';
 }
 
+// Redact the API key in a URL by replacing the value after "appid=" with '*'.
+static void redactApiKeyInUrl(const char* in, char* out, size_t outLen) {
+  if (!in || !out || outLen == 0) return;
+  const char* p = strstr(in, "appid=");
+  if (!p) {
+    strncpy(out, in, outLen);
+    out[outLen - 1] = '\0';
+    return;
+  }
+  size_t prefixLen = (size_t)(p - in) + 6; // include "appid="
+  if (prefixLen >= outLen) {
+    // Not enough space; best effort copy and terminate
+    strncpy(out, in, outLen);
+    out[outLen - 1] = '\0';
+    return;
+  }
+  memcpy(out, in, prefixLen);
+  out[prefixLen] = '*';
+  out[prefixLen + 1] = '\0';
+}
+
 // Normalize "Oakland, CA, USA" → "Oakland,CA,US" in-place
 static void normalizeLocation(char* q) {
   // trim spaces and commas
@@ -57,9 +78,8 @@ static void normalizeLocation(char* q) {
   *out = '\0';
   len = strlen(q);
   if (len >= 4 && strcasecmp(q + len - 4, ",USA") == 0) {
-    q[len - 2] = 'U';
-    q[len - 1] = 'S';
-    q[len] = '\0';
+    // Truncate the trailing 'A' so ",USA" → ",US" without corrupting chars
+    q[len - 1] = '\0';
   }
 }
 
@@ -200,11 +220,14 @@ std::unique_ptr<SkyModel> OpenWeatherMapSource::fetch(std::time_t now) {
     return nullptr;
 
   lastFetch_ = now;
+  lastHistFetch_ = now; // history fetches should wait
 
   // Fetch JSON
   char url[256];
   composeApiUrl(url, sizeof(url));
-  DEBUG_PRINTF("SkyStrip: %s::fetch URL: %s\n", name().c_str(), url);
+  char redacted[256];
+  redactApiKeyInUrl(url, redacted, sizeof(redacted));
+  DEBUG_PRINTF("SkyStrip: %s::fetch URL: %s\n", name().c_str(), redacted);
 
   auto doc = getJson(url);
   if (!doc) {
@@ -253,12 +276,12 @@ std::unique_ptr<SkyModel> OpenWeatherMapSource::fetch(std::time_t now) {
   model->sunset_ = sunset;
   for (JsonObject hour : hourly) {
     time_t dt    = hour["dt"].as<time_t>();
-    model->temperature_forecast.push_back({ dt, hour["temp"].as<double>() });
-    model->dew_point_forecast.push_back({ dt, hour["dew_point"].as<double>() });
-    model->wind_speed_forecast.push_back({ dt, hour["wind_speed"].as<double>() });
-    model->wind_dir_forecast.push_back({ dt, hour["wind_deg"].as<double>() });
-    model->wind_gust_forecast.push_back({ dt, hour["wind_gust"].as<double>() });
-    model->cloud_cover_forecast.push_back({ dt, hour["clouds"].as<double>() });
+    model->temperature_forecast.push_back({ dt, (float)hour["temp"].as<double>() });
+    model->dew_point_forecast.push_back({ dt, (float)hour["dew_point"].as<double>() });
+    model->wind_speed_forecast.push_back({ dt, (float)hour["wind_speed"].as<double>() });
+    model->wind_dir_forecast.push_back({ dt, (float)hour["wind_deg"].as<double>() });
+    model->wind_gust_forecast.push_back({ dt, (float)hour["wind_gust"].as<double>() });
+    model->cloud_cover_forecast.push_back({ dt, (float)hour["clouds"].as<double>() });
     JsonArray wArr = hour["weather"].as<JsonArray>();
     bool hasRain = false, hasSnow = false;
     if (hour.containsKey("rain")) {
@@ -278,10 +301,13 @@ std::unique_ptr<SkyModel> OpenWeatherMapSource::fetch(std::time_t now) {
         hasSnow = true;
     }
     int ptype = hasRain && hasSnow ? 3 : (hasSnow ? 2 : (hasRain ? 1 : 0));
-    model->precip_type_forecast.push_back({ dt, double(ptype) });
-    model->precip_prob_forecast.push_back({ dt, hour["pop"].as<double>() });
+    model->precip_type_forecast.push_back({ dt, (float)ptype });
+    model->precip_prob_forecast.push_back({ dt, (float)hour["pop"].as<double>() });
   }
 
+  // Stagger history fetch to avoid back-to-back GETs in same loop iteration
+  // and reduce risk of watchdog resets. Enforce at least 15s before history.
+  lastHistFetch_ = skystrip::util::time_now_utc();
   return model;
 }
 
@@ -298,7 +324,9 @@ std::unique_ptr<SkyModel> OpenWeatherMapSource::checkhistory(time_t now, std::ti
   snprintf(url, sizeof(url),
            "%s/data/3.0/onecall/timemachine?lat=%.6f&lon=%.6f&dt=%ld&units=imperial&appid=%s",
            apiBase_.c_str(), latitude_, longitude_, (long)fetchDt, apiKey_.c_str());
-  DEBUG_PRINTF("SkyStrip: %s::checkhistory URL: %s\n", name().c_str(), url);
+  char redacted[256];
+  redactApiKeyInUrl(url, redacted, sizeof(redacted));
+  DEBUG_PRINTF("SkyStrip: %s::checkhistory URL: %s\n", name().c_str(), redacted);
 
   auto doc = getJson(url);
   if (!doc) {
@@ -321,12 +349,12 @@ std::unique_ptr<SkyModel> OpenWeatherMapSource::checkhistory(time_t now, std::ti
   for (JsonObject hour : hourly) {
     time_t dt = hour["dt"].as<time_t>();
     if (dt >= oldestTstamp) continue;
-    model->temperature_forecast.push_back({ dt, hour["temp"].as<double>() });
-    model->dew_point_forecast.push_back({ dt, hour["dew_point"].as<double>() });
-    model->wind_speed_forecast.push_back({ dt, hour["wind_speed"].as<double>() });
-    model->wind_dir_forecast.push_back({ dt, hour["wind_deg"].as<double>() });
-    model->wind_gust_forecast.push_back({ dt, hour["wind_gust"].as<double>() });
-    model->cloud_cover_forecast.push_back({ dt, hour["clouds"].as<double>() });
+    model->temperature_forecast.push_back({ dt, (float)hour["temp"].as<double>() });
+    model->dew_point_forecast.push_back({ dt, (float)hour["dew_point"].as<double>() });
+    model->wind_speed_forecast.push_back({ dt, (float)hour["wind_speed"].as<double>() });
+    model->wind_dir_forecast.push_back({ dt, (float)hour["wind_deg"].as<double>() });
+    model->wind_gust_forecast.push_back({ dt, (float)hour["wind_gust"].as<double>() });
+    model->cloud_cover_forecast.push_back({ dt, (float)hour["clouds"].as<double>() });
     JsonArray wArr = hour["weather"].as<JsonArray>();
     bool hasRain = false, hasSnow = false;
     if (hour.containsKey("rain")) {
@@ -346,8 +374,8 @@ std::unique_ptr<SkyModel> OpenWeatherMapSource::checkhistory(time_t now, std::ti
         hasSnow = true;
     }
     int ptype = hasRain && hasSnow ? 3 : (hasSnow ? 2 : (hasRain ? 1 : 0));
-    model->precip_type_forecast.push_back({ dt, double(ptype) });
-    model->precip_prob_forecast.push_back({ dt, hour["pop"].as<double>() });
+    model->precip_type_forecast.push_back({ dt, (float)ptype });
+    model->precip_prob_forecast.push_back({ dt, (float)hour["pop"].as<double>() });
   }
 
   if (model->temperature_forecast.empty()) return nullptr;
@@ -384,7 +412,9 @@ bool OpenWeatherMapSource::geocodeOWM(std::string const & rawQuery,
   snprintf(url, sizeof(url),
            "%s/geo/1.0/direct?q=%s&limit=5&appid=%s",
            apiBase_.c_str(), enc, apiKey_.c_str());
-  DEBUG_PRINTF("SkyStrip: %s::geocodeOWM URL: %s\n", name().c_str(), url);
+  char redacted[512];
+  redactApiKeyInUrl(url, redacted, sizeof(redacted));
+  DEBUG_PRINTF("SkyStrip: %s::geocodeOWM URL: %s\n", name().c_str(), redacted);
 
   auto doc = getJson(url);
   resetRateLimit();	// we want to do a fetch immediately after ...

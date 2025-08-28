@@ -10,7 +10,7 @@ class Print;
 
 struct DataPoint {
   time_t tstamp;
-  double value;
+  float value;
 };
 
 class SkyModel {

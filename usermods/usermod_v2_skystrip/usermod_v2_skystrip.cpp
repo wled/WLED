@@ -14,19 +14,19 @@
 #include "delta_view.h"
 #include "test_pattern_view.h"
 
-const char CFG_NAME[] = "SkyStrip";
-const char CFG_ENABLED[] = "Enabled";
-const char CFG_PIXEL_DBG_NAME[] = "DebugPixel";
-const char CFG_DBG_PIXEL_INDEX[] = "Index";
+const char CFG_NAME[] PROGMEM = "SkyStrip";
+const char CFG_ENABLED[] PROGMEM = "Enabled";
+const char CFG_PIXEL_DBG_NAME[] PROGMEM = "DebugPixel";
+const char CFG_DBG_PIXEL_INDEX[] PROGMEM = "Index";
 
 static SkyStrip skystrip_usermod;
 REGISTER_USERMOD(skystrip_usermod);
 
-// Don't handle the loop function for SAFETY_DELAY_MSECS.  If we've
+// Don't handle the loop function for SAFETY_DELAY_MS. If we've
 // coded a deadlock or crash in the loop handler this will give us a
 // chance to offMode the device so we can use the OTA update to fix
 // the problem.
-const time_t SAFETY_DELAY_MSECS = 10 * 1000;
+const uint32_t SAFETY_DELAY_MS = 10u * 1000u;
 
 // runs before readFromConfig() and setup()
 SkyStrip::SkyStrip() {
@@ -52,7 +52,7 @@ void SkyStrip::setup() {
   DEBUG_PRINTLN(F("SkyStrip::setup starting"));
 
   uint32_t now_ms = millis();
-  safeToStart_ = now_ms + SAFETY_DELAY_MSECS;
+  safeToStart_ = now_ms + SAFETY_DELAY_MS;
 
   // Serial.begin(115200);
 
@@ -206,14 +206,14 @@ bool SkyStrip::readFromConfig(JsonObject& root) {
 
   // read the sources
   for (auto& src : sources_) {
-    JsonObject sub = top[src->configKey()];
-    ok &= src->readFromConfig(sub, startup_complete, invalidate_history);
+    JsonObject sub1 = top[src->configKey()];
+    ok &= src->readFromConfig(sub1, startup_complete, invalidate_history);
   }
 
   // read the views
   for (auto& vw : views_) {
-    JsonObject sub = top[vw->configKey()];
-    ok &= vw->readFromConfig(sub, startup_complete, invalidate_history);
+    JsonObject sub2 = top[vw->configKey()];
+    ok &= vw->readFromConfig(sub2, startup_complete, invalidate_history);
   }
 
   if (invalidate_history) {

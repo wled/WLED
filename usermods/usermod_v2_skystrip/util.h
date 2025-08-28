@@ -9,6 +9,19 @@
 namespace skystrip {
 namespace util {
 
+// RAII guard to temporarily freeze a segment during rendering and always
+// restore its original freeze state on exit (including early returns).
+struct FreezeGuard {
+  Segment &seg;
+  bool prev;
+  explicit FreezeGuard(Segment &s, bool freezeNow = true) : seg(s), prev(s.freeze) {
+    seg.freeze = freezeNow;
+  }
+  ~FreezeGuard() { seg.freeze = prev; }
+  FreezeGuard(const FreezeGuard &) = delete;
+  FreezeGuard &operator=(const FreezeGuard &) = delete;
+};
+
 // UTC now from WLED’s clock (same source the UI uses)
 inline time_t time_now_utc() { return (time_t)toki.getTime().sec; }
 

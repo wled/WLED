@@ -10,10 +10,9 @@ Add `usermod_v2_skystrip` to `custom_usermods` in your PlatformIO environment.
 ## Configuration
 
 Acquire an API key from
-[OpenWeatherMap](https://openweathermap.org/api/one-call-3).  The skystrip
-module makes one API call per hour plus 24 calls when initially started
-up; it should remain comfortably under the free-tier limit of 1000 per
-day.
+[OpenWeatherMap](https://openweathermap.org/api/one-call-3). The SkyStrip
+module makes one API call per hour, plus up to 24 calls on first startup.
+This typically stays within free-tier limits, but check your current plan.
 
 Enter the latitude and longitude for the desired forecast. There are
 several ways to do this:

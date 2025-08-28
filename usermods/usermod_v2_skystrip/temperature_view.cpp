@@ -10,7 +10,7 @@ static constexpr int16_t DEFAULT_SEG_ID = -1; // -1 means disabled
 // - these are user visible in the webapp settings UI
 // - they are scoped to this module, don't need to be globally unique
 //
-const char CFG_SEG_ID[] = "SegmentId";
+const char CFG_SEG_ID[] PROGMEM = "SegmentId";
 
 // Map dew-point depression (°F) -> saturation multiplier.
 // dd<=2°F  -> minSat ; dd>=25°F -> 1.0 ; smooth in between.
@@ -77,12 +77,12 @@ void TemperatureView::view(time_t now, SkyModel const &model,
   if (segId_ < 0 || segId_ >= strip.getMaxSegments())
     return;
   Segment &seg = strip.getSegment((uint8_t)segId_);
-  seg.freeze = true;
   int start = seg.start;
   int end = seg.stop - 1; // inclusive
   int len = end - start + 1;
-  if (len == 0)
+  if (len <= 0)
     return;
+  skystrip::util::FreezeGuard freezeGuard(seg);
 
   constexpr double kHorizonSec = 48.0 * 3600.0;
   const double step = (len > 1) ? (kHorizonSec / double(len - 1)) : 0.0;
@@ -97,9 +97,7 @@ void TemperatureView::view(time_t now, SkyModel const &model,
       return 0.f;
 
     time_t local = t + tzOffset; // convert to local seconds
-    time_t s = local % DAY;      // seconds since local midnight
-    if (s < 0)
-      s += DAY;
+    time_t s = (((local % DAY) + DAY) % DAY); // seconds since local midnight (normalized)
 
     // Seconds-of-day for markers + per-marker width multipliers.
     static const time_t kMarkers[] = {0 * 3600,  3 * 3600,  6 * 3600,

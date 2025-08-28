@@ -10,7 +10,7 @@
 #include "util.h"
 
 static constexpr int16_t DEFAULT_SEG_ID = -1; // -1 means disabled
-const char CFG_SEG_ID[] = "SegmentId";
+const char CFG_SEG_ID[] PROGMEM = "SegmentId";
 // legacy individual HSV components
 const char CFG_START_HUE[] PROGMEM = "StartHue";
 const char CFG_START_SAT[] PROGMEM = "StartSat";
@@ -70,8 +70,13 @@ bool parseHSV(const char *in, float &h, float &s, float &v) {
 
   if (found[0] && found[1] && found[2]) {
     h = values[0];
-    s = values[1] / 100.f;
-    v = values[2] / 100.f;
+    // wrap hue to [0,360)
+    float hh = fmodf(h, 360.f);
+    if (hh < 0.f) hh += 360.f;
+    h = hh;
+    // clamp saturation/value to [0,1]
+    s = skystrip::util::clamp01(values[1] / 100.f);
+    v = skystrip::util::clamp01(values[2] / 100.f);
     return true;
   }
   return false;
@@ -101,12 +106,12 @@ void TestPatternView::view(time_t now, SkyModel const &model,
     return;
 
   Segment &seg = strip.getSegment((uint8_t)segId_);
-  seg.freeze = true;
   int start = seg.start;
   int end = seg.stop - 1;
   int len = end - start + 1;
-  if (len == 0)
+  if (len <= 0)
     return;
+  skystrip::util::FreezeGuard freezeGuard(seg);
 
   for (int i = 0; i < len; ++i) {
     float u = (len > 1) ? float(i) / float(len - 1) : 0.f;

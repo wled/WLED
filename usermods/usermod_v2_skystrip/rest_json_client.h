@@ -25,8 +25,12 @@ public:
 
 protected:
   static constexpr unsigned RATE_LIMIT_MS = 10u * 1000u; // 10 seconds
-  static constexpr size_t MAX_JSON_SIZE = 32 * 1024;      // 32kB fixed buffer
-
+#if defined(ARDUINO_ARCH_ESP8266)
+  static constexpr size_t MAX_JSON_SIZE = 16 * 1024;     // 16kB on 8266
+#else
+  static constexpr size_t MAX_JSON_SIZE = 32 * 1024;     // 32kB on ESP32
+#endif
+  
 private:
   HTTPClient http_;
   unsigned long lastFetchMs_;

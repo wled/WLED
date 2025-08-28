@@ -8,16 +8,19 @@ RestJsonClient::RestJsonClient()
 }
 
 void RestJsonClient::resetRateLimit() {
-  // pretend we just made the last fetch RATE_LIMIT_MS ago
-  lastFetchMs_ = millis() - static_cast<unsigned long>(-static_cast<long>(RATE_LIMIT_MS));
+  // pretend we fetched RATE_LIMIT_MS ago (allow immediate next call)
+  lastFetchMs_ = millis() - RATE_LIMIT_MS;
 }
 
 DynamicJsonDocument* RestJsonClient::getJson(const char* url) {
   // enforce a basic rate limit to prevent runaway software from making bursts
   // of API calls (looks like DoS and get's our API key turned off ...)
   unsigned long now_ms = millis();
-  if (now_ms - lastFetchMs_ < RATE_LIMIT_MS) {
-    DEBUG_PRINTLN("SkyStrip: RestJsonClient::getJson: RATE LIMITED");
+  // compute elapsed using unsigned arithmetic to avoid signed underflow
+  unsigned long elapsed = now_ms - lastFetchMs_;
+  if (elapsed < RATE_LIMIT_MS) {
+    unsigned long remaining = RATE_LIMIT_MS - elapsed;
+    DEBUG_PRINTF("SkyStrip: RestJsonClient::getJson: RATE LIMITED (%lu ms remaining)\n", remaining);
     return nullptr;
   }
   lastFetchMs_ = now_ms;
@@ -42,9 +45,11 @@ DynamicJsonDocument* RestJsonClient::getJson(const char* url) {
   }
   DEBUG_PRINTF("SkyStrip: RestJsonClient::getJson: free heap before GET: %u\n", ESP.getFreeHeap());
   int code = http_.GET();
-  if (code <= 0) {
+  // Treat network errors (<=0) and non-2xx statuses as failures.
+  // Optionally consider 204 (No Content) as failure since there is no body to parse.
+  if (code <= 0 || code < 200 || code >= 300 || code == 204) {
     http_.end();
-    DEBUG_PRINTF("SkyStrip: RestJsonClient::getJson: http get error code: %d\n", code);
+    DEBUG_PRINTF("SkyStrip: RestJsonClient::getJson: HTTP error/status: %d\n", code);
     return nullptr;
   }
 

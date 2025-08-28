@@ -122,15 +122,25 @@ static inline void emitSeriesMDHM(Print &out, time_t now, const char *label,
 
   size_t i = 0;
   size_t off = 0;
+  const size_t cap = sizeof(line);
   for (const auto& dp : s) {
     if (i % 6 == 0) {
-      off = snprintf(line, sizeof(line), "SkyModel:");
+      int n = snprintf(line, cap, "SkyModel:");
+      off = (n < 0) ? 0u : ((size_t)n >= cap ? cap - 1 : (size_t)n);
     }
     skystrip::util::fmt_local(tb, sizeof(tb), dp.tstamp);
-    off += snprintf(line + off, sizeof(line) - off,
-                    " (%s, %6.2f)", tb, dp.value);
+    if (off < cap) {
+      size_t rem = cap - off;
+      int n = snprintf(line + off, rem, " (%s, %6.2f)", tb, dp.value);
+      if (n > 0) off += ((size_t)n >= rem ? rem - 1 : (size_t)n);
+    }
     if (i % 6 == 5 || i == s.size() - 1) {
-      if (i == s.size() - 1) off += snprintf(line + off, sizeof(line) - off, " ]");
+      if (i == s.size() - 1 && off < cap) {
+        size_t rem = cap - off;
+        int n = snprintf(line + off, rem, " ]");
+        if (n > 0) off += ((size_t)n >= rem ? rem - 1 : (size_t)n);
+      }
+      if (off >= cap) off = cap - 1; // ensure space for newline
       line[off++] = '\n';
       out.write((const uint8_t*)line, off);
     }

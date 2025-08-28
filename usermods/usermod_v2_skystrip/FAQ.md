@@ -39,7 +39,7 @@ The mapping between wind direction and hue can be approximated as:
 | SW        | 90      | Lime   |
 | W         | 120     | Green  |
 | NW        | 180     | Cyan   |
-| N         | 240     | Blue   |
+| N         | 240     | Blue   | (wraps around)
 
 
 ## Temperature View (TV)

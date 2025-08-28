@@ -7,7 +7,7 @@
 #include <limits>
 
 static constexpr int16_t DEFAULT_SEG_ID = -1; // -1 means disabled
-const char CFG_SEG_ID[] = "SegmentId";
+const char CFG_SEG_ID[] PROGMEM = "SegmentId";
 
 static bool isDay(const SkyModel &m, time_t t) {
   const time_t MAXTT = std::numeric_limits<time_t>::max();
@@ -50,12 +50,12 @@ void CloudView::view(time_t now, SkyModel const &model, int16_t dbgPixelIndex) {
     return;
 
   Segment &seg = strip.getSegment((uint8_t)segId_);
-  seg.freeze = true;
   int start = seg.start;
   int end = seg.stop - 1;
   int len = end - start + 1;
-  if (len == 0)
+  if (len <= 0)
     return;
+  skystrip::util::FreezeGuard freezeGuard(seg);
 
   constexpr double kHorizonSec = 48.0 * 3600.0;
   const double step = (len > 1) ? (kHorizonSec / double(len - 1)) : 0.0;
@@ -73,9 +73,9 @@ void CloudView::view(time_t now, SkyModel const &model, int16_t dbgPixelIndex) {
   time_t sunriseTOD = 0;
   time_t sunsetTOD = 0;
   if (useSunrise)
-    sunriseTOD = (sunrise + offset) % DAY;
+    sunriseTOD = (((sunrise + offset) % DAY) + DAY) % DAY; // normalize to [0, DAY)
   if (useSunset)
-    sunsetTOD = (sunset + offset) % DAY;
+    sunsetTOD = (((sunset + offset) % DAY) + DAY) % DAY;   // normalize to [0, DAY)
 
   auto nearTOD = [&](time_t a, time_t b) {
     time_t diff = (a >= b) ? (a - b) : (b - a);
@@ -87,7 +87,7 @@ void CloudView::view(time_t now, SkyModel const &model, int16_t dbgPixelIndex) {
   auto isMarker = [&](time_t t) {
     if (!useSunrise && !useSunset)
       return false;
-    time_t tod = (t + offset) % DAY;
+    time_t tod = (((t + offset) % DAY) + DAY) % DAY; // normalize to [0, DAY)
     if (useSunrise && nearTOD(tod, sunriseTOD))
       return true;
     if (useSunset && nearTOD(tod, sunsetTOD))

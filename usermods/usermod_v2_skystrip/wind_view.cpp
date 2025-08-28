@@ -6,9 +6,12 @@
 #include <cmath>
 
 static constexpr int16_t DEFAULT_SEG_ID = -1; // -1 means disabled
-const char CFG_SEG_ID[] = "SegmentId";
+const char CFG_SEG_ID[] PROGMEM = "SegmentId";
 
 static inline float hueFromDir(float dir) {
+  // Normalize direction to [0, 360)
+  dir = fmodf(dir, 360.f);
+  if (dir < 0.f) dir += 360.f;
   float hue;
   if (dir <= 90.f)
     hue = 240.f + dir * ((30.f + 360.f - 240.f) / 90.f);
@@ -54,12 +57,12 @@ void WindView::view(time_t now, SkyModel const &model, int16_t dbgPixelIndex) {
     return;
 
   Segment &seg = strip.getSegment((uint8_t)segId_);
-  seg.freeze = true;
   int start = seg.start;
   int end = seg.stop - 1;
   int len = end - start + 1;
-  if (len == 0)
+  if (len <= 0)
     return;
+  skystrip::util::FreezeGuard freezeGuard(seg);
 
   constexpr double kHorizonSec = 48.0 * 3600.0;
   const double step = (len > 1) ? (kHorizonSec / double(len - 1)) : 0.0;
