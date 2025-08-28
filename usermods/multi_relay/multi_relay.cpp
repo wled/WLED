@@ -562,11 +562,11 @@ void MultiRelay::loop() {
 bool MultiRelay::handleButton(uint8_t b) {
   yield();
   if (!enabled
-    || buttonType[b] == BTN_TYPE_NONE
-    || buttonType[b] == BTN_TYPE_RESERVED
-    || buttonType[b] == BTN_TYPE_PIR_SENSOR
-    || buttonType[b] == BTN_TYPE_ANALOG
-    || buttonType[b] == BTN_TYPE_ANALOG_INVERTED) {
+    || buttons[b].type == BTN_TYPE_NONE
+    || buttons[b].type == BTN_TYPE_RESERVED
+    || buttons[b].type == BTN_TYPE_PIR_SENSOR
+    || buttons[b].type == BTN_TYPE_ANALOG
+    || buttons[b].type == BTN_TYPE_ANALOG_INVERTED) {
     return false;
   }
 
@@ -581,20 +581,20 @@ bool MultiRelay::handleButton(uint8_t b) {
   unsigned long now = millis();
 
   //button is not momentary, but switch. This is only suitable on pins whose on-boot state does not matter (NOT gpio0)
-  if (buttonType[b] == BTN_TYPE_SWITCH) {
+  if (buttons[b].type == BTN_TYPE_SWITCH) {
     //handleSwitch(b);
-    if (buttonPressedBefore[b] != isButtonPressed(b)) {
-      buttonPressedTime[b] = now;
-      buttonPressedBefore[b] = !buttonPressedBefore[b];
+    if (buttons[b].pressedBefore != isButtonPressed(b)) {
+      buttons[b].pressedTime = now;
+      buttons[b].pressedBefore = !buttons[b].pressedBefore;
     }
 
-    if (buttonLongPressed[b] == buttonPressedBefore[b]) return handled;
+    if (buttons[b].longPressed == buttons[b].pressedBefore) return handled;
       
-    if (now - buttonPressedTime[b] > WLED_DEBOUNCE_THRESHOLD) { //fire edge event only after 50ms without change (debounce)
+    if (now - buttons[b].pressedTime > WLED_DEBOUNCE_THRESHOLD) { //fire edge event only after 50ms without change (debounce)
       for (int i=0; i<MULTI_RELAY_MAX_RELAYS; i++) {
         if (_relay[i].button == b) {
-          switchRelay(i, buttonPressedBefore[b]);
-          buttonLongPressed[b] = buttonPressedBefore[b]; //save the last "long term" switch state
+          switchRelay(i, buttons[b].pressedBefore);
+          buttons[b].longPressed = buttons[b].pressedBefore; //save the last "long term" switch state
         }
       }
     }
@@ -604,40 +604,40 @@ bool MultiRelay::handleButton(uint8_t b) {
   //momentary button logic
   if (isButtonPressed(b)) { //pressed
 
-    if (!buttonPressedBefore[b]) buttonPressedTime[b] = now;
-    buttonPressedBefore[b] = true;
+    if (!buttons[b].pressedBefore) buttons[b].pressedTime = now;
+    buttons[b].pressedBefore = true;
 
-    if (now - buttonPressedTime[b] > 600) { //long press
+    if (now - buttons[b].pressedTime > 600) { //long press
       //longPressAction(b); //not exposed
       //handled = false; //use if you want to pass to default behaviour
-      buttonLongPressed[b] = true;
+      buttons[b].longPressed = true;
     }
 
-  } else if (!isButtonPressed(b) && buttonPressedBefore[b]) { //released
+  } else if (!isButtonPressed(b) && buttons[b].pressedBefore) { //released
 
-    long dur = now - buttonPressedTime[b];
+    long dur = now - buttons[b].pressedTime;
     if (dur < WLED_DEBOUNCE_THRESHOLD) {
-      buttonPressedBefore[b] = false;
+      buttons[b].pressedBefore = false;
       return handled;
     } //too short "press", debounce
-    bool doublePress = buttonWaitTime[b]; //did we have short press before?
-    buttonWaitTime[b] = 0;
+    bool doublePress = buttons[b].waitTime; //did we have short press before?
+    buttons[b].waitTime = 0;
 
-    if (!buttonLongPressed[b]) { //short press
+    if (!buttons[b].longPressed) { //short press
       // if this is second release within 350ms it is a double press (buttonWaitTime!=0)
       if (doublePress) {
         //doublePressAction(b); //not exposed
         //handled = false; //use if you want to pass to default behaviour
       } else  {
-        buttonWaitTime[b] = now;
+        buttons[b].waitTime = now;
       }
     }
-    buttonPressedBefore[b] = false;
-    buttonLongPressed[b] = false;
+    buttons[b].pressedBefore = false;
+    buttons[b].longPressed = false;
   }
   // if 350ms elapsed since last press/release it is a short press
-  if (buttonWaitTime[b] && now - buttonWaitTime[b] > 350 && !buttonPressedBefore[b]) {
-    buttonWaitTime[b] = 0;
+  if (buttons[b].waitTime && now - buttons[b].waitTime > 350 && !buttons[b].pressedBefore) {
+    buttons[b].waitTime = 0;
     //shortPressAction(b); //not exposed
     for (int i=0; i<MULTI_RELAY_MAX_RELAYS; i++) {
       if (_relay[i].button == b) {
