@@ -282,6 +282,7 @@ void Segment::startTransition(uint16_t dur, bool segmentCopy) {
       _t->_oldSegment = new(std::nothrow) Segment(*this); // store/copy current segment settings
       _t->_start = millis();                              // restart countdown
       _t->_dur   = dur;
+      _t->_prevPaletteBlends = 0;
       if (_t->_oldSegment) {
         _t->_oldSegment->palette = _t->_palette;          // restore original palette and colors (from start of transition)
         for (unsigned i = 0; i < NUM_COLORS; i++) _t->_oldSegment->colors[i] = _t->_colors[i];
@@ -368,6 +369,7 @@ void Segment::beginDraw(uint16_t prog) {
     // minimum blend time is 100ms maximum is 65535ms
     #ifndef WLED_SAVE_RAM
     unsigned noOfBlends = ((255U * prog) / 0xFFFFU) - _t->_prevPaletteBlends;
+    if(noOfBlends > 255) noOfBlends = 255; // safety check
     for (unsigned i = 0; i < noOfBlends; i++, _t->_prevPaletteBlends++) nblendPaletteTowardPalette(_t->_palT, Segment::_currentPalette, 48);
     Segment::_currentPalette = _t->_palT; // copy transitioning/temporary palette
     #else
@@ -1339,11 +1341,6 @@ void WS2812FX::blendSegment(const Segment &topSegment) const {
   const unsigned progInv   = 0xFFFFU - progress;
   uint8_t       opacity    = topSegment.currentBri(); // returns transitioned opacity for style FADE
   uint8_t       cct        = topSegment.currentCCT();
-
-  if (length == 1) {
-    // Can't blend only a single pixel, prevents crash when bus init fails
-    return;
-  }
 
   Segment::setClippingRect(0, 0);             // disable clipping by default
 
