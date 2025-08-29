@@ -76,6 +76,7 @@ void BartDepart::loop() {
 }
 
 void BartDepart::handleOverlayDraw() {
+  if (!enabled_ || offMode) return;
   time_t now = bartdepart::util::time_now_utc();
   for (auto& view : views_) {
     view->view(now, *model_, dbgPixelIndex_);
