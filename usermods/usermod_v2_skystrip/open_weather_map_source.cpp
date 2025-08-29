@@ -82,6 +82,29 @@ static void redactApiKeyInUrl(const char* in, char* out, size_t outLen) {
   out[prefixLen + 1] = '\0';
 }
 
+// Convert time_t to decimal string without relying on %lld support.
+static void timeToDecimal(char* out, size_t outLen, std::time_t v) {
+  if (!out || outLen == 0) return;
+  // Handle sign (though our use is non-negative)
+  unsigned long long u;
+  bool neg = false;
+  if ((long long)v < 0) { neg = true; u = (unsigned long long)(-(long long)v); }
+  else { u = (unsigned long long)(long long)v; }
+  char tmp[32];
+  size_t n = 0;
+  do {
+    tmp[n++] = (char)('0' + (u % 10));
+    u /= 10;
+  } while (u && n < sizeof(tmp));
+  size_t pos = 0;
+  if (neg && pos + 1 < outLen) out[pos++] = '-';
+  // reverse digits into output
+  while (n > 0 && pos + 1 < outLen) {
+    out[pos++] = tmp[--n];
+  }
+  out[pos] = '\0';
+}
+
 // Normalize "Oakland, CA, USA" → "Oakland,CA,US" in-place
 static void normalizeLocation(char* q) {
   // trim spaces and commas
@@ -340,9 +363,11 @@ std::unique_ptr<SkyModel> OpenWeatherMapSource::checkhistory(time_t now, std::ti
 
   time_t fetchDt = oldestTstamp - 3600;
   char url[256];
+  char dtbuf[24];
+  timeToDecimal(dtbuf, sizeof(dtbuf), fetchDt);
   snprintf(url, sizeof(url),
-           "%s/data/3.0/onecall/timemachine?lat=%.6f&lon=%.6f&dt=%ld&units=imperial&appid=%s",
-           apiBase_.c_str(), latitude_, longitude_, (long)fetchDt, apiKey_.c_str());
+           "%s/data/3.0/onecall/timemachine?lat=%.6f&lon=%.6f&dt=%s&units=imperial&appid=%s",
+           apiBase_.c_str(), latitude_, longitude_, dtbuf, apiKey_.c_str());
   char redacted[256];
   redactApiKeyInUrl(url, redacted, sizeof(redacted));
   DEBUG_PRINTF("SkyStrip: %s::checkhistory URL: %s\n", name().c_str(), redacted);
