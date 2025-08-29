@@ -108,7 +108,7 @@ void BartDepart::appendConfigData(Print& s) {
 
 bool BartDepart::readFromConfig(JsonObject& root) {
   JsonObject top = root[FPSTR(CFG_NAME)];
-  if (top.isNull()) return false;
+  if (top.isNull()) return true;
 
   bool ok = true;
   bool invalidate_history = false;
