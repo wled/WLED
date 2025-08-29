@@ -30,20 +30,35 @@ const char CFG_LOCATION[] PROGMEM = "Location";
 // keep commas; encode spaces etc.
 static void urlEncode(const char* src, char* dst, size_t dstSize) {
   static const char hex[] = "0123456789ABCDEF";
+  if (!dst || dstSize == 0) return;
   size_t di = 0;
-  for (size_t i = 0; src[i] && di + 4 < dstSize; ++i) {
+  if (!src) { dst[0] = '\0'; return; }
+  for (size_t i = 0; src[i]; ++i) {
     unsigned char c = static_cast<unsigned char>(src[i]);
+    // Unreserved characters per RFC 3986 (plus ',') are copied as-is
     if ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') ||
         (c >= '0' && c <= '9') || c == '-' || c == '_' || c == '.' ||
         c == '~' || c == ',') {
-      dst[di++] = c;
+      if (di + 1 < dstSize) {
+        dst[di++] = c;
+      } else {
+        break; // no room for this char plus NUL
+      }
     } else if (c == ' ') {
-      dst[di++] = '%'; dst[di++] = '2'; dst[di++] = '0';
+      if (di + 3 < dstSize) {
+        dst[di++] = '%'; dst[di++] = '2'; dst[di++] = '0';
+      } else {
+        break; // not enough room for %20 + NUL
+      }
     } else {
-      dst[di++] = '%'; dst[di++] = hex[c >> 4]; dst[di++] = hex[c & 0xF];
+      if (di + 3 < dstSize) {
+        dst[di++] = '%'; dst[di++] = hex[c >> 4]; dst[di++] = hex[c & 0xF];
+      } else {
+        break; // not enough room for %XY + NUL
+      }
     }
   }
-  dst[di] = '\0';
+  if (di < dstSize) dst[di] = '\0'; else dst[dstSize - 1] = '\0';
 }
 
 // Redact the API key in a URL by replacing the value after "appid=" with '*'.
