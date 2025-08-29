@@ -579,7 +579,6 @@ extern "C" {
   #else
   #define p_malloc d_malloc
   #define p_calloc d_calloc
-  #define p_realloc d_realloc
   #define p_free d_free
   #endif
 }
@@ -594,7 +593,7 @@ inline size_t getContiguousFreeHeap() { return ESP.getMaxFreeBlockSize(); } // r
 #define BFRALLOC_PREFER_DRAM     (1 << 1) // prefer DRAM over PSRAM
 #define BFRALLOC_ENFORCE_DRAM    (1 << 2) // use DRAM only, no PSRAM
 #define BFRALLOC_PREFER_PSRAM    (1 << 3) // prefer PSRAM over DRAM
-#define BFRALLOC_ENFORCE_PSRAM   (1 << 4) // use PSRAM if available, otherwise fall back to DRAM
+#define BFRALLOC_ENFORCE_PSRAM   (1 << 4) // use PSRAM if available, otherwise uses DRAM
 #define BFRALLOC_CLEAR           (1 << 5) // clear allocated buffer after allocation
 void *allocate_buffer(size_t size, uint32_t type);
 

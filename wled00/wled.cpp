@@ -171,7 +171,7 @@ void WLED::loop()
 
   // reconnect WiFi to clear stale allocations if heap gets too low
   if (millis() - heapTime > 15000) {
-    uint32_t heap = getFreeHeapSize();
+    uint32_t heap = getContiguousFreeHeap();
     if (heap < MIN_HEAP_SIZE && lastHeap < MIN_HEAP_SIZE) {
       DEBUG_PRINTF_P(PSTR("Heap too low! %u\n"), heap);
       forceReconnect = true;
