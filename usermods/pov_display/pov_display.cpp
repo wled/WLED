@@ -1,88 +1,75 @@
 #include "wled.h"
-#include <PNGdec.h>
+#include "pov.h"
 
-void * openFile(const char *filename, int32_t *size) {
-    f = WLED_FS.open(filename);
-    *size = f.size();
-    return &f;
-}
+static const char _data_FX_MODE_POV_IMAGE[] PROGMEM = "POV Image@!;;;;";
 
-void closeFile(void *handle) {
-    if (f) f.close();
-}
-
-int32_t readFile(PNGFILE *pFile, uint8_t *pBuf, int32_t iLen)
-{
-    int32_t iBytesRead;
-    iBytesRead = iLen;
-    File *f = static_cast<File *>(pFile->fHandle);
-    // Note: If you read a file all the way to the last byte, seek() stops working
-    if ((pFile->iSize - pFile->iPos) < iLen)
-	iBytesRead = pFile->iSize - pFile->iPos - 1; // <-- ugly work-around
-    if (iBytesRead <= 0)
-	return 0;
-    iBytesRead = (int32_t)f->read(pBuf, iBytesRead);
-    pFile->iPos = f->position();
-    return iBytesRead;
-}
-
-int32_t seekFile(PNGFILE *pFile, int32_t iPosition)
-{
-    int i = micros();
-    File *f = static_cast<File *>(pFile->fHandle);
-    f->seek(iPosition);
-    pFile->iPos = (int32_t)f->position();
-    i = micros() - i;
-    return pFile->iPos;
-}
-
-void draw(PNGDRAW *pDraw) {
-    uint16_t usPixels[SEGLEN];
-    png.getLineAsRGB565(pDraw, usPixels, PNG_RGB565_LITTLE_ENDIAN, 0xffffffff);
-    for(int x=0; x < SEGLEN; x++) {
-	uint16_t color = usPixels[x];
-	byte r = ((color >> 11) & 0x1F);
-	byte g = ((color >> 5) & 0x3F);
-	byte b = (color & 0x1F);
-	SEGMENT.setPixelColor(x, RGBW32(r,g,b,0));
-    }
-    strip.show();
-}
+static POV s_pov;
 
 uint16_t mode_pov_image(void) {
-    const char * filepath = SEGMENT.name;
-    int rc = png.open(filepath, openFile, closeFile, readFile, seekFile, draw);
-    if (rc == PNG_SUCCESS) {
-	rc = png.decode(NULL, 0);
-	png.close();
-	return FRAMETIME;
-    }
+  Segment& mainseg = strip.getMainSegment();
+  const char* segName = mainseg.name;
+  if (!segName) {
+     return FRAMETIME;
+   }
+  // Only proceed for files ending with .bmp (case-insensitive)
+  size_t segLen = strlen(segName);
+  if (segLen < 4) return FRAMETIME;
+  const char* ext = segName + (segLen - 4);
+  // compare case-insensitive to ".bmp"
+  if (!((ext[0]=='.') &&
+        (ext[1]=='b' || ext[1]=='B') &&
+        (ext[2]=='m' || ext[2]=='M') &&
+        (ext[3]=='p' || ext[3]=='P'))) {
     return FRAMETIME;
+  }
+
+  const char* current = s_pov.getFilename();
+  if (current && strcmp(segName, current) == 0) {
+     s_pov.showNextLine();
+     return FRAMETIME;
+   }
+
+  static unsigned long s_lastLoadAttemptMs = 0;
+  unsigned long nowMs = millis();
+  // Retry at most twice per second if the image is not yet loaded.
+  if (nowMs - s_lastLoadAttemptMs < 500) return FRAMETIME;
+  s_lastLoadAttemptMs = nowMs;
+  s_pov.loadImage(segName);
+  return FRAMETIME;
 }
 
-class PovDisplayUsermod : public Usermod
-{
-  public:
-    static const char _data_FX_MODE_POV_IMAGE[] PROGMEM = "POV Image@!;;;1";
+class PovDisplayUsermod : public Usermod {
+protected:
+  bool enabled = false; //WLEDMM
+  const char *_name; //WLEDMM
+  bool initDone = false; //WLEDMM
+  unsigned long lastTime = 0; //WLEDMM
+public:
 
-    PNG png;
-    File f;
+  PovDisplayUsermod(const char *name, bool enabled)
+    : enabled(enabled) , _name(name) {}
+  
+  void setup() override {
+    strip.addEffect(255, &mode_pov_image, _data_FX_MODE_POV_IMAGE);
+    //initDone removed (unused)
+  }
 
-    void setup() {
-	strip.addEffect(255, &mode_pov_image, _data_FX_MODE_POV_IMAGE);
+
+  void loop() override {
+    // if usermod is disabled or called during strip updating just exit
+    // NOTE: on very long strips strip.isUpdating() may always return true so update accordingly
+    if (!enabled || strip.isUpdating()) return;
+
+    // do your magic here
+    if (millis() - lastTime > 1000) {
+      lastTime = millis();
     }
+  }
 
-    void loop() {
-    }
-
-    uint16_t getId()
-    {
-      return USERMOD_ID_POV_DISPLAY;
-    }
-
-    void connected() {}
+  uint16_t getId() override {
+    return USERMOD_ID_POV_DISPLAY;
+  }
 };
 
-
-static PovDisplayUsermod pov_display;
+static PovDisplayUsermod pov_display("POV Display", false);
 REGISTER_USERMOD(pov_display);

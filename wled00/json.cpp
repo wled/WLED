@@ -312,7 +312,7 @@ static bool deserializeSegment(JsonObject elem, byte it, byte presetId = 0)
     jsonTransitionOnce = true;
     if (seg.isInTransition()) seg.startTransition(0); // setting transition time to 0 will stop transition in next frame
     strip.setTransition(0);
-    strip.setBrightness(scaledBri(bri), true);
+    strip.setBrightness(bri, true);
 
     // freeze and init to black
     if (!seg.freeze) {
