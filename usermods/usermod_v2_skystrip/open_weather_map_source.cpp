@@ -10,7 +10,7 @@
 #include "skymodel.h"
 #include "util.h"
 
-static constexpr const char* DEFAULT_API_BASE = "https://api.openweathermap.org";
+static constexpr const char* DEFAULT_API_BASE = "http://api.openweathermap.org";
 static constexpr const char * DEFAULT_API_KEY = "";
 static constexpr const char * DEFAULT_LOCATION = "";
 static constexpr const double DEFAULT_LATITUDE = 37.80486;
