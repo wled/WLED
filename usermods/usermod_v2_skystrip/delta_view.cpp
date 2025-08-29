@@ -74,12 +74,12 @@ void DeltaView::view(time_t now, SkyModel const &model, int16_t dbgPixelIndex) {
     return;
 
   Segment &seg = strip.getSegment((uint8_t)segId_);
-  int start = seg.start;
-  int end = seg.stop - 1;
-  int len = end - start + 1;
+  int len = seg.virtualLength();
   if (len <= 0)
     return;
-  skystrip::util::FreezeGuard freezeGuard(seg);
+  // Initialize segment drawing parameters so virtualLength()/mapping are valid
+  seg.beginDraw();
+  skystrip::util::FreezeGuard freezeGuard(seg, false);
 
   constexpr double kHorizonSec = 48.0 * 3600.0;
   const double step = (len > 1) ? (kHorizonSec / double(len - 1)) : 0.0;
@@ -87,7 +87,6 @@ void DeltaView::view(time_t now, SkyModel const &model, int16_t dbgPixelIndex) {
 
   for (int i = 0; i < len; ++i) {
     const time_t t = now + time_t(std::llround(step * i));
-    int idx = seg.reverse ? (end - i) : (start + i);
 
     double tempNow, tempPrev;
     bool foundTempNow =
@@ -113,7 +112,7 @@ void DeltaView::view(time_t now, SkyModel const &model, int16_t dbgPixelIndex) {
           lastDebug = now;
         }
       }
-      strip.setPixelColor(idx, 0);
+      seg.setPixelColor(i, 0);
       continue;
     }
     double deltaT = tempNow - tempPrev;
@@ -152,7 +151,7 @@ void DeltaView::view(time_t now, SkyModel const &model, int16_t dbgPixelIndex) {
       }
     }
 
-    strip.setPixelColor(idx, skystrip::util::blinkDebug(i, dbgPixelIndex, col));
+    seg.setPixelColor(i, skystrip::util::blinkDebug(i, dbgPixelIndex, col));
   }
 }
 

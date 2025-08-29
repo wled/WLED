@@ -106,12 +106,12 @@ void TestPatternView::view(time_t now, SkyModel const &model,
     return;
 
   Segment &seg = strip.getSegment((uint8_t)segId_);
-  int start = seg.start;
-  int end = seg.stop - 1;
-  int len = end - start + 1;
+  int len = seg.virtualLength();
   if (len <= 0)
     return;
-  skystrip::util::FreezeGuard freezeGuard(seg);
+  // Initialize segment drawing parameters so virtualLength()/mapping are valid
+  seg.beginDraw();
+  skystrip::util::FreezeGuard freezeGuard(seg, false);
 
   for (int i = 0; i < len; ++i) {
     float u = (len > 1) ? float(i) / float(len - 1) : 0.f;
@@ -130,8 +130,7 @@ void TestPatternView::view(time_t now, SkyModel const &model,
         lastDebug = now;
       }
     }
-    int idx = seg.reverse ? (end - i) : (start + i);
-    strip.setPixelColor(idx, skystrip::util::blinkDebug(i, dbgPixelIndex, col));
+    seg.setPixelColor(i, skystrip::util::blinkDebug(i, dbgPixelIndex, col));
   }
 }
 

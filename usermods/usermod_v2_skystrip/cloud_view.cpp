@@ -50,12 +50,12 @@ void CloudView::view(time_t now, SkyModel const &model, int16_t dbgPixelIndex) {
     return;
 
   Segment &seg = strip.getSegment((uint8_t)segId_);
-  int start = seg.start;
-  int end = seg.stop - 1;
-  int len = end - start + 1;
+  int len = seg.virtualLength();
   if (len <= 0)
     return;
-  skystrip::util::FreezeGuard freezeGuard(seg);
+  // Initialize segment drawing parameters so virtualLength()/mapping are valid
+  seg.beginDraw();
+  skystrip::util::FreezeGuard freezeGuard(seg, false);
 
   constexpr double kHorizonSec = 48.0 * 3600.0;
   const double step = (len > 1) ? (kHorizonSec / double(len - 1)) : 0.0;
@@ -124,7 +124,7 @@ void CloudView::view(time_t now, SkyModel const &model, int16_t dbgPixelIndex) {
     float clouds01 = skystrip::util::clamp01(float(clouds / 100.0));
     int p = int(std::round(precipTypeVal));
     bool daytime = isDay(model, t);
-    int idx = seg.reverse ? (end - i) : (start + i);
+    
 
     float hue = 0.f, sat = 0.f, val = 0.f;
     if (isMarker(t)) {
@@ -178,8 +178,8 @@ void CloudView::view(time_t now, SkyModel const &model, int16_t dbgPixelIndex) {
     }
 
     uint32_t col = skystrip::util::hsv2rgb(hue, sat, val);
-    strip.setPixelColor(idx, skystrip::util::blinkDebug(i, dbgPixelIndex, col));
-
+    seg.setPixelColor(i, skystrip::util::blinkDebug(i, dbgPixelIndex, col));
+  
     if (dbgPixelIndex >= 0) {
       static time_t lastDebug = 0;
       if (now - lastDebug > 1 && i == dbgPixelIndex) {
