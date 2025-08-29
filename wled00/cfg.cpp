@@ -256,9 +256,7 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
     static_assert(validatePinsAndTypes(defDataTypes, defNumTypes, defNumPins),
                   "The default pin list defined in DATA_PINS does not match the pin requirements for the default buses defined in LED_TYPES");
 
-    unsigned mem = 0;
     unsigned pinsIndex = 0;
-    unsigned digitalCount = 0;
     for (unsigned i = 0; i < WLED_MAX_BUSSES; i++) {
       uint8_t defPin[OUTPUT_MAX_PINS];
       // if we have less types than requested outputs and they do not align, use last known type to set current type
@@ -321,16 +319,9 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
       unsigned start = 0;
       // analog always has length 1
       if (Bus::isPWM(dataType) || Bus::isOnOff(dataType)) count = 1;
-      BusConfig defCfg = BusConfig(dataType, defPin, start, count, DEFAULT_LED_COLOR_ORDER, false, 0, RGBW_MODE_MANUAL_ONLY, 0);
-      mem += defCfg.memUsage(Bus::isDigital(dataType) && !Bus::is2Pin(dataType) ? digitalCount++ : 0);
-      if (mem > MAX_LED_MEMORY) {
-        DEBUG_PRINTF_P(PSTR("Out of LED memory! Bus %d (%d) #%u not created."), (int)dataType, (int)count, digitalCount);
-        break;
-      }
-      busConfigs.push_back(defCfg); // use push_back for simplification as we needed defCfg to calculate memory usage
+      busConfigs.emplace_back(dataType, defPin, start, count, DEFAULT_LED_COLOR_ORDER, false, 0, RGBW_MODE_MANUAL_ONLY, 0);
       doInitBusses = true;  // finalization done in beginStrip()
     }
-    DEBUG_PRINTF_P(PSTR("LED buffer size: %uB/%uB\n"), mem, BusManager::memUsage());
   }
   if (hw_led["rev"] && BusManager::getNumBusses()) BusManager::getBus(0)->setReversed(true); //set 0.11 global reversed setting for first bus
 

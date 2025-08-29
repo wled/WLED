@@ -330,7 +330,7 @@ size_t BusDigital::getPins(uint8_t* pinArray) const {
 }
 
 size_t BusDigital::getBusSize() const {
-  return sizeof(BusDigital) + (isOk() ? PolyBus::getDataSize(_busPtr, _iType) : 0);
+  return sizeof(BusDigital) + (isOk() ? PolyBus::getDataSize(_busPtr, _iType) : 0); // does not include common I2S DMA buffer
 }
 
 void BusDigital::setColorOrder(uint8_t colorOrder) {
@@ -766,7 +766,8 @@ size_t BusConfig::memUsage(unsigned nr) const {
   if (Bus::isVirtual(type)) {
     return sizeof(BusNetwork) + (count * Bus::getNumberOfChannels(type));
   } else if (Bus::isDigital(type)) {
-    return sizeof(BusDigital) + PolyBus::memUsage(count + skipAmount, PolyBus::getI(type, pins, nr)) /*+ doubleBuffer * (count + skipAmount) * Bus::getNumberOfChannels(type)*/;
+    // if any of digital buses uses I2S, there is additional common I2S DMA buffer not accounted for here
+    return sizeof(BusDigital) + PolyBus::memUsage(count + skipAmount, PolyBus::getI(type, pins, nr));
   } else if (Bus::isOnOff(type)) {
     return sizeof(BusOnOff);
   } else {
@@ -782,23 +783,23 @@ size_t BusManager::memUsage() {
   unsigned maxI2S = 0;
   #if !defined(CONFIG_IDF_TARGET_ESP32C3) && !defined(ESP8266)
   unsigned digitalCount = 0;
-    #if defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32S3)
-      #define MAX_RMT 4
-    #else
-      #define MAX_RMT 8
-    #endif
   #endif
   for (const auto &bus : busses) {
-    unsigned busSize = bus->getBusSize();
+    size += bus->getBusSize();
     #if !defined(CONFIG_IDF_TARGET_ESP32C3) && !defined(ESP8266)
-    if (bus->isDigital() && !bus->is2Pin()) digitalCount++;
-    if (PolyBus::isParallelI2S1Output() && digitalCount > MAX_RMT) {
-      unsigned i2sCommonSize = 3 * bus->getLength() * bus->getNumberOfChannels() * (bus->is16bit()+1);
-      if (i2sCommonSize > maxI2S) maxI2S = i2sCommonSize;
-      busSize -= i2sCommonSize;
+    if (bus->isDigital() && !bus->is2Pin()) {
+      digitalCount++;
+      if ((PolyBus::isParallelI2S1Output() && digitalCount <= 8) || (!PolyBus::isParallelI2S1Output() && digitalCount == 1)) {
+        #ifdef NPB_CONF_4STEP_CADENCE
+        constexpr unsigned stepFactor = 4; // 4 step cadence (4 bits per pixel bit)
+        #else
+        constexpr unsigned stepFactor = 3; // 3 step cadence (3 bits per pixel bit)
+        #endif
+        unsigned i2sCommonSize = stepFactor * bus->getLength() * bus->getNumberOfChannels() * (bus->is16bit()+1);
+        if (i2sCommonSize > maxI2S) maxI2S = i2sCommonSize;
+      }
     }
     #endif
-    size += busSize;
   }
   return size + maxI2S;
 }
