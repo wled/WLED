@@ -667,7 +667,7 @@ void *d_calloc(size_t count, size_t size) {
 }
 
 // realloc with malloc fallback, note: on ESPS8266 there is no safe way to ensure MIN_HEAP_SIZE during realloc()s, free buffer and allocate new one
-void *realloc_malloc(void *ptr, size_t size) {
+void *d_realloc_malloc(void *ptr, size_t size) {
   free(ptr);
   return d_malloc(size);
 }

@@ -432,7 +432,7 @@ inline uint8_t hw_random8() { return HW_RND_REGISTER; };
 inline uint8_t hw_random8(uint32_t upperlimit) { return (hw_random8() * upperlimit) >> 8; }; // input range 0-255
 inline uint8_t hw_random8(uint32_t lowerlimit, uint32_t upperlimit) { uint32_t range = upperlimit - lowerlimit; return lowerlimit + hw_random8(range); }; // input range 0-255
 
-// memory allocation wrappers
+// memory allocation wrappers (util.cpp)
 extern "C" {
   // prefer DRAM in d_xalloc functions, PSRAM as fallback
   void *d_malloc(size_t);
@@ -452,6 +452,7 @@ extern "C" {
   #else
   #define p_malloc d_malloc
   #define p_calloc d_calloc
+  #define p_realloc_malloc d_realloc_malloc
   #define p_free d_free
   #endif
 }
