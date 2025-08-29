@@ -31,9 +31,9 @@ std::unique_ptr<BartStationModel> LegacyBartSource::fetch(std::time_t now) {
   DEBUG_PRINTF("BartDepart: LegacyBartSource::fetch: free heap before GET: %u\n",
                ESP.getFreeHeap());
   int httpCode = https_.GET();
-  if (httpCode <= 0) {
+  if (httpCode < 200 || httpCode >= 300) {
     https_.end();
-    DEBUG_PRINTF("BartDepart: LegacyBartSource::fetch: https get error code: %d\n", httpCode);
+    DEBUG_PRINTF("BartDepart: LegacyBartSource::fetch: HTTP status not OK: %d\n", httpCode);
     nextFetch_ = now + updateSecs_ * backoffMult_;
     if (backoffMult_ < 16) backoffMult_ *= 2;
     return nullptr;
