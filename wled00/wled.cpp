@@ -243,17 +243,37 @@ void WLED::loop()
     DEBUG_PRINTLN(F("---DEBUG INFO---"));
     DEBUG_PRINTF_P(PSTR("Runtime: %lu\n"),  millis());
     DEBUG_PRINTF_P(PSTR("Unix time: %u,%03u\n"), toki.getTime().sec, toki.getTime().ms);
-    DEBUG_PRINTF_P(PSTR("Free heap/contiguous: %u/%u\n"), getFreeHeapSize(), getContiguousFreeHeap());
-    #if defined(CONFIG_IDF_TARGET_ESP32)
-    int dram32_free = heap_caps_get_free_size(MALLOC_CAP_32BIT|MALLOC_CAP_INTERNAL) - getFreeHeapSize();
-    DEBUG_PRINTF_P(PSTR("Free 32bit-heap: %d\n"), dram32_free);
-    #endif
     #if defined(ARDUINO_ARCH_ESP32)
+    DEBUG_PRINTLN(F("=== Memory Info ==="));
+    // Internal DRAM (standard 8-bit accessible heap)
+    size_t dram_free = heap_caps_get_free_size(MALLOC_CAP_8BIT | MALLOC_CAP_INTERNAL);
+    size_t dram_largest = heap_caps_get_largest_free_block(MALLOC_CAP_8BIT | MALLOC_CAP_INTERNAL);
+    DEBUG_PRINTF_P(PSTR("DRAM 8-bit:   Free: %7u bytes | Largest block: %7u bytes\n"), dram_free, dram_largest);
+    #ifdef BOARD_HAS_PSRAM
+    size_t psram_free = heap_caps_get_free_size(MALLOC_CAP_SPIRAM);
+    size_t psram_largest = heap_caps_get_largest_free_block(MALLOC_CAP_SPIRAM);
+    DEBUG_PRINTF_P(PSTR("PSRAM:        Free: %7u bytes | Largest block: %6u bytes\n"), psram_free, psram_largest);
+    #endif
+    #if defined(CONFIG_IDF_TARGET_ESP32)
+    // 32-bit DRAM (not byte accessible, only available on ESP32)
+    size_t dram32_free = heap_caps_get_free_size(MALLOC_CAP_32BIT | MALLOC_CAP_INTERNAL) - dram_free; // returns all 32bit DRAM, subtract 8bit DRAM
+    //size_t dram32_largest = heap_caps_get_largest_free_block(MALLOC_CAP_32BIT | MALLOC_CAP_INTERNAL); // returns largest DRAM block -> not useful
+    DEBUG_PRINTF_P(PSTR("DRAM 32-bit:  Free: %7u bytes | Largest block: N/A\n"), dram32_free);
+    #else
+    // Fast RTC Memory (not available on ESP32)
+    size_t rtcram_free = heap_caps_get_free_size(MALLOC_CAP_RTCRAM);
+    size_t rtcram_largest = heap_caps_get_largest_free_block(MALLOC_CAP_RTCRAM);
+    DEBUG_PRINTF_P(PSTR("RTC RAM:      Free: %7u bytes | Largest block: %7u bytes\n"), rtcram_free, rtcram_largest);
+    #endif
     if (psramFound()) {
       DEBUG_PRINTF_P(PSTR("PSRAM: %dkB/%dkB\n"), ESP.getFreePsram()/1024, ESP.getPsramSize()/1024);
-      if (!psramSafe) DEBUG_PRINTLN(F("Not using PSRAM."));
+    #ifndef BOARD_HAS_PSRAM
+      DEBUG_PRINTLN(F("BOARD_HAS_PSRAM not defined, not using PSRAM."));
+    #endif
     }
     DEBUG_PRINTF_P(PSTR("TX power: %d/%d\n"), WiFi.getTxPower(), txPower);
+    #else // ESP8266
+    DEBUG_PRINTF_P(PSTR("Free heap/contiguous: %u/%u\n"), getFreeHeapSize(), getContiguousFreeHeap());
     #endif
     DEBUG_PRINTF_P(PSTR("Wifi state: %d\n"), WiFi.status());
     #ifndef WLED_DISABLE_ESPNOW
@@ -375,18 +395,14 @@ void WLED::setup()
 #endif
   DEBUG_PRINTF_P(PSTR("heap %u\n"), getFreeHeapSize());
 
+#if defined(BOARD_HAS_PSRAM)
+  // if JSON buffer allocation fails requestJsonBufferLock() will always return false preventing crashes
+  pDoc = new PSRAMDynamicJsonDocument(2 * JSON_BUFFER_SIZE);
+  DEBUG_PRINTF_P(PSTR("JSON buffer size: %ubytes\n"), (2 * JSON_BUFFER_SIZE));
+  DEBUG_PRINTF_P(PSTR("PSRAM: %dkB/%dkB\n"), ESP.getFreePsram()/1024, ESP.getPsramSize()/1024);
+#endif
+
 #if defined(ARDUINO_ARCH_ESP32)
-  // BOARD_HAS_PSRAM also means that a compiler flag "-mfix-esp32-psram-cache-issue" was used and so PSRAM is safe to use on rev.1 ESP32
-  #if !defined(BOARD_HAS_PSRAM) && !(defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32S3) || defined(CONFIG_IDF_TARGET_ESP32C3))
-  if (psramFound() && ESP.getChipRevision() < 3) psramSafe = false;
-  if (!psramSafe) DEBUG_PRINTLN(F("Not using PSRAM."));
-  #endif
-  pDoc = new PSRAMDynamicJsonDocument((psramSafe && psramFound() ? 2 : 1)*JSON_BUFFER_SIZE);
-  DEBUG_PRINTF_P(PSTR("JSON buffer allocated: %u\n"), (psramSafe && psramFound() ? 2 : 1)*JSON_BUFFER_SIZE);
-  // if the above fails requestJsonBufferLock() will always return false preventing crashes
-  if (psramFound()) {
-    DEBUG_PRINTF_P(PSTR("PSRAM: %dkB/%dkB\n"), ESP.getFreePsram()/1024, ESP.getPsramSize()/1024);
-  }
   DEBUG_PRINTF_P(PSTR("TX power: %d/%d\n"), WiFi.getTxPower(), txPower);
 #endif
 

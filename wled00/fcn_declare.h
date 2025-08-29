@@ -560,34 +560,29 @@ inline uint8_t hw_random8(uint32_t upperlimit) { return (hw_random8() * upperlim
 inline uint8_t hw_random8(uint32_t lowerlimit, uint32_t upperlimit) { uint32_t range = upperlimit - lowerlimit; return lowerlimit + hw_random8(range); }; // input range 0-255
 
 // memory allocation wrappers
-#if !defined(ESP8266) && !defined(CONFIG_IDF_TARGET_ESP32C3)
 extern "C" {
-  void *p_malloc(size_t);           // prefer PSRAM over DRAM
-  void *p_calloc(size_t, size_t);   // prefer PSRAM over DRAM
-  void *p_realloc(void *, size_t);  // prefer PSRAM over DRAM
-  void *p_realloc_malloc(void *ptr, size_t size); // realloc with malloc fallback, prefer PSRAM over DRAM
-  inline void p_free(void *ptr) { heap_caps_free(ptr); }
-  void *d_malloc(size_t);           // prefer DRAM over PSRAM
-  void *d_calloc(size_t, size_t);   // prefer DRAM over PSRAM
-  void *d_realloc(void *, size_t);  // prefer DRAM over PSRAM
-  void *d_realloc_malloc(void *ptr, size_t size); // realloc with malloc fallback, prefer DRAM over PSRAM
+  // prefer DRAM in d_xalloc functions, PSRAM as fallback
+  void *d_malloc(size_t);
+  void *d_calloc(size_t, size_t);
+  void *d_realloc_malloc(void *ptr, size_t size);
+  #ifndef ESP8266
   inline void d_free(void *ptr) { heap_caps_free(ptr); }
+  #else
+  inline void d_free(void *ptr) { free(ptr); }
+  #endif
+  #if defined(BOARD_HAS_PSRAM)
+  // prefer PSRAM in p_xalloc functions, DRAM as fallback
+  void *p_malloc(size_t);
+  void *p_calloc(size_t, size_t);
+  void *p_realloc_malloc(void *ptr, size_t size);
+  inline void p_free(void *ptr) { heap_caps_free(ptr); }
+  #else
+  #define p_malloc d_malloc
+  #define p_calloc d_calloc
+  #define p_realloc d_realloc
+  #define p_free d_free
+  #endif
 }
-#else
-extern "C" {
-  void *realloc_malloc(void *ptr, size_t size);
-}
-#define p_malloc malloc
-#define p_calloc calloc
-#define p_realloc realloc
-#define p_realloc_malloc realloc_malloc
-#define p_free free
-#define d_malloc malloc
-#define d_calloc calloc
-#define d_realloc realloc
-#define d_realloc_malloc realloc_malloc
-#define d_free free
-#endif
 #ifndef ESP8266
 inline size_t getFreeHeapSize() { return heap_caps_get_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT); } // returns free heap (ESP.getFreeHeap() can include other memory types)
 inline size_t getContiguousFreeHeap() { return heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT); } // returns largest contiguous free block

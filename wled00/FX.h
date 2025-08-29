@@ -92,18 +92,18 @@ extern byte realtimeMode;           // used in getMappedPixelIndex()
 #ifdef ESP8266
   #define MAX_NUM_SEGMENTS  16
   /* How much data bytes all segments combined may allocate */
-  #define MAX_SEGMENT_DATA  (MAX_NUM_SEGMENTS*640) // 10k by default
+  #define MAX_SEGMENT_DATA  (6*1024) // 6k by default
 #elif defined(CONFIG_IDF_TARGET_ESP32S2)
   #define MAX_NUM_SEGMENTS  20
-  #define MAX_SEGMENT_DATA  (MAX_NUM_SEGMENTS*1024)  // 20k by default (S2 is short on free RAM)
+  #define MAX_SEGMENT_DATA  (20*1024) // 20k by default (S2 is short on free RAM), limit does not apply if PSRAM is available
 #else
   #define MAX_NUM_SEGMENTS  32  // warning: going beyond 32 may consume too much RAM for stable operation
-  #define MAX_SEGMENT_DATA  (MAX_NUM_SEGMENTS*1920) // 60k by default
+  #define MAX_SEGMENT_DATA  (64*1024) // 64k by default, limit does not apply if PSRAM is available
 #endif
 
 /* How much data bytes each segment should max allocate to leave enough space for other segments,
   assuming each segment uses the same amount of data. 256 for ESP8266, 640 for ESP32. */
-#define FAIR_DATA_PER_SEG (MAX_SEGMENT_DATA / WS2812FX::getMaxSegments())
+#define FAIR_DATA_PER_SEG (MAX_SEGMENT_DATA / MAX_NUM_SEGMENTS)
 
 #define MIN_SHOW_DELAY   (_frametime < 16 ? 8 : 15)
 
@@ -532,7 +532,6 @@ class Segment {
 
   protected:
 
-    inline static unsigned getUsedSegmentData()            { return Segment::_usedSegmentData; }
     inline static void     addUsedSegmentData(int len)     { Segment::_usedSegmentData += len; }
 
     inline uint32_t *getPixels() const                              { return pixels; }
@@ -671,6 +670,7 @@ class Segment {
     inline uint16_t dataSize() const { return _dataLen; }
     bool allocateData(size_t len);  // allocates effect data buffer in heap and clears it
     void deallocateData();          // deallocates (frees) effect data buffer from heap
+    inline static unsigned getUsedSegmentData()            { return Segment::_usedSegmentData; }
     /**
       * Flags that before the next effect is calculated,
       * the internal segment state should be reset.
