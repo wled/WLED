@@ -41,7 +41,7 @@ The mapping between wind direction and hue can be approximated as:
 | SW        | 90      | Lime   |
 | W         | 120     | Green  |
 | NW        | 180     | Cyan   |
-| N         | 240     | Blue   | (wraps around)
+| N         | 240     | Blue   |
 
 Note: Hues wrap at 360°, so “N” repeats at the boundary.
 
