@@ -693,7 +693,11 @@ static bool detectBootLoop() {
           bl_crashcounter = 0;
           result = true;
         }
-      }
+      } else {
+        // Reset counter on long intervals to track only consecutive short-interval crashes
+        bl_crashcounter = 0;
+        // TODO: crash reporting goes here
+      }        
       break;
     }
     
