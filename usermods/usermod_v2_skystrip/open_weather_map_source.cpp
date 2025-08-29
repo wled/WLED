@@ -138,6 +138,8 @@ static bool parseCoordToken(char* token, double& out) {
 
 static bool parseLatLon(const char* s, double& lat, double& lon) {
   char buf[64];
+  if (s == nullptr) return false;
+  if (strlen(s) >= sizeof(buf)) return false;
   strncpy(buf, s, sizeof(buf));
   buf[sizeof(buf)-1] = '\0';
   char *a = nullptr, *b = nullptr;
