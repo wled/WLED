@@ -54,7 +54,7 @@ inline double lerp(double a, double b, double t) { return a + (b - a) * t; }
 // Forecast interpolation helper
 static constexpr int GRACE_SEC = 60 * 60 * 3; // fencepost + slide
 template <class Series>
-bool estimateAt(const Series &v, time_t t, double step, double &out) {
+bool estimateAt(const Series &v, time_t t, double /* step */, double &out) {
   if (v.empty())
     return false;
   // if it's too far away we didn't find estimate

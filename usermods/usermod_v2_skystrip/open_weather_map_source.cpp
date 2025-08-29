@@ -219,6 +219,8 @@ std::unique_ptr<SkyModel> OpenWeatherMapSource::fetch(std::time_t now) {
   if ((now - lastFetch_) < static_cast<std::time_t>(intervalSec_))
     return nullptr;
 
+  // Update lastFetch_ and lastHistFetch_ upfront to reduce API
+  // thrash if things don't work out
   lastFetch_ = now;
   lastHistFetch_ = now; // history fetches should wait
 

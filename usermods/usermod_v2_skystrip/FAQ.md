@@ -4,6 +4,7 @@ This FAQ explains how to read the various HSV-based views of the
 `usermod_v2_skystrip` module. Each view maps weather data onto hue,
 saturation, and value (brightness) along the LED strip.
 
+
 ## Cloud View (CV)
 
 Markers for sunrise or sunset show as orange pixels. During
@@ -14,6 +15,7 @@ clouds appear pale yellow, nighttime clouds desaturate toward
 white. For clouds, saturation is low and value grows with coverage,
 keeping even thin clouds visible. Thus, a bright blue pixel highlights
 likely rain, whereas a soft yellow glow marks daytime cloud cover.
+
 
 ## Wind View (WV)
 
@@ -41,29 +43,33 @@ The mapping between wind direction and hue can be approximated as:
 | NW        | 180     | Cyan   |
 | N         | 240     | Blue   | (wraps around)
 
+Note: Hues wrap at 360°, so “N” repeats at the boundary.
+
 
 ## Temperature View (TV)
 
-Hue follows a cold-to-hot gradient: deep blues near 14 °F transition
-through cyan and green to warm yellows at 77 °F and reds above
-100 °F. Saturation reflects humidity via dew‑point spread; muggy air
-produces soft desaturated colors, whereas dry air yields vivid
-tones. Value is fixed at mid‑brightness, but local time markers (e.g.,
-noon, midnight) temporarily darken pixels to mark time. A bright
-orange‑red pixel thus signifies hot, dry conditions around 95 °F,
-whereas a pale cyan pixel indicates a cool, humid day near 50 °F.
+Hue follows a calibrated cold→hot gradient tuned for pleasing segment
+appearance: deep blues near 14 °F transition through cyan and green to
+warm yellows at 77 °F and reds at ~104 °F and above. Saturation
+reflects humidity via dew‑point spread; muggy air produces softer,
+desaturated colors, whereas dry air yields vivid tones. Value is fixed
+at mid‑brightness, but local time markers (e.g., noon, midnight)
+temporarily darken pixels to mark time. A bright orange‑red pixel thus
+signifies hot, dry conditions around 95 °F, whereas a pale cyan pixel
+indicates a cool, humid day near 50 °F.
 
-Approximate temperature-to-hue mapping:
+The actual temperature→hue stops used by the renderer are:
 
-| Temp (°F) | Hue (°) | Color      |
-|-----------|---------|------------|
-| ≤14       | 240     | Deep blue  |
-| 32        | 210     | Blue-cyan  |
-| 50        | 180     | Cyan       |
-| 68        | 150     | Green-cyan |
-| 77        | 60      | Yellow     |
-| 95        | 30      | Orange     |
-| ≥100      | 0       | Red        |
+| Temp (°F) | Hue (°) | Color       |
+|-----------|---------|-------------|
+| ≤14       | 234.9   | Deep blue   |
+| 32        | 207.0   | Blue/cyan   |
+| 50        | 180.0   | Cyan        |
+| 68        | 138.8   | Greenish    |
+| 77        | 60.0    | Yellow      |
+| 86        | 38.8    | Orange      |
+| 95        | 18.8    | Orange‑red  |
+| ≥104      | 0.0     | Red         |
 
 
 ## 24 Hour Delta View (DV)
@@ -80,11 +86,17 @@ warming coupled with drying.
 
 Approximate mapping of day-to-day deltas to color attributes:
 
-| Temperature | Hue (Color) |    | Humidity   | Saturation |
-|-------------|-------------|    |------------|------------|
-| Cooling     | Blue tones  |    | More humid | Low/Pastel |
-| Steady      | Green       |    | Stable     | Medium     |
-| Warming     | Yellow→Red  |    | Drier      | High/Vivid |
+| Temperature | Hue (Color) |
+|-------------|-------------|
+| Cooling     | Blue tones  |
+| Steady      | Green       |
+| Warming     | Yellow→Red  |
+
+| Humidity   | Saturation |
+|------------|------------|
+| More humid | Low/Pastel |
+| Stable     | Medium     |
+| Drier      | High/Vivid |
 
 
 ## Test Pattern View (TP)

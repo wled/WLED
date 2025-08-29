@@ -101,7 +101,6 @@ void CloudView::view(time_t now, SkyModel const &model, int16_t dbgPixelIndex) {
   constexpr float kDaySat = 0.30f;
   constexpr float kNightSat = 0.00f;
   constexpr float kDayVMax  = 0.40f;
-  // slightly higher night maximum so low clouds are more visible
   constexpr float kNightVMax= 0.40f;
 
   // Brightness floor as a fraction of Vmax so mid/low clouds stay visible.

@@ -12,6 +12,8 @@ void RestJsonClient::resetRateLimit() {
   lastFetchMs_ = millis() - RATE_LIMIT_MS;
 }
 
+// Returned DynamicJsonDocument* is owned by the client and is
+// invalidated on the next getJson() call
 DynamicJsonDocument* RestJsonClient::getJson(const char* url) {
   // enforce a basic rate limit to prevent runaway software from making bursts
   // of API calls (looks like DoS and get's our API key turned off ...)
