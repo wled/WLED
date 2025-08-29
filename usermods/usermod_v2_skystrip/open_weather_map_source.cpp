@@ -99,16 +99,16 @@ static void normalizeLocation(char* q) {
 }
 
 static bool parseCoordToken(char* token, double& out) {
-  while (isspace(*token)) ++token;
+  while (isspace((unsigned char)*token)) ++token;
   bool neg = false;
   if (*token == 's' || *token == 'S' || *token == 'w' || *token == 'W') {
     neg = true; ++token;
   } else if (*token == 'n' || *token == 'N' || *token == 'e' || *token == 'E') {
     ++token;
   }
-  while (isspace(*token)) ++token;
+  while (isspace((unsigned char)*token)) ++token;
   char* end = token + strlen(token);
-  while (end > token && isspace(end[-1])) --end;
+  while (end > token && isspace((unsigned char)end[-1])) --end;
   if (end > token) {
     char c = end[-1];
     if (c == 's' || c == 'S' || c == 'w' || c == 'W') { neg = true; --end; }
