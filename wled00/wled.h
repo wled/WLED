@@ -1026,7 +1026,7 @@ WLED_GLOBAL volatile uint8_t jsonBufferLock _INIT(0);
   WLED_GLOBAL unsigned loops _INIT(0);
 #endif
 
-#define WLED_CONNECTED (Network.isConnected())
+#define WLED_CONNECTED (WLEDNetwork.isConnected())
 
 #ifndef WLED_AP_SSID_UNIQUE
   #define WLED_SET_AP_SSID() do { \
