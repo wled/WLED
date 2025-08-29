@@ -16,7 +16,7 @@ departure times approach.
 Add `usermod_v2_bartdepart` to your PlatformIO environment in
 `platformio_override.ini`:
 
-```
+```ini
 custom_usermods = usermod_v2_bartdepart
 ```
 
