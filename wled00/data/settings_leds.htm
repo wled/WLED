@@ -193,18 +193,23 @@
 		//returns mem usage
 		function getMem(t, n) {
 			if (isAna(t)) return 5;	// analog
-			let len = parseInt(d.getElementsByName("LC"+n)[0].value);
-			len += parseInt(d.getElementsByName("SL"+n)[0].value); // skipped LEDs are allocated too
+			let len = parseInt(d.Sf["LC"+n].value);
+			len += parseInt(d.Sf["SL"+n].value); // skipped LEDs are allocated too
 			let dbl = 0;
 			let ch = 3*hasRGB(t) + hasW(t) + hasCCT(t);
 			let mul = 1;
 			if (isDig(t)) {
 				if (is16b(t)) len *= 2; // 16 bit LEDs
-				if (maxM < 10000 && d.getElementsByName("L0"+n)[0].value == 3) { //8266 DMA uses 5x the mem
+				if (is8266() && d.Sf["L0"+n].value == 3) { //8266 DMA uses 5x the mem
 					mul = 5;
 				}
-				if (maxM >= 10000) { //ESP32 RMT uses double buffer?
-					mul = 2;
+				let parallelI2S = d.Sf.PR.checked && (is32() || isS2() || isS3) && !isD2P(t);
+				if (isC3() || (isS3() && !parallelI2S)) {
+					mul = 2; // ESP32 RMT uses double buffer
+				} else if ((is32() || isS2() || isS3) && n > (parallelI2S ? 7 : 0)) {
+					mul = 2; // ESP32 RMT uses double buffer
+				} else if ((parallelI2S && n < 8) || (n == 0 && is32())) { // I2S uses extra DMA buffer
+					dbl = len * ch * 3; // DMA buffer for parallel I2S (TODO: ony the bus with largst LED count should be used)
 				}
 			}
 			return len * ch * mul + dbl;
@@ -260,7 +265,7 @@
 				// is the field a LED type?
 				var n = s.name.substring(2);
 				var t = parseInt(s.value);
-				memu += getMem(t, n); // calc memory
+				memu += getMem(t, parseInt(n)); // calc memory
 				dC += (isDig(t) && !isD2P(t));
 				setPinConfig(n,t);
 				gId("abl"+n).style.display = (!abl || !isDig(t)) ? "none" : "inline"; // show/hide individual ABL settings
@@ -298,7 +303,7 @@
 			var nList = d.Sf.querySelectorAll("#mLC input[name^=L]");
 			nList.forEach((LC,i)=>{
 				let nm = LC.name.substring(0,2);  // field name
-				let n  = LC.name.substring(2);    // bus number
+				let n  = parseInt(LC.name.substring(2)); // bus number
 				let t  = parseInt(d.Sf["LT"+n].value); // LED type SELECT
 				if (isDig(t)) {
 					if (sameType == 0) sameType = t; // first bus type
