@@ -741,7 +741,11 @@ WLED_GLOBAL bool notifyHue    _INIT(true);                        // send notifi
 #endif
 
 // effects
-WLED_GLOBAL byte effectCurrent _INIT(0);
+#ifndef DEFAULT_LED_EFFECT
+#define DEFAULT_LED_EFFECT 0
+#endif
+static_assert(DEFAULT_LED_EFFECT >= 0 && DEFAULT_LED_EFFECT < MODE_COUNT, "DEFAULT_LED_EFFECT must be between 0 and MODE_COUNT-1");
+WLED_GLOBAL byte effectCurrent _INIT(DEFAULT_LED_EFFECT);
 WLED_GLOBAL byte effectSpeed _INIT(128);
 WLED_GLOBAL byte effectIntensity _INIT(128);
 WLED_GLOBAL byte effectPalette _INIT(0);
