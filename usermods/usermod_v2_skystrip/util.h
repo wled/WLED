@@ -97,9 +97,35 @@ inline bool estimateSpeedAt(const SkyModel &m, time_t t, double step,
                             double &out) {
   return estimateAt(m.wind_speed_forecast, t, step, out);
 }
-inline bool estimateDirAt(const SkyModel &m, time_t t, double step,
+inline bool estimateDirAt(const SkyModel &m, time_t t, double /*step*/,
                           double &out) {
-  return estimateAt(m.wind_dir_forecast, t, step, out);
+  const auto &v = m.wind_dir_forecast;
+  if (v.empty()) return false;
+  if (t < v.front().tstamp - GRACE_SEC) return false;
+  if (t > v.back().tstamp + GRACE_SEC) return false;
+  if (t <= v.front().tstamp) { out = fmod(v.front().value, 360.0); if (out < 0) out += 360.0; return true; }
+  if (t >= v.back().tstamp)  { out = fmod(v.back().value, 360.0);  if (out < 0) out += 360.0;  return true; }
+
+  for (size_t i = 1; i < v.size(); ++i) {
+    if (t <= v[i].tstamp) {
+      const auto &a = v[i-1];
+      const auto &b = v[i];
+      const double span = double(b.tstamp - a.tstamp);
+      const double u = clamp01(span > 0 ? double(t - a.tstamp) / span : 0.0);
+      double aAng = a.value;
+      double bAng = b.value;
+      // shortest signed angular difference in (-180,180]
+      double delta = bAng - aAng;
+      delta = fmod(delta + 540.0, 360.0) - 180.0;
+      double val = aAng + u * delta;
+      // normalize to [0,360)
+      val = fmod(val, 360.0);
+      if (val < 0) val += 360.0;
+      out = val;
+      return true;
+    }
+  }
+  return false;
 }
 inline bool estimateGustAt(const SkyModel &m, time_t t, double step,
                            double &out) {

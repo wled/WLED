@@ -25,10 +25,15 @@ void mergeSeries(Series &current, Series &&fresh, time_t now) {
     fresh.insert(fresh.end(), current.begin(), current.end());
     current = std::move(fresh);
   } else {
-    auto it = std::lower_bound(current.begin(), current.end(), fresh.front().tstamp,
-                               [](const DataPoint& dp, time_t t){ return dp.tstamp < t; });
-    current.erase(it, current.end());
-    current.insert(current.end(), fresh.begin(), fresh.end());
+    // Precisely locate the overlap window: erase only [start, end) and insert fresh there.
+    auto start = std::lower_bound(
+        current.begin(), current.end(), fresh.front().tstamp,
+        [](const DataPoint& dp, time_t t) { return dp.tstamp < t; }); // first current >= front
+    auto end = std::upper_bound(
+        current.begin(), current.end(), fresh.back().tstamp,
+        [](time_t t, const DataPoint& dp) { return t < dp.tstamp; }); // first current > back
+    current.erase(start, end);
+    current.insert(start, fresh.begin(), fresh.end());
   }
 
   time_t cutoff = now - HISTORY_SEC;

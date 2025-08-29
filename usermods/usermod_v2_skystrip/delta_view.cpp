@@ -85,7 +85,7 @@ void DeltaView::view(time_t now, SkyModel const &model, int16_t dbgPixelIndex) {
   const double step = (len > 1) ? (kHorizonSec / double(len - 1)) : 0.0;
   const time_t day = 24 * 3600;
 
-  for (uint16_t i = 0; i < len; ++i) {
+  for (int i = 0; i < len; ++i) {
     const time_t t = now + time_t(std::llround(step * i));
     int idx = seg.reverse ? (end - i) : (start + i);
 

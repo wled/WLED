@@ -3,8 +3,16 @@
 #include "rest_json_client.h"
 
 RestJsonClient::RestJsonClient()
-  : lastFetchMs_(static_cast<unsigned long>(-static_cast<long>(RATE_LIMIT_MS)))
-  , doc_(MAX_JSON_SIZE) {
+  : doc_(MAX_JSON_SIZE) {
+  // Allow an immediate first request
+  resetRateLimit();
+}
+
+RestJsonClient::RestJsonClient(uint32_t socketTimeoutMs)
+  : doc_(MAX_JSON_SIZE) {
+  // Allow an immediate first request
+  resetRateLimit();
+  socketTimeoutMs_ = socketTimeoutMs;
 }
 
 void RestJsonClient::resetRateLimit() {
@@ -40,6 +48,10 @@ DynamicJsonDocument* RestJsonClient::getJson(const char* url) {
   }
 
   // Begin request
+  if (client) {
+    // Apply socket (Stream) timeout before using HTTPClient.
+    client->setTimeout(socketTimeoutMs_);
+  }
   if (!http_.begin(*client, url)) {
     http_.end();
     DEBUG_PRINTLN(F("SkyStrip: RestJsonClient::getJson: trouble initiating request"));
@@ -57,6 +69,14 @@ DynamicJsonDocument* RestJsonClient::getJson(const char* url) {
 
   int len = http_.getSize();
   DEBUG_PRINTF("SkyStrip: RestJsonClient::getJson: expecting up to %d bytes, free heap before deserialization: %u\n", len, ESP.getFreeHeap());
+  if (len > 0) {
+    const size_t cap = doc_.capacity();
+    if ((size_t)len > cap) {
+      http_.end();
+      DEBUG_PRINTF("SkyStrip: RestJsonClient::getJson: response too large (%d > %u)\n", len, (unsigned)cap);
+      return nullptr;
+    }
+  }
   doc_.clear();
   auto err = deserializeJson(doc_, http_.getStream());
   http_.end();

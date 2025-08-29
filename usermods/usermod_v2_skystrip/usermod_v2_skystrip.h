@@ -4,6 +4,8 @@
 #include "interfaces.h"
 #include "wled.h"
 
+#define USERMOD_ID_SKYSTRIP 559
+
 #define SKYSTRIP_VERSION "0.0.1"
 
 class SkyModel;
