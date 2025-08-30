@@ -194,6 +194,7 @@ using PSRAMDynamicJsonDocument = BasicJsonDocument<PSRAM_Allocator>;
 #include "fcn_declare.h"
 #include "NodeStruct.h"
 #include "pin_manager.h"
+#include "colors.h"
 #include "bus_manager.h"
 #include "FX.h"
 
