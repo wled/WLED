@@ -238,7 +238,6 @@ class BusDigital : public Bus {
 
     void show() override;
     bool canShow() const override;
-    void setBrightness(uint8_t b) override;
     void setStatusPixel(uint32_t c) override;
     [[gnu::hot]] void setPixelColor(unsigned pix, uint32_t c) override;
     void setColorOrder(uint8_t colorOrder) override;
@@ -250,6 +249,9 @@ class BusDigital : public Bus {
     uint16_t getLEDCurrent() const override  { return _milliAmpsPerLed; }
     uint16_t getUsedCurrent() const override { return _milliAmpsTotal; }
     uint16_t getMaxCurrent() const override  { return _milliAmpsMax; }
+    void     setCurrentLimit(uint16_t milliAmps) { _milliAmpsLimit = milliAmps; }
+    void     estimateCurrent(); // estimate used current from summed colors
+    void     applyBriLimit(uint8_t newBri);
     size_t   getBusSize() const override;
     void begin() override;
     void cleanup();
@@ -262,8 +264,10 @@ class BusDigital : public Bus {
     uint8_t  _pins[2];
     uint8_t  _iType;
     uint16_t _frequencykHz;
-    uint8_t  _milliAmpsPerLed;
     uint16_t _milliAmpsMax;
+    uint8_t  _milliAmpsPerLed;
+    uint16_t _milliAmpsLimit;
+    uint32_t _colorSum; // total color value for the bus, updated in setPixelColor(), used to estimate current
     void    *_busPtr;
 
     static uint16_t _milliAmpsTotal; // is overwitten/recalculated on each show()
@@ -278,8 +282,6 @@ class BusDigital : public Bus {
       }
       return c;
     }
-
-    uint8_t  estimateCurrentAndLimitBri() const;
 };
 
 
@@ -422,8 +424,8 @@ struct BusConfig {
 };
 
 
-//fine tune power estimation constants for your setup
-//you can set it to 0 if the ESP is powered by USB and the LEDs by external
+// milliamps used by ESP (for power estimation)
+// you can set it to 0 if the ESP is powered by USB and the LEDs by external
 #ifndef MA_FOR_ESP
   #ifdef ESP8266
     #define MA_FOR_ESP         80 //how much mA does the ESP use (Wemos D1 about 80mA)
@@ -438,6 +440,7 @@ namespace BusManager {
   //extern std::vector<Bus*> busses;
   extern uint16_t _gMilliAmpsUsed;
   extern uint16_t _gMilliAmpsMax;
+  extern bool     _useABL;
 
   #ifdef ESP32_DATA_IDLE_HIGH
   void    esp32RMTInvertIdle() ;
@@ -453,6 +456,8 @@ namespace BusManager {
   //inline uint16_t ablMilliampsMax()             { unsigned sum = 0; for (auto &bus : busses) sum += bus->getMaxCurrent(); return sum; }
   inline uint16_t ablMilliampsMax()             { return _gMilliAmpsMax; }  // used for compatibility reasons (and enabling virtual global ABL)
   inline void     setMilliampsMax(uint16_t max) { _gMilliAmpsMax = max;}
+  void            initializeABL();              // setup automatic brightness limiter parameters, call once after buses are initialized
+  void            applyABL();                   // apply automatic brightness limiter, global or per bus
 
   void useParallelOutput(); // workaround for inaccessible PolyBus
   bool hasParallelOutput(); // workaround for inaccessible PolyBus
