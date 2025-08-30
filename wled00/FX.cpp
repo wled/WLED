@@ -114,6 +114,7 @@ static um_data_t* getAudioData() {
   return um_data;
 }
 
+
 // effect functions
 
 /*
@@ -124,6 +125,56 @@ uint16_t mode_static(void) {
   return strip.isOffRefreshRequired() ? FRAMETIME : 350;
 }
 static const char _data_FX_MODE_STATIC[] PROGMEM = "Solid";
+
+/*
+ * Copy a segment and perform (optional) color adjustments
+ */
+uint16_t mode_copy_segment(void) {
+  uint32_t sourceid = SEGMENT.custom3;
+  if (sourceid >= strip.getSegmentsNum() || sourceid == strip.getCurrSegmentId()) { // invalid source
+    SEGMENT.fadeToBlackBy(5); // fade out
+    return FRAMETIME;
+  }
+  Segment sourcesegment = strip.getSegment(sourceid);
+  if (sourcesegment.isActive()) {
+    uint32_t sourcecolor;
+    uint32_t destcolor;
+    if(sourcesegment.is2D()) { // 2D source, note: 2D to 1D just copies the first row (or first column if 'Switch axis' is checked in FX)
+      for (unsigned y = 0; y < SEGMENT.vHeight(); y++) {
+        for (unsigned x = 0; x < SEGMENT.vWidth(); x++) {
+          unsigned sx = x; // source coordinates
+          unsigned sy = y;
+          if(SEGMENT.check1) std::swap(sx, sy); // flip axis
+          if(SEGMENT.check2) {
+            sourcecolor = strip.getPixelColorXY(sx + sourcesegment.start, sy + sourcesegment.startY); // read from global buffer (reads the last rendered frame)
+          }
+          else {
+            sourcesegment.setDrawDimensions(); // set to source segment dimensions
+            sourcecolor = sourcesegment.getPixelColorXY(sx, sy); // read from segment buffer
+          }
+          destcolor = adjust_color(sourcecolor, SEGMENT.intensity, SEGMENT.custom1, SEGMENT.custom2);
+          SEGMENT.setDrawDimensions(); // reset to current segment dimensions
+          SEGMENT.setPixelColorXY(x, y, destcolor);
+        }
+      }
+    } else { // 1D source, source can be expanded into 2D
+      for (unsigned i = 0; i < SEGMENT.vLength(); i++) {
+        if(SEGMENT.check2) {
+          sourcecolor = strip.getPixelColor(i + sourcesegment.start); // read from global buffer (reads the last rendered frame)
+        }
+        else {
+          sourcesegment.setDrawDimensions(); // set to source segment dimensions
+          sourcecolor = sourcesegment.getPixelColor(i);
+        }
+        destcolor = adjust_color(sourcecolor, SEGMENT.intensity, SEGMENT.custom1, SEGMENT.custom2);
+        SEGMENT.setDrawDimensions(); // reset to current segment dimensions
+        SEGMENT.setPixelColor(i, destcolor);
+      }
+    }
+  }
+  return FRAMETIME;
+}
+static const char _data_FX_MODE_COPY[] PROGMEM = "Copy Segment@,Color shift,Lighten,Brighten,ID,Axis(2D),FullStack(last frame);;;12;ix=0,c1=0,c2=0,c3=0";
 
 
 /*
@@ -4715,30 +4766,17 @@ class AuroraWave {
 };
 
 uint16_t mode_aurora(void) {
-  //aux1 = Wavecount
-  //aux2 = Intensity in last loop
-
   AuroraWave* waves;
+  SEGENV.aux1 = map(SEGMENT.intensity, 0, 255, 2, W_MAX_COUNT); // aux1 = Wavecount
+  if(!SEGENV.allocateData(sizeof(AuroraWave) * SEGENV.aux1)) {  // 20 on ESP32, 9 on ESP8266
+    return mode_static(); //allocation failed
+  }
+  waves = reinterpret_cast<AuroraWave*>(SEGENV.data);
 
-//TODO: I am not sure this is a correct way of handling memory allocation since if it fails on 1st run
-// it will display static effect but on second run it may crash ESP since data will be nullptr
-
-  if(SEGENV.aux0 != SEGMENT.intensity || SEGENV.call == 0) {
-    //Intensity slider changed or first call
-    SEGENV.aux1 = map(SEGMENT.intensity, 0, 255, 2, W_MAX_COUNT);
-    SEGENV.aux0 = SEGMENT.intensity;
-
-    if(!SEGENV.allocateData(sizeof(AuroraWave) * SEGENV.aux1)) { // 26 on 32 segment ESP32, 9 on 16 segment ESP8266
-      return mode_static(); //allocation failed
-    }
-
-    waves = reinterpret_cast<AuroraWave*>(SEGENV.data);
-
+  if(SEGENV.call == 0) {
     for (int i = 0; i < SEGENV.aux1; i++) {
       waves[i].init(SEGLEN, CRGB(SEGMENT.color_from_palette(hw_random8(), false, false, hw_random8(0, 3))));
     }
-  } else {
-    waves = reinterpret_cast<AuroraWave*>(SEGENV.data);
   }
 
   for (int i = 0; i < SEGENV.aux1; i++) {
@@ -7490,9 +7528,9 @@ uint16_t mode_2Ddistortionwaves() {
       byte valueG = gdistort + ((a2-( ((xoffs - cx1) * (xoffs - cx1) + (yoffs - cy1) * (yoffs - cy1))>>7 ))<<1);
       byte valueB = bdistort + ((a3-( ((xoffs - cx2) * (xoffs - cx2) + (yoffs - cy2) * (yoffs - cy2))>>7 ))<<1);
 
-      valueR = gamma8(cos8_t(valueR));
-      valueG = gamma8(cos8_t(valueG));
-      valueB = gamma8(cos8_t(valueB));
+      valueR = cos8_t(valueR);
+      valueG = cos8_t(valueG);
+      valueB = cos8_t(valueB);
 
       if(SEGMENT.palette == 0) {
         // use RGB values (original color mode)
@@ -8444,7 +8482,6 @@ static const char _data_FX_MODE_PARTICLEPERLIN[] PROGMEM = "PS Fuzzy Noise@Speed
 #define NUMBEROFSOURCES 8
 uint16_t mode_particleimpact(void) {
   ParticleSystem2D *PartSys = nullptr;
-  uint32_t i = 0;
   uint32_t numMeteors;
   PSsettings2D meteorsettings;
   meteorsettings.asByte = 0b00101000; // PS settings for meteors: bounceY and gravity enabled
@@ -8457,7 +8494,7 @@ uint16_t mode_particleimpact(void) {
     PartSys->setBounceY(true); // always use ground bounce
     PartSys->setWallRoughness(220); // high roughness
     numMeteors = min(PartSys->numSources, (uint32_t)NUMBEROFSOURCES);
-    for (i = 0; i < numMeteors; i++) {
+    for (uint32_t i = 0; i < numMeteors; i++) {
       PartSys->sources[i].source.ttl = hw_random16(10 * i); // set initial delay for meteors
       PartSys->sources[i].source.vy = 10; // at positive speeds, no particles are emitted and if particle dies, it will be relaunched
     }
@@ -8479,7 +8516,7 @@ uint16_t mode_particleimpact(void) {
   numMeteors = min(PartSys->numSources, (uint32_t)NUMBEROFSOURCES);
   uint32_t emitparticles; // number of particles to emit for each rocket's state
 
-  for (i = 0; i < numMeteors; i++) {
+  for (uint32_t i = 0; i < numMeteors; i++) {
     // determine meteor state by its speed:
     if ( PartSys->sources[i].source.vy < 0) // moving down, emit sparks
       emitparticles = 1;
@@ -8495,7 +8532,7 @@ uint16_t mode_particleimpact(void) {
   }
 
   // update the meteors, set the speed state
-  for (i = 0; i < numMeteors; i++) {
+  for (uint32_t i = 0; i < numMeteors; i++) {
     if (PartSys->sources[i].source.ttl) {
       PartSys->sources[i].source.ttl--; // note: this saves an if statement, but moving down particles age twice
       if (PartSys->sources[i].source.vy < 0) { // move down
@@ -8786,7 +8823,7 @@ uint16_t mode_particleGEQ(void) {
         //set particle properties TODO: could also use the spray...
         PartSys->particles[i].ttl = 20 + map(SEGMENT.intensity, 0,255, emitspeed>>1, emitspeed + hw_random16(emitspeed)) ; // set particle alive, particle lifespan is in number of frames
         PartSys->particles[i].x = xposition + hw_random16(binwidth) - (binwidth>>1); // position randomly, deviating half a bin width
-        PartSys->particles[i].y = PS_P_RADIUS; // start at the bottom (PS_P_RADIUS is minimum position a particle is fully in frame)
+        PartSys->particles[i].y = 0; // start at the bottom
         PartSys->particles[i].vx = hw_random16(SEGMENT.custom1>>1)-(SEGMENT.custom1>>2) ; //x-speed variation: +/- custom1/4
         PartSys->particles[i].vy = emitspeed;
         PartSys->particles[i].hue = (bin<<4) + hw_random16(17) - 8; // color from palette according to bin
@@ -10617,6 +10654,7 @@ void WS2812FX::setupEffectData() {
     _modeData.push_back(_data_RESERVED);
   }
   // now replace all pre-allocated effects
+  addEffect(FX_MODE_COPY, &mode_copy_segment, _data_FX_MODE_COPY);
   // --- 1D non-audio effects ---
   addEffect(FX_MODE_BLINK, &mode_blink, _data_FX_MODE_BLINK);
   addEffect(FX_MODE_BREATH, &mode_breath, _data_FX_MODE_BREATH);

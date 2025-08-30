@@ -1,6 +1,16 @@
 #include "wled.h"
 #include "fcn_declare.h"
 #include "const.h"
+#ifdef ESP8266
+#include "user_interface.h" // for bootloop detection
+#else
+#include <Update.h>
+#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(4, 4, 0)
+  #include "esp32/rtc.h"    // for bootloop detection
+#elif ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(3, 3, 0)
+  #include "soc/rtc.h"
+#endif
+#endif
 
 
 //helper to get int value at a position in string
@@ -619,7 +629,8 @@ int32_t hw_random(int32_t lowerlimit, int32_t upperlimit) {
   return hw_random(diff) + lowerlimit;
 }
 
-#ifndef ESP8266
+#if !defined(ESP8266) && !defined(CONFIG_IDF_TARGET_ESP32C3) // ESP8266 does not support PSRAM, ESP32-C3 does not have PSRAM
+// p_x prefer PSRAM, d_x prefer DRAM
 void *p_malloc(size_t size) {
   int caps1 = MALLOC_CAP_SPIRAM  | MALLOC_CAP_8BIT;
   int caps2 = MALLOC_CAP_DEFAULT | MALLOC_CAP_8BIT;
@@ -640,6 +651,14 @@ void *p_realloc(void *ptr, size_t size) {
   return heap_caps_realloc(ptr, size, caps2);
 }
 
+// realloc with malloc fallback, original buffer is freed if realloc fails but not copied!
+void *p_realloc_malloc(void *ptr, size_t size) {
+  void *newbuf = p_realloc(ptr, size); // try realloc first
+  if (newbuf) return newbuf; // realloc successful
+  p_free(ptr); // free old buffer if realloc failed
+  return p_malloc(size); // fallback to malloc
+}
+
 void *p_calloc(size_t count, size_t size) {
   int caps1 = MALLOC_CAP_SPIRAM  | MALLOC_CAP_8BIT;
   int caps2 = MALLOC_CAP_DEFAULT | MALLOC_CAP_8BIT;
@@ -654,7 +673,7 @@ void *d_malloc(size_t size) {
   int caps1 = MALLOC_CAP_DEFAULT | MALLOC_CAP_8BIT;
   int caps2 = MALLOC_CAP_SPIRAM  | MALLOC_CAP_8BIT;
   if (psramSafe) {
-    if (size > MIN_HEAP_SIZE) std::swap(caps1, caps2);  // prefer PSRAM for large alloactions
+    if (heap_caps_get_largest_free_block(caps1) < 3*MIN_HEAP_SIZE && size > MIN_HEAP_SIZE) std::swap(caps1, caps2);  // prefer PSRAM for large alloactions & when DRAM is low
     return heap_caps_malloc_prefer(size, 2, caps1, caps2); // otherwise prefer DRAM
   }
   return heap_caps_malloc(size, caps1);
@@ -664,10 +683,18 @@ void *d_realloc(void *ptr, size_t size) {
   int caps1 = MALLOC_CAP_DEFAULT | MALLOC_CAP_8BIT;
   int caps2 = MALLOC_CAP_SPIRAM  | MALLOC_CAP_8BIT;
   if (psramSafe) {
-    if (size > MIN_HEAP_SIZE) std::swap(caps1, caps2);  // prefer PSRAM for large alloactions
+    if (heap_caps_get_largest_free_block(caps1) < 3*MIN_HEAP_SIZE && size > MIN_HEAP_SIZE) std::swap(caps1, caps2);  // prefer PSRAM for large alloactions & when DRAM is low
     return heap_caps_realloc_prefer(ptr, size, 2, caps1, caps2); // otherwise prefer DRAM
   }
   return heap_caps_realloc(ptr, size, caps1);
+}
+
+// realloc with malloc fallback, original buffer is freed if realloc fails but not copied!
+void *d_realloc_malloc(void *ptr, size_t size) {
+  void *newbuf = d_realloc(ptr, size); // try realloc first
+  if (newbuf) return newbuf; // realloc successful
+  d_free(ptr); // free old buffer if realloc failed
+  return d_malloc(size); // fallback to malloc
 }
 
 void *d_calloc(size_t count, size_t size) {
@@ -679,7 +706,141 @@ void *d_calloc(size_t count, size_t size) {
   }
   return heap_caps_calloc(count, size, caps1);
 }
+#else // ESP8266 & ESP32-C3
+// realloc with malloc fallback, original buffer is freed if realloc fails but not copied!
+void *realloc_malloc(void *ptr, size_t size) {
+  void *newbuf = realloc(ptr, size); // try realloc first
+  if (newbuf) return newbuf; // realloc successful
+  free(ptr); // free old buffer if realloc failed
+  return malloc(size); // fallback to malloc
+}
 #endif
+
+// bootloop detection and handling
+// checks if the ESP reboots multiple times due to a crash or watchdog timeout
+// if a bootloop is detected: restore settings from backup, then reset settings, then switch boot image (and repeat)
+
+#define BOOTLOOP_THRESHOLD      5     // number of consecutive crashes to trigger bootloop detection
+#define BOOTLOOP_ACTION_RESTORE 0     // default action: restore config from /bak.cfg.json
+#define BOOTLOOP_ACTION_RESET   1     // if restore does not work, reset config (rename /cfg.json to /rst.cfg.json)
+#define BOOTLOOP_ACTION_OTA     2     // swap the boot partition
+#define BOOTLOOP_ACTION_DUMP    3     // nothing seems to help, dump files to serial and reboot (until hardware reset)
+#ifdef ESP8266
+#define BOOTLOOP_INTERVAL_TICKS (5 * 160000) // time limit between crashes: ~5 seconds in RTC ticks
+#define BOOT_TIME_IDX       0 // index in RTC memory for boot time
+#define CRASH_COUNTER_IDX   1 // index in RTC memory for crash counter
+#define ACTIONT_TRACKER_IDX 2 // index in RTC memory for boot action
+#else
+#define BOOTLOOP_INTERVAL_TICKS 5000  // time limit between crashes: ~5 seconds in milliseconds
+// variables in RTC_NOINIT memory persist between reboots (but not on hardware reset)
+RTC_NOINIT_ATTR static uint32_t bl_last_boottime;
+RTC_NOINIT_ATTR static uint32_t bl_crashcounter;
+RTC_NOINIT_ATTR static uint32_t bl_actiontracker;
+void bootloopCheckOTA() { bl_actiontracker = BOOTLOOP_ACTION_OTA; } // swap boot image if bootloop is detected instead of restoring config
+#endif
+
+// detect bootloop by checking the reset reason and the time since last boot
+static bool detectBootLoop() {
+#if !defined(ESP8266)
+  #if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(4, 4, 0)
+    uint32_t rtctime = esp_rtc_get_time_us() / 1000;  // convert to milliseconds
+  #elif ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(3, 3, 0)
+    uint64_t rtc_ticks = rtc_time_get();
+    uint32_t rtctime = rtc_time_slowclk_to_us(rtc_ticks, rtc_clk_slow_freq_get_hz()) / 1000;  // convert to milliseconds
+  #endif
+
+  esp_reset_reason_t reason = esp_reset_reason();
+
+  if (!(reason == ESP_RST_PANIC || reason == ESP_RST_WDT || reason == ESP_RST_INT_WDT || reason == ESP_RST_TASK_WDT)) {
+    // no crash detected, init variables
+    bl_crashcounter = 0;
+    bl_last_boottime = rtctime;
+    if(reason != ESP_RST_SW)
+      bl_actiontracker = BOOTLOOP_ACTION_RESTORE; // init action tracker if not an intentional reboot (e.g. from OTA or bootloop handler)
+  } else if (reason == ESP_RST_BROWNOUT) {
+    // crash due to brownout can't be detected unless using flash memory to store bootloop variables
+    // this is a simpler way to preemtively revert the config in case current brownout is caused by a bad choice of settings
+    DEBUG_PRINTLN(F("brownout detected"));
+    //restoreConfig(); // TODO: blindly restoring config if brownout detected is a bad idea, need a better way (if at all)
+  } else {
+    uint32_t rebootinterval = rtctime - bl_last_boottime;
+    bl_last_boottime = rtctime; // store current runtime for next reboot
+    if (rebootinterval < BOOTLOOP_INTERVAL_TICKS) {
+      bl_crashcounter++;
+      if (bl_crashcounter >= BOOTLOOP_THRESHOLD) {
+        DEBUG_PRINTLN(F("!BOOTLOOP DETECTED!"));
+        bl_crashcounter = 0;
+        return true;
+      }
+    }
+  }
+#else // ESP8266
+  rst_info* resetreason = system_get_rst_info();
+  uint32_t  bl_last_boottime;
+  uint32_t  bl_crashcounter;
+  uint32_t  bl_actiontracker;
+  uint32_t  rtctime = system_get_rtc_time();
+
+  if (!(resetreason->reason == REASON_EXCEPTION_RST || resetreason->reason == REASON_WDT_RST)) {
+    // no crash detected, init variables
+    bl_crashcounter = 0;
+    ESP.rtcUserMemoryWrite(BOOT_TIME_IDX, &rtctime, sizeof(uint32_t));
+    ESP.rtcUserMemoryWrite(CRASH_COUNTER_IDX, &bl_crashcounter, sizeof(uint32_t));
+    if(resetreason->reason != REASON_SOFT_RESTART) {
+      bl_actiontracker = BOOTLOOP_ACTION_RESTORE; // init action tracker if not an intentional reboot (e.g. from OTA or bootloop handler)
+      ESP.rtcUserMemoryWrite(ACTIONT_TRACKER_IDX, &bl_actiontracker, sizeof(uint32_t));
+    }
+  } else {
+    // system has crashed
+    ESP.rtcUserMemoryRead(BOOT_TIME_IDX, &bl_last_boottime, sizeof(uint32_t));
+    ESP.rtcUserMemoryRead(CRASH_COUNTER_IDX, &bl_crashcounter, sizeof(uint32_t));
+    uint32_t rebootinterval = rtctime - bl_last_boottime;
+    ESP.rtcUserMemoryWrite(BOOT_TIME_IDX, &rtctime, sizeof(uint32_t)); // store current ticks for next reboot
+    if (rebootinterval < BOOTLOOP_INTERVAL_TICKS) {
+      bl_crashcounter++;
+      ESP.rtcUserMemoryWrite(CRASH_COUNTER_IDX, &bl_crashcounter, sizeof(uint32_t));
+      if (bl_crashcounter >= BOOTLOOP_THRESHOLD) {
+        DEBUG_PRINTLN(F("BOOTLOOP DETECTED"));
+        bl_crashcounter = 0;
+        ESP.rtcUserMemoryWrite(CRASH_COUNTER_IDX, &bl_crashcounter, sizeof(uint32_t));
+        return true;
+      }
+    }
+  }
+#endif
+  return false; // no bootloop detected
+}
+
+void handleBootLoop() {
+  DEBUG_PRINTLN(F("checking for bootloop"));
+  if (!detectBootLoop()) return; // no bootloop detected
+#ifdef ESP8266
+  uint32_t bl_actiontracker;
+  ESP.rtcUserMemoryRead(ACTIONT_TRACKER_IDX, &bl_actiontracker, sizeof(uint32_t));
+#endif
+  if (bl_actiontracker == BOOTLOOP_ACTION_RESTORE) {
+    restoreConfig(); // note: if this fails, could reset immediately. instead just let things play out and save a few lines of code
+    bl_actiontracker = BOOTLOOP_ACTION_RESET; // reset config if it keeps bootlooping
+  } else if (bl_actiontracker == BOOTLOOP_ACTION_RESET) {
+    resetConfig();
+    bl_actiontracker = BOOTLOOP_ACTION_OTA; // swap boot partition if it keeps bootlooping. On ESP8266 this is the same as BOOTLOOP_ACTION_NONE
+  }
+#ifndef ESP8266
+  else if (bl_actiontracker == BOOTLOOP_ACTION_OTA) {
+    if(Update.canRollBack()) {
+      DEBUG_PRINTLN(F("Swapping boot partition..."));
+      Update.rollBack(); // swap boot partition
+    }
+    bl_actiontracker = BOOTLOOP_ACTION_DUMP; // out of options
+  }
+  #endif
+  else
+    dumpFilesToSerial();
+#ifdef ESP8266
+  ESP.rtcUserMemoryWrite(ACTIONT_TRACKER_IDX, &bl_actiontracker, sizeof(uint32_t));
+#endif
+  ESP.restart(); // restart cleanly and don't wait for another crash
+}
 
 /*
  * Fixed point integer based Perlin noise functions by @dedehai

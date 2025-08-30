@@ -685,6 +685,7 @@ function parseInfo(i) {
 		gId("filter2D").classList.remove('hide');
 		gId('bs').querySelectorAll('option[data-type="2D"]').forEach((o,i)=>{o.style.display='';});
 	}
+	gId("updBt").style.display = (i.opt & 1) ? '':'none';
 //	if (i.noaudio) {
 //		gId("filterVol").classList.add("hide");
 //		gId("filterFreq").classList.add("hide");
@@ -1526,6 +1527,9 @@ function readState(s,command=false)
 				break;
 			case  3:
 				errstr = "Buffer locked!";
+				break;
+			case  7:
+				errstr = "No RAM for buffer!";
 				break;
 			case  8:
 				errstr = "Effect RAM depleted!";

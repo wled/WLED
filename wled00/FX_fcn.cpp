@@ -66,13 +66,15 @@ Segment::Segment(const Segment &orig) {
   _dataLen = 0;
   pixels = nullptr;
   if (!stop) return;  // nothing to do if segment is inactive/invalid
-  if (orig.name) { name = static_cast<char*>(d_malloc(strlen(orig.name)+1)); if (name) strcpy(name, orig.name); }
-  if (orig.data) { if (allocateData(orig._dataLen)) memcpy(data, orig.data, orig._dataLen); }
   if (orig.pixels) {
+    // allocate pixel buffer: prefer IRAM/PSRAM
     pixels = static_cast<uint32_t*>(d_malloc(sizeof(uint32_t) * orig.length()));
-    if (pixels) memcpy(pixels, orig.pixels, sizeof(uint32_t) * orig.length());
-    else {
-      DEBUG_PRINTLN(F("!!! Not enough RAM for pixel buffer !!!"));
+    if (pixels) {
+      memcpy(pixels, orig.pixels, sizeof(uint32_t) * orig.length());
+      if (orig.name) { name = static_cast<char*>(d_malloc(strlen(orig.name)+1)); if (name) strcpy(name, orig.name); }
+      if (orig.data) { if (allocateData(orig._dataLen)) memcpy(data, orig.data, orig._dataLen); }
+    } else {
+      DEBUGFX_PRINTLN(F("!!! Not enough RAM for pixel buffer !!!"));
       errorFlag = ERR_NORAM_PX;
       stop = 0; // mark segment as inactive/invalid
     }
@@ -107,12 +109,14 @@ Segment& Segment::operator= (const Segment &orig) {
     pixels = nullptr;
     if (!stop) return *this;  // nothing to do if segment is inactive/invalid
     // copy source data
-    if (orig.name) { name = static_cast<char*>(d_malloc(strlen(orig.name)+1)); if (name) strcpy(name, orig.name); }
-    if (orig.data) { if (allocateData(orig._dataLen)) memcpy(data, orig.data, orig._dataLen); }
     if (orig.pixels) {
+      // allocate pixel buffer: prefer IRAM/PSRAM
       pixels = static_cast<uint32_t*>(d_malloc(sizeof(uint32_t) * orig.length()));
-      if (pixels) memcpy(pixels, orig.pixels, sizeof(uint32_t) * orig.length());
-      else {
+      if (pixels) {
+        memcpy(pixels, orig.pixels, sizeof(uint32_t) * orig.length());
+        if (orig.name) { name = static_cast<char*>(d_malloc(strlen(orig.name)+1)); if (name) strcpy(name, orig.name); }
+        if (orig.data) { if (allocateData(orig._dataLen)) memcpy(data, orig.data, orig._dataLen); }
+      } else {
         DEBUG_PRINTLN(F("!!! Not enough RAM for pixel buffer !!!"));
         errorFlag = ERR_NORAM_PX;
         stop = 0; // mark segment as inactive/invalid
@@ -159,8 +163,16 @@ bool Segment::allocateData(size_t len) {
     return false;
   }
   // prefer DRAM over SPI RAM on ESP32 since it is slow
-  if (data) data = (byte*)d_realloc(data, len);
-  else      data = (byte*)d_malloc(len);
+  if (data) {
+    data = (byte*)d_realloc_malloc(data, len); // realloc with malloc fallback
+    if (!data) {
+      data = nullptr;
+      Segment::addUsedSegmentData(-_dataLen); // subtract original buffer size
+      _dataLen = 0;   // reset data length
+    }
+  }
+  else data = (byte*)d_malloc(len);
+
   if (data) {
     memset(data, 0, len);  // erase buffer
     Segment::addUsedSegmentData(len - _dataLen);
@@ -170,7 +182,6 @@ bool Segment::allocateData(size_t len) {
   }
   // allocation failed
   DEBUG_PRINTLN(F("!!! Allocation failed. !!!"));
-  Segment::addUsedSegmentData(-_dataLen); // subtract original buffer size
   errorFlag = ERR_NORAM;
   return false;
 }
@@ -271,11 +282,13 @@ void Segment::startTransition(uint16_t dur, bool segmentCopy) {
       _t->_oldSegment = new(std::nothrow) Segment(*this); // store/copy current segment settings
       _t->_start = millis();                              // restart countdown
       _t->_dur   = dur;
+      _t->_prevPaletteBlends = 0;
       if (_t->_oldSegment) {
         _t->_oldSegment->palette = _t->_palette;          // restore original palette and colors (from start of transition)
         for (unsigned i = 0; i < NUM_COLORS; i++) _t->_oldSegment->colors[i] = _t->_colors[i];
+        DEBUGFX_PRINTF_P(PSTR("-- Updated transition with segment copy: S=%p T(%p) O[%p] OP[%p]\n"), this, _t, _t->_oldSegment, _t->_oldSegment->pixels);
+        if (!_t->_oldSegment->isActive()) stopTransition();
       }
-      DEBUG_PRINTF_P(PSTR("-- Updated transition with segment copy: S=%p T(%p) O[%p] OP[%p]\n"), this, _t, _t->_oldSegment, _t->_oldSegment->pixels);
     }
     return;
   }
@@ -291,13 +304,12 @@ void Segment::startTransition(uint16_t dur, bool segmentCopy) {
     #endif
     for (int i=0; i<NUM_COLORS; i++) _t->_colors[i] = colors[i];
     if (segmentCopy) _t->_oldSegment = new(std::nothrow) Segment(*this); // store/copy current segment settings
-    #ifdef WLED_DEBUG
     if (_t->_oldSegment) {
-      DEBUG_PRINTF_P(PSTR("-- Started transition: S=%p T(%p) O[%p] OP[%p]\n"), this, _t, _t->_oldSegment, _t->_oldSegment->pixels);
+      DEBUGFX_PRINTF_P(PSTR("-- Started transition: S=%p T(%p) O[%p] OP[%p]\n"), this, _t, _t->_oldSegment, _t->_oldSegment->pixels);
+      if (!_t->_oldSegment->isActive()) stopTransition();
     } else {
-      DEBUG_PRINTF_P(PSTR("-- Started transition without old segment: S=%p T(%p)\n"), this, _t);
+      DEBUGFX_PRINTF_P(PSTR("-- Started transition without old segment: S=%p T(%p)\n"), this, _t);
     }
-    #endif
   };
 }
 
@@ -357,6 +369,7 @@ void Segment::beginDraw(uint16_t prog) {
     // minimum blend time is 100ms maximum is 65535ms
     #ifndef WLED_SAVE_RAM
     unsigned noOfBlends = ((255U * prog) / 0xFFFFU) - _t->_prevPaletteBlends;
+    if(noOfBlends > 255) noOfBlends = 255; // safety check
     for (unsigned i = 0; i < noOfBlends; i++, _t->_prevPaletteBlends++) nblendPaletteTowardPalette(_t->_palT, Segment::_currentPalette, 48);
     Segment::_currentPalette = _t->_palT; // copy transitioning/temporary palette
     #else
@@ -418,14 +431,15 @@ void Segment::setGeometry(uint16_t i1, uint16_t i2, uint8_t grp, uint8_t spc, ui
 
   unsigned oldLength = length();
 
-  DEBUG_PRINTF_P(PSTR("Segment geometry: %d,%d -> %d,%d [%d,%d]\n"), (int)i1, (int)i2, (int)i1Y, (int)i2Y, (int)grp, (int)spc);
+  DEBUGFX_PRINTF_P(PSTR("Segment geometry: %d,%d -> %d,%d [%d,%d]\n"), (int)i1, (int)i2, (int)i1Y, (int)i2Y, (int)grp, (int)spc);
   markForReset();
-  startTransition(strip.getTransition()); // start transition prior to change (if segment is deactivated (start>stop) no transition will happen)
-  stateChanged = true; // send UDP/WS broadcast
+  if (_t) stopTransition(); // we can't use transition if segment dimensions changed
+  stateChanged = true;      // send UDP/WS broadcast
 
   // apply change immediately
   if (i2 <= i1) { //disable segment
-    d_free(pixels);
+    deallocateData();
+    p_free(pixels);
     pixels = nullptr;
     stop = 0;
     return;
@@ -442,21 +456,25 @@ void Segment::setGeometry(uint16_t i1, uint16_t i2, uint8_t grp, uint8_t spc, ui
   #endif
   // safety check
   if (start >= stop || startY >= stopY) {
-    d_free(pixels);
+    deallocateData();
+    p_free(pixels);
     pixels = nullptr;
     stop = 0;
     return;
   }
-  // re-allocate FX render buffer
+  // allocate FX render buffer
   if (length() != oldLength) {
-    if (pixels) pixels = static_cast<uint32_t*>(d_realloc(pixels, sizeof(uint32_t) * length()));
-    else        pixels = static_cast<uint32_t*>(d_malloc(sizeof(uint32_t) * length()));
+    // allocate render buffer (always entire segment), prefer IRAM/PSRAM. Note: impact on FPS with PSRAM buffer is low (<2% with QSPI PSRAM) on S2/S3
+    p_free(pixels);
+    pixels = static_cast<uint32_t*>(d_malloc(sizeof(uint32_t) * length()));
     if (!pixels) {
-      DEBUG_PRINTLN(F("!!! Not enough RAM for pixel buffer !!!"));
+      DEBUGFX_PRINTLN(F("!!! Not enough RAM for pixel buffer !!!"));
+      deallocateData();
       errorFlag = ERR_NORAM_PX;
       stop = 0;
       return;
     }
+
   }
   refreshLightCapabilities();
 }
@@ -563,10 +581,10 @@ Segment &Segment::setName(const char *newName) {
   if (newName) {
     const int newLen = min(strlen(newName), (size_t)WLED_MAX_SEGNAME_LEN);
     if (newLen) {
-      if (name) name = static_cast<char*>(d_realloc(name, newLen+1));
-      else      name = static_cast<char*>(d_malloc(newLen+1));
+      if (name) d_free(name); // free old name
+      name = static_cast<char*>(d_malloc(newLen+1));
+      if (mode == FX_MODE_2DSCROLLTEXT) startTransition(strip.getTransition(), true); // if the name changes in scrolling text mode, we need to copy the segment for blending
       if (name) strlcpy(name, newName, newLen+1);
-      name[newLen] = 0;
       return *this;
     }
   }
@@ -645,6 +663,14 @@ uint16_t Segment::virtualLength() const {
   return vLength;
 }
 
+#ifndef WLED_DISABLE_2D
+// maximum length of a mapped 1D segment, used in PS for buffer allocation
+uint16_t Segment::maxMappingLength() const {
+  uint32_t vW = virtualWidth();
+  uint32_t vH = virtualHeight();
+  return max(sqrt32_bw(vH*vH + vW*vW), (uint32_t)getPinwheelLength(vW, vH)); // use diagonal
+}
+#endif
 // pixel is clipped if it falls outside clipping range
 // if clipping start > stop the clipping range is inverted
 bool IRAM_ATTR_YN Segment::isPixelClipped(int i) const {
@@ -729,8 +755,8 @@ void IRAM_ATTR_YN Segment::setPixelColor(int i, uint32_t col) const
         }
         break;
       case M12_pCorner:
-        for (int x = 0; x <= i; x++) setPixelColorRaw(XY(x, i), col);
-        for (int y = 0; y <  i; y++) setPixelColorRaw(XY(i, y), col);
+        for (int x = 0; x <= i; x++) setPixelColorXY(x, i, col); // note: <= to include i=0. Relies on overflow check in sPC()
+        for (int y = 0; y <  i; y++) setPixelColorXY(i, y, col);
         break;
       case M12_sPinwheel: {
         // Uses Bresenham's algorithm to place coordinates of two lines in arrays then draws between them
@@ -987,7 +1013,8 @@ void Segment::fade_out(uint8_t rate) const {
   if (!isActive()) return; // not active
   rate = (256-rate) >> 1;
   const int mappedRate = 256 / (rate + 1);
-  for (unsigned j = 0; j < vLength(); j++) {
+  const size_t rlength = rawLength();  // calculate only once
+  for (unsigned j = 0; j < rlength; j++) {
     uint32_t color = getPixelColorRaw(j);
     if (color == colors[1]) continue; // already at target color
     for (int i = 0; i < 32; i += 8) {
@@ -1008,13 +1035,15 @@ void Segment::fade_out(uint8_t rate) const {
 // fades all pixels to secondary color
 void Segment::fadeToSecondaryBy(uint8_t fadeBy) const {
   if (!isActive() || fadeBy == 0) return;   // optimization - no scaling to apply
-  for (unsigned i = 0; i < vLength(); i++) setPixelColorRaw(i, color_blend(getPixelColorRaw(i), colors[1], fadeBy));
+  const size_t rlength = rawLength();  // calculate only once
+  for (unsigned i = 0; i < rlength; i++) setPixelColorRaw(i, color_blend(getPixelColorRaw(i), colors[1], fadeBy));
 }
 
 // fades all pixels to black using nscale8()
 void Segment::fadeToBlackBy(uint8_t fadeBy) const {
   if (!isActive() || fadeBy == 0) return;   // optimization - no scaling to apply
-  for (unsigned i = 0; i < vLength(); i++) setPixelColorRaw(i, color_fade(getPixelColorRaw(i), 255-fadeBy));
+  const size_t rlength = rawLength();  // calculate only once
+  for (unsigned i = 0; i < rlength; i++) setPixelColorRaw(i, color_fade(getPixelColorRaw(i), 255-fadeBy));
 }
 
 /*
@@ -1058,27 +1087,14 @@ void Segment::blur(uint8_t blur_amount, bool smear) const {
 /*
  * Put a value 0 to 255 in to get a color value.
  * The colours are a transition r -> g -> b -> back to r
- * Inspired by the Adafruit examples.
+ * Rotates the color in HSV space, where pos is H. (0=0deg, 256=360deg)
  */
 uint32_t Segment::color_wheel(uint8_t pos) const {
-  if (palette) return color_from_palette(pos, false, false, 0); // never wrap palette
+  if (palette) return color_from_palette(pos, false, false, 0); // only wrap if "always wrap" is set
   uint8_t w = W(getCurrentColor(0));
-  pos = 255 - pos;
-  if (useRainbowWheel) {
-    CRGB rgb;
-    hsv2rgb_rainbow(CHSV(pos, 255, 255), rgb);
-    return RGBW32(rgb.r, rgb.g, rgb.b, w);
-  } else {
-    if (pos < 85) {
-      return RGBW32((255 - pos * 3), 0, (pos * 3), w);
-    } else if (pos < 170) {
-      pos -= 85;
-      return RGBW32(0, (pos * 3), (255 - pos * 3), w);
-    } else {
-      pos -= 170;
-      return RGBW32((pos * 3), (255 - pos * 3), 0, w);
-    }
-  }
+  uint32_t rgb;
+  hsv2rgb(CHSV32(static_cast<uint16_t>(pos << 8), 255, 255), rgb);
+  return rgb | (w << 24); // add white channel
 }
 
 /*
@@ -1136,21 +1152,27 @@ void WS2812FX::finalizeInit() {
   #if defined(ARDUINO_ARCH_ESP32) && !defined(CONFIG_IDF_TARGET_ESP32C3)
   // determine if it is sensible to use parallel I2S outputs on ESP32 (i.e. more than 5 outputs = 1 I2S + 4 RMT)
   unsigned maxLedsOnBus = 0;
+  unsigned busType = 0;
   for (const auto &bus : busConfigs) {
     if (Bus::isDigital(bus.type) && !Bus::is2Pin(bus.type)) {
       digitalCount++;
+      if (busType == 0) busType = bus.type; // remember first bus type
+      if (busType != bus.type) {
+        DEBUG_PRINTF_P(PSTR("Mixed digital bus types detected! Forcing single I2S output.\n"));
+        useParallelI2S = false; // mixed bus types, no parallel I2S
+      }
       if (bus.count > maxLedsOnBus) maxLedsOnBus = bus.count;
     }
   }
   DEBUG_PRINTF_P(PSTR("Maximum LEDs on a bus: %u\nDigital buses: %u\n"), maxLedsOnBus, digitalCount);
-  // we may remove 300 LEDs per bus limit when NeoPixelBus is updated beyond 2.9.0
-  if (maxLedsOnBus <= 300 && useParallelI2S) BusManager::useParallelOutput(); // must call before creating buses
+  // we may remove 600 LEDs per bus limit when NeoPixelBus is updated beyond 2.8.3
+  if (maxLedsOnBus <= 600 && useParallelI2S) BusManager::useParallelOutput(); // must call before creating buses
   else useParallelI2S = false; // enforce single I2S
+  digitalCount = 0;
   #endif
 
   // create buses/outputs
   unsigned mem = 0;
-  digitalCount = 0;
   for (const auto &bus : busConfigs) {
     mem += bus.memUsage(Bus::isDigital(bus.type) && !Bus::is2Pin(bus.type) ? digitalCount++ : 0); // includes global buffer
     if (mem <= MAX_LED_MEMORY) {
@@ -1172,8 +1194,9 @@ void WS2812FX::finalizeInit() {
     if (busEnd > _length) _length = busEnd;
     // This must be done after all buses have been created, as some kinds (parallel I2S) interact
     bus->begin();
-    bus->setBrightness(bri);
+    bus->setBrightness(scaledBri(bri));
   }
+  BusManager::initializeABL(); // init brightness limiter
   DEBUG_PRINTF_P(PSTR("Heap after buses: %d\n"), ESP.getFreeHeap());
 
   Segment::maxWidth  = _length;
@@ -1186,10 +1209,9 @@ void WS2812FX::finalizeInit() {
   deserializeMap();     // (re)load default ledmap (will also setUpMatrix() if ledmap does not exist)
 
   // allocate frame buffer after matrix has been set up (gaps!)
-  if (_pixels) _pixels = static_cast<uint32_t*>(d_realloc(_pixels, getLengthTotal() * sizeof(uint32_t)));
-  else         _pixels = static_cast<uint32_t*>(d_malloc(getLengthTotal() * sizeof(uint32_t)));
+  d_free(_pixels); // using realloc on large buffers can cause additional fragmentation instead of reducing it
+  _pixels = static_cast<uint32_t*>(d_malloc(getLengthTotal() * sizeof(uint32_t)));
   DEBUG_PRINTF_P(PSTR("strip buffer size: %uB\n"), getLengthTotal() * sizeof(uint32_t));
-
   DEBUG_PRINTF_P(PSTR("Heap after strip init: %uB\n"), ESP.getFreeHeap());
 }
 
@@ -1234,7 +1256,8 @@ void WS2812FX::service() {
         // if segment is in transition and no old segment exists we don't need to run the old mode
         // (blendSegments() takes care of On/Off transitions and clipping)
         Segment *segO = seg.getOldSegment();
-        if (segO && (seg.mode != segO->mode || blendingStyle != BLEND_STYLE_FADE)) {
+        if (segO && segO->isActive() && (seg.mode != segO->mode || blendingStyle != BLEND_STYLE_FADE ||
+            (segO->name != seg.name && segO->name && seg.name && strncmp(segO->name, seg.name, WLED_MAX_SEGNAME_LEN) != 0))) {
           Segment::modeBlend(true);         // set semaphore for beginDraw() to blend colors and palette
           segO->beginDraw(prog);            // set up palette & colors (also sets draw dimensions), parent segment has transition progress
           _currentSegment = segO;           // set current segment
@@ -1275,7 +1298,7 @@ static uint8_t _add       (uint8_t a, uint8_t b) { unsigned t = a + b; return t 
 static uint8_t _subtract  (uint8_t a, uint8_t b) { return b > a ? (b - a) : 0; }
 static uint8_t _difference(uint8_t a, uint8_t b) { return b > a ? (b - a) : (a - b); }
 static uint8_t _average   (uint8_t a, uint8_t b) { return (a + b) >> 1; }
-#ifdef CONFIG_IDF_TARGET_ESP32C3
+#if defined(ESP8266) || defined(CONFIG_IDF_TARGET_ESP32C3)
 static uint8_t _multiply  (uint8_t a, uint8_t b) { return ((a * b) + 255) >> 8; } // faster than division on C3 but slightly less accurate
 #else
 static uint8_t _multiply  (uint8_t a, uint8_t b) { return (a * b) / 255; } // origianl uses a & b in range [0,1]
@@ -1286,10 +1309,10 @@ static uint8_t _darken    (uint8_t a, uint8_t b) { return a < b ? a : b; }
 static uint8_t _screen    (uint8_t a, uint8_t b) { return 255 - _multiply(~a,~b); } // 255 - (255-a)*(255-b)/255
 static uint8_t _overlay   (uint8_t a, uint8_t b) { return b < 128 ? 2 * _multiply(a,b) : (255 - 2 * _multiply(~a,~b)); }
 static uint8_t _hardlight (uint8_t a, uint8_t b) { return a < 128 ? 2 * _multiply(a,b) : (255 - 2 * _multiply(~a,~b)); }
-#ifdef CONFIG_IDF_TARGET_ESP32C3
-static uint8_t _softlight (uint8_t a, uint8_t b) { return (((b * b * (255 - 2 * a) + 255) >> 8) + 2 * a * b + 255) >> 8; } // Pegtop's formula (1 - 2a)b^2 + 2ab
+#if defined(ESP8266) || defined(CONFIG_IDF_TARGET_ESP32C3)
+static uint8_t _softlight (uint8_t a, uint8_t b) { return (((b * b * (255 - 2 * a))) + ((2 * a * b + 256) << 8)) >> 16; } // Pegtop's formula (1 - 2a)b^2
 #else
-static uint8_t _softlight (uint8_t a, uint8_t b) { return (b * b * (255 - 2 * a) / 255 + 2 * a * b) / 255; } // Pegtop's formula (1 - 2a)b^2 + 2ab
+static uint8_t _softlight (uint8_t a, uint8_t b) { return (b * b * (255 - 2 * a) + 255 * 2 * a * b) / (255 * 255); } // Pegtop's formula (1 - 2a)b^2 + 2ab
 #endif
 static uint8_t _dodge     (uint8_t a, uint8_t b) { return _divide(~a,b); }
 static uint8_t _burn      (uint8_t a, uint8_t b) { return ~_divide(a,~b); }
@@ -1432,8 +1455,10 @@ void WS2812FX::blendSegment(const Segment &topSegment) const {
       }
       uint32_t c_a = BLACK;
       if (x < vCols && y < vRows) c_a = seg->getPixelColorRaw(x + y*vCols); // will get clipped pixel from old segment or unclipped pixel from new segment
-      if (segO && blendingStyle == BLEND_STYLE_FADE && topSegment.mode != segO->mode && x < oCols && y < oRows) {
-        // we need to blend old segment using fade as pixels ae not clipped
+      if (segO && blendingStyle == BLEND_STYLE_FADE
+        && (topSegment.mode != segO->mode || (segO->name != topSegment.name && segO->name && topSegment.name && strncmp(segO->name, topSegment.name, WLED_MAX_SEGNAME_LEN) != 0))
+        && x < oCols && y < oRows) {
+        // we need to blend old segment using fade as pixels are not clipped
         c_a = color_blend16(c_a, segO->getPixelColorRaw(x + y*oCols), progInv);
       } else if (blendingStyle != BLEND_STYLE_FADE) {
         // workaround for On/Off transition
@@ -1526,67 +1551,9 @@ void WS2812FX::blendSegment(const Segment &topSegment) const {
   Segment::setClippingRect(0, 0);             // disable clipping for overlays
 }
 
-// To disable brightness limiter we either set output max current to 0 or single LED current to 0
-static uint8_t estimateCurrentAndLimitBri(uint8_t brightness, uint32_t *pixels) {
-  unsigned milliAmpsMax = BusManager::ablMilliampsMax();
-  if (milliAmpsMax > 0) {
-    unsigned milliAmpsTotal = 0;
-    unsigned avgMilliAmpsPerLED = 0;
-    unsigned lengthDigital = 0;
-    bool useWackyWS2815PowerModel = false;
-
-    for (size_t i = 0; i < BusManager::getNumBusses(); i++) {
-      const Bus *bus = BusManager::getBus(i);
-      if (!(bus && bus->isDigital() && bus->isOk())) continue;
-      unsigned maPL = bus->getLEDCurrent();
-      if (maPL == 0 || bus->getMaxCurrent() > 0) continue; // skip buses with 0 mA per LED or max current per bus defined (PP-ABL)
-      if (maPL == 255) {
-        useWackyWS2815PowerModel = true;
-        maPL = 12; // WS2815 uses 12mA per channel
-      }
-      avgMilliAmpsPerLED += maPL * bus->getLength();
-      lengthDigital += bus->getLength();
-      // sum up the usage of each LED on digital bus
-      uint32_t busPowerSum = 0;
-      for (unsigned j = 0; j < bus->getLength(); j++) {
-        uint32_t c = pixels[j + bus->getStart()];
-        byte r = R(c), g = G(c), b = B(c), w = W(c);
-        if (useWackyWS2815PowerModel) { //ignore white component on WS2815 power calculation
-          busPowerSum += (max(max(r,g),b)) * 3;
-        } else {
-          busPowerSum += (r + g + b + w);
-        }
-      }
-      // RGBW led total output with white LEDs enabled is still 50mA, so each channel uses less
-      if (bus->hasWhite()) {
-        busPowerSum *= 3;
-        busPowerSum >>= 2; //same as /= 4
-      }
-      // powerSum has all the values of channels summed (max would be getLength()*765 as white is excluded) so convert to milliAmps
-      milliAmpsTotal += (busPowerSum * maPL * brightness) / (765*255);
-    }
-    if (lengthDigital > 0) {
-      avgMilliAmpsPerLED /= lengthDigital;
-
-      if (milliAmpsMax > MA_FOR_ESP && avgMilliAmpsPerLED > 0) { //0 mA per LED and too low numbers turn off calculation
-        unsigned powerBudget = (milliAmpsMax - MA_FOR_ESP); //80/120mA for ESP power
-        if (powerBudget > lengthDigital) { //each LED uses about 1mA in standby, exclude that from power budget
-          powerBudget -= lengthDigital;
-        } else {
-          powerBudget = 0;
-        }
-        if (milliAmpsTotal > powerBudget) {
-          //scale brightness down to stay in current limit
-          unsigned scaleB = powerBudget * 255 / milliAmpsTotal;
-          brightness = ((brightness * scaleB) >> 8) + 1;
-        }
-      }
-    }
-  }
-  return brightness;
-}
-
 void WS2812FX::show() {
+  if (!_pixels) return; // no pixels allocated, nothing to show
+
   unsigned long showNow = millis();
   size_t diff = showNow - _lastShow;
 
@@ -1611,10 +1578,6 @@ void WS2812FX::show() {
   show_callback callback = _callback;
   if (callback) callback(); // will call setPixelColor or setRealtimePixelColor
 
-  // determine ABL brightness
-  uint8_t newBri = estimateCurrentAndLimitBri(_brightness, _pixels);
-  if (newBri != _brightness) BusManager::setBrightness(newBri);
-
   // paint actual pixels
   int oldCCT = Bus::getCCT(); // store original CCT value (since it is global)
   // when cctFromRgb is true we implicitly calculate WW and CW from RGB values (cct==-1)
@@ -1625,7 +1588,11 @@ void WS2812FX::show() {
     if (_pixelCCT) { // cctFromRgb already exluded at allocation
       if (i == 0 || _pixelCCT[i-1] != _pixelCCT[i]) BusManager::setSegmentCCT(_pixelCCT[i], correctWB);
     }
-    BusManager::setPixelColor(getMappedPixelIndex(i), realtimeMode && arlsDisableGammaCorrection ? _pixels[i] : gamma32(_pixels[i]));
+
+    uint32_t c = _pixels[i]; // need a copy, do not modify _pixels directly (no byte access allowed on ESP32)
+    if(c > 0 && !(realtimeMode && arlsDisableGammaCorrection))
+        c = gamma32(c); // apply gamma correction if enabled note: applying gamma after brightness has too much color loss
+    BusManager::setPixelColor(getMappedPixelIndex(i), c);
   }
   Bus::setCCT(oldCCT);  // restore old CCT for ABL adjustments
 
@@ -1636,9 +1603,6 @@ void WS2812FX::show() {
   // all of the data has been sent.
   // See https://github.com/Makuna/NeoPixelBus/wiki/ESP32-NeoMethods#neoesp32rmt-methods
   BusManager::show();
-
-  // restore brightness for next frame
-  if (newBri != _brightness) BusManager::setBrightness(_brightness);
 
   if (diff > 0) { // skip calculation if no time has passed
     size_t fpsCurr = (1000 << FPS_CALC_SHIFT) / diff; // fixed point math
@@ -1674,7 +1638,7 @@ void WS2812FX::setTransitionMode(bool t) {
 
 // wait until frame is over (service() has finished or time for 1 frame has passed; yield() crashes on 8266)
 void WS2812FX::waitForIt() {
-  unsigned long maxWait = millis() + getFrameTime();
+  unsigned long maxWait = millis() + getFrameTime() + 100; // TODO: this needs a proper fix for timeout!
   while (isServicing() && maxWait > millis()) delay(1);
   #ifdef WLED_DEBUG
   if (millis() >= maxWait) DEBUG_PRINTLN(F("Waited for strip to finish servicing."));
@@ -1704,7 +1668,7 @@ void WS2812FX::setBrightness(uint8_t b, bool direct) {
   if (_brightness == 0) { //unfreeze all segments on power off
     for (const Segment &seg : _segments) seg.freeze = false; // freeze is mutable
   }
-  BusManager::setBrightness(b);
+  BusManager::setBrightness(scaledBri(b));
   if (!direct) {
     unsigned long t = millis();
     if (_segments[0].next_time > t + 22 && t - _lastShow > MIN_SHOW_DELAY) trigger(); //apply brightness change immediately if no refresh soon
@@ -1859,7 +1823,7 @@ void WS2812FX::makeAutoSegments(bool forceReset) {
     for (size_t i = 1; i < s; i++) {
       _segments.emplace_back(segStarts[i], segStops[i]);
     }
-    DEBUG_PRINTF_P(PSTR("%d auto segments created.\n"), _segments.size());
+    DEBUGFX_PRINTF_P(PSTR("%d auto segments created.\n"), _segments.size());
 
   } else {
 
@@ -1983,7 +1947,7 @@ bool WS2812FX::deserializeMap(unsigned n) {
   }
 
   d_free(customMappingTable);
-  customMappingTable = static_cast<uint16_t*>(d_malloc(sizeof(uint16_t)*getLengthTotal())); // do not use SPI RAM
+  customMappingTable = static_cast<uint16_t*>(d_malloc(sizeof(uint16_t)*getLengthTotal())); // prefer DRAM for speed
 
   if (customMappingTable) {
     DEBUG_PRINTF_P(PSTR("ledmap allocated: %uB\n"), sizeof(uint16_t)*getLengthTotal());
