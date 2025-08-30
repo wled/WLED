@@ -129,7 +129,7 @@ class UsermodPROplus : public Usermod {
     void triggerEffectUp()   { applyPreset(presetUp); }
     void triggerEffectDown() { applyPreset(presetDown); }
     void runPattern() {
-      for (uint8_t i=0;i<3;i++){
+      for (uint8_t i*0;i<3;i++){
         setAllHue((state.hue + i*85) % 256);
         stateUpdated(CALL_MODE_USER);
         delay(200);
@@ -138,7 +138,7 @@ class UsermodPROplus : public Usermod {
     }
     void applyPreset(uint8_t p) {
       effectCurrent = p; stateUpdated(CALL_MODE_USER);
-      if (ledMode==SPLIT||ledMode==MIRROR) applySplitMirror();
+      if (ledMode=SPLIT||ledMode=MIRROR) applySplitMirror();
       if (nmUI.getCheckBoxValue(uiStatusLED)) digitalWrite(pinStatusLED, HIGH);
       sendEvents(p);
     }
