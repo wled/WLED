@@ -8,7 +8,7 @@ on:
 jobs:
   
   wled_build:
-prace:
+domyślne:
   wled_build:
     używa : ./.github/workflows/build.yml
     
