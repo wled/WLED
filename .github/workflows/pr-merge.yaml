@@ -25,5 +25,14 @@
             echo "Job originally triggered by ${{ github.actor }}"
             exit 1
         - name: Send Discord notification
+          env:
+            PR_NUMBER: ${{ github.event.pull_request.number }}
+            PR_TITLE: ${{ github.event.pull_request.title }}
+            PR_URL: ${{ github.event.pull_request.html_url }}
+            ACTOR: ${{ github.actor }}
           run: |
-            curl -H "Content-Type: application/json" -d '{"content": "Pull Request ${{ github.event.pull_request.number }} merged by ${{ github.actor }}"}' ${{ secrets.DISCORD_WEBHOOK_BETA_TESTERS }}
+            jq -n \
+              --arg content "Pull Request #${PR_NUMBER} \"${PR_TITLE}\" merged by ${ACTOR}
+            ${PR_URL}" \
+              '{content: $content}' \
+              | curl -H "Content-Type: application/json" -d @- ${{ secrets.DISCORD_WEBHOOK_BETA_TESTERS }}
