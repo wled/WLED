@@ -307,6 +307,7 @@ extern byte realtimeMode;           // used in getMappedPixelIndex()
 #define FX_MODE_2DFIRENOISE            149
 #define FX_MODE_2DSQUAREDSWIRL         150
 // #define FX_MODE_2DFIRE2012             151
+#define FX_MODE_PACMAN                 151 // gap fill - not SR
 #define FX_MODE_2DDNA                  152
 #define FX_MODE_2DMATRIX               153
 #define FX_MODE_2DMETABALLS            154
