@@ -1292,9 +1292,6 @@ void WS2812FX::service() {
 }
 
 // https://en.wikipedia.org/wiki/Blend_modes but using a for top layer & b for bottom layer
-static uint8_t _top       (uint8_t a, uint8_t b) { return a; }
-static uint8_t _bottom    (uint8_t a, uint8_t b) { return b; }
-static uint8_t _add       (uint8_t a, uint8_t b) { unsigned t = a + b; return t > 255 ? 255 : t; }
 static uint8_t _subtract  (uint8_t a, uint8_t b) { return b > a ? (b - a) : 0; }
 static uint8_t _difference(uint8_t a, uint8_t b) { return b > a ? (b - a) : (a - b); }
 static uint8_t _average   (uint8_t a, uint8_t b) { return (a + b) >> 1; }
@@ -1317,38 +1314,35 @@ static uint8_t _softlight (uint8_t a, uint8_t b) { return (b * b * (255 - 2 * a)
 static uint8_t _dodge     (uint8_t a, uint8_t b) { return _divide(~a,b); }
 static uint8_t _burn      (uint8_t a, uint8_t b) { return ~_divide(a,~b); }
 
-__attribute__((optimize("O2"))) // use O2 to trade 1.3k of flash for a ~5% FPS boost (ESP32)
-void WS2812FX::blendSegment(const Segment &topSegment) const {
-
- const auto segblend  = [&](uint32_t tcol, uint32_t bcol, uint32_t bgcol, uint8_t blendMode) {
-    uint8_t rt = R(tcol), gt = G(tcol), bt = B(tcol), wt = W(tcol);
-    uint8_t rb = R(bcol), gb = G(bcol), bb = B(bcol), wb = W(bcol);
-    uint8_t r, g, b, w;
-
-    switch (blendMode) {
-      case 0:  return tcol; // Top
-      case 1:  return bcol; // Bottom
-      case 2:  r = _add(rt, rb);        g = _add(gt, gb);        b = _add(bt, bb);        w = _add(wt, wb);        break; // Add
-      case 3:  r = _subtract(rt, rb);   g = _subtract(gt, gb);   b = _subtract(bt, bb);   w = _subtract(wt, wb);   break; // Subtract
-      case 4:  r = _difference(rt, rb); g = _difference(gt, gb); b = _difference(bt, bb); w = _difference(wt, wb); break; // Difference
-      case 5:  r = _average(rt, rb);    g = _average(gt, gb);    b = _average(bt, bb);    w = _average(wt, wb);    break; // Average
-      case 6:  r = _multiply(rt, rb);   g = _multiply(gt, gb);   b = _multiply(bt, bb);   w = _multiply(wt, wb);   break; // Multiply
-      case 7:  r = _divide(rt, rb);     g = _divide(gt, gb);     b = _divide(bt, bb);     w = _divide(wt, wb);     break; // Divide
-      case 8:  r = _lighten(rt, rb);    g = _lighten(gt, gb);    b = _lighten(bt, bb);    w = _lighten(wt, wb);    break; // Lighten
-      case 9:  r = _darken(rt, rb);     g = _darken(gt, gb);     b = _darken(bt, bb);     w = _darken(wt, wb);     break; // Darken
-      case 10: r = _screen(rt, rb);     g = _screen(gt, gb);     b = _screen(bt, bb);     w = _screen(wt, wb);     break; // Screen
-      case 11: r = _overlay(rt, rb);    g = _overlay(gt, gb);    b = _overlay(bt, bb);    w = _overlay(wt, wb);    break; // Overlay
-      case 12: r = _hardlight(rt, rb);  g = _hardlight(gt, gb);  b = _hardlight(bt, bb);  w = _hardlight(wt, wb);  break; // Hardlight
-      case 13: r = _softlight(rt, rb);  g = _softlight(gt, gb);  b = _softlight(bt, bb);  w = _softlight(wt, wb);  break; // Softlight
-      case 14: r = _dodge(rt, rb);      g = _dodge(gt, gb);      b = _dodge(bt, bb);      w = _dodge(wt, wb);      break; // Dodge
-      case 15: r = _burn(rt, rb);       g = _burn(gt, gb);       b = _burn(bt, bb);       w = _burn(wt, wb);       break; // Burn
-      case 32: return tcol == bgcol ? bcol : tcol; // stencil: backgroundcolor = transparent, use top color otherwise
-      default: return tcol; // fallback to Top
-    }
-
-    return RGBW32(r, g, b, w);
+static uint32_t segblend(CRGBW tcol, CRGBW bcol, CRGBW bgcol, uint8_t blendMode) {
+  CRGBW tC(tcol); CRGBW bC(bcol); CRGBW c; // note: using aliases shrinks code size for some weird compiler reasons, no speed difference in tests
+                                           // note2: using CRGBW instead of uint32_t improves speed as well as code size
+  switch (blendMode) {
+    case 0:  return tcol.color32;                 // Top
+    case 1:  return bcol.color32;                 // Bottom
+    case 2:  return color_add(tcol, bcol, false); // Add
+    case 3:  c.r = _subtract(tC.r, bC.r);   c.g = _subtract(tC.g, tC.g);   c.b = _subtract(tC.b, bC.b);   c.w = _subtract(tC.w, bC.w);   break; // Subtract
+    case 4:  c.r = _difference(tC.r, bC.r); c.g = _difference(tC.g, bC.g); c.b = _difference(tC.b, bC.b); c.w = _difference(tC.w, bC.w); break; // Difference
+    case 5:  c.r = _average(tC.r, bC.r);    c.g = _average(tC.g, bC.g);    c.b = _average(tC.b, bC.b);    c.w = _average(tC.w, bC.w);    break; // Average
+    case 6:  c.r = _multiply(tC.r, bC.r);   c.g = _multiply(tC.g, bC.g);   c.b = _multiply(tC.b, bC.b);   c.w = _multiply(tC.w, bC.w);   break; // Multiply
+    case 7:  c.r = _divide(tC.r, bC.r);     c.g = _divide(tC.g, bC.g);     c.b = _divide(tC.b, bC.b);     c.w = _divide(tC.w, bC.w);     break; // Divide
+    case 8:  c.r = _lighten(tC.r, bC.r);    c.g = _lighten(tC.g, bC.g);    c.b = _lighten(tC.b, bC.b);    c.w = _lighten(tC.w, bC.w);    break; // Lighten
+    case 9:  c.r = _darken(tC.r, bC.r);     c.g = _darken(tC.g, bC.g);     c.b = _darken(tC.b, bC.b);     c.w = _darken(tC.w, bC.w);     break; // Darken
+    case 10: c.r = _screen(tC.r, bC.r);     c.g = _screen(tC.g, bC.g);     c.b = _screen(tC.b, bC.b);     c.w = _screen(tC.w, bC.w);     break; // Screen
+    case 11: c.r = _overlay(tC.r, bC.r);    c.g = _overlay(tC.g, bC.g);    c.b = _overlay(tC.b, bC.b);    c.w = _overlay(tC.w, bC.w);    break; // Overlay
+    case 12: c.r = _hardlight(tC.r, bC.r);  c.g = _hardlight(tC.g, bC.g);  c.b = _hardlight(tC.b, bC.b);  c.w = _hardlight(tC.w, bC.w);  break; // Hardlight
+    case 13: c.r = _softlight(tC.r, bC.r);  c.g = _softlight(tC.g, bC.g);  c.b = _softlight(tC.b, bC.b);  c.w = _softlight(tC.w, bC.w);  break; // Softlight
+    case 14: c.r = _dodge(tC.r, bC.r);      c.g = _dodge(tC.g, bC.g);      c.b = _dodge(tC.b, bC.b);      c.w = _dodge(tC.w, bC.w);      break; // Dodge
+    case 15: c.r = _burn(tC.r, bC.r);       c.g = _burn(tC.g, bC.g);       c.b = _burn(tC.b, bC.b);       c.w = _burn(tC.w, bC.w);       break; // Burn
+    // note: stencil mode is a special case: it works only on full color comparison and wont work correctly on a colorchannel base
+    // enumerate to 32 to allow future additions above in case a function array will be used again
+    case 32: return tcol.color32 == bgcol.color32 ? bcol.color32 : tcol.color32; // Stencil: backgroundcolor -> transparent, use top color otherwise
+    default: return tcol.color32; // fallback to Top
+  }
+  return c.color32;
 };
 
+void WS2812FX::blendSegment(const Segment &topSegment) const {
   const uint8_t blendMode  = topSegment.blendMode;
   const int     length     = topSegment.length();     // physical segment length (counts all pixels in 2D segment)
   const int     width      = topSegment.width();

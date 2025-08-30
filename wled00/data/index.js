@@ -825,6 +825,7 @@ function populateSegments(s)
 							`<option value="13" ${inst.bm==13?' selected':''}>Soft Light</option>`+
 							`<option value="14" ${inst.bm==14?' selected':''}>Dodge</option>`+
 							`<option value="15" ${inst.bm==15?' selected':''}>Burn</option>`+
+							`<option value="32" ${inst.bm==32?' selected':''}>Stencil</option>`+
 						`</select></div>`+
 					`</div>`;
 		let sndSim = `<div data-snd="si" class="lbl-s hide">Sound sim<br>`+
@@ -2358,7 +2359,7 @@ function setSi(s)
 
 function setBm(s)
 {
-	var value = gId(`seg${s}bm`).selectedIndex;
+	var value = gId(`seg${s}bm`).value;
 	var obj = {"seg": {"id": s, "bm": value}};
 	requestJson(obj);
 }
