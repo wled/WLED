@@ -57,14 +57,14 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
 #endif
 
   JsonObject id = doc["id"];
+  getStringFromJson(serverDescription, id["name"], sizeof(serverDescription));
   // legacy behaviour
   getStringFromJson(hostName, id[F("mdns")], sizeof(hostName));
   if (strlen(hostName) == 0) {
     mDNSenabled = false; // if no host name is set, disable mDNS
-    sprintf_P(hostName, PSTR("wled-%.*s"), 6, escapedMac.c_str() + 6);
+    prepareHostname(hostName, sizeof(hostName)-1);
   }
 
-  getStringFromJson(serverDescription, id["name"], sizeof(serverDescription));
 #ifndef WLED_DISABLE_ALEXA
   getStringFromJson(alexaInvocationName, id[F("inv")], sizeof(alexaInvocationName));
 #endif
