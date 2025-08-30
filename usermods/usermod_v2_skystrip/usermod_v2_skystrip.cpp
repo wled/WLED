@@ -208,15 +208,20 @@ bool SkyStrip::readFromConfig(JsonObject& root) {
   for (auto& src : sources_) {
     JsonObject sub1 = top[src->configKey()];
     ok &= src->readFromConfig(sub1, startup_complete, invalidate_history);
+    DEBUG_PRINTF("SkyStrip:readFromConfig: after source %s invalidate_history=%d\n",
+                 src->name().c_str(), invalidate_history);
   }
 
   // read the views
   for (auto& vw : views_) {
     JsonObject sub2 = top[vw->configKey()];
     ok &= vw->readFromConfig(sub2, startup_complete, invalidate_history);
+    DEBUG_PRINTF("SkyStrip:readFromConfig: after view %s invalidate_history=%d\n",
+                 vw->name().c_str(), invalidate_history);
   }
 
   if (invalidate_history) {
+    DEBUG_PRINTLN(F("SkyStrip::readFromConfig invalidating history"));
     time_t const now = skystrip::util::time_now_utc();
     model_->invalidate_history(now);
     if (startup_complete) reloadSources(now); // not safe during startup

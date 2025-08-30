@@ -121,6 +121,12 @@ static void normalizeLocation(char* q) {
   }
 }
 
+// Treat two coordinates as equal if they differ by less than ~1 meter.
+// 1e-5 degrees ≈ 1.11 meters at the equator; adequate for our purposes.
+static inline bool nearlyEqualCoord(double a, double b, double eps = 1e-5) {
+  return fabs(a - b) <= eps;
+}
+
 static bool parseCoordToken(char* token, double& out) {
   while (isspace((unsigned char)*token)) ++token;
   bool neg = false;
@@ -221,7 +227,7 @@ bool OpenWeatherMapSource::readFromConfig(JsonObject &subtree,
   // If the location changed update lat/long via parsing or lookup
   if (location_ == lastLocation_) {
     // if the user changed the lat and long directly clear the location
-    if (latitude_ != oldLatitude || longitude_ != oldLongitude)
+    if (!nearlyEqualCoord(latitude_, oldLatitude) || !nearlyEqualCoord(longitude_, oldLongitude))
       location_ = "";
   } else {
     lastLocation_ = location_;
@@ -240,8 +246,12 @@ bool OpenWeatherMapSource::readFromConfig(JsonObject &subtree,
   }
 
   // if the lat/long changed we need to invalidate_history
-  if (latitude_ != oldLatitude || longitude_ != oldLongitude)
+  if (!nearlyEqualCoord(latitude_, oldLatitude) || !nearlyEqualCoord(longitude_, oldLongitude)) {
+    DEBUG_PRINTF("SkyStrip::OWM::readFromConfig lat/long changed"
+                 " oldLat=%f, newLat=%f, oldLng=%f, newLng=%f\n",
+                 oldLatitude, latitude_, oldLongitude, longitude_);
     invalidate_history = true;
+  }
 
   return configComplete;
 }
