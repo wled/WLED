@@ -164,7 +164,7 @@ public:
         configComplete &= getJsonValue(top["i2cAddress"], i2cAddress, I2C_ENCODER_DEFAULT_ADDRESS);
         return configComplete;
     }
-    uint16_t getId() override { return USERMOD_I2C_ENCODER_BUTTON; } // TODO: assign a unique ID in const.h
+    uint16_t getId() override { return USERMOD_I2C_ENCODER_BUTTON; }
 };
 
 static UsermodI2CEncoderButton usermod_i2c_encoder_button;
