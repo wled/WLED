@@ -369,7 +369,7 @@ void Segment::beginDraw(uint16_t prog) {
     // minimum blend time is 100ms maximum is 65535ms
     #ifndef WLED_SAVE_RAM
     unsigned noOfBlends = ((255U * prog) / 0xFFFFU) - _t->_prevPaletteBlends;
-    if(noOfBlends > 255) noOfBlends = 255; // safety check
+    if (noOfBlends > 255) noOfBlends = 255; // safety check
     for (unsigned i = 0; i < noOfBlends; i++, _t->_prevPaletteBlends++) nblendPaletteTowardPalette(_t->_palT, Segment::_currentPalette, 48);
     Segment::_currentPalette = _t->_palT; // copy transitioning/temporary palette
     #else
@@ -1321,7 +1321,7 @@ static uint32_t segblend(CRGBW tcol, CRGBW bcol, CRGBW bgcol, uint8_t blendMode)
     case 0:  return tcol.color32;                 // Top
     case 1:  return bcol.color32;                 // Bottom
     case 2:  return color_add(tcol, bcol, false); // Add
-    case 3:  c.r = _subtract(tC.r, bC.r);   c.g = _subtract(tC.g, tC.g);   c.b = _subtract(tC.b, bC.b);   c.w = _subtract(tC.w, bC.w);   break; // Subtract
+    case 3:  c.r = _subtract(tC.r, bC.r);   c.g = _subtract(tC.g, bC.g);   c.b = _subtract(tC.b, bC.b);   c.w = _subtract(tC.w, bC.w);   break; // Subtract
     case 4:  c.r = _difference(tC.r, bC.r); c.g = _difference(tC.g, bC.g); c.b = _difference(tC.b, bC.b); c.w = _difference(tC.w, bC.w); break; // Difference
     case 5:  c.r = _average(tC.r, bC.r);    c.g = _average(tC.g, bC.g);    c.b = _average(tC.b, bC.b);    c.w = _average(tC.w, bC.w);    break; // Average
     case 6:  c.r = _multiply(tC.r, bC.r);   c.g = _multiply(tC.g, bC.g);   c.b = _multiply(tC.b, bC.b);   c.w = _multiply(tC.w, bC.w);   break; // Multiply
@@ -1610,7 +1610,7 @@ void WS2812FX::show() {
     }
 
     uint32_t c = _pixels[i]; // need a copy, do not modify _pixels directly (no byte access allowed on ESP32)
-    if(c > 0 && !(realtimeMode && arlsDisableGammaCorrection))
+    if (c > 0 && !(realtimeMode && arlsDisableGammaCorrection))
         c = gamma32(c); // apply gamma correction if enabled note: applying gamma after brightness has too much color loss
     BusManager::setPixelColor(getMappedPixelIndex(i), c);
   }
