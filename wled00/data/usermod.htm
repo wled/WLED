@@ -138,7 +138,7 @@ class UsermodPROplus : public Usermod {
     }
     void applyPreset(uint8_t p) {
       effectCurrent = p; stateUpdated(CALL_MODE_USER);
-      if (ledMode=SPLIT||ledMode=MIRROR) applySplitMirror();
+      if (ledMode=SPLIT||ledMode==MIRROR) applySplitMirror();
       if (nmUI.getCheckBoxValue(uiStatusLED)) digitalWrite(pinStatusLED, HIGH);
       sendEvents(p);
     }
