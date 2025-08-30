@@ -424,7 +424,7 @@ void WLED::setup()
   escapedMac.toLowerCase();
 
   // generate host name if no compile time default is set
-  if (strcmp(hostName, DEFAULT_MDNS_NAME) == 0) sprintf_P(hostName, PSTR("wled-%.*s"), 6, escapedMac.c_str() + 6);
+  if (strcmp(hostName, DEFAULT_MDNS_NAME) == 0) prepareHostname(hostName, sizeof(hostName)-1);
   WLED_SET_AP_SSID(); // otherwise it is empty on first boot until config is saved
   multiWiFi.push_back(WiFiConfig(CLIENT_SSID,CLIENT_PASS)); // initialise vector with default WiFi
 

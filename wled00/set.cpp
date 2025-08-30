@@ -64,7 +64,7 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
     }
 
     strlcpy(hostName, request->arg(F("CM")).c_str(), sizeof(hostName));
-    if (strlen(hostName) == 0) sprintf_P(hostName, PSTR("wled-%.*s"), 6, escapedMac.c_str() + 6); // hostname must not be empty
+    if (strlen(hostName) == 0) prepareHostname(hostName, sizeof(hostName)-1);
     #ifdef ARDUINO_ARCH_ESP32
       #ifdef WLED_USE_ETHERNET
     ETH.setHostname(hostName);
