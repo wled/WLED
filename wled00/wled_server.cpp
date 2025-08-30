@@ -138,6 +138,11 @@ static String dmxProcessor(const String& var)
       mapJS += String(DMXFixtureMap[i]) + ',';
     }
     mapJS += F("0];");
+    mapJS += F(";\nvar DV=[");
+    for (int i=0; i<15; i++) {
+      mapJS += String(DMXChannelsValue[i]) + ',';
+    }
+    mapJS += F("0];");
   }
   return mapJS;
 }
@@ -252,7 +257,7 @@ void initServer()
   DefaultHeaders::Instance().addHeader(F("Access-Control-Allow-Headers"), "*");
 
 #ifdef WLED_ENABLE_WEBSOCKETS
-  #ifndef WLED_DISABLE_2D 
+  #ifndef WLED_DISABLE_2D
   server.on(F("/liveview2D"), HTTP_GET, [](AsyncWebServerRequest *request) {
     handleStaticContent(request, "", 200, FPSTR(CONTENT_TYPE_HTML), PAGE_liveviewws2D, PAGE_liveviewws2D_length);
   });
@@ -560,7 +565,7 @@ void serveSettingsJS(AsyncWebServerRequest* request)
     request->send_P(401, FPSTR(CONTENT_TYPE_JAVASCRIPT), PSTR("alert('PIN incorrect.');"));
     return;
   }
-  
+
   AsyncResponseStream *response = request->beginResponseStream(FPSTR(CONTENT_TYPE_JAVASCRIPT));
   response->addHeader(F("Cache-Control"), F("no-store"));
   response->addHeader(F("Expires"), F("0"));

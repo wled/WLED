@@ -411,7 +411,7 @@ void getSettingsJS(byte subPage, Print& settingsScript)
 #ifndef WLED_DISABLE_INFRARED
     printSetFormValue(settingsScript,PSTR("IR"),irPin);
     printSetFormValue(settingsScript,PSTR("IT"),irEnabled);
-#endif    
+#endif
     printSetFormCheckbox(settingsScript,PSTR("MSO"),!irApplyToAllSelected);
   }
 
@@ -457,8 +457,8 @@ void getSettingsJS(byte subPage, Print& settingsScript)
     printSetFormCheckbox(settingsScript,PSTR("EM"),e131Multicast);
     printSetFormValue(settingsScript,PSTR("EU"),e131Universe);
 #ifdef WLED_ENABLE_DMX
-    settingsScript.print(SET_F("hideNoDMX();"));  // hide "not compiled in" message    
-#endif    
+    settingsScript.print(SET_F("hideNoDMX();"));  // hide "not compiled in" message
+#endif
 #ifndef WLED_ENABLE_DMX_INPUT
     settingsScript.print(SET_F("hideDMXInput();"));  // hide "dmx input" settings
 #else
@@ -634,21 +634,17 @@ void getSettingsJS(byte subPage, Print& settingsScript)
     printSetFormValue(settingsScript,PSTR("CS"),DMXStart);
     printSetFormValue(settingsScript,PSTR("SL"),DMXStartLED);
 
-    printSetFormIndex(settingsScript,PSTR("CH1"),DMXFixtureMap[0]);
-    printSetFormIndex(settingsScript,PSTR("CH2"),DMXFixtureMap[1]);
-    printSetFormIndex(settingsScript,PSTR("CH3"),DMXFixtureMap[2]);
-    printSetFormIndex(settingsScript,PSTR("CH4"),DMXFixtureMap[3]);
-    printSetFormIndex(settingsScript,PSTR("CH5"),DMXFixtureMap[4]);
-    printSetFormIndex(settingsScript,PSTR("CH6"),DMXFixtureMap[5]);
-    printSetFormIndex(settingsScript,PSTR("CH7"),DMXFixtureMap[6]);
-    printSetFormIndex(settingsScript,PSTR("CH8"),DMXFixtureMap[7]);
-    printSetFormIndex(settingsScript,PSTR("CH9"),DMXFixtureMap[8]);
-    printSetFormIndex(settingsScript,PSTR("CH10"),DMXFixtureMap[9]);
-    printSetFormIndex(settingsScript,PSTR("CH11"),DMXFixtureMap[10]);
-    printSetFormIndex(settingsScript,PSTR("CH12"),DMXFixtureMap[11]);
-    printSetFormIndex(settingsScript,PSTR("CH13"),DMXFixtureMap[12]);
-    printSetFormIndex(settingsScript,PSTR("CH14"),DMXFixtureMap[13]);
-    printSetFormIndex(settingsScript,PSTR("CH15"),DMXFixtureMap[14]);
+    for (int i = 0; i < 15; i++) {
+      char buf[5];
+      snprintf_P(buf, sizeof(buf), PSTR("CH%d"), i+1);
+      printSetFormIndex(settingsScript,buf,DMXFixtureMap[i]);
+    }
+
+    for (int i = 0; i < 15; i++) {
+      char buf[5];
+      snprintf_P(buf, sizeof(buf), PSTR("DV%d"), i+1);
+      printSetFormValue(settingsScript,buf,DMXChannelsValue[i]);
+    }
   }
   #endif
 
