@@ -69,7 +69,7 @@ enum struct PinOwner : uint8_t {
   UM_MAX17048          = USERMOD_ID_MAX17048,           // 0x2F // Usermod "usermod_max17048.h"
   UM_BME68X            = USERMOD_ID_BME68X,             // 0x31 // Usermod "usermod_bme68x.h -- Uses "standard" HW_I2C pins
   UM_PIXELS_DICE_TRAY  = USERMOD_ID_PIXELS_DICE_TRAY,   // 0x35 // Usermod "pixels_dice_tray.h" -- Needs compile time specified 6 pins for display including SPI.
-  UM_BQ2589X           = USERMOD_ID_BQ2589X
+  UM_BQ2589X           = USERMOD_ID_BQ2589X             // 0x3B // Usermod "usermod_v2_bq2589x.h" -- Uses 4 pins from configuration and "standard" HW_I2C pins
 };
 static_assert(0u == static_cast<uint8_t>(PinOwner::None), "PinOwner::None must be zero, so default array initialization works as expected");
 

@@ -26,9 +26,9 @@
 
 
 // this function calls when charger generate event 
-// you can do it all that you want
+volatile bool intPinInterrupt = false; // interrupt flag
 static void IRAM_ATTR intPinUp() {
-  // just a dummy for now
+  intPinInterrupt = true;
 }
 
 //class name. Use something descriptive and leave the ": public Usermod" part :)
@@ -289,7 +289,13 @@ class Usermod_v2_bq2589x : public Usermod {
           timerOn = true;
         }
         lastTime = millis();
-    }
+      }
+      if(intPinInterrupt) {
+        intPinInterrupt = false;
+        // handle interrupt by yourself if you need that
+        // for MQTT for example
+        DEBUG_PRINTLN(F("bq2589x interrupt pin triggered"));
+      }
   }
     
 

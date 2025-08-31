@@ -16,7 +16,6 @@ Use this code for your platformio.ini or platformio_override.ini
 extends = env:esp32c3dev
 custom_usermods = usermod_v2_bq2589x # add "custom_usermds" to the extensible environment if it is not there
 build_flags = ${common.build_flags_esp32}
-              -DUSERMOD_V2_BQ2589X
 lib_deps = ${esp32c3.lib_deps}
            memeexpert/bq2589x@^1.0.3
 ```
