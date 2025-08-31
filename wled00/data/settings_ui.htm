@@ -155,14 +155,13 @@
 	
 	function Save() {
 		SetLS();
-		if (d.Sf.DS.value != initial_ds || /*d.Sf.ST.checked != initial_st ||*/ d.Sf.SU.checked != initial_su) d.Sf.submit();
+		if (d.Sf.DS.value != initial_ds || d.Sf.SU.checked != initial_su) d.Sf.submit();
 	}
 	
 	function S() {
 		getLoc();
 		loadJS(getURL('/settings/s.js?p=3'), false, undefined, ()=>{
 			initial_ds = d.Sf.DS.value;
-			//initial_st = d.Sf.ST.checked;
 			initial_su = d.Sf.SU.checked;
 			GetLS();
 		});	// If we set async false, file is loaded and executed, then next statement is processed
@@ -219,10 +218,9 @@
 		<span id="lserr" style="color:red; display:none">&#9888; Could not access local storage. Make sure it is enabled in your browser.</span><hr>
 		</div>
 		<h2>Web Setup</h2>
-		Server description: <input type="text" name="DS" maxlength="32"><br>
-		<!-- Sync button toggles both send and receive: <input type="checkbox" name="ST"><br> -->
+		Device name: <input type="text" name="DS" minlength="2" maxlength="32"><br>
 		Enable simplified UI: <input type="checkbox" name="SU"><br>
-		<i>The following UI customization settings are unique both to the WLED device and this browser.<br>
+		<i class="warn">The following UI customization settings are unique both to the WLED device and this browser.<br>
 		You will need to set them again if using a different browser, device or WLED IP address.<br>
 		Refresh the main UI to apply changes.</i><br>
 		

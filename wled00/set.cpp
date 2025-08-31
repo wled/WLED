@@ -63,16 +63,26 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
       dnsAddress = IPAddress(request->arg(F("D0")).toInt(),request->arg(F("D1")).toInt(),request->arg(F("D2")).toInt(),request->arg(F("D3")).toInt());
     }
 
-    strlcpy(cmDNS, request->arg(F("CM")).c_str(), 33);
+    strlcpy(hostName, request->arg(F("CM")).c_str(), sizeof(hostName));
+    if (strlen(hostName) == 0) prepareHostname(hostName, sizeof(hostName)-1);
+    #ifdef ARDUINO_ARCH_ESP32
+      #ifdef WLED_USE_ETHERNET
+    ETH.setHostname(hostName);
+      #endif
+    WiFi.setHostname(hostName);
+    #else
+    WiFi.hostname(hostName);
+    #endif
+    mDNSenabled = request->hasArg(F("MD"));
 
     apBehavior = request->arg(F("AB")).toInt();
     char oldSSID[33]; strcpy(oldSSID, apSSID);
-    strlcpy(apSSID, request->arg(F("AS")).c_str(), 33);
+    strlcpy(apSSID, request->arg(F("AS")).c_str(), sizeof(apSSID));
     if (!strcmp(oldSSID, apSSID) && apActive) forceReconnect = true;
     apHide = request->hasArg(F("AH"));
     int passlen = request->arg(F("AP")).length();
-    if (passlen == 0 || (passlen > 7 && !isAsterisksOnly(request->arg(F("AP")).c_str(), 65))) {
-      strlcpy(apPass, request->arg(F("AP")).c_str(), 65);
+    if (passlen == 0 || (passlen > 7 && !isAsterisksOnly(request->arg(F("AP")).c_str(), sizeof(apPass)))) {
+      strlcpy(apPass, request->arg(F("AP")).c_str(), sizeof(apPass));
       forceReconnect = true;
     }
     int t = request->arg(F("AC")).toInt();
@@ -82,10 +92,17 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
     #ifdef ARDUINO_ARCH_ESP32
     int tx = request->arg(F("TX")).toInt();
     txPower = min(max(tx, (int)WIFI_POWER_2dBm), (int)WIFI_POWER_19_5dBm);
+    WiFi.setTxPower(wifi_power_t(txPower));
     #endif
 
     force802_3g = request->hasArg(F("FG"));
     noWifiSleep = request->hasArg(F("WS"));
+    #ifdef ARDUINO_ARCH_ESP32
+    WiFi.setSleep(!noWifiSleep);
+    #else
+    WiFi.setPhyMode(force802_3g ? WIFI_PHY_MODE_11G : WIFI_PHY_MODE_11N);
+    wifi_set_sleep_type((noWifiSleep) ? NONE_SLEEP_T : MODEM_SLEEP_T);
+    #endif
 
     #ifndef WLED_DISABLE_ESPNOW
     bool oldESPNow = enableESPNow;
@@ -275,8 +292,8 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
 
     disablePullUp = (bool)request->hasArg(F("IP"));
     touchThreshold = request->arg(F("TT")).toInt();
-    for (int i = 0; i < WLED_MAX_BUTTONS; i++) {
-      int offset = i < 10 ? '0' : 'A' - 10;
+    for (unsigned i = 0; i < WLED_MAX_BUTTONS; i++) {
+      unsigned offset = i < 10 ? '0' : 'A' - 10;
       char bt[4] = "BT"; bt[2] = offset+i; bt[3] = 0; // button pin (use A,B,C,... if WLED_MAX_BUTTONS>10)
       char be[4] = "BE"; be[2] = offset+i; be[3] = 0; // button type (use A,B,C,... if WLED_MAX_BUTTONS>10)
       int hw_btn_pin = request->arg(bt).toInt();
@@ -370,7 +387,6 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
   if (subPage == SUBPAGE_UI)
   {
     strlcpy(serverDescription, request->arg(F("DS")).c_str(), 33);
-    //syncToggleReceive = request->hasArg(F("ST"));
     simplifiedUI = request->hasArg(F("SU"));
     DEBUG_PRINTLN(F("Enumerating ledmaps"));
     enumerateLedmaps();

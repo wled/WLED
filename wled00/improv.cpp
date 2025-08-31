@@ -206,11 +206,10 @@ void sendImprovInfoResponse() {
   #endif
   strlwr(bString);
   #endif
-  //Use serverDescription if it has been changed from the default "WLED", else mDNS name
-  bool useMdnsName = (strcmp(serverDescription, "WLED") == 0 && strlen(cmDNS) > 0);
-  char vString[32];
-  sprintf_P(vString, PSTR("%s/%i"), versionString, VERSION);
-  const char *str[4] = {"WLED", vString, bString, useMdnsName ? cmDNS : serverDescription};
+  char vString[33];
+  snprintf_P(vString, sizeof(vString)-1, PSTR("%s/%i"), versionString, VERSION);
+  //Use serverDescription if it has been changed from the default "WLED", else host name
+  const char *str[4] = {"WLED", vString, bString, strcmp(serverDescription, "WLED") == 0 ? hostName : serverDescription};
 
   sendImprovRPCResult(ImprovRPCType::Request_Info, 4, str);
 }

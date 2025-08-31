@@ -57,14 +57,22 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
 #endif
 
   JsonObject id = doc["id"];
-  getStringFromJson(cmDNS, id[F("mdns")], 33);
-  getStringFromJson(serverDescription, id[F("name")], 33);
+  getStringFromJson(serverDescription, id["name"], sizeof(serverDescription));
+  // legacy behaviour
+  getStringFromJson(hostName, id[F("mdns")], sizeof(hostName));
+  if (strlen(hostName) == 0) {
+    mDNSenabled = false; // if no host name is set, disable mDNS
+    prepareHostname(hostName, sizeof(hostName)-1);
+  }
+
 #ifndef WLED_DISABLE_ALEXA
-  getStringFromJson(alexaInvocationName, id[F("inv")], 33);
+  getStringFromJson(alexaInvocationName, id[F("inv")], sizeof(alexaInvocationName));
 #endif
   CJSON(simplifiedUI, id[F("sui")]);
 
   JsonObject nw = doc["nw"];
+  CJSON(mDNSenabled, nw[F("mdns")]);
+  getStringFromJson(hostName, nw["name"], sizeof(hostName));
 #ifndef WLED_DISABLE_ESPNOW
   CJSON(enableESPNow, nw[F("espnow")]);
   linked_remotes.clear();
@@ -143,11 +151,21 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
 
   JsonObject wifi = doc[F("wifi")];
   noWifiSleep = !(wifi[F("sleep")] | !noWifiSleep); // inverted
-  //noWifiSleep = !noWifiSleep;
   CJSON(force802_3g, wifi[F("phy")]); //force phy mode g?
 #ifdef ARDUINO_ARCH_ESP32
   CJSON(txPower, wifi[F("txpwr")]);
   txPower = min(max((int)txPower, (int)WIFI_POWER_2dBm), (int)WIFI_POWER_19_5dBm);
+#endif
+
+  // apply WiFi options from above (regardless of fromFS or not)
+#ifdef ARDUINO_ARCH_ESP32
+  WiFi.setSleep(!noWifiSleep);
+  WiFi.setHostname(hostName);
+  WiFi.setTxPower(wifi_power_t(txPower));
+#else
+  WiFi.setPhyMode(force802_3g ? WIFI_PHY_MODE_11G : WIFI_PHY_MODE_11N);
+  wifi_set_sleep_type((noWifiSleep) ? NONE_SLEEP_T : MODEM_SLEEP_T);
+  WiFi.hostname(hostName);
 #endif
 
   JsonObject hw = doc[F("hw")];
@@ -637,8 +655,9 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
   getStringFromJson(mqttUser, if_mqtt[F("user")], 41);
   getStringFromJson(mqttPass, if_mqtt["psk"], 65); //normally not present due to security
   getStringFromJson(mqttClientID, if_mqtt[F("cid")], 41);
-
+  if (mqttClientID[0] == 0) sprintf_P(mqttClientID, PSTR("WLED-%*s"), 6, escapedMac.c_str() + 6);
   getStringFromJson(mqttDeviceTopic, if_mqtt[F("topics")][F("device")], MQTT_MAX_TOPIC_LEN+1); // "wled/test"
+  if (mqttDeviceTopic[0] == 0) sprintf_P(mqttDeviceTopic, PSTR("wled/%*s"), 6, escapedMac.c_str() + 6);
   getStringFromJson(mqttGroupTopic, if_mqtt[F("topics")][F("group")], MQTT_MAX_TOPIC_LEN+1); // ""
   CJSON(retainMqttMsg, if_mqtt[F("rtn")]);
 #endif
@@ -849,14 +868,15 @@ void serializeConfig(JsonObject root) {
   root[F("vid")] = VERSION;
 
   JsonObject id = root.createNestedObject("id");
-  id[F("mdns")] = cmDNS;
-  id[F("name")] = serverDescription;
+  id["name"] = serverDescription;
 #ifndef WLED_DISABLE_ALEXA
   id[F("inv")] = alexaInvocationName;
 #endif
   id[F("sui")] = simplifiedUI;
 
   JsonObject nw = root.createNestedObject("nw");
+  nw["name"] = hostName;
+  nw[F("mdns")] = mDNSenabled;
 #ifndef WLED_DISABLE_ESPNOW
   nw[F("espnow")] = enableESPNow;
   JsonArray lrem = nw.createNestedArray(F("linked_remote"));

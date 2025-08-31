@@ -28,7 +28,7 @@
 #include "bus_wrapper.h"
 #include <bits/unique_ptr.h>
 
-extern char cmDNS[];
+extern bool mDNSenabled;
 extern bool cctICused;
 extern bool useParallelI2S;
 
@@ -730,7 +730,7 @@ void BusNetwork::resolveHostname() {
   if (Network.isConnected() && millis() > nextResolve && _hostname.length() > 0) {
     nextResolve = millis() + 600000; // resolve only every 10 minutes
     IPAddress clnt;
-    if (strlen(cmDNS) > 0) clnt = MDNS.queryHost(_hostname);
+    if (mDNSenabled) clnt = MDNS.queryHost(_hostname);
     else WiFi.hostByName(_hostname.c_str(), clnt);
     if (clnt != IPAddress()) _client = clnt;
   }

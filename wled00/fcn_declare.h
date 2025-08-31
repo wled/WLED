@@ -254,6 +254,7 @@ void espNowReceiveCB(uint8_t* address, uint8_t* data, uint8_t len, signed int rs
 //network.cpp
 bool initEthernet(); // result is informational
 int  getSignalQuality(int rssi);
+IPAddress resolveHostname(const String &hostname, bool useMDNS = true);
 void fillMAC2Str(char *str, const uint8_t *mac);
 void fillStr2MAC(uint8_t *mac, const char *str);
 int  findWiFi(bool doScan = false);
@@ -388,7 +389,7 @@ size_t printSetFormValue(Print& settingsScript, const char* key, int val);
 size_t printSetFormValue(Print& settingsScript, const char* key, const char* val);
 size_t printSetFormIndex(Print& settingsScript, const char* key, int index);
 size_t printSetClassElementHTML(Print& settingsScript, const char* key, const int index, const char* val);
-void prepareHostname(char* hostname);
+void prepareHostname(char* hostname, size_t maxLen = 32);
 [[gnu::pure]] bool isAsterisksOnly(const char* str, byte maxLen);
 bool requestJSONBufferLock(uint8_t moduleID=255);
 void releaseJSONBufferLock();
