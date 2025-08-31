@@ -475,10 +475,24 @@ void RotaryEncoderUIUsermod::re_sortModes(const char **modeNames, byte *indexes,
 // public methods
 
 
-/*
-  * setup() is called once at boot. WiFi is not yet connected at this point.
-  * You can use it to initialize variables, sensors or similar.
-  */
+/**
+ * Initialize the rotary encoder usermod and allocate required hardware resources.
+ *
+ * Performs one-time setup at boot (WiFi may be unavailable). Behavior:
+ * - If configured to use a PCF8574 I/O expander, validates I2C and encoder pin configuration,
+ *   allocates and attaches an interrupt (if an IRQ pin is specified and available), and
+ *   disables the usermod (enabled = false) on failure.
+ * - If using direct GPIO, allocates the three encoder pins via PinManager, sets their
+ *   input mode (default INPUT_PULLUP), and disables the usermod on allocation failure.
+ * - Initializes timing state (loopTime), computes an initial CCT value from the primary
+ *   RGBW color (colPri) and stores it in currentCCT, and sorts modes/palettes if not yet done.
+ * - If a FourLineDisplayUsermod is present, links to it and configures the display mark.
+ * - Reads and stores the initial encoder pin states (Enc_A, Enc_B, Enc_A_prev) and sets initDone.
+ *
+ * Side effects:
+ * - May call attachInterrupt() and set pinMode() for allocated pins.
+ * - May set enabled = false when required resources cannot be allocated.
+ */
 void RotaryEncoderUIUsermod::setup()
 {
   DEBUG_PRINTLN(F("Usermod Rotary Encoder init."));
@@ -910,6 +924,19 @@ void RotaryEncoderUIUsermod::changePalette(bool increase) {
 }
 
 
+/**
+ * Adjust the primary hue and apply the resulting RGBW color to segments.
+ *
+ * Increments or decrements the stored hue (currentHue1) by `fadeAmount`, clamps it to [0,255],
+ * converts the hue+saturation pair into RGBW values (written into `colPri`), sets `stateChanged`,
+ * and applies the computed color to either all active segments or the main segment depending on
+ * `applyToAll`. Triggers a UI/state update via `lampUdated()`.
+ *
+ * If a FourLineDisplay is present and its wakeDisplay() call returns true, the display is
+ * redrawn and the input that caused the wake is consumed (the function returns early).
+ *
+ * @param increase If true, increase the hue; if false, decrease it.
+ */
 void RotaryEncoderUIUsermod::changeHue(bool increase){
 #ifdef USERMOD_FOUR_LINE_DISPLAY
   if (display && display->wakeDisplay()) {
@@ -940,6 +967,18 @@ void RotaryEncoderUIUsermod::changeHue(bool increase){
 #endif
 }
 
+/**
+ * Adjust the current saturation and apply the resulting RGBW color to segments.
+ *
+ * Increases or decreases the stored saturation (clamped to 0–255 by fadeAmount),
+ * converts the updated H/S pair to an RGBW color, and writes that color to either
+ * all active segments or only the main segment depending on the `applyToAll` flag.
+ * Triggers a state update (lampUdated) so changes take effect. If a FourLineDisplay
+ * is present, the display may be woken (causing an early return) or overlaid with
+ * the new saturation value.
+ *
+ * @param increase If true, increase saturation by fadeAmount; otherwise decrease it.
+ */
 void RotaryEncoderUIUsermod::changeSat(bool increase){
 #ifdef USERMOD_FOUR_LINE_DISPLAY
   if (display && display->wakeDisplay()) {

@@ -141,6 +141,28 @@ void applyPresetWithFallback(uint8_t index, uint8_t callMode, uint8_t effectID, 
   effectPalette = paletteID;
 }
 
+/**
+ * @brief Process pending preset save/apply requests and apply presets from storage.
+ *
+ * This routine handles one pending preset operation per invocation:
+ * - If a save was requested (presetToSave), suspends the LED strip, performs the save via doSaveState(), then resumes the strip.
+ * - If a preset apply request is pending (presetToApply) it acquires the shared JSON buffer, reads the preset (from RAM on ESP32 when applicable or from the presets file), and applies it.
+ *
+ * Behavior and side effects:
+ * - Honors an architecture-specific short wait on certain ESP32 variants to let strip updates finish before accessing the filesystem.
+ * - Uses the shared JSON buffer (requestJSONBufferLock / releaseJSONBufferLock); returns immediately if the buffer cannot be locked.
+ * - When loading a preset:
+ *   - If the preset object contains an HTTP-style "win" command, constructs and processes an internal API request (handleSet), and marks a change.
+ *   - Otherwise, determines whether the preset contains state fields and deserializes them via deserializeState().
+ *   - Avoids recursive preset-loading cycles by removing a nested "ps" load request except when explicitly invoked by a button with an allowed cycle pattern.
+ * - Updates global state on success: may set currentPreset, may clear presetToApply/callModeToApply, and may free tmpRAMbuffer (ESP32 RAM-backed case).
+ * - Triggers external updates when a change occurred: notify(), stateUpdated(), and updateInterfaces().
+ * - Updates the global errorFlag based on filesystem/preset load outcome.
+ *
+ * Notes:
+ * - deserializeState() and handleSet() may themselves call applyPreset(), so this function stores and clears the pending request early to avoid reentrancy issues.
+ * - This function does not return a value and signals results via modified global state and the shared errorFlag.
+ */
 void handlePresets()
 {
   byte presetErrFlag = ERR_NONE;

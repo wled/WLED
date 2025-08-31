@@ -36,6 +36,24 @@ void shortPressAction(uint8_t b)
 #endif
 }
 
+/**
+ * @brief Handle a long-press event for a physical button.
+ *
+ * Performs the configured long-press action for button index `b`. If a preset
+ * macro is configured for the button (macroLongPress[b] != 0) that preset is
+ * applied. Otherwise the built-in behaviors are:
+ * - b == 0: set a new random primary color (uses colPri) and notify color update.
+ * - b == 1: adjust global brightness in steps (WLED_LONG_BRI_STEPS). The
+ *   direction is controlled by buttonBriDirection; brightness is clamped to
+ *   [1, 255]. For repeated long-presses the button's pressed timestamp is
+ *   refreshed to allow repeating the action.
+ *
+ * This function also publishes a "long" MQTT message for the button topic when
+ * MQTT publishing is enabled and connected.
+ *
+ * @param b Button index (0-based). Built-in actions are defined for 0 and 1;
+ *          other indices will only have a macro applied if configured.
+ */
 void longPressAction(uint8_t b)
 {
   if (!macroLongPress[b]) {
@@ -167,6 +185,31 @@ void handleSwitch(uint8_t b)
 #define POT_SMOOTHING 0.25f         // smoothing factor for raw potentiometer readings
 #define POT_SENSITIVITY 4           // changes below this amount are noise (POT scratching, or ADC noise)
 
+/**
+ * @brief Handle an analog input attached to a button/potentiometer and apply the mapped control.
+ *
+ * Reads the analog pin for button index `b`, smooths and scales the ADC value to 0–255, ignores small changes
+ * and then, unless short/long-press macros are defined for that button, maps the analog level to one of several
+ * controls (global brightness, effect speed/intensity, palette, primary hue, or segment opacity/on) based on the
+ * button's configured "double press" action. Always calls colorUpdated(CALL_MODE_BUTTON) after processing.
+ *
+ * The mapping for macroDoublePress[b] values:
+ * - >= 250 : global brightness (0 turns lights off, nonzero restarts runtime if previously off)
+ * - 249    : effectSpeed
+ * - 248    : effectIntensity
+ * - 247    : effectPalette (mapped to available palettes and clamped)
+ * - 200    : primary color hue (full saturation) applied to colPri
+ * - otherwise : treated as a segment index; 0 level turns the segment off, >0 sets opacity and turns it on
+ *
+ * Additional details:
+ * - ADC reads are performed at full resolution where available (ESP8266 reads are shifted to 12-bit).
+ * - Readings are filtered using a simple exponential smoothing (POT_SMOOTHING) and quantized to 0–255.
+ * - If buttonType[b] == BTN_TYPE_ANALOG_INVERTED the final value is inverted (255 - value).
+ * - Very small changes (<= POT_SENSITIVITY) are treated as noise and ignored to reduce UI churn.
+ * - If either macroButton[b] or macroLongPress[b] is set, the analog value is ignored for direct actions.
+ *
+ * @param b Index of the button/analog input to read and handle.
+ */
 void handleAnalog(uint8_t b)
 {
   static uint8_t oldRead[WLED_MAX_BUTTONS] = {0};
@@ -361,7 +404,25 @@ void handleButton()
 
 // handleIO() happens *after* handleTransitions() (see wled.cpp) which may change bri/briT but *before* strip.service()
 // where actual LED painting occurrs
-// this is important for relay control and in the event of turning off on-board LED
+/**
+ * @brief Handle button processing and final I/O (on-board LED / relay) updates.
+ *
+ * This function runs button logic via handleButton() then ensures the physical
+ * power/indicator outputs reflect the current strip brightness. When the strip
+ * brightness is non-zero it powers the bus (BusManager::on()), configures and
+ * asserts the relay pin (if configured) and clears the offMode flag. A 50 ms
+ * delay is applied after driving the relay to allow it to switch and for power
+ * to stabilize. When brightness is zero, it waits until at least 600 ms have
+ * elapsed since the last on-time and the strip no longer needs updates
+ * (strip.needsUpdate()) before powering the bus off (BusManager::off()),
+ * toggling the relay pin to the off state, and setting offMode.
+ *
+ * Side effects:
+ * - Calls handleButton().
+ * - May call BusManager::on() / BusManager::off().
+ * - Configures rlyPin mode and writes its output when rlyPin >= 0.
+ * - Calls delay(50) when turning the relay on to allow stabilization.
+ */
 void handleIO()
 {
   handleButton();

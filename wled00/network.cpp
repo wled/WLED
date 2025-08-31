@@ -170,7 +170,23 @@ int getSignalQuality(int rssi)
 }
 
 
-//handle Ethernet connection event
+/**
+ * @brief Handle network events, with special handling for Ethernet on ESP32.
+ *
+ * Processes a WiFiEvent_t and performs network-related actions. When compiled
+ * for ESP32 with WLED_USE_ETHERNET, handles Ethernet start, connect and
+ * disconnect events:
+ * - On ETH connected: optionally disconnects WiFi (if not in AP mode), applies
+ *   static or dynamic Ethernet IP configuration, sets the device hostname,
+ *   and disables the welcome page.
+ * - On ETH disconnected: flags a reconnection attempt.
+ *
+ * This function always logs unhandled network events. The Ethernet-specific
+ * branches are only compiled when ARDUINO_ARCH_ESP32 and WLED_USE_ETHERNET are
+ * defined.
+ *
+ * @param event The network event to handle.
+ */
 void WiFiEvent(WiFiEvent_t event)
 {
   switch (event) {

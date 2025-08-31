@@ -11,8 +11,29 @@
 #define JSON_PATH_NETWORKS   7
 #define JSON_PATH_EFFECTS    8
 
-/*
- * JSON API (De)serialization
+/**
+ * @brief Apply a JSON-defined update to a single segment (create/modify/delete).
+ *
+ * Parses a JSON object describing a segment and applies the described changes to the strip's
+ * segment list and segment state. Supported updates include geometry (start/stop, 2D bounds),
+ * grouping/spacing/offset, name allocation/removal, RGB/RGBW/cct colors, mode/speed/intensity,
+ * palette and custom colors, per-LED addressing, various segment options (on, freeze, selected,
+ * reverse, mirror, 2D flags), LOXONE integration fields, and other per-segment flags. The function
+ * may append a new segment, delete a segment, update light capabilities, trigger immediate
+ * refreshes when necessary, and mark the global state as changed when segment options differ.
+ *
+ * Recursive "rpt" handling is supported to replicate a segment across the strip. If a mode change
+ * is requested while a playlist is active and this call is not part of a preset application,
+ * the playlist will be unloaded.
+ *
+ * @param elem JSON object containing segment fields (accepted keys: id, start, stop, len, startY, stopY,
+ *             n/name, grp, spc, of, si, m12, set, sel, rev, mi, rY, mY, tp, bri, on, frz, cct, col, lx, ly,
+ *             fx, fxdef, sx, ix, pal, c1, c2, c3, o1, o2, o3, i, rpt, ...). Fields follow the WLED API
+ *             conventions; see implementation for supported formats for colors and per-LED arrays.
+ * @param it   Default segment index to use if elem does not contain an "id".
+ * @param presetId ID of the preset being applied (0 means not a preset); affects playlist unloading behavior.
+ * @return true if the JSON was accepted and applied (or scheduled) successfully; false if the target
+ *         segment id is invalid or when attempting to append a segment without a valid stop/length.
  */
 
 bool deserializeSegment(JsonObject elem, byte it, byte presetId)
@@ -302,7 +323,30 @@ bool deserializeSegment(JsonObject elem, byte it, byte presetId)
 }
 
 // deserializes WLED state
-// presetId is non-0 if called from handlePreset()
+/**
+ * @brief Apply a JSON state object to the system, updating global and per-segment configuration.
+ *
+ * Parses and applies fields from a decoded JSON state object to modify brightness, on/off,
+ * transitions, nightlight, UDPN settings, time, realtime/live modes, segments, presets,
+ * playlists, WiFi/AP state, and usermods. Safely suspends strip servicing while applying
+ * segment changes and respects playlist and realtime locks when deciding which values to apply.
+ *
+ * The function has many side effects: it may change segment geometry and colors, create or
+ * purge segments, save or delete presets, load/apply a preset or playlist, toggle AP mode,
+ * update system time, trigger a reboot flag, and call stateUpdated(callMode). It also may
+ * temporarily wait for the current LED frame to finish before applying segment updates.
+ *
+ * @param root JSON object containing state fields (as from the HTTP/API/UI). Expected keys
+ *             include but are not limited to: "bri", "on", "transition", "tt", "tb", "nl",
+ *             "udpn", "time", "psave", "rb", "mainseg", "lor", "live", "seg", "ledmap",
+ *             "ps", "pd", "playlist", "rmcpal", "np", and "wifi".
+ * @param callMode Numeric code indicating the origin/notification semantics of this call;
+ *                 passed through to stateUpdated and preset/application paths.
+ * @param presetId Non-zero when called from handlePreset(); used to distinguish preset-originated
+ *                 changes from other API calls.
+ * @return true if the caller should send a state response (based on the JSON "v" field);
+ *         false otherwise.
+ */
 bool deserializeState(JsonObject root, byte callMode, byte presetId)
 {
   bool stateResponse = root[F("v")] | false;

@@ -13,7 +13,20 @@ function isN(n)     { return !isNaN(parseFloat(n)) && isFinite(n); } // isNumber
 // https://stackoverflow.com/questions/3885817/how-do-i-check-that-a-number-is-float-or-integer
 function isF(n)     { return n === +n && n !== (n|0); } // isFloat
 function isI(n)     { return n === +n && n === (n|0); } // isInteger
+/**
+ * Toggle the "hide" CSS class on the element with id `el` and on its paired element with id `No<el>`.
+ * @param {string} el - ID of the target element; also used to locate the paired element by prefixing with "No".
+ */
 function toggle(el) { gId(el).classList.toggle("hide"); gId('No'+el).classList.toggle("hide"); }
+/**
+ * Attach custom tooltips to all elements (optionally within a container) that have a `title` attribute.
+ *
+ * When the pointer enters an element, the function suppresses the browser's native tooltip, creates a positioned
+ * floating tooltip element showing the original `title` text, and shows it. When the pointer leaves, the floating
+ * tooltip is removed and the original `title` attribute is restored.
+ *
+ * @param {string|null} cont - Optional CSS selector limiting which titled elements to bind (e.g., "#panel" or ".card").
+ */
 function tooltip(cont=null) {
 	d.querySelectorAll((cont?cont+" ":"")+"[title]").forEach((element)=>{
 		element.addEventListener("pointerover", ()=>{

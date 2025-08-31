@@ -748,6 +748,18 @@ ${inforow("Environment",i.arch + " " + i.core + " (" + i.lwip + ")")}
 	});
 }
 
+/**
+ * Render and populate the segments editor UI from the device state.
+ *
+ * Builds the segment list and controls from s.seg, updates globals (segCount, lowestUnused, lSeg),
+ * injects the generated HTML into the DOM (#segcont), initializes per-segment controls (length, brightness,
+ * reverse/mirror options, grouping, map/2D options), toggles related UI utilities (new-segment availability,
+ * segment utilities, ledmap selector) and invokes helper routines (updateLen, updateTrail, resetUtil, tooltip).
+ * This function has no return value and produces DOM side effects.
+ *
+ * @param {Object} s - Device state object. Expected to include s.seg (array of segment objects), s.mainseg,
+ *                     s.AudioReactive, s.ledmap and optionally s.maps for ledmap selection.
+ */
 function populateSegments(s)
 {
 	var cn = "";
@@ -1557,7 +1569,21 @@ function readState(s,command=false)
 //       If a color is specified, the 1,2 or 3 is replaced by that specification.
 // Note: Effects can override default pattern behaviour
 //       - FadeToBlack can override the background setting
-//       - Defining SEGCOL(<i>) can override a specific palette using these values (e.g. Color Gradient)
+/**
+ * Update UI controls (sliders, color slots, palette controls) to match an effect's declared parameters.
+ *
+ * Parses fxdata[idx] (a semicolon-separated spec: slider config; color slot config; palette config)
+ * and shows/hides/labels slider controls, color-slot buttons, and palette UI accordingly. Also positions
+ * the selected effect element relative to the sliders and starts a periodic repositioning task.
+ *
+ * Side effects:
+ * - Mutates DOM elements under #sliders, #csl and palette wrappers (show/hide, title/text, dataset.hide).
+ * - May call selectSlot() to change the active color slot.
+ * - May open/close the palette dialog and invoke tglHex via palette label icon.
+ * - Starts a repeating timer (setInterval) to update the selected effect's position.
+ *
+ * @param {number} idx - Index of the effect in the global fxdata array whose parameter spec will be applied.
+ */
 function setEffectParameters(idx)
 {
 	if (!(Array.isArray(fxdata) && fxdata.length>idx)) return;
@@ -1880,6 +1906,18 @@ function makeSeg()
 	gId('segutil').innerHTML = cn;
 }
 
+/**
+ * Render and initialize the segment utility UI (Add segment / Select all / Group selectors).
+ *
+ * Replaces the #segutil container contents with the segment utility controls, sets the "select all"
+ * checkbox state based on existing segment selection checkboxes, and ensures group popovers are visible
+ * on multi-segment setups.
+ *
+ * @param {boolean} off - If true, disables the Add segment action (renders it as non-interactive).
+ * @sideeffects Updates DOM: sets innerHTML of element with id "segutil", updates the "selall" checkbox,
+ * and toggles visibility of group popovers under #Segments. Expects global identifiers and handlers
+ * (lSeg, selSegAll, selGrp, makeSeg and segment elements with ids like "seg{n}" / "seg{n}sel") to be present.
+ */
 function resetUtil(off=false)
 {
 	gId('segutil').innerHTML = `<div class="seg btn btn-s${off?' off':''}" style="padding:0;margin-bottom:12px;">`
@@ -2647,6 +2685,13 @@ function fromK()
 	cpick.color.set({ kelvin: gId('sliderK').value });
 }
 
+/**
+ * Update the currently selected color slot from the RGB sliders and sync the color picker.
+ *
+ * Reads the R/G/B slider values, updates the color picker to the corresponding `rgb(...)` value,
+ * stores the numeric r/g/b values on the selected color slot element's dataset, and refreshes
+ * that slot's visual styling via setCSL.
+ */
 function fromRgb()
 {
 	var r = gId('sliderR').value;
@@ -2660,6 +2705,12 @@ function fromRgb()
 	setCSL(cd);
 }
 
+/**
+ * Update the currently selected color slot's white value from the white slider.
+ *
+ * Reads the white slider element ('sliderW'), stores its value in the selected color slot's `dataset.w`,
+ * refreshes the slot's visual styling via `setCSL`, and updates the slider's trail indicator.
+ */
 function fromW()
 {
 	let w = gId('sliderW');
@@ -2669,7 +2720,14 @@ function fromW()
 	updateTrail(w);
 }
 
-// sr 0: from RGB sliders, 1: from picker, 2: from hex
+/**
+ * Update the currently selected color slot from a color input and send the change to the device.
+ *
+ * Reads the selected color slot element, updates its dataset (r,g,b,w) from the color picker or RGB sliders
+ * according to the source code `sr`, refreshes the slot styling, and sends a segment color update via requestJson.
+ *
+ * @param {number} sr - Source of the color update: 0 = RGB sliders, 1 = color picker, 2 = hex input.
+ */
 function setColor(sr)
 {
 	var cd = gId('csl').children[csel]; // color slots
@@ -3100,6 +3158,17 @@ function togglePcMode(fromB = false)
 	_C.style.width = (pcMode || simplifiedUI)?'100%':'400%';
 }
 
+/**
+ * Recursively merges one or more source objects into a target object and returns the mutated target.
+ *
+ * Performs a deep (recursive) merge: for keys whose values are plain objects (as determined by `isObj`),
+ * properties are merged recursively; non-object values (including arrays) from sources overwrite the target's value.
+ * Later sources take precedence over earlier ones for the same keys. If no sources are provided the target is returned unchanged.
+ *
+ * @param {Object} target - The object to merge properties into (mutated and returned).
+ * @param {...Object} sources - One or more source objects whose properties will be merged into `target`.
+ * @return {Object} The mutated `target` after merging all sources.
+ */
 function mergeDeep(target, ...sources)
 {
 	if (!sources.length) return target;
@@ -3118,6 +3187,22 @@ function mergeDeep(target, ...sources)
 	return mergeDeep(target, ...sources);
 }
 
+/**
+ * Attach custom pointer-driven tooltips to elements that have a `title` attribute.
+ *
+ * When called, this binds `pointerover`/`pointerout` handlers to all elements matching
+ * `[title]` within the optional container selector (or the whole document if omitted).
+ * On pointerover the native title is saved to `data-title`, removed to suppress the browser
+ * tooltip, and a positioned `.tooltip` <span> is inserted and shown. On pointerout all
+ * injected tooltip nodes are removed and the original `title` is restored.
+ *
+ * Side effects: adds/removes DOM nodes, and temporarily modifies each element's `title`
+ * attribute while the tooltip is visible. Positioning centers the tooltip horizontally
+ * above the element and applies a smaller vertical offset for elements with class
+ * `sliderwrap`.
+ *
+ * @param {string|null} cont - Optional CSS selector string limiting which container to search.
+ */
 function tooltip(cont=null) {
 	d.querySelectorAll((cont?cont+" ":"")+"[title]").forEach((element)=>{
 		element.addEventListener("pointerover", ()=>{
