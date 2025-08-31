@@ -3332,19 +3332,23 @@ static uint16_t mode_pacman(void) {
 
   // display the characters
   if (SEGENV.aux1 % map(SEGMENT.speed, 0, 255, 15, 1) == 0) {                   // User-selectable speed of PacMan and the Ghosts.  Is it time to update their position?
-    character[PACMAN].pos += character[PACMAN].direction?1:-1;                  // Yes, it's time to update PacMan's position (forwards or backwards)
-    SEGMENT.setPixelColor(character[PACMAN].pos, character[PACMAN].color);      // draw PacMan
+    character[PACMAN].pos += character[PACMAN].direction ? 1 : -1;              // Yes, it's time to update PacMan's position (forwards or backwards)
+    if ((unsigned)character[PACMAN].pos >= 0 && (unsigned)character[PACMAN].pos < SEGLEN)
+      SEGMENT.setPixelColor(character[PACMAN].pos, character[PACMAN].color);    // draw PacMan
 
     for (int i = 1; i < numGhosts + 1; i++) {                                   // ...draw the 4 ghosts
-      character[i].pos += character[PACMAN].direction?1:-1;                     // update their positions (forwards or backwards)
-      SEGMENT.setPixelColor(character[i].pos, character[i].color);              // draw the ghosts in new positions
+      character[i].pos += character[i].direction ? 1 : -1;                      // update their positions (forwards or backwards)
+      if ((unsigned)character[i].pos >= 0 && (unsigned)character[i].pos < SEGLEN)
+        SEGMENT.setPixelColor(character[i].pos, character[i].color);              // draw the ghosts in new positions
     }
   }
   else {                                                                        // No, it's NOT time to update the characters' positions yet
-    SEGMENT.setPixelColor(character[PACMAN].pos, character[PACMAN].color);      // draw PacMan in same position
+    if ((unsigned)character[PACMAN].pos >= 0 && (unsigned)character[PACMAN].pos < SEGLEN)
+      SEGMENT.setPixelColor(character[PACMAN].pos, character[PACMAN].color);    // draw PacMan in same position
 
     for (int i = 1; i < numGhosts + 1; i++) {                                   // ...draw the 4 ghosts
-      SEGMENT.setPixelColor(character[i].pos, character[i].color);              // draw ghosts in same positions
+      if ((unsigned)character[i].pos >= 0 && (unsigned)character[i].pos < SEGLEN)
+        SEGMENT.setPixelColor(character[i].pos, character[i].color);              // draw ghosts in same positions
     }
   }
 
