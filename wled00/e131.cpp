@@ -191,7 +191,7 @@ void handleDMXData(uint16_t uni, uint16_t dmxChannels, uint8_t* e131_data, uint8
         // only change brightness if value changed
         if (bri != e131_data[dataOffset]) {                                        
           bri = e131_data[dataOffset];
-          strip.setBrightness(scaledBri(bri), false);
+          strip.setBrightness(bri, false);
           stateUpdated(CALL_MODE_WS_SEND);
         }
         return;

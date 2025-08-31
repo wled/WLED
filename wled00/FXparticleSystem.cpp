@@ -1118,7 +1118,7 @@ bool initParticleSystem2D(ParticleSystem2D *&PartSys, uint32_t requestedsources,
       allocsuccess = true;
       break; // allocation succeeded
     }
-    numparticles /= 2; // cut number of particles in half and try again
+    numparticles = ((numparticles / 2) + 3) & ~0x03; // cut number of particles in half and try again, must be 4 byte aligned
     PSPRINTLN(F("PS 2D alloc failed, trying with less particles..."));
   }
   if (!allocsuccess) {
@@ -1815,7 +1815,7 @@ bool initParticleSystem1D(ParticleSystem1D *&PartSys, const uint32_t requestedso
       allocsuccess = true;
       break; // allocation succeeded
     }
-    numparticles /= 2; // cut number of particles in half and try again
+    numparticles = ((numparticles / 2) + 3) & ~0x03; // cut number of particles in half and try again, must be 4 byte aligned
     PSPRINTLN(F("PS 1D alloc failed, trying with less particles..."));
   }
   if (!allocsuccess) {
