@@ -28,7 +28,7 @@
 // this function calls when charger generate event 
 // you can do it all that you want
 static void IRAM_ATTR intPinUp() {
-  DEBUG_PRINTLN(F("bq2589x INT pin up."));
+  // just a dummy for now
 }
 
 //class name. Use something descriptive and leave the ": public Usermod" part :)
@@ -112,6 +112,7 @@ class Usermod_v2_bq2589x : public Usermod {
       }
       attachInterrupt(digitalPinToInterrupt(int_pin), intPinUp, RISING);
       digitalWrite(otg_pin, otg_status ? HIGH : LOW);
+      digitalWrite(nce_pin, LOW);
       DEBUG_PRINTF("[%s] pin allocation done\n", _name);
       initPinsDone = true;
     }
@@ -234,6 +235,7 @@ class Usermod_v2_bq2589x : public Usermod {
       if( enabled && (
         requestInterval != BQ2589X_DEFAULT_REQUEST_INTERVAL ||
         bat_max_charge_current != BQ2589X_DEFAULT_BAT_MAX_CC ||
+        bat_temperature_max != BQ2589X_MAX_TEMPERATURE ||
         otg_status != true
       )) {
         return true;
@@ -276,7 +278,7 @@ class Usermod_v2_bq2589x : public Usermod {
       // NOTE: on very long strips strip.isUpdating() may always return true so update accordingly
       if (!enabled || strip.isUpdating()) return;
       // do your magic here
-      if (millis() - lastTime > requestInterval) {
+      if (millis() - lastTime >= requestInterval) {
         if (configChanged()) {
           DEBUG_PRINTLN(F("bq2589x usermod config changed, sending to bq2589x"));
           timerOn = false;
@@ -286,8 +288,8 @@ class Usermod_v2_bq2589x : public Usermod {
           mycharger.reset_chip();
           timerOn = true;
         }
+        lastTime = millis();
     }
-    lastTime = millis();
   }
     
 
@@ -303,14 +305,14 @@ class Usermod_v2_bq2589x : public Usermod {
       JsonObject user = root["u"];
       if (user.isNull()) user = root.createNestedObject("u");
       mycharger.adc_start(false);
-      JsonArray infoBq2589xPart = user.createNestedArray(F(_part_no));
+      JsonArray infoBq2589xPart = user.createNestedArray(FPSTR(_part_no));
       switch(part_no) {
         case BQ25890: infoBq2589xPart.add("BQ25890"); break;
         case BQ25892: infoBq2589xPart.add("BQ25892"); break;
         case BQ25895: infoBq2589xPart.add("BQ25895"); break;
         default: infoBq2589xPart.add("Unknown");   break;
       }
-      JsonArray infoBq2589xRev = user.createNestedArray(F(_revision));
+      JsonArray infoBq2589xRev = user.createNestedArray(FPSTR(_revision));
       infoBq2589xRev.add(bq2589x_revision);
 
       JsonArray infoBq2589xLevel = user.createNestedArray(F("Battery level"));
@@ -484,7 +486,7 @@ class Usermod_v2_bq2589x : public Usermod {
         getJsonValue(top[FPSTR(_maxTemperature)], bat_temperature_max);
 
         if (enabled != oldEnabled) {
-          deinitPins();
+          if (enabled) initPins(); else deinitPins();
           DEBUG_PRINTF("bq2589 %s\n", enabled ? "enabled" : "disabled");
         }
 
