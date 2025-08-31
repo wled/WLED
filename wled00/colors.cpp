@@ -8,7 +8,7 @@
  * color blend function, based on FastLED blend function
  * the calculation for each color is: result = (A*(amountOfA) + A + B*(amountOfB) + B) / 256 with amountOfA = 255 - amountOfB
  */
-uint32_t IRAM_ATTR color_blend(uint32_t color1, uint32_t color2, uint8_t blend) {
+uint32_t WLED_O2_ATTR IRAM_ATTR color_blend(uint32_t color1, uint32_t color2, uint8_t blend) {
   // min / max blend checking is omitted: calls with 0 or 255 are rare, checking lowers overall performance
   const uint32_t TWO_CHANNEL_MASK = 0x00FF00FF;     // mask for R and B channels or W and G if negated (poorman's SIMD; https://github.com/wled/WLED/pull/4568#discussion_r1986587221)
   uint32_t rb1 =  color1       & TWO_CHANNEL_MASK;  // extract R & B channels from color1
@@ -92,15 +92,15 @@ uint32_t IRAM_ATTR color_fade(uint32_t c1, uint8_t amount, bool video) {
    note: inputs are 32bit to speed up the function, useful input value ranges are 0-255
  */
 uint32_t adjust_color(uint32_t rgb, uint32_t hueShift, uint32_t lighten, uint32_t brighten) {
-    if (rgb == 0 | hueShift + lighten + brighten == 0) return rgb; // black or no change
-    CHSV32 hsv;
-    rgb2hsv(rgb, hsv); //convert to HSV
-    hsv.h += (hueShift << 8); // shift hue (hue is 16 bits)
-    hsv.s =  max((int32_t)0, (int32_t)hsv.s - (int32_t)lighten); // desaturate
-    hsv.v =  min((uint32_t)255, (uint32_t)hsv.v + brighten); // increase brightness
-    uint32_t rgb_adjusted;
-    hsv2rgb(hsv, rgb_adjusted); // convert back to RGB TODO: make this into 16 bit conversion
-    return rgb_adjusted;
+  if (rgb == 0 || hueShift + lighten + brighten == 0) return rgb; // black or no change
+  CHSV32 hsv;
+  rgb2hsv(rgb, hsv); //convert to HSV
+  hsv.h += (hueShift << 8); // shift hue (hue is 16 bits)
+  hsv.s =  max((int32_t)0, (int32_t)hsv.s - (int32_t)lighten); // desaturate
+  hsv.v =  min((uint32_t)255, (uint32_t)hsv.v + brighten); // increase brightness
+  uint32_t rgb_adjusted;
+  hsv2rgb(hsv, rgb_adjusted); // convert back to RGB TODO: make this into 16 bit conversion
+  return rgb_adjusted;
 }
 
 // 1:1 replacement of fastled function optimized for ESP, slightly faster, more accurate and uses less flash (~ -200bytes)
@@ -597,13 +597,13 @@ void NeoGammaWLEDMethod::calcGammaTable(float gamma)
   gammaT_inv[0] = 0;
 }
 
-uint8_t IRAM_ATTR_YN NeoGammaWLEDMethod::Correct(uint8_t value)
+uint8_t NeoGammaWLEDMethod::Correct(uint8_t value)
 {
   if (!gammaCorrectCol) return value;
   return gammaT[value];
 }
 
-uint32_t IRAM_ATTR_YN NeoGammaWLEDMethod::inverseGamma32(uint32_t color)
+uint32_t NeoGammaWLEDMethod::inverseGamma32(uint32_t color)
 {
   if (!gammaCorrectCol) return color;
   uint8_t w = W(color);

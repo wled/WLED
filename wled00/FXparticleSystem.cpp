@@ -18,7 +18,6 @@
 static int32_t calcForce_dv(const int8_t force, uint8_t &counter);
 static bool checkBoundsAndWrap(int32_t &position, const int32_t max, const int32_t particleradius, const bool wrap); // returns false if out of bounds by more than particleradius
 static uint32_t fast_color_add(CRGBW c1, const CRGBW c2, uint8_t scale = 255); // fast and accurate color adding with scaling (scales c2 before adding)
-static uint32_t fast_color_scale(CRGBW c, const uint8_t scale); // fast scaling function using 32bit variable and pointer. note: keep 'scale' within 0-255
 #endif
 
 #ifndef WLED_DISABLE_PARTICLESYSTEM2D
@@ -625,7 +624,7 @@ void ParticleSystem2D::render() {
 }
 
 // calculate pixel positions and brightness distribution and render the particle to local buffer or global buffer
-__attribute__((optimize("O2"))) void ParticleSystem2D::renderParticle(const uint32_t particleindex, const uint8_t brightness, const CRGBW& color, const bool wrapX, const bool wrapY) {
+void WLED_O2_ATTR ParticleSystem2D::renderParticle(const uint32_t particleindex, const uint8_t brightness, const CRGBW& color, const bool wrapX, const bool wrapY) {
   uint32_t size = particlesize;
   if (advPartProps && advPartProps[particleindex].size > 0) // use advanced size properties (0 means use global size including single pixel rendering)
     size = advPartProps[particleindex].size;
@@ -857,7 +856,7 @@ void ParticleSystem2D::handleCollisions() {
 
 // handle a collision if close proximity is detected, i.e. dx and/or dy smaller than 2*PS_P_RADIUS
 // takes two pointers to the particles to collide and the particle hardness (softer means more energy lost in collision, 255 means full hard)
-__attribute__((optimize("O2"))) void ParticleSystem2D::collideParticles(PSparticle &particle1, PSparticle &particle2, int32_t dx, int32_t dy, const uint32_t collDistSq) {
+void WLED_O2_ATTR ParticleSystem2D::collideParticles(PSparticle &particle1, PSparticle &particle2, int32_t dx, int32_t dy, const uint32_t collDistSq) {
   int32_t distanceSquared = dx * dx + dy * dy;
   // Calculate relative velocity note: could zero check but that does not improve overall speed but deminish it as that is rarely the case and pushing is still required
   int32_t relativeVx = (int32_t)particle2.vx - (int32_t)particle1.vx;
@@ -1485,7 +1484,7 @@ void ParticleSystem1D::render() {
 }
 
 // calculate pixel positions and brightness distribution and render the particle to local buffer or global buffer
-__attribute__((optimize("O2"))) void ParticleSystem1D::renderParticle(const uint32_t particleindex, const uint8_t brightness, const CRGBW &color, const bool wrap) {
+void WLED_O2_ATTR ParticleSystem1D::renderParticle(const uint32_t particleindex, const uint8_t brightness, const CRGBW &color, const bool wrap) {
   uint32_t size = particlesize;
   if (advPartProps) // use advanced size properties (1D system has no large size global rendering TODO: add large global rendering?)
     size = advPartProps[particleindex].size;
@@ -1648,7 +1647,7 @@ void ParticleSystem1D::handleCollisions() {
 }
 // handle a collision if close proximity is detected, i.e. dx and/or dy smaller than 2*PS_P_RADIUS
 // takes two pointers to the particles to collide and the particle hardness (softer means more energy lost in collision, 255 means full hard)
-__attribute__((optimize("O2"))) void ParticleSystem1D::collideParticles(PSparticle1D &particle1, const PSparticleFlags1D &particle1flags, PSparticle1D &particle2, const PSparticleFlags1D &particle2flags, const int32_t dx, const uint32_t dx_abs, const uint32_t collisiondistance) {
+void WLED_O2_ATTR ParticleSystem1D::collideParticles(PSparticle1D &particle1, const PSparticleFlags1D &particle1flags, PSparticle1D &particle2, const PSparticleFlags1D &particle2flags, const int32_t dx, const uint32_t dx_abs, const uint32_t collisiondistance) {
   int32_t dv = particle2.vx - particle1.vx;
   int32_t dotProduct = (dx * dv); // is always negative if moving towards each other
 
@@ -1891,7 +1890,7 @@ static bool checkBoundsAndWrap(int32_t &position, const int32_t max, const int32
 // this is a fast version for CRGBW color adding ignoring white channel (PS does not handle white) including scaling of second color
 // note: function is mainly used to add scaled colors, so checking if one color is black is slower
 // note2: returning CRGBW value is slightly slower as the return value gets written to uint32_t framebuffer
- __attribute__((optimize("O2"))) static uint32_t fast_color_add(CRGBW c1, const CRGBW c2, const uint8_t scale) {
+static uint32_t WLED_O2_ATTR fast_color_add(CRGBW c1, const CRGBW c2, const uint8_t scale) {
   uint32_t r, g, b;
   r = c1.r + ((c2.r * scale) >> 8);
   g = c1.g + ((c2.g * scale) >> 8);
@@ -1910,14 +1909,6 @@ static bool checkBoundsAndWrap(int32_t &position, const int32_t max, const int32
     c1.b = (b * newscale) >> 16;
   }
   return c1.color32;
-}
-
-// fast CRGBW color scaling ignoring white channel (PS does not handle white)
- __attribute__((optimize("O2"))) static uint32_t fast_color_scale(CRGBW c, const uint8_t scale) {
-  c.r = ((c.r * scale) >> 8);
-  c.g = ((c.g * scale) >> 8);
-  c.b = ((c.b * scale) >> 8);
-  return c.color32;
 }
 
 #endif  // !(defined(WLED_DISABLE_PARTICLESYSTEM2D) && defined(WLED_DISABLE_PARTICLESYSTEM1D))
