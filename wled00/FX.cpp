@@ -3247,11 +3247,13 @@ static uint16_t mode_pacman(void) {
 
   // draw white dots (or black LEDs) so PacMan can start eating them
   if (SEGMENT.check1) {                                                         // If White Dots option is selected, draw white dots in front of PacMan
-    for (int i = SEGLEN-1; i >= character[PACMAN].topPos+1; i--) {
+    for (int i = SEGLEN-1; i >= character[PACMAN].topPos + 1; i--) {
       SEGMENT.setPixelColor(i, WHITEISH);                                       //   white dots
       if (!SEGMENT.check2) {                                                    // If Compact Dots option is NOT selected, draw black LEDs between the white dots (only works if White Dots is also selected)
-        SEGMENT.setPixelColor(i-1, BLACK);                                      //   black LEDS between each white dot
-        i--;                                                                    //   skip the black LED before drawing the next white dot
+        if (i > 0) {
+          SEGMENT.setPixelColor(i-1, BLACK);                                    //   black LEDS between each white dot
+          i--;                                                                  //   skip the black LED before drawing the next white dot
+        }
       }
     }
   }
@@ -3289,8 +3291,10 @@ static uint16_t mode_pacman(void) {
 
   // now draw the power dots in the segment only if they have not been eaten yet
   for (int i = 0; i < numPowerDots; i++) {
-    if (!character[i+5].eaten)
-      SEGMENT.setPixelColor(character[i+5].pos, character[i+5].color);
+    if (!character[i+5].eaten) {
+      if ((unsigned)character[i+5].pos < SEGLEN)
+        SEGMENT.setPixelColor(character[i+5].pos, character[i+5].color);
+    }
   }
 
   // PacMan ate one of the power dots! Chase the ghosts!
@@ -3333,21 +3337,21 @@ static uint16_t mode_pacman(void) {
   // display the characters
   if (SEGENV.aux1 % map(SEGMENT.speed, 0, 255, 15, 1) == 0) {                   // User-selectable speed of PacMan and the Ghosts.  Is it time to update their position?
     character[PACMAN].pos += character[PACMAN].direction ? 1 : -1;              // Yes, it's time to update PacMan's position (forwards or backwards)
-    if ((unsigned)character[PACMAN].pos >= 0 && (unsigned)character[PACMAN].pos < SEGLEN)
+    if ((unsigned)character[PACMAN].pos < SEGLEN)
       SEGMENT.setPixelColor(character[PACMAN].pos, character[PACMAN].color);    // draw PacMan
 
     for (int i = 1; i < numGhosts + 1; i++) {                                   // ...draw the 4 ghosts
       character[i].pos += character[i].direction ? 1 : -1;                      // update their positions (forwards or backwards)
-      if ((unsigned)character[i].pos >= 0 && (unsigned)character[i].pos < SEGLEN)
+      if ((unsigned)character[i].pos < SEGLEN)
         SEGMENT.setPixelColor(character[i].pos, character[i].color);              // draw the ghosts in new positions
     }
   }
   else {                                                                        // No, it's NOT time to update the characters' positions yet
-    if ((unsigned)character[PACMAN].pos >= 0 && (unsigned)character[PACMAN].pos < SEGLEN)
+    if ((unsigned)character[PACMAN].pos < SEGLEN)
       SEGMENT.setPixelColor(character[PACMAN].pos, character[PACMAN].color);    // draw PacMan in same position
 
     for (int i = 1; i < numGhosts + 1; i++) {                                   // ...draw the 4 ghosts
-      if ((unsigned)character[i].pos >= 0 && (unsigned)character[i].pos < SEGLEN)
+      if ((unsigned)character[i].pos < SEGLEN)
         SEGMENT.setPixelColor(character[i].pos, character[i].color);              // draw ghosts in same positions
     }
   }
