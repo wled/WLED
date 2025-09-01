@@ -348,10 +348,10 @@ void loadSettingsFromEEPROM()
   DMXGap = EEPROM.read(2531) + ((EEPROM.read(2532) << 8) & 0xFF00);
   DMXStart = EEPROM.read(2533) + ((EEPROM.read(2534) << 8) & 0xFF00);
 
-  for (int i=0;i<15;i++) {
+  for (int i=0;i<MAX_CHANNELS_PER_FIXTURE;i++) {
     DMXFixtureMap[i] = EEPROM.read(2535+i);
   } //last used: 2549
-  for (int i=0;i<15;i++) {
+  for (int i=0;i<MAX_CHANNELS_PER_FIXTURE;i++) {
     DMXChannelsValue[i] = EEPROM.read(2550+i);
   } //last used: 2564
   DMXStartLED = EEPROM.read(2565);
