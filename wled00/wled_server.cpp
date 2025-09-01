@@ -144,12 +144,12 @@ static String dmxProcessor(const String& var)
     mapJS += F(";\nLC=");
     mapJS += String(strip.getLengthTotal());
     mapJS += F(";\nvar CH=[");
-    for (int i=0; i<15; i++) {
+    for (int i=0; i<MAX_CHANNELS_PER_FIXTURE; i++) {
       mapJS += String(DMXFixtureMap[i]) + ',';
     }
     mapJS += F("0];");
     mapJS += F(";\nvar DV=[");
-    for (int i=0; i<15; i++) {
+    for (int i=0; i<MAX_CHANNELS_PER_FIXTURE; i++) {
       mapJS += String(DMXChannelsValue[i]) + ',';
     }
     mapJS += F("0];");

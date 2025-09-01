@@ -637,13 +637,13 @@ void getSettingsJS(byte subPage, Print& settingsScript)
     printSetFormValue(settingsScript,PSTR("CS"),DMXStart);
     printSetFormValue(settingsScript,PSTR("SL"),DMXStartLED);
 
-    for (int i = 0; i < 15; i++) {
+    for (int i = 0; i < MAX_CHANNELS_PER_FIXTURE; i++) {
       char buf[5];
       snprintf_P(buf, sizeof(buf), PSTR("CH%d"), i+1);
       printSetFormIndex(settingsScript,buf,DMXFixtureMap[i]);
     }
 
-    for (int i = 0; i < 15; i++) {
+    for (int i = 0; i < MAX_CHANNELS_PER_FIXTURE; i++) {
       char buf[5];
       snprintf_P(buf, sizeof(buf), PSTR("DV%d"), i+1);
       printSetFormValue(settingsScript,buf,DMXChannelsValue[i]);

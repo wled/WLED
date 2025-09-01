@@ -686,4 +686,8 @@ static_assert(WLED_MAX_BUSSES <= 32, "WLED_MAX_BUSSES exceeds hard limit");
 
 #define WLED_O2_ATTR __attribute__((optimize("O2")))
 
+#ifdef WLED_ENABLE_DMX
+  #define MAX_CHANNELS_PER_FIXTURE 15
+#endif
+
 #endif

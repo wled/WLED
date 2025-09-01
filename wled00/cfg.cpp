@@ -736,12 +736,12 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
   CJSON(DMXStartLED,dmx[F("start-led")]);
 
   JsonArray dmx_fixmap = dmx[F("fixmap")];
-  for (int i = 0; i < MIN(dmx_fixmap.size(), 15); i++) {
+  for (int i = 0; i < MIN(dmx_fixmap.size(), MAX_CHANNELS_PER_FIXTURE); i++) {
     CJSON(DMXFixtureMap[i],dmx_fixmap[i]);
   }
 
   JsonArray dmx_chsval = dmx[F("chsval")];
-  for (int i = 0; i < MIN(dmx_chsval.size(), 15); i++) {
+  for (int i = 0; i < MIN(dmx_chsval.size(), MAX_CHANNELS_PER_FIXTURE); i++) {
     CJSON(DMXChannelsValue[i],dmx_chsval[i]);
   }
 
@@ -1241,12 +1241,12 @@ void serializeConfig(JsonObject root) {
   dmx[F("start-led")] = DMXStartLED;
 
   JsonArray dmx_fixmap = dmx.createNestedArray(F("fixmap"));
-  for (unsigned i = 0; i < 15; i++) {
+  for (unsigned i = 0; i < MAX_CHANNELS_PER_FIXTURE; i++) {
     dmx_fixmap.add(DMXFixtureMap[i]);
   }
 
   JsonArray dmx_chsval = dmx.createNestedArray(F("chsval"));
-  for (unsigned i = 0; i < 15; i++) {
+  for (unsigned i = 0; i < MAX_CHANNELS_PER_FIXTURE; i++) {
     dmx_chsval.add(DMXChannelsValue[i]);
   }
 
