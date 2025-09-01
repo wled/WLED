@@ -648,7 +648,7 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
     for (int i=0; i<MAX_CHANNELS_PER_FIXTURE; i++) {
       String argname = "DV" + String((i+1));
       t = request->arg(argname).toInt();
-      DMXChannelsValue[i] = t;
+      DMXChannelsValue[i] = constrain(t, 0, 255);
     }
   }
   #endif
