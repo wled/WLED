@@ -29,6 +29,22 @@ def add_bootloader_metadata(binary_file, required_version):
     # Create metadata string
     metadata = f"WLED_BOOTLOADER:{version}"
     
+    # Check if metadata already exists
+    try:
+        with open(binary_file, 'rb') as f:
+            content = f.read()
+        
+        if metadata.encode('ascii') in content:
+            print(f"File already contains bootloader v{version} requirement")
+            return True
+            
+        # Check for any bootloader metadata
+        if b"WLED_BOOTLOADER:" in content:
+            print("Warning: File already contains bootloader metadata. Adding new requirement.")
+    except Exception as e:
+        print(f"Error reading file: {e}")
+        return False
+    
     # Append metadata to file
     try:
         with open(binary_file, 'ab') as f:

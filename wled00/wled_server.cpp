@@ -388,6 +388,26 @@ void initServer()
 
   createEditHandler(correctPIN);
 
+#ifndef WLED_DISABLE_OTA
+  // Bootloader info endpoint for troubleshooting
+  server.on("/json/bootloader", HTTP_GET, [](AsyncWebServerRequest *request){
+    AsyncJsonResponse *response = new AsyncJsonResponse(128);
+    JsonObject root = response->getRoot();
+    
+    root[F("version")] = getBootloaderVersion();
+    #ifdef ESP32
+    root[F("rollback_capable")] = Update.canRollBack();
+    root[F("esp_idf_version")] = ESP_IDF_VERSION;
+    #else
+    root[F("rollback_capable")] = false;
+    root[F("platform")] = F("ESP8266");
+    #endif
+    
+    response->setLength();
+    request->send(response);
+  });
+#endif
+
   static const char _update[] PROGMEM = "/update";
 #ifndef WLED_DISABLE_OTA
   //init ota page
@@ -449,7 +469,8 @@ void initServer()
                 DEBUG_PRINTF_P(PSTR("Bootloader incompatible! Current: v%d, Required: v%d\n"), 
                               getBootloaderVersion(), required_version);
                 request->send(400, FPSTR(CONTENT_TYPE_PLAIN), 
-                             F("Bootloader incompatible! Please update to a newer bootloader first."));
+                             F("Bootloader incompatible! This firmware requires bootloader v4+. "
+                               "Please update via USB using install.wled.me first, or use WLED 0.15.x."));
                 return;
               }
               DEBUG_PRINTLN(F("Bootloader compatibility check passed"));
