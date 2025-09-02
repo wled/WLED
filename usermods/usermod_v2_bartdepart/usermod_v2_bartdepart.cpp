@@ -32,7 +32,7 @@ void BartDepart::setup() {
   DEBUG_PRINTLN(F("BartDepart::setup starting"));
   uint32_t now_ms = millis();
   safeToStart_ = now_ms + SAFETY_DELAY_MS;
-  showBooting();
+  if (enabled_) showBooting();
   state_ = BartDepartState::Setup;
   DEBUG_PRINTLN(F("BartDepart::setup finished"));
 }
@@ -50,7 +50,7 @@ void BartDepart::loop() {
   if (state_ == BartDepartState::Setup) {
     if (now_ms < safeToStart_) return;
     state_ = BartDepartState::Running;
-    doneBooting();
+    if (enabled_) doneBooting();
     reloadSources(now);
   }
 
