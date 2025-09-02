@@ -72,7 +72,7 @@ The actual temperature→hue stops used by the renderer are:
 | ≥104      | 0.0     | Red         |
 
 
-## 24 Hour Delta View (DV)
+## 24-Hour Delta View (DV)
 
 Hue represents the temperature change relative to the previous day:
 blues for cooling, greens for steady conditions, and yellows through
