@@ -1,7 +1,7 @@
 # SkyStrip
 
 This usermod displays the weather forecast on several parallel LED strips.
-It currently includes Cloud, Wind, Temperature, 24 Hour Delta, and TestPattern views.
+It currently includes Cloud, Wind, Temperature, 24-Hour Delta, and TestPattern views.
 
 ## Installation
 
@@ -23,6 +23,10 @@ Enter the latitude and longitude for the desired forecast. You can:
    - `S54°42'7", W67°40'33"`
 3. Enter a geo-location string (e.g., `oakland,ca,us`) in the `Location` field.
 
+Note: If you edit both fields, the Location string takes precedence and will
+update Latitude/Longitude. If you change Latitude/Longitude directly without
+changing Location, the Location field is cleared.
+
 ## Interpretation
 
 Please see the [Interpretation FAQ](./FAQ.md) for more information on how to
@@ -32,16 +36,10 @@ interpret the forecast views.
 
 - SkyStrip was developed/tested using the
   [Athom esp32-based LED strip controller](https://www.athom.tech/blank-1/wled-esp32-rf433-music-addressable-led-strip-controller).
-- Display used for development: four
-  [WS2815 LED strips](https://www.superlightingled.com/dc12v-ws2815-upgraded-ws2812b-1m-144-leds-individually-addressable-digital-led-strip-lights-dual-signal-wires-waterproof-dream-color-programmable-5050-rgb-flexible-led-ribbon-light-p-2134:fd57dd8a8ac1ee0e78f5493a35b28792.html)
-  , each 1 m long,
-  12 V, 5050 RGB, 144 LEDs/m, individually addressable with
-  dual-signal (backup) line; arranged side‑by‑side (physically
-  parallel). Any equivalent WS281x‑compatible strip of similar density
-  should work; adjust power and wiring accordingly.
-- SkyStrip makes 25 API calls to the
-  [OpenWeatherMap One Call API](https://openweathermap.org/api/one-call-3)
-  when it first starts running and one API call per hour after that.
+- Display used for development: four WS2815 12 V 5050 RGB LED strips,
+  1 m each, 144 LEDs/m, individually addressable with dual‑signal (backup) line;
+  arranged side‑by‑side (physically parallel). Any equivalent WS281x‑compatible
+  strip of similar density should work; adjust power and wiring accordingly.
 - Based on comparisons with a baseline build SkyStrip uses:
-  * RAM: +2080 bytes
-  * Flash: +153,812 bytes
+  - RAM: +2080 bytes
+  - Flash: +153,812 bytes
