@@ -147,7 +147,6 @@ void BartDepart::showBooting() {
 
 void BartDepart::doneBooting() {
   Segment& seg = strip.getMainSegment();
-  seg.freeze = true;
   seg.setMode(0);
 }
 
