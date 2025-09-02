@@ -20,8 +20,12 @@ REGISTER_USERMOD(bartdepart_usermod);
 const uint32_t SAFETY_DELAY_MS = 10u * 1000u;
 
 BartDepart::BartDepart() {
+  sources_.reserve(1);
   sources_.push_back(::make_unique<LegacyBartSource>());
+
   model_ = ::make_unique<BartStationModel>();
+
+  views_.reserve(4);
   views_.push_back(::make_unique<PlatformView>("1"));
   views_.push_back(::make_unique<PlatformView>("2"));
   views_.push_back(::make_unique<PlatformView>("3"));
