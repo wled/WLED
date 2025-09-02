@@ -51,13 +51,13 @@ void BartDepart::loop() {
     if (now_ms < safeToStart_) return;
     state_ = BartDepartState::Running;
     if (enabled_) doneBooting();
-    reloadSources(now);
+    if (now > 0) reloadSources(now);
   }
 
   bool becameOn = (lastOff_ && !offMode);
   bool becameEnabled = (!lastEnabled_ && enabled_);
   if (becameOn || becameEnabled) {
-    reloadSources(now);
+    if (now > 0) reloadSources(now);
   }
   lastOff_ = offMode;
   lastEnabled_ = enabled_;
