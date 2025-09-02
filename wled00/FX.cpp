@@ -7501,21 +7501,20 @@ typedef struct XTwinkleLight {
 
 // For creating skewed random numbers toward the shorter end.
 // The sum of percentages must = 100%
-const uint16_t pSize = 20;
-const float percentages[pSize] = {12, 11, 10, 10, 6, 6, 5, 5, 3, 3, 1, 1, 1, 1, 1, 1, 2, 3, 3, 15};
-const float slowPercentages[pSize] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5, 6, 7, 7, 7, 10, 12, 12, 15, 19};
-float wkgPercentages[pSize];
+const uint8_t pSize = 20;
+const uint8_t percentages[pSize] = {12, 11, 10, 10, 6, 6, 5, 5, 3, 3, 1, 1, 1, 1, 1, 1, 2, 3, 3, 15};
+const uint8_t slowPercentages[pSize] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5, 6, 7, 7, 7, 10, 12, 12, 15, 19};
+uint8_t wkgPercentages[pSize];
 
 // Input is 0-100, Ouput is skewed 0-100.
 // PArray may be any size, but elements must add up to 100.
-// Note: Single precision floating point is just as fast on an ESP-32 as fixed arithmetic.
-// Fun fact: Float multiply-add operations run at a faster rate than the ESP-32 clock .
-int32_t skewedRandom( float rand100,
-                      const uint16_t pArraySize,
-                      const float *pArray)
+#define RAND_PREC_SHIFT 10              // Vertual binary point from the right
+int32_t skewedRandom( uint8_t rand100,
+                      const uint8_t pArraySize,
+                      const uint8_t *pArray)
 {
-    int index = 0;
-    float cumulativePercentage = 0;
+    int32_t index = 0;
+    int32_t cumulativePercentage = 0;
 
     // Find the range in the table based on randomValue.
     while (index < pArraySize - 1 && rand100 >= cumulativePercentage + pArray[index]) {
@@ -7524,23 +7523,23 @@ int32_t skewedRandom( float rand100,
     }
 
     // Calculate linear interpolation
-    float t = (rand100 - cumulativePercentage) / pArray[index];
-    float result = (float(index) + t) * 100.0 / pArraySize;
+    int32_t t = ((rand100 - cumulativePercentage) << RAND_PREC_SHIFT) / pArray[index];
+    int32_t result = ((index << RAND_PREC_SHIFT) + t) * 100 / pArraySize >> RAND_PREC_SHIFT;
 
     return result;
 }
 
 // Take two percentage tables and average them using the weighting factor.
 // Both tables and the result must be the same size.
-void weightPercentages(const float *arg1,
-                       const float *arg2,
+void weightPercentages(const uint8_t *arg1,
+                       const uint8_t *arg2,
                        const int cnt,
-                       const float factor,   // 0.0-1.0 weight given to arg2.
-                       float *result)
+                       const uint32_t factor,   // 0.0-1.0 weight given to arg2 << RAND_PREC_SHIFT
+                       uint8_t *result)
 {
-	float arg1Factor = 1.0 - factor;
+	uint32_t arg1Factor = (1 << RAND_PREC_SHIFT) - factor;
 	for (int i = 0; i < cnt; ++i)
-		result[i] = arg1[i] * arg1Factor + arg2[i] * factor;
+		result[i] = arg1[i] * arg1Factor + arg2[i] * factor >> RAND_PREC_SHIFT;
 }
 
 uint16_t mode_XmasTwinkle(void) {              // by Nicholas Pisarro, Jr.
@@ -7561,7 +7560,7 @@ uint16_t mode_XmasTwinkle(void) {              // by Nicholas Pisarro, Jr.
   slowWeight = (slowWeight - 0.75) * 4;
   if (slowWeight < 0)
     slowWeight = 0.0;
-  weightPercentages(percentages, slowPercentages, pSize, slowWeight, wkgPercentages);
+  weightPercentages(percentages, slowPercentages, pSize, slowWeight * (1 << RAND_PREC_SHIFT), wkgPercentages);
   
   // uint8_t flasherDistance = ((255 - SEGMENT.intensity) / 28) +1; //1-10
   // uint16_t numFlashers = (SEGLEN / flasherDistance) +1;
@@ -7941,7 +7940,7 @@ uint16_t mode_ElasticCollisions(void) {              // by Nicholas Pisarro, Jr.
 
   // Radius distribution.
 	const int dmTableSize = 20;
-	const float dmPercentages[20] = {40, 20, 10, 4, 3, 17, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 3};
+	const uint8_t dmPercentages[20] = {40, 20, 10, 4, 3, 17, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 3};
   
   // Reinitialize evertying if the number of spheres has changed.
   // (We need a separate counter for the number wanted, vs. the number actually initialized.)
