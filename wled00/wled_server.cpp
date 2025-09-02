@@ -426,6 +426,40 @@ void initServer()
     if (!correctPIN || otaLock) return;
     if(!index){
       DEBUG_PRINTLN(F("OTA Update Start"));
+      
+      #ifndef WLED_DISABLE_OTA
+      // Check for bootloader compatibility metadata in first chunk
+      if (len >= 32) {
+        // Look for metadata header: "WLED_BOOTLOADER:X" where X is required version
+        const char* metadata_prefix = "WLED_BOOTLOADER:";
+        size_t prefix_len = strlen(metadata_prefix);
+        
+        // Search for metadata in first 512 bytes or available data, whichever is smaller
+        size_t search_len = (len > 512) ? 512 : len;
+        for (size_t i = 0; i <= search_len - prefix_len - 1; i++) {
+          if (memcmp(data + i, metadata_prefix, prefix_len) == 0) {
+            // Found metadata header, extract required version
+            char version_char = data[i + prefix_len];
+            if (version_char >= '1' && version_char <= '9') {
+              uint32_t required_version = version_char - '0';
+              
+              DEBUG_PRINTF_P(PSTR("OTA file requires bootloader v%d\n"), required_version);
+              
+              if (!isBootloaderCompatible(required_version)) {
+                DEBUG_PRINTF_P(PSTR("Bootloader incompatible! Current: v%d, Required: v%d\n"), 
+                              getBootloaderVersion(), required_version);
+                request->send(400, FPSTR(CONTENT_TYPE_PLAIN), 
+                             F("Bootloader incompatible! Please update to a newer bootloader first."));
+                return;
+              }
+              DEBUG_PRINTLN(F("Bootloader compatibility check passed"));
+              break;
+            }
+          }
+        }
+      }
+      #endif
+      
       #if WLED_WATCHDOG_TIMEOUT > 0
       WLED::instance().disableWatchdog();
       #endif

@@ -466,6 +466,10 @@ void handleBootLoop();   // detect and handle bootloops
 #ifndef ESP8266
 void bootloopCheckOTA(); // swap boot image if bootloop is detected instead of restoring config
 #endif
+#ifndef WLED_DISABLE_OTA
+uint32_t getBootloaderVersion(); // get current bootloader version
+bool isBootloaderCompatible(uint32_t required_version); // check bootloader compatibility
+#endif
 // RAII guard class for the JSON Buffer lock
 // Modeled after std::lock_guard
 class JSONBufferGuard {

@@ -857,6 +857,54 @@ void handleBootLoop() {
   ESP.restart(); // restart cleanly and don't wait for another crash
 }
 
+#ifndef WLED_DISABLE_OTA
+#ifdef ESP32
+// Get bootloader version/info for OTA compatibility checking
+// Returns a simple version indicator that can be used to check compatibility
+uint32_t getBootloaderVersion() {
+  static uint32_t cached_version = 0;
+  if (cached_version != 0) return cached_version;
+  
+  // Try to detect bootloader capabilities
+  // For now, use a simple heuristic based on ESP-IDF features available
+  
+  #if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 0, 0)
+    // ESP-IDF 5.0+ generally has newer bootloader
+    cached_version = 4; // Assume V4 bootloader for IDF 5.0+
+  #elif ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(4, 4, 0)
+    // ESP-IDF 4.4+ may have V3 or V4 bootloader
+    cached_version = 3; // Conservative assumption
+  #else
+    // Older ESP-IDF versions have older bootloaders
+    cached_version = 2;
+  #endif
+  
+  // Check if we have rollback capability as indicator of newer bootloader
+  if (Update.canRollBack()) {
+    cached_version = 4; // Rollback capability suggests V4 bootloader
+  }
+  
+  DEBUG_PRINTF_P(PSTR("Detected bootloader version: %d\n"), cached_version);
+  return cached_version;
+}
+
+// Check if current bootloader is compatible with given required version
+bool isBootloaderCompatible(uint32_t required_version) {
+  uint32_t current_version = getBootloaderVersion();
+  bool compatible = current_version >= required_version;
+  
+  DEBUG_PRINTF_P(PSTR("Bootloader compatibility check: current=%d, required=%d, compatible=%s\n"), 
+                 current_version, required_version, compatible ? "YES" : "NO");
+  
+  return compatible;
+}
+#else
+// ESP8266 compatibility functions - always assume compatible for now
+uint32_t getBootloaderVersion() { return 1; }
+bool isBootloaderCompatible(uint32_t required_version) { return true; }
+#endif
+#endif
+
 /*
  * Fixed point integer based Perlin noise functions by @dedehai
  * Note: optimized for speed and to mimic fastled inoise functions, not for accuracy or best randomness
