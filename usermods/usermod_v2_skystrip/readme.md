@@ -32,8 +32,13 @@ interpret the forecast views.
 
 - SkyStrip was developed/tested using the
   [Athom esp32-based LED strip controller](https://www.athom.tech/blank-1/wled-esp32-rf433-music-addressable-led-strip-controller).
-- I use a display consisting of 4 parallel 1-meter long
-  [WS2815 strips](https://www.superlightingled.com/dc12v-ws2815-upgraded-ws2812b-1m-144-leds-individually-addressable-digital-led-strip-lights-dual-signal-wires-waterproof-dream-color-programmable-5050-rgb-flexible-led-ribbon-light-p-2134:fd57dd8a8ac1ee0e78f5493a35b28792.html)
+- Display used for development: four
+  [WS2815 LED strips](https://www.superlightingled.com/dc12v-ws2815-upgraded-ws2812b-1m-144-leds-individually-addressable-digital-led-strip-lights-dual-signal-wires-waterproof-dream-color-programmable-5050-rgb-flexible-led-ribbon-light-p-2134:fd57dd8a8ac1ee0e78f5493a35b28792.html)
+  , each 1 m long,
+  12 V, 5050 RGB, 144 LEDs/m, individually addressable with
+  dual-signal (backup) line; arranged side‑by‑side (physically
+  parallel). Any equivalent WS281x‑compatible strip of similar density
+  should work; adjust power and wiring accordingly.
 - SkyStrip makes 25 API calls to the
   [OpenWeatherMap One Call API](https://openweathermap.org/api/one-call-3)
   when it first starts running and one API call per hour after that.
