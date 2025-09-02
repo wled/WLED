@@ -79,10 +79,17 @@ void LegacyBartSource::addToConfig(JsonObject& root) {
 
 bool LegacyBartSource::readFromConfig(JsonObject& root, bool startup_complete, bool& invalidate_history) {
   bool ok = true;
+  uint16_t prevUpdate = updateSecs_;
+  String   prevBase   = apiBase_;
+  String   prevKey    = apiKey_;
+  String   prevStation= apiStation_;
+
   ok &= getJsonValue(root["UpdateSecs"], updateSecs_, 60);
-  ok &= getJsonValue(root["ApiBase"], apiBase_, apiBase_);
-  ok &= getJsonValue(root["ApiKey"], apiKey_, apiKey_);
+  ok &= getJsonValue(root["ApiBase"],    apiBase_,    apiBase_);
+  ok &= getJsonValue(root["ApiKey"],     apiKey_,     apiKey_);
   ok &= getJsonValue(root["ApiStation"], apiStation_, apiStation_);
-  invalidate_history = true;
+
+  // Only invalidate when source identity changes (base/station)
+  invalidate_history = (apiBase_ != prevBase) || (apiStation_ != prevStation);
   return ok;
 }
