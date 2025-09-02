@@ -12,7 +12,6 @@
 
 const char CFG_NAME[] PROGMEM = "BartDepart";
 const char CFG_ENABLED[] PROGMEM = "Enabled";
-const char CFG_DBG_PIXEL_INDEX[] PROGMEM = "DebugPixelIndex";
 
 static BartDepart bartdepart_usermod;
 REGISTER_USERMOD(bartdepart_usermod);
@@ -86,7 +85,6 @@ void BartDepart::handleOverlayDraw() {
 void BartDepart::addToConfig(JsonObject& root) {
   JsonObject top = root.createNestedObject(FPSTR(CFG_NAME));
   top[FPSTR(CFG_ENABLED)] = enabled_;
-  top[FPSTR(CFG_DBG_PIXEL_INDEX)] = dbgPixelIndex_;
   for (auto& src : sources_) {
     JsonObject sub = top.createNestedObject(src->configKey());
     src->addToConfig(sub);
@@ -116,7 +114,6 @@ bool BartDepart::readFromConfig(JsonObject& root) {
   bool startup_complete = state_ == BartDepartState::Running;
 
   ok &= getJsonValue(top[FPSTR(CFG_ENABLED)], enabled_, false);
-  ok &= getJsonValue(top[FPSTR(CFG_DBG_PIXEL_INDEX)], dbgPixelIndex_, -1);
 
   for (auto& src : sources_) {
     JsonObject sub = top[src->configKey()];
