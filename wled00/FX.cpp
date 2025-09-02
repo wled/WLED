@@ -3893,44 +3893,78 @@ static const char _data_FX_MODE_PLASMA[] PROGMEM = "Plasma@Phase,!;!;!";
 /*
  * Percentage display
  * Intensity values from 0-100 turn on the leds.
+ * Optional time modes: check1 = % of Minute, check2 = % of Hour, check3 = % of Day
  */
 uint16_t mode_percent(void) {
+  // --- Time modes (if any of Minute/Hour/Day checks are active) ---
+  if (SEGMENT.check1 || SEGMENT.check2 || SEGMENT.check3) {
+    uint32_t period  = 60U;                             // Minute default
+    uint32_t elapsed = (uint32_t)second(localTime);
 
-  unsigned percent = SEGMENT.intensity;
-  percent = constrain(percent, 0, 200);
-  unsigned active_leds = (percent < 100) ? roundf(SEGLEN * percent / 100.0f)
-                                         : roundf(SEGLEN * (200 - percent) / 100.0f);
+    if (SEGMENT.check2) {                               // Hour
+      period  = 3600U;
+      elapsed = (uint32_t)minute(localTime) * 60U + (uint32_t)second(localTime);
+    }
+    if (SEGMENT.check3) {                               // Day
+      period  = 86400U;
+      elapsed = (uint32_t)hour(localTime) * 3600U
+              + (uint32_t)minute(localTime) * 60U
+              + (uint32_t)second(localTime);
+    }
+
+    // Inclusive mapping: full at rollover (elapsed==0), never zero lit otherwise
+    uint32_t lit = 0;
+    if (period > 0) {
+      if (elapsed == 0) {
+        lit = SEGLEN;
+      } else {
+        uint64_t num = (uint64_t)elapsed * (uint64_t)SEGLEN + (uint64_t)(period - 1U);
+        lit = (uint32_t)(num / (uint64_t)period);
+        if (lit < 1U)        lit = 1U;
+        if (lit > SEGLEN)    lit = SEGLEN;
+      }
+    }
+
+    // lit portion
+    for (uint32_t i = 0; i < lit; i++) {
+      SEGMENT.setPixelColor(i, SEGMENT.color_from_palette(i, true, PALETTE_SOLID_WRAP, 0));
+    }
+    // unlit portion
+    for (uint32_t i = lit; i < SEGLEN; i++) {
+      SEGMENT.setPixelColor(i, SEGCOLOR(1));
+    }
+    return FRAMETIME;
+  }
+
+  // Normal percent mode (when all time options are unchecked) 
+  unsigned percent = constrain(SEGMENT.intensity, 0, 200);
+
+  unsigned active_leds = (percent < 100)
+    ? (unsigned)roundf(SEGLEN * percent / 100.0f)
+    : (unsigned)roundf(SEGLEN * (200 - percent) / 100.0f);
 
   unsigned size = (1 + ((SEGMENT.speed * SEGLEN) >> 11));
   if (SEGMENT.speed == 255) size = 255;
 
   if (percent <= 100) {
     for (unsigned i = 0; i < SEGLEN; i++) {
-    	if (i < SEGENV.aux1) {
-        if (SEGMENT.check1)
-          SEGMENT.setPixelColor(i, SEGMENT.color_from_palette(map(percent,0,100,0,255), false, false, 0));
-        else
-          SEGMENT.setPixelColor(i, SEGMENT.color_from_palette(i, true, PALETTE_SOLID_WRAP, 0));
-    	}
-    	else {
+      if (i < SEGENV.aux1) {
+        SEGMENT.setPixelColor(i, SEGMENT.color_from_palette(map(percent,0,100,0,255), false, false, 0));
+      } else {
         SEGMENT.setPixelColor(i, SEGCOLOR(1));
-    	}
+      }
     }
   } else {
     for (unsigned i = 0; i < SEGLEN; i++) {
-    	if (i < (SEGLEN - SEGENV.aux1)) {
+      if (i < (SEGLEN - SEGENV.aux1)) {
         SEGMENT.setPixelColor(i, SEGCOLOR(1));
-    	}
-    	else {
-        if (SEGMENT.check1)
-          SEGMENT.setPixelColor(i, SEGMENT.color_from_palette(map(percent,100,200,255,0), false, false, 0));
-        else
-          SEGMENT.setPixelColor(i, SEGMENT.color_from_palette(i, true, PALETTE_SOLID_WRAP, 0));
-    	}
+      } else {
+        SEGMENT.setPixelColor(i, SEGMENT.color_from_palette(map(percent,100,200,255,0), false, false, 0));
+      }
     }
   }
 
-  if(active_leds > SEGENV.aux1) {  // smooth transition to the target value
+  if (active_leds > SEGENV.aux1) {
     SEGENV.aux1 += size;
     if (SEGENV.aux1 > active_leds) SEGENV.aux1 = active_leds;
   } else if (active_leds < SEGENV.aux1) {
@@ -3938,9 +3972,10 @@ uint16_t mode_percent(void) {
     if (SEGENV.aux1 < active_leds) SEGENV.aux1 = active_leds;
   }
 
- 	return FRAMETIME;
+  return FRAMETIME;
 }
-static const char _data_FX_MODE_PERCENT[] PROGMEM = "Percent@,% of fill,,,,One color;!,!;!";
+
+static const char _data_FX_MODE_PERCENT[] PROGMEM = "Percent@,% of fill,,,,% of Minute,% of Hour,% of Day;!,!;!";
 
 
 /*
