@@ -90,6 +90,6 @@ bool LegacyBartSource::readFromConfig(JsonObject& root, bool startup_complete, b
   ok &= getJsonValue(root["ApiStation"], apiStation_, apiStation_);
 
   // Only invalidate when source identity changes (base/station)
-  invalidate_history = (apiBase_ != prevBase) || (apiStation_ != prevStation);
+  invalidate_history |= (apiBase_ != prevBase) || (apiStation_ != prevStation);
   return ok;
 }
