@@ -31,6 +31,8 @@ License along with NeoPixel.  If not, see
 
 #if defined(ARDUINO_ARCH_ESP32)
 
+#include <algorithm>  
+#include "esp_idf_version.h"
 #include "NeoEsp32RmtHIMethod.h"
 #include "soc/soc.h"
 #include "soc/rmt_reg.h"
