@@ -109,7 +109,6 @@
   
   #ifndef WLED_DISABLE_OTA
     #include "esp_ota_ops.h"
-    #include "esp_app_desc.h"
   #endif
 
   #ifndef WLED_DISABLE_ESPNOW

@@ -14,7 +14,6 @@
   #include "esp_partition.h" // for bootloader version detection
   #include "esp_flash.h"     // for direct flash access
   #include "esp_log.h"       // for error handling
-  #include "esp_app_desc.h"  // for app description structures
 #endif
 #endif
 
