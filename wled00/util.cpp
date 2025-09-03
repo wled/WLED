@@ -720,125 +720,140 @@ void *realloc_malloc(void *ptr, size_t size) {
 // checks if the ESP reboots multiple times due to a crash or watchdog timeout
 // if a bootloop is detected: restore settings from backup, then reset settings, then switch boot image (and repeat)
 
-#define BOOTLOOP_THRESHOLD      5     // number of consecutive crashes to trigger bootloop detection
-#define BOOTLOOP_ACTION_RESTORE 0     // default action: restore config from /bak.cfg.json
-#define BOOTLOOP_ACTION_RESET   1     // if restore does not work, reset config (rename /cfg.json to /rst.cfg.json)
-#define BOOTLOOP_ACTION_OTA     2     // swap the boot partition
-#define BOOTLOOP_ACTION_DUMP    3     // nothing seems to help, dump files to serial and reboot (until hardware reset)
+#define BOOTLOOP_INTERVAL_MILLIS 120000  // time limit between crashes: 120 seconds (2 minutes)
+#define BOOTLOOP_THRESHOLD       5     // number of consecutive crashes to trigger bootloop detection
+#define BOOTLOOP_ACTION_RESTORE  0     // default action: restore config from /bkp.cfg.json
+#define BOOTLOOP_ACTION_RESET    1     // if restore does not work, reset config (rename /cfg.json to /rst.cfg.json)
+#define BOOTLOOP_ACTION_OTA      2     // swap the boot partition
+#define BOOTLOOP_ACTION_DUMP     3     // nothing seems to help, dump files to serial and reboot (until hardware reset)
+
+// Platform-agnostic abstraction
+enum class ResetReason {
+  Power,
+  Software,
+  Crash,
+  Brownout
+};
+
 #ifdef ESP8266
-#define BOOTLOOP_INTERVAL_TICKS (5 * 160000) // time limit between crashes: ~5 seconds in RTC ticks
-#define BOOT_TIME_IDX       0 // index in RTC memory for boot time
-#define CRASH_COUNTER_IDX   1 // index in RTC memory for crash counter
-#define ACTIONT_TRACKER_IDX 2 // index in RTC memory for boot action
+// Place variables in RTC memory via references, since RTC memory is not exposed via the linker in the Non-OS SDK
+// Use an offset of 32 as there's some hints that the first 128 bytes of "user" memory are used by the OTA system
+// Ref: https://github.com/esp8266/Arduino/blob/78d0d0aceacc1553f45ad8154592b0af22d1eede/cores/esp8266/Esp.cpp#L168
+static volatile uint32_t& bl_last_boottime = *(RTC_USER_MEM + 32);
+static volatile uint32_t& bl_crashcounter = *(RTC_USER_MEM + 33);
+static volatile uint32_t& bl_actiontracker = *(RTC_USER_MEM + 34);
+
+static inline ResetReason rebootReason() {
+  uint32_t resetReason = system_get_rst_info()->reason;
+  if (resetReason == REASON_EXCEPTION_RST
+      || resetReason == REASON_WDT_RST
+      || resetReason == REASON_SOFT_WDT_RST)
+      return ResetReason::Crash;
+  if (resetReason == REASON_SOFT_RESTART)
+    return ResetReason::Software;
+  return ResetReason::Power;
+}
+
+static inline uint32_t getRtcMillis() { return system_get_rtc_time() / 160; };  // rtc ticks ~160000Hz
+
 #else
-#define BOOTLOOP_INTERVAL_TICKS 5000  // time limit between crashes: ~5 seconds in milliseconds
 // variables in RTC_NOINIT memory persist between reboots (but not on hardware reset)
 RTC_NOINIT_ATTR static uint32_t bl_last_boottime;
 RTC_NOINIT_ATTR static uint32_t bl_crashcounter;
 RTC_NOINIT_ATTR static uint32_t bl_actiontracker;
+
+static inline ResetReason rebootReason() {
+  esp_reset_reason_t reason = esp_reset_reason();
+  if (reason == ESP_RST_BROWNOUT) return ResetReason::Brownout;
+  if (reason == ESP_RST_SW) return ResetReason::Software;
+  if (reason == ESP_RST_PANIC || reason == ESP_RST_WDT || reason == ESP_RST_INT_WDT || reason == ESP_RST_TASK_WDT) return ResetReason::Crash;
+  return ResetReason::Power;
+}
+
+#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(4, 4, 0)
+static inline uint32_t getRtcMillis() { return esp_rtc_get_time_us() / 1000; }
+#elif ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(3, 3, 0)
+static inline uint32_t getRtcMillis() { return rtc_time_slowclk_to_us(rtc_time_get(), rtc_clk_slow_freq_get_hz()) / 1000; }
+#endif
+
 void bootloopCheckOTA() { bl_actiontracker = BOOTLOOP_ACTION_OTA; } // swap boot image if bootloop is detected instead of restoring config
+
 #endif
 
 // detect bootloop by checking the reset reason and the time since last boot
 static bool detectBootLoop() {
-#if !defined(ESP8266)
-  #if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(4, 4, 0)
-    uint32_t rtctime = esp_rtc_get_time_us() / 1000;  // convert to milliseconds
-  #elif ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(3, 3, 0)
-    uint64_t rtc_ticks = rtc_time_get();
-    uint32_t rtctime = rtc_time_slowclk_to_us(rtc_ticks, rtc_clk_slow_freq_get_hz()) / 1000;  // convert to milliseconds
-  #endif
+  uint32_t rtctime = getRtcMillis();
+  bool result = false;
 
-  esp_reset_reason_t reason = esp_reset_reason();
-
-  if (!(reason == ESP_RST_PANIC || reason == ESP_RST_WDT || reason == ESP_RST_INT_WDT || reason == ESP_RST_TASK_WDT)) {
-    // no crash detected, init variables
-    bl_crashcounter = 0;
-    bl_last_boottime = rtctime;
-    if(reason != ESP_RST_SW)
+  switch(rebootReason()) {
+    case ResetReason::Power:
       bl_actiontracker = BOOTLOOP_ACTION_RESTORE; // init action tracker if not an intentional reboot (e.g. from OTA or bootloop handler)
-  } else if (reason == ESP_RST_BROWNOUT) {
-    // crash due to brownout can't be detected unless using flash memory to store bootloop variables
-    // this is a simpler way to preemtively revert the config in case current brownout is caused by a bad choice of settings
-    DEBUG_PRINTLN(F("brownout detected"));
-    //restoreConfig(); // TODO: blindly restoring config if brownout detected is a bad idea, need a better way (if at all)
-  } else {
-    uint32_t rebootinterval = rtctime - bl_last_boottime;
-    bl_last_boottime = rtctime; // store current runtime for next reboot
-    if (rebootinterval < BOOTLOOP_INTERVAL_TICKS) {
-      bl_crashcounter++;
-      if (bl_crashcounter >= BOOTLOOP_THRESHOLD) {
-        DEBUG_PRINTLN(F("!BOOTLOOP DETECTED!"));
-        bl_crashcounter = 0;
-        return true;
-      }
-    }
-  }
-#else // ESP8266
-  rst_info* resetreason = system_get_rst_info();
-  uint32_t  bl_last_boottime;
-  uint32_t  bl_crashcounter;
-  uint32_t  bl_actiontracker;
-  uint32_t  rtctime = system_get_rtc_time();
+      // fall through
+    case ResetReason::Software:
+      // no crash detected, reset counter
+      bl_crashcounter = 0;
+      break;
 
-  if (!(resetreason->reason == REASON_EXCEPTION_RST || resetreason->reason == REASON_WDT_RST)) {
-    // no crash detected, init variables
-    bl_crashcounter = 0;
-    ESP.rtcUserMemoryWrite(BOOT_TIME_IDX, &rtctime, sizeof(uint32_t));
-    ESP.rtcUserMemoryWrite(CRASH_COUNTER_IDX, &bl_crashcounter, sizeof(uint32_t));
-    if(resetreason->reason != REASON_SOFT_RESTART) {
-      bl_actiontracker = BOOTLOOP_ACTION_RESTORE; // init action tracker if not an intentional reboot (e.g. from OTA or bootloop handler)
-      ESP.rtcUserMemoryWrite(ACTIONT_TRACKER_IDX, &bl_actiontracker, sizeof(uint32_t));
-    }
-  } else {
-    // system has crashed
-    ESP.rtcUserMemoryRead(BOOT_TIME_IDX, &bl_last_boottime, sizeof(uint32_t));
-    ESP.rtcUserMemoryRead(CRASH_COUNTER_IDX, &bl_crashcounter, sizeof(uint32_t));
-    uint32_t rebootinterval = rtctime - bl_last_boottime;
-    ESP.rtcUserMemoryWrite(BOOT_TIME_IDX, &rtctime, sizeof(uint32_t)); // store current ticks for next reboot
-    if (rebootinterval < BOOTLOOP_INTERVAL_TICKS) {
-      bl_crashcounter++;
-      ESP.rtcUserMemoryWrite(CRASH_COUNTER_IDX, &bl_crashcounter, sizeof(uint32_t));
-      if (bl_crashcounter >= BOOTLOOP_THRESHOLD) {
-        DEBUG_PRINTLN(F("BOOTLOOP DETECTED"));
+    case ResetReason::Crash:
+    {
+      DEBUG_PRINTLN(F("crash detected!"));
+      uint32_t rebootinterval = rtctime - bl_last_boottime;
+      if (rebootinterval < BOOTLOOP_INTERVAL_MILLIS) {
+        bl_crashcounter++;
+        if (bl_crashcounter >= BOOTLOOP_THRESHOLD) {
+          DEBUG_PRINTLN(F("!BOOTLOOP DETECTED!"));
+          bl_crashcounter = 0;
+          result = true;
+        }
+      } else {
+        // Reset counter on long intervals to track only consecutive short-interval crashes
         bl_crashcounter = 0;
-        ESP.rtcUserMemoryWrite(CRASH_COUNTER_IDX, &bl_crashcounter, sizeof(uint32_t));
-        return true;
+        // TODO: crash reporting goes here
       }
+      break;
     }
+
+    case ResetReason::Brownout:
+      // crash due to brownout can't be detected unless using flash memory to store bootloop variables
+      DEBUG_PRINTLN(F("brownout detected"));
+      //restoreConfig(); // TODO: blindly restoring config if brownout detected is a bad idea, need a better way (if at all)
+      break;
   }
-#endif
-  return false; // no bootloop detected
+
+  bl_last_boottime = rtctime; // store current runtime for next reboot
+
+  return result;
 }
 
 void handleBootLoop() {
-  DEBUG_PRINTLN(F("checking for bootloop"));
+  DEBUG_PRINTF_P(PSTR("checking for bootloop: time %d, counter %d, action %d\n"), bl_last_boottime, bl_crashcounter, bl_actiontracker);
   if (!detectBootLoop()) return; // no bootloop detected
-#ifdef ESP8266
-  uint32_t bl_actiontracker;
-  ESP.rtcUserMemoryRead(ACTIONT_TRACKER_IDX, &bl_actiontracker, sizeof(uint32_t));
-#endif
-  if (bl_actiontracker == BOOTLOOP_ACTION_RESTORE) {
-    restoreConfig(); // note: if this fails, could reset immediately. instead just let things play out and save a few lines of code
-    bl_actiontracker = BOOTLOOP_ACTION_RESET; // reset config if it keeps bootlooping
-  } else if (bl_actiontracker == BOOTLOOP_ACTION_RESET) {
-    resetConfig();
-    bl_actiontracker = BOOTLOOP_ACTION_OTA; // swap boot partition if it keeps bootlooping. On ESP8266 this is the same as BOOTLOOP_ACTION_NONE
-  }
+
+  switch(bl_actiontracker) {
+    case BOOTLOOP_ACTION_RESTORE:
+      restoreConfig();
+      ++bl_actiontracker;
+      break;
+    case BOOTLOOP_ACTION_RESET:
+      resetConfig();
+      ++bl_actiontracker;
+      break;
+    case BOOTLOOP_ACTION_OTA:
 #ifndef ESP8266
-  else if (bl_actiontracker == BOOTLOOP_ACTION_OTA) {
-    if(Update.canRollBack()) {
-      DEBUG_PRINTLN(F("Swapping boot partition..."));
-      Update.rollBack(); // swap boot partition
-    }
-    bl_actiontracker = BOOTLOOP_ACTION_DUMP; // out of options
-  }
-  #endif
-  else
-    dumpFilesToSerial();
-#ifdef ESP8266
-  ESP.rtcUserMemoryWrite(ACTIONT_TRACKER_IDX, &bl_actiontracker, sizeof(uint32_t));
+      if(Update.canRollBack()) {
+        DEBUG_PRINTLN(F("Swapping boot partition..."));
+        Update.rollBack(); // swap boot partition
+      }
+      ++bl_actiontracker;
+      break;
+#else
+      // fall through
 #endif
+    case BOOTLOOP_ACTION_DUMP:
+      dumpFilesToSerial();
+      break;
+  }
+
   ESP.restart(); // restart cleanly and don't wait for another crash
 }
 
