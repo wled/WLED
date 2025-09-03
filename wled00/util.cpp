@@ -949,50 +949,8 @@ uint32_t getBootloaderVersion() {
     DEBUG_PRINTF_P(PSTR("Bootloader version from description: %d\n"), cached_version);
   } else {
     DEBUG_PRINTF_P(PSTR("Failed to read bootloader description: %s\n"), esp_err_to_name(err));
-    
-    // Fallback: Try basic flash reading as before
-    const uint32_t BOOTLOADER_OFFSET_FALLBACK = 0x1000;
-    uint8_t bootloader_header[32];
-    
-    err = esp_flash_read(esp_flash_default_chip, bootloader_header, BOOTLOADER_OFFSET_FALLBACK, sizeof(bootloader_header));
-    
-    if (err == ESP_OK && bootloader_header[0] == 0xE9) {
-      // Use rollback capability as primary indicator of V4 bootloader
-      if (Update.canRollBack()) {
-        cached_version = 4;
-        DEBUG_PRINTF_P(PSTR("Bootloader V4 detected (rollback capable, fallback)\n"));
-      } else {
-        // Fallback to ESP-IDF version heuristics for older bootloaders
-        #if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 0, 0)
-          cached_version = 4; // ESP-IDF 5.0+ typically has V4 bootloader
-        #elif ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(4, 4, 0)
-          cached_version = 3; // ESP-IDF 4.4+ may have V3 or V4
-        #else
-          cached_version = 2; // Older ESP-IDF has V2
-        #endif
-        
-        DEBUG_PRINTF_P(PSTR("Bootloader version estimated from ESP-IDF (fallback): %d\n"), cached_version);
-      }
-      
-      DEBUG_PRINTF_P(PSTR("Fallback: Read bootloader from flash: magic=0x%02X, version=%d\n"), 
-                     bootloader_header[0], cached_version);
-    } else {
-      DEBUG_PRINTF_P(PSTR("Failed to read bootloader from flash (fallback): %s\n"), esp_err_to_name(err));
-      
-      // Final fallback to ESP-IDF version heuristics
-      #if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 0, 0)
-        cached_version = 4;
-      #elif ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(4, 4, 0)
-        cached_version = 3;
-      #else
-        cached_version = 2;
-      #endif
-      
-      // Still check rollback capability
-      if (Update.canRollBack()) {
-        cached_version = max(cached_version, 4U);
-      }
-    }
+    // Return 0 to indicate unknown/unsupported bootloader
+    cached_version = 0;
   }
   
   DEBUG_PRINTF_P(PSTR("Final bootloader version: %d\n"), cached_version);
