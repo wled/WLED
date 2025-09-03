@@ -389,12 +389,12 @@ void initServer()
   createEditHandler(correctPIN);
 
   // Bootloader info endpoint for troubleshooting
-  server.on("/json/bootloader", HTTP_GET, [](AsyncWebServerRequest *request){
+  server.on("/bootloader", HTTP_GET, [](AsyncWebServerRequest *request){
     AsyncJsonResponse *response = new AsyncJsonResponse(128);
     JsonObject root = response->getRoot();
     
-    root[F("version")] = getBootloaderVersion();
     #ifdef ESP32
+    root[F("version")] = getBootloaderVersion();
     #ifndef WLED_DISABLE_OTA
     root[F("rollback_capable")] = Update.canRollBack();
     #else
