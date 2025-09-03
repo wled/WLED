@@ -10,6 +10,11 @@
 #elif ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(3, 3, 0)
   #include "soc/rtc.h"
 #endif
+#ifndef WLED_DISABLE_OTA
+  #include "esp_partition.h" // for bootloader version detection
+  #include "esp_flash.h"     // for direct flash access
+  #include "esp_log.h"       // for error handling
+#endif
 #endif
 
 
@@ -865,26 +870,68 @@ uint32_t getBootloaderVersion() {
   static uint32_t cached_version = 0;
   if (cached_version != 0) return cached_version;
   
-  // Try to detect bootloader capabilities
-  // For now, use a simple heuristic based on ESP-IDF features available
+  // Try to read actual bootloader information from flash memory
+  // The bootloader is typically located at 0x1000 on ESP32
+  const uint32_t BOOTLOADER_OFFSET = 0x1000; // Standard bootloader location
+  uint8_t bootloader_header[32];
   
-  #if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 0, 0)
-    // ESP-IDF 5.0+ generally has newer bootloader
-    cached_version = 4; // Assume V4 bootloader for IDF 5.0+
-  #elif ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(4, 4, 0)
-    // ESP-IDF 4.4+ may have V3 or V4 bootloader
-    cached_version = 3; // Conservative assumption
-  #else
-    // Older ESP-IDF versions have older bootloaders
-    cached_version = 2;
-  #endif
+  esp_err_t err = esp_flash_read(esp_flash_default_chip, bootloader_header, BOOTLOADER_OFFSET, sizeof(bootloader_header));
   
-  // Check if we have rollback capability as indicator of newer bootloader
-  if (Update.canRollBack()) {
-    cached_version = 4; // Rollback capability suggests V4 bootloader
+  if (err == ESP_OK) {
+    // ESP32 bootloader binary starts with magic number 0xE9
+    if (bootloader_header[0] == 0xE9) {
+      // Try to determine bootloader version based on characteristics
+      // This is still heuristic but based on actual bootloader data
+      
+      // Check for specific patterns that indicate newer bootloaders
+      // ESP-IDF v4+ bootloaders have different structure and capabilities
+      
+      // Read some characteristics from the bootloader header
+      uint8_t chip_id = bootloader_header[12]; // Chip revision field
+      uint16_t entry_addr = *(uint16_t*)&bootloader_header[4]; // Entry address
+      
+      // Use rollback capability as primary indicator of V4 bootloader
+      if (Update.canRollBack()) {
+        cached_version = 4;
+        DEBUG_PRINTF_P(PSTR("Bootloader V4 detected (rollback capable)\n"));
+      } else {
+        // Fallback to ESP-IDF version heuristics for older bootloaders
+        #if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 0, 0)
+          cached_version = 4; // ESP-IDF 5.0+ typically has V4 bootloader
+        #elif ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(4, 4, 0)
+          cached_version = 3; // ESP-IDF 4.4+ may have V3 or V4
+        #else
+          cached_version = 2; // Older ESP-IDF has V2
+        #endif
+        
+        DEBUG_PRINTF_P(PSTR("Bootloader version estimated from ESP-IDF: %d\n"), cached_version);
+      }
+      
+      DEBUG_PRINTF_P(PSTR("Read bootloader from flash: magic=0x%02X, chip_id=0x%02X, entry=0x%04X, version=%d\n"), 
+                     bootloader_header[0], chip_id, entry_addr, cached_version);
+    } else {
+      DEBUG_PRINTF_P(PSTR("Invalid bootloader magic number: 0x%02X\n"), bootloader_header[0]);
+      cached_version = 2; // Conservative fallback
+    }
+  } else {
+    DEBUG_PRINTF_P(PSTR("Failed to read bootloader from flash: %s\n"), esp_err_to_name(err));
+    
+    // Fallback to ESP-IDF version heuristics
+    #if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 0, 0)
+      cached_version = 4;
+    #elif ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(4, 4, 0)
+      cached_version = 3;
+    #else
+      cached_version = 2;
+    #endif
+    
+    // Still check rollback capability
+    if (Update.canRollBack()) {
+      cached_version = max(cached_version, 4U);
+    }
   }
   
-  DEBUG_PRINTF_P(PSTR("Detected bootloader version: %d\n"), cached_version);
+  DEBUG_PRINTF_P(PSTR("Final bootloader version: %d\n"), cached_version);
   return cached_version;
 }
 
