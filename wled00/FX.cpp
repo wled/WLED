@@ -3926,11 +3926,11 @@ uint16_t mode_percent(void) {
     }
 
     // lit portion
-    for (uint32_t i = 0; i < lit; i++) {
+    for (unsigned i = 0; i < lit; i++) {
       SEGMENT.setPixelColor(i, SEGMENT.color_from_palette(i, true, PALETTE_SOLID_WRAP, 0));
     }
     // unlit portion
-    for (uint32_t i = lit; i < SEGLEN; i++) {
+    for (unsigned i = lit; i < SEGLEN; i++) {
       SEGMENT.setPixelColor(i, SEGCOLOR(1));
     }
     return FRAMETIME;
