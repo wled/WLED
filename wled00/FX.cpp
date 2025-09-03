@@ -544,6 +544,45 @@ uint16_t mode_rainbow_cycle(void) {
 }
 static const char _data_FX_MODE_RAINBOW_CYCLE[] PROGMEM = "Rainbow@!,Size;;!";
 
+/*
+ * Cycles a rainbow over the entire string of LEDs, with a white flash that goes across it.
+ */
+uint16_t mode_rainbow_shimmer() {
+
+  unsigned counter = (strip.now * ((SEGMENT.speed >> 2) + 2)) & 0xFFFF;
+  counter = counter >> 8;
+
+  uint32_t shimmerSpeed = 100 + (255 - SEGMENT.custom2) * 40; //ranges from 100-10260ms
+  uint32_t shimmerSize = (SEGMENT.custom3 * SEGLEN / 2 >> 5) + 1;
+  uint32_t cycleTime = (255 - SEGMENT.custom1) * 150 + shimmerSpeed;
+
+  uint32_t percCycle = strip.now % cycleTime;
+  float shimmerIndex = (float)percCycle / (float)shimmerSpeed * (SEGLEN + 2*shimmerSize);
+  
+  shimmerIndex -= shimmerSize;
+
+  // reverse direction of shimmer
+  if(!SEGMENT.check1) {
+    shimmerIndex = (float)SEGLEN - shimmerIndex;
+  }
+
+
+  for (unsigned i = 0; i < SEGLEN; i++) {
+    // Standard rainbow effect.
+    uint8_t index = (i * (16 << (SEGMENT.intensity / 29)) / SEGLEN) + counter;
+    SEGMENT.setPixelColor(i, SEGMENT.color_wheel(index));
+
+    //shimmer logic
+    float distFromShimmerCenter = fabsf(shimmerIndex - i);
+    // Only process pixels that are within the shimmer's range.
+    if (distFromShimmerCenter < shimmerSize) {
+      SEGMENT.setPixelColor(i, color_blend(SEGMENT.getPixelColor(i), 0xFFFFFF, (uint8_t)(255 * (1.0f - (distFromShimmerCenter / shimmerSize)))));
+    }
+  }
+
+  return FRAMETIME;
+}
+static const char _data_FX_MODE_RAINBOW_SHIMMER[] PROGMEM = "Rainbow Shimmer@!,Size,Shimmer Frq,Shimmer Speed,Shimmer Length,Reverse;;c1=231,c2=221";
 
 /*
  * Alternating pixels running function.
@@ -10665,6 +10704,7 @@ void WS2812FX::setupEffectData() {
   addEffect(FX_MODE_DYNAMIC, &mode_dynamic, _data_FX_MODE_DYNAMIC);
   addEffect(FX_MODE_RAINBOW, &mode_rainbow, _data_FX_MODE_RAINBOW);
   addEffect(FX_MODE_RAINBOW_CYCLE, &mode_rainbow_cycle, _data_FX_MODE_RAINBOW_CYCLE);
+  addEffect(FX_MODE_RAINBOW_SHIMMER, &mode_rainbow_shimmer, _data_FX_MODE_RAINBOW_SHIMMER);
   addEffect(FX_MODE_SCAN, &mode_scan, _data_FX_MODE_SCAN);
   addEffect(FX_MODE_DUAL_SCAN, &mode_dual_scan, _data_FX_MODE_DUAL_SCAN);
   addEffect(FX_MODE_FADE, &mode_fade, _data_FX_MODE_FADE);
