@@ -388,7 +388,6 @@ void initServer()
 
   createEditHandler(correctPIN);
 
-#ifndef WLED_DISABLE_OTA
   // Bootloader info endpoint for troubleshooting
   server.on("/json/bootloader", HTTP_GET, [](AsyncWebServerRequest *request){
     AsyncJsonResponse *response = new AsyncJsonResponse(128);
@@ -396,7 +395,11 @@ void initServer()
     
     root[F("version")] = getBootloaderVersion();
     #ifdef ESP32
+    #ifndef WLED_DISABLE_OTA
     root[F("rollback_capable")] = Update.canRollBack();
+    #else
+    root[F("rollback_capable")] = false;
+    #endif
     root[F("esp_idf_version")] = ESP_IDF_VERSION;
     #else
     root[F("rollback_capable")] = false;
@@ -406,7 +409,6 @@ void initServer()
     response->setLength();
     request->send(response);
   });
-#endif
 
   static const char _update[] PROGMEM = "/update";
 #ifndef WLED_DISABLE_OTA
