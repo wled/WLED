@@ -11,7 +11,7 @@
   #include "soc/rtc.h"
 #endif
 #ifndef WLED_DISABLE_OTA
-  #include "esp_partition.h" // for bootloader version detection
+
   #include "esp_flash.h"     // for direct flash access
   #include "esp_log.h"       // for error handling
 #endif
@@ -865,146 +865,39 @@ void handleBootLoop() {
 #ifndef WLED_DISABLE_OTA
 #ifdef ESP32
 
-// Bootloader description structure based on ESP-IDF bootloader format
-// This matches the actual esp_bootloader_desc_t from ESP-IDF
-typedef struct {
-    uint8_t magic_byte;         /*!< Magic byte ESP_BOOTLOADER_DESC_MAGIC_BYTE */
-    uint8_t reserved[2];        /*!< reserved for IDF */
-    uint8_t secure_version;     /*!< The version used by bootloader anti-rollback feature */
-    uint32_t version;           /*!< Bootloader version */
-    char idf_ver[32];           /*!< Version IDF */
-    char date_time[24];         /*!< Compile date and time*/
-    uint8_t reserved2[16];      /*!< reserved for IDF */
-} esp_bootloader_desc_t;
-
-#define ESP_BOOTLOADER_DESC_MAGIC_BYTE (80)  /*!< The magic byte for the esp_bootloader_desc structure */
-#define BOOTLOADER_OFFSET 0x1000   /*!< Standard bootloader location in flash */
-
-// ESP32 image header sizes based on ESP-IDF source
-#define ESP_IMAGE_HEADER_SIZE 24        /*!< sizeof(esp_image_header_t) */
-#define ESP_IMAGE_SEGMENT_HEADER_SIZE 8 /*!< sizeof(esp_image_segment_header_t) */
-
-// Implementation of esp_ota_get_bootloader_description() based on ESP-IDF source
-// Reads the actual bootloader description from flash memory
-esp_err_t esp_ota_get_bootloader_description(esp_bootloader_desc_t *desc) {
-    if (desc == NULL) {
-        return ESP_ERR_INVALID_ARG;
-    }
-
-    // Based on ESP-IDF esp_ota_ops.c, bootloader description is located at:
-    // BOOTLOADER_OFFSET + sizeof(esp_image_header_t) + sizeof(esp_image_segment_header_t)
-    const uint32_t desc_offset = BOOTLOADER_OFFSET + ESP_IMAGE_HEADER_SIZE + ESP_IMAGE_SEGMENT_HEADER_SIZE;
-    
-    DEBUG_PRINTF_P(PSTR("Reading bootloader description at offset 0x%08X\n"), desc_offset);
-    
-    // Read the bootloader description structure
-    esp_err_t err = esp_flash_read(esp_flash_default_chip, desc, desc_offset, sizeof(esp_bootloader_desc_t));
-    if (err != ESP_OK) {
-        DEBUG_PRINTF_P(PSTR("Failed to read bootloader description: %s\n"), esp_err_to_name(err));
-        return err;
-    }
-
-    // Check magic byte
-    if (desc->magic_byte != ESP_BOOTLOADER_DESC_MAGIC_BYTE) {
-        DEBUG_PRINTF_P(PSTR("Invalid magic byte: 0x%02X (expected: 0x%02X)\n"), 
-                       desc->magic_byte, ESP_BOOTLOADER_DESC_MAGIC_BYTE);
-        
-        // Try some alternative offsets in case the standard calculation is wrong
-        const uint32_t alt_offsets[] = {
-            BOOTLOADER_OFFSET + 0x10,  // Try 16 bytes in
-            BOOTLOADER_OFFSET + 0x18,  // Try 24 bytes in  
-            BOOTLOADER_OFFSET + 0x28,  // Try 40 bytes in
-            BOOTLOADER_OFFSET + 0x30,  // Try 48 bytes in
-        };
-        
-        for (size_t i = 0; i < sizeof(alt_offsets)/sizeof(alt_offsets[0]); i++) {
-            DEBUG_PRINTF_P(PSTR("Trying alternative offset 0x%08X\n"), alt_offsets[i]);
-            err = esp_flash_read(esp_flash_default_chip, desc, alt_offsets[i], sizeof(esp_bootloader_desc_t));
-            if (err == ESP_OK && desc->magic_byte == ESP_BOOTLOADER_DESC_MAGIC_BYTE) {
-                DEBUG_PRINTF_P(PSTR("Found bootloader description at alternative offset 0x%08X\n"), alt_offsets[i]);
-                return ESP_OK;
-            }
-        }
-        
-        return ESP_ERR_NOT_FOUND;
-    }
-
-    DEBUG_PRINTF_P(PSTR("Valid bootloader description found with magic byte 0x%02X\n"), desc->magic_byte);
-    return ESP_OK;
-}
-
-// Get bootloader version/info for OTA compatibility checking
-// Now uses actual bootloader description from flash memory
+// Get bootloader version for OTA compatibility checking
+// Uses rollback capability as primary indicator since bootloader description 
+// structure is only available in ESP-IDF v5+ bootloaders
 uint32_t getBootloaderVersion() {
   static uint32_t cached_version = 0;
   if (cached_version != 0) return cached_version;
   
-  DEBUG_PRINTF_P(PSTR("Attempting to read bootloader description from flash...\n"));
+  DEBUG_PRINTF_P(PSTR("Determining bootloader version...\n"));
   
-  // Try to read actual bootloader description using ESP-IDF compatible function
-  esp_bootloader_desc_t bootloader_desc;
-  memset(&bootloader_desc, 0, sizeof(bootloader_desc));  // Clear structure first
+  #ifndef WLED_DISABLE_OTA
+  bool can_rollback = Update.canRollBack();
+  #else
+  bool can_rollback = false;
+  #endif
   
-  esp_err_t err = esp_ota_get_bootloader_description(&bootloader_desc);
+  DEBUG_PRINTF_P(PSTR("Rollback capability: %s\n"), can_rollback ? "YES" : "NO");
   
-  if (err == ESP_OK) {
-    // Successfully read bootloader description structure
-    DEBUG_PRINTF_P(PSTR("Bootloader description found!\n"));
-    DEBUG_PRINTF_P(PSTR("  Magic byte: 0x%02X (expected: 0x%02X)\n"), 
-                   bootloader_desc.magic_byte, ESP_BOOTLOADER_DESC_MAGIC_BYTE);
-    DEBUG_PRINTF_P(PSTR("  Bootloader version: %d\n"), bootloader_desc.version);
-    DEBUG_PRINTF_P(PSTR("  Secure version: %d\n"), bootloader_desc.secure_version);
-    
-    // Print IDF version string if available
-    char idf_version_str[33];
-    memcpy(idf_version_str, bootloader_desc.idf_ver, 32);
-    idf_version_str[32] = '\0';
-    DEBUG_PRINTF_P(PSTR("  ESP-IDF version: %s\n"), idf_version_str);
-    
-    // Print build date/time if available
-    char build_time[25];
-    memcpy(build_time, bootloader_desc.date_time, 24);
-    build_time[24] = '\0';
-    DEBUG_PRINTF_P(PSTR("  Build time: %s\n"), build_time);
-    
-    // Use actual bootloader version from description if available
-    if (bootloader_desc.version > 0 && bootloader_desc.version <= 10) {
-      cached_version = bootloader_desc.version;
-      DEBUG_PRINTF_P(PSTR("Using bootloader version from description: %d\n"), cached_version);
-    } else {
-      // Fall back to rollback capability check
-      #ifndef WLED_DISABLE_OTA
-      bool can_rollback = Update.canRollBack();
-      #else
-      bool can_rollback = false;
-      #endif
-      
-      DEBUG_PRINTF_P(PSTR("  Rollback capability: %s\n"), can_rollback ? "YES" : "NO");
-      
-      if (can_rollback) {
-        cached_version = 4;
-        DEBUG_PRINTF_P(PSTR("Bootloader V4 detected (rollback capable)\n"));
-      } else {
-        // Parse ESP-IDF version string to guess bootloader version
-        if (strstr(idf_version_str, "v5.") || strstr(idf_version_str, "v4.4") || strstr(idf_version_str, "v4.3")) {
-          cached_version = 3;
-          DEBUG_PRINTF_P(PSTR("Bootloader V3 detected (ESP-IDF %s)\n"), idf_version_str);
-        } else if (strstr(idf_version_str, "v4.") || strstr(idf_version_str, "v3.")) {
-          cached_version = 2;
-          DEBUG_PRINTF_P(PSTR("Bootloader V2 detected (ESP-IDF %s)\n"), idf_version_str);
-        } else {
-          cached_version = 1;
-          DEBUG_PRINTF_P(PSTR("Bootloader V1/legacy detected (ESP-IDF %s)\n"), idf_version_str);
-        }
-      }
-    }
-    
-    DEBUG_PRINTF_P(PSTR("Final bootloader version from description: %d\n"), cached_version);
+  if (can_rollback) {
+    // Rollback capability indicates v4+ bootloader
+    cached_version = 4;
+    DEBUG_PRINTF_P(PSTR("Bootloader v4+ detected (rollback capable)\n"));
   } else {
-    DEBUG_PRINTF_P(PSTR("Failed to read bootloader description: %s (%d)\n"), esp_err_to_name(err), err);
-    DEBUG_PRINTF_P(PSTR("This may indicate an older bootloader without description structure\n"));
-    // Return 0 to indicate unknown/unsupported bootloader
-    cached_version = 0;
+    // No rollback capability - check ESP-IDF version for best guess
+    #if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(4, 4, 0)
+      cached_version = 3;
+      DEBUG_PRINTF_P(PSTR("Bootloader v3 detected (ESP-IDF 4.4+)\n"));
+    #elif ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(4, 0, 0)
+      cached_version = 2;
+      DEBUG_PRINTF_P(PSTR("Bootloader v2 detected (ESP-IDF 4.x)\n"));
+    #else
+      cached_version = 1;
+      DEBUG_PRINTF_P(PSTR("Bootloader v1/legacy detected (ESP-IDF 3.x)\n"));
+    #endif
   }
   
   DEBUG_PRINTF_P(PSTR("getBootloaderVersion() returning: %d\n"), cached_version);
