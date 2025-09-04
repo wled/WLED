@@ -547,42 +547,38 @@ static const char _data_FX_MODE_RAINBOW_CYCLE[] PROGMEM = "Rainbow@!,Size;;!";
 /*
  * Cycles a rainbow over the entire string of LEDs, with a white flash that goes across it.
  */
-uint16_t mode_rainbow_shimmer() {
+uint16_t mode_shimmer() {
 
-  unsigned counter = (strip.now * ((SEGMENT.speed >> 2) + 2)) & 0xFFFF;
-  counter = counter >> 8;
-
-  uint32_t shimmerSpeed = 100 + (255 - SEGMENT.custom2) * 40; //ranges from 100-10260ms
-  uint32_t shimmerSize = (SEGMENT.custom3 * SEGLEN / 2 >> 5) + 1;
-  uint32_t cycleTime = (255 - SEGMENT.custom1) * 150 + shimmerSpeed;
+  uint32_t shimmerSpeed = 100 + (255 - SEGMENT.speed) * 40; //  [100,10260ms]
+  uint32_t shimmerSize = (SEGMENT.custom1 * SEGLEN >> 9) + 1; //   [1,SEGLEN/2+1]
+  uint32_t cycleTime = (255 - SEGMENT.intensity) * 150 + shimmerSpeed; // [100, 48510]
 
   uint32_t percCycle = strip.now % cycleTime;
-  float shimmerIndex = (float)percCycle / (float)shimmerSpeed * (SEGLEN + 2*shimmerSize);
+  uint64_t shimmerIndex = ((uint64_t)percCycle<<8) / shimmerSpeed * (SEGLEN + 2*shimmerSize);
   
-  shimmerIndex -= shimmerSize;
+  shimmerIndex -= shimmerSize << 8;
 
-  // reverse direction of shimmer
+  //change direction unless reverse is checked
   if(!SEGMENT.check1) {
-    shimmerIndex = (float)SEGLEN - shimmerIndex;
+    shimmerIndex = (((uint64_t) SEGLEN) << 8) - shimmerIndex;
   }
 
-
   for (unsigned i = 0; i < SEGLEN; i++) {
-    // Standard rainbow effect.
-    uint8_t index = (i * (16 << (SEGMENT.intensity / 29)) / SEGLEN) + counter;
-    SEGMENT.setPixelColor(i, SEGMENT.color_wheel(index));
-
-    //shimmer logic
-    float distFromShimmerCenter = fabsf(shimmerIndex - i);
+       //shimmer logic
+    uint64_t distFromShimmerCenter = abs((int32_t)shimmerIndex - ((int64_t)i << 8));
+    
     // Only process pixels that are within the shimmer's range.
-    if (distFromShimmerCenter < shimmerSize) {
-      SEGMENT.setPixelColor(i, color_blend(SEGMENT.getPixelColor(i), 0xFFFFFF, (uint8_t)(255 * (1.0f - (distFromShimmerCenter / shimmerSize)))));
+    if (distFromShimmerCenter < (shimmerSize<<8)) {
+      SEGMENT.setPixelColor(i, color_blend(SEGCOLOR(1), SEGCOLOR(0), 255-(distFromShimmerCenter / shimmerSize)));
+    }
+    else {
+      SEGMENT.setPixelColor(i,SEGCOLOR(1));
     }
   }
 
   return FRAMETIME;
 }
-static const char _data_FX_MODE_RAINBOW_SHIMMER[] PROGMEM = "Rainbow Shimmer@!,Size,Shimmer Frq,Shimmer Speed,Shimmer Length,Reverse;;c1=231,c2=221";
+static const char _data_FX_MODE_SHIMMER[] PROGMEM = "Shimmer@Speed,Frequancy,Size,,,Reverse;!!;sx=231,ix=221";
 
 /*
  * Alternating pixels running function.
@@ -10704,7 +10700,7 @@ void WS2812FX::setupEffectData() {
   addEffect(FX_MODE_DYNAMIC, &mode_dynamic, _data_FX_MODE_DYNAMIC);
   addEffect(FX_MODE_RAINBOW, &mode_rainbow, _data_FX_MODE_RAINBOW);
   addEffect(FX_MODE_RAINBOW_CYCLE, &mode_rainbow_cycle, _data_FX_MODE_RAINBOW_CYCLE);
-  addEffect(FX_MODE_RAINBOW_SHIMMER, &mode_rainbow_shimmer, _data_FX_MODE_RAINBOW_SHIMMER);
+  addEffect(FX_MODE_SHIMMER, &mode_shimmer, _data_FX_MODE_SHIMMER);
   addEffect(FX_MODE_SCAN, &mode_scan, _data_FX_MODE_SCAN);
   addEffect(FX_MODE_DUAL_SCAN, &mode_dual_scan, _data_FX_MODE_DUAL_SCAN);
   addEffect(FX_MODE_FADE, &mode_fade, _data_FX_MODE_FADE);
