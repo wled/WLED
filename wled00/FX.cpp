@@ -545,40 +545,45 @@ uint16_t mode_rainbow_cycle(void) {
 static const char _data_FX_MODE_RAINBOW_CYCLE[] PROGMEM = "Rainbow@!,Size;;!";
 
 /*
- * Cycles a rainbow over the entire string of LEDs, with a white flash that goes across it.
+ * adds a predictable white flash across the segment
  */
 uint16_t mode_shimmer() {
-
-  uint32_t shimmerSpeed = 100 + (255 - SEGMENT.speed) * 40; //  [100,10260ms]
-  uint32_t shimmerSize = (SEGMENT.custom1 * SEGLEN >> 9) + 1; //   [1,SEGLEN/2+1]
-  uint32_t cycleTime = (255 - SEGMENT.intensity) * 150 + shimmerSpeed; // [100, 48510]
-
+  uint32_t segmentSize;
+  //gaurd against buffer overflow, should never exceed this based
+  //on 1000 pixles per GPIO and 10 strips
+  if(SEGLEN>10000) {
+    segmentSize = 10000;
+  } else {
+    segmentSize=SEGLEN;
+  }
+  
+  uint32_t shimmerSpeed = 100 + (255 - SEGMENT.speed) * 40; //  [100,10300]
+  uint32_t shimmerSize = (SEGMENT.custom1 * segmentSize >> 9) + 1; //   [1,(SEGLEN/2)+1] capped at 5001.
+  uint32_t cycleTime = (255 - SEGMENT.intensity) * 150 + shimmerSpeed; // [100, 48550]
   uint32_t percCycle = strip.now % cycleTime;
-  uint64_t shimmerIndex = ((uint64_t)percCycle<<8) / shimmerSpeed * (SEGLEN + 2*shimmerSize);
+  int32_t shimmerIndex = (percCycle<<8) / shimmerSpeed * (segmentSize + 2*shimmerSize); // maxamum >124285
   
   shimmerIndex -= shimmerSize << 8;
 
   //change direction unless reverse is checked
   if(!SEGMENT.check1) {
-    shimmerIndex = (((uint64_t) SEGLEN) << 8) - shimmerIndex;
+    shimmerIndex = ((segmentSize) << 8) - shimmerIndex;
   }
 
-  for (unsigned i = 0; i < SEGLEN; i++) {
-       //shimmer logic
-    uint64_t distFromShimmerCenter = abs((int32_t)shimmerIndex - ((int64_t)i << 8));
-    
-    // Only process pixels that are within the shimmer's range.
+  for (uint32_t i = 0; i < segmentSize; i++) {
+
+    // slightly dangerous, but shimmer index is bounded to be safe
+    uint32_t distFromShimmerCenter = abs((int32_t)shimmerIndex - ((int32_t)i << 8));
     if (distFromShimmerCenter < (shimmerSize<<8)) {
-      SEGMENT.setPixelColor(i, color_blend(SEGCOLOR(1), SEGCOLOR(0), 255-(distFromShimmerCenter / shimmerSize)));
+      SEGMENT.setPixelColor(i, SEGMENT.color_from_palette(255-(distFromShimmerCenter / shimmerSize),false,PALETTE_SOLID_WRAP,0));
     }
     else {
       SEGMENT.setPixelColor(i,SEGCOLOR(1));
     }
   }
-
   return FRAMETIME;
 }
-static const char _data_FX_MODE_SHIMMER[] PROGMEM = "Shimmer@Speed,Frequancy,Size,,,Reverse;!!;sx=231,ix=221";
+static const char _data_FX_MODE_SHIMMER[] PROGMEM = "Shimmer@Speed,Frequency,Size,,,Reverse;Fx,Bg,Cx;!;m12;sx=231,ix=221,pal=4";
 
 /*
  * Alternating pixels running function.
