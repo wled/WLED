@@ -7666,19 +7666,43 @@ static const char _data_FX_MODE_XMASTWINKLE[] PROGMEM = "Xmas Twinkle@Twinkle sp
 //  Elastic Collisions    //
 ////////////////////////////
 
-#define SPACE_FACTOR          10                // Ratio between internal and LED address spaces
-#define DE_SPACE_FACTOR       0.1F              // Inverst to avoid divides.
+// For print diagnostics, only.
+ #define FLOAT_IT(x)     ((float)(x) / (1 << SPHERE_PREC_SHIFT))
+
+ /* Note: When you multiply two fixed numbers, the binary point shifts left by the sum of 
+ * binary points. In division the binary point shift right by the difference between
+ * divident - divisor. */
+#define SPHERE_PREC_SHIFT        16             // Vertual binary point from the right
+typedef int32_t                  nfixed;        // These represent fixed point fractional numbers as Q16.16
+
 #define SLOWDOWN_FACTOR       0.4               // (Make this a variable?) for very large spheres.
 #define BOUNCE_CYCLE_TIME     50                // ms.
 #define RESET_CYCLE_TIME      1200              // Number of cycles (60 * 1000 / 50) 
 #define WALL_COLLAPSE_INTR    125               // Cycles left till regen.
 
+// --- Portable countLeadingZeros64 for faster SQRT ---
+int countLeadingZeros64(uint64_t x)
+{
+#if defined(__GNUC__) || defined(__clang__)
+    return __builtin_clzll(x);
+#else
+    if (x == 0) return 64;
+    int n = 0;
+    uint64_t mask = 1ULL << 63;
+    while ((x & mask) == 0) {
+        n++;
+        mask >>= 1;
+    }
+    return n;
+#endif
+}
+
 class MBSphere
 {
-    float   x, y;               // Position
-    float   vx, vy;             // Velocity
-    float   radius;             // Radius
-    float   _density = 1.0f;    // Density is 1 for bouncing, other values for gravity
+    nfixed  x, y;               // Position
+    nfixed  vx, vy;             // Velocity
+    nfixed  radius;             // Radius
+    nfixed  _density = (1 << SPHERE_PREC_SHIFT);    // Density is 1 for bouncing, other values for gravity
     uint8_t colorIdx;
 #if false
     AbstractList<MBSphere*> *attrocters;    // Null unless this object is affected by gravity.
@@ -7686,8 +7710,8 @@ class MBSphere
 
 
 public:
-    MBSphere(float radius, float x, float y, float vx, float vy, uint8_t color)
-	    : x(x), y(y), vx(vx), vy(vy), radius(radius), colorIdx(color) /*, attrocters(nullptr) */
+    MBSphere(nfixed radius, nfixed x, nfixed y, nfixed vx, nfixed vy, int8_t color)
+        : x(x), y(y), vx(vx), vy(vy), radius(radius), colorIdx(color) /*, attrocters(nullptr) */
     {
     }
     ~MBSphere() { }
@@ -7701,20 +7725,62 @@ public:
 		attrocters->add(sp);
 	}
 #endif
-    float density() { return _density; }
-    void setDensity(float newD) { _density = newD; }
-    float mass() { return pow(radius, 3) * density(); }
+    nfixed density() { return _density; }
+    void setDensity(nfixed newD) { _density = newD; }
+    nfixed mass() { return fixedMult(fixedMult(fixedMult(radius, radius), radius), density()); }
+
+    static nfixed fixedMult(nfixed a, nfixed b)
+    {
+        return (int64_t)a * b >> SPHERE_PREC_SHIFT;
+    }
+
+    static nfixed fixedDiv(nfixed a, nfixed b)
+    {
+        return ((int64_t)a << SPHERE_PREC_SHIFT) / b;
+    }
+
+    static nfixed fixedSqrt(nfixed x)
+    {
+        // Promote to 64-bit and scale up for precision
+        uint64_t n = (uint64_t)x << SPHERE_PREC_SHIFT; // Q16.16 -> Q32.32
+        return fixed64Sqrt(n);
+    }
+
+    // Faster SQRT function curtesy Code Copilot 5.
+    static nfixed fixed64Sqrt(int64_t n)
+    {
+      if (n <= 0) return 0;
+
+        // Initial guess from highest bit.
+        int lz = 63 - countLeadingZeros64(n);
+        uint64_t res = 1ULL << (lz / 2);
+
+        // Newton–Raphson refinement (3–4 iterations are plenty)
+        res = (res + n / res) >> 1;
+        res = (res + n / res) >> 1;
+        res = (res + n / res) >> 1;
+
+        // Clamp back to 32-bit Q16.16
+        return (nfixed)res;
+    }
+
+    /* Squaring coordinates can blow out the range of nfixed. 
+    * Work with the 64 bit intermediate result. */
+    static nfixed fixedDist(nfixed a, nfixed b)
+    {
+        int64_t n = (int64_t)a * a + (int64_t)b * b;
+        return fixed64Sqrt(n);
+    }
 
     // Update the sphere's position and velocity
-    void update(float dt) { x += vx * dt; y += vy * dt; }
-    void newLoc(float newX, float newY) { x = newX; y = newY; }
+    void update(nfixed dt) { x += fixedMult(vx, dt); y += fixedMult(vy, dt); }
+    void newLoc(nfixed newX, nfixed newY) { x = newX; y = newY; }
 
     // Detect if two circles are colliding (simple distance check)
     bool areSpheresColliding(MBSphere sp)
 	{
-		float distSq = (sp.x - this->x) * (sp.x - this->x) + (sp.y - this->y) * (sp.y - this->y);
-		float radiusSum = this->radius + sp.radius;
-		return distSq <= radiusSum * radiusSum;
+    nfixed dist = fixedDist(sp.x - this->x, sp.y - this->y);
+    return dist <= this->radius + sp.radius;
 	}
 
   /* Make sure two spheres haven't gotten too close.
@@ -7723,20 +7789,26 @@ public:
    * ends up insde the other. This function prevents that. */
   void enforceMinDist(MBSphere *sp)
   {
-      float dist = radius + sp->radius;
+      nfixed dist = radius + sp->radius;
 
-      float dx = sp->x - x;
-      float dy = sp->y - y;
-      float length = sqrt(dx * dx + dy * dy);
+      nfixed dx = sp->x - x;
+      nfixed dy = sp->y - y;
+      nfixed length = fixedDist(dx, dy);
 
       if (length >= dist || length == 0.0)
           return; // Already long enough, or degenerate point
 
       // Normalize direction
-      float scale = (dist - length) / (2.0 * length);
+      if (length << 1 == 0)
+      {
+          // handle gracefully, but this shouldn't happen.
+          Serial.println("At 0 #1");
+          return;
+      }
+      nfixed scale = fixedDiv(dist - length, length << 1);
 
-      float offsetX = dx * scale;
-      float offsetY = dy * scale;
+      nfixed offsetX = fixedMult(dx, scale);
+      nfixed offsetY = fixedMult(dy, scale);
 
       x -= offsetX;
       y -= offsetY;
@@ -7747,64 +7819,72 @@ public:
   // Function to simulate the elastic collision and update velocities
   void handleCollision(MBSphere *sp, bool is2D)
 	{
-		float m1 = this->mass();
-		float m2 = sp->mass();
-	
-		// Calculate the normal and tangent vectors
-		float nx = sp->x - x;
-		float ny = sp->y - y;
-		float dist = std::sqrt(nx * nx + ny * ny);
-		nx /= dist;
-		ny /= dist;
-	
-		// Tangent is perpendicular to normal
-		float tx = -ny;
-		float ty = nx;
+    nfixed m1 = this->mass();
+    nfixed m2 = sp->mass();
+
+    // Calculate the normal and tangent vectors
+    nfixed nx = sp->x - x;
+    nfixed ny = sp->y - y;
+    nfixed dist = fixedDist(nx, ny);
+    while (dist == 0) {
+        // handle gracefully
+        Serial.println("Two objects on top of each other!");
+
+        x += 1 << (SPHERE_PREC_SHIFT -2);
+        nx += 1 << (SPHERE_PREC_SHIFT -2);
+        dist = fixedDist(nx, ny);
+    }
+    nx = fixedDiv(nx, dist);
+    ny  = fixedDiv(ny, dist);
+
+    // Tangent is perpendicular to normal
+    nfixed tx = -ny;
+    nfixed ty = nx;
 
     // Use canned values if 1D, otherwise an x velocity creeps in.
     if (!is2D)
     {
         nx = 0;
-        ny = (sp->y >= y) ? 1 : -1;
+        ny = ((sp->y >= y) ? 1 : -1) << SPHERE_PREC_SHIFT;
         tx = -ny;
         ty = 0;
     }
-	
-		// Project velocities onto the normal and tangent
-		float v1n = vx * nx + vy * ny;
-		float v1t = vx * tx + vy * ty;
-		float v2n = sp->vx * nx + sp->vy * ny;
-		float v2t = sp->vx * tx + sp->vy * ty;
-	
-		// Apply 1D elastic collision for the normal components
-		float v1n_final = (v1n * (m1 - m2) + 2 * m2 * v2n) / (m1 + m2);
-		float v2n_final = (v2n * (m2 - m1) + 2 * m1 * v1n) / (m1 + m2);
-	
-		// Final velocity vectors (tangential velocity remains the same)
-		vx = v1n_final * nx + v1t * tx;
-		vy = v1n_final * ny + v1t * ty;
-		sp->vx = v2n_final * nx + v2t * tx;
-		sp->vy = v2n_final * ny + v2t * ty;
+
+    // Project velocities onto the normal and tangent
+    nfixed v1n = fixedMult(vx, nx) + fixedMult(vy, ny);
+    nfixed v1t = fixedMult(vx, tx) + fixedMult(vy, ty);
+    nfixed v2n = fixedMult(sp->vx, nx) + fixedMult(sp->vy, ny);
+    nfixed v2t = fixedMult(sp->vx, tx) + fixedMult(sp->vy, ty);
+
+    // Apply 1D elastic collision for the normal components
+    nfixed v1n_final = fixedDiv(fixedMult(v1n, m1 - m2) + fixedMult(2 * m2, v2n), m1 + m2);
+    nfixed v2n_final = fixedDiv(fixedMult(v2n, m2 - m1) + fixedMult(2 * m1, v1n), m1 + m2);
+
+    // Final velocity vectors (tangential velocity remains the same)
+    vx = fixedMult(v1n_final, nx) + fixedMult(v1t, tx);
+    vy = fixedMult(v1n_final, ny) + fixedMult(v1t, ty);
+    sp->vx = fixedMult(v2n_final, nx) + fixedMult(v2t, tx);
+    sp->vy = fixedMult(v2n_final, ny) + fixedMult(v2t, ty);
 	}
 
     // Function to handle wall collisions
-    void handleWallCollision(float windowWidth, float windowHeight)
+    void handleWallCollision(nfixed windowWidth, nfixed windowHeight)
 	{
-		if (x - radius < 0) {
-			x = radius;  // Keep inside the left wall
-			vx = -vx;    // Reverse x velocity
-		} else if (x + radius > windowWidth) {
-			x = windowWidth - radius;  // Keep inside the right wall
-			vx = -vx;    // Reverse x velocity
-		}
-	
-		if (y - radius < 0) {
-			y = radius;  // Keep inside the top wall
-			vy = -vy;    // Reverse y velocity
-		} else if (y + radius > windowHeight) {
-			y = windowHeight - radius;  // Keep inside the bottom wall
-			vy = -vy;    // Reverse y velocity
-		}
+    if (x - radius < 0) {
+        x = radius;  // Keep inside the left wall
+        vx = -vx;    // Reverse x velocity
+    } else if (x + radius > windowWidth) {
+        x = windowWidth - radius;  // Keep inside the right wall
+        vx = -vx;    // Reverse x velocity
+    }
+
+    if (y - radius < 0) {
+        y = radius;  // Keep inside the top wall
+        vy = -vy;    // Reverse y velocity
+    } else if (y + radius > windowHeight) {
+        y = windowHeight - radius;  // Keep inside the bottom wall
+        vy = -vy;    // Reverse y velocity
+    }
 	}
 
 #if false
@@ -7815,21 +7895,30 @@ public:
     // Calculate the initial velocity for a circular orbit.
     void initializeOrbit(MBSphere *sp, float dx, float dy);
 #endif
-  float clamp(float value, float minVal, float maxVal)
+
+  nfixed clamp(nfixed value, nfixed minVal, nfixed maxVal)
   {
       if (value < minVal) return minVal;
       if (value > maxVal) return maxVal;
       return value;
   }
 
-  float smoothstep(float edge0, float edge1, float x)
+  nfixed smoothstep(nfixed edge0, nfixed edge1, nfixed x)
   {
-      float t = clamp((x - edge0) / (edge1 - edge0), 0.0f, 1.0f);
-      return t * t * (3.0f - 2.0f * t);
+      // float t = clamp((x - edge0) / (edge1 - edge0), 0.0f, 1.0f);
+      // nfixed t = clamp(fixedDiv(x - edge0, edge1 - edge0), 0, 1 << SPHERE_PREC_SHIFT);
+      // return t * t * (3.0f - 2.0f * t);
+
+      // Use a faster divide and multiply using Q24.8 numbers instead of Q16.16.
+      edge0 >>= 8;
+      edge1 >>= 8;
+      x >>= 8;
+      int t = clamp((x - edge0 << 8) / (edge1 - edge0), 0, 1 << 8);   // Q24.8
+      return (t * t >> 8) * ((3 << 8) - 2 * t);        // Result of cubing is Q16.16.
   }
 	
 	// For generality, the spere uses the segment passed in, not a global.
-    void drawMe(Segment &seg, bool draw)
+  void drawMe(Segment &seg, bool draw)
 	{
     const bool is2D = seg.is2D();
     const int gridW = (is2D) ? (int)seg.vWidth() : 1;
@@ -7843,12 +7932,21 @@ public:
 		 * and 'y' in the LED array, anti-aliasing the pixels."
 		 * Optimize the loop to only working on pixels near the object. Don't do the
 		 * whole panel. */
-		float edge0 = radius - 0.5f * SPACE_FACTOR;  // Soft transition start
-		float edge1 = radius + 0.5f * SPACE_FACTOR;  // Soft transition end
-		int lowX = floor((x - edge1) * DE_SPACE_FACTOR) - 6;        // We don't need to cut it close.
-		int highX = ceil((x + edge1) * DE_SPACE_FACTOR) + 6;
-		int lowY = floor((y - edge1) * DE_SPACE_FACTOR) - 6;
-		int highY = ceil((y + edge1) * DE_SPACE_FACTOR) + 6;
+    nfixed edge0 = radius - (1 << SPHERE_PREC_SHIFT) / 2;  // Soft transition start
+    nfixed edge1 = radius + (1 << SPHERE_PREC_SHIFT) / 2;  // Soft transition end
+    int lowX = (x - edge1 >> SPHERE_PREC_SHIFT) - 1;        // We don't need to cut it too close.
+    int highX = (x + edge1 >> SPHERE_PREC_SHIFT) + 2;
+    int lowY = ((y - edge1 >> SPHERE_PREC_SHIFT)) - 1;
+    int highY = ((y + edge1 >> SPHERE_PREC_SHIFT)) + 2;
+    
+    // If completely off the screen, stop it, to avoid an overflow.
+    if (lowX > gridW || highX < 0 || lowY > gridH || highY < 0)
+    {
+        vx = 0;
+        vy = 0;
+    }
+
+    // Don't calculate beyond the edges of the LED array.
 		if (lowX < 0)
 			lowX = 0;
 		if (highX > gridW)
@@ -7857,23 +7955,30 @@ public:
 			lowY = 0;
 		if (highY > gridH)
 			highY = gridH;
+
+    /* Loop over a range of pixels on a panel to see how bright the LEDs
+     * there should be to represent this object. */
 		for (int lY = lowY; lY < highY; lY++) {
 			for (int lX = lowX; lX < highX; lX++) {
 				// LED pixel center in high-resolution space
-				float pixelX = (lX + 0.5f) * SPACE_FACTOR;
-				float pixelY = (lY + 0.5f) * SPACE_FACTOR;
+        const nfixed halfPixel = 1 << (SPHERE_PREC_SHIFT - 1);
+        nfixed pixelX = (lX << SPHERE_PREC_SHIFT) + halfPixel;
+        nfixed pixelY = (lY << SPHERE_PREC_SHIFT) + halfPixel;
 	
 				// Distance from the circle center
-				float dist = sqrt((pixelX - x) * (pixelX - x) + (pixelY - y) * (pixelY - y));
+        nfixed dist = fixedDist(pixelX - x, pixelY - y);
 	
 				// Compute anti-aliasing weight
-				float alpha = clamp(1.0f - smoothstep(edge0, edge1, dist), 0.0f, 1.0f);
+        // float alpha = RGBEffect::clamp(1.0f - RGBEffect::smoothstep(FLOAT_IT(edge0), FLOAT_IT(edge1), dist), 0.0f, 1.0f);
+        nfixed alpha = clamp((1 << SPHERE_PREC_SHIFT) - smoothstep(edge0, edge1, dist), 0, 1 << SPHERE_PREC_SHIFT) + 0;
+        // nfixed alpha = clamp((1 << SPHERE_PREC_SHIFT) - smoothstep(edge0, edge1, dist), 1 << (SPHERE_PREC_SHIFT - 2), 1 << SPHERE_PREC_SHIFT);
+        // alpha = 1 << SPHERE_PREC_SHIFT;
 	
 				// Store intensity in LED array (0-1 range)
 				if (draw)
 				{
 					drawColor = sphereColor;
-					drawColor.nscale8(alpha * 255);
+					drawColor.nscale8(alpha * 255 >> SPHERE_PREC_SHIFT);
 				}
 				else
 					drawColor = CRGB::Black;
@@ -7888,6 +7993,16 @@ public:
 			}
 		}
 	}
+
+#if false
+  // For diagnotistics only.
+  void print(int instNo)
+  {
+    Serial.printf("No. %d, x = %.2f, y = %.2f, vx = %.2f, vy = %.2f, radius = %.2f, density = %.2f, mass = %.2f\n", instNo,
+                  FLOAT_IT(x), FLOAT_IT(y), FLOAT_IT(vx), FLOAT_IT(vy),
+                  FLOAT_IT(radius), FLOAT_IT(_density), FLOAT_IT(mass()));
+  }
+#endif
 };
 
 // Given 0-255 from SEGMENT.custom2, return in number of 50ms cycles.
@@ -7912,7 +8027,27 @@ uint32_t elasticLifetime()
     return 36000;   // 30m
   case 7:
     return 72000;   // 1hr
+  default:
+    return 1200;
   }
+}
+
+/* We want of range from 0.1->1->10. 
+ * Thank you Claude.ai. */
+nfixed sliderToSpeed(uint8_t slider)
+{
+  // Q16.16 quadratic coefficients (calculated from your 3 points)
+  const int32_t a_q16 = 8;       // ~0.000148 in Q16.16 (much smaller!)
+  const int32_t b_q16 = 300;      // ~0.004336 in Q16.16
+  const int32_t c_q16 = 6554;     // ~0.1 in Q16.16
+
+  // slider is 0-255
+  int64_t x = slider;
+  
+  // Calculate ax² + bx + c in Q16.16
+  int64_t result = ((int64_t)a_q16 * x * x) + ((int64_t)b_q16 * x) + c_q16;
+  
+  return (int32_t)result;
 }
 
 uint16_t mode_ElasticCollisions(void) {              // by Nicholas Pisarro, Jr.
@@ -7934,9 +8069,9 @@ uint16_t mode_ElasticCollisions(void) {              // by Nicholas Pisarro, Jr.
   const int rows = (is2D) ? SEG_H : SEGLEN;
 
   // Make a virtual coordinate space that is SPACE_FACTOR times the led array.
-  const int internalX = SPACE_FACTOR * cols;
-  const int internalY = SPACE_FACTOR * rows;
-  const int halfInternalY = internalY >> 1;
+  const nfixed internalX = cols << SPHERE_PREC_SHIFT;
+  const nfixed internalY = rows << SPHERE_PREC_SHIFT;
+  const nfixed halfInternalY = internalY >> 1;
 
   // Radius distribution.
 	const int dmTableSize = 20;
@@ -7956,20 +8091,24 @@ uint16_t mode_ElasticCollisions(void) {              // by Nicholas Pisarro, Jr.
   if ((SEGMENT.aux0 & SPHERES_DESIRED) == 0)
   {
   	SEGMENT.aux0 &= SPHERES_DESIRED;
-    const float complementUniformity = 100 - ((int32_t) SEGMENT.custom1) * 100 / 255;
+    const int32_t complementUniformity = 100 - ((int32_t) SEGMENT.custom1) * 100 / 255;
 
     for (int i = 0; i < numSpheres; ++i)
     {
         // Diameter is based on the uniformity.
-        float radius = 10.0 + skewedRandom(random(100), dmTableSize, dmPercentages) * complementUniformity / 250.0; // 10-50
-        radius *= 0.7;
-        float massFactor = 15.0 / radius * SLOWDOWN_FACTOR; // Big things should move slower to keep momentum down.
-        float vx = (-50.0 + random(100)) * massFactor / 5.0;                               // ±10
-        float vy = (-50.0 + random(100)) * massFactor * complementUniformity / 500.0;    // ±10
+        // radius = (250 + skewedRandom(random(100), dmTableSize, dmPercentages) * complementUniformity << SPHERE_PREC_SHIFT)  / 250; // 5-25
+        nfixed radius = (7 << 16) + ((((uint64_t)skewedRandom(random(100), dmTableSize, dmPercentages) * complementUniformity << 16) / 10000) * (23 << 16) >> 16);// 7-30
+        // radius = 30 << SPHERE_PREC_SHIFT;
+        nfixed massFactor = MBSphere::fixedDiv((11 << SPHERE_PREC_SHIFT), radius);           // Big things should move slower to keep momentum down.
+        nfixed vx = (-50.0 + random(100)) * massFactor / 5.0;                               // ±10
+        nfixed vy = (-50.0 + random(100)) * massFactor * complementUniformity / 500.0;    // ±10
+        radius /= 10;
+        vx /= 10;
+        vy /= 10;
         if (complementUniformity == 0)    // Just one sphere has motion intially, if uniformity = 100%.
         {
             if (i == 0)
-                vx = 5;
+                vx = 1 << (SPHERE_PREC_SHIFT - 1);  // 0.5
             else
                 vx = 0;
         }
@@ -7988,8 +8127,8 @@ uint16_t mode_ElasticCollisions(void) {              // by Nicholas Pisarro, Jr.
         {
             // Give it a random location—closer to the vertical center based on the uniformity.
             // (Gotcha! WLED random() returns unsigned. It can't go negative.)
-            float x = random(internalX);
-            float y = halfInternalY + (((int32_t)(random(internalY)) - halfInternalY) * complementUniformity / 100.0);
+            nfixed x = random(internalX);
+            nfixed y = halfInternalY + (((int32_t)(random(internalY)) - halfInternalY) * complementUniformity / 100) & 0xffff0000;
             if (!is2D)
             {
               y = random(internalY);
@@ -8031,13 +8170,11 @@ uint16_t mode_ElasticCollisions(void) {              // by Nicholas Pisarro, Jr.
       spheres[i].drawMe(SEGMENT, true);
     
     // Move the spheres and check for collisions with the walls.
-    float a = 0.0002503;    // We want of range from 0.1->1->10.
-    float b = -0.01347;
-    float c = 0.1;
-    float speed = SEGMENT.speed;
-    speed = a * speed * speed + b * speed + c;
+    // We want of range from 0.1->1->10.
+    nfixed speed = sliderToSpeed(SEGMENT.speed);
     for (int i = 0; i < (SEGMENT.aux0 & SPHERES_ALLOCATED); ++i)
     {
+        // nfixed fixedSpeed = speed * (1 << SPHERE_PREC_SHIFT);
         spheres[i].update(speed);
 
         // If nearing a regeneration, let the walls fall and the spheres fly off!
@@ -8069,7 +8206,7 @@ uint16_t mode_ElasticCollisions(void) {              // by Nicholas Pisarro, Jr.
 
   return FRAMETIME;
 } // mode_ElasticCollisions
-static const char _data_FXMODE_ELASTICCOLLISIONS[] PROGMEM = "Elastic Collisions@Speed,Count,Uniformity,Lifetime;;!;12;c1=0,sx=120,c2=64";
+static const char _data_FXMODE_ELASTICCOLLISIONS[] PROGMEM = "Elastic Collisions@Speed,Count,Uniformity,Lifetime;;!;12;c1=0,sx=90,c2=64";
 
 
 // Distortion waves - ldirko
