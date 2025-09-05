@@ -124,8 +124,8 @@ void sendDataWs(AsyncWebSocketClient * client)
   DEBUG_PRINTF_P(PSTR("JSON buffer size: %u for WS request (%u).\n"), pDoc->memoryUsage(), len);
 
   // the following may no longer be necessary as heap management has been fixed by @willmmiles in AWS
-  size_t heap1 = ESP.getFreeHeap();
-  DEBUG_PRINTF_P(PSTR("heap %u\n"), ESP.getFreeHeap());
+  size_t heap1 = getFreeHeapSize();
+  DEBUG_PRINTF_P(PSTR("heap %u\n"), getFreeHeapSize());
   #ifdef ESP8266
   if (len>heap1) {
     DEBUG_PRINTLN(F("Out of memory (WS)!"));
@@ -134,8 +134,8 @@ void sendDataWs(AsyncWebSocketClient * client)
   #endif
   AsyncWebSocketBuffer buffer(len);
   #ifdef ESP8266
-  size_t heap2 = ESP.getFreeHeap();
-  DEBUG_PRINTF_P(PSTR("heap %u\n"), ESP.getFreeHeap());
+  size_t heap2 = getFreeHeapSize();
+  DEBUG_PRINTF_P(PSTR("heap %u\n"), getFreeHeapSize());
   #else
   size_t heap2 = 0; // ESP32 variants do not have the same issue and will work without checking heap allocation
   #endif

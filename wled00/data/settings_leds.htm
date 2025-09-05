@@ -195,7 +195,6 @@
 			if (isAna(t)) return 5;	// analog
 			let len = parseInt(d.getElementsByName("LC"+n)[0].value);
 			len += parseInt(d.getElementsByName("SL"+n)[0].value); // skipped LEDs are allocated too
-			let dbl = 0;
 			let ch = 3*hasRGB(t) + hasW(t) + hasCCT(t);
 			let mul = 1;
 			if (isDig(t)) {
@@ -207,7 +206,7 @@
 					mul = 2;
 				}
 			}
-			return len * ch * mul + dbl;
+			return len * ch * mul + len * 4; // add 4 bytes per LED for segment buffer (TODO: how to account for global buffer?)
 		}
 
 		function UI(change=false)
