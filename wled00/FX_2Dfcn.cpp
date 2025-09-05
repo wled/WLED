@@ -146,7 +146,7 @@ void WS2812FX::setUpMatrix() {
 #ifndef WLED_DISABLE_2D
 // pixel is clipped if it falls outside clipping range
 // if clipping start > stop the clipping range is inverted
-bool IRAM_ATTR_YN Segment::isPixelXYClipped(int x, int y) const {
+bool Segment::isPixelXYClipped(int x, int y) const {
   if (blendingStyle != BLEND_STYLE_FADE && isInTransition() && _clipStart != _clipStop) {
     const bool invertX = _clipStart  > _clipStop;
     const bool invertY = _clipStartY > _clipStopY;
@@ -186,7 +186,7 @@ bool IRAM_ATTR_YN Segment::isPixelXYClipped(int x, int y) const {
 void IRAM_ATTR_YN Segment::setPixelColorXY(int x, int y, uint32_t col) const
 {
   if (!isActive()) return; // not active
-  if (x >= (int)vWidth() || y >= (int)vHeight() || x < 0 || y < 0) return;  // if pixel would fall out of virtual segment just exit
+  if ((unsigned)x >= vWidth() || (unsigned)y >= vHeight()) return;  // if pixel would fall out of virtual segment just exit
   setPixelColorXYRaw(x, y, col);
 }
 
@@ -236,7 +236,7 @@ void Segment::setPixelColorXY(float x, float y, uint32_t col, bool aa) const
 // returns RGBW values of pixel
 uint32_t IRAM_ATTR_YN Segment::getPixelColorXY(int x, int y) const {
   if (!isActive()) return 0; // not active
-  if (x >= (int)vWidth() || y >= (int)vHeight() || x<0 || y<0) return 0;  // if pixel would fall out of virtual segment just exit
+  if ((unsigned)x >= vWidth() || (unsigned)y >= vHeight()) return 0;  // if pixel would fall out of virtual segment just exit
   return getPixelColorXYRaw(x,y);
 }
 
@@ -256,8 +256,8 @@ void Segment::blur2D(uint8_t blur_x, uint8_t blur_y, bool smear) const {
       uint32_t curnew = BLACK;
       for (unsigned x = 0; x < cols; x++) {
         uint32_t cur = getPixelColorRaw(XY(x, row));
-        uint32_t part = color_fade(cur, seepx);
-        curnew = color_fade(cur, keepx);
+        uint32_t part = fast_color_scale(cur, seepx);
+        curnew = fast_color_scale(cur, keepx);
         if (x > 0) {
           if (carryover) curnew = color_add(curnew, carryover);
           uint32_t prev = color_add(lastnew, part);
@@ -279,8 +279,8 @@ void Segment::blur2D(uint8_t blur_x, uint8_t blur_y, bool smear) const {
       uint32_t curnew = BLACK;
       for (unsigned y = 0; y < rows; y++) {
         uint32_t cur = getPixelColorRaw(XY(col, y));
-        uint32_t part = color_fade(cur, seepy);
-        curnew = color_fade(cur, keepy);
+        uint32_t part = fast_color_scale(cur, seepy);
+        curnew = fast_color_scale(cur, keepy);
         if (y > 0) {
           if (carryover) curnew = color_add(curnew, carryover);
           uint32_t prev = color_add(lastnew, part);
