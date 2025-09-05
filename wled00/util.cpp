@@ -161,7 +161,7 @@ bool isAsterisksOnly(const char* str, byte maxLen)
 
 
 //threading/network callback details: https://github.com/wled-dev/WLED/pull/2336#discussion_r762276994
-bool requestJSONBufferLock(uint8_t moduleID)
+bool requestJSONBufferLock(uint8_t moduleID, bool wait)
 {
   if (pDoc == nullptr) {
     DEBUG_PRINTLN(F("ERROR: JSON buffer not allocated!"));
@@ -169,10 +169,11 @@ bool requestJSONBufferLock(uint8_t moduleID)
   }
 
 #if defined(ARDUINO_ARCH_ESP32)
-  // Use a recursive mutex type in case our task is the one holding the JSON buffer.
-  // This can happen during large JSON web transactions.  In this case, we continue immediately
-  // and then will return out below if the lock is still held.
-  if (xSemaphoreTakeRecursive(jsonBufferLockMutex, 250) == pdFALSE) return false;  // timed out waiting
+  if (xSemaphoreTake(jsonBufferLockMutex, wait ? 250 : 0) == pdFALSE) {
+    // TODO, coaelesce with below
+    DEBUG_PRINTF_P(PSTR("ERROR: Locking JSON buffer mutex (%d) failed! (locked by %d??)\n"), moduleID, jsonBufferLock);
+    return false;  // timed out waiting
+  }
 #elif defined(ARDUINO_ARCH_ESP8266)
   // If we're in system context, delay() won't return control to the user context, so there's
   // no point in waiting.
@@ -186,9 +187,6 @@ bool requestJSONBufferLock(uint8_t moduleID)
   // If the lock is still held - by us, or by another task
   if (jsonBufferLock) {
     DEBUG_PRINTF_P(PSTR("ERROR: Locking JSON buffer (%d) failed! (still locked by %d)\n"), moduleID, jsonBufferLock);
-#ifdef ARDUINO_ARCH_ESP32
-    xSemaphoreGiveRecursive(jsonBufferLockMutex);
-#endif
     return false;
   }
 
@@ -204,7 +202,7 @@ void releaseJSONBufferLock()
   DEBUG_PRINTF_P(PSTR("JSON buffer released. (%d)\n"), jsonBufferLock);
   jsonBufferLock = 0;
 #ifdef ARDUINO_ARCH_ESP32
-  xSemaphoreGiveRecursive(jsonBufferLockMutex);
+  xSemaphoreGive(jsonBufferLockMutex);
 #endif  
 }
 
