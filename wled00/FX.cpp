@@ -3913,7 +3913,7 @@ uint16_t mode_percent(void) {
 
  	return FRAMETIME;
 }
-static const char _data_FX_MODE_PERCENT[] PROGMEM = "Percent@,% of fill,,,,One color;!,!;!";
+static const char _data_FX_MODE_PERCENT[] PROGMEM = "Percent@!,% of fill,,,,One color;!,!;!";
 
 
 /*
