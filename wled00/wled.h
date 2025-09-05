@@ -155,7 +155,7 @@
 
 #include "src/dependencies/e131/ESPAsyncE131.h"
 #ifndef WLED_DISABLE_MQTT
-#include "src/dependencies/async-mqtt-client/AsyncMqttClient.h"
+#include <AsyncMqttClient.h>
 #endif
 
 #define ARDUINOJSON_DECODE_UNICODE 0
@@ -194,6 +194,7 @@ using PSRAMDynamicJsonDocument = BasicJsonDocument<PSRAM_Allocator>;
 #include "fcn_declare.h"
 #include "NodeStruct.h"
 #include "pin_manager.h"
+#include "colors.h"
 #include "bus_manager.h"
 #include "FX.h"
 
@@ -733,10 +734,10 @@ WLED_GLOBAL bool receiveNotificationPalette    _INIT(true);       // apply palet
 WLED_GLOBAL bool receiveSegmentOptions         _INIT(false);      // apply segment options
 WLED_GLOBAL bool receiveSegmentBounds          _INIT(false);      // apply segment bounds (start, stop, offset)
 WLED_GLOBAL bool receiveDirect _INIT(true);                       // receive UDP/Hyperion realtime
-WLED_GLOBAL bool notifyDirect _INIT(false);                       // send notification if change via UI or HTTP API
-WLED_GLOBAL bool notifyButton _INIT(false);                       // send if updated by button or infrared remote
+WLED_GLOBAL bool notifyDirect _INIT(true);                        // send notification if change via UI or HTTP API
+WLED_GLOBAL bool notifyButton _INIT(true);                        // send if updated by button or infrared remote
 WLED_GLOBAL bool notifyAlexa  _INIT(false);                       // send notification if updated via Alexa
-WLED_GLOBAL bool notifyHue    _INIT(true);                        // send notification if Hue light changes
+WLED_GLOBAL bool notifyHue    _INIT(false);                       // send notification if Hue light changes
 #endif
 
 // effects

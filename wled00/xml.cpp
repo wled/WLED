@@ -26,7 +26,8 @@ void XML_response(Print& dest)
   );
 }
 
-static void extractPin(Print& settingsScript, const JsonObject &obj, const char *key) {
+static void extractPin(Print& settingsScript, const JsonObject &obj, const char *key)
+{
   if (obj[key].is<JsonArray>()) {
     JsonArray pins = obj[key].as<JsonArray>();
     for (JsonVariant pv : pins) {
@@ -35,6 +36,22 @@ static void extractPin(Print& settingsScript, const JsonObject &obj, const char 
   } else {
     if (obj[key].as<int>() > -1) { settingsScript.print(","); settingsScript.print(obj[key].as<int>()); }
   }
+}
+
+void fillWLEDVersion(char *buf, size_t len)
+{
+  if (!buf || len == 0) return;
+
+  snprintf_P(buf,len,PSTR("WLED %s (%d)<br>\\\"%s\\\"<br>(Processor: %s)"),
+    versionString,
+    VERSION,
+    releaseString,
+  #if defined(ARDUINO_ARCH_ESP32)
+    ESP.getChipModel()
+  #else
+    "ESP8266"
+  #endif
+  );
 }
 
 // print used pins by scanning JsonObject (1 level deep)
@@ -72,7 +89,8 @@ static void fillUMPins(Print& settingsScript, const JsonObject &mods)
   }
 }
 
-void appendGPIOinfo(Print& settingsScript) {
+void appendGPIOinfo(Print& settingsScript)
+{
   settingsScript.print(F("d.um_p=[-1")); // has to have 1 element
   if (i2c_sda > -1 && i2c_scl > -1) {
     settingsScript.printf_P(PSTR(",%d,%d"), i2c_sda, i2c_scl);
@@ -594,7 +612,7 @@ void getSettingsJS(byte subPage, Print& settingsScript)
     printSetFormCheckbox(settingsScript,PSTR("AO"),aOtaEnabled);
     printSetFormCheckbox(settingsScript,PSTR("SU"),otaSameSubnet);
     char tmp_buf[128];
-    snprintf_P(tmp_buf,sizeof(tmp_buf),PSTR("WLED %s (build %d)"),versionString,VERSION);
+    fillWLEDVersion(tmp_buf,sizeof(tmp_buf));
     printSetClassElementHTML(settingsScript,PSTR("sip"),0,tmp_buf);
     settingsScript.printf_P(PSTR("sd=\"%s\";"), serverDescription);
     //hide settings if not compiled
@@ -656,16 +674,7 @@ void getSettingsJS(byte subPage, Print& settingsScript)
   if (subPage == SUBPAGE_UPDATE) // update
   {
     char tmp_buf[128];
-    snprintf_P(tmp_buf,sizeof(tmp_buf),PSTR("WLED %s<br>%s<br>(%s build %d)"),
-      versionString,
-      releaseString,
-    #if defined(ARDUINO_ARCH_ESP32)
-      ESP.getChipModel(),
-    #else
-      "esp8266",
-    #endif
-      VERSION);
-
+    fillWLEDVersion(tmp_buf,sizeof(tmp_buf));
     printSetClassElementHTML(settingsScript,PSTR("sip"),0,tmp_buf);
     #ifndef ARDUINO_ARCH_ESP32
     settingsScript.print(F("toggle('rev');"));  // hide revert button on ESP8266
