@@ -20,7 +20,7 @@ float UsermodTemperature::readDallas() {
     }
     #endif
     switch(sensorFound) {
-      case 0x10:  // DS18S20 has 9-bit precision
+      case 0x10:  // DS18S20 has 9-bit precision - 1-bit fraction part
         result = (data[1] << 8) | data[0];
         retVal = float(result) * 0.5f;
         break;
@@ -28,9 +28,9 @@ float UsermodTemperature::readDallas() {
       case 0x28:  // DS1822
       case 0x3B:  // DS1825
       case 0x42:  // DS28EA00
-        result = (data[1]<<4) | (data[0]>>4);   // we only need whole part, we will add fraction when returning
-        if (data[1] & 0x80) result |= 0xF000;   // fix negative value
-        retVal = float(result) + ((data[0] & 0x08) ? 0.5f : 0.0f);
+        // 12-bit precision - 4-bit fraction part
+        result = (data[1] << 8) | data[0];
+        retVal = float(result) * 0.0625f; // 2^(-4)
         break;
     }
   }
