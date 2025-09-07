@@ -24,8 +24,8 @@ float UsermodTemperature::readDallas() {
         result = (data[1] << 8) | data[0];
         retVal = float(result) * 0.5f;
         break;
-      case 0x22:  // DS18B20
-      case 0x28:  // DS1822
+      case 0x22:  // DS1822
+      case 0x28:  // DS18B20
       case 0x3B:  // DS1825
       case 0x42:  // DS28EA00
         // 12-bit precision - 4-bit fraction part
@@ -69,8 +69,8 @@ bool UsermodTemperature::findSensor() {
     if (oneWire->crc8(deviceAddress, 7) == deviceAddress[7]) {
       switch (deviceAddress[0]) {
         case 0x10:  // DS18S20
-        case 0x22:  // DS18B20
-        case 0x28:  // DS1822
+        case 0x22:  // DS1822
+        case 0x28:  // DS18B20
         case 0x3B:  // DS1825
         case 0x42:  // DS28EA00
           DEBUG_PRINTLN(F("Sensor found."));
