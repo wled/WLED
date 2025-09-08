@@ -1646,8 +1646,8 @@ static const char _data_FX_MODE_TRICOLOR_WIPE[] PROGMEM = "Tri Wipe@!;1,2,3;!";
  * Modified by Aircoookie
  */
 uint16_t mode_tricolor_fade(void) {
-  unsigned counter = strip.now * ((SEGMENT.speed >> 3) +1);
-  uint16_t prog = (counter * 768) >> 16;
+  uint16_t counter = strip.now * ((SEGMENT.speed >> 3) +1);
+  uint32_t prog = (counter * 768) >> 16;
 
   uint32_t color1 = 0, color2 = 0;
   unsigned stage = 0;
