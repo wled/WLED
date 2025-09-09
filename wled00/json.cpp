@@ -302,9 +302,7 @@ static bool deserializeSegment(JsonObject elem, byte it, byte presetId = 0)
   seg.check2 = getBoolVal(elem["o2"], seg.check2);
   seg.check3 = getBoolVal(elem["o3"], seg.check3);
 
-  uint8_t blend = seg.blendMode;
-  getVal(elem["bm"], blend, 0, 15); // we can't pass reference to bitfield
-  seg.blendMode = constrain(blend, 0, 15);
+  getVal(elem["bm"], seg.blendMode);
 
   JsonArray iarr = elem[F("i")]; //set individual LEDs
   if (!iarr.isNull()) {
