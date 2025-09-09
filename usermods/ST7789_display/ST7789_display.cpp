@@ -196,7 +196,7 @@ class St7789DisplayUsermod : public Usermod {
 
         // Check if values which are shown on display changed from the last time.
         if ((((apActive) ? String(apSSID) : WiFi.SSID()) != knownSsid) ||
-            (knownIp != (apActive ? IPAddress(4, 3, 2, 1) : Network.localIP())) ||
+            (knownIp != (apActive ? IPAddress(4, 3, 2, 1) : WLEDNetwork.localIP())) ||
             (knownBrightness != bri) ||
             (knownEffectSpeed != strip.getMainSegment().speed) ||
             (knownEffectIntensity != strip.getMainSegment().intensity) ||
