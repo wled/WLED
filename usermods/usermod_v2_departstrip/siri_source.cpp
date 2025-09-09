@@ -116,8 +116,12 @@ bool SiriSource::parseRFC3339ToUTC(const char* s, time_t& outUtc) {
   } else if (*tz == '+' || *tz == '-') {
     tzSign = (*tz == '+') ? +1 : -1;
     int th=0, tmn=0;
-    // Expect "+HH:MM" or "-HH:MM"; leave tzH/tzM 0 if parse fails
-    if (sscanf(tz+1, "%2d:%2d", &th, &tmn) == 2) { tzH = th; tzM = tmn; }
+    // Expect "+HH:MM" or "-HH:MM" first; fallback to "+HHMM" or "-HHMM"
+    if (sscanf(tz+1, "%2d:%2d", &th, &tmn) == 2) {
+      tzH = th; tzM = tmn;
+    } else if (sscanf(tz+1, "%2d%2d", &th, &tmn) == 2) {
+      tzH = th; tzM = tmn;
+    }
   }
   int days = days_from_civil(Y, (unsigned)M, (unsigned)D);
   long sec_of_day = h*3600L + m*60L + sec;
