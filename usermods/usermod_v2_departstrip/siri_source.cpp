@@ -101,13 +101,23 @@ bool SiriSource::parseRFC3339ToUTC(const char* s, time_t& outUtc) {
   if (!s || !*s) return false;
   int Y=0,M=0,D=0,h=0,m=0,sec=0;
   if (sscanf(s, "%4d-%2d-%2dT%2d:%2d:%2d", &Y,&M,&D,&h,&m,&sec) != 6) return false;
-  const char* tz = strpbrk(s, "Z+-");
+  // Find timezone indicator only after the time component (after 'T', and optional fractional seconds)
+  const char* tmark = strchr(s, 'T');
+  const char* tz = nullptr;
+  if (tmark) {
+    // Search in the remainder for 'Z', 'z', '+' or '-' (timezone designators)
+    tz = strpbrk(tmark + 1, "Zz+-");
+  }
   int tzSign = 0, tzH=0, tzM=0;
-  if (!tz) { tzSign = 0; tzH = tzM = 0; }
-  else if (*tz == 'Z' || *tz == 'z') { tzSign = 0; tzH = tzM = 0; }
-  else if (*tz == '+' || *tz == '-') {
+  if (!tz) {
+    tzSign = 0; tzH = tzM = 0; // no explicit timezone -> assume Z/UTC
+  } else if (*tz == 'Z' || *tz == 'z') {
+    tzSign = 0; tzH = tzM = 0;
+  } else if (*tz == '+' || *tz == '-') {
     tzSign = (*tz == '+') ? +1 : -1;
-    int th=0, tmn=0; if (sscanf(tz+1, "%2d:%2d", &th, &tmn) == 2) { tzH = th; tzM = tmn; }
+    int th=0, tmn=0;
+    // Expect "+HH:MM" or "-HH:MM"; leave tzH/tzM 0 if parse fails
+    if (sscanf(tz+1, "%2d:%2d", &th, &tmn) == 2) { tzH = th; tzM = tmn; }
   }
   int days = days_from_civil(Y, (unsigned)M, (unsigned)D);
   long sec_of_day = h*3600L + m*60L + sec;
