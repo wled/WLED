@@ -140,7 +140,7 @@ class AudioSource {
     virtual bool isInitialized(void) {return(_initialized);}
 
     /* identify Audiosource type - I2S-ADC or I2S-digital */
-    typedef enum{Type_unknown=0, Type_I2SAdc=1, Type_I2SDigital=2} AudioSourceType;
+    typedef enum{Type_unknown=0, Type_Adc=1, Type_I2SDigital=2} AudioSourceType;
     virtual AudioSourceType getType(void) {return(Type_I2SDigital);}               // default is "I2S digital source" - ADC type overrides this method
  
   protected:
@@ -546,11 +546,11 @@ class ES8388Source : public I2SSource {
 
 };
 
-#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(4, 2, 0)
-#if !defined(SOC_I2S_SUPPORTS_ADC) && !defined(SOC_I2S_SUPPORTS_ADC_DAC)
-  #warning this MCU does not support analog sound input
-#endif
-#endif
+//#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(4, 2, 0)
+//#if !defined(SOC_I2S_SUPPORTS_ADC) && !defined(SOC_I2S_SUPPORTS_ADC_DAC)
+//  #warning this MCU does not support analog sound input
+//#endif
+//#endif
 
 #if !defined(CONFIG_IDF_TARGET_ESP32S2) && !defined(CONFIG_IDF_TARGET_ESP32C3) && !defined(CONFIG_IDF_TARGET_ESP32S3)
 // ADC over I2S is only availeable in "classic" ESP32
@@ -583,8 +583,8 @@ class I2SAdcSource : public I2SSource {
       };
     }
 
-    /* identify Audiosource type - I2S-ADC*/
-    AudioSourceType getType(void) {return(Type_I2SAdc);}
+    /* identify Audiosource type - ADC*/
+    AudioSourceType getType(void) {return(Type_Adc);}
 
     void initialize(int8_t audioPin, int8_t = I2S_PIN_NO_CHANGE, int8_t = I2S_PIN_NO_CHANGE, int8_t = I2S_PIN_NO_CHANGE) {
       DEBUGSR_PRINTLN(F("I2SAdcSource:: initialize()."));
@@ -743,6 +743,170 @@ class I2SAdcSource : public I2SSource {
     int8_t _audioPin;
     int8_t _myADCchannel = 0x0F;       // current ADC channel for analog input. 0x0F means "undefined"
 };
+#else
+
+/* ADC sampling with DMA
+   This microphone is an ADC pin sampled via ADC1 in continuous mode
+   This allows to sample in the background with high sample rates and minimal CPU load
+   note: only ADC1 channels can be used (ADC2 is used for WiFi)
+   ESP32 is not implemented as it supports I2S for ADC sampling (see above)
+*/
+
+#include "driver/adc.h"
+#include "hal/adc_types.h"
+#define ADC_TIMEOUT 30            // Timout for one full frame of samples in ms (TODO: use (FFT_MIN_CYCLE + 5) but need to move the ifdefs before the include in the cpp file)
+#define ADC_RESULT_BYTE SOC_ADC_DIGI_RESULT_BYTES  //for C3 & S3 this is 4 bytes, S2 is 2 bytes, first 12bits is ADC result, see adc_digi_output_data_t
+#ifdef CONFIG_IDF_TARGET_ESP32C3
+#define MAX_ADC1_CHANNEL 4  // C3 has 5 channels (0-4)
+#else
+#define MAX_ADC1_CHANNEL 9 // ESP32, S2, S3 have 10 channels (0-9)
+#endif
+
+class DMAadcSource : public AudioSource {
+  public:
+    DMAadcSource(SRate_t sampleRate, int blockSize, float sampleScale = 1.0f) :
+      AudioSource(sampleRate, blockSize, sampleScale) {
+        // ADC continuous mode configuration
+        adc_dma_config = {
+          .max_store_buf_size = (unsigned)blockSize * ADC_RESULT_BYTE, // internal storage of DMA driver (in bytes, one sample is 4 bytes on C3&S3, 2bytes on S2 note: using 2x buffer size would reduce overflows but can add latency
+          .conv_num_each_intr = (unsigned)blockSize * ADC_RESULT_BYTE, // number of bytes per interrupt (or per frame, one sample contains 12bit of sample data)
+          .adc1_chan_mask = 0,  // ADC1 channel mask (set to correct channel in initialize())
+          .adc2_chan_mask = 0,  // dont use adc2 (used for wifi)
+        };
+
+        adcpattern = {
+          .atten = ADC_ATTEN_DB_11,               // approx. 0-2.5V input range
+          .channel = 0,                           // channel mask (set to correct channel in initialize())
+          .unit = 0,                              // use ADC1
+          .bit_width = SOC_ADC_DIGI_MAX_BITWIDTH, // set to 12bit
+        };
+
+        dig_cfg = {
+          .conv_limit_en = 0,                     // disable limit (does not work right if enabled)
+          .conv_limit_num = 255,                  // set to max just in case
+          .pattern_num = 1,                       // single channel sampling
+          .adc_pattern = &adcpattern,             // Pattern configuration
+          .sample_freq_hz = sampleRate,           // sample frequency in Hz
+          .conv_mode = ADC_CONV_SINGLE_UNIT_1,    // use ADC1 only
+#ifdef CONFIG_IDF_TARGET_ESP32S2
+          .format = ADC_DIGI_OUTPUT_FORMAT_TYPE1, // S2 and ESP32 use TYPE1 (there is an error about this for S2 in IDF example)
+#else
+          .format = ADC_DIGI_OUTPUT_FORMAT_TYPE2, // C3 and S3 use TYPE2 format
+#endif
+        };
+    }
+
+    /* identify Audiosource type - ADC*/
+    AudioSourceType getType(void) {return(Type_Adc);}
+
+    void initialize(int8_t audioPin, int8_t = I2S_PIN_NO_CHANGE, int8_t = I2S_PIN_NO_CHANGE, int8_t = I2S_PIN_NO_CHANGE) {
+      DEBUGSR_PRINTLN(F("DMAadcSource::initialize()"));
+      _myADCchannel = 0x0F;
+      if(!PinManager::allocatePin(audioPin, false, PinOwner::UM_Audioreactive)) {
+         DEBUGSR_PRINTF("failed to allocate GPIO for audio analog input: %d\n", audioPin);
+        return;
+      }
+      _audioPin = audioPin;
+      // Determine Analog channel. Only Channels on ADC1 are supported
+      int8_t channel = digitalPinToAnalogChannel(_audioPin);
+      if (channel > MAX_ADC1_CHANNEL) {
+        DEBUGSR_PRINTF("Incompatible GPIO used for analog audio input: %d\n", _audioPin);
+        return;
+      } else {
+        _myADCchannel = channel;
+      }
+      adc_dma_config.adc1_chan_mask = (1 << channel); // update mask in DMA config
+      adcpattern.channel = channel;                   // update pattern config
+      if (init_adc_continuous() != ESP_OK)
+        return;
+      adc_digi_start();  //start sampling
+      _initialized = true;
+    }
+
+    void getSamples(float *buffer, uint16_t num_samples) {
+      int32_t framesize = num_samples * ADC_RESULT_BYTE; // size of one sample frame in bytes
+      uint8_t result[framesize]; // create a read buffer
+      uint32_t ret_num;
+      uint32_t totalbytes = 0;
+      uint32_t j = 0;
+      esp_err_t err;
+      if (_initialized) {
+        do {
+          err = adc_digi_read_bytes(result, framesize, &ret_num, ADC_TIMEOUT);   // read samples
+          if ((err == ESP_OK || err == ESP_ERR_INVALID_STATE) && ret_num > 0) {  // in invalid sate (internal buffer overrun), still read the last valid sample, then reset the ADC DMA afterwards (better than not having samples at all)
+            totalbytes += ret_num;                                               // after an error, DMA buffer can be misaligned, returning partial frames. Found no solution to re-align or flush the buffers, seems to be yet another IDF4 bug
+
+            if (totalbytes > framesize) {        // got too many bytes to fit sample buffer
+              ret_num -= totalbytes - framesize; // discard extra samples
+            }
+            for (int i = 0; i < ret_num; i += ADC_RESULT_BYTE) {
+              adc_digi_output_data_t *p = reinterpret_cast<adc_digi_output_data_t*>(&result[i]);
+              buffer[j++] = float((int(p->val & 0x0FFF))); // get the 12bit sample data and convert to float note: works on both format types
+              // TODO: for integer math: when scaling up to 16bit: compared to I2S mic the scaling seems about the same when not shifting at all, so need to divide by 16 after FFT if scaling up to 16bit
+            }
+          } else {  // no samples or other error: usually ESP_ERR_TIMEOUT (if DMA has stopped for some reason)
+            reset_DMA_ADC();
+            DEBUGSR_PRINTF("ADC ERROR!\n");
+            return;  // something went very wrong, just exit
+          }
+        } while (totalbytes < framesize); // read more samples if a partial frame was returned (data is still consistent in split frames)
+      }
+
+      // remove DC TODO: should really do this in int on C3 & S2... -> needs an update after PR #248 is merged
+      int32_t sum = 0;
+      for (int i = 0; i < num_samples; i++) sum += buffer[i];
+      int32_t mean = sum / num_samples;
+      for (int i = 0; i < num_samples; i++) buffer[i] -= mean; //uses static mean, as it should not change too much over time, deducted above
+
+      if (err == ESP_ERR_INVALID_STATE) {  // error reading data, error means buffer overrun, need to fully reset the DMA ADC to make it work again
+        DEBUGSR_PRINTF("ADC BFR OVERFLOW, RESETTING ADC\n");
+        reset_DMA_ADC();
+      }
+    }
+
+    void deinitialize() {
+      PinManager::deallocatePin(_audioPin, PinOwner::UM_Audioreactive);
+      _initialized = false;
+      _myADCchannel = 0x0F;
+      esp_err_t err;
+      adc_digi_stop();
+      delay(50);  // just in case, give it some time
+      err = adc_digi_deinitialize();
+      if (err != ESP_OK) {
+        DEBUGSR_PRINTF("Failed deinit ADC: %d\n", err);
+      }
+    }
+
+  private:
+    adc_digi_init_config_t adc_dma_config;
+    adc_digi_pattern_config_t adcpattern;
+    adc_digi_configuration_t dig_cfg;
+    int8_t _audioPin;
+    int8_t _myADCchannel = 0x0F;       // current ADC channel for analog input. 0x0F means "undefined"
+
+    // Initialize ADC continuous mode with stored settings
+    esp_err_t init_adc_continuous() {
+      esp_err_t err = adc_digi_initialize(&adc_dma_config);
+      if (err != ESP_OK) {
+        DEBUGSR_PRINTF("Failed init ADC DMA: %d\n", err);
+        return err;
+      }
+
+      err = adc_digi_controller_configure(&dig_cfg);
+      if (err != ESP_OK) {
+        DEBUGSR_PRINTF("Failed init ADC sampling: %d\n", err);
+      }
+      return err;
+    }
+
+    void reset_DMA_ADC(void) {
+      adc_digi_stop();
+      adc_digi_deinitialize();
+      //delay(1);  // TODO: need any delay? seems to work fine without it and this code can be invoked at any time, so do not waste time here
+      init_adc_continuous();
+      adc_digi_start();  //start sampling
+    }
+};
 #endif
 
 /* SPH0645 Microphone
@@ -771,3 +935,4 @@ class SPH0654 : public I2SSource {
     }
 };
 #endif
+
