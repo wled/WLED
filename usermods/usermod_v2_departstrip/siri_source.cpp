@@ -290,7 +290,7 @@ bool SiriSource::buildModelFromSiri(JsonObject siri, std::time_t now, std::uniqu
   board.key = agency_; board.key += ":"; board.key += stopCode_;
   DepartModel::Entry::Batch batch;
   batch.apiTs = apiTs;
-  batch.ourTs = time_now();
+  batch.ourTs = now;
 
   int totalVisits = 0, hadTime = 0, parsedTime = 0;
   String firstStopName;
