@@ -17,7 +17,7 @@
 class SiriSource : public IDataSourceT<DepartModel> {
 private:
   bool     enabled_ = false;
-  uint16_t updateSecs_ = 60;
+  uint32_t updateSecs_ = 60;
   String   baseUrl_ = "";
   String   apiKey_   = "";
   String   agency_   = "";

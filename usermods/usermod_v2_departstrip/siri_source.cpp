@@ -450,6 +450,8 @@ bool SiriSource::readFromConfig(JsonObject& root, bool startup_complete, bool& i
     configKey_ = std::string(sec.c_str());
   }
 
+  if (updateSecs_ < 10) updateSecs_ = 10; // minimum 10s cadence
+
   invalidate_history |= (agency_ != prevAgency) || (stopCode_ != prevStop) || (baseUrl_ != prevBase);
   if (startup_complete && !prevEnabled && enabled_) reload(departstrip::util::time_now_utc());
   return ok;
