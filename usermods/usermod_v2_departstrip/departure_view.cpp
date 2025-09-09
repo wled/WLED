@@ -91,10 +91,17 @@ void DepartureView::view(std::time_t now, const DepartModel &model) {
         // Stable, deterministic order by entity key (lineRef)
         std::sort(strong.begin(), strong.end(), [](const Cand& a, const Cand& b){ return a.key.compareTo(b.key) < 0; });
         uint32_t nowMs = millis();
-        uint8_t n = (uint8_t)strong.size();
-        uint32_t slice = 1000u / (uint32_t)n; if (slice == 0) slice = 1;
-        uint32_t phase = (nowMs % (slice * n)) / slice;
-        out = strong[phase].color;
+        size_t n = strong.size();
+        if (n == 0) {
+          // Should be unreachable due to branch conditions; leave pixel off as a safe default
+          out = 0;
+        } else {
+          uint32_t n32 = (uint32_t)n;
+          uint32_t slice = 1000u / n32; // total cycle ~1s; clamp to >=1ms
+          if (slice == 0) slice = 1;
+          uint32_t phase = (nowMs / slice) % n32;
+          out = strong[phase].color;
+        }
       }
     }
 
