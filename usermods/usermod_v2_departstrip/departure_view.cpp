@@ -51,9 +51,15 @@ void DepartureView::view(std::time_t now, const DepartModel &model) {
 
   const uint8_t CYCLE_ALPHA = 100; // require to participate in cycling
 
+  struct Cand { uint32_t color; uint16_t bsum; String key; uint8_t alpha; };
+  size_t estCap = 0;
+  for (const auto& src : sources) estCap += src.batch->items.size();
+  std::vector<Cand> cands; cands.reserve(estCap);
+  std::vector<Cand> strong; strong.reserve(8);
+
   for (int i = 0; i < len; ++i) {
-    struct Cand { uint32_t color; uint16_t bsum; String key; uint8_t alpha; };
-    std::vector<Cand> cands;
+    cands.clear();
+    strong.clear();
 
     for (const auto& src : sources) {
       for (auto &e : src.batch->items) {
@@ -78,7 +84,6 @@ void DepartureView::view(std::time_t now, const DepartModel &model) {
     uint32_t out = 0;
     if (!cands.empty()) {
       // Build strong set for cycling (alpha above threshold)
-      std::vector<Cand> strong; strong.reserve(cands.size());
       for (const auto& c : cands) if (c.alpha >= CYCLE_ALPHA) strong.push_back(c);
       if (strong.empty()) {
         // No strong overlaps; choose the brightest single candidate (no cycle)
