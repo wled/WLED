@@ -3,6 +3,7 @@
 #include "wled.h"
 #include <vector>
 #include <algorithm>
+#include <cstring>
 
 using departstrip::util::FreezeGuard;
 
@@ -51,7 +52,8 @@ void DepartureView::view(std::time_t now, const DepartModel &model) {
 
   const uint8_t CYCLE_ALPHA = 100; // require to participate in cycling
 
-  struct Cand { uint32_t color; uint16_t bsum; String key; uint8_t alpha; };
+  // Avoid copying Strings per pixel; keep pointer to existing lineRef
+  struct Cand { uint32_t color; uint16_t bsum; const String* key; uint8_t alpha; };
   size_t estCap = 0;
   for (const auto& src : sources) estCap += src.batch->items.size();
   std::vector<Cand> cands; cands.reserve(estCap);
@@ -77,7 +79,7 @@ void DepartureView::view(std::time_t now, const DepartModel &model) {
         uint32_t colScaled = (((uint32_t)col.r * alpha / 255) << 16) |
                              (((uint32_t)col.g * alpha / 255) << 8) |
                              ((uint32_t)col.b * alpha / 255);
-        cands.push_back(Cand{colScaled, brightness(colScaled), e.lineRef, alpha});
+        cands.push_back(Cand{colScaled, brightness(colScaled), &e.lineRef, alpha});
       }
     }
 
@@ -94,7 +96,11 @@ void DepartureView::view(std::time_t now, const DepartModel &model) {
         out = strong[0].color;
       } else {
         // Stable, deterministic order by entity key (lineRef)
-        std::sort(strong.begin(), strong.end(), [](const Cand& a, const Cand& b){ return a.key.compareTo(b.key) < 0; });
+        std::sort(strong.begin(), strong.end(), [](const Cand& a, const Cand& b){
+          const char* ak = (a.key && a.key->length()) ? a.key->c_str() : "";
+          const char* bk = (b.key && b.key->length()) ? b.key->c_str() : "";
+          return strcmp(ak, bk) < 0;
+        });
         uint32_t nowMs = millis();
         size_t n = strong.size();
         if (n == 0) {
