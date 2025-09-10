@@ -37,7 +37,7 @@ public:
   uint16_t getId() override { return USERMOD_ID_DEPARTSTRIP; }
 
   inline void enable(bool en) { enabled_ = en; }
-  inline bool isEnabled() { return enabled_; }
+  inline bool isEnabled() const { return enabled_; }
 
 protected:
   void showBooting();
