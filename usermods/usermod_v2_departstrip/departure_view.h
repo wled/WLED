@@ -16,10 +16,7 @@ private:
 public:
   explicit DepartureView(const String& keys) : keysStr_(keys), segmentId_(-1), configKey_() {
     parseKeysFrom(keysStr_);
-    String s = String("DepartureView_") + keysStr_;
-    s.replace(':', '_'); s.replace(',', '_'); s.replace(' ', '_'); s.replace(';', '_');
-    s.replace('\'', '_'); s.replace('\"', '_'); s.replace('\\', '_');
-    configKey_ = std::string(s.c_str());
+    updateConfigKey_();
   }
   const String& viewKey() const { return keysStr_; }
 
@@ -46,10 +43,7 @@ public:
       if (keysStr_ != prev) {
         // Re-parse and update config key
         parseKeysFrom(keysStr_);
-        String s = String("DepartureView_") + keysStr_;
-        s.replace(':', '_'); s.replace(',', '_'); s.replace(' ', '_'); s.replace(';', '_');
-        s.replace('\'', '_'); s.replace('\"', '_'); s.replace('\\', '_');
-        configKey_ = std::string(s.c_str());
+        updateConfigKey_();
       }
     }
     return ok;
@@ -83,5 +77,12 @@ private:
       else token += ch;
     }
     flush();
+  }
+
+  void updateConfigKey_() {
+    String s = String("DepartureView_") + keysStr_;
+    s.replace(':', '_'); s.replace(',', '_'); s.replace(' ', '_'); s.replace(';', '_');
+    s.replace('\'', '_'); s.replace('\"', '_'); s.replace('\\', '_');
+    configKey_ = std::string(s.c_str());
   }
 };
