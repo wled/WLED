@@ -22,9 +22,10 @@ struct FreezeGuard {
 inline time_t time_now_utc() { return (time_t)toki.getTime().sec; }
 inline time_t time_now() { return time_now_utc(); }
 
+static constexpr long kMaxOffsetSec = 15L * 3600L; // +/-15h safety clamp
 inline long current_offset() {
   long off = (long)localTime - (long)toki.getTime().sec;
-  if (off < -54000 || off > 54000) off = 0;
+  if (off < -kMaxOffsetSec || off > kMaxOffsetSec) off = 0;
   return off;
 }
 
