@@ -91,8 +91,6 @@ void DepartStrip::addToConfig(JsonObject& root) {
     sub["Delete"] = false;
   }
   // Placeholder to add new source right after existing sources
-  bool rebuiltSourcesUsed = false;
-  bool rebuiltViewsUsed = false;
   {
     JsonObject ns = top.createNestedObject("NewSource");
     ns["Enabled"] = false;
