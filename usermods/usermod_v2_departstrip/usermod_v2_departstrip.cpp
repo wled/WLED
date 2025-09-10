@@ -95,7 +95,7 @@ void DepartStrip::addToConfig(JsonObject& root) {
     JsonObject ns = top.createNestedObject("NewSource");
     ns["Enabled"] = false;
     ns["UpdateSecs"] = 60;
-    ns["TemplateUrl"] = String(F(""));
+    ns["TemplateUrl"] = "";
     ns["ApiKey"] = "";
     ns["AgencyStopCode"] = ""; // format AGENCY:StopCode
   }
@@ -121,26 +121,26 @@ void DepartStrip::addToConfig(JsonObject& root) {
   }
   // Emit global color map last so it appears at the bottom of the page
   JsonObject cmap = top.createNestedObject("ColorMap");
-  // Sort entries by (agency, numeric route, suffix) for stable and natural display
-  std::vector<std::pair<String,uint32_t>> entries;
-  entries.reserve(DepartModel::colorMap().size());
-  for (const auto& ce : DepartModel::colorMap()) entries.emplace_back(ce.key, ce.rgb);
-  struct Cmp {
-    static void splitKey(const String& key, String& agency, String& line) {
-      int c = key.indexOf(':');
-      if (c > 0) { agency = key.substring(0, c); line = key.substring(c+1); }
-      else { agency = key; line = String(); }
-    }
-    static bool lt(const std::pair<String,uint32_t>& a, const std::pair<String,uint32_t>& b) {
-      String aa, al, ba, bl; splitKey(a.first, aa, al); splitKey(b.first, ba, bl);
-      int ar = aa.compareTo(ba);
-      if (ar != 0) return ar < 0;
-      return departstrip::util::cmpLineRefNatural(al, bl) < 0;
-    }
+  // Sort by (agency, numeric route, suffix) using indices to avoid copying Strings
+  const auto& cmapSrc = DepartModel::colorMap();
+  std::vector<size_t> order; order.reserve(cmapSrc.size());
+  for (size_t i = 0; i < cmapSrc.size(); ++i) order.push_back(i);
+  auto splitKey = [](const String& key, String& agency, String& line) {
+    int c = key.indexOf(':');
+    if (c > 0) { agency = key.substring(0, c); line = key.substring(c+1); }
+    else { agency = key; line = String(); }
   };
-  std::sort(entries.begin(), entries.end(), Cmp::lt);
-  for (const auto& kv : entries) {
-    cmap[kv.first] = DepartModel::colorToString(kv.second);
+  std::sort(order.begin(), order.end(), [&](size_t ai, size_t bi){
+    const String& ak = cmapSrc[ai].key;
+    const String& bk = cmapSrc[bi].key;
+    String aa, al, ba, bl; splitKey(ak, aa, al); splitKey(bk, ba, bl);
+    int ar = aa.compareTo(ba);
+    if (ar != 0) return ar < 0;
+    return departstrip::util::cmpLineRefNatural(al, bl) < 0;
+  });
+  for (size_t idx : order) {
+    const auto& ce = cmapSrc[idx];
+    cmap[ce.key] = DepartModel::colorToString(ce.rgb);
   }
   top["ColorMapReset"] = false;      // user can set true to clear map on next read
 
@@ -154,24 +154,13 @@ void DepartStrip::appendConfigData(Print& s) {
   for (auto& src : sources_) {
     SiriSource* ss = static_cast<SiriSource*>(src.get());
     if (!ss) continue;
-    String section = String(src->configKey());
-    String anchor = String(F("DepartStrip:")) + section + F(":Delete");
-
     // Collect current lines seen for this stop from the model
-    String agency = ss->agency();
+    const String& agency = ss->agency();
     std::vector<String> lines;
     if (model_) model_->currentLinesForBoard(ss->sourceKey(), lines);
-    std::vector<std::pair<String,uint32_t>> entries;
-    entries.reserve(lines.size());
-    for (const auto& line : lines) {
-      uint32_t rgb = 0x606060;
-      if (agency.length() > 0) DepartModel::getColorRGB(agency, line, rgb);
-      String fullKey = agency; fullKey += ":"; fullKey += line;
-      entries.emplace_back(fullKey, rgb);
-    }
 
     // Build HTML suffix placed AFTER the field (3rd arg)
-    s.print(F("addInfo('")); s.print(anchor); s.print(F("',1,'"));
+    s.print(F("addInfo('DepartStrip:")); s.print(src->configKey()); s.print(F(":Delete',1,'"));
     s.print(F("<div style=\\'margin-top:8px;text-align:center;\\'>"));
     // Stop label (optional)
     if (ss->stopName().length()) {
@@ -182,17 +171,18 @@ void DepartStrip::appendConfigData(Print& s) {
       nm.replace("\\","\\\\"); nm.replace("'","\\'");
       s.print(F("<div style=\\'margin-bottom:4px;\\'><b>Stop:</b> ")); s.print(nm); s.print(F("</div>"));
     }
-    if (!entries.empty()) {
+    if (!lines.empty()) {
       s.print(F("<div style=\\'font-weight:600;margin-bottom:4px;\\'>Routes</div>"));
       s.print(F("<div style=\\'display:flex;flex-wrap:wrap;gap:8px;justify-content:center;\\'>"));
-      for (const auto& kv : entries) {
-        String col = DepartModel::colorToString(kv.second);
+      for (const auto& line : lines) {
+        uint32_t rgb = 0x606060;
+        if (agency.length() > 0) DepartModel::getColorRGB(agency, line, rgb);
+        String col = DepartModel::colorToString(rgb);
         s.print(F("<span style=\\'display:inline-flex;align-items:center;border:1px solid #888;padding:2px 6px;border-radius:4px;\\'>"));
         s.print(F("<span style=\\'display:inline-block;width:14px;height:14px;margin-right:6px;background:"));
         s.print(col);
         s.print(F(";\\'></span><code>"));
-        int cpos = kv.first.indexOf(':');
-        if (cpos > 0) s.print(kv.first.substring(cpos+1)); else s.print(kv.first);
+        s.print(line);
         s.print(F("</code></span>"));
       }
       s.print(F("</div>"));
