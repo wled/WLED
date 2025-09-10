@@ -67,8 +67,8 @@ Examples
 
 ## Notes & Tips
 
-- Colors: The colors for each line in an agencies feed may be set in
-  the ColorMap section at the bottom.
+- Colors: Per-line colors can be set under `DepartStrip → ColorMap` in the
+  usermod config UI (keyed by `AGENCY:LineRef`).
 - Rate limits: If you exceed a feed’s rate limit, you’ll see HTTP 429
   and a per‑source backoff message in the debug log. Each source backs
   off independently.
