@@ -41,19 +41,10 @@ void DepartModel::currentLinesForBoard(const String& key, std::vector<String>& o
     for (const auto& s : out) { if (s == lr) { seen = true; break; } }
     if (!seen) out.push_back(lr);
   }
-  // Natural sort: numeric prefix, then suffix
-  struct CmpLine {
-    static bool parseLeadingInt(const String& s, int& val, int& consumed) {
-      val=0; consumed=0; bool any=false; for (unsigned i=0;i<s.length();++i){ char ch=s.charAt(i); if (ch>='0'&&ch<='9'){ any=true; val=val*10+(ch-'0'); ++consumed; } else break; } return any;
-    }
-    static bool lt(const String& a, const String& b) {
-      int na=0, nb=0, ca=0, cb=0; bool ha=parseLeadingInt(a,na,ca), hb=parseLeadingInt(b,nb,cb);
-      if (ha&&hb){ if(na!=nb) return na<nb; int r=a.substring(ca).compareTo(b.substring(cb)); if(r!=0) return r<0; return false; }
-      if (ha!=hb) return ha; // numeric first
-      return a.compareTo(b) < 0;
-    }
-  };
-  std::sort(out.begin(), out.end(), CmpLine::lt);
+  // Natural sort: numeric prefix, then suffix (shared helper)
+  std::sort(out.begin(), out.end(), [](const String& a, const String& b){
+    return departstrip::util::cmpLineRefNatural(a, b) < 0;
+  });
 }
 
 String DepartModel::describeBatch(const DepartModel::Entry::Batch& batch) {

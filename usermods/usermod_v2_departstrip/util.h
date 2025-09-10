@@ -39,5 +39,10 @@ inline void fmt_local(char *out, size_t n, time_t utc_ts,
 
 uint32_t hsv2rgb(float h, float s, float v);
 
+// Natural compare for route/line strings: compare by leading integer value
+// if present (e.g. "10" < "100" < "100A"), then by the remaining suffix
+// lexicographically. Returns negative if a<b, zero if equal, positive if a>b.
+int cmpLineRefNatural(const String& a, const String& b);
+
 } // namespace util
 } // namespace departstrip

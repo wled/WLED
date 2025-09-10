@@ -23,5 +23,32 @@ uint32_t hsv2rgb(float h, float s, float v) {
   return RGBW32((uint8_t)(r*255),(uint8_t)(g*255),(uint8_t)(b*255),0);
 }
 
-} } // namespace
+static bool parseLeadingInt(const String& s, int& val, int& consumed) {
+  val = 0; consumed = 0; bool any = false;
+  for (unsigned i = 0; i < s.length(); ++i) {
+    char ch = s.charAt(i);
+    if (ch >= '0' && ch <= '9') { any = true; val = val*10 + (ch - '0'); ++consumed; }
+    else break;
+  }
+  return any;
+}
 
+int cmpLineRefNatural(const String& a, const String& b) {
+  int na=0, nb=0, ca=0, cb=0;
+  bool ha = parseLeadingInt(a, na, ca);
+  bool hb = parseLeadingInt(b, nb, cb);
+  if (ha && hb) {
+    if (na != nb) return (na < nb) ? -1 : 1;
+    String sa = a.substring(ca);
+    String sb = b.substring(cb);
+    int r = sa.compareTo(sb);
+    if (r != 0) return (r < 0) ? -1 : 1;
+    return 0;
+  }
+  if (ha != hb) return ha ? -1 : 1; // numeric routes before non-numeric
+  int r = a.compareTo(b);
+  if (r != 0) return (r < 0) ? -1 : 1;
+  return 0;
+}
+
+} } // namespace

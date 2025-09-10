@@ -131,37 +131,11 @@ void DepartStrip::addToConfig(JsonObject& root) {
       if (c > 0) { agency = key.substring(0, c); line = key.substring(c+1); }
       else { agency = key; line = String(); }
     }
-    static bool parseLeadingInt(const String& s, int& val, int& consumed) {
-      val = 0; consumed = 0; bool any = false;
-      for (unsigned i = 0; i < s.length(); ++i) {
-        char ch = s.charAt(i);
-        if (ch >= '0' && ch <= '9') { any = true; val = val*10 + (ch - '0'); ++consumed; }
-        else break;
-      }
-      return any;
-    }
-    static int cmpLine(const String& a, const String& b) {
-      int na=0, nb=0, ca=0, cb=0;
-      bool ha = parseLeadingInt(a, na, ca);
-      bool hb = parseLeadingInt(b, nb, cb);
-      if (ha && hb) {
-        if (na != nb) return (na < nb) ? -1 : 1;
-        String sa = a.substring(ca);
-        String sb = b.substring(cb);
-        int r = sa.compareTo(sb);
-        if (r != 0) return r < 0 ? -1 : 1;
-        return 0;
-      }
-      if (ha != hb) return ha ? -1 : 1; // numeric routes before non-numeric
-      int r = a.compareTo(b);
-      if (r != 0) return r < 0 ? -1 : 1;
-      return 0;
-    }
     static bool lt(const std::pair<String,uint32_t>& a, const std::pair<String,uint32_t>& b) {
       String aa, al, ba, bl; splitKey(a.first, aa, al); splitKey(b.first, ba, bl);
       int ar = aa.compareTo(ba);
       if (ar != 0) return ar < 0;
-      return cmpLine(al, bl) < 0;
+      return departstrip::util::cmpLineRefNatural(al, bl) < 0;
     }
   };
   std::sort(entries.begin(), entries.end(), Cmp::lt);
