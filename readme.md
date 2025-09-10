@@ -63,6 +63,7 @@ See [here](https://kno.wled.ge/basics/compatible-hardware)!
 
 Licensed under the EUPL v1.2 license  
 Credits [here](https://kno.wled.ge/about/contributors/)!
+CORS proxy by [Corsfix](https://corsfix.com/)
 
 Join the Discord server to discuss everything about WLED!
 

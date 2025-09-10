@@ -2328,7 +2328,7 @@ uint16_t mode_colortwinkle() {
       }
 
       if (cur == prev) {  //fix "stuck" pixels
-        color_add(col, col);
+        col = color_add(col, col);
         SEGMENT.setPixelColor(i, col);
       }
       else SEGMENT.setPixelColor(i, col);
@@ -3940,7 +3940,7 @@ uint16_t mode_percent(void) {
 
  	return FRAMETIME;
 }
-static const char _data_FX_MODE_PERCENT[] PROGMEM = "Percent@,% of fill,,,,One color;!,!;!";
+static const char _data_FX_MODE_PERCENT[] PROGMEM = "Percent@!,% of fill,,,,One color;!,!;!";
 
 
 /*

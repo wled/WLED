@@ -315,6 +315,7 @@ class Usermod {
     virtual void onMqttConnect(bool sessionPresent) {}                       // fired when MQTT connection is established (so usermod can subscribe)
     virtual bool onMqttMessage(char* topic, char* payload) { return false; } // fired upon MQTT message received (wled topic)
     virtual bool onEspNowMessage(uint8_t* sender, uint8_t* payload, uint8_t len) { return false; } // fired upon ESP-NOW message received
+    virtual bool onUdpPacket(uint8_t* payload, size_t len) { return false; } //fired upon UDP packet received
     virtual void onUpdateBegin(bool) {}                                      // fired prior to and after unsuccessful firmware update
     virtual void onStateChange(uint8_t mode) {}                              // fired upon WLED state change
     virtual uint16_t getId() {return USERMOD_ID_UNSPECIFIED;}
@@ -354,6 +355,7 @@ namespace UsermodManager {
 #ifndef WLED_DISABLE_ESPNOW
   bool onEspNowMessage(uint8_t* sender, uint8_t* payload, uint8_t len);
 #endif
+  bool onUdpPacket(uint8_t* payload, size_t len);
   void onUpdateBegin(bool);
   void onStateChange(uint8_t);
   Usermod* lookup(uint16_t mod_id);
