@@ -203,6 +203,7 @@ void DepartStrip::appendConfigData(Print& s) {
     if (ss->stopName().length()) {
       String nm = ss->stopName();
       // Escape for HTML and JS single-quoted string context
+      nm.replace("&","&amp;");
       nm.replace("<","&lt;"); nm.replace(">","&gt;");
       nm.replace("\\","\\\\"); nm.replace("'","\\'");
       s.print(F("<div style=\\'margin-bottom:4px;\\'><b>Stop:</b> ")); s.print(nm); s.print(F("</div>"));
