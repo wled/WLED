@@ -11,8 +11,16 @@ private:
   uint16_t boardingSecs_ = 60; // show past etd for this long
   String keysStr_;             // Raw string (e.g., "AC:50958,AC:50959" or "AC:50958 50959")
   std::vector<String> keys_;   // Parsed keys (each "AGENCY:StopCode")
+  std::vector<String> agencies_; // Precomputed agencies for each key (same indexing as keys_)
   int16_t segmentId_ = -1;
   std::string configKey_;
+
+  // Reusable buffers to avoid per-frame heap churn
+  struct Cand { uint32_t color; uint16_t bsum; const String* key; uint8_t alpha; };
+  struct Src  { const DepartModel::Entry::Batch* batch; const String* agency; };
+  std::vector<Cand> cands_;
+  std::vector<Cand> strong_;
+  std::vector<Src>  sources_;
 public:
   explicit DepartureView(const String& keys) : keysStr_(keys), segmentId_(-1), configKey_() {
     parseKeysFrom(keysStr_);
@@ -54,6 +62,7 @@ public:
 private:
   void parseKeysFrom(const String& in) {
     keys_.clear();
+    agencies_.clear();
     String agencyHint, token;
     auto flush = [&]() {
       token.trim();
@@ -61,12 +70,16 @@ private:
       int c = token.indexOf(':');
       if (c > 0) {
         keys_.push_back(token);
-        if (!agencyHint.length()) agencyHint = token.substring(0, c);
+        String ag = token.substring(0, c);
+        agencies_.push_back(ag);
+        if (!agencyHint.length()) agencyHint = ag;
       } else {
         if (agencyHint.length() > 0) {
           String k = agencyHint; k += ':'; k += token; keys_.push_back(k);
+          agencies_.push_back(agencyHint);
         } else {
           keys_.push_back(token);
+          agencies_.push_back(String());
         }
       }
       token = String();
