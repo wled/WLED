@@ -179,7 +179,9 @@ bool SiriSource::parseJsonFromHttp(DynamicJsonDocument& doc, bool withFilter, bo
     if (wideFilter) {
       // Wide filter: keep the whole StopMonitoringDelivery subtree to ensure visits are present.
       // Used when Content-Length is known (capacity sized accordingly).
-      StaticJsonDocument<768> filter;
+      static StaticJsonDocument<768> filter;
+      filter.clear();
+
       filter["Siri"]["ServiceDelivery"]["ResponseTimestamp"] = true;
       filter["Siri"]["ServiceDelivery"]["StopMonitoringDelivery"] = true;
       filter["ServiceDelivery"]["ResponseTimestamp"] = true;
@@ -189,7 +191,9 @@ bool SiriSource::parseJsonFromHttp(DynamicJsonDocument& doc, bool withFilter, bo
                             DeserializationOption::NestingLimit(80));
     } else {
       // Targeted/narrow filter for unknown Content-Length to limit memory.
-      StaticJsonDocument<4096> filter;
+      static StaticJsonDocument<4096> filter;
+      filter.clear();
+
       auto addMVJMask = [&](JsonObject mvj) {
         mvj["LineRef"] = true; // allow string or object
         JsonObject call = mvj["MonitoredCall"].to<JsonObject>();
