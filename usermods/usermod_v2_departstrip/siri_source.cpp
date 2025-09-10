@@ -362,7 +362,24 @@ std::unique_ptr<DepartModel> SiriSource::fetch(std::time_t now) {
   }
 
   String url = composeUrl(agency_, stopCode_);
-  DEBUG_PRINTF("DepartStrip: SiriSource::fetch: URL: %s\n", url.c_str());
+  // Redact API key in debug logs
+  String redacted = url;
+  auto redactParam = [&](const __FlashStringHelper* kfs) {
+    String k(kfs);
+    int p = redacted.indexOf(k);
+    if (p >= 0) {
+      int valStart = p + k.length();
+      int valEnd = redacted.indexOf('&', valStart);
+      if (valEnd < 0) valEnd = redacted.length();
+      String pre = redacted.substring(0, valStart);
+      String post = redacted.substring(valEnd);
+      redacted = pre + F("REDACTED") + post;
+    }
+  };
+  redactParam(F("api_key="));
+  redactParam(F("apikey="));
+  redactParam(F("key="));
+  DEBUG_PRINTF("DepartStrip: SiriSource::fetch: URL: %s\n", redacted.c_str());
   int len = 0;
   if (!httpBegin(url, len)) {
     // Schedule retry with exponential backoff (per source)
