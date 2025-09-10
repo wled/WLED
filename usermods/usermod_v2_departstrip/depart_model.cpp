@@ -88,7 +88,7 @@ namespace {
     String base = (dash > 0) ? lineRef.substring(0, dash) : lineRef;
     String u = base; u.toUpperCase();
     if (u == F("RED"))    { rgbOut = 0xFF0000; return true; }
-    if (u == F("ORANGE")) { rgbOut = 0xFF961E; return true; }
+    if (u == F("ORANGE")) { rgbOut = 0xFF8000; return true; }
     if (u == F("YELLOW")) { rgbOut = 0xFFFF00; return true; }
     if (u == F("GREEN"))  { rgbOut = 0x00FF00; return true; }
     if (u == F("BLUE"))   { rgbOut = 0x0000FF; return true; }
