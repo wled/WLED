@@ -172,69 +172,45 @@ bool SiriSource::httpBegin(const String& url, int& outLen) {
   return true;
 }
 
-bool SiriSource::parseJsonFromHttp(DynamicJsonDocument& doc, bool withFilter, bool wideFilter) {
+bool SiriSource::parseJsonFromHttp(DynamicJsonDocument& doc, bool withFilter) {
   SkipBOMStream s(http_.getStream());
   DeserializationError err;
   if (withFilter) {
-    if (wideFilter) {
-      // Wide filter: keep the whole StopMonitoringDelivery subtree to ensure visits are present.
-      // Used when Content-Length is known (capacity sized accordingly).
-      static StaticJsonDocument<768> filter;
-      filter.clear();
+    // Narrow filter with targeted masks for both forms, without mixing shapes on the same key.
+    static StaticJsonDocument<4096> filter;
+    filter.clear();
 
-      filter["Siri"]["ServiceDelivery"]["ResponseTimestamp"] = true;
-      filter["Siri"]["ServiceDelivery"]["StopMonitoringDelivery"] = true;
-      filter["ServiceDelivery"]["ResponseTimestamp"] = true;
-      filter["ServiceDelivery"]["StopMonitoringDelivery"] = true;
-      err = deserializeJson(doc, s,
-                            DeserializationOption::Filter(filter),
-                            DeserializationOption::NestingLimit(80));
-    } else {
-      // Targeted/narrow filter for unknown Content-Length to limit memory.
-      static StaticJsonDocument<4096> filter;
-      filter.clear();
+    auto addMVJMask = [&](JsonObject mvj) {
+      mvj["LineRef"] = true; // allow string or object
+      JsonObject call = mvj["MonitoredCall"].to<JsonObject>();
+      call["StopPointName"] = true;
+      call["ExpectedDepartureTime"] = true;
+      call["ExpectedArrivalTime"] = true;
+      call["AimedDepartureTime"] = true;
+      call["AimedArrivalTime"] = true;
+    };
 
-      auto addMVJMask = [&](JsonObject mvj) {
-        mvj["LineRef"] = true; // allow string or object
-        JsonObject call = mvj["MonitoredCall"].to<JsonObject>();
-        call["StopPointName"] = true;
-        call["ExpectedDepartureTime"] = true;
-        call["ExpectedArrivalTime"] = true;
-        call["AimedDepartureTime"] = true;
-        call["AimedArrivalTime"] = true;
-      };
-      // With Siri wrapper
-      filter["Siri"]["ServiceDelivery"]["ResponseTimestamp"] = true;
-      {
-        JsonObject mvj = filter["Siri"]["ServiceDelivery"]["StopMonitoringDelivery"][0]
-                               ["MonitoredStopVisit"][0]
-                               ["MonitoredVehicleJourney"].to<JsonObject>();
-        addMVJMask(mvj);
-      }
-      {
-        JsonObject mvj = filter["Siri"]["ServiceDelivery"]["StopMonitoringDelivery"]
-                               ["MonitoredStopVisit"][0]
-                               ["MonitoredVehicleJourney"].to<JsonObject>();
-        addMVJMask(mvj);
-      }
-      // Without Siri wrapper (top-level ServiceDelivery)
-      filter["ServiceDelivery"]["ResponseTimestamp"] = true;
-      {
-        JsonObject mvj = filter["ServiceDelivery"]["StopMonitoringDelivery"][0]
-                               ["MonitoredStopVisit"][0]
-                               ["MonitoredVehicleJourney"].to<JsonObject>();
-        addMVJMask(mvj);
-      }
-      {
-        JsonObject mvj = filter["ServiceDelivery"]["StopMonitoringDelivery"]
-                               ["MonitoredStopVisit"][0]
-                               ["MonitoredVehicleJourney"].to<JsonObject>();
-        addMVJMask(mvj);
-      }
-      err = deserializeJson(doc, s,
-                            DeserializationOption::Filter(filter),
-                            DeserializationOption::NestingLimit(80));
+    // With Siri wrapper: StopMonitoringDelivery is an array for many providers (e.g., MTA)
+    filter["Siri"]["ServiceDelivery"]["ResponseTimestamp"] = true;
+    {
+      JsonObject mvj = filter["Siri"]["ServiceDelivery"]["StopMonitoringDelivery"][0]
+                             ["MonitoredStopVisit"][0]
+                             ["MonitoredVehicleJourney"].to<JsonObject>();
+      addMVJMask(mvj);
     }
+
+    // Without Siri wrapper (top-level ServiceDelivery): some providers (e.g., AC) use an object
+    filter["ServiceDelivery"]["ResponseTimestamp"] = true;
+    {
+      JsonObject mvj = filter["ServiceDelivery"]["StopMonitoringDelivery"]
+                             ["MonitoredStopVisit"][0]
+                             ["MonitoredVehicleJourney"].to<JsonObject>();
+      addMVJMask(mvj);
+    }
+
+    err = deserializeJson(doc, s,
+                          DeserializationOption::Filter(filter),
+                          DeserializationOption::NestingLimit(80));
   } else {
     err = deserializeJson(doc, s, DeserializationOption::NestingLimit(80));
   }
@@ -397,9 +373,8 @@ std::unique_ptr<DepartModel> SiriSource::fetch(std::time_t now) {
   size_t jsonSz = computeJsonCapacity(len);
   DEBUG_PRINTF("DepartStrip: SiriSource::fetch: json capacity=%u, free heap=%u\n", (unsigned)jsonSz, ESP.getFreeHeap());
   DynamicJsonDocument doc(jsonSz);
-  // Use wide filter when Content-Length available; narrow otherwise.
-  bool wideFilter = (len > 0);
-  if (!parseJsonFromHttp(doc, true, wideFilter)) {
+  DEBUG_PRINTF("DepartStrip: SiriSource::fetch: filter=narrow (len=%d)\n", len);
+  if (!parseJsonFromHttp(doc, true)) {
     long delay = (long)updateSecs_ * (long)backoffMult_;
     DEBUG_PRINTF("DepartStrip: SiriSource::fetch: scheduling backoff x%u %s for %lds (parse error)\n",
                  (unsigned)backoffMult_, sourceKey().c_str(), delay);
