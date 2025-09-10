@@ -14,7 +14,7 @@ struct FreezeGuard {
   explicit FreezeGuard(Segment &s, bool freezeNow = true) : seg(s), prev(s.freeze) {
     seg.freeze = freezeNow;
   }
-  ~FreezeGuard() { seg.freeze = prev; }
+  ~FreezeGuard() noexcept { seg.freeze = prev; }
   FreezeGuard(const FreezeGuard &) = delete;
   FreezeGuard &operator=(const FreezeGuard &) = delete;
 };
