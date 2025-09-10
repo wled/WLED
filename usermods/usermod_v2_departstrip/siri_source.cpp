@@ -15,7 +15,7 @@ struct SkipBOMStream : public Stream {
   explicit SkipBOMStream(Stream& s) : in(s) {}
   // Satisfy Print's pure virtuals
   size_t write(uint8_t) override { return 0; }
-  size_t write(const uint8_t*, size_t) { return 0; }
+  size_t write(const uint8_t*, size_t) override { return 0; }
   void ensureInit() {
     if (init) return;
     init = true;
@@ -55,8 +55,6 @@ struct SkipBOMStream : public Stream {
 };
 } // namespace
 
-using departstrip::util::time_now;
-
 SiriSource::SiriSource(const char* key, const char* defAgency, const char* defStopCode, const char* defBaseUrl) {
   if (key && *key) configKey_ = key;
   if (defAgency) agency_ = defAgency;
@@ -78,6 +76,7 @@ String SiriSource::composeUrl(const String& agency, const String& stopCode) cons
   url.replace(F("{AGENCY}"), agency);
   url.replace(F("{stopcode}"), stopCode);
   url.replace(F("{stopCode}"), stopCode);
+  url.replace(F("{STOPCODE}"), stopCode);
   if (apiKey_.length() > 0) {
     url.replace(F("{apikey}"), apiKey_);
     url.replace(F("{apiKey}"), apiKey_);
