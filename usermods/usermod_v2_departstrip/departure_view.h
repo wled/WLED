@@ -15,39 +15,10 @@ private:
   std::string configKey_;
 public:
   explicit DepartureView(const String& keys) : keysStr_(keys), segmentId_(-1), configKey_() {
-    // Parse now so view() has a ready list
-    auto parseKeys = [&](const String& in) {
-      keys_.clear();
-      // Split by comma or whitespace
-      String agencyHint;
-      String token;
-      auto flush = [&]() {
-        token.trim();
-        if (!token.length()) return;
-        int c = token.indexOf(':');
-        if (c > 0) {
-          keys_.push_back(token);
-          if (agencyHint.length() == 0) agencyHint = token.substring(0, c);
-        } else {
-          if (agencyHint.length() > 0) {
-            String k = agencyHint; k += ':'; k += token; keys_.push_back(k);
-          } else {
-            // As a fallback, keep token as-is (may be full key already)
-            keys_.push_back(token);
-          }
-        }
-        token = String();
-      };
-      for (unsigned i = 0; i < in.length(); ++i) {
-        char ch = in.charAt(i);
-        if (ch == ',' || ch == ' ' || ch == '\t' || ch == '\n' || ch == ';') flush();
-        else token += ch;
-      }
-      flush();
-    };
-    parseKeys(keysStr_);
+    parseKeysFrom(keysStr_);
     String s = String("DepartureView_") + keysStr_;
     s.replace(':', '_'); s.replace(',', '_'); s.replace(' ', '_'); s.replace(';', '_');
+    s.replace('\'', '_'); s.replace('\"', '_'); s.replace('\\', '_');
     configKey_ = std::string(s.c_str());
   }
   const String& viewKey() const { return keysStr_; }
@@ -74,34 +45,10 @@ public:
       }
       if (keysStr_ != prev) {
         // Re-parse and update config key
-        // Parse keys
-        keys_.clear();
-        {
-          String in = keysStr_;
-          String agencyHint;
-          String token;
-          auto flush = [&]() {
-            token.trim();
-            if (!token.length()) return;
-            int c = token.indexOf(':');
-            if (c > 0) {
-              keys_.push_back(token);
-              if (agencyHint.length() == 0) agencyHint = token.substring(0, c);
-            } else {
-              if (agencyHint.length() > 0) { String k = agencyHint; k += ':'; k += token; keys_.push_back(k); }
-              else keys_.push_back(token);
-            }
-            token = String();
-          };
-          for (unsigned i = 0; i < in.length(); ++i) {
-            char ch = in.charAt(i);
-            if (ch == ',' || ch == ' ' || ch == '\t' || ch == '\n' || ch == ';') flush();
-            else token += ch;
-          }
-          flush();
-        }
+        parseKeysFrom(keysStr_);
         String s = String("DepartureView_") + keysStr_;
         s.replace(':', '_'); s.replace(',', '_'); s.replace(' ', '_'); s.replace(';', '_');
+        s.replace('\'', '_'); s.replace('\"', '_'); s.replace('\\', '_');
         configKey_ = std::string(s.c_str());
       }
     }
@@ -109,4 +56,32 @@ public:
   }
   const char* configKey() const override { return configKey_.c_str(); }
   std::string name() const override { return configKey_; }
+
+private:
+  void parseKeysFrom(const String& in) {
+    keys_.clear();
+    String agencyHint, token;
+    auto flush = [&]() {
+      token.trim();
+      if (!token.length()) return;
+      int c = token.indexOf(':');
+      if (c > 0) {
+        keys_.push_back(token);
+        if (!agencyHint.length()) agencyHint = token.substring(0, c);
+      } else {
+        if (agencyHint.length() > 0) {
+          String k = agencyHint; k += ':'; k += token; keys_.push_back(k);
+        } else {
+          keys_.push_back(token);
+        }
+      }
+      token = String();
+    };
+    for (unsigned i = 0; i < in.length(); ++i) {
+      char ch = in.charAt(i);
+      if (ch == ',' || ch == ' ' || ch == '\t' || ch == '\n' || ch == ';') flush();
+      else token += ch;
+    }
+    flush();
+  }
 };
