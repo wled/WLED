@@ -377,7 +377,9 @@ WLED_GLOBAL int8_t selectedWiFi  _INIT(0);
 WLED_GLOBAL byte apChannel       _INIT(1);                        // 2.4GHz WiFi AP channel (1-13)
 WLED_GLOBAL byte apHide          _INIT(0);                        // hidden AP SSID
 WLED_GLOBAL byte apBehavior      _INIT(AP_BEHAVIOR_BOOT_NO_CONN); // access point opens when no connection after boot by default
-  #ifdef ARDUINO_ARCH_ESP32
+  #ifdef NOWIFISLEEP
+WLED_GLOBAL bool noWifiSleep _INIT(NOWIFISLEEP);                  // honor build flag
+  #elif defined(ARDUINO_ARCH_ESP32)
 WLED_GLOBAL bool noWifiSleep _INIT(true);                         // disabling modem sleep modes will increase heat output and power usage, but may help with connection issues
   #else
 WLED_GLOBAL bool noWifiSleep _INIT(false);
