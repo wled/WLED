@@ -557,7 +557,7 @@
       }
     }
     //If there is room for more custom palettes, add an empty, gray slot
-    if (paletteArray.length < 10) {
+    if (paletteArray.length < 10) { // TODO: use WLED_MAX_CUSTOM_PALETTES
       //Room for one more :)
       paletteArray.push({"palette":[0,70,70,70,255,70,70,70]});
     }

@@ -8,7 +8,6 @@
   Parts of the code adapted from WLED Sound Reactive
 */
 #include "wled.h"
-#include "palettes.h"
 
 // setUpMatrix() - constructs ledmap array from matrix of panels with WxH pixels
 // this converts physical (possibly irregular) LED arrangement into well defined
