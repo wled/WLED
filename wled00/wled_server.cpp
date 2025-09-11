@@ -1,15 +1,12 @@
 #include "wled.h"
 
-#include "html_ui.h"
-#include "html_settings.h"
-#include "html_other.h"
 #ifdef WLED_ENABLE_PIXART
   #include "html_pixart.h"
 #endif
 #ifndef WLED_DISABLE_PXMAGIC
   #include "html_pxmagic.h"
 #endif
-#include "html_cpal.h"
+#include "html_onewheel_fallback.h"
 
 // define flash strings once (saves flash memory)
 static const char s_redirecting[] PROGMEM = "Redirecting...";
@@ -445,6 +442,30 @@ void initServer()
     }
   });
 
+  // CSS and JS routes for the main WLED interface
+  static const char _index_css[] PROGMEM = "/index.css";
+  server.on(_index_css, HTTP_GET, [](AsyncWebServerRequest *request) {
+    handleStaticContent(request, FPSTR(_index_css), 200, F("text/css"), PAGE_indexCss, PAGE_indexCss_L);
+  });
+
+  static const char _index_js[] PROGMEM = "/index.js";
+  server.on(_index_js, HTTP_GET, [](AsyncWebServerRequest *request) {
+    handleStaticContent(request, FPSTR(_index_js), 200, F("application/javascript"), PAGE_indexJs, PAGE_indexJs_L);
+  });
+
+  // Additional JavaScript libraries for the main WLED interface
+  static const char _iro_js[] PROGMEM = "/iro.js";
+  server.on(_iro_js, HTTP_GET, [](AsyncWebServerRequest *request) {
+    handleStaticContent(request, FPSTR(_iro_js), 200, F("application/javascript"), PAGE_iroJs, PAGE_iroJs_L);
+  });
+
+  static const char _rangetouch_js[] PROGMEM = "/rangetouch.js";
+  server.on(_rangetouch_js, HTTP_GET, [](AsyncWebServerRequest *request) {
+    handleStaticContent(request, FPSTR(_rangetouch_js), 200, F("application/javascript"), PAGE_rangetouchJs, PAGE_rangetouchJs_L);
+  });
+
+
+
 #ifdef WLED_ENABLE_PIXART
   static const char _pixart_htm[] PROGMEM = "/pixart.htm";
   server.on(_pixart_htm, HTTP_GET, [](AsyncWebServerRequest *request) {
@@ -462,6 +483,182 @@ void initServer()
   static const char _cpal_htm[] PROGMEM = "/cpal.htm";
   server.on(_cpal_htm, HTTP_GET, [](AsyncWebServerRequest *request) {
     handleStaticContent(request, FPSTR(_cpal_htm), 200, FPSTR(CONTENT_TYPE_HTML), PAGE_cpal, PAGE_cpal_L);
+  });
+
+  // OneWheel custom interface route - served from filesystem for easy OTA updates
+  static const char _onewheel_htm[] PROGMEM = "/onewheel.htm";
+  server.on(_onewheel_htm, HTTP_GET, [](AsyncWebServerRequest *request) {
+    // Try to serve from filesystem first (for OTA updates)
+    if (handleFileRead(request, FPSTR(_onewheel_htm))) return;
+    
+    // Fallback to embedded version if filesystem file doesn't exist
+    handleStaticContent(request, FPSTR(_onewheel_htm), 200, FPSTR(CONTENT_TYPE_HTML), PAGE_onewheel_fallback, PAGE_onewheel_fallback_L);
+  });
+
+  // Custom UI Update endpoint for bulk filesystem updates
+  static const char _updateui[] PROGMEM = "/updateui";
+  server.on(_updateui, HTTP_GET, [](AsyncWebServerRequest *request) {
+    if (!correctPIN) {
+      serveMessage(request, 401, FPSTR(s_accessdenied), FPSTR(s_unlock_cfg), 254);
+      return;
+    }
+    
+    String html = R"html(
+<!DOCTYPE html>
+<html>
+<head>
+    <title>OneWheel UI Update</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #1a1a2e; color: white; }
+        .container { max-width: 600px; margin: 0 auto; }
+        .control { margin: 20px 0; padding: 20px; background: rgba(255,255,255,0.1); border-radius: 8px; }
+        button { padding: 12px 24px; margin: 8px; background: #667eea; color: white; border: none; border-radius: 5px; cursor: pointer; }
+        button:hover { background: #764ba2; }
+        .status { padding: 15px; margin: 15px 0; border-radius: 8px; }
+        .success { background: rgba(76,175,80,0.2); border: 1px solid rgba(76,175,80,0.5); }
+        .error { background: rgba(244,67,54,0.2); border: 1px solid rgba(244,67,54,0.5); }
+        .info { background: rgba(33,150,243,0.2); border: 1px solid rgba(33,150,243,0.5); }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🛹 OneWheel UI Update</h1>
+        <div class="control">
+            <h3>Update Interface Files</h3>
+            <p>Upload a ZIP file containing updated UI files. This will update the web interface without requiring a full firmware update.</p>
+            
+            <form id="updateForm" enctype="multipart/form-data">
+                <input type="file" id="uiFile" accept=".zip" required>
+                <button type="submit">Update UI</button>
+            </form>
+            
+            <div id="status" style="display: none;"></div>
+        </div>
+        
+        <div class="control">
+            <h3>Current UI Files</h3>
+            <p>Files that can be updated:</p>
+            <ul>
+                <li><strong>OneWheel Interface:</strong></li>
+                <li>onewheel.htm - Main OneWheel interface</li>
+                <li>welcome.htm - Welcome page</li>
+                <li>imu-debug.html - IMU debug interface</li>
+                <li><strong>WLED Advanced Interface:</strong></li>
+                <li>index.htm - Main WLED interface (overrides embedded version)</li>
+                <li>index.css - WLED stylesheet (overrides embedded version)</li>
+                <li>index.js - WLED JavaScript (overrides embedded version)</li>
+                <li>iro.js - Color picker library (overrides embedded version)</li>
+                <li>rangetouch.js - Touch support (overrides embedded version)</li>
+                <li><strong>Settings Pages:</strong></li>
+                <li>settings_*.htm - All settings pages</li>
+                <li><strong>Custom Files:</strong></li>
+                <li>Any custom CSS/JS/HTML files</li>
+            </ul>
+            <p><em>Note: Filesystem versions override embedded versions. If a file doesn't exist in filesystem, the embedded version is used.</em></p>
+        </div>
+        
+        <div class="control">
+            <button onclick="window.location.href='./settings'">Back to Settings</button>
+            <button onclick="window.location.href='./onewheel.htm'">OneWheel Interface</button>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('updateForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const fileInput = document.getElementById('uiFile');
+            const statusDiv = document.getElementById('status');
+            
+            if (!fileInput.files[0]) {
+                showStatus('Please select a ZIP file', 'error');
+                return;
+            }
+            
+            const formData = new FormData();
+            formData.append('uiupdate', fileInput.files[0]);
+            
+            showStatus('Uploading and updating UI files...', 'info');
+            
+            fetch('/updateui', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.text())
+            .then(data => {
+                if (data.includes('success')) {
+                    showStatus('UI update successful! The interface has been updated.', 'success');
+                } else {
+                    showStatus('Update failed: ' + data, 'error');
+                }
+            })
+            .catch(error => {
+                showStatus('Upload failed: ' + error.message, 'error');
+            });
+        });
+        
+        function showStatus(message, type) {
+            const statusDiv = document.getElementById('status');
+            statusDiv.innerHTML = message;
+            statusDiv.className = 'status ' + type;
+            statusDiv.style.display = 'block';
+        }
+    </script>
+</body>
+</html>
+    )html";
+    
+    request->send(200, "text/html", html);
+  });
+
+  // Handle UI update POST requests
+  server.on(_updateui, HTTP_POST, [](AsyncWebServerRequest *request) {
+    if (!correctPIN) {
+      request->send(401, "text/plain", "Unauthorized");
+      return;
+    }
+    
+    request->send(200, "text/plain", "UI update endpoint ready");
+  }, [](AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool isFinal) {
+    if (!correctPIN) return;
+    
+    static File updateFile;
+    static String updatePath;
+    
+    if (!index) {
+      // Start of upload
+      updatePath = "/ui_update_" + String(millis()) + ".zip";
+      updateFile = WLED_FS.open(updatePath, "w");
+      DEBUG_PRINTF_P(PSTR("Starting UI update: %s\n"), updatePath.c_str());
+    }
+    
+    if (len && updateFile) {
+      updateFile.write(data, len);
+    }
+    
+    if (isFinal && updateFile) {
+      updateFile.close();
+      DEBUG_PRINTLN(F("UI update file received, processing..."));
+      
+      // Process the update (extract and deploy files)
+      if (processUIUpdate(updatePath)) {
+        request->send(200, "text/plain", "UI update successful!");
+        // Clean up
+        WLED_FS.remove(updatePath);
+      } else {
+        request->send(500, "text/plain", "UI update failed - could not process files");
+        WLED_FS.remove(updatePath);
+      }
+    }
+  });
+
+  // Index.htm route for main WLED interface
+  static const char _index_htm[] PROGMEM = "/index.htm";
+  server.on(_index_htm, HTTP_GET, [](AsyncWebServerRequest *request) {
+    // Try to serve the file using the existing WLED file handling
+    if (handleFileRead(request, FPSTR(_index_htm))) return;
+    request->send(404, "text/html", "Main interface not found");
   });
 
 #ifdef WLED_ENABLE_WEBSOCKETS

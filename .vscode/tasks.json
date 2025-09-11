@@ -1,42 +1,63 @@
 {
-  "version": "2.0.0",
-  "tasks": [
-    {
-      "label": "Build: HTML and binary",
-      "dependsOn": [
-        "Build: HTML only",
-        "Build: binary only"
-      ],
-      "dependsOrder": "sequence",
-      "problemMatcher": [
-        "$platformio"
-      ]
-    },
-    {
-      "type": "PlatformIO",
-      "label": "Build: binary only",
-      "task": "Build",
-      "group": {
-        "kind": "build",
-        "isDefault": true
-      },
-      "problemMatcher": [
-        "$platformio"
-      ],
-      "presentation": {
-        "panel": "shared"
-      }
-    },
-    {
-      "type": "npm",
-      "script": "build",
-      "group": "build",
-      "problemMatcher": [],
-      "label": "Build: HTML only",
-      "detail": "npm run build",
-      "presentation": {
-        "panel": "shared"
-      }
-    }
-  ]
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "PlatformIO: Build",
+            "type": "shell",
+            "command": "pio",
+            "args": ["run"],
+            "group": "build",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared"
+            },
+            "problemMatcher": [
+                "$platformio"
+            ]
+        },
+        {
+            "label": "PlatformIO: Upload",
+            "type": "shell",
+            "command": "pio",
+            "args": ["run", "--target", "upload"],
+            "group": "build",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared"
+            },
+            "problemMatcher": [
+                "$platformio"
+            ]
+        },
+        {
+            "label": "PlatformIO: Clean",
+            "type": "shell",
+            "command": "pio",
+            "args": ["run", "--target", "clean"],
+            "group": "build",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared"
+            }
+        },
+        {
+            "label": "PlatformIO: Monitor",
+            "type": "shell",
+            "command": "pio",
+            "args": ["device", "monitor"],
+            "group": "build",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared"
+            }
+        }
+    ]
 }

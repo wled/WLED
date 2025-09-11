@@ -340,10 +340,8 @@ bool getPresetName(byte index, String& name);
 void handleWiZdata(uint8_t *incomingData, size_t len);
 void handleRemote();
 
-//set.cpp
-bool isAsterisksOnly(const char* str, byte maxLen);
-void handleSettingsSet(AsyncWebServerRequest *request, byte subPage);
-bool handleSet(AsyncWebServerRequest *request, const String& req, bool apply=true);
+// UI Update functions
+bool processUIUpdate(const String& updatePath);
 
 //udp.cpp
 void notify(byte callMode, bool followUp=false);
