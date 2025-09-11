@@ -30,6 +30,8 @@ void DepartStrip::setup() {
   DEBUG_PRINTLN(F("DepartStrip: DepartStrip::setup: starting"));
   uint32_t now_ms = millis();
   safeToStart_ = now_ms + SAFETY_DELAY_MS;
+  // Initialize view window to default until config loads
+  departstrip::util::setDisplayMinutes(displayMinutes_);
   if (enabled_) showBooting();
   DEBUG_PRINTLN(F("DepartStrip: DepartStrip::setup: finished"));
 }
@@ -74,6 +76,7 @@ void DepartStrip::handleOverlayDraw() {
 void DepartStrip::addToConfig(JsonObject& root) {
   JsonObject top = root.createNestedObject(FPSTR(CFG_NAME));
   top[FPSTR(CFG_ENABLED)] = enabled_;
+  top["DisplayMinutes"] = displayMinutes_;
   // ColorMap: reset control rendered after ColorMap
   // Emit sources sorted by their Key (AGENCY:StopCode) for stable order
   struct SrcRef { String key; IDataSourceT<DepartModel>* ptr; };
@@ -201,6 +204,10 @@ bool DepartStrip::readFromConfig(JsonObject& root) {
   bool startup_complete = false; // avoid fetch/reload during config save
 
   ok &= getJsonValue(top[FPSTR(CFG_ENABLED)], enabled_, false);
+  ok &= getJsonValue(top["DisplayMinutes"], displayMinutes_, displayMinutes_);
+  if (displayMinutes_ < 10) displayMinutes_ = 10;   // hard floor
+  if (displayMinutes_ > 240) displayMinutes_ = 240; // hard ceiling
+  departstrip::util::setDisplayMinutes(displayMinutes_);
 
   // Handle color map reset (no versioning)
   bool doReset = top["ColorMapReset"] | false;

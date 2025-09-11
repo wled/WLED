@@ -15,6 +15,7 @@ class DepartureView;
 class DepartStrip : public Usermod {
 private:
   bool enabled_ = false;
+  uint16_t displayMinutes_ = 60; // usermod-wide view window in minutes
   uint32_t safeToStart_ = 0;
   bool edgeInit_ = false;
   bool lastOff_ = false;

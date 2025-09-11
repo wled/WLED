@@ -51,4 +51,14 @@ int cmpLineRefNatural(const String& a, const String& b) {
   return 0;
 }
 
+// Usermod-wide view window in minutes
+static uint16_t g_display_minutes = 60;
+uint16_t getDisplayMinutes() { return g_display_minutes; }
+void setDisplayMinutes(uint16_t minutes) {
+  // Clamp to a sane range to avoid degenerate behavior
+  if (minutes < 10) minutes = 10;        // minimum 10 minutes
+  if (minutes > 240) minutes = 240;      // maximum 4 hours
+  g_display_minutes = minutes;
+}
+
 } } // namespace

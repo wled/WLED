@@ -40,6 +40,10 @@ Source sections (siri_source1, siri_source2, …)
 - ApiKey — substituted into `{apikey}`.
 - AgencyStopCode — `AGENCY:StopCode` (e.g., `AC:50958`, `BA:900201`).
 
+Top-level DepartStrip settings
+- Enabled — master enable.
+- DisplayMinutes — total minutes shown across a strip (default 60).
+
 View sections (e.g., `DepartureView_AC:50958`, `DepartureView_BA:900201`)
 - SegmentId — segment index to render (set `-1` to disable the view).
 - AgencyStopCodes — one or more stop keys. Accepts full

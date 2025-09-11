@@ -44,5 +44,10 @@ uint32_t hsv2rgb(float h, float s, float v);
 // lexicographically. Returns negative if a<b, zero if equal, positive if a>b.
 int cmpLineRefNatural(const String& a, const String& b);
 
+// Global display time scale for views (in minutes).
+// Default 60; configurable via usermod top-level setting.
+uint16_t getDisplayMinutes();
+void setDisplayMinutes(uint16_t minutes);
+
 } // namespace util
 } // namespace departstrip

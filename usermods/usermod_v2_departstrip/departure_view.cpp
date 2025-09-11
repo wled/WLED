@@ -64,7 +64,10 @@ void DepartureView::view(std::time_t now, const DepartModel &model) {
 
     for (const auto& src : sources_) {
       for (auto &e : src.batch->items) {
-        float diff = float(boardingSecs_ + e.estDep - now) * len / 3600.0f;
+        // Map time to pixels over the configured display window (in minutes)
+        uint16_t mins = departstrip::util::getDisplayMinutes();
+        float windowSec = (float)mins * 60.0f;
+        float diff = float(boardingSecs_ + e.estDep - now) * len / windowSec;
         if (diff < 0.0f || diff >= len) continue;
         int idx = int(floor(diff));
         float frac = diff - float(idx);
