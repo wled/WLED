@@ -172,48 +172,44 @@ bool SiriSource::httpBegin(const String& url, int& outLen) {
   return true;
 }
 
-bool SiriSource::parseJsonFromHttp(DynamicJsonDocument& doc, bool withFilter) {
+bool SiriSource::parseJsonFromHttp(DynamicJsonDocument& doc) {
   SkipBOMStream s(http_.getStream());
   DeserializationError err;
-  if (withFilter) {
-    // Narrow filter with targeted masks for both forms, without mixing shapes on the same key.
-    static StaticJsonDocument<4096> filter;
-    filter.clear();
+  // Always apply the narrow filter
+  static StaticJsonDocument<4096> filter;
+  filter.clear();
 
-    auto addMVJMask = [&](JsonObject mvj) {
-      mvj["LineRef"] = true; // allow string or object
-      JsonObject call = mvj["MonitoredCall"].to<JsonObject>();
-      call["StopPointName"] = true;
-      call["ExpectedDepartureTime"] = true;
-      call["ExpectedArrivalTime"] = true;
-      call["AimedDepartureTime"] = true;
-      call["AimedArrivalTime"] = true;
-    };
+  auto addMVJMask = [&](JsonObject mvj) {
+    mvj["LineRef"] = true; // allow string or object
+    JsonObject call = mvj["MonitoredCall"].to<JsonObject>();
+    call["StopPointName"] = true;
+    call["ExpectedDepartureTime"] = true;
+    call["ExpectedArrivalTime"] = true;
+    call["AimedDepartureTime"] = true;
+    call["AimedArrivalTime"] = true;
+  };
 
-    // With Siri wrapper: StopMonitoringDelivery is an array for many providers (e.g., MTA)
-    filter["Siri"]["ServiceDelivery"]["ResponseTimestamp"] = true;
-    {
-      JsonObject mvj = filter["Siri"]["ServiceDelivery"]["StopMonitoringDelivery"][0]
-                             ["MonitoredStopVisit"][0]
-                             ["MonitoredVehicleJourney"].to<JsonObject>();
-      addMVJMask(mvj);
-    }
-
-    // Without Siri wrapper (top-level ServiceDelivery): some providers (e.g., AC) use an object
-    filter["ServiceDelivery"]["ResponseTimestamp"] = true;
-    {
-      JsonObject mvj = filter["ServiceDelivery"]["StopMonitoringDelivery"]
-                             ["MonitoredStopVisit"][0]
-                             ["MonitoredVehicleJourney"].to<JsonObject>();
-      addMVJMask(mvj);
-    }
-
-    err = deserializeJson(doc, s,
-                          DeserializationOption::Filter(filter),
-                          DeserializationOption::NestingLimit(80));
-  } else {
-    err = deserializeJson(doc, s, DeserializationOption::NestingLimit(80));
+  // With Siri wrapper: StopMonitoringDelivery is an array for many providers (e.g., MTA)
+  filter["Siri"]["ServiceDelivery"]["ResponseTimestamp"] = true;
+  {
+    JsonObject mvj = filter["Siri"]["ServiceDelivery"]["StopMonitoringDelivery"][0]
+                           ["MonitoredStopVisit"][0]
+                           ["MonitoredVehicleJourney"].to<JsonObject>();
+    addMVJMask(mvj);
   }
+
+  // Without Siri wrapper (top-level ServiceDelivery): some providers (e.g., AC) use an object
+  filter["ServiceDelivery"]["ResponseTimestamp"] = true;
+  {
+    JsonObject mvj = filter["ServiceDelivery"]["StopMonitoringDelivery"]
+                           ["MonitoredStopVisit"][0]
+                           ["MonitoredVehicleJourney"].to<JsonObject>();
+    addMVJMask(mvj);
+  }
+
+  err = deserializeJson(doc, s,
+                        DeserializationOption::Filter(filter),
+                        DeserializationOption::NestingLimit(80));
   http_.end();
   DEBUG_PRINTF("DepartStrip: SiriSource::fetch: after parse, memUsage=%u, free heap=%u\n", (unsigned)doc.memoryUsage(), ESP.getFreeHeap());
   if (err) {
@@ -224,10 +220,23 @@ bool SiriSource::parseJsonFromHttp(DynamicJsonDocument& doc, bool withFilter) {
 }
 
 size_t SiriSource::computeJsonCapacity(int contentLen) {
-  if (contentLen > 0) return (size_t)contentLen * 2;
-  // Unknown length: pick a slightly larger default to reduce NoMemory risk
-  // while the filter keeps actual usage low on most feeds.
-  return 20480; // 20 KB
+  // If we know the content length, estimate needed capacity much smaller
+  // due to the active filter, then quantize to reduce fragmentation.
+  if (contentLen > 0) {
+    size_t len = (size_t)contentLen;
+    // Empirical: filtered docs for 3–32 visits use ~1–6.5KB.
+    // Heuristic: half of payload + 2KB headroom, with an 8KB floor.
+    size_t estimate = len / 2 + 2048;
+    if (estimate < 8192) estimate = 8192; // 8KB minimum
+    // Quantize to 4KB chunks for allocator friendliness.
+    const size_t quantum = 4096;
+    size_t rounded = ((estimate + quantum - 1) / quantum) * quantum;
+    // Cap at 20KB; larger sizes are rare with the filter.
+    if (rounded > 20000) rounded = 20000;
+    return rounded;
+  }
+  // Unknown length (e.g., chunked): default to 20KB which has been safe on MTA.
+  return 20000; // 20 kB
 }
 
 JsonObject SiriSource::getSiriRoot(DynamicJsonDocument& doc, bool& usedTopLevelFallback) {
@@ -373,8 +382,8 @@ std::unique_ptr<DepartModel> SiriSource::fetch(std::time_t now) {
   size_t jsonSz = computeJsonCapacity(len);
   DEBUG_PRINTF("DepartStrip: SiriSource::fetch: json capacity=%u, free heap=%u\n", (unsigned)jsonSz, ESP.getFreeHeap());
   DynamicJsonDocument doc(jsonSz);
-  DEBUG_PRINTF("DepartStrip: SiriSource::fetch: filter=narrow (len=%d)\n", len);
-  if (!parseJsonFromHttp(doc, true)) {
+  DEBUG_PRINTF("DepartStrip: SiriSource::fetch: filter=on (len=%d)\n", len);
+  if (!parseJsonFromHttp(doc)) {
     long delay = (long)updateSecs_ * (long)backoffMult_;
     DEBUG_PRINTF("DepartStrip: SiriSource::fetch: scheduling backoff x%u %s for %lds (parse error)\n",
                  (unsigned)backoffMult_, sourceKey().c_str(), delay);
