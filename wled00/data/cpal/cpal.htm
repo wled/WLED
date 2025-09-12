@@ -11,6 +11,7 @@
       function gId(e) {return d.getElementById(e);}
       function cE(e) {return d.createElement(e);}
     </script>
+  	<script src="common.js" async type="text/javascript"></script>
     
     <style>
       body {
@@ -195,7 +196,7 @@
 <script type="text/javascript">
   //global variables
   var gradientBox = gId('gradient-box');
-  var cpalc = -1;
+  var cpalc = -1, cpalm = 10; // cpalc = current palette count, cpalm = max custom palettes (obtained from /json/info)
   var pxCol = {};
   var tCol = {};
   var rect = gradientBox.getBoundingClientRect();
@@ -525,28 +526,25 @@
   }
 
   async function getInfo() {
-    hst = location.host;
-    if (hst.length > 0 ) {
-      try {
-        var arr = [];
-        const responseInfo = await fetch('http://'+hst+'/json/info');
-        const responsePalettes = await fetch('http://'+hst+'/json/palettes');
-        const json = await responseInfo.json();
-        paletteName = await responsePalettes.json();
-        cpalc = json.cpalcount;
-        fetchPalettes(cpalc-1);
-      } catch (error) {
-        console.error(error);
-      }
-    } else {
-      console.error('cannot identify host');
+		getLoc();
+    try {
+      var arr = [];
+      const responseInfo = await fetch(getURL('/json/info'));     // fetch info (includes cpalcount and cpalmax)
+      const responsePalettes = await fetch(getURL('/json/pal'));  // fetch palette names
+      const json = await responseInfo.json();
+      paletteName = await responsePalettes.json();
+      cpalc = json.cpalcount;
+      cpalm = json.cpalmax;
+      fetchPalettes(cpalc-1);
+    } catch (error) {
+      console.error(error);
     }
   }
 
   async function fetchPalettes(lastPal) {
     paletteArray.length = 0;
     for (let i = 0; i <= lastPal; i++) {
-      const url = `http://${hst}/palette${i}.json`;
+      const url = getURL(`/palette${i}.json`);
       try {
         const response = await fetch(url);
         const json = await response.json();
@@ -557,7 +555,7 @@
       }
     }
     //If there is room for more custom palettes, add an empty, gray slot
-    if (paletteArray.length < 10) { // TODO: use WLED_MAX_CUSTOM_PALETTES
+    if (paletteArray.length < cpalm) {
       //Room for one more :)
       paletteArray.push({"palette":[0,70,70,70,255,70,70,70]});
     }
@@ -573,8 +571,8 @@
     } else {
       for (const key in wledPalx.p) {
         wledPalx.p[key].name = paletteName[key];
-        if (key > 245) {
-          delete wledPalx.p[key];
+        if (key > 255-cpalm) {
+          delete wledPalx.p[key]; // remove custom palettes
           continue;
         }
         const arr = wledPalx.p[key];
