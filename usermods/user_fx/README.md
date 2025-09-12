@@ -165,7 +165,7 @@ if ((strip.now - SEGENV.step) >= refresh_ms) {
 * You'll see later that it writes results here before updating `SEGMENT.data`.
   * Note: this is allocated on the stack each frame. Keep such VLAs ≤ ~1 KiB; for larger sizes, prefer a buffer in `SEGENV.data`.
 
-| IMPORTANT NOTE: Creating variable length arrays is non C++ standard, but this practic is used frequently throughout WLED as it works just fine.  But be aware that creating variable length arrays puts them in stack memory, which is limited in size. If for example the array is built from the length of the segment (in 1D), that can overflow the stack and make it crash. The limit that can be safely used is ~1kb; an array with 4000 leds would be 4k and will likely crash. It gets worse if using `uint16_t`. So anything larger than 1k should definitely go into `SEGENV.data` which has a much higher limit. |
+> **_IMPORTANT NOTE:_**  Creating variable length arrays is non C++ standard, but this practic is used frequently throughout WLED as it works just fine.  But be aware that creating variable length arrays puts them in stack memory, which is limited in size. If for example the array is built from the length of the segment (in 1D), that can overflow the stack and make it crash. The limit that can be safely used is ~1kb; an array with 4000 leds would be 4k and will likely crash. It gets worse if using `uint16_t`. So anything larger than 1k should definitely go into `SEGENV.data` which has a much higher limit.
 
 
 Now we get to the spark generation portion, where new bursts of heat appear at the bottom of the matrix:
