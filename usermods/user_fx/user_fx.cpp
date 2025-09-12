@@ -27,7 +27,7 @@ static uint16_t mode_diffusionfire(void) {
   const uint8_t spark_rate = SEGMENT.intensity;
   const uint8_t turbulence = SEGMENT.custom2;
 
-unsigned dataSize = cols * rows;  // or: SEGLEN for virtual length
+unsigned dataSize = cols * rows;  // SEGLEN (virtual length) is equivalent to vWidth()*vHeight() for 2D
   if (!SEGENV.allocateData(dataSize))
     return mode_static();  // allocation failed
 
@@ -37,6 +37,7 @@ unsigned dataSize = cols * rows;  // or: SEGLEN for virtual length
   }
 
   if ((strip.now - SEGENV.step) >= refresh_ms) {
+    // Keep for ≤~1 KiB; otherwise consider heap or reuse SEGENV.data as scratch.
     uint8_t tmp_row[cols];
     SEGENV.step = strip.now;
     // scroll up
@@ -61,7 +62,7 @@ unsigned dataSize = cols * rows;  // or: SEGLEN for virtual length
     // diffuse
     for (unsigned y = 0; y < rows; y++) {
       for (unsigned x = 0; x < cols; x++) {
-        unsigned v = SEGENV.data[XY(x, y)];
+        uint16_t v = SEGENV.data[XY(x, y)];
         if (x > 0) {
           v += SEGENV.data[XY(x - 1, y)];
         }
@@ -73,7 +74,7 @@ unsigned dataSize = cols * rows;  // or: SEGLEN for virtual length
 
       for (unsigned x = 0; x < cols; x++) {
         SEGENV.data[XY(x, y)] = tmp_row[x];
-        if (SEGMENT.option1) {
+        if (SEGMENT.check1) {
           uint32_t color = SEGMENT.color_from_palette(tmp_row[x], true, false, 0);
           SEGMENT.setPixelColorXY(x, y, color);
         } else {
