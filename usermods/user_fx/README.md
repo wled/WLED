@@ -117,7 +117,7 @@ const uint8_t turbulence = SEGMENT.custom2;
 Next we will look at some lines of code that handle memory allocation and effect initialization:
 
 ```cpp
-unsigned dataSize = cols * rows;  // or: SEGLEN for virtual length
+unsigned dataSize = cols * rows;  // SEGLEN (virtual length) is equivalent to vWidth()*vHeight() for 2D
 ```
 * This part calculates how much memory we need to represent per-pixel state.
   * `cols * rows` or `(or SEGLEN)` returns the total number of LEDs in the current segment.
@@ -149,7 +149,7 @@ if (SEGENV.call == 0) {
 The next block of code is where the animation update logic starts to kick in:
 ```cpp
 if ((strip.now - SEGENV.step) >= refresh_ms) {
-  uint8_t tmp_row[cols];
+  uint8_t tmp_row[cols];  // Keep for ≤~1 KiB; otherwise consider heap or reuse SEGENV.data as scratch.
   SEGENV.step = strip.now;
   // scroll up
   for (unsigned y = 1; y < rows; y++)
@@ -165,7 +165,7 @@ if ((strip.now - SEGENV.step) >= refresh_ms) {
 * You'll see later that it writes results here before updating `SEGMENT.data`.
   * Note: this is allocated on the stack each frame. Keep such VLAs ≤ ~1 KiB; for larger sizes, prefer a buffer in `SEGENV.data`.
 
-> **_IMPORTANT NOTE:_** Creating variable‑length arrays (VLAs) is non‑standard C++, but this practice is used throughout WLED and works in practice. Bbut be aware that VLAs live on the stack, which is limited. If the array scales with segment length (1D), it can overflow the stack and crash. Keep VLAs ≲ ~1 KiB; an array with 4000 LEDs is ~4 KiB and will likely crash. It’s worse with `uint16_t`. Anything larger than ~1 KiB should go into `SEGENV.data`, which has a higher limit.
+> **_IMPORTANT NOTE:_** Creating variable‑length arrays (VLAs) is non‑standard C++, but this practice is used throughout WLED and works in practice. But be aware that VLAs live on the stack, which is limited. If the array scales with segment length (1D), it can overflow the stack and crash. Keep VLAs ≲ ~1 KiB; an array with 4000 LEDs is ~4 KiB and will likely crash. It’s worse with `uint16_t`. Anything larger than ~1 KiB should go into `SEGENV.data`, which has a higher limit.
 
 
 Now we get to the spark generation portion, where new bursts of heat appear at the bottom of the matrix:
@@ -200,7 +200,7 @@ Next we reach the first part of the core of the fire simulation, which is diffus
 // diffuse
 for (unsigned y = 0; y < rows; y++) {
   for (unsigned x = 0; x < cols; x++) {
-    unsigned v = SEGENV.data[XY(x, y)];
+    uint16_t v = SEGENV.data[XY(x, y)];
     if (x > 0) {
       v += SEGENV.data[XY(x - 1, y)];
     }
@@ -226,7 +226,7 @@ After calculating tmp_row, we now handle rendering the pixels by updating the ac
 ```cpp
   for (unsigned x = 0; x < cols; x++) {
     SEGENV.data[XY(x, y)] = tmp_row[x];
-    if (SEGMENT.option1) {
+    if (SEGMENT.check1) {
       uint32_t color = SEGMENT.color_from_palette(tmp_row[x], true, false, 0);
       SEGMENT.setPixelColorXY(x, y, color);
     } else {
@@ -238,7 +238,7 @@ After calculating tmp_row, we now handle rendering the pixels by updating the ac
 ```
 * This next loop starts iterating over each row from top to bottom.  (We're now doing this for color-rendering for each pixel row.)
 * Next we update the main segment data with the smoothed value for this pixel.
-* The if statement creates a conditional rendering path — the user can toggle this.  If `option1` is enabled in the effect metadata, we use a color palette to display the flame.
+* The if statement creates a conditional rendering path — the user can toggle this.  If `check1` is enabled in the effect metadata, we use a color palette to display the flame.
 * The next line converts the heat value (`tmp_row[x]`) into a `color` from the current palette with 255 brightness, and no wrapping in palette lookup.
   * This creates rich gradient flames (e.g., yellow → red → black).
 * Finally we set the rendered color for the pixel (x, y).
@@ -291,7 +291,7 @@ Using this info, let’s split the Metadata string above into logical sections:
 | !, | Use default UI entry; for the first space, this will automatically create a slider for Speed |
 | Spark rate, Diffusion Speed, Turbulence,              | UI sliders for Spark Rate, Diffusion Speed, and Turbulence. Defining slider 2 as "Spark Rate" overwrites the default value of Intensity. |
 | (blank),                        | unused (empty field with not even a space)  |
-| Use palette;                 | This occupies the spot for the 6th effect parameter, which automatically makes this a checkbox argument `o1` called Use palette in the UI. When this is enabled, the effect uses a palette `ColorFromPalette()`, otherwise it fades from `SEGCOLOR(0)`.  The first semicolon marks the end of the Effect Parameters and the beginning of the `Colors` parameter. |
+| Use palette;                 | This occupies the spot for the 6th effect parameter, which automatically makes this a checkbox argument `o1` called Use palette in the UI. When this is enabled, the effect uses `SEGMENT.color_from_palette(...)` (RGBW-aware, respects wrap), otherwise it fades from `SEGCOLOR(0)`.  The first semicolon marks the end of the Effect Parameters and the beginning of the `Colors` parameter. |
 | Color;                  | Custom color field `(SEGCOLOR(0))` |
 | (blank);                  | Empty means the effect does not allow Palettes to be selected by the user.  But used in conjunction with the checkbox argument, palette use can be turned on/off by the user.  |
 | 2;                  | Flag specifying that the effect requires a 2D matrix setup |
