@@ -4889,14 +4889,14 @@ uint16_t mode_shimmer() {
   uint32_t traversalTime = 200 + (255 - SEGMENT.speed) * 80; // [200, 20600] ms
   uint32_t speed = (((traversalDistance << 5) / traversalTime) << 5);  // subpixels/"second" note: total shift is 10 to approximate seconds, split shifts to guarantee no overflows
   int32_t  position = static_cast<int32_t>(SEGENV.step);     // current position in subpixels
-  uint16_t inputstate = SEGMENT.intensity + SEGMENT.custom1; // current user input state
+  uint16_t inputstate = (uint16_t(SEGMENT.intensity) << 8) | uint16_t(SEGMENT.custom1); // current user input state
 
   // init
   if (SEGENV.call == 0 || inputstate != SEGENV.aux1) {
     position = -(radius << 8);
     SEGENV.aux0 = 0; // aux0 is pause timer
     *lastTime = strip.now;
-    SEGENV.aux1 = SEGMENT.intensity + SEGMENT.custom1; // save user input state
+    SEGENV.aux1 = inputstate; // save user input state
   }
 
   uint32_t deltaTime = strip.now - *lastTime;
