@@ -43,16 +43,16 @@ Below are some helpful variables and functions to know as you start your journey
 | [`SEGENV.call`](https://github.com/wled/WLED/blob/75f6de9dc29fc7da5f301fc1388ada228dcb3b6e/wled00/FX.h#L466) | 32-bit | A counter for how many times this effect function has been invoked since it started. |
 | [`strip.now`](https://github.com/wled/WLED/blob/main/wled00/FX.h)                  | 32-bit | Current timestamp in milliseconds.  (Equivalent to `millis()`, but use `strip.now()` instead.) |
 | [`SEGLEN / SEG_W / SEG_H`](https://github.com/wled/WLED/blob/75f6de9dc29fc7da5f301fc1388ada228dcb3b6e/wled00/FX.h#L116) | 16-bit | These variables are macros that help define the length and width of your LED strip/matrix segment. |
-| [`SEGPALETTE`](https://github.com/wled/WLED/blob/75f6de9dc29fc7da5f301fc1388ada228dcb3b6e/wled00/FX.h#L115) | 32-bit | Macro that gets the currently selected palette for the currently processing segment. |
+| [`SEGPALETTE`](https://github.com/wled/WLED/blob/75f6de9dc29fc7da5f301fc1388ada228dcb3b6e/wled00/FX.h#L115) | --- | Macro that gets the currently selected palette for the currently processing segment. |
 | [`hw_random8()`](https://github.com/wled/WLED/blob/7b0075d3754fa883fc1bbc9fbbe82aa23a9b97b8/wled00/fcn_declare.h#L548) | 8-bit  | One of several functions that generates a random integer. |
 | [`SEGCOLOR(x)`](https://github.com/wled/WLED/blob/75f6de9dc29fc7da5f301fc1388ada228dcb3b6e/wled00/FX.h#L114) | 32-bit | Macro that gets user-selected colors from UI, where x is an integer 1, 2, or 3 for primary, secondary, and tertiary colors, respectively. |
-| [`SEGMENT.setPixelColor`](https://github.com/WLED/WLED/blob/main/wled00/FX_fcn.cpp#L848) / [`setPixelColorXY`](https://github.com/WLED/WLED/blob/main/wled00/FX_2Dfcn.cpp#L86) | 32-bit | Function that paints one pixel. `setPixelColor` is 1‑D; `setPixelColorXY` expects `(x, y)` and an RGBW color value. |
-| [`SEGMENT.color_wheel()`](https://github.com/WLED/WLED/blob/main/wled00/FX_fcn.cpp#L1063) | 32-bit | Input 0–255 to get a color. Transitions r→g→b→r. In HSV terms, `pos` is H. Note: only returns palette color unless the Default palette is selected. |
-| [`SEGMENT.color_from_palette()`](https://github.com/WLED/WLED/blob/main/wled00/FX_fcn.cpp#L1093) | 32-bit | Gets a single color from the currently selected palette for a segment. (This function which should be favoured over `ColorFromPalette()` because this function returns an RGBW color with white from the `SEGCOLOR` passed, while also respecting the setting for palette wrapping.  On the other hand, `ColorFromPalette()` simply gets the RGB palette color.) |
+| [`SEGMENT.setPixelColor`](https://github.com/WLED/WLED/blob/75f6de9dc29fc7da5f301fc1388ada228dcb3b6e/wled00/FX_fcn.cpp) / [`setPixelColorXY`](https://github.com/WLED/WLED/blob/75f6de9dc29fc7da5f301fc1388ada228dcb3b6e/wled00/FX_2Dfcn.cpp) | 32-bit | Function that paints one pixel. `setPixelColor` is 1‑D; `setPixelColorXY` expects `(x, y)` and an RGBW color value. |
+| [`SEGMENT.color_wheel()`](https://github.com/wled/WLED/blob/75f6de9dc29fc7da5f301fc1388ada228dcb3b6e/wled00/FX_fcn.cpp#L1092) | 32-bit | Input 0–255 to get a color. Transitions r→g→b→r. In HSV terms, `pos` is H. Note: only returns palette color unless the Default palette is selected. |
+| [`SEGMENT.color_from_palette()`](https://github.com/wled/WLED/blob/75f6de9dc29fc7da5f301fc1388ada228dcb3b6e/wled00/FX_fcn.cpp#L1093) | 32-bit | Gets a single color from the currently selected palette for a segment. (This function which should be favoured over `ColorFromPalette()` because this function returns an RGBW color with white from the `SEGCOLOR` passed, while also respecting the setting for palette wrapping.  On the other hand, `ColorFromPalette()` simply gets the RGB palette color.) |
 | [`fade_out()`](https://github.com/wled/WLED/blob/75f6de9dc29fc7da5f301fc1388ada228dcb3b6e/wled00/FX_fcn.cpp#L1012) | ---    | fade out function, higher rate = quicker fade.  fading is highly dependant on frame rate (higher frame rates, faster fading).  each frame will fade at max 9% or as little as 0.8%.  |
 | [`fadeToBlackBy()`](https://github.com/wled/WLED/blob/75f6de9dc29fc7da5f301fc1388ada228dcb3b6e/wled00/FX_fcn.cpp#L1043) | ---    | can be used to fade all pixels to black.  |
 |  [`fadeToSecondaryBy()`](https://github.com/wled/WLED/blob/75f6de9dc29fc7da5f301fc1388ada228dcb3b6e/wled00/FX_fcn.cpp#L1043) | ---    | fades all pixels to secondary color.  |
-| [`move()`](https://github.com/WLED/WLED/blob/main/wled00/FX_fcn.cpp#L1043) | ---    | Moves/shifts pixels in the desired direction. |
+| [`move()`](https://github.com/WLED/WLED/blob/75f6de9dc29fc7da5f301fc1388ada228dcb3b6e/wled00/FX_fcn.cpp) | ---    | Moves/shifts pixels in the desired direction. |
 | [`blur / blur2d`](https://github.com/wled/WLED/blob/75f6de9dc29fc7da5f301fc1388ada228dcb3b6e/wled00/FX_fcn.cpp#L1053) | ---    | Blurs all pixels for the desired segment. Blur also has the boolean option `smear`, which, when activated, does not fade the blurred pixel(s). |
 
  You will see how these syntax elements work in the examples below.
@@ -117,10 +117,10 @@ const uint8_t turbulence = SEGMENT.custom2;
 Next we will look at some lines of code that handle memory allocation and effect initialization:
 
 ```cpp
-unsigned dataSize = SEGMENT.length();
+unsigned dataSize = cols * rows;  // or: SEGLEN for virtual length
 ```
 * This part calculates how much memory we need to represent per-pixel state.
-  * `SEGMENT.length()` returns the total number of LEDs in the current segment (i.e., cols * rows in a matrix).
+  * `cols * rows` or `(or SEGLEN)` returns the total number of LEDs in the current segment.
   * This fire effect models heat values per pixel (not just colors), so we need persistent storage — one uint8_t per pixel — for the entire effect.
 
 ```cpp
@@ -160,12 +160,12 @@ if ((strip.now - SEGENV.step) >= refresh_ms) {
     }
 ```
 * The first line checks if it's time to update the effect frame.  `strip.now` is the current timestamp in milliseconds; `SEGENV.step` is the last update time (set during initialization or previous frame).  `refresh_ms` is how long to wait between frames, computed earlier based on SEGMENT.speed.
-* The conditional statement in the first line fo code ensures the effect updates on a fixed interval — e.g., every 20 ms for 50 Hz.
+* The conditional statement in the first line of code ensures the effect updates on a fixed interval — e.g., every 20 ms for 50 Hz.
 * The second line of code declares a temporary row buffer for intermediate diffusion results that is one byte per column (horizontal position), so this buffer holds one row's worth of heat values.
 * You'll see later that it writes results here before updating `SEGMENT.data`.
   * Note: this is allocated on the stack each frame. Keep such VLAs ≤ ~1 KiB; for larger sizes, prefer a buffer in `SEGENV.data`.
 
-> **_IMPORTANT NOTE:_**  Creating variable length arrays is non C++ standard, but this practic is used frequently throughout WLED as it works just fine.  But be aware that creating variable length arrays puts them in stack memory, which is limited in size. If for example the array is built from the length of the segment (in 1D), that can overflow the stack and make it crash. The limit that can be safely used is ~1kb; an array with 4000 leds would be 4k and will likely crash. It gets worse if using `uint16_t`. So anything larger than 1k should definitely go into `SEGENV.data` which has a much higher limit.
+> **_IMPORTANT NOTE:_** Creating variable‑length arrays (VLAs) is non‑standard C++, but this practice is used throughout WLED and works in practice. Bbut be aware that VLAs live on the stack, which is limited. If the array scales with segment length (1D), it can overflow the stack and crash. Keep VLAs ≲ ~1 KiB; an array with 4000 LEDs is ~4 KiB and will likely crash. It’s worse with `uint16_t`. Anything larger than ~1 KiB should go into `SEGENV.data`, which has a higher limit.
 
 
 Now we get to the spark generation portion, where new bursts of heat appear at the bottom of the matrix:
