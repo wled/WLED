@@ -4719,7 +4719,7 @@ class AuroraWave {
       } else {
         ageFactor_cached = ((uint32_t)(ttl - age) << AW_SHIFT) / half_ttl;
       }
-      if (ageFactor_cached > AW_SCALE) ageFactor_cached = AW_SCALE;
+      if (ageFactor_cached >= AW_SCALE) ageFactor_cached = AW_SCALE - 1; // prevent overflow
 
       uint32_t center_led = center >> AW_SHIFT;
       wave_start = (int16_t)center_led - (int16_t)width;
@@ -4760,15 +4760,15 @@ class AuroraWave {
         uint32_t width_scaled = (uint32_t)width << AW_SHIFT;
         uint32_t segment_length_scaled = segment_length << AW_SHIFT;
 
-        if (goingleft) {
-          if (center + width_scaled < 0) {
-            alive = false;
-          }
-        } else {
-          if (center > segment_length_scaled + width_scaled) {
-            alive = false;
-          }
-        }
+         if (goingleft) {
+           if (center < - (int32_t)width_scaled) {
+             alive = false;
+           }
+         } else {
+           if (center > (int32_t)segment_length_scaled + (int32_t)width_scaled) {
+             alive = false;
+           }
+         }
       }
     };
 
