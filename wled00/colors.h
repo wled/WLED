@@ -142,7 +142,7 @@ void setRandomColor(byte* rgb);
 
 // fast scaling function for colors, performs color*scale/256 for all four channels, speed over accuracy
 // note: inlining uses less code than actual function calls
-static inline uint32_t fast_color_scale(uint32_t c, const uint8_t scale) {
+static inline uint32_t fast_color_scale(const uint32_t c, const uint8_t scale) {
   uint32_t rb = (((c     & 0x00FF00FF) * scale) >> 8) &  0x00FF00FF;
   uint32_t wg = (((c>>8) & 0x00FF00FF) * scale)       & ~0x00FF00FF;
   return rb | wg;

@@ -25,39 +25,35 @@ uint32_t WLED_O2_ATTR IRAM_ATTR color_blend(uint32_t color1, uint32_t color2, ui
  * original idea: https://github.com/wled-dev/WLED/pull/2465 by https://github.com/Proto-molecule
  * speed optimisations by @dedehai
  */
-uint32_t color_add(uint32_t c1, uint32_t c2, bool preserveCR)
+uint32_t WLED_O2_ATTR color_add(uint32_t c1, uint32_t c2, bool preserveCR) //1212558 | 1212598 | 1212576 | 1212530
 {
   if (c1 == BLACK) return c2;
   if (c2 == BLACK) return c1;
   const uint32_t TWO_CHANNEL_MASK = 0x00FF00FF; // mask for R and B channels or W and G if negated
   uint32_t rb = ( c1     & TWO_CHANNEL_MASK) + ( c2     & TWO_CHANNEL_MASK); // mask and add two colors at once
   uint32_t wg = ((c1>>8) & TWO_CHANNEL_MASK) + ((c2>>8) & TWO_CHANNEL_MASK);
-  uint32_t r = rb >> 16; // extract single color values
-  uint32_t b = rb & 0xFFFF;
-  uint32_t w = wg >> 16;
-  uint32_t g = wg & 0xFFFF;
 
   if (preserveCR) { // preserve color ratios
-    uint32_t max = std::max(r,g); // check for overflow note
-    max = std::max(max,b);
-    max = std::max(max,w);
-    //unsigned max = r; // check for overflow note
-    //max = g > max ? g : max;
-    //max = b > max ? b : max;
-    //max = w > max ? w : max;
-    if (max > 255) {
+    uint32_t overflow = (rb | wg) & 0x01000100; // detect overflow by checking 9th bit
+    if (overflow) {
+      uint32_t r = rb >> 16; // extract single color values
+      uint32_t b = rb & 0xFFFF;
+      uint32_t w = wg >> 16;
+      uint32_t g = wg & 0xFFFF;
+      uint32_t max = std::max(r,g);
+      max = std::max(max,b);
+      max = std::max(max,w);
       const uint32_t scale = (uint32_t(255)<<8) / max; // division of two 8bit (shifted) values does not work -> use bit shifts and multiplaction instead
       rb = ((rb * scale) >> 8) &  TWO_CHANNEL_MASK;
       wg =  (wg * scale)       & ~TWO_CHANNEL_MASK;
     } else wg <<= 8; //shift white and green back to correct position
-    return rb | wg;
   } else {
-    r = r > 255 ? 255 : r;
-    g = g > 255 ? 255 : g;
-    b = b > 255 ? 255 : b;
-    w = w > 255 ? 255 : w;
-    return RGBW32(r,g,b,w);
+    // branchless per-channel saturation to 255 (extract 9th bit, subtract 1 if it is set, mask with 0xFF)
+    rb |= ((rb & 0x01000100) - ((rb >> 8) & 0x00010001)) & 0x00FF00FF;
+    wg |= ((wg & 0x01000100) - ((wg >> 8) & 0x00010001)) & 0x00FF00FF;
+    wg <<= 8; // restore WG position
   }
+  return rb | wg;
 }
 
 /*

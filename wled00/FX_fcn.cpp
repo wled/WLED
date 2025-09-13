@@ -1063,25 +1063,19 @@ void Segment::blur(uint8_t blur_amount, bool smear) const {
   uint8_t keep = smear ? 255 : 255 - blur_amount;
   uint8_t seep = blur_amount >> 1;
   unsigned vlength = vLength();
-  uint32_t carryover = BLACK;
-  uint32_t lastnew; // not necessary to initialize lastnew and last, as both will be initialized by the first loop iteration
-  uint32_t last;
-  uint32_t curnew = BLACK;
-  for (unsigned i = 0; i < vlength; i++) {
-    uint32_t cur = getPixelColorRaw(i);
+  // handle first pixel to avoid conditional in loop (faster)
+  uint32_t cur = getPixelColorRaw(0);
+  uint32_t carryover = fast_color_scale(cur, seep);
+  setPixelColorRaw(0, fast_color_scale(cur, keep));
+  for (unsigned i = 1; i < vlength; i++) {
+    cur = getPixelColorRaw(i);
     uint32_t part = fast_color_scale(cur, seep);
-    curnew = fast_color_scale(cur, keep);
-    if (i > 0) {
-      if (carryover) curnew = color_add(curnew, carryover);
-      uint32_t prev = color_add(lastnew, part);
-      // optimization: only set pixel if color has changed
-      if (last != prev) setPixelColorRaw(i - 1, prev);
-    } else setPixelColorRaw(i, curnew); // first pixel
-    lastnew = curnew;
-    last = cur; // save original value for comparison on next iteration
+    cur = fast_color_scale(cur, keep);
+    cur = color_add(cur, carryover);
+    setPixelColorRaw(i - 1, color_add(getPixelColorRaw(i - 1), part)); // previous pixel
+    setPixelColorRaw(i, cur); // current pixel
     carryover = part;
   }
-  setPixelColorRaw(vlength - 1, curnew);
 }
 
 /*
