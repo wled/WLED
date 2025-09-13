@@ -49,7 +49,7 @@ Below are some helpful variables and functions to know as you start your journey
 | [`SEGMENT.setPixelColor`](https://github.com/WLED/WLED/blob/75f6de9dc29fc7da5f301fc1388ada228dcb3b6e/wled00/FX_fcn.cpp) / [`setPixelColorXY`](https://github.com/WLED/WLED/blob/75f6de9dc29fc7da5f301fc1388ada228dcb3b6e/wled00/FX_2Dfcn.cpp) | 32-bit | Function that paints one pixel. `setPixelColor` is 1‑D; `setPixelColorXY` expects `(x, y)` and an RGBW color value. |
 | [`SEGMENT.color_wheel()`](https://github.com/wled/WLED/blob/75f6de9dc29fc7da5f301fc1388ada228dcb3b6e/wled00/FX_fcn.cpp#L1092) | 32-bit | Input 0–255 to get a color. Transitions r→g→b→r. In HSV terms, `pos` is H. Note: only returns palette color unless the Default palette is selected. |
 | [`SEGMENT.color_from_palette()`](https://github.com/wled/WLED/blob/75f6de9dc29fc7da5f301fc1388ada228dcb3b6e/wled00/FX_fcn.cpp#L1093) | 32-bit | Gets a single color from the currently selected palette for a segment. (This function which should be favoured over `ColorFromPalette()` because this function returns an RGBW color with white from the `SEGCOLOR` passed, while also respecting the setting for palette wrapping.  On the other hand, `ColorFromPalette()` simply gets the RGB palette color.) |
-| [`fade_out()`](https://github.com/wled/WLED/blob/75f6de9dc29fc7da5f301fc1388ada228dcb3b6e/wled00/FX_fcn.cpp#L1012) | ---    | fade out function, higher rate = quicker fade.  fading is highly dependant on frame rate (higher frame rates, faster fading).  each frame will fade at max 9% or as little as 0.8%.  |
+| [`fade_out()`](https://github.com/wled/WLED/blob/75f6de9dc29fc7da5f301fc1388ada228dcb3b6e/wled00/FX_fcn.cpp#L1012) | ---    | fade out function, higher rate = quicker fade.  fading is highly dependent on frame rate (higher frame rates, faster fading).  each frame will fade at max 9% or as little as 0.8%.  |
 | [`fadeToBlackBy()`](https://github.com/wled/WLED/blob/75f6de9dc29fc7da5f301fc1388ada228dcb3b6e/wled00/FX_fcn.cpp#L1043) | ---    | can be used to fade all pixels to black.  |
 |  [`fadeToSecondaryBy()`](https://github.com/wled/WLED/blob/75f6de9dc29fc7da5f301fc1388ada228dcb3b6e/wled00/FX_fcn.cpp#L1043) | ---    | fades all pixels to secondary color.  |
 | [`move()`](https://github.com/WLED/WLED/blob/75f6de9dc29fc7da5f301fc1388ada228dcb3b6e/wled00/FX_fcn.cpp) | ---    | Moves/shifts pixels in the desired direction. |
@@ -162,7 +162,7 @@ if ((strip.now - SEGENV.step) >= refresh_ms) {
 * The first line checks if it's time to update the effect frame.  `strip.now` is the current timestamp in milliseconds; `SEGENV.step` is the last update time (set during initialization or previous frame).  `refresh_ms` is how long to wait between frames, computed earlier based on SEGMENT.speed.
 * The conditional statement in the first line of code ensures the effect updates on a fixed interval — e.g., every 20 ms for 50 Hz.
 * The second line of code declares a temporary row buffer for intermediate diffusion results that is one byte per column (horizontal position), so this buffer holds one row's worth of heat values.
-* You'll see later that it writes results here before updating `SEGMENT.data`.
+* You'll see later that it writes results here before updating `SEGENV.data`.
   * Note: this is allocated on the stack each frame. Keep such VLAs ≤ ~1 KiB; for larger sizes, prefer a buffer in `SEGENV.data`.
 
 > **_IMPORTANT NOTE:_** Creating variable‑length arrays (VLAs) is non‑standard C++, but this practice is used throughout WLED and works in practice. But be aware that VLAs live on the stack, which is limited. If the array scales with segment length (1D), it can overflow the stack and crash. Keep VLAs ≲ ~1 KiB; an array with 4000 LEDs is ~4 KiB and will likely crash. It’s worse with `uint16_t`. Anything larger than ~1 KiB should go into `SEGENV.data`, which has a higher limit.
@@ -200,7 +200,7 @@ Next we reach the first part of the core of the fire simulation, which is diffus
 // diffuse
 for (unsigned y = 0; y < rows; y++) {
   for (unsigned x = 0; x < cols; x++) {
-    uint16_t v = SEGENV.data[XY(x, y)];
+    unsigned v = SEGENV.data[XY(x, y)];
     if (x > 0) {
       v += SEGENV.data[XY(x - 1, y)];
     }
