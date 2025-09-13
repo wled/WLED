@@ -140,7 +140,7 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
 
     unsigned colorOrder, type, skip, awmode, channelSwap, maPerLed;
     unsigned length, start, maMax;
-    uint8_t pins[5] = {255, 255, 255, 255, 255};
+    uint8_t pins[OUTPUT_MAX_PINS] = {255, 255, 255, 255, 255};
     String text;
 
     // this will set global ABL max current used when per-port ABL is not used
