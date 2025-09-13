@@ -31,6 +31,10 @@ float UsermodTemperature::readDallas() {
         // 12-bit precision - 4-bit fraction part
         result = (data[1] << 8) | data[0];
         retVal = float(result) * 0.0625f; // 2^(-4)
+        if (!highResolution) {
+          result = retVal * 2.f;
+          retVal = float(result) * 0.5f;
+        }
         break;
     }
   }
@@ -277,6 +281,7 @@ void UsermodTemperature::addToConfig(JsonObject &root) {
   top[FPSTR(_parasite)] = parasite;
   top[FPSTR(_parasitePin)] = parasitePin;
   top[FPSTR(_domoticzIDX)] = idx;
+  top[FPSTR(_highResolution)] = highResolution;
   DEBUG_PRINTLN(F("Temperature config saved."));
 }
 
@@ -304,6 +309,7 @@ bool UsermodTemperature::readFromConfig(JsonObject &root) {
   parasite          = top[FPSTR(_parasite)] | parasite;
   parasitePin       = top[FPSTR(_parasitePin)] | parasitePin;
   idx               = top[FPSTR(_domoticzIDX)] | idx;
+  highResolution    = top[FPSTR(_highResolution)] | highResolution;
 
   if (!initDone) {
     // first run: reading from cfg.json
@@ -324,7 +330,7 @@ bool UsermodTemperature::readFromConfig(JsonObject &root) {
     }
   }
   // use "return !top["newestParameter"].isNull();" when updating Usermod with new features
-  return !top[FPSTR(_domoticzIDX)].isNull();
+  return !top[FPSTR(_highResolution)].isNull();
 }
 
 void UsermodTemperature::appendConfigData() {
@@ -332,6 +338,10 @@ void UsermodTemperature::appendConfigData() {
   oappend(F("',1,'<i>(if no Vcc connected)</i>');"));  // 0 is field type, 1 is actual field
   oappend(F("addInfo('")); oappend(String(FPSTR(_name)).c_str()); oappend(F(":")); oappend(String(FPSTR(_parasitePin)).c_str());
   oappend(F("',1,'<i>(for external MOSFET)</i>');"));  // 0 is field type, 1 is actual field
+  oappend(F("dd=addDD('")); oappend(String(FPSTR(_name)).c_str()); 
+    oappend(F("','")); oappend(String(FPSTR(_highResolution)).c_str()); oappend(F("');"));
+  oappend(F("addO(dd,'0.5 °C (9-bit) resolution (legacy)',0);"));
+  oappend(F("addO(dd,'0.0625°C (12-bit) resolution',1);"));
 }
 
 float UsermodTemperature::getTemperature() {
@@ -345,16 +355,17 @@ const char *UsermodTemperature::getTemperatureUnit() {
 UsermodTemperature* UsermodTemperature::_instance = nullptr;
 
 // strings to reduce flash memory usage (used more than twice)
-const char UsermodTemperature::_name[]         PROGMEM = "Temperature";
-const char UsermodTemperature::_enabled[]      PROGMEM = "enabled";
-const char UsermodTemperature::_readInterval[] PROGMEM = "read-interval-s";
-const char UsermodTemperature::_parasite[]     PROGMEM = "parasite-pwr";
-const char UsermodTemperature::_parasitePin[]  PROGMEM = "parasite-pwr-pin";
-const char UsermodTemperature::_domoticzIDX[]  PROGMEM = "domoticz-idx";
-const char UsermodTemperature::_sensor[]       PROGMEM = "sensor";
-const char UsermodTemperature::_temperature[]  PROGMEM = "temperature";
-const char UsermodTemperature::_Temperature[]  PROGMEM = "/temperature";
-const char UsermodTemperature::_data_fx[]      PROGMEM = "Temperature@Min,Max;;!;01;pal=54,sx=255,ix=0";
+const char UsermodTemperature::_name[]           PROGMEM = "Temperature";
+const char UsermodTemperature::_enabled[]        PROGMEM = "enabled";
+const char UsermodTemperature::_readInterval[]   PROGMEM = "read-interval-s";
+const char UsermodTemperature::_parasite[]       PROGMEM = "parasite-pwr";
+const char UsermodTemperature::_parasitePin[]    PROGMEM = "parasite-pwr-pin";
+const char UsermodTemperature::_domoticzIDX[]    PROGMEM = "domoticz-idx";
+const char UsermodTemperature::_highResolution[] PROGMEM = "high-resolution";
+const char UsermodTemperature::_sensor[]         PROGMEM = "sensor";
+const char UsermodTemperature::_temperature[]    PROGMEM = "temperature";
+const char UsermodTemperature::_Temperature[]    PROGMEM = "/temperature";
+const char UsermodTemperature::_data_fx[]        PROGMEM = "Temperature@Min,Max;;!;01;pal=54,sx=255,ix=0";
 
 static uint16_t mode_temperature() {
   float low  = roundf(mapf((float)SEGMENT.speed, 0.f, 255.f, -150.f, 150.f));    // default: 15°C, range: -15°C to 15°C

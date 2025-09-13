@@ -48,6 +48,7 @@ class UsermodTemperature : public Usermod {
 
     bool HApublished = false;
     int16_t idx = -1;   // Domoticz virtual sensor idx
+    int8_t highResolution = 0; // 0: 9-bit - 1: 12-bit
 
     // strings to reduce flash memory usage (used more than twice)
     static const char _name[];
@@ -56,6 +57,7 @@ class UsermodTemperature : public Usermod {
     static const char _parasite[];
     static const char _parasitePin[];
     static const char _domoticzIDX[];
+    static const char _highResolution[];
     static const char _sensor[];
     static const char _temperature[];
     static const char _Temperature[];
