@@ -62,7 +62,7 @@ unsigned dataSize = cols * rows;  // SEGLEN (virtual length) is equivalent to vW
     // diffuse
     for (unsigned y = 0; y < rows; y++) {
       for (unsigned x = 0; x < cols; x++) {
-        uint16_t v = SEGENV.data[XY(x, y)];
+        unsigned v = SEGENV.data[XY(x, y)];
         if (x > 0) {
           v += SEGENV.data[XY(x - 1, y)];
         }
