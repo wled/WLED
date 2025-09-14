@@ -648,7 +648,7 @@ class Segment {
     inline uint16_t groupLength()          const { return grouping + spacing; }
     inline uint8_t  getLightCapabilities() const { return _capabilities; }
     inline void     deactivate()                 { setGeometry(0,0); }
-    inline Segment &clearName()                  { d_free(name); name = nullptr; return *this; }
+    inline Segment &clearName()                  { p_free(name); name = nullptr; return *this; }
     inline Segment &setName(const String &name)  { return setName(name.c_str()); }
 
     inline static unsigned vLength()                       { return Segment::_vLength; }
