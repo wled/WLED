@@ -28,10 +28,13 @@
 	<h2>WLED Software Update</h2>
 	<form method='POST' action='./update' id='upd' enctype='multipart/form-data' onsubmit="toggle('upd')">
 		Installed version: <span class="sip">WLED ##VERSION##</span><br>
+		Release: <span class="sip">##RELEASE##</span><br>
 		Download the latest binary: <a href="https://github.com/wled-dev/WLED/releases" target="_blank" 
 		style="vertical-align: text-bottom; display: inline-flex;">
 		<img src="https://img.shields.io/github/release/wled-dev/WLED.svg?style=flat-square"></a><br>
 		<input type='file' name='update' required><br> <!--should have accept='.bin', but it prevents file upload from android app-->
+		<input type='checkbox' name='ignoreRelease' id='ignoreRelease'>
+		<label for='ignoreRelease'>Ignore release name check</label><br>
 		<button type="submit">Update!</button><br>
 		<hr class="sml">
 		<button id="rev" type="button" onclick="cR()">Revert update</button><br>

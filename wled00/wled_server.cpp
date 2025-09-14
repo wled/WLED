@@ -6,6 +6,7 @@
   #else
     #include <Update.h>
   #endif
+  #include "ota_release_check.h"
 #endif
 #include "html_ui.h"
 #include "html_settings.h"
@@ -172,6 +173,14 @@ static String msgProcessor(const String& var)
       messageBody += F("<br><br><button type=\"button\" class=\"bt\" onclick=\"B()\">Back</button>");
     }
     return messageBody;
+  }
+  return String();
+}
+
+static String updateProcessor(const String& var)
+{
+  if (var == F("RELEASE")) {
+    return String(releaseString);
   }
   return String();
 }
@@ -429,32 +438,105 @@ void initServer()
       return;
     }
     if (!correctPIN || otaLock) return;
+    
+    // Static variables to track release check state across chunks
+    static bool releaseCheckDone = false;
+    static bool releaseCheckPassed = false;
+    static uint8_t* releaseCheckBuffer = nullptr;
+    static size_t bufferPos = 0;
+    static const size_t RELEASE_CHECK_BUFFER_SIZE = 8192; // Check first 8KB for release name
+    
     if(!index){
       DEBUG_PRINTLN(F("OTA Update Start"));
+      
+      // Reset release check state
+      releaseCheckDone = false;
+      releaseCheckPassed = false;
+      bufferPos = 0;
+      
+      // Allocate buffer for release check
+      if (releaseCheckBuffer) free(releaseCheckBuffer);
+      releaseCheckBuffer = (uint8_t*)malloc(RELEASE_CHECK_BUFFER_SIZE);
+      if (!releaseCheckBuffer) {
+        DEBUG_PRINTLN(F("OTA Failed: Could not allocate buffer for release check"));
+        request->send(500, FPSTR(CONTENT_TYPE_PLAIN), F("OTA Failed: Memory allocation error"));
+        return;
+      }
+      
       #if WLED_WATCHDOG_TIMEOUT > 0
       WLED::instance().disableWatchdog();
       #endif
       UsermodManager::onUpdateBegin(true); // notify usermods that update is about to begin (some may require task de-init)
       lastEditTime = millis(); // make sure PIN does not lock during update
-      strip.suspend();
-      backupConfig(); // backup current config in case the update ends badly
-      strip.resetSegments();  // free as much memory as you can
-      #ifdef ESP8266
-      Update.runAsync(true);
-      #endif
-      Update.begin((ESP.getFreeSketchSpace() - 0x1000) & 0xFFFFF000);
     }
-    if(!Update.hasError()) Update.write(data, len);
-    if(isFinal){
-      if(Update.end(true)){
-        DEBUG_PRINTLN(F("Update Success"));
-      } else {
-        DEBUG_PRINTLN(F("Update Failed"));
-        strip.resume();
-        UsermodManager::onUpdateBegin(false); // notify usermods that update has failed (some may require task init)
-        #if WLED_WATCHDOG_TIMEOUT > 0
-        WLED::instance().enableWatchdog();
+    
+    // Accumulate data for release check if we haven't checked yet
+    if (!releaseCheckDone && releaseCheckBuffer) {
+      size_t copyLen = min(len, RELEASE_CHECK_BUFFER_SIZE - bufferPos);
+      if (copyLen > 0) {
+        memcpy(releaseCheckBuffer + bufferPos, data, copyLen);
+        bufferPos += copyLen;
+      }
+      
+      // Check if we have enough data or this is the final chunk
+      if (bufferPos >= RELEASE_CHECK_BUFFER_SIZE || isFinal) {
+        releaseCheckDone = true;
+        
+        // Check if user wants to ignore release check
+        bool ignoreRelease = request->hasParam("ignoreRelease", true);
+        
+        char errorMessage[128];
+        releaseCheckPassed = shouldAllowOTA(releaseCheckBuffer, bufferPos, ignoreRelease, errorMessage);
+        
+        if (!releaseCheckPassed) {
+          DEBUG_PRINTF_P(PSTR("OTA blocked: %s\n"), errorMessage);
+          free(releaseCheckBuffer);
+          releaseCheckBuffer = nullptr;
+          strip.resume();
+          UsermodManager::onUpdateBegin(false);
+          #if WLED_WATCHDOG_TIMEOUT > 0
+          WLED::instance().enableWatchdog();
+          #endif
+          request->send(400, FPSTR(CONTENT_TYPE_PLAIN), errorMessage);
+          return;
+        }
+        
+        DEBUG_PRINTLN(F("Release check passed, starting OTA update"));
+        
+        // Now start the actual OTA update
+        strip.suspend();
+        backupConfig(); // backup current config in case the update ends badly
+        strip.resetSegments();  // free as much memory as you can
+        #ifdef ESP8266
+        Update.runAsync(true);
         #endif
+        Update.begin((ESP.getFreeSketchSpace() - 0x1000) & 0xFFFFF000);
+      }
+    }
+    
+    // Only write data if release check passed (or was bypassed)
+    if (releaseCheckDone && releaseCheckPassed && !Update.hasError()) {
+      Update.write(data, len);
+    }
+    
+    if(isFinal){
+      // Clean up release check buffer
+      if (releaseCheckBuffer) {
+        free(releaseCheckBuffer);
+        releaseCheckBuffer = nullptr;
+      }
+      
+      if (releaseCheckPassed) {
+        if(Update.end(true)){
+          DEBUG_PRINTLN(F("Update Success"));
+        } else {
+          DEBUG_PRINTLN(F("Update Failed"));
+          strip.resume();
+          UsermodManager::onUpdateBegin(false); // notify usermods that update has failed (some may require task init)
+          #if WLED_WATCHDOG_TIMEOUT > 0
+          WLED::instance().enableWatchdog();
+          #endif
+        }
       }
     }
   });
@@ -704,5 +786,18 @@ void serveSettings(AsyncWebServerRequest* request, bool post) {
     case SUBPAGE_WELCOME :  content = PAGE_welcome;       len = PAGE_welcome_length;       break;
     default:                content = PAGE_settings;      len = PAGE_settings_length;      break;
   }
+  
+#ifndef WLED_DISABLE_OTA
+  // Use processor for update page to replace %RELEASE% placeholder
+  if (subPage == SUBPAGE_UPDATE) {
+    if (handleIfNoneMatchCacheHeader(request, code, 0)) return;
+    AsyncWebServerResponse *response = request->beginResponse_P(code, contentType, content, len, updateProcessor);
+    if (content != PAGE_settingsCss) response->addHeader(FPSTR(s_content_enc), F("gzip"));
+    setStaticContentCacheHeaders(response, code, 0);
+    request->send(response);
+    return;
+  }
+#endif
+
   handleStaticContent(request, "", code, contentType, content, len);
 }
