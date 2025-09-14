@@ -177,13 +177,7 @@ static String msgProcessor(const String& var)
   return String();
 }
 
-static String updateProcessor(const String& var)
-{
-  if (var == F("RELEASE")) {
-    return String(releaseString);
-  }
-  return String();
-}
+
 
 static void handleUpload(AsyncWebServerRequest *request, const String& filename, size_t index, uint8_t *data, size_t len, bool isFinal) {
   if (!correctPIN) {
@@ -810,18 +804,5 @@ void serveSettings(AsyncWebServerRequest* request, bool post) {
     case SUBPAGE_WELCOME :  content = PAGE_welcome;       len = PAGE_welcome_length;       break;
     default:                content = PAGE_settings;      len = PAGE_settings_length;      break;
   }
-  
-#ifndef WLED_DISABLE_OTA
-  // Use processor for update page to replace %RELEASE% placeholder
-  if (subPage == SUBPAGE_UPDATE) {
-    if (handleIfNoneMatchCacheHeader(request, code, 0)) return;
-    AsyncWebServerResponse *response = request->beginResponse_P(code, contentType, content, len, updateProcessor);
-    if (content != PAGE_settingsCss) response->addHeader(FPSTR(s_content_enc), F("gzip"));
-    setStaticContentCacheHeaders(response, code, 0);
-    request->send(response);
-    return;
-  }
-#endif
-
   handleStaticContent(request, "", code, contentType, content, len);
 }
