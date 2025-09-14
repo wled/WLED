@@ -196,6 +196,7 @@
 			let len = parseInt(d.Sf["LC"+n].value);
 			len += parseInt(d.Sf["SL"+n].value); // skipped LEDs are allocated too
 			let dbl = 0;
+			let pbfr = len * 12; // pixel buffers: global buffer + 2*segment buffer (one is required, one for transitions)
 			let ch = 3*hasRGB(t) + hasW(t) + hasCCT(t);
 			let mul = 1;
 			if (isDig(t)) {
@@ -212,7 +213,6 @@
 					dbl = len * ch * 3; // DMA buffer for parallel I2S (TODO: ony the bus with largst LED count should be used)
 				}
 			}
-			let pbfr = len * 8; // pixel buffers: global buffer + segment buffer (at least one segment buffer is required)
 			return len * ch * mul + dbl + pbfr;
 		}
 
@@ -387,7 +387,7 @@
 			gId('dbar').style.background = `linear-gradient(90deg, ${bquot > 60 ? (bquot > 90 ? "red":"orange"):"#ccc"} 0 ${bquot}%, #444 ${bquot}% 100%)`;
 			gId('ledwarning').style.display = (maxLC > Math.min(maxPB,800) || bquot > 80) ? 'inline':'none';
 			gId('ledwarning').style.color = (maxLC > Math.max(maxPB,800) || bquot > 100) ? 'red':'orange';
-			gId('wreason').innerHTML = (bquot > 80) ? "80% of max. LED memory" +(bquot>100 ? ` (<b>ERROR: Using over ${maxM}B!</b>)` : "") : "800 LEDs per output";
+			gId('wreason').innerHTML = (bquot > 80) ? "80% of max LED memory" +(bquot>100 ? ` (<b>WARNING: using over ${maxM}B!</b>)` : "") : "800 LEDs per output";
 			// calculate power
 			gId('ampwarning').style.display = (parseInt(d.Sf.MA.value,10) > 7200) ? 'inline':'none';
 			var val = Math.ceil((100 + busMA)/500)/2;
