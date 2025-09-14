@@ -485,8 +485,7 @@ void initServer()
       bool ignoreRelease = request->hasParam("ignoreRelease", true);
       
       char errorMessage[128];
-      size_t actualFirmwareSize;
-      releaseCheckPassed = shouldAllowOTA(firstChunkBuffer, len, ignoreRelease, errorMessage, &actualFirmwareSize);
+      releaseCheckPassed = shouldAllowOTA(firstChunkBuffer, len, ignoreRelease, errorMessage);
       
       if (!releaseCheckPassed) {
         DEBUG_PRINTF_P(PSTR("OTA blocked: %s\n"), errorMessage);
@@ -502,15 +501,8 @@ void initServer()
       
       DEBUG_PRINTLN(F("Release check passed, starting OTA update"));
       
-      // Calculate expected firmware size (if metadata header was present, actualFirmwareSize will be adjusted)
-      // For final size calculation, we need to account for all chunks
+      // Use full content length as firmware size (no binary modification with custom description approach)
       expectedFirmwareSize = request->contentLength();
-      if (actualFirmwareSize < len) {
-        // Metadata header was removed, adjust expected size
-        size_t headerSize = len - actualFirmwareSize;
-        expectedFirmwareSize -= headerSize;
-        DEBUG_PRINTF_P(PSTR("Metadata header removed, firmware size: %zu bytes\n"), expectedFirmwareSize);
-      }
       
       // Start the actual OTA update
       strip.suspend();
@@ -535,12 +527,12 @@ void initServer()
         return;
       }
       
-      // Write the processed first chunk (with metadata header removed if present)
-      if (actualFirmwareSize > 0 && !Update.hasError()) {
-        if (Update.write(firstChunkBuffer, actualFirmwareSize) != actualFirmwareSize) {
+      // Write the first chunk of firmware data
+      if (len > 0 && !Update.hasError()) {
+        if (Update.write(firstChunkBuffer, len) != len) {
           DEBUG_PRINTF_P(PSTR("OTA write failed on first chunk: %s\n"), Update.getErrorString().c_str());
         } else {
-          totalBytesWritten += actualFirmwareSize;
+          totalBytesWritten += len;
         }
       }
       

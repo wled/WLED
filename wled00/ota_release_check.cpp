@@ -1,39 +1,75 @@
 #include "ota_release_check.h"
 #include "wled.h"
 
-bool extractMetadataHeader(uint8_t* binaryData, size_t dataSize, char* extractedRelease, size_t* actualBinarySize) {
-  if (!binaryData || !extractedRelease || !actualBinarySize || dataSize < WLED_META_HEADER_SIZE) {
-    *actualBinarySize = dataSize;
+#ifdef ESP32
+#include <esp_app_format.h>
+#include <esp_ota_ops.h>
+#endif
+
+bool extractReleaseFromCustomDesc(const uint8_t* binaryData, size_t dataSize, char* extractedRelease) {
+    if (!binaryData || !extractedRelease || dataSize < sizeof(esp_image_header_t)) {
+        return false;
+    }
+
+#ifdef ESP32
+    // Look for ESP32 image header to find the custom description section
+    const esp_image_header_t* header = (const esp_image_header_t*)binaryData;
+    
+    // Validate ESP32 image header
+    if (header->magic != ESP_IMAGE_HEADER_MAGIC) {
+        DEBUG_PRINTLN(F("Not a valid ESP32 image - missing magic header"));
+        return false;
+    }
+
+    // The custom description section is located at a fixed offset after the image header
+    // ESP-IDF places custom description at offset 0x20 in the binary for ESP32
+    const size_t custom_desc_offset = 0x20;
+    
+    if (dataSize < custom_desc_offset + sizeof(wled_custom_desc_t)) {
+        DEBUG_PRINTLN(F("Binary too small to contain custom description"));
+        return false;
+    }
+
+    const wled_custom_desc_t* custom_desc = (const wled_custom_desc_t*)(binaryData + custom_desc_offset);
+    
+    // Validate magic number and version
+    if (custom_desc->magic != WLED_CUSTOM_DESC_MAGIC) {
+        DEBUG_PRINTLN(F("No WLED custom description found - no magic number"));
+        return false;
+    }
+
+    if (custom_desc->version != WLED_CUSTOM_DESC_VERSION) {
+        DEBUG_PRINTF_P(PSTR("Unsupported custom description version: %u\n"), custom_desc->version);
+        return false;
+    }
+
+    // Validate simple hash checksum (using the same simple hash as in wled_custom_desc.cpp)
+    auto simple_hash = [](const char* str) -> uint32_t {
+        uint32_t hash = 5381;
+        for (int i = 0; str[i]; ++i) {
+            hash = ((hash << 5) + hash) + str[i];
+        }
+        return hash;
+    };
+    
+    uint32_t expected_hash = simple_hash(custom_desc->release_name);
+    if (custom_desc->crc32 != expected_hash) {
+        DEBUG_PRINTF_P(PSTR("Custom description hash mismatch: expected 0x%08x, got 0x%08x\n"), 
+                      expected_hash, custom_desc->crc32);
+        return false;
+    }
+
+    // Extract release name (ensure null termination)
+    strncpy(extractedRelease, custom_desc->release_name, WLED_RELEASE_NAME_MAX_LEN - 1);
+    extractedRelease[WLED_RELEASE_NAME_MAX_LEN - 1] = '\0';
+    
+    DEBUG_PRINTF_P(PSTR("Extracted release name from custom description: '%s'\n"), extractedRelease);
+    return true;
+#else
+    // ESP8266 doesn't use ESP-IDF format, so we can't extract custom description
+    DEBUG_PRINTLN(F("ESP8266 binaries do not support custom description extraction"));
     return false;
-  }
-
-  // Check if the binary starts with our metadata header
-  if (memcmp(binaryData, WLED_META_PREFIX, strlen(WLED_META_PREFIX)) != 0) {
-    // No metadata header found, this is a legacy binary
-    *actualBinarySize = dataSize;
-    DEBUG_PRINTLN(F("No WLED metadata header found - legacy binary"));
-    return false;
-  }
-
-  DEBUG_PRINTLN(F("Found WLED metadata header"));
-
-  // Extract release name from header
-  const char* releaseStart = (const char*)(binaryData + strlen(WLED_META_PREFIX));
-  size_t maxReleaseLen = WLED_META_HEADER_SIZE - strlen(WLED_META_PREFIX) - 1;
-  
-  // Copy release name (it should be null-terminated within the header)
-  strncpy(extractedRelease, releaseStart, maxReleaseLen);
-  extractedRelease[maxReleaseLen] = '\0'; // Ensure null termination
-
-  // Remove metadata header by shifting binary data
-  size_t firmwareSize = dataSize - WLED_META_HEADER_SIZE;
-  memmove(binaryData, binaryData + WLED_META_HEADER_SIZE, firmwareSize);
-  *actualBinarySize = firmwareSize;
-
-  DEBUG_PRINTF_P(PSTR("Extracted release name from metadata: '%s', firmware size: %zu bytes\n"), 
-                 extractedRelease, firmwareSize);
-
-  return true;
+#endif
 }
 
 bool validateReleaseCompatibility(const char* extractedRelease) {
@@ -50,37 +86,32 @@ bool validateReleaseCompatibility(const char* extractedRelease) {
   return match;
 }
 
-bool shouldAllowOTA(uint8_t* binaryData, size_t dataSize, bool ignoreReleaseCheck, char* errorMessage, size_t* actualBinarySize) {
+bool shouldAllowOTA(const uint8_t* binaryData, size_t dataSize, bool ignoreReleaseCheck, char* errorMessage) {
   // Clear error message
   if (errorMessage) {
     errorMessage[0] = '\0';
-  }
-  
-  // Initialize actual binary size to full size by default
-  if (actualBinarySize) {
-    *actualBinarySize = dataSize;
   }
 
   // If user chose to ignore release check, allow OTA
   if (ignoreReleaseCheck) {
     DEBUG_PRINTLN(F("OTA release check bypassed by user"));
-    // Still need to extract metadata header if present to get clean binary
-    char dummyRelease[64];
-    extractMetadataHeader(binaryData, dataSize, dummyRelease, actualBinarySize);
     return true;
   }
 
-  // Try to extract metadata header
-  char extractedRelease[64];
-  bool hasMetadata = extractMetadataHeader(binaryData, dataSize, extractedRelease, actualBinarySize);
+  // Try to extract release name from custom description section
+  char extractedRelease[WLED_RELEASE_NAME_MAX_LEN];
+  bool hasCustomDesc = extractReleaseFromCustomDesc(binaryData, dataSize, extractedRelease);
 
-  if (!hasMetadata) {
-    // No metadata header - this could be a legacy binary or a binary without our metadata
-    // We cannot determine compatibility for such binaries
+  if (!hasCustomDesc) {
+    // No custom description - this could be a legacy binary or ESP8266 binary
     if (errorMessage) {
+#ifdef ESP32
       strcpy(errorMessage, "Binary has no release compatibility metadata. Check 'Ignore release name check' to proceed.");
+#else
+      strcpy(errorMessage, "ESP8266 binaries do not support release checking. Check 'Ignore release name check' to proceed.");
+#endif
     }
-    DEBUG_PRINTLN(F("OTA blocked: No metadata header found"));
+    DEBUG_PRINTLN(F("OTA blocked: No custom description found"));
     return false;
   }
 
