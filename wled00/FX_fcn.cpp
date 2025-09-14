@@ -11,7 +11,6 @@
 */
 #include "wled.h"
 #include "FXparticleSystem.h"  // TODO: better define the required function (mem service) in FX.h?
-#include "palettes.h"
 
 /*
   Custom per-LED mapping has moved!
@@ -200,12 +199,15 @@ void Segment::deallocateData() {
 }
 
 /**
-  * If reset of this segment was requested, clears runtime
-  * settings of this segment.
-  * Must not be called while an effect mode function is running
-  * because it could access the data buffer and this method
-  * may free that data buffer.
-  */
+ * @brief Clear pending runtime state when a segment is marked for reset.
+ *
+ * If this segment's reset flag is set and the segment is active, zeroes the
+ * segment's runtime data buffer (to avoid heap fragmentation), clears the
+ * pixel buffer, resets timing/step/call/aux counters, clears the reset flag,
+ * and, when GIF playback support is enabled, ends any ongoing image playback.
+ *
+ * Note: this routine is safe to call only when no effect mode is currently
+ * running for the segment — effect code may access the data/pixel buffers. */
 void Segment::resetIfRequired() {
   if (!reset || !isActive()) return;
   //DEBUG_PRINTF_P(PSTR("-- Segment reset: %p\n"), this);
@@ -218,9 +220,31 @@ void Segment::resetIfRequired() {
   #endif
 }
 
+/**
+ * @brief Selects and loads a palette into the supplied CRGBPalette16.
+ *
+ * Loads a palette identified by the numeric index `pal` into `targetPalette`.
+ * Supported palette sources (by index):
+ * - 0: the effect/default palette (resolved from _default_palette)
+ * - 1: runtime-random palette
+ * - 2–5: palettes derived from this segment's color slots (primary/secondary/tertiary combinations)
+ * - fastLED and built-in gradient palettes: mapped from the next contiguous index range
+ * - custom palettes: addressed from the high end (255, 254, ...) and stored in customPalettes
+ *
+ * If `pal` is outside the valid range for built-in/gradient/fastled indices it will be treated as 0
+ * (the default palette). When a custom palette index is selected it is loaded from customPalettes.
+ *
+ * @param targetPalette Palette object to populate (returned by reference).
+ * @param pal Numeric palette index selecting the source and layout (see summary above).
+ * @return CRGBPalette16& Reference to the populated `targetPalette`.
+ */
 CRGBPalette16 &Segment::loadPalette(CRGBPalette16 &targetPalette, uint8_t pal) {
-  if (pal < 245 && pal > GRADIENT_PALETTE_COUNT+13) pal = 0;
-  if (pal > 245 && (customPalettes.size() == 0 || 255U-pal > customPalettes.size()-1)) pal = 0;
+  // there is one randomy generated palette (1) followed by 4 palettes created from segment colors (2-5)
+  // those are followed by 7 fastled palettes (6-12) and 59 gradient palettes (13-71)
+  // then come the custom palettes (255,254,...) growing downwards from 255 (255 being 1st custom palette)
+  // palette 0 is a varying palette depending on effect and may be replaced by segment's color if so
+  // instructed in color_from_palette()
+  if (pal > FIXED_PALETTE_COUNT && pal < 255-customPalettes.size()+1) pal = 0; // out of bounds palette
   //default palette. Differs depending on effect
   if (pal == 0) pal = _default_palette; // _default_palette is set in setMode()
   switch (pal) {
@@ -256,13 +280,13 @@ CRGBPalette16 &Segment::loadPalette(CRGBPalette16 &targetPalette, uint8_t pal) {
       }
       break;}
     default: //progmem palettes
-      if (pal>245) {
+      if (pal > 255 - customPalettes.size()) {
         targetPalette = customPalettes[255-pal]; // we checked bounds above
-      } else if (pal < 13) { // palette 6 - 12, fastled palettes
-        targetPalette = *fastledPalettes[pal-6];
+      } else if (pal < DYNAMIC_PALETTE_COUNT+FASTLED_PALETTE_COUNT+1) { // palette 6 - 12, fastled palettes
+        targetPalette = *fastledPalettes[pal-DYNAMIC_PALETTE_COUNT-1];
       } else {
         byte tcp[72];
-        memcpy_P(tcp, (byte*)pgm_read_dword(&(gGradientPalettes[pal-13])), 72);
+        memcpy_P(tcp, (byte*)pgm_read_dword(&(gGradientPalettes[pal-(DYNAMIC_PALETTE_COUNT+FASTLED_PALETTE_COUNT)-1])), 72);
         targetPalette.loadDynamicGradientPalette(tcp);
       }
       break;
@@ -529,6 +553,24 @@ Segment &Segment::setOption(uint8_t n, bool val) {
   return *this;
 }
 
+/**
+ * @brief Set the effect (mode) for this segment.
+ *
+ * Sets the segment's mode to the first non-reserved effect at or after the
+ * provided index, optionally loading the effect's default parameters. If the
+ * new mode differs from the current one, a transition is started (a segment
+ * copy is created), the mode-specific defaults and palette are applied when
+ * requested, and the segment is marked for reset and state broadcast.
+ *
+ * @param fx Index of the desired effect/mode. If this index points to a
+ *           reserved mode the next non-reserved mode is used. If the index is
+ *           out of range the solid mode (index 0) is selected.
+ * @param loadDefaults When true, extract and apply the effect's default
+ *                     parameters (speed, intensity, custom values, mapping
+ *                     flags, sound simulation, mirror/reverse flags, etc.)
+ *                     and set the palette default when present.
+ * @return Segment& Reference to this segment (allows chaining).
+ */
 Segment &Segment::setMode(uint8_t fx, bool loadDefaults) {
   // skip reserved
   while (fx < strip.getModeCount() && strncmp_P("RSVD", strip.getModeData(fx), 4) == 0) fx++;
@@ -565,9 +607,21 @@ Segment &Segment::setMode(uint8_t fx, bool loadDefaults) {
   return *this;
 }
 
+/**
+ * @brief Set the segment's palette by index.
+ *
+ * Validates the supplied palette index and, if it differs from the current
+ * palette, begins a palette transition and marks the segment's state as
+ * changed so the new palette is propagated to clients/hardware.
+ *
+ * If the provided index is outside the range of built-in or custom palettes,
+ * it is normalized to 0.
+ *
+ * @param pal Palette index (may be adjusted to a valid value).
+ * @return Segment& Reference to this segment (for chaining).
+ */
 Segment &Segment::setPalette(uint8_t pal) {
-  if (pal < 245 && pal > GRADIENT_PALETTE_COUNT+13) pal = 0; // built in palettes
-  if (pal > 245 && (customPalettes.size() == 0 || 255U-pal > customPalettes.size()-1)) pal = 0; // custom palettes
+  if (pal <= 255-customPalettes.size() && pal > FIXED_PALETTE_COUNT) pal = 0; // not built in palette or custom palette
   if (pal != palette) {
     //DEBUG_PRINTF_P(PSTR("- Starting palette transition: %d\n"), pal);
     startTransition(strip.getTransition(), blendingStyle != BLEND_STYLE_FADE); // start transition prior to change (no need to copy segment)

@@ -1025,6 +1025,23 @@ function redrawPalPrev()
 	});
 }
 
+/**
+ * Generate a CSS background rule showing a horizontal gradient preview for a palette.
+ *
+ * Uses the global `palettesData` array for palette entries. Each palette entry may be:
+ * - an array [posByte, r, g, b] where `posByte` is 0..255 mapped to 0..100%,
+ * - the literal 'r' to insert a random RGB color, or
+ * - a reference value whose second character is treated as a 1-based index into the DOM color-slot list (element with id "csl") and reads its `data-r`, `data-g`, `data-b` attributes.
+ *
+ * Special cases:
+ * - If the palette contains a single color, the function duplicates it to produce a two-color gradient.
+ * - If `palettesData` is not defined the function returns undefined.
+ * - If the requested palette id is not found the function returns the string `'display: none'`.
+ *
+ * @param {number|string} id - Palette identifier (index or key) into `palettesData`.
+ * @return {string|undefined} CSS declaration for a left-to-right linear-gradient (e.g. `"background: linear-gradient(to right, ...);"`),
+ *                          `'display: none'` when the palette is missing, or `undefined` if `palettesData` is not available.
+ */
 function genPalPrevCss(id)
 {
 	if (!palettesData) return;
@@ -1042,8 +1059,7 @@ function genPalPrevCss(id)
 	}
 
 	var gradient = [];
-	for (let j = 0; j < paletteData.length; j++) {
-		const e = paletteData[j];
+	paletteData.forEach((e,j) => {
 		let r, g, b;
 		let index = false;
 		if (Array.isArray(e)) {
@@ -1065,9 +1081,8 @@ function genPalPrevCss(id)
 		if (index === false) {
 			index = Math.round(j / paletteData.length * 100);
 		}
-
 		gradient.push(`rgb(${r},${g},${b}) ${index}%`);
-	}
+	});
 
 	return `background: linear-gradient(to right,${gradient.join()});`;
 }
@@ -3086,15 +3101,29 @@ let iSlide = 0, x0 = null, scrollS = 0, locked = false;
 
 function unify(e) {	return e.changedTouches ? e.changedTouches[0] : e; }
 
+/**
+ * Return true if any class name in the provided list starts with "Iro".
+ *
+ * @param {Iterable<string>} classList - An iterable of class name strings (e.g., Element.classList or an array).
+ * @returns {boolean} True when at least one class name begins with "Iro", otherwise false.
+ */
 function hasIroClass(classList)
 {
-	for (var i = 0; i < classList.length; i++) {
-		var element = classList[i];
-		if (element.startsWith('Iro')) return true;
-	}
-	return false;
+	let found = false;
+	classList.forEach((e)=>{ if (e.startsWith('Iro')) found = true; });
+	return found;
 }
-//required by rangetouch.js
+/**
+ * Handle touch/drag start to lock page scrolling and initiate horizontal slide gestures.
+ *
+ * If the app is in PC mode or simplified UI, or the event target (or its parent) is marked
+ * to skip sliding (has class `noslide` or contains iro-related classes), the function returns
+ * without side effects. Otherwise it records the initial pointer X position and current
+ * scrollTop into globals used by the gesture handler, sets the global `locked` flag, and
+ * toggles the container's `smooth` class accordingly.
+ *
+ * @param {Event} e - Pointer/touch event from rangetouch (the originating target is inspected).
+ */
 function lock(e)
 {
 	if (pcMode || simplifiedUI) return;

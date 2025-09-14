@@ -248,11 +248,29 @@ CRGBPalette16 generateRandomPalette()  // generate fully random palette
                        CHSV(hw_random8(), hw_random8(160, 255), hw_random8(128, 255)));
 }
 
+/**
+ * @brief Loads user-defined color palettes from filesystem into runtime storage.
+ *
+ * Scans for files named "/palette0.json", "/palette1.json", ... up to
+ * WLED_MAX_CUSTOM_PALETTES and builds dynamic gradient palettes from any valid
+ * JSON found. Existing in-memory custom palettes are cleared before loading.
+ *
+ * Supported JSON formats for the "palette" array:
+ * - Pairs of [index, hexString] (e.g. [0, "FF0000", 128, "00FF00", ...]) where
+ *   each pair is an index (0–255) followed by an RRGGBB or RRGGBBWW hex color.
+ * - Quads of [index, R, G, B] (e.g. [0, 255, 0, 0, 128, 0, 255, 0, ...]) where
+ *   each group of four values is an index (0–255) followed by red/green/blue bytes.
+ *
+ * For each palette file the function converts the supplied entries into a
+ * temporary gradient table (supporting up to 18 color stops) and appends the
+ * resulting CRGBPalette16 to customPalettes. The loader stops at the first
+ * missing palette file.
+ */
 void loadCustomPalettes() {
   byte tcp[72]; //support gradient palettes with up to 18 entries
   CRGBPalette16 targetPalette;
   customPalettes.clear(); // start fresh
-  for (int index = 0; index<10; index++) {
+  for (int index = 0; index < WLED_MAX_CUSTOM_PALETTES; index++) {
     char fileName[32];
     sprintf_P(fileName, PSTR("/palette%d.json"), index);
 

@@ -210,7 +210,24 @@ void releaseJSONBufferLock()
 
 
 // extracts effect mode (or palette) name from names serialized string
-// caller must provide large enough buffer for name (including SR extensions)!
+/**
+ * @brief Extracts the display name for a mode or palette into a caller-provided buffer.
+ *
+ * When src is JSON_mode_names or nullptr, the name is read from the built-in mode data
+ * (strip.getModeData). When src is JSON_palette_names and the mode index refers to a
+ * custom palette (mode > 255 - customPalettes.size()), a formatted "~ Custom N ~"
+ * name is written. Otherwise, the function parses a PROGMEM JSON-like string pointed
+ * to by src to locate the mode's quoted name (handles commas and quoted fields) and
+ * stops if an SR-extension marker '@' is encountered for that mode.
+ *
+ * The function always NUL-terminates dest and will truncate the name to fit maxLen.
+ *
+ * @param mode Index of the mode or palette to extract.
+ * @param src PROGMEM string source to parse, or JSON_mode_names / JSON_palette_names / nullptr.
+ * @param dest Caller-provided buffer to receive the NUL-terminated name (must be large enough).
+ * @param maxLen Maximum number of bytes to write into dest (including the terminating NUL).
+ * @return uint8_t Length of the resulting string written into dest (excluding the terminating NUL).
+ */
 uint8_t extractModeName(uint8_t mode, const char *src, char *dest, uint8_t maxLen)
 {
   if (src == JSON_mode_names || src == nullptr) {
@@ -230,7 +247,7 @@ uint8_t extractModeName(uint8_t mode, const char *src, char *dest, uint8_t maxLe
     } else return 0;
   }
 
-  if (src == JSON_palette_names && mode > (GRADIENT_PALETTE_COUNT + 13)) {
+  if (src == JSON_palette_names && mode > 255-customPalettes.size()) {
     snprintf_P(dest, maxLen, PSTR("~ Custom %d ~"), 255-mode);
     dest[maxLen-1] = '\0';
     return strlen(dest);

@@ -1,7 +1,5 @@
 #include "wled.h"
 
-#include "palettes.h"
-
 #define JSON_PATH_STATE      1
 #define JSON_PATH_INFO       2
 #define JSON_PATH_STATE_INFO 3
@@ -689,6 +687,20 @@ void serializeState(JsonObject root, bool forPreset, bool includeBri, bool segme
   }
 }
 
+/**
+ * @brief Populate a JSON object with device and runtime information.
+ *
+ * Fills the provided JsonObject with system, hardware, network, and LED subsystem
+ * metadata used by the JSON API (version, build, LED counts and capabilities,
+ * palettes and modes counts, WiFi and filesystem stats, uptime, time, and usermod
+ * additions).
+ *
+ * The function writes several nested objects and arrays (for example "leds",
+ * "wifi", "fs", "maps") and a set of top-level fields consumed by clients.
+ *
+ * @param root JsonObject to populate. Must be a valid writable JSON object;
+ *             the function will create nested objects/arrays inside it.
+ */
 void serializeInfo(JsonObject root)
 {
   root[F("ver")] = versionString;
@@ -770,7 +782,8 @@ void serializeInfo(JsonObject root)
 
   root[F("fxcount")] = strip.getModeCount();
   root[F("palcount")] = getPaletteCount();
-  root[F("cpalcount")] = customPalettes.size(); //number of custom palettes
+  root[F("cpalcount")] = customPalettes.size();   // number of custom palettes
+  root[F("cpalmax")] = WLED_MAX_CUSTOM_PALETTES;  // maximum number of custom palettes
 
   JsonArray ledmaps = root.createNestedArray(F("maps"));
   for (size_t i=0; i<WLED_MAX_LEDMAPS; i++) {

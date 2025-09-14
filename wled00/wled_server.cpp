@@ -244,6 +244,24 @@ static bool captivePortal(AsyncWebServerRequest *request)
   return false;
 }
 
+/**
+ * @brief Initialize and configure the HTTP server routes and handlers.
+ *
+ * Registers CORS/default headers and all web endpoints used by the device web UI and API,
+ * including static content routes, settings UI, JSON API (/json), file upload (/upload),
+ * OTA update endpoints (/update), optional pages (DMX, PixArt, PxMagic, CPAL, live views),
+ * WebSocket attachment, captive portal handling and a NotFound handler that routes API calls
+ * or serves a 404 page. Also installs the filesystem editor route (or an Access Denied
+ * stub) via createEditHandler and attaches an AsyncJsonWebHandler for JSON POSTs.
+ *
+ * Side effects:
+ * - Adds default HTTP headers (CORS).
+ * - Registers many server routes and their callbacks with global state handlers.
+ * - May set flags such as doReboot and configNeedsWrite from request handlers.
+ * - Enforces PIN/OTA lock and subnet restrictions inside sensitive endpoints (OTA, settings, cfg).
+ *
+ * This function does not return a value.
+ */
 void initServer()
 {
   //CORS compatiblity
@@ -470,29 +488,31 @@ void initServer()
   server.on("/", HTTP_GET, [](AsyncWebServerRequest *request) {
     if (captivePortal(request)) return;
     if (!showWelcomePage || request->hasArg(F("sliders"))) {
-      handleStaticContent(request, F("/index.htm"), 200, FPSTR(CONTENT_TYPE_HTML), PAGE_index, PAGE_index_L);
+      handleStaticContent(request, F("/index.htm"), 200, FPSTR(CONTENT_TYPE_HTML), PAGE_index, PAGE_index_length);
     } else {
       serveSettings(request);
     }
   });
 
-#ifdef WLED_ENABLE_PIXART
+#ifndef WLED_DISABLE_2D
+  #ifdef WLED_ENABLE_PIXART
   static const char _pixart_htm[] PROGMEM = "/pixart.htm";
   server.on(_pixart_htm, HTTP_GET, [](AsyncWebServerRequest *request) {
-    handleStaticContent(request, FPSTR(_pixart_htm), 200, FPSTR(CONTENT_TYPE_HTML), PAGE_pixart, PAGE_pixart_L);
+    handleStaticContent(request, FPSTR(_pixart_htm), 200, FPSTR(CONTENT_TYPE_HTML), PAGE_pixart, PAGE_pixart_length);
   });
-#endif
+  #endif
 
-#ifndef WLED_DISABLE_PXMAGIC
+  #ifndef WLED_DISABLE_PXMAGIC
   static const char _pxmagic_htm[] PROGMEM = "/pxmagic.htm";
   server.on(_pxmagic_htm, HTTP_GET, [](AsyncWebServerRequest *request) {
-    handleStaticContent(request, FPSTR(_pxmagic_htm), 200, FPSTR(CONTENT_TYPE_HTML), PAGE_pxmagic, PAGE_pxmagic_L);
+    handleStaticContent(request, FPSTR(_pxmagic_htm), 200, FPSTR(CONTENT_TYPE_HTML), PAGE_pxmagic, PAGE_pxmagic_length);
   });
+  #endif
 #endif
 
   static const char _cpal_htm[] PROGMEM = "/cpal.htm";
   server.on(_cpal_htm, HTTP_GET, [](AsyncWebServerRequest *request) {
-    handleStaticContent(request, FPSTR(_cpal_htm), 200, FPSTR(CONTENT_TYPE_HTML), PAGE_cpal, PAGE_cpal_L);
+    handleStaticContent(request, FPSTR(_cpal_htm), 200, FPSTR(CONTENT_TYPE_HTML), PAGE_cpal, PAGE_cpal_length);
   });
 
 #ifdef WLED_ENABLE_WEBSOCKETS
