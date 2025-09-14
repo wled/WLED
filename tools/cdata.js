@@ -96,10 +96,9 @@ function adoptVersionAndRepo(html) {
     html = html.replaceAll("##VERSION##", version);
   }
   
-  // Replace ##RELEASE## with a placeholder that will be replaced at runtime
-  // Since we can't determine the exact release name at build time (it depends on build flags),
-  // we'll use a special marker that gets replaced in the server code
-  html = html.replaceAll("##RELEASE##", "%RELEASE%");
+  // Replace ##RELEASE## with the actual release name from build environment
+  const releaseName = process.env.WLED_RELEASE_NAME || 'Custom';
+  html = html.replaceAll("##RELEASE##", releaseName);
   
   return html;
 }
