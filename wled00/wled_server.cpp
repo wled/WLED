@@ -438,11 +438,11 @@ void initServer()
       DEBUG_PRINTLN(F("OTA Update Start"));
       
       // Check if user wants to ignore release check
-      bool ignoreRelease = request->hasParam("ignoreRelease", true);
+      bool skipValidation = request->hasParam("skipValidation", true);
       
       // Validate OTA release compatibility using the first chunk data directly
       char errorMessage[128];
-      releaseCheckPassed = shouldAllowOTA(data, len, ignoreRelease, errorMessage);
+      releaseCheckPassed = shouldAllowOTA(data, len, skipValidation, errorMessage);
       
       if (!releaseCheckPassed) {
         DEBUG_PRINTF_P(PSTR("OTA blocked: %s\n"), errorMessage);
