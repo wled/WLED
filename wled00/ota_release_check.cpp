@@ -77,7 +77,7 @@ bool validateReleaseCompatibility(const char* extractedRelease) {
   return match;
 }
 
-bool shouldAllowOTA(const uint8_t* binaryData, size_t dataSize, bool ignoreReleaseCheck, char* errorMessage) {
+bool shouldAllowOTA(const uint8_t* binaryData, size_t dataSize, bool skipValidation, char* errorMessage) {
   // Clear error message
   if (errorMessage) {
     errorMessage[0] = '\0';
@@ -88,7 +88,7 @@ bool shouldAllowOTA(const uint8_t* binaryData, size_t dataSize, bool ignoreRelea
   (void)local_desc; // Suppress unused variable warning
 
   // If user chose to ignore release check, allow OTA
-  if (ignoreReleaseCheck) {
+  if (skipValidation) {
     DEBUG_PRINTLN(F("OTA release check bypassed by user"));
     return true;
   }
