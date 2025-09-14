@@ -137,7 +137,6 @@ extern byte realtimeMode;           // used in getMappedPixelIndex()
 #define ULTRAWHITE (uint32_t)0xFFFFFFFF
 #define DARKSLATEGRAY (uint32_t)0x2F4F4F
 #define DARKSLATEGREY DARKSLATEGRAY
-#define TRANSPARENT(a) CRGBA(a).setOpacity(0)
 
 // segment options
 #define NO_OPTIONS   (uint16_t)0x0000
@@ -661,7 +660,6 @@ class Segment {
     void    beginDraw(uint16_t prog = 0xFFFFU);         // set up parameters for current effect
     void    setGeometry(uint16_t i1, uint16_t i2, uint8_t grp=1, uint8_t spc=0, uint16_t ofs=UINT16_MAX, uint16_t i1Y=0, uint16_t i2Y=1, uint8_t m12=0);
     Segment &setColor(uint8_t slot, uint32_t c);
-    Segment &setColor(uint8_t slot, CRGBA c);
     Segment &setCCT(uint16_t k);
     Segment &setOpacity(uint8_t o);
     Segment &setOption(uint8_t n, bool val);
