@@ -416,7 +416,7 @@ void prepareArtnetPollReply(ArtPollReply *reply) {
 
   reply->reply_port = ARTNET_DEFAULT_PORT;
 
-  char * numberEnd = versionString;
+  char * numberEnd = (char*) versionString; // strtol promises not to try to edit this.
   reply->reply_version_h = (uint8_t)strtol(numberEnd, &numberEnd, 10);
   numberEnd++;
   reply->reply_version_l = (uint8_t)strtol(numberEnd, &numberEnd, 10);
