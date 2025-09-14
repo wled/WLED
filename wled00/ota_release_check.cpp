@@ -40,10 +40,14 @@ static bool isValidReleaseNameFormat(const char* name, size_t len) {
 }
 
 /**
- * Extract release name by searching for null-terminated strings that look like release names
+ * Extract release name by searching for any reasonable string that could be a release name
+ * This method is very permissive to handle custom builds and unknown release formats
  */
 static bool extractByGenericStringSearch(const uint8_t* data, size_t dataSize, char* extractedRelease) {
   // Search for null-terminated strings that could be release names
+  char bestCandidate[64] = "";
+  int bestScore = -1;
+  
   for (size_t i = 0; i < dataSize - 4; i++) {
     // Look for potential start of a string (printable character)
     if (isalpha(data[i])) {
@@ -60,21 +64,39 @@ static bool extractByGenericStringSearch(const uint8_t* data, size_t dataSize, c
           strncpy(candidate, (const char*)(data + i), len);
           candidate[len] = '\0';
           
-          // Check if this looks like a valid release name
+          // Check if this looks like a valid release name format
           if (isValidReleaseNameFormat(candidate, len)) {
-            // Additional heuristics: common WLED release name patterns
-            if (strstr(candidate, "ESP") != NULL ||     // Contains ESP
-                strstr(candidate, "WLED") != NULL ||    // Contains WLED  
-                strstr(candidate, "Custom") != NULL) {  // Custom build
-              
-              strcpy(extractedRelease, candidate);
-              DEBUG_PRINTF_P(PSTR("Found release name by generic search: %s\n"), extractedRelease);
-              return true;
+            // Score candidates to find the most likely release name
+            int score = 0;
+            
+            // High score for common patterns
+            if (strstr(candidate, "ESP") != NULL) score += 100;
+            if (strstr(candidate, "WLED") != NULL) score += 100;
+            if (strstr(candidate, "Custom") != NULL) score += 50;
+            if (strstr(candidate, "Build") != NULL) score += 30;
+            
+            // Medium score for reasonable structure
+            if (len >= 5 && len <= 32) score += 20; // reasonable length
+            if (strchr(candidate, '_') != NULL) score += 10; // contains underscore (common in release names)
+            if (strchr(candidate, '-') != NULL) score += 10; // contains dash (common in release names)
+            
+            // Basic score for any valid format
+            if (score == 0) score = 5; // Any valid format gets minimum score
+            
+            if (score > bestScore) {
+              bestScore = score;
+              strcpy(bestCandidate, candidate);
             }
           }
         }
       }
     }
+  }
+  
+  if (bestScore > 0) {
+    strcpy(extractedRelease, bestCandidate);
+    DEBUG_PRINTF_P(PSTR("Found release name by generic search (score %d): %s\n"), bestScore, extractedRelease);
+    return true;
   }
   
   return false;
