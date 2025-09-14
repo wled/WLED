@@ -86,11 +86,18 @@ bool extractReleaseNameFromBinary(const uint8_t* binaryData, size_t dataSize, ch
   for (int i = 0; releasePatterns[i] != NULL; i++) {
     pos = findStringInBinary(binaryData, scanSize, releasePatterns[i]);
     if (pos >= 0) {
-      // Found a potential release name, extract full null-terminated string
-      int len = extractNullTerminatedString(binaryData, scanSize, pos, extractedRelease, 64);
-      if (len > 0) {
-        DEBUG_PRINTF_P(PSTR("Found release name pattern: %s\n"), extractedRelease);
-        return true;
+      // Found a potential release name, but verify it's a standalone string
+      // Check that it's null-terminated and not part of a longer string
+      size_t patternLen = strlen(releasePatterns[i]);
+      
+      // Verify the string is properly null-terminated
+      if (pos + patternLen < scanSize && binaryData[pos + patternLen] == 0) {
+        // Also check that it's not preceded by alphanumeric character (to avoid partial matches)
+        if (pos == 0 || !isalnum(binaryData[pos - 1])) {
+          strcpy(extractedRelease, releasePatterns[i]);
+          DEBUG_PRINTF_P(PSTR("Found release name pattern: %s\n"), extractedRelease);
+          return true;
+        }
       }
     }
   }
