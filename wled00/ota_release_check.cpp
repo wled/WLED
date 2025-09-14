@@ -5,7 +5,7 @@
 #define MAX_SCAN_SIZE 32768
 
 /**
- * Find a string pattern in binary data using Boyer-Moore-like approach
+ * Find a string in binary data
  */
 static int findStringInBinary(const uint8_t* data, size_t dataSize, const char* pattern) {
   size_t patternLen = strlen(pattern);
@@ -20,18 +20,64 @@ static int findStringInBinary(const uint8_t* data, size_t dataSize, const char* 
 }
 
 /**
- * Extract null-terminated string from binary data starting at position
+ * Check if a string looks like a valid WLED release name
  */
-static int extractNullTerminatedString(const uint8_t* data, size_t dataSize, int position, char* output, size_t maxLen) {
-  if (position < 0 || position >= dataSize) return 0;
+static bool isValidReleaseNameFormat(const char* name, size_t len) {
+  if (len < 3 || len > 63) return false;
   
-  size_t len = 0;
-  for (size_t i = position; i < dataSize && len < (maxLen - 1); i++) {
-    if (data[i] == 0) break; // null terminator
-    output[len++] = data[i];
+  // Should contain at least one letter and be mostly alphanumeric with underscores/dashes
+  bool hasLetter = false;
+  for (size_t i = 0; i < len; i++) {
+    char c = name[i];
+    if (isalpha(c)) {
+      hasLetter = true;
+    } else if (!isdigit(c) && c != '_' && c != '-') {
+      return false; // Invalid character
+    }
   }
-  output[len] = '\0';
-  return len;
+  
+  return hasLetter; // Must have at least one letter
+}
+
+/**
+ * Extract release name by searching for null-terminated strings that look like release names
+ */
+static bool extractByGenericStringSearch(const uint8_t* data, size_t dataSize, char* extractedRelease) {
+  // Search for null-terminated strings that could be release names
+  for (size_t i = 0; i < dataSize - 4; i++) {
+    // Look for potential start of a string (printable character)
+    if (isalpha(data[i])) {
+      // Find the end of this string (null terminator)
+      size_t j = i;
+      while (j < dataSize && data[j] != 0) {
+        j++;
+      }
+      
+      if (j < dataSize) { // Found null terminator
+        size_t len = j - i;
+        if (len >= 3 && len <= 63) { // reasonable length for a release name
+          char candidate[64];
+          strncpy(candidate, (const char*)(data + i), len);
+          candidate[len] = '\0';
+          
+          // Check if this looks like a valid release name
+          if (isValidReleaseNameFormat(candidate, len)) {
+            // Additional heuristics: common WLED release name patterns
+            if (strstr(candidate, "ESP") != NULL ||     // Contains ESP
+                strstr(candidate, "WLED") != NULL ||    // Contains WLED  
+                strstr(candidate, "Custom") != NULL) {  // Custom build
+              
+              strcpy(extractedRelease, candidate);
+              DEBUG_PRINTF_P(PSTR("Found release name by generic search: %s\n"), extractedRelease);
+              return true;
+            }
+          }
+        }
+      }
+    }
+  }
+  
+  return false;
 }
 
 bool extractReleaseNameFromBinary(const uint8_t* binaryData, size_t dataSize, char* extractedRelease) {
@@ -42,64 +88,23 @@ bool extractReleaseNameFromBinary(const uint8_t* binaryData, size_t dataSize, ch
   // Limit scan size to avoid performance issues with large binaries
   size_t scanSize = (dataSize > MAX_SCAN_SIZE) ? MAX_SCAN_SIZE : dataSize;
   
-  // Known WLED release name patterns - we'll look for these in the binary
-  // Order by specificity (more specific first)
-  const char* releasePatterns[] = {
-    "ESP32_Ethernet",
-    "ESP32_USERMODS", 
-    "ESP32_WROVER",
-    "ESP32-S3_16MB_opi",
-    "ESP32-S3_8MB_opi",
-    "ESP32-S3_WROOM-2",
-    "ESP32-S3_4M_qspi",
-    "ESP32-S3",
-    "ESP32-S2",
-    "ESP32-C3",
-    "ESP32_V4",
-    "ESP32_8M",
-    "ESP32_16M", 
-    "ESP32",
-    "ESP8266_160",
-    "ESP8266_compat",
-    "ESP8266",
-    "ESP02_compat",
-    "ESP02_160",
-    "ESP02",
-    "ESP01_compat", 
-    "ESP01_160",
-    "ESP01",
-    "Custom",
-    NULL // sentinel
-  };
-  
-  // First try to find the exact current releaseString in the binary
-  // This is the most reliable method if the string exists  
+  // First, try to find the exact current release string in the binary
+  // This is the most reliable method since we know what we're looking for
   int pos = findStringInBinary(binaryData, scanSize, releaseString);
   if (pos >= 0) {
-    strcpy(extractedRelease, releaseString);
-    DEBUG_PRINTF_P(PSTR("Found exact current release string in binary: %s\n"), extractedRelease);
-    return true;
+    // Verify it's properly null-terminated
+    size_t releaseLen = strlen(releaseString);
+    if (pos + releaseLen < scanSize && binaryData[pos + releaseLen] == 0) {
+      strcpy(extractedRelease, releaseString);
+      DEBUG_PRINTF_P(PSTR("Found exact current release string in binary: %s\n"), extractedRelease);
+      return true;
+    }
   }
   
-  // Search through the binary for known release patterns
-  // We'll search through the entire scanSize, not just fixed positions
-  for (int i = 0; releasePatterns[i] != NULL; i++) {
-    pos = findStringInBinary(binaryData, scanSize, releasePatterns[i]);
-    if (pos >= 0) {
-      // Found a potential release name, but verify it's a standalone string
-      // Check that it's null-terminated and not part of a longer string
-      size_t patternLen = strlen(releasePatterns[i]);
-      
-      // Verify the string is properly null-terminated
-      if (pos + patternLen < scanSize && binaryData[pos + patternLen] == 0) {
-        // Also check that it's not preceded by alphanumeric character (to avoid partial matches)
-        if (pos == 0 || !isalnum(binaryData[pos - 1])) {
-          strcpy(extractedRelease, releasePatterns[i]);
-          DEBUG_PRINTF_P(PSTR("Found release name pattern: %s\n"), extractedRelease);
-          return true;
-        }
-      }
-    }
+  // Fallback: Search for any string that looks like a release name
+  // This handles the case where the binary has a different but valid release name
+  if (extractByGenericStringSearch(binaryData, scanSize, extractedRelease)) {
+    return true;
   }
   
   DEBUG_PRINTLN(F("Could not extract release name from binary"));
