@@ -95,6 +95,12 @@ function adoptVersionAndRepo(html) {
   if (version) {
     html = html.replaceAll("##VERSION##", version);
   }
+  
+  // Replace ##RELEASE## with a placeholder that will be replaced at runtime
+  // Since we can't determine the exact release name at build time (it depends on build flags),
+  // we'll use a special marker that gets replaced in the server code
+  html = html.replaceAll("##RELEASE##", "%RELEASE%");
+  
   return html;
 }
 
