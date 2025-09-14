@@ -212,7 +212,8 @@
 					dbl = len * ch * 3; // DMA buffer for parallel I2S (TODO: ony the bus with largst LED count should be used)
 				}
 			}
-			return len * ch * mul + dbl;
+			let pbfr = len * 8; // pixel buffers: global buffer + segment buffer (at least one segment buffer is required)
+			return len * ch * mul + dbl + pbfr;
 		}
 
 		function UI(change=false)
