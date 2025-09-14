@@ -18,15 +18,14 @@
 
 /**
  * WLED Custom Description Structure
- * This structure is embedded in the .rodata_custom_desc section at a fixed offset
- * in ESP32 binaries, allowing extraction without modifying the binary format
+ * This structure is embedded in platform-specific sections at a fixed offset
+ * in ESP32/ESP8266 binaries, allowing extraction without modifying the binary format
  */
 typedef struct {
     uint32_t magic;               // Magic number to identify WLED custom description
     uint32_t version;             // Structure version for future compatibility
     char release_name[WLED_RELEASE_NAME_MAX_LEN]; // Release name (null-terminated)
     uint32_t crc32;              // CRC32 of the above fields for integrity check
-    uint8_t reserved[12];        // Reserved for future use, must be zero
 } __attribute__((packed)) wled_custom_desc_t;
 
 /**

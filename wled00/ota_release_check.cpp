@@ -6,23 +6,24 @@
 #include <esp_ota_ops.h>
 #endif
 
+// Same hash function used at compile time (must match wled_custom_desc.cpp)
+static uint32_t djb2_hash(const char* str) {
+    uint32_t hash = 5381;
+    while (*str) {
+        hash = ((hash << 5) + hash) + *str++;
+    }
+    return hash;
+}
+
 bool extractReleaseFromCustomDesc(const uint8_t* binaryData, size_t dataSize, char* extractedRelease) {
     if (!binaryData || !extractedRelease || dataSize < 64) {
         return false;
     }
 
-    // Helper lambda function for hash validation (same as in wled_custom_desc.cpp)
-    auto simple_hash = [](const char* str) -> uint32_t {
-        uint32_t hash = 5381;
-        for (int i = 0; str[i]; ++i) {
-            hash = ((hash << 5) + hash) + str[i];
-        }
-        return hash;
-    };
-
-    // For both ESP32 and ESP8266, search for our custom structure
-    // Since we don't know the exact offset, we'll search for our magic number
-    const size_t search_limit = min(dataSize, (size_t)32768); // Limit search to first 32KB
+    // Search in first 8KB only - ESP32 .rodata.wled_desc and ESP8266 .ver_number 
+    // sections appear early in binary. 8KB should be sufficient for metadata discovery
+    // while minimizing processing time for large firmware files.
+    const size_t search_limit = min(dataSize, (size_t)8192);
     
     for (size_t offset = 0; offset <= search_limit - sizeof(wled_custom_desc_t); offset++) {
         const wled_custom_desc_t* custom_desc = (const wled_custom_desc_t*)(binaryData + offset);
@@ -36,9 +37,9 @@ bool extractReleaseFromCustomDesc(const uint8_t* binaryData, size_t dataSize, ch
                 continue;
             }
             
-            // Validate hash - allow CRC32 of 0 (not computed at compile time)
-            uint32_t expected_hash = simple_hash(custom_desc->release_name);
-            if (custom_desc->crc32 != 0 && custom_desc->crc32 != expected_hash) {
+            // Validate hash using same algorithm as compile-time
+            uint32_t expected_hash = djb2_hash(custom_desc->release_name);
+            if (custom_desc->crc32 != expected_hash) {
                 DEBUG_PRINTF_P(PSTR("Found WLED structure at offset %u but hash mismatch\n"), offset);
                 continue;
             }
@@ -92,14 +93,14 @@ bool shouldAllowOTA(const uint8_t* binaryData, size_t dataSize, bool ignoreRelea
     return true;
   }
 
-  // Try to extract release name from custom description section
+  // Try to extract release name directly from binary data
   char extractedRelease[WLED_RELEASE_NAME_MAX_LEN];
   bool hasCustomDesc = extractReleaseFromCustomDesc(binaryData, dataSize, extractedRelease);
 
   if (!hasCustomDesc) {
     // No custom description - this could be a legacy binary
     if (errorMessage) {
-      strcpy(errorMessage, "Binary has no release compatibility metadata. Check 'Ignore release name check' to proceed.");
+      strcpy(errorMessage, "Binary has no release compatibility metadata. Check 'Ignore validation' to proceed.");
     }
     DEBUG_PRINTLN(F("OTA blocked: No custom description found"));
     return false;
@@ -108,7 +109,7 @@ bool shouldAllowOTA(const uint8_t* binaryData, size_t dataSize, bool ignoreRelea
   // Validate compatibility using extracted release name
   if (!validateReleaseCompatibility(extractedRelease)) {
     if (errorMessage) {
-      snprintf(errorMessage, 127, "Release mismatch: current='%s', uploaded='%s'. Check 'Ignore release name check' to proceed.", 
+      snprintf(errorMessage, 127, "Release mismatch: current='%s', uploaded='%s'. Check 'Ignore validation' to proceed.", 
                releaseString, extractedRelease);
     }
     DEBUG_PRINTF_P(PSTR("OTA blocked: Release mismatch current='%s', uploaded='%s'\n"), 
