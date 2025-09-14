@@ -292,7 +292,8 @@
   function colClk(e) {
     rmTrash(e);
     e.stopPropagation();
-    let cp = gId(e.srcElement.id.replace("M","")); // marker → picker
+    const src = e.target || e.srcElement;
+    let cp = gId(src.id.replace("M","")); // marker → picker
     cp.click();
   }
 
@@ -350,12 +351,12 @@
 
   function delCol(e) { // deleteColor
     var trash=cE("div");
-    var dM=e.srcElement;
+    var dM=e.target || e.srcElement;
     var cM=gId(dM.id.replace("d","c"));
     var cPM=gId(dM.id.replace("dMark","cPM"));
     var cP=gId(dM.id.replace("dMark","cPick"));
-    var rX=e.srcElement.getBoundingClientRect().x-10;
-    var rY=e.srcElement.getBoundingClientRect().y+13;
+    var rX=dM.getBoundingClientRect().x-10;
+    var rY=dM.getBoundingClientRect().y+13;
 
     trash.id="trash";
     trash.innerHTML=svgTrash;
@@ -395,18 +396,6 @@
   function initUpload(i) {
     uploadJSON(calcJSON(), `/palette${i}.json`);
   }
-
-  function uploadJSON(js,fName) {
-    var req=new XMLHttpRequest();
-    var blob=new Blob([js],{type:"application/json"});
-    req.addEventListener('load',()=>{localStorage.removeItem('wledPalx'); window.location.href='/';});
-    req.open("POST","/upload");
-    var fd=new FormData();
-    fd.append("data",blob,fName);
-    req.send(fd);
-    return false;
-  }
-
 
   function uploadJSON(jsonString, fileName) {
     //Some indication on "I'm working"
@@ -528,7 +517,7 @@
     const sPalsDiv = gId("sPals");
     const memWarn = gId("memWarn");
     const palDivs = Array.from(palsDiv.children).filter((child) => {
-      return child.id.match(/^pal\d$/); // match only elements with id starting with "pal" followed by a single digit
+      return /^pal\d+$/.test(child.id); // match ids "pal" followed by one or more digits
     });
 
     for (const div of palDivs) {
