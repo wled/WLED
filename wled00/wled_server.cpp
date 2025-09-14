@@ -512,7 +512,11 @@ void initServer()
         #if WLED_WATCHDOG_TIMEOUT > 0
         WLED::instance().enableWatchdog();
         #endif
+        #ifdef ESP32
+        request->send(500, FPSTR(CONTENT_TYPE_PLAIN), String("Update.begin failed: ") + Update.errorString());
+        #else
         request->send(500, FPSTR(CONTENT_TYPE_PLAIN), String("Update.begin failed: ") + Update.getErrorString());
+        #endif
         return;
       }
       

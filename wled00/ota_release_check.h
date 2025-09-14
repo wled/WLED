@@ -55,4 +55,11 @@ bool validateReleaseCompatibility(const char* extractedRelease);
  */
 bool shouldAllowOTA(const uint8_t* binaryData, size_t dataSize, bool ignoreReleaseCheck, char* errorMessage);
 
+/**
+ * Get pointer to the embedded custom description structure
+ * This ensures the structure is referenced and not optimized out
+ * @return pointer to the custom description structure
+ */
+const wled_custom_desc_t* getWledCustomDesc();
+
 #endif // WLED_OTA_RELEASE_CHECK_H
