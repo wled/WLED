@@ -970,7 +970,7 @@ WLED_GLOBAL int8_t spi_sclk  _INIT(SPISCLKPIN);
 // global ArduinoJson buffer
 #if defined(ARDUINO_ARCH_ESP32)
 WLED_GLOBAL JsonDocument *pDoc _INIT(nullptr);
-WLED_GLOBAL SemaphoreHandle_t jsonBufferLockMutex _INIT(xSemaphoreCreateRecursiveMutex());
+WLED_GLOBAL SemaphoreHandle_t jsonBufferLockMutex _INIT(xSemaphoreCreateBinary());
 #else
 WLED_GLOBAL StaticJsonDocument<JSON_BUFFER_SIZE> gDoc;
 WLED_GLOBAL JsonDocument *pDoc _INIT(&gDoc);
