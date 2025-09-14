@@ -177,8 +177,6 @@ static String msgProcessor(const String& var)
   return String();
 }
 
-
-
 static void handleUpload(AsyncWebServerRequest *request, const String& filename, size_t index, uint8_t *data, size_t len, bool isFinal) {
   if (!correctPIN) {
     if (isFinal) request->send(401, FPSTR(CONTENT_TYPE_PLAIN), FPSTR(s_unlock_cfg));
@@ -428,70 +426,32 @@ void initServer()
     }
     if (!correctPIN || otaLock) return;
     
-    // Static variables to track metadata processing state across chunks
-    static bool metadataProcessed = false;
+    // Static variable to track release check status across chunks
     static bool releaseCheckPassed = false;
-    static uint8_t* firstChunkBuffer = nullptr;
-    static size_t expectedFirmwareSize = 0;
-    static size_t totalBytesWritten = 0;
     
     if(!index){
       DEBUG_PRINTLN(F("OTA Update Start"));
       
-      // Reset metadata processing state
-      metadataProcessed = false;
-      releaseCheckPassed = false;
-      expectedFirmwareSize = 0;
-      totalBytesWritten = 0;
-      
-      // Clean up any existing buffer
-      if (firstChunkBuffer) {
-        free(firstChunkBuffer);
-        firstChunkBuffer = nullptr;
-      }
-      
-      #if WLED_WATCHDOG_TIMEOUT > 0
-      WLED::instance().disableWatchdog();
-      #endif
-      UsermodManager::onUpdateBegin(true); // notify usermods that update is about to begin (some may require task de-init)
-      lastEditTime = millis(); // make sure PIN does not lock during update
-    }
-    
-    // Process first chunk to check metadata and start OTA
-    if (!metadataProcessed && index == 0) {
-      metadataProcessed = true;
-      
-      // Create a copy of the first chunk data that we can modify for metadata extraction
-      firstChunkBuffer = (uint8_t*)malloc(len);
-      if (!firstChunkBuffer) {
-        DEBUG_PRINTLN(F("OTA Failed: Could not allocate buffer for metadata processing"));
-        request->send(500, FPSTR(CONTENT_TYPE_PLAIN), F("OTA Failed: Memory allocation error"));
-        return;
-      }
-      memcpy(firstChunkBuffer, data, len);
-      
       // Check if user wants to ignore release check
       bool ignoreRelease = request->hasParam("ignoreRelease", true);
       
+      // Validate OTA release compatibility using the first chunk data directly
       char errorMessage[128];
-      releaseCheckPassed = shouldAllowOTA(firstChunkBuffer, len, ignoreRelease, errorMessage);
+      releaseCheckPassed = shouldAllowOTA(data, len, ignoreRelease, errorMessage);
       
       if (!releaseCheckPassed) {
         DEBUG_PRINTF_P(PSTR("OTA blocked: %s\n"), errorMessage);
-        free(firstChunkBuffer);
-        firstChunkBuffer = nullptr;
-        UsermodManager::onUpdateBegin(false);
-        #if WLED_WATCHDOG_TIMEOUT > 0
-        WLED::instance().enableWatchdog();
-        #endif
         request->send(400, FPSTR(CONTENT_TYPE_PLAIN), errorMessage);
         return;
       }
       
       DEBUG_PRINTLN(F("Release check passed, starting OTA update"));
       
-      // Use full content length as firmware size (no binary modification with custom description approach)
-      expectedFirmwareSize = request->contentLength();
+      #if WLED_WATCHDOG_TIMEOUT > 0
+      WLED::instance().disableWatchdog();
+      #endif
+      UsermodManager::onUpdateBegin(true); // notify usermods that update is about to begin (some may require task de-init)
+      lastEditTime = millis(); // make sure PIN does not lock during update
       
       // Start the actual OTA update
       strip.suspend();
@@ -501,12 +461,10 @@ void initServer()
       Update.runAsync(true);
       #endif
       
-      // Begin update with the correct firmware size
-      size_t updateSize = (expectedFirmwareSize > 0) ? expectedFirmwareSize : ((ESP.getFreeSketchSpace() - 0x1000) & 0xFFFFF000);
+      // Begin update with the firmware size from content length
+      size_t updateSize = request->contentLength() > 0 ? request->contentLength() : ((ESP.getFreeSketchSpace() - 0x1000) & 0xFFFFF000);
       if (!Update.begin(updateSize)) {
         DEBUG_PRINTF_P(PSTR("OTA Failed to begin: %s\n"), Update.getErrorString().c_str());
-        free(firstChunkBuffer);
-        firstChunkBuffer = nullptr;
         strip.resume();
         UsermodManager::onUpdateBegin(false);
         #if WLED_WATCHDOG_TIMEOUT > 0
@@ -519,30 +477,17 @@ void initServer()
         #endif
         return;
       }
-      
-      // Write the first chunk of firmware data
-      if (len > 0 && !Update.hasError()) {
-        if (Update.write(firstChunkBuffer, len) != len) {
-          DEBUG_PRINTF_P(PSTR("OTA write failed on first chunk: %s\n"), Update.getErrorString().c_str());
-        } else {
-          totalBytesWritten += len;
-        }
-      }
-      
-      free(firstChunkBuffer);
-      firstChunkBuffer = nullptr;
     }
-    // Write subsequent chunks directly to Update
-    else if (metadataProcessed && releaseCheckPassed && index > 0 && !Update.hasError()) {
+    
+    // Write chunk data to OTA update (only if release check passed)
+    if (releaseCheckPassed && !Update.hasError()) {
       if (Update.write(data, len) != len) {
         DEBUG_PRINTF_P(PSTR("OTA write failed on chunk %zu: %s\n"), index, Update.getErrorString().c_str());
-      } else {
-        totalBytesWritten += len;
       }
     }
     
     if(isFinal){
-      DEBUG_PRINTF_P(PSTR("OTA Update End: %zu bytes written\n"), totalBytesWritten);
+      DEBUG_PRINTLN(F("OTA Update End"));
       
       if (releaseCheckPassed) {
         if(Update.end(true)){
@@ -555,12 +500,6 @@ void initServer()
           WLED::instance().enableWatchdog();
           #endif
         }
-      }
-      
-      // Clean up
-      if (firstChunkBuffer) {
-        free(firstChunkBuffer);
-        firstChunkBuffer = nullptr;
       }
     }
   });
