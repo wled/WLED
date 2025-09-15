@@ -8,7 +8,7 @@
 // A simple view that renders one or more agency:stopCode boards onto a segment.
 class DepartureView : public IDataViewT<DepartModel> {
 private:
-  uint16_t boardingSecs_ = 60; // show past etd for this long
+  uint16_t boardingSecs_ = 0;  // show past etd for this long (default)
   String keysStr_;             // Raw string (e.g., "AC:50958,AC:50959" or "AC:50958 50959")
   std::vector<String> keys_;   // Parsed keys (each "AGENCY:StopCode")
   std::vector<String> agencies_; // Precomputed agencies for each key (same indexing as keys_)
@@ -32,6 +32,7 @@ public:
   void addToConfig(JsonObject& root) override {
     root["SegmentId"] = segmentId_;
     root["AgencyStopCodes"] = keysStr_;
+    root["BoardingSecs"] = boardingSecs_;
   }
   void appendConfigData(Print& s) override { appendConfigData(s, nullptr); }
   void appendConfigData(Print& s, const DepartModel* model) override;
@@ -54,6 +55,7 @@ public:
         updateConfigKey_();
       }
     }
+    ok &= getJsonValue(root["BoardingSecs"], boardingSecs_, (uint16_t)0);
     return ok;
   }
   const char* configKey() const override { return configKey_.c_str(); }
