@@ -13,6 +13,10 @@
 #include "FXparticleSystem.h"  // TODO: better define the required function (mem service) in FX.h?
 #include "palettes.h"
 
+#ifndef DEFAULT_LED_COLOR_ORDER
+  #define DEFAULT_LED_COLOR_ORDER COL_ORDER_GRB  //default to GRB
+#endif
+
 /*
   Custom per-LED mapping has moved!
 
@@ -1173,12 +1177,22 @@ void WS2812FX::finalizeInit() {
 
   // create buses/outputs
   unsigned mem = 0;
-  for (const auto &bus : busConfigs) {
-    mem += bus.memUsage(Bus::isDigital(bus.type) && !Bus::is2Pin(bus.type) ? digitalCount++ : 0); // includes global buffer
-    if (mem <= MAX_LED_MEMORY) {
-      if (BusManager::add(bus) == -1) break;
-    } else DEBUG_PRINTF_P(PSTR("Out of LED memory! Bus %d (%d) #%u not created."), (int)bus.type, (int)bus.count, digitalCount);
+  for (auto bus : busConfigs) {
+    // Calculate what this bus would use with its current configuration
+    unsigned busMemUsage = bus.memUsage(Bus::isDigital(bus.type) && !Bus::is2Pin(bus.type) ? digitalCount : 0);
+    
+    // If memory exceeds limit, set count to minimum of current count and default length
+    if (mem + busMemUsage > MAX_LED_MEMORY) {
+      bus.count = min(bus.count, DEFAULT_LED_COUNT);
+      DEBUG_PRINTF_P(PSTR("Bus %d memory usage exceeds limit, setting count to %d\n"), (int)bus.type, bus.count);
+    }
+    
+    if (BusManager::add(bus) != -1) {
+      mem += bus.memUsage(Bus::isDigital(bus.type) && !Bus::is2Pin(bus.type) ? digitalCount : 0);
+      if (Bus::isDigital(bus.type) && !Bus::is2Pin(bus.type)) digitalCount++;
+    } else break;
   }
+  
   busConfigs.clear();
   busConfigs.shrink_to_fit();
 
