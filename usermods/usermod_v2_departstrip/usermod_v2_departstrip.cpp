@@ -51,7 +51,14 @@ void DepartStrip::loop() {
   bool becameOn = (lastOff_ && !offMode);
   bool becameEnabled = (!lastEnabled_ && enabled_);
   if (becameOn || becameEnabled) {
-    if (now > 0) reloadSources(now);
+    bool didReload = false;
+    if (now > 0) {
+      reloadSources(now);
+      didReload = true;
+    }
+    if (didReload && bootEffectActive_) {
+      doneBooting();
+    }
   }
   lastOff_ = offMode;
   lastEnabled_ = enabled_;
@@ -385,11 +392,13 @@ void DepartStrip::showBooting() {
   seg.setColor(0, 0x404060);
   seg.setColor(1, 0x000000);
   seg.setColor(2, 0x303040);
+  bootEffectActive_ = true;
 }
 
 void DepartStrip::doneBooting() {
   Segment& seg = strip.getMainSegment();
   seg.setMode(0);
+  bootEffectActive_ = false;
 }
 
 void DepartStrip::reloadSources(std::time_t now) {

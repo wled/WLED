@@ -20,6 +20,7 @@ private:
   bool edgeInit_ = false;
   bool lastOff_ = false;
   bool lastEnabled_ = false;
+  bool bootEffectActive_ = false;
 
   std::vector<std::unique_ptr<IDataSourceT<DepartModel>>> sources_;
   std::unique_ptr<DepartModel> model_;
