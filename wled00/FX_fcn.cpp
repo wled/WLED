@@ -1175,24 +1175,98 @@ void WS2812FX::finalizeInit() {
   digitalCount = 0;
   #endif
 
-  // create buses/outputs
+  // create buses/outputs with memory-aware truncation
   unsigned mem = 0;
-  for (const auto &bus : busConfigs) {
-    mem += bus.memUsage(Bus::isDigital(bus.type) && !Bus::is2Pin(bus.type) ? digitalCount++ : 0); // includes global buffer
-    if (mem <= MAX_LED_MEMORY) {
-      if (BusManager::add(bus) == -1) break;
-    } else DEBUG_PRINTF_P(PSTR("Out of LED memory! Bus %d (%d) #%u not created."), (int)bus.type, (int)bus.count, digitalCount);
+  std::vector<BusConfig> truncatedConfigs;
+  
+  for (auto bus : busConfigs) {
+    // Calculate what this bus would use with its current configuration
+    unsigned busMemUsage = bus.memUsage(Bus::isDigital(bus.type) && !Bus::is2Pin(bus.type) ? digitalCount : 0);
+    
+    if (mem + busMemUsage <= MAX_LED_MEMORY) {
+      // Bus fits as-is, add it
+      if (BusManager::add(bus) != -1) {
+        mem += busMemUsage;
+        if (Bus::isDigital(bus.type) && !Bus::is2Pin(bus.type)) digitalCount++;
+        truncatedConfigs.push_back(bus);
+      } else break;
+    } else {
+      // Bus doesn't fit, try to truncate LED count to fit available memory
+      unsigned remainingMem = MAX_LED_MEMORY - mem;
+      if (remainingMem > 0) {
+        // Binary search to find maximum LED count that fits in remaining memory
+        uint16_t maxCount = bus.count;
+        uint16_t minCount = 1;
+        uint16_t bestCount = 0;
+        
+        while (minCount <= maxCount) {
+          uint16_t testCount = minCount + (maxCount - minCount) / 2;
+          BusConfig testBus = bus;
+          testBus.count = testCount;
+          
+          unsigned testMem = testBus.memUsage(Bus::isDigital(testBus.type) && !Bus::is2Pin(testBus.type) ? digitalCount : 0);
+          
+          if (testMem <= remainingMem) {
+            bestCount = testCount;
+            minCount = testCount + 1;
+          } else {
+            maxCount = testCount - 1;
+          }
+        }
+        
+        if (bestCount > 0) {
+          // Found a truncated configuration that fits
+          bus.count = bestCount;
+          DEBUG_PRINTF_P(PSTR("Truncated bus %d from %u to %u LEDs to fit memory constraints.\n"), (int)bus.type, (int)maxCount, (int)bestCount);
+          
+          if (BusManager::add(bus) != -1) {
+            mem += bus.memUsage(Bus::isDigital(bus.type) && !Bus::is2Pin(bus.type) ? digitalCount : 0);
+            if (Bus::isDigital(bus.type) && !Bus::is2Pin(bus.type)) digitalCount++;
+            truncatedConfigs.push_back(bus);
+          }
+        } else {
+          DEBUG_PRINTF_P(PSTR("Out of LED memory! Bus %d (%d) #%u not created - no room for even 1 LED."), (int)bus.type, (int)bus.count, digitalCount);
+        }
+      } else {
+        DEBUG_PRINTF_P(PSTR("Out of LED memory! Bus %d (%d) #%u not created."), (int)bus.type, (int)bus.count, digitalCount);
+      }
+    }
   }
+  
+  // If no buses were successfully created, create a minimal fallback using first user config or defaults
+  if (BusManager::getNumBusses() == 0) {
+    DEBUG_PRINTLN(F("No buses created due to memory limits! Creating fallback bus with user config or defaults."));
+    
+    BusConfig fallbackCfg;
+    if (!busConfigs.empty()) {
+      // Use first user configuration but with minimal LED count
+      fallbackCfg = busConfigs[0];
+      fallbackCfg.count = 1;  // Start with minimal count
+      fallbackCfg.start = 0;  // Ensure it starts at 0
+      
+      // Try to fit as many LEDs as possible within memory constraints
+      for (uint16_t testCount = 1; testCount <= DEFAULT_LED_COUNT; testCount++) {
+        fallbackCfg.count = testCount;
+        unsigned testMem = fallbackCfg.memUsage(Bus::isDigital(fallbackCfg.type) && !Bus::is2Pin(fallbackCfg.type) ? 0 : 0);
+        if (testMem > MAX_LED_MEMORY) {
+          fallbackCfg.count = (testCount > 1) ? testCount - 1 : 1;
+          break;
+        }
+      }
+      
+      DEBUG_PRINTF_P(PSTR("Using user config: type=%d, pin=%d, count=%d\n"), 
+                     (int)fallbackCfg.type, (int)fallbackCfg.pins[0], (int)fallbackCfg.count);
+    } else {
+      // Use complete defaults
+      uint8_t defPin[1] = {DEFAULT_LED_PIN};
+      fallbackCfg = BusConfig(DEFAULT_LED_TYPE, defPin, 0, DEFAULT_LED_COUNT, DEFAULT_LED_COLOR_ORDER, false, 0, RGBW_MODE_MANUAL_ONLY, 0);
+    }
+    
+    BusManager::add(fallbackCfg);
+  }
+  
   busConfigs.clear();
   busConfigs.shrink_to_fit();
-
-  // ensure at least one bus exists as fallback to prevent UI issues and provide basic LED output
-  if (BusManager::getNumBusses() == 0) {
-    DEBUG_PRINTLN(F("No buses created due to memory limits! Creating fallback bus with default LED count."));
-    uint8_t defPin[1] = {DEFAULT_LED_PIN};
-    BusConfig defCfg = BusConfig(DEFAULT_LED_TYPE, defPin, 0, DEFAULT_LED_COUNT, DEFAULT_LED_COLOR_ORDER, false, 0, RGBW_MODE_MANUAL_ONLY, 0);
-    BusManager::add(defCfg);
-  }
 
   _length = 0;
   for (size_t i=0; i<BusManager::getNumBusses(); i++) {

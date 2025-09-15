@@ -668,9 +668,20 @@ function parseInfo(i) {
 	if (loc)    name = "(L) " + name;
 	d.title      = name;
 	simplifiedUI = i.simplifiedui;
-	ledCount     = i.leds.count;
+	// Add safety checks for LED count data to prevent UI crashes
+	if (i.leds && typeof i.leds.count !== 'undefined') {
+		ledCount = i.leds.count;
+	} else {
+		console.warn('LED count data missing, using fallback value');
+		ledCount = 30; // Fallback value matching firmware default
+	}
 	//syncTglRecv   = i.str;
-	maxSeg       = i.leds.maxseg;
+	if (i.leds && typeof i.leds.maxseg !== 'undefined') {
+		maxSeg = i.leds.maxseg;
+	} else {
+		console.warn('Max segment data missing, using fallback value');
+		maxSeg = 16; // Reasonable fallback for max segments
+	}
 	pmt          = i.fs.pmt;
 	if (pcMode && !i.wifi.ap) gId('edit').classList.remove("hide"); else gId('edit').classList.add("hide");
 	gId('buttonNodes').style.display = lastinfo.ndc > 0 ? null:"none";
