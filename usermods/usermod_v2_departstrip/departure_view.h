@@ -68,17 +68,23 @@ private:
     String agencyHint, token;
     auto flush = [&]() {
       token.trim();
+      token.replace("\r", "");
       if (!token.length()) return;
       int c = token.indexOf(':');
       if (c > 0) {
-        keys_.push_back(token);
         String ag = token.substring(0, c);
+        ag.trim();
+        ag.replace("\r", "");
+        keys_.push_back(token);
         agencies_.push_back(ag);
-        if (!agencyHint.length()) agencyHint = ag;
+        agencyHint = ag;
       } else {
         if (agencyHint.length() > 0) {
-          String k = agencyHint; k += ':'; k += token; keys_.push_back(k);
-          agencies_.push_back(agencyHint);
+          String hintClean = agencyHint;
+          hintClean.trim();
+          hintClean.replace("\r", "");
+          String k = hintClean; k += ':'; k += token; keys_.push_back(k);
+          agencies_.push_back(hintClean);
         } else {
           keys_.push_back(token);
           agencies_.push_back(String());
@@ -88,7 +94,7 @@ private:
     };
     for (unsigned i = 0; i < in.length(); ++i) {
       char ch = in.charAt(i);
-      if (ch == ',' || ch == ' ' || ch == '\t' || ch == '\n' || ch == ';') flush();
+      if (ch == ',' || ch == ' ' || ch == '\t' || ch == '\n' || ch == '\r' || ch == ';') flush();
       else token += ch;
     }
     flush();
