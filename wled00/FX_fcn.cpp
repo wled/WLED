@@ -1181,10 +1181,10 @@ void WS2812FX::finalizeInit() {
     // Calculate what this bus would use with its current configuration
     unsigned busMemUsage = bus.memUsage(Bus::isDigital(bus.type) && !Bus::is2Pin(bus.type) ? digitalCount : 0);
     
-    // If memory exceeds limit, set count to default length and add anyway
+    // If memory exceeds limit, set count to minimum of current count and default length
     if (mem + busMemUsage > MAX_LED_MEMORY) {
-      bus.count = DEFAULT_LED_COUNT;
-      DEBUG_PRINTF_P(PSTR("Bus %d memory usage exceeds limit, setting count to default %d\n"), (int)bus.type, DEFAULT_LED_COUNT);
+      bus.count = min(bus.count, DEFAULT_LED_COUNT);
+      DEBUG_PRINTF_P(PSTR("Bus %d memory usage exceeds limit, setting count to %d\n"), (int)bus.type, bus.count);
     }
     
     if (BusManager::add(bus) != -1) {
