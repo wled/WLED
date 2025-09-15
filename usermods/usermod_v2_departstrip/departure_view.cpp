@@ -123,10 +123,14 @@ void DepartureView::view(std::time_t now, const DepartModel &model) {
 }
 
 void DepartureView::appendConfigData(Print &s, const DepartModel *model) {
-  // Placeholder for UI helpers (e.g., show recent LineRefs)
+  // Segment hint plus trailing stats rendered via addInfo helpers
   s.print(F("addInfo('DepartStrip:"));
   s.print(configKey());
-  s.print(F(":SegmentId',1,'<div style=\\'margin-top:12px;\\'>"));
+  s.println(F(":SegmentId',1,'','&nbsp;<small style=\\'opacity:.8\\'>(-1 disables)</small>');"));
+
+  s.print(F("addInfo('DepartStrip:"));
+  s.print(configKey());
+  s.print(F(":Delete',1,'<div style=\\'margin-top:12px;\\'>"));
   if (model) {
     int total = 0; int boards = 0;
     if (!keys_.empty()) {
@@ -141,7 +145,5 @@ void DepartureView::appendConfigData(Print &s, const DepartModel *model) {
     if (boards > 0) { s.print(F("Items: ")); s.print(total); }
     else { s.print(F("No data yet")); }
   } else { s.print(F("No data yet")); }
-  s.print(F("</div>',"));
-  s.print(F("'&nbsp;<small style=\\'opacity:.8\\'>(-1 disables)</small>'"));
-  s.println(F(");"));
+  s.println(F("</div>','');"));
 }
