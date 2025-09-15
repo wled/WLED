@@ -129,7 +129,15 @@ async function minify(str, type = "plain") {
 async function writeHtmlGzipped(sourceFile, resultFile, page) {
   console.info("Reading " + sourceFile);
   new inliner(sourceFile, async function (error, html) {
-    if (error) throw error;
+    if (error) {
+      console.warn("Inliner failed, using fallback for " + sourceFile + ": " + error.message);
+      // Fallback: read file directly without inlining
+      try {
+        html = fs.readFileSync(sourceFile, 'utf8');
+      } catch (readError) {
+        throw new Error("Failed to read " + sourceFile + ": " + readError.message);
+      }
+    }
 
     html = adoptVersionAndRepo(html);
     const originalLength = html.length;
@@ -257,6 +265,30 @@ writeChunks(
     {
       file: "common.js",
       name: "JS_common",
+      method: "gzip",
+      filter: "js-minify",
+    },
+    {
+      file: "index.css",
+      name: "PAGE_indexCss",
+      method: "gzip",
+      filter: "css-minify",
+    },
+    {
+      file: "index.js",
+      name: "PAGE_indexJs",
+      method: "gzip",
+      filter: "js-minify",
+    },
+    {
+      file: "iro.js",
+      name: "PAGE_iroJs",
+      method: "gzip",
+      filter: "js-minify",
+    },
+    {
+      file: "rangetouch.js",
+      name: "PAGE_rangetouchJs",
       method: "gzip",
       filter: "js-minify",
     },

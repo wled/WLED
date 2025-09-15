@@ -1,5 +1,10 @@
 #include "wled.h"
 
+// Include all HTML header files
+#include "html_ui.h"
+#include "html_settings.h"
+#include "html_other.h"
+#include "html_cpal.h"
 #ifdef WLED_ENABLE_PIXART
   #include "html_pixart.h"
 #endif
@@ -445,23 +450,23 @@ void initServer()
   // CSS and JS routes for the main WLED interface
   static const char _index_css[] PROGMEM = "/index.css";
   server.on(_index_css, HTTP_GET, [](AsyncWebServerRequest *request) {
-    handleStaticContent(request, FPSTR(_index_css), 200, F("text/css"), PAGE_indexCss, PAGE_indexCss_L);
+     handleStaticContent(request, FPSTR(_index_css), 200, F("text/css"), PAGE_indexCss, PAGE_indexCss_length);
   });
 
   static const char _index_js[] PROGMEM = "/index.js";
   server.on(_index_js, HTTP_GET, [](AsyncWebServerRequest *request) {
-    handleStaticContent(request, FPSTR(_index_js), 200, F("application/javascript"), PAGE_indexJs, PAGE_indexJs_L);
+    handleStaticContent(request, FPSTR(_index_js), 200, F("application/javascript"), PAGE_indexJs, PAGE_indexJs_length);
   });
 
   // Additional JavaScript libraries for the main WLED interface
   static const char _iro_js[] PROGMEM = "/iro.js";
   server.on(_iro_js, HTTP_GET, [](AsyncWebServerRequest *request) {
-    handleStaticContent(request, FPSTR(_iro_js), 200, F("application/javascript"), PAGE_iroJs, PAGE_iroJs_L);
+    handleStaticContent(request, FPSTR(_iro_js), 200, F("application/javascript"), PAGE_iroJs, PAGE_iroJs_length);
   });
 
   static const char _rangetouch_js[] PROGMEM = "/rangetouch.js";
   server.on(_rangetouch_js, HTTP_GET, [](AsyncWebServerRequest *request) {
-    handleStaticContent(request, FPSTR(_rangetouch_js), 200, F("application/javascript"), PAGE_rangetouchJs, PAGE_rangetouchJs_L);
+    handleStaticContent(request, FPSTR(_rangetouch_js), 200, F("application/javascript"), PAGE_rangetouchJs, PAGE_rangetouchJs_length);
   });
 
 
@@ -488,11 +493,12 @@ void initServer()
   // OneWheel custom interface route - served from filesystem for easy OTA updates
   static const char _onewheel_htm[] PROGMEM = "/onewheel.htm";
   server.on(_onewheel_htm, HTTP_GET, [](AsyncWebServerRequest *request) {
-    // Try to serve from filesystem first (for OTA updates)
-    if (handleFileRead(request, FPSTR(_onewheel_htm))) return;
+    // Temporarily disable filesystem serving to fix compression issues
+    // TODO: Re-enable filesystem serving once compression is fixed
+    // if (handleFileRead(request, FPSTR(_onewheel_htm))) return;
     
-    // Fallback to embedded version if filesystem file doesn't exist
-    handleStaticContent(request, FPSTR(_onewheel_htm), 200, FPSTR(CONTENT_TYPE_HTML), PAGE_onewheel_fallback, PAGE_onewheel_fallback_L);
+    // Serve embedded version directly without compression
+    request->send(200, FPSTR(CONTENT_TYPE_HTML), PAGE_onewheel_fallback);
   });
 
   // Custom UI Update endpoint for bulk filesystem updates

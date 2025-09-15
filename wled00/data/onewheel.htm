@@ -151,6 +151,43 @@
             color: #333;
             margin: 10px;
         }
+        .color-section {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            margin: 15px 0;
+        }
+        .color-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .color-group label {
+            font-weight: 500;
+            min-width: 120px;
+        }
+        .effect-buttons {
+            margin-top: 15px;
+        }
+        .speed-section {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        .slider-group {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        .slider-group label {
+            font-weight: 500;
+            min-width: 80px;
+        }
+        .slider-group span {
+            min-width: 40px;
+            text-align: center;
+            font-weight: 500;
+        }
         .ota-notice {
             background: rgba(255,193,7,0.1);
             border: 1px solid rgba(255,193,7,0.3);
@@ -180,16 +217,42 @@
 
     <div class="control">
         <h3>Color Control</h3>
-        <label>Primary Color: </label>
-        <input type="color" id="colorPicker" onchange="setColor(this.value)">
-        <button onclick="setEffect('solid')">Solid Color</button>
-        <button onclick="setEffect('rainbow')">Rainbow</button>
+        <div class="color-section">
+            <div class="color-group">
+                <label>Primary Color: </label>
+                <input type="color" id="colorPicker" onchange="setPrimaryColor(this.value)">
+            </div>
+            <div class="color-group">
+                <label>Secondary Color: </label>
+                <input type="color" id="secondaryColorPicker" onchange="setSecondaryColor(this.value)">
+            </div>
+        </div>
+        <div class="effect-buttons">
+            <button onclick="setEffect('solid')">Solid Color</button>
+            <button onclick="setEffect('rainbow')">Rainbow</button>
+        </div>
     </div>
 
     <div class="control">
         <h3>Brightness</h3>
         <input type="range" id="brightnessSlider" min="0" max="255" value="128" onchange="setBrightness(this.value)">
         <span id="brightnessValue">128</span>
+    </div>
+
+    <div class="control">
+        <h3>Effect Speed & Intensity</h3>
+        <div class="speed-section">
+            <div class="slider-group">
+                <label>Speed: </label>
+                <input type="range" id="speedSlider" min="0" max="255" value="128" onchange="setSpeed(this.value)">
+                <span id="speedValue">128</span>
+            </div>
+            <div class="slider-group">
+                <label>Intensity: </label>
+                <input type="range" id="intensitySlider" min="0" max="255" value="128" onchange="setIntensity(this.value)">
+                <span id="intensityValue">128</span>
+            </div>
+        </div>
     </div>
 
     <div class="control">
@@ -227,7 +290,7 @@
             });
         }
         
-        function setColor(color) {
+        function setPrimaryColor(color) {
             const hex = color.substring(1); // Remove # from color
             const r = parseInt(hex.substring(0,2), 16);
             const g = parseInt(hex.substring(2,4), 16);
@@ -244,12 +307,55 @@
             });
         }
         
+        function setSecondaryColor(color) {
+            const hex = color.substring(1); // Remove # from color
+            const r = parseInt(hex.substring(0,2), 16);
+            const g = parseInt(hex.substring(2,4), 16);
+            const b = parseInt(hex.substring(4,6), 16);
+            
+            fetch('/json/state', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    seg: [{
+                        col: [null, [r, g, b]] // Secondary color (index 1)
+                    }]
+                })
+            });
+        }
+        
         function setBrightness(value) {
             document.getElementById('brightnessValue').textContent = value;
             fetch('/json/state', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({bri: parseInt(value)})
+            });
+        }
+        
+        function setSpeed(value) {
+            document.getElementById('speedValue').textContent = value;
+            fetch('/json/state', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    seg: [{
+                        sx: parseInt(value)
+                    }]
+                })
+            });
+        }
+        
+        function setIntensity(value) {
+            document.getElementById('intensityValue').textContent = value;
+            fetch('/json/state', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    seg: [{
+                        ix: parseInt(value)
+                    }]
+                })
             });
         }
         
@@ -303,6 +409,62 @@
                 })
             });
         }
+        
+        // Load current state on page load
+        function loadCurrentState() {
+            fetch('/json/state')
+                .then(response => response.json())
+                .then(data => {
+                    // Set brightness
+                    if (data.bri !== undefined) {
+                        document.getElementById('brightnessSlider').value = data.bri;
+                        document.getElementById('brightnessValue').textContent = data.bri;
+                    }
+                    
+                    // Set segment data
+                    if (data.seg && data.seg[0]) {
+                        const seg = data.seg[0];
+                        
+                        // Set primary color
+                        if (seg.col && seg.col[0]) {
+                            const color = seg.col[0];
+                            const hex = '#' + 
+                                color[0].toString(16).padStart(2, '0') +
+                                color[1].toString(16).padStart(2, '0') +
+                                color[2].toString(16).padStart(2, '0');
+                            document.getElementById('colorPicker').value = hex;
+                        }
+                        
+                        // Set secondary color
+                        if (seg.col && seg.col[1]) {
+                            const color = seg.col[1];
+                            const hex = '#' + 
+                                color[0].toString(16).padStart(2, '0') +
+                                color[1].toString(16).padStart(2, '0') +
+                                color[2].toString(16).padStart(2, '0');
+                            document.getElementById('secondaryColorPicker').value = hex;
+                        }
+                        
+                        // Set speed
+                        if (seg.sx !== undefined) {
+                            document.getElementById('speedSlider').value = seg.sx;
+                            document.getElementById('speedValue').textContent = seg.sx;
+                        }
+                        
+                        // Set intensity
+                        if (seg.ix !== undefined) {
+                            document.getElementById('intensitySlider').value = seg.ix;
+                            document.getElementById('intensityValue').textContent = seg.ix;
+                        }
+                    }
+                })
+                .catch(error => {
+                    console.log('Could not load current state:', error);
+                });
+        }
+        
+        // Load state when page loads
+        window.addEventListener('load', loadCurrentState);
     </script>
 </body>
 </html>

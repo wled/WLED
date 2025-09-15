@@ -25,7 +25,6 @@
   "dependencies": {
     "clean-css": "^5.3.3",
     "html-minifier-terser": "^7.2.0",
-    "inliner": "^1.13.0",
     "nodemon": "^3.1.7"
   },
   "engines": {
@@ -36,6 +35,7 @@
     "@semantic-release/exec": "^7.0.3",
     "@semantic-release/git": "^10.0.1",
     "@semantic-release/github": "^11.0.1",
+    "inliner": "^1.13.0",
     "semantic-release": "^24.2.3"
   }
 }
