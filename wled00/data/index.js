@@ -923,12 +923,24 @@ function populateSegments(s)
 		gId(`segr${i}`).classList.add("hide");
 	}
 	if (segCount < 2) {
-		gId(`segd${lSeg}`).classList.add("hide"); // hide delete if only one segment
-		if (parseInt(gId("seg0bri").value)==255) gId(`segp0`).classList.add("hide");
+		// Add safety check for segment elements to prevent UI crashes
+		const segdElement = gId(`segd${lSeg}`);
+		if (segdElement) segdElement.classList.add("hide"); // hide delete if only one segment
+		const seg0briElement = gId("seg0bri");
+		const segp0Element = gId(`segp0`);
+		if (seg0briElement && segp0Element && parseInt(seg0briElement.value)==255) segp0Element.classList.add("hide");
 		// hide segment controls if there is only one segment in simplified UI
 		if (simplifiedUI) gId("segcont").classList.add("hide");
 	}
-	if (!isM && !noNewSegs && (cfg.comp.seglen?parseInt(gId(`seg${lSeg}s`).value):0)+parseInt(gId(`seg${lSeg}e`).value)<ledCount) gId(`segr${lSeg}`).classList.remove("hide");
+	// Add safety checks for segment control elements
+	const segSElement = gId(`seg${lSeg}s`);
+	const segEElement = gId(`seg${lSeg}e`);
+	const segrElement = gId(`segr${lSeg}`);
+	if (!isM && !noNewSegs && segSElement && segEElement && segrElement) {
+		const segLen = cfg.comp.seglen ? parseInt(segSElement.value) : 0;
+		const segEnd = parseInt(segEElement.value);
+		if (segLen + segEnd < ledCount) segrElement.classList.remove("hide");
+	}
 	gId('segutil2').style.display = (segCount > 1) ? "block":"none"; // rsbtn parent
 
 	if (Array.isArray(li.maps) && li.maps.length>1) {
@@ -2264,7 +2276,9 @@ function rptSeg(s)
 	var rev = gId(`seg${s}rev`).checked;
 	var mi = gId(`seg${s}mi`).checked;
 	var sel = gId(`seg${s}sel`).checked;
-	var pwr = gId(`seg${s}pwr`).classList.contains('act');
+	// Add safety check for segment power element to prevent UI crashes
+	const segPwrElement = gId(`seg${s}pwr`);
+	var pwr = segPwrElement ? segPwrElement.classList.contains('act') : false;
 	var obj = {"seg": {"id": s, "n": name, "start": start, "stop": (cfg.comp.seglen?start:0)+stop, "rev": rev, "mi": mi, "on": pwr, "bri": parseInt(gId(`seg${s}bri`).value), "sel": sel}};
 	if (gId(`seg${s}grp`)) {
 		var grp = parseInt(gId(`seg${s}grp`).value);
@@ -2391,7 +2405,13 @@ function setGrp(s, g)
 
 function setSegPwr(s)
 {
-	var pwr = gId(`seg${s}pwr`).classList.contains('act');
+	// Add safety check for segment power element to prevent UI crashes
+	const segPwrElement = gId(`seg${s}pwr`);
+	if (!segPwrElement) {
+		console.warn('Segment power element not found, skipping power toggle');
+		return;
+	}
+	var pwr = segPwrElement.classList.contains('act');
 	var obj = {"seg": {"id": s, "on": !pwr}};
 	requestJson(obj);
 }
