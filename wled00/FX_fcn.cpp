@@ -13,6 +13,10 @@
 #include "FXparticleSystem.h"  // TODO: better define the required function (mem service) in FX.h?
 #include "palettes.h"
 
+#ifndef DEFAULT_LED_COLOR_ORDER
+  #define DEFAULT_LED_COLOR_ORDER COL_ORDER_GRB  //default to GRB
+#endif
+
 /*
   Custom per-LED mapping has moved!
 
@@ -1181,6 +1185,14 @@ void WS2812FX::finalizeInit() {
   }
   busConfigs.clear();
   busConfigs.shrink_to_fit();
+
+  // ensure at least one bus exists as fallback to prevent UI issues and provide basic LED output
+  if (BusManager::getNumBusses() == 0) {
+    DEBUG_PRINTLN(F("No buses created due to memory limits! Creating fallback bus with default LED count."));
+    uint8_t defPin[1] = {DEFAULT_LED_PIN};
+    BusConfig defCfg = BusConfig(DEFAULT_LED_TYPE, defPin, 0, DEFAULT_LED_COUNT, DEFAULT_LED_COLOR_ORDER, false, 0, RGBW_MODE_MANUAL_ONLY, 0);
+    BusManager::add(defCfg);
+  }
 
   _length = 0;
   for (size_t i=0; i<BusManager::getNumBusses(); i++) {
