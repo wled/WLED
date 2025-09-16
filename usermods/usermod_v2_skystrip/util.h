@@ -9,17 +9,55 @@
 namespace skystrip {
 namespace util {
 
-// RAII guard to temporarily freeze a segment during rendering and always
-// restore its original freeze state on exit (including early returns).
-struct FreezeGuard {
-  Segment &seg;
-  bool prev;
-  explicit FreezeGuard(Segment &s, bool freezeNow = true) : seg(s), prev(s.freeze) {
-    seg.freeze = freezeNow;
+// Tracks freeze ownership for a single view so it only mutates
+// its own segment’s freeze flag.
+class SegmentFreezeHandle {
+public:
+  SegmentFreezeHandle() = default;
+  ~SegmentFreezeHandle() { release(); }
+
+  Segment *acquire(int16_t segId) {
+    if (segId < 0) {
+      release();
+      return nullptr;
+    }
+    uint8_t maxSeg = strip.getMaxSegments();
+    if (segId >= maxSeg) {
+      release();
+      return nullptr;
+    }
+    Segment &seg = strip.getSegment((uint8_t)segId);
+    if (active_ && heldId_ == segId) {
+      seg_ = &seg;
+      if (!seg.freeze) {
+        seg.freeze = true;
+      }
+      return seg_;
+    }
+
+    release();
+
+    prevFreeze_ = seg.freeze;
+    seg.freeze = true;
+    active_ = true;
+    heldId_ = segId;
+    seg_ = &seg;
+    return seg_;
   }
-  ~FreezeGuard() { seg.freeze = prev; }
-  FreezeGuard(const FreezeGuard &) = delete;
-  FreezeGuard &operator=(const FreezeGuard &) = delete;
+
+  void release() {
+    if (!active_) return;
+    if (seg_) seg_->freeze = prevFreeze_;
+    seg_ = nullptr;
+    heldId_ = -1;
+    active_ = false;
+  }
+
+private:
+  bool active_ = false;
+  int16_t heldId_ = -1;
+  bool prevFreeze_ = false;
+  Segment *seg_ = nullptr;
 };
 
 // UTC now from WLED’s clock (same source the UI uses)

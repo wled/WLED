@@ -66,20 +66,28 @@ void DeltaView::view(time_t now, SkyModel const &model, int16_t dbgPixelIndex) {
              name().c_str());
     debugPixelString[sizeof(debugPixelString) - 1] = '\0';
   }
-  if (segId_ == DEFAULT_SEG_ID)
+  if (segId_ == DEFAULT_SEG_ID) {
+    freezeHandle_.release();
     return;
+  }
   if (model.temperature_forecast.empty())
     return;
-  if (segId_ < 0 || segId_ >= strip.getMaxSegments())
+  if (segId_ < 0 || segId_ >= strip.getMaxSegments()) {
+    freezeHandle_.release();
     return;
+  }
 
-  Segment &seg = strip.getSegment((uint8_t)segId_);
-  int len = seg.virtualLength();
-  if (len <= 0)
+  Segment *segPtr = freezeHandle_.acquire(segId_);
+  if (!segPtr)
     return;
+  Segment &seg = *segPtr;
+  int len = seg.virtualLength();
+  if (len <= 0) {
+    freezeHandle_.release();
+    return;
+  }
   // Initialize segment drawing parameters so virtualLength()/mapping are valid
   seg.beginDraw();
-  skystrip::util::FreezeGuard freezeGuard(seg, false);
 
   constexpr double kHorizonSec = 48.0 * 3600.0;
   const double step = (len > 1) ? (kHorizonSec / double(len - 1)) : 0.0;
@@ -153,6 +161,10 @@ void DeltaView::view(time_t now, SkyModel const &model, int16_t dbgPixelIndex) {
 
     seg.setPixelColor(i, skystrip::util::blinkDebug(i, dbgPixelIndex, col));
   }
+}
+
+void DeltaView::deactivate() {
+  freezeHandle_.release();
 }
 
 void DeltaView::addToConfig(JsonObject &subtree) {

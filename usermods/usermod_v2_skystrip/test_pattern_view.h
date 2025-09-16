@@ -2,6 +2,7 @@
 
 #include "interfaces.h"
 #include "skymodel.h"
+#include "util.h"
 
 class SkyModel;
 
@@ -13,6 +14,7 @@ public:
   void view(time_t now, SkyModel const & model, int16_t dbgPixelIndex) override;
   std::string name() const override { return "TP"; }
   void appendDebugPixel(Print& s) const override { s.print(debugPixelString); }
+  void deactivate() override;
 
   void addToConfig(JsonObject& subtree) override;
   void appendConfigData(Print& s) override;
@@ -26,4 +28,5 @@ private:
   char debugPixelString[128];
   float startHue_, startSat_, startVal_;
   float endHue_, endSat_, endVal_;
+  skystrip::util::SegmentFreezeHandle freezeHandle_;
 };

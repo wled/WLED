@@ -51,4 +51,8 @@ public:
 
   /// Append DebugPixel info
   virtual void appendDebugPixel(Print& s) const = 0;
+
+  /// Allow view to release any persistent resources (e.g. segment freeze)
+  /// when the usermod is inactive.
+  virtual void deactivate() {}
 };

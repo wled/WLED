@@ -100,18 +100,26 @@ void TestPatternView::view(time_t now, SkyModel const &model,
              name().c_str());
     debugPixelString[sizeof(debugPixelString) - 1] = '\0';
   }
-  if (segId_ == DEFAULT_SEG_ID)
+  if (segId_ == DEFAULT_SEG_ID) {
+    freezeHandle_.release();
     return;
-  if (segId_ < 0 || segId_ >= strip.getMaxSegments())
+  }
+  if (segId_ < 0 || segId_ >= strip.getMaxSegments()) {
+    freezeHandle_.release();
     return;
+  }
 
-  Segment &seg = strip.getSegment((uint8_t)segId_);
-  int len = seg.virtualLength();
-  if (len <= 0)
+  Segment *segPtr = freezeHandle_.acquire(segId_);
+  if (!segPtr)
     return;
+  Segment &seg = *segPtr;
+  int len = seg.virtualLength();
+  if (len <= 0) {
+    freezeHandle_.release();
+    return;
+  }
   // Initialize segment drawing parameters so virtualLength()/mapping are valid
   seg.beginDraw();
-  skystrip::util::FreezeGuard freezeGuard(seg, false);
 
   for (int i = 0; i < len; ++i) {
     float u = (len > 1) ? float(i) / float(len - 1) : 0.f;
@@ -132,6 +140,10 @@ void TestPatternView::view(time_t now, SkyModel const &model,
     }
     seg.setPixelColor(i, skystrip::util::blinkDebug(i, dbgPixelIndex, col));
   }
+}
+
+void TestPatternView::deactivate() {
+  freezeHandle_.release();
 }
 
 void TestPatternView::addToConfig(JsonObject &subtree) {

@@ -118,6 +118,13 @@ void SkyStrip::loop() {
 
 void SkyStrip::handleOverlayDraw() {
     // this happens a hundred times a second
+  if (!enabled_) {
+    for (auto &view : views_) view->deactivate();
+    return;
+  }
+  if (offMode) {
+    return;
+  }
   time_t now = skystrip::util::time_now_utc();
   for (auto &view : views_) {
     view->view(now, *model_, dbgPixelIndex_);
@@ -243,7 +250,6 @@ void SkyStrip::showBooting() {
 
 void SkyStrip::doneBooting() {
   Segment& seg = strip.getMainSegment();
-  seg.freeze = true;    // stop any further segment animation
   seg.setMode(0);       // static palette/color mode
   // seg.intensity = 255;  // preserve user's settings via webapp
 }
