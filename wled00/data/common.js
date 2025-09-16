@@ -84,8 +84,14 @@ function getLoc() {
 		// detect reverse proxy
 		let path = l.pathname;
 		let paths = path.slice(1,path.endsWith('/')?-1:undefined).split("/");
-		if (paths.length > 1) paths.pop(); // remove subpage (or "settings")
-		if (paths.length > 0 && paths[paths.length-1]=="settings") paths.pop(); // remove "settings"
+
+		// remove settings paths to get the base url
+		const settingsIndex = paths.lastIndexOf("settings");
+		const pathLength = paths.length;
+		if (settingsIndex === pathLength - 1 || settingsIndex === pathLength - 2) {
+			paths = paths.slice(0, settingsIndex);
+		}
+
 		if (paths.length > 0) {
 			locproto = l.protocol;
 			loc = true;
