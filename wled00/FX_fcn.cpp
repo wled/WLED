@@ -1173,11 +1173,17 @@ void WS2812FX::finalizeInit() {
 
   // create buses/outputs
   unsigned mem = 0;
-  for (const auto &bus : busConfigs) {
-    mem += bus.memUsage(Bus::isDigital(bus.type) && !Bus::is2Pin(bus.type) ? digitalCount++ : 0); // includes global buffer
-    if (mem <= MAX_LED_MEMORY) {
-      if (BusManager::add(bus) == -1) break;
-    } else DEBUG_PRINTF_P(PSTR("Out of LED memory! Bus %d (%d) #%u not created."), (int)bus.type, (int)bus.count, digitalCount);
+  for (auto bus : busConfigs) {
+    unsigned busMemUsage = bus.memUsage(Bus::isDigital(bus.type) && !Bus::is2Pin(bus.type) ? digitalCount : 0);
+    // if memory exceeds limit, add it anyway but reduce LED count to default if it is larger (a bit dangerous, but prevents no buses being created at all)
+    if (mem + busMemUsage > MAX_LED_MEMORY) {
+      bus.count = min((int)bus.count, DEFAULT_LED_COUNT);
+      DEBUG_PRINTF_P(PSTR("Bus %d memory usage exceeds limit, setting count to %d\n"), (int)bus.type, bus.count);
+    }
+    if (BusManager::add(bus) != -1) {
+      mem += bus.memUsage(Bus::isDigital(bus.type) && !Bus::is2Pin(bus.type) ? digitalCount : 0);
+      if (Bus::isDigital(bus.type) && !Bus::is2Pin(bus.type)) digitalCount++;
+    } else break;
   }
   busConfigs.clear();
   busConfigs.shrink_to_fit();
