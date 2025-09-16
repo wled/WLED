@@ -812,7 +812,7 @@ void serializeInfo(JsonObject root)
   root[F("clock")] = ESP.getCpuFreqMHz();
   root[F("flash")] = (ESP.getFlashChipSize()/1024)/1024;
   #ifdef WLED_DEBUG
-  root[F("maxalloc")] = ESP.getMaxAllocHeap();
+  root[F("maxalloc")] = getContiguousFreeHeap();
   root[F("resetReason0")] = (int)rtc_get_reset_reason(0);
   root[F("resetReason1")] = (int)rtc_get_reset_reason(1);
   #endif
@@ -823,15 +823,15 @@ void serializeInfo(JsonObject root)
   root[F("clock")] = ESP.getCpuFreqMHz();
   root[F("flash")] = (ESP.getFlashChipSize()/1024)/1024;
   #ifdef WLED_DEBUG
-  root[F("maxalloc")] = ESP.getMaxFreeBlockSize();
+  root[F("maxalloc")] = getContiguousFreeHeap();
   root[F("resetReason")] = (int)ESP.getResetInfoPtr()->reason;
   #endif
   root[F("lwip")] = LWIP_VERSION_MAJOR;
 #endif
 
-  root[F("freeheap")] = ESP.getFreeHeap();
-  #if defined(ARDUINO_ARCH_ESP32)
-  if (psramFound()) root[F("psram")] = ESP.getFreePsram();
+  root[F("freeheap")] = getFreeHeapSize();
+  #if defined(BOARD_HAS_PSRAM)
+  root[F("psram")] = ESP.getFreePsram();
   #endif
   root[F("uptime")] = millis()/1000 + rolloverMillis*4294967;
 
