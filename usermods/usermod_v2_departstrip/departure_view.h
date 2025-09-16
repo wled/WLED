@@ -14,6 +14,8 @@ private:
   std::vector<String> agencies_; // Precomputed agencies for each key (same indexing as keys_)
   int16_t segmentId_ = -1;
   std::string configKey_;
+  bool wasFrozen_ = false;
+  int16_t frozenSegmentId_ = -1;
 
   // Reusable buffers to avoid per-frame heap churn
   struct Cand { uint32_t color; uint16_t bsum; const String* key; uint8_t alpha; };
@@ -36,6 +38,7 @@ public:
   }
   void appendConfigData(Print& s) override { appendConfigData(s, nullptr); }
   void appendConfigData(Print& s, const DepartModel* model) override;
+  void ensureUnfrozen();
   bool readFromConfig(JsonObject& root, bool startup_complete, bool& invalidate_history) override {
     bool ok = true;
     ok &= getJsonValue(root["SegmentId"], segmentId_, segmentId_);
@@ -105,5 +108,12 @@ private:
     s.replace(':', '_'); s.replace(',', '_'); s.replace(' ', '_'); s.replace(';', '_');
     s.replace('\'', '_'); s.replace('\"', '_'); s.replace('\\', '_');
     configKey_ = std::string(s.c_str());
+  }
+
+  Segment* segmentForId_(int16_t id) const {
+    if (id < 0) return nullptr;
+    uint8_t max = strip.getMaxSegments();
+    if (id >= max) return nullptr;
+    return &strip.getSegment((uint8_t)id);
   }
 };

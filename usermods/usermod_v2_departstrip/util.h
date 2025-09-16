@@ -8,17 +8,6 @@
 namespace departstrip {
 namespace util {
 
-struct FreezeGuard {
-  Segment &seg;
-  bool prev;
-  explicit FreezeGuard(Segment &s, bool freezeNow = true) : seg(s), prev(s.freeze) {
-    seg.freeze = freezeNow;
-  }
-  ~FreezeGuard() noexcept { seg.freeze = prev; }
-  FreezeGuard(const FreezeGuard &) = delete;
-  FreezeGuard &operator=(const FreezeGuard &) = delete;
-};
-
 inline time_t time_now_utc() { return (time_t)toki.getTime().sec; }
 inline time_t time_now() { return time_now_utc(); }
 

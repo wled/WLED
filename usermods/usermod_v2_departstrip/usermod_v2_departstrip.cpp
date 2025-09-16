@@ -73,7 +73,13 @@ void DepartStrip::loop() {
 }
 
 void DepartStrip::handleOverlayDraw() {
-  if (!enabled_ || offMode) return;
+  if (!enabled_ || offMode) {
+    for (auto& view : views_) {
+      auto* dv = static_cast<DepartureView*>(view.get());
+      if (dv) dv->ensureUnfrozen();
+    }
+    return;
+  }
   time_t now = departstrip::util::time_now_utc();
   for (auto& view : views_) {
     view->view(now, *model_);

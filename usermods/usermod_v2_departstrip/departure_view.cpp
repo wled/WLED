@@ -5,8 +5,6 @@
 #include <algorithm>
 #include <cstring>
 
-using departstrip::util::FreezeGuard;
-
 static CRGB colorForAgencyLine(const String& agency, const String& lineRef) {
   uint32_t rgb;
   // Model provides defaults (neutral gray) when unknown
@@ -15,7 +13,10 @@ static CRGB colorForAgencyLine(const String& agency, const String& lineRef) {
 }
 
 void DepartureView::view(std::time_t now, const DepartModel &model) {
-  if (segmentId_ == -1) return;
+  if (segmentId_ == -1) {
+    ensureUnfrozen();
+    return;
+  }
 
   // Rebuild sources_ list but reuse its capacity
   sources_.clear();
@@ -39,13 +40,28 @@ void DepartureView::view(std::time_t now, const DepartModel &model) {
   }
   if (sources_.empty()) return;
 
-  if (segmentId_ < 0 || segmentId_ >= strip.getMaxSegments()) return;
-  Segment &seg = strip.getSegment((uint8_t)segmentId_);
+  if (segmentId_ < 0 || segmentId_ >= strip.getMaxSegments()) {
+    ensureUnfrozen();
+    return;
+  }
+  if (wasFrozen_ && frozenSegmentId_ != segmentId_) ensureUnfrozen();
+  Segment *segPtr = segmentForId_(segmentId_);
+  if (!segPtr) {
+    ensureUnfrozen();
+    return;
+  }
+  Segment &seg = *segPtr;
+  if (!wasFrozen_) {
+    if (!seg.freeze) {
+      seg.freeze = true;
+      wasFrozen_ = true;
+      frozenSegmentId_ = segmentId_;
+    }
+  }
   int len = seg.virtualLength();
   if (len <= 0) return;
 
   seg.beginDraw();
-  FreezeGuard freezeGuard(seg, false);
 
   auto brightness = [&](uint32_t c) {
     return (uint16_t)(((c >> 16) & 0xFF) + ((c >> 8) & 0xFF) + (c & 0xFF));
@@ -146,4 +162,12 @@ void DepartureView::appendConfigData(Print &s, const DepartModel *model) {
     else { s.print(F("No data yet")); }
   } else { s.print(F("No data yet")); }
   s.println(F("</div>','');"));
+}
+
+void DepartureView::ensureUnfrozen() {
+  if (!wasFrozen_) return;
+  Segment *seg = segmentForId_(frozenSegmentId_ >= 0 ? frozenSegmentId_ : segmentId_);
+  if (seg) seg->freeze = false;
+  wasFrozen_ = false;
+  frozenSegmentId_ = -1;
 }
