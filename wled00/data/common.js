@@ -86,7 +86,7 @@ function getLoc() {
 		let paths = path.slice(1,path.endsWith('/')?-1:undefined).split("/");
 		if (paths.length > 1) paths.pop(); // remove subpage (or "settings")
 		if (paths.length > 0 && paths[paths.length-1]=="settings") paths.pop(); // remove "settings"
-		if (paths.length > 1) {
+		if (paths.length > 0) {
 			locproto = l.protocol;
 			loc = true;
 			locip = l.hostname + (l.port ? ":" + l.port : "") + "/" + paths.join('/');
