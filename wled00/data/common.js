@@ -89,11 +89,15 @@ function getLoc() {
 		const settingsIndex = paths.lastIndexOf("settings");
 		const pathLength = paths.length;
 		if (
-			settingsIndex != -1 &&
+			settingsIndex !== -1 &&
 			(settingsIndex === pathLength - 1 || settingsIndex === pathLength - 2)
 		) {
 			paths = paths.slice(0, settingsIndex);
-		}
+		} else if (paths.length && paths[paths.length - 1].includes(".")) {
+ 			// drop trailing file like index.htm
+ 			paths.pop();
+ 		}
+
 
 		if (paths.length > 0) {
 			locproto = l.protocol;
