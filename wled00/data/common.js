@@ -88,7 +88,10 @@ function getLoc() {
 		// remove settings paths to get the base url
 		const settingsIndex = paths.lastIndexOf("settings");
 		const pathLength = paths.length;
-		if (settingsIndex != -1 && (settingsIndex === pathLength - 1 || settingsIndex === pathLength - 2)) {
+		if (
+			settingsIndex != -1 &&
+			(settingsIndex === pathLength - 1 || settingsIndex === pathLength - 2)
+		) {
 			paths = paths.slice(0, settingsIndex);
 		}
 
