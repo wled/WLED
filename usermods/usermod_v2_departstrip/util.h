@@ -8,6 +8,54 @@
 namespace departstrip {
 namespace util {
 
+// Per-view helper that preserves and restores the segment freeze state.
+class SegmentFreezeHandle {
+public:
+  SegmentFreezeHandle() = default;
+  ~SegmentFreezeHandle() { release(); }
+
+  Segment* acquire(int16_t segId) {
+    if (segId < 0) {
+      release();
+      return nullptr;
+    }
+    uint8_t maxSeg = strip.getMaxSegments();
+    if (segId >= maxSeg) {
+      release();
+      return nullptr;
+    }
+    Segment& seg = strip.getSegment((uint8_t)segId);
+    if (active_ && heldId_ == segId) {
+      seg_ = &seg;
+      if (!seg.freeze) seg.freeze = true;
+      return seg_;
+    }
+
+    release();
+
+    prevFreeze_ = seg.freeze;
+    seg.freeze = true;
+    active_ = true;
+    heldId_ = segId;
+    seg_ = &seg;
+    return seg_;
+  }
+
+  void release() {
+    if (!active_) return;
+    if (seg_) seg_->freeze = prevFreeze_;
+    seg_ = nullptr;
+    heldId_ = -1;
+    active_ = false;
+  }
+
+private:
+  bool active_ = false;
+  int16_t heldId_ = -1;
+  bool prevFreeze_ = false;
+  Segment* seg_ = nullptr;
+};
+
 inline time_t time_now_utc() { return (time_t)toki.getTime().sec; }
 inline time_t time_now() { return time_now_utc(); }
 

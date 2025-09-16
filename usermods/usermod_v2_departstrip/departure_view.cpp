@@ -44,22 +44,17 @@ void DepartureView::view(std::time_t now, const DepartModel &model) {
     ensureUnfrozen();
     return;
   }
-  if (wasFrozen_ && frozenSegmentId_ != segmentId_) ensureUnfrozen();
-  Segment *segPtr = segmentForId_(segmentId_);
+  Segment *segPtr = freezeHandle_.acquire(segmentId_);
   if (!segPtr) {
     ensureUnfrozen();
     return;
   }
   Segment &seg = *segPtr;
-  if (!wasFrozen_) {
-    if (!seg.freeze) {
-      seg.freeze = true;
-      wasFrozen_ = true;
-      frozenSegmentId_ = segmentId_;
-    }
-  }
   int len = seg.virtualLength();
-  if (len <= 0) return;
+  if (len <= 0) {
+    ensureUnfrozen();
+    return;
+  }
 
   seg.beginDraw();
 
@@ -165,9 +160,5 @@ void DepartureView::appendConfigData(Print &s, const DepartModel *model) {
 }
 
 void DepartureView::ensureUnfrozen() {
-  if (!wasFrozen_) return;
-  Segment *seg = segmentForId_(frozenSegmentId_ >= 0 ? frozenSegmentId_ : segmentId_);
-  if (seg) seg->freeze = false;
-  wasFrozen_ = false;
-  frozenSegmentId_ = -1;
+  freezeHandle_.release();
 }

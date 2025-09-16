@@ -14,8 +14,7 @@ private:
   std::vector<String> agencies_; // Precomputed agencies for each key (same indexing as keys_)
   int16_t segmentId_ = -1;
   std::string configKey_;
-  bool wasFrozen_ = false;
-  int16_t frozenSegmentId_ = -1;
+  departstrip::util::SegmentFreezeHandle freezeHandle_;
 
   // Reusable buffers to avoid per-frame heap churn
   struct Cand { uint32_t color; uint16_t bsum; const String* key; uint8_t alpha; };
