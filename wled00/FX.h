@@ -871,8 +871,8 @@ class WS2812FX {
     }
 
     ~WS2812FX() {
-      d_free(_pixels);
-      d_free(_pixelCCT); // just in case
+      p_free(_pixels);
+      p_free(_pixelCCT); // just in case
       d_free(customMappingTable);
       _mode.clear();
       _modeData.clear();
