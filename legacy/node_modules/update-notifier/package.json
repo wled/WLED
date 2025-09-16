@@ -1,0 +1,47 @@
+{
+  "name": "update-notifier",
+  "version": "0.5.0",
+  "description": "Update notifications for your CLI app",
+  "license": "BSD-2-Clause",
+  "repository": "yeoman/update-notifier",
+  "author": {
+    "name": "Sindre Sorhus",
+    "email": "sindresorhus@gmail.com",
+    "url": "http://sindresorhus.com"
+  },
+  "engines": {
+    "node": ">=0.10.0"
+  },
+  "scripts": {
+    "test": "mocha --timeout 20000"
+  },
+  "files": [
+    "index.js",
+    "check.js"
+  ],
+  "keywords": [
+    "npm",
+    "update",
+    "updater",
+    "notify",
+    "notifier",
+    "check",
+    "checker",
+    "cli",
+    "module",
+    "package",
+    "version"
+  ],
+  "dependencies": {
+    "chalk": "^1.0.0",
+    "configstore": "^1.0.0",
+    "is-npm": "^1.0.0",
+    "latest-version": "^1.0.0",
+    "repeating": "^1.1.2",
+    "semver-diff": "^2.0.0",
+    "string-length": "^1.0.0"
+  },
+  "devDependencies": {
+    "mocha": "*"
+  }
+}

@@ -1,0 +1,43 @@
+{
+	"name": "p-reduce",
+	"version": "3.0.0",
+	"description": "Reduce a list of values using promises into a promise for a value",
+	"license": "MIT",
+	"repository": "sindresorhus/p-reduce",
+	"funding": "https://github.com/sponsors/sindresorhus",
+	"author": {
+		"name": "Sindre Sorhus",
+		"email": "sindresorhus@gmail.com",
+		"url": "https://sindresorhus.com"
+	},
+	"type": "module",
+	"exports": "./index.js",
+	"engines": {
+		"node": ">=12"
+	},
+	"scripts": {
+		"test": "xo && ava && tsd"
+	},
+	"files": [
+		"index.js",
+		"index.d.ts"
+	],
+	"keywords": [
+		"promise",
+		"reduce",
+		"collection",
+		"iterable",
+		"iterator",
+		"async",
+		"await",
+		"promises",
+		"accumulate",
+		"bluebird"
+	],
+	"devDependencies": {
+		"ava": "^3.15.0",
+		"delay": "^5.0.0",
+		"tsd": "^0.14.0",
+		"xo": "^0.38.2"
+	}
+}

@@ -1,0 +1,37 @@
+{
+  "name": "conventional-commits-filter",
+  "type": "module",
+  "version": "5.0.0",
+  "description": "Filter out reverted commits parsed by conventional-commits-parser.",
+  "author": {
+    "name": "Steve Mao",
+    "email": "maochenyan@gmail.com",
+    "url": "https://github.com/stevemao"
+  },
+  "license": "MIT",
+  "homepage": "https://github.com/conventional-changelog/conventional-changelog/tree/master/packages/conventional-commits-filter#readme",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/conventional-changelog/conventional-changelog.git",
+    "directory": "packages/conventional-commits-filter"
+  },
+  "bugs": {
+    "url": "https://github.com/conventional-changelog/conventional-changelog/issues"
+  },
+  "keywords": [
+    "filter",
+    "conventional",
+    "changelog",
+    "commits"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "exports": {
+    "types": "./dist/index.d.ts",
+    "import": "./dist/index.js"
+  },
+  "files": [
+    "dist"
+  ]
+}

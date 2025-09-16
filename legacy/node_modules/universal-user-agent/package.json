@@ -1,0 +1,23 @@
+{
+  "name": "universal-user-agent",
+  "version": "7.0.2",
+  "type": "module",
+  "description": "Get a user agent string across all JavaScript Runtime Environments",
+  "exports": "./index.js",
+  "types": "index.d.ts",
+  "repository": "github:gr2m/universal-user-agent",
+  "keywords": [],
+  "author": "Gregor Martynus (https://github.com/gr2m)",
+  "license": "ISC",
+  "scripts": {
+    "lint": "prettier --check '*.{js,json,md}'",
+    "lint:fix": "prettier --write '*.{js,json,md}'",
+    "test": "npm run test:code && npm run test:types",
+    "test:code": "node test.js",
+    "test:types": "tsd"
+  },
+  "devDependencies": {
+    "prettier": "^2.0.0",
+    "tsd": "^0.17.0"
+  }
+}

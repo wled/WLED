@@ -1,0 +1,52 @@
+{
+	"name": "read-pkg",
+	"version": "9.0.1",
+	"description": "Read a package.json file",
+	"license": "MIT",
+	"repository": "sindresorhus/read-pkg",
+	"funding": "https://github.com/sponsors/sindresorhus",
+	"author": {
+		"name": "Sindre Sorhus",
+		"email": "sindresorhus@gmail.com",
+		"url": "https://sindresorhus.com"
+	},
+	"type": "module",
+	"exports": {
+		"types": "./index.d.ts",
+		"default": "./index.js"
+	},
+	"sideEffects": false,
+	"engines": {
+		"node": ">=18"
+	},
+	"scripts": {
+		"test": "xo && tsd && cd test && ava"
+	},
+	"files": [
+		"index.js",
+		"index.d.ts"
+	],
+	"keywords": [
+		"json",
+		"read",
+		"parse",
+		"file",
+		"fs",
+		"graceful",
+		"load",
+		"package",
+		"normalize"
+	],
+	"dependencies": {
+		"@types/normalize-package-data": "^2.4.3",
+		"normalize-package-data": "^6.0.0",
+		"parse-json": "^8.0.0",
+		"type-fest": "^4.6.0",
+		"unicorn-magic": "^0.1.0"
+	},
+	"devDependencies": {
+		"ava": "^5.3.1",
+		"tsd": "^0.29.0",
+		"xo": "^0.56.0"
+	}
+}

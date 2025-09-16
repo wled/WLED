@@ -1,0 +1,37 @@
+{
+  "name": "array-ify",
+  "version": "1.0.0",
+  "description": "Turn anything into an array",
+  "homepage": "https://github.com/stevemao/array-ify",
+  "author": {
+    "name": "Steve Mao",
+    "email": "maochenyan@gmail.com",
+    "url": "https://github.com/stevemao"
+  },
+  "repository": "stevemao/array-ify",
+  "license": "MIT",
+  "files": [
+    "index.js"
+  ],
+  "keywords": [
+    "array-ify",
+    "array",
+    "arr",
+    "arrify",
+    "arrayify",
+    "convert",
+    "value"
+  ],
+  "devDependencies": {
+    "coveralls": "^2.11.2",
+    "istanbul": "^0.3.8",
+    "jscs": "^1.11.3",
+    "jshint": "^2.6.3",
+    "mocha": "*"
+  },
+  "scripts": {
+    "coverage": "istanbul cover _mocha -- -R spec && rm -rf ./coverage",
+    "lint": "jshint *.js --exclude node_modules && jscs *.js",
+    "test": "npm run-script lint && mocha"
+  }
+}

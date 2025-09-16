@@ -1,0 +1,28 @@
+{
+  "name": "argv-formatter",
+  "version": "1.0.0",
+  "description": "Bizarro minimist: transform an options object into argv",
+  "main": "./src",
+  "scripts": {
+    "test": "mocha"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/bendrucker/argv-formatter.git"
+  },
+  "keywords": [
+    "argv",
+    "formatting",
+    "child_process"
+  ],
+  "author": "Ben Drucker <bvdrucker@gmail.com> (http://bendrucker.me)",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/bendrucker/argv-formatter/issues"
+  },
+  "homepage": "https://github.com/bendrucker/argv-formatter",
+  "devDependencies": {
+    "chai": "~1.10.0",
+    "mocha": "~2.0.1"
+  }
+}

@@ -2,6 +2,27 @@
 
 A clean, focused LED lighting system designed specifically for Personal Electric Vehicles (PEVs) like OneWheels, electric skateboards, and e-bikes. Built from the ground up with embedded devices in mind.
 
+## Project Structure
+
+This project has been reorganized to focus on the ArkLights implementation:
+
+```
+ARKLIGHTS_WLED/
+├── src/
+│   └── main.cpp                    # ArkLights implementation
+├── platformio_simple.ini          # Simple build configuration
+├── platformio_arklights.ini        # Full ArkLights configuration
+├── ARKLIGHTS_README.md             # This documentation
+├── LICENSE                         # Project license
+└── legacy/                         # Original WLED files (preserved)
+    ├── wled00/                     # Original WLED source
+    ├── usermods/                   # WLED user modifications
+    ├── tools/                      # WLED tools and utilities
+    └── ...                         # Other WLED files
+```
+
+The `legacy/` folder contains all original WLED files for reference, while the root directory contains only the ArkLights-specific implementation.
+
 ## Features
 
 ### 🎯 PEV-Focused Design

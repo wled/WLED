@@ -108,6 +108,14 @@ WebServer server(80);
 #define PRESET_PARTY 2
 #define PRESET_STEALTH 3
 
+// Startup Sequence IDs
+#define STARTUP_NONE 0
+#define STARTUP_POWER_ON 1
+#define STARTUP_SCAN 2
+#define STARTUP_WAVE 3
+#define STARTUP_RACE 4
+#define STARTUP_CUSTOM 5
+
 // LED strips (dynamic size) - Use CRGB for all LED types
 CRGB* headlight;
 CRGB* taillight;
@@ -121,10 +129,20 @@ CRGB headlightColor = CRGB::White;
 CRGB taillightColor = CRGB::Red;
 uint8_t effectSpeed = 64; // Speed control (0-255, higher = faster) - Default to slower speed
 
+// Startup sequence settings
+uint8_t startupSequence = STARTUP_POWER_ON;
+bool startupEnabled = true;
+uint16_t startupDuration = 3000; // Duration in milliseconds
+
 // Effect state
 unsigned long lastUpdate = 0;
 uint16_t effectStep = 0;
 unsigned long lastEffectUpdate = 0;
+
+// Startup sequence state
+bool startupActive = false;
+unsigned long startupStartTime = 0;
+uint16_t startupStep = 0;
 
 // WiFi AP Configuration
 String apName = "ARKLIGHTS-AP";
@@ -158,6 +176,16 @@ void handleSerialCommands();
 void printStatus();
 void printHelp();
 
+// Startup sequence functions
+void startStartupSequence();
+void updateStartupSequence();
+void startupPowerOn();
+void startupScan();
+void startupWave();
+void startupRace();
+void startupCustom();
+String getStartupSequenceName(uint8_t sequence);
+
 // LED Configuration functions
 void initializeLEDs();
 void testLEDConfiguration();
@@ -181,7 +209,6 @@ void sendJSONResponse(DynamicJsonDocument& doc);
 
 void setup() {
     Serial.begin(115200);
-    delay(10000);
     Serial.println("ArkLights PEV Lighting System");
     Serial.println("==============================");
     
@@ -195,19 +222,25 @@ void setup() {
     testFilesystem();
     
     // Initialize LED strips early for visual debugging
+    
     initializeLEDs();
     
-    // Visual debug: Flash LEDs to show we're alive
-    fill_solid(headlight, headlightLedCount, CRGB::Red);
-    fill_solid(taillight, taillightLedCount, CRGB::Blue);
-    FastLED.show();
-    delay(1000);
+    // Start startup sequence if enabled
+    Serial.printf("🔍 Startup check: enabled=%s, sequence=%d (%s)\n", 
+                  startupEnabled ? "true" : "false", 
+                  startupSequence, 
+                  getStartupSequenceName(startupSequence).c_str());
     
-    // Show loaded colors
-    fill_solid(headlight, headlightLedCount, headlightColor);
-    fill_solid(taillight, taillightLedCount, taillightColor);
-    FastLED.show();
-    delay(2000);
+    if (startupEnabled && startupSequence != STARTUP_NONE) {
+        startStartupSequence();
+    } else {
+        // Show loaded colors immediately
+        Serial.println("⚡ Skipping startup sequence, showing loaded colors");
+        fill_solid(headlight, headlightLedCount, headlightColor);
+        fill_solid(taillight, taillightLedCount, taillightColor);
+        FastLED.show();
+        delay(1000);
+    }
     
     Serial.printf("Headlight: %d LEDs on GPIO %d (Type: %s, Order: %s)\n", 
                   headlightLedCount, HEADLIGHT_PIN, 
@@ -241,6 +274,14 @@ void setup() {
 }
 
 void loop() {
+    // Update startup sequence if active
+    if (startupActive) {
+        updateStartupSequence();
+        FastLED.show();
+        delay(50); // Slower update for startup sequences
+        return;
+    }
+    
     // Update effects at 50 FPS
     if (millis() - lastUpdate >= 20) {
         updateEffects();
@@ -788,6 +829,223 @@ void setPreset(uint8_t preset) {
     FastLED.setBrightness(globalBrightness);
 }
 
+// Startup Sequence Implementation
+void startStartupSequence() {
+    startupActive = true;
+    startupStartTime = millis();
+    startupStep = 0;
+    Serial.printf("🎬 Starting %s sequence...\n", getStartupSequenceName(startupSequence).c_str());
+}
+
+void updateStartupSequence() {
+    if (!startupActive) return;
+    
+    unsigned long elapsed = millis() - startupStartTime;
+    
+    // Check if sequence should end
+    if (elapsed >= startupDuration) {
+        startupActive = false;
+        // Set final colors
+        fill_solid(headlight, headlightLedCount, headlightColor);
+        fill_solid(taillight, taillightLedCount, taillightColor);
+        Serial.println("✅ Startup sequence complete!");
+        return;
+    }
+    
+    // Update sequence based on type
+    switch (startupSequence) {
+        case STARTUP_POWER_ON:
+            startupPowerOn();
+            break;
+        case STARTUP_SCAN:
+            startupScan();
+            break;
+        case STARTUP_WAVE:
+            startupWave();
+            break;
+        case STARTUP_RACE:
+            startupRace();
+            break;
+        case STARTUP_CUSTOM:
+            startupCustom();
+            break;
+    }
+    
+    startupStep++;
+}
+
+void startupPowerOn() {
+    // Progressive power-on effect - LEDs turn on from center outward
+    uint8_t progress = map(millis() - startupStartTime, 0, startupDuration, 0, 255);
+    
+    // Headlight - center outward
+    uint8_t headlightCenter = headlightLedCount / 2;
+    uint8_t headlightRadius = map(progress, 0, 255, 0, headlightCenter);
+    
+    fill_solid(headlight, headlightLedCount, CRGB::Black);
+    for (uint8_t i = 0; i < headlightLedCount; i++) {
+        uint8_t distance = abs(i - headlightCenter);
+        if (distance <= headlightRadius) {
+            uint8_t brightness = map(distance, 0, headlightRadius, 255, 100);
+            CRGB color = headlightColor;
+            color.nscale8(brightness);
+            headlight[i] = color;
+        }
+    }
+    
+    // Taillight - center outward
+    uint8_t taillightCenter = taillightLedCount / 2;
+    uint8_t taillightRadius = map(progress, 0, 255, 0, taillightCenter);
+    
+    fill_solid(taillight, taillightLedCount, CRGB::Black);
+    for (uint8_t i = 0; i < taillightLedCount; i++) {
+        uint8_t distance = abs(i - taillightCenter);
+        if (distance <= taillightRadius) {
+            uint8_t brightness = map(distance, 0, taillightRadius, 255, 100);
+            CRGB color = taillightColor;
+            color.nscale8(brightness);
+            taillight[i] = color;
+        }
+    }
+}
+
+void startupScan() {
+    // KITT-style scanner effect
+    uint16_t scanSpeed = startupDuration / 4; // 4 scans total
+    uint8_t scanPhase = (millis() - startupStartTime) / scanSpeed;
+    uint8_t scanPos = (millis() - startupStartTime) % scanSpeed;
+    
+    // Headlight scanner
+    fill_solid(headlight, headlightLedCount, CRGB::Black);
+    uint8_t headlightPos = map(scanPos, 0, scanSpeed, 0, headlightLedCount * 2);
+    if (headlightPos >= headlightLedCount) headlightPos = (headlightLedCount * 2) - headlightPos - 1;
+    
+    for (uint8_t i = 0; i < 3; i++) {
+        if (headlightPos - i >= 0 && headlightPos - i < headlightLedCount) {
+            uint8_t brightness = 255 - (i * 85);
+            CRGB color = headlightColor;
+            color.nscale8(brightness);
+            headlight[headlightPos - i] = color;
+        }
+    }
+    
+    // Taillight scanner
+    fill_solid(taillight, taillightLedCount, CRGB::Black);
+    uint8_t taillightPos = map(scanPos, 0, scanSpeed, 0, taillightLedCount * 2);
+    if (taillightPos >= taillightLedCount) taillightPos = (taillightLedCount * 2) - taillightPos - 1;
+    
+    for (uint8_t i = 0; i < 3; i++) {
+        if (taillightPos - i >= 0 && taillightPos - i < taillightLedCount) {
+            uint8_t brightness = 255 - (i * 85);
+            CRGB color = taillightColor;
+            color.nscale8(brightness);
+            taillight[taillightPos - i] = color;
+        }
+    }
+}
+
+void startupWave() {
+    // Wave effect that builds up
+    uint8_t progress = map(millis() - startupStartTime, 0, startupDuration, 0, 255);
+    uint8_t waveCount = map(progress, 0, 255, 1, 4);
+    
+    // Headlight wave
+    fill_solid(headlight, headlightLedCount, CRGB::Black);
+    for (uint8_t wave = 0; wave < waveCount; wave++) {
+        uint16_t wavePos = (startupStep * 2 + wave * (headlightLedCount / waveCount)) % (headlightLedCount * 2);
+        if (wavePos >= headlightLedCount) wavePos = (headlightLedCount * 2) - wavePos - 1;
+        
+        for (uint8_t i = 0; i < 5; i++) {
+            if (wavePos - i >= 0 && wavePos - i < headlightLedCount) {
+                uint8_t brightness = 255 - (i * 50);
+                CRGB color = headlightColor;
+                color.nscale8(brightness);
+                headlight[wavePos - i] = color;
+            }
+        }
+    }
+    
+    // Taillight wave
+    fill_solid(taillight, taillightLedCount, CRGB::Black);
+    for (uint8_t wave = 0; wave < waveCount; wave++) {
+        uint16_t wavePos = (startupStep * 2 + wave * (taillightLedCount / waveCount)) % (taillightLedCount * 2);
+        if (wavePos >= taillightLedCount) wavePos = (taillightLedCount * 2) - wavePos - 1;
+        
+        for (uint8_t i = 0; i < 5; i++) {
+            if (wavePos - i >= 0 && wavePos - i < taillightLedCount) {
+                uint8_t brightness = 255 - (i * 50);
+                CRGB color = taillightColor;
+                color.nscale8(brightness);
+                taillight[wavePos - i] = color;
+            }
+        }
+    }
+}
+
+void startupRace() {
+    // Racing lights effect - LEDs chase around the strip
+    uint16_t raceSpeed = startupDuration / 6; // 6 laps total
+    uint8_t racePos = (millis() - startupStartTime) % raceSpeed;
+    
+    // Headlight race
+    fill_solid(headlight, headlightLedCount, CRGB::Black);
+    uint8_t headlightPos = map(racePos, 0, raceSpeed, 0, headlightLedCount);
+    
+    for (uint8_t i = 0; i < 4; i++) {
+        uint8_t pos = (headlightPos + i) % headlightLedCount;
+        uint8_t brightness = 255 - (i * 60);
+        CRGB color = headlightColor;
+        color.nscale8(brightness);
+        headlight[pos] = color;
+    }
+    
+    // Taillight race
+    fill_solid(taillight, taillightLedCount, CRGB::Black);
+    uint8_t taillightPos = map(racePos, 0, raceSpeed, 0, taillightLedCount);
+    
+    for (uint8_t i = 0; i < 4; i++) {
+        uint8_t pos = (taillightPos + i) % taillightLedCount;
+        uint8_t brightness = 255 - (i * 60);
+        CRGB color = taillightColor;
+        color.nscale8(brightness);
+        taillight[pos] = color;
+    }
+}
+
+void startupCustom() {
+    // Custom sequence - rainbow fade-in with breathing effect
+    uint8_t progress = map(millis() - startupStartTime, 0, startupDuration, 0, 255);
+    
+    // Breathing effect
+    uint8_t breathe = (sin(millis() / 200.0) + 1) * 127;
+    
+    // Headlight - rainbow fade-in
+    for (uint8_t i = 0; i < headlightLedCount; i++) {
+        uint8_t hue = (i * 255 / headlightLedCount) + (startupStep * 2);
+        CRGB color = CHSV(hue, 255, breathe);
+        headlight[i] = color;
+    }
+    
+    // Taillight - rainbow fade-in
+    for (uint8_t i = 0; i < taillightLedCount; i++) {
+        uint8_t hue = (i * 255 / taillightLedCount) + (startupStep * 2);
+        CRGB color = CHSV(hue, 255, breathe);
+        taillight[i] = color;
+    }
+}
+
+String getStartupSequenceName(uint8_t sequence) {
+    switch (sequence) {
+        case STARTUP_NONE: return "None";
+        case STARTUP_POWER_ON: return "Power On";
+        case STARTUP_SCAN: return "Scanner";
+        case STARTUP_WAVE: return "Wave";
+        case STARTUP_RACE: return "Race";
+        case STARTUP_CUSTOM: return "Custom";
+        default: return "Unknown";
+    }
+}
+
 void handleSerialCommands() {
     if (Serial.available()) {
         String command = Serial.readStringUntil('\n');
@@ -830,6 +1088,18 @@ void handleSerialCommands() {
                 Serial.printf("Taillight effect set to %d\n", effect);
             }
         }
+        else if (command.startsWith("startup")) {
+            uint8_t sequence = command.substring(7).toInt();
+            if (sequence <= 5) {
+                startupSequence = sequence;
+                startupEnabled = (sequence != STARTUP_NONE);
+                Serial.printf("Startup sequence set to %d (%s)\n", sequence, getStartupSequenceName(sequence).c_str());
+            }
+        }
+        else if (command == "test_startup") {
+            startStartupSequence();
+            Serial.println("Testing startup sequence...");
+        }
         else if (command == "status") {
             printStatus();
         }
@@ -848,6 +1118,7 @@ void printStatus() {
     Serial.printf("Brightness: %d\n", globalBrightness);
     Serial.printf("Headlight: Effect %d, Color 0x%06X\n", headlightEffect, headlightColor);
     Serial.printf("Taillight: Effect %d, Color 0x%06X\n", taillightEffect, taillightColor);
+    Serial.printf("Startup: %s (%d), Duration: %dms\n", getStartupSequenceName(startupSequence).c_str(), startupSequence, startupDuration);
 }
 
 void printHelp() {
@@ -856,12 +1127,20 @@ void printHelp() {
     Serial.println("  b<0-255>: Set brightness");
     Serial.println("  h<hex>: Set headlight color (e.g., hFF0000)");
     Serial.println("  t<hex>: Set taillight color (e.g., t00FF00)");
-    Serial.println("  eh<0-5>: Set headlight effect");
-    Serial.println("  et<0-5>: Set taillight effect");
+    Serial.println("  eh<0-19>: Set headlight effect");
+    Serial.println("  et<0-19>: Set taillight effect");
+    Serial.println("  startup<0-5>: Set startup sequence");
+    Serial.println("  test_startup: Test current startup sequence");
     Serial.println("  status: Show current status");
     Serial.println("  help: Show this help");
     Serial.println("");
+    Serial.println("Startup Sequences:");
+    Serial.println("  0=None, 1=Power On, 2=Scanner, 3=Wave, 4=Race, 5=Custom");
+    Serial.println("");
     Serial.println("Effects: 0=Solid, 1=Breath, 2=Rainbow, 3=Chase, 4=Blink Rainbow, 5=Twinkle");
+    Serial.println("         6=Fire, 7=Meteor, 8=Wave, 9=Comet, 10=Candle, 11=Static Rainbow");
+    Serial.println("         12=Knight Rider, 13=Police, 14=Strobe, 15=Larson Scanner");
+    Serial.println("         16=Color Wipe, 17=Theater Chase, 18=Running Lights, 19=Color Sweep");
 }
 
 // Web Server Implementation
@@ -946,6 +1225,31 @@ void handleRoot() {
                 <label>Effect Speed: <span id="speedValue">64</span></label>
                 <input type="range" id="effectSpeed" min="0" max="255" value="64" onchange="setEffectSpeed(this.value)">
                 <small>Higher values = faster effects</small>
+            </div>
+        </div>
+        
+        <div class="section">
+            <h2>Startup Sequence</h2>
+            <div class="control-group">
+                <label>Startup Animation:</label>
+                <select id="startupSequence" onchange="setStartupSequence(this.value)">
+                    <option value="0">None</option>
+                    <option value="1">Power On</option>
+                    <option value="2">Scanner</option>
+                    <option value="3">Wave</option>
+                    <option value="4">Race</option>
+                    <option value="5">Custom</option>
+                </select>
+                <small>Animation shown when device powers on</small>
+            </div>
+            <div class="control-group">
+                <label>Duration: <span id="startupDurationValue">3000</span>ms</label>
+                <input type="range" id="startupDuration" min="1000" max="10000" value="3000" onchange="setStartupDuration(this.value)">
+                <small>How long the startup sequence lasts</small>
+            </div>
+            <div class="control-group">
+                <button onclick="testStartupSequence()" style="background: #ff9800;">Test Startup Sequence</button>
+                <small>Preview the current startup animation</small>
             </div>
         </div>
         
@@ -1117,6 +1421,33 @@ void handleRoot() {
             });
         }
         
+        function setStartupSequence(sequence) {
+            fetch('/api', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ startup_sequence: parseInt(sequence) })
+            });
+        }
+        
+        function setStartupDuration(duration) {
+            document.getElementById('startupDurationValue').textContent = duration;
+            fetch('/api', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ startup_duration: parseInt(duration) })
+            });
+        }
+        
+        function testStartupSequence() {
+            fetch('/api', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ testStartup: true })
+            }).then(() => {
+                console.log('Startup sequence test started');
+            });
+        }
+        
         function setAPName(name) {
             fetch('/api', {
                 method: 'POST',
@@ -1205,6 +1536,7 @@ void handleRoot() {
                         `Preset: ${data.preset}<br>` +
                         `Brightness: ${data.brightness}<br>` +
                         `Effect Speed: ${data.effectSpeed}<br>` +
+                        `Startup: ${data.startup_sequence_name} (${data.startup_duration}ms)<br>` +
                         `WiFi AP: ${data.apName}<br>` +
                         `Headlight: Effect ${data.headlightEffect}, Color #${data.headlightColor}<br>` +
                         `Taillight: Effect ${data.taillightEffect}, Color #${data.taillightColor}<br>` +
@@ -1216,6 +1548,9 @@ void handleRoot() {
                     document.getElementById('brightnessValue').textContent = data.brightness;
                     document.getElementById('effectSpeed').value = data.effectSpeed;
                     document.getElementById('speedValue').textContent = data.effectSpeed;
+                    document.getElementById('startupSequence').value = data.startup_sequence;
+                    document.getElementById('startupDuration').value = data.startup_duration;
+                    document.getElementById('startupDurationValue').textContent = data.startup_duration;
                     document.getElementById('apName').value = data.apName;
                     document.getElementById('apPassword').value = data.apPassword;
                     document.getElementById('headlightColor').value = '#' + data.headlightColor;
@@ -1297,6 +1632,18 @@ void handleAPI() {
             effectSpeed = doc["effectSpeed"];
             saveSettings(); // Auto-save
         }
+        if (doc.containsKey("startup_sequence")) {
+            startupSequence = doc["startup_sequence"];
+            startupEnabled = (startupSequence != STARTUP_NONE);
+            saveSettings(); // Auto-save
+        }
+        if (doc.containsKey("startup_duration")) {
+            startupDuration = doc["startup_duration"];
+            saveSettings(); // Auto-save
+        }
+        if (doc.containsKey("testStartup") && doc["testStartup"]) {
+            startStartupSequence();
+        }
         if (doc.containsKey("apName")) {
             apName = doc["apName"].as<String>();
             saveSettings(); // Auto-save
@@ -1344,6 +1691,9 @@ void handleStatus() {
     doc["preset"] = currentPreset;
     doc["brightness"] = globalBrightness;
     doc["effectSpeed"] = effectSpeed;
+    doc["startup_sequence"] = startupSequence;
+    doc["startup_sequence_name"] = getStartupSequenceName(startupSequence);
+    doc["startup_duration"] = startupDuration;
     doc["apName"] = apName;
     doc["apPassword"] = apPassword;
     doc["headlightColor"] = String(headlightColor.r, HEX) + String(headlightColor.g, HEX) + String(headlightColor.b, HEX);
@@ -1568,6 +1918,11 @@ bool saveSettings() {
     doc["effect_speed"] = effectSpeed;
     doc["current_preset"] = currentPreset;
     
+    // Startup sequence settings
+    doc["startup_sequence"] = startupSequence;
+    doc["startup_enabled"] = startupEnabled;
+    doc["startup_duration"] = startupDuration;
+    
     // LED configuration
     doc["headlight_count"] = headlightLedCount;
     doc["taillight_count"] = taillightLedCount;
@@ -1632,6 +1987,11 @@ bool loadSettings() {
     effectSpeed = doc["effect_speed"] | 64;
     currentPreset = doc["current_preset"] | PRESET_STANDARD;
     
+    // Load startup sequence settings
+    startupSequence = doc["startup_sequence"] | STARTUP_POWER_ON;
+    startupEnabled = doc["startup_enabled"] | true;
+    startupDuration = doc["startup_duration"] | 3000;
+    
     // Load LED configuration
     headlightLedCount = doc["headlight_count"] | 11;
     taillightLedCount = doc["taillight_count"] | 11;
@@ -1650,6 +2010,8 @@ bool loadSettings() {
                   taillightColor.r, taillightColor.g, taillightColor.b);
     Serial.printf("Brightness: %d, Speed: %d, Preset: %d\n", 
                   globalBrightness, effectSpeed, currentPreset);
+    Serial.printf("Startup: %s (%dms), Enabled: %s\n", 
+                  getStartupSequenceName(startupSequence).c_str(), startupDuration, startupEnabled ? "Yes" : "No");
     
     return true;
 }

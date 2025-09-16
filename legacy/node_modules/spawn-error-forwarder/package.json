@@ -1,0 +1,32 @@
+{
+  "name": "spawn-error-forwarder",
+  "version": "1.0.0",
+  "description": "Emit errors on stdout stream for a spawned child process",
+  "main": "./src",
+  "directories": {
+    "test": "test"
+  },
+  "scripts": {
+    "test": "mocha"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/bendrucker/spawn-error-forwarder.git"
+  },
+  "keywords": [
+    "child_processs",
+    "spawn",
+    "error",
+    "stdout",
+    "stderr"
+  ],
+  "author": "Ben Drucker <bvdrucker@gmail.com> (http://bendrucker.me)",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/bendrucker/spawn-error-forwarder/issues"
+  },
+  "homepage": "https://github.com/bendrucker/spawn-error-forwarder",
+  "devDependencies": {
+    "chai": "~1.10.0"
+  }
+}

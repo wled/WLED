@@ -1,0 +1,42 @@
+{
+  "name": "xdg-basedir",
+  "version": "2.0.0",
+  "description": "Get XDG Base Directory paths",
+  "license": "MIT",
+  "repository": "sindresorhus/xdg-basedir",
+  "author": {
+    "name": "Sindre Sorhus",
+    "email": "sindresorhus@gmail.com",
+    "url": "sindresorhus.com"
+  },
+  "engines": {
+    "node": ">=0.10.0"
+  },
+  "scripts": {
+    "test": "node test.js"
+  },
+  "files": [
+    "index.js"
+  ],
+  "keywords": [
+    "xdg",
+    "base",
+    "directory",
+    "dir",
+    "basedir",
+    "path",
+    "data",
+    "config",
+    "cache",
+    "linux",
+    "unix",
+    "spec"
+  ],
+  "dependencies": {
+    "os-homedir": "^1.0.0"
+  },
+  "devDependencies": {
+    "ava": "0.0.4",
+    "require-uncached": "^1.0.2"
+  }
+}

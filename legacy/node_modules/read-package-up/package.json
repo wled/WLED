@@ -1,0 +1,69 @@
+{
+	"name": "read-package-up",
+	"version": "11.0.0",
+	"description": "Read the closest package.json file",
+	"license": "MIT",
+	"repository": "sindresorhus/read-package-up",
+	"funding": "https://github.com/sponsors/sindresorhus",
+	"author": {
+		"name": "Sindre Sorhus",
+		"email": "sindresorhus@gmail.com",
+		"url": "https://sindresorhus.com"
+	},
+	"type": "module",
+	"exports": {
+		"types": "./index.d.ts",
+		"default": "./index.js"
+	},
+	"engines": {
+		"node": ">=18"
+	},
+	"scripts": {
+		"test": "xo && ava && tsd"
+	},
+	"files": [
+		"index.js",
+		"index.d.ts"
+	],
+	"keywords": [
+		"json",
+		"read",
+		"parse",
+		"file",
+		"fs",
+		"graceful",
+		"load",
+		"package",
+		"find",
+		"up",
+		"find-up",
+		"findup",
+		"look-up",
+		"look",
+		"search",
+		"match",
+		"resolve",
+		"parent",
+		"parents",
+		"folder",
+		"directory",
+		"walk",
+		"walking",
+		"path"
+	],
+	"dependencies": {
+		"find-up-simple": "^1.0.0",
+		"read-pkg": "^9.0.0",
+		"type-fest": "^4.6.0"
+	},
+	"devDependencies": {
+		"ava": "^5.3.1",
+		"tsd": "^0.29.0",
+		"xo": "^0.56.0"
+	},
+	"xo": {
+		"rules": {
+			"@typescript-eslint/no-redundant-type-constituents": "off"
+		}
+	}
+}

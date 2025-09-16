@@ -1,0 +1,22 @@
+{
+    "build": {
+      "core": "esp32",
+      "mcu": "esp32s3",
+      "variant": "xiao_esp32s3",
+      "f_cpu": "240000000L",
+      "f_flash": "80000000L",
+      "psram": "enabled"
+    },
+    "frameworks": ["arduino", "espidf"],
+    "name": "Seeed XIAO ESP32S3",
+    "upload": {
+      "maximum_size": 1310720,
+      "maximum_ram_size": 327680,
+      "flash_size": "4MB",
+      "require_upload_port": true
+    },
+    "connectivity": ["wifi", "bluetooth"],
+    "url": "https://wiki.seeedstudio.com/XIAO_ESP32S3_Getting_Started/",
+    "vendor": "Seeed Studios"
+  }
+  

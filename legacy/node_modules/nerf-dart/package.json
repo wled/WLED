@@ -1,0 +1,33 @@
+{
+  "name": "nerf-dart",
+  "description": "maps a URL to an identifier",
+  "main": "index.js",
+  "scripts": {
+    "coverage": "nyc report",
+    "coverage:upload": "npm run coverage -- --reporter=text-lcov | coveralls",
+    "test": "standard && nyc tap --no-cov test.js",
+    "semantic-release": "semantic-release pre && npm publish && semantic-release post"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/boennemann/nerf-dart.git"
+  },
+  "keywords": [
+    "url",
+    "identifier"
+  ],
+  "author": "Stephan Bönnemann <stephan@boennemann.me> (http://boennemann.me/)",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/boennemann/nerf-dart/issues"
+  },
+  "homepage": "https://github.com/boennemann/nerf-dart#readme",
+  "devDependencies": {
+    "coveralls": "^2.11.4",
+    "nyc": "^3.1.0",
+    "semantic-release": "^4.1.0",
+    "standard": "^5.1.0",
+    "tap": "^1.3.2"
+  },
+  "version": "1.0.0"
+}

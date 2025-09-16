@@ -1,0 +1,106 @@
+{
+  "name": "@semantic-release/git",
+  "description": "semantic-release plugin to commit release assets to the project's git repository",
+  "version": "10.0.1",
+  "author": "Pierre Vanduynslager (https://github.com/pvdlg)",
+  "ava": {
+    "files": [
+      "test/**/*.test.js"
+    ]
+  },
+  "bugs": {
+    "url": "https://github.com/semantic-release/git/issues"
+  },
+  "contributors": [
+    "Stephan Bönnemann <stephan@boennemann.me> (http://boennemann.me)",
+    "Gregor Martynus (https://twitter.com/gr2m)"
+  ],
+  "dependencies": {
+    "@semantic-release/error": "^3.0.0",
+    "aggregate-error": "^3.0.0",
+    "debug": "^4.0.0",
+    "dir-glob": "^3.0.0",
+    "execa": "^5.0.0",
+    "lodash": "^4.17.4",
+    "micromatch": "^4.0.0",
+    "p-reduce": "^2.0.0"
+  },
+  "devDependencies": {
+    "ava": "3.15.0",
+    "clear-module": "4.1.1",
+    "file-url": "3.0.0",
+    "fs-extra": "10.0.0",
+    "get-stream": "6.0.1",
+    "git-log-parser": "1.2.0",
+    "nyc": "15.1.0",
+    "semantic-release": "18.0.0",
+    "sinon": "11.1.2",
+    "tempy": "1.0.1",
+    "xo": "0.28.3"
+  },
+  "engines": {
+    "node": ">=14.17"
+  },
+  "files": [
+    "lib",
+    "index.js"
+  ],
+  "homepage": "https://github.com/semantic-release/git#readme",
+  "keywords": [
+    "changelog",
+    "commit",
+    "conventional-changelog",
+    "conventional-commits",
+    "git",
+    "release",
+    "semantic-release",
+    "version"
+  ],
+  "license": "MIT",
+  "main": "index.js",
+  "nyc": {
+    "include": [
+      "lib/**/*.js",
+      "index.js"
+    ],
+    "reporter": [
+      "json",
+      "text",
+      "html"
+    ],
+    "all": true
+  },
+  "peerDependencies": {
+    "semantic-release": ">=18.0.0"
+  },
+  "prettier": {
+    "printWidth": 120,
+    "trailingComma": "es5"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/semantic-release/git.git"
+  },
+  "scripts": {
+    "lint": "xo",
+    "pretest": "npm run lint",
+    "semantic-release": "semantic-release",
+    "test": "nyc ava -v",
+    "test:ci": "nyc ava -v"
+  },
+  "xo": {
+    "prettier": true,
+    "space": true,
+    "rules": {
+      "unicorn/string-content": "off"
+    }
+  },
+  "renovate": {
+    "extends": [
+      "github>semantic-release/.github"
+    ]
+  }
+}

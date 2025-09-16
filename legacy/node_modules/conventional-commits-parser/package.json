@@ -1,0 +1,45 @@
+{
+  "name": "conventional-commits-parser",
+  "type": "module",
+  "version": "6.1.0",
+  "description": "Parse raw conventional commits.",
+  "author": {
+    "name": "Steve Mao",
+    "email": "maochenyan@gmail.com",
+    "url": "https://github.com/stevemao"
+  },
+  "license": "MIT",
+  "homepage": "https://github.com/conventional-changelog/conventional-changelog/tree/master/packages/conventional-commits-parser#readme",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/conventional-changelog/conventional-changelog.git",
+    "directory": "packages/conventional-commits-parser"
+  },
+  "bugs": {
+    "url": "https://github.com/conventional-changelog/conventional-changelog/issues"
+  },
+  "keywords": [
+    "conventional-commits-parser",
+    "changelog",
+    "conventional",
+    "parser",
+    "parsing",
+    "logs"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "exports": {
+    "types": "./dist/index.d.ts",
+    "import": "./dist/index.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "dependencies": {
+    "meow": "^13.0.0"
+  },
+  "bin": {
+    "conventional-commits-parser": "./dist/cli/index.js"
+  }
+}

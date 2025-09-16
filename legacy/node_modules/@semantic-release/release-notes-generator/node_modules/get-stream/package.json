@@ -1,0 +1,48 @@
+{
+	"name": "get-stream",
+	"version": "7.0.1",
+	"description": "Get a stream as a string or buffer",
+	"license": "MIT",
+	"repository": "sindresorhus/get-stream",
+	"funding": "https://github.com/sponsors/sindresorhus",
+	"author": {
+		"name": "Sindre Sorhus",
+		"email": "sindresorhus@gmail.com",
+		"url": "https://sindresorhus.com"
+	},
+	"type": "module",
+	"exports": "./index.js",
+	"engines": {
+		"node": ">=16"
+	},
+	"scripts": {
+		"test": "xo && ava && tsd"
+	},
+	"files": [
+		"index.js",
+		"index.d.ts"
+	],
+	"keywords": [
+		"get",
+		"stream",
+		"promise",
+		"concat",
+		"string",
+		"text",
+		"buffer",
+		"read",
+		"data",
+		"consume",
+		"readable",
+		"readablestream",
+		"object",
+		"concat"
+	],
+	"devDependencies": {
+		"@types/node": "^20.2.4",
+		"ava": "^5.3.0",
+		"into-stream": "^8.0.0",
+		"tsd": "^0.28.1",
+		"xo": "^0.54.2"
+	}
+}

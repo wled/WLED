@@ -1,0 +1,69 @@
+{
+  "name": "@semantic-release/error",
+  "description": "errors with more than just a message",
+  "version": "4.0.0",
+  "type": "module",
+  "author": "Stephan Bönnemann <stephan@boennemann.me> (http://boennemann.me)",
+  "ava": {
+    "files": [
+      "test/**/*.test.js"
+    ]
+  },
+  "bugs": {
+    "url": "https://github.com/semantic-release/error/issues"
+  },
+  "devDependencies": {
+    "ava": "5.1.0",
+    "c8": "7.14.0",
+    "codecov": "3.8.3",
+    "prettier": "2.8.8"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "files": [
+    "index.js"
+  ],
+  "homepage": "https://github.com/semantic-release/error#readme",
+  "keywords": [
+    "error",
+    "semantic-release"
+  ],
+  "license": "MIT",
+  "exports": "./index.js",
+  "c8": {
+    "include": [
+      "index.js"
+    ],
+    "reporter": [
+      "json",
+      "text",
+      "html"
+    ],
+    "all": true
+  },
+  "prettier": {
+    "printWidth": 120,
+    "trailingComma": "es5"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/semantic-release/error.git"
+  },
+  "scripts": {
+    "lint": "prettier --check \"*.{js,json,md}\" \".github/**/*.{md,yml}\" \"{bin,lib,test}/*.js\"",
+    "lint:fix": "prettier --write \"*.{js,json,md}\" \".github/**/*.{md,yml}\" \"{bin,lib,test}/*.js\"",
+    "pretest": "npm run lint",
+    "test": "c8 ava -v",
+    "test:ci": "c8 ava -v"
+  },
+  "renovate": {
+    "extends": [
+      "github>semantic-release/.github"
+    ]
+  }
+}

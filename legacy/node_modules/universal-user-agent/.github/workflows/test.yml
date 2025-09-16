@@ -1,0 +1,38 @@
+name: Test
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    types:
+      - opened
+      - synchronize
+
+jobs:
+  test_matrix:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node_version:
+          - 12
+          - 14
+          - 16
+
+    steps:
+      - uses: actions/checkout@v3
+      - name: Use Node.js ${{ matrix.node_version }}
+        uses: uses: actions/setup-node@v3
+        with:
+          node-version: ${{ matrix.node_version }}
+          cache: npm
+      - run: npm ci
+      - run: npm run test:code
+
+  test:
+    runs-on: ubuntu-latest
+    needs: test_matrix
+    steps:
+      - uses: actions/checkout@v2
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run test:types

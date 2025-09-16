@@ -1,0 +1,1 @@
+{"version":3,"file":"RevertedCommitsFilter.d.ts","sourceRoot":"","sources":["../src/RevertedCommitsFilter.ts"],"names":[],"mappings":"AAAA,OAAO,KAAK,EAAE,MAAM,EAAE,MAAM,YAAY,CAAA;AAGxC,qBAAa,qBAAqB,CAAC,CAAC,SAAS,MAAM,GAAG,MAAM;IAC1D,OAAO,CAAC,QAAQ,CAAC,IAAI,CAAe;IACpC,OAAO,CAAC,gBAAgB,CAAK;IAE7B;;;;OAIG;IACD,OAAO,CAAC,MAAM,EAAE,CAAC;IA4BnB;;;OAGG;IACD,KAAK;CAQR"}

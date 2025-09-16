@@ -1,0 +1,92 @@
+{
+	"name": "import-from-esm",
+	"version": "2.0.0",
+	"main": "index.js",
+	"type": "module",
+	"description": "Import a module like with require() but from a given path (for ESM)",
+	"license": "MIT",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/sheerlox/import-from-esm.git"
+	},
+	"author": "Pierre Cavin <me@sherlox.io> (https://github.com/sheerlox)",
+	"contributors": [
+		"Sindre Sorhus <sindresorhus@gmail.com> (https://sindresorhus.com)"
+	],
+	"engines": {
+		"node": ">=18.20"
+	},
+	"scripts": {
+		"test": "npm run test:all && npm run knip",
+		"test:all": "npm run test:ava && npm run test:nested && npm run test:fuzz:regression && npm run test:fuzz && npm run test:tsd",
+		"test:ava": "c8 ava tests/e2e.test.js",
+		"test:ava:watch": "c8 ava tests/e2e.test.js --watch",
+		"test:nested": "cd tests/fixture/nested/ && npm ci && npm test",
+		"test:fuzz": "ava tests/fuzz.test.js",
+		"test:fuzz:regression": "ava tests/fuzz-regression.test.js",
+		"test:tsd": "tsd --files tests/**/*.test-d.ts",
+		"knip": "knip",
+		"lint": "xo",
+		"lint:fix": "xo --fix"
+	},
+	"files": [
+		"index.js",
+		"index.d.ts",
+		"lib/**/*.js"
+	],
+	"keywords": [
+		"import",
+		"module",
+		"resolve",
+		"path",
+		"esm"
+	],
+	"dependencies": {
+		"debug": "^4.3.4",
+		"import-meta-resolve": "^4.0.0"
+	},
+	"devDependencies": {
+		"@fast-check/ava": "1.2.1",
+		"@insurgent/export-map-test": "1.0.1",
+		"@insurgent/json-index-test": "2.0.0",
+		"@insurgent/json-main-test": "2.0.0",
+		"@insurgent/subpaths-test": "1.0.0",
+		"@insurgent/conventional-changelog-preset": "10.0.0",
+		"@semantic-release/changelog": "6.0.3",
+		"@semantic-release/git": "10.0.1",
+		"@types/debug": "4.1.12",
+		"ava": "5.3.1",
+		"c8": "9.1.0",
+		"knip": "4.6.0",
+		"semantic-release": "24.2.0",
+		"tsd": "0.31.2",
+		"xo": "0.56.0"
+	},
+	"xo": {
+		"rules": {
+			"unicorn/no-await-expression-member": "off",
+			"import/order": "off",
+			"object-curly-spacing": [
+				"error",
+				"always"
+			]
+		},
+		"ignores": [
+			"lib/"
+		]
+	},
+	"c8": {
+		"include": [
+			"index.js"
+		],
+		"check-coverage": true,
+		"reporter": [
+			"text",
+			"lcov"
+		],
+		"statements": 100,
+		"branches": 100,
+		"functions": 100,
+		"lines": 100
+	}
+}

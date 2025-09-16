@@ -1,0 +1,45 @@
+{
+  "name": "java-properties",
+  "description": "Reads and interpolates Java .properties files",
+  "version": "1.0.2",
+  "license": "MIT",
+  "files": [
+    "dist-*/",
+    "bin/"
+  ],
+  "esnext": "dist-src/index.js",
+  "main": "dist-node/index.js",
+  "types": "dist-types/index.d.ts",
+  "pika": true,
+  "sideEffects": false,
+  "keywords": [
+    "java",
+    "properties"
+  ],
+  "homepage": "http://github.com/mattdsteele/java-properties",
+  "bugs": {
+    "url": "https://github.com/mattdsteele/java-properties/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mattdsteele/java-properties.git"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@pika/pack": "^0.3.7",
+    "@pika/plugin-build-node": "^0.4.0",
+    "@pika/plugin-build-types": "^0.4.0",
+    "@pika/plugin-standard-pkg": "^0.4.0",
+    "@pika/plugin-ts-standard-pkg": "^0.4.0",
+    "@types/chai": "^4.1.7",
+    "@types/mocha": "^5.2.7",
+    "@types/node": "^11.13.17",
+    "chai": "^4.2.0",
+    "mocha": "^6.1.4",
+    "ts-node": "^8.3.0",
+    "typescript": "^3.5.3"
+  },
+  "engines": {
+    "node": ">= 0.6.0"
+  }
+}

@@ -1,0 +1,55 @@
+{
+	"name": "super-regex",
+	"version": "1.0.0",
+	"description": "Make a regular expression time out if it takes too long to execute",
+	"license": "MIT",
+	"repository": "sindresorhus/super-regex",
+	"funding": "https://github.com/sponsors/sindresorhus",
+	"author": {
+		"name": "Sindre Sorhus",
+		"email": "sindresorhus@gmail.com",
+		"url": "https://sindresorhus.com"
+	},
+	"type": "module",
+	"exports": {
+		"types": "./index.d.ts",
+		"default": "./index.js"
+	},
+	"sideEffects": false,
+	"engines": {
+		"node": ">=18"
+	},
+	"scripts": {
+		"test": "xo && ava && tsd",
+		"benchmark": "node benchmark/index.js"
+	},
+	"files": [
+		"index.js",
+		"index.d.ts"
+	],
+	"keywords": [
+		"regex",
+		"regexp",
+		"regular",
+		"expression",
+		"timeout",
+		"time",
+		"out",
+		"cancel",
+		"expire",
+		"abort",
+		"redos",
+		"security",
+		"script",
+		"execute"
+	],
+	"dependencies": {
+		"function-timeout": "^1.0.1",
+		"time-span": "^5.1.0"
+	},
+	"devDependencies": {
+		"ava": "^6.1.2",
+		"tsd": "^0.31.0",
+		"xo": "^0.58.0"
+	}
+}

@@ -1,0 +1,25 @@
+{
+  "name": "infinity-agent",
+  "version": "2.0.3",
+  "description": "Creates HTTP/HTTPS Agent with Infinity maxSockets",
+  "scripts": {
+    "test": "mocha -R spec"
+  },
+  "repository": "floatdrop/infinity-agent",
+  "keywords": [
+    "http",
+    "https",
+    "agent",
+    "maxSockets"
+  ],
+  "author": "Vsevolod Strukchinsky <floatdrop@gmail.com>",
+  "license": "MIT",
+  "files": [
+    "index.js",
+    "http.js",
+    "https.js"
+  ],
+  "devDependencies": {
+    "mocha": "^2.1.0"
+  }
+}

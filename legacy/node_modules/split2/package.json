@@ -1,0 +1,30 @@
+{
+  "name": "split2",
+  "version": "1.0.0",
+  "description": "split a Text Stream into a Line Stream, using Stream 3",
+  "main": "index.js",
+  "scripts": {
+    "test": "tap test.js"
+  },
+  "pre-commit": [
+    "test"
+  ],
+  "website": "https://github.com/mcollina/split2",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mcollina/split2.git"
+  },
+  "bugs": {
+    "url": "http://github.com/mcollina/split2/issues"
+  },
+  "author": "Matteo Collina <hello@matteocollina.com>",
+  "license": "ISC",
+  "devDependencies": {
+    "tap": "~0.4.12",
+    "pre-commit": "0.0.9",
+    "callback-stream": "~1.0.2"
+  },
+  "dependencies": {
+    "through2": "~2.0.0"
+  }
+}

@@ -1,0 +1,58 @@
+{
+	"name": "function-timeout",
+	"version": "1.0.2",
+	"description": "Make a synchronous function have a timeout",
+	"license": "MIT",
+	"repository": "sindresorhus/function-timeout",
+	"funding": "https://github.com/sponsors/sindresorhus",
+	"author": {
+		"name": "Sindre Sorhus",
+		"email": "sindresorhus@gmail.com",
+		"url": "https://sindresorhus.com"
+	},
+	"type": "module",
+	"exports": {
+		"types": "./index.d.ts",
+		"node": "./index.js",
+		"default": "./browser.js"
+	},
+	"sideEffects": false,
+	"engines": {
+		"node": ">=18"
+	},
+	"scripts": {
+		"test": "xo && ava && tsd"
+	},
+	"files": [
+		"index.js",
+		"index.d.ts",
+		"browser.js"
+	],
+	"keywords": [
+		"function",
+		"synchronous",
+		"timeout",
+		"time",
+		"out",
+		"cancel",
+		"expire",
+		"abort",
+		"regex",
+		"regexp",
+		"redos",
+		"security",
+		"func",
+		"fn",
+		"script",
+		"execute",
+		"halt",
+		"termination"
+	],
+	"devDependencies": {
+		"ava": "^5.3.1",
+		"in-range": "^3.0.0",
+		"time-span": "^5.1.0",
+		"tsd": "^0.29.0",
+		"xo": "^0.56.0"
+	}
+}

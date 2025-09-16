@@ -1,0 +1,31 @@
+{
+  "name": "git-log-parser",
+  "version": "1.2.1",
+  "description": "git-log-parser",
+  "main": "./src",
+  "dependencies": {
+    "argv-formatter": "~1.0.0",
+    "spawn-error-forwarder": "~1.0.0",
+    "split2": "~1.0.0",
+    "stream-combiner2": "~1.1.1",
+    "through2": "~2.0.0",
+    "traverse": "0.6.8"
+  },
+  "devDependencies": {
+    "chai": "~1.10.0",
+    "mocha": "~2.0.1"
+  },
+  "scripts": {
+    "test": "mocha"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/bendrucker/git-log-parser.git"
+  },
+  "author": "",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/bendrucker/git-log-parser/issues"
+  },
+  "homepage": "https://github.com/bendrucker/git-log-parser"
+}

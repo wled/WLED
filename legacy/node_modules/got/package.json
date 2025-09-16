@@ -1,0 +1,62 @@
+{
+  "name": "got",
+  "version": "3.3.1",
+  "description": "Simplified HTTP/HTTPS requests",
+  "license": "MIT",
+  "repository": "sindresorhus/got",
+  "maintainers": [
+    {
+      "name": "Sindre Sorhus",
+      "email": "sindresorhus@gmail.com",
+      "url": "sindresorhus.com"
+    },
+    {
+      "name": "Vsevolod Strukchinsky",
+      "email": "floatdrop@gmail.com",
+      "url": "github.com/floatdrop"
+    }
+  ],
+  "engines": {
+    "node": ">=0.10.0"
+  },
+  "scripts": {
+    "test": "tap test/test-*.js",
+    "coverage": "istanbul cover tape --report html -- test/test-*.js"
+  },
+  "files": [
+    "index.js"
+  ],
+  "keywords": [
+    "http",
+    "https",
+    "get",
+    "got",
+    "url",
+    "uri",
+    "request",
+    "util",
+    "utility",
+    "simple",
+    "curl",
+    "wget",
+    "fetch"
+  ],
+  "dependencies": {
+    "duplexify": "^3.2.0",
+    "infinity-agent": "^2.0.0",
+    "is-redirect": "^1.0.0",
+    "is-stream": "^1.0.0",
+    "lowercase-keys": "^1.0.0",
+    "nested-error-stacks": "^1.0.0",
+    "object-assign": "^3.0.0",
+    "prepend-http": "^1.0.0",
+    "read-all-stream": "^3.0.0",
+    "timed-out": "^2.0.0"
+  },
+  "devDependencies": {
+    "from2-array": "0.0.3",
+    "istanbul": "^0.3.13",
+    "pem": "^1.4.4",
+    "tap": "^1.0.0"
+  }
+}

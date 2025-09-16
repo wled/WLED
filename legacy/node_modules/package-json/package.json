@@ -1,0 +1,39 @@
+{
+  "name": "package-json",
+  "version": "1.2.0",
+  "description": "Get the package.json of a package from the npm registry",
+  "license": "MIT",
+  "repository": "sindresorhus/package-json",
+  "author": {
+    "name": "Sindre Sorhus",
+    "email": "sindresorhus@gmail.com",
+    "url": "sindresorhus.com"
+  },
+  "engines": {
+    "node": ">=0.10.0"
+  },
+  "scripts": {
+    "test": "mocha"
+  },
+  "files": [
+    "index.js"
+  ],
+  "keywords": [
+    "npm",
+    "registry",
+    "package",
+    "pkg",
+    "package.json",
+    "json",
+    "module",
+    "scope",
+    "scoped"
+  ],
+  "dependencies": {
+    "got": "^3.2.0",
+    "registry-url": "^3.0.0"
+  },
+  "devDependencies": {
+    "mocha": "*"
+  }
+}

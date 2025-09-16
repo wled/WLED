@@ -1,0 +1,51 @@
+{
+  "name": "conventional-changelog-writer",
+  "type": "module",
+  "version": "8.0.1",
+  "description": "Write logs based on conventional commits and templates.",
+  "author": {
+    "name": "Steve Mao",
+    "email": "maochenyan@gmail.com",
+    "url": "https://github.com/stevemao"
+  },
+  "license": "MIT",
+  "homepage": "https://github.com/conventional-changelog/conventional-changelog/tree/master/packages/conventional-changelog-writer#readme",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/conventional-changelog/conventional-changelog.git",
+    "directory": "packages/conventional-changelog-writer"
+  },
+  "bugs": {
+    "url": "https://github.com/conventional-changelog/conventional-changelog/issues"
+  },
+  "keywords": [
+    "conventional-changelog-writer",
+    "changelog",
+    "conventional",
+    "commits",
+    "templates",
+    "writer",
+    "writing",
+    "logs"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "exports": {
+    "types": "./dist/index.d.ts",
+    "import": "./dist/index.js"
+  },
+  "files": [
+    "dist",
+    "templates/*.hbs"
+  ],
+  "dependencies": {
+    "handlebars": "^4.7.7",
+    "meow": "^13.0.0",
+    "semver": "^7.5.2",
+    "conventional-commits-filter": "^5.0.0"
+  },
+  "bin": {
+    "conventional-changelog-writer": "./dist/cli/index.js"
+  }
+}

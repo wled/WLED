@@ -1,0 +1,35 @@
+{
+  "name": "timed-out",
+  "version": "2.0.0",
+  "description": "Emit `ETIMEDOUT` or `ESOCKETTIMEDOUT` when ClientRequest is hanged",
+  "license": "MIT",
+  "repository": "floatdrop/timed-out",
+  "author": {
+    "name": "Vsevolod Strukchinsky",
+    "email": "floatdrop@gmail.com"
+  },
+  "engines": {
+    "node": ">=0.10.0"
+  },
+  "scripts": {
+    "test": "mocha"
+  },
+  "files": [
+    "index.js"
+  ],
+  "keywords": [
+    "http",
+    "https",
+    "get",
+    "got",
+    "url",
+    "uri",
+    "request",
+    "util",
+    "utility",
+    "simple"
+  ],
+  "devDependencies": {
+    "mocha": "*"
+  }
+}

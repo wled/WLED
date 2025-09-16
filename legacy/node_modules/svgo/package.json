@@ -1,0 +1,69 @@
+{
+  "name": "svgo",
+  "version": "0.6.6",
+  "description": "Nodejs-based tool for optimizing SVG vector graphics files",
+  "keywords": [
+    "svgo",
+    "svg",
+    "optimize",
+    "minify"
+  ],
+  "homepage": "https://github.com/svg/svgo",
+  "bugs": {
+    "url": "https://github.com/svg/svgo/issues",
+    "email": "kir@soulshine.in"
+  },
+  "author": {
+    "name": "Kir Belevich",
+    "email": "kir@soulshine.in",
+    "url": "https://github.com/deepsweet"
+  },
+  "contributors": [
+    {
+      "name": "Sergey Belov",
+      "email": "peimei@ya.ru",
+      "url": "http://github.com/arikon"
+    },
+    {
+      "name": "Lev Solntsev",
+      "email": "lev.sun@ya.ru",
+      "url": "http://github.com/GreLI"
+    }
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/svg/svgo.git"
+  },
+  "main": "./lib/svgo.js",
+  "bin": {
+    "svgo": "./bin/svgo"
+  },
+  "directories": {
+    "bin": "./bin",
+    "lib": "./lib",
+    "example": "./examples"
+  },
+  "scripts": {
+    "test": "make test"
+  },
+  "dependencies": {
+    "sax": "~1.2.1",
+    "coa": "~1.0.1",
+    "js-yaml": "~3.6.0",
+    "colors": "~1.1.2",
+    "whet.extend": "~0.9.9",
+    "mkdirp": "~0.5.1",
+    "csso": "~2.0.0"
+  },
+  "devDependencies": {
+    "mocha": "~2.4.5",
+    "should": "8.3.1",
+    "istanbul": "~0.4.3",
+    "mocha-istanbul": "~0.2.0",
+    "coveralls": "~2.11.9"
+  },
+  "engines": {
+    "node": ">=0.10.0"
+  },
+  "license": "MIT"
+}

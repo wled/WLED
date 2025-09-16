@@ -1,0 +1,104 @@
+{
+	"name": "execa",
+	"version": "9.5.2",
+	"description": "Process execution for humans",
+	"license": "MIT",
+	"repository": "sindresorhus/execa",
+	"funding": "https://github.com/sindresorhus/execa?sponsor=1",
+	"author": {
+		"name": "Sindre Sorhus",
+		"email": "sindresorhus@gmail.com",
+		"url": "https://sindresorhus.com"
+	},
+	"type": "module",
+	"exports": {
+		"types": "./index.d.ts",
+		"default": "./index.js"
+	},
+	"sideEffects": false,
+	"engines": {
+		"node": "^18.19.0 || >=20.5.0"
+	},
+	"scripts": {
+		"test": "npm run lint && npm run unit && npm run type",
+		"lint": "xo",
+		"unit": "c8 --merge-async ava",
+		"type": "tsd && tsc && npx --yes tsd@0.29.0 && npx --yes --package typescript@5.1 tsc"
+	},
+	"files": [
+		"index.js",
+		"index.d.ts",
+		"lib/**/*.js",
+		"types/**/*.ts"
+	],
+	"keywords": [
+		"exec",
+		"child",
+		"process",
+		"subprocess",
+		"execute",
+		"fork",
+		"execfile",
+		"spawn",
+		"file",
+		"shell",
+		"bin",
+		"binary",
+		"binaries",
+		"npm",
+		"path",
+		"local",
+		"zx"
+	],
+	"dependencies": {
+		"@sindresorhus/merge-streams": "^4.0.0",
+		"cross-spawn": "^7.0.3",
+		"figures": "^6.1.0",
+		"get-stream": "^9.0.0",
+		"human-signals": "^8.0.0",
+		"is-plain-obj": "^4.1.0",
+		"is-stream": "^4.0.1",
+		"npm-run-path": "^6.0.0",
+		"pretty-ms": "^9.0.0",
+		"signal-exit": "^4.1.0",
+		"strip-final-newline": "^4.0.0",
+		"yoctocolors": "^2.0.0"
+	},
+	"devDependencies": {
+		"@types/node": "^22.1.0",
+		"ava": "^6.0.1",
+		"c8": "^10.1.2",
+		"get-node": "^15.0.0",
+		"is-in-ci": "^1.0.0",
+		"is-running": "^2.1.0",
+		"path-exists": "^5.0.0",
+		"path-key": "^4.0.0",
+		"tempfile": "^5.0.0",
+		"tsd": "^0.31.0",
+		"typescript": "^5.4.5",
+		"which": "^5.0.0",
+		"xo": "^0.59.3"
+	},
+	"c8": {
+		"reporter": [
+			"text",
+			"lcov"
+		],
+		"exclude": [
+			"**/fixtures/**",
+			"**/test.js",
+			"**/test/**"
+		]
+	},
+	"ava": {
+		"workerThreads": false,
+		"concurrency": 1,
+		"timeout": "240s"
+	},
+	"xo": {
+		"rules": {
+			"unicorn/no-empty-file": "off",
+			"@typescript-eslint/ban-types": "off"
+		}
+	}
+}

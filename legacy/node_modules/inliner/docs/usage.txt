@@ -1,0 +1,34 @@
+
+  Usage:
+
+    $ inliner [flags] url-or-filename
+
+  Inliner also supports HTML being piped and will inline from STDIN.
+
+  Flags:
+
+    -n, --nocompress      don't compress CSS or HTML - useful for debugging
+    -i, --noimages        don't encode images - keeps files size small, but more requests
+    -m, --inlinemin       inline minified files
+    --iesafe              safe JS compression for older IE 6/7/8
+    --videos              encode videos (and their poster image) - disabled by default
+    --nosvg               don't compress SVG (through SVGO)
+    --skip-absolute-urls  don't inline links with absolute URLs
+    --preserve-comments   keeps HTML comments
+    -V, --version         output the version number
+    -h, --help            output usage information
+
+  Options:
+
+    -H, --header LINE   custom header pass to the server (ala cURL headers)
+    -e, --encoding ENC  override encoding detection
+
+  Examples:
+
+    $ inliner https://twitter.com > twitter.html
+    $ inliner -ni local-file.html > local-file.min.html
+    $ inliner -e windows-1253 http://foofootos.gr > foofootos-utf8.html
+    $ inliner -H 'User-Agent: Inliner Custom' https://httpbin.org/headers
+    $ cat local-file.html | inliner
+
+  For more details see http://github.com/remy/inliner/
