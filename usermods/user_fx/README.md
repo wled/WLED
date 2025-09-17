@@ -12,6 +12,7 @@ Multiple Effects can be specified inside this single usermod, as we will illustr
 * [Combining Multiple Effects in this Usermod](./README.md#combining-multiple-effects-in-this-usermod)
 * [Compiling](./README.md#compiling)
 * [Change Log](./README.md#change-log)
+* [Contact Us](./README.md#contact-us)
 
 ## How The Usermod Works
 
@@ -496,7 +497,7 @@ Compiling WLED yourself is beyond the scope of this tutorial, but [the complete 
 
 * First version of the custom effect creation guide
 
-# Contact US
+## Contact Us
 
 This custom effect tutorial guide is still in development.
 If you have suggestions on what should be added, or if you've found any parts of this guide which seem incorrect, feel free to reach out [here](aregis1992@gmail.com) and help us improve this guide for future creators.
