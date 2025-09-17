@@ -36,15 +36,16 @@ Below are some helpful variables and functions to know as you start your journey
 
 | Syntax Element                                  | Size   | Description |
 | :---------------------------------------------- | :----- | :---------- |
-| [`SEGMENT.speed / intensity / custom1 / custom2`](https://github.com/wled/WLED/blob/75f6de9dc29fc7da5f301fc1388ada228dcb3b6e/wled00/FX.h#L450)   | 8-bit  | These read-only variables help you control aspects of your custom effect using the UI sliders.  You can edit these variables through the UI sliders when WLED is running your effect. (These variables can be controlled by the API as well.) Note that while `SEGMENT.intensity` through `SEGMENT.custom2` are 8-bit variables, `SEGMENT.custom3` is actually 5-bit.  The other three bits are used by the boolean parameters `SEGMENT.option1` through `SEGMENT.option3` and are bit-packed to conserve data size and memory. |
+| [`SEGMENT.speed / intensity / custom1 / custom2`](https://github.com/wled/WLED/blob/75f6de9dc29fc7da5f301fc1388ada228dcb3b6e/wled00/FX.h#L450)   | 8-bit  | These read-only variables help you control aspects of your custom effect using the UI sliders.  You can edit these variables through the UI sliders when WLED is running your effect. (These variables can be controlled by the API as well.) Note that while `SEGMENT.intensity` through `SEGMENT.custom2` are 8-bit variables, `SEGMENT.custom3` is actually 5-bit.  The other three bits are used by the boolean parameters `SEGMENT.check1` through `SEGMENT.check3` and are bit-packed to conserve data size and memory. |
 | [`SEGMENT.custom3`](https://github.com/wled/WLED/blob/75f6de9dc29fc7da5f301fc1388ada228dcb3b6e/wled00/FX.h#L454) | 5-bit  | Another optional UI slider for custom effect control.  While `SEGMENT.speed` through `SEGMENT.custom2` are 8-bit variables, `SEGMENT.custom3` is actually 5-bit.  |
-| [`SEGMENT.option1 / option2 / option3`](https://github.com/wled/WLED/blob/75f6de9dc29fc7da5f301fc1388ada228dcb3b6e/wled00/FX.h#L455) | 1-bit  | These variables are boolean parameters which show up as checkbox options in the User Interface. They are bit-packed along with `SEGMENT.custom3` to conserve data size and memory.  |
+| [`SEGMENT.check1 / check2 / check3`](https://github.com/wled/WLED/blob/75f6de9dc29fc7da5f301fc1388ada228dcb3b6e/wled00/FX.h#L455) | 1-bit  | These variables are boolean parameters which show up as checkbox options in the User Interface. They are bit-packed along with `SEGMENT.custom3` to conserve data size and memory.  |
 | [`SEGENV.aux0 / aux1`](https://github.com/wled/WLED/blob/75f6de9dc29fc7da5f301fc1388ada228dcb3b6e/wled00/FX.h#L467) | 16-bit | These are state variables that persists between function calls, and they are free to be overwritten by the user for any use case. |
+| [`SEGENV.step`](https://github.com/wled/WLED/blob/75f6de9dc29fc7da5f301fc1388ada228dcb3b6e/wled00/FX.h#L465) | 32-bit | This is a timestamp variable that contains the last update time.  It is initially set during effect initialization to 0, and then it updates with the elapsed time after each frame runs. |
 | [`SEGENV.call`](https://github.com/wled/WLED/blob/75f6de9dc29fc7da5f301fc1388ada228dcb3b6e/wled00/FX.h#L466) | 32-bit | A counter for how many times this effect function has been invoked since it started. |
-| [`strip.now`](https://github.com/wled/WLED/blob/main/wled00/FX.h)                  | 32-bit | Current timestamp in milliseconds.  (Equivalent to `millis()`, but use `strip.now()` instead.) |
+| [`strip.now`](https://github.com/wled/WLED/blob/main/wled00/FX.h)                  | 32-bit | Current timestamp in milliseconds.  (Equivalent to `millis()`, but use `strip.now()` instead.)  `strip.now` respects the timebase, which can be used to advance or reset effects in a preset.  This can be useful to sync multiple segments. |
 | [`SEGLEN / SEG_W / SEG_H`](https://github.com/wled/WLED/blob/75f6de9dc29fc7da5f301fc1388ada228dcb3b6e/wled00/FX.h#L116) | 16-bit | These variables are macros that help define the length and width of your LED strip/matrix segment. |
 | [`SEGPALETTE`](https://github.com/wled/WLED/blob/75f6de9dc29fc7da5f301fc1388ada228dcb3b6e/wled00/FX.h#L115) | --- | Macro that gets the currently selected palette for the currently processing segment. |
-| [`hw_random8()`](https://github.com/wled/WLED/blob/7b0075d3754fa883fc1bbc9fbbe82aa23a9b97b8/wled00/fcn_declare.h#L548) | 8-bit  | One of several functions that generates a random integer. |
+| [`hw_random8()`](https://github.com/wled/WLED/blob/7b0075d3754fa883fc1bbc9fbbe82aa23a9b97b8/wled00/fcn_declare.h#L548) | 8-bit  | One of several functions that generates a random integer.  (All of the "hw_" functions are similar to the FastLED library's random functions, but in WLED they use true hardware-based randomness instead of a pseudo random number. In short, they are better and faster.) |
 | [`SEGCOLOR(x)`](https://github.com/wled/WLED/blob/75f6de9dc29fc7da5f301fc1388ada228dcb3b6e/wled00/FX.h#L114) | 32-bit | Macro that gets user-selected colors from UI, where x is an integer 1, 2, or 3 for primary, secondary, and tertiary colors, respectively. |
 | [`SEGMENT.setPixelColor`](https://github.com/WLED/WLED/blob/75f6de9dc29fc7da5f301fc1388ada228dcb3b6e/wled00/FX_fcn.cpp) / [`setPixelColorXY`](https://github.com/WLED/WLED/blob/75f6de9dc29fc7da5f301fc1388ada228dcb3b6e/wled00/FX_2Dfcn.cpp) | 32-bit | Function that paints one pixel. `setPixelColor` is 1‑D; `setPixelColorXY` expects `(x, y)` and an RGBW color value. |
 | [`SEGMENT.color_wheel()`](https://github.com/wled/WLED/blob/75f6de9dc29fc7da5f301fc1388ada228dcb3b6e/wled00/FX_fcn.cpp#L1092) | 32-bit | Input 0–255 to get a color. Transitions r→g→b→r. In HSV terms, `pos` is H. Note: only returns palette color unless the Default palette is selected. |
@@ -120,7 +121,7 @@ Next we will look at some lines of code that handle memory allocation and effect
 unsigned dataSize = cols * rows;  // SEGLEN (virtual length) is equivalent to vWidth()*vHeight() for 2D
 ```
 * This part calculates how much memory we need to represent per-pixel state.
-  * `cols * rows` or `(or SEGLEN)` returns the total number of LEDs in the current segment.
+  * `cols * rows` or `(or SEGLEN)` returns the total number of pixels in the current segment.
   * This fire effect models heat values per pixel (not just colors), so we need persistent storage — one uint8_t per pixel — for the entire effect.
 
 ```cpp
@@ -274,14 +275,14 @@ The values for Effect Parameters will always follow the convention in the table 
 
 | Parameter	| Default tooltip label |
 | :-------- | :-------------------- |
-| sx	       | Effect speed |
-| ix	       | Effect intensity |
+| sx	       | Effect Speed |
+| ix	       | Effect Intensity |
 | c1	       | Custom 1 |
 | c2	       | Custom 2 |
 | c3	       | Custom 3 |
-| o1       	| Option 1 |
-| o2	       | Option 2 |
-| o3	       | Option 3 |
+| o1       	| Checkbox 1 |
+| o2	       | Checkbox 2 |
+| o3	       | Checkbox 3 |
 
 Using this info, let’s split the Metadata string above into logical sections:
 
@@ -489,6 +490,13 @@ So now let's say that you wanted add the effects  "Diffusion Fire" and "Sinelon"
 ## Compiling
 Compiling WLED yourself is beyond the scope of this tutorial, but [the complete guide to compiling WLED can be found here](https://kno.wled.ge/advanced/compiling-wled/), on the official WLED documentation website.
 
-
 ## Change Log
 
+### Version 1.0.0
+
+* First version of the custom effect creation guide
+
+# Contact US
+
+This custom effect tutorial guide is still in development.
+If you have suggestions on what should be added, or if you've found any parts of this guide which seem incorrect, feel free to reach out [here](aregis1992@gmail.com) and help us improve this guide for future creators.
