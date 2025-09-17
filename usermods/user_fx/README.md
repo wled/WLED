@@ -500,4 +500,4 @@ Compiling WLED yourself is beyond the scope of this tutorial, but [the complete 
 ## Contact Us
 
 This custom effect tutorial guide is still in development.
-If you have suggestions on what should be added, or if you've found any parts of this guide which seem incorrect, feel free to reach out [here](aregis1992@gmail.com) and help us improve this guide for future creators.
+If you have suggestions on what should be added, or if you've found any parts of this guide which seem incorrect, feel free to reach out [here](mailto:aregis1992@gmail.com) and help us improve this guide for future creators.
