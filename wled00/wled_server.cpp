@@ -437,17 +437,23 @@ void initServer()
     if(!index){
       DEBUG_PRINTLN(F("OTA Update Start"));
       
-      // Check if user wants to ignore release check
+      // Check if user wants to skip validation
       bool skipValidation = request->hasParam("skipValidation", true);
       
-      // Validate OTA release compatibility using the first chunk data directly
-      char errorMessage[128];
-      releaseCheckPassed = shouldAllowOTA(data, len, skipValidation, errorMessage);
-      
-      if (!releaseCheckPassed) {
-        DEBUG_PRINTF_P(PSTR("OTA blocked: %s\n"), errorMessage);
-        request->send(400, FPSTR(CONTENT_TYPE_PLAIN), errorMessage);
-        return;
+      // If user chose to skip validation, proceed without compatibility check
+      if (skipValidation) {
+        DEBUG_PRINTLN(F("OTA validation skipped by user"));
+        releaseCheckPassed = true;
+      } else {
+        // Validate OTA release compatibility using the first chunk data directly
+        char errorMessage[128];
+        releaseCheckPassed = shouldAllowOTA(data, len, false, errorMessage);
+        
+        if (!releaseCheckPassed) {
+          DEBUG_PRINTF_P(PSTR("OTA declined: %s\n"), errorMessage);
+          request->send(400, FPSTR(CONTENT_TYPE_PLAIN), errorMessage);
+          return;
+        }
       }
       
       DEBUG_PRINTLN(F("Release check passed, starting OTA update"));

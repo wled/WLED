@@ -6,23 +6,17 @@
 #include <esp_ota_ops.h>
 #endif
 
-// Same hash function used at compile time (must match wled_custom_desc.cpp)
-static uint32_t djb2_hash(const char* str) {
-    uint32_t hash = 5381;
-    while (*str) {
-        hash = ((hash << 5) + hash) + *str++;
-    }
-    return hash;
-}
-
-bool extractReleaseFromCustomDesc(const uint8_t* binaryData, size_t dataSize, char* extractedRelease) {
-    if (!binaryData || !extractedRelease || dataSize < 64) {
+bool extractWledCustomDesc(const uint8_t* binaryData, size_t dataSize, wled_custom_desc_t* extractedDesc) {
+    if (!binaryData || !extractedDesc || dataSize < 64) {
         return false;
     }
 
-    // Search in first 8KB only - ESP32 .rodata.wled_desc and ESP8266 .ver_number 
-    // sections appear early in binary. 8KB should be sufficient for metadata discovery
-    // while minimizing processing time for large firmware files.
+    // Search in first 8KB only. This range was chosen because:
+    // - ESP32 .rodata.wled_desc sections appear early in the binary (typically within first 2-4KB)
+    // - ESP8266 .ver_number sections also appear early (typically within first 1-2KB)
+    // - 8KB provides ample coverage for metadata discovery while minimizing processing time
+    // - Larger firmware files (>1MB) would take significantly longer to process with full search
+    // - Real-world testing shows all valid metadata appears well within this range
     const size_t search_limit = min(dataSize, (size_t)8192);
     
     for (size_t offset = 0; offset <= search_limit - sizeof(wled_custom_desc_t); offset++) {
@@ -37,23 +31,22 @@ bool extractReleaseFromCustomDesc(const uint8_t* binaryData, size_t dataSize, ch
                 continue;
             }
             
-            // Validate hash using same algorithm as compile-time
-            uint32_t expected_hash = djb2_hash(custom_desc->release_name);
+            // Validate hash using runtime function
+            uint32_t expected_hash = djb2_hash_runtime(custom_desc->release_name);
             if (custom_desc->crc32 != expected_hash) {
                 DEBUG_PRINTF_P(PSTR("Found WLED structure at offset %u but hash mismatch\n"), offset);
                 continue;
             }
             
-            // Valid structure found
-            strncpy(extractedRelease, custom_desc->release_name, WLED_RELEASE_NAME_MAX_LEN - 1);
-            extractedRelease[WLED_RELEASE_NAME_MAX_LEN - 1] = '\0';
+            // Valid structure found - copy entire structure
+            memcpy(extractedDesc, custom_desc, sizeof(wled_custom_desc_t));
             
             #ifdef ESP32
-            DEBUG_PRINTF_P(PSTR("Extracted ESP32 release name from .rodata.wled_desc section at offset %u: '%s'\n"), 
-                          offset, extractedRelease);
+            DEBUG_PRINTF_P(PSTR("Extracted ESP32 WLED structure from .rodata.wled_desc section at offset %u: '%s'\n"), 
+                          offset, extractedDesc->release_name);
             #else
-            DEBUG_PRINTF_P(PSTR("Extracted ESP8266 release name from .ver_number section at offset %u: '%s'\n"), 
-                          offset, extractedRelease);
+            DEBUG_PRINTF_P(PSTR("Extracted ESP8266 WLED structure from .ver_number section at offset %u: '%s'\n"), 
+                          offset, extractedDesc->release_name);
             #endif
             return true;
         }
@@ -87,33 +80,33 @@ bool shouldAllowOTA(const uint8_t* binaryData, size_t dataSize, bool skipValidat
   const wled_custom_desc_t* local_desc = getWledCustomDesc();
   (void)local_desc; // Suppress unused variable warning
 
-  // If user chose to ignore release check, allow OTA
+  // If user chose to skip validation, allow OTA immediately
   if (skipValidation) {
     DEBUG_PRINTLN(F("OTA release check bypassed by user"));
     return true;
   }
 
-  // Try to extract release name directly from binary data
-  char extractedRelease[WLED_RELEASE_NAME_MAX_LEN];
-  bool hasCustomDesc = extractReleaseFromCustomDesc(binaryData, dataSize, extractedRelease);
+  // Try to extract WLED structure directly from binary data
+  wled_custom_desc_t extractedDesc;
+  bool hasCustomDesc = extractWledCustomDesc(binaryData, dataSize, &extractedDesc);
 
   if (!hasCustomDesc) {
     // No custom description - this could be a legacy binary
     if (errorMessage) {
-      strcpy(errorMessage, "Binary has no release compatibility metadata. Check 'Ignore validation' to proceed.");
+      strcpy(errorMessage, "This firmware file is missing compatibility metadata. Enable 'Ignore firmware validation' to proceed anyway.");
     }
-    DEBUG_PRINTLN(F("OTA blocked: No custom description found"));
+    DEBUG_PRINTLN(F("OTA declined: No custom description found"));
     return false;
   }
 
   // Validate compatibility using extracted release name
-  if (!validateReleaseCompatibility(extractedRelease)) {
+  if (!validateReleaseCompatibility(extractedDesc.release_name)) {
     if (errorMessage) {
-      snprintf(errorMessage, 127, "Release mismatch: current='%s', uploaded='%s'. Check 'Ignore validation' to proceed.", 
-               releaseString, extractedRelease);
+      snprintf(errorMessage, 127, "Firmware compatibility mismatch: current='%s', uploaded='%s'. Enable 'Ignore firmware validation' to proceed anyway.", 
+               releaseString, extractedDesc.release_name);
     }
-    DEBUG_PRINTF_P(PSTR("OTA blocked: Release mismatch current='%s', uploaded='%s'\n"), 
-                   releaseString, extractedRelease);
+    DEBUG_PRINTF_P(PSTR("OTA declined: Release mismatch current='%s', uploaded='%s'\n"), 
+                   releaseString, extractedDesc.release_name);
     return false;
   }
 
