@@ -13,23 +13,7 @@ else:
     print('\x1b[6;33;42m' + 'Installing node packages' + '\x1b[0m')
     env.Execute("npm ci")
 
-    # Extract the release name from build flags
-    release_name = None  # Let cdata.js provide the default if not found
-    build_flags = env.get("BUILD_FLAGS", [])
-    for flag in build_flags:
-        if 'WLED_RELEASE_NAME=' in flag:
-            # Extract the release name, remove quotes and handle different formats
-            parts = flag.split('WLED_RELEASE_NAME=')
-            if len(parts) > 1:
-                release_name = parts[1].split()[0].strip('\"\\')
-                break
-    
-    # Set environment variable for cdata.js to use (only if found)
-    if release_name:
-        os.environ['WLED_RELEASE_NAME'] = release_name
-        print(f'Building web UI with release name: {release_name}')
-    else:
-        print('Building web UI with default release name (from cdata.js)')
+    print('Building web UI')
 
     # Call the bundling script
     exitCode = env.Execute("npm run build")

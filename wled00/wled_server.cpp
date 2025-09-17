@@ -442,12 +442,14 @@ void initServer()
       } else {
         // Validate OTA release compatibility using the first chunk data directly
         char errorMessage[128];
-        releaseCheckPassed = shouldAllowOTA(data, len, false, errorMessage);
+        releaseCheckPassed = shouldAllowOTA(data, len, errorMessage, sizeof(errorMessage));
         
         if (!releaseCheckPassed) {
           DEBUG_PRINTF_P(PSTR("OTA declined: %s\n"), errorMessage);
           request->send(400, FPSTR(CONTENT_TYPE_PLAIN), errorMessage);
           return;
+        } else {
+          DEBUG_PRINTLN(F("OTA allowed: Release compatibility check passed"));
         }
       }
       
