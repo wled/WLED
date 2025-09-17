@@ -156,9 +156,16 @@ uint8_t parkDetectionAngle = 15; // degrees of tilt for park mode
 uint8_t impactThreshold = 3; // G-force threshold for impact detection
 
 // Park mode noise thresholds
-float parkAccelNoiseThreshold = 0.1; // G-force threshold for acceleration noise
-float parkGyroNoiseThreshold = 0.5;  // deg/s threshold for gyro noise
-uint16_t parkStationaryTime = 2000;  // ms of stationary time before park mode activates
+float parkAccelNoiseThreshold = 0.05; // G-force deviation from gravity threshold (0.05G = very small movement)
+float parkGyroNoiseThreshold = 2.5;  // deg/s threshold for gyro noise (increased to account for MPU drift)
+uint16_t parkStationaryTime = 2000;  // ms of stationary time before park mode activates (back to 2 seconds)
+
+// Park mode effect settings
+uint8_t parkEffect = FX_BREATH;        // Effect to use in park mode
+uint8_t parkEffectSpeed = 64;          // Speed for park mode effect
+CRGB parkHeadlightColor = CRGB::Blue;  // Headlight color in park mode
+CRGB parkTaillightColor = CRGB::Blue;  // Taillight color in park mode
+uint8_t parkBrightness = 128;          // Brightness in park mode
 
 // OTA Update settings
 String otaUpdateURL = "";
@@ -247,6 +254,9 @@ void setPreset(uint8_t preset);
 void handleSerialCommands();
 void printStatus();
 void printHelp();
+void listSPIFFSFiles();
+void showSettingsFile();
+void cleanDuplicateFiles();
 
 // Startup sequence functions
 void startStartupSequence();
@@ -299,6 +309,10 @@ void testFilesystem();
 void setupWiFiAP();
 void setupWebServer();
 void handleRoot();
+void handleUI();
+void handleUIUpdate();
+bool processUIUpdate(const String& updatePath);
+void serveEmbeddedUI();
 void handleAPI();
 void handleStatus();
 void handleLEDConfig();
@@ -412,6 +426,22 @@ void updateEffects() {
         return; // Skip this update to slow down effects
     }
     lastEffectUpdate = millis();
+    
+    // Priority 1: Park mode (highest priority - overrides everything)
+    if (parkModeActive) {
+        showParkEffect();
+        return; // Skip normal effects when in park mode
+    }
+    
+    // Priority 2: Blinker effects (medium priority - overrides normal effects)
+    if (blinkerActive) {
+        showBlinkerEffect(blinkerDirection);
+        return; // Skip normal effects when blinkers are active
+    }
+    
+    // Priority 3: Normal effects (lowest priority - default behavior)
+    // Restore normal brightness
+    FastLED.setBrightness(globalBrightness);
     
     // Update headlight effect
     switch (headlightEffect) {
@@ -1213,9 +1243,15 @@ void updateMotionControl() {
     
     MotionData data = getMotionData();
     
-    // Handle calibration mode
+    // Handle calibration mode - only show debug info, don't auto-capture
     if (calibrationMode) {
-        captureCalibrationStep(data);
+        // Show current motion data for debugging during calibration
+        static unsigned long lastCalibrationDebug = 0;
+        if (millis() - lastCalibrationDebug >= 1000) { // Update every second
+            Serial.printf("Calibration Step %d - Accel: X=%.2f, Y=%.2f, Z=%.2f\n", 
+                         calibrationStep + 1, data.accelX, data.accelY, data.accelZ);
+            lastCalibrationDebug = millis();
+        }
         return;
     }
     
@@ -1258,17 +1294,17 @@ void processBlinkers(MotionData& data) {
         Serial.println("🔄 Blinker deactivated");
     }
     
-    // Show blinker effect if active
-    if (blinkerActive) {
-        showBlinkerEffect(blinkerDirection);
-    }
+    // Blinker effect is now handled in updateEffects() with proper priority
 }
 
 void processParkMode(MotionData& data) {
     unsigned long currentTime = millis();
     
     // Calculate motion magnitude from accelerometer and gyroscope
+    // For acceleration, we want to detect changes from the baseline (gravity)
+    // So we calculate the deviation from 1G (gravity)
     float accelMagnitude = sqrt(data.accelX * data.accelX + data.accelY * data.accelY + data.accelZ * data.accelZ);
+    float accelDeviation = abs(accelMagnitude - 1.0); // Deviation from 1G (gravity)
     float gyroMagnitude = sqrt(data.gyroX * data.gyroX + data.gyroY * data.gyroY + data.gyroZ * data.gyroZ);
     
     // Convert gyro to deg/s for easier threshold setting
@@ -1278,17 +1314,27 @@ void processParkMode(MotionData& data) {
     float accelNoiseThreshold = parkAccelNoiseThreshold; // G-force threshold for acceleration noise
     float gyroNoiseThreshold = parkGyroNoiseThreshold;  // deg/s threshold for gyro noise
     
+    // Debug output every 2 seconds
+    static unsigned long lastDebugTime = 0;
+    if (currentTime - lastDebugTime > 2000) {
+        Serial.printf("🔍 Park Debug - Accel: %.3fG (dev: %.3f), Gyro: %.1f°/s, Thresholds: %.3fG, %.1f°/s\n", 
+                     accelMagnitude, accelDeviation, gyroDegPerSec, accelNoiseThreshold, gyroNoiseThreshold);
+        lastDebugTime = currentTime;
+    }
+    
     // Check if device is stationary (below noise thresholds)
-    bool isStationary = (accelMagnitude < accelNoiseThreshold) && (gyroDegPerSec < gyroNoiseThreshold);
+    // Use acceleration deviation from gravity instead of total magnitude
+    bool isStationary = (accelDeviation < accelNoiseThreshold) && (gyroDegPerSec < gyroNoiseThreshold);
     
     if (isStationary) {
         if (!parkModeActive) {
-            // Start park mode timer
-            parkStartTime = currentTime;
-        } else {
-            // Check if we've been stationary long enough
-            if (currentTime - parkStartTime > parkStationaryTime) {
-                if (!parkModeActive) {
+            if (parkStartTime == 0) {
+                // Start park mode timer
+                parkStartTime = currentTime;
+                Serial.printf("🅿️ Starting park timer (stationary detected)\n");
+            } else {
+                // Check if we've been stationary long enough
+                if (currentTime - parkStartTime > parkStationaryTime) {
                     parkModeActive = true;
                     Serial.printf("🅿️ Park mode activated (stationary for %dms)\n", parkStationaryTime);
                     showParkEffect();
@@ -1301,6 +1347,10 @@ void processParkMode(MotionData& data) {
             parkModeActive = false;
             parkStartTime = 0;
             Serial.println("🅿️ Park mode deactivated (motion detected)");
+        } else if (parkStartTime > 0) {
+            // Reset timer if we were counting down but motion detected
+            parkStartTime = 0;
+            Serial.println("🅿️ Park timer reset (motion detected)");
         }
     }
 }
@@ -1358,13 +1408,99 @@ void showBlinkerEffect(int direction) {
 }
 
 void showParkEffect() {
-    // Show breathing effect in blue to indicate park mode
-    uint8_t breathe = (sin(millis() / 200.0) + 1) * 127;
-    CRGB parkColor = CRGB::Blue;
-    parkColor.nscale8(breathe);
+    // Apply park mode brightness
+    FastLED.setBrightness(parkBrightness);
     
-    fill_solid(headlight, headlightLedCount, parkColor);
-    fill_solid(taillight, taillightLedCount, parkColor);
+    // Temporarily store original effect speed and set park speed
+    uint8_t originalSpeed = effectSpeed;
+    effectSpeed = parkEffectSpeed;
+    
+    // Show configurable park effect
+    switch (parkEffect) {
+        case FX_SOLID:
+            fill_solid(headlight, headlightLedCount, parkHeadlightColor);
+            fill_solid(taillight, taillightLedCount, parkTaillightColor);
+            break;
+        case FX_BREATH:
+            effectBreath(headlight, headlightLedCount, parkHeadlightColor);
+            effectBreath(taillight, taillightLedCount, parkTaillightColor);
+            break;
+        case FX_RAINBOW:
+            effectRainbow(headlight, headlightLedCount);
+            effectRainbow(taillight, taillightLedCount);
+            break;
+        case FX_CHASE:
+            effectChase(headlight, headlightLedCount, parkHeadlightColor);
+            effectChase(taillight, taillightLedCount, parkTaillightColor);
+            break;
+        case FX_BLINK_RAINBOW:
+            effectBlinkRainbow(headlight, headlightLedCount);
+            effectBlinkRainbow(taillight, taillightLedCount);
+            break;
+        case FX_TWINKLE:
+            effectTwinkle(headlight, headlightLedCount, parkHeadlightColor);
+            effectTwinkle(taillight, taillightLedCount, parkTaillightColor);
+            break;
+        case FX_FIRE:
+            effectFire(headlight, headlightLedCount);
+            effectFire(taillight, taillightLedCount);
+            break;
+        case FX_METEOR:
+            effectMeteor(headlight, headlightLedCount, parkHeadlightColor);
+            effectMeteor(taillight, taillightLedCount, parkTaillightColor);
+            break;
+        case FX_WAVE:
+            effectWave(headlight, headlightLedCount, parkHeadlightColor);
+            effectWave(taillight, taillightLedCount, parkTaillightColor);
+            break;
+        case FX_COMET:
+            effectComet(headlight, headlightLedCount, parkHeadlightColor);
+            effectComet(taillight, taillightLedCount, parkTaillightColor);
+            break;
+        case FX_CANDLE:
+            effectCandle(headlight, headlightLedCount);
+            effectCandle(taillight, taillightLedCount);
+            break;
+        case FX_STATIC_RAINBOW:
+            effectStaticRainbow(headlight, headlightLedCount);
+            effectStaticRainbow(taillight, taillightLedCount);
+            break;
+        case FX_KNIGHT_RIDER:
+            effectKnightRider(headlight, headlightLedCount, parkHeadlightColor);
+            effectKnightRider(taillight, taillightLedCount, parkTaillightColor);
+            break;
+        case FX_POLICE:
+            effectPolice(headlight, headlightLedCount);
+            effectPolice(taillight, taillightLedCount);
+            break;
+        case FX_STROBE:
+            effectStrobe(headlight, headlightLedCount, parkHeadlightColor);
+            effectStrobe(taillight, taillightLedCount, parkTaillightColor);
+            break;
+        case FX_LARSON_SCANNER:
+            effectLarsonScanner(headlight, headlightLedCount, parkHeadlightColor);
+            effectLarsonScanner(taillight, taillightLedCount, parkTaillightColor);
+            break;
+        case FX_COLOR_WIPE:
+            effectColorWipe(headlight, headlightLedCount, parkHeadlightColor);
+            effectColorWipe(taillight, taillightLedCount, parkTaillightColor);
+            break;
+        case FX_THEATER_CHASE:
+            effectTheaterChase(headlight, headlightLedCount, parkHeadlightColor);
+            effectTheaterChase(taillight, taillightLedCount, parkTaillightColor);
+            break;
+        case FX_RUNNING_LIGHTS:
+            effectRunningLights(headlight, headlightLedCount, parkHeadlightColor);
+            effectRunningLights(taillight, taillightLedCount, parkTaillightColor);
+            break;
+        case FX_COLOR_SWEEP:
+            effectColorSweep(headlight, headlightLedCount, parkHeadlightColor);
+            effectColorSweep(taillight, taillightLedCount, parkTaillightColor);
+            break;
+    }
+    
+    // Restore original effect speed
+    effectSpeed = originalSpeed;
 }
 
 void showImpactEffect() {
@@ -1387,57 +1523,65 @@ void startCalibration() {
     calibrationComplete = false;
     
     Serial.println("=== MPU6050 CALIBRATION STARTED ===");
-    Serial.println("Step 1: Hold device LEVEL and press any key...");
+    Serial.println("Step 1: Hold device LEVEL and click 'Next Step' button in UI...");
+    Serial.println("(Calibration will wait for your input - no automatic progression)");
 }
 
 void captureCalibrationStep(MotionData& data) {
     unsigned long currentTime = millis();
+    unsigned long elapsed = currentTime - calibrationStartTime;
     
     // Check for timeout
-    if (currentTime - calibrationStartTime > calibrationTimeout) {
+    if (elapsed > calibrationTimeout) {
         Serial.println("Calibration timeout! Restarting...");
         startCalibration();
         return;
     }
+    
+    // Debug output
+    Serial.printf("Capturing Step %d: Accel X=%.2f, Y=%.2f, Z=%.2f\n", 
+                  calibrationStep + 1, data.accelX, data.accelY, data.accelZ);
     
     switch(calibrationStep) {
         case 0: // Level
             calibration.levelAccelX = data.accelX;
             calibration.levelAccelY = data.accelY;
             calibration.levelAccelZ = data.accelZ;
-            Serial.println("Level captured. Step 2: Tilt FORWARD and press any key...");
+            Serial.println("✅ Level captured. Step 2: Tilt FORWARD and click Next Step...");
             break;
             
         case 1: // Forward
             calibration.forwardAccelX = data.accelX;
             calibration.forwardAccelY = data.accelY;
             calibration.forwardAccelZ = data.accelZ;
-            Serial.println("Forward captured. Step 3: Tilt BACKWARD and press any key...");
+            Serial.println("✅ Forward captured. Step 3: Tilt BACKWARD and click Next Step...");
             break;
             
         case 2: // Backward
             calibration.backwardAccelX = data.accelX;
             calibration.backwardAccelY = data.accelY;
             calibration.backwardAccelZ = data.accelZ;
-            Serial.println("Backward captured. Step 4: Tilt LEFT and press any key...");
+            Serial.println("✅ Backward captured. Step 4: Tilt LEFT and click Next Step...");
             break;
             
         case 3: // Left
             calibration.leftAccelX = data.accelX;
             calibration.leftAccelY = data.accelY;
             calibration.leftAccelZ = data.accelZ;
-            Serial.println("Left captured. Step 5: Tilt RIGHT and press any key...");
+            Serial.println("✅ Left captured. Step 5: Tilt RIGHT and click Next Step...");
             break;
             
         case 4: // Right
             calibration.rightAccelX = data.accelX;
             calibration.rightAccelY = data.accelY;
             calibration.rightAccelZ = data.accelZ;
+            Serial.println("✅ Right captured. Completing calibration...");
             completeCalibration();
             return;
     }
     
     calibrationStep++;
+    calibrationStartTime = currentTime; // Reset timer for next step
 }
 
 void completeCalibration() {
@@ -1480,14 +1624,20 @@ void completeCalibration() {
     Serial.println("=== CALIBRATION COMPLETE ===");
     Serial.printf("Forward axis: %c (sign: %d)\n", calibration.forwardAxis, calibration.forwardSign);
     Serial.printf("Left/Right axis: %c (sign: %d)\n", calibration.leftRightAxis, calibration.leftRightSign);
-    Serial.println("Calibration data saved!");
+    
+    // Save calibration data to persistent storage
+    saveSettings();
+    Serial.println("Calibration data saved to filesystem!");
 }
 
 void resetCalibration() {
     calibrationComplete = false;
     calibration.valid = false;
     calibrationMode = false;
-    Serial.println("Motion calibration reset.");
+    
+    // Save the reset state to persistent storage
+    saveSettings();
+    Serial.println("Motion calibration reset and saved to filesystem.");
 }
 
 float getCalibratedForwardAccel(MotionData& data) {
@@ -1701,7 +1851,11 @@ void handleOTAUpload() {
             fill_solid(taillight, taillightLedCount, CRGB::Green);
             FastLED.show();
             
-            delay(2000);
+            // Send success response to client before restart
+            server.send(200, "application/json", "{\"success\":true,\"message\":\"Update complete, restarting...\"}");
+            
+            // Give the client time to receive the response
+            delay(1000);
             ESP.restart();
         } else {
             String errorMsg = Update.errorString();
@@ -1896,12 +2050,95 @@ void handleSerialCommands() {
             parkModeEnabled = false;
             Serial.println("Park mode disabled");
         }
+        else if (command.startsWith("park_effect ")) {
+            int effect = command.substring(12).toInt();
+            if (effect >= 0 && effect <= 19) {
+                parkEffect = effect;
+                saveSettings();
+                Serial.printf("Park effect set to %d\n", effect);
+            } else {
+                Serial.println("Invalid effect (0-19)");
+            }
+        }
+        else if (command.startsWith("park_speed ")) {
+            int speed = command.substring(11).toInt();
+            if (speed >= 0 && speed <= 255) {
+                parkEffectSpeed = speed;
+                saveSettings();
+                Serial.printf("Park effect speed set to %d\n", speed);
+            } else {
+                Serial.println("Invalid speed (0-255)");
+            }
+        }
+        else if (command.startsWith("park_brightness ")) {
+            int brightness = command.substring(16).toInt();
+            if (brightness >= 0 && brightness <= 255) {
+                parkBrightness = brightness;
+                saveSettings();
+                Serial.printf("Park brightness set to %d\n", brightness);
+            } else {
+                Serial.println("Invalid brightness (0-255)");
+            }
+        }
+        else if (command.startsWith("park_color ")) {
+            String colorStr = command.substring(11);
+            if (colorStr.startsWith("headlight ")) {
+                String rgbStr = colorStr.substring(10);
+                int firstComma = rgbStr.indexOf(',');
+                int secondComma = rgbStr.indexOf(',', firstComma + 1);
+                if (firstComma > 0 && secondComma > firstComma) {
+                    int r = rgbStr.substring(0, firstComma).toInt();
+                    int g = rgbStr.substring(firstComma + 1, secondComma).toInt();
+                    int b = rgbStr.substring(secondComma + 1).toInt();
+                    if (r >= 0 && r <= 255 && g >= 0 && g <= 255 && b >= 0 && b <= 255) {
+                        parkHeadlightColor = CRGB(r, g, b);
+                        saveSettings();
+                        Serial.printf("Park headlight color set to RGB(%d,%d,%d)\n", r, g, b);
+                    } else {
+                        Serial.println("Invalid RGB values (0-255)");
+                    }
+                } else {
+                    Serial.println("Invalid format. Use: park_color headlight r,g,b");
+                }
+            } else if (colorStr.startsWith("taillight ")) {
+                String rgbStr = colorStr.substring(10);
+                int firstComma = rgbStr.indexOf(',');
+                int secondComma = rgbStr.indexOf(',', firstComma + 1);
+                if (firstComma > 0 && secondComma > firstComma) {
+                    int r = rgbStr.substring(0, firstComma).toInt();
+                    int g = rgbStr.substring(firstComma + 1, secondComma).toInt();
+                    int b = rgbStr.substring(secondComma + 1).toInt();
+                    if (r >= 0 && r <= 255 && g >= 0 && g <= 255 && b >= 0 && b <= 255) {
+                        parkTaillightColor = CRGB(r, g, b);
+                        saveSettings();
+                        Serial.printf("Park taillight color set to RGB(%d,%d,%d)\n", r, g, b);
+                    } else {
+                        Serial.println("Invalid RGB values (0-255)");
+                    }
+                } else {
+                    Serial.println("Invalid format. Use: park_color taillight r,g,b");
+                }
+            } else {
+                Serial.println("Usage: park_color headlight r,g,b or park_color taillight r,g,b");
+            }
+        }
         else if (command == "ota_status") {
             Serial.printf("OTA Status: %s, Progress: %d%%, Error: %s\n", 
                          otaStatus.c_str(), otaProgress, otaError.c_str());
         }
         else if (command == "status") {
             printStatus();
+        }
+        else if (command == "list_files" || command == "ls") {
+            Serial.println("📁 SPIFFS File Listing:");
+            listSPIFFSFiles();
+        }
+        else if (command == "show_settings" || command == "cat_settings") {
+            showSettingsFile();
+        }
+        else if (command == "clean_duplicates") {
+            Serial.println("🧹 Cleaning duplicate files...");
+            cleanDuplicateFiles();
         }
         else if (command == "help") {
             printHelp();
@@ -1938,12 +2175,20 @@ void printHelp() {
     Serial.println("  motion_on/off: Enable/disable motion control");
     Serial.println("  blinker_on/off: Enable/disable auto blinkers");
     Serial.println("  park_on/off: Enable/disable park mode");
+    Serial.println("  park_effect <0-19>: Set park mode effect");
+    Serial.println("  park_speed <0-255>: Set park mode effect speed");
+    Serial.println("  park_brightness <0-255>: Set park mode brightness");
+    Serial.println("  park_color headlight r,g,b: Set park headlight color");
+    Serial.println("  park_color taillight r,g,b: Set park taillight color");
     Serial.println("");
     Serial.println("OTA Updates:");
     Serial.println("  ota_status: Show OTA update status");
     Serial.println("");
     Serial.println("System:");
     Serial.println("  status: Show current status");
+    Serial.println("  list_files/ls: List SPIFFS files");
+    Serial.println("  show_settings/cat_settings: Display settings.json contents");
+    Serial.println("  clean_duplicates: Remove duplicate UI files");
     Serial.println("  help: Show this help");
     Serial.println("");
     Serial.println("Startup Sequences:");
@@ -1953,6 +2198,162 @@ void printHelp() {
     Serial.println("         6=Fire, 7=Meteor, 8=Wave, 9=Comet, 10=Candle, 11=Static Rainbow");
     Serial.println("         12=Knight Rider, 13=Police, 14=Strobe, 15=Larson Scanner");
     Serial.println("         16=Color Wipe, 17=Theater Chase, 18=Running Lights, 19=Color Sweep");
+}
+
+void listSPIFFSFiles() {
+    Serial.println("📁 SPIFFS File Listing:");
+    Serial.println("========================");
+    
+    File root = SPIFFS.open("/");
+    if (!root) {
+        Serial.println("❌ Failed to open SPIFFS root directory");
+        return;
+    }
+    
+    if (!root.isDirectory()) {
+        Serial.println("❌ Root is not a directory");
+        root.close();
+        return;
+    }
+    
+    File file = root.openNextFile();
+    int fileCount = 0;
+    size_t totalSize = 0;
+    
+    while (file) {
+        fileCount++;
+        totalSize += file.size();
+        
+        Serial.printf("📄 %-20s %8d bytes", file.name(), file.size());
+        
+        // Add file type indicator
+        String filename = String(file.name());
+        if (filename.endsWith(".html") || filename.endsWith(".htm")) {
+            Serial.print(" [HTML]");
+        } else if (filename.endsWith(".css")) {
+            Serial.print(" [CSS]");
+        } else if (filename.endsWith(".js")) {
+            Serial.print(" [JS]");
+        } else if (filename.endsWith(".json")) {
+            Serial.print(" [JSON]");
+        } else if (filename.endsWith(".txt")) {
+            Serial.print(" [TXT]");
+        } else if (filename.endsWith(".zip")) {
+            Serial.print(" [ZIP]");
+        }
+        
+        Serial.println();
+        file = root.openNextFile();
+    }
+    
+    root.close();
+    
+    Serial.println("========================");
+    Serial.printf("📊 Total: %d files, %d bytes\n", fileCount, totalSize);
+    
+    // Check for UI files specifically
+    Serial.println("\n🎨 UI Files Check:");
+    String uiFiles[] = {"/ui/index.html", "/ui/styles.css", "/ui/script.js"};
+    String rootFiles[] = {"/index.html", "/styles.css", "/script.js"};
+    bool allUIFilesExist = true;
+    bool hasValidUIFiles = false;
+    
+    // Check /ui/ directory first
+    Serial.println("📁 /ui/ directory:");
+    for (int i = 0; i < 3; i++) {
+        File uiFile = SPIFFS.open(uiFiles[i], "r");
+        if (uiFile) {
+            if (uiFile.size() > 0) {
+                Serial.printf("✅ %s (%d bytes)\n", uiFiles[i].c_str(), uiFile.size());
+                hasValidUIFiles = true;
+            } else {
+                Serial.printf("⚠️ %s (0 bytes - empty)\n", uiFiles[i].c_str());
+            }
+            uiFile.close();
+        } else {
+            Serial.printf("❌ %s (not found)\n", uiFiles[i].c_str());
+            allUIFilesExist = false;
+        }
+    }
+    
+    // Check root directory as fallback
+    Serial.println("📁 Root directory:");
+    for (int i = 0; i < 3; i++) {
+        File rootFile = SPIFFS.open(rootFiles[i], "r");
+        if (rootFile) {
+            if (rootFile.size() > 0) {
+                Serial.printf("✅ %s (%d bytes)\n", rootFiles[i].c_str(), rootFile.size());
+                hasValidUIFiles = true;
+            } else {
+                Serial.printf("⚠️ %s (0 bytes - empty)\n", rootFiles[i].c_str());
+            }
+            rootFile.close();
+        } else {
+            Serial.printf("❌ %s (not found)\n", rootFiles[i].c_str());
+        }
+    }
+    
+    if (hasValidUIFiles) {
+        Serial.println("🎉 Valid UI files found - external UI should work");
+    } else {
+        Serial.println("⚠️ No valid UI files found - will use embedded UI fallback");
+    }
+}
+
+void showSettingsFile() {
+    Serial.println("⚙️ Settings.json Contents:");
+    Serial.println("===========================");
+    
+    File file = SPIFFS.open("/settings.json", "r");
+    if (!file) {
+        Serial.println("❌ settings.json not found");
+        return;
+    }
+    
+    // Read and display the entire file
+    while (file.available()) {
+        String line = file.readStringUntil('\n');
+        Serial.println(line);
+    }
+    
+    file.close();
+    Serial.println("===========================");
+}
+
+void cleanDuplicateFiles() {
+    Serial.println("🧹 Cleaning duplicate files...");
+    
+    // List of files to clean from root directory if they exist in /ui/
+    String filesToClean[] = {"index.html", "styles.css", "script.js"};
+    int cleanedCount = 0;
+    
+    for (int i = 0; i < 3; i++) {
+        String rootFile = "/" + filesToClean[i];
+        String uiFile = "/ui/" + filesToClean[i];
+        
+        // Check if both files exist
+        File rootFileHandle = SPIFFS.open(rootFile, "r");
+        File uiFileHandle = SPIFFS.open(uiFile, "r");
+        
+        if (rootFileHandle && uiFileHandle) {
+            Serial.printf("🗑️ Removing duplicate: %s (keeping %s)\n", rootFile.c_str(), uiFile.c_str());
+            rootFileHandle.close();
+            uiFileHandle.close();
+            
+            if (SPIFFS.remove(rootFile)) {
+                cleanedCount++;
+                Serial.printf("✅ Removed: %s\n", rootFile.c_str());
+            } else {
+                Serial.printf("❌ Failed to remove: %s\n", rootFile.c_str());
+            }
+        } else {
+            if (rootFileHandle) rootFileHandle.close();
+            if (uiFileHandle) uiFileHandle.close();
+        }
+    }
+    
+    Serial.printf("🧹 Cleanup complete: %d duplicate files removed\n", cleanedCount);
+    Serial.println("💡 Use 'ls' command to verify cleanup");
 }
 
 // Web Server Implementation
@@ -1969,6 +2370,14 @@ void setupWiFiAP() {
 void setupWebServer() {
     // Serve the main web page
     server.on("/", handleRoot);
+    server.on("/ui/styles.css", handleUI);
+    server.on("/ui/script.js", handleUI);
+    server.on("/styles.css", handleUI);
+    server.on("/script.js", handleUI);
+    server.on("/updateui", HTTP_GET, handleUIUpdate);
+    server.on("/updateui", HTTP_POST, []() {
+        server.send(200, "text/plain", "UI update endpoint ready");
+    }, handleUIUpdate);
     
     // API endpoints
     server.on("/api", HTTP_POST, handleAPI);
@@ -1991,12 +2400,80 @@ void setupWebServer() {
     Serial.println("Web server started");
 }
 
+void handleUI() {
+    String uri = server.uri();
+    String contentType = "text/plain";
+    
+    Serial.printf("🎨 handleUI: Requesting file: %s\n", uri.c_str());
+    
+    if (uri.endsWith(".css")) {
+        contentType = "text/css";
+    } else if (uri.endsWith(".js")) {
+        contentType = "application/javascript";
+    }
+    
+    // Try requested path first, then fallback to other location
+    String filePath = uri;
+    File file = SPIFFS.open(filePath, "r");
+    
+    if (!file || file.size() == 0) {
+        // Try alternative location as fallback
+        String altPath;
+        if (uri.startsWith("/ui/")) {
+            // If requesting /ui/file, try root directory
+            altPath = uri.substring(4); // Remove "/ui/" prefix
+        } else {
+            // If requesting root file, try /ui/ directory
+            altPath = "/ui" + uri;
+        }
+        
+        Serial.printf("⚠️ %s not found or empty, trying: %s\n", filePath.c_str(), altPath.c_str());
+        file = SPIFFS.open(altPath, "r");
+        filePath = altPath;
+    }
+    
+    if (file && file.size() > 0) {
+        Serial.printf("✅ handleUI: Found file %s (%d bytes), serving as %s\n", filePath.c_str(), file.size(), contentType.c_str());
+        server.streamFile(file, contentType);
+        file.close();
+    } else {
+        Serial.printf("❌ handleUI: File not found or empty: %s\n", filePath.c_str());
+        server.send(404, "text/plain", "File not found: " + uri);
+    }
+}
+
 void handleRoot() {
+    // Try to serve external HTML file first, fallback to embedded if not found
+    Serial.println("🔍 handleRoot: Attempting to serve /ui/index.html");
+    File file = SPIFFS.open("/ui/index.html", "r");
+    if (file && file.size() > 0) {
+        Serial.printf("✅ Found external UI file (%d bytes), serving from SPIFFS\n", file.size());
+        server.streamFile(file, "text/html");
+        file.close();
+    } else {
+        // Try root directory as fallback
+        Serial.println("⚠️ /ui/index.html not found or empty, trying /index.html");
+        file = SPIFFS.open("/index.html", "r");
+        if (file && file.size() > 0) {
+            Serial.printf("✅ Found root UI file (%d bytes), serving from SPIFFS\n", file.size());
+            server.streamFile(file, "text/html");
+            file.close();
+        } else {
+            Serial.println("⚠️ No external UI file found, serving embedded UI");
+            // Fallback to embedded UI if SPIFFS files not found
+            serveEmbeddedUI();
+        }
+    }
+}
+
+void serveEmbeddedUI() {
+    Serial.println("🎨 serveEmbeddedUI: Serving embedded UI fallback");
+    // Embedded HTML as fallback - this will be updated with OTA
     String html = R"rawliteral(
 <!DOCTYPE html>
 <html>
 <head>
-    <title>ArkLights PEV Control OTA</title>
+    <title>ArkLights PEV Control v8.0 OTA</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <style>
         body { font-family: Arial, sans-serif; margin: 20px; background: #1a1a1a; color: #fff; }
@@ -2012,15 +2489,20 @@ void handleRoot() {
         .status { background: #333; padding: 10px; border-radius: 4px; margin: 10px 0; }
         h1 { color: #4CAF50; text-align: center; }
         h2 { color: #81C784; }
+        .warning { background: #ff9800; color: #000; padding: 10px; border-radius: 4px; margin: 10px 0; }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>ArkLights PEV Control v8.0 OTA - Test</h1>
+        <h1>ArkLights PEV Control v8.0 OTA</h1>
+        <div class="warning">
+            ⚠️ Using embedded UI (fallback mode). Upload UI files to SPIFFS for better performance.
+        </div>
         <div style="text-align: center; margin: 10px 0; padding: 10px; background: rgba(255,255,255,0.1); border-radius: 8px;">
-            <strong>Firmware Version:</strong> v7.0 OTA | <strong>Build Date:</strong> <span id="buildDate">Loading...</span>
+            <strong>Firmware Version:</strong> v8.0 OTA | <strong>Build Date:</strong> <span id="buildDate">Loading...</span>
         </div>
         
+        <!-- Simplified UI for embedded mode -->
         <div class="section">
             <h2>Presets</h2>
             <button class="preset-btn" onclick="setPreset(0)">Standard</button>
@@ -2038,223 +2520,73 @@ void handleRoot() {
         </div>
         
         <div class="section">
-            <h2>Effect Speed</h2>
-            <div class="control-group">
-                <label>Effect Speed: <span id="speedValue">64</span></label>
-                <input type="range" id="effectSpeed" min="0" max="255" value="64" onchange="setEffectSpeed(this.value)">
-                <small>Higher values = faster effects</small>
-            </div>
-        </div>
-        
-        <div class="section">
-            <h2>Startup Sequence</h2>
-            <div class="control-group">
-                <label>Startup Animation:</label>
-                <select id="startupSequence" onchange="setStartupSequence(this.value)">
-                    <option value="0">None</option>
-                    <option value="1">Power On</option>
-                    <option value="2">Scanner</option>
-                    <option value="3">Wave</option>
-                    <option value="4">Race</option>
-                    <option value="5">Custom</option>
-                </select>
-                <small>Animation shown when device powers on</small>
-            </div>
-            <div class="control-group">
-                <label>Duration: <span id="startupDurationValue">3000</span>ms</label>
-                <input type="range" id="startupDuration" min="1000" max="10000" value="3000" onchange="setStartupDuration(this.value)">
-                <small>How long the startup sequence lasts</small>
-            </div>
-            <div class="control-group">
-                <button onclick="testStartupSequence()" style="background: #ff9800;">Test Startup Sequence</button>
-                <small>Preview the current startup animation</small>
-            </div>
-        </div>
-        
-        <div class="section">
-            <h2>🎯 Motion Control</h2>
-            
-            <div class="control-group">
-                <label>
-                    <input type="checkbox" id="motionEnabled" onchange="setMotionEnabled(this.checked)">
-                    Enable Motion Control
-                </label>
-                <small>Master switch for all motion features</small>
-            </div>
-            
-            <div class="control-group">
-                <label>
-                    <input type="checkbox" id="blinkerEnabled" onchange="setBlinkerEnabled(this.checked)">
-                    Auto Blinkers
-                </label>
-                <small>Automatic turn signals based on lean angle</small>
-            </div>
-            
-            <div class="control-group">
-                <label>
-                    <input type="checkbox" id="parkModeEnabled" onchange="setParkModeEnabled(this.checked)">
-                    Park Mode
-                </label>
-                <small>Special effects when stationary and tilted</small>
-            </div>
-            
-            <div class="control-group">
-                <label>
-                    <input type="checkbox" id="impactDetectionEnabled" onchange="setImpactDetectionEnabled(this.checked)">
-                    Impact Detection
-                </label>
-                <small>Flash lights on sudden acceleration changes</small>
-            </div>
-            
-            <div class="control-group">
-                <label>Motion Sensitivity: <span id="motionSensitivityValue">1.0</span></label>
-                <input type="range" id="motionSensitivity" min="0.5" max="2.0" step="0.1" 
-                       oninput="setMotionSensitivity(this.value)">
-                <small>Higher values = more sensitive to motion</small>
-            </div>
-            
-            <div class="control-group">
-                <label>Blinker Delay: <span id="blinkerDelayValue">300</span>ms</label>
-                <input type="range" id="blinkerDelay" min="100" max="1000" step="50" 
-                       oninput="setBlinkerDelay(this.value)">
-                <small>Delay before blinker activates after turn detected</small>
-            </div>
-            
-            <div class="control-group">
-                <label>Blinker Timeout: <span id="blinkerTimeoutValue">2000</span>ms</label>
-                <input type="range" id="blinkerTimeout" min="1000" max="5000" step="100" 
-                       oninput="setBlinkerTimeout(this.value)">
-                <small>How long blinker stays on after turn ends</small>
-            </div>
-            
-            <div class="control-group">
-                <label>Park Stationary Time: <span id="parkStationaryTimeValue">2000</span>ms</label>
-                <input type="range" id="parkStationaryTime" min="1000" max="10000" step="500" 
-                       oninput="setParkStationaryTime(this.value)">
-                <small>How long device must be stationary before park mode activates</small>
-            </div>
-            
-            <div class="control-group">
-                <label>Accel Noise Threshold: <span id="parkAccelNoiseThresholdValue">0.1</span>G</label>
-                <input type="range" id="parkAccelNoiseThreshold" min="0.05" max="0.5" step="0.01" 
-                       oninput="setParkAccelNoiseThreshold(this.value)">
-                <small>Maximum acceleration noise to consider device stationary</small>
-            </div>
-            
-            <div class="control-group">
-                <label>Gyro Noise Threshold: <span id="parkGyroNoiseThresholdValue">0.5</span>°/s</label>
-                <input type="range" id="parkGyroNoiseThreshold" min="0.1" max="2.0" step="0.1" 
-                       oninput="setParkGyroNoiseThreshold(this.value)">
-                <small>Maximum gyro noise to consider device stationary</small>
-            </div>
-            
-            <div class="control-group">
-                <label>Impact Threshold: <span id="impactThresholdValue">3</span>G</label>
-                <input type="range" id="impactThreshold" min="1" max="10" step="0.5" 
-                       oninput="setImpactThreshold(this.value)">
-                <small>G-force threshold for impact detection</small>
-            </div>
-            
-            <!-- Calibration Section -->
-            <div class="calibration-section" style="margin-top: 20px; padding: 15px; background: #f5f5f5; border-radius: 8px;">
-                <h3>📐 Calibration</h3>
-                <div id="calibrationStatus" class="calibration-status">
-                    Status: <span id="calibrationStatusText">Not calibrated</span>
-                </div>
-                
-                <div id="calibrationProgress" class="calibration-progress" style="display: none;">
-                    <div class="progress-bar" style="width: 100%; height: 20px; background: #ddd; border-radius: 10px; overflow: hidden;">
-                        <div id="calibrationProgressBar" class="progress-fill" style="height: 100%; background: #4CAF50; width: 0%; transition: width 0.3s;"></div>
-                    </div>
-                    <div id="calibrationStepText" style="margin-top: 10px; font-weight: bold;">Step 1: Hold device LEVEL</div>
-                </div>
-                
-                <div class="calibration-controls" style="margin-top: 15px;">
-                    <button onclick="startCalibration()" id="startCalibrationBtn" style="background: #4CAF50; color: white; padding: 10px 20px; border: none; border-radius: 5px; margin-right: 10px;">Start Calibration</button>
-                    <button onclick="nextCalibrationStep()" id="nextCalibrationBtn" style="background: #2196F3; color: white; padding: 10px 20px; border: none; border-radius: 5px; margin-right: 10px; display: none;">Next Step</button>
-                    <button onclick="resetCalibration()" id="resetCalibrationBtn" style="background: #f44336; color: white; padding: 10px 20px; border: none; border-radius: 5px;">Reset Calibration</button>
-                </div>
-            </div>
-            
-            <!-- Motion Status -->
-            <div class="motion-status" style="margin-top: 20px; padding: 15px; background: #e8f5e8; border-radius: 8px;">
-                <h3>📊 Motion Status</h3>
-                <div id="motionStatus">
-                    <div>Blinker: <span id="blinkerStatus" style="font-weight: bold;">Inactive</span></div>
-                    <div>Park Mode: <span id="parkModeStatus" style="font-weight: bold;">Inactive</span></div>
-                    <div>Calibration: <span id="calibrationStatusDisplay" style="font-weight: bold;">Not calibrated</span></div>
-                </div>
-            </div>
-        </div>
-        
-        <div class="section">
             <h2>OTA Updates</h2>
-            
-            <div class="control-group">
-                <small>Firmware updates are always enabled</small>
-            </div>
-            
             <div class="control-group">
                 <label>Firmware File:</label>
                 <input type="file" id="otaFileInput" accept=".bin" onchange="handleFileSelect(this)">
                 <small>Select firmware binary file (.bin)</small>
             </div>
-            
             <div class="control-group">
                 <button onclick="startOTAUpdate()" id="startOTAButton" style="background: #4CAF50; color: white; padding: 10px 20px; border: none; border-radius: 5px;" disabled>
                     Upload & Install
                 </button>
                 <small>Upload and install firmware file</small>
             </div>
-            
-            <!-- OTA Progress -->
-            <div id="otaProgress" class="ota-progress" style="margin-top: 20px; padding: 15px; background: #f0f0f0; border-radius: 8px; display: none;">
-                <h3>📥 Update Progress</h3>
-                <div class="progress-bar" style="width: 100%; height: 20px; background: #ddd; border-radius: 10px; overflow: hidden;">
-                    <div id="otaProgressBar" class="progress-fill" style="height: 100%; background: #4CAF50; width: 0%; transition: width 0.3s;"></div>
-                </div>
-                <div id="otaProgressText" style="margin-top: 10px; font-weight: bold;">Preparing update...</div>
-                <div id="otaStatusText" style="margin-top: 5px; color: #666;">Status: Ready</div>
+        </div>
+        
+        <div class="section">
+            <h2>📐 Calibration</h2>
+            <div id="calibrationStatus" class="status">
+                Status: <span id="calibrationStatusText">Not calibrated</span>
             </div>
             
-            <!-- OTA Status -->
-            <div class="ota-status" style="margin-top: 20px; padding: 15px; background: #e8f5e8; border-radius: 8px;">
-                <h3>📊 Update Status</h3>
-                <div id="otaStatus">
-                    <div>Status: <span id="otaStatusDisplay" style="font-weight: bold;">Ready</span></div>
-                    <div>Progress: <span id="otaProgressDisplay" style="font-weight: bold;">0%</span></div>
-                    <div>Error: <span id="otaErrorDisplay" style="font-weight: bold; color: #d32f2f;">None</span></div>
+            <div id="calibrationProgress" style="display: none; margin: 15px 0;">
+                <div style="width: 100%; height: 20px; background: #ddd; border-radius: 10px; overflow: hidden;">
+                    <div id="calibrationProgressBar" style="height: 100%; background: #4CAF50; width: 0%; transition: width 0.3s;"></div>
                 </div>
+                <div id="calibrationStepText" style="margin-top: 10px; font-weight: bold;">Step 1: Hold device LEVEL</div>
+            </div>
+            
+            <div style="margin-top: 15px;">
+                <button onclick="startCalibration()" id="startCalibrationBtn" style="background: #4CAF50; color: white; padding: 10px 20px; border: none; border-radius: 5px; margin-right: 10px;">Start Calibration</button>
+                <button onclick="nextCalibrationStep()" id="nextCalibrationBtn" style="background: #2196F3; color: white; padding: 10px 20px; border: none; border-radius: 5px; margin-right: 10px; display: none;">Next Step</button>
+                <button onclick="resetCalibration()" id="resetCalibrationBtn" style="background: #f44336; color: white; padding: 10px 20px; border: none; border-radius: 5px;">Reset Calibration</button>
             </div>
         </div>
         
         <div class="section">
-            <h2>WiFi Configuration</h2>
+            <h2>🎯 Motion Control</h2>
             <div class="control-group">
-                <label>Access Point Name:</label>
-                <input type="text" id="apName" value="ARKLIGHTS-AP" maxlength="32" onchange="setAPName(this.value)">
-                <small>WiFi network name (max 32 characters)</small>
+                <label>
+                    <input type="checkbox" id="motionEnabled" onchange="updateMotionSettings()">
+                    Enable Motion Control
+                </label>
             </div>
             <div class="control-group">
-                <label>Password:</label>
-                <input type="password" id="apPassword" value="float420" maxlength="63" onchange="setAPPassword(this.value)">
-                <small>WiFi password (8-63 characters)</small>
+                <label>
+                    <input type="checkbox" id="blinkerEnabled" onchange="updateMotionSettings()">
+                    Enable Auto Blinkers
+                </label>
             </div>
             <div class="control-group">
-                <button onclick="applyWiFiConfig()" class="btn btn-primary">Apply WiFi Settings</button>
-                <small>⚠️ Changes require restart to take effect</small>
+                <label>
+                    <input type="checkbox" id="parkModeEnabled" onchange="updateMotionSettings()">
+                    Enable Park Mode
+                </label>
+            </div>
+            <div class="control-group">
+                <label>
+                    <input type="checkbox" id="impactDetectionEnabled" onchange="updateMotionSettings()">
+                    Enable Impact Detection
+                </label>
             </div>
         </div>
         
         <div class="section">
-            <h2>Headlight</h2>
+            <h2>🅿️ Park Mode Settings</h2>
             <div class="control-group">
-                <label>Color:</label>
-                <input type="color" id="headlightColor" value="#ffffff" onchange="setHeadlightColor(this.value)">
-            </div>
-            <div class="control-group">
-                <label>Effect:</label>
-                <select id="headlightEffect" onchange="setHeadlightEffect(this.value)">
+                <label>Park Effect: <span id="parkEffectValue">1</span></label>
+                <select id="parkEffect" onchange="updateParkSettings()">
                     <option value="0">Solid</option>
                     <option value="1">Breath</option>
                     <option value="2">Rainbow</option>
@@ -2277,88 +2609,21 @@ void handleRoot() {
                     <option value="19">Color Sweep</option>
                 </select>
             </div>
-        </div>
-        
-        <div class="section">
-            <h2>Taillight</h2>
             <div class="control-group">
-                <label>Color:</label>
-                <input type="color" id="taillightColor" value="#ff0000" onchange="setTaillightColor(this.value)">
+                <label>Park Effect Speed: <span id="parkSpeedValue">64</span></label>
+                <input type="range" id="parkSpeed" min="0" max="255" value="64" onchange="updateParkSettings()">
             </div>
             <div class="control-group">
-                <label>Effect:</label>
-                <select id="taillightEffect" onchange="setTaillightEffect(this.value)">
-                    <option value="0">Solid</option>
-                    <option value="1">Breath</option>
-                    <option value="2">Rainbow</option>
-                    <option value="3">Chase</option>
-                    <option value="4">Blink Rainbow</option>
-                    <option value="5">Twinkle</option>
-                    <option value="6">Fire</option>
-                    <option value="7">Meteor</option>
-                    <option value="8">Wave</option>
-                    <option value="9">Comet</option>
-                    <option value="10">Candle</option>
-                    <option value="11">Static Rainbow</option>
-                    <option value="12">Knight Rider</option>
-                    <option value="13">Police</option>
-                    <option value="14">Strobe</option>
-                    <option value="15">Larson Scanner</option>
-                    <option value="16">Color Wipe</option>
-                    <option value="17">Theater Chase</option>
-                    <option value="18">Running Lights</option>
-                    <option value="19">Color Sweep</option>
-                </select>
-            </div>
-        </div>
-        
-        <div class="section">
-            <h2>LED Configuration</h2>
-            <div class="control-group">
-                <label>Headlight LED Count:</label>
-                <input type="number" id="headlightLedCount" min="1" max="200" value="20" onchange="updateLEDConfig()">
+                <label>Park Brightness: <span id="parkBrightnessValue">128</span></label>
+                <input type="range" id="parkBrightness" min="0" max="255" value="128" onchange="updateParkSettings()">
             </div>
             <div class="control-group">
-                <label>Taillight LED Count:</label>
-                <input type="number" id="taillightLedCount" min="1" max="200" value="20" onchange="updateLEDConfig()">
+                <label>Park Headlight Color:</label>
+                <input type="color" id="parkHeadlightColor" value="#0000ff" onchange="updateParkSettings()">
             </div>
             <div class="control-group">
-                <label>Headlight LED Type:</label>
-                <select id="headlightLedType" onchange="updateLEDConfig()">
-                    <option value="0">SK6812 (RGBW)</option>
-                    <option value="1">WS2812B (RGB)</option>
-                    <option value="2">APA102 (RGB)</option>
-                    <option value="3">LPD8806 (RGB)</option>
-                </select>
-            </div>
-            <div class="control-group">
-                <label>Taillight LED Type:</label>
-                <select id="taillightLedType" onchange="updateLEDConfig()">
-                    <option value="0">SK6812 (RGBW)</option>
-                    <option value="1">WS2812B (RGB)</option>
-                    <option value="2">APA102 (RGB)</option>
-                    <option value="3">LPD8806 (RGB)</option>
-                </select>
-            </div>
-            <div class="control-group">
-                <label>Headlight Color Order:</label>
-                <select id="headlightColorOrder" onchange="updateLEDConfig()">
-                    <option value="0">GRB</option>
-                    <option value="1">RGB</option>
-                    <option value="2">BGR</option>
-                </select>
-            </div>
-            <div class="control-group">
-                <label>Taillight Color Order:</label>
-                <select id="taillightColorOrder" onchange="updateLEDConfig()">
-                    <option value="0">GRB</option>
-                    <option value="1">RGB</option>
-                    <option value="2">BGR</option>
-                </select>
-            </div>
-            <div class="control-group">
-                <button onclick="testLEDs()" style="background: #ff9800;">Test LEDs (Red→Green→Blue→White)</button>
-                <button onclick="saveLEDConfig()" style="background: #4CAF50;">Save Configuration</button>
+                <label>Park Taillight Color:</label>
+                <input type="color" id="parkTaillightColor" value="#0000ff" onchange="updateParkSettings()">
             </div>
         </div>
         
@@ -2386,186 +2651,6 @@ void handleRoot() {
                 body: JSON.stringify({ brightness: parseInt(value) })
             });
         }
-        
-        function setEffectSpeed(value) {
-            document.getElementById('speedValue').textContent = value;
-            fetch('/api', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ effectSpeed: parseInt(value) })
-            });
-        }
-        
-        function setStartupSequence(sequence) {
-            fetch('/api', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ startup_sequence: parseInt(sequence) })
-            });
-        }
-        
-        function setStartupDuration(duration) {
-            document.getElementById('startupDurationValue').textContent = duration;
-            fetch('/api', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ startup_duration: parseInt(duration) })
-            });
-        }
-        
-        function testStartupSequence() {
-            fetch('/api', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ testStartup: true })
-            }).then(() => {
-                console.log('Startup sequence test started');
-            });
-        }
-        
-        // Motion Control Functions
-        function setMotionEnabled(enabled) {
-            fetch('/api', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ motion_enabled: enabled })
-            });
-        }
-        
-        function setBlinkerEnabled(enabled) {
-            fetch('/api', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ blinker_enabled: enabled })
-            });
-        }
-        
-        function setParkModeEnabled(enabled) {
-            fetch('/api', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ park_mode_enabled: enabled })
-            });
-        }
-        
-        function setImpactDetectionEnabled(enabled) {
-            fetch('/api', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ impact_detection_enabled: enabled })
-            });
-        }
-        
-        function setMotionSensitivity(value) {
-            document.getElementById('motionSensitivityValue').textContent = value;
-            fetch('/api', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ motion_sensitivity: parseFloat(value) })
-            });
-        }
-        
-        function setBlinkerDelay(value) {
-            document.getElementById('blinkerDelayValue').textContent = value;
-            fetch('/api', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ blinker_delay: parseInt(value) })
-            });
-        }
-        
-        function setBlinkerTimeout(value) {
-            document.getElementById('blinkerTimeoutValue').textContent = value;
-            fetch('/api', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ blinker_timeout: parseInt(value) })
-            });
-        }
-        
-        function setParkDetectionAngle(value) {
-            document.getElementById('parkDetectionAngleValue').textContent = value;
-            fetch('/api', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ park_detection_angle: parseInt(value) })
-            });
-        }
-        
-        function setParkStationaryTime(value) {
-            document.getElementById('parkStationaryTimeValue').textContent = value;
-            fetch('/api', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ park_stationary_time: parseInt(value) })
-            });
-        }
-        
-        function setParkAccelNoiseThreshold(value) {
-            document.getElementById('parkAccelNoiseThresholdValue').textContent = value;
-            fetch('/api', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ park_accel_noise_threshold: parseFloat(value) })
-            });
-        }
-        
-        function setParkGyroNoiseThreshold(value) {
-            document.getElementById('parkGyroNoiseThresholdValue').textContent = value;
-            fetch('/api', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ park_gyro_noise_threshold: parseFloat(value) })
-            });
-        }
-        
-        function setImpactThreshold(value) {
-            document.getElementById('impactThresholdValue').textContent = value;
-            fetch('/api', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ impact_threshold: parseFloat(value) })
-            });
-        }
-        
-        function startCalibration() {
-            fetch('/api', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ startCalibration: true })
-            });
-            
-            // Show progress UI
-            document.getElementById('calibrationProgress').style.display = 'block';
-            document.getElementById('startCalibrationBtn').style.display = 'none';
-            document.getElementById('nextCalibrationBtn').style.display = 'inline-block';
-            document.getElementById('calibrationStatusText').textContent = 'In Progress';
-        }
-        
-        function nextCalibrationStep() {
-            fetch('/api', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ nextCalibrationStep: true })
-            });
-        }
-        
-        function resetCalibration() {
-            fetch('/api', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ resetCalibration: true })
-            });
-            
-            // Reset UI
-            document.getElementById('calibrationProgress').style.display = 'none';
-            document.getElementById('startCalibrationBtn').style.display = 'inline-block';
-            document.getElementById('nextCalibrationBtn').style.display = 'none';
-            document.getElementById('calibrationStatusText').textContent = 'Not calibrated';
-            document.getElementById('calibrationProgressBar').style.width = '0%';
-        }
-        
-        // OTA Update Functions
         
         function handleFileSelect(input) {
             const file = input.files[0];
@@ -2600,13 +2685,6 @@ void handleRoot() {
                 return;
             }
             
-            // Show progress UI
-            document.getElementById('otaProgress').style.display = 'block';
-            document.getElementById('startOTAButton').disabled = true;
-            document.getElementById('otaProgressText').textContent = 'Uploading file...';
-            document.getElementById('otaStatusText').textContent = 'Status: Uploading';
-            
-            // Upload file
             const formData = new FormData();
             formData.append('firmware', file);
             
@@ -2617,98 +2695,83 @@ void handleRoot() {
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
-                    document.getElementById('otaProgressText').textContent = 'Installing firmware...';
-                    document.getElementById('otaStatusText').textContent = 'Status: Installing';
+                    if (data.message && data.message.includes('restarting')) {
+                        alert('✅ Firmware update completed successfully! The device is restarting with the new firmware.');
+                        setTimeout(() => {
+                            window.location.reload();
+                        }, 5000);
+                    }
                 } else {
-                    alert('Upload failed: ' + data.error);
-                    document.getElementById('otaProgress').style.display = 'none';
-                    document.getElementById('startOTAButton').disabled = false;
+                    alert('Upload failed: ' + (data.error || 'Unknown error'));
                 }
             })
             .catch(error => {
                 alert('Upload error: ' + error);
-                document.getElementById('otaProgress').style.display = 'none';
-                document.getElementById('startOTAButton').disabled = false;
             });
         }
         
-        function setAPName(name) {
+        function startCalibration() {
             fetch('/api', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ apName: name })
+                body: JSON.stringify({ startCalibration: true })
+            })
+            .then(response => response.json())
+            .then(data => {
+                console.log('Calibration started:', data);
+                document.getElementById('calibrationProgress').style.display = 'block';
+                document.getElementById('startCalibrationBtn').style.display = 'none';
+                document.getElementById('nextCalibrationBtn').style.display = 'inline-block';
+                document.getElementById('calibrationStatusText').textContent = 'In Progress';
+                updateStatus();
+            })
+            .catch(error => {
+                console.error('Error starting calibration:', error);
             });
         }
         
-        function setAPPassword(password) {
-            fetch('/api', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ apPassword: password })
-            });
-        }
-        
-        function applyWiFiConfig() {
-            const name = document.getElementById('apName').value;
-            const password = document.getElementById('apPassword').value;
-            
-            if (name.length < 1 || name.length > 32) {
-                alert('AP Name must be 1-32 characters');
-                return;
-            }
-            
-            if (password.length < 8 || password.length > 63) {
-                alert('Password must be 8-63 characters');
-                return;
-            }
+        function nextCalibrationStep() {
+            const nextBtn = document.getElementById('nextCalibrationBtn');
+            nextBtn.disabled = true;
+            nextBtn.textContent = 'Capturing...';
             
             fetch('/api', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ 
-                    apName: name,
-                    apPassword: password,
-                    restart: true 
-                })
-            }).then(() => {
-                alert('WiFi settings saved! Device will restart in 3 seconds...');
-                setTimeout(() => {
-                    window.location.reload();
-                }, 3000);
+                body: JSON.stringify({ nextCalibrationStep: true })
+            })
+            .then(response => response.json())
+            .then(data => {
+                console.log('Next calibration step sent:', data);
+                nextBtn.disabled = false;
+                nextBtn.textContent = 'Next Step';
+                updateStatus();
+            })
+            .catch(error => {
+                console.error('Error sending next calibration step:', error);
+                nextBtn.disabled = false;
+                nextBtn.textContent = 'Next Step';
             });
         }
         
-        function setHeadlightColor(color) {
-            const hex = color.replace('#', '');
+        function resetCalibration() {
             fetch('/api', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ headlightColor: hex })
-            });
-        }
-        
-        function setTaillightColor(color) {
-            const hex = color.replace('#', '');
-            fetch('/api', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ taillightColor: hex })
-            });
-        }
-        
-        function setHeadlightEffect(effect) {
-            fetch('/api', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ headlightEffect: parseInt(effect) })
-            });
-        }
-        
-        function setTaillightEffect(effect) {
-            fetch('/api', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ taillightEffect: parseInt(effect) })
+                body: JSON.stringify({ resetCalibration: true })
+            })
+            .then(response => response.json())
+            .then(data => {
+                console.log('Calibration reset:', data);
+                document.getElementById('calibrationProgress').style.display = 'none';
+                document.getElementById('startCalibrationBtn').style.display = 'inline-block';
+                document.getElementById('nextCalibrationBtn').style.display = 'none';
+                document.getElementById('calibrationStatusText').textContent = 'Not calibrated';
+                document.getElementById('calibrationProgressBar').style.width = '0%';
+                updateStatus();
+            })
+            .catch(error => {
+                console.error('Error resetting calibration:', error);
             });
         }
         
@@ -2719,168 +2782,335 @@ void handleRoot() {
                     document.getElementById('status').innerHTML = 
                         `Preset: ${data.preset}<br>` +
                         `Brightness: ${data.brightness}<br>` +
-                        `Effect Speed: ${data.effectSpeed}<br>` +
-                        `Startup: ${data.startup_sequence_name} (${data.startup_duration}ms)<br>` +
-                        `Motion: ${data.motion_enabled ? 'Enabled' : 'Disabled'}<br>` +
-                        `Blinker: ${data.blinker_active ? (data.blinker_direction > 0 ? 'Right' : 'Left') : 'Inactive'}<br>` +
-                        `Park Mode: ${data.park_mode_active ? 'Active' : 'Inactive'}<br>` +
-                        `Calibration: ${data.calibration_complete ? 'Complete' : 'Not calibrated'}<br>` +
-                        `WiFi AP: ${data.apName}<br>` +
-                        `Headlight: Effect ${data.headlightEffect}, Color #${data.headlightColor}<br>` +
-                        `Taillight: Effect ${data.taillightEffect}, Color #${data.taillightColor}<br>` +
-                        `Headlight Config: ${data.headlightLedCount} LEDs, Type ${data.headlightLedType}, Order ${data.headlightColorOrder}<br>` +
-                        `Taillight Config: ${data.taillightLedCount} LEDs, Type ${data.taillightLedType}, Order ${data.taillightColorOrder}`;
-
-                    // Update UI elements
+                        `Firmware: ${data.firmware_version}<br>` +
+                        `Build Date: ${data.build_date}<br>` +
+                        `Calibration: ${data.calibration_complete ? 'Complete' : 'Not calibrated'}`;
+                    
                     document.getElementById('brightness').value = data.brightness;
                     document.getElementById('brightnessValue').textContent = data.brightness;
-                    document.getElementById('effectSpeed').value = data.effectSpeed;
-                    document.getElementById('speedValue').textContent = data.effectSpeed;
-                    document.getElementById('startupSequence').value = data.startup_sequence;
-                    document.getElementById('startupDuration').value = data.startup_duration;
-                    document.getElementById('startupDurationValue').textContent = data.startup_duration;
+                    document.getElementById('buildDate').textContent = data.build_date || 'Unknown';
                     
-                    // Update motion control UI
+                    // Update motion control settings
                     document.getElementById('motionEnabled').checked = data.motion_enabled;
                     document.getElementById('blinkerEnabled').checked = data.blinker_enabled;
                     document.getElementById('parkModeEnabled').checked = data.park_mode_enabled;
                     document.getElementById('impactDetectionEnabled').checked = data.impact_detection_enabled;
-                    document.getElementById('motionSensitivity').value = data.motion_sensitivity;
-                    document.getElementById('motionSensitivityValue').textContent = data.motion_sensitivity;
-                    document.getElementById('blinkerDelay').value = data.blinker_delay;
-                    document.getElementById('blinkerDelayValue').textContent = data.blinker_delay;
-                    document.getElementById('blinkerTimeout').value = data.blinker_timeout;
-                    document.getElementById('blinkerTimeoutValue').textContent = data.blinker_timeout;
-                    document.getElementById('parkDetectionAngle').value = data.park_detection_angle;
-                    document.getElementById('parkDetectionAngleValue').textContent = data.park_detection_angle;
-                    document.getElementById('parkStationaryTime').value = data.park_stationary_time;
-                    document.getElementById('parkStationaryTimeValue').textContent = data.park_stationary_time;
-                    document.getElementById('parkAccelNoiseThreshold').value = data.park_accel_noise_threshold;
-                    document.getElementById('parkAccelNoiseThresholdValue').textContent = data.park_accel_noise_threshold;
-                    document.getElementById('parkGyroNoiseThreshold').value = data.park_gyro_noise_threshold;
-                    document.getElementById('parkGyroNoiseThresholdValue').textContent = data.park_gyro_noise_threshold;
-                    document.getElementById('impactThreshold').value = data.impact_threshold;
-                    document.getElementById('impactThresholdValue').textContent = data.impact_threshold;
                     
-                    // Update OTA UI
-                    
-                    // Update OTA status
-                    document.getElementById('otaStatusDisplay').textContent = data.ota_status;
-                    document.getElementById('otaProgressDisplay').textContent = data.ota_progress + '%';
-                    document.getElementById('otaErrorDisplay').textContent = data.ota_error || 'None';
-                    
-                    // Update OTA progress bar
-                    if (data.ota_in_progress) {
-                        document.getElementById('otaProgress').style.display = 'block';
-                        document.getElementById('otaProgressBar').style.width = data.ota_progress + '%';
-                        document.getElementById('otaProgressText').textContent = `${data.ota_status}... ${data.ota_progress}%`;
-                        document.getElementById('otaStatusText').textContent = `Status: ${data.ota_status}`;
-                        document.getElementById('startOTAButton').disabled = true;
-                    } else {
-                        document.getElementById('otaProgress').style.display = 'none';
-                        document.getElementById('startOTAButton').disabled = false;
-                    }
-                    
-                    // Update firmware version info
-                    document.getElementById('buildDate').textContent = data.build_date || 'Unknown';
-                    
-                    // Update motion status
-                    document.getElementById('blinkerStatus').textContent = data.blinker_active ? 
-                        (data.blinker_direction > 0 ? 'Right' : 'Left') : 'Inactive';
-                    document.getElementById('parkModeStatus').textContent = data.park_mode_active ? 'Active' : 'Inactive';
-                    document.getElementById('calibrationStatusDisplay').textContent = data.calibration_complete ? 'Complete' : 'Not calibrated';
+                    // Update park mode settings
+                    document.getElementById('parkEffect').value = data.park_effect;
+                    document.getElementById('parkEffectValue').textContent = data.park_effect;
+                    document.getElementById('parkSpeed').value = data.park_effect_speed;
+                    document.getElementById('parkSpeedValue').textContent = data.park_effect_speed;
+                    document.getElementById('parkBrightness').value = data.park_brightness;
+                    document.getElementById('parkBrightnessValue').textContent = data.park_brightness;
+                    document.getElementById('parkHeadlightColor').value = rgbToHex(data.park_headlight_color_r, data.park_headlight_color_g, data.park_headlight_color_b);
+                    document.getElementById('parkTaillightColor').value = rgbToHex(data.park_taillight_color_r, data.park_taillight_color_g, data.park_taillight_color_b);
                     
                     // Update calibration UI
                     if (data.calibration_mode) {
+                        console.log('Calibration mode active, step:', data.calibration_step);
                         document.getElementById('calibrationProgress').style.display = 'block';
                         document.getElementById('startCalibrationBtn').style.display = 'none';
                         document.getElementById('nextCalibrationBtn').style.display = 'inline-block';
                         document.getElementById('calibrationStatusText').textContent = 'In Progress';
                         
-                        // Update progress bar
-                        const progress = (data.calibration_step / 5) * 100;
+                        const currentStep = data.calibration_step;
+                        const progress = ((currentStep + 1) / 5) * 100;
                         document.getElementById('calibrationProgressBar').style.width = progress + '%';
                         
-                        // Update step text
                         const stepTexts = [
-                            'Step 1: Hold device LEVEL',
-                            'Step 2: Tilt FORWARD',
-                            'Step 3: Tilt BACKWARD',
-                            'Step 4: Tilt LEFT',
-                            'Step 5: Tilt RIGHT'
+                            'Hold device LEVEL',
+                            'Tilt FORWARD', 
+                            'Tilt BACKWARD',
+                            'Tilt LEFT',
+                            'Tilt RIGHT'
                         ];
-                        document.getElementById('calibrationStepText').textContent = stepTexts[data.calibration_step] || 'Calibrating...';
+                        const currentStepNumber = data.calibration_step + 1;
+                        const stepIndex = Math.min(data.calibration_step, 4);
+                        const stepDescription = stepTexts[stepIndex] || 'Calibrating...';
+                        
+                        document.getElementById('calibrationStepText').textContent = `Step ${currentStepNumber}/5: ${stepDescription}`;
+                        console.log('Updated UI - Step:', currentStepNumber, 'Progress:', progress + '%');
                     } else {
                         document.getElementById('calibrationProgress').style.display = 'none';
                         document.getElementById('startCalibrationBtn').style.display = 'inline-block';
                         document.getElementById('nextCalibrationBtn').style.display = 'none';
                         document.getElementById('calibrationStatusText').textContent = data.calibration_complete ? 'Complete' : 'Not calibrated';
                     }
-                    
-                    document.getElementById('apName').value = data.apName;
-                    document.getElementById('apPassword').value = data.apPassword;
-                    document.getElementById('headlightColor').value = '#' + data.headlightColor;
-                    document.getElementById('taillightColor').value = '#' + data.taillightColor;
-                    document.getElementById('headlightEffect').value = data.headlightEffect;
-                    document.getElementById('taillightEffect').value = data.taillightEffect;
-                    
-                    // Update LED configuration elements
-                    document.getElementById('headlightLedCount').value = data.headlightLedCount;
-                    document.getElementById('taillightLedCount').value = data.taillightLedCount;
-                    document.getElementById('headlightLedType').value = data.headlightLedType;
-                    document.getElementById('taillightLedType').value = data.taillightLedType;
-                    document.getElementById('headlightColorOrder').value = data.headlightColorOrder;
-                    document.getElementById('taillightColorOrder').value = data.taillightColorOrder;
                 });
         }
         
-        function updateLEDConfig() {
-            const config = {
-                headlightLedCount: parseInt(document.getElementById('headlightLedCount').value),
-                taillightLedCount: parseInt(document.getElementById('taillightLedCount').value),
-                headlightLedType: parseInt(document.getElementById('headlightLedType').value),
-                taillightLedType: parseInt(document.getElementById('taillightLedType').value),
-                headlightColorOrder: parseInt(document.getElementById('headlightColorOrder').value),
-                taillightColorOrder: parseInt(document.getElementById('taillightColorOrder').value)
-            };
+        function updateMotionSettings() {
+            const motionEnabled = document.getElementById('motionEnabled').checked;
+            const blinkerEnabled = document.getElementById('blinkerEnabled').checked;
+            const parkModeEnabled = document.getElementById('parkModeEnabled').checked;
+            const impactDetectionEnabled = document.getElementById('impactDetectionEnabled').checked;
             
-            fetch('/api/led-config', {
+            fetch('/api', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(config)
-            }).then(() => {
-                console.log('LED configuration updated');
-                updateStatus();
+                body: JSON.stringify({
+                    motion_enabled: motionEnabled,
+                    blinker_enabled: blinkerEnabled,
+                    park_mode_enabled: parkModeEnabled,
+                    impact_detection_enabled: impactDetectionEnabled
+                })
             });
         }
         
-        function testLEDs() {
-            fetch('/api/led-test', {
+        function updateParkSettings() {
+            const parkEffect = document.getElementById('parkEffect').value;
+            const parkSpeed = document.getElementById('parkSpeed').value;
+            const parkBrightness = document.getElementById('parkBrightness').value;
+            const parkHeadlightColor = document.getElementById('parkHeadlightColor').value;
+            const parkTaillightColor = document.getElementById('parkTaillightColor').value;
+            
+            // Update display values
+            document.getElementById('parkEffectValue').textContent = parkEffect;
+            document.getElementById('parkSpeedValue').textContent = parkSpeed;
+            document.getElementById('parkBrightnessValue').textContent = parkBrightness;
+            
+            // Convert hex colors to RGB
+            const headlightRGB = hexToRgb(parkHeadlightColor);
+            const taillightRGB = hexToRgb(parkTaillightColor);
+            
+            fetch('/api', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' }
-            }).then(() => {
-                console.log('LED test completed');
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    park_effect: parseInt(parkEffect),
+                    park_effect_speed: parseInt(parkSpeed),
+                    park_brightness: parseInt(parkBrightness),
+                    park_headlight_color_r: headlightRGB.r,
+                    park_headlight_color_g: headlightRGB.g,
+                    park_headlight_color_b: headlightRGB.b,
+                    park_taillight_color_r: taillightRGB.r,
+                    park_taillight_color_g: taillightRGB.g,
+                    park_taillight_color_b: taillightRGB.b
+                })
             });
         }
         
-        function saveLEDConfig() {
-            updateLEDConfig();
-            alert('LED configuration saved!');
+        function hexToRgb(hex) {
+            const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+            return result ? {
+                r: parseInt(result[1], 16),
+                g: parseInt(result[2], 16),
+                b: parseInt(result[3], 16)
+            } : {r: 0, g: 0, b: 0};
         }
         
-        // Update status on page load
-        updateStatus();
+        function rgbToHex(r, g, b) {
+            return "#" + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
+        }
         
-        // Auto-refresh status every 5 seconds
+        updateStatus();
         setInterval(updateStatus, 5000);
     </script>
 </body>
 </html>
 )rawliteral";
     
+    Serial.printf("📤 serveEmbeddedUI: Sending HTML response (%d bytes)\n", html.length());
     server.send(200, "text/html", html);
+    Serial.println("✅ serveEmbeddedUI: Response sent successfully");
 }
 
+void handleUIUpdate() {
+    if (server.method() == HTTP_GET) {
+        // Serve UI update page
+        String html = R"rawliteral(
+<!DOCTYPE html>
+<html>
+<head>
+    <title>ArkLights UI Update</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #1a1a2e; color: white; }
+        .container { max-width: 600px; margin: 0 auto; }
+        .control { margin: 20px 0; padding: 20px; background: rgba(255,255,255,0.1); border-radius: 8px; }
+        button { padding: 12px 24px; margin: 8px; background: #667eea; color: white; border: none; border-radius: 5px; cursor: pointer; }
+        button:hover { background: #764ba2; }
+        .status { padding: 15px; margin: 15px 0; border-radius: 8px; }
+        .success { background: rgba(76,175,80,0.2); border: 1px solid rgba(76,175,80,0.5); }
+        .error { background: rgba(244,67,54,0.2); border: 1px solid rgba(244,67,54,0.5); }
+        .info { background: rgba(33,150,243,0.2); border: 1px solid rgba(33,150,243,0.5); }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎨 ArkLights UI Update</h1>
+        <div class="control">
+            <h3>Update Interface Files</h3>
+            <p>Upload a ZIP file containing updated UI files. This will update the web interface without requiring a full firmware update.</p>
+            
+            <form id="updateForm" enctype="multipart/form-data">
+                <input type="file" id="uiFile" accept=".zip,.txt" required>
+                <button type="submit">Update UI</button>
+            </form>
+            
+            <div id="status" style="display: none;"></div>
+        </div>
+        
+        <div class="control">
+            <h3>Current UI Files</h3>
+            <p>Files that can be updated:</p>
+            <ul>
+                <li><strong>Main Interface:</strong></li>
+                <li>ui/index.html - Main ArkLights interface</li>
+                <li>ui/styles.css - ArkLights stylesheet</li>
+                <li>ui/script.js - ArkLights JavaScript</li>
+                <li><strong>Custom Files:</strong></li>
+                <li>Any custom CSS/JS/HTML files</li>
+            </ul>
+            <p><em>Note: Filesystem versions override embedded versions. If a file doesn't exist in filesystem, the embedded version is used.</em></p>
+        </div>
+        
+        <div class="control">
+            <button onclick="window.location.href='/'">Back to Main Interface</button>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('updateForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const fileInput = document.getElementById('uiFile');
+            const statusDiv = document.getElementById('status');
+            
+            if (!fileInput.files[0]) {
+                showStatus('Please select a ZIP or TXT file', 'error');
+                return;
+            }
+            
+            const formData = new FormData();
+            formData.append('uiupdate', fileInput.files[0]);
+            
+            showStatus('Uploading and updating UI files...', 'info');
+            
+            fetch('/updateui', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.text())
+            .then(data => {
+                if (data.includes('success')) {
+                    showStatus('UI update successful! The interface has been updated.', 'success');
+                } else {
+                    showStatus('Update failed: ' + data, 'error');
+                }
+            })
+            .catch(error => {
+                showStatus('Upload failed: ' + error.message, 'error');
+            });
+        });
+        
+        function showStatus(message, type) {
+            const statusDiv = document.getElementById('status');
+            statusDiv.innerHTML = message;
+            statusDiv.className = 'status ' + type;
+            statusDiv.style.display = 'block';
+        }
+    </script>
+</body>
+</html>
+        )rawliteral";
+        
+        server.send(200, "text/html", html);
+    } else if (server.method() == HTTP_POST) {
+        // Handle file upload
+        HTTPUpload& upload = server.upload();
+        
+        static File updateFile;
+        static String updatePath;
+        
+        if (upload.status == UPLOAD_FILE_START) {
+            updatePath = "/ui_update_" + String(millis()) + ".zip";
+            updateFile = SPIFFS.open(updatePath, "w");
+            Serial.printf("Starting UI update: %s\n", updatePath.c_str());
+        } else if (upload.status == UPLOAD_FILE_WRITE) {
+            if (updateFile) {
+                updateFile.write(upload.buf, upload.currentSize);
+            }
+        } else if (upload.status == UPLOAD_FILE_END) {
+            if (updateFile) {
+                updateFile.close();
+                Serial.println("UI update file received, processing...");
+                
+                if (processUIUpdate(updatePath)) {
+                    server.send(200, "text/plain", "UI update successful!");
+                    SPIFFS.remove(updatePath);
+                } else {
+                    server.send(500, "text/plain", "UI update failed - could not process files");
+                    SPIFFS.remove(updatePath);
+                }
+            }
+        }
+    }
+}
+
+bool processUIUpdate(const String& updatePath) {
+    Serial.printf("Processing UI update: %s\n", updatePath.c_str());
+    
+    File updateFile = SPIFFS.open(updatePath, "r");
+    if (!updateFile) {
+        Serial.println("Failed to open update file");
+        return false;
+    }
+    
+    String content = updateFile.readString();
+    updateFile.close();
+    
+    // Process text-based update format: FILENAME:CONTENT:ENDFILE
+    if (content.indexOf("FILENAME:") == 0) {
+        Serial.println("Processing text-based UI update");
+        
+        int pos = 0;
+        while (pos < content.length()) {
+            int filenameStart = content.indexOf("FILENAME:", pos);
+            if (filenameStart == -1) break;
+            
+            int filenameEnd = content.indexOf(":", filenameStart + 9);
+            if (filenameEnd == -1) break;
+            
+            String filename = content.substring(filenameStart + 9, filenameEnd);
+            
+            int contentStart = filenameEnd + 1;
+            int contentEnd = content.indexOf(":ENDFILE", contentStart);
+            if (contentEnd == -1) break;
+            
+            String fileContent = content.substring(contentStart, contentEnd);
+            
+            // Ensure filename starts with / (avoid double slashes)
+            if (filename.charAt(0) != '/') {
+                filename = "/" + filename;
+            }
+            
+            Serial.printf("Updating file: %s\n", filename.c_str());
+            
+            // Write the file
+            File targetFile = SPIFFS.open(filename, "w");
+            if (targetFile) {
+                targetFile.print(fileContent);
+                targetFile.close();
+                Serial.printf("Successfully updated: %s\n", filename.c_str());
+            } else {
+                Serial.printf("Failed to write file: %s\n", filename.c_str());
+            }
+            
+            pos = contentEnd + 8; // Move past :ENDFILE
+        }
+        
+        Serial.println("UI update completed successfully");
+        return true;
+    }
+    
+    // For ZIP files, we'd need a ZIP library - for now just return success
+    Serial.println("ZIP update format not yet implemented - use text format");
+    return false;
+}
+
+// Old handleRoot function removed - now using external UI files
 void handleAPI() {
     if (server.hasArg("plain")) {
         DynamicJsonDocument doc(1024);
@@ -2909,6 +3139,12 @@ void handleAPI() {
         }
         if (doc.containsKey("testStartup") && doc["testStartup"]) {
             startStartupSequence();
+        }
+        if (doc.containsKey("testParkMode") && doc["testParkMode"]) {
+            // Temporarily activate park mode for testing
+            parkModeActive = true;
+            parkStartTime = millis(); // Reset timer
+            Serial.println("🅿️ Test park mode activated");
         }
         
         // Motion control API
@@ -2954,6 +3190,42 @@ void handleAPI() {
         }
         if (doc.containsKey("park_gyro_noise_threshold")) {
             parkGyroNoiseThreshold = doc["park_gyro_noise_threshold"];
+            saveSettings(); // Auto-save
+        }
+        if (doc.containsKey("park_effect")) {
+            parkEffect = doc["park_effect"];
+            saveSettings(); // Auto-save
+        }
+        if (doc.containsKey("park_effect_speed")) {
+            parkEffectSpeed = doc["park_effect_speed"];
+            saveSettings(); // Auto-save
+        }
+        if (doc.containsKey("park_headlight_color_r")) {
+            parkHeadlightColor.r = doc["park_headlight_color_r"];
+            saveSettings(); // Auto-save
+        }
+        if (doc.containsKey("park_headlight_color_g")) {
+            parkHeadlightColor.g = doc["park_headlight_color_g"];
+            saveSettings(); // Auto-save
+        }
+        if (doc.containsKey("park_headlight_color_b")) {
+            parkHeadlightColor.b = doc["park_headlight_color_b"];
+            saveSettings(); // Auto-save
+        }
+        if (doc.containsKey("park_taillight_color_r")) {
+            parkTaillightColor.r = doc["park_taillight_color_r"];
+            saveSettings(); // Auto-save
+        }
+        if (doc.containsKey("park_taillight_color_g")) {
+            parkTaillightColor.g = doc["park_taillight_color_g"];
+            saveSettings(); // Auto-save
+        }
+        if (doc.containsKey("park_taillight_color_b")) {
+            parkTaillightColor.b = doc["park_taillight_color_b"];
+            saveSettings(); // Auto-save
+        }
+        if (doc.containsKey("park_brightness")) {
+            parkBrightness = doc["park_brightness"];
             saveSettings(); // Auto-save
         }
         if (doc.containsKey("impact_threshold")) {
@@ -3047,6 +3319,15 @@ void handleStatus() {
     doc["park_accel_noise_threshold"] = parkAccelNoiseThreshold;
     doc["park_gyro_noise_threshold"] = parkGyroNoiseThreshold;
     doc["park_stationary_time"] = parkStationaryTime;
+    doc["park_effect"] = parkEffect;
+    doc["park_effect_speed"] = parkEffectSpeed;
+    doc["park_headlight_color_r"] = parkHeadlightColor.r;
+    doc["park_headlight_color_g"] = parkHeadlightColor.g;
+    doc["park_headlight_color_b"] = parkHeadlightColor.b;
+    doc["park_taillight_color_r"] = parkTaillightColor.r;
+    doc["park_taillight_color_g"] = parkTaillightColor.g;
+    doc["park_taillight_color_b"] = parkTaillightColor.b;
+    doc["park_brightness"] = parkBrightness;
     doc["blinker_active"] = blinkerActive;
     doc["blinker_direction"] = blinkerDirection;
     doc["park_mode_active"] = parkModeActive;
@@ -3062,7 +3343,7 @@ void handleStatus() {
     doc["ota_error"] = otaError;
     doc["ota_file_name"] = otaFileName;
     doc["ota_file_size"] = otaFileSize;
-    doc["firmware_version"] = "v7.0 OTA";
+    doc["firmware_version"] = "v8.0 OTA";
     doc["build_date"] = __DATE__ " " __TIME__;
     doc["apName"] = apName;
     doc["apPassword"] = apPassword;
@@ -3307,6 +3588,17 @@ bool saveSettings() {
     doc["park_gyro_noise_threshold"] = parkGyroNoiseThreshold;
     doc["park_stationary_time"] = parkStationaryTime;
     
+    // Park mode effect settings
+    doc["park_effect"] = parkEffect;
+    doc["park_effect_speed"] = parkEffectSpeed;
+    doc["park_headlight_color_r"] = parkHeadlightColor.r;
+    doc["park_headlight_color_g"] = parkHeadlightColor.g;
+    doc["park_headlight_color_b"] = parkHeadlightColor.b;
+    doc["park_taillight_color_r"] = parkTaillightColor.r;
+    doc["park_taillight_color_g"] = parkTaillightColor.g;
+    doc["park_taillight_color_b"] = parkTaillightColor.b;
+    doc["park_brightness"] = parkBrightness;
+    
     // OTA Update settings
     doc["ota_update_url"] = otaUpdateURL;
     
@@ -3321,6 +3613,29 @@ bool saveSettings() {
     // WiFi settings
     doc["ap_name"] = apName;
     doc["ap_password"] = apPassword;
+    
+    // Calibration data
+    doc["calibration_complete"] = calibrationComplete;
+    doc["calibration_valid"] = calibration.valid;
+    doc["calibration_forward_axis"] = String(calibration.forwardAxis);
+    doc["calibration_forward_sign"] = calibration.forwardSign;
+    doc["calibration_leftright_axis"] = String(calibration.leftRightAxis);
+    doc["calibration_leftright_sign"] = calibration.leftRightSign;
+    doc["calibration_level_x"] = calibration.levelAccelX;
+    doc["calibration_level_y"] = calibration.levelAccelY;
+    doc["calibration_level_z"] = calibration.levelAccelZ;
+    doc["calibration_forward_x"] = calibration.forwardAccelX;
+    doc["calibration_forward_y"] = calibration.forwardAccelY;
+    doc["calibration_forward_z"] = calibration.forwardAccelZ;
+    doc["calibration_backward_x"] = calibration.backwardAccelX;
+    doc["calibration_backward_y"] = calibration.backwardAccelY;
+    doc["calibration_backward_z"] = calibration.backwardAccelZ;
+    doc["calibration_left_x"] = calibration.leftAccelX;
+    doc["calibration_left_y"] = calibration.leftAccelY;
+    doc["calibration_left_z"] = calibration.leftAccelZ;
+    doc["calibration_right_x"] = calibration.rightAccelX;
+    doc["calibration_right_y"] = calibration.rightAccelY;
+    doc["calibration_right_z"] = calibration.rightAccelZ;
     
     // Save to file
     File file = SPIFFS.open("/settings.json", "w");
@@ -3389,9 +3704,20 @@ bool loadSettings() {
     blinkerTimeout = doc["blinker_timeout"] | 2000;
     parkDetectionAngle = doc["park_detection_angle"] | 15;
     impactThreshold = doc["impact_threshold"] | 3;
-    parkAccelNoiseThreshold = doc["park_accel_noise_threshold"] | 0.1;
-    parkGyroNoiseThreshold = doc["park_gyro_noise_threshold"] | 0.5;
+    parkAccelNoiseThreshold = doc["park_accel_noise_threshold"] | 0.05;
+    parkGyroNoiseThreshold = doc["park_gyro_noise_threshold"] | 2.5;
     parkStationaryTime = doc["park_stationary_time"] | 2000;
+    
+    // Load park mode effect settings
+    parkEffect = doc["park_effect"] | FX_BREATH;
+    parkEffectSpeed = doc["park_effect_speed"] | 64;
+    parkHeadlightColor.r = doc["park_headlight_color_r"] | 0;
+    parkHeadlightColor.g = doc["park_headlight_color_g"] | 0;
+    parkHeadlightColor.b = doc["park_headlight_color_b"] | 255;
+    parkTaillightColor.r = doc["park_taillight_color_r"] | 0;
+    parkTaillightColor.g = doc["park_taillight_color_g"] | 0;
+    parkTaillightColor.b = doc["park_taillight_color_b"] | 255;
+    parkBrightness = doc["park_brightness"] | 128;
     
     // Load OTA Update settings
     otaUpdateURL = doc["ota_update_url"] | "";
@@ -3408,6 +3734,37 @@ bool loadSettings() {
     apName = doc["ap_name"] | "ARKLIGHTS-AP";
     apPassword = doc["ap_password"] | "float420";
     
+    // Load calibration data
+    calibrationComplete = doc["calibration_complete"] | false;
+    calibration.valid = doc["calibration_valid"] | false;
+    if (calibration.valid) {
+        String forwardAxisStr = doc["calibration_forward_axis"] | "X";
+        calibration.forwardAxis = forwardAxisStr.charAt(0);
+        calibration.forwardSign = doc["calibration_forward_sign"] | 1;
+        String leftRightAxisStr = doc["calibration_leftright_axis"] | "Y";
+        calibration.leftRightAxis = leftRightAxisStr.charAt(0);
+        calibration.leftRightSign = doc["calibration_leftright_sign"] | 1;
+        calibration.levelAccelX = doc["calibration_level_x"] | 0.0;
+        calibration.levelAccelY = doc["calibration_level_y"] | 0.0;
+        calibration.levelAccelZ = doc["calibration_level_z"] | 1.0;
+        calibration.forwardAccelX = doc["calibration_forward_x"] | 0.0;
+        calibration.forwardAccelY = doc["calibration_forward_y"] | 0.0;
+        calibration.forwardAccelZ = doc["calibration_forward_z"] | 1.0;
+        calibration.backwardAccelX = doc["calibration_backward_x"] | 0.0;
+        calibration.backwardAccelY = doc["calibration_backward_y"] | 0.0;
+        calibration.backwardAccelZ = doc["calibration_backward_z"] | 1.0;
+        calibration.leftAccelX = doc["calibration_left_x"] | 0.0;
+        calibration.leftAccelY = doc["calibration_left_y"] | 0.0;
+        calibration.leftAccelZ = doc["calibration_left_z"] | 1.0;
+        calibration.rightAccelX = doc["calibration_right_x"] | 0.0;
+        calibration.rightAccelY = doc["calibration_right_y"] | 0.0;
+        calibration.rightAccelZ = doc["calibration_right_z"] | 1.0;
+        
+        Serial.println("✅ Calibration data loaded from filesystem:");
+        Serial.printf("Forward axis: %c (sign: %d)\n", calibration.forwardAxis, calibration.forwardSign);
+        Serial.printf("Left/Right axis: %c (sign: %d)\n", calibration.leftRightAxis, calibration.leftRightSign);
+    }
+    
     Serial.println("✅ Settings loaded from filesystem:");
     Serial.printf("Headlight: RGB(%d,%d,%d), Taillight: RGB(%d,%d,%d)\n", 
                   headlightColor.r, headlightColor.g, headlightColor.b,
@@ -3423,6 +3780,18 @@ bool loadSettings() {
 // Test filesystem functionality
 void testFilesystem() {
     Serial.println("🧪 Testing Filesystem...");
+    
+    // List all files in SPIFFS
+    Serial.println("📁 SPIFFS file listing:");
+    File root = SPIFFS.open("/");
+    if (root) {
+        File file = root.openNextFile();
+        while (file) {
+            Serial.printf("  📄 %s (%d bytes)\n", file.name(), file.size());
+            file = root.openNextFile();
+        }
+        root.close();
+    }
     
     // Test write
     DynamicJsonDocument testDoc(128);

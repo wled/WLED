@@ -1,0 +1,134 @@
+body { 
+    font-family: Arial, sans-serif; 
+    margin: 20px; 
+    background: #1a1a1a; 
+    color: #fff; 
+}
+
+.container { 
+    max-width: 600px; 
+    margin: 0 auto; 
+}
+
+.section { 
+    background: #2a2a2a; 
+    padding: 20px; 
+    margin: 10px 0; 
+    border-radius: 8px; 
+}
+
+.preset-btn { 
+    background: #4CAF50; 
+    color: white; 
+    padding: 10px 20px; 
+    margin: 5px; 
+    border: none; 
+    border-radius: 4px; 
+    cursor: pointer; 
+}
+
+.preset-btn:hover { 
+    background: #45a049; 
+}
+
+.control-group { 
+    margin: 15px 0; 
+}
+
+label { 
+    display: block; 
+    margin-bottom: 5px; 
+}
+
+input[type="range"] { 
+    width: 100%; 
+}
+
+input[type="color"] { 
+    width: 50px; 
+    height: 30px; 
+}
+
+select { 
+    padding: 8px; 
+    border-radius: 4px; 
+    background: #333; 
+    color: #fff; 
+    border: 1px solid #555; 
+}
+
+.status { 
+    background: #333; 
+    padding: 10px; 
+    border-radius: 4px; 
+    margin: 10px 0; 
+}
+
+h1 { 
+    color: #4CAF50; 
+    text-align: center; 
+}
+
+h2 { 
+    color: #81C784; 
+}
+
+.btn {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    margin: 5px;
+}
+
+.btn-primary {
+    background: #2196F3;
+    color: white;
+}
+
+.btn-primary:hover {
+    background: #1976D2;
+}
+
+.progress-bar {
+    width: 100%;
+    height: 20px;
+    background: #ddd;
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+.progress-fill {
+    height: 100%;
+    background: #4CAF50;
+    width: 0%;
+    transition: width 0.3s;
+}
+
+.calibration-section {
+    margin-top: 20px;
+    padding: 15px;
+    background: #f5f5f5;
+    border-radius: 8px;
+}
+
+.motion-status {
+    margin-top: 20px;
+    padding: 15px;
+    background: #e8f5e8;
+    border-radius: 8px;
+}
+
+.ota-progress {
+    margin-top: 20px;
+    padding: 15px;
+    background: #f0f0f0;
+    border-radius: 8px;
+}
+
+.ota-status {
+    margin-top: 20px;
+    padding: 15px;
+    background: #e8f5e8;
+    border-radius: 8px;
+}

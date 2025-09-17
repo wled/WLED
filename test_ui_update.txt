@@ -1,0 +1,61 @@
+FILENAME:test_ui.html:<!DOCTYPE html>
+<html>
+<head>
+    <title>ArkLights Test UI</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #1a1a1a; color: #fff; }
+        .container { max-width: 600px; margin: 0 auto; }
+        .test-section { background: #2a2a2a; padding: 20px; margin: 10px 0; border-radius: 8px; }
+        h1 { color: #4CAF50; text-align: center; }
+        .success { background: rgba(76,175,80,0.2); border: 1px solid rgba(76,175,80,0.5); padding: 15px; border-radius: 8px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎉 ArkLights UI Update Test</h1>
+        <div class="test-section success">
+            <h2>✅ UI Update System Working!</h2>
+            <p>This is a test UI file that was uploaded via the UI update system.</p>
+            <p>If you can see this page, the UI update system is working correctly.</p>
+            <p><strong>Timestamp:</strong> <span id="timestamp">Loading...</span></p>
+        </div>
+        
+        <div class="test-section">
+            <h2>Test Controls</h2>
+            <button onclick="testAPI()" style="background: #4CAF50; color: white; padding: 10px 20px; border: none; border-radius: 5px; margin: 5px;">
+                Test API Connection
+            </button>
+            <button onclick="window.location.href='/updateui'" style="background: #2196F3; color: white; padding: 10px 20px; border: none; border-radius: 5px; margin: 5px;">
+                Go to UI Update Page
+            </button>
+        </div>
+        
+        <div class="test-section">
+            <h2>API Test Results</h2>
+            <div id="apiResult">Click "Test API Connection" to test</div>
+        </div>
+    </div>
+    
+    <script>
+        // Set timestamp
+        document.getElementById('timestamp').textContent = new Date().toLocaleString();
+        
+        function testAPI() {
+            fetch('/api/status')
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('apiResult').innerHTML = 
+                        '<div class="success">✅ API Connection Successful!</div>' +
+                        '<pre>' + JSON.stringify(data, null, 2) + '</pre>';
+                })
+                .catch(error => {
+                    document.getElementById('apiResult').innerHTML = 
+                        '<div style="background: rgba(244,67,54,0.2); border: 1px solid rgba(244,67,54,0.5); padding: 15px; border-radius: 8px;">' +
+                        '❌ API Connection Failed: ' + error.message + '</div>';
+                });
+        }
+    </script>
+</body>
+</html>
+:ENDFILE

@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>ArkLights PEV Control OTA</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="/ui/styles.css">
+</head>
+<body>
+    <div class="container">
+        <h1>ArkLights PEV Control v8.0 OTA - Test</h1>
+        <div style="text-align: center; margin: 10px 0; padding: 10px; background: rgba(255,255,255,0.1); border-radius: 8px;">
+            <strong>Firmware Version:</strong> v8.0 OTA | <strong>Build Date:</strong> <span id="buildDate">Loading...</span>
+        </div>
+        
+        <div class="section">
+            <h2>Presets</h2>
+            <button class="preset-btn" onclick="setPreset(0)">Standard</button>
+            <button class="preset-btn" onclick="setPreset(1)">Night</button>
+            <button class="preset-btn" onclick="setPreset(2)">Party</button>
+            <button class="preset-btn" onclick="setPreset(3)">Stealth</button>
+        </div>
+        
+        <div class="section">
+            <h2>Brightness</h2>
+            <div class="control-group">
+                <label>Global Brightness: <span id="brightnessValue">128</span></label>
+                <input type="range" id="brightness" min="0" max="255" value="128" onchange="setBrightness(this.value)">
+            </div>
+        </div>
+        
+        <div class="section">
+            <h2>Effect Speed</h2>
+            <div class="control-group">
+                <label>Effect Speed: <span id="speedValue">64</span></label>
+                <input type="range" id="effectSpeed" min="0" max="255" value="64" onchange="setEffectSpeed(this.value)">
+                <small>Higher values = faster effects</small>
+            </div>
+        </div>
+        
+        <div class="section">
+            <h2>Startup Sequence</h2>
+            <div class="control-group">
+                <label>Startup Animation:</label>
+                <select id="startupSequence" onchange="setStartupSequence(this.value)">
+                    <option value="0">None</option>
+                    <option value="1">Power On</option>
+                    <option value="2">Scanner</option>
+                    <option value="3">Wave</option>
+                    <option value="4">Race</option>
+                    <option value="5">Custom</option>
+                </select>
+                <small>Animation shown when device powers on</small>
+            </div>
+            <div class="control-group">
+                <label>Duration: <span id="startupDurationValue">3000</span>ms</label>
+                <input type="range" id="startupDuration" min="1000" max="10000" value="3000" onchange="setStartupDuration(this.value)">
+                <small>How long the startup sequence lasts</small>
+            </div>
+            <div class="control-group">
+                <button onclick="testStartupSequence()" style="background: #ff9800;">Test Startup Sequence</button>
+                <small>Preview the current startup animation</small>
+            </div>
+        </div>
+        
+        <div class="section">
+            <h2>🎯 Motion Control</h2>
+            
+            <div class="control-group">
+                <label>
+                    <input type="checkbox" id="motionEnabled" onchange="setMotionEnabled(this.checked)">
+                    Enable Motion Control
+                </label>
+                <small>Master switch for all motion features</small>
+            </div>
+            
+            <div class="control-group">
+                <label>
+                    <input type="checkbox" id="blinkerEnabled" onchange="setBlinkerEnabled(this.checked)">
+                    Auto Blinkers
+                </label>
+                <small>Automatic turn signals based on lean angle</small>
+            </div>
+            
+            <div class="control-group">
+                <label>
+                    <input type="checkbox" id="parkModeEnabled" onchange="setParkModeEnabled(this.checked)">
+                    Park Mode
+                </label>
+                <small>Special effects when stationary and tilted</small>
+            </div>
+            
+            <div class="control-group">
+                <label>
+                    <input type="checkbox" id="impactDetectionEnabled" onchange="setImpactDetectionEnabled(this.checked)">
+                    Impact Detection
+                </label>
+                <small>Flash lights on sudden acceleration changes</small>
+            </div>
+            
+            <div class="control-group">
+                <label>Motion Sensitivity: <span id="motionSensitivityValue">1.0</span></label>
+                <input type="range" id="motionSensitivity" min="0.5" max="2.0" step="0.1" 
+                       oninput="setMotionSensitivity(this.value)">
+                <small>Higher values = more sensitive to motion</small>
+            </div>
+            
+            <div class="control-group">
+                <label>Blinker Delay: <span id="blinkerDelayValue">300</span>ms</label>
+                <input type="range" id="blinkerDelay" min="100" max="1000" step="50" 
+                       oninput="setBlinkerDelay(this.value)">
+                <small>Delay before blinker activates after turn detected</small>
+            </div>
+            
+            <div class="control-group">
+                <label>Blinker Timeout: <span id="blinkerTimeoutValue">2000</span>ms</label>
+                <input type="range" id="blinkerTimeout" min="1000" max="5000" step="100" 
+                       oninput="setBlinkerTimeout(this.value)">
+                <small>How long blinker stays on after turn ends</small>
+            </div>
+            
+            <div class="control-group">
+                <label>Park Stationary Time: <span id="parkStationaryTimeValue">2000</span>ms</label>
+                <input type="range" id="parkStationaryTime" min="1000" max="10000" step="500" 
+                       oninput="setParkStationaryTime(this.value)">
+                <small>How long device must be stationary before park mode activates</small>
+            </div>
+            
+            <div class="control-group">
+                <label>Accel Noise Threshold: <span id="parkAccelNoiseThresholdValue">0.1</span>G</label>
+                <input type="range" id="parkAccelNoiseThreshold" min="0.05" max="0.5" step="0.01" 
+                       oninput="setParkAccelNoiseThreshold(this.value)">
+                <small>Maximum acceleration noise to consider device stationary</small>
+            </div>
+            
+            <div class="control-group">
+                <label>Gyro Noise Threshold: <span id="parkGyroNoiseThresholdValue">0.5</span>°/s</label>
+                <input type="range" id="parkGyroNoiseThreshold" min="0.1" max="2.0" step="0.1" 
+                       oninput="setParkGyroNoiseThreshold(this.value)">
+                <small>Maximum gyro noise to consider device stationary</small>
+            </div>
+            
+            <div class="control-group">
+                <label>Impact Threshold: <span id="impactThresholdValue">3</span>G</label>
+                <input type="range" id="impactThreshold" min="1" max="10" step="0.5" 
+                       oninput="setImpactThreshold(this.value)">
+                <small>G-force threshold for impact detection</small>
+            </div>
+            
+            <!-- Calibration Section -->
+            <div class="calibration-section" style="margin-top: 20px; padding: 15px; background: #f5f5f5; border-radius: 8px;">
+                <h3>📐 Calibration</h3>
+                <div id="calibrationStatus" class="calibration-status">
+                    Status: <span id="calibrationStatusText">Not calibrated</span>
+                </div>
+                
+                <div id="calibrationProgress" class="calibration-progress" style="display: none;">
+                    <div class="progress-bar" style="width: 100%; height: 20px; background: #ddd; border-radius: 10px; overflow: hidden;">
+                        <div id="calibrationProgressBar" class="progress-fill" style="height: 100%; background: #4CAF50; width: 0%; transition: width 0.3s;"></div>
+                    </div>
+                    <div id="calibrationStepText" style="margin-top: 10px; font-weight: bold;">Step 1: Hold device LEVEL</div>
+                </div>
+                
+                <div class="calibration-controls" style="margin-top: 15px;">
+                    <button onclick="startCalibration()" id="startCalibrationBtn" style="background: #4CAF50; color: white; padding: 10px 20px; border: none; border-radius: 5px; margin-right: 10px;">Start Calibration</button>
+                    <button onclick="nextCalibrationStep()" id="nextCalibrationBtn" style="background: #2196F3; color: white; padding: 10px 20px; border: none; border-radius: 5px; margin-right: 10px; display: none;">Next Step</button>
+                    <button onclick="resetCalibration()" id="resetCalibrationBtn" style="background: #f44336; color: white; padding: 10px 20px; border: none; border-radius: 5px;">Reset Calibration</button>
+                </div>
+            </div>
+            
+            <!-- Motion Status -->
+            <div class="motion-status" style="margin-top: 20px; padding: 15px; background: #e8f5e8; border-radius: 8px;">
+                <h3>📊 Motion Status</h3>
+                <div id="motionStatus">
+                    <div>Blinker: <span id="blinkerStatus" style="font-weight: bold;">Inactive</span></div>
+                    <div>Park Mode: <span id="parkModeStatus" style="font-weight: bold;">Inactive</span></div>
+                    <div>Calibration: <span id="calibrationStatusDisplay" style="font-weight: bold;">Not calibrated</span></div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="section">
+            <h2>🅿️ Park Mode Settings</h2>
+            <div class="control-group">
+                <label>Park Effect:</label>
+                <select id="parkEffect" onchange="setParkEffect(this.value)">
+                    <option value="0">Solid</option>
+                    <option value="1">Breath</option>
+                    <option value="2">Rainbow</option>
+                    <option value="3">Chase</option>
+                    <option value="4">Blink Rainbow</option>
+                    <option value="5">Twinkle</option>
+                    <option value="6">Fire</option>
+                    <option value="7">Meteor</option>
+                    <option value="8">Wave</option>
+                    <option value="9">Comet</option>
+                    <option value="10">Candle</option>
+                    <option value="11">Static Rainbow</option>
+                    <option value="12">Knight Rider</option>
+                    <option value="13">Police</option>
+                    <option value="14">Strobe</option>
+                    <option value="15">Larson Scanner</option>
+                    <option value="16">Color Wipe</option>
+                    <option value="17">Theater Chase</option>
+                    <option value="18">Running Lights</option>
+                    <option value="19">Color Sweep</option>
+                </select>
+                <small>Effect to display when in park mode</small>
+            </div>
+            
+            <div class="control-group">
+                <label>Park Effect Speed: <span id="parkEffectSpeedValue">64</span></label>
+                <input type="range" id="parkEffectSpeed" min="0" max="255" value="64" oninput="setParkEffectSpeed(this.value)">
+                <small>Speed of the park mode effect</small>
+            </div>
+            
+            <div class="control-group">
+                <label>Park Brightness: <span id="parkBrightnessValue">128</span></label>
+                <input type="range" id="parkBrightness" min="0" max="255" value="128" oninput="setParkBrightness(this.value)">
+                <small>Brightness level when in park mode</small>
+            </div>
+            
+            <div class="control-group">
+                <label>Park Headlight Color:</label>
+                <input type="color" id="parkHeadlightColor" value="#0000ff" onchange="setParkHeadlightColor(this.value)">
+                <small>Headlight color when in park mode</small>
+            </div>
+            
+            <div class="control-group">
+                <label>Park Taillight Color:</label>
+                <input type="color" id="parkTaillightColor" value="#0000ff" onchange="setParkTaillightColor(this.value)">
+                <small>Taillight color when in park mode</small>
+            </div>
+            
+            <div class="control-group">
+                <button onclick="testParkMode()" style="background: #ff9800;">Test Park Mode</button>
+                <small>Preview the current park mode settings</small>
+            </div>
+        </div>
+        
+                <div class="section">
+                    <h2>OTA Updates</h2>
+                    <div class="control-group">
+                        <button onclick="window.location.href='/updateui'" style="background: #2196F3; color: white; padding: 10px 20px; border: none; border-radius: 5px; margin: 5px;">
+                            🎨 Update UI Files
+                        </button>
+                        <small>Update web interface without firmware changes</small>
+                    </div>
+            
+            <div class="control-group">
+                <small>Firmware updates are always enabled</small>
+            </div>
+            
+            <div class="control-group">
+                <label>Firmware File:</label>
+                <input type="file" id="otaFileInput" accept=".bin" onchange="handleFileSelect(this)">
+                <small>Select firmware binary file (.bin)</small>
+            </div>
+            
+            <div class="control-group">
+                <button onclick="startOTAUpdate()" id="startOTAButton" style="background: #4CAF50; color: white; padding: 10px 20px; border: none; border-radius: 5px;" disabled>
+                    Upload & Install
+                </button>
+                <small>Upload and install firmware file</small>
+            </div>
+            
+            <!-- OTA Progress -->
+            <div id="otaProgress" class="ota-progress" style="margin-top: 20px; padding: 15px; background: #f0f0f0; border-radius: 8px; display: none;">
+                <h3>📥 Update Progress</h3>
+                <div class="progress-bar" style="width: 100%; height: 20px; background: #ddd; border-radius: 10px; overflow: hidden;">
+                    <div id="otaProgressBar" class="progress-fill" style="height: 100%; background: #4CAF50; width: 0%; transition: width 0.3s;"></div>
+                </div>
+                <div id="otaProgressText" style="margin-top: 10px; font-weight: bold;">Preparing update...</div>
+                <div id="otaStatusText" style="margin-top: 5px; color: #666;">Status: Ready</div>
+            </div>
+            
+            <!-- OTA Status -->
+            <div class="ota-status" style="margin-top: 20px; padding: 15px; background: #e8f5e8; border-radius: 8px;">
+                <h3>📊 Update Status</h3>
+                <div id="otaStatus">
+                    <div>Status: <span id="otaStatusDisplay" style="font-weight: bold;">Ready</span></div>
+                    <div>Progress: <span id="otaProgressDisplay" style="font-weight: bold;">0%</span></div>
+                    <div>Error: <span id="otaErrorDisplay" style="font-weight: bold; color: #d32f2f;">None</span></div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="section">
+            <h2>WiFi Configuration</h2>
+            <div class="control-group">
+                <label>Access Point Name:</label>
+                <input type="text" id="apName" value="ARKLIGHTS-AP" maxlength="32" onchange="setAPName(this.value)">
+                <small>WiFi network name (max 32 characters)</small>
+            </div>
+            <div class="control-group">
+                <label>Password:</label>
+                <input type="password" id="apPassword" value="float420" maxlength="63" onchange="setAPPassword(this.value)">
+                <small>WiFi password (8-63 characters)</small>
+            </div>
+            <div class="control-group">
+                <button onclick="applyWiFiConfig()" class="btn btn-primary">Apply WiFi Settings</button>
+                <small>⚠️ Changes require restart to take effect</small>
+            </div>
+        </div>
+        
+        <div class="section">
+            <h2>Headlight</h2>
+            <div class="control-group">
+                <label>Color:</label>
+                <input type="color" id="headlightColor" value="#ffffff" onchange="setHeadlightColor(this.value)">
+            </div>
+            <div class="control-group">
+                <label>Effect:</label>
+                <select id="headlightEffect" onchange="setHeadlightEffect(this.value)">
+                    <option value="0">Solid</option>
+                    <option value="1">Breath</option>
+                    <option value="2">Rainbow</option>
+                    <option value="3">Chase</option>
+                    <option value="4">Blink Rainbow</option>
+                    <option value="5">Twinkle</option>
+                    <option value="6">Fire</option>
+                    <option value="7">Meteor</option>
+                    <option value="8">Wave</option>
+                    <option value="9">Comet</option>
+                    <option value="10">Candle</option>
+                    <option value="11">Static Rainbow</option>
+                    <option value="12">Knight Rider</option>
+                    <option value="13">Police</option>
+                    <option value="14">Strobe</option>
+                    <option value="15">Larson Scanner</option>
+                    <option value="16">Color Wipe</option>
+                    <option value="17">Theater Chase</option>
+                    <option value="18">Running Lights</option>
+                    <option value="19">Color Sweep</option>
+                </select>
+            </div>
+        </div>
+        
+        <div class="section">
+            <h2>Taillight</h2>
+            <div class="control-group">
+                <label>Color:</label>
+                <input type="color" id="taillightColor" value="#ff0000" onchange="setTaillightColor(this.value)">
+            </div>
+            <div class="control-group">
+                <label>Effect:</label>
+                <select id="taillightEffect" onchange="setTaillightEffect(this.value)">
+                    <option value="0">Solid</option>
+                    <option value="1">Breath</option>
+                    <option value="2">Rainbow</option>
+                    <option value="3">Chase</option>
+                    <option value="4">Blink Rainbow</option>
+                    <option value="5">Twinkle</option>
+                    <option value="6">Fire</option>
+                    <option value="7">Meteor</option>
+                    <option value="8">Wave</option>
+                    <option value="9">Comet</option>
+                    <option value="10">Candle</option>
+                    <option value="11">Static Rainbow</option>
+                    <option value="12">Knight Rider</option>
+                    <option value="13">Police</option>
+                    <option value="14">Strobe</option>
+                    <option value="15">Larson Scanner</option>
+                    <option value="16">Color Wipe</option>
+                    <option value="17">Theater Chase</option>
+                    <option value="18">Running Lights</option>
+                    <option value="19">Color Sweep</option>
+                </select>
+            </div>
+        </div>
+        
+        <div class="section">
+            <h2>LED Configuration</h2>
+            <div class="control-group">
+                <label>Headlight LED Count:</label>
+                <input type="number" id="headlightLedCount" min="1" max="200" value="20" onchange="updateLEDConfig()">
+            </div>
+            <div class="control-group">
+                <label>Taillight LED Count:</label>
+                <input type="number" id="taillightLedCount" min="1" max="200" value="20" onchange="updateLEDConfig()">
+            </div>
+            <div class="control-group">
+                <label>Headlight LED Type:</label>
+                <select id="headlightLedType" onchange="updateLEDConfig()">
+                    <option value="0">SK6812 (RGBW)</option>
+                    <option value="1">WS2812B (RGB)</option>
+                    <option value="2">APA102 (RGB)</option>
+                    <option value="3">LPD8806 (RGB)</option>
+                </select>
+            </div>
+            <div class="control-group">
+                <label>Taillight LED Type:</label>
+                <select id="taillightLedType" onchange="updateLEDConfig()">
+                    <option value="0">SK6812 (RGBW)</option>
+                    <option value="1">WS2812B (RGB)</option>
+                    <option value="2">APA102 (RGB)</option>
+                    <option value="3">LPD8806 (RGB)</option>
+                </select>
+            </div>
+            <div class="control-group">
+                <label>Headlight Color Order:</label>
+                <select id="headlightColorOrder" onchange="updateLEDConfig()">
+                    <option value="0">GRB</option>
+                    <option value="1">RGB</option>
+                    <option value="2">BGR</option>
+                </select>
+            </div>
+            <div class="control-group">
+                <label>Taillight Color Order:</label>
+                <select id="taillightColorOrder" onchange="updateLEDConfig()">
+                    <option value="0">GRB</option>
+                    <option value="1">RGB</option>
+                    <option value="2">BGR</option>
+                </select>
+            </div>
+            <div class="control-group">
+                <button onclick="testLEDs()" style="background: #ff9800;">Test LEDs (Red→Green→Blue→White)</button>
+                <button onclick="saveLEDConfig()" style="background: #4CAF50;">Save Configuration</button>
+            </div>
+        </div>
+        
+        <div class="section">
+            <h2>Status</h2>
+            <div class="status" id="status">Loading...</div>
+            <button onclick="updateStatus()">Refresh Status</button>
+        </div>
+    </div>
+    
+    <script src="/ui/script.js"></script>
+</body>
+</html>
