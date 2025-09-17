@@ -284,6 +284,7 @@ float getCalibratedLeftRightAccel(MotionData& data);
 void showBlinkerEffect(int direction);
 void showParkEffect();
 void showImpactEffect();
+void resetToNormalEffects();
 
 // OTA Update functions
 void handleOTAUpdate();
@@ -1513,6 +1514,20 @@ void showImpactEffect() {
     // Restore normal colors
     fill_solid(headlight, headlightLedCount, headlightColor);
     fill_solid(taillight, taillightLedCount, taillightColor);
+}
+
+void resetToNormalEffects() {
+    // Reset brightness to normal level
+    FastLED.setBrightness(globalBrightness);
+    
+    // Reset effect speed to normal
+    effectSpeed = effectSpeed; // Keep current effect speed
+    
+    // Apply normal headlight and taillight effects immediately
+    updateEffects();
+    FastLED.show();
+    
+    Serial.println("🔄 Reset to normal effects");
 }
 
 void startCalibration() {
@@ -3149,15 +3164,53 @@ void handleAPI() {
         
         // Motion control API
         if (doc.containsKey("motion_enabled")) {
-            motionEnabled = doc["motion_enabled"];
+            bool newMotionEnabled = doc["motion_enabled"];
+            
+            // If motion control is being disabled, deactivate all motion features
+            if (motionEnabled && !newMotionEnabled) {
+                if (parkModeActive) {
+                    parkModeActive = false;
+                    parkStartTime = 0;
+                    resetToNormalEffects(); // Reset LEDs to normal state
+                    Serial.println("🅿️ Motion control disabled - deactivating park mode");
+                }
+                if (blinkerActive) {
+                    blinkerActive = false;
+                    blinkerStartTime = 0;
+                    resetToNormalEffects(); // Reset LEDs to normal state
+                    Serial.println("🚦 Motion control disabled - deactivating blinkers");
+                }
+            }
+            
+            motionEnabled = newMotionEnabled;
             saveSettings(); // Auto-save
         }
         if (doc.containsKey("blinker_enabled")) {
-            blinkerEnabled = doc["blinker_enabled"];
+            bool newBlinkerEnabled = doc["blinker_enabled"];
+            
+            // If blinkers are being disabled and they're currently active, deactivate them
+            if (blinkerEnabled && !newBlinkerEnabled && blinkerActive) {
+                blinkerActive = false;
+                blinkerStartTime = 0;
+                resetToNormalEffects(); // Reset LEDs to normal state
+                Serial.println("🚦 Blinkers disabled - deactivating current blinker");
+            }
+            
+            blinkerEnabled = newBlinkerEnabled;
             saveSettings(); // Auto-save
         }
         if (doc.containsKey("park_mode_enabled")) {
-            parkModeEnabled = doc["park_mode_enabled"];
+            bool newParkModeEnabled = doc["park_mode_enabled"];
+            
+            // If park mode is being disabled and it's currently active, deactivate it
+            if (parkModeEnabled && !newParkModeEnabled && parkModeActive) {
+                parkModeActive = false;
+                parkStartTime = 0;
+                resetToNormalEffects(); // Reset LEDs to normal state
+                Serial.println("🅿️ Park mode disabled - deactivating current park mode");
+            }
+            
+            parkModeEnabled = newParkModeEnabled;
             saveSettings(); // Auto-save
         }
         if (doc.containsKey("impact_detection_enabled")) {
