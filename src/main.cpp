@@ -3113,7 +3113,7 @@ bool processUIUpdate(const String& updatePath) {
 // Old handleRoot function removed - now using external UI files
 void handleAPI() {
     if (server.hasArg("plain")) {
-        DynamicJsonDocument doc(1024);
+        DynamicJsonDocument doc(2048);
         deserializeJson(doc, server.arg("plain"));
         
         if (doc.containsKey("preset")) {
@@ -3257,10 +3257,12 @@ void handleAPI() {
         }
         if (doc.containsKey("apName")) {
             apName = doc["apName"].as<String>();
+            Serial.printf("🔧 WiFi AP Name updated to: %s\n", apName.c_str());
             saveSettings(); // Auto-save
         }
         if (doc.containsKey("apPassword")) {
             apPassword = doc["apPassword"].as<String>();
+            Serial.printf("🔧 WiFi AP Password updated to: %s\n", apPassword.c_str());
             saveSettings(); // Auto-save
         }
         if (doc.containsKey("restart") && doc["restart"]) {
@@ -3554,7 +3556,7 @@ void initFilesystem() {
 
 // Save all settings to filesystem
 bool saveSettings() {
-    DynamicJsonDocument doc(1024);
+    DynamicJsonDocument doc(4096);
     
     // Light settings
     doc["headlight_effect"] = headlightEffect;
@@ -3611,8 +3613,8 @@ bool saveSettings() {
     doc["taillight_order"] = taillightColorOrder;
     
     // WiFi settings
-    doc["ap_name"] = apName;
-    doc["ap_password"] = apPassword;
+    doc["apName"] = apName;
+    doc["apPassword"] = apPassword;
     
     // Calibration data
     doc["calibration_complete"] = calibrationComplete;
@@ -3667,12 +3669,45 @@ bool loadSettings() {
         return false;
     }
     
-    DynamicJsonDocument doc(1024);
+    size_t fileSize = file.size();
+    Serial.printf("📄 Loading settings.json (%d bytes)\n", fileSize);
+    
+    DynamicJsonDocument doc(4096);
     DeserializationError error = deserializeJson(doc, file);
     file.close();
     
     if (error) {
         Serial.printf("❌ Failed to parse settings.json: %s\n", error.c_str());
+        Serial.println("🔄 Attempting to read WiFi settings directly from file...");
+        
+        // Try to read the file as a string and extract WiFi settings manually
+        file = SPIFFS.open("/settings.json", "r");
+        if (file) {
+            String content = file.readString();
+            file.close();
+            
+            // Simple string search for WiFi settings
+            int apNameStart = content.indexOf("\"apName\":\"");
+            int apPasswordStart = content.indexOf("\"apPassword\":\"");
+            
+            if (apNameStart != -1) {
+                apNameStart += 10; // Skip "apName":"
+                int apNameEnd = content.indexOf("\"", apNameStart);
+                if (apNameEnd != -1) {
+                    apName = content.substring(apNameStart, apNameEnd);
+                    Serial.printf("🔧 Recovered AP Name: %s\n", apName.c_str());
+                }
+            }
+            
+            if (apPasswordStart != -1) {
+                apPasswordStart += 13; // Skip "apPassword":"
+                int apPasswordEnd = content.indexOf("\"", apPasswordStart);
+                if (apPasswordEnd != -1) {
+                    apPassword = content.substring(apPasswordStart, apPasswordEnd);
+                    Serial.printf("🔧 Recovered AP Password: %s\n", apPassword.c_str());
+                }
+            }
+        }
         return false;
     }
     
@@ -3731,8 +3766,9 @@ bool loadSettings() {
     taillightColorOrder = doc["taillight_order"] | 0;  // GRB
     
     // Load WiFi settings
-    apName = doc["ap_name"] | "ARKLIGHTS-AP";
-    apPassword = doc["ap_password"] | "float420";
+    apName = doc["apName"] | "ARKLIGHTS-AP";
+    apPassword = doc["apPassword"] | "float420";
+    Serial.printf("📡 Loaded WiFi settings: AP=%s, Password=%s\n", apName.c_str(), apPassword.c_str());
     
     // Load calibration data
     calibrationComplete = doc["calibration_complete"] | false;
