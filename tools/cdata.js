@@ -96,6 +96,10 @@ function adoptVersionAndRepo(html) {
     html = html.replaceAll("##VERSION##", version);
   }
   
+  // Replace ##RELEASE## with the actual release name from build environment
+  const releaseName = process.env.WLED_RELEASE_NAME || 'Custom';
+  html = html.replaceAll("##RELEASE##", releaseName);
+  
   return html;
 }
 

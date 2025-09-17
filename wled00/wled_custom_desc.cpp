@@ -16,6 +16,10 @@ const wled_custom_desc_t __attribute__((section(WLED_CUSTOM_DESC_SECTION))) wled
     djb2_hash_constexpr(WLED_RELEASE_NAME)   // crc32 - computed at compile time
 };
 
+// Compile-time validation that release name doesn't exceed maximum length
+static_assert(sizeof(WLED_RELEASE_NAME) <= WLED_RELEASE_NAME_MAX_LEN, 
+              "WLED_RELEASE_NAME exceeds maximum length of WLED_RELEASE_NAME_MAX_LEN characters");
+
 // Single reference to ensure it's not optimized away
 const wled_custom_desc_t* __attribute__((used)) wled_custom_desc_ref = &wled_custom_description;
 
