@@ -132,3 +132,44 @@ h2 {
     background: #e8f5e8;
     border-radius: 8px;
 }
+
+/* Navigation Tabs */
+.nav-tabs {
+    display: flex;
+    margin: 20px 0;
+    border-bottom: 2px solid #333;
+}
+
+.nav-tab {
+    background: #333;
+    color: #fff;
+    border: none;
+    padding: 12px 24px;
+    cursor: pointer;
+    border-radius: 8px 8px 0 0;
+    margin-right: 5px;
+    font-size: 16px;
+    transition: all 0.3s ease;
+}
+
+.nav-tab:hover {
+    background: #444;
+}
+
+.nav-tab.active {
+    background: #4CAF50;
+    color: white;
+}
+
+.nav-tab.active:hover {
+    background: #45a049;
+}
+
+/* Page Content */
+.page-content {
+    display: block;
+}
+
+.page-content.hidden {
+    display: none;
+}

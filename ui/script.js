@@ -1,5 +1,31 @@
 // ArkLights PEV Control - JavaScript Functions
 
+// Page Navigation Functions
+function showPage(pageName) {
+    // Hide all pages
+    const pages = document.querySelectorAll('.page-content');
+    pages.forEach(page => {
+        page.style.display = 'none';
+    });
+    
+    // Show selected page
+    const targetPage = document.getElementById(pageName + 'Page');
+    if (targetPage) {
+        targetPage.style.display = 'block';
+    }
+    
+    // Update active tab
+    const tabs = document.querySelectorAll('.nav-tab');
+    tabs.forEach(tab => {
+        tab.classList.remove('active');
+    });
+    
+    const activeTab = document.querySelector(`[onclick="showPage('${pageName}')"]`);
+    if (activeTab) {
+        activeTab.classList.add('active');
+    }
+}
+
 function setPreset(preset) {
     fetch('/api', {
         method: 'POST',
@@ -780,8 +806,13 @@ function saveLEDConfig() {
     alert('LED configuration saved!');
 }
 
-// Update status on page load
-updateStatus();
+// Initialize page on load
+document.addEventListener('DOMContentLoaded', function() {
+    // Show main page by default
+    showPage('main');
+    // Update status
+    updateStatus();
+});
 
 // Auto-refresh status every 5 seconds
 setInterval(updateStatus, 5000);
