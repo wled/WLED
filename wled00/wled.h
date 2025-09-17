@@ -167,16 +167,13 @@
 // The following is a construct to enable code to compile without it.
 // There is a code that will still not use PSRAM though:
 //    AsyncJsonResponse is a derived class that implements DynamicJsonDocument (AsyncJson-v6.h)
-#if defined(ARDUINO_ARCH_ESP32)
-extern bool psramSafe;
+#if defined(BOARD_HAS_PSRAM)
 struct PSRAM_Allocator {
   void* allocate(size_t size) {
-    if (psramSafe && psramFound()) return ps_malloc(size); // use PSRAM if it exists
-    else                           return malloc(size);    // fallback
+    return ps_malloc(size); // use PSRAM
   }
   void* reallocate(void* ptr, size_t new_size) {
-    if (psramSafe && psramFound()) return ps_realloc(ptr, new_size); // use PSRAM if it exists
-    else                           return realloc(ptr, new_size);    // fallback
+    return ps_realloc(ptr, new_size); // use PSRAM
   }
   void deallocate(void* pointer) {
     free(pointer);
@@ -894,8 +891,6 @@ WLED_GLOBAL byte optionType;
 WLED_GLOBAL bool configNeedsWrite  _INIT(false);        // flag to initiate saving of config
 WLED_GLOBAL bool doReboot          _INIT(false);        // flag to initiate reboot from async handlers
 
-WLED_GLOBAL bool psramSafe         _INIT(true);         // is it safe to use PSRAM (on ESP32 rev.1; compiler fix used "-mfix-esp32-psram-cache-issue")
-
 // status led
 #if defined(STATUSLED)
 WLED_GLOBAL unsigned long ledStatusLastMillis _INIT(0);
@@ -969,8 +964,11 @@ WLED_GLOBAL int8_t spi_sclk  _INIT(SPISCLKPIN);
 
 // global ArduinoJson buffer
 #if defined(ARDUINO_ARCH_ESP32)
-WLED_GLOBAL JsonDocument *pDoc _INIT(nullptr);
 WLED_GLOBAL SemaphoreHandle_t jsonBufferLockMutex _INIT(xSemaphoreCreateRecursiveMutex());
+#endif
+#ifdef BOARD_HAS_PSRAM
+// if board has PSRAM, use it for JSON document (allocated in setup())
+WLED_GLOBAL JsonDocument *pDoc _INIT(nullptr);
 #else
 WLED_GLOBAL StaticJsonDocument<JSON_BUFFER_SIZE> gDoc;
 WLED_GLOBAL JsonDocument *pDoc _INIT(&gDoc);

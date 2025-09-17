@@ -629,92 +629,186 @@ int32_t hw_random(int32_t lowerlimit, int32_t upperlimit) {
   return hw_random(diff) + lowerlimit;
 }
 
-#if !defined(ESP8266) && !defined(CONFIG_IDF_TARGET_ESP32C3) // ESP8266 does not support PSRAM, ESP32-C3 does not have PSRAM
-// p_x prefer PSRAM, d_x prefer DRAM
-void *p_malloc(size_t size) {
-  int caps1 = MALLOC_CAP_SPIRAM  | MALLOC_CAP_8BIT;
-  int caps2 = MALLOC_CAP_DEFAULT | MALLOC_CAP_8BIT;
-  if (psramSafe) {
-    if (heap_caps_get_free_size(caps2) > 3*MIN_HEAP_SIZE && size < 512) std::swap(caps1, caps2);  // use DRAM for small alloactions & when heap is plenty
-    return heap_caps_malloc_prefer(size, 2, caps1, caps2); // otherwise prefer PSRAM if it exists
-  }
-  return heap_caps_malloc(size, caps2);
-}
+// PSRAM compile time checks to provide info for misconfigured env
+#if defined(BOARD_HAS_PSRAM)
+  #if defined(IDF_TARGET_ESP32C3) || defined(ESP8266)
+    #error "ESP32-C3 and ESP8266 with PSRAM is not supported, please remove BOARD_HAS_PSRAM definition"
+  #else
+    // BOARD_HAS_PSRAM also means that compiler flag "-mfix-esp32-psram-cache-issue" has to be used
+    #warning "BOARD_HAS_PSRAM defined, make sure to use -mfix-esp32-psram-cache-issue to prevent issues on rev.1 ESP32 boards \
+              see https://docs.espressif.com/projects/esp-idf/en/stable/esp32/api-guides/external-ram.html#esp32-rev-v1-0"
+  #endif
+#else
+  #if !defined(IDF_TARGET_ESP32C3) && !defined(ESP8266)
+    #pragma message("BOARD_HAS_PSRAM not defined, not using PSRAM.")
+  #endif
+#endif
 
-void *p_realloc(void *ptr, size_t size) {
-  int caps1 = MALLOC_CAP_SPIRAM  | MALLOC_CAP_8BIT;
-  int caps2 = MALLOC_CAP_DEFAULT | MALLOC_CAP_8BIT;
-  if (psramSafe) {
-    if (heap_caps_get_free_size(caps2) > 3*MIN_HEAP_SIZE && size < 512) std::swap(caps1, caps2);  // use DRAM for small alloactions & when heap is plenty
-    return heap_caps_realloc_prefer(ptr, size, 2, caps1, caps2); // otherwise prefer PSRAM if it exists
+// memory allocation functions with minimum free heap size check
+#ifdef ESP8266
+static void *validateFreeHeap(void *buffer) {
+  // make sure there is enough free heap left if buffer was allocated in DRAM region, free it if not
+  if (getContiguousFreeHeap() < MIN_HEAP_SIZE) {
+    free(buffer);
+    return nullptr;
   }
-  return heap_caps_realloc(ptr, size, caps2);
-}
-
-// realloc with malloc fallback, original buffer is freed if realloc fails but not copied!
-void *p_realloc_malloc(void *ptr, size_t size) {
-  void *newbuf = p_realloc(ptr, size); // try realloc first
-  if (newbuf) return newbuf; // realloc successful
-  p_free(ptr); // free old buffer if realloc failed
-  return p_malloc(size); // fallback to malloc
-}
-
-void *p_calloc(size_t count, size_t size) {
-  int caps1 = MALLOC_CAP_SPIRAM  | MALLOC_CAP_8BIT;
-  int caps2 = MALLOC_CAP_DEFAULT | MALLOC_CAP_8BIT;
-  if (psramSafe) {
-    if (heap_caps_get_free_size(caps2) > 3*MIN_HEAP_SIZE && size < 512) std::swap(caps1, caps2);  // use DRAM for small alloactions & when heap is plenty
-    return heap_caps_calloc_prefer(count, size, 2, caps1, caps2); // otherwise prefer PSRAM if it exists
-  }
-  return heap_caps_calloc(count, size, caps2);
+  return buffer;
 }
 
 void *d_malloc(size_t size) {
-  int caps1 = MALLOC_CAP_DEFAULT | MALLOC_CAP_8BIT;
-  int caps2 = MALLOC_CAP_SPIRAM  | MALLOC_CAP_8BIT;
-  if (psramSafe) {
-    if (heap_caps_get_largest_free_block(caps1) < 3*MIN_HEAP_SIZE && size > MIN_HEAP_SIZE) std::swap(caps1, caps2);  // prefer PSRAM for large alloactions & when DRAM is low
-    return heap_caps_malloc_prefer(size, 2, caps1, caps2); // otherwise prefer DRAM
-  }
-  return heap_caps_malloc(size, caps1);
+  // note: using "if (getContiguousFreeHeap() > MIN_HEAP_SIZE + size)" did perform worse in tests with regards to keeping heap healthy and UI working
+  void *buffer = malloc(size);
+  return validateFreeHeap(buffer);
 }
 
-void *d_realloc(void *ptr, size_t size) {
-  int caps1 = MALLOC_CAP_DEFAULT | MALLOC_CAP_8BIT;
-  int caps2 = MALLOC_CAP_SPIRAM  | MALLOC_CAP_8BIT;
-  if (psramSafe) {
-    if (heap_caps_get_largest_free_block(caps1) < 3*MIN_HEAP_SIZE && size > MIN_HEAP_SIZE) std::swap(caps1, caps2);  // prefer PSRAM for large alloactions & when DRAM is low
-    return heap_caps_realloc_prefer(ptr, size, 2, caps1, caps2); // otherwise prefer DRAM
+void *d_calloc(size_t count, size_t size) {
+  void *buffer = calloc(count, size);
+  return validateFreeHeap(buffer);
+}
+
+// realloc with malloc fallback, note: on ESPS8266 there is no safe way to ensure MIN_HEAP_SIZE during realloc()s, free buffer and allocate new one
+void *d_realloc_malloc(void *ptr, size_t size) {
+  //void *buffer = realloc(ptr, size);
+  //buffer = validateFreeHeap(buffer);
+  //if (buffer) return buffer; // realloc successful
+  //d_free(ptr); // free old buffer if realloc failed (or min heap was exceeded)
+  //return d_malloc(size); // fallback to malloc
+  free(ptr);
+  return d_malloc(size);
+}
+#else
+static void *validateFreeHeap(void *buffer) {
+  // make sure there is enough free heap left if buffer was allocated in DRAM region, free it if not
+  // TODO: between allocate and free, heap can run low (async web access), only IDF V5 allows for a pre-allocation-check of all free blocks
+  if ((uintptr_t)buffer > SOC_DRAM_LOW && (uintptr_t)buffer < SOC_DRAM_HIGH && getContiguousFreeHeap() < MIN_HEAP_SIZE) {
+    free(buffer);
+    return nullptr;
   }
-  return heap_caps_realloc(ptr, size, caps1);
+  return buffer;
+}
+
+void *d_malloc(size_t size) {
+  void *buffer;
+  #if defined(CONFIG_IDF_TARGET_ESP32C3) || defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32S3)
+  // the newer ESP32 variants have byte-accessible fast RTC memory that can be used as heap, access speed is on-par with DRAM
+  // the system does prefer normal DRAM until full, since free RTC memory is ~7.5k only, its below the minimum heap threshold and needs to be allocated explicitly
+  // use RTC RAM for small allocations to improve fragmentation or if DRAM is running low
+  if (size < 256 || getContiguousFreeHeap() < 2*MIN_HEAP_SIZE + size)
+    buffer = heap_caps_malloc_prefer(size, 2, MALLOC_CAP_RTCRAM, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+  else
+  #endif
+  buffer = heap_caps_malloc(size, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT); // allocate in any available heap memory
+  buffer = validateFreeHeap(buffer); // make sure there is enough free heap left
+  #ifdef BOARD_HAS_PSRAM
+  if (!buffer)
+    return heap_caps_malloc(size, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT); // DRAM failed, use PSRAM if available
+  #endif
+  return buffer;
+}
+
+void *d_calloc(size_t count, size_t size) {
+  void *buffer = d_malloc(count * size);
+  if (buffer) memset(buffer, 0, count * size); // clear allocated buffer
+  return buffer;
 }
 
 // realloc with malloc fallback, original buffer is freed if realloc fails but not copied!
 void *d_realloc_malloc(void *ptr, size_t size) {
-  void *newbuf = d_realloc(ptr, size); // try realloc first
-  if (newbuf) return newbuf; // realloc successful
-  d_free(ptr); // free old buffer if realloc failed
+  void *buffer = heap_caps_realloc(ptr, size, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+  buffer = validateFreeHeap(buffer);
+  if (buffer) return buffer; // realloc successful
+  d_free(ptr); // free old buffer if realloc failed (or min heap was exceeded)
   return d_malloc(size); // fallback to malloc
 }
 
-void *d_calloc(size_t count, size_t size) {
-  int caps1 = MALLOC_CAP_DEFAULT | MALLOC_CAP_8BIT;
-  int caps2 = MALLOC_CAP_SPIRAM  | MALLOC_CAP_8BIT;
-  if (psramSafe) {
-    if (size > MIN_HEAP_SIZE) std::swap(caps1, caps2);  // prefer PSRAM for large alloactions
-    return heap_caps_calloc_prefer(count, size, 2, caps1, caps2); // otherwise prefer DRAM
-  }
-  return heap_caps_calloc(count, size, caps1);
+#ifdef BOARD_HAS_PSRAM
+// p_xalloc: prefer PSRAM, use DRAM as fallback
+void *p_malloc(size_t size) {
+  void *buffer = heap_caps_malloc_prefer(size, 2, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+  return validateFreeHeap(buffer);
 }
-#else // ESP8266 & ESP32-C3
+
+void *p_calloc(size_t count, size_t size) {
+  void *buffer = p_malloc(count * size);
+  if (buffer) memset(buffer, 0, count * size); // clear allocated buffer
+  return buffer;
+}
+
 // realloc with malloc fallback, original buffer is freed if realloc fails but not copied!
-void *realloc_malloc(void *ptr, size_t size) {
-  void *newbuf = realloc(ptr, size); // try realloc first
-  if (newbuf) return newbuf; // realloc successful
-  free(ptr); // free old buffer if realloc failed
-  return malloc(size); // fallback to malloc
+void *p_realloc_malloc(void *ptr, size_t size) {
+  void *buffer = heap_caps_realloc(ptr, size, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+  if (buffer) return buffer; // realloc successful
+  p_free(ptr); // free old buffer if realloc failed
+  return p_malloc(size); // fallback to malloc
 }
 #endif
+#endif
+
+// allocation function for buffers like pixel-buffers and segment data
+// optimises the use of memory types to balance speed and heap availability, always favours DRAM if possible
+// if multiple conflicting types are defined, the lowest bits of "type" take priority (see fcn_declare.h for types)
+void *allocate_buffer(size_t size, uint32_t type) {
+  void *buffer = nullptr;
+  #ifdef CONFIG_IDF_TARGET_ESP32
+  // only classic ESP32 has "32bit accessible only" aka IRAM type. Using it frees up normal DRAM for other purposes
+  // this memory region is used for IRAM_ATTR functions, whatever is left is unused and can be used for pixel buffers
+  // prefer this type over PSRAM as it is slightly faster, except for _pixels where it is on-par as PSRAM-caching does a good job for mostly sequential access
+  if (type & BFRALLOC_NOBYTEACCESS) {
+    // prefer 32bit region, then PSRAM, fallback to any heap. Note: if adding "INTERNAL"-flag this wont work
+    buffer = heap_caps_malloc_prefer(size, 3, MALLOC_CAP_32BIT, MALLOC_CAP_SPIRAM, MALLOC_CAP_8BIT);
+    buffer = validateFreeHeap(buffer);
+  }
+  else
+  #endif
+  #if !defined(BOARD_HAS_PSRAM)
+  buffer = d_malloc(size);
+  #else
+  if (type & BFRALLOC_PREFER_DRAM) {
+    if (getContiguousFreeHeap() < 3*(MIN_HEAP_SIZE/2) + size && size > PSRAM_THRESHOLD)
+      buffer = p_malloc(size); // prefer PSRAM for large allocations & when DRAM is low
+    else
+      buffer = d_malloc(size); // allocate in DRAM if enough free heap is available, PSRAM as fallback
+  }
+  else if (type & BFRALLOC_ENFORCE_DRAM)
+    buffer = heap_caps_malloc(size, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT); // use DRAM only, otherwise return nullptr
+  else if (type & BFRALLOC_PREFER_PSRAM) {
+    // if DRAM is plenty, prefer it over PSRAM for speed, reserve enough DRAM for segment data: if MAX_SEGMENT_DATA is exceeded, always uses PSRAM
+    if (getContiguousFreeHeap() > 4*MIN_HEAP_SIZE + size + ((uint32_t)(MAX_SEGMENT_DATA - Segment::getUsedSegmentData())))
+      buffer = d_malloc(size);
+    else
+      buffer = p_malloc(size); // prefer PSRAM
+  }
+  else if (type & BFRALLOC_ENFORCE_PSRAM)
+    buffer = heap_caps_malloc(size, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT); // use PSRAM only, otherwise return nullptr
+  buffer = validateFreeHeap(buffer);
+  #endif
+  if (buffer && (type & BFRALLOC_CLEAR))
+    memset(buffer, 0, size); // clear allocated buffer
+  /*
+  #if !defined(ESP8266) && defined(WLED_DEBUG)
+  if (buffer) {
+    DEBUG_PRINTF_P(PSTR("*Buffer allocated: size:%d, address:%p"), size, (uintptr_t)buffer);
+    if ((uintptr_t)buffer > SOC_DRAM_LOW && (uintptr_t)buffer < SOC_DRAM_HIGH)
+      DEBUG_PRINTLN(F(" in DRAM"));
+    #ifndef CONFIG_IDF_TARGET_ESP32C3
+    else if ((uintptr_t)buffer > SOC_EXTRAM_DATA_LOW && (uintptr_t)buffer < SOC_EXTRAM_DATA_HIGH)
+      DEBUG_PRINTLN(F(" in PSRAM"));
+    #endif
+    #ifdef CONFIG_IDF_TARGET_ESP32
+    else if ((uintptr_t)buffer > SOC_IRAM_LOW && (uintptr_t)buffer < SOC_IRAM_HIGH)
+      DEBUG_PRINTLN(F(" in IRAM"));   // only used on ESP32 (MALLOC_CAP_32BIT)
+    #else
+    else if ((uintptr_t)buffer > SOC_RTC_DRAM_LOW && (uintptr_t)buffer < SOC_RTC_DRAM_HIGH)
+      DEBUG_PRINTLN(F(" in RTCRAM")); // not available on ESP32
+    #endif
+    else
+      DEBUG_PRINTLN(F(" in ???")); // unknown (check soc.h for other memory regions)
+  } else
+    DEBUG_PRINTF_P(PSTR("Buffer allocation failed: size:%d\n"), size);
+  #endif 
+  */
+  return buffer;
+}
 
 // bootloop detection and handling
 // checks if the ESP reboots multiple times due to a crash or watchdog timeout

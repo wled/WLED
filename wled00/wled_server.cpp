@@ -349,8 +349,13 @@ void initServer()
     if (verboseResponse) {
       if (!isConfig) {
         lastInterfaceUpdate = millis(); // prevent WS update until cooldown
-        interfaceUpdateCallMode = CALL_MODE_WS_SEND; // schedule WS update
-        serveJson(request); return; //if JSON contains "v"
+        interfaceUpdateCallMode = CALL_MODE_WS_SEND; // override call mode & schedule WS update
+        #ifndef WLED_DISABLE_MQTT
+        // publish state to MQTT as requested in wled#4643 even if only WS response selected
+        publishMqtt();
+        #endif
+        serveJson(request);
+        return; //if JSON contains "v"
       } else {
         configNeedsWrite = true; //Save new settings to FS
       }
@@ -368,7 +373,7 @@ void initServer()
   });
 
   server.on(F("/freeheap"), HTTP_GET, [](AsyncWebServerRequest *request){
-    request->send(200, FPSTR(CONTENT_TYPE_PLAIN), (String)ESP.getFreeHeap());
+    request->send(200, FPSTR(CONTENT_TYPE_PLAIN), (String)getFreeHeapSize());
   });
 
 #ifdef WLED_ENABLE_USERMOD_PAGE

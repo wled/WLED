@@ -68,10 +68,10 @@ Segment::Segment(const Segment &orig) {
   if (!stop) return;  // nothing to do if segment is inactive/invalid
   if (orig.pixels) {
     // allocate pixel buffer: prefer IRAM/PSRAM
-    pixels = static_cast<uint32_t*>(d_malloc(sizeof(uint32_t) * orig.length()));
+    pixels = static_cast<uint32_t*>(allocate_buffer(orig.length() * sizeof(uint32_t), BFRALLOC_PREFER_PSRAM | BFRALLOC_NOBYTEACCESS));
     if (pixels) {
       memcpy(pixels, orig.pixels, sizeof(uint32_t) * orig.length());
-      if (orig.name) { name = static_cast<char*>(d_malloc(strlen(orig.name)+1)); if (name) strcpy(name, orig.name); }
+      if (orig.name) { name = static_cast<char*>(allocate_buffer(strlen(orig.name)+1, BFRALLOC_PREFER_PSRAM)); if (name) strcpy(name, orig.name); }
       if (orig.data) { if (allocateData(orig._dataLen)) memcpy(data, orig.data, orig._dataLen); }
     } else {
       DEBUGFX_PRINTLN(F("!!! Not enough RAM for pixel buffer !!!"));
@@ -97,10 +97,10 @@ Segment& Segment::operator= (const Segment &orig) {
   //DEBUG_PRINTF_P(PSTR("-- Copying segment: %p -> %p\n"), &orig, this);
   if (this != &orig) {
     // clean destination
-    if (name) { d_free(name); name = nullptr; }
+    if (name) { p_free(name); name = nullptr; }
     if (_t) stopTransition(); // also erases _t
     deallocateData();
-    d_free(pixels);
+    p_free(pixels);
     // copy source
     memcpy((void*)this, (void*)&orig, sizeof(Segment));
     // erase pointers to allocated data
@@ -111,10 +111,10 @@ Segment& Segment::operator= (const Segment &orig) {
     // copy source data
     if (orig.pixels) {
       // allocate pixel buffer: prefer IRAM/PSRAM
-      pixels = static_cast<uint32_t*>(d_malloc(sizeof(uint32_t) * orig.length()));
+      pixels = static_cast<uint32_t*>(allocate_buffer(orig.length() * sizeof(uint32_t), BFRALLOC_PREFER_PSRAM | BFRALLOC_NOBYTEACCESS));
       if (pixels) {
         memcpy(pixels, orig.pixels, sizeof(uint32_t) * orig.length());
-        if (orig.name) { name = static_cast<char*>(d_malloc(strlen(orig.name)+1)); if (name) strcpy(name, orig.name); }
+        if (orig.name) { name = static_cast<char*>(allocate_buffer(strlen(orig.name)+1, BFRALLOC_PREFER_PSRAM)); if (name) strcpy(name, orig.name); }
         if (orig.data) { if (allocateData(orig._dataLen)) memcpy(data, orig.data, orig._dataLen); }
       } else {
         DEBUG_PRINTLN(F("!!! Not enough RAM for pixel buffer !!!"));
@@ -130,10 +130,10 @@ Segment& Segment::operator= (const Segment &orig) {
 Segment& Segment::operator= (Segment &&orig) noexcept {
   //DEBUG_PRINTF_P(PSTR("-- Moving segment: %p -> %p\n"), &orig, this);
   if (this != &orig) {
-    if (name) { d_free(name); name = nullptr; } // free old name
+    if (name) { p_free(name); name = nullptr; } // free old name
     if (_t) stopTransition(); // also erases _t
     deallocateData(); // free old runtime data
-    d_free(pixels);   // free old pixel buffer
+    p_free(pixels);   // free old pixel buffer
     // move source data
     memcpy((void*)this, (void*)&orig, sizeof(Segment));
     orig.name = nullptr;
@@ -147,35 +147,38 @@ Segment& Segment::operator= (Segment &&orig) noexcept {
 
 // allocates effect data buffer on heap and initialises (erases) it
 bool Segment::allocateData(size_t len) {
-  if (len == 0) return false; // nothing to do
-  if (data && _dataLen >= len) {          // already allocated enough (reduce fragmentation)
+  if (len == 0) return false;    // nothing to do
+  if (data && _dataLen >= len) { // already allocated enough (reduce fragmentation)
     if (call == 0) {
-      //DEBUG_PRINTF_P(PSTR("--   Clearing data (%d): %p\n"), len, this);
-      memset(data, 0, len);  // erase buffer if called during effect initialisation
+      if (_dataLen < FAIR_DATA_PER_SEG) { // segment data is small
+        //DEBUG_PRINTF_P(PSTR("--   Clearing data (%d): %p\n"), len, this);
+        memset(data, 0, len);  // erase buffer if called during effect initialisation
+        return true; // no need to reallocate
+      }
     }
-    return true;
+    else
+      return true;
   }
   //DEBUG_PRINTF_P(PSTR("--   Allocating data (%d): %p\n"), len, this);
+  // limit to MAX_SEGMENT_DATA if there is no PSRAM, otherwise prefer functionality over speed
+  #ifndef BOARD_HAS_PSRAM
   if (Segment::getUsedSegmentData() + len - _dataLen > MAX_SEGMENT_DATA) {
     // not enough memory
-    DEBUG_PRINTF_P(PSTR("!!! Not enough RAM: %d/%d !!!\n"), len, Segment::getUsedSegmentData());
+    DEBUG_PRINTF_P(PSTR("SegmentData limit reached: %d/%d\n"), len, Segment::getUsedSegmentData());
     errorFlag = ERR_NORAM;
     return false;
   }
-  // prefer DRAM over SPI RAM on ESP32 since it is slow
-  if (data) {
-    data = (byte*)d_realloc_malloc(data, len); // realloc with malloc fallback
-    if (!data) {
-      data = nullptr;
-      Segment::addUsedSegmentData(-_dataLen); // subtract original buffer size
-      _dataLen = 0;   // reset data length
-    }
-  }
-  else data = (byte*)d_malloc(len);
+  #endif
 
   if (data) {
-    memset(data, 0, len);  // erase buffer
-    Segment::addUsedSegmentData(len - _dataLen);
+    d_free(data); // free data and try to allocate again (segment buffer may be blocking contiguous heap)
+    Segment::addUsedSegmentData(-_dataLen); // subtract buffer size
+  }
+
+  data = static_cast<byte*>(allocate_buffer(len, BFRALLOC_PREFER_DRAM | BFRALLOC_CLEAR)); // prefer DRAM over PSRAM for speed
+
+  if (data) {
+    Segment::addUsedSegmentData(len);
     _dataLen = len;
     //DEBUG_PRINTF_P(PSTR("---  Allocated data (%p): %d/%d -> %p\n"), this, len, Segment::getUsedSegmentData(), data);
     return true;
@@ -209,7 +212,11 @@ void Segment::deallocateData() {
 void Segment::resetIfRequired() {
   if (!reset || !isActive()) return;
   //DEBUG_PRINTF_P(PSTR("-- Segment reset: %p\n"), this);
-  if (data && _dataLen > 0) memset(data, 0, _dataLen);  // prevent heap fragmentation (just erase buffer instead of deallocateData())
+  if (data && _dataLen > 0) {
+    if (_dataLen > FAIR_DATA_PER_SEG) deallocateData(); // do not keep large allocations
+    else memset(data, 0, _dataLen);  // can prevent heap fragmentation
+    DEBUG_PRINTF_P(PSTR("-- Segment %p reset, data cleared\n"), this);
+  }
   if (pixels) for (size_t i = 0; i < length(); i++) pixels[i] = BLACK; // clear pixel buffer
   next_time = 0; step = 0; call = 0; aux0 = 0; aux1 = 0;
   reset = false;
@@ -466,7 +473,7 @@ void Segment::setGeometry(uint16_t i1, uint16_t i2, uint8_t grp, uint8_t spc, ui
   if (length() != oldLength) {
     // allocate render buffer (always entire segment), prefer IRAM/PSRAM. Note: impact on FPS with PSRAM buffer is low (<2% with QSPI PSRAM) on S2/S3
     p_free(pixels);
-    pixels = static_cast<uint32_t*>(d_malloc(sizeof(uint32_t) * length()));
+    pixels = static_cast<uint32_t*>(allocate_buffer(length() * sizeof(uint32_t), BFRALLOC_PREFER_PSRAM | BFRALLOC_NOBYTEACCESS));
     if (!pixels) {
       DEBUGFX_PRINTLN(F("!!! Not enough RAM for pixel buffer !!!"));
       deallocateData();
@@ -581,8 +588,8 @@ Segment &Segment::setName(const char *newName) {
   if (newName) {
     const int newLen = min(strlen(newName), (size_t)WLED_MAX_SEGNAME_LEN);
     if (newLen) {
-      if (name) d_free(name); // free old name
-      name = static_cast<char*>(d_malloc(newLen+1));
+      if (name) p_free(name); // free old name
+      name = static_cast<char*>(allocate_buffer(newLen+1, BFRALLOC_PREFER_PSRAM));
       if (mode == FX_MODE_2DSCROLLTEXT) startTransition(strip.getTransition(), true); // if the name changes in scrolling text mode, we need to copy the segment for blending
       if (name) strlcpy(name, newName, newLen+1);
       return *this;
@@ -1177,7 +1184,10 @@ void WS2812FX::finalizeInit() {
     mem += bus.memUsage(Bus::isDigital(bus.type) && !Bus::is2Pin(bus.type) ? digitalCount++ : 0); // includes global buffer
     if (mem <= MAX_LED_MEMORY) {
       if (BusManager::add(bus) == -1) break;
-    } else DEBUG_PRINTF_P(PSTR("Out of LED memory! Bus %d (%d) #%u not created."), (int)bus.type, (int)bus.count, digitalCount);
+    } else {
+      errorFlag = ERR_NORAM_PX; // alert UI
+      DEBUG_PRINTF_P(PSTR("Out of LED memory! Bus %d (%d) #%u not created."), (int)bus.type, (int)bus.count, digitalCount);
+    }
   }
   busConfigs.clear();
   busConfigs.shrink_to_fit();
@@ -1209,10 +1219,11 @@ void WS2812FX::finalizeInit() {
   deserializeMap();     // (re)load default ledmap (will also setUpMatrix() if ledmap does not exist)
 
   // allocate frame buffer after matrix has been set up (gaps!)
-  d_free(_pixels); // using realloc on large buffers can cause additional fragmentation instead of reducing it
-  _pixels = static_cast<uint32_t*>(d_malloc(getLengthTotal() * sizeof(uint32_t)));
+  p_free(_pixels); // using realloc on large buffers can cause additional fragmentation instead of reducing it
+  // use PSRAM if available: there is no measurable perfomance impact between PSRAM and DRAM on S2/S3 with QSPI PSRAM for this buffer
+  _pixels = static_cast<uint32_t*>(allocate_buffer(getLengthTotal() * sizeof(uint32_t), BFRALLOC_ENFORCE_PSRAM | BFRALLOC_NOBYTEACCESS | BFRALLOC_CLEAR));
   DEBUG_PRINTF_P(PSTR("strip buffer size: %uB\n"), getLengthTotal() * sizeof(uint32_t));
-  DEBUG_PRINTF_P(PSTR("Heap after strip init: %uB\n"), ESP.getFreeHeap());
+  DEBUG_PRINTF_P(PSTR("Heap after strip init: %uB\n"), getFreeHeapSize());
 }
 
 void WS2812FX::service() {
@@ -1552,7 +1563,11 @@ void WS2812FX::blendSegment(const Segment &topSegment) const {
 }
 
 void WS2812FX::show() {
-  if (!_pixels) return; // no pixels allocated, nothing to show
+  if (!_pixels) {
+    DEBUGFX_PRINTLN(F("Error: no _pixels!"));
+    errorFlag = ERR_NORAM;
+    return; // no pixels allocated, nothing to show
+  }
 
   unsigned long showNow = millis();
   size_t diff = showNow - _lastShow;
@@ -1562,7 +1577,7 @@ void WS2812FX::show() {
   // we need to keep track of each pixel's CCT when blending segments (if CCT is present)
   // and then set appropriate CCT from that pixel during paint (see below).
   if ((hasCCTBus() || correctWB) && !cctFromRgb)
-    _pixelCCT = static_cast<uint8_t*>(d_malloc(totalLen * sizeof(uint8_t))); // allocate CCT buffer if necessary
+    _pixelCCT = static_cast<uint8_t*>(allocate_buffer(totalLen * sizeof(uint8_t), BFRALLOC_PREFER_PSRAM)); // allocate CCT buffer if necessary, prefer PSRAM
   if (_pixelCCT) memset(_pixelCCT, 127, totalLen); // set neutral (50:50) CCT
 
   if (realtimeMode == REALTIME_MODE_INACTIVE || useMainSegmentOnly || realtimeOverride > REALTIME_OVERRIDE_NONE) {
@@ -1596,7 +1611,7 @@ void WS2812FX::show() {
   }
   Bus::setCCT(oldCCT);  // restore old CCT for ABL adjustments
 
-  d_free(_pixelCCT);
+  p_free(_pixelCCT);
   _pixelCCT = nullptr;
 
   // some buses send asynchronously and this method will return before
