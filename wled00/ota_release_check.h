@@ -67,11 +67,11 @@ bool validateReleaseCompatibility(const char* extractedRelease);
  * Check if OTA should be allowed based on release compatibility using custom description
  * @param binaryData Pointer to binary file data (not modified)
  * @param dataSize Size of binary data in bytes
- * @param skipValidation If true, skip release validation
- * @param errorMessage Buffer to store error message if validation fails (should be at least 128 bytes)
+ * @param errorMessage Buffer to store error message if validation fails 
+ * @param errorMessageLen Maximum length of error message buffer
  * @return true if OTA should proceed, false if it should be blocked
  */
-bool shouldAllowOTA(const uint8_t* binaryData, size_t dataSize, bool skipValidation, char* errorMessage);
+bool shouldAllowOTA(const uint8_t* binaryData, size_t dataSize, char* errorMessage, size_t errorMessageLen);
 
 /**
  * Get pointer to the embedded custom description structure
