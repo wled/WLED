@@ -17,6 +17,25 @@
 #define WLED_RELEASE_NAME_MAX_LEN 48
 
 /**
+ * DJB2 hash function (C++11 compatible constexpr)
+ * Used for compile-time hash computation of release names
+ */
+constexpr uint32_t djb2_hash_constexpr(const char* str, uint32_t hash = 5381) {
+    return (*str == '\0') ? hash : djb2_hash_constexpr(str + 1, ((hash << 5) + hash) + *str);
+}
+
+/**
+ * Runtime DJB2 hash function for validation
+ */
+inline uint32_t djb2_hash_runtime(const char* str) {
+    uint32_t hash = 5381;
+    while (*str) {
+        hash = ((hash << 5) + hash) + *str++;
+    }
+    return hash;
+}
+
+/**
  * WLED Custom Description Structure
  * This structure is embedded in platform-specific sections at a fixed offset
  * in ESP32/ESP8266 binaries, allowing extraction without modifying the binary format
@@ -29,13 +48,13 @@ typedef struct {
 } __attribute__((packed)) wled_custom_desc_t;
 
 /**
- * Extract release name from binary using ESP-IDF custom description section
+ * Extract WLED custom description structure from binary
  * @param binaryData Pointer to binary file data
  * @param dataSize Size of binary data in bytes
- * @param extractedRelease Buffer to store extracted release name (should be at least WLED_RELEASE_NAME_MAX_LEN bytes)
- * @return true if release name was found and extracted, false otherwise
+ * @param extractedDesc Buffer to store extracted custom description structure
+ * @return true if structure was found and extracted, false otherwise
  */
-bool extractReleaseFromCustomDesc(const uint8_t* binaryData, size_t dataSize, char* extractedRelease);
+bool extractWledCustomDesc(const uint8_t* binaryData, size_t dataSize, wled_custom_desc_t* extractedDesc);
 
 /**
  * Validate if extracted release name matches current release
