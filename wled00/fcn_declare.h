@@ -103,6 +103,21 @@ inline bool readObjectFromFile(const String &file, const char* key, JsonDocument
 bool copyFile(const char* src_path, const char* dst_path);
 bool backupFile(const char* filename);
 bool restoreFile(const char* filename);
+bool userBackupFile(const char* filename);
+bool userRestoreFile(const char* filename);
+bool userBackupExists(const char* filename);
+bool userBackupConfig();
+bool userRestoreConfig();
+bool userBackupConfigExists();
+bool userBackupPresets();
+bool userRestorePresets();
+bool userBackupPresetsExists();
+int userBackupPalettes();
+int userRestorePalettes();
+bool userBackupPalettesExist();
+int userBackupMappings();
+int userRestoreMappings();
+bool userBackupMappingsExist();
 bool validateJsonFile(const char* filename);
 void dumpFilesToSerial();
 
