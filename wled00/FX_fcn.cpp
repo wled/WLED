@@ -1181,14 +1181,14 @@ void WS2812FX::finalizeInit() {
   // create buses/outputs
   unsigned mem = 0;
   for (auto bus : busConfigs) {
-    unsigned busMemUsage = bus.memUsage(Bus::isDigital(bus.type) && !Bus::is2Pin(bus.type) ? digitalCount : 0);
-    // if memory exceeds limit, add it anyway but reduce LED count to default if it is larger (a bit dangerous, but prevents no buses being created at all)
-    if (mem + busMemUsage > MAX_LED_MEMORY) {
-      bus.count = min((int)bus.count, DEFAULT_LED_COUNT);
-      DEBUG_PRINTF_P(PSTR("Bus %d memory usage exceeds limit, setting count to %d\n"), (int)bus.type, bus.count);
+    bool use_placeholder = false;
+    unsigned busMemUsage = bus.memUsage(Bus::isDigital(bus.type) && !Bus::is2Pin(bus.type) ? digitalCount : 0);    
+    if (mem + busMemUsage > MAX_LED_MEMORY) {      
+      DEBUG_PRINTF_P(PSTR("Bus %d with %d LEDS memory usage exceeds limit\n"), (int)bus.type, bus.count);
+      use_placeholder = true;
     }
-    if (BusManager::add(bus) != -1) {
-      mem += bus.memUsage(Bus::isDigital(bus.type) && !Bus::is2Pin(bus.type) ? digitalCount : 0);
+    if (BusManager::add(bus, use_placeholder) != -1) {
+      mem += BusManager::busses.back()->getBusSize();
       if (Bus::isDigital(bus.type) && !Bus::is2Pin(bus.type)) digitalCount++;
     } else break;
   }
@@ -1807,7 +1807,7 @@ void WS2812FX::makeAutoSegments(bool forceReset) {
 
     for (size_t i = s; i < BusManager::getNumBusses(); i++) {
       const Bus *bus = BusManager::getBus(i);
-      if (!bus || !bus->isOk()) break;
+      if (!bus) break;
 
       segStarts[s] = bus->getStart();
       segStops[s]  = segStarts[s] + bus->getLength();

@@ -125,7 +125,7 @@ class Bus {
     virtual void     setColorOrder(uint8_t co)                  {}
     virtual uint32_t getPixelColor(unsigned pix) const          { return 0; }
     virtual size_t   getPins(uint8_t* pinArray = nullptr) const { return 0; }
-    virtual uint16_t getLength() const                          { return isOk() ? _len : 0; }
+    virtual uint16_t getLength() const                          { return _len; }
     virtual uint8_t  getColorOrder() const                      { return COL_ORDER_RGB; }
     virtual unsigned skippedLeds() const                        { return 0; }
     virtual uint16_t getFrequency() const                       { return 0U; }
@@ -363,6 +363,37 @@ class BusNetwork : public Bus {
     #endif
 };
 
+// Placeholder for buses that we can't construct due to resource limitations
+// This preserves the configuration so it can be read back to the settings pages
+class BusPlaceholder : public Bus {
+  public:
+    BusPlaceholder(const BusConfig &bc);
+
+    // Actual calls are stubbed out
+    void setPixelColor(unsigned pix, uint32_t c) override {};
+    void show() override {};
+
+    // Accessors
+    uint8_t  getColorOrder() const override  { return _colorOrder; }
+    size_t   getPins(uint8_t* pinArray) const override;
+    unsigned skippedLeds() const override    { return _skipAmount; }
+    uint16_t getFrequency() const override   { return _frequency; }
+    uint16_t getLEDCurrent() const override  { return _milliAmpsPerLed; }
+    uint16_t getMaxCurrent() const override  { return _milliAmpsMax; }
+    const String getCustomText() const override { return _text; }
+
+    size_t   getBusSize() const override   { return sizeof(BusPlaceholder); }
+
+  private:
+    uint8_t _colorOrder;
+    uint8_t _skipAmount;
+    uint8_t _pins[5];
+    uint16_t _frequency;
+    uint8_t _milliAmpsPerLed;
+    uint16_t _milliAmpsMax;
+    String _text;
+};
+
 
 //temporary struct for passing bus configuration to bus
 struct BusConfig {
@@ -464,7 +495,7 @@ namespace BusManager {
 
   //do not call this method from system context (network callback)
   void removeAll();
-  int  add(const BusConfig &bc);
+  int  add(const BusConfig &bc, bool placeholder);
 
   void on();
   void off();
