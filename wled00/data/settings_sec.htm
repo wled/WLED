@@ -19,10 +19,15 @@
 		}
 		function userBackup(type) {
 			if (!confirm("Create internal backup for " + type + "? This will overwrite any existing backup.")) return;
+			var btn = gId("ubk" + type.charAt(0).toUpperCase() + type.slice(1));
+			btn.disabled = true;
+			btn.innerHTML = "Creating...";
 			var xhr = new XMLHttpRequest();
 			xhr.open('POST', getURL('/backup/' + type), true);
 			xhr.onreadystatechange = function() {
 				if (xhr.readyState === 4) {
+					btn.disabled = false;
+					btn.innerHTML = "Create " + type.charAt(0).toUpperCase() + type.slice(1) + " Backup";
 					if (xhr.status === 200) {
 						showToast(xhr.responseText, false);
 						updateBackupButtons();
@@ -37,6 +42,9 @@
 			var message = "Restore " + type + " from internal backup? This will overwrite current " + type + ".";
 			if (type === 'config') message += " Device will reboot after restore.";
 			if (!confirm(message)) return;
+			var btn = gId("ures" + type.charAt(0).toUpperCase() + type.slice(1));
+			btn.disabled = true;
+			btn.innerHTML = "Restoring...";
 			var xhr = new XMLHttpRequest();
 			xhr.open('POST', getURL('/restore/' + type), true);
 			xhr.onreadystatechange = function() {
@@ -45,8 +53,13 @@
 						showToast(xhr.responseText, false);
 						if (type === 'config') {
 							setTimeout(function() { window.location.href = "/"; }, 3000);
+						} else {
+							btn.disabled = false;
+							btn.innerHTML = "Restore " + type.charAt(0).toUpperCase() + type.slice(1);
 						}
 					} else {
+						btn.disabled = false;
+						btn.innerHTML = "Restore " + type.charAt(0).toUpperCase() + type.slice(1);
 						showToast("Restore failed: " + xhr.responseText, true);
 					}
 				}
