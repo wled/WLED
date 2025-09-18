@@ -124,7 +124,7 @@ unsigned dataSize = cols * rows;  // SEGLEN (virtual length) is equivalent to vW
 * This part calculates how much memory we need to represent per-pixel state.
   * `cols * rows` or `(or SEGLEN)` returns the total number of pixels in the current segment.
   * This fire effect models heat values per pixel (not just colors), so we need persistent storage — one uint8_t per pixel — for the entire effect.
-  * > **_NOTE:_** Virtual lengths `vWidth()` and `vHeight()` will be evaluated differently based on your own custom effect, and based on what other settings are active.  For example: If you have an LED strip of length = 60 and you enable grouping = 2, then the virtual length will be 30, so the FX will render 30 pixels instead of 60.  This is also true for mirroring or adding gaps--it halves the size.  For a 1D strip mapped to 2D, the virtual length depends on selected mode.  Keep these things in mind during your custom effect's creation.
+  > **_NOTE:_** Virtual lengths `vWidth()` and `vHeight()` will be evaluated differently based on your own custom effect, and based on what other settings are active.  For example: If you have an LED strip of length = 60 and you enable grouping = 2, then the virtual length will be 30, so the FX will render 30 pixels instead of 60.  This is also true for mirroring or adding gaps--it halves the size.  For a 1D strip mapped to 2D, the virtual length depends on selected mode.  Keep these things in mind during your custom effect's creation.
 
 ```cpp
 if (!SEGENV.allocateData(dataSize))
