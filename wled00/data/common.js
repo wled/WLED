@@ -81,18 +81,10 @@ function getLoc() {
 			localStorage.setItem('locIp', locip);
 		}
 	} else {
-		// detect reverse proxy
-		let path = l.pathname;
-		let paths = path.slice(1,path.endsWith('/')?-1:undefined).split("/");
-
-		// remove settings paths to get the base url
-		const settingsIndex = paths.lastIndexOf("settings");
-		if (settingsIndex > 0) paths = paths.slice(0, settingsIndex);
-
-		if (paths.length && paths[paths.length - 1].includes(".")) {
- 			// drop trailing file like index.htm
- 			paths.pop();
- 		}
+		// guess the base url if WLED is behind a reverse proxy		
+		let paths = l.pathname.split("/").slice(1); // first is always empty
+		let settingsIndex = paths.lastIndexOf("settings");
+		paths = paths.slice(0, settingsIndex); // if we don't have "settings", remove last entry (empty / or file)
 
 		if (paths.length > 0) {
 			locproto = l.protocol;
