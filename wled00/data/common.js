@@ -81,7 +81,7 @@ function getLoc() {
 			localStorage.setItem('locIp', locip);
 		}
 	} else {
-		// guess the base url if WLED is behind a reverse proxy		
+		// guess the base url if WLED is behind a reverse proxy
 		let paths = l.pathname.split("/").slice(1); // first is always empty
 		let settingsIndex = paths.lastIndexOf("settings");
 		paths = paths.slice(0, settingsIndex); // if we don't have "settings", remove last entry (empty / or file)
