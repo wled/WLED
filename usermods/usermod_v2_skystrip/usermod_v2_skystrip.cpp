@@ -101,8 +101,8 @@ void SkyStrip::loop() {
   lastOff_     = offMode;
   lastEnabled_ = enabled_;
 
-  // make sure we are enabled, on, and ready
-  if (!enabled_ || offMode || strip.isUpdating()) return;
+  // make sure we are enabled and on
+  if (!enabled_ || offMode) return;
 
   // check the sources for updates, apply to model if found
   for (auto &source : sources_) {
