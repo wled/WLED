@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+FILENAME:/ui/index.html:<!DOCTYPE html>
 <html>
 <head>
     <title>ArkLights PEV Control OTA</title>
@@ -29,7 +29,7 @@
             </div>
             
             <div class="section">
-                <h2>Headlight</h2>
+                <h2>💡 Headlight</h2>
                 <div class="control-group">
                     <label>Color:</label>
                     <input type="color" id="headlightColor" value="#ffffff" onchange="setHeadlightColor(this.value)">
@@ -62,7 +62,7 @@
             </div>
             
             <div class="section">
-                <h2>Taillight</h2>
+                <h2>🔴 Taillight</h2>
                 <div class="control-group">
                     <label>Color:</label>
                     <input type="color" id="taillightColor" value="#ff0000" onchange="setTaillightColor(this.value)">
@@ -112,7 +112,7 @@
             </div>
         
             <div class="section">
-                <h2>Motion Control</h2>
+                <h2>🎯 Motion Control</h2>
                 
                 <div class="control-group">
                     <label>
@@ -164,8 +164,8 @@
         <!-- Settings Page -->
         <div id="settingsPage" class="page-content" style="display: none;">
             <!-- Calibration Section -->
-            <div class="calibration-section">
-                <h3>Calibration</h3>
+            <div class="calibration-section" style="margin-top: 20px; padding: 15px; background: #f5f5f5; border-radius: 8px;">
+                <h3>📐 Calibration</h3>
                 <div id="calibrationStatus" class="calibration-status">
                     Status: <span id="calibrationStatusText">Not calibrated</span>
                 </div>
@@ -185,7 +185,7 @@
             </div>
             
             <!-- Motion Status -->
-            <div class="motion-status">
+            <div class="motion-status" style="margin-top: 20px; padding: 15px; background: #e8f5e8; border-radius: 8px;">
                 <h3>📊 Motion Status</h3>
                 <div id="motionStatus">
                     <div>Blinker: <span id="blinkerStatus" style="font-weight: bold;">Inactive</span></div>
@@ -351,7 +351,7 @@
             </div>
             
             <!-- OTA Progress -->
-            <div id="otaProgress" class="ota-progress" style="display: none;">
+            <div id="otaProgress" class="ota-progress" style="margin-top: 20px; padding: 15px; background: #f0f0f0; border-radius: 8px; display: none;">
                 <h3>📥 Update Progress</h3>
                 <div class="progress-bar" style="width: 100%; height: 20px; background: #ddd; border-radius: 10px; overflow: hidden;">
                     <div id="otaProgressBar" class="progress-fill" style="height: 100%; background: #4CAF50; width: 0%; transition: width 0.3s;"></div>
@@ -361,7 +361,7 @@
             </div>
             
             <!-- OTA Status -->
-            <div class="ota-status">
+            <div class="ota-status" style="margin-top: 20px; padding: 15px; background: #e8f5e8; border-radius: 8px;">
                 <h3>📊 Update Status</h3>
                 <div id="otaStatus">
                     <div>Status: <span id="otaStatusDisplay" style="font-weight: bold;">Ready</span></div>
@@ -412,7 +412,7 @@
                     <small>WiFi channel for ESPNow communication (1-14)</small>
                 </div>
                 <div class="control-group">
-                    <div id="espNowStatus" style="padding: 10px; background: #333; border-radius: 5px; margin: 10px 0; color: #fff;">
+                    <div id="espNowStatus" style="padding: 10px; background: #f0f0f0; border-radius: 5px; margin: 10px 0;">
                         <strong>ESPNow Status:</strong> <span id="espNowStatusText">Initializing...</span><br>
                         <strong>Peers:</strong> <span id="espNowPeerCount">0</span><br>
                         <strong>Last Send:</strong> <span id="espNowLastSend">Never</span>
@@ -475,3 +475,4 @@
     <script src="/ui/script.js"></script>
 </body>
 </html>
+:ENDFILE

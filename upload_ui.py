@@ -31,7 +31,23 @@ def upload_ui_files():
     print("\n🚀 Uploading UI files to SPIFFS...")
     
     try:
+        # First, copy UI files to the data directory that PlatformIO expects
+        data_dir = "data"
+        os.makedirs(data_dir, exist_ok=True)
+        
+        # Create ui subdirectory in data
+        ui_data_dir = os.path.join(data_dir, "ui")
+        os.makedirs(ui_data_dir, exist_ok=True)
+        
+        print(f"📁 Copying UI files to {ui_data_dir}...")
+        for file_path in ui_files:
+            filename = os.path.basename(file_path)
+            dest_path = os.path.join(ui_data_dir, filename)
+            subprocess.run(["cp", file_path, dest_path], check=True)
+            print(f"  ✓ Copied {filename}")
+        
         # Use PlatformIO's SPIFFS upload
+        print("\n🚀 Uploading UI files to SPIFFS...")
         result = subprocess.run([
             "pio", "run", "-e", "arklights_test", "-t", "uploadfs"
         ], capture_output=True, text=True)

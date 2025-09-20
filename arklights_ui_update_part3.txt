@@ -1,4 +1,4 @@
-// ArkLights PEV Control - JavaScript Functions
+FILENAME:/ui/script.js:// ArkLights PEV Control - JavaScript Functions
 
 // Page Navigation Functions
 function showPage(pageName) {
@@ -866,3 +866,4 @@ window.addEventListener('beforeunload', function() {
         window.calibrationRefreshInterval = null;
     }
 });
+:ENDFILE

@@ -1,0 +1,1 @@
+FILENAME:/ui/test.html:<h1>Test File</h1><p>This is a test file to verify SPIFFS is working.</p>:ENDFILE

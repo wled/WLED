@@ -1,0 +1,97 @@
+FILENAME:/ui/index.html:<!DOCTYPE html>
+<html>
+<head>
+    <title>ArkLights Debug Test</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #1a1a2e; color: white; }
+        .container { max-width: 600px; margin: 0 auto; text-align: center; }
+        .success { background: #4CAF50; padding: 20px; border-radius: 8px; margin: 20px 0; }
+        .info { background: #2196F3; padding: 15px; border-radius: 8px; margin: 10px 0; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎉 ArkLights UI Update Test</h1>
+        <div class="success">
+            <h2>✅ SUCCESS!</h2>
+            <p>This page confirms that the UI update system is working correctly.</p>
+            <p><strong>Timestamp:</strong> 2025-09-17 21:40:00</p>
+        </div>
+        <div class="info">
+            <h3>Debug Information:</h3>
+            <p>• File served from SPIFFS filesystem</p>
+            <p>• UI update process completed successfully</p>
+            <p>• External UI files are being used</p>
+        </div>
+        <div class="info">
+            <h3>Next Steps:</h3>
+            <p>1. Run 'ls' command in serial console</p>
+            <p>2. Check that /ui/index.html appears in the file listing</p>
+            <p>3. Upload the full UI update package</p>
+        </div>
+    </div>
+</body>
+</html>:ENDFILE
+FILENAME:/ui/styles.css:/* ArkLights Debug Test CSS */
+body { 
+    font-family: Arial, sans-serif; 
+    margin: 20px; 
+    background: #1a1a2e; 
+    color: white; 
+}
+
+.container { 
+    max-width: 600px; 
+    margin: 0 auto; 
+    text-align: center; 
+}
+
+.success { 
+    background: #4CAF50; 
+    padding: 20px; 
+    border-radius: 8px; 
+    margin: 20px 0; 
+}
+
+.info { 
+    background: #2196F3; 
+    padding: 15px; 
+    border-radius: 8px; 
+    margin: 10px 0; 
+}
+
+/* Debug timestamp: 2025-09-17 21:40:00 */:ENDFILE
+FILENAME:/ui/script.js:// ArkLights Debug Test JavaScript
+console.log('🎉 ArkLights UI Update Test - JavaScript loaded successfully!');
+
+// Debug timestamp: 2025-09-17 21:40:00
+const debugInfo = {
+    timestamp: '2025-09-17 21:40:00',
+    status: 'UI Update Test Successful',
+    filesystem: 'SPIFFS',
+    version: 'Debug Test v1.0'
+};
+
+console.log('Debug Info:', debugInfo);
+
+// Show success message
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('✅ DOM loaded - UI update test page is working!');
+    
+    // Add a small visual indicator
+    const indicator = document.createElement('div');
+    indicator.style.cssText = `
+        position: fixed;
+        top: 10px;
+        right: 10px;
+        background: #4CAF50;
+        color: white;
+        padding: 5px 10px;
+        border-radius: 4px;
+        font-size: 12px;
+        z-index: 1000;
+    `;
+    indicator.textContent = 'UI Test ✅';
+    document.body.appendChild(indicator);
+});:ENDFILE

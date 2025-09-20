@@ -1,0 +1,13 @@
+FILENAME:/index.html:<!DOCTYPE html>
+<html>
+<head>
+    <title>Root Test - 21:40:00</title>
+    <style>body{font-family:Arial;margin:20px;background:#2a2a2e;color:white;text-align:center;}</style>
+</head>
+<body>
+    <h1>📁 Root Directory Test</h1>
+    <p>This file is in the root directory, not /ui/</p>
+    <p>Timestamp: 2025-09-17 21:40:00</p>
+    <script>console.log('Root test loaded at 21:40:00');</script>
+</body>
+</html>:ENDFILE

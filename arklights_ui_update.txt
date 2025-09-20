@@ -29,7 +29,7 @@ FILENAME:/ui/index.html:<!DOCTYPE html>
             </div>
             
             <div class="section">
-                <h2>💡 Headlight</h2>
+                <h2>Headlight</h2>
                 <div class="control-group">
                     <label>Color:</label>
                     <input type="color" id="headlightColor" value="#ffffff" onchange="setHeadlightColor(this.value)">
@@ -62,7 +62,7 @@ FILENAME:/ui/index.html:<!DOCTYPE html>
             </div>
             
             <div class="section">
-                <h2>🔴 Taillight</h2>
+                <h2>Taillight</h2>
                 <div class="control-group">
                     <label>Color:</label>
                     <input type="color" id="taillightColor" value="#ff0000" onchange="setTaillightColor(this.value)">
@@ -112,7 +112,7 @@ FILENAME:/ui/index.html:<!DOCTYPE html>
             </div>
         
             <div class="section">
-                <h2>🎯 Motion Control</h2>
+                <h2>Motion Control</h2>
                 
                 <div class="control-group">
                     <label>
@@ -164,8 +164,8 @@ FILENAME:/ui/index.html:<!DOCTYPE html>
         <!-- Settings Page -->
         <div id="settingsPage" class="page-content" style="display: none;">
             <!-- Calibration Section -->
-            <div class="calibration-section" style="margin-top: 20px; padding: 15px; background: #f5f5f5; border-radius: 8px;">
-                <h3>📐 Calibration</h3>
+            <div class="calibration-section">
+                <h3>Calibration</h3>
                 <div id="calibrationStatus" class="calibration-status">
                     Status: <span id="calibrationStatusText">Not calibrated</span>
                 </div>
@@ -185,7 +185,7 @@ FILENAME:/ui/index.html:<!DOCTYPE html>
             </div>
             
             <!-- Motion Status -->
-            <div class="motion-status" style="margin-top: 20px; padding: 15px; background: #e8f5e8; border-radius: 8px;">
+            <div class="motion-status">
                 <h3>📊 Motion Status</h3>
                 <div id="motionStatus">
                     <div>Blinker: <span id="blinkerStatus" style="font-weight: bold;">Inactive</span></div>
@@ -351,7 +351,7 @@ FILENAME:/ui/index.html:<!DOCTYPE html>
             </div>
             
             <!-- OTA Progress -->
-            <div id="otaProgress" class="ota-progress" style="margin-top: 20px; padding: 15px; background: #f0f0f0; border-radius: 8px; display: none;">
+            <div id="otaProgress" class="ota-progress" style="display: none;">
                 <h3>📥 Update Progress</h3>
                 <div class="progress-bar" style="width: 100%; height: 20px; background: #ddd; border-radius: 10px; overflow: hidden;">
                     <div id="otaProgressBar" class="progress-fill" style="height: 100%; background: #4CAF50; width: 0%; transition: width 0.3s;"></div>
@@ -361,7 +361,7 @@ FILENAME:/ui/index.html:<!DOCTYPE html>
             </div>
             
             <!-- OTA Status -->
-            <div class="ota-status" style="margin-top: 20px; padding: 15px; background: #e8f5e8; border-radius: 8px;">
+            <div class="ota-status">
                 <h3>📊 Update Status</h3>
                 <div id="otaStatus">
                     <div>Status: <span id="otaStatusDisplay" style="font-weight: bold;">Ready</span></div>
@@ -390,6 +390,36 @@ FILENAME:/ui/index.html:<!DOCTYPE html>
         </div>
         
         
+            <div class="section">
+                <h2>📡 ESPNow Configuration</h2>
+                <div class="control-group">
+                    <label>
+                        <input type="checkbox" id="enableESPNow" onchange="setESPNowEnabled(this.checked)">
+                        Enable ESPNow
+                    </label>
+                    <small>Enable mesh networking between ArkLights devices</small>
+                </div>
+                <div class="control-group">
+                    <label>
+                        <input type="checkbox" id="useESPNowSync" onchange="setESPNowSync(this.checked)">
+                        Enable Effect Sync
+                    </label>
+                    <small>Synchronize LED effects with other devices (motion effects remain local)</small>
+                </div>
+                <div class="control-group">
+                    <label>ESPNow Channel: <span id="espNowChannelValue">1</span></label>
+                    <input type="range" id="espNowChannel" min="1" max="14" value="1" oninput="setESPNowChannel(this.value)">
+                    <small>WiFi channel for ESPNow communication (1-14)</small>
+                </div>
+                <div class="control-group">
+                    <div id="espNowStatus" style="padding: 10px; background: #333; border-radius: 5px; margin: 10px 0; color: #fff;">
+                        <strong>ESPNow Status:</strong> <span id="espNowStatusText">Initializing...</span><br>
+                        <strong>Peers:</strong> <span id="espNowPeerCount">0</span><br>
+                        <strong>Last Send:</strong> <span id="espNowLastSend">Never</span>
+                    </div>
+                </div>
+            </div>
+            
             <div class="section">
                 <h2>LED Configuration</h2>
             <div class="control-group">
@@ -556,29 +586,33 @@ h2 {
 .calibration-section {
     margin-top: 20px;
     padding: 15px;
-    background: #f5f5f5;
+    background: #2a2a2a;
     border-radius: 8px;
+    color: #fff;
 }
 
 .motion-status {
     margin-top: 20px;
     padding: 15px;
-    background: #e8f5e8;
+    background: #2a2a2a;
     border-radius: 8px;
+    color: #fff;
 }
 
 .ota-progress {
     margin-top: 20px;
     padding: 15px;
-    background: #f0f0f0;
+    background: #2a2a2a;
     border-radius: 8px;
+    color: #fff;
 }
 
 .ota-status {
     margin-top: 20px;
     padding: 15px;
-    background: #e8f5e8;
+    background: #2a2a2a;
     border-radius: 8px;
+    color: #fff;
 }
 
 /* Navigation Tabs */
@@ -1332,6 +1366,22 @@ function updateStatus() {
                 }
             }
             
+            // Update ESPNow status (with null checks)
+            const enableESPNowEl = document.getElementById('enableESPNow');
+            if (enableESPNowEl) enableESPNowEl.checked = data.enableESPNow;
+            const useESPNowSyncEl = document.getElementById('useESPNowSync');
+            if (useESPNowSyncEl) useESPNowSyncEl.checked = data.useESPNowSync;
+            const espNowChannelEl = document.getElementById('espNowChannel');
+            if (espNowChannelEl) espNowChannelEl.value = data.espNowChannel;
+            const espNowChannelValueEl = document.getElementById('espNowChannelValue');
+            if (espNowChannelValueEl) espNowChannelValueEl.textContent = data.espNowChannel;
+            const espNowStatusTextEl = document.getElementById('espNowStatusText');
+            if (espNowStatusTextEl) espNowStatusTextEl.textContent = data.espNowStatus;
+            const espNowPeerCountEl = document.getElementById('espNowPeerCount');
+            if (espNowPeerCountEl) espNowPeerCountEl.textContent = data.espNowPeerCount;
+            const espNowLastSendEl = document.getElementById('espNowLastSend');
+            if (espNowLastSendEl) espNowLastSendEl.textContent = data.espNowLastSend;
+            
             // Update remaining elements (with null checks)
             const apNameEl = document.getElementById('apName');
             if (apNameEl) apNameEl.value = data.apName;
@@ -1428,6 +1478,32 @@ function testLEDs() {
 function saveLEDConfig() {
     updateLEDConfig();
     alert('LED configuration saved!');
+}
+
+// ESPNow Functions
+function setESPNowEnabled(enabled) {
+    fetch('/api', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enableESPNow: enabled })
+    });
+}
+
+function setESPNowSync(enabled) {
+    fetch('/api', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ useESPNowSync: enabled })
+    });
+}
+
+function setESPNowChannel(channel) {
+    document.getElementById('espNowChannelValue').textContent = channel;
+    fetch('/api', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ espNowChannel: parseInt(channel) })
+    });
 }
 
 // Initialize page on load
