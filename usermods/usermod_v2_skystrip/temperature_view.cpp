@@ -18,7 +18,7 @@ static inline float satFromDewSpreadF(float tempF, float dewF) {
   float dd = tempF - dewF;
   if (dd < 0.f)
     dd = 0.f;                         // guard bad inputs
-  constexpr float kMinSat = 0.40f;    // floor (muggy look)
+  constexpr float kMinSat = 0.55f;    // floor (muggy look)
   constexpr float kMaxSpread = 25.0f; // “very dry” cap
   float u = skystrip::util::clamp01(dd / kMaxSpread);
   float eased = u * u * (3.f - 2.f * u); // smoothstep

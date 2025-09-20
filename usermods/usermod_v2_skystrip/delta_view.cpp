@@ -39,7 +39,7 @@ static float hueForDeltaF(double f) {
 }
 
 static inline float satFromDewDiffDelta(float delta) {
-  constexpr float kMinSat = 0.30f;
+  constexpr float kMinSat = 0.45f;
   constexpr float kMaxDelta = 15.0f; // +/-15F covers typical range
   float u = skystrip::util::clamp01((delta + kMaxDelta) / (2.f * kMaxDelta));
   return kMinSat + (1.f - kMinSat) * u;
