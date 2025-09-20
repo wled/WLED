@@ -13,7 +13,7 @@ constexpr size_t FIXED_PALETTE_COUNT = DYNAMIC_PALETTE_COUNT + FASTLED_PALETTE_C
 #ifndef ESP8266
   #define WLED_MAX_CUSTOM_PALETTES (255 - FIXED_PALETTE_COUNT) // allow up to 255 total palettes, user is warned about stability issues when adding more than 10
 #else
-  #define WLED_MAX_CUSTOM_PALETTES 5 // ESP8266: limit custom palettes to 5
+  #define WLED_MAX_CUSTOM_PALETTES 10 // ESP8266: limit custom palettes to 10
 #endif
 
 // You can define custom product info from build flags.
