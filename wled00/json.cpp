@@ -933,7 +933,7 @@ void serializePalettes(JsonObject root, int page)
   #endif
 
   int customPalettesCount = customPalettes.size();
-  int palettesCount = getPaletteCount() - customPalettesCount;
+  int palettesCount = getPaletteCount() - customPalettesCount; // palettesCount is number of palettes, not palette index
 
   int maxPage = (palettesCount + customPalettesCount -1) / itemPerPage;
   if (page > maxPage) page = maxPage;
@@ -945,8 +945,8 @@ void serializePalettes(JsonObject root, int page)
   root[F("m")] = maxPage; // inform caller how many pages there are
   JsonObject palettes  = root.createNestedObject("p");
 
-  for (int i = start; i < end; i++) {
-    JsonArray curPalette = palettes.createNestedArray(String(i>=palettesCount ? 255 - i + palettesCount : i));
+  for (int i = start; i <= end; i++) {
+    JsonArray curPalette = palettes.createNestedArray(String(i<=palettesCount ? i : 255 - (i - (palettesCount + 1))));
     switch (i) {
       case 0: //default palette
         setPaletteColors(curPalette, PartyColors_p);
@@ -975,8 +975,8 @@ void serializePalettes(JsonObject root, int page)
         curPalette.add("c1");
         break;
       default:
-        if (i >= palettesCount)
-          setPaletteColors(curPalette, customPalettes[i - palettesCount]);
+        if (i > palettesCount)
+          setPaletteColors(curPalette, customPalettes[i - (palettesCount + 1)]);
         else if (i < 13) // palette 6 - 12, fastled palettes
           setPaletteColors(curPalette, *fastledPalettes[i-6]);
         else {
