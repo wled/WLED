@@ -1021,9 +1021,6 @@ void __attribute__((hot)) BusHub75Matrix::setPixelColor(unsigned pix, uint32_t c
     if ((c == IS_BLACK) && (getBitFromArray(_ledsDirty, pix) == false)) return; // ignore black if pixel is already black
     setBitInArray(_ledsDirty, pix, c != IS_BLACK);                              // dirty = true means "color is not BLACK"
 
-    #ifndef NO_CIE1931
-    c = unGamma24(c); // to use the driver linear brightness feature, we first need to undo WLED gamma correction
-    #endif
     uint8_t r = R(c);
     uint8_t g = G(c);
     uint8_t b = B(c);
@@ -1069,9 +1066,6 @@ void BusHub75Matrix::show(void) {
     for (int y=0; y<height; y++) for (int x=0; x<width; x++) {
       if (getBitFromArray(_ledsDirty, pix) == true) {        // only repaint the "dirty"  pixels
         uint32_t c = uint32_t(_ledBuffer[pix]) & 0x00FFFFFF; // get RGB color, removing FastLED "alpha" component
-        #ifndef NO_CIE1931
-        c = unGamma24(c); // to use the driver linear brightness feature, we first need to undo WLED gamma correction
-        #endif
         uint8_t r = R(c);
         uint8_t g = G(c);
         uint8_t b = B(c);
