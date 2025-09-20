@@ -84,6 +84,16 @@ void WindView::view(time_t now, SkyModel const &model, int16_t dbgPixelIndex) {
       continue;
     if (!skystrip::util::estimateGustAt(model, t, step, gst))
       gst = spd;
+
+    // save for debug pixel reporting
+    double raw_spd = spd;
+    double raw_gst = gst;
+
+    constexpr double kCalmMph = 5.0;
+    if (spd < kCalmMph && gst < kCalmMph) {
+      spd = 0.0;
+      gst = 0.0;
+    }
     float hue = hueFromDir((float)dir);
     float sat = satFromGustDiff((float)spd, (float)gst);
 
@@ -107,7 +117,7 @@ void WindView::view(time_t now, SkyModel const &model, int16_t dbgPixelIndex) {
                  "%s: nowtm=%s dbgndx=%d dbgtm=%s "
                  "spd=%.0f gst=%.0f dir=%.0f "
                  "H=%.0f S=%.0f V=%.0f\\n",
-                 name().c_str(), nowbuf, i, dbgbuf, spd, gst, dir, hue,
+                 name().c_str(), nowbuf, i, dbgbuf, raw_spd, raw_gst, dir, hue,
                  sat * 100, val * 100);
         lastDebug = now;
       }
