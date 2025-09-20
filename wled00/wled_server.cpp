@@ -44,7 +44,7 @@ static bool inSubnet(const IPAddress &ip, const IPAddress &subnet, const IPAddre
 }
 
 static bool inSameSubnet(const IPAddress &client) {
-  return inSubnet(client, Network.localIP(), Network.subnetMask());
+  return inSubnet(client, WLEDNetwork.localIP(), WLEDNetwork.subnetMask());
 }
 
 static bool inLocalSubnet(const IPAddress &client) {
