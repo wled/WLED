@@ -997,7 +997,6 @@ BusHub75Matrix::BusHub75Matrix(const BusConfig &bc) : Bus(bc.type, bc.start, bc.
   DEBUGBUS_PRINT(F("MatrixPanel_I2S_DMA "));
   DEBUGBUS_PRINTF("%sstarted, width=%u, %u pixels.\n", _valid? "":"not ", _panelWidth, _len);
 
-  if (mxconfig.double_buff == true) DEBUGBUS_PRINTLN(F("MatrixPanel_I2S_DMA driver native double-buffering enabled."));
   if (_ledBuffer != nullptr) DEBUGBUS_PRINTLN(F("MatrixPanel_I2S_DMA LEDS buffer enabled."));
   if (_ledsDirty != nullptr) DEBUGBUS_PRINTLN(F("MatrixPanel_I2S_DMA LEDS dirty bit optimization enabled."));
   if ((_ledBuffer != nullptr) || (_ledsDirty != nullptr)) {
@@ -1082,13 +1081,6 @@ void BusHub75Matrix::show(void) {
       pix ++;
     }
     setBitArray(_ledsDirty, _len, false);  // buffer shown - reset all dirty bits
-  }
-
-  if(mxconfig.double_buff) {
-    display->flipDMABuffer(); // Show the back buffer, set current output buffer to the back (i.e. no longer being sent to LED panels)
-    // while(!previousBufferFree) delay(1);   // experimental - Wait before we allow any writing to the buffer. Stop flicker.
-    display->clearScreen();   // Now clear the back-buffer
-    setBitArray(_ledsDirty, _len, false);  // dislay buffer is blank - reset all dirty bits
   }
 }
 
