@@ -426,12 +426,12 @@ void initServer()
     }
     if (!correctPIN || otaLock) return;
     
-    // Static variables to track release check status across chunks
+    // Static variables to track release check status across chunks  
     static bool releaseCheckPassed = false;
     static bool releaseCheckPending = true;
     static size_t totalBytesReceived = 0;
     static uint8_t* metadataBuffer = nullptr;
-    static size_t metadataBufferSize = 0;
+    static size_t metadataBufferUsed = 0;
     
     if(!index){
       DEBUG_PRINTLN(F("OTA Update Start"));
@@ -445,7 +445,7 @@ void initServer()
       if (metadataBuffer) {
         free(metadataBuffer);
         metadataBuffer = nullptr;
-        metadataBufferSize = 0;
+        metadataBufferUsed = 0;
       }
       
       // Check if user wants to skip validation
@@ -493,28 +493,21 @@ void initServer()
     }
     
     // Track total bytes received across all chunks
+    size_t chunkStartOffset = totalBytesReceived;
     totalBytesReceived += len;
     
-    // Check if we need to perform validation now
-    if (releaseCheckPending) {
-      // Calculate how much data we have after the metadata offset
-      size_t dataAfterOffset = (totalBytesReceived > METADATA_OFFSET) ? 
-                               (totalBytesReceived - METADATA_OFFSET) : 0;
+    // Perform validation if we haven't done it yet and we have reached the metadata offset
+    if (releaseCheckPending && totalBytesReceived > METADATA_OFFSET) {
       
-      if (dataAfterOffset > 0) {
-        // We have data after the metadata offset, check if we can validate now
-        size_t currentChunkStart = totalBytesReceived - len;
-        size_t currentChunkAfterOffset = (currentChunkStart >= METADATA_OFFSET) ? 
-                                        0 : (METADATA_OFFSET - currentChunkStart);
+      if (chunkStartOffset <= METADATA_OFFSET) {
+        // Current chunk contains the metadata offset
+        size_t offsetInChunk = METADATA_OFFSET - chunkStartOffset;
+        size_t availableDataAfterOffset = len - offsetInChunk;
         
-        if (currentChunkStart <= METADATA_OFFSET && 
-            (len - currentChunkAfterOffset) >= sizeof(wled_custom_desc_t)) {
-          // We have enough data in the current chunk to validate
+        if (availableDataAfterOffset >= sizeof(wled_custom_desc_t)) {
+          // We have enough data in this chunk to validate immediately
           char errorMessage[128];
-          uint8_t* validationData = data + currentChunkAfterOffset;
-          size_t validationDataSize = len - currentChunkAfterOffset;
-          
-          releaseCheckPassed = shouldAllowOTA(validationData, validationDataSize, 
+          releaseCheckPassed = shouldAllowOTA(data + offsetInChunk, availableDataAfterOffset,
                                             errorMessage, sizeof(errorMessage));
           releaseCheckPending = false;
           
@@ -525,48 +518,53 @@ void initServer()
           } else {
             DEBUG_PRINTLN(F("OTA allowed: Release compatibility check passed"));
           }
-        } else if (currentChunkStart < METADATA_OFFSET && totalBytesReceived > METADATA_OFFSET) {
-          // Metadata spans across chunks, need to buffer exactly one callback worth
+          
+        } else {
+          // Not enough data in this chunk, buffer it for the next chunk
+          metadataBuffer = (uint8_t*)malloc(len - offsetInChunk);
           if (!metadataBuffer) {
-            // Calculate how much data we need from the previous chunk
-            size_t prevChunkDataNeeded = METADATA_OFFSET - currentChunkStart;
-            size_t totalBufferSize = prevChunkDataNeeded + len;
-            
-            metadataBuffer = (uint8_t*)malloc(totalBufferSize);
-            if (!metadataBuffer) {
-              DEBUG_PRINTLN(F("OTA failed: Could not allocate metadata buffer"));
-              request->send(500, FPSTR(CONTENT_TYPE_PLAIN), F("Out of memory for validation"));
-              return;
-            }
-            
-            // For now, we'll validate on the next chunk when we have more data
-            metadataBufferSize = totalBufferSize;
-            memcpy(metadataBuffer, data, len);
-            DEBUG_PRINTLN(F("Buffering metadata for validation on next chunk"));
+            DEBUG_PRINTLN(F("OTA failed: Could not allocate metadata buffer"));
+            request->send(500, FPSTR(CONTENT_TYPE_PLAIN), F("Out of memory for validation"));
+            return;
+          }
+          memcpy(metadataBuffer, data + offsetInChunk, len - offsetInChunk);
+          metadataBufferUsed = len - offsetInChunk;
+          DEBUG_PRINTF_P(PSTR("Buffered %u bytes of metadata for next chunk\n"), metadataBufferUsed);
+        }
+        
+      } else if (metadataBuffer && metadataBufferUsed > 0) {
+        // We have buffered metadata from previous chunk, combine with current chunk
+        size_t totalMetadataSize = metadataBufferUsed + len;
+        
+        if (totalMetadataSize >= sizeof(wled_custom_desc_t)) {
+          // Create combined buffer for validation
+          uint8_t* combinedBuffer = (uint8_t*)malloc(totalMetadataSize);
+          if (!combinedBuffer) {
+            DEBUG_PRINTLN(F("OTA failed: Could not allocate combined buffer"));
+            request->send(500, FPSTR(CONTENT_TYPE_PLAIN), F("Out of memory for validation"));
+            return;
+          }
+          
+          memcpy(combinedBuffer, metadataBuffer, metadataBufferUsed);
+          memcpy(combinedBuffer + metadataBufferUsed, data, len);
+          
+          char errorMessage[128];
+          releaseCheckPassed = shouldAllowOTA(combinedBuffer, totalMetadataSize,
+                                            errorMessage, sizeof(errorMessage));
+          releaseCheckPending = false;
+          
+          // Clean up buffers
+          free(combinedBuffer);
+          free(metadataBuffer);
+          metadataBuffer = nullptr;
+          metadataBufferUsed = 0;
+          
+          if (!releaseCheckPassed) {
+            DEBUG_PRINTF_P(PSTR("OTA declined: %s\n"), errorMessage);
+            request->send(400, FPSTR(CONTENT_TYPE_PLAIN), errorMessage);
+            return;
           } else {
-            // We have buffered data from previous chunk, combine and validate
-            memcpy(metadataBuffer + metadataBufferSize - len, data, len);
-            
-            size_t metadataOffsetInBuffer = METADATA_OFFSET - (totalBytesReceived - metadataBufferSize);
-            char errorMessage[128];
-            
-            releaseCheckPassed = shouldAllowOTA(metadataBuffer + metadataOffsetInBuffer, 
-                                              metadataBufferSize - metadataOffsetInBuffer,
-                                              errorMessage, sizeof(errorMessage));
-            releaseCheckPending = false;
-            
-            // Clean up buffer
-            free(metadataBuffer);
-            metadataBuffer = nullptr;
-            metadataBufferSize = 0;
-            
-            if (!releaseCheckPassed) {
-              DEBUG_PRINTF_P(PSTR("OTA declined: %s\n"), errorMessage);
-              request->send(400, FPSTR(CONTENT_TYPE_PLAIN), errorMessage);
-              return;
-            } else {
-              DEBUG_PRINTLN(F("OTA allowed: Release compatibility check passed"));
-            }
+            DEBUG_PRINTLN(F("OTA allowed: Release compatibility check passed"));
           }
         }
       }
@@ -586,7 +584,7 @@ void initServer()
       if (metadataBuffer) {
         free(metadataBuffer);
         metadataBuffer = nullptr;
-        metadataBufferSize = 0;
+        metadataBufferUsed = 0;
       }
       
       // Check if validation was still pending (shouldn't happen normally)
