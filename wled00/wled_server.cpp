@@ -431,13 +431,12 @@ void initServer()
     }
     if (!correctPIN || otaLock) return;
     
-    // Static variables to track release check status and data accumulation across chunks
+    // Static variables to track release check status across chunks
     static bool releaseCheckPassed = false;
     static bool releaseCheckPending = true;
     static size_t totalBytesReceived = 0;
-    static uint8_t* validationBuffer = nullptr;
-    static const size_t ESP8266_VALIDATION_OFFSET = 0x1000;  // 4KB offset for ESP8266
-    static const size_t VALIDATION_BUFFER_SIZE = 8192;       // Buffer size for validation
+    static uint8_t* metadataBuffer = nullptr;
+    static size_t metadataBufferSize = 0;
     
     if(!index){
       DEBUG_PRINTLN(F("OTA Update Start"));
@@ -447,10 +446,11 @@ void initServer()
       releaseCheckPending = true;
       totalBytesReceived = 0;
       
-      // Free any existing validation buffer
-      if (validationBuffer) {
-        free(validationBuffer);
-        validationBuffer = nullptr;
+      // Free any existing metadata buffer
+      if (metadataBuffer) {
+        free(metadataBuffer);
+        metadataBuffer = nullptr;
+        metadataBufferSize = 0;
       }
       
       // Check if user wants to skip validation
@@ -461,30 +461,6 @@ void initServer()
         DEBUG_PRINTLN(F("OTA validation skipped by user"));
         releaseCheckPassed = true;
         releaseCheckPending = false;
-      } else {
-        #ifdef ESP32
-        // ESP32: metadata appears at offset 0, validate immediately with first chunk
-        char errorMessage[128];
-        releaseCheckPassed = shouldAllowOTA(data, len, errorMessage, sizeof(errorMessage));
-        releaseCheckPending = false;
-        
-        if (!releaseCheckPassed) {
-          DEBUG_PRINTF_P(PSTR("OTA declined: %s\n"), errorMessage);
-          request->send(400, FPSTR(CONTENT_TYPE_PLAIN), errorMessage);
-          return;
-        } else {
-          DEBUG_PRINTLN(F("OTA allowed: Release compatibility check passed"));
-        }
-        #elif defined(ESP8266)
-        // ESP8266: metadata appears around offset 0x1000, need to buffer data until then
-        validationBuffer = (uint8_t*)malloc(VALIDATION_BUFFER_SIZE);
-        if (!validationBuffer) {
-          DEBUG_PRINTLN(F("OTA failed: Could not allocate validation buffer"));
-          request->send(500, FPSTR(CONTENT_TYPE_PLAIN), F("Out of memory for validation"));
-          return;
-        }
-        DEBUG_PRINTLN(F("ESP8266: Deferring validation until offset 0x1000"));
-        #endif
       }
       
       DEBUG_PRINTLN(F("Release check passed, starting OTA update"));
@@ -521,43 +497,85 @@ void initServer()
       }
     }
     
-    // Handle ESP8266 deferred validation - accumulate data until validation offset is reached
-    #ifdef ESP8266
-    if (releaseCheckPending && validationBuffer) {
-      // Copy data to validation buffer
-      size_t bytesToCopy = min((size_t)len, VALIDATION_BUFFER_SIZE - totalBytesReceived);
-      if (bytesToCopy > 0) {
-        memcpy(validationBuffer + totalBytesReceived, data, bytesToCopy);
-      }
-      totalBytesReceived += len;
+    // Track total bytes received across all chunks
+    totalBytesReceived += len;
+    
+    // Check if we need to perform validation now
+    if (releaseCheckPending) {
+      // Calculate how much data we have after the metadata offset
+      size_t dataAfterOffset = (totalBytesReceived > METADATA_OFFSET) ? 
+                               (totalBytesReceived - METADATA_OFFSET) : 0;
       
-      // Check if we've reached the validation offset
-      if (totalBytesReceived >= ESP8266_VALIDATION_OFFSET + sizeof(wled_custom_desc_t)) {
-        DEBUG_PRINTLN(F("ESP8266: Performing deferred validation"));
-        char errorMessage[128];
+      if (dataAfterOffset > 0) {
+        // We have data after the metadata offset, check if we can validate now
+        size_t currentChunkStart = totalBytesReceived - len;
+        size_t currentChunkAfterOffset = (currentChunkStart >= METADATA_OFFSET) ? 
+                                        0 : (METADATA_OFFSET - currentChunkStart);
         
-        // Validate using buffered data starting from the expected offset
-        releaseCheckPassed = shouldAllowOTA(validationBuffer + ESP8266_VALIDATION_OFFSET, 
-                                          totalBytesReceived - ESP8266_VALIDATION_OFFSET, 
-                                          errorMessage, sizeof(errorMessage));
-        releaseCheckPending = false;
-        
-        if (!releaseCheckPassed) {
-          DEBUG_PRINTF_P(PSTR("OTA declined (deferred): %s\n"), errorMessage);
-          free(validationBuffer);
-          validationBuffer = nullptr;
-          request->send(400, FPSTR(CONTENT_TYPE_PLAIN), errorMessage);
-          return;
-        } else {
-          DEBUG_PRINTLN(F("OTA allowed: Deferred release compatibility check passed"));
+        if (currentChunkStart <= METADATA_OFFSET && 
+            (len - currentChunkAfterOffset) >= sizeof(wled_custom_desc_t)) {
+          // We have enough data in the current chunk to validate
+          char errorMessage[128];
+          uint8_t* validationData = data + currentChunkAfterOffset;
+          size_t validationDataSize = len - currentChunkAfterOffset;
+          
+          releaseCheckPassed = shouldAllowOTA(validationData, validationDataSize, 
+                                            errorMessage, sizeof(errorMessage));
+          releaseCheckPending = false;
+          
+          if (!releaseCheckPassed) {
+            DEBUG_PRINTF_P(PSTR("OTA declined: %s\n"), errorMessage);
+            request->send(400, FPSTR(CONTENT_TYPE_PLAIN), errorMessage);
+            return;
+          } else {
+            DEBUG_PRINTLN(F("OTA allowed: Release compatibility check passed"));
+          }
+        } else if (currentChunkStart < METADATA_OFFSET && totalBytesReceived > METADATA_OFFSET) {
+          // Metadata spans across chunks, need to buffer exactly one callback worth
+          if (!metadataBuffer) {
+            // Calculate how much data we need from the previous chunk
+            size_t prevChunkDataNeeded = METADATA_OFFSET - currentChunkStart;
+            size_t totalBufferSize = prevChunkDataNeeded + len;
+            
+            metadataBuffer = (uint8_t*)malloc(totalBufferSize);
+            if (!metadataBuffer) {
+              DEBUG_PRINTLN(F("OTA failed: Could not allocate metadata buffer"));
+              request->send(500, FPSTR(CONTENT_TYPE_PLAIN), F("Out of memory for validation"));
+              return;
+            }
+            
+            // For now, we'll validate on the next chunk when we have more data
+            metadataBufferSize = totalBufferSize;
+            memcpy(metadataBuffer, data, len);
+            DEBUG_PRINTLN(F("Buffering metadata for validation on next chunk"));
+          } else {
+            // We have buffered data from previous chunk, combine and validate
+            memcpy(metadataBuffer + metadataBufferSize - len, data, len);
+            
+            size_t metadataOffsetInBuffer = METADATA_OFFSET - (totalBytesReceived - metadataBufferSize);
+            char errorMessage[128];
+            
+            releaseCheckPassed = shouldAllowOTA(metadataBuffer + metadataOffsetInBuffer, 
+                                              metadataBufferSize - metadataOffsetInBuffer,
+                                              errorMessage, sizeof(errorMessage));
+            releaseCheckPending = false;
+            
+            // Clean up buffer
+            free(metadataBuffer);
+            metadataBuffer = nullptr;
+            metadataBufferSize = 0;
+            
+            if (!releaseCheckPassed) {
+              DEBUG_PRINTF_P(PSTR("OTA declined: %s\n"), errorMessage);
+              request->send(400, FPSTR(CONTENT_TYPE_PLAIN), errorMessage);
+              return;
+            } else {
+              DEBUG_PRINTLN(F("OTA allowed: Release compatibility check passed"));
+            }
+          }
         }
-        
-        // Free validation buffer as it's no longer needed
-        free(validationBuffer);
-        validationBuffer = nullptr;
       }
     }
-    #endif
     
     // Write chunk data to OTA update (only if release check passed or still pending)
     if ((releaseCheckPassed || releaseCheckPending) && !Update.hasError()) {
@@ -569,13 +587,12 @@ void initServer()
     if(isFinal){
       DEBUG_PRINTLN(F("OTA Update End"));
       
-      // Clean up validation buffer if still allocated
-      #ifdef ESP8266
-      if (validationBuffer) {
-        free(validationBuffer);
-        validationBuffer = nullptr;
+      // Clean up metadata buffer if still allocated
+      if (metadataBuffer) {
+        free(metadataBuffer);
+        metadataBuffer = nullptr;
+        metadataBufferSize = 0;
       }
-      #endif
       
       // Check if validation was still pending (shouldn't happen normally)
       if (releaseCheckPending) {
