@@ -16,6 +16,13 @@
 #define WLED_CUSTOM_DESC_VERSION 1
 #define WLED_RELEASE_NAME_MAX_LEN 48
 
+// Platform-specific metadata offset in binary file
+#ifdef ESP32
+#define METADATA_OFFSET 0          // ESP32: metadata appears at beginning
+#elif defined(ESP8266)
+#define METADATA_OFFSET 0x1000     // ESP8266: metadata appears at 4KB offset
+#endif
+
 /**
  * DJB2 hash function (C++11 compatible constexpr)
  * Used for compile-time hash computation of release names
