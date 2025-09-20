@@ -393,6 +393,28 @@ void initServer()
 
   createEditHandler(correctPIN);
 
+  // Bootloader info endpoint for troubleshooting
+  server.on("/bootloader", HTTP_GET, [](AsyncWebServerRequest *request){
+    AsyncJsonResponse *response = new AsyncJsonResponse(128);
+    JsonObject root = response->getRoot();
+    
+    #ifdef ESP32
+    root[F("version")] = getBootloaderVersion();
+    #ifndef WLED_DISABLE_OTA
+    root[F("rollback_capable")] = Update.canRollBack();
+    #else
+    root[F("rollback_capable")] = false;
+    #endif
+    root[F("esp_idf_version")] = ESP_IDF_VERSION;
+    #else
+    root[F("rollback_capable")] = false;
+    root[F("platform")] = F("ESP8266");
+    #endif
+    
+    response->setLength();
+    request->send(response);
+  });
+
   static const char _update[] PROGMEM = "/update";
 #ifndef WLED_DISABLE_OTA
   //init ota page
@@ -431,6 +453,41 @@ void initServer()
     if (!correctPIN || otaLock) return;
     if(!index){
       DEBUG_PRINTLN(F("OTA Update Start"));
+      
+      #ifndef WLED_DISABLE_OTA
+      // Check for bootloader compatibility metadata in first chunk
+      if (len >= 32) {
+        // Look for metadata header: "WLED_BOOTLOADER:X" where X is required version
+        const char* metadata_prefix = "WLED_BOOTLOADER:";
+        size_t prefix_len = strlen(metadata_prefix);
+        
+        // Search for metadata in first 512 bytes or available data, whichever is smaller
+        size_t search_len = (len > 512) ? 512 : len;
+        for (size_t i = 0; i <= search_len - prefix_len - 1; i++) {
+          if (memcmp(data + i, metadata_prefix, prefix_len) == 0) {
+            // Found metadata header, extract required version
+            char version_char = data[i + prefix_len];
+            if (version_char >= '1' && version_char <= '9') {
+              uint32_t required_version = version_char - '0';
+              
+              DEBUG_PRINTF_P(PSTR("OTA file requires bootloader v%d\n"), required_version);
+              
+              if (!isBootloaderCompatible(required_version)) {
+                DEBUG_PRINTF_P(PSTR("Bootloader incompatible! Current: v%d, Required: v%d\n"), 
+                              getBootloaderVersion(), required_version);
+                request->send(400, FPSTR(CONTENT_TYPE_PLAIN), 
+                             F("Bootloader incompatible! This firmware requires bootloader v4+. "
+                               "Please update via USB using install.wled.me first, or use WLED 0.15.x."));
+                return;
+              }
+              DEBUG_PRINTLN(F("Bootloader compatibility check passed"));
+              break;
+            }
+          }
+        }
+      }
+      #endif
+      
       #if WLED_WATCHDOG_TIMEOUT > 0
       WLED::instance().disableWatchdog();
       #endif
