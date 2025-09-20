@@ -1042,8 +1042,7 @@ function genPalPrevCss(id)
 	}
 
 	var gradient = [];
-	for (let j = 0; j < paletteData.length; j++) {
-		const e = paletteData[j];
+	paletteData.forEach((e,j) => {
 		let r, g, b;
 		let index = false;
 		if (Array.isArray(e)) {
@@ -1065,9 +1064,8 @@ function genPalPrevCss(id)
 		if (index === false) {
 			index = Math.round(j / paletteData.length * 100);
 		}
-
 		gradient.push(`rgb(${r},${g},${b}) ${index}%`);
-	}
+	});
 
 	return `background: linear-gradient(to right,${gradient.join()});`;
 }
@@ -3088,11 +3086,9 @@ function unify(e) {	return e.changedTouches ? e.changedTouches[0] : e; }
 
 function hasIroClass(classList)
 {
-	for (var i = 0; i < classList.length; i++) {
-		var element = classList[i];
-		if (element.startsWith('Iro')) return true;
-	}
-	return false;
+	let found = false;
+	classList.forEach((e)=>{ if (e.startsWith('Iro')) found = true; });
+	return found;
 }
 //required by rangetouch.js
 function lock(e)

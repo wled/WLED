@@ -143,7 +143,7 @@ async function writeHtmlGzipped(sourceFile, resultFile, page) {
       console.info("Minified and compressed " + sourceFile + " from " + originalLength + " to " + result.length + " bytes");
       const array = hexdump(result);
       let src = singleHeader;
-      src += `const uint16_t PAGE_${page}_L = ${result.length};\n`;
+      src += `const uint16_t PAGE_${page}_length = ${result.length};\n`;
       src += `const uint8_t PAGE_${page}[] PROGMEM = {\n${array}\n};\n\n`;
       console.info("Writing " + resultFile);
       fs.writeFileSync(resultFile, src);
@@ -244,8 +244,21 @@ if (isAlreadyBuilt("wled00/data") && process.argv[2] !== '--force' && process.ar
 
 writeHtmlGzipped("wled00/data/index.htm", "wled00/html_ui.h", 'index');
 writeHtmlGzipped("wled00/data/pixart/pixart.htm", "wled00/html_pixart.h", 'pixart');
-writeHtmlGzipped("wled00/data/cpal/cpal.htm", "wled00/html_cpal.h", 'cpal');
+//writeHtmlGzipped("wled00/data/cpal/cpal.htm", "wled00/html_cpal.h", 'cpal');
 writeHtmlGzipped("wled00/data/pxmagic/pxmagic.htm", "wled00/html_pxmagic.h", 'pxmagic');
+
+writeChunks(
+  "wled00/data/cpal",
+  [
+    {
+      file: "cpal.htm",
+      name: "PAGE_cpal",
+      method: "gzip",
+      filter: "html-minify"
+    }
+  ],
+  "wled00/html_cpal.h"
+);
 
 writeChunks(
   "wled00/data",

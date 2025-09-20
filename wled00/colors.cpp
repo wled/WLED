@@ -252,7 +252,7 @@ void loadCustomPalettes() {
   byte tcp[72]; //support gradient palettes with up to 18 entries
   CRGBPalette16 targetPalette;
   customPalettes.clear(); // start fresh
-  for (int index = 0; index<10; index++) {
+  for (int index = 0; index < WLED_MAX_CUSTOM_PALETTES; index++) {
     char fileName[32];
     sprintf_P(fileName, PSTR("/palette%d.json"), index);
 
