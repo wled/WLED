@@ -812,14 +812,15 @@ BusHub75Matrix::BusHub75Matrix(const BusConfig &bc) : Bus(bc.type, bc.start, bc.
   virtualDisp = nullptr;
 
   if (bc.type == TYPE_HUB75MATRIX_HS) {
-      mxconfig.mx_width = min((u_int8_t) 64, bc.pins[0]);
-      mxconfig.mx_height = min((u_int8_t) 64, bc.pins[1]);
-      if(bc.pins[2] > 1 &&  bc.pins[3] > 0 &&  bc.pins[4]) {
-        virtualDisp = new VirtualMatrixPanel((*display), bc.pins[3], bc.pins[4], mxconfig.mx_width, mxconfig.mx_height, CHAIN_BOTTOM_LEFT_UP);
-      }
+      mxconfig.mx_width = min((uint8_t) 64, bc.pins[0]);
+      mxconfig.mx_height = min((uint8_t) 64, bc.pins[1]);
+    // Disable chains of panels for now, incomplete UI changes
+      // if(bc.pins[2] > 1 &&  bc.pins[3] != 0 &&  bc.pins[4] != 0 &&  bc.pins[3] != 255 &&  bc.pins[4] != 255) {
+      //   virtualDisp = new VirtualMatrixPanel((*display), bc.pins[3], bc.pins[4], mxconfig.mx_width, mxconfig.mx_height, CHAIN_BOTTOM_LEFT_UP);
+      // }
   } else if (bc.type == TYPE_HUB75MATRIX_QS) {
-      mxconfig.mx_width = min((u_int8_t) 64, bc.pins[0]) * 2;
-      mxconfig.mx_height = min((u_int8_t) 64, bc.pins[1]) / 2;
+      mxconfig.mx_width = min((uint8_t) 64, bc.pins[0]) * 2;
+      mxconfig.mx_height = min((uint8_t) 64, bc.pins[1]) / 2;
       virtualDisp = new VirtualMatrixPanel((*display), 1, 1, bc.pins[0], bc.pins[1]);
       virtualDisp->setRotation(0);
       switch(bc.pins[1]) {
@@ -849,7 +850,7 @@ BusHub75Matrix::BusHub75Matrix(const BusConfig &bc) : Bus(bc.type, bc.start, bc.
   } else mxconfig.setPixelColorDepthBits(8);
 #endif
 
-  mxconfig.chain_length = max((u_int8_t) 1, min(bc.pins[2], (u_int8_t) 4)); // prevent bad data preventing boot due to low memory
+  mxconfig.chain_length = max((uint8_t) 1, min(bc.pins[2], (uint8_t) 4)); // prevent bad data preventing boot due to low memory
 
   if(mxconfig.mx_height >= 64 && (mxconfig.chain_length > 1)) {
     DEBUGBUS_PRINTLN("WARNING, only single panel can be used of 64 pixel boards due to memory");
