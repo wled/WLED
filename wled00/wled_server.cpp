@@ -1,12 +1,7 @@
 #include "wled.h"
 
 #ifndef WLED_DISABLE_OTA
-  #ifdef ESP8266
-    #include <Updater.h>
-  #else
-    #include <Update.h>
-  #endif
-  #include "ota_release_check.h"
+  #include "ota_update.h"
 #endif
 #include "html_ui.h"
 #include "html_settings.h"
@@ -423,194 +418,22 @@ void initServer()
       doReboot = true;
     }
   },[](AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool isFinal){
+    if (index == 0) { 
+      // Privilege checks
     IPAddress client  = request->client()->remoteIP();
     if (((otaSameSubnet && !inSameSubnet(client)) && !strlen(settingsPIN)) || (!otaSameSubnet && !inLocalSubnet(client))) {
       DEBUG_PRINTLN(F("Attempted OTA update from different/non-local subnet!"));
       request->send(401, FPSTR(CONTENT_TYPE_PLAIN), FPSTR(s_accessdenied));
       return;
     }
-    if (!correctPIN || otaLock) return;
-    
-    // Static variables to track release check status across chunks  
-    static bool releaseCheckPassed = false;
-    static bool releaseCheckPending = true;
-    static size_t totalBytesReceived = 0;
-    static uint8_t* metadataBuffer = nullptr;
-    static size_t metadataBufferUsed = 0;
-    
-    if(!index){
-      DEBUG_PRINTLN(F("OTA Update Start"));
-      
-      // Reset validation state for new update
-      releaseCheckPassed = false;
-      releaseCheckPending = true;
-      totalBytesReceived = 0;
-      
-      // Free any existing metadata buffer
-      if (metadataBuffer) {
-        free(metadataBuffer);
-        metadataBuffer = nullptr;
-        metadataBufferUsed = 0;
-      }
-      
-      // Check if user wants to skip validation
-      bool skipValidation = request->hasParam("skipValidation", true);
-      
-      // If user chose to skip validation, proceed without compatibility check
-      if (skipValidation) {
-        DEBUG_PRINTLN(F("OTA validation skipped by user"));
-        releaseCheckPassed = true;
-        releaseCheckPending = false;
-      }
-      
-      DEBUG_PRINTLN(F("Release check passed, starting OTA update"));
-      
-      #if WLED_WATCHDOG_TIMEOUT > 0
-      WLED::instance().disableWatchdog();
-      #endif
-      UsermodManager::onUpdateBegin(true); // notify usermods that update is about to begin (some may require task de-init)
-      lastEditTime = millis(); // make sure PIN does not lock during update
-      
-      // Start the actual OTA update
-      strip.suspend();
-      backupConfig(); // backup current config in case the update ends badly
-      strip.resetSegments();  // free as much memory as you can
-      #ifdef ESP8266
-      Update.runAsync(true);
-      #endif
-      
-      // Begin update with the firmware size from content length
-      size_t updateSize = request->contentLength() > 0 ? request->contentLength() : ((ESP.getFreeSketchSpace() - 0x1000) & 0xFFFFF000);
-      if (!Update.begin(updateSize)) {
-        DEBUG_PRINTF_P(PSTR("OTA Failed to begin: %s\n"), Update.getErrorString().c_str());
-        strip.resume();
-        UsermodManager::onUpdateBegin(false);
-        #if WLED_WATCHDOG_TIMEOUT > 0
-        WLED::instance().enableWatchdog();
-        #endif
-        #ifdef ESP32
-        request->send(500, FPSTR(CONTENT_TYPE_PLAIN), String("Update.begin failed: ") + Update.errorString());
-        #else
-        request->send(500, FPSTR(CONTENT_TYPE_PLAIN), String("Update.begin failed: ") + Update.getErrorString());
-        #endif
+      if (!correctPIN || otaLock) {
+        request->send(401, FPSTR(CONTENT_TYPE_PLAIN), FPSTR(s_unlock_cfg));
         return;
-      }
-    }
-    
-    // Track total bytes received across all chunks
-    size_t chunkStartOffset = totalBytesReceived;
-    totalBytesReceived += len;
-    
-    // Perform validation if we haven't done it yet and we have reached the metadata offset
-    if (releaseCheckPending && totalBytesReceived > METADATA_OFFSET) {
-      
-      if (chunkStartOffset <= METADATA_OFFSET) {
-        // Current chunk contains the metadata offset
-        size_t offsetInChunk = METADATA_OFFSET - chunkStartOffset;
-        size_t availableDataAfterOffset = len - offsetInChunk;
-        
-        if (availableDataAfterOffset >= sizeof(wled_custom_desc_t)) {
-          // We have enough data in this chunk to validate immediately
-          char errorMessage[128];
-          releaseCheckPassed = shouldAllowOTA(data + offsetInChunk, availableDataAfterOffset,
-                                            errorMessage, sizeof(errorMessage));
-          releaseCheckPending = false;
-          
-          if (!releaseCheckPassed) {
-            DEBUG_PRINTF_P(PSTR("OTA declined: %s\n"), errorMessage);
-            request->send(400, FPSTR(CONTENT_TYPE_PLAIN), errorMessage);
-            return;
-          } else {
-            DEBUG_PRINTLN(F("OTA allowed: Release compatibility check passed"));
-          }
-          
-        } else {
-          // Not enough data in this chunk, buffer it for the next chunk
-          metadataBuffer = (uint8_t*)malloc(len - offsetInChunk);
-          if (!metadataBuffer) {
-            DEBUG_PRINTLN(F("OTA failed: Could not allocate metadata buffer"));
-            request->send(500, FPSTR(CONTENT_TYPE_PLAIN), F("Out of memory for validation"));
-            return;
-          }
-          memcpy(metadataBuffer, data + offsetInChunk, len - offsetInChunk);
-          metadataBufferUsed = len - offsetInChunk;
-          DEBUG_PRINTF_P(PSTR("Buffered %u bytes of metadata for next chunk\n"), metadataBufferUsed);
-        }
-        
-      } else if (metadataBuffer && metadataBufferUsed > 0) {
-        // We have buffered metadata from previous chunk, combine with current chunk
-        size_t totalMetadataSize = metadataBufferUsed + len;
-        
-        if (totalMetadataSize >= sizeof(wled_custom_desc_t)) {
-          // Create combined buffer for validation
-          uint8_t* combinedBuffer = (uint8_t*)malloc(totalMetadataSize);
-          if (!combinedBuffer) {
-            DEBUG_PRINTLN(F("OTA failed: Could not allocate combined buffer"));
-            request->send(500, FPSTR(CONTENT_TYPE_PLAIN), F("Out of memory for validation"));
-            return;
-          }
-          
-          memcpy(combinedBuffer, metadataBuffer, metadataBufferUsed);
-          memcpy(combinedBuffer + metadataBufferUsed, data, len);
-          
-          char errorMessage[128];
-          releaseCheckPassed = shouldAllowOTA(combinedBuffer, totalMetadataSize,
-                                            errorMessage, sizeof(errorMessage));
-          releaseCheckPending = false;
-          
-          // Clean up buffers
-          free(combinedBuffer);
-          free(metadataBuffer);
-          metadataBuffer = nullptr;
-          metadataBufferUsed = 0;
-          
-          if (!releaseCheckPassed) {
-            DEBUG_PRINTF_P(PSTR("OTA declined: %s\n"), errorMessage);
-            request->send(400, FPSTR(CONTENT_TYPE_PLAIN), errorMessage);
-            return;
-          } else {
-            DEBUG_PRINTLN(F("OTA allowed: Release compatibility check passed"));
-          }
-        }
-      }
-    }
-    
-    // Write chunk data to OTA update (only if release check passed or still pending)
-    if ((releaseCheckPassed || releaseCheckPending) && !Update.hasError()) {
-      if (Update.write(data, len) != len) {
-        DEBUG_PRINTF_P(PSTR("OTA write failed on chunk %zu: %s\n"), index, Update.getErrorString().c_str());
-      }
-    }
-    
-    if(isFinal){
-      DEBUG_PRINTLN(F("OTA Update End"));
-      
-      // Clean up metadata buffer if still allocated
-      if (metadataBuffer) {
-        free(metadataBuffer);
-        metadataBuffer = nullptr;
-        metadataBufferUsed = 0;
-      }
-      
-      // Check if validation was still pending (shouldn't happen normally)
-      if (releaseCheckPending) {
-        DEBUG_PRINTLN(F("OTA failed: Validation never completed"));
-        request->send(400, FPSTR(CONTENT_TYPE_PLAIN), F("Firmware validation incomplete"));
-        return;
-      }
-      
-      if (releaseCheckPassed) {
-        if(Update.end(true)){
-          DEBUG_PRINTLN(F("Update Success"));
-        } else {
-          DEBUG_PRINTLN(F("Update Failed"));
-          strip.resume();
-          UsermodManager::onUpdateBegin(false); // notify usermods that update has failed (some may require task init)
-          #if WLED_WATCHDOG_TIMEOUT > 0
-          WLED::instance().enableWatchdog();
-          #endif
-        }
-      }
+      };
+      // Basic checks OK, start up OTA process
+      beginOTA(request, filename, index, data, len, isFinal);
+    } else if (request->_tempObject) {  // Discard upload data if we've already replied
+      handleOTAData(request, index, data, len, isFinal);
     }
   });
 #else
