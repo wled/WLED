@@ -1178,17 +1178,42 @@ void WS2812FX::finalizeInit() {
   digitalCount = 0;
   #endif
 
+  DEBUG_PRINTF_P(PSTR("Heap before buses: %d\n"), getFreeHeapSize());
   // create buses/outputs
   unsigned mem = 0;
+  unsigned maxI2S = 0;
   for (const auto &bus : busConfigs) {
-    mem += bus.memUsage(Bus::isDigital(bus.type) && !Bus::is2Pin(bus.type) ? digitalCount++ : 0); // includes global buffer
-    if (mem <= MAX_LED_MEMORY) {
-      if (BusManager::add(bus) == -1) break;
+    unsigned memB = bus.memUsage(Bus::isDigital(bus.type) && !Bus::is2Pin(bus.type) ? digitalCount++ : 0); // does not include DMA/RMT buffer
+    mem += memB;
+    // estimate maximum I2S memory usage (only relevant for digital non-2pin busses)
+    #if !defined(CONFIG_IDF_TARGET_ESP32C3) && !defined(ESP8266)
+      #if defined(CONFIG_IDF_TARGET_ESP32) || defined(CONFIG_IDF_TARGET_ESP32S3)
+    const bool usesI2S = ((useParallelI2S && digitalCount <= 8) || (!useParallelI2S && digitalCount == 1));
+      #elif defined(CONFIG_IDF_TARGET_ESP32S2)
+    const bool usesI2S = (useParallelI2S && digitalCount <= 8);
+      #else
+    const bool usesI2S = false;
+      #endif
+    if (Bus::isDigital(bus.type) && !Bus::is2Pin(bus.type) && usesI2S) {
+      #ifdef NPB_CONF_4STEP_CADENCE
+      constexpr unsigned stepFactor = 4; // 4 step cadence (4 bits per pixel bit)
+      #else
+      constexpr unsigned stepFactor = 3; // 3 step cadence (3 bits per pixel bit)
+      #endif
+      unsigned i2sCommonSize = stepFactor * bus.count * (3*Bus::hasRGB(bus.type)+Bus::hasWhite(bus.type)+Bus::hasCCT(bus.type)) * (Bus::is16bit(bus.type)+1);
+      if (i2sCommonSize > maxI2S) maxI2S = i2sCommonSize;
+    }
+    #endif
+    if (mem + maxI2S <= MAX_LED_MEMORY) {
+      BusManager::add(bus);
+      DEBUG_PRINTF_P(PSTR("Bus memory: %uB\n"), memB);
     } else {
       errorFlag = ERR_NORAM_PX; // alert UI
       DEBUG_PRINTF_P(PSTR("Out of LED memory! Bus %d (%d) #%u not created."), (int)bus.type, (int)bus.count, digitalCount);
+      break;
     }
   }
+  DEBUG_PRINTF_P(PSTR("LED buffer size: %uB/%uB\n"), mem + maxI2S, BusManager::memUsage());
   busConfigs.clear();
   busConfigs.shrink_to_fit();
 

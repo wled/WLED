@@ -1121,54 +1121,54 @@ class PolyBus {
     switch (busType) {
       case I_NONE: break;
     #ifdef ESP8266
-      case I_8266_U0_NEO_3: size = (static_cast<B_8266_U0_NEO_3*>(busPtr))->PixelsSize()*2; break;
-      case I_8266_U1_NEO_3: size = (static_cast<B_8266_U1_NEO_3*>(busPtr))->PixelsSize()*2; break;
+      case I_8266_U0_NEO_3: size = (static_cast<B_8266_U0_NEO_3*>(busPtr))->PixelsSize(); break;
+      case I_8266_U1_NEO_3: size = (static_cast<B_8266_U1_NEO_3*>(busPtr))->PixelsSize(); break;
       case I_8266_DM_NEO_3: size = (static_cast<B_8266_DM_NEO_3*>(busPtr))->PixelsSize()*5; break;
-      case I_8266_BB_NEO_3: size = (static_cast<B_8266_BB_NEO_3*>(busPtr))->PixelsSize()*2; break;
-      case I_8266_U0_NEO_4: size = (static_cast<B_8266_U0_NEO_4*>(busPtr))->PixelsSize()*2; break;
-      case I_8266_U1_NEO_4: size = (static_cast<B_8266_U1_NEO_4*>(busPtr))->PixelsSize()*2; break;
+      case I_8266_BB_NEO_3: size = (static_cast<B_8266_BB_NEO_3*>(busPtr))->PixelsSize(); break;
+      case I_8266_U0_NEO_4: size = (static_cast<B_8266_U0_NEO_4*>(busPtr))->PixelsSize(); break;
+      case I_8266_U1_NEO_4: size = (static_cast<B_8266_U1_NEO_4*>(busPtr))->PixelsSize(); break;
       case I_8266_DM_NEO_4: size = (static_cast<B_8266_DM_NEO_4*>(busPtr))->PixelsSize()*5; break;
-      case I_8266_BB_NEO_4: size = (static_cast<B_8266_BB_NEO_4*>(busPtr))->PixelsSize()*2; break;
-      case I_8266_U0_400_3: size = (static_cast<B_8266_U0_400_3*>(busPtr))->PixelsSize()*2; break;
-      case I_8266_U1_400_3: size = (static_cast<B_8266_U1_400_3*>(busPtr))->PixelsSize()*2; break;
+      case I_8266_BB_NEO_4: size = (static_cast<B_8266_BB_NEO_4*>(busPtr))->PixelsSize(); break;
+      case I_8266_U0_400_3: size = (static_cast<B_8266_U0_400_3*>(busPtr))->PixelsSize(); break;
+      case I_8266_U1_400_3: size = (static_cast<B_8266_U1_400_3*>(busPtr))->PixelsSize(); break;
       case I_8266_DM_400_3: size = (static_cast<B_8266_DM_400_3*>(busPtr))->PixelsSize()*5; break;
-      case I_8266_BB_400_3: size = (static_cast<B_8266_BB_400_3*>(busPtr))->PixelsSize()*2; break;
-      case I_8266_U0_TM1_4: size = (static_cast<B_8266_U0_TM1_4*>(busPtr))->PixelsSize()*2; break;
-      case I_8266_U1_TM1_4: size = (static_cast<B_8266_U1_TM1_4*>(busPtr))->PixelsSize()*2; break;
+      case I_8266_BB_400_3: size = (static_cast<B_8266_BB_400_3*>(busPtr))->PixelsSize(); break;
+      case I_8266_U0_TM1_4: size = (static_cast<B_8266_U0_TM1_4*>(busPtr))->PixelsSize(); break;
+      case I_8266_U1_TM1_4: size = (static_cast<B_8266_U1_TM1_4*>(busPtr))->PixelsSize(); break;
       case I_8266_DM_TM1_4: size = (static_cast<B_8266_DM_TM1_4*>(busPtr))->PixelsSize()*5; break;
-      case I_8266_BB_TM1_4: size = (static_cast<B_8266_BB_TM1_4*>(busPtr))->PixelsSize()*2; break;
-      case I_8266_U0_TM2_3: size = (static_cast<B_8266_U0_TM2_3*>(busPtr))->PixelsSize()*2; break;
-      case I_8266_U1_TM2_3: size = (static_cast<B_8266_U1_TM2_3*>(busPtr))->PixelsSize()*2; break;
+      case I_8266_BB_TM1_4: size = (static_cast<B_8266_BB_TM1_4*>(busPtr))->PixelsSize(); break;
+      case I_8266_U0_TM2_3: size = (static_cast<B_8266_U0_TM2_3*>(busPtr))->PixelsSize(); break;
+      case I_8266_U1_TM2_3: size = (static_cast<B_8266_U1_TM2_3*>(busPtr))->PixelsSize(); break;
       case I_8266_DM_TM2_3: size = (static_cast<B_8266_DM_TM2_3*>(busPtr))->PixelsSize()*5; break;
-      case I_8266_BB_TM2_3: size = (static_cast<B_8266_BB_TM2_3*>(busPtr))->PixelsSize()*2; break;
-      case I_8266_U0_UCS_3: size = (static_cast<B_8266_U0_UCS_3*>(busPtr))->PixelsSize()*2; break;
-      case I_8266_U1_UCS_3: size = (static_cast<B_8266_U1_UCS_3*>(busPtr))->PixelsSize()*2; break;
+      case I_8266_BB_TM2_3: size = (static_cast<B_8266_BB_TM2_3*>(busPtr))->PixelsSize(); break;
+      case I_8266_U0_UCS_3: size = (static_cast<B_8266_U0_UCS_3*>(busPtr))->PixelsSize(); break;
+      case I_8266_U1_UCS_3: size = (static_cast<B_8266_U1_UCS_3*>(busPtr))->PixelsSize(); break;
       case I_8266_DM_UCS_3: size = (static_cast<B_8266_DM_UCS_3*>(busPtr))->PixelsSize()*5; break;
-      case I_8266_BB_UCS_3: size = (static_cast<B_8266_BB_UCS_3*>(busPtr))->PixelsSize()*2; break;
-      case I_8266_U0_UCS_4: size = (static_cast<B_8266_U0_UCS_4*>(busPtr))->PixelsSize()*2; break;
-      case I_8266_U1_UCS_4: size = (static_cast<B_8266_U1_UCS_4*>(busPtr))->PixelsSize()*2; break;
+      case I_8266_BB_UCS_3: size = (static_cast<B_8266_BB_UCS_3*>(busPtr))->PixelsSize(); break;
+      case I_8266_U0_UCS_4: size = (static_cast<B_8266_U0_UCS_4*>(busPtr))->PixelsSize(); break;
+      case I_8266_U1_UCS_4: size = (static_cast<B_8266_U1_UCS_4*>(busPtr))->PixelsSize(); break;
       case I_8266_DM_UCS_4: size = (static_cast<B_8266_DM_UCS_4*>(busPtr))->PixelsSize()*5; break;
-      case I_8266_BB_UCS_4: size = (static_cast<B_8266_BB_UCS_4*>(busPtr))->PixelsSize()*2; break;
-      case I_8266_U0_APA106_3: size = (static_cast<B_8266_U0_APA106_3*>(busPtr))->PixelsSize()*2; break;
-      case I_8266_U1_APA106_3: size = (static_cast<B_8266_U1_APA106_3*>(busPtr))->PixelsSize()*2; break;
+      case I_8266_BB_UCS_4: size = (static_cast<B_8266_BB_UCS_4*>(busPtr))->PixelsSize(); break;
+      case I_8266_U0_APA106_3: size = (static_cast<B_8266_U0_APA106_3*>(busPtr))->PixelsSize(); break;
+      case I_8266_U1_APA106_3: size = (static_cast<B_8266_U1_APA106_3*>(busPtr))->PixelsSize(); break;
       case I_8266_DM_APA106_3: size = (static_cast<B_8266_DM_APA106_3*>(busPtr))->PixelsSize()*5; break;
-      case I_8266_BB_APA106_3: size = (static_cast<B_8266_BB_APA106_3*>(busPtr))->PixelsSize()*2; break;
-      case I_8266_U0_FW6_5: size = (static_cast<B_8266_U0_FW6_5*>(busPtr))->PixelsSize()*2; break;
-      case I_8266_U1_FW6_5: size = (static_cast<B_8266_U1_FW6_5*>(busPtr))->PixelsSize()*2; break;
+      case I_8266_BB_APA106_3: size = (static_cast<B_8266_BB_APA106_3*>(busPtr))->PixelsSize(); break;
+      case I_8266_U0_FW6_5: size = (static_cast<B_8266_U0_FW6_5*>(busPtr))->PixelsSize(); break;
+      case I_8266_U1_FW6_5: size = (static_cast<B_8266_U1_FW6_5*>(busPtr))->PixelsSize(); break;
       case I_8266_DM_FW6_5: size = (static_cast<B_8266_DM_FW6_5*>(busPtr))->PixelsSize()*5; break;
-      case I_8266_BB_FW6_5: size = (static_cast<B_8266_BB_FW6_5*>(busPtr))->PixelsSize()*2; break;
-      case I_8266_U0_2805_5: size = (static_cast<B_8266_U0_2805_5*>(busPtr))->PixelsSize()*2; break;
-      case I_8266_U1_2805_5: size = (static_cast<B_8266_U1_2805_5*>(busPtr))->PixelsSize()*2; break;
+      case I_8266_BB_FW6_5: size = (static_cast<B_8266_BB_FW6_5*>(busPtr))->PixelsSize(); break;
+      case I_8266_U0_2805_5: size = (static_cast<B_8266_U0_2805_5*>(busPtr))->PixelsSize(); break;
+      case I_8266_U1_2805_5: size = (static_cast<B_8266_U1_2805_5*>(busPtr))->PixelsSize(); break;
       case I_8266_DM_2805_5: size = (static_cast<B_8266_DM_2805_5*>(busPtr))->PixelsSize()*5; break;
-      case I_8266_BB_2805_5: size = (static_cast<B_8266_BB_2805_5*>(busPtr))->PixelsSize()*2; break;
-      case I_8266_U0_TM1914_3: size = (static_cast<B_8266_U0_TM1914_3*>(busPtr))->PixelsSize()*2; break;
-      case I_8266_U1_TM1914_3: size = (static_cast<B_8266_U1_TM1914_3*>(busPtr))->PixelsSize()*2; break;
+      case I_8266_BB_2805_5: size = (static_cast<B_8266_BB_2805_5*>(busPtr))->PixelsSize(); break;
+      case I_8266_U0_TM1914_3: size = (static_cast<B_8266_U0_TM1914_3*>(busPtr))->PixelsSize(); break;
+      case I_8266_U1_TM1914_3: size = (static_cast<B_8266_U1_TM1914_3*>(busPtr))->PixelsSize(); break;
       case I_8266_DM_TM1914_3: size = (static_cast<B_8266_DM_TM1914_3*>(busPtr))->PixelsSize()*5; break;
-      case I_8266_BB_TM1914_3: size = (static_cast<B_8266_BB_TM1914_3*>(busPtr))->PixelsSize()*2; break;
-      case I_8266_U0_SM16825_5: size = (static_cast<B_8266_U0_SM16825_5*>(busPtr))->PixelsSize()*2; break;
-      case I_8266_U1_SM16825_5: size = (static_cast<B_8266_U1_SM16825_5*>(busPtr))->PixelsSize()*2; break;
+      case I_8266_BB_TM1914_3: size = (static_cast<B_8266_BB_TM1914_3*>(busPtr))->PixelsSize(); break;
+      case I_8266_U0_SM16825_5: size = (static_cast<B_8266_U0_SM16825_5*>(busPtr))->PixelsSize(); break;
+      case I_8266_U1_SM16825_5: size = (static_cast<B_8266_U1_SM16825_5*>(busPtr))->PixelsSize(); break;
       case I_8266_DM_SM16825_5: size = (static_cast<B_8266_DM_SM16825_5*>(busPtr))->PixelsSize()*5; break;
-      case I_8266_BB_SM16825_5: size = (static_cast<B_8266_BB_SM16825_5*>(busPtr))->PixelsSize()*2; break;
+      case I_8266_BB_SM16825_5: size = (static_cast<B_8266_BB_SM16825_5*>(busPtr))->PixelsSize(); break;
     #endif
     #ifdef ARDUINO_ARCH_ESP32
       // RMT buses (front + back + small system managed RMT)
@@ -1220,68 +1220,65 @@ class PolyBus {
       case I_NONE: size = 0; break;
     #ifdef ESP8266
       // UART methods have front + back buffers + small UART
-      case I_8266_U0_NEO_4: size = (size + count)*2; break; // 4 channels
-      case I_8266_U1_NEO_4: size = (size + count)*2; break; // 4 channels
-      case I_8266_BB_NEO_4: size = (size + count)*2; break; // 4 channels
-      case I_8266_U0_TM1_4: size = (size + count)*2; break; // 4 channels
-      case I_8266_U1_TM1_4: size = (size + count)*2; break; // 4 channels
-      case I_8266_BB_TM1_4: size = (size + count)*2; break; // 4 channels
-      case I_8266_U0_UCS_3: size *= 4; break; // 16 bit
-      case I_8266_U1_UCS_3: size *= 4; break; // 16 bit
-      case I_8266_BB_UCS_3: size *= 4; break; // 16 bit
-      case I_8266_U0_UCS_4: size = (size + count)*2*2; break; // 16 bit 4 channels
-      case I_8266_U1_UCS_4: size = (size + count)*2*2; break; // 16 bit 4 channels
-      case I_8266_BB_UCS_4: size = (size + count)*2*2; break; // 16 bit 4 channels
-      case I_8266_U0_FW6_5: size = (size + 2*count)*2; break; // 5 channels
-      case I_8266_U1_FW6_5: size = (size + 2*count)*2; break; // 5channels
-      case I_8266_BB_FW6_5: size = (size + 2*count)*2; break; // 5 channels
-      case I_8266_U0_2805_5: size = (size + 2*count)*2; break; // 5 channels
-      case I_8266_U1_2805_5: size = (size + 2*count)*2; break; // 5 channels
-      case I_8266_BB_2805_5: size = (size + 2*count)*2; break; // 5 channels
-      case I_8266_U0_SM16825_5: size = (size + 2*count)*2*2; break; // 16 bit 5 channels
-      case I_8266_U1_SM16825_5: size = (size + 2*count)*2*2; break; // 16 bit 5 channels
-      case I_8266_BB_SM16825_5: size = (size + 2*count)*2*2; break; // 16 bit 5 channels
-      // DMA methods have front + DMA buffer = ((1+(3+1)) * channels)
-      case I_8266_DM_NEO_3: size *= 5; break;
-      case I_8266_DM_NEO_4: size = (size + count)*5; break;
-      case I_8266_DM_400_3: size *= 5; break;
-      case I_8266_DM_TM1_4: size = (size + count)*5; break;
-      case I_8266_DM_TM2_3: size *= 5; break;
-      case I_8266_DM_UCS_3: size *= 2*5; break;
-      case I_8266_DM_UCS_4: size = (size + count)*2*5; break;
-      case I_8266_DM_APA106_3: size *= 5; break;
-      case I_8266_DM_FW6_5: size = (size + 2*count)*5; break;
-      case I_8266_DM_2805_5: size = (size + 2*count)*5; break;
-      case I_8266_DM_TM1914_3: size *= 5; break;
+      case I_8266_U0_NEO_4    : // fallthrough
+      case I_8266_U1_NEO_4    : // fallthrough
+      case I_8266_BB_NEO_4    : // fallthrough
+      case I_8266_U0_TM1_4    : // fallthrough
+      case I_8266_U1_TM1_4    : // fallthrough
+      case I_8266_BB_TM1_4    : size = (size + count);       break; // 4 channels
+      case I_8266_U0_UCS_3    : // fallthrough
+      case I_8266_U1_UCS_3    : // fallthrough
+      case I_8266_BB_UCS_3    : size *= 2;                   break; // 16 bit
+      case I_8266_U0_UCS_4    : // fallthrough
+      case I_8266_U1_UCS_4    : // fallthrough
+      case I_8266_BB_UCS_4    : size = (size + count)*2;     break; // 16 bit 4 channels
+      case I_8266_U0_FW6_5    : // fallthrough
+      case I_8266_U1_FW6_5    : // fallthrough
+      case I_8266_BB_FW6_5    : // fallthrough
+      case I_8266_U0_2805_5   : // fallthrough
+      case I_8266_U1_2805_5   : // fallthrough
+      case I_8266_BB_2805_5   : size = (size + 2*count);     break; // 5 channels
+      case I_8266_U0_SM16825_5: // fallthrough
+      case I_8266_U1_SM16825_5: // fallthrough
+      case I_8266_BB_SM16825_5: size = (size + 2*count)*2;   break; // 16 bit 5 channels
+      // DMA methods have front + DMA buffer = ((1+(3+1)) * channels; exact value is a bit of mistery - needs a dig into NPB)
+      case I_8266_DM_NEO_3    : // fallthrough
+      case I_8266_DM_400_3    : // fallthrough
+      case I_8266_DM_TM2_3    : // fallthrough
+      case I_8266_DM_APA106_3 : // fallthrough
+      case I_8266_DM_TM1914_3 : size *= 5;                   break;
+      case I_8266_DM_NEO_4    : // fallthrough
+      case I_8266_DM_TM1_4    : size = (size + count)*5;     break;
+      case I_8266_DM_UCS_3    : size *= 2*5;                 break;
+      case I_8266_DM_UCS_4    : size = (size + count)*2*5;   break;
+      case I_8266_DM_FW6_5    : // fallthrough
+      case I_8266_DM_2805_5   : size = (size + 2*count)*5;   break;
       case I_8266_DM_SM16825_5: size = (size + 2*count)*2*5; break;
-    #endif
-    #ifdef ARDUINO_ARCH_ESP32
-      // RMT buses (1x front and 1x back buffer)
-      case I_32_RN_NEO_4: size = (size + count)*2; break;
-      case I_32_RN_TM1_4: size = (size + count)*2; break;
-      case I_32_RN_UCS_3: size *= 2*2; break;
-      case I_32_RN_UCS_4: size = (size + count)*2*2; break;
-      case I_32_RN_FW6_5: size = (size + 2*count)*2; break;
-      case I_32_RN_2805_5: size = (size + 2*count)*2; break;
-      case I_32_RN_SM16825_5: size = (size + 2*count)*2*2; break;
-      // I2S1 bus or paralell buses (individual 1x front and 1 DMA (3x or 4x pixel count) or common back DMA buffers)
+    #else
+      // RMT buses (1x front and 1x back buffer, does not include small RMT buffer)
+      case I_32_RN_NEO_4    : // fallthrough
+      case I_32_RN_TM1_4    : size = (size + count)*2;     break; // 4 channels
+      case I_32_RN_UCS_3    : size *= 2*2;                 break; // 16bit
+      case I_32_RN_UCS_4    : size = (size + count)*2*2;   break; // 16bit, 4 channels
+      case I_32_RN_FW6_5    : // fallthrough
+      case I_32_RN_2805_5   : size = (size + 2*count)*2;   break; // 5 channels
+      case I_32_RN_SM16825_5: size = (size + 2*count)*2*2; break; // 16bit, 5 channels
+      // I2S1 bus or paralell I2S1 buses (1x front, does not include DMA buffer which is front*cadence, a bit(?) more for LCD)
       #ifndef CONFIG_IDF_TARGET_ESP32C3
-      case I_32_I2_NEO_3: size *= 4; break;
-      case I_32_I2_NEO_4: size = (size + count)*4; break;
-      case I_32_I2_400_3: size *= 4; break;
-      case I_32_I2_TM1_4: size = (size + count)*4; break;
-      case I_32_I2_TM2_3: size *= 4; break;
-      case I_32_I2_UCS_3: size *= 2*4; break;
-      case I_32_I2_UCS_4: size = (size + count)*2*4; break;
-      case I_32_I2_APA106_3: size *= 4; break;
-      case I_32_I2_FW6_5: size = (size + 2*count)*4; break;
-      case I_32_I2_2805_5: size = (size + 2*count)*4; break;
-      case I_32_I2_TM1914_3: size *= 4; break;
-      case I_32_I2_SM16825_5: size = (size + 2*count)*2*4; break;
+      case I_32_I2_NEO_3    : // fallthrough
+      case I_32_I2_400_3    : // fallthrough
+      case I_32_I2_TM2_3    : // fallthrough
+      case I_32_I2_APA106_3 :                              break; // do nothing, I2S uses single buffer + DMA buffer
+      case I_32_I2_NEO_4    : // fallthrough
+      case I_32_I2_TM1_4    : size = (size + count);       break; // 4 channels
+      case I_32_I2_UCS_3    : size *= 2;                   break; // 16 bit
+      case I_32_I2_UCS_4    : size = (size + count)*2;     break; // 16 bit, 4 channels
+      case I_32_I2_FW6_5    : // fallthrough
+      case I_32_I2_2805_5   : size = (size + 2*count);     break; // 5 channels
+      case I_32_I2_SM16825_5: size = (size + 2*count)*2;   break; // 16 bit, 5 channels
       #endif
+      default               : size *= 2;                   break; // everything else uses 2 buffers
     #endif
-      // everything else uses 2 buffers
-      default:         size *= 2; break;
     }
     return size;
   }
