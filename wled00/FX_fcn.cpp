@@ -1208,6 +1208,7 @@ void WS2812FX::finalizeInit() {
       BusManager::add(bus);
       DEBUG_PRINTF_P(PSTR("Bus memory: %uB\n"), memB);
     } else {
+      errorFlag = ERR_NORAM_PX; // alert UI
       DEBUG_PRINTF_P(PSTR("Out of LED memory! Bus %d (%d) #%u not created."), (int)bus.type, (int)bus.count, digitalCount);
       break;
     }

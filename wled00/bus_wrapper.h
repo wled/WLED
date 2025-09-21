@@ -469,20 +469,20 @@ class PolyBus {
   }
 
   static void* create(uint8_t busType, uint8_t* pins, uint16_t len, uint8_t channel) {
-  #if defined(ARDUINO_ARCH_ESP32) && !defined(CONFIG_IDF_TARGET_ESP32C3)
     // NOTE: "channel" is only used on ESP32 (and its variants) for RMT channel allocation
-    // since 0.15.0-b3 I2S1 is favoured for classic ESP32 and moved to position 0 (channel 0) so we need to subtract 1 for correct RMT allocation
-    #if defined(CONFIG_IDF_TARGET_ESP32)
-    if (channel > 0) {
-      channel--;
-      if (_useParallelI2S && channel > 6) channel -= 7; // accommodate I2S1 which is used as 1st bus
+
+    #if defined(ARDUINO_ARCH_ESP32) && !defined(CONFIG_IDF_TARGET_ESP32C3)
+    if (_useParallelI2S && (channel >= 8)) {
+        // Parallel I2S channels are to be used first, so subtract 8 to get the RMT channel number
+        channel -= 8;
     }
-    #elif defined(CONFIG_IDF_TARGET_ESP32S2)
-    if (_useParallelI2S && channel > 7) channel -= 8; // accommodate I2S1 which is used as 1st bus
-    #elif defined(CONFIG_IDF_TARGET_ESP32S3)
-    if (_useParallelI2S && channel > 7) channel -= 8; // accommodate I2S1 which is used as 1st bus
     #endif
-  #endif
+
+    #if defined(ARDUINO_ARCH_ESP32) && !(defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32S3) || defined(CONFIG_IDF_TARGET_ESP32C3))
+    // since 0.15.0-b3 I2S1 is favoured for classic ESP32 and moved to position 0 (channel 0) so we need to subtract 1 for correct RMT allocation
+    if (!_useParallelI2S && channel > 0) channel--; // accommodate I2S1 which is used as 1st bus on classic ESP32
+    #endif
+
     void* busPtr = nullptr;
     switch (busType) {
       case I_NONE: break;
@@ -1359,7 +1359,6 @@ class PolyBus {
       // standard ESP32 has 8 RMT and x1/x8 I2S1 channels
       if (_useParallelI2S) {
         if (num > 15) return I_NONE;
-        if (num < 8) offset = 1;  // 8 I2S followed by 8 RMT
         if (num < 8) offset = 1;  // 8 I2S followed by 8 RMT
       } else {
         if (num > 9) return I_NONE;
