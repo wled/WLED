@@ -443,14 +443,14 @@ button {
 /* Slider wrapper div */
 .sliderwrap {
 	height: 30px;
-	width: 230px;
+	width: 222px;
 	max-width: 230px;
 	position: relative;
 	z-index: 0;
 }
 
 #sliders .slider {
-	padding-right: 64px; /* offset for bubble */
+	padding-right: 64px; /* offset for number input */
 }
 
 #sliders .slider, #info .slider {
@@ -695,26 +695,23 @@ img {
 	display: none;
 }
 
-.sliderbubble {
-	width: 24px;
-	position: absolute;
-	display: inline-block;
-	border-radius: 16px;
-	background: var(--c-3);
-	color: var(--c-f);
-	padding: 4px;
-	font-size: 14px;
-	right: 6px;
-	transition: visibility .25s ease,opacity .25s ease;
-	opacity: 0;
-	visibility: hidden;
-	/* left: 8px; */
-	top: 4px;
+input[type=number].sliderInput {
+    width: 24px;
+    position: absolute;
+    display: inline-block;
+    border-radius: 10px;
+    background: var(--c-3);
+    color: var(--c-f);
+    padding: 2px 4px;
+    font-size: 14px;
+    transition: visibility 0.25s ease, opacity 0.25s ease;
+    opacity: 1;
+    visibility: visible;
+    right: 4px;
+    bottom: 5px;
 }
-
-output.sliderbubbleshow {
-	visibility: visible;
-	opacity: 1;
+input[type=number].sliderInput:invalid {
+	color: #f00;
 }
 
 input[type=range] {
@@ -725,7 +722,6 @@ input[type=range] {
 	background-color: transparent;
 	cursor: pointer;
 }
-
 input[type=range]:focus {
 	outline: 0;
 }
@@ -1520,13 +1516,6 @@ dialog {
 	background: var(--c-sbh);
 }
 
-@media not all and (hover: none) {
-	.sliderwrap:hover + output.sliderbubble {
-		visibility: visible;
-		opacity: 1;
-	}
-}
-
 @media all and (max-width: 1023px) {
 	.top button {
 		width: 8%;
@@ -1538,7 +1527,7 @@ dialog {
 }
 
 @media all and (max-width: 335px) {
-	.sliderbubble {
+	.sliderInput {
 		display: none;
   	}
 }
@@ -1599,7 +1588,7 @@ dialog {
 	#putil .btn-s {
 		width: 114px;
 	}
-	#sliders .sliderbubble {
+	#sliders .sliderInput {
 		display: none;
 	}
 	#sliders .sliderwrap, .sbs .sliderwrap {
