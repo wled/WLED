@@ -206,7 +206,7 @@
 				if (maxM >= 10000) { //ESP32 RMT uses double buffer?
 					mul = 2;
 				}
-				if (d.Sf.LD.checked) dbl = len * ch; // double buffering
+				if (d.Sf.LD.checked) dbl = len * 4; // global buffer: 4 bytes per LED
 			}
 			return len * ch * mul + dbl;
 		}
