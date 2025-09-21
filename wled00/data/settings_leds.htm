@@ -198,6 +198,7 @@
 			let dbl = 0;
 			let ch = 3*hasRGB(t) + hasW(t) + hasCCT(t);
 			let mul = 1;
+			if (d.Sf.LD.checked) dbl = len * ch; // global buffer
 			if (isDig(t)) {
 				if (is16b(t)) len *= 2; // 16 bit LEDs
 				if (maxM < 10000 && d.getElementsByName("L0"+n)[0].value == 3) { //8266 DMA uses 5x the mem
@@ -206,7 +207,6 @@
 				if (maxM >= 10000) { //ESP32 RMT uses double buffer?
 					mul = 2;
 				}
-				if (d.Sf.LD.checked) dbl = len * ch; // double buffering
 			}
 			return len * ch * mul + dbl;
 		}
