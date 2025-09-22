@@ -195,6 +195,7 @@ struct UpdateContext {
   bool updateStarted = false;
   bool uploadComplete = false;
   bool releaseCheckPassed = false;
+  String errorMessage;
 
   // Buffer to hold block data across posts, if needed
   std::vector<uint8_t> releaseMetadataBuffer;  
@@ -262,10 +263,9 @@ static bool beginOTA(AsyncWebServerRequest *request, UpdateContext* context)
   
   // Begin update with the firmware size from content length
   size_t updateSize = request->contentLength() > 0 ? request->contentLength() : ((ESP.getFreeSketchSpace() - 0x1000) & 0xFFFFF000);
-  if (!Update.begin(updateSize)) {
-    DEBUG_PRINTF_P(PSTR("OTA Failed to begin: %s\n"), Update.getErrorString().c_str());
-    request->send(500, FPSTR(CONTENT_TYPE_PLAIN), String(F("OTA update failed: ")) + Update.UPDATE_ERROR());
-    context->replySent = true;
+  if (!Update.begin(updateSize)) {    
+    context->errorMessage = Update.UPDATE_ERROR();
+    DEBUG_PRINTF_P(PSTR("OTA Failed to begin: %s\n"), context->errorMessage.c_str());
     return false;
   }
   
@@ -298,6 +298,7 @@ std::pair<bool, String> getOTAResult(AsyncWebServerRequest* request) {
   UpdateContext* context = reinterpret_cast<UpdateContext*>(request->_tempObject);
   if (!context) return { true, F("OTA context unexpectedly missing") };
   if (context->replySent) return { false, {} };
+  if (context->errorMessage.length()) return { true, context->errorMessage };
 
   if (context->updateStarted) {
     // Release the OTA context now.
@@ -322,7 +323,7 @@ void handleOTAData(AsyncWebServerRequest *request, size_t index, uint8_t *data, 
 
   DEBUG_PRINTF_P(PSTR("HandleOTAData: %d %d %d\n"), index, len, isFinal);
 
-  if (context->replySent) return;
+  if (context->replySent || (context->errorMessage.length())) return;
 
   if (index == 0) {
     if (!beginOTA(request, context)) return;
@@ -357,8 +358,7 @@ void handleOTAData(AsyncWebServerRequest *request, size_t index, uint8_t *data, 
       
       if (!OTA_ok) {
         DEBUG_PRINTF_P(PSTR("OTA declined: %s\n"), errorMessage);
-        setOTAReplied(request);
-        request->send(400, FPSTR(CONTENT_TYPE_PLAIN), errorMessage);        
+        context->errorMessage = errorMessage;
         return;
       } else {
         DEBUG_PRINTLN(F("OTA allowed: Release compatibility check passed"));
@@ -375,8 +375,8 @@ void handleOTAData(AsyncWebServerRequest *request, size_t index, uint8_t *data, 
   // This is done before writing the last chunk, so endOTA can abort 
   if (isFinal && !context->releaseCheckPassed) {
     DEBUG_PRINTLN(F("OTA failed: Validation never completed"));
-    setOTAReplied(request);
-    request->send(400, FPSTR(CONTENT_TYPE_PLAIN), F("Firmware validation incomplete"));
+    // Don't write the last chunk to the updater: this will trip an error later
+    context->errorMessage = F("Release check data never arrived?");
     return;
   }
 

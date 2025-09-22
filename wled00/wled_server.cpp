@@ -403,7 +403,7 @@ void initServer()
     if (request->_tempObject) {
       auto ota_result = getOTAResult(request);
       if (ota_result.first) {
-        if (ota_result.second) {
+        if (ota_result.second.length() > 0) {
           serveMessage(request, 500, F("Update failed!"), ota_result.second, 254);
         } else {
           serveMessage(request, 200, F("Update successful!"), FPSTR(s_rebooting), 131);
