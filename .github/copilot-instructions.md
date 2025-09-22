@@ -44,6 +44,7 @@ The build has two main phases:
 - **Code style**: Use tabs for web files (.html/.css/.js), spaces (2 per level) for C++ files
 - **C++ formatting available**: `clang-format` is installed but not in CI
 - **Always run tests before finishing**: `npm test`
+- **Always run a build for the common environment before finishing**
 
 ### Manual Testing Scenarios
 After making changes to web UI, always test:
