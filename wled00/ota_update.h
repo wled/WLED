@@ -1,6 +1,11 @@
 //  WLED OTA update interface
 
 #include <Arduino.h>
+#ifdef ESP8266
+  #include <Updater.h>
+#else
+   #include <Update.h>
+#endif
 
 #pragma once
 

@@ -391,7 +391,7 @@ void handleOTAData(AsyncWebServerRequest *request, size_t index, uint8_t *data, 
   // Write chunk data to OTA update (only if release check passed or still pending)
   if (!Update.hasError()) {
     if (Update.write(data, len) != len) {
-      DEBUG_PRINTF_P(PSTR("OTA write failed on chunk %zu: %s\n"), index, Update.getErrorString().c_str());
+      DEBUG_PRINTF_P(PSTR("OTA write failed on chunk %zu: %s\n"), index, Update.UPDATE_ERROR());
     }
   }
 
