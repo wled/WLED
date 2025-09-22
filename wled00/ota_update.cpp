@@ -30,8 +30,14 @@ constexpr size_t METADATA_SEARCH_RANGE = 512;  // bytes
 
 /**
  * DJB2 hash function (C++11 compatible constexpr)
- * Used for compile-time hash computation of release names
+ * Used for compile-time hash computation to validate structure contents
  * Recursive for compile time: not usable at runtime due to stack depth
+ * 
+ * Note that this only works on strings; there is no way to produce a compile-time
+ * hash of a struct in C++11 without explicitly listing all the struct members.
+ * So for now, we hash only the release name.  This suffices for a "did you find 
+ * valid structure" check.
+ * 
  */
 constexpr uint32_t djb2_hash_constexpr(const char* str, uint32_t hash = 5381) {
     return (*str == '\0') ? hash : djb2_hash_constexpr(str + 1, ((hash << 5) + hash) + *str);
@@ -48,6 +54,7 @@ inline uint32_t djb2_hash_runtime(const char* str) {
     return hash;
 }
 
+
 /**
  * WLED Custom Description Structure
  * This structure is embedded in platform-specific sections at a fixed offset
@@ -57,7 +64,7 @@ typedef struct {
     uint32_t magic;               // Magic number to identify WLED custom description
     uint32_t version;             // Structure version for future compatibility
     char release_name[WLED_RELEASE_NAME_MAX_LEN]; // Release name (null-terminated)
-    uint32_t hash;              // Hash of the release name, for struct validation
+    uint32_t hash;              // Hash of ONLY release name, for struct validation.  
 } __attribute__((packed)) wled_custom_desc_t;
 
 
