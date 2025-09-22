@@ -7481,22 +7481,15 @@ static const char _data_FX_MODE_2DAKEMI[] PROGMEM = "Akemi@Color speed,Dance;Hea
 //  Xmas Twinkle       //
 /////////////////////////
 
-/* We need to keep data for each twinkle light.
- * Except for the color, we smash all other data into a single
- * uint32_t to keep memory short. We use time in centiseconds.
- * Be careful to not overflow the limited size of these timers. */
+// We need to keep data for each twinkle light. 8 bytes/light
 typedef struct XTwinkleLight {
+  int16_t timeToEvent;
+  int16_t maxCycle;
+  int16_t retwnkleTime;
   uint8_t colorIdx;
-  uint32_t twData;
 
-// (Be aware of operator precedent when accessing & modifying.)
-// (Tried using C++ bit fields, but code broke.)
-#define TWINKLE_ON            0x80000000    // 1 bit
-#define TIME_TO_EVENT         0x7fe00000    // 10 bits >> 21
-#define TIME_TO_EVENT_SHIFT   21
-#define MAX_CYCLE             0x001ff800    // 10 bits >> 11
-#define MAX_CYCLE_SHIFT       11
-#define T_RETWINKLE           0x000007ff    // 11 bits >> 0
+  uint8_t flags;
+#define TWINKLE_ON   0x01
 } XTwinkleLight;
 
 // For creating skewed random numbers toward the shorter end.
@@ -7504,7 +7497,6 @@ typedef struct XTwinkleLight {
 const uint8_t pSize = 20;
 const uint8_t percentages[pSize] = {12, 11, 10, 10, 6, 6, 5, 5, 3, 3, 1, 1, 1, 1, 1, 1, 2, 3, 3, 15};
 const uint8_t slowPercentages[pSize] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5, 6, 7, 7, 7, 10, 12, 12, 15, 19};
-uint8_t wkgPercentages[pSize];
 
 // Input is 0-100, Ouput is skewed 0-100.
 // PArray may be any size, but elements must add up to 100.
@@ -7557,6 +7549,7 @@ uint16_t mode_XmasTwinkle(void) {              // by Nicholas Pisarro, Jr.
 
   // We have two tables, one of 'normal' weights, 1 of slow weights.
   // use more of the slow percentages in he last quarter of the segment times.
+  uint8_t wkgPercentages[pSize];
   slowWeight = (slowWeight - 0.75) * 4;
   if (slowWeight < 0)
     slowWeight = 0.0;
@@ -7577,12 +7570,12 @@ uint16_t mode_XmasTwinkle(void) {              // by Nicholas Pisarro, Jr.
       XTwinkleLight *light = &twinklers[i];
 
       light->colorIdx = random8();
-      light->twData = 0;        // Everything 0
+      light->flags = 0;
       int cycleTime = skewedRandom(random(100), pSize, wkgPercentages) * maximumTime / 100 + 20;
 
-      light->twData |= cycleTime << MAX_CYCLE_SHIFT & MAX_CYCLE;
-      light->twData |= random(50, cycleTime) << TIME_TO_EVENT_SHIFT & TIME_TO_EVENT;
-      light->twData |= (random(2, 20) * 100) & T_RETWINKLE;  // 2 - 20 seconds 1st time around
+      light->maxCycle = cycleTime;
+      light->timeToEvent = random(50, cycleTime);
+      light->retwnkleTime = random(2, 20) * 100;  // 2 - 20 seconds 1st time around
     }
 
     SEGMENT.step = millis();
@@ -7605,34 +7598,34 @@ uint16_t mode_XmasTwinkle(void) {              // by Nicholas Pisarro, Jr.
     XTwinkleLight *light = &twinklers[i];
     
     // See if we are at the end of twinkle on o off cycle.
-    int16_t eventTime = ((light->twData & TIME_TO_EVENT) >> TIME_TO_EVENT_SHIFT) - interval;
+    int16_t eventTime = light->timeToEvent - interval;
     if (eventTime <= 0)
     {
       // Twinkle on cycles are 1/3 length of twinkle off cycles. We're' twinkling after all.
-      if (light->twData & TWINKLE_ON)
-        eventTime += random(50, ((light->twData & MAX_CYCLE) >> MAX_CYCLE_SHIFT));     // turn OFF
+      if (light->flags & TWINKLE_ON)
+        eventTime += random(50, light->maxCycle);     // turn OFF
       else
       {
         // Based on the check box, either use a constant palette index or a new one each time it turns on.
         if (SEGMENT.check1)
-        light->colorIdx = random8();
-        eventTime += random(10, ((light->twData & MAX_CYCLE) >> MAX_CYCLE_SHIFT) / 3); // turn ON
+          light->colorIdx = random8();
+        eventTime += random(10, light->maxCycle / 3); // turn ON
       }
       
-      light->twData ^= TWINKLE_ON;
+      light->flags ^= TWINKLE_ON;
     }
     // Put the updated event time back.
-    light->twData = (light->twData & ~TIME_TO_EVENT) | (eventTime << TIME_TO_EVENT_SHIFT & TIME_TO_EVENT);
+    light->timeToEvent = eventTime;
 
     // See if we are at the end of a major cycle, recalculate the max cycle time.
-    int16_t cycleTime = (light->twData & T_RETWINKLE) - interval;
+    int16_t cycleTime = light->retwnkleTime - interval;
     if (cycleTime <= 0)
     {
       int maxTime =  skewedRandom(random(100), pSize, wkgPercentages) * maximumTime / 100 + 20;
-      light->twData = (light->twData & ~MAX_CYCLE) | (maxTime << MAX_CYCLE_SHIFT & MAX_CYCLE);
+      light->maxCycle = maxTime;
       cycleTime += 2000;                        // 20 seconds
     }
-    light->twData = (light->twData & ~T_RETWINKLE) | (cycleTime & T_RETWINKLE);
+    light->retwnkleTime = cycleTime;
   }
 
   // Remember the last time as ms.
@@ -7647,7 +7640,7 @@ uint16_t mode_XmasTwinkle(void) {              // by Nicholas Pisarro, Jr.
   {
     XTwinkleLight *light = &twinklers[i];
 
-    if ((light->twData & TWINKLE_ON) == 0)
+    if ((light->flags & TWINKLE_ON) == 0)
       continue;
     
     // Compute the offset of the light in the string.
