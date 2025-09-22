@@ -1,5 +1,4 @@
-#ifndef PalettesWLED_h
-#define PalettesWLED_h
+#include "wled.h"
 
 /*
  * WLED Color palettes
@@ -768,5 +767,3 @@ const uint8_t* const gGradientPalettes[] PROGMEM = {
   candy2_gp,                    //70-57 Candy2
   trafficlight_gp               //71-58 Traffic Light
 };
-
-#endif

@@ -1,7 +1,5 @@
 #include "wled.h"
 
-#include "palettes.h"
-
 #define JSON_PATH_STATE      1
 #define JSON_PATH_INFO       2
 #define JSON_PATH_STATE_INFO 3
@@ -771,7 +769,8 @@ void serializeInfo(JsonObject root)
 
   root[F("fxcount")] = strip.getModeCount();
   root[F("palcount")] = getPaletteCount();
-  root[F("cpalcount")] = customPalettes.size(); //number of custom palettes
+  root[F("cpalcount")] = customPalettes.size();   // number of custom palettes
+  root[F("cpalmax")] = WLED_MAX_CUSTOM_PALETTES;  // maximum number of custom palettes
 
   JsonArray ledmaps = root.createNestedArray(F("maps"));
   for (size_t i=0; i<WLED_MAX_LEDMAPS; i++) {
@@ -935,7 +934,7 @@ void serializePalettes(JsonObject root, int page)
   #endif
 
   int customPalettesCount = customPalettes.size();
-  int palettesCount = getPaletteCount() - customPalettesCount;
+  int palettesCount = getPaletteCount() - customPalettesCount; // palettesCount is number of palettes, not palette index
 
   int maxPage = (palettesCount + customPalettesCount -1) / itemPerPage;
   if (page > maxPage) page = maxPage;
@@ -947,8 +946,8 @@ void serializePalettes(JsonObject root, int page)
   root[F("m")] = maxPage; // inform caller how many pages there are
   JsonObject palettes  = root.createNestedObject("p");
 
-  for (int i = start; i < end; i++) {
-    JsonArray curPalette = palettes.createNestedArray(String(i>=palettesCount ? 255 - i + palettesCount : i));
+  for (int i = start; i <= end; i++) {
+    JsonArray curPalette = palettes.createNestedArray(String(i<=palettesCount ? i : 255 - (i - (palettesCount + 1))));
     switch (i) {
       case 0: //default palette
         setPaletteColors(curPalette, PartyColors_p);
@@ -977,8 +976,8 @@ void serializePalettes(JsonObject root, int page)
         curPalette.add("c1");
         break;
       default:
-        if (i >= palettesCount)
-          setPaletteColors(curPalette, customPalettes[i - palettesCount]);
+        if (i > palettesCount)
+          setPaletteColors(curPalette, customPalettes[i - (palettesCount + 1)]);
         else if (i < 13) // palette 6 - 12, fastled palettes
           setPaletteColors(curPalette, *fastledPalettes[i-6]);
         else {
