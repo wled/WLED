@@ -188,19 +188,18 @@ static bool shouldAllowOTA(const uint8_t* binaryData, size_t dataSize, char* err
 
 
 struct UpdateContext {
+  // State flags
+  // FUTURE: the flags could be replaced by a state machine
+  bool replySent = false;
+  bool needsRestart = false;
+  bool updateStarted = false;
   bool uploadComplete = false;
   bool releaseCheckPassed = false;
+
+  // Buffer to hold block data across posts, if needed
   std::vector<uint8_t> releaseMetadataBuffer;  
 };
 
-
-static void restart() {
-  strip.resume();
-  UsermodManager::onUpdateBegin(false);
-  #if WLED_WATCHDOG_TIMEOUT > 0
-  WLED::instance().enableWatchdog();
-  #endif
-}
 
 static void endOTA(AsyncWebServerRequest *request) {
   UpdateContext* context = reinterpret_cast<UpdateContext*>(request->_tempObject);
@@ -208,15 +207,31 @@ static void endOTA(AsyncWebServerRequest *request) {
 
   DEBUG_PRINTF_P(PSTR("EndOTA %x --> %x (%d)\n"), (uintptr_t)request,(uintptr_t) context, context ? context->uploadComplete : 0);
   if (context) {
-    if (!Update.end(context->uploadComplete)) {
-      restart();
+    if (context->updateStarted) {  // We initialized the update
+      // We use Update.end() because not all forms of Update() support an abort.
+      // If the upload is incomplete, Update.end(false) should error out.
+      if (Update.end(context->uploadComplete)) {
+        // Update successful!
+        #ifndef ESP8266
+        bootloopCheckOTA(); // let the bootloop-checker know there was an OTA update
+        #endif
+        doReboot = true;
+        context->needsRestart = false;
+      }
+    }
+
+    if (context->needsRestart) {
+      strip.resume();
+      UsermodManager::onUpdateBegin(false);
+      #if WLED_WATCHDOG_TIMEOUT > 0
+      WLED::instance().enableWatchdog();
+      #endif
     }
     delete context;
   }
 };
 
-
-void beginOTA(AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool isFinal)
+static bool beginOTA(AsyncWebServerRequest *request, UpdateContext* context)
 {
   #ifdef ESP8266
   Update.runAsync(true);
@@ -224,7 +239,8 @@ void beginOTA(AsyncWebServerRequest *request, String filename, size_t index, uin
 
   if (Update.isRunning()) {
       request->send(503);
-      return;
+      setOTAReplied(request);
+      return false;
   }
 
   #if WLED_WATCHDOG_TIMEOUT > 0
@@ -235,19 +251,9 @@ void beginOTA(AsyncWebServerRequest *request, String filename, size_t index, uin
   strip.suspend();
   backupConfig(); // backup current config in case the update ends badly
   strip.resetSegments();  // free as much memory as you can
-
-  // Allocate update context
-  UpdateContext* context = new (std::nothrow) UpdateContext {};  
-  request->_tempObject = context;
-  request->onDisconnect([=]() { endOTA(request); });  // ensures we restart on failure
+  context->needsRestart = true;
 
   DEBUG_PRINTF_P(PSTR("OTA Update Start, %x --> %x\n"), (uintptr_t)request,(uintptr_t) context);
-
-  if (!context) {
-    restart();
-    request->send(500); // out of memory
-    return;
-  }
 
   if (request->hasParam("skipValidation", true)) {
     context->releaseCheckPassed = true;
@@ -259,11 +265,55 @@ void beginOTA(AsyncWebServerRequest *request, String filename, size_t index, uin
   if (!Update.begin(updateSize)) {
     DEBUG_PRINTF_P(PSTR("OTA Failed to begin: %s\n"), Update.getErrorString().c_str());
     request->send(500, FPSTR(CONTENT_TYPE_PLAIN), String(F("OTA update failed: ")) + Update.UPDATE_ERROR());
-    return;
+    context->replySent = true;
+    return false;
+  }
+  
+  context->updateStarted = true;
+  return true;
+}
+
+// Create an OTA context object on an AsyncWebServerRequest
+// Returns true if successful, false on failure.
+bool initOTA(AsyncWebServerRequest *request) {
+  // Allocate update context
+  UpdateContext* context = new (std::nothrow) UpdateContext {};  
+  if (context) {
+    request->_tempObject = context;
+    request->onDisconnect([=]() { endOTA(request); });  // ensures we restart on failure
+  };
+
+  DEBUG_PRINTF_P(PSTR("OTA Update init, %x --> %x\n"), (uintptr_t)request,(uintptr_t) context);
+  return (context != nullptr);
+}
+
+void setOTAReplied(AsyncWebServerRequest *request) {
+  UpdateContext* context = reinterpret_cast<UpdateContext*>(request->_tempObject);
+  if (!context) return;
+  context->replySent = true;
+};
+
+// Returns pointer to error message, or nullptr if OTA was successful.
+std::pair<bool, String> getOTAResult(AsyncWebServerRequest* request) {
+  UpdateContext* context = reinterpret_cast<UpdateContext*>(request->_tempObject);
+  if (!context) return { true, F("OTA context unexpectedly missing") };
+  if (context->replySent) return { false, {} };
+
+  if (context->updateStarted) {
+    // Release the OTA context now.
+    endOTA(request);
+    if (Update.hasError()) {
+      return { true, Update.UPDATE_ERROR() };
+    } else {
+      return { true, {} };
+    }
   }
 
-  handleOTAData(request, index, data, len, isFinal);
+  // Should never happen
+  return { true, F("Internal software failure") };
 }
+
+
 
 void handleOTAData(AsyncWebServerRequest *request, size_t index, uint8_t *data, size_t len, bool isFinal)
 {
@@ -272,12 +322,16 @@ void handleOTAData(AsyncWebServerRequest *request, size_t index, uint8_t *data, 
 
   DEBUG_PRINTF_P(PSTR("HandleOTAData: %d %d %d\n"), index, len, isFinal);
 
+  if (context->replySent) return;
+
+  if (index == 0) {
+    if (!beginOTA(request, context)) return;
+  }
 
   // Perform validation if we haven't done it yet and we have reached the metadata offset
   if (!context->releaseCheckPassed && (index+len) > METADATA_OFFSET) {
     // Current chunk contains the metadata offset
-    size_t offsetInChunk = METADATA_OFFSET - index;
-    size_t availableDataAfterOffset = len - offsetInChunk;
+    size_t availableDataAfterOffset = (index + len) - METADATA_OFFSET;
 
     DEBUG_PRINTF_P(PSTR("MetadataCheck: %d in buffer\n"), context->releaseMetadataBuffer.size());
 
@@ -303,7 +357,7 @@ void handleOTAData(AsyncWebServerRequest *request, size_t index, uint8_t *data, 
       
       if (!OTA_ok) {
         DEBUG_PRINTF_P(PSTR("OTA declined: %s\n"), errorMessage);
-        endOTA(request);
+        setOTAReplied(request);
         request->send(400, FPSTR(CONTENT_TYPE_PLAIN), errorMessage);        
         return;
       } else {
@@ -311,7 +365,8 @@ void handleOTAData(AsyncWebServerRequest *request, size_t index, uint8_t *data, 
         context->releaseCheckPassed = true;
       }        
     } else {
-      // Store the data we have
+      // Store the data we just got for next pass
+      
       context->releaseMetadataBuffer.insert(context->releaseMetadataBuffer.end(), data, data+len);
     }
   }
@@ -320,7 +375,7 @@ void handleOTAData(AsyncWebServerRequest *request, size_t index, uint8_t *data, 
   // This is done before writing the last chunk, so endOTA can abort 
   if (isFinal && !context->releaseCheckPassed) {
     DEBUG_PRINTLN(F("OTA failed: Validation never completed"));
-    endOTA(request);
+    setOTAReplied(request);
     request->send(400, FPSTR(CONTENT_TYPE_PLAIN), F("Firmware validation incomplete"));
     return;
   }
@@ -332,10 +387,9 @@ void handleOTAData(AsyncWebServerRequest *request, size_t index, uint8_t *data, 
     }
   }
 
-  if(isFinal){
+  if(isFinal) {
     DEBUG_PRINTLN(F("OTA Update End"));
     // Upload complete
     context->uploadComplete = true;
-    request->send(200, FPSTR(CONTENT_TYPE_PLAIN), F("Firmware upload complete"));
   }
 }

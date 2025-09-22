@@ -400,41 +400,47 @@ void initServer()
   });
 
   server.on(_update, HTTP_POST, [](AsyncWebServerRequest *request){
-    if (!correctPIN) {
-      serveSettings(request, true); // handle PIN page POST request
-      return;
-    }
-    if (otaLock) {
-      serveMessage(request, 401, FPSTR(s_accessdenied), FPSTR(s_unlock_ota), 254);
-      return;
-    }
-    if (Update.hasError()) {
-      serveMessage(request, 500, F("Update failed!"), F("Please check your file and retry!"), 254);
+    if (request->_tempObject) {
+      auto ota_result = getOTAResult(request);
+      if (ota_result.first) {
+        if (ota_result.second) {
+          serveMessage(request, 500, F("Update failed!"), ota_result.second, 254);
+        } else {
+          serveMessage(request, 200, F("Update successful!"), FPSTR(s_rebooting), 131);
+        }
+      }
     } else {
-      serveMessage(request, 200, F("Update successful!"), FPSTR(s_rebooting), 131);
-      #ifndef ESP8266
-      bootloopCheckOTA(); // let the bootloop-checker know there was an OTA update
-      #endif
-      doReboot = true;
+      // No context structure - something's gone horribly wrong
+      serveMessage(request, 500, F("Update failed!"), F("Internal server fault"), 254);
     }
   },[](AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool isFinal){
     if (index == 0) { 
+      // Allocate the context structure
+      if (!initOTA(request)) {
+        return; // Error will be dealt with after upload in response handler, above
+      }
+
       // Privilege checks
-    IPAddress client  = request->client()->remoteIP();
-    if (((otaSameSubnet && !inSameSubnet(client)) && !strlen(settingsPIN)) || (!otaSameSubnet && !inLocalSubnet(client))) {
-      DEBUG_PRINTLN(F("Attempted OTA update from different/non-local subnet!"));
-      request->send(401, FPSTR(CONTENT_TYPE_PLAIN), FPSTR(s_accessdenied));
-      return;
-    }
-      if (!correctPIN || otaLock) {
-        request->send(401, FPSTR(CONTENT_TYPE_PLAIN), FPSTR(s_unlock_cfg));
+      IPAddress client  = request->client()->remoteIP();
+      if (((otaSameSubnet && !inSameSubnet(client)) && !strlen(settingsPIN)) || (!otaSameSubnet && !inLocalSubnet(client))) {        
+        DEBUG_PRINTLN(F("Attempted OTA update from different/non-local subnet!"));
+        serveMessage(request, 401, FPSTR(s_accessdenied), F("Client is not on local subnet."), 254);
+        setOTAReplied(request);
+        return;
+      }
+      if (!correctPIN) {
+        serveMessage(request, 401, FPSTR(s_accessdenied), FPSTR(s_unlock_cfg), 254);
+        setOTAReplied(request);
         return;
       };
-      // Basic checks OK, start up OTA process
-      beginOTA(request, filename, index, data, len, isFinal);
-    } else if (request->_tempObject) {  // Discard upload data if we've already replied
-      handleOTAData(request, index, data, len, isFinal);
+      if (otaLock) {
+        serveMessage(request, 401, FPSTR(s_accessdenied), FPSTR(s_unlock_ota), 254);
+        setOTAReplied(request);
+        return;
+      }      
     }
+
+    handleOTAData(request, index, data, len, isFinal);
   });
 #else
   const auto notSupported = [](AsyncWebServerRequest *request){
