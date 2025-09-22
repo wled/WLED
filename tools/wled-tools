@@ -115,12 +115,15 @@ backup_one() {
 
     local cfg_url="http://$address:$port/cfg.json"
     local presets_url="http://$address:$port/presets.json"
+    local ir_url="http://$address:$port/ir.json"
     local cfg_dest="${backup_dir}/${hostname}.cfg.json"
     local presets_dest="${backup_dir}/${hostname}.presets.json"
+    local ir_dest="${backup_dir}/${hostname}.ir.json"
 
     # Write to ".tmp" files first, then move when success, to ensure we don't write partial files
     local curl_command_cfg="curl -s "$cfg_url" -o "$cfg_dest.tmp""
     local curl_command_presets="curl -s "$presets_url" -o "$presets_dest.tmp""
+    local curl_command_ir="curl -s "$ir_url" -o "$ir_dest.tmp""
 
     if ! curl_handler "$curl_command_cfg" "$hostname"; then  
         log "ERROR" "$RED" "Failed to backup configuration for $hostname"  
@@ -132,10 +135,18 @@ backup_one() {
         log "ERROR" "$RED" "Failed to backup presets for $hostname"  
         rm -f "$presets_dest.tmp"  
         return 1  
-    fi 
+    fi
 
     mv "$cfg_dest.tmp" "$cfg_dest"
     mv "$presets_dest.tmp" "$presets_dest"
+
+    if curl_handler "$curl_command_ir" "$hostname"; then
+        mv "$ir_dest.tmp" "$ir_dest"
+    else
+        rm -f "$ir_dest.tmp"
+        log "WARN" "$YELLOW" "No ir.json found for $hostname (skipping)"
+    fi
+    
     log "INFO" "$GREEN" "Successfully backed up config and presets for $hostname"
     return 0
 }
