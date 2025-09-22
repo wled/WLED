@@ -174,7 +174,7 @@ static bool shouldAllowOTA(const uint8_t* binaryData, size_t dataSize, char* err
   if (!hasCustomDesc) {
     // No custom description - this could be a legacy binary
     if (errorMessage && errorMessageLen > 0) {
-      strncpy_P(errorMessage, PSTR("This firmware file is missing compatibility metadata. Enable 'Ignore firmware validation' to proceed anyway."), errorMessageLen - 1);
+      strncpy_P(errorMessage, PSTR("This firmware file is missing compatibility metadata."), errorMessageLen - 1);
       errorMessage[errorMessageLen - 1] = '\0';
     }
     return false;
@@ -183,7 +183,7 @@ static bool shouldAllowOTA(const uint8_t* binaryData, size_t dataSize, char* err
   // Validate compatibility using extracted release name
   if (!validateReleaseCompatibility(extractedDesc.release_name)) {
     if (errorMessage && errorMessageLen > 0) {
-      snprintf_P(errorMessage, errorMessageLen, PSTR("Firmware compatibility mismatch: current='%s', uploaded='%s'. Enable 'Ignore firmware validation' to proceed anyway."), 
+      snprintf_P(errorMessage, errorMessageLen, PSTR("Firmware compatibility mismatch: current='%s', uploaded='%s'."), 
                releaseString, extractedDesc.release_name);
       errorMessage[errorMessageLen - 1] = '\0'; // Ensure null termination
     }
@@ -366,6 +366,7 @@ void handleOTAData(AsyncWebServerRequest *request, size_t index, uint8_t *data, 
       if (!OTA_ok) {
         DEBUG_PRINTF_P(PSTR("OTA declined: %s\n"), errorMessage);
         context->errorMessage = errorMessage;
+        context->errorMessage += F(" Enable 'Ignore firmware validation' to proceed anyway.");
         return;
       } else {
         DEBUG_PRINTLN(F("OTA allowed: Release compatibility check passed"));
