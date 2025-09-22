@@ -54,10 +54,14 @@ fetch() {
     fi
 
     for code in $accepted; do
-        if [ "$response" -eq "$code" ]; then
-            # success → move tmp into place
+        if [ "$response" = "$code" ]; then
+            # Accepted; only persist body for 2xx responses
             if [ -n "$dest" ]; then
-                mv "$out" "$dest"
+                if [[ "$response" =~ ^2 ]]; then
+                    mv "$out" "$dest"
+                else
+                    rm -f "$out"
+                fi
             fi
             return 0
         fi
