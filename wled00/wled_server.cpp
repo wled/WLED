@@ -199,7 +199,7 @@ static void handleUpload(AsyncWebServerRequest *request, const String& filename,
     request->_tempFile.close();
     if (filename.indexOf(F("cfg.json")) >= 0) { // check for filename with or without slash
       doReboot = true;
-      request->send(200, FPSTR(CONTENT_TYPE_PLAIN), F("Configuration restore successful.\nRebooting..."));
+      request->send(200, FPSTR(CONTENT_TYPE_PLAIN), F("Config restore ok.\nRebooting..."));
     } else {
       if (filename.indexOf(F("palette")) >= 0 && filename.indexOf(F(".json")) >= 0) loadCustomPalettes();
       request->send(200, FPSTR(CONTENT_TYPE_PLAIN), F("File Uploaded!"));
@@ -220,38 +220,30 @@ void createEditHandler(bool enable) {
     return;
   }
 
-  // Main edit handler - handle GET and DELETE requests
   editHandler = &server.on(F("/edit"), static_cast<WebRequestMethod>(HTTP_GET | HTTP_DELETE), [](AsyncWebServerRequest *request) {
-    
+
     // PIN check for GET/DELETE, for POST it is done in handleUpload()
     if (!correctPIN) {
       serveMessage(request, 401, FPSTR(s_accessdenied), FPSTR(s_unlock_cfg), 254);
       return;
     }
 
-    // Handle GET requests
     if (request->method() == HTTP_GET) {
-      
-      // Debug logging (remove in production)
-      Serial.printf("GET request to /edit with %d params\n", request->params());
       for (int i = 0; i < request->params(); i++) {
         AsyncWebParameter* p = request->getParam(i);
-        Serial.printf("Param %d: %s = %s\n", i, p->name().c_str(), p->value().c_str());
       }
-      
-      // File list API
+
       if (request->hasParam(F("list"))) {
         String path = request->getParam(F("list"))->value();
         if (path.isEmpty()) path = "/";
-        
         String output = "[";
         bool first = true;
-        
+
 #ifdef ARDUINO_ARCH_ESP8266
         Dir dir = WLED_FS.openDir(path);
         while (dir.next()) {
           String name = String(dir.fileName());
-          if (name.endsWith("wsec.json")) continue; // skip wsec.json
+          if (name.indexOf("wsec.json") >= 0) continue; // skip wsec.json
           if (!first) output += ',';
           first = false;
           output += "{\"name\":\"" + name + "\",\"type\":\"file\",\"size\":" + String(dir.fileSize()) + "}";
@@ -262,7 +254,7 @@ void createEditHandler(bool enable) {
           File file = root.openNextFile();
           while (file) {
             String name = file.name();
-              if (name.endsWith("wsec.json")) { // skip wsec.json
+            if (name.indexOf(F("wsec.json")) >= 0) { // skip wsec.json
               file = root.openNextFile();
               continue;
             }
@@ -281,70 +273,57 @@ void createEditHandler(bool enable) {
         request->send(200, F("application/json"), output);
         return;
       }
-      
-      // Edit file (get file contents)
+
       if (request->hasParam(F("edit"))) {
         String path = request->getParam(F("edit"))->value();
-        if (path.isEmpty()) path = "/index.htm";
-        
-        // Check if file exists
-        if (!WLED_FS.exists(path)) {
-          request->send(404, FPSTR(CONTENT_TYPE_PLAIN), F("File not found"));
+        if (path.indexOf(F("wsec.json")) >= 0) { // skip wsec.json
+          request->send(403, FPSTR(CONTENT_TYPE_PLAIN), F("denied"));
           return;
         }
-        
+
+        if (!WLED_FS.exists(path)) {
+          request->send(404, FPSTR(CONTENT_TYPE_PLAIN), F("not found"));
+          return;
+        }
+
         request->send(WLED_FS, path, F("text/plain"));
         return;
       }
-      
-      // Download file
+
       if (request->hasParam(F("download"))) {
         String path = request->getParam(F("download"))->value();
         if (!path.startsWith("/")) path = "/" + path;
-        
-        // Check if file exists
+
         if (!WLED_FS.exists(path)) {
-          request->send(404, FPSTR(CONTENT_TYPE_PLAIN), F("File not found"));
+          request->send(404, FPSTR(CONTENT_TYPE_PLAIN), F("not found"));
           return;
         }
 
         request->send(WLED_FS, path, String(), true);
         return;
       }
-      
-      // Default: serve the editor HTML
+
+      // default: serve the editor page
       handleStaticContent(request, FPSTR(_edit_htm), 200, FPSTR(CONTENT_TYPE_HTML), PAGE_edit, PAGE_edit_length);
       return;
     }
-    
-    // Handle DELETE requests
+
     if (request->method() == HTTP_DELETE) {
-      String path;
-      
-      // Check for path parameter in body (FormData) or query string
-      if (request->hasParam(F("path"), true)) {
-        path = request->getParam(F("path"), true)->value();
-      } else if (request->hasParam(F("path"), false)) {
-        path = request->getParam(F("path"), false)->value();
-      }
-      
-      if (path.isEmpty()) {
-        request->send(400, FPSTR(CONTENT_TYPE_PLAIN), F("Path parameter required"));
+      if (!request->hasParam(F("path"), true)) {
+        request->send(400, FPSTR(CONTENT_TYPE_PLAIN), F("Path required"));
         return;
       }
-      
+
+      String path = request->getParam(F("path"), true)->value();
       if (!path.startsWith("/")) path = "/" + path;
-      
+
       if (!WLED_FS.remove(path)) {
         request->send(500, FPSTR(CONTENT_TYPE_PLAIN), F("Delete failed"));
         return;
       }
+
       request->send(200, FPSTR(CONTENT_TYPE_PLAIN), F("File deleted"));
-      return;
     }
-    
-    // Fallback for unhandled requests
-    request->send(400, FPSTR(CONTENT_TYPE_PLAIN), F("Bad request"));
   });
 
   // Upload handler (for POST with file data) - separate from main handler
