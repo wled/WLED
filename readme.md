@@ -27,17 +27,6 @@ Originally based on [WLED by Aircoookie](https://github.com/wled-dev/WLED).
 
 ---
 
-## Screenshots
-
-<p align="center">
-  <img src="/images/enterprise-toggle.png" width="49%" alt="Enterprise Toggle">
-  <img src="/images/enterprise-fields.png" width="49%" alt="Enterprise Fields">
-</p>
-
-> Replace screenshots with your actual UI captures.
-
----
-
 ## Quick Start
 
 See [WLED docs](https://kno.wled.ge) for general device setup and flashing guidance. This fork introduces changes to the **Wi-Fi Settings** page and adds a small HTTP API for enterprise configuration.
