@@ -7536,27 +7536,24 @@ void weightPercentages(const uint8_t *arg1,
 
 uint16_t mode_XmasTwinkle(void) {              // by Nicholas Pisarro, Jr.
   uint16_t numTwiklers = SEGLEN * SEGMENT.intensity / 255;
-  if (numTwiklers <= 1)
-    numTwiklers = 2;        // Divide checks are not cool.
+  if (numTwiklers <= 0)
+    numTwiklers = 1;        // Divide checks are not cool.
 
   // Reinitialize evertying if the number of twinklers has changed.
   if (numTwiklers != SEGMENT.aux0)
     SEGMENT.aux0 = 0;
   
   // The maximum twinkle time varies based on the time slider
-  float slowWeight = (255 - SEGMENT.speed) / 255.0;      // 0.0 - 1.0
-  int32_t maximumTime = (slowWeight * 900.0) + 100.0;        // Between 100 & 1000 centiseconds
+  int32_t slowWeight = (255 - SEGMENT.speed << RAND_PREC_SHIFT) / 255;    // 0.0 - 1.0 shifted
+  int32_t maximumTime = (slowWeight * 9000) + 1000 >> RAND_PREC_SHIFT;  // Between 1000 & 10000 milliseconds
 
   // We have two tables, one of 'normal' weights, 1 of slow weights.
   // use more of the slow percentages in he last quarter of the segment times.
   uint8_t wkgPercentages[pSize];
-  slowWeight = (slowWeight - 0.75) * 4;
+  slowWeight = (slowWeight - /* 0.75 */ 768) * 4;     // (0.75 << RAND_PREC_SHIFT)
   if (slowWeight < 0)
-    slowWeight = 0.0;
-  weightPercentages(percentages, slowPercentages, pSize, slowWeight * (1 << RAND_PREC_SHIFT), wkgPercentages);
-  
-  // uint8_t flasherDistance = ((255 - SEGMENT.intensity) / 28) +1; //1-10
-  // uint16_t numFlashers = (SEGLEN / flasherDistance) +1;
+    slowWeight = 0;
+  weightPercentages(percentages, slowPercentages, pSize, slowWeight, wkgPercentages);
 
   uint16_t dataSize = sizeof(XTwinkleLight) * numTwiklers;
   if (!SEGENV.allocateData(dataSize)) return mode_static(); //allocation failed
@@ -7571,11 +7568,11 @@ uint16_t mode_XmasTwinkle(void) {              // by Nicholas Pisarro, Jr.
 
       light->colorIdx = random8();
       light->flags = 0;
-      int cycleTime = skewedRandom(random(100), pSize, wkgPercentages) * maximumTime / 100 + 20;
+      int32_t cycleTime = skewedRandom(random(100), pSize, wkgPercentages) * maximumTime / 100 + 200;
 
       light->maxCycle = cycleTime;
-      light->timeToEvent = random(50, cycleTime);
-      light->retwnkleTime = random(2, 20) * 100;  // 2 - 20 seconds 1st time around
+      light->timeToEvent = random(500, cycleTime);
+      light->retwnkleTime = random(2, 20) * 1000;  // 2 - 20 seconds 1st time around
     }
 
     SEGMENT.step = millis();
@@ -7588,9 +7585,8 @@ uint16_t mode_XmasTwinkle(void) {              // by Nicholas Pisarro, Jr.
   if (currTime < lastTime)
     lastTime = 0;
   
-  // We're doing our work in centiseconds so we don't overflow our 10 bit counters.
   // The interval may be zero if the refresh rate is fast enought.
-  uint32_t interval = (currTime - lastTime) / 10;
+  uint32_t interval = currTime - lastTime;
 
   // Note the time passed to the LEDs, and process any events that occured.
   for (int i = 0; i < numTwiklers; ++i)
@@ -7603,13 +7599,13 @@ uint16_t mode_XmasTwinkle(void) {              // by Nicholas Pisarro, Jr.
     {
       // Twinkle on cycles are 1/3 length of twinkle off cycles. We're' twinkling after all.
       if (light->flags & TWINKLE_ON)
-        eventTime += random(50, light->maxCycle);     // turn OFF
+        eventTime += random(500, light->maxCycle);     // turn OFF
       else
       {
         // Based on the check box, either use a constant palette index or a new one each time it turns on.
         if (SEGMENT.check1)
           light->colorIdx = random8();
-        eventTime += random(10, light->maxCycle / 3); // turn ON
+        eventTime += random(100, light->maxCycle / 3); // turn ON
       }
       
       light->flags ^= TWINKLE_ON;
@@ -7621,15 +7617,15 @@ uint16_t mode_XmasTwinkle(void) {              // by Nicholas Pisarro, Jr.
     int16_t cycleTime = light->retwnkleTime - interval;
     if (cycleTime <= 0)
     {
-      int maxTime =  skewedRandom(random(100), pSize, wkgPercentages) * maximumTime / 100 + 20;
+      int maxTime =  skewedRandom(random(100), pSize, wkgPercentages) * maximumTime / 100 + 200;
       light->maxCycle = maxTime;
-      cycleTime += 2000;                        // 20 seconds
+      cycleTime += 20000;                        // 20 seconds
     }
     light->retwnkleTime = cycleTime;
   }
 
   // Remember the last time as ms.
-  SEGMENT.step += interval * 10;
+  SEGMENT.step += interval;
 
   // Turm off all the LEDS.
   for (int i = 0; i < SEGLEN; ++i)
