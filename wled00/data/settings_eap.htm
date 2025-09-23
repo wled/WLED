@@ -1,0 +1,109 @@
+<!doctype html><html><head><meta charset="utf-8">
+    <title>WLED Enterprise Wi-Fi</title>
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <style>
+    body{font-family:sans-serif;margin:16px;max-width:720px}
+    label{display:block;margin:.6em 0 .2em}
+    input,select{width:100%;padding:.5em}
+    button{padding:.6em 1em;margin-top:1em}
+    small{color:#666}
+    </style>
+    </head><body>
+    <h2>WPA2-Enterprise</h2>
+    
+    <label><input id="enabled" type="checkbox"> Enable Enterprise mode</label>
+    
+    <label>SSID</label>
+    <input id="ssid" type="text" placeholder="iitk-sec">
+    
+    <label>EAP Method</label>
+    <select id="method">
+      <option>PEAP</option>
+      <option>TTLS</option>
+    </select>
+    
+    <label>Phase 2 (for TTLS)</label>
+    <select id="phase2">
+      <option>MSCHAPV2</option>
+      <option>PAP</option>
+    </select>
+    
+    <label>Anonymous identity (outer)</label>
+    <input id="identity" type="text" placeholder="(blank or username)">
+    
+    <label>Username</label>
+    <input id="username" type="text" autocomplete="username">
+    
+    <label>Password</label>
+    <input id="password" type="password" autocomplete="current-password">
+    
+    <label><input id="validateCa" type="checkbox"> Validate server certificate</label>
+    <small>Upload a CA PEM first if your campus provides one.</small>
+    
+    <div id="caRow" style="display:none">
+      <input id="caf" type="file" accept=".pem,.crt,.cer">
+      <button onclick="uploadCA()">Upload CA</button>
+      <button onclick="deleteCA()">Delete CA</button>
+      <span id="caInfo"></span>
+    </div>
+    
+    <button onclick="save()">Save</button>
+    <button onclick="saveAndReconnect()">Save & Reconnect</button>
+    <p id="msg"></p>
+    
+    <script>
+    function id(x){return document.getElementById(x)}
+    function sel(idv,val){ const s=id(idv); for(let i=0;i<s.options.length;i++) if(s.options[i].text===val) s.selectedIndex=i; }
+    
+    async function load() {
+      try {
+        const r = await fetch('/eap/get'); if(!r.ok) return;
+        const j = await r.json();
+        id('enabled').checked = !!j.enabled;
+        id('ssid').value      = j.ssid || 'iitk-sec';
+        sel('method', j.method || 'PEAP');
+        sel('phase2', j.phase2 || 'MSCHAPV2');
+        id('identity').value  = j.identity || '';
+        id('username').value  = j.username || '';
+        id('password').value  = j.password || '';
+        id('validateCa').checked = !!j.validateCa;
+        id('caRow').style.display = 'block';
+        id('caInfo').textContent = j.caPresent ? 'CA present' : 'No CA uploaded';
+      } catch(e) { id('msg').textContent = 'Load failed'; }
+    }
+    async function saveCore() {
+      const body = {
+        enabled:   id('enabled').checked,
+        ssid:      id('ssid').value || 'iitk-sec',
+        method:    id('method').value,
+        phase2:    id('phase2').value,
+        identity:  id('identity').value || '',
+        username:  id('username').value || '',
+        password:  id('password').value || '',
+        validateCa:id('validateCa').checked
+      };
+      const r = await fetch('/eap/save', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)});
+      return r.ok;
+    }
+    async function save(){ id('msg').textContent = (await saveCore()) ? 'Saved.' : 'Save failed.'; }
+    async function saveAndReconnect(){
+      const ok = await saveCore();
+      id('msg').textContent = ok ? 'Saved. Reconnecting…' : 'Save failed.';
+      if (ok) setTimeout(()=>location.reload(), 2500);
+    }
+    async function uploadCA(){
+      const f = id('caf').files[0]; if(!f){id('msg').textContent='Pick a file';return;}
+      const fd = new FormData(); fd.append('file', f, f.name);
+      const r = await fetch('/eap/upload_ca', {method:'POST', body: fd});
+      id('msg').textContent = r.ok ? 'CA uploaded.' : 'Upload failed.';
+      load();
+    }
+    async function deleteCA(){
+      const r = await fetch('/eap/delete_ca', {method:'POST'});
+      id('msg').textContent = r.ok ? 'CA deleted.' : 'Delete failed.';
+      load();
+    }
+    load();
+    </script>
+    </body></html>
+    

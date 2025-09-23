@@ -4,180 +4,280 @@
   <meta charset="utf-8">
 	<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport">
 	<title>WiFi Settings</title>
-	<script src="common.js" async type="text/javascript"></script>
+	<script src="/common.js" defer></script>
 	<script>
-		var scanLoops = 0, preScanSSID = "";
+		/* ---------- Safe shims regardless of common.js order ---------- */
+		(function(){
+		  // If common.js hasn't run yet, these keep our code functional.
+		  window.d = window.d || document;
+		  window.gId = window.gId || function(id){ return document.getElementById(id); };
+		  window.cE = window.cE || function(tag){ return document.createElement(tag); };
+		  window.getURL = (typeof window.getURL === 'function') ? window.getURL : function(p){ return p; };
+		})();
+		
+		/* ---------- Globals used across handlers ---------- */
+		var scanLoops = window.scanLoops || 0;
+		var preScanSSID = "";
 		var maxNetworks = 3;
+		
+		/* ---------- Wi-Fi Scan (kept compatible with stock) ---------- */
 		function N() {
-			const button = gId("scan");
-			button.disabled = true;
-			button.textContent = "Scanning...";
-
-			fetch(getURL("/json/net")).then((response) => {
-				return response.json();
-			}).then((json) => {
-				// Get the list of networks only, defaulting to an empty array.
-				return Object.assign(
-					{},
-					{"networks": []},
-					json,
-				).networks.sort(
-					// Sort by signal strength, descending.
-					(a, b) => b.rssi - a.rssi
-				).reduce(
-					// Filter out duplicate SSIDs. Since it is sorted by signal
-					// strength, the strongest signal will be kept in the
-					// order it as originally appeared in the array.
-					(unique, other) => {
-						if(!unique.some(obj => obj.ssid === other.ssid)) {
-							unique.push(other);
-						}
-						return unique;
-					},
-					[],
-				);
+		  const button = gId("scan");
+		  if (button) { button.disabled = true; button.textContent = "Scanning..."; }
+		
+		  fetch(getURL("/json/net"))
+			.then((response) => response.json())
+			.then((json) => {
+			  return Object.assign({}, {"networks": []}, json).networks
+				.sort((a, b) => b.rssi - a.rssi)
+				.reduce((unique, other) => {
+				  if (!unique.some(obj => obj.ssid === other.ssid)) unique.push(other);
+				  return unique;
+				}, []);
 			}).then((networks) => {
-				// If there are no networks, fetch it again in a second.
-				// but only do this a few times.
-				if (networks.length === 0 && scanLoops < 10) {
-					scanLoops++;
-					setTimeout(N, 1000);
-					return;
+			  if (networks.length === 0 && scanLoops < 10) {
+				scanLoops++;
+				setTimeout(N, 1000);
+				return;
+			  }
+			  scanLoops = 0;
+		
+			  if (networks.length > 0) {
+				let cs = d.querySelectorAll("#wifi_entries input[type=text][name^=CS]");
+				for (let input of (cs||[])) {
+				  let found = false;
+				  let select = cE("select");
+				  select.id = input.id;
+				  select.name = input.name;
+				  // When user changes SSID selection, keep Enterprise SSID synced.
+				  select.addEventListener('change', function(){ T(this); syncEapSsidFromPrimary(); });
+				  preScanSSID = input.value;
+		
+				  // Populate options
+				  for (let i = select.children.length; i > 0; i--) select.removeChild(select.children[i-1]);
+				  for (let i = 0; i < networks.length; i++) {
+					const option = cE("option");
+					option.setAttribute("value", networks[i].ssid);
+					option.textContent = `${networks[i].ssid} (${networks[i].rssi} dBm)`;
+					if (networks[i].ssid === input.value) { option.setAttribute("selected", "selected"); found = true; }
+					select.appendChild(option);
+				  }
+				  const option = cE("option");
+				  option.setAttribute("value", "!Cs");
+				  option.textContent = "Other network...";
+				  select.appendChild(option);
+		
+				  if (input.value === "" || input.value === "Your_Network" || found) input.replaceWith(select);
+				  else select.remove();
 				}
-				scanLoops = 0;
-
-				if (networks.length > 0) {
-					let cs = d.querySelectorAll("#wifi_entries input[type=text][name^=CS]");
-					for (let input of (cs||[])) {
-						let found = false;
-						let select = cE("select");
-						select.id = input.id;
-						select.name = input.name;
-						select.setAttribute("onchange", "T(this)");
-						preScanSSID = input.value;
-
-						for (let i = 0; i < select.children.length; i++) {
-							select.removeChild(select.children[i]);
-						}
-
-						for (let i = 0; i < networks.length; i++) {
-							const option = cE("option");
-
-							option.setAttribute("value", networks[i].ssid);
-							option.textContent = `${networks[i].ssid} (${networks[i].rssi} dBm)`; // [${networks[i].bssid.replaceAll(':','')}]
-
-							if (networks[i].ssid === input.value) {
-								option.setAttribute("selected", "selected");
-								found = true;
-							}
-
-							select.appendChild(option);
-						}
-						const option = cE("option");
-
-						option.setAttribute("value", "!Cs");
-						option.textContent = "Other network...";
-						select.appendChild(option);
-
-						if (input.value === "" || input.value === "Your_Network" || found) input.replaceWith(select);
-						else select.remove(); 
-					}
-				}
-
-				button.disabled = false;
-				button.textContent = "Scan";
+			  }
+		
+			  // Re-apply Enterprise visibility after DOM changes
+			  try { toggleEnterpriseUI(); } catch(e){}
+			  if (button) { button.disabled = false; button.textContent = "Scan"; }
+			})
+			.catch((e)=>{
+			  console.error('Scan failed', e);
+			  if (button) { button.disabled = false; button.textContent = "Scan"; }
 			});
 		}
-		// replace WiFi select with custom SSID input field again
+		
+		/* ---------- Switch back to custom SSID ---------- */
 		function T(cs) {
-			if (!cs || cs.value != "!Cs") return;
-			let input = cE("input");
-			input.type = "text";
-			input.id = cs.id;
-			input.name = cs.name;
-			input.setAttribute("maxlength",32);
-			input.value = preScanSSID;
-			cs.replaceWith(input);
+		  if (!cs || cs.value != "!Cs") return;
+		  let input = cE("input");
+		  input.type = "text";
+		  input.id = cs.id;
+		  input.name = cs.name;
+		  input.setAttribute("maxlength",32);
+		  input.value = preScanSSID;
+		  cs.replaceWith(input);
+		  syncEapSsidFromPrimary();
 		}
+		
+		/* ---------- Add/Remove Wi-Fi entries (unchanged) ---------- */
 		function resetWiFi(maxN = undefined) {
-			if (maxN) maxNetworks = maxN;
-			let entries = gId("wifi_entries").children
-			for (let i = entries.length; i > 0; i--) entries[i-1].remove();
-			btnWiFi(0);
+		  if (maxN) maxNetworks = maxN;
+		  let entries = gId("wifi_entries").children;
+		  for (let i = entries.length; i > 0; i--) entries[i-1].remove();
+		  btnWiFi(0);
 		}
 		function btnWiFi(i) {
-			gId("wifi_add").style.display = (i<maxNetworks) ? "inline":"none";
-			gId("wifi_rem").style.display = (i>1) ? "inline":"none";
+		  gId("wifi_add").style.display = (i<maxNetworks) ? "inline":"none";
+		  gId("wifi_rem").style.display = (i>1) ? "inline":"none";
 		}
-		function addWiFi(ssid="",pass="",bssid="",ip=0,gw=0,sn=0x00ffffff) { // little endian
-			var i = gId("wifi_entries").childNodes.length;
-			if (i >= maxNetworks) return;
-			var b = `<div id="net${i}"><hr class="sml">
-Network name (SSID${i==0?", empty to not connect":""}):<br><input type="text" id="CS${i}" name="CS${i}" maxlength="32" value="${ssid}" ${i>0?"required":""}><br>
-Network password:<br><input type="password" name="PW${i}" maxlength="64" value="${pass}"><br>
-BSSID (optional):<br><input type="text" id="BS${i}" name="BS${i}" maxlength="12" value="${bssid}"><br>
-Static IP (leave at 0.0.0.0 for DHCP)${i==0?"<br>Also used by Ethernet":""}:<br>
-<input name="IP${i}0" type="number" class="s" min="0" max="255" value="${ip&0xFF}" required>.<input name="IP${i}1" type="number" class="s" min="0" max="255" value="${(ip>>8)&0xFF}" required>.<input name="IP${i}2" type="number" class="s" min="0" max="255" value="${(ip>>16)&0xFF}" required>.<input name="IP${i}3" type="number" class="s" min="0" max="255" value="${(ip>>24)&0xFF}" required><br>
-Static gateway:<br>
-<input name="GW${i}0" type="number" class="s" min="0" max="255" value="${gw&0xFF}" required>.<input name="GW${i}1" type="number" class="s" min="0" max="255" value="${(gw>>8)&0xFF}" required>.<input name="GW${i}2" type="number" class="s" min="0" max="255" value="${(gw>>16)&0xFF}" required>.<input name="GW${i}3" type="number" class="s" min="0" max="255" value="${(gw>>24)&0xFF}" required><br>
-Static subnet mask:<br>
-<input name="SN${i}0" type="number" class="s" min="0" max="255" value="${sn&0xFF}" required>.<input name="SN${i}1" type="number" class="s" min="0" max="255" value="${(sn>>8)&0xFF}" required>.<input name="SN${i}2" type="number" class="s" min="0" max="255" value="${(sn>>16)&0xFF}" required>.<input name="SN${i}3" type="number" class="s" min="0" max="255" value="${(sn>>24)&0xFF}" required></div>`;
-			gId("wifi_entries").insertAdjacentHTML("beforeend", b);
-			btnWiFi(i+1);
+		function addWiFi(ssid="",pass="",bssid="",ip=0,gw=0,sn=0x00ffffff) {
+		  var i = gId("wifi_entries").childNodes.length;
+		  if (i >= maxNetworks) return;
+		  var b = `<div id="net${i}"><hr class="sml">
+		Network name (SSID${i==0?", empty to not connect":""}):<br><input type="text" id="CS${i}" name="CS${i}" maxlength="32" value="${ssid}" ${i>0?"required":""}><br>
+		Network password:<br><input type="password" name="PW${i}" maxlength="64" value="${pass}"><br>
+		BSSID (optional):<br><input type="text" id="BS${i}" name="BS${i}" maxlength="12" value="${bssid}"><br>
+		Static IP (leave at 0.0.0.0 for DHCP)${i==0?"<br>Also used by Ethernet":""}:<br>
+		<input name="IP${i}0" type="number" class="s" min="0" max="255" value="${ip&0xFF}" required>.<input name="IP${i}1" type="number" class="s" min="0" max="255" value="${(ip>>8)&0xFF}" required>.<input name="IP${i}2" type="number" class="s" min="0" max="255" value="${(ip>>16)&0xFF}" required>.<input name="IP${i}3" type="number" class="s" min="0" max="255" value="${(ip>>24)&0xFF}" required><br>
+		Static gateway:<br>
+		<input name="GW${i}0" type="number" class="s" min="0" max="255" value="${gw&0xFF}" required>.<input name="GW${i}1" type="number" class="s" min="0" max="255" value="${(gw>>8)&0xFF}" required>.<input name="GW${i}2" type="number" class="s" min="0" max="255" value="${(gw>>16)&0xFF}" required>.<input name="GW${i}3" type="number" class="s" min="0" max="255" value="${(gw>>24)&0xFF}" required><br>
+		Static subnet mask:<br>
+		<input name="SN${i}0" type="number" class="s" min="0" max="255" value="${sn&0xFF}" required>.<input name="SN${i}1" type="number" class="s" min="0" max="255" value="${(sn>>8)&0xFF}" required>.<input name="SN${i}2" type="number" class="s" min="0" max="255" value="${(sn>>16)&0xFF}" required>.<input name="SN${i}3" type="number" class="s" min="0" max="255" value="${(sn>>24)&0xFF}" required></div>`;
+		  gId("wifi_entries").insertAdjacentHTML("beforeend", b);
+		  btnWiFi(i+1);
 		}
 		function remWiFi() {
-			const entries = gId("wifi_entries").children;
-			const i = entries.length;
-			if (i < 2) return;
-			entries[i-1].remove();
-			btnWiFi(i-1);
+		  const entries = gId("wifi_entries").children;
+		  const i = entries.length;
+		  if (i < 2) return;
+		  entries[i-1].remove();
+		  btnWiFi(i-1);
 		}
+		
+		/* ---------- Enterprise UI logic ---------- */
+		function toggleEnterpriseUI() {
+		  const t = gId('eap_toggle');
+		  const on = !!(t && t.checked);
+		  const blk = gId('eap_block');
+		  if (blk) blk.style.display = on ? 'block' : 'none';
+		
+		  // Hide/show PSK password rows
+		  try {
+			d.querySelectorAll('#wifi_entries input[name^="PW"]').forEach(el=>{
+			  el.closest('div')?.style?.setProperty('display', on ? 'none' : '');
+			});
+		  } catch(e){}
+		}
+		function getPrimarySsidInput(){ return gId('CS0'); }
+		function currentPrimarySsidValue(){
+		  const el = getPrimarySsidInput();
+		  if (!el) return '';
+		  return el.value;
+		}
+		function syncEapSsidFromPrimary() {
+		  const ssid = currentPrimarySsidValue() || '';
+		  const eapSsid = gId('eap_ssid');
+		  if (eapSsid && !eapSsid.matches(':focus')) eapSsid.value = ssid;
+		}
+		async function loadEap() {
+		  try {
+			const r = await fetch(getURL('/eap/get'));
+			if (!r.ok) return;
+			const c = await r.json();
+			gId('eap_toggle').checked = !!c.enabled;
+			gId('eap_ssid').value = c.ssid || '';
+			gId('eap_identity').value = c.identity || '';
+			gId('eap_username').value = c.username || '';
+			gId('eap_password').value = c.password || '';
+			gId('eap_method').value = c.method || 'PEAP';
+			gId('eap_phase2').value = c.phase2 || 'MSCHAPV2';
+			gId('eap_validateCa').checked = !!c.validateCa;
+			toggleEnterpriseUI();
+		  } catch(e) { console.log('loadEap error', e); }
+		}
+		async function saveEap() {
+		  const payload = {
+			enabled: gId('eap_toggle').checked,
+			ssid: gId('eap_ssid').value || currentPrimarySsidValue(),
+			identity: gId('eap_identity').value,
+			username: gId('eap_username').value,
+			password: gId('eap_password').value,
+			method: gId('eap_method').value,
+			phase2: gId('eap_phase2').value,
+			validateCa: gId('eap_validateCa').checked
+		  };
+		  if (payload.enabled) {
+			if (!payload.ssid) { alert('Please select SSID'); throw new Error('no ssid'); }
+			if (!payload.username) { alert('Please enter username'); throw new Error('no username'); }
+			if (!payload.password) { alert('Please enter password'); throw new Error('no password'); }
+		  }
+		  const r = await fetch(getURL('/eap/save'), {
+			method: 'POST',
+			headers: { 'Content-Type':'application/json' },
+			body: JSON.stringify(payload)
+		  });
+		  if (!r.ok) {
+			alert('Enterprise save failed');
+			throw new Error('eap save failed');
+		  }
+		}
+		function uploadCa() {
+		  const input = document.createElement('input');
+		  input.type = 'file';
+		  input.onchange = async () => {
+			const f = input.files[0]; if (!f) return;
+			const form = new FormData(); form.append('file', f);
+			const r = await fetch(getURL('/eap/upload_ca'), { method: 'POST', body: form });
+			alert('CA upload: ' + (await r.text()));
+		  }; input.click();
+		}
+		async function deleteCa() {
+		  const r = await fetch(getURL('/eap/delete_ca'), { method: 'POST' });
+		  alert('CA delete: ' + (await r.text()));
+		}
+		
+		/* ---------- Page lifecycle & bindings ---------- */
 		function S() {
-			getLoc();
-			loadJS(getURL('/settings/s.js?p=1'), false);	// If we set async false, file is loaded and executed, then next statement is processed
-			if (loc) d.Sf.action = getURL('/settings/wifi');
-			setTimeout(tE, 500); // wait for DOM to load before calling tE()
+		  // Stock WLED bootstrapping
+		  try { getLoc(); } catch(e){}
+		  try { loadJS(getURL('/settings/s.js?p=1'), false); } catch(e){}
+		  if (typeof loc !== 'undefined' && loc && d.Sf) d.Sf.action = getURL('/settings/wifi');
+		
+		  // Bind Enterprise toggle (no inline handlers)
+		  const t = gId('eap_toggle');
+		  if (t) {
+			// Replace to drop any stale inline listeners
+			const clone = t.cloneNode(true);
+			t.replaceWith(clone);
+			clone.addEventListener('change', toggleEnterpriseUI);
+		  }
+		
+		  // Load persisted EAP config, then ensure SSID sync & visibility
+		  loadEap().finally(()=>{
+			setTimeout(syncEapSsidFromPrimary, 300);
+			toggleEnterpriseUI();
+		  });
+		
+		  // If Wi-Fi entries are re-rendered (after Scan), re-apply visibility & sync
+		  const wifiRoot = gId('wifi_entries') || d.body;
+		  const mo = new MutationObserver(()=>{ toggleEnterpriseUI(); syncEapSsidFromPrimary(); });
+		  mo.observe(wifiRoot, { childList: true, subtree: true });
+		
+		  // Ensure Scan button is wired to N()
+		  const scanBtn = gId('scan');
+		  if (scanBtn) {
+			scanBtn.onclick = function(ev){ ev.preventDefault(); N(); };
+		  }
+		
+		  // Save & Connect: if Enterprise ON, save to /eap/save first, then submit stock form
+		  if (d.Sf) {
+			d.Sf.addEventListener('submit', async (ev) => {
+			  if (!gId('eap_toggle')?.checked) return; // PSK flow
+			  ev.preventDefault();
+			  try { await saveEap(); d.Sf.submit(); }
+			  catch(e){ console.log(e); /* alert already shown in saveEap if needed */ }
+			});
+		  }
+		
+		  // ESPNOW bits stay as-is but we must call tE after settings load
+		  setTimeout(tE, 500);
 		}
-
-		var rC = 0; // remote count
-		// toggle visibility of ESP-NOW remote list based on checkbox state
-		function tE() {
-			// keep the hidden input with MAC addresses, only toggle visibility of the list UI
-			gId('rlc').style.display = d.Sf.RE.checked ? 'block' : 'none';
-		}
-		// reset remotes: initialize empty list (called from xml.cpp)
-		function rstR() {
-			gId('rml').innerHTML = ''; // clear remote list
-		}
-		// add remote MAC to the list
+		
+		/* ---------- ESP-NOW (unchanged from your file) ---------- */
+		var rC = 0;
+		function tE() { if (gId('rlc') && d.Sf && 'RE' in d.Sf) gId('rlc').style.display = d.Sf.RE.checked ? 'block' : 'none'; }
+		function rstR() { const el=gId('rml'); if (el) el.innerHTML = ''; }
 		function aR(id, mac) {
-			if (!/^[0-9A-F]{12}$/i.test(mac)) return; // check for valid hex string
-			let inputs = d.querySelectorAll("#rml input");
-			for (let i of (inputs || [])) {
-				if (i.value === mac) return;
-			}
-			let l = gId('rml'), r = cE('div'), i = cE('input');
-			i.type = 'text';
-			i.name = id;
-			i.value = mac;
-			i.maxLength = 12;
-			i.minLength = 12;
-			//i.onchange = uR;
-			r.appendChild(i);
-			let b = cE('button');
-			b.type = 'button';
-			b.className = 'sml';
-			b.innerText = '-';
-			b.onclick = (e) => {
- 				r.remove();
- 			};
-			r.appendChild(b);
-			l.appendChild(r);
-			rC++;
-			gId('+').style.display = gId("rml").childElementCount < 10 ? 'inline' : 'none'; // can't append to list anymore, hide button
+		  if (!/^[0-9A-F]{12}$/i.test(mac)) return;
+		  let inputs = d.querySelectorAll("#rml input");
+		  for (let i of (inputs || [])) if (i.value === mac) return;
+		  let l = gId('rml'), r = cE('div'), i = cE('input');
+		  i.type = 'text'; i.name = id; i.value = mac; i.maxLength = 12; i.minLength = 12;
+		  r.appendChild(i);
+		  let b = cE('button'); b.type = 'button'; b.className = 'sml'; b.innerText = '-';
+		  b.onclick = (e) => { r.remove(); };
+		  r.appendChild(b); l.appendChild(r); rC++;
+		  gId('+').style.display = gId("rml").childElementCount < 10 ? 'inline' : 'none';
 		}
-
-	</script>
+		</script>
+		
+	  
 	<style>@import url("style.css");</style>
 </head>
 <body onload="S()">
@@ -195,6 +295,46 @@ Static subnet mask:<br>
 			<hr class="sml">
 			<button type="button" id="wifi_add" onclick="addWiFi()">+</button>
 			<button type="button" id="wifi_rem" onclick="remWiFi()">-</button><br>
+		</div>
+		<hr class="sml">
+
+		<h3>WPA2-Enterprise (802.1X)</h3>
+		<label>
+
+		<input type="checkbox" id="eap_toggle">
+
+		Enable WPA2-Enterprise for the selected SSID
+		</label><br>
+
+		<div id="eap_block" style="display:none; margin-top:6px;">
+		SSID:<br>
+		<input type="text" id="eap_ssid" maxlength="32"><br>
+
+		Outer identity (optional):<br>
+		<input type="text" id="eap_identity" maxlength="64"><br>
+
+		Username:<br>
+		<input type="text" id="eap_username" maxlength="64"><br>
+
+		Password:<br>
+		<input type="password" id="eap_password" maxlength="64"><br>
+
+		EAP Method:<br>
+		<select id="eap_method">
+			<option value="PEAP">PEAP</option>
+			<option value="TTLS">TTLS</option>
+		</select><br>
+
+		Phase-2 Auth:<br>
+		<select id="eap_phase2">
+			<option value="MSCHAPV2">MSCHAPV2</option>
+			<option value="PAP">PAP</option>
+		</select><br>
+
+		Validate server CA:<br>
+		<label><input type="checkbox" id="eap_validateCa"> Enforce CA certificate</label><br>
+		<button type="button" class="sml" onclick="uploadCa()">Upload CA cert</button>
+		<button type="button" class="sml" onclick="deleteCa()">Delete CA cert</button>
 		</div>
 		DNS server address:<br>
 		<input name="D0" type="number" class="s" min="0" max="255" required>.<input name="D1" type="number" class="s" min="0" max="255" required>.<input name="D2" type="number" class="s" min="0" max="255" required>.<input name="D3" type="number" class="s" min="0" max="255" required><br>
