@@ -48,7 +48,9 @@ uint32_t WLED_O2_ATTR color_add(uint32_t c1, uint32_t c2, bool preserveCR) //121
       wg =  (wg * scale)       & ~TWO_CHANNEL_MASK;
     } else wg <<= 8; //shift white and green back to correct position
   } else {
-    // branchless per-channel saturation to 255 (extract 9th bit, subtract 1 if it is set, mask with 0xFF)
+    // branchless per-channel saturation to 255 (extract 9th bit, subtract 1 if it is set, mask with 0xFF, input is 0xFF+0xFF=0x1EF max)
+    // example with overflow: input: 0x01EF01EF -> (0x0100100 - 0x00010001) = 0x00FF00FF -> input|0x00FF00FF = 0x00FF00FF (saturate)
+    // example without overflow: input: 0x007F007F -> (0x00000000 - 0x00000000) = 0x00000000 -> input|0x00000000 = input  (no change)
     rb |= ((rb & 0x01000100) - ((rb >> 8) & 0x00010001)) & 0x00FF00FF;
     wg |= ((wg & 0x01000100) - ((wg >> 8) & 0x00010001)) & 0x00FF00FF;
     wg <<= 8; // restore WG position
