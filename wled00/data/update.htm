@@ -22,20 +22,19 @@
 			fetch('/json/info')
 				.then(response => response.json())
 				.then(data => {
-					if (data.release) {
-						var releaseSpan = document.querySelector('.release-name');
-						if (releaseSpan) {
-							releaseSpan.textContent = data.release;
-						}
+					document.querySelector('.installed-version').textContent = `${data.brand} ${data.ver} (${data.vid})`;
+					document.querySelector('.release-name').textContent = data.release;
+					// TODO - assemble update URL
+					// TODO - can this be done at build time?
+					if (data.arch == "esp8266") {
+						toggle('rev');
 					}
 				})
 				.catch(error => {
 					console.log('Could not fetch device info:', error);
 					// Fallback to compiled-in value if API call fails
-					var releaseSpan = document.querySelector('.release-name');
-					if (releaseSpan && releaseSpan.textContent === 'Loading...') {
-						releaseSpan.textContent = 'Unknown';
-					}
+					document.querySelector('.installed-version').textContent = 'Unknown';
+					document.querySelector('.release-name').textContent = 'Unknown';
 				});
 		}
 	</script>
@@ -47,7 +46,7 @@
 <body onload="GetV()">
 	<h2>WLED Software Update</h2>
 	<form method='POST' action='./update' id='upd' enctype='multipart/form-data' onsubmit="toggle('upd')">
-		Installed version: <span class="sip">WLED ##VERSION##</span><br>
+		Installed version: <span class="sip installed-version">Loading...</span><br>
 		Release: <span class="sip release-name">Loading...</span><br>
 		Download the latest binary: <a href="https://github.com/wled-dev/WLED/releases" target="_blank" 
 		style="vertical-align: text-bottom; display: inline-flex;">
