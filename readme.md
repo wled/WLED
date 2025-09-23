@@ -10,9 +10,7 @@
 
   </p>
 
-# Welcome to WLED! ✨
-
-# WLED + WPA2-Enterprise (802.1X)
+# Welcome to WLED + WPA2-Enterprise (802.1X)! ✨
 
 A focused fork of WLED that adds **WPA2-Enterprise (802.1X)** support and integrates enterprise authentication into the existing **Wi-Fi Settings** workflow. Configure **PEAP/MSCHAPv2**, **TTLS/PAP**, optional **server CA validation**, and related fields directly in the UI while preserving the familiar WLED experience.
 
