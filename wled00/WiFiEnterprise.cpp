@@ -10,6 +10,8 @@
 #include <ESPAsyncWebServer.h>
 #include <vector>
 
+EapConfig globalEapConfig;
+
 extern AsyncWebServer server; // NOTE: non-pointer, matches your WLED
 
 // ---- storage ----
@@ -98,8 +100,7 @@ void eapConnect(const EapConfig& c) {
     }
   }
 
-  esp_wpa2_config_t cfg = WPA2_CONFIG_INIT_DEFAULT();
-  esp_wifi_sta_wpa2_ent_enable(&cfg);
+    esp_wifi_sta_wpa2_ent_enable();
 
   // Start association (no PSK for Enterprise)
   WiFi.begin(c.ssid.c_str());

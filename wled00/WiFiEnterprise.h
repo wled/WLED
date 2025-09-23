@@ -1,32 +1,35 @@
 #pragma once
-#ifdef ARDUINO_ARCH_ESP32
-
 #include <Arduino.h>
+#include <WString.h>
 
-enum class EapMethod : uint8_t { PEAP = 0, TTLS = 1 };
-enum class Phase2   : uint8_t { MSCHAPV2 = 0, PAP = 1 };
-
-struct EapConfig {
-  bool   enabled       = false;      // enterprise mode on/off
-  String ssid;                       // target SSID (e.g. "iitk-sec")
-  String identity;                   // outer/anonymous identity (often blank or same as username)
-  String username;                   // inner identity
-  String password;                   // SSO Wi-Fi password
-  EapMethod method     = EapMethod::PEAP;
-  Phase2   phase2      = Phase2::MSCHAPV2; // used when TTLS
-  bool     validateCa  = false;      // validate RADIUS server?
-  bool     caPresent   = false;      // CA file exists on FS
+enum class EapMethod {
+  PEAP,
+  TTLS
 };
 
-// load/save config from LittleFS (/wled_eap.json)
-// returns true if FS was accessible; fields are filled with defaults if not present
+enum class Phase2 {
+  MSCHAPV2,
+  PAP
+};
+
+struct EapConfig {
+  bool enabled    = false;
+  String ssid;        // Enterprise SSID
+  String identity;    // Outer identity (often anonymous)
+  String username;    // Inner identity/username
+  String password;    // Password
+  bool validateCa = false;
+  bool caPresent  = false;
+  EapMethod method = EapMethod::PEAP;
+  Phase2   phase2 = Phase2::MSCHAPV2;
+};
+
+// ---- Global config instance ----
+// (declared here, defined in WiFiEnterprise.cpp)
+extern EapConfig globalEapConfig;
+
+// ---- API ----
 bool eapLoad(EapConfig& out);
 bool eapSave(const EapConfig& in);
-
-// perform WPA2-Enterprise connect (PEAP or TTLS)
-void eapConnect(const EapConfig& c);
-
-// register HTTP routes (/eap/get, /eap/save, /eap/upload_ca, /eap/delete_ca)
+void eapConnect(const EapConfig& cfg);
 void eapInitHttpRoutes();
-
-#endif

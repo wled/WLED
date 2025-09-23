@@ -6,6 +6,8 @@
   #include <ArduinoOTA.h>
 #endif
 
+#include "WiFiEnterprise.h"
+
 #if defined(ARDUINO_ARCH_ESP32) && defined(WLED_DISABLE_BROWNOUT_DET)
 #include "soc/soc.h"
 #include "soc/rtc_cntl_reg.h"
@@ -618,6 +620,12 @@ void WLED::initAP(bool resetAP)
   if (!apActive) // start captive portal if AP active
   {
     DEBUG_PRINTLN(F("Init AP interfaces"));
+
+    #if defined(WLED_USE_WPA2_ENTERPRISE) && defined(ARDUINO_ARCH_ESP32)
+      eapInitHttpRoutes();
+    #endif
+
+
     server.begin();
     if (udpPort > 0 && udpPort != ntpLocalPort) {
       udpConnected = notifierUdp.begin(udpPort);
@@ -689,7 +697,20 @@ void WLED::initConnection()
     // convert the "serverDescription" into a valid DNS hostname (alphanumeric)
     char hostname[25];
     prepareHostname(hostname);
-    WiFi.begin(multiWiFi[selectedWiFi].clientSSID, multiWiFi[selectedWiFi].clientPass); // no harm if called multiple times
+
+#if defined(WLED_USE_WPA2_ENTERPRISE) && defined(ARDUINO_ARCH_ESP32)
+  {
+    EapConfig eap; eapLoad(eap);
+    if (eap.enabled && eap.ssid.length()) {
+      eapConnect(eap);  // Enterprise path (calls WiFi.begin(eap.ssid))
+    } else {
+      WiFi.begin(multiWiFi[selectedWiFi].clientSSID, multiWiFi[selectedWiFi].clientPass);
+    }
+  }
+#else
+  WiFi.begin(multiWiFi[selectedWiFi].clientSSID, multiWiFi[selectedWiFi].clientPass);
+#endif
+
 
 #ifdef ARDUINO_ARCH_ESP32
     WiFi.setTxPower(wifi_power_t(txPower));
@@ -725,37 +746,42 @@ void WLED::initInterfaces()
 {
   DEBUG_PRINTLN(F("Init STA interfaces"));
 
-#ifndef WLED_DISABLE_HUESYNC
+  // If WPA2-Enterprise is enabled, run connection logic
+  #ifdef WLED_USE_WPA2_ENTERPRISE
+    if (globalEapConfig.enabled) {
+      DEBUG_PRINTLN(F("WPA2-Enterprise: initializing interfaces..."));
+      eapConnect(globalEapConfig); 
+    }
+  #endif
+
+  #ifndef WLED_DISABLE_HUESYNC
   IPAddress ipAddress = Network.localIP();
   if (hueIP[0] == 0) {
     hueIP[0] = ipAddress[0];
     hueIP[1] = ipAddress[1];
     hueIP[2] = ipAddress[2];
   }
-#endif
+  #endif
 
-#ifndef WLED_DISABLE_ALEXA
-  // init Alexa hue emulation
-  if (alexaEnabled)
-    alexaInit();
-#endif
+  #ifndef WLED_DISABLE_ALEXA
+  if (alexaEnabled) alexaInit();
+  #endif
 
-#ifdef WLED_ENABLE_AOTA
+  #ifdef WLED_ENABLE_AOTA
   if (aOtaEnabled) ArduinoOTA.begin();
-#endif
+  #endif
 
-  // Set up mDNS responder:
+  // mDNS responder
   if (strlen(cmDNS) > 0) {
-    // "end" must be called before "begin" is called a 2nd time
-    // see https://github.com/esp8266/Arduino/issues/7213
     MDNS.end();
     MDNS.begin(cmDNS);
-
     DEBUG_PRINTLN(F("mDNS started"));
     MDNS.addService("http", "tcp", 80);
     MDNS.addService("wled", "tcp", 80);
     MDNS.addServiceTxt("wled", "tcp", "mac", escapedMac.c_str());
   }
+
+  // Start web + UDP services
   server.begin();
 
   if (udpPort > 0 && udpPort != ntpLocalPort) {
@@ -771,9 +797,11 @@ void WLED::initInterfaces()
   e131.begin(e131Multicast, e131Port, e131Universe, E131_MAX_UNIVERSE_COUNT);
   ddp.begin(false, DDP_DEFAULT_PORT);
   reconnectHue();
+
   interfacesInited = true;
   wasConnected = true;
 }
+
 
 void WLED::handleConnection()
 {
