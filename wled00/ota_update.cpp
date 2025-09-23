@@ -263,7 +263,8 @@ static bool beginOTA(AsyncWebServerRequest *request, UpdateContext* context)
 
   DEBUG_PRINTF_P(PSTR("OTA Update Start, %x --> %x\n"), (uintptr_t)request,(uintptr_t) context);
 
-  if (request->hasParam("skipValidation", true)) {
+  auto skipValidationParam = request->getParam("skipValidation", true);
+  if (skipValidationParam && (skipValidationParam->value() == "1")) {
     context->releaseCheckPassed = true;
     DEBUG_PRINTLN(F("OTA validation skipped by user"));
   }
