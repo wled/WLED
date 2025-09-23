@@ -7535,6 +7535,12 @@ void weightPercentages(const uint8_t *arg1,
 }
 
 uint16_t mode_XmasTwinkle(void) {              // by Nicholas Pisarro, Jr.
+  /* SEGMENT usage:
+   *   aux0   number of twinklers
+   *   aux1   previous SEGMENT.speed
+   *   step   last time stamp
+   *   data   array of XTwinkleLight structure
+   */
   uint16_t numTwiklers = SEGLEN * SEGMENT.intensity / 255;
   if (numTwiklers <= 0)
     numTwiklers = 1;        // Divide checks are not cool.
@@ -7577,6 +7583,7 @@ uint16_t mode_XmasTwinkle(void) {              // by Nicholas Pisarro, Jr.
 
     SEGMENT.step = millis();
     SEGMENT.aux0 = numTwiklers;     // Initialized.
+    SEGMENT.aux1 = SEGMENT.speed;   // So we don't recalculate reTwinkle time.
   }
 
   // Get the current time,  handling overflows.
@@ -7613,9 +7620,9 @@ uint16_t mode_XmasTwinkle(void) {              // by Nicholas Pisarro, Jr.
     // Put the updated event time back.
     light->timeToEvent = eventTime;
 
-    // See if we are at the end of a major cycle, recalculate the max cycle time.
+    // If we are at the end of a major cycle or the speed has changed, recalculate the max cycle time.
     int16_t cycleTime = light->retwnkleTime - interval;
-    if (cycleTime <= 0)
+    if (cycleTime <= 0 || SEGMENT.aux1 != SEGMENT.speed)
     {
       int maxTime =  skewedRandom(random(100), pSize, wkgPercentages) * maximumTime / 100 + 200;
       light->maxCycle = maxTime;
@@ -7626,6 +7633,7 @@ uint16_t mode_XmasTwinkle(void) {              // by Nicholas Pisarro, Jr.
 
   // Remember the last time as ms.
   SEGMENT.step += interval;
+  SEGMENT.aux1 = SEGMENT.speed;   // Se we know if this change.
 
   // Turm off all the LEDS.
   for (int i = 0; i < SEGLEN; ++i)
