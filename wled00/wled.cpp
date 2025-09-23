@@ -6,6 +6,11 @@
   #include <ArduinoOTA.h>
 #endif
 
+// --- WPA2-Enterprise (ESP32 only) ---
+#if defined(ARDUINO_ARCH_ESP32) && defined(WLED_USE_WPA2_ENTERPRISE)
+  #include "WiFiEnterprise.h"  // eapLoad(), eapConnect(), eapInitHttpRoutes()
+#endif
+
 #if defined(ARDUINO_ARCH_ESP32) && defined(WLED_DISABLE_BROWNOUT_DET)
 #include "soc/soc.h"
 #include "soc/rtc_cntl_reg.h"
@@ -537,6 +542,11 @@ void WLED::setup()
   initServer();
   DEBUG_PRINTF_P(PSTR("heap %u\n"), getFreeHeapSize());
 
+  // Register WPA2-Enterprise config endpoints
+  #if defined(ARDUINO_ARCH_ESP32) && defined(WLED_USE_WPA2_ENTERPRISE)
+    eapInitHttpRoutes();   // adds /eap/* routes; server already configured by initServer()
+  #endif
+
 #ifndef WLED_DISABLE_INFRARED
   // init IR
   DEBUG_PRINTLN(F("initIR"));
@@ -689,7 +699,22 @@ void WLED::initConnection()
     // convert the "serverDescription" into a valid DNS hostname (alphanumeric)
     char hostname[25];
     prepareHostname(hostname);
-    WiFi.begin(multiWiFi[selectedWiFi].clientSSID, multiWiFi[selectedWiFi].clientPass); // no harm if called multiple times
+
+    // ===== CHANGE 3: Prefer WPA2-Enterprise if configured =====
+    #if defined(ARDUINO_ARCH_ESP32) && defined(WLED_USE_WPA2_ENTERPRISE)
+    {
+      EapConfig eap; 
+      eapLoad(eap);
+      if (eap.enabled && eap.ssid.length()) {
+        // This calls WiFi.disconnect, sets enterprise creds, and WiFi.begin(eap.ssid)
+        eapConnect(eap);
+      } else {
+        WiFi.begin(multiWiFi[selectedWiFi].clientSSID, multiWiFi[selectedWiFi].clientPass); // stock path
+      }
+    }
+    #else
+      WiFi.begin(multiWiFi[selectedWiFi].clientSSID, multiWiFi[selectedWiFi].clientPass); // stock path
+    #endif
 
 #ifdef ARDUINO_ARCH_ESP32
     WiFi.setTxPower(wifi_power_t(txPower));
