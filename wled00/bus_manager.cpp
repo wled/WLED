@@ -233,6 +233,7 @@ void BusDigital::estimateCurrent() {
 
 void BusDigital::applyBriLimit(uint8_t newBri) {
   // a newBri of 0 means calculate per-bus brightness limit
+  _NPBbri = 255; // reset, intermediate value is set below, final value is calculated in bus::show()
   if (newBri == 0) {
     if (_milliAmpsLimit == 0 || _milliAmpsTotal == 0) return; // ABL not used for this bus
     newBri = 255;
@@ -250,6 +251,7 @@ void BusDigital::applyBriLimit(uint8_t newBri) {
   }
 
   if (newBri < 255) {
+    _NPBbri = newBri; // store value so it can be updated in show() (must be updated even if ABL is not used)
     uint8_t cctWW = 0, cctCW = 0;
     unsigned hwLen = _len;
     if (_type == TYPE_WS2812_1CH_X3) hwLen = NUM_ICS_WS2812_1CH_3X(_len); // only needs a third of "RGB" LEDs for NeoPixelBus
@@ -267,6 +269,7 @@ void BusDigital::applyBriLimit(uint8_t newBri) {
 
 void BusDigital::show() {
   if (!_valid) return;
+  _NPBbri = (_NPBbri * _bri) / 255;      // total applied brightness for use in restoreColorLossy (see applyBriLimit())
   PolyBus::show(_busPtr, _iType, _skip); // faster if buffer consistency is not important (no skipped LEDs)
 }
 
@@ -329,7 +332,7 @@ uint32_t IRAM_ATTR BusDigital::getPixelColor(unsigned pix) const {
   if (_reversed) pix = _len - pix -1;
   pix += _skip;
   const uint8_t co = _colorOrderMap.getPixelColorOrder(pix+_start, _colorOrder);
-  uint32_t c = restoreColorLossy(PolyBus::getPixelColor(_busPtr, _iType, (_type==TYPE_WS2812_1CH_X3) ? IC_INDEX_WS2812_1CH_3X(pix) : pix, co),_bri);
+  uint32_t c = restoreColorLossy(PolyBus::getPixelColor(_busPtr, _iType, (_type==TYPE_WS2812_1CH_X3) ? IC_INDEX_WS2812_1CH_3X(pix) : pix, co),_NPBbri);
   if (_type == TYPE_WS2812_1CH_X3) { // map to correct IC, each controls 3 LEDs
     uint8_t r = R(c);
     uint8_t g = _reversed ? B(c) : G(c); // should G and B be switched if _reversed?

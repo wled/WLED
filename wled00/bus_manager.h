@@ -112,6 +112,7 @@ class Bus {
     Bus(uint8_t type, uint16_t start, uint8_t aw, uint16_t len = 1, bool reversed = false, bool refresh = false)
     : _type(type)
     , _bri(255)
+    , _NPBbri(255)
     , _start(start)
     , _len(std::max(len,(uint16_t)1))
     , _reversed(reversed)
@@ -210,7 +211,9 @@ class Bus {
 
   protected:
     uint8_t  _type;
-    uint8_t  _bri;
+    uint8_t  _bri;    // bus brightness
+    uint8_t  _NPBbri; // total brightness applied to colors in NPB buffer (_bri + ABL)
+    uint8_t  _autoWhiteMode; // global Auto White Calculation override
     uint16_t _start;
     uint16_t _len;
     //struct { //using bitfield struct adds abour 250 bytes to binary size
@@ -221,8 +224,6 @@ class Bus {
       bool _hasWhite;//     : 1;
       bool _hasCCT;//       : 1;
     //} __attribute__ ((packed));
-    uint8_t  _autoWhiteMode;
-    // global Auto White Calculation override
     static uint8_t _gAWM;
     // _cct has the following meanings (see calculateCCT() & BusManager::setSegmentCCT()):
     //    -1 means to extract approximate CCT value in K from RGB (in calcualteCCT())
