@@ -1981,7 +1981,7 @@ void AudioReactive::createAudioPalettes(void) {
   if (palettes) return;
   DEBUG_PRINTLN(F("Adding audio palettes."));
   for (int i=0; i<MAX_PALETTES; i++)
-    if (customPalettes.size() < 10) {
+    if (customPalettes.size() < WLED_MAX_CUSTOM_PALETTES) {
       customPalettes.push_back(CRGBPalette16(CRGB(BLACK)));
       palettes++;
       DEBUG_PRINTLN(palettes);
