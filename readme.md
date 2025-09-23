@@ -1,11 +1,16 @@
 <p align="center">
-  <!-- Optional: replace with your fork's logo -->
-  <img src="/images/wled_enterprise_logo.png" alt="WLED Enterprise Wi-Fi">
-  <!-- Badges: update org/repo as needed -->
-  <a href="https://github.com/<your-org>/<your-repo>/releases"><img src="https://img.shields.io/github/release/<your-org>/<your-repo>.svg?style=flat-square"></a>
-  <a href="https://raw.githubusercontent.com/<your-org>/<your-repo>/main/LICENSE"><img src="https://img.shields.io/github/license/<your-org>/<your-repo>?color=blue&style=flat-square"></a>
-  <a href="https://kno.wled.ge"><img src="https://img.shields.io/badge/quick_start-wiki-blue.svg?style=flat-square" alt="Quick Start"></a>
-</p>
+  <img src="/images/wled_logo_akemi.png">
+  <a href="https://github.com/wled-dev/WLED/releases"><img src="https://img.shields.io/github/release/wled-dev/WLED.svg?style=flat-square"></a>
+  <a href="https://raw.githubusercontent.com/wled-dev/WLED/main/LICENSE"><img src="https://img.shields.io/github/license/wled-dev/wled?color=blue&style=flat-square"></a>
+  <a href="https://wled.discourse.group"><img src="https://img.shields.io/discourse/topics?colorB=blue&label=forum&server=https%3A%2F%2Fwled.discourse.group%2F&style=flat-square"></a>
+  <a href="https://discord.gg/QAh7wJHrRM"><img src="https://img.shields.io/discord/473448917040758787.svg?colorB=blue&label=discord&style=flat-square"></a>
+  <a href="https://kno.wled.ge"><img src="https://img.shields.io/badge/quick_start-wiki-blue.svg?style=flat-square"></a>
+  <a href="https://github.com/Aircoookie/WLED-App"><img src="https://img.shields.io/badge/app-wled-blue.svg?style=flat-square"></a>
+  <a href="https://gitpod.io/#https://github.com/wled-dev/WLED"><img src="https://img.shields.io/badge/Gitpod-ready--to--code-blue?style=flat-square&logo=gitpod"></a>
+
+  </p>
+
+# Welcome to WLED! ✨
 
 # WLED + WPA2-Enterprise (802.1X)
 
