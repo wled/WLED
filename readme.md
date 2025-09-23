@@ -1,87 +1,198 @@
 <p align="center">
-  <img src="/images/wled_logo_akemi.png">
-  <a href="https://github.com/wled-dev/WLED/releases"><img src="https://img.shields.io/github/release/wled-dev/WLED.svg?style=flat-square"></a>
-  <a href="https://raw.githubusercontent.com/wled-dev/WLED/main/LICENSE"><img src="https://img.shields.io/github/license/wled-dev/wled?color=blue&style=flat-square"></a>
-  <a href="https://wled.discourse.group"><img src="https://img.shields.io/discourse/topics?colorB=blue&label=forum&server=https%3A%2F%2Fwled.discourse.group%2F&style=flat-square"></a>
-  <a href="https://discord.gg/QAh7wJHrRM"><img src="https://img.shields.io/discord/473448917040758787.svg?colorB=blue&label=discord&style=flat-square"></a>
-  <a href="https://kno.wled.ge"><img src="https://img.shields.io/badge/quick_start-wiki-blue.svg?style=flat-square"></a>
-  <a href="https://github.com/Aircoookie/WLED-App"><img src="https://img.shields.io/badge/app-wled-blue.svg?style=flat-square"></a>
-  <a href="https://gitpod.io/#https://github.com/wled-dev/WLED"><img src="https://img.shields.io/badge/Gitpod-ready--to--code-blue?style=flat-square&logo=gitpod"></a>
+  <!-- Optional: replace with your fork's logo -->
+  <img src="/images/wled_enterprise_logo.png" alt="WLED Enterprise Wi-Fi">
+  <!-- Badges: update org/repo as needed -->
+  <a href="https://github.com/<your-org>/<your-repo>/releases"><img src="https://img.shields.io/github/release/<your-org>/<your-repo>.svg?style=flat-square"></a>
+  <a href="https://raw.githubusercontent.com/<your-org>/<your-repo>/main/LICENSE"><img src="https://img.shields.io/github/license/<your-org>/<your-repo>?color=blue&style=flat-square"></a>
+  <a href="https://kno.wled.ge"><img src="https://img.shields.io/badge/quick_start-wiki-blue.svg?style=flat-square" alt="Quick Start"></a>
+</p>
 
-  </p>
+# WLED + WPA2-Enterprise (802.1X)
 
-# Welcome to WLED! ✨
+A focused fork of WLED that adds **WPA2-Enterprise (802.1X)** support and integrates enterprise authentication into the existing **Wi-Fi Settings** workflow. Configure **PEAP/MSCHAPv2**, **TTLS/PAP**, optional **server CA validation**, and related fields directly in the UI while preserving the familiar WLED experience.
 
-A fast and feature-rich implementation of an ESP32 and ESP8266 webserver to control NeoPixel (WS2812B, WS2811, SK6812) LEDs or also SPI based chipsets like the WS2801 and APA102!
+Originally based on [WLED by Aircoookie](https://github.com/wled-dev/WLED).
 
-Originally created by [Aircoookie](https://github.com/Aircoookie)
+---
 
-## ⚙️ Features
-- WS2812FX library with more than 100 special effects  
-- FastLED noise effects and 50 palettes  
-- Modern UI with color, effect and segment controls  
-- Segments to set different effects and colors to user defined parts of the LED string  
-- Settings page - configuration via the network  
-- Access Point and station mode - automatic failsafe AP  
-- [Up to 10 LED outputs](https://kno.wled.ge/features/multi-strip/#esp32) per instance
-- Support for RGBW strips  
-- Up to 250 user presets to save and load colors/effects easily, supports cycling through them.  
-- Presets can be used to automatically execute API calls  
-- Nightlight function (gradually dims down)  
-- Full OTA software updateability (HTTP + ArduinoOTA), password protectable  
-- Configurable analog clock (Cronixie, 7-segment and EleksTube IPS clock support via usermods) 
-- Configurable Auto Brightness limit for safe operation  
-- Filesystem-based config for easier backup of presets and settings  
+## Features
 
-## 💡 Supported light control interfaces
-- WLED app for [Android](https://play.google.com/store/apps/details?id=ca.cgagnier.wlednativeandroid) and [iOS](https://apps.apple.com/gb/app/wled-native/id6446207239)
-- JSON and HTTP request APIs  
-- MQTT   
-- E1.31, Art-Net, DDP and TPM2.net
-- [diyHue](https://github.com/diyhue/diyHue) (Wled is supported by diyHue, including Hue Sync Entertainment under udp. Thanks to [Gregory Mallios](https://github.com/gmallios))
-- [Hyperion](https://github.com/hyperion-project/hyperion.ng)
-- UDP realtime  
-- Alexa voice control (including dimming and color)  
-- Sync to Philips hue lights  
-- Adalight (PC ambilight via serial) and TPM2  
-- Sync color of multiple WLED devices (UDP notifier)  
-- Infrared remotes (24-key RGB, receiver required)  
-- Simple timers/schedules (time from NTP, timezones/DST supported)  
+- **Enterprise mode** in Wi-Fi Settings
+- Fields for **SSID**, **Outer Identity** (optional), **Username**, **Password**
+- **EAP methods:** PEAP, TTLS
+- **Phase-2 methods:** MSCHAPV2, PAP
+- Optional **server CA validation** with **Upload/Delete** certificate actions
+- **SSID synchronization** with the primary network entry (works after **Scan** and “Other network…”)
+- Preserves stock **Scan** behavior and all original Wi-Fi options (DNS, mDNS, AP mode, static IP, etc.)
 
-## 📲 Quick start guide and documentation
+---
 
-See the [documentation on our official site](https://kno.wled.ge)!
+## Screenshots
 
-[On this page](https://kno.wled.ge/basics/tutorials/) you can find excellent tutorials and tools to help you get your new project up and running!
+<p align="center">
+  <img src="/images/enterprise-toggle.png" width="49%" alt="Enterprise Toggle">
+  <img src="/images/enterprise-fields.png" width="49%" alt="Enterprise Fields">
+</p>
 
-## 🖼️ User interface
-<img src="/images/macbook-pro-space-gray-on-the-wooden-table.jpg" width="50%"><img src="/images/walking-with-iphone-x.jpg" width="50%">
+> Replace screenshots with your actual UI captures.
 
-## 💾 Compatible hardware
+---
 
-See [here](https://kno.wled.ge/basics/compatible-hardware)!
+## Quick Start
 
-## ✌️ Other
+See [WLED docs](https://kno.wled.ge) for general device setup and flashing guidance. This fork introduces changes to the **Wi-Fi Settings** page and adds a small HTTP API for enterprise configuration.
 
-Licensed under the EUPL v1.2 license  
-Credits [here](https://kno.wled.ge/about/contributors/)!
-CORS proxy by [Corsfix](https://corsfix.com/)
+### Building & Installing
 
-Join the Discord server to discuss everything about WLED!
+This fork supports both UI pipelines used in WLED. Choose the path your build environment uses.
 
-<a href="https://discord.gg/QAh7wJHrRM"><img src="https://discordapp.com/api/guilds/473448917040758787/widget.png?style=banner2" width="25%"></a>
+#### Option A — Filesystem UI (LittleFS/SPIFFS)
 
-Check out the WLED [Discourse forum](https://wled.discourse.group)!  
+1. Place the modified page:
+```
 
-You can also send me mails to [dev.aircoookie@gmail.com](mailto:dev.aircoookie@gmail.com), but please, only do so if you want to talk to me privately.  
+wled00/data/settings\_wifi.htm
 
-If WLED really brightens up your day, you can [![](https://img.shields.io/badge/send%20me%20a%20small%20gift-paypal-blue.svg?style=flat-square)](https://paypal.me/aircoookie)
+````
+2. Build & upload filesystem (PlatformIO):
+```bash
+pio run -e <your_env> -t buildfs
+pio run -e <your_env> -t uploadfs
+````
 
+3. Flash firmware (if needed):
 
-*Disclaimer:*   
+   ```bash
+   pio run -e <your_env> -t upload
+   ```
+4. Hard reload the browser (Ctrl/Cmd+Shift+R).
 
-If you are prone to photosensitive epilepsy, we recommended you do **not** use this software.  
-If you still want to try, don't use strobe, lighting or noise modes or high effect speed settings.
+> Note: OTA firmware updates do **not** update filesystem files. Re-run `uploadfs` after UI changes.
 
-As per the EUPL license, I assume no liability for any damage to you or any other person or equipment.  
+#### Option B — Compiled UI (PROGMEM)
 
+1. Place the modified page:
+
+   ```
+   wled00/html/settings_wifi.htm
+   ```
+2. Generate headers:
+
+   ```bash
+   python3 tools/cdata.py
+   ```
+3. Build & flash:
+
+   ```bash
+   pio run -e <your_env> -t upload
+   ```
+4. Hard reload the browser.
+
+---
+
+## Using WPA2-Enterprise in the UI
+
+1. Open **WLED → Wi-Fi Settings**.
+2. Click **Scan** and select your enterprise SSID (or choose **Other network…** to enter it).
+3. Enable **WPA2-Enterprise (802.1X)**.
+4. Fill enterprise credentials:
+
+   * **Outer Identity** (optional; often left blank unless required by your network)
+   * **Username**, **Password**
+   * **EAP Method** (commonly **PEAP**)
+   * **Phase-2** (commonly **MSCHAPV2**)
+   * **Validate server CA** if your organization requires it; **Upload** CA certificate when needed.
+5. Click **Save & Connect**. The device restarts and attempts 802.1X association.
+
+> Typical campus/corporate setups use **PEAP + MSCHAPV2**.
+
+---
+
+## HTTP API (optional)
+
+Automate enterprise configuration via simple endpoints.
+
+* **Get config**
+
+  ```bash
+  curl http://<device>/eap/get
+  ```
+* **Save config**
+
+  ```bash
+  curl -X POST http://<device>/eap/save \
+    -H "Content-Type: application/json" \
+    -d '{
+      "enabled": true,
+      "ssid": "CorpWiFi",
+      "identity": "",
+      "username": "user@org",
+      "password": "secret",
+      "method": "PEAP",
+      "phase2": "MSCHAPV2",
+      "validateCa": false
+    }'
+  ```
+* **Upload CA**
+
+  ```bash
+  curl -X POST http://<device>/eap/upload_ca -F "file=@/path/to/ca.pem"
+  ```
+* **Delete CA**
+
+  ```bash
+  curl -X POST http://<device>/eap/delete_ca
+  ```
+
+---
+
+## Compatibility
+
+* **Target:** ESP32 is recommended. WPA2-Enterprise on ESP8266 is limited or unsupported depending on SDK/toolchain.
+* **EAP methods:** Username/password profiles (PEAP, TTLS) are supported in the UI; certificate-based methods are not covered by this fork.
+* **WLED versions:** Built against recent WLED code paths using `settings_wifi.htm` and `/json/net`. If your base differs, update selectors/IDs accordingly.
+
+---
+
+## Differences vs Upstream WLED
+
+* Adds an **Enterprise mode** section to Wi-Fi Settings
+* Adds endpoints: `/eap/get`, `/eap/save`, `/eap/upload_ca`, `/eap/delete_ca`
+* Integrates **CA validation** handling (optional)
+* Keeps upstream Wi-Fi configuration semantics (DNS, mDNS, AP, static IP) unchanged
+
+Everything else strives to remain consistent with upstream behavior and UI.
+
+---
+
+## Troubleshooting
+
+* **UI changes don’t appear**
+
+  * For LittleFS/SPIFFS builds: run `buildfs` + `uploadfs`.
+  * For compiled UI: run `tools/cdata.py` then rebuild/flash.
+  * Hard reload; WLED serves strong cache headers.
+
+* **Scan button no-ops**
+
+  * Ensure `common.js` is loaded (use `<script src="/common.js" defer></script>`).
+  * Check browser Console for missing globals (e.g., `getURL`, `scanLoops`).
+
+* **Enterprise association fails**
+
+  * Verify EAP/Phase-2 match your network policy.
+  * Try without CA validation; if it connects, re-enable with the correct CA certificate.
+  * Some networks require a specific **Outer Identity** (e.g., `anonymous@realm`).
+
+---
+
+## Acknowledgments
+
+* Upstream project: **WLED** by [Aircoookie](https://github.com/wled-dev/WLED) and contributors.
+* README structure inspired by the upstream WLED README.&#x20;
+
+---
+
+## License
+
+This fork follows the same license as the upstream project (see [LICENSE](./LICENSE)).
