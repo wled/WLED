@@ -27,6 +27,12 @@ static const char s_unlock_cfg [] PROGMEM = "Please unlock settings using PIN co
 static const char s_rebooting  [] PROGMEM = "Rebooting now...";
 static const char s_notimplemented[] PROGMEM = "Not implemented";
 static const char s_accessdenied[]   PROGMEM = "Access Denied";
+static const char s_not_found[]      PROGMEM = "Not found";
+static const char s_wsec[]           PROGMEM = "wsec.json";
+static const char s_path[]           PROGMEM = "path";
+static const char s_edit[]           PROGMEM = "edit";
+static const char s_download[]       PROGMEM = "download";
+static const char s_list[]           PROGMEM = "list";
 static const char _common_js[]       PROGMEM = "/common.js";
 
 //Is this an IP?
@@ -229,12 +235,9 @@ void createEditHandler(bool enable) {
     }
 
     if (request->method() == HTTP_GET) {
-      for (int i = 0; i < request->params(); i++) {
-        AsyncWebParameter* p = request->getParam(i);
-      }
 
-      if (request->hasParam(F("list"))) {
-        String path = request->getParam(F("list"))->value();
+      if (request->hasParam(FPSTR(s_list))) {
+        String path = request->getParam(FPSTR(s_list))->value();
         if (path.isEmpty()) path = "/";
         String output = "[";
         bool first = true;
@@ -243,7 +246,7 @@ void createEditHandler(bool enable) {
         Dir dir = WLED_FS.openDir(path);
         while (dir.next()) {
           String name = String(dir.fileName());
-          if (name.indexOf("wsec.json") >= 0) continue; // skip wsec.json
+          if (name.indexOf(FPSTR(s_wsec)) >= 0) continue; // skip wsec.json
           if (!first) output += ',';
           first = false;
           output += "{\"name\":\"" + name + "\",\"type\":\"file\",\"size\":" + String(dir.fileSize()) + "}";
@@ -254,7 +257,7 @@ void createEditHandler(bool enable) {
           File file = root.openNextFile();
           while (file) {
             String name = file.name();
-            if (name.indexOf(F("wsec.json")) >= 0) { // skip wsec.json
+            if (name.indexOf(FPSTR(s_wsec)) >= 0) { // skip wsec.json
               file = root.openNextFile();
               continue;
             }
@@ -270,32 +273,37 @@ void createEditHandler(bool enable) {
         }
 #endif
         output += "]";
-        request->send(200, F("application/json"), output);
+        request->send(200, FPSTR(CONTENT_TYPE_JSON), output);
         return;
       }
 
-      if (request->hasParam(F("edit"))) {
-        String path = request->getParam(F("edit"))->value();
-        if (path.indexOf(F("wsec.json")) >= 0) { // skip wsec.json
-          request->send(403, FPSTR(CONTENT_TYPE_PLAIN), F("denied"));
+      if (request->hasParam(FPSTR(s_edit))) {
+        String path = request->getParam(FPSTR(s_edit))->value();
+        if (path.indexOf(FPSTR(s_wsec)) >= 0) { // skip wsec.json
+          request->send(403, FPSTR(CONTENT_TYPE_PLAIN), FPSTR(s_accessdenied));
           return;
         }
 
         if (!WLED_FS.exists(path)) {
-          request->send(404, FPSTR(CONTENT_TYPE_PLAIN), F("not found"));
+          request->send(404, FPSTR(CONTENT_TYPE_PLAIN), FPSTR(s_not_found));
           return;
         }
 
-        request->send(WLED_FS, path, F("text/plain"));
+        request->send(WLED_FS, path, FPSTR(CONTENT_TYPE_PLAIN));
         return;
       }
 
-      if (request->hasParam(F("download"))) {
-        String path = request->getParam(F("download"))->value();
+      if (request->hasParam(FPSTR(s_download))) {
+        String path = request->getParam(FPSTR(s_download))->value();
         if (!path.startsWith("/")) path = "/" + path;
 
+        if (path.indexOf(FPSTR(s_wsec)) >= 0) { // skip wsec.json
+          request->send(403, FPSTR(CONTENT_TYPE_PLAIN), FPSTR(s_accessdenied));
+          return;
+        }
+
         if (!WLED_FS.exists(path)) {
-          request->send(404, FPSTR(CONTENT_TYPE_PLAIN), F("not found"));
+          request->send(404, FPSTR(CONTENT_TYPE_PLAIN), FPSTR(s_not_found));
           return;
         }
 
@@ -309,12 +317,12 @@ void createEditHandler(bool enable) {
     }
 
     if (request->method() == HTTP_DELETE) {
-      if (!request->hasParam(F("path"), true)) {
-        request->send(400, FPSTR(CONTENT_TYPE_PLAIN), F("Path required"));
+      if (!request->hasParam(FPSTR(s_path), true)) {
+        request->send(400, FPSTR(CONTENT_TYPE_PLAIN), FPSTR(s_not_found));
         return;
       }
 
-      String path = request->getParam(F("path"), true)->value();
+      String path = request->getParam(FPSTR(s_path), true)->value();
       if (!path.startsWith("/")) path = "/" + path;
 
       if (!WLED_FS.remove(path)) {
@@ -760,6 +768,7 @@ void serveSettings(AsyncWebServerRequest* request, bool post) {
     if (subPage != SUBPAGE_PINREQ) strcat_P(s, PSTR(" settings saved."));
 
     if (subPage == SUBPAGE_PINREQ && correctPIN) {
+      createEditHandler(true);   // enable editor after successful PIN entry
       subPage = originalSubPage; // on correct PIN load settings page the user intended
     } else {
       if (!s2[0]) strcpy_P(s2, s_redirecting);
