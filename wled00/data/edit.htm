@@ -7,9 +7,9 @@
 <link rel="shortcut icon" href="favicon.ico"/>
 <link href="style.css" rel="stylesheet" />
 <!-- Optional lightweight JSON editor - fallback to textarea if CDN is unavailable -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.23.4/ace.min.js" defer></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.23.4/mode-json.min.js" defer></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.23.4/theme-monokai.min.js" defer></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.23.4/ace.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.23.4/mode-json.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.23.4/theme-monokai.min.js"></script>
 <style>
 /* Editor-specific styles */
 #uploader {
@@ -156,7 +156,6 @@ function createFileUploader(element, tree, editor){
 	// Create hidden file input
 	var input = ce("input");
 	input.type = "file";
-	input.multiple = true;
 	input.style.display = "none"; // Hide the default file input
 
 	// Create custom select button
@@ -215,28 +214,23 @@ function createFileUploader(element, tree, editor){
 			alert("Please select a file to upload");
 			return;
 		}
-
-		for(var i = 0; i < input.files.length; i++) {
-			var file = input.files[i];
-			var uploadPath = path.value;
-
-			// If no path specified, use filename
-			if(!uploadPath || uploadPath === "") {
-				uploadPath = file.name;
-			}
-
-			// Ensure leading slash
-			if(!uploadPath.startsWith("/")) {
-				uploadPath = "/" + uploadPath;
-			}
-
-			// Use 'file' as FormData field name (like original WLED)
-			var fd = new FormData(); 
-			fd.append("file", file, uploadPath);
-
-			console.log("Uploading file:", file.name, "to path:", uploadPath);
-			req.add("POST", "/edit", fd, httpPostCb);
+		var file = input.files[i];
+		var uploadPath = path.value;
+		// If no path specified, use filename
+		if(!uploadPath || uploadPath === "") {
+			uploadPath = file.name;
 		}
+		// Ensure leading slash
+		if(!uploadPath.startsWith("/")) {
+			uploadPath = "/" + uploadPath;
+		}
+		// Use 'file' as FormData field name (like original WLED)
+		var fd = new FormData(); 
+		fd.append("file", file, uploadPath);
+
+		console.log("Uploading:", file.name, "to:", uploadPath);
+		req.add("POST", "/edit", fd, httpPostCb);
+
 
 		// Clear variables after upload to prevent accidental re-upload
 		input.value = "";
@@ -245,39 +239,31 @@ function createFileUploader(element, tree, editor){
 
 	input.onchange = function(){
 		if(input.files.length == 0) return;
+		var file = input.files[0];
+		path.value = file.name; // Show selected filename in text field
 
-		if(input.files.length == 1) {
-			var file = input.files[0];
-			// Show selected filename in text field
-			path.value = file.name;
-
-			// Show preview for both images and text files
-			if(/\.(png|jpg|jpeg|gif|bmp|webp)$/i.test(file.name)) {
-				// Image preview
-				var reader = new FileReader();
-				reader.onload = function(e) {
-					ge("editor").style.display = "none";
-					ge("preview").style.display = "block";
-					ge("preview").innerHTML = '<img src="'+e.target.result+'">';
-				};
-				reader.readAsDataURL(file);
-			} else {
-				// Text file preview
-				var reader = new FileReader();
-				reader.onload = function(e) {
-					editor.loadNewFile("/" + file.name, e.target.result);
-				};
-				reader.readAsText(file);
-			}
+		if(/\.(png|jpg|jpeg|gif|bmp|webp)$/i.test(file.name)) {
+			// Image preview
+			var reader = new FileReader();
+			reader.onload = function(e) {
+				ge("editor").style.display = "none";
+				ge("preview").style.display = "block";
+				ge("preview").innerHTML = '<img src="'+e.target.result+'">';
+			};
+			reader.readAsDataURL(file);
 		} else {
-			// Multiple files selected
-			path.value = input.files.length + " files selected";
+			// Text preview
+			var reader = new FileReader();
+			reader.onload = function(e) {
+				editor.loadNewFile("/" + file.name, e.target.result);
+			};
+			reader.readAsText(file);
 		}
 	};
 }
 
 function createTree(element, editor){
-	var treeRoot=ce("div"); 
+	var treeRoot=ce("div");
 	ge(element).appendChild(treeRoot);
 
 	function loadDownload(p){
@@ -292,10 +278,9 @@ function createTree(element, editor){
 	}
 
 	function deleteFile(p, tree) {
-		if (!confirm("Are you sure you want to delete " + p + "?")) return;
-		var fd = new FormData();
-		fd.append("path", p);
-		req.add("DELETE", "/edit", fd, function(st, resp) {
+		if (!confirm("Delete " + p + "?")) return;
+		var body = "path=" + encodeURIComponent(p);
+		req.add("DELETE", "/edit", body, function(st, resp) {
 			if (st != 200) alert("ERROR " + st + ": " + resp);
 			else tree.refreshPath("/");
 		});
@@ -472,7 +457,7 @@ function createEditor(element,file){
 					wrap: true
 				});
 				useAce = true;
-				console.log("Ace editor loaded successfully");
+				console.log("Use Ace editor");
 
 				// Always switch to Ace if available (even with no file)
 				if(useAce && aceEditor) {
@@ -487,7 +472,7 @@ function createEditor(element,file){
 					};
 				}
 			} catch(e) {
-				console.log("Ace editor failed to load:", e);
+				console.log("Ace load failed:", e);
 				useAce = false;
 			}
 		}
@@ -659,6 +644,5 @@ function onBodyLoad(){
 	<div id="tree"></div>
 	<div id="editor"></div>
 	<div id="preview"></div>
-	<iframe id="download-frame" style="display:none;"></iframe>
 </body>
 </html>
