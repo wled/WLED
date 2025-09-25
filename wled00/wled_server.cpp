@@ -376,6 +376,110 @@ void initServer()
     request->send(200, FPSTR(CONTENT_TYPE_PLAIN), (String)getFreeHeapSize());
   });
 
+  // User backup endpoints
+  server.on(F("/backup/config"), HTTP_POST, [](AsyncWebServerRequest *request){
+    if (!correctPIN) {
+      serveMessage(request, 401, FPSTR(s_accessdenied), FPSTR(s_unlock_cfg), 254);
+      return;
+    }
+    bool success = userBackupConfig();
+    request->send(200, FPSTR(CONTENT_TYPE_PLAIN), success ? F("Config backup created") : F("Config backup failed"));
+  });
+
+  server.on(F("/restore/config"), HTTP_POST, [](AsyncWebServerRequest *request){
+    if (!correctPIN) {
+      serveMessage(request, 401, FPSTR(s_accessdenied), FPSTR(s_unlock_cfg), 254);
+      return;
+    }
+    bool success = userRestoreConfig();
+    if (success) {
+      serveMessage(request, 200, F("Configuration restored."), F("Rebooting..."), 131);
+      doReboot = true;
+    } else {
+      request->send(400, FPSTR(CONTENT_TYPE_PLAIN), F("Config restore failed or no backup found"));
+    }
+  });
+
+  server.on(F("/backup/presets"), HTTP_POST, [](AsyncWebServerRequest *request){
+    if (!correctPIN) {
+      serveMessage(request, 401, FPSTR(s_accessdenied), FPSTR(s_unlock_cfg), 254);
+      return;
+    }
+    bool success = userBackupPresets();
+    request->send(200, FPSTR(CONTENT_TYPE_PLAIN), success ? F("Presets backup created") : F("Presets backup failed"));
+  });
+
+  server.on(F("/restore/presets"), HTTP_POST, [](AsyncWebServerRequest *request){
+    if (!correctPIN) {
+      serveMessage(request, 401, FPSTR(s_accessdenied), FPSTR(s_unlock_cfg), 254);
+      return;
+    }
+    bool success = userRestorePresets();
+    request->send(200, FPSTR(CONTENT_TYPE_PLAIN), success ? F("Presets restored") : F("Presets restore failed or no backup found"));
+  });
+
+  server.on(F("/backup/palettes"), HTTP_POST, [](AsyncWebServerRequest *request){
+    if (!correctPIN) {
+      serveMessage(request, 401, FPSTR(s_accessdenied), FPSTR(s_unlock_cfg), 254);
+      return;
+    }
+    int count = userBackupPalettes();
+    String response = F("Palettes backup created: ");
+    response += count;
+    response += F(" files");
+    request->send(200, FPSTR(CONTENT_TYPE_PLAIN), response);
+  });
+
+  server.on(F("/restore/palettes"), HTTP_POST, [](AsyncWebServerRequest *request){
+    if (!correctPIN) {
+      serveMessage(request, 401, FPSTR(s_accessdenied), FPSTR(s_unlock_cfg), 254);
+      return;
+    }
+    int count = userRestorePalettes();
+    String response = F("Palettes restored: ");
+    response += count;
+    response += F(" files");
+    request->send(200, FPSTR(CONTENT_TYPE_PLAIN), response);
+  });
+
+  server.on(F("/backup/mappings"), HTTP_POST, [](AsyncWebServerRequest *request){
+    if (!correctPIN) {
+      serveMessage(request, 401, FPSTR(s_accessdenied), FPSTR(s_unlock_cfg), 254);
+      return;
+    }
+    int count = userBackupMappings();
+    String response = F("Mappings backup created: ");
+    response += count;
+    response += F(" files");
+    request->send(200, FPSTR(CONTENT_TYPE_PLAIN), response);
+  });
+
+  server.on(F("/restore/mappings"), HTTP_POST, [](AsyncWebServerRequest *request){
+    if (!correctPIN) {
+      serveMessage(request, 401, FPSTR(s_accessdenied), FPSTR(s_unlock_cfg), 254);
+      return;
+    }
+    int count = userRestoreMappings();
+    String response = F("Mappings restored: ");
+    response += count;
+    response += F(" files");
+    request->send(200, FPSTR(CONTENT_TYPE_PLAIN), response);
+  });
+
+  // Check backup status endpoint
+  server.on(F("/backup/status"), HTTP_GET, [](AsyncWebServerRequest *request){
+    String response = F("{\"config\":");
+    response += userBackupConfigExists() ? F("true") : F("false");
+    response += F(",\"presets\":");
+    response += userBackupPresetsExists() ? F("true") : F("false");
+    response += F(",\"palettes\":");
+    response += userBackupPalettesExist() ? F("true") : F("false");
+    response += F(",\"mappings\":");
+    response += userBackupMappingsExist() ? F("true") : F("false");
+    response += F("}");
+    request->send(200, F("application/json"), response);
+  });
+
 #ifdef WLED_ENABLE_USERMOD_PAGE
   server.on("/u", HTTP_GET, [](AsyncWebServerRequest *request) {
     handleStaticContent(request, "", 200, FPSTR(CONTENT_TYPE_HTML), PAGE_usermod, PAGE_usermod_length);
