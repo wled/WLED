@@ -48,6 +48,7 @@
 	border-right: 1px solid #666;
 	overflow-y: auto;
 	padding: 8px;
+	padding-bottom: 100px;  /* extra space so context menu always fits */
 	text-align: left;
 }
 #editor, #preview {
@@ -214,23 +215,13 @@ function createFileUploader(element, tree, editor){
 			alert("Please select a file to upload");
 			return;
 		}
-		var file = input.files[i];
-		var uploadPath = path.value;
-		// If no path specified, use filename
-		if(!uploadPath || uploadPath === "") {
-			uploadPath = file.name;
-		}
-		// Ensure leading slash
-		if(!uploadPath.startsWith("/")) {
-			uploadPath = "/" + uploadPath;
-		}
+		var file = input.files[0];
 		// Use 'file' as FormData field name (like original WLED)
-		var fd = new FormData(); 
-		fd.append("file", file, uploadPath);
+		var fd = new FormData();
+		fd.append("file", file, file.name);
 
-		console.log("Uploading:", file.name, "to:", uploadPath);
+		console.log("Uploading:", file.name);
 		req.add("POST", "/edit", fd, httpPostCb);
-
 
 		// Clear variables after upload to prevent accidental re-upload
 		input.value = "";
@@ -279,8 +270,9 @@ function createTree(element, editor){
 
 	function deleteFile(p, tree) {
 		if (!confirm("Delete " + p + "?")) return;
-		var body = "path=" + encodeURIComponent(p);
-		req.add("DELETE", "/edit", body, function(st, resp) {
+		var fd = new FormData();
+		fd.append("path", p);
+		req.add("DELETE", "/edit", fd, function(st, resp) {
 			if (st != 200) alert("ERROR " + st + ": " + resp);
 			else tree.refreshPath("/");
 		});
@@ -444,39 +436,34 @@ function createEditor(element,file){
 	}
 
 	// Try to initialize Ace editor if available
-	setTimeout(function() {
-		if(typeof ace !== 'undefined') {
-			try {
-				aceEditor = ace.edit(editorDiv);
-				aceEditor.setTheme("ace/theme/monokai");
-				aceEditor.session.setMode("ace/mode/text");
-				aceEditor.setOptions({
-					fontSize: "13px",
-					fontFamily: "monospace",
-					showPrintMargin: false,
-					wrap: true
-				});
-				useAce = true;
-				console.log("Use Ace editor");
+function initAce(){
+	if (useAce || typeof ace === 'undefined') return;
+	try {
+		aceEditor = ace.edit(editorDiv);
+		aceEditor.setTheme("ace/theme/monokai");
+		aceEditor.session.setMode("ace/mode/text");
+		aceEditor.setOptions({ fontSize:"13px", fontFamily:"monospace", showPrintMargin:false, wrap:true });
+		useAce = true;
+		//console.log("Use Ace editor");
+		switchToAce();
+		updateEditorMode();
 
-				// Always switch to Ace if available (even with no file)
-				if(useAce && aceEditor) {
-					switchToAce();
-				}
-
-				// Monitor filename input for JSON highlighting
-				var pathField = ge("upload-path");
-				if(pathField) {
-					pathField.oninput = function() {
-						updateEditorMode();
-					};
-				}
-			} catch(e) {
-				console.log("Ace load failed:", e);
-				useAce = false;
-			}
+		// Monitor filename input for JSON highlighting (prevent duplicate listeners)
+		var pathField = ge("upload-path");
+		if(pathField && !pathField.hasJsonListener) {
+			pathField.oninput = function() {
+				updateEditorMode();
+			};
+			pathField.hasJsonListener = true;
 		}
-	}, 100);
+	} catch(e) {
+		//console.log("Ace load failed:", e);
+		useAce = false;
+	}
+}
+// Try now and on window load as a fallback
+setTimeout(initAce, 100);
+window.addEventListener('load', initAce);
 
 	function switchToAce() {
 		if(useAce && aceEditor) {
