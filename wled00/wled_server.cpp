@@ -334,10 +334,10 @@ void createEditHandler(bool enable) {
     }
   });
 
-  // Upload handler (for POST with file data) - separate from main handler
+  // upload handler (for POST with file data)
   server.on(F("/edit"), HTTP_POST,
-    [](AsyncWebServerRequest *request) { 
-      // Don't send any response here - let the upload callback handle it
+    [](AsyncWebServerRequest *request) {
+      // response is handled by upload callback
       DEBUG_PRINTLN("POST handler called - upload should be handled by callback");
     },
     [](AsyncWebServerRequest *request, const String& filename, size_t index, uint8_t *data, size_t len, bool final) {

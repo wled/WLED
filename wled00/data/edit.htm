@@ -195,17 +195,15 @@ function createFileUploader(element, tree, editor){
 		}
 	}
 
-	// Clear button - just clear editor
+	// Clear button - clears the editor
 	newBtn.onclick = function(){ 
 		var newPath = path.value;
     if(!newPath) {
       alert("Please specify a filename");
 			return;
 		}
-		// Just clear editor, file will be created on save
-		editor.loadNewFile("/" + newPath, "");
-		// Clear the file selection
-		input.value = "";
+		editor.loadNewFile("/" + newPath, ""); // Clear editor, file will be created on save
+		input.value = ""; // Clear the file selection
 	};
 
 	saveBtn.onclick = function(){ editor.save(); };
@@ -216,13 +214,10 @@ function createFileUploader(element, tree, editor){
 			return;
 		}
 		var file = input.files[0];
-		// Use 'file' as FormData field name (like original WLED)
 		var fd = new FormData();
 		fd.append("file", file, file.name);
-
 		console.log("Uploading:", file.name);
 		req.add("POST", "/edit", fd, httpPostCb);
-
 		// Clear variables after upload to prevent accidental re-upload
 		input.value = "";
 		path.value = "";
@@ -258,7 +253,6 @@ function createTree(element, editor){
 	ge(element).appendChild(treeRoot);
 
 	function loadDownload(p){
-		// Direct download approach instead of iframe
 		window.open("/edit?download=" + encodeURIComponent(p), "_blank");
 	}
 
@@ -296,12 +290,9 @@ function createTree(element, editor){
 		// Right-click context menu
 		leaf.oncontextmenu = function(e) {
 			e.preventDefault();
-
-			// Remove any existing context menu
 			var existingMenu = ge("context-menu");
 			if (existingMenu) existingMenu.remove();
 
-			// Create context menu
 			var menu = ce("div");
 			menu.id = "context-menu";
 			menu.style.cssText = "position:fixed;left:"+e.clientX+"px;top:"+e.clientY+"px;background:#333;border:1px solid #666;border-radius:4px;z-index:1000;box-shadow:2px 2px 8px rgba(0,0,0,0.5)";
@@ -374,7 +365,7 @@ function createTree(element, editor){
 	return this;
 }
 
-// Pretty-print ledmapx.json: print 2D maps in aligned columns, print 1D maps as single line
+// Pretty-print ledmapX.json: print 2D maps in aligned columns, print 1D maps as single line
 function prettyLedmap(json){
 	try {
 		let obj = JSON.parse(json);
@@ -436,34 +427,34 @@ function createEditor(element,file){
 	}
 
 	// Try to initialize Ace editor if available
-function initAce(){
-	if (useAce || typeof ace === 'undefined') return;
-	try {
-		aceEditor = ace.edit(editorDiv);
-		aceEditor.setTheme("ace/theme/monokai");
-		aceEditor.session.setMode("ace/mode/text");
-		aceEditor.setOptions({ fontSize:"13px", fontFamily:"monospace", showPrintMargin:false, wrap:true });
-		useAce = true;
-		//console.log("Use Ace editor");
-		switchToAce();
-		updateEditorMode();
+	function initAce(){
+		if (useAce || typeof ace === 'undefined') return;
+		try {
+			aceEditor = ace.edit(editorDiv);
+			aceEditor.setTheme("ace/theme/monokai");
+			aceEditor.session.setMode("ace/mode/text");
+			aceEditor.setOptions({ fontSize:"13px", fontFamily:"monospace", showPrintMargin:false, wrap:true });
+			useAce = true;
+			//console.log("Use Ace editor");
+			switchToAce();
+			updateEditorMode();
 
-		// Monitor filename input for JSON highlighting (prevent duplicate listeners)
-		var pathField = ge("upload-path");
-		if(pathField && !pathField.hasJsonListener) {
-			pathField.oninput = function() {
-				updateEditorMode();
-			};
-			pathField.hasJsonListener = true;
+			// Monitor filename input for JSON highlighting (prevent duplicate listeners)
+			var pathField = ge("upload-path");
+			if(pathField && !pathField.hasJsonListener) {
+				pathField.oninput = function() {
+					updateEditorMode();
+				};
+				pathField.hasJsonListener = true;
+			}
+		} catch(e) {
+			//console.log("Ace load failed:", e);
+			useAce = false;
 		}
-	} catch(e) {
-		//console.log("Ace load failed:", e);
-		useAce = false;
 	}
-}
-// Try now and on window load as a fallback
-setTimeout(initAce, 100);
-window.addEventListener('load', initAce);
+	// Try now and on window load as a fallback
+	setTimeout(initAce, 100);
+	window.addEventListener('load', initAce);
 
 	function switchToAce() {
 		if(useAce && aceEditor) {
