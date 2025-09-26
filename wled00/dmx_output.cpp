@@ -40,7 +40,7 @@ void handleDMXOutput()
     for (int j = 0; j < DMXChannels; j++) {
       int DMXAddr = DMXFixtureStart + j;
       switch (DMXFixtureMap[j]) {
-        case 0:        // Set this channel to the selected value.
+        case 0:        // Set this channel to the selected value (custom DV per channel).
           dmx.write(DMXAddr, DMXChannelsValue[j]);
           break;
         case 1:        // Red
@@ -57,6 +57,9 @@ void handleDMXOutput()
           break;
         case 5:        // Shutter channel. Controls the brightness.
           dmx.write(DMXAddr, brightness);
+          break;
+        case 6:        // Legacy: "Set to 255" (pre-custom DV). Keep for backward-compatibility.
+          dmx.write(DMXAddr, 255);
           break;
       }
     }
