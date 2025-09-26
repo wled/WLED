@@ -201,13 +201,13 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
   }
   #endif
 
-  DEBUG_PRINTF_P(PSTR("Heap before buses: %d\n"), ESP.getFreeHeap());
+  DEBUG_PRINTF_P(PSTR("Heap before buses: %d\n"), getFreeHeapSize());
   JsonArray ins = hw_led["ins"];
   if (!ins.isNull()) {
     int s = 0;  // bus iterator
     for (JsonObject elm : ins) {
       if (s >= WLED_MAX_BUSSES) break; // only counts physical buses
-      uint8_t pins[5] = {255, 255, 255, 255, 255};
+      uint8_t pins[OUTPUT_MAX_PINS] = {255, 255, 255, 255, 255};
       JsonArray pinArr = elm["pin"];
       if (pinArr.size() == 0) continue;
       //pins[0] = pinArr[0];
@@ -256,9 +256,7 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
     static_assert(validatePinsAndTypes(defDataTypes, defNumTypes, defNumPins),
                   "The default pin list defined in DATA_PINS does not match the pin requirements for the default buses defined in LED_TYPES");
 
-    unsigned mem = 0;
     unsigned pinsIndex = 0;
-    unsigned digitalCount = 0;
     for (unsigned i = 0; i < WLED_MAX_BUSSES; i++) {
       uint8_t defPin[OUTPUT_MAX_PINS];
       // if we have less types than requested outputs and they do not align, use last known type to set current type
@@ -321,16 +319,9 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
       unsigned start = 0;
       // analog always has length 1
       if (Bus::isPWM(dataType) || Bus::isOnOff(dataType)) count = 1;
-      BusConfig defCfg = BusConfig(dataType, defPin, start, count, DEFAULT_LED_COLOR_ORDER, false, 0, RGBW_MODE_MANUAL_ONLY, 0);
-      mem += defCfg.memUsage(Bus::isDigital(dataType) && !Bus::is2Pin(dataType) ? digitalCount++ : 0);
-      if (mem > MAX_LED_MEMORY) {
-        DEBUG_PRINTF_P(PSTR("Out of LED memory! Bus %d (%d) #%u not created."), (int)dataType, (int)count, digitalCount);
-        break;
-      }
-      busConfigs.push_back(defCfg); // use push_back for simplification as we needed defCfg to calculate memory usage
+      busConfigs.emplace_back(dataType, defPin, start, count, DEFAULT_LED_COLOR_ORDER, false, 0, RGBW_MODE_MANUAL_ONLY, 0);
       doInitBusses = true;  // finalization done in beginStrip()
     }
-    DEBUG_PRINTF_P(PSTR("LED buffer size: %uB/%uB\n"), mem, BusManager::memUsage());
   }
   if (hw_led["rev"] && BusManager::getNumBusses()) BusManager::getBus(0)->setReversed(true); //set 0.11 global reversed setting for first bus
 
@@ -519,7 +510,6 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
   CJSON(briMultiplier, light[F("scale-bri")]);
   CJSON(paletteBlend, light[F("pal-mode")]);
   CJSON(strip.autoSegments, light[F("aseg")]);
-  CJSON(useRainbowWheel, light[F("rw")]);
 
   CJSON(gammaCorrectVal, light["gc"]["val"]); // default 2.2
   float light_gc_bri = light["gc"]["bri"];
@@ -773,8 +763,31 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
   return (doc["sv"] | true);
 }
 
-
 static const char s_cfg_json[] PROGMEM = "/cfg.json";
+
+bool backupConfig() {
+  return backupFile(s_cfg_json);
+}
+
+bool restoreConfig() {
+  return restoreFile(s_cfg_json);
+}
+
+bool verifyConfig() {
+  return validateJsonFile(s_cfg_json);
+}
+
+// rename config file and reboot
+// if the cfg file doesn't exist, such as after a reset, do nothing
+void resetConfig() {
+  if (WLED_FS.exists(s_cfg_json)) {
+    DEBUG_PRINTLN(F("Reset config"));
+    char backupname[32];
+    snprintf_P(backupname, sizeof(backupname), PSTR("/rst.%s"), &s_cfg_json[1]);
+    WLED_FS.rename(s_cfg_json, backupname);
+    doReboot = true;
+  }
+}
 
 bool deserializeConfigFromFS() {
   [[maybe_unused]] bool success = deserializeConfigSec();
@@ -801,6 +814,7 @@ bool deserializeConfigFromFS() {
 
 void serializeConfigToFS() {
   serializeConfigSec();
+  backupConfig(); // backup before writing new config
 
   DEBUG_PRINTLN(F("Writing settings to /cfg.json..."));
 
@@ -1042,7 +1056,6 @@ void serializeConfig(JsonObject root) {
   light[F("scale-bri")] = briMultiplier;
   light[F("pal-mode")] = paletteBlend;
   light[F("aseg")] = strip.autoSegments;
-  light[F("rw")] = useRainbowWheel;
 
   JsonObject light_gc = light.createNestedObject("gc");
   light_gc["bri"] = (gammaCorrectBri) ? gammaCorrectVal : 1.0f;  // keep compatibility

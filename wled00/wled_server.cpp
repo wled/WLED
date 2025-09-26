@@ -349,8 +349,13 @@ void initServer()
     if (verboseResponse) {
       if (!isConfig) {
         lastInterfaceUpdate = millis(); // prevent WS update until cooldown
-        interfaceUpdateCallMode = CALL_MODE_WS_SEND; // schedule WS update
-        serveJson(request); return; //if JSON contains "v"
+        interfaceUpdateCallMode = CALL_MODE_WS_SEND; // override call mode & schedule WS update
+        #ifndef WLED_DISABLE_MQTT
+        // publish state to MQTT as requested in wled#4643 even if only WS response selected
+        publishMqtt();
+        #endif
+        serveJson(request);
+        return; //if JSON contains "v"
       } else {
         configNeedsWrite = true; //Save new settings to FS
       }
@@ -368,7 +373,7 @@ void initServer()
   });
 
   server.on(F("/freeheap"), HTTP_GET, [](AsyncWebServerRequest *request){
-    request->send(200, FPSTR(CONTENT_TYPE_PLAIN), (String)ESP.getFreeHeap());
+    request->send(200, FPSTR(CONTENT_TYPE_PLAIN), (String)getFreeHeapSize());
   });
 
 #ifdef WLED_ENABLE_USERMOD_PAGE
@@ -411,6 +416,9 @@ void initServer()
       serveMessage(request, 500, F("Update failed!"), F("Please check your file and retry!"), 254);
     } else {
       serveMessage(request, 200, F("Update successful!"), FPSTR(s_rebooting), 131);
+      #ifndef ESP8266
+      bootloopCheckOTA(); // let the bootloop-checker know there was an OTA update
+      #endif
       doReboot = true;
     }
   },[](AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool isFinal){
@@ -429,8 +437,9 @@ void initServer()
       UsermodManager::onUpdateBegin(true); // notify usermods that update is about to begin (some may require task de-init)
       lastEditTime = millis(); // make sure PIN does not lock during update
       strip.suspend();
-      #ifdef ESP8266
+      backupConfig(); // backup current config in case the update ends badly
       strip.resetSegments();  // free as much memory as you can
+      #ifdef ESP8266
       Update.runAsync(true);
       #endif
       Update.begin((ESP.getFreeSketchSpace() - 0x1000) & 0xFFFFF000);
@@ -466,29 +475,31 @@ void initServer()
   server.on("/", HTTP_GET, [](AsyncWebServerRequest *request) {
     if (captivePortal(request)) return;
     if (!showWelcomePage || request->hasArg(F("sliders"))) {
-      handleStaticContent(request, F("/index.htm"), 200, FPSTR(CONTENT_TYPE_HTML), PAGE_index, PAGE_index_L);
+      handleStaticContent(request, F("/index.htm"), 200, FPSTR(CONTENT_TYPE_HTML), PAGE_index, PAGE_index_length);
     } else {
       serveSettings(request);
     }
   });
 
-#ifdef WLED_ENABLE_PIXART
+#ifndef WLED_DISABLE_2D
+  #ifdef WLED_ENABLE_PIXART
   static const char _pixart_htm[] PROGMEM = "/pixart.htm";
   server.on(_pixart_htm, HTTP_GET, [](AsyncWebServerRequest *request) {
-    handleStaticContent(request, FPSTR(_pixart_htm), 200, FPSTR(CONTENT_TYPE_HTML), PAGE_pixart, PAGE_pixart_L);
+    handleStaticContent(request, FPSTR(_pixart_htm), 200, FPSTR(CONTENT_TYPE_HTML), PAGE_pixart, PAGE_pixart_length);
   });
-#endif
+  #endif
 
-#ifndef WLED_DISABLE_PXMAGIC
+  #ifndef WLED_DISABLE_PXMAGIC
   static const char _pxmagic_htm[] PROGMEM = "/pxmagic.htm";
   server.on(_pxmagic_htm, HTTP_GET, [](AsyncWebServerRequest *request) {
-    handleStaticContent(request, FPSTR(_pxmagic_htm), 200, FPSTR(CONTENT_TYPE_HTML), PAGE_pxmagic, PAGE_pxmagic_L);
+    handleStaticContent(request, FPSTR(_pxmagic_htm), 200, FPSTR(CONTENT_TYPE_HTML), PAGE_pxmagic, PAGE_pxmagic_length);
   });
+  #endif
 #endif
 
   static const char _cpal_htm[] PROGMEM = "/cpal.htm";
   server.on(_cpal_htm, HTTP_GET, [](AsyncWebServerRequest *request) {
-    handleStaticContent(request, FPSTR(_cpal_htm), 200, FPSTR(CONTENT_TYPE_HTML), PAGE_cpal, PAGE_cpal_L);
+    handleStaticContent(request, FPSTR(_cpal_htm), 200, FPSTR(CONTENT_TYPE_HTML), PAGE_cpal, PAGE_cpal_length);
   });
 
 #ifdef WLED_ENABLE_WEBSOCKETS

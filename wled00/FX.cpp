@@ -2328,7 +2328,7 @@ uint16_t mode_colortwinkle() {
       }
 
       if (cur == prev) {  //fix "stuck" pixels
-        color_add(col, col);
+        col = color_add(col, col);
         SEGMENT.setPixelColor(i, col);
       }
       else SEGMENT.setPixelColor(i, col);
@@ -2606,9 +2606,11 @@ static CRGB twinklefox_one_twinkle(uint32_t ms, uint8_t salt, bool cat)
     // This is like 'triwave8', which produces a
     // symmetrical up-and-down triangle sawtooth waveform, except that this
     // function produces a triangle wave with a faster attack and a slower decay
-    if (cat) //twinklecat, variant where the leds instantly turn on
-    {
+    if (cat) { //twinklecat, variant where the leds instantly turn on and fade off
       bright = 255 - ph;
+      if (SEGMENT.check2) { //reverse checkbox, reverses the leds to fade on and instantly turn off
+        bright = ph;
+      }
     } else { //vanilla twinklefox
       if (ph < 86) {
       bright = ph * 3;
@@ -2716,7 +2718,7 @@ uint16_t mode_twinklecat()
 {
   return twinklefox_base(true);
 }
-static const char _data_FX_MODE_TWINKLECAT[] PROGMEM = "Twinklecat@!,Twinkle rate,,,,Cool;!,!;!";
+static const char _data_FX_MODE_TWINKLECAT[] PROGMEM = "Twinklecat@!,Twinkle rate,,,,Cool,Reverse;!,!;!";
 
 
 uint16_t mode_halloween_eyes()
@@ -3940,7 +3942,7 @@ uint16_t mode_percent(void) {
 
  	return FRAMETIME;
 }
-static const char _data_FX_MODE_PERCENT[] PROGMEM = "Percent@,% of fill,,,,One color;!,!;!";
+static const char _data_FX_MODE_PERCENT[] PROGMEM = "Percent@!,% of fill,,,,One color;!,!;!";
 
 
 /*
@@ -7273,6 +7275,7 @@ uint16_t mode_2DGEQ(void) { // By Will Tatam. Code reduction by Ewoud Wijma.
   if (!strip.isMatrix || !SEGMENT.is2D()) return mode_static(); // not a 2D set-up
 
   const int NUM_BANDS = map(SEGMENT.custom1, 0, 255, 1, 16);
+  const int CENTER_BIN = map(SEGMENT.custom3, 0, 31, 0, 15);
   const int cols = SEG_W;
   const int rows = SEG_H;
 
@@ -7294,8 +7297,14 @@ uint16_t mode_2DGEQ(void) { // By Will Tatam. Code reduction by Ewoud Wijma.
   if ((fadeoutDelay <= 1 ) || ((SEGENV.call % fadeoutDelay) == 0)) SEGMENT.fadeToBlackBy(SEGMENT.speed);
 
   for (int x=0; x < cols; x++) {
-    uint8_t  band       = map(x, 0, cols, 0, NUM_BANDS);
-    if (NUM_BANDS < 16) band = map(band, 0, NUM_BANDS - 1, 0, 15); // always use full range. comment out this line to get the previous behaviour.
+    int band = map(x, 0, cols, 0, NUM_BANDS);
+    if (NUM_BANDS < 16) {
+        int startBin = constrain(CENTER_BIN - NUM_BANDS/2, 0, 15 - NUM_BANDS + 1);
+        if(NUM_BANDS <= 1)
+          band = CENTER_BIN; // map() does not work for single band
+        else
+          band = map(band, 0, NUM_BANDS - 1, startBin, startBin + NUM_BANDS - 1);
+    }
     band = constrain(band, 0, 15);
     unsigned colorIndex = band * 17;
     int barHeight  = map(fftResult[band], 0, 255, 0, rows); // do not subtract -1 from rows here
@@ -7317,7 +7326,7 @@ uint16_t mode_2DGEQ(void) { // By Will Tatam. Code reduction by Ewoud Wijma.
 
   return FRAMETIME;
 } // mode_2DGEQ()
-static const char _data_FX_MODE_2DGEQ[] PROGMEM = "GEQ@Fade speed,Ripple decay,# of bands,,,Color bars;!,,Peaks;!;2f;c1=255,c2=64,pal=11,si=0"; // Beatsin
+static const char _data_FX_MODE_2DGEQ[] PROGMEM = "GEQ@Fade speed,Ripple decay,# of bands,,Bin,Color bars;!,,Peaks;!;2f;c1=255,c2=64,pal=11,si=0,c3=0";
 
 
 /////////////////////////
@@ -7528,9 +7537,9 @@ uint16_t mode_2Ddistortionwaves() {
       byte valueG = gdistort + ((a2-( ((xoffs - cx1) * (xoffs - cx1) + (yoffs - cy1) * (yoffs - cy1))>>7 ))<<1);
       byte valueB = bdistort + ((a3-( ((xoffs - cx2) * (xoffs - cx2) + (yoffs - cy2) * (yoffs - cy2))>>7 ))<<1);
 
-      valueR = gamma8(cos8_t(valueR));
-      valueG = gamma8(cos8_t(valueG));
-      valueB = gamma8(cos8_t(valueB));
+      valueR = cos8_t(valueR);
+      valueG = cos8_t(valueG);
+      valueB = cos8_t(valueB);
 
       if(SEGMENT.palette == 0) {
         // use RGB values (original color mode)
