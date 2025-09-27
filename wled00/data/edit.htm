@@ -2,10 +2,10 @@
 <html lang="en">
 <head>
 <title>WLED File Editor</title>
-<meta name="author" content="DedeHai, based on editor by Me-No-Dev" />
-<meta name="Description" content="ESP File Web Editor"/>
-<link rel="shortcut icon" href="favicon.ico"/>
-<link href="style.css" rel="stylesheet" />
+<meta name="author" content="DedeHai, based on editor by Me-No-Dev">
+<meta name="Description" content="ESP File Web Editor">
+<link rel="shortcut icon" href="favicon.ico">
+<link href="style.css" rel="stylesheet">
 <!-- Optional lightweight JSON editor - fallback to textarea if CDN is unavailable -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.23.4/ace.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.23.4/mode-json.min.js"></script>
@@ -191,8 +191,6 @@ function createTop(element, tree, editor){
 	var path = ce("input");
 	path.id = "filepath";
 	path.type = "text";
-	path.value = "";
-	path.placeholder = "Filename to save";
 
 	var uploadBtn = ce("button"); uploadBtn.innerHTML = "Upload File";
 	var clearBtn = ce("button"); clearBtn.innerHTML = "Clear";
@@ -206,6 +204,7 @@ function createTop(element, tree, editor){
 	ge(element).appendChild(input);
 	ge(element).appendChild(leftDiv);
 	ge(element).appendChild(rightDiv);
+	editor.clearEditor(); // Clear editor
 
 	uploadBtn.onclick = function() {
 		input.click(); // invokes file selector
@@ -222,11 +221,7 @@ function createTop(element, tree, editor){
 	// Clear button - clears the editor
 	clearBtn.onclick = function(){
 		var newPath = path.value;
-		if (!newPath) {
-		alert("Please specify a filename");
-			return;
-		}
-		editor.loadNewFile("/" + newPath, ""); // Clear editor, file will be created on save
+		editor.clearEditor(); // Clear editor, file will be created on save
 		input.value = ""; // Clear the file selection
 	};
 
@@ -239,7 +234,7 @@ function createTop(element, tree, editor){
 		var fd = new FormData();
 		fd.append("file", file, file.name);
 		console.log("Uploading:", file.name);
-		req.add("POST", "/edit", fd, function(st, resp) {
+		req.add("POST", "/upload", fd, function(st, resp) {
 			httpPostCb(st, resp);
 			if(st == 200) { loadPreview(file.name, editor); }
 		});
@@ -502,7 +497,7 @@ function createEditor(element,file){
 		}
 		var fd=new FormData();
 		fd.append("file",new Blob([finalData],{type:"text/plain"}),filename);
-		req.add("POST","/edit",fd,function(st,resp){
+		req.add("POST","/upload",fd,function(st,resp){
 			if (st!=200) alert("ERROR "+st+": "+resp);
 			else {
 				alert("File saved successfully!");
@@ -546,14 +541,15 @@ function createEditor(element,file){
 		save:function(){
 			// Always use filename from text field
 			var pathField = ge("filepath");
-			var filename = pathField ? pathField.value : "";
-			if (!filename) {
+			var fn = pathField ? pathField.value : "";
+			if (!fn) {
 				alert("Please enter a filename!");
 				return;
 			}
-			if (!filename.startsWith("/")) filename = "/" + filename;
-			currentFile = filename; // Update current file
-			httpPost(filename, getCurrentContent());
+			if (!fn.startsWith("/")) fn = "/" + fn;
+			currentFile = fn; // Update current file
+			httpPost(fn, getCurrentContent());
+			httpGet(fn); // reload after save
 		},
 		loadText:function(fn){
 			currentFile=fn;
@@ -565,22 +561,15 @@ function createEditor(element,file){
 			}
 			httpGet(fn);
 		},
-		loadNewFile:function(fn, content){
-			currentFile=fn;
+		clearEditor:function(){
 			ge("preview").style.display="none";
 			ge("editor").style.display="flex";
-			// Set content and pretty-print JSON if needed
-			if (fn.toLowerCase().endsWith('.json') && content) {
-				try {
-					var formatted = JSON.stringify(JSON.parse(content), null, 2);
-					setCurrentContent(formatted);
-				} catch(e) {
-					setCurrentContent(content);
-				}
-			} else {
-				setCurrentContent(content || "");
-			}
-			updateEditorMode(); // Update editor mode after loading new file
+			setCurrentContent("");
+			// Update filename in text field
+			var pathField = ge("filepath");
+			pathField.value = "";
+			pathField.placeholder = "Filename to save";
+			updateEditorMode();
 		}
 	};
 

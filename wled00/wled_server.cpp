@@ -301,18 +301,6 @@ void createEditHandler(bool enable) {
     handleStaticContent(request, FPSTR(_edit_htm), 200, FPSTR(CONTENT_TYPE_HTML), PAGE_edit, PAGE_edit_length);
     return;
   });
-
-  // upload handler (POST with file data)
-  server.on(F("/edit"), HTTP_POST,
-    [](AsyncWebServerRequest *request) {
-      // response is handled by upload callback
-    },
-    [](AsyncWebServerRequest *request, const String& filename, size_t index, uint8_t *data, size_t len, bool final) {
-      DEBUG_PRINTF("Upload callback: file=%s, index=%d, len=%d, final=%s\n", 
-                   filename.c_str(), index, len, final ? "true" : "false");
-      handleUpload(request, filename, index, data, len, final);
-    }
-  );
 }
 
 static bool captivePortal(AsyncWebServerRequest *request)
