@@ -448,7 +448,7 @@ function updateInfoButtonIcon() {
 	const icon = infoBtn.querySelector('i');
 	if (hasUnreadErrors) {
 		// Change to red exclamation mark icon
-		icon.innerHTML = '&#xe000;'; // Exclamation mark
+		icon.innerHTML = '&#xe18a;'; // Use add/warning icon
 		icon.style.color = 'var(--c-r)';
 	} else {
 		// Reset to normal info icon
@@ -464,7 +464,6 @@ function clearErrorLog() {
 	const errorArea = gId('errorLogArea');
 	if (errorArea) {
 		errorArea.style.display = 'none';
-		gId('errorLogContent').innerHTML = '';
 	}
 }
 
@@ -488,27 +487,7 @@ function generateErrorLogHtml() {
 		</div>`;
 	}
 	
-	html += `<div style="margin-top: 8px; text-align: center;">
-		<button class="btn btn-xs" onclick="clearErrorLog()" style="color: var(--c-r);">
-			Clear Log
-		</button>
-	</div>`;
-	
 	return html;
-}
-
-function toggleErrorLog() {
-	const content = gId('errorLogContent');
-	const button = content.previousElementSibling;
-	
-	if (content.style.display === 'none') {
-		content.style.display = 'block';
-		content.innerHTML = generateErrorLogHtml();
-		button.innerHTML = '<i class="icons">&#xe000;</i> Hide Error Log';
-	} else {
-		content.style.display = 'none';
-		button.innerHTML = `<i class="icons">&#xe000;</i> Show Error Log (${errorLog.length})`;
-	}
 }
 
 function getLowestUnusedP()
@@ -873,20 +852,17 @@ ${inforow("Flash size",i.flash," MB")}
 ${inforow("Filesystem",i.fs.u + "/" + i.fs.t + " kB (" +Math.round(i.fs.u*100/i.fs.t) + "%)")}
 ${inforow("Environment",i.arch + " " + i.core + " (" + i.lwip + ")")}
 </table>`;
-
-	// Add error log section if there are any errors
-	if (errorLog.length > 0) {
-		cn += `<div id="errorLogArea" style="margin-top: 10px;">
-			<button class="btn btn-xs" onclick="toggleErrorLog()" style="width: 100%;">
-				<i class="icons">&#xe000;</i> Show Error Log (${errorLog.length})
-			</button>
-			<div id="errorLogContent" style="display: none; margin-top: 5px; padding: 5px; background: var(--c-3); border-radius: 5px; font-size: 11px; max-height: 120px; overflow-y: auto;">
-				${generateErrorLogHtml()}
-			</div>
-		</div>`;
-	}
 	
 	gId('kv').innerHTML = cn;
+	
+	// Update error log area visibility and content
+	const errorArea = gId('errorLogArea');
+	if (errorLog.length > 0) {
+		errorArea.style.display = 'block';
+		gId('errorLogContent').innerHTML = generateErrorLogHtml();
+	} else {
+		errorArea.style.display = 'none';
+	}
 	//  update all sliders in Info
 	d.querySelectorAll('#kv .sliderdisplay').forEach((sd,i) => {
 		let s = sd.previousElementSibling;
@@ -1661,9 +1637,90 @@ function readState(s,command=false)
 		// Add to error log for detailed tracking
 		addToErrorLog(s.error);
 		
-		// Keep showing toast for immediate feedback (simplified message)
-		const shortMessage = s.error >= 100 ? 'Warning' : 'Error';
-		showToast(`${shortMessage} ${s.error}`, true);
+		// Show detailed toast message as before
+		var errstr = "";
+		switch (s.error) {
+			case  1:
+				errstr = "Denied!";
+				break;
+			case  3:
+				errstr = "Buffer locked!";
+				break;
+			case  7:
+				errstr = "No RAM for buffer!";
+				break;
+			case  8:
+				errstr = "Effect RAM depleted!";
+				break;
+			case  9:
+				errstr = "JSON parsing error!";
+				break;
+			case 10:
+				errstr = "Could not mount filesystem!";
+				break;
+			case 11:
+				errstr = "Not enough space to save preset!";
+				break;
+			case 12:
+				errstr = "Preset not found.";
+				break;
+			case 13:
+				errstr = "Missing ir.json.";
+				break;
+			case 19:
+				errstr = "A filesystem error has occured.";
+				break;
+			case 30:
+				errstr = "Overtemperature!";
+				break;
+			case 31:
+				errstr = "Overcurrent!";
+				break;
+			case 32:
+				errstr = "Undervoltage!";
+				break;
+			case 33:
+				errstr = "No RAM for bus!";
+				break;
+			case 34:
+				errstr = "No RAM for segment!";
+				break;
+			case 35:
+				errstr = "No RAM for transitions!";
+				break;
+			case 36:
+				errstr = "Pin conflict!";
+				break;
+			case 37:
+				errstr = "Invalid pin!";
+				break;
+			case 38:
+				errstr = "Config load failed!";
+				break;
+			case 39:
+				errstr = "Config save failed!";
+				break;
+			case 100:
+				errstr = "Low memory!";
+				break;
+			case 101:
+				errstr = "High temperature!";
+				break;
+			case 102:
+				errstr = "Low voltage!";
+				break;
+			case 103:
+				errstr = "High current!";
+				break;
+			case 104:
+				errstr = "Weak WiFi!";
+				break;
+			case 105:
+				errstr = "Low disk space!";
+				break;
+		}
+		const prefix = s.error >= 100 ? 'Warning' : 'Error';
+		showToast(`${prefix} ${s.error}: ${errstr}`, true);
 	}
 
 	selectedPal = i.pal;

@@ -332,6 +332,12 @@
 		<button class="btn ibtn" onclick="window.open(getURL('/update'),'_self');" id="updBt">Update WLED</button>
 		<button class="btn ibtn" id="resetbtn" onclick="cnfReset()">Reboot WLED</button>
 	</div>
+	<div id="errorLogArea" style="margin-top: 10px; display: none;">
+		<div id="errorLogContent" style="padding: 5px; background: var(--c-3); border-radius: 5px; font-size: 11px; max-height: 120px; overflow-y: auto;"></div>
+		<div style="margin-top: 5px; text-align: center;">
+			<button class="btn btn-xs" onclick="clearErrorLog()" style="min-width: 80px;">Clear Log</button>
+		</div>
+	</div>
 	<br>
 	<span class="h">Made with&#32;<span id="heart">&#10084;&#xFE0E;</span>&#32;by&#32;<a href="https://github.com/Aircoookie/" target="_blank">Aircoookie</a>&#32;and the&#32;<a href="https://wled.discourse.group/" target="_blank">WLED community</a></span>
 </div>
