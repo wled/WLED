@@ -253,20 +253,18 @@ function createTree(element, editor){
 	ge(element).appendChild(treeRoot);
 
 	function loadDownload(p){
-		window.open("/edit?download=" + encodeURIComponent(p), "_blank");
+		window.open("/edit?func=download&path=" + encodeURIComponent(p), "_blank");
 	}
 
 	function loadPreview(p){
 		ge("editor").style.display="none";
 		ge("preview").style.display="block";
-		ge("preview").innerHTML='<img src="/edit?edit='+encodeURIComponent(p)+'&_cb='+Date.now()+'">';
+		ge("preview").innerHTML = '<img src="/edit?func=edit&path=' + encodeURIComponent(p) + '&_cb=' + Date.now() + '">';
 	}
 
 	function deleteFile(p, tree) {
 		if (!confirm("Delete " + p + "?")) return;
-		var fd = new FormData();
-		fd.append("path", p);
-		req.add("DELETE", "/edit", fd, function(st, resp) {
+		req.add("GET", "/edit", { func:"delete", path:p }, function(st, resp) {
 			if (st != 200) alert("ERROR " + st + ": " + resp);
 			else tree.refreshPath("/");
 		});
@@ -353,7 +351,7 @@ function createTree(element, editor){
 	}
 
 	function httpGet(p){
-		req.add("GET","/edit",{list:p},getCb(p));
+		req.add("GET", "/edit", { func:"list", path:p }, getCb(p));
 	}
 
 	this.refreshPath=function(p){
@@ -530,7 +528,7 @@ function createEditor(element,file){
 
 	function httpGet(fn){
 		if(!fn) return;
-		req.add("GET","/edit",{edit:fn},function(st,resp){
+		req.add("GET", "/edit", { func:"edit", path:fn }, function(st, resp) {
 			ge("preview").style.display="none";
 			ge("editor").style.display="flex";
 			if(st==200) {

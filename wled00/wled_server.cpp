@@ -29,10 +29,11 @@ static const char s_notimplemented[] PROGMEM = "Not implemented";
 static const char s_accessdenied[]   PROGMEM = "Access Denied";
 static const char s_not_found[]      PROGMEM = "Not found";
 static const char s_wsec[]           PROGMEM = "wsec.json";
+static const char s_func[]           PROGMEM = "func";
 static const char s_path[]           PROGMEM = "path";
-static const char s_edit[]           PROGMEM = "edit";
-static const char s_download[]       PROGMEM = "download";
-static const char s_list[]           PROGMEM = "list";
+static const char s_cache_control[]  PROGMEM = "Cache-Control";
+static const char s_no_store[]       PROGMEM = "no-store";
+static const char s_expires[]        PROGMEM = "Expires";
 static const char _common_js[]       PROGMEM = "/common.js";
 
 //Is this an IP?
@@ -78,9 +79,9 @@ static void setStaticContentCacheHeaders(AsyncWebServerResponse *response, int c
   #ifndef WLED_DEBUG
   // this header name is misleading, "no-cache" will not disable cache,
   // it just revalidates on every load using the "If-None-Match" header with the last ETag value
-  response->addHeader(F("Cache-Control"), F("no-cache"));
+  response->addHeader(FPSTR(s_cache_control), F("no-cache"));
   #else
-  response->addHeader(F("Cache-Control"), F("no-store,max-age=0"));  // prevent caching if debug build
+  response->addHeader(FPSTR(s_cache_control), F("no-store,max-age=0"));  // prevent caching if debug build
   #endif
   char etag[32];
   generateEtag(etag, eTagSuffix);
@@ -226,7 +227,7 @@ void createEditHandler(bool enable) {
     return;
   }
 
-  editHandler = &server.on(F("/edit"), static_cast<WebRequestMethod>(HTTP_GET | HTTP_DELETE), [](AsyncWebServerRequest *request) {
+  editHandler = &server.on(F("/edit"), static_cast<WebRequestMethod>(HTTP_GET), [](AsyncWebServerRequest *request) {
 
     // PIN check for GET/DELETE, for POST it is done in handleUpload()
     if (!correctPIN) {
@@ -234,111 +235,77 @@ void createEditHandler(bool enable) {
       return;
     }
 
-    if (request->method() == HTTP_GET) {
+    String func = request->hasParam(FPSTR(s_func)) ? request->getParam(FPSTR(s_func))->value() : "";
+    String path = request->hasParam(FPSTR(s_path)) ? request->getParam(FPSTR(s_path))->value() : "";
 
-      if (request->hasParam(FPSTR(s_list))) {
-        String path = request->getParam(FPSTR(s_list))->value();
-        if (path.isEmpty()) path = "/";
-        String output = "[";
-        bool first = true;
+    if (path.charAt(0) != '/') {
+      path = '/' + path; // prepend slash if missing
+    }
 
-#ifdef ARDUINO_ARCH_ESP8266
-        Dir dir = WLED_FS.openDir(path);
-        while (dir.next()) {
-          String name = String(dir.fileName());
-          if (name.indexOf(FPSTR(s_wsec)) >= 0) continue; // skip wsec.json
-          if (!first) output += ',';
-          first = false;
-          output += "{\"name\":\"" + name + "\",\"type\":\"file\",\"size\":" + String(dir.fileSize()) + "}";
-        }
-#else
-        File root = WLED_FS.open(path);
-        if (root && root.isDirectory()) {
-          File file = root.openNextFile();
-          while (file) {
-            String name = file.name();
-            if (name.indexOf(FPSTR(s_wsec)) >= 0) { // skip wsec.json
-              file = root.openNextFile();
-              continue;
-            }
-            if (!first) output += ',';
-            first = false;
-            if (path != "/" && name.startsWith(path)) {
-              name = name.substring(path.length());
-            }
-            if (name.startsWith("/")) name.remove(0,1);
-            output += "{\"name\":\"" + name + "\",\"type\":\"file\",\"size\":" + String(file.size()) + "}";
-            file = root.openNextFile();
-          }
-        }
-#endif
-        output += "]";
-        request->send(200, FPSTR(CONTENT_TYPE_JSON), output);
-        return;
-      }
-
-      if (request->hasParam(FPSTR(s_edit))) {
-        String path = request->getParam(FPSTR(s_edit))->value();
-        if (path.indexOf(FPSTR(s_wsec)) >= 0) { // skip wsec.json
-          request->send(403, FPSTR(CONTENT_TYPE_PLAIN), FPSTR(s_accessdenied));
-          return;
-        }
-
-        if (!WLED_FS.exists(path)) {
-          request->send(404, FPSTR(CONTENT_TYPE_PLAIN), FPSTR(s_not_found));
-          return;
-        }
-
-        request->send(WLED_FS, path, FPSTR(CONTENT_TYPE_PLAIN));
-        return;
-      }
-
-      if (request->hasParam(FPSTR(s_download))) {
-        String path = request->getParam(FPSTR(s_download))->value();
-        if (!path.startsWith("/")) path = "/" + path;
-
-        if (path.indexOf(FPSTR(s_wsec)) >= 0) { // skip wsec.json
-          request->send(403, FPSTR(CONTENT_TYPE_PLAIN), FPSTR(s_accessdenied));
-          return;
-        }
-
-        if (!WLED_FS.exists(path)) {
-          request->send(404, FPSTR(CONTENT_TYPE_PLAIN), FPSTR(s_not_found));
-          return;
-        }
-
-        request->send(WLED_FS, path, String(), true);
-        return;
-      }
-
-      // default: serve the editor page
-      handleStaticContent(request, FPSTR(_edit_htm), 200, FPSTR(CONTENT_TYPE_HTML), PAGE_edit, PAGE_edit_length);
+    if (!WLED_FS.exists(path)) {
+      request->send(404, FPSTR(CONTENT_TYPE_PLAIN), FPSTR(s_not_found));
       return;
     }
 
-    if (request->method() == HTTP_DELETE) {
-      if (!request->hasParam(FPSTR(s_path), true)) {
-        request->send(400, FPSTR(CONTENT_TYPE_PLAIN), FPSTR(s_not_found));
-        return;
-      }
-
-      String path = request->getParam(FPSTR(s_path), true)->value();
-      if (!path.startsWith("/")) path = "/" + path;
-
-      if (!WLED_FS.remove(path)) {
-        request->send(500, FPSTR(CONTENT_TYPE_PLAIN), F("Delete failed"));
-        return;
-      }
-
-      request->send(200, FPSTR(CONTENT_TYPE_PLAIN), F("File deleted"));
+    if (path.indexOf(FPSTR(s_wsec)) >= 0) {
+      request->send(403, FPSTR(CONTENT_TYPE_PLAIN), FPSTR(s_accessdenied)); // skip wsec.json
+      return;
     }
+
+    if (func == "list") {
+      bool first = true;
+      AsyncResponseStream* response = request->beginResponseStream(FPSTR(CONTENT_TYPE_JSON));
+      response->addHeader(FPSTR(s_cache_control), FPSTR(s_no_store));
+      response->addHeader(FPSTR(s_expires), F("0"));
+      response->write('[');
+
+      File rootdir = WLED_FS.open("/", "r");
+      File rootfile = rootdir.openNextFile();
+      while (rootfile) {
+          String name = rootfile.name();
+          if (name.indexOf(FPSTR(s_wsec)) >= 0) {
+            rootfile = rootdir.openNextFile(); // skip wsec.json
+            continue;
+          }
+          if (!first) response->write(',');
+          first = false;
+          response->printf_P(PSTR("{\"name\":\"%s\",\"type\":\"file\",\"size\":%u}"), name.c_str(), rootfile.size());
+          rootfile = rootdir.openNextFile();
+      }
+      rootfile.close();
+      rootdir.close();
+      response->write(']');
+      request->send(response);
+      return;
+    }
+
+    if (func == "edit") {
+      request->send(WLED_FS, path);
+      return;
+    }
+
+    if (func == "download") {
+      request->send(WLED_FS, path, String(), true);
+      return;
+    }
+
+    if (func == "delete") {
+      if (!WLED_FS.remove(path))
+        request->send(500, FPSTR(CONTENT_TYPE_PLAIN), F("Delete failed"));
+      else
+        request->send(200, FPSTR(CONTENT_TYPE_PLAIN), F("File deleted"));
+      return;
+    }
+
+    // default: serve the editor page
+    handleStaticContent(request, FPSTR(_edit_htm), 200, FPSTR(CONTENT_TYPE_HTML), PAGE_edit, PAGE_edit_length);
+    return;
   });
 
-  // upload handler (for POST with file data)
+  // upload handler (POST with file data)
   server.on(F("/edit"), HTTP_POST,
     [](AsyncWebServerRequest *request) {
       // response is handled by upload callback
-      DEBUG_PRINTLN("POST handler called - upload should be handled by callback");
     },
     [](AsyncWebServerRequest *request, const String& filename, size_t index, uint8_t *data, size_t len, bool final) {
       DEBUG_PRINTF("Upload callback: file=%s, index=%d, len=%d, final=%s\n", 
@@ -689,8 +656,8 @@ void serveSettingsJS(AsyncWebServerRequest* request)
   }
   
   AsyncResponseStream *response = request->beginResponseStream(FPSTR(CONTENT_TYPE_JAVASCRIPT));
-  response->addHeader(F("Cache-Control"), F("no-store"));
-  response->addHeader(F("Expires"), F("0"));
+  response->addHeader(FPSTR(s_cache_control), FPSTR(s_no_store));
+  response->addHeader(FPSTR(s_expires), F("0"));
 
   response->print(F("function GetV(){var d=document;"));
   getSettingsJS(subPage, *response);
