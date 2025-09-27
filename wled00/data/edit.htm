@@ -12,15 +12,24 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.23.4/theme-monokai.min.js"></script>
 <style>
 /* Editor-specific styles */
-#uploader {
+#top {
 	display: flex;
 	align-items: center;
-	gap: 6px;
+	gap: 8px;
 	background: #222;
 	padding: 6px 10px;
 	border-bottom: 1px solid #666;
 }
-#uploader button, #uploader input[type="file"] {
+#top .left {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	flex: 1;
+}
+#top .right {
+	margin-left: auto;
+}
+#top button, #top input[type="file"] {
 	background: #333;
 	color: #fff;
 	border: 3px solid #333;
@@ -29,14 +38,15 @@
 	padding: 6px 10px;
 	cursor: pointer;
 }
-#uploader button:hover, #uploader input[type="file"]:hover {
+#top button:hover, #top input[type="file"]:hover {
 	background: #555;
 }
-#uploader input[type="text"] {
+#top input[type="text"] {
 	background: #555;
 	color: #fff;
 	border: 2px solid #555;
 	padding: 6px 8px;
+	min-width: 200px;
 }
 #tree {
 	position: absolute;
@@ -119,76 +129,90 @@ QueuedRequester.prototype = {
 		this.r = true;
 		var that = this;
 		function cb(x,d){ return function(){
-			if(x.readyState==4){
+			if (x.readyState==4){
 				ge("loader").style.display="none";
 				d.callback(x.status,x.responseText);
-				if(that.q.length===0) that.r=false;
-				if(that.r) that._request(that.q.shift());
+				if (that.q.length===0) that.r=false;
+				if (that.r) that._request(that.q.shift());
 			}
 		}}
 		ge("loader").style.display="block";
 		var p="";
-		if(req.params instanceof FormData) p=req.params;
-		else if(req.params instanceof Object){
+		if (req.params instanceof FormData) p=req.params;
+		else if (req.params instanceof Object){
 			for(var key in req.params){
 				p+=(p===""?(req.method==="GET"?"?":""):"&")+encodeURIComponent(key)+"="+encodeURIComponent(req.params[key]);
 			}
 		}
 		this.x=new XMLHttpRequest();
 		this.x.onreadystatechange=cb(this.x,req);
-		if(req.method==="GET"){ 
+		if (req.method==="GET"){ 
 			this.x.open(req.method, req.url+p, true);
 			this.x.send();
 		}
 		else{ 
 			this.x.open(req.method, req.url, true);
-			if(typeof p === "string") this.x.setRequestHeader("Content-type","application/x-www-form-urlencoded");
+			if (typeof p === "string") this.x.setRequestHeader("Content-type","application/x-www-form-urlencoded");
 			this.x.send(p);
 		}
 	},
 	add: function(method,url,params,cb){
 		this.q.push({url:url,method:method,params:params,callback:cb});
-		if(!this.r) this._request(this.q.shift());
+		if (!this.r) this._request(this.q.shift());
 	}
 };
 var req=new QueuedRequester();
 
-function createFileUploader(element, tree, editor){
+function loadPreview(filename, editor) {
+	var pathField = ge("filepath");
+	pathField.value = filename;
+	if (/\.(png|jpg|jpeg|gif|bmp|webp)$/i.test(filename)) {
+		ge("editor").style.display="none";
+		ge("preview").style.display="block";
+		ge("preview").innerHTML = '<img src="/edit?func=edit&path=' + encodeURIComponent(filename) + '&_cb=' + Date.now() + '">';
+	} else {
+		editor.loadText(filename);
+	}
+}
+
+function createTop(element, tree, editor){
 	// Create hidden file input
 	var input = ce("input");
 	input.type = "file";
 	input.style.display = "none"; // Hide the default file input
 
-	// Create custom select button
-	var selectBtn = ce("button");
-	selectBtn.innerHTML = "Select File";
+	// Create container structure
+	var leftDiv = ce("div");
+	leftDiv.className = "left";
+	var rightDiv = ce("div");
+	rightDiv.className = "right";
 
 	// Single text field for filename
 	var path = ce("input");
-	path.id = "upload-path";
+	path.id = "filepath";
 	path.type = "text";
 	path.value = "";
-	path.placeholder = "Filename (e.g. config.json)";
+	path.placeholder = "Filename to save";
 
-	var uploadBtn = ce("button"); uploadBtn.innerHTML = "Upload";
-	var newBtn = ce("button"); newBtn.innerHTML = "Clear";
+	var uploadBtn = ce("button"); uploadBtn.innerHTML = "Upload File";
+	var clearBtn = ce("button"); clearBtn.innerHTML = "Clear";
 	var saveBtn = ce("button"); saveBtn.innerHTML = "Save";
 
-	// Add elements to uploader
+	// Add elements to Top
+	leftDiv.appendChild(path);
+	leftDiv.appendChild(clearBtn);
+	leftDiv.appendChild(saveBtn);
+	rightDiv.appendChild(uploadBtn);
 	ge(element).appendChild(input);
-	ge(element).appendChild(selectBtn);
-	ge(element).appendChild(path);
-	ge(element).appendChild(uploadBtn);
-	ge(element).appendChild(newBtn);
-	ge(element).appendChild(saveBtn);
+	ge(element).appendChild(leftDiv);
+	ge(element).appendChild(rightDiv);
 
-	// Custom select button triggers file input
-	selectBtn.onclick = function() {
-		input.click();
+	uploadBtn.onclick = function() {
+		input.click(); // invokes file selector
 	};
 
 	function httpPostCb(st,resp){
-		if(st!=200) alert("ERROR "+st+": "+resp);
+		if (st!=200) alert("ERROR "+st+": "+resp);
 		else {
 			alert("Upload successful!");
 			tree.refreshPath("/");
@@ -196,10 +220,10 @@ function createFileUploader(element, tree, editor){
 	}
 
 	// Clear button - clears the editor
-	newBtn.onclick = function(){ 
+	clearBtn.onclick = function(){
 		var newPath = path.value;
-    if(!newPath) {
-      alert("Please specify a filename");
+		if (!newPath) {
+		alert("Please specify a filename");
 			return;
 		}
 		editor.loadNewFile("/" + newPath, ""); // Clear editor, file will be created on save
@@ -208,43 +232,18 @@ function createFileUploader(element, tree, editor){
 
 	saveBtn.onclick = function(){ editor.save(); };
 
-	uploadBtn.onclick = function(){
-		if(input.files.length == 0) {
-			alert("Please select a file to upload");
-			return;
-		}
+	// Handle file selection and upload
+	input.onchange = function(){
+		if (input.files.length == 0) return;
 		var file = input.files[0];
 		var fd = new FormData();
 		fd.append("file", file, file.name);
 		console.log("Uploading:", file.name);
-		req.add("POST", "/edit", fd, httpPostCb);
-		// Clear variables after upload to prevent accidental re-upload
-		input.value = "";
-		path.value = "";
-	};
-
-	input.onchange = function(){
-		if(input.files.length == 0) return;
-		var file = input.files[0];
-		path.value = file.name; // Show selected filename in text field
-
-		if(/\.(png|jpg|jpeg|gif|bmp|webp)$/i.test(file.name)) {
-			// Image preview
-			var reader = new FileReader();
-			reader.onload = function(e) {
-				ge("editor").style.display = "none";
-				ge("preview").style.display = "block";
-				ge("preview").innerHTML = '<img src="'+e.target.result+'">';
-			};
-			reader.readAsDataURL(file);
-		} else {
-			// Text preview
-			var reader = new FileReader();
-			reader.onload = function(e) {
-				editor.loadNewFile("/" + file.name, e.target.result);
-			};
-			reader.readAsText(file);
-		}
+		req.add("POST", "/edit", fd, function(st, resp) {
+			httpPostCb(st, resp);
+			if(st == 200) { loadPreview(file.name, editor); }
+		});
+		input.value = ""; // Clear the file selection
 	};
 }
 
@@ -252,17 +251,11 @@ function createTree(element, editor){
 	var treeRoot=ce("div");
 	ge(element).appendChild(treeRoot);
 
-	function loadDownload(p){
+	function downlFile(p){
 		window.open("/edit?func=download&path=" + encodeURIComponent(p), "_blank");
 	}
 
-	function loadPreview(p){
-		ge("editor").style.display="none";
-		ge("preview").style.display="block";
-		ge("preview").innerHTML = '<img src="/edit?func=edit&path=' + encodeURIComponent(p) + '&_cb=' + Date.now() + '">';
-	}
-
-	function deleteFile(p, tree) {
+	function delFile(p, tree) {
 		if (!confirm("Delete " + p + "?")) return;
 		req.add("GET", "/edit", { func:"delete", path:p }, function(st, resp) {
 			if (st != 200) alert("ERROR " + st + ": " + resp);
@@ -276,14 +269,7 @@ function createTree(element, editor){
 		leaf.textContent=name;
 		leaf.onmouseover=function(){ leaf.style.background="#333"; };
 		leaf.onmouseout=function(){ leaf.style.background=""; };
-		leaf.onclick=function(){
-			// Update filename in text field when clicking on a file
-			var pathField = ge("upload-path");
-			if(pathField) pathField.value = name;
-
-			if(/\.(png|jpg|jpeg|gif|bmp|webp)$/i.test(name)) loadPreview(path);
-			else editor.loadUrl(path);
-		};
+		leaf.onclick=function(){ loadPreview(name, editor); };
 
 		// Right-click context menu
 		leaf.oncontextmenu = function(e) {
@@ -301,7 +287,7 @@ function createTree(element, editor){
 			downloadOption.style.cssText = "padding:8px 12px;cursor:pointer;color:#fff";
 			downloadOption.onmouseover = function() { this.style.background = "#555"; };
 			downloadOption.onmouseout = function() { this.style.background = ""; };
-			downloadOption.onclick = function() { loadDownload(path); menu.remove(); };
+			downloadOption.onclick = function() { downlFile(path); menu.remove(); };
 
 			// Delete option
 			var deleteOption = ce("div");
@@ -309,7 +295,7 @@ function createTree(element, editor){
 			deleteOption.style.cssText = "padding:8px 12px;cursor:pointer;color:#ff6666";
 			deleteOption.onmouseover = function() { this.style.background = "#555"; };
 			deleteOption.onmouseout = function() { this.style.background = ""; };
-			deleteOption.onclick = function() { deleteFile(path, {refreshPath: function() { treeRoot.innerHTML=""; httpGet("/"); }}); menu.remove(); };
+			deleteOption.onclick = function() { delFile(path, {refreshPath: function() { treeRoot.innerHTML=""; httpGet("/"); }}); menu.remove(); };
 
 			menu.appendChild(downloadOption);
 			menu.appendChild(deleteOption);
@@ -329,7 +315,7 @@ function createTree(element, editor){
 
 	function addList(path,items){
 		for(var i=0;i<items.length;i++){
-			if(items[i].type==="file" && items[i].name !== "wsec.json") { // hide wsec.json, this is redundant on purpose (done in C code too), just in case...
+			if (items[i].type==="file" && items[i].name !== "wsec.json") { // hide wsec.json, this is redundant on purpose (done in C code too), just in case...
 				var fullPath = path === "/" ? "/" + items[i].name : path + "/" + items[i].name;
 				createLeaf(fullPath, items[i].name);
 			}
@@ -338,7 +324,7 @@ function createTree(element, editor){
 
 	function getCb(p){
 		return function(st,resp){
-			if(st==200) {
+			if (st==200) {
 				try {
 					addList(p, JSON.parse(resp));
 				} catch(e) {
@@ -396,7 +382,7 @@ function prettyLedmap(json){
 }
 
 function createEditor(element,file){
-	if(!file) file="";
+	if (!file) file="";
 
 	var ta = ce("textarea");
 	var editorDiv = ce("div");
@@ -411,13 +397,13 @@ function createEditor(element,file){
 	var useAce = false;
 
 	function updateEditorMode() {
-		if(!useAce || !aceEditor) return;
+		if (!useAce || !aceEditor) return;
 
 		// Check filename from text field or current file
-		var pathField = ge("upload-path");
+		var pathField = ge("filepath");
 		var filename = (pathField && pathField.value) ? pathField.value : currentFile;
 
-		if(filename && filename.toLowerCase().endsWith('.json')) {
+		if (filename && filename.toLowerCase().endsWith('.json')) {
 			aceEditor.session.setMode("ace/mode/json");
 		} else {
 			aceEditor.session.setMode("ace/mode/text");
@@ -438,8 +424,8 @@ function createEditor(element,file){
 			updateEditorMode();
 
 			// Monitor filename input for JSON highlighting (prevent duplicate listeners)
-			var pathField = ge("upload-path");
-			if(pathField && !pathField.hasJsonListener) {
+			var pathField = ge("filepath");
+			if (pathField && !pathField.hasJsonListener) {
 				pathField.oninput = function() {
 					updateEditorMode();
 				};
@@ -455,7 +441,7 @@ function createEditor(element,file){
 	window.addEventListener('load', initAce);
 
 	function switchToAce() {
-		if(useAce && aceEditor) {
+		if (useAce && aceEditor) {
 			ta.style.display = "none";
 			editorDiv.style.display = "block";
 			editorDiv.style.flex = "1";
@@ -465,7 +451,7 @@ function createEditor(element,file){
 	}
 
 	function switchToTextarea() {
-		if(useAce && aceEditor) {
+		if (useAce && aceEditor) {
 			ta.value = aceEditor.getValue();
 		}
 		ta.style.display = "block";
@@ -473,7 +459,7 @@ function createEditor(element,file){
 	}
 
 	function getCurrentContent() {
-		if(useAce && aceEditor && editorDiv.style.display !== "none") {
+		if (useAce && aceEditor && editorDiv.style.display !== "none") {
 			return aceEditor.getValue();
 		}
 		return ta.value;
@@ -481,17 +467,17 @@ function createEditor(element,file){
 
 	function setCurrentContent(content) {
 		ta.value = content;
-		if(useAce && aceEditor) {
+		if (useAce && aceEditor) {
 			aceEditor.setValue(content, -1);
 		}
 	}
 
 	// Live JSON validation for textarea
 	ta.oninput = function() {
-		var pathField = ge("upload-path");
+		var pathField = ge("filepath");
 		var filename = pathField ? pathField.value : currentFile;
 
-		if(filename && filename.toLowerCase().endsWith('.json')) {
+		if (filename && filename.toLowerCase().endsWith('.json')) {
 			try {
 				JSON.parse(ta.value);
 				ta.style.border = "2px solid #333"; // Valid JSON - normal border
@@ -506,34 +492,34 @@ function createEditor(element,file){
 	function httpPost(filename,data){
 		var finalData = data;
 		// Minify JSON files before upload
-		if(filename.toLowerCase().endsWith('.json')) {
+		if (filename.toLowerCase().endsWith('.json')) {
 			try {
 				finalData = JSON.stringify(JSON.parse(data));
 			} catch(e) {
-				alert("Invalid JSON! Please fix syntax errors before saving.");
+				alert("Invalid JSON! Please fix syntax.");
 				return;
 			}
 		}
 		var fd=new FormData();
 		fd.append("file",new Blob([finalData],{type:"text/plain"}),filename);
 		req.add("POST","/edit",fd,function(st,resp){
-			if(st!=200) alert("ERROR "+st+": "+resp);
+			if (st!=200) alert("ERROR "+st+": "+resp);
 			else {
 				alert("File saved successfully!");
 				// Refresh file list after save
-				if(window.fileTree) window.fileTree.refreshPath("/");
+				if (window.fileTree) window.fileTree.refreshPath("/");
 			}
 		});
 	}
 
 	function httpGet(fn){
-		if(!fn) return;
+		if (!fn) return;
 		req.add("GET", "/edit", { func:"edit", path:fn }, function(st, resp) {
 			ge("preview").style.display="none";
 			ge("editor").style.display="flex";
-			if(st==200) {
+			if (st==200) {
 				// Pretty-print JSON files for editing
-				if(fn.toLowerCase().endsWith('.json')) {
+				if (fn.toLowerCase().endsWith('.json')) {
 					try {
 						if (fn.toLowerCase().includes('ledmap')) {
 							setCurrentContent(prettyLedmap(resp));
@@ -554,26 +540,26 @@ function createEditor(element,file){
 		});
 	}
 
-	if(file) httpGet(file);
+	if (file) httpGet(file);
 
 	var ed={
 		save:function(){
 			// Always use filename from text field
-			var pathField = ge("upload-path");
+			var pathField = ge("filepath");
 			var filename = pathField ? pathField.value : "";
-			if(!filename) {
+			if (!filename) {
 				alert("Please enter a filename!");
 				return;
 			}
-			if(!filename.startsWith("/")) filename = "/" + filename;
+			if (!filename.startsWith("/")) filename = "/" + filename;
 			currentFile = filename; // Update current file
 			httpPost(filename, getCurrentContent());
 		},
-		loadUrl:function(fn){
+		loadText:function(fn){
 			currentFile=fn;
 			// Update filename in text field
-			var pathField = ge("upload-path");
-			if(pathField && fn) {
+			var pathField = ge("filepath");
+			if (pathField && fn) {
 				var filename = fn.startsWith("/") ? fn.substring(1) : fn;
 				pathField.value = filename;
 			}
@@ -584,7 +570,7 @@ function createEditor(element,file){
 			ge("preview").style.display="none";
 			ge("editor").style.display="flex";
 			// Set content and pretty-print JSON if needed
-			if(fn.toLowerCase().endsWith('.json') && content) {
+			if (fn.toLowerCase().endsWith('.json') && content) {
 				try {
 					var formatted = JSON.stringify(JSON.parse(content), null, 2);
 					setCurrentContent(formatted);
@@ -610,13 +596,13 @@ function onBodyLoad(){
 	var editor=createEditor("editor",vars.file);
 	var tree=createTree("tree",editor);
 	window.fileTree = tree; // Store reference for file list refresh
-	createFileUploader("uploader",tree,editor);
+	createTop("top",tree,editor);
 }
 </script>
 </head>
 <body onload="onBodyLoad()">
 	<div id="loader"><div class="loader"></div></div>
-	<div id="uploader"></div>
+	<div id="top"></div>
 	<div id="tree"></div>
 	<div id="editor"></div>
 	<div id="preview"></div>
