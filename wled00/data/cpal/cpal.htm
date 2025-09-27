@@ -293,7 +293,7 @@
     rmTrash(e);
     e.stopPropagation();
     const src = e.target || e.srcElement;
-    let cp = gId(src.id.replace("M","")); // marker → picker
+    let cp = gId(src.id.replace("cPM","cPick"));
     cp.click();
   }
 
