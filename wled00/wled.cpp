@@ -39,8 +39,8 @@ void WLED::reset()
 
 void WLED::loop()
 {
-  static uint32_t      lastHeap = UINT32_MAX;
-  static unsigned long heapTime = 0;
+  static uint16_t      heapTime = 0;   // timestamp for heap check
+  static uint8_t       heapDanger = 0; // counter for consecutive low-heap readings
 #ifdef WLED_DEBUG
   static unsigned long lastRun = 0;
   unsigned long        loopMillis = millis();
@@ -169,19 +169,36 @@ void WLED::loop()
     createEditHandler(false);
   }
 
-  // reconnect WiFi to clear stale allocations if heap gets too low
-  if (millis() - heapTime > 15000) {
-    uint32_t heap = getFreeHeapSize();
-    if (heap < MIN_HEAP_SIZE && lastHeap < MIN_HEAP_SIZE) {
-      DEBUG_PRINTF_P(PSTR("Heap too low! %u\n"), heap);
-      forceReconnect = true;
-      strip.resetSegments(); // remove all but one segments from memory
-    } else if (heap < MIN_HEAP_SIZE) {
-      DEBUG_PRINTLN(F("Heap low, purging segments."));
-      strip.purgeSegments();
+   // free memory and reconnect WiFi to clear stale allocations if heap is too low for too long, check once per second
+  if ((uint16_t)(millis() - heapTime) > 1000) {
+    #ifdef ESP8266
+    uint32_t heap = getFreeHeapSize(); // ESP8266 needs ~8k of free heap for UI to work properly
+    #else
+    uint32_t heap = getContiguousFreeHeap(); // ESP32 family needs ~10k of contiguous free heap for UI to work properly
+    #endif
+    if (heap < MIN_HEAP_SIZE) heapDanger++;
+    else heapDanger = 0;
+    switch (heapDanger) {
+      case 15: // 15 consecutive seconds
+        DEBUG_PRINTLN(F("Heap low, purging segments"));
+        strip.purgeSegments();
+        strip.setTransition(0); // disable transitions
+        strip.getMainSegment().setMode(FX_MODE_STATIC); // set static mode to free effect memory
+        break;
+      case 30: // 30 consecutive seconds
+        DEBUG_PRINTLN(F("Heap low, reset segments"));
+        strip.resetSegments(); // remove all but one segments from memory
+        break;
+      case 45: // 45 consecutive seconds
+        DEBUG_PRINTF_P(PSTR("Heap panic! Reset strip, reset connection\n"));
+        strip.~WS2812FX();      // deallocate strip and all its memory
+        new(&strip) WS2812FX(); // re-create strip object, respecting current memory limits
+        forceReconnect = true;  // in case wifi is broken, make sure UI comes back, set disableForceReconnect = true to avert
+        break;
+      default:
+        break;
     }
-    lastHeap = heap;
-    heapTime = millis();
+    heapTime = (uint16_t)millis();
   }
 
   //LED settings have been saved, re-init busses
@@ -790,7 +807,7 @@ void WLED::handleConnection()
   if ((wifiConfigured && multiWiFi.size() > 1 && WiFi.scanComplete() < 0) || (now < 2000 && (!wifiConfigured || apBehavior == AP_BEHAVIOR_ALWAYS)))
     return;
 
-  if (lastReconnectAttempt == 0 || forceReconnect) {
+  if (lastReconnectAttempt == 0 || (forceReconnect && !disableForceReconnect)) {
     DEBUG_PRINTF_P(PSTR("Initial connect or forced reconnect (@ %lus).\n"), nowS);
     selectedWiFi = findWiFi(); // find strongest WiFi
     initConnection();

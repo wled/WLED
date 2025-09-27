@@ -434,6 +434,7 @@ void initServer()
       strip.suspend();
       backupConfig(); // backup current config in case the update ends badly
       strip.resetSegments();  // free as much memory as you can
+      disableForceReconnect = true; // prevent wifi reconnect during OTA
       #ifdef ESP8266
       Update.runAsync(true);
       #endif
@@ -451,6 +452,7 @@ void initServer()
         WLED::instance().enableWatchdog();
         #endif
       }
+      disableForceReconnect = false; // allow wifi reconnects again
     }
   });
 #else

@@ -1182,8 +1182,8 @@ void WS2812FX::finalizeInit() {
   unsigned mem = 0;
   for (auto bus : busConfigs) {
     bool use_placeholder = false;
-    unsigned busMemUsage = bus.memUsage(Bus::isDigital(bus.type) && !Bus::is2Pin(bus.type) ? digitalCount : 0);    
-    if (mem + busMemUsage > MAX_LED_MEMORY) {      
+    unsigned busMemUsage = bus.memUsage(Bus::isDigital(bus.type) && !Bus::is2Pin(bus.type) ? digitalCount : 0);
+    if (mem + busMemUsage > MAX_LED_MEMORY) {
       DEBUG_PRINTF_P(PSTR("Bus %d with %d LEDS memory usage exceeds limit\n"), (int)bus.type, bus.count);
       use_placeholder = true;
     }
@@ -1786,6 +1786,10 @@ Segment& WS2812FX::getSegment(unsigned id) {
 void WS2812FX::resetSegments() {
   _segments.clear();          // destructs all Segment as part of clearing
   _segments.emplace_back(0, isMatrix ? Segment::maxWidth : _length, 0, isMatrix ? Segment::maxHeight : 1);
+  if(_segments.size() == 0) {
+    _segments.emplace_back(); // if out of heap, create a default segment
+    errorFlag = ERR_NORAM_PX;
+  }
   _segments.shrink_to_fit();  // just in case ...
   _mainSegment = 0;
 }
