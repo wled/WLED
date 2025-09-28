@@ -517,12 +517,12 @@ function generateErrorLogHtml() {
 	let html = '';
 	for (let i = 0; i < errorLog.length; i++) {
 		const entry = errorLog[i];
-		const timeStr = new Date(entry.timestamp).toLocaleTimeString();
+		// Use 24h format without seconds
+		const timeStr = new Date(entry.timestamp).toLocaleTimeString([], {hour12: false, hour: '2-digit', minute: '2-digit'});
 		const prefix = entry.isWarning ? 'Warning' : 'Error';
-		const color = entry.isWarning ? 'var(--c-y)' : 'var(--c-r)';
 		
-		html += `<div style="margin: 2px 0; padding: 3px; border-left: 2px solid ${color}; padding-left: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
-			<span style="color: ${color}; font-weight: bold;">${prefix} ${entry.code}</span> - ${timeStr}: ${entry.message}
+		html += `<div style="margin: 2px 0; padding: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+			${timeStr} ${prefix} ${entry.code}: ${entry.message}
 		</div>`;
 	}
 	
