@@ -118,7 +118,7 @@
 			// check for bus changes that require reboot
 			checkBusChanges();
 			if (busChanged) {
-				var msg = "LED hardware configuration changed. A reboot is required for changes to take effect.\n\nDo you want to continue and reboot after saving?";
+				var msg = "LED hardware changed. Reboot required to apply changes.\n\nContinue and reboot after saving?";
 				if (!confirm(msg)) {
 					e.stopPropagation();
 					return false;
@@ -667,19 +667,17 @@ Swap: <select id="xw${s}" name="XW${s}">
 		function checkBusChanges() {
 			// check if bus configuration has changed
 			let buses = d.Sf.querySelectorAll("#mLC select[name^=LT]");
-			let currentBusCount = buses.length;
 			
-			// check if bus count changed
-			if (currentBusCount != originalBusCount) {
-				busChanged = true;
-				return;
-			}
-			
-			// check if any bus type changed
+			// check if any bus type changed (excluding virtual and network buses)
 			for (let i = 0; i < buses.length; i++) {
-				if (parseInt(buses[i].value) != originalBusTypes[i]) {
-					busChanged = true;
-					return;
+				let oldType = originalBusTypes[i] || 0;
+				let newType = parseInt(buses[i].value) || 0;
+				if (oldType != newType) {
+					// only flag for reboot if neither old nor new type is virtual/network
+					if (!isVir(oldType) && !isNet(oldType) && !isVir(newType) && !isNet(newType)) {
+						busChanged = true;
+						return;
+					}
 				}
 			}
 		}
