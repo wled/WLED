@@ -1202,12 +1202,12 @@ void WS2812FX::finalizeInit() {
     #endif
     if (mem + busMemUsage + maxI2S > MAX_LED_MEMORY) {
       DEBUG_PRINTF_P(PSTR("Bus %d with %d LEDS memory usage exceeds limit\n"), (int)bus.type, bus.count);
-      errorFlag = ERR_NORAM_PX; // alert UI  TODO: make this a distinct error
+      errorFlag = ERR_NORAM; // alert UI  TODO: make this a distinct error: not enough memory for bus
       use_placeholder = true;
     }
     if (BusManager::add(bus, use_placeholder) != -1) {
       mem += BusManager::busses.back()->getBusSize();
-      if (Bus::isDigital(bus.type) && !Bus::is2Pin(bus.type)) digitalCount++; //TODO: make it count-- if bus is placeholder
+      if (Bus::isDigital(bus.type) && !Bus::is2Pin(bus.type) && BusManager::busses.back()->isPlaceholder()) digitalCount--; // remove placeholder from digital count
     }
   }
   DEBUG_PRINTF_P(PSTR("LED buffer size: %uB/%uB\n"), mem + maxI2S, BusManager::memUsage());

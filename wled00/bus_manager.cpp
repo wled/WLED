@@ -1194,7 +1194,7 @@ int BusManager::add(const BusConfig &bc, bool placeholder) {
     if (bus->isDigital() && !bus->is2Pin()) digital++;
     if (bus->is2Pin()) twoPin++;
   }
-  if (digital > WLED_MAX_DIGITAL_CHANNELS || analog > WLED_MAX_ANALOG_CHANNELS) placeholder = true;
+  if (digital > WLED_MAX_DIGITAL_CHANNELS || analog > WLED_MAX_ANALOG_CHANNELS) placeholder = true; // TODO: add errorFlag here
   if (placeholder) {
     busses.push_back(make_unique<BusPlaceholder>(bc));
   } else if (Bus::isVirtual(bc.type)) {

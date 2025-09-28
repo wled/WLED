@@ -183,17 +183,22 @@ void WLED::loop()
         DEBUG_PRINTLN(F("Heap low, purging segments"));
         strip.purgeSegments();
         strip.setTransition(0); // disable transitions
-        strip.getMainSegment().setMode(FX_MODE_STATIC); // set static mode to free effect memory
+        for (unsigned i = 0; i < strip.getSegmentsNum(); i++) {
+          strip.getSegments()[i].setMode(FX_MODE_STATIC); // set static mode to free effect memory
+        }
+        errorFlag = ERR_NORAM; // alert UI  TODO: make this a distinct error: segment reset
         break;
       case 30: // 30 consecutive seconds
         DEBUG_PRINTLN(F("Heap low, reset segments"));
         strip.resetSegments(); // remove all but one segments from memory
+        errorFlag = ERR_NORAM; // alert UI  TODO: make this a distinct error: segment reset
         break;
       case 45: // 45 consecutive seconds
         DEBUG_PRINTF_P(PSTR("Heap panic! Reset strip, reset connection\n"));
         strip.~WS2812FX();      // deallocate strip and all its memory
         new(&strip) WS2812FX(); // re-create strip object, respecting current memory limits
         forceReconnect = true;  // in case wifi is broken, make sure UI comes back, set disableForceReconnect = true to avert
+        errorFlag = ERR_NORAM; // alert UI  TODO: make this a distinct error: strip reset
         break;
       default:
         break;

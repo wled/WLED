@@ -152,6 +152,7 @@ class Bus {
     inline  bool     isPWM() const                              { return isPWM(_type); }
     inline  bool     isVirtual() const                          { return isVirtual(_type); }
     inline  bool     is16bit() const                            { return is16bit(_type); }
+    virtual bool     isPlaceholder() const                      { return false; }
     inline  bool     mustRefresh() const                        { return mustRefresh(_type); }
     inline  void     setReversed(bool reversed)                 { _reversed = reversed; }
     inline  void     setStart(uint16_t start)                   { _start = start; }
@@ -374,6 +375,7 @@ class BusNetwork : public Bus {
 
 // Placeholder for buses that we can't construct due to resource limitations
 // This preserves the configuration so it can be read back to the settings pages
+// Function calls "mimic" the replaced bus, isPlaceholder() can be used to identify a placeholder
 class BusPlaceholder : public Bus {
   public:
     BusPlaceholder(const BusConfig &bc);
@@ -390,6 +392,7 @@ class BusPlaceholder : public Bus {
     uint16_t getLEDCurrent() const override  { return _milliAmpsPerLed; }
     uint16_t getMaxCurrent() const override  { return _milliAmpsMax; }
     const String getCustomText() const override { return _text; }
+    bool     isPlaceholder() const override  { return true; }
 
     size_t   getBusSize() const override   { return sizeof(BusPlaceholder); }
 
