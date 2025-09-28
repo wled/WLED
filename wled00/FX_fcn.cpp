@@ -11,7 +11,6 @@
 */
 #include "wled.h"
 #include "FXparticleSystem.h"  // TODO: better define the required function (mem service) in FX.h?
-#include "palettes.h"
 
 /*
   Custom per-LED mapping has moved!
@@ -226,8 +225,12 @@ void Segment::resetIfRequired() {
 }
 
 CRGBPalette16 &Segment::loadPalette(CRGBPalette16 &targetPalette, uint8_t pal) {
-  if (pal < 245 && pal > GRADIENT_PALETTE_COUNT+13) pal = 0;
-  if (pal > 245 && (customPalettes.size() == 0 || 255U-pal > customPalettes.size()-1)) pal = 0;
+  // there is one randomy generated palette (1) followed by 4 palettes created from segment colors (2-5)
+  // those are followed by 7 fastled palettes (6-12) and 59 gradient palettes (13-71)
+  // then come the custom palettes (255,254,...) growing downwards from 255 (255 being 1st custom palette)
+  // palette 0 is a varying palette depending on effect and may be replaced by segment's color if so
+  // instructed in color_from_palette()
+  if (pal > FIXED_PALETTE_COUNT && pal <= 255-customPalettes.size()) pal = 0; // out of bounds palette
   //default palette. Differs depending on effect
   if (pal == 0) pal = _default_palette; // _default_palette is set in setMode()
   switch (pal) {
@@ -263,13 +266,13 @@ CRGBPalette16 &Segment::loadPalette(CRGBPalette16 &targetPalette, uint8_t pal) {
       }
       break;}
     default: //progmem palettes
-      if (pal>245) {
+      if (pal > 255 - customPalettes.size()) {
         targetPalette = customPalettes[255-pal]; // we checked bounds above
-      } else if (pal < 13) { // palette 6 - 12, fastled palettes
-        targetPalette = *fastledPalettes[pal-6];
+      } else if (pal < DYNAMIC_PALETTE_COUNT+FASTLED_PALETTE_COUNT+1) { // palette 6 - 12, fastled palettes
+        targetPalette = *fastledPalettes[pal-DYNAMIC_PALETTE_COUNT-1];
       } else {
         byte tcp[72];
-        memcpy_P(tcp, (byte*)pgm_read_dword(&(gGradientPalettes[pal-13])), 72);
+        memcpy_P(tcp, (byte*)pgm_read_dword(&(gGradientPalettes[pal-(DYNAMIC_PALETTE_COUNT+FASTLED_PALETTE_COUNT)-1])), 72);
         targetPalette.loadDynamicGradientPalette(tcp);
       }
       break;
@@ -573,8 +576,7 @@ Segment &Segment::setMode(uint8_t fx, bool loadDefaults) {
 }
 
 Segment &Segment::setPalette(uint8_t pal) {
-  if (pal < 245 && pal > GRADIENT_PALETTE_COUNT+13) pal = 0; // built in palettes
-  if (pal > 245 && (customPalettes.size() == 0 || 255U-pal > customPalettes.size()-1)) pal = 0; // custom palettes
+  if (pal <= 255-customPalettes.size() && pal > FIXED_PALETTE_COUNT) pal = 0; // not built in palette or custom palette
   if (pal != palette) {
     //DEBUG_PRINTF_P(PSTR("- Starting palette transition: %d\n"), pal);
     startTransition(strip.getTransition(), blendingStyle != BLEND_STYLE_FADE); // start transition prior to change (no need to copy segment)
@@ -680,7 +682,7 @@ uint16_t Segment::maxMappingLength() const {
 #endif
 // pixel is clipped if it falls outside clipping range
 // if clipping start > stop the clipping range is inverted
-bool IRAM_ATTR_YN Segment::isPixelClipped(int i) const {
+bool Segment::isPixelClipped(int i) const {
   if (blendingStyle != BLEND_STYLE_FADE && isInTransition() && _clipStart != _clipStop) {
     bool invert = _clipStart > _clipStop;  // ineverted start & stop
     int start = invert ? _clipStop : _clipStart;
@@ -698,7 +700,7 @@ bool IRAM_ATTR_YN Segment::isPixelClipped(int i) const {
   return false;
 }
 
-void IRAM_ATTR_YN Segment::setPixelColor(int i, uint32_t col) const
+void WLED_O2_ATTR Segment::setPixelColor(int i, uint32_t col) const
 {
   if (!isActive() || i < 0) return; // not active or invalid index
 #ifndef WLED_DISABLE_2D
@@ -911,7 +913,7 @@ void Segment::setPixelColor(float i, uint32_t col, bool aa) const
 }
 #endif
 
-uint32_t IRAM_ATTR_YN Segment::getPixelColor(int i) const
+uint32_t WLED_O2_ATTR Segment::getPixelColor(int i) const
 {
   if (!isActive() || i < 0) return 0; // not active or invalid index
 
@@ -1050,7 +1052,7 @@ void Segment::fadeToSecondaryBy(uint8_t fadeBy) const {
 void Segment::fadeToBlackBy(uint8_t fadeBy) const {
   if (!isActive() || fadeBy == 0) return;   // optimization - no scaling to apply
   const size_t rlength = rawLength();  // calculate only once
-  for (unsigned i = 0; i < rlength; i++) setPixelColorRaw(i, color_fade(getPixelColorRaw(i), 255-fadeBy));
+  for (unsigned i = 0; i < rlength; i++) setPixelColorRaw(i, fast_color_scale(getPixelColorRaw(i), 255-fadeBy));
 }
 
 /*
@@ -1070,25 +1072,19 @@ void Segment::blur(uint8_t blur_amount, bool smear) const {
   uint8_t keep = smear ? 255 : 255 - blur_amount;
   uint8_t seep = blur_amount >> 1;
   unsigned vlength = vLength();
-  uint32_t carryover = BLACK;
-  uint32_t lastnew; // not necessary to initialize lastnew and last, as both will be initialized by the first loop iteration
-  uint32_t last;
-  uint32_t curnew = BLACK;
-  for (unsigned i = 0; i < vlength; i++) {
-    uint32_t cur = getPixelColorRaw(i);
-    uint32_t part = color_fade(cur, seep);
-    curnew = color_fade(cur, keep);
-    if (i > 0) {
-      if (carryover) curnew = color_add(curnew, carryover);
-      uint32_t prev = color_add(lastnew, part);
-      // optimization: only set pixel if color has changed
-      if (last != prev) setPixelColorRaw(i - 1, prev);
-    } else setPixelColorRaw(i, curnew); // first pixel
-    lastnew = curnew;
-    last = cur; // save original value for comparison on next iteration
+  // handle first pixel to avoid conditional in loop (faster)
+  uint32_t cur = getPixelColorRaw(0);
+  uint32_t carryover = fast_color_scale(cur, seep);
+  setPixelColorRaw(0, fast_color_scale(cur, keep));
+  for (unsigned i = 1; i < vlength; i++) {
+    cur = getPixelColorRaw(i);
+    uint32_t part = fast_color_scale(cur, seep);
+    cur = fast_color_scale(cur, keep);
+    cur = color_add(cur, carryover);
+    setPixelColorRaw(i - 1, color_add(getPixelColorRaw(i - 1), part)); // previous pixel
+    setPixelColorRaw(i, cur); // current pixel
     carryover = part;
   }
-  setPixelColorRaw(vlength - 1, curnew);
 }
 
 /*
@@ -1178,20 +1174,43 @@ void WS2812FX::finalizeInit() {
   digitalCount = 0;
   #endif
 
+  DEBUG_PRINTF_P(PSTR("Heap before buses: %d\n"), getFreeHeapSize());
   // create buses/outputs
   unsigned mem = 0;
+  unsigned maxI2S = 0;
   for (auto bus : busConfigs) {
     bool use_placeholder = false;
-    unsigned busMemUsage = bus.memUsage(Bus::isDigital(bus.type) && !Bus::is2Pin(bus.type) ? digitalCount : 0);
-    if (mem + busMemUsage > MAX_LED_MEMORY) {
+    unsigned busMemUsage = bus.memUsage(Bus::isDigital(bus.type) && !Bus::is2Pin(bus.type) ? digitalCount++ : 0); // does not include DMA/RMT buffer
+    // estimate maximum I2S memory usage (only relevant for digital non-2pin busses)
+    #if !defined(CONFIG_IDF_TARGET_ESP32C3) && !defined(ESP8266)
+      #if defined(CONFIG_IDF_TARGET_ESP32) || defined(CONFIG_IDF_TARGET_ESP32S3)
+    const bool usesI2S = ((useParallelI2S && digitalCount <= 8) || (!useParallelI2S && digitalCount == 1));
+      #elif defined(CONFIG_IDF_TARGET_ESP32S2)
+    const bool usesI2S = (useParallelI2S && digitalCount <= 8);
+      #else
+    const bool usesI2S = false;
+      #endif
+    if (Bus::isDigital(bus.type) && !Bus::is2Pin(bus.type) && usesI2S) {
+      #ifdef NPB_CONF_4STEP_CADENCE
+      constexpr unsigned stepFactor = 4; // 4 step cadence (4 bits per pixel bit)
+      #else
+      constexpr unsigned stepFactor = 3; // 3 step cadence (3 bits per pixel bit)
+      #endif
+      unsigned i2sCommonSize = stepFactor * bus.count * (3*Bus::hasRGB(bus.type)+Bus::hasWhite(bus.type)+Bus::hasCCT(bus.type)) * (Bus::is16bit(bus.type)+1);
+      if (i2sCommonSize > maxI2S) maxI2S = i2sCommonSize;
+    }
+    #endif
+    if (mem + busMemUsage + maxI2S > MAX_LED_MEMORY) {
       DEBUG_PRINTF_P(PSTR("Bus %d with %d LEDS memory usage exceeds limit\n"), (int)bus.type, bus.count);
+      errorFlag = ERR_NORAM_PX; // alert UI  TODO: make this a distinct error
       use_placeholder = true;
     }
     if (BusManager::add(bus, use_placeholder) != -1) {
       mem += BusManager::busses.back()->getBusSize();
-      if (Bus::isDigital(bus.type) && !Bus::is2Pin(bus.type)) digitalCount++;
-    } else break;
+      if (Bus::isDigital(bus.type) && !Bus::is2Pin(bus.type)) digitalCount++; //TODO: make it count-- if bus is placeholder
+    }
   }
+  DEBUG_PRINTF_P(PSTR("LED buffer size: %uB/%uB\n"), mem + maxI2S, BusManager::memUsage());
   busConfigs.clear();
   busConfigs.shrink_to_fit();
 

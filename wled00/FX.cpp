@@ -2606,9 +2606,11 @@ static CRGB twinklefox_one_twinkle(uint32_t ms, uint8_t salt, bool cat)
     // This is like 'triwave8', which produces a
     // symmetrical up-and-down triangle sawtooth waveform, except that this
     // function produces a triangle wave with a faster attack and a slower decay
-    if (cat) //twinklecat, variant where the leds instantly turn on
-    {
+    if (cat) { //twinklecat, variant where the leds instantly turn on and fade off
       bright = 255 - ph;
+      if (SEGMENT.check2) { //reverse checkbox, reverses the leds to fade on and instantly turn off
+        bright = ph;
+      }
     } else { //vanilla twinklefox
       if (ph < 86) {
       bright = ph * 3;
@@ -2716,7 +2718,7 @@ uint16_t mode_twinklecat()
 {
   return twinklefox_base(true);
 }
-static const char _data_FX_MODE_TWINKLECAT[] PROGMEM = "Twinklecat@!,Twinkle rate,,,,Cool;!,!;!";
+static const char _data_FX_MODE_TWINKLECAT[] PROGMEM = "Twinklecat@!,Twinkle rate,,,,Cool,Reverse;!,!;!";
 
 
 uint16_t mode_halloween_eyes()
@@ -4875,6 +4877,78 @@ uint16_t mode_FlowStripe(void) {
 } // mode_FlowStripe()
 static const char _data_FX_MODE_FLOWSTRIPE[] PROGMEM = "Flow Stripe@Hue speed,Effect speed;;!;pal=11";
 
+/*
+  Shimmer effect: moves a gradient with optional modulators across the strip at a given interval, up to 60 seconds
+  It can be used as an overlay to other effects or standalone
+  by DedeHai (Damian Schneider), based on idea from @Charming-Lime (#4905)
+*/
+uint16_t mode_shimmer() {
+  if(!SEGENV.allocateData(sizeof(uint32_t))) { return mode_static(); }
+  uint32_t* lastTime = reinterpret_cast<uint32_t*>(SEGENV.data);
+
+  uint32_t radius = (SEGMENT.custom1 * SEGLEN >> 7) + 1;        // [1, 2*SEGLEN+1] pixels
+  uint32_t traversalDistance = (SEGLEN + 2 * radius) << 8;      // total subpixels to cross, 1 pixel = 256 subpixels
+  uint32_t traversalTime = 200 + (255 - SEGMENT.speed) * 80;    // [200, 20600] ms
+  uint32_t speed = ((traversalDistance << 5) / traversalTime);  // subpixels/512ms
+  int32_t  position = static_cast<int32_t>(SEGENV.step);        // current position in subpixels
+  uint16_t inputstate = (uint16_t(SEGMENT.intensity) << 8) | uint16_t(SEGMENT.custom1); // current user input state
+
+  // init
+  if (SEGENV.call == 0 || inputstate != SEGENV.aux1) {
+    position = -(radius << 8);
+    SEGENV.aux0 = 0; // aux0 is pause timer
+    *lastTime = strip.now;
+    SEGENV.aux1 = inputstate; // save user input state
+  }
+
+  if(SEGMENT.speed) {
+    uint32_t deltaTime = (strip.now - *lastTime) & 0x7F; // clamp to 127ms to avoid overflows. note: speed*deltaTime can still overflow for segments > ~10k pixels
+    *lastTime = strip.now;
+
+    if (SEGENV.aux0 > 0) {
+      SEGENV.aux0 = (SEGENV.aux0 > deltaTime) ? SEGENV.aux0 - deltaTime : 0;
+    } else {
+      // calculate movement step and update position
+      int32_t step = 1 + ((speed * deltaTime) >> 5); // subpixels moved this frame. note >>5 as speed is in subpixels/512ms
+      position += step;
+      int endposition = (SEGLEN + radius) << 8;
+      if (position > endposition) {
+        SEGENV.aux0 = SEGMENT.intensity * 236; // [0, 60180] ms pause
+        if(SEGMENT.check3) SEGENV.aux0 = hw_random(SEGENV.aux0 + 1000); // randomise interval, +1 second to affect low intensity values
+        position = -(radius << 8); // reset to start position (out of frame)
+      }
+      SEGENV.step = (uint32_t)position; // save back
+    }
+
+    if (SEGMENT.check2)
+      position = (SEGLEN << 8) - position;   // invert position (and direction)
+  } else {
+    position = (SEGLEN << 7); // at speed=0, make it static in the center (this enables to use modulators only)
+  }
+
+  for (int i = 0; i < SEGLEN; i++) {
+    uint32_t dist = abs(position - (i << 8));
+    if (dist < (radius << 8)) {
+      uint32_t color = SEGMENT.color_from_palette(i * 255 / SEGLEN, false, false, 0);
+      uint8_t blend = dist / radius; // linear gradient note: dist is in subpixels, radius in pixels, result is [0, 255] since dist < radius*256
+      if (SEGMENT.custom2) {
+        uint8_t modVal; // modulation value
+        if (SEGMENT.check1) {
+          modVal = (sin16_t((i * SEGMENT.custom2 << 6) + (strip.now * SEGMENT.custom3 << 5)) >> 8) + 128; // sine modulation: regular "Zebra" stripes
+        } else {
+          modVal = perlin16((i * SEGMENT.custom2 << 7), strip.now * SEGMENT.custom3 << 5) >> 8; // perlin noise modulation
+        }
+        color = color_fade(color, modVal, true); // dim by modulator value
+      }
+      SEGMENT.setPixelColor(i, color_blend(color, SEGCOLOR(1), blend)); // blend to background color
+    } else {
+      SEGMENT.setPixelColor(i, SEGCOLOR(1));
+    }
+  }
+
+  return FRAMETIME;
+}
+static const char _data_FX_MODE_SHIMMER[] PROGMEM = "Shimmer@Speed,Interval,Size,Granular,Flow,Zebra,Reverse,Sporadic;Fx,Bg,Cx;!;1;pal=15,sx=220,ix=10,c2=0,c3=0";
 
 #ifndef WLED_DISABLE_2D
 ///////////////////////////////////////////////////////////////////////////////
@@ -7273,6 +7347,7 @@ uint16_t mode_2DGEQ(void) { // By Will Tatam. Code reduction by Ewoud Wijma.
   if (!strip.isMatrix || !SEGMENT.is2D()) return mode_static(); // not a 2D set-up
 
   const int NUM_BANDS = map(SEGMENT.custom1, 0, 255, 1, 16);
+  const int CENTER_BIN = map(SEGMENT.custom3, 0, 31, 0, 15);
   const int cols = SEG_W;
   const int rows = SEG_H;
 
@@ -7294,8 +7369,14 @@ uint16_t mode_2DGEQ(void) { // By Will Tatam. Code reduction by Ewoud Wijma.
   if ((fadeoutDelay <= 1 ) || ((SEGENV.call % fadeoutDelay) == 0)) SEGMENT.fadeToBlackBy(SEGMENT.speed);
 
   for (int x=0; x < cols; x++) {
-    uint8_t  band       = map(x, 0, cols, 0, NUM_BANDS);
-    if (NUM_BANDS < 16) band = map(band, 0, NUM_BANDS - 1, 0, 15); // always use full range. comment out this line to get the previous behaviour.
+    int band = map(x, 0, cols, 0, NUM_BANDS);
+    if (NUM_BANDS < 16) {
+        int startBin = constrain(CENTER_BIN - NUM_BANDS/2, 0, 15 - NUM_BANDS + 1);
+        if(NUM_BANDS <= 1)
+          band = CENTER_BIN; // map() does not work for single band
+        else
+          band = map(band, 0, NUM_BANDS - 1, startBin, startBin + NUM_BANDS - 1);
+    }
     band = constrain(band, 0, 15);
     unsigned colorIndex = band * 17;
     int barHeight  = map(fftResult[band], 0, 255, 0, rows); // do not subtract -1 from rows here
@@ -7317,7 +7398,7 @@ uint16_t mode_2DGEQ(void) { // By Will Tatam. Code reduction by Ewoud Wijma.
 
   return FRAMETIME;
 } // mode_2DGEQ()
-static const char _data_FX_MODE_2DGEQ[] PROGMEM = "GEQ@Fade speed,Ripple decay,# of bands,,,Color bars;!,,Peaks;!;2f;c1=255,c2=64,pal=11,si=0"; // Beatsin
+static const char _data_FX_MODE_2DGEQ[] PROGMEM = "GEQ@Fade speed,Ripple decay,# of bands,,Bin,Color bars;!,,Peaks;!;2f;c1=255,c2=64,pal=11,si=0,c3=0";
 
 
 /////////////////////////
@@ -10805,6 +10886,7 @@ void WS2812FX::setupEffectData() {
   addEffect(FX_MODE_FLOWSTRIPE, &mode_FlowStripe, _data_FX_MODE_FLOWSTRIPE);
   addEffect(FX_MODE_WAVESINS, &mode_wavesins, _data_FX_MODE_WAVESINS);
   addEffect(FX_MODE_ROCKTAVES, &mode_rocktaves, _data_FX_MODE_ROCKTAVES);
+  addEffect(FX_MODE_SHIMMER, &mode_shimmer, _data_FX_MODE_SHIMMER);
 
   // --- 2D  effects ---
 #ifndef WLED_DISABLE_2D

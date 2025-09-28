@@ -7,7 +7,7 @@
  */
 
 // version code in format yymmddb (b = daily build)
-#define VERSION 2412040
+#define VERSION 2506160
 
 //uncomment this if you have a "my_config.h" file you'd like to use
 //#define WLED_USE_MY_CONFIG
@@ -276,10 +276,14 @@ using PSRAMDynamicJsonDocument = BasicJsonDocument<PSRAM_Allocator>;
 #ifndef WLED_RELEASE_NAME
   #define WLED_RELEASE_NAME "Custom"
 #endif
+#ifndef WLED_REPO
+  #define WLED_REPO "unknown"
+#endif
 
 // Global Variable definitions
 WLED_GLOBAL char versionString[] _INIT(TOSTRING(WLED_VERSION));
 WLED_GLOBAL char releaseString[] _INIT(WLED_RELEASE_NAME); // must include the quotes when defining, e.g -D WLED_RELEASE_NAME=\"ESP32_MULTI_USREMODS\"
+WLED_GLOBAL char repoString[] _INIT(WLED_REPO);
 #define WLED_CODENAME "Niji"
 
 // AP and OTA default passwords (for maximum security change them!)

@@ -6,7 +6,15 @@
  * Readability defines and their associated numerical values + compile-time constants
  */
 
-#define GRADIENT_PALETTE_COUNT 59
+constexpr size_t FASTLED_PALETTE_COUNT = 7;   // = sizeof(fastledPalettes) / sizeof(fastledPalettes[0]);
+constexpr size_t GRADIENT_PALETTE_COUNT = 59; // = sizeof(gGradientPalettes) / sizeof(gGradientPalettes[0]);
+constexpr size_t DYNAMIC_PALETTE_COUNT = 5;   // 1-5 are dynamic palettes (1=random,2=primary,3=primary+secondary,4=primary+secondary+tertiary,5=primary+secondary(+tertiary if not black)
+constexpr size_t FIXED_PALETTE_COUNT = DYNAMIC_PALETTE_COUNT + FASTLED_PALETTE_COUNT + GRADIENT_PALETTE_COUNT; // total number of fixed palettes
+#ifndef ESP8266
+  #define WLED_MAX_CUSTOM_PALETTES (255 - FIXED_PALETTE_COUNT) // allow up to 255 total palettes, user is warned about stability issues when adding more than 10
+#else
+  #define WLED_MAX_CUSTOM_PALETTES 10 // ESP8266: limit custom palettes to 10
+#endif
 
 // You can define custom product info from build flags.
 // This is useful to allow API consumer to identify what type of WLED version
@@ -316,6 +324,12 @@ static_assert(WLED_MAX_BUSSES <= 32, "WLED_MAX_BUSSES exceeds hard limit");
 #define TYPE_P9813               53
 #define TYPE_LPD6803             54
 #define TYPE_2PIN_MAX            63
+
+#define TYPE_HUB75MATRIX_MIN     64
+#define TYPE_HUB75MATRIX_HS      65
+#define TYPE_HUB75MATRIX_QS      66
+#define TYPE_HUB75MATRIX_MAX     71
+
 //Network types (master broadcast) (80-95)
 #define TYPE_VIRTUAL_MIN         80
 #define TYPE_NET_DDP_RGB         80            //network DDP RGB bus (master broadcast bus)
@@ -667,5 +681,7 @@ static_assert(WLED_MAX_BUSSES <= 32, "WLED_MAX_BUSSES exceeds hard limit");
 #else
   #define IRAM_ATTR_YN IRAM_ATTR
 #endif
+
+#define WLED_O2_ATTR __attribute__((optimize("O2")))
 
 #endif

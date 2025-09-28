@@ -59,6 +59,10 @@ void wsEvent(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventTyp
 
         if (!interfaceUpdateCallMode) { // individual client response only needed if no WS broadcast soon
           if (verboseResponse) {
+            #ifndef WLED_DISABLE_MQTT
+            // publish state to MQTT as requested in wled#4643 even if only WS response selected
+            publishMqtt();
+            #endif
             sendDataWs(client);
           } else {
             // we have to send something back otherwise WS connection closes

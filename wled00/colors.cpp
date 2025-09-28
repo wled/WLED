@@ -8,7 +8,7 @@
  * color blend function, based on FastLED blend function
  * the calculation for each color is: result = (A*(amountOfA) + A + B*(amountOfB) + B) / 256 with amountOfA = 255 - amountOfB
  */
-uint32_t IRAM_ATTR color_blend(uint32_t color1, uint32_t color2, uint8_t blend) {
+uint32_t WLED_O2_ATTR IRAM_ATTR color_blend(uint32_t color1, uint32_t color2, uint8_t blend) {
   // min / max blend checking is omitted: calls with 0 or 255 are rare, checking lowers overall performance
   const uint32_t TWO_CHANNEL_MASK = 0x00FF00FF;     // mask for R and B channels or W and G if negated (poorman's SIMD; https://github.com/wled/WLED/pull/4568#discussion_r1986587221)
   uint32_t rb1 =  color1       & TWO_CHANNEL_MASK;  // extract R & B channels from color1
@@ -25,39 +25,37 @@ uint32_t IRAM_ATTR color_blend(uint32_t color1, uint32_t color2, uint8_t blend) 
  * original idea: https://github.com/wled-dev/WLED/pull/2465 by https://github.com/Proto-molecule
  * speed optimisations by @dedehai
  */
-uint32_t color_add(uint32_t c1, uint32_t c2, bool preserveCR)
+uint32_t WLED_O2_ATTR color_add(uint32_t c1, uint32_t c2, bool preserveCR) //1212558 | 1212598 | 1212576 | 1212530
 {
   if (c1 == BLACK) return c2;
   if (c2 == BLACK) return c1;
   const uint32_t TWO_CHANNEL_MASK = 0x00FF00FF; // mask for R and B channels or W and G if negated
   uint32_t rb = ( c1     & TWO_CHANNEL_MASK) + ( c2     & TWO_CHANNEL_MASK); // mask and add two colors at once
   uint32_t wg = ((c1>>8) & TWO_CHANNEL_MASK) + ((c2>>8) & TWO_CHANNEL_MASK);
-  uint32_t r = rb >> 16; // extract single color values
-  uint32_t b = rb & 0xFFFF;
-  uint32_t w = wg >> 16;
-  uint32_t g = wg & 0xFFFF;
 
   if (preserveCR) { // preserve color ratios
-    uint32_t max = std::max(r,g); // check for overflow note
-    max = std::max(max,b);
-    max = std::max(max,w);
-    //unsigned max = r; // check for overflow note
-    //max = g > max ? g : max;
-    //max = b > max ? b : max;
-    //max = w > max ? w : max;
-    if (max > 255) {
+    uint32_t overflow = (rb | wg) & 0x01000100; // detect overflow by checking 9th bit
+    if (overflow) {
+      uint32_t r = rb >> 16; // extract single color values
+      uint32_t b = rb & 0xFFFF;
+      uint32_t w = wg >> 16;
+      uint32_t g = wg & 0xFFFF;
+      uint32_t max = std::max(r,g);
+      max = std::max(max,b);
+      max = std::max(max,w);
       const uint32_t scale = (uint32_t(255)<<8) / max; // division of two 8bit (shifted) values does not work -> use bit shifts and multiplaction instead
       rb = ((rb * scale) >> 8) &  TWO_CHANNEL_MASK;
       wg =  (wg * scale)       & ~TWO_CHANNEL_MASK;
     } else wg <<= 8; //shift white and green back to correct position
-    return rb | wg;
   } else {
-    r = r > 255 ? 255 : r;
-    g = g > 255 ? 255 : g;
-    b = b > 255 ? 255 : b;
-    w = w > 255 ? 255 : w;
-    return RGBW32(r,g,b,w);
+    // branchless per-channel saturation to 255 (extract 9th bit, subtract 1 if it is set, mask with 0xFF, input is 0xFF+0xFF=0x1EF max)
+    // example with overflow: input: 0x01EF01EF -> (0x0100100 - 0x00010001) = 0x00FF00FF -> input|0x00FF00FF = 0x00FF00FF (saturate)
+    // example without overflow: input: 0x007F007F -> (0x00000000 - 0x00000000) = 0x00000000 -> input|0x00000000 = input  (no change)
+    rb |= ((rb & 0x01000100) - ((rb >> 8) & 0x00010001)) & 0x00FF00FF;
+    wg |= ((wg & 0x01000100) - ((wg >> 8) & 0x00010001)) & 0x00FF00FF;
+    wg <<= 8; // restore WG position
   }
+  return rb | wg;
 }
 
 /*
@@ -92,15 +90,15 @@ uint32_t IRAM_ATTR color_fade(uint32_t c1, uint8_t amount, bool video) {
    note: inputs are 32bit to speed up the function, useful input value ranges are 0-255
  */
 uint32_t adjust_color(uint32_t rgb, uint32_t hueShift, uint32_t lighten, uint32_t brighten) {
-    if (rgb == 0 | hueShift + lighten + brighten == 0) return rgb; // black or no change
-    CHSV32 hsv;
-    rgb2hsv(rgb, hsv); //convert to HSV
-    hsv.h += (hueShift << 8); // shift hue (hue is 16 bits)
-    hsv.s =  max((int32_t)0, (int32_t)hsv.s - (int32_t)lighten); // desaturate
-    hsv.v =  min((uint32_t)255, (uint32_t)hsv.v + brighten); // increase brightness
-    uint32_t rgb_adjusted;
-    hsv2rgb(hsv, rgb_adjusted); // convert back to RGB TODO: make this into 16 bit conversion
-    return rgb_adjusted;
+  if (rgb == 0 || hueShift + lighten + brighten == 0) return rgb; // black or no change
+  CHSV32 hsv;
+  rgb2hsv(rgb, hsv); //convert to HSV
+  hsv.h += (hueShift << 8); // shift hue (hue is 16 bits)
+  hsv.s =  max((int32_t)0, (int32_t)hsv.s - (int32_t)lighten); // desaturate
+  hsv.v =  min((uint32_t)255, (uint32_t)hsv.v + brighten); // increase brightness
+  uint32_t rgb_adjusted;
+  hsv2rgb(hsv, rgb_adjusted); // convert back to RGB TODO: make this into 16 bit conversion
+  return rgb_adjusted;
 }
 
 // 1:1 replacement of fastled function optimized for ESP, slightly faster, more accurate and uses less flash (~ -200bytes)
@@ -252,7 +250,7 @@ void loadCustomPalettes() {
   byte tcp[72]; //support gradient palettes with up to 18 entries
   CRGBPalette16 targetPalette;
   customPalettes.clear(); // start fresh
-  for (int index = 0; index<10; index++) {
+  for (int index = 0; index < WLED_MAX_CUSTOM_PALETTES; index++) {
     char fileName[32];
     sprintf_P(fileName, PSTR("/palette%d.json"), index);
 
@@ -597,13 +595,13 @@ void NeoGammaWLEDMethod::calcGammaTable(float gamma)
   gammaT_inv[0] = 0;
 }
 
-uint8_t IRAM_ATTR_YN NeoGammaWLEDMethod::Correct(uint8_t value)
+uint8_t NeoGammaWLEDMethod::Correct(uint8_t value)
 {
   if (!gammaCorrectCol) return value;
   return gammaT[value];
 }
 
-uint32_t IRAM_ATTR_YN NeoGammaWLEDMethod::inverseGamma32(uint32_t color)
+uint32_t NeoGammaWLEDMethod::inverseGamma32(uint32_t color)
 {
   if (!gammaCorrectCol) return color;
   uint8_t w = W(color);
