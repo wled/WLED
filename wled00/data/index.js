@@ -457,14 +457,58 @@ function updateInfoButtonIcon() {
 	}
 }
 
-function clearErrorLog() {
+function handleServerErrorLog(serverErrors, serverTime) {
+	// Clear client-side log and replace with server data
 	errorLog = [];
 	hasUnreadErrors = false;
-	updateInfoButtonIcon();
-	const errorArea = gId('errorLogArea');
-	if (errorArea) {
-		errorArea.style.display = 'none';
+	
+	for (let i = 0; i < serverErrors.length; i++) {
+		const serverEntry = serverErrors[i];
+		// Calculate absolute timestamp using server time and error timestamp
+		const absoluteTime = Date.now() - (serverTime - serverEntry.t);
+		
+		const errorEntry = {
+			code: serverEntry.c,
+			message: getErrorMessage(serverEntry.c),
+			timestamp: absoluteTime,
+			isWarning: serverEntry.c >= 100,
+			tag1: serverEntry.t1 || 0,
+			tag2: serverEntry.t2 || 0,
+			tag3: serverEntry.t3 || 0
+		};
+		
+		errorLog.push(errorEntry);
 	}
+	
+	if (errorLog.length > 0) {
+		hasUnreadErrors = true;
+	}
+	
+	updateInfoButtonIcon();
+}
+
+function clearErrorLog() {
+	// Send clear command to server
+	fetch(getURL('/json/state'), {
+		method: 'post',
+		body: JSON.stringify({clearErrorLog: true}),
+		headers: {
+			'Content-Type': 'application/json'
+		}
+	})
+	.then(res => {
+		// Clear local state
+		errorLog = [];
+		hasUnreadErrors = false;
+		updateInfoButtonIcon();
+		const errorArea = gId('errorLogArea');
+		if (errorArea) {
+			errorArea.style.display = 'none';
+		}
+	})
+	.catch((error) => {
+		console.log('Error clearing log:', error);
+	});
 }
 
 function generateErrorLogHtml() {
@@ -474,16 +518,11 @@ function generateErrorLogHtml() {
 	for (let i = 0; i < errorLog.length; i++) {
 		const entry = errorLog[i];
 		const timeStr = new Date(entry.timestamp).toLocaleTimeString();
-		const icon = entry.isWarning ? '&#x26A0;' : '&#x1F6AB;'; // Warning triangle or error circle
+		const prefix = entry.isWarning ? 'Warning' : 'Error';
 		const color = entry.isWarning ? 'var(--c-y)' : 'var(--c-r)';
 		
-		html += `<div style="margin: 3px 0; padding: 2px; border-left: 2px solid ${color}; padding-left: 5px;">
-			<div style="color: ${color}; font-weight: bold;">
-				${icon} ${entry.isWarning ? 'Warning' : 'Error'} ${entry.code} - ${timeStr}
-			</div>
-			<div style="color: var(--c-f); margin-top: 2px;">
-				${entry.message}
-			</div>
+		html += `<div style="margin: 2px 0; padding: 3px; border-left: 2px solid ${color}; padding-left: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+			<span style="color: ${color}; font-weight: bold;">${prefix} ${entry.code}</span> - ${timeStr}: ${entry.message}
 		</div>`;
 	}
 	
@@ -1636,91 +1675,11 @@ function readState(s,command=false)
 	if (s.error && s.error != 0) {
 		// Add to error log for detailed tracking
 		addToErrorLog(s.error);
-		
-		// Show detailed toast message as before
-		var errstr = "";
-		switch (s.error) {
-			case  1:
-				errstr = "Denied!";
-				break;
-			case  3:
-				errstr = "Buffer locked!";
-				break;
-			case  7:
-				errstr = "No RAM for buffer!";
-				break;
-			case  8:
-				errstr = "Effect RAM depleted!";
-				break;
-			case  9:
-				errstr = "JSON parsing error!";
-				break;
-			case 10:
-				errstr = "Could not mount filesystem!";
-				break;
-			case 11:
-				errstr = "Not enough space to save preset!";
-				break;
-			case 12:
-				errstr = "Preset not found.";
-				break;
-			case 13:
-				errstr = "Missing ir.json.";
-				break;
-			case 19:
-				errstr = "A filesystem error has occured.";
-				break;
-			case 30:
-				errstr = "Overtemperature!";
-				break;
-			case 31:
-				errstr = "Overcurrent!";
-				break;
-			case 32:
-				errstr = "Undervoltage!";
-				break;
-			case 33:
-				errstr = "No RAM for bus!";
-				break;
-			case 34:
-				errstr = "No RAM for segment!";
-				break;
-			case 35:
-				errstr = "No RAM for transitions!";
-				break;
-			case 36:
-				errstr = "Pin conflict!";
-				break;
-			case 37:
-				errstr = "Invalid pin!";
-				break;
-			case 38:
-				errstr = "Config load failed!";
-				break;
-			case 39:
-				errstr = "Config save failed!";
-				break;
-			case 100:
-				errstr = "Low memory!";
-				break;
-			case 101:
-				errstr = "High temperature!";
-				break;
-			case 102:
-				errstr = "Low voltage!";
-				break;
-			case 103:
-				errstr = "High current!";
-				break;
-			case 104:
-				errstr = "Weak WiFi!";
-				break;
-			case 105:
-				errstr = "Low disk space!";
-				break;
-		}
-		const prefix = s.error >= 100 ? 'Warning' : 'Error';
-		showToast(`${prefix} ${s.error}: ${errstr}`, true);
+	}
+	
+	// Handle server-side error log
+	if (s.errorLog && s.errorLogTime) {
+		handleServerErrorLog(s.errorLog, s.errorLogTime);
 	}
 
 	selectedPal = i.pal;

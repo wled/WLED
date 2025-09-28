@@ -325,18 +325,18 @@
 	<div id="imgw">
 		<img class="wi" alt="" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAB0AAAAFCAYAAAC5Fuf5AAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAABbSURBVChTlY9bDoAwDMNW7n9nwCipytQN4Z8tbrTHmDmF4oPzyldwRqp1SSdnV/NuZuzqerAByxXznBw3igkeFEfXyUuhK/yFM0CxJfyqXZEOc6/Sr9/bf7uIC5Nwd7orMvAPAAAAAElFTkSuQmCC" />
 	</div>
+	<div id="errorLogArea" style="margin: 10px 0; display: none;">
+		<div id="errorLogContent" style="padding: 8px; background: var(--c-3); border-radius: 20px; font-size: 11px; max-height: 120px; overflow-y: auto;"></div>
+		<div style="margin-top: 8px; text-align: center;">
+			<button class="btn ibtn" onclick="clearErrorLog()">Clear Log</button>
+		</div>
+	</div>
 	<div id="kv">Loading...</div><br>
 	<div>
 		<button class="btn ibtn" onclick="requestJson()">Refresh</button>
 		<button class="btn ibtn" onclick="toggleNodes()">Instance List</button>
 		<button class="btn ibtn" onclick="window.open(getURL('/update'),'_self');" id="updBt">Update WLED</button>
 		<button class="btn ibtn" id="resetbtn" onclick="cnfReset()">Reboot WLED</button>
-	</div>
-	<div id="errorLogArea" style="margin-top: 10px; display: none;">
-		<div id="errorLogContent" style="padding: 5px; background: var(--c-3); border-radius: 5px; font-size: 11px; max-height: 120px; overflow-y: auto;"></div>
-		<div style="margin-top: 5px; text-align: center;">
-			<button class="btn btn-xs" onclick="clearErrorLog()" style="min-width: 80px;">Clear Log</button>
-		</div>
 	</div>
 	<br>
 	<span class="h">Made with&#32;<span id="heart">&#10084;&#xFE0E;</span>&#32;by&#32;<a href="https://github.com/Aircoookie/" target="_blank">Aircoookie</a>&#32;and the&#32;<a href="https://wled.discourse.group/" target="_blank">WLED community</a></span>

@@ -367,6 +367,11 @@ bool deserializeState(JsonObject root, byte callMode, byte presetId)
   #if defined(WLED_DEBUG) && defined(WLED_DEBUG_HOST)
   netDebugEnabled = root[F("debug")] | netDebugEnabled;
   #endif
+  
+  // Handle clear error log command
+  if (root[F("clearErrorLog")]) {
+    clearErrorLog();
+  }
 
   bool onBefore = bri;
   getVal(root["bri"], bri);
@@ -639,7 +644,28 @@ void serializeState(JsonObject root, bool forPreset, bool includeBri, bool segme
   }
 
   if (!forPreset) {
-    if (errorFlag) {root[F("error")] = errorFlag; errorFlag = ERR_NONE;} //prevent error message to persist on screen
+    if (errorFlag) {
+      root[F("error")] = errorFlag; 
+      addToErrorLog(errorFlag); // Add to error log
+      errorFlag = ERR_NONE; // Reset error flag
+    } 
+    
+    // Add error log to JSON response
+    if (errorLogCount > 0) {
+      JsonArray errors = root.createNestedArray(F("errorLog"));
+      byte startIdx = (errorLogIndex + ERROR_LOG_SIZE - errorLogCount) % ERROR_LOG_SIZE;
+      
+      for (byte i = 0; i < errorLogCount; i++) {
+        byte idx = (startIdx + i) % ERROR_LOG_SIZE;
+        JsonObject err = errors.createNestedObject();
+        err[F("t")] = errorLog[idx].timestamp;
+        err[F("c")] = errorLog[idx].errorCode;
+        err[F("t1")] = errorLog[idx].tag1;
+        err[F("t2")] = errorLog[idx].tag2;  
+        err[F("t3")] = errorLog[idx].tag3;
+      }
+      root[F("errorLogTime")] = millis(); // Current time for client calculations
+    }
 
     root["ps"] = (currentPreset > 0) ? currentPreset : -1;
     root[F("pl")] = currentPlaylist;

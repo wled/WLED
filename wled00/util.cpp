@@ -1125,3 +1125,22 @@ uint8_t perlin8(uint16_t x, uint16_t y) {
 uint8_t perlin8(uint16_t x, uint16_t y, uint16_t z) {
   return (((perlin3D_raw((uint32_t)x << 8, (uint32_t)y << 8, (uint32_t)z << 8, true) * 2015) >> 10) + 33168) >> 8; //scale to 16 bit, offset, then scale to 8bit
 }
+
+// Error logging functions
+void addToErrorLog(byte errorCode, byte tag1 = 0, byte tag2 = 0, byte tag3 = 0) {
+  errorLog[errorLogIndex].timestamp = millis();
+  errorLog[errorLogIndex].errorCode = errorCode;
+  errorLog[errorLogIndex].tag1 = tag1;
+  errorLog[errorLogIndex].tag2 = tag2;
+  errorLog[errorLogIndex].tag3 = tag3;
+  
+  errorLogIndex = (errorLogIndex + 1) % ERROR_LOG_SIZE;
+  if (errorLogCount < ERROR_LOG_SIZE) {
+    errorLogCount++;
+  }
+}
+
+void clearErrorLog() {
+  errorLogIndex = 0;
+  errorLogCount = 0;
+}

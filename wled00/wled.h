@@ -889,6 +889,20 @@ WLED_GLOBAL byte currentPreset _INIT(0);
 
 WLED_GLOBAL byte errorFlag _INIT(0);
 
+// Error logging system
+struct ErrorLogEntry {
+  unsigned long timestamp;  // millis() when error occurred
+  byte errorCode;          // error number (8bit)
+  byte tag1;               // future use tag 1
+  byte tag2;               // future use tag 2  
+  byte tag3;               // future use tag 3
+};
+
+#define ERROR_LOG_SIZE 5
+WLED_GLOBAL ErrorLogEntry errorLog[ERROR_LOG_SIZE];
+WLED_GLOBAL byte errorLogIndex _INIT(0);
+WLED_GLOBAL byte errorLogCount _INIT(0);
+
 WLED_GLOBAL String messageHead, messageSub;
 WLED_GLOBAL byte optionType;
 
