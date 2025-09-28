@@ -486,8 +486,8 @@ void Segment::setGeometry(uint16_t i1, uint16_t i2, uint8_t grp, uint8_t spc, ui
   if (ofs < UINT16_MAX) offset = ofs;
 
   DEBUG_PRINTF_P(PSTR("Segment geometry: %d,%d -> %d,%d\n"), (int)i1, (int)i2, (int)i1Y, (int)i2Y);
-  markForReset();
   if (boundsUnchanged) return;
+  markForReset();
 
   // apply change immediately
   if (i2 <= i1) { //disable segment
