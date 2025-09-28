@@ -812,7 +812,7 @@ void WLED::handleConnection()
   if ((wifiConfigured && multiWiFi.size() > 1 && WiFi.scanComplete() < 0) || (now < 2000 && (!wifiConfigured || apBehavior == AP_BEHAVIOR_ALWAYS)))
     return;
 
-  if (lastReconnectAttempt == 0 || (forceReconnect && !disableForceReconnect)) {
+  if (lastReconnectAttempt == 0 || forceReconnect) {
     DEBUG_PRINTF_P(PSTR("Initial connect or forced reconnect (@ %lus).\n"), nowS);
     selectedWiFi = findWiFi(); // find strongest WiFi
     initConnection();
