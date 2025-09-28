@@ -17,6 +17,73 @@
 		function setBckFilename(x) {
 			x.setAttribute("download","wled_" + x.getAttribute("download") + (sd=="WLED"?"":("_" +sd)));
 		}
+		function userBackup(type) {
+			if (!confirm("Create internal backup for " + type + "? This will overwrite any existing backup.")) return;
+			var btn = gId("ubk" + type.charAt(0).toUpperCase() + type.slice(1));
+			btn.disabled = true;
+			btn.innerHTML = "Creating...";
+			var xhr = new XMLHttpRequest();
+			xhr.open('POST', getURL('/backup/' + type), true);
+			xhr.onreadystatechange = function() {
+				if (xhr.readyState === 4) {
+					btn.disabled = false;
+					btn.innerHTML = "Create " + type.charAt(0).toUpperCase() + type.slice(1) + " Backup";
+					if (xhr.status === 200) {
+						showToast(xhr.responseText, false);
+						updateBackupButtons();
+					} else {
+						showToast("Backup failed: " + xhr.responseText, true);
+					}
+				}
+			};
+			xhr.send();
+		}
+		function userRestore(type) {
+			var message = "Restore " + type + " from internal backup? This will overwrite current " + type + ".";
+			if (type === 'config') message += " Device will reboot after restore.";
+			if (!confirm(message)) return;
+			var btn = gId("ures" + type.charAt(0).toUpperCase() + type.slice(1));
+			btn.disabled = true;
+			btn.innerHTML = "Restoring...";
+			var xhr = new XMLHttpRequest();
+			xhr.open('POST', getURL('/restore/' + type), true);
+			xhr.onreadystatechange = function() {
+				if (xhr.readyState === 4) {
+					if (xhr.status === 200) {
+						showToast(xhr.responseText, false);
+						if (type === 'config') {
+							setTimeout(function() { window.location.href = "/"; }, 3000);
+						} else {
+							btn.disabled = false;
+							btn.innerHTML = "Restore " + type.charAt(0).toUpperCase() + type.slice(1);
+						}
+					} else {
+						btn.disabled = false;
+						btn.innerHTML = "Restore " + type.charAt(0).toUpperCase() + type.slice(1);
+						showToast("Restore failed: " + xhr.responseText, true);
+					}
+				}
+			};
+			xhr.send();
+		}
+		function updateBackupButtons() {
+			var xhr = new XMLHttpRequest();
+			xhr.open('GET', getURL('/backup/status'), true);
+			xhr.onreadystatechange = function() {
+				if (xhr.readyState === 4 && xhr.status === 200) {
+					try {
+						var status = JSON.parse(xhr.responseText);
+						gId("uresCfg").style.display = status.config ? "inline-block" : "none";
+						gId("uresPresets").style.display = status.presets ? "inline-block" : "none";
+						gId("uresPalettes").style.display = status.palettes ? "inline-block" : "none";
+						gId("uresMappings").style.display = status.mappings ? "inline-block" : "none";
+					} catch(e) {
+						console.error("Failed to parse backup status:", e);
+					}
+				}
+			};
+			xhr.send();
+		}
 		function S() {
 			getLoc();
 			if (loc) {
@@ -26,6 +93,7 @@
 			loadJS(getURL('/settings/s.js?p=6'), false, undefined, ()=>{
 				setBckFilename(gId("bckcfg"));
 				setBckFilename(gId("bckpresets"));
+				updateBackupButtons();
 			});	// If we set async false, file is loaded and executed, then next statement is processed
 			if (loc) d.Sf.action = getURL('/settings/sec');
 		}
@@ -69,6 +137,22 @@
 		<div>Restore presets<br><input type="file" name="data" accept=".json"> <button type="button" onclick="uploadFile(d.Sf.data,'/presets.json');">Upload</button><br></div><br>
 		<a class="btn lnk" id="bckpresets" href="/cfg.json" download="cfg">Backup configuration</a><br>
 		<div>Restore configuration<br><input type="file" name="data2" accept=".json"> <button type="button" onclick="uploadFile(d.Sf.data2,'/cfg.json');">Upload</button><br></div>
+		<hr>
+		<h3>Internal User Backup</h3>
+		<div class="warn">&#9888; Internal backups are stored on the device filesystem and will be lost if the device is reset or reflashed.<br>
+		User backups will OVERWRITE existing backups of the same type.</div>
+		<h4>Configuration</h4>
+		<button type="button" id="ubkCfg" onclick="userBackup('config')">Create Config Backup</button>
+		<button type="button" id="uresCfg" onclick="userRestore('config')" style="display:none;">Restore Config</button><br><br>
+		<h4>Presets</h4>
+		<button type="button" id="ubkPresets" onclick="userBackup('presets')">Create Presets Backup</button>
+		<button type="button" id="uresPresets" onclick="userRestore('presets')" style="display:none;">Restore Presets</button><br><br>
+		<h4>Custom Palettes</h4>
+		<button type="button" id="ubkPalettes" onclick="userBackup('palettes')">Create Palettes Backup</button>
+		<button type="button" id="uresPalettes" onclick="userRestore('palettes')" style="display:none;">Restore Palettes</button><br><br>
+		<h4>Custom Mappings</h4>
+		<button type="button" id="ubkMappings" onclick="userBackup('mappings')">Create Mappings Backup</button>
+		<button type="button" id="uresMappings" onclick="userRestore('mappings')" style="display:none;">Restore Mappings</button><br><br>
 		<hr>
 		<h3>About</h3>
 		<a href="https://github.com/wled-dev/WLED/" target="_blank">WLED</a>&#32;version ##VERSION##<!-- Autoreplaced from package.json --><br><br>
