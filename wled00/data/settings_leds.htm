@@ -8,7 +8,7 @@
 	<script>
 		var maxB=1,maxD=1,maxA=1,maxV=0,maxM=4000,maxPB=2048,maxL=1664,maxCO=5; //maximum bytes for LED allocation: 4kB for 8266, 32kB for 32
 		var customStarts=false,startsDirty=[];
-		var busChanged=false,originalBusCount=0,originalBusTypes=[];
+		var busChanged=false,originalBusTypes=[];
 		function off(n)    { gN(n).value = -1;}
 		// these functions correspond to C macros found in const.h
 		function gT(t)     { for (let type of d.ledTypes) if (t == type.i) return type; } // getType from available ledTypes
@@ -655,9 +655,8 @@ Swap: <select id="xw${s}" name="XW${s}">
 			tglSi(cs);
 		}
 		function captureInitialBusState() {
-			// capture initial number of buses and their types
+			// capture initial bus types
 			let buses = d.Sf.querySelectorAll("#mLC select[name^=LT]");
-			originalBusCount = buses.length;
 			originalBusTypes = [];
 			buses.forEach((s) => {
 				originalBusTypes.push(parseInt(s.value));
