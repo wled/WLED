@@ -1126,8 +1126,22 @@ uint8_t perlin8(uint16_t x, uint16_t y, uint16_t z) {
   return (((perlin3D_raw((uint32_t)x << 8, (uint32_t)y << 8, (uint32_t)z << 8, true) * 2015) >> 10) + 33168) >> 8; //scale to 16 bit, offset, then scale to 8bit
 }
 
+// Error logging system
+struct ErrorLogEntry {
+  unsigned long timestamp;  // millis() when error occurred
+  byte errorCode;          // error number (8bit)
+  byte tag1;               // future use tag 1
+  byte tag2;               // future use tag 2  
+  byte tag3;               // future use tag 3
+};
+
+#define ERROR_LOG_SIZE 5
+static ErrorLogEntry errorLog[ERROR_LOG_SIZE];
+static byte errorLogIndex = 0;
+static byte errorLogCount = 0;
+
 // Error logging functions
-void addToErrorLog(byte errorCode, byte tag1 = 0, byte tag2 = 0, byte tag3 = 0) {
+void addToErrorLog(byte errorCode, byte tag1, byte tag2, byte tag3) {
   errorLog[errorLogIndex].timestamp = millis();
   errorLog[errorLogIndex].errorCode = errorCode;
   errorLog[errorLogIndex].tag1 = tag1;
@@ -1143,4 +1157,14 @@ void addToErrorLog(byte errorCode, byte tag1 = 0, byte tag2 = 0, byte tag3 = 0) 
 void clearErrorLog() {
   errorLogIndex = 0;
   errorLogCount = 0;
+}
+
+// Helper functions to read error log
+byte getErrorLogCount() {
+  return errorLogCount;
+}
+
+const ErrorLogEntry& getErrorLogEntry(byte index) {
+  byte actualIndex = (errorLogIndex + ERROR_LOG_SIZE - errorLogCount + index) % ERROR_LOG_SIZE;
+  return errorLog[actualIndex];
 }

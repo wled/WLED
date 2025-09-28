@@ -491,7 +491,7 @@ function clearErrorLog() {
 	// Send clear command to server
 	fetch(getURL('/json/state'), {
 		method: 'post',
-		body: JSON.stringify({clearErrorLog: true}),
+		body: JSON.stringify({clrErrLog: true}),
 		headers: {
 			'Content-Type': 'application/json'
 		}

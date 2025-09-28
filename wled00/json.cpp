@@ -369,7 +369,7 @@ bool deserializeState(JsonObject root, byte callMode, byte presetId)
   #endif
   
   // Handle clear error log command
-  if (root[F("clearErrorLog")]) {
+  if (root[F("clrErrLog")]) {
     clearErrorLog();
   }
 
@@ -651,18 +651,17 @@ void serializeState(JsonObject root, bool forPreset, bool includeBri, bool segme
     } 
     
     // Add error log to JSON response
-    if (errorLogCount > 0) {
+    if (getErrorLogCount() > 0) {
       JsonArray errors = root.createNestedArray(F("errorLog"));
-      byte startIdx = (errorLogIndex + ERROR_LOG_SIZE - errorLogCount) % ERROR_LOG_SIZE;
       
-      for (byte i = 0; i < errorLogCount; i++) {
-        byte idx = (startIdx + i) % ERROR_LOG_SIZE;
+      for (byte i = 0; i < getErrorLogCount(); i++) {
+        const ErrorLogEntry& entry = getErrorLogEntry(i);
         JsonObject err = errors.createNestedObject();
-        err[F("t")] = errorLog[idx].timestamp;
-        err[F("c")] = errorLog[idx].errorCode;
-        err[F("t1")] = errorLog[idx].tag1;
-        err[F("t2")] = errorLog[idx].tag2;  
-        err[F("t3")] = errorLog[idx].tag3;
+        err[F("t")] = entry.timestamp;
+        err[F("c")] = entry.errorCode;
+        err[F("t1")] = entry.tag1;
+        err[F("t2")] = entry.tag2;  
+        err[F("t3")] = entry.tag3;
       }
       root[F("errorLogTime")] = millis(); // Current time for client calculations
     }

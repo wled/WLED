@@ -558,5 +558,7 @@ void getSettingsJS(byte subPage, Print& dest);
 //util.cpp - error logging
 void addToErrorLog(byte errorCode, byte tag1 = 0, byte tag2 = 0, byte tag3 = 0);
 void clearErrorLog();
+byte getErrorLogCount();
+const struct ErrorLogEntry& getErrorLogEntry(byte index);
 
 #endif
