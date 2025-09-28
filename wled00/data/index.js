@@ -521,7 +521,7 @@ function generateErrorLogHtml() {
 		const timeStr = new Date(entry.timestamp).toLocaleTimeString([], {hour12: false, hour: '2-digit', minute: '2-digit'});
 		const prefix = entry.isWarning ? 'Warning' : 'Error';
 		
-		html += `<div style="margin: 2px 0; padding: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+		html += `<div style="margin: 2px 0; padding: 3px; word-wrap: break-word;">
 			${timeStr} ${prefix} ${entry.code}: ${entry.message}
 		</div>`;
 	}
