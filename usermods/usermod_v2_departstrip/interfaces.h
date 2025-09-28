@@ -24,6 +24,8 @@ public:
   virtual std::unique_ptr<ModelType> fetch(std::time_t now) = 0;
   virtual void reload(std::time_t now) = 0;
   virtual std::string name() const = 0;
+  virtual String sourceKey() const = 0;
+  virtual const char* sourceType() const = 0;
 };
 
 template<typename ModelType>

@@ -53,6 +53,28 @@ struct SkipBOMStream : public Stream {
   size_t readBytes(uint8_t* buffer, size_t length) { return readBytes((char*)buffer, length); }
   using Stream::readBytes;
 };
+
+// Extract the first meaningful string from an ArduinoJson variant that might be
+// a string, object with a "value" member, or an array of those.
+static String jsonFirstString(JsonVariantConst v) {
+  if (v.is<const char*>()) {
+    const char* s = v.as<const char*>();
+    return (s && *s) ? String(s) : String();
+  }
+  if (v.is<JsonObjectConst>()) {
+    JsonObjectConst obj = v.as<JsonObjectConst>();
+    const char* s = obj["value"] | obj["Value"] | (const char*)nullptr;
+    return (s && *s) ? String(s) : String();
+  }
+  if (v.is<JsonArrayConst>()) {
+    JsonArrayConst arr = v.as<JsonArrayConst>();
+    for (JsonVariantConst child : arr) {
+      String s = jsonFirstString(child);
+      if (s.length()) return s;
+    }
+  }
+  return String();
+}
 } // namespace
 
 SiriSource::SiriSource(const char* key, const char* defAgency, const char* defStopCode, const char* defBaseUrl) {
@@ -181,6 +203,7 @@ bool SiriSource::parseJsonFromHttp(DynamicJsonDocument& doc) {
 
   auto addMVJMask = [&](JsonObject mvj) {
     mvj["LineRef"] = true; // allow string or object
+    mvj["PublishedLineName"] = true;
     JsonObject call = mvj["MonitoredCall"].to<JsonObject>();
     call["StopPointName"] = true;
     call["ExpectedDepartureTime"] = true;
@@ -293,20 +316,41 @@ bool SiriSource::buildModelFromSiri(JsonObject siri, std::time_t now, std::uniqu
       if (nm && *nm) firstStopName = nm;
     }
 
-    const char* tstr = call["ExpectedDepartureTime"] | call["ExpectedArrivalTime"] |
-                       call["AimedDepartureTime"] | call["AimedArrivalTime"] | (const char*)nullptr;
-    time_t depUtc = 0;
-    if (tstr) ++hadTime;
-    if (tstr && parseRFC3339ToUTC(tstr, depUtc)) {
+    const char* expectedStr = call["ExpectedDepartureTime"] | call["ExpectedArrivalTime"] | (const char*)nullptr;
+    const char* aimedStr = call["AimedDepartureTime"] | call["AimedArrivalTime"] | (const char*)nullptr;
+    bool hasTime = false;
+    time_t expectedUtc = 0;
+    time_t aimedUtc = 0;
+    if (expectedStr && *expectedStr) {
+      hasTime = true;
+      if (!parseRFC3339ToUTC(expectedStr, expectedUtc) && parsedTime < 3) {
+        DEBUG_PRINTF("DepartStrip: SiriSource::fetch: failed to parse expected time '%s'\n", expectedStr);
+      }
+    }
+    if (aimedStr && *aimedStr) {
+      hasTime = true;
+      if (!parseRFC3339ToUTC(aimedStr, aimedUtc) && parsedTime < 3) {
+        DEBUG_PRINTF("DepartStrip: SiriSource::fetch: failed to parse aimed time '%s'\n", aimedStr);
+      }
+    }
+    if (hasTime) ++hadTime;
+    time_t depUtc = expectedUtc ? expectedUtc : aimedUtc;
+    if (depUtc) {
       ++parsedTime;
-      DepartModel::Entry::Item item; item.estDep = depUtc;
+      DepartModel::Entry::Item item;
+      item.estDep = depUtc;
       // LineRef may be nested or plain; handle both
       if (mvj["LineRef"].is<JsonObject>()) item.lineRef = (const char*)(mvj["LineRef"]["value"] | "");
       else item.lineRef = (const char*)(mvj["LineRef"] | "");
-      batch.items.push_back(item);
-    } else if (tstr && parsedTime < 3) {
-      // Log a few samples of bad timestamps
-      DEBUG_PRINTF("DepartStrip: SiriSource::fetch: failed to parse time '%s'\n", tstr);
+      if (item.lineRef.length() == 0) {
+        String fallback = jsonFirstString(mvj["PublishedLineName"]);
+        if (fallback.length()) item.lineRef = fallback;
+      }
+      item.lineRef = departstrip::util::formatLineLabel(agency_, item.lineRef);
+      batch.items.push_back(std::move(item));
+    } else if (hasTime && parsedTime < 3) {
+      const char* dbg = expectedStr ? expectedStr : aimedStr;
+      DEBUG_PRINTF("DepartStrip: SiriSource::fetch: failed to derive departure time from '%s'\n", dbg ? dbg : "<null>");
     }
   }
   DEBUG_PRINTF("DepartStrip: SiriSource::fetch: visits=%d hadTime=%d parsed=%d items=%u\n", totalVisits, hadTime, parsedTime, (unsigned)batch.items.size());
@@ -420,6 +464,7 @@ std::unique_ptr<DepartModel> SiriSource::fetch(std::time_t now) {
 
 void SiriSource::addToConfig(JsonObject& root) {
   root["Enabled"] = enabled_;
+  root["Type"] = F("siri");
   root["UpdateSecs"] = updateSecs_;
   root["TemplateUrl"] = baseUrl_;
   root["ApiKey"] = apiKey_;

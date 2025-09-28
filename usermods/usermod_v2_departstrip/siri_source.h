@@ -40,7 +40,8 @@ public:
   std::string name() const override { return configKey_; }
   void appendConfigData(Print& s) override {}
   const String& stopName() const { return lastStopName_; }
-  String sourceKey() const { String k(agency_); k += ':'; k += stopCode_; return k; }
+  String sourceKey() const override { String k(agency_); k += ':'; k += stopCode_; return k; }
+  const char* sourceType() const override { return "siri"; }
 
   const String& agency() const { return agency_; }
 

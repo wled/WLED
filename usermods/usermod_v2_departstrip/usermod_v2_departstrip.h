@@ -10,6 +10,7 @@
 
 class DepartModel;
 class SiriSource;
+class GtfsRtSource;
 class DepartureView;
 
 class DepartStrip : public Usermod {

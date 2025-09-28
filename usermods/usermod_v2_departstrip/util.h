@@ -86,5 +86,9 @@ int cmpLineRefNatural(const String& a, const String& b);
 uint16_t getDisplayMinutes();
 void setDisplayMinutes(uint16_t minutes);
 
+// Combine agency and lineRef into a user-facing label while avoiding
+// duplicating the agency prefix if it is already present in the lineRef.
+String formatLineLabel(const String& agency, const String& rawLine);
+
 } // namespace util
 } // namespace departstrip

@@ -53,6 +53,48 @@ int cmpLineRefNatural(const String& a, const String& b) {
 
 // Usermod-wide view window in minutes
 static uint16_t g_display_minutes = 60;
+String formatLineLabel(const String& agency, const String& rawLine) {
+  String ag = agency;
+  ag.trim();
+  String line = rawLine;
+  line.trim();
+  if (ag.length() == 0) {
+    return line;
+  }
+  String agLower = ag;
+  agLower.toLowerCase();
+  String lineLower = line;
+  lineLower.toLowerCase();
+  bool hasPrefix = false;
+  if (lineLower.length() >= agLower.length()) {
+    hasPrefix = lineLower.startsWith(agLower);
+  }
+  if (hasPrefix) {
+    unsigned int pos = ag.length();
+    while (pos < line.length()) {
+      char c = line.charAt(pos);
+      if (c == ' ' || c == '\t' || c == '-' || c == '_' || c == ':' ) {
+        ++pos;
+        continue;
+      }
+      break;
+    }
+    String suffix = line.substring(pos);
+    suffix.trim();
+    if (suffix.length() == 0) return ag;
+    String out = ag;
+    out += ' ';
+    out += suffix;
+    return out;
+  }
+  if (line.length() == 0) return ag;
+  String out = ag;
+  out += ' ';
+  out += line;
+  return out;
+}
+
+
 uint16_t getDisplayMinutes() { return g_display_minutes; }
 void setDisplayMinutes(uint16_t minutes) {
   // Clamp to a sane range to avoid degenerate behavior

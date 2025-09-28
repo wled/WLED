@@ -6,7 +6,7 @@ void DepartModel::update(std::time_t now, DepartModel&& delta) {
   for (auto &e : delta.boards) {
     auto it = std::find_if(boards.begin(), boards.end(), [&](const Entry& x){ return x.key == e.key; });
     if (it != boards.end()) {
-      it->batch = e.batch;
+      it->batch = std::move(e.batch);
       DEBUG_PRINTF("DepartStrip: DepartModel::update: key %s: items=%u\n",
                    it->key.c_str(), (unsigned)it->batch.items.size());
       String dbg = describeBatch(it->batch);

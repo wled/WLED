@@ -2,6 +2,7 @@
 #include <ctime>
 #include <memory>
 #include <algorithm>
+#include <cstring>
 
 #include "usermod_v2_departstrip.h"
 #include "interfaces.h"
@@ -9,6 +10,7 @@
 
 #include "depart_model.h"
 #include "siri_source.h"
+#include "gtfsrt_source.h"
 #include "departure_view.h"
 
 const char CFG_NAME[] PROGMEM = "DepartStrip";
@@ -19,6 +21,25 @@ REGISTER_USERMOD(departstrip_usermod);
 
 // Delay after boot (milliseconds) to allow disabling before heavy work
 static const uint32_t SAFETY_DELAY_MS = 10u * 1000u;
+
+namespace {
+String normalizeSourceType(const String& raw) {
+  String t = raw;
+  t.trim();
+  t.toLowerCase();
+  if (t.length() == 0) t = F("siri");
+  if (t == F("gtfs-rt")) t = F("gtfsrt");
+  return t;
+}
+
+std::unique_ptr<IDataSourceT<DepartModel>> makeSourceForType(const String& type, const char* key) {
+  String norm = normalizeSourceType(type);
+  if (norm == F("gtfsrt")) {
+    return ::make_unique<GtfsRtSource>(key);
+  }
+  return ::make_unique<SiriSource>(key, nullptr, nullptr, nullptr);
+}
+} // namespace
 
 DepartStrip::DepartStrip() {
   sources_.reserve(4);
@@ -95,8 +116,7 @@ void DepartStrip::addToConfig(JsonObject& root) {
   struct SrcRef { String key; IDataSourceT<DepartModel>* ptr; };
   std::vector<SrcRef> sorder; sorder.reserve(sources_.size());
   for (auto& up : sources_) {
-    SiriSource* ss = static_cast<SiriSource*>(up.get());
-    String k = ss ? ss->sourceKey() : String();
+    String k = up->sourceKey();
     sorder.push_back(SrcRef{k, up.get()});
   }
   std::sort(sorder.begin(), sorder.end(), [](const SrcRef& a, const SrcRef& b){ return a.key.compareTo(b.key) < 0; });
@@ -110,6 +130,7 @@ void DepartStrip::addToConfig(JsonObject& root) {
   {
     JsonObject ns = top.createNestedObject("NewSource");
     ns["Enabled"] = false;
+    ns["Type"] = F("siri");
     ns["UpdateSecs"] = 60;
     ns["TemplateUrl"] = "";
     ns["ApiKey"] = "";
@@ -166,27 +187,104 @@ void DepartStrip::appendConfigData(Print& s) {
   for (auto& src : sources_) src->appendConfigData(s);
   for (auto& vw : views_) vw->appendConfigData(s, model_.get());
 
+  struct RenameTarget { String key; String label; };
+  std::vector<RenameTarget> renameTargets; renameTargets.reserve(sources_.size());
+  std::vector<RenameTarget> cmapLabels; cmapLabels.reserve(DepartModel::colorMap().size());
+  {
+    const auto& cmapEntries = DepartModel::colorMap();
+    for (const auto& ce : cmapEntries) {
+      String agency; String line;
+      int colon = ce.key.indexOf(':');
+      if (colon > 0) {
+        agency = ce.key.substring(0, colon);
+        line = ce.key.substring(colon+1);
+      } else {
+        agency = ce.key;
+        line = String();
+      }
+      String friendly = departstrip::util::formatLineLabel(agency, line);
+      friendly.trim();
+      if (friendly.length() == 0) friendly = line.length() ? line : agency;
+      cmapLabels.push_back(RenameTarget{ce.key, friendly});
+    }
+  }
+
   // Per-source Stop name and current-route swatches (anchor below Delete)
   for (auto& src : sources_) {
-    SiriSource* ss = static_cast<SiriSource*>(src.get());
-    if (!ss) continue;
-    // Collect current lines seen for this stop from the model
-    const String& agency = ss->agency();
-    std::vector<String> lines;
-    if (model_) model_->currentLinesForBoard(ss->sourceKey(), lines);
+    const char* type = src->sourceType();
+    bool isSiri = (strcmp(type, "siri") == 0);
+    bool isGtfs = (strcmp(type, "gtfsrt") == 0);
+    if (isSiri) {
+      String friendly = F("SIRI Source ");
+      String key = src->sourceKey();
+      if (key.length() == 0) {
+        SiriSource* ss = static_cast<SiriSource*>(src.get());
+        if (ss) key = ss->agency();
+      }
+      friendly += key;
+      friendly.trim();
+      if (friendly.length() > 0) renameTargets.push_back(RenameTarget{String(src->configKey()), friendly});
+    } else if (isGtfs) {
+      auto* gs = static_cast<GtfsRtSource*>(src.get());
+      String friendly = F("GTFS-RT Source ");
+      if (gs) friendly += gs->agency();
+      friendly.trim();
+      if (friendly.length() > 0) renameTargets.push_back(RenameTarget{String(src->configKey()), friendly});
+    }
+    if (!isSiri && !isGtfs) continue;
 
-    // Build HTML suffix placed AFTER the field (3rd arg)
+    std::vector<String> lines;
+    String agency;
+    if (model_) {
+      auto appendLines = [&](const String& key) {
+        std::vector<String> tmp;
+        model_->currentLinesForBoard(key, tmp);
+        for (const auto& ln : tmp) {
+          bool exists = false;
+          for (const auto& existing : lines) {
+            if (existing == ln) { exists = true; break; }
+          }
+          if (!exists) lines.push_back(ln);
+        }
+      };
+
+      if (isSiri) {
+        SiriSource* ss = static_cast<SiriSource*>(src.get());
+        agency = ss->agency();
+        appendLines(ss->sourceKey());
+      } else if (isGtfs) {
+        auto* gs = static_cast<GtfsRtSource*>(src.get());
+        agency = gs->agency();
+        const auto& stops = gs->stopCodes();
+        if (stops.empty()) {
+          appendLines(gs->sourceKey());
+        } else {
+          for (const auto& stop : stops) {
+            String key = gs->agency();
+            key += ':';
+            key += stop;
+            appendLines(key);
+          }
+        }
+      }
+    }
+
+    if (!isSiri && lines.empty()) continue;
+
     s.print(F("addInfo('DepartStrip:")); s.print(src->configKey()); s.print(F(":Delete',1,'"));
     s.print(F("<div style=\\'margin-top:8px;text-align:center;\\'>"));
-    // Stop label (optional)
-    if (ss->stopName().length()) {
-      String nm = ss->stopName();
-      // Escape for HTML and JS single-quoted string context
-      nm.replace("&","&amp;");
-      nm.replace("<","&lt;"); nm.replace(">","&gt;");
-      nm.replace("\\","\\\\"); nm.replace("'","\\'");
-      s.print(F("<div style=\\'margin-bottom:4px;\\'><b>Stop:</b> ")); s.print(nm); s.print(F("</div>"));
+
+    if (isSiri) {
+      SiriSource* ss = static_cast<SiriSource*>(src.get());
+      if (ss->stopName().length()) {
+        String nm = ss->stopName();
+        nm.replace("&","&amp;");
+        nm.replace("<","&lt;"); nm.replace(">","&gt;");
+        nm.replace("\\","\\\\"); nm.replace("'","\\'");
+        s.print(F("<div style=\\'margin-bottom:4px;\\'><b>Stop:</b> ")); s.print(nm); s.print(F("</div>"));
+      }
     }
+
     if (!lines.empty()) {
       s.print(F("<div style=\\'font-weight:600;margin-bottom:4px;\\'>Routes</div>"));
       s.print(F("<div style=\\'display:flex;flex-wrap:wrap;gap:8px;justify-content:center;\\'>"));
@@ -205,6 +303,63 @@ void DepartStrip::appendConfigData(Print& s) {
     }
     s.print(F("</div>"));
     s.println(F("','');"));
+
+  }
+  s.print(F("setTimeout(function(){var inputs=document.querySelectorAll('input[name^=\"DepartStrip:\"][name$=\":Type\"]');"));
+  s.print(F("for(var i=0;i<inputs.length;i++){var fld=inputs[i]; if(!fld||fld.dataset.typeSel==='1') continue; var ft=(fld.type||'').toLowerCase(); if(ft&&ft!=='text') continue; var parent=fld.parentNode; if(!parent) continue; var sel=document.createElement('select'); sel.name=fld.name; sel.id=fld.id; sel.className=fld.className||''; var opts=[['siri','SIRI'],['gtfsrt','GTFS-RT']];"));
+  s.print(F("for(var j=0;j<opts.length;j++){var opt=document.createElement('option'); opt.value=opts[j][0]; opt.textContent=opts[j][1]; sel.appendChild(opt);}"));
+  s.print(F("var val=(fld.value||'').toLowerCase(); if(val!=='gtfsrt' && val!=='siri') val='siri'; sel.value=val; fld.dataset.typeSel='1'; parent.insertBefore(sel,fld); parent.removeChild(fld);} },0);"));
+
+  if (!renameTargets.empty()) {
+    s.print(F("setTimeout(function(){function dsRename(key,label){var nameEn='DepartStrip:'+key+':Enabled';"));
+    s.print(F("var sel=document.querySelector(`input[name=\"${nameEn}\"]`);"));
+    s.print(F("if(!sel){var nameType='DepartStrip:'+key+':Type'; sel=document.querySelector(`input[name=\"${nameType}\"]`);}"));
+    s.print(F("if(!sel) return; var ref=sel.previousElementSibling;"));
+    s.print(F("while(ref&&ref.tagName!=='P'){ref=ref.previousElementSibling;}"));
+    s.print(F("if(!ref) return; var u=ref.querySelector('u'); if(u) u.textContent=label;}"));
+    for (const auto& entry : renameTargets) {
+      String keyEsc(entry.key);
+      keyEsc.replace("\\", "\\\\");
+      keyEsc.replace("'", "\\'");
+      String labelEsc(entry.label);
+      labelEsc.replace("\\", "\\\\");
+      labelEsc.replace("'", "\\'");
+      labelEsc.replace("\r", " ");
+      labelEsc.replace("\n", " ");
+      s.print(F("dsRename('"));
+      s.print(keyEsc);
+      s.print(F("','"));
+      s.print(labelEsc);
+      s.print(F("');"));
+    }
+    s.print(F("},0);"));
+  }
+  if (!cmapLabels.empty()) {
+    s.print(F("setTimeout(function(){function dsColorLabel(key,label){var sel=document.querySelector(\"input[name='DepartStrip:ColorMap:\"+key+\"']\");"));
+    s.print(F("if(!sel) return; var node=sel.previousSibling;"));
+    s.print(F("while(node && node.nodeType===3 && node.textContent.trim()==='') node=node.previousSibling;"));
+    s.print(F("if(node && node.nodeType===1 && (node.tagName||'').toUpperCase()==='INPUT' && ((node.type||'').toLowerCase()==='hidden')) node=node.previousSibling;"));
+    s.print(F("while(node && node.nodeType===3 && node.textContent.trim()==='') node=node.previousSibling;"));
+    s.print(F("if(node && node.nodeType===1 && (node.tagName||'').toUpperCase()==='INPUT' && ((node.type||'').toLowerCase()==='hidden')) node=node.previousSibling;"));
+    s.print(F("if(node && node.nodeType===3){node.textContent=' '+label+' ';return;}"));
+    s.print(F("if(node && node.nodeType===1){ node.textContent=label; return;}"));
+    s.print(F("var text=document.createTextNode(' '+label+' '); if(sel.parentNode) sel.parentNode.insertBefore(text, sel);}"));
+    for (const auto& entry : cmapLabels) {
+      String keyEsc(entry.key);
+      keyEsc.replace("\\", "\\\\");
+      keyEsc.replace("'", "\\'");
+      String labelEsc(entry.label);
+      labelEsc.replace("\\", "\\\\");
+      labelEsc.replace("'", "\\'");
+      labelEsc.replace("\\r", " ");
+      labelEsc.replace("\\n", " ");
+      s.print(F("dsColorLabel('"));
+      s.print(keyEsc);
+      s.print(F("','"));
+      s.print(labelEsc);
+      s.print(F("');"));
+    }
+    s.print(F("},0);"));
   }
 }
 
@@ -273,7 +428,9 @@ bool DepartStrip::readFromConfig(JsonObject& root) {
                       (obj.containsKey("UpdateSecs") || obj.containsKey("TemplateUrl") || obj.containsKey("BaseUrl") || obj.containsKey("ApiKey") ||
                        obj.containsKey("Agency") || obj.containsKey("StopCode"));
       if (isSource) {
-        auto snew = ::make_unique<SiriSource>(secName, nullptr, nullptr, nullptr);
+        String type = normalizeSourceType(obj["Type"] | "");
+        auto snew = makeSourceForType(type, secName);
+        if (!snew) continue;
         bool dummy = false;
         ok &= snew->readFromConfig(obj, startup_complete, dummy);
         sources_.push_back(std::move(snew));
@@ -306,8 +463,7 @@ bool DepartStrip::readFromConfig(JsonObject& root) {
     std::vector<size_t> delIdx;
     std::vector<String> seen;
     for (size_t i = 0; i < sources_.size(); ++i) {
-      SiriSource* ss = static_cast<SiriSource*>(sources_[i].get());
-      String k = ss ? ss->sourceKey() : String();
+      String k = sources_[i]->sourceKey();
       bool dup = false;
       for (auto& sk : seen) if (sk == k) { dup = true; break; }
       if (dup) delIdx.push_back(i); else seen.push_back(k);
@@ -332,8 +488,24 @@ bool DepartStrip::readFromConfig(JsonObject& root) {
   }
 
   // Read remaining sources and views
-  for (auto& src : sources_) {
+  for (size_t i = 0; i < sources_.size(); ++i) {
+    auto& src = sources_[i];
     JsonObject sub = top[src->configKey()];
+    String currentType(src->sourceType());
+    String desiredType = currentType;
+    if (!sub.isNull()) desiredType = normalizeSourceType(sub["Type"] | currentType);
+    if (!desiredType.equalsIgnoreCase(currentType)) {
+      String cfgKey(src->configKey());
+      auto replacement = makeSourceForType(desiredType, cfgKey.c_str());
+      if (replacement) {
+        bool replInvalidated = false;
+        ok &= replacement->readFromConfig(sub, startup_complete, replInvalidated);
+        invalidate_history = true; // force reload after type change
+        if (replInvalidated) invalidate_history = true;
+        src = std::move(replacement);
+        continue;
+      }
+    }
     ok &= src->readFromConfig(sub, startup_complete, invalidate_history);
   }
   for (auto& vw : views_) {
@@ -350,19 +522,24 @@ bool DepartStrip::readFromConfig(JsonObject& root) {
       // avoid duplicate by Key
       bool existsKey = false;
       for (auto& s : sources_) {
-        SiriSource* ss = static_cast<SiriSource*>(s.get());
-        if (ss && ss->sourceKey() == nsKey) { existsKey = true; break; }
+        if (s->sourceKey() == nsKey) { existsKey = true; break; }
       }
       if (!existsKey) {
+        String type = normalizeSourceType(ns["Type"] | "");
         // Generate unique configKey like "siri_sourceN"
         int next = 1;
         auto exists = [&](const char* k){ String kk(k); for (auto& s : sources_) if (String(s->configKey()) == kk) return true; return false; };
         String cfg;
-        do { cfg = String(F("siri_source")); cfg += next++; } while (exists(cfg.c_str()));
-        auto snew = ::make_unique<SiriSource>(cfg.c_str(), nullptr, nullptr, nullptr);
-        bool dummy = false;
-        ok &= snew->readFromConfig(ns, startup_complete, dummy);
-        sources_.push_back(std::move(snew));
+        do {
+          cfg = (type == F("gtfsrt")) ? String(F("gtfsrt_source")) : String(F("siri_source"));
+          cfg += next++;
+        } while (exists(cfg.c_str()));
+        auto snew = makeSourceForType(type, cfg.c_str());
+        if (snew) {
+          bool dummy = false;
+          ok &= snew->readFromConfig(ns, startup_complete, dummy);
+          sources_.push_back(std::move(snew));
+        }
       } else {
         DEBUG_PRINTF("DepartStrip: NewSource ignored, duplicate Key %s\n", nsKey.c_str());
       }
