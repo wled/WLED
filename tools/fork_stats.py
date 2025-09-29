@@ -44,6 +44,7 @@ class ForkInfo:
     has_contributed_prs: bool
     recent_commits: int
     is_active: bool
+    owner_commits: int
 
 
 class GitHubAPIError(Exception):
@@ -206,6 +207,47 @@ class ForkStatsAnalyzer:
         
         return prs
     
+    def get_commits_by_author(self, repo: str, author: str, branch: str = None) -> int:
+        """Get number of commits by a specific author."""
+        url = f"https://api.github.com/repos/{repo}/commits"
+        params = {
+            'author': author,
+            'per_page': 100
+        }
+        if branch:
+            params['sha'] = branch
+        
+        try:
+            commits_count = 0
+            page = 1
+            
+            while True:
+                params['page'] = page
+                response = self.session.get(url, params=params)
+                if response.status_code != 200:
+                    break
+                
+                data = response.json()
+                if not data:
+                    break
+                
+                commits_count += len(data)
+                
+                # If we got less than per_page results, we're done
+                if len(data) < 100:
+                    break
+                
+                page += 1
+                
+                # Limit to avoid excessive API calls
+                if commits_count >= 1000:
+                    break
+            
+            return commits_count
+        
+        except:
+            return 0
+    
     def get_commits_since_date(self, repo: str, since_date: datetime, branch: str = None) -> int:
         """Get number of commits since a specific date."""
         url = f"https://api.github.com/repos/{repo}/commits"
@@ -279,6 +321,9 @@ class ForkStatsAnalyzer:
         recent_commits = self.get_commits_since_date(fork_name, thirty_days_ago)
         is_active = recent_commits > 0 or days_behind < 30
         
+        # Get commits by fork owner
+        owner_commits = self.get_commits_by_author(fork_name, fork_owner)
+        
         return ForkInfo(
             name=fork['name'],
             full_name=fork_name,
@@ -293,7 +338,8 @@ class ForkStatsAnalyzer:
             behind_main_by_days=days_behind,
             has_contributed_prs=has_contributed,
             recent_commits=recent_commits,
-            is_active=is_active
+            is_active=is_active,
+            owner_commits=owner_commits
         )
     
     def analyze_repository_forks(self, repo: str, max_forks: Optional[int] = None) -> Dict:
@@ -324,6 +370,8 @@ class ForkStatsAnalyzer:
         
         # Analyze each fork
         analyzed_forks = []
+        temp_results_file = "tempresults.json"
+        
         for i, fork in enumerate(forks, 1):
             try:
                 print(f"Progress: {i}/{len(forks)} - {fork['full_name']}")
@@ -333,12 +381,57 @@ class ForkStatsAnalyzer:
                 print(f"Error analyzing fork {fork['full_name']}: {e}")
                 continue
             
-            # Be nice to the API
+            # Save intermediate results every 10 forks
             if i % 10 == 0:
+                print(f"Saving intermediate results to {temp_results_file}...")
+                temp_results = {
+                    'main_repo': main_repo_info,
+                    'total_forks': len(forks),
+                    'analyzed_so_far': i,
+                    'analyzed_forks': [
+                        {
+                            'name': fork.name,
+                            'full_name': fork.full_name,
+                            'owner': fork.owner,
+                            'html_url': fork.html_url,
+                            'updated_at': fork.updated_at.isoformat(),
+                            'pushed_at': fork.pushed_at.isoformat(),
+                            'default_branch': fork.default_branch,
+                            'branches': fork.branches,
+                            'unique_branches': fork.unique_branches,
+                            'behind_main_by_commits': fork.behind_main_by_commits,
+                            'behind_main_by_days': fork.behind_main_by_days,
+                            'has_contributed_prs': fork.has_contributed_prs,
+                            'recent_commits': fork.recent_commits,
+                            'is_active': fork.is_active,
+                            'owner_commits': fork.owner_commits
+                        }
+                        for fork in analyzed_forks
+                    ],
+                    'statistics': self._calculate_statistics(analyzed_forks),
+                    'analysis_timestamp': datetime.now(timezone.utc).isoformat()
+                }
+                
+                try:
+                    with open(temp_results_file, 'w') as f:
+                        json.dump(temp_results, f, indent=2)
+                except Exception as save_error:
+                    print(f"Warning: Failed to save intermediate results: {save_error}")
+                
+                # Be nice to the API
                 time.sleep(1)
         
         # Calculate statistics
         statistics = self._calculate_statistics(analyzed_forks)
+        
+        # Clean up temporary results file on successful completion
+        temp_results_file = "tempresults.json"
+        if os.path.exists(temp_results_file):
+            try:
+                os.remove(temp_results_file)
+                print(f"Cleaned up temporary file: {temp_results_file}")
+            except Exception as e:
+                print(f"Warning: Could not remove temporary file {temp_results_file}: {e}")
         
         return {
             'main_repo': main_repo_info,
@@ -387,6 +480,11 @@ class ForkStatsAnalyzer:
         forks_with_contributed_prs = len([f for f in forks if f.has_contributed_prs])
         active_non_contributing = len([f for f in forks if f.is_active and not f.has_contributed_prs])
         
+        # Owner commit statistics
+        forks_with_owner_commits = len([f for f in forks if f.owner_commits > 0])
+        total_owner_commits = sum(f.owner_commits for f in forks)
+        avg_owner_commits = total_owner_commits / total_forks if total_forks > 0 else 0
+        
         return {
             'total_analyzed': total_forks,
             'age_distribution': age_categories,
@@ -394,10 +492,14 @@ class ForkStatsAnalyzer:
             'forks_with_recent_main': forks_with_recent_main,
             'forks_that_contributed_prs': forks_with_contributed_prs,
             'active_non_contributing_forks': active_non_contributing,
+            'forks_with_owner_commits': forks_with_owner_commits,
+            'total_owner_commits': total_owner_commits,
+            'avg_owner_commits_per_fork': round(avg_owner_commits, 1),
             'percentage_with_unique_branches': (forks_with_unique_branches / total_forks) * 100,
             'percentage_with_recent_main': (forks_with_recent_main / total_forks) * 100,
             'percentage_contributed_prs': (forks_with_contributed_prs / total_forks) * 100,
-            'percentage_active_non_contributing': (active_non_contributing / total_forks) * 100
+            'percentage_active_non_contributing': (active_non_contributing / total_forks) * 100,
+            'percentage_with_owner_commits': (forks_with_owner_commits / total_forks) * 100
         }
 
 
@@ -453,10 +555,14 @@ def main():
                 'forks_with_recent_main': 42,
                 'forks_that_contributed_prs': 18,
                 'active_non_contributing_forks': 23,
+                'forks_with_owner_commits': 67,
+                'total_owner_commits': 2845,
+                'avg_owner_commits_per_fork': 28.5,
                 'percentage_with_unique_branches': 34.0,
                 'percentage_with_recent_main': 42.0,
                 'percentage_contributed_prs': 18.0,
-                'percentage_active_non_contributing': 23.0
+                'percentage_active_non_contributing': 23.0,
+                'percentage_with_owner_commits': 67.0
             }
         }
         
@@ -519,7 +625,8 @@ def main():
                         'behind_main_by_days': fork.behind_main_by_days,
                         'has_contributed_prs': fork.has_contributed_prs,
                         'recent_commits': fork.recent_commits,
-                        'is_active': fork.is_active
+                        'is_active': fork.is_active,
+                        'owner_commits': fork.owner_commits
                     }
                     for fork in results['analyzed_forks']
                 ]
@@ -570,6 +677,11 @@ def print_summary(results: Dict):
     print(f"  - Forks that contributed PRs:           {stats.get('forks_that_contributed_prs', 0):4d} ({stats.get('percentage_contributed_prs', 0):.1f}%)")
     print(f"  - Active forks (no PR contributions):   {stats.get('active_non_contributing_forks', 0):4d} ({stats.get('percentage_active_non_contributing', 0):.1f}%)")
     
+    print(f"\nOwner Commit Analysis:")
+    print(f"  - Forks with owner commits:             {stats.get('forks_with_owner_commits', 0):4d} ({stats.get('percentage_with_owner_commits', 0):.1f}%)")
+    print(f"  - Total commits by fork owners:         {stats.get('total_owner_commits', 0):4d}")
+    print(f"  - Average commits per fork:             {stats.get('avg_owner_commits_per_fork', 0):4.1f}")
+    
     print(f"\nKey Insights:")
     if stats.get('percentage_with_recent_main', 0) < 50:
         print(f"  - Most forks are significantly behind main branch")
@@ -577,6 +689,8 @@ def print_summary(results: Dict):
         print(f"  - Very few forks have contributed back to main repository")
     if stats.get('percentage_with_unique_branches', 0) > 20:
         print(f"  - Significant number of forks have custom development")
+    if stats.get('percentage_with_owner_commits', 0) > 60:
+        print(f"  - Majority of forks show some owner development activity")
     
     print("\n" + "="*60)
 

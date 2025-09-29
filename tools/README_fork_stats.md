@@ -10,7 +10,9 @@ The script analyzes and reports on:
 - **Recency Analysis**: Which forks have recent versions of main vs outdated forks  
 - **Contribution Analysis**: Which fork repos have been the source of PRs into the main repo
 - **Activity Detection**: Which forks have active development but haven't contributed PRs
+- **Owner Commit Analysis**: Statistics about commits made by fork owners to their own repositories
 - **Age Statistics**: Distribution of how far behind forks are (1 month, 3 months, 6 months, 1 year, 2+ years)
+- **Incremental Saving**: Automatically saves intermediate results every 10 forks to prevent data loss
 
 ## Requirements
 
@@ -92,7 +94,9 @@ Detailed machine-readable output including:
 - Complete fork metadata for each analyzed fork
 - Branch information and unique branches
 - Contribution history and activity metrics
+- Owner commit statistics for each fork
 - Full statistical breakdown
+- Intermediate results are automatically saved to `tempresults.json` every 10 forks to prevent data loss on interruption
 
 ## Rate Limits
 
@@ -128,9 +132,15 @@ Fork Activity Analysis:
   - Forks that contributed PRs:             18 (18.0%)
   - Active forks (no PR contributions):     23 (23.0%)
 
+Owner Commit Analysis:
+  - Forks with owner commits:               67 (67.0%)
+  - Total commits by fork owners:         2845
+  - Average commits per fork:             28.5
+
 Key Insights:
   - Most forks are significantly behind main branch
   - Significant number of forks have custom development
+  - Majority of forks show some owner development activity
 ```
 
 ## Use Cases
