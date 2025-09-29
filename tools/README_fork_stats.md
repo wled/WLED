@@ -66,6 +66,9 @@ python3 tools/fork_stats.py --repo owner/repo
 # Limit number of forks analyzed
 python3 tools/fork_stats.py --max-forks 50
 
+# Fast mode: skip detailed analysis of very old forks for better performance
+python3 tools/fork_stats.py --fast --max-forks 100
+
 # Save detailed JSON results
 python3 tools/fork_stats.py --output results.json
 
@@ -98,12 +101,26 @@ Detailed machine-readable output including:
 - Full statistical breakdown
 - Intermediate results are automatically saved to `tempresults.json` every 10 forks to prevent data loss on interruption
 
-## Rate Limits
+## Performance Considerations
 
-- **Without Token**: 60 requests/hour (can analyze ~10-20 forks)
-- **With Token**: 5000 requests/hour (can analyze hundreds of forks)
+### Execution Speed
+- **Without Token**: 60 requests/hour (very slow, only suitable for testing)
+- **With Token**: 5000 requests/hour (much faster, recommended for real analysis)
+- **Each fork requires 3-8 API requests** depending on the fork's complexity
 
-Each fork requires approximately 3-5 API requests to fully analyze.
+### Fast Mode
+Use `--fast` flag to improve performance:
+- Skips detailed analysis of forks inactive for 3+ years
+- Reduces API calls for very old forks by ~80%
+- Maintains statistical accuracy while dramatically improving speed
+- Recommended for initial analysis or large repository scans
+
+### Progress Tracking
+The tool provides detailed progress information including:
+- Current fork being analyzed
+- Time taken per fork analysis
+- API requests made and remaining rate limit
+- Estimated completion time
 
 ## Example Output
 

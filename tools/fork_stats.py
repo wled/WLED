@@ -143,13 +143,14 @@ class ForkStatsAnalyzer:
         
         return forks
     
-    def get_branches(self, repo: str) -> List[str]:
-        """Get all branches for a repository."""
+    def get_branches(self, repo: str, max_branches: int = 500) -> List[str]:
+        """Get all branches for a repository (with limits for performance)."""
         branches = []
         page = 1
         per_page = 100
+        max_pages = max_branches // 100 + 1
         
-        while True:
+        while page <= max_pages:
             url = f"https://api.github.com/repos/{repo}/branches"
             params = {'page': page, 'per_page': per_page}
             
@@ -163,6 +164,11 @@ class ForkStatsAnalyzer:
                 if len(data) < per_page:
                     break
                 
+                # Limit total branches to avoid excessive API calls
+                if len(branches) >= max_branches:
+                    branches = branches[:max_branches]
+                    break
+                
                 page += 1
             
             except GitHubAPIError as e:
@@ -173,12 +179,15 @@ class ForkStatsAnalyzer:
         return branches
     
     def get_pull_requests_from_fork(self, main_repo: str, fork_owner: str) -> List[Dict]:
-        """Get pull requests created from a specific fork."""
+        """Get pull requests created from a specific fork (optimized)."""
         prs = []
         page = 1
         per_page = 100
+        max_pages = 10  # Limit to first 1000 PRs to avoid excessive API calls
         
-        while True:
+        print(f"  Checking PRs from {fork_owner}...")
+        
+        while page <= max_pages:
             url = f"https://api.github.com/repos/{main_repo}/pulls"
             params = {
                 'state': 'all',
@@ -201,14 +210,18 @@ class ForkStatsAnalyzer:
                     break
                 
                 page += 1
+                
+                # Early exit if we found PRs (for performance - we just need to know if any exist)
+                if fork_prs:
+                    break
             
             except GitHubAPIError:
                 break  # Some API limitations or permissions issues
         
         return prs
     
-    def get_commits_by_author(self, repo: str, author: str, branch: str = None) -> int:
-        """Get number of commits by a specific author."""
+    def get_commits_by_author(self, repo: str, author: str, branch: str = None, max_commits: int = 500) -> int:
+        """Get number of commits by a specific author (optimized for performance)."""
         url = f"https://api.github.com/repos/{repo}/commits"
         params = {
             'author': author,
@@ -220,12 +233,21 @@ class ForkStatsAnalyzer:
         try:
             commits_count = 0
             page = 1
+            max_pages = max_commits // 100 + 1  # Limit pages to avoid excessive API calls
             
-            while True:
+            while page <= max_pages:
                 params['page'] = page
+                print(f"  Fetching commits by {author}, page {page}...")
                 response = self.session.get(url, params=params)
                 if response.status_code != 200:
                     break
+                
+                # Update rate limit tracking
+                self.rate_limit_remaining = int(response.headers.get('X-RateLimit-Remaining', 0))
+                reset_timestamp = response.headers.get('X-RateLimit-Reset')
+                if reset_timestamp:
+                    self.rate_limit_reset = int(reset_timestamp)
+                self.requests_made += 1
                 
                 data = response.json()
                 if not data:
@@ -239,13 +261,18 @@ class ForkStatsAnalyzer:
                 
                 page += 1
                 
-                # Limit to avoid excessive API calls
-                if commits_count >= 1000:
+                # Early exit if we hit our limit
+                if commits_count >= max_commits:
+                    commits_count = max_commits  # Cap at max to indicate truncation
                     break
+                    
+                # Add small delay between requests to be nice to API
+                time.sleep(0.1)
             
             return commits_count
         
-        except:
+        except Exception as e:
+            print(f"  Error fetching commits for {author}: {e}")
             return 0
     
     def get_commits_since_date(self, repo: str, since_date: datetime, branch: str = None) -> int:
@@ -292,22 +319,31 @@ class ForkStatsAnalyzer:
         fork_name = fork['full_name']
         fork_owner = fork['owner']['login']
         
+        start_time = time.time()
         print(f"Analyzing fork: {fork_name}")
         
         # Get fork branches
         try:
+            print(f"  Fetching branches...")
             fork_branches = self.get_branches(fork_name)
-        except GitHubAPIError:
+            print(f"  Found {len(fork_branches)} branches")
+        except GitHubAPIError as e:
+            print(f"  Error fetching branches: {e}")
             fork_branches = []
         
         # Find unique branches (branches in fork but not in main repo)
         unique_branches = [branch for branch in fork_branches if branch not in main_branches]
+        if unique_branches:
+            print(f"  Found {len(unique_branches)} unique branches: {unique_branches[:5]}")
         
         # Check if fork has contributed PRs
         prs_from_fork = self.get_pull_requests_from_fork(main_repo, fork_owner)
         has_contributed = len(prs_from_fork) > 0
+        if has_contributed:
+            print(f"  Found {len(prs_from_fork)} PRs from this fork")
         
         # Compare with main repository
+        print(f"  Comparing with main repository...")
         comparison = self.compare_repositories(main_repo, fork_name)
         behind_commits = comparison.get('behind_by', 0)
         
@@ -315,14 +351,24 @@ class ForkStatsAnalyzer:
         pushed_at = datetime.fromisoformat(fork['pushed_at'].replace('Z', '+00:00'))
         now = datetime.now(timezone.utc)
         days_behind = (now - pushed_at).days
+        print(f"  Last pushed {days_behind} days ago")
         
         # Check for recent activity
+        print(f"  Checking recent activity...")
         thirty_days_ago = now - timedelta(days=30)
         recent_commits = self.get_commits_since_date(fork_name, thirty_days_ago)
         is_active = recent_commits > 0 or days_behind < 30
         
         # Get commits by fork owner
-        owner_commits = self.get_commits_by_author(fork_name, fork_owner)
+        print(f"  Analyzing owner commits...")
+        owner_commits = self.get_commits_by_author(fork_name, fork_owner, max_commits=200)
+        if owner_commits >= 200:
+            print(f"  Owner has 200+ commits (truncated for performance)")
+        else:
+            print(f"  Owner has {owner_commits} commits")
+        
+        elapsed_time = time.time() - start_time
+        print(f"  Analysis completed in {elapsed_time:.1f} seconds")
         
         return ForkInfo(
             name=fork['name'],
@@ -342,9 +388,12 @@ class ForkStatsAnalyzer:
             owner_commits=owner_commits
         )
     
-    def analyze_repository_forks(self, repo: str, max_forks: Optional[int] = None) -> Dict:
+    def analyze_repository_forks(self, repo: str, max_forks: Optional[int] = None, fast_mode: bool = False) -> Dict:
         """Main analysis function for repository forks."""
+        start_time = time.time()
         print(f"Starting fork analysis for {repo}")
+        if fast_mode:
+            print("Fast mode enabled: Skipping detailed analysis of forks inactive for 3+ years")
         
         # Get main repository info
         main_repo_info = self.get_repository_info(repo)
@@ -359,6 +408,9 @@ class ForkStatsAnalyzer:
         # Get all forks
         forks = self.get_forks(repo, max_forks)
         print(f"Found {len(forks)} forks to analyze")
+        print(f"Estimated API requests needed: {len(forks) * (3 if fast_mode else 8)}")
+        if self.rate_limit_remaining:
+            print(f"Current rate limit: {self.rate_limit_remaining} requests remaining")
         
         if not forks:
             return {
@@ -375,6 +427,35 @@ class ForkStatsAnalyzer:
         for i, fork in enumerate(forks, 1):
             try:
                 print(f"Progress: {i}/{len(forks)} - {fork['full_name']}")
+                
+                # Skip very old forks to improve performance (if fast mode enabled)
+                if fast_mode:
+                    pushed_at = datetime.fromisoformat(fork['pushed_at'].replace('Z', '+00:00'))
+                    days_since_push = (datetime.now(timezone.utc) - pushed_at).days
+                    
+                    if days_since_push > 1095:  # Skip forks not updated in 3+ years
+                        print(f"  Skipping fork (not updated in {days_since_push} days)")
+                        # Create minimal fork info for very old forks
+                        fork_info = ForkInfo(
+                            name=fork['name'],
+                            full_name=fork['full_name'],
+                            owner=fork['owner']['login'],
+                            html_url=fork['html_url'],
+                            updated_at=datetime.fromisoformat(fork['updated_at'].replace('Z', '+00:00')),
+                            pushed_at=pushed_at,
+                            default_branch=fork['default_branch'],
+                            branches=[],
+                            unique_branches=[],
+                            behind_main_by_commits=0,
+                            behind_main_by_days=days_since_push,
+                            has_contributed_prs=False,
+                            recent_commits=0,
+                            is_active=False,
+                            owner_commits=0
+                        )
+                        analyzed_forks.append(fork_info)
+                        continue
+                
                 fork_info = self.analyze_fork(fork, repo, main_branches)
                 analyzed_forks.append(fork_info)
             except Exception as e:
@@ -516,6 +597,8 @@ def main():
                        help='Run with sample data for demonstration (no API calls)')
     parser.add_argument('--dry-run', action='store_true',
                        help='Show what would be analyzed without making API calls')
+    parser.add_argument('--fast', action='store_true',
+                       help='Fast mode: skip detailed analysis of very old forks (3+ years) for better performance')
     
     args = parser.parse_args()
     
@@ -603,7 +686,7 @@ def main():
     
     try:
         # Run analysis
-        results = analyzer.analyze_repository_forks(args.repo, args.max_forks)
+        results = analyzer.analyze_repository_forks(args.repo, args.max_forks, args.fast)
         
         if args.output:
             # Save detailed results as JSON
