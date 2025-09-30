@@ -101,6 +101,20 @@ Detailed machine-readable output including:
 - Full statistical breakdown
 - Intermediate results are automatically saved to `tempresults.json` every 10 forks to prevent data loss on interruption
 
+### Visualization
+
+For advanced visualization and analysis of the JSON results, use the companion visualizer tool:
+
+```bash
+# Generate visualizations from collected data
+python3 tools/fork_stats_visualizer.py results.json --save-plots
+
+# Text-only statistics (no graphs)
+python3 tools/fork_stats_visualizer.py results.json --no-graphs
+```
+
+See [README_fork_stats_visualizer.md](README_fork_stats_visualizer.md) for complete documentation.
+
 ## Performance Considerations
 
 ### Execution Speed
