@@ -2,6 +2,13 @@
 #ifndef BusManager_h
 #define BusManager_h
 
+#ifdef WLED_ENABLE_HUB75MATRIX
+
+#include <ESP32-HUB75-MatrixPanel-I2S-DMA.h>
+#include <ESP32-VirtualMatrixPanel-I2S-DMA.h>
+#include <FastLED.h>
+
+#endif
 /*
  * Class for addressing various light types
  */
@@ -105,6 +112,7 @@ class Bus {
     Bus(uint8_t type, uint16_t start, uint8_t aw, uint16_t len = 1, bool reversed = false, bool refresh = false)
     : _type(type)
     , _bri(255)
+    , _NPBbri(255)
     , _start(start)
     , _len(std::max(len,(uint16_t)1))
     , _reversed(reversed)
@@ -158,7 +166,7 @@ class Bus {
     inline  bool     containsPixel(uint16_t pix) const          { return pix >= _start && pix < _start + _len; }
 
     static inline std::vector<LEDType> getLEDTypes()            { return {{TYPE_NONE, "", PSTR("None")}}; } // not used. just for reference for derived classes
-    static constexpr size_t   getNumberOfPins(uint8_t type)     { return isVirtual(type) ? 4 : isPWM(type) ? numPWMPins(type) : is2Pin(type) + 1; } // credit @PaoloTK
+    static constexpr size_t   getNumberOfPins(uint8_t type)     { return isVirtual(type) ? 4 : isPWM(type) ? numPWMPins(type) : isHub75(type) ? 3 : is2Pin(type) + 1; } // credit @PaoloTK
     static constexpr size_t   getNumberOfChannels(uint8_t type) { return hasWhite(type) + 3*hasRGB(type) + hasCCT(type); }
     static constexpr bool hasRGB(uint8_t type) {
       return !((type >= TYPE_WS2812_1CH && type <= TYPE_WS2812_WWA) || type == TYPE_ANALOG_1CH || type == TYPE_ANALOG_2CH || type == TYPE_ONOFF);
@@ -182,6 +190,7 @@ class Bus {
     static constexpr bool  isOnOff(uint8_t type)      { return (type == TYPE_ONOFF); }
     static constexpr bool  isPWM(uint8_t type)        { return (type >= TYPE_ANALOG_MIN && type <= TYPE_ANALOG_MAX); }
     static constexpr bool  isVirtual(uint8_t type)    { return (type >= TYPE_VIRTUAL_MIN && type <= TYPE_VIRTUAL_MAX); }
+    static constexpr bool  isHub75(uint8_t type)      { return (type >= TYPE_HUB75MATRIX_MIN && type <= TYPE_HUB75MATRIX_MAX); }
     static constexpr bool  is16bit(uint8_t type)      { return type == TYPE_UCS8903 || type == TYPE_UCS8904 || type == TYPE_SM16825; }
     static constexpr bool  mustRefresh(uint8_t type)  { return type == TYPE_TM1814; }
     static constexpr int   numPWMPins(uint8_t type)   { return (type - 40); }
@@ -202,7 +211,9 @@ class Bus {
 
   protected:
     uint8_t  _type;
-    uint8_t  _bri;
+    uint8_t  _bri;    // bus brightness
+    uint8_t  _NPBbri; // total brightness applied to colors in NPB buffer (_bri + ABL)
+    uint8_t  _autoWhiteMode; // global Auto White Calculation override
     uint16_t _start;
     uint16_t _len;
     //struct { //using bitfield struct adds abour 250 bytes to binary size
@@ -213,8 +224,6 @@ class Bus {
       bool _hasWhite;//     : 1;
       bool _hasCCT;//       : 1;
     //} __attribute__ ((packed));
-    uint8_t  _autoWhiteMode;
-    // global Auto White Calculation override
     static uint8_t _gAWM;
     // _cct has the following meanings (see calculateCCT() & BusManager::setSegmentCCT()):
     //    -1 means to extract approximate CCT value in K from RGB (in calcualteCCT())
@@ -363,6 +372,37 @@ class BusNetwork : public Bus {
     #endif
 };
 
+#ifdef WLED_ENABLE_HUB75MATRIX
+class BusHub75Matrix : public Bus {
+  public:
+    BusHub75Matrix(const BusConfig &bc);
+    [[gnu::hot]] void setPixelColor(unsigned pix, uint32_t c) override;
+    [[gnu::hot]] uint32_t getPixelColor(unsigned pix) const override;
+    void show() override;
+    void setBrightness(uint8_t b) override;
+    size_t getPins(uint8_t* pinArray = nullptr) const override;
+    void deallocatePins();
+    void cleanup();
+
+    ~BusHub75Matrix() {
+      cleanup();
+    }
+
+    static std::vector<LEDType> getLEDTypes(void);
+
+  private:
+    MatrixPanel_I2S_DMA *display = nullptr;
+    VirtualMatrixPanel  *virtualDisp = nullptr;
+    HUB75_I2S_CFG mxconfig;
+    unsigned _panelWidth = 0;
+    CRGB *_ledBuffer = nullptr;
+    byte *_ledsDirty = nullptr;
+    // workaround for missing constants on include path for non-MM
+    uint32_t IS_BLACK = 0x000000;
+    uint32_t IS_DARKGREY = 0x333333;
+    const int PIN_COUNT = 14;
+};
+#endif
 
 //temporary struct for passing bus configuration to bus
 struct BusConfig {
@@ -374,7 +414,7 @@ struct BusConfig {
   uint8_t skipAmount;
   bool refreshReq;
   uint8_t autoWhite;
-  uint8_t pins[5] = {255, 255, 255, 255, 255};
+  uint8_t pins[OUTPUT_MAX_PINS] = {255, 255, 255, 255, 255};
   uint16_t frequency;
   uint8_t milliAmpsPerLed;
   uint16_t milliAmpsMax;

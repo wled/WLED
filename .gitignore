@@ -7,6 +7,8 @@
 .pioenvs
 .piolibdeps
 .vscode
+compile_commands.json
+__pycache__/
 
 esp01-update.sh
 platformio_override.ini
