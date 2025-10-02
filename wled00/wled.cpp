@@ -193,6 +193,7 @@ void WLED::loop()
     strip.finalizeInit(); // will create buses and also load default ledmap if present
     if (aligned) strip.makeAutoSegments();
     else strip.fixInvalidSegments();
+    strip.resume(); // resume strip service after bus re-initialization
     BusManager::setBrightness(scaledBri(bri)); // fix re-initialised bus' brightness #4005 and #4824
     configNeedsWrite = true;
   }
@@ -563,6 +564,7 @@ void WLED::beginStrip()
   strip.setTransition(0); // temporarily prevent transitions to reduce segment copies
   strip.finalizeInit(); // busses created during deserializeConfig() if config existed
   strip.makeAutoSegments();
+  strip.resume(); // resume strip service after initialization
   strip.setBrightness(0);
   strip.setShowCallback(handleOverlayDraw);
   doInitBusses = false;
