@@ -113,7 +113,7 @@ void WS2812FX::setUpMatrix() {
 
       // delete gap array as we no longer need it
       p_free(gapTable);
-      resume();
+      // NOTE: do not resume() here; caller must call resume() after segments are updated
 
       #ifdef WLED_DEBUG
       DEBUG_PRINT(F("Matrix ledmap:"));
@@ -130,6 +130,7 @@ void WS2812FX::setUpMatrix() {
       Segment::maxWidth = _length;
       Segment::maxHeight = 1;
       resetSegments();
+      resume(); // resume here since resetSegments() was called
     }
   }
 #else
