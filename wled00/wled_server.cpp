@@ -13,8 +13,11 @@
 #ifdef WLED_ENABLE_PIXART
   #include "html_pixart.h"
 #endif
-#ifndef WLED_DISABLE_PXMAGIC
+#ifdef WLED_ENABLE_PXMAGIC
   #include "html_pxmagic.h"
+#endif
+#ifndef WLED_DISABLE_MATRIXTOOL
+  #include "html_matrixtool.h"
 #endif
 #include "html_cpal.h"
 
@@ -489,10 +492,17 @@ void initServer()
   });
   #endif
 
-  #ifndef WLED_DISABLE_PXMAGIC
+  #ifdef WLED_ENABLE_PXMAGIC
   static const char _pxmagic_htm[] PROGMEM = "/pxmagic.htm";
   server.on(_pxmagic_htm, HTTP_GET, [](AsyncWebServerRequest *request) {
     handleStaticContent(request, FPSTR(_pxmagic_htm), 200, FPSTR(CONTENT_TYPE_HTML), PAGE_pxmagic, PAGE_pxmagic_length);
+  });
+  #endif
+
+  #ifndef WLED_DISABLE_MATRIXTOOL
+  static const char _matrixtool_htm[] PROGMEM = "/matrixtool.htm";
+  server.on(_matrixtool_htm, HTTP_GET, [](AsyncWebServerRequest *request) {
+    handleStaticContent(request, FPSTR(_matrixtool_htm), 200, FPSTR(CONTENT_TYPE_HTML), PAGE_matrixtool, PAGE_matrixtool_length);
   });
   #endif
 #endif

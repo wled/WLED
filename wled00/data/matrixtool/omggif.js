@@ -363,8 +363,6 @@ function GifWriterOutputLZWCodeStream(buf, p, min_code_size, index_stream) {
   return p;
 }
 
-// GifReader not used in WLED, so commenting out to save space (about 1.3k)
-/*
 function GifReader(buf) {
   var p = 0;
 
@@ -805,7 +803,6 @@ function GifReaderLZWOutputIndexStream(code_stream, p, output, output_length) {
   return output;
 }
 
-*/
 
 // CommonJS.
 //try { exports.GifWriter = GifWriter; exports.GifReader = GifReader } catch(e) {}

@@ -1,0 +1,764 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="author" content="@dedehai" />
+<link rel="shortcut icon" href="favicon.ico">
+<title>WLED Matrix Tool</title>
+<script src="omggif.js"></script>
+<style>
+body{margin:0;font-family:Helvetica,Arial,sans-serif;background:#000;color:#fff;overflow-x:hidden}
+.cont{max-width:800px;margin:0 auto;padding:20px}
+.hdr{text-align:center;padding:20px 0;border-bottom:2px solid #333}
+.hdr .title{font-size:2rem;font-weight:bold;color:#fff}
+.hdr .rb{background:linear-gradient(to right,#ef5350,#f48fb1,#7e57c2,#2196f3,#26c6da,#43a047,#eeff41,#f9a825,#ff5722);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-size:200% 200%;animation:rb 5s linear infinite}
+.row{display:flex;flex-wrap:wrap;gap:10px;margin-top:15px}
+.col{flex:0 1 auto;min-width:200px}
+label{display:block;margin-bottom:5px;font-weight:bold;color:#fff;font-size:14px}
+input[type="text"],input[type="number"],select,textarea{background:#555;color:#fff;border:2px solid #555;padding:6px 8px;width:100%;font-size:14px;border-radius:4px}
+input[type="text"]:focus,input[type="number"]:focus,select:focus,textarea:focus{outline:none;border-color:#888}
+#w, #h { width: 80px !important; display: inline-block; }
+input[type="range"]{width:100%;margin:10px 0}
+input[type="color"]{width:60px;height:30px;border:2px solid #555;background:#555;cursor:pointer}
+.drop{border:2px dashed #888;background:#222;color:#fff;text-align:center;padding:40px 20px;border-radius:8px;margin-top:15px;cursor:pointer;transition:all 0.3s}
+.drop:hover,.drop.active{background:#333;border-color:#aaa}
+.btn{background:#333;color:#fff;border:3px solid #333;border-radius:24px;font-size:15px;padding:6px 10px;cursor:pointer;width:100%;margin-top:10px;transition:background 0.3s}
+.btn:hover{background:#555}
+.btn.primary{background:#09a;border-color:#09a}
+.btn.primary:hover{background:#0b8}
+.btn.small{padding:4px 8px;font-size:13px;width:auto;display:inline-block;margin:5px 5px 5px 0}
+#ov{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.8);display:none;z-index:9999}
+#ov.loading::after{content:"";position:absolute;top:calc(50% - 20px);left:calc(50% - 20px);width:40px;height:40px;border:4px solid #fff;border-top-color:#000;border-radius:50%;animation:spin 1s linear infinite}
+.toast{position:fixed;bottom:20px;right:20px;background:#555;color:#fff;padding:12px 20px;border-radius:8px;font-size:14px;z-index:9999;border:2px solid #888}
+small{color:#aaa;font-size:12px;margin-top:2px;display:block}
+.imgGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(80px,1fr));gap:10px;margin:20px 0}
+.imgItem{aspect-ratio:1;border:2px solid #555;border-radius:4px;background-size:cover;background-position:center;cursor:pointer;transition:border-color 0.2s;image-rendering:pixelated}
+.imgItem:hover{border-color:#09a}
+.imgItem.loading{background:#222;display:flex;align-items:center;justify-content:center}
+.imgItem.loading::after{content:"";width:20px;height:20px;border:2px solid #fff;border-top-color:#000;border-radius:50%;animation:spin 1s linear infinite}
+.editor{display:none;margin:20px 0;padding:20px;background:#222;border:2px solid #555;border-radius:8px}
+.editor.active{display:block}
+.canvasWrap{display:flex;gap:20px;align-items:flex-start;flex-wrap:wrap}
+#cropCanvas{background:#333;cursor:crosshair;border:2px solid #555;max-width:100%}
+#pixelPreview{background:#333;border:2px solid #555;image-rendering:pixelated}
+h3{color:#fff;margin-top:30px;padding-top:20px;border-top:2px solid #333;font-size:18px}
+textarea{resize:vertical;min-height:100px;font-family:monospace}
+.ctxMenu{position:fixed;background:#333;border:2px solid #555;border-radius:8px;padding:8px;z-index:10000;box-shadow:0 4px 12px rgba(0,0,0,0.5)}
+.ctxMenu button{display:block;width:100%;text-align:left;background:#333;border:0;color:#fff;padding:8px 12px;cursor:pointer;border-radius:4px;margin-bottom:5px;font-size:14px}
+.ctxMenu button:hover{background:#555}
+.ctxMenu button:last-child{margin-bottom:0}
+.ctxMenu button.danger{color:#f44}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes rb{0%{background-position:0% 0}100%{background-position:200% 0}}
+@media(max-width:700px){
+  .row{flex-direction:column}
+  .col{min-width:auto}
+  .canvasWrap{flex-direction:column;align-items:center}
+  #pixelPreview{margin-top:20px}
+}
+</style>
+</head>
+<body>
+<div class="cont">
+<div class="hdr">
+<div class="title">WLED <span class="rb">MATRIX</span> TOOL</div>
+</div>
+
+<h3 style="margin-top:20px;padding-top:0;border-top:0">Select Target Segment</h3>
+<div class="row">
+<div class="col">
+<label for="seg">Segment</label>
+<select id="seg"><option value="0" data-w="16" data-h="16">Segment 0 (16x16)</option></select>
+</div>
+</div>
+
+<h3>Images on Device</h3>
+<div class="imgGrid" id="grid"></div>
+<div style="text-align:center;margin:15px 0">
+<button class="btn" id="pxmagicBtn" style="display:none">Open PIXEL <span class="rb">MAGIC</span> TOOL</button>
+</div>
+
+<h3>Upload New Image</h3>
+<div class="row">
+<div class="col" style="flex:0 0 auto;min-width:100px">
+<label for="w">Width</label>
+<input type="number" id="w" value="16" min="1">
+</div>
+<div class="col" style="flex:0 0 auto;min-width:100px">
+<label for="h">Height</label>
+<input type="number" id="h" value="16" min="1">
+</div>
+</div>
+
+<div id="drop" class="drop">
+<p>Drop image or click to select</p>
+</div>
+<input type="file" id="src" accept="image/*" style="display:none">
+
+<div class="editor" id="editor">
+<h3 style="margin-top:0;padding-top:0;border-top:0">Crop & Adjust Image</h3>
+<div class="row">
+<div class="col">
+<label>Dark Pixel Cutoff <span style="font-weight:normal;font-size:12px">(pixels darker than this become "transparent")</span></label>
+<input type="range" id="blackThresh" min="0" max="255" value="0">
+</div>
+<div class="col" style="flex:0 0 auto;min-width:120px">
+<label>Background Color</label>
+<input type="color" id="bgCol" value="#000000">
+</div>
+</div>
+<div class="row">
+<button class="btn small" id="matchAspect">Match Aspect Ratio</button>
+<button class="btn small" id="matchSize">Match Size (1:1)</button>
+<button class="btn small" id="fullSize">Full Size</button>
+</div>
+<div class="row">
+<div style="max-width:500px">
+<label>Zoom: <input type="range" id="zoom" min="0" max="100" value="0"></label>
+</div>
+</div>
+<div class="canvasWrap">
+<div>
+<small>Drag to crop, resize handles, pan outside crop</small>
+<canvas id="cropCanvas" width="500" height="400"></canvas>
+</div>
+<div>
+<small>Preview at target size</small>
+<canvas id="pixelPreview" width="128"></canvas>
+</div>
+</div>
+<div class="row">
+<div class="col">
+<label for="fname">Filename</label>
+<input type="text" id="fname" placeholder="image" maxlength="26">
+<small>.gif will be added</small>
+</div>
+</div>
+<button class="btn primary" id="upload">Convert & Upload to WLED</button>
+</div>
+
+<div style="text-align:center;margin:20px 0">
+<button class="btn" onclick="window.location.href=wURL">Back to WLED</button>
+<div id="ov"></div>
+<script>
+const d=document,gId=i=>d.getElementById(i),cE=t=>d.createElement(t);
+let wURL='',selImg=null,selFile=null,cropImg=null,baseScale=1,imgScale=1,panX=0,panY=0;
+let crop={x:50,y:50,w:200,h:150},dragging=false,dragHandle=null,offsetX=0,offsetY=0;
+let panning=false,panStartX=0,panStartY=0,panOrigX=0,panOrigY=0;
+let imageList=[];
+let gifFrames=null,gifInfo=null,animationTimer=null;
+
+(async()=>{
+  const params=new URLSearchParams(window.location.search);
+  wURL=`http://${params.get('host')||window.location.host}`;
+  await loadSegs();
+  await loadImgs();
+})();
+
+function toast(m,t='success'){
+  const el=cE('div');el.className='toast';el.textContent=m;
+  if(t==='error')el.style.background='var(--eDark)';
+  d.body.appendChild(el);setTimeout(()=>el.remove(),3000);
+}
+function show(){gId('ov').classList.add('loading');gId('ov').style.display='block';}
+function hide(){gId('ov').classList.remove('loading');gId('ov').style.display='none';}
+
+function loadSegs(){
+  const sel=gId('seg');
+  const cSel=sel.value; // Store current selection
+  fetch(`${wURL}/json/state`)
+    .then(r => r.json())
+    .then(data => {
+      sel.innerHTML='';
+      if(data.seg){
+        data.seg.forEach(({id,n,start,stop,startY,stopY,fx})=>{
+          const segName = n || `Segment ${id}`;
+          const displayName = fx === 53 ? `${segName} [Image]` : segName;
+          const opt=new Option(displayName,id);
+          opt.dataset.w=stop-start;
+          opt.dataset.h=stopY-startY;
+          opt.dataset.fx=fx||0;
+          sel.add(opt);
+        });
+      }else sel.add(new Option('Segment 0',0));
+      // restore selection if non zero
+      if(cSel){ sel.value=cSel; }
+      const s=sel.options[sel.selectedIndex];
+      if(s){gId('w').value=s.dataset.w||16;gId('h').value=s.dataset.h||16;}
+    })
+    .catch(e => console.log('Segments failed',e));
+}
+
+// check if a segment already uses fx 53 (image), only one image can be active at a time
+function getCurrentImageSegment(){
+  const sel=gId('seg');
+  for(let i=0;i<sel.options.length;i++){
+    if(parseInt(sel.options[i].dataset.fx)===53){
+      return parseInt(sel.options[i].value);
+    }
+  }
+  return null;
+}
+
+gId('seg').onchange=e=>{
+  const opt=e.target.selectedOptions[0];
+  gId('w').value=opt.dataset.w;gId('h').value=opt.dataset.h;
+  if(cropImg)drawCrop();
+};
+
+async function loadImgs(){
+  try{
+    const r=await fetch(`${wURL}/edit?list=/`),data=await r.json(),grid=gId('grid');
+    grid.innerHTML='';
+    const types=['gif','png','jpg','jpeg','bmp'];
+    const imgs=data.filter(f=>types.includes(f.name.split('.').pop()?.toLowerCase()));
+    imageList=imgs.map(f=>f.name.replace('/',''));
+    if(!imgs.length){
+      grid.innerHTML='<div style="grid-column:1/-1;text-align:center;color:#aaa;padding:20px">No images found</div>';
+      checkPxmagic();
+      return;
+    }
+    // Load images sequentially
+    for(const f of imgs){
+      const name=f.name.replace('/',''),url=`${wURL}/${name}`;
+      const isGif=name.toLowerCase().endsWith('.gif');
+      const item=cE('div');item.className='imgItem loading';
+      item.dataset.name=name;item.dataset.url=url;
+      item.onclick=()=>{
+        if(isGif) playImg(url,name);
+        else showUnsupportedDialog(url,name);
+      };
+      item.oncontextmenu=e=>{e.preventDefault();selImg={name,url};showMenu(e.pageX,e.pageY);};
+      grid.appendChild(item);
+      await new Promise((resolve)=>{
+        const img=new Image();
+        img.onload=()=>{
+          item.style.backgroundImage=`url(${url}?cb=${Date.now()})`;
+          if(!isGif) item.style.border = "5px solid darkred";
+          item.classList.remove('loading');
+          resolve();
+        };
+        img.onerror=()=>{item.classList.remove('loading');item.style.background='#222';resolve();};
+        img.src=url+'?cb='+Date.now();
+      });
+    }
+    checkPxmagic();
+  }catch(e){console.log('Images failed',e);}
+}
+
+// check if pxmagic.htm(.gz) exists on device, if not, show install option, otherwise link to it
+async function checkPxmagic(){
+  try{
+    const r=await fetch(`${wURL}/edit?list=/`),data=await r.json();
+    const hasPx=data.some(f=>f.name==="/pxmagic.htm"||f.name==="/pxmagic.htm.gz");
+    const btn=gId('pxmagicBtn');
+    btn.style.display='inline-block';
+    if(hasPx){
+      btn.innerHTML='Open PIXEL MAGIC TOOL';
+      btn.onclick=()=>window.open(`${wURL}/pxmagic.htm`,'_blank');
+    }else{
+      btn.innerHTML='Install classic PIXEL MAGIC TOOL (converts image to json preset)';
+      btn.onclick=async()=>{
+        try{
+          const f=await fetch("https://dedehai.github.io/pxmagic.htm.gz");
+          if(!f.ok) throw new Error("Download failed "+f.status);
+          const b=await f.blob(),fd=new FormData();
+          fd.append("data",b,"pxmagic.htm.gz");
+          const u=await fetch(wURL+"/upload",{method:"POST",body:fd});
+          alert(u.ok?"PxMagic installed!":"Upload failed");
+          loadImgs();
+        }catch(e){alert("Error "+e.message);}
+      };
+    }
+  }catch(e){console.log('Pxmagic check failed',e);}
+}
+
+gId('drop').onclick=()=>{gId('src').value='';gId('src').click();};
+gId('drop').ondragover=e=>{e.preventDefault();gId('drop').classList.add('active');};
+gId('drop').ondragleave=()=>gId('drop').classList.remove('active');
+gId('drop').ondrop=e=>{e.preventDefault();gId('drop').classList.remove('active');gId('src').files=e.dataTransfer.files;handleFile();};
+gId('src').onchange=handleFile;
+
+function handleFile(){
+  const file=gId('src').files[0];
+  if(!file)return;
+  selFile=file;
+
+  // Check if it's a GIF - if so, parse it
+  if(file.type==='image/gif'){
+    const reader=new FileReader();
+    reader.onload=e=>{
+      const arr=new Uint8Array(e.target.result);
+      try{
+        const gif=new GifReader(arr);
+        gifInfo={width:gif.width,height:gif.height,numFrames:gif.numFrames()};
+        gifFrames=[];
+
+        // Extract all frames
+        for(let i=0;i<gifInfo.numFrames;i++){
+          const frameInfo=gif.frameInfo(i);
+          const pixels=new Uint8Array(gifInfo.width*gifInfo.height*4);
+          gif.decodeAndBlitFrameRGBA(i,pixels);
+          gifFrames.push({pixels,delay:frameInfo.delay||10});
+        }
+        loadGifToCanvas();
+      }catch(err){
+        toast('Failed to parse GIF','error');
+        console.error(err);
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  }else{
+    // Non-GIF image - existing code
+    const reader=new FileReader();
+    reader.onload=e=>{
+      cropImg=new Image();
+      cropImg.onload=()=>{
+        gifFrames=null;gifInfo=null;
+        gId('editor').classList.add('active');
+        gId('drop').innerHTML=`<p>Image loaded: ${file.name}<br><small>Drop another to replace</small></p>`;
+        gId('fname').value=file.name.split('.')[0].substring(0,16);
+        resetView();
+        const canvas=gId('cropCanvas');
+        crop.w=canvas.width*0.8;
+        crop.h=canvas.height*0.8;
+        crop.x=(canvas.width-crop.w)/2;
+        crop.y=(canvas.height-crop.h)/2;
+        clampCrop();drawCrop();
+      };
+      cropImg.src=e.target.result;
+    };
+    reader.readAsDataURL(file);
+  }
+}
+
+function loadGifToCanvas(){
+  gId('editor').classList.add('active');
+  gId('drop').innerHTML=`<p>Animated GIF loaded: ${selFile.name} (${gifInfo.numFrames} frames)<br><small>Drop another to replace</small></p>`;
+  gId('fname').value=selFile.name.split('.')[0].substring(0,16);
+  
+  // Create an image from first frame for cropping
+  const tempCanvas=cE('canvas');
+  tempCanvas.width=gifInfo.width;
+  tempCanvas.height=gifInfo.height;
+  const tempCtx=tempCanvas.getContext('2d');
+  const imageData=new ImageData(new Uint8ClampedArray(gifFrames[0].pixels),gifInfo.width,gifInfo.height);
+  tempCtx.putImageData(imageData,0,0);
+  
+  cropImg=new Image();
+  cropImg.onload=()=>{
+    resetView();
+    const canvas=gId('cropCanvas');
+    crop.w=canvas.width*0.8;
+    crop.h=canvas.height*0.8;
+    crop.x=(canvas.width-crop.w)/2;
+    crop.y=(canvas.height-crop.h)/2;
+    clampCrop();
+    startGifAnimation();
+  };
+  cropImg.src=tempCanvas.toDataURL();
+}
+
+function startGifAnimation(){
+  if(animationTimer)clearInterval(animationTimer);
+  if(!gifFrames)return;
+
+  let frameIndex=0;
+  const animate=()=>{
+    const tempCanvas=cE('canvas');
+    tempCanvas.width=gifInfo.width;
+    tempCanvas.height=gifInfo.height;
+    const tempCtx=tempCanvas.getContext('2d');
+    const imageData=new ImageData(new Uint8ClampedArray(gifFrames[frameIndex].pixels),gifInfo.width,gifInfo.height);
+    tempCtx.putImageData(imageData,0,0);
+
+    cropImg.src=tempCanvas.toDataURL();
+    drawCrop();
+
+    frameIndex=(frameIndex+1)%gifInfo.numFrames;
+  };
+
+  animate();
+  animationTimer=setInterval(animate,gifFrames[0].delay*10);
+}
+
+function stopGifAnimation(){
+  if(animationTimer){
+    clearInterval(animationTimer);
+    animationTimer=null;
+  }
+}
+
+function showUnsupportedDialog(url,name){
+  const msg=`Image format not supported by WLED.\nPlease convert to GIF below or use the Pixel Magic Tool.`;
+  alert(msg);
+  fetch(url)
+    .then(r=>r.blob())
+    .then(blob=>{
+      const file=new File([blob],name,{type:blob.type});
+      const dt=new DataTransfer();
+      dt.items.add(file);
+      gId('src').files=dt.files;
+      handleFile();
+    })
+    .catch(e=>toast('Failed to load image','error'));
+}
+
+gId('w').oninput=()=>{if(cropImg)drawCrop();};
+gId('h').oninput=()=>{if(cropImg)drawCrop();};
+
+
+function clampCrop(){
+  const canvas=gId('cropCanvas');
+  crop.w=Math.max(30,Math.min(crop.w,canvas.width));
+  crop.h=Math.max(30,Math.min(crop.h,canvas.height));
+  crop.x=Math.max(0,Math.min(crop.x,canvas.width-crop.w));
+  crop.y=Math.max(0,Math.min(crop.y,canvas.height-crop.h));
+}
+
+function resetView(){
+  const canvas=gId('cropCanvas');
+  baseScale=Math.min(canvas.width/cropImg.width,canvas.height/cropImg.height);
+  imgScale=baseScale;
+  panX=(canvas.width-cropImg.width*imgScale)/2;
+  panY=(canvas.height-cropImg.height*imgScale)/2;
+}
+
+gId('zoom').oninput=()=>{
+  if(!cropImg)return;
+  const t=gId('zoom').value/100,newScale=baseScale*Math.pow(30,t);
+  const canvas=gId('cropCanvas'),cx=canvas.width/2,cy=canvas.height/2;
+  const dx=cx-panX,dy=cy-panY,factor=newScale/imgScale;
+  panX=cx-dx*factor;panY=cy-dy*factor;imgScale=newScale;
+  clampCrop();drawCrop();
+};
+
+gId('bgCol').oninput=drawCrop;
+
+gId('matchAspect').onclick=e=>{
+  e.preventDefault();
+  const ratio=+gId('w').value/+gId('h').value;
+  crop.h=crop.w/ratio;clampCrop();drawCrop();
+};
+
+gId('matchSize').onclick=e=>{
+  e.preventDefault();
+  if(!cropImg)return;
+  crop.w=+gId('w').value*imgScale;crop.h=+gId('h').value*imgScale;
+  clampCrop();drawCrop();
+};
+
+gId('fullSize').onclick=e=>{
+  e.preventDefault();
+  if(!cropImg)return;
+  const canvas=gId('cropCanvas');
+  crop.x=0;crop.y=0;
+  crop.w=canvas.width;crop.h=canvas.height;
+  clampCrop();drawCrop();
+};
+
+function getHandles(r){
+  const s=30, o=s/2, ox=r.x-o, oy=r.y-o, ow=r.w+s, oh=r.h+s;
+  return{
+    nw:{x:ox,y:oy,w:s,h:s}, ne:{x:ox+ow-s,y:oy,w:s,h:s},
+    sw:{x:ox,y:oy+oh-s,w:s,h:s}, se:{x:ox+ow-s,y:oy+oh-s,w:s,h:s},
+    n:{x:ox+s/2,y:oy,w:ow-s,h:s}, s:{x:ox+s/2,y:oy+oh-s,w:ow-s,h:s},
+    w:{x:ox,y:oy+s/2,w:s,h:oh-s}, e:{x:ox+ow-s,y:oy+s/2,w:s,h:oh-s}
+  };
+}
+
+function hitHandle(mx,my){
+  const h=getHandles(crop);
+  for(const k in h){let r=h[k];if(mx>=r.x&&mx<=r.x+r.w&&my>=r.y&&my<=r.y+r.h)return k;}
+  return null;
+}
+
+const canvas=gId('cropCanvas'),ctx=canvas.getContext('2d');
+function getPos(e){
+  const rect=canvas.getBoundingClientRect();
+  if(e.touches){ // touch
+    return {x:e.touches[0].clientX-rect.left,y:e.touches[0].clientY-rect.top};
+  }else{ // mouse
+    return {x:e.clientX-rect.left,y:e.clientY-rect.top};
+  }
+}
+
+function startAction(mx,my){
+  dragHandle=hitHandle(mx,my);
+  if(dragHandle){dragging=true;return;}
+  if(mx>crop.x&&mx<crop.x+crop.w&&my>crop.y&&my<crop.y+crop.h){
+    dragging=true;dragHandle="move";offsetX=mx-crop.x;offsetY=my-crop.y;
+  }else{
+    panning=true;panStartX=mx;panStartY=my;panOrigX=panX;panOrigY=panY;
+  }
+}
+
+function moveAction(mx,my){
+  if(dragging){
+    switch(dragHandle){
+      case "move":crop.x=mx-offsetX;crop.y=my-offsetY;break;
+      case "nw":crop.w+=(crop.x-mx);crop.h+=(crop.y-my);crop.x=mx;crop.y=my;break;
+      case "ne":crop.w=mx-crop.x;crop.h+=(crop.y-my);crop.y=my;break;
+      case "sw":crop.w+=(crop.x-mx);crop.x=mx;crop.h=my-crop.y;break;
+      case "se":crop.w=mx-crop.x;crop.h=my-crop.y;break;
+      case "n":crop.h+=(crop.y-my);crop.y=my;break;
+      case "s":crop.h=my-crop.y;break;
+      case "w":crop.w+=(crop.x-mx);crop.x=mx;break;
+      case "e":crop.w=mx-crop.x;break;
+    }
+    clampCrop();drawCrop();
+  }else if(panning){
+    panX=panOrigX+(mx-panStartX);
+    panY=panOrigY+(my-panStartY);
+    clampCrop();drawCrop();
+  }
+}
+
+function endAction(){
+  dragging=false;dragHandle=null;panning=false;
+}
+
+// Mouse
+canvas.onmousedown=e=>{if(!cropImg)return;const {x,y}=getPos(e);startAction(x,y);};
+canvas.onmousemove=e=>{if(!cropImg)return;const {x,y}=getPos(e);moveAction(x,y);};
+canvas.onmouseup=endAction;
+
+// Touch
+canvas.ontouchstart=e=>{
+  if(!cropImg||e.touches.length!==1)return;
+  e.preventDefault();
+  const {x,y}=getPos(e);startAction(x,y);
+};
+canvas.ontouchmove=e=>{
+  if(!cropImg||e.touches.length!==1)return;
+  e.preventDefault();
+  const {x,y}=getPos(e);moveAction(x,y);
+};
+canvas.ontouchend=endAction;
+canvas.ontouchcancel=endAction;
+
+
+function drawCrop(){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  if(!cropImg)return;
+  ctx.fillStyle=gId('bgCol').value;ctx.fillRect(0,0,canvas.width,canvas.height);
+  ctx.imageSmoothingEnabled=false;
+  ctx.drawImage(cropImg,0,0,cropImg.width,cropImg.height,panX,panY,cropImg.width*imgScale,cropImg.height*imgScale);
+  // draw crop frame with shadow
+  ctx.lineWidth = 3;
+  ctx.setLineDash([6,4]);
+  ctx.shadowColor = "#000"; // soft dark shadow
+  ctx.shadowBlur = 2;
+  ctx.strokeStyle = "#FFF"; // main dashed color
+  ctx.beginPath();
+  ctx.roundRect(crop.x, crop.y, crop.w, crop.h, 6);
+  ctx.stroke();
+  ctx.shadowColor = "#000F"; // disable shadow again by simply making it transparent
+  updatePrev();
+}
+
+gId('blackThresh').addEventListener('input', () => { updatePrev(); });
+
+function applyBlackThreshold(c){
+  let t=+gId('blackThresh').value,
+    d=c.getImageData(0,0,c.canvas.width,c.canvas.height),
+    b=gId('bgCol').value.match(/\w\w/g).map(x=>parseInt(x,16)); // extract ["rr","gg","bb"]
+  for(let i=0;i<d.data.length;i+=4)
+    if(d.data[i]<t&&d.data[i+1]<t&&d.data[i+2]<t)
+      d.data[i]=b[0],d.data[i+1]=b[1],d.data[i+2]=b[2];
+  c.putImageData(d,0,0);
+}
+
+function updatePrev(){
+  if(!cropImg)return;
+  let w=+gId('w').value,h=+gId('h').value;
+  const prev=gId('pixelPreview'),pctx=prev.getContext('2d');
+  prev.height=Math.round(prev.width*(h/w));
+  pctx.imageSmoothingEnabled=false;pctx.fillStyle=gId('bgCol').value;
+  pctx.fillRect(0,0,prev.width,prev.height);
+  pctx.drawImage(cropImg,(crop.x-panX)/imgScale,(crop.y-panY)/imgScale,crop.w/imgScale,crop.h/imgScale,0,0,w,h);
+  // remove very dark colors and set them to black
+  applyBlackThreshold(pctx);
+  pctx.drawImage(prev,0,0,w,h,0,0,prev.width,prev.height);
+}
+
+gId('upload').onclick=async()=>{
+  if(!selFile){toast('Select an image','error');return;}
+  const w=+gId('w').value,h=+gId('h').value,fname=gId('fname').value.trim()||'image';
+  const filename=`${fname}.gif`;
+  
+  // Check if file already exists
+  if(imageList.includes(filename)){
+    if(!confirm(`${filename} already exists. Do you want to overwrite it?`))return;
+  }
+  
+  show();
+  try{
+    let fileToUpload;
+    if(gifFrames){
+      // Animated GIF - re-encode with cropped frames
+      const w=+gId('w').value,h=+gId('h').value;
+      const gifData=[];
+      const gifWriter=new GifWriter(gifData,w,h,{loop:0});
+
+      for(let i=0;i<gifFrames.length;i++){
+        const tempCanvas=cE('canvas');
+        tempCanvas.width=gifInfo.width;
+        tempCanvas.height=gifInfo.height;
+        const tempCtx=tempCanvas.getContext('2d');
+        const imageData=new ImageData(new Uint8ClampedArray(gifFrames[i].pixels),gifInfo.width,gifInfo.height);
+        tempCtx.putImageData(imageData,0,0);
+
+        // Crop and resize
+        const cropCanvas=cE('canvas');
+        cropCanvas.width=w;
+        cropCanvas.height=h;
+        const cropCtx=cropCanvas.getContext('2d');
+        cropCtx.imageSmoothingEnabled=false;
+        cropCtx.fillStyle=gId('bgCol').value;
+        cropCtx.fillRect(0,0,w,h);
+        cropCtx.drawImage(tempCanvas,(crop.x-panX)/imgScale,(crop.y-panY)/imgScale,crop.w/imgScale,crop.h/imgScale,0,0,w,h);
+
+        const frameData=cropCtx.getImageData(0,0,w,h);
+        applyBlackThreshold(cropCtx);
+        const finalData=cropCtx.getImageData(0,0,w,h);
+        let {indexed,palette}=quantize(finalData.data);
+        palette=padPalette(palette);
+
+        gifWriter.addFrame(0,0,w,h,indexed,{palette,delay:gifFrames[i].delay});
+      }
+      gifWriter.end();
+      fileToUpload=new File([new Uint8Array(gifData)],filename,{type:'image/gif'});
+    }else if(selFile.type==='image/gif'){
+      fileToUpload=selFile;
+    }else{
+      if(!cropImg){toast('Image not loaded','error');hide();return;}
+      let tmp=cE('canvas');tmp.width=w;tmp.height=h;
+      let tctx=tmp.getContext('2d');tctx.imageSmoothingEnabled=false;
+      tctx.fillStyle=gId('bgCol').value;tctx.fillRect(0,0,w,h);
+      tctx.drawImage(cropImg,(crop.x-panX)/imgScale,(crop.y-panY)/imgScale,crop.w/imgScale,crop.h/imgScale,0,0,w,h);
+      applyBlackThreshold(tctx, 150);
+      const imgData=tctx.getImageData(0,0,w,h);
+      let {indexed,palette}=quantize(imgData.data);
+      palette=padPalette(palette);
+      const gifData=[];
+      const gifWriter=new window.GifWriter(gifData,w,h,{loop:0});
+      gifWriter.addFrame(0,0,w,h,indexed,{palette});
+      gifWriter.end();
+      fileToUpload=new File([new Uint8Array(gifData)],filename,{type:'image/gif'});
+    }
+    const fd=new FormData();fd.append('file',fileToUpload,filename);
+    const r=await fetch(`${wURL}/upload`,{method:'POST',body:fd});
+    if(r.ok){
+      toast(`${filename} uploaded`);
+      await loadImgs();
+      gId('src').value='';  // Add this line to reset the input
+      gId('drop').innerHTML='<p>Drop image or click to select</p>';
+    }else toast('Upload failed','error');
+  }catch(e){toast(`Error: ${e.message}`,'error');}
+  finally{hide();}
+};
+
+function quantize(pixels){
+  let bitMask=0xFF;
+  while(true){
+    const colorMap=new Map(),tempIndexed=new Uint8Array(pixels.length/4);
+    const paletteArray=[];let exceeded=false;
+    for(let i=0,idx=0;i<pixels.length;i+=4,idx++){
+      const r=pixels[i]&bitMask,g=pixels[i+1]&bitMask,b=pixels[i+2]&bitMask;
+      const key=`${r},${g},${b}`;
+      if(!colorMap.has(key)){
+        colorMap.set(key,colorMap.size);
+        paletteArray.push((r<<16)|(g<<8)|b);
+        if(colorMap.size>256){exceeded=true;break;}
+      }
+      tempIndexed[idx]=colorMap.get(key);
+    }
+    if(!exceeded)return{indexed:tempIndexed,palette:paletteArray};
+    bitMask&=(bitMask<<1)&0xFF;
+    if(bitMask===0)return{indexed:tempIndexed,palette:paletteArray.slice(0,256)};
+  }
+}
+
+function padPalette(palette){
+  let pow2=1;
+  while(pow2<palette.length)pow2<<=1;
+  while(palette.length<pow2)palette.push(palette[palette.length-1]);
+  return palette;
+}
+
+async function playImg(url,name){
+  const targetSeg=+gId('seg').value;
+  const currentImgSeg=getCurrentImageSegment();
+  
+  if(currentImgSeg!==null && currentImgSeg!==targetSeg){
+    if(!confirm(`Segment ${currentImgSeg} is currently displaying an image. Switch image display to segment ${targetSeg}?`))return;
+  }
+  
+  show();
+  try{
+    const json={
+      on:true,
+      seg: currentImgSeg!==null && currentImgSeg!==targetSeg 
+        ? [{id:currentImgSeg,fx:0},{id:targetSeg,fx:53,frz:false,sx:128,n:name}]
+        : {id:targetSeg,fx:53,frz:false,sx:128,n:name}
+    };
+    const r=await fetch(`${wURL}/json/state`,{method:'POST',body:JSON.stringify(json)});
+    const result=await r.json();
+    if(result.success){
+      toast(`Playing ${name}`);
+      await loadSegs();
+    }else toast('Failed to play','error');
+  }catch(e){toast(`Error: ${e.message}`,'error');}
+  finally{hide();}
+}
+
+function showMenu(x,y){
+  closeMenu();
+  const menu=cE('div');
+  menu.className='ctxMenu';
+  menu.style.left=x+'px';
+  menu.style.top=y+'px';
+  menu.innerHTML=`
+    <button onclick="downloadImg()">Download</button>
+    <button class="danger" onclick="deleteImg()">Delete</button>
+    <button onclick="closeMenu()">Cancel</button>
+  `;
+  d.body.appendChild(menu);
+  setTimeout(()=>{
+    const closeHandler=e=>{
+      if(!e.target.closest('.ctxMenu')){closeMenu();d.removeEventListener('click',closeHandler);}
+    };
+    d.addEventListener('click',closeHandler);
+  },100);
+}
+
+function closeMenu(){d.querySelectorAll('.ctxMenu').forEach(m=>m.remove());}
+
+async function downloadImg(){
+  try{
+    const r=await fetch(selImg.url),blob=await r.blob();
+    const url=URL.createObjectURL(blob),a=cE('a');
+    a.href=url;a.download=selImg.name;a.click();
+    URL.revokeObjectURL(url);toast('Downloaded');
+  }catch(e){toast('Download failed','error');}
+  closeMenu();
+}
+
+async function deleteImg(){
+  if(!confirm(`Delete ${selImg.name}?`))return;
+  show();
+  try{
+    const fd=new FormData();fd.append('path',`/${selImg.name}`);
+    const r=await fetch(`${wURL}/edit`,{method:'DELETE',body:fd});
+    if(r.ok){toast('Deleted');await loadImgs();}
+    else toast('Delete failed','error');
+  }catch(e){toast('Delete failed','error');}
+  finally{hide();}
+  closeMenu();
+}
+
+</script>
+</body>
+</html>
