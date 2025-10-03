@@ -14,7 +14,7 @@ body{margin:0;font-family:Helvetica,Arial,sans-serif;background:#000;color:#fff;
 .hdr .title{font-size:2rem;font-weight:bold;color:#fff}
 .hdr .rb{background:linear-gradient(to right,#ef5350,#f48fb1,#7e57c2,#2196f3,#26c6da,#43a047,#eeff41,#f9a825,#ff5722);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-size:200% 200%;animation:rb 5s linear infinite}
 .row{display:flex;flex-wrap:wrap;gap:10px;margin-top:15px}
-.col{flex:1;min-width:200px}
+.col{flex:0 1 auto;min-width:200px}
 label{display:block;margin-bottom:5px;font-weight:bold;color:#fff;font-size:14px}
 input[type="text"],input[type="number"],select,textarea{background:#555;color:#fff;border:2px solid #555;padding:6px 8px;width:100%;font-size:14px;border-radius:4px}
 input[type="text"]:focus,input[type="number"]:focus,select:focus,textarea:focus{outline:none;border-color:#888}
@@ -46,7 +46,12 @@ h3{color:#fff;margin-top:30px;padding-top:20px;border-top:2px solid #333;font-si
 textarea{resize:vertical;min-height:100px;font-family:monospace}
 @keyframes spin{to{transform:rotate(360deg)}}
 @keyframes rb{0%{background-position:0% 0}100%{background-position:200% 0}}
-@media(max-width:700px){.row{flex-direction:column}.col{min-width:auto}.canvasWrap{flex-direction:column}}
+@media(max-width:700px){
+  .row{flex-direction:column}
+  .col{min-width:auto}
+  .canvasWrap{flex-direction:column;align-items:center}
+  #pixelPreview{margin-top:20px}
+}
 </style>
 </head>
 <body>
@@ -55,20 +60,27 @@ textarea{resize:vertical;min-height:100px;font-family:monospace}
 <div class="title">WLED <span class="rb">MATRIX</span> TOOL</div>
 </div>
 
-<h3 style="margin-top:20px;padding-top:0;border-top:0">Images on Device</h3>
-<div class="imgGrid" id="grid"></div>
-
-<h3>Upload New Image</h3>
+<h3 style="margin-top:20px;padding-top:0;border-top:0">Select Target Segment</h3>
 <div class="row">
 <div class="col">
 <label for="seg">Segment</label>
 <select id="seg"><option value="0" data-w="16" data-h="16">Segment 0 (16x16)</option></select>
 </div>
-<div class="col">
+</div>
+
+<h3>Images on Device</h3>
+<div class="imgGrid" id="grid"></div>
+<div style="text-align:center;margin:15px 0">
+<button class="btn" id="pxmagicBtn" style="display:none">Open PIXEL <span class="rb">MAGIC</span> TOOL</button>
+</div>
+
+<h3>Upload New Image</h3>
+<div class="row">
+<div class="col" style="flex:0 0 auto;min-width:100px">
 <label for="w">Width</label>
 <input type="number" id="w" value="16" min="1">
 </div>
-<div class="col">
+<div class="col" style="flex:0 0 auto;min-width:100px">
 <label for="h">Height</label>
 <input type="number" id="h" value="16" min="1">
 </div>
@@ -76,25 +88,30 @@ textarea{resize:vertical;min-height:100px;font-family:monospace}
 
 <div id="drop" class="drop">
 <p>Drop image or click to select</p>
-<input type="file" id="src" accept="image/*" style="display:none">
 </div>
+<input type="file" id="src" accept="image/*" style="display:none">
 
 <div class="editor" id="editor">
 <h3 style="margin-top:0;padding-top:0;border-top:0">Crop & Adjust Image</h3>
 <div class="row">
 <div class="col">
-<label>Zoom: <input type="range" id="zoom" min="0" max="100" value="0"></label>
+<label>Dark Pixel Cutoff <span style="font-weight:normal;font-size:12px">(pixels darker than this become transparent)</span></label>
+<input type="range" id="blackThresh" min="0" max="255" value="0">
 </div>
-<div class="col">
-<label>Background: <input type="color" id="bgCol" value="#000000"></label>
-</div>
-<div class="col">
-<label>Black Threshold <input type="range" id="blackThresh" min="0" max="255" value="0"> </label>
+<div class="col" style="flex:0 0 auto;min-width:120px">
+<label>Background Color</label>
+<input type="color" id="bgCol" value="#000000">
 </div>
 </div>
 <div class="row">
 <button class="btn small" id="matchAspect">Match Aspect Ratio</button>
 <button class="btn small" id="matchSize">Match Size (1:1)</button>
+<button class="btn small" id="fullSize">Full Size</button>
+</div>
+<div class="row">
+<div style="max-width:500px">
+<label>Zoom: <input type="range" id="zoom" min="0" max="100" value="0"></label>
+</div>
 </div>
 <div class="canvasWrap">
 <div>
@@ -108,8 +125,8 @@ textarea{resize:vertical;min-height:100px;font-family:monospace}
 </div>
 <div class="row">
 <div class="col">
-<label for="fname">Filename (max 16 chars)</label>
-<input type="text" id="fname" placeholder="image" maxlength="16">
+<label for="fname">Filename</label>
+<input type="text" id="fname" placeholder="image" maxlength="26">
 <small>.gif will be added</small>
 </div>
 </div>
@@ -118,15 +135,13 @@ textarea{resize:vertical;min-height:100px;font-family:monospace}
 
 <div style="text-align:center;margin:20px 0">
 <button class="btn" onclick="window.location.href=wURL">Back to WLED</button>
-</div>
-<p>Go to classic <a id="pxmt-link" href="#" target="_blank">PIXEL MAGIC TOOL</a> (requires internet connection)</p>
-</div>
 <div id="ov"></div>
 <script>
 const d=document,gId=i=>d.getElementById(i),cE=t=>d.createElement(t);
 let wURL='',selImg=null,selFile=null,cropImg=null,baseScale=1,imgScale=1,panX=0,panY=0;
 let crop={x:50,y:50,w:200,h:150},dragging=false,dragHandle=null,offsetX=0,offsetY=0;
 let panning=false,panStartX=0,panStartY=0,panOrigX=0,panOrigY=0;
+let imageList=[];
 
 (async()=>{
   const params=new URLSearchParams(window.location.search);
@@ -142,19 +157,41 @@ function toast(m,t='success'){
 function show(){gId('ov').classList.add('loading');gId('ov').style.display='block';}
 function hide(){gId('ov').classList.remove('loading');gId('ov').style.display='none';}
 
-async function loadSegs(){
-  try{
-    const r=await fetch(`${wURL}/json/state`),data=await r.json(),sel=gId('seg');
-    sel.innerHTML='';
-    if(data.seg){
-      data.seg.forEach(({id,n,start,stop,startY,stopY})=>{
-        const opt=new Option(n||`Segment ${id}`,id);
-        opt.dataset.w=stop-start;opt.dataset.h=stopY-startY;sel.add(opt);
-      });
-    }else sel.add(new Option('Segment 0 (16x16)',0));
-    const first=sel.options[0];
-    if(first){gId('w').value=first.dataset.w||16;gId('h').value=first.dataset.h||16;}
-  }catch(e){console.log('Segments failed',e);}
+function loadSegs(){
+  const sel=gId('seg');
+  const cSel=sel.value; // Store current selection
+  fetch(`${wURL}/json/state`)
+    .then(r => r.json())
+    .then(data => {
+      sel.innerHTML='';
+      if(data.seg){
+        data.seg.forEach(({id,n,start,stop,startY,stopY,fx})=>{
+          const segName = n || `Segment ${id}`;
+          const displayName = fx === 53 ? `${segName} [Image]` : segName;
+          const opt=new Option(displayName,id);
+          opt.dataset.w=stop-start;
+          opt.dataset.h=stopY-startY;
+          opt.dataset.fx=fx||0;
+          sel.add(opt);
+        });
+      }else sel.add(new Option('Segment 0',0));
+      // restore selection if non zero
+      if(cSel){ sel.value=cSel; }
+      const s=sel.options[sel.selectedIndex];
+      if(s){gId('w').value=s.dataset.w||16;gId('h').value=s.dataset.h||16;}
+    })
+    .catch(e => console.log('Segments failed',e));
+}
+
+// check if a segment already uses fx 53 (image), only one image can be active at a time
+function getCurrentImageSegment(){
+  const sel=gId('seg');
+  for(let i=0;i<sel.options.length;i++){
+    if(parseInt(sel.options[i].dataset.fx)===53){
+      return parseInt(sel.options[i].value);
+    }
+  }
+  return null;
 }
 
 gId('seg').onchange=e=>{
@@ -169,9 +206,10 @@ async function loadImgs(){
     grid.innerHTML='';
     const types=['gif','png','jpg','jpeg','bmp'];
     const imgs=data.filter(f=>types.includes(f.name.split('.').pop()?.toLowerCase()));
-    const isGif=name.toLowerCase().endsWith('.gif');
+    imageList=imgs.map(f=>f.name.replace('/',''));
     if(!imgs.length){
       grid.innerHTML='<div style="grid-column:1/-1;text-align:center;color:#aaa;padding:20px">No images found</div>';
+      checkPxmagic();
       return;
     }
     // Load images sequentially
@@ -180,14 +218,17 @@ async function loadImgs(){
       const isGif=name.toLowerCase().endsWith('.gif');
       const item=cE('div');item.className='imgItem loading';
       item.dataset.name=name;item.dataset.url=url;
-      item.onclick=()=>playImg(url,name);
+      item.onclick=()=>{
+        if(isGif) playImg(url,name);
+        else showUnsupportedDialog(url,name);
+      };
       item.oncontextmenu=e=>{e.preventDefault();selImg={name,url};showMenu(e.pageX,e.pageY);};
       grid.appendChild(item);
       await new Promise((resolve)=>{
         const img=new Image();
         img.onload=()=>{
           item.style.backgroundImage=`url(${url}?cb=${Date.now()})`;
-          if(!isGif) item.style.border = "3px solid darkred"; // non gif is not supported, mark them with red frame
+          if(!isGif) item.style.border = "5px solid darkred";
           item.classList.remove('loading');
           resolve();
         };
@@ -195,23 +236,23 @@ async function loadImgs(){
         img.src=url+'?cb='+Date.now();
       });
     }
-    // add PxMagic tile
-    checkPxmagic(grid);
+    checkPxmagic();
   }catch(e){console.log('Images failed',e);}
 }
 
 // check if pxmagic.htm(.gz) exists on device, if not, show install option, otherwise link to it
-async function checkPxmagic(grid){
+async function checkPxmagic(){
   try{
     const r=await fetch(`${wURL}/edit?list=/`),data=await r.json();
     const hasPx=data.some(f=>f.name==="/pxmagic.htm"||f.name==="/pxmagic.htm.gz");
-    const item=cE('div');item.className='imgItem';item.style.background='#333';
+    const btn=gId('pxmagicBtn');
+    btn.style.display='inline-block';
     if(hasPx){
-      item.innerHTML='<div>PIXEL <span class="rb">MAGIC</span> TOOL</div>';
-      item.onclick=()=>window.open(`${wURL}/pxmagic.htm`,'_blank');
+      btn.innerHTML='Open PIXEL MAGIC TOOL';
+      btn.onclick=()=>window.open(`${wURL}/pxmagic.htm`,'_blank');
     }else{
-      item.innerHTML='<span>Install classic Pixel Magic Tool</span>';
-      item.onclick=async()=>{
+      btn.innerHTML='Install PIXEL MAGIC TOOL';
+      btn.onclick=async()=>{
         try{
           const f=await fetch("https://dedehai.github.io/pxmagic.htm.gz");
           if(!f.ok) throw new Error("Download failed "+f.status);
@@ -219,15 +260,15 @@ async function checkPxmagic(grid){
           fd.append("data",b,"pxmagic.htm.gz");
           const u=await fetch(wURL+"/upload",{method:"POST",body:fd});
           alert(u.ok?"PxMagic installed!":"Upload failed");
-          loadImgs(); // reload grid
+          loadImgs();
         }catch(e){alert("Error "+e.message);}
       };
     }
-    grid.appendChild(item);
   }catch(e){console.log('Pxmagic check failed',e);}
 }
 
 async function loadPresets(){
+/*
   try{
     const r=await fetch(`${wURL}/presets.json`),data=await r.json(),sel=gId('preset');
     sel.innerHTML='<option value="">Select preset</option>';
@@ -236,7 +277,7 @@ async function loadPresets(){
       if(p.seg&&p.seg[0]&&p.seg[0].fx===53)sel.add(new Option(p.n||`Preset ${k}`,k));
     });
     if(sel.options.length>1)gId('presetSection').style.display='block';
-  }catch(e){console.log('Presets failed',e);}
+  }catch(e){console.log('Presets failed',e);}*/
 }
 
 
@@ -259,14 +300,31 @@ function handleFile(){
       gId('fname').value=file.name.split('.')[0].substring(0,16);
       resetView();
       const canvas=gId('cropCanvas');
-      crop.w=Math.min(cropImg.width/2,canvas.width);
-      crop.h=Math.min(cropImg.height/2,canvas.height);
-      crop.x=(canvas.width-crop.w)/2;crop.y=(canvas.height-crop.h)/2;
+      crop.w=canvas.width*0.8;
+      crop.h=canvas.height*0.8;
+      crop.x=(canvas.width-crop.w)/2;
+      crop.y=(canvas.height-crop.h)/2;
       clampCrop();drawCrop();
     };
     cropImg.src=e.target.result;
   };
   reader.readAsDataURL(file);
+  //gId('src').value = null; // reset file input so new file can be selected
+}
+
+function showUnsupportedDialog(url,name){
+  const msg=`Image format not supported by WLED.\nPlease convert to GIF below or use the Pixel Magic Tool.`;
+  alert(msg);
+  fetch(url)
+    .then(r=>r.blob())
+    .then(blob=>{
+      const file=new File([blob],name,{type:blob.type});
+      const dt=new DataTransfer();
+      dt.items.add(file);
+      gId('src').files=dt.files;
+      handleFile();
+    })
+    .catch(e=>toast('Failed to load image','error'));
 }
 
 gId('w').oninput=()=>{if(cropImg)drawCrop();};
@@ -313,6 +371,15 @@ gId('matchSize').onclick=e=>{
   clampCrop();drawCrop();
 };
 
+gId('fullSize').onclick=e=>{
+  e.preventDefault();
+  if(!cropImg)return;
+  const canvas=gId('cropCanvas');
+  crop.x=0;crop.y=0;
+  crop.w=canvas.width;crop.h=canvas.height;
+  clampCrop();drawCrop();
+};
+
 function getHandles(r){
   const s=30, o=s/2, ox=r.x-o, oy=r.y-o, ow=r.w+s, oh=r.h+s;
   return{
@@ -330,20 +397,26 @@ function hitHandle(mx,my){
 }
 
 const canvas=gId('cropCanvas'),ctx=canvas.getContext('2d');
-canvas.onmousedown=e=>{
-  if(!cropImg)return;
-  const rect=canvas.getBoundingClientRect(),mx=e.clientX-rect.left,my=e.clientY-rect.top;
+function getPos(e){
+  const rect=canvas.getBoundingClientRect();
+  if(e.touches){ // touch
+    return {x:e.touches[0].clientX-rect.left,y:e.touches[0].clientY-rect.top};
+  }else{ // mouse
+    return {x:e.clientX-rect.left,y:e.clientY-rect.top};
+  }
+}
+
+function startAction(mx,my){
   dragHandle=hitHandle(mx,my);
   if(dragHandle){dragging=true;return;}
   if(mx>crop.x&&mx<crop.x+crop.w&&my>crop.y&&my<crop.y+crop.h){
     dragging=true;dragHandle="move";offsetX=mx-crop.x;offsetY=my-crop.y;
-  }else{panning=true;panStartX=mx;panStartY=my;panOrigX=panX;panOrigY=panY;}
-};
-canvas.onmouseup=()=>{dragging=false;dragHandle=null;panning=false;};
-canvas.onmousemove=e=>{
-  if(!cropImg)return;
-  const rect=canvas.getBoundingClientRect();
-  let mx=e.clientX-rect.left,my=e.clientY-rect.top;
+  }else{
+    panning=true;panStartX=mx;panStartY=my;panOrigX=panX;panOrigY=panY;
+  }
+}
+
+function moveAction(mx,my){
   if(dragging){
     switch(dragHandle){
       case "move":crop.x=mx-offsetX;crop.y=my-offsetY;break;
@@ -357,9 +430,35 @@ canvas.onmousemove=e=>{
       case "e":crop.w=mx-crop.x;break;
     }
     clampCrop();drawCrop();
-  }else if(panning){panX=panOrigX+(mx-panStartX);panY=panOrigY+(my-panStartY);clampCrop();drawCrop();}
-};
+  }else if(panning){
+    panX=panOrigX+(mx-panStartX);
+    panY=panOrigY+(my-panStartY);
+    clampCrop();drawCrop();
+  }
+}
 
+function endAction(){
+  dragging=false;dragHandle=null;panning=false;
+}
+
+// Mouse
+canvas.onmousedown=e=>{if(!cropImg)return;const {x,y}=getPos(e);startAction(x,y);};
+canvas.onmousemove=e=>{if(!cropImg)return;const {x,y}=getPos(e);moveAction(x,y);};
+canvas.onmouseup=endAction;
+
+// Touch
+canvas.ontouchstart=e=>{
+  if(!cropImg||e.touches.length!==1)return;
+  e.preventDefault();
+  const {x,y}=getPos(e);startAction(x,y);
+};
+canvas.ontouchmove=e=>{
+  if(!cropImg||e.touches.length!==1)return;
+  e.preventDefault();
+  const {x,y}=getPos(e);moveAction(x,y);
+};
+canvas.ontouchend=endAction;
+canvas.ontouchcancel=endAction;
 
 
 function drawCrop(){
@@ -383,12 +482,14 @@ function drawCrop(){
 
 gId('blackThresh').addEventListener('input', () => { updatePrev(); });
 
-function applyBlackThreshold(ctx){
-  let t = parseInt(gId('blackThresh').value, 10);
-  const id = ctx.getImageData(0,0,ctx.canvas.width,ctx.canvas.height), d = id.data;
-  for(let i=0;i<d.length;i+=4) if(d[i]<t && d[i+1]<t && d[i+2]<t) d[i]=d[i+1]=d[i+2]=0;
-  gId('bgCol').value;
-  ctx.putImageData(id,0,0);
+function applyBlackThreshold(c){
+  let t=+gId('blackThresh').value,
+    d=c.getImageData(0,0,c.canvas.width,c.canvas.height),
+    b=gId('bgCol').value.match(/\w\w/g).map(x=>parseInt(x,16)); // extract ["rr","gg","bb"]
+  for(let i=0;i<d.data.length;i+=4)
+    if(d.data[i]<t&&d.data[i+1]<t&&d.data[i+2]<t)
+      d.data[i]=b[0],d.data[i+1]=b[1],d.data[i+2]=b[2];
+  c.putImageData(d,0,0);
 }
 
 function updatePrev(){
@@ -407,6 +508,13 @@ function updatePrev(){
 gId('upload').onclick=async()=>{
   if(!selFile){toast('Select an image','error');return;}
   const w=+gId('w').value,h=+gId('h').value,fname=gId('fname').value.trim()||'image';
+  const filename=`${fname}.gif`;
+  
+  // Check if file already exists
+  if(imageList.includes(filename)){
+    if(!confirm(`${filename} already exists. Do you want to overwrite it?`))return;
+  }
+  
   show();
   try{
     let fileToUpload;
@@ -417,7 +525,7 @@ gId('upload').onclick=async()=>{
       let tctx=tmp.getContext('2d');tctx.imageSmoothingEnabled=false;
       tctx.fillStyle=gId('bgCol').value;tctx.fillRect(0,0,w,h);
       tctx.drawImage(cropImg,(crop.x-panX)/imgScale,(crop.y-panY)/imgScale,crop.w/imgScale,crop.h/imgScale,0,0,w,h);
-      applyBlackThreshold(tctx, 150); // TODO: make adjustable threshold
+      applyBlackThreshold(tctx, 150);
       const imgData=tctx.getImageData(0,0,w,h);
       let {indexed,palette}=quantize(imgData.data);
       palette=padPalette(palette);
@@ -425,16 +533,15 @@ gId('upload').onclick=async()=>{
       const gifWriter=new window.GifWriter(gifData,w,h,{loop:0});
       gifWriter.addFrame(0,0,w,h,indexed,{palette});
       gifWriter.end();
-      fileToUpload=new File([new Uint8Array(gifData)],`${fname}.gif`,{type:'image/gif'});
+      fileToUpload=new File([new Uint8Array(gifData)],filename,{type:'image/gif'});
     }
-    const fd=new FormData();fd.append('file',fileToUpload,`${fname}.gif`);
+    const fd=new FormData();fd.append('file',fileToUpload,filename);
     const r=await fetch(`${wURL}/upload`,{method:'POST',body:fd});
     if(r.ok){
-      toast(`${fname}.gif uploaded`);
+      toast(`${filename} uploaded`);
       await loadImgs();
       await loadPresets();
-      selFile=null;cropImg=null;gId('src').value='';
-      gId('editor').classList.remove('active');
+      gId('src').value='';  // Add this line to reset the input
       gId('drop').innerHTML='<p>Drop image or click to select</p>';
     }else toast('Upload failed','error');
   }catch(e){toast(`Error: ${e.message}`,'error');}
@@ -470,12 +577,45 @@ function padPalette(palette){
 }
 
 async function playImg(url,name){
+  const targetSeg=+gId('seg').value;
+  const currentImgSeg=getCurrentImageSegment();
+
+  // If another segment already has image effect, confirm switch
+  if(currentImgSeg!==null && currentImgSeg!==targetSeg){
+    if(!confirm(`Segment ${currentImgSeg} is displaying an image. Switch to segment ${targetSeg}?`)){
+      return;
+    }
+    // Update both segments: set old to static, new to image
+    show();
+    try{
+      const json={
+        on:true,
+        seg:[
+          {id:currentImgSeg,fx:0},
+          {id:targetSeg,fx:53,frz:false,sx:128,n:name}
+        ]
+      };
+      const r=await fetch(`${wURL}/json/state`,{method:'POST',body:JSON.stringify(json)});
+      const result=await r.json();
+      if(result.success){
+        toast(`Playing ${name} on segment ${targetSeg}`);
+        await loadSegs();
+      }else toast('Failed to switch segments','error');
+    }catch(e){toast(`Error: ${e.message}`,'error');}
+    finally{hide();}
+    return;
+  }
+
+  // Normal playback
   show();
   try{
-    const json={on:true,seg:{id:+gId('seg').value,fx:53,frz:false,sx:128,n:name}};
+    const json={on:true,seg:{id:targetSeg,fx:53,frz:false,sx:128,n:name}};
     const r=await fetch(`${wURL}/json/state`,{method:'POST',body:JSON.stringify(json)});
     const result=await r.json();
-    if(result.success)toast(`Playing ${name}`);
+    if(result.success){
+      toast(`Playing ${name}`);
+      await loadSegs();
+    }
     else toast('Failed to play','error');
   }catch(e){toast(`Error: ${e.message}`,'error');}
   finally{hide();}
