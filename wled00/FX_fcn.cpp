@@ -448,6 +448,9 @@ void Segment::setGeometry(uint16_t i1, uint16_t i2, uint8_t grp, uint8_t spc, ui
 
   // apply change immediately
   if (i2 <= i1) { //disable segment
+    #ifdef WLED_ENABLE_GIF
+    endImagePlayback(this);
+    #endif
     deallocateData();
     p_free(pixels);
     pixels = nullptr;
@@ -466,6 +469,9 @@ void Segment::setGeometry(uint16_t i1, uint16_t i2, uint8_t grp, uint8_t spc, ui
   #endif
   // safety check
   if (start >= stop || startY >= stopY) {
+    #ifdef WLED_ENABLE_GIF
+    endImagePlayback(this);
+    #endif
     deallocateData();
     p_free(pixels);
     pixels = nullptr;
@@ -479,6 +485,9 @@ void Segment::setGeometry(uint16_t i1, uint16_t i2, uint8_t grp, uint8_t spc, ui
     pixels = static_cast<uint32_t*>(allocate_buffer(length() * sizeof(uint32_t), BFRALLOC_PREFER_PSRAM | BFRALLOC_NOBYTEACCESS));
     if (!pixels) {
       DEBUGFX_PRINTLN(F("!!! Not enough RAM for pixel buffer !!!"));
+      #ifdef WLED_ENABLE_GIF
+      endImagePlayback(this);
+      #endif
       deallocateData();
       errorFlag = ERR_NORAM_PX;
       stop = 0;
