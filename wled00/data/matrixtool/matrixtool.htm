@@ -8,55 +8,27 @@
 <title>WLED Matrix Tool</title>
 <script src="omggif.js"></script>
 <style>
-body{margin:0;font-family:Helvetica,Arial,sans-serif;background:#000;color:#fff;overflow-x:hidden}
-.cont{max-width:800px;margin:0 auto;padding:20px}
-.hdr{text-align:center;padding:20px 0;border-bottom:2px solid #333}
+@import url("style.css");
 .hdr .title{font-size:2rem;font-weight:bold;color:#fff}
 .hdr .rb{background:linear-gradient(to right,#ef5350,#f48fb1,#7e57c2,#2196f3,#26c6da,#43a047,#eeff41,#f9a825,#ff5722);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-size:200% 200%;animation:rb 5s linear infinite}
-.row{display:flex;flex-wrap:wrap;gap:10px;margin-top:15px}
-.col{flex:0 1 auto;min-width:200px}
-label{display:block;margin-bottom:5px;font-weight:bold;color:#fff;font-size:14px}
-input[type="text"],input[type="number"],select,textarea{background:#555;color:#fff;border:2px solid #555;padding:6px 8px;width:100%;font-size:14px;border-radius:4px}
-input[type="text"]:focus,input[type="number"]:focus,select:focus,textarea:focus{outline:none;border-color:#888}
-#w, #h { width: 80px !important; display: inline-block; }
-input[type="range"]{width:100%;margin:10px 0}
-input[type="color"]{width:60px;height:30px;border:2px solid #555;background:#555;cursor:pointer}
-.drop{border:2px dashed #888;background:#222;color:#fff;text-align:center;padding:40px 20px;border-radius:8px;margin-top:15px;cursor:pointer;transition:all 0.3s}
-.drop:hover,.drop.active{background:#333;border-color:#aaa}
-.btn{background:#333;color:#fff;border:3px solid #333;border-radius:24px;font-size:15px;padding:6px 10px;cursor:pointer;width:100%;margin-top:10px;transition:background 0.3s}
-.btn:hover{background:#555}
-.btn.primary{background:#09a;border-color:#09a}
-.btn.primary:hover{background:#0b8}
-.btn.small{padding:4px 8px;font-size:13px;width:auto;display:inline-block;margin:5px 5px 5px 0}
-#ov{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.8);display:none;z-index:9999}
-#ov.loading::after{content:"";position:absolute;top:calc(50% - 20px);left:calc(50% - 20px);width:40px;height:40px;border:4px solid #fff;border-top-color:#000;border-radius:50%;animation:spin 1s linear infinite}
-.toast{position:fixed;bottom:20px;right:20px;background:#555;color:#fff;padding:12px 20px;border-radius:8px;font-size:14px;z-index:9999;border:2px solid #888}
-small{color:#aaa;font-size:12px;margin-top:2px;display:block}
 .imgGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(80px,1fr));gap:10px;margin:20px 0}
 .imgItem{aspect-ratio:1;border:2px solid #555;border-radius:4px;background-size:cover;background-position:center;cursor:pointer;transition:border-color 0.2s;image-rendering:pixelated}
 .imgItem:hover{border-color:#09a}
 .imgItem.loading{background:#222;display:flex;align-items:center;justify-content:center}
-.imgItem.loading::after{content:"";width:20px;height:20px;border:2px solid #fff;border-top-color:#000;border-radius:50%;animation:spin 1s linear infinite}
-.editor{display:none;margin:20px 0;padding:20px;background:#222;border:2px solid #555;border-radius:8px}
-.editor.active{display:block}
-.canvasWrap{display:flex;gap:20px;align-items:flex-start;flex-wrap:wrap}
-#cropCanvas{background:#333;cursor:crosshair;border:2px solid #555;max-width:100%}
-#pixelPreview{background:#333;border:2px solid #555;image-rendering:pixelated}
-h3{color:#fff;margin-top:30px;padding-top:20px;border-top:2px solid #333;font-size:18px}
-textarea{resize:vertical;min-height:100px;font-family:monospace}
+.imgItem.loading::before{content:"Loading...";}
 .ctxMenu{position:fixed;background:#333;border:2px solid #555;border-radius:8px;padding:8px;z-index:10000;box-shadow:0 4px 12px rgba(0,0,0,0.5)}
 .ctxMenu button{display:block;width:100%;text-align:left;background:#333;border:0;color:#fff;padding:8px 12px;cursor:pointer;border-radius:4px;margin-bottom:5px;font-size:14px}
 .ctxMenu button:hover{background:#555}
 .ctxMenu button:last-child{margin-bottom:0}
 .ctxMenu button.danger{color:#f44}
+.editor{display:none;margin:20px 0;padding:20px;background:#222;border:2px solid #555;border-radius:8px}
+.editor.active{display:block}
+.canvasWrap{display:flex;gap:20px;align-items:flex-start;flex-wrap:wrap}
+#cropCanvas{background:#333;cursor:crosshair;border:2px solid #555;max-width:100%}
+#pixelPreview{background:#333;border:2px solid #555;image-rendering:pixelated}
+.toast{position:fixed;top:20px;right:20px;background:#555;color:#fff;padding:12px 20px;border-radius:8px;font-size:14px;z-index:9999;border:2px solid #888}
 @keyframes spin{to{transform:rotate(360deg)}}
 @keyframes rb{0%{background-position:0% 0}100%{background-position:200% 0}}
-@media(max-width:700px){
-  .row{flex-direction:column}
-  .col{min-width:auto}
-  .canvasWrap{flex-direction:column;align-items:center}
-  #pixelPreview{margin-top:20px}
-}
 </style>
 </head>
 <body>
@@ -152,6 +124,7 @@ let gifFrames=null,gifInfo=null,animationTimer=null;
 (async()=>{
   const params=new URLSearchParams(window.location.search);
   wURL=`http://${params.get('host')||window.location.host}`;
+  await checkPxmagic();
   await loadSegs();
   await loadImgs();
 })();
@@ -216,7 +189,6 @@ async function loadImgs(){
     imageList=imgs.map(f=>f.name.replace('/',''));
     if(!imgs.length){
       grid.innerHTML='<div style="grid-column:1/-1;text-align:center;color:#aaa;padding:20px">No images found</div>';
-      checkPxmagic();
       return;
     }
     // Load images sequentially
@@ -243,7 +215,6 @@ async function loadImgs(){
         img.src=url+'?cb='+Date.now();
       });
     }
-    checkPxmagic();
   }catch(e){console.log('Images failed',e);}
 }
 
@@ -285,7 +256,6 @@ function handleFile(){
   if(!file)return;
   selFile=file;
   // Check if it's a GIF - if so, parse it
-  // disposal methods 0=unspecified, 1=keep, 2=restore to background, 3=restore to previous
  if(file.type==='image/gif'){
   const reader=new FileReader();
   reader.onload=e=>{
@@ -294,49 +264,42 @@ function handleFile(){
       const gif=new GifReader(arr);
       gifInfo={width:gif.width,height:gif.height,numFrames:gif.numFrames()};
       gifFrames=[];
-      
-      // Create persistent canvas to build up frames
-      const accumCanvas=cE('canvas');
+      // disposal methods 0=unspecified, 1=keep, 2=restore to background, 3=restore to previous
+      const accumCanvas=cE('canvas'); // persistent canvas to build up frames
       accumCanvas.width=gif.width;
       accumCanvas.height=gif.height;
       const accumCtx=accumCanvas.getContext('2d');
-      
       let savedFrame=null; // For disposal method 3
-      
+
       for(let i=0;i<gifInfo.numFrames;i++){
         const frameInfo=gif.frameInfo(i);
         const disposal=frameInfo.disposal||0;
-        
-        // For disposal 3, save state BEFORE drawing
+        // for disposal 3, save state BEFORE drawing
         if(disposal===3){
           savedFrame=accumCtx.getImageData(0,0,gif.width,gif.height);
         }
-        
-        // Decode current frame
+        // decode current frame
         const tempPixels=new Uint8Array(gif.width*gif.height*4);
         gif.decodeAndBlitFrameRGBA(i,tempPixels);
-        
+
         const tempCanvas=cE('canvas');
         tempCanvas.width=gif.width;
         tempCanvas.height=gif.height;
         const tempCtx=tempCanvas.getContext('2d');
         const tempImageData=new ImageData(new Uint8ClampedArray(tempPixels),gif.width,gif.height);
         tempCtx.putImageData(tempImageData,0,0);
-        
-        // Draw frame onto accumulation canvas
+
+        // draw frame onto accumulation canvas
         accumCtx.drawImage(tempCanvas,0,0);
-        
-        // Store the complete frame for display
+        // store the complete frame for display
         const completeFrame=accumCtx.getImageData(0,0,gif.width,gif.height);
         gifFrames.push({
           pixels:new Uint8Array(completeFrame.data),
           delay:frameInfo.delay||10
         });
-        
-        // NOW apply disposal for what to do AFTER this frame is shown
+
         if(disposal===2){
-          // Clear to background
-          accumCtx.clearRect(0,0,gif.width,gif.height);
+          accumCtx.clearRect(0,0,gif.width,gif.height); // clear to background
         }else if(disposal===3){
           // Restore to saved state (before this frame was drawn)
           if(savedFrame){

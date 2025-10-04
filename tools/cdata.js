@@ -126,12 +126,13 @@ async function minify(str, type = "plain") {
   throw new Error("Unknown filter: " + type);
 }
 
-async function writeHtmlGzipped(sourceFile, resultFile, page) {
+async function writeHtmlGzipped(sourceFile, resultFile, page, inlineCss = true) {
   console.info("Reading " + sourceFile);
   inline.html({
     fileContent: fs.readFileSync(sourceFile, "utf8"),
     relativeTo: path.dirname(sourceFile),
     strict: true,
+    stylesheets: inlineCss // when true, css is inlined
   },
     async function (error, html) {
       if (error) throw error;
@@ -245,7 +246,7 @@ if (isAlreadyBuilt("wled00/data") && process.argv[2] !== '--force' && process.ar
 writeHtmlGzipped("wled00/data/index.htm", "wled00/html_ui.h", 'index');
 writeHtmlGzipped("wled00/data/pixart/pixart.htm", "wled00/html_pixart.h", 'pixart');
 writeHtmlGzipped("wled00/data/pxmagic/pxmagic.htm", "wled00/html_pxmagic.h", 'pxmagic');
-writeHtmlGzipped("wled00/data/matrixtool/matrixtool.htm", "wled00/html_matrixtool.h", 'matrixtool');
+writeHtmlGzipped("wled00/data/matrixtool/matrixtool.htm", "wled00/html_matrixtool.h", 'matrixtool', false); // do not inline css
 
 writeChunks(
   "wled00/data/cpal",
