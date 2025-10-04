@@ -284,32 +284,77 @@ function handleFile(){
   const file=gId('src').files[0];
   if(!file)return;
   selFile=file;
-
   // Check if it's a GIF - if so, parse it
-  if(file.type==='image/gif'){
-    const reader=new FileReader();
-    reader.onload=e=>{
-      const arr=new Uint8Array(e.target.result);
-      try{
-        const gif=new GifReader(arr);
-        gifInfo={width:gif.width,height:gif.height,numFrames:gif.numFrames()};
-        gifFrames=[];
-
-        // Extract all frames
-        for(let i=0;i<gifInfo.numFrames;i++){
-          const frameInfo=gif.frameInfo(i);
-          const pixels=new Uint8Array(gifInfo.width*gifInfo.height*4);
-          gif.decodeAndBlitFrameRGBA(i,pixels);
-          gifFrames.push({pixels,delay:frameInfo.delay||10});
+  // disposal methods 0=unspecified, 1=keep, 2=restore to background, 3=restore to previous
+ if(file.type==='image/gif'){
+  const reader=new FileReader();
+  reader.onload=e=>{
+    const arr=new Uint8Array(e.target.result);
+    try{
+      const gif=new GifReader(arr);
+      gifInfo={width:gif.width,height:gif.height,numFrames:gif.numFrames()};
+      gifFrames=[];
+      
+      // Create persistent canvas to build up frames
+      const accumCanvas=cE('canvas');
+      accumCanvas.width=gif.width;
+      accumCanvas.height=gif.height;
+      const accumCtx=accumCanvas.getContext('2d');
+      
+      let savedFrame=null; // For disposal method 3
+      
+      for(let i=0;i<gifInfo.numFrames;i++){
+        const frameInfo=gif.frameInfo(i);
+        const disposal=frameInfo.disposal||0;
+        
+        // For disposal 3, save state BEFORE drawing
+        if(disposal===3){
+          savedFrame=accumCtx.getImageData(0,0,gif.width,gif.height);
         }
-        loadGifToCanvas();
-      }catch(err){
-        toast('Failed to parse GIF','error');
-        console.error(err);
+        
+        // Decode current frame
+        const tempPixels=new Uint8Array(gif.width*gif.height*4);
+        gif.decodeAndBlitFrameRGBA(i,tempPixels);
+        
+        const tempCanvas=cE('canvas');
+        tempCanvas.width=gif.width;
+        tempCanvas.height=gif.height;
+        const tempCtx=tempCanvas.getContext('2d');
+        const tempImageData=new ImageData(new Uint8ClampedArray(tempPixels),gif.width,gif.height);
+        tempCtx.putImageData(tempImageData,0,0);
+        
+        // Draw frame onto accumulation canvas
+        accumCtx.drawImage(tempCanvas,0,0);
+        
+        // Store the complete frame for display
+        const completeFrame=accumCtx.getImageData(0,0,gif.width,gif.height);
+        gifFrames.push({
+          pixels:new Uint8Array(completeFrame.data),
+          delay:frameInfo.delay||10
+        });
+        
+        // NOW apply disposal for what to do AFTER this frame is shown
+        if(disposal===2){
+          // Clear to background
+          accumCtx.clearRect(0,0,gif.width,gif.height);
+        }else if(disposal===3){
+          // Restore to saved state (before this frame was drawn)
+          if(savedFrame){
+            accumCtx.putImageData(savedFrame,0,0);
+          }
+        }
+        // disposal 0 or 1: keep frame (do nothing)
       }
-    };
-    reader.readAsArrayBuffer(file);
-  }else{
+      loadGifToCanvas();
+    }catch(err){
+      toast('Failed to parse GIF, loading as static image','error');
+      console.error(err);
+      loadAsStaticImage(file);
+    }
+  };
+  reader.readAsArrayBuffer(file);
+  }else
+  {
     // Non-GIF image - existing code
     const reader=new FileReader();
     reader.onload=e=>{
@@ -362,25 +407,30 @@ function loadGifToCanvas(){
 
 function startGifAnimation(){
   if(animationTimer)clearInterval(animationTimer);
-  if(!gifFrames)return;
-
+  if(!gifFrames||gifFrames.length<=1){
+    drawCrop();
+    return;
+  }
+  
   let frameIndex=0;
+  const tempCanvas=cE('canvas');
+  tempCanvas.width=gifInfo.width;
+  tempCanvas.height=gifInfo.height;
+  const tempCtx=tempCanvas.getContext('2d');
+  
   const animate=()=>{
-    const tempCanvas=cE('canvas');
-    tempCanvas.width=gifInfo.width;
-    tempCanvas.height=gifInfo.height;
-    const tempCtx=tempCanvas.getContext('2d');
+    // Each frame is now complete, just draw it
     const imageData=new ImageData(new Uint8ClampedArray(gifFrames[frameIndex].pixels),gifInfo.width,gifInfo.height);
     tempCtx.putImageData(imageData,0,0);
-
     cropImg.src=tempCanvas.toDataURL();
-    drawCrop();
-
+    
     frameIndex=(frameIndex+1)%gifInfo.numFrames;
   };
-
+  
+  cropImg.onload=()=>drawCrop();
   animate();
-  animationTimer=setInterval(animate,gifFrames[0].delay*10);
+  const avgDelay=gifFrames.reduce((sum,f)=>sum+f.delay,0)/gifFrames.length;
+  animationTimer=setInterval(animate,Math.max(avgDelay*10,50));
 }
 
 function stopGifAnimation(){
@@ -602,31 +652,32 @@ gId('upload').onclick=async()=>{
       const gifData=[];
       const gifWriter=new GifWriter(gifData,w,h,{loop:0});
 
+      const tempCanvas=cE('canvas');
+      tempCanvas.width=gifInfo.width;
+      tempCanvas.height=gifInfo.height;
+      const tempCtx=tempCanvas.getContext('2d');
+
+      const cropCanvas=cE('canvas');
+      cropCanvas.width=w;
+      cropCanvas.height=h;
+      const cropCtx=cropCanvas.getContext('2d');
+
       for(let i=0;i<gifFrames.length;i++){
-        const tempCanvas=cE('canvas');
-        tempCanvas.width=gifInfo.width;
-        tempCanvas.height=gifInfo.height;
-        const tempCtx=tempCanvas.getContext('2d');
+        // Draw source frame
         const imageData=new ImageData(new Uint8ClampedArray(gifFrames[i].pixels),gifInfo.width,gifInfo.height);
         tempCtx.putImageData(imageData,0,0);
-
         // Crop and resize
-        const cropCanvas=cE('canvas');
-        cropCanvas.width=w;
-        cropCanvas.height=h;
-        const cropCtx=cropCanvas.getContext('2d');
         cropCtx.imageSmoothingEnabled=false;
         cropCtx.fillStyle=gId('bgCol').value;
         cropCtx.fillRect(0,0,w,h);
         cropCtx.drawImage(tempCanvas,(crop.x-panX)/imgScale,(crop.y-panY)/imgScale,crop.w/imgScale,crop.h/imgScale,0,0,w,h);
 
-        const frameData=cropCtx.getImageData(0,0,w,h);
         applyBlackThreshold(cropCtx);
         const finalData=cropCtx.getImageData(0,0,w,h);
         let {indexed,palette}=quantize(finalData.data);
         palette=padPalette(palette);
 
-        gifWriter.addFrame(0,0,w,h,indexed,{palette,delay:gifFrames[i].delay});
+        gifWriter.addFrame(0,0,w,h,indexed,{palette,delay:gifFrames[i].delay,disposal:2});
       }
       gifWriter.end();
       fileToUpload=new File([new Uint8Array(gifData)],filename,{type:'image/gif'});
