@@ -662,6 +662,10 @@ void serializeState(JsonObject root, bool forPreset, bool includeBri, bool segme
         err[F("t1")] = entry.tag1;
         err[F("t2")] = entry.tag2;  
         err[F("t3")] = entry.tag3;
+        // Add custom message if present
+        if (entry.customMessage != nullptr) {
+          err[F("m")] = entry.customMessage;
+        }
       }
       root[F("errorLogTime")] = millis(); // Current time for client calculations
     }

@@ -1133,6 +1133,7 @@ struct ErrorLogEntry {
   byte tag1;               // future use tag 1
   byte tag2;               // future use tag 2  
   byte tag3;               // future use tag 3
+  char* customMessage;     // optional custom message string (nullptr if not used)
 };
 
 #define ERROR_LOG_SIZE 5
@@ -1141,12 +1142,29 @@ static byte errorLogIndex = 0;
 static byte errorLogCount = 0;
 
 // Error logging functions
-void addToErrorLog(byte errorCode, byte tag1, byte tag2, byte tag3) {
+void addToErrorLog(byte errorCode, byte tag1, byte tag2, byte tag3, const char* customMessage) {
+  // Free existing custom message if present
+  if (errorLog[errorLogIndex].customMessage != nullptr) {
+    delete[] errorLog[errorLogIndex].customMessage;
+    errorLog[errorLogIndex].customMessage = nullptr;
+  }
+  
   errorLog[errorLogIndex].timestamp = millis();
   errorLog[errorLogIndex].errorCode = errorCode;
   errorLog[errorLogIndex].tag1 = tag1;
   errorLog[errorLogIndex].tag2 = tag2;
   errorLog[errorLogIndex].tag3 = tag3;
+  
+  // Copy custom message if provided
+  if (customMessage != nullptr) {
+    size_t len = strlen(customMessage);
+    errorLog[errorLogIndex].customMessage = new char[len + 1];
+    if (errorLog[errorLogIndex].customMessage != nullptr) {
+      strcpy(errorLog[errorLogIndex].customMessage, customMessage);
+    }
+  } else {
+    errorLog[errorLogIndex].customMessage = nullptr;
+  }
   
   errorLogIndex = (errorLogIndex + 1) % ERROR_LOG_SIZE;
   if (errorLogCount < ERROR_LOG_SIZE) {
@@ -1155,6 +1173,14 @@ void addToErrorLog(byte errorCode, byte tag1, byte tag2, byte tag3) {
 }
 
 void clearErrorLog() {
+  // Free all custom message strings
+  for (byte i = 0; i < ERROR_LOG_SIZE; i++) {
+    if (errorLog[i].customMessage != nullptr) {
+      delete[] errorLog[i].customMessage;
+      errorLog[i].customMessage = nullptr;
+    }
+  }
+  
   errorLogIndex = 0;
   errorLogCount = 0;
 }

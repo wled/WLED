@@ -469,8 +469,10 @@ function handleServerErrorLog(serverErrors, serverTime) {
 		
 		const errorEntry = {
 			code: serverEntry.c,
-			message: getErrorMessage(serverEntry.c),
+			// Use custom message if provided, otherwise use error code lookup
+			message: serverEntry.m ? serverEntry.m : getErrorMessage(serverEntry.c),
 			timestamp: absoluteTime,
+			// If custom message provided, determine warning/error based on code range
 			isWarning: serverEntry.c >= 100,
 			tag1: serverEntry.t1 || 0,
 			tag2: serverEntry.t2 || 0,
