@@ -29,7 +29,13 @@ body {
   animation: rb 5s linear infinite;
   font-size: 42px;
 }
-/* Image grid styles */
+
+/* Common container styles - consolidates imgGrid, canvasWrap, controls-row */
+.canvasWrap, .controls-row {
+  display: flex;
+  gap: 10px;
+  margin: 20px 0;
+}
 .imgGrid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
@@ -59,16 +65,34 @@ body {
 .imgItem.loading::before {
   content: "Loading...";
 }
+.canvasWrap {
+  flex-direction: column;
+  gap: 5px;
+  align-items: center;
+  width: 100%;
+  margin: 0;
+}
+.controls-row {
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin: 15px 0;
+}
+
+.ctxMenu, .editor {
+  border: 2px solid #555;
+  border-radius: 8px;
+  background: #333;
+}
+
 
 /* Context menu styles */
 .ctxMenu {
   position: fixed;
-  background: #333;
-  border: 2px solid #555;
-  border-radius: 8px;
   padding: 8px;
   z-index: 10000;
   box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+  border-radius: 8px;
 }
 .ctxMenu button {
   display: block;
@@ -99,36 +123,34 @@ body {
   margin: 20px 0;
   padding: 20px;
   background: #222;
-  border: 2px solid #555;
-  border-radius: 8px;
 }
 .editor.active {
   display: block;
 }
+
+/* Common input styles - consolidates color, canvas, slider inputs */
+input[type="color"], #cropCanvas, #pixelPreview {
+  border: 2px solid #555;
+  background: #333;
+}
 input[type="color"] {
   border: 0;
 }
-/* Canvas styles */
-.canvasWrap {
-  display: flex;
-  gap: 20px;
-  align-items: flex-start;
-  flex-wrap: wrap;
-}
 #cropCanvas {
-  background: #333;
   cursor: crosshair;
-  border: 2px solid #555;
   max-width: 100%;
-  border-radius:8px;
+  border-radius: 8px;
 }
 #pixelPreview {
-  background: #333;
-  border: 2px solid #555;
   image-rendering: pixelated;
-  border-radius:4px;
+  border-radius: 4px;
 }
-/* Toast notification styles */
+
+/* Common notification styles - consolidates toast and drop */
+.toast, .drop {
+  border-radius: 8px;
+  transition: all 0.3s ease;
+}
 .toast {
   position: fixed;
   top: 20px;
@@ -136,50 +158,53 @@ input[type="color"] {
   background: #555;
   color: #fff;
   padding: 12px 20px;
-  border-radius: 8px;
   font-size: 14px;
   z-index: 9999;
   border: 2px solid #888;
 }
-/* New styles for better UX */
 .drop {
-  border:2px dashed #555;
-  border-radius:8px;
-  padding:40px 20px;
-  background:#2a2a2a;
-  cursor:pointer;
-  transition:all 0.3s ease;
-  margin:20px auto;
-  max-width:80%;
+  border: 2px dashed #555;
+  padding: 40px 20px;
+  background: #2a2a2a;
+  cursor: pointer;
+  margin: 20px auto;
+  max-width: 80%;
 }
 .drop:hover {
   border-color: #48a;
   background: #333;
 }
 
-/* extend button styles */
+/* Button style extensions - consolidated hover states */
 button, .btn, button.sml {
   border: 2px solid #333;
 }
-
 button:hover, .btn:hover, button.sml:hover {
   border-color: #48a;
 }
 
-.size-controls{
-  display:none;
-  margin:15px 0;
-}
-.size-controls.show {
-  display: block;
-}
-.size-row {
+/* Common layout styles - consolidates size-controls, size-row, bg-color-row */
+.size-controls, .size-row, .bg-color-row {
   display: flex;
-  gap: 20px;
   align-items: center;
   justify-content: center;
+}
+.size-controls {
+  display: none;
+  margin: 15px 0;
+  flex-direction: column;
+}
+.size-controls.show {
+  display: flex;
+}
+.size-row {
+  gap: 20px;
   margin-bottom: 10px;
 }
+.bg-color-row {
+  margin-bottom: 15px;
+}
+
 .size-col {
   display: flex;
   flex-direction: row;
@@ -193,52 +218,29 @@ button:hover, .btn:hover, button.sml:hover {
   color: #ccc;
 }
 
-.bg-color-row {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-bottom: 15px;
+/* Common text styles - consolidates slider-container, preview-info, preview-container */
+.slider-container, .preview-container, .preview-info {
+  text-align: center;
 }
 .slider-container {
-  text-align: center;
   margin-bottom: 5px;
 }
-.slider-container label {
+.slider-container label, .preview-info {
   display: block;
   margin-bottom: 5px;
 }
-.slider {
-  /*border-radius: 24px;
-  position: relative;
-  background-color: #222 */
-  width: 100%;
-  max-width: 500px;
-}
-.canvasWrap {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-  align-items: center;
-  width: 100%;
-}
-.canvas-container {
-  width: 100%;
-}
-.preview-container {
-  text-align: center;
-}
 .preview-info {
-  text-align: center;
   margin-bottom: 10px;
   font-size: 14px;
   color: #ccc;
 }
-.controls-row {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-  justify-content: center;
-  margin: 15px 0;
+
+.slider {
+  width: 100%;
+  max-width: 500px;
+}
+.canvas-container {
+  width: 100%;
 }
 
 @keyframes spin{to{transform:rotate(360deg)}}
@@ -287,7 +289,6 @@ button:hover, .btn:hover, button.sml:hover {
 <label>Zoom: </label>
 <input type="range" id="zoom" min="0" max="100" value="0" class="slider">
 </div>
-<small>Drag to crop, resize handles, pan outside crop</small>
 <canvas id="cropCanvas" width="500" height="400"></canvas>
 </div>
 
@@ -387,7 +388,7 @@ function loadSegs(){
 }
 
 // check if a segment already uses fx 53 (image), only one image can be active at a time
-function getCurrentImageSegment(){
+function getCurImgSeg(){
   const sel=gId('seg');
   for(let i=0;i<sel.options.length;i++){
     if(parseInt(sel.options[i].dataset.fx)===53){
@@ -419,19 +420,19 @@ async function loadImgs(){
         grid.innerHTML='<div style="grid-column:1/-1;text-align:center;color:#aaa;padding:20px">No images found</div>';
         return;
       }
-      await loadImageItems(imgs);
+      await loadImgs2(imgs);
     } else if(missingImages.length > 0) {
       // Add only missing images
       const missingImgData = imgs.filter(f => missingImages.includes(f.name.replace('/','')));
       imageList = [...newImageList];
-      await loadImageItems(missingImgData);
+      await loadImgs2(missingImgData);
     }
     // If no missing images, do nothing (keep existing display)
     
   }catch(e){console.log('Images failed',e);}
 }
 
-async function loadImageItems(imgs){
+async function loadImgs2(imgs){
   const grid = gId('grid');
   // Load images sequentially
   for(const f of imgs){
@@ -441,7 +442,7 @@ async function loadImageItems(imgs){
     item.dataset.name=name;item.dataset.url=url;
     item.onclick=()=>{
       if(isGif) playImg(url,name);
-      else showUnsupportedDialog(url,name);
+      else showUnsupported(url,name);
     };
     item.oncontextmenu=e=>{e.preventDefault();selImg={name,url};showMenu(e.pageX,e.pageY);};
     grid.appendChild(item);
@@ -459,7 +460,7 @@ async function loadImageItems(imgs){
   }
 }
 
-function removeImageFromList(imageName){
+function rmImg(imageName){
   // Remove from local list
   imageList = imageList.filter(name => name !== imageName);
   
@@ -574,7 +575,7 @@ function handleFile(){
         }
         // disposal 0 or 1: keep frame (do nothing)
       }
-      loadGifToCanvas();
+      loadGifCanvas();
     }catch(err){
       toast('Failed to parse GIF, loading as static image','error');
       console.error(err);
@@ -607,7 +608,7 @@ function handleFile(){
   }
 }
 
-function loadGifToCanvas(){
+function loadGifCanvas(){
   gId('editor').classList.add('active');
   gId('drop').innerHTML=`<p>Animated GIF loaded: ${selFile.name} (${gifInfo.numFrames} frames)<br><small>Drop another to replace</small></p>`;
   gId('fname').value=selFile.name.split('.')[0].substring(0,16);
@@ -629,12 +630,12 @@ function loadGifToCanvas(){
     crop.x=(canvas.width-crop.w)/2;
     crop.y=(canvas.height-crop.h)/2;
     clampCrop();
-    startGifAnimation();
+    startGifAnim();
   };
   cropImg.src=tempCanvas.toDataURL();
 }
 
-function startGifAnimation(){
+function startGifAnim(){
   if(animationTimer)clearInterval(animationTimer);
   if(!gifFrames||gifFrames.length<=1||!gifInfo){ // not an animated image
     drawCrop();
@@ -662,14 +663,14 @@ function startGifAnimation(){
   animationTimer=setInterval(animate,Math.max(avgDelay*10,50));
 }
 
-function stopGifAnimation(){
+function stopGifAnim(){
   if(animationTimer){
     clearInterval(animationTimer);
     animationTimer=null;
   }
 }
 
-function showUnsupportedDialog(url,name){
+function showUnsupported(url,name){
   const msg=`Image format not supported by WLED.\nPlease convert to GIF below or use the Pixel Magic Tool.`;
   alert(msg);
   fetch(url)
@@ -859,12 +860,12 @@ function drawCrop(){
   ctx.roundRect(crop.x, crop.y, crop.w, crop.h, 6);
   ctx.stroke();
   ctx.shadowColor = "#000F"; // disable shadow again by simply making it transparent
-  updatePrev();
+  updPrev();
 }
 
-gId('blackThresh').addEventListener('input', () => { updatePrev(); });
+gId('blackThresh').addEventListener('input', () => { updPrev(); });
 
-function applyBlackThreshold(c){
+function applyBlackTh(c){
   let t=+gId('blackThresh').value,
     d=c.getImageData(0,0,c.canvas.width,c.canvas.height),
     b=gId('bgCol').value.match(/\w\w/g).map(x=>parseInt(x,16)); // extract ["rr","gg","bb"]
@@ -874,7 +875,7 @@ function applyBlackThreshold(c){
   c.putImageData(d,0,0);
 }
 
-function updatePrev(){
+function updPrev(){
   if(!cropImg)return;
   let w=+gId('w').value,h=+gId('h').value;
   const prev=pixelCanvas,pctx=pixelCtx;
@@ -883,7 +884,7 @@ function updatePrev(){
   pctx.fillRect(0,0,prev.width,prev.height);
   pctx.drawImage(cropImg,(crop.x-panX)/imgScale,(crop.y-panY)/imgScale,crop.w/imgScale,crop.h/imgScale,0,0,w,h);
   // remove very dark colors and set them to black
-  applyBlackThreshold(pctx);
+  applyBlackTh(pctx);
   pctx.drawImage(prev,0,0,w,h,0,0,prev.width,prev.height);
 }
 
@@ -927,7 +928,7 @@ gId('upload').onclick=async()=>{
         cropCtx.fillRect(0,0,w,h);
         cropCtx.drawImage(tempCanvas,(crop.x-panX)/imgScale,(crop.y-panY)/imgScale,crop.w/imgScale,crop.h/imgScale,0,0,w,h);
 
-        applyBlackThreshold(cropCtx);
+        applyBlackTh(cropCtx);
         const finalData=cropCtx.getImageData(0,0,w,h);
         let {indexed,palette}=quantize(finalData.data);
         palette=padPalette(palette);
@@ -944,7 +945,7 @@ gId('upload').onclick=async()=>{
       let tctx=tmp.getContext('2d');tctx.imageSmoothingEnabled=false;
       tctx.fillStyle=gId('bgCol').value;tctx.fillRect(0,0,w,h);
       tctx.drawImage(cropImg,(crop.x-panX)/imgScale,(crop.y-panY)/imgScale,crop.w/imgScale,crop.h/imgScale,0,0,w,h);
-      applyBlackThreshold(tctx, 150);
+      applyBlackTh(tctx, 150);
       const imgData=tctx.getImageData(0,0,w,h);
       let {indexed,palette}=quantize(imgData.data);
       palette=padPalette(palette);
@@ -959,7 +960,7 @@ gId('upload').onclick=async()=>{
     if(r.ok){
       toast(`${filename} uploaded`);
       if(isReplacing){
-        removeImageFromList(filename); // remove from list so it reloads
+        rmImg(filename); // remove from list so it reloads
       }
       await loadImgs();
       gId('src').value='';  // Add this line to reset the input
@@ -999,19 +1000,19 @@ function padPalette(palette){
 
 async function playImg(url,name){
   const targetSeg=+gId('seg').value;
-  const currentImgSeg=getCurrentImageSegment();
-  
+  const currentImgSeg=getCurImgSeg();
+
   if(currentImgSeg!==null && currentImgSeg!==targetSeg){
     if(!confirm(`Segment ${currentImgSeg} is currently displaying an image. Switch image display to segment ${targetSeg}?`))return;
   }
-  
+
   show();
   try{
     const json={
       on:true,
-      seg: currentImgSeg!==null && currentImgSeg!==targetSeg 
-        ? [{id:currentImgSeg,fx:0},{id:targetSeg,fx:53,frz:false,sx:128,n:name}]
-        : {id:targetSeg,fx:53,frz:false,sx:128,n:name}
+      seg: currentImgSeg!==null && currentImgSeg!==targetSeg
+        ? [{id:currentImgSeg,fx:0,n:""},{id:targetSeg,fx:53,frz:false,sx:128,n:name}] // reset old, set new
+        : {id:targetSeg,fx:53,frz:false,sx:128,n:name} // only set new
     };
     const r=await fetch(`${wURL}/json/state`,{method:'POST',body:JSON.stringify(json)});
     const result=await r.json();
@@ -1063,14 +1064,13 @@ async function deleteImg(){
     const r=await fetch(`${wURL}/edit`,{method:'DELETE',body:fd});
     if(r.ok){
       toast('Deleted');
-      removeImageFromList(selImg.name);
+      rmImg(selImg.name);
     }
     else toast('Delete failed','error');
   }catch(e){toast('Delete failed','error');}
   finally{hide();}
   closeMenu();
 }
-
 </script>
 </body>
 </html>
