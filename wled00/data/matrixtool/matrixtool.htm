@@ -20,6 +20,7 @@ body {
   color: #fff;
   padding-top: 20px;
 }
+
 /* rainbow text animation */
 .hdr .rb {
   background: linear-gradient(to right, #ef5350, #f48fb1, #7e57c2, #2196f3, #26c6da, #43a047, #eeff41, #f9a825, #ff5722);
@@ -335,6 +336,7 @@ button:hover, .btn:hover, button.sml:hover {
 <div style="text-align:center;margin:20px 0">
 <button class="btn" onclick="window.location.href=wURL">Back to the controls</button>
 <div id="ov"></div>
+<div id="mem" style="display:none;font-size:12px;color:#aaa;text-align:center;margin-top:6px"></div>
 <script>
 const d=document,gId=i=>d.getElementById(i),cE=t=>d.createElement(t);
 const canvas=gId('cropCanvas'),ctx=canvas.getContext('2d',{willReadFrequently:true});
@@ -351,6 +353,7 @@ let gifFrames=null,gifInfo=null,animationTimer=null;
   await checkPxmagic();
   await loadSegs();
   await loadImgs();
+  await mem();
 })();
 
 function toast(m,t='success'){
@@ -384,7 +387,7 @@ function loadSegs(){
       const s=sel.options[sel.selectedIndex];
       if(s){gId('w').value=s.dataset.w||16;gId('h').value=s.dataset.h||16;}
     })
-    .catch(e => console.log('Segments failed',e));
+    .catch(e => console.error(e));
 }
 
 // check if a segment already uses fx 53 (image), only one image can be active at a time
@@ -429,7 +432,7 @@ async function loadImgs(){
     }
     // If no missing images, do nothing (keep existing display)
     
-  }catch(e){console.log('Images failed',e);}
+  }catch(e){console.error(e);}
 }
 
 async function loadImgs2(imgs){
@@ -504,7 +507,20 @@ async function checkPxmagic(){
         }catch(e){alert("Error "+e.message);}
       };
     }
-  }catch(e){console.log('Pxmagic check failed',e);}
+  }catch(e){console.error(e);}
+}
+
+async function mem(){
+  try{
+    const r = await fetch(`${wURL}/json/info`);
+    const info = await r.json();
+    if(info && info.fs){
+      gId("mem").textContent = `by @dedehai | Memory: ${info.fs.u} KB / ${info.fs.t} KB`;
+      gId("mem").style.display = "block";
+    }
+  }catch(e){
+    console.error(e);
+  }
 }
 
 gId('drop').onclick=()=>{gId('src').value='';gId('src').click();};
