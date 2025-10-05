@@ -20,7 +20,6 @@ body {
   color: #fff;
   padding-top: 20px;
 }
-
 /* rainbow text animation */
 .hdr .rb {
   background: linear-gradient(to right, #ef5350, #f48fb1, #7e57c2, #2196f3, #26c6da, #43a047, #eeff41, #f9a825, #ff5722);
@@ -137,7 +136,7 @@ input[type="color"] {
   border:2px dashed #555;
   border-radius:8px;
   padding:40px 20px;
-  background:#2a2a2a;
+  background:#222;
   cursor:pointer;
   transition:all 0.3s ease;
   margin:20px auto;
@@ -150,7 +149,7 @@ input[type="color"] {
 button, .btn, button.sml {
   border: 2px solid #333;
 }
-button:hover, .btn:hover, button.sml:hover {
+button:hover, .btn:hover {
   border-color: #48a;
 }
 .size-controls{
@@ -159,13 +158,6 @@ button:hover, .btn:hover, button.sml:hover {
 }
 .size-controls.show {
   display: block;
-}
-.size-row {
-  display: flex;
-  gap: 20px;
-  align-items: center;
-  justify-content: center;
-  margin-bottom: 10px;
 }
 .size-col {
   display: flex;
@@ -178,12 +170,6 @@ button:hover, .btn:hover, button.sml:hover {
   margin-bottom: 0px;
   font-size: 16px;
   color: #ccc;
-}
-.bg-color-row {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-bottom: 15px;
 }
 .slider-container {
   text-align: center;
@@ -204,18 +190,7 @@ button:hover, .btn:hover, button.sml:hover {
   align-items: center;
   width: 100%;
 }
-.canvas-container {
-  width: 100%;
-}
-.preview-container {
-  text-align: center;
-}
-.preview-info {
-  text-align: center;
-  margin-bottom: 10px;
-  font-size: 14px;
-  color: #ccc;
-}
+
 .controls-row {
   display: flex;
   gap: 8px;
@@ -229,14 +204,57 @@ button:hover, .btn:hover, button.sml:hover {
 .tab-content.active {
   display: block;
 }
-#tabImg.active, #tabTxt.active {
-  background: #09a;
-  border-color: #09a;
+
+.center-sliders {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
 }
-.fr{display:grid;grid-template-columns:100px 1fr;align-items:center;gap:8px;max-width:500px}
-.fr label{text-align:left;justify-self:start}
-.tok{color:#8cf;text-decoration:underline;cursor:pointer}
-@keyframes spin{to{transform:rotate(360deg)}}
+.fr {
+  display: grid;
+  grid-template-columns: 100px 1fr;
+  align-items: center;
+  gap: 8px;
+  max-width: 500px;
+}
+.fr label {
+  text-align: left;
+  justify-self: start;
+}
+.tok {
+  color: #8cf;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.tab-buttons {
+  display: flex;
+  gap: 4px;
+  border-bottom: 2px solid #555;
+  margin: 20px 0 0 0;
+  padding: 0 20px;
+}
+.tab-buttons button {
+  flex: 1;
+  background: #111;
+  border: none;
+  border-radius: 8px 8px 0 0;
+  padding: 12px 24px;
+  margin: 0;
+  color: #888;
+}
+.tab-buttons button:hover {
+  background: #222;
+  color: #aaa;
+}
+.tab-buttons button.active {
+  background: #333;
+  color: #fff;
+  border-bottom: 2px solid #333;
+}
+
+
 @keyframes rb{0%{background-position:0% 0}100%{background-position:200% 0}}
 </style>
 </head>
@@ -246,9 +264,9 @@ button:hover, .btn:hover, button.sml:hover {
 <div class="title">WLED <span class="rb">MATRIX</span> TOOL</div>
 </div>
 
-<div style="text-align:center;margin:20px 0;border-bottom:2px solid #555;padding-bottom:10px">
-<button class="btn active" id="tabImg" style="margin:0 5px">Image Tool</button>
-<button class="btn" id="tabTxt" style="margin:0 5px">Scrolling Text</button>
+<div class="tab-buttons">
+  <button class="active" id="tabImg">Image Tool</button>
+  <button id="tabTxt">Scrolling Text</button>
 </div>
 
 <div id="imgTab" class="tab-content active">
@@ -283,7 +301,7 @@ button:hover, .btn:hover, button.sml:hover {
 </div>
 
 <div class="canvasWrap">
-<div class="canvas-container">
+<div style="width:100%">
 <div class="slider-container">
 <label>Zoom: </label>
 <input type="range" id="zoom" min="0" max="100" value="0" class="slider">
@@ -292,22 +310,22 @@ button:hover, .btn:hover, button.sml:hover {
 <canvas id="cropCanvas" width="500" height="400"></canvas>
 </div>
 
-<div class="preview-container">
-<div class="preview-info">Preview at target size</div>
+<div style="text-align:center">
+<div style="text-align:center;margin-bottom:10px;font-size:14px;color:#ccc">Preview at target size</div>
 
 <canvas id="pixelPreview" width="128"></canvas>
 
 <div class="slider-container">
 <label>Dark Pixel Cutoff</label>
 <input type="range" id="blackThresh" min="0" max="255" value="0" class="slider">
-<div class="bg-color-row">
+<div style="display:flex;align-items:center;justify-content:center;margin-bottom:15px">
 <label for="bgCol" style="margin-right:10px">Background Color</label>
 <input type="color" id="bgCol" value="#000000">
 </div>
 </div>
 
 <div class="size-controls" id="sizeControls">
-<div class="size-row">
+<div style="display:flex;gap:20px;align-items:center;justify-content:center;margin-bottom:10px">
 <div class="size-col">
 <label for="w">Width</label>
 <input type="number" id="w" value="16" min="1" class="s">
@@ -338,56 +356,47 @@ button:hover, .btn:hover, button.sml:hover {
 </div>
 
 <div id="txtTab" class="tab-content">
-<h3 style="margin-top:20px;padding-top:0;border-top:0">Segment</h3>
+<h3 style="margin-top:20px;padding-top:0;border-top:0">Target Segment</h3>
 <div class="row">
 <div class="col">
 <select id="segTxt"><option value="0"></option></select>
 </div>
 </div>
 
-<h3>Text</h3>
+<h3>Text to show</h3>
 <div class="row">
-<div style="display:flex;gap:8px;align-items:center;flex-wrap:nowrap;max-width:64ch">
-  <input type="text" id="txtIn" placeholder="Enter text" maxlength="64" style="width:100%;max-width:64ch">
-  <button class="btn" id="applyTxt" title="Apply" style="width:36px;min-width:36px;padding:6px 0;line-height:1">✓</button>
+<div class="col" style="display:flex;gap:10px;align-items:center;justify-content:center;flex-wrap:wrap">
+  <input type="text" id="txtIn" placeholder="Enter text" maxlength="64"  style="flex:1;min-width:300px;">
+  <button class="btn" id="applyTxt" title="Apply">✓</button>
 </div>
 </div>
 
 <h3>Settings</h3>
+<div class="center-sliders">
+  <div class="fr">
+  <label for="sx">Speed</label>
+  <input type="range" id="sx" min="0" max="255" value="128" class="slider">
+  </div>
 
-<div class="row">
-<div class="col fr">
-<label for="sx">Speed</label>
-<input type="range" id="sx" min="0" max="255" value="128" class="slider">
-</div>
-</div>
+  <div class="fr">
+  <label for="ix">Y Offset</label>
+  <input type="range" id="ix" min="0" max="255" value="128" class="slider">
+  </div>
 
-<div class="row">
-<div class="col fr">
-<label for="ix">Y Offset</label>
-<input type="range" id="ix" min="0" max="255" value="128" class="slider">
-</div>
-</div>
+  <div class="fr">
+  <label for="c1">Trail</label>
+  <input type="range" id="c1" min="0" max="255" value="0" class="slider">
+  </div>
 
-<div class="row">
-<div class="col fr">
-<label for="c1">Trail</label>
-<input type="range" id="c1" min="0" max="255" value="0" class="slider">
-</div>
-</div>
+  <div class="fr">
+  <label for="c2">Font Size</label>
+  <input type="range" id="c2" min="0" max="255" value="0" class="slider">
+  </div>
 
-<div class="row">
-<div class="col fr">
-<label for="c2">Font Size</label>
-<input type="range" id="c2" min="0" max="255" value="0" class="slider">
-</div>
-</div>
-
-<div class="row">
-<div class="col fr">
-<label for="c3">Rotate</label>
-<input type="range" id="c3" min="0" max="31" value="0" class="slider">
-</div>
+  <div class="fr">
+  <label for="c3">Rotate</label>
+  <input type="range" id="c3" min="0" max="31" value="0" class="slider">
+  </div>
 </div>
 
 <div class="row">
@@ -1138,8 +1147,7 @@ function showMenu(x,y){
   menu.innerHTML=`
     <button onclick="downloadImg()">Download</button>
     <button class="danger" onclick="deleteImg()">Delete</button>
-    <button onclick="closeMenu()">Cancel</button>
-  `;
+    <button onclick="closeMenu()">Cancel</button>`;
   d.body.appendChild(menu);
   setTimeout(()=>{
     const closeHandler=e=>{
