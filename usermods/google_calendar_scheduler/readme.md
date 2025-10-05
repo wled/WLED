@@ -81,7 +81,7 @@ The usermod fetches your calendar events and executes actions when an event star
 
 Put the **preset name** in the event description:
 
-```
+```text
 Event Title: Morning Routine
 Event Description: Bright Morning
 ```
@@ -97,7 +97,7 @@ When this event starts, WLED will search for a preset named "Bright Morning" (ca
 
 Put **JSON API commands** in the event description for advanced control:
 
-```
+```json
 Event Title: Custom Lighting
 Event Description: {"on":true,"bri":200,"seg":[{"col":[[255,0,0]]}]}
 ```

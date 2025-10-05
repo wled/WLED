@@ -280,13 +280,32 @@ bool GoogleCalendarScheduler::fetchCalendarEvents() {
 
   DEBUG_PRINTLN(F("Calendar: Request sent"));
 
-  // Read response
+  // Read response with buffered approach
+  const size_t MAX_RESPONSE_SIZE = 16384; // 16KB max response
   String responseBuffer = "";
+  responseBuffer.reserve(4096); // Pre-allocate to reduce fragmentation
+
+  char buffer[512]; // Read in chunks to reduce heap fragmentation
   unsigned long timeout = millis();
+
   while (client->connected() && (millis() - timeout < 10000)) {
-    if (client->available()) {
-      responseBuffer += (char)client->read();
-      timeout = millis();
+    int available = client->available();
+    if (available > 0) {
+      int toRead = min(available, (int)sizeof(buffer) - 1);
+      int bytesRead = client->readBytes(buffer, toRead);
+
+      if (bytesRead > 0) {
+        buffer[bytesRead] = '\0';
+
+        // Check size limit before appending
+        if (responseBuffer.length() + bytesRead > MAX_RESPONSE_SIZE) {
+          DEBUG_PRINTLN(F("Calendar: Response too large, truncating"));
+          break;
+        }
+
+        responseBuffer += buffer;
+        timeout = millis();
+      }
     }
   }
 
@@ -383,24 +402,32 @@ void GoogleCalendarScheduler::parseICalData(String& icalData) {
       event.description.replace("\\\\", "\\");
     }
 
-    // Extract DTSTART
+    // Extract DTSTART (handle TZID parameters like DTSTART;TZID=America/New_York:...)
     int dtStartPos = eventBlock.indexOf("DTSTART");
     if (dtStartPos >= 0) {
-      int colonPos = eventBlock.indexOf(":", dtStartPos);
-      int endPos = eventBlock.indexOf("\r\n", colonPos);
-      if (endPos < 0) endPos = eventBlock.indexOf("\n", colonPos);
-      String dtStart = eventBlock.substring(colonPos + 1, endPos);
-      event.startTime = parseICalDateTime(dtStart);
+      int lineEnd = eventBlock.indexOf("\r\n", dtStartPos);
+      if (lineEnd < 0) lineEnd = eventBlock.indexOf("\n", dtStartPos);
+
+      // Find the last colon on this line (the one before the datetime value)
+      int colonPos = eventBlock.lastIndexOf(":", lineEnd);
+      if (colonPos > dtStartPos) {
+        String dtStart = eventBlock.substring(colonPos + 1, lineEnd);
+        event.startTime = parseICalDateTime(dtStart);
+      }
     }
 
-    // Extract DTEND
+    // Extract DTEND (handle TZID parameters like DTEND;TZID=America/New_York:...)
     int dtEndPos = eventBlock.indexOf("DTEND");
     if (dtEndPos >= 0) {
-      int colonPos = eventBlock.indexOf(":", dtEndPos);
-      int endPos = eventBlock.indexOf("\r\n", colonPos);
-      if (endPos < 0) endPos = eventBlock.indexOf("\n", colonPos);
-      String dtEnd = eventBlock.substring(colonPos + 1, endPos);
-      event.endTime = parseICalDateTime(dtEnd);
+      int lineEnd = eventBlock.indexOf("\r\n", dtEndPos);
+      if (lineEnd < 0) lineEnd = eventBlock.indexOf("\n", dtEndPos);
+
+      // Find the last colon on this line (the one before the datetime value)
+      int colonPos = eventBlock.lastIndexOf(":", lineEnd);
+      if (colonPos > dtEndPos) {
+        String dtEnd = eventBlock.substring(colonPos + 1, lineEnd);
+        event.endTime = parseICalDateTime(dtEnd);
+      }
     }
 
     // Preserve trigger state if this event existed before with same start time
@@ -504,7 +531,7 @@ void GoogleCalendarScheduler::executeEventAction(CalendarEvent& event, bool isSt
   // Check if it's JSON (starts with { or [)
   if (desc.startsWith("{") || desc.startsWith("[")) {
     // JSON API mode
-    if (!requestJSONBufferLock(17)) {
+    if (!requestJSONBufferLock(USERMOD_ID_CALENDAR_SCHEDULER)) {
       DEBUG_PRINTLN(F("Calendar: Buffer locked, skipping"));
       return;
     }
