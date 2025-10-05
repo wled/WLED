@@ -258,9 +258,11 @@ bool GoogleCalendarScheduler::fetchCalendarEvents() {
   if (useHTTPS) {
     WiFiClientSecure *secureClient = new WiFiClientSecure();
     secureClient->setInsecure(); // Skip certificate validation
+    secureClient->setTimeout(10000); // 10 second timeout
     client = secureClient;
   } else {
     client = new WiFiClient();
+    client->setTimeout(10000); // 10 second timeout
   }
 
   if (!client->connect(httpHost.c_str(), useHTTPS ? 443 : 80)) {
