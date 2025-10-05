@@ -1,4 +1,5 @@
 #include "wled.h"
+#include <WiFiClientSecure.h>
 
 /*
  * Google Calendar Scheduler Usermod
@@ -29,15 +30,10 @@ class GoogleCalendarScheduler : public Usermod {
     unsigned long lastPollTime = 0;
 
     // HTTP client
-    AsyncClient *httpClient = nullptr;
     String httpHost = "";
     String httpPath = "";
-    String responseBuffer = "";
     bool isFetching = false;
-    unsigned long lastActivityTime = 0;
-    static const unsigned long INACTIVITY_TIMEOUT = 30000; // 30 seconds
-    static const uint16_t ACK_TIMEOUT = 9000;
-    static const uint16_t RX_TIMEOUT = 9000;
+    bool useHTTPS = false;
 
     // Event tracking
     struct CalendarEvent {
@@ -45,28 +41,13 @@ class GoogleCalendarScheduler : public Usermod {
       String description;
       unsigned long startTime;    // Unix timestamp
       unsigned long endTime;      // Unix timestamp
-      uint8_t presetId;           // Preset to trigger (0 = none)
-      String apiCall;             // Custom API call string
       bool triggered = false;     // Has start action been triggered?
       bool endTriggered = false;  // Has end action been triggered?
     };
 
-    static const uint8_t MAX_EVENTS = 10;
+    static const uint8_t MAX_EVENTS = 5;
     CalendarEvent events[MAX_EVENTS];
     uint8_t eventCount = 0;
-
-    // Event mapping configuration
-    struct EventMapping {
-      String eventPattern;    // Pattern to match in event title/description
-      uint8_t startPreset;    // Preset to trigger at event start
-      uint8_t endPreset;      // Preset to trigger at event end
-      String startApiCall;    // API call at event start
-      String endApiCall;      // API call at event end
-    };
-
-    static const uint8_t MAX_MAPPINGS = 5;
-    EventMapping mappings[MAX_MAPPINGS];
-    uint8_t mappingCount = 1; // Start with 1 for default mapping
 
     // String constants for config
     static const char _name[];
@@ -77,30 +58,22 @@ class GoogleCalendarScheduler : public Usermod {
     // Helper methods
     void parseCalendarUrl();
     bool fetchCalendarEvents();
-    void onHttpConnect(AsyncClient *c);
-    void onHttpData(void *data, size_t len);
-    void onHttpDisconnect();
     void parseICalData(String& icalData);
     unsigned long parseICalDateTime(String& dtStr);
     void checkAndTriggerEvents();
     void executeEventAction(CalendarEvent& event, bool isStart);
-    void applyEventMapping(CalendarEvent& event);
-    bool matchesPattern(const String& text, const String& pattern);
-    void cleanupHttpClient();
 
   public:
     void setup() override {
-      // Initialize with a default mapping
-      mappings[0].eventPattern = "WLED";
-      mappings[0].startPreset = 1;
-      mappings[0].endPreset = 0;
       initDone = true;
     }
 
     void connected() override {
       if (enabled && WLED_CONNECTED && calendarUrl.length() > 0) {
-        // Fetch calendar events on WiFi connection
-        parseCalendarUrl();
+        // Ensure URL is parsed before fetching
+        if (httpHost.length() == 0) {
+          parseCalendarUrl();
+        }
         fetchCalendarEvents();
       }
     }
@@ -109,13 +82,6 @@ class GoogleCalendarScheduler : public Usermod {
       if (!enabled || !initDone || !WLED_CONNECTED) return;
 
       unsigned long now = millis();
-
-      // Check for HTTP client inactivity timeout
-      if (httpClient != nullptr && (now - lastActivityTime > INACTIVITY_TIMEOUT)) {
-        DEBUG_PRINTLN(F("Calendar: HTTP client inactivity timeout"));
-        cleanupHttpClient();
-        isFetching = false;
-      }
 
       // Poll calendar at configured interval
       if (!isFetching && calendarUrl.length() > 0 && (now - lastPollTime > pollInterval)) {
@@ -164,17 +130,6 @@ class GoogleCalendarScheduler : public Usermod {
       top[FPSTR(_enabled)] = enabled;
       top[FPSTR(_calendarUrl)] = calendarUrl;
       top[FPSTR(_pollInterval)] = pollInterval / 1000; // Store in seconds
-
-      // Save event mappings
-      JsonArray mappingsArr = top.createNestedArray("mappings");
-      for (uint8_t i = 0; i < mappingCount; i++) {
-        JsonObject mapping = mappingsArr.createNestedObject();
-        mapping["pattern"] = mappings[i].eventPattern;
-        mapping["startPreset"] = mappings[i].startPreset;
-        mapping["endPreset"] = mappings[i].endPreset;
-        mapping["startApi"] = mappings[i].startApiCall;
-        mapping["endApi"] = mappings[i].endApiCall;
-      }
     }
 
     bool readFromConfig(JsonObject& root) override {
@@ -189,20 +144,6 @@ class GoogleCalendarScheduler : public Usermod {
       configComplete &= getJsonValue(top[FPSTR(_pollInterval)], pollIntervalSec, 300);
       pollInterval = pollIntervalSec * 1000;
 
-      // Load event mappings
-      if (top.containsKey("mappings")) {
-        JsonArray mappingsArr = top["mappings"];
-        mappingCount = min((uint8_t)mappingsArr.size(), MAX_MAPPINGS);
-        for (uint8_t i = 0; i < mappingCount; i++) {
-          JsonObject mapping = mappingsArr[i];
-          getJsonValue(mapping["pattern"], mappings[i].eventPattern, "");
-          getJsonValue(mapping["startPreset"], mappings[i].startPreset, (uint8_t)0);
-          getJsonValue(mapping["endPreset"], mappings[i].endPreset, (uint8_t)0);
-          getJsonValue(mapping["startApi"], mappings[i].startApiCall, "");
-          getJsonValue(mapping["endApi"], mappings[i].endApiCall, "");
-        }
-      }
-
       if (calendarUrl.length() > 0) {
         parseCalendarUrl();
       }
@@ -211,21 +152,11 @@ class GoogleCalendarScheduler : public Usermod {
     }
 
     void appendConfigData() override {
-      oappend(F("addInfo('"));
-      oappend(String(FPSTR(_name)).c_str());
-      oappend(F(":calendarUrl',1,'<i>Public iCal URL from Google Calendar (HTTP only)</i>');"));
-
-      oappend(F("addInfo('"));
-      oappend(String(FPSTR(_name)).c_str());
-      oappend(F(":pollInterval',1,'<i>How often to check calendar (seconds, min 60)</i>');"));
+      // Disabled to prevent early boot issues
     }
 
     uint16_t getId() override {
       return USERMOD_ID_CALENDAR_SCHEDULER;
-    }
-
-    ~GoogleCalendarScheduler() {
-      cleanupHttpClient();
     }
 };
 
@@ -238,6 +169,9 @@ const char GoogleCalendarScheduler::_pollInterval[] PROGMEM = "pollInterval";
 // Parse the calendar URL into host and path
 void GoogleCalendarScheduler::parseCalendarUrl() {
   if (calendarUrl.length() == 0) return;
+
+  // Check for https://
+  useHTTPS = calendarUrl.startsWith("https://");
 
   // Remove http:// or https://
   String url = calendarUrl;
@@ -259,122 +193,66 @@ void GoogleCalendarScheduler::parseCalendarUrl() {
   DEBUG_PRINT(F("Calendar: Parsed URL - Host: "));
   DEBUG_PRINT(httpHost);
   DEBUG_PRINT(F(", Path: "));
-  DEBUG_PRINTLN(httpPath);
+  DEBUG_PRINT(httpPath);
+  DEBUG_PRINT(F(", HTTPS: "));
+  DEBUG_PRINTLN(useHTTPS);
 }
 
-void GoogleCalendarScheduler::cleanupHttpClient() {
-  if (httpClient != nullptr) {
-    httpClient->onDisconnect(nullptr);
-    httpClient->onError(nullptr);
-    httpClient->onTimeout(nullptr);
-    httpClient->onData(nullptr);
-    httpClient->onConnect(nullptr);
-    delete httpClient;
-    httpClient = nullptr;
-  }
-}
-
-// Fetch calendar events using AsyncClient
+// Fetch calendar events using WiFiClientSecure
 bool GoogleCalendarScheduler::fetchCalendarEvents() {
   if (httpHost.length() == 0 || isFetching) {
     return false;
   }
 
-  // Cleanup any existing client
-  if (httpClient != nullptr) {
-    cleanupHttpClient();
-  }
-
-  DEBUG_PRINTLN(F("Calendar: Creating HTTP client"));
-  httpClient = new AsyncClient();
-
-  if (httpClient == nullptr) {
-    DEBUG_PRINTLN(F("Calendar: Failed to create HTTP client"));
-    return false;
-  }
-
   isFetching = true;
-  responseBuffer = "";
-  lastActivityTime = millis();
-
-  // Set up callbacks
-  httpClient->onConnect([](void *arg, AsyncClient *c) {
-    GoogleCalendarScheduler *instance = (GoogleCalendarScheduler *)arg;
-    instance->onHttpConnect(c);
-  }, this);
-
-  httpClient->onData([](void *arg, AsyncClient *c, void *data, size_t len) {
-    GoogleCalendarScheduler *instance = (GoogleCalendarScheduler *)arg;
-    instance->onHttpData(data, len);
-  }, this);
-
-  httpClient->onDisconnect([](void *arg, AsyncClient *c) {
-    GoogleCalendarScheduler *instance = (GoogleCalendarScheduler *)arg;
-    instance->onHttpDisconnect();
-  }, this);
-
-  httpClient->onError([](void *arg, AsyncClient *c, int8_t error) {
-    DEBUG_PRINT(F("Calendar: HTTP error: "));
-    DEBUG_PRINTLN(error);
-    GoogleCalendarScheduler *instance = (GoogleCalendarScheduler *)arg;
-    instance->cleanupHttpClient();
-    instance->isFetching = false;
-  }, this);
-
-  httpClient->onTimeout([](void *arg, AsyncClient *c, uint32_t time) {
-    DEBUG_PRINTLN(F("Calendar: HTTP timeout"));
-    GoogleCalendarScheduler *instance = (GoogleCalendarScheduler *)arg;
-    instance->cleanupHttpClient();
-    instance->isFetching = false;
-  }, this);
-
-  httpClient->setAckTimeout(ACK_TIMEOUT);
-  httpClient->setRxTimeout(RX_TIMEOUT);
 
   DEBUG_PRINT(F("Calendar: Connecting to "));
   DEBUG_PRINT(httpHost);
-  DEBUG_PRINTLN(F(":80"));
+  DEBUG_PRINT(F(":"));
+  DEBUG_PRINTLN(useHTTPS ? 443 : 80);
 
-  if (!httpClient->connect(httpHost.c_str(), 80)) {
+  WiFiClient *client;
+  if (useHTTPS) {
+    WiFiClientSecure *secureClient = new WiFiClientSecure();
+    secureClient->setInsecure(); // Skip certificate validation
+    client = secureClient;
+  } else {
+    client = new WiFiClient();
+  }
+
+  if (!client->connect(httpHost.c_str(), useHTTPS ? 443 : 80)) {
     DEBUG_PRINTLN(F("Calendar: Connection failed"));
-    cleanupHttpClient();
+    delete client;
     isFetching = false;
     return false;
   }
 
-  return true;
-}
-
-void GoogleCalendarScheduler::onHttpConnect(AsyncClient *c) {
   DEBUG_PRINTLN(F("Calendar: Connected, sending request"));
-  lastActivityTime = millis();
 
-  String request = "GET " + httpPath + " HTTP/1.1\r\n" +
-                   "Host: " + httpHost + "\r\n" +
-                   "Connection: close\r\n" +
-                   "User-Agent: WLED-Calendar-Scheduler\r\n\r\n";
+  // Send HTTP request
+  client->print(String("GET ") + httpPath + " HTTP/1.1\r\n" +
+                "Host: " + httpHost + "\r\n" +
+                "Connection: close\r\n" +
+                "User-Agent: WLED-Calendar-Scheduler\r\n\r\n");
 
-  c->write(request.c_str());
   DEBUG_PRINTLN(F("Calendar: Request sent"));
-}
 
-void GoogleCalendarScheduler::onHttpData(void *data, size_t len) {
-  lastActivityTime = millis();
+  // Read response
+  String responseBuffer = "";
+  unsigned long timeout = millis();
+  while (client->connected() && (millis() - timeout < 10000)) {
+    if (client->available()) {
+      responseBuffer += (char)client->read();
+      timeout = millis();
+    }
+  }
 
-  char *strData = new char[len + 1];
-  memcpy(strData, data, len);
-  strData[len] = '\0';
-  responseBuffer += String(strData);
-  delete[] strData;
+  client->stop();
+  delete client;
 
   DEBUG_PRINT(F("Calendar: Received "));
-  DEBUG_PRINT(len);
+  DEBUG_PRINT(responseBuffer.length());
   DEBUG_PRINTLN(F(" bytes"));
-}
-
-void GoogleCalendarScheduler::onHttpDisconnect() {
-  DEBUG_PRINTLN(F("Calendar: Disconnected"));
-  isFetching = false;
 
   // Find the body (after headers)
   int bodyPos = responseBuffer.indexOf("\r\n\r\n");
@@ -382,10 +260,20 @@ void GoogleCalendarScheduler::onHttpDisconnect() {
     String icalData = responseBuffer.substring(bodyPos + 4);
     DEBUG_PRINT(F("Calendar: Parsing iCal data, length: "));
     DEBUG_PRINTLN(icalData.length());
+
+    // Debug: Print first 200 chars of iCal data
+    DEBUG_PRINT(F("Calendar: First 200 chars: "));
+    DEBUG_PRINTLN(icalData.substring(0, min(200, (int)icalData.length())));
+
     parseICalData(icalData);
+  } else {
+    DEBUG_PRINTLN(F("Calendar: No body found in response"));
+    DEBUG_PRINT(F("Calendar: Response buffer: "));
+    DEBUG_PRINTLN(responseBuffer.substring(0, min(200, (int)responseBuffer.length())));
   }
 
-  cleanupHttpClient();
+  isFetching = false;
+  return true;
 }
 
 // Simple iCal parser - extracts VEVENT blocks
@@ -413,13 +301,36 @@ void GoogleCalendarScheduler::parseICalData(String& icalData) {
       event.title.trim();
     }
 
-    // Extract DESCRIPTION
+    // Extract DESCRIPTION and handle iCal line folding
     int descStart = eventBlock.indexOf("DESCRIPTION:");
     if (descStart >= 0) {
-      int descEnd = eventBlock.indexOf("\r\n", descStart);
-      if (descEnd < 0) descEnd = eventBlock.indexOf("\n", descStart);
-      event.description = eventBlock.substring(descStart + 12, descEnd);
+      event.description = "";
+      int pos = descStart + 12;
+
+      // Handle iCal line folding (lines starting with space/tab are continuations)
+      while (pos < eventBlock.length()) {
+        int lineEnd = eventBlock.indexOf("\r\n", pos);
+        if (lineEnd < 0) lineEnd = eventBlock.indexOf("\n", pos);
+        if (lineEnd < 0) lineEnd = eventBlock.length();
+
+        event.description += eventBlock.substring(pos, lineEnd);
+        pos = lineEnd + 2; // Skip \r\n
+
+        // Check if next line is a continuation (starts with space or tab)
+        if (pos < eventBlock.length() && (eventBlock.charAt(pos) == ' ' || eventBlock.charAt(pos) == '\t')) {
+          pos++; // Skip the folding whitespace
+        } else {
+          break; // Not a continuation, we're done
+        }
+      }
+
       event.description.trim();
+
+      // Unescape iCal format (commas, semicolons, newlines, backslashes)
+      event.description.replace("\\,", ",");
+      event.description.replace("\\;", ";");
+      event.description.replace("\\n", "\n");
+      event.description.replace("\\\\", "\\");
     }
 
     // Extract DTSTART
@@ -445,9 +356,6 @@ void GoogleCalendarScheduler::parseICalData(String& icalData) {
     // Reset trigger flags
     event.triggered = false;
     event.endTriggered = false;
-
-    // Apply event mapping
-    applyEventMapping(event);
 
     DEBUG_PRINT(F("Calendar: Event "));
     DEBUG_PRINT(eventCount);
@@ -498,85 +406,110 @@ void GoogleCalendarScheduler::checkAndTriggerEvents() {
   for (uint8_t i = 0; i < eventCount; i++) {
     CalendarEvent& event = events[i];
 
-    // Check if event should start
-    if (!event.triggered && currentTime >= event.startTime && currentTime < event.endTime) {
+    // Check if we're currently within the event time window
+    bool isActive = (currentTime >= event.startTime && currentTime < event.endTime);
+
+    // Trigger if active and not yet triggered
+    if (isActive && !event.triggered) {
       executeEventAction(event, true);
       event.triggered = true;
     }
 
-    // Check if event should end
-    if (event.triggered && !event.endTriggered && currentTime >= event.endTime) {
-      executeEventAction(event, false);
-      event.endTriggered = true;
+    // Reset trigger flag when event ends so it can retrigger if it repeats
+    if (!isActive && event.triggered) {
+      event.triggered = false;
     }
   }
 }
 
 void GoogleCalendarScheduler::executeEventAction(CalendarEvent& event, bool isStart) {
-  DEBUG_PRINT(F("Calendar: Executing "));
-  DEBUG_PRINT(isStart ? F("start") : F("end"));
-  DEBUG_PRINT(F(" action for: "));
+  DEBUG_PRINT(F("Calendar: Triggering event: "));
   DEBUG_PRINTLN(event.title);
 
-  if (isStart) {
-    // Execute start action
-    if (event.presetId > 0) {
-      DEBUG_PRINT(F("Calendar: Applying preset "));
-      DEBUG_PRINTLN(event.presetId);
-      applyPreset(event.presetId, CALL_MODE_NOTIFICATION);
+  if (event.description.length() == 0) {
+    DEBUG_PRINTLN(F("Calendar: No description found"));
+    return;
+  }
+
+  DEBUG_PRINT(F("Calendar: Description: "));
+  DEBUG_PRINTLN(event.description);
+
+  String desc = event.description;
+  desc.trim();
+
+  // Check if it's JSON (starts with { or [)
+  if (desc.startsWith("{") || desc.startsWith("[")) {
+    // JSON API mode
+    if (!requestJSONBufferLock(17)) {
+      DEBUG_PRINTLN(F("Calendar: Buffer locked, skipping"));
+      return;
     }
 
-    // Execute API call if configured
-    if (event.apiCall.length() > 0) {
-      DEBUG_PRINT(F("Calendar: Executing API call: "));
-      DEBUG_PRINTLN(event.apiCall);
-      handleSet(nullptr, event.apiCall, true);
+    DynamicJsonDocument doc(8192);
+    DeserializationError error = deserializeJson(doc, desc);
+
+    if (!error) {
+      deserializeState(doc.as<JsonObject>(), CALL_MODE_NOTIFICATION);
+      DEBUG_PRINTLN(F("Calendar: JSON applied"));
+    } else {
+      DEBUG_PRINT(F("Calendar: JSON parse error: "));
+      DEBUG_PRINTLN(error.c_str());
     }
+
+    releaseJSONBufferLock();
   } else {
-    // Execute end action - could use endPreset from mapping
-    // Find the mapping for this event to get endPreset
-    for (uint8_t i = 0; i < mappingCount; i++) {
-      if (matchesPattern(event.title, mappings[i].eventPattern) ||
-          matchesPattern(event.description, mappings[i].eventPattern)) {
-        if (mappings[i].endPreset > 0) {
-          DEBUG_PRINT(F("Calendar: Applying end preset "));
-          DEBUG_PRINTLN(mappings[i].endPreset);
-          applyPreset(mappings[i].endPreset, CALL_MODE_NOTIFICATION);
-        }
-        if (mappings[i].endApiCall.length() > 0) {
-          DEBUG_PRINT(F("Calendar: Executing end API call: "));
-          DEBUG_PRINTLN(mappings[i].endApiCall);
-          handleSet(nullptr, mappings[i].endApiCall, true);
-        }
-        break;
+    // Preset name mode - search for preset by name
+    DEBUG_PRINT(F("Calendar: Looking for preset: "));
+    DEBUG_PRINTLN(desc);
+
+    int8_t presetId = -1;
+
+    // Search through presets for matching name
+    for (uint8_t i = 1; i < 251; i++) {
+      String filename = "/presets/" + String(i) + ".json";
+      if (!WLED_FS.exists(filename)) continue;
+
+      if (!requestJSONBufferLock(17)) continue;
+
+      DynamicJsonDocument doc(1024);
+      File f = WLED_FS.open(filename, "r");
+      if (!f) {
+        releaseJSONBufferLock();
+        continue;
       }
+
+      DeserializationError error = deserializeJson(doc, f);
+      f.close();
+
+      if (!error && doc.containsKey("n")) {
+        String presetName = doc["n"].as<String>();
+        presetName.trim();
+
+        // Case-insensitive comparison
+        String descLower = desc;
+        descLower.toLowerCase();
+        presetName.toLowerCase();
+
+        if (presetName == descLower) {
+          presetId = i;
+          releaseJSONBufferLock();
+          break;
+        }
+      }
+
+      releaseJSONBufferLock();
+    }
+
+    if (presetId > 0) {
+      DEBUG_PRINT(F("Calendar: Applying preset "));
+      DEBUG_PRINTLN(presetId);
+      applyPreset(presetId, CALL_MODE_NOTIFICATION);
+    } else {
+      DEBUG_PRINTLN(F("Calendar: Preset not found"));
     }
   }
 }
 
-void GoogleCalendarScheduler::applyEventMapping(CalendarEvent& event) {
-  for (uint8_t i = 0; i < mappingCount; i++) {
-    if (matchesPattern(event.title, mappings[i].eventPattern) ||
-        matchesPattern(event.description, mappings[i].eventPattern)) {
-      event.presetId = mappings[i].startPreset;
-      event.apiCall = mappings[i].startApiCall;
-      DEBUG_PRINT(F("Calendar: Matched pattern '"));
-      DEBUG_PRINT(mappings[i].eventPattern);
-      DEBUG_PRINT(F("' -> Preset "));
-      DEBUG_PRINTLN(event.presetId);
-      break;
-    }
-  }
-}
-
-bool GoogleCalendarScheduler::matchesPattern(const String& text, const String& pattern) {
-  // Case-insensitive substring match
-  String textLower = text;
-  String patternLower = pattern;
-  textLower.toLowerCase();
-  patternLower.toLowerCase();
-  return textLower.indexOf(patternLower) >= 0;
-}
 
 // Register the usermod
 static GoogleCalendarScheduler calendarScheduler;
