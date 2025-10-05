@@ -1,14 +1,15 @@
 # Google Calendar Scheduler Usermod
 
-This usermod allows WLED to automatically trigger presets, macros, or API calls based on events in a Google Calendar.
+This usermod allows WLED to automatically trigger presets or API calls based on events in a Google Calendar.
 
 ## Features
 
-- 📅 Fetch events from Google Calendar (via public iCal URL or Google Calendar API)
-- ⏰ Automatically trigger WLED presets at event start/end times
-- 🔄 Configurable polling interval
-- 🎯 Event pattern matching to map calendar events to WLED actions
-- 🌐 Web UI configuration support
+- 📅 Fetch events from Google Calendar via public or secret iCal URL
+- ⏰ Automatically trigger WLED presets or JSON API commands when events start
+- 🔄 Configurable polling interval (default: 5 minutes)
+- 🎯 Two execution modes: Preset name matching or direct JSON API
+- 🌐 Full web UI configuration support
+- 🔒 Supports Google Calendar "secret address" for private calendars
 
 ## Use Cases
 
@@ -20,146 +21,208 @@ This usermod allows WLED to automatically trigger presets, macros, or API calls 
 
 ## Installation
 
+### PlatformIO
+
+Add to your `platformio_override.ini`:
+
+```ini
+[env:my_build]
+extends = env:esp32dev
+build_flags = ${env:esp32dev.build_flags}
+  -D USERMOD_ID_CALENDAR_SCHEDULER=59
+custom_usermods = google_calendar_scheduler
+```
+
+### Manual Installation
+
 1. Copy the `google_calendar_scheduler` folder to your `wled00/usermods/` directory
-2. Register the usermod in `wled00/usermods_list.cpp` (if not using automatic registration)
-3. Define the usermod ID in `wled00/const.h`:
+2. Add to `wled00/const.h`:
    ```cpp
    #define USERMOD_ID_CALENDAR_SCHEDULER 59
    ```
-4. Compile and upload to your ESP device
+3. Compile and upload to your ESP device
 
 ## Configuration
 
-### Method 1: Public iCal URL (Recommended for simplicity)
+### Step 1: Get Your Google Calendar iCal URL
 
-1. Open your Google Calendar
+#### Option A: Public Calendar (Simple)
+1. Open [Google Calendar](https://calendar.google.com/)
 2. Click the three dots next to the calendar you want to use
 3. Select "Settings and sharing"
+4. Under "Access permissions", check "Make available to public"
+5. Scroll to "Integrate calendar" section
+6. Copy the "Public address in iCal format" URL
+
+#### Option B: Secret Address (Private Calendar)
+1. Open [Google Calendar](https://calendar.google.com/)
+2. Click the three dots next to the calendar
+3. Select "Settings and sharing"
 4. Scroll to "Integrate calendar" section
-5. Copy the "Public address in iCal format" URL
-6. In WLED settings, navigate to "Usermod Settings"
-7. Enable "Calendar Scheduler"
-8. Paste the iCal URL into the "calendarUrl" field
-9. Set your desired poll interval (default: 300 seconds = 5 minutes)
+5. Copy the "Secret address in iCal format" URL
+   - This URL contains a unique token
+   - Calendar remains private, but anyone with the URL can view events
+   - You can reset the secret URL if needed
 
-**Note:** Your calendar must be set to public for this method to work.
+### Step 2: Configure WLED
 
-### Method 2: Google Calendar API (More secure, supports private calendars)
+1. In WLED web interface, go to **Config** > **Usermods**
+2. Find "Calendar Scheduler"
+3. Enable the usermod
+4. Paste your iCal URL into the "calendarUrl" field
+5. Set poll interval in seconds (default: 300 = 5 minutes)
+6. Save settings
 
-1. Create a Google Cloud Project and enable Google Calendar API
-2. Create an API key
-3. In WLED settings:
-   - Enter your API key in the "apiKey" field
-   - Enter your Calendar ID in the "calendarId" field
-   - Enable the usermod
+## How It Works
 
-### Event Mapping Configuration
+The usermod fetches your calendar events and executes actions when an event starts:
 
-Create rules to map calendar event titles/descriptions to WLED actions:
+### Mode 1: Preset Name Matching
 
-```json
-{
-  "Calendar Scheduler": {
-    "enabled": true,
-    "calendarUrl": "https://calendar.google.com/calendar/ical/...",
-    "pollInterval": 300,
-    "mappings": [
-      {
-        "pattern": "Work",
-        "startPreset": 1,
-        "endPreset": 2
-      },
-      {
-        "pattern": "Party",
-        "startPreset": 10,
-        "endPreset": 0
-      }
-    ]
-  }
-}
+Put the **preset name** in the event description:
+
+```
+Event Title: Morning Routine
+Event Description: Bright Morning
 ```
 
-## Event Naming Convention
+When this event starts, WLED will search for a preset named "Bright Morning" (case-insensitive) and apply it.
 
-You can control WLED actions by naming your calendar events with specific patterns:
+**Creating Presets:**
+1. Configure your desired WLED state (colors, effects, etc.)
+2. Go to **Presets** and save with a descriptive name
+3. Use that exact name in your calendar event description
 
-- **"WLED: Morning"** - Triggers the mapping for "Morning" events
-- **"Work meeting"** - If you have a mapping for "Work", it will trigger
-- **"Party at home"** - Pattern "Party" will match and trigger
+### Mode 2: JSON API Commands
 
-## Preset Mapping Examples
+Put **JSON API commands** in the event description for advanced control:
 
-| Event Pattern | Start Preset | End Preset | Description |
-|--------------|--------------|------------|-------------|
-| Morning | 1 | 0 | Bright white light in the morning |
-| Work | 2 | 0 | Focused work lighting |
-| Lunch | 3 | 2 | Relaxed lighting during lunch |
-| Evening | 4 | 0 | Warm evening ambiance |
-| Sleep | 5 | 0 | Night mode / off |
-| Party | 10 | 1 | Party mode during events |
-
-## API Calls
-
-Instead of presets, you can trigger custom API calls:
-
-```json
-{
-  "pattern": "Dim",
-  "startApi": "win&T=1&A=64",
-  "endApi": "win&T=1&A=255"
-}
 ```
+Event Title: Custom Lighting
+Event Description: {"on":true,"bri":200,"seg":[{"col":[[255,0,0]]}]}
+```
+
+This allows full control over WLED state. You can:
+- Turn on/off: `{"on":false}`
+- Set brightness: `{"bri":128}`
+- Change colors: `{"seg":[{"col":[[255,100,0]]}]}`
+- Apply effects: `{"seg":[{"fx":12}]}`
+- And more - see [WLED JSON API docs](https://kno.wled.ge/interfaces/json-api/)
+
+**Tip:** Set up your desired state in WLED, then check `/json/state` to see the JSON you need.
+
+## Example Calendar Events
+
+| Event Description | What Happens |
+|-------------------|--------------|
+| `Off` | Applies preset named "Off" (turns off lights) |
+| `Morning Bright` | Applies preset named "Morning Bright" |
+| `{"on":false}` | Turns off via JSON API |
+| `{"on":true,"bri":255}` | Full brightness via JSON API |
+| `{"seg":[{"fx":9,"sx":128}]}` | Sets effect #9 with speed 128 |
+
+## Calendar Event Tips
+
+1. **Event Duration**: Actions trigger when event **starts**. Event end time is tracked but doesn't trigger actions currently.
+
+2. **Recurring Events**: Works great! Set up "Morning" at 7 AM daily, "Evening" at 6 PM daily, etc.
+
+3. **All-day Events**: Triggers at midnight in your timezone
+
+4. **Time Zones**: Make sure WLED's timezone matches your calendar (Config > Time & Macros)
+
+5. **Multiple Presets**: You can have different events triggering different presets throughout the day
+
+## Example Daily Schedule
+
+Create these recurring calendar events:
+
+| Time | Event Title | Description | Action |
+|------|-------------|-------------|---------|
+| 7:00 AM | Wake Up | Morning Bright | Preset: Warm white, 100% |
+| 9:00 AM | Work Start | Focus Mode | Preset: Cool white, 80% |
+| 12:00 PM | Lunch Break | Relax | Preset: Warm colors, 60% |
+| 6:00 PM | Evening | Sunset | Preset: Orange/red gradient |
+| 10:00 PM | Sleep | Off | Preset: Lights off |
 
 ## Time Synchronization
 
-**Important:** This usermod relies on WLED's NTP time synchronization. Make sure:
+**Critical:** This usermod requires accurate time via NTP.
 
-1. Time zone is configured correctly in WLED settings
-2. NTP is enabled and synchronized
-3. Check "Time & Macros" settings page to verify correct time
+1. Go to **Config** > **Time & Macros**
+2. Enable NTP
+3. Set your correct timezone
+4. Verify the displayed time is correct
+
+If time is wrong, events won't trigger at the right moment!
 
 ## Troubleshooting
 
 ### Events not triggering
-- Verify WLED has correct time (Settings > Time & Macros)
-- Check that calendar events are in the future
-- Ensure poll interval allows enough time to detect events
-- Verify calendar URL is accessible (test in browser)
+
+- ✅ Check WLED time is correct (**Config** > **Time & Macros**)
+- ✅ Verify calendar URL in browser - should download an .ics file
+- ✅ Check event description matches preset name exactly (case-insensitive)
+- ✅ For JSON mode, validate JSON syntax at [jsonlint.com](https://jsonlint.com/)
+- ✅ Check **Config** > **Usermods** shows "Events loaded: X" with X > 0
 
 ### Calendar not updating
-- Check WiFi connection
-- Verify calendar URL is correct
-- Increase poll interval if rate-limited
-- Check WLED logs for error messages
 
-### Pattern matching not working
-- Patterns are case-sensitive substrings
-- Use simple keywords like "Work", "Meeting", "Party"
-- Check event title matches your pattern exactly
+- ✅ Check WiFi connection is stable
+- ✅ Verify calendarUrl is correct (paste in browser to test)
+- ✅ Try increasing poll interval if you have many events
+- ✅ Check serial monitor for debug messages (if compiled with debug enabled)
+
+### Preset name not found
+
+- ✅ Preset name must match exactly (spaces, capitalization doesn't matter)
+- ✅ Go to **Presets** page to see all preset names
+- ✅ Try a simple test: Create preset "Test", create calendar event with description "test"
+
+### High memory usage
+
+- Reduce poll interval to fetch less frequently
+- Limit calendar to only upcoming events (delete past events)
+- The usermod tracks max 5 concurrent events
+
+## Technical Details
+
+- **Max Events**: 5 simultaneous events tracked
+- **Max Preset Name Length**: Limited by WLED preset system
+- **JSON Buffer Size**: 8 KB for API commands
+- **Poll Interval**: Recommended 60-300 seconds (1-5 minutes)
+- **HTTPS Support**: Yes, uses WiFiClientSecure with `setInsecure()`
+- **Certificate Validation**: Skipped (for Google Calendar compatibility)
+
+## Security Notes
+
+- **Public Calendar**: Anyone can view your events
+- **Secret URL**: Secure enough for most use cases, but can be regenerated if compromised
+- **No API Keys**: Uses iCal format, no Google API authentication needed
+- **HTTPS**: Traffic is encrypted but certificate validation is disabled for compatibility
 
 ## Limitations
 
-- Maximum 10 active events tracked simultaneously
-- Maximum 5 event mapping patterns
-- Minimum recommended poll interval: 60 seconds
+- Only event start time triggers actions (end time is tracked but not used)
+- No recurring event expansion (Google Calendar API handles this server-side)
+- Maximum 5 events loaded at once (oldest events dropped if exceeded)
 - Requires stable WiFi connection
-- Calendar must be public for iCal method
+- Minimum recommended poll interval: 60 seconds (to avoid rate limiting)
 
 ## Future Enhancements
 
-- [ ] Full iCal parsing implementation
-- [ ] Google Calendar API integration
-- [ ] Regex pattern matching
-- [ ] Custom API call execution
-- [ ] Multi-calendar support
-- [ ] Event conflict resolution
-- [ ] Transition effects between events
-- [ ] Event preview in UI
+Potential features for future versions:
+- Event end time actions
+- Multiple calendar support
+- Conditional logic (if event A and not event B)
+- Transition duration settings
+- Local event storage/caching
+- Webhook support for instant updates
 
 ## Credits
 
-Created for WLED by the community.
+Created for the WLED community.
 
 ## License
 
-This usermod is part of WLED and follows the same MIT license.
+MIT License - Part of the WLED project.

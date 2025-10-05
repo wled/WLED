@@ -522,25 +522,16 @@ void GoogleCalendarScheduler::executeEventAction(CalendarEvent& event, bool isSt
         presetsChecked++;
         presetName.trim();
 
-        DEBUG_PRINT(F("Calendar: Checking preset "));
-        DEBUG_PRINT(i);
-        DEBUG_PRINT(F(": '"));
-        DEBUG_PRINT(presetName);
-        DEBUG_PRINTLN(F("'"));
-
         // Case-insensitive comparison
         String presetNameLower = presetName;
         presetNameLower.toLowerCase();
 
-        DEBUG_PRINT(F("Calendar: Comparing '"));
-        DEBUG_PRINT(descLower);
-        DEBUG_PRINT(F("' == '"));
-        DEBUG_PRINT(presetNameLower);
-        DEBUG_PRINTLN(F("'"));
-
         if (presetNameLower == descLower) {
-          DEBUG_PRINTLN(F("Calendar: MATCH FOUND!"));
           presetId = i;
+          DEBUG_PRINT(F("Calendar: Found preset '"));
+          DEBUG_PRINT(presetName);
+          DEBUG_PRINT(F("' at ID "));
+          DEBUG_PRINTLN(i);
           break;
         }
       }
