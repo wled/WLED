@@ -189,7 +189,7 @@ If time is wrong, events won't trigger at the right moment!
 
 - **Max Events**: 5 simultaneous events tracked
 - **Max Preset Name Length**: Limited by WLED preset system
-- **JSON Buffer Size**: 8 KB for API commands
+- **JSON Buffer Size**: Uses WLED's standard `JSON_BUFFER_SIZE` (32KB on ESP32, 24KB on ESP8266)
 - **Poll Interval**: Recommended 60-300 seconds (1-5 minutes)
 - **HTTPS Support**: Yes, uses WiFiClientSecure with `setInsecure()`
 - **Certificate Validation**: Skipped (for Google Calendar compatibility)

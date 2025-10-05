@@ -488,7 +488,7 @@ void GoogleCalendarScheduler::executeEventAction(CalendarEvent& event, bool isSt
       return;
     }
 
-    DynamicJsonDocument doc(8192);
+    DynamicJsonDocument doc(JSON_BUFFER_SIZE);
     DeserializationError error = deserializeJson(doc, desc);
 
     if (!error) {
