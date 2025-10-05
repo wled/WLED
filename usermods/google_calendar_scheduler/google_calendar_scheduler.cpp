@@ -94,14 +94,7 @@ class GoogleCalendarScheduler : public Usermod {
     }
 
     void addToJsonInfo(JsonObject& root) override {
-      if (!enabled) return;
-
-      JsonObject user = root["u"];
-      if (user.isNull()) user = root.createNestedObject("u");
-
-      JsonArray calInfo = user.createNestedArray(FPSTR(_name));
-      calInfo.add(eventCount);
-      calInfo.add(F(" events"));
+      // Don't add anything to main info page
     }
 
     void addToJsonState(JsonObject& root) override {
@@ -121,6 +114,15 @@ class GoogleCalendarScheduler : public Usermod {
       if (!usermod.isNull()) {
         if (usermod.containsKey("enabled")) {
           enabled = usermod["enabled"];
+        }
+        if (usermod.containsKey("pollNow") && usermod["pollNow"]) {
+          DEBUG_PRINTLN(F("Calendar: Manual poll requested"));
+          if (WLED_CONNECTED && calendarUrl.length() > 0) {
+            if (httpHost.length() == 0) {
+              parseCalendarUrl();
+            }
+            fetchCalendarEvents();
+          }
         }
       }
     }
@@ -152,7 +154,48 @@ class GoogleCalendarScheduler : public Usermod {
     }
 
     void appendConfigData() override {
-      // Disabled to prevent early boot issues
+      char buf[256];
+
+      // Show events loaded count
+      oappend(F("addInfo('"));
+      oappend(String(FPSTR(_name)).c_str());
+      oappend(F(":calendarUrl',1,'Events loaded: "));
+      oappend(String(eventCount).c_str());
+      oappend(F("');"));
+
+      // Show active events
+      if (enabled && initDone && eventCount > 0) {
+        unsigned long currentTime = toki.second();
+
+        for (uint8_t i = 0; i < eventCount; i++) {
+          CalendarEvent& event = events[i];
+          if (currentTime >= event.startTime && currentTime < event.endTime) {
+            unsigned long remaining = event.endTime - currentTime;
+            unsigned long hours = remaining / 3600;
+            unsigned long minutes = (remaining % 3600) / 60;
+
+            oappend(F("addInfo('"));
+            oappend(String(FPSTR(_name)).c_str());
+            oappend(F(":calendarUrl',1,'<br>Active: "));
+            oappend(event.title.c_str());
+            snprintf_P(buf, sizeof(buf), PSTR(" (%luh %lum left)"), hours, minutes);
+            oappend(buf);
+            oappend(F("');"));
+          }
+        }
+
+        // Show last poll time
+        if (lastPollTime > 0) {
+          unsigned long timeSincePoll = (millis() - lastPollTime) / 1000;
+          unsigned long minutes = timeSincePoll / 60;
+
+          oappend(F("addInfo('"));
+          oappend(String(FPSTR(_name)).c_str());
+          oappend(F(":pollInterval',1,'Last poll: "));
+          oappend(String(minutes).c_str());
+          oappend(F("m ago');"));
+        }
+      }
     }
 
     uint16_t getId() override {
@@ -459,45 +502,48 @@ void GoogleCalendarScheduler::executeEventAction(CalendarEvent& event, bool isSt
     releaseJSONBufferLock();
   } else {
     // Preset name mode - search for preset by name
-    DEBUG_PRINT(F("Calendar: Looking for preset: "));
-    DEBUG_PRINTLN(desc);
+    DEBUG_PRINT(F("Calendar: Looking for preset: '"));
+    DEBUG_PRINT(desc);
+    DEBUG_PRINT(F("' (length: "));
+    DEBUG_PRINT(desc.length());
+    DEBUG_PRINTLN(F(")"));
 
     int8_t presetId = -1;
+    uint16_t presetsChecked = 0;
 
-    // Search through presets for matching name
+    // Prepare lowercase version for comparison
+    String descLower = desc;
+    descLower.toLowerCase();
+
+    // Search through presets for matching name using WLED's getPresetName function
     for (uint8_t i = 1; i < 251; i++) {
-      String filename = "/presets/" + String(i) + ".json";
-      if (!WLED_FS.exists(filename)) continue;
-
-      if (!requestJSONBufferLock(17)) continue;
-
-      DynamicJsonDocument doc(1024);
-      File f = WLED_FS.open(filename, "r");
-      if (!f) {
-        releaseJSONBufferLock();
-        continue;
-      }
-
-      DeserializationError error = deserializeJson(doc, f);
-      f.close();
-
-      if (!error && doc.containsKey("n")) {
-        String presetName = doc["n"].as<String>();
+      String presetName;
+      if (getPresetName(i, presetName)) {
+        presetsChecked++;
         presetName.trim();
 
-        // Case-insensitive comparison
-        String descLower = desc;
-        descLower.toLowerCase();
-        presetName.toLowerCase();
+        DEBUG_PRINT(F("Calendar: Checking preset "));
+        DEBUG_PRINT(i);
+        DEBUG_PRINT(F(": '"));
+        DEBUG_PRINT(presetName);
+        DEBUG_PRINTLN(F("'"));
 
-        if (presetName == descLower) {
+        // Case-insensitive comparison
+        String presetNameLower = presetName;
+        presetNameLower.toLowerCase();
+
+        DEBUG_PRINT(F("Calendar: Comparing '"));
+        DEBUG_PRINT(descLower);
+        DEBUG_PRINT(F("' == '"));
+        DEBUG_PRINT(presetNameLower);
+        DEBUG_PRINTLN(F("'"));
+
+        if (presetNameLower == descLower) {
+          DEBUG_PRINTLN(F("Calendar: MATCH FOUND!"));
           presetId = i;
-          releaseJSONBufferLock();
           break;
         }
       }
-
-      releaseJSONBufferLock();
     }
 
     if (presetId > 0) {
@@ -505,7 +551,9 @@ void GoogleCalendarScheduler::executeEventAction(CalendarEvent& event, bool isSt
       DEBUG_PRINTLN(presetId);
       applyPreset(presetId, CALL_MODE_NOTIFICATION);
     } else {
-      DEBUG_PRINTLN(F("Calendar: Preset not found"));
+      DEBUG_PRINT(F("Calendar: Preset not found (checked "));
+      DEBUG_PRINT(presetsChecked);
+      DEBUG_PRINTLN(F(" presets)"));
     }
   }
 }
