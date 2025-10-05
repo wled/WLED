@@ -135,7 +135,8 @@ uint16_t mode_copy_segment(void) {
     SEGMENT.fadeToBlackBy(5); // fade out
     return FRAMETIME;
   }
-  Segment sourcesegment = strip.getSegment(sourceid);
+  Segment& sourcesegment = strip.getSegment(sourceid);
+
   if (sourcesegment.isActive()) {
     uint32_t sourcecolor;
     uint32_t destcolor;
