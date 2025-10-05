@@ -30,13 +30,6 @@ body {
   animation: rb 5s linear infinite;
   font-size: 42px;
 }
-
-/* Common container styles - consolidates imgGrid, canvasWrap, controls-row */
-.canvasWrap, .controls-row {
-  display: flex;
-  gap: 10px;
-  margin: 20px 0;
-}
 .imgGrid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
@@ -66,28 +59,6 @@ body {
 .imgItem.loading::before {
   content: "Loading...";
 }
-.canvasWrap {
-  flex-direction: column;
-  gap: 5px;
-  align-items: center;
-  width: 100%;
-  margin: 0;
-}
-.controls-row {
-  gap: 8px;
-  flex-wrap: wrap;
-  justify-content: center;
-  margin: 15px 0;
-}
-
-.ctxMenu, .editor {
-  border: 2px solid #555;
-  border-radius: 8px;
-  background: #333;
-}
-
-
-/* Context menu styles */
 .ctxMenu {
   position: fixed;
   padding: 8px;
@@ -128,29 +99,27 @@ body {
 .editor.active {
   display: block;
 }
-
-/* Common input styles - consolidates color, canvas, slider inputs */
-input[type="color"], #cropCanvas, #pixelPreview {
-  border: 2px solid #555;
-  background: #333;
-}
 input[type="color"] {
   border: 0;
 }
+.canvasWrap {
+  display: flex;
+  gap: 20px;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
 #cropCanvas {
+  background: #333;
   cursor: crosshair;
+  border: 2px solid #555;
   max-width: 100%;
-  border-radius: 8px;
+  border-radius:8px;
 }
 #pixelPreview {
+  background: #333;
+  border: 2px solid #555;
   image-rendering: pixelated;
-  border-radius: 4px;
-}
-
-/* Common notification styles - consolidates toast and drop */
-.toast, .drop {
-  border-radius: 8px;
-  transition: all 0.3s ease;
+  border-radius:4px;
 }
 .toast {
   position: fixed;
@@ -159,53 +128,45 @@ input[type="color"] {
   background: #555;
   color: #fff;
   padding: 12px 20px;
+  border-radius: 8px;
   font-size: 14px;
   z-index: 9999;
   border: 2px solid #888;
 }
 .drop {
-  border: 2px dashed #555;
-  padding: 40px 20px;
-  background: #2a2a2a;
-  cursor: pointer;
-  margin: 20px auto;
-  max-width: 80%;
+  border:2px dashed #555;
+  border-radius:8px;
+  padding:40px 20px;
+  background:#2a2a2a;
+  cursor:pointer;
+  transition:all 0.3s ease;
+  margin:20px auto;
+  max-width:80%;
 }
 .drop:hover {
   border-color: #48a;
   background: #333;
 }
-
-/* Button style extensions - consolidated hover states */
 button, .btn, button.sml {
   border: 2px solid #333;
 }
 button:hover, .btn:hover, button.sml:hover {
   border-color: #48a;
 }
-
-/* Common layout styles - consolidates size-controls, size-row, bg-color-row */
-.size-controls, .size-row, .bg-color-row {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.size-controls {
-  display: none;
-  margin: 15px 0;
-  flex-direction: column;
+.size-controls{
+  display:none;
+  margin:15px 0;
 }
 .size-controls.show {
-  display: flex;
+  display: block;
 }
 .size-row {
+  display: flex;
   gap: 20px;
+  align-items: center;
+  justify-content: center;
   margin-bottom: 10px;
 }
-.bg-color-row {
-  margin-bottom: 15px;
-}
-
 .size-col {
   display: flex;
   flex-direction: row;
@@ -218,32 +179,63 @@ button:hover, .btn:hover, button.sml:hover {
   font-size: 16px;
   color: #ccc;
 }
-
-/* Common text styles - consolidates slider-container, preview-info, preview-container */
-.slider-container, .preview-container, .preview-info {
-  text-align: center;
+.bg-color-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 15px;
 }
 .slider-container {
+  text-align: center;
   margin-bottom: 5px;
 }
-.slider-container label, .preview-info {
+.slider-container label {
   display: block;
   margin-bottom: 5px;
 }
-.preview-info {
-  margin-bottom: 10px;
-  font-size: 14px;
-  color: #ccc;
-}
-
 .slider {
   width: 100%;
   max-width: 500px;
 }
+.canvasWrap {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  align-items: center;
+  width: 100%;
+}
 .canvas-container {
   width: 100%;
 }
-
+.preview-container {
+  text-align: center;
+}
+.preview-info {
+  text-align: center;
+  margin-bottom: 10px;
+  font-size: 14px;
+  color: #ccc;
+}
+.controls-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin: 15px 0;
+}
+.tab-content {
+  display: none;
+}
+.tab-content.active {
+  display: block;
+}
+#tabImg.active, #tabTxt.active {
+  background: #09a;
+  border-color: #09a;
+}
+.fr{display:grid;grid-template-columns:100px 1fr;align-items:center;gap:8px;max-width:500px}
+.fr label{text-align:left;justify-self:start}
+.tok{color:#8cf;text-decoration:underline;cursor:pointer}
 @keyframes spin{to{transform:rotate(360deg)}}
 @keyframes rb{0%{background-position:0% 0}100%{background-position:200% 0}}
 </style>
@@ -254,6 +246,12 @@ button:hover, .btn:hover, button.sml:hover {
 <div class="title">WLED <span class="rb">MATRIX</span> TOOL</div>
 </div>
 
+<div style="text-align:center;margin:20px 0;border-bottom:2px solid #555;padding-bottom:10px">
+<button class="btn active" id="tabImg" style="margin:0 5px">Image Tool</button>
+<button class="btn" id="tabTxt" style="margin:0 5px">Scrolling Text</button>
+</div>
+
+<div id="imgTab" class="tab-content active">
 <h3 style="margin-top:20px;padding-top:0;border-top:0">Target Segment</h3>
 <div class="row">
 <div class="col">
@@ -290,6 +288,7 @@ button:hover, .btn:hover, button.sml:hover {
 <label>Zoom: </label>
 <input type="range" id="zoom" min="0" max="100" value="0" class="slider">
 </div>
+<small>Drag to crop, resize handles, pan outside crop</small>
 <canvas id="cropCanvas" width="500" height="400"></canvas>
 </div>
 
@@ -335,6 +334,105 @@ button:hover, .btn:hover, button.sml:hover {
 
 <div style="text-align:center;margin:20px 0">
 <button class="btn" onclick="window.location.href=wURL">Back to the controls</button>
+</div>
+</div>
+
+<div id="txtTab" class="tab-content">
+<h3 style="margin-top:20px;padding-top:0;border-top:0">Segment</h3>
+<div class="row">
+<div class="col">
+<select id="segTxt"><option value="0"></option></select>
+</div>
+</div>
+
+<h3>Text</h3>
+<div class="row">
+<div style="display:flex;gap:8px;align-items:center;flex-wrap:nowrap;max-width:64ch">
+  <input type="text" id="txtIn" placeholder="Enter text" maxlength="64" style="width:100%;max-width:64ch">
+  <button class="btn" id="applyTxt" title="Apply" style="width:36px;min-width:36px;padding:6px 0;line-height:1">✓</button>
+</div>
+</div>
+
+<h3>Settings</h3>
+
+<div class="row">
+<div class="col fr">
+<label for="sx">Speed</label>
+<input type="range" id="sx" min="0" max="255" value="128" class="slider">
+</div>
+</div>
+
+<div class="row">
+<div class="col fr">
+<label for="ix">Y Offset</label>
+<input type="range" id="ix" min="0" max="255" value="128" class="slider">
+</div>
+</div>
+
+<div class="row">
+<div class="col fr">
+<label for="c1">Trail</label>
+<input type="range" id="c1" min="0" max="255" value="0" class="slider">
+</div>
+</div>
+
+<div class="row">
+<div class="col fr">
+<label for="c2">Font Size</label>
+<input type="range" id="c2" min="0" max="255" value="0" class="slider">
+</div>
+</div>
+
+<div class="row">
+<div class="col fr">
+<label for="c3">Rotate</label>
+<input type="range" id="c3" min="0" max="31" value="0" class="slider">
+</div>
+</div>
+
+<div class="row">
+<div class="col" style="display:flex;gap:20px;flex-wrap:wrap;justify-content:center;align-items:center">
+<label style="display:flex;align-items:center;gap:5px">
+<input type="checkbox" id="o1"> Gradient
+</label>
+<label style="display:flex;align-items:center;gap:5px">
+<input type="checkbox" id="o3"> Reverse
+</label>
+</div>
+</div>
+
+<h3>Available Tokens</h3>
+<div style="background:#222;padding:15px;border-radius:8px;margin:15px 0">
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;font-size:13px;text-align:left">
+  <div><a href="#" class="tok" data-t="#TIME">#TIME</a> - HH:MM AM/PM</div>
+  <div><a href="#" class="tok" data-t="#HHMM">#HHMM</a> - HH:MM</div>
+  <div><a href="#" class="tok" data-t="#DATE">#DATE</a> - DD.MM.YYYY</div>
+  <div><a href="#" class="tok" data-t="#DDMM">#DDMM</a> - Day.Month</div>
+  <div><a href="#" class="tok" data-t="#MMDD">#MMDD</a> - Month/Day</div>
+  <div><a href="#" class="tok" data-t="#YYYY">#YYYY</a> - Year</div>
+  <div><a href="#" class="tok" data-t="#YY">#YY</a> - Year 2-digit</div>
+  <div><a href="#" class="tok" data-t="#HH">#HH</a> - Hours</div>
+  <div><a href="#" class="tok" data-t="#MM">#MM</a> - Minutes</div>
+  <div><a href="#" class="tok" data-t="#SS">#SS</a> - Seconds</div>
+  <div><a href="#" class="tok" data-t="#MO">#MO</a> - Month number</div>
+  <div><a href="#" class="tok" data-t="#DD">#DD</a> - Day number</div>
+  <div><a href="#" class="tok" data-t="#MON">#MON</a> - Month (Jan)</div>
+  <div><a href="#" class="tok" data-t="#MONL">#MONL</a> - Month (January)</div>
+  <div><a href="#" class="tok" data-t="#DAY">#DAY</a> - Weekday (Mon)</div>
+  <div><a href="#" class="tok" data-t="#DDDD">#DDDD</a> - Weekday (Monday)</div>
+</div>
+<div style="margin:10px;padding-top:10px;border-top:1px solid #444">
+<strong>Tips:</strong></small><br>
+• Mix text and tokens: "It's #HHMM O'Clock" or "#HH:#MM:#SS"<br>
+• Add '0' suffix for leading zeros: #TIME0, #HH0, etc.
+</div>
+</div>
+
+<div style="text-align:center;margin:20px 0">
+<button class="btn" onclick="window.location.href=wURL">Back to the controls</button>
+</div>
+</div>
+
 <div id="ov"></div>
 <div id="mem" style="display:none;font-size:12px;color:#aaa;text-align:center;margin-top:6px"></div>
 <script>
@@ -350,9 +448,8 @@ let gifFrames=null,gifInfo=null,animationTimer=null;
 (async()=>{
   const params=new URLSearchParams(window.location.search);
   wURL=`http://${params.get('host')||window.location.host}`;
-  await checkPxmagic();
+
   await loadSegs();
-  await loadImgs();
   await mem();
 })();
 
@@ -365,29 +462,25 @@ function show(){gId('ov').classList.add('loading');gId('ov').style.display='bloc
 function hide(){gId('ov').classList.remove('loading');gId('ov').style.display='none';}
 
 function loadSegs(){
-  const sel=gId('seg');
-  const cSel=sel.value; // Store current selection
-  fetch(`${wURL}/json/state`)
-    .then(r => r.json())
-    .then(data => {
-      sel.innerHTML='';
-      if(data.seg){
-        data.seg.forEach(({id,n,start,stop,startY,stopY,fx})=>{
-          const segName = n || `Segment ${id}`;
-          const displayName = fx === 53 ? `${segName} [Image]` : segName;
-          const opt=new Option(displayName,id);
-          opt.dataset.w=stop-start;
-          opt.dataset.h=stopY-startY;
-          opt.dataset.fx=fx||0;
-          sel.add(opt);
-        });
-      }else sel.add(new Option('Segment 0',0));
-      // restore selection if non zero
-      if(cSel){ sel.value=cSel; }
-      const s=sel.options[sel.selectedIndex];
-      if(s){gId('w').value=s.dataset.w||16;gId('h').value=s.dataset.h||16;}
-    })
-    .catch(e => console.error(e));
+  const s1=gId('seg'),v1=s1.value,s2=gId('segTxt'),v2=s2.value;
+  fetch(`${wURL}/json/state`).then(r=>r.json()).then(d=>{
+    s1.innerHTML=''; s2.innerHTML='';
+    if(d.seg&&d.seg.length){
+      d.seg.forEach(({id,n,start,stop,startY,stopY,fx})=>{
+        const t=(n||`Segment ${id}`)+(fx===53?' [Image]':(fx===122?' [Scrolling Text]':''));
+        const o=new Option(t,id);
+        o.dataset.w=stop-start; o.dataset.h=stopY-startY; o.dataset.fx=fx||0;
+        s1.add(o); // add to image segment selector
+        s2.add(o.cloneNode(true)); // add to text segment selector as well
+      });
+    }else{
+      const o=new Option('Segment 0',0);
+      s1.add(o); s2.add(o.cloneNode(true));
+    }
+    if(v1) s1.value=v1; if(v2) s2.value=v2;
+    const o=s1.options[s1.selectedIndex];
+    if(o){ gId('w').value=o.dataset.w||16; gId('h').value=o.dataset.h||16; } // set image output size from segment data
+  }).catch(console.error);
 }
 
 // check if a segment already uses fx 53 (image), only one image can be active at a time
@@ -414,7 +507,7 @@ async function loadImgs(){
     const imgs=data.filter(f=>types.includes(f.name.split('.').pop()?.toLowerCase()));
     const newImageList=imgs.map(f=>f.name.replace('/',''));
     const missingImages = newImageList.filter(name => !imageList.includes(name)); // Find missing images (new ones to add)
-    
+
     if(imageList.length === 0) { 
       // First load - clear grid and load all
       grid.innerHTML='';
@@ -431,7 +524,6 @@ async function loadImgs(){
       await loadImgs2(missingImgData);
     }
     // If no missing images, do nothing (keep existing display)
-    
   }catch(e){console.error(e);}
 }
 
@@ -466,7 +558,6 @@ async function loadImgs2(imgs){
 function rmImg(imageName){
   // Remove from local list
   imageList = imageList.filter(name => name !== imageName);
-  
   // Remove from DOM
   const grid = gId('grid');
   const items = grid.querySelectorAll('.imgItem');
@@ -475,7 +566,6 @@ function rmImg(imageName){
       item.remove();
     }
   });
-  
   // Show "no images" message if list is empty
   if(imageList.length === 0) {
     grid.innerHTML='<div style="grid-column:1/-1;text-align:center;color:#aaa;padding:20px">No images found</div>';
@@ -539,7 +629,7 @@ function handleFile(){
   gId('sizeControls').classList.add('show');
 
   // Check if it's a GIF - if so, parse it
- if(file.type==='image/gif'){
+  if(file.type==='image/gif'){
   const reader=new FileReader();
   reader.onload=e=>{
     const arr=new Uint8Array(e.target.result);
@@ -592,9 +682,9 @@ function handleFile(){
         // disposal 0 or 1: keep frame (do nothing)
       }
       loadGifCanvas();
-    }catch(err){
-      toast('Failed to parse GIF, loading as static image','error');
-      console.error(err);
+    }catch(e){
+      toast('GIF load failed','error');
+      console.error(e);
       loadAsStaticImage(file);
     }
   };
@@ -628,7 +718,7 @@ function loadGifCanvas(){
   gId('editor').classList.add('active');
   gId('drop').innerHTML=`<p>Animated GIF loaded: ${selFile.name} (${gifInfo.numFrames} frames)<br><small>Drop another to replace</small></p>`;
   gId('fname').value=selFile.name.split('.')[0].substring(0,16);
-  
+
   // Create an image from first frame for cropping
   const tempCanvas=cE('canvas');
   tempCanvas.width=gifInfo.width;
@@ -636,7 +726,7 @@ function loadGifCanvas(){
   const tempCtx=tempCanvas.getContext('2d');
   const imageData=new ImageData(new Uint8ClampedArray(gifFrames[0].pixels),gifInfo.width,gifInfo.height);
   tempCtx.putImageData(imageData,0,0);
-  
+
   cropImg=new Image();
   cropImg.onload=()=>{
     resetView();
@@ -703,7 +793,6 @@ function showUnsupported(url,name){
 
 gId('w').oninput=()=>{if(cropImg)drawCrop();};
 gId('h').oninput=()=>{if(cropImg)drawCrop();};
-
 
 function clampCrop(){
   const canvas=gId('cropCanvas');
@@ -908,13 +997,13 @@ gId('upload').onclick=async()=>{
   if(!selFile){toast('Select an image','error');return;}
   const w=+gId('w').value,h=+gId('h').value,fname=gId('fname').value.trim()||'image';
   const filename=`${fname}.gif`;
-  
+
   // Check if file already exists
   const isReplacing = imageList.includes(filename);
   if(imageList.includes(filename)){
     if(!confirm(`${filename} already exists. Do you want to overwrite it?`))return;
   }
-  
+
   show();
   try{
     let fileToUpload;
@@ -979,7 +1068,7 @@ gId('upload').onclick=async()=>{
         rmImg(filename); // remove from list so it reloads
       }
       await loadImgs();
-      gId('src').value='';  // Add this line to reset the input
+      gId('src').value='';
       gId('drop').innerHTML='<p>Drop image or click to select</p>';
     }else toast('Upload failed','error');
   }catch(e){toast(`Error: ${e.message}`,'error');}
@@ -1087,6 +1176,118 @@ async function deleteImg(){
   finally{hide();}
   closeMenu();
 }
+
+gId('tabImg').onclick=async()=>{
+  gId('imgTab').classList.add('active');
+  gId('txtTab').classList.remove('active');
+  gId('tabImg').classList.add('active');
+  gId('tabTxt').classList.remove('active');
+  await checkPxmagic();
+  await loadImgs();
+  localStorage.setItem('tab','img'); // save for next time
+};
+
+gId('tabTxt').onclick=async()=>{
+  gId('imgTab').classList.remove('active');
+  gId('txtTab').classList.add('active');
+  gId('tabImg').classList.remove('active');
+  gId('tabTxt').classList.add('active');
+  localStorage.setItem('tab','txt'); // save for next time
+  await loadSegSet();
+};
+
+(()=>{const t=localStorage.getItem('tab');
+  if(t==='txt') gId('tabTxt').click(); // activate scrolling text tool
+  else gId('tabImg').click(); // activate image tool by default
+})();
+
+
+function insTxt(el,t){
+  const s=el.selectionStart??el.value.length,e=el.selectionEnd??el.value.length,v=el.value;
+  const nv=(v.slice(0,s)+t+v.slice(e)).slice(0,64);
+  const p=Math.min(s+t.length,nv.length);
+  el.value=nv;el.focus();el.selectionStart=el.selectionEnd=p;
+}
+// delegate clicks on token links
+document.addEventListener('click',e=>{
+  const a=e.target.closest('.tok'); if(!a) return;
+  e.preventDefault(); insTxt(gId('txtIn'),a.dataset.t);
+  //upTxt(); // update segment
+});
+
+async function loadSegSet(){
+  const segId=+gId('segTxt').value;
+  try {
+    const r=await fetch(`${wURL}/json/state`);
+    const data=await r.json();
+    if(data.seg&&data.seg[segId]){
+      const s=data.seg[segId];
+      gId('txtIn').value=s.n||'';
+      gId('sx').value=s.sx||128;
+      gId('ix').value=s.ix||128;
+      gId('c1').value=s.c1||0;
+      gId('c2').value=s.c2||0;
+      gId('c3').value=s.c3||0;
+      gId('o1').checked=!(!s.o1);
+      gId('o3').checked=!(!s.o3);
+    }
+  } catch(e) {
+    console.log(e);
+  }
+}
+
+['sx','ix','c1','c2','c3',`o1`,`o3`].forEach(id=>{
+  gId(id).onchange=upTxt; // update on change
+});
+
+// apply text input to segment
+function upTxt(){
+  const id=+gId('segTxt').value,txt=gId('txtIn').value.trim().slice(0,64);
+  const j={on:true,seg:{id,fx:122,n:txt,sx:+gId('sx').value,ix:+gId('ix').value,c1:+gId('c1').value,c2:+gId('c2').value,c3:+gId('c3').value,o1:gId('o1').checked,o3:gId('o3').checked}};
+  fetch(`${wURL}/json/state`,{method:'POST',body:JSON.stringify(j)});
+  loadSegs(); // reload segment settings
+}
+
+gId('txtIn').onchange=upTxt;
+
+gId('applyTxt').onclick=async()=>{
+  const segId=+gId('segTxt').value;
+  const text=gId('txtIn').value.trim();
+
+  show();
+  try {
+    const json={
+      on:true,
+      seg:{
+        id:segId,
+        fx:122,
+        n:text,
+        sx:+gId('sx').value,
+        ix:+gId('ix').value,
+        c1:+gId('c1').value,
+        c2:+gId('c2').value,
+        c3:+gId('c3').value,
+        o1:gId('o1').checked,
+        o3:gId('o3').checked
+      }
+    };
+
+    const r=await fetch(`${wURL}/json/state`,{method:'POST',body:JSON.stringify(json)});
+    const result=await r.json();
+
+    if(result.success!==false){
+      toast(`Applied to Segment ${segId}`);
+      await loadSegs();
+    } else {
+      toast('Failed to apply','error');
+    }
+  } catch(e) {
+    toast(`Error: ${e.message}`,'error');
+  } finally {
+    hide();
+  }
+};
+
 </script>
 </body>
 </html>
