@@ -323,6 +323,13 @@ bool GoogleCalendarScheduler::fetchCalendarEvents() {
 
 // Simple iCal parser - extracts VEVENT blocks
 void GoogleCalendarScheduler::parseICalData(String& icalData) {
+  // Store old events to preserve trigger state
+  CalendarEvent oldEvents[MAX_EVENTS];
+  uint8_t oldEventCount = eventCount;
+  for (uint8_t i = 0; i < oldEventCount; i++) {
+    oldEvents[i] = events[i];
+  }
+
   eventCount = 0;
 
   int pos = 0;
@@ -398,9 +405,23 @@ void GoogleCalendarScheduler::parseICalData(String& icalData) {
       event.endTime = parseICalDateTime(dtEnd);
     }
 
-    // Reset trigger flags
-    event.triggered = false;
-    event.endTriggered = false;
+    // Preserve trigger state if this event existed before with same start time
+    bool foundMatch = false;
+    for (uint8_t i = 0; i < oldEventCount; i++) {
+      if (oldEvents[i].startTime == event.startTime &&
+          oldEvents[i].title == event.title) {
+        event.triggered = oldEvents[i].triggered;
+        event.endTriggered = oldEvents[i].endTriggered;
+        foundMatch = true;
+        break;
+      }
+    }
+
+    // Reset trigger flags only for new events
+    if (!foundMatch) {
+      event.triggered = false;
+      event.endTriggered = false;
+    }
 
     DEBUG_PRINT(F("Calendar: Event "));
     DEBUG_PRINT(eventCount);
