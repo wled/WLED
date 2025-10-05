@@ -206,6 +206,32 @@ void notify(byte callMode, bool followUp)
   notificationCount = followUp ? notificationCount + 1 : 0;
 }
 
+/**
+ * @brief Parse and apply a WLED UDP notification packet to local state.
+ *
+ * Parses a received notifier packet and applies any allowed updates to the local
+ * strip and segment configuration (colors, effects, palettes, per-segment
+ * geometry/options, brightness, CCT, nightlight and time/timebase). The function
+ * respects the local receive* configuration flags (e.g., receiveNotificationColor,
+ * receiveNotificationEffects, receiveSegmentOptions, receiveSegmentBounds) and
+ * will ignore packets from incompatible sync groups, unsupported custom versions,
+ * or packets received within one second of this node's own notification.
+ *
+ * The packet's compatibility/version byte (at payload offset 11) controls which
+ * fields are read and applied. When permitted, this function may:
+ * - update global colors, brightness, CCT and nightlight state,
+ * - create/remove or modify segments (geometry, grouping/spacing, offset, startY/stopY),
+ * - update per-segment options, sliders and effect parameters,
+ * - apply simple effect/palette sync across selected segments,
+ * - adjust strip.timebase and, if sender is more accurate, adjust system time via Toki,
+ * - unload an active playlist and mark stateChanged/stateUpdated(CALL_MODE_NOTIFICATION).
+ *
+ * Parameter udpIn must point to a valid UDP notification payload that follows the
+ * WLED notifier layout; the function reads version-dependent fields and uses the
+ * payload's group and segment count/stride fields to iterate per-segment entries.
+ *
+ * @param udpIn Pointer to the start of the UDP notification payload buffer.
+ */
 void parseNotifyPacket(uint8_t *udpIn) {
   //ignore notification if received within a second after sending a notification ourselves
   if (millis() - notificationSentTime < 1000) return;
@@ -964,7 +990,31 @@ void espNowSentCB(uint8_t* address, uint8_t status) {
     DEBUG_PRINTF_P(PSTR("Message sent to " MACSTR ", status: %d\n"), MAC2STR(address), status);
 }
 
-// ESP-NOW message receive callback function
+/**
+ * @brief ESP-NOW receive callback — reassembles and processes incoming ESP-NOW frames.
+ *
+ * Receives ESP-NOW frames, optionally passes them to a Usermod hook, handles WiZ Mote frames,
+ * and reassembles multi-packet notifier payloads encapsulating a UDP-style notification.
+ * When a complete message is reconstructed it is handed to parseNotifyPacket(...) for application.
+ *
+ * The function verifies a simple frame header (magic == 'W'), requires broadcast frames, and
+ * only processes packets when ESP-NOW syncing is enabled and the device is not connected to WiFi.
+ * It maintains an internal reassembly buffer across invocations, tolerates multiple segment packets,
+ * and resets state on out-of-order or malformed frames. Memory for the reassembly buffer is
+ * allocated with malloc() and freed after the full message is processed; if allocation fails the
+ * packet is silently dropped.
+ *
+ * Side effects:
+ * - May call UsermodManager::onEspNowMessage(...) and handleWiZdata(...).
+ * - Allocates and frees a temporary buffer for reassembly.
+ * - Calls parseNotifyPacket(...) once a complete notification is reassembled.
+ *
+ * @param address 6-byte peer MAC address of the sender.
+ * @param data Pointer to received ESP-NOW payload.
+ * @param len Length of the payload in bytes.
+ * @param rssi RSSI value for the received packet (signed int).
+ * @param broadcast True if the frame was a broadcast.
+ */
 void espNowReceiveCB(uint8_t* address, uint8_t* data, uint8_t len, signed int rssi, bool broadcast) {
   sprintf_P(last_signal_src, PSTR("%02x%02x%02x%02x%02x%02x"), address[0], address[1], address[2], address[3], address[4], address[5]);
 

@@ -81,6 +81,47 @@ void sendHuePoll()
   hueLastRequestSent = millis();
 }
 
+/**
+ * @brief Handle incoming Hue bridge HTTP response data and update WLED Hue sync state.
+ *
+ * Parses the HTTP response body from a Philips Hue bridge, interprets either an
+ * array response (errors or API key provisioning) or a light state object, and
+ * applies resulting authentication, polling, brightness, and color changes to
+ * the global Hue-sync state used by WLED.
+ *
+ * Detailed behavior:
+ * - Expects `data` to contain a full HTTP response; locates the body by searching
+ *   for the header/body separator ("\r\n\r\n") and parses only the body.
+ * - If the body is a JSON array:
+ *   - Parses error responses and maps Hue error types to internal state:
+ *     - type 1 or 101 → marks authentication required (hueAuthRequired = true).
+ *     - type 3 → disables polling (huePollingEnabled = false).
+ *   - On a successful user-creation response, extracts the returned username and,
+ *     if it fits, copies it into the stored API key (hueApiKey), clears the auth
+ *     requirement, and flags the key for persistence (hueNewKey = true).
+ * - If the body is a JSON object containing a light "state":
+ *   - Parses on/off, brightness ("bri"), and color depending on "colormode":
+ *     - CT (color temperature) → reads "ct".
+ *     - XY → reads "xy"[0] and "xy"[1].
+ *     - HS → reads "hue" and "sat".
+ *   - Converts and applies brightness and color via the existing hueApplyOnOff,
+ *     hueApplyBri, and hueApplyColor code paths (may call colorXYtoRGB,
+ *     colorHStoRGB, or colorCTtoRGB). Tracks last-seen values to avoid redundant
+ *     updates and sets hueReceived = true on successful application.
+ * - On JSON parse failure sets hueError = HUE_ERROR_JSON_PARSING.
+ *
+ * Side effects:
+ * - Reads and may modify global Hue-sync state variables such as hueApiKey,
+ *   hueAuthRequired, hueNewKey, hueError, huePollingEnabled, hueReceived and
+ *   the per-attribute "last" trackers (e.g., hueBriLast, hueXLast, hueYLast, etc.).
+ * - May invoke color conversion and application routines that update WLED outputs.
+ *
+ * @param data Pointer to the received HTTP response buffer (raw bytes).
+ * @param len  Length of the received buffer; zero length is ignored.
+ *
+ * Note: `client` and `arg` are provided by the Async TCP framework and are not
+ * documented here per project conventions for common client/service parameters.
+ */
 void onHueData(void* arg, AsyncClient* client, void *data, size_t len)
 {
   if (!len) return;

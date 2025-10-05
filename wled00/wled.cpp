@@ -34,6 +34,26 @@ void WLED::reset()
   ESP.restart();
 }
 
+/**
+ * @brief Main runtime loop; performs periodic service tasks and subsystem maintenance.
+ *
+ * This is the central loop executed continuously after setup. It coordinates timekeeping,
+ * connection management, input/output handling, user modules, LED strip servicing, and
+ * ancillary services (OTA, MQTT, NTP, mDNS, Hue/Alexa/ESP-NOW/DMX where enabled). It also
+ * monitors heap usage and can trigger reconnection or segment purging when memory is low,
+ * reinitializes LED busses/LED maps when requested, serializes configuration changes,
+ * feeds the watchdog, and triggers a reboot when requested.
+ *
+ * Side effects:
+ * - Drives network and peripheral services (WiFi, AP, MDNS, DNS, UDP, MQTT, OTA, etc.).
+ * - Updates and renders LED strip state; may block strip updates when realtime input is active.
+ * - May call reset() to reboot the device if a reboot has been requested.
+ * - May reinitialize hardware buses and serialize configuration when configured flags are set.
+ *
+ * Notes:
+ * - Behavior is influenced by many compile-time flags (e.g., WLED_DEBUG, WLED_DISABLE_INFRARED,
+ *   WLED_ENABLE_ADALIGHT, WLED_DISABLE_MQTT, WLED_DISABLE_ESPNOW, WLED_DISABLE_HUESYNC, etc.).
+ */
 void WLED::loop()
 {
   static uint32_t      lastHeap = UINT32_MAX;
@@ -301,6 +321,26 @@ void WLED::disableWatchdog() {
 }
 #endif
 
+/**
+ * @brief Perform full device initialization and start hardware, networking, and services.
+ *
+ * Initializes platform-specific runtime state, serial console, memory/JSON buffers (PSRAM-aware),
+ * filesystem, user modules, LED strip and segments, networking (WiFi/AP scan), mDNS/MQTT defaults,
+ * OTA hooks, servers (HTTP/UDP), DMX/IR if enabled, and related peripherals. Also reserves and
+ * configures pins, seeds the PRNG for LED functions, and enables the watchdog if configured.
+ *
+ * This must be called once at boot to bring the device into a known operational state. It may set
+ * global flags, allocate resources, and start background services (WiFi scan, servers, OTA handlers,
+ * etc.). Any configuration that usermods add during setup is persisted immediately when required.
+ *
+ * Side effects:
+ * - May modify pin ownership and gpio modes.
+ * - Allocates dynamic memory for the JSON document.
+ * - Starts filesystem access and may set an error flag on failure.
+ * - Initiates an asynchronous WiFi scan and registers WiFi event handlers.
+ * - Registers ArduinoOTA callbacks when OTA is enabled.
+ * - Enables the watchdog timer when configured.
+ */
 void WLED::setup()
 {
   #if defined(ARDUINO_ARCH_ESP32) && defined(WLED_DISABLE_BROWNOUT_DET)
@@ -527,6 +567,23 @@ void WLED::setup()
   #endif
 }
 
+/**
+ * @brief Finalize LED bus/strip setup and apply boot-time brightness/preset behavior.
+ *
+ * Performs final initialization of the LED strip and related runtime state after
+ * configuration deserialization: finalizes bus creation, creates automatic segments,
+ * sets the strip callback, and applies the device's boot behavior (either restore
+ * brightness or start with LEDs off and optionally apply a boot preset).
+ *
+ * Side effects:
+ * - Calls strip.finalizeInit(), strip.makeAutoSegments(), strip.setBrightness(0),
+ *   strip.setShowCallback(...), and strip.show() as needed.
+ * - Updates brightness variables (bri, briLast) according to turnOnAtBoot and briS.
+ * - If a bootPreset is defined, clears active segments to black (no transition),
+ *   then calls applyPreset(bootPreset, CALL_MODE_INIT).
+ * - Calls colorUpdated(CALL_MODE_INIT) (does not send notifications).
+ * - Initializes relay pin state (rlyPin) if configured.
+ */
 void WLED::beginStrip()
 {
   // Initialize NeoPixel Strip and button
@@ -744,6 +801,25 @@ int8_t WLED::findWiFi(bool doScan) {
   return status; // scan is still running or there was an error
 }
 
+/**
+ * @brief Initialize and (re)establish network interfaces and related services.
+ *
+ * Performs the platform-specific steps required to start or reconfigure connectivity:
+ * - Registers websocket event handler (if enabled).
+ * - Stops any active ESP-NOW instance before reinitializing WiFi.
+ * - Clears existing WiFi connections and applies static IP configuration if present.
+ * - Updates the last reconnect timestamp.
+ * - Starts the device Access Point (AP) immediately when no station network is configured
+ *   or when AP behavior requires it; otherwise prepares station mode.
+ * - Begins connection to the selected WiFi network, sets hostname, TX power and sleep
+ *   mode as supported by the platform.
+ * - Initializes ESP-NOW (AP or STA mode) and installs send/receive callbacks when enabled.
+ *
+ * Side effects:
+ * - Modifies global networking state (WiFi mode, AP activation, static IP, hostname,
+ *   TX power, sleep mode).
+ * - May start/stop ESP-NOW and AP, and registers ESP-NOW callbacks.
+ */
 void WLED::initConnection()
 {
   DEBUG_PRINTF_P(PSTR("initConnection() called @ %lus.\n"), millis()/1000);
@@ -886,6 +962,25 @@ void WLED::initInterfaces()
   wasConnected = true;
 }
 
+/**
+ * @brief Manage WiFi and AP state transitions, reconnection attempts, and post-connection initialization.
+ *
+ * This routine monitors connection status and performs high-level connection management:
+ * - Initiates initial or forced reconnects and selects the best configured network.
+ * - Starts and stops the soft AP according to AP behavior and client activity.
+ * - Triggers WiFi scans and cycles through configured networks on repeated failures.
+ * - Starts interface initialization (mDNS, HTTP, MQTT, NTP, etc.) when a station connection is established.
+ * - Sends Improv state/IP responses on relevant timeouts and connection events.
+ *
+ * Side effects:
+ * - May call initConnection(), initAP(), initInterfaces(), userConnected(), UsermodManager::connected().
+ * - May modify selectedWiFi, apActive, interfacesInited, wasConnected, improvActive and related state.
+ * - May start/stop DNS and soft AP, initiate WiFi scans, and log status messages.
+ *
+ * Timing/behavior notes:
+ * - Short-circuits while a scan is running or during the first 2 seconds after boot under certain AP modes.
+ * - Enforces configurable timeouts before retrying networks or disabling temporary APs.
+ */
 void WLED::handleConnection()
 {
   static bool scanDone = true;
