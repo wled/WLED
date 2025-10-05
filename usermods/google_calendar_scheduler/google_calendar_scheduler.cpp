@@ -13,8 +13,6 @@
  * - Configurable poll interval and event mappings
  */
 
-#define USERMOD_ID_CALENDAR_SCHEDULER 59
-
 // Forward declarations
 class GoogleCalendarScheduler : public Usermod {
   private:
