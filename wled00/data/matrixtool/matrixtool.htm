@@ -27,8 +27,9 @@ body {
   -webkit-text-fill-color: transparent;
   background-size: 300% 200%;
   animation: rb 5s linear infinite;
-  font-size: 42px;
+  font-size: 36px;
 }
+@keyframes rb{0%{background-position:0% 0}100%{background-position:200% 0}}
 .imgGrid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
@@ -87,7 +88,6 @@ body {
 .ctxMenu button.danger {
   color: #f44;
 }
-
 /* Editor styles */
 .editor {
   display: none;
@@ -146,7 +146,7 @@ input[type="color"] {
   border-color: #48a;
   background: #333;
 }
-button, .btn, button.sml {
+button, .btn {
   border: 2px solid #333;
 }
 button:hover, .btn:hover {
@@ -190,7 +190,6 @@ button:hover, .btn:hover {
   align-items: center;
   width: 100%;
 }
-
 .controls-row {
   display: flex;
   gap: 8px;
@@ -204,7 +203,6 @@ button:hover, .btn:hover {
 .tab-content.active {
   display: block;
 }
-
 .center-sliders {
   display: flex;
   flex-direction: column;
@@ -227,7 +225,6 @@ button:hover, .btn:hover {
   text-decoration: underline;
   cursor: pointer;
 }
-
 .tab-buttons {
   display: flex;
   gap: 4px;
@@ -253,9 +250,6 @@ button:hover, .btn:hover {
   color: #fff;
   border-bottom: 2px solid #333;
 }
-
-
-@keyframes rb{0%{background-position:0% 0}100%{background-position:200% 0}}
 </style>
 </head>
 <body>
