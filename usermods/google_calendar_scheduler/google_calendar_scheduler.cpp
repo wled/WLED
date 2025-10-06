@@ -216,8 +216,8 @@ class GoogleCalendarScheduler : public Usermod {
         unsigned long currentTime = 0;
         bool timeValid = false;
 
-        // Only get current time if NTP is synced
-        if (toki.isSynced()) {
+        // Only get current time if time source is set (not TOKI_TS_NONE)
+        if (toki.getTimeSource() > TOKI_TS_NONE) {
           currentTime = toki.second();
           // Additional check: valid Unix timestamp (after 2001-09-09)
           if (currentTime >= 1000000000) {
