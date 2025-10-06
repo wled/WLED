@@ -1,0 +1,8 @@
+{
+  "name": "gc9a01_display",
+  "build": { "libArchive": false },
+  "dependencies": {
+    "bodmer/TFT_eSPI": "^2.5.43",
+    "Wire": ""
+  }
+}
