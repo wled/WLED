@@ -9,6 +9,14 @@
 
 #pragma once
 
+// Platform-specific metadata locations
+#ifdef ESP32
+#define BUILD_METADATA_SECTION ".rodata.wled_desc"
+#elif defined(ESP8266)
+#define BUILD_METADATA_SECTION ".ver_number"
+#endif
+
+
 class AsyncWebServerRequest;
 
 /**
