@@ -14,7 +14,7 @@ body {
 	margin: 0 auto;
 }
 /* Header styles */
-.hdr .title {
+.title {
 	font-size: 32px;
 	font-weight: bold;
 	color: #fff;
@@ -24,7 +24,7 @@ h3 {
 	margin-bottom: 0;
 }
 /* rainbow text animation */
-.hdr .rb {
+.title .rb {
 	background: linear-gradient(to right, #ef5350, #f48fb1, #7e57c2, #2196f3, #26c6da, #43a047, #eeff41, #f9a825, #ff5722);
 	-webkit-background-clip: text;
 	-webkit-text-fill-color: transparent;
@@ -33,14 +33,16 @@ h3 {
 	font-size: 36px;
 }
 @keyframes rb{0%{background-position:0% 0}100%{background-position:200% 0}}
-.imgGrid {
+
+/* image grid */
+.g {
 	display: grid;
 	grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
 	gap: 10px;
 	margin: 20px 0;
 	padding: 0 5px;
 }
-.imgItem {
+.it {
 	aspect-ratio: 1;
 	border: 2px solid #555;
 	border-radius: 4px;
@@ -50,80 +52,76 @@ h3 {
 	transition: all 0.3s ease;
 	image-rendering: pixelated;
 }
-.imgItem:hover {
+.it:hover {
 	border-color: #09a;
 }
-.imgItem.loading {
+.it.loading {
 	background: #222;
 	display: flex;
 	align-items: center;
 	justify-content: center;
 }
-.imgItem.loading::before {
+.it.loading::before {
 	content: "Loading...";
 }
-.ctxMenu {
+
+/* context menu */
+.cm {
 	position: fixed;
-	padding: 8px;
-	z-index: 10000;
-	box-shadow: 0 4px 12px rgba(0,0,0,0.5);
-	border-radius: 8px;
 }
-.ctxMenu button {
+.cm button {
 	display: block;
 	width: 100%;
 	text-align: left;
-	background: #333;
-	border: 0;
-	color: #fff;
-	padding: 8px 12px;
 	cursor: pointer;
-	border-radius: 4px;
-	margin-bottom: 5px;
+	border-radius: 1px;
 	font-size: 14px;
+	margin: 0;
 }
-.ctxMenu button:hover {
+.cm button:hover {
 	background: #555;
 }
-.ctxMenu button:last-child {
-	margin-bottom: 0;
-}
-.ctxMenu button.danger {
+.cm button.danger {
 	color: #f44;
 }
+
 /* Editor styles */
-.editor {
+.ed {
 	display: none;
 	margin: 20px 0;
 	padding: 20px;
 	background: #222;
 }
-.editor.active {
+.ed.active {
 	display: block;
 }
 input[type="color"] {
 	border: 0;
 }
-.canvasWrap {
+
+/* canvas wrap - initial */
+.cw {
 	display: flex;
 	gap: 20px;
 	align-items: flex-start;
 	flex-wrap: wrap;
 }
-#cropCanvas {
+#cv {
 	background: #333;
 	cursor: crosshair;
 	border: 2px solid #555;
 	max-width: 100%;
 	border-radius:8px;
 }
-#pixelPreview {
+#pv {
 	background: #333;
 	border: 2px solid #555;
 	image-rendering: pixelated;
 	border-radius:4px;
 }
-.toast {
+
+/* toast */
+.t {
 	position: fixed;
 	top: 20px;
 	right: 20px;
@@ -135,7 +133,9 @@ input[type="color"] {
 	z-index: 9999;
 	border: 2px solid #888;
 }
-.drop {
+
+/* drop zone */
+.dp {
 	border:2px dashed #555;
 	border-radius:8px;
 	padding:40px 20px;
@@ -145,68 +145,107 @@ input[type="color"] {
 	margin:20px auto;
 	max-width:80%;
 }
-.drop:hover {
+.dp:hover {
 	border-color: #48a;
 	background: #333;
 }
+
+/* buttons */
 button, .btn {
 	border: 2px solid #333;
 }
 button:hover, .btn:hover {
 	border-color: #48a;
 }
-.size-controls{
+
+/* size controls */
+.sz{
 	display:none;
 	margin:15px 0;
 }
-.size-controls.show {
+.sz.show {
 	display: block;
 }
-.size-col {
+.szc {
 	display: flex;
 	flex-direction: row;
 	align-items: center;
 	gap: 5px;
 	min-width: 80px;
 }
-.size-col label {
+.szc label {
 	margin-bottom: 0px;
 	font-size: 16px;
 	color: #ccc;
 }
-.slider-container {
+
+/* sliders */
+.slc {
 	text-align: center;
 	margin-bottom: 5px;
 }
-.slider-container label {
+.slc label {
 	display: block;
 	margin-bottom: 5px;
 }
-.slider {
+.sl {
 	width: 100%;
 	max-width: 500px;
 }
-.canvasWrap {
+
+/* canvas wrap - override for column layout */
+.cw {
 	display: flex;
 	flex-direction: column;
 	gap: 5px;
 	align-items: center;
 	width: 100%;
 }
-.controls-row {
+
+/* controls row */
+.crw {
 	display: flex;
 	gap: 8px;
 	flex-wrap: wrap;
 	justify-content: center;
 	margin: 15px 0;
 }
-.tab-content {
+
+/* tabs */
+.tabc {
 	display: none;
 }
-.tab-content.active {
+.tabc.active {
 	display: block;
 }
-.center-sliders {
+.tb {
+	display: flex;
+	gap: 4px;
+	border-bottom: 2px solid #555;
+	margin: 20px 0 0 0;
+	padding: 0 20px;
+}
+.tb button {
+	flex: 1;
+	background: #111;
+	border: none;
+	border-radius: 8px 8px 0 0;
+	padding: 12px 24px;
+	margin: 0;
+	color: #888;
+}
+.tb button:hover {
+	background: #222;
+	color: #aaa;
+}
+.tb button.active {
+	background: #333;
+	color: #fff;
+	border-bottom: 2px solid #333;
+}
+
+/* text tool */
+.cs {
 	display: flex;
 	flex-direction: column;
 	align-items: center;
@@ -216,264 +255,225 @@ button:hover, .btn:hover {
 	display: grid;
 	grid-template-columns: 100px 1fr;
 	align-items: center;
+	text-align: left;
 	gap: 8px;
 	max-width: 500px;
 }
-.fr label {
-	text-align: left;
-	justify-self: start;
-}
-.tok {
+.tk {
 	color: #8cf;
 	text-decoration: underline;
 	cursor: pointer;
-}
-.tab-buttons {
-	display: flex;
-	gap: 4px;
-	border-bottom: 2px solid #555;
-	margin: 20px 0 0 0;
-	padding: 0 20px;
-}
-.tab-buttons button {
-	flex: 1;
-	background: #111;
-	border: none;
-	border-radius: 8px 8px 0 0;
-	padding: 12px 24px;
-	margin: 0;
-	color: #888;
-}
-.tab-buttons button:hover {
-	background: #222;
-	color: #aaa;
-}
-.tab-buttons button.active {
-	background: #333;
-	color: #fff;
-	border-bottom: 2px solid #333;
 }
 </style>
 </head>
 <body>
 <div class="cont">
-<div class="hdr">
-<div class="title">WLED <span class="rb">MATRIX</span> TOOL</div>
-</div>
+	<div class="title">WLED <span class="rb">MATRIX</span> TOOL</div>
 
-<div class="tab-buttons">
-	<button class="active" id="tabImg">Image Tool</button>
-	<button id="tabTxt">Scrolling Text</button>
-</div>
-
-<div id="imgTab" class="tab-content active">
-<h3 style="margin-top:20px;">Target Segment</h3>
-<select id="seg"><option value="0" data-w="16" data-h="16">Segment 0 (16x16)</option></select>
-
-
-<h3>Images on Device</h3>
-<div class="imgGrid" id="grid"></div>
-<div style="text-align:center;margin:15px 0">
-<button class="sml" id="pxmagicBtn" style="display:none"> </button>
-</div>
-
-<h3>Upload New Image</h3>
-
-<div id="drop" class="drop">
-<p>Drop image or click to select</p>
-</div>
-<input type="file" id="src" accept="image/*" style="display:none">
-
-<div class="editor" id="editor">
-<h3 style="margin-top:0;padding-top:0;border-top:0">Crop & Adjust Image</h3>
-
-<div class="controls-row">
-<button class="sml" id="matchAspect">Match Aspect Ratio</button>
-<button class="sml" id="matchSize">Match Size (1:1)</button>
-<button class="sml" id="fullSize">Full Size</button>
-<button class="sml" id="resetCrop">Reset</button>
-</div>
-
-<div class="canvasWrap">
-<div style="width:100%">
-<div class="slider-container">
-<label>Zoom: </label>
-<input type="range" id="zoom" min="0" max="100" value="0" class="slider">
-</div>
-<small>Drag to crop, resize handles, pan outside crop</small>
-<canvas id="cropCanvas" width="500" height="400"></canvas>
-</div>
-
-<div style="text-align:center">
-<div style="text-align:center;margin-bottom:10px;font-size:14px;color:#ccc">Preview at target size</div>
-
-<canvas id="pixelPreview" width="128"></canvas>
-
-<div class="slider-container">
-<label>Dark Pixel Cutoff</label>
-<input type="range" id="blackThresh" min="0" max="255" value="0" class="slider">
-<div style="display:flex;align-items:center;justify-content:center;margin-bottom:15px">
-<label for="bgCol" style="margin-right:10px">Background Color</label>
-<input type="color" id="bgCol" value="#000000">
-</div>
-</div>
-
-<div class="size-controls" id="sizeControls">
-<div style="display:flex;gap:20px;align-items:center;justify-content:center;margin-bottom:10px">
-<div class="size-col">
-<label for="w">Width</label>
-<input type="number" id="w" value="16" min="1" class="s">
-</div>
-<div class="size-col">
-<label for="h">Height</label>
-<input type="number" id="h" value="16" min="1" class="s">
-</div>
-</div>
-</div>
-
-</div>
-</div>
-
-<div class="row" style="margin-top:20px">
-<div class="col">
-<label for="fname">Filename</label>
-<input type="text" id="fname" placeholder="image" maxlength="26">
-<small>.gif will be added</small>
-</div>
-</div>
-<button class="btn" id="upload">Convert & Upload to WLED</button>
-</div>
-
-<div style="text-align:center;margin:20px 0">
-<button class="btn" onclick="window.location.href=wURL">Back to the controls</button>
-</div>
-</div>
-
-<div id="txtTab" class="tab-content">
-<h3 style="margin-top:20px;">Target Segment</h3>
-<select id="segTxt"><option value="0"></option></select>
-
-<h3>Text to show</h3>
-<div class="row">
-<div class="col" style="display:flex;gap:10px;align-items:center;justify-content:center;flex-wrap:wrap">
-	<input type="text" id="txtIn" placeholder="Enter text" maxlength="64"  style="flex:1;min-width:300px;">
-	<button class="btn" id="applyTxt" title="Apply">✓</button>
-</div>
-</div>
-
-<h3>Settings</h3>
-<div class="center-sliders">
-	<div class="fr">
-	<label for="sx">Speed</label>
-	<input type="range" id="sx" min="0" max="255" value="128" class="slider">
+	<div class="tb">
+		<button class="active" id="tImg">Image Tool</button>
+		<button id="tTxt">Scrolling Text</button>
 	</div>
 
-	<div class="fr">
-	<label for="ix">Y Offset</label>
-	<input type="range" id="ix" min="0" max="255" value="128" class="slider">
+	<div id="iTab" class="tabc active">
+		<h3 style="margin-top:20px;">Target Segment</h3>
+		<select id="seg"><option value="0" data-w="16" data-h="16">Segment 0 (16x16)</option></select>
+
+		<h3>Images on Device</h3>
+		<div class="g" id="gr"></div>
+		<div style="text-align:center;margin:15px 0">
+			<button class="sml" id="pxm" style="display:none"> </button>
+		</div>
+
+		<h3>Upload New Image</h3>
+
+		<div id="drop" class="dp">
+			<p>Drop image or click to select</p>
+		</div>
+		<input type="file" id="src" accept="image/*" style="display:none">
+
+		<div class="ed" id="ed">
+			<h3 style="margin-top:0;padding-top:0;border-top:0">Crop & Adjust Image</h3>
+
+			<div class="crw">
+				<button class="sml" id="matchAspect">Match Aspect Ratio</button>
+				<button class="sml" id="matchSize">Match Size (1:1)</button>
+				<button class="sml" id="fullSize">Full Size</button>
+				<button class="sml" id="resetCrop">Reset</button>
+			</div>
+
+			<div class="cw">
+				<div style="width:100%">
+					<div class="slc">
+						<label>Zoom: </label>
+						<input type="range" id="zoom" min="0" max="100" value="0" class="sl">
+					</div>
+					<canvas id="cv" width="500" height="400"></canvas>
+				</div>
+
+				<small>Preview at target size</small>
+
+				<canvas id="pv" width="128"></canvas>
+
+				<div class="slc">
+					<label>Dark Pixel Cutoff</label>
+					<input type="range" id="bt" min="0" max="255" value="0" class="sl">
+					<div style="display:flex;align-items:center;justify-content:center;margin-bottom:15px">
+						<label for="bg" style="margin-right:10px">Background Color</label>
+						<input type="color" id="bg" value="#000000">
+					</div>
+				</div>
+
+				<div class="sz" id="sz">
+					<div style="display:flex;gap:20px;align-items:center;justify-content:center;margin-bottom:10px">
+						<div class="szc">
+							<label for="w">Width</label>
+							<input type="number" id="w" value="16" min="1" class="s">
+						</div>
+						<div class="szc">
+							<label for="h">Height</label>
+							<input type="number" id="h" value="16" min="1" class="s">
+						</div>
+					</div>
+				</div>
+
+			</div>
+		</div>
+
+		<div class="row" style="margin-top:20px">
+			<div class="col">
+				<label for="fn">Filename</label>
+				<input type="text" id="fn" placeholder="image" maxlength="26">
+				<small>.gif will be added</small>
+			</div>
+		</div>
+		<button class="btn" id="up">Convert & Upload to WLED</button>
 	</div>
 
-	<div class="fr">
-	<label for="c1">Trail</label>
-	<input type="range" id="c1" min="0" max="255" value="0" class="slider">
-	</div>
-
-	<div class="fr">
-	<label for="c2">Font Size</label>
-	<input type="range" id="c2" min="0" max="255" value="0" class="slider">
-	</div>
-
-	<div class="fr">
-	<label for="c3">Rotate</label>
-	<input type="range" id="c3" min="0" max="31" value="0" class="slider">
+	<div style="text-align:center;margin:20px 0">
+		<button class="btn" onclick="window.location.href=wu">Back to the controls</button>
 	</div>
 </div>
 
-<div class="row">
-<div class="col" style="display:flex;gap:20px;flex-wrap:wrap;justify-content:center;align-items:center">
-<label style="display:flex;align-items:center;gap:5px">
-<input type="checkbox" id="o1"> Gradient
-</label>
-<label style="display:flex;align-items:center;gap:5px">
-<input type="checkbox" id="o3"> Reverse
-</label>
-</div>
-</div>
+<div id="xTab" class="tabc">
+	<h3 style="margin-top:20px;">Target Segment</h3>
+	<select id="segT"><option value="0"></option></select>
 
-<h3>Available Tokens</h3>
-<div style="background:#222;padding:15px;border-radius:8px;margin:15px 0">
-<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;font-size:13px;text-align:left">
-	<div><a href="#" class="tok" data-t="#TIME">#TIME</a> - HH:MM AM/PM</div>
-	<div><a href="#" class="tok" data-t="#HHMM">#HHMM</a> - HH:MM</div>
-	<div><a href="#" class="tok" data-t="#DATE">#DATE</a> - DD.MM.YYYY</div>
-	<div><a href="#" class="tok" data-t="#DDMM">#DDMM</a> - Day.Month</div>
-	<div><a href="#" class="tok" data-t="#MMDD">#MMDD</a> - Month/Day</div>
-	<div><a href="#" class="tok" data-t="#YYYY">#YYYY</a> - Year</div>
-	<div><a href="#" class="tok" data-t="#YY">#YY</a> - Year 2-digit</div>
-	<div><a href="#" class="tok" data-t="#HH">#HH</a> - Hours</div>
-	<div><a href="#" class="tok" data-t="#MM">#MM</a> - Minutes</div>
-	<div><a href="#" class="tok" data-t="#SS">#SS</a> - Seconds</div>
-	<div><a href="#" class="tok" data-t="#MO">#MO</a> - Month number</div>
-	<div><a href="#" class="tok" data-t="#DD">#DD</a> - Day number</div>
-	<div><a href="#" class="tok" data-t="#MON">#MON</a> - Month (Jan)</div>
-	<div><a href="#" class="tok" data-t="#MONL">#MONL</a> - Month (January)</div>
-	<div><a href="#" class="tok" data-t="#DAY">#DAY</a> - Weekday (Mon)</div>
-	<div><a href="#" class="tok" data-t="#DDDD">#DDDD</a> - Weekday (Monday)</div>
-</div>
-<div style="margin:10px;padding-top:10px;border-top:1px solid #444">
-<strong>Tips:</strong></small><br>
-• Mix text and tokens: "It's #HHMM O'Clock" or "#HH:#MM:#SS"<br>
-• Add '0' suffix for leading zeros: #TIME0, #HH0, etc.
-</div>
-</div>
+	<h3>Text to show</h3>
+	<div class="col" style="display:flex;gap:10px;align-items:center;justify-content:center;flex-wrap:wrap">
+		<input type="text" id="txt" placeholder="Enter text" maxlength="64"  style="margin-left:15px;flex:1;min-width:300px;">
+		<button class="btn" id="aTxt">✓</button>
+	</div>
 
-<div style="text-align:center;margin:20px 0">
-<button class="btn" onclick="window.location.href=wURL">Back to the controls</button>
-</div>
+	<h3>Settings</h3>
+	<div class="cs">
+		<div class="fr">
+			Speed	<input type="range" id="sx" min="0" max="255">
+		</div>
+		<div class="fr">
+			Y Offset	<input type="range" id="ix" min="0" max="255">
+		</div>
+		<div class="fr">
+			Trail	<input type="range" id="c1" min="0" max="255">
+		</div>
+		<div class="fr">
+			Font Size	<input type="range" id="c2" min="0" max="255">
+		</div>
+		<div class="fr">
+			Rotate <input type="range" id="c3" min="0" max="31">
+		</div>
+	</div>
+
+	<div class="col" style="display:flex;gap:20px;justify-content:center;">
+		<label style="display:flex;align-items:center;gap:5px">
+			<input type="checkbox" id="o1"> Gradient
+		</label>
+		<label style="display:flex;align-items:center;gap:5px">
+			<input type="checkbox" id="o3"> Reverse
+		</label>
+	</div>
+
+	<h3>Available Tokens</h3>
+	<div style="padding:15px;">
+		<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;text-align:left">
+			<div><a href="#" class="tk" data-t="#TIME">#TIME</a> - HH:MM AM/PM</div>
+			<div><a href="#" class="tk" data-t="#HHMM">#HHMM</a> - HH:MM</div>
+			<div><a href="#" class="tk" data-t="#DATE">#DATE</a> - DD.MM.YYYY</div>
+			<div><a href="#" class="tk" data-t="#DDMM">#DDMM</a> - Day.Month</div>
+			<div><a href="#" class="tk" data-t="#MMDD">#MMDD</a> - Month/Day</div>
+			<div><a href="#" class="tk" data-t="#YYYY">#YYYY</a> - Year</div>
+			<div><a href="#" class="tk" data-t="#YY">#YY</a> - Year 2-digit</div>
+			<div><a href="#" class="tk" data-t="#HH">#HH</a> - Hours</div>
+			<div><a href="#" class="tk" data-t="#MM">#MM</a> - Minutes</div>
+			<div><a href="#" class="tk" data-t="#SS">#SS</a> - Seconds</div>
+			<div><a href="#" class="tk" data-t="#MO">#MO</a> - Month number</div>
+			<div><a href="#" class="tk" data-t="#DD">#DD</a> - Day number</div>
+			<div><a href="#" class="tk" data-t="#MON">#MON</a> - Month (Jan)</div>
+			<div><a href="#" class="tk" data-t="#MONL">#MONL</a> - Month (January)</div>
+			<div><a href="#" class="tk" data-t="#DAY">#DAY</a> - Weekday (Mon)</div>
+			<div><a href="#" class="tk" data-t="#DDDD">#DDDD</a> - Weekday (Monday)</div>
+		</div>
+		<div style="margin:10px;padding-top:10px;border-top:1px solid #444">
+			<strong>Tips:</strong></small><br>
+			• Mix text and tokens: "It's #HHMM O'Clock" or "#HH:#MM:#SS"<br>
+			• Add '0' suffix for leading zeros: #TIME0, #HH0, etc.
+		</div>
+	</div>
+
+	<div style="text-align:center;margin:20px 0">
+		<button class="btn" onclick="window.location.href=wu">Back to the controls</button>
+	</div>
 </div>
 
 <div id="ov"></div>
 <div id="mem" style="display:none;font-size:12px;color:#aaa;text-align:center;margin-top:6px"></div>
+
 <script>
 const d=document,gId=i=>d.getElementById(i),cE=t=>d.createElement(t);
-const canvas=gId('cropCanvas'),ctx=canvas.getContext('2d',{willReadFrequently:true});
-const pixelCanvas=gId('pixelPreview'),pixelCtx=pixelCanvas.getContext('2d',{willReadFrequently:true});
-let wURL='',selImg=null,selFile=null,cropImg=null,baseScale=1,imgScale=1,panX=0,panY=0;
-let crop={x:50,y:50,w:200,h:150},dragging=false,dragHandle=null,offsetX=0,offsetY=0;
-let panning=false,panStartX=0,panStartY=0,panOrigX=0,panOrigY=0;
-let imageList=[];
-let gifFrames=null,gifInfo=null,animationTimer=null;
 
+/* canvases */
+const cv=gId('cv'),cx=cv.getContext('2d',{willReadFrequently:true});
+const pv=gId('pv'),pvx=pv.getContext('2d',{willReadFrequently:true});
+
+/* globals */
+let wu='',sI=null,sF=null,cI=null,bS=1,iS=1,pX=0,pY=0;
+let cr={x:50,y:50,w:200,h:150},drag=false,dH=null,oX=0,oY=0;
+let pan=false,psX=0,psY=0,poX=0,poY=0;
+let iL=[];
+let gF=null,gI=null,aT=null;
+
+/* init */
 (async()=>{
 	const params=new URLSearchParams(window.location.search);
-	wURL=`http://${params.get('host')||window.location.host}`;
+	wu=`http://${params.get('host')||window.location.host}`;
 
-	await loadSegs();
-	await mem();
+	await segLoad();
+	await fsMem();
 })();
 
-function toast(m,t='success'){
-	const el=cE('div');el.className='toast';el.textContent=m;
+/* ui msg + overlay */
+function msg(m,t='success'){
+	const el=cE('div');el.className='t';el.textContent=m;
 	if(t==='error')el.style.background='var(--eDark)';
 	d.body.appendChild(el);setTimeout(()=>el.remove(),3000);
 }
-function show(){gId('ov').classList.add('loading');gId('ov').style.display='block';}
-function hide(){gId('ov').classList.remove('loading');gId('ov').style.display='none';}
+function ovShow(){gId('ov').classList.add('loading');gId('ov').style.display='block';}
+function ovHide(){gId('ov').classList.remove('loading');gId('ov').style.display='none';}
 
-function loadSegs(){
-	const s1=gId('seg'),v1=s1.value,s2=gId('segTxt'),v2=s2.value;
-	fetch(`${wURL}/json/state`).then(r=>r.json()).then(d=>{
+/* segments */
+function segLoad(){
+	const s1=gId('seg'),v1=s1.value,s2=gId('segT'),v2=s2.value;
+	fetch(`${wu}/json/state`).then(r=>r.json()).then(j=>{
 		s1.innerHTML=''; s2.innerHTML='';
-		if(d.seg&&d.seg.length){
-			d.seg.forEach(({id,n,start,stop,startY,stopY,fx})=>{
+		if(j.seg&&j.seg.length){
+			j.seg.forEach(({id,n,start,stop,startY,stopY,fx})=>{
 				const t=(n||`Segment ${id}`)+(fx===53?' [Image]':(fx===122?' [Scrolling Text]':''));
 				const o=new Option(t,id);
-				const w=stop-start;
-				const h=stopY-startY;
-				if(h > 1 && w > 1) { // skip 1D segments
+				const w=stop-start,h=stopY-startY;
+				if(h>1&&w>1){ /* skip 1D segments */
 					o.dataset.w=w; o.dataset.h=h; o.dataset.fx=fx||0;
-					s1.add(o); // add to image segment selector
-					s2.add(o.cloneNode(true)); // add to text segment selector as well
+					s1.add(o);
+					s2.add(o.cloneNode(true));
 				}
 			});
 		}else{
@@ -482,383 +482,307 @@ function loadSegs(){
 		}
 		if(v1) s1.value=v1; if(v2) s2.value=v2;
 		const o=s1.options[s1.selectedIndex];
-		if(o){ gId('w').value=o.dataset.w||16; gId('h').value=o.dataset.h||16; } // set image output size from segment data
+		if(o){ gId('w').value=o.dataset.w||16; gId('h').value=o.dataset.h||16; }
 	}).catch(console.error);
 }
 
-// check if a segment already uses fx 53 (image), only one image can be active at a time
-function getCurImgSeg(){
+/* which seg is showing image fx 53 */
+function curImgSeg(){
 	const sel=gId('seg');
 	for(let i=0;i<sel.options.length;i++){
-		if(parseInt(sel.options[i].dataset.fx)===53){
-			return parseInt(sel.options[i].value);
-		}
+		if(parseInt(sel.options[i].dataset.fx)===53) return parseInt(sel.options[i].value);
 	}
 	return null;
 }
 
+/* seg change -> update target size */
 gId('seg').onchange=e=>{
-	const opt=e.target.selectedOptions[0];
-	gId('w').value=opt.dataset.w;gId('h').value=opt.dataset.h;
-	if(cropImg)drawCrop();
+	const o=e.target.selectedOptions[0];
+	gId('w').value=o.dataset.w;gId('h').value=o.dataset.h;
+	if(cI) crDraw();
 };
 
-async function loadImgs(){
+/* image list */
+async function imgLoad(){
 	try{
-		const r=await fetch(`${wURL}/edit?list=/`),data=await r.json(),grid=gId('grid');
+		const r=await fetch(`${wu}/edit?list=/`),data=await r.json(),grid=gId('gr');
 		const types=['gif','png','jpg','jpeg','bmp'];
 		const imgs=data.filter(f=>types.includes(f.name.split('.').pop()?.toLowerCase()));
-		const newImageList=imgs.map(f=>f.name.replace('/',''));
-		const missingImages = newImageList.filter(name => !imageList.includes(name)); // Find missing images (new ones to add)
+		const newList=imgs.map(f=>f.name.replace('/',''));
+		const miss=newList.filter(n=>!iL.includes(n));
 
-		if(imageList.length === 0) { 
-			// First load - clear grid and load all
+		if(iL.length===0){
 			grid.innerHTML='';
-			imageList = [...newImageList];
+			iL=[...newList];
 			if(!imgs.length){
 				grid.innerHTML='<div style="grid-column:1/-1;text-align:center;color:#aaa;padding:20px">No images found</div>';
 				return;
 			}
-			await loadImgs2(imgs);
-		} else if(missingImages.length > 0) {
-			// Add only missing images
-			const missingImgData = imgs.filter(f => missingImages.includes(f.name.replace('/','')));
-			imageList = [...newImageList];
-			await loadImgs2(missingImgData);
+			await imgLoad2(imgs);
+		}else if(miss.length>0){
+			const missData=imgs.filter(f=>miss.includes(f.name.replace('/','')));
+			iL=[...newList];
+			await imgLoad2(missData);
 		}
-		// If no missing images, do nothing (keep existing display)
 	}catch(e){console.error(e);}
 }
 
-async function loadImgs2(imgs){
-	const grid = gId('grid');
-	// Load images sequentially
+async function imgLoad2(imgs){
+	const grid=gId('gr');
 	for(const f of imgs){
-		const name=f.name.replace('/',''),url=`${wURL}/${name}`;
+		const name=f.name.replace('/',''),url=`${wu}/${name}`;
 		const isGif=name.toLowerCase().endsWith('.gif');
-		const item=cE('div');item.className='imgItem loading';
-		item.dataset.name=name;item.dataset.url=url;
-		item.onclick=()=>{
-			if(isGif) playImg(url,name);
-			else showUnsupported(url,name);
-		};
-		item.oncontextmenu=e=>{e.preventDefault();selImg={name,url};showMenu(e.pageX,e.pageY);};
-		grid.appendChild(item);
-		await new Promise((resolve)=>{
-			const img=new Image();
-			img.onload=()=>{
-				item.style.backgroundImage=`url(${url}?cb=${Date.now()})`;
-				if(!isGif) item.style.border = "5px solid red";
-				item.classList.remove('loading');
-				resolve();
+		const it=cE('div');it.className='it loading';
+		it.dataset.name=name;it.dataset.url=url;
+		it.onclick=()=>{ if(isGif) imgPlay(url,name); else unsup(url,name); };
+		it.oncontextmenu=e=>{e.preventDefault();sI={name,url};menuShow(e.pageX,e.pageY);};
+		grid.appendChild(it);
+		await new Promise(res=>{
+			const im=new Image();
+			im.onload=()=>{
+				it.style.backgroundImage=`url(${url}?cb=${Date.now()})`;
+				if(!isGif) it.style.border="5px solid red";
+				it.classList.remove('loading'); res();
 			};
-			img.onerror=()=>{item.classList.remove('loading');item.style.background='#222';resolve();};
-			img.src=url+'?cb='+Date.now();
+			im.onerror=()=>{it.classList.remove('loading');it.style.background='#222';res();};
+			im.src=url+'?cb='+Date.now();
 		});
 	}
 }
 
-function rmImg(imageName){
-	// Remove from local list
-	imageList = imageList.filter(name => name !== imageName);
-	// Remove from DOM
-	const grid = gId('grid');
-	const items = grid.querySelectorAll('.imgItem');
-	items.forEach(item => {
-		if(item.dataset.name === imageName) {
-			item.remove();
-		}
-	});
-	// Show "no images" message if list is empty
-	if(imageList.length === 0) {
+function imgRm(nm){
+	iL=iL.filter(n=>n!==nm);
+	const grid=gId('gr');
+	grid.querySelectorAll('.it').forEach(it=>{ if(it.dataset.name===nm) it.remove(); });
+	if(iL.length===0){
 		grid.innerHTML='<div style="grid-column:1/-1;text-align:center;color:#aaa;padding:20px">No images found</div>';
 	}
 }
 
-// check if pxmagic.htm(.gz) exists on device, if not, show install option, otherwise link to it
-async function checkPxmagic(){
+/* pxmagic presence/install */
+async function pxChk(){
 	try{
-		const r=await fetch(`${wURL}/edit?list=/`),data=await r.json();
+		const r=await fetch(`${wu}/edit?list=/`),data=await r.json();
 		const hasPx=data.some(f=>f.name==="/pxmagic.htm"||f.name==="/pxmagic.htm.gz");
-		const btn=gId('pxmagicBtn');
-		btn.style.display='inline-block';
+		const b=gId('pxm');
+		b.style.display='inline-block';
 		if(hasPx){
-			btn.innerHTML='Open PIXEL MAGIC TOOL';
-			btn.onclick=()=>window.open(`${wURL}/pxmagic.htm`,'_blank');
+			b.innerHTML='Open PIXEL MAGIC TOOL';
+			b.onclick=()=>window.open(`${wu}/pxmagic.htm`,'_blank');
 		}else{
-			btn.innerHTML='Install classic PIXEL MAGIC TOOL<br>(convert image to json preset)';
-			btn.onclick=async()=>{
+			b.innerHTML='Install classic PIXEL MAGIC TOOL<br>(convert image to json preset)';
+			b.onclick=async()=>{
 				if(!confirm('Download from GitHub?'))return;
 				try{
 					const f=await fetch("https://dedehai.github.io/pxmagic.htm.gz");
 					if(!f.ok) throw new Error("Download failed "+f.status);
-					const b=await f.blob(),fd=new FormData();
-					fd.append("data",b,"pxmagic.htm.gz");
-					const u=await fetch(wURL+"/upload",{method:"POST",body:fd});
+					const blob=await f.blob(),fd=new FormData();
+					fd.append("data",blob,"pxmagic.htm.gz");
+					const u=await fetch(wu+"/upload",{method:"POST",body:fd});
 					alert(u.ok?"PxMagic installed!":"Upload failed");
-					checkPxmagic();
+					pxChk();
 				}catch(e){alert("Error "+e.message);}
 			};
 		}
 	}catch(e){console.error(e);}
 }
 
-async function mem(){
+/* fs/mem info */
+async function fsMem(){
 	try{
-		const r = await fetch(`${wURL}/json/info`);
-		const info = await r.json();
-		if(info && info.fs){
-			gId("mem").textContent = `by @dedehai | Memory: ${info.fs.u} KB / ${info.fs.t} KB`;
-			gId("mem").style.display = "block";
+		const r=await fetch(`${wu}/json/info`);
+		const info=await r.json();
+		if(info&&info.fs){
+			gId("mem").textContent=`by @dedehai | Memory: ${info.fs.u} KB / ${info.fs.t} KB`;
+			gId("mem").style.display="block";
 		}
-	}catch(e){
-		console.error(e);
-	}
+	}catch(e){console.error(e);}
 }
 
+/* drag-drop + file input */
 gId('drop').onclick=()=>{gId('src').value='';gId('src').click();};
 gId('drop').ondragover=e=>{e.preventDefault();gId('drop').classList.add('active');};
 gId('drop').ondragleave=()=>gId('drop').classList.remove('active');
-gId('drop').ondrop=e=>{e.preventDefault();gId('drop').classList.remove('active');gId('src').files=e.dataTransfer.files;handleFile();};
-gId('src').onchange=handleFile;
+gId('drop').ondrop=e=>{e.preventDefault();gId('drop').classList.remove('active');gId('src').files=e.dataTransfer.files;fileHandle();};
+gId('src').onchange=fileHandle;
 
-function handleFile(){
+/* static image loader helper (used by non-GIF and GIF-fallback) */
+function imgLoadStatic(file){
+	const r=new FileReader();
+	r.onload=e=>{
+		cI=new Image();
+		cI.onload=()=>{
+			gF=null;gI=null;
+			gId('ed').classList.add('active');
+			gId('drop').innerHTML=`<p>Image loaded: ${file.name}<br><small>Drop another to replace</small></p>`;
+			gId('fn').value=file.name.split('.')[0].substring(0,16);
+			viewReset();
+			cr.w=cv.width*0.8; cr.h=cv.height*0.8;
+			cr.x=(cv.width-cr.w)/2; cr.y=(cv.height-cr.h)/2;
+			crClamp(); crDraw();
+		};
+		cI.src=e.target.result;
+	};
+	r.readAsDataURL(file);
+}
+
+/* file handler */
+function fileHandle(){
 	const file=gId('src').files[0];
 	if(!file)return;
-	selFile=file;
-	gifInfo=null; // invalidate
+	sF=file; gI=null;
+	gId('sz').classList.add('show');
 
-	// Show size controls when image is loaded
-	gId('sizeControls').classList.add('show');
-
-	// Check if it's a GIF - if so, parse it
 	if(file.type==='image/gif'){
-	const reader=new FileReader();
-	reader.onload=e=>{
-		const arr=new Uint8Array(e.target.result);
-		try{
-			const gif=new GifReader(arr);
-			gifInfo={width:gif.width,height:gif.height,numFrames:gif.numFrames()};
-			gifFrames=[];
-			// disposal methods 0=unspecified, 1=keep, 2=restore to background, 3=restore to previous
-			const accumCanvas=cE('canvas'); // persistent canvas to build up frames
-			accumCanvas.width=gif.width;
-			accumCanvas.height=gif.height;
-			const accumCtx=accumCanvas.getContext('2d', {willReadFrequently: true});
-			let savedFrame=null; // For disposal method 3
-
-			for(let i=0;i<gifInfo.numFrames;i++){
-				const frameInfo=gif.frameInfo(i);
-				const disposal=frameInfo.disposal||0;
-				// for disposal 3, save state BEFORE drawing
-				if(disposal===3){
-					savedFrame=accumCtx.getImageData(0,0,gif.width,gif.height);
+		const rdr=new FileReader();
+		rdr.onload=e=>{
+			const arr=new Uint8Array(e.target.result);
+			try{
+				const gif=new GifReader(arr);
+				gI={width:gif.width,height:gif.height,numFrames:gif.numFrames()};
+				gF=[];
+				/* build complete frames with disposal handling */
+				const ac=cE('canvas'); ac.width=gif.width; ac.height=gif.height;
+				const acx=ac.getContext('2d',{willReadFrequently:true});
+				let saved=null;
+				for(let i=0;i<gI.numFrames;i++){
+					const fi=gif.frameInfo(i),disp=fi.disposal||0;
+					if(disp===3) saved=acx.getImageData(0,0,gif.width,gif.height);
+					const tp=new Uint8Array(gif.width*gif.height*4);
+					gif.decodeAndBlitFrameRGBA(i,tp);
+					const tc=cE('canvas'); tc.width=gif.width; tc.height=gif.height;
+					const tctx=tc.getContext('2d');
+					const tid=new ImageData(new Uint8ClampedArray(tp),gif.width,gif.height);
+					tctx.putImageData(tid,0,0);
+					acx.drawImage(tc,0,0);
+					const full=acx.getImageData(0,0,gif.width,gif.height);
+					gF.push({pixels:new Uint8Array(full.data),delay:fi.delay||10});
+					if(disp===2) acx.clearRect(0,0,gif.width,gif.height);
+					else if(disp===3 && saved) acx.putImageData(saved,0,0);
 				}
-				// decode current frame
-				const tempPixels=new Uint8Array(gif.width*gif.height*4);
-				gif.decodeAndBlitFrameRGBA(i,tempPixels);
-
-				const tempCanvas=cE('canvas');
-				tempCanvas.width=gif.width;
-				tempCanvas.height=gif.height;
-				const tempCtx=tempCanvas.getContext('2d');
-				const tempImageData=new ImageData(new Uint8ClampedArray(tempPixels),gif.width,gif.height);
-				tempCtx.putImageData(tempImageData,0,0);
-
-				// draw frame onto accumulation canvas
-				accumCtx.drawImage(tempCanvas,0,0);
-				// store the complete frame for display
-				const completeFrame=accumCtx.getImageData(0,0,gif.width,gif.height);
-				gifFrames.push({
-					pixels:new Uint8Array(completeFrame.data),
-					delay:frameInfo.delay||10
-				});
-
-				if(disposal===2){
-					accumCtx.clearRect(0,0,gif.width,gif.height); // clear to background
-				}else if(disposal===3){
-					// Restore to saved state (before this frame was drawn)
-					if(savedFrame){
-						accumCtx.putImageData(savedFrame,0,0);
-					}
-				}
-				// disposal 0 or 1: keep frame (do nothing)
+				gifCanvas();
+			}catch(e){
+				msg('GIF load failed','error');
+				console.error(e);
+				imgLoadStatic(file);
 			}
-			loadGifCanvas();
-		}catch(e){
-			toast('GIF load failed','error');
-			console.error(e);
-			loadAsStaticImage(file);
-		}
-	};
-	reader.readAsArrayBuffer(file);
-	}else
-	{
-		// Non-GIF image - existing code
-		const reader=new FileReader();
-		reader.onload=e=>{
-			cropImg=new Image();
-			cropImg.onload=()=>{
-				gifFrames=null;gifInfo=null;
-				gId('editor').classList.add('active');
-				gId('drop').innerHTML=`<p>Image loaded: ${file.name}<br><small>Drop another to replace</small></p>`;
-				gId('fname').value=file.name.split('.')[0].substring(0,16);
-				resetView();
-				const canvas=gId('cropCanvas');
-				crop.w=canvas.width*0.8;
-				crop.h=canvas.height*0.8;
-				crop.x=(canvas.width-crop.w)/2;
-				crop.y=(canvas.height-crop.h)/2;
-				clampCrop();drawCrop();
-			};
-			cropImg.src=e.target.result;
 		};
-		reader.readAsDataURL(file);
+		rdr.readAsArrayBuffer(file);
+	}else{
+		imgLoadStatic(file);
 	}
 }
 
-function loadGifCanvas(){
-	gId('editor').classList.add('active');
-	gId('drop').innerHTML=`<p>Animated GIF loaded: ${selFile.name} (${gifInfo.numFrames} frames)<br><small>Drop another to replace</small></p>`;
-	gId('fname').value=selFile.name.split('.')[0].substring(0,16);
+/* build first frame canvas and start anim */
+function gifCanvas(){
+	gId('ed').classList.add('active');
+	gId('drop').innerHTML=`<p>Animated GIF loaded: ${sF.name} (${gI.numFrames} frames)<br><small>Drop another to replace</small></p>`;
+	gId('fn').value=sF.name.split('.')[0].substring(0,16);
 
-	// Create an image from first frame for cropping
-	const tempCanvas=cE('canvas');
-	tempCanvas.width=gifInfo.width;
-	tempCanvas.height=gifInfo.height;
-	const tempCtx=tempCanvas.getContext('2d');
-	const imageData=new ImageData(new Uint8ClampedArray(gifFrames[0].pixels),gifInfo.width,gifInfo.height);
-	tempCtx.putImageData(imageData,0,0);
+	const tc=cE('canvas'); tc.width=gI.width; tc.height=gI.height;
+	const tctx=tc.getContext('2d');
+	const id=new ImageData(new Uint8ClampedArray(gF[0].pixels),gI.width,gI.height);
+	tctx.putImageData(id,0,0);
 
-	cropImg=new Image();
-	cropImg.onload=()=>{
-		resetView();
-		const canvas=gId('cropCanvas');
-		crop.w=canvas.width*0.8;
-		crop.h=canvas.height*0.8;
-		crop.x=(canvas.width-crop.w)/2;
-		crop.y=(canvas.height-crop.h)/2;
-		clampCrop();
-		startGifAnim();
+	cI=new Image();
+	cI.onload=()=>{
+		viewReset();
+		cr.w=cv.width*0.8; cr.h=cv.height*0.8;
+		cr.x=(cv.width-cr.w)/2; cr.y=(cv.height-cr.h)/2;
+		crClamp(); gifStart();
 	};
-	cropImg.src=tempCanvas.toDataURL();
+	cI.src=tc.toDataURL();
 }
 
-function startGifAnim(){
-	if(animationTimer)clearInterval(animationTimer);
-	if(!gifFrames||gifFrames.length<=1||!gifInfo){ // not an animated image
-		drawCrop();
-		return;
-	}
-
-	let frameIndex=0;
-	const tempCanvas=cE('canvas');
-	tempCanvas.width=gifInfo.width;
-	tempCanvas.height=gifInfo.height;
-	const tempCtx=tempCanvas.getContext('2d');
-
-	const animate=()=>{
-		// Each frame is now complete, just draw it
-		const imageData=new ImageData(new Uint8ClampedArray(gifFrames[frameIndex].pixels),gifInfo.width,gifInfo.height);
-		tempCtx.putImageData(imageData,0,0);
-		cropImg.src=tempCanvas.toDataURL();
-
-		frameIndex=(frameIndex+1)%gifFrames.length;
+function gifStart(){
+	if(aT) clearInterval(aT);
+	if(!gF||gF.length<=1||!gI){ crDraw(); return; }
+	let idx=0;
+	const tc=cE('canvas'); tc.width=gI.width; tc.height=gI.height;
+	const tctx=tc.getContext('2d');
+	const step=()=>{
+		const id=new ImageData(new Uint8ClampedArray(gF[idx].pixels),gI.width,gI.height);
+		tctx.putImageData(id,0,0);
+		cI.src=tc.toDataURL();
+		idx=(idx+1)%gF.length;
 	};
+	cI.onload=()=>crDraw();
+	step();
+	const avg=gF.reduce((s,f)=>s+f.delay,0)/gF.length;
+	aT=setInterval(step,Math.max(avg*10,50));
+}
+function gifStop(){ if(aT){ clearInterval(aT); aT=null; } }
 
-	cropImg.onload=()=>drawCrop();
-	animate();
-	const avgDelay=gifFrames.reduce((sum,f)=>sum+f.delay,0)/gifFrames.length;
-	animationTimer=setInterval(animate,Math.max(avgDelay*10,50));
+/* formats not supported by WLED */
+function unsup(url,name){
+	alert(`Image format not supported by WLED.\nPlease convert to GIF below or use the Pixel Magic Tool.`);
+	fetch(url).then(r=>r.blob()).then(b=>{
+		const f=new File([b],name,{type:b.type});
+		const dt=new DataTransfer(); dt.items.add(f);
+		gId('src').files=dt.files; fileHandle();
+	}).catch(()=>msg('Failed to load image','error'));
 }
 
-function stopGifAnim(){
-	if(animationTimer){
-		clearInterval(animationTimer);
-		animationTimer=null;
-	}
+/* size change -> redraw */
+gId('w').oninput=()=>{if(cI)crDraw();};
+gId('h').oninput=()=>{if(cI)crDraw();};
+
+/* crop helpers */
+function crClamp(){
+	cr.w=Math.max(30,Math.min(cr.w,cv.width));
+	cr.h=Math.max(30,Math.min(cr.h,cv.height));
+	cr.x=Math.max(0,Math.min(cr.x,cv.width-cr.w));
+	cr.y=Math.max(0,Math.min(cr.y,cv.height-cr.h));
+}
+function viewReset(){
+	bS=Math.min(cv.width/cI.width,cv.height/cI.height);
+	iS=bS;
+	pX=(cv.width-cI.width*iS)/2;
+	pY=(cv.height-cI.height*iS)/2;
 }
 
-function showUnsupported(url,name){
-	const msg=`Image format not supported by WLED.\nPlease convert to GIF below or use the Pixel Magic Tool.`;
-	alert(msg);
-	fetch(url)
-		.then(r=>r.blob())
-		.then(blob=>{
-			const file=new File([blob],name,{type:blob.type});
-			const dt=new DataTransfer();
-			dt.items.add(file);
-			gId('src').files=dt.files;
-			handleFile();
-		})
-		.catch(e=>toast('Failed to load image','error'));
-}
-
-gId('w').oninput=()=>{if(cropImg)drawCrop();};
-gId('h').oninput=()=>{if(cropImg)drawCrop();};
-
-function clampCrop(){
-	const canvas=gId('cropCanvas');
-	crop.w=Math.max(30,Math.min(crop.w,canvas.width));
-	crop.h=Math.max(30,Math.min(crop.h,canvas.height));
-	crop.x=Math.max(0,Math.min(crop.x,canvas.width-crop.w));
-	crop.y=Math.max(0,Math.min(crop.y,canvas.height-crop.h));
-}
-
-function resetView(){
-	const canvas=gId('cropCanvas');
-	baseScale=Math.min(canvas.width/cropImg.width,canvas.height/cropImg.height);
-	imgScale=baseScale;
-	panX=(canvas.width-cropImg.width*imgScale)/2;
-	panY=(canvas.height-cropImg.height*imgScale)/2;
-}
-
+/* zoom */
 gId('zoom').oninput=()=>{
-	if(!cropImg)return;
-	const t=gId('zoom').value/100,newScale=baseScale*Math.pow(30,t);
-	const canvas=gId('cropCanvas'),cx=canvas.width/2,cy=canvas.height/2;
-	const dx=cx-panX,dy=cy-panY,factor=newScale/imgScale;
-	panX=cx-dx*factor;panY=cy-dy*factor;imgScale=newScale;
-	clampCrop();drawCrop();
+	if(!cI)return;
+	const t=gId('zoom').value/100,ns=bS*Math.pow(40,t);
+	const cxm=cv.width/2,cym=cv.height/2;
+	const dx=cxm-pX,dy=cym-pY,f=ns/iS;
+	pX=cxm-dx*f; pY=cym-dy*f; iS=ns;
+	crClamp(); crDraw();
 };
 
-gId('bgCol').oninput=drawCrop;
+/* color change */
+gId('bg').oninput=crDraw;
 
+/* quick controls */
 gId('matchAspect').onclick=e=>{
 	e.preventDefault();
-	const ratio=+gId('w').value/+gId('h').value;
-	crop.h=crop.w/ratio;clampCrop();drawCrop();
+	const r=+gId('w').value/+gId('h').value;
+	cr.h=cr.w/r; crClamp(); crDraw();
 };
-
 gId('matchSize').onclick=e=>{
 	e.preventDefault();
-	if(!cropImg)return;
-	crop.w=+gId('w').value*imgScale;crop.h=+gId('h').value*imgScale;
-	clampCrop();drawCrop();
+	if(!cI)return;
+	cr.w=+gId('w').value*iS; cr.h=+gId('h').value*iS;
+	crClamp(); crDraw();
 };
-
 gId('fullSize').onclick=e=>{
 	e.preventDefault();
-	if(!cropImg)return;
-	const canvas=gId('cropCanvas');
-	crop.x=0;crop.y=0;
-	crop.w=canvas.width;crop.h=canvas.height;
-	clampCrop();drawCrop();
+	if(!cI)return;
+	cr.x=0; cr.y=0; cr.w=cv.width; cr.h=cv.height;
+	crClamp(); crDraw();
 };
-
 gId('resetCrop').onclick=e=>{
 	e.preventDefault();
-	if(!cropImg)return;
-	const canvas=gId('cropCanvas');
-	crop.w=canvas.width*0.8;
-	crop.h=canvas.height*0.8;
-	crop.x=(canvas.width-crop.w)/2;
-	crop.y=(canvas.height-crop.h)/2;
-	clampCrop();drawCrop();
+	if(!cI)return;
+	cr.w=cv.width*0.8; cr.h=cv.height*0.8;
+	cr.x=(cv.width-cr.w)/2; cr.y=(cv.height-cr.h)/2;
+	crClamp(); crDraw();
 };
 
-function getHandles(r){
-	const s=40, o=s/2, ox=r.x-o, oy=r.y-o, ow=r.w+s, oh=r.h+s;
+/* crop handles */
+function crHandles(r){
+	const s=40,o=s/2,ox=r.x-o,oy=r.y-o,ow=r.w+s,oh=r.h+s;
 	return{
 		nw:{x:ox,y:oy,w:s,h:s}, ne:{x:ox+ow-s,y:oy,w:s,h:s},
 		sw:{x:ox,y:oy+oh-s,w:s,h:s}, se:{x:ox+ow-s,y:oy+oh-s,w:s,h:s},
@@ -866,365 +790,305 @@ function getHandles(r){
 		w:{x:ox,y:oy+s/2,w:s,h:oh-s}, e:{x:ox+ow-s,y:oy+s/2,w:s,h:oh-s}
 	};
 }
-
-function hitHandle(mx,my){
-	const h=getHandles(crop);
+function crHit(mx,my){
+	const h=crHandles(cr);
 	for(const k in h){let r=h[k];if(mx>=r.x&&mx<=r.x+r.w&&my>=r.y&&my<=r.y+r.h)return k;}
 	return null;
 }
 
-function getPos(e){
-	const rect=canvas.getBoundingClientRect();
-	const scaleX = canvas.width / rect.width; // account for CSS scaling
-	const scaleY = canvas.height / rect.height;
-	if(e.touches){ // touch
-		return {
-			x:(e.touches[0].clientX-rect.left)*scaleX,
-			y:(e.touches[0].clientY-rect.top)*scaleY
-		};
-		}else{ // mouse
-		return {
-			x:(e.clientX-rect.left)*scaleX,
-			y:(e.clientY-rect.top)*scaleY
-		};
-	}
-}
-
-function startAction(mx,my){
-	dragHandle=hitHandle(mx,my);
-	if(dragHandle){dragging=true;return;}
-	if(mx>crop.x&&mx<crop.x+crop.w&&my>crop.y&&my<crop.y+crop.h){
-		dragging=true;dragHandle="move";offsetX=mx-crop.x;offsetY=my-crop.y;
+/* event coord */
+function posGet(e){
+	const r=cv.getBoundingClientRect();
+	const sx=cv.width/r.width,sy=cv.height/r.height;
+	if(e.touches){
+		return {x:(e.touches[0].clientX-r.left)*sx,y:(e.touches[0].clientY-r.top)*sy};
 	}else{
-		panning=true;panStartX=mx;panStartY=my;panOrigX=panX;panOrigY=panY;
+		return {x:(e.clientX-r.left)*sx,y:(e.clientY-r.top)*sy};
 	}
 }
 
-function moveAction(mx,my){
-	if(dragging){
-		switch(dragHandle){
-			case "move":crop.x=mx-offsetX;crop.y=my-offsetY;break;
-			case "nw":crop.w+=(crop.x-mx);crop.h+=(crop.y-my);crop.x=mx;crop.y=my;break;
-			case "ne":crop.w=mx-crop.x;crop.h+=(crop.y-my);crop.y=my;break;
-			case "sw":crop.w+=(crop.x-mx);crop.x=mx;crop.h=my-crop.y;break;
-			case "se":crop.w=mx-crop.x;crop.h=my-crop.y;break;
-			case "n":crop.h+=(crop.y-my);crop.y=my;break;
-			case "s":crop.h=my-crop.y;break;
-			case "w":crop.w+=(crop.x-mx);crop.x=mx;break;
-			case "e":crop.w=mx-crop.x;break;
+/* actions */
+function actStart(mx,my){
+	dH=crHit(mx,my);
+	if(dH){drag=true;return;}
+	if(mx>cr.x&&mx<cr.x+cr.w&&my>cr.y&&my<cr.y+cr.h){
+		drag=true;dH="move";oX=mx-cr.x;oY=my-cr.y;
+	}else{
+		pan=true;psX=mx;psY=my;poX=pX;poY=pY;
+	}
+}
+function actMove(mx,my){
+	if(drag){
+		switch(dH){
+			case "move":cr.x=mx-oX;cr.y=my-oY;break;
+			case "nw":cr.w+=(cr.x-mx);cr.h+=(cr.y-my);cr.x=mx;cr.y=my;break;
+			case "ne":cr.w=mx-cr.x;cr.h+=(cr.y-my);cr.y=my;break;
+			case "sw":cr.w+=(cr.x-mx);cr.x=mx;cr.h=my-cr.y;break;
+			case "se":cr.w=mx-cr.x;cr.h=my-cr.y;break;
+			case "n":cr.h+=(cr.y-my);cr.y=my;break;
+			case "s":cr.h=my-cr.y;break;
+			case "w":cr.w+=(cr.x-mx);cr.x=mx;break;
+			case "e":cr.w=mx-cr.x;break;
 		}
-		clampCrop();drawCrop();
-	}else if(panning){
-		panX=panOrigX+(mx-panStartX);
-		panY=panOrigY+(my-panStartY);
-		clampCrop();drawCrop();
+		crClamp(); crDraw();
+	}else if(pan){
+		pX=poX+(mx-psX); pY=poY+(my-psY);
+		crClamp(); crDraw();
 	}
 }
+function actEnd(){ drag=false; dH=null; pan=false; }
 
-function endAction(){
-	dragging=false;dragHandle=null;panning=false;
+/* mouse */
+cv.onmousedown=e=>{if(!cI)return;const {x,y}=posGet(e);actStart(x,y);};
+cv.onmousemove=e=>{if(!cI)return;const {x,y}=posGet(e);actMove(x,y);};
+cv.onmouseup=actEnd;
+
+/* touch */
+cv.ontouchstart=e=>{
+	if(!cI||e.touches.length!==1)return;
+	e.preventDefault();
+	const {x,y}=posGet(e); actStart(x,y);
+};
+cv.ontouchmove=e=>{
+	if(!cI||e.touches.length!==1)return;
+	e.preventDefault();
+	const {x,y}=posGet(e); actMove(x,y);
+};
+cv.ontouchend=e=>{e.preventDefault();actEnd();};
+cv.ontouchcancel=e=>{e.preventDefault();actEnd();};
+
+/* draw + preview */
+function crDraw(){
+	cx.clearRect(0,0,cv.width,cv.height);
+	if(!cI)return;
+	cx.fillStyle=gId('bg').value; cx.fillRect(0,0,cv.width,cv.height);
+	cx.imageSmoothingEnabled=false;
+	cx.drawImage(cI,0,0,cI.width,cI.height,pX,pY,cI.width*iS,cI.height*iS);
+	/* crop frame */
+	cx.lineWidth=3; cx.setLineDash([6,4]); cx.shadowColor="#000"; cx.shadowBlur=2;
+	cx.strokeStyle="#FFF"; cx.beginPath(); cx.roundRect(cr.x,cr.y,cr.w,cr.h,6); cx.stroke();
+	cx.shadowColor="#000F";
+	prevUpd();
 }
 
-// Mouse events
-canvas.onmousedown=e=>{if(!cropImg)return;const {x,y}=getPos(e);startAction(x,y);};
-canvas.onmousemove=e=>{if(!cropImg)return;const {x,y}=getPos(e);moveAction(x,y);};
-canvas.onmouseup=endAction;
-
-// Touch events
-canvas.ontouchstart=e=>{
-	if(!cropImg||e.touches.length!==1)return;
-	e.preventDefault();
-	const {x,y}=getPos(e);
-	startAction(x,y);
-};
-canvas.ontouchmove=e=>{
-	if(!cropImg||e.touches.length!==1)return;
-	e.preventDefault();
-	const {x,y}=getPos(e);
-	moveAction(x,y);
-};
-canvas.ontouchend=e=>{
-	e.preventDefault();
-	endAction();
-};
-canvas.ontouchcancel=e=>{
-	e.preventDefault();
-	endAction();
-};
-
-function drawCrop(){
-	ctx.clearRect(0,0,canvas.width,canvas.height);
-	if(!cropImg)return;
-	ctx.fillStyle=gId('bgCol').value;ctx.fillRect(0,0,canvas.width,canvas.height);
-	ctx.imageSmoothingEnabled=false;
-	ctx.drawImage(cropImg,0,0,cropImg.width,cropImg.height,panX,panY,cropImg.width*imgScale,cropImg.height*imgScale);
-	// draw crop frame with shadow
-	ctx.lineWidth = 3;
-	ctx.setLineDash([6,4]);
-	ctx.shadowColor = "#000"; // soft dark shadow
-	ctx.shadowBlur = 2;
-	ctx.strokeStyle = "#FFF"; // main dashed color
-	ctx.beginPath();
-	ctx.roundRect(crop.x, crop.y, crop.w, crop.h, 6);
-	ctx.stroke();
-	ctx.shadowColor = "#000F"; // disable shadow again by simply making it transparent
-	updPrev();
+gId('bt').addEventListener('input',()=>{prevUpd();});
+function blackTh(c){
+	let t=+gId('bt').value,
+		dt=c.getImageData(0,0,c.canvas.width,c.canvas.height),
+		b=gId('bg').value.match(/\w\w/g).map(x=>parseInt(x,16));
+	for(let i=0;i<dt.data.length;i+=4)
+		if(dt.data[i]<t&&dt.data[i+1]<t&&dt.data[i+2]<t)
+			dt.data[i]=b[0],dt.data[i+1]=b[1],dt.data[i+2]=b[2];
+	c.putImageData(dt,0,0);
 }
 
-gId('blackThresh').addEventListener('input', () => { updPrev(); });
-
-function applyBlackTh(c){
-	let t=+gId('blackThresh').value,
-		d=c.getImageData(0,0,c.canvas.width,c.canvas.height),
-		b=gId('bgCol').value.match(/\w\w/g).map(x=>parseInt(x,16)); // extract ["rr","gg","bb"]
-	for(let i=0;i<d.data.length;i+=4)
-		if(d.data[i]<t&&d.data[i+1]<t&&d.data[i+2]<t)
-			d.data[i]=b[0],d.data[i+1]=b[1],d.data[i+2]=b[2];
-	c.putImageData(d,0,0);
-}
-
-function updPrev(){
-	if(!cropImg)return;
+function prevUpd(){
+	if(!cI)return;
 	let w=+gId('w').value,h=+gId('h').value;
-	const prev=pixelCanvas,pctx=pixelCtx;
-	prev.height=Math.round(prev.width*(h/w));
-	pctx.imageSmoothingEnabled=false;pctx.fillStyle=gId('bgCol').value;
-	pctx.fillRect(0,0,prev.width,prev.height);
-	pctx.drawImage(cropImg,(crop.x-panX)/imgScale,(crop.y-panY)/imgScale,crop.w/imgScale,crop.h/imgScale,0,0,w,h);
-	// remove very dark colors and set them to black
-	applyBlackTh(pctx);
-	pctx.drawImage(prev,0,0,w,h,0,0,prev.width,prev.height);
+	pv.height=Math.round(pv.width*(h/w));
+	pvx.imageSmoothingEnabled=false; pvx.fillStyle=gId('bg').value;
+	pvx.fillRect(0,0,pv.width,pv.height);
+	pvx.drawImage(cI,(cr.x-pX)/iS,(cr.y-pY)/iS,cr.w/iS,cr.h/iS,0,0,w,h);
+	blackTh(pvx);
+	pvx.drawImage(pv,0,0,w,h,0,0,pv.width,pv.height);
 }
 
-gId('upload').onclick=async()=>{
-	if(!selFile){toast('Select an image','error');return;}
-	const w=+gId('w').value,h=+gId('h').value,fname=gId('fname').value.trim()||'image';
-	const filename=`${fname}.gif`;
+/* upload */
+gId('up').onclick=async()=>{
+	if(!sF){msg('Select an image','error');return;}
+	const w=+gId('w').value,h=+gId('h').value,fn=gId('fn').value.trim()||'image';
+	const filename=`${fn}.gif`;
+	const repl=iL.includes(filename);
+	if(repl){ if(!confirm(`${filename} already exists. Do you want to overwrite it?`))return; }
 
-	// Check if file already exists
-	const isReplacing = imageList.includes(filename);
-	if(imageList.includes(filename)){
-		if(!confirm(`${filename} already exists. Do you want to overwrite it?`))return;
-	}
-
-	show();
+	ovShow();
 	try{
-		let fileToUpload;
-		if(gifFrames){
-			// Animated GIF - re-encode with cropped frames
-			const w=+gId('w').value,h=+gId('h').value;
-			const gifData=[];
-			const gifWriter=new GifWriter(gifData,w,h,{loop:0});
+		let fU;
+		if(gF){
+			const gifData=[],wr=new GifWriter(gifData,w,h,{loop:0});
+			const tc=cE('canvas'); tc.width=gI.width; tc.height=gI.height;
+			const tctx=tc.getContext('2d');
+			const cc=cE('canvas'); cc.width=w; cc.height=h;
+			const cctx=cc.getContext('2d');
 
-			const tempCanvas=cE('canvas');
-			tempCanvas.width=gifInfo.width;
-			tempCanvas.height=gifInfo.height;
-			const tempCtx=tempCanvas.getContext('2d');
-
-			const cropCanvas=cE('canvas');
-			cropCanvas.width=w;
-			cropCanvas.height=h;
-			const cropCtx=cropCanvas.getContext('2d');
-
-			for(let i=0;i<gifFrames.length;i++){
-				// Draw source frame
-				const imageData=new ImageData(new Uint8ClampedArray(gifFrames[i].pixels),gifInfo.width,gifInfo.height);
-				tempCtx.putImageData(imageData,0,0);
-				// Crop and resize
-				cropCtx.imageSmoothingEnabled=false;
-				cropCtx.fillStyle=gId('bgCol').value;
-				cropCtx.fillRect(0,0,w,h);
-				cropCtx.drawImage(tempCanvas,(crop.x-panX)/imgScale,(crop.y-panY)/imgScale,crop.w/imgScale,crop.h/imgScale,0,0,w,h);
-
-				applyBlackTh(cropCtx);
-				const finalData=cropCtx.getImageData(0,0,w,h);
-				let {indexed,palette}=quantize(finalData.data);
-				palette=padPalette(palette);
-
-				gifWriter.addFrame(0,0,w,h,indexed,{palette,delay:gifFrames[i].delay,disposal:2});
+			for(let i=0;i<gF.length;i++){
+				const id=new ImageData(new Uint8ClampedArray(gF[i].pixels),gI.width,gI.height);
+				tctx.putImageData(id,0,0);
+				cctx.imageSmoothingEnabled=false;
+				cctx.fillStyle=gId('bg').value; cctx.fillRect(0,0,w,h);
+				cctx.drawImage(tc,(cr.x-pX)/iS,(cr.y-pY)/iS,cr.w/iS,cr.h/iS,0,0,w,h);
+				blackTh(cctx);
+				const fd=cctx.getImageData(0,0,w,h);
+				let {indexed,palette}=qz(fd.data); palette=palPad(palette);
+				wr.addFrame(0,0,w,h,indexed,{palette,delay:gF[i].delay,disposal:2});
 			}
-			gifWriter.end();
-			fileToUpload=new File([new Uint8Array(gifData)],filename,{type:'image/gif'});
-		}else if(selFile.type==='image/gif'){
-			fileToUpload=selFile;
+			wr.end();
+			fU=new File([new Uint8Array(gifData)],filename,{type:'image/gif'});
+		}else if(sF.type==='image/gif'){
+			fU=sF;
 		}else{
-			if(!cropImg){toast('Image not loaded','error');hide();return;}
-			let tmp=cE('canvas');tmp.width=w;tmp.height=h;
-			let tctx=tmp.getContext('2d');tctx.imageSmoothingEnabled=false;
-			tctx.fillStyle=gId('bgCol').value;tctx.fillRect(0,0,w,h);
-			tctx.drawImage(cropImg,(crop.x-panX)/imgScale,(crop.y-panY)/imgScale,crop.w/imgScale,crop.h/imgScale,0,0,w,h);
-			applyBlackTh(tctx);
-			const imgData=tctx.getImageData(0,0,w,h);
-			let {indexed,palette}=quantize(imgData.data);
-			palette=padPalette(palette);
-			const gifData=[];
-			const gifWriter=new window.GifWriter(gifData,w,h,{loop:0});
-			gifWriter.addFrame(0,0,w,h,indexed,{palette});
-			gifWriter.end();
-			fileToUpload=new File([new Uint8Array(gifData)],filename,{type:'image/gif'});
+			if(!cI){msg('Image not loaded','error');ovHide();return;}
+			let tmp=cE('canvas'); tmp.width=w; tmp.height=h;
+			let tctx=tmp.getContext('2d'); tctx.imageSmoothingEnabled=false;
+			tctx.fillStyle=gId('bg').value; tctx.fillRect(0,0,w,h);
+			tctx.drawImage(cI,(cr.x-pX)/iS,(cr.y-pY)/iS,cr.w/iS,cr.h/iS,0,0,w,h);
+			blackTh(tctx);
+			const id=tctx.getImageData(0,0,w,h);
+			let {indexed,palette}=qz(id.data); palette=palPad(palette);
+			const gifData=[],wr=new window.GifWriter(gifData,w,h,{loop:0});
+			wr.addFrame(0,0,w,h,indexed,{palette}); wr.end();
+			fU=new File([new Uint8Array(gifData)],filename,{type:'image/gif'});
 		}
-		const fd=new FormData();fd.append('file',fileToUpload,filename);
-		const r=await fetch(`${wURL}/upload`,{method:'POST',body:fd});
+		const fd=new FormData(); fd.append('file',fU,filename);
+		const r=await fetch(`${wu}/upload`,{method:'POST',body:fd});
 		if(r.ok){
-			toast(`${filename} uploaded`);
-			if(isReplacing){
-				rmImg(filename); // remove from list so it reloads
-			}
-			await loadImgs();
+			msg(`${filename} uploaded`);
+			if(repl) imgRm(filename);
+			await imgLoad();
 			gId('src').value='';
 			gId('drop').innerHTML='<p>Drop image or click to select</p>';
-		}else toast('Upload failed','error');
-	}catch(e){toast(`Error: ${e.message}`,'error');}
-	finally{hide();}
+		}else msg('Upload failed','error');
+	}catch(e){msg(`Error: ${e.message}`,'error');}
+	finally{ovHide();}
 };
 
-function quantize(pixels){
-	let bitMask=0xFF;
+/* palette + quantize */
+function qz(pix){
+	let mask=0xFF;
 	while(true){
-		const colorMap=new Map(),tempIndexed=new Uint8Array(pixels.length/4);
-		const paletteArray=[];let exceeded=false;
-		for(let i=0,idx=0;i<pixels.length;i+=4,idx++){
-			const r=pixels[i]&bitMask,g=pixels[i+1]&bitMask,b=pixels[i+2]&bitMask;
+		const map=new Map(),idx=new Uint8Array(pix.length/4);
+		const pal=[]; let over=false;
+		for(let i=0,j=0;i<pix.length;i+=4,j++){
+			const r=pix[i]&mask,g=pix[i+1]&mask,b=pix[i+2]&mask;
 			const key=`${r},${g},${b}`;
-			if(!colorMap.has(key)){
-				colorMap.set(key,colorMap.size);
-				paletteArray.push((r<<16)|(g<<8)|b);
-				if(colorMap.size>256){exceeded=true;break;}
+			if(!map.has(key)){
+				map.set(key,map.size);
+				pal.push((r<<16)|(g<<8)|b);
+				if(map.size>256){over=true;break;}
 			}
-			tempIndexed[idx]=colorMap.get(key);
+			idx[j]=map.get(key);
 		}
-		if(!exceeded)return{indexed:tempIndexed,palette:paletteArray};
-		bitMask&=(bitMask<<1)&0xFF;
-		if(bitMask===0)return{indexed:tempIndexed,palette:paletteArray.slice(0,256)};
+		if(!over) return {indexed:idx,palette:pal};
+		mask&=(mask<<1)&0xFF;
+		if(mask===0) return {indexed:idx,palette:pal.slice(0,256)};
 	}
 }
-
-function padPalette(palette){
-	let pow2=1;
-	while(pow2<palette.length)pow2<<=1;
-	while(palette.length<pow2)palette.push(palette[palette.length-1]);
-	return palette;
+function palPad(pal){
+	let p2=1;
+	while(p2<pal.length) p2<<=1;
+	while(pal.length<p2) pal.push(pal[pal.length-1]);
+	return pal;
 }
 
-async function playImg(url,name){
-	const targetSeg=+gId('seg').value;
-	const currentImgSeg=getCurImgSeg();
-
-	if(currentImgSeg!==null && currentImgSeg!==targetSeg){
-		if(!confirm(`Segment ${currentImgSeg} is currently displaying an image. Switch image display to segment ${targetSeg}?`))return;
+/* play on device */
+async function imgPlay(url,name){
+	const tgt=+gId('seg').value,cur=curImgSeg();
+	if(cur!==null && cur!==tgt){
+		if(!confirm(`Segment ${cur} is currently displaying an image. Switch image display to segment ${tgt}?`))return;
 	}
-
-	show();
+	ovShow();
 	try{
-		const json={
+		const j={
 			on:true,
-			seg: currentImgSeg!==null && currentImgSeg!==targetSeg
-				? [{id:currentImgSeg,fx:0,n:""},{id:targetSeg,fx:53,frz:false,sx:128,n:name}] // reset old, set new
-				: {id:targetSeg,fx:53,frz:false,sx:128,n:name} // only set new
+			seg: cur!==null && cur!==tgt
+				? [{id:cur,fx:0,n:""},{id:tgt,fx:53,frz:false,sx:128,n:name}]
+				: {id:tgt,fx:53,frz:false,sx:128,n:name}
 		};
-		const r=await fetch(`${wURL}/json/state`,{method:'POST',body:JSON.stringify(json)});
-		const result=await r.json();
-		if(result.success){
-			toast(`Playing ${name}`);
-			await loadSegs();
-		}else toast('Failed to play','error');
-	}catch(e){toast(`Error: ${e.message}`,'error');}
-	finally{hide();}
+		const r=await fetch(`${wu}/json/state`,{method:'POST',body:JSON.stringify(j)});
+		const out=await r.json();
+		if(out.success){
+			msg(`Playing ${name}`);
+			await segLoad();
+		}else msg('Failed to play','error');
+	}catch(e){msg(`Error: ${e.message}`,'error');}
+	finally{ovHide();}
 }
 
-function showMenu(x,y){
-	closeMenu();
-	const menu=cE('div');
-	menu.className='ctxMenu';
-	menu.style.left=x+'px';
-	menu.style.top=y+'px';
-	menu.innerHTML=`
-		<button onclick="downloadImg()">Download</button>
-		<button class="danger" onclick="deleteImg()">Delete</button>
-		<button onclick="closeMenu()">Cancel</button>`;
-	d.body.appendChild(menu);
+/* ctx menu */
+function menuShow(x,y){
+	menuClose();
+	const m=cE('div');
+	m.className='cm';
+	m.style.left=x+'px'; m.style.top=y+'px';
+	m.innerHTML=`
+		<button onclick="imgDl()">Download</button>
+		<button class="danger" onclick="imgDel()">Delete</button>
+		<button onclick="menuClose()">Cancel</button>`;
+	d.body.appendChild(m);
 	setTimeout(()=>{
-		const closeHandler=e=>{
-			if(!e.target.closest('.ctxMenu')){closeMenu();d.removeEventListener('click',closeHandler);}
+		const h=e=>{
+			if(!e.target.closest('.cm')){menuClose();d.removeEventListener('click',h);}
 		};
-		d.addEventListener('click',closeHandler);
+		d.addEventListener('click',h);
 	},100);
 }
+function menuClose(){d.querySelectorAll('.cm').forEach(m=>m.remove());}
 
-function closeMenu(){d.querySelectorAll('.ctxMenu').forEach(m=>m.remove());}
-
-async function downloadImg(){
+async function imgDl(){
 	try{
-		const r=await fetch(selImg.url),blob=await r.blob();
-		const url=URL.createObjectURL(blob),a=cE('a');
-		a.href=url;a.download=selImg.name;a.click();
-		URL.revokeObjectURL(url);toast('Downloaded');
-	}catch(e){toast('Download failed','error');}
-	closeMenu();
+		const r=await fetch(sI.url),b=await r.blob();
+		const u=URL.createObjectURL(b),a=cE('a');
+		a.href=u;a.download=sI.name;a.click();
+		URL.revokeObjectURL(u); msg('Downloaded');
+	}catch(e){msg('Download failed','error');}
+	menuClose();
+}
+async function imgDel(){
+	if(!confirm(`Delete ${sI.name}?`))return;
+	ovShow();
+	try{
+		const fd=new FormData();fd.append('path',`/${sI.name}`);
+		const r=await fetch(`${wu}/edit`,{method:'DELETE',body:fd});
+		if(r.ok){ msg('Deleted'); imgRm(sI.name); }
+		else msg('Delete failed','error');
+	}catch(e){msg('Delete failed','error');}
+	finally{ovHide();}
+	menuClose();
 }
 
-async function deleteImg(){
-	if(!confirm(`Delete ${selImg.name}?`))return;
-	show();
-	try{
-		const fd=new FormData();fd.append('path',`/${selImg.name}`);
-		const r=await fetch(`${wURL}/edit`,{method:'DELETE',body:fd});
-		if(r.ok){
-			toast('Deleted');
-			rmImg(selImg.name);
-		}
-		else toast('Delete failed','error');
-	}catch(e){toast('Delete failed','error');}
-	finally{hide();}
-	closeMenu();
-}
-
-gId('tabImg').onclick=async()=>{
-	gId('imgTab').classList.add('active');
-	gId('txtTab').classList.remove('active');
-	gId('tabImg').classList.add('active');
-	gId('tabTxt').classList.remove('active');
-	await checkPxmagic();
-	await loadImgs();
-	localStorage.setItem('tab','img'); // save for next time
+/* tabs */
+gId('tImg').onclick=async()=>{
+	gId('iTab').classList.add('active');
+	gId('xTab').classList.remove('active');
+	gId('tImg').classList.add('active');
+	gId('tTxt').classList.remove('active');
+	await pxChk();
+	await imgLoad();
+	localStorage.setItem('tab','img');
 };
-
-gId('tabTxt').onclick=async()=>{
-	gId('imgTab').classList.remove('active');
-	gId('txtTab').classList.add('active');
-	gId('tabImg').classList.remove('active');
-	gId('tabTxt').classList.add('active');
-	localStorage.setItem('tab','txt'); // save for next time
-	await loadSegSet();
+gId('tTxt').onclick=async()=>{
+	gId('iTab').classList.remove('active');
+	gId('xTab').classList.add('active');
+	gId('tImg').classList.remove('active');
+	gId('tTxt').classList.add('active');
+	localStorage.setItem('tab','txt');
+	await txtSegLoad();
 };
-
 (()=>{const t=localStorage.getItem('tab');
-	if(t==='txt') gId('tabTxt').click(); // activate scrolling text tool
-	else gId('tabImg').click(); // activate image tool by default
+	if(t==='txt') gId('tTxt').click(); else gId('tImg').click();
 })();
 
-
-function insTxt(el,t){
+/* tokens insert */
+function txtIns(el,t){
 	const s=el.selectionStart??el.value.length,e=el.selectionEnd??el.value.length,v=el.value;
 	const nv=(v.slice(0,s)+t+v.slice(e)).slice(0,64);
 	const p=Math.min(s+t.length,nv.length);
 	el.value=nv;el.focus();el.selectionStart=el.selectionEnd=p;
 }
-// delegate clicks on token links
 document.addEventListener('click',e=>{
-	const a=e.target.closest('.tok'); if(!a) return;
-	e.preventDefault(); insTxt(gId('txtIn'),a.dataset.t);
-	//upTxt(); // update segment
+	const a=e.target.closest('.tk'); if(!a) return;
+	e.preventDefault(); txtIns(gId('txt'),a.dataset.t);
+	// txtUp();
 });
 
-async function loadSegSet(){
-	const segId=+gId('segTxt').value;
-	try {
-		const r=await fetch(`${wURL}/json/state`);
-		const data=await r.json();
-		if(data.seg&&data.seg[segId]){
-			const s=data.seg[segId];
-			gId('txtIn').value=s.n||'';
+/* load seg settings into text UI */
+async function txtSegLoad(){
+	const id=+gId('segT').value;
+	try{
+		const r=await fetch(`${wu}/json/state`),j=await r.json();
+		if(j.seg&&j.seg[id]){
+			const s=j.seg[id];
+			gId('txt').value=s.n||'';
 			gId('sx').value=s.sx||128;
 			gId('ix').value=s.ix||128;
 			gId('c1').value=s.c1||0;
@@ -1233,63 +1097,33 @@ async function loadSegSet(){
 			gId('o1').checked=!(!s.o1);
 			gId('o3').checked=!(!s.o3);
 		}
-	} catch(e) {
-		console.log(e);
-	}
+	}catch(e){console.log(e);}
 }
 
-['sx','ix','c1','c2','c3',`o1`,`o3`].forEach(id=>{
-	gId(id).onchange=upTxt; // update on change
-});
+/* auto apply on change */
+['sx','ix','c1','c2','c3','o1','o3'].forEach(id=>{ gId(id).onchange=txtUp; });
 
-// apply text input to segment
-function upTxt(){
-	const id=+gId('segTxt').value,txt=gId('txtIn').value.trim().slice(0,64);
+/* send text settings */
+function txtUp(){
+	const id=+gId('segT').value,txt=gId('txt').value.trim().slice(0,64);
 	const j={on:true,seg:{id,fx:122,n:txt,sx:+gId('sx').value,ix:+gId('ix').value,c1:+gId('c1').value,c2:+gId('c2').value,c3:+gId('c3').value,o1:gId('o1').checked,o3:gId('o3').checked}};
-	fetch(`${wURL}/json/state`,{method:'POST',body:JSON.stringify(j)});
-	loadSegs(); // reload segment settings
+	fetch(`${wu}/json/state`,{method:'POST',body:JSON.stringify(j)});
+	segLoad();
 }
 
-gId('txtIn').onchange=upTxt;
-
-gId('applyTxt').onclick=async()=>{
-	const segId=+gId('segTxt').value;
-	const text=gId('txtIn').value.trim();
-
-	show();
-	try {
-		const json={
-			on:true,
-			seg:{
-				id:segId,
-				fx:122,
-				n:text,
-				sx:+gId('sx').value,
-				ix:+gId('ix').value,
-				c1:+gId('c1').value,
-				c2:+gId('c2').value,
-				c3:+gId('c3').value,
-				o1:gId('o1').checked,
-				o3:gId('o3').checked
-			}
-		};
-
-		const r=await fetch(`${wURL}/json/state`,{method:'POST',body:JSON.stringify(json)});
-		const result=await r.json();
-
-		if(result.success!==false){
-			toast(`Applied to Segment ${segId}`);
-			await loadSegs();
-		} else {
-			toast('Failed to apply','error');
-		}
-	} catch(e) {
-		toast(`Error: ${e.message}`,'error');
-	} finally {
-		hide();
-	}
+/* apply button */
+gId('aTxt').onclick=async()=>{
+	const id=+gId('segT').value,txt=gId('txt').value.trim();
+	ovShow();
+	try{
+		const j={on:true,seg:{id,fx:122,n:txt,sx:+gId('sx').value,ix:+gId('ix').value,c1:+gId('c1').value,c2:+gId('c2').value,c3:+gId('c3').value,o1:gId('o1').checked,o3:gId('o3').checked}};
+		const r=await fetch(`${wu}/json/state`,{method:'POST',body:JSON.stringify(j)});
+		const out=await r.json();
+		if(out.success!==false){ msg(`Applied to Segment ${id}`); await segLoad(); }
+		else msg('Failed to apply','error');
+	}catch(e){ msg(`Error: ${e.message}`,'error'); }
+	finally{ ovHide(); }
 };
-
 </script>
 </body>
 </html>
