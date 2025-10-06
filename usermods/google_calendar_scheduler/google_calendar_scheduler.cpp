@@ -378,12 +378,19 @@ void GoogleCalendarScheduler::parseICalData(String& icalData) {
 
       // Handle iCal line folding (lines starting with space/tab are continuations)
       while (pos < eventBlock.length()) {
+        int lineEndLength = 2;  // Default for \r\n
         int lineEnd = eventBlock.indexOf("\r\n", pos);
-        if (lineEnd < 0) lineEnd = eventBlock.indexOf("\n", pos);
-        if (lineEnd < 0) lineEnd = eventBlock.length();
+        if (lineEnd < 0) {
+          lineEnd = eventBlock.indexOf("\n", pos);
+          lineEndLength = 1;  // Only \n
+        }
+        if (lineEnd < 0) {
+          lineEnd = eventBlock.length();
+          lineEndLength = 0;  // No line ending
+        }
 
         event.description += eventBlock.substring(pos, lineEnd);
-        pos = lineEnd + 2; // Skip \r\n
+        pos = lineEnd + lineEndLength;
 
         // Check if next line is a continuation (starts with space or tab)
         if (pos < eventBlock.length() && (eventBlock.charAt(pos) == ' ' || eventBlock.charAt(pos) == '\t')) {
@@ -407,6 +414,7 @@ void GoogleCalendarScheduler::parseICalData(String& icalData) {
     if (dtStartPos >= 0) {
       int lineEnd = eventBlock.indexOf("\r\n", dtStartPos);
       if (lineEnd < 0) lineEnd = eventBlock.indexOf("\n", dtStartPos);
+      if (lineEnd < 0) lineEnd = eventBlock.length();
 
       // Find the last colon on this line (the one before the datetime value)
       int colonPos = eventBlock.lastIndexOf(":", lineEnd);
@@ -421,6 +429,7 @@ void GoogleCalendarScheduler::parseICalData(String& icalData) {
     if (dtEndPos >= 0) {
       int lineEnd = eventBlock.indexOf("\r\n", dtEndPos);
       if (lineEnd < 0) lineEnd = eventBlock.indexOf("\n", dtEndPos);
+      if (lineEnd < 0) lineEnd = eventBlock.length();
 
       // Find the last colon on this line (the one before the datetime value)
       int colonPos = eventBlock.lastIndexOf(":", lineEnd);
@@ -493,6 +502,12 @@ unsigned long GoogleCalendarScheduler::parseICalDateTime(String& dtStr) {
 
 void GoogleCalendarScheduler::checkAndTriggerEvents() {
   unsigned long currentTime = toki.second(); // Use WLED's time
+
+  // Don't trigger events if time is not synced (Unix epoch starts 1970-01-01)
+  // A reasonable threshold is 1000000000 (2001-09-09)
+  if (currentTime < 1000000000) {
+    return;
+  }
 
   for (uint8_t i = 0; i < eventCount; i++) {
     CalendarEvent& event = events[i];
