@@ -7495,8 +7495,8 @@ typedef struct XTwinkleLight {
 // For creating skewed random numbers toward the shorter end.
 // The sum of percentages must = 100%
 const uint8_t pSize = 20;
-const uint8_t percentages[pSize] = {12, 11, 10, 10, 6, 6, 5, 5, 3, 3, 1, 1, 1, 1, 1, 1, 2, 3, 3, 15};
-const uint8_t slowPercentages[pSize] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5, 6, 7, 7, 7, 10, 12, 12, 15, 19};
+const uint8_t percentages[pSize] = {12, 11, 10, 10, 6, 6, 5, 5, 3, 3, 1, 1, 1, 1, 1, 1, 2, 3, 3, 15}; // PROGMEM?
+const uint8_t slowPercentages[pSize] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5, 6, 7, 7, 7, 10, 12, 12, 15, 19}; // PROGMEM?
 
 // Input is 0-100, Ouput is skewed 0-100.
 // PArray may be any size, but elements must add up to 100.
@@ -7546,7 +7546,7 @@ uint16_t mode_XmasTwinkle(void) {              // by Nicholas Pisarro, Jr.
     numTwiklers = 1;        // Divide checks are not cool.
 
   // Reinitialize evertying if the number of twinklers has changed.
-  if (numTwiklers != SEGMENT.aux0)
+  if (numTwiklers != SEGMENT.aux0 || SEGMENT.call == 0)
     SEGMENT.aux0 = 0;
   
   // The maximum twinkle time varies based on the time slider
