@@ -59,7 +59,7 @@ class GoogleCalendarScheduler : public Usermod {
     void parseICalData(String& icalData);
     unsigned long parseICalDateTime(String& dtStr);
     void checkAndTriggerEvents();
-    void executeEventAction(CalendarEvent& event, bool isStart);
+    void executeEventAction(CalendarEvent& event);
 
   public:
     void setup() override {
@@ -517,7 +517,7 @@ void GoogleCalendarScheduler::checkAndTriggerEvents() {
 
     // Trigger if active and not yet triggered
     if (isActive && !event.triggered) {
-      executeEventAction(event, true);
+      executeEventAction(event);
       event.triggered = true;
     }
 
@@ -528,7 +528,7 @@ void GoogleCalendarScheduler::checkAndTriggerEvents() {
   }
 }
 
-void GoogleCalendarScheduler::executeEventAction(CalendarEvent& event, bool isStart) {
+void GoogleCalendarScheduler::executeEventAction(CalendarEvent& event) {
   DEBUG_PRINT(F("Calendar: Triggering event: "));
   DEBUG_PRINTLN(event.title);
 
