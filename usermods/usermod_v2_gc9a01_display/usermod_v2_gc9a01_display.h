@@ -83,8 +83,6 @@ class UsermodGC9A01Display : public Usermod {
     // Private method declarations
     void initDisplay();
     void drawMainInterface(int overlayMode = -1); // -1 = normal, 0+ = overlay mode
-    void drawMainScreen();
-    void drawStatusBar();
     void drawWLEDLogo();
     void drawWiFiIcon(int x, int y, bool connected, int rssi = 0);
     void setBrightness(uint8_t bri);
