@@ -47,6 +47,10 @@ class GoogleCalendarScheduler : public Usermod {
     CalendarEvent events[MAX_EVENTS];
     uint8_t eventCount = 0;
 
+    // Error tracking
+    String lastError = "";
+    unsigned long lastErrorTime = 0;
+
     // HTTP client constants
     static const size_t MAX_RESPONSE_SIZE = 16384;  // 16KB max response
     static const size_t RESPONSE_RESERVE_SIZE = 4096;  // Pre-allocate to reduce fragmentation
@@ -89,8 +93,8 @@ class GoogleCalendarScheduler : public Usermod {
 
       unsigned long now = millis();
 
-      // Poll calendar at configured interval
-      if (!isFetching && calendarUrl.length() > 0 && (now - lastPollTime > pollInterval)) {
+      // Poll calendar at configured interval (overflow-safe comparison)
+      if (!isFetching && calendarUrl.length() > 0 && (now - lastPollTime >= pollInterval)) {
         lastPollTime = now;
         fetchCalendarEvents();
       }
@@ -111,6 +115,11 @@ class GoogleCalendarScheduler : public Usermod {
 
       usermod["enabled"] = enabled;
       usermod["events"] = eventCount;
+
+      if (lastError.length() > 0) {
+        usermod["lastError"] = lastError;
+        usermod["lastErrorTime"] = (millis() - lastErrorTime) / 1000; // seconds ago
+      }
     }
 
     void readFromJsonState(JsonObject& root) override {
@@ -168,6 +177,15 @@ class GoogleCalendarScheduler : public Usermod {
       oappend(F(":calendarUrl',1,'Events loaded: "));
       oappend(String(eventCount).c_str());
       oappend(F("');"));
+
+      // Show error if present
+      if (lastError.length() > 0) {
+        oappend(F("addInfo('"));
+        oappend(String(FPSTR(_name)).c_str());
+        oappend(F(":calendarUrl',1,'<br><span style=\"color:red;\">Error: "));
+        oappend(lastError.c_str());
+        oappend(F("</span>');"));
+      }
 
       // Show active events
       if (enabled && initDone && eventCount > 0) {
@@ -290,6 +308,8 @@ bool GoogleCalendarScheduler::fetchCalendarEvents() {
 
   if (!client->connect(httpHost.c_str(), useHTTPS ? HTTPS_PORT : HTTP_PORT)) {
     DEBUG_PRINTLN(F("Calendar: Connection failed"));
+    lastError = "Connection failed";
+    lastErrorTime = millis();
     delete client;
     isFetching = false;
     return false;
@@ -311,6 +331,7 @@ bool GoogleCalendarScheduler::fetchCalendarEvents() {
 
   char buffer[READ_BUFFER_SIZE];
   unsigned long timeout = millis();
+  bool success = false;
 
   while (client->connected() && (millis() - timeout < HTTP_TIMEOUT_MS)) {
     int available = client->available();
@@ -340,6 +361,28 @@ bool GoogleCalendarScheduler::fetchCalendarEvents() {
   DEBUG_PRINT(responseBuffer.length());
   DEBUG_PRINTLN(F(" bytes"));
 
+  // Validate HTTP response status code
+  int statusCodeStart = responseBuffer.indexOf("HTTP/1.");
+  if (statusCodeStart >= 0) {
+    int statusCodeEnd = responseBuffer.indexOf(' ', statusCodeStart + 9);
+    if (statusCodeEnd > 0) {
+      String statusCodeStr = responseBuffer.substring(statusCodeStart + 9, statusCodeEnd);
+      int statusCode = statusCodeStr.toInt();
+
+      DEBUG_PRINT(F("Calendar: HTTP Status Code: "));
+      DEBUG_PRINTLN(statusCode);
+
+      if (statusCode != 200) {
+        DEBUG_PRINT(F("Calendar: HTTP error "));
+        DEBUG_PRINTLN(statusCode);
+        lastError = "HTTP " + String(statusCode);
+        lastErrorTime = millis();
+        isFetching = false;
+        return false;
+      }
+    }
+  }
+
   // Find the body (after headers)
   int bodyPos = responseBuffer.indexOf("\r\n\r\n");
   if (bodyPos > 0) {
@@ -352,14 +395,18 @@ bool GoogleCalendarScheduler::fetchCalendarEvents() {
     DEBUG_PRINTLN(icalData.substring(0, min(200, (int)icalData.length())));
 
     parseICalData(icalData);
+    success = true;
+    lastError = ""; // Clear error on success
   } else {
     DEBUG_PRINTLN(F("Calendar: No body found in response"));
     DEBUG_PRINT(F("Calendar: Response buffer: "));
     DEBUG_PRINTLN(responseBuffer.substring(0, min(200, (int)responseBuffer.length())));
+    lastError = "No response body";
+    lastErrorTime = millis();
   }
 
   isFetching = false;
-  return true;
+  return success;
 }
 
 // Simple iCal parser - extracts VEVENT blocks
