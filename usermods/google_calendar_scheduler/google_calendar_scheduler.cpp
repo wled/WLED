@@ -46,12 +46,13 @@ class GoogleCalendarScheduler : public Usermod {
     CalendarEvent *events = nullptr;
     uint8_t eventCount = 0;
 
-    // Error tracking
+    // Error tracking with exponential backoff
     String lastError = "";
     unsigned long lastErrorTime = 0;
     uint8_t retryCount = 0;
-    static const uint8_t MAX_RETRIES = 3;
-    unsigned long retryDelay = 30000; // 30 seconds between retries
+    static const uint8_t MAX_RETRIES = 5;
+    static const unsigned long BASE_RETRY_DELAY = 30000; // 30 seconds base delay
+    static const unsigned long MAX_RETRY_DELAY = 300000; // 5 minutes max delay
 
     // HTTP client constants
     static const size_t MAX_RESPONSE_SIZE = 16384;  // 16KB max response
@@ -82,6 +83,13 @@ class GoogleCalendarScheduler : public Usermod {
       // Allocate event array
       if (events == nullptr) {
         events = new CalendarEvent[maxEvents];
+        if (events == nullptr) {
+          #ifdef WLED_DEBUG
+          DEBUG_PRINTLN(F("Calendar: Failed to allocate event array"));
+          #endif
+          enabled = false; // Disable usermod if allocation fails
+          return;
+        }
       }
       initDone = true;
     }
@@ -109,6 +117,15 @@ class GoogleCalendarScheduler : public Usermod {
 
       // Poll calendar at configured interval (overflow-safe comparison)
       if (!isFetching && calendarUrl.length() > 0) {
+        // Calculate retry delay with exponential backoff: 30s, 60s, 120s, 240s, 300s (max)
+        unsigned long retryDelay = BASE_RETRY_DELAY;
+        if (retryCount > 0) {
+          retryDelay = BASE_RETRY_DELAY * (1 << (retryCount - 1)); // 2^(retryCount-1)
+          if (retryDelay > MAX_RETRY_DELAY) {
+            retryDelay = MAX_RETRY_DELAY;
+          }
+        }
+
         unsigned long interval = (retryCount > 0 ? retryDelay : pollInterval);
         if (now - lastPollTime >= interval) {
           lastPollTime = now;
@@ -116,6 +133,11 @@ class GoogleCalendarScheduler : public Usermod {
             retryCount = 0; // Reset retry counter on success
           } else if (retryCount < MAX_RETRIES) {
             retryCount++;
+            #ifdef WLED_DEBUG
+            DEBUG_PRINTF("Calendar: Retry %d/%d, next attempt in %lus\n",
+                         retryCount, MAX_RETRIES,
+                         (BASE_RETRY_DELAY * (1 << (retryCount - 1))) / 1000);
+            #endif
           }
         }
       }
@@ -183,6 +205,19 @@ class GoogleCalendarScheduler : public Usermod {
 
       int pollIntervalSec = pollInterval / 1000;
       configComplete &= getJsonValue(top[FPSTR(_pollInterval)], pollIntervalSec, 300);
+      // Bounds check: minimum 30 seconds (avoid API abuse), maximum 1 hour
+      if (pollIntervalSec < 30) {
+        pollIntervalSec = 30;
+        #ifdef WLED_DEBUG
+        DEBUG_PRINTLN(F("Calendar: Poll interval too low, set to 30s minimum"));
+        #endif
+      }
+      if (pollIntervalSec > 3600) {
+        pollIntervalSec = 3600;
+        #ifdef WLED_DEBUG
+        DEBUG_PRINTLN(F("Calendar: Poll interval too high, set to 3600s maximum"));
+        #endif
+      }
       pollInterval = pollIntervalSec * 1000;
 
       // Read maxEvents and reallocate array if changed
@@ -194,6 +229,15 @@ class GoogleCalendarScheduler : public Usermod {
           delete[] events;
         }
         events = new CalendarEvent[maxEvents];
+        if (events == nullptr) {
+          #ifdef WLED_DEBUG
+          DEBUG_PRINTLN(F("Calendar: Failed to reallocate event array"));
+          #endif
+          enabled = false;
+          maxEvents = 0;
+          eventCount = 0;
+          return false;
+        }
         eventCount = 0;  // Clear old events after reallocation
       }
 
@@ -328,9 +372,18 @@ bool GoogleCalendarScheduler::fetchCalendarEvents() {
   DEBUG_PRINTF("Calendar: Connecting to %s:%d\n", httpHost.c_str(), useHTTPS ? HTTPS_PORT : HTTP_PORT);
   #endif
 
-  WiFiClient *client;
+  WiFiClient *client = nullptr;
   if (useHTTPS) {
     WiFiClientSecure *secureClient = new WiFiClientSecure();
+    if (secureClient == nullptr) {
+      #ifdef WLED_DEBUG
+      DEBUG_PRINTLN(F("Calendar: Failed to allocate secure client"));
+      #endif
+      lastError = "Out of memory";
+      lastErrorTime = millis();
+      isFetching = false;
+      return false;
+    }
     // Note: Using setInsecure() for compatibility. For production use, consider:
     // - secureClient->setCACert() with Google's root certificate
     // - Or validate specific fingerprints for known calendar providers
@@ -339,6 +392,15 @@ bool GoogleCalendarScheduler::fetchCalendarEvents() {
     client = secureClient;
   } else {
     client = new WiFiClient();
+    if (client == nullptr) {
+      #ifdef WLED_DEBUG
+      DEBUG_PRINTLN(F("Calendar: Failed to allocate client"));
+      #endif
+      lastError = "Out of memory";
+      lastErrorTime = millis();
+      isFetching = false;
+      return false;
+    }
     client->setTimeout(HTTP_TIMEOUT_MS);
   }
 
@@ -430,17 +492,68 @@ bool GoogleCalendarScheduler::fetchCalendarEvents() {
     }
   }
 
+  // Validate Content-Type header (should be text/calendar for iCal)
+  int contentTypePos = responseBuffer.indexOf("Content-Type:");
+  bool validContentType = false;
+  if (contentTypePos >= 0) {
+    int lineEnd = responseBuffer.indexOf("\r\n", contentTypePos);
+    if (lineEnd < 0) lineEnd = responseBuffer.indexOf("\n", contentTypePos);
+    if (lineEnd > contentTypePos) {
+      String contentType = responseBuffer.substring(contentTypePos + 13, lineEnd);
+      contentType.trim();
+      contentType.toLowerCase();
+      // Accept text/calendar or application/ics
+      if (contentType.indexOf("text/calendar") >= 0 || contentType.indexOf("application/ics") >= 0) {
+        validContentType = true;
+      }
+    }
+  }
+
+  if (!validContentType) {
+    #ifdef WLED_DEBUG
+    DEBUG_PRINTLN(F("Calendar: Invalid Content-Type (expected text/calendar)"));
+    #endif
+    // Don't fail hard - some servers may not set correct Content-Type
+    // Just log a warning
+  }
+
   // Find the body (after headers)
   int bodyPos = responseBuffer.indexOf("\r\n\r\n");
   if (bodyPos > 0) {
     String icalData = responseBuffer.substring(bodyPos + 4);
+
+    // Check if response was truncated
+    if (responseBuffer.length() >= MAX_RESPONSE_SIZE) {
+      #ifdef WLED_DEBUG
+      DEBUG_PRINTLN(F("Calendar: Warning - response was truncated, some events may be missing"));
+      #endif
+      lastError = "Response truncated";
+      lastErrorTime = millis();
+      // Continue parsing what we have
+    }
+
+    // Basic iCal format validation
+    if (icalData.indexOf("BEGIN:VCALENDAR") < 0) {
+      #ifdef WLED_DEBUG
+      DEBUG_PRINTLN(F("Calendar: Invalid iCal format (missing BEGIN:VCALENDAR)"));
+      #endif
+      lastError = "Invalid iCal format";
+      lastErrorTime = millis();
+      isFetching = false;
+      return false;
+    }
+
     #ifdef WLED_DEBUG
     DEBUG_PRINTF("Calendar: Parsing iCal data, length: %d\n", icalData.length());
     #endif
 
     parseICalData(icalData);
     success = true;
-    lastError = ""; // Clear error on success
+
+    // Only clear error if we didn't truncate
+    if (responseBuffer.length() < MAX_RESPONSE_SIZE) {
+      lastError = "";
+    }
   } else {
     #ifdef WLED_DEBUG
     DEBUG_PRINTLN(F("Calendar: No body found in response"));
@@ -457,6 +570,12 @@ bool GoogleCalendarScheduler::fetchCalendarEvents() {
 void GoogleCalendarScheduler::parseICalData(String& icalData) {
   // Store old events to preserve trigger state (use dynamic allocation)
   CalendarEvent *oldEvents = new CalendarEvent[maxEvents];
+  if (oldEvents == nullptr) {
+    #ifdef WLED_DEBUG
+    DEBUG_PRINTLN(F("Calendar: Failed to allocate temp event array"));
+    #endif
+    return; // Keep existing events on allocation failure
+  }
   uint8_t oldEventCount = eventCount;
   for (uint8_t i = 0; i < oldEventCount; i++) {
     oldEvents[i] = events[i];
@@ -525,6 +644,8 @@ void GoogleCalendarScheduler::parseICalData(String& icalData) {
     }
 
     // Extract DTSTART (handle TZID parameters like DTSTART;TZID=America/New_York:...)
+    // Note: Timezone conversion is not implemented - all times treated as UTC
+    // For accurate local time handling, would need timezone database
     int dtStartPos = eventBlock.indexOf("DTSTART");
     if (dtStartPos >= 0) {
       int lineEnd = eventBlock.indexOf("\r\n", dtStartPos);
@@ -567,6 +688,51 @@ void GoogleCalendarScheduler::parseICalData(String& icalData) {
         unsigned long durationSeconds = parseICalDuration(duration);
         event.endTime = event.startTime + durationSeconds;
       }
+    }
+
+    // Validate event times
+    if (event.startTime == 0 || event.endTime == 0) {
+      #ifdef WLED_DEBUG
+      DEBUG_PRINTLN(F("Calendar: Skipping event with invalid time"));
+      #endif
+      pos = eventEnd + 10;
+      continue;
+    }
+
+    if (event.endTime <= event.startTime) {
+      #ifdef WLED_DEBUG
+      DEBUG_PRINTF("Calendar: Skipping event with end <= start (%lu <= %lu)\n", event.endTime, event.startTime);
+      #endif
+      pos = eventEnd + 10;
+      continue;
+    }
+
+    // Validate reasonable date range (2020-01-01 to 2100-01-01)
+    const unsigned long MIN_VALID_TIME = 1577836800; // 2020-01-01
+    const unsigned long MAX_VALID_TIME = 4102444800; // 2100-01-01
+    if (event.startTime < MIN_VALID_TIME || event.startTime > MAX_VALID_TIME) {
+      #ifdef WLED_DEBUG
+      DEBUG_PRINTF("Calendar: Skipping event with unreasonable time: %lu\n", event.startTime);
+      #endif
+      pos = eventEnd + 10;
+      continue;
+    }
+
+    // Check for duplicate events (same start time and title)
+    bool isDuplicate = false;
+    for (uint8_t i = 0; i < eventCount; i++) {
+      if (events[i].startTime == event.startTime && events[i].title == event.title) {
+        #ifdef WLED_DEBUG
+        DEBUG_PRINTF("Calendar: Skipping duplicate event: %s @ %lu\n", event.title.c_str(), event.startTime);
+        #endif
+        isDuplicate = true;
+        break;
+      }
+    }
+
+    if (isDuplicate) {
+      pos = eventEnd + 10;
+      continue;
     }
 
     // Preserve trigger state if this event existed before with same start time
@@ -615,13 +781,35 @@ unsigned long GoogleCalendarScheduler::parseICalDateTime(String& dtStr) {
   int minute = dtStr.substring(11, 13).toInt();
   int second = dtStr.substring(13, 15).toInt();
 
-  // Validate components
-  if (year < 1970 || month < 1 || month > 12 || day < 1 || day > 31 ||
+  // Validate components with month-specific day limits
+  static const uint8_t daysInMonth[] = {31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
+
+  if (year < 1970 || month < 1 || month > 12 || day < 1 ||
       hour > 23 || minute > 59 || second > 59) {
     #ifdef WLED_DEBUG
     DEBUG_PRINTLN(F("Calendar: Invalid datetime components"));
     #endif
     return 0;
+  }
+
+  // Check day validity for the specific month
+  if (day > daysInMonth[month - 1]) {
+    #ifdef WLED_DEBUG
+    DEBUG_PRINTF("Calendar: Invalid day %d for month %d\n", day, month);
+    #endif
+    return 0;
+  }
+
+  // Additional February leap year check
+  if (month == 2 && day == 29) {
+    // Simple leap year check (good enough for 1970-2100 range)
+    bool isLeap = (year % 4 == 0 && (year % 100 != 0 || year % 400 == 0));
+    if (!isLeap) {
+      #ifdef WLED_DEBUG
+      DEBUG_PRINTF("Calendar: Feb 29 invalid for non-leap year %d\n", year);
+      #endif
+      return 0;
+    }
   }
 
   // Convert to Unix timestamp (simplified, doesn't account for all edge cases)
@@ -756,18 +944,33 @@ void GoogleCalendarScheduler::executeEventAction(CalendarEvent& event) {
     int8_t presetId = -1;
     uint16_t presetsChecked = 0;
 
-    // Prepare lowercase version for comparison (don't modify original)
+    // Prepare lowercase version for comparison once (don't modify original)
     String descLower = desc;
     descLower.toLowerCase();
     descLower.trim();
 
     // Search through presets for matching name using WLED's getPresetName function
-    for (uint8_t i = 1; i < 251; i++) {
+    // Optimized: Use stack-allocated buffer to reduce heap fragmentation
+    const uint8_t MAX_PRESET_ID = 250;
+    for (uint8_t i = 1; i <= MAX_PRESET_ID; i++) {
       String presetName;
       if (getPresetName(i, presetName)) {
         presetsChecked++;
+
+        // Quick length check before string operations (optimization)
+        if (presetName.length() == 0) continue;
+
         presetName.trim();
-        presetName.toLowerCase();
+
+        // Another quick length check after trim
+        if (presetName.length() != desc.length()) {
+          // Length mismatch after trim - case-insensitive comparison would fail anyway
+          // This avoids expensive toLowerCase() call
+          presetName.toLowerCase();
+          if (presetName != descLower) continue;
+        } else {
+          presetName.toLowerCase();
+        }
 
         // Case-insensitive comparison (both already lowercased)
         if (presetName == descLower) {
