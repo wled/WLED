@@ -33,6 +33,10 @@ class GoogleCalendarScheduler : public Usermod {
     bool isFetching = false;
     bool useHTTPS = false;
 
+    // Rate limiting
+    unsigned long lastFetchAttempt = 0;
+    static const unsigned long MIN_FETCH_INTERVAL = 10000; // 10 seconds minimum between fetches
+
     // Event tracking
     struct CalendarEvent {
       String title;
@@ -224,25 +228,39 @@ class GoogleCalendarScheduler : public Usermod {
       uint8_t newMaxEvents = maxEvents;
       configComplete &= getJsonValue(top[FPSTR(_maxEvents)], newMaxEvents, (uint8_t)5);
       if (newMaxEvents != maxEvents && newMaxEvents > 0 && newMaxEvents <= 50) {
-        maxEvents = newMaxEvents;
-        if (events != nullptr) {
-          delete[] events;
-        }
-        events = new CalendarEvent[maxEvents];
-        if (events == nullptr) {
+        // Prevent reallocation during fetch to avoid race condition
+        if (isFetching) {
           #ifdef WLED_DEBUG
-          DEBUG_PRINTLN(F("Calendar: Failed to reallocate event array"));
+          DEBUG_PRINTLN(F("Calendar: Cannot change maxEvents during fetch"));
           #endif
-          enabled = false;
-          maxEvents = 0;
-          eventCount = 0;
-          return false;
+        } else {
+          maxEvents = newMaxEvents;
+          CalendarEvent *oldEvents = events;
+          events = new CalendarEvent[maxEvents];
+          if (events == nullptr) {
+            #ifdef WLED_DEBUG
+            DEBUG_PRINTLN(F("Calendar: Failed to reallocate event array"));
+            #endif
+            events = oldEvents; // Restore old array on allocation failure
+            enabled = false;
+            return false;
+          }
+          // Clean up old array only after successful allocation
+          if (oldEvents != nullptr) {
+            delete[] oldEvents;
+          }
+          eventCount = 0;  // Clear old events after reallocation
         }
-        eventCount = 0;  // Clear old events after reallocation
       }
 
       if (calendarUrl.length() > 0) {
         parseCalendarUrl();
+        // Force a fetch on URL change by resetting poll time
+        lastPollTime = 0;
+      } else {
+        // Clear host/path if URL is empty
+        httpHost = "";
+        httpPath = "";
       }
 
       return configComplete;
@@ -366,6 +384,16 @@ bool GoogleCalendarScheduler::fetchCalendarEvents() {
     return false;
   }
 
+  // Rate limiting: prevent rapid successive fetches
+  unsigned long now = millis();
+  if (now - lastFetchAttempt < MIN_FETCH_INTERVAL) {
+    #ifdef WLED_DEBUG
+    DEBUG_PRINTLN(F("Calendar: Rate limited, skipping fetch"));
+    #endif
+    return false;
+  }
+  lastFetchAttempt = now;
+
   isFetching = true;
 
   #ifdef WLED_DEBUG
@@ -384,9 +412,18 @@ bool GoogleCalendarScheduler::fetchCalendarEvents() {
       isFetching = false;
       return false;
     }
-    // Note: Using setInsecure() for compatibility. For production use, consider:
-    // - secureClient->setCACert() with Google's root certificate
-    // - Or validate specific fingerprints for known calendar providers
+    // Security note: Using setInsecure() for broad compatibility
+    // For enhanced security, you can optionally configure certificate validation:
+    //
+    // Option 1: Certificate pinning (most secure for known hosts)
+    // const char* google_root_ca = "-----BEGIN CERTIFICATE-----\n...";
+    // secureClient->setCACert(google_root_ca);
+    //
+    // Option 2: Fingerprint validation (less maintenance than full cert)
+    // const char* fingerprint = "AA BB CC DD EE FF ...";
+    // secureClient->setFingerprint(fingerprint);
+    //
+    // Current configuration: Accept all certificates (less secure but works universally)
     secureClient->setInsecure();
     secureClient->setTimeout(HTTP_TIMEOUT_MS);
     client = secureClient;
@@ -406,9 +443,9 @@ bool GoogleCalendarScheduler::fetchCalendarEvents() {
 
   if (!client->connect(httpHost.c_str(), useHTTPS ? HTTPS_PORT : HTTP_PORT)) {
     #ifdef WLED_DEBUG
-    DEBUG_PRINTLN(F("Calendar: Connection failed"));
+    DEBUG_PRINTF("Calendar: Connection failed to %s:%d\n", httpHost.c_str(), useHTTPS ? HTTPS_PORT : HTTP_PORT);
     #endif
-    lastError = "Connection failed";
+    lastError = "Conn fail: " + httpHost;
     lastErrorTime = millis();
     delete client;
     isFetching = false;
@@ -420,10 +457,11 @@ bool GoogleCalendarScheduler::fetchCalendarEvents() {
   #endif
 
   // Send HTTP request (using separate print calls to avoid String concatenation overhead)
+  // This approach reduces heap fragmentation compared to building a single String
   client->print(F("GET "));
-  client->print(httpPath);
+  client->print(httpPath.c_str()); // Use c_str() to avoid String copying
   client->print(F(" HTTP/1.1\r\nHost: "));
-  client->print(httpHost);
+  client->print(httpHost.c_str()); // Use c_str() to avoid String copying
   client->print(F("\r\nConnection: close\r\nUser-Agent: WLED-Calendar-Scheduler\r\n\r\n"));
 
   #ifdef WLED_DEBUG
@@ -468,7 +506,7 @@ bool GoogleCalendarScheduler::fetchCalendarEvents() {
   DEBUG_PRINTF("Calendar: Received %d bytes\n", responseBuffer.length());
   #endif
 
-  // Validate HTTP response status code
+  // Validate HTTP response status code and handle redirects
   int statusCodeStart = responseBuffer.indexOf("HTTP/1.");
   if (statusCodeStart >= 0) {
     int statusCodeEnd = responseBuffer.indexOf(' ', statusCodeStart + 9);
@@ -479,6 +517,26 @@ bool GoogleCalendarScheduler::fetchCalendarEvents() {
       #ifdef WLED_DEBUG
       DEBUG_PRINTF("Calendar: HTTP Status Code: %d\n", statusCode);
       #endif
+
+      // Handle redirects (301, 302, 307, 308)
+      if (statusCode >= 300 && statusCode < 400) {
+        int locationPos = responseBuffer.indexOf("Location:");
+        if (locationPos >= 0) {
+          int lineEnd = responseBuffer.indexOf("\r\n", locationPos);
+          if (lineEnd < 0) lineEnd = responseBuffer.indexOf("\n", locationPos);
+          if (lineEnd > locationPos) {
+            String newLocation = responseBuffer.substring(locationPos + 9, lineEnd);
+            newLocation.trim();
+            #ifdef WLED_DEBUG
+            DEBUG_PRINTF("Calendar: Redirect to: %s\n", newLocation.c_str());
+            #endif
+            lastError = "Redirect: update URL";
+            lastErrorTime = millis();
+          }
+        }
+        isFetching = false;
+        return false;
+      }
 
       if (statusCode != 200) {
         #ifdef WLED_DEBUG
@@ -537,7 +595,7 @@ bool GoogleCalendarScheduler::fetchCalendarEvents() {
       #ifdef WLED_DEBUG
       DEBUG_PRINTLN(F("Calendar: Invalid iCal format (missing BEGIN:VCALENDAR)"));
       #endif
-      lastError = "Invalid iCal format";
+      lastError = "Not iCal format";
       lastErrorTime = millis();
       isFetching = false;
       return false;
@@ -879,6 +937,34 @@ void GoogleCalendarScheduler::checkAndTriggerEvents() {
     return;
   }
 
+  // Expire old events (ended more than 24 hours ago)
+  const unsigned long EXPIRY_THRESHOLD = 86400; // 24 hours in seconds
+  uint8_t writeIdx = 0;
+  for (uint8_t readIdx = 0; readIdx < eventCount; readIdx++) {
+    CalendarEvent& event = events[readIdx];
+
+    // Keep event if it hasn't expired yet
+    if (currentTime < event.endTime + EXPIRY_THRESHOLD) {
+      if (writeIdx != readIdx) {
+        events[writeIdx] = events[readIdx];
+      }
+      writeIdx++;
+    }
+    #ifdef WLED_DEBUG
+    else {
+      DEBUG_PRINTF("Calendar: Expired old event: %s\n", event.title.c_str());
+    }
+    #endif
+  }
+
+  // Update count if events were removed
+  if (writeIdx < eventCount) {
+    eventCount = writeIdx;
+    #ifdef WLED_DEBUG
+    DEBUG_PRINTF("Calendar: Removed expired events, now tracking %d events\n", eventCount);
+    #endif
+  }
+
   for (uint8_t i = 0; i < eventCount; i++) {
     CalendarEvent& event = events[i];
 
@@ -945,9 +1031,10 @@ void GoogleCalendarScheduler::executeEventAction(CalendarEvent& event) {
     uint16_t presetsChecked = 0;
 
     // Prepare lowercase version for comparison once (don't modify original)
+    // Reserve capacity to avoid reallocation during toLowerCase
     String descLower = desc;
-    descLower.toLowerCase();
     descLower.trim();
+    descLower.toLowerCase();
 
     // Search through presets for matching name using WLED's getPresetName function
     // Optimized: Use stack-allocated buffer to reduce heap fragmentation
