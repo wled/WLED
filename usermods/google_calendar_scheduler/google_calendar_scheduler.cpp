@@ -50,6 +50,9 @@ class GoogleCalendarScheduler : public Usermod {
     // Error tracking
     String lastError = "";
     unsigned long lastErrorTime = 0;
+    uint8_t retryCount = 0;
+    static const uint8_t MAX_RETRIES = 3;
+    unsigned long retryDelay = 30000; // 30 seconds between retries
 
     // HTTP client constants
     static const size_t MAX_RESPONSE_SIZE = 16384;  // 16KB max response
@@ -71,6 +74,7 @@ class GoogleCalendarScheduler : public Usermod {
     bool fetchCalendarEvents();
     void parseICalData(String& icalData);
     unsigned long parseICalDateTime(String& dtStr);
+    unsigned long parseICalDuration(String& duration);
     void checkAndTriggerEvents();
     void executeEventAction(CalendarEvent& event);
 
@@ -105,9 +109,16 @@ class GoogleCalendarScheduler : public Usermod {
       unsigned long now = millis();
 
       // Poll calendar at configured interval (overflow-safe comparison)
-      if (!isFetching && calendarUrl.length() > 0 && (now - lastPollTime >= pollInterval)) {
-        lastPollTime = now;
-        fetchCalendarEvents();
+      if (!isFetching && calendarUrl.length() > 0) {
+        unsigned long nextPollTime = lastPollTime + (retryCount > 0 ? retryDelay : pollInterval);
+        if (now - lastPollTime >= nextPollTime - lastPollTime) {
+          lastPollTime = now;
+          if (fetchCalendarEvents()) {
+            retryCount = 0; // Reset retry counter on success
+          } else if (retryCount < MAX_RETRIES) {
+            retryCount++;
+          }
+        }
       }
 
       // Check for events that should trigger
@@ -315,10 +326,9 @@ bool GoogleCalendarScheduler::fetchCalendarEvents() {
 
   isFetching = true;
 
-  DEBUG_PRINT(F("Calendar: Connecting to "));
-  DEBUG_PRINT(httpHost);
-  DEBUG_PRINT(F(":"));
-  DEBUG_PRINTLN(useHTTPS ? HTTPS_PORT : HTTP_PORT);
+  #ifdef WLED_DEBUG
+  DEBUG_PRINTF("Calendar: Connecting to %s:%d\n", httpHost.c_str(), useHTTPS ? HTTPS_PORT : HTTP_PORT);
+  #endif
 
   WiFiClient *client;
   if (useHTTPS) {
@@ -386,9 +396,9 @@ bool GoogleCalendarScheduler::fetchCalendarEvents() {
   client->stop();
   delete client;
 
-  DEBUG_PRINT(F("Calendar: Received "));
-  DEBUG_PRINT(responseBuffer.length());
-  DEBUG_PRINTLN(F(" bytes"));
+  #ifdef WLED_DEBUG
+  DEBUG_PRINTF("Calendar: Received %d bytes\n", responseBuffer.length());
+  #endif
 
   // Validate HTTP response status code
   int statusCodeStart = responseBuffer.indexOf("HTTP/1.");
@@ -398,12 +408,14 @@ bool GoogleCalendarScheduler::fetchCalendarEvents() {
       String statusCodeStr = responseBuffer.substring(statusCodeStart + 9, statusCodeEnd);
       int statusCode = statusCodeStr.toInt();
 
-      DEBUG_PRINT(F("Calendar: HTTP Status Code: "));
-      DEBUG_PRINTLN(statusCode);
+      #ifdef WLED_DEBUG
+      DEBUG_PRINTF("Calendar: HTTP Status Code: %d\n", statusCode);
+      #endif
 
       if (statusCode != 200) {
-        DEBUG_PRINT(F("Calendar: HTTP error "));
-        DEBUG_PRINTLN(statusCode);
+        #ifdef WLED_DEBUG
+        DEBUG_PRINTF("Calendar: HTTP error %d\n", statusCode);
+        #endif
         lastError = "HTTP " + String(statusCode);
         lastErrorTime = millis();
         isFetching = false;
@@ -416,20 +428,17 @@ bool GoogleCalendarScheduler::fetchCalendarEvents() {
   int bodyPos = responseBuffer.indexOf("\r\n\r\n");
   if (bodyPos > 0) {
     String icalData = responseBuffer.substring(bodyPos + 4);
-    DEBUG_PRINT(F("Calendar: Parsing iCal data, length: "));
-    DEBUG_PRINTLN(icalData.length());
-
-    // Debug: Print first 200 chars of iCal data
-    DEBUG_PRINT(F("Calendar: First 200 chars: "));
-    DEBUG_PRINTLN(icalData.substring(0, min(200, (int)icalData.length())));
+    #ifdef WLED_DEBUG
+    DEBUG_PRINTF("Calendar: Parsing iCal data, length: %d\n", icalData.length());
+    #endif
 
     parseICalData(icalData);
     success = true;
     lastError = ""; // Clear error on success
   } else {
+    #ifdef WLED_DEBUG
     DEBUG_PRINTLN(F("Calendar: No body found in response"));
-    DEBUG_PRINT(F("Calendar: Response buffer: "));
-    DEBUG_PRINTLN(responseBuffer.substring(0, min(200, (int)responseBuffer.length())));
+    #endif
     lastError = "No response body";
     lastErrorTime = millis();
   }
@@ -537,6 +546,21 @@ void GoogleCalendarScheduler::parseICalData(String& icalData) {
         String dtEnd = eventBlock.substring(colonPos + 1, lineEnd);
         event.endTime = parseICalDateTime(dtEnd);
       }
+    } else {
+      // If DTEND not found, try DURATION
+      int durationPos = eventBlock.indexOf("DURATION:");
+      if (durationPos >= 0) {
+        int lineEnd = eventBlock.indexOf("\r\n", durationPos);
+        if (lineEnd < 0) lineEnd = eventBlock.indexOf("\n", durationPos);
+        if (lineEnd < 0) lineEnd = eventBlock.length();
+
+        String duration = eventBlock.substring(durationPos + 9, lineEnd);
+        duration.trim();
+
+        // Parse ISO 8601 duration (e.g., PT1H30M, P1D, PT30M)
+        unsigned long durationSeconds = parseICalDuration(duration);
+        event.endTime = event.startTime + durationSeconds;
+      }
     }
 
     // Preserve trigger state if this event existed before with same start time
@@ -557,12 +581,9 @@ void GoogleCalendarScheduler::parseICalData(String& icalData) {
       event.endTriggered = false;
     }
 
-    DEBUG_PRINT(F("Calendar: Event "));
-    DEBUG_PRINT(eventCount);
-    DEBUG_PRINT(F(": "));
-    DEBUG_PRINT(event.title);
-    DEBUG_PRINT(F(" @ "));
-    DEBUG_PRINTLN(event.startTime);
+    #ifdef WLED_DEBUG
+    DEBUG_PRINTF("Calendar: Event %d: %s @ %lu\n", eventCount, event.title.c_str(), event.startTime);
+    #endif
 
     eventCount++;
     pos = eventEnd + 10;
@@ -571,9 +592,9 @@ void GoogleCalendarScheduler::parseICalData(String& icalData) {
   // Clean up old events array
   delete[] oldEvents;
 
-  DEBUG_PRINT(F("Calendar: Parsed "));
-  DEBUG_PRINT(eventCount);
-  DEBUG_PRINTLN(F(" events"));
+  #ifdef WLED_DEBUG
+  DEBUG_PRINTF("Calendar: Parsed %d events\n", eventCount);
+  #endif
 }
 
 // Parse iCal datetime format (YYYYMMDDTHHMMSSZ) to Unix timestamp
@@ -610,6 +631,51 @@ unsigned long GoogleCalendarScheduler::parseICalDateTime(String& dtStr) {
   return makeTime(tm);
 }
 
+// Parse ISO 8601 duration format (e.g., PT1H30M, P1D, PT30M)
+unsigned long GoogleCalendarScheduler::parseICalDuration(String& duration) {
+  duration.trim();
+
+  if (duration.length() == 0 || duration.charAt(0) != 'P') {
+    return 0; // Invalid duration
+  }
+
+  unsigned long totalSeconds = 0;
+  bool inTimePart = false;
+  int numberStart = -1;
+
+  for (int i = 1; i < duration.length(); i++) {
+    char c = duration.charAt(i);
+
+    if (c == 'T') {
+      inTimePart = true;
+      numberStart = -1;
+    } else if (isDigit(c)) {
+      if (numberStart < 0) numberStart = i;
+    } else {
+      // Found a unit designator (D, H, M, S)
+      if (numberStart >= 0) {
+        int value = duration.substring(numberStart, i).toInt();
+
+        if (!inTimePart && c == 'D') {
+          totalSeconds += value * 86400; // days
+        } else if (inTimePart && c == 'H') {
+          totalSeconds += value * 3600; // hours
+        } else if (inTimePart && c == 'M') {
+          totalSeconds += value * 60; // minutes
+        } else if (inTimePart && c == 'S') {
+          totalSeconds += value; // seconds
+        } else if (!inTimePart && c == 'W') {
+          totalSeconds += value * 604800; // weeks
+        }
+
+        numberStart = -1;
+      }
+    }
+  }
+
+  return totalSeconds;
+}
+
 void GoogleCalendarScheduler::checkAndTriggerEvents() {
   unsigned long currentTime = toki.second(); // Use WLED's time
 
@@ -639,16 +705,16 @@ void GoogleCalendarScheduler::checkAndTriggerEvents() {
 }
 
 void GoogleCalendarScheduler::executeEventAction(CalendarEvent& event) {
-  DEBUG_PRINT(F("Calendar: Triggering event: "));
-  DEBUG_PRINTLN(event.title);
+  #ifdef WLED_DEBUG
+  DEBUG_PRINTF("Calendar: Triggering event: %s\n", event.title.c_str());
+  #endif
 
   if (event.description.length() == 0) {
+    #ifdef WLED_DEBUG
     DEBUG_PRINTLN(F("Calendar: No description found"));
+    #endif
     return;
   }
-
-  DEBUG_PRINT(F("Calendar: Description: "));
-  DEBUG_PRINTLN(event.description);
 
   String desc = event.description;
   desc.trim();
@@ -666,20 +732,18 @@ void GoogleCalendarScheduler::executeEventAction(CalendarEvent& event) {
 
     if (!error) {
       deserializeState(doc.as<JsonObject>(), CALL_MODE_NOTIFICATION);
+      #ifdef WLED_DEBUG
       DEBUG_PRINTLN(F("Calendar: JSON applied"));
+      #endif
     } else {
-      DEBUG_PRINT(F("Calendar: JSON parse error: "));
-      DEBUG_PRINTLN(error.c_str());
+      #ifdef WLED_DEBUG
+      DEBUG_PRINTF("Calendar: JSON parse error: %s\n", error.c_str());
+      #endif
     }
 
     releaseJSONBufferLock();
   } else {
     // Preset name mode - search for preset by name
-    DEBUG_PRINT(F("Calendar: Looking for preset: '"));
-    DEBUG_PRINT(desc);
-    DEBUG_PRINT(F("' (length: "));
-    DEBUG_PRINT(desc.length());
-    DEBUG_PRINTLN(F(")"));
 
     int8_t presetId = -1;
     uint16_t presetsChecked = 0;
@@ -699,22 +763,22 @@ void GoogleCalendarScheduler::executeEventAction(CalendarEvent& event) {
         // Case-insensitive comparison (both already lowercased)
         if (presetName == desc) {
           presetId = i;
-          DEBUG_PRINT(F("Calendar: Found preset at ID "));
-          DEBUG_PRINTLN(i);
+          #ifdef WLED_DEBUG
+          DEBUG_PRINTF("Calendar: Found preset at ID %d\n", i);
+          #endif
           break;
         }
       }
     }
 
     if (presetId > 0) {
-      DEBUG_PRINT(F("Calendar: Applying preset "));
-      DEBUG_PRINTLN(presetId);
       applyPreset(presetId, CALL_MODE_NOTIFICATION);
-    } else {
-      DEBUG_PRINT(F("Calendar: Preset not found (checked "));
-      DEBUG_PRINT(presetsChecked);
-      DEBUG_PRINTLN(F(" presets)"));
     }
+    #ifdef WLED_DEBUG
+    else {
+      DEBUG_PRINTF("Calendar: Preset not found (checked %d presets)\n", presetsChecked);
+    }
+    #endif
   }
 }
 
