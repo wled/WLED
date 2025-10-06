@@ -40,7 +40,6 @@ class GoogleCalendarScheduler : public Usermod {
       unsigned long startTime;    // Unix timestamp
       unsigned long endTime;      // Unix timestamp
       bool triggered = false;     // Has start action been triggered?
-      bool endTriggered = false;  // Has end action been triggered?
     };
 
     uint8_t maxEvents = 5;  // Configurable max events (default 5)
@@ -110,8 +109,8 @@ class GoogleCalendarScheduler : public Usermod {
 
       // Poll calendar at configured interval (overflow-safe comparison)
       if (!isFetching && calendarUrl.length() > 0) {
-        unsigned long nextPollTime = lastPollTime + (retryCount > 0 ? retryDelay : pollInterval);
-        if (now - lastPollTime >= nextPollTime - lastPollTime) {
+        unsigned long interval = (retryCount > 0 ? retryDelay : pollInterval);
+        if (now - lastPollTime >= interval) {
           lastPollTime = now;
           if (fetchCalendarEvents()) {
             retryCount = 0; // Reset retry counter on success
@@ -153,7 +152,9 @@ class GoogleCalendarScheduler : public Usermod {
           enabled = usermod["enabled"];
         }
         if (usermod.containsKey("pollNow") && usermod["pollNow"]) {
+          #ifdef WLED_DEBUG
           DEBUG_PRINTLN(F("Calendar: Manual poll requested"));
+          #endif
           if (WLED_CONNECTED && calendarUrl.length() > 0) {
             if (httpHost.length() == 0) {
               parseCalendarUrl();
@@ -310,12 +311,9 @@ void GoogleCalendarScheduler::parseCalendarUrl() {
     httpPath = "/";
   }
 
-  DEBUG_PRINT(F("Calendar: Parsed URL - Host: "));
-  DEBUG_PRINT(httpHost);
-  DEBUG_PRINT(F(", Path: "));
-  DEBUG_PRINT(httpPath);
-  DEBUG_PRINT(F(", HTTPS: "));
-  DEBUG_PRINTLN(useHTTPS);
+  #ifdef WLED_DEBUG
+  DEBUG_PRINTF("Calendar: Parsed URL - Host: %s, Path: %s, HTTPS: %d\n", httpHost.c_str(), httpPath.c_str(), useHTTPS);
+  #endif
 }
 
 // Fetch calendar events using WiFiClientSecure
@@ -345,7 +343,9 @@ bool GoogleCalendarScheduler::fetchCalendarEvents() {
   }
 
   if (!client->connect(httpHost.c_str(), useHTTPS ? HTTPS_PORT : HTTP_PORT)) {
+    #ifdef WLED_DEBUG
     DEBUG_PRINTLN(F("Calendar: Connection failed"));
+    #endif
     lastError = "Connection failed";
     lastErrorTime = millis();
     delete client;
@@ -353,7 +353,9 @@ bool GoogleCalendarScheduler::fetchCalendarEvents() {
     return false;
   }
 
+  #ifdef WLED_DEBUG
   DEBUG_PRINTLN(F("Calendar: Connected, sending request"));
+  #endif
 
   // Send HTTP request (using separate print calls to avoid String concatenation overhead)
   client->print(F("GET "));
@@ -362,7 +364,9 @@ bool GoogleCalendarScheduler::fetchCalendarEvents() {
   client->print(httpHost);
   client->print(F("\r\nConnection: close\r\nUser-Agent: WLED-Calendar-Scheduler\r\n\r\n"));
 
+  #ifdef WLED_DEBUG
   DEBUG_PRINTLN(F("Calendar: Request sent"));
+  #endif
 
   // Read response with buffered approach
   String responseBuffer = "";
@@ -383,7 +387,9 @@ bool GoogleCalendarScheduler::fetchCalendarEvents() {
 
         // Check size limit before appending
         if (responseBuffer.length() + bytesRead > MAX_RESPONSE_SIZE) {
+          #ifdef WLED_DEBUG
           DEBUG_PRINTLN(F("Calendar: Response too large, truncating"));
+          #endif
           break;
         }
 
@@ -569,16 +575,14 @@ void GoogleCalendarScheduler::parseICalData(String& icalData) {
       if (oldEvents[i].startTime == event.startTime &&
           oldEvents[i].title == event.title) {
         event.triggered = oldEvents[i].triggered;
-        event.endTriggered = oldEvents[i].endTriggered;
         foundMatch = true;
         break;
       }
     }
 
-    // Reset trigger flags only for new events
+    // Reset trigger flag only for new events
     if (!foundMatch) {
       event.triggered = false;
-      event.endTriggered = false;
     }
 
     #ifdef WLED_DEBUG
@@ -614,7 +618,9 @@ unsigned long GoogleCalendarScheduler::parseICalDateTime(String& dtStr) {
   // Validate components
   if (year < 1970 || month < 1 || month > 12 || day < 1 || day > 31 ||
       hour > 23 || minute > 59 || second > 59) {
+    #ifdef WLED_DEBUG
     DEBUG_PRINTLN(F("Calendar: Invalid datetime components"));
+    #endif
     return 0;
   }
 
@@ -723,7 +729,9 @@ void GoogleCalendarScheduler::executeEventAction(CalendarEvent& event) {
   if (desc.startsWith("{") || desc.startsWith("[")) {
     // JSON API mode
     if (!requestJSONBufferLock(USERMOD_ID_CALENDAR_SCHEDULER)) {
+      #ifdef WLED_DEBUG
       DEBUG_PRINTLN(F("Calendar: Buffer locked, skipping"));
+      #endif
       return;
     }
 
@@ -748,9 +756,10 @@ void GoogleCalendarScheduler::executeEventAction(CalendarEvent& event) {
     int8_t presetId = -1;
     uint16_t presetsChecked = 0;
 
-    // Prepare lowercase version once for comparison
-    desc.toLowerCase();
-    desc.trim();
+    // Prepare lowercase version for comparison (don't modify original)
+    String descLower = desc;
+    descLower.toLowerCase();
+    descLower.trim();
 
     // Search through presets for matching name using WLED's getPresetName function
     for (uint8_t i = 1; i < 251; i++) {
@@ -761,7 +770,7 @@ void GoogleCalendarScheduler::executeEventAction(CalendarEvent& event) {
         presetName.toLowerCase();
 
         // Case-insensitive comparison (both already lowercased)
-        if (presetName == desc) {
+        if (presetName == descLower) {
           presetId = i;
           #ifdef WLED_DEBUG
           DEBUG_PRINTF("Calendar: Found preset at ID %d\n", i);
