@@ -1,5 +1,6 @@
 Import('env')
 import subprocess
+import json
 import re
 
 def get_github_repo():
@@ -75,5 +76,26 @@ def get_github_repo():
         # Any other unexpected error
         return 'unknown'
 
-repo = get_github_repo()
-env.Append(BUILD_FLAGS=[f'-DWLED_REPO=\\"{repo}\\"'])
+PACKAGE_FILE = "package.json"
+
+def get_version():
+    with open(PACKAGE_FILE, "r") as package:
+        version = json.load(package)["version"]
+    return "dev"
+
+
+def add_wled_metadata_flags(env, node):    
+    repo = get_github_repo()
+    cdefs = env["CPPDEFINES"].copy()
+    cdefs.append(("WLED_REPO", f"\\\"{repo}\\\""))
+    cdefs.append(("WLED_VERSION", get_version()))
+    # This transforms the node in to a Builder; it cannot be modified again
+    return env.Object(
+        node,
+        CPPDEFINES=cdefs
+    )
+   
+env.AddBuildMiddleware(
+    add_wled_metadata_flags,
+    "*/wled_metadata.cpp"
+)
