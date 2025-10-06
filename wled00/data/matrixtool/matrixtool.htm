@@ -20,6 +20,9 @@ body {
 	color: #fff;
 	padding-top: 20px;
 }
+h3 {
+	margin-bottom: 0;
+}
 /* rainbow text animation */
 .hdr .rb {
 	background: linear-gradient(to right, #ef5350, #f48fb1, #7e57c2, #2196f3, #26c6da, #43a047, #eeff41, #f9a825, #ff5722);
@@ -264,12 +267,9 @@ button:hover, .btn:hover {
 </div>
 
 <div id="imgTab" class="tab-content active">
-<h3 style="margin-top:20px;padding-top:0;border-top:0">Target Segment</h3>
-<div class="row">
-<div class="col">
+<h3 style="margin-top:20px;">Target Segment</h3>
 <select id="seg"><option value="0" data-w="16" data-h="16">Segment 0 (16x16)</option></select>
-</div>
-</div>
+
 
 <h3>Images on Device</h3>
 <div class="imgGrid" id="grid"></div>
@@ -350,12 +350,8 @@ button:hover, .btn:hover {
 </div>
 
 <div id="txtTab" class="tab-content">
-<h3 style="margin-top:20px;padding-top:0;border-top:0">Target Segment</h3>
-<div class="row">
-<div class="col">
+<h3 style="margin-top:20px;">Target Segment</h3>
 <select id="segTxt"><option value="0"></option></select>
-</div>
-</div>
 
 <h3>Text to show</h3>
 <div class="row">
@@ -1057,7 +1053,7 @@ gId('upload').onclick=async()=>{
 			let tctx=tmp.getContext('2d');tctx.imageSmoothingEnabled=false;
 			tctx.fillStyle=gId('bgCol').value;tctx.fillRect(0,0,w,h);
 			tctx.drawImage(cropImg,(crop.x-panX)/imgScale,(crop.y-panY)/imgScale,crop.w/imgScale,crop.h/imgScale,0,0,w,h);
-			applyBlackTh(tctx, 150);
+			applyBlackTh(tctx);
 			const imgData=tctx.getImageData(0,0,w,h);
 			let {indexed,palette}=quantize(imgData.data);
 			palette=padPalette(palette);
