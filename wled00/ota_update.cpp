@@ -8,7 +8,7 @@
 
 // Platform-specific metadata locations
 #ifdef ESP32
-constexpr size_t METADATA_OFFSET = 0;          // ESP32: metadata appears at beginning
+constexpr size_t METADATA_OFFSET = 256;          // ESP32: metadata appears after Espressif metadata
 #define UPDATE_ERROR errorString
 #elif defined(ESP8266)
 constexpr size_t METADATA_OFFSET = 0x1000;     // ESP8266: metadata appears at 4KB offset
@@ -183,7 +183,7 @@ void handleOTAData(AsyncWebServerRequest *request, size_t index, uint8_t *data, 
   UpdateContext* context = reinterpret_cast<UpdateContext*>(request->_tempObject);
   if (!context) return;
 
-  DEBUG_PRINTF_P(PSTR("HandleOTAData: %d %d %d\n"), index, len, isFinal);
+  //DEBUG_PRINTF_P(PSTR("HandleOTAData: %d %d %d\n"), index, len, isFinal);
 
   if (context->replySent || (context->errorMessage.length())) return;
 
@@ -196,7 +196,7 @@ void handleOTAData(AsyncWebServerRequest *request, size_t index, uint8_t *data, 
     // Current chunk contains the metadata offset
     size_t availableDataAfterOffset = (index + len) - METADATA_OFFSET;
 
-    DEBUG_PRINTF_P(PSTR("MetadataCheck: %d in buffer\n"), context->releaseMetadataBuffer.size());
+    DEBUG_PRINTF_P(PSTR("OTA metadata check: %d in buffer, %d received, %d available\n"), context->releaseMetadataBuffer.size(), len, availableDataAfterOffset);
 
     if (availableDataAfterOffset >= METADATA_SEARCH_RANGE) {
       // We have enough data to validate, one way or another
@@ -229,7 +229,6 @@ void handleOTAData(AsyncWebServerRequest *request, size_t index, uint8_t *data, 
       }        
     } else {
       // Store the data we just got for next pass
-      
       context->releaseMetadataBuffer.insert(context->releaseMetadataBuffer.end(), data, data+len);
     }
   }
