@@ -702,7 +702,7 @@ void RotaryEncoderUIUsermod::findCurrentEffectAndPalette() {
 
   effectPaletteIndex = 0;
   DEBUG_PRINTLN(effectPalette);
-  for (unsigned i = 0; i < getPaletteCount()+customPalettes.size(); i++) {
+  for (unsigned i = 0; i < getPaletteCount(); i++) {
     if (palettes_alpha_indexes[i] == effectPalette) {
       effectPaletteIndex = i;
       DEBUG_PRINTLN(F("Found palette."));
@@ -892,7 +892,7 @@ void RotaryEncoderUIUsermod::changePalette(bool increase) {
   }
   display->updateRedrawTime();
 #endif
-  effectPaletteIndex = max(min((int)(increase ? effectPaletteIndex+1 : effectPaletteIndex-1), (int)(getPaletteCount()+customPalettes.size()-1)), 0);
+  effectPaletteIndex = max(min((int)(increase ? effectPaletteIndex+1 : effectPaletteIndex-1), (int)(getPaletteCount()-1)), 0);
   effectPalette = palettes_alpha_indexes[effectPaletteIndex];
   stateChanged = true;
   if (applyToAll) {

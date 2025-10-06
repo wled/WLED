@@ -2,8 +2,6 @@
 
 A fully-featured WLED usermod providing comprehensive visual interface on GC9A01 240x240 round TFT displays with complete rotary encoder integration.
 
-Written by copilot AI with user interaction.
-
 ## Features
 
 ### Visual Interface
@@ -51,9 +49,9 @@ Written by copilot AI with user interaction.
 | SCL/SCLK   | GPIO18    | SPI Clock   | SPI clock signal |
 | SDA/MOSI   | GPIO23    | SPI MOSI    | SPI data out |
 | RES/RST    | GPIO17    | Reset       | Display reset |
-| DC         | GPIO16    | Data/Command| Data/Command control |
+| DC         | GPIO15    | Data/Command| Data/Command control |
 | CS         | GPIO5     | Chip Select | SPI chip select |
-| BL         | GPIO4     | Backlight   | Backlight control |
+| BL         | GPIO26    | Backlight   | Backlight control |
 
 **Note**: Pin assignments can be customized via build flags (see Configuration section).
 
@@ -70,12 +68,6 @@ custom_usermods =
   usermod_v2_gc9a01_display
   usermod_v2_rotary_encoder_ui_ALT
 build_flags = ${common.build_flags} ${esp32_idf_V4.build_flags}
-  -D FLD_SPI_DEFAULT
-  -D HW_PIN_SCLKSPI=18
-  -D HW_PIN_MOSISPI=23
-  -D FLD_PIN_DC=5
-  -D FLD_PIN_CS=15
-  -D FLD_PIN_RESET=17
   -D WLED_DEBUG
   -D WLED_DISABLE_BROWNOUT_DET
   -D USERMOD_GC9A01_DISPLAY

@@ -353,23 +353,26 @@ void UsermodGC9A01Display::drawMainInterface(int overlayMode) {
         currentValue = effectIntensity;
         valueText = String(map(effectIntensity, 0, 255, 0, 100)) + "%";
         break;
-      case 4: // Palette mode
+      case 4: { // Palette mode
         currentValue = effectPalette;
         maxValue = getPaletteCount() - 1;
-        if (currentValue < getPaletteCount()) {
+        const uint16_t fixedCount = FIXED_PALETTE_COUNT;
+        if (currentValue < fixedCount) {
           char lineBuffer[64];
-          extractModeName(currentValue, JSON_palette_names, lineBuffer, 63);
-          // Remove "* " prefix from dynamic palettes
-          String paletteName = String(lineBuffer);
-          if (paletteName.startsWith("* ")) {
-            paletteName = paletteName.substring(2);
+          if (extractModeName(currentValue, JSON_palette_names, lineBuffer, 63)) {
+            String paletteName = String(lineBuffer);
+            if (paletteName.startsWith("* ")) paletteName = paletteName.substring(2);
+            if (paletteName.length() > 12) paletteName = paletteName.substring(0, 10) + "..";
+            valueText = paletteName;
+          } else {
+            valueText = "Palette " + String(currentValue);
           }
-          if (paletteName.length() > 12) paletteName = paletteName.substring(0, 10) + "..";
-          valueText = paletteName;
         } else {
-          valueText = "Palette " + String(effectPalette);
+          // Custom palette
+          valueText = "Custom " + String(currentValue - fixedCount + 1);
         }
         break;
+      }
       default: // Fallback
         currentValue = bri;
         valueText = String(map(bri, 0, 255, 0, 100)) + "%";
@@ -575,16 +578,17 @@ void UsermodGC9A01Display::drawMainScreen() {
   
   // Main effect name in center
   tft.setTextColor(TFT_CYAN, TFT_BLACK);
-  String effectName = "";
+  char effectName[64];
   if (knownMode < strip.getModeCount()) {
-    effectName = JSON_mode_names[knownMode];
+    extractModeName(knownMode, JSON_mode_names, effectName, 63);
+    String modeName = String(effectName);
+    if (modeName.length() > 12) {
+      modeName = modeName.substring(0, 9) + "...";
+    }
+    tft.drawString(modeName, 120, 120, 2);
   } else {
-    effectName = "Unknown";
+    tft.drawString("Unknown", 120, 120, 2);
   }
-  if (effectName.length() > 12) {
-    effectName = effectName.substring(0, 9) + "...";
-  }
-  tft.drawString(effectName, 120, 120, 2);
   
   // Brightness arc/circle at bottom
   tft.setTextColor(TFT_YELLOW, TFT_BLACK);
