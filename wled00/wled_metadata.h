@@ -11,16 +11,6 @@
 #include <string.h>
 #include <WString.h>
 
-#ifndef WLED_VERSION
-  #define WLED_VERSION dev
-#endif
-#ifndef WLED_RELEASE_NAME
-  #define WLED_RELEASE_NAME "Custom"
-#endif
-#ifndef WLED_REPO
-  #define WLED_REPO "unknown"
-#endif
-
 #define WLED_VERSION_MAX_LEN 48
 #define WLED_RELEASE_NAME_MAX_LEN 48
 
@@ -36,11 +26,11 @@ typedef struct {
     char wled_version[WLED_VERSION_MAX_LEN];
     char release_name[WLED_RELEASE_NAME_MAX_LEN]; // Release name (null-terminated)    
     uint32_t hash;               // Structure sanity check
-} __attribute__((packed)) wled_custom_desc_t;
+} __attribute__((packed)) wled_metadata_t;
 
 
 // Global build description
-extern const wled_custom_desc_t WLED_BUILD_DESCRIPTION;
+extern const wled_metadata_t WLED_BUILD_DESCRIPTION;
 
 // Convenient metdata pointers
 #define versionString (WLED_BUILD_DESCRIPTION.wled_version)   // Build version, WLED_VERSION
@@ -59,7 +49,7 @@ extern const __FlashStringHelper* brandString ;                     // Brand
  * @param extractedDesc Buffer to store extracted custom description structure
  * @return true if structure was found and extracted, false otherwise
  */
-bool findWledMetadata(const uint8_t* binaryData, size_t dataSize, wled_custom_desc_t* extractedDesc);
+bool findWledMetadata(const uint8_t* binaryData, size_t dataSize, wled_metadata_t* extractedDesc);
 
 /**
  * Check if OTA should be allowed based on release compatibility
@@ -68,4 +58,4 @@ bool findWledMetadata(const uint8_t* binaryData, size_t dataSize, wled_custom_de
  * @param errorMessageLen Maximum length of error message buffer
  * @return true if OTA should proceed, false if it should be blocked
  */
-bool shouldAllowOTA(const wled_custom_desc_t& firmwareDescription, char* errorMessage, size_t errorMessageLen);
+bool shouldAllowOTA(const wled_metadata_t& firmwareDescription, char* errorMessage, size_t errorMessageLen);

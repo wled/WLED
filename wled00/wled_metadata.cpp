@@ -1,6 +1,19 @@
 #include "ota_update.h"
 #include "wled.h"
 
+#ifndef WLED_VERSION
+  #warning WLED_VERSION was not set - using default value of 'dev'
+  #define WLED_VERSION dev
+#endif
+#ifndef WLED_RELEASE_NAME
+  #warning WLED_RELEASE_NAME was not set - using default value of 'Custom'
+  #define WLED_RELEASE_NAME "Custom"
+#endif
+#ifndef WLED_REPO
+  // No warning for this one: integrators are not always on GitHub
+  #define WLED_REPO "unknown"
+#endif
+
 #define WLED_CUSTOM_DESC_MAGIC 0x57535453  // "WSTS" (WLED System Tag Structure)
 #define WLED_CUSTOM_DESC_VERSION 1
 #define WLED_RELEASE_NAME_MAX_LEN 48
@@ -40,7 +53,7 @@ inline uint32_t djb2_hash_runtime(const char* str) {
 // GLOBAL VARIABLES
 // ------------------------------------
 // Structure instantiation for this build 
-const wled_custom_desc_t __attribute__((section(BUILD_METADATA_SECTION))) WLED_BUILD_DESCRIPTION = {
+const wled_metadata_t __attribute__((section(BUILD_METADATA_SECTION))) WLED_BUILD_DESCRIPTION = {
     WLED_CUSTOM_DESC_MAGIC,                   // magic
     WLED_CUSTOM_DESC_VERSION,                 // version 
     TOSTRING(WLED_VERSION),
@@ -66,20 +79,20 @@ const __FlashStringHelper* brandString = FPSTR(brandString_s);
  * @param extractedDesc Buffer to store extracted custom description structure
  * @return true if structure was found and extracted, false otherwise
  */
-bool findWledMetadata(const uint8_t* binaryData, size_t dataSize, wled_custom_desc_t* extractedDesc) {
-    if (!binaryData || !extractedDesc || dataSize < sizeof(wled_custom_desc_t)) {
+bool findWledMetadata(const uint8_t* binaryData, size_t dataSize, wled_metadata_t* extractedDesc) {
+    if (!binaryData || !extractedDesc || dataSize < sizeof(wled_metadata_t)) {
         return false;
     }
 
-    for (size_t offset = 0; offset <= dataSize - sizeof(wled_custom_desc_t); offset++) {
-        const wled_custom_desc_t* custom_desc = (const wled_custom_desc_t*)(binaryData + offset);
+    for (size_t offset = 0; offset <= dataSize - sizeof(wled_metadata_t); offset++) {
+        const wled_metadata_t* custom_desc = (const wled_metadata_t*)(binaryData + offset);
         
         // Check for magic number
         if (custom_desc->magic == WLED_CUSTOM_DESC_MAGIC) {
             // Found potential match, validate version
             if (custom_desc->desc_version != WLED_CUSTOM_DESC_VERSION) {
                 DEBUG_PRINTF_P(PSTR("Found WLED structure at offset %u but version mismatch: %u\n"), 
-                              offset, custom_desc->version);
+                              offset, custom_desc->desc_version);
                 continue;
             }
             
@@ -91,7 +104,7 @@ bool findWledMetadata(const uint8_t* binaryData, size_t dataSize, wled_custom_de
             }
             
             // Valid structure found - copy entire structure
-            memcpy(extractedDesc, custom_desc, sizeof(wled_custom_desc_t));
+            memcpy(extractedDesc, custom_desc, sizeof(wled_metadata_t));
             
             DEBUG_PRINTF_P(PSTR("Extracted WLED structure at offset %u: '%s'\n"), 
                           offset, extractedDesc->release_name);
@@ -113,7 +126,7 @@ bool findWledMetadata(const uint8_t* binaryData, size_t dataSize, wled_custom_de
  * @return true if OTA should proceed, false if it should be blocked
  */
 
-bool shouldAllowOTA(const wled_custom_desc_t& firmwareDescription, char* errorMessage, size_t errorMessageLen) {
+bool shouldAllowOTA(const wled_metadata_t& firmwareDescription, char* errorMessage, size_t errorMessageLen) {
   // Clear error message
   if (errorMessage && errorMessageLen > 0) {
     errorMessage[0] = '\0';

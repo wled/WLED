@@ -32,7 +32,7 @@ static bool validateOTA(const uint8_t* binaryData, size_t dataSize, char* errorM
   }
 
   // Try to extract WLED structure directly from binary data
-  wled_custom_desc_t extractedDesc;
+  wled_metadata_t extractedDesc;
   bool hasDesc = findWledMetadata(binaryData, dataSize, &extractedDesc);
 
   if (hasDesc) {
