@@ -335,14 +335,17 @@ void UsermodGC9A01Display::drawMainInterface(int overlayMode) {
         maxValue = strip.getModeCount() - 1;
         if (currentValue < strip.getModeCount()) {
           char lineBuffer[64];
-          extractModeName(currentValue, JSON_mode_names, lineBuffer, 63);
-          // Remove note symbol from effect names (special character prefix)
-          String modeName = String(lineBuffer);
-          if (modeName.length() > 0 && modeName.charAt(0) == ' ' && modeName.charAt(1) > 127) {
-            modeName = modeName.substring(5); // Remove 5-byte UTF-8 note symbol
+          if (extractModeName(currentValue, JSON_mode_names, lineBuffer, 63)) {
+            // Remove note symbol from effect names (special character prefix)
+            String modeName = String(lineBuffer);
+            if (modeName.length() > 0 && modeName.charAt(0) == ' ' && modeName.charAt(1) > 127) {
+              modeName = modeName.substring(5); // Remove 5-byte UTF-8 note symbol
+            }
+            if (modeName.length() > 12) modeName = modeName.substring(0, 10) + "..";
+            valueText = modeName;
+          } else {
+            valueText = "Effect " + String(currentValue);
           }
-          if (modeName.length() > 12) modeName = modeName.substring(0, 10) + "..";
-          valueText = modeName;
         }
         break;
       case 2: // Speed mode
@@ -553,96 +556,6 @@ void UsermodGC9A01Display::drawMainInterface(int overlayMode) {
 
 // ===== WiFi Icon Drawing =====
 
-void UsermodGC9A01Display::drawMainScreen() {
-  tft.fillScreen(TFT_BLACK);
-  
-  // Set text datum to middle center for all text
-  tft.setTextDatum(MC_DATUM);
-  
-  // Draw outer circle border
-  tft.drawCircle(120, 120, 110, TFT_DARKGREY);
-  
-  // Status ring at top (12 o'clock position)
-  drawStatusBar();
-  
-  // Power state in center-top area
-  if (knownPowerState) {
-    tft.setTextColor(TFT_GREEN, TFT_BLACK);
-    tft.fillCircle(120, 80, 15, TFT_DARKGREEN);
-    tft.drawString("ON", 120, 80, 2);
-  } else {
-    tft.setTextColor(TFT_RED, TFT_BLACK);
-    tft.fillCircle(120, 80, 15, TFT_MAROON);
-    tft.drawString("OFF", 120, 80, 2);
-  }
-  
-  // Main effect name in center
-  tft.setTextColor(TFT_CYAN, TFT_BLACK);
-  char effectName[64];
-  if (knownMode < strip.getModeCount()) {
-    extractModeName(knownMode, JSON_mode_names, effectName, 63);
-    String modeName = String(effectName);
-    if (modeName.length() > 12) {
-      modeName = modeName.substring(0, 9) + "...";
-    }
-    tft.drawString(modeName, 120, 120, 2);
-  } else {
-    tft.drawString("Unknown", 120, 120, 2);
-  }
-  
-  // Brightness arc/circle at bottom
-  tft.setTextColor(TFT_YELLOW, TFT_BLACK);
-  tft.drawString("Bright", 120, 150, 1);
-  
-  // Convert brightness from 0-255 to 0-100% for display
-  int brightnessPercent = map(knownBrightness, 0, 255, 0, 100);
-  tft.drawString(String(brightnessPercent) + "%", 120, 165, 2);
-  
-  // Draw brightness indicator arc (bottom semicircle) - simplified for performance  
-  int brightness_angle = (knownBrightness > 0) ? map(knownBrightness, 0, 255, 180, 360) : 180;
-  
-  // Simplified arc drawing with bounds checking
-  for (int angle = 180; angle <= brightness_angle && angle <= 360; angle += 10) { // Less dense: angle += 10
-    float rad = radians(angle);
-    int x = 120 + 95 * cos(rad);
-    int y = 120 + 95 * sin(rad);
-    
-    // Bounds checking to prevent crashes
-    if (x >= 2 && x < 238 && y >= 2 && y < 238) { // Safe margins
-      tft.fillCircle(x, y, 2, TFT_YELLOW);
-    }
-  }
-  
-  // Color preview in center (small circle)
-  if (knownPowerState) {
-    uint32_t color = strip.getPixelColor(0);
-    uint8_t r = (color >> 16) & 0xFF;
-    uint8_t g = (color >> 8) & 0xFF;
-    uint8_t b = color & 0xFF;
-    uint16_t color565 = tft.color565(r, g, b);
-    tft.fillCircle(120, 200, 12, color565);
-    tft.drawCircle(120, 200, 12, TFT_WHITE);
-  }
-}
-
-void UsermodGC9A01Display::drawStatusBar() {
-  // WiFi status (top left arc position)
-  tft.setTextDatum(TL_DATUM);  // Top Left datum for status items
-  bool wifiConnected = (WiFi.status() == WL_CONNECTED);
-  int wifiRSSI = wifiConnected ? WiFi.RSSI() : -100;
-  
-  // Use blue background to match the screen bezel
-  tft.fillCircle(50, 50, 8, TFT_BLUE);
-  
-  drawWiFiIcon(50, 46, wifiConnected, wifiRSSI); // Moved up 2px (was 48)
-  
-  // Time display (top right arc position)
-  tft.setTextDatum(TR_DATUM);  // Top Right datum
-  tft.setTextColor(TFT_WHITE, TFT_BLACK);
-  tft.drawString("Time", 190, 45, 1);
-  tft.fillCircle(190, 50, 6, TFT_BLUE);
-}
-
 void UsermodGC9A01Display::drawWiFiIcon(int x, int y, bool connected, int rssi) {
   // Draw WiFi icon as signal strength bars (like mobile phone signal)
   // More recognizable than arcs on small displays
@@ -741,8 +654,12 @@ void UsermodGC9A01Display::setBrightness(uint8_t bri) {
 void UsermodGC9A01Display::setBacklight(uint8_t percent) {
   backlight = min(percent, (uint8_t)100); // Clamp to 0-100% range
   uint8_t pwm = map(backlight, 0, 100, 0, 255); // Map to PWM range (0-255)
+#ifdef TFT_BL
   analogWrite(TFT_BL, pwm);
   DEBUG_PRINTF("[GC9A01] Backlight set to %d%% (PWM: %d)\n", backlight, pwm);
+#else
+  DEBUG_PRINTF("[GC9A01] Backlight setting to %d%% (PWM control not available)\n", backlight);
+#endif
 }
 
 void UsermodGC9A01Display::drawClockScreen() {
@@ -806,7 +723,7 @@ void UsermodGC9A01Display::sleepOrClock(bool enabled) {
     } else {
       // Turn off backlight (sleep)
       showingClock = false;
-      analogWrite(TFT_BL, 0);
+      setBacklight(0);
       DEBUG_PRINTLN(F("[GC9A01] Timeout reached - sleeping (backlight off)"));
     }
   } else {
@@ -819,7 +736,9 @@ void UsermodGC9A01Display::sleepOrClock(bool enabled) {
 }
 
 void UsermodGC9A01Display::sleepDisplay() {
+#ifdef TFT_BL
   analogWrite(TFT_BL, 0); // Turn off backlight completely
+#endif
   displayTurnedOff = true;
   lastRedraw = ULONG_MAX; // Reset sleep timer - will start again after next interaction
   DEBUG_PRINTLN(F("[GC9A01] Display sleeping - backlight off, sleep timer reset"));
