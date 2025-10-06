@@ -52,6 +52,8 @@ class GoogleCalendarScheduler : public Usermod {
     static const size_t RESPONSE_RESERVE_SIZE = 4096;  // Pre-allocate to reduce fragmentation
     static const size_t READ_BUFFER_SIZE = 512;  // Read in chunks
     static const unsigned long HTTP_TIMEOUT_MS = 10000;  // 10 second timeout
+    static const uint16_t HTTP_PORT = 80;
+    static const uint16_t HTTPS_PORT = 443;
 
     // String constants for config
     static const char _name[];
@@ -273,7 +275,7 @@ bool GoogleCalendarScheduler::fetchCalendarEvents() {
   DEBUG_PRINT(F("Calendar: Connecting to "));
   DEBUG_PRINT(httpHost);
   DEBUG_PRINT(F(":"));
-  DEBUG_PRINTLN(useHTTPS ? 443 : 80);
+  DEBUG_PRINTLN(useHTTPS ? HTTPS_PORT : HTTP_PORT);
 
   WiFiClient *client;
   if (useHTTPS) {
@@ -286,7 +288,7 @@ bool GoogleCalendarScheduler::fetchCalendarEvents() {
     client->setTimeout(HTTP_TIMEOUT_MS);
   }
 
-  if (!client->connect(httpHost.c_str(), useHTTPS ? 443 : 80)) {
+  if (!client->connect(httpHost.c_str(), useHTTPS ? HTTPS_PORT : HTTP_PORT)) {
     DEBUG_PRINTLN(F("Calendar: Connection failed"));
     delete client;
     isFetching = false;
@@ -396,14 +398,14 @@ void GoogleCalendarScheduler::parseICalData(String& icalData) {
     int descStart = eventBlock.indexOf("DESCRIPTION:");
     if (descStart >= 0) {
       event.description = "";
-      int pos = descStart + 12;
+      int descPos = descStart + 12;
 
       // Handle iCal line folding (lines starting with space/tab are continuations)
-      while (pos < eventBlock.length()) {
+      while (descPos < eventBlock.length()) {
         int lineEndLength = 2;  // Default for \r\n
-        int lineEnd = eventBlock.indexOf("\r\n", pos);
+        int lineEnd = eventBlock.indexOf("\r\n", descPos);
         if (lineEnd < 0) {
-          lineEnd = eventBlock.indexOf("\n", pos);
+          lineEnd = eventBlock.indexOf("\n", descPos);
           lineEndLength = 1;  // Only \n
         }
         if (lineEnd < 0) {
@@ -411,12 +413,12 @@ void GoogleCalendarScheduler::parseICalData(String& icalData) {
           lineEndLength = 0;  // No line ending
         }
 
-        event.description += eventBlock.substring(pos, lineEnd);
-        pos = lineEnd + lineEndLength;
+        event.description += eventBlock.substring(descPos, lineEnd);
+        descPos = lineEnd + lineEndLength;
 
         // Check if next line is a continuation (starts with space or tab)
-        if (pos < eventBlock.length() && (eventBlock.charAt(pos) == ' ' || eventBlock.charAt(pos) == '\t')) {
-          pos++; // Skip the folding whitespace
+        if (descPos < eventBlock.length() && (eventBlock.charAt(descPos) == ' ' || eventBlock.charAt(descPos) == '\t')) {
+          descPos++; // Skip the folding whitespace
         } else {
           break; // Not a continuation, we're done
         }
