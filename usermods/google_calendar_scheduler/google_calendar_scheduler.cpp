@@ -47,6 +47,12 @@ class GoogleCalendarScheduler : public Usermod {
     CalendarEvent events[MAX_EVENTS];
     uint8_t eventCount = 0;
 
+    // HTTP client constants
+    static const size_t MAX_RESPONSE_SIZE = 16384;  // 16KB max response
+    static const size_t RESPONSE_RESERVE_SIZE = 4096;  // Pre-allocate to reduce fragmentation
+    static const size_t READ_BUFFER_SIZE = 512;  // Read in chunks
+    static const unsigned long HTTP_TIMEOUT_MS = 10000;  // 10 second timeout
+
     // String constants for config
     static const char _name[];
     static const char _enabled[];
@@ -163,23 +169,40 @@ class GoogleCalendarScheduler : public Usermod {
 
       // Show active events
       if (enabled && initDone && eventCount > 0) {
-        unsigned long currentTime = toki.second();
+        unsigned long currentTime = 0;
+        bool timeValid = false;
 
-        for (uint8_t i = 0; i < eventCount; i++) {
-          CalendarEvent& event = events[i];
-          if (currentTime >= event.startTime && currentTime < event.endTime) {
-            unsigned long remaining = event.endTime - currentTime;
-            unsigned long hours = remaining / 3600;
-            unsigned long minutes = (remaining % 3600) / 60;
-
-            oappend(F("addInfo('"));
-            oappend(String(FPSTR(_name)).c_str());
-            oappend(F(":calendarUrl',1,'<br>Active: "));
-            oappend(event.title.c_str());
-            snprintf_P(buf, sizeof(buf), PSTR(" (%luh %lum left)"), hours, minutes);
-            oappend(buf);
-            oappend(F("');"));
+        // Only get current time if NTP is synced
+        if (toki.isSynced()) {
+          currentTime = toki.second();
+          // Additional check: valid Unix timestamp (after 2001-09-09)
+          if (currentTime >= 1000000000) {
+            timeValid = true;
           }
+        }
+
+        if (timeValid) {
+          for (uint8_t i = 0; i < eventCount; i++) {
+            CalendarEvent& event = events[i];
+            if (currentTime >= event.startTime && currentTime < event.endTime) {
+              unsigned long remaining = event.endTime - currentTime;
+              unsigned long hours = remaining / 3600;
+              unsigned long minutes = (remaining % 3600) / 60;
+
+              oappend(F("addInfo('"));
+              oappend(String(FPSTR(_name)).c_str());
+              oappend(F(":calendarUrl',1,'<br>Active: "));
+              oappend(event.title.c_str());
+              snprintf_P(buf, sizeof(buf), PSTR(" (%luh %lum left)"), hours, minutes);
+              oappend(buf);
+              oappend(F("');"));
+            }
+          }
+        } else {
+          // Time not synced - show placeholder
+          oappend(F("addInfo('"));
+          oappend(String(FPSTR(_name)).c_str());
+          oappend(F(":calendarUrl',1,'<br>Time syncing...');"));
         }
 
         // Show last poll time
@@ -256,11 +279,11 @@ bool GoogleCalendarScheduler::fetchCalendarEvents() {
   if (useHTTPS) {
     WiFiClientSecure *secureClient = new WiFiClientSecure();
     secureClient->setInsecure(); // Skip certificate validation
-    secureClient->setTimeout(10000); // 10 second timeout
+    secureClient->setTimeout(HTTP_TIMEOUT_MS);
     client = secureClient;
   } else {
     client = new WiFiClient();
-    client->setTimeout(10000); // 10 second timeout
+    client->setTimeout(HTTP_TIMEOUT_MS);
   }
 
   if (!client->connect(httpHost.c_str(), useHTTPS ? 443 : 80)) {
@@ -281,14 +304,13 @@ bool GoogleCalendarScheduler::fetchCalendarEvents() {
   DEBUG_PRINTLN(F("Calendar: Request sent"));
 
   // Read response with buffered approach
-  const size_t MAX_RESPONSE_SIZE = 16384; // 16KB max response
   String responseBuffer = "";
-  responseBuffer.reserve(4096); // Pre-allocate to reduce fragmentation
+  responseBuffer.reserve(RESPONSE_RESERVE_SIZE);
 
-  char buffer[512]; // Read in chunks to reduce heap fragmentation
+  char buffer[READ_BUFFER_SIZE];
   unsigned long timeout = millis();
 
-  while (client->connected() && (millis() - timeout < 10000)) {
+  while (client->connected() && (millis() - timeout < HTTP_TIMEOUT_MS)) {
     int available = client->available();
     if (available > 0) {
       int toRead = min(available, (int)sizeof(buffer) - 1);
