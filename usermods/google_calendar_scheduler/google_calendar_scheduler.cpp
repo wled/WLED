@@ -487,6 +487,13 @@ unsigned long GoogleCalendarScheduler::parseICalDateTime(String& dtStr) {
   int minute = dtStr.substring(11, 13).toInt();
   int second = dtStr.substring(13, 15).toInt();
 
+  // Validate components
+  if (year < 1970 || month < 1 || month > 12 || day < 1 || day > 31 ||
+      hour > 23 || minute > 59 || second > 59) {
+    DEBUG_PRINTLN(F("Calendar: Invalid datetime components"));
+    return 0;
+  }
+
   // Convert to Unix timestamp (simplified, doesn't account for all edge cases)
   // This is a basic implementation - for production use a proper datetime library
   tmElements_t tm;
