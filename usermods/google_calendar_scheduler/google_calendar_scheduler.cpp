@@ -43,8 +43,8 @@ class GoogleCalendarScheduler : public Usermod {
       bool endTriggered = false;  // Has end action been triggered?
     };
 
-    static const uint8_t MAX_EVENTS = 5;
-    CalendarEvent events[MAX_EVENTS];
+    uint8_t maxEvents = 5;  // Configurable max events (default 5)
+    CalendarEvent *events = nullptr;
     uint8_t eventCount = 0;
 
     // Error tracking
@@ -64,6 +64,7 @@ class GoogleCalendarScheduler : public Usermod {
     static const char _enabled[];
     static const char _calendarUrl[];
     static const char _pollInterval[];
+    static const char _maxEvents[];
 
     // Helper methods
     void parseCalendarUrl();
@@ -75,7 +76,17 @@ class GoogleCalendarScheduler : public Usermod {
 
   public:
     void setup() override {
+      // Allocate event array
+      if (events == nullptr) {
+        events = new CalendarEvent[maxEvents];
+      }
       initDone = true;
+    }
+
+    ~GoogleCalendarScheduler() {
+      if (events != nullptr) {
+        delete[] events;
+      }
     }
 
     void connected() override {
@@ -147,6 +158,7 @@ class GoogleCalendarScheduler : public Usermod {
       top[FPSTR(_enabled)] = enabled;
       top[FPSTR(_calendarUrl)] = calendarUrl;
       top[FPSTR(_pollInterval)] = pollInterval / 1000; // Store in seconds
+      top[FPSTR(_maxEvents)] = maxEvents;
     }
 
     bool readFromConfig(JsonObject& root) override {
@@ -160,6 +172,18 @@ class GoogleCalendarScheduler : public Usermod {
       int pollIntervalSec = pollInterval / 1000;
       configComplete &= getJsonValue(top[FPSTR(_pollInterval)], pollIntervalSec, 300);
       pollInterval = pollIntervalSec * 1000;
+
+      // Read maxEvents and reallocate array if changed
+      uint8_t newMaxEvents = maxEvents;
+      configComplete &= getJsonValue(top[FPSTR(_maxEvents)], newMaxEvents, (uint8_t)5);
+      if (newMaxEvents != maxEvents && newMaxEvents > 0 && newMaxEvents <= 50) {
+        maxEvents = newMaxEvents;
+        if (events != nullptr) {
+          delete[] events;
+        }
+        events = new CalendarEvent[maxEvents];
+        eventCount = 0;  // Clear old events after reallocation
+      }
 
       if (calendarUrl.length() > 0) {
         parseCalendarUrl();
@@ -249,6 +273,7 @@ const char GoogleCalendarScheduler::_name[] PROGMEM = "Calendar Scheduler";
 const char GoogleCalendarScheduler::_enabled[] PROGMEM = "enabled";
 const char GoogleCalendarScheduler::_calendarUrl[] PROGMEM = "calendarUrl";
 const char GoogleCalendarScheduler::_pollInterval[] PROGMEM = "pollInterval";
+const char GoogleCalendarScheduler::_maxEvents[] PROGMEM = "maxEvents";
 
 // Parse the calendar URL into host and path
 void GoogleCalendarScheduler::parseCalendarUrl() {
@@ -298,7 +323,10 @@ bool GoogleCalendarScheduler::fetchCalendarEvents() {
   WiFiClient *client;
   if (useHTTPS) {
     WiFiClientSecure *secureClient = new WiFiClientSecure();
-    secureClient->setInsecure(); // Skip certificate validation
+    // Note: Using setInsecure() for compatibility. For production use, consider:
+    // - secureClient->setCACert() with Google's root certificate
+    // - Or validate specific fingerprints for known calendar providers
+    secureClient->setInsecure();
     secureClient->setTimeout(HTTP_TIMEOUT_MS);
     client = secureClient;
   } else {
@@ -317,11 +345,12 @@ bool GoogleCalendarScheduler::fetchCalendarEvents() {
 
   DEBUG_PRINTLN(F("Calendar: Connected, sending request"));
 
-  // Send HTTP request
-  client->print(String("GET ") + httpPath + " HTTP/1.1\r\n" +
-                "Host: " + httpHost + "\r\n" +
-                "Connection: close\r\n" +
-                "User-Agent: WLED-Calendar-Scheduler\r\n\r\n");
+  // Send HTTP request (using separate print calls to avoid String concatenation overhead)
+  client->print(F("GET "));
+  client->print(httpPath);
+  client->print(F(" HTTP/1.1\r\nHost: "));
+  client->print(httpHost);
+  client->print(F("\r\nConnection: close\r\nUser-Agent: WLED-Calendar-Scheduler\r\n\r\n"));
 
   DEBUG_PRINTLN(F("Calendar: Request sent"));
 
@@ -411,8 +440,8 @@ bool GoogleCalendarScheduler::fetchCalendarEvents() {
 
 // Simple iCal parser - extracts VEVENT blocks
 void GoogleCalendarScheduler::parseICalData(String& icalData) {
-  // Store old events to preserve trigger state
-  CalendarEvent oldEvents[MAX_EVENTS];
+  // Store old events to preserve trigger state (use dynamic allocation)
+  CalendarEvent *oldEvents = new CalendarEvent[maxEvents];
   uint8_t oldEventCount = eventCount;
   for (uint8_t i = 0; i < oldEventCount; i++) {
     oldEvents[i] = events[i];
@@ -421,7 +450,7 @@ void GoogleCalendarScheduler::parseICalData(String& icalData) {
   eventCount = 0;
 
   int pos = 0;
-  while (pos < icalData.length() && eventCount < MAX_EVENTS) {
+  while (pos < icalData.length() && eventCount < maxEvents) {
     // Find next VEVENT
     int eventStart = icalData.indexOf("BEGIN:VEVENT", pos);
     if (eventStart < 0) break;
@@ -539,6 +568,9 @@ void GoogleCalendarScheduler::parseICalData(String& icalData) {
     pos = eventEnd + 10;
   }
 
+  // Clean up old events array
+  delete[] oldEvents;
+
   DEBUG_PRINT(F("Calendar: Parsed "));
   DEBUG_PRINT(eventCount);
   DEBUG_PRINTLN(F(" events"));
@@ -652,9 +684,9 @@ void GoogleCalendarScheduler::executeEventAction(CalendarEvent& event) {
     int8_t presetId = -1;
     uint16_t presetsChecked = 0;
 
-    // Prepare lowercase version for comparison
-    String descLower = desc;
-    descLower.toLowerCase();
+    // Prepare lowercase version once for comparison
+    desc.toLowerCase();
+    desc.trim();
 
     // Search through presets for matching name using WLED's getPresetName function
     for (uint8_t i = 1; i < 251; i++) {
@@ -662,16 +694,12 @@ void GoogleCalendarScheduler::executeEventAction(CalendarEvent& event) {
       if (getPresetName(i, presetName)) {
         presetsChecked++;
         presetName.trim();
+        presetName.toLowerCase();
 
-        // Case-insensitive comparison
-        String presetNameLower = presetName;
-        presetNameLower.toLowerCase();
-
-        if (presetNameLower == descLower) {
+        // Case-insensitive comparison (both already lowercased)
+        if (presetName == desc) {
           presetId = i;
-          DEBUG_PRINT(F("Calendar: Found preset '"));
-          DEBUG_PRINT(presetName);
-          DEBUG_PRINT(F("' at ID "));
+          DEBUG_PRINT(F("Calendar: Found preset at ID "));
           DEBUG_PRINTLN(i);
           break;
         }
