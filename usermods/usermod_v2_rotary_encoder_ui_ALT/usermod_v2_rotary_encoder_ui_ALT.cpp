@@ -892,7 +892,7 @@ void RotaryEncoderUIUsermod::changePalette(bool increase) {
   }
   display->updateRedrawTime();
 #endif
-  effectPaletteIndex = max(min((unsigned)(increase ? effectPaletteIndex+1 : effectPaletteIndex-1), getPaletteCount()+customPalettes.size()-1), 0U);
+  effectPaletteIndex = max(min((int)(increase ? effectPaletteIndex+1 : effectPaletteIndex-1), (int)(getPaletteCount()+customPalettes.size()-1)), 0);
   effectPalette = palettes_alpha_indexes[effectPaletteIndex];
   stateChanged = true;
   if (applyToAll) {
