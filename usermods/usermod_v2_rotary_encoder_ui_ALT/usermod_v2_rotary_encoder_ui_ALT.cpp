@@ -825,7 +825,7 @@ void RotaryEncoderUIUsermod::changeBrightness(bool increase) {
     // Throw away wake up input
     return;
   }
-  gc9a01Display->updateRedrawTime();
+  if (gc9a01Display) gc9a01Display->updateRedrawTime();
 #endif
 
   //bri = max(min((increase ? bri+fadeAmount : bri-fadeAmount), 255), 0);
@@ -869,7 +869,7 @@ void RotaryEncoderUIUsermod::changeEffect(bool increase) {
     // Throw away wake up input
     return;
   }
-  gc9a01Display->updateRedrawTime();
+  if (gc9a01Display) gc9a01Display->updateRedrawTime();
 #endif
   effectCurrentIndex = max(min((increase ? effectCurrentIndex+1 : effectCurrentIndex-1), strip.getModeCount()-1), 0);
   effectCurrent = modes_alpha_indexes[effectCurrentIndex];
@@ -907,7 +907,7 @@ void RotaryEncoderUIUsermod::changeEffectSpeed(bool increase) {
     // Throw away wake up input
     return;
   }
-  gc9a01Display->updateRedrawTime();
+  if (gc9a01Display) gc9a01Display->updateRedrawTime();
 #endif
 
   effectSpeed = max(min((increase ? effectSpeed+fadeAmount : effectSpeed-fadeAmount), 255), 0);
@@ -951,7 +951,7 @@ void RotaryEncoderUIUsermod::changeEffectIntensity(bool increase) {
     // Throw away wake up input
     return;
   }
-  gc9a01Display->updateRedrawTime();
+  if (gc9a01Display) gc9a01Display->updateRedrawTime();
 #endif
 
   effectIntensity = max(min((increase ? effectIntensity+fadeAmount : effectIntensity-fadeAmount), 255), 0);
@@ -996,7 +996,7 @@ void RotaryEncoderUIUsermod::changeCustom(uint8_t par, bool increase) {
     // Throw away wake up input
     return;
   }
-  gc9a01Display->updateRedrawTime();
+  if (gc9a01Display) gc9a01Display->updateRedrawTime();
 #endif
 
   stateChanged = true;
@@ -1058,7 +1058,7 @@ void RotaryEncoderUIUsermod::changePalette(bool increase) {
     // Throw away wake up input
     return;
   }
-  gc9a01Display->updateRedrawTime();
+  if (gc9a01Display) gc9a01Display->updateRedrawTime();
 #endif
 
   effectPaletteIndex = max(min((int)(increase ? effectPaletteIndex+1 : effectPaletteIndex-1), (int)(getPaletteCount()-1)), 0);
@@ -1103,7 +1103,7 @@ void RotaryEncoderUIUsermod::changeHue(bool increase){
     // Throw away wake up input
     return;
   }
-  gc9a01Display->updateRedrawTime();
+  if (gc9a01Display) gc9a01Display->updateRedrawTime();
 #endif
 
   currentHue1 = max(min((increase ? currentHue1+fadeAmount : currentHue1-fadeAmount), 255), 0);
@@ -1151,7 +1151,7 @@ void RotaryEncoderUIUsermod::changeSat(bool increase){
     // Throw away wake up input
     return;
   }
-  gc9a01Display->updateRedrawTime();
+  if (gc9a01Display) gc9a01Display->updateRedrawTime();
 #endif
 
   currentSat1 = max(min((increase ? currentSat1+fadeAmount : currentSat1-fadeAmount), 255), 0);
@@ -1198,7 +1198,7 @@ void RotaryEncoderUIUsermod::changePreset(bool increase) {
     // Throw away wake up input
     return;
   }
-  gc9a01Display->updateRedrawTime();
+  if (gc9a01Display) gc9a01Display->updateRedrawTime();
 #endif
 
   if (presetHigh && presetLow && presetHigh > presetLow) {
@@ -1248,7 +1248,7 @@ void RotaryEncoderUIUsermod::changeCCT(bool increase){
     // Throw away wake up input
     return;
   }
-  gc9a01Display->updateRedrawTime();
+  if (gc9a01Display) gc9a01Display->updateRedrawTime();
 #endif
 
   currentCCT = max(min((increase ? currentCCT+fadeAmount : currentCCT-fadeAmount), 255), 0);
