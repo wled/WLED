@@ -356,26 +356,26 @@ void UsermodGC9A01Display::drawMainInterface(int overlayMode) {
         currentValue = effectIntensity;
         valueText = String(map(effectIntensity, 0, 255, 0, 100)) + "%";
         break;
-      case 4: { // Palette mode
+      case 4: // Palette mode
         currentValue = effectPalette;
         maxValue = getPaletteCount() - 1;
-        const uint16_t fixedCount = FIXED_PALETTE_COUNT;
-        if (currentValue < fixedCount) {
+        if (currentValue < getPaletteCount()) {
           char lineBuffer[64];
           if (extractModeName(currentValue, JSON_palette_names, lineBuffer, 63)) {
+            // Remove "* " prefix from dynamic palettes
             String paletteName = String(lineBuffer);
-            if (paletteName.startsWith("* ")) paletteName = paletteName.substring(2);
+            if (paletteName.startsWith("* ")) {
+              paletteName = paletteName.substring(2);
+            }
             if (paletteName.length() > 12) paletteName = paletteName.substring(0, 10) + "..";
             valueText = paletteName;
           } else {
             valueText = "Palette " + String(currentValue);
           }
         } else {
-          // Custom palette
-          valueText = "Custom " + String(currentValue - fixedCount + 1);
+          valueText = "Palette " + String(effectPalette);
         }
         break;
-      }
       default: // Fallback
         currentValue = bri;
         valueText = String(map(bri, 0, 255, 0, 100)) + "%";
@@ -433,7 +433,7 @@ void UsermodGC9A01Display::drawMainInterface(int overlayMode) {
     int yOffset = (overlayMode == 1 || overlayMode == 4) ? 120 : 130; // Slightly higher for smaller font
     tft.setTextColor(TFT_WHITE, TFT_BLACK);
     tft.setTextDatum(MC_DATUM);
-    tft.drawString(valueText, 120, yOffset, fontSize);
+    tft.drawString(valueText, 126, yOffset, fontSize);
     
     // Don't draw main screen elements - return early
     return;
@@ -654,12 +654,10 @@ void UsermodGC9A01Display::setBrightness(uint8_t bri) {
 void UsermodGC9A01Display::setBacklight(uint8_t percent) {
   backlight = min(percent, (uint8_t)100); // Clamp to 0-100% range
   uint8_t pwm = map(backlight, 0, 100, 0, 255); // Map to PWM range (0-255)
-#ifdef TFT_BL
+  #ifdef TFT_BL
   analogWrite(TFT_BL, pwm);
+  #endif
   DEBUG_PRINTF("[GC9A01] Backlight set to %d%% (PWM: %d)\n", backlight, pwm);
-#else
-  DEBUG_PRINTF("[GC9A01] Backlight setting to %d%% (PWM control not available)\n", backlight);
-#endif
 }
 
 void UsermodGC9A01Display::drawClockScreen() {
@@ -723,7 +721,9 @@ void UsermodGC9A01Display::sleepOrClock(bool enabled) {
     } else {
       // Turn off backlight (sleep)
       showingClock = false;
-      setBacklight(0);
+      #ifdef TFT_BL
+      analogWrite(TFT_BL, 0);
+      #endif
       DEBUG_PRINTLN(F("[GC9A01] Timeout reached - sleeping (backlight off)"));
     }
   } else {
@@ -736,9 +736,9 @@ void UsermodGC9A01Display::sleepOrClock(bool enabled) {
 }
 
 void UsermodGC9A01Display::sleepDisplay() {
-#ifdef TFT_BL
+  #ifdef TFT_BL
   analogWrite(TFT_BL, 0); // Turn off backlight completely
-#endif
+  #endif
   displayTurnedOff = true;
   lastRedraw = ULONG_MAX; // Reset sleep timer - will start again after next interaction
   DEBUG_PRINTLN(F("[GC9A01] Display sleeping - backlight off, sleep timer reset"));

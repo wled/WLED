@@ -31,6 +31,10 @@
 #include "usermod_v2_four_line_display.h"
 #endif
 
+#ifdef USERMOD_GC9A01_DISPLAY
+#include "../usermod_v2_gc9a01_display/usermod_v2_gc9a01_display.h"
+#endif
+
 #ifdef USERMOD_MODE_SORT
   #error "Usermod Mode Sort is no longer required. Remove -D USERMOD_MODE_SORT from platformio.ini"
 #endif
@@ -178,6 +182,12 @@ class RotaryEncoderUIUsermod : public Usermod {
     void* display;
   #endif
 
+  #ifdef USERMOD_GC9A01_DISPLAY
+    UsermodGC9A01Display *gc9a01Display;
+  #else
+    void* gc9a01Display;
+  #endif
+
     // Pointers the start of the mode names within JSON_mode_names
     const char **modes_qstrings;
 
@@ -265,6 +275,7 @@ class RotaryEncoderUIUsermod : public Usermod {
       , currentSat1(255)
       , currentCCT(128)
       , display(nullptr)
+      , gc9a01Display(nullptr)
       , modes_qstrings(nullptr)
       , modes_alpha_indexes(nullptr)
       , palettes_qstrings(nullptr)
@@ -533,6 +544,18 @@ void RotaryEncoderUIUsermod::setup()
   }
 #endif
 
+#ifdef USERMOD_GC9A01_DISPLAY
+  // This Usermod also works with GC9A01DisplayUsermod for round TFT displays.
+  gc9a01Display = (UsermodGC9A01Display*) UsermodManager::lookup(USERMOD_ID_GC9A01_DISPLAY);
+  if (gc9a01Display != nullptr) {
+    DEBUG_PRINTLN(F("[RotaryEncoder] GC9A01 display integration enabled"));
+    Serial.println(F("[RotaryEncoder] GC9A01 display integration enabled"));
+  } else {
+    DEBUG_PRINTLN(F("[RotaryEncoder] GC9A01 display NOT FOUND"));
+    Serial.println(F("[RotaryEncoder] GC9A01 display NOT FOUND"));
+  }
+#endif
+
   initDone = true;
   Enc_A = readPin(pinA); // Read encoder pins
   Enc_B = readPin(pinB);
@@ -618,23 +641,57 @@ void RotaryEncoderUIUsermod::loop()
         }
         if (newState > LAST_UI_STATE) newState = 0;
       } while (!changedState);
-      if (display != nullptr) {
-        switch (newState) {
-          case  0: changedState = changeState(lineBuffer,   1,   0,  1); break; //1  = sun
-          case  1: changedState = changeState(lineBuffer,   1,   4,  2); break; //2  = skip forward
-          case  2: changedState = changeState(lineBuffer,   1,   8,  3); break; //3  = fire
-          case  3: changedState = changeState(lineBuffer,   2,   0,  4); break; //4  = custom palette
-          case  4: changedState = changeState(lineBuffer,   3,   0,  5); break; //5  = puzzle piece
-          case  5: changedState = changeState(lineBuffer, 255, 255,  7); break; //7  = brush
-          case  6: changedState = changeState(lineBuffer, 255, 255,  8); break; //8  = contrast
-          case  7: changedState = changeState(lineBuffer, 255, 255, 10); break; //10 = star
-          case  8: changedState = changeState(lineBuffer, 255, 255, 11); break; //11 = heart
-          case  9: changedState = changeState(lineBuffer, 255, 255, 10); break; //10 = star
-          case 10: changedState = changeState(lineBuffer, 255, 255, 10); break; //10 = star
-          case 11: changedState = changeState(lineBuffer, 255, 255, 10); break; //10 = star
+      // Support both Four Line Display and GC9A01 display
+      if (display != nullptr || gc9a01Display != nullptr) {
+        // Special handling for state 0 (Brightness) with GC9A01 - no overlay needed
+        if (newState == 0 && gc9a01Display != nullptr && display == nullptr) {
+          // For GC9A01 only (no four line display), just update main screen for brightness
+          if (gc9a01Display->wakeDisplay()) {
+            gc9a01Display->redraw(true);
+            changedState = false; // Throw away wake up input
+          } else {
+            gc9a01Display->redraw(false); // Update main screen directly
+            changedState = true;
+          }
+        } else {
+          // Normal overlay handling for all other states and for Four Line Display
+          switch (newState) {
+            case  0: changedState = changeState(lineBuffer,   1,   0,  1); break; //1  = sun
+            case  1: changedState = changeState(lineBuffer,   1,   4,  2); break; //2  = skip forward
+            case  2: changedState = changeState(lineBuffer,   1,   8,  3); break; //3  = fire
+            case  3: changedState = changeState(lineBuffer,   2,   0,  4); break; //4  = custom palette
+            case  4: changedState = changeState(lineBuffer,   3,   0,  5); break; //5  = puzzle piece
+            case  5: changedState = changeState(lineBuffer, 255, 255,  7); break; //7  = brush
+            case  6: changedState = changeState(lineBuffer, 255, 255,  8); break; //8  = contrast
+            case  7: changedState = changeState(lineBuffer, 255, 255, 10); break; //10 = star
+            case  8: changedState = changeState(lineBuffer, 255, 255, 11); break; //11 = heart
+            case  9: changedState = changeState(lineBuffer, 255, 255, 10); break; //10 = star
+            case 10: changedState = changeState(lineBuffer, 255, 255, 10); break; //10 = star
+            case 11: changedState = changeState(lineBuffer, 255, 255, 10); break; //10 = star
+          }
         }
       }
       if (changedState) select_state = newState;
+    }
+
+    // Check if GC9A01 overlay has expired or display is asleep and reset to brightness mode (state 0)
+    #ifdef USERMOD_GC9A01_DISPLAY
+    if (gc9a01Display != nullptr && select_state > 0) {
+      if (!gc9a01Display->isOverlayActive() || gc9a01Display->isDisplayAsleep()) {
+        // Overlay has expired or display is asleep, return to brightness mode
+        select_state = 0;
+      }
+    }
+    #endif
+
+    // Check if current state is valid for current effect (for states 1=speed, 2=intensity, 9-11=custom)
+    if (select_state == 1 || select_state == 2 || (select_state >= 9 && select_state <= 11)) {
+      char tempBuffer[64];
+      int sliderIndex = (select_state <= 2) ? (select_state - 1) : (select_state - 7);
+      if (!extractModeSlider(effectCurrent, sliderIndex, tempBuffer, 63)) {
+        // Current effect doesn't have this slider, reset to brightness
+        select_state = 0;
+      }
     }
 
     Enc_A = readPin(pinA); // Read encoder pins
@@ -685,6 +742,12 @@ void RotaryEncoderUIUsermod::displayNetworkInfo() {
   #ifdef USERMOD_FOUR_LINE_DISPLAY
   display->networkOverlay(PSTR("NETWORK INFO"), 10000);
   #endif
+
+  #ifdef USERMOD_GC9A01_DISPLAY
+  if (gc9a01Display != nullptr) {
+    gc9a01Display->overlay(PSTR("NETWORK INFO"), 10000, 12); // Use network glyph
+  }
+  #endif
 }
 
 void RotaryEncoderUIUsermod::findCurrentEffectAndPalette() {
@@ -723,6 +786,20 @@ bool RotaryEncoderUIUsermod::changeState(const char *stateName, byte markedLine,
     display->setMarkLine(markedLine, markedCol);
   }
 #endif
+
+#ifdef USERMOD_GC9A01_DISPLAY
+  if (gc9a01Display != nullptr) {
+    Serial.printf("[RotaryEncoder] Calling GC9A01 overlay: '%s' glyph=%d\n", stateName, glyph);
+    if (gc9a01Display->wakeDisplay()) {
+      // Throw away wake up input
+      gc9a01Display->redraw(true);
+      return false;
+    }
+    gc9a01Display->overlay(stateName, 750, glyph);
+  } else {
+    Serial.println("[RotaryEncoder] gc9a01Display is NULL!");
+  }
+#endif
   return true;
 }
 
@@ -743,12 +820,37 @@ void RotaryEncoderUIUsermod::changeBrightness(bool increase) {
   }
   display->updateRedrawTime();
 #endif
+
+#ifdef USERMOD_GC9A01_DISPLAY
+  if (gc9a01Display && gc9a01Display->wakeDisplay()) {
+    gc9a01Display->redraw(true);
+    // Throw away wake up input
+    return;
+  }
+  gc9a01Display->updateRedrawTime();
+#endif
+
   //bri = max(min((increase ? bri+fadeAmount : bri-fadeAmount), 255), 0);
   if (bri < 40) bri = max(min((increase ? bri+fadeAmount/2 : bri-fadeAmount/2), 255), 0); // slower steps when brightness < 16%
   else bri = max(min((increase ? bri+fadeAmount : bri-fadeAmount), 255), 0);
   lampUdated();
 #ifdef USERMOD_FOUR_LINE_DISPLAY
   display->updateBrightness();
+#endif
+
+#ifdef USERMOD_GC9A01_DISPLAY
+  if (gc9a01Display) {
+    // Only show overlay if we're NOT in default state (state 0)
+    // In state 0, brightness changes should update the main screen directly
+    if (select_state == 0) {
+      gc9a01Display->redraw(false); // Update main interface directly (no overlay)
+    } else {
+      // Show brightness overlay like other modes (when in overlay mode)
+      char brightnessStr[16];
+      sprintf(brightnessStr, "Brightness %d%%", (bri * 100) / 255);
+      gc9a01Display->overlay(brightnessStr, 500, 10);
+    }
+  }
 #endif
 }
 
@@ -761,6 +863,15 @@ void RotaryEncoderUIUsermod::changeEffect(bool increase) {
     return;
   }
   display->updateRedrawTime();
+#endif
+
+#ifdef USERMOD_GC9A01_DISPLAY
+  if (gc9a01Display && gc9a01Display->wakeDisplay()) {
+    gc9a01Display->redraw(true);
+    // Throw away wake up input
+    return;
+  }
+  gc9a01Display->updateRedrawTime();
 #endif
   effectCurrentIndex = max(min((increase ? effectCurrentIndex+1 : effectCurrentIndex-1), strip.getModeCount()-1), 0);
   effectCurrent = modes_alpha_indexes[effectCurrentIndex];
@@ -791,6 +902,16 @@ void RotaryEncoderUIUsermod::changeEffectSpeed(bool increase) {
   }
   display->updateRedrawTime();
 #endif
+
+#ifdef USERMOD_GC9A01_DISPLAY
+  if (gc9a01Display && gc9a01Display->wakeDisplay()) {
+    gc9a01Display->redraw(true);
+    // Throw away wake up input
+    return;
+  }
+  gc9a01Display->updateRedrawTime();
+#endif
+
   effectSpeed = max(min((increase ? effectSpeed+fadeAmount : effectSpeed-fadeAmount), 255), 0);
   stateChanged = true;
   if (applyToAll) {
@@ -807,6 +928,12 @@ void RotaryEncoderUIUsermod::changeEffectSpeed(bool increase) {
 #ifdef USERMOD_FOUR_LINE_DISPLAY
   display->updateSpeed();
 #endif
+
+#ifdef USERMOD_GC9A01_DISPLAY
+  if (gc9a01Display) {
+    gc9a01Display->redraw(false); // Update speed display
+  }
+#endif
 }
 
 
@@ -819,6 +946,16 @@ void RotaryEncoderUIUsermod::changeEffectIntensity(bool increase) {
   }
   display->updateRedrawTime();
 #endif
+
+#ifdef USERMOD_GC9A01_DISPLAY
+  if (gc9a01Display && gc9a01Display->wakeDisplay()) {
+    gc9a01Display->redraw(true);
+    // Throw away wake up input
+    return;
+  }
+  gc9a01Display->updateRedrawTime();
+#endif
+
   effectIntensity = max(min((increase ? effectIntensity+fadeAmount : effectIntensity-fadeAmount), 255), 0);
   stateChanged = true;
   if (applyToAll) {
@@ -835,6 +972,12 @@ void RotaryEncoderUIUsermod::changeEffectIntensity(bool increase) {
 #ifdef USERMOD_FOUR_LINE_DISPLAY
   display->updateIntensity();
 #endif
+
+#ifdef USERMOD_GC9A01_DISPLAY
+  if (gc9a01Display) {
+    gc9a01Display->redraw(false); // Update intensity display
+  }
+#endif
 }
 
 
@@ -848,6 +991,16 @@ void RotaryEncoderUIUsermod::changeCustom(uint8_t par, bool increase) {
   }
   display->updateRedrawTime();
 #endif
+
+#ifdef USERMOD_GC9A01_DISPLAY
+  if (gc9a01Display && gc9a01Display->wakeDisplay()) {
+    gc9a01Display->redraw(true);
+    // Throw away wake up input
+    return;
+  }
+  gc9a01Display->updateRedrawTime();
+#endif
+
   stateChanged = true;
   if (applyToAll) {
     uint8_t id = strip.getFirstSelectedSegId();
@@ -880,6 +1033,14 @@ void RotaryEncoderUIUsermod::changeCustom(uint8_t par, bool increase) {
   sprintf(lineBuffer, "%d", val);
   display->overlay(lineBuffer, 500, 10); // use star
 #endif
+
+#ifdef USERMOD_GC9A01_DISPLAY
+  if (gc9a01Display) {
+    char lineBuffer[64];
+    sprintf(lineBuffer, "Custom%d: %d", par, val);
+    gc9a01Display->overlay(lineBuffer, 500, 10); // use star glyph
+  }
+#endif
 }
 
 
@@ -892,6 +1053,16 @@ void RotaryEncoderUIUsermod::changePalette(bool increase) {
   }
   display->updateRedrawTime();
 #endif
+
+#ifdef USERMOD_GC9A01_DISPLAY
+  if (gc9a01Display && gc9a01Display->wakeDisplay()) {
+    gc9a01Display->redraw(true);
+    // Throw away wake up input
+    return;
+  }
+  gc9a01Display->updateRedrawTime();
+#endif
+
   effectPaletteIndex = max(min((int)(increase ? effectPaletteIndex+1 : effectPaletteIndex-1), (int)(getPaletteCount()-1)), 0);
   effectPalette = palettes_alpha_indexes[effectPaletteIndex];
   stateChanged = true;
@@ -909,6 +1080,12 @@ void RotaryEncoderUIUsermod::changePalette(bool increase) {
 #ifdef USERMOD_FOUR_LINE_DISPLAY
   display->showCurrentEffectOrPalette(effectPalette, JSON_palette_names, 2);
 #endif
+
+#ifdef USERMOD_GC9A01_DISPLAY
+  if (gc9a01Display) {
+    gc9a01Display->redraw(false); // Update palette display
+  }
+#endif
 }
 
 
@@ -921,6 +1098,16 @@ void RotaryEncoderUIUsermod::changeHue(bool increase){
   }
   display->updateRedrawTime();
 #endif
+
+#ifdef USERMOD_GC9A01_DISPLAY
+  if (gc9a01Display && gc9a01Display->wakeDisplay()) {
+    gc9a01Display->redraw(true);
+    // Throw away wake up input
+    return;
+  }
+  gc9a01Display->updateRedrawTime();
+#endif
+
   currentHue1 = max(min((increase ? currentHue1+fadeAmount : currentHue1-fadeAmount), 255), 0);
   colorHStoRGB(currentHue1*256, currentSat1, colPri);
   stateChanged = true; 
@@ -940,6 +1127,14 @@ void RotaryEncoderUIUsermod::changeHue(bool increase){
   sprintf(lineBuffer, "%d", currentHue1);
   display->overlay(lineBuffer, 500, 7); // use brush
 #endif
+
+#ifdef USERMOD_GC9A01_DISPLAY
+  if (gc9a01Display) {
+    char lineBuffer[64];
+    sprintf(lineBuffer, "Hue: %d", currentHue1);
+    gc9a01Display->overlay(lineBuffer, 500, 7); // use brush glyph
+  }
+#endif
 }
 
 void RotaryEncoderUIUsermod::changeSat(bool increase){
@@ -951,6 +1146,16 @@ void RotaryEncoderUIUsermod::changeSat(bool increase){
   }
   display->updateRedrawTime();
 #endif
+
+#ifdef USERMOD_GC9A01_DISPLAY
+  if (gc9a01Display && gc9a01Display->wakeDisplay()) {
+    gc9a01Display->redraw(true);
+    // Throw away wake up input
+    return;
+  }
+  gc9a01Display->updateRedrawTime();
+#endif
+
   currentSat1 = max(min((increase ? currentSat1+fadeAmount : currentSat1-fadeAmount), 255), 0);
   colorHStoRGB(currentHue1*256, currentSat1, colPri);
   if (applyToAll) {
@@ -969,6 +1174,14 @@ void RotaryEncoderUIUsermod::changeSat(bool increase){
   sprintf(lineBuffer, "%d", currentSat1);
   display->overlay(lineBuffer, 500, 8); // use contrast
 #endif
+
+#ifdef USERMOD_GC9A01_DISPLAY
+  if (gc9a01Display) {
+    char lineBuffer[64];
+    sprintf(lineBuffer, "Sat: %d", currentSat1);
+    gc9a01Display->overlay(lineBuffer, 500, 8); // use contrast glyph
+  }
+#endif
 }
 
 void RotaryEncoderUIUsermod::changePreset(bool increase) {
@@ -980,6 +1193,16 @@ void RotaryEncoderUIUsermod::changePreset(bool increase) {
   }
   display->updateRedrawTime();
 #endif
+
+#ifdef USERMOD_GC9A01_DISPLAY
+  if (gc9a01Display && gc9a01Display->wakeDisplay()) {
+    gc9a01Display->redraw(true);
+    // Throw away wake up input
+    return;
+  }
+  gc9a01Display->updateRedrawTime();
+#endif
+
   if (presetHigh && presetLow && presetHigh > presetLow) {
     StaticJsonDocument<64> root;
     char str[64];
@@ -1000,6 +1223,14 @@ void RotaryEncoderUIUsermod::changePreset(bool increase) {
     sprintf(str, "%d", currentPreset);
     display->overlay(str, 500, 11); // use heart
   #endif
+
+  #ifdef USERMOD_GC9A01_DISPLAY
+    if (gc9a01Display) {
+      char lineBuffer[64];
+      sprintf(lineBuffer, "Preset: %d", currentPreset);
+      gc9a01Display->overlay(lineBuffer, 500, 11); // use heart glyph
+    }
+  #endif
   }
 }
 
@@ -1012,6 +1243,16 @@ void RotaryEncoderUIUsermod::changeCCT(bool increase){
   }
   display->updateRedrawTime();
 #endif
+
+#ifdef USERMOD_GC9A01_DISPLAY
+  if (gc9a01Display && gc9a01Display->wakeDisplay()) {
+    gc9a01Display->redraw(true);
+    // Throw away wake up input
+    return;
+  }
+  gc9a01Display->updateRedrawTime();
+#endif
+
   currentCCT = max(min((increase ? currentCCT+fadeAmount : currentCCT-fadeAmount), 255), 0);
 //    if (applyToAll) {
     for (unsigned i=0; i<strip.getSegmentsNum(); i++) {
@@ -1028,6 +1269,14 @@ void RotaryEncoderUIUsermod::changeCCT(bool increase){
   char lineBuffer[64];
   sprintf(lineBuffer, "%d", currentCCT);
   display->overlay(lineBuffer, 500, 10); // use star
+#endif
+
+#ifdef USERMOD_GC9A01_DISPLAY
+  if (gc9a01Display) {
+    char lineBuffer[64];
+    sprintf(lineBuffer, "CCT: %d", currentCCT);
+    gc9a01Display->overlay(lineBuffer, 500, 10); // use star glyph
+  }
 #endif
 }
 
