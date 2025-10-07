@@ -789,7 +789,7 @@ bool RotaryEncoderUIUsermod::changeState(const char *stateName, byte markedLine,
 
 #ifdef USERMOD_GC9A01_DISPLAY
   if (gc9a01Display != nullptr) {
-    Serial.printf("[RotaryEncoder] Calling GC9A01 overlay: '%s' glyph=%d\n", stateName, glyph);
+    DEBUG_PRINTF("[RotaryEncoder] Calling GC9A01 overlay: '%s' glyph=%d\n", stateName, glyph);
     if (gc9a01Display->wakeDisplay()) {
       // Throw away wake up input
       gc9a01Display->redraw(true);
@@ -797,7 +797,7 @@ bool RotaryEncoderUIUsermod::changeState(const char *stateName, byte markedLine,
     }
     gc9a01Display->overlay(stateName, 750, glyph);
   } else {
-    Serial.println("[RotaryEncoder] gc9a01Display is NULL!");
+    DEBUG_PRINTLN(F("[RotaryEncoder] gc9a01Display is NULL!"));
   }
 #endif
   return true;
