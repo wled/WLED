@@ -549,10 +549,8 @@ void RotaryEncoderUIUsermod::setup()
   gc9a01Display = (UsermodGC9A01Display*) UsermodManager::lookup(USERMOD_ID_GC9A01_DISPLAY);
   if (gc9a01Display != nullptr) {
     DEBUG_PRINTLN(F("[RotaryEncoder] GC9A01 display integration enabled"));
-    Serial.println(F("[RotaryEncoder] GC9A01 display integration enabled"));
   } else {
     DEBUG_PRINTLN(F("[RotaryEncoder] GC9A01 display NOT FOUND"));
-    Serial.println(F("[RotaryEncoder] GC9A01 display NOT FOUND"));
   }
 #endif
 
