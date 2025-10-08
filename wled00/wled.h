@@ -335,13 +335,23 @@ WLED_GLOBAL bool rlyOpenDrain _INIT(RLYODRAIN);
   constexpr uint8_t hardwareTX = 1;
 #endif
 
-WLED_GLOBAL char ntpServerName[33] _INIT("0.wled.pool.ntp.org");   // NTP server to use
+#ifndef WLED_NTP_SERVER
+  #define WLED_NTP_SERVER "0.wled.pool.ntp.org"
+#endif
+WLED_GLOBAL char ntpServerName[33] _INIT(WLED_NTP_SERVER);   // NTP server to use
 
 // WiFi CONFIG (all these can be changed via web UI, no need to set them here)
 WLED_GLOBAL std::vector<WiFiConfig> multiWiFi;
 WLED_GLOBAL IPAddress dnsAddress _INIT_N(((  8,   8,  8,  8)));   // Google's DNS
 WLED_GLOBAL char cmDNS[33]       _INIT(MDNS_NAME);                // mDNS address (*.local, replaced by wledXXXXXX if default is used)
 WLED_GLOBAL char apSSID[33]      _INIT("");                       // AP off by default (unless setup)
+#ifndef WIFI_DEFAULT_NO_WIFI_SLEEP
+  #ifdef ARDUINO_ARCH_ESP32
+    #define WIFI_DEFAULT_NO_WIFI_SLEEP true
+  #else
+    #define WIFI_DEFAULT_NO_WIFI_SLEEP false
+  #endif
+#endif
 #ifdef WLED_SAVE_RAM
 typedef class WiFiOptions {
   public:
@@ -363,9 +373,9 @@ typedef class WiFiOptions {
     }
 } __attribute__ ((aligned(1), packed)) wifi_options_t;
   #ifdef ARDUINO_ARCH_ESP32
-WLED_GLOBAL wifi_options_t wifiOpt _INIT_N(({0, 1, false, AP_BEHAVIOR_BOOT_NO_CONN, true, false}));
+WLED_GLOBAL wifi_options_t wifiOpt _INIT_N(({0, 1, false, AP_BEHAVIOR_BOOT_NO_CONN, WIFI_DEFAULT_NO_WIFI_SLEEP, false}));
   #else
-WLED_GLOBAL wifi_options_t wifiOpt _INIT_N(({0, 1, false, AP_BEHAVIOR_BOOT_NO_CONN, false, false}));
+WLED_GLOBAL wifi_options_t wifiOpt _INIT_N(({0, 1, false, AP_BEHAVIOR_BOOT_NO_CONN, WIFI_DEFAULT_NO_WIFI_SLEEP, false}));
   #endif
 #define selectedWiFi wifiOpt.selectedWiFi
 #define apChannel    wifiOpt.apChannel
@@ -379,9 +389,9 @@ WLED_GLOBAL byte apChannel       _INIT(1);                        // 2.4GHz WiFi
 WLED_GLOBAL byte apHide          _INIT(0);                        // hidden AP SSID
 WLED_GLOBAL byte apBehavior      _INIT(AP_BEHAVIOR_BOOT_NO_CONN); // access point opens when no connection after boot by default
   #ifdef ARDUINO_ARCH_ESP32
-WLED_GLOBAL bool noWifiSleep _INIT(true);                         // disabling modem sleep modes will increase heat output and power usage, but may help with connection issues
+WLED_GLOBAL bool noWifiSleep _INIT(WIFI_DEFAULT_NO_WIFI_SLEEP);                         // disabling modem sleep modes will increase heat output and power usage, but may help with connection issues
   #else
-WLED_GLOBAL bool noWifiSleep _INIT(false);
+WLED_GLOBAL bool noWifiSleep _INIT(WIFI_DEFAULT_NO_WIFI_SLEEP);
   #endif
 WLED_GLOBAL bool force802_3g _INIT(false);
 #endif // WLED_SAVE_RAM
@@ -403,8 +413,15 @@ WLED_GLOBAL uint8_t txPower _INIT(WIFI_POWER_19_5dBm);
 #endif
 
 // LED CONFIG
-WLED_GLOBAL bool turnOnAtBoot _INIT(true);                // turn on LEDs at power-up
-WLED_GLOBAL byte bootPreset   _INIT(0);                   // save preset to load after power-up
+#ifndef LED_DEFAULT_TURN_ON_AT_BOOT
+  #define LED_DEFAULT_TURN_ON_AT_BOOT true
+#endif
+
+#ifndef LED_DEFAULT_BOOT_PRESET
+  #define LED_DEFAULT_BOOT_PRESET 0
+#endif
+WLED_GLOBAL bool turnOnAtBoot _INIT(LED_DEFAULT_TURN_ON_AT_BOOT);                // turn on LEDs at power-up
+WLED_GLOBAL byte bootPreset   _INIT(LED_DEFAULT_BOOT_PRESET);                    // save preset to load after power-up
 
 //if true, a segment per bus will be created on boot and LED settings save
 //if false, only one segment spanning the total LEDs is created,
@@ -426,8 +443,35 @@ WLED_GLOBAL bool gammaCorrectCol    _INIT(true);  // use gamma correction on col
 WLED_GLOBAL bool gammaCorrectBri    _INIT(false); // use gamma correction on brightness
 WLED_GLOBAL float gammaCorrectVal   _INIT(2.2f);  // gamma correction value
 
-WLED_GLOBAL byte colPri[] _INIT_N(({ 255, 160, 0, 0 }));  // current RGB(W) primary color. colPri[] should be updated if you want to change the color.
-WLED_GLOBAL byte colSec[] _INIT_N(({ 0, 0, 0, 0 }));      // current RGB(W) secondary color
+// Default primary color (RGBW)
+#ifndef LED_DEFAULT_PRIMARY_R
+  #define LED_DEFAULT_PRIMARY_R 255
+#endif
+#ifndef LED_DEFAULT_PRIMARY_G
+  #define LED_DEFAULT_PRIMARY_G 160
+#endif
+#ifndef LED_DEFAULT_PRIMARY_B
+  #define LED_DEFAULT_PRIMARY_B 0
+#endif
+#ifndef LED_DEFAULT_PRIMARY_W
+  #define LED_DEFAULT_PRIMARY_W 0
+#endif
+WLED_GLOBAL byte colPri[] _INIT_N(({ LED_DEFAULT_PRIMARY_R, LED_DEFAULT_PRIMARY_G, LED_DEFAULT_PRIMARY_B, LED_DEFAULT_PRIMARY_W }));  // current RGB(W) primary color. colPri[] should be updated if you want to change the color.
+
+// Default secondary color (RGBW)
+#ifndef LED_DEFAULT_SECONDARY_R
+  #define LED_DEFAULT_SECONDARY_R 0
+#endif
+#ifndef LED_DEFAULT_SECONDARY_G
+  #define LED_DEFAULT_SECONDARY_G 0
+#endif
+#ifndef LED_DEFAULT_SECONDARY_B
+  #define LED_DEFAULT_SECONDARY_B 0
+#endif
+#ifndef LED_DEFAULT_SECONDARY_W
+  #define LED_DEFAULT_SECONDARY_W 0
+#endif
+WLED_GLOBAL byte colSec[] _INIT_N(({ LED_DEFAULT_SECONDARY_R, LED_DEFAULT_SECONDARY_G, LED_DEFAULT_SECONDARY_B, LED_DEFAULT_SECONDARY_W }));      // current RGB(W) secondary color
 
 WLED_GLOBAL byte nightlightTargetBri _INIT(0);      // brightness after nightlight is over
 WLED_GLOBAL byte nightlightDelayMins _INIT(60);
@@ -446,8 +490,14 @@ WLED_GLOBAL byte cacheInvalidate       _INIT(0);       // used to invalidate bro
 
 // Sync CONFIG
 WLED_GLOBAL NodesMap Nodes;
-WLED_GLOBAL bool nodeListEnabled _INIT(true);
-WLED_GLOBAL bool nodeBroadcastEnabled _INIT(true);
+#ifndef NODE_DEFAULT_LIST_ENABLED
+  #define NODE_DEFAULT_LIST_ENABLED true
+#endif
+WLED_GLOBAL bool nodeListEnabled _INIT(NODE_DEFAULT_LIST_ENABLED);
+#ifndef NODE_DEFAULT_BROADCAST_ENABLED
+  #define NODE_DEFAULT_BROADCAST_ENABLED true
+#endif
+WLED_GLOBAL bool nodeBroadcastEnabled _INIT(NODE_DEFAULT_BROADCAST_ENABLED);
 
 #ifndef WLED_DISABLE_INFRARED
 WLED_GLOBAL int8_t irPin        _INIT(IRPIN);
@@ -510,17 +560,47 @@ WLED_GLOBAL unsigned long lastMqttReconnectAttempt _INIT(0);  // used for other 
   #ifndef MQTT_MAX_SERVER_LEN
     #define MQTT_MAX_SERVER_LEN 32
   #endif
+  #ifndef MQTT_DEFAULT_ENABLED
+    #define MQTT_DEFAULT_ENABLED false
+  #endif
+  #ifndef MQTT_DEFAULT_STATUS_TOPIC
+    #define MQTT_DEFAULT_STATUS_TOPIC ""
+  #endif
+  #ifndef MQTT_DEFAULT_DEVICE_TOPIC
+    #define MQTT_DEFAULT_DEVICE_TOPIC ""
+  #endif
+  #ifndef MQTT_DEFAULT_GROUP_TOPIC
+    #define MQTT_DEFAULT_GROUP_TOPIC "wled/all"
+  #endif
+  #ifndef MQTT_DEFAULT_SERVER
+    #define MQTT_DEFAULT_SERVER ""
+  #endif
+  #ifndef MQTT_DEFAULT_USER
+    #define MQTT_DEFAULT_USER ""
+  #endif
+  #ifndef MQTT_DEFAULT_PASS
+    #define MQTT_DEFAULT_PASS ""
+  #endif
+  #ifndef MQTT_DEFAULT_CLIENTID
+    #define MQTT_DEFAULT_CLIENTID ""
+  #endif
+  #ifndef MQTT_DEFAULT_PORT
+    #define MQTT_DEFAULT_PORT 1883
+  #endif
+  #ifndef MQTT_DEFAULT_RETAIN
+    #define MQTT_DEFAULT_RETAIN false
+  #endif
 WLED_GLOBAL AsyncMqttClient *mqtt _INIT(NULL);
-WLED_GLOBAL bool mqttEnabled _INIT(false);
-WLED_GLOBAL char mqttStatusTopic[MQTT_MAX_TOPIC_LEN + 8] _INIT("");         // this must be global because of async handlers
-WLED_GLOBAL char mqttDeviceTopic[MQTT_MAX_TOPIC_LEN + 1] _INIT("");         // main MQTT topic (individual per device, default is wled/mac)
-WLED_GLOBAL char mqttGroupTopic[MQTT_MAX_TOPIC_LEN + 1]  _INIT("wled/all"); // second MQTT topic (for example to group devices)
-WLED_GLOBAL char mqttServer[MQTT_MAX_SERVER_LEN + 1]     _INIT("");         // both domains and IPs should work (no SSL)
-WLED_GLOBAL char mqttUser[41] _INIT("");                   // optional: username for MQTT auth
-WLED_GLOBAL char mqttPass[65] _INIT("");                   // optional: password for MQTT auth
-WLED_GLOBAL char mqttClientID[41] _INIT("");               // override the client ID
-WLED_GLOBAL uint16_t mqttPort _INIT(1883);
-WLED_GLOBAL bool retainMqttMsg _INIT(false);               // retain brightness and color
+WLED_GLOBAL bool mqttEnabled _INIT(MQTT_DEFAULT_ENABLED);
+WLED_GLOBAL char mqttStatusTopic[MQTT_MAX_TOPIC_LEN + 8] _INIT(MQTT_DEFAULT_STATUS_TOPIC);     // this must be global because of async handlers
+WLED_GLOBAL char mqttDeviceTopic[MQTT_MAX_TOPIC_LEN + 1] _INIT(MQTT_DEFAULT_DEVICE_TOPIC);     // main MQTT topic (individual per device, default is wled/mac)
+WLED_GLOBAL char mqttGroupTopic[MQTT_MAX_TOPIC_LEN + 1]  _INIT(MQTT_DEFAULT_GROUP_TOPIC);      // second MQTT topic (for example to group devices)
+WLED_GLOBAL char mqttServer[MQTT_MAX_SERVER_LEN + 1]     _INIT(MQTT_DEFAULT_SERVER);           // both domains and IPs should work (no SSL)
+WLED_GLOBAL char mqttUser[41] _INIT(MQTT_DEFAULT_USER);                                        // optional: username for MQTT auth
+WLED_GLOBAL char mqttPass[65] _INIT(MQTT_DEFAULT_PASS);                                        // optional: password for MQTT auth
+WLED_GLOBAL char mqttClientID[41] _INIT(MQTT_DEFAULT_CLIENTID);                                // override the client ID
+WLED_GLOBAL uint16_t mqttPort _INIT(MQTT_DEFAULT_PORT);
+WLED_GLOBAL bool retainMqttMsg _INIT(MQTT_DEFAULT_RETAIN);                                     // retain brightness and color
 #define WLED_MQTT_CONNECTED (mqtt != nullptr && mqtt->connected())
 #else
 #define WLED_MQTT_CONNECTED false
@@ -560,8 +640,11 @@ WLED_GLOBAL char last_signal_src[13] _INIT("");     // last seen ESP-NOW sender
 #ifndef WLED_UTC_OFFSET
   #define WLED_UTC_OFFSET 0
 #endif
+#ifndef WLED_NTP_AMPM
+  #define WLED_NTP_AMPM false
+#endif
 WLED_GLOBAL bool ntpEnabled      _INIT(WLED_NTP_ENABLED); // get internet time. Only required if you use clock overlays or time-activated macros
-WLED_GLOBAL bool useAMPM         _INIT(false);            // 12h/24h clock format
+WLED_GLOBAL bool useAMPM         _INIT(WLED_NTP_AMPM);    // 12h/24h clock format
 WLED_GLOBAL byte currentTimezone _INIT(WLED_TIMEZONE);    // Timezone ID. Refer to timezones array in wled10_ntp.ino
 WLED_GLOBAL int utcOffsetSecs    _INIT(WLED_UTC_OFFSET);  // Seconds to offset from UTC before timzone calculation
 
@@ -597,7 +680,10 @@ WLED_GLOBAL bool aOtaEnabled    _INIT(true);      // ArduinoOTA allows easy upda
 #else
 WLED_GLOBAL bool aOtaEnabled    _INIT(false);     // ArduinoOTA allows easy updates directly from the IDE. Careful, it does not auto-disable when OTA lock is on
 #endif
-WLED_GLOBAL bool otaSameSubnet  _INIT(true);      // prevent OTA updates from other subnets (e.g. internet) if no PIN is set
+#ifndef OTA_DEFAULT_SAME_SUBNET
+  #define OTA_DEFAULT_SAME_SUBNET true
+#endif
+WLED_GLOBAL bool otaSameSubnet  _INIT(OTA_DEFAULT_SAME_SUBNET);      // prevent OTA updates from other subnets (e.g. internet) if no PIN is set
 WLED_GLOBAL char settingsPIN[5] _INIT(WLED_PIN);  // PIN for settings pages
 WLED_GLOBAL bool correctPIN     _INIT(!strlen(settingsPIN));
 WLED_GLOBAL unsigned long lastEditTime _INIT(0);
@@ -641,7 +727,10 @@ WLED_GLOBAL byte colNlT[] _INIT_N(({ 0, 0, 0, 0 }));        // current nightligh
 // brightness
 WLED_GLOBAL unsigned long lastOnTime _INIT(0);
 WLED_GLOBAL bool offMode             _INIT(!turnOnAtBoot);
-WLED_GLOBAL byte briS                _INIT(128);           // default brightness
+#ifndef LED_DEFAULT_BRIGHTNESS
+  #define LED_DEFAULT_BRIGHTNESS 128
+#endif
+WLED_GLOBAL byte briS                _INIT(LED_DEFAULT_BRIGHTNESS);           // default brightness
 WLED_GLOBAL byte bri                 _INIT(briS);          // global brightness (set)
 WLED_GLOBAL byte briOld              _INIT(0);             // global brightness while in transition loop (previous iteration)
 WLED_GLOBAL byte briT                _INIT(0);             // global brightness during transition
@@ -649,9 +738,12 @@ WLED_GLOBAL byte briLast             _INIT(128);           // brightness before 
 WLED_GLOBAL byte whiteLast           _INIT(128);           // white channel before turned off. Used for toggle function in ir.cpp
 
 // button
+#ifndef MQTT_DEFAULT_BUTTON_PUBLISH
+  #define MQTT_DEFAULT_BUTTON_PUBLISH false
+#endif
 WLED_GLOBAL int8_t btnPin[WLED_MAX_BUTTONS]                   _INIT({BTNPIN});
 WLED_GLOBAL byte buttonType[WLED_MAX_BUTTONS]                 _INIT({BTNTYPE});
-WLED_GLOBAL bool buttonPublishMqtt                            _INIT(false);
+WLED_GLOBAL bool buttonPublishMqtt                            _INIT(MQTT_DEFAULT_BUTTON_PUBLISH);
 WLED_GLOBAL bool buttonPressedBefore[WLED_MAX_BUTTONS]        _INIT({false});
 WLED_GLOBAL bool buttonLongPressed[WLED_MAX_BUTTONS]          _INIT({false});
 WLED_GLOBAL unsigned long buttonPressedTime[WLED_MAX_BUTTONS] _INIT({0});
@@ -660,13 +752,22 @@ WLED_GLOBAL bool disablePullUp                                _INIT(false);
 WLED_GLOBAL byte touchThreshold                               _INIT(TOUCH_THRESHOLD);
 
 // notifications
-WLED_GLOBAL bool sendNotifications    _INIT(false);           // master notification switch
+#ifndef NOTIFY_DEFAULT_SEND_NOTIFICATIONS
+  #define NOTIFY_DEFAULT_SEND_NOTIFICATIONS false
+#endif
+WLED_GLOBAL bool sendNotifications    _INIT(NOTIFY_DEFAULT_SEND_NOTIFICATIONS);           // master notification switch
 WLED_GLOBAL bool sendNotificationsRT  _INIT(false);           // master notification switch (runtime)
 WLED_GLOBAL unsigned long notificationSentTime _INIT(0);
 WLED_GLOBAL byte notificationSentCallMode _INIT(CALL_MODE_INIT);
 WLED_GLOBAL uint8_t notificationCount _INIT(0);
-WLED_GLOBAL uint8_t syncGroups    _INIT(0x01);                // sync send groups this instance syncs to (bit mapped)
-WLED_GLOBAL uint8_t receiveGroups _INIT(0x01);                // sync receive groups this instance belongs to (bit mapped)
+#ifndef SYNC_DEFAULT_SEND_GROUPS
+  #define SYNC_DEFAULT_SEND_GROUPS 0x01
+#endif
+WLED_GLOBAL uint8_t syncGroups    _INIT(SYNC_DEFAULT_SEND_GROUPS);                // sync send groups this instance syncs to (bit mapped)
+#ifndef SYNC_DEFAULT_RECEIVE_GROUPS
+  #define SYNC_DEFAULT_RECEIVE_GROUPS 0x01
+#endif
+WLED_GLOBAL uint8_t receiveGroups _INIT(SYNC_DEFAULT_RECEIVE_GROUPS);             // sync receive groups this instance belongs to (bit mapped)
 #ifdef WLED_SAVE_RAM
 // this will save us 8 bytes of RAM while increasing code by ~400 bytes
 typedef class Receive {
@@ -714,8 +815,16 @@ typedef class Send {
     Hue = h;
   }
 } __attribute__ ((aligned(1), packed)) send_notification_t;
-WLED_GLOBAL receive_notification_t receiveN _INIT(0b01100111);
-WLED_GLOBAL send_notification_t    notifyG  _INIT(0b00001111);
+#ifndef RECEIVE_DEFAULT_DIRECT
+  #define RECEIVE_DEFAULT_DIRECT 1
+#endif
+#define RECEIVE_DEFAULT_OPTIONS ( (0x67 & ~(1<<5)) | ( (RECEIVE_DEFAULT_DIRECT) ? (1<<5) : 0 ) )
+WLED_GLOBAL receive_notification_t receiveN _INIT(RECEIVE_DEFAULT_OPTIONS);
+#ifndef NOTIFY_DEFAULT_DIRECT
+  #define NOTIFY_DEFAULT_DIRECT 0
+#endif
+#define NOTIFY_DEFAULT_OPTIONS ( (0x0F & ~(1<<0)) | ( (NOTIFY_DEFAULT_DIRECT) ? (1<<0) : 0 ) )
+WLED_GLOBAL send_notification_t    notifyG  _INIT(NOTIFY_DEFAULT_OPTIONS);
 #define receiveNotificationBrightness receiveN.Brightness
 #define receiveNotificationColor      receiveN.Color
 #define receiveNotificationEffects    receiveN.Effects
@@ -734,8 +843,8 @@ WLED_GLOBAL bool receiveNotificationEffects    _INIT(true);       // apply effec
 WLED_GLOBAL bool receiveNotificationPalette    _INIT(true);       // apply palette
 WLED_GLOBAL bool receiveSegmentOptions         _INIT(false);      // apply segment options
 WLED_GLOBAL bool receiveSegmentBounds          _INIT(false);      // apply segment bounds (start, stop, offset)
-WLED_GLOBAL bool receiveDirect _INIT(true);                       // receive UDP/Hyperion realtime
-WLED_GLOBAL bool notifyDirect _INIT(true);                        // send notification if change via UI or HTTP API
+WLED_GLOBAL bool receiveDirect _INIT(RECEIVE_DEFAULT_DIRECT);     // receive UDP/Hyperion realtime
+WLED_GLOBAL bool notifyDirect _INIT(NOTIFY_DEFAULT_DIRECT);       // send notification if change via UI or HTTP API
 WLED_GLOBAL bool notifyButton _INIT(true);                        // send if updated by button or infrared remote
 WLED_GLOBAL bool notifyAlexa  _INIT(false);                       // send notification if updated via Alexa
 WLED_GLOBAL bool notifyHue    _INIT(false);                       // send notification if Hue light changes
@@ -772,7 +881,13 @@ typedef class Udp {
       RgbConnected = c3;
     }
 } __attribute__ ((aligned(1), packed)) udp_port_t;
-WLED_GLOBAL udp_port_t udp _INIT_N(({21234, 65506, 19446, 0, false, false, false}));
+#ifndef UDP_DEFAULT_MAIN_PORT
+  #define UDP_DEFAULT_MAIN_PORT 21234   // UDP Port
+#endif
+#ifndef UDP_DEFAULT_SECOND_PORT
+  #define UDP_DEFAULT_SECOND_PORT 65506 // 2nd Port
+#endif
+WLED_GLOBAL udp_port_t udp _INIT_N(({UDP_DEFAULT_MAIN_PORT, UDP_DEFAULT_SECOND_PORT, 19446, 0, false, false, false}));
 #define udpPort         udp.Port
 #define udpPort2        udp.Port2
 #define udpRgbPort      udp.RgbPort
@@ -781,8 +896,8 @@ WLED_GLOBAL udp_port_t udp _INIT_N(({21234, 65506, 19446, 0, false, false, false
 #define udp2Connected   udp.Connected2
 #define udpRgbConnected udp.RgbConnected
 #else
-WLED_GLOBAL uint16_t udpPort    _INIT(21324); // WLED notifier default port
-WLED_GLOBAL uint16_t udpPort2   _INIT(65506); // WLED notifier supplemental port
+WLED_GLOBAL uint16_t udpPort    _INIT(UDP_DEFAULT_MAIN_PORT);   // WLED notifier default port
+WLED_GLOBAL uint16_t udpPort2   _INIT(UDP_DEFAULT_SECOND_PORT); // WLED notifier supplemental port
 WLED_GLOBAL uint16_t udpRgbPort _INIT(19446); // Hyperion port
 WLED_GLOBAL uint8_t  udpNumRetries _INIT(0);  // Number of times a UDP sync message is retransmitted. Increase to increase reliability
 WLED_GLOBAL bool     udpConnected _INIT(false);
@@ -835,14 +950,20 @@ WLED_GLOBAL byte presetCycMin _INIT(1);
 WLED_GLOBAL byte presetCycMax _INIT(5);
 
 // realtime
+#ifndef LED_DEFAULT_USE_MAIN_SEGMENT_ONLY
+  #define LED_DEFAULT_USE_MAIN_SEGMENT_ONLY false
+#endif
+#ifndef REALTIME_DEFAULT_RESPECT_LED_MAPS
+  #define REALTIME_DEFAULT_RESPECT_LED_MAPS true
+#endif
 WLED_GLOBAL byte realtimeMode _INIT(REALTIME_MODE_INACTIVE);
 WLED_GLOBAL byte realtimeOverride _INIT(REALTIME_OVERRIDE_NONE);
 WLED_GLOBAL IPAddress realtimeIP _INIT_N(((0, 0, 0, 0)));
 WLED_GLOBAL unsigned long realtimeTimeout _INIT(0);
 WLED_GLOBAL uint8_t tpmPacketCount _INIT(0);
 WLED_GLOBAL uint16_t tpmPayloadFrameSize _INIT(0);
-WLED_GLOBAL bool useMainSegmentOnly _INIT(false);
-WLED_GLOBAL bool realtimeRespectLedMaps _INIT(true);                     // Respect LED maps when receiving realtime data
+WLED_GLOBAL bool useMainSegmentOnly _INIT(LED_DEFAULT_USE_MAIN_SEGMENT_ONLY);
+WLED_GLOBAL bool realtimeRespectLedMaps _INIT(REALTIME_DEFAULT_RESPECT_LED_MAPS);                     // Respect LED maps when receiving realtime data
 
 WLED_GLOBAL unsigned long lastInterfaceUpdate _INIT(0);
 WLED_GLOBAL byte interfaceUpdateCallMode _INIT(CALL_MODE_INIT);
