@@ -126,15 +126,37 @@ async function minify(str, type = "plain") {
   throw new Error("Unknown filter: " + type);
 }
 
-async function writeHtmlGzipped(sourceFile, resultFile, page) {
+// protect specific JS <script src="..."> tags from being inlined by web-resource-inliner
+function protectScriptExclusions(html, excludeScripts = []) {
+  if (!excludeScripts || excludeScripts.length === 0) return html;
+  const pattern = excludeScripts.map(s => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|");
+  if (!pattern) return html;
+  const re = new RegExp(`<script\\b([^>]*?)\\bsrc=["']([^"']*(${pattern})[^"']*)["']([^>]*)>\\s*<\\/script>`, "gi");
+  // Change the tag name so the inliner doesn't process it
+  return html.replace(re, (m) => m.replace(/<script/i, "<x-script"));
+}
+
+function restoreScriptExclusions(html) {
+  return html.replace(/<x-script/gi, "<script");
+}
+
+async function writeHtmlGzipped(sourceFile, resultFile, page, opts = {}) {
+  const { excludeScripts = [] } = opts;
+
   console.info("Reading " + sourceFile);
+  const originalHtml = fs.readFileSync(sourceFile, "utf8");
+  const preprocessedHtml = protectScriptExclusions(originalHtml, excludeScripts);
+
   inline.html({
-    fileContent: fs.readFileSync(sourceFile, "utf8"),
+    fileContent: preprocessedHtml,
     relativeTo: path.dirname(sourceFile),
     strict: true,
+    skipAbsoluteUrls: true, // don't inline absolute external resources
   },
     async function (error, html) {
       if (error) throw error;
+
+      html = restoreScriptExclusions(html); // restore any protected script tags so the browser can load them at runtime
 
       html = adoptVersionAndRepo(html);
       const originalLength = html.length;
@@ -242,7 +264,9 @@ if (isAlreadyBuilt("wled00/data") && process.argv[2] !== '--force' && process.ar
   return;
 }
 
-writeHtmlGzipped("wled00/data/index.htm", "wled00/html_ui.h", 'index');
+writeHtmlGzipped("wled00/data/index.htm", "wled00/html_ui.h", 'index', {
+  excludeScripts: ['iro.js'] // exclude iro.js from inlining, it is also used by cpal.htm
+});
 writeHtmlGzipped("wled00/data/pixart/pixart.htm", "wled00/html_pixart.h", 'pixart');
 //writeHtmlGzipped("wled00/data/cpal/cpal.htm", "wled00/html_cpal.h", 'cpal');
 writeHtmlGzipped("wled00/data/pxmagic/pxmagic.htm", "wled00/html_pxmagic.h", 'pxmagic');
@@ -259,6 +283,21 @@ writeChunks(
   ],
   "wled00/html_cpal.h"
 );
+
+writeChunks(
+  "wled00/data/",
+  [
+    {
+      file: "iro.js",
+      name: "JS_iro",
+      method: "gzip",
+      filter: "plain", // no minification, it is already minified
+      mangle: (s) => s.replace(/^\/\*![\s\S]*?\*\//, '') // remove license comment at the top
+    }
+  ],
+  "wled00/js_iro.h"
+);
+
 
 writeChunks(
   "wled00/data",

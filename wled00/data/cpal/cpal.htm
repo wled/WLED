@@ -16,7 +16,6 @@
       --bg:#111; --fg:#ddd; --bd:#333;
       --pad:16px;         /* side padding aligning editor and previews */
       --maxw:820px;       /* max working width */
-      --actw:120px;       /* fixed actions column width (align custom vs static) */
       --namew:16ch;       /* 2/3 of 24ch to reduce name width by ~30% */
     }
     button.sml { text-overflow: clip; }
@@ -39,8 +38,11 @@
     .bar { display:flex; flex-wrap:wrap; gap:10px; align-items:center; justify-content:center; margin:8px 0 12px; width:100%; max-width:var(--maxw); padding:0 var(--pad); }
     .small { font-size:12px; opacity:0.85; }
 
-    /* Editor gradient row */
-    #editor { width:100%; display:flex; justify-content:center; }
+    /* Editor gradient row (frozen top) */
+    #editor {
+      width:100%; display:flex; justify-content:center;
+      position: sticky; top: 0; z-index: 5; background: var(--bg); padding: 6px 0;
+    }
     #gradWrap {
       position:relative; height:34px; width:100%; max-width:var(--maxw);
       border-radius:8px; border:1px solid var(--bd); padding:0 var(--pad); box-sizing:border-box;
@@ -54,25 +56,45 @@
 
     section { margin-top:18px; width:100%; }
 
-    /* List rows kept simple with flex:
-       Name (left, fixed 16ch) | Preview (center, flex-basis 50%) | Actions (right, fixed width)
+    /* List rows with flex:
+       Name (fixed 16ch) | Preview (flex) | Save button (right)
        Names hide on narrow screens, preview grows to fill space.
     */
     .table { max-width:var(--maxw); width:100%; margin:0 auto; padding:0 var(--pad); }
     .list { display:flex; flex-direction:column; gap:8px; width:100%; }
     .row { display:flex; align-items:center; gap:10px; width:100%; }
-    .name { flex:0 0 var(--namew); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; opacity:.95; }
-    .preview { flex:1 1 50%; min-width:100px; height:26px; border-radius:6px; border:1px solid var(--bd); }
-    .actions { flex:0 0 var(--actw); display:flex; gap:6px; justify-content:flex-end; width:var(--actw); }
-    .actions.one > .btn { width:100%; }         /* single button fills actions width */
-    .actions.two > .btn { flex:1 1 0; }         /* two buttons share same width as one */
+    .row .sml:last-child { margin-left: auto; } /* right-align the last button in row when present */
 
-    /* Responsive: hide names before touching buttons or preview */
+    .name { flex:0 0 var(--namew); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; opacity:.95; }
+    .name .by { display:block; font-size:12px; opacity:.8; }
+    .preview { flex:1 1 50%; min-width:100px; height:26px; border-radius:6px; border:1px solid var(--bd); }
+    .preview.clickable { cursor: pointer; }
+
+    /* Sticky "new slot" row (if present) */
+    .row.sticky-new { position: sticky; top: 48px; z-index: 3; background: var(--bg); padding: 4px 0; }
+
+    /* Responsive: hide names before touching preview */
     @media (max-width: 760px) {
       .name { display:none; }
-      .preview { flex-basis: auto; } /* preview expands to fill freed space */
+      .preview { flex-basis: auto; }
     }
-    @media (max-width: 420px) { .btn { padding:5px 8px; } }
+
+    /* Categories (external palettes) - restored collapsed styles with chevron */
+    .categories { max-width:var(--maxw); width:100%; padding:0 var(--pad); }
+    details.category { border:1px solid var(--bd); border-radius:8px; margin:10px 0; background: #101010; }
+    details.category > summary {
+      cursor:pointer; padding:8px 10px; display:flex; align-items:center; gap:8px; color: var(--fg);
+      list-style: none;
+    }
+    details.category > summary::-webkit-details-marker { display:none; }
+    details.category > summary::before {
+      display:inline-block; transform: translateY(-1px); transition: transform .15s ease;
+      width: 1em; text-align: center; opacity: .9;
+    }
+    details.category[open] > summary::before {
+      transform: translateY(-1px);
+    }
+    .cat-body { padding:8px 10px 12px; display:flex; flex-direction:column; gap:8px; }
   </style>
 </head>
 <body>
@@ -102,12 +124,16 @@
     </section>
 
     <section>
-      <div class="hdr">
         <b>WLED palettes</b>
-      </div>
       <div class="table">
         <div id="static" class="list"></div>
       </div>
+    </section>
+
+    <!-- External palettes by categories (collapsed by default) -->
+    <section>
+        <b>External palettes</b>
+      <div id="extCats" class="table"></div>
     </section>
 
     <!-- Bottom bar to fetch external palettes from GitHub Pages -->
@@ -123,6 +149,16 @@
     let cpalc = 0, cpalm = 10, palNm = [], custom = [], statics = [];
 
     const SKIP_FIRST_STATIC = 8; // skip dynamic palettes at start like original
+
+    // External categories cache key (entire JSON)
+    const EXT_CPT_CITY_CACHE_KEY = 'wledCptCityJson';
+
+    // Category order and labels (thematic)
+    const CAT_ORDER = ['colorful','thematic','pastel','striped','gradient','monochrome'];
+    const CAT_LABEL = {
+      colorful:'Colorful', thematic:'Thematic', pastel:'Pastel',
+      striped:'Striped', gradient:'Gradient', monochrome:'Monochrome'
+    };
 
     // Geometry
     function recalc() {
@@ -212,7 +248,6 @@
       add(255, randomHex(), true);
     }
 
-
     // Data conversion
     function toJSON() { return JSON.stringify({ palette: stops().flatMap(s => [s.t, s.c.slice(1)]) }); }
     function cssFromArr(arr) {
@@ -224,17 +259,30 @@
       }
       return 'linear-gradient(to right,' + out.join(',') + ')';
     }
+
+    // Upload and refresh custom list (no redirect)
     function upload(slot) {
       const r = new XMLHttpRequest();
       const b = new Blob([toJSON()], { type: 'application/json' });
       const fd = new FormData();
-      r.onload = () => { localStorage.removeItem('wledPalx'); location.href = '/'; };
+      r.onload = () => {
+        localStorage.removeItem('wledPalx');
+        refreshCustomList(); // do not redirect; refresh custom palettes
+      };
       r.open('POST', '/upload');
       fd.append('data', b, '/palette' + slot + '.json');
       r.send(fd);
     }
+    async function refreshCustomList() {
+      try {
+        const info = await fetch(getURL('/json/info'), { cache: 'no-store' }).then(r=>r.json());
+        cpalc = info.cpalcount; cpalm = info.cpalmax;
+      } catch(e) {}
+      await fetchCustom(cpalc - 1);
+    }
+
     function isNewSlot(arr) {
-      return Array.isArray(arr) && arr.length === 1 && arr[0] === 255; // check for simple, invalid palette
+      return Array.isArray(arr) && arr.length === 1 && arr[0] === 255; // simple placeholder
     }
     function loadArray(arr) {
       grad.innerHTML = '';
@@ -247,35 +295,47 @@
       }
     }
 
-    // Lists (Name | Preview | Actions)
+    // Lists (Name | Preview | Save button (custom only))
     function buildLists() {
       const cDiv = $('custom'), sDiv = $('static');
       cDiv.innerHTML = ''; sDiv.innerHTML = '';
       const fragC = d.createDocumentFragment(), fragS = d.createDocumentFragment();
 
-      custom.forEach((p, i) => {
+      // Ensure "new slot" (placeholder) is first and sticky if present
+      const newSlots = [], existing = [];
+      custom.forEach((p, i) => (isNewSlot(p.palette) ? newSlots : existing).push({ p, i }));
+
+      newSlots.concat(existing).forEach(({p, i}) => {
         const row = C('div'); row.className = 'row';
+        if (isNewSlot(p.palette)) row.classList.add('sticky-new'); // frozen at top if present
+
         const name = C('div'); name.className = 'name'; name.textContent = 'Custom' + i;
-        const preview = C('div'); preview.className = 'preview'; preview.style.backgroundImage = cssFromArr(p.palette);
-        const actions = C('div'); actions.className = 'actions two';
-        const save = C('button'); save.className = 'sml'; save.innerHTML = '&#x1F81C;'; save.onclick = () => upload(i); // save, leftarrow &#x1F81C;
-        if(!isNewSlot(p.palette)) {
-          const load = C('button'); load.className = 'sml'; load.innerHTML = '&#x270E;'; load.onclick = () => loadArray(p.palette); // &#x270E; pencil
-        }
-        else {
-            const load = C('span'); // no "load" button for empty slots
-        }
-        actions.append(save, load); row.append(name, preview, actions); fragC.appendChild(row);
+
+        const preview = C('div'); preview.className = 'preview clickable';
+        preview.style.backgroundImage = cssFromArr(p.palette);
+        preview.title = isNewSlot(p.palette) ? 'Empty slot' : 'Click to load in editor';
+        if (!isNewSlot(p.palette)) preview.onclick = () => loadArray(p.palette);
+
+        // Save button right-aligned
+        const save = C('button'); save.className = 'sml'; save.innerHTML = '&#x1F81C;';
+        save.title = 'Save current editor to slot ' + i;
+        save.onclick = () => upload(i);
+
+        row.append(name, preview, save); fragC.appendChild(row);
       });
 
+      // WLED static palettes: preview itself loads
       statics.forEach(o => {
         const k = Object.keys(o)[0];
         const row = C('div'); row.className = 'row';
         const name = C('div'); name.className = 'name'; name.textContent = o.name || ('Palette ' + k);
-        const preview = C('div'); preview.className = 'preview'; preview.style.backgroundImage = cssFromArr(o[k]);
-        const actions = C('div'); actions.className = 'actions one';
-        const load = C('button'); load.className = 'sml'; load.innerHTML = ' &#x1F81D;'; load.onclick = () => loadArray(o[k]); //Load  &#x1F81D; or &#x21E7;
-        actions.append(load); row.append(name, preview, actions); fragS.appendChild(row);
+
+        const preview = C('div'); preview.className = 'preview clickable';
+        preview.style.backgroundImage = cssFromArr(o[k]);
+        preview.title = 'Click to load in editor';
+        preview.onclick = () => loadArray(o[k]);
+
+        row.append(name, preview); fragS.appendChild(row);
       });
 
       cDiv.appendChild(fragC);
@@ -292,7 +352,7 @@
           if (!res.ok) throw new Error('HTTP ' + res.status);
           custom.push(await res.json());
         }
-        if (custom.length < cpalm) custom.push({ palette: [255] }); // push simple, invalid palette to show empty slot
+        if (custom.length < cpalm) custom.push({ palette: [255] }); // show empty slot
         buildLists();
       };
 
@@ -307,16 +367,13 @@
       }
     }
 
-    // Converter: cpt-city JSON -> statics entries
-    // Input item shape: { name, author, colors: [t0, "hex0", t1, "hex1", ...] }
-    // Output entries are appended to "statics" so they render at the bottom of the Static palettes list.
+    // Converter: cpt-city JSON -> statics entries (legacy append)
     function convertCptCityToStatics(arr) {
       if (!Array.isArray(arr)) return [];
       const out = [];
       arr.forEach((p, idx) => {
         if (!p || !Array.isArray(p.colors)) return;
-        const colors = p.colors.slice(); // keep as [t, "hex", ...]; cssFromArr/loadArray understand this
-        // Ensure it ends at t=255; if not, duplicate last color at 255
+        const colors = p.colors.slice();
         if (typeof colors[colors.length - 2] === 'number' && colors[colors.length - 2] !== 255) {
           const lastColor = colors[colors.length - 1];
           colors.push(255, lastColor);
@@ -326,22 +383,174 @@
       return out;
     }
 
-    // Fetch from https://{username}.github.io/palette_selection_cpt_city.json
+    /* ===== External palettes with categories (renamed 'themed'->'thematic') ===== */
+
+    // Normalize external "colors" to stops [{pos, rgb:string|[r,g,b]}]
+    function extToStops(colors) {
+      if (!Array.isArray(colors) || !colors.length) return [];
+      if (typeof colors[0] === 'object' && colors[0] && ('pos' in colors[0]) && ('rgb' in colors[0])) {
+        return colors.map(s => {
+          let rgb = s.rgb;
+          if (typeof rgb === 'string') rgb = rgb.replace(/^#/, '').toLowerCase();
+          return { pos: Number(s.pos), rgb };
+        }).sort((a,b)=>a.pos-b.pos);
+      }
+      const out = [];
+      for (let i=0;i<colors.length-1;i+=2) {
+        const pos = Number(colors[i]);
+        let hex = String(colors[i+1] ?? '').trim().replace(/^#/, '').toLowerCase();
+        if (Number.isFinite(pos) && /^[0-9a-fA-F]{6}$/.test(hex)) out.push({ pos, rgb: hex });
+      }
+      return out.sort((a,b)=>a.pos-b.pos);
+    }
+
+    function stopsToFlat(stops) {
+      const flat = [];
+      for (const s of stops) {
+        const pos = Math.max(0, Math.min(255, Math.round(s.pos)));
+        if (typeof s.rgb === 'string') flat.push(pos, s.rgb);
+        else if (Array.isArray(s.rgb)) {
+          const [r,g,b] = s.rgb.map(v=>Math.max(0,Math.min(255, v|0)));
+          flat.push(pos, r, g, b);
+        }
+      }
+      if (flat.length >= 2 && flat[flat.length-2] !== 255) {
+        const last = flat.slice(-1)[0];
+        if (typeof last === 'string') flat.push(255, last);
+        else flat.push(255, flat[flat.length-3], flat[flat.length-2], flat[flat.length-1]);
+      }
+      return flat;
+    }
+
+    function gradientCSSFromStops(stops) {
+      return 'linear-gradient(to right, ' + stops.map(s => {
+        if (typeof s.rgb === 'string') return `#${s.rgb} ${s.pos/255*100}%`;
+        if (Array.isArray(s.rgb)) { const [r,g,b]=s.rgb; return `rgb(${r},${g},${b}) ${s.pos/255*100}%`; }
+        return `#000000 ${s.pos/255*100}%`;
+      }).join(', ') + ')';
+    }
+
+    // Build categories UI (collapsed by default); previews are clickable loaders
+    function buildExtCategories(groups) {
+      const host = $('extCats');
+      if (!host) return;
+      host.innerHTML = '';
+
+      CAT_ORDER.forEach(key => {
+        const items = groups[key] || [];
+        const det = C('details'); det.className = 'category'; // collapsed by default
+        const sum = C('summary');
+        sum.textContent = `${CAT_LABEL[key] || key} (${items.length})`;
+        det.appendChild(sum);
+
+        const body = C('div'); body.className = 'cat-body';
+
+        if (!items.length) {
+          const emptyRow = C('div'); emptyRow.className = 'row';
+          const empty = C('div'); empty.className='small'; empty.textContent='No palettes in this category.';
+          emptyRow.append(C('div'), empty); // spacer for name column
+          body.appendChild(emptyRow);
+        } else {
+          items.forEach(p => {
+            const stops = extToStops(p.colors);
+            const row = C('div'); row.className = 'row';
+
+            const name = C('div'); name.className = 'name';
+            const title = C('span'); title.textContent = p.name || '(unnamed)';
+            name.appendChild(title);
+            if (p.author) {
+              const by = C('span'); by.className='by'; by.textContent = 'by ' + p.author;
+              name.appendChild(by);
+            }
+
+            const preview = C('div'); preview.className = 'preview clickable';
+            preview.style.background = gradientCSSFromStops(stops);
+            preview.title = 'Click to load in editor';
+            const flat = stopsToFlat(stops);
+            preview.onclick = () => loadArray(flat);
+
+            row.append(name, preview);
+            body.appendChild(row);
+          });
+        }
+        det.appendChild(body);
+        host.appendChild(det);
+      });
+    }
+
+    // Map external palettes to requested categories (normalize 'themed' -> 'thematic')
+    function groupExternal(data) {
+      const groups = {};
+      CAT_ORDER.forEach(k => groups[k] = []);
+      const normKey = (v) => {
+        const k = (v || '').toLowerCase();
+        return k === 'themed' ? 'thematic' : k;
+      };
+
+      // Case 1: { categories: { key: [...] } }
+      if (data && data.categories && typeof data.categories === 'object') {
+        for (const [k, list] of Object.entries(data.categories)) {
+          const key = normKey(k);
+          if (!Array.isArray(list)) continue;
+          list.forEach(p => { if (groups[key]) groups[key].push(p); });
+        }
+        return groups;
+      }
+
+      // Case 2: { palettes: [ { category|class: "...", ... } ] }
+      if (Array.isArray(data?.palettes)) {
+        data.palettes.forEach(p => {
+          const key = normKey(p.category || p.class);
+          if (groups[key]) groups[key].push(p);
+        });
+        return groups;
+      }
+
+      // Case 3: Root is an array: [ { class|category: "...", name, author, colors } ]
+      if (Array.isArray(data)) {
+        data.forEach(p => {
+          const key = normKey(p.class || p.category);
+          if (groups[key]) groups[key].push(p);
+        });
+        return groups;
+      }
+      return groups;
+    }
+
+    // Try to load external categories from cache; returns true if used cache
+    function tryLoadExtFromCache() {
+      const btn = $('btnFetchExt');
+      try {
+        const raw = localStorage.getItem(EXT_CPT_CITY_CACHE_KEY);
+        if (!raw) return false;
+        const data = JSON.parse(raw);
+        const groups = groupExternal(data);
+        buildExtCategories(groups);
+        if (btn) btn.style.display = 'none'; // hide download button if cached
+        return true;
+      } catch (e) {
+        // bad cache; clear it
+        localStorage.removeItem(EXT_CPT_CITY_CACHE_KEY);
+        return false;
+      }
+    }
+
+    // Fetch from GitHub Pages (renamed file: cpt_city_selection.json) and cache it
     async function fetchCptCityFromGithubPages() {
       try {
-        const url = `https://dedehai.github.io/palette_selection_cpt_city.json`;
-        const res = await fetch(url, { mode: 'cors' });
+        const url = `https://dedehai.github.io/cpt_city_selection.json`;
+        const res = await fetch(url, { mode: 'cors', cache: 'no-store' });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
-        const converted = convertCptCityToStatics(data);
-        if (!converted.length) { alert('No palettes found in file.'); return; }
-        statics = statics.concat(converted);
-        buildLists();
-        // Scroll to bottom of static list to show newly added palettes
-        setTimeout(() => {
-          const sDiv = $('static');
-          sDiv.lastElementChild?.scrollIntoView({ behavior: 'smooth', block: 'end' });
-        }, 0);
+
+        // Cache the entire JSON
+        try { localStorage.setItem(EXT_CPT_CITY_CACHE_KEY, JSON.stringify(data)); } catch(e) {}
+
+        const groups = groupExternal(data);
+        buildExtCategories(groups);
+
+        // hide the download button now that it's cached/loaded
+        const btn = $('btnFetchExt'); if (btn) btn.style.display = 'none';
       } catch (e) {
         console.error(e);
         alert('Failed to fetch palettes. Please check the username and that the JSON file is accessible.');
@@ -350,6 +559,13 @@
 
     async function init() {
       getLoc();
+
+      // If external file is already cached, load immediately and hide the download button
+      const usedCache = tryLoadExtFromCache();
+      if (!usedCache) {
+        const btn = $('btnFetchExt'); if (btn) btn.style.display = '';
+      }
+
       try {
         const info = await fetch(getURL('/json/info')).then(r => r.json());
         const names = await fetch(getURL('/json/pal')).then(r => r.json());
