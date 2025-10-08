@@ -54,8 +54,10 @@ private:
   static bool parseRFC3339ToUTC(const char* s, time_t& outUtc);
   // Helpers to keep fetch() concise
   bool httpBegin(const String& url, int& outLen);
-  bool parseJsonFromHttp(DynamicJsonDocument& doc);
+  bool parseJsonFromHttp(JsonDocument& doc);
   static size_t computeJsonCapacity(int contentLen);
-  JsonObject getSiriRoot(DynamicJsonDocument& doc, bool& usedTopLevelFallback);
+  JsonObject getSiriRoot(JsonDocument& doc, bool& usedTopLevelFallback);
   bool buildModelFromSiri(JsonObject siri, std::time_t now, std::unique_ptr<DepartModel>& outModel);
+  static JsonDocument* acquireJsonDoc(size_t capacity, bool& fromPool);
+  static void releaseJsonDoc(JsonDocument* doc, bool fromPool);
 };

@@ -75,6 +75,11 @@ static String jsonFirstString(JsonVariantConst v) {
   }
   return String();
 }
+
+// Shared JSON buffer reused across all Siri sources to limit heap fragmentation.
+static constexpr size_t SIRI_JSON_MAX_CAP = 20000;
+static DynamicJsonDocument* g_siriSharedDoc = nullptr;
+static bool g_siriSharedInUse = false;
 } // namespace
 
 SiriSource::SiriSource(const char* key, const char* defAgency, const char* defStopCode, const char* defBaseUrl) {
@@ -194,7 +199,7 @@ bool SiriSource::httpBegin(const String& url, int& outLen) {
   return true;
 }
 
-bool SiriSource::parseJsonFromHttp(DynamicJsonDocument& doc) {
+bool SiriSource::parseJsonFromHttp(JsonDocument& doc) {
   SkipBOMStream s(http_.getStream());
   DeserializationError err;
   // Always apply the narrow filter
@@ -262,7 +267,39 @@ size_t SiriSource::computeJsonCapacity(int contentLen) {
   return 20000; // 20 kB
 }
 
-JsonObject SiriSource::getSiriRoot(DynamicJsonDocument& doc, bool& usedTopLevelFallback) {
+JsonDocument* SiriSource::acquireJsonDoc(size_t capacity, bool& fromPool) {
+  if (capacity < 1024) capacity = 1024;
+  fromPool = false;
+  if (!g_siriSharedDoc) {
+    g_siriSharedDoc = new DynamicJsonDocument(SIRI_JSON_MAX_CAP);
+  }
+  if (!g_siriSharedInUse) {
+    if (g_siriSharedDoc->capacity() < SIRI_JSON_MAX_CAP) {
+      delete g_siriSharedDoc;
+      g_siriSharedDoc = new DynamicJsonDocument(SIRI_JSON_MAX_CAP);
+    }
+    g_siriSharedDoc->clear();
+    g_siriSharedInUse = true;
+    fromPool = true;
+    return g_siriSharedDoc;
+  }
+  // Fallback allocation; caller is responsible for deleting via releaseJsonDoc.
+  DynamicJsonDocument* temp = new DynamicJsonDocument(capacity);
+  temp->clear();
+  return temp;
+}
+
+void SiriSource::releaseJsonDoc(JsonDocument* doc, bool fromPool) {
+  if (!doc) return;
+  if (doc == g_siriSharedDoc) {
+    g_siriSharedInUse = false;
+    doc->clear();
+    return;
+  }
+  if (!fromPool) delete static_cast<DynamicJsonDocument*>(doc);
+}
+
+JsonObject SiriSource::getSiriRoot(JsonDocument& doc, bool& usedTopLevelFallback) {
   usedTopLevelFallback = false;
   JsonObject siri = doc["Siri"].as<JsonObject>();
   if (siri.isNull()) {
@@ -302,6 +339,10 @@ bool SiriSource::buildModelFromSiri(JsonObject siri, std::time_t now, std::uniqu
   DepartModel::Entry::Batch batch;
   batch.apiTs = apiTs;
   batch.ourTs = now;
+  if (!visits.isNull()) {
+    size_t cap = visits.size();
+    if (cap > batch.items.capacity()) batch.items.reserve(cap);
+  }
 
   int totalVisits = 0, hadTime = 0, parsedTime = 0;
   String firstStopName;
@@ -425,9 +466,19 @@ std::unique_ptr<DepartModel> SiriSource::fetch(std::time_t now) {
 
   size_t jsonSz = computeJsonCapacity(len);
   DEBUG_PRINTF("DepartStrip: SiriSource::fetch: json capacity=%u, free heap=%u\n", (unsigned)jsonSz, ESP.getFreeHeap());
-  DynamicJsonDocument doc(jsonSz);
+  bool fromPool = false;
+  JsonDocument* docPtr = acquireJsonDoc(jsonSz, fromPool);
+  if (!docPtr) {
+    DEBUG_PRINTLN(F("DepartStrip: SiriSource::fetch: failed to acquire JSON buffer"));
+    long delay = (long)updateSecs_ * (long)backoffMult_;
+    nextFetch_ = now + delay;
+    if (backoffMult_ < 16) backoffMult_ *= 2;
+    return nullptr;
+  }
+  JsonDocument& doc = *docPtr;
   DEBUG_PRINTF("DepartStrip: SiriSource::fetch: filter=on (len=%d)\n", len);
   if (!parseJsonFromHttp(doc)) {
+    releaseJsonDoc(docPtr, fromPool);
     long delay = (long)updateSecs_ * (long)backoffMult_;
     DEBUG_PRINTF("DepartStrip: SiriSource::fetch: scheduling backoff x%u %s for %lds (parse error)\n",
                  (unsigned)backoffMult_, sourceKey().c_str(), delay);
@@ -440,6 +491,7 @@ std::unique_ptr<DepartModel> SiriSource::fetch(std::time_t now) {
   JsonObject siri = getSiriRoot(doc, usedTop);
   if (usedTop) DEBUG_PRINTLN(F("DepartStrip: SiriSource::fetch: using top-level as Siri container"));
   if (siri.isNull()) {
+    releaseJsonDoc(docPtr, fromPool);
     DEBUG_PRINTLN(F("DepartStrip: SiriSource::fetch: missing Siri root"));
     long delay = (long)updateSecs_ * (long)backoffMult_;
     DEBUG_PRINTF("DepartStrip: SiriSource::fetch: scheduling backoff x%u %s for %lds (bad JSON shape)\n",
@@ -451,6 +503,7 @@ std::unique_ptr<DepartModel> SiriSource::fetch(std::time_t now) {
 
   std::unique_ptr<DepartModel> model;
   if (!buildModelFromSiri(siri, now, model)) {
+    releaseJsonDoc(docPtr, fromPool);
     nextFetch_ = now + updateSecs_;
     backoffMult_ = 1;
     return nullptr;
@@ -459,6 +512,7 @@ std::unique_ptr<DepartModel> SiriSource::fetch(std::time_t now) {
   // Model summary logging handled in DepartModel::update()
   nextFetch_ = now + updateSecs_;
   backoffMult_ = 1;
+  releaseJsonDoc(docPtr, fromPool);
   return model;
 }
 
