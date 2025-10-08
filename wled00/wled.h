@@ -768,6 +768,14 @@ WLED_GLOBAL uint8_t syncGroups    _INIT(SYNC_DEFAULT_SEND_GROUPS);              
   #define SYNC_DEFAULT_RECEIVE_GROUPS 0x01
 #endif
 WLED_GLOBAL uint8_t receiveGroups _INIT(SYNC_DEFAULT_RECEIVE_GROUPS);             // sync receive groups this instance belongs to (bit mapped)
+#ifndef RECEIVE_DEFAULT_DIRECT
+  #define RECEIVE_DEFAULT_DIRECT 1
+#endif
+#define RECEIVE_DEFAULT_OPTIONS ( (0x67 & ~(1<<5)) | ( (RECEIVE_DEFAULT_DIRECT) ? (1<<5) : 0 ) )
+#ifndef NOTIFY_DEFAULT_DIRECT
+  #define NOTIFY_DEFAULT_DIRECT 0
+#endif
+#define NOTIFY_DEFAULT_OPTIONS ( (0x0F & ~(1<<0)) | ( (NOTIFY_DEFAULT_DIRECT) ? (1<<0) : 0 ) )
 #ifdef WLED_SAVE_RAM
 // this will save us 8 bytes of RAM while increasing code by ~400 bytes
 typedef class Receive {
@@ -815,15 +823,7 @@ typedef class Send {
     Hue = h;
   }
 } __attribute__ ((aligned(1), packed)) send_notification_t;
-#ifndef RECEIVE_DEFAULT_DIRECT
-  #define RECEIVE_DEFAULT_DIRECT 1
-#endif
-#define RECEIVE_DEFAULT_OPTIONS ( (0x67 & ~(1<<5)) | ( (RECEIVE_DEFAULT_DIRECT) ? (1<<5) : 0 ) )
 WLED_GLOBAL receive_notification_t receiveN _INIT(RECEIVE_DEFAULT_OPTIONS);
-#ifndef NOTIFY_DEFAULT_DIRECT
-  #define NOTIFY_DEFAULT_DIRECT 0
-#endif
-#define NOTIFY_DEFAULT_OPTIONS ( (0x0F & ~(1<<0)) | ( (NOTIFY_DEFAULT_DIRECT) ? (1<<0) : 0 ) )
 WLED_GLOBAL send_notification_t    notifyG  _INIT(NOTIFY_DEFAULT_OPTIONS);
 #define receiveNotificationBrightness receiveN.Brightness
 #define receiveNotificationColor      receiveN.Color
@@ -858,6 +858,12 @@ WLED_GLOBAL byte effectPalette _INIT(0);
 WLED_GLOBAL bool stateChanged _INIT(false);
 
 // network
+#ifndef UDP_DEFAULT_MAIN_PORT
+  #define UDP_DEFAULT_MAIN_PORT 21234   // UDP Port
+#endif
+#ifndef UDP_DEFAULT_SECOND_PORT
+  #define UDP_DEFAULT_SECOND_PORT 65506 // 2nd Port
+#endif
 #ifdef WLED_SAVE_RAM
 // this will save us 2 bytes of RAM while increasing code by ~400 bytes
 typedef class Udp {
@@ -881,12 +887,6 @@ typedef class Udp {
       RgbConnected = c3;
     }
 } __attribute__ ((aligned(1), packed)) udp_port_t;
-#ifndef UDP_DEFAULT_MAIN_PORT
-  #define UDP_DEFAULT_MAIN_PORT 21234   // UDP Port
-#endif
-#ifndef UDP_DEFAULT_SECOND_PORT
-  #define UDP_DEFAULT_SECOND_PORT 65506 // 2nd Port
-#endif
 WLED_GLOBAL udp_port_t udp _INIT_N(({UDP_DEFAULT_MAIN_PORT, UDP_DEFAULT_SECOND_PORT, 19446, 0, false, false, false}));
 #define udpPort         udp.Port
 #define udpPort2        udp.Port2
