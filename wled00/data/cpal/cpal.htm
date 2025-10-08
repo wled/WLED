@@ -1,646 +1,429 @@
 <!DOCTYPE html>
 <html>
-  <head>
-    <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1">
-    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-    <meta http-equiv="Pragma" content="no-cache">
-    <meta http-equiv="Expires" content="0">
-    <title>WLED Custom Palette Editor</title>
-    <script type="text/javascript">
-      var d = document;
-      function gId(e) {return d.getElementById(e);}
-      function cE(e) {return d.createElement(e);}
-    </script>
-  	<script src="common.js" type="text/javascript"></script>
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1">
+  <title>WLED Palette Editor</title>
+  <script>
+    var d = document;
+    const $ = (e) => gId(e);
+    const C = (t) => cE(t);
+  </script>
+  <script src="common.js"></script>
+  <script src="iro.js"></script>
+  <style>
+	@import url("style.css");
+    :root {
+      --bg:#111; --fg:#ddd; --bd:#333;
+      --pad:16px;         /* side padding aligning editor and previews */
+      --maxw:820px;       /* max working width */
+      --actw:120px;       /* fixed actions column width (align custom vs static) */
+      --namew:16ch;       /* 2/3 of 24ch to reduce name width by ~30% */
+    }
+    button.sml { text-overflow: clip; }
 
-    <style>
-      body {
-        font-family: Arial, sans-serif;
-        background-color: #111;
-        font-size: 16px;
-        color: #ddd;
-        margin: 0 10px;
-        line-height: 0.5;
+    * { box-sizing: border-box; }
+    body { margin:0; background:var(--bg); color:var(--fg); font:14px/1.35 system-ui, Segoe UI, Arial, sans-serif; }
+
+    .container {
+      max-width: calc(var(--maxw) + 2*var(--pad));
+      margin: 20px auto;
+      padding: 0 var(--pad);
+      display: flex; flex-direction: column; align-items: center;
+    }
+
+    header { text-align:center; margin-bottom:10px; width:100%; }
+    header h1 { margin:0; font-size:20px; font-weight:600; }
+
+    #pickerWrap { display:flex; justify-content:center; margin:8px 0 12px; width:100%; }
+
+    .bar { display:flex; flex-wrap:wrap; gap:10px; align-items:center; justify-content:center; margin:8px 0 12px; width:100%; max-width:var(--maxw); padding:0 var(--pad); }
+    .small { font-size:12px; opacity:0.85; }
+
+    /* Editor gradient row */
+    #editor { width:100%; display:flex; justify-content:center; }
+    #gradWrap {
+      position:relative; height:34px; width:100%; max-width:var(--maxw);
+      border-radius:8px; border:1px solid var(--bd); padding:0 var(--pad); box-sizing:border-box;
+    }
+    #grad { height:100%; border-radius:6px; }
+
+    /* Markers (50% wider -> 15px) */
+    .mk { position:absolute; top:50%; transform:translate(-50%,-50%); width:15px; height:34px; border:4px solid #0008; border-radius:6px; background:#999; touch-action:none; }
+    .mk.sel { outline:4px solid #0bf; border-color:#000; }
+    .mk[data-lock="1"] { background:#666; }
+
+    section { margin-top:18px; width:100%; }
+
+    /* List rows kept simple with flex:
+       Name (left, fixed 16ch) | Preview (center, flex-basis 50%) | Actions (right, fixed width)
+       Names hide on narrow screens, preview grows to fill space.
+    */
+    .table { max-width:var(--maxw); width:100%; margin:0 auto; padding:0 var(--pad); }
+    .list { display:flex; flex-direction:column; gap:8px; width:100%; }
+    .row { display:flex; align-items:center; gap:10px; width:100%; }
+    .name { flex:0 0 var(--namew); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; opacity:.95; }
+    .preview { flex:1 1 50%; min-width:100px; height:26px; border-radius:6px; border:1px solid var(--bd); }
+    .actions { flex:0 0 var(--actw); display:flex; gap:6px; justify-content:flex-end; width:var(--actw); }
+    .actions.one > .btn { width:100%; }         /* single button fills actions width */
+    .actions.two > .btn { flex:1 1 0; }         /* two buttons share same width as one */
+
+    /* Responsive: hide names before touching buttons or preview */
+    @media (max-width: 760px) {
+      .name { display:none; }
+      .preview { flex-basis: auto; } /* preview expands to fill freed space */
+    }
+    @media (max-width: 420px) { .btn { padding:5px 8px; } }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header><h1>WLED Palette Editor</h1></header>
+
+    <div id="pickerWrap"><div id="picker"></div></div>
+
+    <div class="bar">
+      <button id="btnDist" class="sml">&#x2B0C;Distribute</button>
+      <button id="btnNew" class="sml">&#x2730;New</button>
+	  <button id="btnDel" class="sml">&#x1F5D1;Delete Marker</button>
+    </div>
+
+    <div id="editor">
+      <div id="gradWrap"><div id="grad"></div></div>
+    </div>
+
+    <section>
+      <div>
+        <b>Custom slots</b>
+        <span id="memWarn" class="small" style="display:none; color: var(--warn)">Warning: Adding many custom palettes might cause stability issues, create <a href="/settings/sec#backup" style="color:#ff9900">backups</a> before proceeding.</span>
+      </div>
+      <div class="table">
+        <div id="custom" class="list"></div>
+      </div>
+    </section>
+
+    <section>
+      <div class="hdr">
+        <b>WLED palettes</b>
+      </div>
+      <div class="table">
+        <div id="static" class="list"></div>
+      </div>
+    </section>
+
+    <!-- Bottom bar to fetch external palettes from GitHub Pages -->
+    <div class="bar" style="margin-bottom: 24px;">
+      <button id="btnFetchExt" class="btn">Load more palettes from WLED GitHub</button>
+    </div>
+  </div>
+
+  <script>
+    // State
+    let grad = $('grad'), wrap = $('gradWrap'), rect, w = 0, scale = 1, padL = 16;
+    let sel = null, pk = null;
+    let cpalc = 0, cpalm = 10, palNm = [], custom = [], statics = [];
+
+    const SKIP_FIRST_STATIC = 8; // skip dynamic palettes at start like original
+
+    // Geometry
+    function recalc() {
+      rect = wrap.getBoundingClientRect();
+      const cs = getComputedStyle(wrap);
+      padL = parseInt(cs.paddingLeft || 16, 10);
+      const padR = parseInt(cs.paddingRight || 16, 10);
+      w = rect.width - padL - padR;
+      scale = w / 255;
+      layout();
+      draw();
+    }
+    function layout() {
+      [...grad.querySelectorAll('.mk')].forEach(m => {
+        m.style.left = (padL + (+m.dataset.t * scale)) + 'px';
+      });
+    }
+
+    // Stops + draw
+    function stops() {
+      return [...grad.querySelectorAll('.mk')]
+        .map(m => ({ t: +m.dataset.t, c: m.dataset.c, lock: m.dataset.lock === '1' }))
+        .sort((a, b) => a.t - b.t);
+    }
+    function draw() {
+      const s = stops();
+      grad.style.background = 'linear-gradient(to right,' + s.map(x =>
+        x.c + ' ' + Math.round(x.t * scale) + 'px'
+      ).join(',') + ')';
+    }
+
+    // Utils
+    function randomHex() { return '#' + (Math.random() * 0xFFFFFF << 0).toString(16).padStart(6, '0'); }
+
+    // Marker ops
+    function select(m) {
+      if (sel) sel.classList.remove('sel');
+      sel = m || null;
+      if (sel) sel.classList.add('sel');
+      if (pk && sel) pk.color.hexString = sel.dataset.c;
+    }
+    function canAddMarker() { return grad.querySelectorAll('.mk').length < 16; }
+    function add(t, c, lock = false) {
+      if (t < 0 || t > 255) return;
+      if (!canAddMarker()) return;
+      if (grad.querySelector('.mk[data-t="' + t + '"]')) return;
+      const m = C('div');
+      m.className = 'mk';
+      m.dataset.t = t;
+      m.dataset.c = c || randomHex();
+      m.dataset.lock = lock ? '1' : '0';
+      m.style.left = (padL + (t * scale)) + 'px';
+      m.style.background = m.dataset.c;
+      grad.appendChild(m);
+      select(m);
+      draw();
+    }
+    function deleteSelected() {
+      if (!sel || sel.dataset.lock === '1') return;
+      sel.remove(); select(null); draw();
+    }
+    function setSelectedColor(hex) {
+      if (!sel) return;
+      sel.dataset.c = hex; sel.style.background = hex; draw();
+    }
+    function distribute() {
+      const s = stops(); if (s.length < 3) return;
+      const inner = s.slice(1, -1);
+      const step = Math.round(255 / (inner.length + 1));
+      inner.forEach((p, i) => {
+        const t = step * (i + 1);
+        const m = [...grad.querySelectorAll('.mk')].find(x => +x.dataset.t === p.t && x.dataset.lock !== '1');
+        if (m) { m.dataset.t = t; m.style.left = (padL + (t * scale)) + 'px'; }
+      });
+      draw();
+    }
+
+    // New random (4–6 handles total, endpoints fixed)
+    function newRandomUpTo6() {
+      grad.innerHTML = '';
+      add(0, randomHex(), true);
+      const total = Math.floor(Math.random() * 3) + 4; // 4..6
+      const innerCount = Math.max(2, total - 2);
+      const positions = new Set();
+      while (positions.size < innerCount) positions.add(Math.floor(Math.random() * 254) + 1);
+      [...positions].sort((a,b)=>a-b).forEach(t => add(t, randomHex(), false));
+      add(255, randomHex(), true);
+    }
+
+
+    // Data conversion
+    function toJSON() { return JSON.stringify({ palette: stops().flatMap(s => [s.t, s.c.slice(1)]) }); }
+    function cssFromArr(arr) {
+      let out = [];
+      for (let i = 0; i < arr.length; i += 2) {
+        const t = arr[i], v = arr[i + 1];
+        if (typeof v === 'string') out.push('#' + v + ' ' + (t / 255 * 100) + '%');
+        else { out.push(`rgba(${v},${arr[i + 2]},${arr[i + 3]},1) ${(t / 255 * 100)}%`); i += 2; }
       }
-      #pCont {
-        position: relative;
-        width: 100%;
-        height: 20px;
+      return 'linear-gradient(to right,' + out.join(',') + ')';
+    }
+    function upload(slot) {
+      const r = new XMLHttpRequest();
+      const b = new Blob([toJSON()], { type: 'application/json' });
+      const fd = new FormData();
+      r.onload = () => { localStorage.removeItem('wledPalx'); location.href = '/'; };
+      r.open('POST', '/upload');
+      fd.append('data', b, '/palette' + slot + '.json');
+      r.send(fd);
+    }
+    function isNewSlot(arr) {
+      return Array.isArray(arr) && arr.length === 1 && arr[0] === 255; // check for simple, invalid palette
+    }
+    function loadArray(arr) {
+      grad.innerHTML = '';
+      for (let i = 0; i < arr.length; i += 2) {
+        const t = arr[i], v = arr[i + 1];
+        let hex;
+        if (typeof v === 'string') hex = '#' + v;
+        else { hex = '#' + ((v << 16) | (arr[i + 2] << 8) | arr[i + 3]).toString(16).padStart(6, '0'); i += 2; }
+        add(t, hex, (t === 0 || t === 255));
       }
-      #bCont {
-        position: absolute;
-        margin-top: 50px;
-      }
-      #gBox {
-        width: 100%;
-        height: 100%;
-      }
-      .cMark, .cPickMark {
-        position: absolute;
-        border-radius: 3px;
-        background-color: rgb(192, 192, 192);
-        border: 2px solid rgba(68, 68, 68, 0.5);
-        z-index: 2;
-      }
-      .cMark {
-        height: 30px;
-        width: 7px;
-        top: 50%;
-        transform: translateY(-50%);
-        touch-action: none;
-      }
-      .cPickMark {
-        height: 7px;
-        width: 7px;
-        top: 150%;
-      }
-      .dMark {
-        position: absolute;
-        height: 5px;
-        width: 5px;
-        border-radius: 3px;
-        background-color: rgb(255, 255, 255);
-        border: 3px solid rgb(155, 40, 40);
-        top: 220%;
-        z-index: 2;
-      }
-      .cPick {
-        position: absolute;
-        height: 1px;
-        width: 1px;
-        border: 1px;
-        top: 150%;
-        z-index: 1;
-        border-color: #111;
-        background-color: #111;
-      }
-      .btnCls {
-        padding: 0;
-        margin: 0;
-        vertical-align: bottom;
-        background-color: #111;
-      }
-      #bCont span {
-        display: inline-flex;
-        align-items: center;
-        color: #fff;
-        font-size: 12px;
-        vertical-align: middle;
-      }
-      #info {
-        text-align: center;
-        color: #fff; 
-        font-size: 12px;
-        position: relative;
-        margin-top: 10px;
-        line-height: 1;
-      }
-      .wrap {
-        width: 100%;
-        margin: 0 auto;
-      }
-      @media (min-width: 800px) {
-        .wrap {
-          width: 800px;
+    }
+
+    // Lists (Name | Preview | Actions)
+    function buildLists() {
+      const cDiv = $('custom'), sDiv = $('static');
+      cDiv.innerHTML = ''; sDiv.innerHTML = '';
+      const fragC = d.createDocumentFragment(), fragS = d.createDocumentFragment();
+
+      custom.forEach((p, i) => {
+        const row = C('div'); row.className = 'row';
+        const name = C('div'); name.className = 'name'; name.textContent = 'Custom' + i;
+        const preview = C('div'); preview.className = 'preview'; preview.style.backgroundImage = cssFromArr(p.palette);
+        const actions = C('div'); actions.className = 'actions two';
+        const save = C('button'); save.className = 'sml'; save.innerHTML = '&#x1F81C;'; save.onclick = () => upload(i); // save, leftarrow &#x1F81C;
+        if(!isNewSlot(p.palette)) {
+          const load = C('button'); load.className = 'sml'; load.innerHTML = '&#x270E;'; load.onclick = () => loadArray(p.palette); // &#x270E; pencil
+        }
+        else {
+            const load = C('span'); // no "load" button for empty slots
+        }
+        actions.append(save, load); row.append(name, preview, actions); fragC.appendChild(row);
+      });
+
+      statics.forEach(o => {
+        const k = Object.keys(o)[0];
+        const row = C('div'); row.className = 'row';
+        const name = C('div'); name.className = 'name'; name.textContent = o.name || ('Palette ' + k);
+        const preview = C('div'); preview.className = 'preview'; preview.style.backgroundImage = cssFromArr(o[k]);
+        const actions = C('div'); actions.className = 'actions one';
+        const load = C('button'); load.className = 'sml'; load.innerHTML = ' &#x1F81D;'; load.onclick = () => loadArray(o[k]); //Load  &#x1F81D; or &#x21E7;
+        actions.append(load); row.append(name, preview, actions); fragS.appendChild(row);
+      });
+
+      cDiv.appendChild(fragC);
+      sDiv.appendChild(fragS);
+      $('memWarn').style.display = (cpalc >= 10) ? 'inline' : 'none';
+    }
+
+    async function fetchCustom(n) {
+      custom.length = 0;
+
+      const run = async () => {
+        for (let i = 0; i <= n; i++) {
+          const res = await fetch(getURL('/palette' + i + '.json'), { cache: 'no-store' });
+          if (!res.ok) throw new Error('HTTP ' + res.status);
+          custom.push(await res.json());
+        }
+        if (custom.length < cpalm) custom.push({ palette: [255] }); // push simple, invalid palette to show empty slot
+        buildLists();
+      };
+
+      try {
+        await run();
+      } catch (e) {
+        try {
+          await run(); // one retry
+        } catch (e2) {
+          console.warn(e2);
         }
       }
-      .pal {height: 20px;}
-      .pGrads {flex: 1; height: 20px; border-radius: 3px;}
-      .pMain {margin-top: 50px; width: 100%;}
-      .pTop {height: fit-content; text-align: center; color: #fff; font-size: 14px; line-height: 1;}
-      .pGradPar {display: flex; align-items: center; height: fit-content; margin-top: 10px; text-align: center; color: #fff; font-size: 12px; line-height: 1;}
-      .btnsDiv {display: inline-flex; margin-left: 5px; width: 50px;}
-      .sSpan, .eSpan {cursor: pointer;}
-      h1 {font-size: 1.6rem;}
-    </style>
-  </head>
-<body>
-<div id="wrap" class="wrap">
-  <div style="display: flex; justify-content: center;">
-    <h1 style="display: flex; align-items: center;">
-      <svg style="width: 36px; height: 36px; margin-right: 6px;" viewBox="0 0 32 32">
-        <rect style="fill: #03F" x="6" y="22" width="8" height="4"/>
-        <rect style="fill: #03F" x="14" y="14" width="4" height="8"/>
-        <rect style="fill: #03F" x="18" y="10" width="4" height="8"/>
-        <rect style="fill: #03F" x="22" y="6" width="8" height="4"/>
-      </svg>
-      <span id="head">WLED Palette Editor</span>
-    </h1>
-  </div>
+    }
 
-  <div id="pCont"><div id="gBox"></div></div>
-  <div style="display: flex; justify-content: center;">
-    <div id="pals" class="pMain">
-      <div id="distDiv" class="pTop"></div>
-      <div id="memWarn" class="pTop" style="display:none; color:#ff6600; margin-bottom:8px; font-size:16px;">
-        Warning: Adding many custom palettes might cause stability issues, create <a href="/settings/sec#backup" style="color:#ff9900">backups</a> before proceeding.</div>
-      <div id="pTop" class="pTop">Custom palettes</div>
-    </div>
-  </div>
+    // Converter: cpt-city JSON -> statics entries
+    // Input item shape: { name, author, colors: [t0, "hex0", t1, "hex1", ...] }
+    // Output entries are appended to "statics" so they render at the bottom of the Static palettes list.
+    function convertCptCityToStatics(arr) {
+      if (!Array.isArray(arr)) return [];
+      const out = [];
+      arr.forEach((p, idx) => {
+        if (!p || !Array.isArray(p.colors)) return;
+        const colors = p.colors.slice(); // keep as [t, "hex", ...]; cssFromArr/loadArray understand this
+        // Ensure it ends at t=255; if not, duplicate last color at 255
+        if (typeof colors[colors.length - 2] === 'number' && colors[colors.length - 2] !== 255) {
+          const lastColor = colors[colors.length - 1];
+          colors.push(255, lastColor);
+        }
+        out.push({ [`ext-${idx}`]: colors, name: p.name || `External ${idx}` });
+      });
+      return out;
+    }
 
-  <div style="display: flex; justify-content: center;">
-    <div id="info">Click gradient to add. Box = color. Red = delete. Arrow = upload. Pencil = edit.</div>
-  </div>
-  <div style="display: flex; justify-content: center;">
-    <div id="sPals" class="pMain">
-        <div id="spTop" class="pTop">Static palettes</div>
-    </div>
-  </div>
+    // Fetch from https://{username}.github.io/palette_selection_cpt_city.json
+    async function fetchCptCityFromGithubPages() {
+      try {
+        const url = `https://dedehai.github.io/palette_selection_cpt_city.json`;
+        const res = await fetch(url, { mode: 'cors' });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        const converted = convertCptCityToStatics(data);
+        if (!converted.length) { alert('No palettes found in file.'); return; }
+        statics = statics.concat(converted);
+        buildLists();
+        // Scroll to bottom of static list to show newly added palettes
+        setTimeout(() => {
+          const sDiv = $('static');
+          sDiv.lastElementChild?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+        }, 0);
+      } catch (e) {
+        console.error(e);
+        alert('Failed to fetch palettes. Please check the username and that the JSON file is accessible.');
+      }
+    }
+
+    async function init() {
+      getLoc();
+      try {
+        const info = await fetch(getURL('/json/info')).then(r => r.json());
+        const names = await fetch(getURL('/json/pal')).then(r => r.json());
+        palNm = names; cpalc = info.cpalcount; cpalm = info.cpalmax;
+        fetchCustom(cpalc - 1);
+
+        let cache; try { cache = JSON.parse(localStorage.getItem('wledPalx')); } catch {}
+        if (cache && cache.p) {
+          for (const k in cache.p) {
+            if (+k > 255 - cpalm) { delete cache.p[k]; continue; }
+            const arr = cache.p[k]; if (!Array.isArray(arr)) { delete cache.p[k]; continue; }
+            if (arr[arr.length - 1][0] !== 255) { const tail = [...arr[arr.length - 1]]; tail[0] = 255; arr.push(tail); }
+            cache.p[k].name = palNm[k];
+          }
+          statics = Object.entries(cache.p)
+            .filter(([k]) => +k >= SKIP_FIRST_STATIC)
+            .map(([k, v]) => ({ [k]: v.flat(), name: v.name }));
+        }
+      } catch (e) {}
+      recalc();
+      newRandomUpTo6();
+    }
+
+    // Events
+    window.addEventListener('resize', recalc);
+
+    wrap.addEventListener('click', (e) => {
+      if (e.target !== wrap && e.target !== grad) return;
+      const t = Math.round((e.clientX - (rect.left + padL)) / scale);
+      if (!canAddMarker()) return;
+      if (t === 0 || t === 255) return;
+      add(Math.max(1, Math.min(254, t)), pk ? pk.color.hexString : undefined);
+    });
+
+    grad.addEventListener('pointerdown', (e) => {
+      const m = e.target.closest('.mk'); if (!m) return;
+      select(m);
+      if (m.dataset.lock === '1') return;
+      e.preventDefault();
+      const move = (ev) => {
+        let x = Math.round((ev.clientX - (rect.left + padL)) / scale);
+        x = Math.max(1, Math.min(254, x));
+        m.dataset.t = x; m.style.left = (padL + (x * scale)) + 'px'; draw();
+      };
+      const up = () => { d.removeEventListener('pointermove', move); d.removeEventListener('pointerup', up); };
+      d.addEventListener('pointermove', move); d.addEventListener('pointerup', up, { once:true });
+    });
+
+    d.addEventListener('keydown', (e) => {
+      if (!sel || sel.dataset.lock === '1') return;
+      let t = +sel.dataset.t;
+      if (e.key === 'ArrowLeft') t = Math.max(1, t - (e.shiftKey ? 8 : 1));
+      else if (e.key === 'ArrowRight') t = Math.min(254, t + (e.shiftKey ? 8 : 1));
+      else return;
+      sel.dataset.t = t; sel.style.left = (padL + (t * scale)) + 'px'; draw(); e.preventDefault();
+    });
+
+    $('btnDist').onclick = distribute;
+    $('btnDel').onclick = deleteSelected;
+    $('btnNew').onclick = newRandomUpTo6;
+    $('btnFetchExt').onclick = fetchCptCityFromGithubPages;
+
+    window.addEventListener('load', () => {
+      pk = new iro.ColorPicker('#picker', {
+        width: 240,
+        layout: [
+          { component: iro.ui.Wheel },
+          { component: iro.ui.Slider, options: { sliderType: 'value' } }
+        ]
+      });
+      pk.on('color:change', (c) => setSelectedColor(c.hexString));
+      init();
+    });
+  </script>
 </body>
 
-<script type="text/javascript">
-  // global vars
-  var gBox = gId('gBox');     // gradientBox
-  var cpalc = -1, cpalm = 10; // current palette count, max custom
-  var pxCol = {};             // pixel color map
-  var tCol = {};              // true color map
-  var rect = gBox.getBoundingClientRect(); // bounding rect of gBox
-  var gLen = rect.width;      // gradientLength
-  var mOffs = Math.round((gLen / 256) / 2) - 5; // marker offset
-  var palArr = [];            // paletteArray
-  var palNm = [];             // paletteName
-
-  var svgSave = '<svg style="width:25px;height:25px" viewBox="0 0 24 24"><path fill=#fff d="M22,12A10,10 0 0,1 12,22A10,10 0 0,1 2,12A10,10 0 0,1 12,2A10,10 0 0,1 22,12M7,12L12,17V14H16V10H12V7L7,12Z"/></svg>'
-  var svgEdit = '<svg style="width:25px;height:25px" viewBox="0 0 24 24"><path fill=#fff d="M12,2C6.47,2 2,6.47 2,12C2,17.53 6.47,22 12,22C17.53,22 22,17.53 22,12C22,6.47 17.53,2 12,2M15.1,7.07C15.24,7.07 15.38,7.12 15.5,7.23L16.77,8.5C17,8.72 17,9.07 16.77,9.28L15.77,10.28L13.72,8.23L14.72,7.23C14.82,7.12 14.96,7.07 15.1,7.07M13.13,8.81L15.19,10.87L9.13,16.93H7.07V14.87L13.13,8.81Z"/></svg>'
-  var svgDist = '<svg style="width:25px;height:25px" viewBox="0 0 24 24"><path fill=#fff d="M4 22H2V2H4V22M22 2H20V22H22V2M13.5 7H10.5V17H13.5V7Z"/></svg>'
-  var svgTrash = '<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" width="30px" height="30px"><path style="fill:#880000; stroke: #888888; stroke-width: -2px;stroke-dasharray: 0.1, 8;" d="M9,3V4H4V6H5V19A2,2 0 0,0 7,21H17A2,2 0 0,0 19,19V6H20V4H15V3H9M7,6H17V19H7V6M9,8V17H11V8H9M13,8V17H15V8H13Z"/></svg>'
-
-  const distDiv = gId("distDiv");
-  distDiv.addEventListener('click', distrib);
-  distDiv.setAttribute('title', 'Distribute equally');
-  distDiv.innerHTML = svgDist;
-
-  function recOf() {
-    rect = gBox.getBoundingClientRect();
-    gLen = rect.width;
-    mOffs = Math.round((gLen / 256) / 2) - 5;
-  }
-
-  //Initiation
-  getInfo();
-  window.addEventListener('load', chkW);
-  window.addEventListener('resize', chkW);
-
-  gBox.addEventListener("click", clikGrad);
-
-  //Sets start and stop, mandatory
-  addC(0);
-  addC(255);
-
-  updGrad(); // updateGradient at startup
-
-  function clikGrad(e) { // clickOnGradient
-    rmTrash(e); // removeTrashcan
-    addC(Math.round((e.offsetX/gLen)*256));
-  }
-
-  ///////// Add a new color marker
-  function addC(tPos, thisCol = '') {
-    let pos = -1;
-    let exist = false;
-    const cMarks = gBox.querySelectorAll('.cMark'); // color markers
-
-    cMarks.forEach((cm) => {
-      if (cm.getAttribute("data-tpos") == tPos) exist = true;
-    });
-
-    if (cMarks.length > 17) exist = true;
-    if (exist) return;
-
-    if (tPos > 0 && tPos < 255) {
-      for (var i=1; i<=16 && pos<1; i++) {
-        if (!gId("cMark"+i)) pos = i;
-      }
-    } else {
-      pos = tPos;
-    }
-    if (thisCol == '') {
-      thisCol = `#${(Math.random()*0xFFFFFF<<0).toString(16).padStart(6,'0')}`;
-    }
-
-    const cMark = cE('span'); // color marker
-    cMark.className = 'cMark';
-    cMark.id = 'cMark' + pos;
-    cMark.setAttribute("data-tpos", tPos);
-    cMark.setAttribute("data-tcol", thisCol);
-    cMark.setAttribute("data-offset", mOffs);
-    cMark.addEventListener('click', stopProp);
-    cMark.style.left = `${Math.round((gLen/256)*tPos)+mOffs}px`;
-
-    const cPick = cE('input'); // colorPicker
-    cPick.type = 'color';
-    cPick.value = thisCol;
-    cPick.className = 'cPick';
-    cPick.id = 'cPick' + pos;
-    cPick.addEventListener('input', updGrad);
-    cPick.addEventListener('click', cpClk);
-
-    const cPM = cE('span'); // colorPickerMarker
-    cPM.className = 'cPickMark';
-    cPM.id = 'cPM' + pos;
-    cPM.addEventListener('click', colClk);
-    cPM.style.left = cMark.style.left;
-    cPick.style.left = cMark.style.left;
-
-    if (pos > 0 && pos < 255) {
-      const dMark = cE('span'); // deleteMarker
-      dMark.className = 'dMark';
-      dMark.id = 'dMark' + pos;
-      dMark.addEventListener('click', (e) => { delCol(e); });
-      dMark.style.left = cMark.style.left;
-      gBox.appendChild(dMark);
-    }
-
-    cMark.style.backgroundColor = cPick.value;
-    cPM.style.backgroundColor = cPick.value;
-
-    gBox.appendChild(cPick);
-    gBox.appendChild(cMark);
-    gBox.appendChild(cPM);
-    if (pos > 0 && pos < 255) mkDrag(gId(cMark.id)); // makeMeDrag
-
-    setTip(gId(cMark.id)); // setTooltipMarker
-    updGrad();
-  }
-
-  ///////// Update Gradient
-  function updGrad() { // updateGradient
-    const cMarks = gBox.querySelectorAll('.cMark');
-    pxCol = {};
-    tCol = {};
-    cMarks.forEach((cm) => {
-      const cp = gId(cm.id.replace('cMark','cPick'));
-      const col = cp.value;
-      gId(cm.id.replace('cMark','cPM')).style.backgroundColor = col;
-      cm.style.backgroundColor = col;
-      cm.setAttribute("data-tcol", col);
-      const tPos = cm.getAttribute("data-tpos");
-      const gPos = Math.round((gLen/256)*tPos);
-      pxCol[gPos] = col;
-      tCol[tPos] = col;
-    });
-    let gStr = 'linear-gradient(to right';
-    Object.entries(pxCol).forEach(([p,c]) => {
-      gStr += `, ${c} ${p}px`;
-    });
-    gStr += ')';
-    gBox.style.background = gStr;
-  }
-
-  function stopProp(e) { e.stopPropagation(); }
-
-  function colClk(e) {
-    rmTrash(e);
-    e.stopPropagation();
-    const src = e.target || e.srcElement;
-    let cp = gId(src.id.replace("cPM","cPick"));
-    cp.click();
-  }
-
-  function cpClk(e) {
-    rmTrash(e);
-    e.stopPropagation();
-  }
-
-  // make element draggable
-  function mkDrag(el) { // makeMeDrag
-    var posNew=0, mPos=0;
-    var rect=gBox.getBoundingClientRect();
-    var maxX=rect.right, minX=rect.left, gLen=maxX-minX+1;
-
-    el.onmousedown=dragStart;
-    el.ontouchstart=dragStart;
-
-    function dragStart(e) {
-      rmTrash(e);
-      var isT=e.type.startsWith('touch');
-      if (!isT) e.preventDefault();
-      mPos=isT?e.touches[0].clientX:e.clientX;
-      d.onmouseup=dragEnd; d.ontouchend=dragEnd; d.ontouchcancel=dragEnd;
-      d.onmousemove=dragMove; d.ontouchmove=dragMove;
-    }
-
-    function dragMove(e) {
-      var isT=e.type.startsWith('touch');
-      if (!isT) e.preventDefault();
-      var cX=isT?e.touches[0].clientX:e.clientX;
-      posNew=mPos-cX; mPos=cX;
-      var mInG=mPos-(minX+1);
-      var tPos=Math.round((mInG/gLen)*256);
-      var old=el.getAttribute("data-tpos");
-      if (tPos>0 && tPos<255 && old!=tPos) {
-        el.style.left=(Math.round((gLen/256)*tPos)+mOffs)+"px";
-        gId(el.id.replace('cMark','cPM')).style.left=el.style.left;
-        gId(el.id.replace('cMark','dMark')).style.left=el.style.left;
-        gId(el.id.replace('cMark','cPick')).style.left=el.style.left;
-        el.setAttribute("data-tpos",tPos);
-        setTip(el);
-        updGrad();
-      }
-    }
-
-    function dragEnd() {
-      d.onmouseup=null; d.ontouchend=null; d.ontouchcancel=null;
-      d.onmousemove=null; d.ontouchmove=null;
-    }
-  }
-
-  function setTip(el) { // setTooltipMarker
-    el.setAttribute('title', `${el.getAttribute("data-tpos")} : ${el.getAttribute("data-tcol")}`);
-  }
-
-  function delCol(e) { // deleteColor
-    var trash=cE("div");
-    var dM=e.target || e.srcElement;
-    var cM=gId(dM.id.replace("d","c"));
-    var cPM=gId(dM.id.replace("dMark","cPM"));
-    var cP=gId(dM.id.replace("dMark","cPick"));
-    var rX=dM.getBoundingClientRect().x-10;
-    var rY=dM.getBoundingClientRect().y+13;
-
-    trash.id="trash";
-    trash.innerHTML=svgTrash;
-    trash.style.position="absolute";
-    trash.style.left=rX+"px";
-    trash.style.top=rY+"px";
-    d.body.appendChild(trash);
-
-    trash.addEventListener("click",()=>{
-      trash.remove(); cM.remove(); cPM.remove(); cP.remove(); dM.remove();
-      updGrad();
-    });
-    e.stopPropagation();
-    d.addEventListener("click", rmTrash);
-  }
-
-  function rmTrash(e) { // removeTrashcan
-    var t=gId("trash");
-    if (t && e.target!=t) { t.remove(); d.removeEventListener("click", rmTrash);} 
-  }
-
-  function chkW() {
-    const wrap=gId('wrap'); const head=gId('head');
-    head.style.display=(wrap.offsetWidth<600)?'none':'inline';
-  }
-
-  function calcJSON() {
-    let rStr='{"palette":[';
-    Object.entries(tCol).forEach(([p,c],i)=>{
-      if (i>0) rStr+=',';
-      rStr+=`${p},"${c.slice(1)}"`;
-    });
-    rStr+=']}';
-    return rStr;
-  }
-
-  function initUpload(i) {
-    uploadJSON(calcJSON(), `/palette${i}.json`);
-  }
-
-  function uploadJSON(jsonString, fileName) {
-    //Some indication on "I'm working"
-    var req = new XMLHttpRequest();
-    var blob = new Blob([jsonString], {type: "application/json"});
-    req.addEventListener('load', ()=>{
-      console.log(this.responseText, ' - ',  this.status)
-      localStorage.removeItem('wledPalx');
-      //setTimeout(()=>{
-      //  ss.setAttribute('fill', '#fff');
-      //}, 1000);
-      //setTimeout(()=>{window.location.href='/';},2000);
-      window.location.href = '/'; //Guessing we want to return ASAP when we get confirmation save is done
-    });
-    req.addEventListener('error', (e)=>{
-      console.log('Error: ', e); console.log(' Status: ', this.status);
-      //Show some error notification for some time
-      setTimeout(()=>{
-        //Remove it when time has passed
-      }, 1000);
-    });
-    req.open("POST", "/upload");
-    var formData = new FormData();
-    formData.append("data", blob, fileName);
-    req.send(formData);
-    return false;
-  }
-
-  async function getInfo() {
-		getLoc();
-    try {
-      var arr = [];
-      const resInfo = await fetch(getURL('/json/info')); // fetch info (includes cpalcount and cpalmax)
-      const resPals = await fetch(getURL('/json/pal'));  // fetch palette names
-      const json = await resInfo.json();
-      palNm = await resPals.json();
-      cpalc = json.cpalcount;
-      cpalm = json.cpalmax;
-      fetchPals(cpalc-1);
-    } catch (error) {
-      console.error(error);
-    }
-  }
-
-  async function fetchPals(lastPal) {
-    palArr.length = 0;
-    for (let i = 0; i <= lastPal; i++) {
-      const url = getURL(`/palette${i}.json`);
-      try {
-        const response = await fetch(url);
-        const json = await response.json();
-        palArr.push(json);
-      } catch (error) {
-        cpalc--; //remove audio/dynamically generated palettes
-        console.error(`Error fetching JSON from ${url}: `, error);
-      }
-    }
-    //If there is room for more custom palettes, add an empty, gray slot
-    if (palArr.length < cpalm) {
-      //Room for one more :)
-      palArr.push({"palette":[0,70,70,70,255,70,70,70]});
-    }
-
-    //Get static palettes from localStorage and do some magic to reformat them into the same format as the palette JSONs
-    //This code excludes any objects with "non valid integer colors", i.e. r, c1, c2, c3 and such
-    //This code also fixes potentially broken palettes which doesn't end on 255
-    //The code finally also removes any representations of the custom palettes, since we read them from file
-
-    const wledPalx = JSON.parse(localStorage.getItem('wledPalx'));
-    if (!wledPalx) {
-      alert("Palette cache missing from browser. Return to main page first.","Missing cache!")
-    } else {
-      for (const key in wledPalx.p) {
-        wledPalx.p[key].name = palNm[key];
-        if (key > 255-cpalm) {
-          delete wledPalx.p[key]; // remove custom palettes
-          continue;
-        }
-        const arr = wledPalx.p[key];
-        let valid = true;
-        for (const subArr of arr) {
-          if (!Array.isArray(subArr) || subArr.length !== 4) {
-            valid = false;
-            break;
-          }
-          for (const val of subArr) {
-            if (typeof val !== 'number' || val < 0 || val > 255 || !Number.isInteger(val)) {
-              valid = false;
-              break;
-            }
-          }
-        }
-        if (!valid) {
-          delete wledPalx.p[key];
-          continue;
-        }
-        const lastArr = arr[arr.length - 1];
-        if (lastArr[0] !== 255) {
-          const copyArr = [...lastArr];
-          copyArr[0] = 255;
-          arr.push(copyArr);
-        }
-      }
-
-      const pArray = Object.entries(wledPalx.p).map(([key, value]) => ({
-        [key]: value.flat(),
-        name: value.name
-      }));
-      // Sort pArray by name
-      pArray.sort((a, b) => a.name.localeCompare(b.name));
-
-      palArr.push( ...pArray);
-    }
-    genPalDivs();
-  }
-
-  function genPalDivs() {
-    const palsDiv = gId("pals");
-    const sPalsDiv = gId("sPals");
-    const memWarn = gId("memWarn");
-    const palDivs = Array.from(palsDiv.children).filter((child) => {
-      return /^pal\d+$/.test(child.id); // match ids "pal" followed by one or more digits
-    });
-
-    for (const div of palDivs) {
-      palsDiv.removeChild(div); // remove each div that matches the above selector
-    }
-
-    memWarn.style.display = (cpalc >= 10) ? 'block' : 'none'; // Show/hide memory warning based on custom palette count
-
-    for (let i = 0; i < palArr.length; i++) {
-      const pal = palArr[i];
-      const palDiv = cE("div");
-      palDiv.id = `pal${i}`;
-      palDiv.classList.add("pal");
-      const thisKey = Object.keys(pal)[0];
-      palDiv.dataset.colarray = JSON.stringify(pal[thisKey]);
-
-      const gradDiv = cE("div");
-      gradDiv.id = `pGrad${i}`
-      const btnsDiv = cE("div");
-      btnsDiv.id = `btns${i}`;
-      btnsDiv.classList.add("btnsDiv")
-
-      const sSpan = cE("span");
-      sSpan.id = `s${i}`;
-      sSpan.onclick = function() {initUpload(i)};
-      sSpan.setAttribute('title', `Send current editor to slot ${i}`); // perhaps Save instead of Send?
-      sSpan.innerHTML = svgSave;
-      sSpan.classList.add("sSpan")
-      const eSpan = cE("span");
-      eSpan.id = `e${i}`;
-      eSpan.onclick = function() {loadEdit(i)};
-      eSpan.setAttribute('title', `Copy slot ${i} to editor`);
-      if (palArr[i].name) {
-        eSpan.setAttribute('title', `Copy ${palArr[i].name} to editor`);
-      }
-      eSpan.innerHTML = svgEdit;
-      eSpan.classList.add("eSpan")
-
-      gradDiv.classList.add("pGrads");
-      let gCols = "";
-
-      for (let j = 0; j < pal[thisKey].length; j += 2) {
-        const pos = pal[thisKey][j];
-        if (typeof(pal[thisKey][j+1]) === "string") {
-          gCols += `#${pal[thisKey][j+1]} ${pos/255*100}%, `;
-        } else {
-          const r = pal[thisKey][j + 1];
-          const g = pal[thisKey][j + 2];
-          const b = pal[thisKey][j + 3];
-          gCols += `rgba(${r}, ${g}, ${b}, 1) ${pos/255*100}%, `;
-          j += 2;
-        }
-      }
-
-      gCols = gCols.slice(0, -2); // remove the last comma and space
-      gradDiv.style.backgroundImage = `linear-gradient(to right, ${gCols})`;
-      palDiv.className = "pGradPar";
-      if (thisKey == "palette") {
-        btnsDiv.appendChild(sSpan); //Only offer to send to custom palettes
-      } else{
-        eSpan.style.marginLeft = "25px";
-      }
-      if (i!=cpalc) {
-        btnsDiv.appendChild(eSpan); //Dont offer to edit the empty spot
-      }
-      palDiv.appendChild(gradDiv);
-      palDiv.appendChild(btnsDiv);
-      if (thisKey == "palette") {
-        palsDiv.appendChild(palDiv);
-      } else {
-        sPalsDiv.appendChild(palDiv);
-      }
-    }
-  }
-
-  function loadEdit(i) {
-    d.querySelectorAll('input[id^="cPick"]').forEach((input) => {
-      input.parentNode.removeChild(input);
-    });
-    d.querySelectorAll('span[id^="cMark"], span[id^="cPM"], span[id^="dMark"]').forEach((span) => {
-      span.parentNode.removeChild(span);
-    });
-
-    let colArr = JSON.parse(gId(`pal${i}`).getAttribute("data-colarray"));
-
-    for (let j = 0; j < colArr.length; j += 2) {
-      const pos = colArr[j];
-      let hex;
-      if (typeof(colArr[j+1]) === "string") {
-        hex = `#${colArr[j+1]}`;
-      } else {
-        const r = colArr[j + 1];
-        const g = colArr[j + 2];
-        const b = colArr[j + 3];
-        hex = rgbToHex(r, g, b);
-        j += 2;
-      }
-      addC(pos, hex);
-      window.scroll(0, 0);
-    }
-  }
-
-  function distrib() {
-    let cMarks = [...gBox.querySelectorAll('.cMark')];
-    cMarks.sort((a, b) => a.getAttribute('data-tpos') - b.getAttribute('data-tpos'));
-    cMarks = cMarks.slice(1, -1);
-    const spacing = Math.round(256 / (cMarks.length + 1));
-
-    cMarks.forEach((e, i) => {
-      const mId = e.id.match(/\d+/)[0];
-      const tCol = e.getAttribute("data-tcol");
-      gBox.removeChild(e);
-      gBox.removeChild(gId(`cPick${mId}`));
-      gBox.removeChild(gId(`cPM${mId}`));
-      gBox.removeChild(gId(`dMark${mId}`));
-      addC(spacing * (i + 1), tCol);
-    });
-  }
-
-  function rgbToHex(r, g, b) {
-    const hex = ((r << 16) | (g << 8) | b).toString(16);
-    return "#" + "0".repeat(6 - hex.length) + hex;
-  }
-
-</script>
 </html>
