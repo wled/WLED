@@ -82,39 +82,100 @@ namespace {
     String k = agency; k += ":"; k += lineRef; return k;
   }
 
-  bool bartDefaultColor(const String& lineRef, uint32_t& rgbOut) {
-    // Accept Red/Orange/Yellow/Green/Blue with optional -N/-S suffix
-    int dash = lineRef.indexOf('-');
-    String base = (dash > 0) ? lineRef.substring(0, dash) : lineRef;
-    String u = base; u.toUpperCase();
-    if (u == F("RED"))    { rgbOut = 0xFF0000; return true; }
-    if (u == F("ORANGE")) { rgbOut = 0xFF8000; return true; }
-    if (u == F("YELLOW")) { rgbOut = 0xFFFF00; return true; }
-    if (u == F("GREEN"))  { rgbOut = 0x00FF00; return true; }
-    if (u == F("BLUE"))   { rgbOut = 0x0000FF; return true; }
-    if (u == F("WHITE"))  { rgbOut = 0xFFFFFF; return true; }
-    return false;
+  struct DefaultColorEntry {
+    const char* agency;
+    const char* line;
+    uint32_t color;
+    bool stripSuffixAfterDash;
+  };
+
+  // Unified default palette grouped by agency.
+  const DefaultColorEntry g_defaultColors[] = {
+    // BART core palette (match base name, ignore direction suffix)
+    {"BA", "RED",    0xFF0000, true},
+    {"BA", "ORANGE", 0xFF8000, true},
+    {"BA", "YELLOW", 0xFFFF00, true},
+    {"BA", "GREEN",  0x00FF00, true},
+    {"BA", "BLUE",   0x0000FF, true},
+    {"BA", "WHITE",  0xFFFFFF, true},
+
+    // AC Transit routes (exact matches)
+    {"AC", "6",    0x003680, false},
+    {"AC", "12",   0x496F80, false},
+    {"AC", "18",   0x800000, false},
+    {"AC", "27",   0x00807F, false},
+    {"AC", "51A",  0x806000, false},
+    {"AC", "72",   0x00804D, false},
+    {"AC", "72M",  0x630080, false},
+    {"AC", "88",   0x808040, false},
+    {"AC", "633",  0x808080, false},
+    {"AC", "651",  0x808080, false},
+    {"AC", "800",  0x4C8032, false},
+    {"AC", "802",  0x804F59, false},
+    {"AC", "805",  0x800058, false},
+    {"AC", "851",  0x496F80, false},
+
+    // Metro-North Railroad core line
+    {"MNR", "1",          0x009B3A, false}, // Hudson Line
+
+    // MTA Express buses (Bronx) — warm colors
+    {"MTA", "BC_BXM1",   0xEF6C00, false}, // vivid orange
+    {"MTA", "BC_BXM2",   0xFBC02D, false}, // bright golden yellow
+    {"MTA", "BC_BXM18",  0xB71C1C, false}, // deep red to distinguish the special route
+
+    // MTA Local buses (Bronx) — cool colors
+    {"MTA", "NYCT_BX10", 0x1E88E5, false}, // blue
+    {"MTA", "NYCT_BX20", 0x5E35B1, false}, // indigo
+
+    // Metra UP-N line (Chicago)
+    {"UPN", "UP-N", 0x00843D, false},
+  };
+
+  String lineTokenForDefault(const String& agency, const String& lineRef) {
+    String ag = agency;
+    ag.trim();
+    String line = lineRef;
+    line.trim();
+    if (line.length() == 0) return line;
+    if (ag.length() == 0) return line;
+
+    String agLower = ag; agLower.toLowerCase();
+    String lineLower = line; lineLower.toLowerCase();
+    if (lineLower.startsWith(agLower)) {
+      unsigned pos = ag.length();
+      while (pos < line.length()) {
+        char c = line.charAt(pos);
+        if (c == ' ' || c == '-' || c == '_' || c == ':') { ++pos; continue; }
+        break;
+      }
+      line = line.substring(pos);
+      line.trim();
+    }
+    return line;
   }
 
-  bool acDefaultColor(const String& lineRef, uint32_t& rgbOut) {
-    // Map common AC Transit routes to provided colors
-    int dash = lineRef.indexOf('-');
-    String base = (dash > 0) ? lineRef.substring(0, dash) : lineRef;
-    String u = base; u.toUpperCase();
-    if (u == F("6"))    { rgbOut = 0x003680; return true; }
-    if (u == F("12"))   { rgbOut = 0x496F80; return true; }
-    if (u == F("18"))   { rgbOut = 0x800000; return true; }
-    if (u == F("27"))   { rgbOut = 0x00807F; return true; }
-    if (u == F("51A"))  { rgbOut = 0x806000; return true; }
-    if (u == F("72"))   { rgbOut = 0x00804D; return true; }
-    if (u == F("72M"))  { rgbOut = 0x630080; return true; }
-    if (u == F("88"))   { rgbOut = 0x808040; return true; }
-    if (u == F("633"))  { rgbOut = 0x808080; return true; }
-    if (u == F("651"))  { rgbOut = 0x808080; return true; }
-    if (u == F("800"))  { rgbOut = 0x4C8032; return true; }
-    if (u == F("802"))  { rgbOut = 0x804F59; return true; }
-    if (u == F("805"))  { rgbOut = 0x800058; return true; }
-    if (u == F("851"))  { rgbOut = 0x496F80; return true; }
+  bool lookupDefaultColor(const String& agency, const String& lineRef, uint32_t& rgbOut) {
+    String ag = agency;
+    ag.trim();
+    String line = lineTokenForDefault(ag, lineRef);
+
+    String agUpper = ag;
+    agUpper.toUpperCase();
+    String lineUpper = line;
+    lineUpper.toUpperCase();
+
+    for (const auto& entry : g_defaultColors) {
+      if (agUpper != entry.agency) continue;
+      String candidate = lineUpper;
+      if (entry.stripSuffixAfterDash) {
+        int dash = candidate.indexOf('-');
+        if (dash > 0) candidate = candidate.substring(0, dash);
+      }
+      if (candidate == entry.line) {
+        rgbOut = entry.color;
+        return true;
+      }
+    }
     return false;
   }
 }
@@ -165,13 +226,8 @@ bool DepartModel::getColorRGB(const String& agency, const String& lineRef, uint3
   }
   // Unknown: choose default and persist entry
   uint32_t def = 0x606060; // neutral gray
-  if (agency == F("BA")) {
-    uint32_t bart;
-    if (bartDefaultColor(lineRef, bart)) def = bart;
-  } else if (agency == F("AC")) {
-    uint32_t ac;
-    if (acDefaultColor(lineRef, ac)) def = ac;
-  }
+  uint32_t looked = 0;
+  if (lookupDefaultColor(agency, lineRef, looked)) def = looked;
   setColorRGB(agency, lineRef, def);
   rgbOut = def;
   return true;
