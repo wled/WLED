@@ -663,7 +663,7 @@ uint16_t Segment::virtualLength() const {
         vLen = max(vW,vH); // get the longest dimension
         break;
       case M12_pArc:
-        vLen = sqrt32_bw(vH*vH + vW*vW); // use diagonal
+        vLen = (sqrt32_bw((vH*vH + vW*vW) << 2) + 1) >> 1; // diagonal rounded
         break;
       case M12_sPinwheel:
         vLen = getPinwheelLength(vW, vH);
@@ -742,36 +742,25 @@ void WLED_O2_ATTR Segment::setPixelColor(int i, uint32_t col) const
         if (vStrip > 0)                   setPixelColorRaw(XY(vStrip - 1, vH - i - 1), col);
         else for (int x = 0; x < vW; x++) setPixelColorRaw(XY(x, vH - i - 1), col);
         break;
-      case M12_pArc:
+      case M12_pArc: {
         // expand in circular fashion from center
-        if (i == 0)
-          setPixelColorRaw(XY(0, 0), col);
-        else {
-          float r = i;
-          float step = HALF_PI / (2.8284f * r + 4); // we only need (PI/4)/(r/sqrt(2)+1) steps
-          for (float rad = 0.0f; rad <= (HALF_PI/2)+step/2; rad += step) {
-            int x = roundf(sin_t(rad) * r);
-            int y = roundf(cos_t(rad) * r);
-            // exploit symmetry
+        if      (i == 0) setPixelColorXY(0, 0, col);
+        else if (i == 2) setPixelColorXY(1, 1, col);
+
+        int x = 0, y = i;  // i is the radius
+        int d = -(i >> 1); // Initial decision parameter
+
+        // Barrera's circle algorithm
+        while (x <= y) {
+          if (!(i == x && i == y)) { // prevent early square
             setPixelColorXY(x, y, col);
             setPixelColorXY(y, x, col);
           }
-          // Bresenham’s Algorithm (may not fill every pixel)
-          //int d = 3 - (2*i);
-          //int y = i, x = 0;
-          //while (y >= x) {
-          //  setPixelColorXY(x, y, col);
-          //  setPixelColorXY(y, x, col);
-          //  x++;
-          //  if (d > 0) {
-          //    y--;
-          //    d += 4 * (x - y) + 10;
-          //  } else {
-          //    d += 4 * x + 6;
-          //  }
-          //}
+          if (d <= 0) d += ++x;
+          else d -= --y;
         }
         break;
+      }
       case M12_pCorner:
         for (int x = 0; x <= i; x++) setPixelColorXY(x, i, col); // note: <= to include i=0. Relies on overflow check in sPC()
         for (int y = 0; y <  i; y++) setPixelColorXY(i, y, col);
@@ -947,9 +936,16 @@ uint32_t WLED_O2_ATTR Segment::getPixelColor(int i) const
         else            { y = vH - i - 1; };
         break;
       case M12_pArc:
-        if (i > vW && i > vH) {
-          x = y = sqrt32_bw(i*i/2);
-          break; // use diagonal
+        if (i >= vW && i >= vH) { // Barrera's circle algorithm
+          int x2 = 0, y2 = i, d = -(i >> 1);
+          int validCount = 0; // return 2nd non mirrored pixel if available
+          while (x2 <= y2 && validCount < 2) {
+            if      (y2 < vH && x2 < vW) {x = x2, y = y2; validCount++;}
+            else if (y2 < vW && x2 < vH) {x = y2, y = x2; validCount++;}
+
+            if (d <= 0) d += ++x2; else d -= --y2;
+          }
+          break;
         }
         // otherwise fallthrough
       case M12_pCorner:
