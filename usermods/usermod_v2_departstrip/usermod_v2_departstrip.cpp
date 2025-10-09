@@ -13,6 +13,10 @@
 #include "gtfsrt_source.h"
 #include "departure_view.h"
 
+#ifndef DEPARTSTRIP_GIT_DESCRIBE
+#define DEPARTSTRIP_GIT_DESCRIBE "unknown"
+#endif
+
 const char CFG_NAME[] PROGMEM = "DepartStrip";
 const char CFG_ENABLED[] PROGMEM = "Enabled";
 
@@ -49,6 +53,7 @@ DepartStrip::DepartStrip() {
 
 void DepartStrip::setup() {
   DEBUG_PRINTLN(F("DepartStrip: DepartStrip::setup: starting"));
+  DEBUG_PRINTF("DepartStrip: version=%s\n", DEPARTSTRIP_GIT_DESCRIBE);
   uint32_t now_ms = millis();
   safeToStart_ = now_ms + SAFETY_DELAY_MS;
   // Initialize view window to default until config loads
@@ -111,6 +116,7 @@ void DepartStrip::addToConfig(JsonObject& root) {
   JsonObject top = root.createNestedObject(FPSTR(CFG_NAME));
   top[FPSTR(CFG_ENABLED)] = enabled_;
   top["DisplayMinutes"] = displayMinutes_;
+  top["Version"] = DEPARTSTRIP_GIT_DESCRIBE;
   // ColorMap: reset control rendered after ColorMap
   // Emit sources sorted by their Key (AGENCY:StopCode) for stable order
   struct SrcRef { String key; IDataSourceT<DepartModel>* ptr; };
@@ -184,6 +190,7 @@ void DepartStrip::addToConfig(JsonObject& root) {
 }
 
 void DepartStrip::appendConfigData(Print& s) {
+  s.println(F("(()=>{const NAME='DepartStrip:Version'; const input=document.querySelector(`input[name=\"${NAME}\"][type=\"text\"]`); if(!input||input.dataset.versionDecorated) return; input.dataset.versionDecorated='1'; const value=(input.value||'').trim()||'unknown'; input.readOnly=true; input.type='hidden'; let node=input.previousSibling; while(node&&node.nodeType===3){const trimmed=node.textContent.trim(); if(trimmed.length&&trimmed.toLowerCase()!=='text'){break;} const remove=node; node=node.previousSibling; remove.parentNode.removeChild(remove);} const badge=document.createElement('small'); badge.textContent=value; badge.style.marginLeft='0.5rem'; input.parentNode.insertBefore(badge, input.nextSibling);})();"));
   for (auto& src : sources_) src->appendConfigData(s);
   for (auto& vw : views_) vw->appendConfigData(s, model_.get());
 
