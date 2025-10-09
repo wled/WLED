@@ -153,6 +153,10 @@ private:
   unsigned long dailyResetTime = 0;
   unsigned long monthlyResetTime = 0;
 
+  // epoch timestamps (seconds since epoch) of the most recent resets (midnight)
+  unsigned long dailyResetTimestamp = 0;
+  unsigned long monthlyResetTimestamp = 0;
+
   bool mqttStateRestored = false;
 
   INA_SENSOR_CLASS *_ina2xx = nullptr; // INA2xx sensor object

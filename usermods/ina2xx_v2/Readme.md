@@ -1,6 +1,6 @@
 # INA2XX WLED Usermod
 
-This Usermod integrates the INA219 **and** INA226 sensor with WLED to monitor energy consumption. It can read voltage, current, power, and calculate daily, monthly and total energy usage for either sensor.
+This Usermod integrates the INA219 **and** INA226 sensors with WLED to monitor energy consumption. It can read voltage, current, power, and calculate daily, monthly and total energy usage for either sensor.
 
 ## Features
 

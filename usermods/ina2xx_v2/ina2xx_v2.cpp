@@ -170,7 +170,7 @@ void UsermodINA2xx::updateEnergy(float power, unsigned long durationMs) {
 
 	// Skip negligible power values to avoid accumulating rounding errors
 	if (power < 0.01) {
-		_logUsermodInaSensor("SKIPPED: Power too low (%.3f W) — skipping to avoid rounding errors.", power);
+		_logUsermodInaSensor("SKIPPED: Power too low (%.3f W) – skipping to avoid rounding errors.", power);
 		return;
 	}
 
@@ -186,16 +186,39 @@ void UsermodINA2xx::updateEnergy(float power, unsigned long durationMs) {
 	totalEnergy_kWh += energy_kWh; // Update total energy consumed
 	_logUsermodInaSensor("Total energy updated to: %.6f kWh", totalEnergy_kWh);
 
+	// Skip time-based resets if time seems invalid (before 2020 or unrealistic future)
+	if (localTime < 1577836800UL || localTime > 4102444800UL) { // Jan 1 2020 to Jan 1 2100
+		_logUsermodInaSensor("SKIPPED: Invalid time detected (%lu), waiting for NTP sync", localTime);
+		return;
+	}
+
 	// Calculate day identifier (days since epoch)
 	long currentDay = localTime / 86400;
 	_logUsermodInaSensor("Current day: %ld, Last reset day: %lu", currentDay, dailyResetTime);
 
+	// --- initialize reset values if they are unset (first run) ---
+	if (dailyResetTime == 0) {
+		dailyResetTime = currentDay;
+		// Calculate midnight timestamp for current day
+		dailyResetTimestamp = localTime - (localTime % 86400UL);
+		_logUsermodInaSensor("Initializing daily reset: day=%ld, ts=%lu", dailyResetTime, dailyResetTimestamp);
+	}
+
+	// Fix for missing dailyResetTimestamp when dailyResetTime was already restored
+	if (dailyResetTimestamp == 0 && dailyResetTime != 0) {
+		dailyResetTimestamp = localTime - (localTime % 86400UL);
+		_logUsermodInaSensor("Fixing missing daily reset timestamp: ts=%lu", dailyResetTimestamp);
+	}
+
 	// Reset daily energy at midnight or if day changed
-	if ((hour(localTime) == 0 && minute(localTime) == 0 && dailyResetTime != currentDay) ||
-		(currentDay > dailyResetTime && dailyResetTime > 0)) {
+	if (currentDay > dailyResetTime) {
+	//if ((hour(localTime) == 0 && minute(localTime) == 0 && dailyResetTime != currentDay) ||
+		//(currentDay > dailyResetTime && dailyResetTime > 0)) {
 		_logUsermodInaSensor("Resetting daily energy counter (day change detected)");
 		dailyEnergy_kWh = 0;
 		dailyResetTime = currentDay;
+		// Set timestamp to midnight of the current day
+		dailyResetTimestamp = localTime - (localTime % 86400UL);
 	}
 	dailyEnergy_kWh += energy_kWh;
 	_logUsermodInaSensor("Daily energy updated to: %.6f kWh", dailyEnergy_kWh);
@@ -204,12 +227,34 @@ void UsermodINA2xx::updateEnergy(float power, unsigned long durationMs) {
 	long currentMonth = year(localTime) * 12 + month(localTime) - 1; // month() is 1-12
 	_logUsermodInaSensor("Current month: %ld, Last reset month: %lu", currentMonth, monthlyResetTime);
 
+	if (monthlyResetTime == 0) {
+		monthlyResetTime = currentMonth;
+		// Calculate midnight timestamp for first day of current month
+		// Formula: subtract (current_day - 1) days worth of seconds, then subtract time-of-day
+		monthlyResetTimestamp = localTime - ((day(localTime) - 1) * 86400UL) - (localTime % 86400UL);
+		//monthlyResetTimestamp = localTime - (localTime % 86400UL); // midnight seconds (first of month)
+		_logUsermodInaSensor("Initializing monthly reset: month=%ld, ts=%lu", monthlyResetTime, monthlyResetTimestamp);
+	}
+
+	// Fix for missing monthlyResetTimestamp when monthlyResetTime was already restored
+	if (monthlyResetTimestamp == 0 && monthlyResetTime != 0) {
+		monthlyResetTimestamp = localTime - ((day(localTime) - 1) * 86400UL) - (localTime % 86400UL);
+		_logUsermodInaSensor("Fixing missing monthly reset timestamp: ts=%lu", monthlyResetTimestamp);
+	}
+
 	// Reset monthly energy on first day of month or if month changed
-	if ((day(localTime) == 1 && hour(localTime) == 0 && minute(localTime) == 0 &&
-			monthlyResetTime != currentMonth) || (currentMonth > monthlyResetTime && monthlyResetTime > 0)) {
+	if (currentMonth > monthlyResetTime) {
+	//if ((day(localTime) == 1 && hour(localTime) == 0 && minute(localTime) == 0 &&
+			//monthlyResetTime != currentMonth) || (currentMonth > monthlyResetTime && monthlyResetTime > 0)) {
 		_logUsermodInaSensor("Resetting monthly energy counter (month change detected)");
 		monthlyEnergy_kWh = 0;
 		monthlyResetTime = currentMonth;
+
+		// Calculate midnight timestamp for first day of current month
+		// Formula: subtract (current_day - 1) days worth of seconds, then subtract time-of-day
+		monthlyResetTimestamp = localTime - ((day(localTime) - 1) * 86400UL) - (localTime % 86400UL);
+
+		//monthlyResetTimestamp = localTime - (localTime % 86400UL);
 	}
 	monthlyEnergy_kWh += energy_kWh;
 	_logUsermodInaSensor("Monthly energy updated to: %.6f kWh", monthlyEnergy_kWh);
@@ -248,13 +293,22 @@ void UsermodINA2xx::publishMqtt(float shuntVoltage, float busVoltage, float load
 		jsonDoc["daily_energy_kWh"] = dailyEnergy_kWh;
 		jsonDoc["monthly_energy_kWh"] = monthlyEnergy_kWh;
 		jsonDoc["total_energy_kWh"] = totalEnergy_kWh;
+
+		jsonDoc["dailyResetTime"] = dailyResetTime;
+		jsonDoc["monthlyResetTime"] = monthlyResetTime;
+		jsonDoc["dailyResetTimestamp"] = dailyResetTimestamp;
+		jsonDoc["monthlyResetTimestamp"] = monthlyResetTimestamp;
 	} else {
 		_logUsermodInaSensor("Skipping energy fields until MQTT state restored");
 	}
 
 	// Reset timestamps
-	jsonDoc["dailyResetTime"] = dailyResetTime;
-	jsonDoc["monthlyResetTime"] = monthlyResetTime;
+	//if (dailyResetTime > 0) {
+		//jsonDoc["dailyResetTime"] = dailyResetTime;
+	//}
+	//if (monthlyResetTime > 0) {
+		//jsonDoc["monthlyResetTime"] = monthlyResetTime;
+	//}
 
 	// Serialize the JSON document into a character buffer
 	char buffer[1024];
@@ -305,6 +359,28 @@ void UsermodINA2xx::mqttCreateHassSensor(const String &name, const String &topic
 		doc[F("dev_cla")] = deviceClass;
 	if (SensorType != "binary_sensor")
 		doc[F("exp_aft")] = 1800;
+
+	// --- set appropriate state_class and last_reset for energy/measurement sensors ---
+	if (jsonKey == "total_energy_kWh") {
+		// total energy never resets -> total_increasing
+		doc[F("stat_cla")] = "total_increasing";
+	} else if (jsonKey == "daily_energy_kWh" || jsonKey == "monthly_energy_kWh") {
+		// daily/monthly energy resets -> use "total" with last_reset_value_template
+		doc[F("stat_cla")] = "total";
+
+		// Provide last_reset for daily/monthly
+		if (jsonKey == "daily_energy_kWh") {
+			doc[F("last_reset_value_template")] = "{{ value_json.dailyResetTimestamp | int | timestamp_local if value_json.dailyResetTimestamp | int > 0 else none }}";
+		} else if (jsonKey == "monthly_energy_kWh") {
+			doc[F("last_reset_value_template")] = "{{ value_json.monthlyResetTimestamp | int | timestamp_local if value_json.monthlyResetTimestamp | int > 0 else none }}";
+		}
+	}
+	else if (jsonKey == "current_A" || jsonKey == "current_mA" ||
+			jsonKey == "power_W" || jsonKey == "power_mW" ||
+			jsonKey == "bus_voltage_V" || jsonKey == "load_voltage_V" ||
+			jsonKey == "shunt_voltage_mV") {
+		doc[F("stat_cla")] = "measurement";
+	}
 
 	// Device details nested object
 	JsonObject device = doc.createNestedObject(F("device"));
@@ -406,6 +482,35 @@ bool UsermodINA2xx::onMqttMessage(char* topic, char* payload) {
 					_logUsermodInaSensor("Merged total energy from MQTT: +%.6f kWh => %.6f kWh", restored, totalEnergy_kWh);
 				}
 			}
+			if (jsonDoc.containsKey("dailyResetTime")) {
+				uint32_t restored = jsonDoc["dailyResetTime"].as<uint32_t>();
+				if (!isnan(restored)) {
+					_logUsermodInaSensor("Restored daily reset time from MQTT: %ld => %ld", dailyResetTime, restored);
+					dailyResetTime = restored;
+				}
+			}
+			if (jsonDoc.containsKey("monthlyResetTime")) {
+				uint32_t restored = jsonDoc["monthlyResetTime"].as<uint32_t>();
+				if (!isnan(restored)) {
+					_logUsermodInaSensor("Restored monthly reset time from MQTT: %ld => %ld", monthlyResetTime, restored);
+					monthlyResetTime = restored;
+				}
+			}
+			if (jsonDoc.containsKey("dailyResetTimestamp")) {
+				uint32_t restored = jsonDoc["dailyResetTimestamp"].as<uint32_t>();
+				if (!isnan(restored)) {
+					_logUsermodInaSensor("Restored daily reset timestamp from MQTT: %ld => %ld", dailyResetTimestamp, restored);
+					dailyResetTimestamp = restored;
+				}
+			}
+			if (jsonDoc.containsKey("monthlyResetTimestamp")) {
+				uint32_t restored = jsonDoc["monthlyResetTimestamp"].as<uint32_t>();
+				if (!isnan(restored)) {
+					_logUsermodInaSensor("Restored monthly reset timestamp from MQTT: %ld => %ld", monthlyResetTimestamp, restored);
+					monthlyResetTimestamp = restored;
+				}
+			}
+
 			mqttStateRestored = true;  // Only do this once!
 		}
 		return true;
@@ -676,6 +781,8 @@ void UsermodINA2xx::addToJsonState(JsonObject& root) {
 	usermod["monthlyEnergy_kWh"] = monthlyEnergy_kWh;
 	usermod["dailyResetTime"] = dailyResetTime;
 	usermod["monthlyResetTime"] = monthlyResetTime;
+	usermod["dailyResetTimestamp"]   = dailyResetTimestamp;
+	usermod["monthlyResetTimestamp"] = monthlyResetTimestamp;
 
 	_logUsermodInaSensor("Added sensor readings to JSON state: V=%.3fV, I=%.3fA, P=%.3fW", loadVoltage, current, power);
 }
@@ -738,6 +845,20 @@ void UsermodINA2xx::readFromJsonState(JsonObject& root) {
 			monthlyResetTime = usermod["monthlyResetTime"] | monthlyResetTime;
 			if (monthlyResetTime != prevMonthlyReset) {
 				_logUsermodInaSensor("Monthly reset time updated from JSON: %lu", monthlyResetTime);
+			}
+		}
+		if (usermod.containsKey("dailyResetTimestamp")) {
+			unsigned long prevDailyRT = dailyResetTimestamp;
+			dailyResetTimestamp = usermod["dailyResetTimestamp"] | dailyResetTimestamp;
+			if (dailyResetTimestamp != prevDailyRT) {
+				_logUsermodInaSensor("Daily reset timestamp updated from JSON: %lu", dailyResetTimestamp);
+			}
+		}
+		if (usermod.containsKey("monthlyResetTimestamp")) {
+			unsigned long prevMonthlyRT = monthlyResetTimestamp;
+			monthlyResetTimestamp = usermod["monthlyResetTimestamp"] | monthlyResetTimestamp;
+			if (monthlyResetTimestamp != prevMonthlyRT) {
+				_logUsermodInaSensor("Monthly reset timestamp updated from JSON: %lu", monthlyResetTimestamp);
 			}
 		}
 	} else {
