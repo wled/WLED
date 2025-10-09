@@ -1222,30 +1222,20 @@ String GtfsRtSource::composeUrl(const String& agency, const String& stopCode) co
 
 bool GtfsRtSource::httpBegin(const String& url, int& outLen, int& outStatus, HTTPClient& http, bool& usedSecure) {
   http.setTimeout(10000);
-  bool isHttps = url.startsWith(F("https://")) || url.startsWith(F("HTTPS://"));
-  usedSecure = false;
-  WiFiClient* client = &client_;
-  client_.setTimeout(10000);
-  client_.stop();
-#if defined(ARDUINO_ARCH_ESP8266) || defined(ARDUINO_ARCH_ESP32)
-  if (isHttps) {
-    usedSecure = true;
-    clientSecure_.stop();
-    clientSecure_.setTimeout(10000);
-    clientSecure_.setInsecure();
-    client = &clientSecure_;
+  bool localSecure = false;
+  WiFiClient* client = httpTransport_.begin(url, 10000, localSecure);
+  if (!client) {
+    DEBUG_PRINTLN(F("DepartStrip: GtfsRtSource::fetch: no HTTP client available"));
+    return false;
   }
-#else
-  (void)isHttps;
-#endif
-  client->stop();  // ensure any prior socket is closed before reusing
 
   if (!http.begin(*client, url)) {
     http.end();
-    client->stop();
+    httpTransport_.end(localSecure);
     DEBUG_PRINTLN(F("DepartStrip: GtfsRtSource::fetch: begin() failed"));
     return false;
   }
+  usedSecure = localSecure;
   http.useHTTP10(true);
   http.setUserAgent("WLED-GTFSRT/0.1");
   http.setReuse(false);
@@ -1263,7 +1253,7 @@ bool GtfsRtSource::httpBegin(const String& url, int& outLen, int& outStatus, HTT
       DEBUG_PRINTF("DepartStrip: GtfsRtSource::fetch: HTTP status %d\n", status);
     }
     http.end();
-    client->stop();
+    httpTransport_.end(localSecure);
     return false;
   }
 
@@ -1274,13 +1264,5 @@ bool GtfsRtSource::httpBegin(const String& url, int& outLen, int& outStatus, HTT
 
 void GtfsRtSource::closeHttpClient(HTTPClient& http, bool usedSecure) {
   http.end();
-#if defined(ARDUINO_ARCH_ESP8266) || defined(ARDUINO_ARCH_ESP32)
-  if (usedSecure) {
-    clientSecure_.stop();
-  } else {
-    client_.stop();
-  }
-#else
-  client_.stop();
-#endif
+  httpTransport_.end(usedSecure);
 }

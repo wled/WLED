@@ -12,6 +12,7 @@ struct SkipBOMStream : public Stream {
   uint8_t head[3];
   size_t headLen = 0;
   size_t headPos = 0;
+  size_t rawRead = 0;
   explicit SkipBOMStream(Stream& s) : in(s) {}
   // Satisfy Print's pure virtuals
   size_t write(uint8_t) override { return 0; }
@@ -21,6 +22,7 @@ struct SkipBOMStream : public Stream {
     init = true;
     uint8_t buf[3];
     size_t got = in.readBytes(buf, sizeof(buf));
+    rawRead += got;
     if (got == 3 && buf[0] == 0xEF && buf[1] == 0xBB && buf[2] == 0xBF) {
       headLen = 0; headPos = 0; // skip BOM
     } else {
@@ -35,7 +37,9 @@ struct SkipBOMStream : public Stream {
   int read() override {
     ensureInit();
     if (headPos < headLen) return head[headPos++];
-    return in.read();
+    int v = in.read();
+    if (v >= 0) ++rawRead;
+    return v;
   }
   int peek() override {
     ensureInit();
@@ -47,11 +51,16 @@ struct SkipBOMStream : public Stream {
     ensureInit();
     size_t n = 0;
     while (n < length && headPos < headLen) buffer[n++] = head[headPos++];
-    if (n < length) n += in.readBytes(buffer + n, length - n);
+    if (n < length) {
+      size_t got = in.readBytes(buffer + n, length - n);
+      rawRead += got;
+      n += got;
+    }
     return n;
   }
   size_t readBytes(uint8_t* buffer, size_t length) { return readBytes((char*)buffer, length); }
   using Stream::readBytes;
+  size_t bytesConsumed() const { return rawRead; }
 };
 
 // Extract the first meaningful string from an ArduinoJson variant that might be
@@ -77,9 +86,12 @@ static String jsonFirstString(JsonVariantConst v) {
 }
 
 // Shared JSON buffer reused across all Siri sources to limit heap fragmentation.
-static constexpr size_t SIRI_JSON_MAX_CAP = 20000;
+static constexpr size_t SIRI_JSON_MAX_CAP = 24576;
+static constexpr size_t SIRI_JSON_MIN_CAP = 4096;
+static constexpr size_t SIRI_JSON_QUANTUM = 2048;
 static DynamicJsonDocument* g_siriSharedDoc = nullptr;
 static bool g_siriSharedInUse = false;
+static size_t g_siriSharedDocCap = 0;
 } // namespace
 
 SiriSource::SiriSource(const char* key, const char* defAgency, const char* defStopCode, const char* defBaseUrl) {
@@ -158,12 +170,22 @@ bool SiriSource::parseRFC3339ToUTC(const char* s, time_t& outUtc) {
 }
 
 bool SiriSource::httpBegin(const String& url, int& outLen) {
+  if (httpActive_) endHttp();
   http_.setTimeout(10000);
-  if (!http_.begin(client_, url)) {
+  bool usedSecure = false;
+  WiFiClient* client = httpTransport_.begin(url, 10000, usedSecure);
+  if (!client) {
+    DEBUG_PRINTLN(F("DepartStrip: SiriSource::fetch: no HTTP client available"));
+    return false;
+  }
+  if (!http_.begin(*client, url)) {
     http_.end();
+    httpTransport_.end(usedSecure);
     DEBUG_PRINTLN(F("DepartStrip: SiriSource::fetch: begin() failed"));
     return false;
   }
+  httpActive_ = true;
+  httpUsedSecure_ = usedSecure;
   // Try to mimic curl behavior to avoid gzip responses
   http_.useHTTP10(true);
   http_.setUserAgent("curl/7.79.1");
@@ -171,8 +193,8 @@ bool SiriSource::httpBegin(const String& url, int& outLen) {
   http_.addHeader("Connection", "close");
   http_.addHeader("Accept", "*/*", true, true);
   http_.addHeader("Accept-Encoding", "identity", true, true);
-  static const char* hdrs[] = {"Content-Type", "Content-Encoding", "Content-Length", "RateLimit-Remaining"};
-  http_.collectHeaders(hdrs, 4);
+  static const char* hdrs[] = {"Content-Type", "Content-Encoding", "Content-Length", "Transfer-Encoding", "RateLimit-Remaining"};
+  http_.collectHeaders(hdrs, 5);
   DEBUG_PRINTF("DepartStrip: SiriSource::fetch: free heap before GET: %u\n", ESP.getFreeHeap());
   int httpCode = http_.GET();
   // Log rate limit remaining if provided by the server
@@ -183,7 +205,7 @@ bool SiriSource::httpBegin(const String& url, int& outLen) {
     }
   }
   if (httpCode < 200 || httpCode >= 300) {
-    http_.end();
+    endHttp();
     if (httpCode < 0) {
       String err = HTTPClient::errorToString(httpCode);
       DEBUG_PRINTF("DepartStrip: SiriSource::fetch: HTTP error %d (%s)\n", httpCode, err.c_str());
@@ -194,8 +216,11 @@ bool SiriSource::httpBegin(const String& url, int& outLen) {
   }
   String enc = http_.header("Content-Encoding");
   String ctype = http_.header("Content-Type");
+  String clen = http_.header("Content-Length");
+  String tenc = http_.header("Transfer-Encoding");
   outLen = http_.getSize();
-  DEBUG_PRINTF("DepartStrip: SiriSource::fetch: enc='%s' type='%s' len=%d\n", enc.c_str(), ctype.c_str(), outLen);
+  DEBUG_PRINTF("DepartStrip: SiriSource::fetch: enc='%s' type='%s' len=%d contentLength='%s' transfer='%s'\n",
+               enc.c_str(), ctype.c_str(), outLen, clen.c_str(), tenc.c_str());
   return true;
 }
 
@@ -238,46 +263,52 @@ bool SiriSource::parseJsonFromHttp(JsonDocument& doc) {
   err = deserializeJson(doc, s,
                         DeserializationOption::Filter(filter),
                         DeserializationOption::NestingLimit(80));
-  http_.end();
-  DEBUG_PRINTF("DepartStrip: SiriSource::fetch: after parse, memUsage=%u, free heap=%u\n", (unsigned)doc.memoryUsage(), ESP.getFreeHeap());
+  DEBUG_PRINTF("DepartStrip: SiriSource::fetch: after parse, consumed=%u, memUsage=%u, free heap=%u\n",
+               (unsigned)s.bytesConsumed(), (unsigned)doc.memoryUsage(), ESP.getFreeHeap());
   if (err) {
     DEBUG_PRINTF("DepartStrip: SiriSource::fetch: deserializeJson failed: %s\n", err.c_str());
+    if (err == DeserializationError::NoMemory && lastJsonCapacity_ < SIRI_JSON_MAX_CAP) {
+      size_t bumped = lastJsonCapacity_ + SIRI_JSON_QUANTUM;
+      if (bumped > SIRI_JSON_MAX_CAP) bumped = SIRI_JSON_MAX_CAP;
+      lastJsonCapacity_ = bumped;
+    }
     return false;
   }
   return true;
 }
 
 size_t SiriSource::computeJsonCapacity(int contentLen) {
-  // If we know the content length, estimate needed capacity much smaller
-  // due to the active filter, then quantize to reduce fragmentation.
+  size_t target = lastJsonCapacity_;
   if (contentLen > 0) {
     size_t len = (size_t)contentLen;
-    // Empirical: filtered docs for 3–32 visits use ~1–6.5KB.
-    // Heuristic: half of payload + 2KB headroom, with an 8KB floor.
-    size_t estimate = len / 2 + 2048;
-    if (estimate < 8192) estimate = 8192; // 8KB minimum
-    // Quantize to 4KB chunks for allocator friendliness.
-    const size_t quantum = 4096;
-    size_t rounded = ((estimate + quantum - 1) / quantum) * quantum;
-    // Cap at 20KB; larger sizes are rare with the filter.
-    if (rounded > 20000) rounded = 20000;
-    return rounded;
+    // Empirical: filtered docs for 3–32 visits use ~0.35–0.55x of payload.
+    // Heuristic: 0.6 * payload + 2KB headroom.
+    size_t estimate = (len * 3) / 5 + 2048;
+    if (estimate > target) target = estimate;
   }
-  // Unknown length (e.g., chunked): default to 20KB which has been safe on MTA.
-  return 20000; // 20 kB
+  if (target < SIRI_JSON_MIN_CAP) target = SIRI_JSON_MIN_CAP;
+  if (target > SIRI_JSON_MAX_CAP) target = SIRI_JSON_MAX_CAP;
+  target = ((target + SIRI_JSON_QUANTUM - 1) / SIRI_JSON_QUANTUM) * SIRI_JSON_QUANTUM;
+  if (target > SIRI_JSON_MAX_CAP) target = SIRI_JSON_MAX_CAP;
+  return target;
 }
 
 JsonDocument* SiriSource::acquireJsonDoc(size_t capacity, bool& fromPool) {
   if (capacity < 1024) capacity = 1024;
   fromPool = false;
   if (!g_siriSharedDoc) {
-    g_siriSharedDoc = new DynamicJsonDocument(SIRI_JSON_MAX_CAP);
-  }
-  if (!g_siriSharedInUse) {
-    if (g_siriSharedDoc->capacity() < SIRI_JSON_MAX_CAP) {
+    g_siriSharedDoc = new DynamicJsonDocument(capacity);
+    g_siriSharedDocCap = g_siriSharedDoc ? capacity : 0;
+    if (!g_siriSharedDoc) return nullptr;
+  } else if (!g_siriSharedInUse) {
+    if (capacity > g_siriSharedDocCap || (g_siriSharedDocCap > capacity + SIRI_JSON_QUANTUM && capacity >= SIRI_JSON_MIN_CAP)) {
       delete g_siriSharedDoc;
-      g_siriSharedDoc = new DynamicJsonDocument(SIRI_JSON_MAX_CAP);
+      g_siriSharedDoc = new DynamicJsonDocument(capacity);
+      g_siriSharedDocCap = g_siriSharedDoc ? capacity : 0;
+      if (!g_siriSharedDoc) return nullptr;
     }
+  }
+  if (g_siriSharedDoc && !g_siriSharedInUse) {
     g_siriSharedDoc->clear();
     g_siriSharedInUse = true;
     fromPool = true;
@@ -285,7 +316,7 @@ JsonDocument* SiriSource::acquireJsonDoc(size_t capacity, bool& fromPool) {
   }
   // Fallback allocation; caller is responsible for deleting via releaseJsonDoc.
   DynamicJsonDocument* temp = new DynamicJsonDocument(capacity);
-  temp->clear();
+  if (temp) temp->clear();
   return temp;
 }
 
@@ -381,13 +412,19 @@ bool SiriSource::buildModelFromSiri(JsonObject siri, std::time_t now, std::uniqu
       DepartModel::Entry::Item item;
       item.estDep = depUtc;
       // LineRef may be nested or plain; handle both
-      if (mvj["LineRef"].is<JsonObject>()) item.lineRef = (const char*)(mvj["LineRef"]["value"] | "");
-      else item.lineRef = (const char*)(mvj["LineRef"] | "");
-      if (item.lineRef.length() == 0) {
-        String fallback = jsonFirstString(mvj["PublishedLineName"]);
-        if (fallback.length()) item.lineRef = fallback;
+      String label;
+      if (mvj["LineRef"].is<JsonObject>()) {
+        const char* raw = mvj["LineRef"]["value"] | "";
+        if (raw && *raw) label = raw;
+      } else {
+        const char* raw = mvj["LineRef"] | "";
+        if (raw && *raw) label = raw;
       }
-      item.lineRef = departstrip::util::formatLineLabel(agency_, item.lineRef);
+      if (label.length() == 0) {
+        label = jsonFirstString(mvj["PublishedLineName"]);
+      }
+      String formatted = departstrip::util::formatLineLabel(agency_, label);
+      item.lineRef = std::move(formatted);
       batch.items.push_back(std::move(item));
     } else if (hasTime && parsedTime < 3) {
       const char* dbg = expectedStr ? expectedStr : aimedStr;
@@ -465,11 +502,13 @@ std::unique_ptr<DepartModel> SiriSource::fetch(std::time_t now) {
   }
 
   size_t jsonSz = computeJsonCapacity(len);
-  DEBUG_PRINTF("DepartStrip: SiriSource::fetch: json capacity=%u, free heap=%u\n", (unsigned)jsonSz, ESP.getFreeHeap());
+  DEBUG_PRINTF("DepartStrip: SiriSource::fetch: json capacity=%u (hint=%u) free heap=%u\n",
+               (unsigned)jsonSz, (unsigned)lastJsonCapacity_, ESP.getFreeHeap());
   bool fromPool = false;
   JsonDocument* docPtr = acquireJsonDoc(jsonSz, fromPool);
   if (!docPtr) {
     DEBUG_PRINTLN(F("DepartStrip: SiriSource::fetch: failed to acquire JSON buffer"));
+    endHttp();
     long delay = (long)updateSecs_ * (long)backoffMult_;
     nextFetch_ = now + delay;
     if (backoffMult_ < 16) backoffMult_ *= 2;
@@ -477,7 +516,14 @@ std::unique_ptr<DepartModel> SiriSource::fetch(std::time_t now) {
   }
   JsonDocument& doc = *docPtr;
   DEBUG_PRINTF("DepartStrip: SiriSource::fetch: filter=on (len=%d)\n", len);
-  if (!parseJsonFromHttp(doc)) {
+  bool parsed = parseJsonFromHttp(doc);
+  endHttp();
+  if (!parsed) {
+    if (lastJsonCapacity_ < SIRI_JSON_MAX_CAP) {
+      size_t bumped = jsonSz + SIRI_JSON_QUANTUM;
+      if (bumped > SIRI_JSON_MAX_CAP) bumped = SIRI_JSON_MAX_CAP;
+      if (bumped > lastJsonCapacity_) lastJsonCapacity_ = bumped;
+    }
     releaseJsonDoc(docPtr, fromPool);
     long delay = (long)updateSecs_ * (long)backoffMult_;
     DEBUG_PRINTF("DepartStrip: SiriSource::fetch: scheduling backoff x%u %s for %lds (parse error)\n",
@@ -490,6 +536,16 @@ std::unique_ptr<DepartModel> SiriSource::fetch(std::time_t now) {
   bool usedTop = false;
   JsonObject siri = getSiriRoot(doc, usedTop);
   if (usedTop) DEBUG_PRINTLN(F("DepartStrip: SiriSource::fetch: using top-level as Siri container"));
+  {
+    size_t used = doc.memoryUsage();
+    size_t desired = used + 2048;
+    if (desired < SIRI_JSON_MIN_CAP) desired = SIRI_JSON_MIN_CAP;
+    desired = ((desired + SIRI_JSON_QUANTUM - 1) / SIRI_JSON_QUANTUM) * SIRI_JSON_QUANTUM;
+    if (desired > SIRI_JSON_MAX_CAP) desired = SIRI_JSON_MAX_CAP;
+    lastJsonCapacity_ = desired;
+    DEBUG_PRINTF("DepartStrip: SiriSource::fetch: json usage=%u nextHint=%u\n",
+                 (unsigned)used, (unsigned)lastJsonCapacity_);
+  }
   if (siri.isNull()) {
     releaseJsonDoc(docPtr, fromPool);
     DEBUG_PRINTLN(F("DepartStrip: SiriSource::fetch: missing Siri root"));
@@ -514,6 +570,13 @@ std::unique_ptr<DepartModel> SiriSource::fetch(std::time_t now) {
   backoffMult_ = 1;
   releaseJsonDoc(docPtr, fromPool);
   return model;
+}
+
+void SiriSource::endHttp() {
+  if (!httpActive_) return;
+  http_.end();
+  httpTransport_.end(httpUsedSecure_);
+  httpActive_ = false;
 }
 
 void SiriSource::addToConfig(JsonObject& root) {

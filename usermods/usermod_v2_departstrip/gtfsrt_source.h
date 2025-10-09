@@ -3,11 +3,8 @@
 #include "interfaces.h"
 #include "depart_model.h"
 #include "util.h"
+#include "http_transport.h"
 #include "wled.h"
-#include <WiFiClient.h>
-#if defined(ARDUINO_ARCH_ESP8266) || defined(ARDUINO_ARCH_ESP32)
-#include <WiFiClientSecure.h>
-#endif
 #include <vector>
 #if defined(ARDUINO_ARCH_ESP8266)
 #include <ESP8266HTTPClient.h>
@@ -28,10 +25,7 @@ private:
   uint8_t  backoffMult_ = 1;
   time_t   lastBackoffLog_ = 0;
   std::string configKey_ = "gtfsrt_source";
-  WiFiClient client_;
-#if defined(ARDUINO_ARCH_ESP8266) || defined(ARDUINO_ARCH_ESP32)
-  WiFiClientSecure clientSecure_;
-#endif
+  departstrip::net::HttpTransport httpTransport_;
 
 public:
   explicit GtfsRtSource(const char* key = "gtfsrt_source");

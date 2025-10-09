@@ -1,4 +1,5 @@
 #include "util.h"
+#include <cctype>
 
 namespace departstrip { namespace util {
 
@@ -54,43 +55,94 @@ int cmpLineRefNatural(const String& a, const String& b) {
 // Usermod-wide view window in minutes
 static uint16_t g_display_minutes = 60;
 String formatLineLabel(const String& agency, const String& rawLine) {
-  String ag = agency;
-  ag.trim();
-  String line = rawLine;
-  line.trim();
-  if (ag.length() == 0) {
-    return line;
-  }
-  String agLower = ag;
-  agLower.toLowerCase();
-  String lineLower = line;
-  lineLower.toLowerCase();
-  bool hasPrefix = false;
-  if (lineLower.length() >= agLower.length()) {
-    hasPrefix = lineLower.startsWith(agLower);
-  }
-  if (hasPrefix) {
-    unsigned int pos = ag.length();
-    while (pos < line.length()) {
-      char c = line.charAt(pos);
-      if (c == ' ' || c == '\t' || c == '-' || c == '_' || c == ':' ) {
-        ++pos;
-        continue;
-      }
-      break;
+  auto trimBounds = [](const String& s, size_t& start, size_t& len) {
+    size_t slen = s.length();
+    start = 0;
+    while (start < slen) {
+      char c = s.charAt(start);
+      if (c == ' ' || c == '\t' || c == '\r' || c == '\n') ++start;
+      else break;
     }
-    String suffix = line.substring(pos);
-    suffix.trim();
-    if (suffix.length() == 0) return ag;
-    String out = ag;
-    out += ' ';
-    out += suffix;
+    size_t end = slen;
+    while (end > start) {
+      char c = s.charAt(end - 1);
+      if (c == ' ' || c == '\t' || c == '\r' || c == '\n') --end;
+      else break;
+    }
+    len = end - start;
+  };
+
+  auto appendRange = [](String& dest, const String& src, size_t start, size_t len) {
+    for (size_t i = 0; i < len; ++i) dest += src.charAt(start + i);
+  };
+
+  size_t agStart = 0, agLen = 0;
+  trimBounds(agency, agStart, agLen);
+  size_t lineStart = 0, lineLen = 0;
+  trimBounds(rawLine, lineStart, lineLen);
+
+  if (agLen == 0) {
+    String out;
+    out.reserve(lineLen);
+    appendRange(out, rawLine, lineStart, lineLen);
     return out;
   }
-  if (line.length() == 0) return ag;
-  String out = ag;
+  if (lineLen == 0) {
+    String out;
+    out.reserve(agLen);
+    appendRange(out, agency, agStart, agLen);
+    return out;
+  }
+
+  bool hasPrefix = lineLen >= agLen;
+  if (hasPrefix) {
+    for (size_t i = 0; i < agLen; ++i) {
+      char ac = agency.charAt(agStart + i);
+      char lc = rawLine.charAt(lineStart + i);
+      if (std::tolower((unsigned char)ac) != std::tolower((unsigned char)lc)) {
+        hasPrefix = false;
+        break;
+      }
+    }
+  }
+
+  if (hasPrefix) {
+    size_t suffixStart = lineStart + agLen;
+    size_t lineEnd = lineStart + lineLen;
+    while (suffixStart < lineEnd) {
+      char c = rawLine.charAt(suffixStart);
+      if (c == ' ' || c == '\t' || c == '-' || c == '_' || c == ':') {
+        ++suffixStart;
+      } else {
+        break;
+      }
+    }
+    size_t suffixEnd = lineEnd;
+    while (suffixEnd > suffixStart) {
+      char c = rawLine.charAt(suffixEnd - 1);
+      if (c == ' ' || c == '\t') --suffixEnd;
+      else break;
+    }
+    size_t suffixLen = (suffixEnd > suffixStart) ? (suffixEnd - suffixStart) : 0;
+
+    String out;
+    if (suffixLen == 0) {
+      out.reserve(agLen);
+      appendRange(out, agency, agStart, agLen);
+      return out;
+    }
+    out.reserve(agLen + 1 + suffixLen);
+    appendRange(out, agency, agStart, agLen);
+    out += ' ';
+    appendRange(out, rawLine, suffixStart, suffixLen);
+    return out;
+  }
+
+  String out;
+  out.reserve(agLen + 1 + lineLen);
+  appendRange(out, agency, agStart, agLen);
   out += ' ';
-  out += line;
+  appendRange(out, rawLine, lineStart, lineLen);
   return out;
 }
 
