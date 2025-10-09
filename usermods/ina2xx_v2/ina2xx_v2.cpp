@@ -561,7 +561,7 @@ void UsermodINA2xx::checkForI2cErrors(){
   if(errorCode){
     Serial.print("I2C error: ");
     Serial.println(errorCode);
-    _logUsermodInaSensor("I2C error: %s", errorCode);
+    _logUsermodInaSensor("I2C error: %u", errorCode);
     switch(errorCode){
       case 1:
 		_logUsermodInaSensor("Data too long to fit in transmit buffer");
@@ -582,7 +582,9 @@ void UsermodINA2xx::checkForI2cErrors(){
 		_logUsermodInaSensor("Can't identify the error");
     }
     if(errorCode){
-      while(1){}
+		enabled = false;
+		initDone = false;
+		_logUsermodInaSensor("Disabling INA2xx usermod after I2C error");
     }
   }
 }

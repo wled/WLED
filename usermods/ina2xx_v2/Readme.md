@@ -178,7 +178,7 @@ The INA2XX sensor communicates via I2C, so the SDA and SCL pins must be correctl
 3. Select the appropriate **SDA** and **SCL** pins for your hardware.
 4. Save the settings and **reboot WLED**.
 
-🚀 **After rebooting, you can enable the **INA219** or **INA226** usermod in the settings.**
+🚀 **After rebooting, you can enable the **INA2xx** usermod in the settings.**
 
 
 ### INA226 Wiring Tip
