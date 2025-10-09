@@ -131,8 +131,8 @@ async function writeHtmlGzipped(sourceFile, resultFile, page, inlineCss = true) 
   inline.html({
     fileContent: fs.readFileSync(sourceFile, "utf8"),
     relativeTo: path.dirname(sourceFile),
-    strict: true,
-    stylesheets: inlineCss // when true, css is inlined
+    strict: inlineCss,     // when not inlining css, ignore errors (enables linking style.css from subfolder htm files)
+    stylesheets: inlineCss // when true (default), css is inlined
   },
     async function (error, html) {
       if (error) throw error;
