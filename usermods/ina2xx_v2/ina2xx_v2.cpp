@@ -186,6 +186,11 @@ void UsermodINA2xx::updateEnergy(float power, unsigned long durationMs) {
 	totalEnergy_kWh += energy_kWh; // Update total energy consumed
 	_logUsermodInaSensor("Total energy updated to: %.6f kWh", totalEnergy_kWh);
 
+	// Sanity check on accumulated total (e.g., 100,000 kWh = ~11 years at 1kW continuous)
+	if (totalEnergy_kWh > 100000.0) {
+		_logUsermodInaSensor("WARNING: Total energy suspiciously high (%.6f kWh), possible corruption", totalEnergy_kWh);
+	}
+
 	// Skip time-based resets if time seems invalid (before 2020 or unrealistic future)
 	if (localTime < 1577836800UL || localTime > 4102444800UL) { // Jan 1 2020 to Jan 1 2100
 		_logUsermodInaSensor("SKIPPED: Invalid time detected (%lu), waiting for NTP sync", localTime);
@@ -463,49 +468,53 @@ bool UsermodINA2xx::onMqttMessage(char* topic, char* payload) {
 			// Only merge in retained MQTT values once!
 			if (jsonDoc.containsKey("daily_energy_kWh")) {
 				float restored = jsonDoc["daily_energy_kWh"];
-				if (!isnan(restored)) {
+				if (!isnan(restored) && restored >= 0) {
 					dailyEnergy_kWh += restored;
 					_logUsermodInaSensor("Merged daily energy from MQTT: +%.6f kWh => %.6f kWh", restored, dailyEnergy_kWh);
 				}
 			}
 			if (jsonDoc.containsKey("monthly_energy_kWh")) {
 				float restored = jsonDoc["monthly_energy_kWh"];
-				if (!isnan(restored)) {
+				if (!isnan(restored) && restored >= 0) {
 					monthlyEnergy_kWh += restored;
 					_logUsermodInaSensor("Merged monthly energy from MQTT: +%.6f kWh => %.6f kWh", restored, monthlyEnergy_kWh);
 				}
 			}
 			if (jsonDoc.containsKey("total_energy_kWh")) {
 				float restored = jsonDoc["total_energy_kWh"];
-				if (!isnan(restored)) {
+				if (!isnan(restored) && restored >= 0) {
 					totalEnergy_kWh += restored;
 					_logUsermodInaSensor("Merged total energy from MQTT: +%.6f kWh => %.6f kWh", restored, totalEnergy_kWh);
 				}
 			}
 			if (jsonDoc.containsKey("dailyResetTime")) {
 				uint32_t restored = jsonDoc["dailyResetTime"].as<uint32_t>();
-				if (!isnan(restored)) {
+				// Check if value is valid (not 0 which could be uninitialized, and within reasonable range)
+				if (restored > 0 && restored < 1000000) { // reasonable day count since epoch
 					_logUsermodInaSensor("Restored daily reset time from MQTT: %ld => %ld", dailyResetTime, restored);
 					dailyResetTime = restored;
 				}
 			}
 			if (jsonDoc.containsKey("monthlyResetTime")) {
 				uint32_t restored = jsonDoc["monthlyResetTime"].as<uint32_t>();
-				if (!isnan(restored)) {
+				// Check if value is valid and within reasonable range
+				if (restored > 0 && restored < 100000) { // reasonable month count
 					_logUsermodInaSensor("Restored monthly reset time from MQTT: %ld => %ld", monthlyResetTime, restored);
 					monthlyResetTime = restored;
 				}
 			}
 			if (jsonDoc.containsKey("dailyResetTimestamp")) {
 				uint32_t restored = jsonDoc["dailyResetTimestamp"].as<uint32_t>();
-				if (!isnan(restored)) {
+				// Validate timestamp is after Jan 1 2020 and before Jan 1 2100
+				if (restored >= 1577836800UL && restored <= 4102444800UL) {
 					_logUsermodInaSensor("Restored daily reset timestamp from MQTT: %ld => %ld", dailyResetTimestamp, restored);
 					dailyResetTimestamp = restored;
 				}
 			}
 			if (jsonDoc.containsKey("monthlyResetTimestamp")) {
 				uint32_t restored = jsonDoc["monthlyResetTimestamp"].as<uint32_t>();
-				if (!isnan(restored)) {
+				// Validate timestamp is after Jan 1 2020 and before Jan 1 2100
+				if (restored >= 1577836800UL && restored <= 4102444800UL) {
 					_logUsermodInaSensor("Restored monthly reset timestamp from MQTT: %ld => %ld", monthlyResetTimestamp, restored);
 					monthlyResetTimestamp = restored;
 				}

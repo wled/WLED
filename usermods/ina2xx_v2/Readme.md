@@ -166,7 +166,7 @@ custom_usermods = ${env:d1_mini.custom_usermods} INA2XX_v2
 
 - **Total Energy** is calculated continuously.
 - **Daily Energy** resets after 24 hours.
-- **Monthly Energy** resets after 30 days.
+- **Monthly Energy** resets on the first day of each month.
 
 To reset daily or monthly energy calculations, you can implement corresponding functions within your main application.
 
