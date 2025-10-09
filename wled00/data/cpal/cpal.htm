@@ -14,12 +14,11 @@
 	@import url("style.css");
     :root {
       --bg:#111; --fg:#ddd; --bd:#333;
-      --pad:16px;         /* side padding aligning editor and previews */
-      --maxw:820px;       /* max working width */
-      --namew:16ch;       /* 2/3 of 24ch to reduce name width by ~30% */
+      --pad:16px;
+      --maxw:820px;
+      --namew:16ch;
     }
     button.sml { text-overflow: clip; }
-
     * { box-sizing: border-box; }
     body { margin:0; background:var(--bg); color:var(--fg); font:14px/1.35 system-ui, Segoe UI, Arial, sans-serif; }
 
@@ -32,13 +31,10 @@
 
     header { text-align:center; margin-bottom:10px; width:100%; }
     header h1 { margin:0; font-size:20px; font-weight:600; }
-
-    #pickerWrap { display:flex; justify-content:center; margin:8px 0 12px; width:100%; }
-
+    #pickerWrap { display:flex; flex-direction:column; align-items:center; margin:8px 0 12px; width:100%; }
     .bar { display:flex; flex-wrap:wrap; gap:10px; align-items:center; justify-content:center; margin:8px 0 12px; width:100%; max-width:var(--maxw); padding:0 var(--pad); }
     .small { font-size:12px; opacity:0.85; }
 
-    /* Editor gradient row (frozen top) */
     #editor {
       width:100%; display:flex; justify-content:center;
       position: sticky; top: 0; z-index: 5; background: var(--bg); padding: 6px 0;
@@ -49,94 +45,87 @@
     }
     #grad { height:100%; border-radius:6px; }
 
-    /* Markers (50% wider -> 15px) */
     .mk { position:absolute; top:50%; transform:translate(-50%,-50%); width:15px; height:34px; border:4px solid #0008; border-radius:6px; background:#999; touch-action:none; }
     .mk.sel { outline:4px solid #0bf; border-color:#000; }
     .mk[data-lock="1"] { background:#666; }
 
     section { margin-top:18px; width:100%; }
-
-    /* List rows with flex:
-       Name (fixed 16ch) | Preview (flex) | Save button (right)
-       Names hide on narrow screens, preview grows to fill space.
-    */
     .table { max-width:var(--maxw); width:100%; margin:0 auto; padding:0 var(--pad); }
     .list { display:flex; flex-direction:column; gap:8px; width:100%; }
     .row { display:flex; align-items:center; gap:10px; width:100%; }
-    .row .sml:last-child { margin-left: auto; } /* right-align the last button in row when present */
+    .row .sml:last-child { margin-left: auto; }
 
     .name { flex:0 0 var(--namew); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; opacity:.95; }
     .name .by { display:block; font-size:12px; opacity:.8; }
     .preview { flex:1 1 50%; min-width:100px; height:26px; border-radius:6px; border:1px solid var(--bd); }
     .preview.clickable { cursor: pointer; }
 
-    /* Sticky "new slot" row (if present) */
-    .row.sticky-new { position: sticky; top: 48px; z-index: 3; background: var(--bg); padding: 4px 0; }
-
-    /* Responsive: hide names before touching preview */
     @media (max-width: 760px) {
       .name { display:none; }
       .preview { flex-basis: auto; }
     }
 
-    /* Categories (external palettes) - restored collapsed styles with chevron */
     .categories { max-width:var(--maxw); width:100%; padding:0 var(--pad); }
     details.category { border:1px solid var(--bd); border-radius:8px; margin:10px 0; background: #101010; }
     details.category > summary {
       cursor:pointer; padding:8px 10px; display:flex; align-items:center; gap:8px; color: var(--fg);
-      list-style: none;
+      list-style: none; font-size: 18px; font-weight: 500;
     }
     details.category > summary::-webkit-details-marker { display:none; }
-    details.category > summary::before {
-      display:inline-block; transform: translateY(-1px); transition: transform .15s ease;
-      width: 1em; text-align: center; opacity: .9;
-    }
-    details.category[open] > summary::before {
-      transform: translateY(-1px);
-    }
     .cat-body { padding:8px 10px 12px; display:flex; flex-direction:column; gap:8px; }
+    .chk-label { 
+      display: flex; align-items: center; gap: 6px; cursor: pointer; user-select: none;
+      justify-content: center; padding: 4px 0;
+    }
+    .chk-label input[type="checkbox"] { 
+      width: 16px; height: 16px; cursor: pointer;
+      accent-color: var(--c-6);
+      background-color: var(--c-2);
+      border: 1px solid var(--c-4);
+    }
+    
+    .rgb-inputs { display: flex; gap: 6px; margin-top: 8px; align-items: center; }
+    .rgb-inputs input { width: 60px; padding: 4px; text-align: center; }
+    .rgb-inputs label { font-size: 12px; opacity: 0.8; }
+    
+    #memWarn { 
+      display: none; 
+      color: #ff9900; 
+      font-size: 16px; 
+      margin-bottom: 8px;
+      text-align: center;
+    }
+    #memWarn a { color: #ffcc00; text-decoration: underline; }
   </style>
 </head>
 <body>
   <div class="container">
     <header><h1>WLED Palette Editor</h1></header>
-
-    <div id="pickerWrap"><div id="picker"></div></div>
-
+    <div id="pickerWrap">
+      <div id="picker"></div>
+      <div class="rgb-inputs">
+        <label>R</label><input type="number" id="rInput" min="0" max="255" value="0">
+        <label>G</label><input type="number" id="gInput" min="0" max="255" value="0">
+        <label>B</label><input type="number" id="bInput" min="0" max="255" value="0">
+      </div>
+    </div>
     <div class="bar">
       <button id="btnDist" class="sml">&#x2B0C;Distribute</button>
       <button id="btnNew" class="sml">&#x2730;New</button>
 	  <button id="btnDel" class="sml">&#x1F5D1;Delete Marker</button>
     </div>
-
     <div id="editor">
       <div id="gradWrap"><div id="grad"></div></div>
     </div>
-
+    <label class="chk-label small">
+      <input type="checkbox" id="chkPreview">
+      <span>Live Preview on LEDs</span>
+    </label>
     <section>
-      <div>
-        <b>Custom slots</b>
-        <span id="memWarn" class="small" style="display:none; color: var(--warn)">Warning: Adding many custom palettes might cause stability issues, create <a href="/settings/sec#backup" style="color:#ff9900">backups</a> before proceeding.</span>
-      </div>
-      <div class="table">
-        <div id="custom" class="list"></div>
-      </div>
+      <span id="memWarn">Warning: Adding many custom palettes might cause stability issues, create <a href="/settings/sec#backup">backups</a> before proceeding.</span>
+      <div class="table"><div id="custom" class="list"></div></div>
     </section>
-
-    <section>
-        <b>WLED palettes</b>
-      <div class="table">
-        <div id="static" class="list"></div>
-      </div>
-    </section>
-
-    <!-- External palettes by categories (collapsed by default) -->
-    <section>
-        <b>External palettes</b>
-      <div id="extCats" class="table"></div>
-    </section>
-
-    <!-- Bottom bar to fetch external palettes from GitHub Pages -->
+    <section><div id="allCats" class="categories"></div></section>
     <div class="bar" style="margin-bottom: 24px;">
       <button id="btnFetchExt" class="btn">Load more palettes from WLED GitHub</button>
     </div>
@@ -144,502 +133,452 @@
 
   <script>
     // State
-    let grad = $('grad'), wrap = $('gradWrap'), rect, w = 0, scale = 1, padL = 16;
+    let gr = $('grad'), wr = $('gradWrap'), rc, w = 0, sc = 1, pl = 16;
     let sel = null, pk = null;
-    let cpalc = 0, cpalm = 10, palNm = [], custom = [], statics = [];
+    let cpc = 0, cpm = 10, pnm = [], cpal = [], spal = [];
+    let prvTmr = null, prvEn = false, palCache = [];
 
-    const SKIP_FIRST_STATIC = 8; // skip dynamic palettes at start like original
-
-    // External categories cache key (entire JSON)
-    const EXT_CPT_CITY_CACHE_KEY = 'wledCptCityJson';
-
-    // Category order and labels (thematic)
-    const CAT_ORDER = ['colorful','thematic','pastel','striped','gradient','monochrome'];
-    const CAT_LABEL = {
-      colorful:'Colorful', thematic:'Thematic', pastel:'Pastel',
-      striped:'Striped', gradient:'Gradient', monochrome:'Monochrome'
-    };
+    // Utils
+    function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
+    function rndHex() { return '#' + (Math.random() * 0xFFFFFF << 0).toString(16).padStart(6, '0'); }
+    function h2rgb(h) { h = h.replace('#', ''); const n = parseInt(h, 16); return [(n>>16)&255, (n>>8)&255, n&255]; }
+    function rgb2h(r, g, b) { return ((1<<24) + (r<<16) + (g<<8) + b).toString(16).slice(1); }
+    function lerp(a, b, t) { return a + (b-a)*t; }
+    function updRGB(h) { const [r,g,b] = h2rgb(h); $('rInput').value=r; $('gInput').value=g; $('bInput').value=b; }
 
     // Geometry
     function recalc() {
-      rect = wrap.getBoundingClientRect();
-      const cs = getComputedStyle(wrap);
-      padL = parseInt(cs.paddingLeft || 16, 10);
-      const padR = parseInt(cs.paddingRight || 16, 10);
-      w = rect.width - padL - padR;
-      scale = w / 255;
-      layout();
-      draw();
+      rc = wr.getBoundingClientRect();
+      const cs = getComputedStyle(wr);
+      pl = parseInt(cs.paddingLeft || 16, 10);
+      w = rc.width - pl - parseInt(cs.paddingRight || 16, 10);
+      sc = w / 255;
+      layout(); draw();
     }
-    function layout() {
-      [...grad.querySelectorAll('.mk')].forEach(m => {
-        m.style.left = (padL + (+m.dataset.t * scale)) + 'px';
-      });
-    }
-
-    // Stops + draw
+    function layout() { [...gr.querySelectorAll('.mk')].forEach(m => m.style.left = (pl + (+m.dataset.t * sc)) + 'px'); }
     function stops() {
-      return [...grad.querySelectorAll('.mk')]
+      return [...gr.querySelectorAll('.mk')]
         .map(m => ({ t: +m.dataset.t, c: m.dataset.c, lock: m.dataset.lock === '1' }))
         .sort((a, b) => a.t - b.t);
     }
+    function bldCache() {
+      const s = stops();
+      palCache = new Array(256);
+      if (!s.length) { palCache.fill('000000'); return; }
+      for (let t = 0; t <= 255; t++) {
+        if (t <= s[0].t) { palCache[t] = s[0].c.slice(1); continue; }
+        if (t >= s[s.length-1].t) { palCache[t] = s[s.length-1].c.slice(1); continue; }
+        for (let i = 0; i < s.length - 1; i++) {
+          const a = s[i], b = s[i+1];
+          if (t >= a.t && t <= b.t) {
+            const f = (b.t === a.t) ? 0 : ((t - a.t) / (b.t - a.t));
+            const [ar,ag,ab] = h2rgb(a.c), [br,bg,bb] = h2rgb(b.c);
+            palCache[t] = rgb2h(Math.round(lerp(ar,br,f)), Math.round(lerp(ag,bg,f)), Math.round(lerp(ab,bb,f)));
+            break;
+          }
+        }
+      }
+    }
     function draw() {
       const s = stops();
-      grad.style.background = 'linear-gradient(to right,' + s.map(x =>
-        x.c + ' ' + Math.round(x.t * scale) + 'px'
-      ).join(',') + ')';
+      gr.style.background = 'linear-gradient(to right,' + s.map(x => x.c + ' ' + Math.round(x.t * sc) + 'px').join(',') + ')';
+      bldCache();
+      if (prvEn && !prvTmr) prvTmr = setTimeout(() => { prvTmr = null; applyLED(); }, 200);
     }
 
-    // Utils
-    function randomHex() { return '#' + (Math.random() * 0xFFFFFF << 0).toString(16).padStart(6, '0'); }
-
-    // Marker ops
-    function select(m) {
+    // Markers
+    function selMk(m) {
       if (sel) sel.classList.remove('sel');
       sel = m || null;
-      if (sel) sel.classList.add('sel');
-      if (pk && sel) pk.color.hexString = sel.dataset.c;
+      if (sel) { 
+        sel.classList.add('sel'); 
+        if (pk) { pk.color.hexString = sel.dataset.c; updRGB(sel.dataset.c); }
+      }
     }
-    function canAddMarker() { return grad.querySelectorAll('.mk').length < 16; }
-    function add(t, c, lock = false) {
-      if (t < 0 || t > 255) return;
-      if (!canAddMarker()) return;
-      if (grad.querySelector('.mk[data-t="' + t + '"]')) return;
+    function canAdd() { return gr.querySelectorAll('.mk').length < 16; }
+    function addMk(t, c, lock) {
+      if (t < 0 || t > 255 || !canAdd() || gr.querySelector('.mk[data-t="' + t + '"]')) return;
       const m = C('div');
       m.className = 'mk';
       m.dataset.t = t;
-      m.dataset.c = c || randomHex();
+      m.dataset.c = c || rndHex();
       m.dataset.lock = lock ? '1' : '0';
-      m.style.left = (padL + (t * scale)) + 'px';
+      m.style.left = (pl + (t * sc)) + 'px';
       m.style.background = m.dataset.c;
-      grad.appendChild(m);
-      select(m);
-      draw();
+      gr.appendChild(m);
+      selMk(m); draw();
     }
-    function deleteSelected() {
+    function delMk() {
       if (!sel || sel.dataset.lock === '1') return;
-      sel.remove(); select(null); draw();
+      sel.remove(); selMk(null); draw();
     }
-    function setSelectedColor(hex) {
-      if (!sel) return;
-      sel.dataset.c = hex; sel.style.background = hex; draw();
-    }
-    function distribute() {
+    function setCol(h) { if (!sel) return; sel.dataset.c = h; sel.style.background = h; draw(); }
+    function dist() {
       const s = stops(); if (s.length < 3) return;
-      const inner = s.slice(1, -1);
-      const step = Math.round(255 / (inner.length + 1));
+      const inner = s.slice(1, -1), step = Math.round(255 / (inner.length + 1));
       inner.forEach((p, i) => {
-        const t = step * (i + 1);
-        const m = [...grad.querySelectorAll('.mk')].find(x => +x.dataset.t === p.t && x.dataset.lock !== '1');
-        if (m) { m.dataset.t = t; m.style.left = (padL + (t * scale)) + 'px'; }
+        const m = [...gr.querySelectorAll('.mk')].find(x => +x.dataset.t === p.t && x.dataset.lock !== '1');
+        if (m) { m.dataset.t = step * (i + 1); m.style.left = (pl + (m.dataset.t * sc)) + 'px'; }
       });
       draw();
     }
-
-    // New random (4–6 handles total, endpoints fixed)
-    function newRandomUpTo6() {
-      grad.innerHTML = '';
-      add(0, randomHex(), true);
-      const total = Math.floor(Math.random() * 3) + 4; // 4..6
-      const innerCount = Math.max(2, total - 2);
-      const positions = new Set();
-      while (positions.size < innerCount) positions.add(Math.floor(Math.random() * 254) + 1);
-      [...positions].sort((a,b)=>a-b).forEach(t => add(t, randomHex(), false));
-      add(255, randomHex(), true);
+    function rndPal() {
+      gr.innerHTML = '';
+      addMk(0, rndHex(), 1);
+      const cnt = Math.floor(Math.random() * 3) + 2, pos = new Set();
+      while (pos.size < cnt) pos.add(Math.floor(Math.random() * 254) + 1);
+      [...pos].sort((a,b)=>a-b).forEach(t => addMk(t, rndHex()));
+      addMk(255, rndHex(), 1);
     }
 
-    // Data conversion
+    // Data
     function toJSON() { return JSON.stringify({ palette: stops().flatMap(s => [s.t, s.c.slice(1)]) }); }
-    function cssFromArr(arr) {
+    function cssArr(a) {
       let out = [];
-      for (let i = 0; i < arr.length; i += 2) {
-        const t = arr[i], v = arr[i + 1];
-        if (typeof v === 'string') out.push('#' + v + ' ' + (t / 255 * 100) + '%');
-        else { out.push(`rgba(${v},${arr[i + 2]},${arr[i + 3]},1) ${(t / 255 * 100)}%`); i += 2; }
+      for (let i = 0; i < a.length; i += 2) {
+        const t = a[i], v = a[i + 1];
+        out.push(typeof v === 'string' ? `#${v} ${t/255*100}%` : `rgba(${v},${a[i+2]},${a[i+3]},1) ${t/255*100}%`);
+        if (typeof v !== 'string') i += 2;
       }
       return 'linear-gradient(to right,' + out.join(',') + ')';
     }
-
-    // Upload and refresh custom list (no redirect)
-    function upload(slot) {
-      const r = new XMLHttpRequest();
-      const b = new Blob([toJSON()], { type: 'application/json' });
-      const fd = new FormData();
-      r.onload = () => {
-        localStorage.removeItem('wledPalx');
-        refreshCustomList(); // do not redirect; refresh custom palettes
-      };
-      r.open('POST', '/upload');
-      fd.append('data', b, '/palette' + slot + '.json');
-      r.send(fd);
+    function cssStops(s) {
+      return 'linear-gradient(to right,' + s.map(x => {
+        if (typeof x.rgb === 'string') return `#${x.rgb} ${x.pos/255*100}%`;
+        if (Array.isArray(x.rgb)) return `rgb(${x.rgb.join(',')}) ${x.pos/255*100}%`;
+        return `#000 ${x.pos/255*100}%`;
+      }).join(',') + ')';
     }
-    async function refreshCustomList() {
-      try {
-        const info = await fetch(getURL('/json/info'), { cache: 'no-store' }).then(r=>r.json());
-        cpalc = info.cpalcount; cpalm = info.cpalmax;
-      } catch(e) {}
-      await fetchCustom(cpalc - 1);
-    }
-
-    function isNewSlot(arr) {
-      return Array.isArray(arr) && arr.length === 1 && arr[0] === 255; // simple placeholder
-    }
-    function loadArray(arr) {
-      grad.innerHTML = '';
-      for (let i = 0; i < arr.length; i += 2) {
-        const t = arr[i], v = arr[i + 1];
-        let hex;
-        if (typeof v === 'string') hex = '#' + v;
-        else { hex = '#' + ((v << 16) | (arr[i + 2] << 8) | arr[i + 3]).toString(16).padStart(6, '0'); i += 2; }
-        add(t, hex, (t === 0 || t === 255));
+    function isEmpty(a) { return Array.isArray(a) && a.length === 1 && a[0] === 255; }
+    function loadArr(a) {
+      gr.innerHTML = '';
+      for (let i = 0; i < a.length; i += 2) {
+        const t = a[i], v = a[i + 1];
+        const h = typeof v === 'string' ? '#' + v : '#' + ((v << 16) | (a[i + 2] << 8) | a[i + 3]).toString(16).padStart(6, '0');
+        if (typeof v !== 'string') i += 2;
+        addMk(t, h, (t === 0 || t === 255));
       }
     }
 
-    // Lists (Name | Preview | Save button (custom only))
-    function buildLists() {
-      const cDiv = $('custom'), sDiv = $('static');
-      cDiv.innerHTML = ''; sDiv.innerHTML = '';
-      const fragC = d.createDocumentFragment(), fragS = d.createDocumentFragment();
-
-      // Ensure "new slot" (placeholder) is first and sticky if present
-      const newSlots = [], existing = [];
-      custom.forEach((p, i) => (isNewSlot(p.palette) ? newSlots : existing).push({ p, i }));
-
-      newSlots.concat(existing).forEach(({p, i}) => {
-        const row = C('div'); row.className = 'row';
-        if (isNewSlot(p.palette)) row.classList.add('sticky-new'); // frozen at top if present
-
-        const name = C('div'); name.className = 'name'; name.textContent = 'Custom' + i;
-
-        const preview = C('div'); preview.className = 'preview clickable';
-        preview.style.backgroundImage = cssFromArr(p.palette);
-        preview.title = isNewSlot(p.palette) ? 'Empty slot' : 'Click to load in editor';
-        if (!isNewSlot(p.palette)) preview.onclick = () => loadArray(p.palette);
-
-        // Save button right-aligned
-        const save = C('button'); save.className = 'sml'; save.innerHTML = '&#x1F81C;';
-        save.title = 'Save current editor to slot ' + i;
-        save.onclick = () => upload(i);
-
-        row.append(name, preview, save); fragC.appendChild(row);
-      });
-
-      // WLED static palettes: preview itself loads
-      statics.forEach(o => {
-        const k = Object.keys(o)[0];
-        const row = C('div'); row.className = 'row';
-        const name = C('div'); name.className = 'name'; name.textContent = o.name || ('Palette ' + k);
-
-        const preview = C('div'); preview.className = 'preview clickable';
-        preview.style.backgroundImage = cssFromArr(o[k]);
-        preview.title = 'Click to load in editor';
-        preview.onclick = () => loadArray(o[k]);
-
-        row.append(name, preview); fragS.appendChild(row);
-      });
-
-      cDiv.appendChild(fragC);
-      sDiv.appendChild(fragS);
-      $('memWarn').style.display = (cpalc >= 10) ? 'inline' : 'none';
-    }
-
-    async function fetchCustom(n) {
-      custom.length = 0;
-
-      const run = async () => {
-        for (let i = 0; i <= n; i++) {
-          const res = await fetch(getURL('/palette' + i + '.json'), { cache: 'no-store' });
-          if (!res.ok) throw new Error('HTTP ' + res.status);
-          custom.push(await res.json());
-        }
-        if (custom.length < cpalm) custom.push({ palette: [255] }); // show empty slot
-        buildLists();
-      };
-
-      try {
-        await run();
-      } catch (e) {
-        try {
-          await run(); // one retry
-        } catch (e2) {
-          console.warn(e2);
-        }
-      }
-    }
-
-    // Converter: cpt-city JSON -> statics entries (legacy append)
-    function convertCptCityToStatics(arr) {
-      if (!Array.isArray(arr)) return [];
-      const out = [];
-      arr.forEach((p, idx) => {
-        if (!p || !Array.isArray(p.colors)) return;
-        const colors = p.colors.slice();
-        if (typeof colors[colors.length - 2] === 'number' && colors[colors.length - 2] !== 255) {
-          const lastColor = colors[colors.length - 1];
-          colors.push(255, lastColor);
-        }
-        out.push({ [`ext-${idx}`]: colors, name: p.name || `External ${idx}` });
-      });
-      return out;
-    }
-
-    /* ===== External palettes with categories (renamed 'themed'->'thematic') ===== */
-
-    // Normalize external "colors" to stops [{pos, rgb:string|[r,g,b]}]
-    function extToStops(colors) {
-      if (!Array.isArray(colors) || !colors.length) return [];
-      if (typeof colors[0] === 'object' && colors[0] && ('pos' in colors[0]) && ('rgb' in colors[0])) {
-        return colors.map(s => {
-          let rgb = s.rgb;
-          if (typeof rgb === 'string') rgb = rgb.replace(/^#/, '').toLowerCase();
-          return { pos: Number(s.pos), rgb };
-        }).sort((a,b)=>a.pos-b.pos);
+    // External normalization
+    function normStops(c) {
+      if (!Array.isArray(c) || !c.length) return [];
+      if (typeof c[0] === 'object' && c[0] && 'pos' in c[0] && 'rgb' in c[0]) {
+        return c.map(s => ({ pos: +s.pos, rgb: typeof s.rgb === 'string' ? s.rgb.replace(/^#/, '').toLowerCase() : s.rgb })).sort((a, b) => a.pos - b.pos);
       }
       const out = [];
-      for (let i=0;i<colors.length-1;i+=2) {
-        const pos = Number(colors[i]);
-        let hex = String(colors[i+1] ?? '').trim().replace(/^#/, '').toLowerCase();
-        if (Number.isFinite(pos) && /^[0-9a-fA-F]{6}$/.test(hex)) out.push({ pos, rgb: hex });
+      for (let i = 0; i < c.length - 1; i += 2) {
+        const p = +c[i], h = String(c[i + 1] ?? '').trim().replace(/^#/, '').toLowerCase();
+        if (Number.isFinite(p) && /^[0-9a-f]{6}$/.test(h)) out.push({ pos: p, rgb: h });
       }
-      return out.sort((a,b)=>a.pos-b.pos);
+      return out.sort((a, b) => a.pos - b.pos);
+    }
+    function stops2arr(s) {
+      const a = [];
+      for (const x of s) {
+        const p = clamp(Math.round(x.pos), 0, 255);
+        if (typeof x.rgb === 'string') a.push(p, x.rgb);
+        else if (Array.isArray(x.rgb)) a.push(p, ...x.rgb.map(v => clamp(v|0, 0, 255)));
+      }
+      if (a.length >= 2 && a[a.length-2] !== 255) {
+        const last = a.slice(-1)[0];
+        typeof last === 'string' ? a.push(255, last) : a.push(255, a[a.length-3], a[a.length-2], a[a.length-1]);
+      }
+      return a;
     }
 
-    function stopsToFlat(stops) {
-      const flat = [];
-      for (const s of stops) {
-        const pos = Math.max(0, Math.min(255, Math.round(s.pos)));
-        if (typeof s.rgb === 'string') flat.push(pos, s.rgb);
-        else if (Array.isArray(s.rgb)) {
-          const [r,g,b] = s.rgb.map(v=>Math.max(0,Math.min(255, v|0)));
-          flat.push(pos, r, g, b);
+    // Categories
+    function normCat(k) { const n = (k || '').toLowerCase(); return n === 'themed' ? 'thematic' : n; }
+    function grpExt(d) {
+      const g = {colorful:[], thematic:[], pastel:[], striped:[], gradient:[], monochrome:[]};
+      const add = (p) => { const k = normCat(p.category || p.class); if (g[k]) g[k].push(p); };
+      if (d?.categories && typeof d.categories === 'object') {
+        for (const [k, l] of Object.entries(d.categories)) {
+          const nk = normCat(k);
+          if (Array.isArray(l)) l.forEach(p => { if (g[nk]) g[nk].push(p); });
         }
-      }
-      if (flat.length >= 2 && flat[flat.length-2] !== 255) {
-        const last = flat.slice(-1)[0];
-        if (typeof last === 'string') flat.push(255, last);
-        else flat.push(255, flat[flat.length-3], flat[flat.length-2], flat[flat.length-1]);
-      }
-      return flat;
+      } else if (Array.isArray(d?.palettes)) d.palettes.forEach(add);
+      else if (Array.isArray(d)) d.forEach(add);
+      return g;
     }
 
-    function gradientCSSFromStops(stops) {
-      return 'linear-gradient(to right, ' + stops.map(s => {
-        if (typeof s.rgb === 'string') return `#${s.rgb} ${s.pos/255*100}%`;
-        if (Array.isArray(s.rgb)) { const [r,g,b]=s.rgb; return `rgb(${r},${g},${b}) ${s.pos/255*100}%`; }
-        return `#000000 ${s.pos/255*100}%`;
-      }).join(', ') + ')';
+    // UI
+    function mkRow(name, author, css, arr) {
+      const r = C('div'), n = C('div'), t = C('span'), pv = C('div');
+      r.className = 'row'; n.className = 'name'; t.textContent = name;
+      n.appendChild(t);
+      if (author) { const by = C('span'); by.className='by'; by.textContent = 'by ' + author; n.appendChild(by); }
+      pv.className = 'preview clickable';
+      pv.style.background = css;
+      pv.title = 'Click to load';
+      pv.onclick = () => loadArr(arr);
+      r.append(n, pv);
+      return r;
     }
 
-    // Build categories UI (collapsed by default); previews are clickable loaders
-    function buildExtCategories(groups) {
-      const host = $('extCats');
-      if (!host) return;
-      host.innerHTML = '';
+    function bldLst() {
+      const cd = $('custom'), fc = d.createDocumentFragment();
+      cd.innerHTML = '';
+      const emp = [], reg = [];
+      cpal.forEach((p, i) => (isEmpty(p.palette) ? emp : reg).push({ p, i }));
+      
+      reg.forEach(({p, i}) => {
+        const r = C('div'), n = C('div'), pv = C('div'), sv = C('button');
+        r.className = 'row'; n.className = 'name'; n.textContent = 'Custom' + i;
+        pv.className = 'preview clickable';
+        pv.style.backgroundImage = cssArr(p.palette);
+        pv.title = 'Click to load';
+        pv.onclick = () => loadArr(p.palette);
+        sv.className = 'sml'; sv.innerHTML = '&#x1F81C;';
+        sv.title = 'Save to slot ' + i;
+        sv.onclick = () => upl(i);
+        r.append(n, pv, sv); fc.appendChild(r);
+      });
+      
+      emp.forEach(({p, i}) => {
+        const r = C('div'), n = C('div'), pv = C('div'), sv = C('button');
+        r.className = 'row'; n.className = 'name'; n.textContent = 'Custom' + i;
+        pv.className = 'preview clickable';
+        pv.style.backgroundImage = cssArr(p.palette);
+        pv.title = 'Empty slot';
+        sv.className = 'sml'; sv.innerHTML = '&#x1F81C;';
+        sv.title = 'Save to slot ' + i;
+        sv.onclick = () => upl(i);
+        r.append(n, pv, sv); fc.appendChild(r);
+      });
+      
+      cd.appendChild(fc);
+      $('memWarn').style.display = (cpc >= 10) ? 'block' : 'none';
+    }
 
-      CAT_ORDER.forEach(key => {
-        const items = groups[key] || [];
-        const det = C('details'); det.className = 'category'; // collapsed by default
-        const sum = C('summary');
-        sum.textContent = `${CAT_LABEL[key] || key} (${items.length})`;
+    function bldCat(extGrp) {
+      const h = $('allCats');
+      if (!h) return;
+      h.innerHTML = '';
+      const cats = [
+        {k:'wled', lbl:'WLED Palettes', items:spal},
+        {k:'colorful', lbl:'Colorful', items:extGrp.colorful||[]},
+        {k:'thematic', lbl:'Thematic', items:extGrp.thematic||[]},
+        {k:'pastel', lbl:'Pastel', items:extGrp.pastel||[]},
+        {k:'striped', lbl:'Striped', items:extGrp.striped||[]},
+        {k:'gradient', lbl:'Gradient', items:extGrp.gradient||[]},
+        {k:'monochrome', lbl:'Monochrome', items:extGrp.monochrome||[]}
+      ];
+      cats.forEach(({k, lbl, items}) => {
+        if (!items.length && k !== 'wled') return;
+        const det = C('details'), sum = C('summary'), body = C('div');
+        det.className = 'category';
+        sum.innerHTML = `&#9656; ${lbl} (${items.length})`;
         det.appendChild(sum);
-
-        const body = C('div'); body.className = 'cat-body';
-
+        body.className = 'cat-body';
         if (!items.length) {
-          const emptyRow = C('div'); emptyRow.className = 'row';
-          const empty = C('div'); empty.className='small'; empty.textContent='No palettes in this category.';
-          emptyRow.append(C('div'), empty); // spacer for name column
-          body.appendChild(emptyRow);
+          const er = C('div'), em = C('div');
+          er.className = 'row'; em.className='small'; em.textContent='No palettes';
+          er.append(C('div'), em); body.appendChild(er);
         } else {
           items.forEach(p => {
-            const stops = extToStops(p.colors);
-            const row = C('div'); row.className = 'row';
-
-            const name = C('div'); name.className = 'name';
-            const title = C('span'); title.textContent = p.name || '(unnamed)';
-            name.appendChild(title);
-            if (p.author) {
-              const by = C('span'); by.className='by'; by.textContent = 'by ' + p.author;
-              name.appendChild(by);
+            if (k === 'wled') {
+              const key = Object.keys(p)[0];
+              body.appendChild(mkRow(p.name || 'Palette ' + key, null, cssArr(p[key]), p[key]));
+            } else {
+              const s = normStops(p.colors);
+              body.appendChild(mkRow(p.name || '(unnamed)', p.author, cssStops(s), stops2arr(s)));
             }
-
-            const preview = C('div'); preview.className = 'preview clickable';
-            preview.style.background = gradientCSSFromStops(stops);
-            preview.title = 'Click to load in editor';
-            const flat = stopsToFlat(stops);
-            preview.onclick = () => loadArray(flat);
-
-            row.append(name, preview);
-            body.appendChild(row);
           });
         }
         det.appendChild(body);
-        host.appendChild(det);
+        h.appendChild(det);
+        det.addEventListener('toggle', () => {
+          sum.innerHTML = det.open ? `&#9662; ${lbl} (${items.length})` : `&#9656; ${lbl} (${items.length})`;
+        });
       });
     }
 
-    // Map external palettes to requested categories (normalize 'themed' -> 'thematic')
-    function groupExternal(data) {
-      const groups = {};
-      CAT_ORDER.forEach(k => groups[k] = []);
-      const normKey = (v) => {
-        const k = (v || '').toLowerCase();
-        return k === 'themed' ? 'thematic' : k;
-      };
-
-      // Case 1: { categories: { key: [...] } }
-      if (data && data.categories && typeof data.categories === 'object') {
-        for (const [k, list] of Object.entries(data.categories)) {
-          const key = normKey(k);
-          if (!Array.isArray(list)) continue;
-          list.forEach(p => { if (groups[key]) groups[key].push(p); });
+    // Network
+    function upl(i) {
+      const r = new XMLHttpRequest(), b = new Blob([toJSON()], {type:'application/json'}), fd = new FormData();
+      r.onload = () => { localStorage.removeItem('wledPalx'); refr(); };
+      r.open('POST', '/upload');
+      fd.append('data', b, '/palette' + i + '.json');
+      r.send(fd);
+    }
+    async function refr() {
+      try {
+        const inf = await fetch(getURL('/json/info'), {cache:'no-store'}).then(r=>r.json());
+        cpc = inf.cpalcount; cpm = inf.cpalmax;
+      } catch(e) {}
+      await fetchC(cpc - 1);
+    }
+    async function fetchC(n) {
+      cpal.length = 0;
+      const run = async () => {
+        for (let i = 0; i <= n; i++) {
+          const res = await fetch(getURL('/palette' + i + '.json'), {cache:'no-store'});
+          if (!res.ok) throw new Error();
+          cpal.push(await res.json());
         }
-        return groups;
-      }
-
-      // Case 2: { palettes: [ { category|class: "...", ... } ] }
-      if (Array.isArray(data?.palettes)) {
-        data.palettes.forEach(p => {
-          const key = normKey(p.category || p.class);
-          if (groups[key]) groups[key].push(p);
-        });
-        return groups;
-      }
-
-      // Case 3: Root is an array: [ { class|category: "...", name, author, colors } ]
-      if (Array.isArray(data)) {
-        data.forEach(p => {
-          const key = normKey(p.class || p.category);
-          if (groups[key]) groups[key].push(p);
-        });
-        return groups;
-      }
-      return groups;
+        if (cpal.length < cpm) cpal.push({palette:[255]});
+        bldLst();
+      };
+      try { await run(); } catch (e) { try { await run(); } catch (e2) {} }
     }
-
-    // Try to load external categories from cache; returns true if used cache
-    function tryLoadExtFromCache() {
-      const btn = $('btnFetchExt');
+    function tryCache() {
       try {
-        const raw = localStorage.getItem(EXT_CPT_CITY_CACHE_KEY);
+        const raw = localStorage.getItem('wledCptCityJson');
         if (!raw) return false;
-        const data = JSON.parse(raw);
-        const groups = groupExternal(data);
-        buildExtCategories(groups);
-        if (btn) btn.style.display = 'none'; // hide download button if cached
+        bldCat(grpExt(JSON.parse(raw)));
+        $('btnFetchExt').style.display = 'none';
         return true;
-      } catch (e) {
-        // bad cache; clear it
-        localStorage.removeItem(EXT_CPT_CITY_CACHE_KEY);
-        return false;
-      }
+      } catch (e) { localStorage.removeItem('wledCptCityJson'); return false; }
     }
-
-    // Fetch from GitHub Pages (renamed file: cpt_city_selection.json) and cache it
-    async function fetchCptCityFromGithubPages() {
+    async function fetchExt() {
       try {
-        const url = `https://dedehai.github.io/cpt_city_selection.json`;
-        const res = await fetch(url, { mode: 'cors', cache: 'no-store' });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const data = await res.json();
-
-        // Cache the entire JSON
-        try { localStorage.setItem(EXT_CPT_CITY_CACHE_KEY, JSON.stringify(data)); } catch(e) {}
-
-        const groups = groupExternal(data);
-        buildExtCategories(groups);
-
-        // hide the download button now that it's cached/loaded
-        const btn = $('btnFetchExt'); if (btn) btn.style.display = 'none';
-      } catch (e) {
-        console.error(e);
-        alert('Failed to fetch palettes. Please check the username and that the JSON file is accessible.');
-      }
+        const res = await fetch('https://dedehai.github.io/cpt_city_selection.json', {mode:'cors', cache:'no-store'});
+        if (!res.ok) throw new Error();
+        const d = await res.json();
+        try { localStorage.setItem('wledCptCityJson', JSON.stringify(d)); } catch(e) {}
+        bldCat(grpExt(d));
+        $('btnFetchExt').style.display = 'none';
+      } catch (e) { alert('Failed to fetch palettes'); }
     }
 
+    // Preview
+    async function unfreezeSegment() {
+      try { await fetch(getURL('/json'), {method:'POST', body:JSON.stringify({seg:{i:[]}})}); } catch(e) {}
+    }
+    
+    async function getSegInfo() {
+      try {
+        const st = await fetch(getURL('/json/state'),{cache:'no-store'}).then(r=>r.json());
+        if (!Array.isArray(st.seg) || !st.seg.length) throw new Error();
+        const seg = st.seg.find(s => s.id === (st.mainseg || 0)) || st.seg[0];
+        const w = seg.stop - seg.start;
+        const h = (seg.stopY && seg.startY !== undefined) ? (seg.stopY - seg.startY) : 1;
+        return {len: (h > 1) ? (w * h) : w, is2D: h > 1, w, h};
+      } catch(e){}
+      
+      try {
+        const inf = await fetch(getURL('/json/info'),{cache:'no-store'}).then(r=>r.json());
+        if (inf?.leds) {
+          const len = inf.leds.count || 60;
+          if (inf.leds.matrix?.w && inf.leds.matrix?.h)
+            return {len, is2D:true, w:inf.leds.matrix.w, h:inf.leds.matrix.h};
+          return {len, is2D:false, w:len, h:1};
+        }
+      } catch(e){}
+      return {len:60, is2D:false, w:60, h:1};
+    }
+    
+    async function applyLED() {
+      if (!palCache.length) return;
+      const inf = await getSegInfo(), arr = [];
+      
+      if (inf.is2D) {
+        const row = [];
+        for (let x = 0; x < inf.w; x++) {
+          const t = inf.w > 1 ? Math.round(x * 255 / (inf.w - 1)) : 0;
+          row.push(palCache[t]);
+        }
+        for (let y = 0; y < inf.h; y++) arr.push(...row);
+      } else {
+        for (let i = 0; i < inf.len; i++) {
+          const t = inf.len > 1 ? Math.round(i * 255 / (inf.len - 1)) : 0;
+          arr.push(palCache[t]);
+        }
+      }
+      
+      try { await fetch(getURL('/json'), {method:'POST', body:JSON.stringify({seg:{i:arr}})}); } catch(e) {}
+    }
+
+    // Init
     async function init() {
       getLoc();
-
-      // If external file is already cached, load immediately and hide the download button
-      const usedCache = tryLoadExtFromCache();
-      if (!usedCache) {
-        const btn = $('btnFetchExt'); if (btn) btn.style.display = '';
-      }
-
+      let extGrp = {};
+      const cached = tryCache();
+      if (!cached) $('btnFetchExt').style.display = '';
       try {
-        const info = await fetch(getURL('/json/info')).then(r => r.json());
-        const names = await fetch(getURL('/json/pal')).then(r => r.json());
-        palNm = names; cpalc = info.cpalcount; cpalm = info.cpalmax;
-        fetchCustom(cpalc - 1);
-
+        const inf = await fetch(getURL('/json/info')).then(r => r.json());
+        const nm = await fetch(getURL('/json/pal')).then(r => r.json());
+        pnm = nm; cpc = inf.cpalcount; cpm = inf.cpalmax;
+        fetchC(cpc - 1);
         let cache; try { cache = JSON.parse(localStorage.getItem('wledPalx')); } catch {}
-        if (cache && cache.p) {
+        if (cache?.p) {
           for (const k in cache.p) {
-            if (+k > 255 - cpalm) { delete cache.p[k]; continue; }
-            const arr = cache.p[k]; if (!Array.isArray(arr)) { delete cache.p[k]; continue; }
-            if (arr[arr.length - 1][0] !== 255) { const tail = [...arr[arr.length - 1]]; tail[0] = 255; arr.push(tail); }
-            cache.p[k].name = palNm[k];
+            if (+k > 255 - cpm || !Array.isArray(cache.p[k])) { delete cache.p[k]; continue; }
+            const a = cache.p[k];
+            if (a[a.length-1][0] !== 255) a.push([255, ...a[a.length-1].slice(1)]);
+            cache.p[k].name = pnm[k];
           }
-          statics = Object.entries(cache.p)
-            .filter(([k]) => +k >= SKIP_FIRST_STATIC)
-            .map(([k, v]) => ({ [k]: v.flat(), name: v.name }));
+          spal = Object.entries(cache.p).filter(([k]) => +k >= 8).map(([k, v]) => ({[k]:v.flat(), name:v.name}));
         }
+        try { const raw = localStorage.getItem('wledCptCityJson'); if (raw) extGrp = grpExt(JSON.parse(raw)); } catch(e) {}
+        bldCat(extGrp);
       } catch (e) {}
       recalc();
-      newRandomUpTo6();
+      rndPal();
     }
 
     // Events
     window.addEventListener('resize', recalc);
-
-    wrap.addEventListener('click', (e) => {
-      if (e.target !== wrap && e.target !== grad) return;
-      const t = Math.round((e.clientX - (rect.left + padL)) / scale);
-      if (!canAddMarker()) return;
-      if (t === 0 || t === 255) return;
-      add(Math.max(1, Math.min(254, t)), pk ? pk.color.hexString : undefined);
+    wr.addEventListener('click', (e) => {
+      if (e.target !== wr && e.target !== gr) return;
+      const t = clamp(Math.round((e.clientX - (rc.left + pl)) / sc), 1, 254);
+      if (!canAdd() || t === 0 || t === 255) return;
+      addMk(t, '#' + (palCache[t] || '000000'));
     });
-
-    grad.addEventListener('pointerdown', (e) => {
-      const m = e.target.closest('.mk'); if (!m) return;
-      select(m);
-      if (m.dataset.lock === '1') return;
-      e.preventDefault();
-      const move = (ev) => {
-        let x = Math.round((ev.clientX - (rect.left + padL)) / scale);
-        x = Math.max(1, Math.min(254, x));
-        m.dataset.t = x; m.style.left = (padL + (x * scale)) + 'px'; draw();
+    gr.addEventListener('pointerdown', (e) => {
+      const m = e.target.closest('.mk'); if (!m || m.dataset.lock === '1') return;
+      selMk(m); e.preventDefault();
+      const mv = (ev) => {
+        const x = clamp(Math.round((ev.clientX - (rc.left + pl)) / sc), 1, 254);
+        m.dataset.t = x; m.style.left = (pl + (x * sc)) + 'px'; draw();
       };
-      const up = () => { d.removeEventListener('pointermove', move); d.removeEventListener('pointerup', up); };
-      d.addEventListener('pointermove', move); d.addEventListener('pointerup', up, { once:true });
+      d.addEventListener('pointermove', mv);
+      d.addEventListener('pointerup', () => d.removeEventListener('pointermove', mv), {once:1});
     });
-
     d.addEventListener('keydown', (e) => {
       if (!sel || sel.dataset.lock === '1') return;
       let t = +sel.dataset.t;
       if (e.key === 'ArrowLeft') t = Math.max(1, t - (e.shiftKey ? 8 : 1));
       else if (e.key === 'ArrowRight') t = Math.min(254, t + (e.shiftKey ? 8 : 1));
       else return;
-      sel.dataset.t = t; sel.style.left = (padL + (t * scale)) + 'px'; draw(); e.preventDefault();
+      sel.dataset.t = t; sel.style.left = (pl + (t * sc)) + 'px'; draw(); e.preventDefault();
     });
 
-    $('btnDist').onclick = distribute;
-    $('btnDel').onclick = deleteSelected;
-    $('btnNew').onclick = newRandomUpTo6;
-    $('btnFetchExt').onclick = fetchCptCityFromGithubPages;
+    $('btnDist').onclick = dist;
+    $('btnDel').onclick = delMk;
+    $('btnNew').onclick = rndPal;
+    $('btnFetchExt').onclick = fetchExt;
+    $('chkPreview').addEventListener('change', (e) => {
+      prvEn = e.target.checked;
+      prvEn ? applyLED() : unfreezeSegment();
+    });
 
     window.addEventListener('load', () => {
       pk = new iro.ColorPicker('#picker', {
         width: 240,
+        wheelAngle: 270,
+        wheelDirection: 'clockwise',
         layout: [
-          { component: iro.ui.Wheel },
-          { component: iro.ui.Slider, options: { sliderType: 'value' } }
+          {component: iro.ui.Wheel},
+          {component: iro.ui.Slider, options: {sliderType: 'value'}}
         ]
       });
-      pk.on('color:change', (c) => setSelectedColor(c.hexString));
+      
+      pk.on('color:change', (c) => { setCol(c.hexString); updRGB(c.hexString); });
+      
+      const updFromRGB = () => {
+        const r = clamp(parseInt($('rInput').value) || 0, 0, 255);
+        const g = clamp(parseInt($('gInput').value) || 0, 0, 255);
+        const b = clamp(parseInt($('bInput').value) || 0, 0, 255);
+        pk.color.rgb = {r, g, b};
+      };
+      $('rInput').addEventListener('change', updFromRGB);
+      $('gInput').addEventListener('change', updFromRGB);
+      $('bInput').addEventListener('change', updFromRGB);
+      
       init();
     });
   </script>
 </body>
-
 </html>
