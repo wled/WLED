@@ -22,7 +22,6 @@ const zlib = require("node:zlib");
 const CleanCSS = require("clean-css");
 const minifyHtml = require("html-minifier-terser").minify;
 const packageJson = require("../package.json");
-const { minify: terserMinify } = require("terser");
 
 // Export functions for testing
 module.exports = { isFileNewerThan, isAnyFileInFolderNewerThan };
@@ -105,7 +104,7 @@ async function minify(str, type = "plain") {
     conservativeCollapse: true, // preserve spaces in text
     collapseBooleanAttributes: true,
     collapseInlineTagWhitespace: true,
-    minifyCSS: (css) => new CleanCSS({ level: 2 }).minify(css).styles,
+    minifyCSS: true,
     minifyJS: true,
     removeAttributeQuotes: true,
     removeComments: true,
@@ -116,7 +115,7 @@ async function minify(str, type = "plain") {
   if (type == "plain") {
     return str;
   } else if (type == "css-minify") {
-    return new CleanCSS({ level: 2 }).minify(str).styles; // Updated to level 2
+    return new CleanCSS({}).minify(str).styles;
   } else if (type == "js-minify") {
     let js = await minifyHtml('<script>' + str + '</script>', options);
     return js.replace(/<[\/]*script>/g, '');
@@ -147,14 +146,6 @@ async function writeHtmlGzipped(sourceFile, resultFile, page, opts = {}) {
   console.info("Reading " + sourceFile);
   const originalHtml = fs.readFileSync(sourceFile, "utf8");
   const preprocessedHtml = protectScriptExclusions(originalHtml, excludeScripts);
-
-    // Apply JavaScript preprocessing if advanced minify is requested
-  if (opts.advancedMinify) {
-    const preserveFunctions = options.preserveFunctions || [];
-    const reservedVars = options.reservedVars || [];  // Add reserved variable names
-    console.info("Applying advanced JavaScript minification to " + sourceFile);
-    html = await preprocessJavaScript(html, preserveFunctions, reservedVars);
-  }
 
   inline.html({
     fileContent: preprocessedHtml,
@@ -189,18 +180,8 @@ async function specToChunk(srcDir, s) {
     let str = buf.toString("utf-8");
     str = adoptVersionAndRepo(str);
     const originalLength = str.length;
-    
-    // Apply JavaScript preprocessing if advanced minify is requested
-    if (s.advancedMinify) {
-      console.info("Applying advanced JavaScript minification to " + s.file);
-      str = await preprocessJavaScript(
-        str, 
-        s.preserveFunctions || [], 
-        s.reservedVars || []  // Add reserved variable names
-      );
-    }
-    
     if (s.method == "gzip") {
+      if (s.mangle) str = s.mangle(str);
       const zip = zlib.gzipSync(await minify(str, s.filter), { level: zlib.constants.Z_BEST_COMPRESSION });
       console.info("Minified and compressed " + s.file + " from " + originalLength + " to " + zip.length + " bytes");
       const result = hexdump(zip);
@@ -221,57 +202,6 @@ async function specToChunk(srcDir, s) {
   }
 
   throw new Error("Unknown method: " + s.method);
-}
-
-/**
- * Preprocesses JavaScript in HTML content using Terser
- * @param {string} html - HTML content with embedded JavaScript
- * @param {string[]} preserveFunctions - Array of function names to preserve
- * @returns {Promise<string>} - Processed HTML with minified JavaScript
- */
-/**
- * Preprocesses JavaScript in HTML content using Terser
- * @param {string} html - HTML content with embedded JavaScript
- * @param {string[]} preserveFunctions - Array of function names to preserve
- * @param {string[]} reservedVars - Array of variable names to avoid using
- * @returns {Promise<string>} - Processed HTML with minified JavaScript
- */
-async function preprocessJavaScript(html, preserveFunctions = [], reservedVars = []) {
-  if (typeof html !== 'string') {
-    console.warn("Warning: Input to preprocessJavaScript is not a string");
-    return html;
-  }
-
-  const scriptRegex = /<script>([\s\S]*?)<\/script>/g;
-  let match;
-  let result = html;
-  
-  while ((match = scriptRegex.exec(html)) !== null) {
-    const fullMatch = match[0];
-    const scriptContent = match[1];
-    
-    try {
-      const minified = await terserMinify(scriptContent, {
-        mangle: {
-          toplevel: true,
-          reserved: [...preserveFunctions, ...reservedVars], // prevent mangling of specified function and variable names
-          keep_fnames: preserveFunctions.length > 0
-        },
-        compress: {
-          passes: 2,
-          unsafe: true
-        }
-      });
-      
-      if (minified && minified.code) {
-        result = result.replace(fullMatch, `<script>${minified.code}</script>`);
-      }
-    } catch (err) {
-      console.warn(`Warning: JavaScript preprocessing error: ${err.message.substring(0, 100)}`);
-    }
-  }
-  
-  return result;
 }
 
 async function writeChunks(srcDir, specs, resultFile) {
@@ -348,10 +278,7 @@ writeChunks(
       file: "cpal.htm",
       name: "PAGE_cpal",
       method: "gzip",
-      filter: "html-minify",
-      advancedMinify: false, // set to true to enable advanced JS minification, saves about 100 bytes only.
-      preserveFunctions: ['onclick'], // add functions here that should not be minified
-      reservedVars: ['d', 'n']  // d and n are used in common.js
+      filter: "html-minify"
     }
   ],
   "wled00/html_cpal.h"

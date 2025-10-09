@@ -3,26 +3,17 @@
 <head>
   <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1">
   <title>WLED Palette Editor</title>
-  <script>
-    var d = document;
-    const $ = (e) => gId(e);
-    const C = (t) => cE(t);
-  </script>
   <script src="common.js"></script>
   <script src="iro.js"></script>
+  <link rel="stylesheet" href="style.css">
   <style>
-	@import url("style.css");
     :root {
-      --bg:#111; --fg:#ddd; --bd:#333;
       --pad:16px;
       --maxw:820px;
       --namew:16ch;
     }
-    button.sml { text-overflow: clip; }
-    * { box-sizing: border-box; }
-    body { margin:0; background:var(--bg); color:var(--fg); font:14px/1.35 system-ui, Segoe UI, Arial, sans-serif; }
 
-    .container {
+    .ctr {
       max-width: calc(var(--maxw) + 2*var(--pad));
       margin: 20px auto;
       padding: 0 var(--pad);
@@ -33,15 +24,14 @@
     header h1 { margin:0; font-size:20px; font-weight:600; }
     #pickerWrap { display:flex; flex-direction:column; align-items:center; margin:8px 0 12px; width:100%; }
     .bar { display:flex; flex-wrap:wrap; gap:10px; align-items:center; justify-content:center; margin:8px 0 12px; width:100%; max-width:var(--maxw); padding:0 var(--pad); }
-    .small { font-size:12px; opacity:0.85; }
 
     #editor {
       width:100%; display:flex; justify-content:center;
-      position: sticky; top: 0; z-index: 5; background: var(--bg); padding: 6px 0;
+      position: sticky; top: 0; z-index: 5; background: #222; padding: 6px 0;
     }
     #gradWrap {
       position:relative; height:34px; width:100%; max-width:var(--maxw);
-      border-radius:8px; border:1px solid var(--bd); padding:0 var(--pad); box-sizing:border-box;
+      border-radius:8px; border:1px solid #666; padding:0 var(--pad); box-sizing:border-box;
     }
     #grad { height:100%; border-radius:6px; }
 
@@ -50,43 +40,38 @@
     .mk[data-lock="1"] { background:#666; }
 
     section { margin-top:18px; width:100%; }
-    .table { max-width:var(--maxw); width:100%; margin:0 auto; padding:0 var(--pad); }
-    .list { display:flex; flex-direction:column; gap:8px; width:100%; }
+    .tbl { max-width:var(--maxw); width:100%; margin:0 auto; padding:0 var(--pad); }
+    .lst { display:flex; flex-direction:column; gap:8px; width:100%; }
     .row { display:flex; align-items:center; gap:10px; width:100%; }
     .row .sml:last-child { margin-left: auto; }
 
-    .name { flex:0 0 var(--namew); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; opacity:.95; }
-    .name .by { display:block; font-size:12px; opacity:.8; }
-    .preview { flex:1 1 50%; min-width:100px; height:26px; border-radius:6px; border:1px solid var(--bd); }
-    .preview.clickable { cursor: pointer; }
+    .nam { flex:0 0 var(--namew); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; opacity:.95; }
+    .nam .by { display:block; font-size:12px; opacity:.8; }
+    .prv { flex:1 1 50%; min-width:100px; height:26px; border-radius:6px; border:1px solid #666; }
+    .prv.clk { cursor: pointer; }
 
     @media (max-width: 760px) {
-      .name { display:none; }
-      .preview { flex-basis: auto; }
+      .nam { display:none; }
+      .prv { flex-basis: auto; }
     }
 
-    .categories { max-width:var(--maxw); width:100%; padding:0 var(--pad); }
-    details.category { border:1px solid var(--bd); border-radius:8px; margin:10px 0; background: #101010; }
-    details.category > summary {
-      cursor:pointer; padding:8px 10px; display:flex; align-items:center; gap:8px; color: var(--fg);
+    .cats { max-width:var(--maxw); width:100%; padding:0 var(--pad); }
+    details.cat { border:1px solid #666; border-radius:8px; margin:10px 0; background: #333; }
+    details.cat > summary {
+      cursor:pointer; padding:8px 10px; display:flex; align-items:center; gap:8px; color: #fff;
       list-style: none; font-size: 18px; font-weight: 500;
     }
-    details.category > summary::-webkit-details-marker { display:none; }
-    .cat-body { padding:8px 10px 12px; display:flex; flex-direction:column; gap:8px; }
-    .chk-label { 
+    details.cat > summary::-webkit-details-marker { display:none; }
+    .cbdy { padding:8px 10px 12px; display:flex; flex-direction:column; gap:8px; }
+    .clbl { 
       display: flex; align-items: center; gap: 6px; cursor: pointer; user-select: none;
-      justify-content: center; padding: 4px 0;
+      justify-content: center; padding: 4px 0; font-size:12px; opacity:0.85;
     }
-    .chk-label input[type="checkbox"] { 
-      width: 16px; height: 16px; cursor: pointer;
-      accent-color: var(--c-6);
-      background-color: var(--c-2);
-      border: 1px solid var(--c-4);
-    }
+    .clbl input[type="checkbox"] { accent-color: var(--c-6); }
     
-    .rgb-inputs { display: flex; gap: 6px; margin-top: 8px; align-items: center; }
-    .rgb-inputs input { width: 60px; padding: 4px; text-align: center; }
-    .rgb-inputs label { font-size: 12px; opacity: 0.8; }
+    .rgbi { display: flex; gap: 6px; margin-top: 8px; align-items: center; }
+    .rgbi input { width: 60px; }
+    .rgbi label { font-size: 12px; opacity: 0.8; }
     
     #memWarn { 
       display: none; 
@@ -99,11 +84,11 @@
   </style>
 </head>
 <body>
-  <div class="container">
+  <div class="ctr">
     <header><h1>WLED Palette Editor</h1></header>
     <div id="pickerWrap">
       <div id="picker"></div>
-      <div class="rgb-inputs">
+      <div class="rgbi">
         <label>R</label><input type="number" id="rInput" min="0" max="255" value="0">
         <label>G</label><input type="number" id="gInput" min="0" max="255" value="0">
         <label>B</label><input type="number" id="bInput" min="0" max="255" value="0">
@@ -117,15 +102,15 @@
     <div id="editor">
       <div id="gradWrap"><div id="grad"></div></div>
     </div>
-    <label class="chk-label small">
+    <label class="clbl">
       <input type="checkbox" id="chkPreview">
       <span>Live Preview on LEDs</span>
     </label>
     <section>
       <span id="memWarn">Warning: Adding many custom palettes might cause stability issues, create <a href="/settings/sec#backup">backups</a> before proceeding.</span>
-      <div class="table"><div id="custom" class="list"></div></div>
+      <div class="tbl"><div id="custom" class="lst"></div></div>
     </section>
-    <section><div id="allCats" class="categories"></div></section>
+    <section><div id="allCats" class="cats"></div></section>
     <div class="bar" style="margin-bottom: 24px;">
       <button id="btnFetchExt" class="btn">Load more palettes from WLED GitHub</button>
     </div>
@@ -133,7 +118,7 @@
 
   <script>
     // State
-    let gr = $('grad'), wr = $('gradWrap'), rc, w = 0, sc = 1, pl = 16;
+    let gr = gId('grad'), wr = gId('gradWrap'), rc, w = 0, sc = 1, pl = 16;
     let sel = null, pk = null;
     let cpc = 0, cpm = 10, pnm = [], cpal = [], spal = [];
     let prvTmr = null, prvEn = false, palCache = [];
@@ -144,7 +129,7 @@
     function h2rgb(h) { h = h.replace('#', ''); const n = parseInt(h, 16); return [(n>>16)&255, (n>>8)&255, n&255]; }
     function rgb2h(r, g, b) { return ((1<<24) + (r<<16) + (g<<8) + b).toString(16).slice(1); }
     function lerp(a, b, t) { return a + (b-a)*t; }
-    function updRGB(h) { const [r,g,b] = h2rgb(h); $('rInput').value=r; $('gInput').value=g; $('bInput').value=b; }
+    function updRGB(h) { const [r,g,b] = h2rgb(h); gId('rInput').value=r; gId('gInput').value=g; gId('bInput').value=b; }
 
     // Geometry
     function recalc() {
@@ -198,7 +183,7 @@
     function canAdd() { return gr.querySelectorAll('.mk').length < 16; }
     function addMk(t, c, lock) {
       if (t < 0 || t > 255 || !canAdd() || gr.querySelector('.mk[data-t="' + t + '"]')) return;
-      const m = C('div');
+      const m = cE('div');
       m.className = 'mk';
       m.dataset.t = t;
       m.dataset.c = c || rndHex();
@@ -269,7 +254,7 @@
       const out = [];
       for (let i = 0; i < c.length - 1; i += 2) {
         const p = +c[i], h = String(c[i + 1] ?? '').trim().replace(/^#/, '').toLowerCase();
-        if (Number.isFinite(p) && /^[0-9a-f]{6}$/.test(h)) out.push({ pos: p, rgb: h });
+        if (isN(p) && /^[0-9a-f]{6}$/.test(h)) out.push({ pos: p, rgb: h });
       }
       return out.sort((a, b) => a.pos - b.pos);
     }
@@ -292,7 +277,7 @@
     function grpExt(d) {
       const g = {colorful:[], thematic:[], pastel:[], striped:[], gradient:[], monochrome:[]};
       const add = (p) => { const k = normCat(p.category || p.class); if (g[k]) g[k].push(p); };
-      if (d?.categories && typeof d.categories === 'object') {
+      if (d?.categories && isO(d.categories)) {
         for (const [k, l] of Object.entries(d.categories)) {
           const nk = normCat(k);
           if (Array.isArray(l)) l.forEach(p => { if (g[nk]) g[nk].push(p); });
@@ -304,11 +289,11 @@
 
     // UI
     function mkRow(name, author, css, arr) {
-      const r = C('div'), n = C('div'), t = C('span'), pv = C('div');
-      r.className = 'row'; n.className = 'name'; t.textContent = name;
-      n.appendChild(t);
-      if (author) { const by = C('span'); by.className='by'; by.textContent = 'by ' + author; n.appendChild(by); }
-      pv.className = 'preview clickable';
+      const r = cE('div'), n = cE('div'), pv = cE('div');
+      r.className = 'row'; n.className = 'nam';
+      if (author) n.innerHTML = name + '<span class="by">by ' + author + '</span>';
+      else n.textContent = name;
+      pv.className = 'prv clk';
       pv.style.background = css;
       pv.title = 'Click to load';
       pv.onclick = () => loadArr(arr);
@@ -317,15 +302,15 @@
     }
 
     function bldLst() {
-      const cd = $('custom'), fc = d.createDocumentFragment();
+      const cd = gId('custom'), fc = d.createDocumentFragment();
       cd.innerHTML = '';
       const emp = [], reg = [];
       cpal.forEach((p, i) => (isEmpty(p.palette) ? emp : reg).push({ p, i }));
       
       reg.forEach(({p, i}) => {
-        const r = C('div'), n = C('div'), pv = C('div'), sv = C('button');
-        r.className = 'row'; n.className = 'name'; n.textContent = 'Custom' + i;
-        pv.className = 'preview clickable';
+        const r = cE('div'), n = cE('div'), pv = cE('div'), sv = cE('button');
+        r.className = 'row'; n.className = 'nam'; n.textContent = 'Custom' + i;
+        pv.className = 'prv clk';
         pv.style.backgroundImage = cssArr(p.palette);
         pv.title = 'Click to load';
         pv.onclick = () => loadArr(p.palette);
@@ -336,9 +321,9 @@
       });
       
       emp.forEach(({p, i}) => {
-        const r = C('div'), n = C('div'), pv = C('div'), sv = C('button');
-        r.className = 'row'; n.className = 'name'; n.textContent = 'Custom' + i;
-        pv.className = 'preview clickable';
+        const r = cE('div'), n = cE('div'), pv = cE('div'), sv = cE('button');
+        r.className = 'row'; n.className = 'nam'; n.textContent = 'Custom' + i;
+        pv.className = 'prv clk';
         pv.style.backgroundImage = cssArr(p.palette);
         pv.title = 'Empty slot';
         sv.className = 'sml'; sv.innerHTML = '&#x1F81C;';
@@ -348,11 +333,11 @@
       });
       
       cd.appendChild(fc);
-      $('memWarn').style.display = (cpc >= 10) ? 'block' : 'none';
+      gId('memWarn').style.display = (cpc >= 10) ? 'block' : 'none';
     }
 
     function bldCat(extGrp) {
-      const h = $('allCats');
+      const h = gId('allCats');
       if (!h) return;
       h.innerHTML = '';
       const cats = [
@@ -366,15 +351,15 @@
       ];
       cats.forEach(({k, lbl, items}) => {
         if (!items.length && k !== 'wled') return;
-        const det = C('details'), sum = C('summary'), body = C('div');
-        det.className = 'category';
+        const det = cE('details'), sum = cE('summary'), body = cE('div');
+        det.className = 'cat';
         sum.innerHTML = `&#9656; ${lbl} (${items.length})`;
         det.appendChild(sum);
-        body.className = 'cat-body';
+        body.className = 'cbdy';
         if (!items.length) {
-          const er = C('div'), em = C('div');
-          er.className = 'row'; em.className='small'; em.textContent='No palettes';
-          er.append(C('div'), em); body.appendChild(er);
+          const er = cE('div'), em = cE('div');
+          er.className = 'row'; em.textContent='No palettes'; em.style.opacity='0.7';
+          er.append(cE('div'), em); body.appendChild(er);
         } else {
           items.forEach(p => {
             if (k === 'wled') {
@@ -394,14 +379,15 @@
       });
     }
 
-    // Network
+    // Network - using common.js uploadFile wrapper
     function upl(i) {
-      const r = new XMLHttpRequest(), b = new Blob([toJSON()], {type:'application/json'}), fd = new FormData();
-      r.onload = () => { localStorage.removeItem('wledPalx'); refr(); };
-      r.open('POST', '/upload');
-      fd.append('data', b, '/palette' + i + '.json');
-      r.send(fd);
+      const b = new Blob([toJSON()], {type:'application/json'});
+      const fakeFileObj = { files: [b] };
+      uploadFile(fakeFileObj, '/palette' + i + '.json');
+      localStorage.removeItem('wledPalx');
+      setTimeout(refr, 100);
     }
+    
     async function refr() {
       try {
         const inf = await fetch(getURL('/json/info'), {cache:'no-store'}).then(r=>r.json());
@@ -427,7 +413,7 @@
         const raw = localStorage.getItem('wledCptCityJson');
         if (!raw) return false;
         bldCat(grpExt(JSON.parse(raw)));
-        $('btnFetchExt').style.display = 'none';
+        gId('btnFetchExt').style.display = 'none';
         return true;
       } catch (e) { localStorage.removeItem('wledCptCityJson'); return false; }
     }
@@ -435,16 +421,18 @@
       try {
         const res = await fetch('https://dedehai.github.io/cpt_city_selection.json', {mode:'cors', cache:'no-store'});
         if (!res.ok) throw new Error();
-        const d = await res.json();
-        try { localStorage.setItem('wledCptCityJson', JSON.stringify(d)); } catch(e) {}
-        bldCat(grpExt(d));
-        $('btnFetchExt').style.display = 'none';
+        const data = await res.json();
+        try { localStorage.setItem('wledCptCityJson', JSON.stringify(data)); } catch(e) {}
+        bldCat(grpExt(data));
+        gId('btnFetchExt').style.display = 'none';
       } catch (e) { alert('Failed to fetch palettes'); }
     }
 
     // Preview
     async function unfreezeSegment() {
-      try { await fetch(getURL('/json'), {method:'POST', body:JSON.stringify({seg:{i:[]}})}); } catch(e) {}
+      try { 
+        await fetch(getURL('/json'), {method:'POST', body:JSON.stringify({seg:{frz:false}})}); 
+      } catch(e) {}
     }
     
     async function getSegInfo() {
@@ -495,7 +483,7 @@
       getLoc();
       let extGrp = {};
       const cached = tryCache();
-      if (!cached) $('btnFetchExt').style.display = '';
+      if (!cached) gId('btnFetchExt').style.display = '';
       try {
         const inf = await fetch(getURL('/json/info')).then(r => r.json());
         const nm = await fetch(getURL('/json/pal')).then(r => r.json());
@@ -545,11 +533,11 @@
       sel.dataset.t = t; sel.style.left = (pl + (t * sc)) + 'px'; draw(); e.preventDefault();
     });
 
-    $('btnDist').onclick = dist;
-    $('btnDel').onclick = delMk;
-    $('btnNew').onclick = rndPal;
-    $('btnFetchExt').onclick = fetchExt;
-    $('chkPreview').addEventListener('change', (e) => {
+    gId('btnDist').onclick = dist;
+    gId('btnDel').onclick = delMk;
+    gId('btnNew').onclick = rndPal;
+    gId('btnFetchExt').onclick = fetchExt;
+    gId('chkPreview').addEventListener('change', (e) => {
       prvEn = e.target.checked;
       prvEn ? applyLED() : unfreezeSegment();
     });
@@ -568,14 +556,14 @@
       pk.on('color:change', (c) => { setCol(c.hexString); updRGB(c.hexString); });
       
       const updFromRGB = () => {
-        const r = clamp(parseInt($('rInput').value) || 0, 0, 255);
-        const g = clamp(parseInt($('gInput').value) || 0, 0, 255);
-        const b = clamp(parseInt($('bInput').value) || 0, 0, 255);
+        const r = clamp(parseInt(gId('rInput').value) || 0, 0, 255);
+        const g = clamp(parseInt(gId('gInput').value) || 0, 0, 255);
+        const b = clamp(parseInt(gId('bInput').value) || 0, 0, 255);
         pk.color.rgb = {r, g, b};
       };
-      $('rInput').addEventListener('change', updFromRGB);
-      $('gInput').addEventListener('change', updFromRGB);
-      $('bInput').addEventListener('change', updFromRGB);
+      gId('rInput').addEventListener('change', updFromRGB);
+      gId('gInput').addEventListener('change', updFromRGB);
+      gId('bInput').addEventListener('change', updFromRGB);
       
       init();
     });
