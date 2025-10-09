@@ -6,7 +6,7 @@ This Usermod integrates the INA219 **and** INA226 sensors with WLED to monitor e
 
 - Monitors bus voltage, shunt voltage, current, and power (both INA219 & INA226).
 - Calculates total energy consumed in kilowatt-hours (kWh).
-- Calculates daily and monthly energy usage (resets after 24 h and 30 days respectively).  
+- Calculates daily and monthly energy usage (resets at midnight and on the first day of each month respectively).
 - Supports MQTT publishing of sensor data.
 - Publishes energy data to Home Assistant directly to the WLED entity for easy integration.
 - Displays daily, monthly and total energy used in the WLED GUI under the info section.

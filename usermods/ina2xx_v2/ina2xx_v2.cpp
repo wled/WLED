@@ -937,6 +937,16 @@ void UsermodINA2xx::appendConfigData() {
 	oappend("addOption(ct,'32 samples (17.02 ms)',13);");
 	oappend("addOption(ct,'64 samples (34.05 ms)',14);");
 	oappend("addOption(ct,'128 samples (68.10 ms)',15);");
+	
+	oappend("pg=addDropdown('INA2xx','pga_gain');");
+	oappend("addOption(pg,'40mV',0);");
+	oappend("addOption(pg,'80mV',2048);");
+	oappend("addOption(pg,'160mV',4096);");
+	oappend("addOption(pg,'320mV (default)',6144, true);");
+
+	oappend("br=addDropdown('INA2xx','bus_range');");
+	oappend("addOption(br,'16V',0);");
+	oappend("addOption(br,'32V (default)',8192, true);");
 #elif INA_SENSOR_TYPE == 226
 	oappend("ct=addDropdown('INA2xx','conversion_time');");
 	oappend("addOption(ct,'140 µs',0);");
@@ -947,9 +957,7 @@ void UsermodINA2xx::appendConfigData() {
 	oappend("addOption(ct,'2.116 ms',5);");
 	oappend("addOption(ct,'4.156 ms',6);");
 	oappend("addOption(ct,'8.244 ms',7);");
-#endif
-  
-	//INA226
+
 	oappend("dda=addDropdown('INA2xx','average');");
 	oappend("addOption(dda,'1 (default)',0, true);");
 	oappend("addOption(dda,'4',512);");
@@ -980,17 +988,7 @@ void UsermodINA2xx::appendConfigData() {
 			+ (selected ? ", true);" : ");");
 		oappend(line.c_str());
 	}
-
-	//INA219
-	oappend("pg=addDropdown('INA2xx','pga_gain');");
-	oappend("addOption(pg,'40mV',0);");
-	oappend("addOption(pg,'80mV',2048);");
-	oappend("addOption(pg,'160mV',4096);");
-	oappend("addOption(pg,'320mV (default)',6144, true);");
-
-	oappend("br=addDropdown('INA2xx','bus_range');");
-	oappend("addOption(br,'16V',0);");
-	oappend("addOption(br,'32V (default)',8192, true);");
+#endif
 }
 
 /**
@@ -1014,7 +1012,7 @@ bool UsermodINA2xx::readFromConfig(JsonObject& root) {
 	UPDATE_CONFIG(top, "shunt_offset",       shuntVoltOffset_mV,"%.3f mV");
 #elif INA_SENSOR_TYPE == 226
 	UPDATE_CONFIG(top, "average", average, "%d");
-	UPDATE_CONFIG(top, "currentRange", currentRange, "%d");
+	UPDATE_CONFIG(top, "currentRange", currentRange, "%.1f");
 #endif
 
 #ifndef WLED_DISABLE_MQTT
