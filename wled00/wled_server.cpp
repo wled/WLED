@@ -18,6 +18,14 @@
 #endif
 #include "html_cpal.h"
 
+#if defined(ARDUINO_ARCH_ESP32) && !defined(WLED_DISABLE_OTA)
+  #include <esp_partition.h>
+  #include <esp_ota_ops.h>
+  #include <esp_flash.h>
+  #include <bootloader_common.h>
+  #include <mbedtls/sha256.h>
+#endif
+
 // define flash strings once (saves flash memory)
 static const char s_redirecting[] PROGMEM = "Redirecting...";
 static const char s_content_enc[] PROGMEM = "Content-Encoding";
@@ -27,6 +35,12 @@ static const char s_rebooting  [] PROGMEM = "Rebooting now...";
 static const char s_notimplemented[] PROGMEM = "Not implemented";
 static const char s_accessdenied[]   PROGMEM = "Access Denied";
 static const char _common_js[]       PROGMEM = "/common.js";
+
+#if defined(ARDUINO_ARCH_ESP32) && !defined(WLED_DISABLE_OTA)
+// Cache for bootloader SHA256 digest
+static uint8_t bootloaderSHA256[32];
+static bool bootloaderSHA256Cached = false;
+#endif
 
 //Is this an IP?
 static bool isIp(const String &str) {
@@ -175,6 +189,61 @@ static String msgProcessor(const String& var)
   }
   return String();
 }
+
+#if defined(ARDUINO_ARCH_ESP32) && !defined(WLED_DISABLE_OTA)
+// Calculate and cache the bootloader SHA256 digest
+static void calculateBootloaderSHA256() {
+  if (bootloaderSHA256Cached) return;
+  
+  // Bootloader is at fixed offset 0x1000 (4KB) and is typically 32KB
+  const uint32_t bootloaderOffset = 0x1000;
+  const uint32_t bootloaderSize = 0x8000; // 32KB, typical bootloader size
+  
+  mbedtls_sha256_context ctx;
+  mbedtls_sha256_init(&ctx);
+  mbedtls_sha256_starts(&ctx, 0); // 0 = SHA256 (not SHA224)
+  
+  const size_t chunkSize = 256;
+  uint8_t buffer[chunkSize];
+  
+  for (uint32_t offset = 0; offset < bootloaderSize; offset += chunkSize) {
+    size_t readSize = min((size_t)(bootloaderSize - offset), chunkSize);
+    if (esp_flash_read(NULL, buffer, bootloaderOffset + offset, readSize) == ESP_OK) {
+      mbedtls_sha256_update(&ctx, buffer, readSize);
+    }
+  }
+  
+  mbedtls_sha256_finish(&ctx, bootloaderSHA256);
+  mbedtls_sha256_free(&ctx);
+  bootloaderSHA256Cached = true;
+}
+
+// Get bootloader SHA256 as hex string
+String getBootloaderSHA256Hex() {
+  calculateBootloaderSHA256();
+  
+  char hex[65];
+  for (int i = 0; i < 32; i++) {
+    sprintf(hex + (i * 2), "%02x", bootloaderSHA256[i]);
+  }
+  hex[64] = '\0';
+  return String(hex);
+}
+
+// Verify if uploaded data is a valid ESP32 bootloader
+static bool isValidBootloader(const uint8_t* data, size_t len) {
+  if (len < 32) return false;
+  
+  // Check for ESP32 bootloader magic byte (0xE9)
+  if (data[0] != 0xE9) return false;
+  
+  // Additional validation: check segment count is reasonable
+  uint8_t segmentCount = data[1];
+  if (segmentCount > 16) return false;
+  
+  return true;
+}
+#endif
 
 static void handleUpload(AsyncWebServerRequest *request, const String& filename, size_t index, uint8_t *data, size_t len, bool isFinal) {
   if (!correctPIN) {
@@ -464,6 +533,106 @@ void initServer()
   };
   server.on(_update, HTTP_GET, notSupported);
   server.on(_update, HTTP_POST, notSupported, [](AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool isFinal){});
+#endif
+
+#if defined(ARDUINO_ARCH_ESP32) && !defined(WLED_DISABLE_OTA)
+  // ESP32 bootloader update endpoint
+  server.on(F("/updatebootloader"), HTTP_POST, [](AsyncWebServerRequest *request){
+    if (!correctPIN) {
+      serveSettings(request, true); // handle PIN page POST request
+      return;
+    }
+    if (otaLock) {
+      serveMessage(request, 401, FPSTR(s_accessdenied), FPSTR(s_unlock_ota), 254);
+      return;
+    }
+    if (Update.hasError()) {
+      serveMessage(request, 500, F("Bootloader update failed!"), F("Please check your file and retry!"), 254);
+    } else {
+      serveMessage(request, 200, F("Bootloader updated successfully!"), FPSTR(s_rebooting), 131);
+      doReboot = true;
+    }
+  },[](AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool isFinal){
+    IPAddress client = request->client()->remoteIP();
+    if (((otaSameSubnet && !inSameSubnet(client)) && !strlen(settingsPIN)) || (!otaSameSubnet && !inLocalSubnet(client))) {
+      DEBUG_PRINTLN(F("Attempted bootloader update from different/non-local subnet!"));
+      request->send(401, FPSTR(CONTENT_TYPE_PLAIN), FPSTR(s_accessdenied));
+      return;
+    }
+    if (!correctPIN || otaLock) return;
+    
+    static size_t bootloaderBytesWritten = 0;
+    static bool bootloaderErased = false;
+    const uint32_t bootloaderOffset = 0x1000;
+    const uint32_t maxBootloaderSize = 0x8000; // 32KB max
+    
+    if (!index) {
+      DEBUG_PRINTLN(F("Bootloader Update Start"));
+      #if WLED_WATCHDOG_TIMEOUT > 0
+      WLED::instance().disableWatchdog();
+      #endif
+      lastEditTime = millis(); // make sure PIN does not lock during update
+      strip.suspend();
+      strip.resetSegments();
+      bootloaderBytesWritten = 0;
+      bootloaderErased = false;
+      
+      // Verify bootloader magic on first chunk
+      if (!isValidBootloader(data, len)) {
+        DEBUG_PRINTLN(F("Invalid bootloader file!"));
+        strip.resume();
+        #if WLED_WATCHDOG_TIMEOUT > 0
+        WLED::instance().enableWatchdog();
+        #endif
+        Update.abort();
+        return;
+      }
+      
+      // Erase bootloader region (32KB)
+      DEBUG_PRINTLN(F("Erasing bootloader region..."));
+      esp_err_t err = esp_flash_erase_region(NULL, bootloaderOffset, maxBootloaderSize);
+      if (err != ESP_OK) {
+        DEBUG_PRINTF_P(PSTR("Bootloader erase error: %d\n"), err);
+        strip.resume();
+        #if WLED_WATCHDOG_TIMEOUT > 0
+        WLED::instance().enableWatchdog();
+        #endif
+        Update.abort();
+        return;
+      }
+      bootloaderErased = true;
+    }
+    
+    // Write data to flash at bootloader offset
+    if (bootloaderErased && bootloaderBytesWritten + len <= maxBootloaderSize) {
+      esp_err_t err = esp_flash_write(NULL, data, bootloaderOffset + bootloaderBytesWritten, len);
+      if (err != ESP_OK) {
+        DEBUG_PRINTF_P(PSTR("Bootloader flash write error: %d\n"), err);
+        Update.abort();
+      } else {
+        bootloaderBytesWritten += len;
+      }
+    } else if (!bootloaderErased) {
+      DEBUG_PRINTLN(F("Bootloader region not erased!"));
+      Update.abort();
+    } else {
+      DEBUG_PRINTLN(F("Bootloader size exceeds maximum!"));
+      Update.abort();
+    }
+    
+    if (isFinal) {
+      if (!Update.hasError() && bootloaderBytesWritten > 0) {
+        DEBUG_PRINTF_P(PSTR("Bootloader Update Success - %d bytes written\n"), bootloaderBytesWritten);
+        bootloaderSHA256Cached = false; // Invalidate cached bootloader hash
+      } else {
+        DEBUG_PRINTLN(F("Bootloader Update Failed"));
+        strip.resume();
+        #if WLED_WATCHDOG_TIMEOUT > 0
+        WLED::instance().enableWatchdog();
+        #endif
+      }
+    }
+  });
 #endif
 
 #ifdef WLED_ENABLE_DMX
