@@ -632,8 +632,8 @@ static volatile uint32_t& bl_last_boottime = *(RTC_USER_MEM + 32);
 static volatile uint32_t& bl_crashcounter = *(RTC_USER_MEM + 33);
 static volatile uint32_t& bl_actiontracker = *(RTC_USER_MEM + 34);
 
-static inline ResetReason rebootReason() {  
-  uint32_t resetReason = system_get_rst_info()->reason; 
+static inline ResetReason rebootReason() {
+  uint32_t resetReason = system_get_rst_info()->reason;
   if (resetReason == REASON_EXCEPTION_RST
       || resetReason == REASON_WDT_RST
       || resetReason == REASON_SOFT_WDT_RST)
@@ -674,7 +674,7 @@ static bool detectBootLoop() {
   uint32_t rtctime = getRtcMillis();
   bool result = false;
 
-  switch(rebootReason()) {    
+  switch(rebootReason()) {
     case ResetReason::Power:
       bl_actiontracker = BOOTLOOP_ACTION_RESTORE; // init action tracker if not an intentional reboot (e.g. from OTA or bootloop handler)
       // fall through
@@ -691,23 +691,24 @@ static bool detectBootLoop() {
         if (bl_crashcounter >= BOOTLOOP_THRESHOLD) {
           DEBUG_PRINTLN(F("!BOOTLOOP DETECTED!"));
           bl_crashcounter = 0;
+          if(bl_actiontracker > BOOTLOOP_ACTION_DUMP) bl_actiontracker = BOOTLOOP_ACTION_RESTORE; // reset action tracker if out of bounds
           result = true;
         }
       } else {
         // Reset counter on long intervals to track only consecutive short-interval crashes
         bl_crashcounter = 0;
         // TODO: crash reporting goes here
-      }        
+      }
       break;
     }
-    
+
     case ResetReason::Brownout:
       // crash due to brownout can't be detected unless using flash memory to store bootloop variables
       DEBUG_PRINTLN(F("brownout detected"));
       //restoreConfig(); // TODO: blindly restoring config if brownout detected is a bad idea, need a better way (if at all)
       break;
   }
-  
+
   bl_last_boottime = rtctime; // store current runtime for next reboot
 
   return result;
