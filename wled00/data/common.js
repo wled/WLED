@@ -116,3 +116,54 @@ function uploadFile(fileObj, name) {
 	fileObj.value = '';
 	return false;
 }
+// connect to WebSocket, use parent WS or open new
+function connectWs(onOpen) {
+  let ws;
+  try {
+    ws = top.window.ws;
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      if (onOpen) onOpen();
+      return ws;
+    }
+  } catch (e) {}
+  let l = window.location;
+  let pathn = l.pathname;
+  let paths = pathn.slice(1, pathn.endsWith('/') ? -1 : undefined).split("/");
+  let url = l.origin.replace("http", "ws");
+  if (paths.length > 1) {
+    url += "/" + paths[0]; // add base path for reverse proxy
+  }
+  ws = new WebSocket(url + "/ws");
+  ws.binaryType = "arraybuffer";
+  if (onOpen) { ws.onopen = onOpen; }
+  return ws;
+}
+
+// send led colors to ESP using WebSocket and DDP protocol (RGB)
+// ws: WebSocket object
+// start: start pixel index
+// len: number of pixels to send
+// colors: Uint8Array with RGB values (3*len bytes)
+function sendDDP(ws, start, len, colors) {
+	let maxDDPpx = 480; // must fit into one WebSocket frame of 1450 bytes, DDP header is 10 bytes -> 480 RGB pixels
+  if (!ws || ws.readyState !== WebSocket.OPEN) return false;
+	// send in chunks of maxDDPpx
+  for (let i = 0; i < len; i += maxDDPpx) {
+    let cnt = Math.min(maxDDPpx, len - i);
+    let off = (start + i) * 3;
+    let dLen = cnt * 3;
+    let cOff = i * 3;
+    let pkt = new Uint8Array(10 + dLen);
+    pkt[0] = 0x41; pkt[1] = 0x01; pkt[2] = 0x01; pkt[3] = 0;
+    pkt[4] = (off >> 24) & 255;
+    pkt[5] = (off >> 16) & 255;
+    pkt[6] = (off >> 8) & 255;
+    pkt[7] = off & 255;
+    pkt[8] = (dLen >> 8) & 255;
+    pkt[9] = dLen & 255;
+    pkt.set(colors.subarray(cOff, cOff + dLen), 10);
+
+    ws.send(pkt.buffer);
+  }
+  return true;
+}

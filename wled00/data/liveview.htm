@@ -17,8 +17,8 @@
       position: absolute;
     }
   </style>
+  <script src="common.js"></script>
   <script>
-    var d = document;
     var ws;
     var tmout = null;
     var c;
@@ -62,28 +62,10 @@
       if (window.location.href.indexOf("?ws") == -1) {update(); return;}
 
       // Initialize WebSocket connection
-      try {
-        ws = top.window.ws;
-      } catch (e) {}
-      if (ws && ws.readyState === WebSocket.OPEN) {
-        //console.info("Peek uses top WS");
+      ws = connectWs(function () {
+        //console.info("Peek WS open");
         ws.send("{'lv':true}");
-      } else {
-        //console.info("Peek WS opening");
-        let l = window.location;
-        let pathn = l.pathname;
-        let paths = pathn.slice(1,pathn.endsWith('/')?-1:undefined).split("/");
-        let url = l.origin.replace("http","ws");
-        if (paths.length > 1) {
-          url +=  "/" + paths[0];
-        }
-        ws = new WebSocket(url+"/ws");
-        ws.onopen = function () {
-          //console.info("Peek WS open");
-          ws.send("{'lv':true}");
-        }
-      }
-      ws.binaryType = "arraybuffer";
+      });
       ws.addEventListener('message', (e) => {
         try {
           if (toString.call(e.data) === '[object ArrayBuffer]') {
