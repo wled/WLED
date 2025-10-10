@@ -516,6 +516,7 @@ bool compareFiles(const char* path1, const char* path2) {
 }
 
 static const char s_backup_fmt[] PROGMEM = "/bkp.%s";
+static const char s_user_backup_fmt[] PROGMEM = "/bku.%s";
 
 bool backupFile(const char* filename) {
   DEBUG_PRINTF("backup %s \n", filename);
@@ -570,6 +571,150 @@ bool validateJsonFile(const char* filename) {
     DEBUG_PRINTF_P(PSTR("Valid JSON file %s\n"), filename);
   }
   return result;
+}
+
+bool userBackupFile(const char* filename) {
+  DEBUG_PRINTF("user backup %s \n", filename);
+  if (!validateJsonFile(filename)) {
+    DEBUG_PRINTLN(F("broken file"));
+    return false;
+  }
+  char backupname[32];
+  snprintf_P(backupname, sizeof(backupname), s_user_backup_fmt, filename + 1); // skip leading '/' in filename
+
+  if (copyFile(filename, backupname)) {
+    DEBUG_PRINTLN(F("user backup ok"));
+    return true;
+  }
+  DEBUG_PRINTLN(F("user backup failed"));
+  return false;
+}
+
+bool userRestoreFile(const char* filename) {
+  DEBUG_PRINTF("user restore %s \n", filename);
+  char backupname[32];
+  snprintf_P(backupname, sizeof(backupname), s_user_backup_fmt, filename + 1); // skip leading '/' in filename
+
+  if (!WLED_FS.exists(backupname)) {
+    DEBUG_PRINTLN(F("no user backup found"));
+    return false;
+  }
+
+  if (!validateJsonFile(backupname)) {
+    DEBUG_PRINTLN(F("broken user backup"));
+    return false;
+  }
+
+  if (copyFile(backupname, filename)) {
+    DEBUG_PRINTLN(F("user restore ok"));
+    return true;
+  }
+  DEBUG_PRINTLN(F("user restore failed"));
+  return false;
+}
+
+bool userBackupExists(const char* filename) {
+  char backupname[32];
+  snprintf_P(backupname, sizeof(backupname), s_user_backup_fmt, filename + 1); // skip leading '/' in filename
+  return WLED_FS.exists(backupname);
+}
+
+// User backup functions for different file types
+bool userBackupConfig() {
+  return userBackupFile("/cfg.json");
+}
+
+bool userRestoreConfig() {
+  return userRestoreFile("/cfg.json");
+}
+
+bool userBackupConfigExists() {
+  return userBackupExists("/cfg.json");
+}
+
+bool userBackupPresets() {
+  return userBackupFile("/presets.json");
+}
+
+bool userRestorePresets() {
+  return userRestoreFile("/presets.json");
+}
+
+bool userBackupPresetsExists() {
+  return userBackupExists("/presets.json");
+}
+
+int userBackupPalettes() {
+  int count = 0;
+  for (int i = 0; i < 10; i++) {
+    char filename[32];
+    sprintf_P(filename, PSTR("/palette%d.json"), i);
+    if (WLED_FS.exists(filename)) {
+      if (userBackupFile(filename)) count++;
+    }
+  }
+  return count;
+}
+
+int userRestorePalettes() {
+  int count = 0;
+  for (int i = 0; i < 10; i++) {
+    char filename[32];
+    sprintf_P(filename, PSTR("/palette%d.json"), i);
+    if (userRestoreFile(filename)) count++;
+  }
+  return count;
+}
+
+bool userBackupPalettesExist() {
+  for (int i = 0; i < 10; i++) {
+    char filename[32];
+    sprintf_P(filename, PSTR("/palette%d.json"), i);
+    if (userBackupExists(filename)) return true;
+  }
+  return false;
+}
+
+int userBackupMappings() {
+  int count = 0;
+  // Backup ledmap files
+  for (int i = 1; i < WLED_MAX_LEDMAPS; i++) {
+    char filename[32];
+    sprintf_P(filename, PSTR("/ledmap%d.json"), i);
+    if (WLED_FS.exists(filename)) {
+      if (userBackupFile(filename)) count++;
+    }
+  }
+  // Backup 2D gaps file if it exists
+  if (WLED_FS.exists("/2d-gaps.json")) {
+    if (userBackupFile("/2d-gaps.json")) count++;
+  }
+  return count;
+}
+
+int userRestoreMappings() {
+  int count = 0;
+  // Restore ledmap files
+  for (int i = 1; i < WLED_MAX_LEDMAPS; i++) {
+    char filename[32];
+    sprintf_P(filename, PSTR("/ledmap%d.json"), i);
+    if (userRestoreFile(filename)) count++;
+  }
+  // Restore 2D gaps file if backup exists
+  if (userRestoreFile("/2d-gaps.json")) count++;
+  return count;
+}
+
+bool userBackupMappingsExist() {
+  // Check ledmap files
+  for (int i = 1; i < WLED_MAX_LEDMAPS; i++) {
+    char filename[32];
+    sprintf_P(filename, PSTR("/ledmap%d.json"), i);
+    if (userBackupExists(filename)) return true;
+  }
+  // Check 2D gaps file
+  if (userBackupExists("/2d-gaps.json")) return true;
+  return false;
 }
 
 // print contents of all files in root dir to Serial except wsec files
