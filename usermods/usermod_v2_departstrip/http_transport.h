@@ -24,6 +24,7 @@ private:
   WiFiClientSecure clientSecure_;
   String secureHost_;
   uint16_t securePort_ = 0;
+  bool secureConfigured_ = false;
 #endif
 };
 
