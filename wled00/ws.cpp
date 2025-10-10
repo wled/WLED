@@ -75,11 +75,11 @@ void wsEvent(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventTyp
         // interpreted binary data using DDP protocol
         if (len < 10) return; // DDP header is 10 bytes
         size_t ddpDataLen = (data[8] << 8) | data[9]; // data length in bytes from DDP header
+        uint8_t flags = data[0];
+        if ((flags & DDP_TIMECODE_FLAG) ) ddpDataLen += 4; // timecode flag adds 4 bytes to data length
         if (len < (10 + ddpDataLen)) return; // not enough data, prevent out of bounds read
         // could be a valid DDP packet, forward to handler
-        IPAddress clientIP = client->remoteIP();
-        e131_packet_t *p = (e131_packet_t*)data;
-        handleE131Packet(p, clientIP, P_DDP);
+        handleE131Packet((e131_packet_t*)data, client->remoteIP(), P_DDP);
       }
     } else {
       //message is comprised of multiple frames or the frame is split into multiple packets
