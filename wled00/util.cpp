@@ -1126,3 +1126,72 @@ uint8_t perlin8(uint16_t x, uint16_t y) {
 uint8_t perlin8(uint16_t x, uint16_t y, uint16_t z) {
   return (((perlin3D_raw((uint32_t)x << 8, (uint32_t)y << 8, (uint32_t)z << 8, true) * 2015) >> 10) + 33168) >> 8; //scale to 16 bit, offset, then scale to 8bit
 }
+
+// Error logging system
+struct ErrorLogEntry {
+  unsigned long timestamp;  // millis() when error occurred
+  byte errorCode;          // error number (8bit)
+  byte tag1;               // future use tag 1
+  byte tag2;               // future use tag 2  
+  byte tag3;               // future use tag 3
+  char* customMessage;     // optional custom message string (nullptr if not used)
+};
+
+#define ERROR_LOG_SIZE 5
+static ErrorLogEntry errorLog[ERROR_LOG_SIZE];
+static byte errorLogIndex = 0;
+static byte errorLogCount = 0;
+
+// Error logging functions
+void addToErrorLog(byte errorCode, byte tag1, byte tag2, byte tag3, const char* customMessage) {
+  // Free existing custom message if present
+  if (errorLog[errorLogIndex].customMessage != nullptr) {
+    delete[] errorLog[errorLogIndex].customMessage;
+    errorLog[errorLogIndex].customMessage = nullptr;
+  }
+  
+  errorLog[errorLogIndex].timestamp = millis();
+  errorLog[errorLogIndex].errorCode = errorCode;
+  errorLog[errorLogIndex].tag1 = tag1;
+  errorLog[errorLogIndex].tag2 = tag2;
+  errorLog[errorLogIndex].tag3 = tag3;
+  
+  // Copy custom message if provided
+  if (customMessage != nullptr) {
+    size_t len = strlen(customMessage);
+    errorLog[errorLogIndex].customMessage = new char[len + 1];
+    if (errorLog[errorLogIndex].customMessage != nullptr) {
+      strcpy(errorLog[errorLogIndex].customMessage, customMessage);
+    }
+  } else {
+    errorLog[errorLogIndex].customMessage = nullptr;
+  }
+  
+  errorLogIndex = (errorLogIndex + 1) % ERROR_LOG_SIZE;
+  if (errorLogCount < ERROR_LOG_SIZE) {
+    errorLogCount++;
+  }
+}
+
+void clearErrorLog() {
+  // Free all custom message strings
+  for (byte i = 0; i < ERROR_LOG_SIZE; i++) {
+    if (errorLog[i].customMessage != nullptr) {
+      delete[] errorLog[i].customMessage;
+      errorLog[i].customMessage = nullptr;
+    }
+  }
+  
+  errorLogIndex = 0;
+  errorLogCount = 0;
+}
+
+// Helper functions to read error log
+byte getErrorLogCount() {
+  return errorLogCount;
+}
+
+const ErrorLogEntry& getErrorLogEntry(byte index) {
+  byte actualIndex = (errorLogIndex + ERROR_LOG_SIZE - errorLogCount + index) % ERROR_LOG_SIZE;
+  return errorLog[actualIndex];
+}
