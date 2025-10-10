@@ -10,6 +10,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.23.4/ace.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.23.4/mode-json.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.23.4/theme-monokai.min.js"></script>
+<script src="common.js"></script>
 <style>
 /* Editor-specific styles */
 #top {
@@ -18,28 +19,13 @@
 	gap: 8px;
 	background: #222;
 	padding: 6px 10px;
-	border-bottom: 1px solid #666;
 }
-#top .left {
-	display: flex;
-	align-items: center;
-	gap: 8px;
+#top .center {
 	flex: 1;
+	text-align: center;
 }
 #top .right {
 	margin-left: auto;
-}
-#top button, #top input[type="file"] {
-	background: #333;
-	color: #fff;
-	border: 3px solid #333;
-	border-radius: 24px;
-	font-size: 15px;
-	padding: 6px 10px;
-	cursor: pointer;
-}
-#top button:hover, #top input[type="file"]:hover {
-	background: #555;
 }
 #top input[type="text"] {
 	background: #555;
@@ -55,7 +41,6 @@
 	bottom: 0;
 	width: 200px;
 	background: #222;
-	border-right: 1px solid #666;
 	overflow-y: auto;
 	padding: 8px;
 	padding-bottom: 100px;  /* extra space so context menu always fits */
@@ -111,7 +96,7 @@
 	border-radius: 50%;
 	animation: spin 1s linear infinite;
 }
-/* Ace editor colors to match WLED */
+/* Ace editor colors to match WLED style*/
 .ace-monokai .ace_string { color: #4c4 !important; }
 .ace-monokai .ace_constant.ace_numeric { color: #fa0 !important; }
 .ace-monokai .ace_constant.ace_language { color: #f84 !important; }
@@ -120,9 +105,6 @@
 @keyframes spin { to { transform: rotate(360deg); } }
 </style>
 <script>
-function ge(a){ return document.getElementById(a); }
-function ce(a){ return document.createElement(a); }
-
 var QueuedRequester = function(){ this.q=[]; this.r=false; this.x=null; }
 QueuedRequester.prototype = {
 	_request: function(req){
@@ -130,13 +112,13 @@ QueuedRequester.prototype = {
 		var that = this;
 		function cb(x,d){ return function(){
 			if (x.readyState==4){
-				ge("loader").style.display="none";
+				gId("loader").style.display="none";
 				d.callback(x.status,x.responseText);
 				if (that.q.length===0) that.r=false;
 				if (that.r) that._request(that.q.shift());
 			}
 		}}
-		ge("loader").style.display="block";
+		gId("loader").style.display="block";
 		var p="";
 		if (req.params instanceof FormData) p=req.params;
 		else if (req.params instanceof Object){
@@ -164,12 +146,12 @@ QueuedRequester.prototype = {
 var req=new QueuedRequester();
 
 function loadPreview(filename, editor) {
-	var pathField = ge("filepath");
+	var pathField = gId("filepath");
 	pathField.value = filename;
 	if (/\.(png|jpg|jpeg|gif|bmp|webp)$/i.test(filename)) {
-		ge("editor").style.display="none";
-		ge("preview").style.display="block";
-		ge("preview").innerHTML = '<img src="/edit?func=edit&path=' + encodeURIComponent(filename) + '&_cb=' + Date.now() + '">';
+		gId("editor").style.display="none";
+		gId("preview").style.display="block";
+		gId("preview").innerHTML = '<img src="/edit?func=edit&path=' + encodeURIComponent(filename) + '&_cb=' + Date.now() + '">';
 	} else {
 		editor.loadText(filename);
 	}
@@ -177,34 +159,39 @@ function loadPreview(filename, editor) {
 
 function createTop(element, tree, editor){
 	// Create hidden file input
-	var input = ce("input");
+	var input = cE("input");
 	input.type = "file";
 	input.style.display = "none"; // Hide the default file input
 
 	// Create container structure
-	var leftDiv = ce("div");
+	var leftDiv = cE("div");
 	leftDiv.className = "left";
-	var rightDiv = ce("div");
+	var centerDiv = cE("div");
+	centerDiv.className = "center";
+	var rightDiv = cE("div");
 	rightDiv.className = "right";
 
 	// Single text field for filename
-	var path = ce("input");
+	var path = cE("input");
 	path.id = "filepath";
 	path.type = "text";
 
-	var uploadBtn = ce("button"); uploadBtn.innerHTML = "Upload File";
-	var clearBtn = ce("button"); clearBtn.innerHTML = "Clear";
-	var saveBtn = ce("button"); saveBtn.innerHTML = "Save";
+	var uploadBtn = cE("button"); uploadBtn.className = "sml"; uploadBtn.innerHTML = "Upload File";
+	var clearBtn = cE("button"); clearBtn.className = "sml"; clearBtn.innerHTML = "Clear";
+	var saveBtn = cE("button"); saveBtn.className = "sml"; saveBtn.innerHTML = "Save";
+	var backBtn = cE("button"); backBtn.className = "sml"; backBtn.innerHTML = "Back to controls"; backBtn.onclick = function(){ window.location.href = getURL("/"); };
 
 	// Add elements to Top
 	leftDiv.appendChild(path);
 	leftDiv.appendChild(clearBtn);
 	leftDiv.appendChild(saveBtn);
+	centerDiv.appendChild(backBtn);
 	rightDiv.appendChild(uploadBtn);
-	ge(element).appendChild(input);
-	ge(element).appendChild(leftDiv);
-	ge(element).appendChild(rightDiv);
-	editor.clearEditor(); // Clear editor
+	gId(element).appendChild(input);
+	gId(element).appendChild(leftDiv);
+	gId(element).appendChild(centerDiv);
+	gId(element).appendChild(rightDiv);
+	editor.clearEditor();
 
 	uploadBtn.onclick = function() {
 		input.click(); // invokes file selector
@@ -220,7 +207,6 @@ function createTop(element, tree, editor){
 
 	// Clear button - clears the editor
 	clearBtn.onclick = function(){
-		var newPath = path.value;
 		editor.clearEditor(); // Clear editor, file will be created on save
 		input.value = ""; // Clear the file selection
 	};
@@ -243,8 +229,8 @@ function createTop(element, tree, editor){
 }
 
 function createTree(element, editor){
-	var treeRoot=ce("div");
-	ge(element).appendChild(treeRoot);
+	var treeRoot=cE("div");
+	gId(element).appendChild(treeRoot);
 
 	function downlFile(p){
 		window.open("/edit?func=download&path=" + encodeURIComponent(p), "_blank");
@@ -259,7 +245,7 @@ function createTree(element, editor){
 	}
 
 	function createLeaf(path,name){
-		var leaf=ce("div");
+		var leaf=cE("div");
 		leaf.style.cssText="cursor:pointer;padding:2px 4px;border-radius:2px;position:relative";
 		leaf.textContent=name;
 		leaf.onmouseover=function(){ leaf.style.background="#333"; };
@@ -269,15 +255,15 @@ function createTree(element, editor){
 		// Right-click context menu
 		leaf.oncontextmenu = function(e) {
 			e.preventDefault();
-			var existingMenu = ge("context-menu");
+			var existingMenu = gId("context-menu");
 			if (existingMenu) existingMenu.remove();
 
-			var menu = ce("div");
+			var menu = cE("div");
 			menu.id = "context-menu";
 			menu.style.cssText = "position:fixed;left:"+e.clientX+"px;top:"+e.clientY+"px;background:#333;border:1px solid #666;border-radius:4px;z-index:1000;box-shadow:2px 2px 8px rgba(0,0,0,0.5)";
 
 			// Download option
-			var downloadOption = ce("div");
+			var downloadOption = cE("div");
 			downloadOption.textContent = "Download";
 			downloadOption.style.cssText = "padding:8px 12px;cursor:pointer;color:#fff";
 			downloadOption.onmouseover = function() { this.style.background = "#555"; };
@@ -285,7 +271,7 @@ function createTree(element, editor){
 			downloadOption.onclick = function() { downlFile(path); menu.remove(); };
 
 			// Delete option
-			var deleteOption = ce("div");
+			var deleteOption = cE("div");
 			deleteOption.textContent = "Delete";
 			deleteOption.style.cssText = "padding:8px 12px;cursor:pointer;color:#ff6666";
 			deleteOption.onmouseover = function() { this.style.background = "#555"; };
@@ -294,13 +280,13 @@ function createTree(element, editor){
 
 			menu.appendChild(downloadOption);
 			menu.appendChild(deleteOption);
-			document.body.appendChild(menu);
+			d.body.appendChild(menu);
 
 			// Remove menu when clicking elsewhere
 			setTimeout(function() {
-				document.onclick = function() {
+				d.onclick = function() {
 					if (menu.parentNode) menu.remove();
-					document.onclick = null;
+					d.onclick = null;
 				};
 			}, 100);
 		};
@@ -379,13 +365,13 @@ function prettyLedmap(json){
 function createEditor(element,file){
 	if (!file) file="";
 
-	var ta = ce("textarea");
-	var editorDiv = ce("div");
+	var ta = cE("textarea");
+	var editorDiv = cE("div");
 	editorDiv.id = "ace-editor";
 	editorDiv.style.display = "none";
 
-	ge(element).appendChild(ta);
-	ge(element).appendChild(editorDiv);
+	gId(element).appendChild(ta);
+	gId(element).appendChild(editorDiv);
 
 	var currentFile = file;
 	var aceEditor = null;
@@ -395,7 +381,7 @@ function createEditor(element,file){
 		if (!useAce || !aceEditor) return;
 
 		// Check filename from text field or current file
-		var pathField = ge("filepath");
+		var pathField = gId("filepath");
 		var filename = (pathField && pathField.value) ? pathField.value : currentFile;
 
 		if (filename && filename.toLowerCase().endsWith('.json')) {
@@ -419,7 +405,7 @@ function createEditor(element,file){
 			updateEditorMode();
 
 			// Monitor filename input for JSON highlighting (prevent duplicate listeners)
-			var pathField = ge("filepath");
+			var pathField = gId("filepath");
 			if (pathField && !pathField.hasJsonListener) {
 				pathField.oninput = function() {
 					updateEditorMode();
@@ -445,14 +431,6 @@ function createEditor(element,file){
 		}
 	}
 
-	function switchToTextarea() {
-		if (useAce && aceEditor) {
-			ta.value = aceEditor.getValue();
-		}
-		ta.style.display = "block";
-		editorDiv.style.display = "none";
-	}
-
 	function getCurrentContent() {
 		if (useAce && aceEditor && editorDiv.style.display !== "none") {
 			return aceEditor.getValue();
@@ -469,7 +447,7 @@ function createEditor(element,file){
 
 	// Live JSON validation for textarea
 	ta.oninput = function() {
-		var pathField = ge("filepath");
+		var pathField = gId("filepath");
 		var filename = pathField ? pathField.value : currentFile;
 
 		if (filename && filename.toLowerCase().endsWith('.json')) {
@@ -510,8 +488,8 @@ function createEditor(element,file){
 	function httpGet(fn){
 		if (!fn) return;
 		req.add("GET", "/edit", { func:"edit", path:fn }, function(st, resp) {
-			ge("preview").style.display="none";
-			ge("editor").style.display="flex";
+			gId("preview").style.display="none";
+			gId("editor").style.display="flex";
 			if (st==200) {
 				// Pretty-print JSON files for editing
 				if (fn.toLowerCase().endsWith('.json')) {
@@ -540,7 +518,7 @@ function createEditor(element,file){
 	var ed={
 		save:function(){
 			// Always use filename from text field
-			var pathField = ge("filepath");
+			var pathField = gId("filepath");
 			var fn = pathField ? pathField.value : "";
 			if (!fn) {
 				alert("Please enter a filename!");
@@ -554,7 +532,7 @@ function createEditor(element,file){
 		loadText:function(fn){
 			currentFile=fn;
 			// Update filename in text field
-			var pathField = ge("filepath");
+			var pathField = gId("filepath");
 			if (pathField && fn) {
 				var filename = fn.startsWith("/") ? fn.substring(1) : fn;
 				pathField.value = filename;
@@ -562,11 +540,11 @@ function createEditor(element,file){
 			httpGet(fn);
 		},
 		clearEditor:function(){
-			ge("preview").style.display="none";
-			ge("editor").style.display="flex";
+			gId("preview").style.display="none";
+			gId("editor").style.display="flex";
 			setCurrentContent("");
 			// Update filename in text field
-			var pathField = ge("filepath");
+			var pathField = gId("filepath");
 			pathField.value = "";
 			pathField.placeholder = "Filename to save";
 			updateEditorMode();
