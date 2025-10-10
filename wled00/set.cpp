@@ -817,6 +817,7 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
     strip.panel.shrink_to_fit();  // release unused memory
     strip.deserializeMap(); // (re)load default ledmap (will also setUpMatrix() if ledmap does not exist)
     strip.makeAutoSegments(true); // force re-creation of segments
+    strip.resume(); // resume strip service after 2D config changes are complete
   }
   #endif
 
