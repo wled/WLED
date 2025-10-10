@@ -16,12 +16,21 @@
 // Configurable per-agency/stop; can be instantiated multiple times.
 class SiriSource : public IDataSourceT<DepartModel> {
 private:
+  struct StopQuery {
+    String canonical;        // normalized "Stop->Dest=Alias" representation
+    String monitoringRef;    // value for MonitoringRef
+    String destinationRef;   // optional DestinationRef
+    String notViaRef;        // optional NotViaRef (without leading '!')
+    String labelSuffix;      // optional suffix appended to formatted line label
+  };
+
   bool     enabled_ = false;
   uint32_t updateSecs_ = 60;
   String   baseUrl_ = "";
   String   apiKey_   = "";
   String   agency_   = "";
   String   stopCode_ = "";
+  std::vector<StopQuery> queries_;
   time_t   nextFetch_ = 0;
   uint8_t  backoffMult_ = 1;
   time_t   lastBackoffLog_ = 0;
@@ -53,14 +62,23 @@ public:
   const char* configKey() const override { return configKey_.c_str(); }
 
 private:
-  String composeUrl(const String& agency, const String& stopCode) const;
+  String composeUrl(const String& agency, const StopQuery& query) const;
   static bool parseRFC3339ToUTC(const char* s, time_t& outUtc);
   // Helpers to keep fetch() concise
   bool httpBegin(const String& url, int& outLen);
-  bool parseJsonFromHttp(JsonDocument& doc);
+  bool parseJsonFromHttp(JsonDocument& doc,
+                         bool chunked = false,
+                         char* sniffBuf = nullptr,
+                         size_t sniffCap = 0,
+                         size_t* sniffLenOut = nullptr,
+                         bool* sniffTruncatedOut = nullptr);
   size_t computeJsonCapacity(int contentLen);
   JsonObject getSiriRoot(JsonDocument& doc, bool& usedTopLevelFallback);
-  bool buildModelFromSiri(JsonObject siri, std::time_t now, std::unique_ptr<DepartModel>& outModel);
+  bool appendItemsFromSiri(JsonObject siri,
+                           const StopQuery& query,
+                           std::time_t now,
+                           DepartModel::Entry::Batch& batch,
+                           String& firstStopName);
   static JsonDocument* acquireJsonDoc(size_t capacity, bool& fromPool);
   static void releaseJsonDoc(JsonDocument* doc, bool fromPool);
   void endHttp();

@@ -3,8 +3,209 @@
 
 #include <algorithm>
 #include <cstring>
+#include <cctype>
+#include <cstdlib>
 
 namespace {
+static constexpr size_t SIRI_SNIFF_PREFIX = 256;
+
+// Emit a short printable preview of the response payload for debugging.
+static void debugLogPayloadPrefix(const char* data, size_t len, bool truncated) {
+#if defined(WLED_DEBUG)
+  if (!data || len == 0) {
+    DEBUG_PRINTLN(F("DepartStrip: SiriSource::fetch: payload prefix: <empty>"));
+    return;
+  }
+  String snippet;
+  snippet.reserve(len + 16);
+  for (size_t i = 0; i < len; ++i) {
+    char c = data[i];
+    if (c == '\n') {
+      snippet += F("\\n");
+    } else if (c == '\r') {
+      snippet += F("\\r");
+    } else if (c == '\t') {
+      snippet += F("\\t");
+    } else if (c >= 32 && c <= 126) {
+      snippet += c;
+    } else {
+      snippet += '.';
+    }
+  }
+  DEBUG_PRINTF("DepartStrip: SiriSource::fetch: payload prefix (%u bytes%s): %s\n",
+               (unsigned)len, truncated ? " truncated" : "", snippet.c_str());
+#else
+  (void)data;
+  (void)len;
+  (void)truncated;
+#endif
+}
+
+// Stream that decodes HTTP/1.1 chunked transfer encoding.
+struct ChunkedDecodingStream : public Stream {
+  Stream& in;
+  size_t chunkRemaining = 0;
+  bool finished = false;
+  bool error = false;
+  int peekBuf = -1;
+  size_t dataRead = 0;
+
+  explicit ChunkedDecodingStream(Stream& s) : in(s) {}
+
+  size_t write(uint8_t) override { return 0; }
+  size_t write(const uint8_t*, size_t) override { return 0; }
+  void flush() override { in.flush(); }
+
+  int available() override {
+    if (peekBuf >= 0) return 1;
+    if (finished) return 0;
+    return in.available();
+  }
+
+  int read() override {
+    if (peekBuf >= 0) {
+      int c = peekBuf;
+      peekBuf = -1;
+      return c;
+    }
+    return readNext();
+  }
+
+  int peek() override {
+    if (peekBuf >= 0) return peekBuf;
+    int c = readNext();
+    if (c >= 0) peekBuf = c;
+    return c;
+  }
+
+  size_t readBytes(char* buffer, size_t length) override {
+    size_t n = 0;
+    while (n < length) {
+      int c = read();
+      if (c < 0) break;
+      buffer[n++] = (char)c;
+    }
+    return n;
+  }
+
+  size_t readBytes(uint8_t* buffer, size_t length) override { return readBytes((char*)buffer, length); }
+
+  size_t bytesDecoded() const { return dataRead; }
+
+private:
+  int readByte() {
+    uint8_t b;
+    size_t got = in.readBytes(&b, 1);
+    if (got == 1) return b;
+    return -1;
+  }
+
+  int readNext() {
+    if (finished) return -1;
+    if (!ensureChunk()) return -1;
+    int c = readByte();
+    if (c < 0) {
+      finished = true;
+      error = true;
+      return -1;
+    }
+    if (chunkRemaining == 0) {
+      // Should not happen, but guard anyway
+      return -1;
+    }
+    --chunkRemaining;
+    ++dataRead;
+    if (chunkRemaining == 0) {
+      if (!consumeCRLF()) {
+        finished = true;
+        error = true;
+      }
+    }
+    return c;
+  }
+
+  bool ensureChunk() {
+    while (chunkRemaining == 0) {
+      if (finished) return false;
+      if (!readChunkHeader()) {
+        finished = true;
+        return false;
+      }
+      if (finished) return false;
+    }
+    return true;
+  }
+
+  bool readChunkHeader() {
+    char line[64];
+    size_t len = 0;
+    if (!readLine(line, sizeof(line), len)) {
+      error = true;
+      return false;
+    }
+    char* start = line;
+    while (*start && isspace((unsigned char)*start)) ++start;
+    char* semi = strchr(start, ';');
+    if (semi) *semi = '\0';
+    if (*start == '\0') {
+      error = true;
+      return false;
+    }
+    char* endptr = nullptr;
+    unsigned long chunk = strtoul(start, &endptr, 16);
+    if (endptr == start) {
+      error = true;
+      return false;
+    }
+    chunkRemaining = (size_t)chunk;
+    if (chunkRemaining == 0) {
+      consumeTrailers();
+      finished = true;
+      return false;
+    }
+    return true;
+  }
+
+  bool readLine(char* out, size_t cap, size_t& outLen) {
+    outLen = 0;
+    while (true) {
+      int c = readByte();
+      if (c < 0) return false;
+      if (c == '\n') break;
+      if (c != '\r') {
+        if (outLen + 1 < cap) out[outLen++] = (char)c;
+      }
+    }
+    out[outLen] = '\0';
+    return true;
+  }
+
+  bool consumeCRLF() {
+    uint8_t buf[2];
+    if (in.readBytes(buf, 2) != 2) {
+      error = true;
+      return false;
+    }
+    if (buf[0] != '\r' || buf[1] != '\n') {
+      error = true;
+      return false;
+    }
+    return true;
+  }
+
+  void consumeTrailers() {
+    char line[64];
+    size_t len = 0;
+    while (true) {
+      if (!readLine(line, sizeof(line), len)) {
+        error = true;
+        break;
+      }
+      if (len == 0) break;
+    }
+  }
+};
+
 // Stream wrapper that discards a leading UTF-8 BOM if present, then passes through bytes unchanged.
 struct SkipBOMStream : public Stream {
   Stream& in;
@@ -13,10 +214,23 @@ struct SkipBOMStream : public Stream {
   size_t headLen = 0;
   size_t headPos = 0;
   size_t rawRead = 0;
-  explicit SkipBOMStream(Stream& s) : in(s) {}
+  char* sniffBuf = nullptr;
+  size_t sniffCap = 0;
+  size_t sniffLen = 0;
+  bool sniffOverflow = false;
+  explicit SkipBOMStream(Stream& s, char* sniff = nullptr, size_t sniffCapBytes = 0)
+      : in(s), sniffBuf(sniff), sniffCap(sniffCapBytes) {}
   // Satisfy Print's pure virtuals
   size_t write(uint8_t) override { return 0; }
   size_t write(const uint8_t*, size_t) override { return 0; }
+  void sniff(uint8_t b) {
+    if (!sniffBuf || sniffCap == 0) return;
+    if (sniffLen < sniffCap) {
+      sniffBuf[sniffLen++] = (char)b;
+    } else {
+      sniffOverflow = true;
+    }
+  }
   void ensureInit() {
     if (init) return;
     init = true;
@@ -36,9 +250,16 @@ struct SkipBOMStream : public Stream {
   }
   int read() override {
     ensureInit();
-    if (headPos < headLen) return head[headPos++];
+    if (headPos < headLen) {
+      uint8_t b = head[headPos++];
+      sniff(b);
+      return b;
+    }
     int v = in.read();
-    if (v >= 0) ++rawRead;
+    if (v >= 0) {
+      ++rawRead;
+      sniff((uint8_t)v);
+    }
     return v;
   }
   int peek() override {
@@ -50,10 +271,22 @@ struct SkipBOMStream : public Stream {
   size_t readBytes(char* buffer, size_t length) override {
     ensureInit();
     size_t n = 0;
-    while (n < length && headPos < headLen) buffer[n++] = head[headPos++];
+    while (n < length && headPos < headLen) {
+      uint8_t b = head[headPos++];
+      buffer[n++] = b;
+      sniff(b);
+    }
     if (n < length) {
       size_t got = in.readBytes(buffer + n, length - n);
       rawRead += got;
+      if (got > 0) {
+        size_t canStore = (sniffCap > sniffLen) ? std::min(sniffCap - sniffLen, got) : (size_t)0;
+        if (canStore > 0) {
+          memcpy(sniffBuf + sniffLen, buffer + n, canStore);
+          sniffLen += canStore;
+        }
+        if (got > canStore) sniffOverflow = true;
+      }
       n += got;
     }
     return n;
@@ -61,6 +294,8 @@ struct SkipBOMStream : public Stream {
   size_t readBytes(uint8_t* buffer, size_t length) { return readBytes((char*)buffer, length); }
   using Stream::readBytes;
   size_t bytesConsumed() const { return rawRead; }
+  size_t sniffedLength() const { return sniffLen; }
+  bool sniffTruncated() const { return sniffOverflow; }
 };
 
 // Extract the first meaningful string from an ArduinoJson variant that might be
@@ -85,6 +320,116 @@ static String jsonFirstString(JsonVariantConst v) {
   return String();
 }
 
+struct ParsedStopQuery {
+  String canonical;
+  String monitoringRef;
+  String destinationRef;
+  String notViaRef;
+  String labelSuffix;
+};
+
+static void splitStopCodes(const String& input, std::vector<String>& out) {
+  out.clear();
+  String normalized = input;
+  normalized.replace(';', ',');
+  normalized.replace(' ', ',');
+  normalized.replace('\t', ',');
+  int start = 0;
+  int len = normalized.length();
+  while (start < len) {
+    int comma = normalized.indexOf(',', start);
+    String token = (comma >= 0) ? normalized.substring(start, comma) : normalized.substring(start);
+    token.trim();
+    if (token.length() > 0) out.push_back(token);
+    if (comma < 0) break;
+    start = comma + 1;
+  }
+}
+
+static void extractAgencyAndCode(String token, String& agencyOut, String& codeOut) {
+  token.trim();
+  int colon = token.indexOf(':');
+  if (colon > 0) {
+    agencyOut = token.substring(0, colon);
+    codeOut = token.substring(colon + 1);
+  } else {
+    agencyOut = String();
+    codeOut = token;
+  }
+  codeOut.trim();
+}
+
+static bool parseStopExpression(const String& token,
+                                ParsedStopQuery& out,
+                                String& explicitAgency) {
+  explicitAgency = String();
+  out = ParsedStopQuery();
+
+  String work = token;
+  work.trim();
+  if (work.length() == 0) return false;
+
+  int equalsPos = work.indexOf('=');
+  if (equalsPos >= 0) {
+    out.labelSuffix = work.substring(equalsPos + 1);
+    work = work.substring(0, equalsPos);
+    out.labelSuffix.trim();
+  }
+  if (out.labelSuffix.length() > 0) {
+    out.labelSuffix.replace(' ', '-');
+    out.labelSuffix.replace('\t', '-');
+  }
+
+  String remainder;
+  int arrowPos = work.indexOf(F("->"));
+  String base = work;
+  if (arrowPos >= 0) {
+    base = work.substring(0, arrowPos);
+    remainder = work.substring(arrowPos + 2);
+  }
+  base.trim();
+  String baseAgency;
+  extractAgencyAndCode(base, baseAgency, out.monitoringRef);
+  if (out.monitoringRef.length() == 0) return false;
+  if (baseAgency.length() > 0) explicitAgency = baseAgency;
+
+  while (remainder.length() > 0) {
+    int nextArrow = remainder.indexOf(F("->"));
+    String segment = (nextArrow >= 0) ? remainder.substring(0, nextArrow) : remainder;
+    remainder = (nextArrow >= 0) ? remainder.substring(nextArrow + 2) : String();
+    segment.trim();
+    if (segment.length() == 0) continue;
+    bool isNotVia = segment.charAt(0) == '!';
+    if (isNotVia) segment = segment.substring(1);
+    segment.trim();
+    if (segment.length() == 0) continue;
+    String segAgency;
+    String segCode;
+    extractAgencyAndCode(segment, segAgency, segCode);
+    if (segCode.length() == 0) continue;
+    if (isNotVia) {
+      if (out.notViaRef.length() == 0) out.notViaRef = segCode;
+    } else {
+      if (out.destinationRef.length() == 0) out.destinationRef = segCode;
+    }
+  }
+
+  out.canonical = out.monitoringRef;
+  if (out.notViaRef.length() > 0) {
+    out.canonical += F("->!");
+    out.canonical += out.notViaRef;
+  }
+  if (out.destinationRef.length() > 0) {
+    out.canonical += F("->");
+    out.canonical += out.destinationRef;
+  }
+  if (out.labelSuffix.length() > 0) {
+    out.canonical += '=';
+    out.canonical += out.labelSuffix;
+  }
+  return true;
+}
+
 // Shared JSON buffer reused across all Siri sources to limit heap fragmentation.
 static constexpr size_t SIRI_JSON_MAX_CAP = 24576;
 static constexpr size_t SIRI_JSON_MIN_CAP = 4096;
@@ -99,6 +444,12 @@ SiriSource::SiriSource(const char* key, const char* defAgency, const char* defSt
   if (defAgency) agency_ = defAgency;
   if (defStopCode) stopCode_ = defStopCode;
   if (defBaseUrl) baseUrl_ = defBaseUrl;
+  if (stopCode_.length() > 0) {
+    StopQuery q;
+    q.canonical = stopCode_;
+    q.monitoringRef = stopCode_;
+    queries_.push_back(q);
+  }
 }
 
 void SiriSource::reload(std::time_t now) {
@@ -106,20 +457,42 @@ void SiriSource::reload(std::time_t now) {
   backoffMult_ = 1;
 }
 
-String SiriSource::composeUrl(const String& agency, const String& stopCode) const {
+String SiriSource::composeUrl(const String& agency, const StopQuery& query) const {
   // Treat baseUrl_ strictly as a template: perform placeholder substitutions if present
   // and otherwise use it as-is without appending legacy query parameters.
   String url = baseUrl_;
-  // Placeholder substitutions (case variants)
-  url.replace(F("{agency}"), agency);
-  url.replace(F("{AGENCY}"), agency);
-  url.replace(F("{stopcode}"), stopCode);
-  url.replace(F("{stopCode}"), stopCode);
-  url.replace(F("{STOPCODE}"), stopCode);
+  auto replaceAll = [&](const __FlashStringHelper* needle, const String& value) {
+    if (!needle) return;
+    String key(needle);
+    if (key.length() == 0) return;
+    url.replace(key, value);
+  };
+
+  const String& stop = query.monitoringRef;
+  const String& dest = query.destinationRef;
+  const String& notVia = query.notViaRef;
+
+  replaceAll(F("{agency}"), agency);
+  replaceAll(F("{AGENCY}"), agency);
+  replaceAll(F("{monitoringref}"), stop);
+  replaceAll(F("{MonitoringRef}"), stop);
+  replaceAll(F("{MONITORINGREF}"), stop);
+  replaceAll(F("{MonitoringRefg}"), stop);
+  replaceAll(F("{monitoringrefg}"), stop);
+  replaceAll(F("{MONITORINGREFG}"), stop);
+  replaceAll(F("{stopcode}"), stop);
+  replaceAll(F("{stopCode}"), stop);
+  replaceAll(F("{STOPCODE}"), stop);
+  replaceAll(F("{destinationref}"), dest);
+  replaceAll(F("{DestinationRef}"), dest);
+  replaceAll(F("{DESTINATIONREF}"), dest);
+  replaceAll(F("{notviaref}"), notVia);
+  replaceAll(F("{NotViaRef}"), notVia);
+  replaceAll(F("{NOTVIAREF}"), notVia);
   if (apiKey_.length() > 0) {
-    url.replace(F("{apikey}"), apiKey_);
-    url.replace(F("{apiKey}"), apiKey_);
-    url.replace(F("{APIKEY}"), apiKey_);
+    replaceAll(F("{apikey}"), apiKey_);
+    replaceAll(F("{apiKey}"), apiKey_);
+    replaceAll(F("{APIKEY}"), apiKey_);
   }
   return url;
 }
@@ -223,8 +596,16 @@ bool SiriSource::httpBegin(const String& url, int& outLen) {
   return true;
 }
 
-bool SiriSource::parseJsonFromHttp(JsonDocument& doc) {
-  SkipBOMStream s(http_.getStream());
+bool SiriSource::parseJsonFromHttp(JsonDocument& doc,
+                                   bool chunked,
+                                   char* sniffBuf,
+                                   size_t sniffCap,
+                                   size_t* sniffLenOut,
+                                   bool* sniffTruncatedOut) {
+  Stream& base = http_.getStream();
+  ChunkedDecodingStream chunkStream(base);
+  Stream& source = chunked ? static_cast<Stream&>(chunkStream) : base;
+  SkipBOMStream s(source, sniffBuf, sniffCap);
   DeserializationError err;
   // Always apply the narrow filter
   static StaticJsonDocument<4096> filter;
@@ -262,6 +643,8 @@ bool SiriSource::parseJsonFromHttp(JsonDocument& doc) {
   err = deserializeJson(doc, s,
                         DeserializationOption::Filter(filter),
                         DeserializationOption::NestingLimit(80));
+  if (sniffLenOut) *sniffLenOut = s.sniffedLength();
+  if (sniffTruncatedOut) *sniffTruncatedOut = s.sniffTruncated();
   DEBUG_PRINTF("DepartStrip: SiriSource::fetch: after parse, consumed=%u, memUsage=%u, free heap=%u\n",
                (unsigned)s.bytesConsumed(), (unsigned)doc.memoryUsage(), ESP.getFreeHeap());
   if (err) {
@@ -342,7 +725,11 @@ JsonObject SiriSource::getSiriRoot(JsonDocument& doc, bool& usedTopLevelFallback
   return siri;
 }
 
-bool SiriSource::buildModelFromSiri(JsonObject siri, std::time_t now, std::unique_ptr<DepartModel>& outModel) {
+bool SiriSource::appendItemsFromSiri(JsonObject siri,
+                                     const StopQuery& query,
+                                     std::time_t now,
+                                     DepartModel::Entry::Batch& batch,
+                                     String& firstStopName) {
   if (siri.isNull()) return false;
   JsonObject sd = siri["ServiceDelivery"].as<JsonObject>();
   time_t apiTs = 0;
@@ -360,22 +747,15 @@ bool SiriSource::buildModelFromSiri(JsonObject siri, std::time_t now, std::uniqu
   DEBUG_PRINTF("DepartStrip: SiriSource::fetch: visits null=%d size=%u\n", visits.isNull(), (unsigned)(visits.isNull() ? 0 : visits.size()));
   if (visits.isNull()) {
     DEBUG_PRINTLN(F("DepartStrip: SiriSource::fetch: no MonitoredStopVisit array"));
-    return false;
+    return true;
   }
 
-  DepartModel::Entry board;
-  board.key.reserve(agency_.length() + 1 + stopCode_.length());
-  board.key = agency_; board.key += ":"; board.key += stopCode_;
-  DepartModel::Entry::Batch batch;
-  batch.apiTs = apiTs;
-  batch.ourTs = now;
-  if (!visits.isNull()) {
-    size_t cap = visits.size();
-    if (cap > batch.items.capacity()) batch.items.reserve(cap);
+  if (batch.apiTs == 0 || apiTs > batch.apiTs) batch.apiTs = apiTs;
+  if (batch.items.capacity() < batch.items.size() + visits.size()) {
+    batch.items.reserve(batch.items.size() + visits.size());
   }
 
   int totalVisits = 0, hadTime = 0, parsedTime = 0;
-  String firstStopName;
   for (JsonObject v : visits) {
     ++totalVisits;
     JsonObject mvj = v["MonitoredVehicleJourney"].as<JsonObject>();
@@ -424,6 +804,10 @@ bool SiriSource::buildModelFromSiri(JsonObject siri, std::time_t now, std::uniqu
       }
       String formatted = departstrip::util::formatLineLabel(agency_, label);
       item.lineRef = std::move(formatted);
+      if (query.labelSuffix.length() > 0) {
+        item.lineRef += '-';
+        item.lineRef += query.labelSuffix;
+      }
       batch.items.push_back(std::move(item));
     } else if (hasTime && parsedTime < 3) {
       const char* dbg = expectedStr ? expectedStr : aimedStr;
@@ -432,18 +816,6 @@ bool SiriSource::buildModelFromSiri(JsonObject siri, std::time_t now, std::uniqu
   }
   DEBUG_PRINTF("DepartStrip: SiriSource::fetch: visits=%d hadTime=%d parsed=%d items=%u\n", totalVisits, hadTime, parsedTime, (unsigned)batch.items.size());
 
-  if (batch.items.empty()) {
-    DEBUG_PRINTLN(F("DepartStrip: SiriSource::fetch: no items parsed"));
-    return false;
-  }
-
-  std::sort(batch.items.begin(), batch.items.end(), [](const DepartModel::Entry::Item& a, const DepartModel::Entry::Item& b){ return a.estDep < b.estDep; });
-
-  board.batch = std::move(batch);
-
-  std::unique_ptr<DepartModel> model(new DepartModel());
-  model->boards.push_back(std::move(board));
-  outModel = std::move(model);
   if (firstStopName.length() > 0) lastStopName_ = firstStopName;
   return true;
 }
@@ -451,6 +823,7 @@ bool SiriSource::buildModelFromSiri(JsonObject siri, std::time_t now, std::uniqu
 std::unique_ptr<DepartModel> SiriSource::fetch(std::time_t now) {
   if (!enabled_) return nullptr;
   if (now == 0) return nullptr;
+  if (queries_.empty()) return nullptr;
   if (now < nextFetch_) {
     // Periodically log backoff status at roughly the source's update cadence
     time_t interval = updateSecs_ > 0 ? updateSecs_ : 60;
@@ -470,104 +843,176 @@ std::unique_ptr<DepartModel> SiriSource::fetch(std::time_t now) {
     return nullptr;
   }
 
-  String url = composeUrl(agency_, stopCode_);
-  // Redact API key in debug logs
-  String redacted = url;
-  auto redactParam = [&](const __FlashStringHelper* kfs) {
-    String k(kfs);
-    int p = redacted.indexOf(k);
-    if (p >= 0) {
-      int valStart = p + k.length();
-      int valEnd = redacted.indexOf('&', valStart);
-      if (valEnd < 0) valEnd = redacted.length();
-      String pre = redacted.substring(0, valStart);
-      String post = redacted.substring(valEnd);
-      redacted = pre + F("REDACTED") + post;
-    }
-  };
-  redactParam(F("api_key="));
-  redactParam(F("apikey="));
-  redactParam(F("key="));
-  DEBUG_PRINTF("DepartStrip: SiriSource::fetch: URL: %s\n", redacted.c_str());
-  int len = 0;
-  if (!httpBegin(url, len)) {
-    // Schedule retry with exponential backoff (per source)
-    long delay = (long)updateSecs_ * (long)backoffMult_;
-    DEBUG_PRINTF("DepartStrip: SiriSource::fetch: scheduling backoff x%u %s for %lds (begin/HTTP error)\n",
-                 (unsigned)backoffMult_, sourceKey().c_str(), delay);
-    nextFetch_ = now + delay;
-    if (backoffMult_ < 16) backoffMult_ *= 2;
-    return nullptr;
-  }
+  size_t desiredHint = lastJsonCapacity_;
+  bool haveAnyItems = false;
+  std::unique_ptr<DepartModel> model(new DepartModel());
+  model->boards.reserve(queries_.size());
 
-  size_t jsonSz = computeJsonCapacity(len);
-  DEBUG_PRINTF("DepartStrip: SiriSource::fetch: json capacity=%u (hint=%u) free heap=%u\n",
-               (unsigned)jsonSz, (unsigned)lastJsonCapacity_, ESP.getFreeHeap());
-  bool fromPool = false;
-  JsonDocument* docPtr = acquireJsonDoc(jsonSz, fromPool);
-  if (!docPtr) {
-    DEBUG_PRINTLN(F("DepartStrip: SiriSource::fetch: failed to acquire JSON buffer"));
+  for (size_t qi = 0; qi < queries_.size(); ++qi) {
+    DepartModel::Entry::Batch batch;
+    batch.apiTs = 0;
+    batch.ourTs = now;
+    String stopName;
+
+    const StopQuery& query = queries_[qi];
+    String url = composeUrl(agency_, query);
+    // Redact API key in debug logs
+    String redacted = url;
+    auto redactParam = [&](const __FlashStringHelper* kfs) {
+      String k(kfs);
+      int p = redacted.indexOf(k);
+      if (p >= 0) {
+        int valStart = p + k.length();
+        int valEnd = redacted.indexOf('&', valStart);
+        if (valEnd < 0) valEnd = redacted.length();
+        String pre = redacted.substring(0, valStart);
+        String post = redacted.substring(valEnd);
+        redacted = pre + F("REDACTED") + post;
+      }
+    };
+    redactParam(F("api_key="));
+    redactParam(F("apikey="));
+    redactParam(F("key="));
+    if (queries_.size() > 1) {
+      DEBUG_PRINTF("DepartStrip: SiriSource::fetch: URL[%u/%u %s]: %s\n",
+                   (unsigned)(qi + 1),
+                   (unsigned)queries_.size(),
+                   query.canonical.c_str(),
+                   redacted.c_str());
+    } else {
+      DEBUG_PRINTF("DepartStrip: SiriSource::fetch: URL: %s\n", redacted.c_str());
+    }
+
+    int len = 0;
+    if (!httpBegin(url, len)) {
+      long delay = (long)updateSecs_ * (long)backoffMult_;
+      DEBUG_PRINTF("DepartStrip: SiriSource::fetch: scheduling backoff x%u %s for %lds (begin/HTTP error)\n",
+                   (unsigned)backoffMult_, sourceKey().c_str(), delay);
+      nextFetch_ = now + delay;
+      if (backoffMult_ < 16) backoffMult_ *= 2;
+      return nullptr;
+    }
+
+    size_t jsonSz = computeJsonCapacity(len);
+    if (jsonSz > desiredHint) desiredHint = jsonSz;
+    DEBUG_PRINTF("DepartStrip: SiriSource::fetch: json capacity=%u (hint=%u) free heap=%u\n",
+                 (unsigned)jsonSz, (unsigned)lastJsonCapacity_, ESP.getFreeHeap());
+
+    bool fromPool = false;
+    JsonDocument* docPtr = acquireJsonDoc(jsonSz, fromPool);
+    if (!docPtr) {
+      DEBUG_PRINTLN(F("DepartStrip: SiriSource::fetch: failed to acquire JSON buffer"));
+      endHttp();
+      long delay = (long)updateSecs_ * (long)backoffMult_;
+      nextFetch_ = now + delay;
+      if (backoffMult_ < 16) backoffMult_ *= 2;
+      return nullptr;
+    }
+    JsonDocument& doc = *docPtr;
+    DEBUG_PRINTF("DepartStrip: SiriSource::fetch: filter=on (len=%d)\n", len);
+    String respTransfer = http_.header("Transfer-Encoding");
+    bool isChunked = respTransfer.length() > 0 && respTransfer.equalsIgnoreCase("chunked");
+#if defined(WLED_DEBUG)
+    String respEnc = http_.header("Content-Encoding");
+    String respType = http_.header("Content-Type");
+    String respContentLen = http_.header("Content-Length");
+    char sniffBuf[SIRI_SNIFF_PREFIX] = {0};
+    size_t sniffLen = 0;
+    bool sniffTruncated = false;
+    bool parsed = parseJsonFromHttp(doc, isChunked, sniffBuf, sizeof(sniffBuf), &sniffLen, &sniffTruncated);
+#else
+    bool parsed = parseJsonFromHttp(doc, isChunked);
+#endif
     endHttp();
-    long delay = (long)updateSecs_ * (long)backoffMult_;
-    nextFetch_ = now + delay;
-    if (backoffMult_ < 16) backoffMult_ *= 2;
-    return nullptr;
-  }
-  JsonDocument& doc = *docPtr;
-  DEBUG_PRINTF("DepartStrip: SiriSource::fetch: filter=on (len=%d)\n", len);
-  bool parsed = parseJsonFromHttp(doc);
-  endHttp();
-  if (!parsed) {
-    if (lastJsonCapacity_ < SIRI_JSON_MAX_CAP) {
-      size_t bumped = jsonSz + SIRI_JSON_QUANTUM;
-      if (bumped > SIRI_JSON_MAX_CAP) bumped = SIRI_JSON_MAX_CAP;
-      if (bumped > lastJsonCapacity_) lastJsonCapacity_ = bumped;
+    if (!parsed) {
+      if (lastJsonCapacity_ < SIRI_JSON_MAX_CAP) {
+        size_t bumped = jsonSz + SIRI_JSON_QUANTUM;
+        if (bumped > SIRI_JSON_MAX_CAP) bumped = SIRI_JSON_MAX_CAP;
+        if (bumped > lastJsonCapacity_) lastJsonCapacity_ = bumped;
+      }
+      releaseJsonDoc(docPtr, fromPool);
+#if defined(WLED_DEBUG)
+      debugLogPayloadPrefix(sniffBuf, sniffLen, sniffTruncated);
+      DEBUG_PRINTF("DepartStrip: SiriSource::fetch: response headers: enc='%s' type='%s' len=%d contentLength='%s' transfer='%s'\n",
+                   respEnc.c_str(), respType.c_str(), len,
+                   respContentLen.c_str(), respTransfer.c_str());
+#endif
+      long delay = (long)updateSecs_ * (long)backoffMult_;
+      DEBUG_PRINTF("DepartStrip: SiriSource::fetch: scheduling backoff x%u %s for %lds (parse error)\n",
+                   (unsigned)backoffMult_, sourceKey().c_str(), delay);
+      nextFetch_ = now + delay;
+      if (backoffMult_ < 16) backoffMult_ *= 2;
+      return nullptr;
     }
+
+    bool usedTop = false;
+    JsonObject siri = getSiriRoot(doc, usedTop);
+    if (usedTop) {
+      DEBUG_PRINTLN(F("DepartStrip: SiriSource::fetch: using top-level as Siri container"));
+    }
+    {
+      size_t used = doc.memoryUsage();
+      size_t desired = used + 2048;
+      if (desired < SIRI_JSON_MIN_CAP) desired = SIRI_JSON_MIN_CAP;
+      desired = ((desired + SIRI_JSON_QUANTUM - 1) / SIRI_JSON_QUANTUM) * SIRI_JSON_QUANTUM;
+      if (desired > SIRI_JSON_MAX_CAP) desired = SIRI_JSON_MAX_CAP;
+      if (desired > desiredHint) desiredHint = desired;
+      DEBUG_PRINTF("DepartStrip: SiriSource::fetch: json usage=%u nextHint=%u\n",
+                   (unsigned)used, (unsigned)desiredHint);
+    }
+    if (siri.isNull()) {
+      releaseJsonDoc(docPtr, fromPool);
+#if defined(WLED_DEBUG)
+      debugLogPayloadPrefix(sniffBuf, sniffLen, sniffTruncated);
+      DEBUG_PRINTF("DepartStrip: SiriSource::fetch: response headers: enc='%s' type='%s' len=%d contentLength='%s' transfer='%s'\n",
+                   respEnc.c_str(), respType.c_str(), len,
+                   respContentLen.c_str(), respTransfer.c_str());
+#endif
+      DEBUG_PRINTLN(F("DepartStrip: SiriSource::fetch: missing Siri root"));
+      long delay = (long)updateSecs_ * (long)backoffMult_;
+      DEBUG_PRINTF("DepartStrip: SiriSource::fetch: scheduling backoff x%u %s for %lds (bad JSON shape)\n",
+                   (unsigned)backoffMult_, sourceKey().c_str(), delay);
+      nextFetch_ = now + delay;
+      if (backoffMult_ < 16) backoffMult_ *= 2;
+      return nullptr;
+    }
+
+    bool parsedOk = appendItemsFromSiri(siri, query, now, batch, stopName);
     releaseJsonDoc(docPtr, fromPool);
-    long delay = (long)updateSecs_ * (long)backoffMult_;
-    DEBUG_PRINTF("DepartStrip: SiriSource::fetch: scheduling backoff x%u %s for %lds (parse error)\n",
-                 (unsigned)backoffMult_, sourceKey().c_str(), delay);
-    nextFetch_ = now + delay;
-    if (backoffMult_ < 16) backoffMult_ *= 2;
-    return nullptr;
+    if (!parsedOk) {
+      long delay = (long)updateSecs_ * (long)backoffMult_;
+      DEBUG_PRINTF("DepartStrip: SiriSource::fetch: scheduling backoff x%u %s for %lds (append failure)\n",
+                   (unsigned)backoffMult_, sourceKey().c_str(), delay);
+      nextFetch_ = now + delay;
+      if (backoffMult_ < 16) backoffMult_ *= 2;
+      return nullptr;
+    }
+    if (!batch.items.empty()) {
+      std::sort(batch.items.begin(), batch.items.end(),
+                [](const DepartModel::Entry::Item& a, const DepartModel::Entry::Item& b) {
+                  return a.estDep < b.estDep;
+                });
+      if (batch.apiTs == 0) batch.apiTs = now;
+      DepartModel::Entry board;
+      board.key.reserve(agency_.length() + 1 + query.canonical.length());
+      board.key = agency_;
+      board.key += ':';
+      board.key += query.canonical;
+      board.batch = std::move(batch);
+      model->boards.push_back(std::move(board));
+      haveAnyItems = true;
+    }
   }
 
-  bool usedTop = false;
-  JsonObject siri = getSiriRoot(doc, usedTop);
-  if (usedTop) DEBUG_PRINTLN(F("DepartStrip: SiriSource::fetch: using top-level as Siri container"));
-  {
-    size_t used = doc.memoryUsage();
-    size_t desired = used + 2048;
-    if (desired < SIRI_JSON_MIN_CAP) desired = SIRI_JSON_MIN_CAP;
-    desired = ((desired + SIRI_JSON_QUANTUM - 1) / SIRI_JSON_QUANTUM) * SIRI_JSON_QUANTUM;
-    if (desired > SIRI_JSON_MAX_CAP) desired = SIRI_JSON_MAX_CAP;
-    lastJsonCapacity_ = desired;
-    DEBUG_PRINTF("DepartStrip: SiriSource::fetch: json usage=%u nextHint=%u\n",
-                 (unsigned)used, (unsigned)lastJsonCapacity_);
-  }
-  if (siri.isNull()) {
-    releaseJsonDoc(docPtr, fromPool);
-    DEBUG_PRINTLN(F("DepartStrip: SiriSource::fetch: missing Siri root"));
-    long delay = (long)updateSecs_ * (long)backoffMult_;
-    DEBUG_PRINTF("DepartStrip: SiriSource::fetch: scheduling backoff x%u %s for %lds (bad JSON shape)\n",
-                 (unsigned)backoffMult_, sourceKey().c_str(), delay);
-    nextFetch_ = now + delay;
-    if (backoffMult_ < 16) backoffMult_ *= 2;
-    return nullptr;
-  }
-
-  std::unique_ptr<DepartModel> model;
-  if (!buildModelFromSiri(siri, now, model)) {
-    releaseJsonDoc(docPtr, fromPool);
-    nextFetch_ = now + updateSecs_;
-    backoffMult_ = 1;
-    return nullptr;
-  }
-
-  // Model summary logging handled in DepartModel::update()
+  lastJsonCapacity_ = desiredHint;
   nextFetch_ = now + updateSecs_;
   backoffMult_ = 1;
-  releaseJsonDoc(docPtr, fromPool);
+
+  if (!haveAnyItems || model->boards.empty()) {
+    DEBUG_PRINTLN(F("DepartStrip: SiriSource::fetch: no departures after filters"));
+    return nullptr;
+  }
+
   return model;
 }
 
@@ -595,6 +1040,9 @@ bool SiriSource::readFromConfig(JsonObject& root, bool startup_complete, bool& i
   String prevAgency = agency_;
   String prevStop = stopCode_;
   String prevBase = baseUrl_;
+  std::vector<StopQuery> prevQueries = queries_;
+
+  queries_.clear();
 
   ok &= getJsonValue(root["Enabled"], enabled_, enabled_);
   ok &= getJsonValue(root["UpdateSecs"], updateSecs_, updateSecs_);
@@ -602,16 +1050,84 @@ bool SiriSource::readFromConfig(JsonObject& root, bool startup_complete, bool& i
   ok &= getJsonValue(root["ApiKey"], apiKey_, apiKey_);
   // Prefer combined Key ("AGENCY:StopCode"); fall back to legacy Agency/StopCode if not provided
   String keyStr;
-  bool haveKey = getJsonValue(root["AgencyStopCode"], keyStr, (const char*)nullptr); if (!haveKey) haveKey = getJsonValue(root["Key"], keyStr, (const char*)nullptr);
+  bool haveKey = getJsonValue(root["AgencyStopCode"], keyStr, (const char*)nullptr);
+  if (!haveKey) haveKey = getJsonValue(root["Key"], keyStr, (const char*)nullptr);
+  String list;
   if (haveKey && keyStr.length() > 0) {
+    keyStr.trim();
     int colon = keyStr.indexOf(':');
     if (colon > 0) {
       agency_ = keyStr.substring(0, colon);
-      stopCode_ = keyStr.substring(colon+1);
+      list = keyStr.substring(colon + 1);
+    } else {
+      list = keyStr;
     }
   } else {
     ok &= getJsonValue(root["Agency"], agency_, agency_);
-    ok &= getJsonValue(root["StopCode"], stopCode_, stopCode_);
+    String stopField;
+    if (getJsonValue(root["StopCode"], stopField, (const char*)nullptr)) {
+      list = stopField;
+    } else {
+      list = stopCode_;
+    }
+  }
+  list.trim();
+
+  std::vector<String> tokens;
+  if (list.length() > 0) splitStopCodes(list, tokens);
+  std::vector<StopQuery> parsed;
+  parsed.reserve(tokens.size());
+  String inferredAgency = agency_;
+  for (const auto& tok : tokens) {
+    ParsedStopQuery pq;
+    String explicitAgency;
+    if (!parseStopExpression(tok, pq, explicitAgency)) continue;
+    if (explicitAgency.length() > 0) inferredAgency = explicitAgency;
+    StopQuery q;
+    q.canonical = pq.canonical;
+    q.monitoringRef = pq.monitoringRef;
+    q.destinationRef = pq.destinationRef;
+    q.notViaRef = pq.notViaRef;
+    q.labelSuffix = pq.labelSuffix;
+    parsed.push_back(q);
+  }
+  if (agency_.length() == 0 && inferredAgency.length() > 0) agency_ = inferredAgency;
+
+  if (!parsed.empty()) {
+    queries_.reserve(parsed.size());
+    for (const auto& cand : parsed) {
+      bool dup = false;
+      for (const auto& existing : queries_) {
+        if (existing.canonical.equalsIgnoreCase(cand.canonical)) {
+          dup = true;
+          break;
+        }
+      }
+      if (!dup) queries_.push_back(cand);
+    }
+  }
+
+  if (queries_.empty()) {
+    String legacy = list;
+    if (legacy.length() == 0 && prevStop.length() > 0) legacy = prevStop;
+    legacy.trim();
+    if (legacy.length() == 0 && !prevQueries.empty()) {
+      legacy = prevQueries.front().monitoringRef;
+      legacy.trim();
+    }
+    legacy.trim();
+    if (legacy.length() > 0) {
+      StopQuery q;
+      q.canonical = legacy;
+      q.monitoringRef = legacy;
+      queries_.push_back(std::move(q));
+    }
+  }
+
+  stopCode_.clear();
+  for (size_t i = 0; i < queries_.size(); ++i) {
+    if (i > 0) stopCode_ += ',';
+    stopCode_ += queries_[i].canonical;
   }
   // Update friendly config key to mirror views: SiriSource_AGENCY_StopCode
   {
