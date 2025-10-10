@@ -1236,10 +1236,9 @@ bool GtfsRtSource::httpBegin(const String& url, int& outLen, int& outStatus, HTT
     return false;
   }
   usedSecure = localSecure;
-  http.useHTTP10(true);
   http.setUserAgent("WLED-GTFSRT/0.1");
-  http.setReuse(false);
-  http.addHeader("Connection", "close");
+  http.setReuse(true);
+  http.addHeader("Connection", "keep-alive", true, true);
   http.addHeader("Accept", "application/octet-stream", true, true);
   static const char* hdrs[] = {"Content-Type", "Content-Length", "Content-Encoding", "Transfer-Encoding", "RateLimit-Remaining"};
   http.collectHeaders(hdrs, 5);

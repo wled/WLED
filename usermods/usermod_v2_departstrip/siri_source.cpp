@@ -187,10 +187,9 @@ bool SiriSource::httpBegin(const String& url, int& outLen) {
   httpActive_ = true;
   httpUsedSecure_ = usedSecure;
   // Try to mimic curl behavior to avoid gzip responses
-  http_.useHTTP10(true);
   http_.setUserAgent("curl/7.79.1");
-  http_.setReuse(false);
-  http_.addHeader("Connection", "close");
+  http_.setReuse(true);
+  http_.addHeader("Connection", "keep-alive", true, true);
   http_.addHeader("Accept", "*/*", true, true);
   http_.addHeader("Accept-Encoding", "identity", true, true);
   static const char* hdrs[] = {"Content-Type", "Content-Encoding", "Content-Length", "Transfer-Encoding", "RateLimit-Remaining"};

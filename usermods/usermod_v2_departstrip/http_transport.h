@@ -18,11 +18,14 @@ public:
 
 private:
   WiFiClient client_;
+  String clientHost_;
+  uint16_t clientPort_ = 0;
 #if defined(ARDUINO_ARCH_ESP8266) || defined(ARDUINO_ARCH_ESP32)
   WiFiClientSecure clientSecure_;
+  String secureHost_;
+  uint16_t securePort_ = 0;
 #endif
 };
 
 } // namespace net
 } // namespace departstrip
-
