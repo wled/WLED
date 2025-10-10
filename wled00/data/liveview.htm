@@ -64,7 +64,7 @@
       // Initialize WebSocket connection
       ws = connectWs(function () {
         //console.info("Peek WS open");
-        ws.send("{'lv':true}");
+        ws.send('{"lv":true}');
       });
       ws.addEventListener('message', (e) => {
         try {

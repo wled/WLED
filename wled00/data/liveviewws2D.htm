@@ -28,12 +28,12 @@
 		if (ctx) { // Access the rendering context
 			// use parent WS or open new
 			var ws = connectWs(()=>{
-				ws.send("{'lv':true}");
+				ws.send('{"lv":true}');
 			});
 			ws.addEventListener('message',(e)=>{
 				try {
 					if (toString.call(e.data) === '[object ArrayBuffer]') {
-						let leds = new Uint8Array(event.data);
+						let leds = new Uint8Array(e.data);
 						if (leds[0] != 76 || leds[1] != 2 || !ctx) return; //'L', set in ws.cpp
 						let mW = leds[2]; // matrix width
 						let mH = leds[3]; // matrix height
