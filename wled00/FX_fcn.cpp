@@ -743,18 +743,21 @@ void WLED_O2_ATTR Segment::setPixelColor(int i, uint32_t col) const
         else for (int x = 0; x < vW; x++) setPixelColorRaw(XY(x, vH - i - 1), col);
         break;
       case M12_pArc: {
-        // expand in circular fashion from center
-        if      (i == 0) setPixelColorXY(0, 0, col);
-        else if (i == 2) setPixelColorXY(1, 1, col);
+        // expand in circular fashion from top left corner
+        // Tony Barrera's circle algorithm
+        // https://softwareengineering.stackexchange.com/questions/287478/drawing-concentric-circles-without-gaps/357445#357445 
+        
+        if      (i == 0)           setPixelColorXYRaw(0, 0, col); // 0 and 2 special cases to prevent square
+        else if (i == 2)           setPixelColorXYRaw(1, 1, col);
+        else if (i == vLength()-1) setPixelColorXYRaw(vW-1, vH-1, col); // last i always draws bottom right corner
 
         int x = 0, y = i;  // i is the radius
         int d = -(i >> 1); // Initial decision parameter
 
-        // Barrera's circle algorithm
         while (x <= y) {
-          if (!(i == x && i == y)) { // prevent early square
-            setPixelColorXY(x, y, col);
-            setPixelColorXY(y, x, col);
+          if (i != x || i != y) { // prevent early square
+            if (y < vH && x < vW) setPixelColorXYRaw(x, y, col);
+            if (y < vW && x < vH) setPixelColorXYRaw(y, x, col);
           }
           if (d <= 0) d += ++x;
           else d -= --y;
@@ -937,6 +940,7 @@ uint32_t WLED_O2_ATTR Segment::getPixelColor(int i) const
         break;
       case M12_pArc:
         if (i >= vW && i >= vH) { // Barrera's circle algorithm
+          x = vW - 1; y = vH - 1; // default to bottom right if not found
           int x2 = 0, y2 = i, d = -(i >> 1);
           int validCount = 0; // return 2nd non mirrored pixel if available
           while (x2 <= y2 && validCount < 2) {
