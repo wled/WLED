@@ -671,16 +671,6 @@ void getSettingsJS(byte subPage, Print& settingsScript)
     UsermodManager::appendConfigData(settingsScript);
   }
 
-  if (subPage == SUBPAGE_UPDATE) // update
-  {
-    char tmp_buf[128];
-    fillWLEDVersion(tmp_buf,sizeof(tmp_buf));
-    printSetClassElementHTML(settingsScript,PSTR("sip"),0,tmp_buf);
-    #ifndef ARDUINO_ARCH_ESP32
-    settingsScript.print(F("toggle('rev');"));  // hide revert button on ESP8266
-    #endif
-  }
-
   if (subPage == SUBPAGE_2D) // 2D matrices
   {
     printSetFormValue(settingsScript,PSTR("SOMP"),strip.isMatrix);

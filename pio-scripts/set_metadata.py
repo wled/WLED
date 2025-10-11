@@ -1,5 +1,6 @@
 Import('env')
 import subprocess
+import json
 import re
 
 def get_github_repo():
@@ -42,7 +43,7 @@ def get_github_repo():
         
         # Check if it's a GitHub URL
         if 'github.com' not in remote_url.lower():
-            return 'unknown'
+            return None
         
         # Parse GitHub URL patterns:
         # https://github.com/owner/repo.git
@@ -63,17 +64,56 @@ def get_github_repo():
         if ssh_match:
             return ssh_match.group(1)
         
-        return 'unknown'
+        return None
         
     except FileNotFoundError:
         # Git CLI is not installed or not in PATH
-        return 'unknown'
+        return None
     except subprocess.CalledProcessError:
         # Git command failed (e.g., not a git repo, no remote, etc.)
-        return 'unknown'
+        return None
     except Exception:
         # Any other unexpected error
-        return 'unknown'
+        return None
 
-repo = get_github_repo()
-env.Append(BUILD_FLAGS=[f'-DWLED_REPO=\\"{repo}\\"'])
+PACKAGE_FILE = "package.json"
+
+def get_version():
+    with open(PACKAGE_FILE, "r") as package:
+        return json.load(package)["version"]
+    return None
+
+
+def has_def(cppdefs, name):
+    """ Returns true if a given name is set in a CPPDEFINES collection """
+    for f in cppdefs:
+        if isinstance(f, tuple):
+            f = f[0]
+    if f == name:
+        return True
+    return False
+
+
+def add_wled_metadata_flags(env, node):    
+    cdefs = env["CPPDEFINES"].copy()
+
+    if not has_def(cdefs, "WLED_REPO"):
+        repo = get_github_repo()
+        if repo:
+            cdefs.append(("WLED_REPO", f"\\\"{repo}\\\""))
+
+    if not has_def(cdefs, "WLED_VERSION"):
+        version = get_version()
+        if version:
+            cdefs.append(("WLED_VERSION", get_version()))
+
+    # This transforms the node in to a Builder; it cannot be modified again
+    return env.Object(
+        node,
+        CPPDEFINES=cdefs
+    )
+   
+env.AddBuildMiddleware(
+    add_wled_metadata_flags,
+    "*/wled_metadata.cpp"
+)
