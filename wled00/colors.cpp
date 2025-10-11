@@ -492,10 +492,6 @@ void colorFromDecOrHexString(byte* rgb, const char* in)
 //contrary to the colorFromDecOrHexString() function, this uses the more standard RRGGBB / RRGGBBWW order
 bool colorFromHexString(byte* rgb, const char* in) {
   if (in == nullptr) return false;
-  if (in[0] == 'r') { // Random colors via JSON API in Segment object like col=["r","r","r"] · Issue #4996
-    setRandomColor(rgb);
-    return true;
-  }
   size_t inputSize = strnlen(in, 9);
   if (inputSize != 6 && inputSize != 8) return false;
 
