@@ -3,7 +3,7 @@
 <head>
 <title>WLED File Editor</title>
 <meta name="author" content="DedeHai, based on editor by Me-No-Dev">
-<meta name="Description" content="ESP File Web Editor">
+<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport"><!-- prevent too much scaling on mobile -->
 <link rel="shortcut icon" href="favicon.ico">
 <link href="style.css" rel="stylesheet">
 <!-- Optional lightweight JSON editor - fallback to textarea if CDN is unavailable -->
@@ -13,12 +13,21 @@
 <script src="common.js"></script>
 <style>
 /* Editor-specific styles */
+body {
+	display: flex;
+	flex-direction: column;
+	min-height: 100vh;
+	margin: 0;
+	min-width: 850px; /* prevent layout breakdown on small screens */
+}
 #top {
+	font-size: 20px;
+	font-weight: bold;
 	display: flex;
 	align-items: center;
 	gap: 8px;
 	background: #222;
-	padding: 6px 10px;
+	padding: 10px 10px;
 }
 #top .center {
 	flex: 1;
@@ -29,29 +38,28 @@
 }
 #top input[type="text"] {
 	background: #555;
-	color: #fff;
 	border: 2px solid #555;
+	border-radius: 8px;
 	padding: 6px 8px;
 	min-width: 200px;
 }
 #tree {
 	position: absolute;
-	top: 66px;
-	left: 0;
+	top: 0;
 	bottom: 0;
+	left: 0;
 	width: 200px;
 	background: #222;
 	overflow-y: auto;
-	padding: 8px;
-	padding-bottom: 100px;  /* extra space so context menu always fits */
+	padding: 8px 8px 100px;  /* extra space on bottom so context menu always fits */
 	text-align: left;
 }
 #editor, #preview {
 	position: absolute;
-	top: 66px;
+	top: 0;
+	bottom: 0;
 	left: 200px;
 	right: 0;
-	bottom: 0;
 	background: #333;
 }
 #editor {
@@ -144,6 +152,7 @@ QueuedRequester.prototype = {
 	}
 };
 var req=new QueuedRequester();
+var globalTree; // Single global reference for tree refresh
 
 function loadPreview(filename, editor) {
 	var pathField = gId("filepath");
@@ -157,8 +166,11 @@ function loadPreview(filename, editor) {
 	}
 }
 
-function createTop(element, tree, editor){
-	// Create hidden file input
+function refreshTree() {
+	if (globalTree) globalTree.refreshPath("/");
+}
+
+function createTop(element, editor){
 	var input = cE("input");
 	input.type = "file";
 	input.style.display = "none"; // Hide the default file input
@@ -179,29 +191,29 @@ function createTop(element, tree, editor){
 	var uploadBtn = cE("button"); uploadBtn.className = "sml"; uploadBtn.innerHTML = "Upload File";
 	var clearBtn = cE("button"); clearBtn.className = "sml"; clearBtn.innerHTML = "Clear";
 	var saveBtn = cE("button"); saveBtn.className = "sml"; saveBtn.innerHTML = "Save";
-	var backBtn = cE("button"); backBtn.className = "sml"; backBtn.innerHTML = "Back to controls"; backBtn.onclick = function(){ window.location.href = getURL("/"); };
+	var backBtn = cE("button"); backBtn.className = "sml"; backBtn.innerHTML = "Back to the controls"; backBtn.onclick = function(){ window.location.href = getURL("/"); };
 
 	// Add elements to Top
 	leftDiv.appendChild(path);
 	leftDiv.appendChild(clearBtn);
 	leftDiv.appendChild(saveBtn);
-	centerDiv.appendChild(backBtn);
-	rightDiv.appendChild(uploadBtn);
+	leftDiv.appendChild(uploadBtn);
+	centerDiv.innerHTML = "WLED File Editor";
+	rightDiv.appendChild(backBtn);
 	gId(element).appendChild(input);
 	gId(element).appendChild(leftDiv);
 	gId(element).appendChild(centerDiv);
 	gId(element).appendChild(rightDiv);
+
 	editor.clearEditor();
 
-	uploadBtn.onclick = function() {
-		input.click(); // invokes file selector
-	};
+	uploadBtn.onclick = function() { input.click(); }; // invokes file selector
 
 	function httpPostCb(st,resp){
 		if (st!=200) alert("ERROR "+st+": "+resp);
 		else {
 			alert("Upload successful!");
-			tree.refreshPath("/");
+			refreshTree();
 		}
 	}
 
@@ -231,16 +243,17 @@ function createTop(element, tree, editor){
 function createTree(element, editor){
 	var treeRoot=cE("div");
 	gId(element).appendChild(treeRoot);
+	var menuCleanup = null; // Track menu cleanup function
 
-	function downlFile(p){
+	function downloadFile(p){
 		window.open("/edit?func=download&path=" + encodeURIComponent(p), "_blank");
 	}
 
-	function delFile(p, tree) {
+	function deleteFile(p) {
 		if (!confirm("Delete " + p + "?")) return;
 		req.add("GET", "/edit", { func:"delete", path:p }, function(st, resp) {
 			if (st != 200) alert("ERROR " + st + ": " + resp);
-			else tree.refreshPath("/");
+			else refreshTree();
 		});
 	}
 
@@ -255,40 +268,36 @@ function createTree(element, editor){
 		// Right-click context menu
 		leaf.oncontextmenu = function(e) {
 			e.preventDefault();
-			var existingMenu = gId("context-menu");
-			if (existingMenu) existingMenu.remove();
-
+			
+			// Clean up previous menu
+			if (menuCleanup) menuCleanup();
+			
 			var menu = cE("div");
 			menu.id = "context-menu";
 			menu.style.cssText = "position:fixed;left:"+e.clientX+"px;top:"+e.clientY+"px;background:#333;border:1px solid #666;border-radius:4px;z-index:1000;box-shadow:2px 2px 8px rgba(0,0,0,0.5)";
 
-			// Download option
-			var downloadOption = cE("div");
-			downloadOption.textContent = "Download";
-			downloadOption.style.cssText = "padding:8px 12px;cursor:pointer;color:#fff";
-			downloadOption.onmouseover = function() { this.style.background = "#555"; };
-			downloadOption.onmouseout = function() { this.style.background = ""; };
-			downloadOption.onclick = function() { downlFile(path); menu.remove(); };
+			function createOption(text, color, handler) {
+				var opt = cE("div");
+				opt.textContent = text;
+				opt.style.cssText = "padding:8px 12px;cursor:pointer;color:" + color;
+				opt.onmouseover = function() { this.style.background = "#555"; };
+				opt.onmouseout = function() { this.style.background = ""; };
+				opt.onclick = function() { handler(); cleanup(); };
+				return opt;
+			}
 
-			// Delete option
-			var deleteOption = cE("div");
-			deleteOption.textContent = "Delete";
-			deleteOption.style.cssText = "padding:8px 12px;cursor:pointer;color:#ff6666";
-			deleteOption.onmouseover = function() { this.style.background = "#555"; };
-			deleteOption.onmouseout = function() { this.style.background = ""; };
-			deleteOption.onclick = function() { delFile(path, {refreshPath: function() { treeRoot.innerHTML=""; httpGet("/"); }}); menu.remove(); };
-
-			menu.appendChild(downloadOption);
-			menu.appendChild(deleteOption);
+			menu.appendChild(createOption("Download", "#fff", function(){ downloadFile(path); }));
+			menu.appendChild(createOption("Delete", "#f66", function(){ deleteFile(path); }));
 			d.body.appendChild(menu);
 
-			// Remove menu when clicking elsewhere
-			setTimeout(function() {
-				d.onclick = function() {
-					if (menu.parentNode) menu.remove();
-					d.onclick = null;
-				};
-			}, 100);
+			function cleanup() {
+				if (menu.parentNode) menu.remove();
+				d.onclick = null;
+				menuCleanup = null;
+			}
+
+			menuCleanup = cleanup;
+			setTimeout(function() { d.onclick = cleanup; }, 100);
 		};
 
 		treeRoot.appendChild(leaf);
@@ -383,12 +392,7 @@ function createEditor(element,file){
 		// Check filename from text field or current file
 		var pathField = gId("filepath");
 		var filename = (pathField && pathField.value) ? pathField.value : currentFile;
-
-		if (filename && filename.toLowerCase().endsWith('.json')) {
-			aceEditor.session.setMode("ace/mode/json");
-		} else {
-			aceEditor.session.setMode("ace/mode/text");
-		}
+		aceEditor.session.setMode(filename && filename.toLowerCase().endsWith('.json') ? "ace/mode/json" : "ace/mode/text");
 	}
 
 	// Try to initialize Ace editor if available
@@ -406,11 +410,9 @@ function createEditor(element,file){
 
 			// Monitor filename input for JSON highlighting (prevent duplicate listeners)
 			var pathField = gId("filepath");
-			if (pathField && !pathField.hasJsonListener) {
-				pathField.oninput = function() {
-					updateEditorMode();
-				};
-				pathField.hasJsonListener = true;
+			if (pathField && !pathField.jsonListener) {
+				pathField.oninput = updateEditorMode;
+				pathField.jsonListener = true;
 			}
 		} catch(e) {
 			//console.log("Ace load failed:", e);
@@ -431,38 +433,32 @@ function createEditor(element,file){
 		}
 	}
 
-	function getCurrentContent() {
-		if (useAce && aceEditor && editorDiv.style.display !== "none") {
-			return aceEditor.getValue();
-		}
-		return ta.value;
+	function getContent() {
+		return (useAce && aceEditor && editorDiv.style.display !== "none") ? aceEditor.getValue() : ta.value;
 	}
 
-	function setCurrentContent(content) {
+	function setContent(content) {
 		ta.value = content;
-		if (useAce && aceEditor) {
-			aceEditor.setValue(content, -1);
-		}
+		if (useAce && aceEditor) aceEditor.setValue(content, -1);
 	}
 
 	// Live JSON validation for textarea
 	ta.oninput = function() {
 		var pathField = gId("filepath");
 		var filename = pathField ? pathField.value : currentFile;
+		var border = "2px solid #333";
 
 		if (filename && filename.toLowerCase().endsWith('.json')) {
 			try {
 				JSON.parse(ta.value);
-				ta.style.border = "2px solid #333"; // Valid JSON - normal border
 			} catch(e) {
-				ta.style.border = "2px solid #f00"; // Invalid JSON - red border
+				border = "2px solid #f00";
 			}
-		} else {
-			ta.style.border = "2px solid #333"; // Normal border for non-JSON
 		}
+		ta.style.border = border;
 	};
 
-	function httpPost(filename,data){
+	function saveFile(filename,data){
 		var finalData = data;
 		// Minify JSON files before upload
 		if (filename.toLowerCase().endsWith('.json')) {
@@ -479,45 +475,38 @@ function createEditor(element,file){
 			if (st!=200) alert("ERROR "+st+": "+resp);
 			else {
 				alert("File saved successfully!");
-				// Refresh file list after save
-				if (window.fileTree) window.fileTree.refreshPath("/");
+				refreshTree();
 			}
 		});
 	}
 
-	function httpGet(fn){
-		if (!fn) return;
-		req.add("GET", "/edit", { func:"edit", path:fn }, function(st, resp) {
+	function loadFile(filename){
+		if (!filename) return;
+		req.add("GET", "/edit", { func:"edit", path:filename }, function(st, resp) {
 			gId("preview").style.display="none";
 			gId("editor").style.display="flex";
 			if (st==200) {
-				// Pretty-print JSON files for editing
-				if (fn.toLowerCase().endsWith('.json')) {
+				if (filename.toLowerCase().endsWith('.json')) {
 					try {
-						if (fn.toLowerCase().includes('ledmap')) {
-							setCurrentContent(prettyLedmap(resp));
-						} else {
-							setCurrentContent(JSON.stringify(JSON.parse(resp), null, 2));
-						}
+						setContent(filename.toLowerCase().includes('ledmap') ? prettyLedmap(resp) : JSON.stringify(JSON.parse(resp), null, 2));
 					} catch(e) {
-						setCurrentContent(resp); // Fall back to raw content if JSON is invalid
+						setContent(resp);
 					}
 				} else {
-					setCurrentContent(resp);
+					setContent(resp);
 				}
 			} else {
-				setCurrentContent("");
+				setContent("");
 			}
-			currentFile = fn;
-			updateEditorMode(); // Update editor mode after loading
+			currentFile = filename;
+			updateEditorMode();
 		});
 	}
 
-	if (file) httpGet(file);
+	if (file) loadFile(file);
 
-	var ed={
+	return {
 		save:function(){
-			// Always use filename from text field
 			var pathField = gId("filepath");
 			var fn = pathField ? pathField.value : "";
 			if (!fn) {
@@ -526,32 +515,28 @@ function createEditor(element,file){
 			}
 			if (!fn.startsWith("/")) fn = "/" + fn;
 			currentFile = fn; // Update current file
-			httpPost(fn, getCurrentContent());
-			httpGet(fn); // reload after save
+			saveFile(fn, getContent());
+			loadFile(fn);
 		},
 		loadText:function(fn){
 			currentFile=fn;
-			// Update filename in text field
 			var pathField = gId("filepath");
 			if (pathField && fn) {
-				var filename = fn.startsWith("/") ? fn.substring(1) : fn;
-				pathField.value = filename;
+				pathField.value = fn.startsWith("/") ? fn.substring(1) : fn;
 			}
-			httpGet(fn);
+			loadFile(fn);
 		},
 		clearEditor:function(){
 			gId("preview").style.display="none";
 			gId("editor").style.display="flex";
-			setCurrentContent("");
 			// Update filename in text field
+			setContent("");
 			var pathField = gId("filepath");
 			pathField.value = "";
 			pathField.placeholder = "Filename to save";
 			updateEditorMode();
 		}
 	};
-
-	return ed;
 }
 
 function onBodyLoad(){
@@ -561,17 +546,20 @@ function onBodyLoad(){
 	});
 
 	var editor=createEditor("editor",vars.file);
-	var tree=createTree("tree",editor);
-	window.fileTree = tree; // Store reference for file list refresh
-	createTop("top",tree,editor);
+	globalTree=createTree("tree",editor);
+	createTop("top",editor);
 }
 </script>
 </head>
 <body onload="onBodyLoad()">
 	<div id="loader"><div class="loader"></div></div>
 	<div id="top"></div>
-	<div id="tree"></div>
-	<div id="editor"></div>
-	<div id="preview"></div>
+	<div style="flex:1;position:relative">
+		<div id="tree">
+			<div style="font-size:12px;color:#666;">by @dedehai</div>
+		</div>
+		<div id="editor"></div>
+		<div id="preview"></div>
+	</div>
 </body>
 </html>
