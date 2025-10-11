@@ -1,6 +1,7 @@
 #define WLED_DEFINE_GLOBAL_VARS //only in one source file, wled.cpp!
 #include "wled.h"
 #include "wled_ethernet.h"
+#include "ota_update.h"
 #include <Arduino.h>
 
 #if defined(ARDUINO_ARCH_ESP32) && defined(WLED_DISABLE_BROWNOUT_DET)
@@ -164,9 +165,9 @@ void WLED::loop()
   if (millis() - heapTime > 15000) {
     uint32_t heap = ESP.getFreeHeap();
     if (heap < MIN_HEAP_SIZE && lastHeap < MIN_HEAP_SIZE) {
-      DEBUG_PRINTF_P(PSTR("Heap too low! %u\n"), heap);
-      forceReconnect = true;
+      DEBUG_PRINTF_P(PSTR("Heap too low! %u\n"), heap);      
       strip.resetSegments(); // remove all but one segments from memory
+      if (!Update.isRunning()) forceReconnect = true;
     } else if (heap < MIN_HEAP_SIZE) {
       DEBUG_PRINTLN(F("Heap low, purging segments."));
       strip.purgeSegments();

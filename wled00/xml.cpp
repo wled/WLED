@@ -650,13 +650,6 @@ void getSettingsJS(byte subPage, Print& settingsScript)
     UsermodManager::appendConfigData(settingsScript);
   }
 
-  if (subPage == SUBPAGE_UPDATE) // update
-  {
-    char tmp_buf[128];
-    fillWLEDVersion(tmp_buf,sizeof(tmp_buf));
-    printSetClassElementHTML(settingsScript,PSTR("sip"),0,tmp_buf);
-  }
-
   if (subPage == SUBPAGE_2D) // 2D matrices
   {
     printSetFormValue(settingsScript,PSTR("SOMP"),strip.isMatrix);
