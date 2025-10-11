@@ -111,6 +111,7 @@ struct ParseContext {
     StopMatchData primary;
     StopMatchData destination;
     bool hasDestination = false;
+    String labelSuffix;             // optional suffix appended to lineRef (e.g., "local")
     std::vector<DepartModel::Entry::Item> items;
     bool lastStopSeqValid = false;
     uint32_t lastStopSeq = 0;
@@ -148,6 +149,14 @@ struct ParseContext {
       for (const String& raw : stopCodesIn) {
         String trimmed = raw;
         trimmed.trim();
+
+        String labelToken;
+        int equalsPos = trimmed.indexOf('=');
+        if (equalsPos >= 0) {
+          labelToken = trimmed.substring(equalsPos + 1);
+          trimmed = trimmed.substring(0, equalsPos);
+        }
+
         int arrowPos = trimmed.indexOf(F("->"));
         String baseToken = trimmed;
         String destToken;
@@ -158,6 +167,12 @@ struct ParseContext {
         baseToken.trim();
         destToken.trim();
 
+        labelToken.trim();
+        if (labelToken.length() > 0) {
+          labelToken.replace(' ', '-');
+          labelToken.replace('\t', '-');
+        }
+
         StopContext sc;
         if (destToken.length() > 0) {
           sc.stopCode = baseToken;
@@ -165,6 +180,11 @@ struct ParseContext {
           sc.stopCode += destToken;
         } else {
           sc.stopCode = baseToken;
+        }
+        if (labelToken.length() > 0) {
+          sc.stopCode += '=';
+          sc.stopCode += labelToken;
+          sc.labelSuffix = labelToken;
         }
         populateMatchData(agency, baseToken, sc.primary);
         if (destToken.length() > 0) {
@@ -240,6 +260,18 @@ static size_t findMatchingStopIndexes(const CandidateStopId& cand,
 static bool destinationSatisfied(const TripAccumulator::PendingStop& pending) {
   if (!pending.needsDestination) return true;
   return pending.destinationSatisfied;
+}
+
+static String extractBaseStopCode(const String& token) {
+  String base = token;
+  int equalsPos = base.indexOf('=');
+  if (equalsPos >= 0) base = base.substring(0, equalsPos);
+  int arrowPos = base.indexOf(F("->"));
+  if (arrowPos >= 0) base = base.substring(0, arrowPos);
+  int colon = base.lastIndexOf(':');
+  if (colon >= 0) base = base.substring(colon + 1);
+  base.trim();
+  return base;
 }
 
 static void splitStopCodes(const String& input, std::vector<String>& out) {
@@ -654,18 +686,34 @@ static size_t flushTripAccumulator(TripAccumulator& accum, ParseContext& ctx) {
   if (lineRef.length() == 0) lineRef = F("?");
 
   size_t added = 0;
-  for (size_t idx = 0; idx < accum.matchCount; ++idx) {
-    const auto& pending = accum.matches[idx];
+  bool tripAssigned = false;
+  for (size_t stopOrder = 0; stopOrder < ctx.stops.size() && !tripAssigned; ++stopOrder) {
+    size_t bestIdx = TripAccumulator::kMaxPendingStops;
+    time_t bestDep = 0;
+    for (size_t idx = 0; idx < accum.matchCount; ++idx) {
+      const auto& pending = accum.matches[idx];
+      if (pending.stopIndex != static_cast<int>(stopOrder)) continue;
+      if (!destinationSatisfied(pending)) continue;
+      if (pending.stopIndex < 0 || (size_t)pending.stopIndex >= ctx.stops.size()) continue;
+      time_t dep = clampToTimeT(pending.epoch);
+      if (dep == 0) continue;
+      if (ctx.now > 0 && dep + 3600 < ctx.now) continue;
+      if (bestIdx == TripAccumulator::kMaxPendingStops || dep < bestDep) {
+        bestIdx = idx;
+        bestDep = dep;
+      }
+    }
+    if (bestIdx == TripAccumulator::kMaxPendingStops) continue;
     if ((added & 0x3) == 0) yield();
-    if (pending.stopIndex < 0 || (size_t)pending.stopIndex >= ctx.stops.size()) continue;
-    auto& stopCtx = ctx.stops[pending.stopIndex];
-    if (!destinationSatisfied(pending)) continue;
-    time_t dep = clampToTimeT(pending.epoch);
-    if (dep == 0) continue;
-    if (ctx.now > 0 && dep + 3600 < ctx.now) continue;
+    const auto& pending = accum.matches[bestIdx];
+    auto& stopCtx = ctx.stops[stopOrder];
     DepartModel::Entry::Item item;
-    item.estDep = dep;
+    item.estDep = bestDep;
     item.lineRef = departstrip::util::formatLineLabel(ctx.agency, lineRef);
+    if (stopCtx.labelSuffix.length() > 0) {
+      item.lineRef += '-';
+      item.lineRef += stopCtx.labelSuffix;
+    }
     stopCtx.items.push_back(std::move(item));
     const DepartModel::Entry::Item& pushed = stopCtx.items.back();
     ctx.stopUpdatesMatched++;
@@ -684,6 +732,7 @@ static size_t flushTripAccumulator(TripAccumulator& accum, ParseContext& ctx) {
       //             stopCtx.stopCode.c_str());
       ctx.logMatches++;
     }
+    tripAssigned = true;
   }
   return added;
 }
@@ -927,7 +976,7 @@ std::unique_ptr<DepartModel> GtfsRtSource::fetch(std::time_t now) {
     return nullptr;
   }
 
-  String firstStop = stopCodes_.empty() ? String() : stopCodes_[0];
+  String firstStop = stopCodes_.empty() ? String() : extractBaseStopCode(stopCodes_[0]);
   String url = composeUrl(agency_, firstStop);
   String redacted = url;
   auto redactParam = [&](const __FlashStringHelper* key) {
@@ -1141,27 +1190,48 @@ bool GtfsRtSource::readFromConfig(JsonObject& root, bool startup_complete, bool&
     sc.trim();
     String base = sc;
     String dest;
-    int arrowPos = sc.indexOf(F("->"));
+    String label;
+
+    int equalsPos = base.indexOf('=');
+    if (equalsPos >= 0) {
+      label = base.substring(equalsPos + 1);
+      base = base.substring(0, equalsPos);
+    }
+
+    int arrowPos = base.indexOf(F("->"));
     if (arrowPos >= 0) {
-      base = sc.substring(0, arrowPos);
-      dest = sc.substring(arrowPos + 2);
+      dest = base.substring(arrowPos + 2);
+      base = base.substring(0, arrowPos);
     }
     base.trim();
     dest.trim();
+    label.trim();
+
     int colonBase = base.lastIndexOf(':');
     if (colonBase >= 0) base = base.substring(colonBase + 1);
     base.trim();
+
     if (dest.length() > 0) {
       int colonDest = dest.lastIndexOf(':');
       if (colonDest >= 0) dest = dest.substring(colonDest + 1);
       dest.trim();
     }
+
+    if (label.length() > 0) {
+      label.replace(' ', '-');
+      label.replace('\t', '-');
+    }
+
     if (dest.length() > 0) {
       sc = base;
       sc += F("->");
       sc += dest;
     } else {
       sc = base;
+    }
+    if (label.length() > 0) {
+      sc += '=';
+      sc += label;
     }
   }
   if (stopCodes_.size() > 1) {
