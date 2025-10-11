@@ -231,6 +231,7 @@ static bool deserializeSegment(JsonObject elem, byte it, byte presetId = 0)
               colValid = true;
             } else if (hexCol[0] == 'r' && hexCol[1] == '\0') { // Random colors via JSON API in Segment object like col=["r","r","r"] · Issue #4996
               setRandomColor(brgbw);
+              colValid = true;
             } else { //HEX string, e.g. "FFAA00"
               colValid = colorFromHexString(brgbw, hexCol);
             }
