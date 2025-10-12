@@ -17,7 +17,7 @@
 
 const fs = require("node:fs");
 const path = require("path");
-const inliner = require("inliner");
+const inline = require("web-resource-inliner");
 const zlib = require("node:zlib");
 const CleanCSS = require("clean-css");
 const minifyHtml = require("html-minifier-terser").minify;
@@ -128,21 +128,26 @@ async function minify(str, type = "plain") {
 
 async function writeHtmlGzipped(sourceFile, resultFile, page) {
   console.info("Reading " + sourceFile);
-  new inliner(sourceFile, async function (error, html) {
-    if (error) throw error;
+  inline.html({
+    fileContent: fs.readFileSync(sourceFile, "utf8"),
+    relativeTo: path.dirname(sourceFile),
+    strict: true,
+  },
+    async function (error, html) {
+      if (error) throw error;
 
-    html = adoptVersionAndRepo(html);
-    const originalLength = html.length;
-    html = await minify(html, "html-minify");
-    const result = zlib.gzipSync(html, { level: zlib.constants.Z_BEST_COMPRESSION });
-    console.info("Minified and compressed " + sourceFile + " from " + originalLength + " to " + result.length + " bytes");
-    const array = hexdump(result);
-    let src = singleHeader;
-    src += `const uint16_t PAGE_${page}_L = ${result.length};\n`;
-    src += `const uint8_t PAGE_${page}[] PROGMEM = {\n${array}\n};\n\n`;
-    console.info("Writing " + resultFile);
-    fs.writeFileSync(resultFile, src);
-  });
+      html = adoptVersionAndRepo(html);
+      const originalLength = html.length;
+      html = await minify(html, "html-minify");
+      const result = zlib.gzipSync(html, { level: zlib.constants.Z_BEST_COMPRESSION });
+      console.info("Minified and compressed " + sourceFile + " from " + originalLength + " to " + result.length + " bytes");
+      const array = hexdump(result);
+      let src = singleHeader;
+      src += `const uint16_t PAGE_${page}_length = ${result.length};\n`;
+      src += `const uint8_t PAGE_${page}[] PROGMEM = {\n${array}\n};\n\n`;
+      console.info("Writing " + resultFile);
+      fs.writeFileSync(resultFile, src);
+    });
 }
 
 async function specToChunk(srcDir, s) {
@@ -239,8 +244,21 @@ if (isAlreadyBuilt("wled00/data") && process.argv[2] !== '--force' && process.ar
 
 writeHtmlGzipped("wled00/data/index.htm", "wled00/html_ui.h", 'index');
 writeHtmlGzipped("wled00/data/pixart/pixart.htm", "wled00/html_pixart.h", 'pixart');
-writeHtmlGzipped("wled00/data/cpal/cpal.htm", "wled00/html_cpal.h", 'cpal');
+//writeHtmlGzipped("wled00/data/cpal/cpal.htm", "wled00/html_cpal.h", 'cpal');
 writeHtmlGzipped("wled00/data/pxmagic/pxmagic.htm", "wled00/html_pxmagic.h", 'pxmagic');
+
+writeChunks(
+  "wled00/data/cpal",
+  [
+    {
+      file: "cpal.htm",
+      name: "PAGE_cpal",
+      method: "gzip",
+      filter: "html-minify"
+    }
+  ],
+  "wled00/html_cpal.h"
+);
 
 writeChunks(
   "wled00/data",

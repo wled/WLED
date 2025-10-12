@@ -114,6 +114,7 @@ static um_data_t* getAudioData() {
   return um_data;
 }
 
+
 // effect functions
 
 /*
@@ -124,6 +125,57 @@ uint16_t mode_static(void) {
   return strip.isOffRefreshRequired() ? FRAMETIME : 350;
 }
 static const char _data_FX_MODE_STATIC[] PROGMEM = "Solid";
+
+/*
+ * Copy a segment and perform (optional) color adjustments
+ */
+uint16_t mode_copy_segment(void) {
+  uint32_t sourceid = SEGMENT.custom3;
+  if (sourceid >= strip.getSegmentsNum() || sourceid == strip.getCurrSegmentId()) { // invalid source
+    SEGMENT.fadeToBlackBy(5); // fade out
+    return FRAMETIME;
+  }
+  Segment& sourcesegment = strip.getSegment(sourceid);
+
+  if (sourcesegment.isActive()) {
+    uint32_t sourcecolor;
+    uint32_t destcolor;
+    if(sourcesegment.is2D()) { // 2D source, note: 2D to 1D just copies the first row (or first column if 'Switch axis' is checked in FX)
+      for (unsigned y = 0; y < SEGMENT.vHeight(); y++) {
+        for (unsigned x = 0; x < SEGMENT.vWidth(); x++) {
+          unsigned sx = x; // source coordinates
+          unsigned sy = y;
+          if(SEGMENT.check1) std::swap(sx, sy); // flip axis
+          if(SEGMENT.check2) {
+            sourcecolor = strip.getPixelColorXY(sx + sourcesegment.start, sy + sourcesegment.startY); // read from global buffer (reads the last rendered frame)
+          }
+          else {
+            sourcesegment.setDrawDimensions(); // set to source segment dimensions
+            sourcecolor = sourcesegment.getPixelColorXY(sx, sy); // read from segment buffer
+          }
+          destcolor = adjust_color(sourcecolor, SEGMENT.intensity, SEGMENT.custom1, SEGMENT.custom2);
+          SEGMENT.setDrawDimensions(); // reset to current segment dimensions
+          SEGMENT.setPixelColorXY(x, y, destcolor);
+        }
+      }
+    } else { // 1D source, source can be expanded into 2D
+      for (unsigned i = 0; i < SEGMENT.vLength(); i++) {
+        if(SEGMENT.check2) {
+          sourcecolor = strip.getPixelColor(i + sourcesegment.start); // read from global buffer (reads the last rendered frame)
+        }
+        else {
+          sourcesegment.setDrawDimensions(); // set to source segment dimensions
+          sourcecolor = sourcesegment.getPixelColor(i);
+        }
+        destcolor = adjust_color(sourcecolor, SEGMENT.intensity, SEGMENT.custom1, SEGMENT.custom2);
+        SEGMENT.setDrawDimensions(); // reset to current segment dimensions
+        SEGMENT.setPixelColor(i, destcolor);
+      }
+    }
+  }
+  return FRAMETIME;
+}
+static const char _data_FX_MODE_COPY[] PROGMEM = "Copy Segment@,Color shift,Lighten,Brighten,ID,Axis(2D),FullStack(last frame);;;12;ix=0,c1=0,c2=0,c3=0";
 
 
 /*
@@ -229,8 +281,7 @@ uint16_t color_wipe(bool rev, bool useRandomColors) {
   }
 
   unsigned ledIndex = (prog * SEGLEN) >> 15;
-  unsigned rem = 0;
-  rem = (prog * SEGLEN) * 2; //mod 0xFFFF
+  uint16_t rem = (prog * SEGLEN) * 2; //mod 0xFFFF by truncating
   rem /= (SEGMENT.intensity +1);
   if (rem > 255) rem = 255;
 
@@ -736,56 +787,44 @@ static const char _data_FX_MODE_MULTI_STROBE[] PROGMEM = "Strobe Mega@!,!,,,,Mov
 
 
 /*
- * Android loading circle
+ * Android loading circle, refactored by @dedehai
  */
 uint16_t mode_android(void) {
-
+  if (!SEGENV.allocateData(sizeof(uint32_t))) return mode_static();
+  uint32_t* counter = reinterpret_cast<uint32_t*>(SEGENV.data);
+  unsigned size = SEGENV.aux1 >> 1; // upper 15 bit
+  unsigned shrinking = SEGENV.aux1 & 0x01; // lowest bit
+  if(strip.now >= SEGENV.step) {
+    SEGENV.step = strip.now + 3 + ((8 * (uint32_t)(255 - SEGMENT.speed)) / SEGLEN);
+    if (size > (SEGMENT.intensity * SEGLEN) / 255)
+      shrinking = 1;
+    else if (size < 2)
+      shrinking = 0;
+    if (!shrinking) { // growing
+      if ((*counter % 3) == 1)
+        SEGENV.aux0++; // advance start position
+      else
+        size++;
+    } else { // shrinking
+      SEGENV.aux0++;
+      if ((*counter % 3) != 1)
+        size--;
+    }
+    SEGENV.aux1 = size << 1 | shrinking; // save back
+    (*counter)++;
+    if (SEGENV.aux0 >= SEGLEN) SEGENV.aux0 = 0;
+  }
+  uint32_t start = SEGENV.aux0;
+  uint32_t end = (SEGENV.aux0 + size) % SEGLEN;
   for (unsigned i = 0; i < SEGLEN; i++) {
-    SEGMENT.setPixelColor(i, SEGMENT.color_from_palette(i, true, PALETTE_SOLID_WRAP, 1));
-  }
-
-  if (SEGENV.aux1 > (SEGMENT.intensity*SEGLEN)/255)
-  {
-    SEGENV.aux0 = 1;
-  } else
-  {
-    if (SEGENV.aux1 < 2) SEGENV.aux0 = 0;
-  }
-
-  unsigned a = SEGENV.step & 0xFFFFU;
-
-  if (SEGENV.aux0 == 0)
-  {
-    if (SEGENV.call %3 == 1) {a++;}
-    else {SEGENV.aux1++;}
-  } else
-  {
-    a++;
-    if (SEGENV.call %3 != 1) SEGENV.aux1--;
-  }
-
-  if (a >= SEGLEN) a = 0;
-
-  if (a + SEGENV.aux1 < SEGLEN)
-  {
-    for (unsigned i = a; i < a+SEGENV.aux1; i++) {
+    if ((start < end && i >= start && i < end) || (start >= end && (i >= start || i < end)))
       SEGMENT.setPixelColor(i, SEGCOLOR(0));
-    }
-  } else
-  {
-    for (unsigned i = a; i < SEGLEN; i++) {
-      SEGMENT.setPixelColor(i, SEGCOLOR(0));
-    }
-    for (unsigned i = 0; i < SEGENV.aux1 - (SEGLEN -a); i++) {
-      SEGMENT.setPixelColor(i, SEGCOLOR(0));
-    }
+    else
+      SEGMENT.setPixelColor(i, SEGMENT.color_from_palette(i, true, PALETTE_SOLID_WRAP, 1));
   }
-  SEGENV.step = a;
-
-  return 3 + ((8 * (uint32_t)(255 - SEGMENT.speed)) / SEGLEN);
+  return FRAMETIME;
 }
 static const char _data_FX_MODE_ANDROID[] PROGMEM = "Android@!,Width;!,!;!;;m12=1"; //vertical
-
 
 /*
  * color chase function.
@@ -1591,8 +1630,8 @@ static const char _data_FX_MODE_TRICOLOR_WIPE[] PROGMEM = "Tri Wipe@!;1,2,3;!";
  * Modified by Aircoookie
  */
 uint16_t mode_tricolor_fade(void) {
-  unsigned counter = strip.now * ((SEGMENT.speed >> 3) +1);
-  uint16_t prog = (counter * 768) >> 16;
+  uint16_t counter = strip.now * ((SEGMENT.speed >> 3) +1);
+  uint32_t prog = (counter * 768) >> 16;
 
   uint32_t color1 = 0, color2 = 0;
   unsigned stage = 0;
@@ -1846,7 +1885,8 @@ uint16_t mode_colorwaves_pride_base(bool isPride2015) {
     bri8 += (255 - brightdepth);
 
     if (isPride2015) {
-      CRGB newcolor = CHSV(hue8, sat8, bri8);
+      CRGBW newcolor = CRGB(CHSV(hue8, sat8, bri8));
+      newcolor.color32 = gamma32inv(newcolor.color32);
       SEGMENT.blendPixelColor(i, newcolor, 64);
     } else {
       SEGMENT.blendPixelColor(i, SEGMENT.color_from_palette(hue8, false, PALETTE_SOLID_WRAP, 0, bri8), 128);
@@ -2098,7 +2138,7 @@ static const char _data_FX_MODE_BPM[] PROGMEM = "Bpm@!;!;!;;sx=64";
 uint16_t mode_fillnoise8() {
   if (SEGENV.call == 0) SEGENV.step = hw_random();
   for (unsigned i = 0; i < SEGLEN; i++) {
-    unsigned index = inoise8(i * SEGLEN, SEGENV.step + i * SEGLEN);
+    unsigned index = perlin8(i * SEGLEN, SEGENV.step + i * SEGLEN);
     SEGMENT.setPixelColor(i, SEGMENT.color_from_palette(index, false, PALETTE_SOLID_WRAP, 0));
   }
   SEGENV.step += beatsin8_t(SEGMENT.speed, 1, 6); //10,1,4
@@ -2118,7 +2158,7 @@ uint16_t mode_noise16_1() {
     unsigned real_x = (i + shift_x) * scale;                  // the x position of the noise field swings @ 17 bpm
     unsigned real_y = (i + shift_y) * scale;                  // the y position becomes slowly incremented
     uint32_t real_z = SEGENV.step;                            // the z position becomes quickly incremented
-    unsigned noise = inoise16(real_x, real_y, real_z) >> 8;   // get the noise data and scale it down
+    unsigned noise = perlin16(real_x, real_y, real_z) >> 8;   // get the noise data and scale it down
     unsigned index = sin8_t(noise * 3);                         // map LED color based on noise data
 
     SEGMENT.setPixelColor(i, SEGMENT.color_from_palette(index, false, PALETTE_SOLID_WRAP, 0));
@@ -2136,7 +2176,7 @@ uint16_t mode_noise16_2() {
   for (unsigned i = 0; i < SEGLEN; i++) {
     unsigned shift_x = SEGENV.step >> 6;                        // x as a function of time
     uint32_t real_x = (i + shift_x) * scale;                    // calculate the coordinates within the noise field
-    unsigned noise = inoise16(real_x, 0, 4223) >> 8;            // get the noise data and scale it down
+    unsigned noise = perlin16(real_x, 0, 4223) >> 8;            // get the noise data and scale it down
     unsigned index = sin8_t(noise * 3);                           // map led color based on noise data
 
     SEGMENT.setPixelColor(i, SEGMENT.color_from_palette(index, false, PALETTE_SOLID_WRAP, 0, noise));
@@ -2157,7 +2197,7 @@ uint16_t mode_noise16_3() {
     uint32_t real_x = (i + shift_x) * scale;                  // calculate the coordinates within the noise field
     uint32_t real_y = (i + shift_y) * scale;                  // based on the precalculated positions
     uint32_t real_z = SEGENV.step*8;
-    unsigned noise = inoise16(real_x, real_y, real_z) >> 8;   // get the noise data and scale it down
+    unsigned noise = perlin16(real_x, real_y, real_z) >> 8;   // get the noise data and scale it down
     unsigned index = sin8_t(noise * 3);                         // map led color based on noise data
 
     SEGMENT.setPixelColor(i, SEGMENT.color_from_palette(index, false, PALETTE_SOLID_WRAP, 0, noise));
@@ -2172,7 +2212,7 @@ static const char _data_FX_MODE_NOISE16_3[] PROGMEM = "Noise 3@!;!;!;;pal=35";
 uint16_t mode_noise16_4() {
   uint32_t stp = (strip.now * SEGMENT.speed) >> 7;
   for (unsigned i = 0; i < SEGLEN; i++) {
-    int index = inoise16(uint32_t(i) << 12, stp);
+    int index = perlin16(uint32_t(i) << 12, stp);
     SEGMENT.setPixelColor(i, SEGMENT.color_from_palette(index, false, PALETTE_SOLID_WRAP, 0));
   }
   return FRAMETIME;
@@ -2204,7 +2244,7 @@ uint16_t mode_colortwinkle() {
       }
 
       if (cur == prev) {  //fix "stuck" pixels
-        color_add(col, col);
+        col = color_add(col, col);
         SEGMENT.setPixelColor(i, col);
       }
       else SEGMENT.setPixelColor(i, col);
@@ -2470,9 +2510,11 @@ static CRGB twinklefox_one_twinkle(uint32_t ms, uint8_t salt, bool cat)
     // This is like 'triwave8', which produces a
     // symmetrical up-and-down triangle sawtooth waveform, except that this
     // function produces a triangle wave with a faster attack and a slower decay
-    if (cat) //twinklecat, variant where the leds instantly turn on
-    {
+    if (cat) { //twinklecat, variant where the leds instantly turn on and fade off
       bright = 255 - ph;
+      if (SEGMENT.check2) { //reverse checkbox, reverses the leds to fade on and instantly turn off
+        bright = ph;
+      }
     } else { //vanilla twinklefox
       if (ph < 86) {
       bright = ph * 3;
@@ -2580,7 +2622,7 @@ uint16_t mode_twinklecat()
 {
   return twinklefox_base(true);
 }
-static const char _data_FX_MODE_TWINKLECAT[] PROGMEM = "Twinklecat@!,Twinkle rate,,,,Cool;!,!;!";
+static const char _data_FX_MODE_TWINKLECAT[] PROGMEM = "Twinklecat@!,Twinkle rate,,,,Cool,Reverse;!,!;!";
 
 
 uint16_t mode_halloween_eyes()
@@ -3768,7 +3810,7 @@ uint16_t mode_percent(void) {
 
  	return FRAMETIME;
 }
-static const char _data_FX_MODE_PERCENT[] PROGMEM = "Percent@,% of fill,,,,One color;!,!;!";
+static const char _data_FX_MODE_PERCENT[] PROGMEM = "Percent@!,% of fill,,,,One color;!,!;!";
 
 
 /*
@@ -3986,7 +4028,7 @@ static uint16_t phased_base(uint8_t moder) {                  // We're making si
   *phase += SEGMENT.speed/32.0;                                  // You can change the speed of the wave. AKA SPEED (was .4)
 
   for (unsigned i = 0; i < SEGLEN; i++) {
-    if (moder == 1) modVal = (inoise8(i*10 + i*10) /16);         // Let's randomize our mod length with some Perlin noise.
+    if (moder == 1) modVal = (perlin8(i*10 + i*10) /16);         // Let's randomize our mod length with some Perlin noise.
     unsigned val = (i+1) * allfreq;                              // This sets the frequency of the waves. The +1 makes sure that led 0 is used.
     if (modVal == 0) modVal = 1;
     val += *phase * (i % modVal +1) /2;                          // This sets the varying phase change of the waves. By Andrew Tuline.
@@ -4055,7 +4097,7 @@ uint16_t mode_noisepal(void) {                                    // Slow noise 
   if (SEGMENT.palette > 0) palettes[0] = SEGPALETTE;
 
   for (unsigned i = 0; i < SEGLEN; i++) {
-    unsigned index = inoise8(i*scale, SEGENV.aux0+i*scale);                // Get a value from the noise function. I'm using both x and y axis.
+    unsigned index = perlin8(i*scale, SEGENV.aux0+i*scale);                // Get a value from the noise function. I'm using both x and y axis.
     SEGMENT.setPixelColor(i,  ColorFromPalette(palettes[0], index, 255, LINEARBLEND));  // Use my own palette.
   }
 
@@ -4594,30 +4636,17 @@ class AuroraWave {
 };
 
 uint16_t mode_aurora(void) {
-  //aux1 = Wavecount
-  //aux2 = Intensity in last loop
-
   AuroraWave* waves;
+  SEGENV.aux1 = map(SEGMENT.intensity, 0, 255, 2, W_MAX_COUNT); // aux1 = Wavecount
+  if(!SEGENV.allocateData(sizeof(AuroraWave) * SEGENV.aux1)) {  // 20 on ESP32, 9 on ESP8266
+    return mode_static(); //allocation failed
+  }
+  waves = reinterpret_cast<AuroraWave*>(SEGENV.data);
 
-//TODO: I am not sure this is a correct way of handling memory allocation since if it fails on 1st run
-// it will display static effect but on second run it may crash ESP since data will be nullptr
-
-  if(SEGENV.aux0 != SEGMENT.intensity || SEGENV.call == 0) {
-    //Intensity slider changed or first call
-    SEGENV.aux1 = map(SEGMENT.intensity, 0, 255, 2, W_MAX_COUNT);
-    SEGENV.aux0 = SEGMENT.intensity;
-
-    if(!SEGENV.allocateData(sizeof(AuroraWave) * SEGENV.aux1)) { // 26 on 32 segment ESP32, 9 on 16 segment ESP8266
-      return mode_static(); //allocation failed
-    }
-
-    waves = reinterpret_cast<AuroraWave*>(SEGENV.data);
-
+  if(SEGENV.call == 0) {
     for (int i = 0; i < SEGENV.aux1; i++) {
       waves[i].init(SEGLEN, CRGB(SEGMENT.color_from_palette(hw_random8(), false, false, hw_random8(0, 3))));
     }
-  } else {
-    waves = reinterpret_cast<AuroraWave*>(SEGENV.data);
   }
 
   for (int i = 0; i < SEGENV.aux1; i++) {
@@ -4666,7 +4695,7 @@ uint16_t mode_perlinmove(void) {
   if (SEGLEN <= 1) return mode_static();
   SEGMENT.fade_out(255-SEGMENT.custom1);
   for (int i = 0; i < SEGMENT.intensity/16 + 1; i++) {
-    unsigned locn = inoise16(strip.now*128/(260-SEGMENT.speed)+i*15000, strip.now*128/(260-SEGMENT.speed)); // Get a new pixel location from moving noise.
+    unsigned locn = perlin16(strip.now*128/(260-SEGMENT.speed)+i*15000, strip.now*128/(260-SEGMENT.speed)); // Get a new pixel location from moving noise.
     unsigned pixloc = map(locn, 50*256, 192*256, 0, SEGLEN-1);                                            // Map that to the length of the strand, and ensure we don't go over.
     SEGMENT.setPixelColor(pixloc, SEGMENT.color_from_palette(pixloc%255, false, PALETTE_SOLID_WRAP, 0));
   }
@@ -4697,7 +4726,7 @@ static const char _data_FX_MODE_WAVESINS[] PROGMEM = "Wavesins@!,Brightness vari
 //////////////////////////////
 //     Flow Stripe          //
 //////////////////////////////
-// By: ldirko  https://editor.soulmatelights.com/gallery/392-flow-led-stripe , modifed by: Andrew Tuline
+// By: ldirko  https://editor.soulmatelights.com/gallery/392-flow-led-stripe , modifed by: Andrew Tuline, fixed by @DedeHai
 uint16_t mode_FlowStripe(void) {
   if (SEGLEN <= 1) return mode_static();
   const int hl = SEGLEN * 10 / 13;
@@ -4705,17 +4734,89 @@ uint16_t mode_FlowStripe(void) {
   uint32_t t = strip.now / (SEGMENT.intensity/8+1);
 
   for (unsigned i = 0; i < SEGLEN; i++) {
-    int c = (abs((int)i - hl) / hl) * 127;
+    int c = ((abs((int)i - hl) * 127) / hl);
     c = sin8_t(c);
     c = sin8_t(c / 2 + t);
     byte b = sin8_t(c + t/8);
-    SEGMENT.setPixelColor(i, CHSV(b + hue, 255, 255));
+    SEGMENT.setPixelColor(i, SEGMENT.color_from_palette(b + hue, false, true, 3));
   }
 
   return FRAMETIME;
 } // mode_FlowStripe()
-static const char _data_FX_MODE_FLOWSTRIPE[] PROGMEM = "Flow Stripe@Hue speed,Effect speed;;";
+static const char _data_FX_MODE_FLOWSTRIPE[] PROGMEM = "Flow Stripe@Hue speed,Effect speed;;!;pal=11";
 
+/*
+  Shimmer effect: moves a gradient with optional modulators across the strip at a given interval, up to 60 seconds
+  It can be used as an overlay to other effects or standalone
+  by DedeHai (Damian Schneider), based on idea from @Charming-Lime (#4905)
+*/
+uint16_t mode_shimmer() {
+  if(!SEGENV.allocateData(sizeof(uint32_t))) { return mode_static(); }
+  uint32_t* lastTime = reinterpret_cast<uint32_t*>(SEGENV.data);
+
+  uint32_t radius = (SEGMENT.custom1 * SEGLEN >> 7) + 1;        // [1, 2*SEGLEN+1] pixels
+  uint32_t traversalDistance = (SEGLEN + 2 * radius) << 8;      // total subpixels to cross, 1 pixel = 256 subpixels
+  uint32_t traversalTime = 200 + (255 - SEGMENT.speed) * 80;    // [200, 20600] ms
+  uint32_t speed = ((traversalDistance << 5) / traversalTime);  // subpixels/512ms
+  int32_t  position = static_cast<int32_t>(SEGENV.step);        // current position in subpixels
+  uint16_t inputstate = (uint16_t(SEGMENT.intensity) << 8) | uint16_t(SEGMENT.custom1); // current user input state
+
+  // init
+  if (SEGENV.call == 0 || inputstate != SEGENV.aux1) {
+    position = -(radius << 8);
+    SEGENV.aux0 = 0; // aux0 is pause timer
+    *lastTime = strip.now;
+    SEGENV.aux1 = inputstate; // save user input state
+  }
+
+  if(SEGMENT.speed) {
+    uint32_t deltaTime = (strip.now - *lastTime) & 0x7F; // clamp to 127ms to avoid overflows. note: speed*deltaTime can still overflow for segments > ~10k pixels
+    *lastTime = strip.now;
+
+    if (SEGENV.aux0 > 0) {
+      SEGENV.aux0 = (SEGENV.aux0 > deltaTime) ? SEGENV.aux0 - deltaTime : 0;
+    } else {
+      // calculate movement step and update position
+      int32_t step = 1 + ((speed * deltaTime) >> 5); // subpixels moved this frame. note >>5 as speed is in subpixels/512ms
+      position += step;
+      int endposition = (SEGLEN + radius) << 8;
+      if (position > endposition) {
+        SEGENV.aux0 = SEGMENT.intensity * 236; // [0, 60180] ms pause
+        if(SEGMENT.check3) SEGENV.aux0 = hw_random(SEGENV.aux0 + 1000); // randomise interval, +1 second to affect low intensity values
+        position = -(radius << 8); // reset to start position (out of frame)
+      }
+      SEGENV.step = (uint32_t)position; // save back
+    }
+
+    if (SEGMENT.check2)
+      position = (SEGLEN << 8) - position;   // invert position (and direction)
+  } else {
+    position = (SEGLEN << 7); // at speed=0, make it static in the center (this enables to use modulators only)
+  }
+
+  for (int i = 0; i < SEGLEN; i++) {
+    uint32_t dist = abs(position - (i << 8));
+    if (dist < (radius << 8)) {
+      uint32_t color = SEGMENT.color_from_palette(i * 255 / SEGLEN, false, false, 0);
+      uint8_t blend = dist / radius; // linear gradient note: dist is in subpixels, radius in pixels, result is [0, 255] since dist < radius*256
+      if (SEGMENT.custom2) {
+        uint8_t modVal; // modulation value
+        if (SEGMENT.check1) {
+          modVal = (sin16_t((i * SEGMENT.custom2 << 6) + (strip.now * SEGMENT.custom3 << 5)) >> 8) + 128; // sine modulation: regular "Zebra" stripes
+        } else {
+          modVal = perlin16((i * SEGMENT.custom2 << 7), strip.now * SEGMENT.custom3 << 5) >> 8; // perlin noise modulation
+        }
+        color = color_fade(color, modVal, true); // dim by modulator value
+      }
+      SEGMENT.setPixelColor(i, color_blend(color, SEGCOLOR(1), blend)); // blend to background color
+    } else {
+      SEGMENT.setPixelColor(i, SEGCOLOR(1));
+    }
+  }
+
+  return FRAMETIME;
+}
+static const char _data_FX_MODE_SHIMMER[] PROGMEM = "Shimmer@Speed,Interval,Size,Granular,Flow,Zebra,Reverse,Sporadic;Fx,Bg,Cx;!;1;pal=15,sx=220,ix=10,c2=0,c3=0";
 
 #ifndef WLED_DISABLE_2D
 ///////////////////////////////////////////////////////////////////////////////
@@ -4922,10 +5023,14 @@ uint16_t mode_2Dfirenoise(void) {               // firenoise2d. By Andrew Tuline
   unsigned yscale = SEGMENT.speed*8;
   unsigned indexx = 0;
 
-  CRGBPalette16 pal = SEGMENT.check1 ? SEGPALETTE : SEGMENT.loadPalette(pal, 35);  
+  //CRGBPalette16 pal = SEGMENT.check1 ? SEGPALETTE : SEGMENT.loadPalette(pal, 35);  
+  CRGBPalette16 pal = SEGMENT.check1 ? SEGPALETTE : CRGBPalette16(CRGB::Black,     CRGB::Black,      CRGB::Black,  CRGB::Black,
+                                                                  CRGB::Red,       CRGB::Red,        CRGB::Red,    CRGB::DarkOrange,
+                                                                  CRGB::DarkOrange,CRGB::DarkOrange, CRGB::Orange, CRGB::Orange,
+                                                                  CRGB::Yellow,    CRGB::Orange,     CRGB::Yellow, CRGB::Yellow);
   for (int j=0; j < cols; j++) {
     for (int i=0; i < rows; i++) {
-      indexx = inoise8(j*yscale*rows/255, i*xscale+strip.now/4);                                               // We're moving along our Perlin map.
+      indexx = perlin8(j*yscale*rows/255, i*xscale+strip.now/4);                                               // We're moving along our Perlin map.
       SEGMENT.setPixelColorXY(j, i, ColorFromPalette(pal, min(i*indexx/11, 225U), i*255/rows, LINEARBLEND));   // With that value, look up the 8 bit colour palette value and assign it to the current LED.    
     } // for i
   } // for j
@@ -5318,11 +5423,11 @@ uint16_t mode_2Dmetaballs(void) {   // Metaballs by Stefan Petrick. Cannot have 
   float speed = 0.25f * (1+(SEGMENT.speed>>6));
 
   // get some 2 random moving points
-  int x2 = map(inoise8(strip.now * speed, 25355, 685), 0, 255, 0, cols-1);
-  int y2 = map(inoise8(strip.now * speed, 355, 11685), 0, 255, 0, rows-1);
+  int x2 = map(perlin8(strip.now * speed, 25355, 685), 0, 255, 0, cols-1);
+  int y2 = map(perlin8(strip.now * speed, 355, 11685), 0, 255, 0, rows-1);
 
-  int x3 = map(inoise8(strip.now * speed, 55355, 6685), 0, 255, 0, cols-1);
-  int y3 = map(inoise8(strip.now * speed, 25355, 22685), 0, 255, 0, rows-1);
+  int x3 = map(perlin8(strip.now * speed, 55355, 6685), 0, 255, 0, cols-1);
+  int y3 = map(perlin8(strip.now * speed, 25355, 22685), 0, 255, 0, rows-1);
 
   // and one Lissajou function
   int x1 = beatsin8_t(23 * speed, 0, cols-1);
@@ -5378,7 +5483,7 @@ uint16_t mode_2Dnoise(void) {                  // By Andrew Tuline
 
   for (int y = 0; y < rows; y++) {
     for (int x = 0; x < cols; x++) {
-      uint8_t pixelHue8 = inoise8(x * scale, y * scale, strip.now / (16 - SEGMENT.speed/16));
+      uint8_t pixelHue8 = perlin8(x * scale, y * scale, strip.now / (16 - SEGMENT.speed/16));
       SEGMENT.setPixelColorXY(x, y, ColorFromPalette(SEGPALETTE, pixelHue8));
     }
   }
@@ -5400,10 +5505,10 @@ uint16_t mode_2DPlasmaball(void) {                   // By: Stepko https://edito
   SEGMENT.fadeToBlackBy(SEGMENT.custom1>>2);
   uint_fast32_t t = (strip.now * 8) / (256 - SEGMENT.speed);  // optimized to avoid float
   for (int i = 0; i < cols; i++) {
-    unsigned thisVal = inoise8(i * 30, t, t);
+    unsigned thisVal = perlin8(i * 30, t, t);
     unsigned thisMax = map(thisVal, 0, 255, 0, cols-1);
     for (int j = 0; j < rows; j++) {
-      unsigned thisVal_ = inoise8(t, j * 30, t);
+      unsigned thisVal_ = perlin8(t, j * 30, t);
       unsigned thisMax_ = map(thisVal_, 0, 255, 0, rows-1);
       int x = (i + thisMax_ - cols / 2);
       int y = (j + thisMax - cols / 2);
@@ -5448,7 +5553,7 @@ uint16_t mode_2DPolarLights(void) {        // By: Kostyantyn Matviyevskyy  https
   for (int x = 0; x < cols; x++) {
     for (int y = 0; y < rows; y++) {
       SEGENV.step++;
-      uint8_t palindex = qsub8(inoise8((SEGENV.step%2) + x * _scale, y * 16 + SEGENV.step % 16, SEGENV.step / _speed), fabsf((float)rows / 2.0f - (float)y) * adjustHeight);
+      uint8_t palindex = qsub8(perlin8((SEGENV.step%2) + x * _scale, y * 16 + SEGENV.step % 16, SEGENV.step / _speed), fabsf((float)rows / 2.0f - (float)y) * adjustHeight);
       uint8_t palbrightness = palindex;
       if(SEGMENT.check1) palindex = 255 - palindex; //flip palette
       SEGMENT.setPixelColorXY(x, y, SEGMENT.color_from_palette(palindex, false, false, 255, palbrightness));
@@ -5565,7 +5670,8 @@ uint16_t mode_2DSunradiation(void) {                   // By: ldirko https://edi
   uint8_t someVal = SEGMENT.speed/4;             // Was 25.
   for (int j = 0; j < (rows + 2); j++) {
     for (int i = 0; i < (cols + 2); i++) {
-      byte col = (inoise8_raw(i * someVal, j * someVal, t)) / 2;
+      //byte col = (inoise8_raw(i * someVal, j * someVal, t)) / 2;
+      byte col = ((int16_t)perlin8(i * someVal, j * someVal, t) - 0x7F) / 3;
       bump[index++] = col;
     }
   }
@@ -5956,7 +6062,8 @@ uint16_t mode_2Dscrollingtext(void) {
     case 5: letterWidth = 5; letterHeight = 12; break;
   }
   // letters are rotated
-  if (((SEGMENT.custom3+1)>>3) % 2) {
+  const int8_t rotate = map(SEGMENT.custom3, 0, 31, -2, 2);
+  if (rotate == 1 || rotate == -1) {
     rotLH = letterWidth;
     rotLW = letterHeight;
   } else {
@@ -5965,9 +6072,7 @@ uint16_t mode_2Dscrollingtext(void) {
   }
 
   char text[WLED_MAX_SEGNAME_LEN+1] = {'\0'};
-  if (SEGMENT.name) for (size_t i=0,j=0; i<strlen(SEGMENT.name); i++) if (SEGMENT.name[i]>31 && SEGMENT.name[i]<128) text[j++] = SEGMENT.name[i];
-  const bool zero = strchr(text, '0') != nullptr;
-
+  size_t result_pos = 0;
   char sec[5];
   int  AmPmHour = hour(localTime);
   bool isitAM = true;
@@ -5979,26 +6084,62 @@ uint16_t mode_2Dscrollingtext(void) {
     sprintf_P(sec, PSTR(":%02d"), second(localTime));
   }
 
-  if (!strlen(text)) { // fallback if empty segment name: display date and time
+  size_t len = 0;
+  if (SEGMENT.name) len = strlen(SEGMENT.name); // note: SEGMENT.name is limited to WLED_MAX_SEGNAME_LEN
+  if (len == 0) { // fallback if empty segment name: display date and time
     sprintf_P(text, PSTR("%s %d, %d %d:%02d%s"), monthShortStr(month(localTime)), day(localTime), year(localTime), AmPmHour, minute(localTime), sec);
   } else {
-    if (text[0] == '#') for (auto &c : text) c = std::toupper(c);
-    if      (!strncmp_P(text,PSTR("#DATE"),5)) sprintf_P(text, zero?PSTR("%02d.%02d.%04d"):PSTR("%d.%d.%d"),   day(localTime),   month(localTime),  year(localTime));
-    else if (!strncmp_P(text,PSTR("#DDMM"),5)) sprintf_P(text, zero?PSTR("%02d.%02d")     :PSTR("%d.%d"),      day(localTime),   month(localTime));
-    else if (!strncmp_P(text,PSTR("#MMDD"),5)) sprintf_P(text, zero?PSTR("%02d/%02d")     :PSTR("%d/%d"),      month(localTime), day(localTime));
-    else if (!strncmp_P(text,PSTR("#TIME"),5)) sprintf_P(text, zero?PSTR("%02d:%02d%s")   :PSTR("%2d:%02d%s"), AmPmHour,         minute(localTime), sec);
-    else if (!strncmp_P(text,PSTR("#HHMM"),5)) sprintf_P(text, zero?PSTR("%02d:%02d")     :PSTR("%d:%02d"),    AmPmHour,         minute(localTime));
-    else if (!strncmp_P(text,PSTR("#HH"),3))   sprintf  (text, zero?    ("%02d")          :    ("%d"),         AmPmHour);
-    else if (!strncmp_P(text,PSTR("#MM"),3))   sprintf  (text, zero?    ("%02d")          :    ("%d"),         minute(localTime));
-    else if (!strncmp_P(text,PSTR("#SS"),3))   sprintf  (text,          ("%02d")                     ,         second(localTime));
-    else if (!strncmp_P(text,PSTR("#DD"),3))   sprintf  (text, zero?    ("%02d")          :    ("%d"),         day(localTime));
-    else if (!strncmp_P(text,PSTR("#DAY"),4))  sprintf  (text,          ("%s")                       ,         dayShortStr(day(localTime)));
-    else if (!strncmp_P(text,PSTR("#DDDD"),5)) sprintf  (text,          ("%s")                       ,         dayStr(day(localTime)));
-    else if (!strncmp_P(text,PSTR("#MO"),3))   sprintf  (text, zero?    ("%02d")          :    ("%d"),         month(localTime));
-    else if (!strncmp_P(text,PSTR("#MON"),4))  sprintf  (text,          ("%s")                       ,         monthShortStr(month(localTime)));
-    else if (!strncmp_P(text,PSTR("#MMMM"),5)) sprintf  (text,          ("%s")                       ,         monthStr(month(localTime)));
-    else if (!strncmp_P(text,PSTR("#YY"),3))   sprintf  (text,          ("%02d")                     ,         year(localTime)%100);
-    else if (!strncmp_P(text,PSTR("#YYYY"),5)) sprintf_P(text, zero?PSTR("%04d")          :    ("%d"),         year(localTime));
+    size_t i = 0;
+    while (i < len) {
+      if (SEGMENT.name[i] == '#') {
+        char token[7]; // copy up to 6 chars + null terminator
+        bool zero = false; // a 0 suffix means display leading zeros
+        size_t j = 0;
+        while (j < 6 && i + j < len) {
+          token[j] = std::toupper(SEGMENT.name[i + j]);
+          if(token[j] == '0')
+            zero = true; // 0 suffix found. Note: there is an edge case where a '0' could be part of a trailing text and not the token, handling it is not worth the effort
+          j++;
+        }
+        token[j] = '\0';
+        int advance = 5; // number of chars to advance in 'text' after processing the token
+
+        // Process token
+        char temp[32];
+        if      (!strncmp_P(token,PSTR("#DATE"),5))  sprintf_P(temp, zero?PSTR("%02d.%02d.%04d"):PSTR("%d.%d.%d"),   day(localTime),   month(localTime),  year(localTime));
+        else if (!strncmp_P(token,PSTR("#DDMM"),5))  sprintf_P(temp, zero?PSTR("%02d.%02d")     :PSTR("%d.%d"),      day(localTime),   month(localTime));
+        else if (!strncmp_P(token,PSTR("#MMDD"),5))  sprintf_P(temp, zero?PSTR("%02d/%02d")     :PSTR("%d/%d"),      month(localTime), day(localTime));
+        else if (!strncmp_P(token,PSTR("#TIME"),5))  sprintf_P(temp, zero?PSTR("%02d:%02d%s")   :PSTR("%2d:%02d%s"), AmPmHour,         minute(localTime), sec);
+        else if (!strncmp_P(token,PSTR("#HHMM"),5))  sprintf_P(temp, zero?PSTR("%02d:%02d")     :PSTR("%d:%02d"),    AmPmHour,         minute(localTime));
+        else if (!strncmp_P(token,PSTR("#YYYY"),5))  sprintf_P(temp,          PSTR("%04d")                 ,         year(localTime));
+        else if (!strncmp_P(token,PSTR("#MONL"),5))  sprintf  (temp,          ("%s")                       ,         monthStr(month(localTime)));
+        else if (!strncmp_P(token,PSTR("#DDDD"),5))  sprintf  (temp,          ("%s")                       ,         dayStr(weekday(localTime)));
+        else if (!strncmp_P(token,PSTR("#YY"),3))  { sprintf  (temp,          ("%02d")                     ,         year(localTime)%100); advance = 3; }
+        else if (!strncmp_P(token,PSTR("#HH"),3))  { sprintf  (temp, zero?    ("%02d")          :    ("%d"),         AmPmHour); advance = 3; }
+        else if (!strncmp_P(token,PSTR("#MM"),3))  { sprintf  (temp, zero?    ("%02d")          :    ("%d"),         minute(localTime)); advance = 3; }
+        else if (!strncmp_P(token,PSTR("#SS"),3))  { sprintf  (temp, zero?    ("%02d")          :    ("%d"),         second(localTime)); advance = 3; }
+        else if (!strncmp_P(token,PSTR("#MON"),4)) { sprintf  (temp,          ("%s")                       ,         monthShortStr(month(localTime))); advance = 4; }
+        else if (!strncmp_P(token,PSTR("#MO"),3))  { sprintf  (temp, zero?    ("%02d")          :    ("%d"),         month(localTime)); advance = 3; }
+        else if (!strncmp_P(token,PSTR("#DAY"),4)) { sprintf  (temp,          ("%s")                       ,         dayShortStr(weekday(localTime))); advance = 4; }
+        else if (!strncmp_P(token,PSTR("#DD"),3))  { sprintf  (temp, zero?    ("%02d")          :    ("%d"),         day(localTime)); advance = 3; }
+        else { temp[0] = '#'; temp[1] = '\0'; zero = false; advance = 1; } // Unknown token, just copy the #
+
+        if(zero) advance++; // skip the '0' suffix
+        size_t temp_len = strlen(temp);
+        if (result_pos + temp_len < WLED_MAX_SEGNAME_LEN) {
+          strcpy(text + result_pos, temp);
+          result_pos += temp_len;
+        }
+
+        i += advance;
+      }
+      else {
+        if (result_pos < WLED_MAX_SEGNAME_LEN) {
+          text[result_pos++] = SEGMENT.name[i++]; // no token, just copy char
+        } else
+          break; // buffer full
+      }
+    }
   }
 
   const int  numberOfLetters = strlen(text);
@@ -6027,27 +6168,28 @@ uint16_t mode_2Dscrollingtext(void) {
     SEGENV.step = strip.now + map(SEGMENT.speed, 0, 255, 250, 50); // shift letters every ~250ms to ~50ms
   }
 
-  if (!SEGMENT.check2) SEGMENT.fade_out(255 - (SEGMENT.custom1>>4));  // trail
-  bool usePaletteGradient = false;
+  SEGMENT.fade_out(255 - (SEGMENT.custom1>>4));  // trail
   uint32_t col1 = SEGMENT.color_from_palette(SEGENV.aux1, false, PALETTE_SOLID_WRAP, 0);
   uint32_t col2 = BLACK;
+  // if gradient is selected and palette is default (0) drawCharacter() uses gradient from SEGCOLOR(0) to SEGCOLOR(2)
+  // otherwise col2 == BLACK means use currently selected palette for gradient
+  // if gradient is not selected set both colors the same
   if (SEGMENT.check1) { // use gradient
-    if(SEGMENT.palette == 0) { // use colors for gradient
-    col1 = SEGCOLOR(0);
-    col2 = SEGCOLOR(2);
+    if (SEGMENT.palette == 0) { // use colors for gradient
+      col1 = SEGCOLOR(0);
+      col2 = SEGCOLOR(2);
     }
-    else usePaletteGradient = true;
-  }
+  } else col2 = col1; // force characters to use single color (from palette)
 
   for (int i = 0; i < numberOfLetters; i++) {
     int xoffset = int(cols) - int(SEGENV.aux0) + rotLW*i;
     if (xoffset + rotLW < 0) continue; // don't draw characters off-screen
-    SEGMENT.drawCharacter(text[i], xoffset, yoffset, letterWidth, letterHeight, col1, col2, map(SEGMENT.custom3, 0, 31, -2, 2), usePaletteGradient);
+    SEGMENT.drawCharacter(text[i], xoffset, yoffset, letterWidth, letterHeight, col1, col2, rotate);
   }
 
   return FRAMETIME;
 }
-static const char _data_FX_MODE_2DSCROLLTEXT[] PROGMEM = "Scrolling Text@!,Y Offset,Trail,Font size,Rotate,Gradient,Overlay,Reverse;!,!,Gradient;!;2;ix=128,c1=0,rev=0,mi=0,rY=0,mY=0";
+static const char _data_FX_MODE_2DSCROLLTEXT[] PROGMEM = "Scrolling Text@!,Y Offset,Trail,Font size,Rotate,Gradient,,Reverse;!,!,Gradient;!;2;ix=128,c1=0,rev=0,mi=0,rY=0,mY=0";
 
 
 ////////////////////////////
@@ -6263,10 +6405,10 @@ uint16_t mode_2DWaverly(void) {
 
   long t = strip.now / 2;
   for (int i = 0; i < cols; i++) {
-    unsigned thisVal = (1 + SEGMENT.intensity/64) * inoise8(i * 45 , t , t)/2;
+    unsigned thisVal = (1 + SEGMENT.intensity/64) * perlin8(i * 45 , t , t)/2;
     // use audio if available
     if (um_data) {
-      thisVal /= 32; // reduce intensity of inoise8()
+      thisVal /= 32; // reduce intensity of perlin8()
       thisVal *= volumeSmth;
     }
     int thisMax = map(thisVal, 0, 512, 0, rows);
@@ -6345,7 +6487,7 @@ uint16_t mode_gravcenter_base(unsigned mode) {
   }
   else if(mode == 2) { //Gravimeter
     for (int i=0; i<tempsamp; i++) {
-      uint8_t index = inoise8(i*segmentSampleAvg+strip.now, 5000+i*segmentSampleAvg);
+      uint8_t index = perlin8(i*segmentSampleAvg+strip.now, 5000+i*segmentSampleAvg);
       SEGMENT.setPixelColor(i, color_blend(SEGCOLOR(1), SEGMENT.color_from_palette(index, false, PALETTE_SOLID_WRAP, 0), uint8_t(segmentSampleAvg*8)));
     }
     if (gravcen->topLED > 0) {
@@ -6367,7 +6509,7 @@ uint16_t mode_gravcenter_base(unsigned mode) {
   }
   else { //Gravcenter
     for (int i=0; i<tempsamp; i++) {
-      uint8_t index = inoise8(i*segmentSampleAvg+strip.now, 5000+i*segmentSampleAvg);
+      uint8_t index = perlin8(i*segmentSampleAvg+strip.now, 5000+i*segmentSampleAvg);
       SEGMENT.setPixelColor(i+SEGLEN/2, color_blend(SEGCOLOR(1), SEGMENT.color_from_palette(index, false, PALETTE_SOLID_WRAP, 0), uint8_t(segmentSampleAvg*8)));
       SEGMENT.setPixelColor(SEGLEN/2-i-1, color_blend(SEGCOLOR(1), SEGMENT.color_from_palette(index, false, PALETTE_SOLID_WRAP, 0), uint8_t(segmentSampleAvg*8)));
     }
@@ -6489,7 +6631,7 @@ uint16_t mode_midnoise(void) {                  // Midnoise. By Andrew Tuline.
   if (maxLen >SEGLEN/2) maxLen = SEGLEN/2;
 
   for (unsigned i=(SEGLEN/2-maxLen); i<(SEGLEN/2+maxLen); i++) {
-    uint8_t index = inoise8(i*volumeSmth+SEGENV.aux0, SEGENV.aux1+i*volumeSmth);  // Get a value from the noise function. I'm using both x and y axis.
+    uint8_t index = perlin8(i*volumeSmth+SEGENV.aux0, SEGENV.aux1+i*volumeSmth);  // Get a value from the noise function. I'm using both x and y axis.
     SEGMENT.setPixelColor(i, SEGMENT.color_from_palette(index, false, PALETTE_SOLID_WRAP, 0));
   }
 
@@ -6517,7 +6659,7 @@ uint16_t mode_noisefire(void) {                 // Noisefire. By Andrew Tuline.
   if (SEGENV.call == 0) SEGMENT.fill(BLACK);
 
   for (unsigned i = 0; i < SEGLEN; i++) {
-    unsigned index = inoise8(i*SEGMENT.speed/64,strip.now*SEGMENT.speed/64*SEGLEN/255);  // X location is constant, but we move along the Y at the rate of millis(). By Andrew Tuline.
+    unsigned index = perlin8(i*SEGMENT.speed/64,strip.now*SEGMENT.speed/64*SEGLEN/255);  // X location is constant, but we move along the Y at the rate of millis(). By Andrew Tuline.
     index = (255 - i*256/SEGLEN) * index/(256-SEGMENT.intensity);                       // Now we need to scale index so that it gets blacker as we get close to one of the ends.
                                                                                         // This is a simple y=mx+b equation that's been scaled. index/128 is another scaling.
 
@@ -6548,7 +6690,7 @@ uint16_t mode_noisemeter(void) {                // Noisemeter. By Andrew Tuline.
   if (maxLen > SEGLEN) maxLen = SEGLEN;
 
   for (unsigned i=0; i<maxLen; i++) {                                    // The louder the sound, the wider the soundbar. By Andrew Tuline.
-    uint8_t index = inoise8(i*volumeSmth+SEGENV.aux0, SEGENV.aux1+i*volumeSmth);  // Get a value from the noise function. I'm using both x and y axis.
+    uint8_t index = perlin8(i*volumeSmth+SEGENV.aux0, SEGENV.aux1+i*volumeSmth);  // Get a value from the noise function. I'm using both x and y axis.
     SEGMENT.setPixelColor(i, SEGMENT.color_from_palette(index, false, PALETTE_SOLID_WRAP, 0));
   }
 
@@ -6964,7 +7106,7 @@ uint16_t mode_noisemove(void) {                 // Noisemove.    By: Andrew Tuli
 
   uint8_t numBins = map(SEGMENT.intensity,0,255,0,16);    // Map slider to fftResult bins.
   for (int i=0; i<numBins; i++) {                         // How many active bins are we using.
-    unsigned locn = inoise16(strip.now*SEGMENT.speed+i*50000, strip.now*SEGMENT.speed);   // Get a new pixel location from moving noise.
+    unsigned locn = perlin16(strip.now*SEGMENT.speed+i*50000, strip.now*SEGMENT.speed);   // Get a new pixel location from moving noise.
     // if SEGLEN equals 1 locn will be always 0, hence we set the first pixel only
     locn = map(locn, 7500, 58000, 0, SEGLEN-1);           // Map that to the length of the strand, and ensure we don't go over.
     SEGMENT.setPixelColor(locn, color_blend(SEGCOLOR(1), SEGMENT.color_from_palette(i*64, false, PALETTE_SOLID_WRAP, 0), uint8_t(fftResult[i % 16]*4)));
@@ -7074,6 +7216,7 @@ uint16_t mode_2DGEQ(void) { // By Will Tatam. Code reduction by Ewoud Wijma.
   if (!strip.isMatrix || !SEGMENT.is2D()) return mode_static(); // not a 2D set-up
 
   const int NUM_BANDS = map(SEGMENT.custom1, 0, 255, 1, 16);
+  const int CENTER_BIN = map(SEGMENT.custom3, 0, 31, 0, 15);
   const int cols = SEG_W;
   const int rows = SEG_H;
 
@@ -7095,8 +7238,14 @@ uint16_t mode_2DGEQ(void) { // By Will Tatam. Code reduction by Ewoud Wijma.
   if ((fadeoutDelay <= 1 ) || ((SEGENV.call % fadeoutDelay) == 0)) SEGMENT.fadeToBlackBy(SEGMENT.speed);
 
   for (int x=0; x < cols; x++) {
-    uint8_t  band       = map(x, 0, cols, 0, NUM_BANDS);
-    if (NUM_BANDS < 16) band = map(band, 0, NUM_BANDS - 1, 0, 15); // always use full range. comment out this line to get the previous behaviour.
+    int band = map(x, 0, cols, 0, NUM_BANDS);
+    if (NUM_BANDS < 16) {
+        int startBin = constrain(CENTER_BIN - NUM_BANDS/2, 0, 15 - NUM_BANDS + 1);
+        if(NUM_BANDS <= 1)
+          band = CENTER_BIN; // map() does not work for single band
+        else
+          band = map(band, 0, NUM_BANDS - 1, startBin, startBin + NUM_BANDS - 1);
+    }
     band = constrain(band, 0, 15);
     unsigned colorIndex = band * 17;
     int barHeight  = map(fftResult[band], 0, 255, 0, rows); // do not subtract -1 from rows here
@@ -7118,7 +7267,7 @@ uint16_t mode_2DGEQ(void) { // By Will Tatam. Code reduction by Ewoud Wijma.
 
   return FRAMETIME;
 } // mode_2DGEQ()
-static const char _data_FX_MODE_2DGEQ[] PROGMEM = "GEQ@Fade speed,Ripple decay,# of bands,,,Color bars;!,,Peaks;!;2f;c1=255,c2=64,pal=11,si=0"; // Beatsin
+static const char _data_FX_MODE_2DGEQ[] PROGMEM = "GEQ@Fade speed,Ripple decay,# of bands,,Bin,Color bars;!,,Peaks;!;2f;c1=255,c2=64,pal=11,si=0,c3=0";
 
 
 /////////////////////////
@@ -7280,7 +7429,7 @@ static const char _data_FX_MODE_2DAKEMI[] PROGMEM = "Akemi@Color speed,Dance;Hea
 
 // Distortion waves - ldirko
 // https://editor.soulmatelights.com/gallery/1089-distorsion-waves
-// adapted for WLED by @blazoncek
+// adapted for WLED by @blazoncek, improvements by @dedehai
 uint16_t mode_2Ddistortionwaves() {
   if (!strip.isMatrix || !SEGMENT.is2D()) return mode_static(); // not a 2D set-up
 
@@ -7289,20 +7438,23 @@ uint16_t mode_2Ddistortionwaves() {
 
   uint8_t speed = SEGMENT.speed/32;
   uint8_t scale = SEGMENT.intensity/32;
-
-  uint8_t  w = 2;
+  if(SEGMENT.check2) scale += 192 / (cols+rows); // zoom out some more. note: not changing scale slider for backwards compatibility
 
   unsigned a  = strip.now/32;
   unsigned a2 = a/2;
   unsigned a3 = a/3;
+  unsigned colsScaled = cols * scale;
+  unsigned rowsScaled = rows * scale;
 
-  unsigned cx =  beatsin8_t(10-speed,0,cols-1)*scale;
-  unsigned cy =  beatsin8_t(12-speed,0,rows-1)*scale;
-  unsigned cx1 = beatsin8_t(13-speed,0,cols-1)*scale;
-  unsigned cy1 = beatsin8_t(15-speed,0,rows-1)*scale;
-  unsigned cx2 = beatsin8_t(17-speed,0,cols-1)*scale;
-  unsigned cy2 = beatsin8_t(14-speed,0,rows-1)*scale;
-  
+  unsigned cx =  beatsin16_t(10-speed,0,colsScaled);
+  unsigned cy =  beatsin16_t(12-speed,0,rowsScaled);
+  unsigned cx1 = beatsin16_t(13-speed,0,colsScaled);
+  unsigned cy1 = beatsin16_t(15-speed,0,rowsScaled);
+  unsigned cx2 = beatsin16_t(17-speed,0,colsScaled);
+  unsigned cy2 = beatsin16_t(14-speed,0,rowsScaled);
+
+  byte rdistort, gdistort, bdistort;
+
   unsigned xoffs = 0;
   for (int x = 0; x < cols; x++) {
     xoffs += scale;
@@ -7311,66 +7463,134 @@ uint16_t mode_2Ddistortionwaves() {
     for (int y = 0; y < rows; y++) {
        yoffs += scale;
 
-      byte rdistort = cos8_t((cos8_t(((x<<3)+a )&255)+cos8_t(((y<<3)-a2)&255)+a3   )&255)>>1; 
-      byte gdistort = cos8_t((cos8_t(((x<<3)-a2)&255)+cos8_t(((y<<3)+a3)&255)+a+32 )&255)>>1; 
-      byte bdistort = cos8_t((cos8_t(((x<<3)+a3)&255)+cos8_t(((y<<3)-a) &255)+a2+64)&255)>>1; 
+      if(SEGMENT.check3) {
+        // alternate mode from original code
+        rdistort = cos8_t (((x+y)*8+a2)&255)>>1;
+        gdistort = cos8_t (((x+y)*8+a3+32)&255)>>1;
+        bdistort = cos8_t (((x+y)*8+a+64)&255)>>1;
+      } else {
+        rdistort = cos8_t((cos8_t(((x<<3)+a )&255)+cos8_t(((y<<3)-a2)&255)+a3   )&255)>>1;
+        gdistort = cos8_t((cos8_t(((x<<3)-a2)&255)+cos8_t(((y<<3)+a3)&255)+a+32 )&255)>>1;
+        bdistort = cos8_t((cos8_t(((x<<3)+a3)&255)+cos8_t(((y<<3)-a) &255)+a2+64)&255)>>1;
+      }
 
-      byte valueR = rdistort+ w*  (a- ( ((xoffs - cx)  * (xoffs - cx)  + (yoffs - cy)  * (yoffs - cy))>>7  ));
-      byte valueG = gdistort+ w*  (a2-( ((xoffs - cx1) * (xoffs - cx1) + (yoffs - cy1) * (yoffs - cy1))>>7 ));
-      byte valueB = bdistort+ w*  (a3-( ((xoffs - cx2) * (xoffs - cx2) + (yoffs - cy2) * (yoffs - cy2))>>7 ));
+      byte valueR = rdistort + ((a- ( ((xoffs - cx)  * (xoffs - cx)  + (yoffs - cy)  * (yoffs - cy))>>7  ))<<1);
+      byte valueG = gdistort + ((a2-( ((xoffs - cx1) * (xoffs - cx1) + (yoffs - cy1) * (yoffs - cy1))>>7 ))<<1);
+      byte valueB = bdistort + ((a3-( ((xoffs - cx2) * (xoffs - cx2) + (yoffs - cy2) * (yoffs - cy2))>>7 ))<<1);
 
-      valueR = gamma8(cos8_t(valueR));
-      valueG = gamma8(cos8_t(valueG));
-      valueB = gamma8(cos8_t(valueB));
+      valueR = cos8_t(valueR);
+      valueG = cos8_t(valueG);
+      valueB = cos8_t(valueB);
 
-      SEGMENT.setPixelColorXY(x, y, RGBW32(valueR, valueG, valueB, 0)); 
+      if(SEGMENT.palette == 0) {
+        // use RGB values (original color mode)
+        SEGMENT.setPixelColorXY(x, y, RGBW32(valueR, valueG, valueB, 0));
+      } else {
+        // use palette
+        uint8_t brightness = (valueR + valueG + valueB) / 3;
+        if(SEGMENT.check1) { // map brightness to palette index
+          SEGMENT.setPixelColorXY(x, y, ColorFromPalette(SEGPALETTE, brightness, 255, LINEARBLEND_NOWRAP));
+        } else {
+          // color mapping: calculate hue from pixel color, map it to palette index
+          CHSV hsvclr = rgb2hsv_approximate(CRGB(valueR>>2, valueG>>2, valueB>>2)); // scale colors down to not saturate for better hue extraction
+          SEGMENT.setPixelColorXY(x, y, ColorFromPalette(SEGPALETTE, hsvclr.h, brightness));
+        }
+      }
     }
   }
 
+  // palette mode and not filling: smear-blur to cover up palette wrapping artefacts
+  if(!SEGMENT.check1 && SEGMENT.palette)
+    SEGMENT.blur(200, true);
+
   return FRAMETIME;
 }
-static const char _data_FX_MODE_2DDISTORTIONWAVES[] PROGMEM = "Distortion Waves@!,Scale;;;2";
+static const char _data_FX_MODE_2DDISTORTIONWAVES[] PROGMEM = "Distortion Waves@!,Scale,,,,Fill,Zoom,Alt;;!;2;pal=0";
 
 
 //Soap
 //@Stepko
 //Idea from https://www.youtube.com/watch?v=DiHBgITrZck&ab_channel=StefanPetrick
-// adapted for WLED by @blazoncek
+// adapted for WLED by @blazoncek, optimization by @dedehai
+static void soapPixels(bool isRow, uint8_t *noise3d, CRGB *pixels) {
+  const int  cols = SEG_W;
+  const int  rows = SEG_H;
+  const auto XY   = [&](int x, int y) { return x + y * cols; };
+  const auto abs  = [](int x) { return x<0 ? -x : x; };
+  const int  tRC  = isRow ? rows : cols; // transpose if isRow
+  const int  tCR  = isRow ? cols : rows; // transpose if isRow
+  const int  amplitude = max(1, (tCR - 8) >> 3) * (1 + (SEGMENT.custom1 >> 5));
+  const int  shift = 0; //(128 - SEGMENT.custom2)*2;
+
+  CRGB ledsbuff[tCR];
+
+  for (int i = 0; i < tRC; i++) {
+    int amount   = ((int)noise3d[isRow ? i*cols : i] - 128) * amplitude + shift; // use first row/column: XY(0,i)/XY(i,0)
+    int delta    = abs(amount) >> 8;
+    int fraction = abs(amount) & 255;
+    for (int j = 0; j < tCR; j++) {
+      int zD, zF;
+      if (amount < 0) {
+        zD = j - delta;
+        zF = zD - 1;
+      } else {
+        zD = j + delta;
+        zF = zD + 1;
+      }
+      int yA = abs(zD)%tCR;
+      int yB = abs(zF)%tCR;
+      int xA = i;
+      int xB = i;
+      if (isRow) {
+        std::swap(xA,yA);
+        std::swap(xB,yB);
+      }
+      const int indxA = XY(xA,yA);
+      const int indxB = XY(xB,yB);
+      CRGB PixelA;
+      CRGB PixelB;
+      if ((zD >= 0) && (zD < tCR)) PixelA = pixels[indxA];
+      else                         PixelA = ColorFromPalette(SEGPALETTE, ~noise3d[indxA]*3);
+      if ((zF >= 0) && (zF < tCR)) PixelB = pixels[indxB];
+      else                         PixelB = ColorFromPalette(SEGPALETTE, ~noise3d[indxB]*3);
+      ledsbuff[j] = (PixelA.nscale8(ease8InOutApprox(255 - fraction))) + (PixelB.nscale8(ease8InOutApprox(fraction)));
+    }
+    for (int j = 0; j < tCR; j++) {
+      CRGB c = ledsbuff[j];
+      if (isRow) std::swap(j,i);
+      SEGMENT.setPixelColorXY(i, j, pixels[XY(i,j)] = c);
+      if (isRow) std::swap(j,i);
+    }
+  }
+}
+
 uint16_t mode_2Dsoap() {
   if (!strip.isMatrix || !SEGMENT.is2D()) return mode_static(); // not a 2D set-up
 
   const int cols = SEG_W;
   const int rows = SEG_H;
-  const auto XY = [&](int x, int y) { return (x%cols) + (y%rows) * cols; };
+  const auto XY = [&](int x, int y) { return x + y * cols; };
 
-  const size_t dataSize = SEGMENT.width() * SEGMENT.height() * sizeof(uint8_t); // prevent reallocation if mirrored or grouped
+  const size_t segSize = SEGMENT.width() * SEGMENT.height(); // prevent reallocation if mirrored or grouped
+  const size_t dataSize = segSize * (sizeof(uint8_t) + sizeof(CRGB)); // pixels and noise
   if (!SEGENV.allocateData(dataSize + sizeof(uint32_t)*3)) return mode_static(); //allocation failed
 
-  uint8_t  *noise3d   = reinterpret_cast<uint8_t*>(SEGENV.data);
-  uint32_t *noise32_x = reinterpret_cast<uint32_t*>(SEGENV.data + dataSize);
-  uint32_t *noise32_y = reinterpret_cast<uint32_t*>(SEGENV.data + dataSize + sizeof(uint32_t));
-  uint32_t *noise32_z = reinterpret_cast<uint32_t*>(SEGENV.data + dataSize + sizeof(uint32_t)*2);
+  uint8_t  *noise3d    = reinterpret_cast<uint8_t*>(SEGENV.data);
+  CRGB     *pixels     = reinterpret_cast<CRGB*>(SEGENV.data + segSize * sizeof(uint8_t));
+  uint32_t *noisecoord = reinterpret_cast<uint32_t*>(SEGENV.data + dataSize); // x, y, z coordinates
   const uint32_t scale32_x = 160000U/cols;
   const uint32_t scale32_y = 160000U/rows;
   const uint32_t mov = MIN(cols,rows)*(SEGMENT.speed+2)/2;
   const uint8_t  smoothness = MIN(250,SEGMENT.intensity); // limit as >250 produces very little changes
 
-  // init
-  if (SEGENV.call == 0) {
-    *noise32_x = hw_random();
-    *noise32_y = hw_random();
-    *noise32_z = hw_random();
-  } else {
-    *noise32_x += mov;
-    *noise32_y += mov;
-    *noise32_z += mov;
-  }
+  if (SEGENV.call == 0) for (int i = 0; i < 3; i++) noisecoord[i] = hw_random(); // init
+  else                  for (int i = 0; i < 3; i++) noisecoord[i] += mov;
 
   for (int i = 0; i < cols; i++) {
     int32_t ioffset = scale32_x * (i - cols / 2);
     for (int j = 0; j < rows; j++) {
       int32_t joffset = scale32_y * (j - rows / 2);
-      uint8_t data = inoise16(*noise32_x + ioffset, *noise32_y + joffset, *noise32_z) >> 8;
+      uint8_t data = perlin16(noisecoord[0] + ioffset, noisecoord[1] + joffset, noisecoord[2]) >> 8;
       noise3d[XY(i,j)] = scale8(noise3d[XY(i,j)], smoothness) + scale8(data, 255 - smoothness);
     }
   }
@@ -7385,64 +7605,12 @@ uint16_t mode_2Dsoap() {
     }
   }
 
-  int zD;
-  int zF;
-  int amplitude;
-  int shiftX = 0; //(SEGMENT.custom1 - 128) / 4;
-  int shiftY = 0; //(SEGMENT.custom2 - 128) / 4;
-  CRGB ledsbuff[MAX(cols,rows)];
-
-  amplitude = (cols >= 16) ? (cols-8)/8 : 1;
-  for (int y = 0; y < rows; y++) {
-    int amount   = ((int)noise3d[XY(0,y)] - 128) * 2 * amplitude + 256*shiftX;
-    int delta    = abs(amount) >> 8;
-    int fraction = abs(amount) & 255;
-    for (int x = 0; x < cols; x++) {
-      if (amount < 0) {
-        zD = x - delta;
-        zF = zD - 1;
-      } else {
-        zD = x + delta;
-        zF = zD + 1;
-      }
-      CRGB PixelA = CRGB::Black;
-      if ((zD >= 0) && (zD < cols)) PixelA = SEGMENT.getPixelColorXY(zD, y);
-      else                          PixelA = ColorFromPalette(SEGPALETTE, ~noise3d[XY(abs(zD),y)]*3);
-      CRGB PixelB = CRGB::Black;
-      if ((zF >= 0) && (zF < cols)) PixelB = SEGMENT.getPixelColorXY(zF, y);
-      else                          PixelB = ColorFromPalette(SEGPALETTE, ~noise3d[XY(abs(zF),y)]*3);
-      ledsbuff[x] = (PixelA.nscale8(ease8InOutApprox(255 - fraction))) + (PixelB.nscale8(ease8InOutApprox(fraction)));
-    }
-    for (int x = 0; x < cols; x++) SEGMENT.setPixelColorXY(x, y, ledsbuff[x]);
-  }
-
-  amplitude = (rows >= 16) ? (rows-8)/8 : 1;
-  for (int x = 0; x < cols; x++) {
-    int amount   = ((int)noise3d[XY(x,0)] - 128) * 2 * amplitude + 256*shiftY;
-    int delta    = abs(amount) >> 8;
-    int fraction = abs(amount) & 255;
-    for (int y = 0; y < rows; y++) {
-      if (amount < 0) {
-        zD = y - delta;
-        zF = zD - 1;
-      } else {
-        zD = y + delta;
-        zF = zD + 1;
-      }
-      CRGB PixelA = CRGB::Black;
-      if ((zD >= 0) && (zD < rows)) PixelA = SEGMENT.getPixelColorXY(x, zD);
-      else                          PixelA = ColorFromPalette(SEGPALETTE, ~noise3d[XY(x,abs(zD))]*3); 
-      CRGB PixelB = CRGB::Black;
-      if ((zF >= 0) && (zF < rows)) PixelB = SEGMENT.getPixelColorXY(x, zF);
-      else                          PixelB = ColorFromPalette(SEGPALETTE, ~noise3d[XY(x,abs(zF))]*3);
-      ledsbuff[y] = (PixelA.nscale8(ease8InOutApprox(255 - fraction))) + (PixelB.nscale8(ease8InOutApprox(fraction)));
-    }
-    for (int y = 0; y < rows; y++) SEGMENT.setPixelColorXY(x, y, ledsbuff[y]);
-  }
+  soapPixels(true,  noise3d, pixels); // rows
+  soapPixels(false, noise3d, pixels); // cols
 
   return FRAMETIME;
 }
-static const char _data_FX_MODE_2DSOAP[] PROGMEM = "Soap@!,Smoothness;;!;2;pal=11";
+static const char _data_FX_MODE_2DSOAP[] PROGMEM = "Soap@!,Smoothness,Density;;!;2;pal=11";
 
 
 //Idea from https://www.youtube.com/watch?v=HsA-6KIbgto&ab_channel=GreatScott%21
@@ -7694,7 +7862,7 @@ uint16_t mode_particlefireworks(void) {
         else if (PartSys->sources[j].source.vy < 0) { // rocket is exploded and time is up (ttl=0 and negative speed), relaunch it
           PartSys->sources[j].source.y = PS_P_RADIUS; // start from bottom
           PartSys->sources[j].source.x = (PartSys->maxX >> 2) + hw_random(PartSys->maxX >> 1); // centered half
-          PartSys->sources[j].source.vy = (SEGMENT.custom3) + random16(SEGMENT.custom1 >> 3) + 5; // rocket speed TODO: need to adjust for segment height
+          PartSys->sources[j].source.vy = (SEGMENT.custom3) + hw_random16(SEGMENT.custom1 >> 3) + 5; // rocket speed TODO: need to adjust for segment height
           PartSys->sources[j].source.vx = hw_random16(7) - 3; // not perfectly straight up
           PartSys->sources[j].source.sat = 30; // low saturation -> exhaust is off-white
           PartSys->sources[j].source.ttl = hw_random16(SEGMENT.custom1) + (SEGMENT.custom1 >> 1); // set fuse time
@@ -7764,7 +7932,7 @@ uint16_t mode_particlefireworks(void) {
           counter = 0;
           speed += 3 + ((SEGMENT.intensity >> 6)); // increase speed to form a second wave
           PartSys->sources[j].source.hue += hueincrement; // new color for next circle
-          PartSys->sources[j].source.sat = min((uint16_t)150, random16());
+          PartSys->sources[j].source.sat = 100 + hw_random16(156);
         }
         angle += angleincrement; // set angle for next particle
       }
@@ -7874,7 +8042,7 @@ uint16_t mode_particlefire(void) {
   uint32_t i; // index variable
   uint32_t numFlames; // number of flames: depends on fire width. for a fire width of 16 pixels, about 25-30 flames give good results
 
-  if (SEGMENT.call == 0) { // initialization TODO: make this a PSinit function, this is needed in every particle FX but first, get this working.
+  if (SEGMENT.call == 0) { // initialization
     if (!initParticleSystem2D(PartSys, SEGMENT.virtualWidth(), 4)) //maximum number of source (PS may limit based on segment size); need 4 additional bytes for time keeping (uint32_t lastcall)
       return mode_static(); // allocation failed or not 2D
     SEGENV.aux0 = hw_random16(); // aux0 is wind position (index) in the perlin noise
@@ -7888,6 +8056,7 @@ uint16_t mode_particlefire(void) {
   PartSys->updateSystem(); // update system properties (dimensions and data pointers)
   PartSys->setWrapX(SEGMENT.check2);
   PartSys->setMotionBlur(SEGMENT.check1 * 170); // anable/disable motion blur
+  PartSys->setSmearBlur(!SEGMENT.check1 * 60);  // enable smear blur if motion blur is not enabled
 
   uint32_t firespeed = max((uint8_t)100, SEGMENT.speed); //limit speed to 100 minimum, reduce frame rate to make it slower (slower speeds than 100 do not look nice)
   if (SEGMENT.speed < 100) { //slow, limit FPS
@@ -7916,7 +8085,7 @@ uint16_t mode_particlefire(void) {
       PartSys->sources[i].source.ttl = 20 + hw_random16((SEGMENT.custom1 * SEGMENT.custom1) >> 8) / (1 + (firespeed >> 5)); //'hotness' of fire, faster flames reduce the effect or flame height will scale too much with speed
       PartSys->sources[i].maxLife = hw_random16(SEGMENT.virtualHeight() >> 1) + 16; // defines flame height together with the vy speed, vy speed*maxlife/PS_P_RADIUS is the average flame height
       PartSys->sources[i].minLife = PartSys->sources[i].maxLife >> 1;
-      PartSys->sources[i].vx = hw_random16(4) - 2; // emitting speed (sideways)
+      PartSys->sources[i].vx = hw_random16(5) - 2; // emitting speed (sideways)
       PartSys->sources[i].vy = (SEGMENT.virtualHeight() >> 1) + (firespeed >> 4) + (SEGMENT.custom1 >> 4); // emitting speed (upwards)
       PartSys->sources[i].var = 2 + hw_random16(2 + (firespeed >> 4)); // speed variation around vx,vy (+/- var)
     }
@@ -7927,7 +8096,7 @@ uint16_t mode_particlefire(void) {
     if (SEGMENT.call % 10 == 0)
       SEGENV.aux1++; // move in noise y direction so noise does not repeat as often
     // add wind force to all particles
-    int8_t windspeed = ((int16_t)(inoise8(SEGENV.aux0, SEGENV.aux1) - 127) * SEGMENT.custom2) >> 7;
+    int8_t windspeed = ((int16_t)(perlin8(SEGENV.aux0, SEGENV.aux1) - 127) * SEGMENT.custom2) >> 7;
     PartSys->applyForce(windspeed, 0);
   }
   SEGENV.step++;
@@ -7936,9 +8105,23 @@ uint16_t mode_particlefire(void) {
     if (SEGMENT.call % map(firespeed, 0, 255, 4, 15) == 0) {
       for (i = 0; i < PartSys->usedParticles; i++) {
         if (PartSys->particles[i].y < PartSys->maxY / 4) { // do not apply turbulance everywhere -> bottom quarter seems a good balance
-          int32_t curl = ((int32_t)inoise8(PartSys->particles[i].x, PartSys->particles[i].y, SEGENV.step << 4) - 127);
+          int32_t curl = ((int32_t)perlin8(PartSys->particles[i].x, PartSys->particles[i].y, SEGENV.step << 4) - 127);
           PartSys->particles[i].vx += (curl * (firespeed + 10)) >> 9;
         }
+      }
+    }
+  }
+
+  // emit faster sparks at first flame position, amount and speed mostly dependends on intensity
+  if(hw_random8() < 10 + (SEGMENT.intensity >> 2)) {
+    for (i = 0; i < PartSys->usedParticles; i++) {
+      if (PartSys->particles[i].ttl == 0) { // find a dead particle
+        PartSys->particles[i].ttl = hw_random16(SEGMENT.virtualHeight()) + 30;
+        PartSys->particles[i].x = PartSys->sources[0].source.x;
+        PartSys->particles[i].y = PartSys->sources[0].source.y;
+        PartSys->particles[i].vx = PartSys->sources[0].source.vx;
+        PartSys->particles[i].vy = (SEGMENT.virtualHeight() >> 1) + (firespeed >> 4) + ((30 + (SEGMENT.intensity >> 1) + SEGMENT.custom1) >> 4); // emitting speed (upwards)
+        break; // emit only one particle
       }
     }
   }
@@ -7966,7 +8149,7 @@ uint16_t mode_particlepit(void) {
   ParticleSystem2D *PartSys = nullptr;
 
   if (SEGMENT.call == 0) { // initialization
-    if (!initParticleSystem2D(PartSys, 1, 0, true, false)) // init, request one source (actually dont really need one TODO: test if using zero sources also works)
+    if (!initParticleSystem2D(PartSys, 0, 0, true, false)) // init
       return mode_static(); // allocation failed or not 2D
     PartSys->setKillOutOfBounds(true);
     PartSys->setGravity(); // enable with default gravity
@@ -8003,7 +8186,7 @@ uint16_t mode_particlepit(void) {
         PartSys->particles[i].sat = ((SEGMENT.custom3) << 3) + 7;
         // set particle size
         if (SEGMENT.custom1 == 255) {
-          PartSys->setParticleSize(1); // set global size to 1 for advanced rendering
+          PartSys->setParticleSize(1); // set global size to 1 for advanced rendering (no single pixel particles)
           PartSys->advPartProps[i].size = hw_random16(SEGMENT.custom1); // set each particle to random size
         } else {
           PartSys->setParticleSize(SEGMENT.custom1); // set global size
@@ -8037,7 +8220,7 @@ uint16_t mode_particlewaterfall(void) {
   uint8_t numSprays;
   uint32_t i = 0;
 
-  if (SEGMENT.call == 0) { // initialization TODO: make this a PSinit function, this is needed in every particle FX but first, get this working.
+  if (SEGMENT.call == 0) { // initialization
     if (!initParticleSystem2D(PartSys, 12)) // init, request 12 sources, no additional data needed
       return mode_static(); // allocation failed or not 2D
 
@@ -8060,7 +8243,7 @@ uint16_t mode_particlewaterfall(void) {
   else
     PartSys = reinterpret_cast<ParticleSystem2D *>(SEGENV.data); // if not first call, just set the pointer to the PS
   if (PartSys == nullptr)
-    return mode_static(); // something went wrong, no data! (TODO: ask how to handle this so it always works)
+    return mode_static(); // something went wrong, no data!
 
   // Particle System settings
   PartSys->updateSystem(); // update system properties (dimensions and data pointers)
@@ -8153,8 +8336,8 @@ uint16_t mode_particlebox(void) {
       SEGENV.aux0 -= increment;
 
     if (SEGMENT.check1) { // random, use perlin noise
-      xgravity = ((int16_t)inoise8(SEGENV.aux0) - 127);
-      ygravity = ((int16_t)inoise8(SEGENV.aux0 + 10000) - 127);
+      xgravity = ((int16_t)perlin8(SEGENV.aux0) - 127);
+      ygravity = ((int16_t)perlin8(SEGENV.aux0 + 10000) - 127);
       // scale the gravity force
       xgravity = (xgravity * SEGMENT.custom1) / 128;
       ygravity = (ygravity * SEGMENT.custom1) / 128;
@@ -8189,7 +8372,7 @@ uint16_t mode_particleperlin(void) {
   ParticleSystem2D *PartSys = nullptr;
   uint32_t i;
 
-  if (SEGMENT.call == 0) { // initialization TODO: make this a PSinit function, this is needed in every particle FX but first, get this working.
+  if (SEGMENT.call == 0) { // initialization
     if (!initParticleSystem2D(PartSys, 1, 0, true)) // init with 1 source and advanced properties
       return mode_static(); // allocation failed or not 2D
 
@@ -8225,11 +8408,11 @@ uint16_t mode_particleperlin(void) {
     uint32_t scale = 16 - ((31 - SEGMENT.custom3) >> 1);
     uint16_t xnoise = PartSys->particles[i].x / scale; // position in perlin noise, scaled by slider
     uint16_t ynoise = PartSys->particles[i].y / scale;
-    int16_t baseheight = inoise8(xnoise, ynoise, SEGENV.aux0); // noise value at particle position
+    int16_t baseheight = perlin8(xnoise, ynoise, SEGENV.aux0); // noise value at particle position
     PartSys->particles[i].hue = baseheight; // color particles to perlin noise value
     if (SEGMENT.call % 8 == 0) { // do not apply the force every frame, is too chaotic
-      int8_t xslope = (baseheight + (int16_t)inoise8(xnoise - 10, ynoise, SEGENV.aux0));
-      int8_t yslope = (baseheight + (int16_t)inoise8(xnoise, ynoise - 10, SEGENV.aux0));
+      int8_t xslope = (baseheight + (int16_t)perlin8(xnoise - 10, ynoise, SEGENV.aux0));
+      int8_t yslope = (baseheight + (int16_t)perlin8(xnoise, ynoise - 10, SEGENV.aux0));
       PartSys->applyForce(i, xslope, yslope);
     }
   }
@@ -8249,21 +8432,19 @@ static const char _data_FX_MODE_PARTICLEPERLIN[] PROGMEM = "PS Fuzzy Noise@Speed
 #define NUMBEROFSOURCES 8
 uint16_t mode_particleimpact(void) {
   ParticleSystem2D *PartSys = nullptr;
-  uint32_t i = 0;
-  uint8_t MaxNumMeteors;
+  uint32_t numMeteors;
   PSsettings2D meteorsettings;
   meteorsettings.asByte = 0b00101000; // PS settings for meteors: bounceY and gravity enabled
 
-  if (SEGMENT.call == 0) { // initialization TODO: make this a PSinit function, this is needed in every particle FX but first, get this working.
+  if (SEGMENT.call == 0) { // initialization
     if (!initParticleSystem2D(PartSys, NUMBEROFSOURCES)) // init, no additional data needed
       return mode_static(); // allocation failed or not 2D
     PartSys->setKillOutOfBounds(true);
     PartSys->setGravity(); // enable default gravity
     PartSys->setBounceY(true); // always use ground bounce
     PartSys->setWallRoughness(220); // high roughness
-    MaxNumMeteors = min(PartSys->numSources, (uint32_t)NUMBEROFSOURCES);
-    for (i = 0; i < MaxNumMeteors; i++) {
-     // PartSys->sources[i].source.y = 500;
+    numMeteors = min(PartSys->numSources, (uint32_t)NUMBEROFSOURCES);
+    for (uint32_t i = 0; i < numMeteors; i++) {
       PartSys->sources[i].source.ttl = hw_random16(10 * i); // set initial delay for meteors
       PartSys->sources[i].source.vy = 10; // at positive speeds, no particles are emitted and if particle dies, it will be relaunched
     }
@@ -8272,7 +8453,7 @@ uint16_t mode_particleimpact(void) {
     PartSys = reinterpret_cast<ParticleSystem2D *>(SEGENV.data); // if not first call, just set the pointer to the PS
 
   if (PartSys == nullptr)
-    return mode_static(); // something went wrong, no data! (TODO: ask how to handle this so it always works)
+    return mode_static(); // something went wrong, no data!
 
   // Particle System settings
   PartSys->updateSystem(); // update system properties (dimensions and data pointers)
@@ -8282,29 +8463,18 @@ uint16_t mode_particleimpact(void) {
   uint8_t hardness = map(SEGMENT.custom2, 0, 255, PS_P_MINSURFACEHARDNESS - 2, 255);
   PartSys->setWallHardness(hardness);
   PartSys->enableParticleCollisions(SEGMENT.check3, hardness); // enable collisions and set particle collision hardness
-  MaxNumMeteors = min(PartSys->numSources, (uint32_t)NUMBEROFSOURCES);
-  uint8_t numMeteors = MaxNumMeteors; // TODO: clean this up   map(SEGMENT.custom3, 0, 31, 1, MaxNumMeteors); // number of meteors to use for animation
-
+  numMeteors = min(PartSys->numSources, (uint32_t)NUMBEROFSOURCES);
   uint32_t emitparticles; // number of particles to emit for each rocket's state
 
-  for (i = 0; i < numMeteors; i++) {
+  for (uint32_t i = 0; i < numMeteors; i++) {
     // determine meteor state by its speed:
-    if ( PartSys->sources[i].source.vy < 0) { // moving down, emit sparks
-    #ifdef ESP8266
+    if ( PartSys->sources[i].source.vy < 0) // moving down, emit sparks
       emitparticles = 1;
-    #else
-      emitparticles = 2;
-    #endif
-    }
     else if ( PartSys->sources[i].source.vy > 0) // moving up means meteor is on 'standby'
       emitparticles = 0;
     else { // speed is zero, explode!
       PartSys->sources[i].source.vy = 10; // set source speed positive so it goes into timeout and launches again
-    #ifdef ESP8266
-      emitparticles = hw_random16(SEGMENT.intensity >> 3) + 5; // defines the size of the explosion
-    #else
-      emitparticles = map(SEGMENT.intensity, 0, 255, 10, hw_random16(PartSys->usedParticles>>2)); // defines the size of the explosion !!!TODO: check if this works on ESP8266, drop esp8266 def if it does
-    #endif
+      emitparticles = map(SEGMENT.intensity, 0, 255, 10, hw_random16(PartSys->usedParticles>>2)); // defines the size of the explosion
     }
     for (int e = emitparticles; e > 0; e--) {
         PartSys->sprayEmit(PartSys->sources[i]);
@@ -8312,7 +8482,7 @@ uint16_t mode_particleimpact(void) {
   }
 
   // update the meteors, set the speed state
-  for (i = 0; i < numMeteors; i++) {
+  for (uint32_t i = 0; i < numMeteors; i++) {
     if (PartSys->sources[i].source.ttl) {
       PartSys->sources[i].source.ttl--; // note: this saves an if statement, but moving down particles age twice
       if (PartSys->sources[i].source.vy < 0) { // move down
@@ -8325,13 +8495,13 @@ uint16_t mode_particleimpact(void) {
           PartSys->sources[i].source.vx = 0;
           PartSys->sources[i].sourceFlags.collide = true;
           #ifdef ESP8266
-          PartSys->sources[i].maxLife = 180;
-          PartSys->sources[i].minLife = 20;
+          PartSys->sources[i].maxLife = 900;
+          PartSys->sources[i].minLife = 100;
           #else
-          PartSys->sources[i].maxLife = 250;
-          PartSys->sources[i].minLife = 50;
+          PartSys->sources[i].maxLife = 1250;
+          PartSys->sources[i].minLife = 250;
           #endif
-          PartSys->sources[i].source.ttl = hw_random16((512 - (SEGMENT.speed << 1))) + 40; // standby time til next launch (in frames)
+          PartSys->sources[i].source.ttl = hw_random16((768 - (SEGMENT.speed << 1))) + 40; // standby time til next launch (in frames)
           PartSys->sources[i].vy = (SEGMENT.custom1 >> 2);  // emitting speed y
           PartSys->sources[i].var = (SEGMENT.custom1 >> 2); // speed variation around vx,vy (+/- var)
         }
@@ -8346,11 +8516,15 @@ uint16_t mode_particleimpact(void) {
       PartSys->sources[i].source.hue = hw_random16(); // random color
       PartSys->sources[i].source.ttl = 500; // long life, will explode at bottom
       PartSys->sources[i].sourceFlags.collide = false; // trail particles will not collide
-      PartSys->sources[i].maxLife = 60; // spark particle life
-      PartSys->sources[i].minLife = 20;
+      PartSys->sources[i].maxLife = 300; // spark particle life
+      PartSys->sources[i].minLife = 100;
       PartSys->sources[i].vy = -9; // emitting speed (down)
       PartSys->sources[i].var = 3; // speed variation around vx,vy (+/- var)
     }
+  }
+
+  for (uint32_t i = 0; i < PartSys->usedParticles; i++) {
+    if (PartSys->particles[i].ttl > 5) PartSys->particles[i].ttl -= 5; //ttl is linked to brightness, this allows to use higher brightness but still a short spark lifespan
   }
 
   PartSys->update(); // update and render
@@ -8599,7 +8773,7 @@ uint16_t mode_particleGEQ(void) {
         //set particle properties TODO: could also use the spray...
         PartSys->particles[i].ttl = 20 + map(SEGMENT.intensity, 0,255, emitspeed>>1, emitspeed + hw_random16(emitspeed)) ; // set particle alive, particle lifespan is in number of frames
         PartSys->particles[i].x = xposition + hw_random16(binwidth) - (binwidth>>1); // position randomly, deviating half a bin width
-        PartSys->particles[i].y = PS_P_RADIUS; // start at the bottom (PS_P_RADIUS is minimum position a particle is fully in frame)
+        PartSys->particles[i].y = 0; // start at the bottom
         PartSys->particles[i].vx = hw_random16(SEGMENT.custom1>>1)-(SEGMENT.custom1>>2) ; //x-speed variation: +/- custom1/4
         PartSys->particles[i].vy = emitspeed;
         PartSys->particles[i].hue = (bin<<4) + hw_random16(17) - 8; // color from palette according to bin
@@ -8756,7 +8930,7 @@ uint16_t mode_particleghostrider(void) {
   // emit two particles
   PartSys->angleEmit(PartSys->sources[0], emitangle, speed);
   PartSys->angleEmit(PartSys->sources[0], emitangle, speed);
-  if (SEGMENT.call % (11 - (SEGMENT.custom2 / 25)) == 0) { // every nth frame, cycle color and emit particles //TODO: make this a segment call % SEGMENT.custom2  for better control
+  if (SEGMENT.call % (11 - (SEGMENT.custom2 / 25)) == 0) { // every nth frame, cycle color and emit particles
     PartSys->sources[0].source.hue++;
   }
   if (SEGMENT.custom2 > 190) //fast color change
@@ -8776,7 +8950,7 @@ uint16_t mode_particleblobs(void) {
   ParticleSystem2D *PartSys = nullptr;
 
   if (SEGMENT.call == 0) {
-    if (!initParticleSystem2D(PartSys, 1, 0, true, true)) //init, request one source, no additional bytes, advanced size & size control (actually dont really need one TODO: test if using zero sources also works)
+    if (!initParticleSystem2D(PartSys, 0, 0, true, true)) //init, no additional bytes, advanced size & size control
       return mode_static(); // allocation failed or not 2D
     PartSys->setBounceX(true);
     PartSys->setBounceY(true);
@@ -8842,6 +9016,108 @@ uint16_t mode_particleblobs(void) {
   return FRAMETIME;
 }
 static const char _data_FX_MODE_PARTICLEBLOBS[] PROGMEM = "PS Blobs@Speed,Blobs,Size,Life,Blur,Wobble,Collide,Pulsate;;!;2v;sx=30,ix=64,c1=200,c2=130,c3=0,o3=1";
+
+/*
+  Particle Galaxy, particles spiral like in a galaxy
+  Uses palette for particle color
+  by DedeHai (Damian Schneider)
+*/
+uint16_t mode_particlegalaxy(void) {
+  ParticleSystem2D *PartSys = nullptr;
+  PSsettings2D sourcesettings;
+  sourcesettings.asByte = 0b00001100; // PS settings for bounceY, bounceY used for source movement (it always bounces whereas particles do not)
+  if (SEGMENT.call == 0) { // initialization
+    if (!initParticleSystem2D(PartSys, 1, 0, true)) // init using 1 source and advanced particle settings
+      return mode_static(); // allocation failed or not 2D
+    PartSys->sources[0].source.vx = -4; // will collide with wall and get random bounce direction
+    PartSys->sources[0].source.x =  PartSys->maxX >> 1; // start in the center
+    PartSys->sources[0].source.y =  PartSys->maxY >> 1;
+    PartSys->sources[0].sourceFlags.perpetual = true; //source does not age
+    PartSys->sources[0].maxLife = 4000; // lifetime in frames
+    PartSys->sources[0].minLife = 800;
+    PartSys->sources[0].source.hue = hw_random16(); // start with random color
+    PartSys->setWallHardness(255);  //bounce forever
+    PartSys->setWallRoughness(200); //randomize wall bounce
+  }
+  else {
+    PartSys = reinterpret_cast<ParticleSystem2D *>(SEGENV.data); // if not first call, just set the pointer to the PS
+  }
+  if (PartSys == nullptr)
+    return mode_static(); // something went wrong, no data!
+  // Particle System settings
+  PartSys->updateSystem(); // update system properties (dimensions and data pointers)
+  uint8_t particlesize = SEGMENT.custom1;
+  if(SEGMENT.check3)
+    particlesize =  SEGMENT.custom1 ? 1 : 0; // set size to 0 (single pixel) or 1 (quad pixel) so motion blur works and adds streaks
+  PartSys->setParticleSize(particlesize); // set size globally
+  PartSys->setMotionBlur(250 * SEGMENT.check3); // adds trails to single/quad pixel particles, no effect if size > 1
+
+  if ((SEGMENT.call % ((33 - SEGMENT.custom3) >> 1)) == 0) // change hue of emitted particles
+    PartSys->sources[0].source.hue+=2;
+
+  if (hw_random8() < (10 + (SEGMENT.intensity >> 1))) // 5%-55% chance to emit a particle in this frame
+    PartSys->sprayEmit(PartSys->sources[0]);
+
+  if ((SEGMENT.call & 0x3) == 0) // every 4th frame, move the emitter
+    PartSys->particleMoveUpdate(PartSys->sources[0].source, PartSys->sources[0].sourceFlags, &sourcesettings);
+
+  // move alive particles in a spiral motion (or almost straight in fast starfield mode)
+  int32_t centerx = PartSys->maxX >> 1; // center of matrix in subpixel coordinates
+  int32_t centery = PartSys->maxY >> 1;
+  if (SEGMENT.check2) { // starfield mode
+    PartSys->setKillOutOfBounds(true);
+    PartSys->sources[0].var = 7; // emiting variation
+    PartSys->sources[0].source.x =  centerx; // set emitter to center
+    PartSys->sources[0].source.y =  centery;
+  }
+  else {
+    PartSys->setKillOutOfBounds(false);
+    PartSys->sources[0].var = 1; // emiting variation
+  }
+  for (uint32_t i = 0; i < PartSys->usedParticles; i++) { //check all particles
+    if (PartSys->particles[i].ttl == 0) continue; //skip dead particles
+    // (dx/dy): vector pointing from particle to center
+    int32_t dx = centerx - PartSys->particles[i].x;
+    int32_t dy = centery - PartSys->particles[i].y;
+    //speed towards center:
+    int32_t distance = sqrt32_bw(dx * dx + dy * dy); // absolute distance to center
+    if (distance < 20) distance = 20; // avoid division by zero, keep a minimum
+    int32_t speedfactor;
+    if (SEGMENT.check2) { // starfield mode
+      speedfactor = 1 + (1 + (SEGMENT.speed >> 1)) * distance; // speed increases towards edge
+      //apply velocity
+      PartSys->particles[i].x += (-speedfactor * dx) / 400000 - (dy >> 6);
+      PartSys->particles[i].y += (-speedfactor * dy) / 400000 + (dx >> 6);
+    }
+    else {
+      speedfactor = 2 + (((50 + SEGMENT.speed) << 6) / distance); // speed increases towards center
+      // rotate clockwise
+      int32_t tempVx = (-speedfactor * dy); // speed is orthogonal to center vector
+      int32_t tempVy =  (speedfactor * dx);
+      //add speed towards center to make particles spiral in
+      int vxc = (dx << 9) / (distance - 19); // subtract value from distance to make the pull-in force a bit stronger (helps on faster speeds)
+      int vyc = (dy << 9) / (distance - 19);
+      //apply velocity
+      PartSys->particles[i].x += (tempVx + vxc) / 1024; // note: cannot use bit shift as that causes asymmetric rounding
+      PartSys->particles[i].y += (tempVy + vyc) / 1024;
+
+      if (distance < 128) { // close to center
+        if (PartSys->particles[i].ttl > 3)
+          PartSys->particles[i].ttl -= 4; //age fast
+        PartSys->particles[i].sat = distance << 1; // turn white towards center
+      }
+    }
+    if(SEGMENT.custom3 == 31) // color by age but mapped to 1024 as particles have a long life, since age is random, this gives more or less random colors
+      PartSys->particles[i].hue = PartSys->particles[i].ttl >> 2;
+    else if(SEGMENT.custom3 == 0) // color by distance
+      PartSys->particles[i].hue = map(distance, 20, (PartSys->maxX + PartSys->maxY) >> 2, 0, 180); // color by distance to center
+  }
+
+  PartSys->update(); // update and render
+  return FRAMETIME;
+}
+static const char _data_FX_MODE_PARTICLEGALAXY[] PROGMEM = "PS Galaxy@!,!,Size,,Color,,Starfield,Trace;;!;2;pal=59,sx=80,c1=2,c3=4";
+
 #endif //WLED_DISABLE_PARTICLESYSTEM2D
 #endif // WLED_DISABLE_2D
 
@@ -8969,7 +9245,6 @@ uint16_t mode_particlePinball(void) {
     PartSys->sources[0].sourceFlags.collide = true; // seeded particles will collide (if enabled)
     PartSys->sources[0].source.x = PS_P_RADIUS_1D; //emit at bottom
     PartSys->setKillOutOfBounds(true); // out of bounds particles dont return
-    PartSys->setUsedParticles(255); // use all available particles for init
     SEGENV.aux0 = 1;
     SEGENV.aux1 = 5000; //set out of range to ensure uptate on first call
   }
@@ -9192,7 +9467,8 @@ uint16_t mode_particleFireworks1D(void) {
   uint8_t *forcecounter;
 
   if (SEGMENT.call == 0) { // initialization
-    if (!initParticleSystem1D(PartSys, 4, 150, 4, true)) // init
+    if (!initParticleSystem1D(PartSys, 4, 150, 4, true)) // init advanced particle system
+    if (!initParticleSystem1D(PartSys, 4, 150, 4, true)) // init advanced particle system
       return mode_static(); // allocation failed or is single pixel
     PartSys->setKillOutOfBounds(true);
     PartSys->sources[0].sourceFlags.custom1 = 1; // set rocket state to standby
@@ -9205,14 +9481,9 @@ uint16_t mode_particleFireworks1D(void) {
   // Particle System settings
   PartSys->updateSystem(); // update system properties (dimensions and data pointers)
   forcecounter = PartSys->PSdataEnd;
-  PartSys->setParticleSize(SEGMENT.check3); // 1 or 2 pixel rendering
   PartSys->setMotionBlur(SEGMENT.custom2); // anable motion blur
-
-  int32_t gravity = (1 + (SEGMENT.speed >> 3));
-  if (!SEGMENT.check1) // gravity enabled for sparks
-   PartSys->setGravity(0); // disable
-  else
-   PartSys->setGravity(gravity); // set gravity
+  int32_t gravity = (1 + (SEGMENT.speed >> 3)); // gravity value used for rocket speed calculation
+  PartSys->setGravity(SEGMENT.speed ? gravity : 0); // set gravity
 
   if (PartSys->sources[0].sourceFlags.custom1 == 1) { // rocket is on standby
     PartSys->sources[0].source.ttl--;
@@ -9224,17 +9495,17 @@ uint16_t mode_particleFireworks1D(void) {
         SEGENV.aux0 = 0;
 
       PartSys->sources[0].sourceFlags.custom1 = 0; //flag used for rocket state
-      PartSys->sources[0].source.hue = hw_random16();
+      PartSys->sources[0].source.hue = hw_random16(); // different color for each launch
       PartSys->sources[0].var = 10; // emit variation
       PartSys->sources[0].v = -10; // emit speed
-      PartSys->sources[0].minLife = 100;
-      PartSys->sources[0].maxLife = 300;
+      PartSys->sources[0].minLife = 30;
+      PartSys->sources[0].maxLife = SEGMENT.check2 ? 400 : 60;
       PartSys->sources[0].source.x = 0; // start from bottom
       uint32_t speed = sqrt((gravity * ((PartSys->maxX >> 2) + hw_random16(PartSys->maxX >> 1))) >> 4); // set speed such that rocket explods in frame
       PartSys->sources[0].source.vx = min(speed, (uint32_t)127);
       PartSys->sources[0].source.ttl = 4000;
       PartSys->sources[0].sat = 30; // low saturation exhaust
-      PartSys->sources[0].size = 0; // default size
+      PartSys->sources[0].size = SEGMENT.check3; // single or double pixel rendering
       PartSys->sources[0].sourceFlags.reversegrav = false ; // normal gravity
 
       if (SEGENV.aux0) { // inverted rockets launch from end
@@ -9247,17 +9518,17 @@ uint16_t mode_particleFireworks1D(void) {
   }
   else { // rocket is launched
     int32_t rocketgravity = -gravity;
-    int32_t speed = PartSys->sources[0].source.vx;
+    int32_t currentspeed = PartSys->sources[0].source.vx;
     if (SEGENV.aux0) { // negative speed rocket
       rocketgravity = -rocketgravity;
-      speed = -speed;
+      currentspeed = -currentspeed;
     }
     PartSys->applyForce(PartSys->sources[0].source, rocketgravity, forcecounter[0]);
     PartSys->particleMoveUpdate(PartSys->sources[0].source, PartSys->sources[0].sourceFlags);
-    PartSys->particleMoveUpdate(PartSys->sources[0].source, PartSys->sources[0].sourceFlags); // increase speed by calling the move function twice, also ages twice
+    PartSys->particleMoveUpdate(PartSys->sources[0].source, PartSys->sources[0].sourceFlags); // increase rocket speed by calling the move function twice, also ages twice
     uint32_t rocketheight = SEGENV.aux0 ? PartSys->maxX - PartSys->sources[0].source.x : PartSys->sources[0].source.x;
 
-    if (speed < 0 && PartSys->sources[0].source.ttl > 50) // reached apogee
+    if (currentspeed < 0 && PartSys->sources[0].source.ttl > 50) // reached apogee
       PartSys->sources[0].source.ttl = min((uint32_t)50, rocketheight >> (PS_P_RADIUS_SHIFT_1D + 3)); // alive for a few more frames
 
     if (PartSys->sources[0].source.ttl < 2) { // explode
@@ -9266,19 +9537,32 @@ uint16_t mode_particleFireworks1D(void) {
       PartSys->sources[0].minLife = 600;
       PartSys->sources[0].maxLife = 1300;
       PartSys->sources[0].source.ttl = 100 + hw_random16(64 - (SEGMENT.speed >> 2)); // standby time til next launch
-      PartSys->sources[0].sat = 7 + (SEGMENT.custom3 << 3); //color saturation  TODO: replace saturation with something more useful?
-      PartSys->sources[0].size = hw_random16(64); // random particle size in explosion
+      PartSys->sources[0].sat = SEGMENT.custom3 < 16 ? 10 + (SEGMENT.custom3 << 4) : 255; //color saturation
+      PartSys->sources[0].size = SEGMENT.check3 ? hw_random16(SEGMENT.intensity) : 0; // random particle size in explosion
       uint32_t explosionsize = 8 + (PartSys->maxXpixel >> 2) + (PartSys->sources[0].source.x >> (PS_P_RADIUS_SHIFT_1D - 1));
       explosionsize += hw_random16((explosionsize * SEGMENT.intensity) >> 8);
       for (uint32_t e = 0; e < explosionsize; e++) { // emit explosion particles
-        if (SEGMENT.check2)
-          PartSys->sources[0].source.hue = hw_random16(); //random color for each particle
-        PartSys->sprayEmit(PartSys->sources[0]); // emit a particle
+        int idx = PartSys->sprayEmit(PartSys->sources[0]); // emit a particle
+        if(SEGMENT.custom3 > 23) {
+          if(SEGMENT.custom3 == 31) { // highest slider value
+            PartSys->setColorByAge(SEGMENT.check1); // color by age if colorful mode is enabled
+            PartSys->setColorByPosition(!SEGMENT.check1); // color by position otherwise
+          }
+          else { // if custom3 is set to high value (but not highest), set particle color by initial speed
+            PartSys->particles[idx].hue = map(abs(PartSys->particles[idx].vx), 0, PartSys->sources[0].var, 0, 16 + hw_random16(200)); // set hue according to speed, use random amount of palette width
+            PartSys->particles[idx].hue += PartSys->sources[0].source.hue; // add hue offset of the rocket (random starting color)
+          }
+        }
+        else {
+          if (SEGMENT.check1) // colorful mode
+            PartSys->sources[0].source.hue = hw_random16(); //random color for each particle
+        }
       }
     }
   }
-  if ((SEGMENT.call & 0x01) == 0 && PartSys->sources[0].sourceFlags.custom1 == false) // every second frame and not in standby
+  if ((SEGMENT.call & 0x01) == 0 && PartSys->sources[0].sourceFlags.custom1 == false && PartSys->sources[0].source.ttl > 50) // every second frame and not in standby and not about to explode
     PartSys->sprayEmit(PartSys->sources[0]); // emit exhaust particle
+
   if ((SEGMENT.call & 0x03) == 0) // every fourth frame
     PartSys->applyFriction(1); // apply friction to all particles
 
@@ -9288,10 +9572,9 @@ uint16_t mode_particleFireworks1D(void) {
     if (PartSys->particles[i].ttl > 10) PartSys->particles[i].ttl -= 10; //ttl is linked to brightness, this allows to use higher brightness but still a short spark lifespan
     else PartSys->particles[i].ttl = 0;
   }
-
   return FRAMETIME;
 }
-static const char _data_FX_MODE_PS_FIREWORKS1D[] PROGMEM = "PS Fireworks 1D@Gravity,Explosion,Firing side,Blur,Saturation,,Colorful,Smooth;,!;!;1;sx=150,c2=30,c3=31,o2=1";
+static const char _data_FX_MODE_PS_FIREWORKS1D[] PROGMEM = "PS Fireworks 1D@Gravity,Explosion,Firing side,Blur,Color,Colorful,Trail,Smooth;,!;!;1;c2=30,o1=1";
 
 /*
   Particle based Sparkle effect
@@ -9327,10 +9610,10 @@ uint16_t mode_particleSparkler(void) {
     PartSys->sources[i].var = 0; // sparks stationary
     PartSys->sources[i].minLife = 150 + SEGMENT.intensity;
     PartSys->sources[i].maxLife = 250 + (SEGMENT.intensity << 1);
-    uint32_t speed = SEGMENT.speed >> 1;
+    int32_t speed = SEGMENT.speed >> 1;
     if (SEGMENT.check1) // sparks move (slide option)
       PartSys->sources[i].var = SEGMENT.intensity >> 3;
-    PartSys->sources[i].source.vx = speed; // update speed, do not change direction
+    PartSys->sources[i].source.vx = PartSys->sources[i].source.vx > 0 ? speed : -speed; // update speed, do not change direction
     PartSys->sources[i].source.ttl = 400; // replenish its life (setting it perpetual uses more code)
     PartSys->sources[i].sat = SEGMENT.custom1; // color saturation
     PartSys->sources[i].size = SEGMENT.check3 ? 120 : 0;
@@ -9390,44 +9673,36 @@ uint16_t mode_particleHourglass(void) {
   PartSys->updateSystem(); // update system properties (dimensions and data pointers)
   settingTracker = reinterpret_cast<uint32_t *>(PartSys->PSdataEnd);  //assign data pointer
   direction = reinterpret_cast<bool *>(PartSys->PSdataEnd + 4);  //assign data pointer
-  PartSys->setUsedParticles(map(SEGMENT.intensity, 0, 255, 1, 255));
+  PartSys->setUsedParticles(1 + ((SEGMENT.intensity * 255) >> 8));
   PartSys->setMotionBlur(SEGMENT.custom2); // anable motion blur
   PartSys->setGravity(map(SEGMENT.custom3, 0, 31, 1, 30));
-  PartSys->enableParticleCollisions(true, 34); // hardness value found by experimentation on different settings
+  PartSys->enableParticleCollisions(true, 32); // hardness value found by experimentation on different settings
 
   uint32_t colormode = SEGMENT.custom1 >> 5; // 0-7
 
-  if ((SEGMENT.intensity | (PartSys->getAvailableParticles() << 8)) != *settingTracker) { // initialize, getAvailableParticles changes while in FX transition
-    *settingTracker = SEGMENT.intensity | (PartSys->getAvailableParticles() << 8);
+  if (SEGMENT.intensity != *settingTracker) { // initialize
+    *settingTracker = SEGMENT.intensity;
     for (uint32_t i = 0; i < PartSys->usedParticles; i++) {
-      PartSys->particleFlags[i].reversegrav = true;
+      PartSys->particleFlags[i].reversegrav = true; // resting particles dont fall
       *direction = 0; // down
       SEGENV.aux1 = 1; // initialize below
     }
     SEGENV.aux0 = PartSys->usedParticles - 1; // initial state, start with highest number particle
   }
 
+  // calculate target position depending on direction
+  auto calcTargetPos = [&](size_t i) {
+    return PartSys->particleFlags[i].reversegrav ?
+          PartSys->maxX - i * PS_P_RADIUS_1D - positionOffset
+        : (PartSys->usedParticles - i) * PS_P_RADIUS_1D - positionOffset;
+  };
+
+
   for (uint32_t i = 0; i < PartSys->usedParticles; i++) { // check if particle reached target position after falling
-    int32_t targetposition;
-    if (PartSys->particleFlags[i].fixed == false) { // && abs(PartSys->particles[i].vx) < 8) {
-      // calculate target position depending on direction
-      bool closeToTarget = false;
-      bool reachedTarget = false;
-      if (PartSys->particleFlags[i].reversegrav) { // up
-        targetposition = PartSys->maxX - (i * PS_P_RADIUS_1D) - positionOffset; // target resting position
-        if (targetposition - PartSys->particles[i].x <= 5 * PS_P_RADIUS_1D)
-          closeToTarget = true;
-        if (PartSys->particles[i].x >= targetposition) // particle has reached target position, pin it. if not pinned, they do not stack well on larger piles
-          reachedTarget = true;
-      }
-      else { // down, highest index particle drops first
-        targetposition = (PartSys->usedParticles - i) * PS_P_RADIUS_1D - positionOffset; // target resting position note: using -offset instead of -1 + offset
-        if (PartSys->particles[i].x - targetposition <= 5 * PS_P_RADIUS_1D)
-          closeToTarget = true;
-        if (PartSys->particles[i].x <= targetposition) // particle has reached target position, pin it. if not pinned, they do not stack well on larger piles
-          reachedTarget = true;
-      }
-      if (reachedTarget || (closeToTarget && abs(PartSys->particles[i].vx) < 10)) { // reached target or close to target and slow speed
+    if (PartSys->particleFlags[i].fixed == false && abs(PartSys->particles[i].vx) < 5) {
+      int32_t targetposition = calcTargetPos(i);
+      bool closeToTarget = abs(targetposition - PartSys->particles[i].x) < 3 * PS_P_RADIUS_1D;
+      if (closeToTarget) { // close to target and slow speed
         PartSys->particles[i].x = targetposition; // set exact position
         PartSys->particleFlags[i].fixed = true;   // pin particle
       }
@@ -9452,19 +9727,20 @@ uint16_t mode_particleHourglass(void) {
       PartSys->particles[i].hue += 120;
   }
 
+  // re-order particles in case collisions flipped particles (highest number index particle is on the "bottom")
+  for (uint32_t i = 0; i < PartSys->usedParticles - 1; i++) {
+    if (PartSys->particles[i].x < PartSys->particles[i+1].x && PartSys->particleFlags[i].fixed == false && PartSys->particleFlags[i+1].fixed == false) {
+      std::swap(PartSys->particles[i].x, PartSys->particles[i+1].x);
+    }
+  }
+
+
   if (SEGENV.aux1 == 1) { // last countdown call before dropping starts, reset all particles
     for (uint32_t i = 0; i < PartSys->usedParticles; i++) {
       PartSys->particleFlags[i].collide = true;
       PartSys->particleFlags[i].perpetual = true;
       PartSys->particles[i].ttl = 260;
-      uint32_t targetposition;
-      //calculate target position depending on direction
-      if (PartSys->particleFlags[i].reversegrav)
-         targetposition = PartSys->maxX - (i * PS_P_RADIUS_1D + positionOffset); // target resting position
-      else
-        targetposition = (PartSys->usedParticles - i) * PS_P_RADIUS_1D - positionOffset; // target resting position  -5 - PS_P_RADIUS_1D/2
-
-      PartSys->particles[i].x = targetposition;
+      PartSys->particles[i].x = calcTargetPos(i);
       PartSys->particleFlags[i].fixed = true;
     }
   }
@@ -9563,10 +9839,7 @@ uint16_t mode_particleBalance(void) {
   if (SEGMENT.call == 0) { // initialization
     if (!initParticleSystem1D(PartSys, 1, 128)) // init, no additional data needed, use half of max particles
       return mode_static(); // allocation failed or is single pixel
-    //PartSys->setKillOutOfBounds(true);
     PartSys->setParticleSize(1);
-    SEGENV.aux0 = 0;
-    SEGENV.aux1 = 0; //TODO: really need to set to zero or is it calloc'd?
   }
   else
     PartSys = reinterpret_cast<ParticleSystem1D *>(SEGENV.data); // if not first call, just set the pointer to the PS
@@ -9575,7 +9848,7 @@ uint16_t mode_particleBalance(void) {
 
   // Particle System settings
   PartSys->updateSystem(); // update system properties (dimensions and data pointers)
-  PartSys->setMotionBlur(SEGMENT.custom2); // anable motion blur
+  PartSys->setMotionBlur(SEGMENT.custom2); // enable motion blur
   PartSys->setBounce(!SEGMENT.check2);
   PartSys->setWrap(SEGMENT.check2);
   uint8_t hardness = SEGMENT.custom1 > 0 ? map(SEGMENT.custom1, 0, 255, 50, 250) : 200; // set hardness,  make the walls hard if collisions are disabled
@@ -9592,12 +9865,23 @@ uint16_t mode_particleBalance(void) {
   }
   SEGENV.aux1 = PartSys->usedParticles;
 
+  // re-order particles in case collisions flipped particles
+  for (i = 0; i < PartSys->usedParticles - 1; i++) {
+    if (PartSys->particles[i].x > PartSys->particles[i+1].x) {
+      if (SEGMENT.check2) { // check for wrap around
+        if (PartSys->particles[i].x - PartSys->particles[i+1].x > 3 * PS_P_RADIUS_1D)
+          continue;
+      }
+      std::swap(PartSys->particles[i].x, PartSys->particles[i+1].x);
+    }
+  }
+
   if (SEGMENT.call % (((255 - SEGMENT.speed) >> 6) + 1) == 0) { // how often the force is applied depends on speed setting
     int32_t xgravity;
     int32_t increment = (SEGMENT.speed >> 6) + 1;
     SEGENV.aux0 += increment;
     if (SEGMENT.check3) // random, use perlin noise
-      xgravity = ((int16_t)inoise8(SEGENV.aux0) - 128);
+      xgravity = ((int16_t)perlin8(SEGENV.aux0) - 128);
     else // sinusoidal
       xgravity = (int16_t)cos8(SEGENV.aux0) - 128;//((int32_t)(SEGMENT.custom3 << 2) * cos8(SEGENV.aux0)
     // scale the force
@@ -9632,7 +9916,7 @@ by DedeHai (Damian Schneider)
 uint16_t mode_particleChase(void) {
   ParticleSystem1D *PartSys = nullptr;
   if (SEGMENT.call == 0) { // initialization
-    if (!initParticleSystem1D(PartSys, 1, 255, 3, true)) // init
+    if (!initParticleSystem1D(PartSys, 1, 255, 2, true)) // init
       return mode_static(); // allocation failed or is single pixel
     SEGENV.aux0 = 0xFFFF; // invalidate
     *PartSys->PSdataEnd = 1; // huedir
@@ -9642,39 +9926,43 @@ uint16_t mode_particleChase(void) {
     PartSys = reinterpret_cast<ParticleSystem1D *>(SEGENV.data); // if not first call, just set the pointer to the PS
   if (PartSys == nullptr)
     return mode_static(); // something went wrong, no data!
-
   // Particle System settings
   PartSys->updateSystem(); // update system properties (dimensions and data pointers)
   PartSys->setColorByPosition(SEGMENT.check3);
-  PartSys->setMotionBlur(8 + ((SEGMENT.custom3) << 3)); // anable motion blur
-  // uint8_t* basehue = (PartSys->PSdataEnd + 2);  //assign data pointer
-
-  uint32_t settingssum = SEGMENT.speed + SEGMENT.intensity + SEGMENT.custom1 + SEGMENT.custom2 + SEGMENT.check1 + SEGMENT.check2 + SEGMENT.check3 + PartSys->getAvailableParticles(); // note: getAvailableParticles is used to enforce update during transitions
+  PartSys->setMotionBlur(7 + ((SEGMENT.custom3) << 3)); // anable motion blur
+  uint32_t numParticles = 1 + map(SEGMENT.intensity, 0, 255, 2, 255 / (1 + (SEGMENT.custom1 >> 6))); // depends on intensity and particle size (custom1), minimum 1
+  numParticles = min(numParticles, PartSys->usedParticles); // limit to available particles
+  int32_t huestep = 1 + ((((uint32_t)SEGMENT.custom2 << 19) / numParticles) >> 16); // hue increment
+  uint32_t settingssum = SEGMENT.speed + SEGMENT.intensity + SEGMENT.custom1 + SEGMENT.custom2 + SEGMENT.check1 + SEGMENT.check2 + SEGMENT.check3;
   if (SEGENV.aux0 != settingssum) { // settings changed changed, update
-    uint32_t numParticles = map(SEGMENT.intensity, 0, 255, 2, 255 / (1 + (SEGMENT.custom1 >> 6))); // depends on intensity and particle size (custom1)
-    if (numParticles == 0) numParticles = 1; // minimum 1 particle
-    PartSys->setUsedParticles(numParticles);
-    SEGENV.step = (PartSys->maxX + (PS_P_RADIUS_1D << 5)) / PartSys->usedParticles; // spacing between particles
+    if (SEGMENT.check1)
+      SEGENV.step = PartSys->advPartProps[0].size / 2 + (PartSys->maxX / numParticles);
+    else
+      SEGENV.step = (PartSys->maxX + (PS_P_RADIUS_1D << 5)) / numParticles; // spacing between particles
     for (int32_t i = 0; i < (int32_t)PartSys->usedParticles; i++) {
       PartSys->advPartProps[i].sat = 255;
       PartSys->particles[i].x = (i - 1) * SEGENV.step; // distribute evenly (starts out of frame for i=0)
-      PartSys->particles[i].vx =  SEGMENT.speed >> 1;
+      PartSys->particles[i].vx =  SEGMENT.speed >> 2;
       PartSys->advPartProps[i].size = SEGMENT.custom1;
       if (SEGMENT.custom2 < 255)
-        PartSys->particles[i].hue = (i * (SEGMENT.custom2 << 3)) / PartSys->usedParticles; // gradient distribution
+        PartSys->particles[i].hue = i * huestep; // gradient distribution
       else
         PartSys->particles[i].hue = hw_random16();
     }
     SEGENV.aux0 = settingssum;
   }
 
-  int32_t huestep = (((uint32_t)SEGMENT.custom2 << 19) / PartSys->usedParticles) >> 16; // hue increment
+  if(SEGMENT.check1) {
+    huestep = 1 + (max((int)huestep, 3)  * ((int(sin16_t(strip.now * 3) + 32767))) >> 15); // changes gradient spread (scale hue step)
+  }
 
   // wrap around (cannot use particle system wrap if distributing colors manually, it also wraps rendering which does not look good)
   for (int32_t i = (int32_t)PartSys->usedParticles - 1; i >= 0; i--) { // check from the back, last particle wraps first, multiple particles can overrun per frame
     if (PartSys->particles[i].x > PartSys->maxX + PS_P_RADIUS_1D + PartSys->advPartProps[i].size) { // wrap it around
       uint32_t nextindex = (i + 1) % PartSys->usedParticles;
-      PartSys->particles[i].x =  PartSys->particles[nextindex].x - (int)SEGENV.step;
+      PartSys->particles[i].x = PartSys->particles[nextindex].x - (int)SEGENV.step;
+      if(SEGMENT.check1) // playful mode, vary size
+        PartSys->advPartProps[i].size = max(1 + (SEGMENT.custom1 >> 1), ((int(sin16_t(strip.now << 1) + 32767)) >> 8)); // cycle size
       if (SEGMENT.custom2 < 255)
         PartSys->particles[i].hue = PartSys->particles[nextindex].hue - huestep;
       else
@@ -9683,11 +9971,37 @@ uint16_t mode_particleChase(void) {
     PartSys->particles[i].ttl = 300; // reset ttl, cannot use perpetual because memmanager can change pointer at any time
   }
 
+  if (SEGMENT.check1) { // playful mode, changes hue, size, speed, density dynamically
+    int8_t* huedir = reinterpret_cast<int8_t *>(PartSys->PSdataEnd);  //assign data pointer
+    int8_t* stepdir = reinterpret_cast<int8_t *>(PartSys->PSdataEnd + 1);
+    if(*stepdir == 0) *stepdir = 1; // initialize directions
+    if(*huedir == 0) *huedir = 1;
+    if (SEGENV.step >= (PartSys->advPartProps[0].size + PS_P_RADIUS_1D * 4) + PartSys->maxX / numParticles)
+      *stepdir = -1; // increase density (decrease space between particles)
+    else if (SEGENV.step <= (PartSys->advPartProps[0].size >> 1) + ((PartSys->maxX / numParticles)))
+      *stepdir = 1; // decrease density
+    if (SEGENV.aux1 > 512)
+      *huedir = -1;
+    else if (SEGENV.aux1 < 50)
+      *huedir = 1;
+    if (SEGMENT.call % (1024 / (1 + (SEGMENT.speed >> 2))) == 0)
+      SEGENV.aux1 += *huedir;
+    int8_t globalhuestep = 0; // global hue increment
+    if (SEGMENT.call % (1 + (int(sin16_t(strip.now) + 32767) >> 12))  == 0)
+      globalhuestep = 2; // global hue change to add some color variation
+    if ((SEGMENT.call & 0x1F) == 0)
+      SEGENV.step += *stepdir; // change density
+    for(uint32_t i = 0; i < PartSys->usedParticles; i++) {
+      PartSys->particles[i].hue -= globalhuestep; // shift global hue (both directions)
+      PartSys->particles[i].vx = 1 + (SEGMENT.speed >> 2) + ((int32_t(sin16_t(strip.now >> 1) + 32767) * (SEGMENT.speed >> 2)) >> 16);
+    }
+  }
+
   PartSys->setParticleSize(SEGMENT.custom1); // if custom1 == 0 this sets rendering size to one pixel
   PartSys->update(); // update and render
   return FRAMETIME;
 }
-static const char _data_FX_MODE_PS_CHASE[] PROGMEM = "PS Chase@!,Density,Size,Hue,Blur,,,Position Color;,!;!;1;pal=11,sx=50,c2=5,c3=0";
+static const char _data_FX_MODE_PS_CHASE[] PROGMEM = "PS Chase@!,Density,Size,Hue,Blur,Playful,,Position Color;,!;!;1;pal=11,sx=50,c2=5,c3=0";
 
 /*
   Particle Fireworks Starburst replacement (smoother rendering, more settings)
@@ -9781,7 +10095,6 @@ uint16_t mode_particle1DGEQ(void) {
     PartSys->sources[i].maxLife = 240 + SEGMENT.intensity;
     PartSys->sources[i].sat = 255;
     PartSys->sources[i].size = SEGMENT.custom1;
-    PartSys->setParticleSize(SEGMENT.custom1);
     PartSys->sources[i].source.x = (spacing >> 1) + spacing * i; //distribute evenly
   }
 
@@ -9849,7 +10162,7 @@ uint16_t mode_particleFire1D(void) {
   PartSys->setColorByAge(true);
   uint32_t emitparticles = 1;
   uint32_t j = hw_random16();
-  for (uint i = 0; i < 3; i++) { // 3 base flames TODO: check if this is ok or needs adjustments
+  for (uint i = 0; i < 3; i++) { // 3 base flames
     if (PartSys->sources[i].source.ttl > 50)
       PartSys->sources[i].source.ttl -= 10; // TODO: in 2D making the source fade out slow results in much smoother flames, need to check if it can be done the same
     else
@@ -9870,7 +10183,7 @@ uint16_t mode_particleFire1D(void) {
       }
     }
     else {
-      PartSys->sources[j].minLife = PartSys->sources[j].source.ttl + SEGMENT.intensity; // TODO: in 2D, emitted particle ttl depends on source TTL, mimic here the same way? OR: change 2D to the same way it is done here and ditch special fire treatment in emit?
+      PartSys->sources[j].minLife = PartSys->sources[j].source.ttl + SEGMENT.intensity;
       PartSys->sources[j].maxLife = PartSys->sources[j].minLife + 50;
       PartSys->sources[j].v = SEGMENT.speed >> 2;
       if (SEGENV.call & 0x01) // every second frame
@@ -9892,10 +10205,9 @@ static const char _data_FX_MODE_PS_FIRE1D[] PROGMEM = "PS Fire 1D@!,!,Cooling,Bl
 
 /*
   Particle based AR effect, swoop particles along the strip with selected frequency loudness
-  Uses palette for particle color
   by DedeHai (Damian Schneider)
 */
-uint16_t mode_particle1Dsonicstream(void) {
+uint16_t mode_particle1DsonicStream(void) {
   ParticleSystem1D *PartSys = nullptr;
 
   if (SEGMENT.call == 0) { // initialization
@@ -9905,7 +10217,6 @@ uint16_t mode_particle1Dsonicstream(void) {
     PartSys->sources[0].source.x = 0; // at start
     //PartSys->sources[1].source.x = PartSys->maxX; // at end
     PartSys->sources[0].var = 0;//SEGMENT.custom1 >> 3;
-    PartSys->sources[0].sat = 255;
   }
   else
     PartSys = reinterpret_cast<ParticleSystem1D *>(SEGENV.data); // if not first call, just set the pointer to the PS
@@ -9916,7 +10227,6 @@ uint16_t mode_particle1Dsonicstream(void) {
   PartSys->updateSystem(); // update system properties (dimensions and data pointers)
   PartSys->setMotionBlur(20 + (SEGMENT.custom2 >> 1)); // anable motion blur
   PartSys->setSmearBlur(200); // smooth out the edges
-
   PartSys->sources[0].v = 5 + (SEGMENT.speed >> 2);
 
   // FFT processing
@@ -9926,11 +10236,10 @@ uint16_t mode_particle1Dsonicstream(void) {
   uint32_t baseBin = SEGMENT.custom3 >> 1; // 0 - 15 map(SEGMENT.custom3, 0, 31, 0, 14);
 
   loudness = fftResult[baseBin];// + fftResult[baseBin + 1];
-  int mids = sqrt16((int)fftResult[5] + (int)fftResult[6] + (int)fftResult[7] + (int)fftResult[8] + (int)fftResult[9] + (int)fftResult[10]); // average the mids, bin 5 is ~500Hz, bin 10 is ~2kHz (see audio_reactive.h)
   if (baseBin > 12)
     loudness = loudness << 2; // double loudness for high frequencies (better detecion)
 
-  uint32_t threshold = 150 - (SEGMENT.intensity >> 1);
+  uint32_t threshold = 140 - (SEGMENT.intensity >> 1);
   if (SEGMENT.check2) { // enable low pass filter for dynamic threshold
     SEGMENT.step = (SEGMENT.step * 31500 + loudness * (32768 - 31500)) >> 15; // low pass filter for simple beat detection: add average to base threshold
     threshold = 20 + (threshold >> 1) + SEGMENT.step; // add average to threshold
@@ -9938,6 +10247,7 @@ uint16_t mode_particle1Dsonicstream(void) {
 
   // color
   uint32_t hueincrement = (SEGMENT.custom1 >> 3); // 0-31
+  PartSys->sources[0].sat = SEGMENT.custom1 > 0 ? 255 : 0; // color slider at zero: set to white
   PartSys->setColorByPosition(SEGMENT.custom1 == 255);
 
   // particle manipulation
@@ -9948,8 +10258,10 @@ uint16_t mode_particle1Dsonicstream(void) {
       }
       else PartSys->particles[i].ttl = 0;
     }
-    if (SEGMENT.check1) // modulate colors by mid frequencies
-      PartSys->particles[i].hue += (mids * inoise8(PartSys->particles[i].x << 2, SEGMENT.step << 2)) >> 9; // color by perlin noise from mid frequencies
+    if (SEGMENT.check1) { // modulate colors by mid frequencies
+      int mids = sqrt32_bw((int)fftResult[5] + (int)fftResult[6] + (int)fftResult[7] + (int)fftResult[8] + (int)fftResult[9] + (int)fftResult[10]); // average the mids, bin 5 is ~500Hz, bin 10 is ~2kHz (see audio_reactive.h)
+      PartSys->particles[i].hue += (mids * perlin8(PartSys->particles[i].x << 2, SEGMENT.step << 2)) >> 9; // color by perlin noise from mid frequencies
+    }
   }
 
   if (loudness > threshold) {
@@ -9993,6 +10305,266 @@ uint16_t mode_particle1Dsonicstream(void) {
   return FRAMETIME;
 }
 static const char _data_FX_MODE_PS_SONICSTREAM[] PROGMEM = "PS Sonic Stream@!,!,Color,Blur,Bin,Mod,Filter,Push;,!;!;1f;c3=0,o2=1";
+
+
+/*
+  Particle based AR effect, creates exploding particles on beats
+  by DedeHai (Damian Schneider)
+*/
+uint16_t mode_particle1DsonicBoom(void) {
+  ParticleSystem1D *PartSys = nullptr;
+  if (SEGMENT.call == 0) { // initialization
+    if (!initParticleSystem1D(PartSys, 1, 255, 0, true)) // init, no additional data needed
+      return mode_static(); // allocation failed or is single pixel
+    PartSys->setKillOutOfBounds(true);
+  }
+  else
+    PartSys = reinterpret_cast<ParticleSystem1D *>(SEGENV.data); // if not first call, just set the pointer to the PS
+  if (PartSys == nullptr)
+    return mode_static(); // something went wrong, no data!
+
+  // Particle System settings
+  PartSys->updateSystem(); // update system properties (dimensions and data pointers)
+  PartSys->setMotionBlur(180 * SEGMENT.check3);
+  PartSys->setSmearBlur(64 * SEGMENT.check3);
+  PartSys->sources[0].var = map(SEGMENT.speed, 0, 255, 10, 127);
+
+  // FFT processing
+  um_data_t *um_data = getAudioData();
+  uint8_t *fftResult = (uint8_t *)um_data->u_data[2]; // 16 bins with FFT data, log mapped already, each band contains frequency amplitude 0-255
+  uint32_t loudness;
+  uint32_t baseBin = SEGMENT.custom3 >> 1; // 0 - 15 map(SEGMENT.custom3, 0, 31, 0, 14);
+  loudness = fftResult[baseBin];// + fftResult[baseBin + 1];
+
+  if (baseBin > 12)
+    loudness = loudness << 2; // double loudness for high frequencies (better detecion)
+  uint32_t threshold = 150 - (SEGMENT.intensity >> 1);
+  if (SEGMENT.check2) { // enable low pass filter for dynamic threshold
+    SEGMENT.step = (SEGMENT.step * 31500 + loudness * (32768 - 31500)) >> 15; // low pass filter for simple beat detection: add average to base threshold
+    threshold = 20 + (threshold >> 1) + SEGMENT.step; // add average to threshold
+  }
+
+  // particle manipulation
+  for (uint32_t i = 0; i < PartSys->usedParticles; i++) {
+    if (SEGMENT.check1) { // modulate colors by mid frequencies
+      int mids = sqrt32_bw((int)fftResult[5] + (int)fftResult[6] + (int)fftResult[7] + (int)fftResult[8] + (int)fftResult[9] + (int)fftResult[10]); // average the mids, bin 5 is ~500Hz, bin 10 is ~2kHz (see audio_reactive.h)
+      PartSys->particles[i].hue += (mids * perlin8(PartSys->particles[i].x << 2, SEGMENT.step << 2)) >> 9; // color by perlin noise from mid frequencies
+    }
+    if (PartSys->particles[i].ttl > 16) {
+      PartSys->particles[i].ttl -= 16; //ttl is linked to brightness, this allows to use higher brightness but still a (very) short lifespan
+    }
+  }
+
+  if (loudness > threshold) {
+    if (SEGMENT.aux1 == 0) { // edge detected, code only runs once per "beat"
+      // update position
+      if (SEGMENT.custom2 < 128) // fixed position
+        PartSys->sources[0].source.x = map(SEGMENT.custom2, 0, 127, 0, PartSys->maxX);
+      else if (SEGMENT.custom2 < 255) { // advances on each "beat"
+        int32_t step = PartSys->maxX / (((270 - SEGMENT.custom2) >> 3)); // step: 2 - 33 steps for full segment width
+        PartSys->sources[0].source.x = (PartSys->sources[0].source.x + step) % PartSys->maxX;
+        if (PartSys->sources[0].source.x < step) // align to be symmetrical by making the first position half a step from start
+          PartSys->sources[0].source.x = step >> 1;
+      }
+      else // position set to max, use random postion per beat
+        PartSys->sources[0].source.x = hw_random(PartSys->maxX);
+
+      // update color
+      //PartSys->setColorByPosition(SEGMENT.custom1 == 255);     // color slider at max: particle color by position
+      PartSys->sources[0].sat = SEGMENT.custom1 > 0 ? 255 : 0; // color slider at zero: set to white
+      if (SEGMENT.custom1 == 255) // emit color by position
+        SEGMENT.aux0 = map(PartSys->sources[0].source.x , 0, PartSys->maxX, 0, 255);
+      else if (SEGMENT.custom1 > 0)
+        SEGMENT.aux0 += (SEGMENT.custom1 >> 1); // change emit color per "beat"
+    }
+    SEGMENT.aux1 = 1; // track edge detection
+
+    PartSys->sources[0].minLife = 200;
+    PartSys->sources[0].maxLife = PartSys->sources[0].minLife + (((unsigned)SEGMENT.intensity * loudness * loudness) >> 13);
+    PartSys->sources[0].source.hue = SEGMENT.aux0;
+    PartSys->sources[0].size = 1; //SEGMENT.speed>>3;
+    uint32_t explosionsize = 4 + (PartSys->maxXpixel >> 2);
+    explosionsize = hw_random16((explosionsize * loudness) >> 10);
+    for (uint32_t e = 0; e < explosionsize; e++) { // emit explosion particles
+        PartSys->sprayEmit(PartSys->sources[0]); // emit a particle
+      }
+  }
+  else
+    SEGMENT.aux1 = 0; // reset edge detection
+
+  PartSys->update(); // update and render (needs to be done before manipulation for initial particle spacing to be right)
+  return FRAMETIME;
+}
+static const char _data_FX_MODE_PS_SONICBOOM[] PROGMEM = "PS Sonic Boom@!,!,Color,Position,Bin,Mod,Filter,Blur;,!;!;1f;c2=63,c3=0,o2=1";
+
+/*
+Particles bound by springs
+by DedeHai (Damian Schneider)
+*/
+uint16_t mode_particleSpringy(void) {
+  ParticleSystem1D *PartSys = nullptr;
+  if (SEGMENT.call == 0) { // initialization
+    if (!initParticleSystem1D(PartSys, 1, 128, 0, true)) // init
+      return mode_static(); // allocation failed or is single pixel
+    SEGENV.aux0 = SEGENV.aux1 = 0xFFFF; // invalidate settings
+  }
+  else
+    PartSys = reinterpret_cast<ParticleSystem1D *>(SEGENV.data); // if not first call, just set the pointer to the PS
+  if (PartSys == nullptr)
+    return mode_static(); // something went wrong, no data!
+  // Particle System settings
+  PartSys->updateSystem(); // update system properties (dimensions and data pointers)
+  PartSys->setMotionBlur(220 * SEGMENT.check1); // anable motion blur
+  PartSys->setSmearBlur(50); // smear a little
+  PartSys->setUsedParticles(map(SEGMENT.custom1, 0, 255, 30 >> SEGMENT.check2, 255  >> (SEGMENT.check2*2))); // depends on density and particle size
+ // PartSys->enableParticleCollisions(true, 140); // enable particle collisions, can not be set too hard or impulses will not strech the springs if soft.
+  int32_t springlength = PartSys->maxX / (PartSys->usedParticles); // spring length (spacing between particles)
+  int32_t springK = map(SEGMENT.speed, 0, 255, 5, 35); // spring constant (stiffness)
+
+  uint32_t settingssum = SEGMENT.custom1 + SEGMENT.check2;
+  if (SEGENV.aux0 != settingssum) { // number of particles changed, update distribution
+    for (int32_t i = 0; i < (int32_t)PartSys->usedParticles; i++) {
+      PartSys->advPartProps[i].sat = 255; // full saturation
+      //PartSys->particleFlags[i].collide = true; // enable collision for particles
+      PartSys->particles[i].x = (i+1) * ((PartSys->maxX) / (PartSys->usedParticles)); // distribute
+      //PartSys->particles[i].vx = 0; //reset speed
+      PartSys->advPartProps[i].size = SEGMENT.check2 ? 190 : 2; // set size, small or big
+    }
+    SEGENV.aux0 = settingssum;
+  }
+  int dxlimit = (2 + ((255 - SEGMENT.speed) >> 5)) * springlength; // limit for spring length to avoid overstretching
+
+  int springforce[PartSys->usedParticles]; // spring forces
+  memset(springforce, 0, PartSys->usedParticles * sizeof(int32_t)); // reset spring forces
+
+  // calculate spring forces and limit particle positions
+  if (PartSys->particles[0].x < -springlength)
+    PartSys->particles[0].x = -springlength; // limit the spring length
+  else if (PartSys->particles[0].x > dxlimit)
+    PartSys->particles[0].x = dxlimit; // limit the spring length
+  springforce[0] += ((springlength >> 1) - (PartSys->particles[0].x)) * springK; // first particle anchors to x=0
+
+  for (uint32_t i = 1; i < PartSys->usedParticles; i++) {
+    // reorder particles if they are out of order to prevent chaos
+    if (PartSys->particles[i].x < PartSys->particles[i-1].x)
+        std::swap(PartSys->particles[i].x, PartSys->particles[i-1].x); // swap particle positions to maintain order
+    int dx = PartSys->particles[i].x - PartSys->particles[i-1].x; // distance, always positive
+    if (dx > dxlimit) { // limit the spring length
+      PartSys->particles[i].x = PartSys->particles[i-1].x + dxlimit;
+      dx = dxlimit;
+    }
+    int dxleft = (springlength - dx); // offset from spring resting position
+    springforce[i] += dxleft * springK;
+    springforce[i-1] -= dxleft * springK;
+    if (i == (PartSys->usedParticles - 1)) {
+     if (PartSys->particles[i].x >= PartSys->maxX + springlength)
+        PartSys->particles[i].x = PartSys->maxX + springlength;
+      int dxright = (springlength >> 1) - (PartSys->maxX - PartSys->particles[i].x); // last particle anchors to x=maxX
+      springforce[i] -= dxright * springK;
+    }
+  }
+  // apply spring forces to particles
+  bool dampenoscillations = (SEGMENT.call % (9 - (SEGMENT.speed >> 5))) == 0; // dampen oscillation if particles are slow, more damping on stiffer springs
+  for (uint32_t i = 0; i < PartSys->usedParticles; i++) {
+    springforce[i] = springforce[i] / 64; // scale spring force (cannot use shifts because of negative values)
+    int maxforce = 120; // limit spring force
+    springforce[i] = springforce[i] > maxforce ? maxforce : springforce[i] < -maxforce ? -maxforce : springforce[i]; // limit spring force
+    PartSys->applyForce(PartSys->particles[i], springforce[i], PartSys->advPartProps[i].forcecounter);
+    //dampen slow particles to avoid persisting oscillations on higher stiffness
+    if (dampenoscillations) {
+      if (abs(PartSys->particles[i].vx) < 3 && abs(springforce[i]) < (springK >> 2))
+        PartSys->particles[i].vx = (PartSys->particles[i].vx * 254) / 256; // take out some energy
+    }
+    PartSys->particles[i].ttl = 300; // reset ttl, cannot use perpetual
+  }
+
+  if (SEGMENT.call % ((65 - ((SEGMENT.intensity * (1 + (SEGMENT.speed>>3))) >> 7))) == 0) // more damping for higher stiffness
+    PartSys->applyFriction((SEGMENT.intensity >> 2));
+
+  // add a small resetting force so particles return to resting position even under high damping
+  for (uint32_t i = 1; i < PartSys->usedParticles - 1; i++) {
+    int restposition = (springlength >> 1) + i * springlength; // resting position
+    int dx = restposition - PartSys->particles[i].x; // distance, always positive
+    PartSys->applyForce(PartSys->particles[i], dx > 0 ? 1 : (dx < 0 ? -1 : 0), PartSys->advPartProps[i].forcecounter);
+  }
+
+  // Modes
+  if (SEGMENT.check3) { // use AR, custom 3 becomes frequency band to use, applies velocity to center particle according to loudness
+    um_data_t *um_data = getAudioData();
+    uint8_t *fftResult = (uint8_t *)um_data->u_data[2]; // 16 bins with FFT data, log mapped already, each band contains frequency amplitude 0-255
+    uint32_t baseBin = map(SEGMENT.custom3, 0, 31, 0, 14);
+    uint32_t loudness = fftResult[baseBin] + fftResult[baseBin+1];
+    uint32_t threshold = 80; //150 - (SEGMENT.intensity >> 1);
+    if (loudness > threshold) {
+        int offset = (PartSys->maxX >> 1) - PartSys->particles[PartSys->usedParticles>>1].x; // offset from center
+        if (abs(offset) < PartSys->maxX >> 5) // push particle around in center sector
+          PartSys->particles[PartSys->usedParticles>>1].vx = ((PartSys->particles[PartSys->usedParticles>>1].vx > 0 ? 1 : -1)) * (loudness >> 3);
+    }
+  }
+  else{
+    if (SEGMENT.custom3 <= 10) { // periodic pulse: 0-5 apply at start, 6-10 apply at center
+      if (strip.now > SEGMENT.step) {
+        int speed = (SEGMENT.custom3 > 5) ? (SEGMENT.custom3 - 6) : SEGMENT.custom3;
+        SEGMENT.step = strip.now + 7500 - ((SEGMENT.speed << 3) + (speed << 10));
+        int amplitude = 40 + (SEGMENT.custom1 >> 2);
+        int index = (SEGMENT.custom3 > 5) ? (PartSys->usedParticles / 2) : 0; // center or start particle
+        PartSys->particles[index].vx += amplitude;
+      }
+    }
+    else if (SEGMENT.custom3 <= 30) { // sinusoidal wave: 11-20 apply at start, 21-30 apply at center
+      int index = (SEGMENT.custom3 > 20) ? (PartSys->usedParticles / 2) : 0; // center or start particle
+      int restposition = 0;
+      if (index > 0) restposition = PartSys->maxX >> 1; // center
+      //int amplitude = 5 + (SEGMENT.speed >> 3) + (SEGMENT.custom1 >> 2); // amplitude depends on density
+      int amplitude = 5 + (SEGMENT.custom1 >> 2); // amplitude depends on density
+      int speed = SEGMENT.custom3 - 10 - (index ? 10 : 0); // map 11-20 and 21-30 to 1-10
+      int phase = strip.now * ((1 + (SEGMENT.speed >> 4)) * speed);
+      if (SEGMENT.check2) amplitude <<= 1; // double amplitude for XL particles
+      //PartSys->applyForce(PartSys->particles[index], (sin16_t(phase) * amplitude) >> 15, PartSys->advPartProps[index].forcecounter); // apply acceleration
+      PartSys->particles[index].x = restposition + ((sin16_t(phase) * amplitude) >> 12); // apply position
+    }
+    else {
+      if (hw_random16() < 656) { // ~1% chance to add a pulse
+        int amplitude = 60;
+        if (SEGMENT.check2) amplitude <<= 1; // double amplitude for XL particles
+        PartSys->particles[PartSys->usedParticles >> 1].vx += hw_random16(amplitude << 1) - amplitude; // apply acceleration
+      }
+    }
+  }
+
+  for (uint32_t i = 0; i < PartSys->usedParticles; i++) {
+    if (SEGMENT.custom2 == 255) { // map speed to hue
+       int speedclr = ((int8_t(abs(PartSys->particles[i].vx))) >> 2) << 4; // scale for greater color variation, dump small values to avoid flickering
+       //int speed = PartSys->particles[i].vx << 2; // +/- 512
+       if (speedclr > 240) speedclr = 240; // limit color to non-wrapping part of palette
+       PartSys->particles[i].hue = speedclr;
+    }
+    else if (SEGMENT.custom2 > 0)
+      PartSys->particles[i].hue = i * (SEGMENT.custom2 >> 2); // gradient distribution
+    else {
+      // map hue to particle density
+      int deviation;
+      if (i == 0) // First particle: measure density based on distance to anchor point
+        deviation = springlength/2 - PartSys->particles[i].x;
+      else if (i == PartSys->usedParticles - 1) // Last particle: measure density based on distance to right boundary
+        deviation = springlength/2 - (PartSys->maxX - PartSys->particles[i].x);
+      else {
+        // Middle particles: average of compression/expansion from both sides
+        int leftDx = PartSys->particles[i].x - PartSys->particles[i-1].x;
+        int rightDx = PartSys->particles[i+1].x - PartSys->particles[i].x;
+        int avgDistance = (leftDx + rightDx) >> 1;
+        if (avgDistance < 0) avgDistance = 0; // avoid negative distances (not sure why this happens)
+        deviation = (springlength - avgDistance);
+      }
+      deviation = constrain(deviation, -127, 112); // limit deviation to -127..112 (do not go intwo wrapping part of palette)
+      PartSys->particles[i].hue = 127 + deviation; // map density to hue
+    }
+  }
+  PartSys->update(); // update and render
+  return FRAMETIME;
+}
+static const char _data_FX_MODE_PS_SPRINGY[] PROGMEM = "PS Springy@Stiffness,Damping,Density,Hue,Mode,Smear,XL,AR;,!;!;1f;pal=54,c2=0,c3=23";
+
 #endif // WLED_DISABLE_PARTICLESYSTEM1D
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -10032,6 +10604,7 @@ void WS2812FX::setupEffectData() {
     _modeData.push_back(_data_RESERVED);
   }
   // now replace all pre-allocated effects
+  addEffect(FX_MODE_COPY, &mode_copy_segment, _data_FX_MODE_COPY);
   // --- 1D non-audio effects ---
   addEffect(FX_MODE_BLINK, &mode_blink, _data_FX_MODE_BLINK);
   addEffect(FX_MODE_BREATH, &mode_breath, _data_FX_MODE_BREATH);
@@ -10186,6 +10759,7 @@ void WS2812FX::setupEffectData() {
   addEffect(FX_MODE_FLOWSTRIPE, &mode_FlowStripe, _data_FX_MODE_FLOWSTRIPE);
   addEffect(FX_MODE_WAVESINS, &mode_wavesins, _data_FX_MODE_WAVESINS);
   addEffect(FX_MODE_ROCKTAVES, &mode_rocktaves, _data_FX_MODE_ROCKTAVES);
+  addEffect(FX_MODE_SHIMMER, &mode_shimmer, _data_FX_MODE_SHIMMER);
 
   // --- 2D  effects ---
 #ifndef WLED_DISABLE_2D
@@ -10249,6 +10823,7 @@ void WS2812FX::setupEffectData() {
   addEffect(FX_MODE_PARTICLECENTERGEQ, &mode_particlecenterGEQ, _data_FX_MODE_PARTICLECIRCULARGEQ);
   addEffect(FX_MODE_PARTICLEGHOSTRIDER, &mode_particleghostrider, _data_FX_MODE_PARTICLEGHOSTRIDER);
   addEffect(FX_MODE_PARTICLEBLOBS, &mode_particleblobs, _data_FX_MODE_PARTICLEBLOBS);
+  addEffect(FX_MODE_PARTICLEGALAXY, &mode_particlegalaxy, _data_FX_MODE_PARTICLEGALAXY);
 #endif // WLED_DISABLE_PARTICLESYSTEM2D
 #endif // WLED_DISABLE_2D
 
@@ -10265,7 +10840,9 @@ addEffect(FX_MODE_PSCHASE, &mode_particleChase, _data_FX_MODE_PS_CHASE);
 addEffect(FX_MODE_PSSTARBURST, &mode_particleStarburst, _data_FX_MODE_PS_STARBURST);
 addEffect(FX_MODE_PS1DGEQ, &mode_particle1DGEQ, _data_FX_MODE_PS_1D_GEQ);
 addEffect(FX_MODE_PSFIRE1D, &mode_particleFire1D, _data_FX_MODE_PS_FIRE1D);
-addEffect(FX_MODE_PS1DSONICSTREAM, &mode_particle1Dsonicstream, _data_FX_MODE_PS_SONICSTREAM);
+addEffect(FX_MODE_PS1DSONICSTREAM, &mode_particle1DsonicStream, _data_FX_MODE_PS_SONICSTREAM);
+addEffect(FX_MODE_PS1DSONICBOOM, &mode_particle1DsonicBoom, _data_FX_MODE_PS_SONICBOOM);
+addEffect(FX_MODE_PS1DSPRINGY, &mode_particleSpringy, _data_FX_MODE_PS_SPRINGY);
 #endif // WLED_DISABLE_PARTICLESYSTEM1D
 
 }

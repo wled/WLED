@@ -2,13 +2,14 @@
 This usermod will obtain readings from a Light Dependent Resistor (LDR) and will turn on/off specific presets based on those readings. This is useful for exterior lighting situations where you want the lights to only be on when it is dark out.
 
 # Installation
-Add "-D USERMOD_LDR_DUSK_DAWN" to your platformio.ini [common] build_flags and build.
+Add "LDR_Dusk_Dawn" to your platformio.ini environment's custom_usermods and build.
 
 Example:
 ```
-[common]
-build_flags =
-  -D USERMOD_LDR_DUSK_DAWN   # Enable LDR Dusk Dawn Usermod
+[env:usermod_LDR_Dusk_Dawn_esp32dev]
+extends = env:esp32dev
+custom_usermods = ${env:esp32dev.custom_usermods} 
+  LDR_Dusk_Dawn   # Enable LDR Dusk Dawn Usermod
 ```
 
 # Usermod Settings

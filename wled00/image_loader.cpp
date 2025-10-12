@@ -58,7 +58,7 @@ void drawPixelCallback(int16_t x, int16_t y, uint8_t red, uint8_t green, uint8_t
   // set multiple pixels if upscaling
   for (int16_t i = 0; i < (activeSeg->width()+(gifWidth-1)) / gifWidth; i++) {
     for (int16_t j = 0; j < (activeSeg->height()+(gifHeight-1)) / gifHeight; j++) {
-      activeSeg->setPixelColorXY(outX + i, outY + j, gamma8(red), gamma8(green), gamma8(blue));
+      activeSeg->setPixelColorXY(outX + i, outY + j, red, green, blue);
     }
   }
 }
@@ -78,7 +78,7 @@ void drawPixelCallback(int16_t x, int16_t y, uint8_t red, uint8_t green, uint8_t
 byte renderImageToSegment(Segment &seg) {
   if (!seg.name) return IMAGE_ERROR_NO_NAME;
   // disable during effect transition, causes flickering, multiple allocations and depending on image, part of old FX remaining
-  if (seg.mode != seg.currentMode()) return IMAGE_ERROR_WAITING;
+  //if (seg.mode != seg.currentMode()) return IMAGE_ERROR_WAITING;
   if (activeSeg && activeSeg != &seg) return IMAGE_ERROR_SEG_LIMIT; // only one segment at a time
   activeSeg = &seg;
 

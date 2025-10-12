@@ -24,10 +24,15 @@ void handleIO();
 void IRAM_ATTR touchButtonISR();
 
 //cfg.cpp
+bool backupConfig();
+bool restoreConfig();
+bool verifyConfig();
+void resetConfig();
 bool deserializeConfig(JsonObject doc, bool fromFS = false);
-void deserializeConfigFromFS();
+bool deserializeConfigFromFS();
 bool deserializeConfigSec();
-void serializeConfig();
+void serializeConfig(JsonObject doc);
+void serializeConfigToFS();
 void serializeConfigSec();
 
 template<typename DestType>
@@ -53,6 +58,7 @@ bool getJsonValue(const JsonVariant& element, DestType& destination, const Defau
 typedef struct WiFiConfig {
   char clientSSID[33];
   char clientPass[65];
+  uint8_t bssid[6];
   IPAddress staticIP;
   IPAddress staticGW;
   IPAddress staticSN;
@@ -63,126 +69,9 @@ typedef struct WiFiConfig {
   {
     strncpy(clientSSID, ssid, 32); clientSSID[32] = 0;
     strncpy(clientPass, pass, 64); clientPass[64] = 0;
+    memset(bssid, 0, sizeof(bssid));
   }
 } wifi_config;
-
-//colors.cpp
-#define ColorFromPalette ColorFromPaletteWLED // override fastled version
-
-// CRGBW can be used to manipulate 32bit colors faster. However: if it is passed to functions, it adds overhead compared to a uint32_t color
-// use with caution and pay attention to flash size. Usually converting a uint32_t to CRGBW to extract r, g, b, w values is slower than using bitshifts
-// it can be useful to avoid back and forth conversions between uint32_t and fastled CRGB
-struct CRGBW {
-    union {
-        uint32_t color32; // Access as a 32-bit value (0xWWRRGGBB)
-        struct {
-            uint8_t b;
-            uint8_t g;
-            uint8_t r;
-            uint8_t w;
-        };
-        uint8_t raw[4];   // Access as an array in the order B, G, R, W
-    };
-
-    // Default constructor
-    inline CRGBW() __attribute__((always_inline)) = default;
-
-    // Constructor from a 32-bit color (0xWWRRGGBB)
-    constexpr CRGBW(uint32_t color) __attribute__((always_inline)) : color32(color) {}
-
-    // Constructor with r, g, b, w values
-    constexpr CRGBW(uint8_t red, uint8_t green, uint8_t blue, uint8_t white = 0) __attribute__((always_inline)) : b(blue), g(green), r(red), w(white) {}
-
-    // Constructor from CRGB
-    constexpr CRGBW(CRGB rgb) __attribute__((always_inline)) : b(rgb.b), g(rgb.g), r(rgb.r), w(0) {}
-
-    // Access as an array
-    inline const uint8_t& operator[] (uint8_t x) const __attribute__((always_inline)) { return raw[x]; }
-
-    // Assignment from 32-bit color
-    inline CRGBW& operator=(uint32_t color) __attribute__((always_inline)) { color32 = color; return *this; }
-
-    // Assignment from r, g, b, w
-    inline CRGBW& operator=(const CRGB& rgb) __attribute__((always_inline)) { b = rgb.b; g = rgb.g; r = rgb.r; w = 0; return *this; }
-
-    // Conversion operator to uint32_t
-    inline operator uint32_t() const __attribute__((always_inline)) {
-      return color32;
-    }
-    /*
-    // Conversion operator to CRGB
-    inline operator CRGB() const __attribute__((always_inline)) {
-      return CRGB(r, g, b);
-    }
-
-    CRGBW& scale32 (uint8_t scaledown) // 32bit math
-    {
-      if (color32 == 0) return *this; // 2 extra instructions, worth it if called a lot on black (which probably is true) adding check if scaledown is zero adds much more overhead as its 8bit
-      uint32_t scale = scaledown + 1;
-      uint32_t rb = (((color32 & 0x00FF00FF) * scale) >> 8) & 0x00FF00FF; // scale red and blue
-      uint32_t wg = (((color32 & 0xFF00FF00) >> 8) * scale) & 0xFF00FF00; // scale white and green
-          color32 =  rb | wg;
-      return *this;
-    }*/
-
-};
-
-struct CHSV32 { // 32bit HSV color with 16bit hue for more accurate conversions
-  union {
-    struct {
-        uint16_t h;  // hue
-        uint8_t s;   // saturation
-        uint8_t v;   // value
-    };
-    uint32_t raw;    // 32bit access
-  };
-  inline CHSV32() __attribute__((always_inline)) = default; // default constructor
-
-    /// Allow construction from hue, saturation, and value
-    /// @param ih input hue
-    /// @param is input saturation
-    /// @param iv input value
-  inline CHSV32(uint16_t ih, uint8_t is, uint8_t iv) __attribute__((always_inline)) // constructor from 16bit h, s, v
-        : h(ih), s(is), v(iv) {}
-  inline CHSV32(uint8_t ih, uint8_t is, uint8_t iv) __attribute__((always_inline)) // constructor from 8bit h, s, v
-        : h((uint16_t)ih << 8), s(is), v(iv) {}
-  inline CHSV32(const CHSV& chsv) __attribute__((always_inline))  // constructor from CHSV
-    : h((uint16_t)chsv.h << 8), s(chsv.s), v(chsv.v) {}
-  inline operator CHSV() const { return CHSV((uint8_t)(h >> 8), s, v); } // typecast to CHSV
-};
-// similar to NeoPixelBus NeoGammaTableMethod but allows dynamic changes (superseded by NPB::NeoGammaDynamicTableMethod)
-class NeoGammaWLEDMethod {
-  public:
-    [[gnu::hot]] static uint8_t Correct(uint8_t value);         // apply Gamma to single channel
-    [[gnu::hot]] static uint32_t Correct32(uint32_t color);     // apply Gamma to RGBW32 color (WLED specific, not used by NPB)
-    static void calcGammaTable(float gamma);                              // re-calculates & fills gamma table
-    static inline uint8_t rawGamma8(uint8_t val) { return gammaT[val]; }  // get value from Gamma table (WLED specific, not used by NPB)
-  private:
-    static uint8_t gammaT[];
-};
-#define gamma32(c) NeoGammaWLEDMethod::Correct32(c)
-#define gamma8(c)  NeoGammaWLEDMethod::rawGamma8(c)
-[[gnu::hot, gnu::pure]] uint32_t color_blend(uint32_t c1, uint32_t c2 , uint8_t blend);
-inline uint32_t color_blend16(uint32_t c1, uint32_t c2, uint16_t b) { return color_blend(c1, c2, b >> 8); };
-[[gnu::hot, gnu::pure]] uint32_t color_add(uint32_t, uint32_t, bool preserveCR = false);
-[[gnu::hot, gnu::pure]] uint32_t color_fade(uint32_t c1, uint8_t amount, bool video=false);
-[[gnu::hot, gnu::pure]] uint32_t ColorFromPaletteWLED(const CRGBPalette16 &pal, unsigned index, uint8_t brightness = (uint8_t)255U, TBlendType blendType = LINEARBLEND);
-CRGBPalette16 generateHarmonicRandomPalette(const CRGBPalette16 &basepalette);
-CRGBPalette16 generateRandomPalette();
-inline uint32_t colorFromRgbw(byte* rgbw) { return uint32_t((byte(rgbw[3]) << 24) | (byte(rgbw[0]) << 16) | (byte(rgbw[1]) << 8) | (byte(rgbw[2]))); }
-void hsv2rgb(const CHSV32& hsv, uint32_t& rgb);
-void colorHStoRGB(uint16_t hue, byte sat, byte* rgb);
-void rgb2hsv(const uint32_t rgb, CHSV32& hsv);
-inline CHSV rgb2hsv(const CRGB c) { CHSV32 hsv; rgb2hsv((uint32_t((byte(c.r) << 16) | (byte(c.g) << 8) | (byte(c.b)))), hsv); return CHSV(hsv); } // CRGB to hsv
-void colorKtoRGB(uint16_t kelvin, byte* rgb);
-void colorCTtoRGB(uint16_t mired, byte* rgb); //white spectrum to rgb
-void colorXYtoRGB(float x, float y, byte* rgb); // only defined if huesync disabled TODO
-void colorRGBtoXY(const byte* rgb, float* xy); // only defined if huesync disabled TODO
-void colorFromDecOrHexString(byte* rgb, const char* in);
-bool colorFromHexString(byte* rgb, const char* in);
-uint32_t colorBalanceFromKelvin(uint16_t kelvin, uint32_t rgb);
-uint16_t approximateKelvinFromRGB(uint32_t rgb);
-void setRandomColor(byte* rgb);
 
 //dmx_output.cpp
 void initDMXOutput();
@@ -203,14 +92,19 @@ void sendArtnetPollReply(ArtPollReply* reply, IPAddress ipAddress, uint16_t port
 bool handleFileRead(AsyncWebServerRequest*, String path);
 bool writeObjectToFileUsingId(const char* file, uint16_t id, const JsonDocument* content);
 bool writeObjectToFile(const char* file, const char* key, const JsonDocument* content);
-bool readObjectFromFileUsingId(const char* file, uint16_t id, JsonDocument* dest);
-bool readObjectFromFile(const char* file, const char* key, JsonDocument* dest);
+bool readObjectFromFileUsingId(const char* file, uint16_t id, JsonDocument* dest, const JsonDocument* filter = nullptr);
+bool readObjectFromFile(const char* file, const char* key, JsonDocument* dest, const JsonDocument* filter = nullptr);
 void updateFSInfo();
 void closeFile();
 inline bool writeObjectToFileUsingId(const String &file, uint16_t id, const JsonDocument* content) { return writeObjectToFileUsingId(file.c_str(), id, content); };
 inline bool writeObjectToFile(const String &file, const char* key, const JsonDocument* content) { return writeObjectToFile(file.c_str(), key, content); };
-inline bool readObjectFromFileUsingId(const String &file, uint16_t id, JsonDocument* dest) { return readObjectFromFileUsingId(file.c_str(), id, dest); };
-inline bool readObjectFromFile(const String &file, const char* key, JsonDocument* dest) { return readObjectFromFile(file.c_str(), key, dest); };
+inline bool readObjectFromFileUsingId(const String &file, uint16_t id, JsonDocument* dest, const JsonDocument* filter = nullptr) { return readObjectFromFileUsingId(file.c_str(), id, dest); };
+inline bool readObjectFromFile(const String &file, const char* key, JsonDocument* dest, const JsonDocument* filter = nullptr) { return readObjectFromFile(file.c_str(), key, dest); };
+bool copyFile(const char* src_path, const char* dst_path);
+bool backupFile(const char* filename);
+bool restoreFile(const char* filename);
+bool validateJsonFile(const char* filename);
+void dumpFilesToSerial();
 
 //hue.cpp
 void handleHue();
@@ -220,9 +114,8 @@ void onHueConnect(void* arg, AsyncClient* client);
 void sendHuePoll();
 void onHueData(void* arg, AsyncClient* client, void *data, size_t len);
 
-#include "FX.h" // must be below colors.cpp declarations (potentially due to duplicate declarations of e.g. color_blend)
-
 //image_loader.cpp
+class Segment;
 #ifdef WLED_ENABLE_GIF
 bool fileSeekCallback(unsigned long position);
 unsigned long filePositionCallback(void);
@@ -258,9 +151,7 @@ void handleIR();
 #include "ESPAsyncWebServer.h"
 #include "src/dependencies/json/ArduinoJson-v6.h"
 #include "src/dependencies/json/AsyncJson-v6.h"
-#include "FX.h"
 
-bool deserializeSegment(JsonObject elem, byte it, byte presetId = 0);
 bool deserializeState(JsonObject root, byte callMode = CALL_MODE_DIRECT_CHANGE, byte presetId = 0);
 void serializeSegment(const JsonObject& root, const Segment& seg, byte id, bool forPreset = false, bool segmentBounds = true);
 void serializeState(JsonObject root, bool forPreset = false, bool includeBri = true, bool segmentBounds = true, bool selectedSegmentsOnly = false);
@@ -274,8 +165,8 @@ bool serveLiveLeds(AsyncWebServerRequest* request, uint32_t wsClient = 0);
 
 //led.cpp
 void setValuesFromSegment(uint8_t s);
-void setValuesFromMainSeg();
-void setValuesFromFirstSelectedSeg();
+#define setValuesFromMainSeg()          setValuesFromSegment(strip.getMainSegmentId())
+#define setValuesFromFirstSelectedSeg() setValuesFromSegment(strip.getFirstSelectedSegId())
 void toggleOnOff();
 void applyBri();
 void applyFinalBri();
@@ -325,6 +216,7 @@ void serializePlaylist(JsonObject obj);
 
 //presets.cpp
 const char *getPresetsFileName(bool persistent = true);
+bool presetNeedsSaving();
 void initPresetsFile();
 void handlePresets();
 bool applyPreset(byte index, byte callMode = CALL_MODE_DIRECT_CHANGE);
@@ -360,7 +252,12 @@ void espNowReceiveCB(uint8_t* address, uint8_t* data, uint8_t len, signed int rs
 #endif
 
 //network.cpp
-int getSignalQuality(int rssi);
+bool initEthernet(); // result is informational
+int  getSignalQuality(int rssi);
+void fillMAC2Str(char *str, const uint8_t *mac);
+void fillStr2MAC(uint8_t *mac, const char *str);
+int  findWiFi(bool doScan = false);
+bool isWiFiConfigured();
 void WiFiEvent(WiFiEvent_t event);
 
 //um_manager.cpp
@@ -401,7 +298,7 @@ class Usermod {
   protected:
     um_data_t *um_data; // um_data should be allocated using new in (derived) Usermod's setup() or constructor
   public:
-    Usermod() { um_data = nullptr; }
+    Usermod() : um_data(nullptr) {};
     virtual ~Usermod() { if (um_data) delete um_data; }
     virtual void setup() = 0; // pure virtual, has to be overriden
     virtual void loop() = 0;  // pure virtual, has to be overriden
@@ -418,6 +315,7 @@ class Usermod {
     virtual void onMqttConnect(bool sessionPresent) {}                       // fired when MQTT connection is established (so usermod can subscribe)
     virtual bool onMqttMessage(char* topic, char* payload) { return false; } // fired upon MQTT message received (wled topic)
     virtual bool onEspNowMessage(uint8_t* sender, uint8_t* payload, uint8_t len) { return false; } // fired upon ESP-NOW message received
+    virtual bool onUdpPacket(uint8_t* payload, size_t len) { return false; } //fired upon UDP packet received
     virtual void onUpdateBegin(bool) {}                                      // fired prior to and after unsuccessful firmware update
     virtual void onStateChange(uint8_t mode) {}                              // fired upon WLED state change
     virtual uint16_t getId() {return USERMOD_ID_UNSPECIFIED;}
@@ -438,8 +336,6 @@ class Usermod {
 };
 
 namespace UsermodManager {
-  extern byte numMods;
-
   void loop();
   void handleOverlayDraw();
   bool handleButton(uint8_t b);
@@ -459,15 +355,15 @@ namespace UsermodManager {
 #ifndef WLED_DISABLE_ESPNOW
   bool onEspNowMessage(uint8_t* sender, uint8_t* payload, uint8_t len);
 #endif
+  bool onUdpPacket(uint8_t* payload, size_t len);
   void onUpdateBegin(bool);
   void onStateChange(uint8_t);
-  bool add(Usermod* um);
   Usermod* lookup(uint16_t mod_id);
-  inline byte getModCount() {return numMods;};
+  size_t getModCount();
 };
 
-//usermods_list.cpp
-void registerUsermods();
+// Register usermods by building a static list via a linker section
+#define REGISTER_USERMOD(x) Usermod* const um_##x __attribute__((__section__(".dtors.tbl.usermods.1"), used)) = &x
 
 //usermod.cpp
 void userSetup();
@@ -481,11 +377,14 @@ void userLoop();
 #include "soc/wdev_reg.h"
 #define HW_RND_REGISTER REG_READ(WDEV_RND_REG)
 #endif
-[[gnu::pure]] int getNumVal(const String* req, uint16_t pos);
-void parseNumber(const char* str, byte* val, byte minv=0, byte maxv=255);
-bool getVal(JsonVariant elem, byte* val, byte vmin=0, byte vmax=255); // getVal supports inc/decrementing and random ("X~Y(r|[w]~[-][Z])" form)
+#define inoise8 perlin8   // fastled legacy alias
+#define inoise16 perlin16 // fastled legacy alias
+#define hex2int(a) (((a)>='0' && (a)<='9') ? (a)-'0' : ((a)>='A' && (a)<='F') ? (a)-'A'+10 : ((a)>='a' && (a)<='f') ? (a)-'a'+10 : 0)
+[[gnu::pure]] int getNumVal(const String &req, uint16_t pos);
+void parseNumber(const char* str, byte &val, byte minv=0, byte maxv=255);
+bool getVal(JsonVariant elem, byte &val, byte vmin=0, byte vmax=255); // getVal supports inc/decrementing and random ("X~Y(r|[w]~[-][Z])" form)
 [[gnu::pure]] bool getBoolVal(const JsonVariant &elem, bool dflt);
-bool updateVal(const char* req, const char* key, byte* val, byte minv=0, byte maxv=255);
+bool updateVal(const char* req, const char* key, byte &val, byte minv=0, byte maxv=255);
 size_t printSetFormCheckbox(Print& settingsScript, const char* key, int val);
 size_t printSetFormValue(Print& settingsScript, const char* key, int val);
 size_t printSetFormValue(Print& settingsScript, const char* key, const char* val);
@@ -508,6 +407,15 @@ void enumerateLedmaps();
 [[gnu::hot]] uint8_t get_random_wheel_index(uint8_t pos);
 [[gnu::hot, gnu::pure]] float mapf(float x, float in_min, float in_max, float out_min, float out_max);
 uint32_t hashInt(uint32_t s);
+int32_t perlin1D_raw(uint32_t x, bool is16bit = false);
+int32_t perlin2D_raw(uint32_t x, uint32_t y, bool is16bit = false);
+int32_t perlin3D_raw(uint32_t x, uint32_t y, uint32_t z, bool is16bit = false);
+uint16_t perlin16(uint32_t x);
+uint16_t perlin16(uint32_t x, uint32_t y);
+uint16_t perlin16(uint32_t x, uint32_t y, uint32_t z);
+uint8_t perlin8(uint16_t x);
+uint8_t perlin8(uint16_t x, uint16_t y);
+uint8_t perlin8(uint16_t x, uint16_t y, uint16_t z);
 
 // fast (true) random numbers using hardware RNG, all functions return values in the range lowerlimit to upperlimit-1
 // note: for true random numbers with high entropy, do not call faster than every 200ns (5MHz)
@@ -526,6 +434,49 @@ inline uint8_t hw_random8() { return HW_RND_REGISTER; };
 inline uint8_t hw_random8(uint32_t upperlimit) { return (hw_random8() * upperlimit) >> 8; }; // input range 0-255
 inline uint8_t hw_random8(uint32_t lowerlimit, uint32_t upperlimit) { uint32_t range = upperlimit - lowerlimit; return lowerlimit + hw_random8(range); }; // input range 0-255
 
+// memory allocation wrappers (util.cpp)
+extern "C" {
+  // prefer DRAM in d_xalloc functions, PSRAM as fallback
+  void *d_malloc(size_t);
+  void *d_calloc(size_t, size_t);
+  void *d_realloc_malloc(void *ptr, size_t size);
+  #ifndef ESP8266
+  inline void d_free(void *ptr) { heap_caps_free(ptr); }
+  #else
+  inline void d_free(void *ptr) { free(ptr); }
+  #endif
+  #if defined(BOARD_HAS_PSRAM)
+  // prefer PSRAM in p_xalloc functions, DRAM as fallback
+  void *p_malloc(size_t);
+  void *p_calloc(size_t, size_t);
+  void *p_realloc_malloc(void *ptr, size_t size);
+  inline void p_free(void *ptr) { heap_caps_free(ptr); }
+  #else
+  #define p_malloc d_malloc
+  #define p_calloc d_calloc
+  #define p_realloc_malloc d_realloc_malloc
+  #define p_free d_free
+  #endif
+}
+#ifndef ESP8266
+inline size_t getFreeHeapSize() { return heap_caps_get_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT); } // returns free heap (ESP.getFreeHeap() can include other memory types)
+inline size_t getContiguousFreeHeap() { return heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT); } // returns largest contiguous free block
+#else
+inline size_t getFreeHeapSize() { return ESP.getFreeHeap(); } // returns free heap
+inline size_t getContiguousFreeHeap() { return ESP.getMaxFreeBlockSize(); } // returns largest contiguous free block
+#endif
+#define BFRALLOC_NOBYTEACCESS    (1 << 0) // ESP32 has 32bit accessible DRAM (usually ~50kB free) that must not be byte-accessed
+#define BFRALLOC_PREFER_DRAM     (1 << 1) // prefer DRAM over PSRAM
+#define BFRALLOC_ENFORCE_DRAM    (1 << 2) // use DRAM only, no PSRAM
+#define BFRALLOC_PREFER_PSRAM    (1 << 3) // prefer PSRAM over DRAM
+#define BFRALLOC_ENFORCE_PSRAM   (1 << 4) // use PSRAM if available, otherwise uses DRAM
+#define BFRALLOC_CLEAR           (1 << 5) // clear allocated buffer after allocation
+void *allocate_buffer(size_t size, uint32_t type);
+
+void handleBootLoop();   // detect and handle bootloops
+#ifndef ESP8266
+void bootloopCheckOTA(); // swap boot image if bootloop is detected instead of restoring config
+#endif
 // RAII guard class for the JSON Buffer lock
 // Modeled after std::lock_guard
 class JSONBufferGuard {

@@ -27,6 +27,8 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }} 
           sinceTag: v0.15.0
+          # Exclude issues that were closed without resolution from changelog
+          exclude-labels: 'stale,wontfix,duplicate,invalid'
       - name: Update Nightly Release
         uses: andelf/nightly-release@main
         env:
@@ -39,8 +41,9 @@ jobs:
           files: |
             *.bin
             *.bin.gz
-      # - name: Repository Dispatch
-      #  uses: peter-evans/repository-dispatch@v3
-      #  with:
-      #    repository: wled-dev/WLED-WebInstaller
-      #    event-type: release-nightly
+      - name: Repository Dispatch
+        uses: peter-evans/repository-dispatch@v3
+        with:
+          repository: wled/WLED-WebInstaller
+          event-type: release-nightly
+          token: ${{ secrets.PAT_PUBLIC }}

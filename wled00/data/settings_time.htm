@@ -4,7 +4,7 @@
 	<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport">
 	<meta charset="utf-8">
 	<title>Time Settings</title>
-	<script src="common.js" async type="text/javascript"></script>
+	<script src="common.js" type="text/javascript"></script>
 	<script>
 	var el=false;
 	var ms=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
@@ -168,8 +168,8 @@
 		<h3>Clock</h3>
 		Analog Clock overlay: <input type="checkbox" name="OL" onchange="Cs()"><br>
 		<div id="cac">
-			First LED: <input name="O1" type="number" min="0" max="255" required> Last LED: <input name="O2" type="number" min="0" max="255" required><br>
-			12h LED: <input name="OM" type="number" min="0" max="255" required><br>
+			First LED: <input name="O1" type="number" min="0" max="1024" required> Last LED: <input name="O2" type="number" min="0" max="1024" required><br>
+			12h LED: <input name="OM" type="number" min="0" max="1024" required><br>
 			Show 5min marks: <input type="checkbox" name="O5"><br>
 			Seconds (as trail): <input type="checkbox" name="OS"><br>
 			Show clock overlay only if all LEDs are solid black: <input type="checkbox" name="OB"><br>
