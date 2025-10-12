@@ -13,6 +13,7 @@
     }
     body {
       background: #000;
+      min-width: 320px; /* prevent layout breakdown */
     }
     .ctr {
       max-width: calc(var(--maxw) + 2*var(--pad));
@@ -21,25 +22,62 @@
       display: flex; flex-direction: column; align-items: center;
     }
 
-    header { text-align:center; margin-bottom:10px; width:100%; }
-    header h1 { margin:0; font-size:20px; font-weight:600; }
-    #pickerWrap { display:flex; flex-direction:column; align-items:center; margin:8px 0 12px; width:100%; }
-    .bar { display:flex; flex-wrap:wrap; gap:10px; align-items:center; justify-content:center; margin:8px 0 12px; width:100%; max-width:var(--maxw); padding:0 var(--pad); }
+    header {
+      text-align: center;
+      margin-bottom: 10px;
+      width: 100%;
+    }
+    header h1 {
+      margin: 0;
+      font-size: 20px;
+      font-weight: 600;
+    }
+    #pickerWrap {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin: 8px 0 12px;
+      width: 100%;
+    }
+    .bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+      justify-content: center;
+      margin: 8px 0 12px;
+      width: 100%;
+      max-width: var(--maxw);
+      padding: 0 var(--pad);
+    }
 
     #editor {
-      width:100%; display:flex; justify-content:center;
-      position: sticky; top: 0; z-index: 5; padding: 6px 0;
-    }
-    #gradWrap { position:relative; height:34px; width:100%; max-width:var(--maxw); }
-    #grad { height:100%; border-radius:5px; }
-
-    #emptySlot {
+      width: 100%;
+      display: flex;
+      justify-content: center;
       position: sticky;
       top: 0;
-      z-index: 10;
+      z-index: 5;
+      padding: 6px 0;
       background: #000;
-      padding: 8px 0;
-      margin-bottom: 8px;
+    }
+    #gradWrap {
+      position: relative;
+      height: 34px;
+      width: 100%;
+      max-width: var(--maxw);
+    }
+    #grad {
+      height: 100%;
+      border-radius: 5px;
+    }
+
+    #empty {
+      position: sticky;
+      top: 15px;
+      z-index: 4;
+      background: #000;
+      padding: 4px 0;
     }
 
     .mk { position:absolute; top:50%; transform:translate(-50%,-50%); width:8px; height:34px; border:2px solid #0008; border-radius:5px; touch-action:none; }
@@ -53,9 +91,8 @@
     .pal .nam { text-align:center; }
     .pal .nam .by { font-size:11px; margin-left:4px; }
     .pal .prow { display:flex; align-items:center; gap:10px; }
-    .pal .prv { flex:1; height:26px; border-radius:26px; cursor:pointer; }
+    .pal .prv { flex:1; border-radius:26px; padding:17px; cursor:pointer; }
     .pal .sml { flex-shrink:0; padding: 4px; min-width: 32px; }
-    
 
     .cats { width:100%; }
     details.cat { border:1px solid #444; border-radius:8px; margin:10px 0; background: #222; }
@@ -69,10 +106,10 @@
     .rgbi { display: flex; gap: 6px; margin-top: 8px; align-items: center; }
     .rgbi input { width: 60px; border-radius:6px; }
 
-    #memWarn { 
-      display: none; 
-      color: #ff9900; 
-      font-size: 16px; 
+    #memWarn {
+      display: none;
+      color: #ff9900;
+      font-size: 16px;
       margin-bottom: 8px;
       text-align: center;
     }
@@ -96,7 +133,6 @@
       <button id="btnCopy" class="sml">Copy</button>
       <button id="btnPaste" class="sml">Paste</button>
       <button id="btnDel" class="sml">&#x1F5D1;Delete Marker</button>
-      <button id="btnRm" class="sml" title="Remove palette" type="button" onclick="palettesData=null;localStorage.removeItem('wledPalx');requestJson({rmcpal:true});setTimeout(loadPalettes,250,loadPalettesData);"><i class="icons btn-icon">&#xe037;</i></button>
     </div>
     <div id="editor">
       <div id="gradWrap"><div id="grad"></div></div>
@@ -105,9 +141,9 @@
       <input type="checkbox" id="chkPreview">
       <span>preview on selected segments</span>
     </label>
+    <div class="tbl" id="empty"></div>
     <section>
       <span id="memWarn">Warning: Adding many custom palettes might cause stability issues, create <a href="/settings/sec#backup">backups</a></span>
-      <div class="tbl"><div id="empty" class="lst"></div></div>
       <div class="tbl"><div id="custom" class="lst"></div></div>
     </section>
     <section><div id="allCats" class="cats"></div></section>
@@ -125,6 +161,7 @@
     let prvTmr = null, prvEn = false, palCache = [];
     let isDragging = false;
     let copyColor = '#000';
+    let ws = null;
 
     // Utils
     function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
@@ -139,12 +176,9 @@
       if (!sel) return;
       if (paste) {
         setCol(copyColor);
-        console.log('Pasted color ' + copyColor);
       } else {
         copyColor = sel.dataset.c;
         gId('btnCopy').style.background = copyColor;
-        console.log('Copied color ' + copyColor);
-        //setTimeout(() => gId('btnCopy').style.background = '', 500);
       }
     }
 
@@ -304,52 +338,64 @@
       return g;
     }
 
-    // UI - Universal palette item builder
-    function mkPalItem(name, author, css, arr, button) {
-      const itm = cE('div'), nam = cE('div'), prow = cE('div'), pv = cE('div');
+    // UI
+    function mkPalItem(name, author, css, arr, save, remove) {
+      const itm = cE('div'), nam = cE('div'), pvw = cE('div'), prow = cE('div'), pv = cE('div');
       itm.className = 'pal';
       nam.className = 'nam';
-      if (author) nam.innerHTML = name + '<span class="by">by ' + author + '</span>';
-      else nam.textContent = name;
+      //if (author) nam.innerHTML = name + '<span class="by">by ' + author + '</span>';
+      //else nam.textContent = name;
+      nam.textContent=author?name+' by '+author:name;
+      //pvw.style.display='flex';
+      //pvw.style.flexDirection='column';
+      pvw.style.alignItems='center';
+      pvw.style.flex='1';
       prow.className = 'prow';
       pv.className = 'prv';
       pv.style.background = css;
       pv.title = 'Click to load';
       pv.onclick = () => loadArr(arr);
-      prow.appendChild(pv);
-      if (button) prow.appendChild(button);
-      itm.append(nam, prow);
+      pvw.append(nam,pv);
+      prow.appendChild(pvw);
+      if (save) prow.appendChild(save);
+      if (remove) prow.appendChild(remove);
+      itm.appendChild(prow);
       return itm;
     }
 
     function bldLst(op = 100) {
       const cd = gId('custom'), fc = d.createDocumentFragment();
       cd.innerHTML = '';
-
-      let emptyslot = gId('empty'); // empty slot has its own container, sticky at top
+      let emptyslot = gId('empty');
       emptyslot.innerHTML = '';
+      let foundEmpty = false;
 
       cpal.forEach((p, i) => {
         const sv = cE('button');
         sv.className = 'sml';
-        sv.innerHTML = '&#x1F81C;';
+        sv.innerHTML = '&#8678;'//'&#8629;' alternative "enter" arrow
         sv.title = 'Save to slot ' + i;
         sv.onclick = () => upload(i);
+        const rm = cE('button');
+        rm.className = 'sml';
+        rm.title = 'Delete palette';
+        rm.innerHTML = '&#128465;';
+        rm.onclick = () => { requestJson({rmcpal:i}); setTimeout(refr, 300); };
         const name = isEmpty(p.palette) ? 'Empty slot' : 'Custom' + i;
         const css = isEmpty(p.palette) ? '#666' : cssArr(p.palette);
-        const item = mkPalItem(name, null, css, p.palette, sv);
+        const item = mkPalItem(name, null, css, p.palette, sv, rm);
         const prv = item.querySelector('.prv');
         prv.style.opacity = op / 100; // set opacity of palette preview
 
         // disable loading for empty palettes
-        if (isEmpty(p.palette)) {
+        if (isEmpty(p.palette) && !foundEmpty) {
+          foundEmpty = true;
           prv.style.cursor = 'not-allowed';
           prv.onclick = null;
-          prv.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;">New</div>';
-          //item.querySelector('.pname').remove(); // remove text above the gradient (added in mkPalItem)
-          emptyslot.appendChild(item); // add to sticky slot
-        } else {
-          fc.appendChild(item); // add to regular list
+          item.querySelector('.nam').style.transform = 'translateY(100%)'; // move name down to preview center
+          emptyslot.appendChild(item);
+        } else if (!isEmpty(p.palette)) {
+          fc.appendChild(item);
         }
       });
 
@@ -408,7 +454,7 @@
       const fakeFileObj = { files: [b] };
       uploadFile(fakeFileObj, '/palette' + i + '.json');
       localStorage.removeItem('wledPalx');
-      setTimeout(refr, 100);
+      setTimeout(refr, 300);
     }
 
     async function refr() {
@@ -427,18 +473,12 @@
         if (cached) {
           cpal = JSON.parse(cached);
         }
-        if (cpal.length > n) {
-          cpal = cpal.slice(0, n); // trim to reported count
-          cpal.push({palette:[255]}); // add empty slot at the end
-        }
+        if (cpal.length > n) cpal = cpal.slice(0, n);
       } catch(e) {}
 
-      while (cpal.length < n + 1) {
-        cpal.push({palette:[255]}); // fill up to reported count + 1 empty slot
-      }
-      // add empty slot if there is room and last one is not already empty
-      if (cpal.length < cpm && !isEmpty(cpal[n].palette)) {
-        cpal.push({palette:[255]});
+      while (cpal.length < n) cpal.push({palette:[255]});
+      if (cpal.length < cpm) {
+        cpal.push({palette:[255]}); // max not reached, add empty slot for saving
       }
       bldLst(50); // show cached or empty list with 50% opacity
 
@@ -485,14 +525,11 @@
     // connect to WebSocket, use parent WS or open new
     function connectWs(onOpen) {
       try {
-        if (top.window.ws?.readyState === WebSocket.OPEN) {
+        if (top.window.ws && top.window.ws.readyState === WebSocket.OPEN) {
           if (onOpen) onOpen();
           return top.window.ws;
         }
       } catch (e) {}
-
-      getLoc(); // ensure globals (loc, locip, locproto) are up to date
-
       let url = loc ? getURL('/ws').replace("http","ws") : "ws://"+window.location.hostname+"/ws";
       let ws = new WebSocket(url);
       ws.binaryType = "arraybuffer";
@@ -500,10 +537,30 @@
       return ws;
     }
 
+    function requestJson(cmd=null) {
+      const useWs = (ws && ws.readyState === WebSocket.OPEN);
+      const send = (obj) => {
+        try {
+          if (useWs) {
+            ws.send(JSON.stringify(obj));
+            return true;
+          }
+        } catch(e) {}
+        fetch(getURL('/json'), {method:'post', body:JSON.stringify(obj)}).catch(()=>{});
+        return false;
+      };
+      if (!cmd) {
+        try {
+          if (useWs) ws.send('{"v":true}');
+          else fetch(getURL('/json')).then(r=>r.json()).then(d=>{json=d;});
+        } catch(e) {}
+        return;
+      }
+      send(cmd);
+    }
+
     async function unfrz() {
-      try { 
-        await fetch(getURL('/json'), {method:'POST', body:JSON.stringify({seg:{frz:false}})}); 
-      } catch(e) {}
+      requestJson({seg:{frz:false}});
     }
 
     // apply palette preview to main segment TODO: check this and cleanup
@@ -526,22 +583,18 @@
           const h = (seg.stopY - seg.startY) || 1;
           const len = w * h;
           const arr = new Array(len);
-          for (let i = 0; i < len; i++) {
-            arr[i] = palCache[len > 1 ? Math.round(i * 255 / (len - 1)) : 0];
+          for (let i = 0; i < len; i++) arr[i] = palCache[len > 1 ? Math.round(i * 255 / (len - 1)) : 0];
+          for (let j = 0; j < arr.length; j += 50) { // send in chunks of 50 (~500 bytes) as ESP8266 has limited ws buffer, trade: speed for reliability
+             requestJson({id: seg.id, i: arr.slice(j, j+50)});
           }
-          await fetch(getURL('/json'), {
-            method:'POST',
-            body:JSON.stringify({seg:{id:seg.id, i:arr}})
-          });
         }
-      } catch(e) {
-        console.error('Preview error:', e);
-      }
+      } catch(e) {}
     }
 
     // Init
     async function init() {
       getLoc();
+      ws = connectWs();
       let extGrp = {};
       const cached = tryCache();
       if (!cached) gId('btnFetchExt').style.display = '';
@@ -576,7 +629,7 @@
         selMk(m); 
         if (m.dataset.lock === '1') return;
         e.preventDefault();
-        const startT = +m.dataset.t; // Remember start position
+        const startT = +m.dataset.t;
         const mv = (ev) => {
           isDragging = true;
           // Clamp based on whether this is the first (0) or last (255) marker
@@ -589,9 +642,7 @@
         d.addEventListener('pointerup', () => d.removeEventListener('pointermove', mv), {once:1});
       } else if (e.target === wr || e.target === gr) {
         const t = clamp(Math.round((e.clientX - (rc.left + pl)) / sc), 1, 254);
-        if (canAdd() && t !== 0 && t !== 255) {
-          addMk(t, '#' + (palCache[t] || '000000'));
-        }
+        if (canAdd() && t !== 0 && t !== 255) addMk(t, '#' + (palCache[t] || '000000'));
       }
     });
     d.addEventListener('keydown', (e) => {
@@ -606,7 +657,7 @@
     gId('btnDist').onclick = dist;
     gId('btnDel').onclick = deleteMarker;
     gId('btnNew').onclick = rndPal;
-    gId('btnCopy').onclick = copypasteColor;
+    gId('btnCopy').onclick = () => copypasteColor(0);
     gId('btnPaste').onclick = () => copypasteColor(1);
     gId('btnFetchExt').onclick = fetchExt;
     gId('chkPreview').addEventListener('change', (e) => {
