@@ -118,22 +118,16 @@ function uploadFile(fileObj, name) {
 }
 // connect to WebSocket, use parent WS or open new
 function connectWs(onOpen) {
-	let ws;
 	try {
-		ws = top.window.ws;
-		if (ws && ws.readyState === WebSocket.OPEN) {
+		if (top.window.ws && top.window.ws.readyState === WebSocket.OPEN) {
 			if (onOpen) onOpen();
-			return ws;
+			return top.window.ws;
 		}
 	} catch (e) {}
-	let l = window.location;
-	let pathn = l.pathname;
-	let paths = pathn.slice(1, pathn.endsWith('/') ? -1 : undefined).split("/");
-	let url = l.origin.replace("http", "ws");
-	if (paths.length > 1) {
-		url += "/" + paths[0]; // add base path for reverse proxy
-	}
-	ws = new WebSocket(url + "/ws");
+
+	getLoc(); // ensure globals (loc, locip, locproto) are up to date
+	let url = loc ? getURL('/ws').replace("http","ws") : "ws://"+window.location.hostname+"/ws";
+	let ws = new WebSocket(url);
 	ws.binaryType = "arraybuffer";
 	if (onOpen) { ws.onopen = onOpen; }
 	return ws;
