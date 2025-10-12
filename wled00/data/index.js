@@ -1011,8 +1011,6 @@ function populatePalettes()
 			);
 		}
 	}
-	if (li.cpalcount>0) gId("rmPal").classList.remove("hide");
-	else                gId("rmPal").classList.add("hide");
 }
 
 function redrawPalPrev()
@@ -1683,14 +1681,12 @@ function setEffectParameters(idx)
 			paOnOff[0] = paOnOff[0].substring(0,dPos);
 		}
 		if (paOnOff.length>0 && paOnOff[0] != "!") text = paOnOff[0];
-		gId("adPal").classList.remove("hide");
-		if (lastinfo.cpalcount>0) gId("rmPal").classList.remove("hide");
+		gId("editPal").classList.remove("hide");
 	} else {
 		// disable palette list
 		text += ' not used';
 		palw.style.display = "none";
-		gId("adPal").classList.add("hide");
-		gId("rmPal").classList.add("hide");
+		gId("editPal").classList.add("hide");
 		// Close palette dialog if not available
 		if (palw.lastElementChild.tagName == "DIALOG") {
 			palw.lastElementChild.close();

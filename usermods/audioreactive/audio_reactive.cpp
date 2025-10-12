@@ -1739,7 +1739,7 @@ class AudioReactive : public Usermod {
     }
 
     void onStateChange(uint8_t callMode) override {
-      if (initDone && enabled && addPalettes && palettes==0 && customPalettes.size()<10) {
+      if (initDone && enabled && addPalettes && palettes==0 && customPalettes.size()<WLED_MAX_CUSTOM_PALETTES) {
         // if palettes were removed during JSON call re-add them
         createAudioPalettes();
       }

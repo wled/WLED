@@ -3,16 +3,17 @@
 <head>
   <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1">
   <title>WLED Palette Editor</title>
+  <link rel="stylesheet" href="style.css">
   <script src="common.js"></script>
   <script src="iro.js"></script>
-  <link rel="stylesheet" href="style.css">
   <style>
     :root {
       --pad:16px;
       --maxw:820px;
-      --namew:16ch;
     }
-
+    body {
+      background: #000;
+    }
     .ctr {
       max-width: calc(var(--maxw) + 2*var(--pad));
       margin: 20px auto;
@@ -27,52 +28,47 @@
 
     #editor {
       width:100%; display:flex; justify-content:center;
-      position: sticky; top: 0; z-index: 5; background: #222; padding: 6px 0;
+      position: sticky; top: 0; z-index: 5; padding: 6px 0;
     }
-    #gradWrap {
-      position:relative; height:34px; width:100%; max-width:var(--maxw);
-      border-radius:8px; border:1px solid #666; padding:0 var(--pad); box-sizing:border-box;
-    }
-    #grad { height:100%; border-radius:6px; }
+    #gradWrap { position:relative; height:34px; width:100%; max-width:var(--maxw); }
+    #grad { height:100%; border-radius:5px; }
 
-    .mk { position:absolute; top:50%; transform:translate(-50%,-50%); width:15px; height:34px; border:4px solid #0008; border-radius:6px; background:#999; touch-action:none; }
-    .mk.sel { outline:4px solid #0bf; border-color:#000; }
-    .mk[data-lock="1"] { background:#666; }
+    #emptySlot {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      background: #000;
+      padding: 8px 0;
+      margin-bottom: 8px;
+    }
+
+    .mk { position:absolute; top:50%; transform:translate(-50%,-50%); width:8px; height:34px; border:2px solid #0008; border-radius:5px; touch-action:none; }
+    .mk.sel { outline:2px solid #0bf; border-color:#000; }
 
     section { margin-top:18px; width:100%; }
-    .tbl { max-width:var(--maxw); width:100%; margin:0 auto; padding:0 var(--pad); }
-    .lst { display:flex; flex-direction:column; gap:8px; width:100%; }
-    .row { display:flex; align-items:center; gap:10px; width:100%; }
-    .row .sml:last-child { margin-left: auto; }
+    .tbl { width:100%; }
+    .lst { display:flex; flex-direction:column; width:100%; }
 
-    .nam { flex:0 0 var(--namew); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; opacity:.95; }
-    .nam .by { display:block; font-size:12px; opacity:.8; }
-    .prv { flex:1 1 50%; min-width:100px; height:26px; border-radius:6px; border:1px solid #666; }
-    .prv.clk { cursor: pointer; }
+    .pal { display:flex; flex-direction:column; position:relative; margin-bottom: 5px; }
+    .pal .nam { text-align:center; }
+    .pal .nam .by { font-size:11px; margin-left:4px; }
+    .pal .prow { display:flex; align-items:center; gap:10px; }
+    .pal .prv { flex:1; height:26px; border-radius:26px; cursor:pointer; }
+    .pal .sml { flex-shrink:0; padding: 4px; min-width: 32px; }
+    
 
-    @media (max-width: 760px) {
-      .nam { display:none; }
-      .prv { flex-basis: auto; }
-    }
-
-    .cats { max-width:var(--maxw); width:100%; padding:0 var(--pad); }
-    details.cat { border:1px solid #666; border-radius:8px; margin:10px 0; background: #333; }
+    .cats { width:100%; }
+    details.cat { border:1px solid #444; border-radius:8px; margin:10px 0; background: #222; }
     details.cat > summary {
       cursor:pointer; padding:8px 10px; display:flex; align-items:center; gap:8px; color: #fff;
       list-style: none; font-size: 18px; font-weight: 500;
     }
     details.cat > summary::-webkit-details-marker { display:none; }
-    .cbdy { padding:8px 10px 12px; display:flex; flex-direction:column; gap:8px; }
-    .clbl { 
-      display: flex; align-items: center; gap: 6px; cursor: pointer; user-select: none;
-      justify-content: center; padding: 4px 0; font-size:12px; opacity:0.85;
-    }
-    .clbl input[type="checkbox"] { accent-color: var(--c-6); }
-    
+    .cbdy { padding:8px 10px 12px; display:flex; flex-direction:column; gap:6px; }
+
     .rgbi { display: flex; gap: 6px; margin-top: 8px; align-items: center; }
-    .rgbi input { width: 60px; }
-    .rgbi label { font-size: 12px; opacity: 0.8; }
-    
+    .rgbi input { width: 60px; border-radius:6px; }
+
     #memWarn { 
       display: none; 
       color: #ff9900; 
@@ -95,33 +91,40 @@
       </div>
     </div>
     <div class="bar">
+      <button id="btnNew" class="sml">&#x2730;Generate</button>
       <button id="btnDist" class="sml">&#x2B0C;Distribute</button>
-      <button id="btnNew" class="sml">&#x2730;New</button>
-	  <button id="btnDel" class="sml">&#x1F5D1;Delete Marker</button>
+      <button id="btnCopy" class="sml">Copy</button>
+      <button id="btnPaste" class="sml">Paste</button>
+      <button id="btnDel" class="sml">&#x1F5D1;Delete Marker</button>
+      <button id="btnRm" class="sml" title="Remove palette" type="button" onclick="palettesData=null;localStorage.removeItem('wledPalx');requestJson({rmcpal:true});setTimeout(loadPalettes,250,loadPalettesData);"><i class="icons btn-icon">&#xe037;</i></button>
     </div>
     <div id="editor">
       <div id="gradWrap"><div id="grad"></div></div>
     </div>
-    <label class="clbl">
+    <label>
       <input type="checkbox" id="chkPreview">
-      <span>Live Preview on LEDs</span>
+      <span>preview on selected segments</span>
     </label>
     <section>
-      <span id="memWarn">Warning: Adding many custom palettes might cause stability issues, create <a href="/settings/sec#backup">backups</a> before proceeding.</span>
+      <span id="memWarn">Warning: Adding many custom palettes might cause stability issues, create <a href="/settings/sec#backup">backups</a></span>
+      <div class="tbl"><div id="empty" class="lst"></div></div>
       <div class="tbl"><div id="custom" class="lst"></div></div>
     </section>
     <section><div id="allCats" class="cats"></div></section>
     <div class="bar" style="margin-bottom: 24px;">
       <button id="btnFetchExt" class="btn">Load more palettes from WLED GitHub</button>
     </div>
+    <div style="font-size:12px;color:#666;">by @dedehai</div>
   </div>
 
   <script>
     // State
     let gr = gId('grad'), wr = gId('gradWrap'), rc, w = 0, sc = 1, pl = 16;
     let sel = null, pk = null;
-    let cpc = 0, cpm = 10, pnm = [], cpal = [], spal = [];
+    let cpc = 0, cpm = 10, pnm = [], cpal = [], spal = [];  // custom palette count, custom palette max, names, custom palettes, static palettes
     let prvTmr = null, prvEn = false, palCache = [];
+    let isDragging = false;
+    let copyColor = '#000';
 
     // Utils
     function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
@@ -130,6 +133,20 @@
     function rgb2h(r, g, b) { return ((1<<24) + (r<<16) + (g<<8) + b).toString(16).slice(1); }
     function lerp(a, b, t) { return a + (b-a)*t; }
     function updRGB(h) { const [r,g,b] = h2rgb(h); gId('rInput').value=r; gId('gInput').value=g; gId('bInput').value=b; }
+
+    // copy / paste color
+    function copypasteColor(paste = false) {
+      if (!sel) return;
+      if (paste) {
+        setCol(copyColor);
+        console.log('Pasted color ' + copyColor);
+      } else {
+        copyColor = sel.dataset.c;
+        gId('btnCopy').style.background = copyColor;
+        console.log('Copied color ' + copyColor);
+        //setTimeout(() => gId('btnCopy').style.background = '', 500);
+      }
+    }
 
     // Geometry
     function recalc() {
@@ -175,8 +192,8 @@
     function selMk(m) {
       if (sel) sel.classList.remove('sel');
       sel = m || null;
-      if (sel) { 
-        sel.classList.add('sel'); 
+      if (sel) {
+        sel.classList.add('sel');
         if (pk) { pk.color.hexString = sel.dataset.c; updRGB(sel.dataset.c); }
       }
     }
@@ -193,7 +210,7 @@
       gr.appendChild(m);
       selMk(m); draw();
     }
-    function delMk() {
+    function deleteMarker() {
       if (!sel || sel.dataset.lock === '1') return;
       sel.remove(); selMk(null); draw();
     }
@@ -287,53 +304,57 @@
       return g;
     }
 
-    // UI
-    function mkRow(name, author, css, arr) {
-      const r = cE('div'), n = cE('div'), pv = cE('div');
-      r.className = 'row'; n.className = 'nam';
-      if (author) n.innerHTML = name + '<span class="by">by ' + author + '</span>';
-      else n.textContent = name;
-      pv.className = 'prv clk';
+    // UI - Universal palette item builder
+    function mkPalItem(name, author, css, arr, button) {
+      const itm = cE('div'), nam = cE('div'), prow = cE('div'), pv = cE('div');
+      itm.className = 'pal';
+      nam.className = 'nam';
+      if (author) nam.innerHTML = name + '<span class="by">by ' + author + '</span>';
+      else nam.textContent = name;
+      prow.className = 'prow';
+      pv.className = 'prv';
       pv.style.background = css;
       pv.title = 'Click to load';
       pv.onclick = () => loadArr(arr);
-      r.append(n, pv);
-      return r;
+      prow.appendChild(pv);
+      if (button) prow.appendChild(button);
+      itm.append(nam, prow);
+      return itm;
     }
 
-    function bldLst() {
+    function bldLst(op = 100) {
       const cd = gId('custom'), fc = d.createDocumentFragment();
       cd.innerHTML = '';
-      const emp = [], reg = [];
-      cpal.forEach((p, i) => (isEmpty(p.palette) ? emp : reg).push({ p, i }));
-      
-      reg.forEach(({p, i}) => {
-        const r = cE('div'), n = cE('div'), pv = cE('div'), sv = cE('button');
-        r.className = 'row'; n.className = 'nam'; n.textContent = 'Custom' + i;
-        pv.className = 'prv clk';
-        pv.style.backgroundImage = cssArr(p.palette);
-        pv.title = 'Click to load';
-        pv.onclick = () => loadArr(p.palette);
-        sv.className = 'sml'; sv.innerHTML = '&#x1F81C;';
+
+      let emptyslot = gId('empty'); // empty slot has its own container, sticky at top
+      emptyslot.innerHTML = '';
+
+      cpal.forEach((p, i) => {
+        const sv = cE('button');
+        sv.className = 'sml';
+        sv.innerHTML = '&#x1F81C;';
         sv.title = 'Save to slot ' + i;
-        sv.onclick = () => upl(i);
-        r.append(n, pv, sv); fc.appendChild(r);
+        sv.onclick = () => upload(i);
+        const name = isEmpty(p.palette) ? 'Empty slot' : 'Custom' + i;
+        const css = isEmpty(p.palette) ? '#666' : cssArr(p.palette);
+        const item = mkPalItem(name, null, css, p.palette, sv);
+        const prv = item.querySelector('.prv');
+        prv.style.opacity = op / 100; // set opacity of palette preview
+
+        // disable loading for empty palettes
+        if (isEmpty(p.palette)) {
+          prv.style.cursor = 'not-allowed';
+          prv.onclick = null;
+          prv.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;">New</div>';
+          //item.querySelector('.pname').remove(); // remove text above the gradient (added in mkPalItem)
+          emptyslot.appendChild(item); // add to sticky slot
+        } else {
+          fc.appendChild(item); // add to regular list
+        }
       });
-      
-      emp.forEach(({p, i}) => {
-        const r = cE('div'), n = cE('div'), pv = cE('div'), sv = cE('button');
-        r.className = 'row'; n.className = 'nam'; n.textContent = 'Custom' + i;
-        pv.className = 'prv clk';
-        pv.style.backgroundImage = cssArr(p.palette);
-        pv.title = 'Empty slot';
-        sv.className = 'sml'; sv.innerHTML = '&#x1F81C;';
-        sv.title = 'Save to slot ' + i;
-        sv.onclick = () => upl(i);
-        r.append(n, pv, sv); fc.appendChild(r);
-      });
-      
+
       cd.appendChild(fc);
-      gId('memWarn').style.display = (cpc >= 10) ? 'block' : 'none';
+      gId('memWarn').style.display = (cpc >= 10) ? 'block' : 'none'; // show warning if 10 or more custom palettes
     }
 
     function bldCat(extGrp) {
@@ -356,18 +377,20 @@
         sum.innerHTML = `&#9656; ${lbl} (${items.length})`;
         det.appendChild(sum);
         body.className = 'cbdy';
+
         if (!items.length) {
-          const er = cE('div'), em = cE('div');
-          er.className = 'row'; em.textContent='No palettes'; em.style.opacity='0.7';
-          er.append(cE('div'), em); body.appendChild(er);
+          const em = cE('div');
+          em.textContent='No palettes'; 
+          em.style.textAlign='center';
+          body.appendChild(em);
         } else {
           items.forEach(p => {
             if (k === 'wled') {
               const key = Object.keys(p)[0];
-              body.appendChild(mkRow(p.name || 'Palette ' + key, null, cssArr(p[key]), p[key]));
+              body.appendChild(mkPalItem(p.name || 'Palette ' + key, null, cssArr(p[key]), p[key]));
             } else {
               const s = normStops(p.colors);
-              body.appendChild(mkRow(p.name || '(unnamed)', p.author, cssStops(s), stops2arr(s)));
+              body.appendChild(mkPalItem(p.name || '(unnamed)', p.author, cssStops(s), stops2arr(s)));
             }
           });
         }
@@ -379,35 +402,66 @@
       });
     }
 
-    // Network - using common.js uploadFile wrapper
-    function upl(i) {
+    // Network
+    function upload(i) {
       const b = new Blob([toJSON()], {type:'application/json'});
       const fakeFileObj = { files: [b] };
       uploadFile(fakeFileObj, '/palette' + i + '.json');
       localStorage.removeItem('wledPalx');
       setTimeout(refr, 100);
     }
-    
+
     async function refr() {
       try {
         const inf = await fetch(getURL('/json/info'), {cache:'no-store'}).then(r=>r.json());
         cpc = inf.cpalcount; cpm = inf.cpalmax;
       } catch(e) {}
-      await fetchC(cpc - 1);
+      await fetchC(cpc);
     }
+
+    // load custom palettes, loads from cache and updates in the background as palettes are coming in
     async function fetchC(n) {
-      cpal.length = 0;
-      const run = async () => {
-        for (let i = 0; i <= n; i++) {
-          const res = await fetch(getURL('/palette' + i + '.json'), {cache:'no-store'});
-          if (!res.ok) throw new Error();
-          cpal.push(await res.json());
+      // n is number of custom palettes reported by WLED (cpalcount)
+      try {
+        const cached = localStorage.getItem('wledCustomPal');
+        if (cached) {
+          cpal = JSON.parse(cached);
         }
-        if (cpal.length < cpm) cpal.push({palette:[255]});
-        bldLst();
-      };
-      try { await run(); } catch (e) { try { await run(); } catch (e2) {} }
+        if (cpal.length > n) {
+          cpal = cpal.slice(0, n); // trim to reported count
+          cpal.push({palette:[255]}); // add empty slot at the end
+        }
+      } catch(e) {}
+
+      while (cpal.length < n + 1) {
+        cpal.push({palette:[255]}); // fill up to reported count + 1 empty slot
+      }
+      // add empty slot if there is room and last one is not already empty
+      if (cpal.length < cpm && !isEmpty(cpal[n].palette)) {
+        cpal.push({palette:[255]});
+      }
+      bldLst(50); // show cached or empty list with 50% opacity
+
+      // fetch and replace palettes as they load
+      for (let i = 0; i < n; i++) {
+        try {
+          const res = await fetch(getURL('/palette' + i + '.json'), {cache:'no-store'});
+          if (res.ok) {
+            cpal[i] = await res.json();
+            bldLst(); // update UI after each palette to show progress
+          } else {
+            cpal[i] = {palette:[255]}; // error, mark as empty
+          }
+        } catch(e) {
+          cpal[i] = {palette:[255]}; // error, mark as empty
+        }
+      }
+
+      try {
+        localStorage.setItem('wledCustomPal', JSON.stringify(cpal)); // update cache
+      } catch(e) {}
     }
+
     function tryCache() {
       try {
         const raw = localStorage.getItem('wledCptCityJson');
@@ -428,54 +482,61 @@
       } catch (e) { alert('Failed to fetch palettes'); }
     }
 
-    // Preview
-    async function unfreezeSegment() {
+    // connect to WebSocket, use parent WS or open new
+    function connectWs(onOpen) {
+      try {
+        if (top.window.ws?.readyState === WebSocket.OPEN) {
+          if (onOpen) onOpen();
+          return top.window.ws;
+        }
+      } catch (e) {}
+
+      getLoc(); // ensure globals (loc, locip, locproto) are up to date
+
+      let url = loc ? getURL('/ws').replace("http","ws") : "ws://"+window.location.hostname+"/ws";
+      let ws = new WebSocket(url);
+      ws.binaryType = "arraybuffer";
+      if (onOpen) ws.onopen = onOpen;
+      return ws;
+    }
+
+    async function unfrz() {
       try { 
         await fetch(getURL('/json'), {method:'POST', body:JSON.stringify({seg:{frz:false}})}); 
       } catch(e) {}
     }
-    
-    async function getSegInfo() {
-      try {
-        const st = await fetch(getURL('/json/state'),{cache:'no-store'}).then(r=>r.json());
-        if (!Array.isArray(st.seg) || !st.seg.length) throw new Error();
-        const seg = st.seg.find(s => s.id === (st.mainseg || 0)) || st.seg[0];
-        const w = seg.stop - seg.start;
-        const h = (seg.stopY && seg.startY !== undefined) ? (seg.stopY - seg.startY) : 1;
-        return {len: (h > 1) ? (w * h) : w, is2D: h > 1, w, h};
-      } catch(e){}
-      
-      try {
-        const inf = await fetch(getURL('/json/info'),{cache:'no-store'}).then(r=>r.json());
-        if (inf?.leds) {
-          const len = inf.leds.count || 60;
-          if (inf.leds.matrix?.w && inf.leds.matrix?.h)
-            return {len, is2D:true, w:inf.leds.matrix.w, h:inf.leds.matrix.h};
-          return {len, is2D:false, w:len, h:1};
-        }
-      } catch(e){}
-      return {len:60, is2D:false, w:60, h:1};
-    }
-    
+
+    // apply palette preview to main segment TODO: check this and cleanup
     async function applyLED() {
       if (!palCache.length) return;
-      const inf = await getSegInfo(), arr = [];
-      
-      if (inf.is2D) {
-        const row = [];
-        for (let x = 0; x < inf.w; x++) {
-          const t = inf.w > 1 ? Math.round(x * 255 / (inf.w - 1)) : 0;
-          row.push(palCache[t]);
+      try {
+        const st = await fetch(getURL('/json/state'), {cache:'no-store'}).then(r=>r.json());
+        if (!Array.isArray(st.seg) || !st.seg.length) return;
+
+        // get selected segments, use main segment if none selected
+        const segs = st.seg.filter(s => s.sel);
+        if (!segs.length) {
+          const mainSeg = st.seg.find(s => s.id === (st.mainseg || 0));
+          if (mainSeg) segs.push(mainSeg);
         }
-        for (let y = 0; y < inf.h; y++) arr.push(...row);
-      } else {
-        for (let i = 0; i < inf.len; i++) {
-          const t = inf.len > 1 ? Math.round(i * 255 / (inf.len - 1)) : 0;
-          arr.push(palCache[t]);
+
+        // show palette on each selected segment, 2D are treated as 1D to show better gradient
+        for (const seg of segs) {
+          const w = seg.stop - seg.start;
+          const h = (seg.stopY - seg.startY) || 1;
+          const len = w * h;
+          const arr = new Array(len);
+          for (let i = 0; i < len; i++) {
+            arr[i] = palCache[len > 1 ? Math.round(i * 255 / (len - 1)) : 0];
+          }
+          await fetch(getURL('/json'), {
+            method:'POST',
+            body:JSON.stringify({seg:{id:seg.id, i:arr}})
+          });
         }
+      } catch(e) {
+        console.error('Preview error:', e);
       }
-      
-      try { await fetch(getURL('/json'), {method:'POST', body:JSON.stringify({seg:{i:arr}})}); } catch(e) {}
     }
 
     // Init
@@ -488,7 +549,7 @@
         const inf = await fetch(getURL('/json/info')).then(r => r.json());
         const nm = await fetch(getURL('/json/pal')).then(r => r.json());
         pnm = nm; cpc = inf.cpalcount; cpm = inf.cpalmax;
-        fetchC(cpc - 1);
+        fetchC(cpc);
         let cache; try { cache = JSON.parse(localStorage.getItem('wledPalx')); } catch {}
         if (cache?.p) {
           for (const k in cache.p) {
@@ -508,21 +569,30 @@
 
     // Events
     window.addEventListener('resize', recalc);
-    wr.addEventListener('click', (e) => {
-      if (e.target !== wr && e.target !== gr) return;
-      const t = clamp(Math.round((e.clientX - (rc.left + pl)) / sc), 1, 254);
-      if (!canAdd() || t === 0 || t === 255) return;
-      addMk(t, '#' + (palCache[t] || '000000'));
-    });
-    gr.addEventListener('pointerdown', (e) => {
-      const m = e.target.closest('.mk'); if (!m || m.dataset.lock === '1') return;
-      selMk(m); e.preventDefault();
-      const mv = (ev) => {
-        const x = clamp(Math.round((ev.clientX - (rc.left + pl)) / sc), 1, 254);
-        m.dataset.t = x; m.style.left = (pl + (x * sc)) + 'px'; draw();
-      };
-      d.addEventListener('pointermove', mv);
-      d.addEventListener('pointerup', () => d.removeEventListener('pointermove', mv), {once:1});
+    wr.addEventListener('pointerdown', (e) => {
+      const m = e.target.closest('.mk');
+      if (m) {
+        isDragging = false;
+        selMk(m); 
+        if (m.dataset.lock === '1') return;
+        e.preventDefault();
+        const startT = +m.dataset.t; // Remember start position
+        const mv = (ev) => {
+          isDragging = true;
+          // Clamp based on whether this is the first (0) or last (255) marker
+          const minT = (startT === 0) ? 0 : 1;
+          const maxT = (startT === 255) ? 255 : 254;
+          const x = clamp(Math.round((ev.clientX - (rc.left + pl)) / sc), minT, maxT);
+          m.dataset.t = x; m.style.left = (pl + (x * sc)) + 'px'; draw();
+        };
+        d.addEventListener('pointermove', mv);
+        d.addEventListener('pointerup', () => d.removeEventListener('pointermove', mv), {once:1});
+      } else if (e.target === wr || e.target === gr) {
+        const t = clamp(Math.round((e.clientX - (rc.left + pl)) / sc), 1, 254);
+        if (canAdd() && t !== 0 && t !== 255) {
+          addMk(t, '#' + (palCache[t] || '000000'));
+        }
+      }
     });
     d.addEventListener('keydown', (e) => {
       if (!sel || sel.dataset.lock === '1') return;
@@ -534,12 +604,14 @@
     });
 
     gId('btnDist').onclick = dist;
-    gId('btnDel').onclick = delMk;
+    gId('btnDel').onclick = deleteMarker;
     gId('btnNew').onclick = rndPal;
+    gId('btnCopy').onclick = copypasteColor;
+    gId('btnPaste').onclick = () => copypasteColor(1);
     gId('btnFetchExt').onclick = fetchExt;
     gId('chkPreview').addEventListener('change', (e) => {
       prvEn = e.target.checked;
-      prvEn ? applyLED() : unfreezeSegment();
+      prvEn ? applyLED() : unfrz(); // unfreeze segments when disabling preview
     });
 
     window.addEventListener('load', () => {
