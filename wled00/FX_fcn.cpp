@@ -2046,6 +2046,97 @@ bool WS2812FX::deserializeMap(unsigned n) {
   return (customMappingSize > 0);
 }
 
+void remapLegacyEffect(uint8_t effectId, Segment &seg)
+{
+  // remap legacy effect IDs to current ones and set appropriate flags and sliders
+  // see FX.h and FX.cpp PR #4573
+  // set user warning if using legacy effect IDs
+  int warning = WARN_LEGACY_FX;
+  switch (effectId) {
+    // Dual Scan -> Scan with check3
+    case 11: // FX_MODE_DUAL_SCAN
+        seg.setMode(10); // FX_MODE_SCAN
+        seg.check3 = 1;
+        break;
+    // Theater Chase Rainbow -> Theater with check1
+    case 14: // FX_MODE_THEATER_CHASE_RAINBOW
+        seg.setMode(13); // FX_MODE_THEATER_CHASE
+        seg.check1 = 1;
+        break;
+    // Saw -> Running Lights with check3
+    case 16: // FX_MODE_SAW
+        seg.setMode(15); // FX_MODE_RUNNING_LIGHTS
+        seg.check3 = 1;
+        break;
+    // Dissolve Random -> Dissolve with check3
+    case 19: // FX_MODE_DISSOLVE_RANDOM
+        seg.setMode(18); // FX_MODE_DISSOLVE
+        seg.check1 = 1;
+        break;
+    // Running Color (Chase 2) -> Theater with check3
+    case 37: // FX_MODE_RUNNING_COLOR
+        seg.setMode(13); // FX_MODE_THEATER_CHASE
+        seg.check3 = 1;
+        break;
+    // Running Dual -> Running Lights with check2
+    case 52: // FX_MODE_RUNNING_DUAL
+        seg.setMode(15); // FX_MODE_RUNNING_LIGHTS
+        seg.check2 = 1;
+        break;
+    // Dual Larson Scanner -> Larson Scanner with check1
+    case 60: // FX_MODE_DUAL_LARSON_SCANNER
+        seg.setMode(40); // FX_MODE_LARSON_SCANNER
+        seg.check1 = 1;
+        break;
+    // Meteor Smooth -> Meteor with check3
+    case 77: // FX_MODE_METEOR_SMOOTH
+        seg.setMode(76); // FX_MODE_METEOR
+        seg.check3 = 1;
+        break;
+    // Sinelon Dual -> Sinelon with check2
+    case 93: // FX_MODE_SINELON_DUAL
+        seg.setMode(92); // FX_MODE_SINELON
+        seg.check2 = 1;
+        break;
+    // Sinelon Rainbow -> Sinelon with check1
+    case 94: // FX_MODE_SINELON_RAINBOW
+        seg.setMode(92); // FX_MODE_SINELON
+        seg.check1 = 1;
+        break;
+    // Ripple Rainbow -> Ripple with check1
+    case 99: // FX_MODE_RIPPLE_RAINBOW
+        seg.setMode(79); // FX_MODE_RIPPLE
+        seg.check1 = 1;
+        seg.custom1 = 0;
+        break;
+    // Candle Multi -> Candle with check3
+    case 102: // FX_MODE_CANDLE_MULTI
+        seg.setMode(88); // FX_MODE_CANDLE
+        seg.check3 = 1;
+        break;
+    // Solid Glitter -> PS Sparkler with s=255, i=0, c1&c2=0, c3 = speed
+    case 103: // FX_MODE_SOLID_GLITTER
+        seg.setMode(206); // FX_MODE_PSSPARKLER
+        seg.custom1 = 0;
+        seg.custom2 = 0;
+        seg.custom3 = seg.speed; // copy set speed to custom3
+        seg.speed = 255; // now override speed
+        seg.intensity = 0;
+        break;
+    // Dynamic Smooth -> Dynamic with check1
+    case 117: // FX_MODE_DYNAMIC_SMOOTH
+        seg.setMode(7); // FX_MODE_DYNAMIC
+        seg.check1 = 1;
+        break;
+
+    default:
+      // no remapping needed
+      warning = ERR_NONE;
+      break;
+  }
+  if (warning)
+    errorFlag = warning; // inform user on UI
+}
 
 const char JSON_mode_names[] PROGMEM = R"=====(["FX names moved"])=====";
 const char JSON_palette_names[] PROGMEM = R"=====([
