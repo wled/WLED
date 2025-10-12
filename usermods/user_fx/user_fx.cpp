@@ -27,7 +27,7 @@ static uint16_t mode_diffusionfire(void) {
   const uint8_t spark_rate = SEGMENT.intensity;
   const uint8_t turbulence = SEGMENT.custom2;
 
-  unsigned dataSize = SEGMENT.length(); // allocate persistent data for heat value for each pixel
+unsigned dataSize = cols * rows;  // SEGLEN (virtual length) is equivalent to vWidth()*vHeight() for 2D
   if (!SEGENV.allocateData(dataSize))
     return mode_static();  // allocation failed
 
@@ -37,6 +37,7 @@ static uint16_t mode_diffusionfire(void) {
   }
 
   if ((strip.now - SEGENV.step) >= refresh_ms) {
+    // Keep for ≤~1 KiB; otherwise consider heap or reuse SEGENV.data as scratch.
     uint8_t tmp_row[cols];
     SEGENV.step = strip.now;
     // scroll up
@@ -44,7 +45,7 @@ static uint16_t mode_diffusionfire(void) {
       for (unsigned x = 0; x < cols; x++) {
         unsigned src = XY(x, y);
         unsigned dst = XY(x, y - 1);
-        SEGMENT.data[dst] = SEGMENT.data[src];
+        SEGENV.data[dst] = SEGENV.data[src];
       }
 
     if (hw_random8() > turbulence) {
@@ -53,7 +54,7 @@ static uint16_t mode_diffusionfire(void) {
         uint8_t p = hw_random8();
         if (p < spark_rate) {
           unsigned dst = XY(x, rows - 1);
-          SEGMENT.data[dst] = 255;
+          SEGENV.data[dst] = 255;
         }
       }
     }
@@ -61,24 +62,24 @@ static uint16_t mode_diffusionfire(void) {
     // diffuse
     for (unsigned y = 0; y < rows; y++) {
       for (unsigned x = 0; x < cols; x++) {
-        unsigned v = SEGMENT.data[XY(x, y)];
+        unsigned v = SEGENV.data[XY(x, y)];
         if (x > 0) {
-          v += SEGMENT.data[XY(x - 1, y)];
+          v += SEGENV.data[XY(x - 1, y)];
         }
         if (x < (cols - 1)) {
-          v += SEGMENT.data[XY(x + 1, y)];
+          v += SEGENV.data[XY(x + 1, y)];
         }
         tmp_row[x] = min(255, (int)(v * 100 / (300 + diffusion)));
       }
 
       for (unsigned x = 0; x < cols; x++) {
-        SEGMENT.data[XY(x, y)] = tmp_row[x];
+        SEGENV.data[XY(x, y)] = tmp_row[x];
         if (SEGMENT.check1) {
-          uint32_t color = ColorFromPalette(SEGPALETTE, tmp_row[x], 255, LINEARBLEND_NOWRAP);
+          uint32_t color = SEGMENT.color_from_palette(tmp_row[x], true, false, 0);
           SEGMENT.setPixelColorXY(x, y, color);
         } else {
-          uint32_t color = SEGCOLOR(0);
-          SEGMENT.setPixelColorXY(x, y, color_fade(color, tmp_row[x]));
+          uint32_t base = SEGCOLOR(0);
+          SEGMENT.setPixelColorXY(x, y, color_fade(base, tmp_row[x]));
         }
       }
     }
