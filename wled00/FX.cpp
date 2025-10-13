@@ -213,12 +213,12 @@ static const char _data_FX_MODE_BLINK[] PROGMEM = "Blink@!,Interval,,,,Cycle;!,!
 
 
 /*
- * Color wipe function
- * LEDs are turned on (color1) in sequence, then turned off (color2) in sequence.
- * if (bool rev == true) then LEDs are turned off in reverse order
+ * Lights all LEDs one after another or in reverse. Can use random colors from palette.
  */
-uint16_t color_wipe(bool rev, bool useRandomColors) {
+uint16_t mode_color_wipe(void) {
   if (SEGLEN <= 1) return mode_static();
+  bool useRandomColors = SEGMENT.check1;
+  bool rev = SEGMENT.check2;
   uint32_t cycleTime = 750 + (255 - SEGMENT.speed)*150;
   uint32_t perc = strip.now % cycleTime;
   unsigned prog = (perc * 65535) / cycleTime;
@@ -246,9 +246,6 @@ uint16_t color_wipe(bool rev, bool useRandomColors) {
   }
 
   unsigned ledIndex = (prog * SEGLEN) >> 15;
-  uint16_t rem = (prog * SEGLEN) * 2; //mod 0xFFFF by truncating
-  rem /= (SEGMENT.intensity +1);
-  if (rem > 255) rem = 255;
 
   uint32_t col1 = useRandomColors? SEGMENT.color_wheel(SEGENV.aux1) : SEGCOLOR(1);
   for (unsigned i = 0; i < SEGLEN; i++)
@@ -262,49 +259,14 @@ uint16_t color_wipe(bool rev, bool useRandomColors) {
     } else
     {
       SEGMENT.setPixelColor(index, back? col0 : col1);
-      if (i == ledIndex) SEGMENT.setPixelColor(index, color_blend(back? col0 : col1, back? col1 : col0, uint8_t(rem)));
     }
   }
   return FRAMETIME;
 }
-
-
-/*
- * Lights all LEDs one after another.
- */
-uint16_t mode_color_wipe(void) {
-  return color_wipe(false, false);
-}
-static const char _data_FX_MODE_COLOR_WIPE[] PROGMEM = "Wipe@!,!;!,!;!";
-
-
-/*
- * Lights all LEDs one after another. Turns off opposite
- */
-uint16_t mode_color_sweep(void) {
-  return color_wipe(true, false);
-}
-static const char _data_FX_MODE_COLOR_SWEEP[] PROGMEM = "Sweep@!,!;!,!;!";
-
-
-/*
- * Turns all LEDs after each other to a random color.
- * Then starts over with another color.
- */
-uint16_t mode_color_wipe_random(void) {
-  return color_wipe(false, true);
-}
-static const char _data_FX_MODE_COLOR_WIPE_RANDOM[] PROGMEM = "Wipe Random@!;;!";
-
-
-/*
- * Random color introduced alternating from start and end of strip.
- */
-uint16_t mode_color_sweep_random(void) {
-  return color_wipe(true, true);
-}
-static const char _data_FX_MODE_COLOR_SWEEP_RANDOM[] PROGMEM = "Sweep Random@!;;!";
-
+static const char _data_FX_MODE_COLOR_WIPE[] PROGMEM = "Wipe@!,,,,,Random,Sweep;!,!;!";
+// Wipe Random: use Wipe with check 1
+// Sweep use Wipe with check 2
+// Sweep Random: use Wipe with check 1 and check 2
 
 /*
  * Lights all LEDs up in one random color. Then switches them
@@ -10580,22 +10542,16 @@ void WS2812FX::setupEffectData() {
   addEffect(FX_MODE_BLINK, &mode_blink, _data_FX_MODE_BLINK);
   addEffect(FX_MODE_BREATH, &mode_breath, _data_FX_MODE_BREATH);
   addEffect(FX_MODE_COLOR_WIPE, &mode_color_wipe, _data_FX_MODE_COLOR_WIPE);
-  addEffect(FX_MODE_COLOR_WIPE_RANDOM, &mode_color_wipe_random, _data_FX_MODE_COLOR_WIPE_RANDOM);
   addEffect(FX_MODE_RANDOM_COLOR, &mode_random_color, _data_FX_MODE_RANDOM_COLOR);
-  addEffect(FX_MODE_COLOR_SWEEP, &mode_color_sweep, _data_FX_MODE_COLOR_SWEEP);
   addEffect(FX_MODE_DYNAMIC, &mode_dynamic, _data_FX_MODE_DYNAMIC);
   addEffect(FX_MODE_RAINBOW, &mode_rainbow, _data_FX_MODE_RAINBOW);
   addEffect(FX_MODE_RAINBOW_CYCLE, &mode_rainbow_cycle, _data_FX_MODE_RAINBOW_CYCLE);
   addEffect(FX_MODE_SCAN, &mode_scan, _data_FX_MODE_SCAN);
-  //addEffect(FX_MODE_DUAL_SCAN, &mode_dual_scan, _data_FX_MODE_DUAL_SCAN);
   addEffect(FX_MODE_FADE, &mode_fade, _data_FX_MODE_FADE);
   addEffect(FX_MODE_THEATER_CHASE, &mode_theater_chase, _data_FX_MODE_THEATER_CHASE);
-  //addEffect(FX_MODE_THEATER_CHASE_RAINBOW, &mode_theater_chase_rainbow, _data_FX_MODE_THEATER_CHASE_RAINBOW);
   addEffect(FX_MODE_RUNNING_LIGHTS, &mode_running_lights, _data_FX_MODE_RUNNING_LIGHTS);
-  //addEffect(FX_MODE_SAW, &mode_saw, _data_FX_MODE_SAW);
   addEffect(FX_MODE_TWINKLE, &mode_twinkle, _data_FX_MODE_TWINKLE);
   addEffect(FX_MODE_DISSOLVE, &mode_dissolve, _data_FX_MODE_DISSOLVE);
-  //addEffect(FX_MODE_DISSOLVE_RANDOM, &mode_dissolve_random, _data_FX_MODE_DISSOLVE_RANDOM);
   addEffect(FX_MODE_SPARKLE, &mode_sparkle, _data_FX_MODE_SPARKLE);
   addEffect(FX_MODE_FLASH_SPARKLE, &mode_flash_sparkle, _data_FX_MODE_FLASH_SPARKLE);
   addEffect(FX_MODE_HYPER_SPARKLE, &mode_hyper_sparkle, _data_FX_MODE_HYPER_SPARKLE);
@@ -10609,8 +10565,6 @@ void WS2812FX::setupEffectData() {
   addEffect(FX_MODE_CHASE_RAINBOW_WHITE, &mode_chase_rainbow_white, _data_FX_MODE_CHASE_RAINBOW_WHITE);
   addEffect(FX_MODE_COLORFUL, &mode_colorful, _data_FX_MODE_COLORFUL);
   addEffect(FX_MODE_TRAFFIC_LIGHT, &mode_traffic_light, _data_FX_MODE_TRAFFIC_LIGHT);
-  addEffect(FX_MODE_COLOR_SWEEP_RANDOM, &mode_color_sweep_random, _data_FX_MODE_COLOR_SWEEP_RANDOM);
-  //addEffect(FX_MODE_RUNNING_COLOR, &mode_running_color, _data_FX_MODE_RUNNING_COLOR);
   addEffect(FX_MODE_AURORA, &mode_aurora, _data_FX_MODE_AURORA);
   addEffect(FX_MODE_RUNNING_RANDOM, &mode_running_random, _data_FX_MODE_RUNNING_RANDOM);
   addEffect(FX_MODE_LARSON_SCANNER, &mode_larson_scanner, _data_FX_MODE_LARSON_SCANNER);
@@ -10625,7 +10579,6 @@ void WS2812FX::setupEffectData() {
   addEffect(FX_MODE_FAIRY, &mode_fairy, _data_FX_MODE_FAIRY);
   addEffect(FX_MODE_TWO_DOTS, &mode_two_dots, _data_FX_MODE_TWO_DOTS);
   addEffect(FX_MODE_FAIRYTWINKLE, &mode_fairytwinkle, _data_FX_MODE_FAIRYTWINKLE);
-  //addEffect(FX_MODE_RUNNING_DUAL, &mode_running_dual, _data_FX_MODE_RUNNING_DUAL);
   #ifdef WLED_ENABLE_GIF
   addEffect(FX_MODE_IMAGE, &mode_image, _data_FX_MODE_IMAGE);
   #endif
@@ -10634,7 +10587,6 @@ void WS2812FX::setupEffectData() {
   addEffect(FX_MODE_TRICOLOR_FADE, &mode_tricolor_fade, _data_FX_MODE_TRICOLOR_FADE);
   addEffect(FX_MODE_LIGHTNING, &mode_lightning, _data_FX_MODE_LIGHTNING);
   addEffect(FX_MODE_ICU, &mode_icu, _data_FX_MODE_ICU);
-  //addEffect(FX_MODE_DUAL_LARSON_SCANNER, &mode_dual_larson_scanner, _data_FX_MODE_DUAL_LARSON_SCANNER);
   addEffect(FX_MODE_RANDOM_CHASE, &mode_random_chase, _data_FX_MODE_RANDOM_CHASE);
   addEffect(FX_MODE_OSCILLATE, &mode_oscillate, _data_FX_MODE_OSCILLATE);
   addEffect(FX_MODE_JUGGLE, &mode_juggle, _data_FX_MODE_JUGGLE);
@@ -10675,17 +10627,12 @@ void WS2812FX::setupEffectData() {
   addEffect(FX_MODE_POPCORN, &mode_popcorn, _data_FX_MODE_POPCORN);
   addEffect(FX_MODE_DRIP, &mode_drip, _data_FX_MODE_DRIP);
   addEffect(FX_MODE_SINELON, &mode_sinelon, _data_FX_MODE_SINELON);
-  //addEffect(FX_MODE_SINELON_DUAL, &mode_sinelon_dual, _data_FX_MODE_SINELON_DUAL);
-  //addEffect(FX_MODE_SINELON_RAINBOW, &mode_sinelon_rainbow, _data_FX_MODE_SINELON_RAINBOW);
   addEffect(FX_MODE_POPCORN, &mode_popcorn, _data_FX_MODE_POPCORN);
   addEffect(FX_MODE_DRIP, &mode_drip, _data_FX_MODE_DRIP);
   addEffect(FX_MODE_PLASMA, &mode_plasma, _data_FX_MODE_PLASMA);
   addEffect(FX_MODE_PERCENT, &mode_percent, _data_FX_MODE_PERCENT);
-  //addEffect(FX_MODE_RIPPLE_RAINBOW, &mode_ripple_rainbow, _data_FX_MODE_RIPPLE_RAINBOW);
   addEffect(FX_MODE_HEARTBEAT, &mode_heartbeat, _data_FX_MODE_HEARTBEAT);
   addEffect(FX_MODE_PACIFICA, &mode_pacifica, _data_FX_MODE_PACIFICA);
-  //addEffect(FX_MODE_CANDLE_MULTI, &mode_candle_multi, _data_FX_MODE_CANDLE_MULTI);
-  //addEffect(FX_MODE_SOLID_GLITTER, &mode_solid_glitter, _data_FX_MODE_SOLID_GLITTER);
   addEffect(FX_MODE_SUNRISE, &mode_sunrise, _data_FX_MODE_SUNRISE);
   addEffect(FX_MODE_PHASED, &mode_phased, _data_FX_MODE_PHASED);
   addEffect(FX_MODE_TWINKLEUP, &mode_twinkleup, _data_FX_MODE_TWINKLEUP);
@@ -10697,7 +10644,6 @@ void WS2812FX::setupEffectData() {
   addEffect(FX_MODE_WASHING_MACHINE, &mode_washing_machine, _data_FX_MODE_WASHING_MACHINE);
   addEffect(FX_MODE_BLENDS, &mode_blends, _data_FX_MODE_BLENDS);
   addEffect(FX_MODE_TV_SIMULATOR, &mode_tv_simulator, _data_FX_MODE_TV_SIMULATOR);
-  //addEffect(FX_MODE_DYNAMIC_SMOOTH, &mode_dynamic_smooth, _data_FX_MODE_DYNAMIC_SMOOTH);
 
   // --- 1D audio effects ---
   addEffect(FX_MODE_PIXELS, &mode_pixels, _data_FX_MODE_PIXELS);

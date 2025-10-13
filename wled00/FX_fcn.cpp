@@ -2053,6 +2053,20 @@ void remapLegacyEffect(uint8_t effectId, Segment &seg)
   // set user warning if using legacy effect IDs
   int warning = WARN_LEGACY_FX;
   switch (effectId) {
+    // Wipe Random -> Wipe with check1
+    case 4: // FX_MODE_COLOR_WIPE_RANDOM
+        seg.setMode(3); // FX_MODE_COLOR_WIPE
+        seg.check1 = 1;
+        break;
+    // Sweep Random -> Wipe with check1 and check2
+    case 36: // FX_MODE_COLOR_SWEEP_RANDOM
+        seg.check1 = 1;
+        // fallthrough
+    // Sweep -> Wipe with check2
+    case 6: // FX_MODE_COLOR_SWEEP
+        seg.setMode(3); // FX_MODE_COLOR_WIPE
+        seg.check2 = 1;
+        break;
     // Dual Scan -> Scan with check3
     case 11: // FX_MODE_DUAL_SCAN
         seg.setMode(10); // FX_MODE_SCAN
@@ -2087,7 +2101,6 @@ void remapLegacyEffect(uint8_t effectId, Segment &seg)
         seg.setMode(1); // FX_MODE_BLINK
         seg.check1 = 1;
         break;
-
     // Running Color (Chase 2) -> Theater with check3
     case 37: // FX_MODE_RUNNING_COLOR
         seg.setMode(13); // FX_MODE_THEATER_CHASE

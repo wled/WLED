@@ -157,9 +157,9 @@ extern byte realtimeMode;           // used in getMappedPixelIndex()
 #define FX_MODE_BLINK                    1
 #define FX_MODE_BREATH                   2
 #define FX_MODE_COLOR_WIPE               3
-#define FX_MODE_COLOR_WIPE_RANDOM        4
+//#define FX_MODE_COLOR_WIPE_RANDOM        4  // removed in 0.16, use Color Wipe with check 1
 #define FX_MODE_RANDOM_COLOR             5
-#define FX_MODE_COLOR_SWEEP              6
+//#define FX_MODE_COLOR_SWEEP              6  // removed in 0.16, use Wipe with check 2
 #define FX_MODE_DYNAMIC                  7
 #define FX_MODE_RAINBOW                  8
 #define FX_MODE_RAINBOW_CYCLE            9
@@ -189,7 +189,7 @@ extern byte realtimeMode;           // used in getMappedPixelIndex()
 #define FX_MODE_CHASE_RAINBOW_WHITE     33
 #define FX_MODE_COLORFUL                34
 #define FX_MODE_TRAFFIC_LIGHT           35
-#define FX_MODE_COLOR_SWEEP_RANDOM      36
+//#define FX_MODE_COLOR_SWEEP_RANDOM      36  // removed in 0.16, use Wipe with check 1 and check 2
 //#define FX_MODE_RUNNING_COLOR           37  // removed in 0.16, use Theater with check 3
 #define FX_MODE_AURORA                  38
 #define FX_MODE_RUNNING_RANDOM          39

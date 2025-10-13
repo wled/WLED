@@ -592,14 +592,8 @@ void enumerateLedmaps() {
  * Returns a new, random color wheel index with a minimum distance of 42 from pos.
  */
 uint8_t get_random_wheel_index(uint8_t pos) {
-  uint8_t r = 0, x = 0, y = 0, d = 0;
-  while (d < 42) {
-    r = hw_random8();
-    x = abs(pos - r);
-    y = 255 - x;
-    d = MIN(x, y);
-  }
-  return r;
+  uint8_t offset = hw_random8(172); // 256 - 2*42
+  return (pos + 42 + offset);
 }
 
 // float version of map()
