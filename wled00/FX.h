@@ -241,7 +241,7 @@ extern byte realtimeMode;           // used in getMappedPixelIndex()
 #define FX_MODE_TRI_STATIC_PATTERN      84
 #define FX_MODE_SPOTS                   85
 #define FX_MODE_SPOTS_FADE              86
-#define FX_MODE_GLITTER                 87  // optional in 0.16, use PS Sparker with s=255, i=0, c1&c2=0, c3 = speed, add to background overlay
+#define FX_MODE_GLITTER                 87  // optional in 0.16, use PS Sparkler with s=255, i=0, c1&c2=0, c3 = speed, add to background overlay
 #define FX_MODE_CANDLE                  88
 #define FX_MODE_STARBURST               89  // alternative: PS Starburst
 #define FX_MODE_EXPLODING_FIREWORKS     90  // alternative: PS Fireworks (1D and 2D)
