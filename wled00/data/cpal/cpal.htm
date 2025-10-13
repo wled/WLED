@@ -681,6 +681,10 @@
 
 		// Events
 		window.addEventListener('resize', recalc);
+		// Unfreeze segments when page is unloaded
+		window.addEventListener('beforeunload', () => {
+			if (prvEn) requestJson({seg:{frz:false}});
+		});
 		wr.addEventListener('pointerdown', (e) => {
 			const m = e.target.closest('.mk');
 			if (m) {
