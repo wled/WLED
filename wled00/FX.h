@@ -169,17 +169,17 @@ extern byte realtimeMode;           // used in getMappedPixelIndex()
 #define FX_MODE_THEATER_CHASE           13
 //#define FX_MODE_THEATER_CHASE_RAINBOW   14  // removed in 0.16, use Theater with check 1
 #define FX_MODE_RUNNING_LIGHTS          15
-//#define FX_MODE_SAW                     16  // removed in 0.16, use Running with with check 3
+//#define FX_MODE_SAW                     16  // removed in 0.16, use Running with check 3
 #define FX_MODE_TWINKLE                 17
 #define FX_MODE_DISSOLVE                18
-//#define FX_MODE_DISSOLVE_RANDOM         19  // removed in 0.16, use Dissolve with with check 1
+//#define FX_MODE_DISSOLVE_RANDOM         19  // removed in 0.16, use Dissolve with check 1
 #define FX_MODE_SPARKLE                 20  // alternative: PS Sparkler
 #define FX_MODE_FLASH_SPARKLE           21
 #define FX_MODE_HYPER_SPARKLE           22
-#define FX_MODE_STROBE                  23
-#define FX_MODE_STROBE_RAINBOW          24
+//#define FX_MODE_STROBE                  23 // removed in 0.16, use Blink with intensity = 0
+//#define FX_MODE_STROBE_RAINBOW          24 // removed in 0.16, use Blink with check 1 & intensity = 0
 #define FX_MODE_MULTI_STROBE            25
-#define FX_MODE_BLINK_RAINBOW           26
+//#define FX_MODE_BLINK_RAINBOW           26 // removed in 0.16, use Blink with check 1
 #define FX_MODE_ANDROID                 27
 #define FX_MODE_CHASE_COLOR             28
 #define FX_MODE_CHASE_RANDOM            29
@@ -205,7 +205,7 @@ extern byte realtimeMode;           // used in getMappedPixelIndex()
 #define FX_MODE_FAIRY                   49  //was Police All prior to 0.13.0-b6 (use "Two Dots" with Red/Blue and full intensity)
 #define FX_MODE_TWO_DOTS                50
 #define FX_MODE_FAIRYTWINKLE            51  //was Two Areas prior to 0.13.0-b6 (use "Two Dots" with full intensity)
-//#define FX_MODE_RUNNING_DUAL            52  // removed in 0.16, use Running with with check 2
+//#define FX_MODE_RUNNING_DUAL            52  // removed in 0.16, use Running with check 2
 #define FX_MODE_IMAGE                   53
 #define FX_MODE_TRICOLOR_CHASE          54
 #define FX_MODE_TRICOLOR_WIPE           55
@@ -230,7 +230,7 @@ extern byte realtimeMode;           // used in getMappedPixelIndex()
 #define FX_MODE_COLORTWINKLE            74
 #define FX_MODE_LAKE                    75
 #define FX_MODE_METEOR                  76
-//#define FX_MODE_METEOR_SMOOTH           77  // removed in 0.16, use Meteor with with check 3
+//#define FX_MODE_METEOR_SMOOTH           77  // removed in 0.16, use Meteor with check 3
 #define FX_MODE_COPY                    77
 #define FX_MODE_RAILWAY                 78
 #define FX_MODE_RIPPLE                  79
@@ -271,7 +271,7 @@ extern byte realtimeMode;           // used in getMappedPixelIndex()
 #define FX_MODE_2DPLASMAROTOZOOM       114 // was Candy Cane prior to 0.14 (use Chase 2)
 #define FX_MODE_BLENDS                 115
 #define FX_MODE_TV_SIMULATOR           116
-//#define FX_MODE_DYNAMIC_SMOOTH         117 // removed in 0.16, use Danamic with check1
+//#define FX_MODE_DYNAMIC_SMOOTH         117 // removed in 0.16, use Dynamic with check1
 
 // new 0.14 2D effects
 #define FX_MODE_2DSPACESHIPS           118

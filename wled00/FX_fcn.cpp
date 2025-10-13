@@ -2073,6 +2073,21 @@ void remapLegacyEffect(uint8_t effectId, Segment &seg)
         seg.setMode(18); // FX_MODE_DISSOLVE
         seg.check1 = 1;
         break;
+    // Strobe Rainbow -> Blink with i=0, o1=1
+    case 24: // FX_MODE_STROBE_RAINBOW
+        seg.check1 = 1;
+        // fallthrough
+    // Strobe -> Blink with i=0
+    case 23: // FX_MODE_STROBE
+        seg.setMode(1); // FX_MODE_BLINK
+        seg.intensity = 0;
+        break;
+        // Strobe -> Blink with i=0
+    case 26: // FX_MODE_BLINK_RAINBOW
+        seg.setMode(1); // FX_MODE_BLINK
+        seg.check1 = 1;
+        break;
+
     // Running Color (Chase 2) -> Theater with check3
     case 37: // FX_MODE_RUNNING_COLOR
         seg.setMode(13); // FX_MODE_THEATER_CHASE

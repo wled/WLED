@@ -179,72 +179,37 @@ static const char _data_FX_MODE_COPY[] PROGMEM = "Copy Segment@,Color shift,Ligh
 
 
 /*
- * Blink/strobe function
- * Alternate between color1 and color2
- * if(strobe == true) then create a strobe effect
+ * Blink/strobe Effect
+ * Alternate between palette color(s) and color2
  */
-uint16_t blink(uint32_t color1, uint32_t color2, bool strobe, bool do_palette) {
+uint16_t mode_blink(void) {
   uint32_t cycleTime = (255 - SEGMENT.speed)*20;
   uint32_t onTime = FRAMETIME;
-  if (!strobe) onTime += ((cycleTime * SEGMENT.intensity) >> 8);
+  onTime += ((cycleTime * SEGMENT.intensity) >> 8);
   cycleTime += FRAMETIME*2;
   uint32_t it = strip.now / cycleTime;
   uint32_t rem = strip.now % cycleTime;
 
   bool on = false;
-  if (it != SEGENV.step //new iteration, force on state for one frame, even if set time is too brief
-      || rem <= onTime) {
+  if (it != SEGENV.step || rem <= onTime) { // on new iteration, force on state for one frame, even if set time is too brief
     on = true;
   }
 
   SEGENV.step = it; //save previous iteration
 
-  uint32_t color = on ? color1 : color2;
-  if (color == color1 && do_palette)
-  {
-    for (unsigned i = 0; i < SEGLEN; i++) {
-      SEGMENT.setPixelColor(i, SEGMENT.color_from_palette(i, true, PALETTE_SOLID_WRAP, 0));
+  if (on) {
+    if(SEGMENT.check1) {
+      SEGMENT.fill(SEGMENT.color_wheel(SEGENV.call & 0xFF)); // single color, cycling through the palette
+    } else {
+      for (unsigned i = 0; i < SEGLEN; i++) {
+        SEGMENT.setPixelColor(i, SEGMENT.color_from_palette(i, true, false, 0));  // palette gradient
+      }
     }
-  } else SEGMENT.fill(color);
+  } else SEGMENT.fill(SEGCOLOR(1));
 
   return FRAMETIME;
 }
-
-
-/*
- * Normal blinking. Intensity sets duty cycle.
- */
-uint16_t mode_blink(void) {
-  return blink(SEGCOLOR(0), SEGCOLOR(1), false, true);
-}
-static const char _data_FX_MODE_BLINK[] PROGMEM = "Blink@!,Duty cycle;!,!;!;01";
-
-
-/*
- * Classic Blink effect. Cycling through the rainbow.
- */
-uint16_t mode_blink_rainbow(void) {
-  return blink(SEGMENT.color_wheel(SEGENV.call & 0xFF), SEGCOLOR(1), false, false);
-}
-static const char _data_FX_MODE_BLINK_RAINBOW[] PROGMEM = "Blink Rainbow@Frequency,Blink duration;!,!;!;01";
-
-
-/*
- * Classic Strobe effect.
- */
-uint16_t mode_strobe(void) {
-  return blink(SEGCOLOR(0), SEGCOLOR(1), true, true);
-}
-static const char _data_FX_MODE_STROBE[] PROGMEM = "Strobe@!;!,!;!;01";
-
-
-/*
- * Classic Strobe effect. Cycling through the rainbow.
- */
-uint16_t mode_strobe_rainbow(void) {
-  return blink(SEGMENT.color_wheel(SEGENV.call & 0xFF), SEGCOLOR(1), true, false);
-}
-static const char _data_FX_MODE_STROBE_RAINBOW[] PROGMEM = "Strobe Rainbow@!;,!;!;01";
+static const char _data_FX_MODE_BLINK[] PROGMEM = "Blink@!,Interval,,,,Cycle;!,!;!;01";
 
 
 /*
@@ -10634,10 +10599,7 @@ void WS2812FX::setupEffectData() {
   addEffect(FX_MODE_SPARKLE, &mode_sparkle, _data_FX_MODE_SPARKLE);
   addEffect(FX_MODE_FLASH_SPARKLE, &mode_flash_sparkle, _data_FX_MODE_FLASH_SPARKLE);
   addEffect(FX_MODE_HYPER_SPARKLE, &mode_hyper_sparkle, _data_FX_MODE_HYPER_SPARKLE);
-  addEffect(FX_MODE_STROBE, &mode_strobe, _data_FX_MODE_STROBE);
-  addEffect(FX_MODE_STROBE_RAINBOW, &mode_strobe_rainbow, _data_FX_MODE_STROBE_RAINBOW);
   addEffect(FX_MODE_MULTI_STROBE, &mode_multi_strobe, _data_FX_MODE_MULTI_STROBE);
-  addEffect(FX_MODE_BLINK_RAINBOW, &mode_blink_rainbow, _data_FX_MODE_BLINK_RAINBOW);
   addEffect(FX_MODE_ANDROID, &mode_android, _data_FX_MODE_ANDROID);
   addEffect(FX_MODE_CHASE_COLOR, &mode_chase_color, _data_FX_MODE_CHASE_COLOR);
   addEffect(FX_MODE_CHASE_RANDOM, &mode_chase_random, _data_FX_MODE_CHASE_RANDOM);
