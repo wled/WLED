@@ -181,6 +181,10 @@ inline bool estimatePrecipProbAt(const SkyModel &m, time_t t, double step,
                                  double &out) {
   return estimateAt(m.precip_prob_forecast, t, step, out);
 }
+inline bool estimatePrecipRateAt(const SkyModel &m, time_t t, double step,
+                                 double &out) {
+  return estimateAt(m.precip_inph_forecast, t, step, out);
+}
 
 uint32_t hsv2rgb(float h, float s, float v);
 

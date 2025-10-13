@@ -52,6 +52,7 @@ SkyModel::SkyModel() {
   cloud_cover_forecast.reserve(MAX_POINTS);
   precip_type_forecast.reserve(MAX_POINTS);
   precip_prob_forecast.reserve(MAX_POINTS);
+  precip_inph_forecast.reserve(MAX_POINTS);
 }
 
 SkyModel & SkyModel::update(time_t now, SkyModel && other) {
@@ -65,6 +66,7 @@ SkyModel & SkyModel::update(time_t now, SkyModel && other) {
   mergeSeries(cloud_cover_forecast, std::move(other.cloud_cover_forecast), now);
   mergeSeries(precip_type_forecast, std::move(other.precip_type_forecast), now);
   mergeSeries(precip_prob_forecast, std::move(other.precip_prob_forecast), now);
+  mergeSeries(precip_inph_forecast, std::move(other.precip_inph_forecast), now);
 
   if (!(other.sunrise_ == 0 && other.sunset_ == 0)) {
     sunrise_ = other.sunrise_;
@@ -87,6 +89,7 @@ void SkyModel::invalidate_history(time_t now) {
   cloud_cover_forecast.clear();
   precip_type_forecast.clear();
   precip_prob_forecast.clear();
+  precip_inph_forecast.clear();
   sunrise_ = 0;
   sunset_  = 0;
 }
@@ -104,6 +107,7 @@ time_t SkyModel::oldest() const {
   upd(cloud_cover_forecast);
   upd(precip_type_forecast);
   upd(precip_prob_forecast);
+  upd(precip_inph_forecast);
   if (out == std::numeric_limits<time_t>::max()) return 0;
   return out;
 }
@@ -162,6 +166,7 @@ void SkyModel::emitDebug(time_t now, Print& out) const {
   emitSeriesMDHM(out, now, " clds",  cloud_cover_forecast);
   emitSeriesMDHM(out, now, " prcp",  precip_type_forecast);
   emitSeriesMDHM(out, now, " pop",   precip_prob_forecast);
+  emitSeriesMDHM(out, now, " inph",  precip_inph_forecast);
 
   char tb[20];
   char line[64];

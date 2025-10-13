@@ -16,6 +16,7 @@ static constexpr const char * DEFAULT_LOCATION = "";
 static constexpr const double DEFAULT_LATITUDE = 37.80486;
 static constexpr const double DEFAULT_LONGITUDE = -122.2716;
 static constexpr unsigned DEFAULT_INTERVAL_SEC = 3600;	// 1 hour
+static constexpr double MM_PER_INCH = 25.4;
 
 // - these are user visible in the webapp settings UI
 // - they are scoped to this module, don't need to be globally unique
@@ -334,16 +335,11 @@ std::unique_ptr<SkyModel> OpenWeatherMapSource::fetch(std::time_t now) {
     model->wind_dir_forecast.push_back({ dt, (float)hour["wind_deg"].as<double>() });
     model->wind_gust_forecast.push_back({ dt, (float)hour["wind_gust"].as<double>() });
     model->cloud_cover_forecast.push_back({ dt, (float)hour["clouds"].as<double>() });
+    double rain1h = hour.containsKey("rain") ? (hour["rain"]["1h"] | 0.0) : 0.0;
+    double snow1h = hour.containsKey("snow") ? (hour["snow"]["1h"] | 0.0) : 0.0;
     JsonArray wArr = hour["weather"].as<JsonArray>();
-    bool hasRain = false, hasSnow = false;
-    if (hour.containsKey("rain")) {
-      double v = hour["rain"]["1h"] | 0.0;
-      if (v > 0.0) hasRain = true;
-    }
-    if (hour.containsKey("snow")) {
-      double v = hour["snow"]["1h"] | 0.0;
-      if (v > 0.0) hasSnow = true;
-    }
+    bool hasRain = rain1h > 0.0;
+    bool hasSnow = snow1h > 0.0;
     if (!hasRain && !hasSnow && !wArr.isNull() && wArr.size() > 0) {
       const char* main = wArr[0]["main"] | "";
       if (strcasecmp(main, "rain") == 0 || strcasecmp(main, "drizzle") == 0 ||
@@ -354,7 +350,9 @@ std::unique_ptr<SkyModel> OpenWeatherMapSource::fetch(std::time_t now) {
     }
     int ptype = hasRain && hasSnow ? 3 : (hasSnow ? 2 : (hasRain ? 1 : 0));
     model->precip_type_forecast.push_back({ dt, (float)ptype });
+    double accumIn = (rain1h + snow1h) / MM_PER_INCH;
     model->precip_prob_forecast.push_back({ dt, (float)hour["pop"].as<double>() });
+    model->precip_inph_forecast.push_back({ dt, (float)accumIn });
   }
 
   // Stagger history fetch to avoid back-to-back GETs in same loop iteration
@@ -409,16 +407,11 @@ std::unique_ptr<SkyModel> OpenWeatherMapSource::checkhistory(time_t now, std::ti
     model->wind_dir_forecast.push_back({ dt, (float)hour["wind_deg"].as<double>() });
     model->wind_gust_forecast.push_back({ dt, (float)hour["wind_gust"].as<double>() });
     model->cloud_cover_forecast.push_back({ dt, (float)hour["clouds"].as<double>() });
+    double rain1h = hour.containsKey("rain") ? (hour["rain"]["1h"] | 0.0) : 0.0;
+    double snow1h = hour.containsKey("snow") ? (hour["snow"]["1h"] | 0.0) : 0.0;
     JsonArray wArr = hour["weather"].as<JsonArray>();
-    bool hasRain = false, hasSnow = false;
-    if (hour.containsKey("rain")) {
-      double v = hour["rain"]["1h"] | 0.0;
-      if (v > 0.0) hasRain = true;
-    }
-    if (hour.containsKey("snow")) {
-      double v = hour["snow"]["1h"] | 0.0;
-      if (v > 0.0) hasSnow = true;
-    }
+    bool hasRain = rain1h > 0.0;
+    bool hasSnow = snow1h > 0.0;
     if (!hasRain && !hasSnow && !wArr.isNull() && wArr.size() > 0) {
       const char* main = wArr[0]["main"] | "";
       if (strcasecmp(main, "rain") == 0 || strcasecmp(main, "drizzle") == 0 ||
@@ -429,7 +422,9 @@ std::unique_ptr<SkyModel> OpenWeatherMapSource::checkhistory(time_t now, std::ti
     }
     int ptype = hasRain && hasSnow ? 3 : (hasSnow ? 2 : (hasRain ? 1 : 0));
     model->precip_type_forecast.push_back({ dt, (float)ptype });
+    double accumIn = (rain1h + snow1h) / MM_PER_INCH;
     model->precip_prob_forecast.push_back({ dt, (float)hour["pop"].as<double>() });
+    model->precip_inph_forecast.push_back({ dt, (float)accumIn });
   }
 
   if (model->temperature_forecast.empty()) return nullptr;

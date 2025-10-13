@@ -24,7 +24,10 @@ public:
   const char* configKey() const override { return "CloudView"; }
 
 private:
+  static constexpr float DEFAULT_RAIN_MAX_INPH = 1.0f;
+
   int16_t segId_;
+  float precipMaxInHr_;
   char debugPixelString[128];
   skystrip::util::SegmentFreezeHandle freezeHandle_;
 };
