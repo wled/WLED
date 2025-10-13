@@ -72,11 +72,10 @@ uint32_t IRAM_ATTR color_fade(uint32_t c1, uint8_t amount, bool video) {
     // video scaling: make sure colors do not dim to zero if they started non-zero unless they distort the hue
     uint8_t r = byte(c1>>16), g = byte(c1>>8), b = byte(c1), w = byte(c1>>24); // extract r, g, b, w channels
     uint8_t maxc = (r > g) ? ((r > b) ? r : b) : ((g > b) ? g : b); // determine dominant channel for hue preservation
-    uint8_t quarterMax = maxc >> 2; // note: using half of max results in color artefacts
-    addRemains  = r && r > quarterMax ? 0x00010000 : 0;
-    addRemains |= g && g > quarterMax ? 0x00000100 : 0;
-    addRemains |= b && b > quarterMax ? 0x00000001 : 0;
-    addRemains |= w ? 0x01000000 : 0;
+    addRemains  = r && (r<<5) > maxc ? 0x00010000 : 0; // note: setting color preservation threshold too high results in flickering and
+    addRemains |= g && (g<<5) > maxc ? 0x00000100 : 0; // jumping colors in low brightness gradients. Multiplying the color preserves
+    addRemains |= b && (b<<5) > maxc ? 0x00000001 : 0; // better accuracy than dividing the maxc. Shifting by 5 is a good compromise 
+    addRemains |= w ? 0x01000000 : 0;                  // i.e. remove color channel if <13% of max
   }
   const uint32_t TWO_CHANNEL_MASK = 0x00FF00FF;
   uint32_t rb = (((c1 & TWO_CHANNEL_MASK) * amount) >> 8) &  TWO_CHANNEL_MASK; // scale red and blue

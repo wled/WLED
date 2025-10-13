@@ -896,7 +896,8 @@ static bool detectBootLoop() {
         bl_crashcounter++;
         if (bl_crashcounter >= BOOTLOOP_THRESHOLD) {
           DEBUG_PRINTLN(F("!BOOTLOOP DETECTED!"));
-          bl_crashcounter = 0;
+          bl_crashcounter = 0;  
+          if(bl_actiontracker > BOOTLOOP_ACTION_DUMP) bl_actiontracker = BOOTLOOP_ACTION_RESTORE; // reset action tracker if out of bounds
           result = true;
         }
       } else {
