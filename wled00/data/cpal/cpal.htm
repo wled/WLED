@@ -123,7 +123,7 @@
 		}
 		.pal .prow {
 			display: flex;
-			align-items: center;
+			align-items: flex-end;
 			gap: 10px;
 		}
 		.pal .prv {
@@ -416,11 +416,7 @@
 			const itm = cE('div'), nam = cE('div'), pvw = cE('div'), prow = cE('div'), pv = cE('div');
 			itm.className = 'pal';
 			nam.className = 'nam';
-			//if (author) nam.innerHTML = name + '<span class="by">by ' + author + '</span>';
-			//else nam.textContent = name;
 			nam.textContent=author?name+' by '+author:name;
-			//pvw.style.display='flex';
-			//pvw.style.flexDirection='column';
 			pvw.style.alignItems='center';
 			pvw.style.flex='1';
 			prow.className = 'prow';
@@ -526,7 +522,7 @@
 			const b = new Blob([toJSON()], {type:'application/json'});
 			const fakeFileObj = { files: [b] };
 			uploadFile(fakeFileObj, '/palette' + i + '.json');
-			localStorage.removeItem('wledPalx');
+			localStorage.removeItem('wledPalx'); // invalidate main UI cache
 			setTimeout(refr, 300);
 		}
 
@@ -534,26 +530,21 @@
 			try {
 				const inf = await fetch(getURL('/json/info'), {cache:'no-store'}).then(r=>r.json());
 				cpc = inf.cpalcount; cpm = inf.cpalmax;
+				await fetchC(cpc);
 			} catch(e) {}
-			await fetchC(cpc);
 		}
 
 		// load custom palettes, loads from cache and updates in the background as palettes are coming in
 		async function fetchC(n) {
-			// n is number of custom palettes reported by WLED (cpalcount)
 			try {
 				const cached = localStorage.getItem('wledCustomPal');
-				if (cached) {
-					cpal = JSON.parse(cached);
-				}
+				if (cached) cpal = JSON.parse(cached);
 				if (cpal.length > n) cpal = cpal.slice(0, n);
 			} catch(e) {}
 
 			while (cpal.length < n) cpal.push({palette:[255]});
-			if (cpal.length < cpm) {
-				cpal.push({palette:[255]}); // max not reached, add empty slot for saving
-			}
-			bldLst(50); // show cached or empty list with 50% opacity
+			if (cpal.length < cpm) cpal.push({palette:[255]});
+			bldLst(50);
 
 			// fetch and replace palettes as they load
 			for (let i = 0; i < n; i++) {
@@ -561,17 +552,17 @@
 					const res = await fetch(getURL('/palette' + i + '.json'), {cache:'no-store'});
 					if (res.ok) {
 						cpal[i] = await res.json();
-						bldLst(); // update UI after each palette to show progress
+						bldLst();
 					} else {
-						cpal[i] = {palette:[255]}; // error, mark as empty
+						cpal[i] = {palette:[255]};
 					}
 				} catch(e) {
-					cpal[i] = {palette:[255]}; // error, mark as empty
+					cpal[i] = {palette:[255]};
 				}
 			}
 
 			try {
-				localStorage.setItem('wledCustomPal', JSON.stringify(cpal)); // update cache
+				localStorage.setItem('wledCustomPal', JSON.stringify(cpal));
 			} catch(e) {}
 		}
 
@@ -610,7 +601,7 @@
 			return ws;
 		}
 
-		function requestJson(cmd=null) {
+		function requestJson(cmd) {
 			const useWs = (ws && ws.readyState === WebSocket.OPEN);
 			const send = (obj) => {
 				try {
@@ -619,24 +610,15 @@
 						return true;
 					}
 				} catch(e) {}
+				// use http as fallback if WebSocket is not available
+				console.log('ws not available, using http fallback');
 				fetch(getURL('/json'), {method:'post', body:JSON.stringify(obj)}).catch(()=>{});
 				return false;
 			};
-			if (!cmd) {
-				try {
-					if (useWs) ws.send('{"v":true}');
-					else fetch(getURL('/json')).then(r=>r.json()).then(d=>{json=d;});
-				} catch(e) {}
-				return;
-			}
 			send(cmd);
 		}
 
-		async function unfrz() {
-			requestJson({seg:{frz:false}});
-		}
-
-		// apply palette preview to main segment TODO: check this and cleanup
+		// apply palette preview to selected segments
 		async function applyLED() {
 			if (!palCache.length) return;
 			try {
@@ -652,13 +634,16 @@
 
 				// show palette on each selected segment, 2D are treated as 1D to show better gradient
 				for (const seg of segs) {
-					const w = seg.stop - seg.start;
-					const h = (seg.stopY - seg.startY) || 1;
-					const len = w * h;
-					const arr = new Array(len);
-					for (let i = 0; i < len; i++) arr[i] = palCache[len > 1 ? Math.round(i * 255 / (len - 1)) : 0];
-					for (let j = 0; j < arr.length; j += 50) { // send in chunks of 50 (~500 bytes) as ESP8266 has limited ws buffer, trade: speed for reliability
-						requestJson({id: seg.id, i: arr.slice(j, j+50)});
+					const len = (seg.stop - seg.start) * ((seg.stopY - seg.startY) || 1);
+					const arr = [];
+					for (let i = 0; i < len; i++) {
+						arr.push(palCache[len > 1 ? Math.round(i * 255 / (len - 1)) : 0]);
+					}
+					// freeze segment and send colors in chunks
+					requestJson({seg:{id:seg.id,frz:true}});
+					for (let j = 0; j < arr.length; j += 50) {
+						const chunk = [seg.start + j, ...arr.slice(j, j+50)];
+						requestJson({seg:{id:seg.id,i:chunk}});
 					}
 				}
 			} catch(e) {}
@@ -676,6 +661,7 @@
 				const nm = await fetch(getURL('/json/pal')).then(r => r.json());
 				pnm = nm; cpc = inf.cpalcount; cpm = inf.cpalmax;
 				fetchC(cpc);
+				// Extract WLED palettes from wledPalx cache from main UI
 				let cache; try { cache = JSON.parse(localStorage.getItem('wledPalx')); } catch {}
 				if (cache?.p) {
 					for (const k in cache.p) {
@@ -699,7 +685,7 @@
 			const m = e.target.closest('.mk');
 			if (m) {
 				isDragging = false;
-				selMk(m); 
+				selMk(m);
 				if (m.dataset.lock === '1') return;
 				e.preventDefault();
 				const startT = +m.dataset.t;
@@ -735,7 +721,8 @@
 		gId('btnFetchExt').onclick = fetchExt;
 		gId('chkPreview').addEventListener('change', (e) => {
 			prvEn = e.target.checked;
-			prvEn ? applyLED() : unfrz(); // unfreeze segments when disabling preview
+			if (prvEn) applyLED();
+			else requestJson({seg:{frz:false}});
 		});
 
 		window.addEventListener('load', () => {
