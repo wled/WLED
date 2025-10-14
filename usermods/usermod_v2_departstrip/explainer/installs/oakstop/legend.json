@@ -1,0 +1,188 @@
+{
+  "title": "DepartStrip",
+  "subtitle": "Live Transit Departures",
+  "template": "template_oakstop.html",
+  "faq": "faq_quick.md",
+  "groups": [
+    {
+      "title": "BART",
+      "appendFaq": true,
+      "class": "faq-append",
+      "lines": [
+        {
+          "label": "Red Line",
+          "desc": "Richmond \u2194 SF",
+          "hex": "#FF5959",
+          "group": "bart"
+        },
+        {
+          "label": "Orange Line",
+          "desc": "Richmond \u2194 Berryessa",
+          "hex": "#FFAC59",
+          "group": "bart"
+        },
+        {
+          "label": "Yellow Line",
+          "desc": "Antioch \u2194 SFO",
+          "hex": "#FFFF59",
+          "group": "bart"
+        }
+      ]
+    },
+    {
+      "title": "AC Transit",
+      "lines": [
+        {
+          "label": "6",
+          "desc": "Berkeley \u2194 Oakland",
+          "hex": "#2F72FF"
+        },
+        {
+          "label": "12",
+          "desc": "Jack London \u2194 Grand",
+          "hex": "#66D2FF"
+        },
+        {
+          "label": "18",
+          "desc": "Lake Merritt \u2194 Albany",
+          "hex": "#FF4C4C"
+        },
+        {
+          "label": "51A",
+          "desc": "Berkeley \u2194 Alameda",
+          "hex": "#FFC247"
+        },
+        {
+          "label": "72",
+          "desc": "San Pablo Rapid",
+          "hex": "#32FFA4"
+        },
+        {
+          "label": "72M",
+          "desc": "San Pablo \u21c6 Richmond",
+          "hex": "#C066FF"
+        },
+        {
+          "label": "88",
+          "desc": "Downtown Loop",
+          "hex": "#D6D6A0"
+        },
+        {
+          "label": "633",
+          "desc": "School Tripper",
+          "hex": "#D9D9D9"
+        },
+        {
+          "label": "651",
+          "desc": "School Tripper",
+          "hex": "#D9D9D9"
+        },
+        {
+          "label": "800",
+          "desc": "All-Nighter (SF)",
+          "hex": "#C4E8B2"
+        },
+        {
+          "label": "802",
+          "desc": "All-Nighter (Fruitvale)",
+          "hex": "#DFC4CA"
+        },
+        {
+          "label": "805",
+          "desc": "All-Nighter (Emeryville)",
+          "hex": "#FF8CDB"
+        },
+        {
+          "label": "851",
+          "desc": "Express (Marin)",
+          "hex": "#C1D7E1"
+        }
+      ]
+    }
+  ],
+  "lines": [
+    {
+      "label": "Red Line",
+      "desc": "Richmond \u2194 SF",
+      "hex": "#FF5959",
+      "group": "bart"
+    },
+    {
+      "label": "Orange Line",
+      "desc": "Richmond \u2194 Berryessa",
+      "hex": "#FFAC59",
+      "group": "bart"
+    },
+    {
+      "label": "Yellow Line",
+      "desc": "Antioch \u2194 SFO",
+      "hex": "#FFFF59",
+      "group": "bart"
+    },
+    {
+      "label": "6",
+      "desc": "Berkeley \u2194 Oakland",
+      "hex": "#2F72FF"
+    },
+    {
+      "label": "12",
+      "desc": "Jack London \u2194 Grand",
+      "hex": "#66D2FF"
+    },
+    {
+      "label": "18",
+      "desc": "Lake Merritt \u2194 Albany",
+      "hex": "#FF4C4C"
+    },
+    {
+      "label": "51A",
+      "desc": "Berkeley \u2194 Alameda",
+      "hex": "#FFC247"
+    },
+    {
+      "label": "72",
+      "desc": "San Pablo Rapid",
+      "hex": "#32FFA4"
+    },
+    {
+      "label": "72M",
+      "desc": "San Pablo \u21c6 Richmond",
+      "hex": "#C066FF"
+    },
+    {
+      "label": "88",
+      "desc": "Downtown Loop",
+      "hex": "#D6F0F5"
+    },
+    {
+      "label": "633",
+      "desc": "School Tripper",
+      "hex": "#D9D9D9"
+    },
+    {
+      "label": "651",
+      "desc": "School Tripper",
+      "hex": "#D9D9D9"
+    },
+    {
+      "label": "800",
+      "desc": "All-Nighter (SF)",
+      "hex": "C4E8B2"
+    },
+    {
+      "label": "802",
+      "desc": "All-Nighter (Fruitvale)",
+      "hex": "DFC4CA"
+    },
+    {
+      "label": "805",
+      "desc": "All-Nighter (Emeryville)",
+      "hex": "#FF8CDB"
+    },
+    {
+      "label": "851",
+      "desc": "Express (Marin)",
+      "hex": "#C1D7E1"
+    }
+  ]
+}
