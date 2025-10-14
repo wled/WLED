@@ -264,9 +264,7 @@ if (isAlreadyBuilt("wled00/data") && process.argv[2] !== '--force' && process.ar
   return;
 }
 
-writeHtmlGzipped("wled00/data/index.htm", "wled00/html_ui.h", 'index', {
-  excludeScripts: ['iro.js'] // exclude iro.js from inlining, it is also used by cpal.htm
-});
+writeHtmlGzipped("wled00/data/index.htm", "wled00/html_ui.h", 'index');
 writeHtmlGzipped("wled00/data/pixart/pixart.htm", "wled00/html_pixart.h", 'pixart');
 //writeHtmlGzipped("wled00/data/cpal/cpal.htm", "wled00/html_cpal.h", 'cpal');
 writeHtmlGzipped("wled00/data/pxmagic/pxmagic.htm", "wled00/html_pxmagic.h", 'pxmagic');
@@ -283,21 +281,6 @@ writeChunks(
   ],
   "wled00/html_cpal.h"
 );
-
-writeChunks(
-  "wled00/data/",
-  [
-    {
-      file: "iro.js",
-      name: "JS_iro",
-      method: "gzip",
-      filter: "plain", // no minification, it is already minified
-      mangle: (s) => s.replace(/^\/\*![\s\S]*?\*\//, '') // remove license comment at the top
-    }
-  ],
-  "wled00/js_iro.h"
-);
-
 
 writeChunks(
   "wled00/data",

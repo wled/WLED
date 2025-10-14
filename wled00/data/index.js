@@ -43,6 +43,13 @@ var hol = [
 	[0, 0, 1, 1, "https://images.alphacoders.com/119/1198800.jpg"]	// new year
 ];
 
+window.onerror = function(m, s, l, c, e) {
+  console.error('Global error caught:', m, e);
+  // handle error, prevent UI crash, maybe reload or show message
+  return true; // Suppress default browser error handling
+};
+
+try {
 var cpick = new iro.ColorPicker("#picker", {
 	width: 260,
 	wheelLightness: false,
@@ -53,7 +60,9 @@ var cpick = new iro.ColorPicker("#picker", {
 		options: {}
 	}]
 });
-
+} catch (e) {
+	console.log(e);
+}
 function handleVisibilityChange() {if (!d.hidden && new Date () - lastUpdate > 3000) requestJson();}
 function sCol(na, col) {d.documentElement.style.setProperty(na, col);}
 function gId(c) {return d.getElementById(c);}

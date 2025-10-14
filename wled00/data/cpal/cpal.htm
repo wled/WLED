@@ -5,7 +5,7 @@
 	<title>WLED Palette Editor</title>
 	<link rel="stylesheet" href="style.css">
 	<script src="common.js"></script>
-	<script src="iro.js"></script>
+	<!--* <script src="iro.js"></script> *-->
 	<style>
 		:root {
 			--pad:16px;
@@ -189,9 +189,10 @@
 		#memWarn a { color: #ffcc00; text-decoration: underline; }
 	</style>
 </head>
-<body>
+<body onload="S()">
 	<div class="ctr">
 		<header><h1>WLED Palette Editor</h1></header>
+
 		<div id="pickerWrap">
 			<div id="picker"></div>
 			<div class="rgbi">
@@ -200,6 +201,7 @@
 				<label>B</label><input type="number" id="bInput" min="0" max="255" value="0">
 			</div>
 		</div>
+
 		<div class="bar">
 			<button id="btnNew" class="sml">&#x2730;Generate</button>
 			<button id="btnDist" class="sml">&#x2B0C;Distribute</button>
@@ -207,22 +209,29 @@
 			<button id="btnPaste" class="sml">Paste</button>
 			<button id="btnDel" class="sml">&#x1F5D1;Delete Marker</button>
 		</div>
+
 		<div id="editor">
 			<div id="gradWrap"><div id="grad"></div></div>
 		</div>
+
 		<label>
 			<input type="checkbox" id="chkPreview">
 			<span>preview on selected segments</span>
 		</label>
+
 		<div class="tbl" id="empty"></div>
+
 		<section>
 			<span id="memWarn">Warning: Adding many custom palettes might cause stability issues, create <a href="/settings/sec#backup">backups</a></span>
 			<div class="tbl"><div id="custom" class="lst"></div></div>
 		</section>
+
 		<section><div id="allCats" class="cats"></div></section>
+
 		<div class="bar" style="margin-bottom: 24px;">
 			<button id="btnFetchExt" class="btn">Load more palettes from WLED GitHub</button>
 		</div>
+
 		<div style="font-size:12px;color:#666;">by @dedehai</div>
 	</div>
 
@@ -235,6 +244,7 @@
 		let isDragging = false;
 		let copyColor = '#000';
 		let ws = null;
+		let maxCol; // max colors to send out in one chunk, ESP8266 is limited to ~50 (500 bytes), ESP32 can do ~128 (1340 bytes)
 
 		// Utils
 		function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
@@ -243,6 +253,7 @@
 		function rgb2h(r, g, b) { return ((1<<24) + (r<<16) + (g<<8) + b).toString(16).slice(1); }
 		function lerp(a, b, t) { return a + (b-a)*t; }
 		function updRGB(h) { const [r,g,b] = h2rgb(h); gId('rInput').value=r; gId('gInput').value=g; gId('bInput').value=b; }
+		function isEmpty(a) { return Array.isArray(a) && a.length === 1 && a[0] === 255; }
 
 		// copy / paste color
 		function copypasteColor(paste = false) {
@@ -262,21 +273,32 @@
 			pl = parseInt(cs.paddingLeft || 16, 10);
 			w = rc.width - pl - parseInt(cs.paddingRight || 16, 10);
 			sc = w / 255;
-			layout(); draw();
+			layout();
+			draw();
 		}
-		function layout() { [...gr.querySelectorAll('.mk')].forEach(m => m.style.left = (pl + (+m.dataset.t * sc)) + 'px'); }
+
+		function layout() {
+			[...gr.querySelectorAll('.mk')].forEach(m => {
+				m.style.left = (pl + (+m.dataset.t * sc)) + 'px';
+			});
+		}
+
 		function stops() {
 			return [...gr.querySelectorAll('.mk')]
 				.map(m => ({ t: +m.dataset.t, c: m.dataset.c, lock: m.dataset.lock === '1' }))
 				.sort((a, b) => a.t - b.t);
 		}
+
+		/* Build a 256-entry cache of palette RGB hex (without #). This is used for previewing and sending to LEDs */
 		function bldCache() {
 			const s = stops();
 			palCache = new Array(256);
 			if (!s.length) { palCache.fill('000000'); return; }
+
 			for (let t = 0; t <= 255; t++) {
 				if (t <= s[0].t) { palCache[t] = s[0].c.slice(1); continue; }
-				if (t >= s[s.length-1].t) { palCache[t] = s[s.length-1].c.slice(1); continue; }
+				if (t >= s[s.length - 1].t) { palCache[t] = s[s.length - 1].c.slice(1); continue; }
+
 				for (let i = 0; i < s.length - 1; i++) {
 					const a = s[i], b = s[i+1];
 					if (t >= a.t && t <= b.t) {
@@ -288,6 +310,7 @@
 				}
 			}
 		}
+
 		function draw() {
 			const s = stops();
 			gr.style.background = 'linear-gradient(to right,' + s.map(x => x.c + ' ' + Math.round(x.t * sc) + 'px').join(',') + ')';
@@ -304,8 +327,11 @@
 				if (pk) { pk.color.hexString = sel.dataset.c; updRGB(sel.dataset.c); }
 			}
 		}
+
 		function canAdd() { return gr.querySelectorAll('.mk').length < 16; }
+
 		function addMk(t, c, lock) {
+			// keep start and end markers at 0/255 locked
 			if (t < 0 || t > 255 || !canAdd() || gr.querySelector('.mk[data-t="' + t + '"]')) return;
 			const m = cE('div');
 			m.className = 'mk';
@@ -315,22 +341,36 @@
 			m.style.left = (pl + (t * sc)) + 'px';
 			m.style.background = m.dataset.c;
 			gr.appendChild(m);
-			selMk(m); draw();
+			selMk(m);
+			draw();
 		}
+
 		function deleteMarker() {
 			if (!sel || sel.dataset.lock === '1') return;
-			sel.remove(); selMk(null); draw();
+			sel.remove();
+			selMk(null);
+			draw();
 		}
-		function setCol(h) { if (!sel) return; sel.dataset.c = h; sel.style.background = h; draw(); }
+
+		function setCol(h) {
+			if (!sel) return;
+			sel.dataset.c = h;
+			sel.style.background = h;
+			draw();
+		}
+
 		function dist() {
-			const s = stops(); if (s.length < 3) return;
+			const s = stops();
+			if (s.length < 3) return;
 			const inner = s.slice(1, -1), step = Math.round(255 / (inner.length + 1));
 			inner.forEach((p, i) => {
+				// find node corresponding to this pos (skips locked)
 				const m = [...gr.querySelectorAll('.mk')].find(x => +x.dataset.t === p.t && x.dataset.lock !== '1');
 				if (m) { m.dataset.t = step * (i + 1); m.style.left = (pl + (m.dataset.t * sc)) + 'px'; }
 			});
 			draw();
 		}
+/*
 		function rndPal() {
 			gr.innerHTML = '';
 			addMk(0, rndHex(), 1);
@@ -338,10 +378,52 @@
 			while (pos.size < cnt) pos.add(Math.floor(Math.random() * 254) + 1);
 			[...pos].sort((a,b)=>a-b).forEach(t => addMk(t, rndHex()));
 			addMk(255, rndHex(), 1);
-		}
+		}*/
 
+		
+		// convert hsl to hex using canvas
+		function hslToHex(h, s, l) {
+			let ctx = cE("canvas").getContext("2d");
+			ctx.fillStyle = `hsl(${h},${s}%,${l}%)`;
+			return ctx.fillStyle;
+		}
+		// random or harmonic palette (uses 100 bytes extra compared to simple random palette)
+		function rndPal() {
+			gr.innerHTML = '';
+			const mode = Math.floor(Math.random() * 3); // 33% chance for random, 67% for harmonic
+			const cnt = Math.floor(Math.random() * 4) + 1; // 1-4 colors (+ start/end)
+			let pos = new Set();
+			while (pos.size < cnt) pos.add(Math.floor(Math.random() * 254) + 1);
+			const markers = [0, ...[...pos].sort((a,b)=>a-b), 255];
+			let colors;
+
+			if (mode === 0) { // random
+				//console.log('random');
+				colors = markers.map(() => hslToHex(
+					Math.random() * 360,
+					Math.random() * 100,
+					Math.random() * 60 + 10
+				));
+			}
+			else { // harmonic triadic/tetradic
+				//console.log('harmonic');
+				const hcount = Math.random() < 0.5 ? 3 : 4;
+				const base = Math.random() * 360;
+				colors = markers.map((_, i) => hslToHex(
+					(base + 360 * (i % hcount) / hcount) % 360,
+					100,
+					Math.random() * 60 + 25 // chance for pastel colors
+				));
+			}
+
+			markers.forEach((t, i) =>
+				addMk(t, colors[i], (i === 0 || i === markers.length - 1) ? 1 : 0)
+			);
+		}
 		// Data
 		function toJSON() { return JSON.stringify({ palette: stops().flatMap(s => [s.t, s.c.slice(1)]) }); }
+
+		// convert wled palette array to CSS gradient string
 		function cssArr(a) {
 			let out = [];
 			for (let i = 0; i < a.length; i += 2) {
@@ -351,14 +433,8 @@
 			}
 			return 'linear-gradient(to right,' + out.join(',') + ')';
 		}
-		function cssStops(s) {
-			return 'linear-gradient(to right,' + s.map(x => {
-				if (typeof x.rgb === 'string') return `#${x.rgb} ${x.pos/255*100}%`;
-				if (Array.isArray(x.rgb)) return `rgb(${x.rgb.join(',')}) ${x.pos/255*100}%`;
-				return `#000 ${x.pos/255*100}%`;
-			}).join(',') + ')';
-		}
-		function isEmpty(a) { return Array.isArray(a) && a.length === 1 && a[0] === 255; }
+
+		// accepts stops array: [pos, color, pos, color, ...] where color can be 'rrggbb' or [r,g,b]
 		function loadArr(a) {
 			gr.innerHTML = '';
 			for (let i = 0; i < a.length; i += 2) {
@@ -369,35 +445,9 @@
 			}
 		}
 
-		// External normalization
-		function normStops(c) {
-			if (!Array.isArray(c) || !c.length) return [];
-			if (typeof c[0] === 'object' && c[0] && 'pos' in c[0] && 'rgb' in c[0]) {
-				return c.map(s => ({ pos: +s.pos, rgb: typeof s.rgb === 'string' ? s.rgb.replace(/^#/, '').toLowerCase() : s.rgb })).sort((a, b) => a.pos - b.pos);
-			}
-			const out = [];
-			for (let i = 0; i < c.length - 1; i += 2) {
-				const p = +c[i], h = String(c[i + 1] ?? '').trim().replace(/^#/, '').toLowerCase();
-				if (isN(p) && /^[0-9a-f]{6}$/.test(h)) out.push({ pos: p, rgb: h });
-			}
-			return out.sort((a, b) => a.pos - b.pos);
-		}
-		function stops2arr(s) {
-			const a = [];
-			for (const x of s) {
-				const p = clamp(Math.round(x.pos), 0, 255);
-				if (typeof x.rgb === 'string') a.push(p, x.rgb);
-				else if (Array.isArray(x.rgb)) a.push(p, ...x.rgb.map(v => clamp(v|0, 0, 255)));
-			}
-			if (a.length >= 2 && a[a.length-2] !== 255) {
-				const last = a.slice(-1)[0];
-				typeof last === 'string' ? a.push(255, last) : a.push(255, a[a.length-3], a[a.length-2], a[a.length-1]);
-			}
-			return a;
-		}
-
-		// Categories
 		function normCat(k) { const n = (k || '').toLowerCase(); return n === 'themed' ? 'thematic' : n; }
+
+		// group external palettes into categories
 		function grpExt(d) {
 			const g = {colorful:[], thematic:[], pastel:[], striped:[], gradient:[], monochrome:[]};
 			const add = (p) => { const k = normCat(p.category || p.class); if (g[k]) g[k].push(p); };
@@ -416,15 +466,15 @@
 			const itm = cE('div'), nam = cE('div'), pvw = cE('div'), prow = cE('div'), pv = cE('div');
 			itm.className = 'pal';
 			nam.className = 'nam';
-			nam.textContent=author?name+' by '+author:name;
-			pvw.style.alignItems='center';
-			pvw.style.flex='1';
+			nam.textContent = author ? name + ' by ' + author : name;
+			pvw.style.alignItems = 'center';
+			pvw.style.flex = '1';
 			prow.className = 'prow';
 			pv.className = 'prv';
 			pv.style.background = css;
 			pv.title = 'Click to load';
 			pv.onclick = () => loadArr(arr);
-			pvw.append(nam,pv);
+			pvw.append(nam, pv);
 			prow.appendChild(pvw);
 			if (save) prow.appendChild(save);
 			if (remove) prow.appendChild(remove);
@@ -432,6 +482,7 @@
 			return itm;
 		}
 
+		// Build the custom palette list (custom slots + empty slot handling)
 		function bldLst(op = 100) {
 			const cd = gId('custom'), fc = d.createDocumentFragment();
 			cd.innerHTML = '';
@@ -445,11 +496,13 @@
 				sv.innerHTML = '&#8678;'//'&#8629;' alternative "enter" arrow
 				sv.title = 'Save to slot ' + i;
 				sv.onclick = () => upload(i);
+
 				const rm = cE('button');
 				rm.className = 'sml';
 				rm.title = 'Delete palette';
 				rm.innerHTML = '&#128465;';
 				rm.onclick = () => { requestJson({rmcpal:i}); setTimeout(refr, 300); };
+
 				const name = isEmpty(p.palette) ? 'Empty slot' : 'Custom' + i;
 				const css = isEmpty(p.palette) ? '#666' : cssArr(p.palette);
 				const item = mkPalItem(name, null, css, p.palette, sv, rm);
@@ -469,9 +522,10 @@
 			});
 
 			cd.appendChild(fc);
-			gId('memWarn').style.display = (cpc >= 10) ? 'block' : 'none'; // show warning if 10 or more custom palettes
+			gId('memWarn').style.display = (cpc > 10) ? 'block' : 'none'; // show warning if 10 or more custom palettes
 		}
 
+		// build categories UI from grouped palettes
 		function bldCat(extGrp) {
 			const h = gId('allCats');
 			if (!h) return;
@@ -486,29 +540,21 @@
 				{k:'monochrome', lbl:'Monochrome', items:extGrp.monochrome||[]}
 			];
 			cats.forEach(({k, lbl, items}) => {
-				if (!items.length && k !== 'wled') return;
+				if (!items.length && k !== 'wled') return; // skip external categories if empty
 				const det = cE('details'), sum = cE('summary'), body = cE('div');
 				det.className = 'cat';
 				sum.innerHTML = `&#9656; ${lbl} (${items.length})`;
 				det.appendChild(sum);
 				body.className = 'cbdy';
 
-				if (!items.length) {
-					const em = cE('div');
-					em.textContent='No palettes'; 
-					em.style.textAlign='center';
-					body.appendChild(em);
+				items.forEach(p => {
+				if (k === 'wled') {
+						const key = Object.keys(p)[0];
+						body.appendChild(mkPalItem(p.name || ' ', null, cssArr(p[key]), p[key]));
 				} else {
-					items.forEach(p => {
-						if (k === 'wled') {
-							const key = Object.keys(p)[0];
-							body.appendChild(mkPalItem(p.name || 'Palette ' + key, null, cssArr(p[key]), p[key]));
-						} else {
-							const s = normStops(p.colors);
-							body.appendChild(mkPalItem(p.name || '(unnamed)', p.author, cssStops(s), stops2arr(s)));
-						}
-					});
-				}
+						body.appendChild(mkPalItem(p.name || ' ', p.author, cssArr(p.colors), p.colors));
+					}
+				});
 				det.appendChild(body);
 				h.appendChild(det);
 				det.addEventListener('toggle', () => {
@@ -575,15 +621,16 @@
 				return true;
 			} catch (e) { localStorage.removeItem('wledCptCityJson'); return false; }
 		}
-		async function fetchExt() {
-			try {
-				const res = await fetch('https://dedehai.github.io/cpt_city_selection.json', {mode:'cors', cache:'no-store'});
-				if (!res.ok) throw new Error();
-				const data = await res.json();
-				try { localStorage.setItem('wledCptCityJson', JSON.stringify(data)); } catch(e) {}
-				bldCat(grpExt(data));
-				gId('btnFetchExt').style.display = 'none';
-			} catch (e) { alert('Failed to fetch palettes'); }
+
+		function fetchExt() {
+			fetch('https://dedehai.github.io/cpt_city_selection.json', {mode:'cors', cache:'no-store'}) // todo: should cache
+				.then(r => { if (!r.ok) throw new Error(); return r.json(); })
+				.then(data => {
+					try { localStorage.setItem('wledCptCityJson', JSON.stringify(data)); } catch(e) {}
+					bldCat(grpExt(data));
+					gId('btnFetchExt').style.display = 'none';
+				})
+				.catch(() => { alert('Download failed'); });
 		}
 
 		// connect to WebSocket, use parent WS or open new
@@ -595,10 +642,10 @@
 				}
 			} catch (e) {}
 			let url = loc ? getURL('/ws').replace("http","ws") : "ws://"+window.location.hostname+"/ws";
-			let ws = new WebSocket(url);
-			ws.binaryType = "arraybuffer";
-			if (onOpen) ws.onopen = onOpen;
-			return ws;
+			let w = new WebSocket(url);
+			w.binaryType = "arraybuffer";
+			if (onOpen) w.onopen = onOpen;
+			return w;
 		}
 
 		function requestJson(cmd) {
@@ -606,27 +653,26 @@
 			const send = (obj) => {
 				try {
 					if (useWs) {
+						console.log('ws send', obj);
 						ws.send(JSON.stringify(obj));
 						return true;
 					}
 				} catch(e) {}
 				// use http as fallback if WebSocket is not available
-				console.log('ws not available, using http fallback');
 				fetch(getURL('/json'), {method:'post', body:JSON.stringify(obj)}).catch(()=>{});
 				return false;
 			};
-			send(cmd);
+			return send(cmd);
 		}
 
 		// apply palette preview to selected segments
-		async function applyLED() {
+		function applyLED() {
 			if (!palCache.length) return;
-			try {
-				const st = await fetch(getURL('/json/state'), {cache:'no-store'}).then(r=>r.json());
+			fetch(getURL('/json/state'), {cache:'no-store'}).then(r => r.json()).then(st => {
 				if (!Array.isArray(st.seg) || !st.seg.length) return;
 
 				// get selected segments, use main segment if none selected
-				const segs = st.seg.filter(s => s.sel);
+				let segs = st.seg.filter(s => s.sel);
 				if (!segs.length) {
 					const mainSeg = st.seg.find(s => s.id === (st.mainseg || 0));
 					if (mainSeg) segs.push(mainSeg);
@@ -639,42 +685,77 @@
 					for (let i = 0; i < len; i++) {
 						arr.push(palCache[len > 1 ? Math.round(i * 255 / (len - 1)) : 0]);
 					}
-					// freeze segment and send colors in chunks
-					requestJson({seg:{id:seg.id,frz:true}});
-					for (let j = 0; j < arr.length; j += 50) {
-						const chunk = [seg.start + j, ...arr.slice(j, j+50)];
+					// send colors in chunks
+					for (let j = 0; j < arr.length; j += maxCol) {
+						const chunk = [seg.start + j, ...arr.slice(j, j+maxCol)];
 						requestJson({seg:{id:seg.id,i:chunk}});
 					}
 				}
-			} catch(e) {}
+			}).catch(()=>{});
 		}
 
-		// Init
-		async function init() {
+		// init function (startup)
+		async function S() {
 			getLoc();
+
+			// download index.htm and extract iro-js script
+			let h = await fetch(getURL('/')).then(r => r.text()),
+					s = new DOMParser().parseFromString(h, 'text/html').getElementById('iro-js');
+			if(s) d.head.appendChild(Object.assign(document.createElement('script'), {text:s.textContent}));
 			ws = connectWs();
+
+			// init iro color picker
+			pk = new iro.ColorPicker('#picker', {
+				width: 240,
+				wheelAngle: 270,
+				wheelDirection: 'clockwise',
+				layout: [
+					{component: iro.ui.Wheel},
+					{component: iro.ui.Slider, options: {sliderType: 'value'}}
+				]
+			});
+
+			// update color when picker changes
+			pk.on('color:change', (c) => { setCol(c.hexString); updRGB(c.hexString); });
+
+			const updFromRGB = () => {
+				const r = clamp(parseInt(gId('rInput').value) || 0, 0, 255);
+				const g = clamp(parseInt(gId('gInput').value) || 0, 0, 255);
+				const b = clamp(parseInt(gId('bInput').value) || 0, 0, 255);
+				pk.color.rgb = {r, g, b};
+			};
+			gId('rInput').addEventListener('change', updFromRGB);
+			gId('gInput').addEventListener('change', updFromRGB);
+			gId('bInput').addEventListener('change', updFromRGB);
+
 			let extGrp = {};
 			const cached = tryCache();
 			if (!cached) gId('btnFetchExt').style.display = '';
-			try {
-				const inf = await fetch(getURL('/json/info')).then(r => r.json());
-				const nm = await fetch(getURL('/json/pal')).then(r => r.json());
-				pnm = nm; cpc = inf.cpalcount; cpm = inf.cpalmax;
-				fetchC(cpc);
-				// Extract WLED palettes from wledPalx cache from main UI
-				let cache; try { cache = JSON.parse(localStorage.getItem('wledPalx')); } catch {}
-				if (cache?.p) {
-					for (const k in cache.p) {
-						if (+k > 255 - cpm || !Array.isArray(cache.p[k])) { delete cache.p[k]; continue; }
-						const a = cache.p[k];
-						if (a[a.length-1][0] !== 255) a.push([255, ...a[a.length-1].slice(1)]);
-						cache.p[k].name = pnm[k];
+			// fetch info + palnames
+			Promise.all([fetch(getURL('/json/info')).then(r=>r.json()), fetch(getURL('/json/pal')).then(r=>r.json())])
+				.then(([inf, nm]) => {
+					pnm = nm; cpc = inf.cpalcount; cpm = inf.cpalmax;
+					fetchC(cpc);
+					//if (inf.arch === 'esp8266') maxCol = 50; // needs /json, not info TODO: fix
+					//else maxCol = 128;
+					maxCol = 50; // safe for ESP8266, ESP32 can do 128
+
+					// Extract WLED palettes from wledPalx cache from main UI
+					let cache; try { cache = JSON.parse(localStorage.getItem('wledPalx')); } catch {}
+					if (cache?.p) {
+						for (const k in cache.p) {
+							if (+k > 255 - cpm || !Array.isArray(cache.p[k])) { delete cache.p[k]; continue; }
+							const a = cache.p[k];
+							if (a[a.length-1][0] !== 255) a.push([255, ...a[a.length-1].slice(1)]);
+							cache.p[k].name = pnm[k];
+						}
+						spal = Object.entries(cache.p).filter(([k]) => +k >= 8).map(([k, v]) => ({[k]:v.flat(), name:v.name}));
 					}
-					spal = Object.entries(cache.p).filter(([k]) => +k >= 8).map(([k, v]) => ({[k]:v.flat(), name:v.name}));
-				}
-				try { const raw = localStorage.getItem('wledCptCityJson'); if (raw) extGrp = grpExt(JSON.parse(raw)); } catch(e) {}
-				bldCat(extGrp);
-			} catch (e) {}
+					try { const raw = localStorage.getItem('wledCptCityJson'); if (raw) extGrp = grpExt(JSON.parse(raw)); } catch(e) {}
+					bldCat(extGrp);
+				})
+				.catch(()=>{});
+
 			recalc();
 			rndPal();
 		}
@@ -708,6 +789,8 @@
 				if (canAdd() && t !== 0 && t !== 255) addMk(t, '#' + (palCache[t] || '000000'));
 			}
 		});
+
+		// keyboard nudge for selected marker (note: takes 100 bytes of code)
 		d.addEventListener('keydown', (e) => {
 			if (!sel || sel.dataset.lock === '1') return;
 			let t = +sel.dataset.t;
@@ -729,31 +812,6 @@
 			else requestJson({seg:{frz:false}});
 		});
 
-		window.addEventListener('load', () => {
-			pk = new iro.ColorPicker('#picker', {
-				width: 240,
-				wheelAngle: 270,
-				wheelDirection: 'clockwise',
-				layout: [
-					{component: iro.ui.Wheel},
-					{component: iro.ui.Slider, options: {sliderType: 'value'}}
-				]
-			});
-			
-			pk.on('color:change', (c) => { setCol(c.hexString); updRGB(c.hexString); });
-			
-			const updFromRGB = () => {
-				const r = clamp(parseInt(gId('rInput').value) || 0, 0, 255);
-				const g = clamp(parseInt(gId('gInput').value) || 0, 0, 255);
-				const b = clamp(parseInt(gId('bInput').value) || 0, 0, 255);
-				pk.color.rgb = {r, g, b};
-			};
-			gId('rInput').addEventListener('change', updFromRGB);
-			gId('gInput').addEventListener('change', updFromRGB);
-			gId('bInput').addEventListener('change', updFromRGB);
-			
-			init();
-		});
 	</script>
 </body>
 </html>
