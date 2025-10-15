@@ -665,6 +665,12 @@ uint16_t mode_twinkle(void) {
   // Cycle mode: randomly switch all LEDs to new color, then back to old color
   if (SEGMENT.check1) 
   {
+    // tiny segments: no cycling needed, avoid bitset allocation
+    if (SEGLEN <= 1)
+    {
+      return mode_static();
+    }
+
     unsigned dataSize = (SEGLEN + 7) >> 3; // 1 bit per LED for tracking
     if ( ! SEGENV.allocateData(dataSize)) 
     {
@@ -675,7 +681,7 @@ uint16_t mode_twinkle(void) {
     uint32_t it = strip.now / cycleTime;
     
     // Initialize on first call
-    if (SEGENV.call == 0) 
+    if ((SEGENV.call == 0) || (SEGENV.aux1 > 1))
     {
       SEGENV.aux0 = 0; // Count of LEDs switched in current cycle
       SEGENV.aux1 = 0; // Direction: 0 = switching to new color, 1 = switching back
