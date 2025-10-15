@@ -732,6 +732,11 @@ uint16_t mode_twinkle(void) {
           }
           attempts++;
         }
+        
+        if (attempts >= maxAttempts) {
+          // Fail-safe: complete the cycle to avoid getting stuck
+          SEGENV.aux0 = SEGLEN;
+        }
       }
     }
   } 
