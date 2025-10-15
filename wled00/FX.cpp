@@ -672,13 +672,13 @@ uint16_t mode_twinkle(void) {
     if (SEGENV.aux0 >= maxOn)
     {
       SEGENV.aux0 = 0;
-      SEGENV.aux1 = hw_random(); //new seed for our PRNG
+      SEGENV.aux1 = hw_random16(); //new seed for our PRNG (16-bit for better coverage)
     }
     SEGENV.aux0++;
     SEGENV.step = it;
   }
 
-  unsigned PRNG16 = SEGENV.aux1;
+  uint16_t PRNG16 = SEGENV.aux1;
 
   for (unsigned i = 0; i < SEGENV.aux0; i++)
   {
