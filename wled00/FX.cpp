@@ -5031,6 +5031,79 @@ uint16_t mode_aurora(void) {
 
 static const char _data_FX_MODE_AURORA[] PROGMEM = "Aurora@!,!;1,2,3;!;;sx=24,pal=50";
 
+
+/** Softly floating colorful clouds.
+ * This is a very smooth effect that moves colorful clouds randomly around the LED strip.
+ * It was initially intended for rather unobtrusive ambient lights (with very slow speed settings).
+ * Nevertheless, it appears completely different and quite vibrant when the sliders are moved near
+ * to their limits. No matter in which direction or in which combination...
+ * Ported to WLED from https://github.com/JoaDick/EyeCandy/blob/master/ColorClouds.h
+ */
+uint16_t mode_ColorClouds()
+{
+  // Set random start points for clouds and color.
+  if(SEGENV.call == 0) {
+    SEGENV.aux0 = hw_random16();
+    SEGENV.aux1 = hw_random16();
+  }
+  const uint32_t volX0 = SEGENV.aux0;
+  const uint32_t hueX0 = SEGENV.aux1;
+  const uint8_t hueOffset0 = volX0 + hueX0;
+
+  // Higher values make the clouds move faster.
+  const uint32_t volSpeed = 1 + SEGMENT.speed;
+  
+  // Higher values make the color change faster.
+  const uint32_t hueSpeed = 1 + SEGMENT.intensity;
+  
+  // Higher values make more clouds (but smaller ones).
+  const uint32_t volSqueeze = 8 + SEGMENT.custom1;
+  
+  // Higher values make the clouds more colorful.
+  const uint32_t hueSqueeze = SEGMENT.custom2;
+
+  // Higher values make larger gaps between the clouds.
+  const long volCutoff = 2000 + SEGMENT.custom3 * 1250;
+
+  // Put more emphasis on the red'ish colors when true.
+  const bool moreRed = SEGMENT.check3;
+
+  const uint32_t now = strip.now;
+  const uint32_t volT = now * volSpeed / 8;
+  const uint32_t hueT = now * hueSpeed / 8;
+  const uint8_t hueOffset = beat88(64) >> 8;
+
+  for (int i = 0; i < SEGLEN; i++) {
+    const uint32_t volX = i * volSqueeze * 64;
+    long vol = inoise16(volX0 + volX, volT);
+    vol = map(vol, volCutoff, 46000, 0, 255);
+    vol = constrain(vol, 0, 255);
+
+    const uint32_t hueX = i * hueSqueeze * 8;
+    uint8_t hue = inoise16(hueX0 + hueX, hueT) >> 7;
+    hue += hueOffset0;
+    hue += hueOffset;
+    if (moreRed)
+    {
+      hue = cos8(128 + hue / 2);
+    }
+
+    CRGB pixel = CHSV(hue, 255, vol);
+    // Suppress extremely dark pixels to avoid flickering of plain r/g/b.
+    // Unfortunately this doesn't work anymore when gamma correction for color is enabled.
+    // So, when using this effect standalone, also try it without color gamma correction.
+    if (int(pixel.r) + pixel.g + pixel.b <= 2) {
+      pixel = CRGB::Black;
+    }
+
+    SEGMENT.setPixelColor(i, pixel);
+  }
+
+  return FRAMETIME;
+}
+static const char _data_FX_MODE_COLORCLOUDS[] PROGMEM = "Color Clouds@Cloud speed,Color speed,Clouds,Colors,Distance,,,More red;;;;sx=24,ix=32,c1=48,c2=64,c3=12";
+
+
 // WLED-SR effects
 
 /////////////////////////
@@ -11039,6 +11112,7 @@ void WS2812FX::setupEffectData() {
   addEffect(FX_MODE_COLOR_SWEEP_RANDOM, &mode_color_sweep_random, _data_FX_MODE_COLOR_SWEEP_RANDOM);
   addEffect(FX_MODE_RUNNING_COLOR, &mode_running_color, _data_FX_MODE_RUNNING_COLOR);
   addEffect(FX_MODE_AURORA, &mode_aurora, _data_FX_MODE_AURORA);
+  addEffect(FX_MODE_COLORCLOUDS, &mode_ColorClouds, _data_FX_MODE_COLORCLOUDS);
   addEffect(FX_MODE_RUNNING_RANDOM, &mode_running_random, _data_FX_MODE_RUNNING_RANDOM);
   addEffect(FX_MODE_LARSON_SCANNER, &mode_larson_scanner, _data_FX_MODE_LARSON_SCANNER);
   addEffect(FX_MODE_RAIN, &mode_rain, _data_FX_MODE_RAIN);
