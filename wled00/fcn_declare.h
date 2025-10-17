@@ -545,6 +545,9 @@ void serveMessage(AsyncWebServerRequest* request, uint16_t code, const String& h
 void serveJsonError(AsyncWebServerRequest* request, uint16_t code, uint16_t error);
 void serveSettings(AsyncWebServerRequest* request, bool post = false);
 void serveSettingsJS(AsyncWebServerRequest* request);
+#if defined(ARDUINO_ARCH_ESP32) && !defined(WLED_DISABLE_OTA)
+String getBootloaderSHA256Hex();
+#endif
 
 //ws.cpp
 void handleWs();
