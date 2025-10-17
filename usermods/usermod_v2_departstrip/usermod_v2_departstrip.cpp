@@ -11,6 +11,7 @@
 #include "depart_model.h"
 #include "siri_source.h"
 #include "gtfsrt_source.h"
+#include "cta_source.h"
 #include "departure_view.h"
 
 #ifndef DEPARTSTRIP_GIT_DESCRIBE
@@ -33,6 +34,7 @@ String normalizeSourceType(const String& raw) {
   t.toLowerCase();
   if (t.length() == 0) t = F("siri");
   if (t == F("gtfs-rt")) t = F("gtfsrt");
+  if (t == F("traintracker") || t == F("cta-traintracker") || t == F("ctatraintracker")) t = F("cta");
   return t;
 }
 
@@ -40,6 +42,9 @@ std::unique_ptr<IDataSourceT<DepartModel>> makeSourceForType(const String& type,
   String norm = normalizeSourceType(type);
   if (norm == F("gtfsrt")) {
     return ::make_unique<GtfsRtSource>(key);
+  }
+  if (norm == F("cta")) {
+    return ::make_unique<CtaTrainTrackerSource>(key);
   }
   return ::make_unique<SiriSource>(key, nullptr, nullptr, nullptr);
 }
@@ -221,6 +226,7 @@ void DepartStrip::appendConfigData(Print& s) {
     const char* type = src->sourceType();
     bool isSiri = (strcmp(type, "siri") == 0);
     bool isGtfs = (strcmp(type, "gtfsrt") == 0);
+    bool isCta = (strcmp(type, "cta") == 0);
     if (isSiri) {
       String friendly = F("SIRI Source ");
       String key = src->sourceKey();
@@ -237,21 +243,54 @@ void DepartStrip::appendConfigData(Print& s) {
       if (gs) friendly += gs->agency();
       friendly.trim();
       if (friendly.length() > 0) renameTargets.push_back(RenameTarget{String(src->configKey()), friendly});
+    } else if (isCta) {
+      String friendly = F("CTA Source ");
+      String key = src->sourceKey();
+      if (key.length() > 0) friendly += key;
+      friendly.trim();
+      if (friendly.length() > 0) renameTargets.push_back(RenameTarget{String(src->configKey()), friendly});
     }
-    if (!isSiri && !isGtfs) continue;
+    if (!isSiri && !isGtfs && !isCta) continue;
 
     std::vector<String> lines;
     String agency;
     if (model_) {
       auto appendLines = [&](const String& key) {
-        std::vector<String> tmp;
-        model_->currentLinesForBoard(key, tmp);
-        for (const auto& ln : tmp) {
-          bool exists = false;
-          for (const auto& existing : lines) {
-            if (existing == ln) { exists = true; break; }
+        int colon = key.indexOf(':');
+        if (colon <= 0) return;
+        String agencyPart = key.substring(0, colon);
+        String tokens = key.substring(colon + 1);
+        tokens.trim();
+
+        auto fetchToken = [&](const String& token) {
+          if (token.length() == 0) return;
+          String boardKey = agencyPart;
+          boardKey += ':';
+          boardKey += token;
+          std::vector<String> tmp;
+          model_->currentLinesForBoard(boardKey, tmp);
+          for (const auto& ln : tmp) {
+            bool exists = false;
+            for (const auto& existing : lines) {
+              if (existing == ln) { exists = true; break; }
+            }
+            if (!exists) lines.push_back(ln);
           }
-          if (!exists) lines.push_back(ln);
+        };
+
+        if (tokens.indexOf(',') < 0) {
+          fetchToken(tokens);
+        } else {
+          int start = 0;
+          int len = tokens.length();
+          while (start < len) {
+            int comma = tokens.indexOf(',', start);
+            String tok = (comma >= 0) ? tokens.substring(start, comma) : tokens.substring(start);
+            tok.trim();
+            fetchToken(tok);
+            if (comma < 0) break;
+            start = comma + 1;
+          }
         }
       };
 
@@ -273,10 +312,17 @@ void DepartStrip::appendConfigData(Print& s) {
             appendLines(key);
           }
         }
+      } else if (isCta) {
+        String key = src->sourceKey();
+        int colon = key.indexOf(':');
+        if (colon > 0) {
+          agency = key.substring(0, colon);
+        }
+        appendLines(key);
       }
     }
 
-    if (!isSiri && lines.empty()) continue;
+    if (!isSiri && !isCta && lines.empty()) continue;
 
     s.print(F("addInfo('DepartStrip:")); s.print(src->configKey()); s.print(F(":Delete',1,'"));
     s.print(F("<div style=\\'margin-top:8px;text-align:center;\\'>"));
@@ -285,6 +331,15 @@ void DepartStrip::appendConfigData(Print& s) {
       SiriSource* ss = static_cast<SiriSource*>(src.get());
       if (ss->stopName().length()) {
         String nm = ss->stopName();
+        nm.replace("&","&amp;");
+        nm.replace("<","&lt;"); nm.replace(">","&gt;");
+        nm.replace("\\","\\\\"); nm.replace("'","\\'");
+        s.print(F("<div style=\\'margin-bottom:4px;\\'><b>Stop:</b> ")); s.print(nm); s.print(F("</div>"));
+      }
+    } else if (isCta) {
+      auto* cs = static_cast<CtaTrainTrackerSource*>(src.get());
+      if (cs && cs->stopName().length()) {
+        String nm = cs->stopName();
         nm.replace("&","&amp;");
         nm.replace("<","&lt;"); nm.replace(">","&gt;");
         nm.replace("\\","\\\\"); nm.replace("'","\\'");
@@ -313,9 +368,9 @@ void DepartStrip::appendConfigData(Print& s) {
 
   }
   s.print(F("setTimeout(function(){var inputs=document.querySelectorAll('input[name^=\"DepartStrip:\"][name$=\":Type\"]');"));
-  s.print(F("for(var i=0;i<inputs.length;i++){var fld=inputs[i]; if(!fld||fld.dataset.typeSel==='1') continue; var ft=(fld.type||'').toLowerCase(); if(ft&&ft!=='text') continue; var parent=fld.parentNode; if(!parent) continue; var sel=document.createElement('select'); sel.name=fld.name; sel.id=fld.id; sel.className=fld.className||''; var opts=[['siri','SIRI'],['gtfsrt','GTFS-RT']];"));
+  s.print(F("for(var i=0;i<inputs.length;i++){var fld=inputs[i]; if(!fld||fld.dataset.typeSel==='1') continue; var ft=(fld.type||'').toLowerCase(); if(ft&&ft!=='text') continue; var parent=fld.parentNode; if(!parent) continue; var sel=document.createElement('select'); sel.name=fld.name; sel.id=fld.id; sel.className=fld.className||''; var opts=[['siri','SIRI'],['gtfsrt','GTFS-RT'],['cta','CTA TrainTracker']];"));
   s.print(F("for(var j=0;j<opts.length;j++){var opt=document.createElement('option'); opt.value=opts[j][0]; opt.textContent=opts[j][1]; sel.appendChild(opt);}"));
-  s.print(F("var val=(fld.value||'').toLowerCase(); if(val!=='gtfsrt' && val!=='siri') val='siri'; sel.value=val; fld.dataset.typeSel='1'; parent.insertBefore(sel,fld); parent.removeChild(fld);} },0);"));
+  s.print(F("var val=(fld.value||'').toLowerCase(); if(val==='traintracker'||val==='cta-traintracker'||val==='ctatraintracker') val='cta'; if(val!=='gtfsrt' && val!=='siri' && val!=='cta') val='siri'; sel.value=val; fld.dataset.typeSel='1'; parent.insertBefore(sel,fld); parent.removeChild(fld);} },0);"));
 
   if (!renameTargets.empty()) {
     s.print(F("setTimeout(function(){function dsRename(key,label){var nameEn='DepartStrip:'+key+':Enabled';"));

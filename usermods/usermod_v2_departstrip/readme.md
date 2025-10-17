@@ -1,7 +1,8 @@
 # DepartStrip
 
-Render upcoming departures from SIRI StopMonitoring feeds on WLED LED
-segments, keyed by `AGENCY:StopCode`.
+Render upcoming departures from real-time transit feeds (SIRI StopMonitoring,
+CTA TrainTracker, and GTFS-RT) on WLED LED segments, keyed by
+`AGENCY:StopCode`.
 
 ## SIRI Basics
 
@@ -28,17 +29,39 @@ segments, keyed by `AGENCY:StopCode`.
     their developer docs, you can likely adapt it here by setting the
     TemplateUrl and parameters.
 
+## CTA TrainTracker Basics
+
+- Endpoint: `https://lapi.transitchicago.com/api/1.0/ttarrivals.aspx`
+- Authentication: API key passed as `key=...`
+- AgencyStopCode format: `CTA:mapId.direction` (for example
+  `CTA:41050.5` for Linden southbound, where the `.5` selects `trDr=5`)
+- The usermod consumes the XML response, filters by `trDr`, and renders
+  departures using the CTA `destNm` (destination name) as the route label.
+
+Example template URL:
+```
+https://lapi.transitchicago.com/api/1.0/ttarrivals.aspx?mapid={mapid}&max=20&key={apiKey}
+```
+
+Set the Type selector to `CTA` and provide your API key in the `ApiKey`
+field. You can list multiple stops by separating tokens with commas, e.g.,
+`CTA:41050.5,41050.1`.
+
 ## Configuration (WLED → Config → Usermods → DepartStrip)
 
 - DepartStrip.Enabled — master enable.
 
 Source sections (siri_source1, siri_source2, …)
 - Enabled — enable/disable this source.
+- Type — data protocol (`siri`, `cta`, or `gtfsrt`).
 - UpdateSecs — fetch interval seconds (default 60).
 - TemplateUrl — URL template with placeholders (see below):
   `http://api.511.org/transit/StopMonitoring?format=json&api_key={apikey}&agency={agency}&stopCode={stopcode}`
 - ApiKey — substituted into `{apikey}`.
-- AgencyStopCode — `AGENCY:StopCode` (e.g., `AC:50958`, `BA:900201`).
+- AgencyStopCode — `AGENCY:StopCode`. Examples:
+  - SIRI: `AC:50958` or `BA:900201`.
+  - CTA: `CTA:41050.5` (`mapId.trDr`).
+  - GTFS-RT: `AGENCY:StopId` (token format matches your feed).
 
 Top-level DepartStrip settings
 - Enabled — master enable.
@@ -58,6 +81,10 @@ Each source uses a `TemplateUrl` with placeholders replaced at fetch time:
 - `{agency}` or `{AGENCY}` → agency code (e.g., `AC`, `BA`, `MTA`).
 - `{stopcode}` or `{stopCode}` → stop code (e.g., `50958`).
 - `{apikey}`, `{apiKey}`, or `{APIKEY}` → your API key.
+- CTA-specific helpers:
+  - `{mapid}`, `{mapId}`, or `{MAPID}` → CTA map ID.
+  - `{direction}` / `{Direction}` / `{DIRECTION}` / `{trDr}` → numeric `trDr`
+    value (only substituted when provided in the AgencyStopCode token).
 
 If placeholders are present they are replaced directly. If none are
 present, the provided URL is used as‑is (no legacy query parameters
