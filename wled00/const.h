@@ -102,9 +102,9 @@ static_assert(WLED_MAX_BUSSES <= 32, "WLED_MAX_BUSSES exceeds hard limit");
 
 #ifndef WLED_MAX_BUTTONS
   #ifdef ESP8266
-    #define WLED_MAX_BUTTONS 2
+    #define WLED_MAX_BUTTONS 10
   #else
-    #define WLED_MAX_BUTTONS 4
+    #define WLED_MAX_BUTTONS 32
   #endif
 #else
   #if WLED_MAX_BUTTONS < 2
