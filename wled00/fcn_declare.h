@@ -227,6 +227,8 @@ void savePreset(byte index, const char* pname = nullptr, JsonObject saveobj = Js
 inline void saveTemporaryPreset() {savePreset(255);};
 void deletePreset(byte index);
 bool getPresetName(byte index, String& name);
+// legacy effect remapping, can be removed in 0.17
+void remapLegacyEffect(uint8_t effectId, Segment &seg);
 
 //remote.cpp
 void handleWiZdata(uint8_t *incomingData, size_t len);
