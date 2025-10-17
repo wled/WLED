@@ -364,6 +364,9 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
     if (t > 0) briMultiplier = t;
 
     doInitBusses = busesChanged;
+    
+    // handle reboot request for bus changes
+    if (request->hasArg(F("RBT"))) doReboot = true;
   }
 
   //UI
