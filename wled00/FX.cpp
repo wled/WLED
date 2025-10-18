@@ -678,7 +678,7 @@ uint16_t mode_twinkle(void) {
     SEGENV.step = it;
   }
 
-  unsigned PRNG16 = SEGENV.aux1;
+  uint16_t PRNG16 = SEGENV.aux1;
 
   for (unsigned i = 0; i < SEGENV.aux0; i++)
   {
