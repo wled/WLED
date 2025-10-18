@@ -205,7 +205,7 @@ static bool deserializeSegment(JsonObject elem, byte it, byte presetId = 0)
         // JSON "col" array can contain the following values for each of segment's colors (primary, background, custom):
         // "col":[int|string|object|array, int|string|object|array, int|string|object|array]
         //   int = Kelvin temperature or 0 for black
-        //   string = hex representation of [WW]RRGGBB
+        //   string = hex representation of [WW]RRGGBB or "r" for random color
         //   object = individual channel control {"r":0,"g":127,"b":255,"w":255}, each being optional (valid to send {})
         //   array = direct channel values [r,g,b,w] (w element being optional)
         int rgbw[] = {0,0,0,0};
