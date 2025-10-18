@@ -248,6 +248,20 @@ writeHtmlGzipped("wled00/data/pixart/pixart.htm", "wled00/html_pixart.h", 'pixar
 writeHtmlGzipped("wled00/data/pxmagic/pxmagic.htm", "wled00/html_pxmagic.h", 'pxmagic');
 
 writeChunks(
+  "wled00/data/",
+  [
+    {
+      file: "iro.js",
+      name: "JS_iro",
+      method: "gzip",
+      filter: "plain", // no minification, it is already minified
+      mangle: (s) => s.replace(/^\/\*![\s\S]*?\*\//, '') // remove license comment at the top
+    }
+  ],
+  "wled00/js_iro.h"
+);
+
+writeChunks(
   "wled00/data/cpal",
   [
     {

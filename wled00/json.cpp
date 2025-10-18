@@ -528,13 +528,11 @@ bool deserializeState(JsonObject root, byte callMode, byte presetId)
     else callMode = CALL_MODE_DIRECT_CHANGE;  // possible bugfix for playlist only containing HTTP API preset FX=~
   }
 
-  if (root.containsKey(F("rmcpal")) && root[F("rmcpal")].as<bool>()) {
-    if (customPalettes.size()) {
-      char fileName[32];
-      sprintf_P(fileName, PSTR("/palette%d.json"), customPalettes.size()-1);
-      if (WLED_FS.exists(fileName)) WLED_FS.remove(fileName);
-      loadCustomPalettes();
-    }
+  if (root.containsKey(F("rmcpal")) && root[F("rmcpal")].as<byte>() < customPalettes.size()) {
+    char fileName[32];
+    sprintf_P(fileName, PSTR("/palette%d.json"), root[F("rmcpal")].as<byte>());
+    if (WLED_FS.exists(fileName)) WLED_FS.remove(fileName);
+    loadCustomPalettes();
   }
 
   doAdvancePlaylist = root[F("np")] | doAdvancePlaylist; //advances to next preset in playlist when true
