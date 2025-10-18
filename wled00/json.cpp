@@ -64,6 +64,22 @@ namespace {
   }
 }
 
+/**
+ * Deserialize a segment description from a JSON object and apply it to the specified segment slot.
+ *
+ * Parses and applies geometry, naming, grouping/spacing/offset, 2D bounds, mode, palette, colors
+ * (supports kelvin, hex, "r" random, object or array formats), per-LED assignments, options (on/frz/sel/rev/mi),
+ * speed/intensity, custom channels, checks, blend mode, and LOXONE mappings. The function may append a new
+ * segment, delete a segment, perform a repeat expansion to create multiple segments, and mark global state
+ * as changed when segment parameters differ.
+ *
+ * @param elem JSON object describing the segment (API format).
+ * @param it  Default segment index to use when `elem["id"]` is not provided.
+ * @param presetId  Optional preset identifier; when nonzero, preset-related side effects (e.g., playlist unloading)
+ *                  are suppressed or handled differently.
+ * @return true if the JSON was valid for the target id and the segment was applied (or created); false if the
+ *         target id is out of range or the descriptor is invalid (e.g., attempting to create an empty segment).
+ */
 static bool deserializeSegment(JsonObject elem, byte it, byte presetId = 0)
 {
   byte id = elem["id"] | it;
@@ -205,7 +221,7 @@ static bool deserializeSegment(JsonObject elem, byte it, byte presetId = 0)
         // JSON "col" array can contain the following values for each of segment's colors (primary, background, custom):
         // "col":[int|string|object|array, int|string|object|array, int|string|object|array]
         //   int = Kelvin temperature or 0 for black
-        //   string = hex representation of [WW]RRGGBB
+        //   string = hex representation of [WW]RRGGBB or "r" for random color
         //   object = individual channel control {"r":0,"g":127,"b":255,"w":255}, each being optional (valid to send {})
         //   array = direct channel values [r,g,b,w] (w element being optional)
         int rgbw[] = {0,0,0,0};
@@ -228,6 +244,9 @@ static bool deserializeSegment(JsonObject elem, byte it, byte presetId = 0)
               if (kelvin <  0) continue;
               if (kelvin == 0) seg.setColor(i, 0);
               if (kelvin >  0) colorKtoRGB(kelvin, brgbw);
+              colValid = true;
+            } else if (hexCol[0] == 'r' && hexCol[1] == '\0') { // Random colors via JSON API in Segment object like col=["r","r","r"] · Issue #4996
+              setRandomColor(brgbw);
               colValid = true;
             } else { //HEX string, e.g. "FFAA00"
               colValid = colorFromHexString(brgbw, hexCol);
