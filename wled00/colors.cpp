@@ -249,7 +249,7 @@ void loadCustomPalettes() {
   byte tcp[72]; //support gradient palettes with up to 18 entries
   CRGBPalette16 targetPalette;
   customPalettes.clear(); // start fresh
-  StaticJsonDocument<1536> pDoc; // barely enough to fit 72 numbers -> no, current format uses 214 bytes max per palette
+  StaticJsonDocument<1536> pDoc; // barely enough to fit 72 numbers -> TODO: current format uses 214 bytes max per palette, why is this buffer so large?
   unsigned emptyPaletteGap = 0; // count gaps in palette files to stop looking for more (each exists() call takes ~5ms)
   for (int index = 0; index < WLED_MAX_CUSTOM_PALETTES; index++) {
     char fileName[32];
