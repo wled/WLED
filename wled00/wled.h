@@ -10,7 +10,7 @@
 #define VERSION 2506160
 
 //uncomment this if you have a "my_config.h" file you'd like to use
-//#define WLED_USE_MY_CONFIG
+// #define WLED_USE_MY_CONFIG
 
 // ESP8266-01 (blue) got too little storage space to work with WLED. 0.10.2 is the last release supporting this unit.
 
@@ -20,7 +20,7 @@
 // Alternatively, with platformio pass your chosen flags to your custom build target in platformio_override.ini
 
 // You are required to disable over-the-air updates:
-//#define WLED_DISABLE_OTA         // saves 14kb
+// #define WLED_DISABLE_OTA         // saves 14kb
 #ifdef WLED_ENABLE_AOTA
   #if defined(WLED_DISABLE_OTA)
     #warning WLED_DISABLE_OTA was defined but it will be ignored due to WLED_ENABLE_AOTA.
@@ -29,8 +29,8 @@
 #endif
 
 // You can choose some of these features to disable:
-//#define WLED_DISABLE_ALEXA       // saves 11kb
-//#define WLED_DISABLE_HUESYNC     // saves 4kb
+// #define WLED_DISABLE_ALEXA       // saves 11kb
+// #define WLED_DISABLE_HUESYNC     // saves 4kb
 //#define WLED_DISABLE_INFRARED    // saves 12kb, there is no pin left for this on ESP8266-01
 #ifndef WLED_DISABLE_MQTT
   #define WLED_ENABLE_MQTT         // saves 12kb
@@ -50,12 +50,12 @@
   #define WLED_ENABLE_JSONLIVE     // peek LED output via /json/live (WS binary peek is always enabled)
 #endif
 
-//#define WLED_DISABLE_ESPNOW      // Removes dependence on esp now
+// #define WLED_DISABLE_ESPNOW      // Removes dependence on esp now
 
 #define WLED_ENABLE_FS_EDITOR      // enable /edit page for editing FS content. Will also be disabled with OTA lock
 
 // to toggle usb serial debug (un)comment the following line
-//#define WLED_DEBUG
+// #define WLED_DEBUG
 
 // filesystem specific debugging
 //#define WLED_DEBUG_FS

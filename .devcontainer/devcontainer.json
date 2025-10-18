@@ -16,7 +16,10 @@
 	// You can explicitly just forward the port you want to connect to. Replace `/dev/ttyACM0` with the serial port for
 	// your device. This will only work if the device is plugged in from the start without reconnecting. Adding the
 	// `dialout` group is needed if read/write permisions for the port are limitted to the dialout user.
-	// "runArgs": ["--device=/dev/ttyACM0", "--group-add", "dialout"],
+	// Example: "runArgs": ["--device=/dev/ttyACM0", "--group-add", "dialout"],
+	// Active configuration below forwards `/dev/ttyUSB0` into the container and adds the `dialout` group so the
+	// container user can access serial devices.
+	"runArgs": ["--device=/dev/ttyUSB0", "--group-add", "dialout"],
 	//
 	// Alternatively, you can give more comprehensive access to the host system. This will expose all the host devices to
 	// the container. Adding the `dialout` group is needed if read/write permisions for the port are limitted to the
