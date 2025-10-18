@@ -481,14 +481,12 @@ window.fetch = function(...args) {
 			cpal.forEach((p, i) => {
 				const sv = cE('button');
 				sv.className = 'sml';
-				sv.style.fontWeight = 'bold';
-				sv.innerHTML = '&#8617;'//'&#8592;' alternative: left arrow
+				sv.innerHTML = '&#8678;'; // alternative arrows: '&#8617;'  '&#8592;'
 				sv.title = 'Save to slot ' + i;
 				sv.onclick = () => upload(i);
 
 				const rm = cE('button');
 				rm.className = 'sml';
-				rm.style.fontWeight = 'bold';
 				rm.title = 'Delete palette';
 				rm.innerHTML = '&#10006;';
 				rm.onclick = () => { requestJson({rmcpal:i}); setTimeout(refr, 500); };
@@ -858,9 +856,10 @@ window.fetch = function(...args) {
 			cursor: pointer;
 		}
 		.pal .sml {
-			flex-shrink: 0;
-			padding: 4px;
 			min-width: 32px;
+			height: 32px;
+			padding: 0;
+			font-weight: 600;
 		}
 
 		.cats {
