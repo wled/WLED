@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
 	<meta charset="utf-8">
@@ -131,7 +131,7 @@
 			if (!en) {
 				// limiter disabled
 				d.Sf.PPL.checked = false;
-//				d.Sf.querySelectorAll("#mLC select[name^=LAsel]").forEach((e)=>{e.selectedIndex = 0;}); // select default LED mA
+//				d.Sf.querySelectorAll("#mLC select[name^=LL]").forEach((e)=>{e.selectedIndex = 0;}); // select default LED mA
 //				d.Sf.querySelectorAll("#mLC input[name^=LA]").forEach((e)=>{e.min = 0; e.value = 0;}); // set min & value to 0
 			}
 			UI();
@@ -160,9 +160,10 @@
 			if (ppl) d.Sf.MA.value = sumMA; // populate UI ABL value if PPL used
 		}
 		// enable and update LED Amps
-		function enLA(s,n)
+		function enLA(s)
 		{
 			const abl = d.Sf.ABL.checked;
+			const n = s.name.substring(2); // bus number (0-Z)
 			const t = parseInt(d.Sf["LT"+n].value); // LED type SELECT
 			gId('LAdis'+n).style.display = s.selectedIndex==5 ? "inline" : "none"; // show/hide custom mA field
 			if (s.value!=="0") d.Sf["LA"+n].value = s.value; // set value from select object
@@ -177,9 +178,9 @@
 			});
 			d.Sf.ABL.checked = en;
 			// select appropriate LED current
-			d.Sf.querySelectorAll("#mLC select[name^=LAsel]").forEach((sel,x)=>{
+			d.Sf.querySelectorAll("#mLC select[name^=LL]").forEach((sel)=>{
 				sel.value = 0; // set custom
-				var n = chrID(x);
+				var n = sel.name.substring(2); // bus number (0-Z)
 				if (en)
 					switch (parseInt(d.Sf["LA"+n].value)) {
 						case 0: break; // disable ABL
@@ -190,7 +191,7 @@
 						case 255: sel.value = 255; break;
 					}
 				else sel.value = 0;
-				enLA(sel,n); // configure individual limiter
+				enLA(sel); // configure individual limiter
 			});
 			enABL();
 			gId('m1').innerHTML = maxM;
@@ -464,12 +465,12 @@
 
 			if (n==1) {
 // npm run build has trouble minimizing spaces inside string
-				var cn = `<div class="iST">
+				var cn = `<div class="iST" draggable="true" ondragstart="hDS(event)" id="l${s}" style="cursor:grab;">
 <hr class="sml">
-${i+1}:
+<span id="n${s}">${i+1}</span>:
 <select name="LT${s}" onchange="UI(true)"></select><br>
 <div id="abl${s}">
-mA/LED: <select name="LAsel${s}" onchange="enLA(this,'${s}');UI();">
+mA/LED: <select name="LL${s}" onchange="enLA(this);UI();">
 <option value="55" selected>55mA (typ. 5V WS281x)</option>
 <option value="35">35mA (eco WS2812)</option>
 <option value="30">30mA (typ. 12V)</option>
@@ -521,7 +522,7 @@ mA/LED: <select name="LAsel${s}" onchange="enLA(this,'${s}');UI();">
 						}
 					}
 				});
-				enLA(d.Sf["LAsel"+s],s); // update LED mA
+				enLA(gN("LL"+s)); // update LED mA
 				// disable inappropriate LED types
 				let sel = d.getElementsByName("LT"+s)[0];
 				// 32 & S2 supports mono I2S as well as parallel so we need to take that into account; S3 only supports parallel
@@ -616,6 +617,43 @@ Swap: <select id="xw${s}" name="XW${s}">
 			c += `</select>`;
 			c += `<span style="cursor: pointer;" onclick="off('BT${s}')">&nbsp;&#x2715;</span><br>`;
 			gId("btns").innerHTML = c;
+		}
+		function hDS(e) {
+			e.dataTransfer.setData('text', e.currentTarget.id);
+		}
+		function hDO(e) {
+			e.preventDefault();
+		}
+		function hDrop(e) {
+			e.preventDefault();
+			let t = e.target;
+			if (t.id === "mLC") t = t.children[0]; // dropped on a container, not on an element
+			else while (t && !t.classList.contains("iST")) t = t.parentNode; // find target element
+			if (!t || t.id === "") return false; // not dropping on a valid target
+			const id = e.dataTransfer.getData("text");
+			t.parentNode.insertBefore(gId(id), t);
+			recalcIds();
+			UI();
+		}
+		function recalcIds() {
+			gId("mLC").querySelectorAll(".iST").forEach((e,i)=>{
+				let sOld = e.id.substring(1);
+				let sNew = chrID(i);
+				// update all element IDs and names
+				e.id = "l"+sNew;
+				e.querySelector("#n"+sOld).innerText = (i+1);
+				// names: LT,LL,LA,MA,CO,WO,SP,LS,LC,L0,L1,L2,L3,L4,HS,CV,SL,RF,AW
+				["LT","LL","LA","MA","CO","WO","SP","LS","LC","L0","L1","L2","L3","L4","HS","CV","SL","RF","AW"].forEach((n)=>{
+					let el = e.querySelector("[name^="+n+"]");
+					if (el) el.name = n + sNew;
+				});
+				// IDs: l,n,abl,LAdis,PSU,co,ls,dig?w,dig?l,psd,dig?c,p0d,p1d,p2d,p3d,p4d,net?h,dig?r,dig?s,dig?f,dig?a
+				["l","n","abl","LAdis","PSU","co","ls","dig?w","dig?l","psd","dig?c","p0d","p1d","p2d","p3d","p4d","net?h","dig?r","dig?s","dig?f","dig?a"].forEach((n)=>{
+					if (n.indexOf("?") < 0) n += "?";
+					let el = e.querySelector("#"+n.replace("?", sOld));
+					if (el) el.id = n.replace("?", sNew);
+				});
+			});
 		}
 		function tglSi(cs) {
 			customStarts = cs;
@@ -847,7 +885,7 @@ Swap: <select id="xw${s}" name="XW${s}">
 			</div>
 		</div>
 		<h3>Hardware setup</h3>
-		<div id="mLC">LED outputs:</div>
+		<div id="mLC" ondragover="hDO(event)" ondrop="hDrop(event)">LED outputs:</div>
 		<hr class="sml">
 		<button type="button" id="+" onclick="addLEDs(1,false)">+</button>
 		<button type="button" id="-" onclick="addLEDs(-1,false)">-</button><br>
