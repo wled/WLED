@@ -901,18 +901,20 @@ void WLED::handleStatusLED()
   }
   #endif
 
-  if (Network.isConnected()) {
+  static um_data_t *um_data;
+
+  if (!Network.isConnected()) {
     c = RGBW32(0,255,0,0);
     ledStatusType = 2;
-  } else if (WLED_MQTT_CONNECTED) {
-    c = RGBW32(0,128,0,0);
-    ledStatusType = 4;
   } else if (apActive) {
     c = RGBW32(0,0,255,0);
     ledStatusType = 1;
+  } else if (UsermodManager::getUMData(&um_data, USERMOD_ID_AUDIOREACTIVE)) {
+    ledStatusType = 10;
+  } else {
+    c = RGBW32(0,0,0,0);
+    ledStatusType = 0;
   }
-  c = RGBW32(0, 255, 0, 0);
-  ledStatusType = 10;
   if (ledStatusType) {
     if (millis() - ledStatusLastMillis >= (1000/ledStatusType)) {
       ledStatusLastMillis = millis();
