@@ -323,11 +323,12 @@ extern byte realtimeMode;           // used in getMappedPixelIndex()
 #define FX_MODE_SHIMMER                161  // gap fill, non SR 1D effect
 #define FX_MODE_2DPULSER               162
 #define FX_MODE_BLURZ                  163
-#define FX_MODE_2DDRIFT                164
-#define FX_MODE_2DWAVERLY              165
-#define FX_MODE_2DSUNRADIATION         166
-#define FX_MODE_2DCOLOREDBURSTS        167
-#define FX_MODE_2DJULIA                168
+#define FX_MODE_QUACK_PARTY            164  // Custom: High energy party mode with strobes
+#define FX_MODE_2DDRIFT                165
+#define FX_MODE_2DWAVERLY              166
+#define FX_MODE_2DSUNRADIATION         167
+#define FX_MODE_2DCOLOREDBURSTS        168
+#define FX_MODE_2DJULIA                169
 // #define FX_MODE_2DPOOLNOISE            169 //have been removed in WLED SR in the past because of low mem but should be added back
 // #define FX_MODE_2DTWISTER              170 //have been removed in WLED SR in the past because of low mem but should be added back
 // #define FX_MODE_2DCAELEMENTATY         171 //have been removed in WLED SR in the past because of low mem but should be added back
