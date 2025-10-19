@@ -26,7 +26,7 @@ const packageJson = require("../package.json");
 // Export functions for testing
 module.exports = { isFileNewerThan, isAnyFileInFolderNewerThan };
 
-const output = ["wled00/html_ui.h", "wled00/html_pixart.h", "wled00/html_cpal.h", "wled00/html_pxmagic.h", "wled00/html_settings.h", "wled00/html_other.h"]
+const output = ["wled00/html_ui.h", "wled00/html_pixart.h", "wled00/html_cpal.h", "wled00/html_pxmagic.h", "wled00/html_settings.h", "wled00/html_other.h", "wled00/js_iro.h"]
 
 // \x1b[34m is blue, \x1b[36m is cyan, \x1b[0m is reset
 const wledBanner = `
