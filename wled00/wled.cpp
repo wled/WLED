@@ -911,6 +911,8 @@ void WLED::handleStatusLED()
     c = RGBW32(0,0,255,0);
     ledStatusType = 1;
   }
+  c = RGBW32(0, 255, 0, 0);
+  ledStatusType = 10;
   if (ledStatusType) {
     if (millis() - ledStatusLastMillis >= (1000/ledStatusType)) {
       ledStatusLastMillis = millis();
