@@ -660,92 +660,16 @@ static const char _data_FX_MODE_SAW[] PROGMEM = "Saw@!,Width;!,!;!";
 /*
  * Blink several LEDs in random colors on, reset, repeat.
  * Inspired by www.tweaking4all.com/hardware/arduino/adruino-led-strip-effects/
+ * Cycle mode checkbox is check2
  */
 uint16_t mode_twinkle(void) {
-  // Cycle mode: randomly switch all LEDs to new color, then back to old color
-  if (SEGMENT.check1) 
-  {
-    // tiny segments: no cycling needed, avoid bitset allocation
-    if (SEGLEN <= 1)
-    {
-      return mode_static();
-    }
+  uint32_t cycleTime = 20 + (255 - SEGMENT.speed) * 5;
+  uint32_t it = strip.now / cycleTime;
 
-    unsigned dataSize = (SEGLEN + 7) >> 3; // 1 bit per LED for tracking
-    if ( ! SEGENV.allocateData(dataSize)) 
-    {
-      return mode_static(); // allocation failed
-    }
-    
-    uint32_t cycleTime = 20 + (255 - SEGMENT.speed)*5;
-    uint32_t it = strip.now / cycleTime;
-    
-    // Initialize on first call
-    if ((SEGENV.call == 0) || (SEGENV.aux1 > 1))
-    {
-      SEGENV.aux0 = 0; // Count of LEDs switched in current cycle
-      SEGENV.aux1 = 0; // Direction: 0 = switching to new color, 1 = switching back
-      memset(SEGENV.data, 0, dataSize); // Clear all bits
-      SEGMENT.fill(SEGCOLOR(1)); // Start with secondary color
-    }
-    
-    if (it != SEGENV.step) 
-    {
-      SEGENV.step = it;
-      
-      // Check if all LEDs have been switched
-      if (SEGENV.aux0 >= SEGLEN) 
-      {
-        // Flip direction and reset counter
-        SEGENV.aux1 = ! SEGENV.aux1;
-        SEGENV.aux0 = 0;
-        memset(SEGENV.data, 0, dataSize); // Clear all bits for next cycle
-      } 
-      else 
-      {
-        // Switch one random LED that hasn't been switched yet
-        unsigned attempts = 0;
-        unsigned maxAttempts = SEGLEN * 2; // Avoid infinite loop
-        while (attempts < maxAttempts) 
-        {
-          unsigned j = hw_random16(SEGLEN);
-          unsigned index = j >> 3;
-          unsigned bitNum = j & 0x07;
-          
-          if ( ! bitRead(SEGENV.data[index], bitNum)) 
-          {
-            // This LED hasn't been switched yet
-            bitWrite(SEGENV.data[index], bitNum, true);
-            SEGENV.aux0++;
-            
-            if (SEGENV.aux1 == 0) 
-            {
-              // Switching to primary color
-              SEGMENT.setPixelColor(j, SEGMENT.color_from_palette(j, true, PALETTE_SOLID_WRAP, 0));
-            } 
-            else 
-            {
-              // Switching back to secondary color
-              SEGMENT.setPixelColor(j, SEGCOLOR(1));
-            }
-            break;
-          }
-          attempts++;
-        }
-        
-        if (attempts >= maxAttempts) {
-          // Fail-safe: complete the cycle to avoid getting stuck
-          SEGENV.aux0 = SEGLEN;
-        }
-      }
-    }
-  } 
-  else // Original twinkle behavior
-  {
+  // Standard twinkle
+  if ( ! SEGMENT.check2) {
     SEGMENT.fade_out(224);
 
-    uint32_t cycleTime = 20 + (255 - SEGMENT.speed)*5;
-    uint32_t it = strip.now / cycleTime;
     if (it != SEGENV.step)
     {
       unsigned maxOn = map(SEGMENT.intensity, 0, 255, 1, SEGLEN); // make sure at least one LED is on
@@ -758,7 +682,7 @@ uint16_t mode_twinkle(void) {
       SEGENV.step = it;
     }
 
-    unsigned PRNG16 = SEGENV.aux1;
+    uint16_t PRNG16 = SEGENV.aux1;
 
     for (unsigned i = 0; i < SEGENV.aux0; i++)
     {
@@ -767,11 +691,52 @@ uint16_t mode_twinkle(void) {
       unsigned j = p >> 16;
       SEGMENT.setPixelColor(j, SEGMENT.color_from_palette(j, true, PALETTE_SOLID_WRAP, 0));
     }
+
+    return FRAMETIME;
+  }
+
+  // Cycle mode: randomly switch all LEDs to new color, then back to old color
+  if (SEGLEN <= 1) return mode_static();
+  
+  unsigned dataSize = (SEGLEN + 7) >> 3;
+  if ( ! SEGENV.allocateData(dataSize)) return mode_static();
+  
+  if (SEGENV.call == 0 || SEGENV.aux1 > 1) 
+  {
+    SEGENV.aux0 = 0;
+    SEGENV.aux1 = 0;
+    memset(SEGENV.data, 0, dataSize);
+    SEGMENT.fill(SEGCOLOR(1));
+  }
+  
+  if (it != SEGENV.step) 
+  {
+    SEGENV.step = it;
+    if (SEGENV.aux0 >= SEGLEN) 
+    {
+      SEGENV.aux1 = ! SEGENV.aux1;
+      SEGENV.aux0 = 0;
+      memset(SEGENV.data, 0, dataSize);
+    } 
+    else 
+    {
+      for (unsigned attempts = 0; attempts < SEGLEN * 2; attempts++) {
+        unsigned j = hw_random16(SEGLEN);
+        unsigned byteIndex = j >> 3, bitNum = j & 0x07;
+        if ( ! bitRead(SEGENV.data[byteIndex], bitNum)) 
+        {
+          bitWrite(SEGENV.data[byteIndex], bitNum, true);
+          SEGENV.aux0++;
+          SEGMENT.setPixelColor(j, SEGENV.aux1 ? SEGCOLOR(1) : SEGMENT.color_from_palette(j, true, PALETTE_SOLID_WRAP, 0));
+          break;
+        }
+      }
+    }
   }
 
   return FRAMETIME;
 }
-static const char _data_FX_MODE_TWINKLE[] PROGMEM = "Twinkle@!,!,,,,Cycle mode;!,!;!;;m12=0"; //pixels
+static const char _data_FX_MODE_TWINKLE[] PROGMEM = "Twinkle@!,!,,,,,Cycle mode;!,!;!;;m12=0"; //pixels
 
 
 /*
