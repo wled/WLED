@@ -7001,8 +7001,17 @@ uint16_t mode_blurz(void) {                    // Blurz. By Andrew Tuline.
   SEGENV.step += FRAMETIME;
   if (SEGENV.step > SPEED_FORMULA_L) {
     unsigned segLoc = hw_random16(SEGLEN);
-    SEGMENT.setPixelColor(segLoc, color_blend(SEGCOLOR(1), SEGMENT.color_from_palette(2*fftResult[SEGENV.aux0%16]*240/max(1, (int)SEGLEN-1), false, PALETTE_SOLID_WRAP, 0), uint8_t(2*fftResult[SEGENV.aux0%16])));
-    ++(SEGENV.aux0) %= 16; // make sure it doesn't cross 16
+    // Favor lower frequencies by using a weighted bin selection
+    // Lower bins (bass) stay longer, higher bins (treble) cycle faster
+    uint8_t binIndex = SEGENV.aux0 % 24; // cycle through 24 steps instead of 16
+    uint8_t fftBin;
+    if (binIndex < 12) {
+      fftBin = binIndex / 2;  // bins 0-5 get 2 steps each (lower frequencies)
+    } else {
+      fftBin = 6 + (binIndex - 12);  // bins 6-15 get 1 step each (higher frequencies)
+    }
+    SEGMENT.setPixelColor(segLoc, color_blend(SEGCOLOR(1), SEGMENT.color_from_palette(2*fftResult[fftBin]*240/max(1, (int)SEGLEN-1), false, PALETTE_SOLID_WRAP, 0), uint8_t(2*fftResult[fftBin])));
+    ++(SEGENV.aux0) %= 24; // cycle through 24 steps
 
     SEGENV.step = 1;
     SEGMENT.blur(SEGMENT.intensity); // note: blur > 210 results in a alternating pattern, this could be fixed by mapping but some may like it (very old bug)
@@ -7011,6 +7020,87 @@ uint16_t mode_blurz(void) {                    // Blurz. By Andrew Tuline.
   return FRAMETIME;
 } // mode_blurz()
 static const char _data_FX_MODE_BLURZ[] PROGMEM = "Blurz@Fade rate,Blur;!,Color mix;!;1f;m12=0,si=0"; // Pixels, Beatsin
+
+
+/////////////////////////
+//   ** Quack Party     //
+/////////////////////////
+uint16_t mode_quack_party(void) {                // Quack Party - high energy audio reactive with palette support
+  if (SEGLEN <= 1) return mode_static();
+  
+  um_data_t *um_data = getAudioData();
+  uint8_t *fftResult = (uint8_t*)um_data->u_data[2];
+  float volumeSmth = *(float*)um_data->u_data[0];    // Smoothed volume
+  uint8_t samplePeak = *(uint8_t*)um_data->u_data[3]; // Peak detection
+  
+  if (SEGENV.call == 0) {
+    SEGMENT.fill(BLACK);
+    SEGENV.aux0 = 0;  // Palette index
+    SEGENV.aux1 = 0;  // Chase position
+    SEGENV.step = 0;  // Last strobe time
+  }
+  
+  // Bass detection (lower frequencies)
+  uint8_t bass = (fftResult[0] + fftResult[1] + fftResult[2]) / 3;
+  
+  // STROBE on heavy bass hits
+  if (samplePeak > 0 && bass > 180) {
+    // White strobe flash
+    SEGMENT.fill(0xFFFFFF);
+    SEGENV.step = millis();  // Mark strobe time
+  } else if (millis() - SEGENV.step < 50) {
+    // Hold strobe for 50ms
+    SEGMENT.fill(0xFFFFFF);
+  } else {
+    // Normal party mode
+    
+    // Running chase lights
+    uint16_t chaseSpeed = map(SEGMENT.speed, 0, 255, 300, 30); // Faster at higher speed
+    if (SEGENV.call % (chaseSpeed / FRAMETIME) == 0) {
+      SEGENV.aux1 = (SEGENV.aux1 + 1) % SEGLEN;
+      
+      // Advance through palette based on treble energy
+      uint8_t treble = (fftResult[12] + fftResult[13] + fftResult[14] + fftResult[15]) / 4;
+      if (treble > 100) {
+        SEGENV.aux0 = (SEGENV.aux0 + 3) % 256;  // Increment palette position
+      }
+    }
+    
+    // Chase segment size based on intensity slider
+    uint16_t segmentSize = map(SEGMENT.intensity, 0, 255, 3, 30);
+    if (segmentSize < 1) segmentSize = 1;
+    
+    // Draw the chase using palette
+    for (uint16_t i = 0; i < SEGLEN; i++) {
+      uint16_t pos = (i + SEGENV.aux1) % SEGLEN;
+      
+      // Get colors from palette at different positions
+      uint8_t paletteIndex = SEGENV.aux0 + (i * 256 / SEGLEN);
+      uint32_t mainColor = SEGMENT.color_from_palette(paletteIndex, false, false, 0);
+      uint32_t accentColor = SEGMENT.color_from_palette(paletteIndex + 128, false, false, 0);
+      
+      if (i % (segmentSize * 2) < segmentSize) {
+        // Main chase segment - modulate brightness with volume
+        uint8_t brightness = map(volumeSmth * 100, 0, 255, 50, 255);
+        SEGMENT.setPixelColor(pos, color_blend(BLACK, mainColor, brightness));
+      } else {
+        // Accent segments
+        uint8_t brightness = map(volumeSmth * 100, 0, 255, 20, 120);
+        SEGMENT.setPixelColor(pos, color_blend(BLACK, accentColor, brightness));
+      }
+    }
+    
+    // Add sparkle on mid-range frequencies
+    uint8_t midRange = (fftResult[4] + fftResult[5] + fftResult[6]) / 3;
+    if (midRange > 120 && random8() < 100) {
+      uint16_t sparklePos = random16(SEGLEN);
+      SEGMENT.setPixelColor(sparklePos, 0xFFFFFF);
+    }
+  }
+  
+  return FRAMETIME;
+} // mode_quack_party()
+static const char _data_FX_MODE_QUACK_PARTY[] PROGMEM = "Quack Party@Speed,Chase size;!,!,!;!;1f;m12=2,si=0"; // Party mode with palette support
 
 
 /////////////////////////
@@ -10884,6 +10974,7 @@ void WS2812FX::setupEffectData() {
   addEffect(FX_MODE_GRAVFREQ, &mode_gravfreq, _data_FX_MODE_GRAVFREQ);
   addEffect(FX_MODE_DJLIGHT, &mode_DJLight, _data_FX_MODE_DJLIGHT);
   addEffect(FX_MODE_BLURZ, &mode_blurz, _data_FX_MODE_BLURZ);
+  addEffect(FX_MODE_QUACK_PARTY, &mode_quack_party, _data_FX_MODE_QUACK_PARTY);
   addEffect(FX_MODE_FLOWSTRIPE, &mode_FlowStripe, _data_FX_MODE_FLOWSTRIPE);
   addEffect(FX_MODE_WAVESINS, &mode_wavesins, _data_FX_MODE_WAVESINS);
   addEffect(FX_MODE_ROCKTAVES, &mode_rocktaves, _data_FX_MODE_ROCKTAVES);
