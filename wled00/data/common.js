@@ -133,7 +133,7 @@ function connectWs(onOpen) {
 	return ws;
 }
 
-// send led colors to ESP using WebSocket and DDP protocol (RGB)
+// send LED colors to ESP using WebSocket and DDP protocol (RGB)
 // ws: WebSocket object
 // start: start pixel index
 // len: number of pixels to send
