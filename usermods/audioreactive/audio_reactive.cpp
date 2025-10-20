@@ -1732,7 +1732,7 @@ class AudioReactive : public Usermod {
         }
 #endif
       }
-      if (root.containsKey(F("rmcpal")) && root[F("rmcpal")].as<byte>() < customPalettes.size()) {
+      if (palettes > 0 && root.containsKey(F("rmcpal"))) {
         // handle removal of custom palettes from JSON call so we don't break things
         removeAudioPalettes();
       }
