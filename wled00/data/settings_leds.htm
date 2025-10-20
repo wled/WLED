@@ -271,7 +271,7 @@
 			let dC = 0; // count of digital buses (for parallel I2S)
 			let LTs = d.Sf.querySelectorAll("#mLC select[name^=LT]");
 			LTs.forEach((s,i)=>{
-				if (i < LTs.length-1) s.disabled = true; // prevent changing type (as we can't update options)
+				s.disabled = (i < LTs.length-1); // prevent changing type (as we can't update options)
 				// is the field a LED type?
 				var n = s.name.substring(2,3); // bus number (0-Z)
 				var t = parseInt(s.value);
