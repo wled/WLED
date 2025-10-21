@@ -96,9 +96,7 @@ class PWMFanUsermod : public Usermod {
       tachoPin = -1;
     }
 
-    void updateTacho(void) {
-      // store milliseconds when tacho was measured the last time
-      msLastTachoMeasurement = millis();
+    void updateTacho(unsigned long msInterval) {
       if (tachoPin < 0) return;
 
       // start of tacho measurement
@@ -106,7 +104,7 @@ class PWMFanUsermod : public Usermod {
       detachInterrupt(digitalPinToInterrupt(tachoPin)); 
       // calculate rpm
       last_rpm = (counter_rpm * 60) / numberOfInterrupsInOneSingleRotation;
-      last_rpm /= tachoUpdateSec;
+      last_rpm /= msInterval / 1000;
       // reset counter
       counter_rpm = 0; 
       // attach interrupt again
@@ -218,8 +216,11 @@ class PWMFanUsermod : public Usermod {
       unsigned long now = millis();
       if ((now - msLastTachoMeasurement) < (tachoUpdateSec * 1000)) return;
 
-      updateTacho();
+      updateTacho(now - msLastTachoMeasurement);
       if (!lockFan) setFanPWMbasedOnTemperature();
+
+      // store milliseconds when tacho was measured the last time
+      msLastTachoMeasurement = now;
     }
 
     /*
