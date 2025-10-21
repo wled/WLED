@@ -156,7 +156,7 @@ function sendDDP(ws, start, len, colors) {
 		pkt[2] = 0x00; // reserved
 		pkt[3] = 0x01; // 1 = RGB (currently only supported mode)
 		pkt[4] = 0x01; // destination id (not used but 0x01 is default output)
-		pkt[5] = (off >> 24) & 255; // DDP protocl 4-7 is offset
+		pkt[5] = (off >> 24) & 255; // DDP protocol 4-7 is offset
 		pkt[6] = (off >> 16) & 255;
 		pkt[7] = (off >> 8) & 255;
 		pkt[8] = off & 255;
