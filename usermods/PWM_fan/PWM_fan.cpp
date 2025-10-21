@@ -54,7 +54,8 @@ class PWMFanUsermod : public Usermod {
     int8_t  tachoPin          = TACHO_PIN;
     int8_t  pwmPin            = PWM_PIN;
     uint8_t tachoUpdateSec    = 30;
-    float   targetTemperature = 35.0;
+    float   targetTemperature = 34.5;
+    float   maxSpeedTemperature = 38;
     uint8_t minPWMValuePct    = 0;
     uint8_t maxPWMValuePct    = 100;
     uint8_t numberOfInterrupsInOneSingleRotation = 2;     // Number of interrupts ESP32 sees on tacho signal on a single fan rotation. All the fans I've seen trigger two interrups.
@@ -62,15 +63,14 @@ class PWMFanUsermod : public Usermod {
 
     // constant values
     static const uint8_t _pwmMaxValue     = 255;
-    static const uint8_t _pwmMaxStepCount = 7;
-    float _pwmTempStepSize = 0.5f;
-
+    
     // strings to reduce flash memory usage (used more than twice)
     static const char _name[];
     static const char _enabled[];
     static const char _tachoPin[];
     static const char _pwmPin[];
     static const char _temperature[];
+    static const char _temperatureMax[];
     static const char _tachoUpdateSec[];
     static const char _minPWMValuePct[];
     static const char _maxPWMValuePct[];
@@ -165,25 +165,23 @@ class PWMFanUsermod : public Usermod {
 
     void setFanPWMbasedOnTemperature(void) {
       float temp = getActualTemperature();
-      // dividing minPercent and maxPercent into equal pwmvalue sizes
-      int pwmStepSize = ((maxPWMValuePct - minPWMValuePct) * _pwmMaxValue) / (_pwmMaxStepCount*100);
-      int pwmStep = calculatePwmStep(temp - targetTemperature);
-      // minimum based on full speed - not entered MaxPercent 
-      int pwmMinimumValue = (minPWMValuePct * _pwmMaxValue) / 100;
-      updateFanSpeed(pwmMinimumValue + pwmStep*pwmStepSize);
-    }
 
-    uint8_t calculatePwmStep(float diffTemp){
-      if ((diffTemp == NAN) || (diffTemp <= -100.0)) {
-        DEBUG_PRINTLN(F("WARNING: no temperature value available. Cannot do temperature control. Will set PWM fan to 255."));
-        return _pwmMaxStepCount;
+      int pwmMinValue = minPWMValuePct / 100 * _pwmMaxValue;
+      int pwmMaxValue = maxPWMValuePct / 100 * _pwmMaxValue;
+
+      if (pwmMaxValue <= pwmMinValue) return;
+
+      int pwmRange = pwmMaxValue - pwmMinValue;
+
+
+      if (temp < targetTemperature) {
+        updateFanSpeed(pwmMinValue);
+      } else if(temp > maxSpeedTemperature) {
+        updateFanSpeed(pwmMaxValue);
+      } else {
+        float speedFactor = (temp - targetTemperature) / (maxSpeedTemperature - targetTemperature); // 0 - 1
+        updateFanSpeed(speedFactor * pwmRange + pwmMinValue);
       }
-      if(diffTemp <=0){
-        return 0;
-      }
-      int calculatedStep = (diffTemp / _pwmTempStepSize)+1;
-      // anything greater than max stepcount gets max 
-      return (uint8_t)min((int)_pwmMaxStepCount,calculatedStep);      
     }
 
   public:
@@ -318,6 +316,7 @@ class PWMFanUsermod : public Usermod {
       top[FPSTR(_tachoPin)]       = tachoPin;
       top[FPSTR(_tachoUpdateSec)] = tachoUpdateSec;
       top[FPSTR(_temperature)]    = targetTemperature;
+      top[FPSTR(_temperatureMax)] = maxSpeedTemperature;
       top[FPSTR(_minPWMValuePct)] = minPWMValuePct;
       top[FPSTR(_maxPWMValuePct)] = maxPWMValuePct;
       top[FPSTR(_IRQperRotation)] = numberOfInterrupsInOneSingleRotation;
@@ -351,6 +350,7 @@ class PWMFanUsermod : public Usermod {
       tachoUpdateSec    = top[FPSTR(_tachoUpdateSec)] | tachoUpdateSec;
       tachoUpdateSec    = (uint8_t) max(1,(int)tachoUpdateSec); // bounds checking
       targetTemperature = top[FPSTR(_temperature)] | targetTemperature;
+      maxSpeedTemperature = top[FPSTR(_temperatureMax)] | maxSpeedTemperature;
       minPWMValuePct    = top[FPSTR(_minPWMValuePct)] | minPWMValuePct;
       minPWMValuePct    = (uint8_t) min(100,max(0,(int)minPWMValuePct)); // bounds checking
       maxPWMValuePct    = top[FPSTR(_maxPWMValuePct)] | maxPWMValuePct;
@@ -397,6 +397,7 @@ const char PWMFanUsermod::_enabled[]        PROGMEM = "enabled";
 const char PWMFanUsermod::_tachoPin[]       PROGMEM = "tacho-pin";
 const char PWMFanUsermod::_pwmPin[]         PROGMEM = "PWM-pin";
 const char PWMFanUsermod::_temperature[]    PROGMEM = "target-temp-C";
+const char PWMFanUsermod::_temperatureMax[] PROGMEM = "max-temp-C";
 const char PWMFanUsermod::_tachoUpdateSec[] PROGMEM = "tacho-update-s";
 const char PWMFanUsermod::_minPWMValuePct[] PROGMEM = "min-PWM-percent";
 const char PWMFanUsermod::_maxPWMValuePct[] PROGMEM = "max-PWM-percent";
