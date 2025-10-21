@@ -258,7 +258,8 @@ class PWMFanUsermod : public Usermod {
         JsonArray data = user.createNestedArray(F("Speed"));
         if (tachoPin >= 0) {
           data.add(last_rpm);
-          data.add(F("rpm"));
+          if (lockFan) data.add(F(" rpm (locked)"));
+          else         data.add(F(" rpm (auto)"));
         } else {
           if (lockFan) data.add(F("locked"));
           else         data.add(F("auto"));
