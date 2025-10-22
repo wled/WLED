@@ -270,8 +270,6 @@
 			let dC = 0; // count of digital buses (for parallel I2S)
 			let LTs = d.Sf.querySelectorAll("#mLC select[name^=LT]");
 			LTs.forEach((s,i)=>{
-				s.addEventListener('change', updateTypeDropdowns);
-				//if (i < LTs.length-1) s.disabled = true; // prevent changing type (as we can't update options)
 				// is the field a LED type?
 				var n = s.name.substring(2,3); // bus number (0-Z)
 				var t = parseInt(s.value);
@@ -435,6 +433,8 @@
 			gId('fpsNone').style.display = (d.Sf.FR.value == 0) ? 'block':'none';
 			gId('fpsWarn').style.display = (d.Sf.FR.value == 0) || (d.Sf.FR.value >= 80) ? 'block':'none';
 			gId('fpsHigh').style.display = (d.Sf.FR.value >= 80) ? 'block':'none';
+			// restrict bus types in dropdowns to max allowed digital/analog buses
+			updateTypeDropdowns();
 		}
 		function lastEnd(i) {
 			if (i-- < 1) return 0;
@@ -524,7 +524,6 @@ mA/LED: <select name="LAsel${s}" onchange="enLA(this,'${s}');UI();">
 
 			if (!init) {
 				UI();
-				updateTypeDropdowns();
 			}
 		}
 
@@ -726,7 +725,6 @@ Swap: <select id="xw${s}" name="XW${s}">
 				if (i.value!=="" && i.value>=0)
 					i.dataset.val = i.value;
 			});
-			updateTypeDropdowns();
 		}
 		function pinUpd(e) {
 			// update changed select options across all usermods
@@ -818,7 +816,7 @@ Swap: <select id="xw${s}" name="XW${s}">
 				// max digital count
 				let maxDB = maxD - ((is32() || isS2() || isS3()) ? (!d.Sf["PR"].checked) * 8 - (!isS3()) : 0);
 				// disallow adding more of a type that has reached its limit
-				if (digitalB >= maxDB && !isDig(curType)) disable('option[data-type="D"]');
+				if (digitalB >= maxDB && !(isDig(curType) && !isD2P(curType))) disable('option[data-type="D"]');
 				if (twopinB >= 2 && !isD2P(curType)) disable('option[data-type="2P"]');
 				disable(`option[data-type^="${'A'.repeat(maxA - analogB + (isPWM(curType)?numPins(curType):0) + 1)}"]`);
 			});
