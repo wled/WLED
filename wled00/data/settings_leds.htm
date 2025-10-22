@@ -814,6 +814,8 @@ Swap: <select id="xw${s}" name="XW${s}">
 				const enable  = (q) => sel.querySelectorAll(q).forEach(o => o.disabled = false);
 				enable('option'); // reset all first
 				// max digital count
+				// 32 & S2 supports mono I2S as well as parallel so we need to take that into account; S3 only supports parallel
+				// supported outputs using parallel I2S/mono I2S: S2: 12/5, S3: 12/4, ESP32: 16/9
 				let maxDB = maxD - ((is32() || isS2() || isS3()) ? (!d.Sf["PR"].checked) * 8 - (!isS3()) : 0);
 				// disallow adding more of a type that has reached its limit
 				if (digitalB >= maxDB && !(isDig(curType) && !isD2P(curType))) disable('option[data-type="D"]');
