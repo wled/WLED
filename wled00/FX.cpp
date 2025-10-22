@@ -713,7 +713,7 @@ uint16_t dissolve(uint32_t color) {
         if (SEGENV.aux0) { //dissolve to primary/palette
           if (pixels[i] == SEGCOLOR(1)) {
             pixels[i] = color == SEGCOLOR(0) ? SEGMENT.color_from_palette(i, true, PALETTE_SOLID_WRAP, 0) : color;
-            break; //only spawn 1 new pixel per frame per 50 LEDs
+            break; //only spawn 1 new pixel per frame
           }
         } else { //dissolve to secondary
           if (pixels[i] != SEGCOLOR(1)) {
@@ -724,14 +724,27 @@ uint16_t dissolve(uint32_t color) {
       }
     }
   }
-  // fix for #4401
-  for (unsigned i = 0; i < SEGLEN; i++) SEGMENT.setPixelColor(i, pixels[i]);
+  unsigned incompletePixels = 0;
+  for (unsigned i = 0; i < SEGLEN; i++) {
+    SEGMENT.setPixelColor(i, pixels[i]); // fix for #4401
+    if (SEGMENT.check2) {
+      if (SEGENV.aux0) {
+        if (pixels[i] == SEGCOLOR(1)) incompletePixels++;
+      } else {
+        if (pixels[i] != SEGCOLOR(1)) incompletePixels++;
+      }
+    }
+  }
 
   if (SEGENV.step > (255 - SEGMENT.speed) + 15U) {
     SEGENV.aux0 = !SEGENV.aux0;
     SEGENV.step = 0;
   } else {
-    SEGENV.step++;
+    if (SEGMENT.check2) {
+      if (incompletePixels == 0)
+        SEGENV.step++; // only advance step once all pixels have changed
+    } else
+      SEGENV.step++;
   }
 
   return FRAMETIME;
@@ -744,7 +757,7 @@ uint16_t dissolve(uint32_t color) {
 uint16_t mode_dissolve(void) {
   return dissolve(SEGMENT.check1 ? SEGMENT.color_wheel(hw_random8()) : SEGCOLOR(0));
 }
-static const char _data_FX_MODE_DISSOLVE[] PROGMEM = "Dissolve@Repeat speed,Dissolve speed,,,,Random;!,!;!";
+static const char _data_FX_MODE_DISSOLVE[] PROGMEM = "Dissolve@Repeat speed,Dissolve speed,,,,Random,Complete;!,!;!";
 
 
 /*
