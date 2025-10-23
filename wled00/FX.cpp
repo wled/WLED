@@ -10776,6 +10776,118 @@ uint8_t WS2812FX::addEffect(uint8_t id, mode_ptr mode_fn, const char *mode_name)
   }
 }
 
+/*
+  Simple bit strobe
+*/
+uint16_t mode_music_strobe(void) {
+  um_data_t *um_data = getAudioData();
+  if (!um_data) return FRAMETIME; 
+
+  bool samplePeak = *(bool*)um_data->u_data[3]; 
+  int volumeRaw   = *(int16_t*)um_data->u_data[1]; 
+
+  long mappedSpeed = map(SEGMENT.speed, 0, 255, 0, 20);
+  uint8_t fadeBy = 255 - mappedSpeed;
+  SEGMENT.fade_out(fadeBy);
+
+  uint8_t threshold = SEGMENT.intensity;
+
+  if (samplePeak && volumeRaw > threshold) {
+    SEGMENT.fill(SEGCOLOR(0));
+  }
+  
+  return FRAMETIME;
+}
+
+static const char _data_FX_MODE_MUSIC_STROBE[] PROGMEM = "Music Strobe@Fade speed,Threshold;!,!;!;1v;ix=128,sx=224,si=1";
+
+/*
+  Flame jet
+*/
+uint16_t mode_flame_jet(void) {
+  um_data_t *um_data = getAudioData();
+  if (!um_data) return FRAMETIME;
+
+  bool samplePeak = *(bool*)um_data->u_data[3];
+  int volumeRaw   = *(int16_t*)um_data->u_data[1];
+
+  long mappedFade = map(SEGMENT.intensity, 0, 255, 0, 64);
+  uint8_t fade_by = 255 - mappedFade;
+  SEGMENT.fade_out(fade_by);
+
+  uint8_t threshold = SEGMENT.custom1;
+
+  if (samplePeak && volumeRaw > threshold && SEGENV.aux0 == 0) {
+    SEGENV.aux0 = 1; // start animation
+  }
+
+  // --- Animation ---
+  if (SEGENV.aux0 > 0) {
+    long mappedSpeed = map(SEGMENT.speed, 0, 255, 0, 32);
+    uint16_t rise_amount = 1 + (uint16_t)(volumeRaw * (1 + (uint16_t)mappedSpeed)) / 2000;
+
+    if (SEGMENT.is2D()) {
+      // --- 2D LOGIC ---
+      const uint16_t max_height = SEG_H;
+      uint16_t start_y = SEG_H - 1;
+      
+      for (uint16_t y_offset = 0; y_offset < SEGENV.aux0; y_offset++) {
+        uint16_t current_y = start_y - y_offset;
+        if (current_y >= SEG_H) continue; // Boundary check
+
+        uint32_t base_color = SEGCOLOR(0);
+        CRGB fastled_color = CRGB(base_color);
+
+        uint8_t heat_reduction = map(y_offset, 0, SEG_H, 0, 180);
+        fastled_color.g = qsub8(fastled_color.g, heat_reduction);
+        fastled_color.b = qsub8(fastled_color.b, heat_reduction * 2);
+
+        for (uint16_t x = 0; x < SEG_W; x++) {
+          CRGB final_color = fastled_color;
+          if (hw_random8() < 50) {
+            final_color.nscale8(220); 
+          }
+          SEGMENT.setPixelColorXY(x, current_y, final_color);
+        }
+      }
+      SEGENV.aux0 += rise_amount;
+      if (SEGENV.aux0 >= max_height) {
+        SEGENV.aux0 = 0;
+      }
+
+    } else {
+      // --- 1D LOGIC ---
+      const uint16_t max_height = SEGLEN;
+      uint16_t start_index = 0; // Or SEGLEN - 1 if you want it from the other end
+
+      for (uint16_t i_offset = 0; i_offset < SEGENV.aux0; i_offset++) {
+        uint16_t current_index = start_index + i_offset;
+        if (current_index >= SEGLEN) continue; // Boundary check
+
+        uint32_t base_color = SEGCOLOR(0);
+        CRGB fastled_color = CRGB(base_color);
+        
+        uint8_t heat_reduction = map(i_offset, 0, SEGLEN, 0, 180);
+        fastled_color.g = qsub8(fastled_color.g, heat_reduction);
+        fastled_color.b = qsub8(fastled_color.b, heat_reduction * 2);
+
+        if (hw_random8() < 50) {
+            fastled_color.nscale8(220); 
+        }
+        SEGMENT.setPixelColor(current_index, fastled_color);
+      }
+      SEGENV.aux0 += rise_amount;
+      if (SEGENV.aux0 >= max_height) {
+        SEGENV.aux0 = 0;
+      }
+    }
+  }
+  
+  return FRAMETIME;
+}
+
+static const char _data_FX_MODE_FLAME_JET[] PROGMEM = "Flame Jet@Base Speed,Trail Length,Threshold;!;!;1v;ix=192,sx=128,c1=128,pal=35,si=1";
+
 void WS2812FX::setupEffectData() {
   // Solid must be first! (assuming vector is empty upon call to setup)
   _mode.push_back(&mode_static);
@@ -10910,6 +11022,7 @@ void WS2812FX::setupEffectData() {
   addEffect(FX_MODE_DYNAMIC_SMOOTH, &mode_dynamic_smooth, _data_FX_MODE_DYNAMIC_SMOOTH);
 
   // --- 1D audio effects ---
+  addEffect(FX_MODE_MUSIC_STROBE, &mode_music_strobe, _data_FX_MODE_MUSIC_STROBE); 
   addEffect(FX_MODE_PIXELS, &mode_pixels, _data_FX_MODE_PIXELS);
   addEffect(FX_MODE_PIXELWAVE, &mode_pixelwave, _data_FX_MODE_PIXELWAVE);
   addEffect(FX_MODE_JUGGLES, &mode_juggles, _data_FX_MODE_JUGGLES);
@@ -10984,6 +11097,7 @@ void WS2812FX::setupEffectData() {
   addEffect(FX_MODE_2DOCTOPUS, &mode_2Doctopus, _data_FX_MODE_2DOCTOPUS);
   addEffect(FX_MODE_2DWAVINGCELL, &mode_2Dwavingcell, _data_FX_MODE_2DWAVINGCELL);
   addEffect(FX_MODE_2DAKEMI, &mode_2DAkemi, _data_FX_MODE_2DAKEMI); // audio
+  addEffect(FX_MODE_FLAME_JET, &mode_flame_jet, _data_FX_MODE_FLAME_JET);
 
 #ifndef WLED_DISABLE_PARTICLESYSTEM2D
   addEffect(FX_MODE_PARTICLEVOLCANO, &mode_particlevolcano, _data_FX_MODE_PARTICLEVOLCANO);
