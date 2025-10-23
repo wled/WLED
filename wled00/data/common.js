@@ -51,6 +51,35 @@ function tooltip(cont=null) {
 		});
 	});
 };
+// sequential loading of external resources (JS or CSS) with retry, calls init() when done
+function loadResources(files, init) {
+	let i = 0;
+	const loadNext = () => {
+		if (i >= files.length) {
+			if (init) {
+				d.documentElement.style.visibility = 'visible'; // make page visible after all files are laoded if it was hidden (prevent ugly display)
+				d.readyState === 'complete' ? init() : window.addEventListener('load', init);
+			}
+			return;
+		}
+		const file = files[i++];
+		const isCSS = file.endsWith('.css');
+		const el = d.createElement(isCSS ? 'link' : 'script');
+		if (isCSS) {
+			el.rel = 'stylesheet';
+			el.href = file;
+		} else {
+			el.src = file;
+		}
+		el.onload = () => {	setTimeout(loadNext, 0);};
+		el.onerror = () => {
+			i--; // load this file again
+			setTimeout(loadNext, 100);
+		};
+		d.head.appendChild(el);
+	};
+	loadNext();
+}
 // https://www.educative.io/edpresso/how-to-dynamically-load-a-js-file-in-javascript
 function loadJS(FILE_URL, async = true, preGetV = undefined, postGetV = undefined) {
 	let scE = d.createElement("script");
