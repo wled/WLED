@@ -514,6 +514,11 @@ mA/LED: <select name="LAsel${s}" onchange="enLA(this,'${s}');UI();">
 					}
 				});
 				enLA(d.Sf["LAsel"+s],s); // update LED mA
+				// temporarily set to virtual (network) type to avoid "same type" exception during dropdown update
+				let sel = d.getElementsByName("LT"+s)[0];
+				sel.value = sel.querySelector('option[data-type="N"]').value;
+				updateTypeDropdowns(); // update valid bus options including this new one
+				sel.selectedIndex = sel.querySelector('option:not(:disabled)').index;
 			}
 			if (n==-1) {
 				o[--i].remove();--i;
@@ -813,11 +818,10 @@ Swap: <select id="xw${s}" name="XW${s}">
 				const disable = (q) => sel.querySelectorAll(q).forEach(o => o.disabled = true);
 				const enable  = (q) => sel.querySelectorAll(q).forEach(o => o.disabled = false);
 				enable('option'); // reset all first
-				// max digital count
-				// 32 & S2 supports mono I2S as well as parallel so we need to take that into account; S3 only supports parallel
+				// max digital buses: ESP32 & S2 support mono I2S as well as parallel so we need to take that into account; S3 only supports parallel
 				// supported outputs using parallel I2S/mono I2S: S2: 12/5, S3: 12/4, ESP32: 16/9
-				let maxDB = maxD - ((is32() || isS2() || isS3()) ? (!d.Sf["PR"].checked) * 8 - (!isS3()) : 0);
-				// disallow adding more of a type that has reached its limit
+				let maxDB = maxD - ((is32() || isS2() || isS3()) ? (!d.Sf["PR"].checked) * 8 - (!isS3()) : 0); // adjust max digital buses if parallel I2S is not used
+				// disallow adding more of a type that has reached its limit but allow changing the current type
 				if (digitalB >= maxDB && !(isDig(curType) && !isD2P(curType))) disable('option[data-type="D"]');
 				if (twopinB >= 2 && !isD2P(curType)) disable('option[data-type="2P"]');
 				disable(`option[data-type^="${'A'.repeat(maxA - analogB + (isPWM(curType)?numPins(curType):0) + 1)}"]`);
