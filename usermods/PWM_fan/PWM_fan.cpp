@@ -166,8 +166,8 @@ class PWMFanUsermod : public Usermod {
     void setFanPWMbasedOnTemperature(void) {
       float temp = getActualTemperature();
 
-      int pwmMinValue = minPWMValuePct / 100 * _pwmMaxValue;
-      int pwmMaxValue = maxPWMValuePct / 100 * _pwmMaxValue;
+      int pwmMinValue = minPWMValuePct * _pwmMaxValue / 100;
+      int pwmMaxValue = maxPWMValuePct * _pwmMaxValue / 100;
 
       if (pwmMaxValue <= pwmMinValue) return;
 
