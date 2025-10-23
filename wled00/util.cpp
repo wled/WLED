@@ -10,6 +10,11 @@
 #elif ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(3, 3, 0)
   #include "soc/rtc.h"
 #endif
+#ifndef WLED_DISABLE_OTA
+
+  #include "esp_flash.h"     // for direct flash access
+  #include "esp_log.h"       // for error handling
+#endif
 #endif
 
 
@@ -951,6 +956,65 @@ void handleBootLoop() {
 
   ESP.restart(); // restart cleanly and don't wait for another crash
 }
+
+#ifndef WLED_DISABLE_OTA
+#ifdef ESP32
+
+// Get bootloader version for OTA compatibility checking
+// Uses rollback capability as primary indicator since bootloader description 
+// structure is only available in ESP-IDF v5+ bootloaders
+uint32_t getBootloaderVersion() {
+  static uint32_t cached_version = 0;
+  if (cached_version != 0) return cached_version;
+  
+  DEBUG_PRINTF_P(PSTR("Determining bootloader version...\n"));
+  
+  #ifndef WLED_DISABLE_OTA
+  bool can_rollback = Update.canRollBack();
+  #else
+  bool can_rollback = false;
+  #endif
+  
+  DEBUG_PRINTF_P(PSTR("Rollback capability: %s\n"), can_rollback ? "YES" : "NO");
+  
+  if (can_rollback) {
+    // Rollback capability indicates v4+ bootloader
+    cached_version = 4;
+    DEBUG_PRINTF_P(PSTR("Bootloader v4+ detected (rollback capable)\n"));
+  } else {
+    // No rollback capability - check ESP-IDF version for best guess
+    #if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(4, 4, 0)
+      cached_version = 3;
+      DEBUG_PRINTF_P(PSTR("Bootloader v3 detected (ESP-IDF 4.4+)\n"));
+    #elif ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(4, 0, 0)
+      cached_version = 2;
+      DEBUG_PRINTF_P(PSTR("Bootloader v2 detected (ESP-IDF 4.x)\n"));
+    #else
+      cached_version = 1;
+      DEBUG_PRINTF_P(PSTR("Bootloader v1/legacy detected (ESP-IDF 3.x)\n"));
+    #endif
+  }
+  
+  DEBUG_PRINTF_P(PSTR("getBootloaderVersion() returning: %d\n"), cached_version);
+  return cached_version;
+}
+
+// Check if current bootloader is compatible with given required version
+bool isBootloaderCompatible(uint32_t required_version) {
+  uint32_t current_version = getBootloaderVersion();
+  bool compatible = current_version >= required_version;
+  
+  DEBUG_PRINTF_P(PSTR("Bootloader compatibility check: current=%d, required=%d, compatible=%s\n"), 
+                 current_version, required_version, compatible ? "YES" : "NO");
+  
+  return compatible;
+}
+#else
+// ESP8266 compatibility functions - always assume compatible for now
+uint32_t getBootloaderVersion() { return 1; }
+bool isBootloaderCompatible(uint32_t required_version) { return true; }
+#endif
+#endif
 
 /*
  * Fixed point integer based Perlin noise functions by @dedehai
