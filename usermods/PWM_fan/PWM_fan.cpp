@@ -170,7 +170,7 @@ class PWMFanUsermod : public Usermod {
       int pwmMaxValue = maxPWMValuePct * _pwmMaxValue / 100;
 
       if (pwmMaxValue <= pwmMinValue) {
-        updateFanSpeed(_pwmMaxValue); // fail safe: run at max speed
+        updateFanSpeed(_pwmMaxValue); // fail safe: invalid config, run at max speed
         return;
       }
 
@@ -182,6 +182,10 @@ class PWMFanUsermod : public Usermod {
       } else if(temp > maxSpeedTemperature) {
         updateFanSpeed(pwmMaxValue);
       } else {
+        if (maxSpeedTemperature <= targetTemperature) {
+          updateFanSpeed(pwmMaxValue); // fail safe: invalid config, run at max speed
+          return;
+        }
         float speedFactor = (temp - targetTemperature) / (maxSpeedTemperature - targetTemperature); // 0 - 1
         updateFanSpeed(speedFactor * pwmRange + pwmMinValue);
       }
