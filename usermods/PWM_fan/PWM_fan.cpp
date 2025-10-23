@@ -251,7 +251,7 @@ class PWMFanUsermod : public Usermod {
         uiDomString += FPSTR(_name);
         uiDomString += F("':{'");
         uiDomString += FPSTR(_speed);
-        uiDomString += F("':parseInt(this.value),'lock':parseInt(this.value)>0}});\" oninput=\"updateTrail(this);\" max=100 min=0 type=\"range\" value=");
+        uiDomString += F("':parseInt(this.value)}});\" oninput=\"updateTrail(this);\" max=100 min=0 type=\"range\" value=");
         uiDomString += pwmValuePct;
         uiDomString += F(" /><div class=\"sliderdisplay\"></div></div></div>"); //<output class=\"sliderbubble\"></output>
         infoArr.add(uiDomString);
