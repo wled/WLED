@@ -18,10 +18,11 @@ wled-update.sh
 /build_output/
 /node_modules/
 /logs/
-
+/tools/organize_firmware.py
 /wled00/extLibs
 /wled00/LittleFS
 /wled00/my_config.h
 /wled00/Release
 /wled00/wled00.ino.cpp
 /wled00/html_*.h
+WLED.code-workspace
