@@ -169,7 +169,10 @@ class PWMFanUsermod : public Usermod {
       int pwmMinValue = minPWMValuePct * _pwmMaxValue / 100;
       int pwmMaxValue = maxPWMValuePct * _pwmMaxValue / 100;
 
-      if (pwmMaxValue <= pwmMinValue) return;
+      if (pwmMaxValue <= pwmMinValue) {
+        updateFanSpeed(pwmMaxValue); // fail safe: run at max speed
+        return;
+      }
 
       int pwmRange = pwmMaxValue - pwmMinValue;
 
