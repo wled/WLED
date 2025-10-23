@@ -557,4 +557,10 @@ void sendDataWs(AsyncWebSocketClient * client = nullptr);
 void XML_response(Print& dest);
 void getSettingsJS(byte subPage, Print& dest);
 
+//util.cpp - error logging
+void addToErrorLog(byte errorCode, byte tag1 = 0, byte tag2 = 0, byte tag3 = 0, const char* customMessage = nullptr);
+void clearErrorLog();
+byte getErrorLogCount();
+const struct ErrorLogEntry& getErrorLogEntry(byte index);
+
 #endif

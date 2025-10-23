@@ -439,6 +439,23 @@ static_assert(WLED_MAX_BUSSES <= 32, "WLED_MAX_BUSSES exceeds hard limit");
 #define ERR_OVERCURRENT 31  // An attached current sensor has measured a current above the threshold (not implemented)
 #define ERR_UNDERVOLT   32  // An attached voltmeter has measured a voltage below the threshold (not implemented)
 
+// Additional error types for better user feedback
+#define ERR_NORAM_BUS   33  // Not enough RAM for bus allocation
+#define ERR_NORAM_SEG   34  // Not enough RAM for segment allocation  
+#define ERR_NORAM_TRANS 35  // Not enough RAM for transition effects
+#define ERR_PIN_CONFLICT 36 // Pin assignment conflict detected
+#define ERR_PIN_INVALID 37  // Invalid pin number for this platform
+#define ERR_CONFIG_LOAD 38  // Configuration loading failed
+#define ERR_CONFIG_SAVE 39  // Configuration saving failed
+
+// Warning types (starting at 100 as requested)
+#define WARN_LOW_MEMORY 100 // Low memory warning
+#define WARN_HIGH_TEMP  101 // Temperature approaching limits
+#define WARN_LOW_VOLTAGE 102 // Voltage below optimal range
+#define WARN_HIGH_CURRENT 103 // Current approaching limits
+#define WARN_WIFI_WEAK  104 // Weak WiFi signal
+#define WARN_FS_SPACE   105 // Filesystem space running low
+
 // Timer mode types
 #define NL_MODE_SET               0            //After nightlight time elapsed, set to target brightness
 #define NL_MODE_FADE              1            //Fade to target brightness gradually
