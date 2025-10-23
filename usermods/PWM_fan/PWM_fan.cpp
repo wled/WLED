@@ -104,7 +104,7 @@ class PWMFanUsermod : public Usermod {
       detachInterrupt(digitalPinToInterrupt(tachoPin)); 
       // calculate rpm
       last_rpm = (counter_rpm * 60) / numberOfInterrupsInOneSingleRotation;
-      last_rpm /= msInterval / 1000;
+      last_rpm = (last_rpm * 1000) / msInterval;
       // reset counter
       counter_rpm = 0; 
       // attach interrupt again
@@ -170,7 +170,7 @@ class PWMFanUsermod : public Usermod {
       int pwmMaxValue = maxPWMValuePct * _pwmMaxValue / 100;
 
       if (pwmMaxValue <= pwmMinValue) {
-        updateFanSpeed(pwmMaxValue); // fail safe: run at max speed
+        updateFanSpeed(_pwmMaxValue); // fail safe: run at max speed
         return;
       }
 
