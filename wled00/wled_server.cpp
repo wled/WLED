@@ -17,6 +17,7 @@
   #include "html_pxmagic.h"
 #endif
 #include "html_cpal.h"
+#include "html_edit.h"
 
 // define flash strings once (saves flash memory)
 static const char s_redirecting[] PROGMEM = "Redirecting...";
@@ -26,6 +27,13 @@ static const char s_unlock_cfg [] PROGMEM = "Please unlock settings using PIN co
 static const char s_rebooting  [] PROGMEM = "Rebooting now...";
 static const char s_notimplemented[] PROGMEM = "Not implemented";
 static const char s_accessdenied[]   PROGMEM = "Access Denied";
+static const char s_not_found[]      PROGMEM = "Not found";
+static const char s_wsec[]           PROGMEM = "wsec.json";
+static const char s_func[]           PROGMEM = "func";
+static const char s_path[]           PROGMEM = "path";
+static const char s_cache_control[]  PROGMEM = "Cache-Control";
+static const char s_no_store[]       PROGMEM = "no-store";
+static const char s_expires[]        PROGMEM = "Expires";
 static const char _common_js[]       PROGMEM = "/common.js";
 
 //Is this an IP?
@@ -71,9 +79,9 @@ static void setStaticContentCacheHeaders(AsyncWebServerResponse *response, int c
   #ifndef WLED_DEBUG
   // this header name is misleading, "no-cache" will not disable cache,
   // it just revalidates on every load using the "If-None-Match" header with the last ETag value
-  response->addHeader(F("Cache-Control"), F("no-cache"));
+  response->addHeader(FPSTR(s_cache_control), F("no-cache"));
   #else
-  response->addHeader(F("Cache-Control"), F("no-store,max-age=0"));  // prevent caching if debug build
+  response->addHeader(FPSTR(s_cache_control), F("no-store,max-age=0"));  // prevent caching if debug build
   #endif
   char etag[32];
   generateEtag(etag, eTagSuffix);
@@ -198,7 +206,7 @@ static void handleUpload(AsyncWebServerRequest *request, const String& filename,
     request->_tempFile.close();
     if (filename.indexOf(F("cfg.json")) >= 0) { // check for filename with or without slash
       doReboot = true;
-      request->send(200, FPSTR(CONTENT_TYPE_PLAIN), F("Configuration restore successful.\nRebooting..."));
+      request->send(200, FPSTR(CONTENT_TYPE_PLAIN), F("Config restore ok.\nRebooting..."));
     } else {
       if (filename.indexOf(F("palette")) >= 0 && filename.indexOf(F(".json")) >= 0) loadCustomPalettes();
       request->send(200, FPSTR(CONTENT_TYPE_PLAIN), F("File Uploaded!"));
@@ -207,25 +215,92 @@ static void handleUpload(AsyncWebServerRequest *request, const String& filename,
   }
 }
 
+static const char _edit_htm[] PROGMEM = "/edit.htm";
+
 void createEditHandler(bool enable) {
   if (editHandler != nullptr) server.removeHandler(editHandler);
-  if (enable) {
-    #ifdef WLED_ENABLE_FS_EDITOR
-      #ifdef ARDUINO_ARCH_ESP32
-      editHandler = &server.addHandler(new SPIFFSEditor(WLED_FS));//http_username,http_password));
-      #else
-      editHandler = &server.addHandler(new SPIFFSEditor("","",WLED_FS));//http_username,http_password));
-      #endif
-    #else
-      editHandler = &server.on(F("/edit"), HTTP_GET, [](AsyncWebServerRequest *request){
-        serveMessage(request, 501, FPSTR(s_notimplemented), F("The FS editor is disabled in this build."), 254);
-      });
-    #endif
-  } else {
+
+  if (!enable) {
     editHandler = &server.on(F("/edit"), HTTP_ANY, [](AsyncWebServerRequest *request){
       serveMessage(request, 401, FPSTR(s_accessdenied), FPSTR(s_unlock_cfg), 254);
     });
+    return;
   }
+
+  editHandler = &server.on(F("/edit"), static_cast<WebRequestMethod>(HTTP_GET), [](AsyncWebServerRequest *request) {
+
+    // PIN check for GET/DELETE, for POST it is done in handleUpload()
+    if (!correctPIN) {
+      serveMessage(request, 401, FPSTR(s_accessdenied), FPSTR(s_unlock_cfg), 254);
+      return;
+    }
+
+    String func = request->hasParam(FPSTR(s_func)) ? request->getParam(FPSTR(s_func))->value() : "";
+    String path = request->hasParam(FPSTR(s_path)) ? request->getParam(FPSTR(s_path))->value() : "";
+
+    if (path.charAt(0) != '/') {
+      path = '/' + path; // prepend slash if missing
+    }
+
+    if (!WLED_FS.exists(path)) {
+      request->send(404, FPSTR(CONTENT_TYPE_PLAIN), FPSTR(s_not_found));
+      return;
+    }
+
+    if (path.indexOf(FPSTR(s_wsec)) >= 0) {
+      request->send(403, FPSTR(CONTENT_TYPE_PLAIN), FPSTR(s_accessdenied)); // skip wsec.json
+      return;
+    }
+
+    if (func == "list") {
+      bool first = true;
+      AsyncResponseStream* response = request->beginResponseStream(FPSTR(CONTENT_TYPE_JSON));
+      response->addHeader(FPSTR(s_cache_control), FPSTR(s_no_store));
+      response->addHeader(FPSTR(s_expires), F("0"));
+      response->write('[');
+
+      File rootdir = WLED_FS.open("/", "r");
+      File rootfile = rootdir.openNextFile();
+      while (rootfile) {
+          String name = rootfile.name();
+          if (name.indexOf(FPSTR(s_wsec)) >= 0) {
+            rootfile = rootdir.openNextFile(); // skip wsec.json
+            continue;
+          }
+          if (!first) response->write(',');
+          first = false;
+          response->printf_P(PSTR("{\"name\":\"%s\",\"type\":\"file\",\"size\":%u}"), name.c_str(), rootfile.size());
+          rootfile = rootdir.openNextFile();
+      }
+      rootfile.close();
+      rootdir.close();
+      response->write(']');
+      request->send(response);
+      return;
+    }
+
+    if (func == "edit") {
+      request->send(WLED_FS, path);
+      return;
+    }
+
+    if (func == "download") {
+      request->send(WLED_FS, path, String(), true);
+      return;
+    }
+
+    if (func == "delete") {
+      if (!WLED_FS.remove(path))
+        request->send(500, FPSTR(CONTENT_TYPE_PLAIN), F("Delete failed"));
+      else
+        request->send(200, FPSTR(CONTENT_TYPE_PLAIN), F("File deleted"));
+      return;
+    }
+
+    // default: serve the editor page
+    handleStaticContent(request, FPSTR(_edit_htm), 200, FPSTR(CONTENT_TYPE_HTML), PAGE_edit, PAGE_edit_length);
+    return;
+  });
 }
 
 static bool captivePortal(AsyncWebServerRequest *request)
@@ -569,8 +644,8 @@ void serveSettingsJS(AsyncWebServerRequest* request)
   }
   
   AsyncResponseStream *response = request->beginResponseStream(FPSTR(CONTENT_TYPE_JAVASCRIPT));
-  response->addHeader(F("Cache-Control"), F("no-store"));
-  response->addHeader(F("Expires"), F("0"));
+  response->addHeader(FPSTR(s_cache_control), FPSTR(s_no_store));
+  response->addHeader(FPSTR(s_expires), F("0"));
 
   response->print(F("function GetV(){var d=document;"));
   getSettingsJS(subPage, *response);
@@ -648,6 +723,7 @@ void serveSettings(AsyncWebServerRequest* request, bool post) {
     if (subPage != SUBPAGE_PINREQ) strcat_P(s, PSTR(" settings saved."));
 
     if (subPage == SUBPAGE_PINREQ && correctPIN) {
+      createEditHandler(true);   // enable editor after successful PIN entry
       subPage = originalSubPage; // on correct PIN load settings page the user intended
     } else {
       if (!s2[0]) strcpy_P(s2, s_redirecting);
