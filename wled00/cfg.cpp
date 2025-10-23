@@ -345,97 +345,91 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
   JsonArray hw_btn_ins = btn_obj["ins"];
   if (!hw_btn_ins.isNull()) {
     // deallocate existing button pins
-    for (unsigned b = 0; b < WLED_MAX_BUTTONS; b++) PinManager::deallocatePin(btnPin[b], PinOwner::Button); // does nothing if trying to deallocate a pin with PinOwner != Button
+    for (const auto &button : buttons) PinManager::deallocatePin(button.pin, PinOwner::Button); // does nothing if trying to deallocate a pin with PinOwner != Button
+    buttons.clear(); // clear existing buttons
     unsigned s = 0;
     for (JsonObject btn : hw_btn_ins) {
-      CJSON(buttonType[s], btn["type"]);
-      int8_t pin = btn["pin"][0] | -1;
+      uint8_t type = btn["type"] | BTN_TYPE_NONE;
+      int8_t  pin  = btn["pin"][0] | -1;
       if (pin > -1 && PinManager::allocatePin(pin, false, PinOwner::Button)) {
-        btnPin[s] = pin;
-      #ifdef ARDUINO_ARCH_ESP32
+        #ifdef ARDUINO_ARCH_ESP32
         // ESP32 only: check that analog button pin is a valid ADC gpio
-        if ((buttonType[s] == BTN_TYPE_ANALOG) || (buttonType[s] == BTN_TYPE_ANALOG_INVERTED)) {
-          if (digitalPinToAnalogChannel(btnPin[s]) < 0) {
+        if ((type == BTN_TYPE_ANALOG) || (type == BTN_TYPE_ANALOG_INVERTED)) {
+          if (digitalPinToAnalogChannel(pin) < 0) {
             // not an ADC analog pin
-            DEBUG_PRINTF_P(PSTR("PIN ALLOC error: GPIO%d for analog button #%d is not an analog pin!\n"), btnPin[s], s);
-            btnPin[s] = -1;
-            PinManager::deallocatePin(pin,PinOwner::Button);
+            DEBUG_PRINTF_P(PSTR("PIN ALLOC error: GPIO%d for analog button #%d is not an analog pin!\n"), pin, s);
+            PinManager::deallocatePin(pin, PinOwner::Button);
+            pin = -1;
+            continue;
           } else {
             analogReadResolution(12); // see #4040
           }
-        }
-        else if ((buttonType[s] == BTN_TYPE_TOUCH || buttonType[s] == BTN_TYPE_TOUCH_SWITCH))
-        {
-          if (digitalPinToTouchChannel(btnPin[s]) < 0) {
+        } else if ((type == BTN_TYPE_TOUCH || type == BTN_TYPE_TOUCH_SWITCH)) {
+          if (digitalPinToTouchChannel(pin) < 0) {
             // not a touch pin
-            DEBUG_PRINTF_P(PSTR("PIN ALLOC error: GPIO%d for touch button #%d is not a touch pin!\n"), btnPin[s], s);
-            btnPin[s] = -1;
-            PinManager::deallocatePin(pin,PinOwner::Button);
-          }
+            DEBUG_PRINTF_P(PSTR("PIN ALLOC error: GPIO%d for touch button #%d is not a touch pin!\n"), pin, s);
+            PinManager::deallocatePin(pin, PinOwner::Button);
+            pin = -1;
+            continue;
+          }          
           //if touch pin, enable the touch interrupt on ESP32 S2 & S3
           #ifdef SOC_TOUCH_VERSION_2    // ESP32 S2 and S3 have a function to check touch state but need to attach an interrupt to do so
-          else
-          {
-            touchAttachInterrupt(btnPin[s], touchButtonISR, touchThreshold << 4); // threshold on Touch V2 is much higher (1500 is a value given by Espressif example, I measured changes of over 5000)
-          }
+          else touchAttachInterrupt(pin, touchButtonISR, touchThreshold << 4); // threshold on Touch V2 is much higher (1500 is a value given by Espressif example, I measured changes of over 5000)
           #endif
-        }
-        else
-      #endif
+        } else
+        #endif
         {
+          // regular buttons and switches
           if (disablePullUp) {
-            pinMode(btnPin[s], INPUT);
+            pinMode(pin, INPUT);
           } else {
             #ifdef ESP32
-            pinMode(btnPin[s], buttonType[s]==BTN_TYPE_PUSH_ACT_HIGH ? INPUT_PULLDOWN : INPUT_PULLUP);
+            pinMode(pin, type==BTN_TYPE_PUSH_ACT_HIGH ? INPUT_PULLDOWN : INPUT_PULLUP);
             #else
-            pinMode(btnPin[s], INPUT_PULLUP);
+            pinMode(pin, INPUT_PULLUP);
             #endif
           }
         }
-      } else {
-        btnPin[s] = -1;
+        JsonArray hw_btn_ins_0_macros = btn["macros"];
+        uint8_t press       = hw_btn_ins_0_macros[0] | 0;
+        uint8_t longPress   = hw_btn_ins_0_macros[1] | 0;
+        uint8_t doublePress = hw_btn_ins_0_macros[2] | 0;
+        buttons.emplace_back(pin, type, press, longPress, doublePress); // add button to vector
       }
-      JsonArray hw_btn_ins_0_macros = btn["macros"];
-      CJSON(macroButton[s], hw_btn_ins_0_macros[0]);
-      CJSON(macroLongPress[s],hw_btn_ins_0_macros[1]);
-      CJSON(macroDoublePress[s], hw_btn_ins_0_macros[2]);
       if (++s >= WLED_MAX_BUTTONS) break; // max buttons reached
-    }
-    // clear remaining buttons
-    for (; s<WLED_MAX_BUTTONS; s++) {
-      btnPin[s]           = -1;
-      buttonType[s]       = BTN_TYPE_NONE;
-      macroButton[s]      = 0;
-      macroLongPress[s]   = 0;
-      macroDoublePress[s] = 0;
     }
   } else if (fromFS) {
     // new install/missing configuration (button 0 has defaults)
     // relies upon only being called once with fromFS == true, which is currently true.
-    for (size_t s = 0; s < WLED_MAX_BUTTONS; s++) {
-      if (buttonType[s] == BTN_TYPE_NONE || btnPin[s] < 0 || !PinManager::allocatePin(btnPin[s], false, PinOwner::Button)) {
-        btnPin[s]     = -1;
-        buttonType[s] = BTN_TYPE_NONE;
+    constexpr uint8_t  defTypes[] = {BTNTYPE};
+    constexpr int8_t   defPins[]  = {BTNPIN};
+    constexpr unsigned numTypes   = (sizeof(defTypes) / sizeof(defTypes[0]));
+    constexpr unsigned numPins    = (sizeof(defPins) / sizeof(defPins[0]));
+    // check if the number of pins and types are valid; count of pins must be greater than or equal to types
+    static_assert(numTypes <= numPins, "The default button pins defined in BTNPIN do not match the button types defined in BTNTYPE");
+
+    uint8_t type = BTN_TYPE_NONE;
+    buttons.clear(); // clear existing buttons (just in case)
+    for (size_t s = 0; s < WLED_MAX_BUTTONS && s < numPins; s++) {
+      type = defTypes[s < numTypes ? s : numTypes - 1]; // use last known type to set current type if types less than pins
+      if (type == BTN_TYPE_NONE || defPins[s] < 0 || !PinManager::allocatePin(defPins[s], false, PinOwner::Button)) {
+        if (buttons.size() == 0) buttons.emplace_back(-1, BTN_TYPE_NONE); // add disabled button to vector (so we have at least one button defined)
+        continue; // pin not available or invalid, skip configuring this GPIO
       }
-      if (btnPin[s] >= 0) {
-        if (disablePullUp) {
-          pinMode(btnPin[s], INPUT);
-        } else {
-          #ifdef ESP32
-          pinMode(btnPin[s], buttonType[s]==BTN_TYPE_PUSH_ACT_HIGH ? INPUT_PULLDOWN : INPUT_PULLUP);
-          #else
-          pinMode(btnPin[s], INPUT_PULLUP);
-          #endif
-        }
+      if (disablePullUp) {
+        pinMode(defPins[s], INPUT);
+      } else {
+        #ifdef ESP32
+        pinMode(defPins[s], type==BTN_TYPE_PUSH_ACT_HIGH ? INPUT_PULLDOWN : INPUT_PULLUP);
+        #else
+        pinMode(defPins[s], INPUT_PULLUP);
+        #endif
       }
-      macroButton[s]      = 0;
-      macroLongPress[s]   = 0;
-      macroDoublePress[s] = 0;
+      buttons.emplace_back(defPins[s], type); // add button to vector
     }
   }
 
-  CJSON(buttonPublishMqtt,btn_obj["mqtt"]);
+  CJSON(buttonPublishMqtt, btn_obj["mqtt"]);
 
   #ifndef WLED_DISABLE_INFRARED
   int hw_ir_pin = hw["ir"]["pin"] | -2; // 4
@@ -1016,15 +1010,15 @@ void serializeConfig(JsonObject root) {
   JsonArray hw_btn_ins = hw_btn.createNestedArray("ins");
 
   // configuration for all buttons
-  for (int i = 0; i < WLED_MAX_BUTTONS; i++) {
+  for (const auto &button : buttons) {
     JsonObject hw_btn_ins_0 = hw_btn_ins.createNestedObject();
-    hw_btn_ins_0["type"] = buttonType[i];
+    hw_btn_ins_0["type"] = button.type;
     JsonArray hw_btn_ins_0_pin = hw_btn_ins_0.createNestedArray("pin");
-    hw_btn_ins_0_pin.add(btnPin[i]);
+    hw_btn_ins_0_pin.add(button.pin);
     JsonArray hw_btn_ins_0_macros = hw_btn_ins_0.createNestedArray("macros");
-    hw_btn_ins_0_macros.add(macroButton[i]);
-    hw_btn_ins_0_macros.add(macroLongPress[i]);
-    hw_btn_ins_0_macros.add(macroDoublePress[i]);
+    hw_btn_ins_0_macros.add(button.macroButton);
+    hw_btn_ins_0_macros.add(button.macroLongPress);
+    hw_btn_ins_0_macros.add(button.macroDoublePress);
   }
 
   hw_btn[F("tt")] = touchThreshold;
