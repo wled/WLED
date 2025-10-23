@@ -1550,6 +1550,9 @@ function readState(s,command=false)
 			case 19:
 				errstr = "A filesystem error has occured.";
 				break;
+			case 200:
+				errstr = "Using deprecated FX! Please update your preset.";
+			break;
 		}
 		showToast('Error ' + s.error + ": " + errstr, true);
 	}
