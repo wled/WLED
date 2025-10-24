@@ -57,8 +57,7 @@ void SkyStrip::setup() {
   // Serial.begin(115200);
 
   // Print version number
-  DEBUG_PRINT(F("SkyStrip version: "));
-  DEBUG_PRINTLN(SKYSTRIP_VERSION);
+  DEBUG_PRINTF("SkyStrip: version=%s\n", SKYSTRIP_GIT_DESCRIBE);
 
   // Start a nice chase so we know its booting
   showBooting();
@@ -137,6 +136,7 @@ void SkyStrip::addToConfig(JsonObject& root) {
 
   // write our state
   top[FPSTR(CFG_ENABLED)] = enabled_;
+  top["Version"] = SKYSTRIP_GIT_DESCRIBE;
 
   // write the sources
   for (auto& src : sources_) {
@@ -155,6 +155,8 @@ void SkyStrip::addToConfig(JsonObject& root) {
 }
 
 void SkyStrip::appendConfigData(Print& s) {
+  s.println(F("(()=>{const NAME='SkyStrip:Version'; const input=document.querySelector(`input[name=\"${NAME}\"][type=\"text\"]`); if(!input||input.dataset.versionDecorated) return; input.dataset.versionDecorated='1'; const value=(input.value||'').trim()||'unknown'; input.readOnly=true; input.type='hidden'; let node=input.previousSibling; while(node&&node.nodeType===3){const trimmed=node.textContent.trim(); if(trimmed.length&&trimmed.toLowerCase()!=='text'){break;} const remove=node; node=node.previousSibling; remove.parentNode.removeChild(remove);} const badge=document.createElement('small'); badge.textContent=value; badge.style.marginLeft='0.5rem'; input.parentNode.insertBefore(badge, input.nextSibling);})();"));
+
   for (auto& src : sources_) {
     src->appendConfigData(s);
   }
