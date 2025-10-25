@@ -187,6 +187,7 @@ using PSRAMDynamicJsonDocument = BasicJsonDocument<PSRAM_Allocator>;
 #include "pin_manager.h"
 #include "bus_manager.h"
 #include "FX.h"
+#include "wled_metadata.h"
 
 #ifndef CLIENT_SSID
   #define CLIENT_SSID DEFAULT_CLIENT_SSID
@@ -259,16 +260,6 @@ using PSRAMDynamicJsonDocument = BasicJsonDocument<PSRAM_Allocator>;
 #define STRINGIFY(X) #X
 #define TOSTRING(X) STRINGIFY(X)
 
-#ifndef WLED_VERSION
-  #define WLED_VERSION dev
-#endif
-#ifndef WLED_RELEASE_NAME
-  #define WLED_RELEASE_NAME "Custom"
-#endif
-
-// Global Variable definitions
-WLED_GLOBAL char versionString[] _INIT(TOSTRING(WLED_VERSION));
-WLED_GLOBAL char releaseString[] _INIT(WLED_RELEASE_NAME); // must include the quotes when defining, e.g -D WLED_RELEASE_NAME=\"ESP32_MULTI_USREMODS\"
 #define WLED_CODENAME "Kōsen"
 
 // AP and OTA default passwords (for maximum security change them!)

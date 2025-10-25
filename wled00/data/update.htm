@@ -6,7 +6,26 @@
 	<script>
 		function B() { window.history.back(); }
 		function U() { document.getElementById("uf").style.display="none";document.getElementById("msg").style.display="block"; }
-		function GetV() {/*injected values here*/}
+		function GetV() {
+			// Fetch device info via JSON API instead of compiling it in
+			fetch('/json/info')
+				.then(response => response.json())
+				.then(data => {
+					document.querySelector('.installed-version').textContent = `${data.brand} ${data.ver} (${data.vid})`;
+					document.querySelector('.release-name').textContent = data.release;
+					// TODO - assemble update URL
+					// TODO - can this be done at build time?
+					if (data.arch == "esp8266") {
+						toggle('rev');
+					}
+				})
+				.catch(error => {
+					console.log('Could not fetch device info:', error);
+					// Fallback to compiled-in value if API call fails
+					document.querySelector('.installed-version').textContent = 'Unknown';
+					document.querySelector('.release-name').textContent = 'Unknown';
+				});
+		}
 	</script>
 	<style>
 		@import url("style.css");
@@ -16,11 +35,15 @@
 <body onload="GetV()">
 	<h2>WLED Software Update</h2>
 	<form method='POST' action='./update' id='uf' enctype='multipart/form-data' onsubmit="U()">
-		Installed version: <span class="sip">WLED ##VERSION##</span><br>
+		Installed version: <span class="sip installed-version">Loading...</span><br>
+		Release: <span class="sip release-name">Loading...</span><br>
 		Download the latest binary:&nbsp;<a href="https://github.com/Aircoookie/WLED/releases" target="_blank" 
 		style="vertical-align: text-bottom; display: inline-flex;">
 		<img src="https://img.shields.io/github/release/Aircoookie/WLED.svg?style=flat-square"></a><br>
+		<input type="hidden" name="skipValidation" value="" id="sV">
 		<input type='file' name='update' required><br> <!--should have accept='.bin', but it prevents file upload from android app-->
+		<input type='checkbox' onchange="sV.value=checked?1:''" id="skipValidation">
+		<label for='skipValidation'>Ignore firmware validation</label><br>
 		<button type="submit">Update!</button><br>
 		<button type="button" onclick="B()">Back</button>
 	</form>

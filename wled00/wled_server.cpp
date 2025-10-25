@@ -1,5 +1,8 @@
 #include "wled.h"
 
+#ifndef WLED_DISABLE_OTA
+  #include "ota_update.h"  
+#endif
 #include "html_ui.h"
 #include "html_settings.h"
 #include "html_other.h"
@@ -16,6 +19,7 @@ static const char s_redirecting[] PROGMEM = "Redirecting...";
 static const char s_content_enc[] PROGMEM = "Content-Encoding";
 static const char s_unlock_ota [] PROGMEM = "Please unlock OTA in security settings!";
 static const char s_unlock_cfg [] PROGMEM = "Please unlock settings using PIN code!";
+static const char s_rebooting  [] PROGMEM = "Rebooting now...";
 static const char s_notimplemented[] PROGMEM = "Not implemented";
 static const char s_accessdenied[]   PROGMEM = "Access Denied";
 static const char _common_js[]       PROGMEM = "/common.js";
@@ -375,49 +379,40 @@ void initServer()
   });
 
   server.on(_update, HTTP_POST, [](AsyncWebServerRequest *request){
-    if (!correctPIN) {
-      serveSettings(request, true); // handle PIN page POST request
-      return;
-    }
-    if (otaLock) {
-      serveMessage(request, 401, FPSTR(s_accessdenied), FPSTR(s_unlock_ota), 254);
-      return;
-    }
-    if (Update.hasError()) {
-      serveMessage(request, 500, F("Update failed!"), F("Please check your file and retry!"), 254);
-    } else {
-      serveMessage(request, 200, F("Update successful!"), F("Rebooting..."), 131);
-      doReboot = true;
-    }
-  },[](AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool final){
-    if (!correctPIN || otaLock) return;
-    if(!index){
-      DEBUG_PRINTLN(F("OTA Update Start"));
-      #if WLED_WATCHDOG_TIMEOUT > 0
-      WLED::instance().disableWatchdog();
-      #endif
-      UsermodManager::onUpdateBegin(true); // notify usermods that update is about to begin (some may require task de-init)
-      lastEditTime = millis(); // make sure PIN does not lock during update
-      strip.suspend();
-      #ifdef ESP8266
-      strip.resetSegments();  // free as much memory as you can
-      Update.runAsync(true);
-      #endif
-      Update.begin((ESP.getFreeSketchSpace() - 0x1000) & 0xFFFFF000);
-    }
-    if(!Update.hasError()) Update.write(data, len);
-    if(final){
-      if(Update.end(true)){
-        DEBUG_PRINTLN(F("Update Success"));
-      } else {
-        DEBUG_PRINTLN(F("Update Failed"));
-        strip.resume();
-        UsermodManager::onUpdateBegin(false); // notify usermods that update has failed (some may require task init)
-        #if WLED_WATCHDOG_TIMEOUT > 0
-        WLED::instance().enableWatchdog();
-        #endif
+    if (request->_tempObject) {
+      auto ota_result = getOTAResult(request);
+      if (ota_result.first) {
+        if (ota_result.second.length() > 0) {
+          serveMessage(request, 500, F("Update failed!"), ota_result.second, 254);
+        } else {
+          serveMessage(request, 200, F("Update successful!"), FPSTR(s_rebooting), 131);
+        }
       }
+    } else {
+      // No context structure - something's gone horribly wrong
+      serveMessage(request, 500, F("Update failed!"), F("Internal server fault"), 254);
     }
+  },[](AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool isFinal){
+    if (index == 0) { 
+      // Allocate the context structure
+      if (!initOTA(request)) {
+        return; // Error will be dealt with after upload in response handler, above
+      }
+
+      // Privilege checks
+      if (!correctPIN) {
+        serveMessage(request, 401, FPSTR(s_accessdenied), FPSTR(s_unlock_cfg), 254);
+        setOTAReplied(request);
+        return;
+      };
+      if (otaLock) {
+        serveMessage(request, 401, FPSTR(s_accessdenied), FPSTR(s_unlock_ota), 254);
+        setOTAReplied(request);
+        return;
+      }      
+    }
+
+    handleOTAData(request, index, data, len, isFinal);
   });
 #else
   server.on(_update, HTTP_GET, [](AsyncWebServerRequest *request){
