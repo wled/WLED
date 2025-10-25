@@ -80,40 +80,47 @@ const __FlashStringHelper* brandString = FPSTR(brandString_s);
  * @return true if structure was found and extracted, false otherwise
  */
 bool findWledMetadata(const uint8_t* binaryData, size_t dataSize, wled_metadata_t* extractedDesc) {
-    if (!binaryData || !extractedDesc || dataSize < sizeof(wled_metadata_t)) {
-        return false;
-    }
-
-    for (size_t offset = 0; offset <= dataSize - sizeof(wled_metadata_t); offset++) {
-        const wled_metadata_t* custom_desc = (const wled_metadata_t*)(binaryData + offset);
-        
-        // Check for magic number
-        if (custom_desc->magic == WLED_CUSTOM_DESC_MAGIC) {
-            // Found potential match, validate version
-            if (custom_desc->desc_version != WLED_CUSTOM_DESC_VERSION) {
-                DEBUG_PRINTF_P(PSTR("Found WLED structure at offset %u but version mismatch: %u\n"), 
-                              offset, custom_desc->desc_version);
-                continue;
-            }
-            
-            // Validate hash using runtime function
-            uint32_t expected_hash = djb2_hash_runtime(custom_desc->release_name);
-            if (custom_desc->hash != expected_hash) {
-                DEBUG_PRINTF_P(PSTR("Found WLED structure at offset %u but hash mismatch\n"), offset);
-                continue;
-            }
-            
-            // Valid structure found - copy entire structure
-            memcpy(extractedDesc, custom_desc, sizeof(wled_metadata_t));
-            
-            DEBUG_PRINTF_P(PSTR("Extracted WLED structure at offset %u: '%s'\n"), 
-                          offset, extractedDesc->release_name);
-            return true;
-        }
-    }
-    
-    DEBUG_PRINTLN(F("No WLED custom description found in binary"));
+  if (!binaryData || !extractedDesc || dataSize < sizeof(wled_metadata_t)) {
     return false;
+  }
+
+  for (size_t offset = 0; offset <= dataSize - sizeof(wled_metadata_t); offset++) {
+    if ((binaryData[offset]) == static_cast<char>(WLED_CUSTOM_DESC_MAGIC)) {
+      // First byte matched; check next in an alignment-safe way
+      uint32_t data_magic;
+      memcpy(&data_magic, binaryData + offset, sizeof(data_magic));
+      
+      // Check for magic number
+      if (data_magic == WLED_CUSTOM_DESC_MAGIC) {            
+        wled_metadata_t candidate;
+        memcpy(&candidate, binaryData + offset, sizeof(candidate));
+
+        // Found potential match, validate version
+        if (candidate.desc_version != WLED_CUSTOM_DESC_VERSION) {
+          DEBUG_PRINTF_P(PSTR("Found WLED structure at offset %u but version mismatch: %u\n"), 
+                        offset, candidate.desc_version);
+          continue;
+        }
+        
+        // Validate hash using runtime function
+        uint32_t expected_hash = djb2_hash_runtime(candidate.release_name);
+        if (candidate.hash != expected_hash) {
+          DEBUG_PRINTF_P(PSTR("Found WLED structure at offset %u but hash mismatch\n"), offset);
+          continue;
+        }
+        
+        // Valid structure found - copy entire structure
+        *extractedDesc = candidate;
+        
+        DEBUG_PRINTF_P(PSTR("Extracted WLED structure at offset %u: '%s'\n"), 
+                      offset, extractedDesc->release_name);
+        return true;
+      }
+    }
+  }
+  
+  DEBUG_PRINTLN(F("No WLED custom description found in binary"));
+  return false;
 }
 
 
