@@ -1,5 +1,6 @@
 #include "ota_update.h"
 #include "wled.h"
+#include "wled_metadata.h"
 
 #ifndef WLED_VERSION
   #warning WLED_VERSION was not set - using default value of 'dev'
@@ -14,9 +15,8 @@
   #define WLED_REPO "unknown"
 #endif
 
-#define WLED_CUSTOM_DESC_MAGIC 0x57535453  // "WSTS" (WLED System Tag Structure)
-#define WLED_CUSTOM_DESC_VERSION 1
-#define WLED_RELEASE_NAME_MAX_LEN 48
+constexpr uint32_t WLED_CUSTOM_DESC_MAGIC = 0x57535453;  // "WSTS" (WLED System Tag Structure)
+constexpr uint32_t WLED_CUSTOM_DESC_VERSION = 1;
 
 // Compile-time validation that release name doesn't exceed maximum length
 static_assert(sizeof(WLED_RELEASE_NAME) <= WLED_RELEASE_NAME_MAX_LEN, 
