@@ -79,9 +79,11 @@ def get_github_repo():
 PACKAGE_FILE = "package.json"
 
 def get_version():
-    with open(PACKAGE_FILE, "r") as package:
-        return json.load(package)["version"]
-    return None
+    try:
+        with open(PACKAGE_FILE, "r") as package:
+            return json.load(package)["version"]
+    except (FileNotFoundError, KeyError, json.JSONDecodeError):
+        return None
 
 
 def has_def(cppdefs, name):
@@ -105,7 +107,7 @@ def add_wled_metadata_flags(env, node):
     if not has_def(cdefs, "WLED_VERSION"):
         version = get_version()
         if version:
-            cdefs.append(("WLED_VERSION", get_version()))
+            cdefs.append(("WLED_VERSION", version))
 
     # This transforms the node in to a Builder; it cannot be modified again
     return env.Object(
