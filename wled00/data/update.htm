@@ -40,6 +40,7 @@
 		Download the latest binary:&nbsp;<a href="https://github.com/Aircoookie/WLED/releases" target="_blank" 
 		style="vertical-align: text-bottom; display: inline-flex;">
 		<img src="https://img.shields.io/github/release/Aircoookie/WLED.svg?style=flat-square"></a><br>
+		<input type="hidden" name="skipValidation" value="" id="sV">
 		<input type='file' name='update' required><br> <!--should have accept='.bin', but it prevents file upload from android app-->
 		<input type='checkbox' onchange="sV.value=checked?1:''" id="skipValidation">
 		<label for='skipValidation'>Ignore firmware validation</label><br>
