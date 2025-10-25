@@ -89,8 +89,8 @@ def has_def(cppdefs, name):
     for f in cppdefs:
         if isinstance(f, tuple):
             f = f[0]
-    if f == name:
-        return True
+        if f == name:
+            return True
     return False
 
 
