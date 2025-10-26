@@ -823,6 +823,7 @@ Swap: <select id="xw${s}" name="XW${s}">
 				// disallow adding more of a type that has reached its limit but allow changing the current type
 				if (digitalB >= maxDB && !(isDig(curType) && !isD2P(curType))) disable('option[data-type="D"]');
 				if (twopinB >= 2 && !isD2P(curType)) disable('option[data-type="2P"]');
+				// Disable PWM types that need more pins than available (accounting for current type's pins if PWM)
 				disable(`option[data-type^="${'A'.repeat(maxA - analogB + (isPWM(curType)?numPins(curType):0) + 1)}"]`);
 			});
 		}
