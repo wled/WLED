@@ -76,15 +76,13 @@ def get_github_repo():
         # Any other unexpected error
         return None
 
-PACKAGE_FILE = "package.json"
-
-def get_version():
-    try:
-        with open(PACKAGE_FILE, "r") as package:
-            return json.load(package)["version"]
-    except (FileNotFoundError, KeyError, json.JSONDecodeError):
-        return None
-
+# WLED version is managed by package.json; this is picked up in several places
+# - It's integrated in to the UI code
+# - Here, for wled_metadata.cpp
+# - The output_bins script
+# We always take it from package.json to ensure consistency
+with open("package.json", "r") as package:
+    WLED_VERSION = json.load(package)["version"]
 
 def has_def(cppdefs, name):
     """ Returns true if a given name is set in a CPPDEFINES collection """
@@ -104,10 +102,7 @@ def add_wled_metadata_flags(env, node):
         if repo:
             cdefs.append(("WLED_REPO", f"\\\"{repo}\\\""))
 
-    if not has_def(cdefs, "WLED_VERSION"):
-        version = get_version()
-        if version:
-            cdefs.append(("WLED_VERSION", version))
+    cdefs.append(("WLED_VERSION", WLED_VERSION))
 
     # This transforms the node in to a Builder; it cannot be modified again
     return env.Object(
