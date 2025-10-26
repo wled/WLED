@@ -112,6 +112,20 @@
 			d.Sf.data.value = '';
 			e.preventDefault();
 			if (!pinsOK()) {e.stopPropagation();return false;} // Prevent form submission and contact with server
+			// validate HUB75 panel config
+			let LTs = d.Sf.querySelectorAll("#mLC select[name^=LT]");
+			for (let i=0; i<LTs.length; i++) {
+    		let n = chrID(i);
+    		let t = parseInt(LTs[i].value);
+				if (isHub75(t)) {
+					let p = parseInt(d.Sf["L2"+n].value)||1, r = parseInt(d.Sf["L3"+n].value)||1, c = parseInt(d.Sf["L4"+n].value)||1, h = parseInt(d.Sf["L1"+n].value)||1;
+					if (r*c !== p) {alert(`HUB75 error: panels≠rows×cols`); e.stopPropagation(); return false;}
+					if (h >= 64 && p > 1) {alert(`HUB75 error: height >= 64, only single panel allowed`); e.stopPropagation(); return false;}
+					if(isS3()) {
+					  alert("HUB75 changes require a reboot"); // TODO: only throw this if panel config changed?
+					}
+				}
+			};
 			if (bquot > 200) {var msg = "Too many LEDs! Can't handle that!"; alert(msg); e.stopPropagation(); return false;}
 			else {
 				if (bquot > 80) {var msg = "Memory usage is high, reboot recommended!\n\rSet transitions to 0 to save memory.";
@@ -246,17 +260,19 @@
 						p0d = "IP address:";
 						break;
 					case 'V': // virtual/non-GPIO based
-						p0d = "Config:"
+						p0d = "Config:";
 						break;
 					case 'H': // HUB75
-						p0d = "Panel size (width x height), Panel count:"
+						p0d = "Panel (width x height):";
+						gId("p2d"+n).innerHTML = "<br>No. of Panels:";
+						gId("p3d"+n).innerText = "rows x cols:";
 						break;
 				}
 				gId("p0d"+n).innerText = p0d;
 				gId("p1d"+n).innerText = p1d;
 				gId("off"+n).innerText = off;
 				// secondary pins show/hide (type string length is equivalent to number of pins used; except for network and on/off)
-				let pins = Math.max(gT(t).t.length,1) + 3*isNet(t) + 2*isHub75(t); // fixes network pins to 4
+				let pins = Math.max(gT(t).t.length,1) + 3*isNet(t) + 4*isHub75(t); // fixes network pins to 4
 				for (let p=1; p<5; p++) {
 					var LK = d.Sf["L"+p+n];
 					if (!LK) continue;
@@ -366,10 +382,11 @@
 					LC.style.color="#fff";
 					return; // do not check conflicts
 				}
-				else if (isHub75(t) && nm=="L2") {
-					// Chain length aka Panel Count
+				else if (isHub75(t) && (nm=="L2" || nm=="L3" || nm=="L4")) {
+					// chain length aka panel count (L2), cols(L3), rows(L4)
 					LC.max = 4;
 					LC.min = 1;
+					if (LC.value === "") LC.value = 1; // default to 1
 					LC.style.color="#fff";
 					return; // do not check conflicts
 				}
@@ -450,13 +467,14 @@
 			let disable = (sel,opt) => { sel.querySelectorAll(opt).forEach((o)=>{o.disabled=true;}); }
 
 			var f = gId("mLC");
-			let digitalB = 0, analogB = 0, twopinB = 0, virtB = 0;
+			let digitalB = 0, analogB = 0, twopinB = 0, virtB = 0, hub75B = 0;
 			f.querySelectorAll("select[name^=LT]").forEach((s)=>{
 				let t = s.value;
 				if (isDig(t) && !isD2P(t)) digitalB++;
 				if (isD2P(t)) twopinB++;
 				if (isPWM(t)) analogB += numPins(t); // each GPIO is assigned to a channel
 				if (isVir(t)) virtB++;
+				if (isHub75(t)) hub75B++;
 			});
 
 			if ((n==1 && i>=36) || (n==-1 && i==0)) return; // used to be i>=maxB+maxV when virtual buses were limited (now :"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ")
@@ -528,6 +546,7 @@ mA/LED: <select name="LAsel${s}" onchange="enLA(this,'${s}');UI();">
 				let maxDB = maxD - (is32() || isS2() || isS3() ? (!d.Sf["PR"].checked)*8 - (!isS3()) : 0); // adjust max digital buses if parallel I2S is not used
 				if (digitalB >= maxDB) disable(sel,'option[data-type="D"]'); // NOTE: see isDig()
 				if (twopinB  >= 2)     disable(sel,'option[data-type="2P"]'); // NOTE: see isD2P() (we will only allow 2 2pin buses)
+				if (hub75B >= 1)       disable(sel,'option[data-type="H"]'); // NOTE: see isHub75() (we will only allow 1 HUB75 bus)
 				disable(sel,`option[data-type^="${'A'.repeat(maxA-analogB+1)}"]`); // NOTE: see isPWM()
 				sel.selectedIndex = sel.querySelector('option:not(:disabled)').index;
 			}
