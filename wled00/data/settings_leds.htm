@@ -267,6 +267,7 @@
 			}
 
 			// enable/disable LED fields
+			updateTypeDropdowns(); // restrict bus types in dropdowns to max allowed digital/analog buses
 			let dC = 0; // count of digital buses (for parallel I2S)
 			let LTs = d.Sf.querySelectorAll("#mLC select[name^=LT]");
 			LTs.forEach((s,i)=>{
@@ -433,8 +434,6 @@
 			gId('fpsNone').style.display = (d.Sf.FR.value == 0) ? 'block':'none';
 			gId('fpsWarn').style.display = (d.Sf.FR.value == 0) || (d.Sf.FR.value >= 80) ? 'block':'none';
 			gId('fpsHigh').style.display = (d.Sf.FR.value >= 80) ? 'block':'none';
-			// restrict bus types in dropdowns to max allowed digital/analog buses
-			updateTypeDropdowns();
 		}
 		function lastEnd(i) {
 			if (i-- < 1) return 0;
