@@ -422,8 +422,8 @@ bool handleFileRead(AsyncWebServerRequest* request, String path){
   DEBUGFS_PRINT(F("WS FileRead: ")); DEBUGFS_PRINTLN(path);
   if(path.endsWith("/")) path += "index.htm";
   if(path.indexOf(F("sec")) > -1) return false;
-  #ifdef ARDUINO_ARCH_ESP32
-  if (psramSafe && psramFound() && path.endsWith(FPSTR(getPresetsFileName()))) {
+  #ifdef BOARD_HAS_PSRAM
+  if (path.endsWith(FPSTR(getPresetsFileName()))) {
     size_t psize;
     const uint8_t *presets = getPresetCache(psize);
     if (presets) {
@@ -439,3 +439,162 @@ bool handleFileRead(AsyncWebServerRequest* request, String path){
   }
   return false;
 }
+
+// copy a file, delete destination file if incomplete to prevent corrupted files
+bool copyFile(const char* src_path, const char* dst_path) {
+  DEBUG_PRINTF("copyFile from %s to %s\n", src_path, dst_path);
+  if(!WLED_FS.exists(src_path)) {
+   DEBUG_PRINTLN(F("file not found"));
+   return false;
+  }
+
+  bool success = true; // is set to false on error
+  File src = WLED_FS.open(src_path, "r");
+  File dst = WLED_FS.open(dst_path, "w");
+
+  if (src && dst) {
+    uint8_t buf[128]; // copy file in 128-byte blocks
+    while (src.available() > 0) {
+      size_t bytesRead = src.read(buf, sizeof(buf));
+      if (bytesRead == 0) {
+        success = false;
+        break; // error, no data read
+      }
+      size_t bytesWritten = dst.write(buf, bytesRead);
+      if (bytesWritten != bytesRead) {
+        success = false;
+        break; // error, not all data written
+      }
+    }
+  } else {
+    success = false; // error, could not open files
+  }
+  if(src) src.close();
+  if(dst) dst.close();
+  if (!success) {
+    DEBUG_PRINTLN(F("copy failed"));
+    WLED_FS.remove(dst_path); // delete incomplete file
+  }
+  return success;
+}
+
+// compare two files, return true if identical
+bool compareFiles(const char* path1, const char* path2) {
+  DEBUG_PRINTF("compareFile %s and %s\n", path1, path2);
+  if (!WLED_FS.exists(path1) || !WLED_FS.exists(path2)) {
+    DEBUG_PRINTLN(F("file not found"));
+    return false;
+  }
+
+  bool identical = true; // set to false on mismatch
+  File f1 = WLED_FS.open(path1, "r");
+  File f2 = WLED_FS.open(path2, "r");
+
+  if (f1 && f2) {
+    uint8_t buf1[128], buf2[128];
+    while (f1.available() > 0 || f2.available() > 0) {
+      size_t len1 = f1.read(buf1, sizeof(buf1));
+      size_t len2 = f2.read(buf2, sizeof(buf2));
+
+      if (len1 != len2) {
+        identical = false;
+        break; // files differ in size or read failed
+      }
+
+      if (memcmp(buf1, buf2, len1) != 0) {
+        identical = false;
+        break; // files differ in content
+      }
+    }
+  } else {
+    identical = false; // error opening files
+  }
+
+  if (f1) f1.close();
+  if (f2) f2.close();
+  return identical;
+}
+
+static const char s_backup_fmt[] PROGMEM = "/bkp.%s";
+
+bool backupFile(const char* filename) {
+  DEBUG_PRINTF("backup %s \n", filename);
+  if (!validateJsonFile(filename)) {
+    DEBUG_PRINTLN(F("broken file"));
+    return false;
+  }
+  char backupname[32];
+  snprintf_P(backupname, sizeof(backupname), s_backup_fmt, filename + 1); // skip leading '/' in filename
+
+  if (copyFile(filename, backupname)) {
+    DEBUG_PRINTLN(F("backup ok"));
+    return true;
+  }
+  DEBUG_PRINTLN(F("backup failed"));
+  return false;
+}
+
+bool restoreFile(const char* filename) {
+  DEBUG_PRINTF("restore %s \n", filename);
+  char backupname[32];
+  snprintf_P(backupname, sizeof(backupname), s_backup_fmt, filename + 1); // skip leading '/' in filename
+
+  if (!WLED_FS.exists(backupname)) {
+    DEBUG_PRINTLN(F("no backup found"));
+    return false;
+  }
+
+  if (!validateJsonFile(backupname)) {
+    DEBUG_PRINTLN(F("broken backup"));
+    return false;
+  }
+
+  if (copyFile(backupname, filename)) {
+    DEBUG_PRINTLN(F("restore ok"));
+    return true;
+  }
+  DEBUG_PRINTLN(F("restore failed"));
+  return false;
+}
+
+bool checkBackupExists(const char* filename) {
+  char backupname[32];
+  snprintf_P(backupname, sizeof(backupname), s_backup_fmt, filename + 1); // skip leading '/' in filename
+  return WLED_FS.exists(backupname);
+}
+
+bool validateJsonFile(const char* filename) {
+  if (!WLED_FS.exists(filename)) return false;
+  File file = WLED_FS.open(filename, "r");
+  if (!file) return false;
+  StaticJsonDocument<0> doc, filter; // https://arduinojson.org/v6/how-to/validate-json/
+  bool result = deserializeJson(doc, file, DeserializationOption::Filter(filter)) == DeserializationError::Ok;
+  file.close();
+  if (!result) {
+    DEBUG_PRINTF_P(PSTR("Invalid JSON file %s\n"), filename);
+  } else {
+    DEBUG_PRINTF_P(PSTR("Valid JSON file %s\n"), filename);
+  }
+  return result;
+}
+
+// print contents of all files in root dir to Serial except wsec files
+void dumpFilesToSerial() {
+  File rootdir = WLED_FS.open("/", "r");
+  File rootfile = rootdir.openNextFile();
+  while (rootfile) {
+    size_t len = strlen(rootfile.name());
+    // skip files starting with "wsec" and dont end in .json
+    if (strncmp(rootfile.name(), "wsec", 4) != 0 && len >= 6 && strcmp(rootfile.name() + len - 5, ".json") == 0) {
+      Serial.println(rootfile.name());
+      while (rootfile.available()) {
+        Serial.write(rootfile.read());
+      }
+      Serial.println();
+      Serial.println();
+    }
+    rootfile.close();
+    rootfile = rootdir.openNextFile();
+  }
+}
+

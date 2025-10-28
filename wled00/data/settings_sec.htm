@@ -4,7 +4,7 @@
 	<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport">
 	<meta charset="utf-8">
 	<title>Misc Settings</title>
-	<script src="common.js" async type="text/javascript"></script>
+	<script src="common.js" type="text/javascript"></script>
 	<script>
 		function U() { window.open(getURL("/update"),"_self"); }
 		function checkNum(o) {
@@ -48,18 +48,18 @@
 		To enable OTA, for security reasons you need to also enter the correct password!<br>
 		The password should be changed when OTA is enabled.<br>
 		<b>Disable OTA when not in use, otherwise an attacker can reflash device software!</b><br>
-		<i>Settings on this page are only changable if OTA lock is disabled!</i><br>
+		<i>Settings on this page are only changeable if OTA lock is disabled!</i><br>
 		Deny access to WiFi settings if locked: <input type="checkbox" name="OW"><br><br>
 		Factory reset: <input type="checkbox" name="RS"><br>
 		All settings and presets will be erased.<br><br>
 		<div class="warn">&#9888; Unencrypted transmission. An attacker on the same network can intercept form data!</div>
-		<hr>
+		<span id="OTA"><hr>
 		<h3>Software Update</h3>
 		<button type="button" onclick="U()">Manual OTA Update</button><br>
 		<div id="aOTA">Enable ArduinoOTA: <input type="checkbox" name="AO"></div>
 		Only allow update from same network/WiFi: <input type="checkbox" name="SU"><br>
 		<i class="warn">&#9888; If you are using multiple VLANs (i.e. IoT or guest network) either set PIN or disable this option.<br>
-			Disabling this option will make your device less secure.</i><br>
+			Disabling this option will make your device less secure.</i><br></span>
 		<hr id="backup">
 		<h3>Backup & Restore</h3>
 		<div class="warn">&#9888; Restoring presets/configuration will OVERWRITE your current presets/configuration.<br>
@@ -76,7 +76,7 @@
 		A huge thank you to everyone who helped me create WLED!<br><br>
 		(c) 2016-2024 Christian Schwinne <br>
 		<i>Licensed under the <a href="https://github.com/wled-dev/WLED/blob/main/LICENSE" target="_blank">EUPL v1.2 license</a></i><br><br>
-		Server message: <span class="sip"> Response error! </span><hr>
+		Installed version: <span class="sip">WLED ##VERSION##</span><hr>
 		<div id="toast"></div>
 		<button type="button" onclick="B()">Back</button><button type="submit">Save</button>
 	</form>
