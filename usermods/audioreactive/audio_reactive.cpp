@@ -224,8 +224,8 @@ void FFTcode(void * parameter)
   DEBUGSR_PRINT("FFT started on core: "); DEBUGSR_PRINTLN(xPortGetCoreID());
 
   // allocate FFT buffers on first call
-  if (vReal == nullptr) vReal = (float*) calloc(sizeof(float), samplesFFT);
-  if (vImag == nullptr) vImag = (float*) calloc(sizeof(float), samplesFFT);
+  if (vReal == nullptr) vReal = (float*) calloc(samplesFFT, sizeof(float));
+  if (vImag == nullptr) vImag = (float*) calloc(samplesFFT, sizeof(float));
   if ((vReal == nullptr) || (vImag == nullptr)) {
     // something went wrong
     if (vReal) free(vReal); vReal = nullptr;
@@ -1981,7 +1981,7 @@ void AudioReactive::createAudioPalettes(void) {
   if (palettes) return;
   DEBUG_PRINTLN(F("Adding audio palettes."));
   for (int i=0; i<MAX_PALETTES; i++)
-    if (customPalettes.size() < 10) {
+    if (customPalettes.size() < WLED_MAX_CUSTOM_PALETTES) {
       customPalettes.push_back(CRGBPalette16(CRGB(BLACK)));
       palettes++;
       DEBUG_PRINTLN(palettes);

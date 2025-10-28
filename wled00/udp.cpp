@@ -424,7 +424,7 @@ void realtimeLock(uint32_t timeoutMs, byte md)
     }
     // if strip is off (bri==0) and not already in RTM
     if (briT == 0) {
-      strip.setBrightness(scaledBri(briLast), true);
+      strip.setBrightness(briLast, true);
     }
   }
 
@@ -434,14 +434,14 @@ void realtimeLock(uint32_t timeoutMs, byte md)
   realtimeMode = md;
 
   if (realtimeOverride) return;
-  if (arlsForceMaxBri) strip.setBrightness(scaledBri(255), true);
+  if (arlsForceMaxBri) strip.setBrightness(255, true);
   if (briT > 0 && md == REALTIME_MODE_GENERIC) strip.show();
 }
 
 void exitRealtime() {
   if (!realtimeMode) return;
   if (realtimeOverride == REALTIME_OVERRIDE_ONCE) realtimeOverride = REALTIME_OVERRIDE_NONE;
-  strip.setBrightness(scaledBri(bri), true);
+  strip.setBrightness(bri, true);
   realtimeTimeout = 0; // cancel realtime mode immediately
   realtimeMode = REALTIME_MODE_INACTIVE; // inform UI immediately
   realtimeIP[0] = 0;
@@ -565,93 +565,82 @@ void handleNotifications()
     return;
   }
 
-  if (!receiveDirect) return;
+  if (receiveDirect) {
+    //TPM2.NET
+    if (udpIn[0] == 0x9c) {
+      //WARNING: this code assumes that the final TMP2.NET payload is evenly distributed if using multiple packets (ie. frame size is constant)
+      //if the number of LEDs in your installation doesn't allow that, please include padding bytes at the end of the last packet
+      byte tpmType = udpIn[1];
+      if (tpmType == 0xaa) { //TPM2.NET polling, expect answer
+        sendTPM2Ack(); return;
+      }
+      if (tpmType != 0xda) return; //return if notTPM2.NET data
 
-  //TPM2.NET
-  if (udpIn[0] == 0x9c)
-  {
-    //WARNING: this code assumes that the final TMP2.NET payload is evenly distributed if using multiple packets (ie. frame size is constant)
-    //if the number of LEDs in your installation doesn't allow that, please include padding bytes at the end of the last packet
-    byte tpmType = udpIn[1];
-    if (tpmType == 0xaa) { //TPM2.NET polling, expect answer
-      sendTPM2Ack(); return;
+      realtimeIP = (isSupp) ? notifier2Udp.remoteIP() : notifierUdp.remoteIP();
+      realtimeLock(realtimeTimeoutMs, REALTIME_MODE_TPM2NET);
+      if (realtimeOverride) return;
+
+      tpmPacketCount++; //increment the packet count
+      if (tpmPacketCount == 1) tpmPayloadFrameSize = (udpIn[2] << 8) + udpIn[3]; //save frame size for the whole payload if this is the first packet
+      byte packetNum = udpIn[4]; //starts with 1!
+      byte numPackets = udpIn[5];
+
+      unsigned id = (tpmPayloadFrameSize/3)*(packetNum-1); //start LED
+      unsigned totalLen = strip.getLengthTotal();
+      for (size_t i = 6; i < tpmPayloadFrameSize + 4U && id < totalLen; i += 3, id++) {
+        setRealtimePixel(id, udpIn[i], udpIn[i+1], udpIn[i+2], 0);
+      }
+      if (tpmPacketCount == numPackets) { //reset packet count and show if all packets were received
+        tpmPacketCount = 0;
+        if (useMainSegmentOnly) strip.trigger();
+        else                    strip.show();
+      }
+      return;
     }
-    if (tpmType != 0xda) return; //return if notTPM2.NET data
 
-    realtimeIP = (isSupp) ? notifier2Udp.remoteIP() : notifierUdp.remoteIP();
-    realtimeLock(realtimeTimeoutMs, REALTIME_MODE_TPM2NET);
-    if (realtimeOverride) return;
+    //UDP realtime: 1 warls 2 drgb 3 drgbw 4 dnrgb 5 dnrgbw
+    if (udpIn[0] > 0 && udpIn[0] < 6) {
+      realtimeIP = (isSupp) ? notifier2Udp.remoteIP() : notifierUdp.remoteIP();
+      DEBUG_PRINTLN(realtimeIP);
+      if (packetSize < 2) return;
 
-    tpmPacketCount++; //increment the packet count
-    if (tpmPacketCount == 1) tpmPayloadFrameSize = (udpIn[2] << 8) + udpIn[3]; //save frame size for the whole payload if this is the first packet
-    byte packetNum = udpIn[4]; //starts with 1!
-    byte numPackets = udpIn[5];
+      if (udpIn[1] == 0) {
+        realtimeTimeout = 0; // cancel realtime mode immediately
+        return;
+      } else {
+        realtimeLock(udpIn[1]*1000 +1, REALTIME_MODE_UDP);
+      }
+      if (realtimeOverride) return;
 
-    unsigned id = (tpmPayloadFrameSize/3)*(packetNum-1); //start LED
-    unsigned totalLen = strip.getLengthTotal();
-    for (size_t i = 6; i < tpmPayloadFrameSize + 4U && id < totalLen; i += 3, id++) {
-      setRealtimePixel(id, udpIn[i], udpIn[i+1], udpIn[i+2], 0);
-    }
-    if (tpmPacketCount == numPackets) { //reset packet count and show if all packets were received
-      tpmPacketCount = 0;
+      unsigned totalLen = strip.getLengthTotal();
+      if (udpIn[0] == 1 && packetSize > 5) { //warls
+        for (size_t i = 2; i < packetSize -3; i += 4) {
+          setRealtimePixel(udpIn[i], udpIn[i+1], udpIn[i+2], udpIn[i+3], 0);
+        }
+      } else if (udpIn[0] == 2 && packetSize > 4) { //drgb
+        for (size_t i = 2, id = 0; i < packetSize -2 && id < totalLen; i += 3, id++)
+          {
+            setRealtimePixel(id, udpIn[i], udpIn[i+1], udpIn[i+2], 0);
+          }
+      } else if (udpIn[0] == 3 && packetSize > 6) { //drgbw
+          for (size_t i = 2, id = 0; i < packetSize -3 && id < totalLen; i += 4, id++) {
+            setRealtimePixel(id, udpIn[i], udpIn[i+1], udpIn[i+2], udpIn[i+3]);
+          }
+      } else if (udpIn[0] == 4 && packetSize > 7) { //dnrgb
+        unsigned id = ((udpIn[3] << 0) & 0xFF) + ((udpIn[2] << 8) & 0xFF00);
+        for (size_t i = 4; i < packetSize -2 && id < totalLen; i += 3, id++) {
+          setRealtimePixel(id, udpIn[i], udpIn[i+1], udpIn[i+2], 0);
+        }
+      } else if (udpIn[0] == 5 && packetSize > 8) { //dnrgbw
+        unsigned id = ((udpIn[3] << 0) & 0xFF) + ((udpIn[2] << 8) & 0xFF00);
+        for (size_t i = 4; i < packetSize -2 && id < totalLen; i += 4, id++) {
+          setRealtimePixel(id, udpIn[i], udpIn[i+1], udpIn[i+2], udpIn[i+3]);
+        }
+      }
       if (useMainSegmentOnly) strip.trigger();
       else                    strip.show();
-    }
-    return;
-  }
-
-  //UDP realtime: 1 warls 2 drgb 3 drgbw 4 dnrgb 5 dnrgbw
-  if (udpIn[0] > 0 && udpIn[0] < 6)
-  {
-    realtimeIP = (isSupp) ? notifier2Udp.remoteIP() : notifierUdp.remoteIP();
-    DEBUG_PRINTLN(realtimeIP);
-    if (packetSize < 2) return;
-
-    if (udpIn[1] == 0) {
-      realtimeTimeout = 0; // cancel realtime mode immediately
       return;
-    } else {
-      realtimeLock(udpIn[1]*1000 +1, REALTIME_MODE_UDP);
     }
-    if (realtimeOverride) return;
-
-    unsigned totalLen = strip.getLengthTotal();
-    if (udpIn[0] == 1 && packetSize > 5) //warls
-    {
-      for (size_t i = 2; i < packetSize -3; i += 4)
-      {
-        setRealtimePixel(udpIn[i], udpIn[i+1], udpIn[i+2], udpIn[i+3], 0);
-      }
-    } else if (udpIn[0] == 2 && packetSize > 4) //drgb
-    {
-      for (size_t i = 2, id = 0; i < packetSize -2 && id < totalLen; i += 3, id++)
-      {
-        setRealtimePixel(id, udpIn[i], udpIn[i+1], udpIn[i+2], 0);
-      }
-    } else if (udpIn[0] == 3 && packetSize > 6) //drgbw
-    {
-      for (size_t i = 2, id = 0; i < packetSize -3 && id < totalLen; i += 4, id++)
-      {
-        setRealtimePixel(id, udpIn[i], udpIn[i+1], udpIn[i+2], udpIn[i+3]);
-      }
-    } else if (udpIn[0] == 4 && packetSize > 7) //dnrgb
-    {
-      unsigned id = ((udpIn[3] << 0) & 0xFF) + ((udpIn[2] << 8) & 0xFF00);
-      for (size_t i = 4; i < packetSize -2 && id < totalLen; i += 3, id++)
-      {
-        setRealtimePixel(id, udpIn[i], udpIn[i+1], udpIn[i+2], 0);
-      }
-    } else if (udpIn[0] == 5 && packetSize > 8) //dnrgbw
-    {
-      unsigned id = ((udpIn[3] << 0) & 0xFF) + ((udpIn[2] << 8) & 0xFF00);
-      for (size_t i = 4; i < packetSize -2 && id < totalLen; i += 4, id++)
-      {
-        setRealtimePixel(id, udpIn[i], udpIn[i+1], udpIn[i+2], udpIn[i+3]);
-      }
-    }
-    if (useMainSegmentOnly) strip.trigger();
-    else                    strip.show();
-    return;
   }
 
   // API over UDP
@@ -669,6 +658,8 @@ void handleNotifications()
     }
     releaseJSONBufferLock();
   }
+
+  UsermodManager::onUdpPacket(udpIn, packetSize);
 }
 
 
