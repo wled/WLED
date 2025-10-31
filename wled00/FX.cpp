@@ -3160,9 +3160,10 @@ static const char _data_FX_MODE_ROLLINGBALLS[] PROGMEM = "Rolling Balls@!,# of b
 
 
 /*
-/  Pac-Man by Bob Loeffler
+/  Pac-Man by Bob Loeffler with help from @dedehai
 *   speed slider is for speed.
 *   intensity slider is for selecting the number of power dots.
+*   custom1 slider is for selecting the LED where the ghosts will start blinking blue.
 *   check1 is for displaying White Dots that PacMan eats.  Enabled will show white dots.  Disabled will not show any white dots (all leds will be black).
 *   check2 is for the Compact Dots mode of displaying white dots.  Enabled will show white dots in every LED.  Disabled will show black LEDs between the white dots.
 *   aux0 is used to keep track of the previous number of power dots in case the user selects a different number with the intensity slider.
@@ -3200,8 +3201,8 @@ static uint16_t mode_pacman(void) {
   if (SEGLEN < 64)
       startBlinkingGhostsLED = (int)SEGLEN/3;    // for short strips, start blinking the ghosts when there is 1/3rd of the LEDs left
   else
-      startBlinkingGhostsLED = map(SEGMENT.custom1, 0, 255, 20, SEGLEN/2);    // allow the user to select where the ghosts should start blinking
-  
+      startBlinkingGhostsLED = map(SEGMENT.custom1, 0, 255, 20, character[PACMAN].topPos);     // allow the user to select where the ghosts should start blinking relative to the last powerdot eaten
+
   if (SEGENV.call == 0) {
     for (int i = 0; i < 5; i++) {
       character[i].direction = true;
@@ -3351,7 +3352,7 @@ static uint16_t mode_pacman(void) {
 
   return FRAMETIME;
 }
-static const char _data_FX_MODE_PACMAN[] PROGMEM = "PacMan@Speed,# of Power Dots,Start Blinking distance,,,White Dots,Compact Dots,;;!;1;m12=0,o1=1";
+static const char _data_FX_MODE_PACMAN[] PROGMEM = "PacMan@Speed,# of Power Dots,Start Blinking distance,,,White Dots,Compact Dots,;;!;1;m12=0,sx=192,ix=64,c1=64,o1=1";
 
 
 /*
