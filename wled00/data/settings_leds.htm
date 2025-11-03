@@ -227,45 +227,6 @@
 			let gRGBW = false, memu = 0;
 			let busMA = 0;
 			let sLC = 0, sPC = 0, sDI = 0, maxLC = 0;
-			const abl = d.Sf.ABL.checked;
-			let setPinConfig = (n,t) => {
-				let p0d = "GPIO: ";
-				let p1d = "";
-				let off = "Off Refresh";
-				switch (gT(t).t.charAt(0)) {
-					case '2': // 2 pin digital
-						p1d = "Clock "+p0d;
-						// fallthrough
-					case 'D': // digital
-						p0d = "Data "+p0d;
-						break;
-					case 'A': // PWM analog
-						if (numPins(t) > 1) p0d = "GPIOs: ";
-						off = "Dithering";
-						break;
-					case 'N': // network
-						p0d = "IP address: ";
-						break;
-					case 'V': // virtual/non-GPIO based
-						p0d = "Config: "
-						break;
-					case 'H': // HUB75
-						p0d = "Panel size (width x height), Panel count:"
-						break;
-				}
-				gId("p0d"+n).innerText = p0d;
-				gId("p1d"+n).innerText = p1d;
-				gId("off"+n).innerText = off;
-				// secondary pins show/hide (type string length is equivalent to number of pins used; except for network and on/off)
-				let pins = Math.max(gT(t).t.length,1) + 3*isNet(t) + 2*isHub75(t); // fixes network pins to 4
-				for (let p=1; p<5; p++) {
-					var LK = d.Sf["L"+p+n];
-					if (!LK) continue;
-					LK.style.display = (p < pins) ? "inline" : "none";
-					LK.required = (p < pins);
-					if (p >= pins) LK.value="";
-				}
-			}
 
 			// enable/disable LED fields
 			updateTypeDropdowns(change);
@@ -274,33 +235,14 @@
 			LTs.forEach((s,i)=>{
 				var n = s.name.substring(2,3); // bus number (0-Z)
 				var t = parseInt(s.value);
-				memu += getMem(t, n); // calc memory
-				dC += (isDig(t) && !isD2P(t));
-				setPinConfig(n,t);
-				gId("abl"+n).style.display = (!abl || !isDig(t)) ? "none" : "inline"; // show/hide individual ABL settings
-				if (change) { // did we change LED type?
-					gId("rf"+n).checked = (gId("rf"+n).checked || t == 31); // LEDs require data in off state (mandatory for TM1814)
-					if (isAna(t)) d.Sf["LC"+n].value = 1;                   // for sanity change analog count just to 1 LED
-					d.Sf["LA"+n].min = (!isDig(t) || !abl) ? 0 : 1;         // set minimum value for LED mA
-					d.Sf["MA"+n].min = (!isDig(t)) ? 0 : 250;               // set minimum value for PSU mA
-				}
-				gId("rf"+n).onclick = mustR(t) ? (()=>{return false}) : (()=>{});           // prevent change change of "Refresh" checkmark when mandatory
-				gRGBW |= hasW(t);                                                           // RGBW checkbox
-				gId("co"+n).style.display = (isVir(t) || isAna(t) || isHub75(t)) ? "none":"inline";       // hide color order for PWM
-				gId("dig"+n+"w").style.display = (isDig(t) && hasW(t)) ? "inline":"none";   // show swap channels dropdown
-				gId("dig"+n+"w").querySelector("[data-opt=CCT]").disabled = !hasCCT(t);     // disable WW/CW swapping
-				if (!(isDig(t) && hasW(t))) d.Sf["WO"+n].value = 0;                         // reset swapping
-				gId("dig"+n+"c").style.display = (isAna(t) || isHub75(t)) ? "none":"inline";              // hide count for analog
-				gId("dig"+n+"r").style.display = (isVir(t)) ? "none":"inline";              // hide reversed for virtual
-				gId("dig"+n+"s").style.display = (isVir(t) || isAna(t) || isHub75(t)) ? "none":"inline";  // hide skip 1st for virtual & analog
-				gId("dig"+n+"f").style.display = (isDig(t) || (isPWM(t) && maxL>2048)) ? "inline":"none"; // hide refresh (PWM hijacks reffresh for dithering on ESP32)
-				gId("dig"+n+"a").style.display = (hasW(t)) ? "inline":"none";               // auto calculate white
-				gId("dig"+n+"l").style.display = (isD2P(t) || isPWM(t)) ? "inline":"none";  // bus clock speed / PWM speed (relative) (not On/Off)
-				gId("rev"+n).innerHTML = isAna(t) ? "Inverted output":"Reversed";           // change reverse text for analog else (rotated 180°)
-				//gId("psd"+n).innerHTML = isAna(t) ? "Index:":"Start:";                      // change analog start description
-				gId("net"+n+"h").style.display = isNet(t) && !is8266() ? "block" : "none";  // show host field for network types except on ESP8266
-				if (!isNet(t) || is8266()) d.Sf["HS"+n].value = "";                         // cleart host field if not network type or ESP8266
+				memu += getMem(t, n);  // calc memory
+				dC += isD1P(t);        // count digital buses
+				gRGBW |= hasW(t);      // RGBW checkbox
 			});
+			// enable/disable add/remove buttons
+			gId("+").style.display = (LTs.length<36) ? "inline":"none"; // now: "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ".length
+			gId("-").style.display = (LTs.length>1) ? "inline":"none";
+
 			// display global white channel overrides
 			gId("wc").style.display = (gRGBW) ? 'inline':'none';
 			if (!gRGBW) {
@@ -499,34 +441,29 @@ mA/LED: <select name="LL${s}" onchange="enLA(this);UI();">
 </div>`;
 				f.insertAdjacentHTML("beforeend", cn);
 				// fill led types (credit @netmindz)
-				f.querySelectorAll("select[name^=LT]").forEach((sel,n)=>{
-					if (sel.length == 0) { // ignore already updated
-						for (let type of d.ledTypes) {
-							let opt = cE("option");
-							opt.value = type.i;
-							opt.text = type.n;
-							if (type.t != undefined && type.t != "") {
-								opt.setAttribute('data-type', type.t);
-							}
-							sel.appendChild(opt);
-						}
+				let sel = f.lastElementChild.querySelector("select[name^=LT]"); // get recently added LED type select
+				for (let type of d.ledTypes) {
+					let opt = cE("option");
+					opt.value = type.i;
+					opt.text = type.n;
+					if (type.t != undefined && type.t != "") {
+						opt.setAttribute('data-type', type.t);
 					}
-				});
+					sel.appendChild(opt);			
+				}
 				enLA(gN("LL"+s)); // update LED mA
-				let sel = gN("LT"+s);
-				sel.selectedIndex = sel.querySelector('option:not([data-type])').index; // select On/Off by default
+				if (!init) {
+					// we used add button
+					sel.selectedIndex = sel.querySelector('option:not([data-type])').index; // select On/Off by default (prevent selecting first type which may be invalid)
+					updateTypeDropdowns(true, sel);
+					sel.selectedIndex = sel.querySelector('option:not(:disabled)').index; // select 1st valid
+				}
 			}
 			if (n==-1) {
 				o[--i].remove();
 			}
-
-			gId("+").style.display = (i<36) ? "inline":"none"; // was maxB+maxV-1 when virtual buses were limited (now :"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ")
-			gId("-").style.display = (i>1) ? "inline":"none";
-
 			// if called from + or - button, update UI
-			if (!init) {
-				UI();
-			}
+			if (!init) UI();
 		}
 
 		function addCOM(start=0,len=1,co=0) {
@@ -835,33 +772,91 @@ Swap: <select id="xw${s}" name="XW${s}">
 			return opt;
 		}
 		// dynamically enforce bus type availability based on current usage
-		function updateTypeDropdowns(change=false) { // change=true if called from onchange event (reserved for future)
+		function updateTypeDropdowns(change=false, sel=undefined) { // change=true if called after a type change
+			const abl = d.Sf.ABL.checked;
 			let LTs = d.Sf.querySelectorAll("#mLC select[name^=LT]");
 			let digitalB = 0, analogB = 0, twopinB = 0, virtB = 0;
+			let setPinConfig = (n,t) => {
+				let p0d = "GPIO: ";
+				let p1d = "";
+				let off = "Off Refresh";
+				switch (gT(t).t.charAt(0)) {
+					case '2': // 2 pin digital
+						p1d = "Clock "+p0d;
+						// fallthrough
+					case 'D': // digital
+						p0d = "Data "+p0d;
+						break;
+					case 'A': // PWM analog
+						if (numPins(t) > 1) p0d = "GPIOs: ";
+						off = "Dithering";
+						break;
+					case 'N': // network
+						p0d = "IP address: ";
+						break;
+					case 'V': // virtual/non-GPIO based
+						p0d = "Config: "
+						break;
+				}
+				gId("p0d"+n).innerText = p0d;
+				gId("p1d"+n).innerText = p1d;
+				gId("off"+n).innerText = off;
+				// secondary pins show/hide (type string length is equivalent to number of pins used; except for network and on/off)
+				let pins = Math.max(gT(t).t.length,1) + 3*isNet(t); // fixes network pins to 4
+				for (let p=1; p<5; p++) {
+					var LK = gN("L"+p+n);
+					if (!LK) continue;
+					LK.style.display = (p < pins) ? "inline" : "none";
+					LK.required = (p < pins);
+					if (p >= pins) LK.value="";
+				}
+			}
 			// count currently used buses (including last added bus)
-			LTs.forEach((sel,i) => {
-				let t = parseInt(sel.value);
+			LTs.forEach((s,i) => {
+				let t = parseInt(s.value);
 				if (isD1P(t)) digitalB++;
 				if (isPWM(t)) analogB += numPins(t);
 				if (isD2P(t)) twopinB++;
 				if (isVir(t)) virtB++;
 			});
 			// now enable/disable type options according to limits in dropdowns
-			LTs.forEach((sel,i) => {
-				const last = i == LTs.length-1;
-				const curType = parseInt(sel.value);
-				const disable = (q) => sel.querySelectorAll(q).forEach(o => o.disabled = true);
-				const enable  = (q) => sel.querySelectorAll(q).forEach(o => o.disabled = false);
+			if (sel) LTs = [sel]; // only update the changed one
+			LTs.forEach((s,i) => {
+				const t = parseInt(s.value);
+				const disable = (q) => s.querySelectorAll(q).forEach(o => o.disabled = true);
+				const enable  = (q) => s.querySelectorAll(q).forEach(o => o.disabled = false);
 				enable('option'); // reset all first
 				// max digital count
 				let maxDB = maxD - ((is32() || isS2() || isS3()) ? (!d.Sf["PR"].checked) * 8 - (!isS3()) : 0);
 				// disallow adding more of a type that has reached its limit
-				if (digitalB >= maxDB && !isD1P(curType)) disable('option[data-type="D"]');
-				if (twopinB  >= 2     && !isD2P(curType)) disable('option[data-type="2P"]');
+				if (digitalB >= maxDB && !isD1P(t)) disable('option[data-type="D"]');
+				if (twopinB  >= 2     && !isD2P(t)) disable('option[data-type="2P"]');
 				// determine available analog pins
-				disable(`option[data-type^="${'A'.repeat(maxA - analogB + (isPWM(curType) ? numPins(curType) : 0) + 1)}"]`);
-				// if last added bus has an invalid type, change it to first available
-				if (last && sel.selectedOptions[0].disabled) sel.selectedIndex = sel.querySelector('option:not(:disabled)').index;
+				disable(`option[data-type^="${'A'.repeat(maxA - analogB + (isPWM(t) ? numPins(t) : 0) + 1)}"]`);
+				// update UI elements
+				let n = s.name.substring(2,3);                                              // bus number (0-Z)
+				setPinConfig(n,t);
+				gId("abl"+n).style.display = (!abl || !isDig(t)) ? "none" : "inline";       // show/hide individual ABL settings
+				if (change) {                                                               // did we change LED type?
+					gId("rf"+n).checked = (gId("rf"+n).checked || t == 31);                 // LEDs require data in off state (mandatory for TM1814)
+					if (isAna(t)) gN("LC"+n).value = 1;                                     // for sanity change analog count just to 1 LED
+					gN("LA"+n).min = (!isDig(t) || !abl) ? 0 : 1;                           // set minimum value for LED mA
+					gN("MA"+n).min = (!isDig(t)) ? 0 : 250;                                 // set minimum value for PSU mA
+				}
+				gId("rf"+n).onclick = mustR(t) ? (()=>{return false}) : (()=>{});           // prevent change change of "Refresh" checkmark when mandatory
+				gId("co"+n).style.display = (isVir(t) || isAna(t)) ? "none":"inline";       // hide color order for PWM
+				gId("dig"+n+"w").style.display = (isDig(t) && hasW(t)) ? "inline":"none";   // show swap channels dropdown
+				gId("dig"+n+"w").querySelector("[data-opt=CCT]").disabled = !hasCCT(t);     // disable WW/CW swapping	
+				if (!(isDig(t) && hasW(t))) gN("WO"+n).value = 0;                           // reset swapping
+				gId("dig"+n+"c").style.display = (isAna(t)) ? "none":"inline";              // hide count for analog
+				gId("dig"+n+"r").style.display = (isVir(t)) ? "none":"inline";              // hide reversed for virtual
+				gId("dig"+n+"s").style.display = (isVir(t) || isAna(t)) ? "none":"inline";  // hide skip 1st for virtual & analog
+				gId("dig"+n+"f").style.display = (isDig(t) || (isPWM(t) && maxL>2048)) ? "inline":"none"; // hide refresh (PWM hijacks reffresh for dithering on ESP32)
+				gId("dig"+n+"a").style.display = (hasW(t)) ? "inline":"none";               // auto calculate white
+				gId("dig"+n+"l").style.display = (isD2P(t) || isPWM(t)) ? "inline":"none";  // bus clock speed / PWM speed (relative) (not On/Off)
+				gId("rev"+n).innerHTML = isAna(t) ? "Inverted output":"Reversed";           // change reverse text for analog else (rotated 180°)
+				gId("net"+n+"h").style.display = isNet(t) && !is8266() ? "block" : "none";  // show host field for network types except on ESP8266
+				if (!isNet(t) || is8266()) gN("HS"+n).value = "";                           // cleart host field if not network type or ESP8266
 			});
 		}
 	</script>
