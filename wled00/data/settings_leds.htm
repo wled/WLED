@@ -602,9 +602,8 @@ Swap: <select id="xw${s}" name="XW${s}">
 
 		function addBtn(i,p,t) {
 			var b = gId("btns");
-			var c = b.innerHTML;
 			var s = chrID(i);
-			c += `<div id="btn${i}">#${i} GPIO: <input type="number" name="BT${s}" onchange="UI()" min="-1" max="${d.max_gpio}" class="xs" value="${p}">`;
+			var c = `<div id="btn${i}">#${i} GPIO: <input type="number" name="BT${s}" onchange="UI()" min="-1" max="${d.max_gpio}" class="xs" value="${p}">`;
 			c += `&nbsp;<select name="BE${s}">`
 			c += `<option value="0" ${t==0?"selected":""}>Disabled</option>`;
 			c += `<option value="2" ${t==2?"selected":""}>Pushbutton</option>`;
@@ -617,8 +616,9 @@ Swap: <select id="xw${s}" name="XW${s}">
 			c += `<option value="9" ${t==9?"selected":""}>Touch (switch)</option>`;
 			c += `</select>`;
 			c += `<span style="cursor: pointer;" onclick="off('BT${s}')">&nbsp;&#x2715;</span><br></div>`;
-			b.innerHTML = c;
+			b.insertAdjacentHTML("beforeend", c);
 			btnBtn();
+			pinDropdowns();
 			UI();
 		}
 		function remBtn() {
@@ -626,6 +626,7 @@ Swap: <select id="xw${s}" name="XW${s}">
 			if (b.children.length <= 1) return;
 			b.lastElementChild.remove();
 			btnBtn();
+			pinDropdowns();
 			UI();
 		}
 		function btnBtn() {
