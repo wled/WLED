@@ -35,10 +35,12 @@ public:
 
     int topState = digitalRead(pinTop);
     int bottomState = digitalRead(pinBottom);
+    const bool topTriggered = useInputPullup ? (topState == LOW) : (topState == HIGH);
+    const bool bottomTriggered = useInputPullup ? (bottomState == LOW) : (bottomState == HIGH);
 
     // Debounce dla top
     if (now - lastPirReadTop >= PIR_DEBOUNCE_MS) {
-      if (topState == HIGH) {
+      if (topTriggered) {
         lastPirReadTop = now;
         handleTrigger(1, now);
       }
@@ -46,7 +48,7 @@ public:
 
     // Debounce dla bottom
     if (now - lastPirReadBottom >= PIR_DEBOUNCE_MS) {
-      if (bottomState == HIGH) {
+      if (bottomTriggered) {
         lastPirReadBottom = now;
         handleTrigger(2, now);
       }
