@@ -231,6 +231,7 @@ void createEditHandler() {
     if(func.length() == 0) {
       // default: serve the editor page
       handleStaticContent(request, FPSTR(_edit_htm), 200, FPSTR(CONTENT_TYPE_HTML), PAGE_edit, PAGE_edit_length);
+      return;
     }
 
     if (func == "list") {
