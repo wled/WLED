@@ -613,7 +613,6 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
       #ifndef WLED_DISABLE_OTA
       aOtaEnabled = request->hasArg(F("AO"));
       #endif
-      //createEditHandler(correctPIN && !otaLock);
       otaSameSubnet = request->hasArg(F("SU"));
     }
   }

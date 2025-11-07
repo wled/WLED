@@ -48,7 +48,7 @@ body {
 	top: 0;
 	bottom: 0;
 	left: 0;
-	width: 200px;
+	width: 300px;
 	background: #222;
 	overflow-y: auto;
 	padding: 8px 8px 100px;  /* extra space on bottom so context menu always fits */
@@ -58,7 +58,7 @@ body {
 	position: absolute;
 	top: 0;
 	bottom: 0;
-	left: 200px;
+	left: 300px;
 	right: 0;
 	background: #333;
 }
@@ -187,6 +187,7 @@ function createTop(element, editor){
 	var path = cE("input");
 	path.id = "filepath";
 	path.type = "text";
+	path.maxLength = "31"; // limit filename length
 
 	var uploadBtn = cE("button"); uploadBtn.className = "sml"; uploadBtn.innerHTML = "Upload File";
 	var clearBtn = cE("button"); clearBtn.className = "sml"; clearBtn.innerHTML = "Clear";
@@ -246,21 +247,25 @@ function createTree(element, editor){
 	var menuCleanup = null; // Track menu cleanup function
 
 	function downloadFile(p){
-		window.open("/edit?func=download&path=" + encodeURIComponent(p), "_blank");
+		window.open(getURL("/edit") + "?func=download&path=" + encodeURIComponent(p), "_blank");
 	}
 
 	function deleteFile(p) {
 		if (!confirm("Delete " + p + "?")) return;
-		req.add("GET", "/edit", { func:"delete", path:p }, function(st, resp) {
+		req.add("GET", getURL("/edit"), { func:"delete", path:p }, function(st, resp) {
 			if (st != 200) alert("ERROR " + st + ": " + resp);
 			else refreshTree();
 		});
 	}
 
-	function createLeaf(path,name){
+	function createLeaf(path,name,size){
 		var leaf=cE("div");
 		leaf.style.cssText="cursor:pointer;padding:2px 4px;border-radius:2px;position:relative";
 		leaf.textContent=name;
+		var span = cE("span");
+		span.style.cssText = "font-size: 14px; color: #aaa; margin-left: 8px;";
+		span.textContent =  (size / 1024).toFixed(1) + "KB";
+		leaf.appendChild(span);
 		leaf.onmouseover=function(){ leaf.style.background="#333"; };
 		leaf.onmouseout=function(){ leaf.style.background=""; };
 		leaf.onclick=function(){ loadPreview(name, editor); };
@@ -268,10 +273,8 @@ function createTree(element, editor){
 		// Right-click context menu
 		leaf.oncontextmenu = function(e) {
 			e.preventDefault();
-			
 			// Clean up previous menu
 			if (menuCleanup) menuCleanup();
-			
 			var menu = cE("div");
 			menu.id = "context-menu";
 			menu.style.cssText = "position:fixed;left:"+e.clientX+"px;top:"+e.clientY+"px;background:#333;border:1px solid #666;border-radius:4px;z-index:1000;box-shadow:2px 2px 8px rgba(0,0,0,0.5)";
@@ -307,9 +310,25 @@ function createTree(element, editor){
 		for(var i=0;i<items.length;i++){
 			if (items[i].type==="file" && items[i].name !== "wsec.json") { // hide wsec.json, this is redundant on purpose (done in C code too), just in case...
 				var fullPath = path === "/" ? "/" + items[i].name : path + "/" + items[i].name;
-				createLeaf(fullPath, items[i].name);
+				createLeaf(fullPath, items[i].name, items[i].size);
 			}
 		}
+		fsMem();
+	}
+
+	// add file system memory info and credits at the bottom of the tree
+	async function fsMem(){
+		try{
+			const r=await fetch(getURL("/json/info"));
+			const info=await r.json();
+			var c=cE("div");
+		  c.style.cssText="font-size:12px;color:#aaa;margin-top:40px";
+			c.textContent="by @dedehai";
+			if(info&&info.fs){
+				c.textContent=`by @dedehai | Memory: ${info.fs.u} KB / ${info.fs.t} KB`;
+			}
+			treeRoot.appendChild(c);
+		}catch(e){console.error(e);}
 	}
 
 	function getCb(p){
@@ -318,10 +337,10 @@ function createTree(element, editor){
 				try {
 					addList(p, JSON.parse(resp));
 				} catch(e) {
-					console.error("Failed to parse file list:", e);
+					console.error("Error parsing file list:", e);
 				}
 			} else {
-				console.error("Failed to load file list:", st, resp);
+				console.error("Error loading file list:", st, resp);
 			}
 		};
 	}
@@ -556,7 +575,6 @@ function onBodyLoad(){
 	<div id="top"></div>
 	<div style="flex:1;position:relative">
 		<div id="tree">
-			<div style="font-size:12px;color:#666;">by @dedehai</div>
 		</div>
 		<div id="editor"></div>
 		<div id="preview"></div>

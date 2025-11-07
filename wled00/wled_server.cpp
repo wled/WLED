@@ -217,39 +217,20 @@ static void handleUpload(AsyncWebServerRequest *request, const String& filename,
 
 static const char _edit_htm[] PROGMEM = "/edit.htm";
 
-void createEditHandler(bool enable) {
+void createEditHandler() {
   if (editHandler != nullptr) server.removeHandler(editHandler);
 
-  if (!enable) {
-    editHandler = &server.on(F("/edit"), HTTP_ANY, [](AsyncWebServerRequest *request){
-      serveMessage(request, 401, FPSTR(s_accessdenied), FPSTR(s_unlock_cfg), 254);
-    });
-    return;
-  }
-
   editHandler = &server.on(F("/edit"), static_cast<WebRequestMethod>(HTTP_GET), [](AsyncWebServerRequest *request) {
-
     // PIN check for GET/DELETE, for POST it is done in handleUpload()
     if (!correctPIN) {
       serveMessage(request, 401, FPSTR(s_accessdenied), FPSTR(s_unlock_cfg), 254);
       return;
     }
+    const String& func = request->arg(FPSTR(s_func));
 
-    String func = request->hasParam(FPSTR(s_func)) ? request->getParam(FPSTR(s_func))->value() : "";
-    String path = request->hasParam(FPSTR(s_path)) ? request->getParam(FPSTR(s_path))->value() : "";
-
-    if (path.charAt(0) != '/') {
-      path = '/' + path; // prepend slash if missing
-    }
-
-    if (!WLED_FS.exists(path)) {
-      request->send(404, FPSTR(CONTENT_TYPE_PLAIN), FPSTR(s_not_found));
-      return;
-    }
-
-    if (path.indexOf(FPSTR(s_wsec)) >= 0) {
-      request->send(403, FPSTR(CONTENT_TYPE_PLAIN), FPSTR(s_accessdenied)); // skip wsec.json
-      return;
+    if(func.length() == 0) {
+      // default: serve the editor page
+      handleStaticContent(request, FPSTR(_edit_htm), 200, FPSTR(CONTENT_TYPE_HTML), PAGE_edit, PAGE_edit_length);
     }
 
     if (func == "list") {
@@ -279,6 +260,27 @@ void createEditHandler(bool enable) {
       return;
     }
 
+    String path = request->arg(FPSTR(s_path)); // remaining functions expect a path
+
+    if (path.length() == 0) {
+      request->send(400, FPSTR(CONTENT_TYPE_PLAIN), F("Missing path"));
+      return;
+    }
+
+    if (path.charAt(0) != '/') {
+      path = '/' + path; // prepend slash if missing
+    }
+
+    if (!WLED_FS.exists(path)) {
+      request->send(404, FPSTR(CONTENT_TYPE_PLAIN), FPSTR(s_not_found));
+      return;
+    }
+
+    if (path.indexOf(FPSTR(s_wsec)) >= 0) {
+      request->send(403, FPSTR(CONTENT_TYPE_PLAIN), FPSTR(s_accessdenied)); // skip wsec.json
+      return;
+    }
+
     if (func == "edit") {
       request->send(WLED_FS, path);
       return;
@@ -297,8 +299,6 @@ void createEditHandler(bool enable) {
       return;
     }
 
-    // default: serve the editor page
-    handleStaticContent(request, FPSTR(_edit_htm), 200, FPSTR(CONTENT_TYPE_HTML), PAGE_edit, PAGE_edit_length);
     return;
   });
 }
@@ -466,7 +466,7 @@ void initServer()
                       size_t len, bool isFinal) {handleUpload(request, filename, index, data, len, isFinal);}
   );
 
-  createEditHandler(correctPIN);
+  createEditHandler(); // initialize "/edit" handler, access is protected by "correctPIN"
 
   static const char _update[] PROGMEM = "/update";
 #ifndef WLED_DISABLE_OTA
@@ -723,7 +723,6 @@ void serveSettings(AsyncWebServerRequest* request, bool post) {
     if (subPage != SUBPAGE_PINREQ) strcat_P(s, PSTR(" settings saved."));
 
     if (subPage == SUBPAGE_PINREQ && correctPIN) {
-      createEditHandler(true);   // enable editor after successful PIN entry
       subPage = originalSubPage; // on correct PIN load settings page the user intended
     } else {
       if (!s2[0]) strcpy_P(s2, s_redirecting);
@@ -770,7 +769,6 @@ void serveSettings(AsyncWebServerRequest* request, bool post) {
 #endif
     case SUBPAGE_LOCK    : {
       correctPIN = !strlen(settingsPIN); // lock if a pin is set
-      createEditHandler(correctPIN);
       serveMessage(request, 200, strlen(settingsPIN) > 0 ? PSTR("Settings locked") : PSTR("No PIN set"), FPSTR(s_redirecting), 1);
       return;
     }

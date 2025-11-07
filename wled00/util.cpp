@@ -369,7 +369,6 @@ void checkSettingsPIN(const char* pin) {
   if (!correctPIN && millis() - lastEditTime < PIN_RETRY_COOLDOWN) return; // guard against PIN brute force
   bool correctBefore = correctPIN;
   correctPIN = (strlen(settingsPIN) == 0 || strncmp(settingsPIN, pin, 4) == 0);
-  if (correctBefore != correctPIN) createEditHandler(correctPIN);
   lastEditTime = millis();
 }
 
