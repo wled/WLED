@@ -743,7 +743,75 @@ Swap: <select id="xw${s}" name="XW${s}">
 					i.dataset.val = i.value;
 			});
 		}
+		function pinUpd(e) {
+			// update changed select options across all usermods
+			let oldV = parseInt(e.dataset.val);
+			e.dataset.val = e.value;
+			let txt = e.name;
+			let pins = [];
+			d.Sf.querySelectorAll(".iST input.s[name^=L]").forEach((i)=>{
+				if (i.value!=="" && i.value>=0 && i.max<255)
+					pins.push(i.value);
+			});
+			let selects = d.Sf.querySelectorAll("select.pin");
+			for (let sel of selects) {
+				if (sel == e) continue
+				Array.from(sel.options).forEach((i)=>{
+					let led = pins.includes(i.value);
+					if (!(i.value==oldV || i.value==e.value || led)) return;
+					if (i.value == -1) {
+						i.text = "unused";
+						return
+					}
+					i.text = i.value;
+					if (i.value==oldV) {
+						i.disabled = false;
+					}
+					if (i.value==e.value || led) {
+						i.disabled = true;
+						i.text += ` ${led?'LED':txt}`;
+					}
+					if (d.ro_gpio.includes(parseInt(i.value))) i.text += " (R/O)";
+				});
+			}
+		}
 		// https://stackoverflow.com/questions/39729741/javascript-change-input-text-to-select-option
+		function addDropdown(field) {
+			let sel = cE('select');
+			sel.classList.add("pin");
+			let inp = d.getElementsByName(field)[0];
+			if (inp && inp.tagName === "INPUT" && (inp.type === "text" || inp.type === "number")) {  // may also use nodeName
+				let v = inp.value;
+				let n = inp.name;
+				// copy the existing input element's attributes to the new select element
+				for (var i = 0; i < inp.attributes.length; ++ i) {
+					var att = inp.attributes[i];
+					// type and value don't apply, so skip them
+					// ** you might also want to skip style, or others -- modify as needed **
+					if (att.name != 'type' && att.name != 'value' && att.name != 'class' && att.name != 'style') {
+						sel.setAttribute(att.name, att.value);
+					}
+				}
+				sel.setAttribute("data-val", v);
+				sel.setAttribute("onchange", "pinUpd(this)");
+				// finally, replace the old input element with the new select element
+				inp.parentElement.replaceChild(sel, inp);
+				return sel;
+			}
+			return null;
+		}
+		function addOption(sel,txt,val) {
+			if (sel===null) return; // select object missing
+			let opt = cE("option");
+			opt.value = val;
+			opt.text = txt;
+			sel.appendChild(opt);
+			for (let i=0; i<sel.childNodes.length; i++) {
+				let c = sel.childNodes[i];
+				if (c.value == sel.dataset.val) sel.selectedIndex = i;
+			}
+			return opt;
+		}
 	</script>
 	<style>@import url("style.css");</style>
 </head>
