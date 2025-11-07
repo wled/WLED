@@ -75,12 +75,12 @@
 		let txt = e.name;
 		let selects = d.Sf.querySelectorAll("select.pin");
 		for (let sel of selects) {
-			if (sel == e) continue
+			if (sel == e) continue;
 			Array.from(sel.options).forEach((i)=>{
 				if (!(i.value==oldV || i.value==e.value)) return;
 				if (i.value == -1) {
 					i.text = "unused";
-					return
+					return;
 				}
 				i.text = i.value;
 				if (i.value==oldV) {
