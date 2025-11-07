@@ -34,7 +34,12 @@
 	function SetVal(){switch(parseInt(d.Sf.EP.value)){case 5568: d.Sf.DI.value = 5568; break; case 6454: d.Sf.DI.value = 6454; break; case 4048: d.Sf.DI.value = 4048; break; }; SP();FC();}
 	function S(){
 		getLoc();
-		loadJS(getURL('/settings/s.js?p=4'), false, undefined, ()=>{SetVal();});	// If we set async false, file is loaded and executed, then next statement is processed
+		loadJS(getURL('/settings/s.js?p=4'), false, ()=>{
+			d.um_p = [];
+			d.rsvd = [];
+			d.ro_gpio = [];
+			d.max_gpio = 50;
+		}, ()=>{SetVal();pinDropdowns();});	// If we set async false, file is loaded and executed, then next statement is processed
 		if (loc) d.Sf.action = getURL('/settings/sync');
 	}
 	function getURL(path) {
@@ -42,6 +47,88 @@
 	}
 	function hideDMXInput(){gId("dmxInput").style.display="none";}
 	function hideNoDMXInput(){gId("dmxInputOff").style.display="none";}
+	function pinDropdowns() {
+		let fields = ["IDMR","IDMT","IDME"]; // DMX input pins
+		for (let i of d.Sf.elements) {
+			if (i.type === "number" && fields.includes(i.name)) { //select all pin select elements
+				let v = parseInt(i.value);
+				let sel = addDropdown(i.name);
+				for (var j = -1; j < d.max_gpio; j++) {
+					if (d.rsvd.includes(j)) continue;
+					let foundPin = d.um_p.indexOf(j);
+					let txt = (j === -1) ? "unused" : `${j}`;
+					if (foundPin >= 0 && j !== v) txt += ` used`; // already reserved pin
+					if (d.ro_gpio.includes(j)) txt += " (R/O)";
+					let opt = addOption(sel, txt, j);
+					if (j === v) opt.selected = true; // this is "our" pin
+					else if (d.um_p.includes(j)) opt.disabled = true; // someone else's pin
+				}
+			}
+		}
+		// update select options
+		d.Sf.querySelectorAll("select.pin").forEach((e)=>{pinUpd(e);});
+	}
+	function pinUpd(e) {
+		// update changed select options across all usermods
+		let oldV = parseInt(e.dataset.val);
+		e.dataset.val = e.value;
+		let txt = e.name;
+		let selects = d.Sf.querySelectorAll("select.pin");
+		for (let sel of selects) {
+			if (sel == e) continue
+			Array.from(sel.options).forEach((i)=>{
+				if (!(i.value==oldV || i.value==e.value)) return;
+				if (i.value == -1) {
+					i.text = "unused";
+					return
+				}
+				i.text = i.value;
+				if (i.value==oldV) {
+					i.disabled = false;
+				}
+				if (i.value==e.value) {
+					i.disabled = true;
+					i.text += ` ${txt}`;
+				}
+				if (d.ro_gpio.includes(parseInt(i.value))) i.text += " (R/O)";
+			});
+		}
+	}
+	function addDropdown(field) {
+		let sel = cE('select');
+		sel.classList.add("pin");
+		let inp = d.getElementsByName(field)[0];
+		if (inp && inp.tagName === "INPUT" && (inp.type === "text" || inp.type === "number")) {
+			let v = inp.value;
+			let n = inp.name;
+			// copy the existing input element's attributes to the new select element
+			for (var i = 0; i < inp.attributes.length; ++ i) {
+				var att = inp.attributes[i];
+				// type and value don't apply, so skip them
+				if (att.name != 'type' && att.name != 'value' && att.name != 'class' && att.name != 'style') {
+					sel.setAttribute(att.name, att.value);
+				}
+			}
+			sel.setAttribute("data-val", v);
+			sel.setAttribute("onchange", "pinUpd(this)");
+			// finally, replace the old input element with the new select element
+			inp.parentElement.replaceChild(sel, inp);
+			return sel;
+		}
+		return null;
+	}
+	function addOption(sel,txt,val) {
+		if (sel===null) return; // select object missing
+		let opt = cE("option");
+		opt.value = val;
+		opt.text = txt;
+		sel.appendChild(opt);
+		for (let i=0; i<sel.childNodes.length; i++) {
+			let c = sel.childNodes[i];
+			if (c.value == sel.dataset.val) sel.selectedIndex = i;
+		}
+		return opt;
+	}
 	</script>
 	<style>@import url("style.css");</style>
 </head>
