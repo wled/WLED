@@ -1,3 +1,5 @@
+#if false
+
 /*-------------------------------------------------------------------------
 NeoPixel library helper functions for Esp32.
 
@@ -505,3 +507,5 @@ esp_err_t NeoEsp32RmtHiMethodDriver::WaitForTxDone(rmt_channel_t channel, TickTy
 }
 
 #endif
+
+#endif // ARDUINO_ARCH_ESP32
